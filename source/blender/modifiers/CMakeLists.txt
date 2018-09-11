@@ -109,6 +109,7 @@ set(SRC
 
 	MOD_modifiertypes.h
 	intern/MOD_fluidsim_util.h
+	intern/MOD_laplaciandeform.h
 	intern/MOD_meshcache_util.h
 	intern/MOD_util.h
 	intern/MOD_weightvg_util.h

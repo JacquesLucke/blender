@@ -487,7 +487,7 @@ RNA_MOD_VGROUP_NAME_SET(Decimate, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(CorrectiveSmooth, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(Displace, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(Hook, name);
-RNA_MOD_VGROUP_NAME_SET(LaplacianDeform, anchor_grp_name);
+RNA_MOD_VGROUP_NAME_SET(LaplacianDeform, anchor_group_name);
 RNA_MOD_VGROUP_NAME_SET(LaplacianSmooth, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(Lattice, name);
 RNA_MOD_VGROUP_NAME_SET(Mask, vgroup);
@@ -765,7 +765,7 @@ static void rna_OceanModifier_ocean_chop_set(PointerRNA *ptr, float value)
 static bool rna_LaplacianDeformModifier_is_bind_get(PointerRNA *ptr)
 {
 	LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)ptr->data;
-	return ((lmd->flag & MOD_LAPLACIANDEFORM_BIND) && (lmd->cache_system != NULL));
+	return 0;
 }
 
 /* NOTE: Curve and array modifiers requires curve path to be evaluated,
@@ -4499,24 +4499,11 @@ static void rna_def_modifier_laplaciandeform(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "LaplacianDeformModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_MOD_MESHDEFORM);
 
-	prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
-	RNA_def_property_string_sdna(prop, NULL, "anchor_grp_name");
+	prop = RNA_def_property(srna, "anchor_group_name", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "anchor_group_name");
 	RNA_def_property_ui_text(prop, "Vertex Group for Anchors",
-	                         "Name of Vertex Group which determines Anchors");
-	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_LaplacianDeformModifier_anchor_grp_name_set");
-
-	prop = RNA_def_property(srna, "iterations", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "repeat");
-	RNA_def_property_ui_range(prop, 1, 50, 1, -1);
-	RNA_def_property_ui_text(prop, "Repeat", "");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "is_bind", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_funcs(prop, "rna_LaplacianDeformModifier_is_bind_get", NULL);
-	RNA_def_property_ui_text(prop, "Bound", "Whether geometry has been bound to anchors");
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	                         "Name of the Vertex Group which determines the Anchors");
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_LaplacianDeformModifier_anchor_group_name_set");
 }
 
 static void rna_def_modifier_wireframe(BlenderRNA *brna)

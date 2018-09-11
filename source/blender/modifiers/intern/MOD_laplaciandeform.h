@@ -12,25 +12,21 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
+ * along with this program; if not, write to the Free Software  Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2015 Blender Foundation.
- * All rights reserved.
- *
- * Contributor(s): Blender Foundation,
- *                 Bastien Montagne
- *
  * ***** END GPL LICENSE BLOCK *****
+ *
  */
 
-#ifndef __EIGEN_C_API_H__
-#define __EIGEN_C_API_H__
 
-#include "intern/eigenvalues.h"
-#include "intern/linear_solver.h"
-#include "intern/matrix.h"
-#include "intern/sparse_matrix.h"
-#include "intern/svd.h"
+#ifndef __MOD_LAPLACIANDEFORM_H__
+#define __MOD_LAPLACIANDEFORM_H__
 
-#endif  /* __EIGEN_C_API_H__ */
+#include "DNA_mesh_types.h"
+#include "DNA_modifier_types.h"
+
+int MOD_LaplacianDeform_Bind(Object *ob, Mesh *mesh, LaplacianDeformModifierData *modifier);
+void MOD_LaplacianDeform_Unbind(LaplacianDeformModifierData *modifier);
+
+#endif /* __MOD_LAPLACIANDEFORM_H__ */

@@ -37,11 +37,13 @@ set(SRC
 	intern/eigenvalues.cc
 	intern/linear_solver.cc
 	intern/matrix.cc
+	intern/sparse_matrix.cc
 	intern/svd.cc
 
 	intern/eigenvalues.h
 	intern/linear_solver.h
 	intern/matrix.h
+	intern/sparse_matrix.h
 	intern/svd.h
 )
 

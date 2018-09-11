@@ -1502,15 +1502,24 @@ enum {
 };
 
 
+typedef struct LaplacianDeformModifierBindData {
+	int *anchor_indices;
+	int anchor_amount, pad1;
+
+	float (*vertex_positions)[3];
+	int vertex_amount, pad2;
+} LaplacianDeformModifierBindData;
+
 typedef struct LaplacianDeformModifierData {
 	ModifierData modifier;
-	char anchor_grp_name[64];  /* MAX_VGROUP_NAME */
-	int total_verts, repeat;
-	float *vertexco;
-	void *cache_system;  /* runtime only */
-	short flag, pad[3];
+	char anchor_group_name[64];
 
+	char is_main, pad[7];
+	LaplacianDeformModifierBindData *bind_data;
+
+	void *cache;
 } LaplacianDeformModifierData;
+
 
 /* Smooth modifier flags */
 enum {
