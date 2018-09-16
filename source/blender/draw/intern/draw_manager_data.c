@@ -542,9 +542,19 @@ static void sculpt_draw_cb(
 	Object *ob = user_data;
 	PBVH *pbvh = ob->sculpt->pbvh;
 
+	const DRWContextState *drwctx = DRW_context_state_get();
+	int fast_mode = 0;
+
+	if (drwctx->evil_C != NULL) {
+		Paint *p = BKE_paint_get_active_from_context(drwctx->evil_C);
+		if (p && (p->flags & PAINT_FAST_NAVIGATE)) {
+			fast_mode = drwctx->rv3d->rflag & RV3D_NAVIGATING;
+		}
+	}
+
 	if (pbvh) {
 		BKE_pbvh_draw_cb(
-		        pbvh, NULL, NULL, false, false,
+		        pbvh, NULL, NULL, fast_mode, false,
 		        (void (*)(void *, GPUBatch *))draw_fn, shgroup);
 	}
 }
@@ -1012,7 +1022,9 @@ DRWPass *DRW_pass_create(const char *name, DRWState state)
 {
 	DRWPass *pass = BLI_mempool_alloc(DST.vmempool->passes);
 	pass->state = state;
-	if ((G.debug_value > 20) || (G.debug & G_DEBUG)) {
+	if (((G.debug_value > 20) && (G.debug_value < 30)) ||
+	     (G.debug & G_DEBUG))
+	{
 		BLI_strncpy(pass->name, name, MAX_PASS_NAME);
 	}
 

@@ -1711,6 +1711,10 @@ void TRANSFORM_GGT_gizmo(wmGizmoGroupType *gzgt)
 
 struct XFormCageWidgetGroup {
 	wmGizmo *gizmo;
+	/* Only for view orientation. */
+	struct {
+		float viewinv_m3[3][3];
+	} prev;
 };
 
 static bool WIDGETGROUP_xform_cage_poll(const bContext *C, wmGizmoGroupType *gzgt)
@@ -1801,6 +1805,9 @@ static void WIDGETGROUP_xform_cage_refresh(const bContext *C, wmGizmoGroup *gzgr
 		mid_v3_v3v3(gz->matrix_offset[3], rv3d->tw_axis_max, rv3d->tw_axis_min);
 		mul_m3_v3(rv3d->tw_axis_matrix, gz->matrix_offset[3]);
 
+		float matrix_offset_global[4][4];
+		mul_m4_m4m4(matrix_offset_global, gz->matrix_space, gz->matrix_offset);
+
 		PropertyRNA *prop_center_override = NULL;
 		float center[3];
 		float center_global[3];
@@ -1815,13 +1822,16 @@ static void WIDGETGROUP_xform_cage_refresh(const bContext *C, wmGizmoGroup *gzgr
 					if (prop_center_override == NULL) {
 						prop_center_override = RNA_struct_find_property(&mpop->ptr, "center_override");
 					}
-					mul_v3_m4v3(center_global, gz->matrix_offset, center);
+					mul_v3_m4v3(center_global, matrix_offset_global, center);
 					RNA_property_float_set_array(&mpop->ptr, prop_center_override, center_global);
 					i++;
 				}
 			}
 		}
 	}
+
+	/* Needed to test view orientation changes. */
+	copy_m3_m4(xgzgroup->prev.viewinv_m3, rv3d->viewinv);
 }
 
 static void WIDGETGROUP_xform_cage_message_subscribe(
@@ -1838,7 +1848,6 @@ static void WIDGETGROUP_xform_cage_draw_prepare(const bContext *C, wmGizmoGroup 
 {
 	struct XFormCageWidgetGroup *xgzgroup = gzgroup->customdata;
 	wmGizmo *gz = xgzgroup->gizmo;
-
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *ob = OBACT(view_layer);
 	if (ob && ob->mode & OB_MODE_EDIT) {
@@ -1846,6 +1855,25 @@ static void WIDGETGROUP_xform_cage_draw_prepare(const bContext *C, wmGizmoGroup 
 	}
 	else {
 		unit_m4(gz->matrix_space);
+	}
+
+	RegionView3D *rv3d = CTX_wm_region_view3d(C);
+	/* Avoid slowdown on view adjustments. */
+	if ((rv3d->rflag & RV3D_NAVIGATING) == 0) {
+		Scene *scene = CTX_data_scene(C);
+		switch (scene->orientation_type) {
+			case V3D_MANIP_VIEW:
+			{
+				float viewinv_m3[3][3];
+				copy_m3_m4(viewinv_m3, rv3d->viewinv);
+				if (!equals_m3m3(viewinv_m3, xgzgroup->prev.viewinv_m3)) {
+					/* Take care calling refresh from draw_prepare,
+					 * this should be OK because it's only adjusting the cage orientation. */
+					WIDGETGROUP_xform_cage_refresh(C, gzgroup);
+				}
+				break;
+			}
+		}
 	}
 }
 

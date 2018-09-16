@@ -33,10 +33,12 @@
 #define __BKE_SUBDIV_CCG_H__
 
 #include "BKE_customdata.h"
+#include "BLI_bitmap.h"
 #include "BLI_sys_types.h"
 
 struct CCGElem;
 struct CCGKey;
+struct DMFlagMat;
 struct Mesh;
 struct Subdiv;
 
@@ -55,6 +57,12 @@ typedef struct SubdivToCCGSettings {
 
 /* Representation of subdivision surface which uses CCG grids. */
 typedef struct SubdivCCG {
+	/* This is a subdivision surface this CCG was created for.
+	 *
+	 * TODO(sergey): Make sure the whole descriptor is valid, including all the
+	 * displacement attached to the surface.
+	 */
+	struct Subdiv *subdiv;
 	/* A level at which geometry was subdivided. This is what defines grid
 	 * resolution. It is NOT the topology refinement level.
 	 */
@@ -67,7 +75,12 @@ typedef struct SubdivCCG {
 	 * corresponding to face-corners of coarse mesh, each grid has
 	 * grid_size^2 elements.
 	 */
+	/* Indexed by a grid index, points to a grid data which is stored in
+	 * grids_storage.
+	 */
 	struct CCGElem **grids;
+	/* Flat array of all grids' data. */
+	unsigned char *grids_storage;
 	int num_grids;
 	/* Loose edges, each array element contains grid_size elements
 	 * corresponding to vertices created by subdividing coarse edges.
@@ -91,6 +104,9 @@ typedef struct SubdivCCG {
 	int normal_offset;
 	int mask_offset;
 
+	struct DMFlagMat *grid_flag_mats;
+	BLI_bitmap **grid_hidden;
+
 	/* TODO(sergey): Consider adding some accessors to a "decoded" geometry,
 	 * to make integration with draw manager and such easy.
 	 */
@@ -98,16 +114,43 @@ typedef struct SubdivCCG {
 	/* TODO(sergey): Consider adding CD layers here, so we can draw final mesh
 	 * from grids, and have UVs and such work.
 	 */
+
+	/* Integration with sculpting. */
+	/* TODO(sergey): Is this really best way to go? Kind of annoying to have
+	 * such use-related flags in a more or less generic structure.
+	 */
+	struct {
+		/* Corresponds to MULTIRES_COORDS_MODIFIED. */
+		bool coords;
+		/* Corresponds to MULTIRES_HIDDEN_MODIFIED. */
+		bool hidden;
+	} dirty;
 } SubdivCCG;
 
-/* Create real hi-res CCG from subdivision. */
+/* Create real hi-res CCG from subdivision.
+ *
+ * NOTE: CCG becomes an owner of subdiv.
+ *
+ * TODO(sergey): Allow some user-counter or more explicit control over who owns
+ * the Subdiv. The goal should be to allow viewport GL Mesh and CCG to share
+ * same Subsurf without conflicts.
+ */
 struct SubdivCCG *BKE_subdiv_to_ccg(
         struct Subdiv *subdiv,
         const SubdivToCCGSettings *settings,
         const struct Mesh *coarse_mesh);
 
+
 /* Destroy CCG representation of subdivision surface. */
 void BKE_subdiv_ccg_destroy(SubdivCCG *subdiv_ccg);
+
+/* Helper function, creates Mesh structure which is properly setup to use
+ * grids.
+ */
+struct Mesh *BKE_subdiv_to_ccg_mesh(
+        struct Subdiv *subdiv,
+        const SubdivToCCGSettings *settings,
+        const struct Mesh *coarse_mesh);
 
 /* Create a key for accessing grid elements at a given level. */
 void BKE_subdiv_ccg_key(

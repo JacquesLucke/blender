@@ -1875,9 +1875,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 				}
 			}
 		}
-	}
 
-	{
 		/* Versioning code for Subsurf modifier. */
 		if (!DNA_struct_elem_find(fd->filesdna, "SubsurfModifier", "short", "uv_smooth")) {
 			for (Object *object = bmain->object.first; object != NULL; object = object->id.next) {
@@ -1940,6 +1938,45 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 						clmd->sim_parms->tension_damp = clmd->sim_parms->Cdis;
 						clmd->sim_parms->compression_damp = clmd->sim_parms->Cdis;
 						clmd->sim_parms->shear_damp = clmd->sim_parms->Cdis;
+					}
+				}
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "BrushGpencilSettings", "float", "era_strength_f")) {
+			for (Brush *brush = bmain->brush.first; brush; brush = brush->id.next) {
+				if (brush->gpencil_settings != NULL) {
+					BrushGpencilSettings *gp = brush->gpencil_settings;
+					if (gp->brush_type == GP_BRUSH_TYPE_ERASE) {
+						gp->era_strength_f = 100.0f;
+						gp->era_thickness_f = 10.0f;
+					}
+				}
+			}
+		}
+
+		for (Object *ob = bmain->object.first; ob; ob = ob->id.next) {
+			for (ModifierData *md = ob->modifiers.first; md; md = md->next) {
+				if (md->type == eModifierType_Cloth) {
+					ClothModifierData *clmd = (ClothModifierData *)md;
+
+					if (!(clmd->sim_parms->flags & CLOTH_SIMSETTINGS_FLAG_GOAL)) {
+						clmd->sim_parms->vgroup_mass = 0;
+					}
+
+					if (!(clmd->sim_parms->flags & CLOTH_SIMSETTINGS_FLAG_SCALING)) {
+						clmd->sim_parms->vgroup_struct = 0;
+						clmd->sim_parms->vgroup_shear = 0;
+						clmd->sim_parms->vgroup_bend = 0;
+					}
+
+					if (!(clmd->sim_parms->flags & CLOTH_SIMSETTINGS_FLAG_SEW)) {
+						clmd->sim_parms->shrink_min = 0.0f;
+						clmd->sim_parms->vgroup_shrink = 0;
+					}
+
+					if (!(clmd->coll_parms->flags & CLOTH_COLLSETTINGS_FLAG_ENABLED)) {
+						clmd->coll_parms->flags &= ~CLOTH_COLLSETTINGS_FLAG_SELF;
 					}
 				}
 			}

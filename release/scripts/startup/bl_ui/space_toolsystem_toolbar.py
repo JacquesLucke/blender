@@ -160,7 +160,6 @@ class _defs_view3d_generic:
             props = tool.operator_properties("view3d.cursor3d")
             layout.prop(props, "use_depth")
             layout.prop(props, "orientation")
-
         return dict(
             text="Cursor",
             description=(
@@ -230,7 +229,6 @@ def _defs_annotate_factory():
         def scribble():
             def draw_settings(context, layout, tool):
                 _defs_annotate.draw_settings_common(context, layout, tool)
-
             return dict(
                 text="Annotate",
                 icon="ops.gpencil.draw",
@@ -247,7 +245,6 @@ def _defs_annotate_factory():
         def line():
             def draw_settings(context, layout, tool):
                 _defs_annotate.draw_settings_common(context, layout, tool)
-
             return dict(
                 text="Annotate Line",
                 icon="ops.gpencil.draw.line",
@@ -264,7 +261,6 @@ def _defs_annotate_factory():
         def poly():
             def draw_settings(context, layout, tool):
                 _defs_annotate.draw_settings_common(context, layout, tool)
-
             return dict(
                 text="Annotate Polygon",
                 icon="ops.gpencil.draw.poly",
@@ -283,7 +279,6 @@ def _defs_annotate_factory():
                 # TODO: Move this setting to toolsettings
                 user_prefs = context.user_preferences
                 layout.prop(user_prefs.edit, "grease_pencil_eraser_radius", text="Radius")
-
             return dict(
                 text="Annotate Eraser",
                 icon="ops.gpencil.draw.eraser",
@@ -310,7 +305,6 @@ class _defs_transform:
         def draw_settings(context, layout, tool):
             tool_settings = context.tool_settings
             layout.prop(tool_settings, "use_gizmo_apron")
-
         return dict(
             text="Move",
             # cursor='SCROLL_XY',
@@ -329,7 +323,6 @@ class _defs_transform:
         def draw_settings(context, layout, tool):
             tool_settings = context.tool_settings
             layout.prop(tool_settings, "use_gizmo_apron")
-
         return dict(
             text="Rotate",
             # cursor='SCROLL_XY',
@@ -348,7 +341,6 @@ class _defs_transform:
         def draw_settings(context, layout, tool):
             tool_settings = context.tool_settings
             layout.prop(tool_settings, "use_gizmo_apron")
-
         return dict(
             text="Scale",
             # cursor='SCROLL_XY',
@@ -377,7 +369,6 @@ class _defs_transform:
             tool_settings = context.tool_settings
             layout.prop(tool_settings, "use_gizmo_apron")
             layout.prop(tool_settings, "use_gizmo_mode")
-
         return dict(
             text="Transform",
             description=(
@@ -773,26 +764,38 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def vertex_smooth():
+        def draw_settings(context, layout, tool):
+            props = tool.operator_properties("mesh.vertices_smooth")
+            layout.prop(props, "repeat")
         return dict(
             text="Smooth",
             icon="ops.mesh.vertices_smooth",
-            widget=None,
+            widget="WM_GGT_value_operator_redo",
             keymap=(
-                ("mesh.vertices_smooth", dict(),
+                # Use 0.0, so dragging increases from nothing.
+                ("mesh.vertices_smooth", dict(factor=0.0),
                  dict(type='ACTIONMOUSE', value='PRESS')),
             ),
+            draw_settings=draw_settings,
         )
 
     @ToolDef.from_fn
     def vertex_randomize():
+        def draw_settings(context, layout, tool):
+            props = tool.operator_properties("transform.vertex_random")
+            layout.prop(props, "uniform")
+            layout.prop(props, "normal")
+            layout.prop(props, "seed")
         return dict(
             text="Randomize",
             icon="ops.transform.vertex_random",
-            widget=None,
+            widget="WM_GGT_value_operator_redo",
             keymap=(
-                ("transform.vertex_random", dict(),
+                # Use 0.0, so dragging increases from nothing.
+                ("transform.vertex_random", dict(offset=0.0),
                  dict(type='ACTIONMOUSE', value='PRESS')),
             ),
+            draw_settings=draw_settings,
         )
 
     @ToolDef.from_fn
@@ -869,6 +872,12 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def bisect():
+        def draw_settings(context, layout, tool):
+            props = tool.operator_properties("mesh.bisect")
+            layout.prop(props, "use_fill")
+            layout.prop(props, "clear_inner")
+            layout.prop(props, "clear_outer")
+            layout.prop(props, "threshold")
         return dict(
             text="Bisect",
             icon="ops.mesh.bisect",
@@ -878,6 +887,7 @@ class _defs_edit_mesh:
                  dict(),
                  dict(type='EVT_TWEAK_A', value='ANY')),
             ),
+            draw_settings=draw_settings,
         )
 
 
@@ -1229,8 +1239,13 @@ class _defs_gpencil_paint:
             gp_settings = brush.gpencil_settings
 
             if gp_settings.gpencil_brush_type == 'ERASE':
-                row = layout.row()
+                row = layout.row(align=True)
                 row.prop(brush, "size", text="Radius")
+                row.prop(gp_settings, "use_pressure", text="", icon='STYLUS_PRESSURE')
+                if gp_settings.eraser_mode == 'SOFT':
+                    row = layout.row(align=True)
+                    row.prop(gp_settings, "pen_strength", slider=True)
+                    row.prop(gp_settings, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
             elif gp_settings.gpencil_brush_type == 'FILL':
                 row = layout.row()
                 row.prop(gp_settings, "gpencil_fill_leak", text="Leak Size")

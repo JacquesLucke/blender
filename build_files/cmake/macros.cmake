@@ -448,7 +448,7 @@ function(setup_liblinks
 	if(WITH_IMAGE_OPENEXR)
 		target_link_libraries(${target} ${OPENEXR_LIBRARIES})
 	endif()
-	if(WITH_IMAGE_OPENJPEG AND WITH_SYSTEM_OPENJPEG)
+	if(WITH_IMAGE_OPENJPEG)
 		target_link_libraries(${target} ${OPENJPEG_LIBRARIES})
 	endif()
 	if(WITH_CODEC_FFMPEG)
@@ -656,26 +656,11 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_intern_guardedalloc
 		bf_intern_ctr
 		bf_intern_utfconv
-		ge_blen_routines
-		ge_converter
-		ge_phys_dummy
-		ge_phys_bullet
 		bf_intern_smoke
 		extern_lzma
 		extern_curve_fit_nd
-		ge_logic_ketsji
-		extern_recastnavigation
-		ge_logic
-		ge_rasterizer
-		ge_oglrasterizer
-		ge_logic_expressions
-		ge_scenegraph
-		ge_logic_network
-		ge_logic_ngnetwork
-		ge_logic_loopbacknetwork
 		bf_intern_moto
 		extern_openjpeg
-		ge_videotex
 		bf_dna
 
 		bf_blenfont
@@ -770,7 +755,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 	endif()
 
 	if(WITH_BULLET AND NOT WITH_SYSTEM_BULLET)
-		list_insert_after(BLENDER_SORTED_LIBS "ge_logic_ngnetwork" "extern_bullet")
+		list_insert_after(BLENDER_SORTED_LIBS "extern_openjpeg" "extern_bullet")
 	endif()
 
 	if(WIN32)

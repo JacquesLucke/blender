@@ -412,7 +412,18 @@ void DepsgraphNodeBuilder::build_id(ID *id)
 			build_collection((Collection *)id);
 			break;
 		case ID_OB:
-			build_object(-1, (Object *)id, DEG_ID_LINKED_INDIRECTLY);
+			/* TODO(sergey): Get visibility from a "parent" somehow.
+			 *
+			 * NOTE: Using `false` visibility here should be fine, since if this
+			 * driver affects on something invisible we don't really care if the
+			 * driver gets evaluated (and even don't want this to force object
+			 * to become visible).
+			 *
+			 * If this happened to be affecting visible object, then it is up to
+			 * deg_graph_build_flush_visibility() to ensure visibility of the
+			 * object is true.
+			 */
+			build_object(-1, (Object *)id, DEG_ID_LINKED_INDIRECTLY, false);
 			break;
 		case ID_KE:
 			build_shapekeys((Key *)id);
@@ -448,7 +459,12 @@ void DepsgraphNodeBuilder::build_id(ID *id)
 		case ID_CU:
 		case ID_MB:
 		case ID_LT:
-			build_object_data_geometry_datablock(id);
+			/* TODO(sergey): Get visibility from a "parent" somehow.
+			 *
+			 * NOTE: Similarly to above, we don't want false-positives on
+			 * visibility.
+			 */
+			build_object_data_geometry_datablock(id, false);
 			break;
 		case ID_SPK:
 			build_speaker((Speaker *)id);
@@ -532,34 +548,39 @@ void DepsgraphNodeBuilder::build_object(int base_index,
 	build_object_transform(object);
 	/* Parent. */
 	if (object->parent != NULL) {
-		build_object(-1, object->parent, DEG_ID_LINKED_INDIRECTLY);
+		build_object(
+		        -1, object->parent, DEG_ID_LINKED_INDIRECTLY, is_visible);
 	}
 	/* Modifiers. */
 	if (object->modifiers.first != NULL) {
 		BuilderWalkUserData data;
 		data.builder = this;
+		data.is_parent_visible = is_visible;
 		modifiers_foreachIDLink(object, modifier_walk, &data);
 	}
 	/* Grease Pencil Modifiers. */
 	if (object->greasepencil_modifiers.first != NULL) {
 		BuilderWalkUserData data;
 		data.builder = this;
+		data.is_parent_visible = is_visible;
 		BKE_gpencil_modifiers_foreachIDLink(object, modifier_walk, &data);
 	}
-	/* Shadr FX. */
+	/* Shader FX. */
 	if (object->shader_fx.first != NULL) {
 		BuilderWalkUserData data;
 		data.builder = this;
+		data.is_parent_visible = is_visible;
 		BKE_shaderfx_foreachIDLink(object, modifier_walk, &data);
 	}
 	/* Constraints. */
 	if (object->constraints.first != NULL) {
 		BuilderWalkUserData data;
 		data.builder = this;
+		data.is_parent_visible = is_visible;
 		BKE_constraints_id_loop(&object->constraints, constraint_walk, &data);
 	}
 	/* Object data. */
-	build_object_data(object);
+	build_object_data(object, is_visible);
 	/* Build animation data,
 	 *
 	 * Do it now because it's possible object data will affect
@@ -574,14 +595,16 @@ void DepsgraphNodeBuilder::build_object(int base_index,
 	build_animdata(&object->id);
 	/* Particle systems. */
 	if (object->particlesystem.first != NULL) {
-		build_particles(object);
+		build_particles(object, is_visible);
 	}
 	/* Proxy object to copy from. */
 	if (object->proxy_from != NULL) {
-		build_object(-1, object->proxy_from, DEG_ID_LINKED_INDIRECTLY);
+		build_object(
+		        -1, object->proxy_from, DEG_ID_LINKED_INDIRECTLY, is_visible);
 	}
 	if (object->proxy_group != NULL) {
-		build_object(-1, object->proxy_group, DEG_ID_LINKED_INDIRECTLY);
+		build_object(
+		        -1, object->proxy_group, DEG_ID_LINKED_INDIRECTLY, is_visible);
 	}
 	/* Object dupligroup. */
 	if (object->dup_group != NULL) {
@@ -616,7 +639,8 @@ void DepsgraphNodeBuilder::build_object_flags(
 	                   DEG_OPCODE_OBJECT_BASE_FLAGS);
 }
 
-void DepsgraphNodeBuilder::build_object_data(Object *object)
+void DepsgraphNodeBuilder::build_object_data(
+        Object *object, bool is_object_visible)
 {
 	if (object->data == NULL) {
 		return;
@@ -631,7 +655,7 @@ void DepsgraphNodeBuilder::build_object_data(Object *object)
 		case OB_MBALL:
 		case OB_LATTICE:
 		case OB_GPENCIL:
-			build_object_data_geometry(object);
+			build_object_data_geometry(object, is_object_visible);
 			/* TODO(sergey): Only for until we support granular
 			 * update of curves.
 			 */
@@ -647,7 +671,7 @@ void DepsgraphNodeBuilder::build_object_data(Object *object)
 				build_proxy_rig(object);
 			}
 			else {
-				build_rig(object);
+				build_rig(object, is_object_visible);
 			}
 			break;
 		case OB_LAMP:
@@ -1002,7 +1026,8 @@ void DepsgraphNodeBuilder::build_rigidbody(Scene *scene)
 	}
 }
 
-void DepsgraphNodeBuilder::build_particles(Object *object)
+void DepsgraphNodeBuilder::build_particles(Object *object,
+                                           bool is_object_visible)
 {
 	/**
 	 * Particle Systems Nodes
@@ -1051,7 +1076,8 @@ void DepsgraphNodeBuilder::build_particles(Object *object)
 				if (part->dup_ob != NULL) {
 					build_object(-1,
 					             part->dup_ob,
-					             DEG_ID_LINKED_INDIRECTLY);
+					             DEG_ID_LINKED_INDIRECTLY,
+					             is_object_visible);
 				}
 				break;
 			case PART_DRAW_GR:
@@ -1113,7 +1139,9 @@ void DepsgraphNodeBuilder::build_shapekeys(Key *key)
 
 /* ObData Geometry Evaluation */
 // XXX: what happens if the datablock is shared!
-void DepsgraphNodeBuilder::build_object_data_geometry(Object *object)
+void DepsgraphNodeBuilder::build_object_data_geometry(
+        Object *object,
+        bool is_object_visible)
 {
 	OperationDepsNode *op_node;
 	Scene *scene_cow = get_cow_datablock(scene_);
@@ -1169,10 +1197,12 @@ void DepsgraphNodeBuilder::build_object_data_geometry(Object *object)
 	if (ELEM(object->type, OB_MESH, OB_CURVE, OB_LATTICE)) {
 		// add geometry collider relations
 	}
-	build_object_data_geometry_datablock((ID *)object->data);
+	build_object_data_geometry_datablock((ID *)object->data, is_object_visible);
 }
 
-void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata)
+void DepsgraphNodeBuilder::build_object_data_geometry_datablock(
+        ID *obdata,
+        bool is_object_visible)
 {
 	if (built_map_.checkIsBuiltAndTag(obdata)) {
 		return;
@@ -1230,13 +1260,22 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata)
 			 */
 			Curve *cu = (Curve *)obdata;
 			if (cu->bevobj != NULL) {
-				build_object(-1, cu->bevobj, DEG_ID_LINKED_INDIRECTLY);
+				build_object(-1,
+				             cu->bevobj,
+				             DEG_ID_LINKED_INDIRECTLY,
+				             is_object_visible);
 			}
 			if (cu->taperobj != NULL) {
-				build_object(-1, cu->taperobj, DEG_ID_LINKED_INDIRECTLY);
+				build_object(-1,
+				             cu->taperobj,
+				             DEG_ID_LINKED_INDIRECTLY,
+				             is_object_visible);
 			}
 			if (cu->textoncurve != NULL) {
-				build_object(-1, cu->textoncurve, DEG_ID_LINKED_INDIRECTLY);
+				build_object(-1,
+				             cu->textoncurve,
+				             DEG_ID_LINKED_INDIRECTLY,
+				             is_object_visible);
 			}
 			break;
 		}
@@ -1376,7 +1415,8 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 			build_image((Image *)id);
 		}
 		else if (id_type == ID_OB) {
-			build_object(-1, (Object *)id, DEG_ID_LINKED_INDIRECTLY);
+			/* TODO(sergey): Use visibility of owner of the node tree. */
+			build_object(-1, (Object *)id, DEG_ID_LINKED_INDIRECTLY, true);
 		}
 		else if (id_type == ID_SCE) {
 			/* Scenes are used by compositor trees, and handled by render
@@ -1585,9 +1625,11 @@ void DepsgraphNodeBuilder::modifier_walk(void *user_data,
 	}
 	switch (GS(id->name)) {
 		case ID_OB:
+			/* TODO(sergey): Use visibility of owner of modifier stack. */
 			data->builder->build_object(-1,
 			                            (Object *)id,
-			                            DEG_ID_LINKED_INDIRECTLY);
+			                            DEG_ID_LINKED_INDIRECTLY,
+			                            data->is_parent_visible);
 			break;
 		case ID_TE:
 			data->builder->build_texture((Tex *)id);
@@ -1610,9 +1652,11 @@ void DepsgraphNodeBuilder::constraint_walk(bConstraint * /*con*/,
 	}
 	switch (GS(id->name)) {
 		case ID_OB:
+			/* TODO(sergey): Use visibility of owner of modifier stack. */
 			data->builder->build_object(-1,
 			                            (Object *)id,
-			                            DEG_ID_LINKED_INDIRECTLY);
+			                            DEG_ID_LINKED_INDIRECTLY,
+			                            data->is_parent_visible);
 			break;
 		default:
 			/* pass */
