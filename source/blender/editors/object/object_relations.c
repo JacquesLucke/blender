@@ -129,12 +129,12 @@ static int vertex_parent_set_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	View3D *v3d = CTX_wm_view3d(C);
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
 	BMVert *eve;
 	BMIter iter;
-	Curve *cu;
 	Nurb *nu;
 	BezTriple *bezt;
 	BPoint *bp;
@@ -175,15 +175,13 @@ static int vertex_parent_set_exec(bContext *C, wmOperator *op)
 	else if (ELEM(obedit->type, OB_SURF, OB_CURVE)) {
 		ListBase *editnurb = object_editcurve_get(obedit);
 
-		cu = obedit->data;
-
 		nu = editnurb->first;
 		while (nu) {
 			if (nu->type == CU_BEZIER) {
 				bezt = nu->bezt;
 				a = nu->pntsu;
 				while (a--) {
-					if (BEZT_ISSEL_ANY_HIDDENHANDLES(cu, bezt)) {
+					if (BEZT_ISSEL_ANY_HIDDENHANDLES(v3d, bezt)) {
 						if (v1 == 0) v1 = nr;
 						else if (v2 == 0) v2 = nr;
 						else if (v3 == 0) v3 = nr;
@@ -2331,7 +2329,7 @@ static int make_override_static_exec(bContext *C, wmOperator *op)
 
 		success = BKE_override_static_create_from_tag(bmain);
 
-		/* Intantiate our newly overridden objects in scene, if not yet done. */
+		/* Instantiate our newly overridden objects in scene, if not yet done. */
 		Scene *scene = CTX_data_scene(C);
 		ViewLayer *view_layer = CTX_data_view_layer(C);
 		Collection *new_collection = (Collection *)collection->id.newid;
@@ -2365,7 +2363,7 @@ static int make_override_static_exec(bContext *C, wmOperator *op)
 		/* obcollection is no more duplicollection-ing, it merely parents whole collection of overriding instantiated objects. */
 		obcollection->dup_group = NULL;
 
-		/* Also, we'd likely want to lock by default things like transformations of implicitly overriden objects? */
+		/* Also, we'd likely want to lock by default things like transformations of implicitly overridden objects? */
 
 		DEG_id_tag_update(&scene->id, 0);
 
@@ -2385,7 +2383,7 @@ static int make_override_static_exec(bContext *C, wmOperator *op)
 
 		success = BKE_override_static_create_from_tag(bmain);
 
-		/* Also, we'd likely want to lock by default things like transformations of implicitly overriden objects? */
+		/* Also, we'd likely want to lock by default things like transformations of implicitly overridden objects? */
 
 		/* Cleanup. */
 		BKE_main_id_clear_newpoins(bmain);

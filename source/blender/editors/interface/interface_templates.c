@@ -50,6 +50,7 @@
 #include "BLI_math.h"
 #include "BLI_listbase.h"
 #include "BLI_fnmatch.h"
+#include "BLI_path_util.h"
 #include "BLI_timecode.h"
 
 #include "BLF_api.h"
@@ -88,6 +89,8 @@
 
 #include "WM_api.h"
 #include "WM_types.h"
+
+#include "BLO_readfile.h"
 
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
@@ -425,7 +428,7 @@ static void template_id_cb(bContext *C, void *arg_litem, void *arg_event)
 	TemplateID *template_ui = (TemplateID *)arg_litem;
 	PointerRNA idptr = RNA_property_pointer_get(&template_ui->ptr, template_ui->prop);
 	ID *id = idptr.data;
-	int event = GET_INT_FROM_POINTER(arg_event);
+	int event = POINTER_AS_INT(arg_event);
 
 	switch (event) {
 		case UI_ID_BROWSE:
@@ -622,13 +625,13 @@ static uiBut *template_id_def_new_but(
 		but = uiDefIconTextButO(
 		        block, but_type, newop, WM_OP_INVOKE_DEFAULT, ICON_ZOOMIN,
 		        (id) ? "" : CTX_IFACE_(template_id_context(type), "New"), 0, 0, w, but_height, NULL);
-		UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_ADD_NEW));
+		UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), POINTER_FROM_INT(UI_ID_ADD_NEW));
 	}
 	else {
 		but = uiDefIconTextBut(
 		        block, but_type, 0, ICON_ZOOMIN, (id) ? "" : CTX_IFACE_(template_id_context(type), "New"),
 		        0, 0, w, but_height, NULL, 0, 0, 0, 0, NULL);
-		UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_ADD_NEW));
+		UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), POINTER_FROM_INT(UI_ID_ADD_NEW));
 	}
 
 	if ((idfrom && idfrom->lib) || !editable) {
@@ -683,7 +686,7 @@ static void template_ID(
 		but = uiDefButR(
 		        block, UI_BTYPE_TEXT, 0, name, 0, 0, TEMPLATE_SEARCH_TEXTBUT_WIDTH, TEMPLATE_SEARCH_TEXTBUT_HEIGHT,
 		        &idptr, "name", -1, 0, 0, -1, -1, RNA_struct_ui_description(type));
-		UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_RENAME));
+		UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), POINTER_FROM_INT(UI_ID_RENAME));
 		if (user_alert) UI_but_flag_enable(but, UI_BUT_REDALERT);
 
 		if (id->lib) {
@@ -706,7 +709,7 @@ static void template_ID(
 					UI_but_flag_enable(but, UI_BUT_DISABLED);
 				}
 				else {
-					UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_LOCAL));
+					UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), POINTER_FROM_INT(UI_ID_LOCAL));
 				}
 			}
 		}
@@ -715,7 +718,7 @@ static void template_ID(
 			        block, UI_BTYPE_BUT, 0, ICON_LIBRARY_DATA_OVERRIDE, 0, 0, UI_UNIT_X, UI_UNIT_Y,
 			        NULL, 0, 0, 0, 0,
 			        TIP_("Static override of linked library data-block, click to make fully local"));
-			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_OVERRIDE));
+			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), POINTER_FROM_INT(UI_ID_OVERRIDE));
 		}
 
 		if (id->us > 1) {
@@ -730,7 +733,7 @@ static void template_ID(
 			        TIP_("Display number of users of this data (click to make a single-user copy)"));
 			but->flag |= UI_BUT_UNDO;
 
-			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_ALONE));
+			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), POINTER_FROM_INT(UI_ID_ALONE));
 			if (/* test only */
 			    (id_copy(CTX_data_main(C), id, NULL, true) == false) ||
 			    (idfrom && idfrom->lib) ||
@@ -772,13 +775,13 @@ static void template_ID(
 			but = uiDefIconTextButO(
 			        block, UI_BTYPE_BUT, openop, WM_OP_INVOKE_DEFAULT, ICON_FILESEL, (id) ? "" : IFACE_("Open"),
 			        0, 0, w, UI_UNIT_Y, NULL);
-			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_OPEN));
+			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), POINTER_FROM_INT(UI_ID_OPEN));
 		}
 		else {
 			but = uiDefIconTextBut(
 			        block, UI_BTYPE_BUT, 0, ICON_FILESEL, (id) ? "" : IFACE_("Open"), 0, 0, w, UI_UNIT_Y,
 			        NULL, 0, 0, 0, 0, NULL);
-			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_OPEN));
+			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), POINTER_FROM_INT(UI_ID_OPEN));
 		}
 
 		if ((idfrom && idfrom->lib) || !editable)
@@ -802,7 +805,7 @@ static void template_ID(
 				        block, UI_BTYPE_BUT, 0, ICON_X, 0, 0, UI_UNIT_X, UI_UNIT_Y, NULL, 0, 0, 0, 0,
 				        TIP_("Unlink data-block "
 				             "(Shift + Click to set users to zero, data will then not be saved)"));
-				UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_DELETE));
+				UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), POINTER_FROM_INT(UI_ID_DELETE));
 
 				if (RNA_property_flag(template_ui->prop) & PROP_NEVER_NULL) {
 					UI_but_flag_enable(but, UI_BUT_DISABLED);
@@ -838,7 +841,7 @@ ID *UI_context_active_but_get_tab_ID(bContext *C)
 
 static void template_ID_tabs(
         bContext *C, uiLayout *layout, TemplateID *template, StructRNA *type, int flag,
-        const char *newop, const char *UNUSED(openop), const char *menu)
+        const char *newop, const char *menu)
 {
 	const ARegion *region = CTX_wm_region(C);
 	const PointerRNA active_ptr = RNA_property_pointer_get(&template->ptr, template->prop);
@@ -934,7 +937,7 @@ static void ui_template_id(
 	if (template_ui->idlb) {
 		if (use_tabs) {
 			uiLayoutRow(layout, true);
-			template_ID_tabs(C, layout, template_ui, type, flag, newop, openop, unlinkop);
+			template_ID_tabs(C, layout, template_ui, type, flag, newop, unlinkop);
 		}
 		else {
 			uiLayoutRow(layout, true);
@@ -996,13 +999,13 @@ void uiTemplateGpencilColorPreview(
 void uiTemplateIDTabs(
         uiLayout *layout, bContext *C,
         PointerRNA *ptr, const char *propname,
-        const char *newop, const char *openop, const char *unlinkop,
+        const char *newop, const char *unlinkop,
         int filter)
 {
 	ui_template_id(
 	        layout, C, ptr, propname,
-	        newop, openop, unlinkop,
-	        UI_ID_BROWSE | UI_ID_RENAME | UI_ID_DELETE,
+	        newop, NULL, unlinkop,
+	        UI_ID_BROWSE | UI_ID_RENAME,
 	        0, 0, filter, true, 1.0f, false);
 }
 
@@ -1569,7 +1572,7 @@ uiLayout *uiTemplateModifier(uiLayout *layout, bContext *C, PointerRNA *ptr)
 	/* find modifier and draw it */
 	cageIndex = modifiers_getCageIndex(scene, ob, &lastCageIndex, 0);
 
-	/* XXX virtual modifiers are not accesible for python */
+	/* XXX virtual modifiers are not accessible for python */
 	vmd = modifiers_getVirtualModifierList(ob, &virtualModifierData);
 
 	for (i = 0; vmd; i++, vmd = vmd->next) {
@@ -2789,7 +2792,7 @@ static uiBlock *curvemap_clipping_func(bContext *C, ARegion *ar, void *cumap_v)
 
 	block = UI_block_begin(C, ar, __func__, UI_EMBOSS);
 
-	/* use this for a fake extra empy space around the buttons */
+	/* use this for a fake extra empty space around the buttons */
 	uiDefBut(block, UI_BTYPE_LABEL, 0, "",           -4, 16, width + 8, 6 * UI_UNIT_Y, NULL, 0, 0, 0, 0, "");
 
 	bt = uiDefButBitI(
@@ -2974,7 +2977,7 @@ static void curvemap_buttons_layout(
 
 	if (tone) {
 		split = uiLayoutSplit(layout, 0.0f, false);
-		uiItemR(uiLayoutRow(split, false), ptr, "tone", 0, NULL, ICON_NONE);
+		uiItemR(uiLayoutRow(split, false), ptr, "tone", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
 	}
 
 	/* curve chooser */
@@ -3353,7 +3356,7 @@ void uiTemplateCryptoPicker(uiLayout *layout, PointerRNA *ptr, const char *propn
 static void handle_layer_buttons(bContext *C, void *arg1, void *arg2)
 {
 	uiBut *but = arg1;
-	int cur = GET_INT_FROM_POINTER(arg2);
+	int cur = POINTER_AS_INT(arg2);
 	wmWindow *win = CTX_wm_window(C);
 	int i, tot, shift = win->eventstate->shift;
 
@@ -3437,7 +3440,7 @@ void uiTemplateLayers(
 					icon = ICON_LAYER_USED;
 
 				but = uiDefAutoButR(block, ptr, prop, layer, "", icon, 0, 0, UI_UNIT_X / 2, UI_UNIT_Y / 2);
-				UI_but_func_set(but, handle_layer_buttons, but, SET_INT_IN_POINTER(layer));
+				UI_but_func_set(but, handle_layer_buttons, but, POINTER_FROM_INT(layer));
 				but->type = UI_BTYPE_TOGGLE;
 			}
 		}
@@ -4268,22 +4271,21 @@ eAutoPropButsReturn uiTemplateOperatorPropertyButs(
 		op->properties = IDP_New(IDP_GROUP, &val, "wmOperatorProperties");
 	}
 
-	if (flag & UI_TEMPLATE_OP_PROPS_SHOW_TITLE) {
-		uiItemL(layout, RNA_struct_ui_name(op->type->srna), ICON_NONE);
-	}
-
 	/* poll() on this operator may still fail, at the moment there is no nice feedback when this happens
 	 * just fails silently */
 	if (!WM_operator_repeat_check(C, op)) {
 		UI_block_lock_set(block, true, "Operator can't' redo");
-
-		/* XXX, could give some nicer feedback or not show redo panel at all? */
-		uiItemL(layout, IFACE_("* Redo Unsupported *"), ICON_NONE);
+		return return_info;
 	}
 	else {
 		/* useful for macros where only one of the steps can't be re-done */
 		UI_block_lock_clear(block);
 	}
+
+	if (flag & UI_TEMPLATE_OP_PROPS_SHOW_TITLE) {
+		uiItemL(layout, RNA_struct_ui_name(op->type->srna), ICON_NONE);
+	}
+
 
 	/* menu */
 	if (op->type->flag & OPTYPE_PRESET) {
@@ -4572,9 +4574,11 @@ void uiTemplateRunningJobs(uiLayout *layout, bContext *C)
 			UI_but_func_tooltip_set(but_progress, progress_tooltip_func, tip_arg);
 		}
 
-		uiDefIconTextBut(block, UI_BTYPE_BUT, handle_event, ICON_PANEL_CLOSE,
-		                 "", 0, 0, UI_UNIT_X, UI_UNIT_Y,
-		                 NULL, 0.0f, 0.0f, 0, 0, TIP_("Stop this job"));
+		if (!wm->is_interface_locked) {
+			uiDefIconTextBut(block, UI_BTYPE_BUT, handle_event, ICON_PANEL_CLOSE,
+			                 "", 0, 0, UI_UNIT_X, UI_UNIT_Y,
+			                 NULL, 0.0f, 0.0f, 0, 0, TIP_("Stop this job"));
+		}
 	}
 
 	if (screen->animtimer)
@@ -4961,4 +4965,21 @@ void uiTemplateCacheFile(uiLayout *layout, bContext *C, PointerRNA *ptr, const c
 	row = uiLayoutRow(layout, false);
 	uiItemR(row, &fileptr, "up_axis", 0, "Up Axis", ICON_NONE);
 #endif
+}
+
+/******************************* Recent Files *******************************/
+
+int uiTemplateRecentFiles(uiLayout *layout, int rows)
+{
+	const RecentFile *recent;
+	int i;
+
+	for (recent = G.recent_files.first, i = 0; (i < rows) && (recent); recent = recent->next, i++) {
+		const char *filename = BLI_path_basename(recent->filepath);
+		uiItemStringO(layout, filename,
+		              BLO_has_bfile_extension(filename) ? ICON_FILE_BLEND : ICON_FILE_BACKUP,
+		              "WM_OT_open_mainfile", "filepath", recent->filepath);
+	}
+
+	return i;
 }

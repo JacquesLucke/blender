@@ -156,7 +156,7 @@ static void make_edges_mdata_extend(
 	totedge_new = BLI_edgehash_len(eh);
 
 #ifdef DEBUG
-	/* ensure that theres no overlap! */
+	/* ensure that there's no overlap! */
 	if (totedge_new) {
 		MEdge *medge = *r_alledge;
 		for (i = 0; i < totedge; i++, medge++) {
@@ -182,7 +182,7 @@ static void make_edges_mdata_extend(
 		     BLI_edgehashIterator_step(ehi), ++medge, e_index++)
 		{
 			BLI_edgehashIterator_getKey(ehi, &medge->v1, &medge->v2);
-			BLI_edgehashIterator_setValue(ehi, SET_UINT_IN_POINTER(e_index));
+			BLI_edgehashIterator_setValue(ehi, POINTER_FROM_UINT(e_index));
 
 			medge->crease = medge->bweight = 0;
 			medge->flag = ME_EDGEDRAW | ME_EDGERENDER;
@@ -198,7 +198,7 @@ static void make_edges_mdata_extend(
 			int j;
 			for (j = 0; j < mp->totloop; j++, l++) {
 				/* lookup hashed edge index */
-				l_prev->e = GET_UINT_FROM_POINTER(BLI_edgehash_lookup(eh, l_prev->v, l->v));
+				l_prev->e = POINTER_AS_UINT(BLI_edgehash_lookup(eh, l_prev->v, l->v));
 				l_prev = l;
 			}
 		}
@@ -1144,7 +1144,7 @@ Mesh *BKE_mesh_create_derived_for_modifier(
 		int numVerts;
 		float (*deformedVerts)[3] = BKE_mesh_vertexCos_get(me, &numVerts);
 
-		modifier_deformVerts(md, &mectx, NULL, deformedVerts, numVerts);
+		mti->deformVerts(md, &mectx, NULL, deformedVerts, numVerts);
 		BKE_id_copy_ex(
 		        NULL, &me->id, (ID **)&result,
 		        LIB_ID_CREATE_NO_MAIN |
@@ -1172,7 +1172,7 @@ Mesh *BKE_mesh_create_derived_for_modifier(
 		if (build_shapekey_layers)
 			add_shapekey_layers(mesh_temp, me);
 
-		result = modifier_applyModifier(md, &mectx, mesh_temp);
+		result = mti->applyModifier(md, &mectx, mesh_temp);
 		ASSERT_IS_VALID_MESH(result);
 
 		if (mesh_temp != result) {
@@ -1330,7 +1330,7 @@ void BKE_mesh_nomain_to_mesh(Mesh *mesh_src, Mesh *mesh_dst, Object *ob, CustomD
 		        totedge);
 	}
 	if (!CustomData_has_layer(&tmp.pdata, CD_MPOLY)) {
-		/* TODO(Sybren): assigment to tmp.mxxx is probably not necessary due to the
+		/* TODO(Sybren): assignment to tmp.mxxx is probably not necessary due to the
 		 * BKE_mesh_update_customdata_pointers() call below. */
 		tmp.mloop = (alloctype == CD_ASSIGN) ? mesh_src->mloop : MEM_dupallocN(mesh_src->mloop);
 		tmp.mpoly = (alloctype == CD_ASSIGN) ? mesh_src->mpoly : MEM_dupallocN(mesh_src->mpoly);

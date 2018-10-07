@@ -50,6 +50,7 @@
 #include "DNA_view3d_types.h"
 
 #include "BKE_action.h"
+#include "BKE_colortools.h"
 #include "BKE_deform.h"
 #include "BKE_main.h"
 #include "BKE_brush.h"
@@ -944,7 +945,7 @@ void gp_subdivide_stroke(bGPDstroke *gps, const int subdivide)
 		temp_points = MEM_dupallocN(gps->points);
 		oldtotpoints = gps->totpoints;
 
-		/* resize the points arrys */
+		/* resize the points arrays */
 		gps->totpoints += totnewpoints;
 		gps->points = MEM_recallocN(gps->points, sizeof(*gps->points) * gps->totpoints);
 		if (gps->dvert != NULL) {
@@ -1204,6 +1205,16 @@ void ED_gpencil_add_defaults(bContext *C)
 		BKE_brush_gpencil_presets(C);
 	}
 
+	/* ensure multiframe falloff curve */
+	if (ts->gp_sculpt.cur_falloff == NULL) {
+		ts->gp_sculpt.cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+		CurveMapping *gp_falloff_curve = ts->gp_sculpt.cur_falloff;
+		curvemapping_initialize(gp_falloff_curve);
+		curvemap_reset(gp_falloff_curve->cm,
+			&gp_falloff_curve->clipr,
+			CURVE_PRESET_GAUSS,
+			CURVEMAP_SLOPE_POSITIVE);
+	}
 }
 
 /* ******************************************************** */

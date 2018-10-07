@@ -99,9 +99,9 @@ static void deg_task_run_func(TaskPool *pool,
 	BLI_task_pool_delayed_push_end(pool, thread_id);
 }
 
-typedef struct CalculatePengindData {
+typedef struct CalculatePendingData {
 	Depsgraph *graph;
-} CalculatePengindData;
+} CalculatePendingData;
 
 static bool check_operation_node_visible(OperationDepsNode *op_node)
 {
@@ -112,8 +112,7 @@ static bool check_operation_node_visible(OperationDepsNode *op_node)
 	if (comp_node->type == DEG_NODE_TYPE_COPY_ON_WRITE) {
 		return true;
 	}
-	const IDDepsNode *id_node = comp_node->owner;
-	return id_node->is_visible;
+	return comp_node->affects_directly_visible;
 }
 
 static void calculate_pending_func(
@@ -121,7 +120,7 @@ static void calculate_pending_func(
         const int i,
         const ParallelRangeTLS *__restrict /*tls*/)
 {
-	CalculatePengindData *data = (CalculatePengindData *)data_v;
+	CalculatePendingData *data = (CalculatePendingData *)data_v;
 	Depsgraph *graph = data->graph;
 	OperationDepsNode *node = graph->operations[i];
 	/* Update counters, applies for both visible and invisible IDs. */
@@ -160,7 +159,7 @@ static void calculate_pending_func(
 static void calculate_pending_parents(Depsgraph *graph)
 {
 	const int num_operations = graph->operations.size();
-	CalculatePengindData data;
+	CalculatePendingData data;
 	data.graph = graph;
 	ParallelRangeSettings settings;
 	BLI_parallel_range_settings_defaults(&settings);

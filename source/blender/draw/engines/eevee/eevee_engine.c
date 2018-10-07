@@ -136,7 +136,9 @@ void EEVEE_cache_populate(void *vedata, Object *ob)
 		EEVEE_hair_cache_populate(vedata, sldata, ob, &cast_shadow);
 	}
 
-	if (DRW_check_object_visible_within_active_context(ob)) {
+	if (DRW_object_is_renderable(ob) &&
+	    DRW_check_object_visible_within_active_context(ob))
+	{
 		if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_MBALL)) {
 			EEVEE_materials_cache_populate(vedata, sldata, ob, &cast_shadow);
 		}
@@ -323,7 +325,7 @@ static void eevee_draw_background(void *vedata)
 	GPU_framebuffer_bind(dfbl->default_fb);
 	DRW_transform_to_display(stl->effects->final_tx, use_view_settings);
 
-	/* Debug : Ouput buffer to view. */
+	/* Debug : Output buffer to view. */
 	switch (G.debug_value) {
 		case 1:
 			if (txl->maxzbuffer) DRW_transform_to_display(txl->maxzbuffer, use_view_settings);

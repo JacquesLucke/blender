@@ -124,7 +124,8 @@ static void comp_node_hash_value_free(void *value_v)
 
 ComponentDepsNode::ComponentDepsNode() :
     entry_operation(NULL),
-    exit_operation(NULL)
+    exit_operation(NULL),
+    affects_directly_visible(false)
 {
 	operations_map = BLI_ghash_new(comp_node_hash_key,
 	                               comp_node_hash_key_cmp,
@@ -157,7 +158,11 @@ string ComponentDepsNode::identifier() const
 	char typebuf[16];
 	sprintf(typebuf, "(%d)", type);
 
-	return string(typebuf) + name + " : " + idname;
+	return string(typebuf) + name + " : " + idname +
+	       "( affects_directly_visible: " +
+	               (affects_directly_visible ? "true"
+	                                         : "false") + ")";
+;
 }
 
 OperationDepsNode *ComponentDepsNode::find_operation(OperationIDKey key) const
@@ -393,6 +398,7 @@ DEG_COMPONENT_NODE_DEFINE(Shading,           SHADING,            ID_RECALC_DRAW)
 DEG_COMPONENT_NODE_DEFINE(ShadingParameters, SHADING_PARAMETERS, ID_RECALC_DRAW);
 DEG_COMPONENT_NODE_DEFINE(Transform,         TRANSFORM,          ID_RECALC_TRANSFORM);
 DEG_COMPONENT_NODE_DEFINE(ObjectFromLayer,   OBJECT_FROM_LAYER,  ID_RECALC);
+DEG_COMPONENT_NODE_DEFINE(Dupli,             DUPLI,              0);
 
 /* Node Types Register =================================== */
 
@@ -414,6 +420,7 @@ void deg_register_component_depsnodes()
 	deg_register_node_typeinfo(&DNTI_SHADING_PARAMETERS);
 	deg_register_node_typeinfo(&DNTI_TRANSFORM);
 	deg_register_node_typeinfo(&DNTI_OBJECT_FROM_LAYER);
+	deg_register_node_typeinfo(&DNTI_DUPLI);
 }
 
 }  // namespace DEG

@@ -287,6 +287,7 @@ typedef enum eGPencil_PaintModes {
 /* stroke editing ----- */
 
 void GPENCIL_OT_editmode_toggle(struct wmOperatorType *ot);
+void GPENCIL_OT_selectmode_toggle(struct wmOperatorType *ot);
 void GPENCIL_OT_paintmode_toggle(struct wmOperatorType *ot);
 void GPENCIL_OT_sculptmode_toggle(struct wmOperatorType *ot);
 void GPENCIL_OT_weightmode_toggle(struct wmOperatorType *ot);
@@ -295,7 +296,7 @@ void GPENCIL_OT_selection_opacity_toggle(struct wmOperatorType *ot);
 void GPENCIL_OT_select(struct wmOperatorType *ot);
 void GPENCIL_OT_select_all(struct wmOperatorType *ot);
 void GPENCIL_OT_select_circle(struct wmOperatorType *ot);
-void GPENCIL_OT_select_border(struct wmOperatorType *ot);
+void GPENCIL_OT_select_box(struct wmOperatorType *ot);
 void GPENCIL_OT_select_lasso(struct wmOperatorType *ot);
 
 void GPENCIL_OT_select_linked(struct wmOperatorType *ot);
@@ -488,7 +489,7 @@ typedef enum ACTCONT_TYPES {
 	Depsgraph *depsgraph_ = CTX_data_depsgraph(C);                                      \
 	Object *obact_ = CTX_data_active_object(C);                                          \
 	bGPdata *gpd_ = CTX_data_gpencil_data(C);                                            \
-	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd_);                       \
+	const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd_);                       \
 	CTX_DATA_BEGIN(C, bGPDlayer*, gpl, editable_gpencil_layers)                         \
 	{                                                                                   \
 		bGPDframe *init_gpf = gpl->actframe;                                                \

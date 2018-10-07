@@ -169,6 +169,7 @@ struct uiLayout {
 	bool variable_size;  /* For layouts inside gridflow, they and their items shall never have a fixed maximal size. */
 	char alignment;
 	char emboss;
+	float units[2];  /* for fixed width or height to avoid UI size changes */
 };
 
 typedef struct uiLayoutItemFlow {
@@ -413,7 +414,7 @@ static void ui_layer_but_cb(bContext *C, void *arg_but, void *arg_index)
 	uiBut *but = arg_but, *cbut;
 	PointerRNA *ptr = &but->rnapoin;
 	PropertyRNA *prop = but->rnaprop;
-	int i, index = GET_INT_FROM_POINTER(arg_index);
+	int i, index = POINTER_AS_INT(arg_index);
 	int shift = win->eventstate->shift;
 	int len = RNA_property_array_length(ptr, prop);
 
@@ -507,7 +508,7 @@ static void ui_item_array(
 
 				but = uiDefAutoButR(block, ptr, prop, layer_num, "", icon, x + butw * a, y + buth, butw, buth);
 				if (subtype == PROP_LAYER_MEMBER)
-					UI_but_func_set(but, ui_layer_but_cb, but, SET_INT_IN_POINTER(layer_num));
+					UI_but_func_set(but, ui_layer_but_cb, but, POINTER_FROM_INT(layer_num));
 			}
 			for (a = 0; a < colbuts; a++) {
 				const int layer_num  = a + len / 2 + b * colbuts;
@@ -525,7 +526,7 @@ static void ui_item_array(
 
 				but = uiDefAutoButR(block, ptr, prop, layer_num, "", icon, x + butw * a, y, butw, buth);
 				if (subtype == PROP_LAYER_MEMBER)
-					UI_but_func_set(but, ui_layer_but_cb, but, SET_INT_IN_POINTER(layer_num));
+					UI_but_func_set(but, ui_layer_but_cb, but, POINTER_FROM_INT(layer_num));
 			}
 			UI_block_align_end(block);
 
@@ -623,7 +624,7 @@ static void ui_item_enum_expand_handle(bContext *C, void *arg1, void *arg2)
 
 	if (!win->eventstate->shift) {
 		uiBut *but = (uiBut *)arg1;
-		int enum_value = GET_INT_FROM_POINTER(arg2);
+		int enum_value = POINTER_AS_INT(arg2);
 
 		int current_value = RNA_property_enum_get(&but->rnapoin, but->rnaprop);
 		if (!(current_value & enum_value)) {
@@ -707,7 +708,7 @@ static void ui_item_enum_expand(
 			but = uiDefButR_prop(block, UI_BTYPE_ROW, 0, name, 0, 0, itemw, h, ptr, prop, -1, 0, value, -1, -1, NULL);
 
 		if (RNA_property_flag(prop) & PROP_ENUM_FLAG) {
-			UI_but_func_set(but, ui_item_enum_expand_handle, but, SET_INT_IN_POINTER(value));
+			UI_but_func_set(but, ui_item_enum_expand_handle, but, POINTER_FROM_INT(value));
 		}
 
 		if (ui_layout_local_dir(layout) != UI_LAYOUT_HORIZONTAL)
@@ -1219,7 +1220,7 @@ void uiItemsFullEnumO_items(
 					uiItemS(target);
 				}
 				else {
-					/* XXX bug here, colums draw bottom item badly */
+					/* XXX bug here, columns draw bottom item badly */
 					uiItemS(target);
 				}
 			}
@@ -2313,12 +2314,15 @@ static uiBut *uiItemL_(uiLayout *layout, const char *name, int icon)
 
 	w = ui_text_icon_width(layout, name, icon, 0);
 
-	if (icon && name[0])
-		but = uiDefIconTextBut(block, UI_BTYPE_LABEL, 0, icon, name, 0, 0, w, UI_UNIT_Y, NULL, 0.0, 0.0, 0, 0, "");
-	else if (icon)
-		but = uiDefIconBut(block, UI_BTYPE_LABEL, 0, icon, 0, 0, w, UI_UNIT_Y, NULL, 0.0, 0.0, 0, 0, "");
-	else
-		but = uiDefBut(block, UI_BTYPE_LABEL, 0, name, 0, 0, w, UI_UNIT_Y, NULL, 0.0, 0.0, 0, 0, "");
+	if (icon && name[0]) {
+		but = uiDefIconTextBut(block, UI_BTYPE_LABEL, 0, icon, name, 0, 0, w, UI_UNIT_Y, NULL, 0.0, 0.0, 0, 0, NULL);
+	}
+	else if (icon) {
+		but = uiDefIconBut(block, UI_BTYPE_LABEL, 0, icon, 0, 0, w, UI_UNIT_Y, NULL, 0.0, 0.0, 0, 0, NULL);
+	}
+	else {
+		but = uiDefBut(block, UI_BTYPE_LABEL, 0, name, 0, 0, w, UI_UNIT_Y, NULL, 0.0, 0.0, 0, 0, NULL);
+	}
 
 	/* to compensate for string size padding in ui_text_icon_width,
 	 * make text aligned right if the layout is aligned right.
@@ -3066,7 +3070,7 @@ static void ui_litem_layout_column_flow(uiLayout *litem)
 
 /* multi-column and multi-row layout. */
 typedef struct UILayoutGridFlowInput {
-	/* General layout controll settings. */
+	/* General layout control settings. */
 	const bool row_major : 1;  /* Fill rows before columns */
 	const bool even_columns : 1;  /* All columns will have same width. */
 	const bool even_rows : 1;  /* All rows will have same height. */
@@ -3274,7 +3278,7 @@ static void ui_litem_estimate_grid_flow(uiLayout *litem)
 
 		/* Even in varying column width case, we fix our columns number from weighted average width of items,
 		 * a proper solving of required width would be too costly, and this should give reasonably good results
-		 * in all resonable cases... */
+		 * in all reasonable cases... */
 		if (gflow->columns_len > 0) {
 			gflow->tot_columns = gflow->columns_len;
 		}
@@ -3297,7 +3301,7 @@ static void ui_litem_estimate_grid_flow(uiLayout *litem)
 			const int step = modulo ? modulo : 1;
 
 			if (gflow->row_major) {
-				/* Adjust number of columns to be mutiple of given modulo. */
+				/* Adjust number of columns to be multiple of given modulo. */
 				if (modulo && gflow->tot_columns % modulo != 0 && gflow->tot_columns > modulo) {
 					gflow->tot_columns = gflow->tot_columns - (gflow->tot_columns % modulo);
 				}
@@ -3308,7 +3312,7 @@ static void ui_litem_estimate_grid_flow(uiLayout *litem)
 				     gflow->tot_columns -= step);
 			}
 			else {
-				/* Adjust number of rows to be mutiple of given modulo. */
+				/* Adjust number of rows to be multiple of given modulo. */
 				if (modulo && gflow->tot_rows % modulo != 0) {
 					gflow->tot_rows = min_ii(gflow->tot_rows + modulo - (gflow->tot_rows % modulo), gflow->tot_items);
 				}
@@ -3853,6 +3857,16 @@ void uiLayoutSetScaleY(uiLayout *layout, float scale)
 	layout->scale[1] = scale;
 }
 
+void uiLayoutSetUnitsX(uiLayout *layout, float unit)
+{
+	layout->units[0] = unit;
+}
+
+void uiLayoutSetUnitsY(uiLayout *layout, float unit)
+{
+	layout->units[1] = unit;
+}
+
 void uiLayoutSetEmboss(uiLayout *layout, char emboss)
 {
 	layout->emboss = emboss;
@@ -3916,6 +3930,16 @@ float uiLayoutGetScaleX(uiLayout *layout)
 float uiLayoutGetScaleY(uiLayout *layout)
 {
 	return layout->scale[1];
+}
+
+float uiLayoutGetUnitsX(uiLayout *layout)
+{
+	return layout->units[0];
+}
+
+float uiLayoutGetUnitsY(uiLayout *layout)
+{
+	return layout->units[1];
 }
 
 int uiLayoutGetEmboss(uiLayout *layout)
@@ -4007,6 +4031,14 @@ static void ui_item_estimate(uiItem *item)
 				break;
 			default:
 				break;
+		}
+
+		/* Force fixed size. */
+		if (litem->units[0] > 0) {
+			litem->w = UI_UNIT_X * litem->units[0];
+		}
+		if (litem->units[1] > 0) {
+			litem->h = UI_UNIT_Y * litem->units[1];
 		}
 	}
 }

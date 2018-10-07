@@ -649,7 +649,7 @@ void BKE_scene_init(Scene *sce)
 	sce->toolsettings->uvcalc_flag = UVCALC_TRANSFORM_CORRECT;
 	sce->toolsettings->unwrapper = 1;
 	sce->toolsettings->select_thresh = 0.01f;
-	sce->toolsettings->gizmo_flag = SCE_MANIP_TRANSLATE | SCE_MANIP_ROTATE | SCE_MANIP_SCALE;
+	sce->toolsettings->gizmo_flag = SCE_GIZMO_SHOW_TRANSLATE | SCE_GIZMO_SHOW_ROTATE | SCE_GIZMO_SHOW_SCALE;
 
 	sce->toolsettings->selectmode = SCE_SELECT_VERTEX;
 	sce->toolsettings->uv_selectmode = UV_SELECT_VERTEX;
@@ -690,7 +690,6 @@ void BKE_scene_init(Scene *sce)
 	/* grease pencil multiframe falloff curve */
 	sce->toolsettings->gp_sculpt.cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
 	CurveMapping *gp_falloff_curve = sce->toolsettings->gp_sculpt.cur_falloff;
-	curvemapping_set_defaults(gp_falloff_curve, 1, 0.0f, 0.0f, 1.0f, 1.0f);
 	curvemapping_initialize(gp_falloff_curve);
 	curvemap_reset(gp_falloff_curve->cm,
 		&gp_falloff_curve->clipr,
@@ -704,6 +703,9 @@ void BKE_scene_init(Scene *sce)
 
 	sce->unit.system = USER_UNIT_METRIC;
 	sce->unit.scale_length = 1.0f;
+	sce->unit.length_unit = bUnit_GetBaseUnitOfType(USER_UNIT_METRIC, B_UNIT_LENGTH);
+	sce->unit.mass_unit = bUnit_GetBaseUnitOfType(USER_UNIT_METRIC, B_UNIT_MASS);
+	sce->unit.time_unit = bUnit_GetBaseUnitOfType(USER_UNIT_METRIC, B_UNIT_TIME);
 
 	pset = &sce->toolsettings->particle;
 	pset->flag = PE_KEEP_LENGTHS | PE_LOCK_FIRST | PE_DEFLECT_EMITTER | PE_AUTO_VELOCITY;
@@ -935,7 +937,7 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 }
 
 /**
- * Check if there is any intance of the object in the scene
+ * Check if there is any instance of the object in the scene
  */
 bool BKE_scene_object_find(Scene *scene, Object *ob)
 {

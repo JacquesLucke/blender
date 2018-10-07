@@ -988,13 +988,6 @@ static int edbm_mark_seam_exec(bContext *C, wmOperator *op)
 			continue;
 		}
 
-		Mesh *me = ((Mesh *)obedit->data);
-
-		/* auto-enable seams drawing */
-		if (clear == 0) {
-			me->drawflag |= ME_DRAWSEAMS;
-		}
-
 		if (clear) {
 			BM_ITER_MESH (eed, &iter, bm, BM_EDGES_OF_MESH) {
 				if (!BM_elem_flag_test(eed, BM_ELEM_SELECT) || BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
@@ -1063,15 +1056,9 @@ static int edbm_mark_sharp_exec(bContext *C, wmOperator *op)
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
 		BMesh *bm = em->bm;
-		Mesh *me = ((Mesh *)obedit->data);
 
 		if (bm->totedgesel == 0) {
 			continue;
-		}
-
-		/* auto-enable sharp edge drawing */
-		if (clear == 0) {
-			me->drawflag |= ME_DRAWSHARP;
 		}
 
 		BM_ITER_MESH (eed, &iter, bm, BM_EDGES_OF_MESH) {
@@ -1923,7 +1910,7 @@ static int edbm_edge_rotate_selected_exec(bContext *C, wmOperator *op)
 		BMO_slot_buffer_hflag_disable(em->bm, bmop.slots_in, "edges", BM_EDGE, BM_ELEM_SELECT, true);
 
 		BMO_op_exec(em->bm, &bmop);
-		/* edges may rotate into hidden vertices, if this does _not_ run we get an ilogical state */
+		/* edges may rotate into hidden vertices, if this does _not_ run we get an illogical state */
 		BMO_slot_buffer_hflag_disable(em->bm, bmop.slots_out, "edges.out", BM_EDGE, BM_ELEM_HIDDEN, true);
 		BMO_slot_buffer_hflag_enable(em->bm, bmop.slots_out, "edges.out", BM_EDGE, BM_ELEM_SELECT, true);
 
@@ -2951,7 +2938,7 @@ static int edbm_remove_doubles_exec(bContext *C, wmOperator *op)
 		BMOperator bmop;
 		const int totvert_orig = em->bm->totvert;
 
-		/* avoid loosing selection state (select -> tags) */
+		/* avoid losing selection state (select -> tags) */
 		char htype_select;
 		if      (em->selectmode & SCE_SELECT_VERTEX) htype_select = BM_VERT;
 		else if (em->selectmode & SCE_SELECT_EDGE)   htype_select = BM_EDGE;
@@ -3429,7 +3416,7 @@ static float bm_edge_seg_isect(
 		b2 = ((x22 * y21) - (x21 * y22)) / xdiff2;
 	}
 	else {
-		m2 = MAXSLOPE;  /* Verticle slope  */
+		m2 = MAXSLOPE;  /* Vertical slope  */
 		b2 = x22;
 	}
 
@@ -5449,6 +5436,7 @@ static int edbm_dissolve_degenerate_exec(bContext *C, wmOperator *op)
 		totelem_new[1] += bm->totedge;
 		totelem_new[2] += bm->totface;
 	}
+	MEM_freeN(objects);
 
 	edbm_report_delete_info(op->reports, totelem_old, totelem_new);
 
@@ -5638,6 +5626,7 @@ static int bmelemsort_comp(const void *v1, const void *v2)
 
 /* Reorders vertices/edges/faces using a given methods. Loops are not supported. */
 static void sort_bmelem_flag(
+        bContext *C,
         Scene *scene, Object *ob,
         View3D *v3d, RegionView3D *rv3d,
         const int types, const int flag, const int action,
@@ -6062,7 +6051,8 @@ static void sort_bmelem_flag(
 	}
 
 	BM_mesh_remap(em->bm, map[0], map[1], map[2]);
-/*	DEG_id_tag_update(ob->data, 0);*/
+	DEG_id_tag_update(ob->data, OB_RECALC_DATA);
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 
 	for (j = 3; j--; ) {
 		if (map[j])
@@ -6073,7 +6063,8 @@ static void sort_bmelem_flag(
 static int edbm_sort_elements_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
-	Object *ob = CTX_data_edit_object(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob_active = CTX_data_edit_object(C);
 
 	/* may be NULL */
 	View3D *v3d = CTX_wm_view3d(C);
@@ -6097,7 +6088,7 @@ static int edbm_sort_elements_exec(bContext *C, wmOperator *op)
 		elem_types = RNA_property_enum_get(op->ptr, prop_elem_types);
 	}
 	else {
-		BMEditMesh *em = BKE_editmesh_from_object(ob);
+		BMEditMesh *em = BKE_editmesh_from_object(ob_active);
 		if (em->selectmode & SCE_SELECT_VERTEX)
 			elem_types |= BM_VERT;
 		if (em->selectmode & SCE_SELECT_EDGE)
@@ -6107,9 +6098,33 @@ static int edbm_sort_elements_exec(bContext *C, wmOperator *op)
 		RNA_enum_set(op->ptr, "elements", elem_types);
 	}
 
-	sort_bmelem_flag(
-	        scene, ob, v3d, rv3d,
-	        elem_types, BM_ELEM_SELECT, action, use_reverse, seed);
+	uint objects_len = 0;
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+
+	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
+		Object *ob = objects[ob_index];
+		BMEditMesh *em = BKE_editmesh_from_object(ob);
+		BMesh *bm = em->bm;
+
+		if (!((elem_types & BM_VERT && bm->totvertsel > 0) ||
+		      (elem_types & BM_EDGE && bm->totedgesel > 0) ||
+		      (elem_types & BM_FACE && bm->totfacesel > 0)))
+		{
+			continue;
+		}
+
+		int seed_iter = seed;
+
+		/* This gives a consistent result regardless of object order */
+		if (ob_index) {
+			seed_iter += BLI_ghashutil_strhash_p(ob->id.name);
+		}
+
+		sort_bmelem_flag(
+		            C, scene, ob, v3d, rv3d,
+		            elem_types, BM_ELEM_SELECT, action, use_reverse, seed_iter);
+	}
+	MEM_freeN(objects);
 	return OPERATOR_FINISHED;
 }
 
@@ -6937,15 +6952,9 @@ static int edbm_mark_freestyle_edge_exec(bContext *C, wmOperator *op)
 		}
 
 		BMesh *bm = em->bm;
-		Mesh *me = ((Mesh *)obedit->data);
 
 		if (bm->totedgesel == 0) {
 			continue;
-		}
-
-		/* auto-enable Freestyle edge mark drawing */
-		if (clear == 0) {
-			me->drawflag |= ME_DRAW_FREESTYLE_EDGE;
 		}
 
 		if (!CustomData_has_layer(&em->bm->edata, CD_FREESTYLE_EDGE)) {
@@ -7015,7 +7024,6 @@ static int edbm_mark_freestyle_face_exec(bContext *C, wmOperator *op)
 	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
-		Mesh *me = (Mesh *)obedit->data;
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
 
 		if (em == NULL) {
@@ -7024,11 +7032,6 @@ static int edbm_mark_freestyle_face_exec(bContext *C, wmOperator *op)
 
 		if (em->bm->totfacesel == 0) {
 			continue;
-		}
-
-		/* auto-enable Freestyle face mark drawing */
-		if (!clear) {
-			me->drawflag |= ME_DRAW_FREESTYLE_FACE;
 		}
 
 		if (!CustomData_has_layer(&em->bm->pdata, CD_FREESTYLE_FACE)) {
@@ -7714,10 +7717,6 @@ static int normals_split_merge(bContext *C, const bool do_merge)
 		if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
 			BM_elem_flag_set(e, BM_ELEM_SMOOTH, do_merge);
 		}
-	}
-	if (do_merge == 0) {
-		Mesh *me = obedit->data;
-		me->drawflag |= ME_DRAWSHARP;
 	}
 
 	bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;

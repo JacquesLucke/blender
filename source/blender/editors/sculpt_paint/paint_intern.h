@@ -54,9 +54,13 @@ struct wmEvent;
 struct wmOperator;
 struct wmOperatorType;
 struct wmWindowManager;
-struct DMCoNo;
 struct UndoStep;
 enum ePaintMode;
+
+typedef struct CoNo {
+	float co[3];
+	float no[3];
+} CoNo;
 
 /* paint_stroke.c */
 typedef bool (*StrokeGetLocation)(struct bContext *C, float location[3], const float mouse[2]);
@@ -116,7 +120,7 @@ void PAINT_OT_weight_gradient(struct wmOperatorType *ot);
 void PAINT_OT_vertex_paint_toggle(struct wmOperatorType *ot);
 void PAINT_OT_vertex_paint(struct wmOperatorType *ot);
 
-unsigned int vpaint_get_current_col(struct Scene *scene, struct VPaint *vp);
+unsigned int vpaint_get_current_col(struct Scene *scene, struct VPaint *vp, bool secondary);
 
 /* paint_vertex_color_utils.c */
 unsigned int ED_vpaint_blend_tool(
@@ -161,7 +165,7 @@ void PAINT_OT_weight_sample_group(struct wmOperatorType *ot);
 struct VertProjHandle;
 struct VertProjHandle *ED_vpaint_proj_handle_create(
         struct Depsgraph *depsgraph, struct Scene *scene, struct Object *ob,
-        struct DMCoNo **r_vcosnos);
+        struct CoNo **r_vcosnos);
 void  ED_vpaint_proj_handle_update(
         struct Depsgraph *depsgraph, struct VertProjHandle *vp_handle,
         /* runtime vars */

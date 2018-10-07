@@ -46,6 +46,11 @@
 extern struct GPUUniformBuffer *globals_ubo; /* draw_common.c */
 extern struct GlobalsUboStorage ts; /* draw_common.c */
 
+extern struct GPUTexture *globals_weight_ramp; /* draw_common.c */
+
+extern char datatoc_paint_weight_vert_glsl[];
+extern char datatoc_paint_weight_frag_glsl[];
+
 extern char datatoc_edit_mesh_overlay_common_lib_glsl[];
 extern char datatoc_edit_mesh_overlay_frag_glsl[];
 extern char datatoc_edit_mesh_overlay_vert_glsl[];
@@ -66,7 +71,7 @@ extern char datatoc_gpu_shader_uniform_color_frag_glsl[];
 
 /* *********** LISTS *********** */
 typedef struct EDIT_MESH_PassList {
-	struct DRWPass *vcolor_faces;
+	struct DRWPass *weight_faces;
 	struct DRWPass *depth_hidden_wire;
 	struct DRWPass *ghost_clear_depth;
 	struct DRWPass *edit_face_overlay;
@@ -97,8 +102,8 @@ typedef struct EDIT_MESH_Data {
 #define MAX_SHADERS 16
 
 static struct {
-	/* weight/vert-color */
-	GPUShader *vcolor_face_shader;
+	/* weight */
+	GPUShader *weight_face_shader;
 
 	/* Geometry */
 	GPUShader *overlay_tri_sh_cache[MAX_SHADERS];
@@ -119,8 +124,8 @@ static struct {
 } e_data = {NULL}; /* Engine data */
 
 typedef struct EDIT_MESH_PrivateData {
-	/* weight/vert-color */
-	DRWShadingGroup *fvcolor_shgrp;
+	/* weight */
+	DRWShadingGroup *fweights_shgrp;
 	DRWShadingGroup *depth_shgrp_hidden_wire;
 
 	DRWShadingGroup *fnormals_shgrp;
@@ -258,8 +263,11 @@ static void EDIT_MESH_engine_init(void *vedata)
 		GPU_ATTACHMENT_TEXTURE(e_data.occlude_wire_color_tx)
 	});
 
-	if (!e_data.vcolor_face_shader) {
-		e_data.vcolor_face_shader = GPU_shader_get_builtin_shader(GPU_SHADER_SIMPLE_LIGHTING_SMOOTH_COLOR_ALPHA);
+	if (!e_data.weight_face_shader) {
+		e_data.weight_face_shader = DRW_shader_create_with_lib(
+		        datatoc_paint_weight_vert_glsl, NULL,
+		        datatoc_paint_weight_frag_glsl,
+		        datatoc_common_globals_lib_glsl, NULL);
 	}
 
 	if (!e_data.overlay_vert_sh) {
@@ -393,9 +401,7 @@ static void EDIT_MESH_cache_init(void *vedata)
 	stl->g_data->do_faces = true;
 	stl->g_data->do_edges = true;
 
-	const bool xray_enabled = ((draw_ctx->v3d->shading.flag & V3D_SHADING_XRAY) != 0) &&
-	                           (draw_ctx->v3d->shading.type < OB_MATERIAL);
-	stl->g_data->do_zbufclip = ((v3d->flag & V3D_ZBUF_SELECT) == 0) || xray_enabled;
+	stl->g_data->do_zbufclip = ((v3d)->shading.flag & XRAY_FLAG(v3d)) != 0;
 
 	/* Applies on top of the theme edge width, so edge-mode can have thick edges. */
 	stl->g_data->edge_width_scale = (tsettings->selectmode & (SCE_SELECT_EDGE)) ? 1.75f : 1.0f;
@@ -407,51 +413,48 @@ static void EDIT_MESH_cache_init(void *vedata)
 
 	if (draw_ctx->object_edit->type == OB_MESH) {
 		if (BKE_object_is_in_editmode(draw_ctx->object_edit)) {
-			const Mesh *me = draw_ctx->object_edit->data;
-			if ((me->drawflag & ME_DRAW_FREESTYLE_FACE) == 0) {
+			if ((v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_FREESTYLE_FACE) == 0) {
 				stl->g_data->data_mask[0] &= ~VFLAG_FACE_FREESTYLE;
 			}
-			if ((me->drawflag & ME_DRAWFACES) == 0) {
+			if ((v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_FACES) == 0) {
 				stl->g_data->data_mask[0] &= ~(VFLAG_FACE_SELECTED & VFLAG_FACE_FREESTYLE);
 				stl->g_data->do_faces = false;
 			}
-			if ((me->drawflag & ME_DRAWSEAMS) == 0) {
+			if ((v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_SEAMS) == 0) {
 				stl->g_data->data_mask[1] &= ~VFLAG_EDGE_SEAM;
 			}
-			if ((me->drawflag & ME_DRAWSHARP) == 0) {
+			if ((v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_SHARP) == 0) {
 				stl->g_data->data_mask[1] &= ~VFLAG_EDGE_SHARP;
 			}
-			if ((me->drawflag & ME_DRAW_FREESTYLE_EDGE) == 0) {
+			if ((v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_FREESTYLE_EDGE) == 0) {
 				stl->g_data->data_mask[1] &= ~VFLAG_EDGE_FREESTYLE;
 			}
-			if ((me->drawflag & ME_DRAWEDGES) == 0) {
+			if ((v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_EDGES) == 0) {
 				if ((tsettings->selectmode & SCE_SELECT_EDGE) == 0) {
 					stl->g_data->data_mask[1] &= ~(VFLAG_EDGE_ACTIVE & VFLAG_EDGE_SELECTED);
 					stl->g_data->do_edges = false;
 				}
 			}
-			if ((me->drawflag & ME_DRAWCREASES) == 0) {
+			if ((v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_CREASES) == 0) {
 				stl->g_data->data_mask[2] = 0x0;
 			}
-			if ((me->drawflag & ME_DRAWBWEIGHTS) == 0) {
+			if ((v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_BWEIGHTS) == 0) {
 				stl->g_data->data_mask[3] = 0x0;
 			}
 		}
 	}
 
 	{
-		psl->vcolor_faces = DRW_pass_create(
-		        "Vert Color Pass",
+		psl->weight_faces = DRW_pass_create(
+		        "Weight Pass",
 		        DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL);
 
-		stl->g_data->fvcolor_shgrp = DRW_shgroup_create(e_data.vcolor_face_shader, psl->vcolor_faces);
+		stl->g_data->fweights_shgrp = DRW_shgroup_create(e_data.weight_face_shader, psl->weight_faces);
 
-		static float light[3] = {-0.3f, 0.5f, 1.0f};
 		static float alpha = 1.0f;
-		static float world_light = 1.0f;  /* XXX, see: paint_vertex_mode.c */
-		DRW_shgroup_uniform_vec3(stl->g_data->fvcolor_shgrp, "light", light, 1);
-		DRW_shgroup_uniform_float(stl->g_data->fvcolor_shgrp, "alpha", &alpha, 1);
-		DRW_shgroup_uniform_float(stl->g_data->fvcolor_shgrp, "global", &world_light, 1);
+		DRW_shgroup_uniform_float(stl->g_data->fweights_shgrp, "opacity", &alpha, 1);
+		DRW_shgroup_uniform_texture(stl->g_data->fweights_shgrp, "colorramp", globals_weight_ramp);
+		DRW_shgroup_uniform_block(stl->g_data->fweights_shgrp, "globalsBlock", globals_ubo);
 	}
 
 	{
@@ -567,14 +570,13 @@ static void EDIT_MESH_cache_populate(void *vedata, Object *ob)
 
 	if (ob->type == OB_MESH) {
 		if ((ob == draw_ctx->object_edit) || BKE_object_is_in_editmode(ob)) {
-			const Mesh *me = ob->data;
 			bool do_occlude_wire = (v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_OCCLUDE_WIRE) != 0;
 			bool do_show_weight = (v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_WEIGHT) != 0;
 			bool fnormals_do = (v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_FACE_NORMALS) != 0;
 			bool vnormals_do = (v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_VERT_NORMALS) != 0;
 			bool lnormals_do = (v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_LOOP_NORMALS) != 0;
 
-			bool show_face_dots = ((Mesh *)draw_ctx->object_edit->data)->drawflag & ME_DRAW_FACE_DOT;
+			bool show_face_dots = (v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_FACE_DOT) != 0;
 
 			if (stl->g_data->do_faces == false &&
 			    stl->g_data->do_edges == false &&
@@ -596,8 +598,8 @@ static void EDIT_MESH_cache_populate(void *vedata, Object *ob)
 			}
 
 			if (do_show_weight) {
-				geom = DRW_cache_mesh_surface_weights_get(ob);
-				DRW_shgroup_call_add(stl->g_data->fvcolor_shgrp, geom, ob->obmat);
+				geom = DRW_cache_mesh_surface_weights_get(ob, tsettings, false);
+				DRW_shgroup_call_add(stl->g_data->fweights_shgrp, geom, ob->obmat);
 			}
 
 			if (do_occlude_wire) {
@@ -648,11 +650,11 @@ static void EDIT_MESH_cache_populate(void *vedata, Object *ob)
 			stl->g_data->edit_ob += 1;
 
 			/* 3D text overlay */
-			if (me->drawflag & (ME_DRAWEXTRA_EDGELEN |
-			                    ME_DRAWEXTRA_FACEAREA |
-			                    ME_DRAWEXTRA_FACEANG |
-			                    ME_DRAWEXTRA_EDGEANG |
-			                    ME_DRAWEXTRA_INDICES))
+			if (v3d->overlay.edit_flag & (V3D_OVERLAY_EDIT_EDGE_LEN |
+			                              V3D_OVERLAY_EDIT_FACE_AREA |
+			                              V3D_OVERLAY_EDIT_FACE_ANG |
+			                              V3D_OVERLAY_EDIT_EDGE_ANG |
+			                              V3D_OVERLAY_EDIT_INDICES))
 			{
 				if (DRW_state_show_text()) {
 					DRW_edit_mesh_mode_text_measure_stats(
@@ -671,7 +673,7 @@ static void EDIT_MESH_draw_scene(void *vedata)
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
-	DRW_draw_pass(psl->vcolor_faces);
+	DRW_draw_pass(psl->weight_faces);
 
 	DRW_draw_pass(psl->depth_hidden_wire);
 
@@ -696,7 +698,7 @@ static void EDIT_MESH_draw_scene(void *vedata)
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		View3D *v3d = draw_ctx->v3d;
 
-		if (v3d->shading.type == OB_SOLID && (v3d->shading.flag & V3D_SHADING_XRAY) == 0) {
+		if (v3d->shading.type == OB_SOLID && (v3d->shading.flag & XRAY_FLAG(v3d)) == 0) {
 			if (stl->g_data->ghost_ob == 1 && stl->g_data->edit_ob == 1) {
 				/* In the case of single ghost object edit (common case for retopology):
 				 * we duplicate the depht+stencil buffer and clear all depth to 1.0f where
@@ -722,6 +724,8 @@ static void EDIT_MESH_draw_scene(void *vedata)
 
 static void EDIT_MESH_engine_free(void)
 {
+	DRW_SHADER_FREE_SAFE(e_data.weight_face_shader);
+
 	DRW_SHADER_FREE_SAFE(e_data.overlay_vert_sh);
 	DRW_SHADER_FREE_SAFE(e_data.overlay_facedot_sh);
 	DRW_SHADER_FREE_SAFE(e_data.overlay_mix_sh);

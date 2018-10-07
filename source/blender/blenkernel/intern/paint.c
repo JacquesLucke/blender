@@ -448,7 +448,7 @@ bool BKE_palette_is_empty(const struct Palette *palette)
 	return BLI_listbase_is_empty(&palette->colors);
 }
 
-/* are we in vertex paint or weight pain face select mode? */
+/* are we in vertex paint or weight paint face select mode? */
 bool BKE_paint_select_face_test(Object *ob)
 {
 	return ( (ob != NULL) &&
@@ -943,7 +943,7 @@ void BKE_sculpt_update_mesh_elements(
 		ss->vmask = CustomData_get_layer(&me->vdata, CD_PAINT_MASK);
 	}
 
-	ss->subdiv_ccg = me_eval->runtime.subsurf_ccg;
+	ss->subdiv_ccg = me_eval->runtime.subdiv_ccg;
 
 	PBVH *pbvh = BKE_sculpt_object_pbvh_ensure(depsgraph, ob);
 	BLI_assert(pbvh == ss->pbvh);
@@ -1197,7 +1197,7 @@ static PBVH *build_pbvh_from_ccg(Object *ob, SubdivCCG *subdiv_ccg)
 	        pbvh,
 	        subdiv_ccg->grids, subdiv_ccg->num_grids,
 	        &key,
-	        NULL,
+	        (void **)subdiv_ccg->grid_faces,
 	        subdiv_ccg->grid_flag_mats,
 	        subdiv_ccg->grid_hidden);
 	pbvh_show_diffuse_color_set(pbvh, ob->sculpt->show_diffuse_color);
@@ -1223,8 +1223,8 @@ PBVH *BKE_sculpt_object_pbvh_ensure(Depsgraph *depsgraph, Object *ob)
 	else {
 		Object *object_eval = DEG_get_evaluated_object(depsgraph, ob);
 		Mesh *mesh_eval = object_eval->data;
-		if (mesh_eval->runtime.subsurf_ccg != NULL) {
-			pbvh = build_pbvh_from_ccg(ob, mesh_eval->runtime.subsurf_ccg);
+		if (mesh_eval->runtime.subdiv_ccg != NULL) {
+			pbvh = build_pbvh_from_ccg(ob, mesh_eval->runtime.subdiv_ccg);
 		}
 		else if (ob->type == OB_MESH) {
 			Mesh *me_eval_deform = mesh_get_eval_deform(

@@ -424,7 +424,7 @@ static void file_main_region_draw(const bContext *C, ARegion *ar)
 		v2d->keepofs |= V2D_LOCKOFS_Y;
 
 		/* XXX this happens on scaling down Screen (like from startup.blend) */
-		/* view2d has no type specific for filewindow case, which doesnt scroll vertically */
+		/* view2d has no type specific for filewindow case, which doesn't scroll vertically */
 		if (v2d->cur.ymax < 0) {
 			v2d->cur.ymin -= v2d->cur.ymax;
 			v2d->cur.ymax = 0;
@@ -462,7 +462,7 @@ static void file_operatortypes(void)
 	WM_operatortype_append(FILE_OT_select);
 	WM_operatortype_append(FILE_OT_select_walk);
 	WM_operatortype_append(FILE_OT_select_all);
-	WM_operatortype_append(FILE_OT_select_border);
+	WM_operatortype_append(FILE_OT_select_box);
 	WM_operatortype_append(FILE_OT_select_bookmark);
 	WM_operatortype_append(FILE_OT_highlight);
 	WM_operatortype_append(FILE_OT_execute);
@@ -588,8 +588,8 @@ static void file_keymap(struct wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "FILE_OT_next", BUTTON5MOUSE, KM_CLICK, 0, 0);
 
 	WM_keymap_add_item(keymap, "FILE_OT_select_all", AKEY, KM_PRESS, 0, 0);
-	WM_keymap_add_item(keymap, "FILE_OT_select_border", BKEY, KM_PRESS, 0, 0);
-	WM_keymap_add_item(keymap, "FILE_OT_select_border", EVT_TWEAK_L, KM_ANY, 0, 0);
+	WM_keymap_add_item(keymap, "FILE_OT_select_box", BKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "FILE_OT_select_box", EVT_TWEAK_L, KM_ANY, 0, 0);
 	WM_keymap_add_item(keymap, "FILE_OT_rename", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
 	WM_keymap_add_item(keymap, "FILE_OT_highlight", MOUSEMOVE, KM_ANY, KM_ANY, 0);
 	kmi = WM_keymap_add_item(keymap, "FILE_OT_filenum", PADPLUSKEY, KM_PRESS, 0, 0);

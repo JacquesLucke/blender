@@ -14,6 +14,8 @@ layout(std140) uniform globalsBlock {
 	vec4 colorEmpty;
 	vec4 colorVertex;
 	vec4 colorVertexSelect;
+	vec4 colorVertexUnreferenced;
+	vec4 colorVertexMissingData;
 	vec4 colorEditMeshActive;
 	vec4 colorEdgeSelect;
 	vec4 colorEdgeSeam;
@@ -46,7 +48,9 @@ layout(std140) uniform globalsBlock {
 	vec4 colorHandleSelAlign;
 	vec4 colorHandleSelAutoclamp;
 	vec4 colorNurbUline;
+	vec4 colorNurbVline;
 	vec4 colorNurbSelUline;
+	vec4 colorNurbSelVline;
 	vec4 colorActiveSpline;
 
 	vec4 colorBonePose;
@@ -71,4 +75,6 @@ layout(std140) uniform globalsBlock {
 	float gridResolution;
 	float gridSubdivisions;
 	float gridScale;
+
+	float pad_globalsBlock;
 };

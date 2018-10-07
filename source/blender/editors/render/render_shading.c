@@ -186,6 +186,7 @@ void OBJECT_OT_material_slot_remove(wmOperatorType *ot)
 static int material_slot_assign_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *ob = ED_object_context(C);
+	View3D *v3d = CTX_wm_view3d(C);
 
 	if (!ob)
 		return OPERATOR_CANCELLED;
@@ -209,7 +210,7 @@ static int material_slot_assign_exec(bContext *C, wmOperator *UNUSED(op))
 
 			if (nurbs) {
 				for (nu = nurbs->first; nu; nu = nu->next) {
-					if (ED_curve_nurb_select_check(ob->data, nu)) {
+					if (ED_curve_nurb_select_check(v3d, nu)) {
 						nu->mat_nr = ob->actcol - 1;
 					}
 				}
@@ -831,6 +832,10 @@ static bool light_cache_free_poll(bContext *C)
 static int light_cache_free_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Scene *scene = CTX_data_scene(C);
+
+	/* kill potential bake job first (see T57011) */
+	wmWindowManager *wm = CTX_wm_manager(C);
+	WM_jobs_kill_type(wm, scene, WM_JOB_TYPE_LIGHT_BAKE);
 
 	if (!scene->eevee.light_cache) {
 		return OPERATOR_CANCELLED;

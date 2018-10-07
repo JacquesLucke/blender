@@ -42,10 +42,11 @@
 #include "WM_types.h"
 
 static const EnumPropertyItem effector_shape_items[] = {
-	{PFIELD_SHAPE_POINT, "POINT", 0, "Point", ""},
-	{PFIELD_SHAPE_PLANE, "PLANE", 0, "Plane", ""},
-	{PFIELD_SHAPE_SURFACE, "SURFACE", 0, "Surface", ""},
-	{PFIELD_SHAPE_POINTS, "POINTS", 0, "Every Point", ""},
+	{PFIELD_SHAPE_POINT, "POINT", 0, "Point", "Field originates from the object center"},
+	{PFIELD_SHAPE_LINE, "LINE", 0, "Line", "Field originates from the local Z axis of the object"},
+	{PFIELD_SHAPE_PLANE, "PLANE", 0, "Plane", "Field originates from the local XY plane of the object"},
+	{PFIELD_SHAPE_SURFACE, "SURFACE", 0, "Surface", "Field originates from the surface of the object"},
+	{PFIELD_SHAPE_POINTS, "POINTS", 0, "Every Point", "Field originates from all of the vertices of the object"},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -56,15 +57,17 @@ static const EnumPropertyItem effector_shape_items[] = {
 
 /* type specific return values only used from functions */
 static const EnumPropertyItem curve_shape_items[] = {
-	{PFIELD_SHAPE_POINT, "POINT", 0, "Point", ""},
-	{PFIELD_SHAPE_PLANE, "PLANE", 0, "Plane", ""},
-	{PFIELD_SHAPE_SURFACE, "SURFACE", 0, "Curve", ""},
+	{PFIELD_SHAPE_POINT, "POINT", 0, "Point", "Field originates from the object center"},
+	{PFIELD_SHAPE_LINE, "LINE", 0, "Line", "Field originates from the local Z axis of the object"},
+	{PFIELD_SHAPE_PLANE, "PLANE", 0, "Plane", "Field originates from the local XY plane of the object"},
+	{PFIELD_SHAPE_SURFACE, "SURFACE", 0, "Curve", "Field originates from the curve itself"},
 	{0, NULL, 0, NULL, NULL}
 };
 
 static const EnumPropertyItem empty_shape_items[] = {
-	{PFIELD_SHAPE_POINT, "POINT", 0, "Point", ""},
-	{PFIELD_SHAPE_PLANE, "PLANE", 0, "Plane", ""},
+	{PFIELD_SHAPE_POINT, "POINT", 0, "Point", "Field originates from the object center"},
+	{PFIELD_SHAPE_LINE, "LINE", 0, "Line", "Field originates from the local Z axis of the object"},
+	{PFIELD_SHAPE_PLANE, "PLANE", 0, "Plane", "Field originates from the local XY plane of the object"},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -860,7 +863,7 @@ static void rna_def_pointcache_active(BlenderRNA *brna)
 	/* This first-level RNA pointer also has list of all caches from owning ID.
 	 * Those caches items have exact same content as 'active' one, except for that collection,
 	 * to prevent ugly recursive layout pattern.
-	 * Note: This shall probably be redone from scratch in a proper way at some poitn, but for now that will do,
+	 * Note: This shall probably be redone from scratch in a proper way at some point, but for now that will do,
 	 *       and shall not break anything in the API. */
 	prop = RNA_def_property(srna, "point_caches", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_funcs(prop, "rna_Cache_list_begin", "rna_iterator_listbase_next",
@@ -954,6 +957,22 @@ static void rna_def_collision(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 0.0f, 1.0f, 1, 2);
 	RNA_def_property_ui_text(prop, "Absorption",
 	                         "How much of effector force gets lost during collision with this object (in percent)");
+	RNA_def_property_update(prop, 0, "rna_CollisionSettings_update");
+
+	prop = RNA_def_property(srna, "cloth_friction", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "pdef_cfrict");
+	RNA_def_property_range(prop, 0.0f, 80.0f);
+	RNA_def_property_ui_text(prop, "Friction", "Friction for cloth collisions");
+	RNA_def_property_update(prop, 0, "rna_CollisionSettings_update");
+
+	prop = RNA_def_property(srna, "use_culling", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", PFIELD_CLOTH_USE_CULLING);
+	RNA_def_property_ui_text(prop, "Single Sided", "Cloth collision acts with respect to the collider normals (improves penetration recovery)");
+	RNA_def_property_update(prop, 0, "rna_CollisionSettings_update");
+
+	prop = RNA_def_property(srna, "use_normal", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", PFIELD_CLOTH_USE_NORMAL);
+	RNA_def_property_ui_text(prop, "Override Normals", "Cloth collision impulses act in the direction of the collider normals (more reliable in some cases)");
 	RNA_def_property_update(prop, 0, "rna_CollisionSettings_update");
 }
 

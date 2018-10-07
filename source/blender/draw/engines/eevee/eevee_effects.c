@@ -220,7 +220,7 @@ void EEVEE_effects_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata, Object 
 	}
 
 	/**
-	 * Compute Mipmap texel alignement.
+	 * Compute Mipmap texel alignment.
 	 */
 	for (int i = 0; i < 10; ++i) {
 		int mip_size[2];
@@ -437,7 +437,7 @@ void EEVEE_create_minmax_buffer(EEVEE_Data *vedata, GPUTexture *depth_src, int l
 	GPU_framebuffer_recursive_downsample(fbl->downsample_fb, stl->g_data->minzbuffer, 8, &min_downsample_cb, vedata);
 	DRW_stats_group_end();
 #endif
-	int minmax_size[2], depth_size[2];
+	int minmax_size[3], depth_size[3];
 	GPU_texture_get_mipmap_size(depth_src, 0, depth_size);
 	GPU_texture_get_mipmap_size(txl->maxzbuffer, 0, minmax_size);
 	bool is_full_res_minmaxz = (minmax_size[0] == depth_size[0] && minmax_size[1] == depth_size[1]);
@@ -561,7 +561,7 @@ void EEVEE_draw_effects(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
 	/* Update double buffer status if render mode. */
 	if (DRW_state_is_image_render()) {
 		stl->g_data->valid_double_buffer = (txl->color_double_buffer != NULL);
-		stl->g_data->valid_taa_history = (txl->taa_history != NULL);;
+		stl->g_data->valid_taa_history = (txl->taa_history != NULL);
 	}
 }
 

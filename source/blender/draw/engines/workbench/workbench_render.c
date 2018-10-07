@@ -137,7 +137,7 @@ void workbench_render(WORKBENCH_Data *data, RenderEngine *engine, RenderLayer *r
 		return;
 	}
 
-	const bool deferred = (scene->display.shading.flag & V3D_SHADING_XRAY) == 0;
+	const bool deferred = (scene->display.shading.flag & XRAY_FLAG(&scene->display)) == 0;
 
 	if (deferred) {
 		/* Init engine. */

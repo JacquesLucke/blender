@@ -225,7 +225,7 @@ static void setup_app_data(
 		/* We need to tag this here because events may be handled immediately after.
 		 * only the current screen is important because we wont have to handle
 		 * events from multiple screens at once.*/
-		{
+		if (curscreen) {
 			BKE_screen_gizmo_tag_refresh(curscreen);
 		}
 	}
@@ -417,7 +417,7 @@ bool BKE_blendfile_read_from_memory(
 	bfd = BLO_read_from_memory(filebuf, filelength, reports, skip_flags);
 	if (bfd) {
 		if (update_defaults)
-			BLO_update_defaults_startup_blend(bfd->main);
+			BLO_update_defaults_startup_blend(bfd->main, NULL);
 		setup_app_data(C, bfd, "<memory2>", reports);
 	}
 	else {

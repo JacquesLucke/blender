@@ -35,7 +35,9 @@
 /* elubie: TODO: move the typedef for icons to UI_interface_icons.h */
 /* and add/replace include of UI_resources.h by UI_interface_icons.h */
 #define DEF_ICON(name) ICON_##name,
-#define DEF_VICO(name) VICO_##name,
+#define DEF_ICON_VECTOR(name) ICON_##name,
+#define DEF_ICON_MONO(name) ICON_##name,
+#define DEF_ICON_BLANK(name) ICON_BLANK_##name,
 
 typedef enum {
 	/* ui */
@@ -46,7 +48,9 @@ typedef enum {
 #define BIFICONID_FIRST  (ICON_NONE)
 
 #undef DEF_ICON
-#undef DEF_VICO
+#undef DEF_ICON_VECTOR
+#undef DEF_ICON_MONO
+#undef DEF_ICON_BLANK
 
 /* use to denote intentionally unset theme color */
 #define TH_UNDEFINED -1
@@ -261,6 +265,7 @@ typedef enum ThemeColorID {
 
 	TH_ANIM_ACTIVE,   /* active action */
 	TH_ANIM_INACTIVE, /* no active action */
+	TH_ANIM_PREVIEW_RANGE,/* preview range overlay */
 
 	TH_NLA_TWEAK,        /* 'tweaking' track in NLA */
 	TH_NLA_TWEAK_DUPLI,  /* error/warning flag for other strips referencing dupli strip */

@@ -163,16 +163,18 @@ IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 {
 	IDDepsNode *id_node = NULL;
 	ID *id_cow = NULL;
-	bool is_previous_visible = false;
+	IDComponentsMask previously_visible_components_mask = 0;
 	IDInfo *id_info = (IDInfo *)BLI_ghash_lookup(id_info_hash_, id);
 	if (id_info != NULL) {
 		id_cow = id_info->id_cow;
-		is_previous_visible = id_info->is_visible;
+		previously_visible_components_mask =
+		        id_info->previously_visible_components_mask;
 		/* Tag ID info to not free the CoW ID pointer. */
 		id_info->id_cow = NULL;
 	}
 	id_node = graph_->add_id_node(id, id_cow);
-	id_node->is_previous_visible = is_previous_visible;
+	id_node->previously_visible_components_mask =
+	        previously_visible_components_mask;
 	/* Currently all ID nodes are supposed to have copy-on-write logic.
 	 *
 	 * NOTE: Zero number of components indicates that ID node was just created.
@@ -352,7 +354,8 @@ void DepsgraphNodeBuilder::begin_build()
 		else {
 			id_info->id_cow = NULL;
 		}
-		id_info->is_visible = id_node->is_visible;
+		id_info->previously_visible_components_mask =
+		        id_node->visible_components_mask;
 		BLI_ghash_insert(id_info_hash_, id_node->id_orig, id_info);
 		id_node->id_cow = NULL;
 	}
@@ -469,6 +472,9 @@ void DepsgraphNodeBuilder::build_id(ID *id)
 		case ID_SPK:
 			build_speaker((Speaker *)id);
 			break;
+		case ID_TXT:
+			/* Not a part of dependency graph. */
+			break;
 		default:
 			fprintf(stderr, "Unhandled ID %s\n", id->name);
 			BLI_assert(!"Should never happen");
@@ -478,15 +484,28 @@ void DepsgraphNodeBuilder::build_id(ID *id)
 
 void DepsgraphNodeBuilder::build_collection(Collection *collection)
 {
+	const int restrict_flag = (graph_->mode == DAG_EVAL_VIEWPORT)
+	        ? COLLECTION_RESTRICT_VIEW
+	        : COLLECTION_RESTRICT_RENDER;
+	const bool is_collection_restricted = (collection->flag & restrict_flag);
+	const bool is_collection_visible =
+	        !is_collection_restricted && is_parent_collection_visible_;
 	if (built_map_.checkIsBuiltAndTag(collection)) {
-		/* NOTE: Currently collections restrict flags only depend on collection
-		 * itself and do not depend on a "context" (like, particle system
-		 * visibility).
-		 *
-		 * If we ever change this, we need to update restrict flag here for an
-		 * already built collection.
-		 */
-		return;
+		IDDepsNode *id_node = find_id_node(&collection->id);
+		if (is_collection_visible && !id_node->is_directly_visible) {
+			/* Collection became visible, make sure nested collections and
+			 * objects are poked with the new visibility flag, since they
+			 * might become visible too.
+			 */
+		}
+		else {
+			return;
+		}
+	}
+	else {
+		/* Collection itself. */
+		IDDepsNode *id_node = add_id_node(&collection->id);
+		id_node->is_directly_visible = is_collection_visible;
 	}
 	/* Backup state. */
 	Collection *current_state_collection = collection_;
@@ -494,16 +513,7 @@ void DepsgraphNodeBuilder::build_collection(Collection *collection)
 	        is_parent_collection_visible_;
 	/* Modify state as we've entered new collection/ */
 	collection_ = collection;
-	const int restrict_flag = (graph_->mode == DAG_EVAL_VIEWPORT)
-	        ? COLLECTION_RESTRICT_VIEW
-	        : COLLECTION_RESTRICT_RENDER;
-	const bool is_collection_restricted = (collection->flag & restrict_flag);
-	const bool is_collection_visible =
-	        !is_collection_restricted && is_parent_collection_visible_;
 	is_parent_collection_visible_ = is_collection_visible;
-	/* Collection itself. */
-	IDDepsNode *id_node = add_id_node(&collection->id);
-	id_node->is_visible = is_collection_visible;
 	/* Build collection objects. */
 	LISTBASE_FOREACH (CollectionObject *, cob, &collection->gobject) {
 		build_object(
@@ -534,13 +544,20 @@ void DepsgraphNodeBuilder::build_object(int base_index,
 			build_object_flags(base_index, object, linked_state);
 		}
 		id_node->linked_state = max(id_node->linked_state, linked_state);
-		id_node->is_visible |= is_visible;
+		if (id_node->linked_state == DEG_ID_LINKED_DIRECTLY) {
+			id_node->is_directly_visible |= is_visible;
+		}
 		return;
 	}
 	/* Create ID node for object and begin init. */
 	IDDepsNode *id_node = add_id_node(&object->id);
 	id_node->linked_state = linked_state;
-	id_node->is_visible = is_visible;
+	if (object == scene_->camera) {
+		id_node->is_directly_visible = true;
+	}
+	else {
+		id_node->is_directly_visible = is_visible;
+	}
 	object->customdata_mask = 0;
 	/* Various flags, flushing from bases/collections. */
 	build_object_flags(base_index, object, linked_state);
@@ -613,6 +630,11 @@ void DepsgraphNodeBuilder::build_object(int base_index,
 		is_parent_collection_visible_ = is_visible;
 		build_collection(object->dup_group);
 		is_parent_collection_visible_ = is_current_parent_collection_visible;
+		add_operation_node(&object->id,
+		                   DEG_NODE_TYPE_DUPLI,
+		                   NULL,
+		                   DEG_OPCODE_PLACEHOLDER,
+		                   "Dupli");
 	}
 }
 

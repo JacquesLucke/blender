@@ -121,6 +121,8 @@ struct GPUBatch *DRW_cache_bone_point_get(void);
 struct GPUBatch *DRW_cache_bone_point_wire_outline_get(void);
 struct GPUBatch *DRW_cache_bone_stick_get(void);
 struct GPUBatch *DRW_cache_bone_arrows_get(void);
+struct GPUBatch *DRW_cache_bone_dof_sphere_get(void);
+struct GPUBatch *DRW_cache_bone_dof_lines_get(void);
 
 /* Meshes */
 struct GPUBatch *DRW_cache_mesh_surface_overlay_get(struct Object *ob);
@@ -135,7 +137,7 @@ struct GPUBatch *DRW_cache_mesh_wire_outline_get(struct Object *ob);
 struct GPUBatch *DRW_cache_mesh_edge_detection_get(struct Object *ob, bool *r_is_manifold);
 struct GPUBatch *DRW_cache_mesh_surface_get(struct Object *ob);
 struct GPUBatch *DRW_cache_mesh_loose_edges_get(struct Object *ob);
-struct GPUBatch *DRW_cache_mesh_surface_weights_get(struct Object *ob);
+struct GPUBatch *DRW_cache_mesh_surface_weights_get(struct Object *ob, struct ToolSettings *ts, bool paint_mode);
 struct GPUBatch *DRW_cache_mesh_surface_vert_colors_get(struct Object *ob);
 struct GPUBatch *DRW_cache_mesh_surface_verts_get(struct Object *ob);
 struct GPUBatch *DRW_cache_mesh_edges_get(struct Object *ob);
@@ -160,7 +162,7 @@ struct GPUBatch *DRW_cache_curve_edge_wire_get(struct Object *ob);
 /* edit-mode */
 struct GPUBatch *DRW_cache_curve_edge_normal_get(struct Object *ob, float normal_size);
 struct GPUBatch *DRW_cache_curve_edge_overlay_get(struct Object *ob);
-struct GPUBatch *DRW_cache_curve_vert_overlay_get(struct Object *ob);
+struct GPUBatch *DRW_cache_curve_vert_overlay_get(struct Object *ob, bool handles);
 
 /* Font */
 struct GPUBatch *DRW_cache_text_edge_wire_get(struct Object *ob);

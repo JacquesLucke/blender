@@ -207,6 +207,11 @@ void limit_dist_v3(float v1[3], float v2[3], const float dist);
 #define ISECT_LINE_LINE_CROSS        2
 
 int  isect_seg_seg_v2(const float a1[2], const float a2[2], const float b1[2], const float b2[2]);
+void isect_seg_seg_v3(
+        const float a0[3], const float a1[3],
+        const float b0[3], const float b1[3],
+        float r_a[3], float r_b[3]);
+
 int  isect_seg_seg_v2_int(const int a1[2], const int a2[2], const int b1[2], const int b2[2]);
 int  isect_seg_seg_v2_point_ex(
         const float v0[2], const float v1[2], const float v2[2], const float v3[2], const float endpoint_bias,
@@ -372,6 +377,8 @@ bool clip_segment_v3_plane(
 bool clip_segment_v3_plane_n(
         const float p1[3], const float p2[3], const float plane_array[][4], const int plane_tot,
         float r_p1[3], float r_p2[3]);
+
+bool point_in_slice_seg(float p[3], float l1[3], float l2[3]);
 
 /****************************** Interpolation ********************************/
 void interp_weights_tri_v3(float w[3], const float a[3], const float b[3], const float c[3], const float p[3]);

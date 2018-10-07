@@ -129,8 +129,8 @@ class NLA_MT_select(Menu):
         layout.operator("nla.select_all", text="Invert").action = 'INVERT'
 
         layout.separator()
-        layout.operator("nla.select_border").axis_range = False
-        layout.operator("nla.select_border", text="Border Axis Range").axis_range = True
+        layout.operator("nla.select_box").axis_range = False
+        layout.operator("nla.select_box", text="Border Axis Range").axis_range = True
 
         layout.separator()
         props = layout.operator("nla.select_leftright", text="Before Current Frame")
@@ -233,6 +233,19 @@ class NLA_MT_edit_transform(Menu):
         layout.operator("transform.transform", text="Scale").mode = 'TIME_SCALE'
 
 
+class NLA_MT_snap_pie(Menu):
+    bl_label = "Snap"
+
+    def draw(self, context):
+        layout = self.layout
+        pie = layout.menu_pie()
+
+        pie.operator("nla.snap", text="Current Frame").type = 'CFRA'
+        pie.operator("nla.snap", text="Nearest Frame").type = 'NEAREST_FRAME'
+        pie.operator("nla.snap", text="Nearest Second").type = 'NEAREST_SECOND'
+        pie.operator("nla.snap", text="Nearest Marker").type = 'NEAREST_MARKER'
+
+
 classes = (
     NLA_HT_header,
     NLA_MT_edit,
@@ -242,6 +255,7 @@ classes = (
     NLA_MT_marker,
     NLA_MT_add,
     NLA_MT_edit_transform,
+    NLA_MT_snap_pie,
     NLA_PT_filters,
 )
 

@@ -127,6 +127,7 @@ extern char datatoc_gpu_shader_point_uniform_color_frag_glsl[];
 extern char datatoc_gpu_shader_point_uniform_color_aa_frag_glsl[];
 extern char datatoc_gpu_shader_point_uniform_color_outline_aa_frag_glsl[];
 extern char datatoc_gpu_shader_point_varying_color_outline_aa_frag_glsl[];
+extern char datatoc_gpu_shader_point_varying_color_varying_outline_aa_frag_glsl[];
 extern char datatoc_gpu_shader_point_varying_color_frag_glsl[];
 extern char datatoc_gpu_shader_3D_point_fixed_size_varying_color_vert_glsl[];
 extern char datatoc_gpu_shader_3D_point_varying_size_vert_glsl[];
@@ -137,6 +138,12 @@ extern char datatoc_gpu_shader_2D_point_varying_size_varying_color_vert_glsl[];
 extern char datatoc_gpu_shader_2D_point_uniform_size_aa_vert_glsl[];
 extern char datatoc_gpu_shader_2D_point_uniform_size_outline_aa_vert_glsl[];
 extern char datatoc_gpu_shader_2D_point_uniform_size_varying_color_outline_aa_vert_glsl[];
+
+extern char datatoc_gpu_shader_2D_edituvs_points_vert_glsl[];
+extern char datatoc_gpu_shader_2D_edituvs_facedots_vert_glsl[];
+extern char datatoc_gpu_shader_2D_edituvs_edges_vert_glsl[];
+extern char datatoc_gpu_shader_2D_edituvs_faces_vert_glsl[];
+extern char datatoc_gpu_shader_2D_edituvs_stretch_vert_glsl[];
 
 extern char datatoc_gpu_shader_2D_line_dashed_uniform_color_vert_glsl[];
 extern char datatoc_gpu_shader_2D_line_dashed_frag_glsl[];
@@ -298,7 +305,7 @@ static void gpu_dump_shaders(const char **code, const int num_shaders, const cha
 	}
 
 	/* We use the same shader index for shaders in the same program.
-	 * So we call this function once before calling for the invidual shaders. */
+	 * So we call this function once before calling for the individual shaders. */
 	static int shader_index = 0;
 	if (code == NULL) {
 		shader_index++;
@@ -580,6 +587,14 @@ void *GPU_shader_get_interface(GPUShader *shader)
 int GPU_shader_get_program(GPUShader *shader)
 {
 	return (int)shader->program;
+}
+
+void GPU_shader_uniform_float(GPUShader *UNUSED(shader), int location, float value)
+{
+	if (location == -1)
+		return;
+
+	glUniform1f(location, value);
 }
 
 void GPU_shader_uniform_vector(GPUShader *UNUSED(shader), int location, int length, int arraysize, const float *value)
@@ -916,6 +931,25 @@ static const GPUShaderStages builtin_shader_stages[GPU_NUM_BUILTIN_SHADERS] = {
 		{ datatoc_gpu_shader_2D_nodelink_vert_glsl,
 		  datatoc_gpu_shader_2D_nodelink_frag_glsl },
 
+	[GPU_SHADER_2D_UV_VERTS] =
+		{ datatoc_gpu_shader_2D_edituvs_points_vert_glsl,
+		  datatoc_gpu_shader_point_varying_color_varying_outline_aa_frag_glsl },
+	[GPU_SHADER_2D_UV_FACEDOTS] =
+		{ datatoc_gpu_shader_2D_edituvs_facedots_vert_glsl,
+		  datatoc_gpu_shader_point_varying_color_frag_glsl },
+	[GPU_SHADER_2D_UV_EDGES] =
+		{ datatoc_gpu_shader_2D_edituvs_edges_vert_glsl,
+		  datatoc_gpu_shader_flat_color_frag_glsl },
+	[GPU_SHADER_2D_UV_EDGES_SMOOTH] =
+		{ datatoc_gpu_shader_2D_edituvs_edges_vert_glsl,
+		  datatoc_gpu_shader_2D_smooth_color_frag_glsl },
+	[GPU_SHADER_2D_UV_FACES] =
+		{ datatoc_gpu_shader_2D_edituvs_faces_vert_glsl,
+		  datatoc_gpu_shader_flat_color_frag_glsl },
+	[GPU_SHADER_2D_UV_FACES_STRETCH] =
+		{ datatoc_gpu_shader_2D_edituvs_stretch_vert_glsl,
+		  datatoc_gpu_shader_2D_smooth_color_frag_glsl },
+
 	[GPU_SHADER_GPENCIL_STROKE] =
 		{ datatoc_gpu_shader_gpencil_stroke_vert_glsl,
 		  datatoc_gpu_shader_gpencil_stroke_frag_glsl,
@@ -982,6 +1016,9 @@ static const char *gpu_shader_get_builtin_shader_defines(
 
 		case GPU_SHADER_SIMPLE_LIGHTING_FLAT_COLOR:
 			return "#define USE_FLAT_NORMAL\n";
+
+		case GPU_SHADER_2D_UV_EDGES_SMOOTH:
+			return "#define SMOOTH_COLOR\n";
 
 		default:
 			return NULL;

@@ -318,7 +318,7 @@ static void animrecord_check_state(Scene *scene, ID *id, wmTimer *animtimer)
 							 * NOTE: An alternative way would have been to instead hack the influence
 							 * to not get always get reset to full strength if NLASTRIP_FLAG_USR_INFLUENCE
 							 * is disabled but auto-blending isn't being used. However, that approach
-							 * is a bit hacky/hard to discover, and may cause backwards compatability issues,
+							 * is a bit hacky/hard to discover, and may cause backwards compatibility issues,
 							 * so it's better to just do it this way.
 							 */
 							strip->flag |= NLASTRIP_FLAG_USR_INFLUENCE;
@@ -1199,10 +1199,10 @@ static int initTransInfo_edit_pet_to_flag(const int proportional)
 	}
 }
 
-void initTransDataContainers_FromObjectData(TransInfo *t)
+void initTransDataContainers_FromObjectData(TransInfo *t, Object *obact, Object **objects, uint objects_len)
 {
-	const eObjectMode object_mode = OBACT(t->view_layer) ? OBACT(t->view_layer)->mode : OB_MODE_OBJECT;
-	const short object_type = OBACT(t->view_layer) ? OBACT(t->view_layer)->type : -1;
+	const eObjectMode object_mode = obact ? obact->mode : OB_MODE_OBJECT;
+	const short object_type = obact ? obact->type : -1;
 
 	if ((object_mode & OB_MODE_EDIT) ||
 	    ((object_mode & OB_MODE_POSE) && (object_type == OB_ARMATURE)))
@@ -1210,11 +1210,16 @@ void initTransDataContainers_FromObjectData(TransInfo *t)
 		if (t->data_container) {
 			MEM_freeN(t->data_container);
 		}
-		uint objects_len;
-		Object **objects = BKE_view_layer_array_from_objects_in_mode(
-		        t->view_layer, &objects_len, {
-		            .object_mode = object_mode,
-		            .no_dup_data = true});
+
+		bool free_objects = false;
+		if (objects == NULL) {
+			objects = BKE_view_layer_array_from_objects_in_mode(
+			        t->view_layer, &objects_len, {
+			            .object_mode = object_mode,
+			            .no_dup_data = true});
+			free_objects = true;
+		}
+
 		t->data_container = MEM_callocN(sizeof(*t->data_container) * objects_len, __func__);
 		t->data_container_len = objects_len;
 
@@ -1242,7 +1247,10 @@ void initTransDataContainers_FromObjectData(TransInfo *t)
 			}
 			/* Otherwise leave as zero. */
 		}
-		MEM_freeN(objects);
+
+		if (free_objects) {
+			MEM_freeN(objects);
+		}
 	}
 }
 
@@ -1335,7 +1343,7 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	}
 
 	/* GPencil editing context */
-	if (GPENCIL_ANY_MODE(gpd)) {
+	if (GPENCIL_EDIT_MODE(gpd)) {
 		t->options |= CTX_GPENCIL_STROKES;
 	}
 
@@ -1855,11 +1863,12 @@ void calculateCenterCursor(TransInfo *t, float r_center[3])
 
 			td = tc->data;
 			Object *ob = td->ob;
-
-			sub_v3_v3v3(r_center, r_center, ob->obmat[3]);
-			copy_m3_m4(mat, ob->obmat);
-			invert_m3_m3(imat, mat);
-			mul_m3_v3(imat, r_center);
+			if (ob) {
+				sub_v3_v3v3(r_center, r_center, ob->obmat[3]);
+				copy_m3_m4(mat, ob->obmat);
+				invert_m3_m3(imat, mat);
+				mul_m3_v3(imat, r_center);
+			}
 		}
 	}
 }

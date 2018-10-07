@@ -1141,7 +1141,7 @@ static bool gpsculpt_brush_apply_clone(bContext *C, tGP_BrushEditData *gso)
 		gp_brush_clone_add(C, gso);
 	}
 	else {
-		/* Stamp or Continous Mode */
+		/* Stamp or Continuous Mode */
 		if (1 /*gso->brush->mode == GP_EDITBRUSH_CLONE_MODE_STAMP*/) {
 			/* Stamp - Proceed to translate the newly added strokes */
 			gp_brush_clone_adjust(gso);
@@ -1220,7 +1220,7 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 
 	/* Random generator, only init once. */
 	uint rng_seed = (uint)(PIL_check_seconds_timer_i() & UINT_MAX);
-	rng_seed ^= GET_UINT_FROM_POINTER(gso);
+	rng_seed ^= POINTER_AS_UINT(gso);
 	gso->rng = BLI_rng_new(rng_seed);
 
 	gso->is_painting = false;
@@ -1228,6 +1228,11 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 
 	gso->gpd = ED_gpencil_data_get_active(C);
 	gso->cfra = INT_MAX; /* NOTE: So that first stroke will get handled in init_stroke() */
+
+	/* some brushes cannot use pressure for radius */
+	if (ELEM(gso->brush_type, GP_EDITBRUSH_TYPE_GRAB, GP_EDITBRUSH_TYPE_CLONE)) {
+		gso->brush->flag &= ~GP_EDITBRUSH_FLAG_PRESSURE_RADIUS;
+	}
 
 	gso->scene = scene;
 	gso->object = ob;
@@ -1415,7 +1420,8 @@ static bool gpsculpt_brush_do_stroke(
 {
 	GP_SpaceConversion *gsc = &gso->gsc;
 	rcti *rect = &gso->brush_rect;
-	const int radius = gso->brush->size;
+	GP_EditBrush_Data *brush = gso->brush;
+	const int radius = (brush->flag & GP_EDITBRUSH_FLAG_PRESSURE_RADIUS) ? gso->brush->size * gso->pressure : gso->brush->size;
 
 	bGPDspoint *pt1, *pt2;
 	int pc1[2] = {0};
@@ -1707,7 +1713,8 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 static void gpsculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
 {
 	tGP_BrushEditData *gso = op->customdata;
-	const int radius = gso->brush->size;
+	GP_EditBrush_Data *brush = gso->brush;
+	const int radius = (brush->flag & GP_EDITBRUSH_FLAG_PRESSURE_RADIUS) ? gso->brush->size * gso->pressure : gso->brush->size;
 	float mousef[2];
 	int mouse[2];
 	bool changed = false;

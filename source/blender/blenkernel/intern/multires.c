@@ -309,9 +309,12 @@ Mesh *get_multires_mesh(
 	        .depsgraph = depsgraph,
 	        .object = ob_eval,
 	        .flag = MOD_APPLY_USECACHE | MOD_APPLY_IGNORE_SIMPLIFY};
-	Mesh *result = modifier_applyModifier(&mmd->modifier, &modifier_ctx, deformed_mesh);
+
+	const ModifierTypeInfo *mti = modifierType_getInfo(mmd->modifier.type);
+	Mesh *result = mti->applyModifier(&mmd->modifier, &modifier_ctx, deformed_mesh);
+
 	if (result == deformed_mesh) {
-		result = BKE_mesh_copy_for_eval(deformed_mesh);
+		result = BKE_mesh_copy_for_eval(deformed_mesh, true);
 	}
 	return result;
 }
@@ -407,7 +410,7 @@ void multires_mark_as_modified(Object *ob, MultiresModifiedFlags flags)
 		return;
 	}
 	Mesh *mesh = ob->data;
-	SubdivCCG *subdiv_ccg = mesh->runtime.subsurf_ccg;
+	SubdivCCG *subdiv_ccg = mesh->runtime.subdiv_ccg;
 	if (subdiv_ccg == NULL) {
 		return;
 	}
@@ -419,10 +422,13 @@ void multires_force_update(Object *ob)
 	if (ob == NULL) {
 		return;
 	}
-	if (ob->sculpt && ob->sculpt->pbvh) {
-		PBVH *pbvh = ob->sculpt->pbvh;
+	SculptSession *sculpt_session = ob->sculpt;
+	if (sculpt_session != NULL && sculpt_session->pbvh != NULL) {
+		PBVH *pbvh = sculpt_session->pbvh;
 		if (BKE_pbvh_type(pbvh) == PBVH_GRIDS) {
-			multiresModifier_reshapeFromCCG(ob, ob->sculpt->subdiv_ccg);
+			Mesh *mesh = ob->data;
+			multiresModifier_reshapeFromCCG(
+			        sculpt_session->multires->totlvl, mesh, sculpt_session->subdiv_ccg);
 		}
 		else {
 			/* NOTE: Disabled for until OpenSubdiv is enabled by default. */
@@ -1338,20 +1344,28 @@ void multires_modifier_update_hidden(DerivedMesh *dm)
 
 void multires_stitch_grids(Object *ob)
 {
-	/* utility for smooth brush */
-	if (ob && ob->derivedFinal) {
-		CCGDerivedMesh *ccgdm = (CCGDerivedMesh *)ob->derivedFinal;
-		CCGFace **faces;
-		int totface;
-
-		if (ccgdm->pbvh) {
-			BKE_pbvh_get_grid_updates(ccgdm->pbvh, false, (void ***)&faces, &totface);
-
-			if (totface) {
-				ccgSubSurf_stitchFaces(ccgdm->ss, 0, faces, totface);
-				MEM_freeN(faces);
-			}
-		}
+	if (ob == NULL) {
+		return;
+	}
+	SculptSession *sculpt_session = ob->sculpt;
+	if (sculpt_session == NULL) {
+		return;
+	}
+	PBVH *pbvh = sculpt_session->pbvh;
+	SubdivCCG *subdiv_ccg = sculpt_session->subdiv_ccg;
+	if (pbvh == NULL || subdiv_ccg == NULL) {
+		return;
+	}
+	BLI_assert(BKE_pbvh_type(pbvh) == PBVH_GRIDS);
+	/* NOTE: Currently CCG does not keep track of faces, making it impossible
+	 * to use BKE_pbvh_get_grid_updates().
+	 */
+	CCGFace **faces;
+	int num_faces;
+	BKE_pbvh_get_grid_updates(pbvh, false, (void ***)&faces, &num_faces);
+	if (num_faces) {
+		BKE_subdiv_ccg_average_stitch_faces(subdiv_ccg, faces, num_faces);
+		MEM_freeN(faces);
 	}
 }
 

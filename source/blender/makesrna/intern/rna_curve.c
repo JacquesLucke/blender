@@ -1244,7 +1244,7 @@ static void rna_def_curve_spline_points(BlenderRNA *brna, PropertyRNA *cprop)
 	/*PropertyRNA *prop; */
 
 	FunctionRNA *func;
-	/*PropertyRNA *parm; */
+	PropertyRNA *parm;
 
 	RNA_def_property_srna(cprop, "SplinePoints");
 	srna = RNA_def_struct(brna, "SplinePoints", NULL);
@@ -1254,7 +1254,8 @@ static void rna_def_curve_spline_points(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "add", "rna_Curve_spline_points_add");
 	RNA_def_function_ui_description(func, "Add a number of points to this spline");
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_REPORTS);
-	RNA_def_int(func, "count", 1, 0, INT_MAX, "Number", "Number of points to add to the spline", 0, INT_MAX);
+	parm = RNA_def_int(func, "count", 1, 0, INT_MAX, "Number", "Number of points to add to the spline", 0, INT_MAX);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 #if 0
 	func = RNA_def_function(srna, "remove", "rna_Curve_spline_remove");
@@ -1272,7 +1273,7 @@ static void rna_def_curve_spline_bezpoints(BlenderRNA *brna, PropertyRNA *cprop)
 	/*PropertyRNA *prop; */
 
 	FunctionRNA *func;
-	/*PropertyRNA *parm; */
+	PropertyRNA *parm;
 
 	RNA_def_property_srna(cprop, "SplineBezierPoints");
 	srna = RNA_def_struct(brna, "SplineBezierPoints", NULL);
@@ -1282,7 +1283,8 @@ static void rna_def_curve_spline_bezpoints(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "add", "rna_Curve_spline_bezpoints_add");
 	RNA_def_function_ui_description(func, "Add a number of points to this spline");
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_REPORTS);
-	RNA_def_int(func, "count", 1, 0, INT_MAX, "Number", "Number of points to add to the spline", 0, INT_MAX);
+	parm = RNA_def_int(func, "count", 1, 0, INT_MAX, "Number", "Number of points to add to the spline", 0, INT_MAX);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 #if 0
 	func = RNA_def_function(srna, "remove", "rna_Curve_spline_remove");
@@ -1382,16 +1384,6 @@ static void rna_def_curve(BlenderRNA *brna)
 	RNA_def_property_struct_type(prop, "Spline");
 	RNA_def_property_ui_text(prop, "Splines", "Collection of splines in this curve data object");
 	rna_def_curve_splines(brna, prop);
-
-	prop = RNA_def_property(srna, "show_handles", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "drawflag", CU_HIDE_HANDLES);
-	RNA_def_property_ui_text(prop, "Draw Handles", "Display Bezier handles in editmode");
-	RNA_def_property_update(prop, NC_GEOM | ND_DATA, NULL);
-
-	prop = RNA_def_property(srna, "show_normal_face", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "drawflag", CU_HIDE_NORMALS);
-	RNA_def_property_ui_text(prop, "Draw Normals", "Display 3D curve normals in editmode");
-	RNA_def_property_update(prop, NC_GEOM | ND_DATA, NULL);
 
 	rna_def_path(brna, srna);
 

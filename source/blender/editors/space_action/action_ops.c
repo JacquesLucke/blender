@@ -61,7 +61,7 @@ void action_operatortypes(void)
 	/* selection */
 	WM_operatortype_append(ACTION_OT_clickselect);
 	WM_operatortype_append(ACTION_OT_select_all);
-	WM_operatortype_append(ACTION_OT_select_border);
+	WM_operatortype_append(ACTION_OT_select_box);
 	WM_operatortype_append(ACTION_OT_select_lasso);
 	WM_operatortype_append(ACTION_OT_select_circle);
 	WM_operatortype_append(ACTION_OT_select_column);
@@ -174,10 +174,10 @@ static void action_keymap_keyframes(wmKeyConfig *keyconf, wmKeyMap *keymap)
 	/* deselect all */
 	ED_keymap_template_select_all(keymap, "ACTION_OT_select_all");
 
-	/* borderselect */
-	kmi = WM_keymap_add_item(keymap, "ACTION_OT_select_border", BKEY, KM_PRESS, 0, 0);
+	/* box_select */
+	kmi = WM_keymap_add_item(keymap, "ACTION_OT_select_box", BKEY, KM_PRESS, 0, 0);
 	RNA_boolean_set(kmi->ptr, "axis_range", false);
-	kmi = WM_keymap_add_item(keymap, "ACTION_OT_select_border", BKEY, KM_PRESS, KM_ALT, 0);
+	kmi = WM_keymap_add_item(keymap, "ACTION_OT_select_box", BKEY, KM_PRESS, KM_ALT, 0);
 	RNA_boolean_set(kmi->ptr, "axis_range", true);
 
 	/* region select */
@@ -207,7 +207,7 @@ static void action_keymap_keyframes(wmKeyConfig *keyconf, wmKeyMap *keymap)
 	WM_keymap_add_item(keymap, "ACTION_OT_frame_jump", GKEY, KM_PRESS, KM_CTRL, 0);
 
 	/* menu + single-step transform */
-	WM_keymap_add_item(keymap, "ACTION_OT_snap", SKEY, KM_PRESS, KM_SHIFT, 0);
+	WM_keymap_add_menu_pie(keymap, "DOPESHEET_MT_snap_pie", SKEY, KM_PRESS, KM_SHIFT, 0);
 	WM_keymap_add_item(keymap, "ACTION_OT_mirror", MKEY, KM_PRESS, KM_CTRL, 0);
 
 	/* menu + set setting */

@@ -497,7 +497,7 @@ void BKE_brush_gpencil_presets(bContext *C)
 	brush->gpencil_settings->draw_strength = 1.0f;
 
 	/* Soft Eraser brush */
-	brush = BKE_brush_add_gpencil(bmain, ts, "Eraser Soft");
+	brush = BKE_brush_add_gpencil(bmain, ts, "Eraser");
 	brush->size = 30.0f;
 	brush->gpencil_settings->flag |= (GP_BRUSH_ENABLE_CURSOR | GP_BRUSH_DEFAULT_ERASER);
 	brush->gpencil_settings->icon_id = GP_BRUSH_ICON_ERASE_SOFT;
@@ -507,7 +507,7 @@ void BKE_brush_gpencil_presets(bContext *C)
 	brush->gpencil_settings->era_thickness_f = 0.10f;
 
 	/* Hard Eraser brush */
-	brush = BKE_brush_add_gpencil(bmain, ts, "Eraser Hard");
+	brush = BKE_brush_add_gpencil(bmain, ts, "Eraser Vertex");
 	brush->size = 30.0f;
 	brush->gpencil_settings->flag |= GP_BRUSH_ENABLE_CURSOR;
 	brush->gpencil_settings->icon_id = GP_BRUSH_ICON_ERASE_HARD;
@@ -522,7 +522,7 @@ void BKE_brush_gpencil_presets(bContext *C)
 	brush->gpencil_settings->brush_type = GP_BRUSH_TYPE_ERASE;
 	brush->gpencil_settings->eraser_mode = GP_BRUSH_ERASER_STROKE;
 
-	/* set defaut brush */
+	/* set default brush */
 	BKE_paint_brush_set(paint, deft);
 
 }
@@ -1360,7 +1360,7 @@ unsigned int *BKE_brush_gen_texture_cache(Brush *br, int half_side, bool use_sec
 
 		texcache = MEM_callocN(sizeof(int) * side * side, "Brush texture cache");
 
-		/* do normalized cannonical view coords for texture */
+		/* do normalized canonical view coords for texture */
 		for (y = -1.0, iy = 0; iy < side; iy++, y += step) {
 			for (x = -1.0, ix = 0; ix < side; ix++, x += step) {
 				co[0] = x;
@@ -1368,7 +1368,7 @@ unsigned int *BKE_brush_gen_texture_cache(Brush *br, int half_side, bool use_sec
 				co[2] = 0.0f;
 
 				/* This is copied from displace modifier code */
-				/* TODO(sergey): brush are always cacheing with CM enabled for now. */
+				/* TODO(sergey): brush are always caching with CM enabled for now. */
 				externtex(mtex, co, &intensity,
 				          rgba, rgba + 1, rgba + 2, rgba + 3, 0, NULL, false, false);
 

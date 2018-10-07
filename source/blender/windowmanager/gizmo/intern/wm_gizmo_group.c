@@ -152,7 +152,7 @@ wmGizmo *wm_gizmogroup_find_intersected_gizmo(
         int *r_part)
 {
 	for (wmGizmo *gz = gzgroup->gizmos.first; gz; gz = gz->next) {
-		if (gz->type->test_select && (gz->flag & WM_GIZMO_HIDDEN) == 0) {
+		if (gz->type->test_select && (gz->flag & (WM_GIZMO_HIDDEN | WM_GIZMO_HIDDEN_SELECT)) == 0) {
 			if ((*r_part = gz->type->test_select(C, gz, event->mval)) != -1) {
 				return gz;
 			}
@@ -168,7 +168,7 @@ wmGizmo *wm_gizmogroup_find_intersected_gizmo(
 void wm_gizmogroup_intersectable_gizmos_to_list(const wmGizmoGroup *gzgroup, ListBase *listbase)
 {
 	for (wmGizmo *gz = gzgroup->gizmos.first; gz; gz = gz->next) {
-		if ((gz->flag & WM_GIZMO_HIDDEN) == 0) {
+		if ((gz->flag & (WM_GIZMO_HIDDEN | WM_GIZMO_HIDDEN_SELECT)) == 0) {
 			if (((gzgroup->type->flag & WM_GIZMOGROUPTYPE_3D) && (gz->type->draw_select || gz->type->test_select)) ||
 			    ((gzgroup->type->flag & WM_GIZMOGROUPTYPE_3D) == 0 && gz->type->test_select))
 			{
@@ -381,6 +381,9 @@ static bool gizmo_tweak_start_and_finish(
 			}
 		}
 		else {
+			if (gz->parent_gzgroup->type->invoke_prepare) {
+				gz->parent_gzgroup->type->invoke_prepare(C, gz->parent_gzgroup, gz);
+			}
 			/* Allow for 'button' gizmos, single click to run an action. */
 			WM_operator_name_call_ptr(C, mpop->type, WM_OP_INVOKE_DEFAULT, &mpop->ptr);
 		}
@@ -879,26 +882,28 @@ void WM_gizmo_group_type_add(const char *idname)
 	WM_gizmo_group_type_add_ptr(gzgt);
 }
 
-void WM_gizmo_group_type_ensure_ptr_ex(
+bool WM_gizmo_group_type_ensure_ptr_ex(
         wmGizmoGroupType *gzgt,
         wmGizmoMapType *gzmap_type)
 {
 	wmGizmoGroupTypeRef *gzgt_ref = WM_gizmomaptype_group_find_ptr(gzmap_type, gzgt);
 	if (gzgt_ref == NULL) {
 		WM_gizmo_group_type_add_ptr_ex(gzgt, gzmap_type);
+		return true;
 	}
+	return false;
 }
-void WM_gizmo_group_type_ensure_ptr(
+bool WM_gizmo_group_type_ensure_ptr(
         wmGizmoGroupType *gzgt)
 {
 	wmGizmoMapType *gzmap_type = WM_gizmomaptype_ensure(&gzgt->gzmap_params);
-	WM_gizmo_group_type_ensure_ptr_ex(gzgt, gzmap_type);
+	return WM_gizmo_group_type_ensure_ptr_ex(gzgt, gzmap_type);
 }
-void WM_gizmo_group_type_ensure(const char *idname)
+bool WM_gizmo_group_type_ensure(const char *idname)
 {
 	wmGizmoGroupType *gzgt = WM_gizmogrouptype_find(idname, false);
 	BLI_assert(gzgt != NULL);
-	WM_gizmo_group_type_ensure_ptr(gzgt);
+	return WM_gizmo_group_type_ensure_ptr(gzgt);
 }
 
 void WM_gizmo_group_type_remove_ptr_ex(
@@ -919,6 +924,29 @@ void WM_gizmo_group_type_remove(struct Main *bmain, const char *idname)
 	wmGizmoGroupType *gzgt = WM_gizmogrouptype_find(idname, false);
 	BLI_assert(gzgt != NULL);
 	WM_gizmo_group_type_remove_ptr(bmain, gzgt);
+}
+
+void WM_gizmo_group_type_reinit_ptr_ex(
+        struct Main *bmain, wmGizmoGroupType *gzgt,
+        wmGizmoMapType *gzmap_type)
+{
+	wmGizmoGroupTypeRef *gzgt_ref = WM_gizmomaptype_group_find_ptr(gzmap_type, gzgt);
+	BLI_assert(gzgt_ref != NULL);
+	UNUSED_VARS_NDEBUG(gzgt_ref);
+	WM_gizmomaptype_group_unlink(NULL, bmain, gzmap_type, gzgt);
+	WM_gizmo_group_type_add_ptr_ex(gzgt, gzmap_type);
+}
+void WM_gizmo_group_type_reinit_ptr(
+        struct Main *bmain, wmGizmoGroupType *gzgt)
+{
+	wmGizmoMapType *gzmap_type = WM_gizmomaptype_ensure(&gzgt->gzmap_params);
+	WM_gizmo_group_type_reinit_ptr_ex(bmain, gzgt, gzmap_type);
+}
+void WM_gizmo_group_type_reinit(struct Main *bmain, const char *idname)
+{
+	wmGizmoGroupType *gzgt = WM_gizmogrouptype_find(idname, false);
+	BLI_assert(gzgt != NULL);
+	WM_gizmo_group_type_reinit_ptr(bmain, gzgt);
 }
 
 /* delayed versions */

@@ -100,7 +100,6 @@ static const EnumPropertyItem rna_enum_studio_light_orientation_items[] = {
 #include "DNA_screen_types.h"
 
 #include "BKE_blender.h"
-#include "BKE_DerivedMesh.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_main.h"
@@ -329,9 +328,6 @@ static void rna_UserDef_weight_color_update(Main *bmain, Scene *scene, PointerRN
 {
 	Object *ob;
 
-	bTheme *btheme = UI_GetTheme();
-	BKE_mesh_runtime_color_band_store((U.flag & USER_CUSTOM_RANGE) ? (&U.coba_weight) : NULL, btheme->tv3d.vertex_unreferenced);
-
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
 		if (ob->mode & OB_MODE_WEIGHT_PAINT)
 			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
@@ -468,11 +464,7 @@ static void rna_userdef_opensubdiv_update(Main *bmain, Scene *UNUSED(scene), Poi
 	     object;
 	     object = object->id.next)
 	{
-		if (object->derivedFinal != NULL &&
-		    object->derivedFinal->type == DM_TYPE_CCGDM)
-		{
-			DEG_id_tag_update(&object->id, OB_RECALC_OB);
-		}
+		DEG_id_tag_update(&object->id, OB_RECALC_OB);
 	}
 }
 
@@ -493,6 +485,13 @@ static const EnumPropertyItem *rna_userdef_audio_device_itemf(bContext *UNUSED(C
 		EnumPropertyItem new_item = {i, names[i], 0, names[i], names[i]};
 		RNA_enum_item_add(&item, &totitem, &new_item);
 	}
+
+#ifndef NDEBUG
+	if (i == 0) {
+		EnumPropertyItem new_item = {i, "SOUND_NONE", 0, "No Sound", ""};
+		RNA_enum_item_add(&item, &totitem, &new_item);
+	}
+#endif
 
 	/* may be unused */
 	UNUSED_VARS(index, audio_device_items);
@@ -1945,6 +1944,12 @@ static void rna_def_userdef_theme_space_graph(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Active Channel Group", "");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
+	prop = RNA_def_property(srna, "preview_range", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "anim_preview_range");
+	RNA_def_property_array(prop, 4);
+	RNA_def_property_ui_text(prop, "Preview Range", "Color of preview range overlay");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
 	rna_def_userdef_theme_spaces_vertex(srna);
 	rna_def_userdef_theme_spaces_curves(srna, false, true, true, true);
 }
@@ -2790,11 +2795,16 @@ static void rna_def_userdef_theme_space_action(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0.8f, 5.0f); /* Note: These limits prevent buttons overlapping (min), and excessive size... (max) */
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_DOPESHEET, "rna_userdef_update");
 
-
 	prop = RNA_def_property(srna, "summary", PROP_FLOAT, PROP_COLOR_GAMMA);
 	RNA_def_property_float_sdna(prop, NULL, "anim_active");
 	RNA_def_property_array(prop, 4);
 	RNA_def_property_ui_text(prop, "Summary", "Color of summary channel");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	prop = RNA_def_property(srna, "preview_range", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "anim_preview_range");
+	RNA_def_property_array(prop, 4);
+	RNA_def_property_ui_text(prop, "Preview Range", "Color of preview range overlay");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 }
 
@@ -2833,6 +2843,12 @@ static void rna_def_userdef_theme_space_nla(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "anim_non_active");
 	RNA_def_property_array(prop, 4);
 	RNA_def_property_ui_text(prop, "No Active Action", "Animation data-block doesn't have active action");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	prop = RNA_def_property(srna, "preview_range", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "anim_preview_range");
+	RNA_def_property_array(prop, 4);
+	RNA_def_property_ui_text(prop, "Preview Range", "Color of preview range overlay");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
 	prop = RNA_def_property(srna, "strips", PROP_FLOAT, PROP_COLOR_GAMMA);

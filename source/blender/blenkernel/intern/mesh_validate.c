@@ -326,13 +326,13 @@ bool BKE_mesh_validate_arrays(
 
 		if ((me->v1 != me->v2) && BLI_edgehash_haskey(edge_hash, me->v1, me->v2)) {
 			PRINT_ERR("\tEdge %u: is a duplicate of %d\n", i,
-			          GET_INT_FROM_POINTER(BLI_edgehash_lookup(edge_hash, me->v1, me->v2)));
+			          POINTER_AS_INT(BLI_edgehash_lookup(edge_hash, me->v1, me->v2)));
 			remove = do_fixes;
 		}
 
 		if (remove == false) {
 			if (me->v1 != me->v2) {
-				BLI_edgehash_insert(edge_hash, me->v1, me->v2, SET_INT_IN_POINTER(i));
+				BLI_edgehash_insert(edge_hash, me->v1, me->v2, POINTER_FROM_INT(i));
 			}
 		}
 		else {
@@ -362,7 +362,7 @@ bool BKE_mesh_validate_arrays(
 		SortFace *sf_prev;
 		unsigned int totsortface = 0;
 
-		PRINT_ERR("No Polys, only tesselated Faces\n");
+		PRINT_ERR("No Polys, only tessellated Faces\n");
 
 		for (i = 0, mf = mfaces, sf = sort_faces; i < totface; i++, mf++) {
 			bool remove = false;
@@ -566,7 +566,7 @@ bool BKE_mesh_validate_arrays(
 						 * We already know from previous text that a valid edge exists, use it (if allowed)! */
 						if (do_fixes) {
 							int prev_e = ml->e;
-							ml->e = GET_INT_FROM_POINTER(BLI_edgehash_lookup(edge_hash, v1, v2));
+							ml->e = POINTER_AS_INT(BLI_edgehash_lookup(edge_hash, v1, v2));
 							fix_flag.loops_edge = true;
 							PRINT_ERR("\tLoop %u has invalid edge reference (%d), fixed using edge %u\n",
 							          sp->loopstart + j, prev_e, ml->e);
@@ -583,7 +583,7 @@ bool BKE_mesh_validate_arrays(
 							 * and we already know from previous test that a valid one exists, use it (if allowed)! */
 							if (do_fixes) {
 								int prev_e = ml->e;
-								ml->e = GET_INT_FROM_POINTER(BLI_edgehash_lookup(edge_hash, v1, v2));
+								ml->e = POINTER_AS_INT(BLI_edgehash_lookup(edge_hash, v1, v2));
 								fix_flag.loops_edge = true;
 								PRINT_ERR("\tPoly %u has invalid edge reference (%d, is_removed: %d), fixed using edge %u\n",
 								          sp->index, prev_e, IS_REMOVED_EDGE(me), ml->e);
@@ -1351,7 +1351,7 @@ static void mesh_calc_edges_mdata(
 	/* set edge members of mloops */
 	hash = BLI_edgehash_new_ex(__func__, totedge_final);
 	for (edge_index = 0, med = medge; edge_index < totedge_final; edge_index++, med++) {
-		BLI_edgehash_insert(hash, med->v1, med->v2, SET_UINT_IN_POINTER(edge_index));
+		BLI_edgehash_insert(hash, med->v1, med->v2, POINTER_FROM_UINT(edge_index));
 	}
 
 	mpoly = allpoly;
@@ -1363,7 +1363,7 @@ static void mesh_calc_edges_mdata(
 		ml = &ml_next[i - 1];                  /* last loop */
 
 		while (i-- != 0) {
-			ml->e = GET_UINT_FROM_POINTER(BLI_edgehash_lookup(hash, ml->v, ml_next->v));
+			ml->e = POINTER_AS_UINT(BLI_edgehash_lookup(hash, ml->v, ml_next->v));
 			ml = ml_next;
 			ml_next++;
 		}
@@ -1472,7 +1472,7 @@ void BKE_mesh_calc_edges(Mesh *mesh, bool update, const bool select)
 		}
 
 		/* store the new edge index in the hash value */
-		BLI_edgehashIterator_setValue(ehi, SET_INT_IN_POINTER(i));
+		BLI_edgehashIterator_setValue(ehi, POINTER_FROM_INT(i));
 	}
 	BLI_edgehashIterator_free(ehi);
 
@@ -1485,7 +1485,7 @@ void BKE_mesh_calc_edges(Mesh *mesh, bool update, const bool select)
 			int j;
 			for (j = 0; j < mp->totloop; j++, l++) {
 				/* lookup hashed edge index */
-				med_index = GET_INT_FROM_POINTER(BLI_edgehash_lookup(eh, l_prev->v, l->v));
+				med_index = POINTER_AS_INT(BLI_edgehash_lookup(eh, l_prev->v, l->v));
 				l_prev->e = med_index;
 				l_prev = l;
 			}
@@ -1501,4 +1501,66 @@ void BKE_mesh_calc_edges(Mesh *mesh, bool update, const bool select)
 
 	BLI_edgehash_free(eh, NULL);
 }
+
+/**
+ * Calculate/create edges from tessface data
+ *
+ * \param mesh  The mesh to add edges into
+ */
+
+void BKE_mesh_calc_edges_tessface(Mesh *mesh)
+{
+	CustomData edgeData;
+	EdgeSetIterator *ehi;
+	MFace *mf = mesh->mface;
+	MEdge *med;
+	EdgeSet *eh;
+	int i, *index, numEdges, numFaces = mesh->totface;
+
+	eh = BLI_edgeset_new_ex(__func__, BLI_EDGEHASH_SIZE_GUESS_FROM_POLYS(numFaces));
+
+	for (i = 0; i < numFaces; i++, mf++) {
+		BLI_edgeset_add(eh, mf->v1, mf->v2);
+		BLI_edgeset_add(eh, mf->v2, mf->v3);
+
+		if (mf->v4) {
+			BLI_edgeset_add(eh, mf->v3, mf->v4);
+			BLI_edgeset_add(eh, mf->v4, mf->v1);
+		}
+		else {
+			BLI_edgeset_add(eh, mf->v3, mf->v1);
+		}
+	}
+
+	numEdges = BLI_edgeset_len(eh);
+
+	/* write new edges into a temporary CustomData */
+	CustomData_reset(&edgeData);
+	CustomData_add_layer(&edgeData, CD_MEDGE, CD_CALLOC, NULL, numEdges);
+	CustomData_add_layer(&edgeData, CD_ORIGINDEX, CD_CALLOC, NULL, numEdges);
+
+	med = CustomData_get_layer(&edgeData, CD_MEDGE);
+	index = CustomData_get_layer(&edgeData, CD_ORIGINDEX);
+
+	for (ehi = BLI_edgesetIterator_new(eh), i = 0;
+	     BLI_edgesetIterator_isDone(ehi) == false;
+	     BLI_edgesetIterator_step(ehi), i++, med++, index++)
+	{
+		BLI_edgesetIterator_getKey(ehi, &med->v1, &med->v2);
+
+		med->flag = ME_EDGEDRAW | ME_EDGERENDER;
+		*index = ORIGINDEX_NONE;
+	}
+	BLI_edgesetIterator_free(ehi);
+
+	/* free old CustomData and assign new one */
+	CustomData_free(&mesh->edata, mesh->totedge);
+	mesh->edata = edgeData;
+	mesh->totedge = numEdges;
+
+	mesh->medge = CustomData_get_layer(&mesh->edata, CD_MEDGE);
+
+	BLI_edgeset_free(eh);
+}
+
 /** \} */

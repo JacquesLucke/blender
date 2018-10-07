@@ -126,7 +126,7 @@ typedef struct TransCon {
 	float imtx[3][3];    /* Inverse Matrix of the Constraint space                                    */
 	float pmtx[3][3];    /* Projection Constraint Matrix (same as imtx with some axis == 0)           */
 	int   imval[2];	     /* initial mouse value for visual calculation                                */
-	                     /* the one in TransInfo is not garanty to stay the same (Rotates change it)  */
+	                     /* the one in TransInfo is not guarantee to stay the same (Rotates change it)  */
 	int   mode;          /* Mode flags of the Constraint                                              */
 	void  (*drawExtra)(struct TransInfo *t);
 
@@ -163,7 +163,7 @@ typedef struct TransDataExtension {
 	float  r_mtx[3][3];  /* The rotscale matrix of pose bone, to allow using snap-align in translation mode,
 	                      * when td->mtx is the loc pose bone matrix (and hence can't be used to apply rotation in some cases,
 	                      * namely when a bone is in "NoLocal" or "Hinge" mode)... */
-	float  r_smtx[3][3]; /* Invers of previous one. */
+	float  r_smtx[3][3]; /* Inverse of previous one. */
 	int    rotOrder;	/* rotation mode,  as defined in eRotationModes (DNA_action_types.h) */
 	float oloc[3], orot[3], oquat[4], orotAxis[3], orotAngle; /* Original object transformation used for rigid bodies */
 } TransDataExtension;
@@ -176,7 +176,7 @@ typedef struct TransData2D {
 	float ih1[2], ih2[2];
 } TransData2D;
 
-/* we need to store 2 handles for each transdata in case the other handle wasnt selected */
+/* we need to store 2 handles for each transdata in case the other handle wasn't selected */
 typedef struct TransDataCurveHandleFlags {
 	char ih1, ih2;
 	char *h1, *h2;
@@ -593,7 +593,7 @@ typedef struct TransInfo {
 
 #define T_AUTOVALUES		(1 << 20)
 
-	/* to specificy if we save back settings at the end */
+	/* to specify if we save back settings at the end */
 #define	T_MODAL				(1 << 21)
 
 	/* no retopo */
@@ -718,6 +718,7 @@ void restoreBones(TransDataContainer *tc);
 
 /* return 0 when no gimbal for selection */
 bool gimbal_axis(struct Object *ob, float gmat[3][3]);
+void drawDial3d(const TransInfo *t);
 
 /*********************** TransData Creation and General Handling *********** */
 void createTransData(struct bContext *C, TransInfo *t);
@@ -826,7 +827,7 @@ void setInputPostFct(MouseInput *mi, void	(*post)(struct TransInfo *t, float val
 
 /*********************** Generics ********************************/
 
-void initTransDataContainers_FromObjectData(TransInfo *t);
+void initTransDataContainers_FromObjectData(TransInfo *t, struct Object *obact, struct Object **objects, uint objects_len);
 void initTransInfo(struct bContext *C, TransInfo *t, struct wmOperator *op, const struct wmEvent *event);
 void freeTransCustomDataForMode(TransInfo *t);
 void postTrans(struct bContext *C, TransInfo *t);
@@ -904,8 +905,6 @@ bool checkUseAxisMatrix(TransInfo *t);
 
 /* Temp macros. */
 
-/* This is to be replaced, just to get things compiling early on. */
-#define TRANS_DATA_CONTAINER_FIRST_EVIL(t) (&(t)->data_container[0])
 #define TRANS_DATA_CONTAINER_FIRST_OK(t) (&(t)->data_container[0])
 /* For cases we _know_ there is only one handle. */
 #define TRANS_DATA_CONTAINER_FIRST_SINGLE(t) (BLI_assert((t)->data_container_len == 1), (&(t)->data_container[0]))

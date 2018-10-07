@@ -827,7 +827,7 @@ void GPENCIL_OT_select_less(wmOperatorType *ot)
 static bool gp_stroke_do_circle_sel(
         bGPDstroke *gps, GP_SpaceConversion *gsc,
         const int mx, const int my, const int radius,
-        const bool select, rcti *rect, float diff_mat[4][4])
+        const bool select, rcti *rect, float diff_mat[4][4], const int selectmode)
 {
 	bGPDspoint *pt1, *pt2;
 	int x0 = 0, y0 = 0, x1 = 0, y1 = 0;
@@ -861,6 +861,7 @@ static bool gp_stroke_do_circle_sel(
 		/* Loop over the points in the stroke, checking for intersections
 		 *  - an intersection means that we touched the stroke
 		 */
+		bool hit = false;
 		for (i = 0; (i + 1) < gps->totpoints; i++) {
 			/* get points to work with */
 			pt1 = gps->points + i;
@@ -888,6 +889,7 @@ static bool gp_stroke_do_circle_sel(
 					 * (as the last point otherwise wouldn't get selected
 					 * as we only do n-1 loops through).
 					 */
+					hit = true;
 					if (select) {
 						pt1->flag |= GP_SPOINT_SELECT;
 						pt2->flag |= GP_SPOINT_SELECT;
@@ -900,6 +902,22 @@ static bool gp_stroke_do_circle_sel(
 
 						changed = true;
 					}
+				}
+			}
+			/* if stroke mode, don't check more points */
+			if ((hit) && (selectmode == GP_SELECTMODE_STROKE)) {
+				break;
+			}
+		}
+
+		/* if stroke mode expand selection */
+		if ((hit) && (selectmode == GP_SELECTMODE_STROKE)) {
+			for (i = 0, pt1 = gps->points; i < gps->totpoints; i++, pt1++) {
+				if (select) {
+					pt1->flag |= GP_SPOINT_SELECT;
+				}
+				else {
+					pt1->flag &= ~GP_SPOINT_SELECT;
 				}
 			}
 		}
@@ -915,6 +933,9 @@ static bool gp_stroke_do_circle_sel(
 static int gpencil_circle_select_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	const int selectmode = ts->gpencil_selectmode;
+
 	/* if not edit/sculpt mode, the event is catched but not processed */
 	if (GPENCIL_NONE_EDIT_MODE(gpd)) {
 		return OPERATOR_CANCELLED;
@@ -955,7 +976,7 @@ static int gpencil_circle_select_exec(bContext *C, wmOperator *op)
 	GP_EDITABLE_STROKES_BEGIN(C, gpl, gps)
 	{
 		changed |= gp_stroke_do_circle_sel(
-			gps, &gsc, mx, my, radius, select, &rect, diff_mat);
+			gps, &gsc, mx, my, radius, select, &rect, diff_mat, selectmode);
 	}
 	GP_EDITABLE_STROKES_END;
 
@@ -996,19 +1017,20 @@ void GPENCIL_OT_select_circle(wmOperatorType *ot)
 /* ********************************************** */
 /* Box Selection */
 
-static int gpencil_border_select_exec(bContext *C, wmOperator *op)
+static int gpencil_box_select_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
 	ScrArea *sa = CTX_wm_area(C);
 
 	const bool select = !RNA_boolean_get(op->ptr, "deselect");
-	const bool extend = RNA_boolean_get(op->ptr, "extend") && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0);
+	bool extend = RNA_boolean_get(op->ptr, "extend") && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0);
+	const bool strokemode = (ts->gpencil_selectmode == GP_SELECTMODE_STROKE) && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0);
 
 	GP_SpaceConversion gsc = {NULL};
 	rcti rect = {0};
 
 	bool changed = false;
-
 
 	/* sanity checks */
 	if (sa == NULL) {
@@ -1016,9 +1038,12 @@ static int gpencil_border_select_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
+	if (strokemode) {
+		extend = false;
+	}
+
 	/* init space conversion stuff */
 	gp_point_conversion_init(C, &gsc);
-
 
 	/* deselect all strokes first? */
 	if (select && !extend) {
@@ -1045,7 +1070,7 @@ static int gpencil_border_select_exec(bContext *C, wmOperator *op)
 
 		bGPDspoint *pt;
 		int i;
-
+		bool hit = false;
 		for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 			int x0, y0;
 
@@ -1056,6 +1081,7 @@ static int gpencil_border_select_exec(bContext *C, wmOperator *op)
 
 			/* test if in selection rect */
 			if ((!ELEM(V2D_IS_CLIPPED, x0, y0)) && BLI_rcti_isect_pt(&rect, x0, y0)) {
+				hit = true;
 				if (select) {
 					pt->flag |= GP_SPOINT_SELECT;
 				}
@@ -1064,6 +1090,22 @@ static int gpencil_border_select_exec(bContext *C, wmOperator *op)
 				}
 
 				changed = true;
+
+				/* if stroke mode, don't check more points */
+				if ((hit) && (strokemode)) {
+					break;
+				}
+			}
+		}
+		/* if stroke mode expand selection */
+		if ((hit) && (strokemode)) {
+			for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+				if (select) {
+					pt->flag |= GP_SPOINT_SELECT;
+				}
+				else {
+					pt->flag &= ~GP_SPOINT_SELECT;
+				}
 			}
 		}
 
@@ -1092,18 +1134,18 @@ static int gpencil_border_select_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-void GPENCIL_OT_select_border(wmOperatorType *ot)
+void GPENCIL_OT_select_box(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Border Select";
+	ot->name = "Box Select";
 	ot->description = "Select Grease Pencil strokes within a rectangular region";
-	ot->idname = "GPENCIL_OT_select_border";
+	ot->idname = "GPENCIL_OT_select_box";
 
 	/* callbacks */
-	ot->invoke = WM_gesture_border_invoke;
-	ot->exec = gpencil_border_select_exec;
-	ot->modal = WM_gesture_border_modal;
-	ot->cancel = WM_gesture_border_cancel;
+	ot->invoke = WM_gesture_box_invoke;
+	ot->exec = gpencil_box_select_exec;
+	ot->modal = WM_gesture_box_modal;
+	ot->cancel = WM_gesture_box_cancel;
 
 	ot->poll = gpencil_select_poll;
 
@@ -1111,7 +1153,7 @@ void GPENCIL_OT_select_border(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_USE_EVAL_DATA;
 
 	/* rna */
-	WM_operator_properties_gesture_border_select(ot);
+	WM_operator_properties_gesture_box_select(ot);
 }
 
 /* ********************************************** */
@@ -1120,12 +1162,13 @@ void GPENCIL_OT_select_border(wmOperatorType *ot)
 static int gpencil_lasso_select_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
 	GP_SpaceConversion gsc = {NULL};
 	rcti rect = {0};
 
-	const bool extend = RNA_boolean_get(op->ptr, "extend") && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0);
+	bool extend = RNA_boolean_get(op->ptr, "extend") && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0);
 	const bool select = !RNA_boolean_get(op->ptr, "deselect");
-
+	const bool strokemode = (ts->gpencil_selectmode == GP_SELECTMODE_STROKE) && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0);
 	int mcords_tot;
 	const int (*mcords)[2] = WM_gesture_lasso_path_to_array(C, op, &mcords_tot);
 
@@ -1134,6 +1177,10 @@ static int gpencil_lasso_select_exec(bContext *C, wmOperator *op)
 	/* sanity check */
 	if (mcords == NULL)
 		return OPERATOR_PASS_THROUGH;
+
+	if (strokemode) {
+		extend = false;
+	}
 
 	/* compute boundbox of lasso (for faster testing later) */
 	BLI_lasso_boundbox(&rect, mcords, mcords_tot);
@@ -1162,7 +1209,7 @@ static int gpencil_lasso_select_exec(bContext *C, wmOperator *op)
 	{
 		bGPDspoint *pt;
 		int i;
-
+		bool hit = false;
 		for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 			int x0, y0;
 
@@ -1174,6 +1221,7 @@ static int gpencil_lasso_select_exec(bContext *C, wmOperator *op)
 			if ((!ELEM(V2D_IS_CLIPPED, x0, y0)) && BLI_rcti_isect_pt(&rect, x0, y0) &&
 			    BLI_lasso_is_point_inside(mcords, mcords_tot, x0, y0, INT_MAX))
 			{
+				hit = true;
 				if (select) {
 					pt->flag |= GP_SPOINT_SELECT;
 				}
@@ -1182,6 +1230,23 @@ static int gpencil_lasso_select_exec(bContext *C, wmOperator *op)
 				}
 
 				changed = true;
+
+				/* if stroke mode, don't check more points */
+				if ((hit) && (strokemode)) {
+					break;
+				}
+			}
+		}
+
+		/* if stroke mode expand selection */
+		if ((hit) && (strokemode)) {
+			for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+				if (select) {
+					pt->flag |= GP_SPOINT_SELECT;
+				}
+				else {
+					pt->flag &= ~GP_SPOINT_SELECT;
+				}
 			}
 		}
 
@@ -1239,6 +1304,7 @@ static int gpencil_select_exec(bContext *C, wmOperator *op)
 {
 	ScrArea *sa = CTX_wm_area(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
 
 	/* "radius" is simply a threshold (screen space) to make it easier to test with a tolerance */
 	const float radius = 0.75f * U.widget_unit;
@@ -1261,6 +1327,11 @@ static int gpencil_select_exec(bContext *C, wmOperator *op)
 	if (sa == NULL) {
 		BKE_report(op->reports, RPT_ERROR, "No active area");
 		return OPERATOR_CANCELLED;
+	}
+
+	/* if select mode is stroke, use whole stroke */
+	if (ts->gpencil_selectmode == GP_SELECTMODE_STROKE) {
+		whole = true;
 	}
 
 	/* init space conversion stuff */

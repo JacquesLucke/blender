@@ -371,12 +371,9 @@ static void gp_stroke_convertcoords(tGPsdata *p, const int mval[2], float out[3]
 	/* in 3d-space - pt->x/y/z are 3 side-by-side floats */
 	if (gpd->runtime.sbuffer_sflag & GP_STROKE_3DSPACE) {
 
-		/* add small offset to keep stroke over the surface.
-		 * This could be a UI parameter, but the value is too sensitive for
-		 * the user to use it and don't improve the result.
-		 */
-		if (depth) {
-			*depth *= 0.99998f;
+		/* add small offset to keep stroke over the surface */
+		if ((depth) && (gpd->zdepth_offset > 0.0f)) {
+			*depth *= (1.0f - gpd->zdepth_offset);
 		}
 
 		if (gpencil_project_check(p) && (ED_view3d_autodist_simple(p->ar, mval, out, 0, depth))) {
@@ -1771,7 +1768,7 @@ static void gp_init_drawing_brush(bContext *C, tGPsdata *p)
 	curvemapping_initialize(brush->gpencil_settings->curve_strength);
 	curvemapping_initialize(brush->gpencil_settings->curve_jitter);
 
-	/* asign to temp tGPsdata */
+	/* assign to temp tGPsdata */
 	p->brush = brush;
 	if (brush->gpencil_settings->brush_type != GP_BRUSH_TYPE_ERASE) {
 		p->eraser = gp_get_default_eraser(p->bmain, ts);
@@ -1978,7 +1975,7 @@ static tGPsdata *gp_session_initpaint(bContext *C, wmOperator *op)
 
 	/* Random generator, only init once. */
 	uint rng_seed = (uint)(PIL_check_seconds_timer_i() & UINT_MAX);
-	rng_seed ^= GET_UINT_FROM_POINTER(p);
+	rng_seed ^= POINTER_AS_UINT(p);
 	p->rng = BLI_rng_new(rng_seed);
 
 	/* return context data for running paint operator */

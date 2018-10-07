@@ -191,7 +191,7 @@ void view3d_operatortypes(void)
 	WM_operatortype_append(VIEW3D_OT_view_center_camera);
 	WM_operatortype_append(VIEW3D_OT_view_center_lock);
 	WM_operatortype_append(VIEW3D_OT_select);
-	WM_operatortype_append(VIEW3D_OT_select_border);
+	WM_operatortype_append(VIEW3D_OT_select_box);
 	WM_operatortype_append(VIEW3D_OT_clip_border);
 	WM_operatortype_append(VIEW3D_OT_select_circle);
 	WM_operatortype_append(VIEW3D_OT_smoothview);
@@ -418,8 +418,7 @@ void view3d_keymap(wmKeyConfig *keyconf)
 #endif /* WITH_INPUT_NDOF */
 
 	/* drawtype */
-	kmi = WM_keymap_add_item(keymap, "VIEW3D_OT_toggle_shading", ZKEY, KM_PRESS, 0, 0);
-	RNA_enum_set(kmi->ptr, "type", OB_SOLID);
+	WM_keymap_add_menu_pie(keymap, "VIEW3D_MT_shading_pie", ZKEY, KM_PRESS, 0, 0);
 	kmi = WM_keymap_add_item(keymap, "VIEW3D_OT_toggle_shading", ZKEY, KM_PRESS, KM_ALT, 0);
 	RNA_enum_set(kmi->ptr, "type", OB_MATERIAL);
 	kmi = WM_keymap_add_item(keymap, "VIEW3D_OT_toggle_shading", ZKEY, KM_PRESS, KM_SHIFT, 0);
@@ -485,7 +484,7 @@ void view3d_keymap(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "object", false);
 	RNA_boolean_set(kmi->ptr, "enumerate", true);
 
-	WM_keymap_add_item(keymap, "VIEW3D_OT_select_border", BKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "VIEW3D_OT_select_box", BKEY, KM_PRESS, 0, 0);
 	kmi = WM_keymap_add_item(keymap, "VIEW3D_OT_select_lasso", EVT_TWEAK_A, KM_ANY, KM_CTRL, 0);
 	RNA_enum_set(kmi->ptr, "mode", SEL_OP_ADD);
 	kmi = WM_keymap_add_item(keymap, "VIEW3D_OT_select_lasso", EVT_TWEAK_A, KM_ANY, KM_SHIFT | KM_CTRL, 0);
@@ -502,7 +501,7 @@ void view3d_keymap(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "VIEW3D_OT_camera_to_view", PAD0, KM_PRESS, KM_ALT | KM_CTRL, 0);
 	WM_keymap_add_item(keymap, "VIEW3D_OT_object_as_camera", PAD0, KM_PRESS, KM_CTRL, 0);
 
-	WM_keymap_add_menu(keymap, "VIEW3D_MT_snap", SKEY, KM_PRESS, KM_SHIFT, 0);
+	WM_keymap_add_menu_pie(keymap, "VIEW3D_MT_snap_pie", SKEY, KM_PRESS, KM_SHIFT, 0);
 
 #ifdef __APPLE__
 	WM_keymap_add_item(keymap, "VIEW3D_OT_copybuffer", CKEY, KM_PRESS, KM_OSKEY, 0);
@@ -512,29 +511,13 @@ void view3d_keymap(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "VIEW3D_OT_pastebuffer", VKEY, KM_PRESS, KM_CTRL, 0);
 
 	/* context ops */
-	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", COMMAKEY, KM_PRESS, 0, 0);
-	RNA_string_set(kmi->ptr, "data_path", "tool_settings.transform_pivot_point");
-	RNA_string_set(kmi->ptr, "value", "BOUNDING_BOX_CENTER");
+	WM_keymap_add_menu_pie(keymap, "VIEW3D_MT_pivot_pie", PERIODKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_menu_pie(keymap, "VIEW3D_MT_orientations_pie", COMMAKEY, KM_PRESS, 0, 0);
 
-	/* 2.4x allowed Comma+Shift too, rather not use both */
-	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", COMMAKEY, KM_PRESS, KM_CTRL, 0);
-	RNA_string_set(kmi->ptr, "data_path", "tool_settings.transform_pivot_point");
-	RNA_string_set(kmi->ptr, "value", "MEDIAN_POINT");
-
+#ifdef USE_WM_KEYMAP_27X
 	kmi = WM_keymap_add_item(keymap, "WM_OT_context_toggle", COMMAKEY, KM_PRESS, KM_ALT, 0); /* new in 2.5 */
 	RNA_string_set(kmi->ptr, "data_path", "tool_settings.use_transform_pivot_point_align");
-
-	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", PERIODKEY, KM_PRESS, 0, 0);
-	RNA_string_set(kmi->ptr, "data_path", "tool_settings.transform_pivot_point");
-	RNA_string_set(kmi->ptr, "value", "CURSOR");
-
-	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", PERIODKEY, KM_PRESS, KM_CTRL, 0);
-	RNA_string_set(kmi->ptr, "data_path", "tool_settings.transform_pivot_point");
-	RNA_string_set(kmi->ptr, "value", "INDIVIDUAL_ORIGINS");
-
-	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", PERIODKEY, KM_PRESS, KM_ALT, 0);
-	RNA_string_set(kmi->ptr, "data_path", "tool_settings.transform_pivot_point");
-	RNA_string_set(kmi->ptr, "value", "ACTIVE_ELEMENT");
+#endif
 
 #ifdef USE_WM_KEYMAP_27X
 	kmi = WM_keymap_add_item(keymap, "WM_OT_context_toggle", SPACEKEY, KM_PRESS, KM_CTRL, 0); /* new in 2.5 */

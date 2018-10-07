@@ -244,6 +244,7 @@ static void PAINT_TEXTURE_cache_init(void *vedata)
 					DRWShadingGroup *grp = DRW_shgroup_create(e_data.image_sh, psl->image_faces);
 					DRW_shgroup_uniform_texture(grp, "image", tex);
 					DRW_shgroup_uniform_float(grp, "alpha", &draw_ctx->v3d->overlay.texture_paint_mode_opacity, 1);
+					DRW_shgroup_uniform_block(grp, "globalsBlock", globals_ubo);
 					stl->g_data->shgroup_image_array[0] = grp;
 				}
 				else {
@@ -349,7 +350,7 @@ static void PAINT_TEXTURE_cache_finish(void *vedata)
 	PAINT_TEXTURE_PassList *psl = ((PAINT_TEXTURE_Data *)vedata)->psl;
 	PAINT_TEXTURE_StorageList *stl = ((PAINT_TEXTURE_Data *)vedata)->stl;
 
-	/* Do something here! dependant on the objects gathered */
+	/* Do something here! dependent on the objects gathered */
 	UNUSED_VARS(psl);
 
 	MEM_SAFE_FREE(stl->g_data->shgroup_image_array);

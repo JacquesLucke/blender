@@ -29,18 +29,16 @@ class GPENCIL_MT_color_specials(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("gpencil.color_reveal", icon='RESTRICT_VIEW_OFF', text="Show All")
-        layout.operator("gpencil.color_hide", icon='RESTRICT_VIEW_ON', text="Hide Others").unselected = True
+        layout.operator("gpencil.color_reveal", icon='HIDE_OFF', text="Show All")
+        layout.operator("gpencil.color_hide", icon='HIDE_ON', text="Hide Others").unselected = True
 
         layout.separator()
 
         layout.operator("gpencil.color_lock_all", icon='LOCKED', text="Lock All")
         layout.operator("gpencil.color_unlock_all", icon='UNLOCKED', text="UnLock All")
 
-        layout.separator()
-
-        layout.operator("gpencil.stroke_lock_color", icon='BORDER_RECT', text="Lock Unselected")
-        layout.operator("gpencil.lock_layer", icon='COLOR', text="Lock Unused")
+        layout.operator("gpencil.stroke_lock_color", text="Lock Unselected")
+        layout.operator("gpencil.lock_layer", text="Lock Unused")
 
 
 class GPENCIL_UL_matslots(UIList):
@@ -109,9 +107,7 @@ class MATERIAL_PT_gpencil_slots(Panel):
 
         if ob:
             is_sortable = len(ob.material_slots) > 1
-            rows = 1
-            if (is_sortable):
-                rows = 4
+            rows = 7
 
             row = layout.row()
 
@@ -133,7 +129,7 @@ class MATERIAL_PT_gpencil_slots(Panel):
 
                 sub = col.column(align=True)
                 sub.operator("gpencil.color_isolate", icon='LOCKED', text="").affect_visibility = False
-                sub.operator("gpencil.color_isolate", icon='RESTRICT_VIEW_OFF', text="").affect_visibility = True
+                sub.operator("gpencil.color_isolate", icon='HIDE_OFF', text="").affect_visibility = True
 
         row = layout.row()
 
@@ -147,7 +143,8 @@ class MATERIAL_PT_gpencil_slots(Panel):
             if gpd.use_stroke_edit_mode:
                 row = layout.row(align=True)
                 row.operator("gpencil.stroke_change_color", text="Assign")
-                row.operator("gpencil.color_select", text="Select")
+                row.operator("gpencil.color_select", text="Select").deselect = False
+                row.operator("gpencil.color_select", text="Deselect").deselect = True
 
         elif mat:
             row.template_ID(space, "pin_id")
@@ -231,19 +228,19 @@ class MATERIAL_PT_gpencil_fillcolor(GPMaterialButtonsPanel, Panel):
             if gpcolor.fill_style != 'TEXTURE':
                 col.prop(gpcolor, "fill_color", text="Color")
 
-                if gpcolor.fill_style in ('GRADIENT', 'CHESSBOARD'):
+                if gpcolor.fill_style in {'GRADIENT', 'CHESSBOARD'}:
                     col.prop(gpcolor, "mix_color", text="Secondary Color")
 
                 if gpcolor.fill_style == 'GRADIENT':
                     col.prop(gpcolor, "mix_factor", text="Mix Factor", slider=True)
 
-                if gpcolor.fill_style in ('GRADIENT', 'CHESSBOARD'):
+                if gpcolor.fill_style in {'GRADIENT', 'CHESSBOARD'}:
                     col.prop(gpcolor, "flip", text="Flip Colors")
 
                     col.prop(gpcolor, "pattern_shift", text="Location")
                     col.prop(gpcolor, "pattern_scale", text="Scale")
 
-                if gpcolor.gradient_type == 'RADIAL' and gpcolor.fill_style not in ('SOLID', 'CHESSBOARD'):
+                if gpcolor.gradient_type == 'RADIAL' and gpcolor.fill_style not in {'SOLID', 'CHESSBOARD'}:
                     col.prop(gpcolor, "pattern_radius", text="Radius")
                 else:
                     if gpcolor.fill_style != 'SOLID':

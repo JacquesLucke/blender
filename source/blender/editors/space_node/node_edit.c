@@ -676,7 +676,7 @@ void ED_node_set_active(Main *bmain, bNodeTree *ntree, bNode *node)
 				if (was_output == 0)
 					ED_node_tag_update_nodetree(bmain, ntree, node);
 
-				/* addnode() doesnt link this yet... */
+				/* addnode() doesn't link this yet... */
 				node->id = (ID *)BKE_image_verify_viewer(bmain, IMA_TYPE_COMPOSITE, "Viewer Node");
 			}
 			else if (node->type == CMP_NODE_COMPOSITE) {
@@ -2509,17 +2509,17 @@ void NODE_OT_viewer_border(wmOperatorType *ot)
 	ot->idname = "NODE_OT_viewer_border";
 
 	/* api callbacks */
-	ot->invoke = WM_gesture_border_invoke;
+	ot->invoke = WM_gesture_box_invoke;
 	ot->exec = viewer_border_exec;
-	ot->modal = WM_gesture_border_modal;
-	ot->cancel = WM_gesture_border_cancel;
+	ot->modal = WM_gesture_box_modal;
+	ot->cancel = WM_gesture_box_cancel;
 	ot->poll = composite_node_active;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* properties */
-	WM_operator_properties_gesture_border_select(ot);
+	WM_operator_properties_gesture_box_select(ot);
 }
 
 static int clear_viewer_border_exec(bContext *C, wmOperator *UNUSED(op))

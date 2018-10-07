@@ -107,7 +107,7 @@ short ANIM_fcurve_keyframes_loop(KeyframeEditData *ked, FCurve *fcu, KeyframeEdi
 					ked->curflags = 0;
 				}
 
-				/* Only operate on this BezTriple if it fullfills the criteria of the validation func */
+				/* Only operate on this BezTriple if it fulfills the criteria of the validation func */
 				if ((ok = key_ok(ked, bezt))) {
 					if (ked) ked->curflags = ok;
 
@@ -416,16 +416,14 @@ void ANIM_editkeyframes_refresh(bAnimContext *ac)
 	filter = ANIMFILTER_DATA_VISIBLE;
 	ANIM_animdata_filter(ac, &anim_data, filter, ac->data, ac->datatype);
 
-	/* loop over F-Curves that are likely to have been edited, and check them */
+	/* Loop over F-Curves that are likely to have been edited, and tag them to
+	 * ensure the keyframes are in order and handles are in a valid position. */
 	for (ale = anim_data.first; ale; ale = ale->next) {
-		FCurve *fcu = ale->key_data;
-
-		/* make sure keyframes in F-Curve are all in order, and handles are in valid positions */
-		sort_time_fcurve(fcu);
-		calchandles_fcurve(fcu);
+		ale->update |= ANIM_UPDATE_DEPS | ANIM_UPDATE_HANDLES | ANIM_UPDATE_ORDER;
 	}
 
 	/* free temp data */
+	ANIM_animdata_update(ac, &anim_data);
 	ANIM_animdata_freelist(&anim_data);
 }
 
@@ -761,7 +759,7 @@ static short snap_bezier_nearest(KeyframeEditData *UNUSED(ked), BezTriple *bezt)
 	return 0;
 }
 
-/* snaps the keyframe to the neares second */
+/* snaps the keyframe to the nearest second */
 static short snap_bezier_nearestsec(KeyframeEditData *ked, BezTriple *bezt)
 {
 	const Scene *scene = ked->scene;
@@ -882,7 +880,7 @@ static short mirror_bezier_cframe(KeyframeEditData *ked, BezTriple *bezt)
 static short mirror_bezier_yaxis(KeyframeEditData *UNUSED(ked), BezTriple *bezt)
 {
 	if (bezt->f2 & SELECT) {
-		/* Yes, names are inverted, we are mirroring accross y axis, hence along x axis... */
+		/* Yes, names are inverted, we are mirroring across y axis, hence along x axis... */
 		mirror_bezier_xaxis_ex(bezt, 0.0f);
 	}
 
@@ -892,7 +890,7 @@ static short mirror_bezier_yaxis(KeyframeEditData *UNUSED(ked), BezTriple *bezt)
 static short mirror_bezier_xaxis(KeyframeEditData *UNUSED(ked), BezTriple *bezt)
 {
 	if (bezt->f2 & SELECT) {
-		/* Yes, names are inverted, we are mirroring accross x axis, hence along y axis... */
+		/* Yes, names are inverted, we are mirroring across x axis, hence along y axis... */
 		mirror_bezier_yaxis_ex(bezt, 0.0f);
 	}
 
@@ -911,7 +909,7 @@ static short mirror_bezier_marker(KeyframeEditData *ked, BezTriple *bezt)
 
 static short mirror_bezier_time(KeyframeEditData *ked, BezTriple *bezt)
 {
-	/* value to mirror over is strored in f1 */
+	/* value to mirror over is stored in f1 */
 	if (bezt->f2 & SELECT) {
 		mirror_bezier_xaxis_ex(bezt, ked->f1);
 	}

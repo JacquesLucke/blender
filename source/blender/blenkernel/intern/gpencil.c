@@ -458,6 +458,7 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
 
 	/* general flags */
 	gpd->flag |= GP_DATA_VIEWALIGN;
+	gpd->flag |= GP_DATA_STROKE_FORCE_RECALC;
 
 	/* GP object specific settings */
 	ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.5f);
@@ -465,6 +466,12 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
 	gpd->xray_mode = GP_XRAY_3DSPACE;
 	gpd->runtime.batch_cache_data = NULL;
 	gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
+
+	/* grid settings */
+	ARRAY_SET_ITEMS(gpd->grid.color, 0.5f, 0.5f, 0.5f); // Color
+	ARRAY_SET_ITEMS(gpd->grid.scale, 1.0f, 1.0f); // Scale
+	gpd->grid.lines = GP_DEFAULT_GRID_LINES; // Number of lines
+	gpd->grid.axis = GP_GRID_AXIS_Y;
 
 	/* onion-skinning settings (datablock level) */
 	gpd->onion_flag |= (GP_ONION_GHOST_PREVCOL | GP_ONION_GHOST_NEXTCOL);
@@ -1464,6 +1471,11 @@ float BKE_gpencil_multiframe_falloff_calc(bGPDframe *gpf, int actnum, int f_init
 {
 	float fnum = 0.5f; /* default mid curve */
 	float value;
+
+	/* check curve is available */
+	if (cur_falloff == NULL) {
+		return 1.0f;
+	}
 
 	/* frames to the right of the active frame */
 	if (gpf->framenum < actnum) {

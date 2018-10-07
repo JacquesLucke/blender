@@ -58,7 +58,7 @@
 
 static void toolsystem_reinit_with_toolref(
         bContext *C, WorkSpace *UNUSED(workspace), bToolRef *tref);
-static void toolsystem_reinit_ensure_toolref(
+static bToolRef *toolsystem_reinit_ensure_toolref(
         bContext *C, WorkSpace *workspace, const bToolKey *tkey, const char *default_tool);
 static void toolsystem_refresh_screen_from_active_tool(
         Main *bmain, WorkSpace *workspace, bToolRef *tref);
@@ -169,6 +169,14 @@ void WM_toolsystem_unlink(bContext *C, WorkSpace *workspace, const bToolKey *tke
 	}
 }
 
+static void toolsystem_ref_link__refresh_image_uv_sculpt(bContext *C, Scene *scene)
+{
+	PointerRNA ptr;
+	RNA_pointer_create(&scene->id, &RNA_ToolSettings, scene->toolsettings, &ptr);
+	PropertyRNA *prop = RNA_struct_find_property(&ptr, "use_uv_sculpt");
+	RNA_property_update(C, &ptr, prop);
+}
+
 static void toolsystem_ref_link(bContext *C, WorkSpace *workspace, bToolRef *tref)
 {
 	bToolRef_Runtime *tref_rt = tref->runtime;
@@ -205,6 +213,30 @@ static void toolsystem_ref_link(bContext *C, WorkSpace *workspace, bToolRef *tre
 				}
 			}
 		}
+		if ((tref->space_type == SPACE_IMAGE) &&
+		    (tref->mode == SI_MODE_VIEW))
+		{
+			/* Note that switching uv-sculpt boolean is a hack at the moment.
+			 * It would be best to make this either an operator or a higher level mode (like mesh-object sculpt mode). */
+			const EnumPropertyItem *items = rna_enum_uv_sculpt_tool_items;
+			const int i = RNA_enum_from_identifier(items, tref_rt->data_block);
+			if (i != -1) {
+				const int value = items[i].value;
+				wmWindowManager *wm = bmain->wm.first;
+				for (wmWindow *win = wm->windows.first; win; win = win->next) {
+					if (workspace == WM_window_get_active_workspace(win)) {
+						Scene *scene = WM_window_get_active_scene(win);
+						ToolSettings *ts = scene->toolsettings;
+						ts->uv_sculpt_tool = value;
+
+						if (ts->use_uv_sculpt == false) {
+							ts->use_uv_sculpt = true;
+							toolsystem_ref_link__refresh_image_uv_sculpt(C, scene);
+						}
+					}
+				}
+			}
+		}
 		else {
 			struct Brush *brush = (struct Brush *)BKE_libblock_find_name(bmain, ID_BR, tref_rt->data_block);
 			if (brush) {
@@ -219,6 +251,25 @@ static void toolsystem_ref_link(bContext *C, WorkSpace *workspace, bToolRef *tre
 								BKE_paint_brush_set(paint, brush);
 							}
 						}
+					}
+				}
+			}
+		}
+	}
+	else {
+		/* XXX, this part is weak, disables uv_sculpt when non uv-tool set. */
+		if ((tref->space_type == SPACE_IMAGE) &&
+		    (tref->mode == SI_MODE_VIEW))
+		{
+			Main *bmain = CTX_data_main(C);
+			wmWindowManager *wm = bmain->wm.first;
+			for (wmWindow *win = wm->windows.first; win; win = win->next) {
+				if (workspace == WM_window_get_active_workspace(win)) {
+					Scene *scene = WM_window_get_active_scene(win);
+					ToolSettings *ts = scene->toolsettings;
+					if (ts->use_uv_sculpt == true) {
+						ts->use_uv_sculpt = false;
+						toolsystem_ref_link__refresh_image_uv_sculpt(C, scene);
 					}
 				}
 			}
@@ -363,6 +414,11 @@ void WM_toolsystem_init(bContext *C)
 						toolsystem_reinit_ref(C, workspace, tref);
 						tref->tag = 1;
 					}
+				}
+				else {
+					/* Without this we may load a file without a default tool. */
+					tref = toolsystem_reinit_ensure_toolref(C, workspace, &tkey, NULL);
+					tref->tag = 1;
 				}
 			}
 			CTX_wm_window_set(C, NULL);
@@ -526,18 +582,60 @@ static void toolsystem_reinit_with_toolref(
 	WM_toolsystem_ref_set_by_name(C, workspace, &tkey, tref->idname, false);
 }
 
+static const char *toolsystem_default_tool(const bToolKey *tkey)
+{
+	switch (tkey->space_type) {
+		case SPACE_VIEW3D:
+			switch (tkey->mode) {
+				/* XXX(campbell): hard coded paint-brush names.
+				 * Eventyally we plan to move away from using brush names as tools,
+				 * in favor of having tool types in the toolbar, which can each select their own brush.
+				 * so keep this as a temporary hack.
+				 */
+				case CTX_MODE_SCULPT:
+					return "SculptDraw";
+				case CTX_MODE_PAINT_VERTEX:
+				case CTX_MODE_PAINT_WEIGHT:
+				case CTX_MODE_GPENCIL_WEIGHT:
+					return "Draw";
+				case CTX_MODE_PAINT_TEXTURE:
+					return "TexDraw";
+				case CTX_MODE_GPENCIL_PAINT:
+					return "Draw Pencil";
+				case CTX_MODE_GPENCIL_SCULPT:
+					return "Push";
+				/* end temporary hack. */
+
+				case CTX_MODE_PARTICLE:
+					return "Comb";
+				default:
+					/* FIXME(campbell): disable for now since this means we can't lasso select by default. */
+#if 0
+					return "Select Box";
+#endif
+					break;
+			}
+			break;
+	}
+
+	return "Cursor";
+}
+
 /**
  * Run after changing modes.
  */
-static void toolsystem_reinit_ensure_toolref(
+static bToolRef *toolsystem_reinit_ensure_toolref(
         bContext *C, WorkSpace *workspace, const bToolKey *tkey, const char *default_tool)
 {
 	bToolRef *tref;
 	if (WM_toolsystem_ref_ensure(workspace, tkey, &tref)) {
+		if (default_tool == NULL) {
+			default_tool = toolsystem_default_tool(tkey);
+		}
 		STRNCPY(tref->idname, default_tool);
 	}
-
 	toolsystem_reinit_with_toolref(C, workspace, tref);
+	return tref;
 }
 
 void WM_toolsystem_update_from_context_view3d(bContext *C)
@@ -549,7 +647,7 @@ void WM_toolsystem_update_from_context_view3d(bContext *C)
 		.space_type = space_type,
 		.mode = WM_toolsystem_mode_from_spacetype(view_layer, NULL, space_type),
 	};
-	toolsystem_reinit_ensure_toolref(C, workspace, &tkey, "Cursor");
+	toolsystem_reinit_ensure_toolref(C, workspace, &tkey, NULL);
 }
 
 /**
@@ -585,21 +683,22 @@ IDProperty *WM_toolsystem_ref_properties_ensure_idprops(bToolRef *tref)
 	return tref->properties;
 }
 
-void WM_toolsystem_ref_properties_ensure(bToolRef *tref, wmOperatorType *ot, PointerRNA *ptr)
+
+void WM_toolsystem_ref_properties_ensure_ex(bToolRef *tref, const char *idname, StructRNA *type, PointerRNA *r_ptr)
 {
 	IDProperty *group = WM_toolsystem_ref_properties_ensure_idprops(tref);
-	IDProperty *prop = IDP_GetPropertyFromGroup(group, ot->idname);
+	IDProperty *prop = IDP_GetPropertyFromGroup(group, idname);
 	if (prop == NULL) {
 		IDPropertyTemplate val = {0};
-		prop = IDP_New(IDP_GROUP, &val, "wmOperatorProperties");
-		STRNCPY(prop->name, ot->idname);
+		prop = IDP_New(IDP_GROUP, &val, "wmGenericProperties");
+		STRNCPY(prop->name, idname);
 		IDP_ReplaceInGroup_ex(group, prop, NULL);
 	}
 	else {
 		BLI_assert(prop->type == IDP_GROUP);
 	}
 
-	RNA_pointer_create(NULL, ot->srna, prop, ptr);
+	RNA_pointer_create(NULL, type, prop, r_ptr);
 }
 
 void WM_toolsystem_ref_properties_init_for_keymap(

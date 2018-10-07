@@ -96,6 +96,37 @@
 
   /* ************************************************ */
   /* Stroke Edit Mode Management */
+
+/* poll callback for all stroke editing operators */
+static bool gp_stroke_edit_poll(bContext *C)
+{
+	/* edit only supported with grease pencil objects */
+	Object *ob = CTX_data_active_object(C);
+	if ((ob == NULL) || (ob->type != OB_GPENCIL)) {
+		return false;
+	}
+
+	/* NOTE: this is a bit slower, but is the most accurate... */
+	return CTX_DATA_COUNT(C, editable_gpencil_strokes) != 0;
+}
+
+/* poll callback to verify edit mode in 3D view only */
+static bool gp_strokes_edit3d_poll(bContext *C)
+{
+	/* edit only supported with grease pencil objects */
+	Object *ob = CTX_data_active_object(C);
+	if ((ob == NULL) || (ob->type != OB_GPENCIL)) {
+		return false;
+	}
+
+
+	/* 2 Requirements:
+	 * - 1) Editable GP data
+	 * - 2) 3D View only
+	 */
+	return (gp_stroke_edit_poll(C) && ED_operator_view3d_active(C));
+}
+
 static bool gpencil_editmode_toggle_poll(bContext *C)
 {
 	/* edit only supported with grease pencil objects */
@@ -193,6 +224,43 @@ void GPENCIL_OT_editmode_toggle(wmOperatorType *ot)
 
 	/* properties */
 	prop = RNA_def_boolean(ot->srna, "back", 0, "Return to Previous Mode", "Return to previous mode");
+	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+}
+
+/* set select mode */
+static int gpencil_selectmode_toggle_exec(bContext *C, wmOperator *op)
+{
+	Scene *scene = CTX_data_scene(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	const int mode = RNA_int_get(op->ptr, "mode");
+
+	/* Just set mode */
+	ts->gpencil_selectmode = mode;
+
+	WM_main_add_notifier(NC_SCENE | ND_TOOLSETTINGS, NULL);
+	DEG_id_tag_update(&scene->id, DEG_TAG_COPY_ON_WRITE);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_selectmode_toggle(wmOperatorType *ot)
+{
+	PropertyRNA *prop;
+
+	/* identifiers */
+	ot->name = "Select Mode Toggle";
+	ot->idname = "GPENCIL_OT_selectmode_toggle";
+	ot->description = "Set selection mode for Grease Pencil strokes";
+
+	/* callbacks */
+	ot->exec = gpencil_selectmode_toggle_exec;
+	ot->poll = gp_strokes_edit3d_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
+
+	/* properties */
+	prop = RNA_def_int(ot->srna, "mode", 0, 0, 1, "Select mode", "Select mode", 0, 1);
 	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 
@@ -471,36 +539,6 @@ void GPENCIL_OT_weightmode_toggle(wmOperatorType *ot)
 
 /* ************************************************ */
 /* Stroke Editing Operators */
-
-/* poll callback for all stroke editing operators */
-static bool gp_stroke_edit_poll(bContext *C)
-{
-	/* edit only supported with grease pencil objects */
-	Object *ob = CTX_data_active_object(C);
-	if ((ob == NULL) || (ob->type != OB_GPENCIL)) {
-		return false;
-	}
-
-	/* NOTE: this is a bit slower, but is the most accurate... */
-	return CTX_DATA_COUNT(C, editable_gpencil_strokes) != 0;
-}
-
-/* poll callback to verify edit mode in 3D view only */
-static bool gp_strokes_edit3d_poll(bContext *C)
-{
-	/* edit only supported with grease pencil objects */
-	Object *ob = CTX_data_active_object(C);
-	if ((ob == NULL) || (ob->type != OB_GPENCIL)) {
-		return false;
-	}
-
-
-	/* 2 Requirements:
-	 * - 1) Editable GP data
-	 * - 2) 3D View only
-	 */
-	return (gp_stroke_edit_poll(C) && ED_operator_view3d_active(C));
-}
 
 /* ************ Stroke Hide selection Toggle ************** */
 
@@ -1462,7 +1500,7 @@ static int gp_delete_selected_strokes(bContext *C)
 {
 	bool changed = false;
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
+	const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
@@ -1524,7 +1562,7 @@ static int gp_dissolve_selected_points(bContext *C, eGP_DissolveMode mode)
 {
 	Object *ob = CTX_data_active_object(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
+	const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 	bool changed = false;
 	int first = 0;
 	int last = 0;
@@ -1916,7 +1954,7 @@ static int gp_delete_selected_points(bContext *C)
 {
 	Object *ob = CTX_data_active_object(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
+	const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 	bool changed = false;
 
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
@@ -3006,7 +3044,7 @@ static int gp_stroke_subdivide_exec(bContext *C, wmOperator *op)
 					temp_dverts = MEM_dupallocN(gps->dvert);
 				}
 
-				/* resize the points arrys */
+				/* resize the points arrays */
 				gps->totpoints += totnewpoints;
 				gps->points = MEM_recallocN(gps->points, sizeof(*gps->points) * gps->totpoints);
 				if (gps->dvert != NULL) {
@@ -3164,7 +3202,7 @@ void GPENCIL_OT_stroke_simplify(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-/* ** simplify stroke using fixed algorith *** */
+/* ** simplify stroke using fixed algorithm *** */
 static int gp_stroke_simplify_fixed_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
@@ -3250,7 +3288,7 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 	if (ELEM(NULL, gpd_src)) {
 		return OPERATOR_CANCELLED;
 	}
-	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd_src);
+	const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd_src);
 
 	/* create a new object */
 	base_new = ED_object_add_duplicate(bmain, scene, view_layer, base_old, 0);
@@ -3435,7 +3473,7 @@ static int gp_stroke_split_exec(bContext *C, wmOperator *UNUSED(op))
 	if (ELEM(NULL, gpd)) {
 		return OPERATOR_CANCELLED;
 	}
-	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
+	const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 
 	/* loop strokes and split parts */
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)

@@ -99,7 +99,9 @@ static bool isDisabled(const Scene *scene, ModifierData *md, bool useRenderParam
 	return get_render_subsurf_level(&scene->r, levels, useRenderParams != 0) == 0;
 }
 
-static DerivedMesh *applyModifier(
+#ifndef WITH_OPENSUBDIV_MODIFIER
+
+static DerivedMesh *applyModifier_DM(
         ModifierData *md, const ModifierEvalContext *ctx,
         DerivedMesh *derivedData)
 {
@@ -133,7 +135,11 @@ static DerivedMesh *applyModifier(
 	return result;
 }
 
-static DerivedMesh *applyModifierEM(
+applyModifier_DM_wrapper(applyModifier, applyModifier_DM)
+
+#endif
+
+static DerivedMesh *applyModifierEM_DM(
         ModifierData *md, const ModifierEvalContext *ctx,
         struct BMEditMesh *UNUSED(editData),
         DerivedMesh *derivedData)
@@ -146,6 +152,20 @@ static DerivedMesh *applyModifierEM(
 
 	result = subsurf_make_derived_from_derived(derivedData, smd, scene, NULL, ss_flags);
 	return result;
+}
+
+static Mesh *applyModifierEM(
+        struct ModifierData *md, const struct ModifierEvalContext *ctx,
+        struct BMEditMesh *editData,
+        struct Mesh *mesh)
+{
+	DerivedMesh *dm = CDDM_from_mesh_ex(mesh, CD_REFERENCE, CD_MASK_EVERYTHING);
+	DerivedMesh *ndm = applyModifierEM_DM(md, ctx, editData, dm);
+	if (ndm != dm) {
+		dm->release(dm);
+	}
+	DM_to_mesh(ndm, mesh, ctx->object, CD_MASK_EVERYTHING, true);
+	return mesh;
 }
 
 #ifdef WITH_OPENSUBDIV_MODIFIER
@@ -275,8 +295,8 @@ ModifierTypeInfo modifierType_Subsurf = {
 	/* deformMatrices_DM */ NULL,
 	/* deformVertsEM_DM */  NULL,
 	/* deformMatricesEM_DM*/NULL,
-	/* applyModifier_DM */  applyModifier,
-	/* applyModifierEM_DM */applyModifierEM,
+	/* applyModifier_DM */  NULL,
+	/* applyModifierEM_DM */NULL,
 
 	/* deformVerts */       NULL,
 	/* deformMatrices */    NULL,
@@ -285,9 +305,9 @@ ModifierTypeInfo modifierType_Subsurf = {
 #ifdef WITH_OPENSUBDIV_MODIFIER
 	/* applyModifier */     applyModifier_subdiv,
 #else
-	/* applyModifier */     NULL,
+	/* applyModifier */     applyModifier,
 #endif
-	/* applyModifierEM */   NULL,
+	/* applyModifierEM */   applyModifierEM,
 
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,

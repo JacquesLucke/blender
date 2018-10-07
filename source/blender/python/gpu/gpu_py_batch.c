@@ -45,8 +45,10 @@
 
 #include "../generic/py_capi_utils.h"
 
+#include "gpu_py_primitive.h"
 #include "gpu_py_shader.h"
 #include "gpu_py_vertex_buffer.h"
+#include "gpu_py_element.h"
 #include "gpu_py_batch.h" /* own include */
 
 
@@ -55,70 +57,56 @@
 /** \name VertBatch Type
  * \{ */
 
-static int bpygpu_ParsePrimType(PyObject *o, void *p)
-{
-	Py_ssize_t mode_id_len;
-	const char *mode_id = _PyUnicode_AsStringAndSize(o, &mode_id_len);
-	if (mode_id == NULL) {
-		PyErr_Format(PyExc_ValueError,
-		             "expected a string, got %s",
-		             Py_TYPE(o)->tp_name);
-		return 0;
-	}
-#define MATCH_ID(id) \
-	if (mode_id_len == strlen(STRINGIFY(id))) { \
-		if (STREQ(mode_id, STRINGIFY(id))) { \
-			mode = GPU_PRIM_##id; \
-			goto success; \
-		} \
-	} ((void)0)
-
-	GPUPrimType mode;
-	MATCH_ID(POINTS);
-	MATCH_ID(LINES);
-	MATCH_ID(TRIS);
-	MATCH_ID(LINE_STRIP);
-	MATCH_ID(LINE_LOOP);
-	MATCH_ID(TRI_STRIP);
-	MATCH_ID(TRI_FAN);
-	MATCH_ID(LINE_STRIP_ADJ);
-
-#undef MATCH_ID
-	PyErr_Format(PyExc_ValueError,
-	             "unknown type literal: '%s'",
-	             mode_id);
-	return 0;
-
-success:
-	(*(GPUPrimType *)p) = mode;
-	return 1;
-}
-
 static PyObject *bpygpu_Batch_new(PyTypeObject *UNUSED(type), PyObject *args, PyObject *kwds)
 {
-	const char * const keywords[] = {"type", "buf", NULL};
+	const char *exc_str_missing_arg = "GPUBatch.__new__() missing required argument '%s' (pos %d)";
 
 	struct {
 		GPUPrimType type_id;
-		BPyGPUVertBuf *py_buf;
-	} params;
+		BPyGPUVertBuf *py_vertbuf;
+		BPyGPUIndexBuf *py_indexbuf;
+	} params = {GPU_PRIM_NONE, NULL, NULL};
 
-	if (!PyArg_ParseTupleAndKeywords(
-	        args, kwds,
-	        "$O&O!:GPUBatch.__new__", (char **)keywords,
+	static const char *_keywords[] = {"type", "buf", "elem", NULL};
+	static _PyArg_Parser _parser = {"|$O&O!O!:GPUBatch.__new__", _keywords, 0};
+	if (!_PyArg_ParseTupleAndKeywordsFast(
+	        args, kwds, &_parser,
 	        bpygpu_ParsePrimType, &params.type_id,
-	        &BPyGPUVertBuf_Type, &params.py_buf))
+	        &BPyGPUVertBuf_Type, &params.py_vertbuf,
+	        &BPyGPUIndexBuf_Type, &params.py_indexbuf))
 	{
 		return NULL;
 	}
 
-	GPUBatch *batch = GPU_batch_create(params.type_id, params.py_buf->buf, NULL);
+	if (params.type_id == GPU_PRIM_NONE) {
+		PyErr_Format(PyExc_TypeError,
+		             exc_str_missing_arg, _keywords[0], 1);
+		return NULL;
+	}
+
+	if (params.py_vertbuf == NULL) {
+		PyErr_Format(PyExc_TypeError,
+		             exc_str_missing_arg, _keywords[1], 2);
+		return NULL;
+	}
+
+	GPUBatch *batch = GPU_batch_create(
+	        params.type_id,
+	        params.py_vertbuf->buf,
+	        params.py_indexbuf ? params.py_indexbuf->elem : NULL);
+
 	BPyGPUBatch *ret = (BPyGPUBatch *)BPyGPUBatch_CreatePyObject(batch);
 
 #ifdef USE_GPU_PY_REFERENCES
-	ret->references = PyList_New(1);
-	PyList_SET_ITEM(ret->references, 0, (PyObject *)params.py_buf);
-	Py_INCREF(params.py_buf);
+	ret->references = PyList_New(params.py_indexbuf ? 2 : 1);
+	PyList_SET_ITEM(ret->references, 0, (PyObject *)params.py_vertbuf);
+	Py_INCREF(params.py_vertbuf);
+
+	if (params.py_indexbuf != NULL) {
+		PyList_SET_ITEM(ret->references, 1, (PyObject *)params.py_indexbuf);
+		Py_INCREF(params.py_indexbuf);
+	}
+
 	PyObject_GC_Track(ret);
 #endif
 
@@ -170,127 +158,46 @@ static PyObject *bpygpu_VertBatch_program_set(BPyGPUBatch *self, BPyGPUShader *p
 	        GPU_shader_get_program(shader),
 	        GPU_shader_get_interface(shader));
 
-	Py_RETURN_NONE;
-}
+#ifdef USE_GPU_PY_REFERENCES
+	/* Hold user */
+	PyList_Append(self->references, (PyObject *)py_shader);
+#endif
 
-PyDoc_STRVAR(bpygpu_VertBatch_program_set_builtin_doc,
-"TODO"
-);
-static PyObject *bpygpu_VertBatch_program_set_builtin(BPyGPUBatch *self, PyObject *args, PyObject *kwds)
-{
-	static const char *kwlist[] = {"id", NULL};
-
-	struct {
-		const char *shader;
-	} params;
-
-	if (!PyArg_ParseTupleAndKeywords(
-	        args, kwds, "s:program_set_builtin", (char **)kwlist,
-	        &params.shader))
-	{
-		return NULL;
-	}
-
-	GPUBuiltinShader shader;
-
-#define MATCH_ID(id) \
-	if (STREQ(params.shader, STRINGIFY(id))) { \
-		shader = GPU_SHADER_##id; \
-		goto success; \
-	} ((void)0)
-
-	MATCH_ID(2D_FLAT_COLOR);
-	MATCH_ID(2D_SMOOTH_COLOR);
-	MATCH_ID(2D_UNIFORM_COLOR);
-
-	MATCH_ID(3D_FLAT_COLOR);
-	MATCH_ID(3D_SMOOTH_COLOR);
-	MATCH_ID(3D_UNIFORM_COLOR);
-
-#undef MATCH_ID
-
-	PyErr_SetString(PyExc_ValueError,
-	                "shader name not known");
-	return NULL;
-
-success:
-	GPU_batch_program_set_builtin(self->batch, shader);
-	Py_RETURN_NONE;
-}
-
-static PyObject *bpygpu_VertBatch_uniform_bool(BPyGPUBatch *self, PyObject *args)
-{
-	struct {
-		const char *id;
-		bool values[1];
-	} params;
-
-	if (!PyArg_ParseTuple(
-	        args, "sO&:uniform_bool",
-	        &params.id,
-	        PyC_ParseBool, &params.values[0]))
-	{
-		return NULL;
-	}
-
-	GPU_batch_uniform_1b(self->batch, params.id, params.values[0]);
-	Py_RETURN_NONE;
-}
-
-static PyObject *bpygpu_VertBatch_uniform_i32(BPyGPUBatch *self, PyObject *args)
-{
-	struct {
-		const char *id;
-		int values[1];
-	} params;
-
-	if (!PyArg_ParseTuple(
-	        args, "si:uniform_i32",
-	        &params.id,
-	        &params.values[0]))
-	{
-		return NULL;
-	}
-
-	GPU_batch_uniform_1i(self->batch, params.id, params.values[0]);
-	Py_RETURN_NONE;
-}
-
-static PyObject *bpygpu_VertBatch_uniform_f32(BPyGPUBatch *self, PyObject *args)
-{
-	struct {
-		const char *id;
-		float values[4];
-	} params;
-
-	if (!PyArg_ParseTuple(
-	        args, "sf|fff:uniform_f32",
-	        &params.id,
-	        &params.values[0], &params.values[1], &params.values[2], &params.values[3]))
-	{
-		return NULL;
-	}
-
-	switch (PyTuple_GET_SIZE(args)) {
-		case 2: GPU_batch_uniform_1f(self->batch, params.id, params.values[0]); break;
-		case 3: GPU_batch_uniform_2f(self->batch, params.id, UNPACK2(params.values)); break;
-		case 4: GPU_batch_uniform_3f(self->batch, params.id, UNPACK3(params.values)); break;
-		case 5: GPU_batch_uniform_4f(self->batch, params.id, UNPACK4(params.values)); break;
-		default:
-			BLI_assert(0);
-	}
 	Py_RETURN_NONE;
 }
 
 PyDoc_STRVAR(bpygpu_VertBatch_draw_doc,
-"TODO"
+".. method:: draw(program=None)\n"
+"\n"
+"   Run the drawing program with the parameters assigned to the batch.\n"
+"\n"
+"   :param program: program that performs the drawing operations. \n"
+"      If ``None`` is passed, the last program setted to this batch will run.\n"
+"   :type program: :class:`gpu.types.GPUShader`\n"
 );
-static PyObject *bpygpu_VertBatch_draw(BPyGPUBatch *self)
+static PyObject *bpygpu_VertBatch_draw(BPyGPUBatch *self, PyObject *args)
 {
-	if (!glIsProgram(self->batch->program)) {
-		PyErr_SetString(PyExc_ValueError,
-		                "batch program has not not set");
+	BPyGPUShader *py_program = NULL;
+
+	if (!PyArg_ParseTuple(
+	        args, "|O!:GPUShader.__exit__",
+	        &BPyGPUShader_Type, &py_program))
+	{
+		return NULL;
 	}
+	else if (py_program == NULL) {
+		if (!glIsProgram(self->batch->program)) {
+			PyErr_SetString(PyExc_RuntimeError,
+			                "batch does not have any program assigned to it");
+			return NULL;
+		}
+	}
+	else if (self->batch->program != GPU_shader_get_program(py_program->shader)) {
+		GPU_batch_program_set(self->batch,
+		        GPU_shader_get_program(py_program->shader),
+		        GPU_shader_get_interface(py_program->shader));
+	}
+
 	GPU_batch_draw(self->batch);
 	Py_RETURN_NONE;
 }
@@ -298,8 +205,8 @@ static PyObject *bpygpu_VertBatch_draw(BPyGPUBatch *self)
 static PyObject *bpygpu_VertBatch_program_use_begin(BPyGPUBatch *self)
 {
 	if (!glIsProgram(self->batch->program)) {
-		PyErr_SetString(PyExc_ValueError,
-		                "batch program has not not set");
+		PyErr_SetString(PyExc_RuntimeError,
+		                "batch does not have any program assigned to it");
 	}
 	GPU_batch_program_use_begin(self->batch);
 	Py_RETURN_NONE;
@@ -308,8 +215,8 @@ static PyObject *bpygpu_VertBatch_program_use_begin(BPyGPUBatch *self)
 static PyObject *bpygpu_VertBatch_program_use_end(BPyGPUBatch *self)
 {
 	if (!glIsProgram(self->batch->program)) {
-		PyErr_SetString(PyExc_ValueError,
-		                "batch program has not not set");
+		PyErr_SetString(PyExc_RuntimeError,
+		                "batch does not have any program assigned to it");
 	}
 	GPU_batch_program_use_end(self->batch);
 	Py_RETURN_NONE;
@@ -320,19 +227,11 @@ static struct PyMethodDef bpygpu_VertBatch_methods[] = {
 	 METH_O, bpygpu_VertBatch_vertbuf_add_doc},
 	{"program_set", (PyCFunction)bpygpu_VertBatch_program_set,
 	 METH_O, bpygpu_VertBatch_program_set_doc},
-	{"program_set_builtin", (PyCFunction)bpygpu_VertBatch_program_set_builtin,
-	 METH_VARARGS | METH_KEYWORDS, bpygpu_VertBatch_program_set_builtin_doc},
-	{"uniform_bool", (PyCFunction)bpygpu_VertBatch_uniform_bool,
-	 METH_VARARGS, NULL},
-	{"uniform_i32", (PyCFunction)bpygpu_VertBatch_uniform_i32,
-	 METH_VARARGS, NULL},
-	{"uniform_f32", (PyCFunction)bpygpu_VertBatch_uniform_f32,
-	  METH_VARARGS, NULL},
 	{"draw", (PyCFunction) bpygpu_VertBatch_draw,
-	 METH_NOARGS, bpygpu_VertBatch_draw_doc},
-	{"program_use_begin", (PyCFunction)bpygpu_VertBatch_program_use_begin,
+	 METH_VARARGS, bpygpu_VertBatch_draw_doc},
+	{"__program_use_begin", (PyCFunction)bpygpu_VertBatch_program_use_begin,
 	 METH_NOARGS, ""},
-	{"program_use_end", (PyCFunction)bpygpu_VertBatch_program_use_end,
+	{"__program_use_end", (PyCFunction)bpygpu_VertBatch_program_use_end,
 	 METH_NOARGS, ""},
 	{NULL, NULL, 0, NULL}
 };
@@ -369,25 +268,26 @@ static void bpygpu_Batch_dealloc(BPyGPUBatch *self)
 }
 
 PyDoc_STRVAR(py_gpu_batch_doc,
-"GPUBatch(type, buf)\n"
+"GPUBatch(type, buf, elem=None)\n"
 "\n"
 "Contains VAOs + VBOs + Shader representing a drawable entity."
 "\n"
 "   :param type: One of these primitive types: {\n"
-"       \"POINTS\",\n"
-"       \"LINES\",\n"
-"       \"TRIS\",\n"
-"       \"LINE_STRIP\",\n"
-"       \"LINE_LOOP\",\n"
-"       \"TRI_STRIP\",\n"
-"       \"TRI_FAN\",\n"
-"       \"LINES_ADJ\",\n"
-"       \"TRIS_ADJ\",\n"
-"       \"LINE_STRIP_ADJ\",\n"
-"       \"NONE\"}\n"
+"       'POINTS',\n"
+"       'LINES',\n"
+"       'TRIS',\n"
+"       'LINE_STRIP',\n"
+"       'LINE_LOOP',\n"
+"       'TRI_STRIP',\n"
+"       'TRI_FAN',\n"
+"       'LINES_ADJ',\n"
+"       'TRIS_ADJ',\n"
+"       'LINE_STRIP_ADJ'}\n"
 "   :type type: `str`\n"
 "   :param buf: Vertex buffer.\n"
 "   :type buf: :class: `gpu.types.GPUVertBuf`\n"
+"   :param elem: Optional Index buffer.\n"
+"   :type elem: :class: `gpu.types.GPUIndexBuf`\n"
 );
 PyTypeObject BPyGPUBatch_Type = {
 	PyVarObject_HEAD_INIT(NULL, 0)

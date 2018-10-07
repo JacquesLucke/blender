@@ -68,26 +68,26 @@ const EnumPropertyItem rna_enum_posebone_rotmode_items[] = {
 /* Bone and Group Color Sets */
 const EnumPropertyItem rna_enum_color_sets_items[] = {
 	{0, "DEFAULT", 0, "Default Colors", ""},
-	{1, "THEME01", VICO_COLORSET_01_VEC, "01 - Theme Color Set", ""},
-	{2, "THEME02", VICO_COLORSET_02_VEC, "02 - Theme Color Set", ""},
-	{3, "THEME03", VICO_COLORSET_03_VEC, "03 - Theme Color Set", ""},
-	{4, "THEME04", VICO_COLORSET_04_VEC, "04 - Theme Color Set", ""},
-	{5, "THEME05", VICO_COLORSET_05_VEC, "05 - Theme Color Set", ""},
-	{6, "THEME06", VICO_COLORSET_06_VEC, "06 - Theme Color Set", ""},
-	{7, "THEME07", VICO_COLORSET_07_VEC, "07 - Theme Color Set", ""},
-	{8, "THEME08", VICO_COLORSET_08_VEC, "08 - Theme Color Set", ""},
-	{9, "THEME09", VICO_COLORSET_09_VEC, "09 - Theme Color Set", ""},
-	{10, "THEME10", VICO_COLORSET_10_VEC, "10 - Theme Color Set", ""},
-	{11, "THEME11", VICO_COLORSET_11_VEC, "11 - Theme Color Set", ""},
-	{12, "THEME12", VICO_COLORSET_12_VEC, "12 - Theme Color Set", ""},
-	{13, "THEME13", VICO_COLORSET_13_VEC, "13 - Theme Color Set", ""},
-	{14, "THEME14", VICO_COLORSET_14_VEC, "14 - Theme Color Set", ""},
-	{15, "THEME15", VICO_COLORSET_15_VEC, "15 - Theme Color Set", ""},
-	{16, "THEME16", VICO_COLORSET_16_VEC, "16 - Theme Color Set", ""},
-	{17, "THEME17", VICO_COLORSET_17_VEC, "17 - Theme Color Set", ""},
-	{18, "THEME18", VICO_COLORSET_18_VEC, "18 - Theme Color Set", ""},
-	{19, "THEME19", VICO_COLORSET_19_VEC, "19 - Theme Color Set", ""},
-	{20, "THEME20", VICO_COLORSET_20_VEC, "20 - Theme Color Set", ""},
+	{1, "THEME01", ICON_COLORSET_01_VEC, "01 - Theme Color Set", ""},
+	{2, "THEME02", ICON_COLORSET_02_VEC, "02 - Theme Color Set", ""},
+	{3, "THEME03", ICON_COLORSET_03_VEC, "03 - Theme Color Set", ""},
+	{4, "THEME04", ICON_COLORSET_04_VEC, "04 - Theme Color Set", ""},
+	{5, "THEME05", ICON_COLORSET_05_VEC, "05 - Theme Color Set", ""},
+	{6, "THEME06", ICON_COLORSET_06_VEC, "06 - Theme Color Set", ""},
+	{7, "THEME07", ICON_COLORSET_07_VEC, "07 - Theme Color Set", ""},
+	{8, "THEME08", ICON_COLORSET_08_VEC, "08 - Theme Color Set", ""},
+	{9, "THEME09", ICON_COLORSET_09_VEC, "09 - Theme Color Set", ""},
+	{10, "THEME10", ICON_COLORSET_10_VEC, "10 - Theme Color Set", ""},
+	{11, "THEME11", ICON_COLORSET_11_VEC, "11 - Theme Color Set", ""},
+	{12, "THEME12", ICON_COLORSET_12_VEC, "12 - Theme Color Set", ""},
+	{13, "THEME13", ICON_COLORSET_13_VEC, "13 - Theme Color Set", ""},
+	{14, "THEME14", ICON_COLORSET_14_VEC, "14 - Theme Color Set", ""},
+	{15, "THEME15", ICON_COLORSET_15_VEC, "15 - Theme Color Set", ""},
+	{16, "THEME16", ICON_COLORSET_16_VEC, "16 - Theme Color Set", ""},
+	{17, "THEME17", ICON_COLORSET_17_VEC, "17 - Theme Color Set", ""},
+	{18, "THEME18", ICON_COLORSET_18_VEC, "18 - Theme Color Set", ""},
+	{19, "THEME19", ICON_COLORSET_19_VEC, "19 - Theme Color Set", ""},
+	{20, "THEME20", ICON_COLORSET_20_VEC, "20 - Theme Color Set", ""},
 	{-1, "CUSTOM", 0, "Custom Color Set", ""},
 	{0, NULL, 0, NULL, NULL}
 };
@@ -743,6 +743,25 @@ static void rna_PoseChannel_matrix_set(PointerRNA *ptr, const float *values)
 	BKE_pchan_apply_mat4(pchan, tmat, false); /* no compat for predictable result */
 }
 
+static bPoseChannel *rna_PoseChannel_ensure_own_pchan(Object *ob, Object *ref_ob, bPoseChannel *ref_pchan)
+{
+	if (ref_ob != ob) {
+		/* We are trying to set a pchan from another object! Forbidden, try to find by name, or abort. */
+		if (ref_pchan != NULL) {
+			ref_pchan = BKE_pose_channel_find_name(ob->pose, ref_pchan->name);
+		}
+	}
+	return ref_pchan;
+}
+
+static void rna_PoseChannel_custom_shape_transform_set(PointerRNA *ptr, PointerRNA value)
+{
+	bPoseChannel *pchan = (bPoseChannel *)ptr->data;
+	Object *ob = (Object *)ptr->id.data;
+
+	pchan->custom_tx = rna_PoseChannel_ensure_own_pchan(ob, value.id.data, value.data);
+}
+
 #else
 
 /* common properties for Action/Bone Groups - related to color */
@@ -965,45 +984,23 @@ static void rna_def_pose_channel(BlenderRNA *brna)
 	rna_def_bone_curved_common(srna, true);
 
 	/* Custom BBone next/prev sources */
-	prop = RNA_def_property(srna, "use_bbone_custom_handles", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "bboneflag", PCHAN_BBONE_CUSTOM_HANDLES);
-	RNA_def_property_ui_text(prop, "Use Custom Handle References",
-	                         "Use custom reference bones as handles for B-Bones instead of next/previous bones, "
-	                         "leave these blank to use only B-Bone offset properties to control the shape");
-	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
-	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_dependency_update");
-
 	prop = RNA_def_property(srna, "bbone_custom_handle_start", PROP_POINTER, PROP_NONE);
 	RNA_def_property_pointer_sdna(prop, NULL, "bbone_prev");
 	RNA_def_property_struct_type(prop, "PoseBone");
-	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_PTR_NO_OWNERSHIP);
+	RNA_def_property_flag(prop, PROP_PTR_NO_OWNERSHIP);
+	RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
 	RNA_def_property_ui_text(prop, "B-Bone Start Handle",
 	                         "Bone that serves as the start handle for the B-Bone curve");
-	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
 	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_dependency_update");
-
-	prop = RNA_def_property(srna, "use_bbone_relative_start_handle", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "bboneflag", PCHAN_BBONE_CUSTOM_START_REL);
-	RNA_def_property_ui_text(prop, "Relative B-Bone Start Handle",
-	                         "Treat custom start handle position as a relative value");
-	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
-	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
 
 	prop = RNA_def_property(srna, "bbone_custom_handle_end", PROP_POINTER, PROP_NONE);
 	RNA_def_property_pointer_sdna(prop, NULL, "bbone_next");
 	RNA_def_property_struct_type(prop, "PoseBone");
-	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_PTR_NO_OWNERSHIP);
+	RNA_def_property_flag(prop, PROP_PTR_NO_OWNERSHIP);
+	RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
 	RNA_def_property_ui_text(prop, "B-Bone End Handle",
 	                         "Bone that serves as the end handle for the B-Bone curve");
-	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
 	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_dependency_update");
-
-	prop = RNA_def_property(srna, "use_bbone_relative_end_handle", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "bboneflag", PCHAN_BBONE_CUSTOM_END_REL);
-	RNA_def_property_ui_text(prop, "Relative B-Bone End Handle",
-	                         "Treat custom end handle position as a relative value");
-	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
-	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
 
 	/* transform matrices - should be read-only since these are set directly by AnimSys evaluation */
 	prop = RNA_def_property(srna, "matrix_channel", PROP_FLOAT, PROP_MATRIX);
@@ -1209,10 +1206,12 @@ static void rna_def_pose_channel(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "custom_shape_transform", PROP_POINTER, PROP_NONE);
 	RNA_def_property_pointer_sdna(prop, NULL, "custom_tx");
 	RNA_def_property_struct_type(prop, "PoseBone");
-	RNA_def_property_flag(prop, PROP_EDITABLE);
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_PTR_NO_OWNERSHIP);
+	RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_STATIC);
 	RNA_def_property_ui_text(prop, "Custom Shape Transform",
 	                         "Bone that defines the display transform of this custom shape");
 	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
+	RNA_def_property_pointer_funcs(prop, NULL, "rna_PoseChannel_custom_shape_transform_set", NULL, NULL);
 	RNA_def_property_update(prop, NC_OBJECT | ND_POSE, "rna_Pose_update");
 
 	/* bone groups */

@@ -930,7 +930,7 @@ int view3d_opengl_select(
 
 	char gpu_select_mode;
 
-	/* case not a border select */
+	/* case not a box select */
 	if (input->xmin == input->xmax) {
 		/* seems to be default value for bones only now */
 		BLI_rcti_init_pt_radius(&rect, (const int[2]){input->xmin, input->ymin}, 12);
@@ -1009,7 +1009,7 @@ int view3d_opengl_select(
 	}
 
 	/* If in xray mode, we select the wires in priority. */
-	if (v3d->shading.flag & V3D_SHADING_XRAY) {
+	if ((v3d->shading.flag & V3D_XRAY_FLAG(v3d)) && use_nearest) {
 		/* We need to call "GPU_select_*" API's inside DRW_draw_select_loop
 		 * because the OpenGL context created & destroyed inside this function. */
 		struct DrawSelectLoopUserData drw_select_loop_user_data = {

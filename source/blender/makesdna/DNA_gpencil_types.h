@@ -39,7 +39,6 @@ struct CurveMapping;
 struct GHash;
 struct MDeformVert;
 
-/* TODO: add size as userprefs parameter */
 #define GP_OBGPENCIL_DEFAULT_SIZE  0.2f
 #define GP_DEFAULT_PIX_FACTOR 1.0f
 #define GP_DEFAULT_GRID_LINES 4
@@ -76,14 +75,14 @@ typedef enum eGPDspoint_Flag {
 } eGPSPoint_Flag;
 
 /* ***************************************** */
-/* GP Fill - Triangle Tesselation Data */
+/* GP Fill - Triangle Tessellation Data */
 
 /* Grease-Pencil Annotations - 'Triangle'
  * 	-> A triangle contains the index of three vertices for filling the stroke
  *	   This is only used if high quality fill is enabled
  */
 typedef struct bGPDtriangle {
-	/* indices for tesselated triangle used for GP Fill */
+	/* indices for tessellated triangle used for GP Fill */
 	unsigned int verts[3];
 	/* texture coordinates for verts */
 	float uv[3][2];
@@ -140,7 +139,7 @@ typedef enum eGPDpalette_Flag {
 /* GP Strokes */
 
 /* Runtime temp data for bGPDstroke */
-typedef struct bGPDstroke_runtime {
+typedef struct bGPDstroke_Runtime {
 	/* runtime final colors (result of original colors and modifiers) */
 	float tmp_stroke_rgba[4];
 	float tmp_fill_rgba[4];
@@ -149,7 +148,7 @@ typedef struct bGPDstroke_runtime {
 	char tmp_layerinfo[128];
 
 	float multi_frame_falloff; /* runtime falloff factor (only for transform) */
-} bGPDstroke_runtime;
+} bGPDstroke_Runtime;
 
 /* Grease-Pencil Annotations - 'Stroke'
  * 	-> A stroke represents a (simplified version) of the curve
@@ -159,7 +158,7 @@ typedef struct bGPDstroke {
 	struct bGPDstroke *next, *prev;
 
 	bGPDspoint *points;		/* array of data-points for stroke */
-	bGPDtriangle *triangles;/* tesselated triangles for GP Fill */
+	bGPDtriangle *triangles;/* tessellated triangles for GP Fill */
 	int totpoints;          /* number of data-points in array */
 	int tot_triangles;      /* number of triangles in array */
 
@@ -175,7 +174,7 @@ typedef struct bGPDstroke {
 
 	struct MDeformVert *dvert;    /* vertex weight data */
 
-	bGPDstroke_runtime runtime;
+	bGPDstroke_Runtime runtime;
 	char pad_1[4];
 } bGPDstroke;
 
@@ -203,9 +202,9 @@ typedef enum eGPDstroke_Flag {
 /* GP Frame */
 
 /* Runtime temp data for bGPDframe */
-typedef struct bGPDframe_runtime {
+typedef struct bGPDframe_Runtime {
 	float viewmatrix[4][4];     /* parent matrix for drawing */
-} bGPDframe_runtime;
+} bGPDframe_Runtime;
 
 /* Grease-Pencil Annotations - 'Frame'
  *	-> Acts as storage for the 'image' formed by strokes
@@ -220,7 +219,7 @@ typedef struct bGPDframe {
 	short flag;			/* temp settings */
 	short key_type;		/* keyframe type (eBezTriple_KeyframeType) */
 
-	bGPDframe_runtime runtime;
+	bGPDframe_Runtime runtime;
 } bGPDframe;
 
 /* bGPDframe->flag */
@@ -235,11 +234,11 @@ typedef enum eGPDframe_Flag {
 /* GP Layer */
 
 /* Runtime temp data for bGPDlayer */
-typedef struct bGPDlayer_runtime {
+typedef struct bGPDlayer_Runtime {
 	struct GHash *derived_data;     /* runtime data created by modifiers */
 	int icon_id;                    /* id for dynamic icon used to show annotation color preview for layer */
 	int batch_index;                /* batch used for dupli instances */
-} bGPDlayer_runtime;
+} bGPDlayer_Runtime;
 
 /* Grease-Pencil Annotations - 'Layer' */
 typedef struct bGPDlayer {
@@ -269,7 +268,7 @@ typedef struct bGPDlayer {
 	float tintcolor[4];     /* Color used to tint layer, alpha value is used as factor */
 	float opacity;          /* Opacity of the layer */
 
-	bGPDlayer_runtime runtime;
+	bGPDlayer_Runtime runtime;
 } bGPDlayer;
 
 /* bGPDlayer->flag */
@@ -304,7 +303,7 @@ typedef enum eGPDlayer_OnionFlag {
 /* GP Datablock */
 
 /* Runtime temp data for bGPdata */
-typedef struct bGPdata_runtime {
+typedef struct bGPdata_Runtime {
 	/* Drawing Manager cache */
 	struct GHash *batch_cache_data;
 	void *sbuffer;				/* stroke buffer (can hold GP_STROKE_BUFFER_MAX) */
@@ -323,7 +322,17 @@ typedef struct bGPdata_runtime {
 	short sbuffer_size;			/* number of elements currently in cache */
 	short sbuffer_sflag;		/* flags for stroke that cache represents */
 	char pad_[6];
-} bGPdata_runtime;
+} bGPdata_Runtime;
+
+/* grid configuration */
+typedef struct bGPgrid {
+	float color[3];
+	float scale[2];
+	char _pad1[4];
+
+	int   lines;
+	int   axis;
+} bGPgrid;
 
 /* Grease-Pencil Annotations - 'DataBlock' */
 typedef struct bGPdata {
@@ -354,7 +363,7 @@ typedef struct bGPdata {
 	float gcolor_prev[3];	    /* optional color for ghosts before the active frame */
 	float gcolor_next[3];	    /* optional color for ghosts after the active frame */
 
-	char pad[4];
+	float zdepth_offset;        /* offset for drawing over surfaces to keep strokes on top */
 	struct Material **mat;      /* materials array */
 	short totcol;               /* total materials */
 
@@ -365,7 +374,9 @@ typedef struct bGPdata {
 	int   totstroke;
 	int   totpoint;
 	char pad_3[4];
-	bGPdata_runtime runtime;
+	bGPgrid grid;
+
+	bGPdata_Runtime runtime;
 } bGPdata;
 
 /* bGPdata->flag */
@@ -461,6 +472,14 @@ typedef enum eGP_DepthOrdering {
 	GP_XRAY_BACK  = 2
 } eGP_DepthOrdering;
 
+/* gpencil_grid_axis */
+enum {
+	GP_GRID_AXIS_LOCK = (1 << 0),
+	GP_GRID_AXIS_X    = (1 << 1),
+	GP_GRID_AXIS_Y    = (1 << 2),
+	GP_GRID_AXIS_Z    = (1 << 3),
+};
+
 /* ***************************************** */
 /* Mode Checking Macros */
 
@@ -475,6 +494,8 @@ typedef enum eGP_DepthOrdering {
 	((gpd) && (gpd->flag & \
 	           (GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_EDITMODE | \
 	            GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)))
+#define GPENCIL_EDIT_MODE(gpd) \
+	((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE))
 #define GPENCIL_ANY_EDIT_MODE(gpd) \
 	((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)))
 #define GPENCIL_PAINT_MODE(gpd) \

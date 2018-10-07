@@ -243,7 +243,7 @@ static void make_child_duplis(const DupliContext *ctx, void *userdata, MakeChild
 
 				/* mballs have a different dupli handling */
 				if (ob->type != OB_MBALL) {
-					ob->flag |= OB_DONE;  /* doesnt render */
+					ob->flag |= OB_DONE;  /* doesn't render */
 				}
 				make_child_duplis_cb(&pctx, userdata, ob);
 			}
@@ -261,7 +261,7 @@ static void make_child_duplis(const DupliContext *ctx, void *userdata, MakeChild
 
 				/* mballs have a different dupli handling */
 				if (ob->type != OB_MBALL)
-					ob->flag |= OB_DONE;  /* doesnt render */
+					ob->flag |= OB_DONE;  /* doesn't render */
 
 				make_child_duplis_cb(&pctx, userdata, ob);
 			}
@@ -520,7 +520,7 @@ static Object *find_family_object(Main *bmain, const char *family, size_t family
 {
 	Object **ob_pt;
 	Object *ob;
-	void *ch_key = SET_UINT_IN_POINTER(ch);
+	void *ch_key = POINTER_FROM_UINT(ch);
 
 	if ((ob_pt = (Object **)BLI_ghash_lookup_p(family_gh, ch_key))) {
 		ob = *ob_pt;

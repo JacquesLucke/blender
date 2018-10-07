@@ -122,7 +122,7 @@ typedef enum eDepsNode_Type {
 	DEG_NODE_TYPE_ANIMATION,
 	/* Transform Component (Parenting/Constraints) */
 	DEG_NODE_TYPE_TRANSFORM,
-	/* Geometry Component (DerivedMesh/Displist) */
+	/* Geometry Component (Mesh/Displist) */
 	DEG_NODE_TYPE_GEOMETRY,
 	/* Sequencer Component (Scene Only) */
 	DEG_NODE_TYPE_SEQUENCER,
@@ -154,6 +154,11 @@ typedef enum eDepsNode_Type {
 	DEG_NODE_TYPE_CACHE,
 	/* Batch Cache Component - TODO (dfelinto/sergey) rename to make it more generic. */
 	DEG_NODE_TYPE_BATCH_CACHE,
+
+	/* Duplication system. Used to force duplicated objects visible when
+	 * when duplicator is visible.
+	 */
+	DEG_NODE_TYPE_DUPLI,
 
 	/* Total number of meaningful node types. */
 	NUM_DEG_NODE_TYPES,
@@ -236,7 +241,7 @@ typedef enum eDepsOperation_Code {
 	 * - "READY"  This (internal, noop is used to signal that all pre-IK
 	 *            operations are done. Its role is to help mediate situations
 	 *            where cyclic relations may otherwise form (i.e. one bone in
-	 *            chain targetting another in same chain,
+	 *            chain targeting another in same chain,
 	 *
 	 * - "DONE"   This noop is used to signal that the bone's final pose
 	 *            transform can be read by others

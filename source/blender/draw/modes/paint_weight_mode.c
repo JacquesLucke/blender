@@ -43,6 +43,10 @@
 extern struct GPUUniformBuffer *globals_ubo; /* draw_common.c */
 extern struct GlobalsUboStorage ts; /* draw_common.c */
 
+extern struct GPUTexture *globals_weight_ramp; /* draw_common.c */
+
+extern char datatoc_paint_weight_vert_glsl[];
+extern char datatoc_paint_weight_frag_glsl[];
 extern char datatoc_paint_wire_vert_glsl[];
 extern char datatoc_paint_wire_frag_glsl[];
 extern char datatoc_paint_vert_frag_glsl[];
@@ -91,7 +95,10 @@ typedef struct PAINT_WEIGHT_PrivateData {
 static void PAINT_WEIGHT_engine_init(void *UNUSED(vedata))
 {
 	if (!e_data.weight_face_shader) {
-		e_data.weight_face_shader = GPU_shader_get_builtin_shader(GPU_SHADER_SIMPLE_LIGHTING_SMOOTH_COLOR_ALPHA);
+		e_data.weight_face_shader = DRW_shader_create_with_lib(
+		        datatoc_paint_weight_vert_glsl, NULL,
+		        datatoc_paint_weight_frag_glsl,
+		        datatoc_common_globals_lib_glsl, NULL);
 	}
 
 	if (!e_data.wire_overlay_shader) {
@@ -129,15 +136,13 @@ static void PAINT_WEIGHT_cache_init(void *vedata)
 		/* Create a pass */
 		psl->weight_faces = DRW_pass_create(
 		        "Weight Pass",
-		        DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND);
+		        DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_MULTIPLY);
 
 		stl->g_data->fweights_shgrp = DRW_shgroup_create(e_data.weight_face_shader, psl->weight_faces);
 
-		static float light[3] = {-0.3f, 0.5f, 1.0f};
-		static float world_light = 1.0f;
-		DRW_shgroup_uniform_vec3(stl->g_data->fweights_shgrp, "light", light, 1);
-		DRW_shgroup_uniform_float(stl->g_data->fweights_shgrp, "alpha", &v3d->overlay.weight_paint_mode_opacity, 1);
-		DRW_shgroup_uniform_float(stl->g_data->fweights_shgrp, "global", &world_light, 1);
+		DRW_shgroup_uniform_float(stl->g_data->fweights_shgrp, "opacity", &v3d->overlay.weight_paint_mode_opacity, 1);
+		DRW_shgroup_uniform_texture(stl->g_data->fweights_shgrp, "colorramp", globals_weight_ramp);
+		DRW_shgroup_uniform_block(stl->g_data->fweights_shgrp, "globalsBlock", globals_ubo);
 	}
 
 	{
@@ -177,8 +182,6 @@ static void PAINT_WEIGHT_cache_populate(void *vedata, Object *ob)
 	const View3D *v3d = draw_ctx->v3d;
 
 	if ((ob->type == OB_MESH) && (ob == draw_ctx->obact)) {
-		/* We're always painting on original, display original data. */
-		ob = DEG_get_original_object(ob);
 		const Mesh *me = ob->data;
 		const bool use_wire = (v3d->overlay.paint_flag & V3D_OVERLAY_PAINT_WIRE) != 0;
 		const bool use_surface = v3d->overlay.weight_paint_mode_opacity != 0.0f;
@@ -187,7 +190,7 @@ static void PAINT_WEIGHT_cache_populate(void *vedata, Object *ob)
 		struct GPUBatch *geom;
 
 		if (use_surface) {
-			geom = DRW_cache_mesh_surface_weights_get(ob);
+			geom = DRW_cache_mesh_surface_weights_get(ob, draw_ctx->scene->toolsettings, true);
 			DRW_shgroup_call_add(stl->g_data->fweights_shgrp, geom, ob->obmat);
 		}
 
@@ -220,6 +223,7 @@ static void PAINT_WEIGHT_draw_scene(void *vedata)
 
 static void PAINT_WEIGHT_engine_free(void)
 {
+	DRW_SHADER_FREE_SAFE(e_data.weight_face_shader);
 	DRW_SHADER_FREE_SAFE(e_data.wire_overlay_shader);
 	DRW_SHADER_FREE_SAFE(e_data.vert_overlay_shader);
 }

@@ -2080,7 +2080,7 @@ static bool bevelinside(BevList *bl1, BevList *bl2)
 	copy_v3_v3(hvec2, hvec1);
 	hvec2[0] += 1000;
 
-	/* test it with all edges of potential surounding poly */
+	/* test it with all edges of potential surrounding poly */
 	/* count number of transitions left-right  */
 
 	bevp = bl1->bevpoints;
@@ -2643,7 +2643,7 @@ static void make_bevel_list_segment_2D(BevList *bl)
 static void make_bevel_list_2D(BevList *bl)
 {
 	/* note: bevp->dir and bevp->quat are not needed for beveling but are
-	 * used when making a path from a 2D curve, therefor they need to be set - Campbell */
+	 * used when making a path from a 2D curve, therefore they need to be set - Campbell */
 
 	BevPoint *bevp0, *bevp1, *bevp2;
 	int nr;
@@ -3941,7 +3941,7 @@ static void bezier_handle_calc_smooth_fcurve(BezTriple *bezt, int total, int sta
 	float first_handle_adj = 0.0f, last_handle_adj = 0.0f;
 
 	if (full_cycle) {
-		/* reduce the number of uknowns by one */
+		/* reduce the number of unknowns by one */
 		int i = solve_count = count - 1;
 
 		dx[0] = dx[i];
@@ -4657,18 +4657,18 @@ float (*BKE_curve_nurbs_keyVertexCos_get(ListBase *lb, float *key))[3]
 			BezTriple *bezt = nu->bezt;
 
 			for (i = 0; i < nu->pntsu; i++, bezt++) {
-				copy_v3_v3(co, key); co += 3; key += 3;
-				copy_v3_v3(co, key); co += 3; key += 3;
-				copy_v3_v3(co, key); co += 3; key += 3;
-				key += 3; /* skip tilt */
+				copy_v3_v3(co, &key[0]); co += 3;
+				copy_v3_v3(co, &key[3]); co += 3;
+				copy_v3_v3(co, &key[6]); co += 3;
+				key += KEYELEM_FLOAT_LEN_BEZTRIPLE;
 			}
 		}
 		else {
 			BPoint *bp = nu->bp;
 
 			for (i = 0; i < nu->pntsu * nu->pntsv; i++, bp++) {
-				copy_v3_v3(co, key); co += 3; key += 3;
-				key++; /* skip tilt */
+				copy_v3_v3(co, key); co += 3;
+				key += KEYELEM_FLOAT_LEN_BPOINT;
 			}
 		}
 	}
@@ -4686,18 +4686,18 @@ void BKE_curve_nurbs_keyVertexTilts_apply(ListBase *lb, float *key)
 			BezTriple *bezt = nu->bezt;
 
 			for (i = 0; i < nu->pntsu; i++, bezt++) {
-				key += 3 * 3;
-				bezt->alfa = *key;
-				key += 3;
+				bezt->alfa = key[9];
+				bezt->radius = key[10];
+				key += KEYELEM_FLOAT_LEN_BEZTRIPLE;
 			}
 		}
 		else {
 			BPoint *bp = nu->bp;
 
 			for (i = 0; i < nu->pntsu * nu->pntsv; i++, bp++) {
-				key += 3;
-				bp->alfa = *key;
-				key++;
+				bp->alfa = key[3];
+				bp->radius = key[4];
+				key += KEYELEM_FLOAT_LEN_BPOINT;
 			}
 		}
 	}
@@ -5167,8 +5167,29 @@ void BKE_curve_transform_ex(
 		KeyBlock *kb;
 		for (kb = cu->key->block.first; kb; kb = kb->next) {
 			float *fp = kb->data;
-			for (i = kb->totelem; i--; fp += 3) {
-				mul_m4_v3(mat, fp);
+			int n = kb->totelem;
+
+			for (nu = cu->nurb.first; nu; nu = nu->next) {
+				if (nu->type == CU_BEZIER) {
+					for (i = nu->pntsu; i && (n -= KEYELEM_ELEM_LEN_BEZTRIPLE) >= 0; i--) {
+						mul_m4_v3(mat, &fp[0]);
+						mul_m4_v3(mat, &fp[3]);
+						mul_m4_v3(mat, &fp[6]);
+						if (do_props) {
+							fp[10] *= unit_scale; /* radius */
+						}
+						fp += KEYELEM_FLOAT_LEN_BEZTRIPLE;
+					}
+				}
+				else {
+					for (i = nu->pntsu * nu->pntsv; i && (n -= KEYELEM_ELEM_LEN_BPOINT) >= 0; i--) {
+						mul_m4_v3(mat, fp);
+						if (do_props) {
+							fp[4] *= unit_scale; /* radius */
+						}
+						fp += KEYELEM_FLOAT_LEN_BPOINT;
+					}
+				}
 			}
 		}
 	}
@@ -5212,8 +5233,23 @@ void BKE_curve_translate(Curve *cu, float offset[3], const bool do_keys)
 		KeyBlock *kb;
 		for (kb = cu->key->block.first; kb; kb = kb->next) {
 			float *fp = kb->data;
-			for (i = kb->totelem; i--; fp += 3) {
-				add_v3_v3(fp, offset);
+			int n = kb->totelem;
+
+			for (nu = cu->nurb.first; nu; nu = nu->next) {
+				if (nu->type == CU_BEZIER) {
+					for (i = nu->pntsu; i && (n -= KEYELEM_ELEM_LEN_BEZTRIPLE) >= 0; i--) {
+						add_v3_v3(&fp[0], offset);
+						add_v3_v3(&fp[3], offset);
+						add_v3_v3(&fp[6], offset);
+						fp += KEYELEM_FLOAT_LEN_BEZTRIPLE;
+					}
+				}
+				else {
+					for (i = nu->pntsu * nu->pntsv; i && (n -= KEYELEM_ELEM_LEN_BPOINT) >= 0; i--) {
+						add_v3_v3(fp, offset);
+						fp += KEYELEM_FLOAT_LEN_BPOINT;
+					}
+				}
 			}
 		}
 	}

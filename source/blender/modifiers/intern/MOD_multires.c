@@ -67,7 +67,9 @@ static void initData(ModifierData *md)
 	mmd->quality = 3;
 }
 
-static DerivedMesh *applyModifier(
+#ifndef WITH_OPENSUBDIV_MODIFIER
+
+static DerivedMesh *applyModifier_DM(
         ModifierData *md, const ModifierEvalContext *ctx,
         DerivedMesh *dm)
 {
@@ -143,6 +145,10 @@ static DerivedMesh *applyModifier(
 
 	return result;
 }
+
+applyModifier_DM_wrapper(applyModifier, applyModifier_DM)
+
+#endif
 
 #ifdef WITH_OPENSUBDIV_MODIFIER
 
@@ -222,18 +228,15 @@ static Mesh *applyModifier_subdiv(ModifierData *md,
 		/* Happens on bad topology, ut also on empty input mesh. */
 		return result;
 	}
-	/* TODO(sergey): Some of production machines are using OpenSubdiv already.
-	 * so better not enable semi-finished multires sculpting for now. Will give
-	 * a wrong impression that things do work, even though crucial areas are
-	 * still missing in implementation.
+	/* NOTE: Orco needs final coordinates on CPU side, which are expected to be
+	 * accessible via MVert. For this reason we do not evaluate multires to
+	 * grids when orco is requested.
 	 */
 	const bool for_orco = (ctx->flag & MOD_APPLY_ORCO) != 0;
-	if ((ctx->object->mode & OB_MODE_SCULPT) &&
-	    G.debug_value == 128 &&
-	    !for_orco)
-	{
+	if ((ctx->object->mode & OB_MODE_SCULPT) && !for_orco) {
 		/* NOTE: CCG takes ownership over Subdiv. */
 		result = multires_as_ccg(mmd, ctx, mesh, subdiv);
+		result->runtime.subdiv_ccg_tot_level = mmd->totlvl;
 		// BKE_subdiv_stats_print(&subdiv->stats);
 	}
 	else {
@@ -261,7 +264,7 @@ ModifierTypeInfo modifierType_Multires = {
 	/* deformMatrices_DM */ NULL,
 	/* deformVertsEM_DM */  NULL,
 	/* deformMatricesEM_DM*/NULL,
-	/* applyModifier_DM */  applyModifier,
+	/* applyModifier_DM */  NULL,
 	/* applyModifierEM_DM */NULL,
 
 	/* deformVerts */       NULL,
@@ -271,7 +274,7 @@ ModifierTypeInfo modifierType_Multires = {
 #ifdef WITH_OPENSUBDIV_MODIFIER
 	/* applyModifier */     applyModifier_subdiv,
 #else
-	/* applyModifier */     NULL,
+	/* applyModifier */     applyModifier,
 #endif
 	/* applyModifierEM */   NULL,
 

@@ -870,11 +870,44 @@ class DupliOffsetFromCursor(Operator):
         return {'FINISHED'}
 
 
+class LoadImageAsEmpty(Operator):
+    """Select an image file and create a new image empty with it"""
+    bl_idname = "object.load_image_as_empty"
+    bl_label = "Load Image as Empty"
+    bl_options = {'REGISTER'}
+
+    filepath: StringProperty(
+        subtype='FILE_PATH'
+    )
+
+    filter_image: BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    filter_folder: BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def execute(self, context):
+        scene = context.scene
+        space = context.space_data
+        cursor = (space if space and space.type == 'VIEW_3D' else scene).cursor_location
+        try:
+            image = bpy.data.images.load(self.filepath, check_existing=True)
+        except RuntimeError as ex:
+            self.report({"ERROR"}, str(ex))
+            return {"CANCELLED"}
+
+        bpy.ops.object.empty_add(type='IMAGE', location=cursor)
+        context.active_object.data = image
+        return {'FINISHED'}
+
+
 classes = (
     ClearAllRestrictRender,
     DupliOffsetFromCursor,
     IsolateTypeRender,
     JoinUVs,
+    LoadImageAsEmpty,
     MakeDupliFace,
     SelectCamera,
     SelectHierarchy,

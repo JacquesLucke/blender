@@ -4206,7 +4206,7 @@ static void SCREEN_OT_animation_cancel(wmOperatorType *ot)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Border Select Operator (Template)
+/** \name Box Select Operator (Template)
  * \{ */
 
 /* operator state vars used: (added by default WM callbacks)
@@ -4228,31 +4228,31 @@ static void SCREEN_OT_animation_cancel(wmOperatorType *ot)
  * poll()	has to be filled in by user for context
  */
 #if 0
-static int border_select_exec(bContext *C, wmOperator *op)
+static int box_select_exec(bContext *C, wmOperator *op)
 {
 	int event_type = RNA_int_get(op->ptr, "event_type");
 
 	if (event_type == LEFTMOUSE)
-		printf("border select do select\n");
+		printf("box select do select\n");
 	else if (event_type == RIGHTMOUSE)
-		printf("border select deselect\n");
+		printf("box select deselect\n");
 	else
-		printf("border select do something\n");
+		printf("box select do something\n");
 
 	return 1;
 }
 
-static void SCREEN_OT_border_select(wmOperatorType *ot)
+static void SCREEN_OT_box_select(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Border Select";
-	ot->idname = "SCREEN_OT_border_select";
+	ot->name = "Box Select";
+	ot->idname = "SCREEN_OT_box_select";
 
 	/* api callbacks */
-	ot->exec = border_select_exec;
-	ot->invoke = WM_gesture_border_invoke;
-	ot->modal = WM_gesture_border_modal;
-	ot->cancel = WM_gesture_border_cancel;
+	ot->exec = box_select_exec;
+	ot->invoke = WM_gesture_box_invoke;
+	ot->modal = WM_gesture_box_modal;
+	ot->cancel = WM_gesture_box_cancel;
 
 	ot->poll = ED_operator_areaactive;
 
@@ -4472,7 +4472,7 @@ static void SCREEN_OT_delete(wmOperatorType *ot)
 
 /* implementation note: a disappearing region needs at least 1 last draw with 100% backbuffer
  * texture over it- then triple buffer will clear it entirely.
- * This because flag RGN_HIDDEN is set in end - region doesnt draw at all then */
+ * This because flag RGN_HIDDEN is set in end - region doesn't draw at all then */
 
 typedef struct RegionAlphaInfo {
 	ScrArea *sa;
@@ -4755,7 +4755,7 @@ static void SCREEN_OT_workspace_cycle(wmOperatorType *ot)
 
 	/* api callbacks */
 	ot->invoke = space_workspace_cycle_invoke;
-	ot->poll = ED_operator_screenactive;;
+	ot->poll = ED_operator_screenactive;
 
 	ot->flag = 0;
 

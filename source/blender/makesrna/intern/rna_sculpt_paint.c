@@ -85,9 +85,9 @@ static EnumPropertyItem rna_enum_gpencil_weight_brush_items[] = {
 
 static const EnumPropertyItem rna_enum_gpencil_lockaxis_items[] = {
 	{ GP_LOCKAXIS_NONE, "GP_LOCKAXIS_NONE", ICON_UNLOCKED, "None", "" },
-	{ GP_LOCKAXIS_X, "GP_LOCKAXIS_X", ICON_NDOF_DOM, "X", "Project strokes to plane locked to X" },
-	{ GP_LOCKAXIS_Y, "GP_LOCKAXIS_Y", ICON_NDOF_DOM, "Y", "Project strokes to plane locked to Y" },
-	{ GP_LOCKAXIS_Z, "GP_LOCKAXIS_Z", ICON_NDOF_DOM, "Z", "Project strokes to plane locked to Z" },
+	{ GP_LOCKAXIS_X, "GP_LOCKAXIS_X", ICON_NDOF_DOM, "Y-Z Plane", "Project strokes to plane locked to X" },
+	{ GP_LOCKAXIS_Y, "GP_LOCKAXIS_Y", ICON_NDOF_DOM, "X-Z Plane", "Project strokes to plane locked to Y" },
+	{ GP_LOCKAXIS_Z, "GP_LOCKAXIS_Z", ICON_NDOF_DOM, "X-Y Plane", "Project strokes to plane locked to Z" },
 	{ 0, NULL, 0, NULL, NULL }
 };
 #endif
@@ -789,7 +789,7 @@ static void rna_def_image_paint(BlenderRNA *brna)
 		{IMAGEPAINT_MODE_MATERIAL, "MATERIAL", 0,
 		 "Material", "Detect image slots from the material"},
 		{IMAGEPAINT_MODE_IMAGE, "IMAGE", 0,
-		 "Image", "Set image for texture painting directly"},
+		 "Single Image", "Set image for texture painting directly"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -1143,25 +1143,25 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
-	prop = RNA_def_property(srna, "affect_position", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "use_edit_position", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_APPLY_POSITION);
 	RNA_def_property_ui_text(prop, "Affect Position", "The brush affects the position of the point");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
-	prop = RNA_def_property(srna, "affect_strength", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "use_edit_strength", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_APPLY_STRENGTH);
 	RNA_def_property_ui_text(prop, "Affect Strength", "The brush affects the color strength of the point");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
-	prop = RNA_def_property(srna, "affect_thickness", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "use_edit_thickness", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_APPLY_THICKNESS);
 	RNA_def_property_ui_text(prop, "Affect Thickness", "The brush affects the thickness of the point");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
-	prop = RNA_def_property(srna, "affect_uv", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "use_edit_uv", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_APPLY_UV);
 	RNA_def_property_ui_text(prop, "Affect UV", "The brush affects the UV rotation of the point");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
@@ -1186,7 +1186,7 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "lockaxis", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "lock_axis");
 	RNA_def_property_enum_items(prop, rna_enum_gpencil_lockaxis_items);
-	RNA_def_property_ui_text(prop, "Lock", "");
+	RNA_def_property_ui_text(prop, "Lock Axis", "");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
@@ -1217,13 +1217,20 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
+	prop = RNA_def_property(srna, "use_pressure_radius", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_EDITBRUSH_FLAG_PRESSURE_RADIUS);
+	RNA_def_property_ui_icon(prop, ICON_STYLUS_PRESSURE, 0);
+	RNA_def_property_ui_text(prop, "Radius Pressure", "Enable tablet pressure sensitivity for radius");
+	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
 	prop = RNA_def_property(srna, "use_falloff", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_EDITBRUSH_FLAG_USE_FALLOFF);
 	RNA_def_property_ui_text(prop, "Use Falloff", "Strength of brush decays with distance from cursor");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
-	prop = RNA_def_property(srna, "affect_pressure", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "use_edit_pressure", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_EDITBRUSH_FLAG_SMOOTH_PRESSURE);
 	RNA_def_property_ui_text(prop, "Affect Pressure", "Affect pressure values as well when smoothing strokes");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);

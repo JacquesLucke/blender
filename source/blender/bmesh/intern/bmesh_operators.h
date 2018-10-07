@@ -56,12 +56,6 @@ enum {
 	SUBDIV_SELECT_LOOPCUT
 };
 
-enum {
-	SIM_CMP_EQ = 0,
-	SIM_CMP_GT,
-	SIM_CMP_LT
-};
-
 /* subdivide_edgering */
 enum {
 	/* just subdiv */
@@ -84,9 +78,7 @@ enum {
 	SIMFACE_COPLANAR,
 	SIMFACE_SMOOTH,
 	SIMFACE_FACEMAP,
-#ifdef WITH_FREESTYLE
 	SIMFACE_FREESTYLE
-#endif
 };
 
 /* similar edge selection slot values */
@@ -99,9 +91,7 @@ enum {
 	SIMEDGE_BEVEL,
 	SIMEDGE_SEAM,
 	SIMEDGE_SHARP,
-#ifdef WITH_FREESTYLE
 	SIMEDGE_FREESTYLE
-#endif
 };
 
 /* similar vertex selection slot values */

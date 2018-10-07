@@ -136,6 +136,14 @@ typedef enum eFFMpegCrf {
 	FFM_CRF_LOWEST = 32,
 } eFFMpegCrf;
 
+typedef enum eFFMpegAudioChannels {
+	FFM_CHANNELS_MONO = 1,
+	FFM_CHANNELS_STEREO = 2,
+	FFM_CHANNELS_SURROUND4 = 4,
+	FFM_CHANNELS_SURROUND51 = 6,
+	FFM_CHANNELS_SURROUND71 = 8,
+} eFFMpegAudioChannels;
+
 typedef struct FFMpegCodecData {
 	int type;
 	int codec;
@@ -978,12 +986,15 @@ typedef enum eGP_EditBrush_Flag {
 	/* strength of brush falls off with distance from cursor */
 	GP_EDITBRUSH_FLAG_USE_FALLOFF  = (1 << 2),
 
+	/* XXX: currently unused. */
 	/* smooth brush affects pressure values as well */
 	GP_EDITBRUSH_FLAG_SMOOTH_PRESSURE  = (1 << 3),
 	/* enable screen cursor */
 	GP_EDITBRUSH_FLAG_ENABLE_CURSOR = (1 << 4),
 	/* temporary invert action */
 	GP_EDITBRUSH_FLAG_TMP_INVERT = (1 << 5),
+	/* adjust radius using pen pressure */
+	GP_EDITBRUSH_FLAG_PRESSURE_RADIUS = (1 << 6),
 } eGP_EditBrush_Flag;
 
 
@@ -1276,7 +1287,7 @@ typedef struct ToolSettings {
 	char annotate_v3d_align;  /* stroke placement settings - 3D View */
 
 	short annotate_thickness; /* default stroke thickness for annotation strokes */
-	char _pad3[2];
+	short gpencil_selectmode; /* stroke selection mode */
 
 	/* Grease Pencil Sculpt */
 	struct GP_BrushEdit_Settings gp_sculpt;
@@ -1376,6 +1387,12 @@ typedef struct UnitSettings {
 	char system; /* imperial, metric etc */
 	char system_rotation; /* not implemented as a proper unit system yet */
 	short flag;
+
+	char length_unit;
+	char mass_unit;
+	char time_unit;
+
+	char pad[5];
 } UnitSettings;
 
 /* ------------------------------------------- */
@@ -2054,11 +2071,11 @@ typedef enum eImagePaintMode {
 
 /* ToolSettings.gizmo_flag */
 enum {
-	SCE_MANIP_TRANSLATE      = (1 << 0),
-	SCE_MANIP_ROTATE         = (1 << 1),
-	SCE_MANIP_SCALE          = (1 << 2),
+	SCE_GIZMO_SHOW_TRANSLATE = (1 << 0),
+	SCE_GIZMO_SHOW_ROTATE    = (1 << 1),
+	SCE_GIZMO_SHOW_SCALE     = (1 << 2),
 
-	SCE_MANIP_DISABLE_APRON  = (1 << 3),
+	SCE_GIZMO_DISABLE_APRON  = (1 << 3),
 };
 
 /* ToolSettings.gpencil_flags */
@@ -2106,6 +2123,12 @@ typedef enum eGPencil_Placement_Flags {
 	GP_PROJECT_CURSOR = (1 << 5),
 } eGPencil_Placement_Flags;
 
+/* ToolSettings.gpencil_selectmode */
+typedef enum eGPencil_Selectmode_types {
+	GP_SELECTMODE_POINT  = 0,
+	GP_SELECTMODE_STROKE = 1
+} eGPencil_Selectmode_types;
+
 /* ToolSettings.particle flag */
 #define PE_KEEP_LENGTHS			1
 #define PE_LOCK_FIRST			2
@@ -2139,6 +2162,7 @@ typedef enum eGPencil_Placement_Flags {
 
 /* UnitSettings */
 
+#define USER_UNIT_ADAPTIVE 0xFF
 /* UnitSettings.system */
 #define	USER_UNIT_NONE			0
 #define	USER_UNIT_METRIC		1

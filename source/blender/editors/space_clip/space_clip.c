@@ -447,7 +447,7 @@ static void clip_operatortypes(void)
 	/* selection */
 	WM_operatortype_append(CLIP_OT_select);
 	WM_operatortype_append(CLIP_OT_select_all);
-	WM_operatortype_append(CLIP_OT_select_border);
+	WM_operatortype_append(CLIP_OT_select_box);
 	WM_operatortype_append(CLIP_OT_select_lasso);
 	WM_operatortype_append(CLIP_OT_select_circle);
 	WM_operatortype_append(CLIP_OT_select_grouped);
@@ -521,7 +521,7 @@ static void clip_operatortypes(void)
 
 	/* selection */
 	WM_operatortype_append(CLIP_OT_graph_select);
-	WM_operatortype_append(CLIP_OT_graph_select_border);
+	WM_operatortype_append(CLIP_OT_graph_select_box);
 	WM_operatortype_append(CLIP_OT_graph_select_all_markers);
 
 	WM_operatortype_append(CLIP_OT_graph_delete_curve);
@@ -649,7 +649,7 @@ static void clip_keymap(struct wmKeyConfig *keyconf)
 
 	ED_keymap_template_select_all(keymap, "CLIP_OT_select_all");
 
-	WM_keymap_add_item(keymap, "CLIP_OT_select_border", BKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "CLIP_OT_select_box", BKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_item(keymap, "CLIP_OT_select_circle", CKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_menu(keymap, "CLIP_MT_select_grouped", GKEY, KM_PRESS, KM_SHIFT, 0);
 
@@ -729,21 +729,7 @@ static void clip_keymap(struct wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "CLIP_OT_cursor_set", ACTIONMOUSE, KM_PRESS, 0, 0);
 
 	/* pivot point */
-	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", COMMAKEY, KM_PRESS, 0, 0);
-	RNA_string_set(kmi->ptr, "data_path", "space_data.pivot_point");
-	RNA_string_set(kmi->ptr, "value", "BOUNDING_BOX_CENTER");
-
-	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", COMMAKEY, KM_PRESS, KM_CTRL, 0); /* 2.4x allowed Comma+Shift too, rather not use both */
-	RNA_string_set(kmi->ptr, "data_path", "space_data.pivot_point");
-	RNA_string_set(kmi->ptr, "value", "MEDIAN_POINT");
-
-	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", PERIODKEY, KM_PRESS, 0, 0);
-	RNA_string_set(kmi->ptr, "data_path", "space_data.pivot_point");
-	RNA_string_set(kmi->ptr, "value", "CURSOR");
-
-	kmi = WM_keymap_add_item(keymap, "WM_OT_context_set_enum", PERIODKEY, KM_PRESS, KM_CTRL, 0);
-	RNA_string_set(kmi->ptr, "data_path", "space_data.pivot_point");
-	RNA_string_set(kmi->ptr, "value", "INDIVIDUAL_ORIGINS");
+	WM_keymap_add_menu_pie(keymap, "CLIP_MT_pivot_pie", PERIODKEY, KM_PRESS, 0, 0);
 
 	/* Copy-paste */
 	WM_keymap_add_item(keymap, "CLIP_OT_copy_tracks", CKEY, KM_PRESS, KM_CTRL, 0);
@@ -764,7 +750,7 @@ static void clip_keymap(struct wmKeyConfig *keyconf)
 
 	ED_keymap_template_select_all(keymap, "CLIP_OT_graph_select_all_markers");
 
-	WM_keymap_add_item(keymap, "CLIP_OT_graph_select_border", BKEY, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "CLIP_OT_graph_select_box", BKEY, KM_PRESS, 0, 0);
 
 	/* delete */
 	WM_keymap_add_item(keymap, "CLIP_OT_graph_delete_curve", XKEY, KM_PRESS, 0, 0);
@@ -1272,7 +1258,7 @@ static void graph_region_draw(const bContext *C, ARegion *ar)
 	UI_view2d_scrollers_draw(C, v2d, scrollers);
 	UI_view2d_scrollers_free(scrollers);
 
-	/* currnt frame indicator */
+	/* current frame indicator */
 	if (sc->flag & SC_SHOW_SECONDS) cfra_flag |= DRAWCFRA_UNIT_SECONDS;
 	UI_view2d_view_orthoSpecial(ar, v2d, 1);
 	ANIM_draw_cfra_number(C, v2d, cfra_flag);
@@ -1319,7 +1305,7 @@ static void dopesheet_region_draw(const bContext *C, ARegion *ar)
 	UI_view2d_scrollers_draw(C, v2d, scrollers);
 	UI_view2d_scrollers_free(scrollers);
 
-	/* currnt frame number indicator */
+	/* current frame number indicator */
 	UI_view2d_view_orthoSpecial(ar, v2d, 1);
 	ANIM_draw_cfra_number(C, v2d, cfra_flag);
 }

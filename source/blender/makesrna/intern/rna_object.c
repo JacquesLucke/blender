@@ -481,7 +481,7 @@ static const EnumPropertyItem *rna_Object_parent_type_itemf(bContext *UNUSED(C),
 			RNA_enum_items_add_value(&item, &totitem, &parent_type_items[2], PARSKEL);
 		}
 		else if (par->type == OB_ARMATURE) {
-			/* special hack: prevents this being overrided */
+			/* special hack: prevents this being overridden */
 			RNA_enum_items_add_value(&item, &totitem, &parent_type_items[1], PARSKEL);
 			RNA_enum_items_add_value(&item, &totitem, parent_type_items, PARBONE);
 		}
@@ -2548,7 +2548,7 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_STATIC);
 	RNA_def_property_ui_text(prop, "Disable Select", "Disable object selection in the viewport");
 	RNA_def_property_ui_icon(prop, ICON_RESTRICT_SELECT_OFF, 1);
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
+	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_hide_update");
 
 	prop = RNA_def_property(srna, "hide_render", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "restrictflag", OB_RESTRICT_RENDER);

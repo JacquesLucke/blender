@@ -22,6 +22,7 @@ from bpy.types import Menu, Panel, UIList
 from rna_prop_ui import PropertyPanel
 from .properties_grease_pencil_common import (
     GreasePencilOnionPanel,
+    GPENCIL_UL_layer,
 )
 
 ###############################
@@ -66,41 +67,6 @@ class DATA_PT_gpencil(DataButtonsPanel, Panel):
         layout.template_ID(gpd_owner, "data")
 
 
-class GPENCIL_UL_layer(UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # assert(isinstance(item, bpy.types.GPencilLayer)
-        gpl = item
-        gpd = context.gpencil_data
-
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            if gpl.lock:
-                layout.active = False
-
-            row = layout.row(align=True)
-            if gpl.is_parented:
-                icon = 'BONE_DATA'
-            else:
-                icon = 'BLANK1'
-
-            row.label(text="", icon=icon)
-            row.prop(gpl, "info", text="", emboss=False)
-
-            row = layout.row(align=True)
-            row.prop(gpl, "lock", text="", emboss=False)
-            row.prop(gpl, "hide", text="", emboss=False)
-            row.prop(gpl, "unlock_color", text="", emboss=False)
-            if gpl.use_onion_skinning is False:
-                icon = 'GHOST_DISABLED'
-            else:
-                icon = 'GHOST_ENABLED'
-            subrow = row.row(align=True)
-            subrow.prop(gpl, "use_onion_skinning", text="", icon=icon, emboss=False)
-            subrow.active = gpd.use_onion_skinning
-        elif self.layout_type == 'GRID':
-            layout.alignment = 'CENTER'
-            layout.label(text="", icon_value=icon)
-
-
 class GPENCIL_MT_layer_specials(Menu):
     bl_label = "Layer"
 
@@ -111,8 +77,8 @@ class GPENCIL_MT_layer_specials(Menu):
 
         layout.separator()
 
-        layout.operator("gpencil.reveal", icon='RESTRICT_VIEW_OFF', text="Show All")
-        layout.operator("gpencil.hide", icon='RESTRICT_VIEW_ON', text="Hide Others").unselected = True
+        layout.operator("gpencil.reveal", icon='HIDE_OFF', text="Show All")
+        layout.operator("gpencil.hide", icon='HIDE_ON', text="Hide Others").unselected = True
 
         layout.separator()
 
@@ -162,10 +128,7 @@ class DATA_PT_gpencil_datapanel(Panel):
         row = layout.row()
 
         col = row.column()
-        if len(gpd.layers) >= 2:
-            layer_rows = 5
-        else:
-            layer_rows = 2
+        layer_rows = 7
         col.template_list("GPENCIL_UL_layer", "", gpd, "layers", gpd.layers, "active_index", rows=layer_rows)
 
         col = row.column()
@@ -189,7 +152,7 @@ class DATA_PT_gpencil_datapanel(Panel):
 
                 sub = col.column(align=True)
                 sub.operator("gpencil.layer_isolate", icon='LOCKED', text="").affect_visibility = False
-                sub.operator("gpencil.layer_isolate", icon='RESTRICT_VIEW_OFF', text="").affect_visibility = True
+                sub.operator("gpencil.layer_isolate", icon='HIDE_OFF', text="").affect_visibility = True
 
         row = layout.row(align=True)
         if gpl:
@@ -221,6 +184,9 @@ class DATA_PT_gpencil_layer_optionpanel(LayerDataButtonsPanel, Panel):
         # Offsets - Thickness
         col = layout.row(align=True)
         col.prop(gpl, "line_change", text="Stroke Thickness")
+
+        col = layout.row(align=True)
+        col.prop(gpl, "lock_material")
 
 
 class DATA_PT_gpencil_parentpanel(LayerDataButtonsPanel, Panel):
@@ -358,6 +324,7 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
+        layout.use_property_decorate = False
 
         ob = context.object
 
@@ -378,6 +345,29 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
             layout.prop(gpd, "show_stroke_direction", text="Show Stroke Directions")
 
         layout.prop(gpd, "use_force_fill_recalc", text="Force Fill Update")
+        layout.prop(gpd, "zdepth_offset", text="Surface Offset")
+
+
+class DATA_PT_gpencil_canvas(DataButtonsPanel, Panel):
+    bl_label = "Canvas"
+    bl_parent_id = 'DATA_PT_gpencil_display'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        gpd = context.gpencil_data
+        grid = gpd.grid
+
+        row = layout.row(align=True)
+        col = row.column()
+        col.prop(grid, "color")
+        col.prop(grid, "scale")
+        row = layout.row(align=True)
+        col = row.column()
+        col.prop(grid, "lines", text="Subdivisions")
+        col.prop(grid, "axis", text="Plane")
 
 
 class DATA_PT_custom_props_gpencil(DataButtonsPanel, PropertyPanel, Panel):
@@ -395,9 +385,9 @@ classes = (
     DATA_PT_gpencil_parentpanel,
     DATA_PT_gpencil_vertexpanel,
     DATA_PT_gpencil_display,
+    DATA_PT_gpencil_canvas,
     DATA_PT_custom_props_gpencil,
 
-    GPENCIL_UL_layer,
     GPENCIL_UL_vgroups,
 
     GPENCIL_MT_layer_specials,

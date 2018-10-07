@@ -491,8 +491,8 @@ static void PE_free_shape_tree(PEData *data)
 static void PE_create_random_generator(PEData *data)
 {
 	uint rng_seed = (uint)(PIL_check_seconds_timer_i() & UINT_MAX);
-	rng_seed ^= GET_UINT_FROM_POINTER(data->ob);
-	rng_seed ^= GET_UINT_FROM_POINTER(data->edit);
+	rng_seed ^= POINTER_AS_UINT(data->ob);
+	rng_seed ^= POINTER_AS_UINT(data->edit);
 	data->rng = BLI_rng_new(rng_seed);
 }
 
@@ -1311,7 +1311,7 @@ void recalc_emitter_field(Depsgraph *UNUSED(depsgraph), Object *UNUSED(ob), Part
 	BLI_kdtree_free(edit->emitter_field);
 
 	totface = mesh->totface;
-	/*totvert=dm->getNumVerts(dm);*/ /*UNSUED*/
+	/*totvert=dm->getNumVerts(dm);*/ /*UNUSED*/
 
 	edit->emitter_cosnos = MEM_callocN(totface * 6 * sizeof(float), "emitter cosnos");
 
@@ -1967,7 +1967,7 @@ void PARTICLE_OT_select_linked(wmOperatorType *ot)
 	RNA_def_int_vector(ot->srna, "location", 2, NULL, 0, INT_MAX, "Location", "", 0, 16384);
 }
 
-/************************ border select operator ************************/
+/************************ box select operator ************************/
 void PE_deselect_all_visible(PTCacheEdit *edit)
 {
 	POINT_P; KEY_K;
@@ -1980,7 +1980,7 @@ void PE_deselect_all_visible(PTCacheEdit *edit)
 	}
 }
 
-int PE_border_select(bContext *C, const rcti *rect, const int sel_op)
+int PE_box_select(bContext *C, const rcti *rect, const int sel_op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
@@ -3443,7 +3443,7 @@ static void brush_puff(PEData *data, int point_index)
 #else
 					/* translate (not rotate) the rest of the hair if its not selected  */
 					{
-#if 0                   /* kindof works but looks worse then whats below */
+#if 0                   /* kindof works but looks worse then what's below */
 
 						/* Move the unselected point on a vector based on the
 						 * hair direction and the offset */
@@ -3751,7 +3751,7 @@ static void brush_add_count_iter(
 	mco[1] = data->mval[1] + dmy;
 
 	float co1[3], co2[3];
-	ED_view3d_win_to_segment(depsgraph, data->vc.ar, data->vc.v3d, mco, co1, co2, true);
+	ED_view3d_win_to_segment_clipped(depsgraph, data->vc.ar, data->vc.v3d, mco, co1, co2, true);
 
 	mul_m4_v3(iter_data->imat, co1);
 	mul_m4_v3(iter_data->imat, co2);
@@ -3841,7 +3841,7 @@ static int brush_add(const bContext *C, PEData *data, short number)
 	BLI_assert(mesh);
 
 	/* Calculate positions of new particles to add, based on brush interseciton
-	 * with object. New particle data is assigned to a correponding to check
+	 * with object. New particle data is assigned to a corresponding to check
 	 * index element of add_pars array. This means, that add_pars is a sparse
 	 * array.
 	 */

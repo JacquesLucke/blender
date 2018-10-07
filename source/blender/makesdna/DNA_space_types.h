@@ -453,7 +453,7 @@ typedef struct SpaceNla {
 
 /* SpaceNla.flag */
 typedef enum eSpaceNla_Flag {
-	/* flags (1<<0), (1<<1), and (1<<3) are deprecated flags from old verisons */
+	/* flags (1<<0), (1<<1), and (1<<3) are deprecated flags from old versions */
 
 	/* draw timing in seconds instead of frames */
 	SNLA_DRAWTIME          = (1 << 2),
@@ -997,6 +997,8 @@ typedef enum eSpaceImage_Flag {
 	SI_SHOW_R             = (1 << 27),
 	SI_SHOW_G             = (1 << 28),
 	SI_SHOW_B             = (1 << 29),
+
+	SI_NO_DRAWEDGES         = (1 << 30),
 } eSpaceImage_Flag;
 
 /* SpaceImage.other_uv_filter */

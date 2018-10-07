@@ -151,7 +151,6 @@ static float gp_hook_falloff(const struct GPHookData_cb *tData,	const float len_
 				fac = sqrtf(2 * fac - fac * fac);
 				break;
 			default:
-				fac = fac;
 				break;
 		}
 
@@ -249,7 +248,7 @@ static void deformStroke(
 	/* loop points and apply deform */
 	for (int i = 0; i < gps->totpoints; i++) {
 		bGPDspoint *pt = &gps->points[i];
-		MDeformVert *dvert = &gps->dvert[i];
+		MDeformVert *dvert = gps->dvert != NULL ? &gps->dvert[i] : NULL;
 
 		/* verify vertex group */
 		const float weight = get_modifier_point_weight(dvert, (mmd->flag & GP_HOOK_INVERT_VGROUP) != 0, def_nr);

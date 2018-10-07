@@ -459,6 +459,14 @@ MINLINE void mul_v4_fl(float r[4], float f)
 	r[3] *= f;
 }
 
+MINLINE void mul_v4_v4(float r[4], const float a[4])
+{
+	r[0] *= a[0];
+	r[1] *= a[1];
+	r[2] *= a[2];
+	r[3] *= a[3];
+}
+
 MINLINE void mul_v4_v4fl(float r[4], const float a[4], float f)
 {
 	r[0] = a[0] * f;
@@ -605,6 +613,12 @@ MINLINE void mul_v3_v3v3(float r[3], const float v1[3], const float v2[3])
 	r[0] = v1[0] * v2[0];
 	r[1] = v1[1] * v2[1];
 	r[2] = v1[2] * v2[2];
+}
+
+MINLINE void mul_v2_v2v2(float r[2], const float a[2], const float b[2])
+{
+	r[0] = a[0] * b[0];
+	r[1] = a[1] * b[1];
 }
 
 MINLINE void negate_v2(float r[2])

@@ -57,6 +57,8 @@ typedef struct GlobalsUboStorage {
 	float colorEmpty[4];
 	float colorVertex[4];
 	float colorVertexSelect[4];
+	float colorVertexUnreferenced[4];
+	float colorVertexMissingData[4];
 	float colorEditMeshActive[4];
 	float colorEdgeSelect[4];
 	float colorEdgeSeam[4];
@@ -90,7 +92,9 @@ typedef struct GlobalsUboStorage {
 	float colorHandleSelAlign[4];
 	float colorHandleSelAutoclamp[4];
 	float colorNurbUline[4];
+	float colorNurbVline[4];
 	float colorNurbSelUline[4];
+	float colorNurbSelVline[4];
 	float colorActiveSpline[4];
 
 	float colorBonePose[4];
@@ -105,12 +109,15 @@ typedef struct GlobalsUboStorage {
 
 	/* NOTE! Put all color before UBO_LAST_COLOR */
 
-	/* Pack individual float at the end of the buffer to avoid alignement errors */
+	/* Pack individual float at the end of the buffer to avoid alignment errors */
 	float sizeLampCenter, sizeLampCircle, sizeLampCircleShadow;
 	float sizeVertex, sizeEdge, sizeEdgeFix, sizeFaceDot;
 	float gridDistance, gridResolution, gridSubdivisions, gridScale;
+
+	float pad_globalsBlock;
 } GlobalsUboStorage;
 /* Keep in sync with globalsBlock in shaders */
+BLI_STATIC_ASSERT_ALIGN(GlobalsUboStorage, 16)
 
 void DRW_globals_update(void);
 void DRW_globals_free(void);
@@ -143,6 +150,7 @@ struct DRWShadingGroup *shgroup_instance_bone_shape_solid(struct DRWPass *pass, 
 struct DRWShadingGroup *shgroup_instance_bone_sphere_outline(struct DRWPass *pass);
 struct DRWShadingGroup *shgroup_instance_bone_sphere_solid(struct DRWPass *pass, bool transp);
 struct DRWShadingGroup *shgroup_instance_bone_stick(struct DRWPass *pass);
+struct DRWShadingGroup *shgroup_instance_bone_dof(struct DRWPass *pass, struct GPUBatch *geom);
 
 struct GPUShader *mpath_line_shader_get(void);
 struct GPUShader *mpath_points_shader_get(void);

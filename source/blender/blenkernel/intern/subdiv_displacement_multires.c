@@ -103,13 +103,11 @@ BLI_INLINE int rotate_quad_to_corner(const float u, const float v,
 		*r_u = 2.0f * (1.0f - u);
 		*r_v = 2.0f * (1.0f - v);
 	}
-	else if (u <= 0.5f && v >= 0.5f) {
+	else {
+		BLI_assert(u <= 0.5f && v >= 0.5f);
 		corner = 3;
 		*r_u = 2.0f * (1.0f - v);
 		*r_v = 2.0f * u;
-	}
-	else {
-		BLI_assert(!"Unexpected corner configuration");
 	}
 	return corner;
 }
@@ -420,7 +418,7 @@ void BKE_subdiv_displacement_attach_from_multires(
         const Mesh *mesh,
         const MultiresModifierData *mmd)
 {
-	/* Make sure we dont' have previously assigned displacement. */
+	/* Make sure we don't have previously assigned displacement. */
 	BKE_subdiv_displacement_detach(subdiv);
 	/* Allocate all required memory. */
 	SubdivDisplacement *displacement = MEM_callocN(sizeof(SubdivDisplacement),

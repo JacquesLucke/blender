@@ -55,7 +55,7 @@ typedef struct BrushClone {
 
 typedef struct BrushGpencilSettings {
 	float draw_smoothfac;     /* amount of smoothing to apply to newly created strokes */
-	float draw_sensitivity;   /* amount of sensivity to apply to newly created strokes */
+	float draw_sensitivity;   /* amount of sensitivity to apply to newly created strokes */
 	float draw_strength;      /* amount of alpha strength to apply to newly created strokes */
 	float draw_jitter;        /* amount of jitter to apply to newly created strokes */
 	float draw_angle;         /* angle when the brush has full thickness */
@@ -121,7 +121,9 @@ typedef enum eGPDbrush_Flag {
 	/* Random settings group */
 	GP_BRUSH_GROUP_RANDOM = (1 << 12),
 	/* Keep material assigned to brush */
-	GP_BRUSH_MATERIAL_PINNED = (1 << 13)
+	GP_BRUSH_MATERIAL_PINNED = (1 << 13),
+	/* Do not show fill color while drawing (no lasso mode) */
+	GP_BRUSH_DISSABLE_LASSO = (1 << 14),
 } eGPDbrush_Flag;
 
 /* BrushGpencilSettings->gp_fill_draw_mode */

@@ -75,7 +75,7 @@ struct GPUFrameBuffer {
 	int width, height;
 	bool multisample;
 	/* TODO Check that we always use the right context when binding
-	 * (FBOs are not shared accross ogl contexts). */
+	 * (FBOs are not shared across ogl contexts). */
 	// void *ctx;
 };
 
@@ -198,7 +198,7 @@ GPUFrameBuffer *GPU_framebuffer_create(void)
 {
 	/* We generate the FB object later at first use in order to
 	 * create the framebuffer in the right opengl context. */
-	return MEM_callocN(sizeof(GPUFrameBuffer), "GPUFrameBuffer");;
+	return MEM_callocN(sizeof(GPUFrameBuffer), "GPUFrameBuffer");
 }
 
 static void gpu_framebuffer_init(GPUFrameBuffer *fb)
@@ -627,6 +627,9 @@ void GPU_framebuffer_recursive_downsample(
 	 * not trigger any error in GPU_texture_bind().  */
 	GPUFrameBuffer *prev_fb = GPU_framebuffer_active_get();
 	gpu_framebuffer_current_set(NULL);
+
+	int levels = floor(log2(max_ii(fb->width, fb->height)));
+	max_lvl = min_ii(max_lvl, levels);
 
 	int i;
 	int current_dim[2] = {fb->width, fb->height};

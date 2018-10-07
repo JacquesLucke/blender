@@ -423,6 +423,13 @@ void DRW_engine_viewport_data_size_get(
 	}
 }
 
+/* WARNING: only use for custom pipeline. 99% of the time, you don't want to use this. */
+void DRW_render_viewport_size_set(int size[2])
+{
+	DST.size[0] = size[0];
+	DST.size[1] = size[1];
+}
+
 const float *DRW_viewport_size_get(void)
 {
 	return DST.size;
@@ -958,7 +965,7 @@ static void drw_engines_cache_populate(Object *ob)
 	DST.ob_state = NULL;
 
 	/* HACK: DrawData is copied by COW from the duplicated object.
-	 * This is valid for IDs that cannot be instanciated but this
+	 * This is valid for IDs that cannot be instantiated but this
 	 * is not what we want in this case so we clear the pointer
 	 * ourselves here. */
 	drw_drawdata_unlink_dupli((ID *)ob);
@@ -1085,7 +1092,7 @@ int DRW_draw_region_engine_info_offset(void)
 void DRW_draw_region_engine_info(void)
 {
 	const char *info_array_final[MAX_INFO_LINES + 1];
-	/* This should be maxium number of engines running at the same time. */
+	/* This should be maximum number of engines running at the same time. */
 	char info_array[MAX_INFO_LINES][GPU_INFO_SIZE];
 	int i = 0;
 
@@ -1153,14 +1160,15 @@ static void drw_engines_enable_external(void)
 /* TODO revisit this when proper layering is implemented */
 /* Gather all draw engines needed and store them in DST.enabled_engines
  * That also define the rendering order of engines */
-static void drw_engines_enable_from_engine(RenderEngineType *engine_type, int drawtype, int shading_flags)
+static void drw_engines_enable_from_engine(RenderEngineType *engine_type, int drawtype, bool use_xray)
 {
 	switch (drawtype) {
 		case OB_WIRE:
+			use_drw_engine(&draw_engine_workbench_transparent);
 			break;
 
 		case OB_SOLID:
-			if (shading_flags & V3D_SHADING_XRAY) {
+			if (use_xray) {
 				use_drw_engine(&draw_engine_workbench_transparent);
 			}
 			else {
@@ -1217,11 +1225,9 @@ static void drw_engines_enable_from_mode(int mode)
 		case CTX_MODE_EDIT_MESH:
 			use_drw_engine(&draw_engine_edit_mesh_type);
 			break;
+		case CTX_MODE_EDIT_SURFACE:
 		case CTX_MODE_EDIT_CURVE:
 			use_drw_engine(&draw_engine_edit_curve_type);
-			break;
-		case CTX_MODE_EDIT_SURFACE:
-			use_drw_engine(&draw_engine_edit_surface_type);
 			break;
 		case CTX_MODE_EDIT_TEXT:
 			use_drw_engine(&draw_engine_edit_text_type);
@@ -1280,8 +1286,9 @@ static void drw_engines_enable(ViewLayer *view_layer, RenderEngineType *engine_t
 	const int mode = CTX_data_mode_enum_ex(DST.draw_ctx.object_edit, obact, DST.draw_ctx.object_mode);
 	View3D * v3d = DST.draw_ctx.v3d;
 	const int drawtype = v3d->shading.type;
+	const bool use_xray = XRAY_ENABLED(v3d);
 
-	drw_engines_enable_from_engine(engine_type, drawtype, v3d->shading.flag);
+	drw_engines_enable_from_engine(engine_type, drawtype, use_xray);
 
 	if (DRW_state_draw_support()) {
 		/* Draw paint modes first so that they are drawn below the wireframes. */
@@ -1291,6 +1298,10 @@ static void drw_engines_enable(ViewLayer *view_layer, RenderEngineType *engine_t
 		drw_engines_enable_from_mode(mode);
 	}
 	else {
+		/* Force enable overlays engine for wireframe mode */
+		if (v3d->shading.type == OB_WIRE) {
+			drw_engines_enable_from_overlays(v3d->overlay.flag);
+		}
 		/* if gpencil must draw the strokes, but not the object */
 		drw_engines_enable_from_mode(mode);
 	}
@@ -1572,7 +1583,7 @@ void DRW_draw_render_loop_ex(
 
 	if (G.debug_value > 20 && G.debug_value < 30) {
 		glDisable(GL_DEPTH_TEST);
-		rcti rect; /* local coordinate visible rect inside region, to accomodate overlapping ui */
+		rcti rect; /* local coordinate visible rect inside region, to accommodate overlapping ui */
 		ED_region_visible_rect(DST.draw_ctx.ar, &rect);
 		DRW_stats_draw(&rect);
 		glEnable(GL_DEPTH_TEST);
@@ -1892,7 +1903,7 @@ void DRW_render_object_iter(
 	DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END
 }
 
-/* Assume a valid gl context is bound (and that the gl_context_mutex has been aquired).
+/* Assume a valid gl context is bound (and that the gl_context_mutex has been acquired).
  * This function only setup DST and execute the given function.
  * Warning: similar to DRW_render_to_image you cannot use default lists (dfbl & dtxl). */
 void DRW_custom_pipeline(
@@ -2044,6 +2055,7 @@ void DRW_draw_select_loop(
 	}
 	else {
 		drw_engines_enable_basic();
+		drw_engines_enable_from_overlays(v3d->overlay.flag);
 		drw_engines_enable_from_object_mode();
 	}
 
@@ -2462,7 +2474,6 @@ void DRW_engines_register(void)
 	DRW_engine_register(&draw_engine_edit_lattice_type);
 	DRW_engine_register(&draw_engine_edit_mesh_type);
 	DRW_engine_register(&draw_engine_edit_metaball_type);
-	DRW_engine_register(&draw_engine_edit_surface_type);
 	DRW_engine_register(&draw_engine_edit_text_type);
 	DRW_engine_register(&draw_engine_motion_path_type);
 	DRW_engine_register(&draw_engine_overlay_type);
@@ -2518,6 +2529,7 @@ void DRW_engines_register(void)
 extern struct GPUVertFormat *g_pos_format; /* draw_shgroup.c */
 extern struct GPUUniformBuffer *globals_ubo; /* draw_common.c */
 extern struct GPUTexture *globals_ramp; /* draw_common.c */
+extern struct GPUTexture *globals_weight_ramp; /* draw_common.c */
 void DRW_engines_free(void)
 {
 	DRW_opengl_context_enable();
@@ -2543,6 +2555,7 @@ void DRW_engines_free(void)
 	DRW_UBO_FREE_SAFE(globals_ubo);
 	DRW_UBO_FREE_SAFE(view_ubo);
 	DRW_TEXTURE_FREE_SAFE(globals_ramp);
+	DRW_TEXTURE_FREE_SAFE(globals_weight_ramp);
 	MEM_SAFE_FREE(g_pos_format);
 
 	MEM_SAFE_FREE(DST.RST.bound_texs);

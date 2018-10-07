@@ -154,7 +154,7 @@ static int customdata_compare(CustomData *c1, CustomData *c2, Mesh *m1, Mesh *m2
 			for (j = 0; j < vtot; j++, v1++, v2++) {
 				if (len_squared_v3v3(v1->co, v2->co) > thresh_sq)
 					return MESHCMP_VERTCOMISMATCH;
-				/* I don't care about normals, let's just do coodinates */
+				/* I don't care about normals, let's just do coordinates */
 			}
 		}
 
@@ -326,7 +326,7 @@ static void mesh_ensure_tessellation_customdata(Mesh *me)
 				/* note: this warning may be un-called for if we are initializing the mesh for the
 				 * first time from bmesh, rather then giving a warning about this we could be smarter
 				 * and check if there was any data to begin with, for now just print the warning with
-				 * some info to help troubleshoot whats going on - campbell */
+				 * some info to help troubleshoot what's going on - campbell */
 				printf("%s: warning! Tessellation uvs or vcol data got out of sync, "
 				       "had to reset!\n    CD_MTFACE: %d != CD_MLOOPUV: %d || CD_MCOL: %d != CD_MLOOPCOL: %d\n",
 				       __func__, tottex_tessface, tottex_original, totcol_tessface, totcol_original);
@@ -508,7 +508,7 @@ void BKE_mesh_init(Mesh *me)
 #if 0
 	me->flag = ME_TWOSIDED;
 #endif
-	me->drawflag = ME_DRAWEDGES | ME_DRAWFACES | ME_DRAWCREASES;
+	me->drawflag = 0;
 
 	CustomData_reset(&me->vdata);
 	CustomData_reset(&me->edata);
@@ -650,7 +650,9 @@ static Mesh *mesh_new_nomain_from_template_ex(
         int loops_len, int polys_len,
         CustomDataMask mask)
 {
-	const bool do_tessface = ((me_src->totface != 0) && (me_src->totpoly == 0)); /* only do tessface if we have no polys */
+	/* Only do tessface if we are creating tessfaces or copying from mesh with only tessfaces. */
+	const bool do_tessface = (tessface_len ||
+	                          ((me_src->totface != 0) && (me_src->totpoly == 0)));
 
 	Mesh *me_dst = BKE_id_new_nomain(ID_ME, NULL);
 
@@ -695,16 +697,19 @@ Mesh * BKE_mesh_new_nomain_from_template(
 	        CD_MASK_EVERYTHING);
 }
 
-Mesh *BKE_mesh_copy_for_eval(struct Mesh *source)
+Mesh *BKE_mesh_copy_for_eval(struct Mesh *source, bool reference)
 {
+	int flags = (LIB_ID_CREATE_NO_MAIN |
+	             LIB_ID_CREATE_NO_USER_REFCOUNT |
+	             LIB_ID_CREATE_NO_DEG_TAG |
+	             LIB_ID_COPY_NO_PREVIEW);
+
+	if (reference) {
+		flags |= LIB_ID_COPY_CD_REFERENCE;
+	}
+
 	Mesh *result;
-	BKE_id_copy_ex(
-	        NULL, &source->id, (ID **)&result,
-	        (LIB_ID_CREATE_NO_MAIN |
-	         LIB_ID_CREATE_NO_USER_REFCOUNT |
-	         LIB_ID_CREATE_NO_DEG_TAG |
-	         LIB_ID_COPY_CD_REFERENCE),
-	        false);
+	BKE_id_copy_ex( NULL, &source->id, (ID **)&result, flags, false);
 	return result;
 }
 
@@ -1654,7 +1659,7 @@ static int split_faces_prepare_new_verts(
 
 			if ((*lnor_space)->flags & MLNOR_SPACE_IS_SINGLE) {
 				/* Single loop in this fan... */
-				BLI_assert(GET_INT_FROM_POINTER((*lnor_space)->loops) == loop_idx);
+				BLI_assert(POINTER_AS_INT((*lnor_space)->loops) == loop_idx);
 				BLI_BITMAP_ENABLE(done_loops, loop_idx);
 				if (vert_used) {
 					ml->v = new_vert_idx;
@@ -1662,7 +1667,7 @@ static int split_faces_prepare_new_verts(
 			}
 			else {
 				for (LinkNode *lnode = (*lnor_space)->loops; lnode; lnode = lnode->next) {
-					const int ml_fan_idx = GET_INT_FROM_POINTER(lnode->link);
+					const int ml_fan_idx = POINTER_AS_INT(lnode->link);
 					BLI_BITMAP_ENABLE(done_loops, ml_fan_idx);
 					if (vert_used) {
 						mloop[ml_fan_idx].v = new_vert_idx;
@@ -1723,7 +1728,7 @@ static int split_faces_prepare_new_edges(
 				if (BLI_BITMAP_TEST(edges_used, edge_idx)) {
 					/* Original edge has already been used, we need to define a new one. */
 					const int new_edge_idx = num_edges++;
-					*eval = SET_INT_IN_POINTER(new_edge_idx);
+					*eval = POINTER_FROM_INT(new_edge_idx);
 					ml_prev->e = new_edge_idx;
 
 					SplitFaceNewEdge *new_edge = BLI_memarena_alloc(memarena, sizeof(*new_edge));
@@ -1738,13 +1743,13 @@ static int split_faces_prepare_new_edges(
 					/* We can re-use original edge. */
 					medge[edge_idx].v1 = ml_prev->v;
 					medge[edge_idx].v2 = ml->v;
-					*eval = SET_INT_IN_POINTER(edge_idx);
+					*eval = POINTER_FROM_INT(edge_idx);
 					BLI_BITMAP_ENABLE(edges_used, edge_idx);
 				}
 			}
 			else {
 				/* Edge already known, just update loop's edge index. */
-				ml_prev->e = GET_INT_FROM_POINTER(*eval);
+				ml_prev->e = POINTER_AS_INT(*eval);
 			}
 
 			ml_prev = ml;

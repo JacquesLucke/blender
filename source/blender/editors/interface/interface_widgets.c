@@ -1277,9 +1277,9 @@ static int ui_but_draw_menu_icon(const uiBut *but)
 
 /* icons have been standardized... and this call draws in untransformed coordinates */
 
-static void widget_draw_icon_ex(
+static void widget_draw_icon(
         const uiBut *but, BIFIconID icon, float alpha,
-        const rcti *rect, const int icon_size)
+        const rcti *rect, const char mono_color[4])
 {
 	float xs = 0.0f, ys = 0.0f;
 	float aspect, height;
@@ -1295,7 +1295,7 @@ static void widget_draw_icon_ex(
 	if (icon == ICON_BLANK1 && (but->flag & UI_BUT_ICON_SUBMENU) == 0) return;
 
 	aspect = but->block->aspect / UI_DPI_FAC;
-	height = icon_size / aspect;
+	height = ICON_DEFAULT_HEIGHT / aspect;
 
 	/* calculate blend color */
 	if (ELEM(but->type, UI_BTYPE_TOGGLE, UI_BTYPE_ROW, UI_BTYPE_TOGGLE_N, UI_BTYPE_LISTROW)) {
@@ -1343,24 +1343,18 @@ static void widget_draw_icon_ex(
 		/* to indicate draggable */
 		if (but->dragpoin && (but->flag & UI_ACTIVE)) {
 			float rgb[3] = {1.25f, 1.25f, 1.25f};
-			UI_icon_draw_aspect_color(xs, ys, icon, aspect, rgb);
+			UI_icon_draw_aspect_color(xs, ys, icon, aspect, rgb, mono_color);
 		}
 		else if ((but->flag & (UI_ACTIVE | UI_SELECT | UI_SELECT_DRAW)) || !UI_but_is_tool(but)) {
-			UI_icon_draw_aspect(xs, ys, icon, aspect, alpha);
+			UI_icon_draw_aspect(xs, ys, icon, aspect, alpha, mono_color);
 		}
 		else {
 			const bTheme *btheme = UI_GetTheme();
-			UI_icon_draw_desaturate(xs, ys, icon, aspect, alpha, 1.0 - btheme->tui.icon_saturation);
+			UI_icon_draw_desaturate(xs, ys, icon, aspect, alpha, 1.0 - btheme->tui.icon_saturation, mono_color);
 		}
 	}
 
 	GPU_blend(false);
-}
-
-static void widget_draw_icon(
-        const uiBut *but, BIFIconID icon, float alpha, const rcti *rect)
-{
-	widget_draw_icon_ex(but, icon, alpha, rect, ICON_DEFAULT_HEIGHT);
 }
 
 static void widget_draw_submenu_tria(const uiBut *but, const rcti *rect, const uiWidgetColors *wcol)
@@ -1462,7 +1456,7 @@ float UI_text_clip_middle_ex(
 	strwidth = BLF_width(fstyle->uifont_id, str, max_len);
 
 	if ((okwidth > 0.0f) && (strwidth > okwidth)) {
-		/* utf8 ellipsis '..', some compilers complain */
+		/* utf8 two-dots leader '..' (shorter than ellipsis '...'), some compilers complain with real litteral string. */
 		const char sep[] = {0xe2, 0x80, 0xA5, 0x0};
 		const int sep_len = sizeof(sep) - 1;
 		const float sep_strwidth = BLF_width(fstyle->uifont_id, sep, sep_len + 1);
@@ -1527,6 +1521,16 @@ float UI_text_clip_middle_ex(
 				memmove(str + l_end + sep_len, str + r_offset, r_len);
 				memcpy(str + l_end, sep, sep_len);
 				final_lpart_len = (size_t)(l_end + sep_len + r_len - 1);  /* -1 to remove trailing '\0'! */
+
+				while (BLF_width(fstyle->uifont_id, str, max_len) > okwidth) {
+					/* This will happen because a lot of string width processing is done in integer pixels,
+					 * which can introduce a rather high error in the end (about 2 pixels or so).
+					 * Only one char removal shall ever be needed in real-life situation... */
+					r_len--;
+					final_lpart_len--;
+					char *c = str + l_end + sep_len;
+					memmove(c, c + 1, r_len);
+				}
 			}
 		}
 
@@ -2026,7 +2030,7 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 	if (ELEM(but->type, UI_BTYPE_MENU, UI_BTYPE_POPOVER) && (but->flag & UI_BUT_NODE_LINK)) {
 		rcti temp = *rect;
 		temp.xmin = rect->xmax - BLI_rcti_size_y(rect) - 1;
-		widget_draw_icon(but, ICON_LAYER_USED, alpha, &temp);
+		widget_draw_icon(but, ICON_LAYER_USED, alpha, &temp, wcol->text);
 		rect->xmax = temp.xmin;
 	}
 
@@ -2096,7 +2100,7 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 		else if (ui_block_is_menu(but->block))
 			rect->xmin += 0.3f * U.widget_unit;
 
-		widget_draw_icon(but, icon, alpha, rect);
+		widget_draw_icon(but, icon, alpha, rect, wcol->text);
 		if (show_menu_icon) {
 			BLI_assert(but->block->content_hints & UI_BLOCK_CONTAINS_SUBMENU_BUT);
 			widget_draw_submenu_tria(but, rect, wcol);
@@ -2129,10 +2133,10 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 		temp.xmin = temp.xmax - (BLI_rcti_size_y(rect) * 1.08f);
 
 		if (extra_icon_type == UI_BUT_ICONEXTRA_CLEAR) {
-			widget_draw_icon(but, ICON_PANEL_CLOSE, alpha, &temp);
+			widget_draw_icon(but, ICON_PANEL_CLOSE, alpha, &temp, wcol->text);
 		}
 		else if (extra_icon_type == UI_BUT_ICONEXTRA_EYEDROPPER) {
-			widget_draw_icon(but, ICON_EYEDROPPER, alpha, &temp);
+			widget_draw_icon(but, ICON_EYEDROPPER, alpha, &temp, wcol->text);
 		}
 		else {
 			BLI_assert(0);
@@ -2365,7 +2369,7 @@ static void widget_state_pie_menu_item(uiWidgetType *wt, int state)
 		}
 
 		if (state & UI_SELECT) {
-			copy_v4_v4_char(wt->wcol.outline, wt->wcol.inner_sel);
+			copy_v4_v4_char(wt->wcol.inner, wt->wcol.inner_sel);
 		}
 		else if (state & UI_ACTIVE) {
 			copy_v4_v4_char(wt->wcol.inner, wt->wcol.item);
@@ -4711,7 +4715,7 @@ void ui_draw_menu_item(uiFontStyle *fstyle, rcti *rect, const char *name, int ic
 		aspect = ICON_DEFAULT_HEIGHT / height;
 
 		GPU_blend(true);
-		UI_icon_draw_aspect(xs, ys, iconid, aspect, 1.0f); /* XXX scale weak get from fstyle? */
+		UI_icon_draw_aspect(xs, ys, iconid, aspect, 1.0f, wt->wcol.text); /* XXX scale weak get from fstyle? */
 		GPU_blend(false);
 	}
 }

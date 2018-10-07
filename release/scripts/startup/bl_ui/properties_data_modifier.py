@@ -810,6 +810,9 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.label(text="Mode:")
         col.prop(md, "wrap_method", text="")
 
+        if md.wrap_method in {'PROJECT', 'NEAREST_SURFACEPOINT'}:
+            col.prop(md, "wrap_mode", text="")
+
         if md.wrap_method == 'PROJECT':
             split = layout.split()
             col = split.column()
@@ -830,14 +833,15 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
             col.prop(md, "use_negative_direction")
             col.prop(md, "use_positive_direction")
 
+            subcol = col.column()
+            subcol.active = md.use_negative_direction and md.cull_face != 'OFF'
+            subcol.prop(md, "use_invert_cull")
+
             col = split.column()
             col.label(text="Cull Faces:")
             col.prop(md, "cull_face", expand=True)
 
             layout.prop(md, "auxiliary_target")
-
-        elif md.wrap_method == 'NEAREST_SURFACEPOINT':
-            layout.prop(md, "use_keep_above_surface")
 
     def SIMPLE_DEFORM(self, layout, ob, md):
 
@@ -1637,10 +1641,10 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
         row = layout.row(align=True)
         row.label(text="Affect:")
         row = layout.row(align=True)
-        row.prop(md, "affect_position", text="Position", icon='MESH_DATA', toggle=True)
-        row.prop(md, "affect_strength", text="Strength", icon='COLOR', toggle=True)
-        row.prop(md, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
-        row.prop(md, "affect_uv", text="UV", icon='MOD_UVPROJECT', toggle=True)
+        row.prop(md, "use_edit_position", text="Position", icon='MESH_DATA', toggle=True)
+        row.prop(md, "use_edit_strength", text="Strength", icon='COLOR', toggle=True)
+        row.prop(md, "use_edit_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
+        row.prop(md, "use_edit_uv", text="UV", icon='MOD_UVPROJECT', toggle=True)
 
     def GP_SMOOTH(self, layout, ob, md):
         gpd = ob.data
@@ -1668,10 +1672,10 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
         row = layout.row(align=True)
         row.label(text="Affect:")
         row = layout.row(align=True)
-        row.prop(md, "affect_position", text="Position", icon='MESH_DATA', toggle=True)
-        row.prop(md, "affect_strength", text="Strength", icon='COLOR', toggle=True)
-        row.prop(md, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
-        row.prop(md, "affect_uv", text="UV", icon='MOD_UVPROJECT', toggle=True)
+        row.prop(md, "use_edit_position", text="Position", icon='MESH_DATA', toggle=True)
+        row.prop(md, "use_edit_strength", text="Strength", icon='COLOR', toggle=True)
+        row.prop(md, "use_edit_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
+        row.prop(md, "use_edit_uv", text="UV", icon='MOD_UVPROJECT', toggle=True)
 
     def GP_SUBDIV(self, layout, ob, md):
         gpd = ob.data
@@ -1864,6 +1868,9 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col.prop(md, "replace_material", text="Material")
+        col.prop(md, "keep_on_top", text="Keep original stroke on top")
 
     def GP_BUILD(self, layout, ob, md):
         gpd = ob.data

@@ -194,7 +194,7 @@ static SnapObjectData_EditMesh *snap_object_data_editmesh_create(SnapObjectConte
 }
 
 /**
- * Walks through all objects in the scene to create the list of objets to snap.
+ * Walks through all objects in the scene to create the list of objects to snap.
  *
  * \param sctx: Snap context to store data.
  * \param snap_select : from enum eSnapSelect.
@@ -727,7 +727,7 @@ static bool raycastObj(
 
 	if (use_occlusion_test) {
 		if (use_obedit && sctx->use_v3d &&
-		    !(sctx->v3d_data.v3d->flag & V3D_ZBUF_SELECT))
+		    !V3D_IS_ZBUF(sctx->v3d_data.v3d))
 		{
 			/* Use of occlude geometry in editing mode disabled. */
 			return false;
@@ -2601,12 +2601,12 @@ static short transform_snap_context_project_view3d_mixed_impl(
 
 	bool use_occlusion_test =
 	        params->use_occlusion_test &&
-	        !(sctx->v3d_data.v3d->shading.flag & V3D_SHADING_XRAY);
+	        !(sctx->v3d_data.v3d->shading.flag & V3D_XRAY_FLAG(sctx->v3d_data.v3d));
 
 	if (snap_to_flag & SCE_SNAP_MODE_FACE || use_occlusion_test) {
 		float ray_start[3], ray_normal[3];
 
-		if (!ED_view3d_win_to_ray_ex(
+		if (!ED_view3d_win_to_ray_clipped_ex(
 		        sctx->depsgraph,
 		        sctx->v3d_data.ar, sctx->v3d_data.v3d,
 		        mval, NULL, ray_normal, ray_start, true))
@@ -2770,7 +2770,7 @@ bool ED_transform_snap_object_project_all_view3d_ex(
 {
 	float ray_start[3], ray_normal[3];
 
-	if (!ED_view3d_win_to_ray_ex(
+	if (!ED_view3d_win_to_ray_clipped_ex(
 	        sctx->depsgraph,
 	        sctx->v3d_data.ar, sctx->v3d_data.v3d,
 	        mval, NULL, ray_normal, ray_start, true))

@@ -93,7 +93,7 @@ void verify_id_properties_freed(DEGObjectIterData *data)
 	const Object *dupli_object = data->dupli_object_current->ob;
 	Object *temp_dupli_object = &data->temp_dupli_object;
 	if (temp_dupli_object->id.properties == NULL) {
-		// No ID proeprties in temp datablock -- no leak is possible.
+		// No ID properties in temp datablock -- no leak is possible.
 		return;
 	}
 	if (temp_dupli_object->id.properties == dupli_object->id.properties) {
@@ -163,7 +163,7 @@ void deg_iterator_objects_step(BLI_Iterator *iter, DEG::IDDepsNode *id_node)
 	/* Set it early in case we need to exit and we are running from within a loop. */
 	iter->skip = true;
 
-	if (!id_node->is_visible) {
+	if (!id_node->is_directly_visible) {
 		return;
 	}
 
@@ -302,7 +302,7 @@ static void DEG_iterator_ids_step(BLI_Iterator *iter, DEG::IDDepsNode *id_node, 
 {
 	ID *id_cow = id_node->id_cow;
 
-	if (!id_node->is_visible) {
+	if (!id_node->is_directly_visible) {
 		iter->skip = true;
 		return;
 	}

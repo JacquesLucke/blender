@@ -743,7 +743,6 @@ static void gp_draw_stroke_3d(tGPDdraw *tgpw, short thickness, const float ink[4
 	immBindBuiltinProgram(GPU_SHADER_GPENCIL_STROKE);
 	immUniform2fv("Viewport", viewport);
 	immUniform1f("pixsize", tgpw->rv3d->pixsize);
-	immUniform1f("pixelsize", U.pixelsize);
 	float obj_scale = (tgpw->ob->size[0] + tgpw->ob->size[1] + tgpw->ob->size[2]) / 3.0f;
 
 	immUniform1f("objscale", obj_scale);
@@ -1757,7 +1756,7 @@ void ED_gpencil_draw_view3d(
 	}
 
 	if ((wm == NULL) || ED_screen_animation_playing(wm)) {
-		/* don't show onionskins during animation playback/scrub (i.e. it obscures the poses)
+		/* don't show onion-skins during animation playback/scrub (i.e. it obscures the poses)
 		 * OpenGL Renders (i.e. final output), or depth buffer (i.e. not real strokes)
 		 */
 		dflag |= GP_DRAWDATA_NO_ONIONS;

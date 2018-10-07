@@ -235,7 +235,7 @@ bool transdata_check_local_islands(TransInfo *t, short around)
 	        (ELEM(t->obedit_type, OB_MESH))));
 }
 
-/* ************************** SPACE DEPENDANT CODE **************************** */
+/* ************************** SPACE DEPENDENT CODE **************************** */
 
 void setTransformViewMatrices(TransInfo *t)
 {
@@ -1999,6 +1999,9 @@ static void drawTransformView(const struct bContext *C, ARegion *UNUSED(ar), voi
 	/* edge slide, vert slide */
 	drawEdgeSlide(t);
 	drawVertSlide(t);
+
+	/* Rotation */
+	drawDial3d(t);
 }
 
 /* just draw a little warning message in the top-right corner of the viewport to warn that autokeying is enabled */
@@ -2050,7 +2053,7 @@ static void drawTransformPixel(const struct bContext *UNUSED(C), ARegion *ar, vo
 
 	/* draw autokeyframing hint in the corner
 	 * - only draw if enabled (advanced users may be distracted/annoyed),
-	 *   for objects that will be autokeyframed (no point ohterwise),
+	 *   for objects that will be autokeyframed (no point otherwise),
 	 *   AND only for the active region (as showing all is too overwhelming)
 	 */
 	if ((U.autokey_flag & AUTOKEY_FLAG_NOWARNING) == 0) {
@@ -2211,13 +2214,14 @@ void saveTransform(bContext *C, TransInfo *t, wmOperator *op)
 
 	{
 		const char *prop_id = NULL;
+		bool prop_state = true;
 		if (t->mode == TFM_SHRINKFATTEN) {
 			prop_id = "use_even_offset";
+			prop_state = false;
 		}
 
 		if (prop_id && (prop = RNA_struct_find_property(op->ptr, prop_id))) {
-
-			RNA_property_boolean_set(op->ptr, prop, (t->flag & T_ALT_TRANSFORM) != 0);
+			RNA_property_boolean_set(op->ptr, prop, ((t->flag & T_ALT_TRANSFORM) != 0) == prop_state);
 		}
 	}
 
@@ -2860,7 +2864,7 @@ static void constraintTransLim(TransInfo *t, TransData *td)
 					mul_m4_m3m4(cob.matrix, td->mtx, cob.matrix);
 				}
 				else if (con->ownspace != CONSTRAINT_SPACE_LOCAL) {
-					/* skip... incompatable spacetype */
+					/* skip... incompatible spacetype */
 					continue;
 				}
 
@@ -2936,7 +2940,7 @@ static void constraintRotLim(TransInfo *UNUSED(t), TransData *td)
 				if ((data->flag2 & LIMIT_TRANSFORM) == 0)
 					continue;
 
-				/* skip incompatable spacetypes */
+				/* skip incompatible spacetypes */
 				if (!ELEM(con->ownspace, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL))
 					continue;
 
@@ -3100,8 +3104,8 @@ static void initBend(TransInfo *t)
 	t->idx_max = 1;
 	t->num.idx_max = 1;
 	t->snap[0] = 0.0f;
-	t->snap[1] = DEG2RAD(5.0);
-	t->snap[2] = DEG2RAD(1.0);
+	t->snap[1] = SNAP_INCREMENTAL_ANGLE;
+	t->snap[2] = t->snap[1] * 0.2;
 
 	copy_v3_fl(t->num.val_inc, t->snap[1]);
 	t->num.unit_sys = t->scene->unit.system;
@@ -4670,12 +4674,12 @@ static void headerTranslation(TransInfo *t, const float vec[3], char str[UI_MAX_
 
 		dist = len_v3(vec);
 		if (!(t->flag & T_2D_EDIT) && t->scene->unit.system) {
-			const bool do_split = (t->scene->unit.flag & USER_UNIT_OPT_SPLIT) != 0;
 			int i;
 
 			for (i = 0; i < 3; i++) {
-				bUnit_AsString(&tvec[NUM_STR_REP_LEN * i], NUM_STR_REP_LEN, dvec[i] * t->scene->unit.scale_length,
-				               4, t->scene->unit.system, B_UNIT_LENGTH, do_split, true);
+				bUnit_AsString2(
+				        &tvec[NUM_STR_REP_LEN * i], NUM_STR_REP_LEN, dvec[i] * t->scene->unit.scale_length,
+				        4, B_UNIT_LENGTH, &t->scene->unit, true);
 			}
 		}
 		else {
@@ -4686,9 +4690,9 @@ static void headerTranslation(TransInfo *t, const float vec[3], char str[UI_MAX_
 	}
 
 	if (!(t->flag & T_2D_EDIT) && t->scene->unit.system) {
-		const bool do_split = (t->scene->unit.flag & USER_UNIT_OPT_SPLIT) != 0;
-		bUnit_AsString(distvec, sizeof(distvec), dist * t->scene->unit.scale_length, 4, t->scene->unit.system,
-		               B_UNIT_LENGTH, do_split, false);
+		bUnit_AsString2(
+		        distvec, sizeof(distvec), dist * t->scene->unit.scale_length,
+		        4, B_UNIT_LENGTH, &t->scene->unit, false);
 	}
 	else if (dist > 1e10f || dist < -1e10f) {
 		/* prevent string buffer overflow */
@@ -4985,7 +4989,7 @@ static void applyShrinkFatten(TransInfo *t, const int UNUSED(mval[2]))
 		}
 	}
 	BLI_snprintf(str + ofs, sizeof(str) - ofs, IFACE_(" or Alt) Even Thickness %s"),
-	             WM_bool_as_string((t->flag & T_ALT_TRANSFORM) != 0));
+	             WM_bool_as_string((t->flag & T_ALT_TRANSFORM) == 0));
 	/* done with header string */
 
 	FOREACH_TRANS_DATA_CONTAINER (t, tc) {
@@ -5000,7 +5004,7 @@ static void applyShrinkFatten(TransInfo *t, const int UNUSED(mval[2]))
 
 			/* get the final offset */
 			tdistance = distance * td->factor;
-			if (td->ext && (t->flag & T_ALT_TRANSFORM)) {
+			if (td->ext && (t->flag & T_ALT_TRANSFORM) == 0) {
 				tdistance *= td->ext->isize[0];  /* shell factor */
 			}
 
@@ -5354,8 +5358,6 @@ static void applyGPShrinkFatten(TransInfo *t, const int UNUSED(mval[2]))
 			}
 		}
 	}
-
-	recalcData(t);
 
 	ED_area_status_text(t->sa, str);
 }
@@ -6188,7 +6190,7 @@ static void calcEdgeSlideCustomPoints(struct TransInfo *t)
 	setCustomPoints(t, &t->mouse, sld->mval_end, sld->mval_start);
 
 	/* setCustomPoints isn't normally changing as the mouse moves,
-	 * in this case apply mouse input immediatly so we don't refresh
+	 * in this case apply mouse input immediately so we don't refresh
 	 * with the value from the previous points */
 	applyMouseInput(t, &t->mouse, t->mval, t->values);
 }
@@ -7581,7 +7583,7 @@ static void calcVertSlideCustomPoints(struct TransInfo *t)
 	}
 
 	/* setCustomPoints isn't normally changing as the mouse moves,
-	 * in this case apply mouse input immediatly so we don't refresh
+	 * in this case apply mouse input immediately so we don't refresh
 	 * with the value from the previous points */
 	applyMouseInput(t, &t->mouse, t->mval, t->values);
 }

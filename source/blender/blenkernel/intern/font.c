@@ -360,7 +360,7 @@ VFont *BKE_vfont_builtin_get(void)
 
 static VChar *find_vfont_char(VFontData *vfd, unsigned int character)
 {
-	return BLI_ghash_lookup(vfd->characters, SET_UINT_IN_POINTER(character));
+	return BLI_ghash_lookup(vfd->characters, POINTER_FROM_UINT(character));
 }
 
 static void build_underline(Curve *cu, ListBase *nubase, const rctf *rect,
@@ -605,7 +605,7 @@ void BKE_vfont_select_clamp(Object *ob)
 
 static float char_width(Curve *cu, VChar *che, CharInfo *info)
 {
-	/* The character wasn't found, propably ascii = 0, then the width shall be 0 as well */
+	/* The character wasn't found, probably ascii = 0, then the width shall be 0 as well */
 	if (che == NULL) {
 		return 0.0f;
 	}
@@ -1051,7 +1051,7 @@ makebreak:
 				lines = ct_last->linenr - ct_first->linenr + 1;
 
 				textbox_scale(&tb_scale, &cu->tb[tb_index], 1.0f / cu->fsize);
-				/* The initial Y origin of the textbox is harcoded to 1.0f * text scale. */
+				/* The initial Y origin of the textbox is hardcoded to 1.0f * text scale. */
 				const float textbox_y_origin = 1.0f;
 				float yoff;
 
@@ -1392,6 +1392,7 @@ bool BKE_vfont_to_curve_nubase(Object *ob, int mode, ListBase *r_nubase)
 	                             NULL, NULL, NULL, NULL);
 }
 
+/** Warning: expects to have access to evaluated data (i.e. passed object should be evaluated one...). */
 bool BKE_vfont_to_curve(Object *ob, int mode)
 {
 	Curve *cu = ob->data;

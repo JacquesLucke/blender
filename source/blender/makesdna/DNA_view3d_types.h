@@ -133,7 +133,7 @@ typedef struct View3DCursor {
 	char _pad[4];
 } View3DCursor;
 
-/* 3D Viewport Shading setings */
+/* 3D Viewport Shading settings */
 typedef struct View3DShading {
 	short type;        /* Shading type (VIEW3D_SHADE_SOLID, ..) */
 	short prev_type;   /* Runtime, for toggle between rendered viewport. */
@@ -156,16 +156,16 @@ typedef struct View3DShading {
 
 	float object_outline_color[3];
 	float xray_alpha;
+	float xray_alpha_wire;
 
 	float cavity_valley_factor;
 	float cavity_ridge_factor;
 
 	float background_color[3];
-	int pad;
 
 } View3DShading;
 
-/* 3D Viewport Overlay setings */
+/* 3D Viewport Overlay settings */
 typedef struct View3DOverlay {
 	int flag;
 
@@ -188,13 +188,9 @@ typedef struct View3DOverlay {
 
 	/* Other settings */
 	float wireframe_threshold;
-	char _pad0[4];
 
-	/* grease pencil setttings */
-	float gpencil_grid_scale;
+	/* grease pencil settings */
 	float gpencil_paper_opacity;
-	int   gpencil_grid_lines;
-	int   gpencil_grid_axis;
 	float gpencil_grid_opacity;
 	char _pad1[4];
 
@@ -308,7 +304,7 @@ typedef struct View3D {
 
 /* #define V3D_FLAG_DEPRECATED_10 (1 << 10) */ /* UNUSED */
 #define V3D_SELECT_OUTLINE	2048
-#define V3D_ZBUF_SELECT		4096
+#define V3D_ZBUF_SELECT		4096   /* XXX: DNA deprecated */
 #define V3D_GLOBAL_STATS	8192
 #define V3D_DRAW_CENTERS	32768
 
@@ -388,6 +384,7 @@ enum {
 	V3D_SHADING_CAVITY              = (1 << 5),
 	V3D_SHADING_MATCAP_FLIP_X       = (1 << 6),
 	V3D_SHADING_SCENE_WORLD         = (1 << 7),
+	V3D_SHADING_XRAY_WIREFRAME      = (1 << 8),
 };
 
 /* View3DShading->color_type */
@@ -429,6 +426,28 @@ enum {
 	V3D_OVERLAY_EDIT_OCCLUDE_WIRE = (1 << 3),
 
 	V3D_OVERLAY_EDIT_WEIGHT       = (1 << 4),
+
+	V3D_OVERLAY_EDIT_EDGES        = (1 << 5),
+	V3D_OVERLAY_EDIT_FACES        = (1 << 6),
+	V3D_OVERLAY_EDIT_FACE_DOT     = (1 << 7),
+
+	V3D_OVERLAY_EDIT_SEAMS        = (1 << 8),
+	V3D_OVERLAY_EDIT_SHARP        = (1 << 9),
+	V3D_OVERLAY_EDIT_CREASES      = (1 << 10),
+	V3D_OVERLAY_EDIT_BWEIGHTS     = (1 << 11),
+
+	V3D_OVERLAY_EDIT_FREESTYLE_EDGE = (1 << 12),
+	V3D_OVERLAY_EDIT_FREESTYLE_FACE = (1 << 13),
+
+	V3D_OVERLAY_EDIT_STATVIS      = (1 << 14),
+	V3D_OVERLAY_EDIT_EDGE_LEN     = (1 << 15),
+	V3D_OVERLAY_EDIT_EDGE_ANG     = (1 << 16),
+	V3D_OVERLAY_EDIT_FACE_ANG     = (1 << 17),
+	V3D_OVERLAY_EDIT_FACE_AREA    = (1 << 18),
+	V3D_OVERLAY_EDIT_INDICES      = (1 << 19),
+
+	V3D_OVERLAY_EDIT_CU_HANDLES   = (1 << 20),
+	V3D_OVERLAY_EDIT_CU_NORMALS   = (1 << 21),
 };
 
 /* View3DOverlay->arm_flag */
@@ -495,13 +514,5 @@ enum {
 /* #BKE_screen_view3d_zoom_to_fac() values above */
 #define RV3D_CAMZOOM_MIN_FACTOR  0.1657359312880714853f
 #define RV3D_CAMZOOM_MAX_FACTOR 44.9852813742385702928f
-
-/* View3d.gpencil_grid_axis */
-enum {
-	V3D_GP_GRID_AXIS_LOCK = (1 << 0),
-	V3D_GP_GRID_AXIS_X    = (1 << 1),
-	V3D_GP_GRID_AXIS_Y    = (1 << 2),
-	V3D_GP_GRID_AXIS_Z    = (1 << 3),
-};
 
 #endif

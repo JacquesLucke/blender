@@ -19,7 +19,6 @@
 # <pep8 compliant>
 import bpy
 from bpy.types import Panel
-from bpy.app.translations import pgettext_iface as iface_
 
 
 class ShaderFxButtonsPanel:
@@ -40,7 +39,6 @@ class DATA_PT_shader_fx(ShaderFxButtonsPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.use_property_split = True
 
         ob = context.object
 
@@ -81,7 +79,8 @@ class DATA_PT_shader_fx(ShaderFxButtonsPanel, Panel):
             layout.prop(fx, "factor")
 
     def FX_WAVE(self, layout, fx):
-        layout.prop(fx, "orientation", expand=True)
+        row = layout.row(align=True)
+        row.prop(fx, "orientation", expand=True)
 
         layout.separator()
         layout.prop(fx, "amplitude")
@@ -91,12 +90,6 @@ class DATA_PT_shader_fx(ShaderFxButtonsPanel, Panel):
     def FX_PIXEL(self, layout, fx):
         layout.prop(fx, "size", text="Size")
 
-        layout.prop(fx, "use_lines", text="Display Lines")
-
-        col = layout.column()
-        col.enabled = fx.use_lines
-        col.prop(fx, "color")
-
     def FX_RIM(self, layout, fx):
         layout.prop(fx, "offset", text="Offset")
 
@@ -105,6 +98,32 @@ class DATA_PT_shader_fx(ShaderFxButtonsPanel, Panel):
         layout.prop(fx, "mode")
         layout.prop(fx, "blur")
         layout.prop(fx, "samples")
+
+    def FX_SHADOW(self, layout, fx):
+        layout.prop(fx, "offset", text="Offset")
+
+        layout.prop(fx, "shadow_color")
+        layout.prop(fx, "scale")
+        layout.prop(fx, "rotation")
+
+        layout.separator()
+        layout.prop(fx, "blur")
+        layout.prop(fx, "samples")
+
+        layout.separator()
+        layout.prop(fx, "use_object", text="Use object as pivot")
+        if fx.use_object:
+            row = layout.row()
+            row.prop(fx, "object", text="Object")
+
+        layout.separator()
+        layout.prop(fx, "use_wave", text="Use Wave effect")
+        if fx.use_wave is True:
+            row = layout.row(align=True)
+            row.prop(fx, "orientation", expand=True)
+            layout.prop(fx, "amplitude")
+            layout.prop(fx, "period")
+            layout.prop(fx, "phase")
 
     def FX_SWIRL(self, layout, fx):
         layout.prop(fx, "object", text="Object")

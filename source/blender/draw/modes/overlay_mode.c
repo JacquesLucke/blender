@@ -165,6 +165,15 @@ static void overlay_cache_init(void *vedata)
 		stl->g_data->show_overlays = false;
 	}
 
+	if (stl->g_data->show_overlays == false) {
+		stl->g_data->overlay.flag = 0;
+	}
+
+	if (v3d->shading.type == OB_WIRE) {
+		stl->g_data->overlay.flag |= V3D_OVERLAY_WIREFRAMES;
+		stl->g_data->show_overlays = true;
+	}
+
 	{
 		/* Face Orientation Pass */
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND;
@@ -236,6 +245,7 @@ static void overlay_cache_populate(void *vedata, Object *ob)
 	}
 
 	if ((stl->g_data->overlay.flag & V3D_OVERLAY_WIREFRAMES) ||
+	    (v3d->shading.type == OB_WIRE) ||
 	    (ob->dtx & OB_DRAWWIRE) ||
 	    (ob->dt == OB_WIRE))
 	{
@@ -259,7 +269,7 @@ static void overlay_cache_populate(void *vedata, Object *ob)
 				DRW_shgroup_call_sculpt_add(shgrp, ob, ob->obmat);
 			}
 			else if (is_flat_object_viewed_from_side) {
-				/* Avoid loosing flat objects when in ortho views (see T56549) */
+				/* Avoid losing flat objects when in ortho views (see T56549) */
 				struct GPUBatch *geom = DRW_cache_object_wire_outline_get(ob);
 				GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_UNIFORM_COLOR);
 				DRWShadingGroup *shgrp = DRW_shgroup_create(sh, psl->flat_wireframe_pass);
@@ -279,9 +289,7 @@ static void overlay_cache_populate(void *vedata, Object *ob)
 					DRWPass *pass = (all_wires) ? psl->face_wireframe_full_pass : psl->face_wireframe_pass;
 					GPUShader *sh = (all_wires) ? e_data.face_wireframe_sh : e_data.face_wireframe_pretty_sh;
 
-					if ((DRW_state_is_select() || DRW_state_is_depth()) &&
-					    (v3d->shading.flag & V3D_SHADING_XRAY) != 0)
-					{
+					if ((DRW_state_is_select() || DRW_state_is_depth())) {
 						static float params[2] = {1.2f, 1.0f}; /* Parameters for all wires */
 
 						sh = e_data.select_wireframe_sh;
@@ -322,7 +330,7 @@ static void overlay_cache_finish(void *vedata)
 	View3D *v3d = ctx->v3d;
 
 	/* only in solid mode */
-	if (v3d->shading.type == OB_SOLID && (v3d->shading.flag & V3D_SHADING_XRAY) == 0) {
+	if (v3d->shading.type == OB_SOLID && (v3d->shading.flag & XRAY_FLAG(v3d)) == 0) {
 		if (stl->g_data->ghost_stencil_test) {
 			DRW_pass_state_add(psl->face_wireframe_pass, DRW_STATE_STENCIL_EQUAL);
 			DRW_pass_state_add(psl->face_wireframe_full_pass, DRW_STATE_STENCIL_EQUAL);

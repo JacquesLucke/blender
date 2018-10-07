@@ -288,13 +288,12 @@ static bool image_sample_poll(bContext *C)
 {
 	SpaceImage *sima = CTX_wm_space_image(C);
 	if (sima) {
-		Scene *scene = CTX_data_scene(C);
 		Object *obedit = CTX_data_edit_object(C);
-		ToolSettings *toolsettings = scene->toolsettings;
-
 		if (obedit) {
-			if (ED_space_image_show_uvedit(sima, obedit) && (toolsettings->use_uv_sculpt))
+			/* Disable when UV editing so it doesn't swallow all click events (use for setting cursor). */
+			if (ED_space_image_show_uvedit(sima, obedit)) {
 				return false;
+			}
 		}
 		else if (sima->mode != SI_MODE_VIEW) {
 			return false;
@@ -1041,15 +1040,15 @@ void IMAGE_OT_view_zoom_border(wmOperatorType *ot)
 	ot->idname = "IMAGE_OT_view_zoom_border";
 
 	/* api callbacks */
-	ot->invoke = WM_gesture_border_invoke;
+	ot->invoke = WM_gesture_box_invoke;
 	ot->exec = image_view_zoom_border_exec;
-	ot->modal = WM_gesture_border_modal;
-	ot->cancel = WM_gesture_border_cancel;
+	ot->modal = WM_gesture_box_modal;
+	ot->cancel = WM_gesture_box_cancel;
 
 	ot->poll = space_image_main_region_poll;
 
 	/* rna */
-	WM_operator_properties_gesture_border_zoom(ot);
+	WM_operator_properties_gesture_box_zoom(ot);
 }
 
 /**************** load/replace/save callbacks ******************/
@@ -3770,10 +3769,10 @@ void IMAGE_OT_render_border(wmOperatorType *ot)
 	ot->idname = "IMAGE_OT_render_border";
 
 	/* api callbacks */
-	ot->invoke = WM_gesture_border_invoke;
+	ot->invoke = WM_gesture_box_invoke;
 	ot->exec = render_border_exec;
-	ot->modal = WM_gesture_border_modal;
-	ot->cancel = WM_gesture_border_cancel;
+	ot->modal = WM_gesture_box_modal;
+	ot->cancel = WM_gesture_box_cancel;
 	ot->poll = image_cycle_render_slot_poll;
 
 	/* flags */

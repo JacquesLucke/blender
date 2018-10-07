@@ -632,6 +632,9 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 				case TH_ANIM_INACTIVE:
 					cp = ts->anim_non_active;
 					break;
+				case TH_ANIM_PREVIEW_RANGE:
+					cp = ts->anim_preview_range;
+					break;
 
 				case TH_NLA_TWEAK:
 					cp = ts->nla_tweaking;
@@ -1197,12 +1200,6 @@ void init_userdef_do_versions(Main *bmain)
 	if (STREQ(U.tempdir, "/")) {
 		BKE_tempdir_system_init(U.tempdir);
 	}
-
-	/* signal for evaluated mesh to use colorband */
-	/* run in case this was on and is now off in the user prefs [#28096] */
-	BKE_mesh_runtime_color_band_store(
-	        (U.flag & USER_CUSTOM_RANGE) ? (&U.coba_weight) : NULL,
-	        UI_GetTheme()->tv3d.vertex_unreferenced);
 
 	/* Not versioning, just avoid errors. */
 #ifndef WITH_CYCLES

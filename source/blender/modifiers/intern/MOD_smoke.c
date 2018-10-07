@@ -42,6 +42,7 @@
 #include "DNA_scene_types.h"
 #include "DNA_smoke_types.h"
 #include "DNA_object_force_types.h"
+#include "DNA_mesh_types.h"
 
 #include "BLI_utildefines.h"
 
@@ -71,12 +72,13 @@ static void initData(ModifierData *md)
 	smd->time = -1;
 }
 
-static void copyData(const ModifierData *md, ModifierData *target, const int UNUSED(flag))
+static void copyData(const ModifierData *md, ModifierData *target, const int flag)
 {
 	const SmokeModifierData *smd  = (const SmokeModifierData *)md;
 	SmokeModifierData *tsmd = (SmokeModifierData *)target;
 
-	smokeModifier_copy(smd, tsmd);
+	smokeModifier_free(tsmd);
+	smokeModifier_copy(smd, tsmd, flag);
 }
 
 static void freeData(ModifierData *md)
@@ -104,18 +106,18 @@ static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
 	return dataMask;
 }
 
-static DerivedMesh *applyModifier(
+static Mesh *applyModifier(
         ModifierData *md, const ModifierEvalContext *ctx,
-        DerivedMesh *dm)
+        Mesh *me)
 {
 	SmokeModifierData *smd = (SmokeModifierData *) md;
 
 	if (ctx->flag & MOD_APPLY_ORCO) {
-		return dm;
+		return me;
 	}
 
 	Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
-	return smokeModifier_do(smd, ctx->depsgraph, scene, ctx->object, dm);
+	return smokeModifier_do(smd, ctx->depsgraph, scene, ctx->object, me);
 }
 
 static bool dependsOnTime(ModifierData *UNUSED(md))
@@ -182,14 +184,14 @@ ModifierTypeInfo modifierType_Smoke = {
 	/* deformMatrices_DM */ NULL,
 	/* deformVertsEM_DM */  NULL,
 	/* deformMatricesEM_DM*/NULL,
-	/* applyModifier_DM */  applyModifier,
+	/* applyModifier_DM */  NULL,
 	/* applyModifierEM_DM */NULL,
 
 	/* deformVerts */       NULL,
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
-	/* applyModifier */     NULL,
+	/* applyModifier */     applyModifier,
 	/* applyModifierEM */   NULL,
 
 	/* initData */          initData,

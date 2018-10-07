@@ -482,6 +482,7 @@ void DRW_render_object_iter(
 	void *vedata, struct RenderEngine *engine, struct Depsgraph *depsgraph,
 	void (*callback)(void *vedata, struct Object *ob, struct RenderEngine *engine, struct Depsgraph *depsgraph));
 void DRW_render_instance_buffer_finish(void);
+void DRW_render_viewport_size_set(int size[2]);
 
 void DRW_custom_pipeline(
         DrawEngineType *draw_engine_type,
@@ -590,5 +591,9 @@ typedef struct DRWContextState {
 } DRWContextState;
 
 const DRWContextState *DRW_context_state_get(void);
+
+#define XRAY_ALPHA(v3d)   (((v3d)->shading.type == OB_WIRE) ? (v3d)->shading.xray_alpha_wire : (v3d)->shading.xray_alpha)
+#define XRAY_FLAG(v3d)    (((v3d)->shading.type == OB_WIRE) ? V3D_SHADING_XRAY_WIREFRAME : V3D_SHADING_XRAY)
+#define XRAY_ENABLED(v3d) ((((v3d)->shading.flag & XRAY_FLAG(v3d)) != 0) && (XRAY_ALPHA(v3d) < 1.0f))
 
 #endif /* __DRW_RENDER_H__ */
