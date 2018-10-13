@@ -459,34 +459,27 @@ void POSE_OT_select_all(wmOperatorType *ot)
 
 static int pose_select_parent_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	/* only clear relevant transforms for selected bones */
-	ViewLayer *view_layer = CTX_data_view_layer(C);
-	FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, OB_MODE_POSE, ob_iter)
-	{
-		Object *ob = ob_iter;
-		bArmature *arm = (bArmature *)ob->data;
+	Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C));
+	bArmature *arm = (bArmature *)ob->data;
+	bPoseChannel *pchan, *parent;
 
-		FOREACH_PCHAN_SELECTED_IN_OBJECT_BEGIN (ob_iter, pchan)
-		{
-			if (pchan) {
-				bPoseChannel *parent = pchan->parent;
-				if ((parent) && !(parent->bone->flag & (BONE_HIDDEN_P | BONE_UNSELECTABLE))) {
-					parent->bone->flag |= BONE_SELECTED;
-					arm->act_bone = parent->bone;
-				}
-				else {
-					continue;
-				}
-			}
-			else {
-				continue;
-			}
-			ED_pose_bone_select_tag_update(ob);
+	/* Determine if there is an active bone */
+	pchan = CTX_data_active_pose_bone(C);
+	if (pchan) {
+		parent = pchan->parent;
+		if ((parent) && !(parent->bone->flag & (BONE_HIDDEN_P | BONE_UNSELECTABLE))) {
+			parent->bone->flag |= BONE_SELECTED;
+			arm->act_bone = parent->bone;
 		}
-		FOREACH_PCHAN_SELECTED_IN_OBJECT_END;
+		else {
+			return OPERATOR_CANCELLED;
+		}
 	}
-	FOREACH_OBJECT_IN_MODE_END;
+	else {
+		return OPERATOR_CANCELLED;
+	}
 
+	ED_pose_bone_select_tag_update(ob);
 	return OPERATOR_FINISHED;
 }
 
@@ -570,6 +563,8 @@ void POSE_OT_select_constraint_target(wmOperatorType *ot)
 
 /* -------------------------------------- */
 
+/* No need to convert to multi-objects. Just like we keep the non-active bones
+ * selected we then keep the non-active objects untouched (selected/unselected). */
 static int pose_select_hierarchy_exec(bContext *C, wmOperator *op)
 {
 	Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C));
@@ -930,8 +925,8 @@ static int pose_select_mirror_exec(bContext *C, wmOperator *op)
 	uint objects_len = 0;
 	Object **objects = BKE_view_layer_array_from_objects_in_mode_unique_data(view_layer, &objects_len, OB_MODE_POSE);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-		Object * ob = objects[ob_index];
-		bArmature * arm = ob->data;
+		Object *ob = objects[ob_index];
+		bArmature *arm = ob->data;
 		bPoseChannel *pchan, *pchan_mirror_act = NULL;
 
 		for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {

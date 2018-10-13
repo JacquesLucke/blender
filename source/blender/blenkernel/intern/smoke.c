@@ -664,6 +664,7 @@ void smokeModifier_copy(const struct SmokeModifierData *smd, struct SmokeModifie
 		tsds->data_depth = sds->data_depth;
 		tsds->cache_file_format = sds->cache_file_format;
 
+		tsds->display_thickness = sds->display_thickness;
 		tsds->slice_method = sds->slice_method;
 		tsds->axis_slice_method = sds->axis_slice_method;
 		tsds->slice_per_voxel = sds->slice_per_voxel;
@@ -673,6 +674,8 @@ void smokeModifier_copy(const struct SmokeModifierData *smd, struct SmokeModifie
 		tsds->vector_draw_type = sds->vector_draw_type;
 		tsds->vector_scale = sds->vector_scale;
 
+		tsds->use_coba = sds->use_coba;
+		tsds->coba_field = sds->coba_field;
 		if (sds->coba) {
 			tsds->coba = MEM_dupallocN(sds->coba);
 		}

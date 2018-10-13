@@ -332,8 +332,15 @@ static void add_bezt_to_keyblocks_list(DLRBT_Tree *blocks, BezTriple *first_bezt
 		 */
 		if (IS_EQF(beztn->vec[1][1], prev->vec[1][1]) == 0) return;
 
-		if (IS_EQF(beztn->vec[1][1], beztn->vec[0][1]) == 0) return;
-		if (IS_EQF(prev->vec[1][1], prev->vec[2][1]) == 0) return;
+		/* Only check handles in case of actual bezier interpolation. */
+		if (prev->ipo == BEZT_IPO_BEZ) {
+			if (IS_EQF(beztn->vec[1][1], beztn->vec[0][1]) == 0) return;
+			if (IS_EQF(prev->vec[1][1], prev->vec[2][1]) == 0) return;
+		}
+		/* This interpolation type induces movement even between identical keys. */
+		else if (ELEM(prev->ipo, BEZT_IPO_ELASTIC)) {
+			return;
+		}
 	}
 
 	/* if there are no blocks already, just add as root */
@@ -552,9 +559,9 @@ void draw_keyframe_shape(float x, float y, float size, bool sel, short key_type,
 		}
 	}
 
-	immAttrib1f(size_id, size);
-	immAttrib4ubv(color_id, fill_col);
-	immAttrib4ubv(outline_color_id, outline_col);
+	immAttr1f(size_id, size);
+	immAttr4ubv(color_id, fill_col);
+	immAttr4ubv(outline_color_id, outline_col);
 	immVertex2f(pos_id, x, y);
 }
 

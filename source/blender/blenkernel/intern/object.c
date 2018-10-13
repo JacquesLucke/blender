@@ -727,7 +727,7 @@ bool BKE_object_is_mode_compat(const struct Object *ob, eObjectMode object_mode)
 /**
  * Return if the object is visible, as evaluated by depsgraph
  */
-bool BKE_object_is_visible(Object *ob, const eObjectVisibilityCheck mode)
+bool BKE_object_is_visible(const Object *ob, const eObjectVisibilityCheck mode)
 {
 	if ((ob->base_flag & BASE_VISIBLE) == 0) {
 		return false;
@@ -2052,7 +2052,11 @@ static void give_parvert(Object *par, int nr, float vec[3])
 		BMEditMesh *em = me->edit_btmesh;
 		DerivedMesh *dm;
 
+#if 0	/* FIXME(campbell): use mesh for both. */
 		dm = (em) ? em->derivedFinal : par->derivedFinal;
+#else
+		dm = par->derivedFinal;
+#endif
 
 		if (dm) {
 			int count = 0;
@@ -3749,12 +3753,12 @@ KDTree *BKE_object_as_kdtree(Object *ob, int *r_tot)
 			Mesh *me = ob->data;
 			unsigned int i;
 
-			DerivedMesh *dm = ob->derivedDeform ? ob->derivedDeform : ob->derivedFinal;
+			Mesh *me_eval = ob->runtime.mesh_deform_eval ? ob->runtime.mesh_deform_eval : ob->runtime.mesh_deform_eval;
 			const int *index;
 
-			if (dm && (index = CustomData_get_layer(&dm->vertData, CD_ORIGINDEX))) {
-				MVert *mvert = dm->getVertArray(dm);
-				unsigned int totvert = dm->getNumVerts(dm);
+			if (me_eval && (index = CustomData_get_layer(&me_eval->vdata, CD_ORIGINDEX))) {
+				MVert *mvert = me_eval->mvert;
+				uint totvert = me_eval->totvert;
 
 				/* tree over-allocs in case where some verts have ORIGINDEX_NONE */
 				tot = 0;

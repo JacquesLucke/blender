@@ -46,8 +46,8 @@
 #include "WM_types.h"
 
 static const EnumPropertyItem prop_direction_items[] = {
-	{0, "ADD", ICON_ZOOMIN, "Add", "Add effect of brush"},
-	{BRUSH_DIR_IN, "SUBTRACT", ICON_ZOOMOUT, "Subtract", "Subtract effect of brush"},
+	{0, "ADD", ICON_ADD, "Add", "Add effect of brush"},
+	{BRUSH_DIR_IN, "SUBTRACT", ICON_REMOVE, "Subtract", "Subtract effect of brush"},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -589,39 +589,39 @@ static const EnumPropertyItem *rna_Brush_direction_itemf(bContext *C, PointerRNA
 
 	/* sculpt mode */
 	static const EnumPropertyItem prop_flatten_contrast_items[] = {
-		{BRUSH_DIR_IN, "CONTRAST", ICON_ZOOMIN, "Contrast", "Subtract effect of brush"},
-		{0, "FLATTEN", ICON_ZOOMOUT, "Flatten", "Add effect of brush"},
+		{BRUSH_DIR_IN, "CONTRAST", ICON_ADD, "Contrast", "Subtract effect of brush"},
+		{0, "FLATTEN", ICON_REMOVE, "Flatten", "Add effect of brush"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
 	static const EnumPropertyItem prop_fill_deepen_items[] = {
-		{0, "FILL", ICON_ZOOMIN, "Fill", "Add effect of brush"},
-		{BRUSH_DIR_IN, "DEEPEN", ICON_ZOOMOUT, "Deepen", "Subtract effect of brush"},
+		{0, "FILL", ICON_ADD, "Fill", "Add effect of brush"},
+		{BRUSH_DIR_IN, "DEEPEN", ICON_REMOVE, "Deepen", "Subtract effect of brush"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
 	static const EnumPropertyItem prop_scrape_peaks_items[] = {
-		{0, "SCRAPE", ICON_ZOOMIN, "Scrape", "Add effect of brush"},
-		{BRUSH_DIR_IN, "PEAKS", ICON_ZOOMOUT, "Peaks", "Subtract effect of brush"},
+		{0, "SCRAPE", ICON_ADD, "Scrape", "Add effect of brush"},
+		{BRUSH_DIR_IN, "PEAKS", ICON_REMOVE, "Peaks", "Subtract effect of brush"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
 	static const EnumPropertyItem prop_pinch_magnify_items[] = {
-		{BRUSH_DIR_IN, "MAGNIFY", ICON_ZOOMIN, "Magnify", "Subtract effect of brush"},
-		{0, "PINCH", ICON_ZOOMOUT, "Pinch", "Add effect of brush"},
+		{BRUSH_DIR_IN, "MAGNIFY", ICON_ADD, "Magnify", "Subtract effect of brush"},
+		{0, "PINCH", ICON_REMOVE, "Pinch", "Add effect of brush"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
 	static const EnumPropertyItem prop_inflate_deflate_items[] = {
-		{0, "INFLATE", ICON_ZOOMIN, "Inflate", "Add effect of brush"},
-		{BRUSH_DIR_IN, "DEFLATE", ICON_ZOOMOUT, "Deflate", "Subtract effect of brush"},
+		{0, "INFLATE", ICON_ADD, "Inflate", "Add effect of brush"},
+		{BRUSH_DIR_IN, "DEFLATE", ICON_REMOVE, "Deflate", "Subtract effect of brush"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
 	/* texture paint mode */
 	static const EnumPropertyItem prop_soften_sharpen_items[] = {
-		{BRUSH_DIR_IN, "SHARPEN", ICON_ZOOMIN, "Sharpen", "Sharpen effect of brush"},
-		{0, "SOFTEN", ICON_ZOOMOUT, "Soften", "Blur effect of brush"},
+		{BRUSH_DIR_IN, "SHARPEN", ICON_ADD, "Sharpen", "Sharpen effect of brush"},
+		{0, "SOFTEN", ICON_REMOVE, "Soften", "Blur effect of brush"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -710,6 +710,11 @@ static const EnumPropertyItem *rna_Brush_stroke_itemf(bContext *C, PointerRNA *U
 }
 
 /* Grease Pencil Drawing Brushes Settings */
+static char *rna_BrushGpencilSettings_path(PointerRNA *UNUSED(ptr))
+{
+	return BLI_strdup("tool_settings.gpencil_paint.brush.gpencil_settings");
+}
+
 static void rna_BrushGpencilSettings_default_eraser_update(Main *bmain, Scene *scene, PointerRNA *UNUSED(ptr))
 {
 	ToolSettings *ts = scene->toolsettings;
@@ -967,6 +972,7 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
 
 	srna = RNA_def_struct(brna, "BrushGpencilSettings", NULL);
 	RNA_def_struct_sdna(srna, "BrushGpencilSettings");
+	RNA_def_struct_path_func(srna, "rna_BrushGpencilSettings_path");
 	RNA_def_struct_ui_text(srna, "Grease Pencil Brush Settings", "Settings for grease pencil brush");
 
 	/* grease pencil drawing brushes */
@@ -988,9 +994,10 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
 	/* Strength factor for new strokes */
-	prop = RNA_def_property(srna, "pen_strength", PROP_FLOAT, PROP_NONE);
+	prop = RNA_def_property(srna, "pen_strength", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_float_sdna(prop, NULL, "draw_strength");
 	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.001, 3);
 	RNA_def_property_ui_text(prop, "Strength", "Color strength for new strokes (affect alpha factor of color)");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);

@@ -222,7 +222,7 @@ class TOPBAR_HT_lower_bar(Header):
             )
             if mode == 'GPENCIL_PAINT':
                 tool_settings = context.tool_settings
-                layout.prop(tool_settings, "use_gpencil_draw_onback", text="", icon='ORTHO')
+                layout.prop(tool_settings, "use_gpencil_draw_onback", text="", icon='XRAY')
                 layout.prop(tool_settings, "use_gpencil_weight_data_add", text="", icon='WPAINT_HLT')
                 layout.prop(tool_settings, "use_gpencil_additive_drawing", text="", icon='FREEZE')
 
@@ -352,17 +352,21 @@ class TOPBAR_PT_gpencil_layers(Panel):
             self.draw_layers(context, layout, gpd)
 
     def draw_layers(self, context, layout, gpd):
+        userpref = context.user_preferences
+        edit = userpref.edit
+        reverse = edit.use_grease_pencil_reverse_layers
         row = layout.row()
 
         col = row.column()
         layer_rows = 10
-        col.template_list("GPENCIL_UL_layer", "", gpd, "layers", gpd.layers, "active_index", rows=layer_rows)
+        col.template_list("GPENCIL_UL_layer", "", gpd, "layers", gpd.layers, "active_index",
+                          rows=layer_rows, reverse=reverse)
 
         col = row.column()
 
         sub = col.column(align=True)
-        sub.operator("gpencil.layer_add", icon='ZOOMIN', text="")
-        sub.operator("gpencil.layer_remove", icon='ZOOMOUT', text="")
+        sub.operator("gpencil.layer_add", icon='ADD', text="")
+        sub.operator("gpencil.layer_remove", icon='REMOVE', text="")
 
         gpl = context.active_gpencil_layer
         if gpl:
@@ -411,7 +415,7 @@ class TOPBAR_MT_file(Menu):
         layout = self.layout
 
         layout.operator_context = 'INVOKE_AREA'
-        layout.menu("TOPBAR_MT_file_new", text="New", icon='FILE')
+        layout.menu("TOPBAR_MT_file_new", text="New", icon='FILE_NEW')
         layout.operator("wm.open_mainfile", text="Open...", icon='FILE_FOLDER')
         layout.menu("TOPBAR_MT_file_open_recent")
         layout.operator("wm.revert_mainfile")
@@ -505,7 +509,7 @@ class TOPBAR_MT_file_new(Menu):
         splash_limit = 5
 
         if use_splash:
-            icon = 'FILE'
+            icon = 'FILE_NEW'
             show_more = len(paths) > (splash_limit - 1)
             if show_more:
                 paths = paths[:splash_limit - 2]
@@ -783,7 +787,7 @@ class TOPBAR_MT_file_specials(Menu):
         layout = self.layout
 
         layout.operator_context = 'INVOKE_AREA'
-        layout.operator("wm.read_homefile", text="New", icon='FILE')
+        layout.operator("wm.read_homefile", text="New", icon='FILE_NEW')
         layout.operator("wm.open_mainfile", text="Open...", icon='FILE_FOLDER')
 
         layout.separator()

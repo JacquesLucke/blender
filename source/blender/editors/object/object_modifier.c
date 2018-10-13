@@ -99,6 +99,23 @@ static void modifier_skin_customdata_delete(struct Object *ob);
 
 /******************************** API ****************************/
 
+static void object_force_modifier_update_for_bind(Depsgraph *depsgraph, Scene *scene, Object *ob)
+{
+	if (ob->type == OB_MESH) {
+		Mesh *me_eval = mesh_create_eval_final_view(depsgraph, scene, ob, 0);
+		BKE_id_free(NULL, me_eval);
+	}
+	else if (ob->type == OB_LATTICE) {
+		BKE_lattice_modifiers_calc(depsgraph, scene, ob);
+	}
+	else if (ob->type == OB_MBALL) {
+		BKE_displist_make_mball(depsgraph, scene, ob);
+	}
+	else if (ELEM(ob->type, OB_CURVE, OB_SURF, OB_FONT)) {
+		BKE_displist_make_curveTypes(depsgraph, scene, ob, 0);
+	}
+}
+
 ModifierData *ED_object_modifier_add(ReportList *reports, Main *bmain, Scene *scene, Object *ob, const char *name, int type)
 {
 	ModifierData *md = NULL, *new_md = NULL;
@@ -2318,39 +2335,24 @@ static int surfacedeform_bind_exec(bContext *C, wmOperator *op)
 
 	if (!smd)
 		return OPERATOR_CANCELLED;
-
 	if (smd->flags & MOD_SDEF_BIND) {
 		/* Un-binding happens inside the modifier when it's evaluated. */
 		smd->flags &= ~MOD_SDEF_BIND;
 	}
 	else if (smd->target) {
-		DerivedMesh *dm;
 		int mode = smd->modifier.mode;
 
 		/* Force modifier to run, it will call binding routine. */
 		smd->modifier.mode |= eModifierMode_Realtime;
 		smd->flags |= MOD_SDEF_BIND;
 
-		if (ob->type == OB_MESH) {
-			dm = mesh_create_derived_view(depsgraph, scene, ob, 0);
-			dm->release(dm);
-		}
-		else if (ob->type == OB_LATTICE) {
-			BKE_lattice_modifiers_calc(depsgraph, scene, ob);
-		}
-		else if (ob->type == OB_MBALL) {
-			BKE_displist_make_mball(depsgraph, scene, ob);
-		}
-		else if (ELEM(ob->type, OB_CURVE, OB_SURF, OB_FONT)) {
-			BKE_displist_make_curveTypes(depsgraph, scene, ob, 0);
-		}
+		object_force_modifier_update_for_bind(depsgraph, scene, ob);
 
 		smd->modifier.mode = mode;
 	}
 
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
-
 	return OPERATOR_FINISHED;
 }
 

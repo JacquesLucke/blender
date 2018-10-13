@@ -73,6 +73,7 @@ typedef struct tGPencilObjectCache {
 	DRWShadingGroup *fx_pixel_sh;
 	DRWShadingGroup *fx_rim_sh;
 	DRWShadingGroup *fx_shadow_sh;
+	DRWShadingGroup *fx_glow_sh;
 	DRWShadingGroup *fx_swirl_sh;
 	DRWShadingGroup *fx_flip_sh;
 	DRWShadingGroup *fx_light_sh;
@@ -231,6 +232,8 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_fx_blur_sh;
 	struct GPUShader *gpencil_fx_colorize_sh;
 	struct GPUShader *gpencil_fx_flip_sh;
+	struct GPUShader *gpencil_fx_glow_prepare_sh;
+	struct GPUShader *gpencil_fx_glow_resolve_sh;
 	struct GPUShader *gpencil_fx_light_sh;
 	struct GPUShader *gpencil_fx_pixel_sh;
 	struct GPUShader *gpencil_fx_rim_prepare_sh;
@@ -303,7 +306,7 @@ void DRW_gpencil_populate_buffer_strokes(
 void DRW_gpencil_populate_multiedit(
         struct GPENCIL_e_data *e_data, void *vedata,
         struct Scene *scene, struct Object *ob, struct tGPencilObjectCache *cache_ob);
-void DRW_gpencil_triangulate_stroke_fill(struct bGPDstroke *gps);
+void DRW_gpencil_triangulate_stroke_fill(struct Object *ob, struct bGPDstroke *gps);
 
 void DRW_gpencil_multisample_ensure(struct GPENCIL_Data *vedata, int rect_w, int rect_h);
 

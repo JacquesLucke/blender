@@ -200,7 +200,13 @@ typedef struct ThemeUI {
 	char gizmo_secondary[4];
 	char gizmo_a[4];
 	char gizmo_b[4];
-	char pad2[4];
+
+	/* Icon Colors. */
+	char icon_collection[4];  /* Collection items */
+	char icon_object[4];      /* Object items */
+	char icon_object_data[4]; /* Object data items */
+	char icon_modifier[4];    /* Modifier and constraint items */
+	char icon_shading[4];     /* Shading related items */
 } ThemeUI;
 
 /* try to put them all in one, if needed a special struct can be created as well
@@ -877,8 +883,9 @@ typedef enum eText_Draw_Options {
 /* Grease Pencil Settings.
  * UserDef.gp_settings */
 typedef enum eGP_UserdefSettings {
-	GP_PAINT_DOSMOOTH		= (1 << 0),
-	GP_PAINT_DOSIMPLIFY		= (1 << 1),
+	GP_PAINT_DOSMOOTH		    = (1 << 0),
+	GP_PAINT_DOSIMPLIFY		    = (1 << 1),
+	GP_PAINT_REVERSE_LAYERS     = (1 << 2),
 } eGP_UserdefSettings;
 
 enum {

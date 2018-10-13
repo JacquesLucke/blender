@@ -874,7 +874,7 @@ class LoadImageAsEmpty(Operator):
     """Select an image file and create a new image empty with it"""
     bl_idname = "object.load_image_as_empty"
     bl_label = "Load Image as Empty"
-    bl_options = {'REGISTER'}
+    bl_options = {'REGISTER', 'UNDO'}
 
     filepath: StringProperty(
         subtype='FILE_PATH'
@@ -882,6 +882,11 @@ class LoadImageAsEmpty(Operator):
 
     filter_image: BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
     filter_folder: BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+
+    view_align: BoolProperty(
+        name="Align to view",
+        default=True
+    )
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
@@ -897,8 +902,15 @@ class LoadImageAsEmpty(Operator):
             self.report({"ERROR"}, str(ex))
             return {"CANCELLED"}
 
-        bpy.ops.object.empty_add(type='IMAGE', location=cursor)
-        context.active_object.data = image
+        bpy.ops.object.empty_add(
+            'INVOKE_REGION_WIN',
+            type='IMAGE',
+            location=cursor,
+            view_align=self.view_align,
+        )
+        obj = context.active_object
+        obj.data = image
+        obj.empty_display_size = 5.0
         return {'FINISHED'}
 
 

@@ -36,6 +36,7 @@
 #include "../generic/python_utildefines.h"
 
 #include "gpu_py_shader.h" /* own include */
+#include "gpu_py_vertex_format.h"
 
 
  /* -------------------------------------------------------------------- */
@@ -43,45 +44,53 @@
  /** \name Enum Conversion.
  * \{ */
 
-static void bpygpu_shader_add_enum_objects(PyObject *submodule)
+static int bpygpu_ParseBultinShaderEnum(PyObject *o, void *p)
 {
-#define ADDCONST(x) PyModule_AddIntConstant(submodule, #x, x)
+	Py_ssize_t mode_id_len;
+	const char *mode_id = _PyUnicode_AsStringAndSize(o, &mode_id_len);
+	if (mode_id == NULL) {
+		PyErr_Format(PyExc_ValueError,
+		             "expected a string, got %s",
+		             Py_TYPE(o)->tp_name);
+		return 0;
+	}
+#define MATCH_ID(id) \
+	if (mode_id_len == (Py_ssize_t)strlen(STRINGIFY(id))) { \
+		if (STREQ(mode_id, STRINGIFY(id))) { \
+			mode = GPU_SHADER_##id; \
+			goto success; \
+		} \
+	} ((void)0)
 
-	/* Shaders */
-	ADDCONST(GPU_SHADER_2D_UNIFORM_COLOR);
-	ADDCONST(GPU_SHADER_2D_FLAT_COLOR);
-	ADDCONST(GPU_SHADER_2D_SMOOTH_COLOR);
-	ADDCONST(GPU_SHADER_2D_IMAGE);
-	ADDCONST(GPU_SHADER_3D_UNIFORM_COLOR);
-	ADDCONST(GPU_SHADER_3D_FLAT_COLOR);
-	ADDCONST(GPU_SHADER_3D_SMOOTH_COLOR);
+	GPUBuiltinShader mode;
+	MATCH_ID(2D_UNIFORM_COLOR);
+	MATCH_ID(2D_FLAT_COLOR);
+	MATCH_ID(2D_SMOOTH_COLOR);
+	MATCH_ID(2D_IMAGE);
+	MATCH_ID(3D_UNIFORM_COLOR);
+	MATCH_ID(3D_FLAT_COLOR);
+	MATCH_ID(3D_SMOOTH_COLOR);
 
-#undef ADDCONST
+#undef MATCH_ID
+	PyErr_Format(PyExc_ValueError,
+	             "unknown type literal: '%s'",
+	             mode_id);
+	return 0;
+
+success:
+	(*(GPUBuiltinShader *)p) = mode;
+	return 1;
 }
 
-static int bpygpu_pyLong_as_shader_enum(PyObject *o)
+static int bpygpu_uniform_location_get(GPUShader *shader, const char *name, const char *error_prefix)
 {
-	uint id = (uint)PyLong_AsUnsignedLong(o);
+	int uniform = GPU_shader_get_uniform(shader, name);
 
-	if (id >= GPU_NUM_BUILTIN_SHADERS) {
-		PyErr_SetString(PyExc_ValueError,
-		                "not a builtin shader identifier");
-		return -1;
+	if (uniform == -1) {
+		PyErr_Format(PyExc_ValueError, "%s: uniform %.32s %.32s not found", error_prefix, name);
 	}
 
-	return (int)id;
-}
-
-static int bpygpu_uniform_location_get(const GPUShaderInterface *shaderface, const char *name)
-{
-	const GPUShaderInput *uniform = GPU_shaderinterface_uniform(shaderface, name);
-
-	if (uniform == NULL) {
-		PyErr_SetString(PyExc_ValueError, "uniform not found");
-		return -1;
-	}
-
-	return uniform->location;
+	return uniform;
 }
 
 /** \} */
@@ -190,11 +199,10 @@ static PyObject *bpygpu_shader_uniform_from_name(
 		return NULL;
 	}
 
-	int uniform = GPU_shader_get_uniform(self->shader, name);
+	int uniform = bpygpu_uniform_location_get(
+	        self->shader, name, "GPUShader.get_uniform");
 
 	if (uniform == -1) {
-		PyErr_SetString(PyExc_SyntaxError,
-		                "GPUShader.get_uniform: uniform not found.");
 		return NULL;
 	}
 
@@ -222,8 +230,8 @@ static PyObject *bpygpu_shader_uniform_block_from_name(
 	int uniform = GPU_shader_get_uniform_block(self->shader, name);
 
 	if (uniform == -1) {
-		PyErr_SetString(PyExc_SyntaxError,
-		                "GPUShader.get_uniform_block: uniform not found");
+		PyErr_Format(PyExc_ValueError,
+		             "GPUShader.get_uniform_block: uniform %.32s not found", name);
 		return NULL;
 	}
 
@@ -391,7 +399,9 @@ static PyObject *bpygpu_shader_uniform_bool(
 		return NULL;
 	}
 
-	const int location = bpygpu_uniform_location_get(GPU_shader_get_interface(self->shader), params.id);
+	const int location = bpygpu_uniform_location_get(
+	        self->shader, params.id, error_prefix);
+
 	if (location == -1) {
 		return NULL;
 	}
@@ -462,7 +472,9 @@ static PyObject *bpygpu_shader_uniform_float(
 		return NULL;
 	}
 
-	const int location = bpygpu_uniform_location_get(GPU_shader_get_interface(self->shader), params.id);
+	const int location = bpygpu_uniform_location_get(
+	        self->shader, params.id, error_prefix);
+
 	if (location == -1) {
 		return NULL;
 	}
@@ -530,7 +542,9 @@ static PyObject *bpygpu_shader_uniform_int(
 		return NULL;
 	}
 
-	const int location = bpygpu_uniform_location_get(GPU_shader_get_interface(self->shader), params.id);
+	const int location = bpygpu_uniform_location_get(
+	        self->shader, params.id, error_prefix);
+
 	if (location == -1) {
 		return NULL;
 	}
@@ -561,12 +575,27 @@ static PyObject *bpygpu_shader_attr_from_name(
 	int attrib = GPU_shader_get_attribute(self->shader, name);
 
 	if (attrib == -1) {
-		PyErr_SetString(PyExc_SyntaxError,
-		                "GPUShader.attr_from_name: attribute not found.");
+		PyErr_Format(PyExc_ValueError,
+		             "GPUShader.attr_from_name: attribute %.32s not found", name);
 		return NULL;
 	}
 
 	return PyLong_FromLong(attrib);
+}
+
+PyDoc_STRVAR(bpygpu_shader_calc_format_doc,
+".. method:: calc_format()\n"
+"\n"
+"   Build a new format based on the attributes of the shader.\n"
+"\n"
+"   :return: vertex attribute format for the shader\n"
+"   :rtype: GPUVertFormat\n"
+);
+static PyObject *bpygpu_shader_calc_format(BPyGPUShader *self, PyObject *UNUSED(arg))
+{
+	BPyGPUVertFormat *ret = (BPyGPUVertFormat *)BPyGPUVertFormat_CreatePyObject(NULL);
+	GPU_vertformat_from_interface(&ret->fmt, GPU_shader_get_interface(self->shader));
+	return (PyObject *)ret;
 }
 
 static struct PyMethodDef bpygpu_shader_methods[] = {
@@ -602,6 +631,9 @@ static struct PyMethodDef bpygpu_shader_methods[] = {
 	{"attr_from_name",
 	 (PyCFunction)bpygpu_shader_attr_from_name,
 	 METH_O, bpygpu_shader_attr_from_name_doc},
+	{"format_calc",
+	 (PyCFunction)bpygpu_shader_calc_format,
+	 METH_NOARGS, bpygpu_shader_calc_format_doc},
 	{NULL, NULL, 0, NULL}
 };
 
@@ -697,15 +729,23 @@ static PyObject *bpygpu_shader_unbind(BPyGPUShader *UNUSED(self))
 }
 
 PyDoc_STRVAR(bpygpu_shader_from_builtin_doc,
-".. function:: shader_from_builtin(shader_id)\n"
+".. function:: shader_from_builtin(shader_name)\n"
 "\n"
-"   :param shader_id: shader identifier.\n"
-"   :type shader_id: int\n"
+"   :param shader_name: One of these builtin shader names: {\n"
+"       '2D_UNIFORM_COLOR',\n"
+"       '2D_FLAT_COLOR',\n"
+"       '2D_SMOOTH_COLOR',\n"
+"       '2D_IMAGE',\n"
+"       '3D_UNIFORM_COLOR',\n"
+"       '3D_FLAT_COLOR',\n"
+"       '3D_SMOOTH_COLOR'}\n"
+"   :type shader_name: str\n"
 );
 static PyObject *bpygpu_shader_from_builtin(PyObject *UNUSED(self), PyObject *arg)
 {
-	int shader_id = bpygpu_pyLong_as_shader_enum(arg);
-	if (shader_id == -1) {
+	GPUBuiltinShader shader_id;
+
+	if (!bpygpu_ParseBultinShaderEnum(arg, &shader_id)) {
 		return NULL;
 	}
 
@@ -715,15 +755,24 @@ static PyObject *bpygpu_shader_from_builtin(PyObject *UNUSED(self), PyObject *ar
 }
 
 PyDoc_STRVAR(bpygpu_shader_code_from_builtin_doc,
-".. function:: shader_code_from_builtin(shader_id)\n"
+".. function:: shader_code_from_builtin(shader_name)\n"
 "\n"
-"   :param shader_id: shader identifier.\n"
-"   :type shader_id: int\n"
+"   :param shader_name: One of these builtin shader names: {\n"
+"       '2D_UNIFORM_COLOR',\n"
+"       '2D_FLAT_COLOR',\n"
+"       '2D_SMOOTH_COLOR',\n"
+"       '2D_IMAGE',\n"
+"       '3D_UNIFORM_COLOR',\n"
+"       '3D_FLAT_COLOR',\n"
+"       '3D_SMOOTH_COLOR'}\n"
+"   :type shader_name: str\n"
 "   :return: vertex, fragment and geometry shader codes.\n"
 "   :rtype: dict\n"
 );
 static PyObject *bpygpu_shader_code_from_builtin(BPyGPUShader *UNUSED(self), PyObject *arg)
 {
+	GPUBuiltinShader shader_id;
+
 	const char *vert;
 	const char *frag;
 	const char *geom;
@@ -731,8 +780,7 @@ static PyObject *bpygpu_shader_code_from_builtin(BPyGPUShader *UNUSED(self), PyO
 
 	PyObject *item, *r_dict;
 
-	int shader_id = bpygpu_pyLong_as_shader_enum(arg);
-	if (shader_id == -1) {
+	if (!bpygpu_ParseBultinShaderEnum(arg, &shader_id)) {
 		return NULL;
 	}
 
@@ -786,23 +834,6 @@ static PyModuleDef BPyGPU_shader_module_def = {
 
 /* -------------------------------------------------------------------- */
 
-/** \name gpu.shader.buitin Module API
- * \{ */
-
-PyDoc_STRVAR(bpygpu_shader_builtin_module_doc,
-"This module contains integers that identify the built-in shader ids."
-);
-static PyModuleDef BPyGPU_shader_builtin_module_def = {
-	PyModuleDef_HEAD_INIT,
-	.m_name = "gpu.shader.builtin",
-	.m_doc = bpygpu_shader_builtin_module_doc,
-};
-
-/** \} */
-
-
-/* -------------------------------------------------------------------- */
-
 /** \name Public API
  * \{ */
 
@@ -822,16 +853,6 @@ PyObject *BPyInit_gpu_shader(void)
 	PyObject *submodule;
 
 	submodule = PyModule_Create(&BPyGPU_shader_module_def);
-
-	return submodule;
-}
-
-PyObject *BPyInit_gpu_shader_builtin(void)
-{
-	PyObject *submodule;
-
-	submodule = PyModule_Create(&BPyGPU_shader_builtin_module_def);
-	bpygpu_shader_add_enum_objects(submodule);
 
 	return submodule;
 }

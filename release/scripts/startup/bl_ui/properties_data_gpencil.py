@@ -73,12 +73,12 @@ class GPENCIL_MT_layer_specials(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("gpencil.layer_duplicate", icon='COPY_ID')  # XXX: needs a dedicated icon
+        layout.operator("gpencil.layer_duplicate", icon='ADD')  # XXX: needs a dedicated icon
 
         layout.separator()
 
-        layout.operator("gpencil.reveal", icon='HIDE_OFF', text="Show All")
-        layout.operator("gpencil.hide", icon='HIDE_ON', text="Hide Others").unselected = True
+        layout.operator("gpencil.reveal", icon='RESTRICT_VIEW_OFF', text="Show All")
+        layout.operator("gpencil.hide", icon='RESTRICT_VIEW_ON', text="Hide Others").unselected = True
 
         layout.separator()
 
@@ -87,7 +87,7 @@ class GPENCIL_MT_layer_specials(Menu):
 
         layout.separator()
 
-        layout.operator("gpencil.layer_merge", icon='NLA', text="Merge Down")
+        layout.operator("gpencil.layer_merge", icon='SORT_ASC', text="Merge Down")
 
         layout.separator()
         layout.menu("VIEW3D_MT_gpencil_copy_layer")
@@ -125,17 +125,22 @@ class DATA_PT_gpencil_datapanel(Panel):
             self.draw_layers(context, layout, gpd)
 
     def draw_layers(self, context, layout, gpd):
+        userpref = context.user_preferences
+        edit = userpref.edit
+        reverse = edit.use_grease_pencil_reverse_layers
+
         row = layout.row()
 
         col = row.column()
         layer_rows = 7
-        col.template_list("GPENCIL_UL_layer", "", gpd, "layers", gpd.layers, "active_index", rows=layer_rows)
+        col.template_list("GPENCIL_UL_layer", "", gpd, "layers", gpd.layers, "active_index",
+                          rows=layer_rows, reverse=reverse)
 
         col = row.column()
 
         sub = col.column(align=True)
-        sub.operator("gpencil.layer_add", icon='ZOOMIN', text="")
-        sub.operator("gpencil.layer_remove", icon='ZOOMOUT', text="")
+        sub.operator("gpencil.layer_add", icon='ADD', text="")
+        sub.operator("gpencil.layer_remove", icon='REMOVE', text="")
 
         gpl = context.active_gpencil_layer
         if gpl:
@@ -152,7 +157,7 @@ class DATA_PT_gpencil_datapanel(Panel):
 
                 sub = col.column(align=True)
                 sub.operator("gpencil.layer_isolate", icon='LOCKED', text="").affect_visibility = False
-                sub.operator("gpencil.layer_isolate", icon='HIDE_OFF', text="").affect_visibility = True
+                sub.operator("gpencil.layer_isolate", icon='RESTRICT_VIEW_ON', text="").affect_visibility = True
 
         row = layout.row(align=True)
         if gpl:
@@ -300,8 +305,8 @@ class DATA_PT_gpencil_vertexpanel(DataButtonsPanel, Panel):
         row.template_list("GPENCIL_UL_vgroups", "", ob, "vertex_groups", ob.vertex_groups, "active_index", rows=rows)
 
         col = row.column(align=True)
-        col.operator("object.vertex_group_add", icon='ZOOMIN', text="")
-        col.operator("object.vertex_group_remove", icon='ZOOMOUT', text="").all = False
+        col.operator("object.vertex_group_add", icon='ADD', text="")
+        col.operator("object.vertex_group_remove", icon='REMOVE', text="").all = False
 
         if ob.vertex_groups:
             row = layout.row()
@@ -345,6 +350,7 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
             layout.prop(gpd, "show_stroke_direction", text="Show Stroke Directions")
 
         layout.prop(gpd, "use_force_fill_recalc", text="Force Fill Update")
+        layout.prop(gpd, "use_adaptative_uv", text="Adaptative UVs")
         layout.prop(gpd, "zdepth_offset", text="Surface Offset")
 
 
@@ -362,8 +368,9 @@ class DATA_PT_gpencil_canvas(DataButtonsPanel, Panel):
 
         row = layout.row(align=True)
         col = row.column()
-        col.prop(grid, "color")
-        col.prop(grid, "scale")
+        col.prop(grid, "color", text="Color")
+        col.prop(grid, "scale", text="Scale")
+        col.prop(grid, "offset")
         row = layout.row(align=True)
         col = row.column()
         col.prop(grid, "lines", text="Subdivisions")
