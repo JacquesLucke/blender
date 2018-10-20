@@ -42,6 +42,7 @@ set(INC
 
 set(INC_SYS
 	${ZLIB_INCLUDE_DIRS}
+	${EIGEN3_INCLUDE_DIRS}
 )
 
 set(SRC
@@ -66,6 +67,7 @@ set(SRC
 	intern/MOD_hook.c
 	intern/MOD_laplaciandeform.c
 	intern/MOD_laplaciansmooth.c
+	intern/MOD_laplacian_system.cc
 	intern/MOD_lattice.c
 	intern/MOD_mask.c
 	intern/MOD_meshcache.c
@@ -112,6 +114,7 @@ set(SRC
 	intern/MOD_meshcache_util.h
 	intern/MOD_util.h
 	intern/MOD_weightvg_util.h
+	intern/MOD_laplacian_system.h
 )
 
 if(WITH_ALEMBIC)

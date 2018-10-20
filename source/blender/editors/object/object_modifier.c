@@ -2272,6 +2272,9 @@ static int laplaciandeform_bind_exec(bContext *C, wmOperator *op)
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)edit_modifier_property_get(op, ob, eModifierType_LaplacianDeform);
 
+	lmd->bind_next_execution = true;
+	object_force_modifier_update_for_bind(depsgraph, scene, ob);
+
 	return OPERATOR_FINISHED;
 }
 
