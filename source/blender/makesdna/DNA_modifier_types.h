@@ -1528,21 +1528,21 @@ enum {
 	MOD_MESHCACHE_PLAY_EVAL = 1,
 };
 
+typedef struct LaplacianDeformModifierBindData {
+	int *anchor_indices;
+	float (*differential_coordinates)[3];
+	int anchor_amount, vertex_amount;
+} LaplacianDeformModifierBindData;
 
 typedef struct LaplacianDeformModifierData {
 	ModifierData modifier;
-	char anchor_grp_name[64];  /* MAX_VGROUP_NAME */
-	int total_verts, repeat;
-	float *vertexco;
-	void *cache_system;  /* runtime only */
-	short flag, pad[3];
+	char anchor_group_name[64];  /* MAX_VGROUP_NAME */
+	LaplacianDeformModifierBindData *bind_data;
+
+	/* runtime only */
+	void *cache;
 
 } LaplacianDeformModifierData;
-
-/* Laplacian Deform modifier flags */
-enum {
-	MOD_LAPLACIANDEFORM_BIND = 1 << 0,
-};
 
 /* many of these options match 'solidify' */
 typedef struct WireframeModifierData {

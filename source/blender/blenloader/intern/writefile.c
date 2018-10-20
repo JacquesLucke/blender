@@ -1770,8 +1770,6 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 		}
 		else if (md->type == eModifierType_LaplacianDeform) {
 			LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
-
-			writedata(wd, DATA, sizeof(float) * lmd->total_verts * 3, lmd->vertexco);
 		}
 		else if (md->type == eModifierType_CorrectiveSmooth) {
 			CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;

@@ -2272,26 +2272,6 @@ static int laplaciandeform_bind_exec(bContext *C, wmOperator *op)
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)edit_modifier_property_get(op, ob, eModifierType_LaplacianDeform);
 
-	if (lmd == NULL) {
-		return OPERATOR_CANCELLED;
-	}
-
-	if (lmd->flag & MOD_LAPLACIANDEFORM_BIND) {
-		lmd->flag &= ~MOD_LAPLACIANDEFORM_BIND;
-	}
-	else {
-		lmd->flag |= MOD_LAPLACIANDEFORM_BIND;
-	}
-
-	/* Force modifier to run, it will call binding routine (this has to happen outside of depsgraph evaluation). */
-	const int mode = lmd->modifier.mode;
-	lmd->modifier.mode |= eModifierMode_Realtime;
-	object_force_modifier_update_for_bind(depsgraph, scene, ob);
-	lmd->modifier.mode = mode;
-
-	/* We need ID_RECALC_COPY_ON_WRITE to ensure (un)binding is flushed to CoW copies of the object... */
-	DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
-	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	return OPERATOR_FINISHED;
 }
 

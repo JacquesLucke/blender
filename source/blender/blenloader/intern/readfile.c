@@ -5382,12 +5382,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 		}
 		else if (md->type == eModifierType_LaplacianDeform) {
 			LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
-
-			lmd->vertexco = newdataadr(fd, lmd->vertexco);
-			if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
-				BLI_endian_switch_float_array(lmd->vertexco, lmd->total_verts * 3);
-			}
-			lmd->cache_system = NULL;
+			lmd->cache = NULL;
 		}
 		else if (md->type == eModifierType_CorrectiveSmooth) {
 			CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;
