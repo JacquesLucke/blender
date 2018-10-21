@@ -145,6 +145,32 @@ void multipleSparseMatrixAndVector(SparseMatrix *matrix, float *vector, float *r
 	Eigen::Map<Eigen::VectorXf>(r_vector, _matrix.rows()) = _result;
 }
 
+typedef Eigen::Map<Eigen::VectorXf, 0, Eigen::InnerStride<3>> StridedVector;
+
+void multipleSparseMatrixWithVectors(SparseMatrix *matrix, float (*vectors)[3], float (*r_result)[3])
+{
+	SparseMatrixF& _matrix = *(SparseMatrixF *)matrix;
+	for (int i = 0; i < 3; i++) {
+		Eigen::VectorXf _vector = StridedVector((float *)vectors + i, _matrix.cols());
+		Eigen::VectorXf _result = _matrix * _vector;
+		StridedVector((float *)r_result + i, _matrix.rows()) = _result;
+	}
+}
+
+void solveSparseSystems(struct SparseMatrix *A, float (*bs)[3], float (*r_xs)[3])
+{
+	SparseMatrixF& matrix = *(SparseMatrixF *)A;
+
+	Eigen::SparseLU<SparseMatrixF> solver;
+	solver.compute(matrix);
+
+	for (int i = 0; i < 3; i++) {
+		Eigen::VectorXf _vector = StridedVector((float *)bs + i, matrix.cols());
+		Eigen::VectorXf _result = solver.solve(_vector);
+		StridedVector((float *)r_xs + i, matrix.rows()) = _result;
+	}
+}
+
 int getSparseMatrixColumnAmount(struct SparseMatrix *matrix)
 {
 	return ((SparseMatrixF *)matrix)->cols();

@@ -36,11 +36,13 @@ struct SparseMatrix;
 
 struct SparseMatrix *buildLaplacianSystemMatrix(struct Mesh *mesh, const float (*positions)[3], int *anchor_indices, int anchor_amount);
 void multipleSparseMatrixAndVector(struct SparseMatrix *matrix, float *vector, float *r_vector);
+void multipleSparseMatrixWithVectors(struct SparseMatrix *matrix, float (*vectors)[3], float (*r_result)[3]);
 
 int getSparseMatrixColumnAmount(struct SparseMatrix *matrix);
 
 /* Solves A * x = b */
 void solveSparseSystem(struct SparseMatrix *A, float *b, float *r_x);
+void solveSparseSystems(struct SparseMatrix *A, float (*bs)[3], float (*r_xs)[3]);
 
 #ifdef __cplusplus
 }
