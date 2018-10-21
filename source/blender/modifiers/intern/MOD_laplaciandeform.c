@@ -55,6 +55,39 @@
 typedef LaplacianDeformModifierBindData BindData;
 
 
+/* Cache
+**************************************************/
+
+typedef struct {
+	struct SparseMatrix *system_matrix;
+	float *initial_x;
+	float *initial_y;
+	float *initial_z;
+} Cache;
+
+static Cache *newCache()
+{
+	return MEM_callocN(sizeof(Cache), __func__);
+}
+
+static Cache *getCache(LaplacianDeformModifierData *lmd)
+{
+	Cache *cache = (Cache *)lmd->cache;
+	BLI_assert(cache);
+	return cache;
+}
+
+static void ensureCacheExists(
+        LaplacianDeformModifierData *lmd,
+        LaplacianDeformModifierData *lmd_orig)
+{
+	if (lmd->cache == NULL) {
+		lmd_orig->cache = newCache();
+		lmd->cache = lmd_orig->cache;
+	}
+}
+
+
 /* Find anchor indices based on vertex group.
 **************************************************/
 
@@ -122,6 +155,9 @@ static void getAnchorIndices(
 }
 
 
+/* Conversion.
+**************************************************/
+
 static void convertAOStoSOA(
         int amount, float (*positions)[3],
         float *r_xValues, float *r_yValues, float *r_zValues)
@@ -133,46 +169,68 @@ static void convertAOStoSOA(
 	}
 }
 
-static void calculateInitialValues(
-        Mesh *mesh, float (*vertexCos)[3], int *anchor_indices, int anchor_amount,
-        float **r_initial_x, float **r_initial_y, float **r_initial_z)
+static void convertSOAtoAOS(
+        int amount, float *x_values, float *y_values, float *z_values,
+        float (*r_positions)[3])
 {
-	struct SparseMatrix *matrix = buildSystemMatrix(mesh, anchor_indices, anchor_amount);
-
-	int vertex_amount = mesh->totvert;
-
-	float *soaPositions = MEM_malloc_arrayN(mesh->totvert * 3, sizeof(float), __func__);
-	float *xPositions = soaPositions + 0 * vertex_amount;
-	float *yPositions = soaPositions + 1 * vertex_amount;
-	float *zPositions = soaPositions + 2 * vertex_amount;
-	convertAOStoSOA(mesh->totvert, vertexCos, xPositions, yPositions, zPositions);
-
-	float *initialValues = MEM_malloc_arrayN(mesh->totvert * 3, sizeof(float), __func__);
-	*r_initial_x = initialValues + 0 * vertex_amount;
-	*r_initial_y = initialValues + 1 * vertex_amount;
-	*r_initial_z = initialValues + 2 * vertex_amount;
-
-	multipleSparseMatrixAndVector(matrix, xPositions, *r_initial_x);
-	multipleSparseMatrixAndVector(matrix, yPositions, *r_initial_y);
-	multipleSparseMatrixAndVector(matrix, zPositions, *r_initial_z);
-	MEM_freeN(soaPositions);
+	for (int i = 0; i < amount; i++) {
+		r_positions[i][0] = x_values[i];
+		r_positions[i][1] = y_values[i];
+		r_positions[i][2] = z_values[i];
+	}
 }
+
+
+/* Calculate bind data.
+**************************************************/
 
 static BindData *calculate_bind_data(
         LaplacianDeformModifierData *lmd, Object *ob, Mesh *mesh, float (*vertexCos)[3])
 {
 	BindData *bind_data = MEM_callocN(sizeof(BindData), __func__);
-	bind_data->vertex_amount = mesh->totvert;
+
+	int vertex_amount = mesh->totvert;
+	bind_data->vertex_amount = vertex_amount;
+	bind_data->initial_positions = MEM_malloc_arrayN(vertex_amount, sizeof(float) * 3, __func__);
+	memcpy(bind_data->initial_positions, vertexCos, sizeof(float) * 3 * vertex_amount);
 
 	getAnchorIndices(
 	        ob, mesh, lmd->anchor_group_name,
 	        &bind_data->anchor_indices, &bind_data->anchor_amount);
 
-	calculateInitialValues(
-	        mesh, vertexCos, bind_data->anchor_indices, bind_data->anchor_amount,
-	        &bind_data->initial_x, &bind_data->initial_y, &bind_data->initial_z);
-
 	return bind_data;
+}
+
+static struct SparseMatrix *buildSystemMatrix(LaplacianDeformModifierData *lmd, Mesh *mesh)
+{
+	BindData *data = lmd->bind_data;
+	BLI_assert(data);
+	return buildLaplacianSystemMatrix(
+	        mesh, data->initial_positions,
+	        data->anchor_indices, data->anchor_amount);
+}
+
+static void calculateInitialXYZ(
+        struct SparseMatrix *system_matrix, float (*vertexCos)[3],
+        float **r_initial_x, float **r_initial_y, float **r_initial_z)
+{
+	int vertex_amount = getSparseMatrixColumnAmount(system_matrix);
+
+	float *soa_positions = MEM_malloc_arrayN(vertex_amount * 3, sizeof(float), __func__);
+	float *x_positions = soa_positions + 0 * vertex_amount;
+	float *y_positions = soa_positions + 1 * vertex_amount;
+	float *z_positions = soa_positions + 2 * vertex_amount;
+	convertAOStoSOA(vertex_amount, vertexCos, x_positions, y_positions, z_positions);
+
+	float *initialValues = MEM_malloc_arrayN(vertex_amount * 3, sizeof(float), __func__);
+	*r_initial_x = initialValues + 0 * vertex_amount;
+	*r_initial_y = initialValues + 1 * vertex_amount;
+	*r_initial_z = initialValues + 2 * vertex_amount;
+
+	multipleSparseMatrixAndVector(system_matrix, x_positions, *r_initial_x);
+	multipleSparseMatrixAndVector(system_matrix, y_positions, *r_initial_y);
+	multipleSparseMatrixAndVector(system_matrix, z_positions, *r_initial_z);
+	MEM_freeN(soa_positions);
 }
 
 
@@ -196,10 +254,58 @@ static void LaplacianDeformModifier_do(
 	Object *ob = ctx->object;
 	LaplacianDeformModifierData *lmd_orig = get_original_modifier_data(lmd, ctx);
 
+	ensureCacheExists(lmd, lmd_orig);
+	Cache *cache = getCache(lmd);
+
 	if (lmd->bind_next_execution) {
 		lmd_orig->bind_data = calculate_bind_data(lmd, ob, mesh, vertexCos);
 		lmd_orig->bind_next_execution = false;
 	}
+
+	if (lmd->bind_data == NULL) return;
+	BindData *bind_data = lmd->bind_data;
+
+	if (cache->system_matrix == NULL) {
+		cache->system_matrix = buildSystemMatrix(lmd, mesh);
+	}
+
+	if (cache->initial_x == NULL) {
+		calculateInitialXYZ(
+		        cache->system_matrix, vertexCos,
+		        &cache->initial_x, &cache->initial_y, &cache->initial_z);
+	}
+
+	float *xs = MEM_malloc_arrayN(numVerts, sizeof(float), __func__);
+	float *ys = MEM_malloc_arrayN(numVerts, sizeof(float), __func__);
+	float *zs = MEM_malloc_arrayN(numVerts, sizeof(float), __func__);
+
+	memcpy(xs, cache->initial_x, numVerts * sizeof(float));
+	memcpy(ys, cache->initial_y, numVerts * sizeof(float));
+	memcpy(zs, cache->initial_z, numVerts * sizeof(float));
+
+	for (int i = 0; i < bind_data->anchor_amount; i++) {
+		int index = bind_data->anchor_indices[i];
+		xs[index] = vertexCos[index][0];
+		ys[index] = vertexCos[index][1];
+		zs[index] = vertexCos[index][2];
+	}
+
+	float *solution_x = MEM_malloc_arrayN(numVerts, sizeof(float), __func__);
+	float *solution_y = MEM_malloc_arrayN(numVerts, sizeof(float), __func__);
+	float *solution_z = MEM_malloc_arrayN(numVerts, sizeof(float), __func__);
+
+	solveSparseSystem(cache->system_matrix, xs, solution_x);
+	solveSparseSystem(cache->system_matrix, ys, solution_y);
+	solveSparseSystem(cache->system_matrix, zs, solution_z);
+
+	convertSOAtoAOS(numVerts, solution_x, solution_y, solution_z, vertexCos);
+
+	MEM_freeN(xs);
+	MEM_freeN(ys);
+	MEM_freeN(zs);
+	MEM_freeN(solution_x);
+	MEM_freeN(solution_y);
+	MEM_freeN(solution_z);
 }
 
 static void initData(ModifierData *md)

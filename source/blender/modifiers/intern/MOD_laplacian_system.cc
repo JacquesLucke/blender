@@ -44,7 +44,7 @@ struct WeightedEdge {
 };
 
 static std::vector<WeightedEdge> calcWeightedEdgesFromTriangles(
-        const MLoopTri *triangles, int triangle_amount, const MLoop *loops)
+        const MLoopTri *triangles, int triangle_amount, const MLoop *loops, const float (*positions)[3])
 {
 	std::vector<WeightedEdge> edges;
 	edges.reserve(triangle_amount * 3);
@@ -74,14 +74,14 @@ static std::vector<float> calcTotalWeigthPerVertex(std::vector<WeightedEdge> &ed
 }
 
 
-static std::vector<Triplet> getLaplaceTriplets_TrianglesMode(Mesh *mesh)
+static std::vector<Triplet> getLaplaceTriplets_TrianglesMode(Mesh *mesh, const float (*positions)[3])
 {
 	int vertex_amount = mesh->totvert;
 
 	const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
 	int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
-	auto edges = calcWeightedEdgesFromTriangles(triangles, triangle_amount, mesh->mloop);
+	auto edges = calcWeightedEdgesFromTriangles(triangles, triangle_amount, mesh->mloop, positions);
 	auto total_weights = calcTotalWeigthPerVertex(edges, mesh->totvert);
 
 	std::vector<Triplet> triplets;
@@ -102,9 +102,8 @@ static std::vector<Triplet> getLaplaceTriplets_TrianglesMode(Mesh *mesh)
 	return triplets;
 }
 
-static void clearRows(SparseMatrixF &matrix, std::vector<int> &indices_to_zero)
+static void clearRowsExceptDiagonal(SparseMatrixF &matrix, std::vector<int> &indices_to_zero)
 {
-	/* Sets all elements in given rows to 0 and the diagonal element to 1 */
 	BLI_assert(matrix.IsRowMajor);
 
 	float *values = matrix.valuePtr();
@@ -115,25 +114,25 @@ static void clearRows(SparseMatrixF &matrix, std::vector<int> &indices_to_zero)
 		BLI_assert(starts[index] < starts[index + 1]);
 
 		for (int i = starts[index]; i < starts[index + 1]; i++) {
-			values[i] = 0.0f;
-			indices[i] = -1;
+			if (indices[i] != index) values[i] = 0.0f;
 		}
-		indices[starts[index]] = index;
-		values[starts[index]] = 1.0f;
 	}
 }
 
 
-SparseMatrix *buildSystemMatrix(Mesh *mesh, int *anchor_indices, int anchor_amount)
+SparseMatrix *buildLaplacianSystemMatrix(
+        Mesh *mesh /* only used for connectivity information */,
+        const float (*positions)[3],
+        int *anchor_indices, int anchor_amount)
 {
 	int vertex_amount = mesh->totvert;
 	SparseMatrixF matrix(vertex_amount, vertex_amount);
 
-	std::vector<Triplet> triplets = getLaplaceTriplets_TrianglesMode(mesh);
+	std::vector<Triplet> triplets = getLaplaceTriplets_TrianglesMode(mesh, positions);
 	matrix.setFromTriplets(triplets.begin(), triplets.end());
 
 	std::vector<int> anchors(anchor_indices, anchor_indices + anchor_amount);
-	clearRows(matrix, anchors);
+	clearRowsExceptDiagonal(matrix, anchors);
 
 	return (SparseMatrix *)new SparseMatrixF(matrix);
 }
@@ -144,4 +143,21 @@ void multipleSparseMatrixAndVector(SparseMatrix *matrix, float *vector, float *r
 	Eigen::VectorXf _vector = Eigen::Map<Eigen::VectorXf>(vector, _matrix.cols());
 	Eigen::VectorXf _result = _matrix * _vector;
 	Eigen::Map<Eigen::VectorXf>(r_vector, _matrix.rows()) = _result;
+}
+
+int getSparseMatrixColumnAmount(struct SparseMatrix *matrix)
+{
+	return ((SparseMatrixF *)matrix)->cols();
+}
+
+void solveSparseSystem(SparseMatrix *A, float *b, float *r_x)
+{
+	SparseMatrixF& matrix = *(SparseMatrixF *)A;
+	Eigen::VectorXf _b = Eigen::Map<Eigen::VectorXf>(b, matrix.cols());
+
+	Eigen::SparseLU<SparseMatrixF> solver;
+	solver.compute(matrix);
+	Eigen::VectorXf result = solver.solve(_b);
+
+	Eigen::Map<Eigen::VectorXf>(r_x, matrix.rows()) = result;
 }

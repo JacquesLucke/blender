@@ -34,8 +34,13 @@ struct LaplacianDeformModifierBindData;
 
 struct SparseMatrix;
 
-struct SparseMatrix *buildSystemMatrix(struct Mesh *mesh, int *anchor_indices, int anchor_amount);
+struct SparseMatrix *buildLaplacianSystemMatrix(struct Mesh *mesh, const float (*positions)[3], int *anchor_indices, int anchor_amount);
 void multipleSparseMatrixAndVector(struct SparseMatrix *matrix, float *vector, float *r_vector);
+
+int getSparseMatrixColumnAmount(struct SparseMatrix *matrix);
+
+/* Solves A * x = b */
+void solveSparseSystem(struct SparseMatrix *A, float *b, float *r_x);
 
 #ifdef __cplusplus
 }
