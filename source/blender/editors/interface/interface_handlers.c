@@ -1772,42 +1772,53 @@ static bool ui_but_drag_init(
 		else
 #endif
 		if (but->type == UI_BTYPE_COLOR) {
-			bool valid = false;
-			uiDragColorHandle *drag_info = MEM_callocN(sizeof(*drag_info), __func__);
-
-			/* TODO support more button pointer types */
 			if (but->rnaprop && RNA_property_subtype(but->rnaprop) == PROP_COLOR_GAMMA) {
-				ui_but_v3_get(but, drag_info->color);
-				drag_info->gamma_corrected = true;
-				valid = true;
+				float color[3];
+				ui_but_v3_get(but, color);
+				WM_event_start_drag_color(C, color, true);
 			}
 			else if (but->rnaprop && RNA_property_subtype(but->rnaprop) == PROP_COLOR) {
-				ui_but_v3_get(but, drag_info->color);
-				drag_info->gamma_corrected = false;
-				valid = true;
+				float color[3];
+				ui_but_v3_get(but, color);
+				WM_event_start_drag_color(C, color, false);
 			}
 			else if (ELEM(but->pointype, UI_BUT_POIN_FLOAT, UI_BUT_POIN_CHAR)) {
-				ui_but_v3_get(but, drag_info->color);
-				copy_v3_v3(drag_info->color, (float *)but->poin);
-				valid = true;
-			}
-
-			if (valid) {
-				WM_event_start_drag(C, ICON_COLOR, WM_DRAG_COLOR, drag_info, 0.0, WM_DRAG_FREE_DATA);
+				float color[3];
+				copy_v3_v3(color, (float *)but->poin);
+				WM_event_start_drag_color(C, color, false);
 			}
 			else {
-				MEM_freeN(drag_info);
-				return false;
+				/* maybe more types are needed? */
+				BLI_assert(false);
 			}
 		}
 		else {
-			wmDrag *drag = WM_event_start_drag(
-			        C, but->icon, but->dragtype, but->dragpoin,
-			        ui_but_value_get(but), WM_DRAG_NOP);
+			struct DragData *drag_data = NULL;
+			switch (but->dragtype) {
+				case WM_DRAG_ID:
+					drag_data = WM_event_start_drag_id(C, but->dragpoin);
+					break;
+				case WM_DRAG_PATH:
+					drag_data = WM_event_start_drag_filepath(C, but->dragpoin);
+					break;
+				case WM_DRAG_VALUE:
+					drag_data = WM_event_start_drag_value(C, ui_but_value_get(but));
+					break;
+				case WM_DRAG_RNA:
+					drag_data = WM_event_start_drag_rna(C, but->dragpoin);
+					break;
+				case WM_DRAG_NAME:
+					drag_data = WM_event_start_drag_name(C, but->dragpoin);
+					break;
+				default:
+					/* maybe more types are needed? */
+					BLI_assert(false);
+					break;
+			}
 
-			if (but->imb) {
-				WM_event_drag_image(
-				        drag, but->imb, but->imb_scale,
+			if (drag_data && but->imb) {
+				WM_event_drag_set_display_image(
+				        drag_data, but->imb, but->imb_scale,
 				        BLI_rctf_size_x(&but->rect),
 				        BLI_rctf_size_y(&but->rect));
 			}
@@ -2028,29 +2039,25 @@ static void ui_apply_but(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 /* only call if event type is EVT_DROP */
 static void ui_but_drop(bContext *C, const wmEvent *event, uiBut *but, uiHandleButtonData *data)
 {
-	wmDrag *wmd;
-	ListBase *drags = event->customdata; /* drop event type has listbase customdata by default */
+	DragData *drag_data = (DragData *)event->customdata;
 
-	for (wmd = drags->first; wmd; wmd = wmd->next) {
-		if (wmd->type == WM_DRAG_ID) {
-			/* align these types with UI_but_active_drop_name */
-			if (ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
-				ID *id = WM_drag_ID(wmd, 0);
+	if (drag_data->type == DRAG_DATA_ID) {
+		/* align these types with UI_but_active_drop_name */
+		if (ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
+			ID *id = drag_data->data.id;
 
-				button_activate_state(C, but, BUTTON_STATE_TEXT_EDITING);
+			button_activate_state(C, but, BUTTON_STATE_TEXT_EDITING);
 
-				ui_textedit_string_set(but, data, id->name + 2);
+			ui_textedit_string_set(but, data, id->name + 2);
 
-				if (ELEM(but->type, UI_BTYPE_SEARCH_MENU)) {
-					but->changed = true;
-					ui_searchbox_update(C, data->searchbox, but, true);
-				}
-
-				button_activate_state(C, but, BUTTON_STATE_EXIT);
+			if (ELEM(but->type, UI_BTYPE_SEARCH_MENU)) {
+				but->changed = true;
+				ui_searchbox_update(C, data->searchbox, but, true);
 			}
+
+			button_activate_state(C, but, BUTTON_STATE_EXIT);
 		}
 	}
-
 }
 
 /* ******************* copy and paste ********************  */
@@ -7250,7 +7257,7 @@ static void button_tooltip_timer_reset(bContext *C, uiBut *but)
 
 	if ((U.flag & USER_TOOLTIPS) || (data->tooltip_force)) {
 		if (!but->block->tooltipdisabled) {
-			if (!wm->drags.first) {
+			if (!wm->drag_data) {
 				bool is_label = UI_but_has_tooltip_label(but);
 				double delay = is_label ? UI_TOOLTIP_DELAY_LABEL : UI_TOOLTIP_DELAY;
 				WM_tooltip_timer_init_ex(C, data->window, data->region, ui_but_tooltip_init, delay);

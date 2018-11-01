@@ -134,20 +134,25 @@ wmEvent *wm_event_add(wmWindow *win, const wmEvent *event_to_add)
 	return wm_event_add_ex(win, event_to_add, NULL);
 }
 
-void wm_event_free(wmEvent *event)
+static void wm_event_free_customdata_if_necessary(wmEvent *event)
 {
 	if (event->customdata) {
 		if (event->customdatafree) {
-			/* note: pointer to listbase struct elsewhere */
 			if (event->custom == EVT_DATA_DRAGDROP) {
-				ListBase *lb = event->customdata;
-				WM_drag_free_list(lb);
+				WM_drag_data_free(event->customdata);
 			}
 			else {
 				MEM_freeN(event->customdata);
 			}
 		}
 	}
+	event->customdata = NULL;
+	event->customdatafree = false;
+}
+
+void wm_event_free(wmEvent *event)
+{
+	wm_event_free_customdata_if_necessary(event);
 
 	if (event->tablet_data) {
 		MEM_freeN((void *)event->tablet_data);
@@ -2380,6 +2385,28 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 					action |= wm_handler_fileselect_call(C, handlers, handler, event);
 				}
 			}
+			else if (handler->is_drop_handler) {
+				if (!wm->is_interface_locked && event->type == EVT_DROP) {
+					DragData *drag_data = (DragData *)event->customdata;
+
+					DropTarget *target = MEM_callocN(sizeof(DropTarget), __func__);
+					target->ot_idname = "WM_OT_window_new";
+
+					wmOperatorType *ot = WM_operatortype_find(target->ot_idname, false);
+					struct PointerRNA *ptr = NULL;
+					struct IDProperty *properties = NULL;
+					WM_operator_properties_alloc(&ptr, &properties, target->ot_idname);
+					wm_operator_call_internal(C, ot, ptr, NULL, WM_OP_INVOKE_DEFAULT, false, event);
+					action |= WM_HANDLER_BREAK;
+
+					WM_drag_data_free(drag_data);
+					event->customdata = NULL;
+					event->custom = 0;
+
+					if (CTX_wm_window(C) == NULL)
+						return action;
+				}
+			}
 			else if (handler->dropboxes) {
 				if (!wm->is_interface_locked && event->type == EVT_DROP) {
 					wmDropBox *drop = handler->dropboxes->first;
@@ -2406,8 +2433,8 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 									action |= WM_HANDLER_BREAK;
 
 									/* free the drags */
-									WM_drag_free_list(lb);
-									WM_drag_free_list(&single_lb);
+									//WM_drag_free_list(lb);
+									//WM_drag_free_list(&single_lb);
 
 									event->customdata = NULL;
 									event->custom = 0;
@@ -2801,38 +2828,29 @@ static void wm_paintcursor_test(bContext *C, const wmEvent *event)
 
 static void wm_event_drag_test(wmWindowManager *wm, wmWindow *win, wmEvent *event)
 {
-	bScreen *screen = WM_window_get_active_screen(win);
-
-	if (BLI_listbase_is_empty(&wm->drags)) {
+	if (!wm->drag_data) {
 		return;
 	}
+
+	bScreen *screen = WM_window_get_active_screen(win);
 
 	if (event->type == MOUSEMOVE || ISKEYMODIFIER(event->type)) {
 		screen->do_draw_drag = true;
 	}
 	else if (event->type == ESCKEY) {
-		WM_drag_free_list(&wm->drags);
-
+		WM_drag_data_free(wm->drag_data);
+		wm->drag_data = NULL;
 		screen->do_draw_drag = true;
 	}
 	else if (event->type == LEFTMOUSE && event->val == KM_RELEASE) {
 		event->type = EVT_DROP;
 
 		/* create customdata, first free existing */
-		if (event->customdata) {
-			if (event->customdatafree)
-				MEM_freeN(event->customdata);
-		}
+		wm_event_free_customdata_if_necessary(event);
 
-		event->custom = EVT_DATA_DRAGDROP;
-		event->customdata = &wm->drags;
-		event->customdatafree = 1;
+		WM_transfer_drag_data_ownership_to_event(wm, event);
 
-		/* clear drop icon */
 		screen->do_draw_drag = true;
-
-		/* restore cursor (disabled, see wm_dragdrop.c) */
-		// WM_cursor_modal_restore(win);
 	}
 }
 
@@ -3009,7 +3027,7 @@ void wm_event_do_handlers(bContext *C)
 				}
 			}
 
-			/* check dragging, creates new event or frees, adds draw tag */
+			/* may change the event into a drop event, adds draw tag */
 			wm_event_drag_test(wm, win, event);
 
 			/* builtin tweak, if action is break it removes tweak */
@@ -3055,14 +3073,6 @@ void wm_event_do_handlers(bContext *C)
 
 									/* call even on non mouse events, since the */
 									wm_region_mouse_co(C, event);
-
-									if (!BLI_listbase_is_empty(&wm->drags)) {
-										/* does polls for drop regions and checks uibuts */
-										/* need to be here to make sure region context is true */
-										if (ELEM(event->type, MOUSEMOVE, EVT_DROP) || ISKEYMODIFIER(event->type)) {
-											wm_drags_check_ops(C, event);
-										}
-									}
 
 #ifdef USE_WORKSPACE_TOOL
 									/* How to solve properly?
@@ -3464,6 +3474,17 @@ wmEventHandler *WM_event_add_dropbox_handler(ListBase *handlers, ListBase *dropb
 	BLI_addhead(handlers, handler);
 
 	return handler;
+}
+
+void WM_event_ensure_drop_handler(ListBase *handlers)
+{
+	for (wmEventHandler *handler = handlers->first; handler; handler = handler->next) {
+		if (handler->is_drop_handler) return;
+	}
+
+	wmEventHandler *handler = MEM_callocN(sizeof(wmEventHandler), "drop handler");
+	handler->is_drop_handler = true;
+	BLI_addhead(handlers, handler);
 }
 
 /* XXX solution works, still better check the real cause (ton) */

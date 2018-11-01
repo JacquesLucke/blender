@@ -238,6 +238,7 @@ enum {
 };
 
 struct wmEventHandler *WM_event_add_dropbox_handler(ListBase *handlers, ListBase *dropboxes);
+void WM_event_ensure_drop_handler(ListBase *handlers);
 
 			/* mouse */
 void		WM_event_add_mousemove(const struct bContext *C);
@@ -481,10 +482,19 @@ void		WM_event_print(const struct wmEvent *event);
 void		WM_operator_region_active_win_set(struct bContext *C);
 
 			/* drag and drop */
-struct wmDrag		*WM_event_start_drag(struct bContext *C, int icon, int type, void *poin, double value, unsigned int flags);
-void				WM_event_drag_image(struct wmDrag *, struct ImBuf *, float scale, int sx, int sy);
-void                WM_drag_free(struct wmDrag *drag);
-void                WM_drag_free_list(struct ListBase *lb);
+struct DragData *WM_event_start_drag_id(struct bContext *C, ID *id);
+struct DragData *WM_event_start_drag_filepath(struct bContext *C, const char *filepath);
+struct DragData *WM_event_start_drag_color(struct bContext *C, float color[3], bool gamma_corrected);
+struct DragData *WM_event_start_drag_value(struct bContext *C, double value);
+struct DragData *WM_event_start_drag_rna(struct bContext *C, struct PointerRNA *rna);
+struct DragData *WM_event_start_drag_name(struct bContext *C, const char *name);
+void WM_transfer_drag_data_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event);
+
+void WM_event_drag_set_display_image(
+        struct DragData *drag_data, struct ImBuf *imb,
+        float scale, int width, int height);
+
+void WM_drag_data_free(struct DragData *drag);
 
 struct wmDropBox	*WM_dropbox_add(
         ListBase *lb, const char *idname,

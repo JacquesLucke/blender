@@ -783,8 +783,10 @@ void wm_window_ghostwindows_ensure(wmWindowManager *wm)
 
 		/* add drop boxes */
 		{
-			ListBase *lb = WM_dropboxmap_find("Window", 0, 0);
-			WM_event_add_dropbox_handler(&win->handlers, lb);
+			//ListBase *lb = WM_dropboxmap_find("Window", 0, 0);
+			//WM_event_add_dropbox_handler(&win->handlers, lb);
+			WM_event_ensure_drop_handler(&win->handlers);
+
 		}
 		wm_window_title(wm, win);
 
@@ -1490,29 +1492,20 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 
 
 				/* make blender drop event with custom data pointing to wm drags */
+				/* transfer drag data ownership to event */
 				event.type = EVT_DROP;
 				event.val = KM_RELEASE;
-				event.custom = EVT_DATA_DRAGDROP;
-				event.customdata = &wm->drags;
-				event.customdatafree = 1;
+				WM_transfer_drag_data_ownership_to_event(wm, &event);
 
 				wm_event_add(win, &event);
 
-				/* printf("Drop detected\n"); */
 
 				/* add drag data to wm for paths: */
 
 				if (ddd->dataType == GHOST_kDragnDropTypeFilenames) {
 					GHOST_TStringArray *stra = ddd->data;
-					int a, icon;
-
-					for (a = 0; a < stra->count; a++) {
-						printf("drop file %s\n", stra->strings[a]);
-						/* try to get icon type from extension */
-						icon = ED_file_extension_icon((char *)stra->strings[a]);
-
-						WM_event_start_drag(C, icon, WM_DRAG_PATH, stra->strings[a], 0.0, WM_DRAG_NOP);
-						/* void poin should point to string, it makes a copy */
+					if (stra->count > 0) {
+						WM_event_start_drag_filepath(C, (const char *)stra->strings[0]);
 						break; /* only one drop element supported now */
 					}
 				}

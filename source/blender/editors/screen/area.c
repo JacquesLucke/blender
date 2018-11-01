@@ -1543,6 +1543,8 @@ static void ed_default_handlers(wmWindowManager *wm, ScrArea *sa, ARegion *ar, L
 		wmKeyMap *keymap_sculpt = WM_keymap_ensure(wm->defaultconf, "Grease Pencil Stroke Sculpt Mode", 0, 0);
 		WM_event_add_keymap_handler(handlers, keymap_sculpt);
 	}
+
+	WM_event_ensure_drop_handler(handlers);
 }
 
 void ED_area_update_region_sizes(wmWindowManager *wm, wmWindow *win, ScrArea *area)

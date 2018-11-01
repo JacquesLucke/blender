@@ -77,6 +77,7 @@ typedef struct wmEventHandler {
 
 	/* drop box handler */
 	ListBase *dropboxes;
+	bool is_drop_handler;
 	/* gizmo handler */
 	struct wmGizmoMap *gizmo_map;
 } wmEventHandler;
@@ -107,7 +108,6 @@ float       wm_pressure_curve(float raw_pressure);
 
 /* wm_dropbox.c */
 void        wm_dropbox_free(void);
-void        wm_drags_check_ops(bContext *C, const wmEvent *event);
-void        wm_drags_draw(bContext *C, wmWindow *win, rcti *rect);
+void        wm_draw_drag_data(bContext *C, wmWindow *win);
 
 #endif /* __WM_EVENT_SYSTEM_H__ */

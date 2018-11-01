@@ -112,7 +112,6 @@ struct wmWindowManager;
 struct wmMsgBus;
 struct wmOperator;
 struct ID;
-struct ImBuf;
 
 #include "RNA_types.h"
 #include "DNA_listBase.h"
@@ -661,6 +660,64 @@ typedef enum wmDragFlags {
 
 /* note: structs need not exported? */
 
+typedef struct DragData {
+	int type;
+	int display_type;
+	union {
+		struct ID *id;
+		struct {
+			char **paths;
+			int amount;
+		} filepaths;
+		struct {
+			float color[3];
+			bool gamma_corrected;
+		} color;
+		double value;
+		struct PointerRNA *rna;
+		char *name;
+	} data;
+	union {
+		struct {
+			struct ImBuf *imb;
+			float scale;
+			int width;
+			int height;
+		} image;
+		int icon_id;
+	} display;
+} DragData;
+
+/* DragData.type */
+enum {
+	DRAG_DATA_ID,
+	DRAG_DATA_FILEPATHS,
+	DRAG_DATA_COLOR,
+	DRAG_DATA_VALUE,
+	DRAG_DATA_RNA,
+	DRAG_DATA_NAME,
+};
+/* DragData.display_type */
+enum {
+	DRAG_DISPLAY_NONE = 0,
+	DRAG_DISPLAY_ICON,
+	DRAG_DISPLAY_IMAGE,
+};
+
+typedef struct DropTarget {
+	/* operator identifier */
+	char *ot_idname;
+
+	/* returns true when DragData can be dropped in this target */
+	bool (*poll)(struct bContext *, struct DragData *, const wmEvent *);
+
+	/* only called when poll returns true, returns the tooltip */
+	const char *(*tooltip)(struct bContext *, struct DragData *, const wmEvent *);
+
+	/* initialize operator properties and return operator context (EXEC_DEFAULT, ...) */
+	short (*init_operator)(struct DragData *, struct PointerRNA *);
+} DropTarget;
+
 typedef struct wmDragID {
 	struct wmDragID  *next, *prev;
 	struct ID *id;
@@ -675,7 +732,7 @@ typedef struct wmDrag {
 	char path[1024]; /* FILE_MAX */
 	double value;
 
-	struct ImBuf *imb;						/* if no icon but imbuf should be drawn around cursor */
+	struct ImBuf *imb;
 	float scale;
 	int sx, sy;
 

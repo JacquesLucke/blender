@@ -61,6 +61,7 @@ struct Report;
 struct uiLayout;
 struct Stereo3dFormat;
 struct UndoStep;
+struct DragData;
 
 #define OP_MAX_TYPENAME 64
 #define KMAP_MAX_NAME   64
@@ -147,6 +148,7 @@ typedef struct wmWindowManager {
 	ListBase paintcursors;            /* extra overlay cursors to draw, like circles */
 
 	ListBase drags;                   /* active dragged items */
+	struct DragData *drag_data;
 
 	ListBase keyconfigs;              /* known key configurations */
 	struct wmKeyConfig *defaultconf;  /* default configuration */

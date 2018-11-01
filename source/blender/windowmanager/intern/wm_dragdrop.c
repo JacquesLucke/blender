@@ -103,6 +103,7 @@ wmDropBox *WM_dropbox_add(
         bool (*poll)(bContext *, wmDrag *, const wmEvent *, const char **),
         void (*copy)(wmDrag *, wmDropBox *))
 {
+	return NULL;
 	wmDropBox *drop = MEM_callocN(sizeof(wmDropBox), "wmDropBox");
 
 	drop->poll = poll;
@@ -143,59 +144,104 @@ void wm_dropbox_free(void)
 
 /* *********************************** */
 
-/* note that the pointer should be valid allocated and not on stack */
-wmDrag *WM_event_start_drag(struct bContext *C, int icon, int type, void *poin, double value, unsigned int flags)
+static DragData *WM_drag_data_new(void) {
+	return MEM_callocN(sizeof(DragData), "drag data");
+}
+
+void WM_drag_data_free(DragData *drag_data)
+{
+	// TODO: free other data
+	MEM_freeN(drag_data);
+}
+
+static void start_dragging_data(struct bContext *C, DragData *drag_data)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
-	wmDrag *drag = MEM_callocN(sizeof(struct wmDrag), "new drag");
-
-	/* keep track of future multitouch drag too, add a mousepointer id or so */
-	/* if multiple drags are added, they're drawn as list */
-
-	BLI_addtail(&wm->drags, drag);
-	drag->flags = flags;
-	drag->icon = icon;
-	drag->type = type;
-	if (type == WM_DRAG_PATH) {
-		BLI_strncpy(drag->path, poin, FILE_MAX);
-	}
-	else if (type == WM_DRAG_ID) {
-		if (poin) {
-			WM_drag_add_ID(drag, poin, NULL);
-		}
-	}
-	else {
-		drag->poin = poin;
-	}
-	drag->value = value;
-
-	return drag;
+	wm->drag_data = drag_data;
 }
 
-void WM_event_drag_image(wmDrag *drag, ImBuf *imb, float scale, int sx, int sy)
+DragData *WM_event_start_drag_id(struct bContext *C, ID *id)
 {
-	drag->imb = imb;
-	drag->scale = scale;
-	drag->sx = sx;
-	drag->sy = sy;
+	DragData *drag_data = WM_drag_data_new();
+	drag_data->type = DRAG_DATA_ID;
+	drag_data->data.id = id;
+
+	start_dragging_data(C, drag_data);
+	return drag_data;
 }
 
-void WM_drag_free(wmDrag *drag)
+DragData *WM_event_start_drag_filepath(struct bContext *C, const char *filepath)
 {
-	if ((drag->flags & WM_DRAG_FREE_DATA) && drag->poin) {
-		MEM_freeN(drag->poin);
-	}
+	char **paths = MEM_malloc_arrayN(1, sizeof(char *), __func__);
+	paths[0] = BLI_strdup(filepath);
 
-	BLI_freelistN(&drag->ids);
-	MEM_freeN(drag);
+	DragData *drag_data = WM_drag_data_new();
+	drag_data->type = DRAG_DATA_FILEPATHS;
+	drag_data->data.filepaths.amount = 1;
+	drag_data->data.filepaths.paths = paths;
+
+	start_dragging_data(C, drag_data);
+	return drag_data;
 }
 
-void WM_drag_free_list(struct ListBase *lb)
+DragData *WM_event_start_drag_color(struct bContext *C, float color[3], bool gamma_corrected)
 {
-	wmDrag *drag;
-	while ((drag = BLI_pophead(lb))) {
-		WM_drag_free(drag);
-	}
+	DragData *drag_data = WM_drag_data_new();
+	drag_data->type = DRAG_DATA_COLOR;
+	memcpy(drag_data->data.color.color, color, sizeof(float) * 3);
+	drag_data->data.color.gamma_corrected = gamma_corrected;
+
+	start_dragging_data(C, drag_data);
+	return drag_data;
+}
+
+DragData *WM_event_start_drag_value(struct bContext *C, double value)
+{
+	DragData *drag_data = WM_drag_data_new();
+	drag_data->type = DRAG_DATA_VALUE;
+	drag_data->data.value = value;
+
+	start_dragging_data(C, drag_data);
+	return drag_data;
+}
+
+DragData *WM_event_start_drag_rna(struct bContext *C, struct PointerRNA *rna)
+{
+	DragData *drag_data = WM_drag_data_new();
+	drag_data->type = DRAG_DATA_RNA;
+	drag_data->data.rna = rna;
+
+	start_dragging_data(C, drag_data);
+	return drag_data;
+}
+
+DragData *WM_event_start_drag_name(struct bContext *C, const char *name)
+{
+	DragData *drag_data = WM_drag_data_new();
+	drag_data->type = DRAG_DATA_NAME;
+	drag_data->data.name = BLI_strdup(name);
+
+	start_dragging_data(C, drag_data);
+	return drag_data;
+}
+
+void WM_event_drag_set_display_image(
+        DragData *drag_data, ImBuf *imb,
+        float scale, int width, int height)
+{
+	drag_data->display_type = DRAG_DISPLAY_IMAGE;
+	drag_data->display.image.imb = imb;
+	drag_data->display.image.scale = scale;
+	drag_data->display.image.width = width;
+	drag_data->display.image.height = height;
+}
+
+void WM_transfer_drag_data_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event)
+{
+	event->custom = EVT_DATA_DRAGDROP;
+	event->customdata = wm->drag_data;
+	event->customdatafree = true;
+	wm->drag_data = NULL;
 }
 
 
@@ -236,47 +282,6 @@ static const char *wm_dropbox_active(bContext *C, wmDrag *drag, const wmEvent *e
 	if (name) return name;
 
 	return NULL;
-}
-
-
-static void wm_drop_operator_options(bContext *C, wmDrag *drag, const wmEvent *event)
-{
-	wmWindow *win = CTX_wm_window(C);
-	const int winsize_x = WM_window_pixels_x(win);
-	const int winsize_y = WM_window_pixels_y(win);
-
-	/* for multiwin drags, we only do this if mouse inside */
-	if (event->x < 0 || event->y < 0 || event->x > winsize_x || event->y > winsize_y)
-		return;
-
-	drag->opname[0] = 0;
-
-	/* check buttons (XXX todo rna and value) */
-	if (UI_but_active_drop_name(C)) {
-		BLI_strncpy(drag->opname, IFACE_("Paste name"), sizeof(drag->opname));
-	}
-	else {
-		const char *opname = wm_dropbox_active(C, drag, event);
-
-		if (opname) {
-			BLI_strncpy(drag->opname, opname, sizeof(drag->opname));
-			// WM_cursor_modal_set(win, CURSOR_COPY);
-		}
-		// else
-		//	WM_cursor_modal_restore(win);
-		/* unsure about cursor type, feels to be too much */
-	}
-}
-
-/* called in inner handler loop, region context */
-void wm_drags_check_ops(bContext *C, const wmEvent *event)
-{
-	wmWindowManager *wm = CTX_wm_manager(C);
-	wmDrag *drag;
-
-	for (drag = wm->drags.first; drag; drag = drag->next) {
-		wm_drop_operator_options(C, drag, event);
-	}
 }
 
 /* ************** IDs ***************** */
@@ -376,101 +381,8 @@ static void drag_rect_minmax(rcti *rect, int x1, int y1, int x2, int y2)
 		rect->ymax = y2;
 }
 
-/* called in wm_draw.c */
-/* if rect set, do not draw */
-void wm_drags_draw(bContext *C, wmWindow *win, rcti *rect)
+void wm_draw_drag_data(bContext *UNUSED(C), wmWindow *UNUSED(win))
 {
-	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
-	wmWindowManager *wm = CTX_wm_manager(C);
-	wmDrag *drag;
-	const int winsize_y = WM_window_pixels_y(win);
-	int cursorx, cursory, x, y;
 
-	cursorx = win->eventstate->x;
-	cursory = win->eventstate->y;
-	if (rect) {
-		rect->xmin = rect->xmax = cursorx;
-		rect->ymin = rect->ymax = cursory;
-	}
-
-	/* XXX todo, multiline drag draws... but maybe not, more types mixed wont work well */
-	glEnable(GL_BLEND);
-	for (drag = wm->drags.first; drag; drag = drag->next) {
-		const char text_col[] = {255, 255, 255, 255};
-		int iconsize = UI_DPI_ICON_SIZE;
-		int padding = 4 * UI_DPI_FAC;
-
-		/* image or icon */
-		if (drag->imb) {
-			x = cursorx - drag->sx / 2;
-			y = cursory - drag->sy / 2;
-
-			if (rect)
-				drag_rect_minmax(rect, x, y, x + drag->sx, y + drag->sy);
-			else {
-				float col[4] = {1.0f, 1.0f, 1.0f, 0.65f}; /* this blends texture */
-				IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
-				immDrawPixelsTexScaled(&state, x, y, drag->imb->x, drag->imb->y, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST,
-				                       drag->imb->rect, drag->scale, drag->scale, 1.0f, 1.0f, col);
-			}
-		}
-		else {
-			x = cursorx - 2 * padding;
-			y = cursory - 2 * UI_DPI_FAC;
-
-			if (rect)
-				drag_rect_minmax(rect, x, y, x + iconsize, y + iconsize);
-			else
-				UI_icon_draw_aspect(x, y, drag->icon, 1.0f / UI_DPI_FAC, 0.8, text_col);
-		}
-
-		/* item name */
-		if (drag->imb) {
-			x = cursorx - drag->sx / 2;
-			y = cursory - drag->sy / 2 - iconsize;
-		}
-		else {
-			x = cursorx + 10 * UI_DPI_FAC;
-			y = cursory + 1 * UI_DPI_FAC;
-		}
-
-		if (rect) {
-			int w =  UI_fontstyle_string_width(fstyle, wm_drag_name(drag));
-			drag_rect_minmax(rect, x, y, x + w, y + iconsize);
-		}
-		else {
-			UI_fontstyle_draw_simple(fstyle, x, y, wm_drag_name(drag), (uchar *)text_col);
-		}
-
-		/* operator name with roundbox */
-		if (drag->opname[0]) {
-			if (drag->imb) {
-				x = cursorx - drag->sx / 2;
-
-				if (cursory + drag->sy / 2 + padding + iconsize < winsize_y)
-					y = cursory + drag->sy / 2 + padding;
-				else
-					y = cursory - drag->sy / 2 - padding - iconsize - padding - iconsize;
-			}
-			else {
-				x = cursorx - 2 * padding;
-
-				if (cursory + iconsize + iconsize < winsize_y) {
-					y = (cursory + iconsize) + padding;
-				}
-				else {
-					y = (cursory - iconsize) - padding;
-				}
-			}
-
-			if (rect) {
-				int w =  UI_fontstyle_string_width(fstyle, wm_drag_name(drag));
-				drag_rect_minmax(rect, x, y, x + w, y + iconsize);
-			}
-			else
-				wm_drop_operator_draw(drag->opname, x, y);
-
-		}
-	}
-	glDisable(GL_BLEND);
 }
+
