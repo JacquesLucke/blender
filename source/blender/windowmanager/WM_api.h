@@ -481,6 +481,7 @@ void		WM_operator_region_active_win_set(struct bContext *C);
 /* drag and drop */
 struct wmDragData *WM_event_start_drag_id(struct bContext *C, ID *id);
 struct wmDragData *WM_event_start_drag_filepath(struct bContext *C, const char *filepath);
+struct wmDragData *WM_event_start_drag_filepaths(struct bContext *C, const char **filepaths, int amount);
 struct wmDragData *WM_event_start_drag_color(struct bContext *C, float color[3], bool gamma_corrected);
 struct wmDragData *WM_event_start_drag_value(struct bContext *C, double value);
 struct wmDragData *WM_event_start_drag_rna(struct bContext *C, struct PointerRNA *rna);

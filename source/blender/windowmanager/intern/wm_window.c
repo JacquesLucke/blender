@@ -1489,7 +1489,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 				if (ddd->dataType == GHOST_kDragnDropTypeFilenames) {
 					GHOST_TStringArray *stra = ddd->data;
 					if (stra->count > 0) {
-						WM_event_start_drag_filepath(C, (const char *)stra->strings[0]);
+						WM_event_start_drag_filepaths(C, (char **)stra->strings, stra->count);
 					}
 				}
 

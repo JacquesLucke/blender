@@ -112,18 +112,25 @@ wmDragData *WM_event_start_drag_id(struct bContext *C, ID *id)
 	return drag_data;
 }
 
-wmDragData *WM_event_start_drag_filepath(struct bContext *C, const char *filepath)
+wmDragData *WM_event_start_drag_filepaths(struct bContext *C, const char **filepaths, int amount)
 {
-	char **paths = MEM_malloc_arrayN(1, sizeof(char *), __func__);
-	paths[0] = BLI_strdup(filepath);
+	char **paths = MEM_malloc_arrayN(amount, sizeof(char *), __func__);
+	for (int i = 0; i < amount; i++) {
+		paths[i] = BLI_strdup(filepaths[i]);
+	}
 
 	wmDragData *drag_data = WM_drag_data_new();
 	drag_data->type = DRAG_DATA_FILEPATHS;
-	drag_data->data.filepaths.amount = 1;
+	drag_data->data.filepaths.amount = amount;
 	drag_data->data.filepaths.paths = paths;
 
 	start_dragging_data(C, drag_data);
 	return drag_data;
+}
+
+wmDragData *WM_event_start_drag_filepath(struct bContext *C, const char *filepath)
+{
+	return WM_event_start_drag_filepaths(C, &filepath, 1);
 }
 
 wmDragData *WM_event_start_drag_color(struct bContext *C, float color[3], bool gamma_corrected)
@@ -186,11 +193,6 @@ void WM_transfer_drag_data_ownership_to_event(struct wmWindowManager *wm, struct
 	wm->drag_operation = NULL;
 }
 
-static wmDropTarget *new_empty_drop_target(void)
-{
-	return MEM_callocN(sizeof(wmDropTarget), __func__);
-}
-
 wmDropTarget *WM_drop_target_new(
         const char *ot_idname, const char *tooltip,
         void (*set_properties)(struct wmDragData *, struct PointerRNA *))
@@ -216,16 +218,8 @@ wmDropTarget *WM_drop_target_new_ex(
 	return drop_target;
 }
 
-void set_props(wmDragData *drag_data, PointerRNA *ptr)
-{
-	RNA_string_set(ptr, "url", "www.blender.org");
-}
-
 wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, const wmEvent *event)
 {
-	if (event->shift) {
-		return WM_drop_target_new("WM_OT_url_open", "open url", set_props);
-	}
 	return NULL;
 }
 
