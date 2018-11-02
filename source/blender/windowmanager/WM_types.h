@@ -660,7 +660,7 @@ typedef enum wmDragFlags {
 
 /* note: structs need not exported? */
 
-/* DragData.type */
+/* wmDragData.type */
 enum DragDataType {
 	DRAG_DATA_ID,
 	DRAG_DATA_FILEPATHS,
@@ -669,14 +669,14 @@ enum DragDataType {
 	DRAG_DATA_RNA,
 	DRAG_DATA_NAME,
 };
-/* DragData.display_type */
+/* wmDragData.display_type */
 enum DragDisplayType {
 	DRAG_DISPLAY_NONE = 0,
 	DRAG_DISPLAY_ICON,
 	DRAG_DISPLAY_IMAGE,
 };
 
-typedef struct DragData {
+typedef struct wmDragData {
 	enum DragDataType type;
 	enum DragDisplayType display_type;
 	union {
@@ -702,21 +702,21 @@ typedef struct DragData {
 		} image;
 		int icon_id;
 	} display;
-} DragData;
+} wmDragData;
 
-typedef struct DropTarget {
+typedef struct wmDropTarget {
 	char *ot_idname;
 	char *tooltip;
 	short context;
 	bool free;
 	bool free_idname;
 	bool free_tooltip;
-	void (*set_properties)(struct DragData *, struct PointerRNA *);
-} DropTarget;
+	void (*set_properties)(struct wmDragData *, struct PointerRNA *);
+} wmDropTarget;
 
 typedef struct DragOperationData {
-	DragData *drag_data;
-	DropTarget *current_target;
+	wmDragData *drag_data;
+	wmDropTarget *current_target;
 } DragOperationData;
 
 /**

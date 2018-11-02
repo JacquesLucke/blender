@@ -1793,7 +1793,7 @@ static bool ui_but_drag_init(
 			}
 		}
 		else {
-			struct DragData *drag_data = NULL;
+			struct wmDragData *drag_data = NULL;
 			switch (but->dragtype) {
 				case WM_DRAG_ID:
 					drag_data = WM_event_start_drag_id(C, but->dragpoin);
@@ -2039,7 +2039,7 @@ static void ui_apply_but(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 /* only call if event type is EVT_DROP */
 static void ui_but_drop(bContext *C, const wmEvent *event, uiBut *but, uiHandleButtonData *data)
 {
-	DragData *drag_data = (DragData *)event->customdata;
+	wmDragData *drag_data = (wmDragData *)event->customdata;
 
 	if (drag_data->type == DRAG_DATA_ID) {
 		/* align these types with UI_but_active_drop_name */

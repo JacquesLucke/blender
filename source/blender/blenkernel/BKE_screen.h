@@ -60,8 +60,8 @@ struct WorkSpace;
 struct GPUFXSettings;
 struct wmMsgBus;
 struct ScrAreaMap;
-struct DragData;
-struct DropTarget;
+struct wmDragData;
+struct wmDropTarget;
 struct wmEvent;
 
 #include "BLI_compiler_attrs.h"
@@ -120,7 +120,7 @@ typedef struct SpaceType {
 	void (*space_subtype_item_extend)(struct bContext *C, EnumPropertyItem **item, int *totitem);
 
 	/* get drop target for data */
-	struct DropTarget *(*drop_target_get)(struct bContext *C, struct DragData *drag_data, const struct wmEvent *event);
+	struct wmDropTarget *(*drop_target_get)(struct bContext *C, struct wmDragData *drag_data, const struct wmEvent *event);
 
 	/* region type definitions */
 	ListBase regiontypes;

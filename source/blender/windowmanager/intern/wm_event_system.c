@@ -2390,8 +2390,8 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 					DragOperationData *drag_operation = (DragOperationData *)event->customdata;
 					WM_event_update_current_droptarget(C, drag_operation, event);
 					if (drag_operation && drag_operation->drag_data && drag_operation->current_target) {
-						DragData *drag_data = drag_operation->drag_data;
-						DropTarget *drop_target = drag_operation->current_target;
+						wmDragData *drag_data = drag_operation->drag_data;
+						wmDropTarget *drop_target = drag_operation->current_target;
 
 						wmOperatorType *ot = WM_operatortype_find(drop_target->ot_idname, false);
 						struct PointerRNA *ptr = NULL;

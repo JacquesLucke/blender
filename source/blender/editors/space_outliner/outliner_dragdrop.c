@@ -75,7 +75,7 @@
 
 #include "outliner_intern.h"
 
-DropTarget *outliner_drop_target_get(bContext *C, DragData *drag_data, const wmEvent *event)
+wmDropTarget *outliner_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *event)
 {
 	if (drag_data->type == DRAG_DATA_COLOR) {
 		return WM_drop_target_new("OBJECT_OT_add", "Hello World", NULL);

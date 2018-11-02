@@ -361,7 +361,7 @@ GHOST_WindowWin32::~GHOST_WindowWin32()
 		if (m_dropTarget) {
 			// Disable DragDrop
 			RevokeDragDrop(m_hWnd);
-			// Release our reference of the DropTarget and it will delete itself eventually.
+			// Release our reference of the wmDropTarget and it will delete itself eventually.
 			m_dropTarget->Release();
 		}
 		::SetWindowLongPtr(m_hWnd, GWLP_USERDATA, NULL);

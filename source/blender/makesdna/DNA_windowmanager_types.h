@@ -61,7 +61,7 @@ struct Report;
 struct uiLayout;
 struct Stereo3dFormat;
 struct UndoStep;
-struct DragData;
+struct wmDragData;
 
 #define OP_MAX_TYPENAME 64
 #define KMAP_MAX_NAME   64
