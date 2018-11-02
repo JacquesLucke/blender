@@ -1772,25 +1772,27 @@ static bool ui_but_drag_init(
 		else
 #endif
 		if (but->type == UI_BTYPE_COLOR) {
+			struct wmDragData *drag_data = NULL;
 			if (but->rnaprop && RNA_property_subtype(but->rnaprop) == PROP_COLOR_GAMMA) {
 				float color[3];
 				ui_but_v3_get(but, color);
-				WM_event_start_drag_color(C, color, true);
+				drag_data = WM_event_start_drag_color(C, color, true);
 			}
 			else if (but->rnaprop && RNA_property_subtype(but->rnaprop) == PROP_COLOR) {
 				float color[3];
 				ui_but_v3_get(but, color);
-				WM_event_start_drag_color(C, color, false);
+				drag_data = WM_event_start_drag_color(C, color, false);
 			}
 			else if (ELEM(but->pointype, UI_BUT_POIN_FLOAT, UI_BUT_POIN_CHAR)) {
 				float color[3];
 				copy_v3_v3(color, (float *)but->poin);
-				WM_event_start_drag_color(C, color, false);
+				drag_data = WM_event_start_drag_color(C, color, false);
 			}
 			else {
 				/* maybe more types are needed? */
 				BLI_assert(false);
 			}
+			WM_drag_set_display_color_derived(drag_data);
 		}
 		else {
 			struct wmDragData *drag_data = NULL;

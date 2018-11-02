@@ -491,6 +491,9 @@ void WM_transfer_drag_data_ownership_to_event(struct wmWindowManager *wm, struct
 struct wmDropTarget *WM_event_get_active_droptarget(struct bContext *C, struct  wmDragData *drag_data, const struct wmEvent *event);
 void WM_event_update_current_droptarget(struct bContext *C, struct DragOperationData *drag_operation, const struct wmEvent *event);
 
+void WM_event_drag_set_display_color(struct wmDragData *drag_data, float color[3]);
+void WM_drag_set_display_color_derived(struct wmDragData *drag_data);
+void WM_event_drag_set_display_icon(struct wmDragData *drag_data, int icon_id);
 void WM_event_drag_set_display_image(
         struct wmDragData *drag_data, struct ImBuf *imb,
         float scale, int width, int height);

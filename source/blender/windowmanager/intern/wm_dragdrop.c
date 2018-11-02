@@ -40,6 +40,7 @@
 #include "BLT_translation.h"
 
 #include "BLI_blenlib.h"
+#include "BLI_math_vector.h"
 
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
@@ -114,6 +115,8 @@ wmDragData *WM_event_start_drag_id(struct bContext *C, ID *id)
 
 wmDragData *WM_event_start_drag_filepaths(struct bContext *C, const char **filepaths, int amount)
 {
+	BLI_assert(amount > 0);
+
 	char **paths = MEM_malloc_arrayN(amount, sizeof(char *), __func__);
 	for (int i = 0; i < amount; i++) {
 		paths[i] = BLI_strdup(filepaths[i]);
@@ -137,7 +140,7 @@ wmDragData *WM_event_start_drag_color(struct bContext *C, float color[3], bool g
 {
 	wmDragData *drag_data = WM_drag_data_new();
 	drag_data->type = DRAG_DATA_COLOR;
-	memcpy(drag_data->data.color.color, color, sizeof(float) * 3);
+	copy_v3_v3(drag_data->data.color.color, color);
 	drag_data->data.color.gamma_corrected = gamma_corrected;
 
 	start_dragging_data(C, drag_data);
@@ -185,6 +188,24 @@ void WM_event_drag_set_display_image(
 	drag_data->display.image.height = height;
 }
 
+void WM_event_drag_set_display_icon(wmDragData *drag_data, int icon_id)
+{
+	drag_data->display_type = DRAG_DISPLAY_ICON;
+	drag_data->display.icon_id = icon_id;
+}
+
+void WM_event_drag_set_display_color(wmDragData *drag_data, float color[3])
+{
+	drag_data->display_type = DRAG_DISPLAY_COLOR;
+	copy_v3_v3(drag_data->display.color, color);
+}
+
+void WM_drag_set_display_color_derived(wmDragData *drag_data)
+{
+	BLI_assert(drag_data->type == DRAG_DATA_COLOR);
+	WM_event_drag_set_display_color(drag_data, drag_data->data.color.color);
+}
+
 void WM_transfer_drag_data_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event)
 {
 	event->custom = EVT_DATA_DRAGDROP;
@@ -218,9 +239,29 @@ wmDropTarget *WM_drop_target_new_ex(
 	return drop_target;
 }
 
-wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, const wmEvent *event)
+void drop_files_init(wmDragData *drag_data, PointerRNA *ptr)
 {
-	return NULL;
+	for (int i = 0; i < drag_data->data.filepaths.amount; i++) {
+		char *path = drag_data->data.filepaths.paths[i];
+		PointerRNA itemptr;
+		RNA_collection_add(ptr, "filepaths", &itemptr);
+		RNA_string_set(&itemptr, "name", path);
+	}
+}
+
+static wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, const wmEvent *event)
+{
+	wmDropTarget *drop_target = NULL;
+
+	if (!drop_target) {
+		drop_target = UI_drop_target_get(C, drag_data, event);
+	}
+
+	if (!drop_target && drag_data->type == DRAG_DATA_FILEPATHS) {
+		drop_target = WM_drop_target_new("WM_OT_drop_files", "", drop_files_init);
+	}
+
+	return drop_target;
 }
 
 wmDropTarget *WM_event_get_active_droptarget(bContext *C, wmDragData *drag_data, const wmEvent *event)
@@ -261,8 +302,22 @@ void wm_draw_drag_data(bContext *UNUSED(C), wmWindow *win, DragOperationData *dr
 	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
 	const uchar text_col[] = {255, 255, 255, 255};
 
+	glEnable(GL_BLEND);
+
 	if (drop_target && drop_target->tooltip) {
 		UI_fontstyle_draw_simple(fstyle, cursorx, cursory, drop_target->tooltip, text_col);
 	}
+
+	if (drag_data->display_type == DRAG_DISPLAY_ICON) {
+		UI_icon_draw(cursorx, cursory, drag_data->display.icon_id);
+	}
+	else if (drag_data->display_type == DRAG_DISPLAY_COLOR) {
+		float color[4];
+		copy_v3_v3(color, drag_data->display.color);
+		color[3] = 1.0f;
+		UI_draw_roundbox_4fv(true, cursorx - 5, cursory - 5, cursorx + 5, cursory + 5, 2, color);
+	}
+
+	glDisable(GL_BLEND);
 }
 

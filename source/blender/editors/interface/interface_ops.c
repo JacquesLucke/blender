@@ -1454,6 +1454,84 @@ static void UI_OT_button_execute(wmOperatorType *ot)
 }
 
 
+static int drop_color_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	ARegion *ar = CTX_wm_region(C);
+	uiBut *but = NULL;
+	float color[4];
+	bool gamma_corrected;
+
+	RNA_float_get_array(op->ptr, "color", color);
+	gamma_corrected = RNA_boolean_get(op->ptr, "gamma_corrected");
+
+	/* find button under mouse, check if it has RNA color property and
+	 * if it does copy the data */
+	but = ui_but_find_active_in_region(ar);
+
+	if (but && but->type == UI_BTYPE_COLOR && but->rnaprop) {
+		const int color_len = RNA_property_array_length(&but->rnapoin, but->rnaprop);
+		BLI_assert(color_len <= 4);
+
+		/* keep alpha channel as-is */
+		if (color_len == 4) {
+			color[3] = RNA_property_float_get_index(&but->rnapoin, but->rnaprop, 3);
+		}
+
+		if (RNA_property_subtype(but->rnaprop) == PROP_COLOR_GAMMA) {
+			if (!gamma_corrected)
+				ui_block_cm_to_display_space_v3(but->block, color);
+			RNA_property_float_set_array(&but->rnapoin, but->rnaprop, color);
+			RNA_property_update(C, &but->rnapoin, but->rnaprop);
+		}
+		else if (RNA_property_subtype(but->rnaprop) == PROP_COLOR) {
+			if (gamma_corrected)
+				ui_block_cm_to_scene_linear_v3(but->block, color);
+			RNA_property_float_set_array(&but->rnapoin, but->rnaprop, color);
+			RNA_property_update(C, &but->rnapoin, but->rnaprop);
+		}
+	}
+	else {
+		if (gamma_corrected) {
+			srgb_to_linearrgb_v3_v3(color, color);
+		}
+
+		ED_imapaint_bucket_fill(C, color, op);
+	}
+
+	ED_region_tag_redraw(ar);
+
+	return OPERATOR_FINISHED;
+}
+
+static void drop_color_set_properties(wmDragData *drag_data, PointerRNA *ptr)
+{
+	RNA_float_set_array(ptr, "color", drag_data->data.color.color);
+	RNA_boolean_set(ptr, "gamma_corrected", drag_data->data.color.gamma_corrected);
+}
+
+static void UI_OT_drop_color(wmOperatorType *ot)
+{
+	ot->name = "Drop Color";
+	ot->idname = "UI_OT_drop_color";
+	ot->description = "Drop colors to buttons";
+
+	ot->invoke = drop_color_invoke;
+	ot->flag = OPTYPE_INTERNAL;
+
+	RNA_def_float_color(ot->srna, "color", 3, NULL, 0.0, FLT_MAX, "Color", "Source color", 0.0, 1.0);
+	RNA_def_boolean(ot->srna, "gamma_corrected", 0, "Gamma Corrected", "The source color is gamma corrected ");
+}
+
+wmDropTarget *UI_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *event)
+{
+	if (drag_data->type == DRAG_DATA_COLOR) {
+		if (UI_but_active_drop_color(C)) {
+			return WM_drop_target_new("UI_OT_drop_color", "drop color", drop_color_set_properties);
+		}
+	}
+	return NULL;
+}
+
 /* ********************************************************* */
 /* Registration */
 
@@ -1469,6 +1547,7 @@ void ED_operatortypes_ui(void)
 	WM_operatortype_append(UI_OT_copy_to_selected_button);
 	WM_operatortype_append(UI_OT_jump_to_target_button);
 	WM_operatortype_append(UI_OT_reports_to_textblock);  /* XXX: temp? */
+	WM_operatortype_append(UI_OT_drop_color);
 #ifdef WITH_PYTHON
 	WM_operatortype_append(UI_OT_editsource);
 	WM_operatortype_append(UI_OT_edittranslation_init);

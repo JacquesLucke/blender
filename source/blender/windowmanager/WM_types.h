@@ -674,6 +674,7 @@ enum DragDisplayType {
 	DRAG_DISPLAY_NONE = 0,
 	DRAG_DISPLAY_ICON,
 	DRAG_DISPLAY_IMAGE,
+	DRAG_DISPLAY_COLOR,
 };
 
 typedef struct wmDragData {
@@ -701,6 +702,7 @@ typedef struct wmDragData {
 			int height;
 		} image;
 		int icon_id;
+		float color[3];
 	} display;
 } wmDragData;
 

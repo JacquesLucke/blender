@@ -2761,6 +2761,33 @@ class WM_OT_drop_blend_file(Operator):
         col.operator("wm.link", text="Link...", icon='LINK_BLEND').filepath = self.filepath
         col.operator("wm.append", text="Append...", icon='APPEND_BLEND').filepath = self.filepath
 
+
+class WM_OT_drop_files(Operator):
+    bl_idname = "wm.drop_files"
+    bl_label = "Handle dropped files"
+    bl_options = {'INTERNAL'}
+
+    filepaths: CollectionProperty(type=OperatorFileListElement)
+
+    def invoke(self, context, event):
+        paths = [element.name for element in self.filepaths]
+
+        if len(paths) == 1:
+            if self.handle_single_file(paths[0]):
+                return {'FINISHED'}
+
+        self.handle_multiple_files(paths)
+        return {'FINISHED'}
+
+    def handle_single_file(self, path):
+        if path.lower().endswith(".blend"):
+            bpy.ops.wm.drop_blend_file('INVOKE_DEFAULT', filepath=path)
+            return True
+        return False
+
+    def handle_multiple_files(self, paths):
+        pass
+
 classes = (
     WM_OT_addon_disable,
     WM_OT_addon_enable,
@@ -2821,4 +2848,5 @@ classes = (
     WM_OT_tool_set_by_name,
     WM_OT_toolbar,
     WM_MT_splash,
+    WM_OT_drop_files,
 )
