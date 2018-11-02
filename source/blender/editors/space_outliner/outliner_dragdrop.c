@@ -95,8 +95,57 @@ static ListBase *get_selected_elements(SpaceOops *soops)
 	return elements;
 }
 
+static ID *get_id_from_tree_element(TreeElement *te)
+{
+	TreeElementIcon data = tree_element_get_icon(TREESTORE(te), te);
+	return data.drag_id;
+}
+
+static bool has_selected_parent(TreeElement *te)
+{
+	for (TreeElement *te_parent = te->parent; te_parent; te_parent = te_parent->parent) {
+		if (outliner_is_collection_tree_element(te_parent)) {
+			if (TREESTORE(te_parent)->flag & TSE_SELECTED) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+static Collection *find_parent_collection(bContext *C, TreeElement *te)
+{
+	for (TreeElement *te_parent = te->parent; te_parent; te_parent = te_parent->parent) {
+		if (outliner_is_collection_tree_element(te_parent)) {
+			return outliner_collection_from_tree_element(te_parent);
+		}
+	}
+	return BKE_collection_master(CTX_data_scene(C));
+}
+
 
 /* ************* Start Dragging ************** */
+
+static void init_drag_collection_children(bContext *C, ListBase *selected_tree_elements)
+{
+	ListBase *collection_children = MEM_callocN(sizeof(ListBase), __func__);
+
+	LISTBASE_FOREACH (LinkData *, link, selected_tree_elements) {
+		TreeElement *te = (TreeElement *)link->data;
+		ID *id = get_id_from_tree_element(te);
+		if (!id) continue;
+		if (has_selected_parent(te)) continue;
+		Collection *parent = find_parent_collection(C, te);
+
+		wmDragCollectionChild *collection_child = MEM_callocN(sizeof(wmDragCollectionChild), __func__);
+		collection_child->id = id;
+		collection_child->parent = parent;
+
+		BLI_addtail(collection_children, collection_child);
+	}
+
+	WM_drag_start_collection_children(C, collection_children);
+}
 
 static int outliner_drag_init_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
@@ -115,6 +164,14 @@ static int outliner_drag_init_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	}
 
 	ListBase *elements = get_selected_elements(soops);
+
+	if (soops->outlinevis && (soops->filter & SO_FILTER_NO_COLLECTION) == 0) {
+		init_drag_collection_children(C, elements);
+	}
+
+	BLI_freelistN(elements);
+
+	ED_area_tag_redraw(CTX_wm_area(C));
 
 	return OPERATOR_FINISHED;
 }
