@@ -381,12 +381,12 @@ static void text_insert_drop_init(wmDragData *drag_data, PointerRNA *ptr)
 	MEM_freeN(text);
 }
 
-wmDropTarget *text_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
+static wmDropTarget *text_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_path_maybe_text(drag_data)) {
 		return WM_drop_target_new("TEXT_OT_open", "Open File", WM_drop_init_single_filepath);
 	}
-	if (WM_drag_query_single_id(drag_data)) {
+	if (CTX_data_edit_text(C) && WM_drag_query_single_id(drag_data)) {
 		return WM_drop_target_new("TEXT_OT_insert", "Insert Path", text_insert_drop_init);
 	}
 	return NULL;
