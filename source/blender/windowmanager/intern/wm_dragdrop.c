@@ -218,7 +218,7 @@ DropTarget *WM_drop_target_new_ex(
 
 void set_props(DragData *drag_data, PointerRNA *ptr)
 {
-	RNA_property_string_set(ptr, "url", "www.blender.org");
+	RNA_string_set(ptr, "url", "www.blender.org");
 }
 
 DropTarget *get_window_drop_target(bContext *C, DragData *drag_data, const wmEvent *event)
