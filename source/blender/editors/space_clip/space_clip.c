@@ -1227,7 +1227,7 @@ static void clip_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID 
 	}
 }
 
-static void clip_drop_file_init(wmDragData *drag_data, PointerRNA *ptr)
+static void drop_init__open_file(wmDragData *drag_data, PointerRNA *ptr)
 {
 	const char *path = WM_drag_query_single_path_image_or_movie(drag_data);
 	char dir[FILE_MAX], file[FILE_MAX];
@@ -1245,7 +1245,7 @@ static void clip_drop_file_init(wmDragData *drag_data, PointerRNA *ptr)
 static wmDropTarget *clip_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_path_image_or_movie(drag_data)) {
-		return WM_drop_target_new("CLIP_OT_open", "Open File", clip_drop_file_init);
+		return WM_drop_target_new("CLIP_OT_open", "Open File", drop_init__open_file);
 	}
 	return NULL;
 }

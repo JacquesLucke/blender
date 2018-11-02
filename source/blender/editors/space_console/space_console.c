@@ -264,7 +264,7 @@ static void console_main_region_listener(
 	}
 }
 
-static void console_drop_id_init(wmDragData *drag_data, PointerRNA *ptr)
+static void drop_init__insert_id_path(wmDragData *drag_data, PointerRNA *ptr)
 {
 	ID *id = WM_drag_query_single_id(drag_data);
 	char *text = RNA_path_full_ID_py(id);
@@ -275,7 +275,7 @@ static void console_drop_id_init(wmDragData *drag_data, PointerRNA *ptr)
 wmDropTarget *console_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_id(drag_data)) {
-		return WM_drop_target_new("CONSOLE_OT_insert", "Insert", console_drop_id_init);
+		return WM_drop_target_new("CONSOLE_OT_insert", "Insert", drop_init__insert_id_path);
 	}
 	return NULL;
 }

@@ -373,7 +373,7 @@ static void text_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID 
 	}
 }
 
-static void text_insert_drop_init(wmDragData *drag_data, PointerRNA *ptr)
+static void drop_init__insert_id_path(wmDragData *drag_data, PointerRNA *ptr)
 {
 	ID *id = WM_drag_query_single_id(drag_data);
 	char *text = RNA_path_full_ID_py(id);
@@ -387,7 +387,7 @@ static wmDropTarget *text_drop_target_get(bContext *C, wmDragData *drag_data, co
 		return WM_drop_target_new("TEXT_OT_open", "Open File", WM_drop_init_single_filepath);
 	}
 	if (CTX_data_edit_text(C) && WM_drag_query_single_id(drag_data)) {
-		return WM_drop_target_new("TEXT_OT_insert", "Insert Path", text_insert_drop_init);
+		return WM_drop_target_new("TEXT_OT_insert", "Insert Path", drop_init__insert_id_path);
 	}
 	return NULL;
 }
