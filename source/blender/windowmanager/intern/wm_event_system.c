@@ -2802,8 +2802,7 @@ static void wm_event_drag_test(wmWindowManager *wm, wmWindow *win, wmEvent *even
 		screen->do_draw_drag = true;
 	}
 	else if (event->type == ESCKEY) {
-		WM_drag_operation_free(wm->drag_operation);
-		wm->drag_operation = NULL;
+		WM_drag_stop(wm);
 		screen->do_draw_drag = true;
 	}
 	else if (event->type == LEFTMOUSE && event->val == KM_RELEASE) {

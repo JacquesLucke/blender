@@ -106,11 +106,20 @@ void WM_drag_operation_free(wmDragOperation *drag_operation)
 	}
 }
 
+void WM_drag_stop(wmWindowManager *wm)
+{
+	if (wm->drag_operation) {
+		WM_drag_operation_free(wm->drag_operation);
+		wm->drag_operation = NULL;
+	}
+}
+
 /* ********************* Start Dragging ********************* */
 
 static void start_dragging_data(struct bContext *C, wmDragData *drag_data)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
+	WM_drag_stop(wm);
 	wm->drag_operation = MEM_callocN(sizeof(wmDragOperation), __func__);
 	wm->drag_operation->drag_data = drag_data;
 	wm->drag_operation->current_target = NULL;
@@ -189,6 +198,16 @@ wmDragData *WM_drag_start_name(struct bContext *C, const char *name)
 	wmDragData *drag_data = WM_drag_data_new();
 	drag_data->type = DRAG_DATA_NAME;
 	drag_data->data.name = BLI_strdup(name);
+
+	start_dragging_data(C, drag_data);
+	return drag_data;
+}
+
+wmDragData *WM_drag_start_collection_children(struct bContext *C, ListBase *collection_children)
+{
+	wmDragData *drag_data = WM_drag_data_new();
+	drag_data->type = DRAG_DATA_COLLECTION_CHILDREN;
+	drag_data->data.collection_children = collection_children;
 
 	start_dragging_data(C, drag_data);
 	return drag_data;

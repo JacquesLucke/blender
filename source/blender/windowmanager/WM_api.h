@@ -501,6 +501,7 @@ void WM_drag_display_set_image(
 void WM_drag_data_free(struct wmDragData *drag);
 void WM_drop_target_free(struct wmDropTarget *drop_target);
 void WM_drag_operation_free(struct wmDragOperation *drag_operation);
+void WM_drag_stop(wmWindowManager *wm);
 
 struct Collection *WM_drag_query_single_collection(struct wmDragData *drag_data);
 
