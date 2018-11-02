@@ -177,6 +177,17 @@ wmDragData *WM_drag_start_name(struct bContext *C, const char *name)
 	return drag_data;
 }
 
+wmDragData *WM_drag_start_tree_elements(struct bContext *C, ListBase *elements)
+{
+	wmDragData *drag_data = WM_drag_data_new();
+	drag_data->type = DRAG_DATA_TREE_ELEMENTS;
+	drag_data->data.tree_elements.list = elements;
+	drag_data->data.tree_elements.amount = BLI_listbase_count(elements);
+
+	start_dragging_data(C, drag_data);
+	return drag_data;
+}
+
 void WM_drag_display_set_image(
         wmDragData *drag_data, ImBuf *imb,
         float scale, int width, int height)
@@ -239,7 +250,7 @@ wmDropTarget *WM_drop_target_new_ex(
 	return drop_target;
 }
 
-void drop_files_init(wmDragData *drag_data, PointerRNA *ptr)
+static void drop_files_init(wmDragData *drag_data, PointerRNA *ptr)
 {
 	for (int i = 0; i < drag_data->data.filepaths.amount; i++) {
 		char *path = drag_data->data.filepaths.paths[i];
@@ -289,8 +300,7 @@ void WM_drag_update_current_target(bContext *C, wmDragOperation *drag_operation,
 
 
 
-/* Find Current Target
-/***************************************/
+/* ****************** Find Current Target ****************** */
 
 static wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, const wmEvent *event)
 {
@@ -302,6 +312,10 @@ static wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, 
 
 	if (!drop_target && drag_data->type == DRAG_DATA_FILEPATHS) {
 		drop_target = WM_drop_target_new("WM_OT_drop_files", "", drop_files_init);
+	}
+
+	if (!drop_target && drag_data->type == DRAG_DATA_TREE_ELEMENTS) {
+		drop_target = WM_drop_target_new("sdfasd", BLI_sprintfN("Dragging %d elements", drag_data->data.tree_elements.amount), NULL);
 	}
 
 	return drop_target;

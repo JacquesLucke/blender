@@ -653,13 +653,6 @@ typedef void (*wmPaintCursorDraw)(struct bContext *C, int, int, void *customdata
 #define WM_DRAG_VALUE	4
 #define WM_DRAG_COLOR	5
 
-typedef enum wmDragFlags {
-	WM_DRAG_NOP         = 0,
-	WM_DRAG_FREE_DATA   = 1,
-} wmDragFlags;
-
-/* note: structs need not exported? */
-
 /* wmDragData.type */
 enum DragDataType {
 	DRAG_DATA_ID,
@@ -668,6 +661,7 @@ enum DragDataType {
 	DRAG_DATA_VALUE,
 	DRAG_DATA_RNA,
 	DRAG_DATA_NAME,
+	DRAG_DATA_TREE_ELEMENTS,
 };
 /* wmDragData.display_type */
 enum DragDisplayType {
@@ -693,6 +687,10 @@ typedef struct wmDragData {
 		double value;
 		struct PointerRNA *rna;
 		char *name;
+		struct {
+			ListBase *list;
+			int amount;
+		} tree_elements;
 	} data;
 	union {
 		struct {

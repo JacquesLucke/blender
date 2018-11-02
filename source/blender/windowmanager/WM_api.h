@@ -486,6 +486,7 @@ struct wmDragData *WM_drag_start_color(struct bContext *C, float color[3], bool 
 struct wmDragData *WM_drag_start_value(struct bContext *C, double value);
 struct wmDragData *WM_drag_start_rna(struct bContext *C, struct PointerRNA *rna);
 struct wmDragData *WM_drag_start_name(struct bContext *C, const char *name);
+struct wmDragData *WM_drag_start_tree_elements(struct bContext *C, struct ListBase *elements);
 
 void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event);
 struct wmDropTarget *WM_drag_find_current_target(struct bContext *C, struct  wmDragData *drag_data, const struct wmEvent *event);

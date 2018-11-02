@@ -75,11 +75,54 @@
 
 #include "outliner_intern.h"
 
+static TreeElement *outliner_find_element_under_mouse(SpaceOops *soops, ARegion *ar, const wmEvent *event)
+{
+	const float mouse_y = UI_view2d_region_to_view_y(&ar->v2d, event->mval[1]);
+	return outliner_find_item_at_y(soops, &soops->tree, mouse_y);
+}
+
+static TreeTraversalAction traverse_visit_insert_list(TreeElement *te, void *customdata)
+{
+	ListBase *selected_elements = (ListBase *)customdata;
+	BLI_addtail(selected_elements, BLI_genericNodeN(te));
+	return TRAVERSE_CONTINUE;
+}
+
+static ListBase *get_selected_elements(SpaceOops *soops)
+{
+	ListBase *elements = MEM_callocN(sizeof(ListBase), __func__);
+	outliner_tree_traverse(soops, &soops->tree, 0, TSE_SELECTED, traverse_visit_insert_list, elements);
+	return elements;
+}
+
+static int get_tree_element_id_type(TreeElement *te)
+{
+	TreeElementIcon data = tree_element_get_icon(TREESTORE(te), te);
+	if (!data.drag_id) return -1;
+	return GS(data.drag_id->name);
+}
+
 /* ************* Start Dragging ************** */
 
 static int outliner_drag_init_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
-	printf("hello\n");
+	ARegion *ar = CTX_wm_region(C);
+	SpaceOops *soops = CTX_wm_space_outliner(C);
+	TreeElement *te = outliner_find_element_under_mouse(soops, ar, event);
+
+	if (!te) {
+		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+	}
+
+	/* Only drag element under mouse if it was not selected before. */
+	if ((TREESTORE(te)->flag & TSE_SELECTED) == 0) {
+		outliner_flag_set(&soops->tree, TSE_SELECTED, 0);
+		TREESTORE(te)->flag |= TSE_SELECTED;
+	}
+
+	ListBase *elements = get_selected_elements(soops);
+	WM_drag_start_tree_elements(C, elements);
+
 	return OPERATOR_FINISHED;
 }
 
