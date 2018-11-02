@@ -141,7 +141,7 @@ static void init_drag_collection_children(bContext *C, ListBase *selected_tree_e
 		collection_child->id = id;
 		collection_child->parent = parent;
 
-		BLI_addtail(collection_children, collection_child);
+		BLI_addtail(collection_children, BLI_genericNodeN(collection_child));
 	}
 
 	WM_drag_start_collection_children(C, collection_children);

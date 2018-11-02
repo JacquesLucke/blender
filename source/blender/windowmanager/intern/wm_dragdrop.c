@@ -276,15 +276,30 @@ wmDropTarget *WM_drop_target_new_ex(
 
 /* ********************* Query Drag Data ********************* */
 
-Collection *WM_drag_query_single_collection(wmDragData *drag_data)
+ID *WM_drag_query_single_id(wmDragData *drag_data)
 {
 	if (drag_data->type == DRAG_DATA_ID) {
-		ID *id = drag_data->data.id;
-		if (GS(id->name) == ID_GR) {
-			return (Collection *)id;
+		return drag_data->data.id;
+	}
+	else if (drag_data->type == DRAG_DATA_COLLECTION_CHILDREN) {
+		ListBase *list = drag_data->data.collection_children;
+		if (BLI_listbase_is_single(list)) {
+			return (ID *)((wmDragCollectionChild *)((LinkData *)list->first)->data)->id;
 		}
 	}
 	return NULL;
+}
+
+ID *WM_drag_query_single_specific_id(wmDragData *drag_data, int idtype)
+{
+	ID *id = WM_drag_query_single_id(drag_data);
+	if (id && GS(id->name) == idtype) return id;
+	return NULL;
+}
+
+Collection *WM_drag_query_single_collection(wmDragData *drag_data)
+{
+	return (Collection *)WM_drag_query_single_specific_id(drag_data, ID_GR);
 }
 
 
@@ -351,8 +366,9 @@ static wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, 
 
 wmDropTarget *WM_drag_find_current_target(bContext *C, wmDragData *drag_data, const wmEvent *event)
 {
-	wmWindow *win = CTX_wm_window(C);
+	//wmWindow *win = CTX_wm_window(C);
 	ScrArea *sa = CTX_wm_area(C);
+	if (!sa) return NULL;
 	SpaceType *st = sa->type;
 
 	wmDropTarget *drop_target = NULL;
