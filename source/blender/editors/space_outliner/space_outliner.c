@@ -87,10 +87,6 @@ static void outliner_main_region_init(wmWindowManager *wm, ARegion *ar)
 	keymap = WM_keymap_ensure(wm->defaultconf, "Outliner", SPACE_OUTLINER, 0);
 	/* don't pass on view2d mask, it's always set with scrollbar space, hide fails */
 	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, NULL, &ar->winrct);
-
-	/* Add dropboxes */
-	lb = WM_dropboxmap_find("Outliner", SPACE_OUTLINER, RGN_TYPE_WINDOW);
-	WM_event_add_dropbox_handler(&ar->handlers, lb);
 }
 
 static void outliner_main_region_draw(const bContext *C, ARegion *ar)
@@ -392,7 +388,6 @@ void ED_spacetype_outliner(void)
 	st->duplicate = outliner_duplicate;
 	st->operatortypes = outliner_operatortypes;
 	st->keymap = outliner_keymap;
-	st->dropboxes = outliner_dropboxes;
 	st->id_remap = outliner_id_remap;
 
 	/* regions: main window */

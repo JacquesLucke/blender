@@ -597,30 +597,6 @@ static void file_ui_region_listener(
 	}
 }
 
-static bool filepath_drop_poll(bContext *C, wmDrag *drag, const wmEvent *UNUSED(event), const char **UNUSED(tooltip))
-{
-	if (drag->type == WM_DRAG_PATH) {
-		SpaceFile *sfile = CTX_wm_space_file(C);
-		if (sfile) {
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static void filepath_drop_copy(wmDrag *drag, wmDropBox *drop)
-{
-	RNA_string_set(drop->ptr, "filepath", drag->path);
-}
-
-/* region dropbox definition */
-static void file_dropboxes(void)
-{
-	ListBase *lb = WM_dropboxmap_find("Window", SPACE_EMPTY, RGN_TYPE_WINDOW);
-
-	WM_dropbox_add(lb, "FILE_OT_filepath_drop", filepath_drop_poll, filepath_drop_copy);
-}
-
 /* only called once, from space/spacetypes.c */
 void ED_spacetype_file(void)
 {
@@ -639,7 +615,6 @@ void ED_spacetype_file(void)
 	st->listener = file_listener;
 	st->operatortypes = file_operatortypes;
 	st->keymap = file_keymap;
-	st->dropboxes = file_dropboxes;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype file region");

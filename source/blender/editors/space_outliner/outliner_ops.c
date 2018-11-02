@@ -65,7 +65,6 @@ void outliner_operatortypes(void)
 	WM_operatortype_append(OUTLINER_OT_select_box);
 	WM_operatortype_append(OUTLINER_OT_item_openclose);
 	WM_operatortype_append(OUTLINER_OT_item_rename);
-	WM_operatortype_append(OUTLINER_OT_item_drag_drop);
 	WM_operatortype_append(OUTLINER_OT_operation);
 	WM_operatortype_append(OUTLINER_OT_scene_operation);
 	WM_operatortype_append(OUTLINER_OT_object_operation);
@@ -95,12 +94,6 @@ void outliner_operatortypes(void)
 	WM_operatortype_append(OUTLINER_OT_drivers_delete_selected);
 
 	WM_operatortype_append(OUTLINER_OT_orphans_purge);
-
-	WM_operatortype_append(OUTLINER_OT_parent_drop);
-	WM_operatortype_append(OUTLINER_OT_parent_clear);
-	WM_operatortype_append(OUTLINER_OT_scene_drop);
-	WM_operatortype_append(OUTLINER_OT_material_drop);
-	WM_operatortype_append(OUTLINER_OT_collection_drop);
 
 	/* collections */
 	WM_operatortype_append(OUTLINER_OT_collection_new);

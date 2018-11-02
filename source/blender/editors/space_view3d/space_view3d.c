@@ -455,7 +455,6 @@ static SpaceLink *view3d_duplicate(SpaceLink *sl)
 /* add handlers, stuff you only do once or on area/region changes */
 static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 {
-	ListBase *lb;
 	wmKeyMap *keymap;
 
 	/* object ops. */
@@ -530,12 +529,6 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 
 	keymap = WM_keymap_ensure(wm->defaultconf, "3D View", SPACE_VIEW3D, 0);
 	WM_event_add_keymap_handler(&ar->handlers, keymap);
-
-	/* add drop boxes */
-	lb = WM_dropboxmap_find("View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW);
-
-	WM_event_add_dropbox_handler(&ar->handlers, lb);
-
 }
 
 static void view3d_main_region_exit(wmWindowManager *wm, ARegion *ar)
@@ -550,110 +543,6 @@ static void view3d_main_region_exit(wmWindowManager *wm, ARegion *ar)
 	}
 }
 
-static bool view3d_ob_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *UNUSED(event), const char **UNUSED(tooltip))
-{
-	return WM_drag_ID(drag, ID_OB) != NULL;
-}
-
-static bool view3d_collection_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *UNUSED(event), const char **UNUSED(tooltip))
-{
-	return WM_drag_ID(drag, ID_GR) != NULL;
-}
-
-static bool view3d_mat_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *UNUSED(event), const char **UNUSED(tooltip))
-{
-	return WM_drag_ID(drag, ID_MA) != NULL;
-}
-
-static bool view3d_ima_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *UNUSED(event), const char **UNUSED(tooltip))
-{
-	if (drag->type == WM_DRAG_PATH) {
-		return (ELEM(drag->icon, 0, ICON_FILE_IMAGE, ICON_FILE_MOVIE));   /* rule might not work? */
-	}
-	else {
-		return WM_drag_ID(drag, ID_IM) != NULL;
-	}
-}
-
-static bool view3d_ima_bg_is_camera_view(bContext *C)
-{
-	RegionView3D *rv3d = CTX_wm_region_view3d(C);
-	if ((rv3d && (rv3d->persp == RV3D_CAMOB))) {
-		View3D *v3d = CTX_wm_view3d(C);
-		if (v3d && v3d->camera && v3d->camera->type == OB_CAMERA) {
-			return true;
-		}
-	}
-	return false;
-}
-
-static bool view3d_ima_bg_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event, const char **tooltip)
-{
-	if (!view3d_ima_drop_poll(C, drag, event, tooltip)) {
-		return false;
-	}
-
-	if (ED_view3d_is_object_under_cursor(C, event->mval)) {
-		return false;
-	}
-
-	return view3d_ima_bg_is_camera_view(C);
-}
-
-static bool view3d_ima_empty_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event, const char **tooltip)
-{
-	if (!view3d_ima_drop_poll(C, drag, event, tooltip)) {
-		return false;
-	}
-
-	Object *ob = ED_view3d_give_object_under_cursor(C, event->mval);
-
-	if (ob == NULL) {
-		return true;
-	}
-
-	if (ob->type == OB_EMPTY && ob->empty_drawtype == OB_EMPTY_IMAGE) {
-		return true;
-	}
-
-	return false;
-}
-
-static void view3d_ob_drop_copy(wmDrag *drag, wmDropBox *drop)
-{
-	ID *id = WM_drag_ID(drag, ID_OB);
-
-	RNA_string_set(drop->ptr, "name", id->name + 2);
-}
-
-static void view3d_collection_drop_copy(wmDrag *drag, wmDropBox *drop)
-{
-	ID *id = WM_drag_ID(drag, ID_GR);
-
-	drop->opcontext = WM_OP_EXEC_DEFAULT;
-	RNA_string_set(drop->ptr, "name", id->name + 2);
-}
-
-static void view3d_id_drop_copy(wmDrag *drag, wmDropBox *drop)
-{
-	ID *id = WM_drag_ID(drag, 0);
-
-	RNA_string_set(drop->ptr, "name", id->name + 2);
-}
-
-static void view3d_id_path_drop_copy(wmDrag *drag, wmDropBox *drop)
-{
-	ID *id = WM_drag_ID(drag, 0);
-
-	if (id) {
-		RNA_string_set(drop->ptr, "name", id->name + 2);
-		RNA_struct_property_unset(drop->ptr, "filepath");
-	}
-	else if (drag->path[0]) {
-		RNA_string_set(drop->ptr, "filepath", drag->path);
-		RNA_struct_property_unset(drop->ptr, "image");
-	}
-}
 
 static void view3d_lightcache_update(bContext *C)
 {
@@ -673,18 +562,6 @@ static void view3d_lightcache_update(bContext *C)
 	WM_operator_name_call(C, "SCENE_OT_light_cache_bake", WM_OP_INVOKE_DEFAULT, &op_ptr);
 
 	WM_operator_properties_free(&op_ptr);
-}
-
-/* region dropbox definition */
-static void view3d_dropboxes(void)
-{
-	ListBase *lb = WM_dropboxmap_find("View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW);
-
-	WM_dropbox_add(lb, "OBJECT_OT_add_named", view3d_ob_drop_poll, view3d_ob_drop_copy);
-	WM_dropbox_add(lb, "OBJECT_OT_drop_named_material", view3d_mat_drop_poll, view3d_id_drop_copy);
-	WM_dropbox_add(lb, "VIEW3D_OT_background_image_add", view3d_ima_bg_drop_poll, view3d_id_path_drop_copy);
-	WM_dropbox_add(lb, "OBJECT_OT_drop_named_image", view3d_ima_empty_drop_poll, view3d_id_path_drop_copy);
-	WM_dropbox_add(lb, "OBJECT_OT_collection_instance_add", view3d_collection_drop_poll, view3d_collection_drop_copy);
 }
 
 static void view3d_widgets(void)
@@ -1466,7 +1343,6 @@ void ED_spacetype_view3d(void)
 	st->duplicate = view3d_duplicate;
 	st->operatortypes = view3d_operatortypes;
 	st->keymap = view3d_keymap;
-	st->dropboxes = view3d_dropboxes;
 	st->gizmos = view3d_widgets;
 	st->context = view3d_context;
 	st->id_remap = view3d_id_remap;

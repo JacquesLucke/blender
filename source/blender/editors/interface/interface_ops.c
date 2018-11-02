@@ -1453,98 +1453,6 @@ static void UI_OT_button_execute(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "skip_depressed", 0, "Skip Depressed", "");
 }
 
-bool UI_drop_color_poll(struct bContext *C, wmDrag *drag, const wmEvent *UNUSED(event), const char **UNUSED(tooltip))
-{
-	/* should only return true for regions that include buttons, for now
-	 * return true always */
-	if (drag->type == WM_DRAG_COLOR) {
-		SpaceImage *sima = CTX_wm_space_image(C);
-		ARegion *ar = CTX_wm_region(C);
-
-		if (UI_but_active_drop_color(C))
-			return 1;
-
-		if (sima && (sima->mode == SI_MODE_PAINT) &&
-		    sima->image && (ar && ar->regiontype == RGN_TYPE_WINDOW))
-		{
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-void UI_drop_color_copy(wmDrag *drag, wmDropBox *drop)
-{
-	uiDragColorHandle *drag_info = drag->poin;
-
-	RNA_float_set_array(drop->ptr, "color", drag_info->color);
-	RNA_boolean_set(drop->ptr, "gamma", drag_info->gamma_corrected);
-}
-
-static int drop_color_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
-{
-	ARegion *ar = CTX_wm_region(C);
-	uiBut *but = NULL;
-	float color[4];
-	bool gamma;
-
-	RNA_float_get_array(op->ptr, "color", color);
-	gamma = RNA_boolean_get(op->ptr, "gamma");
-
-	/* find button under mouse, check if it has RNA color property and
-	 * if it does copy the data */
-	but = ui_but_find_active_in_region(ar);
-
-	if (but && but->type == UI_BTYPE_COLOR && but->rnaprop) {
-		const int color_len = RNA_property_array_length(&but->rnapoin, but->rnaprop);
-		BLI_assert(color_len <= 4);
-
-		/* keep alpha channel as-is */
-		if (color_len == 4) {
-			color[3] = RNA_property_float_get_index(&but->rnapoin, but->rnaprop, 3);
-		}
-
-		if (RNA_property_subtype(but->rnaprop) == PROP_COLOR_GAMMA) {
-			if (!gamma)
-				ui_block_cm_to_display_space_v3(but->block, color);
-			RNA_property_float_set_array(&but->rnapoin, but->rnaprop, color);
-			RNA_property_update(C, &but->rnapoin, but->rnaprop);
-		}
-		else if (RNA_property_subtype(but->rnaprop) == PROP_COLOR) {
-			if (gamma)
-				ui_block_cm_to_scene_linear_v3(but->block, color);
-			RNA_property_float_set_array(&but->rnapoin, but->rnaprop, color);
-			RNA_property_update(C, &but->rnapoin, but->rnaprop);
-		}
-	}
-	else {
-		if (gamma) {
-			srgb_to_linearrgb_v3_v3(color, color);
-		}
-
-		ED_imapaint_bucket_fill(C, color, op);
-	}
-
-	ED_region_tag_redraw(ar);
-
-	return OPERATOR_FINISHED;
-}
-
-
-static void UI_OT_drop_color(wmOperatorType *ot)
-{
-	ot->name = "Drop Color";
-	ot->idname = "UI_OT_drop_color";
-	ot->description = "Drop colors to buttons";
-
-	ot->invoke = drop_color_invoke;
-	ot->flag = OPTYPE_INTERNAL;
-
-	RNA_def_float_color(ot->srna, "color", 3, NULL, 0.0, FLT_MAX, "Color", "Source color", 0.0, 1.0);
-	RNA_def_boolean(ot->srna, "gamma", 0, "Gamma Corrected", "The source color is gamma corrected ");
-}
-
 
 /* ********************************************************* */
 /* Registration */
@@ -1561,7 +1469,6 @@ void ED_operatortypes_ui(void)
 	WM_operatortype_append(UI_OT_copy_to_selected_button);
 	WM_operatortype_append(UI_OT_jump_to_target_button);
 	WM_operatortype_append(UI_OT_reports_to_textblock);  /* XXX: temp? */
-	WM_operatortype_append(UI_OT_drop_color);
 #ifdef WITH_PYTHON
 	WM_operatortype_append(UI_OT_editsource);
 	WM_operatortype_append(UI_OT_edittranslation_init);

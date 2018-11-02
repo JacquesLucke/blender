@@ -303,15 +303,6 @@ static void clip_free(SpaceLink *sl)
 		IMB_freeImBuf(sc->scopes.track_search);
 }
 
-/* spacetype; init callback */
-static void clip_init(struct wmWindowManager *UNUSED(wm), ScrArea *sa)
-{
-	ListBase *lb = WM_dropboxmap_find("Clip", SPACE_CLIP, 0);
-
-	/* add drop boxes */
-	WM_event_add_dropbox_handler(&sa->handlers, lb);
-}
-
 static SpaceLink *clip_duplicate(SpaceLink *sl)
 {
 	SpaceClip *scn = MEM_dupallocN(sl);
@@ -576,38 +567,6 @@ static int clip_context(const bContext *C, const char *member, bContextDataResul
 	}
 
 	return false;
-}
-
-/* dropboxes */
-static bool clip_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *UNUSED(event), const char **UNUSED(tooltip))
-{
-	if (drag->type == WM_DRAG_PATH)
-		if (ELEM(drag->icon, 0, ICON_FILE_IMAGE, ICON_FILE_MOVIE, ICON_FILE_BLANK)) /* rule might not work? */
-			return true;
-
-	return false;
-}
-
-static void clip_drop_copy(wmDrag *drag, wmDropBox *drop)
-{
-	PointerRNA itemptr;
-	char dir[FILE_MAX], file[FILE_MAX];
-
-	BLI_split_dirfile(drag->path, dir, file, sizeof(dir), sizeof(file));
-
-	RNA_string_set(drop->ptr, "directory", dir);
-
-	RNA_collection_clear(drop->ptr, "files");
-	RNA_collection_add(drop->ptr, "files", &itemptr);
-	RNA_string_set(&itemptr, "name", file);
-}
-
-/* area+region dropbox definition */
-static void clip_dropboxes(void)
-{
-	ListBase *lb = WM_dropboxmap_find("Clip", SPACE_CLIP, 0);
-
-	WM_dropbox_add(lb, "CLIP_OT_open", clip_drop_poll, clip_drop_copy);
 }
 
 static void clip_refresh(const bContext *C, ScrArea *sa)
@@ -1279,13 +1238,12 @@ void ED_spacetype_clip(void)
 
 	st->new = clip_new;
 	st->free = clip_free;
-	st->init = clip_init;
+	st->init = NULL;
 	st->duplicate = clip_duplicate;
 	st->operatortypes = clip_operatortypes;
 	st->keymap = clip_keymap;
 	st->listener = clip_listener;
 	st->context = clip_context;
-	st->dropboxes = clip_dropboxes;
 	st->refresh = clip_refresh;
 	st->id_remap = clip_id_remap;
 

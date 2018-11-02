@@ -2416,50 +2416,6 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 					}
 				}
 			}
-			else if (handler->dropboxes) {
-				if (!wm->is_interface_locked && event->type == EVT_DROP) {
-					wmDropBox *drop = handler->dropboxes->first;
-					for (; drop; drop = drop->next) {
-						/* other drop custom types allowed */
-						if (event->custom == EVT_DATA_DRAGDROP) {
-							ListBase *lb = (ListBase *)event->customdata;
-							wmDrag *drag;
-
-							for (drag = lb->first; drag; drag = drag->next) {
-								const char *tooltip = NULL;
-								if (drop->poll(C, drag, event, &tooltip)) {
-									/* Optionally copy drag information to operator properties. */
-									if (drop->copy) {
-										drop->copy(drag, drop);
-									}
-
-									/* Pass single matched wmDrag onto the operator. */
-									BLI_remlink(lb, drag);
-									ListBase single_lb = {drag, drag};
-									event->customdata = &single_lb;
-
-									wm_operator_call_internal(C, drop->ot, drop->ptr, NULL, drop->opcontext, false, event);
-									action |= WM_HANDLER_BREAK;
-
-									/* free the drags */
-									//WM_drag_free_list(lb);
-									//WM_drag_free_list(&single_lb);
-
-									event->customdata = NULL;
-									event->custom = 0;
-
-									/* XXX fileread case */
-									if (CTX_wm_window(C) == NULL)
-										return action;
-
-									/* escape from drag loop, got freed */
-									break;
-								}
-							}
-						}
-					}
-				}
-			}
 			else if (handler->gizmo_map) {
 				ScrArea *area = CTX_wm_area(C);
 				ARegion *region = CTX_wm_region(C);
@@ -3470,24 +3426,6 @@ void WM_event_free_ui_handler_all(
 			wm_event_free_handler(handler);
 		}
 	}
-}
-
-wmEventHandler *WM_event_add_dropbox_handler(ListBase *handlers, ListBase *dropboxes)
-{
-	wmEventHandler *handler;
-
-	/* only allow same dropbox once */
-	for (handler = handlers->first; handler; handler = handler->next)
-		if (handler->dropboxes == dropboxes)
-			return handler;
-
-	handler = MEM_callocN(sizeof(wmEventHandler), "dropbox handler");
-
-	/* dropbox stored static, no free or copy */
-	handler->dropboxes = dropboxes;
-	BLI_addhead(handlers, handler);
-
-	return handler;
 }
 
 void WM_event_ensure_drop_handler(ListBase *handlers)

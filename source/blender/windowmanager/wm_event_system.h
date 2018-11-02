@@ -75,9 +75,9 @@ typedef struct wmEventHandler {
 	struct ARegion *ui_region;          /* for derived/modal handlers */
 	struct ARegion *ui_menu;            /* for derived/modal handlers */
 
-	/* drop box handler */
-	ListBase *dropboxes;
+	/* drop handler */
 	bool is_drop_handler;
+
 	/* gizmo handler */
 	struct wmGizmoMap *gizmo_map;
 } wmEventHandler;
@@ -106,8 +106,7 @@ float       wm_pressure_curve(float raw_pressure);
 
 /* wm_keymap.c */
 
-/* wm_dropbox.c */
-void        wm_dropbox_free(void);
+/* wm_dragdrop.c */
 void        wm_draw_drag_data(bContext *C, wmWindow *win, struct DragOperationData *drag_operation);
 
 #endif /* __WM_EVENT_SYSTEM_H__ */

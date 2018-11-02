@@ -225,17 +225,6 @@ static void image_free(SpaceLink *sl)
 	scopes_free(&simage->scopes);
 }
 
-
-/* spacetype; init callback, add handlers */
-static void image_init(struct wmWindowManager *UNUSED(wm), ScrArea *sa)
-{
-	ListBase *lb = WM_dropboxmap_find("Image", SPACE_IMAGE, 0);
-
-	/* add drop boxes */
-	WM_event_add_dropbox_handler(&sa->handlers, lb);
-
-}
-
 static SpaceLink *image_duplicate(SpaceLink *sl)
 {
 	SpaceImage *simagen = MEM_dupallocN(sl);
@@ -297,29 +286,6 @@ static void image_keymap(struct wmKeyConfig *keyconf)
 {
 	WM_keymap_ensure(keyconf, "Image Generic", SPACE_IMAGE, 0);
 	WM_keymap_ensure(keyconf, "Image", SPACE_IMAGE, 0);
-}
-
-/* dropboxes */
-static bool image_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *UNUSED(event), const char **UNUSED(tooltip))
-{
-	if (drag->type == WM_DRAG_PATH)
-		if (ELEM(drag->icon, 0, ICON_FILE_IMAGE, ICON_FILE_MOVIE, ICON_FILE_BLANK)) /* rule might not work? */
-			return 1;
-	return 0;
-}
-
-static void image_drop_copy(wmDrag *drag, wmDropBox *drop)
-{
-	/* copy drag path to properties */
-	RNA_string_set(drop->ptr, "filepath", drag->path);
-}
-
-/* area+region dropbox definition */
-static void image_dropboxes(void)
-{
-	ListBase *lb = WM_dropboxmap_find("Image", SPACE_IMAGE, 0);
-
-	WM_dropbox_add(lb, "IMAGE_OT_open", image_drop_poll, image_drop_copy);
 }
 
 /**
@@ -1000,11 +966,10 @@ void ED_spacetype_image(void)
 
 	st->new = image_new;
 	st->free = image_free;
-	st->init = image_init;
+	st->init = NULL;
 	st->duplicate = image_duplicate;
 	st->operatortypes = image_operatortypes;
 	st->keymap = image_keymap;
-	st->dropboxes = image_dropboxes;
 	st->refresh = image_refresh;
 	st->listener = image_listener;
 	st->context = image_context;

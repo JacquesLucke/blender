@@ -63,8 +63,6 @@ struct rcti;
 struct PointerRNA;
 struct PropertyRNA;
 struct MenuType;
-struct wmDropBox;
-struct wmDrag;
 struct ImBuf;
 struct ImageFormatData;
 struct ARegion;
@@ -237,7 +235,6 @@ enum {
 	WM_HANDLER_DO_FREE              = (1 << 7),  /* handler tagged to be freed in wm_handlers_do() */
 };
 
-struct wmEventHandler *WM_event_add_dropbox_handler(ListBase *handlers, ListBase *dropboxes);
 void WM_event_ensure_drop_handler(ListBase *handlers);
 
 			/* mouse */
@@ -499,17 +496,6 @@ void WM_event_drag_set_display_image(
 void WM_drag_data_free(struct DragData *drag);
 void WM_drop_target_free(struct DropTarget *drop_target);
 void WM_drag_operation_free(struct DragOperationData *drag_operation);
-
-struct wmDropBox	*WM_dropbox_add(
-        ListBase *lb, const char *idname,
-        bool (*poll)(struct bContext *, struct wmDrag *, const struct wmEvent *event, const char **),
-        void (*copy)(struct wmDrag *, struct wmDropBox *));
-ListBase	*WM_dropboxmap_find(const char *idname, int spaceid, int regionid);
-
-			/* ID drag and drop */
-void                WM_drag_add_ID(struct wmDrag *drag, struct ID *id, struct ID *from_parent);
-struct ID          *WM_drag_ID(const struct wmDrag *drag, short idcode);
-struct ID          *WM_drag_ID_from_event(const struct wmEvent *event, short idcode);
 
 			/* Set OpenGL viewport and scissor */
 void		wmViewport(const struct rcti *rect);

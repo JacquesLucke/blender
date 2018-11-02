@@ -781,13 +781,8 @@ void wm_window_ghostwindows_ensure(wmWindowManager *wm)
 		keymap = WM_keymap_ensure(wm->defaultconf, "Screen Editing", 0, 0);
 		WM_event_add_keymap_handler(&win->modalhandlers, keymap);
 
-		/* add drop boxes */
-		{
-			//ListBase *lb = WM_dropboxmap_find("Window", 0, 0);
-			//WM_event_add_dropbox_handler(&win->handlers, lb);
-			WM_event_ensure_drop_handler(&win->handlers);
+		WM_event_ensure_drop_handler(&win->handlers);
 
-		}
 		wm_window_title(wm, win);
 
 		/* add topbar */

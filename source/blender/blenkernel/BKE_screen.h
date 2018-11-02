@@ -102,8 +102,6 @@ typedef struct SpaceType {
 	void (*operatortypes)(void);
 	/* add default items to WM keymap */
 	void (*keymap)(struct wmKeyConfig *keyconf);
-	/* on startup, define dropboxes for spacetype+regions */
-	void (*dropboxes)(void);
 
 	/* initialize gizmo-map-types and gizmo-group-types with the region */
 	void (*gizmos)(void);

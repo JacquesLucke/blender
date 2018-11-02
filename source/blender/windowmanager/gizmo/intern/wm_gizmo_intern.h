@@ -121,7 +121,6 @@ struct wmGizmoMap {
 
 /**
  * This is a container for all gizmo types that can be instantiated in a region.
- * (similar to dropboxes).
  *
  * \note There is only ever one of these for every (area, region) combination.
  */

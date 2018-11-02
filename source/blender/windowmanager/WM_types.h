@@ -717,51 +717,6 @@ typedef struct DragOperationData {
 	DropTarget *current_target;
 } DragOperationData;
 
-typedef struct wmDragID {
-	struct wmDragID  *next, *prev;
-	struct ID *id;
-	struct ID *from_parent;
-} wmDragID;
-
-typedef struct wmDrag {
-	struct wmDrag *next, *prev;
-
-	int icon, type;					/* type, see WM_DRAG defines above */
-	void *poin;
-	char path[1024]; /* FILE_MAX */
-	double value;
-
-	struct ImBuf *imb;
-	float scale;
-	int sx, sy;
-
-	char opname[200]; /* if set, draws operator name*/
-	unsigned int flags;
-
-	ListBase ids; /* List of wmDragIDs, all are guaranteed to have the same ID type. */
-} wmDrag;
-
-/* dropboxes are like keymaps, part of the screen/area/region definition */
-/* allocation and free is on startup and exit */
-typedef struct wmDropBox {
-	struct wmDropBox *next, *prev;
-
-	/* test if the dropbox is active, then can print optype name */
-	bool (*poll)(struct bContext *, struct wmDrag *, const wmEvent *, const char **);
-
-	/* before exec, this copies drag info to wmDrop properties */
-	void (*copy)(struct wmDrag *, struct wmDropBox *);
-
-	/* if poll survives, operator is called */
-	wmOperatorType *ot;				/* not saved in file, so can be pointer */
-
-	struct IDProperty *properties;	/* operator properties, assigned to ptr->data and can be written to a file */
-	struct PointerRNA *ptr;			/* rna pointer to access properties */
-
-	short opcontext;				/* default invoke */
-
-} wmDropBox;
-
 /**
  * Struct to store tool-tip timer and possible creation if the time is reached.
  * Allows UI code to call #WM_tooltip_timer_init without each user having to handle the timer.

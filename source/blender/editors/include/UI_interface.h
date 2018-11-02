@@ -70,8 +70,6 @@ struct ImBuf;
 struct bNodeTree;
 struct bNode;
 struct bNodeSocket;
-struct wmDropBox;
-struct wmDrag;
 struct wmEvent;
 struct wmGizmo;
 struct wmMsgBus;
@@ -1224,9 +1222,6 @@ typedef struct uiDragColorHandle {
 
 void ED_operatortypes_ui(void);
 void ED_keymap_ui(struct wmKeyConfig *keyconf);
-
-void UI_drop_color_copy(struct wmDrag *drag, struct wmDropBox *drop);
-bool UI_drop_color_poll(struct bContext *C, struct wmDrag *drag, const struct wmEvent *event, const char **tooltip);
 
 bool UI_context_copy_to_selected_list(
         struct bContext *C, struct PointerRNA *ptr, struct PropertyRNA *prop,
