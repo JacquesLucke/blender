@@ -378,10 +378,21 @@ static void text_open_drop_init(wmDragData *drag_data, PointerRNA *ptr)
 	RNA_string_set(ptr, "filepath", WM_drag_query_single_path_maybe_text(drag_data));
 }
 
-wmDropTarget *text_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *event)
+static void text_insert_drop_init(wmDragData *drag_data, PointerRNA *ptr)
+{
+	ID *id = WM_drag_query_single_id(drag_data);
+	char *text = RNA_path_full_ID_py(id);
+	RNA_string_set(ptr, "text", text);
+	MEM_freeN(text);
+}
+
+wmDropTarget *text_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_path_maybe_text(drag_data)) {
 		return WM_drop_target_new("TEXT_OT_open", "Open File", text_open_drop_init);
+	}
+	if (WM_drag_query_single_id(drag_data)) {
+		return WM_drop_target_new("TEXT_OT_insert", "Insert Path", text_insert_drop_init);
 	}
 	return NULL;
 }
