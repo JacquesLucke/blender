@@ -62,13 +62,24 @@
 #include "WM_types.h"
 #include "wm_event_system.h"
 
-static wmDragData *WM_drag_data_new(void) {
-	return MEM_callocN(sizeof(wmDragData), "drag data");
-}
+/* ********************* Free Data ********************* */
 
 void WM_drag_data_free(wmDragData *drag_data)
 {
-	// TODO: free other data
+	switch (drag_data->type) {
+		case DRAG_DATA_FILEPATHS:
+			for (int i = 0; i < drag_data->data.filepaths.amount; i++) {
+				MEM_freeN(drag_data->data.filepaths.paths[i]);
+			}
+			MEM_freeN(drag_data->data.filepaths.paths);
+			break;
+		case DRAG_DATA_TREE_ELEMENTS:
+			BLI_freelistN(drag_data->data.tree_elements.list);
+			break;
+		default:
+			break;
+	}
+
 	MEM_freeN(drag_data);
 }
 
@@ -95,12 +106,18 @@ void WM_drag_operation_free(wmDragOperation *drag_operation)
 	}
 }
 
+/* ********************* Start Dragging ********************* */
+
 static void start_dragging_data(struct bContext *C, wmDragData *drag_data)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wm->drag_operation = MEM_callocN(sizeof(wmDragOperation), __func__);
 	wm->drag_operation->drag_data = drag_data;
 	wm->drag_operation->current_target = NULL;
+}
+
+static wmDragData *WM_drag_data_new(void) {
+	return MEM_callocN(sizeof(wmDragData), "drag data");
 }
 
 wmDragData *WM_drag_start_id(struct bContext *C, ID *id)
@@ -187,6 +204,9 @@ wmDragData *WM_drag_start_tree_elements(struct bContext *C, ListBase *elements)
 	start_dragging_data(C, drag_data);
 	return drag_data;
 }
+
+
+/* ********************* Set Display Options ********************* */
 
 void WM_drag_display_set_image(
         wmDragData *drag_data, ImBuf *imb,
