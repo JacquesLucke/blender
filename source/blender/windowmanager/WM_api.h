@@ -512,6 +512,7 @@ const char *WM_drag_query_single_path_of_types(struct wmDragData *drag_data, int
 const char *WM_drag_query_single_path_text(struct wmDragData *drag_data);
 const char *WM_drag_query_single_path_maybe_text(struct wmDragData *drag_data);
 const char *WM_drag_query_single_path_image(struct wmDragData *drag_data);
+const char *WM_drag_query_single_path_image_or_movie(struct wmDragData *drag_data);
 
 struct wmDropTarget *WM_drop_target_new(
         const char *ot_idname, const char *tooltip,

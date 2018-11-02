@@ -1227,6 +1227,29 @@ static void clip_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID 
 	}
 }
 
+static void clip_drop_file_init(wmDragData *drag_data, PointerRNA *ptr)
+{
+	const char *path = WM_drag_query_single_path_image_or_movie(drag_data);
+	char dir[FILE_MAX], file[FILE_MAX];
+	BLI_split_dirfile(path, dir, file, sizeof(dir), sizeof(file));
+
+	RNA_string_set(ptr, "directory", dir);
+
+	RNA_collection_clear(ptr, "files");
+
+	PointerRNA itemptr;
+	RNA_collection_add(ptr, "files", &itemptr);
+	RNA_string_set(&itemptr, "name", file);
+}
+
+static wmDropTarget *clip_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *UNUSED(event))
+{
+	if (WM_drag_query_single_path_image_or_movie(drag_data)) {
+		return WM_drop_target_new("CLIP_OT_open", "Open File", clip_drop_file_init);
+	}
+	return NULL;
+}
+
 /* only called once, from space/spacetypes.c */
 void ED_spacetype_clip(void)
 {
@@ -1246,6 +1269,7 @@ void ED_spacetype_clip(void)
 	st->context = clip_context;
 	st->refresh = clip_refresh;
 	st->id_remap = clip_id_remap;
+	st->drop_target_get = clip_drop_target_get;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype clip region");

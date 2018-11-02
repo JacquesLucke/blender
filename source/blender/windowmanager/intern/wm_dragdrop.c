@@ -349,6 +349,11 @@ const char *WM_drag_query_single_path_image(wmDragData *drag_data)
 	return WM_drag_query_single_path_of_types(drag_data, FILE_TYPE_IMAGE);
 }
 
+const char *WM_drag_query_single_path_image_or_movie(wmDragData *drag_data)
+{
+	return WM_drag_query_single_path_of_types(drag_data, FILE_TYPE_IMAGE | FILE_TYPE_MOVIE);
+}
+
 /* ********************* Draw ********************* */
 
 void WM_drag_draw(bContext *UNUSED(C), wmWindow *win, wmDragOperation *drag_operation)
