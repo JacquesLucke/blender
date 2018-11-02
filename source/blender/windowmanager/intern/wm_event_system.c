@@ -2387,24 +2387,33 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 			}
 			else if (handler->is_drop_handler) {
 				if (!wm->is_interface_locked && event->type == EVT_DROP) {
-					DragData *drag_data = (DragData *)event->customdata;
+					DragOperationData *drag_operation = (DragOperationData *)event->customdata;
+					WM_event_update_current_droptarget(C, drag_operation, event);
+					if (drag_operation && drag_operation->drag_data && drag_operation->current_target) {
+						DragData *drag_data = drag_operation->drag_data;
+						DropTarget *drop_target = drag_operation->current_target;
 
-					DropTarget *target = MEM_callocN(sizeof(DropTarget), __func__);
-					target->ot_idname = "WM_OT_window_new";
+						wmOperatorType *ot = WM_operatortype_find(drop_target->ot_idname, false);
+						struct PointerRNA *ptr = NULL;
+						struct IDProperty *properties = NULL;
+						WM_operator_properties_alloc(&ptr, &properties, drop_target->ot_idname);
 
-					wmOperatorType *ot = WM_operatortype_find(target->ot_idname, false);
-					struct PointerRNA *ptr = NULL;
-					struct IDProperty *properties = NULL;
-					WM_operator_properties_alloc(&ptr, &properties, target->ot_idname);
-					wm_operator_call_internal(C, ot, ptr, NULL, WM_OP_INVOKE_DEFAULT, false, event);
-					action |= WM_HANDLER_BREAK;
+						short op_context = WM_OP_INVOKE_DEFAULT;;
+						if (drop_target->set_properties) {
+							op_context = drop_target->set_properties(drag_data, ptr);
+						}
 
-					WM_drag_data_free(drag_data);
-					event->customdata = NULL;
-					event->custom = 0;
+						wm_operator_call_internal(C, ot, ptr, NULL, op_context, false, event);
+						action |= WM_HANDLER_BREAK;
 
-					if (CTX_wm_window(C) == NULL)
-						return action;
+						WM_drag_operation_free(drag_operation);
+						event->customdata = NULL;
+						event->custom = 0;
+
+						if (CTX_wm_window(C) == NULL) {
+							return action;
+						}
+					}
 				}
 			}
 			else if (handler->dropboxes) {
@@ -2828,7 +2837,7 @@ static void wm_paintcursor_test(bContext *C, const wmEvent *event)
 
 static void wm_event_drag_test(wmWindowManager *wm, wmWindow *win, wmEvent *event)
 {
-	if (!wm->drag_data) {
+	if (!wm->drag_operation) {
 		return;
 	}
 
@@ -2838,8 +2847,8 @@ static void wm_event_drag_test(wmWindowManager *wm, wmWindow *win, wmEvent *even
 		screen->do_draw_drag = true;
 	}
 	else if (event->type == ESCKEY) {
-		WM_drag_data_free(wm->drag_data);
-		wm->drag_data = NULL;
+		WM_drag_operation_free(wm->drag_operation);
+		wm->drag_operation = NULL;
 		screen->do_draw_drag = true;
 	}
 	else if (event->type == LEFTMOUSE && event->val == KM_RELEASE) {
@@ -3073,6 +3082,11 @@ void wm_event_do_handlers(bContext *C)
 
 									/* call even on non mouse events, since the */
 									wm_region_mouse_co(C, event);
+
+									if (wm->drag_operation) {
+										WM_event_update_current_droptarget(C, wm->drag_operation, event);
+									}
+									printf("%p\n", wm->drag_operation);
 
 #ifdef USE_WORKSPACE_TOOL
 									/* How to solve properly?

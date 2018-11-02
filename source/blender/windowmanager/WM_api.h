@@ -489,12 +489,16 @@ struct DragData *WM_event_start_drag_value(struct bContext *C, double value);
 struct DragData *WM_event_start_drag_rna(struct bContext *C, struct PointerRNA *rna);
 struct DragData *WM_event_start_drag_name(struct bContext *C, const char *name);
 void WM_transfer_drag_data_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event);
+struct DropTarget *WM_event_get_active_droptarget(struct bContext *C, struct  DragData *drag_data, const struct wmEvent *event);
+void WM_event_update_current_droptarget(struct bContext *C, struct DragOperationData *drag_operation, const struct wmEvent *event);
 
 void WM_event_drag_set_display_image(
         struct DragData *drag_data, struct ImBuf *imb,
         float scale, int width, int height);
 
 void WM_drag_data_free(struct DragData *drag);
+void WM_drop_target_free(struct DropTarget *drop_target);
+void WM_drag_operation_free(struct DragOperationData *drag_operation);
 
 struct wmDropBox	*WM_dropbox_add(
         ListBase *lb, const char *idname,

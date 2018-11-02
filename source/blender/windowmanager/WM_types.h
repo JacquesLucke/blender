@@ -660,9 +660,25 @@ typedef enum wmDragFlags {
 
 /* note: structs need not exported? */
 
+/* DragData.type */
+enum DragDataType {
+	DRAG_DATA_ID,
+	DRAG_DATA_FILEPATHS,
+	DRAG_DATA_COLOR,
+	DRAG_DATA_VALUE,
+	DRAG_DATA_RNA,
+	DRAG_DATA_NAME,
+};
+/* DragData.display_type */
+enum DragDisplayType {
+	DRAG_DISPLAY_NONE = 0,
+	DRAG_DISPLAY_ICON,
+	DRAG_DISPLAY_IMAGE,
+};
+
 typedef struct DragData {
-	int type;
-	int display_type;
+	enum DragDataType type;
+	enum DragDisplayType display_type;
 	union {
 		struct ID *id;
 		struct {
@@ -688,35 +704,18 @@ typedef struct DragData {
 	} display;
 } DragData;
 
-/* DragData.type */
-enum {
-	DRAG_DATA_ID,
-	DRAG_DATA_FILEPATHS,
-	DRAG_DATA_COLOR,
-	DRAG_DATA_VALUE,
-	DRAG_DATA_RNA,
-	DRAG_DATA_NAME,
-};
-/* DragData.display_type */
-enum {
-	DRAG_DISPLAY_NONE = 0,
-	DRAG_DISPLAY_ICON,
-	DRAG_DISPLAY_IMAGE,
-};
-
 typedef struct DropTarget {
-	/* operator identifier */
 	char *ot_idname;
-
-	/* returns true when DragData can be dropped in this target */
-	bool (*poll)(struct bContext *, struct DragData *, const wmEvent *);
-
-	/* only called when poll returns true, returns the tooltip */
-	const char *(*tooltip)(struct bContext *, struct DragData *, const wmEvent *);
-
-	/* initialize operator properties and return operator context (EXEC_DEFAULT, ...) */
-	short (*init_operator)(struct DragData *, struct PointerRNA *);
+	char *tooltip;
+	bool free;
+	bool free_tooltip;
+	short (*set_properties)(struct DragData *, struct PointerRNA *);
 } DropTarget;
+
+typedef struct DragOperationData {
+	DragData *drag_data;
+	DropTarget *current_target;
+} DragOperationData;
 
 typedef struct wmDragID {
 	struct wmDragID  *next, *prev;

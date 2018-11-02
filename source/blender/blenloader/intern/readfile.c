@@ -7252,7 +7252,7 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
 	wm->message_bus = NULL;
 
 	BLI_listbase_clear(&wm->jobs);
-	wm->drag_data = NULL;
+	wm->drag_operation = NULL;
 
 	wm->windrawable = NULL;
 	wm->winactive = NULL;

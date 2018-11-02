@@ -7257,7 +7257,7 @@ static void button_tooltip_timer_reset(bContext *C, uiBut *but)
 
 	if ((U.flag & USER_TOOLTIPS) || (data->tooltip_force)) {
 		if (!but->block->tooltipdisabled) {
-			if (!wm->drag_data) {
+			if (!wm->drag_operation) {
 				bool is_label = UI_but_has_tooltip_label(but);
 				double delay = is_label ? UI_TOOLTIP_DELAY_LABEL : UI_TOOLTIP_DELAY;
 				WM_tooltip_timer_init_ex(C, data->window, data->region, ui_but_tooltip_init, delay);

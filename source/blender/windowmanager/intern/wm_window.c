@@ -1490,25 +1490,23 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 
 				wm_event_add(win, &event);
 
-
-				/* make blender drop event with custom data pointing to wm drags */
-				/* transfer drag data ownership to event */
-				event.type = EVT_DROP;
-				event.val = KM_RELEASE;
-				WM_transfer_drag_data_ownership_to_event(wm, &event);
-
-				wm_event_add(win, &event);
-
-
-				/* add drag data to wm for paths: */
-
+				/* first initialize the dragging */
 				if (ddd->dataType == GHOST_kDragnDropTypeFilenames) {
 					GHOST_TStringArray *stra = ddd->data;
 					if (stra->count > 0) {
 						WM_event_start_drag_filepath(C, (const char *)stra->strings[0]);
-						break; /* only one drop element supported now */
 					}
 				}
+
+				/* then drop it immediatly */
+				event.type = EVT_DROP;
+				event.val = KM_RELEASE;
+				event.shift = query_qual(SHIFT) ? true : false;
+				event.ctrl = query_qual(CONTROL) ? true : false;
+				event.alt = query_qual(ALT) ? true : false;
+				event.oskey = query_qual(OS) ? true : false;
+				WM_transfer_drag_data_ownership_to_event(wm, &event);
+				wm_event_add(win, &event);
 
 				break;
 			}

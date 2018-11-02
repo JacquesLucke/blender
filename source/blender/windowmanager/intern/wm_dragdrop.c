@@ -154,10 +154,32 @@ void WM_drag_data_free(DragData *drag_data)
 	MEM_freeN(drag_data);
 }
 
+void WM_drop_target_free(DropTarget *drop_target)
+{
+	if (drop_target->free) {
+		if (drop_target->free_tooltip) {
+			MEM_freeN(drop_target->tooltip);
+		}
+		MEM_freeN(drop_target);
+	}
+}
+
+void WM_drag_operation_free(DragOperationData *drag_operation)
+{
+	if (drag_operation->drag_data) {
+		WM_drag_data_free(drag_operation->drag_data);
+	}
+	if (drag_operation->current_target) {
+		WM_drop_target_free(drag_operation->current_target);
+	}
+}
+
 static void start_dragging_data(struct bContext *C, DragData *drag_data)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
-	wm->drag_data = drag_data;
+	wm->drag_operation = MEM_callocN(sizeof(DragOperationData), __func__);
+	wm->drag_operation->drag_data = drag_data;
+	wm->drag_operation->current_target = NULL;
 }
 
 DragData *WM_event_start_drag_id(struct bContext *C, ID *id)
@@ -239,11 +261,35 @@ void WM_event_drag_set_display_image(
 void WM_transfer_drag_data_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event)
 {
 	event->custom = EVT_DATA_DRAGDROP;
-	event->customdata = wm->drag_data;
+	event->customdata = wm->drag_operation;
 	event->customdatafree = true;
-	wm->drag_data = NULL;
+	wm->drag_operation = NULL;
 }
 
+static DropTarget *new_drop_target(void)
+{
+	DropTarget *drop_target = MEM_callocN(sizeof(DropTarget), __func__);
+	return drop_target;
+}
+
+DropTarget *WM_event_get_active_droptarget(bContext *C, DragData *drag_data, const wmEvent *event)
+{
+	if (event->shift && drag_data->type == DRAG_DATA_FILEPATHS) {
+		DropTarget *drop_target = new_drop_target();
+		drop_target->ot_idname = "WM_OT_window_new";
+		drop_target->tooltip = "Make new window";
+		return drop_target;
+	}
+	return NULL;
+}
+
+void WM_event_update_current_droptarget(bContext *C, DragOperationData *drag_operation, const wmEvent *event)
+{
+	if (drag_operation->current_target) {
+		WM_drop_target_free(drag_operation->current_target);
+	}
+	drag_operation->current_target = WM_event_get_active_droptarget(C, drag_operation->drag_data, event);
+}
 
 static const char *dropbox_active(bContext *C, ListBase *handlers, wmDrag *drag, const wmEvent *event)
 {
