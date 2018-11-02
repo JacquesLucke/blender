@@ -327,10 +327,6 @@ static wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, 
 		drop_target = WM_drop_target_new("WM_OT_drop_files", "", drop_files_init);
 	}
 
-	if (!drop_target && drag_data->type == DRAG_DATA_TREE_ELEMENTS) {
-		drop_target = WM_drop_target_new("sdfasd", BLI_sprintfN("Dragging %d elements", drag_data->data.tree_elements.amount), NULL);
-	}
-
 	return drop_target;
 }
 
