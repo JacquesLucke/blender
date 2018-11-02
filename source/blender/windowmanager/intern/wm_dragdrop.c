@@ -35,6 +35,7 @@
 #include "DNA_windowmanager_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_collection_types.h"
+#include "DNA_space_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -58,6 +59,7 @@
 #include "UI_interface_icons.h"
 
 #include "ED_outliner.h"
+#include "ED_fileselect.h"
 
 #include "RNA_access.h"
 
@@ -290,7 +292,7 @@ ID *WM_drag_query_single_id(wmDragData *drag_data)
 	return NULL;
 }
 
-ID *WM_drag_query_single_specific_id(wmDragData *drag_data, int idtype)
+ID *WM_drag_query_single_id_of_type(wmDragData *drag_data, int idtype)
 {
 	ID *id = WM_drag_query_single_id(drag_data);
 	if (id && GS(id->name) == idtype) return id;
@@ -299,7 +301,47 @@ ID *WM_drag_query_single_specific_id(wmDragData *drag_data, int idtype)
 
 Collection *WM_drag_query_single_collection(wmDragData *drag_data)
 {
-	return (Collection *)WM_drag_query_single_specific_id(drag_data, ID_GR);
+	return (Collection *)WM_drag_query_single_id_of_type(drag_data, ID_GR);
+}
+
+const char *WM_drag_query_single_path(wmDragData *drag_data)
+{
+	if (drag_data->type == DRAG_DATA_FILEPATHS) {
+		if (drag_data->data.filepaths.amount == 1) {
+			return drag_data->data.filepaths.paths[0];
+		}
+	}
+	return NULL;
+}
+
+const char *WM_drag_query_single_path_of_types(wmDragData *drag_data, int types)
+{
+	const char *path = WM_drag_query_single_path(drag_data);
+	if (!path) return NULL;
+
+	if (ED_path_extension_type(path) & types) {
+		return path;
+	}
+
+	return NULL;
+}
+
+const char *WM_drag_query_single_path_text(wmDragData *drag_data)
+{
+	return WM_drag_query_single_path_of_types(drag_data, FILE_TYPE_PYSCRIPT | FILE_TYPE_TEXT);
+}
+
+const char *WM_drag_query_single_path_maybe_text(wmDragData *drag_data)
+{
+	const char *path = WM_drag_query_single_path(drag_data);
+	if (!path) return NULL;
+
+	int type = ED_path_extension_type(path);
+	if (type == 0 || ELEM(type, FILE_TYPE_PYSCRIPT, FILE_TYPE_TEXT)) {
+		return path;
+	}
+
+	return NULL;
 }
 
 

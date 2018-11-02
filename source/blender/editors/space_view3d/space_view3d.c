@@ -1326,7 +1326,7 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 	}
 }
 
-void view3d_collection_drop_init(wmDragData *drag_data, PointerRNA *ptr)
+static void view3d_collection_drop_init(wmDragData *drag_data, PointerRNA *ptr)
 {
 	Collection *collection = WM_drag_query_single_collection(drag_data);
 	RNA_string_set(ptr, "name", collection->id.name + 2);

@@ -505,8 +505,12 @@ void WM_drag_operation_free(struct wmDragOperation *drag_operation);
 void WM_drag_stop(wmWindowManager *wm);
 
 struct Collection *WM_drag_query_single_collection(struct wmDragData *drag_data);
-struct ID *WM_drag_query_single_specific_id(struct wmDragData *drag_data, int idtype);
+struct ID *WM_drag_query_single_id_of_type(struct wmDragData *drag_data, int idtype);
 struct ID *WM_drag_query_single_id(struct wmDragData *drag_data);
+const char *WM_drag_query_single_path(struct wmDragData *drag_data);
+const char *WM_drag_query_single_path_of_types(struct wmDragData *drag_data, int types);
+const char *WM_drag_query_single_path_text(struct wmDragData *drag_data);
+const char *WM_drag_query_single_path_maybe_text(struct wmDragData *drag_data);
 
 struct wmDropTarget *WM_drop_target_new(
         const char *ot_idname, const char *tooltip,

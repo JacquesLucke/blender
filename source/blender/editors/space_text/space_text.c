@@ -373,6 +373,19 @@ static void text_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID 
 	}
 }
 
+static void text_open_drop_init(wmDragData *drag_data, PointerRNA *ptr)
+{
+	RNA_string_set(ptr, "filepath", WM_drag_query_single_path_maybe_text(drag_data));
+}
+
+wmDropTarget *text_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *event)
+{
+	if (WM_drag_query_single_path_maybe_text(drag_data)) {
+		return WM_drop_target_new("TEXT_OT_open", "Open File", text_open_drop_init);
+	}
+	return NULL;
+}
+
 /********************* registration ********************/
 
 /* only called once, from space/spacetypes.c */
@@ -393,6 +406,7 @@ void ED_spacetype_text(void)
 	st->listener = text_listener;
 	st->context = text_context;
 	st->id_remap = text_id_remap;
+	st->drop_target_get = text_drop_target_get;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype text region");
