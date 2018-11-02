@@ -373,11 +373,6 @@ static void text_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID 
 	}
 }
 
-static void text_open_drop_init(wmDragData *drag_data, PointerRNA *ptr)
-{
-	RNA_string_set(ptr, "filepath", WM_drag_query_single_path_maybe_text(drag_data));
-}
-
 static void text_insert_drop_init(wmDragData *drag_data, PointerRNA *ptr)
 {
 	ID *id = WM_drag_query_single_id(drag_data);
@@ -389,7 +384,7 @@ static void text_insert_drop_init(wmDragData *drag_data, PointerRNA *ptr)
 wmDropTarget *text_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_path_maybe_text(drag_data)) {
-		return WM_drop_target_new("TEXT_OT_open", "Open File", text_open_drop_init);
+		return WM_drop_target_new("TEXT_OT_open", "Open File", WM_drop_init_single_filepath);
 	}
 	if (WM_drag_query_single_id(drag_data)) {
 		return WM_drop_target_new("TEXT_OT_insert", "Insert Path", text_insert_drop_init);

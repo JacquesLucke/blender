@@ -344,6 +344,10 @@ const char *WM_drag_query_single_path_maybe_text(wmDragData *drag_data)
 	return NULL;
 }
 
+const char *WM_drag_query_single_path_image(wmDragData *drag_data)
+{
+	return WM_drag_query_single_path_of_types(drag_data, FILE_TYPE_IMAGE);
+}
 
 /* ********************* Draw ********************* */
 
@@ -443,4 +447,9 @@ void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEv
 	event->customdata = wm->drag_operation;
 	event->customdatafree = true;
 	wm->drag_operation = NULL;
+}
+
+void WM_drop_init_single_filepath(wmDragData *drag_data, PointerRNA *ptr)
+{
+	RNA_string_set(ptr, "filepath", WM_drag_query_single_path(drag_data));
 }

@@ -511,6 +511,7 @@ const char *WM_drag_query_single_path(struct wmDragData *drag_data);
 const char *WM_drag_query_single_path_of_types(struct wmDragData *drag_data, int types);
 const char *WM_drag_query_single_path_text(struct wmDragData *drag_data);
 const char *WM_drag_query_single_path_maybe_text(struct wmDragData *drag_data);
+const char *WM_drag_query_single_path_image(struct wmDragData *drag_data);
 
 struct wmDropTarget *WM_drop_target_new(
         const char *ot_idname, const char *tooltip,
@@ -519,6 +520,7 @@ struct wmDropTarget *WM_drop_target_new_ex(
         char *ot_idname, char *tooltip,
         void (*set_properties)(struct wmDragData *, struct PointerRNA *),
         short context, bool free, bool free_idname, bool free_tooltip);
+void WM_drop_init_single_filepath(struct wmDragData *drag_data, struct PointerRNA *ptr);
 
 			/* Set OpenGL viewport and scissor */
 void		wmViewport(const struct rcti *rect);

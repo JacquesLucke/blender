@@ -953,6 +953,14 @@ static void image_space_subtype_item_extend(
 	RNA_enum_items_add(item, totitem, rna_enum_space_image_mode_items);
 }
 
+wmDropTarget *image_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
+{
+	if (WM_drag_query_single_path_image(drag_data)) {
+		return WM_drop_target_new("IMAGE_OT_open", "Open Image", WM_drop_init_single_filepath);
+	}
+	return NULL;
+}
+
 /**************************** spacetype *****************************/
 
 /* only called once, from space/spacetypes.c */
@@ -978,6 +986,7 @@ void ED_spacetype_image(void)
 	st->space_subtype_item_extend = image_space_subtype_item_extend;
 	st->space_subtype_get = image_space_subtype_get;
 	st->space_subtype_set = image_space_subtype_set;
+	st->drop_target_get = image_drop_target_get;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype image region");
