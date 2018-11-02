@@ -264,6 +264,22 @@ static void console_main_region_listener(
 	}
 }
 
+static void console_drop_id_init(wmDragData *drag_data, PointerRNA *ptr)
+{
+	ID *id = WM_drag_query_single_id(drag_data);
+	char *text = RNA_path_full_ID_py(id);
+	RNA_string_set(ptr, "text", text);
+	MEM_freeN(text);
+}
+
+wmDropTarget *console_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
+{
+	if (WM_drag_query_single_id(drag_data)) {
+		return WM_drop_target_new("CONSOLE_OT_insert", "Insert", console_drop_id_init);
+	}
+	return NULL;
+}
+
 /* only called once, from space/spacetypes.c */
 void ED_spacetype_console(void)
 {
@@ -279,6 +295,7 @@ void ED_spacetype_console(void)
 	st->duplicate = console_duplicate;
 	st->operatortypes = console_operatortypes;
 	st->keymap = console_keymap;
+	st->drop_target_get = console_drop_target_get;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype console region");
