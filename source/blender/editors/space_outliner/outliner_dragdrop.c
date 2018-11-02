@@ -75,6 +75,25 @@
 
 #include "outliner_intern.h"
 
+/* ************* Start Dragging ************** */
+
+static int outliner_drag_init_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
+{
+	printf("hello\n");
+	return OPERATOR_FINISHED;
+}
+
+void OUTLINER_OT_drag_init(wmOperatorType *ot)
+{
+	ot->name = "Initialize Drag and Drop";
+	ot->idname = "OUTLINER_OT_drag_init";
+	ot->description = "Drag element to another place";
+
+	ot->invoke = outliner_drag_init_invoke;
+	ot->poll = ED_operator_outliner_active;
+}
+
+
 wmDropTarget *outliner_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *event)
 {
 	if (drag_data->type == DRAG_DATA_COLOR) {

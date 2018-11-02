@@ -249,6 +249,49 @@ void drop_files_init(wmDragData *drag_data, PointerRNA *ptr)
 	}
 }
 
+void WM_drag_draw(bContext *UNUSED(C), wmWindow *win, wmDragOperation *drag_operation)
+{
+	wmDragData *drag_data = drag_operation->drag_data;
+	wmDropTarget *drop_target = drag_operation->current_target;
+
+	int cursorx = win->eventstate->x;
+	int cursory = win->eventstate->y;
+
+	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
+	const uchar text_col[] = {255, 255, 255, 255};
+
+	glEnable(GL_BLEND);
+
+	if (drop_target && drop_target->tooltip) {
+		UI_fontstyle_draw_simple(fstyle, cursorx, cursory, drop_target->tooltip, text_col);
+	}
+
+	if (drag_data->display_type == DRAG_DISPLAY_ICON) {
+		UI_icon_draw(cursorx, cursory, drag_data->display.icon_id);
+	}
+	else if (drag_data->display_type == DRAG_DISPLAY_COLOR) {
+		float color[4];
+		copy_v3_v3(color, drag_data->display.color);
+		color[3] = 1.0f;
+		UI_draw_roundbox_4fv(true, cursorx - 5, cursory - 5, cursorx + 5, cursory + 5, 2, color);
+	}
+
+	glDisable(GL_BLEND);
+}
+
+void WM_drag_update_current_target(bContext *C, wmDragOperation *drag_operation, const wmEvent *event)
+{
+	if (drag_operation->current_target) {
+		WM_drop_target_free(drag_operation->current_target);
+	}
+	drag_operation->current_target = WM_drag_find_current_target(C, drag_operation->drag_data, event);
+}
+
+
+
+/* Find Current Target
+/***************************************/
+
 static wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, const wmEvent *event)
 {
 	wmDropTarget *drop_target = NULL;
@@ -282,42 +325,3 @@ wmDropTarget *WM_drag_find_current_target(bContext *C, wmDragData *drag_data, co
 
 	return drop_target;
 }
-
-void WM_drag_update_current_target(bContext *C, wmDragOperation *drag_operation, const wmEvent *event)
-{
-	if (drag_operation->current_target) {
-		WM_drop_target_free(drag_operation->current_target);
-	}
-	drag_operation->current_target = WM_drag_find_current_target(C, drag_operation->drag_data, event);
-}
-
-void WM_drag_draw(bContext *UNUSED(C), wmWindow *win, wmDragOperation *drag_operation)
-{
-	wmDragData *drag_data = drag_operation->drag_data;
-	wmDropTarget *drop_target = drag_operation->current_target;
-
-	int cursorx = win->eventstate->x;
-	int cursory = win->eventstate->y;
-
-	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
-	const uchar text_col[] = {255, 255, 255, 255};
-
-	glEnable(GL_BLEND);
-
-	if (drop_target && drop_target->tooltip) {
-		UI_fontstyle_draw_simple(fstyle, cursorx, cursory, drop_target->tooltip, text_col);
-	}
-
-	if (drag_data->display_type == DRAG_DISPLAY_ICON) {
-		UI_icon_draw(cursorx, cursory, drag_data->display.icon_id);
-	}
-	else if (drag_data->display_type == DRAG_DISPLAY_COLOR) {
-		float color[4];
-		copy_v3_v3(color, drag_data->display.color);
-		color[3] = 1.0f;
-		UI_draw_roundbox_4fv(true, cursorx - 5, cursory - 5, cursorx + 5, cursory + 5, 2, color);
-	}
-
-	glDisable(GL_BLEND);
-}
-

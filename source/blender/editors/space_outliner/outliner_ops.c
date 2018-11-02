@@ -65,6 +65,7 @@ void outliner_operatortypes(void)
 	WM_operatortype_append(OUTLINER_OT_select_box);
 	WM_operatortype_append(OUTLINER_OT_item_openclose);
 	WM_operatortype_append(OUTLINER_OT_item_rename);
+	WM_operatortype_append(OUTLINER_OT_drag_init);
 	WM_operatortype_append(OUTLINER_OT_operation);
 	WM_operatortype_append(OUTLINER_OT_scene_operation);
 	WM_operatortype_append(OUTLINER_OT_object_operation);
