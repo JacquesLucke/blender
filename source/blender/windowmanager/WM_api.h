@@ -478,13 +478,14 @@ void		WM_event_print(const struct wmEvent *event);
 
 void		WM_operator_region_active_win_set(struct bContext *C);
 
-			/* drag and drop */
+/* drag and drop */
 struct DragData *WM_event_start_drag_id(struct bContext *C, ID *id);
 struct DragData *WM_event_start_drag_filepath(struct bContext *C, const char *filepath);
 struct DragData *WM_event_start_drag_color(struct bContext *C, float color[3], bool gamma_corrected);
 struct DragData *WM_event_start_drag_value(struct bContext *C, double value);
 struct DragData *WM_event_start_drag_rna(struct bContext *C, struct PointerRNA *rna);
 struct DragData *WM_event_start_drag_name(struct bContext *C, const char *name);
+
 void WM_transfer_drag_data_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event);
 struct DropTarget *WM_event_get_active_droptarget(struct bContext *C, struct  DragData *drag_data, const struct wmEvent *event);
 void WM_event_update_current_droptarget(struct bContext *C, struct DragOperationData *drag_operation, const struct wmEvent *event);
@@ -496,6 +497,14 @@ void WM_event_drag_set_display_image(
 void WM_drag_data_free(struct DragData *drag);
 void WM_drop_target_free(struct DropTarget *drop_target);
 void WM_drag_operation_free(struct DragOperationData *drag_operation);
+
+struct DropTarget *WM_drop_target_new(
+        const char *ot_idname, const char *tooltip,
+        void (*set_properties)(struct DragData *, struct PointerRNA *));
+struct DropTarget *WM_drop_target_new_ex(
+        char *ot_idname, char *tooltip,
+        void (*set_properties)(struct DragData *, struct PointerRNA *),
+        short context, bool free, bool free_idname, bool free_tooltip);
 
 			/* Set OpenGL viewport and scissor */
 void		wmViewport(const struct rcti *rect);

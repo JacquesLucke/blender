@@ -67,7 +67,6 @@
 
 static void outliner_main_region_init(wmWindowManager *wm, ARegion *ar)
 {
-	ListBase *lb;
 	wmKeyMap *keymap;
 
 	/* make sure we keep the hide flags */
@@ -389,6 +388,7 @@ void ED_spacetype_outliner(void)
 	st->operatortypes = outliner_operatortypes;
 	st->keymap = outliner_keymap;
 	st->id_remap = outliner_id_remap;
+	st->drop_target_get = outliner_drop_target_get;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype outliner region");

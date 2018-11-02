@@ -707,9 +707,11 @@ typedef struct DragData {
 typedef struct DropTarget {
 	char *ot_idname;
 	char *tooltip;
+	short context;
 	bool free;
+	bool free_idname;
 	bool free_tooltip;
-	short (*set_properties)(struct DragData *, struct PointerRNA *);
+	void (*set_properties)(struct DragData *, struct PointerRNA *);
 } DropTarget;
 
 typedef struct DragOperationData {

@@ -268,14 +268,7 @@ void item_object_mode_exit_cb(
 void outliner_set_coordinates(struct ARegion *ar, struct SpaceOops *soops);
 
 /* outliner_dragdrop.c */
-void outliner_dropboxes(void);
-
-void OUTLINER_OT_item_drag_drop(struct wmOperatorType *ot);
-void OUTLINER_OT_parent_drop(struct wmOperatorType *ot);
-void OUTLINER_OT_parent_clear(struct wmOperatorType *ot);
-void OUTLINER_OT_scene_drop(struct wmOperatorType *ot);
-void OUTLINER_OT_material_drop(struct wmOperatorType *ot);
-void OUTLINER_OT_collection_drop(struct wmOperatorType *ot);
+struct DropTarget *outliner_drop_target_get(struct bContext *C, struct DragData *drag_data, const struct wmEvent *event);
 
 /* ...................................................... */
 

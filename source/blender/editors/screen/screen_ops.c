@@ -4955,8 +4955,6 @@ static void keymap_modal_set(wmKeyConfig *keyconf)
 /* called in spacetypes.c */
 void ED_keymap_screen(wmKeyConfig *keyconf)
 {
-	ListBase *lb;
-
 	/* Screen Editing ------------------------------------------------ */
 	WM_keymap_ensure(keyconf, "Screen Editing", 0, 0);
 

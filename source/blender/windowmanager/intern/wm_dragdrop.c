@@ -46,6 +46,7 @@
 
 #include "BKE_context.h"
 #include "BKE_idcode.h"
+#include "BKE_screen.h"
 
 #include "GPU_shader.h"
 
@@ -72,10 +73,13 @@ void WM_drag_data_free(DragData *drag_data)
 
 void WM_drop_target_free(DropTarget *drop_target)
 {
+	if (drop_target->free_idname) {
+		MEM_freeN(drop_target->ot_idname);
+	}
+	if (drop_target->free_tooltip) {
+		MEM_freeN(drop_target->tooltip);
+	}
 	if (drop_target->free) {
-		if (drop_target->free_tooltip) {
-			MEM_freeN(drop_target->tooltip);
-		}
 		MEM_freeN(drop_target);
 	}
 }
@@ -182,21 +186,66 @@ void WM_transfer_drag_data_ownership_to_event(struct wmWindowManager *wm, struct
 	wm->drag_operation = NULL;
 }
 
-static DropTarget *new_drop_target(void)
+static DropTarget *new_empty_drop_target(void)
+{
+	return MEM_callocN(sizeof(DropTarget), __func__);
+}
+
+DropTarget *WM_drop_target_new(
+        const char *ot_idname, const char *tooltip,
+        void (*set_properties)(struct DragData *, struct PointerRNA *))
+{
+	return WM_drop_target_new_ex(
+	        (char *)ot_idname, (char *)tooltip, set_properties,
+	        WM_OP_INVOKE_DEFAULT, true, false, false);
+}
+
+DropTarget *WM_drop_target_new_ex(
+        char *ot_idname, char *tooltip,
+        void (*set_properties)(struct DragData *, struct PointerRNA *),
+        short context, bool free, bool free_idname, bool free_tooltip)
 {
 	DropTarget *drop_target = MEM_callocN(sizeof(DropTarget), __func__);
+	drop_target->ot_idname = ot_idname;
+	drop_target->tooltip = tooltip;
+	drop_target->set_properties = set_properties;
+	drop_target->context = context;
+	drop_target->free = free;
+	drop_target->free_idname = free_idname;
+	drop_target->free_tooltip = free_tooltip;
 	return drop_target;
+}
+
+void set_props(DragData *drag_data, PointerRNA *ptr)
+{
+	RNA_property_string_set(ptr, "url", "www.blender.org");
+}
+
+DropTarget *get_window_drop_target(bContext *C, DragData *drag_data, const wmEvent *event)
+{
+	if (event->shift) {
+		return WM_drop_target_new("WM_OT_url_open", "open url", set_props);
+	}
+	return NULL;
 }
 
 DropTarget *WM_event_get_active_droptarget(bContext *C, DragData *drag_data, const wmEvent *event)
 {
-	if ((event->shift && CTX_wm_space_outliner(C)) || drag_data->type == DRAG_DATA_FILEPATHS) {
-		DropTarget *drop_target = new_drop_target();
-		drop_target->ot_idname = (char *)"WM_OT_window_new";
-		drop_target->tooltip = (char *)"Make new window";
-		return drop_target;
+	wmWindow *win = CTX_wm_window(C);
+	ScrArea *sa = CTX_wm_area(C);
+	SpaceType *st = sa->type;
+
+	DropTarget *drop_target = NULL;
+
+	if (!drop_target && st->drop_target_get) {
+		drop_target = st->drop_target_get(C, drag_data, event);
 	}
-	return NULL;
+
+	if (!drop_target) {
+		drop_target = get_window_drop_target(C, drag_data, event);
+	}
+
+	return drop_target;
 }
 
 void WM_event_update_current_droptarget(bContext *C, DragOperationData *drag_operation, const wmEvent *event)

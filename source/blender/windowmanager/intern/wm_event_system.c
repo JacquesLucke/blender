@@ -2398,12 +2398,11 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 						struct IDProperty *properties = NULL;
 						WM_operator_properties_alloc(&ptr, &properties, drop_target->ot_idname);
 
-						short op_context = WM_OP_INVOKE_DEFAULT;;
 						if (drop_target->set_properties) {
-							op_context = drop_target->set_properties(drag_data, ptr);
+							drop_target->set_properties(drag_data, ptr);
 						}
 
-						wm_operator_call_internal(C, ot, ptr, NULL, op_context, false, event);
+						wm_operator_call_internal(C, ot, ptr, NULL, drop_target->context, false, event);
 						action |= WM_HANDLER_BREAK;
 
 						WM_drag_operation_free(drag_operation);
@@ -3042,7 +3041,6 @@ void wm_event_do_handlers(bContext *C)
 									if (wm->drag_operation) {
 										WM_event_update_current_droptarget(C, wm->drag_operation, event);
 									}
-									printf("%p\n", wm->drag_operation);
 
 #ifdef USE_WORKSPACE_TOOL
 									/* How to solve properly?
