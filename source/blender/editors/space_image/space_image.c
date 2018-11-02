@@ -953,7 +953,7 @@ static void image_space_subtype_item_extend(
 	RNA_enum_items_add(item, totitem, rna_enum_space_image_mode_items);
 }
 
-wmDropTarget *image_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
+static wmDropTarget *image_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_path_image(drag_data)) {
 		return WM_drop_target_new("IMAGE_OT_open", "Open Image", WM_drop_init_single_filepath);

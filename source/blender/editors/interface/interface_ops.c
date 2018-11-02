@@ -1522,7 +1522,7 @@ static void UI_OT_drop_color(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "gamma_corrected", 0, "Gamma Corrected", "The source color is gamma corrected ");
 }
 
-wmDropTarget *UI_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *event)
+wmDropTarget *UI_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (drag_data->type == DRAG_DATA_COLOR) {
 		if (UI_but_active_drop_color(C)) {

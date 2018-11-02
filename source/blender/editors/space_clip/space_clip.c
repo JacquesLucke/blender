@@ -1242,7 +1242,7 @@ static void drop_init__open_file(wmDragData *drag_data, PointerRNA *ptr)
 	RNA_string_set(&itemptr, "name", file);
 }
 
-static wmDropTarget *clip_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *UNUSED(event))
+static wmDropTarget *clip_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_path_image_or_movie(drag_data)) {
 		return WM_drop_target_new("CLIP_OT_open", "Open File", drop_init__open_file);

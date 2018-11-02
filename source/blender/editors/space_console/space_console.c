@@ -272,7 +272,7 @@ static void drop_init__insert_id_path(wmDragData *drag_data, PointerRNA *ptr)
 	MEM_freeN(text);
 }
 
-wmDropTarget *console_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
+static wmDropTarget *console_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_id(drag_data)) {
 		return WM_drop_target_new("CONSOLE_OT_insert", "Insert", drop_init__insert_id_path);

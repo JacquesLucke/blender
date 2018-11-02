@@ -256,10 +256,20 @@ wmDropTarget *WM_drop_target_new(
 {
 	return WM_drop_target_new_ex(
 	        (char *)ot_idname, (char *)tooltip, set_properties,
-	        WM_OP_INVOKE_DEFAULT, true, false, false);
+	        WM_OP_INVOKE_DEFAULT);
 }
 
 wmDropTarget *WM_drop_target_new_ex(
+        const char *ot_idname, const char *tooltip,
+        void (*set_properties)(struct wmDragData *, struct PointerRNA *),
+        short context)
+{
+	return WM_drop_target_new_full(
+	        (char *)ot_idname, (char *)tooltip, set_properties,
+	        context, true, false, false);
+}
+
+wmDropTarget *WM_drop_target_new_full(
         char *ot_idname, char *tooltip,
         void (*set_properties)(struct wmDragData *, struct PointerRNA *),
         short context, bool free, bool free_idname, bool free_tooltip)
@@ -302,6 +312,11 @@ ID *WM_drag_query_single_id_of_type(wmDragData *drag_data, int idtype)
 Collection *WM_drag_query_single_collection(wmDragData *drag_data)
 {
 	return (Collection *)WM_drag_query_single_id_of_type(drag_data, ID_GR);
+}
+
+Material *WM_drag_query_single_material(wmDragData *drag_data)
+{
+	return (Material *)WM_drag_query_single_id_of_type(drag_data, ID_MA);
 }
 
 const char *WM_drag_query_single_path(wmDragData *drag_data)
@@ -367,11 +382,11 @@ void WM_drag_draw(bContext *UNUSED(C), wmWindow *win, wmDragOperation *drag_oper
 	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
 	const uchar text_col[] = {255, 255, 255, 255};
 
-	glEnable(GL_BLEND);
-
 	if (drop_target && drop_target->tooltip) {
 		UI_fontstyle_draw_simple(fstyle, cursorx, cursory, drop_target->tooltip, text_col);
 	}
+
+	glEnable(GL_BLEND);
 
 	if (drag_data->display_type == DRAG_DISPLAY_ICON) {
 		UI_icon_draw(cursorx, cursory, drag_data->display.icon_id);
@@ -454,7 +469,21 @@ void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEv
 	wm->drag_operation = NULL;
 }
 
+wmDragData *WM_drag_get_active(bContext *C)
+{
+	wmWindowManager *wm = CTX_wm_manager(C);
+	if (wm->drag_operation) {
+		return wm->drag_operation->drag_data;
+	}
+	return NULL;
+}
+
 void WM_drop_init_single_filepath(wmDragData *drag_data, PointerRNA *ptr)
 {
 	RNA_string_set(ptr, "filepath", WM_drag_query_single_path(drag_data));
+}
+
+void WM_drop_init_single_id_name(wmDragData *drag_data, PointerRNA *ptr)
+{
+	RNA_string_set(ptr, "name", WM_drag_query_single_id(drag_data)->name + 2);
 }

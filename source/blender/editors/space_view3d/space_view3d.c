@@ -1326,18 +1326,20 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 	}
 }
 
-static void view3d_collection_drop_init(wmDragData *drag_data, PointerRNA *ptr)
+static wmDropTarget *view3d_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *event)
 {
-	Collection *collection = WM_drag_query_single_collection(drag_data);
-	RNA_string_set(ptr, "name", collection->id.name + 2);
-}
-
-wmDropTarget *view3d_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *event)
-{
-	Collection *collection = WM_drag_query_single_collection(drag_data);
-	if (collection) {
+	if (WM_drag_query_single_collection(drag_data)) {
 		return WM_drop_target_new_ex("OBJECT_OT_collection_instance_add", "New Collection Instance",
-		        view3d_collection_drop_init, WM_OP_EXEC_DEFAULT, true, false, false);
+		        WM_drop_init_single_id_name, WM_OP_EXEC_DEFAULT);
+	}
+
+	ARegion *ar = CTX_wm_region(C);
+
+	if (ar->regiontype == RGN_TYPE_WINDOW && ED_view3d_is_object_under_cursor(C, event->mval)) {
+		if (WM_drag_query_single_material(drag_data)) {
+			return WM_drop_target_new("OBJECT_OT_drop_named_material", "Set Material",
+			        WM_drop_init_single_id_name);
+		}
 	}
 	return NULL;
 }

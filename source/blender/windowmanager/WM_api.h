@@ -488,6 +488,7 @@ struct wmDragData *WM_drag_start_rna(struct bContext *C, struct PointerRNA *rna)
 struct wmDragData *WM_drag_start_name(struct bContext *C, const char *name);
 struct wmDragData *WM_drag_start_collection_children(struct bContext *C, struct ListBase *collection_children);
 
+struct wmDragData *WM_drag_get_active(struct bContext *C);
 void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event);
 struct wmDropTarget *WM_drag_find_current_target(struct bContext *C, struct  wmDragData *drag_data, const struct wmEvent *event);
 void WM_drag_update_current_target(struct bContext *C, struct wmDragOperation *drag_operation, const struct wmEvent *event);
@@ -504,9 +505,10 @@ void WM_drop_target_free(struct wmDropTarget *drop_target);
 void WM_drag_operation_free(struct wmDragOperation *drag_operation);
 void WM_drag_stop(wmWindowManager *wm);
 
-struct Collection *WM_drag_query_single_collection(struct wmDragData *drag_data);
-struct ID *WM_drag_query_single_id_of_type(struct wmDragData *drag_data, int idtype);
 struct ID *WM_drag_query_single_id(struct wmDragData *drag_data);
+struct ID *WM_drag_query_single_id_of_type(struct wmDragData *drag_data, int idtype);
+struct Collection *WM_drag_query_single_collection(struct wmDragData *drag_data);
+struct Material   *WM_drag_query_single_material(struct wmDragData *drag_data);
 const char *WM_drag_query_single_path(struct wmDragData *drag_data);
 const char *WM_drag_query_single_path_of_types(struct wmDragData *drag_data, int types);
 const char *WM_drag_query_single_path_text(struct wmDragData *drag_data);
@@ -518,10 +520,15 @@ struct wmDropTarget *WM_drop_target_new(
         const char *ot_idname, const char *tooltip,
         void (*set_properties)(struct wmDragData *, struct PointerRNA *));
 struct wmDropTarget *WM_drop_target_new_ex(
+        const char *ot_idname, const char *tooltip,
+        void (*set_properties)(struct wmDragData *, struct PointerRNA *),
+        short context);
+struct wmDropTarget *WM_drop_target_new_full(
         char *ot_idname, char *tooltip,
         void (*set_properties)(struct wmDragData *, struct PointerRNA *),
         short context, bool free, bool free_idname, bool free_tooltip);
 void WM_drop_init_single_filepath(struct wmDragData *drag_data, struct PointerRNA *ptr);
+void WM_drop_init_single_id_name(struct wmDragData *drag_data, struct PointerRNA *ptr);
 
 			/* Set OpenGL viewport and scissor */
 void		wmViewport(const struct rcti *rect);

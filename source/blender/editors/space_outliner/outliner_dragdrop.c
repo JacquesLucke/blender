@@ -61,6 +61,7 @@
 #include "ED_screen.h"
 
 #include "UI_interface.h"
+#include "UI_interface_icons.h"
 #include "UI_resources.h"
 #include "UI_view2d.h"
 
@@ -147,6 +148,18 @@ static void init_drag_collection_children(bContext *C, ListBase *selected_tree_e
 	WM_drag_start_collection_children(C, collection_children);
 }
 
+static void init_drag_single_id(bContext *C, ListBase *selected_tree_elements)
+{
+	if (BLI_listbase_is_single(selected_tree_elements)) {
+		TreeElement *te = (TreeElement *)((LinkData *)selected_tree_elements->first)->data;
+		ID *id = get_id_from_tree_element(te);
+		if (id) {
+			WM_drag_start_id(C, id);
+			WM_drag_display_set_icon(WM_drag_get_active(C), UI_idcode_icon_get(GS(id->name)));
+		}
+	}
+}
+
 static int outliner_drag_init_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
 	ARegion *ar = CTX_wm_region(C);
@@ -165,8 +178,11 @@ static int outliner_drag_init_invoke(bContext *C, wmOperator *UNUSED(op), const 
 
 	ListBase *elements = get_selected_elements(soops);
 
-	if (soops->outlinevis && (soops->filter & SO_FILTER_NO_COLLECTION) == 0) {
+	if (soops->outlinevis == SO_VIEW_LAYER && (soops->filter & SO_FILTER_NO_COLLECTION) == 0) {
 		init_drag_collection_children(C, elements);
+	}
+	else if (soops->outlinevis == SO_LIBRARIES) {
+		init_drag_single_id(C, elements);
 	}
 
 	BLI_freelistN(elements);
@@ -187,7 +203,7 @@ void OUTLINER_OT_drag_init(wmOperatorType *ot)
 }
 
 
-wmDropTarget *outliner_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *event)
+wmDropTarget *outliner_drop_target_get(bContext *UNUSED(C), wmDragData *UNUSED(drag_data), const wmEvent *UNUSED(event))
 {
 	return NULL;
 }
