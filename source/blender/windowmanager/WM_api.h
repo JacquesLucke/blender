@@ -479,28 +479,28 @@ void		WM_event_print(const struct wmEvent *event);
 void		WM_operator_region_active_win_set(struct bContext *C);
 
 /* drag and drop */
-struct wmDragData *WM_event_start_drag_id(struct bContext *C, ID *id);
-struct wmDragData *WM_event_start_drag_filepath(struct bContext *C, const char *filepath);
-struct wmDragData *WM_event_start_drag_filepaths(struct bContext *C, const char **filepaths, int amount);
-struct wmDragData *WM_event_start_drag_color(struct bContext *C, float color[3], bool gamma_corrected);
-struct wmDragData *WM_event_start_drag_value(struct bContext *C, double value);
-struct wmDragData *WM_event_start_drag_rna(struct bContext *C, struct PointerRNA *rna);
-struct wmDragData *WM_event_start_drag_name(struct bContext *C, const char *name);
+struct wmDragData *WM_drag_start_id(struct bContext *C, ID *id);
+struct wmDragData *WM_drag_start_filepath(struct bContext *C, const char *filepath);
+struct wmDragData *WM_drag_start_filepaths(struct bContext *C, const char **filepaths, int amount);
+struct wmDragData *WM_drag_start_color(struct bContext *C, float color[3], bool gamma_corrected);
+struct wmDragData *WM_drag_start_value(struct bContext *C, double value);
+struct wmDragData *WM_drag_start_rna(struct bContext *C, struct PointerRNA *rna);
+struct wmDragData *WM_drag_start_name(struct bContext *C, const char *name);
 
-void WM_transfer_drag_data_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event);
-struct wmDropTarget *WM_event_get_active_droptarget(struct bContext *C, struct  wmDragData *drag_data, const struct wmEvent *event);
-void WM_event_update_current_droptarget(struct bContext *C, struct DragOperationData *drag_operation, const struct wmEvent *event);
+void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event);
+struct wmDropTarget *WM_drag_find_current_target(struct bContext *C, struct  wmDragData *drag_data, const struct wmEvent *event);
+void WM_drag_update_current_target(struct bContext *C, struct wmDragOperation *drag_operation, const struct wmEvent *event);
 
-void WM_event_drag_set_display_color(struct wmDragData *drag_data, float color[3]);
-void WM_drag_set_display_color_derived(struct wmDragData *drag_data);
-void WM_event_drag_set_display_icon(struct wmDragData *drag_data, int icon_id);
-void WM_event_drag_set_display_image(
+void WM_drag_display_set_color(struct wmDragData *drag_data, float color[3]);
+void WM_drag_display_set_color_derived(struct wmDragData *drag_data);
+void WM_drag_display_set_icon(struct wmDragData *drag_data, int icon_id);
+void WM_drag_display_set_image(
         struct wmDragData *drag_data, struct ImBuf *imb,
         float scale, int width, int height);
 
 void WM_drag_data_free(struct wmDragData *drag);
 void WM_drop_target_free(struct wmDropTarget *drop_target);
-void WM_drag_operation_free(struct DragOperationData *drag_operation);
+void WM_drag_operation_free(struct wmDragOperation *drag_operation);
 
 struct wmDropTarget *WM_drop_target_new(
         const char *ot_idname, const char *tooltip,

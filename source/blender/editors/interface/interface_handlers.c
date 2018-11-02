@@ -1776,41 +1776,41 @@ static bool ui_but_drag_init(
 			if (but->rnaprop && RNA_property_subtype(but->rnaprop) == PROP_COLOR_GAMMA) {
 				float color[3];
 				ui_but_v3_get(but, color);
-				drag_data = WM_event_start_drag_color(C, color, true);
+				drag_data = WM_drag_start_color(C, color, true);
 			}
 			else if (but->rnaprop && RNA_property_subtype(but->rnaprop) == PROP_COLOR) {
 				float color[3];
 				ui_but_v3_get(but, color);
-				drag_data = WM_event_start_drag_color(C, color, false);
+				drag_data = WM_drag_start_color(C, color, false);
 			}
 			else if (ELEM(but->pointype, UI_BUT_POIN_FLOAT, UI_BUT_POIN_CHAR)) {
 				float color[3];
 				copy_v3_v3(color, (float *)but->poin);
-				drag_data = WM_event_start_drag_color(C, color, false);
+				drag_data = WM_drag_start_color(C, color, false);
 			}
 			else {
 				/* maybe more types are needed? */
 				BLI_assert(false);
 			}
-			WM_drag_set_display_color_derived(drag_data);
+			WM_drag_display_set_color_derived(drag_data);
 		}
 		else {
 			struct wmDragData *drag_data = NULL;
 			switch (but->dragtype) {
 				case WM_DRAG_ID:
-					drag_data = WM_event_start_drag_id(C, but->dragpoin);
+					drag_data = WM_drag_start_id(C, but->dragpoin);
 					break;
 				case WM_DRAG_PATH:
-					drag_data = WM_event_start_drag_filepath(C, but->dragpoin);
+					drag_data = WM_drag_start_filepath(C, but->dragpoin);
 					break;
 				case WM_DRAG_VALUE:
-					drag_data = WM_event_start_drag_value(C, ui_but_value_get(but));
+					drag_data = WM_drag_start_value(C, ui_but_value_get(but));
 					break;
 				case WM_DRAG_RNA:
-					drag_data = WM_event_start_drag_rna(C, but->dragpoin);
+					drag_data = WM_drag_start_rna(C, but->dragpoin);
 					break;
 				case WM_DRAG_NAME:
-					drag_data = WM_event_start_drag_name(C, but->dragpoin);
+					drag_data = WM_drag_start_name(C, but->dragpoin);
 					break;
 				default:
 					/* maybe more types are needed? */
@@ -1819,7 +1819,7 @@ static bool ui_but_drag_init(
 			}
 
 			if (drag_data && but->imb) {
-				WM_event_drag_set_display_image(
+				WM_drag_display_set_image(
 				        drag_data, but->imb, but->imb_scale,
 				        BLI_rctf_size_x(&but->rect),
 				        BLI_rctf_size_y(&but->rect));

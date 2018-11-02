@@ -2387,8 +2387,8 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 			}
 			else if (handler->is_drop_handler) {
 				if (!wm->is_interface_locked && event->type == EVT_DROP) {
-					DragOperationData *drag_operation = (DragOperationData *)event->customdata;
-					WM_event_update_current_droptarget(C, drag_operation, event);
+					wmDragOperation *drag_operation = (wmDragOperation *)event->customdata;
+					WM_drag_update_current_target(C, drag_operation, event);
 					if (drag_operation && drag_operation->drag_data && drag_operation->current_target) {
 						wmDragData *drag_data = drag_operation->drag_data;
 						wmDropTarget *drop_target = drag_operation->current_target;
@@ -2812,7 +2812,7 @@ static void wm_event_drag_test(wmWindowManager *wm, wmWindow *win, wmEvent *even
 		/* create customdata, first free existing */
 		wm_event_free_customdata_if_necessary(event);
 
-		WM_transfer_drag_data_ownership_to_event(wm, event);
+		WM_drag_transfer_ownership_to_event(wm, event);
 
 		screen->do_draw_drag = true;
 	}
@@ -3039,7 +3039,7 @@ void wm_event_do_handlers(bContext *C)
 									wm_region_mouse_co(C, event);
 
 									if (wm->drag_operation) {
-										WM_event_update_current_droptarget(C, wm->drag_operation, event);
+										WM_drag_update_current_target(C, wm->drag_operation, event);
 									}
 
 #ifdef USE_WORKSPACE_TOOL

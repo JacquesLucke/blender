@@ -1489,7 +1489,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 				if (ddd->dataType == GHOST_kDragnDropTypeFilenames) {
 					GHOST_TStringArray *stra = ddd->data;
 					if (stra->count > 0) {
-						WM_event_start_drag_filepaths(C, (char **)stra->strings, stra->count);
+						WM_drag_start_filepaths(C, (char **)stra->strings, stra->count);
 					}
 				}
 
@@ -1500,7 +1500,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 				event.ctrl = query_qual(CONTROL) ? true : false;
 				event.alt = query_qual(ALT) ? true : false;
 				event.oskey = query_qual(OS) ? true : false;
-				WM_transfer_drag_data_ownership_to_event(wm, &event);
+				WM_drag_transfer_ownership_to_event(wm, &event);
 				wm_event_add(win, &event);
 
 				break;

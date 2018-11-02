@@ -85,7 +85,7 @@ void WM_drop_target_free(wmDropTarget *drop_target)
 	}
 }
 
-void WM_drag_operation_free(DragOperationData *drag_operation)
+void WM_drag_operation_free(wmDragOperation *drag_operation)
 {
 	if (drag_operation->drag_data) {
 		WM_drag_data_free(drag_operation->drag_data);
@@ -98,12 +98,12 @@ void WM_drag_operation_free(DragOperationData *drag_operation)
 static void start_dragging_data(struct bContext *C, wmDragData *drag_data)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
-	wm->drag_operation = MEM_callocN(sizeof(DragOperationData), __func__);
+	wm->drag_operation = MEM_callocN(sizeof(wmDragOperation), __func__);
 	wm->drag_operation->drag_data = drag_data;
 	wm->drag_operation->current_target = NULL;
 }
 
-wmDragData *WM_event_start_drag_id(struct bContext *C, ID *id)
+wmDragData *WM_drag_start_id(struct bContext *C, ID *id)
 {
 	wmDragData *drag_data = WM_drag_data_new();
 	drag_data->type = DRAG_DATA_ID;
@@ -113,7 +113,7 @@ wmDragData *WM_event_start_drag_id(struct bContext *C, ID *id)
 	return drag_data;
 }
 
-wmDragData *WM_event_start_drag_filepaths(struct bContext *C, const char **filepaths, int amount)
+wmDragData *WM_drag_start_filepaths(struct bContext *C, const char **filepaths, int amount)
 {
 	BLI_assert(amount > 0);
 
@@ -131,12 +131,12 @@ wmDragData *WM_event_start_drag_filepaths(struct bContext *C, const char **filep
 	return drag_data;
 }
 
-wmDragData *WM_event_start_drag_filepath(struct bContext *C, const char *filepath)
+wmDragData *WM_drag_start_filepath(struct bContext *C, const char *filepath)
 {
-	return WM_event_start_drag_filepaths(C, &filepath, 1);
+	return WM_drag_start_filepaths(C, &filepath, 1);
 }
 
-wmDragData *WM_event_start_drag_color(struct bContext *C, float color[3], bool gamma_corrected)
+wmDragData *WM_drag_start_color(struct bContext *C, float color[3], bool gamma_corrected)
 {
 	wmDragData *drag_data = WM_drag_data_new();
 	drag_data->type = DRAG_DATA_COLOR;
@@ -147,7 +147,7 @@ wmDragData *WM_event_start_drag_color(struct bContext *C, float color[3], bool g
 	return drag_data;
 }
 
-wmDragData *WM_event_start_drag_value(struct bContext *C, double value)
+wmDragData *WM_drag_start_value(struct bContext *C, double value)
 {
 	wmDragData *drag_data = WM_drag_data_new();
 	drag_data->type = DRAG_DATA_VALUE;
@@ -157,7 +157,7 @@ wmDragData *WM_event_start_drag_value(struct bContext *C, double value)
 	return drag_data;
 }
 
-wmDragData *WM_event_start_drag_rna(struct bContext *C, struct PointerRNA *rna)
+wmDragData *WM_drag_start_rna(struct bContext *C, struct PointerRNA *rna)
 {
 	wmDragData *drag_data = WM_drag_data_new();
 	drag_data->type = DRAG_DATA_RNA;
@@ -167,7 +167,7 @@ wmDragData *WM_event_start_drag_rna(struct bContext *C, struct PointerRNA *rna)
 	return drag_data;
 }
 
-wmDragData *WM_event_start_drag_name(struct bContext *C, const char *name)
+wmDragData *WM_drag_start_name(struct bContext *C, const char *name)
 {
 	wmDragData *drag_data = WM_drag_data_new();
 	drag_data->type = DRAG_DATA_NAME;
@@ -177,7 +177,7 @@ wmDragData *WM_event_start_drag_name(struct bContext *C, const char *name)
 	return drag_data;
 }
 
-void WM_event_drag_set_display_image(
+void WM_drag_display_set_image(
         wmDragData *drag_data, ImBuf *imb,
         float scale, int width, int height)
 {
@@ -188,25 +188,25 @@ void WM_event_drag_set_display_image(
 	drag_data->display.image.height = height;
 }
 
-void WM_event_drag_set_display_icon(wmDragData *drag_data, int icon_id)
+void WM_drag_display_set_icon(wmDragData *drag_data, int icon_id)
 {
 	drag_data->display_type = DRAG_DISPLAY_ICON;
 	drag_data->display.icon_id = icon_id;
 }
 
-void WM_event_drag_set_display_color(wmDragData *drag_data, float color[3])
+void WM_drag_display_set_color(wmDragData *drag_data, float color[3])
 {
 	drag_data->display_type = DRAG_DISPLAY_COLOR;
 	copy_v3_v3(drag_data->display.color, color);
 }
 
-void WM_drag_set_display_color_derived(wmDragData *drag_data)
+void WM_drag_display_set_color_derived(wmDragData *drag_data)
 {
 	BLI_assert(drag_data->type == DRAG_DATA_COLOR);
-	WM_event_drag_set_display_color(drag_data, drag_data->data.color.color);
+	WM_drag_display_set_color(drag_data, drag_data->data.color.color);
 }
 
-void WM_transfer_drag_data_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event)
+void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event)
 {
 	event->custom = EVT_DATA_DRAGDROP;
 	event->customdata = wm->drag_operation;
@@ -264,7 +264,7 @@ static wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, 
 	return drop_target;
 }
 
-wmDropTarget *WM_event_get_active_droptarget(bContext *C, wmDragData *drag_data, const wmEvent *event)
+wmDropTarget *WM_drag_find_current_target(bContext *C, wmDragData *drag_data, const wmEvent *event)
 {
 	wmWindow *win = CTX_wm_window(C);
 	ScrArea *sa = CTX_wm_area(C);
@@ -283,15 +283,15 @@ wmDropTarget *WM_event_get_active_droptarget(bContext *C, wmDragData *drag_data,
 	return drop_target;
 }
 
-void WM_event_update_current_droptarget(bContext *C, DragOperationData *drag_operation, const wmEvent *event)
+void WM_drag_update_current_target(bContext *C, wmDragOperation *drag_operation, const wmEvent *event)
 {
 	if (drag_operation->current_target) {
 		WM_drop_target_free(drag_operation->current_target);
 	}
-	drag_operation->current_target = WM_event_get_active_droptarget(C, drag_operation->drag_data, event);
+	drag_operation->current_target = WM_drag_find_current_target(C, drag_operation->drag_data, event);
 }
 
-void wm_draw_drag_data(bContext *UNUSED(C), wmWindow *win, DragOperationData *drag_operation)
+void WM_drag_draw(bContext *UNUSED(C), wmWindow *win, wmDragOperation *drag_operation)
 {
 	wmDragData *drag_data = drag_operation->drag_data;
 	wmDropTarget *drop_target = drag_operation->current_target;

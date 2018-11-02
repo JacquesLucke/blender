@@ -716,10 +716,10 @@ typedef struct wmDropTarget {
 	void (*set_properties)(struct wmDragData *, struct PointerRNA *);
 } wmDropTarget;
 
-typedef struct DragOperationData {
+typedef struct wmDragOperation {
 	wmDragData *drag_data;
 	wmDropTarget *current_target;
-} DragOperationData;
+} wmDragOperation;
 
 /**
  * Struct to store tool-tip timer and possible creation if the time is reached.
