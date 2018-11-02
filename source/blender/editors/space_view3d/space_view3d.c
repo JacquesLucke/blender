@@ -1326,6 +1326,22 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 	}
 }
 
+void view3d_collection_drop_init(wmDragData *drag_data, PointerRNA *ptr)
+{
+	Collection *collection = WM_drag_query_single_collection(drag_data);
+	RNA_string_set(ptr, "name", collection->id.name + 2);
+}
+
+wmDropTarget *view3d_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *event)
+{
+	Collection *collection = WM_drag_query_single_collection(drag_data);
+	if (collection) {
+		return WM_drop_target_new_ex("OBJECT_OT_collection_instance_add", "New Collection Instance",
+		        view3d_collection_drop_init, WM_OP_EXEC_DEFAULT, true, false, false);
+	}
+	return NULL;
+}
+
 /* only called once, from space/spacetypes.c */
 void ED_spacetype_view3d(void)
 {
@@ -1346,6 +1362,7 @@ void ED_spacetype_view3d(void)
 	st->gizmos = view3d_widgets;
 	st->context = view3d_context;
 	st->id_remap = view3d_id_remap;
+	st->drop_target_get = view3d_drop_target_get;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype view3d main region");

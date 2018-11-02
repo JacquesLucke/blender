@@ -34,6 +34,7 @@
 
 #include "DNA_windowmanager_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_collection_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -56,6 +57,8 @@
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
 
+#include "ED_outliner.h"
+
 #include "RNA_access.h"
 
 #include "WM_api.h"
@@ -72,9 +75,6 @@ void WM_drag_data_free(wmDragData *drag_data)
 				MEM_freeN(drag_data->data.filepaths.paths[i]);
 			}
 			MEM_freeN(drag_data->data.filepaths.paths);
-			break;
-		case DRAG_DATA_TREE_ELEMENTS:
-			BLI_freelistN(drag_data->data.tree_elements.list);
 			break;
 		default:
 			break;
@@ -194,17 +194,6 @@ wmDragData *WM_drag_start_name(struct bContext *C, const char *name)
 	return drag_data;
 }
 
-wmDragData *WM_drag_start_tree_elements(struct bContext *C, ListBase *elements)
-{
-	wmDragData *drag_data = WM_drag_data_new();
-	drag_data->type = DRAG_DATA_TREE_ELEMENTS;
-	drag_data->data.tree_elements.list = elements;
-	drag_data->data.tree_elements.amount = BLI_listbase_count(elements);
-
-	start_dragging_data(C, drag_data);
-	return drag_data;
-}
-
 
 /* ********************* Set Display Options ********************* */
 
@@ -237,13 +226,8 @@ void WM_drag_display_set_color_derived(wmDragData *drag_data)
 	WM_drag_display_set_color(drag_data, drag_data->data.color.color);
 }
 
-void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event)
-{
-	event->custom = EVT_DATA_DRAGDROP;
-	event->customdata = wm->drag_operation;
-	event->customdatafree = true;
-	wm->drag_operation = NULL;
-}
+
+/* ********************* Drop Target Creation ********************* */
 
 wmDropTarget *WM_drop_target_new(
         const char *ot_idname, const char *tooltip,
@@ -270,15 +254,22 @@ wmDropTarget *WM_drop_target_new_ex(
 	return drop_target;
 }
 
-static void drop_files_init(wmDragData *drag_data, PointerRNA *ptr)
+
+/* ********************* Query Drag Data ********************* */
+
+Collection *WM_drag_query_single_collection(wmDragData *drag_data)
 {
-	for (int i = 0; i < drag_data->data.filepaths.amount; i++) {
-		char *path = drag_data->data.filepaths.paths[i];
-		PointerRNA itemptr;
-		RNA_collection_add(ptr, "filepaths", &itemptr);
-		RNA_string_set(&itemptr, "name", path);
+	if (drag_data->type == DRAG_DATA_ID) {
+		ID *id = drag_data->data.id;
+		if (GS(id->name) == ID_GR) {
+			return (Collection *)id;
+		}
 	}
+	return NULL;
 }
+
+
+/* ********************* Draw ********************* */
 
 void WM_drag_draw(bContext *UNUSED(C), wmWindow *win, wmDragOperation *drag_operation)
 {
@@ -310,17 +301,19 @@ void WM_drag_draw(bContext *UNUSED(C), wmWindow *win, wmDragOperation *drag_oper
 	glDisable(GL_BLEND);
 }
 
-void WM_drag_update_current_target(bContext *C, wmDragOperation *drag_operation, const wmEvent *event)
-{
-	if (drag_operation->current_target) {
-		WM_drop_target_free(drag_operation->current_target);
-	}
-	drag_operation->current_target = WM_drag_find_current_target(C, drag_operation->drag_data, event);
-}
-
-
 
 /* ****************** Find Current Target ****************** */
+
+static void drop_files_init(wmDragData *drag_data, PointerRNA *ptr)
+{
+	for (int i = 0; i < drag_data->data.filepaths.amount; i++) {
+		char *path = drag_data->data.filepaths.paths[i];
+		PointerRNA itemptr;
+		RNA_collection_add(ptr, "filepaths", &itemptr);
+		RNA_string_set(&itemptr, "name", path);
+	}
+}
+
 
 static wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, const wmEvent *event)
 {
@@ -358,4 +351,23 @@ wmDropTarget *WM_drag_find_current_target(bContext *C, wmDragData *drag_data, co
 	}
 
 	return drop_target;
+}
+
+
+/* ****************** Misc ****************** */
+
+void WM_drag_update_current_target(bContext *C, wmDragOperation *drag_operation, const wmEvent *event)
+{
+	if (drag_operation->current_target) {
+		WM_drop_target_free(drag_operation->current_target);
+	}
+	drag_operation->current_target = WM_drag_find_current_target(C, drag_operation->drag_data, event);
+}
+
+void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event)
+{
+	event->custom = EVT_DATA_DRAGDROP;
+	event->customdata = wm->drag_operation;
+	event->customdatafree = true;
+	wm->drag_operation = NULL;
 }

@@ -95,12 +95,6 @@ static ListBase *get_selected_elements(SpaceOops *soops)
 	return elements;
 }
 
-static int get_tree_element_id_type(TreeElement *te)
-{
-	TreeElementIcon data = tree_element_get_icon(TREESTORE(te), te);
-	if (!data.drag_id) return -1;
-	return GS(data.drag_id->name);
-}
 
 /* ************* Start Dragging ************** */
 
@@ -121,7 +115,6 @@ static int outliner_drag_init_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	}
 
 	ListBase *elements = get_selected_elements(soops);
-	WM_drag_start_tree_elements(C, elements);
 
 	return OPERATOR_FINISHED;
 }

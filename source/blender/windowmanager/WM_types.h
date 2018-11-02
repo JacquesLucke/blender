@@ -661,7 +661,6 @@ enum DragDataType {
 	DRAG_DATA_VALUE,
 	DRAG_DATA_RNA,
 	DRAG_DATA_NAME,
-	DRAG_DATA_TREE_ELEMENTS,
 };
 /* wmDragData.display_type */
 enum DragDisplayType {
@@ -687,10 +686,6 @@ typedef struct wmDragData {
 		double value;
 		struct PointerRNA *rna;
 		char *name;
-		struct {
-			ListBase *list;
-			int amount;
-		} tree_elements;
 	} data;
 	union {
 		struct {
