@@ -108,6 +108,6 @@ float       wm_pressure_curve(float raw_pressure);
 
 /* wm_dropbox.c */
 void        wm_dropbox_free(void);
-void        wm_draw_drag_data(bContext *C, wmWindow *win);
+void        wm_draw_drag_data(bContext *C, wmWindow *win, struct DragOperationData *drag_operation);
 
 #endif /* __WM_EVENT_SYSTEM_H__ */

@@ -274,7 +274,7 @@ static DropTarget *new_drop_target(void)
 
 DropTarget *WM_event_get_active_droptarget(bContext *C, DragData *drag_data, const wmEvent *event)
 {
-	if (event->shift && drag_data->type == DRAG_DATA_FILEPATHS) {
+	if (event->shift && CTX_wm_space_outliner(C) || drag_data->type == DRAG_DATA_FILEPATHS) {
 		DropTarget *drop_target = new_drop_target();
 		drop_target->ot_idname = "WM_OT_window_new";
 		drop_target->tooltip = "Make new window";
@@ -427,8 +427,19 @@ static void drag_rect_minmax(rcti *rect, int x1, int y1, int x2, int y2)
 		rect->ymax = y2;
 }
 
-void wm_draw_drag_data(bContext *UNUSED(C), wmWindow *UNUSED(win))
+void wm_draw_drag_data(bContext *C, wmWindow *win, DragOperationData *drag_operation)
 {
+	DragData *drag_data = drag_operation->drag_data;
+	DropTarget *drop_target = drag_operation->current_target;
 
+	int cursorx = win->eventstate->x;
+	int cursory = win->eventstate->y;
+
+	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
+	const uchar text_col[] = {255, 255, 255, 255};
+
+	if (drop_target && drop_target->tooltip) {
+		UI_fontstyle_draw_simple(fstyle, cursorx, cursory, drop_target->tooltip, text_col);
+	}
 }
 
