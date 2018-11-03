@@ -59,13 +59,16 @@ typedef LaplacianDeformModifierBindData BindData;
 **************************************************/
 
 typedef struct {
-	struct SparseMatrix *system_matrix;
-	float *initial_right_side;
+	struct SystemMatrix *system_matrix;
+	struct SolverCache *solver_cache;
+	float *initial_inner_diff;
 } Cache;
 
-static Cache *newCache()
+static Cache *newCache(void)
 {
-	return MEM_callocN(sizeof(Cache), __func__);
+	Cache *cache = MEM_callocN(sizeof(Cache), __func__);
+	cache->solver_cache = SolverCache_new();
+	return cache;
 }
 
 static Cache *getCache(LaplacianDeformModifierData *lmd)
@@ -199,19 +202,14 @@ static BindData *calculate_bind_data(
 	return bind_data;
 }
 
-static struct SparseMatrix *buildSystemMatrix(LaplacianDeformModifierData *lmd, Mesh *mesh)
+static struct SystemMatrix *buildSystemMatrix(LaplacianDeformModifierData *lmd, Mesh *mesh)
 {
 	BindData *data = lmd->bind_data;
 	BLI_assert(data);
-	return buildLaplacianSystemMatrix(
+
+	return buildConstraintLaplacianSystemMatrix(
 	        mesh, data->initial_positions,
 	        data->anchor_indices, data->anchor_amount);
-}
-
-static void calculateInitialRightSide(
-        struct SparseMatrix *system_matrix, float (*vertexCos)[3], float (*r_right_side)[3])
-{
-	multipleSparseMatrixWithVectors(system_matrix, vertexCos, r_right_side);
 }
 
 
@@ -222,9 +220,8 @@ static LaplacianDeformModifierData *get_original_modifier_data(
         LaplacianDeformModifierData *lmd,
         const ModifierEvalContext *ctx)
 {
-	Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
 	Object *ob_orig = DEG_get_original_object(ctx->object);
-	return (MeshDeformModifierData *)modifiers_findByName(ob_orig, lmd->modifier.name);
+	return (LaplacianDeformModifierData *)modifiers_findByName(ob_orig, lmd->modifier.name);
 }
 
 static void LaplacianDeformModifier_do(
@@ -250,24 +247,22 @@ static void LaplacianDeformModifier_do(
 		cache->system_matrix = buildSystemMatrix(lmd, mesh);
 	}
 
-	if (cache->initial_right_side == NULL) {
-		cache->initial_right_side = MEM_malloc_arrayN(numVerts, sizeof(float) * 3, __func__);
-		calculateInitialRightSide(
+	int inner_amount = numVerts - bind_data->anchor_amount;
+	if (cache->initial_inner_diff == NULL) {
+		cache->initial_inner_diff = MEM_malloc_arrayN(inner_amount, sizeof(float) * 3, __func__);
+		calculateInitialInnerDiff(
 		        cache->system_matrix, vertexCos,
-		        cache->initial_right_side);
+		        cache->initial_inner_diff);
 	}
 
-	float (*right_side)[3] = MEM_malloc_arrayN(numVerts, sizeof(float) * 3, __func__);
-	memcpy(right_side, cache->initial_right_side, sizeof(float) * 3 * numVerts);
-
+	float (*anchor_pos)[3] = MEM_malloc_arrayN(bind_data->anchor_amount, sizeof(float) * 3, __func__);
 	for (int i = 0; i < bind_data->anchor_amount; i++) {
-		int index = bind_data->anchor_indices[i];
-		memcpy(right_side + index, vertexCos + index, sizeof(float) * 3);
+		copy_v3_v3(anchor_pos + i, vertexCos + bind_data->anchor_indices[i]);
 	}
 
-	solveSparseSystems(cache->system_matrix, right_side, vertexCos);
+	solveLaplacianSystem(cache->system_matrix, cache->initial_inner_diff, anchor_pos, cache->solver_cache, vertexCos);
 
-	MEM_freeN(right_side);
+	MEM_freeN(anchor_pos);
 }
 
 static void initData(ModifierData *md)

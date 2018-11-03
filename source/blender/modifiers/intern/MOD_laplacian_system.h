@@ -33,8 +33,23 @@ struct Mesh;
 struct LaplacianDeformModifierBindData;
 
 struct SparseMatrix;
+struct SystemMatrix;
+struct SolverCache;
 
-struct SparseMatrix *buildLaplacianSystemMatrix(struct Mesh *mesh, const float (*positions)[3], int *anchor_indices, int anchor_amount);
+struct SystemMatrix *buildConstraintLaplacianSystemMatrix(struct Mesh *mesh, const float (*positions)[3], int *anchor_indices, int anchor_amount);
+void calculateInitialInnerDiff(
+        struct SystemMatrix *system_matrix,
+        float (*positions)[3],
+        float (*r_inner_diff)[3]);
+
+void solveLaplacianSystem(
+        struct SystemMatrix *matrix,
+        const float (*inner_diff_pos)[3], const float (*anchor_pos)[3], struct SolverCache *cache,
+        float (*r_result)[3]);
+
+struct SolverCache *SolverCache_new(void);
+void SolverCache_matrix_changed(struct SolverCache *cache);
+
 void multipleSparseMatrixAndVector(struct SparseMatrix *matrix, float *vector, float *r_vector);
 void multipleSparseMatrixWithVectors(struct SparseMatrix *matrix, float (*vectors)[3], float (*r_result)[3]);
 
