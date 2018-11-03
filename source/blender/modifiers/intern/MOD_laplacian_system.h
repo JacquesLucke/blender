@@ -48,6 +48,7 @@ void solveLaplacianSystem(
         float (*r_result)[3]);
 
 struct SolverCache *SolverCache_new(void);
+void SolverCache_delete(struct SolverCache *cache);
 void SolverCache_matrix_changed(struct SolverCache *cache);
 
 void multipleSparseMatrixAndVector(struct SparseMatrix *matrix, float *vector, float *r_vector);

@@ -71,6 +71,14 @@ static Cache *newCache(void)
 	return cache;
 }
 
+static void freeCache(Cache *cache)
+{
+	if (cache->solver_cache) {
+		SolverCache_delete(cache->solver_cache);
+	}
+	MEM_freeN(cache);
+}
+
 static Cache *getCache(LaplacianDeformModifierData *lmd)
 {
 	Cache *cache = (Cache *)lmd->cache;
@@ -156,32 +164,6 @@ static void getAnchorIndices(
 }
 
 
-/* Conversion.
-**************************************************/
-
-static void convertAOStoSOA(
-        int amount, float (*positions)[3],
-        float *r_xValues, float *r_yValues, float *r_zValues)
-{
-	for (int i = 0; i < amount; i++) {
-		r_xValues[i] = positions[i][0];
-		r_yValues[i] = positions[i][1];
-		r_zValues[i] = positions[i][2];
-	}
-}
-
-static void convertSOAtoAOS(
-        int amount, float *x_values, float *y_values, float *z_values,
-        float (*r_positions)[3])
-{
-	for (int i = 0; i < amount; i++) {
-		r_positions[i][0] = x_values[i];
-		r_positions[i][1] = y_values[i];
-		r_positions[i][2] = z_values[i];
-	}
-}
-
-
 /* Calculate bind data.
 **************************************************/
 
@@ -200,6 +182,13 @@ static BindData *calculate_bind_data(
 	        &bind_data->anchor_indices, &bind_data->anchor_amount);
 
 	return bind_data;
+}
+
+static void free_bind_data(BindData *bind_data)
+{
+	MEM_freeN(bind_data->initial_positions);
+	MEM_freeN(bind_data->anchor_indices);
+	MEM_freeN(bind_data);
 }
 
 static struct SystemMatrix *buildSystemMatrix(LaplacianDeformModifierData *lmd, Mesh *mesh)
@@ -232,16 +221,24 @@ static void LaplacianDeformModifier_do(
 	Object *ob = ctx->object;
 	LaplacianDeformModifierData *lmd_orig = get_original_modifier_data(lmd, ctx);
 
-	ensureCacheExists(lmd, lmd_orig);
-	Cache *cache = getCache(lmd);
-
 	if (lmd->bind_next_execution) {
+		if (lmd->cache) {
+			freeCache(lmd->cache);
+			lmd->cache = NULL;
+		}
+		if (lmd->bind_data) {
+			free_bind_data(lmd->bind_data);
+		}
 		lmd_orig->bind_data = calculate_bind_data(lmd, ob, mesh, vertexCos);
 		lmd_orig->bind_next_execution = false;
+		lmd->bind_data = lmd_orig->bind_data;
 	}
 
 	if (lmd->bind_data == NULL) return;
 	BindData *bind_data = lmd->bind_data;
+
+	ensureCacheExists(lmd, lmd_orig);
+	Cache *cache = getCache(lmd);
 
 	if (cache->system_matrix == NULL) {
 		cache->system_matrix = buildSystemMatrix(lmd, mesh);

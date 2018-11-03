@@ -305,6 +305,12 @@ SolverCache *SolverCache_new()
 {
 	return new SolverCache();
 }
+
+void SolverCache_delete(struct SolverCache *cache)
+{
+	delete cache;
+}
+
 void SolverCache_matrix_changed(SolverCache *cache)
 {
 	delete cache->solver;
