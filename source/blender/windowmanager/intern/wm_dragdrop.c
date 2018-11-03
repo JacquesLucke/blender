@@ -369,6 +369,14 @@ const char *WM_drag_query_single_path_image_or_movie(wmDragData *drag_data)
 	return WM_drag_query_single_path_of_types(drag_data, FILE_TYPE_IMAGE | FILE_TYPE_MOVIE);
 }
 
+ListBase *WM_drag_query_collection_children(wmDragData *drag_data)
+{
+	if (drag_data->type == DRAG_DATA_COLLECTION_CHILDREN) {
+		return drag_data->data.collection_children;
+	}
+	return NULL;
+}
+
 /* ********************* Draw ********************* */
 
 void WM_drag_draw(bContext *UNUSED(C), wmWindow *win, wmDragOperation *drag_operation)
