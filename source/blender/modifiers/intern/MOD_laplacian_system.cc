@@ -70,6 +70,7 @@ Timer::~Timer() {
 
 
 typedef Eigen::SparseMatrix<float> SparseMatrixF;
+typedef Eigen::SparseMatrix<double> SparseMatrixD;
 typedef Eigen::Triplet<float> Triplet;
 
 struct SystemMatrixF {
@@ -88,7 +89,7 @@ struct SystemMatrixF {
 };
 
 struct SolverCache {
-	Eigen::SimplicialLDLT<SparseMatrixF> *solver = NULL;
+	Eigen::SimplicialLDLT<SparseMatrixD> *solver = NULL;
 };
 
 struct WeightedEdge {
@@ -283,18 +284,20 @@ void solveSparseSystem(SparseMatrix *A, float *b, float *r_x)
 }
 
 static Eigen::VectorXf solveSparse_NormalEquation(
-        const SparseMatrixF &A, const Eigen::VectorXf b, SolverCache &cache)
+        const SparseMatrixF &_A, const Eigen::VectorXf _b, SolverCache &cache)
 {
-	SparseMatrixF A_T = A.transpose();
+	SparseMatrixD A = _A.cast<double>();
+	SparseMatrixD A_T = A.transpose();
+	Eigen::VectorXd b = _b.cast<double>();
 
 	if (cache.solver == NULL) {
 		TIMEIT("precompute LDLT");
-		cache.solver = new Eigen::SimplicialLDLT<SparseMatrixF>();
+		cache.solver = new Eigen::SimplicialLDLT<SparseMatrixD>();
 		cache.solver->compute(A_T * A);
 	}
 	{
 		TIMEIT("actual solve");
-		return cache.solver->solve(A_T * b);
+		return cache.solver->solve(A_T * b).cast<float>();
 	}
 }
 
