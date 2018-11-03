@@ -717,8 +717,8 @@ typedef struct wmDropTarget {
 } wmDropTarget;
 
 typedef struct wmDragOperation {
-	struct wmDragData *drag_data;
-	struct wmDropTarget *current_target;
+	struct wmDragData *data;
+	struct wmDropTarget *target;
 } wmDragOperation;
 
 /**

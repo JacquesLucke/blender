@@ -2389,9 +2389,9 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 				if (!wm->is_interface_locked && event->type == EVT_DROP) {
 					wmDragOperation *drag_operation = (wmDragOperation *)event->customdata;
 					WM_drag_update_current_target(C, drag_operation, event);
-					if (drag_operation && drag_operation->drag_data && drag_operation->current_target) {
-						wmDragData *drag_data = drag_operation->drag_data;
-						wmDropTarget *drop_target = drag_operation->current_target;
+					if (drag_operation && drag_operation->data && drag_operation->target) {
+						wmDragData *drag_data = drag_operation->data;
+						wmDropTarget *drop_target = drag_operation->target;
 
 						wmOperatorType *ot = WM_operatortype_find(drop_target->ot_idname, false);
 						struct PointerRNA *ptr = NULL;
@@ -2792,7 +2792,7 @@ static void wm_paintcursor_test(bContext *C, const wmEvent *event)
 
 static void wm_event_drag_test(wmWindowManager *wm, wmWindow *win, wmEvent *event)
 {
-	if (!wm->drag_operation) {
+	if (!wm->drag) {
 		return;
 	}
 
@@ -3037,8 +3037,8 @@ void wm_event_do_handlers(bContext *C)
 									/* call even on non mouse events, since the */
 									wm_region_mouse_co(C, event);
 
-									if (wm->drag_operation) {
-										WM_drag_update_current_target(C, wm->drag_operation, event);
+									if (wm->drag) {
+										WM_drag_update_current_target(C, wm->drag, event);
 									}
 
 #ifdef USE_WORKSPACE_TOOL

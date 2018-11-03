@@ -147,8 +147,7 @@ typedef struct wmWindowManager {
 
 	ListBase paintcursors;            /* extra overlay cursors to draw, like circles */
 
-	ListBase drags;                   /* active dragged items */
-	struct wmDragOperation *drag_operation;
+	struct wmDragOperation *drag;     /* active drag operation */
 
 	ListBase keyconfigs;              /* known key configurations */
 	struct wmKeyConfig *defaultconf;  /* default configuration */

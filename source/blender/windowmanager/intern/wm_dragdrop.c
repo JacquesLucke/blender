@@ -100,19 +100,19 @@ void WM_drop_target_free(wmDropTarget *drop_target)
 
 void WM_drag_operation_free(wmDragOperation *drag_operation)
 {
-	if (drag_operation->drag_data) {
-		WM_drag_data_free(drag_operation->drag_data);
+	if (drag_operation->data) {
+		WM_drag_data_free(drag_operation->data);
 	}
-	if (drag_operation->current_target) {
-		WM_drop_target_free(drag_operation->current_target);
+	if (drag_operation->target) {
+		WM_drop_target_free(drag_operation->target);
 	}
 }
 
 void WM_drag_stop(wmWindowManager *wm)
 {
-	if (wm->drag_operation) {
-		WM_drag_operation_free(wm->drag_operation);
-		wm->drag_operation = NULL;
+	if (wm->drag) {
+		WM_drag_operation_free(wm->drag);
+		wm->drag = NULL;
 	}
 }
 
@@ -122,9 +122,9 @@ static void start_dragging_data(struct bContext *C, wmDragData *drag_data)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	WM_drag_stop(wm);
-	wm->drag_operation = MEM_callocN(sizeof(wmDragOperation), __func__);
-	wm->drag_operation->drag_data = drag_data;
-	wm->drag_operation->current_target = NULL;
+	wm->drag = MEM_callocN(sizeof(wmDragOperation), __func__);
+	wm->drag->data = drag_data;
+	wm->drag->target = NULL;
 }
 
 static wmDragData *WM_drag_data_new(void) {
@@ -381,8 +381,8 @@ ListBase *WM_drag_query_collection_children(wmDragData *drag_data)
 
 void WM_drag_draw(bContext *UNUSED(C), wmWindow *win, wmDragOperation *drag_operation)
 {
-	wmDragData *drag_data = drag_operation->drag_data;
-	wmDropTarget *drop_target = drag_operation->current_target;
+	wmDragData *drag_data = drag_operation->data;
+	wmDropTarget *drop_target = drag_operation->target;
 
 	int cursorx = win->eventstate->x;
 	int cursory = win->eventstate->y;
@@ -463,25 +463,25 @@ wmDropTarget *WM_drag_find_current_target(bContext *C, wmDragData *drag_data, co
 
 void WM_drag_update_current_target(bContext *C, wmDragOperation *drag_operation, const wmEvent *event)
 {
-	if (drag_operation->current_target) {
-		WM_drop_target_free(drag_operation->current_target);
+	if (drag_operation->target) {
+		WM_drop_target_free(drag_operation->target);
 	}
-	drag_operation->current_target = WM_drag_find_current_target(C, drag_operation->drag_data, event);
+	drag_operation->target = WM_drag_find_current_target(C, drag_operation->data, event);
 }
 
 void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event)
 {
 	event->custom = EVT_DATA_DRAGDROP;
-	event->customdata = wm->drag_operation;
+	event->customdata = wm->drag;
 	event->customdatafree = true;
-	wm->drag_operation = NULL;
+	wm->drag = NULL;
 }
 
 wmDragData *WM_drag_get_active(bContext *C)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
-	if (wm->drag_operation) {
-		return wm->drag_operation->drag_data;
+	if (wm->drag) {
+		return wm->drag->data;
 	}
 	return NULL;
 }
