@@ -67,7 +67,8 @@ Timer::~Timer() {
     std::cout << "Timer '" << name << "' took " << ms << " ms" << std::endl;
 }
 
-#define TIMEIT(name) Timer t(name);
+//#define TIMEIT(name) Timer t(name);
+#define TIMEIT(name)
 
 /* ************ Timer End *************** */
 
@@ -118,7 +119,32 @@ struct SystemMatrixF {
 	}
 };
 
-static std::vector<WeightedEdge> calcWeightedEdgesFromTriangles(
+static std::vector<WeightedEdge> calcWeightedEdgesFromTriangles_Cotan(
+        const MLoopTri *triangles, int triangle_amount, const MLoop *loops, const float (*positions)[3])
+{
+	std::vector<WeightedEdge> edges;
+	edges.reserve(triangle_amount * 3);
+
+	for (int i = 0; i < triangle_amount; i++) {
+		const MLoopTri *triangle = triangles + i;
+		int v1 = loops[triangle->tri[0]].v;
+		int v2 = loops[triangle->tri[1]].v;
+		int v3 = loops[triangle->tri[2]].v;
+
+		float angles[3];
+		angle_tri_v3(angles, (float *)(positions + v1), (float *)(positions + v2), (float *)(positions + v3));
+
+#define cotan(x) cos(x)/sin(x)
+		edges.push_back((WeightedEdge){v2, v3, cotan(angles[0]) / 2.0f});
+		edges.push_back((WeightedEdge){v1, v3, cotan(angles[1]) / 2.0f});
+		edges.push_back((WeightedEdge){v1, v2, cotan(angles[2]) / 2.0f});
+#undef cotan
+	}
+
+	return edges;
+}
+
+static std::vector<WeightedEdge> calcWeightedEdgesFromTriangles_Uniform(
         const MLoopTri *triangles, int triangle_amount, const MLoop *loops, const float (*positions)[3])
 {
 	std::vector<WeightedEdge> edges;
@@ -144,7 +170,7 @@ static std::vector<WeightedEdge> calculateEdgeWeights(
 {
 	const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
 	int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
-	return calcWeightedEdgesFromTriangles(triangles, triangle_amount, mesh->mloop, positions);
+	return calcWeightedEdgesFromTriangles_Cotan(triangles, triangle_amount, mesh->mloop, positions);
 }
 
 static std::vector<float> calcTotalWeigthPerVertex(std::vector<WeightedEdge> &edges, int vertex_amount)
@@ -385,6 +411,7 @@ void solveLaplacianSystem(
 	}
 
 	for (int iteration = 0; iteration < iterations; iteration++) {
+		std::cout << "Iteration: " << iteration << std::endl;
 		for (int coord = 0; coord < 3; coord++) {
 			Eigen::VectorXf _inner_diffs_MO(inner_amount);
 			for (int i = 0; i < inner_amount; i++) {
