@@ -4547,7 +4547,11 @@ static void rna_def_modifier_laplaciandeform(BlenderRNA *brna)
 	RNA_def_property_boolean_funcs(prop, "rna_LaplacianDeformModifier_is_bind_get", NULL);
 	RNA_def_property_ui_text(prop, "Bound", "Whether geometry has been bound to anchors");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+	prop = RNA_def_property(srna, "iterations", PROP_INT, PROP_NONE);
+	RNA_def_property_range(prop, 0, 200);
+	RNA_def_property_ui_text(prop, "Iterations", "");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 

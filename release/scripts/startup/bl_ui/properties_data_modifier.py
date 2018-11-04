@@ -462,6 +462,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         layout.label(text="Bind Data exists: " + str(md.is_bind))
 
         layout.prop_search(md, "anchor_group_name", ob, "vertex_groups")
+        layout.prop(md, "iterations")
         layout.operator("object.laplaciandeform_bind", text = "Bind")
 
     def LAPLACIANSMOOTH(self, layout, ob, md):

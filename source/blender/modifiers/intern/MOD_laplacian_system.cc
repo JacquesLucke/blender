@@ -1,4 +1,5 @@
 /*
+
  * ***** BEGIN GPL LICENSE BLOCK *****
  *
  * This program is free software; you can redistribute it and/or
@@ -29,6 +30,8 @@
 #include "DNA_meshdata_types.h"
 
 #include "BKE_mesh_runtime.h"
+
+#include "BLI_math.h"
 
 #include "MOD_laplacian_system.h"
 
@@ -69,24 +72,9 @@ Timer::~Timer() {
 /* ************ Timer End *************** */
 
 
-typedef Eigen::SparseMatrix<float> SparseMatrixF;
-typedef Eigen::SparseMatrix<double> SparseMatrixD;
+typedef Eigen::SparseMatrix<float, Eigen::ColMajor> SparseMatrixF;
+typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SparseMatrixD;
 typedef Eigen::Triplet<float> Triplet;
-
-struct SystemMatrixF {
-	SparseMatrixF A_II, A_IB;
-	std::vector<int> index_of_vertex;
-	std::vector<int> vertex_of_index;
-
-	int vertex_amount() { return index_of_vertex.size(); }
-	int anchor_amount() { return A_IB.cols(); }
-	int inner_amount() { return A_II.rows(); }
-
-	/* A_BI: contains only zeros
-	 * A_BB: is an identity matrix
-	 *  -> don't need to be stored explicitly.
-	 */
-};
 
 struct SolverCache {
 	Eigen::SimplicialLDLT<SparseMatrixD> *solver = NULL;
@@ -95,6 +83,39 @@ struct SolverCache {
 struct WeightedEdge {
 	int v1, v2;
 	float weight;
+};
+
+struct SystemMatrixF {
+	SparseMatrixF A_II, A_IB;
+	/* A_BI: contains only zeros
+	 * A_BB: is an identity matrix
+	 *  -> don't need to be stored explicitly.
+	 */
+
+	std::vector<int> index_of_vertex;
+	std::vector<int> vertex_of_index;
+
+	/* edges can exist multiple times, their total weight is the sum */
+	std::vector<WeightedEdge> weighted_edges;
+
+	int vertex_amount() { return index_of_vertex.size(); }
+	int anchor_amount() { return A_IB.cols(); }
+	int inner_amount() { return A_II.rows(); }
+
+	bool is_anchor_vertex(int vertex)
+	{
+		return !is_inner_vertex(vertex);
+	}
+
+	bool is_inner_vertex(int vertex)
+	{
+		return index_of_vertex[vertex] < inner_amount();
+	}
+
+	int get_index_of_vertex(int vertex)
+	{
+		return index_of_vertex[vertex];
+	}
 };
 
 static std::vector<WeightedEdge> calcWeightedEdgesFromTriangles(
@@ -115,6 +136,15 @@ static std::vector<WeightedEdge> calcWeightedEdgesFromTriangles(
 	}
 
 	return edges;
+}
+
+static std::vector<WeightedEdge> calculateEdgeWeights(
+        Mesh *mesh /* only for connectivity information */,
+        const float (*positions)[3])
+{
+	const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+	int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
+	return calcWeightedEdgesFromTriangles(triangles, triangle_amount, mesh->mloop, positions);
 }
 
 static std::vector<float> calcTotalWeigthPerVertex(std::vector<WeightedEdge> &edges, int vertex_amount)
@@ -151,18 +181,12 @@ static std::vector<int> sortVerticesByAnchors(int vertex_amount, std::vector<int
 	return sorted;
 }
 
-static std::vector<Triplet> getInnerMatrixTriplets_TrianglesMode(
-        Mesh *mesh, const float (*positions)[3],
+static std::vector<Triplet> getInnerMatrixTriplets(
+        const float (*positions)[3], int vertex_amount, std::vector<WeightedEdge> &edges,
         std::vector<int> &anchors, std::vector<int> &index_of_vertex)
 {
-	int vertex_amount = mesh->totvert;
 	int non_anchor_amount = vertex_amount - anchors.size();
-
-	const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-	int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
-
-	auto edges = calcWeightedEdgesFromTriangles(triangles, triangle_amount, mesh->mloop, positions);
-	auto total_weights = calcTotalWeigthPerVertex(edges, mesh->totvert);
+	auto total_weights = calcTotalWeigthPerVertex(edges, vertex_amount);
 
 	std::vector<Triplet> triplets;
 
@@ -210,8 +234,9 @@ SystemMatrix *buildConstraintLaplacianSystemMatrix(
 	matrices->A_IB = SparseMatrixF(non_anchor_amount,     anchor_amount);
 	matrices->index_of_vertex = std::vector<int>(index_of_vertex);
 	matrices->vertex_of_index = std::vector<int>(vertex_of_index);
+	matrices->weighted_edges = calculateEdgeWeights(mesh, positions);
 
-	std::vector<Triplet> triplets = getInnerMatrixTriplets_TrianglesMode(mesh, positions, anchors, index_of_vertex);
+	std::vector<Triplet> triplets = getInnerMatrixTriplets(positions, vertex_amount, matrices->weighted_edges, anchors, index_of_vertex);
 	std::vector<Triplet> triplets_II;
 	std::vector<Triplet> triplets_IB;
 
@@ -229,6 +254,61 @@ SystemMatrix *buildConstraintLaplacianSystemMatrix(
 	matrices->A_IB.setFromTriplets(triplets_IB.begin(), triplets_IB.end());
 
 	return (SystemMatrix *)matrices;
+}
+
+SolverCache *SolverCache_new()
+{
+	return new SolverCache();
+}
+
+void SolverCache_delete(struct SolverCache *cache)
+{
+	delete cache;
+}
+
+void SolverCache_matrix_changed(SolverCache *cache)
+{
+	delete cache->solver;
+	cache->solver = NULL;
+}
+
+static std::vector<Eigen::Matrix3f> calculateRotations(
+        SystemMatrixF &matrix,
+        const float (*positions_before_VO)[3],
+        const float (*positions_after_VO)[3])
+{
+	std::vector<Eigen::Matrix3f> S(matrix.inner_amount());
+	for (int i = 0; i < S.size(); i++) {
+		S[i].setZero();
+	}
+
+	for (WeightedEdge edge : matrix.weighted_edges) {
+		int i = edge.v1;
+		int j = edge.v2;
+		float weight = edge.weight;
+
+		Eigen::Vector3f edge_old;
+		Eigen::RowVector3f edge_new;
+
+		sub_v3_v3v3(&edge_old[0], (float *)(positions_before_VO + i), (float *)(positions_before_VO + j));
+		sub_v3_v3v3(&edge_new[0], (float *)(positions_after_VO + i), (float *)(positions_after_VO + j));
+
+		if (matrix.is_inner_vertex(i)) {
+			S[matrix.get_index_of_vertex(i)] += weight * edge_old * edge_new;
+		}
+		if (matrix.is_inner_vertex(j)) {
+			S[matrix.get_index_of_vertex(j)] += weight * edge_old * edge_new;
+		}
+	}
+
+	std::vector<Eigen::Matrix3f> R(matrix.inner_amount());
+	for (int i = 0; i < S.size(); i++) {
+		Eigen::JacobiSVD<Eigen::Matrix3f> svd(S[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
+		R[i] = svd.matrixV() * svd.matrixU().transpose();
+	}
+
+
+	return R;
 }
 
 typedef Eigen::Map<Eigen::VectorXf, 0, Eigen::InnerStride<3>> StridedVector;
@@ -249,22 +329,6 @@ static Eigen::VectorXf solveSparse_NormalEquation(
 	}
 }
 
-SolverCache *SolverCache_new()
-{
-	return new SolverCache();
-}
-
-void SolverCache_delete(struct SolverCache *cache)
-{
-	delete cache;
-}
-
-void SolverCache_matrix_changed(SolverCache *cache)
-{
-	delete cache->solver;
-	cache->solver = NULL;
-}
-
 static Eigen::VectorXf solveLaplacianSystem_Single(
         SystemMatrixF &matrix, Eigen::VectorXf &inner_diff_pos,
         Eigen::VectorXf &anchor_pos, SolverCache &cache)
@@ -274,36 +338,65 @@ static Eigen::VectorXf solveLaplacianSystem_Single(
 	return solveSparse_NormalEquation(matrix.A_II, b, cache);
 }
 
+std::vector<Eigen::Vector3f> updateInnerDiffPos(
+        SystemMatrixF &matrix,
+        const float (*initial_positions_VO)[3],
+        const float (*new_positions_VO)[3],
+        const float (*initial_inner_diff_MO)[3])
+{
+	std::vector<Eigen::Matrix3f> rotations_MO = calculateRotations(matrix, initial_positions_VO, new_positions_VO);
+	std::vector<Eigen::Vector3f> new_diffs_MO(matrix.inner_amount());
+
+	for (int i = 0; i < matrix.inner_amount(); i++) {
+		new_diffs_MO[i] = rotations_MO[i] * Eigen::Map<Eigen::Vector3f>((float *)(initial_inner_diff_MO + i));
+	}
+
+	return new_diffs_MO;
+}
+
 void solveLaplacianSystem(
-        struct SystemMatrix *matrix,
-        const float (*inner_diff_pos)[3], const float (*anchor_pos)[3], SolverCache *cache,
-        float (*r_result)[3])
+        struct SystemMatrix *matrix, const float (*initial_positions_VO)[3],
+        const float (*initial_inner_diff_MO)[3], const float (*anchor_pos_MO)[3], SolverCache *cache, int iterations,
+        float (*r_result_VO)[3])
 {
 	TIMEIT("solve all");
+	SystemMatrixF& _matrix = *(SystemMatrixF *)matrix;
+	int inner_amount = _matrix.inner_amount();
+	int anchor_amount = _matrix.anchor_amount();
+	int vertex_amount = _matrix.vertex_amount();
 
-	SystemMatrixF *_matrix = (SystemMatrixF *)matrix;
-	int inner_amount = _matrix->inner_amount();
-	int anchor_amount = _matrix->anchor_amount();
-	int vertex_amount = _matrix->vertex_amount();
+	std::vector<Eigen::Vector3f> inner_diffs_MO(inner_amount);
+	for (int i = 0; i < inner_amount; i++) {
+		copy_v3_v3(&inner_diffs_MO[i][0], (float *)(initial_inner_diff_MO + i));
+	}
 
-	for (int coord = 0; coord < 3; coord++) {
-		Eigen::VectorXf _inner_diff_pos = StridedVector((float *)inner_diff_pos + coord, inner_amount);
-		Eigen::VectorXf _anchor_pos = StridedVector((float *)anchor_pos + coord, anchor_amount);
-		Eigen::VectorXf inner_result = solveLaplacianSystem_Single(*_matrix, _inner_diff_pos, _anchor_pos, *cache);
-		Eigen::VectorXf full_result(vertex_amount);
-		{
-			TIMEIT("copy back");
+	for (int iteration = 0; iteration < iterations; iteration++) {
+		for (int coord = 0; coord < 3; coord++) {
+			Eigen::VectorXf _inner_diffs_MO(inner_amount);
+			for (int i = 0; i < inner_amount; i++) {
+				_inner_diffs_MO[i] = inner_diffs_MO[i][coord];
+			}
+
+			Eigen::VectorXf _anchor_pos_MO(anchor_amount);
+			for (int i = 0; i < anchor_amount; i++) {
+				_anchor_pos_MO[i] = anchor_pos_MO[i][coord];
+			}
+
+			Eigen::VectorXf inner_result_MO = solveLaplacianSystem_Single(_matrix, _inner_diffs_MO, _anchor_pos_MO, *cache);
+
 			for (int i = 0; i < vertex_amount; i++) {
-				int index = _matrix->index_of_vertex[i];
-				if (index < inner_amount) {
-					full_result[i] = inner_result[index];
+				int index_MO = _matrix.get_index_of_vertex(i);
+				float vertex_value;
+				if (index_MO < inner_amount) {
+					vertex_value = inner_result_MO[index_MO];
 				}
 				else {
-					full_result[i] = anchor_pos[index - inner_amount][coord];
+					vertex_value = anchor_pos_MO[index_MO - inner_amount][coord];
 				}
+				r_result_VO[i][coord] = vertex_value;
 			}
-			StridedVector((float *)r_result + coord, vertex_amount) = full_result;
 		}
+		inner_diffs_MO = updateInnerDiffPos(_matrix, initial_positions_VO, r_result_VO, initial_inner_diff_MO);
 	}
 }
 
@@ -329,7 +422,6 @@ void calculateInitialInnerDiff(
 		StridedVector((float *)r_inner_diff + coord, inner_amount) = _result;
 	}
 }
-
 
 /*
 Input: Original Vertex Positions, Mesh Connectivity, Anchor Indices, New Anchor Positions

@@ -47,9 +47,9 @@ void calculateInitialInnerDiff(
         float (*r_inner_diff)[3]);
 
 void solveLaplacianSystem(
-        struct SystemMatrix *matrix,
-        const float (*inner_diff_pos)[3], const float (*anchor_pos)[3], struct SolverCache *cache,
-        float (*r_result)[3]);
+        struct SystemMatrix *matrix, const float (*initial_positions_VO)[3],
+        const float (*initial_inner_diff_MO)[3], const float (*anchor_pos_MO)[3], struct SolverCache *cache, int iterations,
+        float (*r_result_VO)[3]);
 
 struct SolverCache *SolverCache_new(void);
 void SolverCache_delete(struct SolverCache *cache);

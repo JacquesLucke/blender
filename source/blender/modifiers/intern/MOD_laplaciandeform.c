@@ -257,7 +257,14 @@ static void LaplacianDeformModifier_do(
 		copy_v3_v3(anchor_pos + i, vertexCos + bind_data->anchor_indices[i]);
 	}
 
-	solveLaplacianSystem(cache->system_matrix, cache->initial_inner_diff, anchor_pos, cache->solver_cache, vertexCos);
+	solveLaplacianSystem(
+	        cache->system_matrix,
+	        bind_data->initial_positions,
+	        cache->initial_inner_diff,
+	        anchor_pos,
+	        cache->solver_cache,
+	        lmd->iterations,
+	        vertexCos);
 
 	MEM_freeN(anchor_pos);
 }
