@@ -231,57 +231,7 @@ SystemMatrix *buildConstraintLaplacianSystemMatrix(
 	return (SystemMatrix *)matrices;
 }
 
-
-void multipleSparseMatrixAndVector(SparseMatrix *matrix, float *vector, float *r_vector)
-{
-	SparseMatrixF& _matrix = *(SparseMatrixF *)matrix;
-	Eigen::VectorXf _vector = Eigen::Map<Eigen::VectorXf>(vector, _matrix.cols());
-	Eigen::VectorXf _result = _matrix * _vector;
-	Eigen::Map<Eigen::VectorXf>(r_vector, _matrix.rows()) = _result;
-}
-
 typedef Eigen::Map<Eigen::VectorXf, 0, Eigen::InnerStride<3>> StridedVector;
-
-void multipleSparseMatrixWithVectors(SparseMatrix *matrix, float (*vectors)[3], float (*r_result)[3])
-{
-	SparseMatrixF& _matrix = *(SparseMatrixF *)matrix;
-	for (int i = 0; i < 3; i++) {
-		Eigen::VectorXf _vector = StridedVector((float *)vectors + i, _matrix.cols());
-		Eigen::VectorXf _result = _matrix * _vector;
-		StridedVector((float *)r_result + i, _matrix.rows()) = _result;
-	}
-}
-
-void solveSparseSystems(struct SparseMatrix *A, float (*bs)[3], float (*r_xs)[3])
-{
-	SparseMatrixF& matrix = *(SparseMatrixF *)A;
-
-	Eigen::SparseLU<SparseMatrixF> solver;
-	solver.compute(matrix);
-
-	for (int i = 0; i < 3; i++) {
-		Eigen::VectorXf _vector = StridedVector((float *)bs + i, matrix.cols());
-		Eigen::VectorXf _result = solver.solve(_vector);
-		StridedVector((float *)r_xs + i, matrix.rows()) = _result;
-	}
-}
-
-int getSparseMatrixColumnAmount(struct SparseMatrix *matrix)
-{
-	return ((SparseMatrixF *)matrix)->cols();
-}
-
-void solveSparseSystem(SparseMatrix *A, float *b, float *r_x)
-{
-	SparseMatrixF& matrix = *(SparseMatrixF *)A;
-	Eigen::VectorXf _b = Eigen::Map<Eigen::VectorXf>(b, matrix.cols());
-
-	Eigen::SparseLU<SparseMatrixF> solver;
-	solver.compute(matrix);
-	Eigen::VectorXf result = solver.solve(_b);
-
-	Eigen::Map<Eigen::VectorXf>(r_x, matrix.rows()) = result;
-}
 
 static Eigen::VectorXf solveSparse_NormalEquation(
         const SparseMatrixF &_A, const Eigen::VectorXf _b, SolverCache &cache)
@@ -291,12 +241,10 @@ static Eigen::VectorXf solveSparse_NormalEquation(
 	Eigen::VectorXd b = _b.cast<double>();
 
 	if (cache.solver == NULL) {
-		TIMEIT("precompute LDLT");
 		cache.solver = new Eigen::SimplicialLDLT<SparseMatrixD>();
 		cache.solver->compute(A_T * A);
 	}
 	{
-		TIMEIT("actual solve");
 		return cache.solver->solve(A_T * b).cast<float>();
 	}
 }
@@ -321,6 +269,7 @@ static Eigen::VectorXf solveLaplacianSystem_Single(
         SystemMatrixF &matrix, Eigen::VectorXf &inner_diff_pos,
         Eigen::VectorXf &anchor_pos, SolverCache &cache)
 {
+	TIMEIT("solve single");
 	Eigen::VectorXf b = inner_diff_pos - matrix.A_IB * anchor_pos;
 	return solveSparse_NormalEquation(matrix.A_II, b, cache);
 }
@@ -330,6 +279,8 @@ void solveLaplacianSystem(
         const float (*inner_diff_pos)[3], const float (*anchor_pos)[3], SolverCache *cache,
         float (*r_result)[3])
 {
+	TIMEIT("solve all");
+
 	SystemMatrixF *_matrix = (SystemMatrixF *)matrix;
 	int inner_amount = _matrix->inner_amount();
 	int anchor_amount = _matrix->anchor_amount();
@@ -340,16 +291,19 @@ void solveLaplacianSystem(
 		Eigen::VectorXf _anchor_pos = StridedVector((float *)anchor_pos + coord, anchor_amount);
 		Eigen::VectorXf inner_result = solveLaplacianSystem_Single(*_matrix, _inner_diff_pos, _anchor_pos, *cache);
 		Eigen::VectorXf full_result(vertex_amount);
-		for (int i = 0; i < vertex_amount; i++) {
-			int index = _matrix->index_of_vertex[i];
-			if (index < inner_amount) {
-				full_result[i] = inner_result[index];
+		{
+			TIMEIT("copy back");
+			for (int i = 0; i < vertex_amount; i++) {
+				int index = _matrix->index_of_vertex[i];
+				if (index < inner_amount) {
+					full_result[i] = inner_result[index];
+				}
+				else {
+					full_result[i] = anchor_pos[index - inner_amount][coord];
+				}
 			}
-			else {
-				full_result[i] = anchor_pos[index - inner_amount][coord];
-			}
+			StridedVector((float *)r_result + coord, vertex_amount) = full_result;
 		}
-		StridedVector((float *)r_result + coord, vertex_amount) = full_result;
 	}
 }
 

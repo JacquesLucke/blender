@@ -36,7 +36,11 @@ struct SparseMatrix;
 struct SystemMatrix;
 struct SolverCache;
 
-struct SystemMatrix *buildConstraintLaplacianSystemMatrix(struct Mesh *mesh, const float (*positions)[3], int *anchor_indices, int anchor_amount);
+struct SystemMatrix *buildConstraintLaplacianSystemMatrix(
+        struct Mesh *mesh,
+        const float (*positions)[3],
+        int *anchor_indices, int anchor_amount);
+
 void calculateInitialInnerDiff(
         struct SystemMatrix *system_matrix,
         float (*positions)[3],
@@ -50,15 +54,6 @@ void solveLaplacianSystem(
 struct SolverCache *SolverCache_new(void);
 void SolverCache_delete(struct SolverCache *cache);
 void SolverCache_matrix_changed(struct SolverCache *cache);
-
-void multipleSparseMatrixAndVector(struct SparseMatrix *matrix, float *vector, float *r_vector);
-void multipleSparseMatrixWithVectors(struct SparseMatrix *matrix, float (*vectors)[3], float (*r_result)[3]);
-
-int getSparseMatrixColumnAmount(struct SparseMatrix *matrix);
-
-/* Solves A * x = b */
-void solveSparseSystem(struct SparseMatrix *A, float *b, float *r_x);
-void solveSparseSystems(struct SparseMatrix *A, float (*bs)[3], float (*r_xs)[3]);
 
 #ifdef __cplusplus
 }
