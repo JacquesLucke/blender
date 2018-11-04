@@ -185,28 +185,29 @@ static std::vector<Triplet> getInnerMatrixTriplets(
         const float (*positions)[3], int vertex_amount, std::vector<WeightedEdge> &edges,
         std::vector<int> &anchors, std::vector<int> &index_of_vertex)
 {
-	int non_anchor_amount = vertex_amount - anchors.size();
+	int inner_amount = vertex_amount - anchors.size();
 	auto total_weights = calcTotalWeigthPerVertex(edges, vertex_amount);
 
 	std::vector<Triplet> triplets;
 
-	for (int i = 0; i < non_anchor_amount; i++) {
-		triplets.push_back(Triplet(i, i, 1));
+	for (int i = 0; i < vertex_amount; i++) {
+		int index = index_of_vertex[i];
+		if (index < inner_amount) {
+			triplets.push_back(Triplet(index, index, total_weights[i]));
+		}
 	}
 
 	for (WeightedEdge edge : edges) {
 		if (edge.weight == 0) continue;
-		BLI_assert(total_weights[edge.v1] != 0);
-		BLI_assert(total_weights[edge.v2] != 0);
 
 		int index1 = index_of_vertex[edge.v1];
 		int index2 = index_of_vertex[edge.v2];
 
-		if (index1 < non_anchor_amount) {
-			triplets.push_back(Triplet(index1, index2, -edge.weight / total_weights[edge.v1]));
+		if (index1 < inner_amount) {
+			triplets.push_back(Triplet(index1, index2, -edge.weight));
 		}
-		if (index2 < non_anchor_amount) {
-			triplets.push_back(Triplet(index2, index1, -edge.weight / total_weights[edge.v2]));
+		if (index2 < inner_amount) {
+			triplets.push_back(Triplet(index2, index1, -edge.weight));
 		}
 	}
 
@@ -220,7 +221,7 @@ SystemMatrix *buildConstraintLaplacianSystemMatrix(
         int *anchor_indices, int anchor_amount)
 {
 	int vertex_amount = mesh->totvert;
-	int non_anchor_amount = vertex_amount - anchor_amount;
+	int inner_amount = vertex_amount - anchor_amount;
 	std::vector<int> anchors(anchor_indices, anchor_indices + anchor_amount);
 
 	std::vector<int> vertex_of_index = sortVerticesByAnchors(vertex_amount, anchors);
@@ -230,8 +231,8 @@ SystemMatrix *buildConstraintLaplacianSystemMatrix(
 	}
 
 	SystemMatrixF *matrices = new SystemMatrixF();
-	matrices->A_II = SparseMatrixF(non_anchor_amount, non_anchor_amount);
-	matrices->A_IB = SparseMatrixF(non_anchor_amount,     anchor_amount);
+	matrices->A_II = SparseMatrixF(inner_amount, inner_amount);
+	matrices->A_IB = SparseMatrixF(inner_amount,     anchor_amount);
 	matrices->index_of_vertex = std::vector<int>(index_of_vertex);
 	matrices->vertex_of_index = std::vector<int>(vertex_of_index);
 	matrices->weighted_edges = calculateEdgeWeights(mesh, positions);
@@ -242,11 +243,11 @@ SystemMatrix *buildConstraintLaplacianSystemMatrix(
 
 	for (int i = 0; i < triplets.size(); i++) {
 		Triplet triplet = triplets[i];
-		if (triplet.col() < non_anchor_amount) {
+		if (triplet.col() < inner_amount) {
 			triplets_II.push_back(triplet);
 		}
 		else {
-			triplets_IB.push_back(Triplet(triplet.row(), triplet.col() - non_anchor_amount, triplet.value()));
+			triplets_IB.push_back(Triplet(triplet.row(), triplet.col() - inner_amount, triplet.value()));
 		}
 	}
 
@@ -277,7 +278,7 @@ static std::vector<Eigen::Matrix3f> calculateRotations(
         const float (*positions_before_VO)[3],
         const float (*positions_after_VO)[3])
 {
-	std::vector<Eigen::Matrix3f> S(matrix.inner_amount());
+	std::vector<Eigen::Matrix3f> S(matrix.vertex_amount());
 	for (int i = 0; i < S.size(); i++) {
 		S[i].setZero();
 	}
@@ -293,20 +294,15 @@ static std::vector<Eigen::Matrix3f> calculateRotations(
 		sub_v3_v3v3(&edge_old[0], (float *)(positions_before_VO + i), (float *)(positions_before_VO + j));
 		sub_v3_v3v3(&edge_new[0], (float *)(positions_after_VO + i), (float *)(positions_after_VO + j));
 
-		if (matrix.is_inner_vertex(i)) {
-			S[matrix.get_index_of_vertex(i)] += weight * edge_old * edge_new;
-		}
-		if (matrix.is_inner_vertex(j)) {
-			S[matrix.get_index_of_vertex(j)] += weight * edge_old * edge_new;
-		}
+		S[i] += weight * edge_old * edge_new;
+		S[j] += weight * edge_old * edge_new;
 	}
 
-	std::vector<Eigen::Matrix3f> R(matrix.inner_amount());
+	std::vector<Eigen::Matrix3f> R(S.size());
 	for (int i = 0; i < S.size(); i++) {
 		Eigen::JacobiSVD<Eigen::Matrix3f> svd(S[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
 		R[i] = svd.matrixV() * svd.matrixU().transpose();
 	}
-
 
 	return R;
 }
@@ -344,11 +340,29 @@ std::vector<Eigen::Vector3f> updateInnerDiffPos(
         const float (*new_positions_VO)[3],
         const float (*initial_inner_diff_MO)[3])
 {
-	std::vector<Eigen::Matrix3f> rotations_MO = calculateRotations(matrix, initial_positions_VO, new_positions_VO);
+	std::vector<Eigen::Matrix3f> rotations_VO = calculateRotations(matrix, initial_positions_VO, new_positions_VO);
 	std::vector<Eigen::Vector3f> new_diffs_MO(matrix.inner_amount());
 
 	for (int i = 0; i < matrix.inner_amount(); i++) {
-		new_diffs_MO[i] = rotations_MO[i] * Eigen::Map<Eigen::Vector3f>((float *)(initial_inner_diff_MO + i));
+		new_diffs_MO[i].setZero();
+	}
+
+	for (WeightedEdge edge : matrix.weighted_edges) {
+		int i_VO = edge.v1;
+		int j_VO = edge.v2;
+		int i_MO = matrix.get_index_of_vertex(i_VO);
+		int j_MO = matrix.get_index_of_vertex(j_VO);
+		float weight = edge.weight;
+
+		Eigen::Vector3f old_edge;
+		old_edge[0] = initial_positions_VO[i_VO][0] - initial_positions_VO[j_VO][0];
+		old_edge[1] = initial_positions_VO[i_VO][1] - initial_positions_VO[j_VO][1];
+		old_edge[2] = initial_positions_VO[i_VO][2] - initial_positions_VO[j_VO][2];
+
+		auto value = weight / 2.0f * (rotations_VO[i_VO] + rotations_VO[j_VO]) * old_edge;
+
+		if (i_MO < matrix.inner_amount()) new_diffs_MO[i_MO] += value;
+		if (j_MO < matrix.inner_amount()) new_diffs_MO[j_MO] -= value;
 	}
 
 	return new_diffs_MO;
