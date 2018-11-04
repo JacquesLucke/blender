@@ -2045,7 +2045,7 @@ static void ui_but_drop(bContext *C, const wmEvent *event, uiBut *but, uiHandleB
 	if (drag_data->type == DRAG_DATA_ID) {
 		/* align these types with UI_but_active_drop_name */
 		if (ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
-			ID *id = drag_data->data.id;
+			ID *id = WM_drag_query_single_id(drag_data);
 
 			button_activate_state(C, but, BUTTON_STATE_TEXT_EDITING);
 
@@ -7258,7 +7258,7 @@ static void button_tooltip_timer_reset(bContext *C, uiBut *but)
 
 	if ((U.flag & USER_TOOLTIPS) || (data->tooltip_force)) {
 		if (!but->block->tooltipdisabled) {
-			if (!wm->drag) {
+			if (!wm->drag.data) {
 				bool is_label = UI_but_has_tooltip_label(but);
 				double delay = is_label ? UI_TOOLTIP_DELAY_LABEL : UI_TOOLTIP_DELAY;
 				WM_tooltip_timer_init_ex(C, data->window, data->region, ui_but_tooltip_init, delay);

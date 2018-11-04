@@ -98,7 +98,7 @@ static int outliner_highlight_update(bContext *C, wmOperator *UNUSED(op), const 
 {
 	/* Drag and drop does own highlighting. */
 	wmWindowManager *wm = CTX_wm_manager(C);
-	if (wm->drag) {
+	if (wm->drag.data) {
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 

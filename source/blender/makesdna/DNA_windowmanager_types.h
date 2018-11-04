@@ -125,6 +125,11 @@ typedef struct ReportTimerInfo {
 
 /* reports need to be before wmWindowManager */
 
+typedef struct wmDragOperation {
+	struct wmDragData *data;
+	struct wmDropTarget *target;
+} wmDragOperation;
+
 
 /* windowmanager is saved, tag WMAN */
 typedef struct wmWindowManager {
@@ -147,7 +152,7 @@ typedef struct wmWindowManager {
 
 	ListBase paintcursors;            /* extra overlay cursors to draw, like circles */
 
-	struct wmDragOperation *drag;     /* active drag operation */
+	struct wmDragOperation drag;     /* active drag operation */
 
 	ListBase keyconfigs;              /* known key configurations */
 	struct wmKeyConfig *defaultconf;  /* default configuration */

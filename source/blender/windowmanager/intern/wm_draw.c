@@ -697,8 +697,8 @@ static void wm_draw_window_onscreen(bContext *C, wmWindow *win, int view)
 		wm_gesture_draw(win);
 
 	/* needs pixel coords in screen */
-	if (wm->drag) {
-		WM_drag_draw(C, win, wm->drag);
+	if (wm->drag.data) {
+		WM_drag_draw(C, win, &wm->drag);
 	}
 }
 

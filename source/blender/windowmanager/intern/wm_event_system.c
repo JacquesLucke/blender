@@ -2387,12 +2387,10 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 			}
 			else if (handler->is_drop_handler) {
 				if (!wm->is_interface_locked && event->type == EVT_DROP) {
-					wmDragOperation *drag_operation = (wmDragOperation *)event->customdata;
-					WM_drag_update_current_target(C, drag_operation, event);
-					if (drag_operation && drag_operation->data && drag_operation->target) {
-						wmDragData *drag_data = drag_operation->data;
-						wmDropTarget *drop_target = drag_operation->target;
+					wmDragData *drag_data = (wmDragData *)event->customdata;
+					wmDropTarget *drop_target = WM_drag_find_current_target(C, drag_data, event);
 
+					if (drop_target) {
 						wmOperatorType *ot = WM_operatortype_find(drop_target->ot_idname, false);
 						struct PointerRNA *ptr = NULL;
 						struct IDProperty *properties = NULL;
@@ -2405,7 +2403,8 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 						wm_operator_call_internal(C, ot, ptr, NULL, drop_target->context, false, event);
 						action |= WM_HANDLER_BREAK;
 
-						WM_drag_operation_free(drag_operation);
+						WM_drag_data_free(drag_data);
+						WM_drop_target_free(drop_target);
 						event->customdata = NULL;
 						event->custom = 0;
 
@@ -2792,7 +2791,7 @@ static void wm_paintcursor_test(bContext *C, const wmEvent *event)
 
 static void wm_event_drag_test(wmWindowManager *wm, wmWindow *win, wmEvent *event)
 {
-	if (!wm->drag) {
+	if (!wm->drag.data) {
 		return;
 	}
 
@@ -2806,11 +2805,8 @@ static void wm_event_drag_test(wmWindowManager *wm, wmWindow *win, wmEvent *even
 		screen->do_draw_drag = true;
 	}
 	else if (event->type == LEFTMOUSE && event->val == KM_RELEASE) {
-		event->type = EVT_DROP;
-
-		/* create customdata, first free existing */
 		wm_event_free_customdata_if_necessary(event);
-
+		event->type = EVT_DROP;
 		WM_drag_transfer_ownership_to_event(wm, event);
 
 		screen->do_draw_drag = true;
@@ -3037,8 +3033,9 @@ void wm_event_do_handlers(bContext *C)
 									/* call even on non mouse events, since the */
 									wm_region_mouse_co(C, event);
 
-									if (wm->drag) {
-										WM_drag_update_current_target(C, wm->drag, event);
+									if (wm->drag.data) {
+										if (wm->drag.target) WM_drop_target_free(wm->drag.target);
+										wm->drag.target = WM_drag_find_current_target(C, wm->drag.data, event);
 									}
 
 #ifdef USE_WORKSPACE_TOOL

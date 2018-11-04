@@ -98,22 +98,16 @@ void WM_drop_target_free(wmDropTarget *drop_target)
 	}
 }
 
-void WM_drag_operation_free(wmDragOperation *drag_operation)
-{
-	if (drag_operation->data) {
-		WM_drag_data_free(drag_operation->data);
-	}
-	if (drag_operation->target) {
-		WM_drop_target_free(drag_operation->target);
-	}
-}
-
 void WM_drag_stop(wmWindowManager *wm)
 {
-	if (wm->drag) {
-		WM_drag_operation_free(wm->drag);
-		wm->drag = NULL;
+	if (wm->drag.data) {
+		WM_drag_data_free(wm->drag.data);
 	}
+	if (wm->drag.target) {
+		WM_drop_target_free(wm->drag.target);
+	}
+	wm->drag.data = NULL;
+	wm->drag.target = NULL;
 }
 
 /* ********************* Start Dragging ********************* */
@@ -122,9 +116,8 @@ static void start_dragging_data(struct bContext *C, wmDragData *drag_data)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	WM_drag_stop(wm);
-	wm->drag = MEM_callocN(sizeof(wmDragOperation), __func__);
-	wm->drag->data = drag_data;
-	wm->drag->target = NULL;
+	wm->drag.data = drag_data;
+	wm->drag.target = NULL;
 }
 
 static wmDragData *WM_drag_data_new(void) {
@@ -471,19 +464,22 @@ void WM_drag_update_current_target(bContext *C, wmDragOperation *drag_operation,
 
 void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event)
 {
+	if (wm->drag.target) {
+		WM_drop_target_free(wm->drag.target);
+	}
+
 	event->custom = EVT_DATA_DRAGDROP;
-	event->customdata = wm->drag;
+	event->customdata = wm->drag.data;
 	event->customdatafree = true;
-	wm->drag = NULL;
+
+	wm->drag.data = NULL;
+	wm->drag.target = NULL;
 }
 
 wmDragData *WM_drag_get_active(bContext *C)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
-	if (wm->drag) {
-		return wm->drag->data;
-	}
-	return NULL;
+	return wm->drag.data;
 }
 
 void WM_drop_init_single_filepath(wmDragData *drag_data, PointerRNA *ptr)

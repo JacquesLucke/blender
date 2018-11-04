@@ -491,7 +491,6 @@ struct wmDragData *WM_drag_start_collection_children(struct bContext *C, struct 
 struct wmDragData *WM_drag_get_active(struct bContext *C);
 void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event);
 struct wmDropTarget *WM_drag_find_current_target(struct bContext *C, struct  wmDragData *drag_data, const struct wmEvent *event);
-void WM_drag_update_current_target(struct bContext *C, struct wmDragOperation *drag_operation, const struct wmEvent *event);
 
 void WM_drag_display_set_color(struct wmDragData *drag_data, float color[3]);
 void WM_drag_display_set_color_derived(struct wmDragData *drag_data);
@@ -502,7 +501,6 @@ void WM_drag_display_set_image(
 
 void WM_drag_data_free(struct wmDragData *drag);
 void WM_drop_target_free(struct wmDropTarget *drop_target);
-void WM_drag_operation_free(struct wmDragOperation *drag_operation);
 void WM_drag_stop(wmWindowManager *wm);
 
 struct ID *WM_drag_query_single_id(struct wmDragData *drag_data);
