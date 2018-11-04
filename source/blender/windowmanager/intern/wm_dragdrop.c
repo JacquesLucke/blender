@@ -454,14 +454,6 @@ wmDropTarget *WM_drag_find_current_target(bContext *C, wmDragData *drag_data, co
 
 /* ****************** Misc ****************** */
 
-void WM_drag_update_current_target(bContext *C, wmDragOperation *drag_operation, const wmEvent *event)
-{
-	if (drag_operation->target) {
-		WM_drop_target_free(drag_operation->target);
-	}
-	drag_operation->target = WM_drag_find_current_target(C, drag_operation->data, event);
-}
-
 void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event)
 {
 	if (wm->drag.target) {
