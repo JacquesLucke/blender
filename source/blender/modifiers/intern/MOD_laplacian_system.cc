@@ -411,7 +411,7 @@ void solveLaplacianSystem(
 	}
 
 	for (int iteration = 0; iteration < iterations; iteration++) {
-		std::cout << "Iteration: " << iteration << std::endl;
+		//std::cout << "Iteration: " << iteration << std::endl;
 		for (int coord = 0; coord < 3; coord++) {
 			Eigen::VectorXf _inner_diffs_MO(inner_amount);
 			for (int i = 0; i < inner_amount; i++) {
