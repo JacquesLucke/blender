@@ -42,6 +42,7 @@ set(INC
 
 set(INC_SYS
 	${ZLIB_INCLUDE_DIRS}
+	/usr/lib/llvm-6.0/include
 )
 
 set(SRC
@@ -55,6 +56,7 @@ set(SRC
 	intern/MOD_collision.c
 	intern/MOD_correctivesmooth.c
 	intern/MOD_custom.c
+	intern/MOD_custom_compiler.cc
 	intern/MOD_curve.c
 	intern/MOD_datatransfer.c
 	intern/MOD_decimate.c

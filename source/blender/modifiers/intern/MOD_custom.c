@@ -43,10 +43,13 @@
 
 #include "DEG_depsgraph.h"
 
+void test_llvm(void);
+
 static Mesh *applyModifier(
-        ModifierData *md, const ModifierEvalContext *ctx,
-        Mesh *mesh)
+        ModifierData *UNUSED(md), const ModifierEvalContext *UNUSED(ctx),
+        Mesh *UNUSED(mesh))
 {
+	test_llvm();
 	Mesh *new_mesh = BKE_mesh_new_nomain(1, 0, 0, 0, 0);
 	new_mesh->mvert[0].co[0] = 1;
 	new_mesh->mvert[0].co[1] = 2;
@@ -54,7 +57,7 @@ static Mesh *applyModifier(
 	return new_mesh;
 }
 
-static void initData(ModifierData *md)
+static void initData(ModifierData *UNUSED(md))
 {
 }
 

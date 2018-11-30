@@ -436,6 +436,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_SurfaceDeformModifier;
 		case eModifierType_WeightedNormal:
 			return &RNA_WeightedNormalModifier;
+		case eModifierType_Custom:
+			return &RNA_CustomModifier;
 		/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
