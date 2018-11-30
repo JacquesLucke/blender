@@ -92,6 +92,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_Subsurf, "SUBSURF", ICON_MOD_SUBSURF, "Subdivision Surface", ""},
 	{eModifierType_Triangulate, "TRIANGULATE", ICON_MOD_TRIANGULATE, "Triangulate", ""},
 	{eModifierType_Wireframe, "WIREFRAME", ICON_MOD_WIREFRAME, "Wireframe", "Generate a wireframe on the edges of a mesh"},
+	{eModifierType_Custom, "CUSTOM", ICON_NODETREE, "Custom", "Playground"},
 	{0, "", 0, N_("Deform"), ""},
 	{eModifierType_Armature, "ARMATURE", ICON_MOD_ARMATURE, "Armature", ""},
 	{eModifierType_Cast, "CAST", ICON_MOD_CAST, "Cast", ""},
@@ -5040,6 +5041,17 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_custom(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *UNUSED(prop);
+
+	srna = RNA_def_struct(brna, "CustomModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Custom Modifier", "");
+	RNA_def_struct_sdna(srna, "CustomModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_NODETREE);
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5162,6 +5174,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_meshseqcache(brna);
 	rna_def_modifier_surfacedeform(brna);
 	rna_def_modifier_weightednormal(brna);
+	rna_def_modifier_custom(brna);
 }
 
 #endif
