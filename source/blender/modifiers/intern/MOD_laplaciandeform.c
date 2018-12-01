@@ -53,6 +53,7 @@
 #include "MOD_laplacian_system.h"
 
 typedef LaplacianDeformModifierBindData BindData;
+typedef float (*Vector3Ds)[3];
 
 
 /* Cache
@@ -201,6 +202,21 @@ static struct SystemMatrix *buildSystemMatrix(LaplacianDeformModifierData *lmd, 
 	        data->anchor_indices, data->anchor_amount);
 }
 
+static void bind_current_mesh_to_modifier(
+        LaplacianDeformModifierData *lmd,
+        LaplacianDeformModifierData *lmd_orig,
+        Object *ob, Mesh *mesh, Vector3Ds vertexCos)
+{
+	if (lmd->cache) {
+			freeCache(lmd->cache);
+			lmd->cache = NULL;
+		}
+		if (lmd->bind_data) {
+			free_bind_data(lmd->bind_data);
+		}
+		lmd_orig->bind_data = calculate_bind_data(lmd, ob, mesh, vertexCos);
+		lmd->bind_data = lmd_orig->bind_data;
+}
 
 /* Modifier Stuff
 ********************************************/
@@ -216,22 +232,14 @@ static LaplacianDeformModifierData *get_original_modifier_data(
 static void LaplacianDeformModifier_do(
         LaplacianDeformModifierData *lmd,
         const ModifierEvalContext *ctx, Mesh *mesh,
-        float (*vertexCos)[3], int numVerts)
+        Vector3Ds vertexCos, int numVerts)
 {
 	Object *ob = ctx->object;
 	LaplacianDeformModifierData *lmd_orig = get_original_modifier_data(lmd, ctx);
 
 	if (lmd->bind_next_execution) {
-		if (lmd->cache) {
-			freeCache(lmd->cache);
-			lmd->cache = NULL;
-		}
-		if (lmd->bind_data) {
-			free_bind_data(lmd->bind_data);
-		}
-		lmd_orig->bind_data = calculate_bind_data(lmd, ob, mesh, vertexCos);
+		bind_current_mesh_to_modifier(lmd, lmd_orig, ob, mesh, vertexCos);
 		lmd_orig->bind_next_execution = false;
-		lmd->bind_data = lmd_orig->bind_data;
 	}
 
 	if (lmd->bind_data == NULL) return;
@@ -302,7 +310,7 @@ static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
 
 static void deformVerts(
         ModifierData *md, const ModifierEvalContext *ctx, Mesh *mesh,
-        float (*vertexCos)[3], int numVerts)
+        Vector3Ds vertexCos, int numVerts)
 {
 	Mesh *mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, numVerts, false, false);
 
@@ -317,7 +325,7 @@ static void deformVerts(
 
 static void deformVertsEM(
         ModifierData *md, const ModifierEvalContext *ctx, struct BMEditMesh *editData,
-        Mesh *mesh, float (*vertexCos)[3], int numVerts)
+        Mesh *mesh, Vector3Ds vertexCos, int numVerts)
 {
 	Mesh *mesh_src = MOD_deform_mesh_eval_get(ctx->object, editData, mesh, NULL, numVerts, false, false);
 
