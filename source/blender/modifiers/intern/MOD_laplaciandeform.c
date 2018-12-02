@@ -53,30 +53,23 @@
 #include "MOD_laplacian_system.h"
 
 typedef LaplacianDeformModifierBindData BindData;
-typedef float (*Vector3Ds)[3];
 
 
 /* Cache
 **************************************************/
 
 typedef struct {
-	struct SystemMatrix *system_matrix;
-	struct SolverCache *solver_cache;
-	float *initial_inner_diff;
+	struct LaplacianSystem *system;
 } Cache;
 
 static Cache *newCache(void)
 {
 	Cache *cache = MEM_callocN(sizeof(Cache), __func__);
-	cache->solver_cache = SolverCache_new();
 	return cache;
 }
 
 static void freeCache(Cache *cache)
 {
-	if (cache->solver_cache) {
-		SolverCache_delete(cache->solver_cache);
-	}
 	MEM_freeN(cache);
 }
 
@@ -192,16 +185,6 @@ static void free_bind_data(BindData *bind_data)
 	MEM_freeN(bind_data);
 }
 
-static struct SystemMatrix *buildSystemMatrix(LaplacianDeformModifierData *lmd, Mesh *mesh)
-{
-	BindData *data = lmd->bind_data;
-	BLI_assert(data);
-
-	return buildConstraintLaplacianSystemMatrix(
-	        mesh, data->initial_positions,
-	        data->anchor_indices, data->anchor_amount);
-}
-
 static void bind_current_mesh_to_modifier(
         LaplacianDeformModifierData *lmd,
         LaplacianDeformModifierData *lmd_orig,
@@ -232,7 +215,7 @@ static LaplacianDeformModifierData *get_original_modifier_data(
 static void LaplacianDeformModifier_do(
         LaplacianDeformModifierData *lmd,
         const ModifierEvalContext *ctx, Mesh *mesh,
-        Vector3Ds vertexCos, int numVerts)
+        Vector3Ds vertexCos)
 {
 	Object *ob = ctx->object;
 	LaplacianDeformModifierData *lmd_orig = get_original_modifier_data(lmd, ctx);
@@ -248,33 +231,13 @@ static void LaplacianDeformModifier_do(
 	ensureCacheExists(lmd, lmd_orig);
 	Cache *cache = getCache(lmd);
 
-	if (cache->system_matrix == NULL) {
-		cache->system_matrix = buildSystemMatrix(lmd, mesh);
+	if (cache->system == NULL) {
+		struct LaplacianSystem *system = LaplacianSystem_new(mesh);
+		LaplacianSystem_setAnchors(system, bind_data->anchor_indices, bind_data->anchor_amount);
+		cache->system = system;
 	}
 
-	int inner_amount = numVerts - bind_data->anchor_amount;
-	if (cache->initial_inner_diff == NULL) {
-		cache->initial_inner_diff = MEM_malloc_arrayN(inner_amount, sizeof(float) * 3, __func__);
-		calculateInitialInnerDiff(
-		        cache->system_matrix, vertexCos,
-		        cache->initial_inner_diff);
-	}
-
-	float (*anchor_pos)[3] = MEM_malloc_arrayN(bind_data->anchor_amount, sizeof(float) * 3, __func__);
-	for (int i = 0; i < bind_data->anchor_amount; i++) {
-		copy_v3_v3(anchor_pos + i, vertexCos + bind_data->anchor_indices[i]);
-	}
-
-	solveLaplacianSystem(
-	        cache->system_matrix,
-	        bind_data->initial_positions,
-	        cache->initial_inner_diff,
-	        anchor_pos,
-	        cache->solver_cache,
-	        lmd->iterations,
-	        vertexCos);
-
-	MEM_freeN(anchor_pos);
+	LaplacianSystem_correctNonAnchors(cache->system, vertexCos);
 }
 
 static void initData(ModifierData *md)
@@ -288,21 +251,21 @@ static void initData(ModifierData *md)
 
 static void copyData(const ModifierData *md, ModifierData *target, const int flag)
 {
-	const LaplacianDeformModifierData *lmd = (const LaplacianDeformModifierData *)md;
-	LaplacianDeformModifierData *tlmd = (LaplacianDeformModifierData *)target;
+	const LaplacianDeformModifierData *UNUSED(lmd) = (const LaplacianDeformModifierData *)md;
+	LaplacianDeformModifierData *UNUSED(tlmd) = (LaplacianDeformModifierData *)target;
 
 	modifier_copyData_generic(md, target, flag);
 }
 
 static bool isDisabled(const struct Scene *UNUSED(scene), ModifierData *md, bool UNUSED(useRenderParams))
 {
-	LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
+	LaplacianDeformModifierData *UNUSED(lmd) = (LaplacianDeformModifierData *)md;
 	return false;
 }
 
 static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
 {
-	LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
+	LaplacianDeformModifierData *UNUSED(lmd) = (LaplacianDeformModifierData *)md;
 	CustomDataMask dataMask = 0;
 	dataMask |= CD_MASK_MDEFORMVERT;
 	return dataMask;
@@ -316,7 +279,7 @@ static void deformVerts(
 
 	LaplacianDeformModifier_do(
 	        (LaplacianDeformModifierData *)md,
-	        ctx, mesh_src, vertexCos, numVerts);
+	        ctx, mesh_src, vertexCos);
 
 	if (mesh_src != mesh) {
 		BKE_id_free(NULL, mesh_src);
@@ -331,7 +294,7 @@ static void deformVertsEM(
 
 	LaplacianDeformModifier_do(
 	        (LaplacianDeformModifierData *)md,
-	        ctx, mesh_src, vertexCos, numVerts);
+	        ctx, mesh_src, vertexCos);
 
 	if (mesh_src != mesh) {
 		BKE_id_free(NULL, mesh_src);
@@ -340,7 +303,7 @@ static void deformVertsEM(
 
 static void freeData(ModifierData *md)
 {
-	LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)md;
+	LaplacianDeformModifierData *UNUSED(lmd) = (LaplacianDeformModifierData *)md;
 }
 
 ModifierTypeInfo modifierType_LaplacianDeform = {

@@ -30,30 +30,21 @@ extern "C" {
 #endif
 
 struct Mesh;
-struct LaplacianDeformModifierBindData;
+struct LaplacianSystem;
 
-struct SparseMatrix;
-struct SystemMatrix;
-struct SolverCache;
+typedef float (*Vector3Ds)[3];
 
-struct SystemMatrix *buildConstraintLaplacianSystemMatrix(
-        struct Mesh *mesh,
-        const float (*positions)[3],
+struct LaplacianSystem *LaplacianSystem_new(struct Mesh *mesh);
+
+void LaplacianSystem_setAnchors(
+        struct LaplacianSystem *system,
         int *anchor_indices, int anchor_amount);
 
-void calculateInitialInnerDiff(
-        struct SystemMatrix *system_matrix,
-        float (*positions)[3],
-        float (*r_inner_diff)[3]);
+void LaplacianSystem_correctNonAnchors(
+        struct LaplacianSystem *system, Vector3Ds positions);
 
-void solveLaplacianSystem(
-        struct SystemMatrix *matrix, const float (*initial_positions_VO)[3],
-        const float (*initial_inner_diff_MO)[3], const float (*anchor_pos_MO)[3], struct SolverCache *cache, int iterations,
-        float (*r_result_VO)[3]);
-
-struct SolverCache *SolverCache_new(void);
-void SolverCache_delete(struct SolverCache *cache);
-void SolverCache_matrix_changed(struct SolverCache *cache);
+void LaplacianSystem_free(
+        struct LaplacianSystem *system);
 
 #ifdef __cplusplus
 }
