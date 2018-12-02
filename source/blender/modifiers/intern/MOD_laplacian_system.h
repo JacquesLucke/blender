@@ -41,7 +41,7 @@ void LaplacianSystem_setAnchors(
         int *anchor_indices, int anchor_amount);
 
 void LaplacianSystem_correctNonAnchors(
-        struct LaplacianSystem *system, Vector3Ds positions);
+        struct LaplacianSystem *system, Vector3Ds positions, int iterations);
 
 void LaplacianSystem_free(
         struct LaplacianSystem *system);

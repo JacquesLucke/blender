@@ -237,7 +237,7 @@ static void LaplacianDeformModifier_do(
 		cache->system = system;
 	}
 
-	LaplacianSystem_correctNonAnchors(cache->system, vertexCos);
+	LaplacianSystem_correctNonAnchors(cache->system, vertexCos, lmd->iterations);
 }
 
 static void initData(ModifierData *md)

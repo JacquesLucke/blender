@@ -67,8 +67,7 @@ Timer::~Timer() {
     std::cout << "Timer '" << name << "' took " << ms << " ms" << std::endl;
 }
 
-//#define TIMEIT(name) Timer t(name);
-#define TIMEIT(name)
+#define TIMEIT(name) Timer t(name);
 
 /* ************ Timer End *************** */
 
@@ -104,6 +103,11 @@ public:
 		memcpy(&this->data[0], vectors, this->byte_size());
 	}
 
+	void set_zero()
+	{
+		this->data.setZero();
+	}
+
 	StridedVector get_coord(int coord)
 	{
 		return StridedVector(this->data.data() + coord, this->size());
@@ -120,14 +124,19 @@ public:
 		memcpy(dst, &this->data[0], this->byte_size());
 	}
 
-	float *get_vector(int index)
+	float *get_vector_ptr(int index)
 	{
 		return this->ptr() + (3 * index);
 	}
 
-	void set_vector(int index, float *vector)
+	void set_vector_ptr(int index, float *vector)
 	{
 		memcpy(this->ptr() + (3 * index), vector, sizeof(float) * 3);
+	}
+
+	Eigen::Map<Eigen::Vector3f> operator [](int index)
+	{
+		return Eigen::Map<Eigen::Vector3f>(this->get_vector_ptr(index));
 	}
 
 	float *ptr()
@@ -148,7 +157,7 @@ public:
 	void print(std::string name){
 		std::cout << name << ":" << std::endl;
 		for (int i = 0; i < this->size(); i++) {
-			float *vector = this->get_vector(i);
+			float *vector = this->get_vector_ptr(i);
 			printf("  %7.3f %7.3f %7.3f\n", vector[0], vector[1], vector[2]);
 		}
 	}
@@ -218,42 +227,57 @@ static std::vector<std::array<int, 3>> getTriangleIndices(Mesh *mesh)
 	return indices;
 }
 
-struct MatrixVertexOrder
+struct ReorderData
 {
 private:
-	std::vector<int> toMatrixOrder;
-	std::vector<int> toOrigOrder;
-	int inner_amount;
+	std::vector<int> orig_to_new;
+	std::vector<int> new_to_orig;
+	int _inner_amount;
 
 public:
 
-	MatrixVertexOrder() {}
+	ReorderData() {}
 
-	MatrixVertexOrder(std::vector<int> &anchors, int vertex_amount)
+	ReorderData(std::vector<int> &anchors, int vertex_amount)
 	{
-		this->toOrigOrder = sortVerticesByAnchors(vertex_amount, anchors);
+		this->new_to_orig = sortVerticesByAnchors(vertex_amount, anchors);
 
-		this->toMatrixOrder.resize(vertex_amount);
+		this->orig_to_new.resize(vertex_amount);
 		for (int i = 0; i < vertex_amount; i++) {
-			toMatrixOrder[toOrigOrder[i]] = i;
+			orig_to_new[new_to_orig[i]] = i;
 		}
 
-		this->inner_amount = vertex_amount - anchors.size();
+		this->_inner_amount = vertex_amount - anchors.size();
 	}
 
-	bool is_inner_vertex(int vertex_index)
+	int inner_amount()
 	{
-		return this->to_matrix_index(vertex_index) < this->inner_amount;
+		return this->_inner_amount;
 	}
 
-	int to_matrix_index(int vertex_index)
+	bool is_inner__orig(int index)
 	{
-		return this->toMatrixOrder[vertex_index];
+		return this->orig_to_new[index] < this->_inner_amount;
 	}
 
-	int inner_to_orig_index(int index)
+	bool is_inner__new(int index)
 	{
-		return this->toOrigOrder[index];
+		return index < this->_inner_amount;
+	}
+
+	int to_orig(int index)
+	{
+		return this->new_to_orig[index];
+	}
+
+	int to_new(int index)
+	{
+		return this->orig_to_new[index];
+	}
+
+	int to_new_anchor(int index)
+	{
+		return this->to_new(index) - this->inner_amount();
 	}
 };
 
@@ -265,9 +289,9 @@ static std::vector<WeightedEdge> calculateEdgeWeights_FromTriangles_Cotan(
 	for (auto verts : triangles) {
 		float angles[3];
 		angle_tri_v3(angles,
-		        positions.get_vector(verts[0]),
-		        positions.get_vector(verts[1]),
-		        positions.get_vector(verts[2]));
+		        positions.get_vector_ptr(verts[0]),
+		        positions.get_vector_ptr(verts[1]),
+		        positions.get_vector_ptr(verts[2]));
 
 #define cotan(x) cos((x))/sin((x))
 		edges.push_back((WeightedEdge){verts[1], verts[2], cotan(angles[0]) / 2.0f});
@@ -300,10 +324,69 @@ static std::vector<Triplet> getLaplaceMatrixTriplets(
 	return triplets;
 }
 
+static std::vector<Eigen::Matrix3f> calculate_rotations(
+        std::vector<WeightedEdge> &edges, Vectors &initial, Vectors &new_inner, Vectors &anchors, ReorderData &order)
+{
+	BLI_assert(initial.size() == new_inner.size() + anchors.size());
+
+	std::vector<Eigen::Matrix3f> S(initial.size());
+	for (int i = 0; i < S.size(); i++) S[i].setZero();
+
+	for (WeightedEdge edge : edges) {
+		int v1 = edge.v1;
+		int v2 = edge.v2;
+		bool v1_is_inner = order.is_inner__orig(v1);
+		bool v2_is_inner = order.is_inner__orig(v2);
+
+		Eigen::Vector3f edge_old = initial[v1] - initial[v2];
+
+		Eigen::Vector3f edge_new_start = v1_is_inner ? new_inner[order.to_new(v1)] : anchors[order.to_new_anchor(v1)];
+		Eigen::Vector3f edge_new_end   = v2_is_inner ? new_inner[order.to_new(v2)] : anchors[order.to_new_anchor(v2)];
+		Eigen::RowVector3f edge_new = edge_new_start - edge_new_end;
+
+		Eigen::Matrix3f mat = edge.weight * edge_old * edge_new;
+		S[v1] += mat;
+		S[v2] += mat;
+	}
+
+	std::vector<Eigen::Matrix3f> R(S.size());
+	for (int i = 0; i < S.size(); i++) {
+		Eigen::JacobiSVD<Eigen::Matrix3f> svd(S[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
+		R[i] = svd.matrixV() * svd.matrixU().transpose();
+	}
+
+	return R;
+}
+
+static Vectors calculate_new_inner_diff(
+        std::vector<WeightedEdge> &edges, Vectors &initial, Vectors &new_inner, Vectors &anchors, ReorderData &order)
+{
+	Vectors new_diffs(order.inner_amount());
+	new_diffs.set_zero();
+
+	auto rotations = calculate_rotations(edges, initial, new_inner, anchors, order);
+
+	for (WeightedEdge edge : edges) {
+		int v1 = edge.v1;
+		int v2 = edge.v2;
+		bool v1_is_inner = order.is_inner__orig(v1);
+		bool v2_is_inner = order.is_inner__orig(v2);
+		if (!(v1_is_inner || v2_is_inner)) continue;
+
+		Eigen::Vector3f old_edge = initial[v1] - initial[v2];
+		Eigen::Vector3f value = edge.weight / 2.0f * (rotations[v1] + rotations[v2]) * old_edge;
+
+		if (v1_is_inner) new_diffs[order.to_new(v1)] += value;
+		if (v2_is_inner) new_diffs[order.to_new(v2)] -= value;
+	}
+
+	return new_diffs;
+}
+
 struct LaplacianSystemMatrix
 {
 	SparseMatrixF L, A_II, A_IB;
-	MatrixVertexOrder order;
+	ReorderData order;
 	Eigen::SimplicialLDLT<SparseMatrixD> *solver;
 
 	LaplacianSystemMatrix(
@@ -314,14 +397,14 @@ struct LaplacianSystemMatrix
 		int anchor_amount = anchors.size();
 		int inner_amount = vertex_amount - anchor_amount;
 
-		this->order = MatrixVertexOrder(anchors, vertex_amount);
+		this->order = ReorderData(anchors, vertex_amount);
 
 		std::vector<Triplet> laplace_triplets = getLaplaceMatrixTriplets(vertex_amount, edges);
 		std::vector<Triplet> triplets_A_II, triplets_A_IB;
 
 		for (Triplet triplet : laplace_triplets) {
-			int reorder_row = this->order.to_matrix_index(triplet.row());
-			int reorder_col = this->order.to_matrix_index(triplet.col());
+			int reorder_row = this->order.to_new(triplet.row());
+			int reorder_col = this->order.to_new(triplet.col());
 
 			if (reorder_row < inner_amount) {
 				if (reorder_col < inner_amount) {
@@ -366,7 +449,7 @@ struct LaplacianSystemMatrix
 
 		Eigen::VectorXf sorted_vector(vertex_amount);
 		for (int i = 0; i < vertex_amount; i++) {
-			sorted_vector[this->order.to_matrix_index(i)] = positions[i];
+			sorted_vector[this->order.to_new(i)] = positions[i];
 		}
 		Eigen::VectorXf result =
 			  this->A_II * sorted_vector.segment(0, inner_amount)
@@ -440,15 +523,23 @@ public:
 		this->initial_inner_diff = this->system_matrix->calculateInnerDiff(this->orig_vertex_positions);
 	}
 
-	Vectors calculate_inner_coordinates(Vectors &anchor_positions)
+	Vectors calculate_inner_coordinates(Vectors &anchor_positions, int iterations)
 	{
-		return this->system_matrix->solve(*this->initial_inner_diff, anchor_positions);
+		Vectors inner_diff = *this->initial_inner_diff;
+		Vectors result;
+
+		for (int i = 0; i < iterations; i++) {
+			result = this->system_matrix->solve(inner_diff, anchor_positions);
+			inner_diff = calculate_new_inner_diff(this->edges, this->orig_vertex_positions, result, anchor_positions, this->system_matrix->order);
+		}
+
+		return result;
 	}
 
-	void correct_non_anchors(Vectors &positions)
+	void correct_non_anchors(Vectors &positions, int iterations)
 	{
 		Vectors anchors = this->extract_anchor_positions(positions);
-		Vectors new_inner_coords = this->calculate_inner_coordinates(anchors);
+		Vectors new_inner_coords = this->calculate_inner_coordinates(anchors, iterations);
 		this->writeback_inner_postions(positions, new_inner_coords);
 	}
 
@@ -457,7 +548,7 @@ public:
 		Vectors anchors(this->anchor_amount());
 		for (int i = 0; i < this->anchor_indices->size(); i++) {
 			int index = (*this->anchor_indices)[i];
-			anchors.set_vector(i, all_positions.get_vector(index));
+			anchors.set_vector_ptr(i, all_positions.get_vector_ptr(index));
 		}
 		return anchors;
 	}
@@ -465,8 +556,8 @@ public:
 	void writeback_inner_postions(Vectors &all_positions, Vectors &inner_positions)
 	{
 		for (int i = 0; i < inner_positions.size(); i++) {
-			int index = this->system_matrix->order.inner_to_orig_index(i);
-			all_positions.set_vector(index, inner_positions.get_vector(i));
+			int i_orig = this->system_matrix->order.to_orig(i);
+			all_positions.set_vector_ptr(i_orig, inner_positions.get_vector_ptr(i));
 		}
 	}
 
@@ -488,6 +579,7 @@ public:
 
 LaplacianSystem *LaplacianSystem_new(struct Mesh *mesh)
 {
+	TIMEIT("new");
 	return new LaplacianSystem(mesh);
 }
 
@@ -495,14 +587,15 @@ void LaplacianSystem_setAnchors(
         LaplacianSystem *system,
         int *anchor_indices, int anchor_amount)
 {
+	TIMEIT("set anchors");
 	std::vector<int> anchors(anchor_indices, anchor_indices + anchor_amount);
 	system->setAnchors(anchors);
 }
 
 void LaplacianSystem_correctNonAnchors(
-        LaplacianSystem *system, Vector3Ds positions)
+        LaplacianSystem *system, Vector3Ds positions, int iterations)
 {
 	Vectors _positions(positions, system->vertex_amount());
-	system->correct_non_anchors(_positions);
+	system->correct_non_anchors(_positions, iterations);
 	_positions.copy_to(positions);
 }
