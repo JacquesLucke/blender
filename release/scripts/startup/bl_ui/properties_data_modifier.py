@@ -1634,7 +1634,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.prop(md, "face_influence")
 
     def RIGID_DEFORM(self, layout, ob, md):
-        layout.label(text="Hello World")
+        layout.prop_search(md, "anchor_group_name", ob, "vertex_groups", text="Anchors")
 
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):

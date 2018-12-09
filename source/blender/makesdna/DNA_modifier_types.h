@@ -1945,6 +1945,7 @@ enum {
 
 typedef struct RigidDeformModifierData {
 	ModifierData modifier;
+	char anchor_group_name[64];  /* MAX_VGROUP_NAME */
 } RigidDeformModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */

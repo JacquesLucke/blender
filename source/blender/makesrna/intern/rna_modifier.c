@@ -511,6 +511,7 @@ RNA_MOD_VGROUP_NAME_SET(Shrinkwrap, vgroup_name);
 RNA_MOD_VGROUP_NAME_SET(SimpleDeform, vgroup_name);
 RNA_MOD_VGROUP_NAME_SET(Smooth, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(Solidify, defgrp_name);
+RNA_MOD_VGROUP_NAME_SET(RigidDeform, anchor_group_name);
 RNA_MOD_VGROUP_NAME_SET(UVWarp, vgroup_name);
 RNA_MOD_VGROUP_NAME_SET(Warp, defgrp_name);
 RNA_MOD_VGROUP_NAME_SET(Wave, defgrp_name);
@@ -5066,12 +5067,17 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 static void rna_def_modifier_rigiddeform(BlenderRNA *brna)
 {
 	StructRNA *srna;
-	PropertyRNA *UNUSED(prop);
+	PropertyRNA *prop;
 
 	srna = RNA_def_struct(brna, "RigidDeformModifier", "Modifier");
 	RNA_def_struct_ui_text(srna, "Rigid Deform Modifier", "");
 	RNA_def_struct_sdna(srna, "RigidDeformModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_NONE);
+
+	prop = RNA_def_property(srna, "anchor_group_name", PROP_STRING, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Vertex Group for Anchors",
+	    "Name of the vertex group which determines anchors");
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_RigidDeformModifier_anchor_group_name_set");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)
