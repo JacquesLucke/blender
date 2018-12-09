@@ -50,6 +50,10 @@ static void deformVerts(
 
 static void initData(ModifierData *md)
 {
+	RigidDeformModifierData *rdmd = (RigidDeformModifierData *)md;
+	rdmd->anchor_group_name[0] = '\0';
+	rdmd->bind_data = NULL;
+	rdmd->bind_next_execution = false;
 }
 
  ModifierTypeInfo modifierType_RigidDeform = {

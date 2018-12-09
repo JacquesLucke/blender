@@ -516,6 +516,7 @@ extern StructRNA RNA_RenderSettings;
 extern StructRNA RNA_RigidBodyJointConstraint;
 extern StructRNA RNA_RigidBodyObject;
 extern StructRNA RNA_RigidBodyWorld;
+extern StructRNA RNA_RigidDeformModifier;
 extern StructRNA RNA_SPHFluidSettings;
 extern StructRNA RNA_Scene;
 extern StructRNA RNA_SceneDisplay;

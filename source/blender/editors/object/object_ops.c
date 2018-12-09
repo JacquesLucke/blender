@@ -249,6 +249,7 @@ void ED_operatortypes_object(void)
 	WM_operatortype_append(OBJECT_OT_drop_named_material);
 	WM_operatortype_append(OBJECT_OT_unlink_data);
 	WM_operatortype_append(OBJECT_OT_laplaciandeform_bind);
+	WM_operatortype_append(OBJECT_OT_rigiddeform_bind);
 
 	WM_operatortype_append(TRANSFORM_OT_vertex_random);
 

@@ -1635,6 +1635,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
     def RIGID_DEFORM(self, layout, ob, md):
         layout.prop_search(md, "anchor_group_name", ob, "vertex_groups", text="Anchors")
+        layout.operator("object.rigiddeform_bind", text="Bind")
 
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):

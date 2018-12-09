@@ -1943,9 +1943,15 @@ enum {
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)
 
+typedef struct RigidDeformModifierBindData {
+	int *anchor_indices;
+} RigidDeformModifierBindData;
+
 typedef struct RigidDeformModifierData {
 	ModifierData modifier;
 	char anchor_group_name[64];  /* MAX_VGROUP_NAME */
+	RigidDeformModifierBindData *bind_data;
+	char bind_next_execution, pad[7];
 } RigidDeformModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */

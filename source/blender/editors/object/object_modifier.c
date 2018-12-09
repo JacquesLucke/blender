@@ -2320,6 +2320,44 @@ void OBJECT_OT_laplaciandeform_bind(wmOperatorType *ot)
 	edit_modifier_properties(ot);
 }
 
+/************************ RigidDeform bind operator *********************/
+
+static bool rigiddeform_bind_poll(bContext *C)
+{
+	return edit_modifier_poll_generic(C, &RNA_RigidDeformModifier, 0);
+}
+
+static int rigiddeform_bind_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
+{
+	printf("Hello World\n");
+	return OPERATOR_FINISHED;
+}
+
+static int rigiddeform_bind_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	if (edit_modifier_invoke_properties(C, op))
+		return rigiddeform_bind_exec(C, op);
+	else
+		return OPERATOR_CANCELLED;
+}
+
+void OBJECT_OT_rigiddeform_bind(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Rigid Deform Bind";
+	ot->description = "Bind current mesh as relaxed state to rigid deform modifier";
+	ot->idname = "OBJECT_OT_rigiddeform_bind";
+
+	/* api callbacks */
+	ot->poll = rigiddeform_bind_poll;
+	ot->invoke = rigiddeform_bind_invoke;
+	ot->exec = rigiddeform_bind_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_INTERNAL;
+	edit_modifier_properties(ot);
+}
+
 /************************ sdef bind operator *********************/
 
 static bool surfacedeform_bind_poll(bContext *C)
