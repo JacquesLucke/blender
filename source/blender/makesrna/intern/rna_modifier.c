@@ -5089,6 +5089,11 @@ static void rna_def_modifier_rigiddeform(BlenderRNA *brna)
 	RNA_def_property_boolean_funcs(prop, "rna_RigidDeformModifier_is_bind_get", NULL);
 	RNA_def_property_ui_text(prop, "Bound", "Geometry has been bound to the modifier");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
+	prop = RNA_def_property(srna, "iterations", PROP_INT, PROP_NONE);
+	RNA_def_property_range(prop, 0, 20000);
+	RNA_def_property_ui_text(prop, "Iterations", "More means better result but slower");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)

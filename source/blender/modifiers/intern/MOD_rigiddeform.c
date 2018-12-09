@@ -45,6 +45,8 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
+#include "MOD_rigiddeform_system.h"
+
 typedef float (*VectorArray)[3];
 typedef RigidDeformModifierBindData BindData;
 
@@ -160,12 +162,41 @@ static void bind_current_mesh_to_modifier(
 
 /* ********** Calculate new positions *********** */
 
+typedef struct Cache {
+	struct LaplacianSystem *system;
+} Cache;
 
-static void deform_vertices(
-        RigidDeformModifierData *rdmd,
-        Object *ob, Mesh *mesh, VectorArray vertex_cos)
+static Cache *cache_new(void)
 {
+	return MEM_callocN(sizeof(Cache), __func__);
+}
 
+static void cache_free(Cache *cache)
+{
+	if (cache->system) {
+		LaplacianSystem_free(cache->system);
+	}
+	MEM_freeN(cache);
+}
+
+static void ensure_cache_exists(RigidDeformModifierData *rdmd, RigidDeformModifierData *rdmd_orig)
+{
+	if (rdmd->cache == NULL) {
+		rdmd_orig->cache = cache_new();
+		rdmd->cache = rdmd_orig->cache;
+	}
+}
+
+static void deform_vertices(RigidDeformModifierData *rdmd, Mesh *mesh, VectorArray vertex_cos)
+{
+	Cache *cache = (Cache *)rdmd->cache;
+
+	if (cache->system == NULL) {
+		cache->system = LaplacianSystem_new(mesh);
+		LaplacianSystem_setAnchors(cache->system, rdmd->bind_data->anchor_indices, rdmd->bind_data->anchor_amount);
+	}
+
+	LaplacianSystem_correctNonAnchors(cache->system, vertex_cos, rdmd->iterations);
 }
 
 static RigidDeformModifierData *get_original_modifier_data(
@@ -182,10 +213,15 @@ static void run_modifier(
 	Object *ob = ctx->object;
 	RigidDeformModifierData *rdmd = (RigidDeformModifierData *)md;
 	RigidDeformModifierData *rdmd_orig = get_original_modifier_data(rdmd, ctx);
+	ensure_cache_exists(rdmd, rdmd_orig);
 
 	if (rdmd->bind_next_execution) {
 		bind_current_mesh_to_modifier(rdmd, rdmd_orig, ob, mesh, vertex_cos);
 		rdmd->bind_next_execution = false;
+	}
+
+	if (rdmd->bind_data != NULL) {
+		deform_vertices(rdmd, mesh, vertex_cos);
 	}
 }
 
@@ -221,6 +257,8 @@ static void initData(ModifierData *md)
 	rdmd->anchor_group_name[0] = '\0';
 	rdmd->bind_data = NULL;
 	rdmd->bind_next_execution = false;
+	rdmd->cache = cache_new();
+	rdmd->iterations = 5;
 }
 
 static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *UNUSED(md))
@@ -228,6 +266,11 @@ static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *UNUSED(
 	CustomDataMask dataMask = 0;
 	dataMask |= CD_MASK_MDEFORMVERT;
 	return dataMask;
+}
+
+static void freeData(ModifierData *md)
+{
+	RigidDeformModifierData *UNUSED(rdmd) = (RigidDeformModifierData *)md;
 }
 
  ModifierTypeInfo modifierType_RigidDeform = {
@@ -249,7 +292,7 @@ static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *UNUSED(
 	/* applyModifier */     NULL,
  	/* initData */          initData,
 	/* requiredDataMask */  requiredDataMask,
-	/* freeData */          NULL,
+	/* freeData */          freeData,
 	/* isDisabled */        NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,

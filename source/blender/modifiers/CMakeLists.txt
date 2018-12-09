@@ -36,6 +36,7 @@ set(INC
 
 set(INC_SYS
 	${ZLIB_INCLUDE_DIRS}
+	${EIGEN3_INCLUDE_DIRS}
 )
 
 set(SRC
@@ -77,6 +78,7 @@ set(SRC
 	intern/MOD_particlesystem.c
 	intern/MOD_remesh.c
 	intern/MOD_rigiddeform.c
+	intern/MOD_rigiddeform_system.cc
 	intern/MOD_screw.c
 	intern/MOD_shapekey.c
 	intern/MOD_shrinkwrap.c
@@ -105,6 +107,7 @@ set(SRC
 	MOD_modifiertypes.h
 	intern/MOD_fluidsim_util.h
 	intern/MOD_meshcache_util.h
+	intern/MOD_rigiddeform_system.h
 	intern/MOD_util.h
 	intern/MOD_weightvg_util.h
 )

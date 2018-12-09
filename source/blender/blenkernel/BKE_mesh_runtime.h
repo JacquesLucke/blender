@@ -24,6 +24,10 @@
  * This file contains access functions for the Mesh.runtime struct.
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "BKE_customdata.h"  /* for CustomDataMask */
 
 struct ColorBand;
@@ -120,5 +124,9 @@ void BKE_mesh_runtime_debug_print(struct Mesh *me_eval);
 void BKE_mesh_runtime_debug_print_cdlayers(struct CustomData *data);
 bool BKE_mesh_runtime_is_valid(struct Mesh *me_eval);
 #endif  /* NDEBUG */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __BKE_MESH_RUNTIME_H__ */

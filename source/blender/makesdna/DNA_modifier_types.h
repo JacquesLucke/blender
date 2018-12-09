@@ -1953,7 +1953,11 @@ typedef struct RigidDeformModifierData {
 	ModifierData modifier;
 	char anchor_group_name[64];  /* MAX_VGROUP_NAME */
 	RigidDeformModifierBindData *bind_data;
-	char bind_next_execution, pad[7];
+	int iterations;
+	char bind_next_execution, pad[3];
+
+	/* runtime only */
+	void *cache;
 } RigidDeformModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */
