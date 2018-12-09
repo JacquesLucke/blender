@@ -50,6 +50,34 @@
 typedef float (*VectorArray)[3];
 typedef RigidDeformModifierBindData BindData;
 
+/* ************* Cache **************** */
+
+typedef struct Cache {
+	struct RigidDeformSystem *system;
+} Cache;
+
+static Cache *cache_new(void)
+{
+	return MEM_callocN(sizeof(Cache), __func__);
+}
+
+static void cache_free(Cache *cache)
+{
+	if (cache->system) {
+		RigidDeformSystem_free(cache->system);
+	}
+	MEM_freeN(cache);
+}
+
+static void ensure_cache_exists(RigidDeformModifierData *rdmd, RigidDeformModifierData *rdmd_orig)
+{
+	if (rdmd->cache == NULL) {
+		rdmd_orig->cache = cache_new();
+		rdmd->cache = rdmd_orig->cache;
+	}
+}
+
+
 /* ************* Binding *************** */
 
 static bool vertex_group_exists(Object *ob, Mesh *mesh, const char *name)
@@ -129,7 +157,7 @@ static BindData *bind_data_calculate(
 
 	int vertex_amount = mesh->totvert;
 	bind_data->vertex_amount = vertex_amount;
-	bind_data->initial_positions = MEM_malloc_arrayN(vertex_amount, sizeof(float) * 3 * vertex_amount, __func__);
+	bind_data->initial_positions = MEM_malloc_arrayN(vertex_amount, sizeof(float) * 3, __func__);
 	memcpy(bind_data->initial_positions, vertex_cos, sizeof(float) * 3 * vertex_amount);
 
 	get_anchor_indices(
@@ -153,6 +181,11 @@ static void bind_current_mesh_to_modifier(
 {
 	if (rdmd->bind_data) {
 		bind_data_free(rdmd->bind_data);
+		rdmd->bind_data = NULL;
+	}
+	if (rdmd->cache) {
+		cache_free((Cache * )rdmd->cache);
+		rdmd->cache = NULL;
 	}
 
 	rdmd_orig->bind_data = bind_data_calculate(rdmd, ob, mesh, vertex_cos);
@@ -161,31 +194,6 @@ static void bind_current_mesh_to_modifier(
 
 
 /* ********** Calculate new positions *********** */
-
-typedef struct Cache {
-	struct RigidDeformSystem *system;
-} Cache;
-
-static Cache *cache_new(void)
-{
-	return MEM_callocN(sizeof(Cache), __func__);
-}
-
-static void cache_free(Cache *cache)
-{
-	if (cache->system) {
-		RigidDeformSystem_free(cache->system);
-	}
-	MEM_freeN(cache);
-}
-
-static void ensure_cache_exists(RigidDeformModifierData *rdmd, RigidDeformModifierData *rdmd_orig)
-{
-	if (rdmd->cache == NULL) {
-		rdmd_orig->cache = cache_new();
-		rdmd->cache = rdmd_orig->cache;
-	}
-}
 
 static void deform_vertices(RigidDeformModifierData *rdmd, Mesh *mesh, VectorArray vertex_cos)
 {
@@ -213,7 +221,6 @@ static void run_modifier(
 	Object *ob = ctx->object;
 	RigidDeformModifierData *rdmd = (RigidDeformModifierData *)md;
 	RigidDeformModifierData *rdmd_orig = get_original_modifier_data(rdmd, ctx);
-	ensure_cache_exists(rdmd, rdmd_orig);
 
 	if (rdmd->bind_next_execution) {
 		bind_current_mesh_to_modifier(rdmd, rdmd_orig, ob, mesh, vertex_cos);
@@ -221,6 +228,7 @@ static void run_modifier(
 	}
 
 	if (rdmd->bind_data != NULL) {
+		ensure_cache_exists(rdmd, rdmd_orig);
 		deform_vertices(rdmd, mesh, vertex_cos);
 	}
 }
@@ -257,7 +265,7 @@ static void initData(ModifierData *md)
 	rdmd->anchor_group_name[0] = '\0';
 	rdmd->bind_data = NULL;
 	rdmd->bind_next_execution = false;
-	rdmd->cache = cache_new();
+	rdmd->cache = NULL;
 	rdmd->iterations = 5;
 }
 
