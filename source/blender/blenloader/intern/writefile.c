@@ -1763,12 +1763,19 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 
 			writedata(wd, DATA, sizeof(float) * lmd->total_verts * 3, lmd->vertexco);
 		}
+		else if (md->type == eModifierType_RigidDeform) {
+			RigidDeformModifierData *rdmd = (RigidDeformModifierData *)md;
+			RigidDeformModifierBindData *bind = rdmd->bind_data;
+			writestruct(wd, DATA, RigidDeformModifierBindData, 1, bind);
+
+			if (bind) {
+				writedata(wd, DATA, sizeof(float) * 3 * bind->vertex_amount, bind->initial_positions);
+				writedata(wd, DATA, sizeof(int) * bind->anchor_amount, bind->anchor_indices);
+			}
+		}
 		else if (md->type == eModifierType_CorrectiveSmooth) {
 			CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;
 
-			if (csmd->bind_coords) {
-				writedata(wd, DATA, sizeof(float[3]) * csmd->bind_coords_num, csmd->bind_coords);
-			}
 		}
 		else if (md->type == eModifierType_SurfaceDeform) {
 			SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;

@@ -5347,6 +5347,21 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			}
 			lmd->cache_system = NULL;
 		}
+		else if (md->type == eModifierType_RigidDeform) {
+			RigidDeformModifierData *rdmd = (RigidDeformModifierData *)md;
+			RigidDeformModifierBindData *bind = newdataadr(fd, rdmd->bind_data);
+			rdmd->bind_data = bind;
+			rdmd->cache = NULL;
+
+			if (bind) {
+				bind->initial_positions = newdataadr(fd, bind->initial_positions);
+				bind->anchor_indices = newdataadr(fd, bind->anchor_indices);
+				if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
+					BLI_endian_switch_float_array((float *)bind->initial_positions, bind->vertex_amount * sizeof(float) * 3);
+					BLI_endian_switch_int32_array(bind->anchor_indices, bind->anchor_amount * sizeof(int));
+				}
+			}
+		}
 		else if (md->type == eModifierType_CorrectiveSmooth) {
 			CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;
 
