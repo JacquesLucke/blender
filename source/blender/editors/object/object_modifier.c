@@ -2327,9 +2327,16 @@ static bool rigiddeform_bind_poll(bContext *C)
 	return edit_modifier_poll_generic(C, &RNA_RigidDeformModifier, 0);
 }
 
-static int rigiddeform_bind_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
+static int rigiddeform_bind_exec(bContext *C, wmOperator *op)
 {
-	printf("Hello World\n");
+	Scene *scene = CTX_data_scene(C);
+	Object *ob = ED_object_active_context(C);
+	Depsgraph *depsgraph = CTX_data_depsgraph(C);
+	RigidDeformModifierData *rdmd = (RigidDeformModifierData *)edit_modifier_property_get(op, ob, eModifierType_RigidDeform);
+
+	rdmd->bind_next_execution = true;
+	object_force_modifier_update_for_bind(depsgraph, scene, ob);
+
 	return OPERATOR_FINISHED;
 }
 

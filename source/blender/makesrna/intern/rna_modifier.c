@@ -781,6 +781,12 @@ static bool rna_LaplacianDeformModifier_is_bind_get(PointerRNA *ptr)
 	return ((lmd->flag & MOD_LAPLACIANDEFORM_BIND) && (lmd->vertexco != NULL));
 }
 
+static bool rna_RigidDeformModifier_is_bind_get(PointerRNA *ptr)
+{
+	RigidDeformModifierData *rdmd = (RigidDeformModifierData *)ptr->data;
+	return rdmd->bind_data != NULL;
+}
+
 /* NOTE: Curve and array modifiers requires curve path to be evaluated,
  * dependency graph will make sure that curve eval would create such a path,
  * but if curve was already evaluated we might miss path.
@@ -5078,6 +5084,11 @@ static void rna_def_modifier_rigiddeform(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Vertex Group for Anchors",
 	    "Name of the vertex group which determines anchors");
 	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_RigidDeformModifier_anchor_group_name_set");
+
+	prop = RNA_def_property(srna, "is_bind", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(prop, "rna_RigidDeformModifier_is_bind_get", NULL);
+	RNA_def_property_ui_text(prop, "Bound", "Geometry has been bound to the modifier");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 }
 
 void RNA_def_modifier(BlenderRNA *brna)

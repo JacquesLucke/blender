@@ -1945,6 +1945,8 @@ enum {
 
 typedef struct RigidDeformModifierBindData {
 	int *anchor_indices;
+	float (*initial_positions)[3];
+	int anchor_amount, vertex_amount;
 } RigidDeformModifierBindData;
 
 typedef struct RigidDeformModifierData {
