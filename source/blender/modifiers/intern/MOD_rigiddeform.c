@@ -163,7 +163,7 @@ static void bind_current_mesh_to_modifier(
 /* ********** Calculate new positions *********** */
 
 typedef struct Cache {
-	struct LaplacianSystem *system;
+	struct RigidDeformSystem *system;
 } Cache;
 
 static Cache *cache_new(void)
@@ -174,7 +174,7 @@ static Cache *cache_new(void)
 static void cache_free(Cache *cache)
 {
 	if (cache->system) {
-		LaplacianSystem_free(cache->system);
+		RigidDeformSystem_free(cache->system);
 	}
 	MEM_freeN(cache);
 }
@@ -192,11 +192,11 @@ static void deform_vertices(RigidDeformModifierData *rdmd, Mesh *mesh, VectorArr
 	Cache *cache = (Cache *)rdmd->cache;
 
 	if (cache->system == NULL) {
-		cache->system = LaplacianSystem_new(mesh);
-		LaplacianSystem_setAnchors(cache->system, rdmd->bind_data->anchor_indices, rdmd->bind_data->anchor_amount);
+		cache->system = RigidDeformSystem_new(mesh);
+		RigidDeformSystem_setAnchors(cache->system, rdmd->bind_data->anchor_indices, rdmd->bind_data->anchor_amount);
 	}
 
-	LaplacianSystem_correctNonAnchors(cache->system, vertex_cos, rdmd->iterations);
+	RigidDeformSystem_correctNonAnchors(cache->system, vertex_cos, rdmd->iterations);
 }
 
 static RigidDeformModifierData *get_original_modifier_data(

@@ -383,13 +383,13 @@ static Vectors calculate_new_inner_diff(
 	return new_diffs;
 }
 
-struct LaplacianSystemMatrix
+struct RigidDeformSystemMatrix
 {
 	SparseMatrixF L, A_II, A_IB;
 	ReorderData order;
 	Eigen::SimplicialLDLT<SparseMatrixD> *solver;
 
-	LaplacianSystemMatrix(
+	RigidDeformSystemMatrix(
 	        std::vector<WeightedEdge> &edges,
 	        std::vector<int> anchors,
 			int vertex_amount)
@@ -493,7 +493,7 @@ struct LaplacianSystemMatrix
 	}
 };
 
-class LaplacianSystem
+class RigidDeformSystem
 {
 
 private:
@@ -502,11 +502,11 @@ private:
 	std::vector<WeightedEdge> edges;
 
 	std::vector<int> *anchor_indices = nullptr;
-	LaplacianSystemMatrix *system_matrix = nullptr;
+	RigidDeformSystemMatrix *system_matrix = nullptr;
 	Vectors *initial_inner_diff = nullptr;
 
 public:
-	LaplacianSystem(Mesh *orig_mesh)
+	RigidDeformSystem(Mesh *orig_mesh)
 	{
 		this->orig_vertex_positions = getVertexPositions(orig_mesh);
 		this->triangle_indices = getTriangleIndices(orig_mesh);
@@ -518,7 +518,7 @@ public:
 	void setAnchors(std::vector<int> &anchor_indices)
 	{
 		this->anchor_indices = new std::vector<int>(anchor_indices);
-		this->system_matrix = new LaplacianSystemMatrix(
+		this->system_matrix = new RigidDeformSystemMatrix(
 		        this->edges, *this->anchor_indices, this->vertex_amount());
 		this->initial_inner_diff = this->system_matrix->calculateInnerDiff(this->orig_vertex_positions);
 	}
@@ -577,14 +577,14 @@ public:
 	}
 };
 
-LaplacianSystem *LaplacianSystem_new(struct Mesh *mesh)
+RigidDeformSystem *RigidDeformSystem_new(struct Mesh *mesh)
 {
 	TIMEIT("new");
-	return new LaplacianSystem(mesh);
+	return new RigidDeformSystem(mesh);
 }
 
-void LaplacianSystem_setAnchors(
-        LaplacianSystem *system,
+void RigidDeformSystem_setAnchors(
+        RigidDeformSystem *system,
         int *anchor_indices, int anchor_amount)
 {
 	TIMEIT("set anchors");
@@ -592,16 +592,16 @@ void LaplacianSystem_setAnchors(
 	system->setAnchors(anchors);
 }
 
-void LaplacianSystem_correctNonAnchors(
-        LaplacianSystem *system, Vector3Ds positions, int iterations)
+void RigidDeformSystem_correctNonAnchors(
+        RigidDeformSystem *system, Vector3Ds positions, int iterations)
 {
 	Vectors _positions(positions, system->vertex_amount());
 	system->correct_non_anchors(_positions, iterations);
 	_positions.copy_to(positions);
 }
 
-void LaplacianSystem_free(
-        struct LaplacianSystem *system)
+void RigidDeformSystem_free(
+        struct RigidDeformSystem *system)
 {
 
 }

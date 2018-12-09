@@ -30,21 +30,21 @@ extern "C" {
 #endif
 
 struct Mesh;
-struct LaplacianSystem;
+struct RigidDeformSystem;
 
 typedef float (*Vector3Ds)[3];
 
-struct LaplacianSystem *LaplacianSystem_new(struct Mesh *mesh);
+struct RigidDeformSystem *RigidDeformSystem_new(struct Mesh *mesh);
 
-void LaplacianSystem_setAnchors(
-        struct LaplacianSystem *system,
+void RigidDeformSystem_setAnchors(
+        struct RigidDeformSystem *system,
         int *anchor_indices, int anchor_amount);
 
-void LaplacianSystem_correctNonAnchors(
-        struct LaplacianSystem *system, Vector3Ds positions, int iterations);
+void RigidDeformSystem_correctNonAnchors(
+        struct RigidDeformSystem *system, Vector3Ds positions, int iterations);
 
-void LaplacianSystem_free(
-        struct LaplacianSystem *system);
+void RigidDeformSystem_free(
+        struct RigidDeformSystem *system);
 
 #ifdef __cplusplus
 }
