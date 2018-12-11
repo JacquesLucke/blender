@@ -956,7 +956,7 @@ static void image_space_subtype_item_extend(
 static void image_drop_target_find(bContext *UNUSED(C), wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_path_image(drag_data)) {
-		WM_drop_target_propose(finder, WM_drop_target_new("IMAGE_OT_open", "Open Image", WM_drop_init_single_filepath));
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_AREA, "IMAGE_OT_open", "Open Image", WM_drop_init_single_filepath);
 	}
 }
 

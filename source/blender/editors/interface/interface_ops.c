@@ -1526,7 +1526,7 @@ void UI_drop_target_find(bContext *C, wmDropTargetFinder *finder, wmDragData *dr
 {
 	if (drag_data->type == DRAG_DATA_COLOR) {
 		if (UI_but_active_drop_color(C)) {
-			WM_drop_target_propose(finder, WM_drop_target_new("UI_OT_drop_color", "drop color", drop_color_set_properties));
+			WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_BUT, "UI_OT_drop_color", "drop color", drop_color_set_properties);
 		}
 	}
 }

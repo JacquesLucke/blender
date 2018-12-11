@@ -275,7 +275,7 @@ static void drop_init__insert_id_path(wmDragData *drag_data, PointerRNA *ptr)
 static void console_drop_target_find(bContext *UNUSED(C), wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_id(drag_data)) {
-		WM_drop_target_propose(finder, WM_drop_target_new("CONSOLE_OT_insert", "Insert", drop_init__insert_id_path));
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_AREA, "CONSOLE_OT_insert", "Insert", drop_init__insert_id_path);
 	}
 }
 

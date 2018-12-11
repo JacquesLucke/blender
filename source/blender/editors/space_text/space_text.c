@@ -384,10 +384,10 @@ static void drop_init__insert_id_path(wmDragData *drag_data, PointerRNA *ptr)
 static void text_drop_target_find(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_path_maybe_text(drag_data)) {
-		WM_drop_target_propose(finder, WM_drop_target_new("TEXT_OT_open", "Open File", WM_drop_init_single_filepath));
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_AREA, "TEXT_OT_open", "Open File", WM_drop_init_single_filepath);
 	}
 	if (CTX_data_edit_text(C) && WM_drag_query_single_id(drag_data)) {
-		WM_drop_target_propose(finder, WM_drop_target_new("TEXT_OT_insert", "Insert Path", drop_init__insert_id_path));
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_AREA, "TEXT_OT_insert", "Insert Path", drop_init__insert_id_path);
 	}
 }
 

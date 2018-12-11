@@ -260,31 +260,39 @@ void WM_drop_target_propose(wmDropTargetFinder *finder, wmDropTarget *target)
 	}
 }
 
-wmDropTarget *WM_drop_target_new(
-        const char *ot_idname, const char *tooltip,
-        void (*set_properties)(struct wmDragData *, struct PointerRNA *))
+static enum DropTargetSize drop_target_get_current_size(wmDropTargetFinder *finder)
 {
-	return WM_drop_target_new_ex(
-	        (char *)ot_idname, (char *)tooltip, set_properties,
-	        WM_OP_INVOKE_DEFAULT);
+	if (finder->current) return finder->current->size;
+	else return DROP_TARGET_SIZE_MAX;
 }
 
-wmDropTarget *WM_drop_target_new_ex(
-        const char *ot_idname, const char *tooltip,
-        void (*set_properties)(struct wmDragData *, struct PointerRNA *),
+void WM_drop_target_propose__template_1(
+        wmDropTargetFinder *finder,
+        enum DropTargetSize size, const char *ot_idname,
+        const char *tooltip, wmDropTargetSetProps set_properties)
+{
+	WM_drop_target_propose__template_2(finder, size, ot_idname, tooltip, set_properties, WM_OP_INVOKE_DEFAULT);
+}
+
+void WM_drop_target_propose__template_2(
+        wmDropTargetFinder *finder,
+        enum DropTargetSize size, const char *ot_idname,
+        const char *tooltip, wmDropTargetSetProps set_properties,
         short context)
 {
-	return WM_drop_target_new_full(
-	        (char *)ot_idname, (char *)tooltip, set_properties,
-	        context, true, false, false);
+	if (size >= drop_target_get_current_size(finder)) return;
+	WM_drop_target_propose(finder, WM_drop_target_new(
+	        size, (char *)ot_idname, (char *)tooltip, set_properties,
+	        context, true, false, false));
 }
 
-wmDropTarget *WM_drop_target_new_full(
-        char *ot_idname, char *tooltip,
-        void (*set_properties)(struct wmDragData *, struct PointerRNA *),
+wmDropTarget *WM_drop_target_new(
+        enum DropTargetSize size, char *ot_idname, char *tooltip,
+        wmDropTargetSetProps set_properties,
         short context, bool free, bool free_idname, bool free_tooltip)
 {
 	wmDropTarget *drop_target = MEM_callocN(sizeof(wmDropTarget), __func__);
+	drop_target->size = size;
 	drop_target->ot_idname = ot_idname;
 	drop_target->tooltip = tooltip;
 	drop_target->set_properties = set_properties;
@@ -433,12 +441,12 @@ static void drop_files_init(wmDragData *drag_data, PointerRNA *ptr)
 }
 
 
-void get_window_drop_target(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *event)
+static void get_window_drop_target(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *event)
 {
 	UI_drop_target_find(C, finder, drag_data, event);
 
 	if (drag_data->type == DRAG_DATA_FILEPATHS) {
-		WM_drop_target_propose(finder,  WM_drop_target_new("WM_OT_drop_files", "", drop_files_init));
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_WINDOW, "WM_OT_drop_files", "", drop_files_init);
 	}
 }
 

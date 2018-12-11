@@ -518,19 +518,33 @@ const char *WM_drag_query_single_path_image(struct wmDragData *drag_data);
 const char *WM_drag_query_single_path_image_or_movie(struct wmDragData *drag_data);
 struct ListBase *WM_drag_query_collection_children(struct wmDragData *drag_data);
 
+typedef void (*wmDropTargetSetProps)(struct wmDragData *, struct PointerRNA *);
+
+enum DropTargetSize {
+	DROP_TARGET_SIZE_BUT,
+	DROP_TARGET_SIZE_VISIBLE_OBJECT,
+	DROP_TARGET_SIZE_REGION,
+	DROP_TARGET_SIZE_AREA,
+	DROP_TARGET_SIZE_WINDOW,
+	DROP_TARGET_SIZE_MAX,
+};
+
 void WM_drop_target_propose(struct wmDropTargetFinder *finder, struct wmDropTarget *target);
+void WM_drop_target_propose__template_1(
+        struct wmDropTargetFinder *finder,
+        enum DropTargetSize size, const char *ot_idname,
+        const char *tooltip, wmDropTargetSetProps set_properties);
+void WM_drop_target_propose__template_2(
+        struct wmDropTargetFinder *finder,
+        enum DropTargetSize size, const char *ot_idname,
+        const char *tooltip, wmDropTargetSetProps set_properties,
+        short context);
 
 struct wmDropTarget *WM_drop_target_new(
-        const char *ot_idname, const char *tooltip,
-        void (*set_properties)(struct wmDragData *, struct PointerRNA *));
-struct wmDropTarget *WM_drop_target_new_ex(
-        const char *ot_idname, const char *tooltip,
-        void (*set_properties)(struct wmDragData *, struct PointerRNA *),
-        short context);
-struct wmDropTarget *WM_drop_target_new_full(
-        char *ot_idname, char *tooltip,
-        void (*set_properties)(struct wmDragData *, struct PointerRNA *),
+        enum DropTargetSize size, char *ot_idname, char *tooltip,
+        wmDropTargetSetProps set_properties,
         short context, bool free, bool free_idname, bool free_tooltip);
+
 void WM_drop_init_single_filepath(struct wmDragData *drag_data, struct PointerRNA *ptr);
 void WM_drop_init_single_id_name(struct wmDragData *drag_data, struct PointerRNA *ptr);
 

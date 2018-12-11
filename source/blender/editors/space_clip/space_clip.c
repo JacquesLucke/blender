@@ -1245,7 +1245,7 @@ static void drop_init__open_file(wmDragData *drag_data, PointerRNA *ptr)
 static void clip_drop_target_find(bContext *UNUSED(C), wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_path_image_or_movie(drag_data)) {
-		WM_drop_target_propose(finder, WM_drop_target_new("CLIP_OT_open", "Open File", drop_init__open_file));
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_AREA, "CLIP_OT_open", "Open File", drop_init__open_file);
 	}
 }
 

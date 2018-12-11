@@ -670,13 +670,6 @@ enum DragDisplayType {
 	DRAG_DISPLAY_IMAGE,
 	DRAG_DISPLAY_COLOR,
 };
-/* wmDropTarget.size */
-enum DropTargetSize {
-	DROP_TARGET_SIZE_BUT,
-	DROP_TARGET_SIZE_REGION,
-	DROP_TARGET_SIZE_AREA,
-	DROP_TARGET_SIZE_WINDOW,
-};
 
 typedef struct wmDragCollectionChild {
 	struct ID *id;
@@ -717,7 +710,7 @@ typedef struct wmDropTarget {
 	char *ot_idname;
 	char *tooltip;
 	short context;
-	enum DropTargetSize size;
+	int size;
 	bool free;
 	bool free_idname;
 	bool free_tooltip;
