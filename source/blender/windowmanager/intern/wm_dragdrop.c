@@ -433,11 +433,10 @@ static wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, 
 
 wmDropTarget *WM_drag_find_current_target(bContext *C, wmDragData *drag_data, const wmEvent *event)
 {
-	//wmWindow *win = CTX_wm_window(C);
 	ScrArea *sa = CTX_wm_area(C);
 	if (!sa) return NULL;
-	SpaceType *st = sa->type;
 
+	SpaceType *st = sa->type;
 	wmDropTarget *drop_target = NULL;
 
 	if (!drop_target && st->drop_target_get) {
