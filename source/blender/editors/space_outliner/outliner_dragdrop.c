@@ -203,7 +203,6 @@ void OUTLINER_OT_drag_init(wmOperatorType *ot)
 }
 
 
-wmDropTarget *outliner_drop_target_get(bContext *UNUSED(C), wmDragData *UNUSED(drag_data), const wmEvent *UNUSED(event))
+void outliner_drop_target_find(bContext *UNUSED(C), wmDropTargetFinder *UNUSED(finder), wmDragData *UNUSED(drag_data), const wmEvent *UNUSED(event))
 {
-	return NULL;
 }

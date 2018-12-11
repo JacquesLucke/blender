@@ -243,6 +243,23 @@ void WM_drag_display_set_color_derived(wmDragData *drag_data)
 
 /* ********************* Drop Target Creation ********************* */
 
+void WM_drop_target_propose(wmDropTargetFinder *finder, wmDropTarget *target)
+{
+	if (target == NULL) {
+		return;
+	}
+	else if (finder->current == NULL) {
+		finder->current = target;
+	}
+	else if (target->size < finder->current->size) {
+		WM_drop_target_free(finder->current);
+		finder->current = target;
+	}
+	else {
+		WM_drop_target_free(target);
+	}
+}
+
 wmDropTarget *WM_drop_target_new(
         const char *ot_idname, const char *tooltip,
         void (*set_properties)(struct wmDragData *, struct PointerRNA *))
@@ -416,19 +433,13 @@ static void drop_files_init(wmDragData *drag_data, PointerRNA *ptr)
 }
 
 
-static wmDropTarget *get_window_drop_target(bContext *C, wmDragData *drag_data, const wmEvent *event)
+void get_window_drop_target(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *event)
 {
-	wmDropTarget *drop_target = NULL;
+	UI_drop_target_find(C, finder, drag_data, event);
 
-	if (!drop_target) {
-		drop_target = UI_drop_target_get(C, drag_data, event);
+	if (drag_data->type == DRAG_DATA_FILEPATHS) {
+		WM_drop_target_propose(finder,  WM_drop_target_new("WM_OT_drop_files", "", drop_files_init));
 	}
-
-	if (!drop_target && drag_data->type == DRAG_DATA_FILEPATHS) {
-		drop_target = WM_drop_target_new("WM_OT_drop_files", "", drop_files_init);
-	}
-
-	return drop_target;
 }
 
 wmDropTarget *WM_drag_find_current_target(bContext *C, wmDragData *drag_data, const wmEvent *event)
@@ -436,18 +447,20 @@ wmDropTarget *WM_drag_find_current_target(bContext *C, wmDragData *drag_data, co
 	ScrArea *sa = CTX_wm_area(C);
 	if (!sa) return NULL;
 
+	wmDropTargetFinder finder = { 0 };
+
 	SpaceType *st = sa->type;
 	wmDropTarget *drop_target = NULL;
 
-	if (!drop_target && st->drop_target_get) {
-		drop_target = st->drop_target_get(C, drag_data, event);
+	if (!drop_target && st->drop_target_find) {
+		st->drop_target_find(C, &finder, drag_data, event);
 	}
 
 	if (!drop_target) {
-		drop_target = get_window_drop_target(C, drag_data, event);
+		get_window_drop_target(C, &finder, drag_data, event);
 	}
 
-	return drop_target;
+	return finder.current;
 }
 
 

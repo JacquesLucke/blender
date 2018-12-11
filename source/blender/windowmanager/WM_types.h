@@ -670,6 +670,13 @@ enum DragDisplayType {
 	DRAG_DISPLAY_IMAGE,
 	DRAG_DISPLAY_COLOR,
 };
+/* wmDropTarget.size */
+enum DropTargetSize {
+	DROP_TARGET_SIZE_BUT,
+	DROP_TARGET_SIZE_REGION,
+	DROP_TARGET_SIZE_AREA,
+	DROP_TARGET_SIZE_WINDOW,
+};
 
 typedef struct wmDragCollectionChild {
 	struct ID *id;
@@ -710,11 +717,16 @@ typedef struct wmDropTarget {
 	char *ot_idname;
 	char *tooltip;
 	short context;
+	enum DropTargetSize size;
 	bool free;
 	bool free_idname;
 	bool free_tooltip;
 	void (*set_properties)(struct wmDragData *, struct PointerRNA *);
 } wmDropTarget;
+
+typedef struct wmDropTargetFinder {
+	wmDropTarget *current;
+} wmDropTargetFinder;
 
 /**
  * Struct to store tool-tip timer and possible creation if the time is reached.

@@ -381,15 +381,14 @@ static void drop_init__insert_id_path(wmDragData *drag_data, PointerRNA *ptr)
 	MEM_freeN(text);
 }
 
-static wmDropTarget *text_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *UNUSED(event))
+static void text_drop_target_find(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_path_maybe_text(drag_data)) {
-		return WM_drop_target_new("TEXT_OT_open", "Open File", WM_drop_init_single_filepath);
+		WM_drop_target_propose(finder, WM_drop_target_new("TEXT_OT_open", "Open File", WM_drop_init_single_filepath));
 	}
 	if (CTX_data_edit_text(C) && WM_drag_query_single_id(drag_data)) {
-		return WM_drop_target_new("TEXT_OT_insert", "Insert Path", drop_init__insert_id_path);
+		WM_drop_target_propose(finder, WM_drop_target_new("TEXT_OT_insert", "Insert Path", drop_init__insert_id_path));
 	}
-	return NULL;
 }
 
 /********************* registration ********************/
@@ -412,7 +411,7 @@ void ED_spacetype_text(void)
 	st->listener = text_listener;
 	st->context = text_context;
 	st->id_remap = text_id_remap;
-	st->drop_target_get = text_drop_target_get;
+	st->drop_target_find = text_drop_target_find;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype text region");

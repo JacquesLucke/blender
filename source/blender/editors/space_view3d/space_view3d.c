@@ -1326,22 +1326,23 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 	}
 }
 
-static wmDropTarget *view3d_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *event)
+static void view3d_drop_target_get(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *event)
 {
 	if (WM_drag_query_single_collection(drag_data)) {
-		return WM_drop_target_new_ex("OBJECT_OT_collection_instance_add", "New Collection Instance",
-		        WM_drop_init_single_id_name, WM_OP_EXEC_DEFAULT);
+		WM_drop_target_propose(finder, WM_drop_target_new_ex(
+		        "OBJECT_OT_collection_instance_add", "New Collection Instance",
+		        WM_drop_init_single_id_name, WM_OP_EXEC_DEFAULT));
 	}
 
 	ARegion *ar = CTX_wm_region(C);
 
 	if (ar->regiontype == RGN_TYPE_WINDOW && ED_view3d_is_object_under_cursor(C, event->mval)) {
 		if (WM_drag_query_single_material(drag_data)) {
-			return WM_drop_target_new("OBJECT_OT_drop_named_material", "Set Material",
-			        WM_drop_init_single_id_name);
+			WM_drop_target_propose(finder, WM_drop_target_new(
+			        "OBJECT_OT_drop_named_material", "Set Material",
+			        WM_drop_init_single_id_name));
 		}
 	}
-	return NULL;
 }
 
 /* only called once, from space/spacetypes.c */
@@ -1364,7 +1365,7 @@ void ED_spacetype_view3d(void)
 	st->gizmos = view3d_widgets;
 	st->context = view3d_context;
 	st->id_remap = view3d_id_remap;
-	st->drop_target_get = view3d_drop_target_get;
+	st->drop_target_find = view3d_drop_target_get;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype view3d main region");

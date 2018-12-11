@@ -388,7 +388,7 @@ void ED_spacetype_outliner(void)
 	st->operatortypes = outliner_operatortypes;
 	st->keymap = outliner_keymap;
 	st->id_remap = outliner_id_remap;
-	st->drop_target_get = outliner_drop_target_get;
+	st->drop_target_find = outliner_drop_target_find;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype outliner region");

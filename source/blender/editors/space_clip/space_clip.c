@@ -1242,12 +1242,11 @@ static void drop_init__open_file(wmDragData *drag_data, PointerRNA *ptr)
 	RNA_string_set(&itemptr, "name", file);
 }
 
-static wmDropTarget *clip_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
+static void clip_drop_target_find(bContext *UNUSED(C), wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_path_image_or_movie(drag_data)) {
-		return WM_drop_target_new("CLIP_OT_open", "Open File", drop_init__open_file);
+		WM_drop_target_propose(finder, WM_drop_target_new("CLIP_OT_open", "Open File", drop_init__open_file));
 	}
-	return NULL;
 }
 
 /* only called once, from space/spacetypes.c */
@@ -1269,7 +1268,7 @@ void ED_spacetype_clip(void)
 	st->context = clip_context;
 	st->refresh = clip_refresh;
 	st->id_remap = clip_id_remap;
-	st->drop_target_get = clip_drop_target_get;
+	st->drop_target_find = clip_drop_target_find;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype clip region");

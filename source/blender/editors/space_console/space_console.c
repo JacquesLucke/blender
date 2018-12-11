@@ -272,12 +272,11 @@ static void drop_init__insert_id_path(wmDragData *drag_data, PointerRNA *ptr)
 	MEM_freeN(text);
 }
 
-static wmDropTarget *console_drop_target_get(bContext *UNUSED(C), wmDragData *drag_data, const wmEvent *UNUSED(event))
+static void console_drop_target_find(bContext *UNUSED(C), wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_id(drag_data)) {
-		return WM_drop_target_new("CONSOLE_OT_insert", "Insert", drop_init__insert_id_path);
+		WM_drop_target_propose(finder, WM_drop_target_new("CONSOLE_OT_insert", "Insert", drop_init__insert_id_path));
 	}
-	return NULL;
 }
 
 /* only called once, from space/spacetypes.c */
@@ -295,7 +294,7 @@ void ED_spacetype_console(void)
 	st->duplicate = console_duplicate;
 	st->operatortypes = console_operatortypes;
 	st->keymap = console_keymap;
-	st->drop_target_get = console_drop_target_get;
+	st->drop_target_find = console_drop_target_find;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype console region");

@@ -77,6 +77,7 @@ struct wmKeyMap;
 struct wmKeyMapItem;
 struct wmDragData;
 struct wmDropTarget;
+struct wmDropTargetFinder;
 
 typedef struct uiBut uiBut;
 typedef struct uiBlock uiBlock;
@@ -1225,7 +1226,7 @@ typedef struct uiDragColorHandle {
 void ED_operatortypes_ui(void);
 void ED_keymap_ui(struct wmKeyConfig *keyconf);
 
-struct wmDropTarget *UI_drop_target_get(struct bContext *C, struct wmDragData *drag_data, const struct wmEvent *event);
+void UI_drop_target_find(struct bContext *C, struct wmDropTargetFinder *finder, struct wmDragData *drag_data, const struct wmEvent *event);
 
 bool UI_context_copy_to_selected_list(
         struct bContext *C, struct PointerRNA *ptr, struct PropertyRNA *prop,

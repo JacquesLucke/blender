@@ -1522,14 +1522,13 @@ static void UI_OT_drop_color(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "gamma_corrected", 0, "Gamma Corrected", "The source color is gamma corrected ");
 }
 
-wmDropTarget *UI_drop_target_get(bContext *C, wmDragData *drag_data, const wmEvent *UNUSED(event))
+void UI_drop_target_find(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (drag_data->type == DRAG_DATA_COLOR) {
 		if (UI_but_active_drop_color(C)) {
-			return WM_drop_target_new("UI_OT_drop_color", "drop color", drop_color_set_properties);
+			WM_drop_target_propose(finder, WM_drop_target_new("UI_OT_drop_color", "drop color", drop_color_set_properties));
 		}
 	}
-	return NULL;
 }
 
 /* ********************************************************* */
