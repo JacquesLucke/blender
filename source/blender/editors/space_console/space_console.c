@@ -272,10 +272,20 @@ static void drop_init__insert_id_path(wmDragData *drag_data, PointerRNA *ptr)
 	MEM_freeN(text);
 }
 
+static void drop_init__insert_file_path(wmDragData *drag_data, PointerRNA *ptr)
+{
+	char pathname[FILE_MAX + 2];
+	BLI_snprintf(pathname, sizeof(pathname), "\"%s\"", WM_drag_query_single_path(drag_data));
+	RNA_string_set(ptr, "text", pathname);
+}
+
 static void console_drop_target_find(bContext *UNUSED(C), wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
 	if (WM_drag_query_single_id(drag_data)) {
 		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_AREA, "CONSOLE_OT_insert", "Insert", drop_init__insert_id_path);
+	}
+	if (WM_drag_query_single_path(drag_data)) {
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_AREA, "CONSOLE_OT_insert", "Insert", drop_init__insert_file_path);
 	}
 }
 
