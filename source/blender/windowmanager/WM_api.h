@@ -492,7 +492,7 @@ struct wmDragData *WM_drag_start_name(struct bContext *C, const char *name);
 struct wmDragData *WM_drag_start_collection_children(struct bContext *C, struct ListBase *collection_children);
 
 struct wmDragData *WM_drag_get_active(struct bContext *C);
-struct wmDragData *WM_drag_data_from_event(struct wmEvent *event);
+struct wmDragData *WM_drag_data_from_event(const struct wmEvent *event);
 void WM_drag_transfer_ownership_to_event(struct wmWindowManager *wm, struct wmEvent * event);
 struct wmDropTarget *WM_drag_find_current_target(struct bContext *C, struct  wmDragData *drag_data, const struct wmEvent *event);
 
@@ -526,6 +526,7 @@ typedef void (*wmDropTargetSetProps)(struct wmDragData *, struct PointerRNA *);
 
 enum DropTargetSize {
 	DROP_TARGET_SIZE_BUT,
+	DROP_TARGET_SIZE_OUTLINER_ROW,
 	DROP_TARGET_SIZE_VISIBLE_OBJECT,
 	DROP_TARGET_SIZE_REGION,
 	DROP_TARGET_SIZE_AREA,

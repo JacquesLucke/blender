@@ -527,9 +527,9 @@ wmDragData *WM_drag_get_active(bContext *C)
 	return wm->drag.data;
 }
 
-wmDragData *WM_drag_data_from_event(wmEvent *event)
+wmDragData *WM_drag_data_from_event(const wmEvent *event)
 {
-	if (event->type != EVT_DROP) return NULL;
+	if (event->custom != EVT_DATA_DRAGDROP) return NULL;
 	return (wmDragData *)event->customdata;
 }
 
