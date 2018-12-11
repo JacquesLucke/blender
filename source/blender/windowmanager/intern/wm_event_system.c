@@ -2422,13 +2422,13 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 				}
 			}
 			else if (handler->is_drop_handler) {
-				if (!wm->is_interface_locked && event->type == EVT_DROP && event->customdata != NULL) {
+				wmDragData *drag_data = WM_drag_data_from_event(event);
+				if (!wm->is_interface_locked && event->type == EVT_DROP && drag_data) {
 					ARegion *region_old = CTX_wm_region(C);
 					ARegion *region = region_event_inside(C, &event->x);
 					CTX_wm_region_set(C, region);
 					wm_region_mouse_co(C, event);
 
-					wmDragData *drag_data = (wmDragData *)event->customdata;
 					wmDropTarget *drop_target = WM_drag_find_current_target(C, drag_data, event);
 
 					if (drop_target) {
@@ -2452,12 +2452,14 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 						}
 					}
 
+					CTX_wm_region_set(C, region_old);
+					wm_region_mouse_co(C, event);
+				}
+
+				if (drag_data) {
 					WM_drag_data_free(drag_data);
 					event->customdata = NULL;
 					event->custom = 0;
-
-					CTX_wm_region_set(C, region_old);
-					wm_region_mouse_co(C, event);
 				}
 			}
 			else if (handler->gizmo_map) {

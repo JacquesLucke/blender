@@ -694,7 +694,7 @@ static void sequencer_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id
 
 static void sequencer_drop_copy(wmDragData *drag_data, PointerRNA *ptr)
 {
-	char *path = WM_drag_query_single_path(drag_data);
+	const char *path = WM_drag_query_single_path(drag_data);
 
 	if (RNA_struct_find_property(ptr, "filepath")) {
 		RNA_string_set(ptr, "filepath", path);

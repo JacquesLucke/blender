@@ -527,6 +527,12 @@ wmDragData *WM_drag_get_active(bContext *C)
 	return wm->drag.data;
 }
 
+wmDragData *WM_drag_data_from_event(wmEvent *event)
+{
+	if (event->type != EVT_DROP) return NULL;
+	return (wmDragData *)event->customdata;
+}
+
 void WM_drop_init_single_filepath(wmDragData *drag_data, PointerRNA *ptr)
 {
 	RNA_string_set(ptr, "filepath", WM_drag_query_single_path(drag_data));
