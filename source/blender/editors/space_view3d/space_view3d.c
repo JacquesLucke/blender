@@ -1343,6 +1343,8 @@ static void view3d_drop_target_find(bContext *C, wmDropTargetFinder *finder, wmD
 	ARegion *ar = CTX_wm_region(C);
 	if (ar->regiontype != RGN_TYPE_WINDOW) return;
 
+	Object *ob = ED_view3d_give_object_under_cursor(C, event->mval);
+
 	if (WM_drag_query_single_collection(drag_data)) {
 		WM_drop_target_propose__template_2(finder, DROP_TARGET_SIZE_REGION,
 		        "OBJECT_OT_collection_instance_add", "New Collection Instance",
@@ -1355,16 +1357,13 @@ static void view3d_drop_target_find(bContext *C, wmDropTargetFinder *finder, wmD
 		        WM_drop_init_single_id_name);
 	}
 
-	if (ED_view3d_is_object_under_cursor(C, event->mval)) {
-		if (WM_drag_query_single_material(drag_data)) {
-			WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_VISIBLE_OBJECT,
-			        "OBJECT_OT_drop_named_material", "Set Material",
-			        WM_drop_init_single_id_name);
-		}
+	if (WM_drag_query_single_material(drag_data) && ob) {
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_VISIBLE_OBJECT,
+		        "OBJECT_OT_drop_named_material", "Set Material",
+		        WM_drop_init_single_id_name);
 	}
 
 	if (WM_drag_query_single_path_image(drag_data)) {
-		Object *ob = ED_view3d_give_object_under_cursor(C, event->mval);
 		if (ob == NULL && view3d_ima_bg_is_camera_view(C)) {
 			WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_REGION,
 			        "VIEW3D_OT_background_image_add", "Drop Background",
