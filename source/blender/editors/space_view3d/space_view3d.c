@@ -1328,20 +1328,27 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 
 static void view3d_drop_target_get(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *event)
 {
+	ARegion *ar = CTX_wm_region(C);
+	if (ar->regiontype != RGN_TYPE_WINDOW) return;
+
 	if (WM_drag_query_single_collection(drag_data)) {
-		WM_drop_target_propose__template_2(finder, DROP_TARGET_SIZE_AREA,
+		WM_drop_target_propose__template_2(finder, DROP_TARGET_SIZE_REGION,
 		        "OBJECT_OT_collection_instance_add", "New Collection Instance",
 		        WM_drop_init_single_id_name, WM_OP_EXEC_DEFAULT);
 	}
 
-	ARegion *ar = CTX_wm_region(C);
-
-	if (ar->regiontype == RGN_TYPE_WINDOW && ED_view3d_is_object_under_cursor(C, event->mval)) {
+	if (ED_view3d_is_object_under_cursor(C, event->mval)) {
 		if (WM_drag_query_single_material(drag_data)) {
 			WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_VISIBLE_OBJECT,
 			        "OBJECT_OT_drop_named_material", "Set Material",
 			        WM_drop_init_single_id_name);
 		}
+	}
+
+	if (WM_drag_query_single_path_image(drag_data)) {
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_REGION,
+		        "OBJECT_OT_drop_named_image", "Drop Image",
+		        WM_drop_init_single_filepath);
 	}
 }
 
