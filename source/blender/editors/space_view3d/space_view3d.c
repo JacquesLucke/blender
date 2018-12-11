@@ -1326,6 +1326,18 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 	}
 }
 
+static bool view3d_ima_bg_is_camera_view(bContext *C)
+{
+	RegionView3D *rv3d = CTX_wm_region_view3d(C);
+	if ((rv3d && (rv3d->persp == RV3D_CAMOB))) {
+		View3D *v3d = CTX_wm_view3d(C);
+		if (v3d && v3d->camera && v3d->camera->type == OB_CAMERA) {
+			return true;
+		}
+	}
+	return false;
+}
+
 static void view3d_drop_target_get(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *event)
 {
 	ARegion *ar = CTX_wm_region(C);
@@ -1346,9 +1358,17 @@ static void view3d_drop_target_get(bContext *C, wmDropTargetFinder *finder, wmDr
 	}
 
 	if (WM_drag_query_single_path_image(drag_data)) {
-		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_REGION,
-		        "OBJECT_OT_drop_named_image", "Drop Image",
-		        WM_drop_init_single_filepath);
+		Object *ob = ED_view3d_give_object_under_cursor(C, event->mval);
+		if (ob == NULL && view3d_ima_bg_is_camera_view(C)) {
+			WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_REGION,
+			        "VIEW3D_OT_background_image_add", "Drop Background",
+			        WM_drop_init_single_filepath);
+		}
+		if (ob == NULL || (ob->type == OB_EMPTY && ob->empty_drawtype == OB_EMPTY_IMAGE)) {
+			WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_REGION,
+			        "OBJECT_OT_drop_named_image", "Drop Image",
+			        WM_drop_init_single_filepath);
+		}
 	}
 }
 
