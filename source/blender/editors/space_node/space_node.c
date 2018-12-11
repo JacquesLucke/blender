@@ -897,6 +897,34 @@ static void node_space_subtype_item_extend(
 	}
 }
 
+static void file_drop_init__file_path(wmDragData *drag_data, PointerRNA *ptr)
+{
+	RNA_string_set(ptr, "filepath", WM_drag_query_single_path_image_or_movie(drag_data));
+	RNA_struct_property_unset(ptr, "name");
+}
+
+static void file_drop_init__id_name(wmDragData *drag_data, PointerRNA *ptr)
+{
+	RNA_string_set(ptr, "name", WM_drag_query_single_id_of_type(drag_data, ID_IM)->name + 2);
+	RNA_struct_property_unset(ptr, "filepath");
+}
+
+static void node_drop_target_find(bContext *UNUSED(C), wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *UNUSED(event))
+{
+	if (WM_drag_query_single_path_image_or_movie(drag_data)) {
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_AREA,
+		        "NODE_OT_add_file", "Load", file_drop_init__file_path);
+	}
+	if (WM_drag_query_single_id_of_type(drag_data, ID_IM)) {
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_AREA,
+		        "NODE_OT_add_file", "Insert", file_drop_init__id_name);
+	}
+	if (WM_drag_query_single_id_of_type(drag_data, ID_MSK)) {
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_AREA,
+		        "NODE_OT_add_mask", "Insert", WM_drop_init_single_id_name);
+	}
+}
+
 /* only called once, from space/spacetypes.c */
 void ED_spacetype_node(void)
 {
@@ -920,6 +948,7 @@ void ED_spacetype_node(void)
 	st->space_subtype_item_extend = node_space_subtype_item_extend;
 	st->space_subtype_get = node_space_subtype_get;
 	st->space_subtype_set = node_space_subtype_set;
+	st->drop_target_find = node_drop_target_find;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype node region");
