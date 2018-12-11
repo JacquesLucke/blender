@@ -69,14 +69,32 @@
 
 /* ********************* Free Data ********************* */
 
+static void drag_data_free_filepaths(wmDragData *drag_data)
+{
+	for (int i = 0; i < drag_data->data.filepaths.amount; i++) {
+		MEM_freeN(drag_data->data.filepaths.paths[i]);
+	}
+	MEM_freeN(drag_data->data.filepaths.paths);
+}
+
+static void drag_data_free_collection_children(wmDragData *drag_data)
+{
+	ListBase *list = drag_data->data.collection_children;
+	LISTBASE_FOREACH (LinkData *, link, list) {
+		MEM_freeN(link->data);
+	}
+	BLI_freelistN(list);
+	MEM_freeN(list);
+}
+
 void WM_drag_data_free(wmDragData *drag_data)
 {
 	switch (drag_data->type) {
 		case DRAG_DATA_FILEPATHS:
-			for (int i = 0; i < drag_data->data.filepaths.amount; i++) {
-				MEM_freeN(drag_data->data.filepaths.paths[i]);
-			}
-			MEM_freeN(drag_data->data.filepaths.paths);
+			drag_data_free_filepaths(drag_data);
+			break;
+		case DRAG_DATA_COLLECTION_CHILDREN:
+			drag_data_free_collection_children(drag_data);
 			break;
 		default:
 			break;

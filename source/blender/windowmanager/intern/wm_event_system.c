@@ -2444,7 +2444,8 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 						wm_operator_call_internal(C, ot, ptr, NULL, drop_target->context, false, event);
 						action |= WM_HANDLER_BREAK;
 
-						WM_drag_data_free(drag_data);
+						WM_operator_properties_free(ptr);
+
 						WM_drop_target_free(drop_target);
 						event->customdata = NULL;
 						event->custom = 0;
@@ -2453,6 +2454,8 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 							return action;
 						}
 					}
+
+					WM_drag_data_free(drag_data);
 
 					CTX_wm_region_set(C, region_old);
 					wm_region_mouse_co(C, event);

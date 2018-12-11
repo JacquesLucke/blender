@@ -89,11 +89,9 @@ static TreeTraversalAction traverse_visit_insert_list(TreeElement *te, void *cus
 	return TRAVERSE_CONTINUE;
 }
 
-static ListBase *get_selected_elements(SpaceOops *soops)
+static void insert_selected_elements(SpaceOops *soops, ListBase *elements)
 {
-	ListBase *elements = MEM_callocN(sizeof(ListBase), __func__);
 	outliner_tree_traverse(soops, &soops->tree, 0, TSE_SELECTED, traverse_visit_insert_list, elements);
-	return elements;
 }
 
 static ID *get_id_from_tree_element(TreeElement *te)
@@ -176,16 +174,17 @@ static int outliner_drag_init_invoke(bContext *C, wmOperator *UNUSED(op), const 
 		TREESTORE(te)->flag |= TSE_SELECTED;
 	}
 
-	ListBase *elements = get_selected_elements(soops);
+	ListBase elements = { 0 };
+	insert_selected_elements(soops, &elements);
 
 	if (soops->outlinevis == SO_VIEW_LAYER && (soops->filter & SO_FILTER_NO_COLLECTION) == 0) {
-		init_drag_collection_children(C, elements);
+		init_drag_collection_children(C, &elements);
 	}
 	else if (soops->outlinevis == SO_LIBRARIES) {
-		init_drag_single_id(C, elements);
+		init_drag_single_id(C, &elements);
 	}
 
-	BLI_freelistN(elements);
+	BLI_freelistN(&elements);
 
 	ED_area_tag_redraw(CTX_wm_area(C));
 
