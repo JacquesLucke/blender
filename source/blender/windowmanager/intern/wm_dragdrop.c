@@ -355,6 +355,11 @@ Material *WM_drag_query_single_material(wmDragData *drag_data)
 	return (Material *)WM_drag_query_single_id_of_type(drag_data, ID_MA);
 }
 
+Object *WM_drag_query_single_object(wmDragData *drag_data)
+{
+	return (Object *)WM_drag_query_single_id_of_type(drag_data, ID_OB);
+}
+
 const char *WM_drag_query_single_path(wmDragData *drag_data)
 {
 	if (drag_data->type == DRAG_DATA_FILEPATHS) {

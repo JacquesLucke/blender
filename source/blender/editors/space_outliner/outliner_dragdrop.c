@@ -180,7 +180,7 @@ static int outliner_drag_init_invoke(bContext *C, wmOperator *UNUSED(op), const 
 	if (soops->outlinevis == SO_VIEW_LAYER && (soops->filter & SO_FILTER_NO_COLLECTION) == 0) {
 		init_drag_collection_children(C, &elements);
 	}
-	else if (soops->outlinevis == SO_LIBRARIES) {
+	else if (ELEM(soops->outlinevis, SO_LIBRARIES, SO_DATA_API)) {
 		init_drag_single_id(C, &elements);
 	}
 

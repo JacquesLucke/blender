@@ -2422,7 +2422,7 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 				}
 			}
 			else if (handler->is_drop_handler) {
-				if (!wm->is_interface_locked && event->type == EVT_DROP) {
+				if (!wm->is_interface_locked && event->type == EVT_DROP && event->customdata != NULL) {
 					ARegion *region_old = CTX_wm_region(C);
 					ARegion *region = region_event_inside(C, &event->x);
 					CTX_wm_region_set(C, region);
@@ -2445,10 +2445,7 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 						action |= WM_HANDLER_BREAK;
 
 						WM_operator_properties_free(ptr);
-
 						WM_drop_target_free(drop_target);
-						event->customdata = NULL;
-						event->custom = 0;
 
 						if (CTX_wm_window(C) == NULL) {
 							return action;
@@ -2456,6 +2453,8 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 					}
 
 					WM_drag_data_free(drag_data);
+					event->customdata = NULL;
+					event->custom = 0;
 
 					CTX_wm_region_set(C, region_old);
 					wm_region_mouse_co(C, event);

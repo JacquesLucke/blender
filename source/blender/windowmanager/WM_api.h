@@ -510,6 +510,7 @@ struct ID *WM_drag_query_single_id(struct wmDragData *drag_data);
 struct ID *WM_drag_query_single_id_of_type(struct wmDragData *drag_data, int idtype);
 struct Collection *WM_drag_query_single_collection(struct wmDragData *drag_data);
 struct Material   *WM_drag_query_single_material(struct wmDragData *drag_data);
+struct Object            *WM_drag_query_single_object(struct wmDragData *drag_data);
 const char *WM_drag_query_single_path(struct wmDragData *drag_data);
 const char *WM_drag_query_single_path_of_types(struct wmDragData *drag_data, int types);
 const char *WM_drag_query_single_path_text(struct wmDragData *drag_data);

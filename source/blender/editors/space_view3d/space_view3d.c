@@ -1338,7 +1338,7 @@ static bool view3d_ima_bg_is_camera_view(bContext *C)
 	return false;
 }
 
-static void view3d_drop_target_get(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *event)
+static void view3d_drop_target_find(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *event)
 {
 	ARegion *ar = CTX_wm_region(C);
 	if (ar->regiontype != RGN_TYPE_WINDOW) return;
@@ -1347,6 +1347,12 @@ static void view3d_drop_target_get(bContext *C, wmDropTargetFinder *finder, wmDr
 		WM_drop_target_propose__template_2(finder, DROP_TARGET_SIZE_REGION,
 		        "OBJECT_OT_collection_instance_add", "New Collection Instance",
 		        WM_drop_init_single_id_name, WM_OP_EXEC_DEFAULT);
+	}
+
+	if (WM_drag_query_single_object(drag_data)) {
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_REGION,
+		        "OBJECT_OT_add_named", "Add Object",
+		        WM_drop_init_single_id_name);
 	}
 
 	if (ED_view3d_is_object_under_cursor(C, event->mval)) {
@@ -1392,7 +1398,7 @@ void ED_spacetype_view3d(void)
 	st->gizmos = view3d_widgets;
 	st->context = view3d_context;
 	st->id_remap = view3d_id_remap;
-	st->drop_target_find = view3d_drop_target_get;
+	st->drop_target_find = view3d_drop_target_find;
 
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype view3d main region");
