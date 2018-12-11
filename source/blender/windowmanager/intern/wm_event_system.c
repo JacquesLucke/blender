@@ -2291,6 +2291,42 @@ static int wm_action_not_handled(int action)
 	return action == WM_HANDLER_CONTINUE || action == (WM_HANDLER_BREAK | WM_HANDLER_MODAL);
 }
 
+static int wm_event_inside_i(wmEvent *event, rcti *rect)
+{
+	if (wm_event_always_pass(event))
+		return 1;
+	if (BLI_rcti_isect_pt_v(rect, &event->x))
+		return 1;
+	return 0;
+}
+
+static ScrArea *area_event_inside(bContext *C, const int xy[2])
+{
+	wmWindow *win = CTX_wm_window(C);
+	bScreen *screen = CTX_wm_screen(C);
+
+	if (screen) {
+		ED_screen_areas_iter(win, screen, sa) {
+			if (BLI_rcti_isect_pt_v(&sa->totrct, xy))
+				return sa;
+		}
+	}
+	return NULL;
+}
+
+static ARegion *region_event_inside(bContext *C, const int xy[2])
+{
+	bScreen *screen = CTX_wm_screen(C);
+	ScrArea *area = CTX_wm_area(C);
+	ARegion *ar;
+
+	if (screen && area)
+		for (ar = area->regionbase.first; ar; ar = ar->next)
+			if (BLI_rcti_isect_pt_v(&ar->winrct, xy))
+				return ar;
+	return NULL;
+}
+
 static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers)
 {
 	const bool do_debug_handler = (G.debug & G_DEBUG_HANDLERS) &&
@@ -2387,6 +2423,11 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 			}
 			else if (handler->is_drop_handler) {
 				if (!wm->is_interface_locked && event->type == EVT_DROP) {
+					ARegion *region_old = CTX_wm_region(C);
+					ARegion *region = region_event_inside(C, &event->x);
+					CTX_wm_region_set(C, region);
+					wm_region_mouse_co(C, event);
+
 					wmDragData *drag_data = (wmDragData *)event->customdata;
 					wmDropTarget *drop_target = WM_drag_find_current_target(C, drag_data, event);
 
@@ -2412,6 +2453,9 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 							return action;
 						}
 					}
+
+					CTX_wm_region_set(C, region_old);
+					wm_region_mouse_co(C, event);
 				}
 			}
 			else if (handler->gizmo_map) {
@@ -2712,42 +2756,6 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
 	}
 
 	return action;
-}
-
-static int wm_event_inside_i(wmEvent *event, rcti *rect)
-{
-	if (wm_event_always_pass(event))
-		return 1;
-	if (BLI_rcti_isect_pt_v(rect, &event->x))
-		return 1;
-	return 0;
-}
-
-static ScrArea *area_event_inside(bContext *C, const int xy[2])
-{
-	wmWindow *win = CTX_wm_window(C);
-	bScreen *screen = CTX_wm_screen(C);
-
-	if (screen) {
-		ED_screen_areas_iter(win, screen, sa) {
-			if (BLI_rcti_isect_pt_v(&sa->totrct, xy))
-				return sa;
-		}
-	}
-	return NULL;
-}
-
-static ARegion *region_event_inside(bContext *C, const int xy[2])
-{
-	bScreen *screen = CTX_wm_screen(C);
-	ScrArea *area = CTX_wm_area(C);
-	ARegion *ar;
-
-	if (screen && area)
-		for (ar = area->regionbase.first; ar; ar = ar->next)
-			if (BLI_rcti_isect_pt_v(&ar->winrct, xy))
-				return ar;
-	return NULL;
 }
 
 static void wm_paintcursor_tag(bContext *C, wmPaintCursor *pc, ARegion *ar)
