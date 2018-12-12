@@ -2041,23 +2041,20 @@ static void ui_apply_but(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 static void ui_but_drop(bContext *C, const wmEvent *event, uiBut *but, uiHandleButtonData *data)
 {
 	wmDragData *drag_data = (wmDragData *)event->customdata;
+	ID *id = WM_drag_query_single_id(drag_data);
 
-	if (drag_data->type == DRAG_DATA_IDS) {
-		/* align these types with UI_but_active_drop_name */
-		if (ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
-			ID *id = WM_drag_query_single_id(drag_data);
+	/* align these types with UI_but_active_drop_name */
+	if (id && ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
+		button_activate_state(C, but, BUTTON_STATE_TEXT_EDITING);
 
-			button_activate_state(C, but, BUTTON_STATE_TEXT_EDITING);
+		ui_textedit_string_set(but, data, id->name + 2);
 
-			ui_textedit_string_set(but, data, id->name + 2);
-
-			if (ELEM(but->type, UI_BTYPE_SEARCH_MENU)) {
-				but->changed = true;
-				ui_searchbox_update(C, data->searchbox, but, true);
-			}
-
-			button_activate_state(C, but, BUTTON_STATE_EXIT);
+		if (ELEM(but->type, UI_BTYPE_SEARCH_MENU)) {
+			but->changed = true;
+			ui_searchbox_update(C, data->searchbox, but, true);
 		}
+
+		button_activate_state(C, but, BUTTON_STATE_EXIT);
 	}
 }
 
