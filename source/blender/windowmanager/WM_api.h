@@ -521,6 +521,7 @@ const char *WM_drag_query_single_path_movie(struct wmDragData *drag_data);
 const char *WM_drag_query_single_path_sound(struct wmDragData *drag_data);
 const char *WM_drag_query_single_path_image_or_movie(struct wmDragData *drag_data);
 struct ListBase *WM_drag_query_collection_children(struct wmDragData *drag_data);
+bool WM_drag_query_single_color(struct wmDragData *drag_data, float *r_color, bool *r_gamma_corrected);
 
 typedef void (*wmDropTargetSetProps)(struct wmDragData *, struct PointerRNA *);
 

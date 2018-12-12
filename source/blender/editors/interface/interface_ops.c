@@ -1505,8 +1505,11 @@ static int drop_color_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(
 
 static void drop_color_set_properties(wmDragData *drag_data, PointerRNA *ptr)
 {
-	RNA_float_set_array(ptr, "color", drag_data->data.color.color);
-	RNA_boolean_set(ptr, "gamma_corrected", drag_data->data.color.gamma_corrected);
+	float color[3];
+	bool gamma_corrected;
+	WM_drag_query_single_color(drag_data, color, &gamma_corrected);
+	RNA_float_set_array(ptr, "color", color);
+	RNA_boolean_set(ptr, "gamma_corrected", gamma_corrected);
 }
 
 static void UI_OT_drop_color(wmOperatorType *ot)
@@ -1524,10 +1527,13 @@ static void UI_OT_drop_color(wmOperatorType *ot)
 
 void UI_drop_target_find(bContext *C, wmDropTargetFinder *finder, wmDragData *drag_data, const wmEvent *UNUSED(event))
 {
-	if (drag_data->type == DRAG_DATA_COLOR) {
-		if (UI_but_active_drop_color(C)) {
-			WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_BUT, "UI_OT_drop_color", "drop color", drop_color_set_properties);
-		}
+	ARegion *ar = CTX_wm_region(C);
+	if (!ar) return;
+	uiBut *but = ui_but_find_active_in_region(ar);
+	if (!but) return;
+
+	if (but->type == UI_BTYPE_COLOR && WM_drag_query_single_color(drag_data, NULL, NULL)) {
+		WM_drop_target_propose__template_1(finder, DROP_TARGET_SIZE_BUT, "UI_OT_drop_color", "drop color", drop_color_set_properties);
 	}
 }
 

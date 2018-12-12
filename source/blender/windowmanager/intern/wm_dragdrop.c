@@ -432,6 +432,16 @@ ListBase *WM_drag_query_collection_children(wmDragData *drag_data)
 	return NULL;
 }
 
+bool WM_drag_query_single_color(wmDragData *drag_data, float *r_color, bool *r_gamma_corrected)
+{
+	if (drag_data->type == DRAG_DATA_COLOR) {
+		if (r_color) memcpy(r_color, drag_data->data.color.color, sizeof(float) * 3);
+		if (r_gamma_corrected) *r_gamma_corrected = drag_data->data.color.gamma_corrected;
+		return true;
+	}
+	return false;
+}
+
 /* ********************* Draw ********************* */
 
 void WM_drag_draw(bContext *UNUSED(C), wmWindow *win, wmDragOperation *drag_operation)
