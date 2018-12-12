@@ -145,8 +145,9 @@ static wmDragData *WM_drag_data_new(void) {
 wmDragData *WM_drag_start_id(struct bContext *C, ID *id)
 {
 	wmDragData *drag_data = WM_drag_data_new();
-	drag_data->type = DRAG_DATA_ID;
-	drag_data->data.id = id;
+	drag_data->type = DRAG_DATA_IDS;
+	drag_data->data.ids = MEM_callocN(sizeof(ListBase), __func__);
+	BLI_addtail(drag_data->data.ids, BLI_genericNodeN(id));
 
 	start_dragging_data(C, drag_data);
 	return drag_data;
@@ -326,8 +327,11 @@ wmDropTarget *WM_drop_target_new(
 
 ID *WM_drag_query_single_id(wmDragData *drag_data)
 {
-	if (drag_data->type == DRAG_DATA_ID) {
-		return drag_data->data.id;
+	if (drag_data->type == DRAG_DATA_IDS) {
+		ListBase *list = drag_data->data.ids;
+		if (BLI_listbase_is_single(list)) {
+			return (ID *)list->first;
+		}
 	}
 	else if (drag_data->type == DRAG_DATA_COLLECTION_CHILDREN) {
 		ListBase *list = drag_data->data.collection_children;

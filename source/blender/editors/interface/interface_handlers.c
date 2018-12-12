@@ -2042,7 +2042,7 @@ static void ui_but_drop(bContext *C, const wmEvent *event, uiBut *but, uiHandleB
 {
 	wmDragData *drag_data = (wmDragData *)event->customdata;
 
-	if (drag_data->type == DRAG_DATA_ID) {
+	if (drag_data->type == DRAG_DATA_IDS) {
 		/* align these types with UI_but_active_drop_name */
 		if (ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
 			ID *id = WM_drag_query_single_id(drag_data);

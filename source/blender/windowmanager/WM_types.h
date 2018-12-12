@@ -655,7 +655,7 @@ typedef void (*wmPaintCursorDraw)(struct bContext *C, int, int, void *customdata
 
 /* wmDragData.type */
 enum DragDataType {
-	DRAG_DATA_ID,
+	DRAG_DATA_IDS,
 	DRAG_DATA_FILEPATHS,
 	DRAG_DATA_COLOR,
 	DRAG_DATA_VALUE,
@@ -680,7 +680,7 @@ typedef struct wmDragData {
 	enum DragDataType type;
 	enum DragDisplayType display_type;
 	union {
-		struct ID *id;
+		ListBase *ids;
 		struct {
 			char **paths;
 			int amount;
