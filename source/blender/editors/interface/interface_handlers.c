@@ -2035,29 +2035,6 @@ static void ui_apply_but(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 	but->editcumap = editcumap;
 }
 
-/* ******************* drop event ********************  */
-
-/* only call if event type is EVT_DROP */
-static void ui_but_drop(bContext *C, const wmEvent *event, uiBut *but, uiHandleButtonData *data)
-{
-	wmDragData *drag_data = (wmDragData *)event->customdata;
-	ID *id = WM_drag_query_single_id(drag_data);
-
-	/* align these types with UI_but_active_drop_name */
-	if (id && ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
-		button_activate_state(C, but, BUTTON_STATE_TEXT_EDITING);
-
-		ui_textedit_string_set(but, data, id->name + 2);
-
-		if (ELEM(but->type, UI_BTYPE_SEARCH_MENU)) {
-			but->changed = true;
-			ui_searchbox_update(C, data->searchbox, but, true);
-		}
-
-		button_activate_state(C, but, BUTTON_STATE_EXIT);
-	}
-}
-
 /* ******************* copy and paste ********************  */
 
 static bool ui_but_contains_password(uiBut *but)
@@ -2259,17 +2236,22 @@ static void ui_but_copy_text(uiBut *but, char *output, int output_len_max)
 	ui_but_string_get(but, output, output_len_max);
 }
 
-static void ui_but_paste_text(bContext *C, uiBut *but, uiHandleButtonData *data, char *buf_paste)
+void ui_but_set_text(bContext *C, uiBut *but, char *text)
 {
 	button_activate_state(C, but, BUTTON_STATE_TEXT_EDITING);
-	ui_textedit_string_set(but, but->active, buf_paste);
+	ui_textedit_string_set(but, but->active, text);
 
 	if (but->type == UI_BTYPE_SEARCH_MENU) {
 		but->changed = true;
-		ui_searchbox_update(C, data->searchbox, but, true);
+		ui_searchbox_update(C, but->active->searchbox, but, true);
 	}
 
 	button_activate_state(C, but, BUTTON_STATE_EXIT);
+}
+
+static void ui_but_paste_text(bContext *C, uiBut *but, char *buf_paste)
+{
+	ui_but_set_text(C, but, buf_paste);
 }
 
 static void ui_but_copy_colorband(uiBut *but)
@@ -2442,7 +2424,7 @@ static void ui_but_paste(bContext *C, uiBut *but, uiHandleButtonData *data, cons
 		case UI_BTYPE_TEXT:
 		case UI_BTYPE_SEARCH_MENU:
 			if (!has_required_data) break;
-			ui_but_paste_text(C, but, data, buf_paste);
+			ui_but_paste_text(C, but, buf_paste);
 			break;
 
 		case UI_BTYPE_COLORBAND:
@@ -6663,11 +6645,6 @@ static int ui_do_button(bContext *C, uiBlock *block, uiBut *but, const wmEvent *
 			ui_but_paste(C, but, data, event->alt);
 			return WM_UI_HANDLER_BREAK;
 		}
-
-		/* handle drop */
-		if (event->type == EVT_DROP) {
-			ui_but_drop(C, event, but, data);
-		}
 	}
 
 	if (but->flag & UI_BUT_DISABLED) {
@@ -6971,37 +6948,6 @@ void UI_screen_free_active_but(const bContext *C, bScreen *screen)
 			}
 		}
 	}
-}
-
-
-
-/* returns true if highlighted button allows drop of names */
-/* called in region context */
-bool UI_but_active_drop_name(bContext *C)
-{
-	ARegion *ar = CTX_wm_region(C);
-	uiBut *but = ui_but_find_active_in_region(ar);
-
-	if (but) {
-		if (ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU))
-			return 1;
-	}
-
-	return 0;
-}
-
-bool UI_but_active_drop_color(bContext *C)
-{
-	ARegion *ar = CTX_wm_region(C);
-
-	if (ar) {
-		uiBut *but = ui_but_find_active_in_region(ar);
-
-		if (but && but->type == UI_BTYPE_COLOR)
-			return true;
-	}
-
-	return false;
 }
 
 static void ui_blocks_set_tooltips(ARegion *ar, const bool enable)

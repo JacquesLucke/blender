@@ -712,6 +712,7 @@ extern uiBut *ui_but_find_mouse_over(struct ARegion *ar, const struct wmEvent *e
 void ui_but_pie_dir_visual(RadialDirection dir, float vec[2]);
 void ui_but_pie_dir(RadialDirection dir, float vec[2]);
 float ui_block_calc_pie_segment(struct uiBlock *block, const float event_xy[2]);
+void ui_but_set_text(struct bContext *C, uiBut *but, char *text);
 
 void ui_but_add_shortcut(uiBut *but, const char *key_str, const bool do_strip);
 void ui_but_clipboard_free(void);
