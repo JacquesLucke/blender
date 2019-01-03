@@ -11,7 +11,7 @@
 #include "HashSet.hpp"
 #include "HashMap.hpp"
 
-namespace NodeCompiler {
+namespace LLVMNodeCompiler {
 
 struct AnySocket;
 struct SocketInfo;
@@ -26,8 +26,8 @@ struct AnySocket {
 	inline SimpleNode *node() const { return this->_node; }
 	inline uint index() const { return this->_index; }
 
-	const llvm::Type *type() const;
-	const std::string &debug_name() const;
+	llvm::Type *type() const;
+	std::string debug_name() const;
 
 	inline static AnySocket NewInput(SimpleNode *node, uint index)
 	{ return AnySocket(node, false, index); }
@@ -62,8 +62,8 @@ using SocketMap = HashMap<AnySocket, TValue>;
 using SocketValueMap = SocketMap<llvm::Value *>;
 
 struct SocketInfo {
-	const std::string debug_name;
-	const llvm::Type *type;
+	std::string debug_name;
+	llvm::Type *type;
 
 	SocketInfo(std::string debug_name, llvm::Type *type)
 		: debug_name(debug_name), type(type) {}
@@ -109,6 +109,10 @@ struct Graph {
 	std::vector<SimpleNode *> nodes;
 	LinkSet links;
 
+	llvm::Function *generateFunction(
+		llvm::Module *module, std::string name,
+		std::vector<AnySocket> &inputs, std::vector<AnySocket> &outputs);
+
 	void generateCode(
 		llvm::IRBuilder<> *builder,
 		std::vector<AnySocket> &inputs, std::vector<AnySocket> &outputs, std::vector<llvm::Value *> &input_values,
@@ -129,4 +133,4 @@ private:
 		llvm::IRBuilder<> **r_builder);
 };
 
-} /* namespace NodeCompiler */
+} /* namespace LLVMNodeCompiler */

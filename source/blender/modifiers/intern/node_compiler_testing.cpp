@@ -7,7 +7,7 @@ extern "C" {
 
 #include <iostream>
 
-namespace NC = NodeCompiler;
+namespace NC = LLVMNodeCompiler;
 
 static void generateCode_AddNode(
 	std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
@@ -94,27 +94,10 @@ void run_tests()
 	graph.links.links.push_back(NC::Link(add2->Output(0), add3->Input(1)));
 
 	llvm::Module *module = new llvm::Module("test", context);
-	std::vector<llvm::Type *> arg_types = {};
-	llvm::FunctionType *ftype = llvm::FunctionType::get(
-		llvm::Type::getInt32Ty(context), arg_types, false);
 
-	llvm::Function *func = llvm::Function::Create(
-		ftype, llvm::GlobalValue::LinkageTypes::ExternalLinkage, "my_func", module);
-
-	llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", func);
-	llvm::IRBuilder<> builder(context);
-	builder.SetInsertPoint(bb);
-
-	std::vector<NC::AnySocket> inputs = {};
-	std::vector<llvm::Value *> input_values = {};
-	std::vector<NC::AnySocket> outputs = { add3->Output(0) };
-	llvm::IRBuilder<> *next_builder;
-	std::vector<llvm::Value *> output_values;
-	graph.generateCode(&builder, inputs, outputs, input_values, &next_builder, output_values);
-	next_builder->CreateRet(output_values[0]);
-
-	llvm::verifyFunction(*func, &llvm::outs());
-	llvm::verifyModule(*module, &llvm::outs());
+	std::vector<NC::AnySocket> inputs = { };
+	std::vector<NC::AnySocket> outputs = { add3->Output(0), add1->Input(0) };
+	graph.generateFunction(module, "HelloWorld", inputs, outputs);
 
 	module->print(llvm::outs(), nullptr);
 

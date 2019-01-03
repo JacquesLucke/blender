@@ -2,7 +2,7 @@
 
 #include <sstream>
 
-namespace NodeCompiler {
+namespace LLVMNodeCompiler {
 
 AnySocket LinkSet::getOriginSocket(AnySocket socket) const
 {
@@ -32,12 +32,12 @@ const SocketInfo *AnySocket::info() const
 	}
 }
 
-const llvm::Type *AnySocket::type() const
+llvm::Type *AnySocket::type() const
 {
 	return this->info()->type;
 }
 
-const std::string &AnySocket::debug_name() const
+std::string AnySocket::debug_name() const
 {
 	return this->info()->debug_name;
 }
@@ -47,6 +47,56 @@ std::string SimpleNode::debug_id() const
 	std::stringstream ss;
 	ss << this->debug_name << " at " << (void *)this;
 	return ss.str();
+}
+
+llvm::Function *Graph::generateFunction(
+	llvm::Module *module, std::string name,
+	std::vector<AnySocket> &inputs, std::vector<AnySocket> &outputs)
+{
+	llvm::LLVMContext &context = module->getContext();
+
+	std::vector<llvm::Type *> input_types;
+	for (AnySocket socket : inputs) {
+		input_types.push_back(socket.type());
+	}
+
+	std::vector<llvm::Type *> output_types;
+	for (AnySocket socket : outputs) {
+		output_types.push_back(socket.type());
+	}
+
+	llvm::StructType *return_type = llvm::StructType::create(output_types, name + " Output");
+
+	llvm::FunctionType *function_type = llvm::FunctionType::get(
+		return_type, input_types, false);
+
+	llvm::Function *function = llvm::Function::Create(
+		function_type, llvm::GlobalValue::LinkageTypes::ExternalLinkage,
+		name, module);
+
+	llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", function);
+	llvm::IRBuilder<> builder(context);
+	builder.SetInsertPoint(bb);
+
+	std::vector<llvm::Value *> input_values;
+	for (uint i = 0; i < inputs.size(); i++) {
+		input_values.push_back(function->arg_begin() + i);
+	}
+
+	std::vector<llvm::Value *> output_values;
+	llvm::IRBuilder<> *next_builder;
+	this->generateCode(&builder, inputs, outputs, input_values, &next_builder, output_values);
+
+	llvm::Value *output = llvm::UndefValue::get(return_type);
+	for (uint i = 0; i < outputs.size(); i++) {
+		output = next_builder->CreateInsertValue(output, output_values[i], i);
+	}
+	next_builder->CreateRet(output);
+
+	llvm::verifyFunction(*function, &llvm::outs());
+	llvm::verifyModule(*module, &llvm::outs());
+
+	return function;
 }
 
 void Graph::generateCode(
@@ -175,4 +225,4 @@ std::string Graph::toDotFormat(std::vector<SimpleNode *> marked_nodes) const
 	return ss.str();
 }
 
-} /* namespace NodeCompiler */
+} /* namespace LLVMNodeCompiler */
