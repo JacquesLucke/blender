@@ -50,11 +50,70 @@ std::string SimpleNode::debug_id() const
 }
 
 void Graph::generateCode(
-	llvm::IRBuilder<> &builder,
+	llvm::IRBuilder<> *builder,
 	std::vector<AnySocket> &inputs, std::vector<AnySocket> &outputs, std::vector<llvm::Value *> &input_values,
-	llvm::IRBuilder<> *r_builder, std::vector<llvm::Value *> *r_output_values)
+	llvm::IRBuilder<> **r_builder, std::vector<llvm::Value *> &r_output_values)
 {
+	assert(inputs.size() == input_values.size());
 
+	SocketValueMap values;
+	for (uint i = 0; i < inputs.size(); i++) {
+		values.add(inputs[i], input_values[i]);
+	}
+
+	for (AnySocket socket : outputs) {
+		llvm::IRBuilder<> *next_builder;
+
+		llvm::Value *value = this->generateCodeForSocket(socket, builder, values, &next_builder);
+		r_output_values.push_back(value);
+
+		builder = next_builder;
+	}
+
+	*r_builder = builder;
+}
+
+llvm::Value *Graph::generateCodeForSocket(
+	AnySocket socket,
+	llvm::IRBuilder<> *builder,
+	SocketValueMap &values,
+	llvm::IRBuilder<> **r_builder)
+{
+	if (values.contains(socket)) {
+		*r_builder = builder;
+		return values.lookup(socket);
+	}
+
+	if (socket.is_input()) {
+		AnySocket origin = this->getOriginSocket(socket);
+		llvm::Value *value = this->generateCodeForSocket(origin, builder, values, r_builder);
+		values.add(socket, value);
+		return value;
+	}
+
+	if (socket.is_output()) {
+		SimpleNode *node = socket.node();
+		std::vector<llvm::Value *> input_values;
+		for (uint i = 0; i < node->inputs.size(); i++) {
+			llvm::IRBuilder<> *next_builder;
+
+			llvm::Value *value = this->generateCodeForSocket(node->Input(i), builder, values, &next_builder);
+			input_values.push_back(value);
+
+			builder = next_builder;
+		}
+
+		std::vector<llvm::Value *> output_values;
+		node->generateCode(input_values, builder, output_values, r_builder);
+
+		for (uint i = 0; i < node->outputs.size(); i++) {
+			values.add(node->Output(i), output_values[i]);
+		}
+
+		return values.lookup(socket);
+	}
+
+	assert(!"should never happen");
 }
 
 SocketSet Graph::findRequiredSockets(SocketSet &inputs, SocketSet &outputs)
@@ -83,12 +142,16 @@ void Graph::findRequiredSockets(AnySocket socket, SocketSet &inputs, SocketSet &
 	if (socket.is_input()) {
 		AnySocket origin = this->getOriginSocket(socket);
 		this->findRequiredSockets(origin, inputs, required_sockets);
+		return;
 	}
-	else {
-		for (uint i = 0; i < socket.node()->inputs.size(); i++) {
+
+	if (socket.is_output()) {
+		SimpleNode *node = socket.node();
+		for (uint i = 0; i < node->inputs.size(); i++) {
 			AnySocket input = AnySocket::NewInput(socket.node(), i);
 			this->findRequiredSockets(input, inputs, required_sockets);
 		}
+		return;
 	}
 }
 

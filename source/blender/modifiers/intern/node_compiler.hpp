@@ -9,6 +9,7 @@
 #include <unordered_set>
 
 #include "HashSet.hpp"
+#include "HashMap.hpp"
 
 namespace NodeCompiler {
 
@@ -54,6 +55,11 @@ private:
 };
 
 using SocketSet = HashSet<AnySocket>;
+
+template<typename TValue>
+using SocketMap = HashMap<AnySocket, TValue>;
+
+using SocketValueMap = SocketMap<llvm::Value *>;
 
 struct SocketInfo {
 	const std::string debug_name;
@@ -104,9 +110,9 @@ struct Graph {
 	LinkSet links;
 
 	void generateCode(
-		llvm::IRBuilder<> &builder,
+		llvm::IRBuilder<> *builder,
 		std::vector<AnySocket> &inputs, std::vector<AnySocket> &outputs, std::vector<llvm::Value *> &input_values,
-		llvm::IRBuilder<> *r_builder, std::vector<llvm::Value *> *r_output_values);
+		llvm::IRBuilder<> **r_builder, std::vector<llvm::Value *> &r_output_values);
 
 	AnySocket getOriginSocket(AnySocket socket) const;
 
@@ -115,6 +121,12 @@ struct Graph {
 	SocketSet findRequiredSockets(SocketSet &inputs, SocketSet &outputs);
 private:
 	void findRequiredSockets(AnySocket socket, SocketSet &inputs, SocketSet &required_sockets);
+
+	llvm::Value *generateCodeForSocket(
+		AnySocket socket,
+		llvm::IRBuilder<> *builder,
+		SocketValueMap &values,
+		llvm::IRBuilder<> **r_builder);
 };
 
 } /* namespace NodeCompiler */

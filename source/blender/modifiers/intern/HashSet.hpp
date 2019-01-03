@@ -3,6 +3,9 @@
 
 template<typename T>
 class HashSet {
+private:
+    std::vector<T> entries;
+
 public:
     HashSet() {};
     HashSet(std::vector<T> values)
@@ -38,7 +41,4 @@ public:
     {
         return this->entries;
     }
-
-private:
-    std::vector<T> entries;
 };
