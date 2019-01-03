@@ -5,6 +5,8 @@
 
 #include <vector>
 #include <memory>
+#include <functional>
+#include <unordered_set>
 
 extern "C" {
 	void test_llvm(void);
@@ -52,7 +54,3 @@ void test_llvm() {
 	printf("Result: %d\n", add(43, 10));
 }
 
-typedef llvm::Value *(*InputGetter)(llvm::IRBuilder<> *builder, int index);
-typedef void (*OutputSetter)(llvm::IRBuilder<> *builder, int index, llvm::Value *value);
-typedef llvm::Value *(*RequiredGetter)(llvm::IRBuilder<> *builder, int index);
-typedef void (*GenNodeCode)(void *data, InputGetter getters[], OutputSetter setters[], RequiredGetter required[]);

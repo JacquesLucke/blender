@@ -115,6 +115,10 @@ set(SRC
 	intern/MOD_meshcache_util.h
 	intern/MOD_util.h
 	intern/MOD_weightvg_util.h
+
+	intern/node_compiler_testing.cpp
+	intern/node_compiler.cpp
+	intern/node_compiler.hpp
 )
 
 if(WITH_ALEMBIC)
