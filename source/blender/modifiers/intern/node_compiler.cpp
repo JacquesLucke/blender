@@ -57,28 +57,26 @@ void Graph::generateCode(
 
 }
 
-SocketSet Graph::findRequiredSockets(std::vector<AnySocket> &inputs, std::vector<AnySocket> &outputs)
+SocketSet Graph::findRequiredSockets(SocketSet &inputs, SocketSet &outputs)
 {
 	SocketSet required_sockets;
 
-	for (AnySocket socket : outputs) {
+	for (AnySocket socket : outputs.elements()) {
 		this->findRequiredSockets(socket, inputs, required_sockets);
 	}
 
 	return required_sockets;
 }
 
-void Graph::findRequiredSockets(AnySocket socket, std::vector<AnySocket> &inputs, SocketSet &required_sockets)
+void Graph::findRequiredSockets(AnySocket socket, SocketSet &inputs, SocketSet &required_sockets)
 {
-	if (required_sockets.find(socket) != required_sockets.end()) {
-		// already found
+	if (required_sockets.contains(socket)) {
 		return;
 	}
 
-	required_sockets.insert(socket);
+	required_sockets.add(socket);
 
-	if (std::find(inputs.begin(), inputs.end(), socket) != inputs.end()) {
-		// is input
+	if (inputs.contains(socket)) {
 		return;
 	}
 

@@ -8,6 +8,8 @@
 #include <functional>
 #include <unordered_set>
 
+#include "HashSet.hpp"
+
 namespace NodeCompiler {
 
 struct AnySocket;
@@ -50,6 +52,8 @@ private:
 	bool _is_output;
 	uint _index;
 };
+
+using SocketSet = HashSet<AnySocket>;
 
 struct SocketInfo {
 	const std::string debug_name;
@@ -95,8 +99,6 @@ struct AnySocketHash {
 	}
 };
 
-typedef std::unordered_set<AnySocket, AnySocketHash> SocketSet;
-
 struct Graph {
 	std::vector<SimpleNode *> nodes;
 	LinkSet links;
@@ -110,9 +112,9 @@ struct Graph {
 
 	std::string toDotFormat(std::vector<SimpleNode *> marked_nodes = {}) const;
 
-	SocketSet findRequiredSockets(std::vector<AnySocket> &inputs, std::vector<AnySocket> &outputs);
+	SocketSet findRequiredSockets(SocketSet &inputs, SocketSet &outputs);
 private:
-	void findRequiredSockets(AnySocket socket, std::vector<AnySocket> &inputs, SocketSet &required_sockets);
+	void findRequiredSockets(AnySocket socket, SocketSet &inputs, SocketSet &required_sockets);
 };
 
 } /* namespace NodeCompiler */

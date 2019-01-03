@@ -75,11 +75,13 @@ void run_tests()
 	graph.links.links.push_back(NC::Link(add1->Output(0), add3->Input(0)));
 	graph.links.links.push_back(NC::Link(add2->Output(0), add3->Input(1)));
 
-	std::vector<NC::AnySocket> inputs = { add1->Input(0), add1->Input(1), add2->Input(0), add2->Input(1) };
-	std::vector<NC::AnySocket> outputs = { add1->Output(0) };
+	NC::SocketSet inputs = { add1->Input(0), add1->Input(1), add2->Input(1) };
+	NC::SocketSet outputs = { add3->Output(0) };
+
 	auto required_sockets = graph.findRequiredSockets(inputs, outputs);
+
 	std::vector<NC::SimpleNode *> required_nodes;
-	for (NC::AnySocket socket : required_sockets) {
+	for (NC::AnySocket socket : required_sockets.elements()) {
 		required_nodes.push_back(socket.node());
 	}
 
