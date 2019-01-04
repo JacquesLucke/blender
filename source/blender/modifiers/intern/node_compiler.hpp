@@ -129,16 +129,31 @@ struct LinkSet {
 	AnySocket getOriginSocket(AnySocket socket) const;
 };
 
-struct AnySocketHash {
-	size_t operator()(const AnySocket &socket) const
+class DataFlowCallable {
+	void *function_pointer;
+	llvm::Module *module;
+	llvm::ExecutionEngine *ee;
+public:
+	DataFlowCallable(llvm::Module *module, llvm::ExecutionEngine *ee, std::string function_name)
+		: module(module), ee(ee)
 	{
-		return (size_t)socket.node() ^ (size_t)socket.is_input() ^ (size_t)socket.index();
+		this->function_pointer = (void *)this->ee->getFunctionAddress(function_name);
 	}
+
+	inline void *getFunctionPointer()
+	{ return this->function_pointer; }
+
+	void printCode();
 };
 
-struct DataFlowGraph {
+class DataFlowGraph {
+public:
 	std::vector<Node *> nodes;
 	LinkSet links;
+
+	DataFlowCallable *generateCallable(
+		std::string debug_name,
+		SocketArraySet &inputs, SocketArraySet &outputs);
 
 	llvm::Module *generateModule(
 		std::string module_name, std::string function_name,

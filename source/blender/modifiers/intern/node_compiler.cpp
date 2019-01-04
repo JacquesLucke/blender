@@ -49,6 +49,34 @@ std::string Node::debug_id() const
 	return ss.str();
 }
 
+void DataFlowCallable::printCode()
+{
+	this->module->print(llvm::outs(), nullptr);
+}
+
+
+DataFlowCallable *DataFlowGraph::generateCallable(
+	std::string debug_name,
+	SocketArraySet &inputs, SocketArraySet &outputs)
+{
+	std::string function_name = debug_name + " Function";
+
+	llvm::Module *module = this->generateModule(
+		debug_name + " Module", function_name,
+		inputs, outputs);
+
+	llvm::InitializeNativeTarget();
+	llvm::InitializeNativeTargetAsmPrinter();
+	llvm::InitializeNativeTargetAsmParser();
+
+	llvm::ExecutionEngine *ee = llvm::EngineBuilder(std::unique_ptr<llvm::Module>(module)).create();
+	ee->finalizeObject();
+	ee->generateCodeForModule(module);
+
+	DataFlowCallable *callable = new DataFlowCallable(module, ee, function_name);
+	return callable;
+}
+
 llvm::Module *DataFlowGraph::generateModule(
 	std::string module_name, std::string function_name,
 	SocketArraySet &inputs, SocketArraySet &outputs)

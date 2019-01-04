@@ -95,11 +95,13 @@ void run_tests()
 	graph.links.links.push_back(NC::Link(add2->Output(0), add3->Input(1)));
 
 
-	NC::SocketArraySet inputs = { in1->Output(0), in2->Output(0) };
-	NC::SocketArraySet outputs = { add3->Output(0), add1->Input(0) };
-	llvm::Module *module = graph.generateModule("MyModule", "MyFunction", inputs, outputs);
+	NC::SocketArraySet inputs = { in1->Output(0), in2->Output(0), in3->Output(0) };
+	NC::SocketArraySet outputs = { add3->Output(0) };
+	NC::DataFlowCallable *callable = graph.generateCallable("Hello", inputs, outputs);
 
-	module->print(llvm::outs(), nullptr);
+	callable->printCode();
+	int result = ((int (*)(int, int, int))callable->getFunctionPointer())(10, 25, 100);
+	std::cout << result << std::endl;
 
 	// NC::SocketSet inputs = { add1->Input(0), add1->Input(1), add2->Input(1) };
 	// NC::SocketSet outputs = { add3->Output(0) };
