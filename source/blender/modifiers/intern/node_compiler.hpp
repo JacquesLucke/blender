@@ -140,6 +140,10 @@ struct DataFlowGraph {
 	std::vector<Node *> nodes;
 	LinkSet links;
 
+	llvm::Module *generateModule(
+		std::string module_name, std::string function_name,
+		SocketArraySet &inputs, SocketArraySet &outputs);
+
 	llvm::Function *generateFunction(
 		llvm::Module *module, std::string name,
 		SocketArraySet &inputs, SocketArraySet &outputs);

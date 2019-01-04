@@ -94,11 +94,10 @@ void run_tests()
 	graph.links.links.push_back(NC::Link(add1->Output(0), add3->Input(0)));
 	graph.links.links.push_back(NC::Link(add2->Output(0), add3->Input(1)));
 
-	llvm::Module *module = new llvm::Module("test", context);
 
 	NC::SocketArraySet inputs = { in1->Output(0), in2->Output(0) };
 	NC::SocketArraySet outputs = { add3->Output(0), add1->Input(0) };
-	graph.generateFunction(module, "HelloWorld", inputs, outputs);
+	llvm::Module *module = graph.generateModule("MyModule", "MyFunction", inputs, outputs);
 
 	module->print(llvm::outs(), nullptr);
 

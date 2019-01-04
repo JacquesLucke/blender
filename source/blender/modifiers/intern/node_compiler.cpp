@@ -49,6 +49,17 @@ std::string Node::debug_id() const
 	return ss.str();
 }
 
+llvm::Module *DataFlowGraph::generateModule(
+	std::string module_name, std::string function_name,
+	SocketArraySet &inputs, SocketArraySet &outputs)
+{
+	assert(outputs.size() > 0);
+	llvm::LLVMContext &context = outputs[0].type()->getContext();
+	llvm::Module *module = new llvm::Module(module_name, context);
+	this->generateFunction(module, function_name, inputs, outputs);
+	return module;
+}
+
 llvm::Function *DataFlowGraph::generateFunction(
 	llvm::Module *module, std::string name,
 	SocketArraySet &inputs, SocketArraySet &outputs)
