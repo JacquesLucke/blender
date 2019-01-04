@@ -2,20 +2,24 @@
 #include <vector>
 
 template<typename T>
-class HashSet {
+class
+ArraySet {
 private:
     std::vector<T> entries;
 
 public:
-    HashSet() {};
-    HashSet(std::vector<T> values)
+
+    ArraySet() {};
+
+    ArraySet(std::vector<T> values)
     {
         for (T value : values) {
             this->add(value);
         }
     }
 
-    HashSet(std::initializer_list<T> values)
+
+    ArraySet(std::initializer_list<T> values)
     {
         for (T value : values) {
             this->add(value);
@@ -29,7 +33,7 @@ public:
         }
     }
 
-    bool contains(T value)
+    bool contains(T value) const
     {
         for (T entry : this->entries) {
             if (entry == value) return true;
@@ -37,8 +41,19 @@ public:
         return false;
     }
 
-    const std::vector<T> &elements()
+    const std::vector<T> &elements() const
     {
         return this->entries;
+    }
+
+    T operator[](const int index) const
+    {
+        assert(index >= 0 && index < this->size());
+        return this->entries[index];
+    }
+
+    uint size() const
+    {
+        return this->entries.size();
     }
 };

@@ -95,8 +95,8 @@ void run_tests()
 
 	llvm::Module *module = new llvm::Module("test", context);
 
-	std::vector<NC::AnySocket> inputs = { };
-	std::vector<NC::AnySocket> outputs = { add3->Output(0), add1->Input(0) };
+	NC::SocketArraySet inputs = { in1->Output(0), in2->Output(0) };
+	NC::SocketArraySet outputs = { add3->Output(0), add1->Input(0) };
 	graph.generateFunction(module, "HelloWorld", inputs, outputs);
 
 	module->print(llvm::outs(), nullptr);

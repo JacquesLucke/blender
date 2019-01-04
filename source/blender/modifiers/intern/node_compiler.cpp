@@ -51,17 +51,17 @@ std::string SimpleNode::debug_id() const
 
 llvm::Function *Graph::generateFunction(
 	llvm::Module *module, std::string name,
-	std::vector<AnySocket> &inputs, std::vector<AnySocket> &outputs)
+	SocketArraySet &inputs, SocketArraySet &outputs)
 {
 	llvm::LLVMContext &context = module->getContext();
 
 	std::vector<llvm::Type *> input_types;
-	for (AnySocket socket : inputs) {
+	for (AnySocket socket : inputs.elements()) {
 		input_types.push_back(socket.type());
 	}
 
 	std::vector<llvm::Type *> output_types;
-	for (AnySocket socket : outputs) {
+	for (AnySocket socket : outputs.elements()) {
 		output_types.push_back(socket.type());
 	}
 
@@ -101,7 +101,7 @@ llvm::Function *Graph::generateFunction(
 
 void Graph::generateCode(
 	llvm::IRBuilder<> *builder,
-	std::vector<AnySocket> &inputs, std::vector<AnySocket> &outputs, std::vector<llvm::Value *> &input_values,
+	SocketArraySet &inputs, SocketArraySet &outputs, std::vector<llvm::Value *> &input_values,
 	llvm::IRBuilder<> **r_builder, std::vector<llvm::Value *> &r_output_values)
 {
 	assert(inputs.size() == input_values.size());
@@ -111,7 +111,7 @@ void Graph::generateCode(
 		values.add(inputs[i], input_values[i]);
 	}
 
-	for (AnySocket socket : outputs) {
+	for (AnySocket socket : outputs.elements()) {
 		llvm::IRBuilder<> *next_builder;
 
 		llvm::Value *value = this->generateCodeForSocket(socket, builder, values, &next_builder);

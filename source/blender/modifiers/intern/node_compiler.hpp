@@ -8,7 +8,7 @@
 #include <functional>
 #include <unordered_set>
 
-#include "HashSet.hpp"
+#include "ArraySet.hpp"
 #include "HashMap.hpp"
 
 namespace LLVMNodeCompiler {
@@ -54,7 +54,8 @@ private:
 	uint _index;
 };
 
-using SocketSet = HashSet<AnySocket>;
+using SocketArraySet = ArraySet<AnySocket>;
+using SocketSet = SocketArraySet;
 
 template<typename TValue>
 using SocketMap = HashMap<AnySocket, TValue>;
@@ -111,11 +112,11 @@ struct Graph {
 
 	llvm::Function *generateFunction(
 		llvm::Module *module, std::string name,
-		std::vector<AnySocket> &inputs, std::vector<AnySocket> &outputs);
+		SocketArraySet &inputs, SocketArraySet &outputs);
 
 	void generateCode(
 		llvm::IRBuilder<> *builder,
-		std::vector<AnySocket> &inputs, std::vector<AnySocket> &outputs, std::vector<llvm::Value *> &input_values,
+		SocketArraySet &inputs, SocketArraySet &outputs, std::vector<llvm::Value *> &input_values,
 		llvm::IRBuilder<> **r_builder, std::vector<llvm::Value *> &r_output_values);
 
 	AnySocket getOriginSocket(AnySocket socket) const;

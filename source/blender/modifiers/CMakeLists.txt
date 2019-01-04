@@ -119,7 +119,7 @@ set(SRC
 	intern/node_compiler_testing.cpp
 	intern/node_compiler.cpp
 	intern/node_compiler.hpp
-	intern/HashSet.hpp
+	intern/ArraySet.hpp
 	intern/HashMap.hpp
 )
 
