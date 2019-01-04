@@ -18,45 +18,46 @@ static void generateCode_AddNode(
 	*r_builder = builder;
 }
 
-static NC::SimpleNode *new_add_node(llvm::LLVMContext &context)
+static NC::Node *new_add_node(llvm::LLVMContext &context)
 {
-	auto node = new NC::SimpleNode();
-	node->debug_name = "Add";
-	node->inputs.push_back(NC::SocketInfo("A", llvm::Type::getInt32Ty(context)));
-	node->inputs.push_back(NC::SocketInfo("B", llvm::Type::getInt32Ty(context)));
-	node->outputs.push_back(NC::SocketInfo("Result", llvm::Type::getInt32Ty(context)));
-	node->generateCode = generateCode_AddNode;
-	return node;
+	return NC::Node::FromIRBuilderFunction("Add",
+		{ NC::SocketInfo("A", llvm::Type::getInt32Ty(context)),
+		  NC::SocketInfo("B", llvm::Type::getInt32Ty(context)) },
+		{ NC::SocketInfo("Result", llvm::Type::getInt32Ty(context)) },
+		generateCode_AddNode
+	);
 }
 
-static NC::SimpleNode *new_int_node(llvm::LLVMContext &context, int value)
+static NC::Node *new_int_node(llvm::LLVMContext &context, int value)
 {
-	auto node = new NC::SimpleNode();
-	node->debug_name = "Int";
-	node->outputs.push_back(NC::SocketInfo("Value", llvm::Type::getInt32Ty(context)));
-	node->generateCode = [value](
-		std::vector<llvm::Value *> &UNUSED(inputs), llvm::IRBuilder<> *builder,
-		std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder) {
-			r_outputs.push_back(builder->getInt32(value));
-			*r_builder = builder;
-		};
-	return node;
+	return NC::Node::FromIRBuilderFunction("Int",
+		{},
+		{ NC::SocketInfo("Value", llvm::Type::getInt32Ty(context)) },
+		[value](
+			std::vector<llvm::Value *> &UNUSED(inputs), llvm::IRBuilder<> *builder,
+			std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)
+			{
+				r_outputs.push_back(builder->getInt32(value));
+				*r_builder = builder;
+			}
+	);
 }
 
-static NC::SimpleNode *new_int_ref_node(llvm::LLVMContext &context, int *value)
+static NC::Node *new_int_ref_node(llvm::LLVMContext &context, int *value)
 {
-	auto node = new NC::SimpleNode();
-	node->debug_name = "Int Ref";
-	node->outputs.push_back(NC::SocketInfo("Value", llvm::Type::getInt32Ty(context)));
-	node->generateCode = [value](
-		std::vector<llvm::Value *> &UNUSED(inputs), llvm::IRBuilder<> *builder,
-		std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder) {
-			auto address_int = builder->getInt64((uint64_t)value);
-			auto address = builder->CreateIntToPtr(address_int, llvm::Type::getInt32PtrTy(builder->getContext()));
-			r_outputs.push_back(builder->CreateLoad(address));
-			*r_builder = builder;
-		};
-	return node;
+	return NC::Node::FromIRBuilderFunction("Int Ref",
+		{},
+		{ NC::SocketInfo("Value", llvm::Type::getInt32Ty(context)) },
+		[value](
+			std::vector<llvm::Value *> &UNUSED(inputs), llvm::IRBuilder<> *builder,
+			std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)
+			{
+				auto address_int = builder->getInt64((uint64_t)value);
+				auto address = builder->CreateIntToPtr(address_int, llvm::Type::getInt32PtrTy(builder->getContext()));
+				r_outputs.push_back(builder->CreateLoad(address));
+				*r_builder = builder;
+			}
+	);
 }
 
 extern "C" {
@@ -106,7 +107,7 @@ void run_tests()
 
 	// auto required_sockets = graph.findRequiredSockets(inputs, outputs);
 
-	// std::vector<NC::SimpleNode *> required_nodes;
+	// std::vector<NC::Node *> required_nodes;
 	// for (NC::AnySocket socket : required_sockets.elements()) {
 	// 	required_nodes.push_back(socket.node());
 	// }
