@@ -17,7 +17,7 @@ AnySocket LinkSet::getOriginSocket(AnySocket socket) const
 	assert(!"every input socket needs an origin");
 }
 
-AnySocket Graph::getOriginSocket(AnySocket socket) const
+AnySocket DataFlowGraph::getOriginSocket(AnySocket socket) const
 {
 	return this->links.getOriginSocket(socket);
 }
@@ -49,7 +49,7 @@ std::string Node::debug_id() const
 	return ss.str();
 }
 
-llvm::Function *Graph::generateFunction(
+llvm::Function *DataFlowGraph::generateFunction(
 	llvm::Module *module, std::string name,
 	SocketArraySet &inputs, SocketArraySet &outputs)
 {
@@ -99,7 +99,7 @@ llvm::Function *Graph::generateFunction(
 	return function;
 }
 
-void Graph::generateCode(
+void DataFlowGraph::generateCode(
 	llvm::IRBuilder<> *builder,
 	SocketArraySet &inputs, SocketArraySet &outputs, std::vector<llvm::Value *> &input_values,
 	llvm::IRBuilder<> **r_builder, std::vector<llvm::Value *> &r_output_values)
@@ -123,7 +123,7 @@ void Graph::generateCode(
 	*r_builder = builder;
 }
 
-llvm::Value *Graph::generateCodeForSocket(
+llvm::Value *DataFlowGraph::generateCodeForSocket(
 	AnySocket socket,
 	llvm::IRBuilder<> *builder,
 	SocketValueMap &values,
@@ -166,7 +166,7 @@ llvm::Value *Graph::generateCodeForSocket(
 	assert(!"should never happen");
 }
 
-SocketSet Graph::findRequiredSockets(SocketSet &inputs, SocketSet &outputs)
+SocketSet DataFlowGraph::findRequiredSockets(SocketSet &inputs, SocketSet &outputs)
 {
 	SocketSet required_sockets;
 
@@ -177,7 +177,7 @@ SocketSet Graph::findRequiredSockets(SocketSet &inputs, SocketSet &outputs)
 	return required_sockets;
 }
 
-void Graph::findRequiredSockets(AnySocket socket, SocketSet &inputs, SocketSet &required_sockets)
+void DataFlowGraph::findRequiredSockets(AnySocket socket, SocketSet &inputs, SocketSet &required_sockets)
 {
 	if (required_sockets.contains(socket)) {
 		return;
@@ -205,7 +205,7 @@ void Graph::findRequiredSockets(AnySocket socket, SocketSet &inputs, SocketSet &
 	}
 }
 
-std::string Graph::toDotFormat(std::vector<Node *> marked_nodes) const
+std::string DataFlowGraph::toDotFormat(std::vector<Node *> marked_nodes) const
 {
 	std::stringstream ss;
 	ss << "digraph MyGraph {" << std::endl;

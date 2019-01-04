@@ -79,7 +79,7 @@ void run_tests()
 	auto add2 = new_add_node(context);
 	auto add3 = new_add_node(context);
 
-	NC::Graph graph;
+	NC::DataFlowGraph graph;
 	graph.nodes.push_back(in1);
 	graph.nodes.push_back(in2);
 	graph.nodes.push_back(in3);

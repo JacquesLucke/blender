@@ -18,7 +18,7 @@ struct SocketInfo;
 struct Node;
 struct Link;
 struct LinkSet;
-struct Graph;
+struct DataFlowGraph;
 
 struct AnySocket {
 	inline bool is_output() const { return this->_is_output; }
@@ -74,7 +74,7 @@ typedef std::function<void(
 	std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
 	std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)> IRBuilderFunction;
 
-class Node {
+class Node final {
 private:
 	std::string debug_name;
 	std::vector<SocketInfo> _inputs;
@@ -136,7 +136,7 @@ struct AnySocketHash {
 	}
 };
 
-struct Graph {
+struct DataFlowGraph {
 	std::vector<Node *> nodes;
 	LinkSet links;
 
