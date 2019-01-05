@@ -5,9 +5,11 @@ template<typename T>
 class
 ArraySet {
 private:
-    std::vector<T> entries;
+    using entries_t = std::vector<T>;
+    entries_t entries;
 
 public:
+    using const_iterator = typename entries_t::const_iterator;
 
     ArraySet() {};
 
@@ -41,11 +43,6 @@ public:
         return false;
     }
 
-    const std::vector<T> &elements() const
-    {
-        return this->entries;
-    }
-
     T operator[](const int index) const
     {
         assert(index >= 0 && index < this->size());
@@ -56,4 +53,9 @@ public:
     {
         return this->entries.size();
     }
+
+    const_iterator begin()
+    { return this->entries.begin(); }
+    const_iterator end()
+    { return this->entries.end(); }
 };

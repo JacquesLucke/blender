@@ -106,12 +106,12 @@ llvm::Function *DataFlowGraph::generateFunction(
 	llvm::LLVMContext &context = module->getContext();
 
 	std::vector<llvm::Type *> input_types;
-	for (AnySocket socket : inputs.elements()) {
+	for (AnySocket socket : inputs) {
 		input_types.push_back(socket.type()->getLLVMType(context));
 	}
 
 	std::vector<llvm::Type *> output_types;
-	for (AnySocket socket : outputs.elements()) {
+	for (AnySocket socket : outputs) {
 		output_types.push_back(socket.type()->getLLVMType(context));
 	}
 
@@ -161,7 +161,7 @@ void DataFlowGraph::generateCode(
 		values.add(inputs[i], input_values[i]);
 	}
 
-	for (AnySocket socket : outputs.elements()) {
+	for (AnySocket socket : outputs) {
 		llvm::IRBuilder<> *next_builder;
 
 		llvm::Value *value = this->generateCodeForSocket(socket, builder, values, &next_builder);
@@ -220,7 +220,7 @@ SocketSet DataFlowGraph::findRequiredSockets(SocketSet &inputs, SocketSet &outpu
 {
 	SocketSet required_sockets;
 
-	for (AnySocket socket : outputs.elements()) {
+	for (AnySocket socket : outputs) {
 		this->findRequiredSockets(socket, inputs, required_sockets);
 	}
 
