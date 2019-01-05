@@ -85,6 +85,35 @@ public:
 	}
 };
 
+static void print_number(int number)
+{
+	std::cout << "The number is: " << number << std::endl;
+}
+
+class PrintIntegerNode : public NC::SingleBuilderNode {
+public:
+	PrintIntegerNode()
+	{
+		this->m_inputs.add("In", type_int32);
+		this->m_outputs.add("Out", type_int32);
+	}
+
+	void buildLLVMIR(
+		llvm::IRBuilder<> *builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs)
+	{
+		llvm::LLVMContext &context = builder->getContext();
+		llvm::FunctionType *ftype = llvm::FunctionType::get(
+			llvm::Type::getVoidTy(context), {type_int32->getLLVMType(context)});
+
+		auto address_int = builder->getInt64((size_t)&print_number);
+		auto address = builder->CreateIntToPtr(address_int, llvm::PointerType::get(ftype, 0));
+		builder->CreateCall(address, inputs[0]);
+		r_outputs.push_back(inputs[0]);
+	}
+};
+
 
 extern "C" {
 	void run_tests(void);
@@ -102,6 +131,8 @@ void run_tests()
 	auto add2 = new AddIntegersNode();
 	auto add3 = new AddIntegersNode();
 
+	auto print1 = new PrintIntegerNode();
+
 	NC::DataFlowGraph graph;
 	graph.nodes.push_back(in1);
 	graph.nodes.push_back(in2);
@@ -109,6 +140,7 @@ void run_tests()
 	graph.nodes.push_back(add1);
 	graph.nodes.push_back(add2);
 	graph.nodes.push_back(add3);
+	graph.nodes.push_back(print1);
 
 	graph.links.links.push_back(NC::Link(in1->Output(0), add1->Input(0)));
 	graph.links.links.push_back(NC::Link(in2->Output(0), add1->Input(1)));
@@ -116,10 +148,11 @@ void run_tests()
 	graph.links.links.push_back(NC::Link(in3->Output(0), add2->Input(1)));
 	graph.links.links.push_back(NC::Link(add1->Output(0), add3->Input(0)));
 	graph.links.links.push_back(NC::Link(add2->Output(0), add3->Input(1)));
+	graph.links.links.push_back(NC::Link(add3->Output(0), print1->Input(0)));
 
 
 	NC::SocketArraySet inputs = { in1->Output(0), in2->Output(0) };
-	NC::SocketArraySet outputs = { add3->Output(0) };
+	NC::SocketArraySet outputs = { print1->Output(0) };
 	NC::DataFlowCallable *callable = graph.generateCallable("Hello", inputs, outputs);
 
 	callable->printCode();
