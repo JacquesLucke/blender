@@ -4,6 +4,15 @@
 
 namespace LLVMNodeCompiler {
 
+llvm::Type *Type::getLLVMType(llvm::LLVMContext &context)
+{
+	if (!this->typePerContext.contains(&context)) {
+		llvm::Type *type = this->createLLVMType(context);
+		this->typePerContext.add(&context, type);
+	}
+	return this->typePerContext.lookup(&context);
+}
+
 AnySocket LinkSet::getOriginSocket(AnySocket socket) const
 {
 	assert(socket.is_input());
@@ -32,7 +41,7 @@ const SocketInfo *AnySocket::info() const
 	}
 }
 
-llvm::Type *AnySocket::type() const
+Type *AnySocket::type() const
 {
 	return this->info()->type;
 }
@@ -59,11 +68,13 @@ DataFlowCallable *DataFlowGraph::generateCallable(
 	std::string debug_name,
 	SocketArraySet &inputs, SocketArraySet &outputs)
 {
+	llvm::LLVMContext *context = new llvm::LLVMContext();
+
+	std::string module_name = debug_name + " Module";
 	std::string function_name = debug_name + " Function";
 
 	llvm::Module *module = this->generateModule(
-		debug_name + " Module", function_name,
-		inputs, outputs);
+		*context, module_name, function_name, inputs, outputs);
 
 	llvm::InitializeNativeTarget();
 	llvm::InitializeNativeTargetAsmPrinter();
@@ -78,11 +89,11 @@ DataFlowCallable *DataFlowGraph::generateCallable(
 }
 
 llvm::Module *DataFlowGraph::generateModule(
+	llvm::LLVMContext &context,
 	std::string module_name, std::string function_name,
 	SocketArraySet &inputs, SocketArraySet &outputs)
 {
 	assert(outputs.size() > 0);
-	llvm::LLVMContext &context = outputs[0].type()->getContext();
 	llvm::Module *module = new llvm::Module(module_name, context);
 	this->generateFunction(module, function_name, inputs, outputs);
 	return module;
@@ -96,12 +107,12 @@ llvm::Function *DataFlowGraph::generateFunction(
 
 	std::vector<llvm::Type *> input_types;
 	for (AnySocket socket : inputs.elements()) {
-		input_types.push_back(socket.type());
+		input_types.push_back(socket.type()->getLLVMType(context));
 	}
 
 	std::vector<llvm::Type *> output_types;
 	for (AnySocket socket : outputs.elements()) {
-		output_types.push_back(socket.type());
+		output_types.push_back(socket.type()->getLLVMType(context));
 	}
 
 	llvm::StructType *return_type = llvm::StructType::create(output_types, name + " Output");

@@ -17,8 +17,20 @@ struct AnySocket;
 struct SocketInfo;
 struct Node;
 struct Link;
+struct Type;
 struct LinkSet;
 struct DataFlowGraph;
+
+class Type {
+private:
+	HashMap<llvm::LLVMContext *, llvm::Type *> typePerContext;
+
+public:
+	llvm::Type *getLLVMType(llvm::LLVMContext &context);
+	virtual llvm::Type *createLLVMType(llvm::LLVMContext &context) = 0;
+	// virtual llvm::Value *buildCopyIR(llvm::Value *value);
+	// virtual void buildFreeIR(llvm::Value *value);
+};
 
 struct AnySocket {
 	inline bool is_output() const { return this->_is_output; }
@@ -26,7 +38,7 @@ struct AnySocket {
 	inline Node *node() const { return this->_node; }
 	inline uint index() const { return this->_index; }
 
-	llvm::Type *type() const;
+	Type *type() const;
 	std::string debug_name() const;
 
 	inline static AnySocket NewInput(Node *node, uint index)
@@ -64,9 +76,9 @@ using SocketValueMap = SocketMap<llvm::Value *>;
 
 struct SocketInfo {
 	std::string debug_name;
-	llvm::Type *type;
+	Type *type;
 
-	SocketInfo(std::string debug_name, llvm::Type *type)
+	SocketInfo(std::string debug_name, Type *type)
 		: debug_name(debug_name), type(type) {}
 };
 
@@ -156,6 +168,7 @@ public:
 		SocketArraySet &inputs, SocketArraySet &outputs);
 
 	llvm::Module *generateModule(
+		llvm::LLVMContext &context,
 		std::string module_name, std::string function_name,
 		SocketArraySet &inputs, SocketArraySet &outputs);
 

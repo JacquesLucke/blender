@@ -9,6 +9,22 @@ extern "C" {
 
 namespace NC = LLVMNodeCompiler;
 
+class IntegerType : public NC::Type {
+private:
+	uint bits;
+
+public:
+	IntegerType(uint bits)
+		: bits(bits) {}
+
+	llvm::Type *createLLVMType(llvm::LLVMContext &context)
+	{
+		return llvm::Type::getIntNTy(context, this->bits);
+	}
+};
+
+auto *type_int32 = new IntegerType(32);
+
 static void generateCode_AddNode(
 	std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
 	std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)
@@ -18,21 +34,21 @@ static void generateCode_AddNode(
 	*r_builder = builder;
 }
 
-static NC::Node *new_add_node(llvm::LLVMContext &context)
+static NC::Node *new_add_node()
 {
 	return NC::Node::FromIRBuilderFunction("Add",
-		{ NC::SocketInfo("A", llvm::Type::getInt32Ty(context)),
-		  NC::SocketInfo("B", llvm::Type::getInt32Ty(context)) },
-		{ NC::SocketInfo("Result", llvm::Type::getInt32Ty(context)) },
+		{ NC::SocketInfo("A", type_int32),
+		  NC::SocketInfo("B", type_int32) },
+		{ NC::SocketInfo("Result", type_int32) },
 		generateCode_AddNode
 	);
 }
 
-static NC::Node *new_int_node(llvm::LLVMContext &context, int value)
+static NC::Node *new_int_node(int value)
 {
 	return NC::Node::FromIRBuilderFunction("Int",
 		{},
-		{ NC::SocketInfo("Value", llvm::Type::getInt32Ty(context)) },
+		{ NC::SocketInfo("Value", type_int32) },
 		[value](
 			std::vector<llvm::Value *> &UNUSED(inputs), llvm::IRBuilder<> *builder,
 			std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)
@@ -43,11 +59,11 @@ static NC::Node *new_int_node(llvm::LLVMContext &context, int value)
 	);
 }
 
-static NC::Node *new_int_ref_node(llvm::LLVMContext &context, int *value)
+static NC::Node *new_int_ref_node(int *value)
 {
 	return NC::Node::FromIRBuilderFunction("Int Ref",
 		{},
-		{ NC::SocketInfo("Value", llvm::Type::getInt32Ty(context)) },
+		{ NC::SocketInfo("Value", type_int32) },
 		[value](
 			std::vector<llvm::Value *> &UNUSED(inputs), llvm::IRBuilder<> *builder,
 			std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)
@@ -66,18 +82,15 @@ extern "C" {
 
 void run_tests()
 {
-	llvm::LLVMContext *_context = new llvm::LLVMContext();
-	llvm::LLVMContext &context = *_context;
-
 	int test_value = 1000;
 
-	auto in1 = new_int_node(context, 1);
-	auto in2 = new_int_ref_node(context, &test_value);
-	auto in3 = new_int_node(context, 10);
+	auto in1 = new_int_node(1);
+	auto in2 = new_int_ref_node(&test_value);
+	auto in3 = new_int_node(10);
 
-	auto add1 = new_add_node(context);
-	auto add2 = new_add_node(context);
-	auto add3 = new_add_node(context);
+	auto add1 = new_add_node();
+	auto add2 = new_add_node();
+	auto add3 = new_add_node();
 
 	NC::DataFlowGraph graph;
 	graph.nodes.push_back(in1);
