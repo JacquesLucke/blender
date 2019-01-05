@@ -25,9 +25,12 @@ class Type {
 private:
 	HashMap<llvm::LLVMContext *, llvm::Type *> typePerContext;
 
+	/* Will be called at most once for every context. */
+	virtual llvm::Type *createLLVMType(llvm::LLVMContext &context) = 0;
+
 public:
 	llvm::Type *getLLVMType(llvm::LLVMContext &context);
-	virtual llvm::Type *createLLVMType(llvm::LLVMContext &context) = 0;
+
 	// virtual llvm::Value *buildCopyIR(llvm::Value *value);
 	// virtual void buildFreeIR(llvm::Value *value);
 };
