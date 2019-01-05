@@ -58,6 +58,15 @@ std::string Node::debug_id() const
 	return ss.str();
 }
 
+llvm::CallInst *callPointer(
+	llvm::IRBuilder<> &builder,
+	void *pointer, llvm::FunctionType *type, llvm::ArrayRef<llvm::Value *> arguments)
+{
+	auto address_int = builder.getInt64((size_t)pointer);
+	auto address = builder.CreateIntToPtr(address_int, llvm::PointerType::get(type, 0));
+	return builder.CreateCall(address, arguments);
+}
+
 void DataFlowCallable::printCode()
 {
 	this->module->print(llvm::outs(), nullptr);

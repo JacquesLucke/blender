@@ -153,6 +153,10 @@ class SingleBuilderNode : public Node {
 	}
 };
 
+llvm::CallInst *callPointer(
+	llvm::IRBuilder<> &builder,
+	void *pointer, llvm::FunctionType *type, llvm::ArrayRef<llvm::Value *> arguments);
+
 class ExecuteFunctionNode : public Node {
 	virtual void *getExecuteFunction() = 0;
 
@@ -178,12 +182,7 @@ class ExecuteFunctionNode : public Node {
 
 		llvm::FunctionType *ftype = llvm::FunctionType::get(
 			llvm::Type::getVoidTy(context), arg_types, false);
-
-		void *pointer = this->getExecuteFunction();
-		auto address_int = builder->getInt64((size_t)pointer);
-		auto address = builder->CreateIntToPtr(address_int, llvm::PointerType::get(ftype, 0));
-
-		builder->CreateCall(address, arguments);
+		callPointer(*builder, this->getExecuteFunction(), ftype, arguments);
 
 		for (auto output_pointer : output_pointers) {
 			llvm::Value *result = builder->CreateLoad(output_pointer);
