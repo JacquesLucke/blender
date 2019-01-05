@@ -89,45 +89,67 @@ typedef std::function<void(
 	std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
 	std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)> IRBuilderFunction;
 
-class Node final {
+struct NodeSockets {
 private:
-	std::string debug_name;
-	std::vector<SocketInfo> _inputs;
-	std::vector<SocketInfo> _outputs;
-	IRBuilderFunction generateCode;
+	using sockets_t = std::vector<SocketInfo>;
+	sockets_t sockets;
 
 public:
-	static Node *FromIRBuilderFunction(
-		const std::string &debug_name,
-		const std::vector<SocketInfo> &inputs,
-		const std::vector<SocketInfo> &outputs,
-		const IRBuilderFunction &generateCode)
-	{
-		Node *node = new Node();
-		node->debug_name = debug_name;
-		node->_inputs = inputs;
-		node->_outputs = outputs;
-		node->generateCode = generateCode;
-		return node;
-	}
+	using const_iterator = typename sockets_t::const_iterator;
 
-	std::string debug_id() const;
+	NodeSockets() {}
 
-	inline const std::vector<SocketInfo> &inputs()
-	{ return this->_inputs; }
-	inline const std::vector<SocketInfo> &outputs()
-	{ return this->_outputs; }
+	inline void add(SocketInfo socket)
+	{ this->sockets.push_back(socket); }
 
-	inline AnySocket Input(uint index)
+	inline void add(std::string debug_name, Type *type)
+	{ this->sockets.push_back(SocketInfo(debug_name, type)); }
+
+	inline uint size() const
+	{ return this->sockets.size(); }
+
+	const SocketInfo &operator[](const int index) const
+	{ return this->sockets[index]; }
+
+	const_iterator begin() const
+	{ return this->sockets.begin(); }
+	const_iterator end() const
+	{ return this->sockets.end(); }
+};
+
+class Node {
+protected:
+	NodeSockets m_inputs, m_outputs;
+public:
+	inline const NodeSockets &inputs()
+	{ return this->m_inputs; }
+	inline const NodeSockets &outputs()
+	{ return this->m_outputs; }
+
+	virtual std::string debug_id() const;
+
+	virtual void buildLLVMIR(
+		std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
+		std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder) = 0;
+
+	inline AnySocket Input(const uint index)
 	{ return AnySocket::NewInput(this, index); }
-	inline AnySocket Output(uint index)
+	inline AnySocket Output(const uint index)
 	{ return AnySocket::NewOutput(this, index); }
+};
 
-	void build_ir(
+class SingleBuilderNode : public Node {
+	virtual void buildLLVMIR(
+		llvm::IRBuilder<> *builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) = 0;
+
+	void buildLLVMIR(
 		std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
 		std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)
 	{
-		this->generateCode(inputs, builder, r_outputs, r_builder);
+		this->buildLLVMIR(builder, inputs, r_outputs);
+		*r_builder = builder;
 	}
 };
 

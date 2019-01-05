@@ -54,7 +54,7 @@ std::string AnySocket::debug_name() const
 std::string Node::debug_id() const
 {
 	std::stringstream ss;
-	ss << this->debug_name << " at " << (void *)this;
+	ss << "Node at " << (void *)this;
 	return ss.str();
 }
 
@@ -204,7 +204,7 @@ llvm::Value *DataFlowGraph::generateCodeForSocket(
 		}
 
 		std::vector<llvm::Value *> output_values;
-		node->build_ir(input_values, builder, output_values, r_builder);
+		node->buildLLVMIR(input_values, builder, output_values, r_builder);
 
 		for (uint i = 0; i < node->outputs().size(); i++) {
 			values.add(node->Output(i), output_values[i]);
