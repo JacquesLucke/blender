@@ -1,11 +1,10 @@
+#include <iostream>
 #include "node_compiler.hpp"
 #include "BLI_utildefines.h"
 
 extern "C" {
 	void WM_clipboard_text_set(const char *buf, bool selection);
 }
-
-#include <iostream>
 
 namespace NC = LLVMNodeCompiler;
 
@@ -85,12 +84,13 @@ public:
 	}
 };
 
-static void print_number(int number)
+static void print_number(int number, int *r_number)
 {
 	std::cout << "The number is: " << number << std::endl;
+	*r_number = number + 42;
 }
 
-class PrintIntegerNode : public NC::SingleBuilderNode {
+class PrintIntegerNode : public NC::ExecuteFunctionNode {
 public:
 	PrintIntegerNode()
 	{
@@ -98,19 +98,9 @@ public:
 		this->m_outputs.add("Out", type_int32);
 	}
 
-	void buildLLVMIR(
-		llvm::IRBuilder<> *builder,
-		std::vector<llvm::Value *> &inputs,
-		std::vector<llvm::Value *> &r_outputs)
+	void *getExecuteFunction()
 	{
-		llvm::LLVMContext &context = builder->getContext();
-		llvm::FunctionType *ftype = llvm::FunctionType::get(
-			llvm::Type::getVoidTy(context), {type_int32->getLLVMType(context)});
-
-		auto address_int = builder->getInt64((size_t)&print_number);
-		auto address = builder->CreateIntToPtr(address_int, llvm::PointerType::get(ftype, 0));
-		builder->CreateCall(address, inputs[0]);
-		r_outputs.push_back(inputs[0]);
+		return (void *)print_number;
 	}
 };
 

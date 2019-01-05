@@ -153,6 +153,47 @@ class SingleBuilderNode : public Node {
 	}
 };
 
+class ExecuteFunctionNode : public Node {
+	virtual void *getExecuteFunction() = 0;
+
+	void buildLLVMIR(
+		std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
+		std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)
+	{
+		llvm::LLVMContext &context = builder->getContext();
+
+		std::vector<llvm::Type *> arg_types;
+		for (auto socket : this->inputs()) {
+			arg_types.push_back(socket.type->getLLVMType(context));
+		}
+		std::vector<llvm::Value *> arguments = inputs;
+		std::vector<llvm::Value *> output_pointers;
+		for (auto socket : this->outputs()) {
+			llvm::Type *type = socket.type->getLLVMType(context);
+			arg_types.push_back(type->getPointerTo());
+			llvm::Value *alloced_ptr = builder->CreateAlloca(type);
+			output_pointers.push_back(alloced_ptr);
+			arguments.push_back(alloced_ptr);
+		}
+
+		llvm::FunctionType *ftype = llvm::FunctionType::get(
+			llvm::Type::getVoidTy(context), arg_types, false);
+
+		void *pointer = this->getExecuteFunction();
+		auto address_int = builder->getInt64((size_t)pointer);
+		auto address = builder->CreateIntToPtr(address_int, llvm::PointerType::get(ftype, 0));
+
+		builder->CreateCall(address, arguments);
+
+		for (auto output_pointer : output_pointers) {
+			llvm::Value *result = builder->CreateLoad(output_pointer);
+			r_outputs.push_back(result);
+		}
+
+		*r_builder = builder;
+	}
+};
+
 struct Link {
 	AnySocket from, to;
 
