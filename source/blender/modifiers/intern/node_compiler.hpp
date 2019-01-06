@@ -167,13 +167,21 @@ public:
 };
 
 class Node {
-protected:
-	NodeSockets m_inputs, m_outputs;
 public:
 	inline const NodeSockets &inputs()
 	{ return this->m_inputs; }
 	inline const NodeSockets &outputs()
 	{ return this->m_outputs; }
+
+	inline AnySocket Input(const uint index)
+	{ return AnySocket::NewInput(this, index); }
+	inline AnySocket Output(const uint index)
+	{ return AnySocket::NewOutput(this, index); }
+
+	inline void addInput(std::string debug_name, Type *type)
+	{ this->m_inputs.add(debug_name, type); }
+	inline void addOutput(std::string debug_name, Type *type)
+	{ this->m_outputs.add(debug_name, type); }
 
 	virtual std::string debug_id() const;
 
@@ -182,57 +190,20 @@ public:
 		std::vector<llvm::Value *> &inputs,
 		std::vector<llvm::Value *> &r_outputs) = 0;
 
-	inline AnySocket Input(const uint index)
-	{ return AnySocket::NewInput(this, index); }
-	inline AnySocket Output(const uint index)
-	{ return AnySocket::NewOutput(this, index); }
+private:
+	NodeSockets m_inputs, m_outputs;
 };
 
 class ExecuteFunctionNode : public Node {
-protected:
-	void *execute_function = nullptr;
-	bool use_this = false;
-
 public:
 	void buildIR(
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &inputs,
-		std::vector<llvm::Value *> &r_outputs)
-	{
-		assert(this->execute_function);
+		std::vector<llvm::Value *> &r_outputs);
 
-		llvm::LLVMContext &context = builder.getContext();
-
-		std::vector<llvm::Type *> arg_types;
-		std::vector<llvm::Value *> arguments;
-		if (this->use_this) {
-			arguments.push_back(voidPtrToIR(builder, this));
-			arg_types.push_back(getVoidPtrTy(builder));
-		}
-
-		arguments.insert(arguments.end(), inputs.begin(), inputs.end());
-		for (auto socket : this->inputs()) {
-			arg_types.push_back(socket.type->getLLVMType(context));
-		}
-
-		std::vector<llvm::Value *> output_pointers;
-		for (auto socket : this->outputs()) {
-			llvm::Type *type = socket.type->getLLVMType(context);
-			arg_types.push_back(type->getPointerTo());
-			llvm::Value *alloced_ptr = builder.CreateAlloca(type);
-			output_pointers.push_back(alloced_ptr);
-			arguments.push_back(alloced_ptr);
-		}
-
-		llvm::FunctionType *ftype = llvm::FunctionType::get(
-			llvm::Type::getVoidTy(context), arg_types, false);
-		callPointer(builder, this->execute_function, ftype, arguments);
-
-		for (auto output_pointer : output_pointers) {
-			llvm::Value *result = builder.CreateLoad(output_pointer);
-			r_outputs.push_back(result);
-		}
-	}
+protected:
+	void *execute_function = nullptr;
+	bool use_this = false;
 };
 
 struct Link {

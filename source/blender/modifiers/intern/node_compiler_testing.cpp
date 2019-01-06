@@ -49,7 +49,7 @@ public:
 		this->data.a = a;
 		this->data.b = b;
 		this->data.c = c;
-		this->m_outputs.add("Value", type_custom);
+		this->addOutput("Value", type_custom);
 		this->execute_function = (void *)execute;
 		this->use_this = true;
 	}
@@ -67,9 +67,9 @@ class MyTypePrintNode : public NC::ExecuteFunctionNode {
 public:
 	MyTypePrintNode()
 	{
-		this->m_inputs.add("A", type_custom);
-		this->m_inputs.add("B", type_custom);
-		this->m_outputs.add("Output", type_int32);
+		this->addInput("A", type_custom);
+		this->addInput("B", type_custom);
+		this->addOutput("Output", type_int32);
 		this->execute_function = (void *)execute;
 	}
 
@@ -89,8 +89,8 @@ class ModifyMyTypeNode : public NC::ExecuteFunctionNode {
 public:
 	ModifyMyTypeNode()
 	{
-		this->m_inputs.add("In", type_custom);
-		this->m_outputs.add("Out", type_custom);
+		this->addInput("In", type_custom);
+		this->addOutput("Out", type_custom);
 		this->execute_function = (void *)execute;
 	}
 
@@ -108,7 +108,7 @@ public:
 	IntInputNode(int number)
 		: number(number)
 	{
-		this->m_outputs.add("Value", type_int32);
+		this->addOutput("Value", type_int32);
 	}
 
 	void buildIR(
@@ -128,7 +128,7 @@ public:
 	IntRefInputNode(int *pointer)
 		: pointer(pointer)
 	{
-		this->m_outputs.add("Value", type_int32);
+		this->addOutput("Value", type_int32);
 	}
 
 	void buildIR(
@@ -148,9 +148,9 @@ class AddIntegersNode : public NC::Node {
 public:
 	AddIntegersNode()
 	{
-		this->m_inputs.add("A", type_int32);
-		this->m_inputs.add("B", type_int32);
-		this->m_outputs.add("Result", type_int32);
+		this->addInput("A", type_int32);
+		this->addInput("B", type_int32);
+		this->addOutput("Result", type_int32);
 	}
 
 	void buildIR(
@@ -166,8 +166,8 @@ class PrintIntegerNode : public NC::ExecuteFunctionNode {
 public:
 	PrintIntegerNode()
 	{
-		this->m_inputs.add("In", type_int32);
-		this->m_outputs.add("Out", type_int32);
+		this->addInput("In", type_int32);
+		this->addOutput("Out", type_int32);
 		this->execute_function = (void *)print_integer;
 		this->use_this = true;
 		this->prefix = "Hello Number ";
