@@ -70,18 +70,19 @@ public:
 		this->addInput("A", type_custom);
 		this->addInput("B", type_custom);
 		this->addOutput("Output", type_int32);
+		this->addOutput("lala", type_custom);
 		this->execute_function = (void *)execute;
 	}
 
 private:
-	static void execute(MyTypeStruct *a, MyTypeStruct *b, int *r_value)
+	static void execute(MyTypeStruct *a, MyTypeStruct *b, int *r_value, MyTypeStruct **r_lala)
 	{
 		std::cout << "A: " << a->a << " " << a->b << " " << a->c << std::endl;
 		std::cout << "B: " << b->a << " " << b->b << " " << b->c << std::endl;
 		*r_value = 1111;
 		printf("%p\n%p\n", a, b);
 		delete a;
-		delete b;
+		*r_lala = b;
 	}
 };
 

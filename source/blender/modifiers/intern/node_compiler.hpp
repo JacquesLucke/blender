@@ -276,7 +276,14 @@ private:
 		SocketSet &required_sockets,
 		SocketSet &forwarded_sockets);
 
-	void forwardOutputToRequiredInputs(
+	void forwardOutputIfNecessary(
+		llvm::IRBuilder<> &builder,
+		AnySocket output,
+		SocketValueMap &values,
+		SocketSet &required_sockets,
+		SocketSet &forwarded_sockets);
+
+	void forwardOutput(
 		llvm::IRBuilder<> &builder,
 		AnySocket output,
 		SocketValueMap &values,

@@ -304,10 +304,7 @@ void DataFlowGraph::generateCodeForSocket(
 	else if (socket.is_input()) {
 		AnySocket origin = this->getOriginSocket(socket);
 		this->generateCodeForSocket(builder, origin, values, required_sockets, forwarded_sockets);
-		if (!forwarded_sockets.contains(origin)) {
-			this->forwardOutputToRequiredInputs(builder, origin, values, required_sockets);
-			forwarded_sockets.add(origin);
-		}
+		this->forwardOutputIfNecessary(builder, origin, values, required_sockets, forwarded_sockets);
 	}
 	else if (socket.is_output()) {
 		Node *node = socket.node();
@@ -322,16 +319,30 @@ void DataFlowGraph::generateCodeForSocket(
 		node->buildIR(builder, input_values, output_values);
 
 		for (uint i = 0; i < node->outputs().size(); i++) {
-			values.add(node->Output(i), output_values[i]);
+			AnySocket output = node->Output(i);
+			values.add(output, output_values[i]);
+			this->forwardOutputIfNecessary(builder, output, values, required_sockets, forwarded_sockets);
 		}
 	}
 	else {
 		assert(!"should never happen");
 	}
-
 }
 
-void DataFlowGraph::forwardOutputToRequiredInputs(
+void DataFlowGraph::forwardOutputIfNecessary(
+	llvm::IRBuilder<> &builder,
+	AnySocket output,
+	SocketValueMap &values,
+	SocketSet &required_sockets,
+	SocketSet &forwarded_sockets)
+{
+	if (!forwarded_sockets.contains(output)) {
+		this->forwardOutput(builder, output, values, required_sockets);
+		forwarded_sockets.add(output);
+	}
+}
+
+void DataFlowGraph::forwardOutput(
 	llvm::IRBuilder<> &builder,
 	AnySocket output,
 	SocketValueMap &values,
