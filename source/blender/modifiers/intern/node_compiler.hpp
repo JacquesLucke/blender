@@ -103,7 +103,7 @@ struct AnySocket {
 	inline static AnySocket NewOutput(Node *node, uint index)
 	{ return AnySocket(node, true, index); }
 
-	friend bool operator==(const AnySocket &left, const AnySocket &right)
+	inline friend bool operator==(const AnySocket &left, const AnySocket &right)
 	{
 		return (
 			   left._node == right._node
