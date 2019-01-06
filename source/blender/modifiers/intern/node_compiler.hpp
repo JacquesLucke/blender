@@ -96,6 +96,7 @@ struct AnySocket {
 
 	Type *type() const;
 	std::string debug_name() const;
+	std::string str_id() const;
 
 	inline static AnySocket NewInput(Node *node, uint index)
 	{ return AnySocket(node, false, index); }
@@ -183,7 +184,8 @@ public:
 	inline void addOutput(std::string debug_name, Type *type)
 	{ this->m_outputs.add(debug_name, type); }
 
-	virtual std::string debug_id() const;
+	std::string str_id() const;
+	virtual std::string debug_name() const;
 
 	virtual void buildIR(
 		llvm::IRBuilder<> &builder,

@@ -54,6 +54,8 @@ public:
 		this->use_this = true;
 	}
 
+	std::string debug_name() const { return "Type Input"; }
+
 private:
 	static void execute(MyTypeInputNode *node, void **r_value)
 	{
@@ -73,6 +75,8 @@ public:
 		this->addOutput("lala", type_custom);
 		this->execute_function = (void *)execute;
 	}
+
+	std::string debug_name() const { return "Print Type"; }
 
 private:
 	static void execute(MyTypeStruct *a, MyTypeStruct *b, int *r_value, MyTypeStruct **r_lala)
@@ -94,6 +98,8 @@ public:
 		this->addOutput("Out", type_custom);
 		this->execute_function = (void *)execute;
 	}
+
+	std::string debug_name() const { return "Modify Type"; }
 
 private:
 	static void execute(MyTypeStruct *data, MyTypeStruct **r_data)
@@ -197,6 +203,7 @@ void run_tests()
 
 	NC::DataFlowGraph graph;
 	graph.nodes.push_back(in1);
+	graph.nodes.push_back(mod1);
 	graph.nodes.push_back(print1);
 	graph.links.links.push_back(NC::Link(in1->Output(0), print1->Input(0)));
 	graph.links.links.push_back(NC::Link(in1->Output(0), mod1->Input(0)));
@@ -210,19 +217,9 @@ void run_tests()
 	int result = ((int (*)())callable->getFunctionPointer())();
 	std::cout << result << std::endl;
 
-	// NC::SocketSet inputs = { add1->Input(0), add1->Input(1), add2->Input(1) };
-	// NC::SocketSet outputs = { add3->Output(0) };
-
-	// auto required_sockets = graph.findRequiredSockets(inputs, outputs);
-
-	// std::vector<NC::Node *> required_nodes;
-	// for (NC::AnySocket socket : required_sockets.elements()) {
-	// 	required_nodes.push_back(socket.node());
-	// }
-
-	// auto dot = graph.toDotFormat(required_nodes);
-	// std::cout << dot << std::endl;
-	// WM_clipboard_text_set(dot.c_str(), false);
+	auto dot = graph.toDotFormat({mod1});
+	std::cout << dot << std::endl;
+	WM_clipboard_text_set(dot.c_str(), false);
 
 	std::cout << "Test Finished" << std::endl;
 }
