@@ -43,10 +43,26 @@ public:
 		return false;
 	}
 
+	T get_any() const
+	{
+		return this[0];
+	}
+
 	T operator[](const int index) const
 	{
 		assert(index >= 0 && index < this->size());
 		return this->entries[index];
+	}
+
+	ArraySet<T> operator-(ArraySet<T> &other) const
+	{
+		ArraySet<T> new_set;
+		for (T value : this) {
+			if (!other.contains(value)) {
+				new_set.add(value);
+			}
+		}
+		return new_set;
 	}
 
 	uint size() const

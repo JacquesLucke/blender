@@ -8,6 +8,8 @@
 #include <functional>
 #include <unordered_set>
 
+#include "BLI_utildefines.h"
+
 #include "ArraySet.hpp"
 #include "HashMap.hpp"
 
@@ -31,8 +33,13 @@ private:
 public:
 	llvm::Type *getLLVMType(llvm::LLVMContext &context);
 
-	// virtual llvm::Value *buildCopyIR(llvm::Value *value);
-	// virtual void buildFreeIR(llvm::Value *value);
+	virtual llvm::Value *buildCopyIR(
+		llvm::IRBuilder<> &builder,
+		llvm::Value *value);
+
+	virtual void buildFreeIR(
+		llvm::IRBuilder<> &builder,
+		llvm::Value *value);
 };
 
 struct AnySocket {
@@ -85,10 +92,6 @@ struct SocketInfo {
 		: debug_name(debug_name), type(type) {}
 };
 
-typedef std::function<void(
-	std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
-	std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)> IRBuilderFunction;
-
 struct NodeSockets {
 private:
 	using sockets_t = std::vector<SocketInfo>;
@@ -129,28 +132,14 @@ public:
 	virtual std::string debug_id() const;
 
 	virtual void buildLLVMIR(
-		std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
-		std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder) = 0;
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) = 0;
 
 	inline AnySocket Input(const uint index)
 	{ return AnySocket::NewInput(this, index); }
 	inline AnySocket Output(const uint index)
 	{ return AnySocket::NewOutput(this, index); }
-};
-
-class SingleBuilderNode : public Node {
-	virtual void buildLLVMIR(
-		llvm::IRBuilder<> *builder,
-		std::vector<llvm::Value *> &inputs,
-		std::vector<llvm::Value *> &r_outputs) = 0;
-
-	void buildLLVMIR(
-		std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
-		std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)
-	{
-		this->buildLLVMIR(builder, inputs, r_outputs);
-		*r_builder = builder;
-	}
 };
 
 llvm::CallInst *callPointer(
@@ -164,43 +153,44 @@ protected:
 
 public:
 	void buildLLVMIR(
-		std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
-		std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs)
 	{
 		assert(this->execute_function);
 
-		llvm::LLVMContext &context = builder->getContext();
-
-		std::vector<llvm::Value *> arguments;
-		if (this->use_this) {
-			llvm::Value *this_pointer = builder->CreateIntToPtr(builder->getInt64((size_t)this), llvm::Type::getVoidTy(context)->getPointerTo());
-			arguments.push_back(this_pointer);
-		}
-		arguments.insert(arguments.end(), inputs.begin(), inputs.end());
+		llvm::LLVMContext &context = builder.getContext();
 
 		std::vector<llvm::Type *> arg_types;
+		std::vector<llvm::Value *> arguments;
+		if (this->use_this) {
+			llvm::Value *this_pointer = builder.CreateIntToPtr(builder.getInt64((size_t)this), llvm::Type::getVoidTy(context)->getPointerTo());
+			arguments.push_back(this_pointer);
+			arg_types.push_back(llvm::Type::getVoidTy(context)->getPointerTo());
+		}
+
+		arguments.insert(arguments.end(), inputs.begin(), inputs.end());
 		for (auto socket : this->inputs()) {
 			arg_types.push_back(socket.type->getLLVMType(context));
 		}
+
 		std::vector<llvm::Value *> output_pointers;
 		for (auto socket : this->outputs()) {
 			llvm::Type *type = socket.type->getLLVMType(context);
 			arg_types.push_back(type->getPointerTo());
-			llvm::Value *alloced_ptr = builder->CreateAlloca(type);
+			llvm::Value *alloced_ptr = builder.CreateAlloca(type);
 			output_pointers.push_back(alloced_ptr);
 			arguments.push_back(alloced_ptr);
 		}
 
 		llvm::FunctionType *ftype = llvm::FunctionType::get(
 			llvm::Type::getVoidTy(context), arg_types, false);
-		callPointer(*builder, this->execute_function, ftype, arguments);
+		callPointer(builder, this->execute_function, ftype, arguments);
 
 		for (auto output_pointer : output_pointers) {
-			llvm::Value *result = builder->CreateLoad(output_pointer);
+			llvm::Value *result = builder.CreateLoad(output_pointer);
 			r_outputs.push_back(result);
 		}
-
-		*r_builder = builder;
 	}
 };
 
@@ -215,6 +205,7 @@ struct LinkSet {
 	std::vector<Link> links;
 
 	AnySocket getOriginSocket(AnySocket socket) const;
+	SocketSet getTargetSockets(AnySocket socket) const;
 };
 
 class DataFlowCallable {
@@ -253,11 +244,12 @@ public:
 		SocketArraySet &inputs, SocketArraySet &outputs);
 
 	void generateCode(
-		llvm::IRBuilder<> *builder,
+		llvm::IRBuilder<> &builder,
 		SocketArraySet &inputs, SocketArraySet &outputs, std::vector<llvm::Value *> &input_values,
-		llvm::IRBuilder<> **r_builder, std::vector<llvm::Value *> &r_output_values);
+		std::vector<llvm::Value *> &r_output_values);
 
 	AnySocket getOriginSocket(AnySocket socket) const;
+	SocketSet getTargetSockets(AnySocket socket) const;
 
 	std::string toDotFormat(std::vector<Node *> marked_nodes = {}) const;
 
@@ -265,11 +257,18 @@ public:
 private:
 	void findRequiredSockets(AnySocket socket, SocketSet &inputs, SocketSet &required_sockets);
 
-	llvm::Value *generateCodeForSocket(
+	void generateCodeForSocket(
+		llvm::IRBuilder<> &builder,
 		AnySocket socket,
-		llvm::IRBuilder<> *builder,
 		SocketValueMap &values,
-		llvm::IRBuilder<> **r_builder);
+		SocketSet &required_sockets,
+		SocketSet &forwarded_sockets);
+
+	void forwardOutputToRequiredInputs(
+		llvm::IRBuilder<> &builder,
+		AnySocket output,
+		SocketValueMap &values,
+		SocketSet &required_sockets);
 };
 
 } /* namespace LLVMNodeCompiler */

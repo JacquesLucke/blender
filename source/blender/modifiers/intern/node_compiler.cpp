@@ -1,6 +1,7 @@
 #include "node_compiler.hpp"
 
 #include <sstream>
+#include <iostream>
 
 namespace LLVMNodeCompiler {
 
@@ -11,6 +12,20 @@ llvm::Type *Type::getLLVMType(llvm::LLVMContext &context)
 		this->typePerContext.add(&context, type);
 	}
 	return this->typePerContext.lookup(&context);
+}
+
+llvm::Value *Type::buildCopyIR(
+	llvm::IRBuilder<> &UNUSED(builder),
+	llvm::Value *value)
+{
+	return value;
+}
+
+void Type::buildFreeIR(
+	llvm::IRBuilder<> &UNUSED(builder),
+	llvm::Value *UNUSED(value))
+{
+	return;
 }
 
 AnySocket LinkSet::getOriginSocket(AnySocket socket) const
@@ -29,6 +44,25 @@ AnySocket LinkSet::getOriginSocket(AnySocket socket) const
 AnySocket DataFlowGraph::getOriginSocket(AnySocket socket) const
 {
 	return this->links.getOriginSocket(socket);
+}
+
+SocketSet LinkSet::getTargetSockets(AnySocket socket) const
+{
+	assert(socket.is_output());
+
+	SocketSet targets;
+	for (Link link : this->links) {
+		if (link.from == socket) {
+			targets.add(link.to);
+		}
+	}
+
+	return targets;
+}
+
+SocketSet DataFlowGraph::getTargetSockets(AnySocket socket) const
+{
+	return this->links.getTargetSockets(socket);
 }
 
 const SocketInfo *AnySocket::info() const
@@ -63,7 +97,7 @@ llvm::CallInst *callPointer(
 	void *pointer, llvm::FunctionType *type, llvm::ArrayRef<llvm::Value *> arguments)
 {
 	auto address_int = builder.getInt64((size_t)pointer);
-	auto address = builder.CreateIntToPtr(address_int, llvm::PointerType::get(type, 0));
+	auto address = builder.CreateIntToPtr(address_int, type->getPointerTo());
 	return builder.CreateCall(address, arguments);
 }
 
@@ -105,6 +139,7 @@ llvm::Module *DataFlowGraph::generateModule(
 	assert(outputs.size() > 0);
 	llvm::Module *module = new llvm::Module(module_name, context);
 	this->generateFunction(module, function_name, inputs, outputs);
+	module->print(llvm::outs(), nullptr);
 	return module;
 }
 
@@ -143,14 +178,13 @@ llvm::Function *DataFlowGraph::generateFunction(
 	}
 
 	std::vector<llvm::Value *> output_values;
-	llvm::IRBuilder<> *next_builder;
-	this->generateCode(&builder, inputs, outputs, input_values, &next_builder, output_values);
+	this->generateCode(builder, inputs, outputs, input_values, output_values);
 
 	llvm::Value *output = llvm::UndefValue::get(return_type);
 	for (uint i = 0; i < outputs.size(); i++) {
-		output = next_builder->CreateInsertValue(output, output_values[i], i);
+		output = builder.CreateInsertValue(output, output_values[i], i);
 	}
-	next_builder->CreateRet(output);
+	builder.CreateRet(output);
 
 	llvm::verifyFunction(*function, &llvm::outs());
 	llvm::verifyModule(*module, &llvm::outs());
@@ -159,70 +193,98 @@ llvm::Function *DataFlowGraph::generateFunction(
 }
 
 void DataFlowGraph::generateCode(
-	llvm::IRBuilder<> *builder,
+	llvm::IRBuilder<> &builder,
 	SocketArraySet &inputs, SocketArraySet &outputs, std::vector<llvm::Value *> &input_values,
-	llvm::IRBuilder<> **r_builder, std::vector<llvm::Value *> &r_output_values)
+	std::vector<llvm::Value *> &r_output_values)
 {
+	assert(outputs.size() > 0);
 	assert(inputs.size() == input_values.size());
+
+	SocketSet required_sockets = this->findRequiredSockets(inputs, outputs);
 
 	SocketValueMap values;
 	for (uint i = 0; i < inputs.size(); i++) {
 		values.add(inputs[i], input_values[i]);
 	}
 
+	SocketSet forwarded_sockets;
 	for (AnySocket socket : outputs) {
-		llvm::IRBuilder<> *next_builder;
-
-		llvm::Value *value = this->generateCodeForSocket(socket, builder, values, &next_builder);
-		r_output_values.push_back(value);
-
-		builder = next_builder;
+		this->generateCodeForSocket(builder, socket, values, required_sockets, forwarded_sockets);
+		r_output_values.push_back(values.lookup(socket));
 	}
-
-	*r_builder = builder;
 }
 
-llvm::Value *DataFlowGraph::generateCodeForSocket(
+void DataFlowGraph::generateCodeForSocket(
+	llvm::IRBuilder<> &builder,
 	AnySocket socket,
-	llvm::IRBuilder<> *builder,
 	SocketValueMap &values,
-	llvm::IRBuilder<> **r_builder)
+	SocketSet &required_sockets,
+	SocketSet &forwarded_sockets)
 {
 	if (values.contains(socket)) {
-		*r_builder = builder;
-		return values.lookup(socket);
+		/* do nothing */
 	}
-
-	if (socket.is_input()) {
+	else if (socket.is_input()) {
 		AnySocket origin = this->getOriginSocket(socket);
-		llvm::Value *value = this->generateCodeForSocket(origin, builder, values, r_builder);
-		values.add(socket, value);
-		return value;
+		this->generateCodeForSocket(builder, origin, values, required_sockets, forwarded_sockets);
+		if (!forwarded_sockets.contains(origin)) {
+			this->forwardOutputToRequiredInputs(builder, origin, values, required_sockets);
+			forwarded_sockets.add(origin);
+		}
 	}
-
-	if (socket.is_output()) {
+	else if (socket.is_output()) {
 		Node *node = socket.node();
 		std::vector<llvm::Value *> input_values;
 		for (uint i = 0; i < node->inputs().size(); i++) {
-			llvm::IRBuilder<> *next_builder;
-
-			llvm::Value *value = this->generateCodeForSocket(node->Input(i), builder, values, &next_builder);
-			input_values.push_back(value);
-
-			builder = next_builder;
+			AnySocket input = node->Input(i);
+			this->generateCodeForSocket(builder, input, values, required_sockets, forwarded_sockets);
+			input_values.push_back(values.lookup(input));
 		}
 
 		std::vector<llvm::Value *> output_values;
-		node->buildLLVMIR(input_values, builder, output_values, r_builder);
+		node->buildLLVMIR(builder, input_values, output_values);
 
 		for (uint i = 0; i < node->outputs().size(); i++) {
 			values.add(node->Output(i), output_values[i]);
 		}
-
-		return values.lookup(socket);
+	}
+	else {
+		assert(!"should never happen");
 	}
 
-	assert(!"should never happen");
+}
+
+void DataFlowGraph::forwardOutputToRequiredInputs(
+	llvm::IRBuilder<> &builder,
+	AnySocket output,
+	SocketValueMap &values,
+	SocketSet &required_sockets)
+{
+	llvm::Value *value_to_forward = values.lookup(output);
+	Type *type = output.type();
+
+	SocketArraySet targets;
+	for (AnySocket target : this->getTargetSockets(output)) {
+		if (required_sockets.contains(target) && !values.contains(target)) {
+			assert(type == target.type());
+			targets.add(target);
+		}
+	}
+
+	if (targets.size() == 0) {
+		type->buildFreeIR(builder, value_to_forward);
+	}
+	else if (targets.size() == 1) {
+		values.add(targets[0], value_to_forward);
+	}
+	else {
+		values.add(targets[0], value_to_forward);
+		for (uint i = 1; i < targets.size(); i++) {
+			AnySocket target = targets[i];
+			llvm::Value *copied_value = type->buildCopyIR(builder, value_to_forward);
+			values.add(target, copied_value);
+		}
+	}
 }
 
 SocketSet DataFlowGraph::findRequiredSockets(SocketSet &inputs, SocketSet &outputs)

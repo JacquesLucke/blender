@@ -1,6 +1,5 @@
 #include <iostream>
 #include "node_compiler.hpp"
-#include "BLI_utildefines.h"
 
 extern "C" {
 	void WM_clipboard_text_set(const char *buf, bool selection);
@@ -34,15 +33,24 @@ public:
 	{
 		return llvm::Type::getVoidTy(context)->getPointerTo();
 	}
+
+	llvm::Value *buildCopyIR(llvm::IRBuilder<> &builder, llvm::Value *value)
+	{
+		llvm::LLVMContext &context = builder.getContext();
+		llvm::FunctionType *ftype = llvm::FunctionType::get(
+			this->getLLVMType(context), this->getLLVMType(context), false);
+		return NC::callPointer(builder, (void *)copy, ftype, value);
+	}
+
+	static MyTypeStruct *copy(MyTypeStruct *value)
+	{
+		return new MyTypeStruct(*value);
+	}
 };
 
 auto *type_int32 = new IntegerType(32);
 auto *type_custom = new MyType();
 
-
-
-class MyTypeInputNode;
-static void my_type_input(MyTypeInputNode *node, void **r_value);
 
 class MyTypeInputNode : public NC::ExecuteFunctionNode {
 private:
@@ -58,19 +66,12 @@ public:
 		this->use_this = true;
 	}
 
-	friend void my_type_input(MyTypeInputNode *node, void **r_value)
+private:
+	static void my_type_input(MyTypeInputNode *node, void **r_value)
 	{
 		*r_value = new MyTypeStruct(node->data);
 	}
 };
-
-class MyTypePrintNode;
-static void my_type_print(MyTypeStruct *a, MyTypeStruct *b, int *r_value)
-{
-	std::cout << "A: " << a->a << " " << a->b << " " << a->c << std::endl;
-	std::cout << "B: " << b->a << " " << b->b << " " << b->c << std::endl;
-	*r_value = 123;
-}
 
 class MyTypePrintNode : public NC::ExecuteFunctionNode {
 public:
@@ -81,14 +82,18 @@ public:
 		this->m_outputs.add("Output", type_int32);
 		this->execute_function = (void *)my_type_print;
 	}
-};
 
-class ModifyMyTypeNode;
-static void modify_my_type(MyTypeStruct *data, MyTypeStruct **r_data)
-{
-	data->a = 500;
-	*r_data = data;
-}
+private:
+	static void my_type_print(MyTypeStruct *a, MyTypeStruct *b, int *r_value)
+	{
+		std::cout << "A: " << a->a << " " << a->b << " " << a->c << std::endl;
+		std::cout << "B: " << b->a << " " << b->b << " " << b->c << std::endl;
+		*r_value = 568;
+		printf("%p\n%p\n", a, b);
+		delete a;
+		delete b;
+	}
+};
 
 class ModifyMyTypeNode : public NC::ExecuteFunctionNode {
 public:
@@ -98,10 +103,17 @@ public:
 		this->m_outputs.add("Out", type_custom);
 		this->execute_function = (void *)modify_my_type;
 	}
+
+private:
+	static void modify_my_type(MyTypeStruct *data, MyTypeStruct **r_data)
+	{
+		data->a = 200;
+		*r_data = data;
+	}
 };
 
 
-class IntInputNode : public NC::SingleBuilderNode {
+class IntInputNode : public NC::Node {
 private:
 	int number;
 
@@ -113,15 +125,15 @@ public:
 	}
 
 	void buildLLVMIR(
-		llvm::IRBuilder<> *builder,
+		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &UNUSED(inputs),
 		std::vector<llvm::Value *> &r_outputs)
 	{
-		r_outputs.push_back(builder->getInt32(this->number));
+		r_outputs.push_back(builder.getInt32(this->number));
 	}
 };
 
-class IntRefInputNode : public NC::SingleBuilderNode {
+class IntRefInputNode : public NC::Node {
 private:
 	int *pointer;
 
@@ -143,7 +155,7 @@ public:
 	}
 };
 
-class AddIntegersNode : public NC::SingleBuilderNode {
+class AddIntegersNode : public NC::Node {
 public:
 	AddIntegersNode()
 	{
@@ -153,31 +165,30 @@ public:
 	}
 
 	void buildLLVMIR(
-		llvm::IRBuilder<> *builder,
+		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &inputs,
 		std::vector<llvm::Value *> &r_outputs)
 	{
-		r_outputs.push_back(builder->CreateAdd(inputs[0], inputs[1]));
+		r_outputs.push_back(builder.CreateAdd(inputs[0], inputs[1]));
 	}
 };
-
-class PrintIntegerNode;
-static void print_number(PrintIntegerNode *node, int number, int *r_number);
 
 class PrintIntegerNode : public NC::ExecuteFunctionNode {
 private:
 	std::string prefix;
+
 public:
 	PrintIntegerNode()
 	{
 		this->m_inputs.add("In", type_int32);
 		this->m_outputs.add("Out", type_int32);
-		this->execute_function = (void *)print_number;
+		this->execute_function = (void *)print_integer;
 		this->use_this = true;
 		this->prefix = "Hello Number ";
 	}
 
-	friend void print_number(PrintIntegerNode *node, int number, int *r_number)
+private:
+	static void print_integer(PrintIntegerNode *node, int number, int *r_number)
 	{
 		std::cout << node->prefix << number << std::endl;
 		*r_number = number + 42;
@@ -206,7 +217,7 @@ void run_tests()
 	NC::SocketArraySet outputs = { print1->Output(0) };
 	NC::DataFlowCallable *callable = graph.generateCallable("Hello", inputs, outputs);
 
-	callable->printCode();
+	//callable->printCode();
 	int result = ((int (*)())callable->getFunctionPointer())();
 	std::cout << result << std::endl;
 

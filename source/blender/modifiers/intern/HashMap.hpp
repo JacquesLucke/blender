@@ -32,6 +32,14 @@ public:
 		return false;
 	}
 
+	bool key_has_value(TKey key, TValue value)
+	{
+		if (this->contains(key)) {
+			return this->lookup(key) == value;
+		}
+		return false;
+	}
+
 	TValue lookup(TKey key)
 	{
 		for (Entry entry : this->entries) {
