@@ -1,5 +1,5 @@
 #include <iostream>
-#include "node_compiler.hpp"
+#include "LLVMNodeCompiler/node_compiler.hpp"
 
 extern "C" {
 	void WM_clipboard_text_set(const char *buf, bool selection);
@@ -257,8 +257,6 @@ void run_tests()
 	auto in2 = new IntInputNode(200);
 	auto in3 = new IntInputNode(3000);
 	auto selector1 = new SwitchIntegerNode(3);
-	auto selector2 = new SwitchIntegerNode(3);
-	auto selector3 = new SwitchIntegerNode(2);
 
 	NC::DataFlowGraph graph;
 	graph.nodes.push_back(caseIn);
@@ -266,25 +264,14 @@ void run_tests()
 	graph.nodes.push_back(in2);
 	graph.nodes.push_back(in3);
 	graph.nodes.push_back(selector1);
-	graph.nodes.push_back(selector2);
-	graph.nodes.push_back(selector3);
 
 	graph.links.links.push_back(NC::Link(caseIn->Output(0), selector1->Input(0)));
 	graph.links.links.push_back(NC::Link(in1->Output(0), selector1->Input(1)));
 	graph.links.links.push_back(NC::Link(in2->Output(0), selector1->Input(2)));
 	graph.links.links.push_back(NC::Link(in3->Output(0), selector1->Input(3)));
 
-	graph.links.links.push_back(NC::Link(caseIn->Output(0), selector2->Input(0)));
-	graph.links.links.push_back(NC::Link(in1->Output(0), selector2->Input(1)));
-	graph.links.links.push_back(NC::Link(in2->Output(0), selector2->Input(2)));
-	graph.links.links.push_back(NC::Link(in3->Output(0), selector2->Input(3)));
-
-	graph.links.links.push_back(NC::Link(caseIn->Output(0), selector3->Input(0)));
-	graph.links.links.push_back(NC::Link(selector1->Output(0), selector3->Input(1)));
-	graph.links.links.push_back(NC::Link(selector2->Output(0), selector3->Input(2)));
-
 	NC::SocketArraySet inputs = { selector1->Input(0) };
-	NC::SocketArraySet outputs = { selector3->Output(0) };
+	NC::SocketArraySet outputs = { selector1->Output(0) };
 	NC::DataFlowCallable *callable = graph.generateCallable("Hello", inputs, outputs);
 
 	//callable->printCode();

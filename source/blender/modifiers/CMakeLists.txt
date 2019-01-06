@@ -117,10 +117,10 @@ set(SRC
 	intern/MOD_weightvg_util.h
 
 	intern/node_compiler_testing.cpp
-	intern/node_compiler.cpp
-	intern/node_compiler.hpp
-	intern/ArraySet.hpp
-	intern/HashMap.hpp
+	intern/LLVMNodeCompiler/node_compiler.cpp
+	intern/LLVMNodeCompiler/node_compiler.hpp
+	intern/LLVMNodeCompiler/ArraySet.hpp
+	intern/LLVMNodeCompiler/HashMap.hpp
 )
 
 if(WITH_ALEMBIC)
