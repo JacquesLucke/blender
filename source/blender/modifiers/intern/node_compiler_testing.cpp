@@ -22,7 +22,84 @@ public:
 	}
 };
 
+struct MyTypeStruct {
+	int a, b, c;
+};
+
+class MyType : public NC::Type {
+public:
+	MyType() {}
+
+	llvm::Type *createLLVMType(llvm::LLVMContext &context)
+	{
+		return llvm::Type::getVoidTy(context)->getPointerTo();
+	}
+};
+
 auto *type_int32 = new IntegerType(32);
+auto *type_custom = new MyType();
+
+
+
+class MyTypeInputNode;
+static void my_type_input(MyTypeInputNode *node, void **r_value);
+
+class MyTypeInputNode : public NC::ExecuteFunctionNode {
+private:
+	MyTypeStruct data;
+public:
+	MyTypeInputNode(int a, int b, int c)
+	{
+		this->data.a = a;
+		this->data.b = b;
+		this->data.c = c;
+		this->m_outputs.add("Value", type_custom);
+		this->execute_function = (void *)my_type_input;
+		this->use_this = true;
+	}
+
+	friend void my_type_input(MyTypeInputNode *node, void **r_value)
+	{
+		*r_value = new MyTypeStruct(node->data);
+	}
+};
+
+class MyTypePrintNode;
+static void my_type_print(MyTypeStruct *a, MyTypeStruct *b, int *r_value)
+{
+	std::cout << "A: " << a->a << " " << a->b << " " << a->c << std::endl;
+	std::cout << "B: " << b->a << " " << b->b << " " << b->c << std::endl;
+	*r_value = 123;
+}
+
+class MyTypePrintNode : public NC::ExecuteFunctionNode {
+public:
+	MyTypePrintNode()
+	{
+		this->m_inputs.add("A", type_custom);
+		this->m_inputs.add("B", type_custom);
+		this->m_outputs.add("Output", type_int32);
+		this->execute_function = (void *)my_type_print;
+	}
+};
+
+class ModifyMyTypeNode;
+static void modify_my_type(MyTypeStruct *data, MyTypeStruct **r_data)
+{
+	data->a = 500;
+	*r_data = data;
+}
+
+class ModifyMyTypeNode : public NC::ExecuteFunctionNode {
+public:
+	ModifyMyTypeNode()
+	{
+		this->m_inputs.add("In", type_custom);
+		this->m_outputs.add("Out", type_custom);
+		this->execute_function = (void *)modify_my_type;
+	}
+};
+
 
 class IntInputNode : public NC::SingleBuilderNode {
 private:
@@ -84,23 +161,26 @@ public:
 	}
 };
 
-static void print_number(int number, int *r_number)
-{
-	std::cout << "The number is: " << number << std::endl;
-	*r_number = number + 42;
-}
+class PrintIntegerNode;
+static void print_number(PrintIntegerNode *node, int number, int *r_number);
 
 class PrintIntegerNode : public NC::ExecuteFunctionNode {
+private:
+	std::string prefix;
 public:
 	PrintIntegerNode()
 	{
 		this->m_inputs.add("In", type_int32);
 		this->m_outputs.add("Out", type_int32);
+		this->execute_function = (void *)print_number;
+		this->use_this = true;
+		this->prefix = "Hello Number ";
 	}
 
-	void *getExecuteFunction()
+	friend void print_number(PrintIntegerNode *node, int number, int *r_number)
 	{
-		return (void *)print_number;
+		std::cout << node->prefix << number << std::endl;
+		*r_number = number + 42;
 	}
 };
 
@@ -111,42 +191,23 @@ extern "C" {
 
 void run_tests()
 {
-	int test_value = 1000;
-
-	auto in1 = new IntInputNode(1);
-	auto in2 = new IntRefInputNode(&test_value);
-	auto in3 = new IntInputNode(10);
-
-	auto add1 = new AddIntegersNode();
-	auto add2 = new AddIntegersNode();
-	auto add3 = new AddIntegersNode();
-
-	auto print1 = new PrintIntegerNode();
+	auto in1 = new MyTypeInputNode(10, 20, 30);
+	auto mod1 = new ModifyMyTypeNode();
+	auto print1 = new MyTypePrintNode();
 
 	NC::DataFlowGraph graph;
 	graph.nodes.push_back(in1);
-	graph.nodes.push_back(in2);
-	graph.nodes.push_back(in3);
-	graph.nodes.push_back(add1);
-	graph.nodes.push_back(add2);
-	graph.nodes.push_back(add3);
 	graph.nodes.push_back(print1);
+	graph.links.links.push_back(NC::Link(in1->Output(0), print1->Input(0)));
+	graph.links.links.push_back(NC::Link(in1->Output(0), mod1->Input(0)));
+	graph.links.links.push_back(NC::Link(mod1->Output(0), print1->Input(1)));
 
-	graph.links.links.push_back(NC::Link(in1->Output(0), add1->Input(0)));
-	graph.links.links.push_back(NC::Link(in2->Output(0), add1->Input(1)));
-	graph.links.links.push_back(NC::Link(in2->Output(0), add2->Input(0)));
-	graph.links.links.push_back(NC::Link(in3->Output(0), add2->Input(1)));
-	graph.links.links.push_back(NC::Link(add1->Output(0), add3->Input(0)));
-	graph.links.links.push_back(NC::Link(add2->Output(0), add3->Input(1)));
-	graph.links.links.push_back(NC::Link(add3->Output(0), print1->Input(0)));
-
-
-	NC::SocketArraySet inputs = { in1->Output(0), in2->Output(0) };
+	NC::SocketArraySet inputs = { };
 	NC::SocketArraySet outputs = { print1->Output(0) };
 	NC::DataFlowCallable *callable = graph.generateCallable("Hello", inputs, outputs);
 
 	callable->printCode();
-	int result = ((int (*)(int, int))callable->getFunctionPointer())(10, 25);
+	int result = ((int (*)())callable->getFunctionPointer())();
 	std::cout << result << std::endl;
 
 	// NC::SocketSet inputs = { add1->Input(0), add1->Input(1), add2->Input(1) };

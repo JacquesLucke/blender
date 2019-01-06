@@ -158,19 +158,30 @@ llvm::CallInst *callPointer(
 	void *pointer, llvm::FunctionType *type, llvm::ArrayRef<llvm::Value *> arguments);
 
 class ExecuteFunctionNode : public Node {
-	virtual void *getExecuteFunction() = 0;
+protected:
+	void *execute_function = nullptr;
+	bool use_this = false;
 
+public:
 	void buildLLVMIR(
 		std::vector<llvm::Value *> &inputs, llvm::IRBuilder<> *builder,
 		std::vector<llvm::Value *> &r_outputs, llvm::IRBuilder<> **r_builder)
 	{
+		assert(this->execute_function);
+
 		llvm::LLVMContext &context = builder->getContext();
+
+		std::vector<llvm::Value *> arguments;
+		if (this->use_this) {
+			llvm::Value *this_pointer = builder->CreateIntToPtr(builder->getInt64((size_t)this), llvm::Type::getVoidTy(context)->getPointerTo());
+			arguments.push_back(this_pointer);
+		}
+		arguments.insert(arguments.end(), inputs.begin(), inputs.end());
 
 		std::vector<llvm::Type *> arg_types;
 		for (auto socket : this->inputs()) {
 			arg_types.push_back(socket.type->getLLVMType(context));
 		}
-		std::vector<llvm::Value *> arguments = inputs;
 		std::vector<llvm::Value *> output_pointers;
 		for (auto socket : this->outputs()) {
 			llvm::Type *type = socket.type->getLLVMType(context);
@@ -182,7 +193,7 @@ class ExecuteFunctionNode : public Node {
 
 		llvm::FunctionType *ftype = llvm::FunctionType::get(
 			llvm::Type::getVoidTy(context), arg_types, false);
-		callPointer(*builder, this->getExecuteFunction(), ftype, arguments);
+		callPointer(*builder, this->execute_function, ftype, arguments);
 
 		for (auto output_pointer : output_pointers) {
 			llvm::Value *result = builder->CreateLoad(output_pointer);
