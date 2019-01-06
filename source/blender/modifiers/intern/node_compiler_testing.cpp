@@ -8,9 +8,6 @@ extern "C" {
 namespace NC = LLVMNodeCompiler;
 
 class IntegerType : public NC::Type {
-private:
-	uint bits;
-
 public:
 	IntegerType(uint bits)
 		: bits(bits) {}
@@ -19,6 +16,9 @@ public:
 	{
 		return llvm::Type::getIntNTy(context, this->bits);
 	}
+
+private:
+	uint bits;
 };
 
 struct MyTypeStruct {
@@ -43,8 +43,6 @@ auto *type_custom = new MyType();
 
 
 class MyTypeInputNode : public NC::ExecuteFunctionNode {
-private:
-	MyTypeStruct data;
 public:
 	MyTypeInputNode(int a, int b, int c)
 	{
@@ -52,15 +50,17 @@ public:
 		this->data.b = b;
 		this->data.c = c;
 		this->m_outputs.add("Value", type_custom);
-		this->execute_function = (void *)my_type_input;
+		this->execute_function = (void *)execute;
 		this->use_this = true;
 	}
 
 private:
-	static void my_type_input(MyTypeInputNode *node, void **r_value)
+	static void execute(MyTypeInputNode *node, void **r_value)
 	{
 		*r_value = new MyTypeStruct(node->data);
 	}
+
+	MyTypeStruct data;
 };
 
 class MyTypePrintNode : public NC::ExecuteFunctionNode {
@@ -70,11 +70,11 @@ public:
 		this->m_inputs.add("A", type_custom);
 		this->m_inputs.add("B", type_custom);
 		this->m_outputs.add("Output", type_int32);
-		this->execute_function = (void *)my_type_print;
+		this->execute_function = (void *)execute;
 	}
 
 private:
-	static void my_type_print(MyTypeStruct *a, MyTypeStruct *b, int *r_value)
+	static void execute(MyTypeStruct *a, MyTypeStruct *b, int *r_value)
 	{
 		std::cout << "A: " << a->a << " " << a->b << " " << a->c << std::endl;
 		std::cout << "B: " << b->a << " " << b->b << " " << b->c << std::endl;
@@ -91,11 +91,11 @@ public:
 	{
 		this->m_inputs.add("In", type_custom);
 		this->m_outputs.add("Out", type_custom);
-		this->execute_function = (void *)modify_my_type;
+		this->execute_function = (void *)execute;
 	}
 
 private:
-	static void modify_my_type(MyTypeStruct *data, MyTypeStruct **r_data)
+	static void execute(MyTypeStruct *data, MyTypeStruct **r_data)
 	{
 		data->a = 200;
 		*r_data = data;
@@ -104,9 +104,6 @@ private:
 
 
 class IntInputNode : public NC::Node {
-private:
-	int number;
-
 public:
 	IntInputNode(int number)
 		: number(number)
@@ -114,19 +111,19 @@ public:
 		this->m_outputs.add("Value", type_int32);
 	}
 
-	void buildLLVMIR(
+	void buildIR(
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &UNUSED(inputs),
 		std::vector<llvm::Value *> &r_outputs)
 	{
 		r_outputs.push_back(builder.getInt32(this->number));
 	}
+
+private:
+	int number;
 };
 
 class IntRefInputNode : public NC::Node {
-private:
-	int *pointer;
-
 public:
 	IntRefInputNode(int *pointer)
 		: pointer(pointer)
@@ -134,15 +131,17 @@ public:
 		this->m_outputs.add("Value", type_int32);
 	}
 
-	void buildLLVMIR(
-		llvm::IRBuilder<> *builder,
+	void buildIR(
+		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &UNUSED(inputs),
 		std::vector<llvm::Value *> &r_outputs)
 	{
-		auto address_int = builder->getInt64((size_t)this->pointer);
-		auto address = builder->CreateIntToPtr(address_int, llvm::Type::getInt32PtrTy(builder->getContext()));
-		r_outputs.push_back(builder->CreateLoad(address));
+		auto address = NC::ptrToIR(builder, this->pointer, builder.getInt32Ty());
+		r_outputs.push_back(builder.CreateLoad(address));
 	}
+
+private:
+	int *pointer;
 };
 
 class AddIntegersNode : public NC::Node {
@@ -154,7 +153,7 @@ public:
 		this->m_outputs.add("Result", type_int32);
 	}
 
-	void buildLLVMIR(
+	void buildIR(
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &inputs,
 		std::vector<llvm::Value *> &r_outputs)
@@ -164,9 +163,6 @@ public:
 };
 
 class PrintIntegerNode : public NC::ExecuteFunctionNode {
-private:
-	std::string prefix;
-
 public:
 	PrintIntegerNode()
 	{
@@ -183,6 +179,8 @@ private:
 		std::cout << node->prefix << number << std::endl;
 		*r_number = number + 42;
 	}
+
+	std::string prefix;
 };
 
 

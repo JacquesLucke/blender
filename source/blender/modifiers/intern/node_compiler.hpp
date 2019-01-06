@@ -28,6 +28,7 @@ llvm::CallInst *callPointer(
 	void *pointer, llvm::FunctionType *type, llvm::ArrayRef<llvm::Value *> arguments);
 
 llvm::Value *voidPtrToIR(llvm::IRBuilder<> &builder, void *pointer);
+llvm::Value *ptrToIR(llvm::IRBuilder<> &builder, void *pointer, llvm::Type *type);
 
 llvm::Type *getVoidPtrTy(llvm::IRBuilder<> &builder);
 llvm::Type *getVoidPtrTy(llvm::LLVMContext &context);
@@ -176,7 +177,7 @@ public:
 
 	virtual std::string debug_id() const;
 
-	virtual void buildLLVMIR(
+	virtual void buildIR(
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &inputs,
 		std::vector<llvm::Value *> &r_outputs) = 0;
@@ -193,7 +194,7 @@ protected:
 	bool use_this = false;
 
 public:
-	void buildLLVMIR(
+	void buildIR(
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &inputs,
 		std::vector<llvm::Value *> &r_outputs)

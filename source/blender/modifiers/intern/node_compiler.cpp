@@ -113,9 +113,12 @@ llvm::CallInst *callPointer(
 
 llvm::Value *voidPtrToIR(llvm::IRBuilder<> &builder, void *pointer)
 {
-	return builder.CreateIntToPtr(
-		builder.getInt64((size_t)pointer),
-		getVoidPtrTy(builder));
+	return ptrToIR(builder, pointer, getVoidPtrTy(builder));
+}
+
+llvm::Value *ptrToIR(llvm::IRBuilder<> &builder, void *pointer, llvm::Type *type)
+{
+	return builder.CreateIntToPtr(builder.getInt64((size_t)pointer), type);
 }
 
 llvm::Type *getVoidPtrTy(llvm::IRBuilder<> &builder)
@@ -273,7 +276,7 @@ void DataFlowGraph::generateCodeForSocket(
 		}
 
 		std::vector<llvm::Value *> output_values;
-		node->buildLLVMIR(builder, input_values, output_values);
+		node->buildIR(builder, input_values, output_values);
 
 		for (uint i = 0; i < node->outputs().size(); i++) {
 			values.add(node->Output(i), output_values[i]);
