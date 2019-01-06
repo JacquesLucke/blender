@@ -5,6 +5,9 @@
 
 namespace LLVMNodeCompiler {
 
+/* Type
+ ****************************************/
+
 llvm::Type *Type::getLLVMType(llvm::LLVMContext &context)
 {
 	if (!this->typePerContext.contains(&context)) {
@@ -27,6 +30,10 @@ void Type::buildFreeIR(
 {
 	return;
 }
+
+
+/* LinkSet
+ ********************************************/
 
 AnySocket LinkSet::getOriginSocket(AnySocket socket) const
 {
@@ -92,6 +99,9 @@ std::string Node::debug_id() const
 	return ss.str();
 }
 
+/* IR Utils
+ ********************************************/
+
 llvm::CallInst *callPointer(
 	llvm::IRBuilder<> &builder,
 	void *pointer, llvm::FunctionType *type, llvm::ArrayRef<llvm::Value *> arguments)
@@ -100,6 +110,27 @@ llvm::CallInst *callPointer(
 	auto address = builder.CreateIntToPtr(address_int, type->getPointerTo());
 	return builder.CreateCall(address, arguments);
 }
+
+llvm::Value *voidPtrToIR(llvm::IRBuilder<> &builder, void *pointer)
+{
+	return builder.CreateIntToPtr(
+		builder.getInt64((size_t)pointer),
+		getVoidPtrTy(builder));
+}
+
+llvm::Type *getVoidPtrTy(llvm::IRBuilder<> &builder)
+{
+	return builder.getVoidTy()->getPointerTo();
+}
+
+llvm::Type *getVoidPtrTy(llvm::LLVMContext &context)
+{
+	return llvm::Type::getVoidTy(context)->getPointerTo();
+}
+
+
+/* DataFlowGraph
+ **********************************************/
 
 void DataFlowCallable::printCode()
 {

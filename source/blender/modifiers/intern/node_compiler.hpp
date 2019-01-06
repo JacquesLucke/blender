@@ -23,6 +23,16 @@ struct Type;
 struct LinkSet;
 struct DataFlowGraph;
 
+llvm::CallInst *callPointer(
+	llvm::IRBuilder<> &builder,
+	void *pointer, llvm::FunctionType *type, llvm::ArrayRef<llvm::Value *> arguments);
+
+llvm::Value *voidPtrToIR(llvm::IRBuilder<> &builder, void *pointer);
+
+llvm::Type *getVoidPtrTy(llvm::IRBuilder<> &builder);
+llvm::Type *getVoidPtrTy(llvm::LLVMContext &context);
+
+
 class Type {
 private:
 	HashMap<llvm::LLVMContext *, llvm::Type *> typePerContext;
@@ -33,13 +43,48 @@ private:
 public:
 	llvm::Type *getLLVMType(llvm::LLVMContext &context);
 
-	virtual llvm::Value *buildCopyIR(
-		llvm::IRBuilder<> &builder,
-		llvm::Value *value);
+	virtual llvm::Value *buildCopyIR(llvm::IRBuilder<> &builder, llvm::Value *value);
+	virtual void buildFreeIR(llvm::IRBuilder<> &builder, llvm::Value *value);
+};
 
-	virtual void buildFreeIR(
-		llvm::IRBuilder<> &builder,
-		llvm::Value *value);
+template<typename T>
+class PointerType : public Type {
+private:
+	static void *copy_(PointerType<T> *self, void *value)
+	{ return (void *)self->copy((T *)value); }
+	static void free_(PointerType<T> *self, void *value)
+	{ self->free((T *)value); }
+
+public:
+	virtual T *copy(T *value) = 0;
+	virtual void free(T *value) = 0;
+
+	llvm::Value *buildCopyIR(llvm::IRBuilder<> &builder, llvm::Value *value)
+	{
+		llvm::Type *void_ptr = getVoidPtrTy(builder);
+
+		llvm::FunctionType *ftype = llvm::FunctionType::get(
+			void_ptr, { void_ptr, void_ptr }, false);
+
+		llvm::Value *this_pointer = voidPtrToIR(builder, this);
+		return callPointer(builder, (void *)copy_, ftype, { this_pointer, value });
+	}
+
+	void buildFreeIR(llvm::IRBuilder<> &builder, llvm::Value *value)
+	{
+		llvm::Type *void_ptr = getVoidPtrTy(builder);
+
+		llvm::FunctionType *ftype = llvm::FunctionType::get(
+			builder.getVoidTy(), {void_ptr, void_ptr}, false);
+
+		llvm::Value *this_pointer = voidPtrToIR(builder, this);
+		callPointer(builder, (void *)free_, ftype, { this_pointer, value });
+	}
+
+	llvm::Type *createLLVMType(llvm::LLVMContext &context)
+	{
+		return getVoidPtrTy(context);
+	}
 };
 
 struct AnySocket {
@@ -142,10 +187,6 @@ public:
 	{ return AnySocket::NewOutput(this, index); }
 };
 
-llvm::CallInst *callPointer(
-	llvm::IRBuilder<> &builder,
-	void *pointer, llvm::FunctionType *type, llvm::ArrayRef<llvm::Value *> arguments);
-
 class ExecuteFunctionNode : public Node {
 protected:
 	void *execute_function = nullptr;
@@ -164,9 +205,8 @@ public:
 		std::vector<llvm::Type *> arg_types;
 		std::vector<llvm::Value *> arguments;
 		if (this->use_this) {
-			llvm::Value *this_pointer = builder.CreateIntToPtr(builder.getInt64((size_t)this), llvm::Type::getVoidTy(context)->getPointerTo());
-			arguments.push_back(this_pointer);
-			arg_types.push_back(llvm::Type::getVoidTy(context)->getPointerTo());
+			arguments.push_back(voidPtrToIR(builder, this));
+			arg_types.push_back(getVoidPtrTy(builder));
 		}
 
 		arguments.insert(arguments.end(), inputs.begin(), inputs.end());

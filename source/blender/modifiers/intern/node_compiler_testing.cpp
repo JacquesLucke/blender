@@ -25,26 +25,16 @@ struct MyTypeStruct {
 	int a, b, c;
 };
 
-class MyType : public NC::Type {
+class MyType : public NC::PointerType<MyTypeStruct> {
 public:
-	MyType() {}
-
-	llvm::Type *createLLVMType(llvm::LLVMContext &context)
-	{
-		return llvm::Type::getVoidTy(context)->getPointerTo();
-	}
-
-	llvm::Value *buildCopyIR(llvm::IRBuilder<> &builder, llvm::Value *value)
-	{
-		llvm::LLVMContext &context = builder.getContext();
-		llvm::FunctionType *ftype = llvm::FunctionType::get(
-			this->getLLVMType(context), this->getLLVMType(context), false);
-		return NC::callPointer(builder, (void *)copy, ftype, value);
-	}
-
-	static MyTypeStruct *copy(MyTypeStruct *value)
+	MyTypeStruct *copy(MyTypeStruct *value)
 	{
 		return new MyTypeStruct(*value);
+	}
+
+	void free(MyTypeStruct *value)
+	{
+		delete value;
 	}
 };
 
@@ -88,7 +78,7 @@ private:
 	{
 		std::cout << "A: " << a->a << " " << a->b << " " << a->c << std::endl;
 		std::cout << "B: " << b->a << " " << b->b << " " << b->c << std::endl;
-		*r_value = 568;
+		*r_value = 1111;
 		printf("%p\n%p\n", a, b);
 		delete a;
 		delete b;
