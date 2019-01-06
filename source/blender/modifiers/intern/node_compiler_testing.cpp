@@ -126,6 +126,9 @@ public:
 		r_outputs.push_back(builder.getInt32(this->number));
 	}
 
+	std::string debug_name() const
+	{ return "Int Input " + std::to_string(this->number); }
+
 private:
 	int number;
 };
@@ -190,6 +193,58 @@ private:
 	std::string prefix;
 };
 
+class SwitchIntegerNode : public NC::Node {
+public:
+	SwitchIntegerNode(uint amount)
+	{
+		this->amount = amount;
+
+		this->addInput("Switch", type_int32);
+		for (int i = 0; i < amount; i++) {
+			this->addInput("Input (" + std::to_string(i) + ")", type_int32);
+		}
+		this->addOutput("Selected", type_int32);
+	}
+
+	void buildIR(
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs)
+	{
+		llvm::LLVMContext &context = builder.getContext();
+		llvm::Function *function = builder.GetInsertBlock()->getParent();
+
+		llvm::BasicBlock *final_block = llvm::BasicBlock::Create(context, "After Switch", function);
+		llvm::IRBuilder<> final_builder(final_block);
+		llvm::PHINode *phi = final_builder.CreatePHI(type_int32->getLLVMType(context), amount);
+
+		llvm::BasicBlock *default_dest = llvm::BasicBlock::Create(context, "Case Default", function);
+		llvm::IRBuilder<> default_builder(default_dest);
+		default_builder.CreateBr(final_block);
+
+		phi->addIncoming(final_builder.getInt32(0), default_dest);
+
+		llvm::SwitchInst *switch_inst = builder.CreateSwitch(inputs[0], default_dest, this->amount);
+		for (uint i = 0; i < this->amount; i++) {
+			auto case_block = llvm::BasicBlock::Create(builder.getContext(), "Case " + std::to_string(i), function);
+			switch_inst->addCase(builder.getInt32(i), case_block);
+
+			llvm::IRBuilder<> case_builder(case_block);
+			case_builder.CreateBr(final_block);
+
+			phi->addIncoming(inputs[i + 1], case_block);
+		}
+
+		r_outputs.push_back(phi);
+		builder.SetInsertPoint(final_block);
+	}
+
+	std::string debug_name() const { return "Int Switch"; }
+
+private:
+	uint amount;
+};
+
 
 extern "C" {
 	void run_tests(void);
@@ -197,28 +252,47 @@ extern "C" {
 
 void run_tests()
 {
-	auto in1 = new MyTypeInputNode(10, 20, 30);
-	auto mod1 = new ModifyMyTypeNode();
-	auto print1 = new MyTypePrintNode();
+	auto caseIn = new IntInputNode(0);
+	auto in1 = new IntInputNode(10);
+	auto in2 = new IntInputNode(200);
+	auto in3 = new IntInputNode(3000);
+	auto selector1 = new SwitchIntegerNode(3);
+	auto selector2 = new SwitchIntegerNode(3);
+	auto selector3 = new SwitchIntegerNode(2);
 
 	NC::DataFlowGraph graph;
+	graph.nodes.push_back(caseIn);
 	graph.nodes.push_back(in1);
-	graph.nodes.push_back(mod1);
-	graph.nodes.push_back(print1);
-	graph.links.links.push_back(NC::Link(in1->Output(0), print1->Input(0)));
-	graph.links.links.push_back(NC::Link(in1->Output(0), mod1->Input(0)));
-	graph.links.links.push_back(NC::Link(mod1->Output(0), print1->Input(1)));
+	graph.nodes.push_back(in2);
+	graph.nodes.push_back(in3);
+	graph.nodes.push_back(selector1);
+	graph.nodes.push_back(selector2);
+	graph.nodes.push_back(selector3);
 
-	NC::SocketArraySet inputs = { };
-	NC::SocketArraySet outputs = { print1->Output(0) };
+	graph.links.links.push_back(NC::Link(caseIn->Output(0), selector1->Input(0)));
+	graph.links.links.push_back(NC::Link(in1->Output(0), selector1->Input(1)));
+	graph.links.links.push_back(NC::Link(in2->Output(0), selector1->Input(2)));
+	graph.links.links.push_back(NC::Link(in3->Output(0), selector1->Input(3)));
+
+	graph.links.links.push_back(NC::Link(caseIn->Output(0), selector2->Input(0)));
+	graph.links.links.push_back(NC::Link(in1->Output(0), selector2->Input(1)));
+	graph.links.links.push_back(NC::Link(in2->Output(0), selector2->Input(2)));
+	graph.links.links.push_back(NC::Link(in3->Output(0), selector2->Input(3)));
+
+	graph.links.links.push_back(NC::Link(caseIn->Output(0), selector3->Input(0)));
+	graph.links.links.push_back(NC::Link(selector1->Output(0), selector3->Input(1)));
+	graph.links.links.push_back(NC::Link(selector2->Output(0), selector3->Input(2)));
+
+	NC::SocketArraySet inputs = { selector1->Input(0) };
+	NC::SocketArraySet outputs = { selector3->Output(0) };
 	NC::DataFlowCallable *callable = graph.generateCallable("Hello", inputs, outputs);
 
 	//callable->printCode();
-	int result = ((int (*)())callable->getFunctionPointer())();
+	int result = ((int (*)(int))callable->getFunctionPointer())(156);
 	std::cout << result << std::endl;
 
-	auto dot = graph.toDotFormat({mod1});
-	std::cout << dot << std::endl;
+	auto dot = graph.toDotFormat();
+	//std::cout << dot << std::endl;
 	WM_clipboard_text_set(dot.c_str(), false);
 
 	std::cout << "Test Finished" << std::endl;
