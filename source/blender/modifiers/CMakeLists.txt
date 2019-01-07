@@ -56,7 +56,6 @@ set(SRC
 	intern/MOD_collision.c
 	intern/MOD_correctivesmooth.c
 	intern/MOD_custom.c
-	intern/MOD_custom_compiler.cc
 	intern/MOD_curve.c
 	intern/MOD_datatransfer.c
 	intern/MOD_decimate.c
@@ -117,10 +116,6 @@ set(SRC
 	intern/MOD_weightvg_util.h
 
 	intern/node_compiler_testing.cpp
-	intern/LLVMNodeCompiler/node_compiler.cpp
-	intern/LLVMNodeCompiler/node_compiler.hpp
-	intern/LLVMNodeCompiler/ArraySet.hpp
-	intern/LLVMNodeCompiler/HashMap.hpp
 )
 
 if(WITH_ALEMBIC)

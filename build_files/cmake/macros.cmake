@@ -631,6 +631,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_freestyle
 		bf_ikplugin
 		bf_modifiers
+		bf_llvm_node_compiler
 		bf_gpencil_modifiers
 		bf_alembic
 		bf_bmesh
