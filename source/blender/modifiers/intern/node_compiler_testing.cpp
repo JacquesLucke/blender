@@ -259,16 +259,16 @@ void run_tests()
 	auto selector1 = new SwitchIntegerNode(3);
 
 	NC::DataFlowGraph graph;
-	graph.nodes.push_back(caseIn);
-	graph.nodes.push_back(in1);
-	graph.nodes.push_back(in2);
-	graph.nodes.push_back(in3);
-	graph.nodes.push_back(selector1);
+	graph.addNode(caseIn);
+	graph.addNode(in1);
+	graph.addNode(in2);
+	graph.addNode(in3);
+	graph.addNode(selector1);
 
-	graph.links.links.push_back(NC::Link(caseIn->Output(0), selector1->Input(0)));
-	graph.links.links.push_back(NC::Link(in1->Output(0), selector1->Input(1)));
-	graph.links.links.push_back(NC::Link(in2->Output(0), selector1->Input(2)));
-	graph.links.links.push_back(NC::Link(in3->Output(0), selector1->Input(3)));
+	graph.addLink(caseIn->Output(0), selector1->Input(0));
+	graph.addLink(in1->Output(0), selector1->Input(1));
+	graph.addLink(in2->Output(0), selector1->Input(2));
+	graph.addLink(in3->Output(0), selector1->Input(3));
 
 	NC::SocketArraySet inputs = { selector1->Input(0) };
 	NC::SocketArraySet outputs = { selector1->Output(0) };

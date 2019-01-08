@@ -149,8 +149,8 @@ private:
 
 class DataFlowGraph {
 public:
-	std::vector<Node *> nodes;
-	LinkSet links;
+	void addNode(Node *node);
+	void addLink(AnySocket from, AnySocket to);
 
 	DataFlowCallable *generateCallable(
 		std::string debug_name,
@@ -176,6 +176,7 @@ public:
 	std::string toDotFormat(std::vector<Node *> marked_nodes = {}) const;
 
 	SocketSet findRequiredSockets(SocketSet &inputs, SocketSet &outputs);
+
 private:
 	void findRequiredSockets(AnySocket socket, SocketSet &inputs, SocketSet &required_sockets);
 
@@ -198,6 +199,9 @@ private:
 		AnySocket output,
 		SocketValueMap &values,
 		SocketSet &required_sockets);
+
+	std::vector<Node *> nodes;
+	LinkSet links;
 };
 
 } /* namespace LLVMNodeCompiler */

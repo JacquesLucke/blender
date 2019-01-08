@@ -2,11 +2,15 @@
 
 namespace LLVMNodeCompiler {
 
-void DataFlowCallable::printCode()
+void DataFlowGraph::addNode(Node *node)
 {
-	this->module->print(llvm::outs(), nullptr);
+	this->nodes.push_back(node);
 }
 
+void DataFlowGraph::addLink(AnySocket from, AnySocket to)
+{
+	this->links.links.push_back(Link(from, to));
+}
 
 DataFlowCallable *DataFlowGraph::generateCallable(
 	std::string debug_name,

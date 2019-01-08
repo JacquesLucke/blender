@@ -16,4 +16,9 @@ void *DataFlowCallable::getFunctionPointer()
 	return this->function_pointer;
 }
 
+void DataFlowCallable::printCode()
+{
+	this->module->print(llvm::outs(), nullptr);
+}
+
 } /* namespace LLVMNodeCompiler */
