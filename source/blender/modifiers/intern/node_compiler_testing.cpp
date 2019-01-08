@@ -272,10 +272,10 @@ void run_tests()
 
 	NC::SocketArraySet inputs = { selector1->Input(0) };
 	NC::SocketArraySet outputs = { selector1->Output(0) };
-	NC::DataFlowCallable *callable = graph.generateCallable("Hello", inputs, outputs);
+	auto function = NC::compileDataFlow(graph, inputs, outputs);
 
 	//callable->printCode();
-	int result = ((int (*)(int))callable->getFunctionPointer())(156);
+	int result = ((int (*)(int))function->pointer())(156);
 	std::cout << result << std::endl;
 
 	auto dot = graph.toDotFormat();

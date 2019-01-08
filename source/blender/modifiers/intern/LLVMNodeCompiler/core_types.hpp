@@ -135,13 +135,42 @@ struct LinkSet {
 	SocketSet getTargetSockets(AnySocket socket) const;
 };
 
-class DataFlowCallable {
+class CompiledFunction {
 public:
-	DataFlowCallable(llvm::Module *module, llvm::ExecutionEngine *ee, std::string function_name);
+	CompiledFunction(void *function_pointer);
+	void *pointer();
+
+private:
+	void *function_pointer;
+};
+
+class CompiledLLVMFunction : public CompiledFunction {
+public:
+	CompiledLLVMFunction(
+		llvm::ExecutionEngine *ee,
+		llvm::Module *module,
+		std::string function_name);
+
+	void printCode();
+
+private:
+	llvm::ExecutionEngine *ee;
+	llvm::Module *module;
+};
+
+class CompiledDataFlowGraph {
+public:
+	static CompiledDataFlowGraph *FromSubgraph(
+		DataFlowGraph &graph,
+		SocketArraySet &inputs,
+		SocketArraySet &outputs);
+
 	void *getFunctionPointer();
 	void printCode();
 
 private:
+	CompiledDataFlowGraph();
+
 	void *function_pointer;
 	llvm::Module *module;
 	llvm::ExecutionEngine *ee;
@@ -151,19 +180,6 @@ class DataFlowGraph {
 public:
 	void addNode(Node *node);
 	void addLink(AnySocket from, AnySocket to);
-
-	DataFlowCallable *generateCallable(
-		std::string debug_name,
-		SocketArraySet &inputs, SocketArraySet &outputs);
-
-	llvm::Module *generateModule(
-		llvm::LLVMContext &context,
-		std::string module_name, std::string function_name,
-		SocketArraySet &inputs, SocketArraySet &outputs);
-
-	llvm::Function *generateFunction(
-		llvm::Module *module, std::string name,
-		SocketArraySet &inputs, SocketArraySet &outputs);
 
 	void generateCode(
 		llvm::IRBuilder<> &builder,
@@ -203,5 +219,10 @@ private:
 	std::vector<Node *> nodes;
 	LinkSet links;
 };
+
+CompiledLLVMFunction *compileDataFlow(
+	DataFlowGraph &graph,
+	SocketArraySet &inputs,
+	SocketArraySet &outputs);
 
 } /* namespace LLVMNodeCompiler */

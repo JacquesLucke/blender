@@ -9,7 +9,7 @@ set(INC_SYS
 
 set(SRC
     anysocket.cpp
-    dataflowcallable.cpp
+    compiled_function.cpp
     dataflowgraph.cpp
     dot_export.cpp
     ir_utils.cpp
