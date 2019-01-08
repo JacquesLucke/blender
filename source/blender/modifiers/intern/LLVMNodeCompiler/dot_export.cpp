@@ -9,7 +9,7 @@ const static std::string indent2 = indent1 + indent1;
 const static std::string indent3 = indent2 + indent1;
 const static std::string indent4 = indent2 + indent2;
 
-static std::string dot_id(Node *node)
+static std::string dot_id(const Node *node)
 {
 	return "\"" + node->str_id() + "\"";
 }
@@ -73,11 +73,11 @@ std::string DataFlowGraph::toDotFormat(std::vector<Node *> marked_nodes) const
 	ss << "digraph MyGraph {" << std::endl;
 	ss << indent1 << "rankdir=LR" << std::endl;
 
-	for (Node *node : this->nodes) {
+	for (Node *node : this->nodes()) {
 		dot_InsertNode_WithSockets(ss, node);
 	}
 
-	for (Link link : this->links.links) {
+	for (Link link : this->links().links) {
 		dot_InsertLink_WithSockets(ss, link);
 	}
 

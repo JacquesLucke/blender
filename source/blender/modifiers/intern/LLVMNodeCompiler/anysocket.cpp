@@ -14,7 +14,7 @@ bool AnySocket::is_input() const
 	return !this->m_is_output;
 }
 
-Node *AnySocket::node() const
+const Node *AnySocket::node() const
 {
 	return this->m_node;
 }
@@ -51,12 +51,12 @@ std::string AnySocket::str_id() const
 	return ss.str();
 }
 
-AnySocket AnySocket::NewInput(Node *node, uint index)
+AnySocket AnySocket::NewInput(const Node *node, uint index)
 {
 	return AnySocket(node, false, index);
 }
 
-AnySocket AnySocket::NewOutput(Node *node, uint index)
+AnySocket AnySocket::NewOutput(const Node *node, uint index)
 {
 	return AnySocket(node, true, index);
 }
@@ -69,7 +69,13 @@ bool operator==(const AnySocket &left, const AnySocket &right)
 		&& left.m_index == right.m_index);
 }
 
-AnySocket::AnySocket(Node *node, bool is_output, uint index)
+std::ostream &operator<<(std::ostream &stream, const AnySocket &socket)
+{
+	stream << socket.debug_name();
+	return stream;
+}
+
+AnySocket::AnySocket(const Node *node, bool is_output, uint index)
 	: m_node(node), m_is_output(is_output), m_index(index) {}
 
 

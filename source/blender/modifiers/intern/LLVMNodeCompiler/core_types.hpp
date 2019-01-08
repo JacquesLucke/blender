@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <iostream>
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Verifier.h"
@@ -40,24 +41,25 @@ struct AnySocket {
 public:
 	bool is_output() const;
 	bool is_input() const;
-	Node *node() const;
+	const Node *node() const;
 	uint index() const;
 
 	Type *type() const;
 	std::string debug_name() const;
 	std::string str_id() const;
 
-	static AnySocket NewInput(Node *node, uint index);
-	static AnySocket NewOutput(Node *node, uint index);
+	static AnySocket NewInput(const Node *node, uint index);
+	static AnySocket NewOutput(const Node *node, uint index);
 
 	friend bool operator==(const AnySocket &left, const AnySocket &right);
+	friend std::ostream &operator<<(std::ostream &stream, const AnySocket &socket);
 
 private:
-	AnySocket(Node *node, bool is_output, uint index);
+	AnySocket(const Node *node, bool is_output, uint index);
 
 	const SocketInfo *info() const;
 
-	Node *m_node;
+	const Node *m_node;
 	bool m_is_output;
 	uint m_index;
 };
@@ -101,11 +103,11 @@ private:
 
 class Node {
 public:
-	const NodeSockets &inputs();
-	const NodeSockets &outputs();
+	const NodeSockets &inputs() const;
+	const NodeSockets &outputs() const;
 
-	AnySocket Input(const uint index);
-	AnySocket Output(const uint index);
+	AnySocket Input(const uint index) const;
+	AnySocket Output(const uint index) const;
 
 	void addInput(std::string debug_name, Type *type);
 	void addOutput(std::string debug_name, Type *type);
@@ -116,7 +118,9 @@ public:
 	virtual void buildIR(
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &inputs,
-		std::vector<llvm::Value *> &r_outputs) = 0;
+		std::vector<llvm::Value *> &r_outputs) const = 0;
+
+	friend std::ostream &operator<<(std::ostream &stream, const Node &node);
 
 private:
 	NodeSockets m_inputs, m_outputs;
@@ -131,6 +135,7 @@ struct Link {
 struct LinkSet {
 	std::vector<Link> links;
 
+	bool isLinked(AnySocket socket) const;
 	AnySocket getOriginSocket(AnySocket socket) const;
 	SocketSet getTargetSockets(AnySocket socket) const;
 };
@@ -176,10 +181,17 @@ private:
 	llvm::ExecutionEngine *ee;
 };
 
+using NodeSet = ArraySet<Node *>;
+
 class DataFlowGraph {
 public:
 	void addNode(Node *node);
 	void addLink(AnySocket from, AnySocket to);
+
+	bool verify() const;
+
+	const NodeSet &nodes() const;
+	const LinkSet &links() const;
 
 	void generateCode(
 		llvm::IRBuilder<> &builder,
@@ -216,8 +228,8 @@ private:
 		SocketValueMap &values,
 		SocketSet &required_sockets);
 
-	std::vector<Node *> nodes;
-	LinkSet links;
+	NodeSet m_nodes;
+	LinkSet m_links;
 };
 
 CompiledLLVMFunction *compileDataFlow(

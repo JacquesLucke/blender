@@ -121,7 +121,7 @@ public:
 	void buildIR(
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &UNUSED(inputs),
-		std::vector<llvm::Value *> &r_outputs)
+		std::vector<llvm::Value *> &r_outputs) const
 	{
 		r_outputs.push_back(builder.getInt32(this->number));
 	}
@@ -144,7 +144,7 @@ public:
 	void buildIR(
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &UNUSED(inputs),
-		std::vector<llvm::Value *> &r_outputs)
+		std::vector<llvm::Value *> &r_outputs) const
 	{
 		auto address = NC::ptrToIR(builder, this->pointer, builder.getInt32Ty());
 		r_outputs.push_back(builder.CreateLoad(address));
@@ -166,7 +166,7 @@ public:
 	void buildIR(
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &inputs,
-		std::vector<llvm::Value *> &r_outputs)
+		std::vector<llvm::Value *> &r_outputs) const
 	{
 		r_outputs.push_back(builder.CreateAdd(inputs[0], inputs[1]));
 	}
@@ -209,7 +209,7 @@ public:
 	void buildIR(
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &inputs,
-		std::vector<llvm::Value *> &r_outputs)
+		std::vector<llvm::Value *> &r_outputs) const
 	{
 		llvm::LLVMContext &context = builder.getContext();
 		llvm::Function *function = builder.GetInsertBlock()->getParent();
@@ -267,16 +267,20 @@ void run_tests()
 
 	graph.addLink(caseIn->Output(0), selector1->Input(0));
 	graph.addLink(in1->Output(0), selector1->Input(1));
-	graph.addLink(in2->Output(0), selector1->Input(2));
+	//graph.addLink(in2->Output(0), selector1->Input(2));
 	graph.addLink(in3->Output(0), selector1->Input(3));
+
+	if (!graph.verify()) {
+		return;
+	}
 
 	NC::SocketArraySet inputs = { selector1->Input(0) };
 	NC::SocketArraySet outputs = { selector1->Output(0) };
 	auto function = NC::compileDataFlow(graph, inputs, outputs);
 
 	//callable->printCode();
-	int result = ((int (*)(int))function->pointer())(156);
-	std::cout << result << std::endl;
+	int result = ((int (*)(int))function->pointer())(1);
+	std::cout << "Result " << result << std::endl;
 
 	auto dot = graph.toDotFormat();
 	//std::cout << dot << std::endl;

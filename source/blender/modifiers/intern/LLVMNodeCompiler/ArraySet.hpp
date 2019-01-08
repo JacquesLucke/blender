@@ -28,14 +28,14 @@ public:
 		}
 	}
 
-	void add(T value)
+	void add(const T value)
 	{
 		if (!this->contains(value)) {
 			this->entries.push_back(value);
 		}
 	}
 
-	bool contains(T value) const
+	bool contains(const T value) const
 	{
 		for (T entry : this->entries) {
 			if (entry == value) return true;
@@ -70,8 +70,8 @@ public:
 		return this->entries.size();
 	}
 
-	const_iterator begin()
+	const_iterator begin() const
 	{ return this->entries.begin(); }
-	const_iterator end()
+	const_iterator end() const
 	{ return this->entries.end(); }
 };

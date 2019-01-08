@@ -2,15 +2,71 @@
 
 namespace LLVMNodeCompiler {
 
+/* Build Graph
+ **********************************/
+
 void DataFlowGraph::addNode(Node *node)
 {
-	this->nodes.push_back(node);
+	this->m_nodes.add(node);
 }
 
 void DataFlowGraph::addLink(AnySocket from, AnySocket to)
 {
-	this->links.links.push_back(Link(from, to));
+	this->m_links.links.push_back(Link(from, to));
 }
+
+const NodeSet &DataFlowGraph::nodes() const
+{
+	return this->m_nodes;
+}
+
+const LinkSet &DataFlowGraph::links() const
+{
+	return this->m_links;
+}
+
+
+/* Verify Graph
+ **********************************/
+
+static bool verify_NoLinksToUnknownNodes(const DataFlowGraph &graph)
+{
+	for (Link link : graph.links().links) {
+		for (const Node *node : {link.from.node(), link.to.node()}) {
+			if (!graph.nodes().contains((Node *)node)) {
+				std::cout << "Link references unknown node: " << node << std::endl;
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+static bool verify_EveryInputSocketIsConnected(const DataFlowGraph &graph)
+{
+	for (const Node *node : graph.nodes()) {
+		for (uint i = 0; i < node->inputs().size(); i++) {
+			AnySocket socket = node->Input(i);
+			if (!graph.links().isLinked(socket)) {
+				std::cout << "Input socket is not connected: " << socket << std::endl;
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+bool DataFlowGraph::verify() const
+{
+	const DataFlowGraph &graph = *this;
+	if (!verify_NoLinksToUnknownNodes(graph)) return false;
+	if (!verify_EveryInputSocketIsConnected(graph)) return false;
+	return true;
+}
+
+
+/* Generate Code
+ ***********************************/
 
 void DataFlowGraph::generateCode(
 	llvm::IRBuilder<> &builder,
@@ -50,7 +106,7 @@ void DataFlowGraph::generateCodeForSocket(
 		this->forwardOutputIfNecessary(builder, origin, values, required_sockets, forwarded_sockets);
 	}
 	else if (socket.is_output()) {
-		Node *node = socket.node();
+		const Node *node = socket.node();
 		std::vector<llvm::Value *> input_values;
 		for (uint i = 0; i < node->inputs().size(); i++) {
 			AnySocket input = node->Input(i);
@@ -148,7 +204,7 @@ void DataFlowGraph::findRequiredSockets(AnySocket socket, SocketSet &inputs, Soc
 	}
 
 	if (socket.is_output()) {
-		Node *node = socket.node();
+		const Node *node = socket.node();
 		for (uint i = 0; i < node->inputs().size(); i++) {
 			AnySocket input = AnySocket::NewInput(socket.node(), i);
 			this->findRequiredSockets(input, inputs, required_sockets);
@@ -159,12 +215,12 @@ void DataFlowGraph::findRequiredSockets(AnySocket socket, SocketSet &inputs, Soc
 
 AnySocket DataFlowGraph::getOriginSocket(AnySocket socket) const
 {
-	return this->links.getOriginSocket(socket);
+	return this->links().getOriginSocket(socket);
 }
 
 SocketSet DataFlowGraph::getTargetSockets(AnySocket socket) const
 {
-	return this->links.getTargetSockets(socket);
+	return this->links().getTargetSockets(socket);
 }
 
 } /* namespace LLVMNodeCompiler */
