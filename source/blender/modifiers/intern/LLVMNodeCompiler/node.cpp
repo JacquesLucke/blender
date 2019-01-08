@@ -4,6 +4,8 @@
 
 namespace LLVMNodeCompiler {
 
+Node::~Node() { }
+
 const NodeSockets &Node::inputs() const
 {
 	return this->m_inputs;

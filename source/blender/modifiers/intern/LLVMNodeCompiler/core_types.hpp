@@ -103,6 +103,8 @@ private:
 
 class Node {
 public:
+	virtual ~Node();
+
 	const NodeSockets &inputs() const;
 	const NodeSockets &outputs() const;
 
@@ -143,6 +145,7 @@ struct LinkSet {
 class CompiledFunction {
 public:
 	CompiledFunction(void *function_pointer);
+	virtual ~CompiledFunction();
 	void *pointer();
 
 private:
@@ -155,36 +158,21 @@ public:
 		llvm::ExecutionEngine *ee,
 		llvm::Module *module,
 		std::string function_name);
+	~CompiledLLVMFunction();
 
 	void printCode();
 
 private:
 	llvm::ExecutionEngine *ee;
 	llvm::Module *module;
-};
-
-class CompiledDataFlowGraph {
-public:
-	static CompiledDataFlowGraph *FromSubgraph(
-		DataFlowGraph &graph,
-		SocketArraySet &inputs,
-		SocketArraySet &outputs);
-
-	void *getFunctionPointer();
-	void printCode();
-
-private:
-	CompiledDataFlowGraph();
-
-	void *function_pointer;
-	llvm::Module *module;
-	llvm::ExecutionEngine *ee;
 };
 
 using NodeSet = ArraySet<Node *>;
 
 class DataFlowGraph {
 public:
+	~DataFlowGraph();
+
 	void addNode(Node *node);
 	void addLink(AnySocket from, AnySocket to);
 

@@ -7,6 +7,8 @@ CompiledFunction::CompiledFunction(void *function_pointer)
 	this->function_pointer = function_pointer;
 }
 
+CompiledFunction::~CompiledFunction() {}
+
 void *CompiledFunction::pointer()
 {
 	return this->function_pointer;
@@ -18,6 +20,11 @@ CompiledLLVMFunction::CompiledLLVMFunction(
 	std::string function_name)
 	: CompiledFunction((void *)ee->getFunctionAddress(function_name)),
 	  ee(ee), module(module) {}
+
+CompiledLLVMFunction::~CompiledLLVMFunction()
+{
+	delete ee;
+}
 
 void CompiledLLVMFunction::printCode()
 {

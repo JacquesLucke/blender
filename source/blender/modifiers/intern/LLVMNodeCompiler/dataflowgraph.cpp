@@ -25,6 +25,16 @@ const LinkSet &DataFlowGraph::links() const
 	return this->m_links;
 }
 
+/* Freeing
+ *********************************/
+
+DataFlowGraph::~DataFlowGraph()
+{
+	for (Node *node : this->m_nodes) {
+		delete node;
+	}
+}
+
 
 /* Verify Graph
  **********************************/

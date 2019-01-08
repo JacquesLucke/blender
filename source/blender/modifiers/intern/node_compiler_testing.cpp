@@ -206,6 +206,11 @@ public:
 		this->addOutput("Selected", type_int32);
 	}
 
+	~SwitchIntegerNode()
+	{
+		std::cout << "Free Switch" << std::endl;
+	}
+
 	void buildIR(
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &inputs,
@@ -267,7 +272,7 @@ void run_tests()
 
 	graph.addLink(caseIn->Output(0), selector1->Input(0));
 	graph.addLink(in1->Output(0), selector1->Input(1));
-	//graph.addLink(in2->Output(0), selector1->Input(2));
+	graph.addLink(in2->Output(0), selector1->Input(2));
 	graph.addLink(in3->Output(0), selector1->Input(3));
 
 	if (!graph.verify()) {
