@@ -77,6 +77,7 @@
 #include "../gpu/gpu_py_api.h"
 #include "../bmesh/bmesh_py_api.h"
 #include "../mathutils/mathutils.h"
+#include "../functions/functions_py_api.h"
 
 /* Logging types to use anywhere in the Python modules. */
 CLG_LOGREF_DECLARE_GLOBAL(BPY_LOG_CONTEXT, "bpy.context");
@@ -235,6 +236,7 @@ static struct _inittab bpy_internal_modules[] = {
 #endif
 	{"gpu", BPyInit_gpu},
 	{"idprop", BPyInit_idprop},
+	{"functions", BPyInit_functions},
 	{NULL, NULL}
 };
 
