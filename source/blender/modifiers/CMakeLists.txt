@@ -34,6 +34,7 @@ set(INC
 	../makesdna
 	../makesrna
 	../bmesh
+	../functions
 	../render/extern/include
 	../../../intern/elbeem/extern
 	../../../intern/guardedalloc
