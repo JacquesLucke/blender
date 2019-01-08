@@ -1,6 +1,5 @@
 set(INC
 	.
-	../../../blenlib
 )
 
 set(INC_SYS

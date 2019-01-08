@@ -11,7 +11,12 @@
 #include "ArraySet.hpp"
 #include "HashMap.hpp"
 
-#include "BLI_utildefines.h"
+/* copied from BLI_utildefines.h */
+#if defined(__GNUC__) || defined(__clang__)
+#  define UNUSED(x) UNUSED_ ## x __attribute__((__unused__))
+#else
+#  define UNUSED(x) UNUSED_ ## x
+#endif
 
 namespace LLVMNodeCompiler {
 

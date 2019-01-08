@@ -38,6 +38,7 @@ set(INC
 	../../../intern/elbeem/extern
 	../../../intern/guardedalloc
 	../../../intern/eigen
+	../../../intern/nodecompiler/src
 )
 
 set(INC_SYS

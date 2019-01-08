@@ -1,5 +1,5 @@
 #include <iostream>
-#include "LLVMNodeCompiler/core.hpp"
+#include "nodecompiler/core.hpp"
 
 extern "C" {
 	void WM_clipboard_text_set(const char *buf, bool selection);
