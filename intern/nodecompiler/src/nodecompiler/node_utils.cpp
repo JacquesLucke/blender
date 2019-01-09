@@ -2,10 +2,16 @@
 
 namespace LLVMNodeCompiler {
 
+void ExecuteFunctionNode::set_execute_function(void *function, bool use_this)
+{
+	this->execute_function = function;
+	this->use_this = use_this;
+}
+
 void ExecuteFunctionNode::buildIR(
 	llvm::IRBuilder<> &builder,
 	std::vector<llvm::Value *> &inputs,
-	std::vector<llvm::Value *> &r_outputs)
+	std::vector<llvm::Value *> &r_outputs) const
 {
 	assert(this->execute_function);
 
