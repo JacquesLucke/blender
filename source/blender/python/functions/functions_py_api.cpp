@@ -10,7 +10,7 @@
 
 namespace NC = LLVMNodeCompiler;
 
-static int PyDict_GetNumberByString(PyObject *dict, const char *key)
+static int PyDict_GetIntByString(PyObject *dict, const char *key)
 {
 	return PyLong_AsLong(PyDict_GetItemString(dict, key));
 }
@@ -36,11 +36,11 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 
 		NC::Node *node;
 		if (_PyUnicode_EqualToASCIIString(node_type_py, "int_input")) {
-			int number = PyDict_GetNumberByString(node_py, "number");
+			int number = PyDict_GetIntByString(node_py, "number");
 			node = new Int32InputNode(number);
 		}
 		else if (_PyUnicode_EqualToASCIIString(node_type_py, "add_ints")) {
-			int amount = PyDict_GetNumberByString(node_py, "amount");
+			int amount = PyDict_GetIntByString(node_py, "amount");
 			node = new AddNumbersNode(amount, type_int32);
 		}
 		else {
@@ -56,11 +56,11 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 	for (int i = 0; i < PyList_Size(links_py); i++) {
 		PyObject *link_py = PyList_GetItem(links_py, i);
 
-		NC::Node *from_node = node_array[PyDict_GetNumberByString(link_py, "from_node")];
-		NC::Node *to_node = node_array[PyDict_GetNumberByString(link_py, "to_node")];
+		NC::Node *from_node = node_array[PyDict_GetIntByString(link_py, "from_node")];
+		NC::Node *to_node = node_array[PyDict_GetIntByString(link_py, "to_node")];
 
-		int from_index = PyDict_GetNumberByString(link_py, "from_index");
-		int to_index = PyDict_GetNumberByString(link_py, "to_index");
+		int from_index = PyDict_GetIntByString(link_py, "from_index");
+		int to_index = PyDict_GetIntByString(link_py, "to_index");
 
 		graph.addLink(from_node->Output(from_index), to_node->Input(to_index));
 	}
@@ -77,9 +77,9 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 	for (int i = 0; i < PyList_Size(inputs_py); i++) {
 		PyObject *input_py = PyList_GetItem(inputs_py, i);
 
-		NC::Node *node = node_array[PyDict_GetNumberByString(input_py, "node")];
+		NC::Node *node = node_array[PyDict_GetIntByString(input_py, "node")];
 		bool is_output = PyDict_GetBoolByString(input_py, "is_output");
-		int index = PyDict_GetNumberByString(input_py, "index");
+		int index = PyDict_GetIntByString(input_py, "index");
 
 		if (is_output) inputs.add(node->Output(index));
 		else inputs.add(node->Input(index));
@@ -89,9 +89,9 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 	for (int i = 0; i < PyList_Size(outputs_py); i++) {
 		PyObject *output_py = PyList_GetItem(outputs_py, i);
 
-		NC::Node *node = node_array[PyDict_GetNumberByString(output_py, "node")];
+		NC::Node *node = node_array[PyDict_GetIntByString(output_py, "node")];
 		bool is_output = PyDict_GetBoolByString(output_py, "is_output");
-		int index = PyDict_GetNumberByString(output_py, "index");
+		int index = PyDict_GetIntByString(output_py, "index");
 
 		if (is_output) outputs.add(node->Output(index));
 		else outputs.add(node->Input(index));
