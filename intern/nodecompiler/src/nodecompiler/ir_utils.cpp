@@ -4,19 +4,19 @@ namespace LLVMNodeCompiler {
 
 llvm::CallInst *callPointer(
 	llvm::IRBuilder<> &builder,
-	void *pointer, llvm::FunctionType *type, llvm::ArrayRef<llvm::Value *> arguments)
+	const void *pointer, llvm::FunctionType *type, llvm::ArrayRef<llvm::Value *> arguments)
 {
 	auto address_int = builder.getInt64((size_t)pointer);
 	auto address = builder.CreateIntToPtr(address_int, type->getPointerTo());
 	return builder.CreateCall(address, arguments);
 }
 
-llvm::Value *voidPtrToIR(llvm::IRBuilder<> &builder, void *pointer)
+llvm::Value *voidPtrToIR(llvm::IRBuilder<> &builder, const void *pointer)
 {
 	return ptrToIR(builder, pointer, getVoidPtrTy(builder));
 }
 
-llvm::Value *ptrToIR(llvm::IRBuilder<> &builder, void *pointer, llvm::Type *type)
+llvm::Value *ptrToIR(llvm::IRBuilder<> &builder, const void *pointer, llvm::Type *type)
 {
 	return builder.CreateIntToPtr(builder.getInt64((size_t)pointer), type);
 }
