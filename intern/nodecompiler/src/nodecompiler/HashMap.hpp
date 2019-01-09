@@ -26,7 +26,7 @@ public:
 
 	bool contains(TKey key)
 	{
-		for (Entry entry : this->entries) {
+		for (Entry& entry : this->entries) {
 			if (entry.key == key) return true;
 		}
 		return false;
@@ -42,7 +42,7 @@ public:
 
 	TValue lookup(TKey key)
 	{
-		for (Entry entry : this->entries) {
+		for (Entry& entry : this->entries) {
 			if (entry.key == key) return entry.value;
 		}
 

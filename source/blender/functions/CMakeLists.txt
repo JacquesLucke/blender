@@ -29,12 +29,12 @@ set(INC_SYS
 )
 
 set(SRC
-	nodes/nodes.hpp
-	nodes/float_math.cpp
-	nodes/number_input.cpp
+	function_nodes/nodes/nodes.hpp
+	function_nodes/nodes/scalar_math.cpp
+	function_nodes/nodes/number_input.cpp
 
-	types/types.hpp
-	types/number_types.cpp
+	function_nodes/types/types.hpp
+	function_nodes/types/number_types.cpp
 )
 
 blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}")

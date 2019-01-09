@@ -66,11 +66,31 @@ static bool verify_EveryInputSocketIsConnected(const DataFlowGraph &graph)
 	return true;
 }
 
+static bool verify_EverySocketHasType(const DataFlowGraph &graph)
+{
+	for (const Node *node : graph.nodes()) {
+		for (uint i = 0; i < node->inputs().size(); i++) {
+			if (node->inputs()[i].type == NULL) {
+				std::cout << "Input socket has no type: " << node->Input(i) << std::endl;
+				return false;
+			}
+		}
+		for (uint i = 0; i < node->outputs().size(); i++) {
+			if (node->outputs()[i].type == NULL) {
+				std::cout << "Output socket has no type: " << node->Output(i) << std::endl;
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 bool DataFlowGraph::verify() const
 {
 	const DataFlowGraph &graph = *this;
 	if (!verify_NoLinksToUnknownNodes(graph)) return false;
 	if (!verify_EveryInputSocketIsConnected(graph)) return false;
+	if (!verify_EverySocketHasType(graph)) return false;
 	return true;
 }
 
@@ -87,6 +107,8 @@ void DataFlowGraph::generateCode(
 	assert(inputs.size() == input_values.size());
 
 	SocketSet required_sockets = this->findRequiredSockets(inputs, outputs);
+
+	std::cout << "required sockets: " << required_sockets << std::endl;
 
 	SocketValueMap values;
 	for (uint i = 0; i < inputs.size(); i++) {
@@ -216,7 +238,7 @@ void DataFlowGraph::findRequiredSockets(AnySocket socket, SocketSet &inputs, Soc
 	if (socket.is_output()) {
 		const Node *node = socket.node();
 		for (uint i = 0; i < node->inputs().size(); i++) {
-			AnySocket input = AnySocket::NewInput(socket.node(), i);
+			AnySocket input = socket.node()->Input(i);
 			this->findRequiredSockets(input, inputs, required_sockets);
 		}
 		return;

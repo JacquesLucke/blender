@@ -1,4 +1,4 @@
-#include "nodes/nodes.hpp"
+#include "nodes.hpp"
 
 AddNumbersNode::AddNumbersNode(uint amount, NC::Type *type)
 	: amount(amount), type(type)

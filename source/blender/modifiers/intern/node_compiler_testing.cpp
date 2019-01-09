@@ -1,6 +1,6 @@
 #include <iostream>
-#include "nodes/nodes.hpp"
-#include "types/types.hpp"
+#include "function_nodes/nodes/nodes.hpp"
+#include "function_nodes/types/types.hpp"
 
 extern "C" {
 	void WM_clipboard_text_set(const char *buf, bool selection);

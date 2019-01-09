@@ -44,7 +44,9 @@ static llvm::Function *generateFunction(
 
 	std::vector<llvm::Type *> output_types;
 	for (AnySocket socket : outputs) {
-		output_types.push_back(socket.type()->getLLVMType(context));
+		Type *type = socket.type();
+		llvm::Type *llvm_type = type->getLLVMType(context);
+		output_types.push_back(llvm_type);
 	}
 
 	llvm::StructType *return_type = llvm::StructType::create(output_types, name + " Output");
@@ -88,7 +90,6 @@ static llvm::Module *generateModule(
 	assert(outputs.size() > 0);
 	llvm::Module *module = new llvm::Module(module_name, context);
 	generateFunction(module, function_name, graph, inputs, outputs);
-	module->print(llvm::outs(), nullptr);
 	return module;
 }
 

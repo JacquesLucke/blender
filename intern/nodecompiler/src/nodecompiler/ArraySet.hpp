@@ -74,4 +74,14 @@ public:
 	{ return this->entries.begin(); }
 	const_iterator end() const
 	{ return this->entries.end(); }
+
+	friend std::ostream &operator<<(std::ostream &stream, const ArraySet<T> &array)
+	{
+		stream << "{" << std::endl;
+		for (T entry : array) {
+			stream << "  " << entry << std::endl;
+		}
+		stream << "}" << std::endl;
+		return stream;
+	}
 };

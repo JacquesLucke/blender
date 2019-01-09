@@ -20,17 +20,18 @@
 
 set(INC
 	.
-	../../blenkernel
 	../../blenlib
-	../../modifiers/intern
+	../../functions
+	../../../../intern/nodecompiler/src
 )
 
 set(INC_SYS
 	${PYTHON_INCLUDE_DIRS}
+	/usr/lib/llvm-6.0/include
 )
 
 set(SRC
-	functions_py_api.c
+	functions_py_api.cpp
 
 	functions_py_api.h
 )

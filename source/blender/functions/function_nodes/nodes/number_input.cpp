@@ -1,5 +1,5 @@
-#include "nodes/nodes.hpp"
-#include "types/types.hpp"
+#include "nodes.hpp"
+#include "../types/types.hpp"
 
 Int32InputNode::Int32InputNode(int number)
 	: number(number)
