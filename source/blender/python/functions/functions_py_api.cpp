@@ -12,6 +12,7 @@ namespace NC = LLVMNodeCompiler;
 
 extern "C" {
 	void WM_clipboard_text_set(const char *buf, bool selection);
+	void set_custom_displace_function(void *f);
 }
 
 static int PyDict_GetIntByString(PyObject *dict, const char *key)
@@ -152,6 +153,7 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 	float value = 5;
 
 	void *ptr = function->pointer();
+	set_custom_displace_function(ptr);
 	((void (*)(Vector3*, float*, Vector3*))ptr)(&input, &value, &result);
 
 	std::cout << "Result: " << result.x << " " << result.y << " " << result.z << std::endl;

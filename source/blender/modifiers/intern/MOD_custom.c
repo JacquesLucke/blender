@@ -42,23 +42,46 @@
 #include "MOD_util.h"
 
 #include "DEG_depsgraph.h"
+#include "time.h"
 
-void run_tests(void);
+typedef void (*DisplaceFunction)(float input[3], float *control, float r_result[3]);
+
+static DisplaceFunction function = NULL;
+
+void set_custom_displace_function(DisplaceFunction);
+void set_custom_displace_function(DisplaceFunction f)
+{
+	function = f;
+}
 
 static Mesh *applyModifier(
         ModifierData *UNUSED(md), const ModifierEvalContext *UNUSED(ctx),
-        Mesh *UNUSED(mesh))
+        Mesh *mesh_orig)
 {
-	run_tests();
-	Mesh *new_mesh = BKE_mesh_new_nomain(1, 0, 0, 0, 0);
-	new_mesh->mvert[0].co[0] = 1;
-	new_mesh->mvert[0].co[1] = 2;
-	new_mesh->mvert[0].co[2] = 3;
-	return new_mesh;
+	Mesh *mesh = BKE_mesh_copy_for_eval(mesh_orig, false);
+
+	clock_t start = clock();
+	if (function != NULL) {
+		for (int i = 0; i < mesh->totvert; i++) {
+			float result[3];
+			float value = 2;
+			function(mesh->mvert[i].co, &value, result);
+			copy_v3_v3(mesh->mvert[i].co, result);
+		}
+	}
+	clock_t end = clock();
+	printf("Time taken: %f s\n", (float)(end - start) / (float)CLOCKS_PER_SEC);
+
+	return mesh;
 }
 
 static void initData(ModifierData *UNUSED(md))
 {
+}
+
+static bool dependsOnTime(ModifierData *UNUSED(md))
+{
+	return true;
 }
 
 
@@ -87,7 +110,7 @@ ModifierTypeInfo modifierType_Custom = {
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
 	/* updateDepsgraph */   NULL,
-	/* dependsOnTime */     NULL,
+	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */	NULL,
 	/* foreachObjectLink */ NULL,
 	/* foreachIDLink */     NULL,
