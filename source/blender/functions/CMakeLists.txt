@@ -33,6 +33,7 @@ set(SRC
 	function_nodes/nodes/scalar_math.cpp
 	function_nodes/nodes/number_input.cpp
 	function_nodes/nodes/vector_math.cpp
+	function_nodes/nodes/generic.cpp
 
 	function_nodes/types/types.hpp
 	function_nodes/types/number_types.cpp

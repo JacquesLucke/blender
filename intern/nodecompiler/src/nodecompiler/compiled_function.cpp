@@ -58,7 +58,6 @@ static llvm::Function *generateFunction(
 
 	std::vector<llvm::Value *> input_values;
 	for (uint i = 0; i < inputs.size(); i++) {
-		// llvm::Value *value = llvm::UndefValue::get(inputs[i].type()->getLLVMType(context));
 		llvm::Value *value = builder.CreateLoad(function->arg_begin() + i);
 		input_values.push_back(value);
 	}

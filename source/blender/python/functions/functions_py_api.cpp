@@ -10,6 +10,10 @@
 
 namespace NC = LLVMNodeCompiler;
 
+extern "C" {
+	void WM_clipboard_text_set(const char *buf, bool selection);
+}
+
 static int PyDict_GetIntByString(PyObject *dict, const char *key)
 {
 	return PyLong_AsLong(PyDict_GetItemString(dict, key));
@@ -68,6 +72,12 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 			int amount = PyDict_GetIntByString(node_py, "amount");
 			node = new AddVectorsNode(amount);
 		}
+		else if (PyStringEQ(node_type_py, "pass_through_float")) {
+			node = new PassThroughNode(type_float);
+		}
+		else if (PyStringEQ(node_type_py, "pass_through_vec3")) {
+			node = new PassThroughNode(type_vec3);
+		}
 		else {
 			PyErr_SetString(PyExc_RuntimeError, "unknown node type");
 			return NULL;
@@ -122,7 +132,8 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 		else outputs.add(node->Input(index));
 	}
 
-	// std::string dot = graph.toDotFormat();
+	std::string dot = graph.toDotFormat();
+	WM_clipboard_text_set(dot.c_str(), false);
 	// std::cout << dot << std::endl << std::endl;
 
 	std::cout << "Inputs: " << inputs << std::endl;
@@ -133,14 +144,14 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 	NC::CompiledLLVMFunction *function = NC::compileDataFlow(graph, inputs, outputs);
 	function->printCode();
 
-	typedef struct {float x, y, z;} Vec3;
-	Vec3 input = {1, 2, 3};
-	Vec3 result1, result2;
+	// typedef struct {float x, y, z;} Vec3;
+	// Vec3 input = {1, 2, 3};
+	// Vec3 result1, result2;
 
-	void *ptr = function->pointer();
-	((void (*)(Vec3*, Vec3*))ptr)(&input, &result1);
+	// void *ptr = function->pointer();
+	// ((void (*)(Vec3*, Vec3*))ptr)(&input, &result1);
 
-	std::cout << "Result: " << result1.x << " " << result1.y << " " << result1.z << std::endl;
+	// std::cout << "Result: " << result1.x << " " << result1.y << " " << result1.z << std::endl;
 	// std::cout << "Result: " << result2.x << " " << result2.y << " " << result2.z << std::endl;
 
 	Py_RETURN_NONE;

@@ -78,3 +78,13 @@ public:
 private:
 	uint amount;
 };
+
+class PassThroughNode : public NC::Node {
+public:
+	PassThroughNode(NC::Type *type);
+
+	void buildIR(
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) const;
+};
