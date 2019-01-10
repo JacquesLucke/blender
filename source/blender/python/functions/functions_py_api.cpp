@@ -15,10 +15,17 @@ static int PyDict_GetIntByString(PyObject *dict, const char *key)
 	return PyLong_AsLong(PyDict_GetItemString(dict, key));
 }
 
+static float PyDict_GetFloatByString(PyObject *dict, const char *key)
+{
+	return (float)PyFloat_AsDouble(PyDict_GetItemString(dict, key));
+}
+
 static bool PyDict_GetBoolByString(PyObject *dict, const char *key)
 {
 	return (PyDict_GetItemString(dict, key)) == Py_True;
 }
+
+#define PyStringEQ _PyUnicode_EqualToASCIIString
 
 
 PyDoc_STRVAR(set_function_graph_doc,
@@ -35,13 +42,21 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 		PyObject *node_type_py = PyDict_GetItemString(node_py, "type");
 
 		NC::Node *node;
-		if (_PyUnicode_EqualToASCIIString(node_type_py, "int_input")) {
+		if (PyStringEQ(node_type_py, "int_input")) {
 			int number = PyDict_GetIntByString(node_py, "number");
 			node = new Int32InputNode(number);
 		}
-		else if (_PyUnicode_EqualToASCIIString(node_type_py, "add_ints")) {
+		else if (PyStringEQ(node_type_py, "float_input")) {
+			float number = PyDict_GetFloatByString(node_py, "number");
+			node = new FloatInputNode(number);
+		}
+		else if (PyStringEQ(node_type_py, "add_ints")) {
 			int amount = PyDict_GetIntByString(node_py, "amount");
-			node = new AddNumbersNode(amount, type_int32);
+			node = new AddIntegersNode(amount, type_int32);
+		}
+		else if (PyStringEQ(node_type_py, "add_floats")) {
+			int amount = PyDict_GetIntByString(node_py, "amount");
+			node = new AddFloatsNode(amount, type_float);
 		}
 		else {
 			PyErr_SetString(PyExc_RuntimeError, "unknown node type");
@@ -107,6 +122,10 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 
 	NC::CompiledLLVMFunction *function = NC::compileDataFlow(graph, inputs, outputs);
 	function->printCode();
+
+	void *ptr = function->pointer();
+	float result = ((float (*)(float))ptr)(123);
+	std::cout << "Result: " << result << std::endl;
 
 	Py_RETURN_NONE;
 }

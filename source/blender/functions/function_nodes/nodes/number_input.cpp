@@ -14,3 +14,17 @@ void Int32InputNode::buildIR(
 {
 	r_outputs.push_back(builder.getInt32(this->number));
 }
+
+
+FloatInputNode::FloatInputNode(float number)
+	: number(number)
+{
+	this->addOutput("Value", type_float);
+	this->setExecutionFunction((void *)FloatInputNode::execute, true);
+}
+
+void FloatInputNode::execute(FloatInputNode *node, float *r_number)
+{
+	*r_number = node->number;
+}
+

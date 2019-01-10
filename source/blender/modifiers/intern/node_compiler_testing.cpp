@@ -11,7 +11,7 @@ void run_tests()
 {
 	auto in1 = new Int32InputNode(42);
 	auto in2 = new Int32InputNode(30);
-	auto add1 = new AddNumbersNode(2, type_int32);
+	auto add1 = new AddIntegersNode(2, type_int32);
 
 	NC::DataFlowGraph graph;
 	graph.addNode(in1);
