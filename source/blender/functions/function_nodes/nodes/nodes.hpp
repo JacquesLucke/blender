@@ -52,3 +52,29 @@ private:
 
 	float number;
 };
+
+class VectorInputNode : public NC::Node {
+public:
+	VectorInputNode(float x, float y, float z);
+
+	void buildIR(
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &UNUSED(inputs),
+		std::vector<llvm::Value *> &r_outputs) const;
+
+private:
+	float x, y, z;
+};
+
+class AddVectorsNode : public NC::Node {
+public:
+	AddVectorsNode(uint amount);
+
+	void buildIR(
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) const;
+
+private:
+	uint amount;
+};

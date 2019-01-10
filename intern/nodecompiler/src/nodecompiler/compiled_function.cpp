@@ -39,20 +39,14 @@ static llvm::Function *generateFunction(
 
 	std::vector<llvm::Type *> input_types;
 	for (AnySocket socket : inputs) {
-		input_types.push_back(socket.type()->getLLVMType(context));
+		input_types.push_back(socket.type()->getLLVMType(context)->getPointerTo());
 	}
-
-	std::vector<llvm::Type *> output_types;
 	for (AnySocket socket : outputs) {
-		Type *type = socket.type();
-		llvm::Type *llvm_type = type->getLLVMType(context);
-		output_types.push_back(llvm_type);
+		input_types.push_back(socket.type()->getLLVMType(context)->getPointerTo());
 	}
-
-	llvm::StructType *return_type = llvm::StructType::create(output_types, name + " Output");
 
 	llvm::FunctionType *function_type = llvm::FunctionType::get(
-		return_type, input_types, false);
+		llvm::Type::getVoidTy(context), input_types, false);
 
 	llvm::Function *function = llvm::Function::Create(
 		function_type, llvm::GlobalValue::LinkageTypes::ExternalLinkage,
@@ -64,17 +58,19 @@ static llvm::Function *generateFunction(
 
 	std::vector<llvm::Value *> input_values;
 	for (uint i = 0; i < inputs.size(); i++) {
-		input_values.push_back(function->arg_begin() + i);
+		// llvm::Value *value = llvm::UndefValue::get(inputs[i].type()->getLLVMType(context));
+		llvm::Value *value = builder.CreateLoad(function->arg_begin() + i);
+		input_values.push_back(value);
 	}
 
 	std::vector<llvm::Value *> output_values;
 	graph.generateCode(builder, inputs, outputs, input_values, output_values);
 
-	llvm::Value *output = llvm::UndefValue::get(return_type);
 	for (uint i = 0; i < outputs.size(); i++) {
-		output = builder.CreateInsertValue(output, output_values[i], i);
+		llvm::Value *target_addr = function->arg_begin() + inputs.size() + i;
+		builder.CreateStore(output_values[i], target_addr);
 	}
-	builder.CreateRet(output);
+	builder.CreateRetVoid();
 
 	llvm::verifyFunction(*function, &llvm::outs());
 	llvm::verifyModule(*module, &llvm::outs());

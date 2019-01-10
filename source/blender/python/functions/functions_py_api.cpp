@@ -58,6 +58,16 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 			int amount = PyDict_GetIntByString(node_py, "amount");
 			node = new AddFloatsNode(amount, type_float);
 		}
+		else if (PyStringEQ(node_type_py, "vec3_input")) {
+			float x = PyDict_GetFloatByString(node_py, "x");
+			float y = PyDict_GetFloatByString(node_py, "y");
+			float z = PyDict_GetFloatByString(node_py, "z");
+			node = new VectorInputNode(x, y, z);
+		}
+		else if (PyStringEQ(node_type_py, "add_vec3")) {
+			int amount = PyDict_GetIntByString(node_py, "amount");
+			node = new AddVectorsNode(amount);
+		}
 		else {
 			PyErr_SetString(PyExc_RuntimeError, "unknown node type");
 			return NULL;
@@ -123,9 +133,15 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 	NC::CompiledLLVMFunction *function = NC::compileDataFlow(graph, inputs, outputs);
 	function->printCode();
 
+	typedef struct {float x, y, z;} Vec3;
+	Vec3 input = {1, 2, 3};
+	Vec3 result1, result2;
+
 	void *ptr = function->pointer();
-	float result = ((float (*)(float))ptr)(123);
-	std::cout << "Result: " << result << std::endl;
+	((void (*)(Vec3*, Vec3*))ptr)(&input, &result1);
+
+	std::cout << "Result: " << result1.x << " " << result1.y << " " << result1.z << std::endl;
+	// std::cout << "Result: " << result2.x << " " << result2.y << " " << result2.z << std::endl;
 
 	Py_RETURN_NONE;
 }
