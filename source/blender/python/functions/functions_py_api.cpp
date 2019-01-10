@@ -147,15 +147,14 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 	NC::CompiledLLVMFunction *function = NC::compileDataFlow(graph, inputs, outputs);
 	function->printCode();
 
-	// typedef struct {float x, y, z;} Vec3;
-	// Vec3 input = {1, 2, 3};
-	// Vec3 result1, result2;
+	Vector3 input = {1, 2, 3};
+	Vector3 result;
+	float value = 5;
 
-	// void *ptr = function->pointer();
-	// ((void (*)(Vec3*, Vec3*))ptr)(&input, &result1);
+	void *ptr = function->pointer();
+	((void (*)(Vector3*, float*, Vector3*))ptr)(&input, &value, &result);
 
-	// std::cout << "Result: " << result1.x << " " << result1.y << " " << result1.z << std::endl;
-	// std::cout << "Result: " << result2.x << " " << result2.y << " " << result2.z << std::endl;
+	std::cout << "Result: " << result.x << " " << result.y << " " << result.z << std::endl;
 
 	Py_RETURN_NONE;
 }
