@@ -1,4 +1,7 @@
+#pragma once
+
 #include "nodecompiler/core.hpp"
+#include "../types/types.hpp"
 
 namespace NC = LLVMNodeCompiler;
 
@@ -87,4 +90,12 @@ public:
 		llvm::IRBuilder<> &builder,
 		std::vector<llvm::Value *> &inputs,
 		std::vector<llvm::Value *> &r_outputs) const;
+};
+
+class CombineVectorNode : public NC::ExecuteFunctionNode {
+public:
+	CombineVectorNode();
+
+private:
+	static void execute(float x, float y, float z, Vector3 *r_vector);
 };

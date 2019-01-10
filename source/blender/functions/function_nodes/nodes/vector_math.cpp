@@ -32,3 +32,18 @@ void AddVectorsNode::buildIR(
 	result = builder.CreateInsertValue(result, result_z, 2);
 	r_outputs.push_back(result);
 }
+
+
+CombineVectorNode::CombineVectorNode()
+{
+	this->addInput("X", type_float);
+	this->addInput("Y", type_float);
+	this->addInput("Z", type_float);
+	this->addOutput("Vector", type_vec3);
+	this->setExecutionFunction((void *)this->execute, false);
+}
+
+void CombineVectorNode::execute(float x, float y, float z, Vector3 *r_vector)
+{
+	*r_vector = {x, y, z};
+}

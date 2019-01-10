@@ -78,6 +78,9 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 		else if (PyStringEQ(node_type_py, "pass_through_vec3")) {
 			node = new PassThroughNode(type_vec3);
 		}
+		else if (PyStringEQ(node_type_py, "combine_vec3")) {
+			node = new CombineVectorNode();
+		}
 		else {
 			PyErr_SetString(PyExc_RuntimeError, "unknown node type");
 			return NULL;
