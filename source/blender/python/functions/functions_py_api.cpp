@@ -87,6 +87,11 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 			return NULL;
 		}
 
+		PyObject *debug_name_py = PyDict_GetItemString(node_py, "debug_name");
+		if (debug_name_py && debug_name_py != Py_None) {
+			node->set_debug_name(PyUnicode_AsUTF8(debug_name_py));
+		}
+
 		node_array.push_back(node);
 		graph.addNode(node);
 	}
@@ -153,7 +158,7 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 	float value = 5;
 
 	void *ptr = function->pointer();
-	set_custom_displace_function(ptr);
+	// set_custom_displace_function(ptr);
 	((void (*)(Vector3*, float*, Vector3*))ptr)(&input, &value, &result);
 
 	std::cout << "Result: " << result.x << " " << result.y << " " << result.z << std::endl;

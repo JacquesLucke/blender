@@ -47,7 +47,13 @@ std::string Node::str_id() const
 }
 std::string Node::debug_name() const
 {
-	return "no name";
+	if (this->m_debug_name.size() == 0) return "no name";
+	else return this->m_debug_name;
+
+}
+void Node::set_debug_name(std::string name)
+{
+	this->m_debug_name = name;
 }
 
 } /* namespace LLVMNodeCompiler */

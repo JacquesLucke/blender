@@ -120,7 +120,8 @@ public:
 	void addOutput(std::string debug_name, Type *type);
 
 	std::string str_id() const;
-	virtual std::string debug_name() const;
+	std::string debug_name() const;
+	void set_debug_name(std::string name);
 
 	virtual void buildIR(
 		llvm::IRBuilder<> &builder,
@@ -131,6 +132,7 @@ public:
 
 private:
 	NodeSockets m_inputs, m_outputs;
+	std::string m_debug_name;
 };
 
 struct Link {
