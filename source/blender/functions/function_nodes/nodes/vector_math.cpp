@@ -43,7 +43,25 @@ CombineVectorNode::CombineVectorNode()
 	this->setExecutionFunction((void *)this->execute, false);
 }
 
-void CombineVectorNode::execute(float x, float y, float z, Vector3 *r_vector)
+void CombineVectorNode::execute(float *x, float *y, float *z, Vector3 *r_vector)
 {
-	*r_vector = {x, y, z};
+	*r_vector = {*x, *y, *z};
+}
+
+
+SeparateVectorNode::SeparateVectorNode()
+{
+	this->addInput("Vector", type_vec3);
+	this->addOutput("X", type_float);
+	this->addOutput("Y", type_float);
+	this->addOutput("Z", type_float);
+	this->setExecutionFunction((void *)this->execute, false);
+}
+
+void SeparateVectorNode::execute(Vector3 *vector, float *r_x, float *r_y, float *r_z)
+{
+	std::cout << "Vector: " << vector->x << " " << vector->y << " " << vector->z << std::endl;
+	*r_x = vector->x;
+	*r_y = vector->y;
+	*r_z = vector->z;
 }

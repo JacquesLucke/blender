@@ -97,5 +97,13 @@ public:
 	CombineVectorNode();
 
 private:
-	static void execute(float x, float y, float z, Vector3 *r_vector);
+	static void execute(float *x, float *y, float *z, Vector3 *r_vector);
+};
+
+class SeparateVectorNode : public NC::ExecuteFunctionNode {
+public:
+	SeparateVectorNode();
+
+private:
+	static void execute(Vector3 *vector, float *r_x, float *r_y, float *r_z);
 };

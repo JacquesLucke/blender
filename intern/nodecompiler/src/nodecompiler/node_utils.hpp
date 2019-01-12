@@ -37,29 +37,32 @@ inline void ExecuteFunctionNode::buildIR(
 
 	llvm::LLVMContext &context = builder.getContext();
 
-	std::vector<llvm::Type *> arg_types;
 	std::vector<llvm::Value *> arguments;
 	if (this->use_this) {
 		arguments.push_back(voidPtrToIR(builder, this));
-		arg_types.push_back(getVoidPtrTy(builder));
 	}
 
-	arguments.insert(arguments.end(), inputs.begin(), inputs.end());
-	for (auto socket : this->inputs()) {
-		arg_types.push_back(socket.type->getLLVMType(context));
+	for (auto input_value : inputs) {
+		auto input_addr = builder.CreateAlloca(input_value->getType());
+		builder.CreateStore(input_value, input_addr);
+		arguments.push_back(input_addr);
 	}
 
 	std::vector<llvm::Value *> output_pointers;
-	for (auto socket : this->outputs()) {
-		llvm::Type *type = socket.type->getLLVMType(context);
-		arg_types.push_back(type->getPointerTo());
-		llvm::Value *alloced_ptr = builder.CreateAlloca(type);
-		output_pointers.push_back(alloced_ptr);
-		arguments.push_back(alloced_ptr);
+	for (auto output_socket : this->outputs()) {
+		auto output_type = output_socket.type->getLLVMType(context);
+		auto output_addr = builder.CreateAlloca(output_type);
+		output_pointers.push_back(output_addr);
+		arguments.push_back(output_addr);
+	}
+
+	std::vector<llvm::Type *> argument_types;
+	for (auto value : arguments) {
+		argument_types.push_back(value->getType());
 	}
 
 	llvm::FunctionType *ftype = llvm::FunctionType::get(
-		llvm::Type::getVoidTy(context), arg_types, false);
+		llvm::Type::getVoidTy(context), argument_types, false);
 	callPointer(builder, this->execute_function, ftype, arguments);
 
 	for (auto output_pointer : output_pointers) {

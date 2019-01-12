@@ -82,6 +82,9 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 		else if (PyStringEQ(node_type_py, "combine_vec3")) {
 			node = new CombineVectorNode();
 		}
+		else if (PyStringEQ(node_type_py, "separate_vec3")) {
+			node = new SeparateVectorNode();
+		}
 		else {
 			PyErr_SetString(PyExc_RuntimeError, "unknown node type");
 			return NULL;
@@ -158,7 +161,7 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 	float value = 5;
 
 	void *ptr = function->pointer();
-	// set_custom_displace_function(ptr);
+	set_custom_displace_function(ptr);
 	((void (*)(Vector3*, float*, Vector3*))ptr)(&input, &value, &result);
 
 	std::cout << "Result: " << result.x << " " << result.y << " " << result.z << std::endl;
