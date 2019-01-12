@@ -38,7 +38,7 @@ PyDoc_STRVAR(set_function_graph_doc,
 );
 static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 {
-	NC::DataFlowGraph graph;
+	auto graph = new NC::DataFlowGraph();
 	std::vector<NC::Node *> node_array;
 
 	PyObject *nodes_py = PyDict_GetItemString(data, "nodes");
@@ -73,6 +73,9 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 			int amount = PyDict_GetIntByString(node_py, "amount");
 			node = new AddVectorsNode(amount);
 		}
+		else if (PyStringEQ(node_type_py, "pass_through_int")) {
+			node = new PassThroughNode(type_int32);
+		}
 		else if (PyStringEQ(node_type_py, "pass_through_float")) {
 			node = new PassThroughNode(type_float);
 		}
@@ -85,6 +88,10 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 		else if (PyStringEQ(node_type_py, "separate_vec3")) {
 			node = new SeparateVectorNode();
 		}
+		else if (PyStringEQ(node_type_py, "switch_float")) {
+			int amount = PyDict_GetIntByString(node_py, "amount");
+			node = new SwitchNode(type_float, amount);
+		}
 		else {
 			PyErr_SetString(PyExc_RuntimeError, "unknown node type");
 			return NULL;
@@ -96,7 +103,7 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 		}
 
 		node_array.push_back(node);
-		graph.addNode(node);
+		graph->addNode(node);
 	}
 
 	PyObject *links_py = PyDict_GetItemString(data, "links");
@@ -109,10 +116,10 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 		int from_index = PyDict_GetIntByString(link_py, "from_index");
 		int to_index = PyDict_GetIntByString(link_py, "to_index");
 
-		graph.addLink(from_node->Output(from_index), to_node->Input(to_index));
+		graph->addLink(from_node->Output(from_index), to_node->Input(to_index));
 	}
 
-	if (!graph.verify()) {
+	if (!graph->verify()) {
 		PyErr_SetString(PyExc_RuntimeError, "not a valid graph");
 		return NULL;
 	}
@@ -144,16 +151,16 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 		else outputs.add(node->Input(index));
 	}
 
-	std::string dot = graph.toDotFormat();
+	std::string dot = graph->toDotFormat();
 	WM_clipboard_text_set(dot.c_str(), false);
 	// std::cout << dot << std::endl << std::endl;
 
 	std::cout << "Inputs: " << inputs << std::endl;
 	std::cout << "Outputs: " << outputs << std::endl;
-	// NC::SocketSet sockets = graph.findRequiredSockets(inputs, outputs);
+	// NC::SocketSet sockets = graph->findRequiredSockets(inputs, outputs);
 	// std::cout << sockets << std::endl;
 
-	NC::CompiledLLVMFunction *function = NC::compileDataFlow(graph, inputs, outputs);
+	NC::CompiledLLVMFunction *function = NC::compileDataFlow(*graph, inputs, outputs);
 	function->printCode();
 
 	Vector3 input = {1, 2, 3};

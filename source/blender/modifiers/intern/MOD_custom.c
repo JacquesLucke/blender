@@ -44,7 +44,7 @@
 #include "DEG_depsgraph.h"
 #include "time.h"
 
-typedef void (*DisplaceFunction)(float input[3], float *control, float r_result[3]);
+typedef void (*DisplaceFunction)(float input[3], float *control, int *control2, float r_result[3]);
 
 static DisplaceFunction function = NULL;
 
@@ -56,9 +56,9 @@ void set_custom_displace_function(DisplaceFunction f)
 
 
 static void deformVerts(
-        ModifierData *md,
-        const ModifierEvalContext *ctx,
-        Mesh *mesh,
+        ModifierData *UNUSED(md),
+        const ModifierEvalContext *UNUSED(ctx),
+        Mesh *UNUSED(mesh),
         float (*vertexCos)[3],
         int numVerts)
 {
@@ -67,8 +67,9 @@ static void deformVerts(
 		for (int i = 0; i < numVerts; i++) {
 			float result[3];
 			float value = 2;
-			function(vertexCos + i, &value, result);
-			copy_v3_v3(vertexCos + i, result);
+			int value2 = 1;
+			function((float *)(vertexCos + i), &value, &value2, result);
+			copy_v3_v3((float *)(vertexCos + i), (float *)result);
 		}
 	}
 	clock_t end = clock();

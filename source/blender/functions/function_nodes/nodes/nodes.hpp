@@ -92,6 +92,20 @@ public:
 		std::vector<llvm::Value *> &r_outputs) const;
 };
 
+class SwitchNode : public NC::Node {
+public:
+	SwitchNode(NC::Type *type, uint amount);
+
+	void buildIR(
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) const;
+
+private:
+	uint amount;
+	NC::Type *type;
+};
+
 class CombineVectorNode : public NC::ExecuteFunctionNode {
 public:
 	CombineVectorNode();
