@@ -175,6 +175,7 @@ private:
 };
 
 using NodeSet = ArraySet<Node *>;
+using ConstNodeSet = ArraySet<const Node *>;
 
 class DataFlowGraph {
 public:
@@ -196,7 +197,7 @@ public:
 	AnySocket getOriginSocket(AnySocket socket) const;
 	SocketSet getTargetSockets(AnySocket socket) const;
 
-	std::string toDotFormat(std::vector<Node *> marked_nodes = {}) const;
+	std::string toDotFormat(ConstNodeSet marked_nodes = {}) const;
 
 	SocketSet findRequiredSockets(SocketSet &inputs, SocketSet &outputs);
 

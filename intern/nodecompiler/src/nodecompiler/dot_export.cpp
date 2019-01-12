@@ -57,9 +57,9 @@ static void dot_InsertNode_WithSockets(std::stringstream &ss, Node *node)
 	ss << indent1 << ">]" << std::endl;
 }
 
-static void dot_MarkNode(std::stringstream &ss, Node *node)
+static void dot_MarkNode(std::stringstream &ss, const Node *node)
 {
-	ss << indent1 << dot_id(node) << " [style=\"filled\", fillcolor=\"#FFAAAA\"]" << std::endl;
+	ss << indent1 << dot_id(node) << " [style=\"filled\", fillcolor=\"#CCCCFF\"]" << std::endl;
 }
 
 static void dot_InsertLink_WithSockets(std::stringstream &ss, Link link)
@@ -67,7 +67,7 @@ static void dot_InsertLink_WithSockets(std::stringstream &ss, Link link)
 	ss << indent1 << dot_port_id(link.from) << " -> " << dot_port_id(link.to) << std::endl;
 }
 
-std::string DataFlowGraph::toDotFormat(std::vector<Node *> marked_nodes) const
+std::string DataFlowGraph::toDotFormat(ConstNodeSet marked_nodes) const
 {
 	std::stringstream ss;
 	ss << "digraph MyGraph {" << std::endl;
@@ -81,7 +81,7 @@ std::string DataFlowGraph::toDotFormat(std::vector<Node *> marked_nodes) const
 		dot_InsertLink_WithSockets(ss, link);
 	}
 
-	for (Node *node : marked_nodes) {
+	for (const Node *node : marked_nodes) {
 		dot_MarkNode(ss, node);
 	}
 

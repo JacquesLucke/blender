@@ -154,14 +154,15 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 		else outputs.add(node->Input(index));
 	}
 
-	std::string dot = graph->toDotFormat();
+	NC::SocketSet required_sockets = graph->findRequiredSockets(inputs, outputs);
+	NC::ConstNodeSet required_nodes;
+	for (auto socket : required_sockets) {
+		required_nodes.add(socket.node());
+	}
+
+	std::string dot = graph->toDotFormat(required_nodes);
 	WM_clipboard_text_set(dot.c_str(), false);
 	// std::cout << dot << std::endl << std::endl;
-
-	std::cout << "Inputs: " << inputs << std::endl;
-	std::cout << "Outputs: " << outputs << std::endl;
-	// NC::SocketSet sockets = graph->findRequiredSockets(inputs, outputs);
-	// std::cout << sockets << std::endl;
 
 	NC::CompiledLLVMFunction *function = NC::compileDataFlow(*graph, inputs, outputs);
 	function->printCode();
