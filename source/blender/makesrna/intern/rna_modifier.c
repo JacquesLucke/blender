@@ -5046,12 +5046,18 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 static void rna_def_modifier_custom(BlenderRNA *brna)
 {
 	StructRNA *srna;
-	PropertyRNA *UNUSED(prop);
+	PropertyRNA *prop;
 
 	srna = RNA_def_struct(brna, "CustomModifier", "Modifier");
 	RNA_def_struct_ui_text(srna, "Custom Modifier", "");
 	RNA_def_struct_sdna(srna, "CustomModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_NODETREE);
+
+	prop = RNA_def_float(srna, "control1", 0.0, -FLT_MAX                                                                                                                                                                                                                                                               , FLT_MAX, "Control 1", "", -10, 10);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_int(srna, "control2", 0, INT_MIN, INT_MAX, "Control 2", "", -10, 10);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)

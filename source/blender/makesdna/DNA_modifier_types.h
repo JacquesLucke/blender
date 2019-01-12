@@ -1933,6 +1933,8 @@ enum {
 
 typedef struct CustomModifierData {
 	ModifierData modifier;
+	float control1;
+	int control2;
 } CustomModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */

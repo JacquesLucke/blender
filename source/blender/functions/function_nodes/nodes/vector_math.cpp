@@ -60,7 +60,6 @@ SeparateVectorNode::SeparateVectorNode()
 
 void SeparateVectorNode::execute(Vector3 *vector, float *r_x, float *r_y, float *r_z)
 {
-	std::cout << "Vector: " << vector->x << " " << vector->y << " " << vector->z << std::endl;
 	*r_x = vector->x;
 	*r_y = vector->y;
 	*r_z = vector->z;

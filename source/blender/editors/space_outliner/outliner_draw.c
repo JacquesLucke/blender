@@ -1052,6 +1052,7 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
 							/* Default */
 						case eModifierType_None:
 						case eModifierType_ShapeKey:
+						case eModifierType_Custom:
 
 						case NUM_MODIFIER_TYPES:
 							data.icon = ICON_DOT;

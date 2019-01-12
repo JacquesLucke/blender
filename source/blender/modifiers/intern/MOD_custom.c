@@ -56,19 +56,19 @@ void set_custom_displace_function(DisplaceFunction f)
 
 
 static void deformVerts(
-        ModifierData *UNUSED(md),
+        ModifierData *md,
         const ModifierEvalContext *UNUSED(ctx),
         Mesh *UNUSED(mesh),
         float (*vertexCos)[3],
         int numVerts)
 {
+	CustomModifierData *cmd = (CustomModifierData *)md;
+
 	clock_t start = clock();
 	if (function != NULL) {
 		for (int i = 0; i < numVerts; i++) {
 			float result[3];
-			float value = 2;
-			int value2 = 1;
-			function((float *)(vertexCos + i), &value, &value2, result);
+			function((float *)(vertexCos + i), &cmd->control1, &cmd->control2, result);
 			copy_v3_v3((float *)(vertexCos + i), (float *)result);
 		}
 	}
@@ -77,8 +77,11 @@ static void deformVerts(
 }
 
 
-static void initData(ModifierData *UNUSED(md))
+static void initData(ModifierData *md)
 {
+	CustomModifierData *cmd = (CustomModifierData *)md;
+	cmd->control1 = 0.0f;
+	cmd->control2 = 0;
 }
 
 static bool dependsOnTime(ModifierData *UNUSED(md))
