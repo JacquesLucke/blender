@@ -54,26 +54,27 @@ void set_custom_displace_function(DisplaceFunction f)
 	function = f;
 }
 
-static Mesh *applyModifier(
-        ModifierData *UNUSED(md), const ModifierEvalContext *UNUSED(ctx),
-        Mesh *mesh_orig)
-{
-	Mesh *mesh = BKE_mesh_copy_for_eval(mesh_orig, false);
 
+static void deformVerts(
+        ModifierData *md,
+        const ModifierEvalContext *ctx,
+        Mesh *mesh,
+        float (*vertexCos)[3],
+        int numVerts)
+{
 	clock_t start = clock();
 	if (function != NULL) {
-		for (int i = 0; i < mesh->totvert; i++) {
+		for (int i = 0; i < numVerts; i++) {
 			float result[3];
 			float value = 2;
-			function(mesh->mvert[i].co, &value, result);
-			copy_v3_v3(mesh->mvert[i].co, result);
+			function(vertexCos + i, &value, result);
+			copy_v3_v3(vertexCos + i, result);
 		}
 	}
 	clock_t end = clock();
 	printf("Time taken: %f s\n", (float)(end - start) / (float)CLOCKS_PER_SEC);
-
-	return mesh;
 }
+
 
 static void initData(ModifierData *UNUSED(md))
 {
@@ -89,7 +90,7 @@ ModifierTypeInfo modifierType_Custom = {
 	/* name */              "Custom",
 	/* structName */        "CustomModifierData",
 	/* structSize */        sizeof(CustomModifierData),
-	/* type */              eModifierTypeType_Constructive,
+	/* type */              eModifierTypeType_OnlyDeform,
 	/* flags */             eModifierTypeFlag_AcceptsMesh,
 	/* copyData */          modifier_copyData_generic,
 
@@ -99,11 +100,11 @@ ModifierTypeInfo modifierType_Custom = {
 	/* deformMatricesEM_DM*/NULL,
 	/* applyModifier_DM */  NULL,
 
-	/* deformVerts */       NULL,
+	/* deformVerts */       deformVerts,
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
-	/* applyModifier */     applyModifier,
+	/* applyModifier */     NULL,
 
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,
