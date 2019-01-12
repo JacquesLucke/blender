@@ -92,6 +92,9 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 			int amount = PyDict_GetIntByString(node_py, "amount");
 			node = new SwitchNode(type_float, amount);
 		}
+		else if (PyStringEQ(node_type_py, "float_to_int")) {
+			node = new FloatToIntNode();
+		}
 		else {
 			PyErr_SetString(PyExc_RuntimeError, "unknown node type");
 			return NULL;

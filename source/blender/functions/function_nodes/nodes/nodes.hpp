@@ -121,3 +121,13 @@ public:
 private:
 	static void execute(Vector3 *vector, float *r_x, float *r_y, float *r_z);
 };
+
+class FloatToIntNode : public NC::Node {
+public:
+	FloatToIntNode();
+
+	void buildIR(
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) const;
+};
