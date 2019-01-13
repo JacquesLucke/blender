@@ -12,9 +12,9 @@ AddVectorsNode::AddVectorsNode(uint amount)
 }
 
 void AddVectorsNode::buildIR(
-	llvm::IRBuilder<> &builder,
-	std::vector<llvm::Value *> &inputs,
-	std::vector<llvm::Value *> &r_outputs) const
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) const
 {
 	llvm::Value *result_x = llvm::ConstantFP::get(builder.getFloatTy(), 0);
 	llvm::Value *result_y = result_x;
@@ -40,12 +40,18 @@ CombineVectorNode::CombineVectorNode()
 	this->addInput("Y", type_float);
 	this->addInput("Z", type_float);
 	this->addOutput("Vector", type_vec3);
-	this->setExecutionFunction((void *)this->execute, false);
 }
 
-void CombineVectorNode::execute(float *x, float *y, float *z, Vector3 *r_vector)
+void CombineVectorNode::buildIR(
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) const
 {
-	*r_vector = {*x, *y, *z};
+	llvm::Value *value = llvm::UndefValue::get(type_vec3->getLLVMType(builder.getContext()));
+	value = builder.CreateInsertValue(value, inputs[0], 0);
+	value = builder.CreateInsertValue(value, inputs[1], 1);
+	value = builder.CreateInsertValue(value, inputs[2], 2);
+	r_outputs.push_back(value);
 }
 
 
@@ -55,12 +61,14 @@ SeparateVectorNode::SeparateVectorNode()
 	this->addOutput("X", type_float);
 	this->addOutput("Y", type_float);
 	this->addOutput("Z", type_float);
-	this->setExecutionFunction((void *)this->execute, false);
 }
 
-void SeparateVectorNode::execute(Vector3 *vector, float *r_x, float *r_y, float *r_z)
+void SeparateVectorNode::buildIR(
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) const
 {
-	*r_x = vector->x;
-	*r_y = vector->y;
-	*r_z = vector->z;
+	r_outputs.push_back(builder.CreateExtractValue(inputs[0], 0));
+	r_outputs.push_back(builder.CreateExtractValue(inputs[0], 1));
+	r_outputs.push_back(builder.CreateExtractValue(inputs[0], 2));
 }

@@ -20,12 +20,14 @@ FloatInputNode::FloatInputNode(float number)
 	: number(number)
 {
 	this->addOutput("Value", type_float);
-	this->setExecutionFunction((void *)FloatInputNode::execute, true);
 }
 
-void FloatInputNode::execute(FloatInputNode *node, float *r_number)
+void FloatInputNode::buildIR(
+	llvm::IRBuilder<> &builder,
+	std::vector<llvm::Value *> &UNUSED(inputs),
+	std::vector<llvm::Value *> &r_outputs) const
 {
-	*r_number = node->number;
+	r_outputs.push_back(llvm::ConstantFP::get(builder.getFloatTy(), this->number));
 }
 
 

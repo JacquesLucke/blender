@@ -39,7 +39,7 @@ public:
 
 	void buildIR(
 		llvm::IRBuilder<> &builder,
-		std::vector<llvm::Value *> &UNUSED(inputs),
+		std::vector<llvm::Value *> &inputs,
 		std::vector<llvm::Value *> &r_outputs) const;
 
 private:
@@ -51,7 +51,10 @@ public:
 	FloatInputNode(float number);
 
 private:
-	static void execute(FloatInputNode *node, float *r_number);
+	void buildIR(
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) const;
 
 	float number;
 };
@@ -62,7 +65,7 @@ public:
 
 	void buildIR(
 		llvm::IRBuilder<> &builder,
-		std::vector<llvm::Value *> &UNUSED(inputs),
+		std::vector<llvm::Value *> &inputs,
 		std::vector<llvm::Value *> &r_outputs) const;
 
 private:
@@ -111,7 +114,10 @@ public:
 	CombineVectorNode();
 
 private:
-	static void execute(float *x, float *y, float *z, Vector3 *r_vector);
+	void buildIR(
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) const;
 };
 
 class SeparateVectorNode : public NC::ExecuteFunctionNode {
@@ -119,7 +125,10 @@ public:
 	SeparateVectorNode();
 
 private:
-	static void execute(Vector3 *vector, float *r_x, float *r_y, float *r_z);
+	void buildIR(
+		llvm::IRBuilder<> &builder,
+		std::vector<llvm::Value *> &inputs,
+		std::vector<llvm::Value *> &r_outputs) const;
 };
 
 class FloatToIntNode : public NC::Node {
