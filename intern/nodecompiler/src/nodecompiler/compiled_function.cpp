@@ -1,4 +1,5 @@
 #include "core.hpp"
+#include "llvm/Analysis/CFGPrinter.h"
 
 namespace LLVMNodeCompiler {
 
@@ -29,6 +30,15 @@ CompiledLLVMFunction::~CompiledLLVMFunction()
 void CompiledLLVMFunction::printCode()
 {
 	this->module->print(llvm::outs(), nullptr);
+}
+
+static std::string generateCFG(llvm::Function &function, bool show_ir = false)
+{
+	std::string dot;
+	llvm::raw_string_ostream ss(dot);
+	llvm::WriteGraph(ss, (const llvm::Function *)&function, !show_ir);
+	ss.flush();
+	return dot;
 }
 
 static llvm::Function *generateFunction(
