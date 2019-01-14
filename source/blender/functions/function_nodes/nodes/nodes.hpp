@@ -140,3 +140,11 @@ public:
 		std::vector<llvm::Value *> &inputs,
 		std::vector<llvm::Value *> &r_outputs) const;
 };
+
+class SinFloatNode : public NC::ExecuteFunctionNode {
+public:
+	SinFloatNode();
+
+private:
+	static void execute(float *number, float *r_result);
+};

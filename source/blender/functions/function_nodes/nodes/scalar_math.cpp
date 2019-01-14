@@ -49,3 +49,16 @@ void AddFloatsNode::buildIR(
 	}
 	r_outputs.push_back(output);
 }
+
+
+SinFloatNode::SinFloatNode()
+{
+	this->addInput("Number", type_float);
+	this->addOutput("Result", type_float);
+	this->setExecutionFunction((void *)this->execute, false);
+}
+
+void SinFloatNode::execute(float *number, float *r_result)
+{
+	*r_result = std::sin(*number);
+}

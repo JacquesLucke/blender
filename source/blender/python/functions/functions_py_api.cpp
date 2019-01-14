@@ -95,6 +95,9 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 		else if (PyStringEQ(node_type_py, "float_to_int")) {
 			node = new FloatToIntNode();
 		}
+		else if (PyStringEQ(node_type_py, "sin_float")) {
+			node = new SinFloatNode();
+		}
 		else {
 			PyErr_SetString(PyExc_RuntimeError, "unknown node type");
 			return NULL;
