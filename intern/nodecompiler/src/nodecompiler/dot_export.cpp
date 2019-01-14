@@ -26,7 +26,7 @@ static std::string dot_port_id(AnySocket socket)
 
 static void dot_InsertNode_WithSockets(std::stringstream &ss, Node *node)
 {
-	ss << indent1 << dot_id(node) << " [style=\"filled\", fillcolor=\"#FFFFFF\", shape=\"square\", label=<" << std::endl;
+	ss << indent1 << dot_id(node) << " [style=\"filled\", fillcolor=\"#FFFFFF\", shape=\"box\", label=<" << std::endl;
 	ss << indent2 << "<table border=\"0\" cellspacing=\"3\">" << std::endl;
 	ss << indent3 << "<tr><td colspan=\"3\" align=\"center\"><b>" << node->debug_name() << "</b></td></tr>" << std::endl;
 	uint socket_amount_max = std::max(node->inputs().size(), node->outputs().size());
