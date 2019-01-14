@@ -32,9 +32,11 @@
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_object_types.h"
 
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
+#include "BKE_scene.h"
 
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
@@ -42,9 +44,10 @@
 #include "MOD_util.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
 #include "time.h"
 
-typedef void (*DisplaceFunction)(float input[3], float *control, int *control2, float r_result[3]);
+typedef void (*DisplaceFunction)(float input[3], float *control, int *control2, float *time, float r_result[3]);
 
 static DisplaceFunction function = NULL;
 
@@ -57,23 +60,26 @@ void set_custom_displace_function(DisplaceFunction f)
 
 static void deformVerts(
         ModifierData *md,
-        const ModifierEvalContext *UNUSED(ctx),
+        const ModifierEvalContext *ctx,
         Mesh *UNUSED(mesh),
         float (*vertexCos)[3],
         int numVerts)
 {
 	CustomModifierData *cmd = (CustomModifierData *)md;
 
+	struct Scene *scene = DEG_get_input_scene(ctx->depsgraph);
+	float time = BKE_scene_frame_get(scene) / 10.0f;
+
 	clock_t start = clock();
 	if (function != NULL) {
 		for (int i = 0; i < numVerts; i++) {
 			float result[3];
-			function((float *)(vertexCos + i), &cmd->control1, &cmd->control2, result);
+			function((float *)(vertexCos + i), &cmd->control1, &cmd->control2, &time, result);
 			copy_v3_v3((float *)(vertexCos + i), (float *)result);
 		}
 	}
 	clock_t end = clock();
-	printf("Time taken: %f s\n", (float)(end - start) / (float)CLOCKS_PER_SEC);
+	//printf("Time taken: %f s\n", (float)(end - start) / (float)CLOCKS_PER_SEC);
 }
 
 

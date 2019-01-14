@@ -176,9 +176,8 @@ static PyObject *set_function_graph(PyObject *UNUSED(self), PyObject *data)
 
 	void *ptr = function->pointer();
 	set_custom_displace_function(ptr);
-	((void (*)(Vector3*, float*, Vector3*))ptr)(&input, &value, &result);
-
-	std::cout << "Result: " << result.x << " " << result.y << " " << result.z << std::endl;
+	//((void (*)(Vector3*, float*, Vector3*))ptr)(&input, &value, &result);
+	//std::cout << "Result: " << result.x << " " << result.y << " " << result.z << std::endl;
 
 	Py_RETURN_NONE;
 }
