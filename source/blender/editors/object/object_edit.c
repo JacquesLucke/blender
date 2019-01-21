@@ -1743,3 +1743,29 @@ void OBJECT_OT_link_to_collection(wmOperatorType *ot)
 	                      "Name of the newly added collection");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
+
+#include "FN_functions.h"
+
+static int test_functions_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
+{
+	FunctionRef fn = NULL;
+	FnTypeRef type = FN_type_get_float_vector_3d();
+	printf("Type: %s\n", FN_type_name(type));
+	printf("Finished\n");
+	return OPERATOR_FINISHED;
+}
+
+
+void TEST_OT_test_functions(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Test Functions";
+	ot->description = "Test Functions";
+	ot->idname = "TEST_OT_test_functions";
+
+	/* api callbacks */
+	ot->exec = test_functions_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER;
+}

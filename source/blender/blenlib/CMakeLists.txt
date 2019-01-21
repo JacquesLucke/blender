@@ -224,6 +224,8 @@ set(SRC
 	BLI_winstuff.h
 	PIL_time.h
 	PIL_time_utildefines.h
+
+	BLI_small_vector.hpp
 )
 
 if(WITH_MEM_VALGRIND)
