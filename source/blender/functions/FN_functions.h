@@ -41,7 +41,7 @@ void FN_inputs_free(FnInputsRef fn_in);
 bool FN_inputs_set_name(FnInputsRef fn_in, const char *name, void *value);
 
 /* Set a function input by index. Returns true on success. */
-bool FN_inputs_set_index(FnInputsRef fn_in, uint index, void *value);
+void FN_inputs_set_index(FnInputsRef fn_in, uint index, void *value);
 
 
 /* Create a container to store function outputs. */
@@ -61,6 +61,8 @@ const char *FN_type_name(FnTypeRef type);
 FnTypeRef FN_type_get_float(void);
 FnTypeRef FN_type_get_int32(void);
 FnTypeRef FN_type_get_float_vector_3d(void);
+
+FunctionRef FN_get_add_const_function(int value);
 
 #ifdef __cplusplus
 }

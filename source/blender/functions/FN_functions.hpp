@@ -4,6 +4,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_small_vector.hpp"
+#include "BLI_small_buffer.hpp"
 
 namespace FN {
 	using namespace BLI;
@@ -13,6 +14,8 @@ namespace FN {
 	class Outputs;
 	class Signature;
 	class Function;
+
+	using SmallTypeVector = SmallVector<Type *>;
 
 	class Type {
 	public:
@@ -24,41 +27,73 @@ namespace FN {
 		uint m_size;
 	};
 
-	class Inputs {
+	class ValueArray {
 	public:
-		static Inputs *New(Function *fn);
-
-		bool set(uint index, void *value);
+		ValueArray() {};
+		ValueArray(SmallTypeVector types);
+		void set(uint index, void *src);
+		void get(uint index, void *dst) const;
 
 	private:
-		Inputs() {}
+		SmallTypeVector types;
+		SmallVector<int> offsets;
+		SmallBuffer<> storage;
+	};
 
-		Function *fn;
+	class Inputs {
+	public:
+		Inputs(Function &fn);
+
+		inline void set(uint index, void *src)
+		{ this->values.set(index, src); }
+		inline void get(uint index, void *dst) const
+		{ this->values.get(index, dst); }
+
+	private:
+		Function &fn;
+		ValueArray values;
 	};
 
 	class Outputs {
 	public:
-		static Outputs *New(Function *fn);
+		static Outputs *New(Function &fn);
 
-		bool get(uint index, void *value);
+		bool set(uint index, void *value);
+		bool get(uint index);
 
 	private:
 		Outputs() {}
 
 		Function *fn;
+		ValueArray values;
 	};
 
 	class Signature {
+	public:
+		Signature() {}
+		Signature(SmallTypeVector inputs, SmallTypeVector outputs)
+			: m_inputs(inputs), m_outputs(outputs) {}
+
+		inline const SmallTypeVector &inputs() const
+		{ return this->m_inputs; }
+		inline const SmallTypeVector &outputs() const
+		{ return this->m_outputs; }
+
 	private:
-		SmallVector<Type *> inputs;
-		SmallVector<Type *> outputs;
+		SmallTypeVector m_inputs;
+		SmallTypeVector m_outputs;
 	};
 
 	class Function {
 	public:
-		bool call(Inputs *fn_in, Outputs *fn_out);
+		bool call(Inputs &fn_in, Outputs &fn_out);
+
+		inline const Signature &signature() const
+		{ return this->m_signature; }
 
 	private:
-		Signature *signature;
+
+	protected:
+		Signature m_signature;
 	};
 } /* namespace FN */

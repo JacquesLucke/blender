@@ -12,17 +12,40 @@ const uint Type::size() const
 	return this->m_size;
 }
 
-Inputs *Inputs::New(Function *fn)
-{
-	return nullptr;
-}
+Inputs::Inputs(Function &fn)
+	: fn(fn), values(fn.signature().inputs())
+{ }
 
-bool Inputs::set(uint index, void *value)
+bool Function::call(Inputs &UNUSED(fn_in), Outputs &UNUSED(fn_out))
 {
 	return false;
 }
 
-bool Function::call(Inputs *fn_in, Outputs *fn_out)
+ValueArray::ValueArray(SmallTypeVector types)
+	: types(types)
 {
-	return false;
+	int total_size = 0;
+	for (Type *type : types) {
+		this->offsets.append(total_size);
+		total_size += type->size();
+	}
+	this->storage = SmallBuffer<>(total_size);
+}
+
+void ValueArray::set(uint index, void *src)
+{
+	BLI_assert(index < this->offsets.size());
+	this->storage.copy_in(
+		this->offsets[index],
+		src,
+		this->types[index]->size());
+}
+
+void ValueArray::get(uint index, void *dst) const
+{
+	BLI_assert(index < this->offsets.size());
+	this->storage.copy_out(
+		dst,
+		this->offsets[index],
+		this->types[index]->size());
 }
