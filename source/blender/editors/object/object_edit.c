@@ -1748,9 +1748,17 @@ void OBJECT_OT_link_to_collection(wmOperatorType *ot)
 
 static int test_functions_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
 {
-	FunctionRef fn = NULL;
-	FnTypeRef type = FN_type_get_float_vector_3d();
-	printf("Type: %s\n", FN_type_name(type));
+	FunctionRef fn = FN_get_add_const_function(100);
+	FnInputsRef fn_in = FN_inputs_new(fn);
+	FnOutputsRef fn_out = FN_outputs_new(fn);
+
+	int value = 42;
+	FN_inputs_set_index(fn_in, 0, &value);
+	FN_function_call(fn, fn_in, fn_out);
+	int result;
+	FN_outputs_get_index(fn_out, 0, &result);
+	printf("Result: %d\n", result);
+
 	printf("Finished\n");
 	return OPERATOR_FINISHED;
 }

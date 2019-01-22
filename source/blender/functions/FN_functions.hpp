@@ -35,7 +35,7 @@ namespace FN {
 		void get(uint index, void *dst) const;
 
 	private:
-		SmallTypeVector types;
+		const SmallTypeVector types;
 		SmallVector<int> offsets;
 		SmallBuffer<> storage;
 	};
@@ -70,9 +70,13 @@ namespace FN {
 
 	class Signature {
 	public:
-		Signature() {}
+		Signature()
+			: m_inputs({}), m_outputs({}) {}
+
 		Signature(SmallTypeVector inputs, SmallTypeVector outputs)
 			: m_inputs(inputs), m_outputs(outputs) {}
+
+		~Signature() {}
 
 		inline const SmallTypeVector &inputs() const
 		{ return this->m_inputs; }
@@ -80,13 +84,16 @@ namespace FN {
 		{ return this->m_outputs; }
 
 	private:
-		SmallTypeVector m_inputs;
-		SmallTypeVector m_outputs;
+		const SmallTypeVector m_inputs;
+		const SmallTypeVector m_outputs;
 	};
 
 	class Function {
 	public:
-		bool call(Inputs &fn_in, Outputs &fn_out);
+		Function(Signature signature)
+			: m_signature(signature) {}
+
+		virtual bool call(Inputs &fn_in, Outputs &fn_out) = 0;
 
 		inline const Signature &signature() const
 		{ return this->m_signature; }

@@ -13,15 +13,10 @@ const uint Type::size() const
 }
 
 Inputs::Inputs(Function &fn)
-	: fn(fn), values(fn.signature().inputs()) { }
+	: fn(fn), values(ValueArray(fn.signature().inputs())) { }
 
 Outputs::Outputs(Function &fn)
-	: fn(fn), values(fn.signature().outputs()) { }
-
-bool Function::call(Inputs &UNUSED(fn_in), Outputs &UNUSED(fn_out))
-{
-	return false;
-}
+	: fn(fn), values(ValueArray(fn.signature().outputs())) { }
 
 ValueArray::ValueArray(SmallTypeVector types)
 	: types(types)

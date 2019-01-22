@@ -24,13 +24,13 @@ namespace BLI {
 
 		void copy_in(uint dst, void *src, uint amount)
 		{
-			BLI_assert(dst + amount < this->size);
+			BLI_assert(dst + amount <= this->size);
 			memcpy(this->buffer + dst, src, amount);
 		}
 
 		void copy_out(void *dst, uint src, uint amount) const
 		{
-			BLI_assert(src + amount < this->size);
+			BLI_assert(src + amount <= this->size);
 			memcpy(dst, this->buffer + src, amount);
 		}
 
