@@ -7,10 +7,10 @@
 extern "C" {
 #endif
 
-typedef struct Function *FunctionRef;
-typedef struct FnType *FnTypeRef;
-typedef struct FnInputs *FnInputsRef;
-typedef struct FnOutputs *FnOutputsRef;
+typedef struct OpaqueFunction *FunctionRef;
+typedef struct OpaqueFnType *FnTypeRef;
+typedef struct OpaqueFnInputs *FnInputsRef;
+typedef struct OpaqueFnOutputs *FnOutputsRef;
 
 /* Split ownership of the function. */
 void FN_function_copy_ref(FunctionRef fn);
