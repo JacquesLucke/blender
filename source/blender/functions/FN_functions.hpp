@@ -56,15 +56,15 @@ namespace FN {
 
 	class Outputs {
 	public:
-		static Outputs *New(Function &fn);
+		Outputs(Function &fn);
 
-		bool set(uint index, void *value);
-		bool get(uint index);
+		inline void set(uint index, void *src)
+		{ this->values.set(index, src); }
+		inline void get(uint index, void *dst) const
+		{ this->values.get(index, dst); }
 
 	private:
-		Outputs() {}
-
-		Function *fn;
+		Function &fn;
 		ValueArray values;
 	};
 

@@ -29,12 +29,19 @@ namespace BLI {
 			}
 		}
 
+		~SmallVector()
+		{
+			if (!this->is_small()) {
+				std::free(this->m_elements);
+			}
+		}
+
 		void append(T value)
 		{
 			if (this->m_size >= this->m_capacity) {
 				this->m_capacity *= 2;
 				uint new_byte_size = sizeof(T) * this->m_capacity;
-				if (this->m_elements == this->m_small_buffer) {
+				if (this->is_small()) {
 					this->m_elements = (T *)std::malloc(new_byte_size);
 				}
 				else {
@@ -72,6 +79,12 @@ namespace BLI {
 		{ return this->begin(); }
 		const T *cend() const
 		{ return this->end(); }
+
+	private:
+		bool is_small() const
+		{
+			return this->m_elements == this->m_small_buffer;
+		}
 	};
 
 } /* namespace BLI */

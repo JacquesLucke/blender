@@ -41,9 +41,13 @@ public:
 		this->m_signature = FN::Signature({FN::Types::int32_ty}, {FN::Types::int32_ty});
 	}
 
-	bool call(FN::Inputs &UNUSED(fn_in), FN::Outputs &UNUSED(fn_out))
+	bool call(FN::Inputs &fn_in, FN::Outputs &fn_out)
 	{
-		return false;
+		int a;
+		fn_in.get(0, &a);
+		int result = a + this->value;
+		fn_out.set(0, &result);
+		return true;
 	}
 
 private:
