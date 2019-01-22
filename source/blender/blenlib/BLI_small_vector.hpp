@@ -2,6 +2,7 @@
 
 #include "BLI_utildefines.h"
 #include <cstdlib>
+#include <cstring>
 
 namespace BLI {
 
@@ -29,11 +30,62 @@ namespace BLI {
 			}
 		}
 
+		SmallVector(const SmallVector &other)
+		{
+			if (other.is_small()) {
+				this->m_elements = this->m_small_buffer;
+				std::memcpy(this->m_small_buffer, other.m_small_buffer, sizeof(T) * other.m_size);
+			}
+			else {
+				this->m_elements = (T *)std::malloc(sizeof(T) * other.m_capacity);
+				std::memcpy(this->m_elements, other.m_elements, other.m_size);
+			}
+			this->m_capacity = other.m_capacity;
+			this->m_size = other.m_size;
+		}
+
+		SmallVector(SmallVector &&other)
+		{
+			if (other.is_small()) {
+				this->m_elements = this->m_small_buffer;
+				std::memcpy(this->m_small_buffer, other.m_small_buffer, sizeof(T) * other.m_size);
+			}
+			else {
+				this->m_elements = other.m_elements;
+			}
+			this->m_capacity = other.m_capacity;
+			this->m_size = other.m_size;
+		}
+
 		~SmallVector()
 		{
 			if (!this->is_small()) {
 				std::free(this->m_elements);
 			}
+		}
+
+		SmallVector &operator=(SmallVector &&other)
+		{
+			if (this == &other) {
+				return *this;
+			}
+
+			if (!this->is_small()) {
+				std::free(this->m_elements);
+			}
+
+			if (other.is_small()) {
+				this->m_elements = this->m_small_buffer;
+				std::memcpy(this->m_small_buffer, other.m_small_buffer, sizeof(T) * other.m_size);
+			}
+			else {
+				this->m_elements = other.m_elements;
+			}
+
+			this->m_capacity = other.m_capacity;
+			this->m_size = other.m_size;
+
+			return *this;
 		}
 
 		void append(T value)
