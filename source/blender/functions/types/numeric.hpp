@@ -32,8 +32,8 @@ namespace FN::Types {
 		}
 	};
 
-	static FloatType *float_ty = new FloatType();
-	static Int32Type *int32_ty = new Int32Type();
-	static FloatVectorType<3> *floatvec3d_ty = new FloatVectorType<3>();
+	static const FloatType *float_ty = new FloatType();
+	static const Int32Type *int32_ty = new Int32Type();
+	static const FloatVectorType<3> *floatvec3d_ty = new FloatVectorType<3>();
 
 } /* namespace FN::Types */

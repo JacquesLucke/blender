@@ -25,7 +25,7 @@ ValueArray::ValueArray(SmallTypeVector types)
 	: types(types)
 {
 	int total_size = 0;
-	for (Type *type : types) {
+	for (const Type *type : types) {
 		this->offsets.append(total_size);
 		total_size += type->size();
 	}

@@ -15,7 +15,7 @@ namespace FN {
 	class Signature;
 	class Function;
 
-	using SmallTypeVector = SmallVector<Type *>;
+	using SmallTypeVector = SmallVector<const Type *>;
 
 	class Type {
 	public:
