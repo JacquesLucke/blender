@@ -38,10 +38,10 @@ FnInputsRef FN_inputs_new(FunctionRef fn);
 void FN_inputs_free(FnInputsRef fn_in);
 
 /* Set a funtion input by name. Returns true on success. */
-bool FN_inputs_set_name(FnInputsRef fn_in, const char *name, void *value);
+bool FN_inputs_set_name(FnInputsRef fn_in, const char *name, void *src);
 
 /* Set a function input by index. Returns true on success. */
-void FN_inputs_set_index(FnInputsRef fn_in, uint index, void *value);
+void FN_inputs_set_index(FnInputsRef fn_in, uint index, void *src);
 
 
 /* Create a container to store function outputs. */
@@ -51,10 +51,10 @@ FnOutputsRef FN_outputs_new(FunctionRef fn);
 void FN_outputs_free(FnOutputsRef fn_out);
 
 /* Extract the result of an executed function by name. */
-void *FN_outputs_get_name(FnOutputsRef fn_out, const char *name);
+void FN_outputs_get_name(FnOutputsRef fn_out, const char *name, void *dst);
 
 /* Extract the result of an executed function by index. */
-void *FN_outputs_get_index(FnOutputsRef fn_out, const char *name);
+void FN_outputs_get_index(FnOutputsRef fn_out, uint index, void *dst);
 
 const char *FN_type_name(FnTypeRef type);
 
