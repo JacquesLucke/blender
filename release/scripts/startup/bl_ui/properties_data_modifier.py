@@ -1633,6 +1633,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.prop(md, "thresh", text="Threshold")
         col.prop(md, "face_influence")
 
+    def FUNCTION_DEFORM(self,layout, ob, md):
+        layout.prop(md, "control1")
+        layout.prop(md, "control2")
+
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
     bl_label = "Modifiers"

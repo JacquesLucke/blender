@@ -87,6 +87,7 @@ typedef enum ModifierType {
 	eModifierType_MeshSequenceCache = 52,
 	eModifierType_SurfaceDeform     = 53,
 	eModifierType_WeightedNormal	= 54,
+	eModifierType_FunctionDeform    = 55,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1941,5 +1942,11 @@ enum {
 
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)
+
+typedef struct FunctionDeformModifierData {
+	ModifierData modifier;
+	float control1;
+	int control2;
+} FunctionDeformModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */

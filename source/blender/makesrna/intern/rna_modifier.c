@@ -102,6 +102,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_SurfaceDeform, "SURFACE_DEFORM", ICON_MOD_MESHDEFORM, "Surface Deform", ""},
 	{eModifierType_Warp, "WARP", ICON_MOD_WARP, "Warp", ""},
 	{eModifierType_Wave, "WAVE", ICON_MOD_WAVE, "Wave", ""},
+	{eModifierType_FunctionDeform, "FUNCTION_DEFORM", ICON_NONE, "Function Deform", ""},
 	{0, "", 0, N_("Simulate"), ""},
 	{eModifierType_Cloth, "CLOTH", ICON_MOD_CLOTH, "Cloth", ""},
 	{eModifierType_Collision, "COLLISION", ICON_MOD_PHYSICS, "Collision", ""},
@@ -428,6 +429,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_SurfaceDeformModifier;
 		case eModifierType_WeightedNormal:
 			return &RNA_WeightedNormalModifier;
+		case eModifierType_FunctionDeform:
+			return &RNA_FunctionDeformModifier;
 		/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -5059,6 +5062,23 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_function_deform(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "FunctionDeformModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Function Deform Modifier", "");
+	RNA_def_struct_sdna(srna, "FunctionDeformModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_NONE);
+
+	prop = RNA_def_float(srna, "control1", 0.0, -FLT_MAX, FLT_MAX, "Control 1", "", -10, 10);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_int(srna, "control2", 0, INT_MIN, INT_MAX, "Control 2", "", -10, 10);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5181,6 +5201,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_meshseqcache(brna);
 	rna_def_modifier_surfacedeform(brna);
 	rna_def_modifier_weightednormal(brna);
+	rna_def_modifier_function_deform(brna);
 }
 
 #endif
