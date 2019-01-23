@@ -1748,16 +1748,21 @@ void OBJECT_OT_link_to_collection(wmOperatorType *ot)
 
 static int test_functions_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
 {
-	FunctionRef fn = FN_get_add_const_function(100);
+	FunctionRef fn = FN_get_deform_function();
 	FnInputsRef fn_in = FN_inputs_new(fn);
 	FnOutputsRef fn_out = FN_outputs_new(fn);
 
-	int value = 42;
-	FN_inputs_set_index(fn_in, 0, &value);
+	float input[3] = {1, 2, 3};
+	float control = 10;
+	FN_inputs_set_index(fn_in, 0, input);
+	FN_inputs_set_index(fn_in, 1, &control);
+
 	FN_function_call(fn, fn_in, fn_out);
-	int result;
-	FN_outputs_get_index(fn_out, 0, &result);
-	printf("Result: %d\n", result);
+
+	float result[3];
+	FN_outputs_get_index(fn_out, 0, result);
+
+	printf("Result: %f %f %f\n", result[0], result[1], result[2]);
 
 	printf("Finished\n");
 	return OPERATOR_FINISHED;

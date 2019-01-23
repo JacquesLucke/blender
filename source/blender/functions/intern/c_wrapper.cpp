@@ -72,3 +72,41 @@ FunctionRef FN_get_add_const_function(int value)
 {
 	return (FunctionRef)AddConstFunction::Create(value);
 }
+
+#include <cmath>
+
+class DeformFunction : public FN::Function {
+private:
+	DeformFunction(FN::Signature sig)
+		: Function(sig) {}
+
+public:
+	static DeformFunction *Create()
+	{
+		FN::Signature sig({FN::Types::floatvec3d_ty, FN::Types::float_ty}, {FN::Types::floatvec3d_ty});
+		return new DeformFunction(sig);
+	}
+
+	bool call(const FN::Inputs &fn_in, FN::Outputs &fn_out) override
+	{
+		float vec[3];
+		float control;
+		fn_in.get(0, vec);
+		fn_in.get(1, &control);
+
+		float result[3];
+
+		result[0] = vec[0] * control;
+		result[1] = vec[1] + std::sin(control);
+		result[2] = vec[2];
+
+		fn_out.set(0, result);
+
+		return true;
+	}
+};
+
+FunctionRef FN_get_deform_function()
+{
+	return (FunctionRef)DeformFunction::Create();
+}
