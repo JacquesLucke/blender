@@ -46,7 +46,7 @@
 #include "DEG_depsgraph_query.h"
 #include "time.h"
 
-
+#include "FN_functions.h"
 
 static void deformVerts(
         ModifierData *md,
@@ -55,6 +55,23 @@ static void deformVerts(
         float (*vertexCos)[3],
         int numVerts)
 {
+	FunctionRef fn = FN_get_deform_function();
+	FnInputsRef fn_in = FN_inputs_new(fn);
+	FnOutputsRef fn_out = FN_outputs_new(fn);
+
+	float input[3] = {1, 2, 3};
+	float control = 10;
+	FN_inputs_set_index(fn_in, 0, input);
+	FN_inputs_set_index(fn_in, 1, &control);
+
+	FN_function_call(fn, fn_in, fn_out);
+
+	float result[3];
+	FN_outputs_get_index(fn_out, 0, result);
+
+	printf("Result: %f %f %f\n", result[0], result[1], result[2]);
+
+	printf("Finished\n");
 }
 
 

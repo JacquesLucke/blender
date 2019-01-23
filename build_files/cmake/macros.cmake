@@ -624,9 +624,9 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_python_gpu
 		bf_python_bmesh
 		bf_freestyle
-		bf_functions
 		bf_ikplugin
 		bf_modifiers
+		bf_functions
 		bf_gpencil_modifiers
 		bf_alembic
 		bf_bmesh
