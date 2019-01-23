@@ -12,19 +12,6 @@ typedef struct OpaqueFnType *FnTypeRef;
 typedef struct OpaqueFnInputs *FnInputsRef;
 typedef struct OpaqueFnOutputs *FnOutputsRef;
 
-/* Split ownership of the function. */
-void FN_function_copy_ref(FunctionRef fn);
-
-/* Tag the function as unused by the caller. */
-void FN_function_free_ref(FunctionRef fn);
-
-
-/* Raw function pointer to call when the function should be executed. */
-void *FN_function_get_pointer(FunctionRef fn);
-
-/* Pass into the function as first argument. */
-void *FN_function_get_settings(FunctionRef fn);
-
 /* Call a function with the given input.
  * The function output will be written into fn_out.
  * Returns true on success. */
@@ -37,9 +24,6 @@ FnInputsRef FN_inputs_new(FunctionRef fn);
 /* Free a set of function inputs. */
 void FN_inputs_free(FnInputsRef fn_in);
 
-/* Set a funtion input by name. Returns true on success. */
-bool FN_inputs_set_name(FnInputsRef fn_in, const char *name, void *src);
-
 /* Set a function input by index. Returns true on success. */
 void FN_inputs_set_index(FnInputsRef fn_in, uint index, void *src);
 
@@ -49,9 +33,6 @@ FnOutputsRef FN_outputs_new(FunctionRef fn);
 
 /* Free a set of output functions. */
 void FN_outputs_free(FnOutputsRef fn_out);
-
-/* Extract the result of an executed function by name. */
-void FN_outputs_get_name(FnOutputsRef fn_out, const char *name, void *dst);
 
 /* Extract the result of an executed function by index. */
 void FN_outputs_get_index(FnOutputsRef fn_out, uint index, void *dst);

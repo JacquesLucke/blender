@@ -18,6 +18,16 @@ FnOutputsRef FN_outputs_new(FunctionRef fn)
 	return (FnOutputsRef)new FN::Outputs(*(FN::Function *)fn);
 }
 
+void FN_inputs_free(FnInputsRef fn_in)
+{
+	delete (FN::Inputs *)fn_in;
+}
+
+void FN_outputs_free(FnOutputsRef fn_out)
+{
+	delete (FN::Outputs *)fn_out;
+}
+
 void FN_inputs_set_index(FnInputsRef fn_in, uint index, void *src)
 {
 	((FN::Inputs *)fn_in)->set(index, src);

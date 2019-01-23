@@ -73,6 +73,9 @@ static void deformVerts(
 
 	clock_t end = clock();
 	printf("Time taken: %f s\n", (float)(end - start) / (float)CLOCKS_PER_SEC);
+
+	FN_inputs_free(fn_in);
+	FN_outputs_free(fn_out);
 }
 
 
