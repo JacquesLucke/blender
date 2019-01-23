@@ -32,58 +32,35 @@ namespace BLI {
 
 		SmallVector(const SmallVector &other)
 		{
-			if (other.is_small()) {
-				this->m_elements = this->m_small_buffer;
-				std::memcpy(this->m_small_buffer, other.m_small_buffer, sizeof(T) * other.m_size);
-			}
-			else {
-				this->m_elements = (T *)std::malloc(sizeof(T) * other.m_capacity);
-				std::memcpy(this->m_elements, other.m_elements, other.m_size);
-			}
-			this->m_capacity = other.m_capacity;
-			this->m_size = other.m_size;
+			this->copy_from_other(other);
 		}
 
 		SmallVector(SmallVector &&other)
 		{
-			if (other.is_small()) {
-				this->m_elements = this->m_small_buffer;
-				std::memcpy(this->m_small_buffer, other.m_small_buffer, sizeof(T) * other.m_size);
-			}
-			else {
-				this->m_elements = other.m_elements;
-			}
-			this->m_capacity = other.m_capacity;
-			this->m_size = other.m_size;
+			this->steal_from_other(std::forward<SmallVector>(other));
 		}
 
 		~SmallVector()
 		{
-			if (!this->is_small()) {
-				std::free(this->m_elements);
-			}
+			this->free_own_buffer();
 		}
 
-		SmallVector &operator=(SmallVector &&other)
+		SmallVector &operator=(const SmallVector &other)
 		{
 			if (this == &other) {
 				return *this;
 			}
 
-			if (!this->is_small()) {
-				std::free(this->m_elements);
-			}
+			this->free_own_buffer();
+			this->copy_from_other(other);
 
-			if (other.is_small()) {
-				this->m_elements = this->m_small_buffer;
-				std::memcpy(this->m_small_buffer, other.m_small_buffer, sizeof(T) * other.m_size);
-			}
-			else {
-				this->m_elements = other.m_elements;
-			}
+			return *this;
+		}
 
-			this->m_capacity = other.m_capacity;
-			this->m_size = other.m_size;
+		SmallVector &operator=(SmallVector &&other)
+		{
+			this->free_own_buffer();
+			this->steal_from_other(std::forward<SmallVector>(other));
 
 			return *this;
 		}
@@ -136,6 +113,47 @@ namespace BLI {
 		bool is_small() const
 		{
 			return this->m_elements == this->m_small_buffer;
+		}
+
+		void free_own_buffer()
+		{
+			if (!this->is_small()) {
+				/* Can be nullptr when previously stolen. */
+				if (this->m_elements != nullptr) {
+					std::free(this->m_elements);
+				}
+			}
+		}
+
+		void copy_from_other(const SmallVector &other)
+		{
+			if (other.is_small()) {
+				this->m_elements = this->m_small_buffer;
+				std::memcpy(this->m_small_buffer, other.m_small_buffer, sizeof(T) * other.m_size);
+			}
+			else {
+				this->m_elements = (T *)std::malloc(sizeof(T) * other.m_capacity);
+				std::memcpy(this->m_elements, other.m_elements, other.m_size);
+			}
+
+			this->m_capacity = other.m_capacity;
+			this->m_size = other.m_size;
+		}
+
+		void steal_from_other(SmallVector &&other)
+		{
+			if (other.is_small()) {
+				this->m_elements = this->m_small_buffer;
+				std::memcpy(this->m_small_buffer, other.m_small_buffer, sizeof(T) * other.m_size);
+			}
+			else {
+				this->m_elements = other.m_elements;
+			}
+
+			this->m_capacity = other.m_capacity;
+			this->m_size = other.m_size;
+
+			other.m_elements = nullptr;
 		}
 	};
 
