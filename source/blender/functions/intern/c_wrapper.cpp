@@ -97,7 +97,7 @@ public:
 		float result[3];
 
 		result[0] = vec[0] * control;
-		result[1] = vec[1] + std::sin(control);
+		result[1] = vec[1];
 		result[2] = vec[2];
 
 		fn_out.set(0, result);

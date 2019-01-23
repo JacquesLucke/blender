@@ -50,28 +50,29 @@
 
 static void deformVerts(
         ModifierData *md,
-        const ModifierEvalContext *ctx,
+        const ModifierEvalContext *UNUSED(ctx),
         Mesh *UNUSED(mesh),
         float (*vertexCos)[3],
         int numVerts)
 {
+	FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
+
 	FunctionRef fn = FN_get_deform_function();
 	FnInputsRef fn_in = FN_inputs_new(fn);
 	FnOutputsRef fn_out = FN_outputs_new(fn);
 
-	float input[3] = {1, 2, 3};
-	float control = 10;
-	FN_inputs_set_index(fn_in, 0, input);
-	FN_inputs_set_index(fn_in, 1, &control);
+	FN_inputs_set_index(fn_in, 1, &fdmd->control1);
 
-	FN_function_call(fn, fn_in, fn_out);
+	clock_t start = clock();
 
-	float result[3];
-	FN_outputs_get_index(fn_out, 0, result);
+	for (int i = 0; i < numVerts; i++) {
+		FN_inputs_set_index(fn_in, 0, vertexCos + i);
+		FN_function_call(fn, fn_in, fn_out);
+		FN_outputs_get_index(fn_out, 0, vertexCos + i);
+	}
 
-	printf("Result: %f %f %f\n", result[0], result[1], result[2]);
-
-	printf("Finished\n");
+	clock_t end = clock();
+	printf("Time taken: %f s\n", (float)(end - start) / (float)CLOCKS_PER_SEC);
 }
 
 

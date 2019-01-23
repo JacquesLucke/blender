@@ -63,7 +63,7 @@ FnTypeRef FN_type_get_int32(void);
 FnTypeRef FN_type_get_float_vector_3d(void);
 
 FunctionRef FN_get_add_const_function(int value);
-FunctionRef FN_get_deform_function();
+FunctionRef FN_get_deform_function(void);
 
 #ifdef __cplusplus
 }
