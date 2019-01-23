@@ -44,12 +44,18 @@ FnTypeRef FN_type_get_float_vector_3d()
 
 
 class AddConstFunction : public FN::Function {
-public:
-	AddConstFunction(int value)
-		: FN::Function(FN::Signature({FN::Types::int32_ty}, {FN::Types::int32_ty})), value(value)
-	{ }
+private:
+	AddConstFunction(FN::Signature sig, int value)
+		: Function(sig), value(value) {}
 
-	bool call(FN::Inputs &fn_in, FN::Outputs &fn_out)
+public:
+	static AddConstFunction *Create(int value)
+	{
+		FN::Signature sig({FN::Types::int32_ty}, {FN::Types::int32_ty});
+		return new AddConstFunction(sig, value);
+	}
+
+	bool call(const FN::Inputs &fn_in, FN::Outputs &fn_out) override
 	{
 		int a;
 		fn_in.get(0, &a);
@@ -64,5 +70,5 @@ private:
 
 FunctionRef FN_get_add_const_function(int value)
 {
-	return (FunctionRef)new AddConstFunction(value);
+	return (FunctionRef)AddConstFunction::Create(value);
 }

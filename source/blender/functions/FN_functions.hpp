@@ -30,7 +30,7 @@ namespace FN {
 	class ValueArray {
 	public:
 		ValueArray() {};
-		ValueArray(SmallTypeVector types);
+		ValueArray(const SmallTypeVector &types);
 		void set(uint index, void *src);
 		void get(uint index, void *dst) const;
 
@@ -42,7 +42,7 @@ namespace FN {
 
 	class Inputs {
 	public:
-		Inputs(Function &fn);
+		Inputs(const Function &fn);
 
 		inline void set(uint index, void *src)
 		{ this->values.set(index, src); }
@@ -50,13 +50,13 @@ namespace FN {
 		{ this->values.get(index, dst); }
 
 	private:
-		Function &fn;
+		const Function &fn;
 		ValueArray values;
 	};
 
 	class Outputs {
 	public:
-		Outputs(Function &fn);
+		Outputs(const Function &fn);
 
 		inline void set(uint index, void *src)
 		{ this->values.set(index, src); }
@@ -64,7 +64,7 @@ namespace FN {
 		{ this->values.get(index, dst); }
 
 	private:
-		Function &fn;
+		const Function &fn;
 		ValueArray values;
 	};
 
@@ -73,7 +73,7 @@ namespace FN {
 		Signature()
 			: m_inputs({}), m_outputs({}) {}
 
-		Signature(SmallTypeVector inputs, SmallTypeVector outputs)
+		Signature(const SmallTypeVector &inputs, const SmallTypeVector &outputs)
 			: m_inputs(inputs), m_outputs(outputs) {}
 
 		~Signature() {}
@@ -90,17 +90,17 @@ namespace FN {
 
 	class Function {
 	public:
-		Function(Signature signature)
+		Function(const Signature &signature)
 			: m_signature(signature) {}
 
-		virtual bool call(Inputs &fn_in, Outputs &fn_out) = 0;
+		virtual ~Function();
 
-		inline const Signature &signature() const
-		{ return this->m_signature; }
+		virtual bool call(const Inputs &fn_in, Outputs &fn_out) = 0;
+
+		const Signature &signature() const;
 
 	private:
-
-	protected:
-		Signature m_signature;
+		const Signature m_signature;
 	};
+
 } /* namespace FN */

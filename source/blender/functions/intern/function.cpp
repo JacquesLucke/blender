@@ -12,13 +12,17 @@ const uint Type::size() const
 	return this->m_size;
 }
 
-Inputs::Inputs(Function &fn)
-	: fn(fn), values(ValueArray(fn.signature().inputs())) { }
 
-Outputs::Outputs(Function &fn)
-	: fn(fn), values(ValueArray(fn.signature().outputs())) { }
 
-ValueArray::ValueArray(SmallTypeVector types)
+Inputs::Inputs(const Function &fn)
+	: fn(fn), values(fn.signature().inputs()) { }
+
+Outputs::Outputs(const Function &fn)
+	: fn(fn), values(fn.signature().outputs()) { }
+
+
+
+ValueArray::ValueArray(const SmallTypeVector &types)
 	: types(types)
 {
 	int total_size = 0;
@@ -26,16 +30,15 @@ ValueArray::ValueArray(SmallTypeVector types)
 		this->offsets.append(total_size);
 		total_size += type->size();
 	}
+	this->offsets.append(total_size);
 	this->storage = SmallBuffer<>(total_size);
 }
 
 void ValueArray::set(uint index, void *src)
 {
-	BLI_assert(index < this->offsets.size());
-	this->storage.copy_in(
-		this->offsets[index],
-		src,
-		this->types[index]->size());
+	BLI_assert(index < this->types.size());
+	uint size = this->offsets[index + 1] - this->offsets[index];
+	this->storage.copy_in(this->offsets[index], src, size);
 }
 
 void ValueArray::get(uint index, void *dst) const
@@ -45,4 +48,14 @@ void ValueArray::get(uint index, void *dst) const
 		dst,
 		this->offsets[index],
 		this->types[index]->size());
+}
+
+
+Function::~Function()
+{
+}
+
+const Signature &Function::signature() const
+{
+	return this->m_signature;
 }
