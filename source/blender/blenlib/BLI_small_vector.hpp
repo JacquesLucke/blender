@@ -22,9 +22,26 @@ namespace BLI {
 			this->m_size = 0;
 		}
 
+		SmallVector(uint size)
+		{
+			if (size > N) {
+				this->m_elements = (T *)std::malloc(sizeof(T) * size);
+				this->m_capacity = size;
+			}
+			else {
+				this->m_elements = this->m_small_buffer;
+				this->m_capacity = N;
+			}
+			for (uint i = 0; i < size; i++) {
+				this->m_elements[i] = T();
+			}
+			this->m_size = size;
+		}
+
 		SmallVector(std::initializer_list<T> values)
 			: SmallVector()
 		{
+			this->reserve(values.size());
 			for (T value : values) {
 				this->append(value);
 			}
@@ -65,21 +82,26 @@ namespace BLI {
 			return *this;
 		}
 
+		void reserve(uint size)
+		{
+			this->grow(size);
+		}
+
 		void append(T value)
 		{
 			if (this->m_size >= this->m_capacity) {
-				this->m_capacity *= 2;
-				uint new_byte_size = sizeof(T) * this->m_capacity;
-				if (this->is_small()) {
-					this->m_elements = (T *)std::malloc(new_byte_size);
-				}
-				else {
-					this->m_elements = (T *)std::realloc(this->m_elements, new_byte_size);
-				}
+				this->grow(std::max(this->m_capacity * 2, (uint)1));
 			}
 
 			this->m_elements[this->m_size] = value;
 			this->m_size++;
+		}
+
+		void fill(T value)
+		{
+			for (uint i = 0; i < this->m_size; i++) {
+				this->m_elements[i] = value;
+			}
 		}
 
 		uint size() const
@@ -113,6 +135,22 @@ namespace BLI {
 		bool is_small() const
 		{
 			return this->m_elements == this->m_small_buffer;
+		}
+
+		void grow(uint min_capacity)
+		{
+			if (this->m_capacity >= min_capacity) {
+				return;
+			}
+
+			this->m_capacity = min_capacity;
+			uint new_byte_size = sizeof(T) * this->m_capacity;
+			if (this->is_small()) {
+				this->m_elements = (T *)std::malloc(new_byte_size);
+			}
+			else {
+				this->m_elements = (T *)std::realloc(this->m_elements, new_byte_size);
+			}
 		}
 
 		void free_own_buffer()
