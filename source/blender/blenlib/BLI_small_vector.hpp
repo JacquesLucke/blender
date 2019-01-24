@@ -3,6 +3,7 @@
 #include "BLI_utildefines.h"
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 namespace BLI {
 
@@ -23,19 +24,12 @@ namespace BLI {
 		}
 
 		SmallVector(uint size)
+			: SmallVector()
 		{
-			if (size > N) {
-				this->m_elements = (T *)std::malloc(sizeof(T) * size);
-				this->m_capacity = size;
-			}
-			else {
-				this->m_elements = this->m_small_buffer;
-				this->m_capacity = N;
-			}
+			this->reserve(size);
 			for (uint i = 0; i < size; i++) {
-				this->m_elements[i] = T();
+				this->append(T());
 			}
-			this->m_size = size;
 		}
 
 		SmallVector(std::initializer_list<T> values)
@@ -144,13 +138,22 @@ namespace BLI {
 			}
 
 			this->m_capacity = min_capacity;
-			uint new_byte_size = sizeof(T) * this->m_capacity;
-			if (this->is_small()) {
-				this->m_elements = (T *)std::malloc(new_byte_size);
+
+			T *new_array = (T *)std::malloc(sizeof(T) * this->m_capacity);
+			std::uninitialized_copy(
+				std::make_move_iterator(this->begin()),
+				std::make_move_iterator(this->end()),
+				new_array);
+
+			for (uint i = 0; i < this->m_size; i++) {
+				(this->m_elements + i)->~T();
 			}
-			else {
-				this->m_elements = (T *)std::realloc(this->m_elements, new_byte_size);
+
+			if (!this->is_small()) {
+				std::free(this->m_elements);
 			}
+
+			this->m_elements = new_array;
 		}
 
 		void free_own_buffer()
@@ -167,11 +170,11 @@ namespace BLI {
 		{
 			if (other.is_small()) {
 				this->m_elements = this->m_small_buffer;
-				std::memcpy(this->m_small_buffer, other.m_small_buffer, sizeof(T) * other.m_size);
+				std::copy(other.begin(), other.end(), this->m_elements);
 			}
 			else {
 				this->m_elements = (T *)std::malloc(sizeof(T) * other.m_capacity);
-				std::memcpy(this->m_elements, other.m_elements, other.m_size);
+				std::uninitialized_copy(other.begin(), other.end(), this->m_elements);
 			}
 
 			this->m_capacity = other.m_capacity;
@@ -181,8 +184,11 @@ namespace BLI {
 		void steal_from_other(SmallVector &&other)
 		{
 			if (other.is_small()) {
+				std::copy(
+					std::make_move_iterator(other.begin()),
+					std::make_move_iterator(other.end()),
+					this->m_small_buffer);
 				this->m_elements = this->m_small_buffer;
-				std::memcpy(this->m_small_buffer, other.m_small_buffer, sizeof(T) * other.m_size);
 			}
 			else {
 				this->m_elements = other.m_elements;
