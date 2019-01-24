@@ -28,14 +28,29 @@ void FN_outputs_free(FnOutputsRef fn_out)
 	delete (FN::Outputs *)fn_out;
 }
 
-void FN_inputs_set_index(FnInputsRef fn_in, uint index, void *src)
+void FN_inputs_set(FnInputsRef fn_in, uint index, void *src)
 {
 	((FN::Inputs *)fn_in)->set(index, src);
 }
 
-void FN_outputs_get_index(FnOutputsRef fn_out, uint index, void *dst)
+void FN_inputs_set_float(FnInputsRef fn_in, uint index, float value)
+{
+	((FN::Inputs *)fn_in)->set_static<sizeof(float)>(index, (void *)&value);
+}
+
+void FN_inputs_set_float_vector_3(FnInputsRef fn_in, uint index, float value[3])
+{
+	((FN::Inputs *)fn_in)->set_static<sizeof(float) * 3>(index, (void *)value);
+}
+
+void FN_outputs_get(FnOutputsRef fn_out, uint index, void *dst)
 {
 	((FN::Outputs *)fn_out)->get(index, dst);
+}
+
+void FN_outputs_get_float_vector_3(FnOutputsRef fn_out, uint index, float dst[3])
+{
+	((FN::Outputs *)fn_out)->get_static<sizeof(float) * 3>(index, (void *)dst);
 }
 
 const char *FN_type_name(FnTypeRef type)
@@ -101,8 +116,8 @@ public:
 	{
 		float vec[3];
 		float control;
-		fn_in.get(0, vec);
-		fn_in.get(1, &control);
+		fn_in.get_static<sizeof(float) * 3>(0, (void *)vec);
+		fn_in.get_static<sizeof(float)>(1, (void *)&control);
 
 		float result[3];
 
@@ -110,7 +125,7 @@ public:
 		result[1] = vec[1];
 		result[2] = vec[2];
 
-		fn_out.set(0, result);
+		fn_out.set_static<sizeof(float) * 3>(0, result);
 
 		return true;
 	}

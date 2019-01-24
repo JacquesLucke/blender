@@ -31,8 +31,34 @@ namespace FN {
 	public:
 		ValueArray() {};
 		ValueArray(const SmallTypeVector &types);
-		void set(uint index, void *src);
-		void get(uint index, void *dst) const;
+
+		inline void set(uint index, void *src)
+		{
+			BLI_assert(index < this->types.size());
+			uint size = this->offsets[index + 1] - this->offsets[index];
+			this->storage.copy_in(this->offsets[index], src, size);
+		}
+
+		inline void get(uint index, void *dst) const
+		{
+			BLI_assert(index < this->offsets.size());
+			uint size = this->offsets[index + 1] - this->offsets[index];
+			this->storage.copy_out(dst, this->offsets[index], size);
+		}
+
+		template<uint size>
+		inline void set_static(uint index, void *src)
+		{
+			BLI_assert(index < this->types.size());
+			this->storage.copy_in<size>(this->offsets[index], src);
+		}
+
+		template<uint size>
+		inline void get_static(uint index, void *dst) const
+		{
+			BLI_assert(index < this->offsets.size());
+			this->storage.copy_out(dst, this->offsets[index], size);
+		}
 
 	private:
 		const SmallTypeVector types;
@@ -40,32 +66,20 @@ namespace FN {
 		SmallBuffer<> storage;
 	};
 
-	class Inputs {
+	class Inputs : public ValueArray {
 	public:
 		Inputs(const Function &fn);
 
-		inline void set(uint index, void *src)
-		{ this->values.set(index, src); }
-		inline void get(uint index, void *dst) const
-		{ this->values.get(index, dst); }
-
 	private:
 		const Function &fn;
-		ValueArray values;
 	};
 
-	class Outputs {
+	class Outputs : public ValueArray {
 	public:
 		Outputs(const Function &fn);
 
-		inline void set(uint index, void *src)
-		{ this->values.set(index, src); }
-		inline void get(uint index, void *dst) const
-		{ this->values.get(index, dst); }
-
 	private:
 		const Function &fn;
-		ValueArray values;
 	};
 
 	class Signature {

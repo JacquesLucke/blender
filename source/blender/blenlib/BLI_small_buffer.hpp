@@ -14,13 +14,27 @@ namespace BLI {
 		SmallBuffer(uint size)
 			: SmallVector<char, N>(size) { }
 
-		void copy_in(uint dst, void *src, uint amount)
+		inline void copy_in(uint dst, void *src, uint amount)
 		{
 			BLI_assert(dst + amount <= this->size());
 			memcpy(this->begin() + dst, src, amount);
 		}
 
-		void copy_out(void *dst, uint src, uint amount) const
+		inline void copy_out(void *dst, uint src, uint amount) const
+		{
+			BLI_assert(src + amount <= this->size());
+			memcpy(dst, this->begin() + src, amount);
+		}
+
+		template<uint amount>
+		inline void copy_in(uint dst, void *src)
+		{
+			BLI_assert(dst + amount <= this->size());
+			memcpy(this->begin() + dst, src, amount);
+		}
+
+		template<uint amount>
+		inline void copy_out(uint dst, void *src) const
 		{
 			BLI_assert(src + amount <= this->size());
 			memcpy(dst, this->begin() + src, amount);

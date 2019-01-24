@@ -61,14 +61,14 @@ static void deformVerts(
 	FnInputsRef fn_in = FN_inputs_new(fn);
 	FnOutputsRef fn_out = FN_outputs_new(fn);
 
-	FN_inputs_set_index(fn_in, 1, &fdmd->control1);
+	FN_inputs_set_float(fn_in, 1, fdmd->control1);
 
 	clock_t start = clock();
 
 	for (int i = 0; i < numVerts; i++) {
-		FN_inputs_set_index(fn_in, 0, vertexCos + i);
+		FN_inputs_set_float_vector_3(fn_in, 0, vertexCos[i]);
 		FN_function_call(fn, fn_in, fn_out);
-		FN_outputs_get_index(fn_out, 0, vertexCos + i);
+		FN_outputs_get_float_vector_3(fn_out, 0, vertexCos[i]);
 	}
 
 	clock_t end = clock();
