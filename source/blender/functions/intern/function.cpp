@@ -14,24 +14,10 @@ const uint Type::size() const
 
 
 Inputs::Inputs(const Function &fn)
-	: ValueArray(fn.signature().inputs()), fn(fn) { }
+	: Tuple(fn.signature().inputs()), fn(fn) { }
 
 Outputs::Outputs(const Function &fn)
-	: ValueArray(fn.signature().outputs()), fn(fn) { }
-
-
-
-ValueArray::ValueArray(const SmallTypeVector &types)
-	: types(types)
-{
-	int total_size = 0;
-	for (const Type *type : types) {
-		this->offsets.append(total_size);
-		total_size += type->size();
-	}
-	this->offsets.append(total_size);
-	this->storage = SmallBuffer<>(total_size);
-}
+	: Tuple(fn.signature().outputs()), fn(fn) { }
 
 Function::~Function()
 {

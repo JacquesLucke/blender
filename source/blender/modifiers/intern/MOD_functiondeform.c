@@ -48,15 +48,11 @@
 
 #include "FN_functions.h"
 
-static void deformVerts(
-        ModifierData *md,
-        const ModifierEvalContext *UNUSED(ctx),
-        Mesh *UNUSED(mesh),
+static void do_deformation(
+        FunctionDeformModifierData *fdmd,
         float (*vertexCos)[3],
         int numVerts)
 {
-	FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
-
 	FunctionRef fn = FN_get_deform_function();
 	FnInputsRef fn_in = FN_inputs_new(fn);
 	FnOutputsRef fn_out = FN_outputs_new(fn);
@@ -78,6 +74,23 @@ static void deformVerts(
 	FN_outputs_free(fn_out);
 }
 
+static void deformVerts(
+        ModifierData *md,
+        const ModifierEvalContext *UNUSED(ctx),
+        Mesh *UNUSED(mesh),
+        float (*vertexCos)[3],
+        int numVerts)
+{
+	do_deformation((FunctionDeformModifierData *)md, vertexCos, numVerts);
+}
+
+static void deformVertsEM(
+        ModifierData *md, const ModifierEvalContext *UNUSED(ctx), struct BMEditMesh *UNUSED(em),
+        Mesh *UNUSED(mesh), float (*vertexCos)[3], int numVerts)
+{
+	do_deformation((FunctionDeformModifierData *)md, vertexCos, numVerts);
+}
+
 
 static void initData(ModifierData *md)
 {
@@ -97,7 +110,7 @@ ModifierTypeInfo modifierType_FunctionDeform = {
 	/* structName */        "FunctionDeformModifierData",
 	/* structSize */        sizeof(FunctionDeformModifierData),
 	/* type */              eModifierTypeType_OnlyDeform,
-	/* flags */             eModifierTypeFlag_AcceptsMesh,
+	/* flags */             eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsEditmode,
 	/* copyData */          modifier_copyData_generic,
 
 	/* deformVerts_DM */    NULL,
@@ -108,7 +121,7 @@ ModifierTypeInfo modifierType_FunctionDeform = {
 
 	/* deformVerts */       deformVerts,
 	/* deformMatrices */    NULL,
-	/* deformVertsEM */     NULL,
+	/* deformVertsEM */     deformVertsEM,
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     NULL,
 

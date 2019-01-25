@@ -1,10 +1,10 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
 
 #include "BLI_utildefines.h"
 #include "BLI_small_vector.hpp"
-#include "BLI_small_buffer.hpp"
 
 namespace FN {
 	using namespace BLI;
@@ -27,46 +27,77 @@ namespace FN {
 		uint m_size;
 	};
 
-	class ValueArray {
+	class Tuple {
 	public:
-		ValueArray() {};
-		ValueArray(const SmallTypeVector &types);
+		Tuple() {}
+		Tuple(const SmallTypeVector &types)
+			: types(types)
+		{
+			int total_size = 0;
+			for (const Type *type : types) {
+				this->offsets.append(total_size);
+				this->initialized.append(false);
+				total_size += type->size();
+			}
+			this->offsets.append(total_size);
+			this->data = std::malloc(total_size);
+		}
 
-		inline void set(uint index, void *src)
+		~Tuple()
+		{
+			std::free(this->data);
+		}
+
+		template<typename T>
+		inline void set(uint index, const T &value)
 		{
 			BLI_assert(index < this->types.size());
-			uint size = this->offsets[index + 1] - this->offsets[index];
-			this->storage.copy_in(this->offsets[index], src, size);
+			BLI_assert(sizeof(T) == this->element_size(index));
+
+			if (std::is_trivial<T>::value) {
+				std::memcpy((char *)this->data + this->offsets[index], &value, sizeof(T));
+			}
+			else {
+				const T *begin = &value;
+				const T *end = begin + 1;
+				T *dst = (T *)((char *)this->data + this->offsets[index]);
+
+				if (this->initialized[index]) {
+					std::copy(begin, end, dst);
+				}
+				else {
+					std::uninitialized_copy(begin, end, dst);
+					this->initialized[index] = true;
+				}
+			}
 		}
 
-		inline void get(uint index, void *dst) const
-		{
-			BLI_assert(index < this->offsets.size());
-			uint size = this->offsets[index + 1] - this->offsets[index];
-			this->storage.copy_out(dst, this->offsets[index], size);
-		}
-
-		template<uint size>
-		inline void set_static(uint index, void *src)
+		template<typename T>
+		inline const T &get(uint index) const
 		{
 			BLI_assert(index < this->types.size());
-			this->storage.copy_in<size>(this->offsets[index], src);
-		}
+			BLI_assert(sizeof(T) == this->element_size(index));
 
-		template<uint size>
-		inline void get_static(uint index, void *dst) const
-		{
-			BLI_assert(index < this->offsets.size());
-			this->storage.copy_out(dst, this->offsets[index], size);
+			if (!std::is_trivial<T>::value) {
+				BLI_assert(this->initialized[index]);
+			}
+
+			return *(T *)((char *)this->data + this->offsets[index]);;
 		}
 
 	private:
+		inline uint element_size(uint index) const
+		{
+			return this->offsets[index + 1] - this->offsets[index];
+		}
+
 		const SmallTypeVector types;
-		SmallVector<int> offsets;
-		SmallBuffer<> storage;
+		SmallVector<uint> offsets;
+		SmallVector<bool> initialized;
+		void *data;
 	};
 
-	class Inputs : public ValueArray {
+	class Inputs : public Tuple {
 	public:
 		Inputs(const Function &fn);
 
@@ -74,7 +105,7 @@ namespace FN {
 		const Function &fn;
 	};
 
-	class Outputs : public ValueArray {
+	class Outputs : public Tuple {
 	public:
 		Outputs(const Function &fn);
 

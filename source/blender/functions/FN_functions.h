@@ -25,7 +25,6 @@ FnInputsRef FN_inputs_new(FunctionRef fn);
 void FN_inputs_free(FnInputsRef fn_in);
 
 /* Set a function input by index. Returns true on success. */
-void FN_inputs_set(FnInputsRef fn_in, uint index, void *src);
 void FN_inputs_set_float(FnInputsRef fn_in, uint index, float value);
 void FN_inputs_set_float_vector_3(FnInputsRef fn_in, uint index, float vector[3]);
 
@@ -36,7 +35,6 @@ FnOutputsRef FN_outputs_new(FunctionRef fn);
 void FN_outputs_free(FnOutputsRef fn_out);
 
 /* Extract the result of an executed function by index. */
-void FN_outputs_get(FnOutputsRef fn_out, uint index, void *dst);
 void FN_outputs_get_float_vector_3(FnOutputsRef fn_out, uint index, float dst[3]);
 
 const char *FN_type_name(FnTypeRef type);
