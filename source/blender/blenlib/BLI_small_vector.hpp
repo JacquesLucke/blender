@@ -83,7 +83,7 @@ namespace BLI {
 			this->grow(size);
 		}
 
-		void append(T value)
+		void append(const T &value)
 		{
 			if (this->m_size >= this->m_capacity) {
 				this->grow(std::max(this->m_capacity * 2, (uint)1));
@@ -93,7 +93,7 @@ namespace BLI {
 			this->m_size++;
 		}
 
-		void fill(T value)
+		void fill(const T &value)
 		{
 			for (uint i = 0; i < this->m_size; i++) {
 				this->m_elements[i] = value;
