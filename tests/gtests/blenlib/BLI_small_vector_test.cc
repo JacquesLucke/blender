@@ -134,11 +134,25 @@ TEST(small_vector, VectorOfVectors_Append)
 	BLI::SmallVector<IntVector> vec;
 	EXPECT_EQ(vec.size(), 0);
 
-	vec.append({1, 2});
+	IntVector v({1, 2});
+	vec.append(v);
 	vec.append({7, 8});
 	EXPECT_EQ(vec.size(), 2);
 	EXPECT_EQ(vec[0][0], 1);
 	EXPECT_EQ(vec[0][1], 2);
 	EXPECT_EQ(vec[1][0], 7);
 	EXPECT_EQ(vec[1][1], 8);
+}
+
+TEST(small_vector, VectorOfVectors_Fill)
+{
+	BLI::SmallVector<IntVector> vec(3);
+	vec.fill({4, 5});
+
+	EXPECT_EQ(vec[0][0], 4);
+	EXPECT_EQ(vec[0][1], 5);
+	EXPECT_EQ(vec[1][0], 4);
+	EXPECT_EQ(vec[1][1], 5);
+	EXPECT_EQ(vec[2][0], 4);
+	EXPECT_EQ(vec[2][1], 5);
 }
