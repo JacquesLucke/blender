@@ -103,7 +103,7 @@ TEST(small_vector, Iterator)
 	}
 }
 
-TEST(small_Vector, BecomeLarge)
+TEST(small_vector, BecomeLarge)
 {
 	BLI::SmallVector<int, 4> vec;
 	for (int i = 0; i < 100; i++) {
