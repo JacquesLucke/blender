@@ -80,7 +80,6 @@ static std::vector<WeightedEdge> calculate_cotan_weights(
 	edges.reserve(triangles.size() * 3);
 
 	for (auto verts : triangles) {
-		std::cout << verts[0] << " " << verts[1] << " " << verts[2] << std::endl;
 		std::array<double, 3> angles = triangle_angles(
 			positions[verts[0]],
 			positions[verts[1]],
@@ -297,13 +296,10 @@ Vectors RigidDeformSystem::calculate_inner(
 	std::vector<Eigen::Matrix3d> rotations(this->vertex_amount());
 	std::fill(rotations.begin(), rotations.end(), Eigen::Matrix3d::Identity());
 
-	anchor_positions.print("Anchors");
-
 	uint iteration = 0;
 	while (true) {
 		iteration++;
 		Vectors new_inner_positions = this->optimize_inner_positions(anchor_positions, rotations);
-		new_inner_positions.print("New Inner Positions");
 		if (iteration == iterations) {
 			return new_inner_positions;
 		}
