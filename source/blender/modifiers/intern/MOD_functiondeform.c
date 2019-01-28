@@ -53,25 +53,25 @@ static void do_deformation(
         float (*vertexCos)[3],
         int numVerts)
 {
-	FunctionRef fn = FN_get_deform_function();
-	FnInputsRef fn_in = FN_inputs_new(fn);
-	FnOutputsRef fn_out = FN_outputs_new(fn);
+	FnCPUFunction fn = FN_get_deform_function();
+	FnTuple fn_in = FN_tuple_for_input(fn);
+	FnTuple fn_out = FN_tuple_for_output(fn);
 
-	FN_inputs_set_float(fn_in, 1, fdmd->control1);
+	FN_tuple_set_float(fn_in, 1, fdmd->control1);
 
 	clock_t start = clock();
 
 	for (int i = 0; i < numVerts; i++) {
-		FN_inputs_set_float_vector_3(fn_in, 0, vertexCos[i]);
+		FN_tuple_set_float_vector_3(fn_in, 0, vertexCos[i]);
 		FN_function_call(fn, fn_in, fn_out);
-		FN_outputs_get_float_vector_3(fn_out, 0, vertexCos[i]);
+		FN_tuple_get_float_vector_3(fn_out, 0, vertexCos[i]);
 	}
 
 	clock_t end = clock();
 	printf("Time taken: %f s\n", (float)(end - start) / (float)CLOCKS_PER_SEC);
 
-	FN_inputs_free(fn_in);
-	FN_outputs_free(fn_out);
+	FN_tuple_free(fn_in);
+	FN_tuple_free(fn_out);
 }
 
 static void deformVerts(

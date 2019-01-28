@@ -7,10 +7,12 @@ set(INC_SYS
 )
 
 set(SRC
-	intern/c_wrapper.cpp
-	intern/function.cpp
-
 	FN_functions.h
+	c_wrapper.cpp
+
+	core/core.hpp
+	core/cpu.hpp
+
 	FN_functions.hpp
 
 	types/numeric.hpp
