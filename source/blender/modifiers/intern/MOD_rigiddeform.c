@@ -53,7 +53,7 @@ typedef RigidDeformModifierBindData BindData;
 /* ************* Cache **************** */
 
 typedef struct Cache {
-	struct RigidDeformSystem *system;
+	RigidDeformSystemRef system;
 } Cache;
 
 static Cache *cache_new(void)
@@ -200,11 +200,14 @@ static void deform_vertices(RigidDeformModifierData *rdmd, Mesh *mesh, VectorArr
 	Cache *cache = (Cache *)rdmd->cache;
 
 	if (cache->system == NULL) {
-		cache->system = RigidDeformSystem_new(mesh);
-		RigidDeformSystem_setAnchors(cache->system, rdmd->bind_data->anchor_indices, rdmd->bind_data->anchor_amount);
+		cache->system = RigidDeformSystem_from_mesh(mesh);
+		RigidDeformSystem_set_anchors(
+			cache->system,
+			(uint *)rdmd->bind_data->anchor_indices,
+			(uint)rdmd->bind_data->anchor_amount);
 	}
 
-	RigidDeformSystem_correctNonAnchors(cache->system, vertex_cos, rdmd->iterations);
+	RigidDeformSystem_correct_inner(cache->system, vertex_cos, rdmd->iterations);
 }
 
 static RigidDeformModifierData *get_original_modifier_data(

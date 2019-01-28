@@ -23,166 +23,14 @@
  *
  */
 
-#include "Eigen/Sparse"
-#include "Eigen/Dense"
-
-#include "DNA_mesh_types.h"
-#include "DNA_meshdata_types.h"
-
-#include "BKE_mesh_runtime.h"
-
+#include "MOD_rigiddeform_system.hpp"
 #include "BLI_math.h"
-
-#include "MOD_rigiddeform_system.h"
-
-#include <iostream>
-#include <vector>
-#include <set>
-#include <unordered_set>
-
-#include <chrono>
-#include <iostream>
-
-/* ************** Timer ***************** */
-
-class Timer {
-    const char *name;
-    std::chrono::high_resolution_clock::time_point start, end;
-    std::chrono::duration<float> duration;
-
-public:
-    Timer(const char *name = "");
-    ~Timer();
-};
-
-Timer::Timer(const char *name) {
-    this->name = name;
-    this->start = std::chrono::high_resolution_clock::now();
-}
-
-Timer::~Timer() {
-    end = std::chrono::high_resolution_clock::now();
-    duration = end - start;
-    double ms = duration.count() * 1000.0f;
-    std::cout << "Timer '" << name << "' took " << ms << " ms" << std::endl;
-}
-
-#define TIMEIT(name) Timer t(name);
-
-/* ************ Timer End *************** */
-
-
-typedef Eigen::Map<Eigen::VectorXf, 0, Eigen::InnerStride<3>> StridedVector;
-typedef Eigen::SparseMatrix<float, Eigen::ColMajor> SparseMatrixF;
-typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SparseMatrixD;
-typedef Eigen::Triplet<float> Triplet;
-
-struct WeightedEdge {
-	int v1, v2;
-	float weight;
-};
-
-
-class Vectors {
-	Eigen::VectorXf data;
-
-public:
-	Vectors() {}
-
-	Vectors(int size)
-	{
-		this->data = Eigen::VectorXf(size * 3);
-	}
-
-	Vectors(std::vector<Eigen::Vector3f> &vectors)
-		: Vectors((Vector3Ds)&vectors[0][0], vectors.size()) {}
-
-	Vectors(Vector3Ds vectors, int amount)
-	{
-		this->data = Eigen::VectorXf(3 * amount);
-		memcpy(&this->data[0], vectors, this->byte_size());
-	}
-
-	void set_zero()
-	{
-		this->data.setZero();
-	}
-
-	StridedVector get_coord(int coord)
-	{
-		return StridedVector(this->data.data() + coord, this->size());
-	}
-
-	void set_coord(int coord, Eigen::VectorXf &values)
-	{
-		BLI_assert(values.size() == this->size());
-		this->get_coord(coord) = values;
-	}
-
-	void copy_to(Vector3Ds dst)
-	{
-		memcpy(dst, &this->data[0], this->byte_size());
-	}
-
-	float *get_vector_ptr(int index)
-	{
-		return this->ptr() + (3 * index);
-	}
-
-	void set_vector_ptr(int index, float *vector)
-	{
-		memcpy(this->ptr() + (3 * index), vector, sizeof(float) * 3);
-	}
-
-	Eigen::Map<Eigen::Vector3f> operator [](int index)
-	{
-		return Eigen::Map<Eigen::Vector3f>(this->get_vector_ptr(index));
-	}
-
-	float *ptr()
-	{
-		return &this->data[0];
-	}
-
-	int size()
-	{
-		return this->data.size() / 3;
-	}
-
-	int byte_size()
-	{
-		return this->size() * 3 * sizeof(float);
-	}
-
-	void print(std::string name){
-		std::cout << name << ":" << std::endl;
-		for (int i = 0; i < this->size(); i++) {
-			float *vector = this->get_vector_ptr(i);
-			printf("  %7.3f %7.3f %7.3f\n", vector[0], vector[1], vector[2]);
-		}
-	}
-};
-
-static std::vector<float> calcTotalWeigthPerVertex(std::vector<WeightedEdge> &edges, int vertex_amount)
-{
-	std::vector<float> total_weights(vertex_amount, 0);
-	for (WeightedEdge edge : edges) {
-		total_weights[edge.v1] += edge.weight;
-		total_weights[edge.v2] += edge.weight;
-	}
-	return total_weights;
-}
-
-static void printSparseMatrix(SparseMatrixF &matrix)
-{
-	std::cout << std::endl << Eigen::MatrixXf(matrix) << std::endl << std::endl;
-}
 
 /* expects the anchor indices to be sorted */
 /* (6, [1, 4]) -> [0, 2, 3, 5,  1, 4] */
-static std::vector<int> sortVerticesByAnchors(int vertex_amount, std::vector<int> &anchors)
+static std::vector<uint> sort_vertices_by_anchors(const std::vector<uint> &anchors, uint vertex_amount)
 {
-	std::vector<int> sorted;
+	std::vector<uint> sorted;
 
 	int anchor_index = 0;
 	for (int i = 0; i < vertex_amount; i++) {
@@ -197,116 +45,61 @@ static std::vector<int> sortVerticesByAnchors(int vertex_amount, std::vector<int
 	return sorted;
 }
 
-static Vectors getVertexPositions(Mesh *mesh)
+/* Build Laplace Matrix
+ ******************************************/
+
+static std::vector<double> calc_total_weight_per_vertex(
+		const std::vector<WeightedEdge> &edges,
+		uint vertex_amount)
 {
-	std::vector<Eigen::Vector3f> positions;
-
-	for (int i = 0; i < mesh->totvert; i++) {
-		Eigen::Vector3f position;
-		copy_v3_v3(&position[0], mesh->mvert[i].co);
-		positions.push_back(position);
+	std::vector<double> total_weights(vertex_amount, 0);
+	for (WeightedEdge edge : edges) {
+		total_weights[edge.v1] += edge.weight;
+		total_weights[edge.v2] += edge.weight;
 	}
-
-	return positions;
+	return total_weights;
 }
 
-static std::vector<std::array<int, 3>> getTriangleIndices(Mesh *mesh)
+static std::array<double, 3> triangle_angles(
+	Eigen::Vector3d v1, Eigen::Vector3d v2, Eigen::Vector3d v3)
 {
-	std::vector<std::array<int, 3>> indices;
+	Eigen::Vector3f v1_f = v1.cast<float>();
+	Eigen::Vector3f v2_f = v2.cast<float>();
+	Eigen::Vector3f v3_f = v3.cast<float>();
 
-	const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-	int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
-
-	for (int i = 0; i < triangle_amount; i++) {
-		int v1 = mesh->mloop[triangles[i].tri[0]].v;
-		int v2 = mesh->mloop[triangles[i].tri[1]].v;
-		int v3 = mesh->mloop[triangles[i].tri[2]].v;
-		indices.push_back({v1, v2, v3});
-	}
-
-	return indices;
+	float angles[3];
+	angle_tri_v3(angles, v1_f.data(), v2_f.data(), v3_f.data());
+	return {angles[0], angles[1], angles[2]};
 }
 
-struct ReorderData
+static std::vector<WeightedEdge> calculate_cotan_weights(
+	const Vectors &positions,
+	const std::vector<std::array<uint, 3>> &triangles)
 {
-private:
-	std::vector<int> orig_to_new;
-	std::vector<int> new_to_orig;
-	int _inner_amount;
-
-public:
-
-	ReorderData() {}
-
-	ReorderData(std::vector<int> &anchors, int vertex_amount)
-	{
-		this->new_to_orig = sortVerticesByAnchors(vertex_amount, anchors);
-
-		this->orig_to_new.resize(vertex_amount);
-		for (int i = 0; i < vertex_amount; i++) {
-			orig_to_new[new_to_orig[i]] = i;
-		}
-
-		this->_inner_amount = vertex_amount - anchors.size();
-	}
-
-	int inner_amount()
-	{
-		return this->_inner_amount;
-	}
-
-	bool is_inner__orig(int index)
-	{
-		return this->orig_to_new[index] < this->_inner_amount;
-	}
-
-	bool is_inner__new(int index)
-	{
-		return index < this->_inner_amount;
-	}
-
-	int to_orig(int index)
-	{
-		return this->new_to_orig[index];
-	}
-
-	int to_new(int index)
-	{
-		return this->orig_to_new[index];
-	}
-
-	int to_new_anchor(int index)
-	{
-		return this->to_new(index) - this->inner_amount();
-	}
-};
-
-static std::vector<WeightedEdge> calculateEdgeWeights_FromTriangles_Cotan(
-        Vectors &positions, std::vector<std::array<int, 3>> &triangles)
-{
-	std::vector<WeightedEdge> edges(triangles.size() * 3);
+	std::vector<WeightedEdge> edges;
+	edges.reserve(triangles.size() * 3);
 
 	for (auto verts : triangles) {
-		float angles[3];
-		angle_tri_v3(angles,
-		        positions.get_vector_ptr(verts[0]),
-		        positions.get_vector_ptr(verts[1]),
-		        positions.get_vector_ptr(verts[2]));
+		std::cout << verts[0] << " " << verts[1] << " " << verts[2] << std::endl;
+		std::array<double, 3> angles = triangle_angles(
+			positions[verts[0]],
+			positions[verts[1]],
+			positions[verts[2]]);
 
-#define cotan(x) cos((x))/sin((x))
-		edges.push_back((WeightedEdge){verts[1], verts[2], cotan(angles[0]) / 2.0f});
-		edges.push_back((WeightedEdge){verts[0], verts[2], cotan(angles[1]) / 2.0f});
-		edges.push_back((WeightedEdge){verts[0], verts[1], cotan(angles[2]) / 2.0f});
+#define cotan(x) std::cos((x))/std::sin((x))
+		edges.push_back(WeightedEdge(verts[1], verts[2], cotan(angles[0]) / 2.0));
+		edges.push_back(WeightedEdge(verts[0], verts[2], cotan(angles[1]) / 2.0));
+		edges.push_back(WeightedEdge(verts[0], verts[1], cotan(angles[2]) / 2.0));
 #undef cotan
 	}
 
 	return edges;
 }
 
-static std::vector<Triplet> getLaplaceMatrixTriplets(
-        int vertex_amount, std::vector<WeightedEdge> &edges)
+static std::vector<Triplet> get_laplace_matrix_triplets(
+        uint vertex_amount, std::vector<WeightedEdge> &edges)
 {
-	auto total_weights = calcTotalWeigthPerVertex(edges, vertex_amount);
+	auto total_weights = calc_total_weight_per_vertex(edges, vertex_amount);
 
 	std::vector<Triplet> triplets;
 
@@ -324,284 +117,211 @@ static std::vector<Triplet> getLaplaceMatrixTriplets(
 	return triplets;
 }
 
-static std::vector<Eigen::Matrix3f> calculate_rotations(
-        std::vector<WeightedEdge> &edges, Vectors &initial, Vectors &new_inner, Vectors &anchors, ReorderData &order)
+ReorderData::ReorderData(const std::vector<uint> &anchors, uint vertex_amount)
 {
-	BLI_assert(initial.size() == new_inner.size() + anchors.size());
+	m_new_to_orig = sort_vertices_by_anchors(anchors, vertex_amount);
 
-	std::vector<Eigen::Matrix3f> S(initial.size());
+	m_orig_to_new.resize(vertex_amount);
+	for (int i = 0; i < vertex_amount; i++) {
+		m_orig_to_new[m_new_to_orig[i]] = i;
+	}
+
+	this->m_inner_amount = vertex_amount - anchors.size();
+}
+
+
+/* Optimize Rotations
+ *********************************************/
+
+std::vector<Eigen::Matrix3d> RigidDeformSystem::optimize_rotations(
+	const Vectors &anchor_positions,
+	const Vectors &new_inner_positions)
+{
+	std::vector<Eigen::Matrix3d> S(this->vertex_amount());
 	for (int i = 0; i < S.size(); i++) S[i].setZero();
 
-	for (WeightedEdge edge : edges) {
+	for (WeightedEdge edge : m_edges) {
 		int v1 = edge.v1;
 		int v2 = edge.v2;
-		bool v1_is_inner = order.is_inner__orig(v1);
-		bool v2_is_inner = order.is_inner__orig(v2);
+		bool v1_is_inner = m_order.is_inner__orig(v1);
+		bool v2_is_inner = m_order.is_inner__orig(v2);
 
-		Eigen::Vector3f edge_old = initial[v1] - initial[v2];
+		Eigen::Vector3d edge_old = m_initial_positions[v1] - m_initial_positions[v2];
 
-		Eigen::Vector3f edge_new_start = v1_is_inner ? new_inner[order.to_new(v1)] : anchors[order.to_new_anchor(v1)];
-		Eigen::Vector3f edge_new_end   = v2_is_inner ? new_inner[order.to_new(v2)] : anchors[order.to_new_anchor(v2)];
-		Eigen::RowVector3f edge_new = edge_new_start - edge_new_end;
+		Eigen::Vector3d edge_new_start =
+			v1_is_inner ? new_inner_positions[m_order.to_new(v1)] : anchor_positions[m_order.to_new_anchor(v1)];
+		Eigen::Vector3d edge_new_end =
+			v2_is_inner ? new_inner_positions[m_order.to_new(v2)] : anchor_positions[m_order.to_new_anchor(v2)];
 
-		Eigen::Matrix3f mat = edge.weight * edge_old * edge_new;
+		Eigen::RowVector3d edge_new = edge_new_start - edge_new_end;
+
+		Eigen::Matrix3d mat = edge.weight * edge_old * edge_new;
 		S[v1] += mat;
 		S[v2] += mat;
 	}
 
-	std::vector<Eigen::Matrix3f> R(S.size());
+	std::vector<Eigen::Matrix3d> R(S.size());
 	for (int i = 0; i < S.size(); i++) {
-		Eigen::JacobiSVD<Eigen::Matrix3f> svd(S[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
+		Eigen::JacobiSVD<Eigen::Matrix3d> svd(S[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
 		R[i] = svd.matrixV() * svd.matrixU().transpose();
+		if (R[i].determinant() < 0) {
+			Eigen::Matrix3d U = svd.matrixU();
+			U.col(2) = -U.col(2);
+			R[i] = svd.matrixV() * U.transpose();
+		}
 	}
 
 	return R;
 }
 
-static Vectors calculate_new_inner_diff(
-        std::vector<WeightedEdge> &edges, Vectors &initial, Vectors &new_inner, Vectors &anchors, ReorderData &order)
+
+/* Optimize Inner Vertex Positions
+ **********************************************/
+
+Vectors RigidDeformSystem::optimize_inner_positions(
+	const Vectors &anchor_positions,
+	const std::vector<Eigen::Matrix3d> &rotations)
 {
-	Vectors new_diffs(order.inner_amount());
-	new_diffs.set_zero();
+	Vectors new_inner_diffs = this->calculate_new_inner_diffs(rotations);
+	return this->solve_for_new_inner_positions(anchor_positions, new_inner_diffs);
+}
 
-	auto rotations = calculate_rotations(edges, initial, new_inner, anchors, order);
+Vectors RigidDeformSystem::calculate_new_inner_diffs(
+	const std::vector<Eigen::Matrix3d> &rotations)
+{
+	Vectors new_inner_diffs(m_order.inner_amount());
+	new_inner_diffs.set_zero();
 
-	for (WeightedEdge edge : edges) {
-		int v1 = edge.v1;
-		int v2 = edge.v2;
-		bool v1_is_inner = order.is_inner__orig(v1);
-		bool v2_is_inner = order.is_inner__orig(v2);
+	for (WeightedEdge edge : m_edges) {
+		uint v1 = edge.v1;
+		uint v2 = edge.v2;
+		bool v1_is_inner = m_order.is_inner__orig(v1);
+		bool v2_is_inner = m_order.is_inner__orig(v2);
 		if (!(v1_is_inner || v2_is_inner)) continue;
 
-		Eigen::Vector3f old_edge = initial[v1] - initial[v2];
-		Eigen::Vector3f value = edge.weight / 2.0f * (rotations[v1] + rotations[v2]) * old_edge;
+		Eigen::Vector3d old_edge = m_initial_positions[v1] - m_initial_positions[v2];
+		Eigen::Vector3d value = edge.weight / 2.0f * (rotations[v1] + rotations[v2]) * old_edge;
 
-		if (v1_is_inner) new_diffs[order.to_new(v1)] += value;
-		if (v2_is_inner) new_diffs[order.to_new(v2)] -= value;
+		if (v1_is_inner) new_inner_diffs[m_order.to_new(v1)] += value;
+		if (v2_is_inner) new_inner_diffs[m_order.to_new(v2)] -= value;
 	}
 
-	return new_diffs;
+	return new_inner_diffs;
 }
 
-struct RigidDeformSystemMatrix
+Vectors RigidDeformSystem::solve_for_new_inner_positions(
+	const Vectors &anchor_positions,
+	const Vectors &new_inner_diffs)
 {
-	SparseMatrixF L, A_II, A_IB;
-	ReorderData order;
-	Eigen::SimplicialLDLT<SparseMatrixD> *solver;
+	Vectors new_inner_positions(m_order.inner_amount());
+	for (uint coord = 0; coord < 3; coord++) {
+		Eigen::VectorXd b = new_inner_diffs.get_coord(coord) - m_A_IB * anchor_positions.get_coord(coord);
+		Eigen::VectorXd result = m_solver->solve(m_A_II.transpose() * b);
+		new_inner_positions.set_coord(coord, result);
+	}
+	return new_inner_positions;
+}
 
-	RigidDeformSystemMatrix(
-	        std::vector<WeightedEdge> &edges,
-	        std::vector<int> anchors,
-			int vertex_amount)
-	{
-		int anchor_amount = anchors.size();
-		int inner_amount = vertex_amount - anchor_amount;
 
-		this->order = ReorderData(anchors, vertex_amount);
+/* RigidDeformSystem
+ ***************************************/
 
-		std::vector<Triplet> laplace_triplets = getLaplaceMatrixTriplets(vertex_amount, edges);
-		std::vector<Triplet> triplets_A_II, triplets_A_IB;
+RigidDeformSystem::RigidDeformSystem(
+	const Vectors &initial_positions,
+	const std::vector<std::array<uint, 3>> &triangles)
+{
+	m_initial_positions = initial_positions;
+	m_edges = calculate_cotan_weights(initial_positions, triangles);
+	m_laplace_triplets = get_laplace_matrix_triplets(this->vertex_amount(), m_edges);
+}
 
-		for (Triplet triplet : laplace_triplets) {
-			int reorder_row = this->order.to_new(triplet.row());
-			int reorder_col = this->order.to_new(triplet.col());
+void RigidDeformSystem::clear_anchors()
+{
+	m_order = ReorderData();
+	m_anchor_indices = {};
+	m_inner_indices = {};
+}
 
-			if (reorder_row < inner_amount) {
-				if (reorder_col < inner_amount) {
-					triplets_A_II.push_back(Triplet(reorder_row, reorder_col, triplet.value()));
-				} else {
-					triplets_A_IB.push_back(Triplet(reorder_row, reorder_col - inner_amount, triplet.value()));
-				}
+void RigidDeformSystem::set_anchors(
+	const std::vector<uint> &anchor_indices)
+{
+	clear_anchors();
+
+	m_order = ReorderData(anchor_indices, this->vertex_amount());
+	m_anchor_indices = anchor_indices;
+	for (uint i = 0; i < this->vertex_amount(); i++) {
+		if (m_order.is_inner__orig(i)) {
+			m_inner_indices.push_back(i);
+		}
+	}
+
+	this->update_matrix();
+
+	m_solver = std::unique_ptr<Solver>(new Solver());
+	m_solver->compute(m_A_II.transpose() * m_A_II);
+}
+
+void RigidDeformSystem::update_matrix()
+{
+	std::vector<Triplet> triplets_A_II, triplets_A_IB;
+	for (Triplet triplet : m_laplace_triplets) {
+		if (m_order.is_inner__orig(triplet.row())) {
+			uint reorder_row = m_order.to_new(triplet.row());
+			if (m_order.is_inner__orig(triplet.col())) {
+				triplets_A_II.push_back(Triplet(
+					reorder_row,
+					m_order.to_new(triplet.col()),
+					triplet.value()));
+			}
+			else {
+				triplets_A_IB.push_back(Triplet(
+					reorder_row,
+					m_order.to_new_anchor(triplet.col()),
+					triplet.value()));
 			}
 		}
-
-		this->A_II = SparseMatrixF(inner_amount, inner_amount);
-		this->A_IB = SparseMatrixF(inner_amount, anchor_amount);
-		this->L = SparseMatrixF(vertex_amount, vertex_amount);
-		this->A_II.setFromTriplets(triplets_A_II.begin(), triplets_A_II.end());
-		this->A_IB.setFromTriplets(triplets_A_IB.begin(), triplets_A_IB.end());
-		this->L.setFromTriplets(laplace_triplets.begin(), laplace_triplets.end());
-
-		this->solver = new Eigen::SimplicialLDLT<SparseMatrixD>();
-		this->solver->compute(this->A_II.cast<double>().transpose() * this->A_II.cast<double>());
 	}
 
-	int vertex_amount()
-	{
-		return this->A_II.cols() + this->A_IB.cols();
-	}
-
-	int inner_amount()
-	{
-		return this->A_II.cols();
-	}
-
-	int anchor_amount()
-	{
-		return this->vertex_amount() - this->inner_amount();
-	}
-
-	Eigen::VectorXf calculateInnerDiff_SingleCoord(Eigen::VectorXf positions)
-	{
-		int vertex_amount = this->vertex_amount();
-		int inner_amount = this->inner_amount();
-		int anchor_amount = this->anchor_amount();
-
-		Eigen::VectorXf sorted_vector(vertex_amount);
-		for (int i = 0; i < vertex_amount; i++) {
-			sorted_vector[this->order.to_new(i)] = positions[i];
-		}
-		Eigen::VectorXf result =
-			  this->A_II * sorted_vector.segment(0, inner_amount)
-			+ this->A_IB * sorted_vector.segment(inner_amount, anchor_amount);
-
-		return result;
-	}
-
-	Vectors *calculateInnerDiff(Vectors &positions)
-	{
-		int inner_amount = this->inner_amount();
-		Vectors *output = new Vectors(inner_amount);
-
-		for (int coord = 0; coord < 3; coord++) {
-			Eigen::VectorXf vector = positions.get_coord(coord);
-			Eigen::VectorXf result = calculateInnerDiff_SingleCoord(vector);
-			output->set_coord(coord, result);
-		}
-
-		return output;
-	}
-
-	Eigen::VectorXf solve_single_coord(StridedVector initial_inner_diff, StridedVector anchor_positions)
-	{
-		Eigen::VectorXf b = initial_inner_diff - this->A_IB * anchor_positions;
-		Eigen::VectorXf result = this->solver->solve(this->A_II.cast<double>().transpose() * b.cast<double>()).cast<float>();
-
-		return result;
-	}
-
-	Vectors solve(Vectors &initial_inner_diff, Vectors &anchor_positions)
-	{
-		Vectors output(this->inner_amount());
-		for (int coord = 0; coord < 3; coord++) {
-			Eigen::VectorXf single_result = this->solve_single_coord(
-			        initial_inner_diff.get_coord(coord),
-			        anchor_positions.get_coord(coord));
-			output.set_coord(coord, single_result);
-		}
-		return output;
-	}
-};
-
-class RigidDeformSystem
-{
-
-private:
-	Vectors orig_vertex_positions;
-	std::vector<std::array<int, 3>> triangle_indices;
-	std::vector<WeightedEdge> edges;
-
-	std::vector<int> *anchor_indices = nullptr;
-	RigidDeformSystemMatrix *system_matrix = nullptr;
-	Vectors *initial_inner_diff = nullptr;
-
-public:
-	RigidDeformSystem(Mesh *orig_mesh)
-	{
-		this->orig_vertex_positions = getVertexPositions(orig_mesh);
-		this->triangle_indices = getTriangleIndices(orig_mesh);
-		this->edges = calculateEdgeWeights_FromTriangles_Cotan(
-		        this->orig_vertex_positions,
-		        this->triangle_indices);
-	}
-
-	void setAnchors(std::vector<int> &anchor_indices)
-	{
-		this->anchor_indices = new std::vector<int>(anchor_indices);
-		this->system_matrix = new RigidDeformSystemMatrix(
-		        this->edges, *this->anchor_indices, this->vertex_amount());
-		this->initial_inner_diff = this->system_matrix->calculateInnerDiff(this->orig_vertex_positions);
-	}
-
-	Vectors calculate_inner_coordinates(Vectors &anchor_positions, int iterations)
-	{
-		Vectors inner_diff = *this->initial_inner_diff;
-		Vectors result;
-
-		for (int i = 0; i < iterations; i++) {
-			result = this->system_matrix->solve(inner_diff, anchor_positions);
-			inner_diff = calculate_new_inner_diff(this->edges, this->orig_vertex_positions, result, anchor_positions, this->system_matrix->order);
-		}
-
-		return result;
-	}
-
-	void correct_non_anchors(Vectors &positions, int iterations)
-	{
-		Vectors anchors = this->extract_anchor_positions(positions);
-		Vectors new_inner_coords = this->calculate_inner_coordinates(anchors, iterations);
-		this->writeback_inner_postions(positions, new_inner_coords);
-	}
-
-	Vectors extract_anchor_positions(Vectors &all_positions)
-	{
-		Vectors anchors(this->anchor_amount());
-		for (int i = 0; i < this->anchor_indices->size(); i++) {
-			int index = (*this->anchor_indices)[i];
-			anchors.set_vector_ptr(i, all_positions.get_vector_ptr(index));
-		}
-		return anchors;
-	}
-
-	void writeback_inner_postions(Vectors &all_positions, Vectors &inner_positions)
-	{
-		for (int i = 0; i < inner_positions.size(); i++) {
-			int i_orig = this->system_matrix->order.to_orig(i);
-			all_positions.set_vector_ptr(i_orig, inner_positions.get_vector_ptr(i));
-		}
-	}
-
-	int vertex_amount()
-	{
-		return this->orig_vertex_positions.size();
-	}
-
-	int anchor_amount()
-	{
-		return this->anchor_indices->size();
-	}
-
-	int inner_amount()
-	{
-		return this->vertex_amount() - this->anchor_amount();
-	}
-};
-
-RigidDeformSystem *RigidDeformSystem_new(struct Mesh *mesh)
-{
-	TIMEIT("new");
-	return new RigidDeformSystem(mesh);
+	m_A_II = SparseMatrixD(m_order.inner_amount(), m_order.inner_amount());
+	m_A_IB = SparseMatrixD(m_order.inner_amount(), m_order.anchor_amount());
+	m_A_II.setFromTriplets(triplets_A_II.begin(), triplets_A_II.end());
+	m_A_IB.setFromTriplets(triplets_A_IB.begin(), triplets_A_IB.end());
 }
 
-void RigidDeformSystem_setAnchors(
-        RigidDeformSystem *system,
-        int *anchor_indices, int anchor_amount)
+Vectors RigidDeformSystem::calculate_inner(
+		const Vectors &anchor_positions,
+		uint iterations)
 {
-	TIMEIT("set anchors");
-	std::vector<int> anchors(anchor_indices, anchor_indices + anchor_amount);
-	system->setAnchors(anchors);
+	assert(iterations > 0);
+
+	std::vector<Eigen::Matrix3d> rotations(this->vertex_amount());
+	std::fill(rotations.begin(), rotations.end(), Eigen::Matrix3d::Identity());
+
+	anchor_positions.print("Anchors");
+
+	uint iteration = 0;
+	while (true) {
+		iteration++;
+		Vectors new_inner_positions = this->optimize_inner_positions(anchor_positions, rotations);
+		new_inner_positions.print("New Inner Positions");
+		if (iteration == iterations) {
+			return new_inner_positions;
+		}
+		rotations = this->optimize_rotations(anchor_positions, new_inner_positions);
+	}
 }
 
-void RigidDeformSystem_correctNonAnchors(
-        RigidDeformSystem *system, Vector3Ds positions, int iterations)
+const std::vector<uint> &RigidDeformSystem::anchor_indices() const
 {
-	Vectors _positions(positions, system->vertex_amount());
-	system->correct_non_anchors(_positions, iterations);
-	_positions.copy_to(positions);
+	return this->m_anchor_indices;
 }
 
-void RigidDeformSystem_free(
-        struct RigidDeformSystem *system)
+const std::vector<uint> &RigidDeformSystem::inner_indices() const
 {
+	return this->m_inner_indices;
+}
 
+uint RigidDeformSystem::vertex_amount() const
+{
+	return m_initial_positions.size();
 }

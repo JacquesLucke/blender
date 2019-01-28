@@ -30,21 +30,26 @@ extern "C" {
 #endif
 
 struct Mesh;
-struct RigidDeformSystem;
+typedef struct OpaqueRigidDeformSystem *RigidDeformSystemRef;
 
 typedef float (*Vector3Ds)[3];
+typedef uint (*TriangleIndices)[3];
 
-struct RigidDeformSystem *RigidDeformSystem_new(struct Mesh *mesh);
+RigidDeformSystemRef RigidDeformSystem_from_mesh(
+        struct Mesh *mesh);
 
-void RigidDeformSystem_setAnchors(
-        struct RigidDeformSystem *system,
-        int *anchor_indices, int anchor_amount);
+void RigidDeformSystem_set_anchors(
+        RigidDeformSystemRef system,
+        uint *anchor_indices,
+        uint anchor_amount);
 
-void RigidDeformSystem_correctNonAnchors(
-        struct RigidDeformSystem *system, Vector3Ds positions, int iterations);
+void RigidDeformSystem_correct_inner(
+        RigidDeformSystemRef system,
+        Vector3Ds positions,
+        uint iterations);
 
 void RigidDeformSystem_free(
-        struct RigidDeformSystem *system);
+        RigidDeformSystemRef system);
 
 #ifdef __cplusplus
 }
