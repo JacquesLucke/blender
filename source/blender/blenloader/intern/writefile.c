@@ -1776,6 +1776,9 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 		else if (md->type == eModifierType_CorrectiveSmooth) {
 			CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)md;
 
+			if (csmd->bind_coords) {
+				writedata(wd, DATA, sizeof(float[3]) * csmd->bind_coords_num, csmd->bind_coords);
+			}
 		}
 		else if (md->type == eModifierType_SurfaceDeform) {
 			SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)md;
