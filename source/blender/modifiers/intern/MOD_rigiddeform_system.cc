@@ -89,9 +89,9 @@ static std::vector<WeightedEdge> calculate_cotan_edge_weights(
 			positions[verts[1]],
 			positions[verts[2]]);
 
-		double w1 = cotan(angles[0]) / 2.0;
-		double w2 = cotan(angles[1]) / 2.0;
-		double w3 = cotan(angles[2]) / 2.0;
+		double w1 = (angles[0] > 0.0001) ? cotan(angles[0]) / 2.0 : 1.0;
+		double w2 = (angles[0] > 0.0001) ? cotan(angles[1]) / 2.0 : 1.0;
+		double w3 = (angles[0] > 0.0001) ? cotan(angles[2]) / 2.0 : 1.0;
 
 		if (w1 > 0) edges.push_back(WeightedEdge(verts[1], verts[2], w1));
 		if (w2 > 0) edges.push_back(WeightedEdge(verts[0], verts[2], w2));
