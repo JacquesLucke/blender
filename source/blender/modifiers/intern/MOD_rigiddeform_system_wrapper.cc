@@ -5,6 +5,8 @@
 #include "DNA_meshdata_types.h"
 #include "BKE_mesh_runtime.h"
 
+using namespace RigidDeform;
+
 /* Utilities
  ****************************************/
 
