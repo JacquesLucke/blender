@@ -13,6 +13,7 @@ namespace RigidDeform {
 	typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SparseMatrixD;
 	typedef Eigen::Triplet<double> Triplet;
 	typedef Eigen::SimplicialLDLT<SparseMatrixD> Solver;
+	typedef std::vector<Triplet> Triplets;
 
 	class Vectors {
 		Eigen::VectorXd m_data;
@@ -149,6 +150,30 @@ namespace RigidDeform {
 			: v1(v1), v2(v2), weight(weight) {}
 	};
 
+	typedef std::vector<WeightedEdge> WeightedEdges;
+
+	struct ImpactData {
+		WeightedEdges m_edges;
+		std::vector<int> m_compact_map;
+		uint m_compact_amount;
+
+		uint compact_amount() const
+		{
+			return m_compact_amount;
+		}
+
+		const WeightedEdges &edges()
+		{
+			return m_edges;
+		}
+
+		int compact_index(uint index) const
+		{
+			return m_compact_map[index];
+		}
+
+	};
+
 	class RigidDeformSystem {
 	public:
 		RigidDeformSystem(
@@ -168,35 +193,40 @@ namespace RigidDeform {
 		uint vertex_amount() const;
 
 	private:
-		void clear_anchors();
+		void update_inner_indices();
 		void update_matrix();
+		void update_impact_data();
+		void get_impact_edges(
+			WeightedEdges &r_impact_edges,
+			std::vector<bool> &r_vertex_has_impact);
 
 		std::vector<Eigen::Matrix3d> optimize_rotations(
 			const Vectors &anchor_positions,
 			const Vectors &new_inner_positions);
 
 		Vectors optimize_inner_positions(
-			const Vectors &anchor_positions,
+			const std::array<Eigen::VectorXd, 3> &b_preprocessed,
 			const std::vector<Eigen::Matrix3d> &rotations);
 
 		Vectors calculate_new_inner_diffs(
 			const std::vector<Eigen::Matrix3d> &rotations);
 
 		Vectors solve_for_new_inner_positions(
-			const Vectors &anchor_positions,
+			const std::array<Eigen::VectorXd, 3> &b_preprocessed,
 			const Vectors &new_inner_diffs);
 
 	private:
+		/* initialized once */
 		Vectors m_initial_positions;
-		ReorderData m_order;
+		WeightedEdges m_edges;
+		Triplets m_laplace_triplets;
 
+		/* updated for new anchor indices */
 		std::vector<uint> m_anchor_indices;
 		std::vector<uint> m_inner_indices;
-
-		std::vector<WeightedEdge> m_edges;
-		std::vector<Triplet> m_laplace_triplets;
-		SparseMatrixD m_L, m_A_II, m_A_IB;
-
+		ReorderData m_order;
+		ImpactData m_impact;
+		SparseMatrixD m_A_II, m_A_IB;
 		std::unique_ptr<Solver> m_solver;
 	};
 

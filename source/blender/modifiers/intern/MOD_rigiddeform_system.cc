@@ -28,7 +28,8 @@
 
 #include <chrono>
 
-/* ************** Timer ***************** */
+/* Timer
+ **************************************/
 
 class Timer {
     const char *name;
@@ -54,34 +55,14 @@ Timer::~Timer() {
 
 #define TIMEIT(name) Timer t(name);
 
-/* ************ Timer End *************** */
 
 namespace RigidDeform {
-
-	/* expects the anchor indices to be sorted */
-	/* (6, [1, 4]) -> [0, 2, 3, 5,  1, 4] */
-	static std::vector<uint> sort_vertices_by_anchors(const std::vector<uint> &anchors, uint vertex_amount)
-	{
-		std::vector<uint> sorted;
-
-		int anchor_index = 0;
-		for (int i = 0; i < vertex_amount; i++) {
-			if (anchor_index < anchors.size() && i == anchors[anchor_index]) {
-				anchor_index++;
-				continue;
-			}
-			sorted.push_back(i);
-		}
-
-		sorted.insert(sorted.end(), anchors.begin(), anchors.end());
-		return sorted;
-	}
 
 	/* Build Laplace Matrix
 	******************************************/
 
 	static std::vector<double> calc_total_weight_per_vertex(
-			const std::vector<WeightedEdge> &edges,
+			const WeightedEdges &edges,
 			uint vertex_amount)
 	{
 		std::vector<double> total_weights(vertex_amount, 0);
@@ -109,11 +90,11 @@ namespace RigidDeform {
 		return std::cos(angle) / std::sin(angle);
 	}
 
-	static std::vector<WeightedEdge> calculate_cotan_edge_weights(
+	static WeightedEdges calculate_cotan_edge_weights(
 		const Vectors &positions,
 		const std::vector<std::array<uint, 3>> &triangles)
 	{
-		std::vector<WeightedEdge> edges;
+		WeightedEdges edges;
 
 		for (auto verts : triangles) {
 			std::array<double, 3> angles = triangle_corner_angles(
@@ -133,12 +114,13 @@ namespace RigidDeform {
 		return edges;
 	}
 
-	static std::vector<Triplet> get_laplace_matrix_triplets(
-			uint vertex_amount, std::vector<WeightedEdge> &edges)
+	static Triplets get_laplace_matrix_triplets(
+		uint vertex_amount,
+		const WeightedEdges &edges)
 	{
 		auto total_weights = calc_total_weight_per_vertex(edges, vertex_amount);
 
-		std::vector<Triplet> triplets;
+		Triplets triplets;
 
 		for (int i = 0; i < vertex_amount; i++) {
 			triplets.push_back(Triplet(i, i, total_weights[i]));
@@ -154,126 +136,9 @@ namespace RigidDeform {
 		return triplets;
 	}
 
-	ReorderData::ReorderData(const std::vector<uint> &anchors, uint vertex_amount)
-	{
-		m_new_to_orig = sort_vertices_by_anchors(anchors, vertex_amount);
 
-		m_orig_to_new.resize(vertex_amount);
-		for (int i = 0; i < vertex_amount; i++) {
-			m_orig_to_new[m_new_to_orig[i]] = i;
-		}
-
-		this->m_inner_amount = vertex_amount - anchors.size();
-	}
-
-
-	/* Optimize Rotations
-	*********************************************/
-
-	static inline Eigen::Vector3d get_position(
-		uint index,
-		const ReorderData &order,
-		const Vectors &anchor_positions,
-		const Vectors &inner_positions)
-	{
-		if (order.is_inner__orig(index)) {
-			return inner_positions[order.to_new(index)];
-		}
-		else {
-			return anchor_positions[order.to_new_anchor(index)];
-		}
-	}
-
-	std::vector<Eigen::Matrix3d> RigidDeformSystem::optimize_rotations(
-		const Vectors &anchor_positions,
-		const Vectors &new_inner_positions)
-	{
-		std::vector<Eigen::Matrix3d> S(this->vertex_amount());
-		for (uint i = 0; i < S.size(); i++) S[i].setZero();
-
-		for (WeightedEdge edge : m_edges) {
-			uint v1 = edge.v1;
-			uint v2 = edge.v2;
-
-			Eigen::Vector3d edge_old = m_initial_positions[v1] - m_initial_positions[v2];
-
-			Eigen::Vector3d edge_new_start =
-				get_position(v1, m_order, anchor_positions, new_inner_positions);
-			Eigen::Vector3d edge_new_end =
-				get_position(v2, m_order, anchor_positions, new_inner_positions);
-
-			Eigen::RowVector3d edge_new = edge_new_start - edge_new_end;
-
-			Eigen::Matrix3d mat = edge.weight * edge_old * edge_new;
-			S[v1] += mat;
-			S[v2] += mat;
-		}
-
-		std::vector<Eigen::Matrix3d> R(S.size());
-		for (int i = 0; i < S.size(); i++) {
-			Eigen::JacobiSVD<Eigen::Matrix3d> svd(S[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
-			R[i] = svd.matrixV() * svd.matrixU().transpose();
-			if (R[i].determinant() < 0) {
-				Eigen::Matrix3d U = svd.matrixU();
-				U.col(2) = -U.col(2);
-				R[i] = svd.matrixV() * U.transpose();
-			}
-		}
-
-		return R;
-	}
-
-
-	/* Optimize Inner Vertex Positions
-	**********************************************/
-
-	Vectors RigidDeformSystem::optimize_inner_positions(
-		const Vectors &anchor_positions,
-		const std::vector<Eigen::Matrix3d> &rotations)
-	{
-		Vectors new_inner_diffs = this->calculate_new_inner_diffs(rotations);
-		return this->solve_for_new_inner_positions(anchor_positions, new_inner_diffs);
-	}
-
-	Vectors RigidDeformSystem::calculate_new_inner_diffs(
-		const std::vector<Eigen::Matrix3d> &rotations)
-	{
-		Vectors new_inner_diffs(m_order.inner_amount());
-		new_inner_diffs.set_zero();
-
-		for (WeightedEdge edge : m_edges) {
-			uint v1 = edge.v1;
-			uint v2 = edge.v2;
-			bool v1_is_inner = m_order.is_inner__orig(v1);
-			bool v2_is_inner = m_order.is_inner__orig(v2);
-			if (!(v1_is_inner || v2_is_inner)) continue;
-
-			Eigen::Vector3d old_edge = m_initial_positions[v1] - m_initial_positions[v2];
-			Eigen::Vector3d value = edge.weight / 2.0f * (rotations[v1] + rotations[v2]) * old_edge;
-
-			if (v1_is_inner) new_inner_diffs[m_order.to_new(v1)] += value;
-			if (v2_is_inner) new_inner_diffs[m_order.to_new(v2)] -= value;
-		}
-
-		return new_inner_diffs;
-	}
-
-	Vectors RigidDeformSystem::solve_for_new_inner_positions(
-		const Vectors &anchor_positions,
-		const Vectors &new_inner_diffs)
-	{
-		Vectors new_inner_positions(m_order.inner_amount());
-		for (uint coord = 0; coord < 3; coord++) {
-			Eigen::VectorXd b = new_inner_diffs.get_coord(coord) - m_A_IB * anchor_positions.get_coord(coord);
-			Eigen::VectorXd result = m_solver->solve(m_A_II.transpose() * b);
-			new_inner_positions.set_coord(coord, result);
-		}
-		return new_inner_positions;
-	}
-
-
-	/* RigidDeformSystem
-	***************************************/
+	/* Initialize
+	 *****************************************/
 
 	RigidDeformSystem::RigidDeformSystem(
 		const Vectors &initial_positions,
@@ -284,35 +149,37 @@ namespace RigidDeform {
 		m_laplace_triplets = get_laplace_matrix_triplets(this->vertex_amount(), m_edges);
 	}
 
-	void RigidDeformSystem::clear_anchors()
-	{
-		m_order = ReorderData();
-		m_anchor_indices = {};
-		m_inner_indices = {};
-	}
+
+	/* Set Anchors
+	 ******************************************/
 
 	void RigidDeformSystem::set_anchors(
 		const std::vector<uint> &anchor_indices)
 	{
-		clear_anchors();
-
 		m_order = ReorderData(anchor_indices, this->vertex_amount());
 		m_anchor_indices = anchor_indices;
-		for (uint i = 0; i < this->vertex_amount(); i++) {
-			if (m_order.is_inner__orig(i)) {
-				m_inner_indices.push_back(i);
-			}
-		}
 
+		this->update_inner_indices();
 		this->update_matrix();
+		this->update_impact_data();
 
 		m_solver = std::unique_ptr<Solver>(new Solver());
 		m_solver->compute(m_A_II.transpose() * m_A_II);
 	}
 
+	void RigidDeformSystem::update_inner_indices()
+	{
+		m_inner_indices = {};
+		for (uint i = 0; i < this->vertex_amount(); i++) {
+			if (m_order.is_inner__orig(i)) {
+				m_inner_indices.push_back(i);
+			}
+		}
+	}
+
 	void RigidDeformSystem::update_matrix()
 	{
-		std::vector<Triplet> triplets_A_II, triplets_A_IB;
+		Triplets triplets_A_II, triplets_A_IB;
 		for (Triplet triplet : m_laplace_triplets) {
 			if (m_order.is_inner__orig(triplet.row())) {
 				uint reorder_row = m_order.to_new(triplet.row());
@@ -337,25 +204,222 @@ namespace RigidDeform {
 		m_A_IB.setFromTriplets(triplets_A_IB.begin(), triplets_A_IB.end());
 	}
 
+	void RigidDeformSystem::update_impact_data()
+	{
+		m_impact.m_edges = {};
+		std::vector<bool> has_impact = {};
+		this->get_impact_edges(m_impact.m_edges, has_impact);
+
+		m_impact.m_compact_amount = 0;
+		m_impact.m_compact_map.resize(this->vertex_amount());
+		for (uint i = 0; i < this->vertex_amount(); i++) {
+			if (has_impact[i]) {
+				m_impact.m_compact_map[i] = m_impact.m_compact_amount;
+				m_impact.m_compact_amount++;
+			}
+			else {
+				m_impact.m_compact_map[i] = -1;
+			}
+		}
+	}
+
+	void RigidDeformSystem::get_impact_edges(
+		WeightedEdges &r_impact_edges,
+		std::vector<bool> &r_vertex_has_impact)
+	{
+		std::vector<bool> &has_impact = r_vertex_has_impact;
+		has_impact.resize(this->vertex_amount(), false);
+
+		for (WeightedEdge edge : m_edges) {
+			if (m_order.is_inner__orig(edge.v1) || m_order.is_inner__orig(edge.v2)) {
+				has_impact[edge.v1] = true;
+				has_impact[edge.v2] = true;
+			}
+		}
+		for (WeightedEdge edge : m_edges) {
+			if (has_impact[edge.v1] || has_impact[edge.v2]) {
+				r_impact_edges.push_back(edge);
+				has_impact[edge.v1] = true;
+				has_impact[edge.v2] = true;
+			}
+		}
+	}
+
+
+	/* Solve Inner Positions
+	 ********************************************/
+
 	Vectors RigidDeformSystem::calculate_inner(
-			const Vectors &anchor_positions,
-			uint iterations)
+		const Vectors &anchor_positions,
+		uint iterations)
 	{
 		assert(iterations > 0);
+		assert(this->anchor_indices().size() > 0);
 
 		std::vector<Eigen::Matrix3d> rotations(this->vertex_amount());
 		std::fill(rotations.begin(), rotations.end(), Eigen::Matrix3d::Identity());
 
+		const std::array<Eigen::VectorXd, 3> b_preprocessed = {
+			m_A_IB * anchor_positions.get_coord(0),
+			m_A_IB * anchor_positions.get_coord(1),
+			m_A_IB * anchor_positions.get_coord(2),
+		};
+
 		uint iteration = 0;
 		while (true) {
 			iteration++;
-			Vectors new_inner_positions = this->optimize_inner_positions(anchor_positions, rotations);
+			Vectors new_inner_positions = this->optimize_inner_positions(b_preprocessed, rotations);
 			if (iteration == iterations) {
 				return new_inner_positions;
 			}
 			rotations = this->optimize_rotations(anchor_positions, new_inner_positions);
 		}
 	}
+
+
+	/* Optimize Rotations
+	*********************************************/
+
+	static inline Eigen::Vector3d get_position(
+		uint index,
+		const ReorderData &order,
+		const Vectors &anchor_positions,
+		const Vectors &inner_positions)
+	{
+		if (order.is_inner__orig(index)) {
+			return inner_positions[order.to_new(index)];
+		}
+		else {
+			return anchor_positions[order.to_new_anchor(index)];
+		}
+	}
+
+	std::vector<Eigen::Matrix3d> RigidDeformSystem::optimize_rotations(
+		const Vectors &anchor_positions,
+		const Vectors &new_inner_positions)
+	{
+		std::vector<Eigen::Matrix3d> S(m_impact.compact_amount());
+		for (uint i = 0; i < S.size(); i++) S[i].setZero();
+
+		for (WeightedEdge edge : m_impact.edges()) {
+			uint v1 = edge.v1;
+			uint v2 = edge.v2;
+
+			Eigen::Vector3d edge_old = m_initial_positions[v1] - m_initial_positions[v2];
+
+			Eigen::Vector3d edge_new_start =
+				get_position(v1, m_order, anchor_positions, new_inner_positions);
+			Eigen::Vector3d edge_new_end =
+				get_position(v2, m_order, anchor_positions, new_inner_positions);
+
+			Eigen::RowVector3d edge_new = edge_new_start - edge_new_end;
+
+			Eigen::Matrix3d mat = edge.weight * edge_old * edge_new;
+			S[m_impact.compact_index(v1)] += mat;
+			S[m_impact.compact_index(v2)] += mat;
+		}
+
+		std::vector<Eigen::Matrix3d> R(S.size());
+		for (int i = 0; i < S.size(); i++) {
+			Eigen::JacobiSVD<Eigen::Matrix3d> svd(S[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
+			R[i] = svd.matrixV() * svd.matrixU().transpose();
+			if (R[i].determinant() < 0) {
+				Eigen::Matrix3d U = svd.matrixU();
+				U.col(2) = -U.col(2);
+				R[i] = svd.matrixV() * U.transpose();
+			}
+		}
+
+		return R;
+	}
+
+
+	/* Optimize Inner Vertex Positions
+	**********************************************/
+
+	Vectors RigidDeformSystem::optimize_inner_positions(
+		const std::array<Eigen::VectorXd, 3> &b_preprocessed,
+		const std::vector<Eigen::Matrix3d> &rotations)
+	{
+		Vectors new_inner_diffs = this->calculate_new_inner_diffs(rotations);
+		return this->solve_for_new_inner_positions(b_preprocessed, new_inner_diffs);
+	}
+
+	Vectors RigidDeformSystem::calculate_new_inner_diffs(
+		const std::vector<Eigen::Matrix3d> &rotations)
+	{
+		Vectors new_inner_diffs(m_order.inner_amount());
+		new_inner_diffs.set_zero();
+
+		for (WeightedEdge edge : m_impact.edges()) {
+			uint v1 = edge.v1;
+			uint v2 = edge.v2;
+			int v1_compact = m_impact.compact_index(v1);
+			int v2_compact = m_impact.compact_index(v2);
+			assert(v1_compact >= 0 && v2_compact >= 0);
+
+			Eigen::Vector3d old_edge = m_initial_positions[v1] - m_initial_positions[v2];
+			Eigen::Vector3d value =
+				edge.weight / 2.0f * (rotations[v1_compact] + rotations[v2_compact]) * old_edge;
+
+			if (m_order.is_inner__orig(v1)) new_inner_diffs[m_order.to_new(v1)] += value;
+			if (m_order.is_inner__orig(v2)) new_inner_diffs[m_order.to_new(v2)] -= value;
+		}
+
+		return new_inner_diffs;
+	}
+
+	Vectors RigidDeformSystem::solve_for_new_inner_positions(
+		const std::array<Eigen::VectorXd, 3> &b_preprocessed,
+		const Vectors &new_inner_diffs)
+	{
+		Vectors new_inner_positions(m_order.inner_amount());
+		for (uint coord = 0; coord < 3; coord++) {
+			Eigen::VectorXd b = new_inner_diffs.get_coord(coord) - b_preprocessed[coord];
+			Eigen::VectorXd result = m_solver->solve(m_A_II.transpose() * b);
+			new_inner_positions.set_coord(coord, result);
+		}
+		return new_inner_positions;
+	}
+
+
+	/* Reorder Data
+	 *******************************************/
+
+	/* expects the anchor indices to be sorted
+	 * (6, [1, 4]) -> [0, 2, 3, 5,  1, 4] */
+	static std::vector<uint> sort_vertices_by_anchors(const std::vector<uint> &anchors, uint vertex_amount)
+	{
+		std::vector<uint> sorted;
+
+		int anchor_index = 0;
+		for (int i = 0; i < vertex_amount; i++) {
+			if (anchor_index < anchors.size() && i == anchors[anchor_index]) {
+				anchor_index++;
+				continue;
+			}
+			sorted.push_back(i);
+		}
+
+		sorted.insert(sorted.end(), anchors.begin(), anchors.end());
+		return sorted;
+	}
+
+	ReorderData::ReorderData(const std::vector<uint> &anchors, uint vertex_amount)
+	{
+		m_new_to_orig = sort_vertices_by_anchors(anchors, vertex_amount);
+
+		m_orig_to_new.resize(vertex_amount);
+		for (int i = 0; i < vertex_amount; i++) {
+			m_orig_to_new[m_new_to_orig[i]] = i;
+		}
+
+		this->m_inner_amount = vertex_amount - anchors.size();
+	}
+
+
+	/* Accessors
+	***************************************/
 
 	const std::vector<uint> &RigidDeformSystem::anchor_indices() const
 	{
