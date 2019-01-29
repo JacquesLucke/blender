@@ -60,7 +60,7 @@ static std::vector<double> calc_total_weight_per_vertex(
 	return total_weights;
 }
 
-static std::array<double, 3> triangle_angles(
+static std::array<double, 3> triangle_corner_angles(
 	Eigen::Vector3d v1, Eigen::Vector3d v2, Eigen::Vector3d v3)
 {
 	Eigen::Vector3f v1_f = v1.cast<float>();
@@ -72,23 +72,27 @@ static std::array<double, 3> triangle_angles(
 	return {angles[0], angles[1], angles[2]};
 }
 
-static std::vector<WeightedEdge> calculate_cotan_weights(
+static inline double cotan(double angle)
+{
+	return std::cos(angle) / std::sin(angle);
+}
+
+static std::vector<WeightedEdge> calculate_cotan_edge_weights(
 	const Vectors &positions,
 	const std::vector<std::array<uint, 3>> &triangles)
 {
 	std::vector<WeightedEdge> edges;
 
 	for (auto verts : triangles) {
-		std::array<double, 3> angles = triangle_angles(
+		std::array<double, 3> angles = triangle_corner_angles(
 			positions[verts[0]],
 			positions[verts[1]],
 			positions[verts[2]]);
 
-#define cotan(x) std::cos((x))/std::sin((x))
 		double w1 = cotan(angles[0]) / 2.0;
 		double w2 = cotan(angles[1]) / 2.0;
 		double w3 = cotan(angles[2]) / 2.0;
-#undef cotan
+
 		if (w1 > 0) edges.push_back(WeightedEdge(verts[1], verts[2], w1));
 		if (w2 > 0) edges.push_back(WeightedEdge(verts[0], verts[2], w2));
 		if (w3 > 0) edges.push_back(WeightedEdge(verts[0], verts[1], w3));
@@ -134,6 +138,20 @@ ReorderData::ReorderData(const std::vector<uint> &anchors, uint vertex_amount)
 /* Optimize Rotations
  *********************************************/
 
+static inline Eigen::Vector3d get_position(
+	uint index,
+	const ReorderData &order,
+	const Vectors &anchor_positions,
+	const Vectors &inner_positions)
+{
+	if (order.is_inner__orig(index)) {
+		return inner_positions[order.to_new(index)];
+	}
+	else {
+		return anchor_positions[order.to_new_anchor(index)];
+	}
+}
+
 std::vector<Eigen::Matrix3d> RigidDeformSystem::optimize_rotations(
 	const Vectors &anchor_positions,
 	const Vectors &new_inner_positions)
@@ -144,15 +162,13 @@ std::vector<Eigen::Matrix3d> RigidDeformSystem::optimize_rotations(
 	for (WeightedEdge edge : m_edges) {
 		uint v1 = edge.v1;
 		uint v2 = edge.v2;
-		bool v1_is_inner = m_order.is_inner__orig(v1);
-		bool v2_is_inner = m_order.is_inner__orig(v2);
 
 		Eigen::Vector3d edge_old = m_initial_positions[v1] - m_initial_positions[v2];
 
 		Eigen::Vector3d edge_new_start =
-			v1_is_inner ? new_inner_positions[m_order.to_new(v1)] : anchor_positions[m_order.to_new_anchor(v1)];
+			get_position(v1, m_order, anchor_positions, new_inner_positions);
 		Eigen::Vector3d edge_new_end =
-			v2_is_inner ? new_inner_positions[m_order.to_new(v2)] : anchor_positions[m_order.to_new_anchor(v2)];
+			get_position(v2, m_order, anchor_positions, new_inner_positions);
 
 		Eigen::RowVector3d edge_new = edge_new_start - edge_new_end;
 
@@ -232,7 +248,7 @@ RigidDeformSystem::RigidDeformSystem(
 	const std::vector<std::array<uint, 3>> &triangles)
 {
 	m_initial_positions = initial_positions;
-	m_edges = calculate_cotan_weights(initial_positions, triangles);
+	m_edges = calculate_cotan_edge_weights(initial_positions, triangles);
 	m_laplace_triplets = get_laplace_matrix_triplets(this->vertex_amount(), m_edges);
 }
 
