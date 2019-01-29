@@ -77,7 +77,6 @@ static std::vector<WeightedEdge> calculate_cotan_weights(
 	const std::vector<std::array<uint, 3>> &triangles)
 {
 	std::vector<WeightedEdge> edges;
-	edges.reserve(triangles.size() * 3);
 
 	for (auto verts : triangles) {
 		std::array<double, 3> angles = triangle_angles(
@@ -86,10 +85,13 @@ static std::vector<WeightedEdge> calculate_cotan_weights(
 			positions[verts[2]]);
 
 #define cotan(x) std::cos((x))/std::sin((x))
-		edges.push_back(WeightedEdge(verts[1], verts[2], cotan(angles[0]) / 2.0));
-		edges.push_back(WeightedEdge(verts[0], verts[2], cotan(angles[1]) / 2.0));
-		edges.push_back(WeightedEdge(verts[0], verts[1], cotan(angles[2]) / 2.0));
+		double w1 = cotan(angles[0]) / 2.0;
+		double w2 = cotan(angles[1]) / 2.0;
+		double w3 = cotan(angles[2]) / 2.0;
 #undef cotan
+		if (w1 > 0) edges.push_back(WeightedEdge(verts[1], verts[2], w1));
+		if (w2 > 0) edges.push_back(WeightedEdge(verts[0], verts[2], w2));
+		if (w3 > 0) edges.push_back(WeightedEdge(verts[0], verts[1], w3));
 	}
 
 	return edges;
