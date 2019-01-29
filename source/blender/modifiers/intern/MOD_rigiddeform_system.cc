@@ -137,11 +137,11 @@ std::vector<Eigen::Matrix3d> RigidDeformSystem::optimize_rotations(
 	const Vectors &new_inner_positions)
 {
 	std::vector<Eigen::Matrix3d> S(this->vertex_amount());
-	for (int i = 0; i < S.size(); i++) S[i].setZero();
+	for (uint i = 0; i < S.size(); i++) S[i].setZero();
 
 	for (WeightedEdge edge : m_edges) {
-		int v1 = edge.v1;
-		int v2 = edge.v2;
+		uint v1 = edge.v1;
+		uint v2 = edge.v2;
 		bool v1_is_inner = m_order.is_inner__orig(v1);
 		bool v2_is_inner = m_order.is_inner__orig(v2);
 
