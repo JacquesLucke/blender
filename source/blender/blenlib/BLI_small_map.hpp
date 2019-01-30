@@ -46,6 +46,7 @@ namespace BLI {
 				}
 			}
 			BLI_assert(false);
+			return (V){};
 		}
 
 		uint size() const
