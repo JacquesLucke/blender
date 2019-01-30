@@ -58,6 +58,11 @@ Timer::~Timer() {
 
 namespace RigidDeform {
 
+	static void print_sparse_matrix(SparseMatrixD &A)
+	{
+		std::cout << Eigen::MatrixXd(A) << std::endl;
+	}
+
 	/* Build Laplace Matrix
 	******************************************/
 
@@ -106,9 +111,9 @@ namespace RigidDeform {
 			double w2 = (angles[0] > 0.0001) ? cotan(angles[1]) / 2.0 : 1.0;
 			double w3 = (angles[0] > 0.0001) ? cotan(angles[2]) / 2.0 : 1.0;
 
-			if (w1 > 0) edges.push_back(WeightedEdge(verts[1], verts[2], w1));
-			if (w2 > 0) edges.push_back(WeightedEdge(verts[0], verts[2], w2));
-			if (w3 > 0) edges.push_back(WeightedEdge(verts[0], verts[1], w3));
+			if (w1 > 0.0001) edges.push_back(WeightedEdge(verts[1], verts[2], w1));
+			if (w2 > 0.0001) edges.push_back(WeightedEdge(verts[0], verts[2], w2));
+			if (w3 > 0.0001) edges.push_back(WeightedEdge(verts[0], verts[1], w3));
 		}
 
 		return edges;
@@ -147,6 +152,13 @@ namespace RigidDeform {
 		m_initial_positions = initial_positions;
 		m_edges = calculate_cotan_edge_weights(initial_positions, triangles);
 		m_laplace_triplets = get_laplace_matrix_triplets(this->vertex_amount(), m_edges);
+
+#if USE_CHOLUP
+		m_laplace_matrix = SparseMatrixD(m_initial_positions.size(), m_initial_positions.size());
+		m_laplace_matrix.setFromTriplets(m_laplace_triplets.begin(), m_laplace_triplets.end());
+		CholUp::SparseMatrix<double> L(m_laplace_matrix);
+		m_solver = std::unique_ptr<Solver>(new Solver(L));
+#endif
 	}
 
 
@@ -160,11 +172,17 @@ namespace RigidDeform {
 		m_anchor_indices = anchor_indices;
 
 		this->update_inner_indices();
-		this->update_matrix();
 		this->update_impact_data();
+		this->update_matrix();
 
+#if USE_CHOLUP
+		CholUp::SparseMatrix<double> L(m_laplace_matrix);
+		std::vector<int> indices(anchor_indices.begin(), anchor_indices.end());
+		m_solver_current = m_solver->dirichletPartialFactor(L, indices);
+#else
 		m_solver = std::unique_ptr<Solver>(new Solver());
 		m_solver->compute(m_A_II.transpose() * m_A_II);
+#endif
 	}
 
 	void RigidDeformSystem::update_inner_indices()
@@ -376,7 +394,18 @@ namespace RigidDeform {
 		Vectors new_inner_positions(m_order.inner_amount());
 		for (uint coord = 0; coord < 3; coord++) {
 			Eigen::VectorXd b = new_inner_diffs.get_coord(coord) - b_preprocessed[coord];
+#if USE_CHOLUP
+			CholUp::Matrix<double> rhs(m_order.inner_amount(), 1);
+			for (uint i = 0; i < m_order.inner_amount(); i++) rhs(i, 0) = b[i];
+
+			m_solver_current.solveL(rhs);
+			m_solver_current.solveLT(rhs);
+
+			Eigen::VectorXd result(m_order.inner_amount());
+			for (uint i = 0; i < m_order.inner_amount(); i++) result[i] = rhs(i, 0);
+#else
 			Eigen::VectorXd result = m_solver->solve(m_A_II.transpose() * b);
+#endif
 			new_inner_positions.set_coord(coord, result);
 		}
 		return new_inner_positions;

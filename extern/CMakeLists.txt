@@ -34,6 +34,7 @@ endif()
 
 add_subdirectory(rangetree)
 add_subdirectory(wcwidth)
+add_subdirectory(CholUp)
 
 if(WITH_BULLET)
 	if(NOT WITH_SYSTEM_BULLET)

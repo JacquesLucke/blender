@@ -32,6 +32,7 @@ set(INC
 	../../../intern/elbeem/extern
 	../../../intern/guardedalloc
 	../../../intern/eigen
+	../../../extern/CholUp/source
 )
 
 set(INC_SYS

@@ -6,14 +6,26 @@
 #include "Eigen/Sparse"
 #include "Eigen/Dense"
 
+#define USE_CHOLUP 1
+
+#if USE_CHOLUP
+#    include "CholUp/CholUp.hpp"
+#endif
+
+
 namespace RigidDeform {
 
 	typedef Eigen::Map<Eigen::VectorXd, 0, Eigen::InnerStride<3>> StridedVector;
 	typedef Eigen::Map<const Eigen::VectorXd, 0, Eigen::InnerStride<3>> ConstStridedVector;
 	typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SparseMatrixD;
 	typedef Eigen::Triplet<double> Triplet;
-	typedef Eigen::SimplicialLDLT<SparseMatrixD> Solver;
 	typedef std::vector<Triplet> Triplets;
+
+#if USE_CHOLUP
+	typedef CholUp::SupernodalCholesky<CholUp::SparseMatrix<double>> Solver;
+#else
+	typedef Eigen::SimplicialLDLT<SparseMatrixD> Solver;
+#endif
 
 	class Vectors {
 		Eigen::VectorXd m_data;
@@ -227,7 +239,14 @@ namespace RigidDeform {
 		ReorderData m_order;
 		ImpactData m_impact;
 		SparseMatrixD m_A_II, m_A_IB;
+
+#if USE_CHOLUP
+		SparseMatrixD m_laplace_matrix;
 		std::unique_ptr<Solver> m_solver;
+		Solver m_solver_current;
+#else
+		std::unique_ptr<Solver> m_solver;
+#endif
 	};
 
  } /* namespace RigidDeform */
