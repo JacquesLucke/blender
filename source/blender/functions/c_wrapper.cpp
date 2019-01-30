@@ -3,33 +3,31 @@
 
 #include "./types/types.hpp"
 
-inline FN::CPUFunction *unwrap(FnCPUFunction fn)
+#define WRAPPERS(T1, T2) \
+	inline T1 unwrap(T2 value) { return (T1)value; } \
+	inline T2 wrap(T1 value) { return (T2)value; }
+
+WRAPPERS(const FN::Function *, FnFunction);
+WRAPPERS(FN::Tuple *, FnTuple);
+WRAPPERS(const FN::TupleCallBody *, FnCallTuple);
+
+void FN_function_call_tuple(FnCallTuple fn_call, FnTuple fn_in, FnTuple fn_out)
 {
-	return (FN::CPUFunction *)fn;
+	unwrap(fn_call)->call(*unwrap(fn_in), *unwrap(fn_out));
 }
 
-inline FN::Tuple *unwrap(FnTuple tuple)
+FnCallTuple FN_function_get_tuple_call(FnFunction fn)
 {
-	return (FN::Tuple *)tuple;
+	return wrap(unwrap(fn)->body<FN::TupleCallBody>());
 }
 
-inline FnTuple wrap(FN::Tuple *tuple)
-{
-	return (FnTuple)tuple;
-}
-
-void FN_function_call(FnCPUFunction fn, FnTuple fn_in, FnTuple fn_out)
-{
-	unwrap(fn)->call(*unwrap(fn_in), *unwrap(fn_out));
-}
-
-FnTuple FN_tuple_for_input(FnCPUFunction fn)
+FnTuple FN_tuple_for_input(FnFunction fn)
 {
 	auto tuple = new FN::Tuple(unwrap(fn)->signature().inputs());
 	return wrap(tuple);
 }
 
-FnTuple FN_tuple_for_output(FnCPUFunction fn)
+FnTuple FN_tuple_for_output(FnFunction fn)
 {
 	auto tuple = new FN::Tuple(unwrap(fn)->signature().outputs());
 	return wrap(tuple);
@@ -77,19 +75,11 @@ FnTypeRef FN_type_get_float_vector_3d()
 #include <cmath>
 #include <algorithm>
 
-class DeformFunction : public FN::CPUFunction {
-private:
-	DeformFunction(FN::Signature sig)
-		: CPUFunction(sig) {}
 
+
+class Deform1 : public FN::TupleCallBody {
 public:
-	static DeformFunction *Create()
-	{
-		FN::Signature sig({FN::Types::floatvec3d_ty, FN::Types::float_ty}, {FN::Types::floatvec3d_ty});
-		return new DeformFunction(sig);
-	}
-
-	void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) override
+	virtual void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
 	{
 		Vector vec = fn_in.get<Vector>(0);
 		float control = fn_in.get<float>(1);
@@ -97,14 +87,36 @@ public:
 		Vector result;
 
 		result.x = vec.x * control;
-		result.y = vec.y / std::max(control, 0.1f);
+		result.y = vec.y;// / std::max(control, 0.1f);
 		result.z = vec.z;
 
 		fn_out.set<Vector>(0, result);
 	}
 };
 
-FnCPUFunction FN_get_deform_function()
+class Deform2 : public FN::TupleCallBody {
+public:
+	virtual void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+	{
+		Vector vec = fn_in.get<Vector>(0);
+		float control = fn_in.get<float>(1);
+
+		Vector result;
+
+		result.x = vec.x;
+		result.y = vec.y * control;// / std::max(control, 0.1f);
+		result.z = vec.z;
+
+		fn_out.set<Vector>(0, result);
+	}
+};
+
+FnFunction FN_get_deform_function(int type)
 {
-	return (FnCPUFunction)DeformFunction::Create();
+	FN::Signature signature({FN::Types::floatvec3d_ty, FN::Types::float_ty}, {FN::Types::floatvec3d_ty});
+	FN::FunctionBodies bodies;
+	if (type == 0) bodies.add(new Deform1());
+	else bodies.add(new Deform2());
+
+	return wrap(new FN::Function(signature, bodies));
 }

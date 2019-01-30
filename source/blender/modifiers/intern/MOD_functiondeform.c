@@ -53,7 +53,8 @@ static void do_deformation(
         float (*vertexCos)[3],
         int numVerts)
 {
-	FnCPUFunction fn = FN_get_deform_function();
+	FnFunction fn = FN_get_deform_function(fdmd->control2);
+	FnCallTuple fn_call = FN_function_get_tuple_call(fn);
 	FnTuple fn_in = FN_tuple_for_input(fn);
 	FnTuple fn_out = FN_tuple_for_output(fn);
 
@@ -63,7 +64,7 @@ static void do_deformation(
 
 	for (int i = 0; i < numVerts; i++) {
 		FN_tuple_set_float_vector_3(fn_in, 0, vertexCos[i]);
-		FN_function_call(fn, fn_in, fn_out);
+		FN_function_call_tuple(fn_call, fn_in, fn_out);
 		FN_tuple_get_float_vector_3(fn_out, 0, vertexCos[i]);
 	}
 

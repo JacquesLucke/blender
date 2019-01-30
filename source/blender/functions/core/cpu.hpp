@@ -80,12 +80,11 @@ namespace FN {
 		void *data;
 	};
 
-	class CPUFunction : public Function {
+	class TupleCallBody {
 	public:
-		CPUFunction(const Signature &signature)
-			: Function(signature) {}
+		static constexpr const char *identifier = "Tuple Call Body";
 
-		virtual void call(const Tuple &fn_in, Tuple &fn_out) = 0;
+		virtual void call(const Tuple &fn_in, Tuple &fn_out) const = 0;
 	};
 
 } /* namespace FN */
