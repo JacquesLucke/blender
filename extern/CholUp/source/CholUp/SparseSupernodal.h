@@ -130,8 +130,6 @@ SupernodalVector<T, Cols>::~SupernodalVector()
 template<class T>
 SparseSupernodalMatrix<T>::SparseSupernodalMatrix(const SparseSupernodalMatrix& A)
 {
-    std::cout << "SparseSupernodalMatrix<T>::SparseSupernodalMatrix(const SparseSupernodalMatrix& A)" << std::endl;
-
     *this = A;
 }
 
@@ -139,10 +137,6 @@ template<class T>
 SparseSupernodalMatrix<T>&
 SparseSupernodalMatrix<T>::operator=(const SparseSupernodalMatrix& A)
 {
-
-    std::cout << "SparseSupernodalMatrix<T>& SparseSupernodalMatrix<T>::operator=(const SparseSupernodalMatrix& A)" << std::endl;
-
-
     if(&A != this)
     {
         numrows = A.numrows;
@@ -178,9 +172,6 @@ SparseSupernodalMatrix<T>::operator=(const SparseSupernodalMatrix& A)
 template<class T>
 SparseSupernodalMatrix<T>::SparseSupernodalMatrix(SparseSupernodalMatrix&& A)
 {
-    std::cout << "SparseSupernodalMatrix<T>::SparseSupernodalMatrix(SparseSupernodalMatrix&& A)" << std::endl;
-
-
     *this = std::move(A);
 }
 
@@ -188,8 +179,6 @@ template<class T>
 SparseSupernodalMatrix<T>&
 SparseSupernodalMatrix<T>::operator=(SparseSupernodalMatrix&& A)
 {
-        std::cout << "SparseSupernodalMatrix<T>::operator=(SparseSupernodalMatrix&& A)" << std::endl;
-
     if(&A != this)
     {
         numrows = A.numrows;

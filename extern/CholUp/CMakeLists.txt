@@ -14,7 +14,7 @@ set(SRC
 	source/CholUp/SparseMatrix_impl.h
 	source/CholUp/SparseMatrix.h
 	source/CholUp/SparseSupernodal.h
-	source/CholUp/SupernodalCholesky.hpp
+	source/CholUp/SupernodalCholesky.h
 	source/CholUp/CholUp.hpp
 )
 

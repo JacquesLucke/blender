@@ -398,8 +398,7 @@ namespace RigidDeform {
 			CholUp::Matrix<double> rhs(m_order.inner_amount(), 1);
 			for (uint i = 0; i < m_order.inner_amount(); i++) rhs(i, 0) = b[i];
 
-			m_solver_current.solveL(rhs);
-			m_solver_current.solveLT(rhs);
+			m_solver_current.solve(rhs);
 
 			Eigen::VectorXd result(m_order.inner_amount());
 			for (uint i = 0; i < m_order.inner_amount(); i++) result[i] = rhs(i, 0);

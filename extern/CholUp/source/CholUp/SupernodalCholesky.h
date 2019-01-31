@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SupernodalCholesky.hpp"
+#include "SupernodalCholesky.h"
 #include "SparseMatrix.h"
 #include "Matrix.hpp"
 #include "EliminationTreeMethods.h"
@@ -106,9 +106,6 @@ public:
     operator=(SupernodalCholesky<MatrixType>&& A);
 
 };
-
-
-
 
 
 template<class MatrixType>
@@ -1042,6 +1039,12 @@ void SupernodalCholesky<MatrixType>::update(SparseMatrix<double>& W)
     }
 }
 
+template<class MatrixType>
+void SupernodalCholesky<MatrixType>::solve(Matrix<T>& m)
+{  
+    solveL(m);
+    solveLT(m);
+}
 
 template<class MatrixType>
 void SupernodalCholesky<MatrixType>::solveL(Matrix<T>& m)
