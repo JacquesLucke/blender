@@ -391,7 +391,7 @@ function(setup_liblinks
 	endif()
 
 	target_link_libraries(${target} "/home/jacques/anaconda3/lib/libgfortran.so")
-	target_link_libraries(${target} "/home/jacques/src/blender-deps/CholUp_deps/libblas.a")
+	target_link_libraries(${target} "/home/jacques/src/blender-deps/CholUp_deps/librefblas.a")
 	target_link_libraries(${target} "/home/jacques/src/blender-deps/CholUp_deps/liblapack.a")
 
 	if(WITH_LZO AND WITH_SYSTEM_LZO)

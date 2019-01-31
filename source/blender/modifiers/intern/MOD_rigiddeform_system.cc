@@ -149,6 +149,7 @@ namespace RigidDeform {
 		const Vectors &initial_positions,
 		const std::vector<std::array<uint, 3>> &triangles)
 	{
+		TIMEIT("setup");
 		m_initial_positions = initial_positions;
 		m_edges = calculate_cotan_edge_weights(initial_positions, triangles);
 		m_laplace_triplets = get_laplace_matrix_triplets(this->vertex_amount(), m_edges);
@@ -168,6 +169,7 @@ namespace RigidDeform {
 	void RigidDeformSystem::set_anchors(
 		const std::vector<uint> &anchor_indices)
 	{
+		TIMEIT("set anchors");
 		m_order = ReorderData(anchor_indices, this->vertex_amount());
 		m_anchor_indices = anchor_indices;
 
