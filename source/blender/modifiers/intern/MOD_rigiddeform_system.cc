@@ -181,7 +181,7 @@ namespace RigidDeform {
 		m_solver_current = m_solver->dirichletPartialFactor(L, indices);
 #else
 		m_solver = std::unique_ptr<Solver>(new Solver());
-		m_solver->compute(m_A_II.transpose() * m_A_II);
+		m_solver->compute(m_A_II);
 #endif
 	}
 
@@ -404,7 +404,7 @@ namespace RigidDeform {
 			Eigen::VectorXd result(m_order.inner_amount());
 			for (uint i = 0; i < m_order.inner_amount(); i++) result[i] = rhs(i, 0);
 #else
-			Eigen::VectorXd result = m_solver->solve(m_A_II.transpose() * b);
+			Eigen::VectorXd result = m_solver->solve(b);
 #endif
 			new_inner_positions.set_coord(coord, result);
 		}
