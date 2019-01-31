@@ -132,6 +132,7 @@ static void get_non_zero_weight_indices(
 	float *weights = MEM_malloc_arrayN(vertex_amount, sizeof(float), __func__);
 	get_all_vertex_weights(ob, mesh, weight_group_name, weights);
 	get_non_zero_indices(weights, vertex_amount, r_indices, r_amount);
+	MEM_freeN(weights);
 }
 
 static void get_anchor_indices(
@@ -270,6 +271,7 @@ static void initData(ModifierData *md)
 	rdmd->bind_next_execution = false;
 	rdmd->cache = NULL;
 	rdmd->iterations = 5;
+	rdmd->is_main = true;
 }
 
 static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *UNUSED(md))
@@ -279,9 +281,25 @@ static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *UNUSED(
 	return dataMask;
 }
 
+static void copyData(const ModifierData *md, ModifierData *target, const int flag)
+{
+	modifier_copyData_generic(md, target, flag);
+
+	RigidDeformModifierData *rdmd_target = (RigidDeformModifierData *)target;
+	rdmd_target->is_main = (flag & LIB_ID_CREATE_NO_MAIN) == 0;
+}
+
 static void freeData(ModifierData *md)
 {
-	RigidDeformModifierData *UNUSED(rdmd) = (RigidDeformModifierData *)md;
+	RigidDeformModifierData *rdmd = (RigidDeformModifierData *)md;
+	if (rdmd->is_main) {
+		if (rdmd->cache) {
+			cache_free((Cache * )rdmd->cache);
+		}
+		if (rdmd->bind_data) {
+			bind_data_free(rdmd->bind_data);
+		}
+	}
 }
 
  ModifierTypeInfo modifierType_RigidDeform = {
@@ -290,7 +308,7 @@ static void freeData(ModifierData *md)
 	/* structSize */        sizeof(RigidDeformModifierData),
 	/* type */              eModifierTypeType_OnlyDeform,
 	/* flags */             eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsEditmode,
-	/* copyData */          modifier_copyData_generic,
+	/* copyData */          copyData,
  	/* deformVerts_DM */    NULL,
 	/* deformMatrices_DM */ NULL,
 	/* deformVertsEM_DM */  NULL,

@@ -1954,7 +1954,9 @@ typedef struct RigidDeformModifierData {
 	char anchor_group_name[64];  /* MAX_VGROUP_NAME */
 	RigidDeformModifierBindData *bind_data;
 	int iterations;
-	char bind_next_execution, pad[3];
+	char bind_next_execution;
+	char is_main;
+	char pad[2];
 
 	/* runtime only */
 	void *cache;
