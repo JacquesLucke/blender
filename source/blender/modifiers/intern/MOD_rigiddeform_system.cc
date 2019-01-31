@@ -177,7 +177,7 @@ namespace RigidDeform {
 
 #if USE_CHOLUP
 		CholUp::SparseMatrix<double> L(m_laplace_matrix);
-		std::vector<int> indices(anchor_indices.begin(), anchor_indices.end());
+		std::vector<int> indices(m_inner_indices.begin(), m_inner_indices.end());
 		m_solver_current = m_solver->dirichletPartialFactor(L, indices);
 #else
 		m_solver = std::unique_ptr<Solver>(new Solver());
