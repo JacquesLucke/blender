@@ -9,14 +9,14 @@
 
 WRAPPERS(const FN::Function *, FnFunction);
 WRAPPERS(FN::Tuple *, FnTuple);
-WRAPPERS(const FN::TupleCallBody *, FnCallTuple);
+WRAPPERS(const FN::TupleCallBody *, FnCallable);
 
-void FN_function_call_tuple(FnCallTuple fn_call, FnTuple fn_in, FnTuple fn_out)
+void FN_function_call(FnCallable fn_call, FnTuple fn_in, FnTuple fn_out)
 {
 	unwrap(fn_call)->call(*unwrap(fn_in), *unwrap(fn_out));
 }
 
-FnCallTuple FN_function_get_tuple_call(FnFunction fn)
+FnCallable FN_function_get_callable(FnFunction fn)
 {
 	return wrap(unwrap(fn)->body<FN::TupleCallBody>());
 }

@@ -10,10 +10,10 @@ extern "C" {
 typedef struct OpaqueFnFunction *FnFunction;
 typedef struct OpaqueFnType *FnTypeRef;
 typedef struct OpaqueFnTuple *FnTuple;
-typedef struct OpaqueFnCallTuple *FnCallTuple;
+typedef struct OpaqueFnCallable *FnCallable;
 
-FnCallTuple FN_function_get_tuple_call(FnFunction fn);
-void FN_function_call_tuple(FnCallTuple call, FnTuple fn_in, FnTuple fn_out);
+FnCallable FN_function_get_callable(FnFunction fn);
+void FN_function_call(FnCallable call, FnTuple fn_in, FnTuple fn_out);
 
 FnTuple FN_tuple_for_input(FnFunction fn);
 FnTuple FN_tuple_for_output(FnFunction fn);
