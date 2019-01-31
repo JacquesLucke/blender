@@ -2337,6 +2337,9 @@ static int rigiddeform_bind_exec(bContext *C, wmOperator *op)
 	rdmd->bind_next_execution = true;
 	object_force_modifier_update_for_bind(depsgraph, scene, ob);
 
+	DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
+	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
+
 	return OPERATOR_FINISHED;
 }
 
