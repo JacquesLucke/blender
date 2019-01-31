@@ -41,6 +41,7 @@ _modules = [
     "object_randomize_transform",
     "presets",
     "rigidbody",
+    "rigiddeform",
     "screen_play_rendered_anim",
     "sequencer",
     "userpref",
