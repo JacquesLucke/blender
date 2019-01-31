@@ -4,9 +4,38 @@
 
 namespace FN {
 
+	class Tuple;
+	class TupleCallBody;
+	class TypeSize;
+
+	class TupleCallBody {
+	public:
+		static constexpr const char *identifier = "Tuple Call Body";
+
+		virtual void call(const Tuple &fn_in, Tuple &fn_out) const = 0;
+	};
+
+	class TypeSize {
+	public:
+		static constexpr const char *identifier = "Type Size";
+
+		TypeSize(uint size)
+			: m_size(size) {}
+
+		virtual uint size() const
+		{
+			return this->m_size;
+		}
+
+	private:
+		uint m_size;
+	};
+
 	inline uint get_type_size(const Type *type)
 	{
-		return type->m_size;
+		auto extension = type->extension<TypeSize>();
+		BLI_assert(extension);
+		return extension->size();
 	}
 
 	class Tuple {
@@ -78,13 +107,6 @@ namespace FN {
 		SmallVector<uint> m_offsets;
 		SmallVector<bool> m_initialized;
 		void *data;
-	};
-
-	class TupleCallBody {
-	public:
-		static constexpr const char *identifier = "Tuple Call Body";
-
-		virtual void call(const Tuple &fn_in, Tuple &fn_out) const = 0;
 	};
 
 } /* namespace FN */

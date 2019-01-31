@@ -114,9 +114,12 @@ public:
 FnFunction FN_get_deform_function(int type)
 {
 	FN::Signature signature({FN::Types::floatvec3d_ty, FN::Types::float_ty}, {FN::Types::floatvec3d_ty});
-	FN::FunctionBodies bodies;
-	if (type == 0) bodies.add(new Deform1());
-	else bodies.add(new Deform2());
-
-	return wrap(new FN::Function(signature, bodies));
+	auto fn = new FN::Function(signature);
+	if (type == 0) {
+		fn->add_body(new Deform1());
+	}
+	else {
+		fn->add_body(new Deform2());
+	}
+	return wrap(fn);
 }

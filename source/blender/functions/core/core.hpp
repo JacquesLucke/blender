@@ -15,6 +15,36 @@ namespace FN {
 
 	using SmallTypeVector = SmallVector<const Type *>;
 
+	class Composition {
+	public:
+		template<typename T>
+		void add(const T *value)
+		{
+			this->m_elements.add(this->get_key<T>(), (void *)value);
+		}
+
+		template<typename T>
+		inline const T *get() const
+		{
+			uint64_t key = this->get_key<T>();
+			if (this->m_elements.contains(key)) {
+				return (T *)this->m_elements.lookup(key);
+			}
+			else {
+				return nullptr;
+			}
+		}
+
+	private:
+		template<typename T>
+		static uint64_t get_key()
+		{
+			return (uint64_t)T::identifier;
+		}
+
+		BLI::SmallMap<uint64_t, void *> m_elements;
+	};
+
 	class Type {
 	public:
 		const std::string &name() const
@@ -22,12 +52,24 @@ namespace FN {
 			return this->m_name;
 		}
 
+		template<typename T>
+		inline const T *extension() const
+		{
+			return this->m_extensions.get<T>();
+		}
+
+		template<typename T>
+		void extend(const T *extension)
+		{
+			BLI_assert(this->m_extensions.get<T>() == nullptr);
+			this->m_extensions.add(extension);
+		}
+
 	protected:
 		std::string m_name;
 
-	public:
-		/* will be removed */
-		uint m_size;
+	private:
+		Composition m_extensions;
 	};
 
 	class Signature {
@@ -53,41 +95,10 @@ namespace FN {
 		const SmallTypeVector m_outputs;
 	};
 
-	class FunctionBodies {
-	private:
-		BLI::SmallMap<uint64_t, void *> m_bodies;
-
-	public:
-		template<typename T>
-		void add(const T *body)
-		{
-			this->m_bodies.add(this->get_key<T>(), (void *)body);
-		}
-
-		template<typename T>
-		inline const T *get() const
-		{
-			uint64_t key = this->get_key<T>();
-			if (this->m_bodies.contains(key)) {
-				return (T *)this->m_bodies.lookup(key);
-			}
-			else {
-				return nullptr;
-			}
-		}
-
-	private:
-		template<typename T>
-		static uint64_t get_key()
-		{
-			return (uint64_t)T::identifier;
-		}
-	};
-
 	class Function {
 	public:
-		Function(const Signature &signature, const FunctionBodies &bodies)
-			: m_signature(signature), m_bodies(bodies) {}
+		Function(const Signature &signature)
+			: m_signature(signature) {}
 
 		virtual ~Function() {}
 
@@ -102,9 +113,16 @@ namespace FN {
 			return this->m_bodies.get<T>();
 		}
 
+		template<typename T>
+		void add_body(const T *body)
+		{
+			BLI_assert(this->m_bodies.get<T>() == nullptr);
+			this->m_bodies.add(body);
+		}
+
 	private:
 		const Signature m_signature;
-		const FunctionBodies m_bodies;
+		Composition m_bodies;
 	};
 
 } /* namespace FN */

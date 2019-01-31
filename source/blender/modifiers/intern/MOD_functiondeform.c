@@ -55,6 +55,7 @@ static void do_deformation(
 {
 	FnFunction fn = FN_get_deform_function(fdmd->control2);
 	FnCallable fn_call = FN_function_get_callable(fn);
+	BLI_assert(fn_call);
 	FnTuple fn_in = FN_tuple_for_input(fn);
 	FnTuple fn_out = FN_tuple_for_output(fn);
 

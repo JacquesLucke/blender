@@ -9,7 +9,7 @@ namespace FN::Types {
 		FloatType()
 		{
 			this->m_name = "Float";
-			this->m_size = sizeof(float);
+			this->extend(new FN::TypeSize(sizeof(float)));
 		}
 	};
 
@@ -18,7 +18,7 @@ namespace FN::Types {
 		Int32Type()
 		{
 			this->m_name = "Int32";
-			this->m_size = sizeof(int32_t);
+			this->extend(new FN::TypeSize(sizeof(int32_t)));
 		}
 	};
 
@@ -28,7 +28,7 @@ namespace FN::Types {
 		FloatVectorType()
 		{
 			this->m_name = "FloatVector" + std::to_string(N) + "D";
-			this->m_size = sizeof(float) * N;
+			this->extend(new FN::TypeSize(sizeof(float) * N));
 		}
 	};
 
