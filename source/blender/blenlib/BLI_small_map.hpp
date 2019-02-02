@@ -1,4 +1,4 @@
-#pragma
+#pragma once
 
 #include "BLI_small_vector.hpp"
 
@@ -19,18 +19,22 @@ namespace BLI {
 		SmallVector<Entry> m_entries;
 
 	public:
-		SmallMap() {}
+		SmallMap() = default;
 
 		void add(K key, V value)
 		{
-			if (!this->contains(key)) {
-				this->m_entries.append(Entry(key, value));
+			for (Entry &entry : this->m_entries) {
+				if (entry.key == key) {
+					entry.value = value;
+					return;
+				}
 			}
+			this->m_entries.append(Entry(key, value));
 		}
 
 		bool contains(K key) const
 		{
-			for (const Entry &entry : this->m_entries) {
+			for (Entry entry : this->m_entries) {
 				if (entry.key == key) {
 					return true;
 				}
@@ -38,15 +42,26 @@ namespace BLI {
 			return false;
 		}
 
-		V lookup(K key) const
+		V lookup(const K &key) const
 		{
-			for (const Entry &entry : this->m_entries) {
+			return this->lookup_ref(key);
+		}
+
+		V &lookup_ref(const K &key) const
+		{
+			V *ptr = this->lookup_ptr(key);
+			BLI_assert(ptr);
+			return *ptr;
+		}
+
+		V *lookup_ptr(const K &key) const
+		{
+			for (Entry &entry : this->m_entries) {
 				if (entry.key == key) {
-					return entry.value;
+					return &entry.value;
 				}
 			}
-			BLI_assert(false);
-			return (V){};
+			return nullptr;
 		}
 
 		uint size() const

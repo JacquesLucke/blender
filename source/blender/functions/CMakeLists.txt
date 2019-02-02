@@ -11,7 +11,9 @@ set(SRC
 	c_wrapper.cpp
 
 	core/core.hpp
+	core/data_flow_graph.hpp
 	core/cpu.hpp
+	core/data_flow_graph.cpp
 
 	FN_functions.hpp
 
