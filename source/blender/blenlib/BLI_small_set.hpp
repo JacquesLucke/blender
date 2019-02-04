@@ -12,6 +12,13 @@ namespace BLI {
 	public:
 		SmallSet() = default;
 
+		SmallSet(const SmallVector<T> values)
+		{
+			for (T value : values) {
+				this->add(value);
+			}
+		}
+
 		void add(T value)
 		{
 			if (!this->contains(value)) {
@@ -32,6 +39,12 @@ namespace BLI {
 		uint size() const
 		{
 			return this->m_entries.size();
+		}
+
+		T any() const
+		{
+			BLI_assert(this->size() > 0);
+			return this->m_entries[0];
 		}
 
 

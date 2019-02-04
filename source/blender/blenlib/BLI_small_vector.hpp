@@ -105,6 +105,16 @@ namespace BLI {
 			return this->m_size;
 		}
 
+		int index(const T &value) const
+		{
+			for (uint i = 0; i < this->m_size; i++) {
+				if (this->m_elements[i] == value) {
+					return i;
+				}
+			}
+			return -1;
+		}
+
 		T &operator[](const int index)
 		{
 			BLI_assert(index >= 0 && index < this->size());
