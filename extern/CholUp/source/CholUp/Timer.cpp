@@ -1,6 +1,7 @@
 #include "Timer.hpp"
 #include <iostream>
 
+namespace CholUp {
 
 Timer::Timer(const std::string& str)
 : start(clock::now()), name(str), sum(clock::duration::zero())
@@ -98,4 +99,4 @@ Timer::printTime(const std::string& str) const
     std::cout << us << "μs" << std::endl << std::flush;
 }
 
-
+} /* namespace CholUp */

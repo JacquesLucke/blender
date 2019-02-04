@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <vector>
@@ -26,12 +25,74 @@ public:
         std::copy_n(m.data, nrows * ncols, data);
     }
 
+
+    Matrix operator+(const Matrix& m) const
+    {
+        if(nrows != m.nrows || ncols != m.ncols)
+        {
+            std::cout << "matrix sizes do not match" << std::endl;
+            return *this;
+        }
+
+        Matrix ret(nrows, ncols);
+
+        for(int i = 0; i < nrows * ncols; ++i)
+            ret[i] = data[i] + m.data[i];
+
+        return std::move(ret);
+    }
+
+    Matrix operator-(const Matrix& m) const
+    {
+        if(nrows != m.nrows || ncols != m.ncols)
+        {
+            std::cout << "matrix sizes do not match" << std::endl;
+            return *this;
+        }
+
+        Matrix ret(nrows, ncols);
+
+        for(int i = 0; i < nrows * ncols; ++i)
+            ret[i] = data[i] - m.data[i];
+
+        return std::move(ret);
+    }
+
+    Matrix& operator+=(const Matrix& m)
+    {
+        if(nrows != m.nrows || ncols != m.ncols)
+        {
+            std::cout << "matrix sizes do not match" << std::endl;
+            return *this;
+        }
+
+        for(int i = 0; i < nrows * ncols; ++i)
+            data[i] += m.data[i];
+
+        return *this;
+    }
+
+    Matrix operator-=(const Matrix& m)
+    {
+        if(nrows != m.nrows || ncols != m.ncols)
+        {
+            std::cout << "matrix sizes do not match" << std::endl;
+            return *this;
+        }
+
+        for(int i = 0; i < nrows * ncols; ++i)
+            data[i] -= m.data[i];
+
+        return *this;
+    }
+
+
     Matrix& operator=(const Matrix<T>& m)
     {
         if(this != &m)
         {
             nrows = m.nrows;
-            ncols = m.cols;
+            ncols = m.ncols;
 
             if(data) delete[] data;
 
@@ -40,6 +101,24 @@ public:
         }
 
         return *this;
+    }
+
+    Matrix& operator=(Matrix&& m)
+    {
+        if(this != &m)
+        {
+            nrows = m.nrows;
+            ncols = m.ncols;
+            data = m.data;
+            m.data = nullptr;
+        }
+
+        return *this;
+    }
+
+    Matrix(Matrix&& m)
+    {
+        *this = m;
     }
 
     ~Matrix()
@@ -82,12 +161,12 @@ public:
         return data[j * nrows + i];
     }
 
-    int cols() const
+    size_t cols() const
     {
         return ncols;
     }
 
-    int rows() const
+    size_t rows() const
     {
         return nrows;
     }

@@ -59,6 +59,13 @@ SparseMatrix<T>::SparseMatrix(Eigen::SparseMatrix<T, Eigen::ColMajor, int>& eige
 }
 
 template<class T>
+SparseMatrix<T>::SparseMatrix(const int rows, const int cols, const int nnz_)
+: nrows(rows), ncols(cols), nnz(nnz_), col(new int[cols + 1]), row(new int[nnz_]), vals(new T[nnz_])
+{
+
+}
+
+template<class T>
 SparseMatrix<T>::~SparseMatrix()
 {
     if(!dataBorrowed)
@@ -73,8 +80,47 @@ SparseMatrix<T>::~SparseMatrix()
 
 
 template<class T>
+Matrix<double>
+SparseMatrix<T>::operator*(const Matrix<double>& m) const
+{
+    if(ncols != m.nrows)
+    {
+        std::cout << "matrix dimensions do not match" << std::endl;
+        return Matrix<double>();
+    }
+
+    Matrix<double> ret(nrows, m.ncols);
+    ret.fill();
+
+    std::vector<double> buffer(m.ncols);
+
+    for(int i = 0; i < ncols; ++i)
+    {
+        std::fill_n(buffer.data(), m.ncols, 0);
+
+        for(int k = 0; k < m.ncols; ++k)
+        {
+            buffer[k] = m(i, k);
+        }
+
+        for(int j = col[i]; j < col[i+1]; ++j)
+        {
+            for(int k = 0; k < m.ncols; ++k)
+            {
+                ret(row[j], k) += buffer[k] * vals[j];
+            }
+        }
+    }
+
+    return ret;
+}
+
+
+
+template<class T>
 SparseMatrix<T>& SparseMatrix<T>::operator=(const SparseMatrix& A)
 {
+    std::cout << "warning: explicit sparse matrix copy." << std::endl;
 
     nnz = A.nnz;
     ncols = A.ncols;

@@ -241,7 +241,6 @@ namespace RigidDeform {
 		SparseMatrixD m_A_II, m_A_IB;
 
 #if USE_CHOLUP
-		SparseMatrixD m_laplace_matrix;
 		std::unique_ptr<Solver> m_solver;
 		Solver m_solver_current;
 #else

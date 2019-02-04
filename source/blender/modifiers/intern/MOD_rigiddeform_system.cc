@@ -58,9 +58,18 @@ Timer::~Timer() {
 
 namespace RigidDeform {
 
-	static void print_sparse_matrix(SparseMatrixD &A)
+	static void print_sparse_matrix(const SparseMatrixD &A)
 	{
 		std::cout << Eigen::MatrixXd(A) << std::endl;
+	}
+
+	static void print_indices(const std::vector<int> &indices)
+	{
+		std::cout << "Indices: ";
+		for (int index : indices) {
+			std::cout << index << " ";
+		}
+		std::cout << std::endl;
 	}
 
 	/* Build Laplace Matrix
@@ -128,7 +137,7 @@ namespace RigidDeform {
 		Triplets triplets;
 
 		for (int i = 0; i < vertex_amount; i++) {
-			triplets.push_back(Triplet(i, i, total_weights[i]));
+			triplets.push_back(Triplet(i, i, total_weights[i] + 0.000001));
 		}
 
 		for (WeightedEdge edge : edges) {
@@ -155,10 +164,9 @@ namespace RigidDeform {
 		m_laplace_triplets = get_laplace_matrix_triplets(this->vertex_amount(), m_edges);
 
 #if USE_CHOLUP
-		m_laplace_matrix = SparseMatrixD(m_initial_positions.size(), m_initial_positions.size());
+		auto m_laplace_matrix = SparseMatrixD(m_initial_positions.size(), m_initial_positions.size());
 		m_laplace_matrix.setFromTriplets(m_laplace_triplets.begin(), m_laplace_triplets.end());
-		CholUp::SparseMatrix<double> L(m_laplace_matrix);
-		m_solver = std::unique_ptr<Solver>(new Solver(L));
+		m_solver = std::unique_ptr<Solver>(new Solver(m_laplace_matrix));
 #endif
 	}
 
@@ -178,9 +186,8 @@ namespace RigidDeform {
 		this->update_matrix();
 
 #if USE_CHOLUP
-		CholUp::SparseMatrix<double> L(m_laplace_matrix);
 		std::vector<int> indices(m_inner_indices.begin(), m_inner_indices.end());
-		m_solver_current = m_solver->dirichletPartialFactor(L, indices);
+		m_solver_current = m_solver->dirichletPartialFactor(indices);
 #else
 		m_solver = std::unique_ptr<Solver>(new Solver());
 		m_solver->compute(m_A_II);
@@ -275,6 +282,7 @@ namespace RigidDeform {
 	{
 		assert(iterations > 0);
 		assert(this->anchor_indices().size() > 0);
+		TIMEIT("calculate inner");
 
 		std::vector<Eigen::Matrix3d> rotations(this->vertex_amount());
 		std::fill(rotations.begin(), rotations.end(), Eigen::Matrix3d::Identity());
@@ -397,13 +405,13 @@ namespace RigidDeform {
 		for (uint coord = 0; coord < 3; coord++) {
 			Eigen::VectorXd b = new_inner_diffs.get_coord(coord) - b_preprocessed[coord];
 #if USE_CHOLUP
-			CholUp::Matrix<double> rhs(m_order.inner_amount(), 1);
-			for (uint i = 0; i < m_order.inner_amount(); i++) rhs(i, 0) = b[i];
+			CholUp::Matrix<double> rhs(this->vertex_amount(), 1);
+			for (uint i = 0; i < m_order.inner_amount(); i++) rhs(m_order.to_orig(i), 0) = b[i];
 
 			m_solver_current.solve(rhs);
 
 			Eigen::VectorXd result(m_order.inner_amount());
-			for (uint i = 0; i < m_order.inner_amount(); i++) result[i] = rhs(i, 0);
+			for (uint i = 0; i < m_order.inner_amount(); i++) result[i] = rhs(m_order.to_orig(i), 0);
 #else
 			Eigen::VectorXd result = m_solver->solve(b);
 #endif

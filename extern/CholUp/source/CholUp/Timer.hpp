@@ -3,6 +3,8 @@
 #include <chrono>
 #include <string>
 
+namespace CholUp {
+
 struct Timer
 {
     typedef std::chrono::system_clock clock;
@@ -27,3 +29,5 @@ struct Timer
     int hours() const;
     void printTime(const std::string& str = "") const;
 };
+
+} /* namespace CholUp */
