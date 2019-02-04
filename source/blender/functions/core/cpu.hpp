@@ -67,12 +67,12 @@ namespace FN {
 			BLI_assert(sizeof(T) == this->element_size(index));
 
 			if (std::is_trivial<T>::value) {
-				std::memcpy((char *)this->data + this->m_offsets[index], &value, sizeof(T));
+				std::memcpy(this->element_ptr(index), &value, sizeof(T));
 			}
 			else {
 				const T *begin = &value;
 				const T *end = begin + 1;
-				T *dst = (T *)((char *)this->data + this->m_offsets[index]);
+				T *dst = (T *)this->element_ptr(index);
 
 				if (this->m_initialized[index]) {
 					std::copy(begin, end, dst);
@@ -94,13 +94,28 @@ namespace FN {
 				BLI_assert(this->m_initialized[index]);
 			}
 
-			return *(T *)((char *)this->data + this->m_offsets[index]);;
+			return *(T *)this->element_ptr(index);
+		}
+
+		static inline void copy_element(
+			const Tuple &from, uint from_index,
+			Tuple &to, uint to_index)
+		{
+			/* only works with trivially copyable data types for now */
+			BLI_assert(from.m_types[from_index] == to.m_types[to_index]);
+			uint size = from.element_size(from_index);
+			memcpy(to.element_ptr(to_index), from.element_ptr(from_index), size);
 		}
 
 	private:
 		inline uint element_size(uint index) const
 		{
 			return this->m_offsets[index + 1] - this->m_offsets[index];
+		}
+
+		inline void *element_ptr(uint index) const
+		{
+			return (void *)((char *)this->data + this->m_offsets[index]);
 		}
 
 		const SmallTypeVector m_types;
