@@ -23,13 +23,13 @@ FnCallable FN_function_get_callable(FnFunction fn)
 
 FnTuple FN_tuple_for_input(FnFunction fn)
 {
-	auto tuple = new FN::Tuple(unwrap(fn)->signature().inputs());
+	auto tuple = new FN::Tuple(unwrap(fn)->signature().input_types());
 	return wrap(tuple);
 }
 
 FnTuple FN_tuple_for_output(FnFunction fn)
 {
-	auto tuple = new FN::Tuple(unwrap(fn)->signature().outputs());
+	auto tuple = new FN::Tuple(unwrap(fn)->signature().output_types());
 	return wrap(tuple);
 }
 
@@ -113,8 +113,14 @@ public:
 
 FnFunction FN_get_deform_function(int type)
 {
-	FN::Signature signature({FN::Types::floatvec3d_ty, FN::Types::float_ty}, {FN::Types::floatvec3d_ty});
-	auto fn = new FN::Function(signature);
+	FN::InputParameters inputs;
+	inputs.append(FN::InputParameter("Position", FN::Types::floatvec3d_ty));
+	inputs.append(FN::InputParameter("Control", FN::Types::float_ty));
+
+	FN::OutputParameters outputs;
+	outputs.append(FN::OutputParameter("Position", FN::Types::floatvec3d_ty));
+
+	auto fn = new FN::Function(FN::Signature(inputs, outputs));
 	if (type == 0) {
 		fn->add_body(new Deform1());
 	}

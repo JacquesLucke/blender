@@ -4,10 +4,10 @@ namespace FN {
 	const Type *Socket::type() const
 	{
 		if (this->m_is_output) {
-			return this->node()->signature().outputs()[this->m_index];
+			return this->node()->signature().outputs()[this->m_index].type();
 		}
 		else {
-			return this->node()->signature().inputs()[this->m_index];
+			return this->node()->signature().inputs()[this->m_index].type();
 		}
 	}
 };
