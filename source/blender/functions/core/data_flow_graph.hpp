@@ -13,15 +13,8 @@ namespace FN {
 
 	class Socket {
 	public:
-		static Socket Input(const Node *node, uint index)
-		{
-			return Socket(node, false, index);
-		}
-
-		static Socket Output(const Node *node, uint index)
-		{
-			return Socket(node, true, index);
-		}
+		static inline Socket Input(const Node *node, uint index);
+		static inline Socket Output(const Node *node, uint index);
 
 		const Node *node() const
 		{
@@ -44,6 +37,7 @@ namespace FN {
 		}
 
 		const Type *type() const;
+		std::string name() const;
 
 		friend bool operator==(const Socket &a, const Socket &b)
 		{
@@ -91,19 +85,59 @@ namespace FN {
 		const Function &m_function;
 	};
 
+	class Link {
+	public:
+		static Link New(Socket a, Socket b)
+		{
+			BLI_assert(a.is_input() != b.is_input());
+			if (a.is_input()) {
+				return Link(b, a);
+			}
+			else {
+				return Link(a, b);
+			}
+		}
+
+		Socket from() const
+		{
+			return this->m_from;
+		}
+
+		Socket to() const
+		{
+			return this->m_to;
+		}
+
+		friend bool operator==(const Link &a, const Link &b)
+		{
+			return a.m_from == b.m_from && a.m_to == b.m_to;
+		}
+
+	private:
+		Link(Socket from, Socket to)
+			: m_from(from), m_to(to) {}
+
+		const Socket m_from;
+		const Socket m_to;
+	};
+
 	class GraphLinks {
 	public:
-		void insert(Socket a, Socket b)
+		void insert(Link link)
 		{
-			if (!this->m_links.contains(a)) {
-				this->m_links.add(a, SmallSet<Socket>());
+			Socket from = link.from();
+			Socket to = link.to();
+
+			if (!this->m_links.contains(from)) {
+				this->m_links.add(from, SmallSet<Socket>());
 			}
-			if (!this->m_links.contains(b)) {
-				this->m_links.add(b, SmallSet<Socket>());
+			if (!this->m_links.contains(to)) {
+				this->m_links.add(to, SmallSet<Socket>());
 			}
 
-			this->m_links.lookup_ref(a).add(b);
-			this->m_links.lookup_ref(b).add(a);
+			this->m_links.lookup_ref(from).add(to);
+			this->m_links.lookup_ref(to).add(from);
+			this->m_all_links.append(Link::New(from, to));
 		}
 
 		SmallSet<Socket> get_linked(Socket socket) const
@@ -111,8 +145,14 @@ namespace FN {
 			return this->m_links.lookup(socket);
 		}
 
+		SmallVector<Link> all_links() const
+		{
+			return this->m_all_links;
+		}
+
 	private:
 		SmallMap<Socket, SmallSet<Socket>> m_links;
+		SmallVector<Link> m_all_links;
 	};
 
 	class DataFlowGraph {
@@ -142,8 +182,7 @@ namespace FN {
 			BLI_assert(m_nodes.contains(a.node()));
 			BLI_assert(m_nodes.contains(b.node()));
 
-			m_links.insert(a, b);
-			m_links.insert(b, a);
+			m_links.insert(Link::New(a, b));
 		}
 
 		inline bool can_modify() const
@@ -161,10 +200,33 @@ namespace FN {
 			this->m_frozen = true;
 		}
 
+		SmallVector<Link> all_links() const
+		{
+			return this->m_links.all_links();
+		}
+
+		std::string to_dot() const;
+
 	private:
 		bool m_frozen = false;
 		SmallSet<const Node *> m_nodes;
 		GraphLinks m_links;
 	};
+
+
+	/* Some inline functions.
+	 * Those can only come after the declaration of other types. */
+
+	inline Socket Socket::Input(const Node *node, uint index)
+	{
+		BLI_assert(index < node->signature().inputs().size());
+		return Socket(node, false, index);
+	}
+
+	inline Socket Socket::Output(const Node *node, uint index)
+	{
+		BLI_assert(index < node->signature().outputs().size());
+		return Socket(node, true, index);
+	}
 
 } /* namespace FN */

@@ -14,6 +14,7 @@ set(SRC
 	core/data_flow_graph.hpp
 	core/cpu.hpp
 	core/data_flow_graph.cpp
+	core/dot_export.cpp
 
 	FN_functions.hpp
 

@@ -150,8 +150,8 @@ namespace FN {
 
 	class Function {
 	public:
-		Function(const Signature &signature)
-			: m_signature(signature) {}
+		Function(const Signature &signature, const std::string &name = "Function")
+			: m_signature(signature), m_name(name) {}
 
 		virtual ~Function() {}
 
@@ -173,9 +173,15 @@ namespace FN {
 			this->m_bodies.add(body);
 		}
 
+		const std::string &name() const
+		{
+			return this->m_name;
+		}
+
 	private:
 		const Signature m_signature;
 		Composition m_bodies;
+		const std::string m_name;
 	};
 
 } /* namespace FN */
