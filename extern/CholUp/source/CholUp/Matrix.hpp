@@ -7,12 +7,14 @@
 
 namespace CholUp {
 
+// column major matrix
 template<class T>
 class Matrix
 {
 public:
     T* data = 0;
     size_t nrows, ncols;
+    bool isWrapper = false;
 
     Matrix()
     : nrows(0), ncols(0)
@@ -25,6 +27,10 @@ public:
         std::copy_n(m.data, nrows * ncols, data);
     }
 
+    Matrix(T* vals, const int nrows_, const int ncols_)
+    : data(vals), nrows(nrows_), ncols(ncols_), isWrapper(true)
+    {
+    }
 
     Matrix operator+(const Matrix& m) const
     {
@@ -123,7 +129,7 @@ public:
 
     ~Matrix()
     {
-        if(data) delete[] data;
+        if(data && !isWrapper) delete[] data;
     }
 
     Matrix(size_t _rows, size_t _cols)
@@ -136,7 +142,7 @@ public:
         nrows = _rows;
         ncols = _cols;
 
-        if(data) delete[] data;
+        if(data && !isWrapper) delete[] data;
         data = new T[nrows * ncols];
     }
 
@@ -145,7 +151,7 @@ public:
         nrows = _rows;
         ncols = _cols;
 
-        if(data) delete[] data;
+        if(data && !isWrapper) delete[] data;
         data = new T[nrows * ncols];
 
         std::fill_n(data, nrows * ncols, init);
@@ -175,7 +181,8 @@ public:
     {
         nrows = 0;
         ncols = 0;
-        if(data) delete[] data;
+        if(data && !isWrapper) delete[] data;
+        data = nullptr;
     }
 
     void fill(const T val = T(0))
