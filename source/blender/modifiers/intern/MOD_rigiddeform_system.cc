@@ -26,6 +26,7 @@
 #include "MOD_rigiddeform_system.hpp"
 #include "BLI_math.h"
 #include "BLI_edgehash.h"
+#include "FastSVD.hpp"
 
 #include <chrono>
 
@@ -54,7 +55,11 @@ Timer::~Timer() {
     std::cout << "Timer '" << name << "' took " << ms << " ms" << std::endl;
 }
 
-#define TIMEIT(name) Timer t(name);
+#if 1
+#   define TIMEIT(name) Timer t(name);
+#else
+#   define TIMEIT(_)
+#endif
 
 
 namespace RigidDeform {
@@ -319,7 +324,6 @@ namespace RigidDeform {
 	{
 		assert(iterations > 0);
 		assert(this->anchor_indices().size() > 0);
-		TIMEIT("calculate inner");
 
 		std::vector<Eigen::Matrix3d> rotations(this->vertex_amount());
 		std::fill(rotations.begin(), rotations.end(), Eigen::Matrix3d::Identity());
@@ -355,6 +359,47 @@ namespace RigidDeform {
 		}
 	}
 
+	std::vector<Eigen::Matrix3d> compute_rotation_with_svd(
+		const std::vector<Eigen::Matrix3d> &S)
+	{
+		std::vector<Eigen::Matrix3d> R(S.size());
+#if USE_FAST_SVD
+		for (uint i = 0; i < S.size(); i += 4) {
+			uint amount = std::min((ulong)4, S.size() - i);
+			float array[9][4];
+
+			for (uint j = 0; j < amount; ++j) {
+				for (uint x = 0; x < 3; ++x) {
+					for (uint y = 0; y < 3; y++) {
+						array[3 * x + y][j] = (float)S[i + j](x, y);
+					}
+				}
+			}
+
+			fastSVD_SSE(array);
+
+			for (uint j = 0; j < amount; ++j) {
+				for (uint x = 0; x < 3; ++x) {
+					for (uint y = 0; y < 3; ++y) {
+						R[i + j](x, y) = array[3 * x + y][j];
+					}
+				}
+			}
+		}
+#else
+		for (int i = 0; i < S.size(); i++) {
+			Eigen::JacobiSVD<Eigen::Matrix3d> svd(S[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
+			R[i] = svd.matrixV() * svd.matrixU().transpose();
+			if (R[i].determinant() < 0) {
+				Eigen::Matrix3d U = svd.matrixU();
+				U.col(2) = -U.col(2);
+				R[i] = svd.matrixV() * U.transpose();
+			}
+		}
+#endif
+		return R;
+	}
+
 	std::vector<Eigen::Matrix3d> RigidDeformSystem::optimize_rotations(
 		const Vectors &anchor_positions,
 		const Vectors &new_inner_positions)
@@ -381,17 +426,7 @@ namespace RigidDeform {
 			S[m_impact.compact_index(v2)] += mat;
 		}
 
-		std::vector<Eigen::Matrix3d> R(S.size());
-		for (int i = 0; i < S.size(); i++) {
-			Eigen::JacobiSVD<Eigen::Matrix3d> svd(S[i], Eigen::ComputeFullU | Eigen::ComputeFullV);
-			R[i] = svd.matrixV() * svd.matrixU().transpose();
-			if (R[i].determinant() < 0) {
-				Eigen::Matrix3d U = svd.matrixU();
-				U.col(2) = -U.col(2);
-				R[i] = svd.matrixV() * U.transpose();
-			}
-		}
-
+		auto R = compute_rotation_with_svd(S);
 		return R;
 	}
 
@@ -403,7 +438,6 @@ namespace RigidDeform {
 		const AnchorData &anchor_data,
 		const std::vector<Eigen::Matrix3d> &rotations)
 	{
-		TIMEIT("optimize inner");
 		Vectors new_inner_diffs = this->calculate_new_inner_diffs(rotations);
 		return this->solve_for_new_inner_positions(anchor_data, new_inner_diffs);
 	}

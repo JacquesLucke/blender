@@ -7,6 +7,7 @@
 #include "Eigen/Dense"
 
 #define USE_CHOLUP 1
+#define USE_FAST_SVD 1
 
 #if USE_CHOLUP
 #    include "CholUp/CholUp.hpp"

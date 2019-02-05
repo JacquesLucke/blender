@@ -31,6 +31,7 @@ add_subdirectory(opensubdiv)
 add_subdirectory(mikktspace)
 add_subdirectory(glew-mx)
 add_subdirectory(eigen)
+add_subdirectory(fast_svd)
 
 if(WITH_AUDASPACE)
 	add_subdirectory(audaspace)

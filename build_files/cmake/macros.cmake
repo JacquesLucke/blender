@@ -696,6 +696,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_intern_clog
 		bf_intern_opensubdiv
 		bf_intern_numaapi
+		bf_intern_fast_svd
 	)
 
 	if(NOT WITH_SYSTEM_GLOG)

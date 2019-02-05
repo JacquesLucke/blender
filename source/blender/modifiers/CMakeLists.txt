@@ -32,6 +32,7 @@ set(INC
 	../../../intern/elbeem/extern
 	../../../intern/guardedalloc
 	../../../intern/eigen
+	../../../intern/fast_svd/source
 	../../../extern/CholUp/source
 )
 
