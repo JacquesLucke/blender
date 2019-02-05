@@ -228,6 +228,7 @@ set(SRC
 	BLI_small_vector.hpp
 	BLI_small_map.hpp
 	BLI_small_set.hpp
+	BLI_small_set_vector.hpp
 )
 
 if(WITH_MEM_VALGRIND)

@@ -6,13 +6,20 @@ namespace BLI {
 
 	template<typename T, uint N = 4>
 	class SmallSet {
-	private:
+	protected:
 		SmallVector<T> m_entries;
 
 	public:
 		SmallSet() = default;
 
-		SmallSet(const SmallVector<T> values)
+		SmallSet(const std::initializer_list<T> &values)
+		{
+			for (T value : values) {
+				this->add(value);
+			}
+		}
+
+		SmallSet(const SmallVector<T> &values)
 		{
 			for (T value : values) {
 				this->add(value);
