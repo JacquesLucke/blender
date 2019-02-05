@@ -25,6 +25,7 @@
 
 #include "MOD_rigiddeform_system.hpp"
 #include "BLI_math.h"
+#include "BLI_edgehash.h"
 
 #include <chrono>
 
@@ -109,6 +110,7 @@ namespace RigidDeform {
 		const std::vector<std::array<uint, 3>> &triangles)
 	{
 		WeightedEdges edges;
+		double eps = 0.0001;
 
 		for (auto verts : triangles) {
 			std::array<double, 3> angles = triangle_corner_angles(
@@ -116,16 +118,50 @@ namespace RigidDeform {
 				positions[verts[1]],
 				positions[verts[2]]);
 
-			double w1 = (angles[0] > 0.0001) ? cotan(angles[0]) / 2.0 : 1.0;
-			double w2 = (angles[0] > 0.0001) ? cotan(angles[1]) / 2.0 : 1.0;
-			double w3 = (angles[0] > 0.0001) ? cotan(angles[2]) / 2.0 : 1.0;
+			double w1 = (angles[0] > eps) ? cotan(angles[0]) / 2.0 : 1.0;
+			double w2 = (angles[0] > eps) ? cotan(angles[1]) / 2.0 : 1.0;
+			double w3 = (angles[0] > eps) ? cotan(angles[2]) / 2.0 : 1.0;
 
-			if (w1 > 0.0001) edges.push_back(WeightedEdge(verts[1], verts[2], w1));
-			if (w2 > 0.0001) edges.push_back(WeightedEdge(verts[0], verts[2], w2));
-			if (w3 > 0.0001) edges.push_back(WeightedEdge(verts[0], verts[1], w3));
+			if (w1 > eps) edges.push_back(WeightedEdge(verts[1], verts[2], w1));
+			if (w2 > eps) edges.push_back(WeightedEdge(verts[0], verts[2], w2));
+			if (w3 > eps) edges.push_back(WeightedEdge(verts[0], verts[1], w3));
 		}
 
 		return edges;
+	}
+
+	static WeightedEdges make_edge_weights_compact(const WeightedEdges &edges)
+	{
+		BLI_assert(sizeof(void *) == sizeof(double));
+		WeightedEdges new_edges;
+
+		EdgeHash *eh = BLI_edgehash_new(__func__);
+
+		for (const WeightedEdge &edge : edges) {
+			double *current_value;
+			bool existed = BLI_edgehash_ensure_p(eh, edge.v1, edge.v2, (void ***)&current_value);
+			if (!existed) {
+				*current_value = edge.weight;
+			}
+			else {
+				*current_value += edge.weight;
+			}
+		}
+
+		EdgeHashIterator *ehi = BLI_edgehashIterator_new(eh);
+
+		for (; !BLI_edgehashIterator_isDone(ehi); BLI_edgehashIterator_step(ehi)) {
+			uint v1, v2;
+			BLI_edgehashIterator_getKey(ehi, &v1, &v2);
+			double weight;
+			std::memcpy(&weight, BLI_edgehashIterator_getValue_p(ehi), sizeof(double));
+			new_edges.push_back(WeightedEdge(v1, v2, weight));
+		}
+
+		BLI_edgehashIterator_free(ehi);
+		BLI_edgehash_free(eh, NULL);
+
+		return new_edges;
 	}
 
 	static Triplets get_laplace_matrix_triplets(
@@ -161,6 +197,7 @@ namespace RigidDeform {
 		TIMEIT("setup");
 		m_initial_positions = initial_positions;
 		m_edges = calculate_cotan_edge_weights(initial_positions, triangles);
+		m_edges = make_edge_weights_compact(m_edges);
 		m_laplace_triplets = get_laplace_matrix_triplets(this->vertex_amount(), m_edges);
 
 #if USE_CHOLUP
