@@ -205,6 +205,21 @@ namespace RigidDeform {
 		uint vertex_amount() const;
 
 	private:
+		struct AnchorData {
+			const Vectors &m_anchor_positions;
+			std::array<Eigen::VectorXd, 3> m_b_preprocessed;
+
+			AnchorData(const Vectors &anchor_positions, const SparseMatrixD &A_IB)
+				: m_anchor_positions(anchor_positions)
+			{
+				m_b_preprocessed = {
+					A_IB * anchor_positions.get_coord(0),
+					A_IB * anchor_positions.get_coord(1),
+					A_IB * anchor_positions.get_coord(2),
+				};
+			}
+		};
+
 		void update_inner_indices();
 		void update_matrix();
 		void update_impact_data();
@@ -217,14 +232,14 @@ namespace RigidDeform {
 			const Vectors &new_inner_positions);
 
 		Vectors optimize_inner_positions(
-			const std::array<Eigen::VectorXd, 3> &b_preprocessed,
+			const AnchorData &anchor_data,
 			const std::vector<Eigen::Matrix3d> &rotations);
 
 		Vectors calculate_new_inner_diffs(
 			const std::vector<Eigen::Matrix3d> &rotations);
 
 		Vectors solve_for_new_inner_positions(
-			const std::array<Eigen::VectorXd, 3> &b_preprocessed,
+			const AnchorData &anchor_data,
 			const Vectors &new_inner_diffs);
 
 	private:

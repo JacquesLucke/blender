@@ -324,16 +324,12 @@ namespace RigidDeform {
 		std::vector<Eigen::Matrix3d> rotations(this->vertex_amount());
 		std::fill(rotations.begin(), rotations.end(), Eigen::Matrix3d::Identity());
 
-		const std::array<Eigen::VectorXd, 3> b_preprocessed = {
-			m_A_IB * anchor_positions.get_coord(0),
-			m_A_IB * anchor_positions.get_coord(1),
-			m_A_IB * anchor_positions.get_coord(2),
-		};
+		const AnchorData anchor_data(anchor_positions, m_A_IB);
 
 		uint iteration = 0;
 		while (true) {
 			iteration++;
-			Vectors new_inner_positions = this->optimize_inner_positions(b_preprocessed, rotations);
+			Vectors new_inner_positions = this->optimize_inner_positions(anchor_data, rotations);
 			if (iteration == iterations) {
 				return new_inner_positions;
 			}
@@ -403,11 +399,11 @@ namespace RigidDeform {
 	**********************************************/
 
 	Vectors RigidDeformSystem::optimize_inner_positions(
-		const std::array<Eigen::VectorXd, 3> &b_preprocessed,
+		const AnchorData &anchor_data,
 		const std::vector<Eigen::Matrix3d> &rotations)
 	{
 		Vectors new_inner_diffs = this->calculate_new_inner_diffs(rotations);
-		return this->solve_for_new_inner_positions(b_preprocessed, new_inner_diffs);
+		return this->solve_for_new_inner_positions(anchor_data, new_inner_diffs);
 	}
 
 	Vectors RigidDeformSystem::calculate_new_inner_diffs(
@@ -435,12 +431,12 @@ namespace RigidDeform {
 	}
 
 	Vectors RigidDeformSystem::solve_for_new_inner_positions(
-		const std::array<Eigen::VectorXd, 3> &b_preprocessed,
+		const AnchorData &anchor_data,
 		const Vectors &new_inner_diffs)
 	{
 		Vectors new_inner_positions(m_order.inner_amount());
 		for (uint coord = 0; coord < 3; coord++) {
-			Eigen::VectorXd b = new_inner_diffs.get_coord(coord) - b_preprocessed[coord];
+			Eigen::VectorXd b = new_inner_diffs.get_coord(coord) - anchor_data.m_b_preprocessed[coord];
 #if USE_CHOLUP
 			CholUp::Matrix<double> rhs(this->vertex_amount(), 1);
 			for (uint i = 0; i < m_order.inner_amount(); i++) rhs(m_order.to_orig(i), 0) = b[i];
