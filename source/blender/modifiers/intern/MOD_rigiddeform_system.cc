@@ -359,6 +359,7 @@ namespace RigidDeform {
 		const Vectors &anchor_positions,
 		const Vectors &new_inner_positions)
 	{
+		TIMEIT("optimize rotations");
 		std::vector<Eigen::Matrix3d> S(m_impact.compact_amount());
 		for (uint i = 0; i < S.size(); i++) S[i].setZero();
 
@@ -402,6 +403,7 @@ namespace RigidDeform {
 		const AnchorData &anchor_data,
 		const std::vector<Eigen::Matrix3d> &rotations)
 	{
+		TIMEIT("optimize inner");
 		Vectors new_inner_diffs = this->calculate_new_inner_diffs(rotations);
 		return this->solve_for_new_inner_positions(anchor_data, new_inner_diffs);
 	}
