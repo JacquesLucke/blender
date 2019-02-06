@@ -21,32 +21,61 @@ namespace FN {
 
 	class Composition {
 	public:
+		typedef void (*FreeFunction)(void *value);
+
 		template<typename T>
-		void add(const T *value)
+		void add(T *value)
 		{
-			this->m_elements.add(this->get_key<T>(), (void *)value);
+			this->m_elements.add(this->get_key<T>(), this->create_entry(value));
 		}
 
 		template<typename T>
-		inline const T *get() const
+		inline T *get() const
 		{
 			uint64_t key = this->get_key<T>();
 			if (this->m_elements.contains(key)) {
-				return (T *)this->m_elements.lookup(key);
+				return (T *)this->m_elements.lookup(key).value;
 			}
 			else {
 				return nullptr;
 			}
 		}
 
+		~Composition()
+		{
+			for (SmallMap<uint64_t, Entry>::Entry &entry : this->m_elements.m_entries) {
+				entry.value.free(entry.value.value);
+			}
+		}
+
 	private:
+		struct Entry {
+			void *value;
+			FreeFunction free;
+		};
+
 		template<typename T>
 		static uint64_t get_key()
 		{
 			return (uint64_t)T::identifier;
 		}
 
-		BLI::SmallMap<uint64_t, void *> m_elements;
+		template<typename T>
+		static FreeFunction get_free_function()
+		{
+			return T::free;
+		}
+
+		template<typename T>
+		Entry create_entry(T *value)
+		{
+			Entry entry;
+			entry.value = (void *)value;
+			entry.free = this->get_free_function<T>();
+			return entry;
+		}
+
+		BLI::SmallMap<uint64_t, Entry> m_elements;
 	};
 
 	class Type {
@@ -78,7 +107,7 @@ namespace FN {
 
 	class Parameter {
 	public:
-		Parameter(const std::string &name, SharedType type)
+		Parameter(const std::string &name, SharedType &type)
 			: m_type(type), m_name(name) {}
 
 		const SharedType &type() const
@@ -98,13 +127,13 @@ namespace FN {
 
 	class InputParameter : public Parameter {
 	public:
-		InputParameter(const std::string &name, SharedType type)
+		InputParameter(const std::string &name, SharedType &type)
 			: Parameter(name, type) {}
 	};
 
 	class OutputParameter : public Parameter {
 	public:
-		OutputParameter(const std::string &name, SharedType type)
+		OutputParameter(const std::string &name, SharedType &type)
 			: Parameter(name, type) {}
 	};
 

@@ -7,6 +7,8 @@ namespace BLI {
 	template<typename K, typename V, uint N = 4>
 	class SmallMap {
 	private:
+	public:
+		/* only public until there are proper iterators */
 		struct Entry {
 			K key;
 			V value;
@@ -18,7 +20,6 @@ namespace BLI {
 
 		SmallVector<Entry> m_entries;
 
-	public:
 		SmallMap() = default;
 
 		void add(K key, V value)

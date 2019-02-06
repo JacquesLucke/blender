@@ -12,12 +12,25 @@ namespace FN {
 	public:
 		static constexpr const char *identifier = "Tuple Call Body";
 
+		static void free(void *value)
+		{
+			TupleCallBody *v = (TupleCallBody *)value;
+			delete v;
+		}
+
 		virtual void call(const Tuple &fn_in, Tuple &fn_out) const = 0;
+		virtual ~TupleCallBody() {};
 	};
 
-	class TypeSize {
+	class TypeSize final {
 	public:
 		static constexpr const char *identifier = "Type Size";
+
+		static void free(void *value)
+		{
+			TypeSize *v = (TypeSize *)value;
+			delete v;
+		}
 
 		TypeSize(uint size)
 			: m_size(size) {}

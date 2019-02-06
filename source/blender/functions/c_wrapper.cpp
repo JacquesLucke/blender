@@ -132,68 +132,29 @@ public:
 		Vector result;
 
 		result.x = vec.x;
-		result.y = vec.y * control;// / std::max(control, 0.1f);
+		result.y = vec.y * control;
 		result.z = vec.z;
 
 		fn_out.set<Vector>(0, result);
 	}
 };
 
-template<typename T>
-class PassThroughBody : public FN::TupleCallBody {
-public:
-	virtual void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
-	{
-		fn_out.set<T>(0, fn_in.get<T>(0));
-	}
-};
-
-static FN::SharedFunction get_pass_through_float_function()
-{
-	FN::InputParameters inputs;
-	inputs.append(FN::InputParameter("In", FN::Types::float_ty));
-
-	FN::OutputParameters outputs;
-	outputs.append(FN::OutputParameter("Out", FN::Types::float_ty));
-
-	auto fn = FN::SharedFunction::New(FN::Signature(inputs, outputs), "Pass Through");
-	fn->add_body(new PassThroughBody<float>());
-	return fn;
-}
-
 FnFunction FN_get_deform_function(int type)
 {
 	FN::InputParameters inputs;
-	inputs.append(FN::InputParameter("Position", FN::Types::floatvec3d_ty));
-	inputs.append(FN::InputParameter("Control", FN::Types::float_ty));
+	inputs.append(FN::InputParameter("Position", FN::Types::floatvec3d_ty)); // +1
+	inputs.append(FN::InputParameter("Control", FN::Types::float_ty)); // +1
 
 	FN::OutputParameters outputs;
-	outputs.append(FN::OutputParameter("Position", FN::Types::floatvec3d_ty));
+	outputs.append(FN::OutputParameter("Position", FN::Types::floatvec3d_ty)); // +1
 
-	auto fn = FN::SharedFunction::New(FN::Signature(inputs, outputs), "Deform");
+	auto fn = FN::SharedFunction::New(FN::Signature(inputs, outputs), "Deform"); // +3
 	if (type == 0) {
 		fn->add_body(new Deform1());
 	}
 	else {
 		fn->add_body(new Deform2());
 	}
-
-	FN::DataFlowGraph graph;
-	const FN::Node *n1 = graph.insert(fn);
-	const FN::Node *n2 = graph.insert(fn);
-	const FN::Node *n3 = graph.insert(fn);
-	const FN::Node *n4 = graph.insert(fn);
-	const FN::Node *p = graph.insert(get_pass_through_float_function());
-	graph.link(n1->output(0), n2->input(0));
-	graph.link(n2->output(0), n3->input(0));
-	graph.link(n2->output(0), n4->input(0));
-	graph.link(p->output(0), n1->input(1));
-	graph.link(p->output(0), n2->input(1));
-	graph.link(p->output(0), n3->input(1));
-	graph.link(p->output(0), n4->input(1));
-
-	std::string dot = graph.to_dot();
-	//std::cout << dot << std::endl;
 
 	BLI::RefCounted<FN::Function> *fn_ref = fn.refcounter();
 	fn_ref->incref();
