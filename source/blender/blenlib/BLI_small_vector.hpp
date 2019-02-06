@@ -53,7 +53,7 @@ namespace BLI {
 
 		~SmallVector()
 		{
-			this->free_own_buffer();
+			this->destruct_elements_and_free_memory();
 		}
 
 		SmallVector &operator=(const SmallVector &other)
@@ -62,8 +62,7 @@ namespace BLI {
 				return *this;
 			}
 
-			this->destruct_elements();
-			this->free_own_buffer();
+			this->destruct_elements_and_free_memory();
 			this->copy_from_other(other);
 
 			return *this;
@@ -71,8 +70,7 @@ namespace BLI {
 
 		SmallVector &operator=(SmallVector &&other)
 		{
-			this->destruct_elements();
-			this->free_own_buffer();
+			this->destruct_elements_and_free_memory();
 			this->steal_from_other(std::forward<SmallVector>(other));
 
 			return *this;
@@ -85,10 +83,7 @@ namespace BLI {
 
 		void append(const T &value)
 		{
-			if (this->m_size >= this->m_capacity) {
-				this->grow(std::max(this->m_capacity * 2, (uint)1));
-			}
-
+			this->ensure_space_for_one();
 			std::uninitialized_copy(&value, &value + 1, this->end());
 			this->m_size++;
 		}
@@ -148,6 +143,13 @@ namespace BLI {
 			return this->m_elements == this->small_buffer();
 		}
 
+		inline void ensure_space_for_one()
+		{
+			if (this->m_size >= this->m_capacity) {
+				this->grow(std::max(this->m_capacity * 2, (uint)1));
+			}
+		}
+
 		void grow(uint min_capacity)
 		{
 			if (this->m_capacity >= min_capacity) {
@@ -162,23 +164,13 @@ namespace BLI {
 				std::make_move_iterator(this->end()),
 				new_array);
 
-			this->destruct_elements();
+			this->destruct_elements_but_keep_memory();
 
 			if (!this->is_small()) {
 				std::free(this->m_elements);
 			}
 
 			this->m_elements = new_array;
-		}
-
-		void free_own_buffer()
-		{
-			if (!this->is_small()) {
-				/* Can be nullptr when previously stolen. */
-				if (this->m_elements != nullptr) {
-					std::free(this->m_elements);
-				}
-			}
 		}
 
 		void copy_from_other(const SmallVector &other)
@@ -214,12 +206,24 @@ namespace BLI {
 			other.m_elements = nullptr;
 		}
 
-		void destruct_elements()
+		void destruct_elements_and_free_memory()
+		{
+			this->destruct_elements_but_keep_memory();
+			if (!this->is_small()) {
+				/* Can be nullptr when previously stolen. */
+				if (this->m_elements != nullptr) {
+					std::free(this->m_elements);
+				}
+			}
+		}
+
+		void destruct_elements_but_keep_memory()
 		{
 			for (uint i = 0; i < this->m_size; i++) {
 				(this->m_elements + i)->~T();
 			}
 		}
+
 	};
 
 } /* namespace BLI */
