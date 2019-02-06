@@ -9,7 +9,10 @@
 	inline T1 unwrap(T2 value) { return (T1)value; } \
 	inline T2 wrap(T1 value) { return (T2)value; }
 
-WRAPPERS(const FN::Function *, FnFunction);
+
+WRAPPERS(BLI::RefCounted<FN::Function> *, FnFunction);
+WRAPPERS(BLI::RefCounted<const FN::Type> *, FnType);
+
 WRAPPERS(FN::Tuple *, FnTuple);
 WRAPPERS(const FN::TupleCallBody *, FnCallable);
 
@@ -20,18 +23,23 @@ void FN_function_call(FnCallable fn_call, FnTuple fn_in, FnTuple fn_out)
 
 FnCallable FN_function_get_callable(FnFunction fn)
 {
-	return wrap(unwrap(fn)->body<FN::TupleCallBody>());
+	return wrap(unwrap(fn)->ptr()->body<FN::TupleCallBody>());
+}
+
+void FN_function_free(FnFunction fn)
+{
+	unwrap(fn)->decref();
 }
 
 FnTuple FN_tuple_for_input(FnFunction fn)
 {
-	auto tuple = new FN::Tuple(unwrap(fn)->signature().input_types());
+	auto tuple = new FN::Tuple(unwrap(fn)->ptr()->signature().input_types());
 	return wrap(tuple);
 }
 
 FnTuple FN_tuple_for_output(FnFunction fn)
 {
-	auto tuple = new FN::Tuple(unwrap(fn)->signature().output_types());
+	auto tuple = new FN::Tuple(unwrap(fn)->ptr()->signature().output_types());
 	return wrap(tuple);
 }
 
@@ -59,19 +67,37 @@ void FN_tuple_get_float_vector_3(FnTuple tuple, uint index, float dst[3])
 	*(Vector *)dst = unwrap(tuple)->get<Vector>(index);
 }
 
-const char *FN_type_name(FnTypeRef type)
+const char *FN_type_name(FnType type)
 {
 	return ((FN::Type *)type)->name().c_str();
 }
 
-FnTypeRef FN_type_get_float()
-{ return (FnTypeRef)FN::Types::float_ty; }
+void FN_type_free(FnType type)
+{
+	unwrap(type)->decref();
+}
 
-FnTypeRef FN_type_get_int32()
-{ return (FnTypeRef)FN::Types::int32_ty; }
+static FnType get_type_with_increased_refcount(const FN::SharedType &type)
+{
+	BLI::RefCounted<const FN::Type> *typeref = type.refcounter();
+	typeref->incref();
+	return wrap(typeref);
+}
 
-FnTypeRef FN_type_get_float_vector_3d()
-{ return (FnTypeRef)FN::Types::floatvec3d_ty; }
+FnType FN_type_get_float()
+{
+	return get_type_with_increased_refcount(FN::Types::float_ty);
+}
+
+FnType FN_type_get_int32()
+{
+	return get_type_with_increased_refcount(FN::Types::int32_ty);
+}
+
+FnType FN_type_get_float_vector_3d()
+{
+	return get_type_with_increased_refcount(FN::Types::floatvec3d_ty);
+}
 
 
 #include <cmath>
@@ -122,7 +148,7 @@ public:
 	}
 };
 
-static FN::Function *get_pass_through_float_function()
+static FN::SharedFunction get_pass_through_float_function()
 {
 	FN::InputParameters inputs;
 	inputs.append(FN::InputParameter("In", FN::Types::float_ty));
@@ -130,7 +156,7 @@ static FN::Function *get_pass_through_float_function()
 	FN::OutputParameters outputs;
 	outputs.append(FN::OutputParameter("Out", FN::Types::float_ty));
 
-	auto fn = new FN::Function(FN::Signature(inputs, outputs), "Pass Through");
+	auto fn = FN::SharedFunction::New(FN::Signature(inputs, outputs), "Pass Through");
 	fn->add_body(new PassThroughBody<float>());
 	return fn;
 }
@@ -144,7 +170,7 @@ FnFunction FN_get_deform_function(int type)
 	FN::OutputParameters outputs;
 	outputs.append(FN::OutputParameter("Position", FN::Types::floatvec3d_ty));
 
-	auto fn = new FN::Function(FN::Signature(inputs, outputs), "Deform");
+	auto fn = FN::SharedFunction::New(FN::Signature(inputs, outputs), "Deform");
 	if (type == 0) {
 		fn->add_body(new Deform1());
 	}
@@ -153,11 +179,11 @@ FnFunction FN_get_deform_function(int type)
 	}
 
 	FN::DataFlowGraph graph;
-	const FN::Node *n1 = graph.insert(*fn);
-	const FN::Node *n2 = graph.insert(*fn);
-	const FN::Node *n3 = graph.insert(*fn);
-	const FN::Node *n4 = graph.insert(*fn);
-	const FN::Node *p = graph.insert(*get_pass_through_float_function());
+	const FN::Node *n1 = graph.insert(fn);
+	const FN::Node *n2 = graph.insert(fn);
+	const FN::Node *n3 = graph.insert(fn);
+	const FN::Node *n4 = graph.insert(fn);
+	const FN::Node *p = graph.insert(get_pass_through_float_function());
 	graph.link(n1->output(0), n2->input(0));
 	graph.link(n2->output(0), n3->input(0));
 	graph.link(n2->output(0), n4->input(0));
@@ -169,5 +195,7 @@ FnFunction FN_get_deform_function(int type)
 	std::string dot = graph.to_dot();
 	//std::cout << dot << std::endl;
 
-	return wrap(fn);
+	BLI::RefCounted<FN::Function> *fn_ref = fn.refcounter();
+	fn_ref->incref();
+	return wrap(fn_ref);
 }

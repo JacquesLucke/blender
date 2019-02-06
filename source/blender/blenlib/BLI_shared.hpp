@@ -64,7 +64,12 @@ namespace BLI {
 		static Shared<T> New(Args&&... args)
 		{
 			T *actual_value = new T(std::forward<Args>(args)...);
-			RefCounted<T> *refcounted_value = new RefCounted<T>(actual_value);
+			return Shared<T>::FromPointer(actual_value);
+		}
+
+		static Shared<T> FromPointer(T *ptr)
+		{
+			RefCounted<T> *refcounted_value = new RefCounted<T>(ptr);
 			return Shared<T>(refcounted_value);
 		}
 
@@ -113,6 +118,11 @@ namespace BLI {
 		RefCounted<T> *refcounter() const
 		{
 			return this->m_object;
+		}
+
+		friend bool operator==(const Shared &a, const Shared &b)
+		{
+			return a.refcounter()->ptr() == b.refcounter()->ptr();
 		}
 	};
 

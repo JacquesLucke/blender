@@ -1,9 +1,11 @@
 #pragma once
 
 #include <string>
+#include <iostream>
 
 #include "BLI_small_vector.hpp"
 #include "BLI_small_map.hpp"
+#include "BLI_shared.hpp"
 
 namespace FN {
 
@@ -13,7 +15,9 @@ namespace FN {
 	class Signature;
 	class Function;
 
-	using SmallTypeVector = SmallVector<const Type *>;
+	using SharedType = Shared<const Type>;
+	using SharedFunction = Shared<Function>;
+	using SmallTypeVector = SmallVector<SharedType>;
 
 	class Composition {
 	public:
@@ -74,10 +78,10 @@ namespace FN {
 
 	class Parameter {
 	public:
-		Parameter(const std::string &name, const Type *type)
+		Parameter(const std::string &name, SharedType type)
 			: m_type(type), m_name(name) {}
 
-		const Type *type() const
+		const SharedType &type() const
 		{
 			return this->m_type;
 		}
@@ -88,19 +92,19 @@ namespace FN {
 		}
 
 	private:
-		const Type *m_type;
+		SharedType m_type;
 		const std::string m_name;
 	};
 
 	class InputParameter : public Parameter {
 	public:
-		InputParameter(const std::string &name, const Type *type)
+		InputParameter(const std::string &name, SharedType type)
 			: Parameter(name, type) {}
 	};
 
 	class OutputParameter : public Parameter {
 	public:
-		OutputParameter(const std::string &name, const Type *type)
+		OutputParameter(const std::string &name, SharedType type)
 			: Parameter(name, type) {}
 	};
 

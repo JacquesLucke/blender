@@ -32,8 +32,8 @@ namespace FN::Types {
 		}
 	};
 
-	static const FloatType *float_ty = new FloatType();
-	static const Int32Type *int32_ty = new Int32Type();
-	static const FloatVectorType<3> *floatvec3d_ty = new FloatVectorType<3>();
+	static SharedType float_ty = SharedType::FromPointer(new FloatType());
+	static SharedType int32_ty = SharedType::FromPointer(new Int32Type());
+	static SharedType floatvec3d_ty = SharedType::FromPointer(new FloatVectorType<3>());
 
 } /* namespace FN::Types */

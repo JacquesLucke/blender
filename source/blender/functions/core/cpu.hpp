@@ -31,7 +31,7 @@ namespace FN {
 		uint m_size;
 	};
 
-	inline uint get_type_size(const Type *type)
+	inline uint get_type_size(const SharedType &type)
 	{
 		auto extension = type->extension<TypeSize>();
 		BLI_assert(extension);
@@ -46,7 +46,7 @@ namespace FN {
 			: m_types(types)
 		{
 			int total_size = 0;
-			for (const Type *type : types) {
+			for (const SharedType &type : types) {
 				this->m_offsets.append(total_size);
 				this->m_initialized.append(false);
 				total_size += get_type_size(type);

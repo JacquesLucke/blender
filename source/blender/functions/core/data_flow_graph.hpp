@@ -36,7 +36,7 @@ namespace FN {
 			return this->m_index;
 		}
 
-		const Type *type() const;
+		const SharedType &type() const;
 		std::string name() const;
 
 		friend bool operator==(const Socket &a, const Socket &b)
@@ -58,7 +58,7 @@ namespace FN {
 
 	class Node {
 	public:
-		Node(const Function &function)
+		Node(const SharedFunction &function)
 			: m_function(function) {}
 
 		Socket input(uint index) const
@@ -71,18 +71,18 @@ namespace FN {
 			return Socket::Output(this, index);
 		}
 
-		const Function &function() const
+		const SharedFunction &function() const
 		{
 			return this->m_function;
 		}
 
 		const Signature &signature() const
 		{
-			return this->function().signature();
+			return this->function()->signature();
 		}
 
 	private:
-		const Function &m_function;
+		const SharedFunction m_function;
 	};
 
 	class Link {
@@ -166,7 +166,7 @@ namespace FN {
 			}
 		}
 
-		const Node *insert(const Function &function)
+		const Node *insert(const SharedFunction &function)
 		{
 			BLI_assert(this->can_modify());
 			const Node *node = new Node(function);

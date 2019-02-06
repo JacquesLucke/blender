@@ -8,12 +8,13 @@ extern "C" {
 #endif
 
 typedef struct OpaqueFnFunction *FnFunction;
-typedef struct OpaqueFnType *FnTypeRef;
+typedef struct OpaqueFnType *FnType;
 typedef struct OpaqueFnTuple *FnTuple;
 typedef struct OpaqueFnCallable *FnCallable;
 
 FnCallable FN_function_get_callable(FnFunction fn);
 void FN_function_call(FnCallable call, FnTuple fn_in, FnTuple fn_out);
+void FN_function_free(FnFunction fn);
 
 FnTuple FN_tuple_for_input(FnFunction fn);
 FnTuple FN_tuple_for_output(FnFunction fn);
@@ -25,11 +26,12 @@ void FN_tuple_set_float_vector_3(FnTuple tuple, uint index, float vector[3]);
 
 void FN_tuple_get_float_vector_3(FnTuple tuple, uint index, float dst[3]);
 
-const char *FN_type_name(FnTypeRef type);
+const char *FN_type_name(FnType type);
+void FN_type_free(FnType type);
 
-FnTypeRef FN_type_get_float(void);
-FnTypeRef FN_type_get_int32(void);
-FnTypeRef FN_type_get_float_vector_3d(void);
+FnType FN_type_get_float(void);
+FnType FN_type_get_int32(void);
+FnType FN_type_get_float_vector_3d(void);
 
 FnFunction FN_get_deform_function(int type);
 

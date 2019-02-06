@@ -35,7 +35,7 @@ namespace FN {
 
 		/* Header */
 		ss << "<tr><td colspan=\"3\" align=\"center\"><b>";
-		ss << node->function().name();
+		ss << node->function()->name();
 		ss << "</b></td></tr>";
 
 		/* Sockets */
