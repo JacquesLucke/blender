@@ -79,15 +79,18 @@ namespace BLI {
 			this->incref();
 		}
 
-		Shared(const Shared &&other)
+		Shared(Shared &&other)
 		{
 			this->m_object = other.m_object;
-			this->incref();
+			other.m_object = nullptr;
 		}
 
 		~Shared()
 		{
-			this->decref();
+			/* Can be nullptr when previously moved. */
+			if (this->m_object != nullptr) {
+				this->decref();
+			}
 		}
 
 		Shared &operator=(const Shared &other)
@@ -102,11 +105,11 @@ namespace BLI {
 			return *this;
 		}
 
-		Shared &operator=(const Shared &&other)
+		Shared &operator=(Shared &&other)
 		{
 			this->decref();
 			this->m_object = other.m_object;
-			this->incref();
+			other.m_object = nullptr;
 			return *this;
 		}
 
