@@ -142,13 +142,13 @@ public:
 FnFunction FN_get_deform_function(int type)
 {
 	FN::InputParameters inputs;
-	inputs.append(FN::InputParameter("Position", FN::Types::floatvec3d_ty)); // +1
-	inputs.append(FN::InputParameter("Control", FN::Types::float_ty)); // +1
+	inputs.append(FN::InputParameter("Position", FN::Types::floatvec3d_ty));
+	inputs.append(FN::InputParameter("Control", FN::Types::float_ty));
 
 	FN::OutputParameters outputs;
-	outputs.append(FN::OutputParameter("Position", FN::Types::floatvec3d_ty)); // +1
+	outputs.append(FN::OutputParameter("Position", FN::Types::floatvec3d_ty));
 
-	auto fn = FN::SharedFunction::New(FN::Signature(inputs, outputs), "Deform"); // +3
+	auto fn = FN::SharedFunction::New(FN::Signature(inputs, outputs), "Deform");
 	if (type == 0) {
 		fn->add_body(new Deform1());
 	}
