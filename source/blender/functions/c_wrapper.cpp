@@ -11,7 +11,7 @@
 
 
 WRAPPERS(BLI::RefCounted<FN::Function> *, FnFunction);
-WRAPPERS(BLI::RefCounted<const FN::Type> *, FnType);
+WRAPPERS(BLI::RefCounted<FN::Type> *, FnType);
 
 WRAPPERS(FN::Tuple *, FnTuple);
 WRAPPERS(const FN::TupleCallBody *, FnCallable);
@@ -79,7 +79,7 @@ void FN_type_free(FnType type)
 
 static FnType get_type_with_increased_refcount(const FN::SharedType &type)
 {
-	BLI::RefCounted<const FN::Type> *typeref = type.refcounter();
+	BLI::RefCounted<FN::Type> *typeref = type.refcounter();
 	typeref->incref();
 	return wrap(typeref);
 }

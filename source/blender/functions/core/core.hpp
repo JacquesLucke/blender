@@ -15,7 +15,7 @@ namespace FN {
 	class Signature;
 	class Function;
 
-	using SharedType = Shared<const Type>;
+	using SharedType = Shared<Type>;
 	using SharedFunction = Shared<Function>;
 	using SmallTypeVector = SmallVector<SharedType>;
 
