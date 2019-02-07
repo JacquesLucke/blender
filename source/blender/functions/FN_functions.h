@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+void FN_initialize(void);
+
 typedef struct OpaqueFnFunction *FnFunction;
 typedef struct OpaqueFnType *FnType;
 typedef struct OpaqueFnTuple *FnTuple;
@@ -35,7 +37,7 @@ FnType FN_type_get_fvec3(void);
 
 FnFunction FN_get_deform_function(int type);
 
-FnFunction FN_get_generated_function();
+FnFunction FN_get_generated_function(void);
 
 #ifdef __cplusplus
 }

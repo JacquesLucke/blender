@@ -80,8 +80,12 @@ namespace FN {
 		BLI::SmallMap<uint64_t, Entry> m_elements;
 	};
 
-	class Type {
+	class Type final {
 	public:
+		Type() = delete;
+		Type(const std::string &name)
+			: m_name(name) {}
+
 		const std::string &name() const
 		{
 			return this->m_name;
@@ -183,12 +187,12 @@ namespace FN {
 		const OutputParameters m_outputs;
 	};
 
-	class Function {
+	class Function final {
 	public:
 		Function(const Signature &signature, const std::string &name = "Function")
 			: m_signature(signature), m_name(name) {}
 
-		virtual ~Function() {}
+		~Function() = default;
 
 		inline const Signature &signature() const
 		{

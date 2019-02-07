@@ -12,9 +12,13 @@
 
 WRAPPERS(BLI::RefCounted<FN::Function> *, FnFunction);
 WRAPPERS(BLI::RefCounted<FN::Type> *, FnType);
-
 WRAPPERS(FN::Tuple *, FnTuple);
 WRAPPERS(const FN::TupleCallBody *, FnCallable);
+
+void FN_initialize()
+{
+	FN::Types::init_numeric_types();
+}
 
 void FN_function_call(FnCallable fn_call, FnTuple fn_in, FnTuple fn_out)
 {

@@ -2,40 +2,31 @@
 
 namespace FN::Types {
 
-	class FloatType : public FN::Type {
-	public:
-		FloatType()
-		{
-			this->m_name = "Float";
-			this->extend(new FN::TypeSize(sizeof(float)));
-		}
-	};
+	SharedType float_type = SharedType::New("Float");
+	SharedType int32_type = SharedType::New("Int32");
+	SharedType fvec3_type = SharedType::New("FloatVector3D");
 
-	class Int32Type : public FN::Type {
-	public:
-		Int32Type()
-		{
-			this->m_name = "Int32";
-			this->extend(new FN::TypeSize(sizeof(int32_t)));
-		}
-	};
 
-	template<uint N>
-	class FloatVectorType : public FN::Type {
-	public:
-		FloatVectorType()
-		{
-			this->m_name = "FloatVector" + std::to_string(N) + "D";
-			this->extend(new FN::TypeSize(sizeof(float) * N));
-		}
-	};
+	void init_numeric_types()
+	{
+		float_type->extend(new TypeSize(sizeof(float)));
+		int32_type->extend(new TypeSize(sizeof(int32_t)));
+		fvec3_type->extend(new TypeSize(sizeof(float) * 3));
+	}
 
-#define DEFAULT_TYPE(name, initializer) \
-	SharedType TYPE_##name = SharedType::FromPointer(initializer); \
-	SharedType &get_##name##_type() { return TYPE_##name; }
+	SharedType &get_float_type()
+	{
+		return float_type;
+	}
 
-	DEFAULT_TYPE(float, new FloatType());
-	DEFAULT_TYPE(int32, new Int32Type());
-	DEFAULT_TYPE(fvec3, new FloatVectorType<3>());
+	SharedType &get_int32_type()
+	{
+		return int32_type;
+	}
+
+	SharedType &get_fvec3_type()
+	{
+		return fvec3_type;
+	}
 
 } /* namespace FN::Types */

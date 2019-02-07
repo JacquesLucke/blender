@@ -29,6 +29,7 @@ blender_include_dirs(
 	../blender/blenloader
 	../blender/depsgraph
 	../blender/editors/include
+	../blender/functions
 	../blender/makesrna
 	../blender/imbuf
 	../blender/render/extern/include

@@ -75,6 +75,8 @@
 
 #include "RNA_define.h"
 
+#include "FN_functions.h"
+
 #ifdef WITH_FREESTYLE
 #  include "FRS_freestyle.h"
 #endif
@@ -366,6 +368,7 @@ int main(
 	BKE_gpencil_modifier_init();
 	BKE_shaderfx_init();
 	DEG_register_node_types();
+	FN_initialize();
 
 	BKE_brush_system_init();
 	RE_texture_rng_init();
