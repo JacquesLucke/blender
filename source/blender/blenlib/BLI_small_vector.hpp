@@ -120,13 +120,7 @@ namespace BLI {
 			return -1;
 		}
 
-		T &operator[](const int index)
-		{
-			BLI_assert(index >= 0 && index < this->size());
-			return this->m_elements[index];
-		}
-
-		T operator[](const int index) const
+		T &operator[](const int index) const
 		{
 			BLI_assert(index >= 0 && index < this->size());
 			return this->m_elements[index];

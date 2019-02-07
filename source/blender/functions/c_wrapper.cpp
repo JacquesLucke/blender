@@ -129,7 +129,15 @@ public:
 	}
 };
 
-FnFunction FN_get_deform_function(int type)
+class PassThroughFloat : public FN::TupleCallBody {
+public:
+	virtual void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+	{
+		fn_out.set<float>(0, fn_in.get<float>(0));
+	}
+};
+
+static FN::SharedFunction get_deform_function(int type)
 {
 	FN::InputParameters inputs;
 	inputs.append(FN::InputParameter("Position", FN::Types::get_fvec3_type()));
@@ -145,6 +153,50 @@ FnFunction FN_get_deform_function(int type)
 	else {
 		fn->add_body(new Deform2());
 	}
+	return fn;
+}
+
+static FN::SharedFunction get_pass_through_float_function()
+{
+	FN::InputParameters inputs = {FN::InputParameter("In", FN::Types::get_float_type())};
+	FN::OutputParameters outputs = {FN::OutputParameter("Out", FN::Types::get_float_type())};
+	auto fn = FN::SharedFunction::New(FN::Signature(inputs, outputs), "Pass Through");
+	fn->add_body(new PassThroughFloat());
+	return fn;
+}
+
+FnFunction FN_get_deform_function(int type)
+{
+	auto fn = get_deform_function(type);
+	BLI::RefCounted<FN::Function> *fn_ref = fn.refcounter();
+	fn_ref->incref();
+	return wrap(fn_ref);
+}
+
+FnFunction FN_get_generated_function()
+{
+	FN::SharedDataFlowGraph graph = FN::SharedDataFlowGraph::New();
+
+	FN::SharedFunction f1 = get_deform_function(0);
+	FN::SharedFunction f2 = get_deform_function(1);
+	FN::SharedFunction pass = get_pass_through_float_function();
+
+	auto n1 = graph->insert(f1);
+	auto n2 = graph->insert(f2);
+	auto npass = graph->insert(pass);
+
+	graph->link(n1->output(0), n2->input(0));
+	graph->link(npass->output(0), n1->input(1));
+	graph->link(npass->output(0), n2->input(1));
+
+	auto fn = FN::function_from_data_flow(graph,
+	{
+		n1->input(0),
+		npass->input(0)
+	},
+	{
+		n2->output(0)
+	});
 
 	BLI::RefCounted<FN::Function> *fn_ref = fn.refcounter();
 	fn_ref->incref();

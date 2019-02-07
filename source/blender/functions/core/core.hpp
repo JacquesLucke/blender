@@ -109,7 +109,7 @@ namespace FN {
 
 	class Parameter {
 	public:
-		Parameter(const std::string &name, SharedType &type)
+		Parameter(const std::string &name, const SharedType &type)
 			: m_type(type), m_name(name) {}
 
 		const SharedType &type() const
@@ -123,19 +123,19 @@ namespace FN {
 		}
 
 	private:
-		SharedType m_type;
+		const SharedType m_type;
 		const std::string m_name;
 	};
 
 	class InputParameter : public Parameter {
 	public:
-		InputParameter(const std::string &name, SharedType &type)
+		InputParameter(const std::string &name, const SharedType &type)
 			: Parameter(name, type) {}
 	};
 
 	class OutputParameter : public Parameter {
 	public:
-		OutputParameter(const std::string &name, SharedType &type)
+		OutputParameter(const std::string &name, const SharedType &type)
 			: Parameter(name, type) {}
 	};
 

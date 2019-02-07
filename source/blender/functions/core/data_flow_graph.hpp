@@ -3,6 +3,7 @@
 #include "core.hpp"
 
 #include "BLI_small_set.hpp"
+#include "BLI_small_set_vector.hpp"
 
 namespace FN {
 
@@ -16,36 +17,19 @@ namespace FN {
 		static inline Socket Input(const Node *node, uint index);
 		static inline Socket Output(const Node *node, uint index);
 
-		const Node *node() const
-		{
-			return this->m_node;
-		}
+		inline const Node *node() const;
+		inline const DataFlowGraph *graph() const;
 
-		bool is_input() const
-		{
-			return !this->m_is_output;
-		}
-
-		bool is_output() const
-		{
-			return this->m_is_output;
-		}
-
-		uint index() const
-		{
-			return this->m_index;
-		}
+		inline bool is_input() const;
+		inline bool is_output() const;
+		inline uint index() const;
 
 		const SharedType &type() const;
 		std::string name() const;
 
-		friend bool operator==(const Socket &a, const Socket &b)
-		{
-			return (
-				a.m_node == b.m_node &&
-				a.m_is_output == b.m_is_output &&
-				a.m_index == b.m_index);
-		}
+		friend bool operator==(const Socket &a, const Socket &b);
+
+		inline Socket origin() const;
 
 	private:
 		Socket(const Node *node, bool is_output, uint index)
@@ -56,10 +40,14 @@ namespace FN {
 		const uint m_index;
 	};
 
+
+	using SmallSocketVector = SmallVector<Socket>;
+	using SmallSocketSetVector = SmallSetVector<Socket>;
+
 	class Node {
 	public:
-		Node(const SharedFunction &function)
-			: m_function(function) {}
+		Node(const DataFlowGraph *graph, const SharedFunction &function)
+			: m_graph(graph), m_function(function) {}
 
 		Socket input(uint index) const
 		{
@@ -69,6 +57,11 @@ namespace FN {
 		Socket output(uint index) const
 		{
 			return Socket::Output(this, index);
+		}
+
+		const DataFlowGraph *graph() const
+		{
+			return this->m_graph;
 		}
 
 		const SharedFunction &function() const
@@ -82,6 +75,7 @@ namespace FN {
 		}
 
 	private:
+		const DataFlowGraph *m_graph;
 		const SharedFunction m_function;
 	};
 
@@ -150,6 +144,14 @@ namespace FN {
 			return this->m_all_links;
 		}
 
+		Socket get_origin(Socket socket) const
+		{
+			BLI_assert(socket.is_input());
+			auto linked = this->get_linked(socket);
+			BLI_assert(linked.size() == 1);
+			return linked.any();
+		}
+
 	private:
 		SmallMap<Socket, SmallSet<Socket>> m_links;
 		SmallVector<Link> m_all_links;
@@ -169,7 +171,7 @@ namespace FN {
 		const Node *insert(const SharedFunction &function)
 		{
 			BLI_assert(this->can_modify());
-			const Node *node = new Node(function);
+			const Node *node = new Node(this, function);
 			this->m_nodes.add(node);
 			return node;
 		}
@@ -179,8 +181,7 @@ namespace FN {
 			BLI_assert(this->can_modify());
 			BLI_assert(a.node() != b.node());
 			BLI_assert(a.is_input() != b.is_input());
-			BLI_assert(m_nodes.contains(a.node()));
-			BLI_assert(m_nodes.contains(b.node()));
+			BLI_assert(a.graph() == this && b.graph() == this);
 
 			m_links.insert(Link::New(a, b));
 		}
@@ -211,11 +212,16 @@ namespace FN {
 		bool m_frozen = false;
 		SmallSet<const Node *> m_nodes;
 		GraphLinks m_links;
+
+		friend Node;
+		friend Socket;
 	};
 
+	using SharedDataFlowGraph = Shared<DataFlowGraph>;
 
-	/* Some inline functions.
-	 * Those can only come after the declaration of other types. */
+
+	/* Socket Inline Functions
+	 ********************************************** */
 
 	inline Socket Socket::Input(const Node *node, uint index)
 	{
@@ -227,6 +233,44 @@ namespace FN {
 	{
 		BLI_assert(index < node->signature().outputs().size());
 		return Socket(node, true, index);
+	}
+
+	const Node *Socket::node() const
+	{
+		return this->m_node;
+	}
+
+	const DataFlowGraph *Socket::graph() const
+	{
+		return this->node()->graph();
+	}
+
+	bool Socket::is_input() const
+	{
+		return !this->m_is_output;
+	}
+
+	bool Socket::is_output() const
+	{
+		return this->m_is_output;
+	}
+
+	uint Socket::index() const
+	{
+		return this->m_index;
+	}
+
+	inline bool operator==(const Socket &a, const Socket &b)
+	{
+		return (
+			a.m_node == b.m_node &&
+			a.m_is_output == b.m_is_output &&
+			a.m_index == b.m_index);
+	}
+
+	Socket Socket::origin() const
+	{
+		return this->graph()->m_links.get_origin(*this);
 	}
 
 } /* namespace FN */

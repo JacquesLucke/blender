@@ -35,6 +35,8 @@ FnType FN_type_get_fvec3(void);
 
 FnFunction FN_get_deform_function(int type);
 
+FnFunction FN_get_generated_function();
+
 #ifdef __cplusplus
 }
 #endif

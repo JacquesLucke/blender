@@ -13,6 +13,9 @@ namespace BLI {
 		SmallSetVector(const std::initializer_list<T> &values)
 			: SmallSet<T>(values) {}
 
+		SmallSetVector(const SmallVector<T> &values)
+			: SmallSet<T>(values) {}
+
 		int index(const T &value) const
 		{
 			for (uint i = 0; i < this->size(); i++) {
