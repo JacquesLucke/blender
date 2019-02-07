@@ -359,7 +359,7 @@ namespace RigidDeform {
 		}
 	}
 
-	std::vector<Eigen::Matrix3d> compute_rotation_with_svd(
+	static std::vector<Eigen::Matrix3d> compute_rotation_with_svd(
 		const std::vector<Eigen::Matrix3d> &S)
 	{
 		std::vector<Eigen::Matrix3d> R(S.size());
@@ -471,21 +471,29 @@ namespace RigidDeform {
 		const Vectors &new_inner_diffs)
 	{
 		Vectors new_inner_positions(m_order.inner_amount());
+
+#if USE_CHOLUP
+		CholUp::Matrix<double> rhs(m_order.inner_amount(), 3);
+		for (uint i = 0; i < m_order.inner_amount(); i++) {
+			for (uint j = 0; j < 3; j++) {
+				rhs(i, j) = new_inner_diffs[i](j) - anchor_data.m_b_preprocessed[j](i);
+			}
+		}
+
+		m_solver_current.solve(rhs);
+
+		for (uint i = 0; i < m_order.inner_amount(); i++) {
+			for (uint j = 0; j < 3; j++) {
+				new_inner_positions[i](j) = rhs(i, j);
+			}
+		}
+#else
 		for (uint coord = 0; coord < 3; coord++) {
 			Eigen::VectorXd b = new_inner_diffs.get_coord(coord) - anchor_data.m_b_preprocessed[coord];
-#if USE_CHOLUP
-			CholUp::Matrix<double> rhs(this->vertex_amount(), 1);
-			for (uint i = 0; i < m_order.inner_amount(); i++) rhs(m_order.to_orig(i), 0) = b[i];
-
-			m_solver_current.solve(rhs);
-
-			Eigen::VectorXd result(m_order.inner_amount());
-			for (uint i = 0; i < m_order.inner_amount(); i++) result[i] = rhs(m_order.to_orig(i), 0);
-#else
 			Eigen::VectorXd result = m_solver->solve(b);
-#endif
 			new_inner_positions.set_coord(coord, result);
 		}
+#endif
 		return new_inner_positions;
 	}
 

@@ -149,6 +149,8 @@ namespace CholUp {
     SupernodalCholesky<MatrixType>::SupernodalCholesky(const Eigen::SparseMatrix<double>& A0)
     : N(A0.cols()), flag(A0.cols(), 0), rowMap(A0.cols(), -1)
     {
+     //   Timer t;
+
         A = permuteMatrix(A0, perm);
 
         iperm.resize(perm.size());
@@ -156,8 +158,14 @@ namespace CholUp {
         for(int i = 0; i < A.ncols; ++i)
             iperm[perm[i]] = i;
 
+     //   t.printTime("permute");
+      //  t.reset();
         symbolic(A);
+      //  t.printTime("symbolic");
+      //  t.reset();
         numeric(A);
+    //    t.printTime("numeric");
+
     }
 
     template<class MatrixType>
@@ -306,7 +314,7 @@ namespace CholUp {
             rowMap[sortedRoiIds[i]] = i;
 
         // identify columns starting an update
-        auto updateColumns = findUpdateColumns(rowMap, NR);
+        auto updateColumns = findUpdateColumns(rowMap, (int)NR);
 
         // extract subfactor
         SupernodalCholesky<SparseMatrix<double>> cholPart;
@@ -323,11 +331,18 @@ namespace CholUp {
         cholPart.iperm.resize(NR);
 
         for(int i = 0; i < NR; ++i)
-        {
-            cholPart.iperm[i] = iperm[ sortedRoiIds[i] ];
             rowMap[sortedRoiIds[i]] = -1;
+
+        for(int i = 0; i < NR; ++i)
+            rowMap[roiIds[i]] = i;
+
+        for(int i = 0; i < NR; ++i)
+        {
+            cholPart.iperm[i] = rowMap[ iperm[ sortedRoiIds[i] ] ];
         }
 
+        for(int i = 0; i < NR; ++i)
+            rowMap[roiIds[i]] = -1;
 
         cholPart.initWorkspace();
 
@@ -1103,8 +1118,12 @@ namespace CholUp {
             }
         }
 
+        // Timer t;
+
         solveL(tmp);
         solveLT(tmp);
+
+        // t.printTime("solve inner");
 
         for(int j = 0; j < m.ncols; ++j)
         {
