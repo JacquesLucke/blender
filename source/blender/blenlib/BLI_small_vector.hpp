@@ -88,6 +88,16 @@ namespace BLI {
 			this->m_size++;
 		}
 
+		void append(T &&value)
+		{
+			this->ensure_space_for_one();
+			std::uninitialized_copy(
+				std::make_move_iterator(&value),
+				std::make_move_iterator(&value + 1),
+				this->end());
+			this->m_size++;
+		}
+
 		void fill(const T &value)
 		{
 			for (uint i = 0; i < this->m_size; i++) {
