@@ -23,6 +23,13 @@ namespace FN {
 	public:
 		typedef void (*FreeFunction)(void *value);
 
+	private:
+		struct Entry {
+			void *value;
+			FreeFunction free;
+		};
+
+	public:
 		template<typename T>
 		void add(T *value)
 		{
@@ -43,17 +50,12 @@ namespace FN {
 
 		~Composition()
 		{
-			for (SmallMap<uint64_t, Entry>::Entry &entry : this->m_elements.m_entries) {
-				entry.value.free(entry.value.value);
+			for (const Entry &entry : this->m_elements.values()) {
+				entry.free(entry.value);
 			}
 		}
 
 	private:
-		struct Entry {
-			void *value;
-			FreeFunction free;
-		};
-
 		template<typename T>
 		static uint64_t get_key()
 		{
