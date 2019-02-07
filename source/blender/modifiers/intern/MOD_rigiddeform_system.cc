@@ -325,7 +325,7 @@ namespace RigidDeform {
 		assert(iterations > 0);
 		assert(this->anchor_indices().size() > 0);
 
-		std::vector<Eigen::Matrix3d> rotations(this->vertex_amount());
+		std::vector<Eigen::Matrix3d> rotations(m_impact.compact_amount());
 		std::fill(rotations.begin(), rotations.end(), Eigen::Matrix3d::Identity());
 
 		const AnchorData anchor_data(anchor_positions, m_A_IB);
