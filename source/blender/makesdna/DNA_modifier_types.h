@@ -1955,8 +1955,9 @@ typedef struct RigidDeformModifierData {
 	RigidDeformModifierBindData *bind_data;
 	int iterations;
 	char bind_next_execution;
+	char update_anchors_next_execution;
 	char is_main;
-	char pad[2];
+	char pad[1];
 
 	/* runtime only */
 	void *cache;

@@ -17,20 +17,26 @@ class AddRigidDeformHandle(bpy.types.Operator):
 
     def execute(self, context):
         ob = context.active_object
-        if not has_rigid_deform_modifier(ob):
+        only_update_anchors = False
+
+        if has_rigid_deform_modifier(ob):
+            modifier = get_rigid_deform_modifier(ob)
+            only_update_anchors = modifier.is_bind
+        else:
             rigid_deform = ob.modifiers.new("Rigid Deform", "RIGID_DEFORM")
             ensure_anchor_group_exists(ob)
             rigid_deform.anchor_group_name = ANCHOR_GROUP_NAME
 
+
         new_hook_before_rigid_deform(context)
         add_selected_vertices_to_anchor_group(context)
-        bind_rigid_deform_modifier(context)
+        bind_rigid_deform_modifier(context, only_update_anchors)
         return {"FINISHED"}
 
-def bind_rigid_deform_modifier(context):
+def bind_rigid_deform_modifier(context, only_update):
     modifier = get_rigid_deform_modifier(context.active_object)
     bpy.ops.object.mode_set(mode="OBJECT")
-    bpy.ops.object.rigiddeform_bind(modifier=modifier.name)
+    bpy.ops.object.rigiddeform_bind(modifier=modifier.name, only_update=only_update)
 
 def new_hook_before_rigid_deform(context):
     hook = new_hook_modifier_from_selection(context)

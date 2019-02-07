@@ -193,6 +193,23 @@ static void bind_current_mesh_to_modifier(
 	rdmd->bind_data = rdmd_orig->bind_data;
 }
 
+static void update_bound_anchors(
+        RigidDeformModifierData *rdmd,
+        Object *ob, Mesh *mesh)
+{
+	BindData *bind_data = rdmd->bind_data;
+	MEM_freeN(bind_data->anchor_indices);
+	get_anchor_indices(
+	        ob, mesh, rdmd->anchor_group_name,
+	        &bind_data->anchor_indices, &bind_data->anchor_amount);
+
+	if (rdmd->cache != NULL) {
+		RigidDeformSystem_set_anchors(
+			((Cache *)rdmd->cache)->system,
+			(uint *)rdmd->bind_data->anchor_indices,
+			(uint)rdmd->bind_data->anchor_amount);
+	}
+}
 
 /* ********** Calculate new positions *********** */
 
@@ -229,6 +246,11 @@ static void run_modifier(
 	if (rdmd->bind_next_execution) {
 		bind_current_mesh_to_modifier(rdmd, rdmd_orig, ob, mesh, vertex_cos);
 		rdmd->bind_next_execution = false;
+	}
+
+	if (rdmd->update_anchors_next_execution) {
+		update_bound_anchors(rdmd, ob, mesh);
+		rdmd->update_anchors_next_execution = false;
 	}
 
 	if (rdmd->bind_data != NULL) {
@@ -269,6 +291,7 @@ static void initData(ModifierData *md)
 	rdmd->anchor_group_name[0] = '\0';
 	rdmd->bind_data = NULL;
 	rdmd->bind_next_execution = false;
+	rdmd->update_anchors_next_execution = false;
 	rdmd->cache = NULL;
 	rdmd->iterations = 5;
 	rdmd->is_main = true;

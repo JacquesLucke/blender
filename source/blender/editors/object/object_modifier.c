@@ -2334,7 +2334,12 @@ static int rigiddeform_bind_exec(bContext *C, wmOperator *op)
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	RigidDeformModifierData *rdmd = (RigidDeformModifierData *)edit_modifier_property_get(op, ob, eModifierType_RigidDeform);
 
-	rdmd->bind_next_execution = true;
+	if (RNA_boolean_get(op->ptr, "only_update")) {
+		rdmd->update_anchors_next_execution = true;
+	}
+	else {
+		rdmd->bind_next_execution = true;
+	}
 	object_force_modifier_update_for_bind(depsgraph, scene, ob);
 
 	DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
@@ -2366,6 +2371,9 @@ void OBJECT_OT_rigiddeform_bind(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_INTERNAL;
 	edit_modifier_properties(ot);
+
+	RNA_def_boolean(ot->srna, "only_update", false, "Only Update",
+	        "Update anchors without rebinding the initial mesh");
 }
 
 /************************ sdef bind operator *********************/
