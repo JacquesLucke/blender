@@ -59,7 +59,7 @@ namespace FN {
 		template<typename T>
 		static uint64_t get_key()
 		{
-			return (uint64_t)T::identifier;
+			return (uint64_t)T::identifier();
 		}
 
 		template<typename T>

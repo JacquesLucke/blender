@@ -69,7 +69,7 @@ void FN_tuple_get_float_vector_3(FnTuple tuple, uint index, float dst[3])
 
 const char *FN_type_name(FnType type)
 {
-	return ((FN::Type *)type)->name().c_str();
+	return unwrap(type)->ptr()->name().c_str();
 }
 
 void FN_type_free(FnType type)
@@ -84,26 +84,16 @@ static FnType get_type_with_increased_refcount(const FN::SharedType &type)
 	return wrap(typeref);
 }
 
-FnType FN_type_get_float()
-{
-	return get_type_with_increased_refcount(FN::Types::float_ty);
-}
+#define SIMPLE_TYPE_GETTER(name) \
+	FnType FN_type_get_##name() \
+	{ return get_type_with_increased_refcount(FN::Types::get_##name##_type()); }
 
-FnType FN_type_get_int32()
-{
-	return get_type_with_increased_refcount(FN::Types::int32_ty);
-}
-
-FnType FN_type_get_float_vector_3d()
-{
-	return get_type_with_increased_refcount(FN::Types::floatvec3d_ty);
-}
-
+SIMPLE_TYPE_GETTER(float);
+SIMPLE_TYPE_GETTER(int32);
+SIMPLE_TYPE_GETTER(fvec3);
 
 #include <cmath>
 #include <algorithm>
-
-
 
 class Deform1 : public FN::TupleCallBody {
 public:
@@ -142,11 +132,11 @@ public:
 FnFunction FN_get_deform_function(int type)
 {
 	FN::InputParameters inputs;
-	inputs.append(FN::InputParameter("Position", FN::Types::floatvec3d_ty));
-	inputs.append(FN::InputParameter("Control", FN::Types::float_ty));
+	inputs.append(FN::InputParameter("Position", FN::Types::get_fvec3_type()));
+	inputs.append(FN::InputParameter("Control", FN::Types::get_float_type()));
 
 	FN::OutputParameters outputs;
-	outputs.append(FN::OutputParameter("Position", FN::Types::floatvec3d_ty));
+	outputs.append(FN::OutputParameter("Position", FN::Types::get_fvec3_type()));
 
 	auto fn = FN::SharedFunction::New(FN::Signature(inputs, outputs), "Deform");
 	if (type == 0) {

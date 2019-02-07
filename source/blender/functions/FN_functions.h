@@ -31,7 +31,7 @@ void FN_type_free(FnType type);
 
 FnType FN_type_get_float(void);
 FnType FN_type_get_int32(void);
-FnType FN_type_get_float_vector_3d(void);
+FnType FN_type_get_fvec3(void);
 
 FnFunction FN_get_deform_function(int type);
 
