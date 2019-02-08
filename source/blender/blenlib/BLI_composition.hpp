@@ -48,13 +48,13 @@ namespace BLI {
 		template<typename T>
 		static uint64_t get_key()
 		{
-			return (uint64_t)T::identifier();
+			return (uint64_t)T::identifier_in_composition();
 		}
 
 		template<typename T>
 		static FreeFunction get_free_function()
 		{
-			return T::free;
+			return T::free_self;
 		}
 
 		BLI::SmallMap<uint64_t, Entry> m_elements;

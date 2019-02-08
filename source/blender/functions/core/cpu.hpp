@@ -10,17 +10,19 @@ namespace FN {
 
 	class TupleCallBody {
 	public:
-		static const char *identifier();
-		static void free(void *value);
+		static const char *identifier_in_composition();
+		static void free_self(void *value);
+
+		virtual ~TupleCallBody() {};
 
 		virtual void call(const Tuple &fn_in, Tuple &fn_out) const = 0;
-		virtual ~TupleCallBody() {};
 	};
 
 	class CPPTypeInfo {
 	public:
-		static const char* identifier();
-		static void free(void *value);
+		static const char* identifier_in_composition();
+		static void free_self(void *value);
+
 		virtual ~CPPTypeInfo() {};
 
 		virtual uint size_of_type() const = 0;
