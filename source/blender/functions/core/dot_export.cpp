@@ -72,7 +72,7 @@ namespace FN {
 	static void insert_node(std::stringstream &ss, const Node *node)
 	{
 		ss << get_id(node) << " ";
-		ss << "[style=\"filled\", fillcolor=\"#FFFFFF\", shape=\"square\"";
+		ss << "[style=\"filled\", fillcolor=\"#FFFFFF\", shape=\"box\"";
 		ss << ", label=<";
 		insert_node_table(ss, node);
 		ss << ">]";
