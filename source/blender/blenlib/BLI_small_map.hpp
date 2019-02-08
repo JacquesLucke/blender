@@ -25,12 +25,7 @@ namespace BLI {
 
 		void add(K key, V value)
 		{
-			for (Entry &entry : m_entries) {
-				if (entry.key == key) {
-					entry.value = value;
-					return;
-				}
-			}
+			BLI_assert(!this->contains(key));
 			m_entries.append(Entry(key, value));
 		}
 
