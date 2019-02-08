@@ -58,13 +58,6 @@ namespace FN {
 		}
 	};
 
-	inline uint get_type_size(const SharedType &type)
-	{
-		auto extension = type->extension<CPPTypeInfo>();
-		BLI_assert(extension);
-		return extension->size_of_type();
-	}
-
 	class Tuple {
 	public:
 		Tuple() = default;
@@ -76,27 +69,27 @@ namespace FN {
 			for (const SharedType &type : types) {
 				CPPTypeInfo *info = type->extension<CPPTypeInfo>();
 
-				this->m_offsets.append(total_size);
-				this->m_initialized.append(false);
-				this->m_type_info.append(info);
+				m_offsets.append(total_size);
+				m_initialized.append(false);
+				m_type_info.append(info);
 				total_size += info->size_of_type();
 			}
-			this->m_offsets.append(total_size);
-			this->data = std::malloc(total_size);
+			m_offsets.append(total_size);
+			m_data = std::malloc(total_size);
 		}
 
 		~Tuple()
 		{
-			for (uint i = 0; i < this->m_types.size(); i++) {
-				this->m_type_info[i]->destruct_type(this->element_ptr(i));
+			for (uint i = 0; i < m_types.size(); i++) {
+				m_type_info[i]->destruct_type(this->element_ptr(i));
 			}
-			std::free(this->data);
+			std::free(m_data);
 		}
 
 		template<typename T>
 		inline void set(uint index, const T &value)
 		{
-			BLI_assert(index < this->m_types.size());
+			BLI_assert(index < m_types.size());
 			BLI_assert(sizeof(T) == this->element_size(index));
 
 			if (std::is_trivial<T>::value) {
@@ -107,12 +100,12 @@ namespace FN {
 				const T *end = begin + 1;
 				T *dst = (T *)this->element_ptr(index);
 
-				if (this->m_initialized[index]) {
+				if (m_initialized[index]) {
 					std::copy(begin, end, dst);
 				}
 				else {
 					std::uninitialized_copy(begin, end, dst);
-					this->m_initialized[index] = true;
+					m_initialized[index] = true;
 				}
 			}
 		}
@@ -120,11 +113,11 @@ namespace FN {
 		template<typename T>
 		inline const T &get(uint index) const
 		{
-			BLI_assert(index < this->m_types.size());
+			BLI_assert(index < m_types.size());
 			BLI_assert(sizeof(T) == this->element_size(index));
 
 			if (!std::is_trivial<T>::value) {
-				BLI_assert(this->m_initialized[index]);
+				BLI_assert(m_initialized[index]);
 			}
 
 			return *(T *)this->element_ptr(index);
@@ -143,19 +136,19 @@ namespace FN {
 	private:
 		inline uint element_size(uint index) const
 		{
-			return this->m_offsets[index + 1] - this->m_offsets[index];
+			return m_offsets[index + 1] - m_offsets[index];
 		}
 
 		inline void *element_ptr(uint index) const
 		{
-			return (void *)((char *)this->data + this->m_offsets[index]);
+			return (void *)((char *)m_data + m_offsets[index]);
 		}
 
 		const SmallTypeVector m_types;
 		SmallVector<CPPTypeInfo *> m_type_info;
 		SmallVector<uint> m_offsets;
 		SmallVector<bool> m_initialized;
-		void *data;
+		void *m_data;
 	};
 
 } /* namespace FN */

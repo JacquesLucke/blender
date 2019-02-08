@@ -25,18 +25,18 @@ namespace BLI {
 
 		void add(K key, V value)
 		{
-			for (Entry &entry : this->m_entries) {
+			for (Entry &entry : m_entries) {
 				if (entry.key == key) {
 					entry.value = value;
 					return;
 				}
 			}
-			this->m_entries.append(Entry(key, value));
+			m_entries.append(Entry(key, value));
 		}
 
 		bool contains(K key) const
 		{
-			for (Entry entry : this->m_entries) {
+			for (Entry entry : m_entries) {
 				if (entry.key == key) {
 					return true;
 				}
@@ -58,7 +58,7 @@ namespace BLI {
 
 		V *lookup_ptr(const K &key) const
 		{
-			for (Entry &entry : this->m_entries) {
+			for (Entry &entry : m_entries) {
 				if (entry.key == key) {
 					return &entry.value;
 				}
@@ -68,7 +68,7 @@ namespace BLI {
 
 		uint size() const
 		{
-			return this->m_entries.size();
+			return m_entries.size();
 		}
 
 		ValueIterator values() const
@@ -89,17 +89,17 @@ namespace BLI {
 
 			ValueIterator begin() const
 			{
-				return ValueIterator(this->m_map, 0);
+				return ValueIterator(m_map, 0);
 			}
 
 			ValueIterator end() const
 			{
-				return ValueIterator(this->m_map, this->m_map.size());
+				return ValueIterator(m_map, m_map.size());
 			}
 
 			ValueIterator &operator++()
 			{
-				this->m_index++;
+				m_index++;
 				return *this;
 			}
 
@@ -112,12 +112,12 @@ namespace BLI {
 
 			bool operator!=(const ValueIterator &iterator) const
 			{
-				return this->m_index != iterator.m_index;
+				return m_index != iterator.m_index;
 			}
 
 			V operator*() const
 			{
-				return this->m_map.m_entries[this->m_index].value;
+				return m_map.m_entries[m_index].value;
 			}
 		};
 	};

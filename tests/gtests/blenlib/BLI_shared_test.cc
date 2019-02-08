@@ -24,7 +24,7 @@ public:
 
 	~MyTestClass()
 	{
-		if (this->m_alive) *this->m_alive = false;
+		if (m_alive) *m_alive = false;
 	}
 };
 

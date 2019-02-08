@@ -61,12 +61,12 @@ namespace FN {
 
 		const DataFlowGraph *graph() const
 		{
-			return this->m_graph;
+			return m_graph;
 		}
 
 		const SharedFunction &function() const
 		{
-			return this->m_function;
+			return m_function;
 		}
 
 		const Signature &signature() const
@@ -94,12 +94,12 @@ namespace FN {
 
 		Socket from() const
 		{
-			return this->m_from;
+			return m_from;
 		}
 
 		Socket to() const
 		{
-			return this->m_to;
+			return m_to;
 		}
 
 		friend bool operator==(const Link &a, const Link &b)
@@ -122,26 +122,26 @@ namespace FN {
 			Socket from = link.from();
 			Socket to = link.to();
 
-			if (!this->m_links.contains(from)) {
-				this->m_links.add(from, SmallSet<Socket>());
+			if (!m_links.contains(from)) {
+				m_links.add(from, SmallSet<Socket>());
 			}
-			if (!this->m_links.contains(to)) {
-				this->m_links.add(to, SmallSet<Socket>());
+			if (!m_links.contains(to)) {
+				m_links.add(to, SmallSet<Socket>());
 			}
 
-			this->m_links.lookup_ref(from).add(to);
-			this->m_links.lookup_ref(to).add(from);
-			this->m_all_links.append(Link::New(from, to));
+			m_links.lookup_ref(from).add(to);
+			m_links.lookup_ref(to).add(from);
+			m_all_links.append(Link::New(from, to));
 		}
 
 		SmallSet<Socket> get_linked(Socket socket) const
 		{
-			return this->m_links.lookup(socket);
+			return m_links.lookup(socket);
 		}
 
 		SmallVector<Link> all_links() const
 		{
-			return this->m_all_links;
+			return m_all_links;
 		}
 
 		Socket get_origin(Socket socket) const
@@ -163,7 +163,7 @@ namespace FN {
 
 		~DataFlowGraph()
 		{
-			for (const Node *node : this->m_nodes) {
+			for (const Node *node : m_nodes) {
 				delete node;
 			}
 		}
@@ -172,7 +172,7 @@ namespace FN {
 		{
 			BLI_assert(this->can_modify());
 			const Node *node = new Node(this, function);
-			this->m_nodes.add(node);
+			m_nodes.add(node);
 			return node;
 		}
 
@@ -193,17 +193,17 @@ namespace FN {
 
 		inline bool frozen() const
 		{
-			return this->m_frozen;
+			return m_frozen;
 		}
 
 		void freeze()
 		{
-			this->m_frozen = true;
+			m_frozen = true;
 		}
 
 		SmallVector<Link> all_links() const
 		{
-			return this->m_links.all_links();
+			return m_links.all_links();
 		}
 
 		std::string to_dot() const;
@@ -237,7 +237,7 @@ namespace FN {
 
 	const Node *Socket::node() const
 	{
-		return this->m_node;
+		return m_node;
 	}
 
 	const DataFlowGraph *Socket::graph() const
@@ -247,17 +247,17 @@ namespace FN {
 
 	bool Socket::is_input() const
 	{
-		return !this->m_is_output;
+		return !m_is_output;
 	}
 
 	bool Socket::is_output() const
 	{
-		return this->m_is_output;
+		return m_is_output;
 	}
 
 	uint Socket::index() const
 	{
-		return this->m_index;
+		return m_index;
 	}
 
 	inline bool operator==(const Socket &a, const Socket &b)

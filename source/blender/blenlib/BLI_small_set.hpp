@@ -29,13 +29,13 @@ namespace BLI {
 		void add(T value)
 		{
 			if (!this->contains(value)) {
-				this->m_entries.append(value);
+				m_entries.append(value);
 			}
 		}
 
 		bool contains(T value) const
 		{
-			for (T entry : this->m_entries) {
+			for (T entry : m_entries) {
 				if (entry == value) {
 					return true;
 				}
@@ -45,13 +45,13 @@ namespace BLI {
 
 		uint size() const
 		{
-			return this->m_entries.size();
+			return m_entries.size();
 		}
 
 		T any() const
 		{
 			BLI_assert(this->size() > 0);
-			return this->m_entries[0];
+			return m_entries[0];
 		}
 
 
@@ -59,22 +59,22 @@ namespace BLI {
 
 		T *begin() const
 		{
-			return this->m_entries.begin();
+			return m_entries.begin();
 		}
 
 		T *end() const
 		{
-			return this->m_entries.end();
+			return m_entries.end();
 		}
 
 		const T *cbegin() const
 		{
-			return this->m_entries.cbegin();
+			return m_entries.cbegin();
 		}
 
 		const T *cend() const
 		{
-			return this->m_entries.cend();
+			return m_entries.cend();
 		}
 	};
 

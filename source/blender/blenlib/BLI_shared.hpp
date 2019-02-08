@@ -17,26 +17,26 @@ namespace BLI {
 
 		inline void incref()
 		{
-			std::atomic_fetch_add(&this->m_refcount, 1);
+			std::atomic_fetch_add(&m_refcount, 1);
 		}
 
 		inline void decref()
 		{
-			int previous_value = std::atomic_fetch_sub(&this->m_refcount, 1);
+			int previous_value = std::atomic_fetch_sub(&m_refcount, 1);
 			if (previous_value == 1) {
-				delete this->m_object;
+				delete m_object;
 				delete this;
 			}
 		}
 
 		int refcount() const
 		{
-			return this->m_refcount;
+			return m_refcount;
 		}
 
 		T *ptr() const
 		{
-			return this->m_object;
+			return m_object;
 		}
 	};
 
@@ -51,12 +51,12 @@ namespace BLI {
 
 		inline void incref()
 		{
-			this->m_object->incref();
+			m_object->incref();
 		}
 
 		inline void decref()
 		{
-			this->m_object->decref();
+			m_object->decref();
 		}
 
 	public:
@@ -75,32 +75,32 @@ namespace BLI {
 
 		Shared(const Shared &other)
 		{
-			this->m_object = other.m_object;
+			m_object = other.m_object;
 			this->incref();
 		}
 
 		Shared(Shared &&other)
 		{
-			this->m_object = other.m_object;
+			m_object = other.m_object;
 			other.m_object = nullptr;
 		}
 
 		~Shared()
 		{
 			/* Can be nullptr when previously moved. */
-			if (this->m_object != nullptr) {
+			if (m_object != nullptr) {
 				this->decref();
 			}
 		}
 
 		Shared &operator=(const Shared &other)
 		{
-			if (this->m_object == other->m_object) {
+			if (m_object == other->m_object) {
 				return *this;
 			}
 
 			this->decref();
-			this->m_object = other.m_object;
+			m_object = other.m_object;
 			this->incref();
 			return *this;
 		}
@@ -108,19 +108,19 @@ namespace BLI {
 		Shared &operator=(Shared &&other)
 		{
 			this->decref();
-			this->m_object = other.m_object;
+			m_object = other.m_object;
 			other.m_object = nullptr;
 			return *this;
 		}
 
 		T *operator->() const
 		{
-			return this->m_object->ptr();
+			return m_object->ptr();
 		}
 
 		RefCounted<T> *refcounter() const
 		{
-			return this->m_object;
+			return m_object;
 		}
 
 		friend bool operator==(const Shared &a, const Shared &b)

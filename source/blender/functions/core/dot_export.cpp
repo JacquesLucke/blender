@@ -89,7 +89,7 @@ namespace FN {
 		ss << "digraph MyGraph {" << std::endl;
 		ss << "rankdir=LR" << std::endl;
 
-		for (const Node *node : this->m_nodes) {
+		for (const Node *node : m_nodes) {
 			insert_node(ss, node);
 			ss << std::endl;
 		}

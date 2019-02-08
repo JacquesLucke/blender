@@ -18,9 +18,9 @@ namespace BLI {
 	public:
 		SmallVector()
 		{
-			this->m_elements = this->small_buffer();
-			this->m_capacity = N;
-			this->m_size = 0;
+			m_elements = this->small_buffer();
+			m_capacity = N;
+			m_size = 0;
 		}
 
 		SmallVector(uint size)
@@ -85,7 +85,7 @@ namespace BLI {
 		{
 			this->ensure_space_for_one();
 			std::uninitialized_copy(&value, &value + 1, this->end());
-			this->m_size++;
+			m_size++;
 		}
 
 		void append(T &&value)
@@ -95,25 +95,25 @@ namespace BLI {
 				std::make_move_iterator(&value),
 				std::make_move_iterator(&value + 1),
 				this->end());
-			this->m_size++;
+			m_size++;
 		}
 
 		void fill(const T &value)
 		{
-			for (uint i = 0; i < this->m_size; i++) {
-				this->m_elements[i] = value;
+			for (uint i = 0; i < m_size; i++) {
+				m_elements[i] = value;
 			}
 		}
 
 		uint size() const
 		{
-			return this->m_size;
+			return m_size;
 		}
 
 		int index(const T &value) const
 		{
-			for (uint i = 0; i < this->m_size; i++) {
-				if (this->m_elements[i] == value) {
+			for (uint i = 0; i < m_size; i++) {
+				if (m_elements[i] == value) {
 					return i;
 				}
 			}
@@ -123,11 +123,11 @@ namespace BLI {
 		T &operator[](const int index) const
 		{
 			BLI_assert(index >= 0 && index < this->size());
-			return this->m_elements[index];
+			return m_elements[index];
 		}
 
 		T *begin() const
-		{ return this->m_elements; }
+		{ return m_elements; }
 		T *end() const
 		{ return this->begin() + this->size(); }
 
@@ -139,30 +139,30 @@ namespace BLI {
 	private:
 		T *small_buffer() const
 		{
-			return (T *)this->m_small_buffer;
+			return (T *)m_small_buffer;
 		}
 
 		bool is_small() const
 		{
-			return this->m_elements == this->small_buffer();
+			return m_elements == this->small_buffer();
 		}
 
 		inline void ensure_space_for_one()
 		{
-			if (this->m_size >= this->m_capacity) {
-				this->grow(std::max(this->m_capacity * 2, (uint)1));
+			if (m_size >= m_capacity) {
+				this->grow(std::max(m_capacity * 2, (uint)1));
 			}
 		}
 
 		void grow(uint min_capacity)
 		{
-			if (this->m_capacity >= min_capacity) {
+			if (m_capacity >= min_capacity) {
 				return;
 			}
 
-			this->m_capacity = min_capacity;
+			m_capacity = min_capacity;
 
-			T *new_array = (T *)std::malloc(sizeof(T) * this->m_capacity);
+			T *new_array = (T *)std::malloc(sizeof(T) * m_capacity);
 			std::uninitialized_copy(
 				std::make_move_iterator(this->begin()),
 				std::make_move_iterator(this->end()),
@@ -171,24 +171,24 @@ namespace BLI {
 			this->destruct_elements_but_keep_memory();
 
 			if (!this->is_small()) {
-				std::free(this->m_elements);
+				std::free(m_elements);
 			}
 
-			this->m_elements = new_array;
+			m_elements = new_array;
 		}
 
 		void copy_from_other(const SmallVector &other)
 		{
 			if (other.is_small()) {
-				this->m_elements = this->small_buffer();
+				m_elements = this->small_buffer();
 			}
 			else {
-				this->m_elements = (T *)std::malloc(sizeof(T) * other.m_capacity);
+				m_elements = (T *)std::malloc(sizeof(T) * other.m_capacity);
 			}
 
-			std::uninitialized_copy(other.begin(), other.end(), this->m_elements);
-			this->m_capacity = other.m_capacity;
-			this->m_size = other.m_size;
+			std::uninitialized_copy(other.begin(), other.end(), m_elements);
+			m_capacity = other.m_capacity;
+			m_size = other.m_size;
 		}
 
 		void steal_from_other(SmallVector &&other)
@@ -198,14 +198,14 @@ namespace BLI {
 					std::make_move_iterator(other.begin()),
 					std::make_move_iterator(other.end()),
 					this->small_buffer());
-				this->m_elements = this->small_buffer();
+				m_elements = this->small_buffer();
 			}
 			else {
-				this->m_elements = other.m_elements;
+				m_elements = other.m_elements;
 			}
 
-			this->m_capacity = other.m_capacity;
-			this->m_size = other.m_size;
+			m_capacity = other.m_capacity;
+			m_size = other.m_size;
 
 			other.m_elements = nullptr;
 		}
@@ -215,16 +215,16 @@ namespace BLI {
 			this->destruct_elements_but_keep_memory();
 			if (!this->is_small()) {
 				/* Can be nullptr when previously stolen. */
-				if (this->m_elements != nullptr) {
-					std::free(this->m_elements);
+				if (m_elements != nullptr) {
+					std::free(m_elements);
 				}
 			}
 		}
 
 		void destruct_elements_but_keep_memory()
 		{
-			for (uint i = 0; i < this->m_size; i++) {
-				(this->m_elements + i)->~T();
+			for (uint i = 0; i < m_size; i++) {
+				(m_elements + i)->~T();
 			}
 		}
 

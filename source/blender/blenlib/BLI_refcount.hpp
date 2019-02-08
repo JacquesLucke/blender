@@ -29,13 +29,13 @@ namespace BLI {
 
 		RefCount(const RefCount &other)
 		{
-			this->m_object = other.m_object;
+			m_object = other.m_object;
 			this->incref();
 		}
 
 		RefCount(const RefCount &&other)
 		{
-			this->m_object = other.m_object;
+			m_object = other.m_object;
 			this->incref();
 		}
 
@@ -46,12 +46,12 @@ namespace BLI {
 
 		RefCount &operator=(const RefCount &other)
 		{
-			if (this->m_object == other->m_object) {
+			if (m_object == other->m_object) {
 				return *this;
 			}
 
 			this->decref();
-			this->m_object = other.m_object;
+			m_object = other.m_object;
 			this->incref();
 			return *this;
 		}
@@ -59,34 +59,34 @@ namespace BLI {
 		RefCount &operator=(const RefCount &&other)
 		{
 			this->decref();
-			this->m_object = other.m_object;
+			m_object = other.m_object;
 			this->incref();
 			return *this;
 		}
 
 		void incref()
 		{
-			std::atomic_fetch_add(&this->m_object->m_refcount, 1);
+			std::atomic_fetch_add(&m_object->m_refcount, 1);
 		}
 
 		void decref()
 		{
-			int previous_value = std::atomic_fetch_sub(&this->m_object->m_refcount, 1);
+			int previous_value = std::atomic_fetch_sub(&m_object->m_refcount, 1);
 			if (previous_value == 1) {
-				delete this->m_object->m_value;
-				delete this->m_object;
-				this->m_object = nullptr;
+				delete m_object->m_value;
+				delete m_object;
+				m_object = nullptr;
 			}
 		}
 
 		int refcount() const
 		{
-			return this->m_object->m_refcount;
+			return m_object->m_refcount;
 		}
 
 		T *operator->() const
 		{
-			return this->m_object->m_value;
+			return m_object->m_value;
 		}
 	};
 

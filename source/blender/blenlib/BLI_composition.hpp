@@ -22,15 +22,15 @@ namespace BLI {
 		template<typename T>
 		void add(T *value)
 		{
-			this->m_elements.add(this->get_key<T>(), Entry(value));
+			m_elements.add(this->get_key<T>(), Entry(value));
 		}
 
 		template<typename T>
 		inline T *get() const
 		{
 			uint64_t key = this->get_key<T>();
-			if (this->m_elements.contains(key)) {
-				return (T *)this->m_elements.lookup(key).value;
+			if (m_elements.contains(key)) {
+				return (T *)m_elements.lookup(key).value;
 			}
 			else {
 				return nullptr;
@@ -39,7 +39,7 @@ namespace BLI {
 
 		~Composition()
 		{
-			for (const Entry &entry : this->m_elements.values()) {
+			for (const Entry &entry : m_elements.values()) {
 				entry.free(entry.value);
 			}
 		}

@@ -28,20 +28,20 @@ namespace FN {
 
 		const std::string &name() const
 		{
-			return this->m_name;
+			return m_name;
 		}
 
 		template<typename T>
 		inline T *extension() const
 		{
-			return this->m_extensions.get<T>();
+			return m_extensions.get<T>();
 		}
 
 		template<typename T>
 		void extend(T *extension)
 		{
-			BLI_assert(this->m_extensions.get<T>() == nullptr);
-			this->m_extensions.add(extension);
+			BLI_assert(m_extensions.get<T>() == nullptr);
+			m_extensions.add(extension);
 		}
 
 	protected:
@@ -58,12 +58,12 @@ namespace FN {
 
 		const SharedType &type() const
 		{
-			return this->m_type;
+			return m_type;
 		}
 
 		const std::string &name() const
 		{
-			return this->m_name;
+			return m_name;
 		}
 
 	private:
@@ -96,12 +96,12 @@ namespace FN {
 
 		inline const InputParameters &inputs() const
 		{
-			return this->m_inputs;
+			return m_inputs;
 		}
 
 		inline const OutputParameters &outputs() const
 		{
-			return this->m_outputs;
+			return m_outputs;
 		}
 
 		SmallTypeVector input_types() const
@@ -136,25 +136,25 @@ namespace FN {
 
 		inline const Signature &signature() const
 		{
-			return this->m_signature;
+			return m_signature;
 		}
 
 		template<typename T>
 		inline const T *body() const
 		{
-			return this->m_bodies.get<T>();
+			return m_bodies.get<T>();
 		}
 
 		template<typename T>
 		void add_body(const T *body)
 		{
-			BLI_assert(this->m_bodies.get<T>() == nullptr);
-			this->m_bodies.add(body);
+			BLI_assert(m_bodies.get<T>() == nullptr);
+			m_bodies.add(body);
 		}
 
 		const std::string &name() const
 		{
-			return this->m_name;
+			return m_name;
 		}
 
 	private:
