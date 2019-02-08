@@ -129,8 +129,11 @@ namespace FN {
 
 	class Function final {
 	public:
-		Function(const Signature &signature, const std::string &name = "Function")
-			: m_signature(signature), m_name(name) {}
+		Function(const std::string &name, const Signature &signature)
+			:m_signature(signature), m_name(name) {}
+
+		Function(const Signature &signature)
+			: Function("Function", signature) {}
 
 		~Function() = default;
 

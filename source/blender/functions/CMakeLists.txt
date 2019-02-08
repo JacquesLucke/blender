@@ -1,6 +1,9 @@
 set(INC
 	.
 	../blenlib
+	../makesdna
+	../makesrna
+	../blenkernel
 )
 
 set(INC_SYS
@@ -24,6 +27,9 @@ set(SRC
 	types/numeric.cpp
 	types/numeric.hpp
 	types/types.hpp
+
+	function_nodes/function_nodes.hpp
+	function_nodes/function_nodes.cpp
 )
 
 blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}")

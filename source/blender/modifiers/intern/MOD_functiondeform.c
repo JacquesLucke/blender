@@ -37,6 +37,9 @@
 #include "BKE_modifier.h"
 #include "BKE_scene.h"
 
+#include "BKE_global.h"
+#include "BKE_main.h"
+
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
@@ -53,6 +56,7 @@ static void do_deformation(
         float (*vertexCos)[3],
         int numVerts)
 {
+	FN_testing((bNodeTree *)G.main->nodetree.first);
 	FnFunction fn = FN_get_generated_function();
 	// FnFunction fn = FN_get_deform_function(fdmd->control2);
 	FnCallable fn_call = FN_function_get_callable(fn);

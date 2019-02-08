@@ -1,7 +1,7 @@
 #include "FN_functions.h"
 #include "FN_functions.hpp"
 
-#include "./types/types.hpp"
+#include "function_nodes/function_nodes.hpp"
 
 #include <iostream>
 
@@ -150,7 +150,7 @@ static FN::SharedFunction get_deform_function(int type)
 	FN::OutputParameters outputs;
 	outputs.append(FN::OutputParameter("Position", FN::Types::get_fvec3_type()));
 
-	auto fn = FN::SharedFunction::New(FN::Signature(inputs, outputs), "Deform");
+	auto fn = FN::SharedFunction::New("Deform", FN::Signature(inputs, outputs));
 	if (type == 0) {
 		fn->add_body(new Deform1());
 	}
@@ -164,7 +164,7 @@ static FN::SharedFunction get_pass_through_float_function()
 {
 	FN::InputParameters inputs = {FN::InputParameter("In", FN::Types::get_float_type())};
 	FN::OutputParameters outputs = {FN::OutputParameter("Out", FN::Types::get_float_type())};
-	auto fn = FN::SharedFunction::New(FN::Signature(inputs, outputs), "Pass Through");
+	auto fn = FN::SharedFunction::New("Pass Through", FN::Signature(inputs, outputs));
 	fn->add_body(new PassThroughFloat());
 	return fn;
 }
@@ -205,4 +205,11 @@ FnFunction FN_get_generated_function()
 	BLI::RefCounted<FN::Function> *fn_ref = fn.refcounter();
 	fn_ref->incref();
 	return wrap(fn_ref);
+}
+
+void FN_testing(bNodeTree *bnodetree)
+{
+	FN::FunctionNodes::FunctionNodeTree tree(bnodetree);
+	auto graph = tree.to_data_flow_graph();
+	std::cout << graph->to_dot() << std::endl;
 }

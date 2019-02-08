@@ -2,6 +2,7 @@
 #define __FUNCTIONS_H__
 
 #include "BLI_utildefines.h"
+#include "DNA_node_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,6 +39,8 @@ FnType FN_type_get_fvec3(void);
 FnFunction FN_get_deform_function(int type);
 
 FnFunction FN_get_generated_function(void);
+
+void FN_testing(bNodeTree *bnodetree);
 
 #ifdef __cplusplus
 }

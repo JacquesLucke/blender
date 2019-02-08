@@ -30,6 +30,7 @@ namespace FN {
 		friend bool operator==(const Socket &a, const Socket &b);
 
 		inline Socket origin() const;
+		inline bool is_linked() const;
 
 	private:
 		Socket(const Node *node, bool is_output, uint index)
@@ -136,7 +137,9 @@ namespace FN {
 
 		SmallSet<Socket> get_linked(Socket socket) const
 		{
-			return m_links.lookup(socket);
+			SmallSet<Socket> *linked = m_links.lookup_ptr(socket);
+			if (linked == nullptr) return {};
+			return *linked;
 		}
 
 		SmallVector<Link> all_links() const
@@ -206,6 +209,11 @@ namespace FN {
 			return m_links.all_links();
 		}
 
+		const SmallSet<const Node *> &all_nodes() const
+		{
+			return m_nodes;
+		}
+
 		std::string to_dot() const;
 
 	private:
@@ -271,6 +279,11 @@ namespace FN {
 	Socket Socket::origin() const
 	{
 		return this->graph()->m_links.get_origin(*this);
+	}
+
+	bool Socket::is_linked() const
+	{
+		return this->graph()->m_links.get_linked(*this).size() > 0;
 	}
 
 } /* namespace FN */
