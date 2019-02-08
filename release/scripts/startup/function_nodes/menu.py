@@ -9,6 +9,9 @@ def draw_menu(self, context):
     layout = self.layout
     self.operator_context = "INVOKE_DEFAULT"
 
+    insert_node(layout, "fn_FunctionInputNode", "Function Input")
+    insert_node(layout, "fn_FunctionOutputNode", "Function Output")
+    layout.separator()
     insert_node(layout, "fn_AddFloatsNode", "Add Floats")
     insert_node(layout, "fn_CombineVectorNode", "Combine Vector")
 

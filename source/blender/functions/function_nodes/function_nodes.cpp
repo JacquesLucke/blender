@@ -112,6 +112,21 @@ namespace FN::FunctionNodes {
 		}
 	}
 
+	static bool is_input_node(const bNode *bnode)
+	{
+		return STREQ(bnode->idname, "fn_FunctionInputNode");
+	}
+
+	static bool is_output_node(const bNode *bnode)
+	{
+		return STREQ(bnode->idname, "fn_FunctionOutputNode");
+	}
+
+	static bool is_function_node(const bNode *bnode)
+	{
+		return !(is_input_node(bnode) || is_output_node(bnode));
+	}
+
 	SharedDataFlowGraph FunctionNodeTree::to_data_flow_graph() const
 	{
 		SocketMap socket_map;
@@ -123,8 +138,10 @@ namespace FN::FunctionNodes {
 		SharedDataFlowGraph graph = SharedDataFlowGraph::New();
 
 		for (bNode *bnode = (bNode *)m_tree->nodes.first; bnode; bnode = bnode->next) {
-			auto insert = inserters.lookup(bnode->idname);
-			insert(graph, socket_map, bnode);
+			if (is_function_node(bnode)) {
+				auto insert = inserters.lookup(bnode->idname);
+				insert(graph, socket_map, bnode);
+			}
 		}
 
 		for (bNodeLink *blink = (bNodeLink *)m_tree->links.first; blink; blink = blink->next) {
@@ -134,6 +151,7 @@ namespace FN::FunctionNodes {
 		}
 
 		for (bNode *bnode = (bNode *)m_tree->nodes.first; bnode; bnode = bnode->next) {
+			if (!is_function_node(bnode)) continue;
 			for (bNodeSocket *bsocket = (bNodeSocket *)bnode->inputs.first; bsocket; bsocket = bsocket->next) {
 				Socket socket = socket_map.lookup(bsocket);
 				if (!socket.is_linked()) {
