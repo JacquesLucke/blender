@@ -32,13 +32,13 @@ namespace FN {
 		}
 
 		template<typename T>
-		inline const T *extension() const
+		inline T *extension() const
 		{
 			return this->m_extensions.get<T>();
 		}
 
 		template<typename T>
-		void extend(const T *extension)
+		void extend(T *extension)
 		{
 			BLI_assert(this->m_extensions.get<T>() == nullptr);
 			this->m_extensions.add(extension);

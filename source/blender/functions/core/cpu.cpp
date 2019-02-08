@@ -14,15 +14,15 @@ namespace FN {
 	}
 
 
-	const char *TypeSize::identifier()
+	const char *CPPTypeInfo::identifier()
 	{
-		return "Type Size";
+		return "C++ Type Info";
 	}
 
-	void TypeSize::free(void *value)
+	void CPPTypeInfo::free(void *value)
 	{
-		TypeSize *v = (TypeSize *)value;
-		delete v;
+		CPPTypeInfo *value_ = (CPPTypeInfo *)value;
+		delete value_;
 	}
 
 } /* namespace FN */

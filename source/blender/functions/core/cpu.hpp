@@ -6,7 +6,7 @@ namespace FN {
 
 	class Tuple;
 	class TupleCallBody;
-	class TypeSize;
+	class CPPTypeInfo;
 
 	class TupleCallBody {
 	public:
@@ -17,28 +17,52 @@ namespace FN {
 		virtual ~TupleCallBody() {};
 	};
 
-	class TypeSize final {
+	class CPPTypeInfo {
 	public:
 		static const char* identifier();
 		static void free(void *value);
+		virtual ~CPPTypeInfo() {};
 
-		TypeSize(uint size)
-			: m_size(size) {}
+		virtual uint size_of_type() const = 0;
+		virtual void destruct_type(void *ptr) const = 0;
+		virtual void copy_to_initialized(void *src, void *dst) const = 0;
+		virtual void copy_to_uninitialized(void *src, void *dst) const = 0;
+	};
 
-		virtual uint size() const
+	template<typename T>
+	class CPPTypeInfoForType : public CPPTypeInfo {
+	public:
+		virtual uint size_of_type() const override
 		{
-			return this->m_size;
+			return sizeof(T);
 		}
 
-	private:
-		uint m_size;
+		virtual void destruct_type(void *ptr) const override
+		{
+			T *ptr_ = (T *)ptr;
+			ptr_->~T();
+		}
+
+		virtual void copy_to_initialized(void *src, void *dst) const override
+		{
+			T *dst_ = (T *)dst;
+			T *src_ = (T *)src;
+			std::copy(src_, src_ + 1, dst_);
+		}
+
+		virtual void copy_to_uninitialized(void *src, void *dst) const override
+		{
+			T *dst_ = (T *)dst;
+			T *src_ = (T *)src;
+			std::uninitialized_copy(src_, src_ + 1, dst_);
+		}
 	};
 
 	inline uint get_type_size(const SharedType &type)
 	{
-		auto extension = type->extension<TypeSize>();
+		auto extension = type->extension<CPPTypeInfo>();
 		BLI_assert(extension);
-		return extension->size();
+		return extension->size_of_type();
 	}
 
 	class Tuple {
@@ -50,9 +74,12 @@ namespace FN {
 		{
 			int total_size = 0;
 			for (const SharedType &type : types) {
+				CPPTypeInfo *info = type->extension<CPPTypeInfo>();
+
 				this->m_offsets.append(total_size);
 				this->m_initialized.append(false);
-				total_size += get_type_size(type);
+				this->m_type_info.append(info);
+				total_size += info->size_of_type();
 			}
 			this->m_offsets.append(total_size);
 			this->data = std::malloc(total_size);
@@ -60,6 +87,9 @@ namespace FN {
 
 		~Tuple()
 		{
+			for (uint i = 0; i < this->m_types.size(); i++) {
+				this->m_type_info[i]->destruct_type(this->element_ptr(i));
+			}
 			std::free(this->data);
 		}
 
@@ -104,10 +134,10 @@ namespace FN {
 			const Tuple &from, uint from_index,
 			Tuple &to, uint to_index)
 		{
-			/* only works with trivially copyable data types for now */
 			BLI_assert(from.m_types[from_index] == to.m_types[to_index]);
-			uint size = from.element_size(from_index);
-			memcpy(to.element_ptr(to_index), from.element_ptr(from_index), size);
+
+			from.m_type_info[from_index]->copy_to_initialized(
+				from.element_ptr(from_index), to.element_ptr(to_index));
 		}
 
 	private:
@@ -122,6 +152,7 @@ namespace FN {
 		}
 
 		const SmallTypeVector m_types;
+		SmallVector<CPPTypeInfo *> m_type_info;
 		SmallVector<uint> m_offsets;
 		SmallVector<bool> m_initialized;
 		void *data;
