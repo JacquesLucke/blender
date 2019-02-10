@@ -312,6 +312,21 @@ namespace FN {
 			return m_outputs;
 		}
 
+		Signature signature() const
+		{
+			InputParameters inputs;
+			OutputParameters outputs;
+
+			for (const Socket &socket : m_inputs) {
+				inputs.append(InputParameter(socket.name(), socket.type()));
+			}
+			for (const Socket &socket : m_outputs) {
+				outputs.append(OutputParameter(socket.name(), socket.type()));
+			}
+
+			return Signature(inputs, outputs);
+		}
+
 	private:
 		SharedDataFlowGraph m_graph;
 		SmallSocketVector m_inputs;

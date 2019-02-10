@@ -1,9 +1,11 @@
 #pragma once
 
 #include "data_flow_graph.hpp"
+#include "cpu.hpp"
 
 namespace FN {
 
-	SharedFunction function_from_data_flow(const FunctionGraph &graph_function);
+	TupleCallBody *function_graph_to_callable(
+		const FunctionGraph &function_graph);
 
 } /* namespace FN */

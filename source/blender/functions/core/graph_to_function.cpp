@@ -50,29 +50,10 @@ namespace FN {
 		}
 	};
 
-	static Signature signature_from_sockets(
-		const SmallSocketVector &input_sockets,
-		const SmallSocketVector &output_sockets)
+	TupleCallBody *function_graph_to_callable(
+		const FunctionGraph &function_graph)
 	{
-		InputParameters inputs;
-		OutputParameters outputs;
-
-		for (const Socket &socket : input_sockets) {
-			inputs.append(InputParameter(socket.name(), socket.type()));
-		}
-		for (const Socket &socket : output_sockets) {
-			outputs.append(OutputParameter(socket.name(), socket.type()));
-		}
-
-		return Signature(inputs, outputs);
-	}
-
-	SharedFunction function_from_data_flow(const FunctionGraph &function_graph)
-	{
-		Signature signature = signature_from_sockets(function_graph.inputs(), function_graph.outputs());
-		SharedFunction fn = SharedFunction::New(signature);
-		fn->add_body<TupleCallBody>(new ExecuteGraph(function_graph));
-		return fn;
+		return new ExecuteGraph(function_graph);
 	}
 
 } /* namespace FN */

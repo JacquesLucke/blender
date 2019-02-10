@@ -192,17 +192,12 @@ FnFunction FN_get_generated_function()
 	graph->link(n1->output(0), n2->input(0));
 	graph->link(npass->output(0), n1->input(1));
 	graph->link(npass->output(0), n2->input(1));
-
 	graph->freeze();
 
-	auto fn = FN::function_from_data_flow(FN::FunctionGraph(graph,
-	{
-		n1->input(0),
-		npass->input(0)
-	},
-	{
-		n2->output(0)
-	}));
+	FN::FunctionGraph fgraph(graph, {n1->input(0), npass->input(0)}, {n2->output(0)});
+
+	auto fn = FN::SharedFunction::New("Generated Function", fgraph.signature());
+	fn->add_body(FN::function_graph_to_callable(fgraph));
 
 	BLI::RefCounted<FN::Function> *fn_ref = fn.refcounter();
 	fn_ref->incref();
