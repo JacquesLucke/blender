@@ -44,40 +44,38 @@ namespace FN {
 			m_extensions.add(extension);
 		}
 
-	protected:
-		std::string m_name;
-
 	private:
+		std::string m_name;
 		Composition m_extensions;
 	};
 
 	class Parameter {
 	public:
 		Parameter(const std::string &name, const SharedType &type)
-			: m_type(type), m_name(name) {}
-
-		const SharedType &type() const
-		{
-			return m_type;
-		}
+			: m_name(name), m_type(type) {}
 
 		const std::string &name() const
 		{
 			return m_name;
 		}
 
+		const SharedType &type() const
+		{
+			return m_type;
+		}
+
 	private:
-		const SharedType m_type;
 		const std::string m_name;
+		const SharedType m_type;
 	};
 
-	class InputParameter : public Parameter {
+	class InputParameter final : public Parameter {
 	public:
 		InputParameter(const std::string &name, const SharedType &type)
 			: Parameter(name, type) {}
 	};
 
-	class OutputParameter : public Parameter {
+	class OutputParameter final : public Parameter {
 	public:
 		OutputParameter(const std::string &name, const SharedType &type)
 			: Parameter(name, type) {}
@@ -130,12 +128,17 @@ namespace FN {
 	class Function final {
 	public:
 		Function(const std::string &name, const Signature &signature)
-			:m_signature(signature), m_name(name) {}
+			: m_name(name), m_signature(signature) {}
 
 		Function(const Signature &signature)
 			: Function("Function", signature) {}
 
 		~Function() = default;
+
+		const std::string &name() const
+		{
+			return m_name;
+		}
 
 		inline const Signature &signature() const
 		{
@@ -155,15 +158,10 @@ namespace FN {
 			m_bodies.add(body);
 		}
 
-		const std::string &name() const
-		{
-			return m_name;
-		}
-
 	private:
+		const std::string m_name;
 		const Signature m_signature;
 		Composition m_bodies;
-		const std::string m_name;
 	};
 
 } /* namespace FN */
