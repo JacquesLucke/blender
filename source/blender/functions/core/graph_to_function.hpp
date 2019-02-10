@@ -4,9 +4,6 @@
 
 namespace FN {
 
-	SharedFunction function_from_data_flow(
-		const SharedDataFlowGraph &graph,
-		const SmallSocketVector &inputs,
-		const SmallSocketVector &outputs);
+	SharedFunction function_from_data_flow(const FunctionGraph &graph_function);
 
 } /* namespace FN */

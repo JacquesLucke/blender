@@ -286,4 +286,36 @@ namespace FN {
 		return this->graph()->m_links.get_linked(*this).size() > 0;
 	}
 
+	class FunctionGraph {
+	public:
+		FunctionGraph(
+			const SharedDataFlowGraph &graph,
+			const SmallSocketVector &inputs,
+			const SmallSocketVector &outputs)
+			: m_graph(graph), m_inputs(inputs), m_outputs(outputs)
+		{
+			BLI_assert(graph->frozen());
+		}
+
+		const SharedDataFlowGraph &graph() const
+		{
+			return m_graph;
+		}
+
+		const SmallSocketVector &inputs() const
+		{
+			return m_inputs;
+		}
+
+		const SmallSocketVector &outputs() const
+		{
+			return m_outputs;
+		}
+
+	private:
+		SharedDataFlowGraph m_graph;
+		SmallSocketVector m_inputs;
+		SmallSocketVector m_outputs;
+	};
+
 } /* namespace FN */

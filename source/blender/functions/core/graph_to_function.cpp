@@ -5,16 +5,15 @@ namespace FN {
 
 	class ExecuteGraph : public TupleCallBody {
 	private:
-		const SharedDataFlowGraph m_graph;
-		const SmallSocketSetVector m_inputs;
-		const SmallSocketSetVector m_outputs;
+		SharedDataFlowGraph m_graph;
+		SmallSocketSetVector m_inputs;
+		SmallSocketSetVector m_outputs;
 
 	public:
-		ExecuteGraph(
-			const SharedDataFlowGraph &graph,
-			const SmallSocketVector &inputs,
-			const SmallSocketVector &outputs)
-			: m_graph(graph), m_inputs(inputs), m_outputs(outputs) {}
+		ExecuteGraph(const FunctionGraph &function_graph)
+			: m_graph(function_graph.graph()),
+			  m_inputs(function_graph.inputs()),
+			  m_outputs(function_graph.outputs()) {}
 
 		void call(const Tuple &fn_in, Tuple &fn_out) const override
 		{
@@ -68,14 +67,11 @@ namespace FN {
 		return Signature(inputs, outputs);
 	}
 
-	SharedFunction function_from_data_flow(
-		const SharedDataFlowGraph &graph,
-		const SmallSocketVector &inputs,
-		const SmallSocketVector &outputs)
+	SharedFunction function_from_data_flow(const FunctionGraph &function_graph)
 	{
-		Signature signature = signature_from_sockets(inputs, outputs);
+		Signature signature = signature_from_sockets(function_graph.inputs(), function_graph.outputs());
 		SharedFunction fn = SharedFunction::New(signature);
-		fn->add_body<TupleCallBody>(new ExecuteGraph(graph, inputs, outputs));
+		fn->add_body<TupleCallBody>(new ExecuteGraph(function_graph));
 		return fn;
 	}
 
