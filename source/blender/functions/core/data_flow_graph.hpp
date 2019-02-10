@@ -18,7 +18,7 @@ namespace FN {
 		static inline Socket Output(const Node *node, uint index);
 
 		inline const Node *node() const;
-		inline const DataFlowGraph *graph() const;
+		inline DataFlowGraph *graph() const;
 
 		inline bool is_input() const;
 		inline bool is_output() const;
@@ -37,8 +37,8 @@ namespace FN {
 			: m_node(node), m_is_output(is_output), m_index(index) {}
 
 		const Node *m_node;
-		const bool m_is_output;
-		const uint m_index;
+		bool m_is_output;
+		uint m_index;
 	};
 
 
@@ -47,7 +47,7 @@ namespace FN {
 
 	class Node {
 	public:
-		Node(const DataFlowGraph *graph, const SharedFunction &function)
+		Node(DataFlowGraph *graph, SharedFunction &function)
 			: m_graph(graph), m_function(function) {}
 
 		Socket input(uint index) const
@@ -60,7 +60,7 @@ namespace FN {
 			return Socket::Output(this, index);
 		}
 
-		const DataFlowGraph *graph() const
+		DataFlowGraph *graph() const
 		{
 			return m_graph;
 		}
@@ -76,8 +76,8 @@ namespace FN {
 		}
 
 	private:
-		const DataFlowGraph *m_graph;
-		const SharedFunction m_function;
+		DataFlowGraph *m_graph;
+		SharedFunction m_function;
 	};
 
 	class Link {
@@ -112,8 +112,8 @@ namespace FN {
 		Link(Socket from, Socket to)
 			: m_from(from), m_to(to) {}
 
-		const Socket m_from;
-		const Socket m_to;
+		Socket m_from;
+		Socket m_to;
 	};
 
 	class GraphLinks {
@@ -171,7 +171,7 @@ namespace FN {
 			}
 		}
 
-		const Node *insert(const SharedFunction &function)
+		const Node *insert(SharedFunction &function)
 		{
 			BLI_assert(this->can_modify());
 			const Node *node = new Node(this, function);
@@ -248,7 +248,7 @@ namespace FN {
 		return m_node;
 	}
 
-	const DataFlowGraph *Socket::graph() const
+	DataFlowGraph *Socket::graph() const
 	{
 		return this->node()->graph();
 	}

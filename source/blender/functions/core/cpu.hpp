@@ -62,9 +62,7 @@ namespace FN {
 
 	class Tuple {
 	public:
-		Tuple() = default;
-
-		Tuple(const SmallTypeVector &types)
+		Tuple(const SmallTypeVector &types = {})
 			: m_types(types)
 		{
 			int total_size = 0;
@@ -79,6 +77,9 @@ namespace FN {
 			m_offsets.append(total_size);
 			m_data = std::malloc(total_size);
 		}
+
+		/* Has to be implemented explicitely in the future. */
+		Tuple(const Tuple &tuple) = delete;
 
 		~Tuple()
 		{
@@ -146,7 +147,7 @@ namespace FN {
 			return (void *)((char *)m_data + m_offsets[index]);
 		}
 
-		const SmallTypeVector m_types;
+		SmallTypeVector m_types;
 		SmallVector<CPPTypeInfo *> m_type_info;
 		SmallVector<uint> m_offsets;
 		SmallVector<bool> m_initialized;
