@@ -19,6 +19,12 @@ class FunctionNode:
     def get_sockets():
         return [], []
 
+    def draw_buttons(self, context, layout):
+        self.draw(layout)
+
+    def draw(self, layout):
+        pass
+
 class DataSocket:
     color = (0, 0, 0, 0)
 

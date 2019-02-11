@@ -10,7 +10,10 @@ namespace BLI {
 
 	public:
 		ListBaseWrapper(ListBase *listbase)
-			: m_listbase(listbase) {}
+			: m_listbase(listbase)
+		{
+			BLI_assert(listbase);
+		}
 
 		class Iterator {
 		private:

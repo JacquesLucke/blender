@@ -7,6 +7,8 @@
 
 #include "RNA_access.h"
 
+#include "DNA_object_types.h"
+
 namespace FN::FunctionNodes {
 
 	using SocketMap = SmallMap<bNodeSocket *, Socket>;
@@ -94,6 +96,26 @@ namespace FN::FunctionNodes {
 		}
 	};
 
+	class ObjectTransforms : public FN::TupleCallBody {
+	private:
+		Object *m_object;
+
+	public:
+		ObjectTransforms(Object *object)
+			: m_object(object) {}
+
+		void call(const FN::Tuple &UNUSED(fn_in), FN::Tuple &fn_out) const override
+		{
+			if (m_object) {
+				Vector position = *(Vector *)m_object->loc;
+				fn_out.set<Vector>(0, position);
+			}
+			else {
+				fn_out.set<Vector>(0, Vector());
+			}
+		}
+	};
+
 
 	static void insert_add_floats_node(
 		const FunctionNodeTree &UNUSED(tree),
@@ -127,6 +149,22 @@ namespace FN::FunctionNodes {
 	{
 		auto fn = SharedFunction::New("Separate Vector", signature_from_node(bnode));
 		fn->add_body(new SeparateVector());
+		const Node *node = graph->insert(fn);
+		map_node_sockets(socket_map, bnode, node);
+	}
+
+	static void insert_object_transforms_node(
+		const FunctionNodeTree &tree,
+		SharedDataFlowGraph &graph,
+		SocketMap &socket_map,
+		bNode *bnode)
+	{
+		PointerRNA ptr;
+		RNA_pointer_create(&tree.orig_tree()->id, &RNA_Node, bnode, &ptr);
+		Object *object = (Object *)RNA_pointer_get(&ptr, "object").id.data;
+
+		auto fn = SharedFunction::New("Object Transforms", signature_from_node(bnode));
+		fn->add_body(new ObjectTransforms(object));
 		const Node *node = graph->insert(fn);
 		map_node_sockets(socket_map, bnode, node);
 	}
@@ -265,6 +303,7 @@ namespace FN::FunctionNodes {
 		inserters.add("fn_SeparateVectorNode", insert_separate_vector_node);
 		inserters.add("fn_FunctionOutputNode", insert_output_node);
 		inserters.add("fn_FunctionInputNode", insert_input_node);
+		inserters.add("fn_ObjectTransformsNode", insert_object_transforms_node);
 
 		SharedDataFlowGraph graph = SharedDataFlowGraph::New();
 
