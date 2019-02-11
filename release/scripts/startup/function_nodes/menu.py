@@ -14,6 +14,7 @@ def draw_menu(self, context):
     layout.separator()
     insert_node(layout, "fn_AddFloatsNode", "Add Floats")
     insert_node(layout, "fn_CombineVectorNode", "Combine Vector")
+    insert_node(layout, "fn_SeparateVectorNode", "Separate Vector")
 
 def insert_node(layout, type, text, settings = {}, icon = "NONE"):
     operator = layout.operator("node.add_node", text = text, icon = icon)

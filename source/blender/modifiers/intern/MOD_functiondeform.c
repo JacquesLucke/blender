@@ -51,7 +51,7 @@
 
 #include "FN_functions.h"
 
-bNodeTree *get_node_tree()
+bNodeTree *get_node_tree(void)
 {
 	return (bNodeTree *)G.main->nodetree.first;
 }
@@ -117,9 +117,9 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
 	return true;
 }
 
-static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
+static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *UNUSED(ctx))
 {
-	FunctionDeformModifierData *bmd = (FunctionDeformModifierData *)md;
+	FunctionDeformModifierData *UNUSED(fdmd) = (FunctionDeformModifierData *)md;
 }
 
 

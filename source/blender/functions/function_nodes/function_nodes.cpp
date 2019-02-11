@@ -16,35 +16,47 @@ namespace FN::FunctionNodes {
 		SocketMap &map,
 		bNode *bnode);
 
-	class AddFloats : public FN::TupleCallBody {
-		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
-		{
-			float a = fn_in.get<float>(0);
-			float b = fn_in.get<float>(1);
-			fn_out.set<float>(0, a + b);
-		}
-	};
 
-	static void insert_add_floats_node(
-		const FunctionNodeTree &UNUSED(tree),
-		SharedDataFlowGraph &graph,
-		SocketMap &socket_map,
-		bNode *bnode)
+	static SharedType &get_type_of_socket(bNodeSocket *bsocket)
 	{
-		SharedType &float_ty = Types::get_float_type();
+		if (STREQ(bsocket->idname, "fn_FloatSocket")) {
+			return Types::get_float_type();
+		}
+		else if (STREQ(bsocket->idname, "fn_VectorSocket")) {
+			return Types::get_fvec3_type();
+		}
+		else {
+			BLI_assert(false);
+			return *(SharedType *)nullptr;
+		}
+	}
 
-		auto fn = SharedFunction::New("Add Floats", Signature({
-			InputParameter("A", float_ty),
-			InputParameter("B", float_ty),
-		}, {
-			OutputParameter("Result", float_ty),
-		}));
-		fn->add_body(new AddFloats());
-		const Node *node = graph->insert(fn);
+	static Signature signature_from_node(bNode *bnode)
+	{
+		InputParameters inputs;
+		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
+			inputs.append(InputParameter(bsocket->name, get_type_of_socket(bsocket)));
+		}
+		OutputParameters outputs;
+		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
+			outputs.append(OutputParameter(bsocket->name, get_type_of_socket(bsocket)));
+		}
+		return Signature(inputs, outputs);
+	}
 
-		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->inputs, 0), node->input(0));
-		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->inputs, 1), node->input(1));
-		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->outputs, 0), node->output(0));
+	static void map_node_sockets(SocketMap &socket_map, bNode *bnode, const Node *node)
+	{
+		uint input_index = 0;
+		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
+			socket_map.add(bsocket, node->input(input_index));
+			input_index++;
+		}
+
+		uint output_index = 0;
+		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
+			socket_map.add(bsocket, node->output(output_index));
+			output_index++;
+		}
 	}
 
 
@@ -63,29 +75,60 @@ namespace FN::FunctionNodes {
 		}
 	};
 
+	class SeparateVector : public FN::TupleCallBody {
+		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+		{
+			Vector v = fn_in.get<Vector>(0);
+			fn_out.set<float>(0, v.x);
+			fn_out.set<float>(1, v.y);
+			fn_out.set<float>(2, v.z);
+		}
+	};
+
+	class AddFloats : public FN::TupleCallBody {
+		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+		{
+			float a = fn_in.get<float>(0);
+			float b = fn_in.get<float>(1);
+			fn_out.set<float>(0, a + b);
+		}
+	};
+
+
+	static void insert_add_floats_node(
+		const FunctionNodeTree &UNUSED(tree),
+		SharedDataFlowGraph &graph,
+		SocketMap &socket_map,
+		bNode *bnode)
+	{
+		auto fn = SharedFunction::New("Add Floats", signature_from_node(bnode));
+		fn->add_body(new AddFloats());
+		const Node *node = graph->insert(fn);
+		map_node_sockets(socket_map, bnode, node);
+	}
+
 	static void insert_combine_vector_node(
 		const FunctionNodeTree &UNUSED(tree),
 		SharedDataFlowGraph &graph,
 		SocketMap &socket_map,
 		bNode *bnode)
 	{
-		SharedType &float_ty = Types::get_float_type();
-		SharedType &fvec3_ty = Types::get_fvec3_type();
-
-		auto fn = SharedFunction::New("Combine Vector", Signature({
-			InputParameter("X", float_ty),
-			InputParameter("Y", float_ty),
-			InputParameter("Z", float_ty),
-		}, {
-			OutputParameter("Result", fvec3_ty),
-		}));
+		auto fn = SharedFunction::New("Combine Vector", signature_from_node(bnode));
 		fn->add_body(new CombineVector());
 		const Node *node = graph->insert(fn);
+		map_node_sockets(socket_map, bnode, node);
+	}
 
-		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->inputs, 0), node->input(0));
-		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->inputs, 1), node->input(1));
-		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->inputs, 2), node->input(2));
-		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->outputs, 0), node->output(0));
+	static void insert_separate_vector_node(
+		const FunctionNodeTree &UNUSED(tree),
+		SharedDataFlowGraph &graph,
+		SocketMap &socket_map,
+		bNode *bnode)
+	{
+		auto fn = SharedFunction::New("Separate Vector", signature_from_node(bnode));
+		fn->add_body(new SeparateVector());
+		const Node *node = graph->insert(fn);
+		map_node_sockets(socket_map, bnode, node);
 	}
 
 
@@ -120,20 +163,6 @@ namespace FN::FunctionNodes {
 			fn_out.set<Vector>(0, Vector());
 		}
 	};
-
-	static SharedType &get_type_of_socket(bNodeSocket *bsocket)
-	{
-		if (STREQ(bsocket->idname, "fn_FloatSocket")) {
-			return Types::get_float_type();
-		}
-		else if (STREQ(bsocket->idname, "fn_VectorSocket")) {
-			return Types::get_fvec3_type();
-		}
-		else {
-			BLI_assert(false);
-			return *(SharedType *)nullptr;
-		}
-	}
 
 	static const Node *get_input_node_for_socket(
 		const FunctionNodeTree &tree,
@@ -187,16 +216,9 @@ namespace FN::FunctionNodes {
 	{
 		SmallTypeVector types;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
-			if (STREQ(bsocket->idname, "fn_VectorSocket")) {
-				types.append(Types::get_fvec3_type());
-			}
-			else if (STREQ(bsocket->idname, "fn_FloatSocket")) {
-				types.append(Types::get_float_type());
-			}
-			else {
-				BLI_assert(false);
-			}
+			types.append(get_type_of_socket(bsocket));
 		}
+
 		SharedFunction fn = get_output_function(types);
 		const Node *node = graph->insert(fn);
 
@@ -240,6 +262,7 @@ namespace FN::FunctionNodes {
 		SmallMap<std::string, InsertInGraphFunction> inserters;
 		inserters.add("fn_AddFloatsNode", insert_add_floats_node);
 		inserters.add("fn_CombineVectorNode", insert_combine_vector_node);
+		inserters.add("fn_SeparateVectorNode", insert_separate_vector_node);
 		inserters.add("fn_FunctionOutputNode", insert_output_node);
 		inserters.add("fn_FunctionInputNode", insert_input_node);
 
