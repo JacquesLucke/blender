@@ -51,12 +51,17 @@
 
 #include "FN_functions.h"
 
+bNodeTree *get_node_tree()
+{
+	return (bNodeTree *)G.main->nodetree.first;
+}
+
 static void do_deformation(
         FunctionDeformModifierData *fdmd,
         float (*vertexCos)[3],
         int numVerts)
 {
-	FnFunction fn = FN_testing((bNodeTree *)G.main->nodetree.first);
+	FnFunction fn = FN_testing(get_node_tree());
 	// FnFunction fn = FN_get_generated_function();
 	FnCallable fn_call = FN_function_get_callable(fn);
 	BLI_assert(fn_call);
@@ -112,6 +117,11 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
 	return true;
 }
 
+static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
+{
+	FunctionDeformModifierData *bmd = (FunctionDeformModifierData *)md;
+}
+
 
 ModifierTypeInfo modifierType_FunctionDeform = {
 	/* name */              "Function Deform",
@@ -137,7 +147,7 @@ ModifierTypeInfo modifierType_FunctionDeform = {
 	/* requiredDataMask */  NULL,
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
-	/* updateDepsgraph */   NULL,
+	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */	NULL,
 	/* foreachObjectLink */ NULL,

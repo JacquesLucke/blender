@@ -5,10 +5,13 @@
 #include "BKE_node.h"
 #include "BKE_idprop.h"
 
+#include "RNA_access.h"
+
 namespace FN::FunctionNodes {
 
 	using SocketMap = SmallMap<bNodeSocket *, Socket>;
 	typedef void (*InsertInGraphFunction)(
+		const FunctionNodeTree &tree,
 		SharedDataFlowGraph &graph,
 		SocketMap &map,
 		bNode *bnode);
@@ -23,6 +26,7 @@ namespace FN::FunctionNodes {
 	};
 
 	static void insert_add_floats_node(
+		const FunctionNodeTree &UNUSED(tree),
 		SharedDataFlowGraph &graph,
 		SocketMap &socket_map,
 		bNode *bnode)
@@ -60,6 +64,7 @@ namespace FN::FunctionNodes {
 	};
 
 	static void insert_combine_vector_node(
+		const FunctionNodeTree &UNUSED(tree),
 		SharedDataFlowGraph &graph,
 		SocketMap &socket_map,
 		bNode *bnode)
@@ -86,18 +91,19 @@ namespace FN::FunctionNodes {
 
 	class FloatSocketInput : public FN::TupleCallBody {
 	private:
+		bNodeTree *m_btree;
 		bNodeSocket *m_bsocket;
 
 	public:
-		FloatSocketInput(bNodeSocket *bsocket)
-			: m_bsocket(bsocket) {}
+		FloatSocketInput(bNodeTree *btree, bNodeSocket *bsocket)
+			: m_btree(btree), m_bsocket(bsocket) {}
 
 		virtual void call(const Tuple &UNUSED(fn_in), Tuple &fn_out) const
 		{
-			// PointerRNA ptr;
-			// RNA_pointer_create(m_btree, &RNA_NodeSocket, m_bsocket, &ptr);
-			// float value = RNA_float_get(&ptr, "value");
-			fn_out.set<float>(0, 0.0f);
+			PointerRNA ptr;
+			RNA_pointer_create(&m_btree->id, &RNA_NodeSocket, m_bsocket, &ptr);
+			float value = RNA_float_get(&ptr, "value");
+			fn_out.set<float>(0, value);
 		}
 	};
 
@@ -130,6 +136,7 @@ namespace FN::FunctionNodes {
 	}
 
 	static const Node *get_input_node_for_socket(
+		const FunctionNodeTree &tree,
 		SharedDataFlowGraph &graph,
 		bNodeSocket *bsocket)
 	{
@@ -138,7 +145,7 @@ namespace FN::FunctionNodes {
 		if (type == Types::get_float_type()) {
 			auto fn = SharedFunction::New("Float Input", Signature(
 				{}, {OutputParameter("Value", Types::get_float_type())}));
-			fn->add_body(new FloatSocketInput(bsocket));
+			fn->add_body(new FloatSocketInput(tree.orig_tree(), bsocket));
 			return graph->insert(fn);
 		}
 		else if (type == Types::get_fvec3_type()) {
@@ -154,11 +161,12 @@ namespace FN::FunctionNodes {
 	}
 
 	static void insert_input_socket_node(
+		const FunctionNodeTree &tree,
 		SharedDataFlowGraph &graph,
 		Socket socket,
 		bNodeSocket *bsocket)
 	{
-		const Node *node = get_input_node_for_socket(graph, bsocket);
+		const Node *node = get_input_node_for_socket(tree, graph, bsocket);
 		graph->link(node->output(0), socket);
 	}
 
@@ -172,6 +180,7 @@ namespace FN::FunctionNodes {
 	}
 
 	static void insert_output_node(
+		const FunctionNodeTree &UNUSED(tree),
 		SharedDataFlowGraph &graph,
 		SocketMap &socket_map,
 		bNode *bnode)
@@ -202,12 +211,13 @@ namespace FN::FunctionNodes {
 	}
 
 	static void insert_input_node(
+		const FunctionNodeTree &tree,
 		SharedDataFlowGraph &graph,
 		SocketMap &socket_map,
 		bNode *bnode)
 	{
 		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
-			const Node *node = get_input_node_for_socket(graph, bsocket);
+			const Node *node = get_input_node_for_socket(tree, graph, bsocket);
 			socket_map.add(bsocket, node->output(0));
 		}
 	}
@@ -240,7 +250,7 @@ namespace FN::FunctionNodes {
 
 		for (bNode *bnode : this->nodes()) {
 			auto insert = inserters.lookup(bnode->idname);
-			insert(graph, socket_map, bnode);
+			insert(*this, graph, socket_map, bnode);
 
 			if (is_input_node(bnode)) {
 				for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
@@ -266,7 +276,7 @@ namespace FN::FunctionNodes {
 			for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
 				Socket socket = socket_map.lookup(bsocket);
 				if (!socket.is_linked()) {
-					insert_input_socket_node(graph, socket, bsocket);
+					insert_input_socket_node(*this, graph, socket, bsocket);
 				}
 			}
 		}

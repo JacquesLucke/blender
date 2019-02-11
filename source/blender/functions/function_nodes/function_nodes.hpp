@@ -16,6 +16,11 @@ namespace FN::FunctionNodes {
 		FunctionNodeTree(bNodeTree *tree)
 			: m_tree(tree) {}
 
+		bNodeTree *orig_tree() const
+		{
+			return m_tree;
+		}
+
 		bNodeList nodes() const
 		{
 			return bNodeList(&m_tree->nodes);
