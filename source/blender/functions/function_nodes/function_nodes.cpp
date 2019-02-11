@@ -1,10 +1,16 @@
 #include "function_nodes.hpp"
 
 #include "BLI_listbase.h"
+#include "BLI_listbase_wrapper.hpp"
+
 #include "BKE_node.h"
 #include "BKE_idprop.h"
 
 namespace FN::FunctionNodes {
+
+	using bNodeList = ListBaseWrapper<bNode, true>;
+	using bLinkList = ListBaseWrapper<bNodeLink, true>;
+	using bSocketList = ListBaseWrapper<bNodeSocket, true>;
 
 	using SocketMap = SmallMap<bNodeSocket *, Socket>;
 	typedef void (*InsertInGraphFunction)(
@@ -176,7 +182,7 @@ namespace FN::FunctionNodes {
 		bNode *bnode)
 	{
 		SmallTypeVector types;
-		for (bNodeSocket *bsocket = (bNodeSocket *)bnode->inputs.first; bsocket; bsocket = bsocket->next) {
+		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
 			if (STREQ(bsocket->idname, "fn_VectorSocket")) {
 				types.append(Types::get_fvec3_type());
 			}
@@ -205,7 +211,7 @@ namespace FN::FunctionNodes {
 		SocketMap &socket_map,
 		bNode *bnode)
 	{
-		for (bNodeSocket *bsocket = (bNodeSocket *)bnode->outputs.first; bsocket; bsocket = bsocket->next) {
+		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
 			const Node *node = get_input_node_for_socket(graph, bsocket);
 			socket_map.add(bsocket, node->output(0));
 		}
@@ -220,11 +226,6 @@ namespace FN::FunctionNodes {
 	static bool is_output_node(const bNode *bnode)
 	{
 		return STREQ(bnode->idname, "fn_FunctionOutputNode");
-	}
-
-	static bool is_function_node(const bNode *bnode)
-	{
-		return !(is_input_node(bnode) || is_output_node(bnode));
 	}
 
 	FunctionGraph FunctionNodeTree::to_function_graph() const
@@ -242,32 +243,32 @@ namespace FN::FunctionNodes {
 		SmallSocketVector input_sockets;
 		SmallSocketVector output_sockets;
 
-		for (bNode *bnode = (bNode *)m_tree->nodes.first; bnode; bnode = bnode->next) {
+		for (bNode *bnode : bNodeList(&m_tree->nodes)) {
 			auto insert = inserters.lookup(bnode->idname);
 			insert(graph, socket_map, bnode);
 
 			if (is_input_node(bnode)) {
-				for (bNodeSocket *bsocket = (bNodeSocket *)bnode->outputs.first; bsocket; bsocket = bsocket->next) {
+				for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
 					Socket socket = socket_map.lookup(bsocket);
 					input_sockets.append(socket);
 				}
 			}
 			if (is_output_node(bnode)) {
-				for (bNodeSocket *bsocket = (bNodeSocket *)bnode->inputs.first; bsocket; bsocket = bsocket->next) {
+				for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
 					Socket socket = socket_map.lookup(bsocket);
 					output_sockets.append(socket);
 				}
 			}
 		}
 
-		for (bNodeLink *blink = (bNodeLink *)m_tree->links.first; blink; blink = blink->next) {
+		for (bNodeLink *blink : bLinkList(&m_tree->links)) {
 			Socket from = socket_map.lookup(blink->fromsock);
 			Socket to = socket_map.lookup(blink->tosock);
 			graph->link(from, to);
 		}
 
-		for (bNode *bnode = (bNode *)m_tree->nodes.first; bnode; bnode = bnode->next) {
-			for (bNodeSocket *bsocket = (bNodeSocket *)bnode->inputs.first; bsocket; bsocket = bsocket->next) {
+		for (bNode *bnode : bNodeList(&m_tree->nodes)) {
+			for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
 				Socket socket = socket_map.lookup(bsocket);
 				if (!socket.is_linked()) {
 					insert_input_socket_node(graph, socket, bsocket);
