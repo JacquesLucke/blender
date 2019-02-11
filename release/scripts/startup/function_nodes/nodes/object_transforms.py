@@ -6,7 +6,7 @@ class ObjectTransformsNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_ObjectTransformsNode"
     bl_label = "Object Transforms"
 
-    object = PointerProperty(
+    object: PointerProperty(
         name="Object",
         type=bpy.types.Object,
     )

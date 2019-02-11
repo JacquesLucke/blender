@@ -208,7 +208,7 @@ FnFunction FN_testing(bNodeTree *bnodetree)
 {
 	FN::FunctionNodes::FunctionNodeTree tree(bnodetree);
 	auto fgraph = tree.to_function_graph();
-	std::cout << fgraph.graph()->to_dot() << std::endl;
+	//std::cout << fgraph.graph()->to_dot() << std::endl;
 
 	auto fn = FN::SharedFunction::New("Function from Node Tree", fgraph.signature());
 	fn->add_body(FN::function_graph_to_callable(fgraph));

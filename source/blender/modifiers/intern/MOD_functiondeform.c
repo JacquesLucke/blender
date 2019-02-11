@@ -51,7 +51,7 @@
 
 #include "FN_functions.h"
 
-bNodeTree *get_node_tree(void)
+static bNodeTree *get_node_tree(void)
 {
 	return (bNodeTree *)G.main->nodetree.first;
 }
