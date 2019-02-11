@@ -11,7 +11,7 @@ namespace FN::FunctionNodes {
 		FunctionNodeTree(bNodeTree *tree)
 			: m_tree(tree) {}
 
-		SharedDataFlowGraph to_data_flow_graph() const;
+		FunctionGraph to_function_graph() const;
 	};
 
 } /* namespace FN::FunctionNodes */

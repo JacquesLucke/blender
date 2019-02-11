@@ -204,9 +204,16 @@ FnFunction FN_get_generated_function()
 	return wrap(fn_ref);
 }
 
-void FN_testing(bNodeTree *bnodetree)
+FnFunction FN_testing(bNodeTree *bnodetree)
 {
 	FN::FunctionNodes::FunctionNodeTree tree(bnodetree);
-	auto graph = tree.to_data_flow_graph();
-	std::cout << graph->to_dot() << std::endl;
+	auto fgraph = tree.to_function_graph();
+	std::cout << fgraph.graph()->to_dot() << std::endl;
+
+	auto fn = FN::SharedFunction::New("Function from Node Tree", fgraph.signature());
+	fn->add_body(FN::function_graph_to_callable(fgraph));
+
+	BLI::RefCounted<FN::Function> *fn_ref = fn.refcounter();
+	fn_ref->incref();
+	return wrap(fn_ref);
 }

@@ -227,6 +227,53 @@ namespace FN {
 
 	using SharedDataFlowGraph = Shared<DataFlowGraph>;
 
+	class FunctionGraph {
+	public:
+		FunctionGraph(
+			const SharedDataFlowGraph &graph,
+			const SmallSocketVector &inputs,
+			const SmallSocketVector &outputs)
+			: m_graph(graph), m_inputs(inputs), m_outputs(outputs)
+		{
+			BLI_assert(graph->frozen());
+		}
+
+		const SharedDataFlowGraph &graph() const
+		{
+			return m_graph;
+		}
+
+		const SmallSocketVector &inputs() const
+		{
+			return m_inputs;
+		}
+
+		const SmallSocketVector &outputs() const
+		{
+			return m_outputs;
+		}
+
+		Signature signature() const
+		{
+			InputParameters inputs;
+			OutputParameters outputs;
+
+			for (const Socket &socket : m_inputs) {
+				inputs.append(InputParameter(socket.name(), socket.type()));
+			}
+			for (const Socket &socket : m_outputs) {
+				outputs.append(OutputParameter(socket.name(), socket.type()));
+			}
+
+			return Signature(inputs, outputs);
+		}
+
+	private:
+		SharedDataFlowGraph m_graph;
+		SmallSocketVector m_inputs;
+		SmallSocketVector m_outputs;
+	};
+
 
 	/* Socket Inline Functions
 	 ********************************************** */
@@ -285,52 +332,5 @@ namespace FN {
 	{
 		return this->graph()->m_links.get_linked(*this).size() > 0;
 	}
-
-	class FunctionGraph {
-	public:
-		FunctionGraph(
-			const SharedDataFlowGraph &graph,
-			const SmallSocketVector &inputs,
-			const SmallSocketVector &outputs)
-			: m_graph(graph), m_inputs(inputs), m_outputs(outputs)
-		{
-			BLI_assert(graph->frozen());
-		}
-
-		const SharedDataFlowGraph &graph() const
-		{
-			return m_graph;
-		}
-
-		const SmallSocketVector &inputs() const
-		{
-			return m_inputs;
-		}
-
-		const SmallSocketVector &outputs() const
-		{
-			return m_outputs;
-		}
-
-		Signature signature() const
-		{
-			InputParameters inputs;
-			OutputParameters outputs;
-
-			for (const Socket &socket : m_inputs) {
-				inputs.append(InputParameter(socket.name(), socket.type()));
-			}
-			for (const Socket &socket : m_outputs) {
-				outputs.append(OutputParameter(socket.name(), socket.type()));
-			}
-
-			return Signature(inputs, outputs);
-		}
-
-	private:
-		SharedDataFlowGraph m_graph;
-		SmallSocketVector m_inputs;
-		SmallSocketVector m_outputs;
-	};
 
 } /* namespace FN */
