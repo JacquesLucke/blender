@@ -1,16 +1,11 @@
 #include "function_nodes.hpp"
 
 #include "BLI_listbase.h"
-#include "BLI_listbase_wrapper.hpp"
 
 #include "BKE_node.h"
 #include "BKE_idprop.h"
 
 namespace FN::FunctionNodes {
-
-	using bNodeList = ListBaseWrapper<bNode, true>;
-	using bLinkList = ListBaseWrapper<bNodeLink, true>;
-	using bSocketList = ListBaseWrapper<bNodeSocket, true>;
 
 	using SocketMap = SmallMap<bNodeSocket *, Socket>;
 	typedef void (*InsertInGraphFunction)(
@@ -243,7 +238,7 @@ namespace FN::FunctionNodes {
 		SmallSocketVector input_sockets;
 		SmallSocketVector output_sockets;
 
-		for (bNode *bnode : bNodeList(&m_tree->nodes)) {
+		for (bNode *bnode : this->nodes()) {
 			auto insert = inserters.lookup(bnode->idname);
 			insert(graph, socket_map, bnode);
 
@@ -261,13 +256,13 @@ namespace FN::FunctionNodes {
 			}
 		}
 
-		for (bNodeLink *blink : bLinkList(&m_tree->links)) {
+		for (bNodeLink *blink : this->links()) {
 			Socket from = socket_map.lookup(blink->fromsock);
 			Socket to = socket_map.lookup(blink->tosock);
 			graph->link(from, to);
 		}
 
-		for (bNode *bnode : bNodeList(&m_tree->nodes)) {
+		for (bNode *bnode : this->nodes()) {
 			for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
 				Socket socket = socket_map.lookup(bsocket);
 				if (!socket.is_linked()) {
