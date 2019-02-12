@@ -15,6 +15,14 @@ namespace FN {
 			  m_inputs(function_graph.inputs()),
 			  m_outputs(function_graph.outputs()) {}
 
+		void dependencies(Dependencies &deps) const override
+		{
+			for (const Node *node : m_graph->all_nodes()) {
+				const TupleCallBody *body = node->function()->body<TupleCallBody>();
+				if (body) body->dependencies(deps);
+			}
+		}
+
 		void call(const Tuple &fn_in, Tuple &fn_out) const override
 		{
 			for (uint i = 0; i < m_outputs.size(); i++) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core.hpp"
+#include "dependencies.hpp"
 
 namespace FN {
 
@@ -16,6 +17,7 @@ namespace FN {
 		virtual ~TupleCallBody() {};
 
 		virtual void call(const Tuple &fn_in, Tuple &fn_out) const = 0;
+		virtual void dependencies(Dependencies &UNUSED(deps)) const {}
 	};
 
 	class CPPTypeInfo {

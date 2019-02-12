@@ -4,6 +4,7 @@ set(INC
 	../makesdna
 	../makesrna
 	../blenkernel
+	../depsgraph
 )
 
 set(INC_SYS
@@ -14,10 +15,12 @@ set(SRC
 	c_wrapper.cpp
 
 	core/core.hpp
-	core/data_flow_graph.hpp
 	core/cpu.hpp
 	core/cpu.cpp
+	core/data_flow_graph.hpp
 	core/data_flow_graph.cpp
+	core/dependencies.hpp
+	core/dependencies.cpp
 	core/dot_export.cpp
 	core/graph_to_function.hpp
 	core/graph_to_function.cpp

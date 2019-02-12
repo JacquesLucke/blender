@@ -114,6 +114,11 @@ namespace FN::FunctionNodes {
 				fn_out.set<Vector>(0, Vector());
 			}
 		}
+
+		void dependencies(Dependencies &deps) const override
+		{
+			deps.add_object_transform_dependency(m_object);
+		}
 	};
 
 

@@ -56,12 +56,17 @@ static bNodeTree *get_node_tree(void)
 	return (bNodeTree *)G.main->nodetree.first;
 }
 
+static FnFunction get_current_function(void)
+{
+	return FN_testing(get_node_tree());
+}
+
 static void do_deformation(
         FunctionDeformModifierData *fdmd,
         float (*vertexCos)[3],
         int numVerts)
 {
-	FnFunction fn = FN_testing(get_node_tree());
+	FnFunction fn = get_current_function();
 	// FnFunction fn = FN_get_generated_function();
 	FnCallable fn_call = FN_function_get_callable(fn);
 	BLI_assert(fn_call);
@@ -117,9 +122,12 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
 	return true;
 }
 
-static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *UNUSED(ctx))
+static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
 {
 	FunctionDeformModifierData *UNUSED(fdmd) = (FunctionDeformModifierData *)md;
+
+	FnFunction fn = get_current_function();
+	FN_function_update_dependencies(fn, ctx->node);
 }
 
 

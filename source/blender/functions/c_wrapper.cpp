@@ -217,3 +217,13 @@ FnFunction FN_testing(bNodeTree *bnodetree)
 	fn_ref->incref();
 	return wrap(fn_ref);
 }
+
+void FN_function_update_dependencies(
+	FnFunction fn,
+	struct DepsNodeHandle *deps_node)
+{
+	BLI::RefCounted<FN::Function> *fn_ref = unwrap(fn);
+	FN::Dependencies dependencies;
+	fn_ref->ptr()->body<FN::TupleCallBody>()->dependencies(dependencies);
+	dependencies.update_depsgraph(deps_node);
+}
