@@ -5077,6 +5077,11 @@ static void rna_def_modifier_function_deform(BlenderRNA *brna)
 
 	prop = RNA_def_int(srna, "control2", 0, INT_MIN, INT_MAX, "Control 2", "", -10, 10);
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "function_tree", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_EDITABLE);
+	RNA_def_property_ui_text(prop, "Function Tree", "Function node tree");
+	RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)

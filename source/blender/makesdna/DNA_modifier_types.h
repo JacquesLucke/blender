@@ -1947,6 +1947,7 @@ typedef struct FunctionDeformModifierData {
 	ModifierData modifier;
 	float control1;
 	int control2;
+	struct bNodeTree *function_tree;
 } FunctionDeformModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */

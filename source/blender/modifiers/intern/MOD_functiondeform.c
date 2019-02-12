@@ -36,6 +36,7 @@
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_scene.h"
+#include "BKE_library_query.h"
 
 #include "BKE_global.h"
 #include "BKE_main.h"
@@ -51,14 +52,11 @@
 
 #include "FN_functions.h"
 
-static bNodeTree *get_node_tree(void)
+static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
 {
-	return (bNodeTree *)G.main->nodetree.first;
-}
-
-static FnFunction get_current_function(void)
-{
-	return FN_testing(get_node_tree());
+	bNodeTree *tree = fdmd->function_tree;
+	if (tree == NULL) return NULL;
+	return FN_testing(tree);
 }
 
 static void do_deformation(
@@ -66,8 +64,11 @@ static void do_deformation(
         float (*vertexCos)[3],
         int numVerts)
 {
-	FnFunction fn = get_current_function();
-	// FnFunction fn = FN_get_generated_function();
+	FnFunction fn = get_current_function(fdmd);
+	if (fn == NULL) {
+		return;
+	}
+
 	FnCallable fn_call = FN_function_get_callable(fn);
 	BLI_assert(fn_call);
 
@@ -124,10 +125,22 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
 
 static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
 {
-	FunctionDeformModifierData *UNUSED(fdmd) = (FunctionDeformModifierData *)md;
+	FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
 
-	FnFunction fn = get_current_function();
-	FN_function_update_dependencies(fn, ctx->node);
+	FnFunction fn = get_current_function(fdmd);
+	if (fn) {
+		FN_function_update_dependencies(fn, ctx->node);
+		FN_function_free(fn);
+	}
+}
+
+static void foreachIDLink(
+        ModifierData *md, Object *ob,
+        IDWalkFunc walk, void *userData)
+{
+	FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
+
+	walk(userData, ob, (ID **)&fdmd->function_tree, IDWALK_CB_USER);
 }
 
 
@@ -159,6 +172,6 @@ ModifierTypeInfo modifierType_FunctionDeform = {
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */	NULL,
 	/* foreachObjectLink */ NULL,
-	/* foreachIDLink */     NULL,
+	/* foreachIDLink */     foreachIDLink,
 	/* foreachTexLink */    NULL,
 };

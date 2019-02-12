@@ -1636,6 +1636,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
     def FUNCTION_DEFORM(self,layout, ob, md):
         layout.prop(md, "control1")
         layout.prop(md, "control2")
+        layout.prop(md, "function_tree")
 
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
