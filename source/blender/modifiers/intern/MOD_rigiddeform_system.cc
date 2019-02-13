@@ -471,7 +471,6 @@ namespace RigidDeform {
 
 #if USE_CHOLUP
 		Vectors b(m_order.inner_amount());
-		CholUp::Matrix<double> rhs(m_order.inner_amount(), 3);
 		for (uint i = 0; i < m_order.inner_amount(); i++) {
 			for (uint j = 0; j < 3; j++) {
 				b[i][j] = new_inner_diffs[i](j) - anchor_data.m_b_preprocessed[j](i);
