@@ -36,6 +36,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_endian_switch.h"
+#include "BLI_memarena.h"
 
 #ifdef WITH_DNA_GHASH
 #  include "BLI_ghash.h"
@@ -124,47 +125,14 @@
  *  - the sdna functions have several error prints builtin, always check blender running from a console.
  */
 
-/* ************************* MAKE DNA ********************** */
 
-/* allowed duplicate code from makesdna.c */
-
-/**
- * parses the "[n1][n2]..." on the end of an array name and returns the number of array elements n1*n2*...
- */
-int DNA_elem_array_size(const char *str)
-{
-	int result = 1;
-	int current = 0;
-	while (true) {
-		char c = *str++;
-		switch (c) {
-			case '\0':
-				return result;
-			case '[':
-				current = 0;
-				break;
-			case ']':
-				result *= current;
-				break;
-			case '0':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':
-				current = current * 10 + (c - '0');
-				break;
-			default:
-				break;
-		}
-	}
-}
-
-/* ************************* END MAKE DNA ********************** */
+#ifdef __BIG_ENDIAN__
+/* Big Endian */
+#  define MAKE_ID(a, b, c, d) ((int)(a) << 24 | (int)(b) << 16 | (c) << 8 | (d))
+#else
+/* Little Endian */
+#  define MAKE_ID(a, b, c, d) ((int)(d) << 24 | (int)(c) << 16 | (b) << 8 | (a))
+#endif
 
 /* ************************* DIV ********************** */
 
@@ -183,6 +151,10 @@ void DNA_sdna_free(SDNA *sdna)
 		BLI_ghash_free(sdna->structs_map, NULL, NULL);
 	}
 #endif
+
+	if (sdna->mem_arena) {
+		BLI_memarena_free(sdna->mem_arena);
+	}
 
 	MEM_freeN(sdna);
 }
@@ -319,59 +291,15 @@ BLI_INLINE const char *pad_up_4(const char *ptr)
 }
 
 /**
- * Temporary DNA doversion for files that were created with Blender 2.80
- * between October 2016, and November 2017 (>=280.0 and < 280.2).
- *
- * /note This would be way more efficient if we can get the version from SDNA
- * So we could return true if version == 280 && subversion < 2.
- *
- * Returns true if we need to do the DNA renaming.
- */
-static bool need_doversion_280(SDNA *sdna, int *data, const bool data_alloc)
-{
-	if (data_alloc == false) {
-		return false;
-	}
-
-	bool active_layer = false, render_layers = false;
-
-	const char *cp = (char *)data;
-	for (int nr = 0; nr < sdna->nr_names; nr++) {
-		if (strcmp(cp, "active_layer") == 0) {
-			active_layer = true;
-			if (active_layer && render_layers) {
-				return true;
-			}
-		}
-		else if (strcmp(cp, "render_layers") == 0) {
-			render_layers = true;
-			if (active_layer && render_layers) {
-				return true;
-			}
-		}
-
-		while (*cp) cp++;
-		cp++;
-	}
-
-	/* If someone adds only one of them to the DNA, don't! */
-	BLI_assert(!(active_layer || render_layers));
-	return false;
-}
-
-/**
  * In sdna->data the data, now we convert that to something understandable
  */
 static bool init_structDNA(
         SDNA *sdna, bool do_endian_swap,
-        bool data_alloc,
         const char **r_error_message)
 {
-	int *data, *verg, gravity_fix = -1;
+	int *data, gravity_fix = -1;
 	short *sp;
-	char str[8];
 
-	verg = (int *)str;
 	data = (int *)sdna->data;
 
 	/* clear pointers incase of error */
@@ -381,9 +309,10 @@ static bool init_structDNA(
 #ifdef WITH_DNA_GHASH
 	sdna->structs_map = NULL;
 #endif
+	sdna->mem_arena = NULL;
 
-	strcpy(str, "SDNA");
-	if (*data != *verg) {
+	/* Struct DNA ('SDNA') */
+	if (*data != MAKE_ID('S', 'D', 'N', 'A')) {
 		*r_error_message = "SDNA error in SDNA file";
 		return false;
 	}
@@ -391,10 +320,8 @@ static bool init_structDNA(
 		const char *cp;
 
 		data++;
-
-		/* load names array */
-		strcpy(str, "NAME");
-		if (*data == *verg) {
+		/* Names array ('NAME') */
+		if (*data == MAKE_ID('N', 'A', 'M', 'E')) {
 			data++;
 
 			sdna->nr_names = *data;
@@ -410,10 +337,6 @@ static bool init_structDNA(
 			return false;
 		}
 
-		/* Temporary DNA doversion for files that were created with Blender 2.80
-		 * between 280.0 and 280.2. */
-		const bool doversion_280 = need_doversion_280(sdna, data, data_alloc);
-
 		cp = (char *)data;
 		for (int nr = 0; nr < sdna->nr_names; nr++) {
 			sdna->names[nr] = cp;
@@ -427,39 +350,15 @@ static bool init_structDNA(
 					gravity_fix = nr;
 				}
 			}
-			else if (doversion_280) {
-				if (strcmp(cp, "*render_layer") == 0) {
-					/* WorkSpace. */
-					sdna->names[nr] = "*view_layer";
-				}
-				else if (strcmp(cp, "*scene_layer") == 0) {
-					/* ParticleEditSettings. */
-					sdna->names[nr] = "*view_layer";
-				}
-				else if (strcmp(cp, "render_layers") == 0) {
-					/* Scene. */
-					sdna->names[nr] = "view_layers";
-				}
-				else if (strcmp(cp, "active_layer") == 0) {
-					/* Scene. */
-					sdna->names[nr] = "active_view_layer";
-				}
-				else if (strcmp(cp, "*cur_render_layer") == 0) {
-					/* FileGlobal. */
-					sdna->names[nr] = "*cur_view_layer";
-				}
-			}
-
 			while (*cp) cp++;
 			cp++;
 		}
 
 		cp = pad_up_4(cp);
 
-		/* load type names array */
+		/* Type names array ('TYPE') */
 		data = (int *)cp;
-		strcpy(str, "TYPE");
-		if (*data == *verg) {
+		if (*data == MAKE_ID('T', 'Y', 'P', 'E')) {
 			data++;
 
 			sdna->nr_types = *data;
@@ -494,14 +393,6 @@ static bool init_structDNA(
 			else if (strcmp("CollectionObject", cp) == 0) {
 				sdna->types[nr] = "GroupObject";
 			}
-			else if (doversion_280) {
-				if (strcmp(cp, "SceneLayer") == 0) {
-					sdna->types[nr] = "ViewLayer";
-				}
-				else if (strcmp(cp, "SceneLayerEngineData") == 0) {
-					sdna->types[nr] = "ViewLayerEngineData";
-				}
-			}
 
 			while (*cp) cp++;
 			cp++;
@@ -509,10 +400,9 @@ static bool init_structDNA(
 
 		cp = pad_up_4(cp);
 
-		/* load typelen array */
+		/* Type lengths array ('TLEN') */
 		data = (int *)cp;
-		strcpy(str, "TLEN");
-		if (*data == *verg) {
+		if (*data == MAKE_ID('T', 'L', 'E', 'N')) {
 			data++;
 			sp = (short *)data;
 			sdna->typelens = sp;
@@ -529,10 +419,9 @@ static bool init_structDNA(
 		}
 		if (sdna->nr_types & 1) sp++;   /* prevent BUS error */
 
-		/* load struct array */
+		/* Struct array ('STRC') */
 		data = (int *)sp;
-		strcpy(str, "STRC");
-		if (*data == *verg) {
+		if (*data == MAKE_ID('S', 'T', 'R', 'C')) {
 			data++;
 
 			sdna->nr_structs = *data;
@@ -644,7 +533,7 @@ SDNA *DNA_sdna_from_data(
 	sdna->data_alloc = data_alloc;
 
 
-	if (init_structDNA(sdna, do_endian_swap, data_alloc, &error_message)) {
+	if (init_structDNA(sdna, do_endian_swap, &error_message)) {
 		return sdna;
 	}
 	else {
@@ -1473,3 +1362,79 @@ int DNA_elem_type_size(const eSDNA_Type elem_nr)
 	/* weak */
 	return 8;
 }
+
+/* -------------------------------------------------------------------- */
+/** \name Version Patch DNA
+ * \{ */
+
+static bool DNA_sdna_patch_struct_nr(
+        SDNA *sdna, const int struct_name_old_nr, const char *struct_name_new)
+{
+	BLI_assert(DNA_struct_find_nr(DNA_sdna_current_get(), struct_name_new) != -1);
+	const short *sp = sdna->structs[struct_name_old_nr];
+#ifdef WITH_DNA_GHASH
+	BLI_ghash_remove(sdna->structs_map, (void *)sdna->types[sp[0]], NULL, NULL);
+	BLI_ghash_insert(sdna->structs_map, (void *)struct_name_new, POINTER_FROM_INT(struct_name_old_nr));
+#endif
+	// printf("Struct rename: %s -> %s\n", sdna->types[struct_name_old_nr], struct_name_new);
+	sdna->types[sp[0]] = struct_name_new;
+	return true;
+}
+/**
+ * Rename a struct
+ */
+bool DNA_sdna_patch_struct(
+        SDNA *sdna, const char *struct_name_old, const char *struct_name_new)
+{
+	const int struct_name_old_nr = DNA_struct_find_nr(sdna, struct_name_old);
+	if (struct_name_old_nr != -1) {
+		return DNA_sdna_patch_struct_nr(sdna, struct_name_old_nr, struct_name_new);
+	}
+	return false;
+}
+
+/* Make public if called often with same struct (avoid duplicate look-ups). */
+static bool DNA_sdna_patch_struct_member_nr(
+        SDNA *sdna, const int struct_name_nr, const char *member_old, const char *member_new)
+{
+	const int member_old_len = strlen(member_old);
+	const int member_new_len = strlen(member_new);
+	BLI_assert(member_new != NULL);
+	const short *sp = sdna->structs[struct_name_nr];
+	for (int member_iter = sp[1]; member_iter > 0; member_iter--, sp += 2) {
+		const char *elem_full_old = sdna->names[sp[1]];
+		/* Start & end offsets in 'elem_full_old'. */
+		uint elem_full_offset_start;
+		if (DNA_elem_id_match(member_old, member_old_len, elem_full_old, &elem_full_offset_start)) {
+			if (sdna->mem_arena == NULL) {
+				sdna->mem_arena = BLI_memarena_new(BLI_MEMARENA_STD_BUFSIZE, __func__);
+			}
+			const int elem_full_old_len = strlen(elem_full_old);
+			const char *elem_full_new = DNA_elem_id_rename(
+			        sdna->mem_arena,
+			        member_old, member_old_len,
+			        member_new, member_new_len,
+			        elem_full_old, elem_full_old_len,
+			        elem_full_offset_start);
+
+			sdna->names[sp[1]] = elem_full_new;
+			return true;
+		}
+	}
+	return false;
+}
+/**
+ * Replace \a member_old with \a member_new for struct \a struct_name
+ * handles search & replace, maintaining surrounding non-identifier characters such as pointer & array size.
+ */
+bool DNA_sdna_patch_struct_member(
+        SDNA *sdna, const char *struct_name, const char *member_old, const char *member_new)
+{
+	const int struct_name_nr = DNA_struct_find_nr(sdna, struct_name);
+	if (struct_name_nr != -1) {
+		return DNA_sdna_patch_struct_member_nr(sdna, struct_name_nr, member_old, member_new);
+	}
+	return false;
+}
+
+/** \} */

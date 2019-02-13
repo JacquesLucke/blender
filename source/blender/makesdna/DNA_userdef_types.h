@@ -434,7 +434,6 @@ typedef struct bTheme {
 	ThemeSpace tima;
 	ThemeSpace text;
 	ThemeSpace toops;
-	ThemeSpace ttime;
 	ThemeSpace tnode;
 	ThemeSpace tuserpref;
 	ThemeSpace tconsole;
@@ -641,7 +640,7 @@ typedef struct UserDef {
 	short edit_studio_light;
 	char _pad6[4];
 	short textimeout, texcollectrate;
-	short dragthreshold;
+	char _pad14[2];
 	int memcachelimit;
 	int prefetchframes;
 	/** Control the rotation step of the view when PAD2, PAD4, PAD6&PAD8 is use. */

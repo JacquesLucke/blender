@@ -52,13 +52,22 @@ class VIEW3D_HT_header(Header):
 
         object_mode = 'OBJECT' if obj is None else obj.mode
 
+        # Note: This is actually deadly in case enum_items have to be dynamically generated
+        #       (because internal RNA array iterator will free everything immediately...).
+        # XXX This is an RNA internal issue, not sure how to fix it.
+        # Note: Tried to add an accessor to get translated UI strings instead of manual call
+        #       to pgettext_iface below, but this fails because translated enumitems
+        #       are always dynamically allocated.
         act_mode_item = bpy.types.Object.bl_rna.properties["mode"].enum_items[object_mode]
+        act_mode_i18n_context = bpy.types.Object.bl_rna.properties["mode"].translation_context
 
         row.separator()
 
         sub = row.row()
         sub.ui_units_x = 5.5
-        sub.operator_menu_enum("object.mode_set", "mode", text=act_mode_item.name, icon=act_mode_item.icon)
+        sub.operator_menu_enum("object.mode_set", "mode",
+                               text=bpy.app.translations.pgettext_iface(act_mode_item.name, act_mode_i18n_context),
+                               icon=act_mode_item.icon)
         del act_mode_item
 
         layout.template_header_3D_mode()
@@ -4446,11 +4455,11 @@ class VIEW3D_PT_shading_lighting(Panel):
                 prefs = context.preferences
                 system = prefs.system
 
-                if not system.edit_studio_light:
+                if not system.use_studio_light_edit:
                     sub.scale_y = 0.6  # smaller studiolight preview
                     sub.template_icon_view(shading, "studio_light", scale_popup=3.0)
                 else:
-                    sub.prop(system, "edit_studio_light", text="Disable Studio Light Edit", icon='NONE', toggle=True)
+                    sub.prop(system, "use_studio_light_edit", text="Disable Studio Light Edit", icon='NONE', toggle=True)
 
                 col = split.column()
                 col.operator("wm.studiolight_userpref_show", emboss=False, text="", icon='PREFERENCES')

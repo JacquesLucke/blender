@@ -742,11 +742,6 @@ const bTheme U_theme_default = {
 		.match = RGBA(0x337f334c),
 		.selected_highlight = RGBA(0x314e784c),
 	},
-	.ttime = {
-		.vertex_size = 3,
-		.outline_width = 1,
-		.facedot_size = 4,
-	},
 	.tnode = {
 		.back = RGBA(0x23232300),
 		.title = RGBA(0xeeeeeeff),
@@ -786,7 +781,7 @@ const bTheme U_theme_default = {
 		.syntaxb = RGBA(0xccb83dff),
 		.syntaxn = RGBA(0xe64555ff),
 		.syntaxv = RGBA(0x66c4ffff),
-		.syntaxc = RGBA(0x426628ff),
+		.syntaxc = RGBA(0x426628b9),
 		.syntaxd = RGBA(0x749797ff),
 		.syntaxr = RGBA(0x808080ff),
 		.nodeclass_output = RGBA(0xb33641ff),
