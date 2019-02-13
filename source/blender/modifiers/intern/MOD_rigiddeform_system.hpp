@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <memory>
+#include <array>
+#include <vector>
 
 #include "Eigen/Sparse"
 #include "Eigen/Dense"
