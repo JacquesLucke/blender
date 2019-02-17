@@ -110,6 +110,18 @@ namespace BLI {
 			return m_size;
 		}
 
+		bool empty() const
+		{
+			return this->size() == 0;
+		}
+
+		void remove_last()
+		{
+			BLI_assert(!this->empty());
+			(this->m_elements + m_size - 1)->~T();
+			m_size--;
+		}
+
 		int index(const T &value) const
 		{
 			for (uint i = 0; i < m_size; i++) {

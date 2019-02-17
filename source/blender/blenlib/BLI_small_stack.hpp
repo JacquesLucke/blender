@@ -1,0 +1,43 @@
+#include "BLI_small_vector.hpp"
+
+namespace BLI {
+
+	template<typename T>
+	class SmallStack {
+	private:
+		SmallVector<T> m_elements;
+
+	public:
+		SmallStack() = default;
+
+		uint size() const
+		{
+			return m_elements.size();
+		}
+
+		bool empty() const
+		{
+			return this->size() == 0;
+		}
+
+		void push(T value)
+		{
+			m_elements.append(value);
+		}
+
+		T pop()
+		{
+			BLI_assert(!this->empty());
+			T value = m_elements[this->size() - 1];
+			m_elements.remove_last();
+			return value;
+		}
+
+		T &peek()
+		{
+			BLI_assert(!this->empty());
+			return m_elements[this->size() - 1];
+		}
+	};
+
+} /* namespace BLI */
