@@ -226,6 +226,7 @@ set(SRC
 	PIL_time_utildefines.h
 
 	BLI_composition.hpp
+	BLI_lazy_init.hpp
 	BLI_mempool.hpp
 	BLI_shared.hpp
 	BLI_small_vector.hpp
