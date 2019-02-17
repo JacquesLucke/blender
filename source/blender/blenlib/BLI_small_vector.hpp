@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <iostream>
 
 namespace BLI {
 
@@ -147,6 +148,14 @@ namespace BLI {
 		{ return this->begin(); }
 		const T *cend() const
 		{ return this->end(); }
+
+		void print_stats() const
+		{
+			std::cout << "Small Vector at " << (void *)this << ":" << std::endl;
+			std::cout << "  Elements: " << this->size() << std::endl;
+			std::cout << "  Capacity: " << this->m_capacity << std::endl;
+			std::cout << "  Small Elements: " << N << "  Size on Stack: " << sizeof(*this) << std::endl;
+		}
 
 	private:
 		T *small_buffer() const
