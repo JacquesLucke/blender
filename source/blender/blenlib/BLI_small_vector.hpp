@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <iostream>
 
 namespace BLI {
 
@@ -110,6 +111,32 @@ namespace BLI {
 			return m_size;
 		}
 
+		bool empty() const
+		{
+			return this->size() == 0;
+		}
+
+		void remove_last()
+		{
+			BLI_assert(!this->empty());
+			this->destruct_element(m_size - 1);
+			m_size--;
+		}
+
+		void remove_and_reorder(uint index)
+		{
+			BLI_assert(this->is_index_in_range(index));
+			if (index < m_size - 1) {
+				/* Move last element to index. */
+				std::copy(
+					std::make_move_iterator(this->end() - 1),
+					std::make_move_iterator(this->end()),
+					this->element_ptr(index));
+			}
+			this->destruct_element(m_size - 1);
+			m_size--;
+		}
+
 		int index(const T &value) const
 		{
 			for (uint i = 0; i < m_size; i++) {
@@ -122,7 +149,7 @@ namespace BLI {
 
 		T &operator[](const int index) const
 		{
-			BLI_assert(index >= 0 && index < this->size());
+			BLI_assert(this->is_index_in_range(index));
 			return m_elements[index];
 		}
 
@@ -136,6 +163,14 @@ namespace BLI {
 		const T *cend() const
 		{ return this->end(); }
 
+		void print_stats() const
+		{
+			std::cout << "Small Vector at " << (void *)this << ":" << std::endl;
+			std::cout << "  Elements: " << this->size() << std::endl;
+			std::cout << "  Capacity: " << this->m_capacity << std::endl;
+			std::cout << "  Small Elements: " << N << "  Size on Stack: " << sizeof(*this) << std::endl;
+		}
+
 	private:
 		T *small_buffer() const
 		{
@@ -145,6 +180,16 @@ namespace BLI {
 		bool is_small() const
 		{
 			return m_elements == this->small_buffer();
+		}
+
+		bool is_index_in_range(uint index) const
+		{
+			return index >= 0 && index < this->size();
+		}
+
+		T *element_ptr(uint index) const
+		{
+			return m_elements + index;
 		}
 
 		inline void ensure_space_for_one()
@@ -224,10 +269,14 @@ namespace BLI {
 		void destruct_elements_but_keep_memory()
 		{
 			for (uint i = 0; i < m_size; i++) {
-				(m_elements + i)->~T();
+				this->destruct_element(i);
 			}
 		}
 
+		void destruct_element(uint index)
+		{
+			this->element_ptr(index)->~T();
+		}
 	};
 
 } /* namespace BLI */

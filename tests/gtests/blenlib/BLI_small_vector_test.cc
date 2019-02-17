@@ -156,3 +156,39 @@ TEST(small_vector, VectorOfVectors_Fill)
 	EXPECT_EQ(vec[2][0], 4);
 	EXPECT_EQ(vec[2][1], 5);
 }
+
+TEST(small_vector, RemoveLast)
+{
+	IntVector vec = {5, 6};
+	EXPECT_EQ(vec.size(), 2);
+	vec.remove_last();
+	EXPECT_EQ(vec.size(), 1);
+	vec.remove_last();
+	EXPECT_EQ(vec.size(), 0);
+}
+
+TEST(small_vector, Empty)
+{
+	IntVector vec;
+	EXPECT_TRUE(vec.empty());
+	vec.append(1);
+	EXPECT_FALSE(vec.empty());
+	vec.remove_last();
+	EXPECT_TRUE(vec.empty());
+}
+
+TEST(small_vector, RemoveReorder)
+{
+	IntVector vec = {4, 5, 6, 7};
+	vec.remove_and_reorder(1);
+	EXPECT_EQ(vec[0], 4);
+	EXPECT_EQ(vec[1], 7);
+	EXPECT_EQ(vec[2], 6);
+	vec.remove_and_reorder(2);
+	EXPECT_EQ(vec[0], 4);
+	EXPECT_EQ(vec[1], 7);
+	vec.remove_and_reorder(0);
+	EXPECT_EQ(vec[0], 7);
+	vec.remove_and_reorder(0);
+	EXPECT_TRUE(vec.empty());
+}

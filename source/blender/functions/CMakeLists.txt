@@ -24,6 +24,10 @@ set(SRC
 	core/dot_export.cpp
 	core/graph_to_function.hpp
 	core/graph_to_function.cpp
+	core/type_inferencing.hpp
+	core/type_inferencing.cpp
+	core/type_relations.hpp
+	core/type_relations.cpp
 
 	FN_functions.hpp
 
