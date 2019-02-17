@@ -4276,8 +4276,8 @@ static void lib_link_particlesettings(FileData *fd, Main *main)
 
 			part->ipo = newlibadr_us(fd, part->id.lib, part->ipo); // XXX deprecated - old animation system
 
-			part->dup_ob = newlibadr(fd, part->id.lib, part->dup_ob);
-			part->dup_group = newlibadr_us(fd, part->id.lib, part->dup_group);
+			part->instance_object = newlibadr(fd, part->id.lib, part->instance_object);
+			part->instance_collection = newlibadr_us(fd, part->id.lib, part->instance_collection);
 			part->eff_group = newlibadr(fd, part->id.lib, part->eff_group);
 			part->bb_ob = newlibadr(fd, part->id.lib, part->bb_ob);
 			part->collision_group = newlibadr(fd, part->id.lib, part->collision_group);
@@ -4292,13 +4292,13 @@ static void lib_link_particlesettings(FileData *fd, Main *main)
 				part->effector_weights = BKE_effector_add_weights(part->eff_group);
 			}
 
-			if (part->dupliweights.first && part->dup_group) {
-				for (ParticleDupliWeight *dw = part->dupliweights.first; dw; dw = dw->next) {
+			if (part->instance_weights.first && part->instance_collection) {
+				for (ParticleDupliWeight *dw = part->instance_weights.first; dw; dw = dw->next) {
 					dw->ob = newlibadr(fd, part->id.lib, dw->ob);
 				}
 			}
 			else {
-				BLI_listbase_clear(&part->dupliweights);
+				BLI_listbase_clear(&part->instance_weights);
 			}
 
 			if (part->boids) {
@@ -4370,7 +4370,7 @@ static void direct_link_particlesettings(FileData *fd, ParticleSettings *part)
 	if (!part->effector_weights)
 		part->effector_weights = BKE_effector_add_weights(part->eff_group);
 
-	link_list(fd, &part->dupliweights);
+	link_list(fd, &part->instance_weights);
 
 	part->boids = newdataadr(fd, part->boids);
 	part->fluid = newdataadr(fd, part->fluid);
@@ -4717,7 +4717,7 @@ static void direct_link_mesh(FileData *fd, Mesh *mesh)
 	direct_link_customdata(fd, &mesh->pdata, mesh->totpoly);
 
 	mesh->bb = NULL;
-	mesh->edit_btmesh = NULL;
+	mesh->edit_mesh = NULL;
 	BKE_mesh_runtime_reset(mesh);
 
 	/* happens with old files */
@@ -4883,10 +4883,10 @@ static void lib_link_object(FileData *fd, Main *main)
 
 			/* 2.8x drops support for non-empty dupli instances. */
 			if (ob->type == OB_EMPTY) {
-				ob->dup_group = newlibadr_us(fd, ob->id.lib, ob->dup_group);
+				ob->instance_collection = newlibadr_us(fd, ob->id.lib, ob->instance_collection);
 			}
 			else {
-				ob->dup_group = NULL;
+				ob->instance_collection = NULL;
 				ob->transflag &= ~OB_DUPLICOLLECTION;
 			}
 
@@ -5654,7 +5654,7 @@ static void direct_link_object(FileData *fd, Object *ob)
 		BKE_object_empty_draw_type_set(ob, ob->empty_drawtype);
 	}
 
-	ob->bb = NULL;
+	ob->runtime.bb = NULL;
 	ob->derivedDeform = NULL;
 	ob->derivedFinal = NULL;
 	BKE_object_runtime_reset(ob);
@@ -6791,8 +6791,8 @@ static void direct_link_area(FileData *fd, ScrArea *area)
 
 			blo_do_versions_view3d_split_250(v3d, &sl->regionbase);
 		}
-		else if (sl->spacetype == SPACE_IPO) {
-			SpaceIpo *sipo = (SpaceIpo *)sl;
+		else if (sl->spacetype == SPACE_GRAPH) {
+			SpaceGraph *sipo = (SpaceGraph *)sl;
 
 			sipo->ads = newdataadr(fd, sipo->ads);
 			BLI_listbase_clear(&sipo->runtime.ghost_curves);
@@ -6803,7 +6803,7 @@ static void direct_link_area(FileData *fd, ScrArea *area)
 			snla->ads = newdataadr(fd, snla->ads);
 		}
 		else if (sl->spacetype == SPACE_OUTLINER) {
-			SpaceOops *soops = (SpaceOops *)sl;
+			SpaceOutliner *soops = (SpaceOutliner *)sl;
 
 			/* use newdataadr_no_us and do not free old memory avoiding double
 			 * frees and use of freed memory. this could happen because of a
@@ -6893,8 +6893,8 @@ static void direct_link_area(FileData *fd, ScrArea *area)
 			sseq->scopes.histogram_ibuf = NULL;
 			sseq->compositor = NULL;
 		}
-		else if (sl->spacetype == SPACE_BUTS) {
-			SpaceButs *sbuts = (SpaceButs *)sl;
+		else if (sl->spacetype == SPACE_PROPERTIES) {
+			SpaceProperties *sbuts = (SpaceProperties *)sl;
 
 			sbuts->path = NULL;
 			sbuts->texuser = NULL;
@@ -6977,9 +6977,9 @@ static void lib_link_area(FileData *fd, ID *parent_id, ScrArea *area)
 				}
 				break;
 			}
-			case SPACE_IPO:
+			case SPACE_GRAPH:
 			{
-				SpaceIpo *sipo = (SpaceIpo *)sl;
+				SpaceGraph *sipo = (SpaceGraph *)sl;
 				bDopeSheet *ads = sipo->ads;
 
 				if (ads) {
@@ -6988,9 +6988,9 @@ static void lib_link_area(FileData *fd, ID *parent_id, ScrArea *area)
 				}
 				break;
 			}
-			case SPACE_BUTS:
+			case SPACE_PROPERTIES:
 			{
-				SpaceButs *sbuts = (SpaceButs *)sl;
+				SpaceProperties *sbuts = (SpaceProperties *)sl;
 				sbuts->pinid = newlibadr(fd, parent_id->lib, sbuts->pinid);
 				if (sbuts->pinid == NULL) {
 					sbuts->flag &= ~SB_PIN_CONTEXT;
@@ -7067,7 +7067,7 @@ static void lib_link_area(FileData *fd, ID *parent_id, ScrArea *area)
 			}
 			case SPACE_OUTLINER:
 			{
-				SpaceOops *so = (SpaceOops *)sl;
+				SpaceOutliner *so = (SpaceOutliner *)sl;
 				so->search_tse.id = newlibadr(fd, NULL, so->search_tse.id);
 
 				if (so->treestore) {
@@ -7464,8 +7464,8 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map, Main
 						}
 					}
 				}
-				else if (sl->spacetype == SPACE_IPO) {
-					SpaceIpo *sipo = (SpaceIpo *)sl;
+				else if (sl->spacetype == SPACE_GRAPH) {
+					SpaceGraph *sipo = (SpaceGraph *)sl;
 					bDopeSheet *ads = sipo->ads;
 
 					if (ads) {
@@ -7480,8 +7480,8 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map, Main
 					 */
 					sipo->runtime.flag |= SIPO_RUNTIME_FLAG_NEED_CHAN_SYNC_COLOR;
 				}
-				else if (sl->spacetype == SPACE_BUTS) {
-					SpaceButs *sbuts = (SpaceButs *)sl;
+				else if (sl->spacetype == SPACE_PROPERTIES) {
+					SpaceProperties *sbuts = (SpaceProperties *)sl;
 					sbuts->pinid = restore_pointer_by_name(id_map, sbuts->pinid, USER_IGNORE);
 					if (sbuts->pinid == NULL) {
 						sbuts->flag &= ~SB_PIN_CONTEXT;
@@ -7571,7 +7571,7 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map, Main
 					}
 				}
 				else if (sl->spacetype == SPACE_OUTLINER) {
-					SpaceOops *so = (SpaceOops *)sl;
+					SpaceOutliner *so = (SpaceOutliner *)sl;
 
 					so->search_tse.id = restore_pointer_by_name(id_map, so->search_tse.id, USER_IGNORE);
 
@@ -8780,8 +8780,8 @@ static void do_versions_userdef(FileData *fd, BlendFileData *bfd)
 
 		/* themes for Node and Sequence editor were not using grid color, but back. we copy this over then */
 		for (btheme = user->themes.first; btheme; btheme = btheme->next) {
-			copy_v4_v4_char(btheme->tnode.grid, btheme->tnode.back);
-			copy_v4_v4_char(btheme->tseq.grid, btheme->tseq.back);
+			copy_v4_v4_char(btheme->space_node.grid, btheme->space_node.back);
+			copy_v4_v4_char(btheme->space_sequencer.grid, btheme->space_sequencer.back);
 		}
 	}
 
@@ -9499,8 +9499,8 @@ static void expand_particlesettings(FileData *fd, Main *mainvar, ParticleSetting
 {
 	int a;
 
-	expand_doit(fd, mainvar, part->dup_ob);
-	expand_doit(fd, mainvar, part->dup_group);
+	expand_doit(fd, mainvar, part->instance_object);
+	expand_doit(fd, mainvar, part->instance_collection);
 	expand_doit(fd, mainvar, part->eff_group);
 	expand_doit(fd, mainvar, part->bb_ob);
 	expand_doit(fd, mainvar, part->collision_group);
@@ -9546,7 +9546,7 @@ static void expand_particlesettings(FileData *fd, Main *mainvar, ParticleSetting
 		}
 	}
 
-	for (ParticleDupliWeight *dw = part->dupliweights.first; dw; dw = dw->next) {
+	for (ParticleDupliWeight *dw = part->instance_weights.first; dw; dw = dw->next) {
 		expand_doit(fd, mainvar, dw->ob);
 	}
 }
@@ -9868,8 +9868,8 @@ static void expand_object(FileData *fd, Main *mainvar, Object *ob)
 	if (paf && paf->group)
 		expand_doit(fd, mainvar, paf->group);
 
-	if (ob->dup_group)
-		expand_doit(fd, mainvar, ob->dup_group);
+	if (ob->instance_collection)
+		expand_doit(fd, mainvar, ob->instance_collection);
 
 	if (ob->proxy)
 		expand_doit(fd, mainvar, ob->proxy);
@@ -10396,7 +10396,7 @@ static void add_collections_to_scene(
 			view_layer->basact = base;
 
 			/* Assign the collection. */
-			ob->dup_group = collection;
+			ob->instance_collection = collection;
 			id_us_plus(&collection->id);
 			ob->transflag |= OB_DUPLICOLLECTION;
 			copy_v3_v3(ob->loc, scene->cursor.location);

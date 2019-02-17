@@ -1216,7 +1216,7 @@ static int collection_instance_add_exec(bContext *C, wmOperator *op)
 		}
 
 		Object *ob = ED_object_add_type(C, OB_EMPTY, collection->id.name + 2, loc, rot, false, local_view_bits);
-		ob->dup_group = collection;
+		ob->instance_collection = collection;
 		ob->transflag |= OB_DUPLICOLLECTION;
 		id_us_plus(&collection->id);
 
@@ -1685,7 +1685,7 @@ static void make_object_duplilist_real(bContext *C, Scene *scene, Base *base,
 		}
 	}
 
-	if (base->object->transflag & OB_DUPLICOLLECTION && base->object->dup_group) {
+	if (base->object->transflag & OB_DUPLICOLLECTION && base->object->instance_collection) {
 		for (Object *ob = bmain->object.first; ob; ob = ob->id.next) {
 			if (ob->proxy_group == base->object) {
 				ob->proxy = NULL;
@@ -1771,7 +1771,7 @@ static void convert_ensure_curve_cache(Depsgraph *depsgraph, Scene *scene, Objec
 		if (ELEM(ob->type, OB_SURF, OB_CURVE, OB_FONT)) {
 			/* We need 'for render' ON here, to enable computing bevel dipslist if needed.
 			 * Also makes sense anyway, we would not want e.g. to loose hidden parts etc. */
-			BKE_displist_make_curveTypes(depsgraph, scene, ob, true, false);
+			BKE_displist_make_curveTypes(depsgraph, scene, ob, true, false, NULL);
 		}
 		else if (ob->type == OB_MBALL) {
 			BKE_displist_make_mball(depsgraph, scene, ob);

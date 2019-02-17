@@ -616,10 +616,10 @@ static void OBJECT_engine_init(void *vedata)
 		float dist;
 		if (rv3d->persp == RV3D_CAMOB && v3d->camera && v3d->camera->type == OB_CAMERA) {
 			Object *camera_object = DEG_get_evaluated_object(draw_ctx->depsgraph, v3d->camera);
-			dist = ((Camera *)(camera_object->data))->clipend;
+			dist = ((Camera *)(camera_object->data))->clip_end;
 		}
 		else {
-			dist = v3d->far;
+			dist = v3d->clip_end;
 		}
 
 		e_data.grid_settings[0] = dist / 2.0f; /* gridDistance */
@@ -1915,10 +1915,10 @@ static void DRW_shgroup_camera(OBJECT_ShadingGroupList *sgl, Object *ob, ViewLay
 
 		DRW_shgroup_call_dynamic_add(
 		        sgl->camera_clip, color,
-		        &cam->clipsta, &cam->clipend, cam->runtime.drw_normalmat);
+		        &cam->clip_start, &cam->clip_end, cam->runtime.drw_normalmat);
 		DRW_shgroup_call_dynamic_add(
 		        sgl->camera_clip_points, (is_active ? col_hi : col),
-		        &cam->clipsta, &cam->clipend, cam->runtime.drw_normalmat);
+		        &cam->clip_start, &cam->clip_end, cam->runtime.drw_normalmat);
 	}
 
 	if (cam->flag & CAM_SHOWMIST) {
@@ -2961,7 +2961,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 				bool has_edit_mesh_cage = false;
 				/* TODO: Should be its own function. */
 				if (is_edit_mode) {
-					BMEditMesh *embm = me->edit_btmesh;
+					BMEditMesh *embm = me->edit_mesh;
 					has_edit_mesh_cage = embm->mesh_eval_cage && (embm->mesh_eval_cage != embm->mesh_eval_final);
 				}
 				if (!is_edit_mode ||

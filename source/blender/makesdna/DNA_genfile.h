@@ -107,6 +107,8 @@ int DNA_elem_type_size(const eSDNA_Type elem_nr);
 bool DNA_sdna_patch_struct(
         struct SDNA *sdna, const char *struct_name_old, const char *struct_name_new);
 bool DNA_sdna_patch_struct_member(
-        struct SDNA *sdna, const char *struct_name, const char *member_old, const char *member_new);
+        struct SDNA *sdna, const char *struct_name, const char *elem_old, const char *elem_new);
+
+void DNA_sdna_alias_data_ensure(struct SDNA *sdna);
 
 #endif /* __DNA_GENFILE_H__ */
