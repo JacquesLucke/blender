@@ -28,4 +28,12 @@ namespace FN::Types {
 		return type;
 	}
 
+	LAZY_INIT_NO_ARG(SharedType &, SharedType, get_float_list_type)
+	{
+		SharedType type = SharedType::New("Float List");
+		type->extend(new CPPTypeInfoForType<SmallVector<float>>());
+		type->extend(new ListTypeInfo(get_float_type()));
+		return type;
+	}
+
 } /* namespace FN::Types */

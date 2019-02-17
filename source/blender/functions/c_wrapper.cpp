@@ -15,8 +15,11 @@ WRAPPERS(BLI::RefCounted<FN::Type> *, FnType);
 WRAPPERS(FN::Tuple *, FnTuple);
 WRAPPERS(const FN::TupleCallBody *, FnCallable);
 
+void FN_test_inferencer(void);
+
 void FN_initialize()
 {
+	FN_test_inferencer();
 }
 
 void FN_function_call(FnCallable fn_call, FnTuple fn_in, FnTuple fn_out)
@@ -208,4 +211,45 @@ void FN_testing(bNodeTree *bnodetree)
 	FN::FunctionNodes::FunctionNodeTree tree(bnodetree);
 	auto graph = tree.to_data_flow_graph();
 	std::cout << graph->to_dot() << std::endl;
+}
+
+void FN_test_inferencer()
+{
+	FN::SharedType &float_ty = FN::Types::get_float_type();
+	FN::SharedType &int32_ty = FN::Types::get_int32_type();
+	FN::SharedType &fvec3_ty = FN::Types::get_fvec3_type();
+	FN::SharedType &float_list_ty = FN::Types::get_float_list_type();
+
+	{
+		FN::Inferencer inferencer;
+		inferencer.insert_final_type(0, float_ty);
+		inferencer.insert_final_type(1, int32_ty);
+		inferencer.insert_final_type(2, fvec3_ty);
+		inferencer.insert_equality_relation({6, 7});
+		inferencer.insert_equality_relation({0, 5, 6});
+		inferencer.insert_equality_relation({1, 4});
+
+		BLI_assert(inferencer.inference());
+
+		BLI_assert(inferencer.get_final_type(5) == float_ty);
+		BLI_assert(inferencer.get_final_type(6) == float_ty);
+		BLI_assert(inferencer.get_final_type(7) == float_ty);
+		BLI_assert(inferencer.get_final_type(4) == int32_ty);
+	}
+	{
+		FN::Inferencer inferencer;
+		inferencer.insert_final_type(0, float_ty);
+		inferencer.insert_final_type(1, int32_ty);
+		inferencer.insert_equality_relation({0, 2});
+		inferencer.insert_equality_relation({1, 2});
+
+		BLI_assert(!inferencer.inference());
+	}
+	{
+		FN::Inferencer inferencer;
+		inferencer.insert_final_type(0, float_ty);
+		inferencer.insert_list_relation({1}, {0});
+
+		BLI_assert(inferencer.inference());
+	}
 }
