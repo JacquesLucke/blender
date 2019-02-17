@@ -119,7 +119,21 @@ namespace BLI {
 		void remove_last()
 		{
 			BLI_assert(!this->empty());
-			(this->m_elements + m_size - 1)->~T();
+			this->destruct_element(m_size - 1);
+			m_size--;
+		}
+
+		void remove_and_reorder(uint index)
+		{
+			BLI_assert(this->is_index_in_range(index));
+			if (index < m_size - 1) {
+				/* Move last element to index. */
+				std::copy(
+					std::make_move_iterator(this->end() - 1),
+					std::make_move_iterator(this->end()),
+					this->element_ptr(index));
+			}
+			this->destruct_element(m_size - 1);
 			m_size--;
 		}
 
@@ -135,7 +149,7 @@ namespace BLI {
 
 		T &operator[](const int index) const
 		{
-			BLI_assert(index >= 0 && index < this->size());
+			BLI_assert(this->is_index_in_range(index));
 			return m_elements[index];
 		}
 
@@ -166,6 +180,16 @@ namespace BLI {
 		bool is_small() const
 		{
 			return m_elements == this->small_buffer();
+		}
+
+		bool is_index_in_range(uint index) const
+		{
+			return index >= 0 && index < this->size();
+		}
+
+		T *element_ptr(uint index) const
+		{
+			return m_elements + index;
 		}
 
 		inline void ensure_space_for_one()
@@ -245,10 +269,14 @@ namespace BLI {
 		void destruct_elements_but_keep_memory()
 		{
 			for (uint i = 0; i < m_size; i++) {
-				(m_elements + i)->~T();
+				this->destruct_element(i);
 			}
 		}
 
+		void destruct_element(uint index)
+		{
+			this->element_ptr(index)->~T();
+		}
 	};
 
 } /* namespace BLI */

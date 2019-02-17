@@ -176,3 +176,19 @@ TEST(small_vector, Empty)
 	vec.remove_last();
 	EXPECT_TRUE(vec.empty());
 }
+
+TEST(small_vector, RemoveReorder)
+{
+	IntVector vec = {4, 5, 6, 7};
+	vec.remove_and_reorder(1);
+	EXPECT_EQ(vec[0], 4);
+	EXPECT_EQ(vec[1], 7);
+	EXPECT_EQ(vec[2], 6);
+	vec.remove_and_reorder(2);
+	EXPECT_EQ(vec[0], 4);
+	EXPECT_EQ(vec[1], 7);
+	vec.remove_and_reorder(0);
+	EXPECT_EQ(vec[0], 7);
+	vec.remove_and_reorder(0);
+	EXPECT_TRUE(vec.empty());
+}
