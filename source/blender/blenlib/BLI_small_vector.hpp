@@ -5,6 +5,7 @@
 #include <cstring>
 #include <memory>
 #include <iostream>
+#include <algorithm>
 
 namespace BLI {
 
@@ -54,7 +55,9 @@ namespace BLI {
 
 		~SmallVector()
 		{
-			this->destruct_elements_and_free_memory();
+			if (m_elements != nullptr) {
+				this->destruct_elements_and_free_memory();
+			}
 		}
 
 		SmallVector &operator=(const SmallVector &other)
