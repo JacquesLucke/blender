@@ -2,15 +2,30 @@
 
 namespace FN {
 
-	const char *ListTypeInfo::identifier_in_composition()
+	void ListTypeRelations::insert(
+		SharedType &base_type,
+		SharedType &list_type,
+		SharedFunction &get_element,
+		SharedFunction &set_element)
 	{
-		return "List Type Info";
-	}
+		BLI_assert(base_type == list_type);
 
-	void ListTypeInfo::free_self(void *value)
-	{
-		ListTypeInfo *v = (ListTypeInfo *)value;
-		delete v;
+		BLI_assert(get_element->signature().has_interface(
+			{list_type, m_index_type},
+			{base_type}));
+
+		BLI_assert(set_element->signature().has_interface(
+			{list_type, m_index_type, base_type},
+			{list_type}));
+
+		Relation relation = {
+			base_type,
+			list_type,
+			get_element,
+			set_element
+		};
+
+		m_relations.append(relation);
 	}
 
 } /* namespace FN */

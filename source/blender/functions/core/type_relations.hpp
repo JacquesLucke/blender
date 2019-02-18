@@ -1,17 +1,30 @@
+#pragma once
+
 #include "core.hpp"
+#include "vector"
 
 namespace FN {
 
-	class ListTypeInfo {
+	class ListTypeRelations {
 	private:
-		SharedType m_base_type;
+		struct Relation {
+			SharedType base_type;
+			SharedType list_type;
+			SharedFunction get_element;
+			SharedFunction set_element;
+		};
+
+		SharedType m_index_type;
+		SmallVector<Relation> m_relations;
 
 	public:
-		static const char *identifier_in_composition();
-		static void free_self(void *value);
+		ListTypeRelations(SharedType &index_type);
 
-		ListTypeInfo(SharedType &base_type)
-			: m_base_type(base_type) {}
+		void insert(
+			SharedType &base_type,
+			SharedType &list_type,
+			SharedFunction &get_element,
+			SharedFunction &set_element);
 	};
 
 } /* namespace FN */

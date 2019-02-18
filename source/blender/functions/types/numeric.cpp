@@ -33,7 +33,6 @@ namespace FN { namespace Types {
 	{
 		SharedType type = SharedType::New("Float List");
 		type->extend(new CPPTypeInfoForType<SmallVector<float>>());
-		type->extend(new ListTypeInfo(get_float_type()));
 		return type;
 	}
 
