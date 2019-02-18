@@ -1,7 +1,8 @@
 #include "numeric.hpp"
 #include "BLI_lazy_init.hpp"
 
-namespace FN::Types {
+namespace FN { namespace Types {
+
 
 	struct Vector {
 		float x, y, z;
@@ -36,4 +37,4 @@ namespace FN::Types {
 		return type;
 	}
 
-} /* namespace FN::Types */
+} } /* namespace FN::Types */

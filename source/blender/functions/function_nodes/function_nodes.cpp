@@ -9,7 +9,7 @@
 
 #include "DNA_object_types.h"
 
-namespace FN::FunctionNodes {
+namespace FN { namespace FunctionNodes {
 
 	using SocketMap = SmallMap<bNodeSocket *, Socket>;
 	typedef void (*InsertInGraphFunction)(
@@ -354,4 +354,4 @@ namespace FN::FunctionNodes {
 		return fgraph;
 	}
 
-} /* FN::FunctionNodes */
+} } /* FN::FunctionNodes */
