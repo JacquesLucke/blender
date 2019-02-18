@@ -2,6 +2,7 @@
 #include "FN_functions.hpp"
 
 #include "function_nodes/function_nodes.hpp"
+#include "BLI_lazy_init.hpp"
 
 #include <iostream>
 
@@ -230,6 +231,28 @@ void FN_function_update_dependencies(
 	dependencies.update_depsgraph(deps_node);
 }
 
+class GetFloatListElement : public FN::TupleCallBody {
+	void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+	{
+		auto list = fn_in.get<BLI::SmallVector<float>>(0);
+		int32_t index = fn_in.get<int32_t>(1);
+		fn_out.set<float>(0, list[index]);
+	}
+};
+
+LAZY_INIT_NO_ARG(FN::SharedFunction&, FN::SharedFunction, get__get_float_list_element)
+{
+	auto signature = FN::Signature({
+		FN::InputParameter("List", FN::Types::get_float_list_type()),
+		FN::InputParameter("Index", FN::Types::get_int32_type())
+	}, {
+		FN::OutputParameter("Value", FN::Types::get_float_type())
+	});
+	auto fn = FN::SharedFunction::New(signature);
+	fn->add_body(new GetFloatListElement());
+	return fn;
+}
+
 void FN_test_inferencer()
 {
 	FN::SharedType &float_ty = FN::Types::get_float_type();
@@ -237,8 +260,11 @@ void FN_test_inferencer()
 	FN::SharedType &fvec3_ty = FN::Types::get_fvec3_type();
 	FN::SharedType &float_list_ty = FN::Types::get_float_list_type();
 
+	FN::ListTypeRelations list_types(int32_ty);
+	list_types.insert(float_ty, float_list_ty, get__get_float_list_element());
+
 	{
-		FN::Inferencer inferencer;
+		FN::Inferencer inferencer(list_types);
 		inferencer.insert_final_type(0, float_ty);
 		inferencer.insert_final_type(1, int32_ty);
 		inferencer.insert_final_type(2, fvec3_ty);
@@ -254,7 +280,7 @@ void FN_test_inferencer()
 		BLI_assert(inferencer.get_final_type(4) == int32_ty);
 	}
 	{
-		FN::Inferencer inferencer;
+		FN::Inferencer inferencer(list_types);
 		inferencer.insert_final_type(0, float_ty);
 		inferencer.insert_final_type(1, int32_ty);
 		inferencer.insert_equality_relation({0, 2});
@@ -263,10 +289,12 @@ void FN_test_inferencer()
 		BLI_assert(!inferencer.inference());
 	}
 	{
-		FN::Inferencer inferencer;
+		FN::Inferencer inferencer(list_types);
 		inferencer.insert_final_type(0, float_ty);
 		inferencer.insert_list_relation({1}, {0});
 
 		BLI_assert(inferencer.inference());
+
+		BLI_assert(inferencer.get_final_type(1) == float_list_ty);
 	}
 }

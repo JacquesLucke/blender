@@ -11,7 +11,6 @@ namespace FN {
 			SharedType base_type;
 			SharedType list_type;
 			SharedFunction get_element;
-			SharedFunction set_element;
 		};
 
 		SharedType m_index_type;
@@ -23,8 +22,13 @@ namespace FN {
 		void insert(
 			SharedType &base_type,
 			SharedType &list_type,
-			SharedFunction &get_element,
-			SharedFunction &set_element);
+			SharedFunction &get_element);
+
+		bool is_list(SharedType &type);
+		bool is_base(SharedType &type);
+
+		SharedType &get_list_of(SharedType &base_type);
+		SharedType &get_base_of(SharedType &list_type);
 	};
 
 } /* namespace FN */
