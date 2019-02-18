@@ -192,3 +192,19 @@ TEST(small_vector, RemoveReorder)
 	vec.remove_and_reorder(0);
 	EXPECT_TRUE(vec.empty());
 }
+
+TEST(small_vector, AllEqual_False)
+{
+	IntVector a = {1, 2, 3};
+	IntVector b = {1, 2, 4};
+	bool result = IntVector::all_equal(a, b);
+	EXPECT_FALSE(result);
+}
+
+TEST(small_vector, AllEqual_True)
+{
+	IntVector a = {4, 5, 6};
+	IntVector b = {4, 5, 6};
+	bool result = IntVector::all_equal(a, b);
+	EXPECT_TRUE(result);
+}
