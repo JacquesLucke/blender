@@ -15,6 +15,7 @@ set(SRC
 	c_wrapper.cpp
 
 	core/core.hpp
+	core/core.cpp
 	core/cpu.hpp
 	core/cpu.cpp
 	core/data_flow_graph.hpp

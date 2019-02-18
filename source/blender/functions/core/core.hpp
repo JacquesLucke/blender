@@ -102,23 +102,12 @@ namespace FN {
 			return m_outputs;
 		}
 
-		SmallTypeVector input_types() const
-		{
-			SmallTypeVector types;
-			for (const InputParameter &param : this->inputs()) {
-				types.append(param.type());
-			}
-			return types;
-		}
+		SmallTypeVector input_types() const;
+		SmallTypeVector output_types() const;
 
-		SmallTypeVector output_types() const
-		{
-			SmallTypeVector types;
-			for (const OutputParameter &param : this->outputs()) {
-				types.append(param.type());
-			}
-			return types;
-		}
+		bool has_interface(
+			const SmallTypeVector &inputs,
+			const SmallTypeVector &outputs) const;
 
 	private:
 		const InputParameters m_inputs;
