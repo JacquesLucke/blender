@@ -16,7 +16,8 @@
  * Copyright 2016, Blender Foundation.
  */
 
-/** \file \ingroup draw
+/** \file
+ * \ingroup draw
  */
 
 #include "DRW_engine.h"
@@ -176,7 +177,7 @@ static void sculpt_draw_mask_cb(
 
 	if (pbvh) {
 		BKE_pbvh_draw_cb(
-		        pbvh, NULL, NULL, false, true,
+		        pbvh, NULL, NULL, false, false, true,
 		        (void (*)(void *, struct GPUBatch *))draw_fn, shgroup);
 	}
 }

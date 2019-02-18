@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
 #include "DNA_anim_types.h"
@@ -105,10 +106,10 @@ void BKE_object_eval_parent(Depsgraph *depsgraph, Object *ob)
 
 	/* origin, for help line */
 	if ((ob->partype & PARTYPE) == PARSKEL) {
-		copy_v3_v3(ob->orig, par->obmat[3]);
+		copy_v3_v3(ob->runtime.parent_origin_eval, par->obmat[3]);
 	}
 	else {
-		copy_v3_v3(ob->orig, totmat[3]);
+		copy_v3_v3(ob->runtime.parent_origin_eval, totmat[3]);
 	}
 }
 
@@ -307,7 +308,7 @@ bool BKE_object_eval_proxy_copy(Depsgraph *depsgraph,
 			mul_m4_m4m4(object->obmat, imat, object->proxy_from->obmat);
 			/* Should always be true. */
 			if (obg->instance_collection) {
-				add_v3_v3(object->obmat[3], obg->instance_collection->dupli_ofs);
+				add_v3_v3(object->obmat[3], obg->instance_collection->instance_offset);
 			}
 		}
 		else {

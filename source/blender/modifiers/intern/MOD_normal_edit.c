@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup modifiers
+/** \file
+ * \ingroup modifiers
  */
 
 #include <string.h>
@@ -61,7 +62,7 @@ static void generate_vert_coordinates(
 	if (r_size != NULL) {
 		if (ob_center != NULL) {
 			/* Not we are not interested in signs here - they are even troublesome actually, due to security clamping! */
-			abs_v3_v3(r_size, ob_center->size);
+			abs_v3_v3(r_size, ob_center->scale);
 		}
 		else {
 			/* Set size. */

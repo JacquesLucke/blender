@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup gpu
+/** \file
+ * \ingroup gpu
  */
 
 #ifndef __GPU_BUFFERS_H__
@@ -79,7 +80,7 @@ void GPU_pbvh_grid_buffers_update(
         const int update_flags);
 
 /* draw */
-struct GPUBatch *GPU_pbvh_buffers_batch_get(GPU_PBVH_Buffers *buffers, bool fast);
+struct GPUBatch *GPU_pbvh_buffers_batch_get(GPU_PBVH_Buffers *buffers, bool fast, bool wires);
 
 bool GPU_pbvh_buffers_has_mask(GPU_PBVH_Buffers *buffers);
 
