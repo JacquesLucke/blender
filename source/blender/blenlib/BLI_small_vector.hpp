@@ -150,6 +150,19 @@ namespace BLI {
 			return -1;
 		}
 
+		static bool all_equal(const SmallVector &a, const SmallVector &b)
+		{
+			if (a.size() != b.size()) {
+				return false;
+			}
+			for (uint i = 0; i < a.size(); i++) {
+				if (a[i] != b[i]) {
+					return false;
+				}
+			}
+			return true;
+		}
+
 		T &operator[](const int index) const
 		{
 			BLI_assert(this->is_index_in_range(index));

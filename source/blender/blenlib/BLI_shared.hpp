@@ -127,6 +127,11 @@ namespace BLI {
 		{
 			return a.refcounter()->ptr() == b.refcounter()->ptr();
 		}
+
+		friend bool operator!=(const Shared &a, const Shared &b)
+		{
+			return !(a == b);
+		}
 	};
 
 } /* namespace BLI */
