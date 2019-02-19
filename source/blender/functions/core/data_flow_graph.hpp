@@ -4,6 +4,7 @@
 
 #include "BLI_small_set.hpp"
 #include "BLI_small_set_vector.hpp"
+#include "BLI_mempool.hpp"
 
 namespace FN {
 
@@ -162,32 +163,12 @@ namespace FN {
 
 	class DataFlowGraph {
 	public:
-		DataFlowGraph() = default;
+		DataFlowGraph();
 
-		~DataFlowGraph()
-		{
-			for (const Node *node : m_nodes) {
-				delete node;
-			}
-		}
+		~DataFlowGraph();
 
-		const Node *insert(SharedFunction &function)
-		{
-			BLI_assert(this->can_modify());
-			const Node *node = new Node(this, function);
-			m_nodes.add(node);
-			return node;
-		}
-
-		void link(Socket a, Socket b)
-		{
-			BLI_assert(this->can_modify());
-			BLI_assert(a.node() != b.node());
-			BLI_assert(a.is_input() != b.is_input());
-			BLI_assert(a.graph() == this && b.graph() == this);
-
-			m_links.insert(Link::New(a, b));
-		}
+		const Node *insert(SharedFunction &function);
+		void link(Socket a, Socket b);
 
 		inline bool can_modify() const
 		{
@@ -220,6 +201,7 @@ namespace FN {
 		bool m_frozen = false;
 		SmallSet<const Node *> m_nodes;
 		GraphLinks m_links;
+		MemPool *m_node_pool;
 
 		friend Node;
 		friend Socket;
