@@ -61,10 +61,7 @@ namespace FN { namespace FunctionNodes {
 		}
 	}
 
-
-	struct Vector {
-		float x, y, z;
-	};
+	using Types::Vector;
 
 	class CombineVector : public FN::TupleCallBody {
 		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
