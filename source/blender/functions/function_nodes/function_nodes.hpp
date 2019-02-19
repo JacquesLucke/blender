@@ -1,3 +1,5 @@
+#pragma once
+
 #include "FN_functions.hpp"
 #include "DNA_node_types.h"
 #include "BLI_listbase_wrapper.hpp"
