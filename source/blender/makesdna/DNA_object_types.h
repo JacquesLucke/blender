@@ -136,7 +136,7 @@ typedef struct Object_Runtime {
 	char _pad0[3];
 
 	/** Only used for drawing the parent/child help-line. */
-	float parent_origin_eval[3];
+	float parent_display_origin[3];
 
 
 	/** Axis aligned boundbox (in localspace). */
@@ -321,8 +321,8 @@ typedef struct Object {
 	/** Current face map, note: index starts at 1. */
 	unsigned short actfmap;
 	char _pad2[2];
-	/** Object color. */
-	float col[4];
+	/** Object color (in most cases the material color is used for drawing). */
+	float color[4];
 
 	/** Softbody settings. */
 	short softflag;
@@ -336,11 +336,6 @@ typedef struct Object {
 	short shapenr;
 
 	char _pad3[2];
-
-	/** Smoothresh is phong interpolation ray_shadow correction in render. */
-	float smoothresh;
-
-	char _pad4[4];
 
 	/** Object constraints. */
 	ListBase constraints;
@@ -376,7 +371,7 @@ typedef struct Object {
 	char empty_image_depth;
 	char _pad8[2];
 
-	int select_color;
+	int select_id;
 
 	/** Contains data for levels of detail. */
 	ListBase lodlevels;

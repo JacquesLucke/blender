@@ -1678,7 +1678,7 @@ void blo_end_image_pointer_map(FileData *fd, Main *oldmain)
 	for (; ima; ima = ima->id.next) {
 		ima->cache = newimaadr(fd, ima->cache);
 		if (ima->cache == NULL) {
-			ima->tpageflag &= ~IMA_GLBIND_IS_DATA;
+			ima->gpuflag = 0;
 			for (i = 0; i < TEXTARGET_COUNT; i++) {
 				ima->gputexture[i] = NULL;
 			}
@@ -3319,6 +3319,16 @@ static void direct_link_nodetree(FileData *fd, bNodeTree *ntree)
 					NodeShaderTexPointDensity *npd = (NodeShaderTexPointDensity *)node->storage;
 					memset(&npd->pd, 0, sizeof(npd->pd));
 				}
+				else if (node->type == SH_NODE_TEX_IMAGE) {
+					NodeTexImage *tex = (NodeTexImage *)node->storage;
+					tex->iuser.ok = 1;
+					tex->iuser.scene = NULL;
+				}
+				else if (node->type == SH_NODE_TEX_ENVIRONMENT) {
+					NodeTexEnvironment *tex = (NodeTexEnvironment *)node->storage;
+					tex->iuser.ok = 1;
+					tex->iuser.scene = NULL;
+				}
 			}
 			else if (ntree->type == NTREE_COMPOSIT) {
 				if (ELEM(node->type, CMP_NODE_TIME, CMP_NODE_CURVE_VEC, CMP_NODE_CURVE_RGB, CMP_NODE_HUECORRECT))
@@ -3331,10 +3341,14 @@ static void direct_link_nodetree(FileData *fd, bNodeTree *ntree)
 				}
 			}
 			else if (ntree->type == NTREE_TEXTURE) {
-				if (node->type == TEX_NODE_CURVE_RGB || node->type == TEX_NODE_CURVE_TIME)
+				if (node->type == TEX_NODE_CURVE_RGB || node->type == TEX_NODE_CURVE_TIME) {
 					direct_link_curvemapping(fd, node->storage);
-				else if (node->type == TEX_NODE_IMAGE)
-					((ImageUser *)node->storage)->ok = 1;
+				}
+				else if (node->type == TEX_NODE_IMAGE) {
+					ImageUser *iuser = node->storage;
+					iuser->ok = 1;
+					iuser->scene = NULL;
+				}
 			}
 		}
 	}
@@ -3658,6 +3672,7 @@ static void direct_link_camera(FileData *fd, Camera *ca)
 
 	for (CameraBGImage *bgpic = ca->bg_images.first; bgpic; bgpic = bgpic->next) {
 		bgpic->iuser.ok = 1;
+		bgpic->iuser.scene = NULL;
 	}
 }
 
@@ -3945,7 +3960,7 @@ static void direct_link_image(FileData *fd, Image *ima)
 
 	/* if not restored, we keep the binded opengl index */
 	if (!ima->cache) {
-		ima->tpageflag &= ~IMA_GLBIND_IS_DATA;
+		ima->gpuflag = 0;
 		for (int i = 0; i < TEXTARGET_COUNT; i++) {
 			ima->gputexture[i] = NULL;
 		}
@@ -4126,6 +4141,7 @@ static void direct_link_texture(FileData *fd, Tex *tex)
 	tex->preview = direct_link_preview_image(fd, tex->preview);
 
 	tex->iuser.ok = 1;
+	tex->iuser.scene = NULL;
 }
 
 
@@ -5655,7 +5671,6 @@ static void direct_link_object(FileData *fd, Object *ob)
 		BKE_object_empty_draw_type_set(ob, ob->empty_drawtype);
 	}
 
-	ob->runtime.bb = NULL;
 	ob->derivedDeform = NULL;
 	ob->derivedFinal = NULL;
 	BKE_object_runtime_reset(ob);
@@ -10321,9 +10336,8 @@ static void add_loose_objects_to_scene(
 
 	/* Give all objects which are LIB_TAG_INDIRECT a base, or for a collection when *lib has been set. */
 	for (Object *ob = mainvar->object.first; ob; ob = ob->id.next) {
-		if ((ob->id.tag & LIB_TAG_INDIRECT) && (ob->id.tag & LIB_TAG_PRE_EXISTING) == 0) {
-			bool do_it = false;
-
+		bool do_it = (ob->id.tag & LIB_TAG_DOIT) != 0;
+		if (do_it || ((ob->id.tag & LIB_TAG_INDIRECT) && (ob->id.tag & LIB_TAG_PRE_EXISTING) == 0)) {
 			if (!is_link) {
 				if (ob->id.us == 0) {
 					do_it = true;
@@ -10337,6 +10351,7 @@ static void add_loose_objects_to_scene(
 
 			if (do_it) {
 				CLAMP_MIN(ob->id.us, 0);
+				ob->mode = OB_MODE_OBJECT;
 
 				Collection *active_collection = get_collection_active(bmain, scene, view_layer, FILE_ACTIVE_COLLECTION);
 				BKE_collection_object_add(bmain, active_collection, ob);
@@ -10349,8 +10364,6 @@ static void add_loose_objects_to_scene(
 				BKE_scene_object_base_flag_sync_from_base(base);
 
 				if (flag & FILE_AUTOSELECT) {
-					/* Note that link_object_postprocess() already checks for FILE_AUTOSELECT flag,
-					 * but it will miss objects from non-instantiated collections... */
 					if (base->flag & BASE_SELECTABLE) {
 						base->flag |= BASE_SELECTED;
 						BKE_scene_object_base_flag_sync_from_base(base);
@@ -10413,6 +10426,7 @@ static void add_collections_to_scene(
 				for (CollectionObject *coll_ob = collection->gobject.first; coll_ob != NULL; coll_ob = coll_ob->next) {
 					Object *ob = coll_ob->ob;
 					if ((ob->id.tag & LIB_TAG_PRE_EXISTING) == 0 &&
+					    (ob->id.tag & LIB_TAG_DOIT) == 0 &&
 					    (ob->id.lib == lib) &&
 					    (object_in_any_scene(bmain, ob) == 0))
 					{
@@ -10501,38 +10515,6 @@ static ID *link_named_part(
 	return id;
 }
 
-static void link_object_postprocess(
-        ID *id, Main *bmain, Scene *scene, ViewLayer *view_layer, const View3D *v3d, const int flag)
-{
-	if (scene) {
-		/* link to scene */
-		Base *base;
-		Object *ob;
-		Collection *collection;
-
-		ob = (Object *)id;
-		ob->mode = OB_MODE_OBJECT;
-
-		collection = get_collection_active(bmain, scene, view_layer, flag);
-		BKE_collection_object_add(bmain, collection, ob);
-		base = BKE_view_layer_base_find(view_layer, ob);
-		BKE_scene_object_base_flag_sync_from_base(base);
-
-		/* Link at active local view (view3d if available in context. */
-		if (v3d != NULL) {
-			base->local_view_bits |= v3d->local_view_uuid;
-		}
-
-		if (flag & FILE_AUTOSELECT) {
-			if (base->flag & BASE_SELECTABLE) {
-				base->flag |= BASE_SELECTED;
-				BKE_scene_object_base_flag_sync_from_base(base);
-			}
-			/* do NOT make base active here! screws up GUI stuff, if you want it do it on src/ level */
-		}
-	}
-}
-
 /**
  * Simple reader for copy/paste buffers.
  */
@@ -10569,13 +10551,13 @@ void BLO_library_link_copypaste(Main *mainl, BlendHandle *bh)
 }
 
 static ID *link_named_part_ex(
-        Main *mainl, FileData *fd, const short idcode, const char *name, const int flag,
-        Main *bmain, Scene *scene, ViewLayer *view_layer, const View3D *v3d)
+        Main *mainl, FileData *fd, const short idcode, const char *name, const int flag)
 {
 	ID *id = link_named_part(mainl, fd, idcode, name, flag);
 
-	if (id && (GS(id->name) == ID_OB)) {    /* loose object: give a base */
-		link_object_postprocess(id, bmain, scene, view_layer, v3d, flag);
+	if (id && (GS(id->name) == ID_OB)) {
+		/* Tag as loose object needing to be instantiated somewhere... */
+		id->tag |= LIB_TAG_DOIT;
 	}
 	else if (id && (GS(id->name) == ID_GR)) {
 		/* tag as needing to be instantiated or linked */
@@ -10615,11 +10597,10 @@ ID *BLO_library_link_named_part(Main *mainl, BlendHandle **bh, const short idcod
  */
 ID *BLO_library_link_named_part_ex(
         Main *mainl, BlendHandle **bh,
-        const short idcode, const char *name, const int flag,
-        Main *bmain, Scene *scene, ViewLayer *view_layer, const View3D *v3d)
+        const short idcode, const char *name, const int flag)
 {
 	FileData *fd = (FileData *)(*bh);
-	return link_named_part_ex(mainl, fd, idcode, name, flag, bmain, scene, view_layer, v3d);
+	return link_named_part_ex(mainl, fd, idcode, name, flag);
 }
 
 static void link_id_part(ReportList *reports, FileData *fd, Main *mainvar, ID *id, ID **r_id)
@@ -10799,7 +10780,8 @@ static void library_link_end(
 		/* printf("library_append_end, scene is NULL (objects wont get bases)\n"); */
 	}
 
-	/* clear collection instantiating tag */
+	/* Clear objects and collections instantiating tag. */
+	BKE_main_id_tag_listbase(&(mainvar->object), LIB_TAG_DOIT, false);
 	BKE_main_id_tag_listbase(&(mainvar->collection), LIB_TAG_DOIT, false);
 
 	/* patch to prevent switch_endian happens twice */
