@@ -240,7 +240,7 @@ class GetFloatListElement : public FN::TupleCallBody {
 	}
 };
 
-LAZY_INIT_NO_ARG(FN::SharedFunction&, FN::SharedFunction, get__get_float_list_element)
+LAZY_INIT_REF_STATIC__NO_ARG(FN::SharedFunction, get__get_float_list_element)
 {
 	auto signature = FN::Signature({
 		FN::InputParameter("List", FN::Types::get_float_list_type()),
