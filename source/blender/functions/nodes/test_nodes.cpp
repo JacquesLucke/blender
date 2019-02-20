@@ -36,6 +36,15 @@ namespace FN { namespace Nodes {
 		}
 	};
 
+	class MultiplyFloats : public FN::TupleCallBody {
+		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+		{
+			float a = fn_in.get<float>(0);
+			float b = fn_in.get<float>(1);
+			fn_out.set<float>(0, a * b);
+		}
+	};
+
 	class ObjectTransforms : public FN::TupleCallBody {
 	private:
 		Object *m_object;
@@ -99,6 +108,18 @@ namespace FN { namespace Nodes {
 		return fn;
 	}
 
+	LAZY_INIT_REF_STATIC__NO_ARG(SharedFunction, get_multiply_floats_function)
+	{
+		auto fn = SharedFunction::New("Multiply Floats", Signature({
+			InputParameter("A", get_float_type()),
+			InputParameter("B", get_float_type()),
+		}, {
+			OutputParameter("Vector", get_float_type()),
+		}));
+		fn->add_body(new MultiplyFloats());
+		return fn;
+	}
+
 	static void insert_object_transforms_node(
 		bNodeTree *btree,
 		bNode *bnode,
@@ -117,12 +138,39 @@ namespace FN { namespace Nodes {
 		map_node_sockets(socket_map, bnode, node);
 	}
 
+	static SharedFunction &get_float_math_function(int operation)
+	{
+		switch (operation)
+		{
+			case 1: return get_add_floats_function();
+			case 2: return get_multiply_floats_function();
+			default:
+				BLI_assert(false);
+				return *(SharedFunction *)nullptr;
+		}
+	}
+
+	static void insert_float_math_node(
+		bNodeTree *btree,
+		bNode *bnode,
+		SharedDataFlowGraph &graph,
+		SocketMap &socket_map)
+	{
+		PointerRNA ptr;
+		RNA_pointer_create(&btree->id, &RNA_Node, bnode, &ptr);
+		int operation = RNA_enum_get(&ptr, "operation");
+
+		SharedFunction &fn = get_float_math_function(operation);
+		const Node *node = graph->insert(fn);
+		map_node_sockets(socket_map, bnode, node);
+	}
+
 	void initialize_node_inserters()
 	{
-		register_node_function_getter__no_arg("fn_AddFloatsNode", get_add_floats_function);
 		register_node_function_getter__no_arg("fn_CombineVectorNode", get_combine_vector_function);
 		register_node_function_getter__no_arg("fn_SeparateVectorNode", get_separate_vector_function);
 		register_node_inserter("fn_ObjectTransformsNode", insert_object_transforms_node);
+		register_node_inserter("fn_FloatMathNode", insert_float_math_node);
 	}
 
 } }

@@ -2,7 +2,7 @@ from . import (
     function_input,
     function_output,
 
-    add_floats,
+    float_math,
     combine_vector,
     separate_vector,
     object_transforms,
