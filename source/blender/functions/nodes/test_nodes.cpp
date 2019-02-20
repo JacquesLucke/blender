@@ -223,6 +223,25 @@ namespace FN { namespace Nodes {
 		map_node_sockets(socket_map, bnode, node);
 	}
 
+	static void insert_clamp_node(
+		bNodeTree *UNUSED(btree),
+		bNode *bnode,
+		SharedDataFlowGraph &graph,
+		SocketMap &socket_map)
+	{
+		SharedFunction &max_fn = get_maximum_function();
+		SharedFunction &min_fn = get_minimum_function();
+
+		const Node *max_node = graph->insert(max_fn);
+		const Node *min_node = graph->insert(min_fn);
+
+		graph->link(max_node->output(0), min_node->input(0));
+		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->inputs, 0), max_node->input(0));
+		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->inputs, 1), max_node->input(1));
+		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->inputs, 2), min_node->input(1));
+		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->outputs, 0), min_node->output(0));
+	}
+
 	void initialize_node_inserters()
 	{
 		register_node_function_getter__no_arg("fn_CombineVectorNode", get_combine_vector_function);
@@ -230,6 +249,7 @@ namespace FN { namespace Nodes {
 		register_node_function_getter__no_arg("fn_VectorDistanceNode", get_vector_distance_function);
 		register_node_inserter("fn_ObjectTransformsNode", insert_object_transforms_node);
 		register_node_inserter("fn_FloatMathNode", insert_float_math_node);
+		register_node_inserter("fn_ClampNode", insert_clamp_node);
 	}
 
 } }

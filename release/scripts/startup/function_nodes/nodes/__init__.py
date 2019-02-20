@@ -7,4 +7,5 @@ from . import (
     separate_vector,
     object_transforms,
     vector_distance,
+    clamp,
 )
