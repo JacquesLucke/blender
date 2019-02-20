@@ -549,12 +549,15 @@ static void OBJECT_engine_init(void *vedata)
 			grid_res = viewdist / grid_scale;
 
 			if (ELEM(rv3d->view, RV3D_VIEW_RIGHT, RV3D_VIEW_LEFT)) {
+				e_data.draw_grid = true;
 				e_data.grid_flag = PLANE_YZ | SHOW_AXIS_Y | SHOW_AXIS_Z | SHOW_GRID | GRID_BACK;
 			}
 			else if (ELEM(rv3d->view, RV3D_VIEW_TOP, RV3D_VIEW_BOTTOM)) {
+				e_data.draw_grid = true;
 				e_data.grid_flag = PLANE_XY | SHOW_AXIS_X | SHOW_AXIS_Y | SHOW_GRID | GRID_BACK;
 			}
 			else if (ELEM(rv3d->view, RV3D_VIEW_FRONT, RV3D_VIEW_BACK)) {
+				e_data.draw_grid = true;
 				e_data.grid_flag = PLANE_XZ | SHOW_AXIS_X | SHOW_AXIS_Z | SHOW_GRID | GRID_BACK;
 			}
 			else { /* RV3D_VIEW_USER */
@@ -2903,9 +2906,10 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		return;
 	}
 
-	const bool do_outlines = (draw_ctx->v3d->flag & V3D_SELECT_OUTLINE) && ((ob->base_flag & BASE_SELECTED) != 0) &&
-							 (draw_ctx->v3d->shading.type != OB_WIRE) &&
-	                         ((DRW_object_is_renderable(ob) && (ob->dt > OB_WIRE)) || (ob->dt == OB_WIRE));
+	const bool do_outlines = (
+	        (draw_ctx->v3d->flag & V3D_SELECT_OUTLINE) && ((ob->base_flag & BASE_SELECTED) != 0) &&
+	        (draw_ctx->v3d->shading.type != OB_WIRE) &&
+	        ((DRW_object_is_renderable(ob) && (ob->dt > OB_WIRE)) || (ob->dt == OB_WIRE)));
 	const bool show_relations = ((draw_ctx->v3d->flag & V3D_HIDE_HELPLINES) == 0);
 	const bool hide_object_extra = (v3d->overlay.flag & V3D_OVERLAY_HIDE_OBJECT_XTRAS) != 0;
 

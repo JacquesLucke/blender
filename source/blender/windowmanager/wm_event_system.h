@@ -35,11 +35,6 @@ struct ScrArea;
 
 /* wmKeyMap is in DNA_windowmanager.h, it's saveable */
 
-struct wmEventHandler_KeymapFn {
-	void (*handle_post_fn)(wmKeyMap *keymap, wmKeyMapItem *kmi, void *user_data);
-	void  *user_data;
-};
-
 /** Custom types for handlers, for signaling, freeing */
 enum eWM_EventHandlerType {
 	WM_HANDLER_TYPE_GIZMO = 1,
@@ -59,21 +54,34 @@ typedef struct wmEventHandler {
 	const rcti *bblocal, *bbwin;
 } wmEventHandler;
 
+/** Run after the keymap item runs. */
+struct wmEventHandler_KeymapPost {
+	void (*post_fn)(wmKeyMap *keymap, wmKeyMapItem *kmi, void *user_data);
+	void  *user_data;
+};
+
+/** Support for a getter function that looks up the keymap each access. */
+struct wmEventHandler_KeymapDynamic {
+	wmEventHandler_KeymapDynamicFn *keymap_fn;
+	void *user_data;
+};
+
 /** #WM_HANDLER_TYPE_KEYMAP */
 typedef struct wmEventHandler_Keymap {
-	wmEventHandler base;
+	wmEventHandler head;
 
 	/** Pointer to builtin/custom keymaps (never NULL). */
 	wmKeyMap *keymap;
-	/** Run after the keymap item runs. */
-	struct wmEventHandler_KeymapFn keymap_callback;
+
+	struct wmEventHandler_KeymapPost post;
+	struct wmEventHandler_KeymapDynamic dynamic;
 
 	struct bToolRef *keymap_tool;
 } wmEventHandler_Keymap;
 
 /** #WM_HANDLER_TYPE_GIZMO */
 typedef struct wmEventHandler_Gizmo {
-	wmEventHandler base;
+	wmEventHandler head;
 
 	/** Gizmo handler (never NULL). */
 	struct wmGizmoMap *gizmo_map;
@@ -81,7 +89,7 @@ typedef struct wmEventHandler_Gizmo {
 
 /** #WM_HANDLER_TYPE_UI */
 typedef struct wmEventHandler_UI {
-	wmEventHandler base;
+	wmEventHandler head;
 
 	wmUIHandlerFunc handle_fn;          /* callback receiving events */
 	wmUIHandlerRemoveFunc remove_fn;    /* callback when handler is removed */
@@ -97,7 +105,7 @@ typedef struct wmEventHandler_UI {
 
 /** #WM_HANDLER_TYPE_OP */
 typedef struct wmEventHandler_Op {
-	wmEventHandler base;
+	wmEventHandler head;
 
 	/** Operator can be NULL. */
 	wmOperator *op;
@@ -115,7 +123,7 @@ typedef struct wmEventHandler_Op {
 
 /** #WM_HANDLER_TYPE_DROPBOX */
 typedef struct wmEventHandler_Dropbox {
-	wmEventHandler base;
+	wmEventHandler head;
 
 	/** Never NULL. */
 	ListBase *dropboxes;

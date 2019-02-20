@@ -29,6 +29,7 @@
 #include "BKE_image.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -94,6 +95,7 @@ static void rna_Image_source_set(PointerRNA *ptr, int value)
 		BKE_image_signal(G_MAIN, ima, NULL, IMA_SIGNAL_SRC_CHANGE);
 		DEG_id_tag_update(&ima->id, 0);
 		DEG_id_tag_update(&ima->id, ID_RECALC_EDITORS);
+		DEG_relations_tag_update(G_MAIN);
 	}
 }
 
@@ -151,7 +153,7 @@ static void rna_ImageUser_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 			/* Special update for nodetrees to find parent datablock. */
 			ED_node_tag_update_nodetree(bmain, (bNodeTree *)id, NULL);
 		}
-		else  {
+		else {
 			/* Update material or texture for render preview. */
 			DEG_id_tag_update(id, 0);
 			DEG_id_tag_update(id, ID_RECALC_EDITORS);

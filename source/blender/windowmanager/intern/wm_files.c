@@ -1399,7 +1399,7 @@ void wm_autosave_timer(const bContext *C, wmWindowManager *wm, wmTimer *UNUSED(w
 
 	/* if a modal operator is running, don't autosave, but try again in 10 seconds */
 	for (wmWindow *win = wm->windows.first; win; win = win->next) {
-		for (wmEventHandler *handler_base = win->modalhandlers.first; handler_base; handler_base = handler_base->next) {
+		LISTBASE_FOREACH (wmEventHandler *, handler_base, &win->modalhandlers) {
 			if (handler_base->type == WM_HANDLER_TYPE_OP) {
 				wmEventHandler_Op *handler = (wmEventHandler_Op *)handler_base;
 				if (handler->op) {
@@ -2327,14 +2327,9 @@ static int wm_save_mainfile_invoke(bContext *C, wmOperator *op, const wmEvent *U
 		char path[FILE_MAX];
 
 		RNA_string_get(op->ptr, "filepath", path);
-		if (RNA_boolean_get(op->ptr, "check_existing") && BLI_exists(path)) {
-			ret = WM_operator_confirm_message_ex(C, op, IFACE_("Save Over?"), ICON_QUESTION, path);
-		}
-		else {
-			ret = wm_save_as_mainfile_exec(C, op);
-			/* Without this there is no feedback the file was saved. */
-			BKE_reportf(op->reports, RPT_INFO, "Saved \"%s\"", BLI_path_basename(path));
-		}
+		ret = wm_save_as_mainfile_exec(C, op);
+		/* Without this there is no feedback the file was saved. */
+		BKE_reportf(op->reports, RPT_INFO, "Saved \"%s\"", BLI_path_basename(path));
 	}
 	else {
 		WM_event_add_fileselect(C, op);
