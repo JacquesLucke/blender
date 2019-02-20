@@ -44,6 +44,16 @@ namespace BLI {
 			return this->lookup_ref(key);
 		}
 
+		V lookup_default(const K &key, V default_value) const
+		{
+			if (this->contains(key)) {
+				return this->lookup(key);
+			}
+			else {
+				return default_value;
+			}
+		}
+
 		V &lookup_ref(const K &key) const
 		{
 			V *ptr = this->lookup_ptr(key);
