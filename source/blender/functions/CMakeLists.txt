@@ -38,6 +38,11 @@ set(SRC
 
 	function_nodes/function_nodes.hpp
 	function_nodes/function_nodes.cpp
+
+	nodes/nodes.hpp
+	nodes/nodes.cpp
+	nodes/socket_inputs.cpp
+	nodes/test_nodes.cpp
 )
 
 blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}")

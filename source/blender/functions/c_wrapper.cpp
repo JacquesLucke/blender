@@ -2,6 +2,7 @@
 #include "FN_functions.hpp"
 
 #include "function_nodes/function_nodes.hpp"
+#include "nodes/nodes.hpp"
 #include "BLI_lazy_init.hpp"
 
 #include <iostream>
@@ -20,7 +21,8 @@ void FN_test_inferencer(void);
 
 void FN_initialize()
 {
-	FN_test_inferencer();
+	FN::Nodes::initialize();
+	//FN_test_inferencer();
 }
 
 void FN_function_call(FnCallable fn_call, FnTuple fn_in, FnTuple fn_out)
@@ -209,9 +211,9 @@ FnFunction FN_get_generated_function()
 
 FnFunction FN_testing(bNodeTree *bnodetree)
 {
-	FN::FunctionNodes::FunctionNodeTree tree(bnodetree);
+	FN::Nodes::FunctionNodeTree tree(bnodetree);
 	auto fgraph = tree.to_function_graph();
-	//std::cout << fgraph.graph()->to_dot() << std::endl;
+	std::cout << fgraph.graph()->to_dot() << std::endl;
 
 	auto fn = FN::SharedFunction::New("Function from Node Tree", fgraph.signature());
 	fn->add_body(FN::function_graph_to_callable(fgraph));

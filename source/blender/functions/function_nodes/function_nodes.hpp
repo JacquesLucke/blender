@@ -4,7 +4,7 @@
 #include "DNA_node_types.h"
 #include "BLI_listbase_wrapper.hpp"
 
-namespace FN { namespace FunctionNodes {
+namespace FN { namespace Nodes {
 
 	using bNodeList = ListBaseWrapper<bNode, true>;
 	using bLinkList = ListBaseWrapper<bNodeLink, true>;
@@ -36,4 +36,4 @@ namespace FN { namespace FunctionNodes {
 		FunctionGraph to_function_graph() const;
 	};
 
-} } /* namespace FN::FunctionNodes */
+} } /* namespace FN::Nodes */
