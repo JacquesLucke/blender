@@ -1,6 +1,7 @@
 #include "nodes.hpp"
 #include "BLI_lazy_init.hpp"
 #include "RNA_access.h"
+#include "BLI_math.h"
 
 namespace FN { namespace Nodes {
 
@@ -42,6 +43,16 @@ namespace FN { namespace Nodes {
 			float a = fn_in.get<float>(0);
 			float b = fn_in.get<float>(1);
 			fn_out.set<float>(0, a * b);
+		}
+	};
+
+	class VectorDistance : public FN::TupleCallBody {
+		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+		{
+			Vector a = fn_in.get<Vector>(0);
+			Vector b = fn_in.get<Vector>(1);
+			float distance = len_v3v3((float *)&a, (float *)&b);
+			fn_out.set<float>(0, distance);
 		}
 	};
 
@@ -93,6 +104,18 @@ namespace FN { namespace Nodes {
 			OutputParameter("Z", get_float_type()),
 		}));
 		fn->add_body(new SeparateVector());
+		return fn;
+	}
+
+	LAZY_INIT_REF_STATIC__NO_ARG(SharedFunction, get_vector_distance_function)
+	{
+		auto fn = SharedFunction::New("Vector Distance", Signature({
+			InputParameter("A", get_fvec3_type()),
+			InputParameter("B", get_fvec3_type()),
+		}, {
+			OutputParameter("Distance", get_float_type()),
+		}));
+		fn->add_body(new VectorDistance());
 		return fn;
 	}
 
@@ -169,6 +192,7 @@ namespace FN { namespace Nodes {
 	{
 		register_node_function_getter__no_arg("fn_CombineVectorNode", get_combine_vector_function);
 		register_node_function_getter__no_arg("fn_SeparateVectorNode", get_separate_vector_function);
+		register_node_function_getter__no_arg("fn_VectorDistanceNode", get_vector_distance_function);
 		register_node_inserter("fn_ObjectTransformsNode", insert_object_transforms_node);
 		register_node_inserter("fn_FloatMathNode", insert_float_math_node);
 	}

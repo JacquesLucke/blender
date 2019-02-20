@@ -6,4 +6,5 @@ from . import (
     combine_vector,
     separate_vector,
     object_transforms,
+    vector_distance,
 )

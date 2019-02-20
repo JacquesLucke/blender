@@ -15,6 +15,7 @@ def draw_menu(self, context):
     insert_node(layout, "fn_FloatMathNode", "Float Math")
     insert_node(layout, "fn_CombineVectorNode", "Combine Vector")
     insert_node(layout, "fn_SeparateVectorNode", "Separate Vector")
+    insert_node(layout, "fn_VectorDistanceNode", "Vector Distance")
     insert_node(layout, "fn_ObjectTransformsNode", "Object Transforms")
 
 def insert_node(layout, type, text, settings = {}, icon = "NONE"):
