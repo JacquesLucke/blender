@@ -32,15 +32,14 @@ set(SRC
 
 	FN_functions.hpp
 
+	types/types.hpp
 	types/numeric.cpp
 	types/numeric.hpp
-	types/types.hpp
-
-	function_nodes/function_nodes.hpp
-	function_nodes/function_nodes.cpp
 
 	nodes/nodes.hpp
 	nodes/nodes.cpp
+	nodes/graph_generation.hpp
+	nodes/graph_generation.cpp
 	nodes/socket_inputs.cpp
 	nodes/test_nodes.cpp
 )

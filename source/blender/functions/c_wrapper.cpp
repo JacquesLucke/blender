@@ -1,8 +1,9 @@
 #include "FN_functions.h"
 #include "FN_functions.hpp"
 
-#include "function_nodes/function_nodes.hpp"
 #include "nodes/nodes.hpp"
+#include "nodes/graph_generation.hpp"
+
 #include "BLI_lazy_init.hpp"
 
 #include <iostream>
@@ -209,10 +210,9 @@ FnFunction FN_get_generated_function()
 	return wrap(fn_ref);
 }
 
-FnFunction FN_testing(bNodeTree *bnodetree)
+FnFunction FN_testing(bNodeTree *btree)
 {
-	FN::Nodes::FunctionNodeTree tree(bnodetree);
-	auto fgraph = tree.to_function_graph();
+	auto fgraph = FN::Nodes::btree_to_graph(btree);
 	std::cout << fgraph.graph()->to_dot() << std::endl;
 
 	auto fn = FN::SharedFunction::New("Function from Node Tree", fgraph.signature());
