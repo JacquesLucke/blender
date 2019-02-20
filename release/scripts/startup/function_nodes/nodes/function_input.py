@@ -1,6 +1,7 @@
 import bpy
+from .. base import BaseNode
 
-class FunctionInputNode(bpy.types.Node):
+class FunctionInputNode(BaseNode, bpy.types.Node):
     bl_idname = "fn_FunctionInputNode"
     bl_label = "Function Input"
 

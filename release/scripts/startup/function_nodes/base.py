@@ -7,8 +7,22 @@ class FunctionNodeTree(bpy.types.NodeTree):
 
 bpy.utils.register_class(FunctionNodeTree)
 
+class BaseNode:
+    def draw_buttons(self, context, layout):
+        self.draw(layout)
 
-class FunctionNode:
+    def draw(self, layout):
+        pass
+
+    def invoke_function(self, layout, function_name, text, *, settings=tuple()):
+        assert isinstance(settings, tuple)
+        props = layout.operator("fn.node_operator", text=text)
+        props.tree_name = self.id_data.name
+        props.node_name = self.name
+        props.function_name = function_name
+        props.settings_repr = repr(settings)
+
+class FunctionNode(BaseNode):
     def init(self, context):
         inputs, outputs = self.get_sockets()
         for idname, name in inputs:
@@ -18,12 +32,6 @@ class FunctionNode:
 
     def get_sockets():
         return [], []
-
-    def draw_buttons(self, context, layout):
-        self.draw(layout)
-
-    def draw(self, layout):
-        pass
 
 class DataSocket:
     color = (0, 0, 0, 0)
