@@ -4,7 +4,7 @@
 #include "nodes/nodes.hpp"
 #include "nodes/graph_generation.hpp"
 
-#include "BLI_lazy_init.hpp"
+#include "BLI_timeit.hpp"
 
 #include <iostream>
 
@@ -149,11 +149,11 @@ SIMPLE_TYPE_GETTER(float);
 SIMPLE_TYPE_GETTER(int32);
 SIMPLE_TYPE_GETTER(fvec3);
 
-
 FnFunction FN_tree_to_function(bNodeTree *btree)
 {
+	TIMEIT("Tree to function");
 	auto fgraph = FN::Nodes::btree_to_graph(btree);
-	std::cout << fgraph.graph()->to_dot() << std::endl;
+	//std::cout << fgraph.graph()->to_dot() << std::endl;
 
 	auto fn = FN::SharedFunction::New("Function from Node Tree", fgraph.signature());
 	fn->add_body(FN::function_graph_to_callable(fgraph));
