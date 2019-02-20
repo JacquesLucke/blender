@@ -19,9 +19,9 @@ FnCallable FN_function_get_callable(FnFunction fn);
 void FN_function_call(FnCallable call, FnTuple fn_in, FnTuple fn_out);
 void FN_function_free(FnFunction fn);
 
+bool FN_function_has_signature(FnFunction, FnType *inputs, FnType *outputs);
 uint FN_input_amount(FnFunction fn);
 uint FN_output_amount(FnFunction fn);
-
 bool FN_input_has_type(FnFunction fn, uint index, FnType type);
 bool FN_output_has_type(FnFunction fn, uint index, FnType type);
 

@@ -59,6 +59,22 @@ static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
 	return FN_tree_to_function(tree);
 }
 
+static bool is_deform_function(FnFunction fn)
+{
+	FnType float_ty = FN_type_get_float();
+	FnType fvec3_ty = FN_type_get_fvec3();
+
+	FnType inputs[] = { fvec3_ty, float_ty, NULL };
+	FnType outputs[] = { float_ty, NULL };
+
+	bool match = FN_function_has_signature(fn, inputs, outputs);
+
+	FN_type_free(float_ty);
+	FN_type_free(fvec3_ty);
+
+	return match;
+}
+
 static void do_deformation(
         FunctionDeformModifierData *fdmd,
         float (*vertexCos)[3],
@@ -66,6 +82,9 @@ static void do_deformation(
 {
 	FnFunction fn = get_current_function(fdmd);
 	if (fn == NULL) {
+		return;
+	}
+	if (!is_deform_function(fn)) {
 		return;
 	}
 
