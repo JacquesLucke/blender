@@ -64,6 +64,8 @@ namespace FN {
 			return m_type;
 		}
 
+		void print() const;
+
 	private:
 		const std::string m_name;
 		const SharedType m_type;
@@ -109,6 +111,8 @@ namespace FN {
 			const SmallTypeVector &inputs,
 			const SmallTypeVector &outputs) const;
 
+		void print(std::string indent = "") const;
+
 	private:
 		const InputParameters m_inputs;
 		const OutputParameters m_outputs;
@@ -146,6 +150,8 @@ namespace FN {
 			BLI_assert(m_bodies.get<T>() == nullptr);
 			m_bodies.add(body);
 		}
+
+		void print() const;
 
 	private:
 		const std::string m_name;

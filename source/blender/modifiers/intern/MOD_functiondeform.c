@@ -65,7 +65,7 @@ static bool is_deform_function(FnFunction fn)
 	FnType fvec3_ty = FN_type_get_fvec3();
 
 	FnType inputs[] = { fvec3_ty, float_ty, NULL };
-	FnType outputs[] = { float_ty, NULL };
+	FnType outputs[] = { fvec3_ty, NULL };
 
 	bool match = FN_function_has_signature(fn, inputs, outputs);
 
@@ -84,6 +84,7 @@ static void do_deformation(
 	if (fn == NULL) {
 		return;
 	}
+	FN_function_print(fn);
 	if (!is_deform_function(fn)) {
 		return;
 	}

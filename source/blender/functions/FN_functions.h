@@ -25,6 +25,8 @@ uint FN_output_amount(FnFunction fn);
 bool FN_input_has_type(FnFunction fn, uint index, FnType type);
 bool FN_output_has_type(FnFunction fn, uint index, FnType type);
 
+void FN_function_print(FnFunction fn);
+
 FnTuple FN_tuple_for_input(FnFunction fn);
 FnTuple FN_tuple_for_output(FnFunction fn);
 

@@ -83,6 +83,12 @@ bool FN_output_has_type(FnFunction fn, uint index, FnType type)
 	return type1 == type2;
 }
 
+void FN_function_print(FnFunction fn)
+{
+	FN::Function *function = unwrap(fn)->ptr();
+	function->print();
+}
+
 
 FnTuple FN_tuple_for_input(FnFunction fn)
 {
