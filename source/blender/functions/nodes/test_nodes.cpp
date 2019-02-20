@@ -68,7 +68,7 @@ namespace FN { namespace Nodes {
 			InputParameter("Y", get_float_type()),
 			InputParameter("Z", get_float_type()),
 		}, {
-			OutputParameter("Vecctor", get_fvec3_type()),
+			OutputParameter("Vector", get_fvec3_type()),
 		}));
 		fn->add_body(new CombineVector());
 		return fn;
