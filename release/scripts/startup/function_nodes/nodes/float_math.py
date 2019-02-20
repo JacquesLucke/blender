@@ -11,7 +11,7 @@ class FloatMathNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_FloatMathNode"
     bl_label = "Float Math"
 
-    operation = EnumProperty(
+    operation: EnumProperty(
         name="Operation",
         items=operation_items)
 
