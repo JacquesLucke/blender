@@ -40,7 +40,7 @@ FnFunction FN_get_deform_function(int type);
 
 FnFunction FN_get_generated_function(void);
 
-FnFunction FN_testing(bNodeTree *bnodetree);
+FnFunction FN_tree_to_function(bNodeTree *bnodetree);
 
 struct DepsNodeHandle;
 void FN_function_update_dependencies(

@@ -56,7 +56,7 @@ static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
 {
 	bNodeTree *tree = fdmd->function_tree;
 	if (tree == NULL) return NULL;
-	return FN_testing(tree);
+	return FN_tree_to_function(tree);
 }
 
 static void do_deformation(

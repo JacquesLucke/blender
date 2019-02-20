@@ -23,7 +23,6 @@ void FN_test_inferencer(void);
 void FN_initialize()
 {
 	FN::Nodes::initialize();
-	//FN_test_inferencer();
 }
 
 void FN_function_call(FnCallable fn_call, FnTuple fn_in, FnTuple fn_out)
@@ -63,9 +62,7 @@ void FN_tuple_set_float(FnTuple tuple, uint index, float value)
 	unwrap(tuple)->set<float>(index, value);
 }
 
-struct Vector {
-	float x, y, z;
-};
+using FN::Types::Vector;
 
 void FN_tuple_set_float_vector_3(FnTuple tuple, uint index, float value[3])
 {
@@ -102,115 +99,8 @@ SIMPLE_TYPE_GETTER(float);
 SIMPLE_TYPE_GETTER(int32);
 SIMPLE_TYPE_GETTER(fvec3);
 
-#include <cmath>
-#include <algorithm>
 
-class Deform1 : public FN::TupleCallBody {
-public:
-	virtual void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
-	{
-		Vector vec = fn_in.get<Vector>(0);
-		float control = fn_in.get<float>(1);
-
-		Vector result;
-
-		result.x = vec.x * control;
-		result.y = vec.y;// / std::max(control, 0.1f);
-		result.z = vec.z;
-
-		fn_out.set<Vector>(0, result);
-	}
-};
-
-class Deform2 : public FN::TupleCallBody {
-public:
-	virtual void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
-	{
-		Vector vec = fn_in.get<Vector>(0);
-		float control = fn_in.get<float>(1);
-
-		Vector result;
-
-		result.x = vec.x;
-		result.y = vec.y * control;
-		result.z = vec.z;
-
-		fn_out.set<Vector>(0, result);
-	}
-};
-
-class PassThroughFloat : public FN::TupleCallBody {
-public:
-	virtual void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
-	{
-		fn_out.set<float>(0, fn_in.get<float>(0));
-	}
-};
-
-static FN::SharedFunction get_deform_function(int type)
-{
-	FN::InputParameters inputs;
-	inputs.append(FN::InputParameter("Position", FN::Types::get_fvec3_type()));
-	inputs.append(FN::InputParameter("Control", FN::Types::get_float_type()));
-
-	FN::OutputParameters outputs;
-	outputs.append(FN::OutputParameter("Position", FN::Types::get_fvec3_type()));
-
-	auto fn = FN::SharedFunction::New("Deform", FN::Signature(inputs, outputs));
-	if (type == 0) {
-		fn->add_body(new Deform1());
-	}
-	else {
-		fn->add_body(new Deform2());
-	}
-	return fn;
-}
-
-static FN::SharedFunction get_pass_through_float_function()
-{
-	FN::InputParameters inputs = {FN::InputParameter("In", FN::Types::get_float_type())};
-	FN::OutputParameters outputs = {FN::OutputParameter("Out", FN::Types::get_float_type())};
-	auto fn = FN::SharedFunction::New("Pass Through", FN::Signature(inputs, outputs));
-	fn->add_body(new PassThroughFloat());
-	return fn;
-}
-
-FnFunction FN_get_deform_function(int type)
-{
-	auto fn = get_deform_function(type);
-	BLI::RefCounted<FN::Function> *fn_ref = fn.refcounter();
-	fn_ref->incref();
-	return wrap(fn_ref);
-}
-
-FnFunction FN_get_generated_function()
-{
-	FN::SharedDataFlowGraph graph = FN::SharedDataFlowGraph::New();
-
-	FN::SharedFunction f1 = get_deform_function(0);
-	FN::SharedFunction f2 = get_deform_function(1);
-	FN::SharedFunction pass = get_pass_through_float_function();
-
-	auto n1 = graph->insert(f1);
-	auto n2 = graph->insert(f2);
-	auto npass = graph->insert(pass);
-
-	graph->link(n1->output(0), n2->input(0));
-	graph->link(npass->output(0), n1->input(1));
-	graph->link(npass->output(0), n2->input(1));
-	graph->freeze();
-
-	FN::FunctionGraph fgraph(graph, {n1->input(0), npass->input(0)}, {n2->output(0)});
-
-	auto fn = FN::SharedFunction::New("Generated Function", fgraph.signature());
-	fn->add_body(FN::function_graph_to_callable(fgraph));
-
-	BLI::RefCounted<FN::Function> *fn_ref = fn.refcounter();
-	fn_ref->incref();
-	return wrap(fn_ref);
-}
-
-FnFunction FN_testing(bNodeTree *btree)
+FnFunction FN_tree_to_function(bNodeTree *btree)
 {
 	auto fgraph = FN::Nodes::btree_to_graph(btree);
 	std::cout << fgraph.graph()->to_dot() << std::endl;
@@ -231,72 +121,4 @@ void FN_function_update_dependencies(
 	FN::Dependencies dependencies;
 	fn_ref->ptr()->body<FN::TupleCallBody>()->dependencies(dependencies);
 	dependencies.update_depsgraph(deps_node);
-}
-
-class GetFloatListElement : public FN::TupleCallBody {
-	void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
-	{
-		auto list = fn_in.get<BLI::SmallVector<float>>(0);
-		int32_t index = fn_in.get<int32_t>(1);
-		fn_out.set<float>(0, list[index]);
-	}
-};
-
-LAZY_INIT_REF_STATIC__NO_ARG(FN::SharedFunction, get__get_float_list_element)
-{
-	auto signature = FN::Signature({
-		FN::InputParameter("List", FN::Types::get_float_list_type()),
-		FN::InputParameter("Index", FN::Types::get_int32_type())
-	}, {
-		FN::OutputParameter("Value", FN::Types::get_float_type())
-	});
-	auto fn = FN::SharedFunction::New(signature);
-	fn->add_body(new GetFloatListElement());
-	return fn;
-}
-
-void FN_test_inferencer()
-{
-	FN::SharedType &float_ty = FN::Types::get_float_type();
-	FN::SharedType &int32_ty = FN::Types::get_int32_type();
-	FN::SharedType &fvec3_ty = FN::Types::get_fvec3_type();
-	FN::SharedType &float_list_ty = FN::Types::get_float_list_type();
-
-	FN::ListTypeRelations list_types(int32_ty);
-	list_types.insert(float_ty, float_list_ty, get__get_float_list_element());
-
-	{
-		FN::Inferencer inferencer(list_types);
-		inferencer.insert_final_type(0, float_ty);
-		inferencer.insert_final_type(1, int32_ty);
-		inferencer.insert_final_type(2, fvec3_ty);
-		inferencer.insert_equality_relation({6, 7});
-		inferencer.insert_equality_relation({0, 5, 6});
-		inferencer.insert_equality_relation({1, 4});
-
-		BLI_assert(inferencer.inference());
-
-		BLI_assert(inferencer.get_final_type(5) == float_ty);
-		BLI_assert(inferencer.get_final_type(6) == float_ty);
-		BLI_assert(inferencer.get_final_type(7) == float_ty);
-		BLI_assert(inferencer.get_final_type(4) == int32_ty);
-	}
-	{
-		FN::Inferencer inferencer(list_types);
-		inferencer.insert_final_type(0, float_ty);
-		inferencer.insert_final_type(1, int32_ty);
-		inferencer.insert_equality_relation({0, 2});
-		inferencer.insert_equality_relation({1, 2});
-
-		BLI_assert(!inferencer.inference());
-	}
-	{
-		FN::Inferencer inferencer(list_types);
-		inferencer.insert_final_type(0, float_ty);
-		inferencer.insert_list_relation({1}, {0});
-
-		BLI_assert(inferencer.inference());
-
-		BLI_assert(inferencer.get_final_type(1) == float_list_ty);
-	}
 }
