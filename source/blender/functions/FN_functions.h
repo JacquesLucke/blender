@@ -19,6 +19,12 @@ FnCallable FN_function_get_callable(FnFunction fn);
 void FN_function_call(FnCallable call, FnTuple fn_in, FnTuple fn_out);
 void FN_function_free(FnFunction fn);
 
+uint FN_input_amount(FnFunction fn);
+uint FN_output_amount(FnFunction fn);
+
+bool FN_input_has_type(FnFunction fn, uint index, FnType type);
+bool FN_output_has_type(FnFunction fn, uint index, FnType type);
+
 FnTuple FN_tuple_for_input(FnFunction fn);
 FnTuple FN_tuple_for_output(FnFunction fn);
 

@@ -18,7 +18,6 @@ WRAPPERS(BLI::RefCounted<FN::Type> *, FnType);
 WRAPPERS(FN::Tuple *, FnTuple);
 WRAPPERS(const FN::TupleCallBody *, FnCallable);
 
-void FN_test_inferencer(void);
 
 void FN_initialize()
 {
@@ -39,6 +38,31 @@ void FN_function_free(FnFunction fn)
 {
 	unwrap(fn)->decref();
 }
+
+uint FN_input_amount(FnFunction fn)
+{
+	return unwrap(fn)->ptr()->signature().inputs().size();
+}
+
+uint FN_output_amount(FnFunction fn)
+{
+	return unwrap(fn)->ptr()->signature().outputs().size();
+}
+
+bool FN_input_has_type(FnFunction fn, uint index, FnType type)
+{
+	FN::Type *type1 = unwrap(fn)->ptr()->signature().inputs()[index].type().refcounter()->ptr();
+	FN::Type *type2 = unwrap(type)->ptr();
+	return type1 == type2;
+}
+
+bool FN_output_has_type(FnFunction fn, uint index, FnType type)
+{
+	FN::Type *type1 = unwrap(fn)->ptr()->signature().outputs()[index].type().refcounter()->ptr();
+	FN::Type *type2 = unwrap(type)->ptr();
+	return type1 == type2;
+}
+
 
 FnTuple FN_tuple_for_input(FnFunction fn)
 {
