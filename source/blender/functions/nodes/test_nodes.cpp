@@ -46,6 +46,24 @@ namespace FN { namespace Nodes {
 		}
 	};
 
+	class MinFloats : public FN::TupleCallBody {
+		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+		{
+			float a = fn_in.get<float>(0);
+			float b = fn_in.get<float>(1);
+			fn_out.set<float>(0, (a < b) ? a : b);
+		}
+	};
+
+	class MaxFloats : public FN::TupleCallBody {
+		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+		{
+			float a = fn_in.get<float>(0);
+			float b = fn_in.get<float>(1);
+			fn_out.set<float>(0, (a < b) ? b : a);
+		}
+	};
+
 	class VectorDistance : public FN::TupleCallBody {
 		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
 		{
@@ -119,27 +137,42 @@ namespace FN { namespace Nodes {
 		return fn;
 	}
 
-	LAZY_INIT_REF_STATIC__NO_ARG(SharedFunction, get_add_floats_function)
+	static SharedFunction get_simple_math_function(std::string name)
 	{
-		auto fn = SharedFunction::New("Add Floats", Signature({
+		auto fn = SharedFunction::New(name, Signature({
 			InputParameter("A", get_float_type()),
 			InputParameter("B", get_float_type()),
 		}, {
 			OutputParameter("Vector", get_float_type()),
 		}));
+		return fn;
+	}
+
+	LAZY_INIT_REF_STATIC__NO_ARG(SharedFunction, get_add_floats_function)
+	{
+		auto fn = get_simple_math_function("Add Floats");
 		fn->add_body(new AddFloats());
 		return fn;
 	}
 
 	LAZY_INIT_REF_STATIC__NO_ARG(SharedFunction, get_multiply_floats_function)
 	{
-		auto fn = SharedFunction::New("Multiply Floats", Signature({
-			InputParameter("A", get_float_type()),
-			InputParameter("B", get_float_type()),
-		}, {
-			OutputParameter("Vector", get_float_type()),
-		}));
+		auto fn = get_simple_math_function("Multiply Floats");
 		fn->add_body(new MultiplyFloats());
+		return fn;
+	}
+
+	LAZY_INIT_REF_STATIC__NO_ARG(SharedFunction, get_minimum_function)
+	{
+		auto fn = get_simple_math_function("Minimum");
+		fn->add_body(new MinFloats());
+		return fn;
+	}
+
+	LAZY_INIT_REF_STATIC__NO_ARG(SharedFunction, get_maximum_function)
+	{
+		auto fn = get_simple_math_function("Maximum");
+		fn->add_body(new MaxFloats());
 		return fn;
 	}
 
@@ -167,6 +200,8 @@ namespace FN { namespace Nodes {
 		{
 			case 1: return get_add_floats_function();
 			case 2: return get_multiply_floats_function();
+			case 3: return get_minimum_function();
+			case 4: return get_maximum_function();
 			default:
 				BLI_assert(false);
 				return *(SharedFunction *)nullptr;

@@ -5,6 +5,8 @@ from .. base import FunctionNode
 operation_items = [
     ("ADD", "Add", "", "", 1),
     ("MULTIPLY", "Multiply", "", "", 2),
+    ("MIN", "Minimum", "", "", 3),
+    ("MAX", "Maximum", "", "", 4),
 ]
 
 class FloatMathNode(bpy.types.Node, FunctionNode):
