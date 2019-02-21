@@ -54,25 +54,15 @@
 
 static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
 {
-	bNodeTree *tree = (bNodeTree *)DEG_get_original_id(fdmd->function_tree);
-	if (tree == NULL) return NULL;
-	return FN_tree_to_function(tree);
-}
+	bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
 
-static bool is_deform_function(FnFunction fn)
-{
-	FnType float_ty = FN_type_get_float();
-	FnType fvec3_ty = FN_type_get_fvec3();
+	FnType float_ty = FN_type_borrow_float();
+	FnType fvec3_ty = FN_type_borrow_fvec3();
 
 	FnType inputs[] = { fvec3_ty, float_ty, NULL };
 	FnType outputs[] = { fvec3_ty, NULL };
 
-	bool match = FN_function_has_signature(fn, inputs, outputs);
-
-	FN_type_free(float_ty);
-	FN_type_free(fvec3_ty);
-
-	return match;
+	return FN_function_get_with_signature(tree, inputs, outputs);
 }
 
 static void do_deformation(
@@ -82,10 +72,6 @@ static void do_deformation(
 {
 	FnFunction fn = get_current_function(fdmd);
 	if (fn == NULL) {
-		return;
-	}
-	FN_function_print(fn);
-	if (!is_deform_function(fn)) {
 		return;
 	}
 

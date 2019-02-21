@@ -34,7 +34,7 @@ void FN_tuple_free(FnTuple tuple);
 
 void FN_tuple_set_float(FnTuple tuple, uint index, float value);
 void FN_tuple_set_float_vector_3(FnTuple tuple, uint index, float vector[3]);
-
+float FN_tuple_get_float(FnTuple tuple, uint index);
 void FN_tuple_get_float_vector_3(FnTuple tuple, uint index, float dst[3]);
 
 const char *FN_type_name(FnType type);
@@ -44,11 +44,13 @@ FnType FN_type_get_float(void);
 FnType FN_type_get_int32(void);
 FnType FN_type_get_fvec3(void);
 
-FnFunction FN_get_deform_function(int type);
-
-FnFunction FN_get_generated_function(void);
+FnType FN_type_borrow_float(void);
+FnType FN_type_borrow_int32(void);
+FnType FN_type_borrow_fvec3(void);
 
 FnFunction FN_tree_to_function(bNodeTree *bnodetree);
+FnFunction FN_function_get_with_signature(
+	bNodeTree *btree, FnType *inputs, FnType *outputs);
 
 struct DepsNodeHandle;
 void FN_function_update_dependencies(

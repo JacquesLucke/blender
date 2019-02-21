@@ -112,6 +112,11 @@ void FN_tuple_set_float(FnTuple tuple, uint index, float value)
 	unwrap(tuple)->set<float>(index, value);
 }
 
+float FN_tuple_get_float(FnTuple tuple, uint index)
+{
+	return unwrap(tuple)->get<float>(index);
+}
+
 using FN::Types::Vector;
 
 void FN_tuple_set_float_vector_3(FnTuple tuple, uint index, float value[3])
@@ -143,7 +148,9 @@ static FnType get_type_with_increased_refcount(const FN::SharedType &type)
 
 #define SIMPLE_TYPE_GETTER(name) \
 	FnType FN_type_get_##name() \
-	{ return get_type_with_increased_refcount(FN::Types::get_##name##_type()); }
+	{ return get_type_with_increased_refcount(FN::Types::get_##name##_type()); } \
+	FnType FN_type_borrow_##name() \
+	{ return wrap(FN::Types::get_##name##_type().refcounter()); }
 
 SIMPLE_TYPE_GETTER(float);
 SIMPLE_TYPE_GETTER(int32);
@@ -161,6 +168,26 @@ FnFunction FN_tree_to_function(bNodeTree *btree)
 	BLI::RefCounted<FN::Function> *fn_ref = fn.refcounter();
 	fn_ref->incref();
 	return wrap(fn_ref);
+}
+
+FnFunction FN_function_get_with_signature(
+	bNodeTree *btree, FnType *inputs, FnType *outputs)
+{
+	if (btree == NULL) {
+		return NULL;
+	}
+
+	FnFunction fn = FN_tree_to_function(btree);
+	if (fn == NULL) {
+		return NULL;
+	}
+	else if (FN_function_has_signature(fn, inputs, outputs)) {
+		return fn;
+	}
+	else {
+		FN_function_free(fn);
+		return NULL;
+	}
 }
 
 void FN_function_update_dependencies(
