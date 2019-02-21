@@ -6,6 +6,11 @@ namespace FN { namespace Types {
 
 	struct Vector {
 		float x, y, z;
+
+		Vector() = default;
+
+		Vector(float *vec)
+			: x(vec[0]), y(vec[1]), z(vec[2]) {}
 	};
 
 	SharedType &get_float_type();

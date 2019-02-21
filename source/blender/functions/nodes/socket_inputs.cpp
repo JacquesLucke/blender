@@ -35,7 +35,12 @@ namespace FN { namespace Nodes {
 
 		virtual void call(const Tuple &UNUSED(fn_in), Tuple &fn_out) const
 		{
-			fn_out.set<Vector>(0, Vector());
+			PointerRNA ptr;
+			RNA_pointer_create(&m_btree->id, &RNA_NodeSocket, m_bsocket, &ptr);
+
+			float vector[3];
+			RNA_float_get_array(&ptr, "value", vector);
+			fn_out.set<Vector>(0, Vector(vector));
 		}
 	};
 
