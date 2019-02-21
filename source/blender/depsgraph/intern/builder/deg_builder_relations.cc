@@ -111,6 +111,8 @@ extern "C" {
 
 #include "intern/depsgraph_type.h"
 
+#include "FN_functions.hpp"
+
 namespace DEG {
 
 /* ***************** */
@@ -1551,6 +1553,17 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 				continue;
 			}
 			build_id(dtar->id);
+
+			if (dvar->type == DVAR_TYPE_FUNCTION) {
+				auto fn = (BLI::RefCounted<FN::Function> *)get_driver_variable_function(dvar);
+				if (fn != NULL) {
+					FN::Dependencies dependencies;
+					fn->ptr()->body<FN::TupleCallBody>()->dependencies(dependencies);
+					dependencies.add_relations(*this, driver_key);
+					fn->decref();
+				}
+			}
+
 			/* Initialize relations coming to proxy_from. */
 			Object *proxy_from = NULL;
 			if ((GS(dtar->id->name) == ID_OB) &&

@@ -26,6 +26,7 @@ set(INC
 	../blentranslation
 	../depsgraph
 	../draw
+	../functions
 	../gpu
 	../ikplugin
 	../imbuf

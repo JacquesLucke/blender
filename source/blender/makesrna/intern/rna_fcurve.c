@@ -1556,6 +1556,7 @@ static void rna_def_drivervar(BlenderRNA *brna)
 		                           "Final transformation value of object or bone"},
 		{DVAR_TYPE_ROT_DIFF, "ROTATION_DIFF", ICON_DRIVER_ROTATIONAL_DIFFERENCE, "Rotational Difference", "Use the angle between two bones"},
 		{DVAR_TYPE_LOC_DIFF, "LOC_DIFF", ICON_DRIVER_DISTANCE, "Distance", "Distance between two bones or objects"},
+		{DVAR_TYPE_FUNCTION, "FUNCTION", ICON_NONE, "Function", "Evaluate Function"},
 		{0, NULL, 0, NULL, NULL},
 	};
 

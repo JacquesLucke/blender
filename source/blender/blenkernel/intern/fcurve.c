@@ -57,6 +57,8 @@
 
 #include "RNA_access.h"
 
+#include "FN_functions.h"
+
 #include "atomic_ops.h"
 
 #include "CLG_log.h"
@@ -1611,6 +1613,38 @@ static float dvar_eval_transChan(ChannelDriver *driver, DriverVar *dvar)
 	}
 }
 
+/* evaluate 'function' driver variable */
+static float dvar_eval_function(ChannelDriver *UNUSED(driver), DriverVar *dvar)
+{
+	FnFunction fn = (FnFunction)get_driver_variable_function(dvar);
+	if (fn == NULL) {
+		return 0.0f;
+	}
+
+	FnTuple fn_in = FN_tuple_for_input(fn);
+	FnTuple fn_out = FN_tuple_for_output(fn);
+	FnCallable callable = FN_function_get_callable(fn);
+
+	FN_function_call(callable, fn_in, fn_out);
+	float result = FN_tuple_get_float(fn_out, 0);
+
+	FN_tuple_free(fn_in);
+	FN_tuple_free(fn_out);
+
+	return result;
+}
+
+struct bNodeTree;
+void *get_driver_variable_function(DriverVar *dvar)
+{
+	FnType float_ty = FN_type_borrow_float();
+	FnType inputs[] = { NULL };
+	FnType outputs[] = { float_ty, NULL };
+
+	struct bNodeTree *tree = (struct bNodeTree *)dvar->targets[0].id;
+	return FN_function_get_with_signature(tree, inputs, outputs);
+}
+
 /* ......... */
 
 /* Table of Driver Varaiable Type Info Data */
@@ -1641,6 +1675,13 @@ static DriverVarTypeInfo dvar_types[MAX_DVAR_TYPES] = {
 		1,     /* number of targets used */
 		{"Object/Bone"},     /* UI names for targets */
 		{DTAR_FLAG_STRUCT_REF | DTAR_FLAG_ID_OB_ONLY}   /* flags */
+	END_DVAR_TYPEDEF,
+
+	BEGIN_DVAR_TYPEDEF(DVAR_TYPE_FUNCTION)
+		dvar_eval_function,  /* eval callback */
+		1,                   /* number of targets used */
+		{"Function"},        /* UI names for targets */
+		{0},                 /* flags */
 	END_DVAR_TYPEDEF,
 };
 
@@ -1734,6 +1775,10 @@ void driver_change_variable_type(DriverVar *dvar, int type)
 		/* object ID types only, or idtype not yet initialized */
 		if ((flags & DTAR_FLAG_ID_OB_ONLY) || (dtar->idtype == 0))
 			dtar->idtype = ID_OB;
+
+		if (type == DVAR_TYPE_FUNCTION) {
+			dtar->idtype = ID_NT;
+		}
 	}
 	DRIVER_TARGETS_LOOPER_END;
 }

@@ -731,6 +731,16 @@ static void graph_panel_driverVar__transChan(uiLayout *layout, ID *id, DriverVar
 	uiItemR(sub, &dtar_ptr, "transform_space", 0, IFACE_("Space"), ICON_NONE);
 }
 
+/* settings for 'function' driver variable type */
+static void graph_panel_driverVar_function(uiLayout *layout, ID *id, DriverVar *dvar)
+{
+	DriverTarget *dtar = &dvar->targets[0];
+	PointerRNA dtar_ptr;
+	RNA_pointer_create(id, &RNA_DriverTarget, dtar, &dtar_ptr);
+
+	uiItemR(layout, &dtar_ptr, "id", 0, IFACE_("Function"), ICON_NONE);
+}
+
 /* ----------------------------------------------------------------- */
 
 
@@ -969,6 +979,9 @@ static void graph_draw_driver_settings_panel(uiLayout *layout, ID *id, FCurve *f
 				break;
 			case DVAR_TYPE_TRANSFORM_CHAN:     /* transform channel */
 				graph_panel_driverVar__transChan(box, id, dvar);
+				break;
+			case DVAR_TYPE_FUNCTION:     /* function */
+				graph_panel_driverVar_function(box, id, dvar);
 				break;
 		}
 

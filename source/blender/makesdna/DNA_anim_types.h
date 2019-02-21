@@ -411,6 +411,8 @@ typedef enum eDriverVar_Types {
 	DVAR_TYPE_LOC_DIFF,
 		/* 'final' transform for object/bones */
 	DVAR_TYPE_TRANSFORM_CHAN,
+		/* evaluate function */
+	DVAR_TYPE_FUNCTION,
 
 	/* maximum number of variable types
 	 * NOTE: this must always be th last item in this list,
