@@ -159,6 +159,7 @@ SIMPLE_TYPE_GETTER(fvec3);
 FnFunction FN_tree_to_function(bNodeTree *btree)
 {
 	TIMEIT("Tree to function");
+	BLI_assert(btree);
 	auto fgraph = FN::Nodes::btree_to_graph(btree);
 	//std::cout << fgraph.graph()->to_dot() << std::endl;
 

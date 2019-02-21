@@ -1,5 +1,7 @@
 #include "BLI_small_set.hpp"
 
+#include "intern/builder/deg_builder_relations.h"
+
 struct Object;
 struct DepsNodeHandle;
 
@@ -17,6 +19,10 @@ namespace FN {
 		}
 
 		void update_depsgraph(DepsNodeHandle *deps_node);
+
+		void add_relations(
+			DEG::DepsgraphRelationBuilder &builder,
+			const DEG::OperationKey &target);
 	};
 
 } /* namespace FN */
