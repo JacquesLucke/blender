@@ -54,7 +54,7 @@
 
 static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
 {
-	bNodeTree *tree = fdmd->function_tree;
+	bNodeTree *tree = (bNodeTree *)DEG_get_original_id(fdmd->function_tree);
 	if (tree == NULL) return NULL;
 	return FN_tree_to_function(tree);
 }
