@@ -1921,6 +1921,8 @@ def km_dopesheet(params):
         op_menu_pie("VIEW3D_MT_proportional_editing_falloff_pie", {"type": 'O', "value": 'PRESS', "shift": True}),
         ("marker.add", {"type": 'M', "value": 'PRESS'}, None),
         ("marker.rename", {"type": 'M', "value": 'PRESS', "ctrl": True}, None),
+        ("anim.start_frame_set", {"type": 'HOME', "value": 'PRESS', "ctrl": True}, None),
+        ("anim.end_frame_set", {"type": 'END', "value": 'PRESS', "ctrl": True}, None),
     ])
 
     if params.apple:
@@ -3563,7 +3565,7 @@ def _template_paint_radial_control(paint, rotation=False, secondary_rotation=Fal
     return items
 
 
-def km_image_paint(_params):
+def km_image_paint(params):
     items = []
     keymap = (
         "Image Paint",
@@ -3603,12 +3605,13 @@ def km_image_paint(_params):
         op_menu("VIEW3D_MT_angle_control", {"type": 'R', "value": 'PRESS'}),
         ("wm.context_menu_enum", {"type": 'E', "value": 'PRESS'},
          {"properties": [("data_path", 'tool_settings.image_paint.brush.stroke_method')]}),
+        op_menu("VIEW3D_MT_paint_texture_specials", params.context_menu_event),
     ])
 
     return keymap
 
 
-def km_vertex_paint(_params):
+def km_vertex_paint(params):
     items = []
     keymap = (
         "Vertex Paint",
@@ -3645,6 +3648,7 @@ def km_vertex_paint(_params):
         op_menu("VIEW3D_MT_angle_control", {"type": 'R', "value": 'PRESS'}),
         ("wm.context_menu_enum", {"type": 'E', "value": 'PRESS'},
          {"properties": [("data_path", 'tool_settings.vertex_paint.brush.stroke_method')]}),
+        op_menu("VIEW3D_MT_paint_vertex_specials", params.context_menu_event),
     ])
 
     return keymap
@@ -3672,7 +3676,7 @@ def km_weight_paint(params):
         ("brush.scale_size", {"type": 'RIGHT_BRACKET', "value": 'PRESS'},
          {"properties": [("scalar", 1.0 / 0.9)]}),
         *_template_paint_radial_control("weight_paint"),
-        ("wm.radial_control", {"type": 'W', "value": 'PRESS'},
+        ("wm.radial_control", {"type": 'F', "value": 'PRESS', "ctrl": True},
          radial_control_properties("weight_paint", 'weight', 'use_unified_weight')),
         ("wm.context_menu_enum", {"type": 'E', "value": 'PRESS'},
          {"properties": [("data_path", 'tool_settings.vertex_paint.brush.stroke_method')]}),
@@ -3682,6 +3686,7 @@ def km_weight_paint(params):
          {"properties": [("data_path", 'weight_paint_object.data.use_paint_mask_vertex')]}),
         ("wm.context_toggle", {"type": 'S', "value": 'PRESS', "shift": True},
          {"properties": [("data_path", 'tool_settings.weight_paint.brush.use_smooth_stroke')]}),
+        op_menu("VIEW3D_MT_paint_weight_specials", params.context_menu_event),
     ])
 
     if params.select_mouse == 'LEFTMOUSE':
@@ -3693,7 +3698,7 @@ def km_weight_paint(params):
     return keymap
 
 
-def km_sculpt(_params):
+def km_sculpt(params):
     items = []
     keymap = (
         "Sculpt",
@@ -3781,6 +3786,7 @@ def km_sculpt(_params):
         ("wm.context_toggle", {"type": 'S', "value": 'PRESS', "shift": True},
          {"properties": [("data_path", 'tool_settings.sculpt.brush.use_smooth_stroke')]}),
         op_menu("VIEW3D_MT_angle_control", {"type": 'R', "value": 'PRESS'}),
+        op_menu("VIEW3D_MT_sculpt_specials", params.context_menu_event),
     ])
 
     return keymap
