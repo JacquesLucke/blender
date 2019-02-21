@@ -485,6 +485,7 @@ typedef struct DisplaceModifierData {
 	char defgrp_name[64];
 	float midlevel;
 	int space;
+	struct bNodeTree *function_tree;
 } DisplaceModifierData;
 
 /* DisplaceModifierData->direction */

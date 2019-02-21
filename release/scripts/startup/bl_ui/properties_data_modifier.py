@@ -386,6 +386,8 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "mid_level")
         row.prop(md, "strength")
 
+        layout.prop(md, "function_tree", text="Weight Function")
+
     def DYNAMIC_PAINT(self, layout, ob, md):
         layout.label(text="Settings are inside the Physics tab")
 

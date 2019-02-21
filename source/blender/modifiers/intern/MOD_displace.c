@@ -50,6 +50,8 @@
 
 #include "RE_shader_ext.h"
 
+#include "FN_functions.h"
+
 
 /* Displace */
 
@@ -62,6 +64,20 @@ static void initData(ModifierData *md)
 	dmd->direction = MOD_DISP_DIR_NOR;
 	dmd->midlevel = 0.5;
 	dmd->space = MOD_DISP_SPACE_LOCAL;
+	dmd->function_tree = NULL;
+}
+
+static FnFunction getCurrentFunction(DisplaceModifierData *dmd)
+{
+	bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)dmd->function_tree);
+
+	FnType float_ty = FN_type_borrow_float();
+	FnType fvec3_ty = FN_type_borrow_fvec3();
+
+	FnType inputs[] = { fvec3_ty, NULL };
+	FnType outputs[] = { float_ty, NULL };
+
+	return FN_function_get_with_signature(tree, inputs, outputs);
 }
 
 static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
@@ -116,6 +132,7 @@ static void foreachIDLink(
 	DisplaceModifierData *dmd = (DisplaceModifierData *) md;
 
 	walk(userData, ob, (ID **)&dmd->texture, IDWALK_CB_USER);
+	walk(userData, ob, (ID **)&dmd->function_tree, IDWALK_CB_USER);
 
 	foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
 }
@@ -149,6 +166,12 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
 	if (dmd->texture != NULL) {
 		DEG_add_generic_id_relation(ctx->node, &dmd->texture->id, "Displace Modifier");
 	}
+
+	FnFunction fn = getCurrentFunction(dmd);
+	if (fn) {
+		FN_function_update_dependencies(fn, ctx->node);
+		FN_function_free(fn);
+	}
 }
 
 typedef struct DisplaceUserdata {
@@ -166,6 +189,7 @@ typedef struct DisplaceUserdata {
 	float local_mat[4][4];
 	MVert *mvert;
 	float (*vert_clnors)[3];
+	FnFunction calc_weight_func;
 } DisplaceUserdata;
 
 static void displaceModifier_do_task(
@@ -192,12 +216,29 @@ static void displaceModifier_do_task(
 	float delta;
 	float local_vec[3];
 
-	if (dvert) {
-		weight = defvert_find_weight(dvert + iter, defgrp_index);
-		if (weight == 0.0f) {
-			return;
-		}
+	if (data->calc_weight_func) {
+		FnTuple fn_in = FN_tuple_for_input(data->calc_weight_func);
+		FnTuple fn_out = FN_tuple_for_output(data->calc_weight_func);
+		FN_tuple_set_float_vector_3(fn_in, 0, vertexCos[iter]);
+		FnCallable callable = FN_function_get_callable(data->calc_weight_func);
+		FN_function_call(callable, fn_in, fn_out);
+		weight = FN_tuple_get_float(fn_out, 0);
+		FN_tuple_free(fn_in);
+		FN_tuple_free(fn_out);
 	}
+
+	if (weight == 0.0f) {
+		return;
+	}
+
+	// if (dvert) {
+	// 	weight = defvert_find_weight(dvert + iter, defgrp_index);
+	// 	if (weight == 0.0f) {
+	// 		return;
+	// 	}
+	// }
+
+	strength *= weight;
 
 	if (data->tex_target) {
 		texres.nor = NULL;
@@ -206,10 +247,6 @@ static void displaceModifier_do_task(
 	}
 	else {
 		delta = delta_fixed;  /* (1.0f - dmd->midlevel) */  /* never changes */
-	}
-
-	if (dvert) {
-		strength *= weight;
 	}
 
 	delta *= strength;
@@ -343,6 +380,8 @@ static void displaceModifier_do(
 		data.pool = BKE_image_pool_new();
 		BKE_texture_fetch_images_for_pool(tex_target, data.pool);
 	}
+	data.calc_weight_func = getCurrentFunction(dmd);
+
 	ParallelRangeSettings settings;
 	BLI_parallel_range_settings_defaults(&settings);
 	settings.use_threading = (numVerts > 512);
@@ -353,6 +392,10 @@ static void displaceModifier_do(
 
 	if (data.pool != NULL) {
 		BKE_image_pool_free(data.pool);
+	}
+
+	if (data.calc_weight_func != NULL) {
+		FN_function_free(data.calc_weight_func);
 	}
 
 	if (tex_co) {
