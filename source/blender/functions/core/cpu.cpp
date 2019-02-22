@@ -13,6 +13,11 @@ namespace FN {
 		delete v;
 	}
 
+	void TupleCallBody::init_defaults(Tuple &fn_in) const
+	{
+		fn_in.init_default_all();
+	}
+
 
 	const char *CPPTypeInfo::identifier_in_composition()
 	{

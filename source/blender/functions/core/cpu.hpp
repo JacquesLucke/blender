@@ -18,6 +18,7 @@ namespace FN {
 
 		virtual void call(const Tuple &fn_in, Tuple &fn_out) const = 0;
 		virtual void dependencies(Dependencies &UNUSED(deps)) const {}
+		virtual void init_defaults(Tuple &fn_in) const;
 	};
 
 	class CPPTypeInfo {
@@ -28,6 +29,7 @@ namespace FN {
 		virtual ~CPPTypeInfo() {};
 
 		virtual uint size_of_type() const = 0;
+		virtual void construct_default(void *ptr) const = 0;
 		virtual void destruct_type(void *ptr) const = 0;
 		virtual void copy_to_initialized(void *src, void *dst) const = 0;
 		virtual void copy_to_uninitialized(void *src, void *dst) const = 0;
@@ -39,6 +41,11 @@ namespace FN {
 		virtual uint size_of_type() const override
 		{
 			return sizeof(T);
+		}
+
+		virtual void construct_default(void *ptr) const override
+		{
+			new(ptr) T();
 		}
 
 		virtual void destruct_type(void *ptr) const override
@@ -136,6 +143,19 @@ namespace FN {
 
 			from.m_type_info[from_index]->copy_to_initialized(
 				from.element_ptr(from_index), to.element_ptr(to_index));
+		}
+
+		inline void init_default(uint index) const
+		{
+			m_type_info[index]->construct_default(this->element_ptr(index));
+			m_initialized[index] = true;
+		}
+
+		inline void init_default_all() const
+		{
+			for (uint i = 0; i < m_types.size(); i++) {
+				this->init_default(i);
+			}
 		}
 
 	private:
