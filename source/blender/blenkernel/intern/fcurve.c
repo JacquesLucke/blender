@@ -1623,6 +1623,7 @@ static float dvar_eval_function(ChannelDriver *UNUSED(driver), DriverVar *dvar)
 
 	FnTuple fn_in = FN_tuple_for_input(fn);
 	FnTuple fn_out = FN_tuple_for_output(fn);
+	FN_tuple_set_int32(fn_in, 0, (int32_t)dvar);
 	FnTupleCallBody callable = FN_function_get_callable(fn);
 
 	FN_function_call(callable, fn_in, fn_out);
@@ -1638,7 +1639,8 @@ struct bNodeTree;
 void *get_driver_variable_function(DriverVar *dvar)
 {
 	FnType float_ty = FN_type_borrow_float();
-	FnType inputs[] = { NULL };
+	FnType int32_ty = FN_type_borrow_int32();
+	FnType inputs[] = { int32_ty, NULL };
 	FnType outputs[] = { float_ty, NULL };
 
 	struct bNodeTree *tree = (struct bNodeTree *)dvar->targets[0].id;
