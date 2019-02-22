@@ -13,7 +13,8 @@ namespace FN { namespace Nodes {
 
 	InsertNode get_node_inserter(const std::string &name)
 	{
-		return node_inserters.lookup_default(name, nullptr);
+		BLI_assert(node_inserters.contains(name));
+		return node_inserters.lookup(name);
 	}
 
 	InsertSocket get_socket_inserter(const std::string &name)

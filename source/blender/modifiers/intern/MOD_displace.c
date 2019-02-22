@@ -72,9 +72,10 @@ static FnFunction getCurrentFunction(DisplaceModifierData *dmd)
 	bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)dmd->function_tree);
 
 	FnType float_ty = FN_type_borrow_float();
+	FnType int32_ty = FN_type_borrow_int32();
 	FnType fvec3_ty = FN_type_borrow_fvec3();
 
-	FnType inputs[] = { fvec3_ty, NULL };
+	FnType inputs[] = { fvec3_ty, int32_ty, NULL };
 	FnType outputs[] = { float_ty, NULL };
 
 	return FN_function_get_with_signature(tree, inputs, outputs);
@@ -220,6 +221,7 @@ static void displaceModifier_do_task(
 		FnTuple fn_in = FN_tuple_for_input(data->calc_weight_func);
 		FnTuple fn_out = FN_tuple_for_output(data->calc_weight_func);
 		FN_tuple_set_float_vector_3(fn_in, 0, vertexCos[iter]);
+		FN_tuple_set_int32(fn_in, 1, iter);
 		FnTupleCallBody callable = FN_function_get_callable(data->calc_weight_func);
 		FN_function_call(callable, fn_in, fn_out);
 		weight = FN_tuple_get_float(fn_out, 0);
