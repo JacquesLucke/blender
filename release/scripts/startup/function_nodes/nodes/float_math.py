@@ -15,7 +15,8 @@ class FloatMathNode(bpy.types.Node, FunctionNode):
 
     operation: EnumProperty(
         name="Operation",
-        items=operation_items)
+        items=operation_items,
+    )
 
     def get_sockets(self):
         return [

@@ -9,4 +9,5 @@ from . import (
     vector_distance,
     clamp,
     random_number,
+    map_range,
 )

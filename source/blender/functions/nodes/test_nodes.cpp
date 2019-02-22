@@ -97,6 +97,32 @@ namespace FN { namespace Nodes {
 		}
 	};
 
+	class MapRange : public TupleCallBody {
+		void call(const Tuple &fn_in, Tuple &fn_out) const override
+		{
+			float value = fn_in.get<float>(0);
+			float from_min = fn_in.get<float>(1);
+			float from_max = fn_in.get<float>(2);
+			float to_min = fn_in.get<float>(3);
+			float to_max = fn_in.get<float>(4);
+
+			float from_range = from_max - from_min;
+			float to_range = to_max - to_min;
+
+			float result;
+			if (from_range == 0) {
+				result = to_min;
+			}
+			else {
+				float t = (value - from_min) / from_range;
+				CLAMP(t, 0.0f, 1.0f);
+				result = t * to_range + to_min;
+			}
+
+			fn_out.set<float>(0, result);
+		}
+	};
+
 	class ObjectTransforms : public TupleCallBody {
 	private:
 		Object *m_object;
@@ -212,6 +238,21 @@ namespace FN { namespace Nodes {
 		return fn;
 	}
 
+	LAZY_INIT_REF_STATIC__NO_ARG(SharedFunction, get_map_range_function)
+	{
+		auto fn = SharedFunction::New("Map Range", Signature({
+			InputParameter("Value", get_float_type()),
+			InputParameter("From Min", get_float_type()),
+			InputParameter("From Max", get_float_type()),
+			InputParameter("To Min", get_float_type()),
+			InputParameter("To Max", get_float_type()),
+		}, {
+			OutputParameter("Value", get_float_type()),
+		}));
+		fn->add_body(new MapRange());
+		return fn;
+	}
+
 	static void insert_object_transforms_node(
 		bNodeTree *btree,
 		bNode *bnode,
@@ -284,6 +325,7 @@ namespace FN { namespace Nodes {
 		register_node_function_getter__no_arg("fn_SeparateVectorNode", get_separate_vector_function);
 		register_node_function_getter__no_arg("fn_VectorDistanceNode", get_vector_distance_function);
 		register_node_function_getter__no_arg("fn_RandomNumberNode", get_random_number_function);
+		register_node_function_getter__no_arg("fn_MapRangeNode", get_map_range_function);
 		register_node_inserter("fn_ObjectTransformsNode", insert_object_transforms_node);
 		register_node_inserter("fn_FloatMathNode", insert_float_math_node);
 		register_node_inserter("fn_ClampNode", insert_clamp_node);
