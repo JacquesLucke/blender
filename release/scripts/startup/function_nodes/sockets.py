@@ -15,6 +15,19 @@ class FloatSocket(bpy.types.NodeSocket, DataSocket):
     def draw_property(self, layout, node, text):
         layout.prop(self, "value", text=text)
 
+class IntegerSocket(bpy.types.NodeSocket, DataSocket):
+    bl_idname = "fn_IntegerSocket"
+    bl_label = "Integer Socket"
+    color = (0, 0, 0, 1)
+
+    value: IntProperty(
+        name="Value",
+        default=0,
+    )
+
+    def draw_property(self, layout, node, text):
+        layout.prop(self, "value", text=text)
+
 class VectorSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_VectorSocket"
     bl_label = "Vector Socket"
@@ -30,4 +43,5 @@ class VectorSocket(bpy.types.NodeSocket, DataSocket):
         layout.column().prop(self, "value", text=text)
 
 bpy.utils.register_class(FloatSocket)
+bpy.utils.register_class(IntegerSocket)
 bpy.utils.register_class(VectorSocket)

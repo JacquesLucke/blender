@@ -9,6 +9,9 @@ namespace FN { namespace Nodes {
 		if (STREQ(bsocket->idname, "fn_FloatSocket")) {
 			return get_float_type();
 		}
+		else if (STREQ(bsocket->idname, "fn_IntegerSocket")) {
+			return get_int32_type();
+		}
 		else if (STREQ(bsocket->idname, "fn_VectorSocket")) {
 			return get_fvec3_type();
 		}

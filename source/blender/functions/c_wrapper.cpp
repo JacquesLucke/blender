@@ -117,6 +117,16 @@ float FN_tuple_get_float(FnTuple tuple, uint index)
 	return unwrap(tuple)->get<float>(index);
 }
 
+void FN_tuple_set_int32(FnTuple tuple, uint index, int32_t value)
+{
+	unwrap(tuple)->set<int32_t>(index, value);
+}
+
+int32_t FN_tuple_get_int32(FnTuple tuple, uint index)
+{
+	return unwrap(tuple)->get<int32_t>(index);
+}
+
 using FN::Types::Vector;
 
 void FN_tuple_set_float_vector_3(FnTuple tuple, uint index, float value[3])

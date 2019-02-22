@@ -33,8 +33,10 @@ FnTuple FN_tuple_for_output(FnFunction fn);
 void FN_tuple_free(FnTuple tuple);
 
 void FN_tuple_set_float(FnTuple tuple, uint index, float value);
+void FN_tuple_set_int32(FnTuple tuple, uint index, int32_t value);
 void FN_tuple_set_float_vector_3(FnTuple tuple, uint index, float vector[3]);
 float FN_tuple_get_float(FnTuple tuple, uint index);
+int32_t FN_tuple_get_int32(FnTuple tuple, uint index);
 void FN_tuple_get_float_vector_3(FnTuple tuple, uint index, float dst[3]);
 
 const char *FN_type_name(FnType type);
