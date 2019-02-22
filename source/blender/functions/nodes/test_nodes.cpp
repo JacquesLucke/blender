@@ -7,8 +7,8 @@ namespace FN { namespace Nodes {
 
 	using namespace Types;
 
-	class CombineVector : public FN::TupleCallBody {
-		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+	class CombineVector : public TupleCallBody {
+		void call(const Tuple &fn_in, Tuple &fn_out) const override
 		{
 			Vector v;
 			v.x = fn_in.get<float>(0);
@@ -18,8 +18,8 @@ namespace FN { namespace Nodes {
 		}
 	};
 
-	class SeparateVector : public FN::TupleCallBody {
-		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+	class SeparateVector : public TupleCallBody {
+		void call(const Tuple &fn_in, Tuple &fn_out) const override
 		{
 			Vector v = fn_in.get<Vector>(0);
 			fn_out.set<float>(0, v.x);
@@ -28,8 +28,8 @@ namespace FN { namespace Nodes {
 		}
 	};
 
-	class AddFloats : public FN::TupleCallBody {
-		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+	class AddFloats : public TupleCallBody {
+		void call(const Tuple &fn_in, Tuple &fn_out) const override
 		{
 			float a = fn_in.get<float>(0);
 			float b = fn_in.get<float>(1);
@@ -37,8 +37,8 @@ namespace FN { namespace Nodes {
 		}
 	};
 
-	class MultiplyFloats : public FN::TupleCallBody {
-		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+	class MultiplyFloats : public TupleCallBody {
+		void call(const Tuple &fn_in, Tuple &fn_out) const override
 		{
 			float a = fn_in.get<float>(0);
 			float b = fn_in.get<float>(1);
@@ -46,8 +46,8 @@ namespace FN { namespace Nodes {
 		}
 	};
 
-	class MinFloats : public FN::TupleCallBody {
-		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+	class MinFloats : public TupleCallBody {
+		void call(const Tuple &fn_in, Tuple &fn_out) const override
 		{
 			float a = fn_in.get<float>(0);
 			float b = fn_in.get<float>(1);
@@ -55,8 +55,8 @@ namespace FN { namespace Nodes {
 		}
 	};
 
-	class MaxFloats : public FN::TupleCallBody {
-		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+	class MaxFloats : public TupleCallBody {
+		void call(const Tuple &fn_in, Tuple &fn_out) const override
 		{
 			float a = fn_in.get<float>(0);
 			float b = fn_in.get<float>(1);
@@ -64,8 +64,8 @@ namespace FN { namespace Nodes {
 		}
 	};
 
-	class VectorDistance : public FN::TupleCallBody {
-		void call(const FN::Tuple &fn_in, FN::Tuple &fn_out) const override
+	class VectorDistance : public TupleCallBody {
+		void call(const Tuple &fn_in, Tuple &fn_out) const override
 		{
 			Vector a = fn_in.get<Vector>(0);
 			Vector b = fn_in.get<Vector>(1);
@@ -74,7 +74,30 @@ namespace FN { namespace Nodes {
 		}
 	};
 
-	class ObjectTransforms : public FN::TupleCallBody {
+	static uint32_t random_int(uint32_t x)
+	{
+		x = (x<<13) ^ x;
+		return x * (x * x * 15731 + 789221) + 1376312589;
+	}
+
+	static float random_float(uint32_t x)
+	{
+		x = random_int(x);
+		return (float)x / 4294967296.0f;
+	}
+
+	class RandomNumber : public TupleCallBody {
+		void call(const Tuple &fn_in, Tuple &fn_out) const override
+		{
+			uint32_t seed = fn_in.get<int32_t>(0);
+			float min = fn_in.get<float>(1);
+			float max = fn_in.get<float>(2);
+			float result = random_float(seed) * (max - min) + min;
+			fn_out.set<float>(0, result);
+		}
+	};
+
+	class ObjectTransforms : public TupleCallBody {
 	private:
 		Object *m_object;
 
@@ -82,7 +105,7 @@ namespace FN { namespace Nodes {
 		ObjectTransforms(Object *object)
 			: m_object(object) {}
 
-		void call(const FN::Tuple &UNUSED(fn_in), FN::Tuple &fn_out) const override
+		void call(const Tuple &UNUSED(fn_in), Tuple &fn_out) const override
 		{
 			if (m_object) {
 				Vector position = *(Vector *)m_object->loc;
@@ -143,7 +166,7 @@ namespace FN { namespace Nodes {
 			InputParameter("A", get_float_type()),
 			InputParameter("B", get_float_type()),
 		}, {
-			OutputParameter("Vector", get_float_type()),
+			OutputParameter("Result", get_float_type()),
 		}));
 		return fn;
 	}
@@ -173,6 +196,19 @@ namespace FN { namespace Nodes {
 	{
 		auto fn = get_simple_math_function("Maximum");
 		fn->add_body(new MaxFloats());
+		return fn;
+	}
+
+	LAZY_INIT_REF_STATIC__NO_ARG(SharedFunction, get_random_number_function)
+	{
+		auto fn = SharedFunction::New("Random Number", Signature({
+			InputParameter("Seed", get_int32_type()),
+			InputParameter("Min", get_float_type()),
+			InputParameter("Max", get_float_type()),
+		}, {
+			OutputParameter("Value", get_float_type()),
+		}));
+		fn->add_body(new RandomNumber());
 		return fn;
 	}
 
@@ -247,6 +283,7 @@ namespace FN { namespace Nodes {
 		register_node_function_getter__no_arg("fn_CombineVectorNode", get_combine_vector_function);
 		register_node_function_getter__no_arg("fn_SeparateVectorNode", get_separate_vector_function);
 		register_node_function_getter__no_arg("fn_VectorDistanceNode", get_vector_distance_function);
+		register_node_function_getter__no_arg("fn_RandomNumberNode", get_random_number_function);
 		register_node_inserter("fn_ObjectTransformsNode", insert_object_transforms_node);
 		register_node_inserter("fn_FloatMathNode", insert_float_math_node);
 		register_node_inserter("fn_ClampNode", insert_clamp_node);

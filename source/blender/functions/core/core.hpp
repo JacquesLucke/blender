@@ -111,7 +111,7 @@ namespace FN {
 			const SmallTypeVector &inputs,
 			const SmallTypeVector &outputs) const;
 
-		bool Signature::has_interface(
+		bool has_interface(
 			const Signature &other) const;
 
 		void print(std::string indent = "") const;
