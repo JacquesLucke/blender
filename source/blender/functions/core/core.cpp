@@ -29,6 +29,12 @@ namespace FN {
 			&& SmallTypeVector::all_equal(this->output_types(), outputs));
 	}
 
+	bool Signature::has_interface(
+		const Signature &other) const
+	{
+		return this->has_interface(other.input_types(), other.output_types());
+	}
+
 
 	/* Printing
 	 ***************************************/
