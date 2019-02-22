@@ -75,7 +75,7 @@ static void do_deformation(
 		return;
 	}
 
-	FnCallable fn_call = FN_function_get_callable(fn);
+	FnTupleCallBody fn_call = FN_function_get_callable(fn);
 	BLI_assert(fn_call);
 
 	FnTuple fn_in = FN_tuple_for_input(fn);

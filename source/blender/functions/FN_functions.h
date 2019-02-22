@@ -13,10 +13,10 @@ void FN_initialize(void);
 typedef struct OpaqueFnFunction *FnFunction;
 typedef struct OpaqueFnType *FnType;
 typedef struct OpaqueFnTuple *FnTuple;
-typedef struct OpaqueFnCallable *FnCallable;
+typedef struct OpaqueFnTupleCallBody *FnTupleCallBody;
 
-FnCallable FN_function_get_callable(FnFunction fn);
-void FN_function_call(FnCallable call, FnTuple fn_in, FnTuple fn_out);
+FnTupleCallBody FN_function_get_callable(FnFunction fn);
+void FN_function_call(FnTupleCallBody call, FnTuple fn_in, FnTuple fn_out);
 void FN_function_free(FnFunction fn);
 
 bool FN_function_has_signature(FnFunction, FnType *inputs, FnType *outputs);

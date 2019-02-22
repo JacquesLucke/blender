@@ -220,7 +220,7 @@ static void displaceModifier_do_task(
 		FnTuple fn_in = FN_tuple_for_input(data->calc_weight_func);
 		FnTuple fn_out = FN_tuple_for_output(data->calc_weight_func);
 		FN_tuple_set_float_vector_3(fn_in, 0, vertexCos[iter]);
-		FnCallable callable = FN_function_get_callable(data->calc_weight_func);
+		FnTupleCallBody callable = FN_function_get_callable(data->calc_weight_func);
 		FN_function_call(callable, fn_in, fn_out);
 		weight = FN_tuple_get_float(fn_out, 0);
 		FN_tuple_free(fn_in);

@@ -16,7 +16,7 @@
 WRAPPERS(BLI::RefCounted<FN::Function> *, FnFunction);
 WRAPPERS(BLI::RefCounted<FN::Type> *, FnType);
 WRAPPERS(FN::Tuple *, FnTuple);
-WRAPPERS(const FN::TupleCallBody *, FnCallable);
+WRAPPERS(const FN::TupleCallBody *, FnTupleCallBody);
 
 
 void FN_initialize()
@@ -24,12 +24,12 @@ void FN_initialize()
 	FN::Nodes::initialize();
 }
 
-void FN_function_call(FnCallable fn_call, FnTuple fn_in, FnTuple fn_out)
+void FN_function_call(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)
 {
 	unwrap(fn_call)->call(*unwrap(fn_in), *unwrap(fn_out));
 }
 
-FnCallable FN_function_get_callable(FnFunction fn)
+FnTupleCallBody FN_function_get_callable(FnFunction fn)
 {
 	return wrap(unwrap(fn)->ptr()->body<FN::TupleCallBody>());
 }

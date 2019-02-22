@@ -1623,7 +1623,7 @@ static float dvar_eval_function(ChannelDriver *UNUSED(driver), DriverVar *dvar)
 
 	FnTuple fn_in = FN_tuple_for_input(fn);
 	FnTuple fn_out = FN_tuple_for_output(fn);
-	FnCallable callable = FN_function_get_callable(fn);
+	FnTupleCallBody callable = FN_function_get_callable(fn);
 
 	FN_function_call(callable, fn_in, fn_out);
 	float result = FN_tuple_get_float(fn_out, 0);
