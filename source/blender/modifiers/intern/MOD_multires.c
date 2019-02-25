@@ -24,11 +24,11 @@
 
 #include <stddef.h>
 
+#include "BLI_utildefines.h"
+
 #include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-
-#include "BLI_utildefines.h"
 
 #include "BKE_cdderivedmesh.h"
 #include "BKE_mesh.h"
@@ -168,6 +168,10 @@ static Mesh *applyModifier(ModifierData *md,
 		/* NOTE: CCG takes ownership over Subdiv. */
 		result = multires_as_ccg(mmd, ctx, mesh, subdiv);
 		result->runtime.subdiv_ccg_tot_level = mmd->totlvl;
+		/* NOTE: CCG becomes an owner of Subdiv descriptor, so can not share
+		 * this pointer. Not sure if it's needed, but might have a second look
+		 * on the ownership model here. */
+		mmd->subdiv = NULL;
 		// BKE_subdiv_stats_print(&subdiv->stats);
 	}
 	else {
