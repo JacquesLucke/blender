@@ -57,9 +57,10 @@ static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
 	bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
 
 	FnType float_ty = FN_type_borrow_float();
+	FnType int32_ty = FN_type_borrow_int32();
 	FnType fvec3_ty = FN_type_borrow_fvec3();
 
-	FnType inputs[] = { fvec3_ty, float_ty, NULL };
+	FnType inputs[] = { fvec3_ty, int32_ty, float_ty, NULL };
 	FnType outputs[] = { fvec3_ty, NULL };
 
 	return FN_function_get_with_signature(tree, inputs, outputs);
@@ -81,12 +82,13 @@ static void do_deformation(
 	FnTuple fn_in = FN_tuple_for_input(fn);
 	FnTuple fn_out = FN_tuple_for_output(fn);
 
-	FN_tuple_set_float(fn_in, 1, fdmd->control1);
+	FN_tuple_set_float(fn_in, 2, fdmd->control1);
 
 	clock_t start = clock();
 
 	for (int i = 0; i < numVerts; i++) {
 		FN_tuple_set_float_vector_3(fn_in, 0, vertexCos[i]);
+		FN_tuple_set_int32(fn_in, 1, i);
 		FN_function_call(fn_call, fn_in, fn_out);
 		FN_tuple_get_float_vector_3(fn_out, 0, vertexCos[i]);
 	}
@@ -120,7 +122,7 @@ static void deformVertsEM(
 static void initData(ModifierData *md)
 {
 	FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
-	fdmd->control1 = 0.0f;
+	fdmd->control1 = 1.0f;
 	fdmd->control2 = 0;
 }
 

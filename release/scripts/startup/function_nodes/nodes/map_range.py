@@ -4,7 +4,7 @@ from .. base import FunctionNode
 
 class MapRangeNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_MapRangeNode"
-    bl_label = "Map Rante"
+    bl_label = "Map Range"
 
     def get_sockets(self):
         return [
