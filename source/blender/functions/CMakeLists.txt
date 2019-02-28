@@ -11,7 +11,12 @@ set(INC_SYS
 )
 
 set(SRC
+	FN_all.hpp
+	FN_core.hpp
+	FN_types.hpp
+	FN_functions.hpp
 	FN-C.h
+
 	c_wrapper.cpp
 
 	core/core.hpp
@@ -29,10 +34,6 @@ set(SRC
 	core/type_inferencing.cpp
 	core/type_relations.hpp
 	core/type_relations.cpp
-
-	FN_all.hpp
-	FN_core.hpp
-	FN_types.hpp
 
 	types/numeric.cpp
 	types/numeric.hpp

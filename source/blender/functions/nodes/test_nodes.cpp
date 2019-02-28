@@ -1,12 +1,8 @@
 #include "nodes.hpp"
-#include "BLI_lazy_init.hpp"
 #include "RNA_access.h"
-#include "BLI_math.h"
 
-#include "functions/object_input.hpp"
-#include "functions/random.hpp"
-#include "functions/scalar_math.hpp"
-#include "functions/vectors.hpp"
+#include "FN_functions.hpp"
+#include "FN_types.hpp"
 
 namespace FN { namespace Nodes {
 
