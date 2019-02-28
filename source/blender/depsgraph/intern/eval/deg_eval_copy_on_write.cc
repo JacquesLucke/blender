@@ -69,7 +69,7 @@ extern "C" {
 #ifdef NESTED_ID_NASTY_WORKAROUND
 #  include "DNA_curve_types.h"
 #  include "DNA_key_types.h"
-#  include "DNA_lamp_types.h"
+#  include "DNA_light_types.h"
 #  include "DNA_lattice_types.h"
 #  include "DNA_linestyle_types.h"
 #  include "DNA_material_types.h"
@@ -102,7 +102,7 @@ namespace {
 union NestedIDHackTempStorage {
 	Curve curve;
 	FreestyleLineStyle linestyle;
-	Lamp lamp;
+	Light lamp;
 	Lattice lattice;
 	Material material;
 	Mesh mesh;
@@ -123,7 +123,7 @@ void nested_id_hack_discard_pointers(ID *id_cow)
 		}
 
 		SPECIAL_CASE(ID_LS, FreestyleLineStyle, nodetree)
-		SPECIAL_CASE(ID_LA, Lamp, nodetree)
+		SPECIAL_CASE(ID_LA, Light, nodetree)
 		SPECIAL_CASE(ID_MA, Material, nodetree)
 		SPECIAL_CASE(ID_TE, Tex, nodetree)
 		SPECIAL_CASE(ID_WO, World, nodetree)
@@ -176,7 +176,7 @@ const ID *nested_id_hack_get_discarded_pointers(NestedIDHackTempStorage *storage
 		}
 
 		SPECIAL_CASE(ID_LS, FreestyleLineStyle, nodetree, linestyle)
-		SPECIAL_CASE(ID_LA, Lamp, nodetree, lamp)
+		SPECIAL_CASE(ID_LA, Light, nodetree, lamp)
 		SPECIAL_CASE(ID_MA, Material, nodetree, material)
 		SPECIAL_CASE(ID_TE, Tex, nodetree, tex)
 		SPECIAL_CASE(ID_WO, World, nodetree, world)
@@ -217,7 +217,7 @@ void nested_id_hack_restore_pointers(const ID *old_id, ID *new_id)
 		}
 
 		SPECIAL_CASE(ID_LS, FreestyleLineStyle, nodetree)
-		SPECIAL_CASE(ID_LA, Lamp, nodetree)
+		SPECIAL_CASE(ID_LA, Light, nodetree)
 		SPECIAL_CASE(ID_MA, Material, nodetree)
 		SPECIAL_CASE(ID_SCE, Scene, nodetree)
 		SPECIAL_CASE(ID_TE, Tex, nodetree)
@@ -255,7 +255,7 @@ void ntree_hack_remap_pointers(const Depsgraph *depsgraph, ID *id_cow)
 		}
 
 		SPECIAL_CASE(ID_LS, FreestyleLineStyle, nodetree, bNodeTree)
-		SPECIAL_CASE(ID_LA, Lamp, nodetree, bNodeTree)
+		SPECIAL_CASE(ID_LA, Light, nodetree, bNodeTree)
 		SPECIAL_CASE(ID_MA, Material, nodetree, bNodeTree)
 		SPECIAL_CASE(ID_SCE, Scene, nodetree, bNodeTree)
 		SPECIAL_CASE(ID_TE, Tex, nodetree, bNodeTree)
@@ -368,12 +368,7 @@ void view_layer_remove_disabled_bases(const Depsgraph *depsgraph,
 	const int base_enabled_flag = (depsgraph->mode == DAG_EVAL_VIEWPORT) ?
 		BASE_ENABLED_VIEWPORT : BASE_ENABLED_RENDER;
 	ListBase enabled_bases = {NULL, NULL};
-	for (Base *base = reinterpret_cast<Base *>(view_layer->object_bases.first),
-	          *base_next;
-	     base != NULL;
-	     base = base_next)
-	{
-		base_next = base->next;
+	LISTBASE_FOREACH_MUTABLE (Base *, base, &view_layer->object_bases) {
 		const bool is_object_enabled = (base->flag & base_enabled_flag);
 		if (is_object_enabled) {
 			BLI_addtail(&enabled_bases, base);
@@ -388,12 +383,26 @@ void view_layer_remove_disabled_bases(const Depsgraph *depsgraph,
 	view_layer->object_bases = enabled_bases;
 }
 
-void scene_cleanup_view_layers(const Depsgraph *depsgraph, Scene *scene_cow)
+void view_layer_update_orig_base_pointers(ViewLayer *view_layer_orig,
+                                          ViewLayer *view_layer_eval)
+{
+	Base *base_orig =
+	        reinterpret_cast<Base *>(view_layer_orig->object_bases.first);
+	LISTBASE_FOREACH (Base *, base_eval, &view_layer_eval->object_bases) {
+		base_eval->base_orig = base_orig;
+		base_orig = base_orig->next;
+	}
+}
+
+void scene_setup_view_layers_after_copy(const Depsgraph *depsgraph,
+                                        Scene *scene_cow)
 {
 	scene_remove_unused_view_layers(depsgraph, scene_cow);
-	view_layer_remove_disabled_bases(
-	        depsgraph,
-	        reinterpret_cast<ViewLayer *>(scene_cow->view_layers.first));
+	ViewLayer *view_layer_orig = depsgraph->view_layer;
+	ViewLayer *view_layer_eval =
+	        reinterpret_cast<ViewLayer *>(scene_cow->view_layers.first);
+	view_layer_update_orig_base_pointers(view_layer_orig, view_layer_eval);
+	view_layer_remove_disabled_bases(depsgraph, view_layer_eval);
 	/* TODO(sergey): Remove objects from collections as well.
 	 * Not a HUGE deal for now, nobody is looking into those CURRENTLY.
 	 * Still not an excuse to have those. */
@@ -720,7 +729,7 @@ ID *deg_expand_copy_on_write_datablock(const Depsgraph *depsgraph,
 		{
 			done = scene_copy_inplace_no_main((Scene *)id_orig, (Scene *)id_cow);
 			if (done) {
-				scene_cleanup_view_layers(depsgraph, (Scene *)id_cow);
+				scene_setup_view_layers_after_copy(depsgraph, (Scene *)id_cow);
 			}
 			break;
 		}

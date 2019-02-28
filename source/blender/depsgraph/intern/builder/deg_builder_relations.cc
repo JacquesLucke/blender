@@ -46,7 +46,7 @@ extern "C" {
 #include "DNA_effect_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_key_types.h"
-#include "DNA_lamp_types.h"
+#include "DNA_light_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_mesh_types.h"
@@ -214,8 +214,7 @@ static bool bone_has_segments(Object *object, const char *bone_name)
 
 DepsgraphRelationBuilder::DepsgraphRelationBuilder(Main *bmain,
                                                    Depsgraph *graph)
-    : bmain_(bmain),
-      graph_(graph),
+    : DepsgraphBuilder(bmain, graph),
       scene_(NULL),
       rna_node_query_(graph)
 {
@@ -497,7 +496,7 @@ void DepsgraphRelationBuilder::build_id(ID *id)
 			build_shapekeys((Key *)id);
 			break;
 		case ID_LA:
-			build_lamp((Lamp *)id);
+			build_light((Light *)id);
 			break;
 		case ID_LP:
 			build_lightprobe((LightProbe *)id);
@@ -776,7 +775,7 @@ void DepsgraphRelationBuilder::build_object_data(Object *object)
 			}
 			break;
 		case OB_LAMP:
-			build_object_data_lamp(object);
+			build_object_data_light(object);
 			break;
 		case OB_CAMERA:
 			build_object_data_camera(object);
@@ -806,10 +805,10 @@ void DepsgraphRelationBuilder::build_object_data_camera(Object *object)
 	add_relation(camera_parameters_key, object_parameters_key, "Camera -> Object");
 }
 
-void DepsgraphRelationBuilder::build_object_data_lamp(Object *object)
+void DepsgraphRelationBuilder::build_object_data_light(Object *object)
 {
-	Lamp *lamp = (Lamp *)object->data;
-	build_lamp(lamp);
+	Light *lamp = (Light *)object->data;
+	build_light(lamp);
 	ComponentKey lamp_parameters_key(&lamp->id, NodeType::PARAMETERS);
 	ComponentKey object_parameters_key(&object->id, NodeType::PARAMETERS);
 	add_relation(lamp_parameters_key, object_parameters_key, "Light -> Object");
@@ -1564,6 +1563,7 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 				}
 			}
 
+			build_driver_id_property(dtar->id, dtar->rna_path);
 			/* Initialize relations coming to proxy_from. */
 			Object *proxy_from = NULL;
 			if ((GS(dtar->id->name) == ID_OB) &&
@@ -1638,6 +1638,38 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 		}
 		DRIVER_TARGETS_LOOPER_END;
 	}
+}
+
+void DepsgraphRelationBuilder::build_driver_id_property(ID *id,
+                                                        const char *rna_path)
+{
+	if (id == NULL || rna_path == NULL) {
+		return;
+	}
+	PointerRNA id_ptr, ptr;
+	PropertyRNA *prop;
+	RNA_id_pointer_create(id, &id_ptr);
+	if (!RNA_path_resolve_full(&id_ptr, rna_path, &ptr, &prop, NULL)) {
+		return;
+	}
+	if (prop == NULL) {
+		return;
+	}
+	if (!RNA_property_is_idprop(prop)) {
+		return;
+	}
+	const char *prop_identifier = RNA_property_identifier((PropertyRNA *)prop);
+	OperationKey id_property_key(id,
+	                             NodeType::PARAMETERS,
+	                             OperationCode::ID_PROPERTY,
+	                             prop_identifier);
+	OperationKey parameters_exit_key(id,
+	                                 NodeType::PARAMETERS,
+	                                 OperationCode::PARAMETERS_EXIT);
+	add_relation(id_property_key,
+	             parameters_exit_key,
+	             "ID Property -> Done",
+	             RELATION_CHECK_BEFORE_ADD);
 }
 
 void DepsgraphRelationBuilder::build_parameters(ID *id)
@@ -2328,13 +2360,13 @@ void DepsgraphRelationBuilder::build_camera(Camera *camera)
 	}
 }
 
-/* Lamps */
-void DepsgraphRelationBuilder::build_lamp(Lamp *lamp)
+/* Lights */
+void DepsgraphRelationBuilder::build_light(Light *lamp)
 {
 	if (built_map_.checkIsBuiltAndTag(lamp)) {
 		return;
 	}
-	/* lamp's nodetree */
+	/* light's nodetree */
 	if (lamp->nodetree != NULL) {
 		build_nodetree(lamp->nodetree);
 		ComponentKey lamp_parameters_key(&lamp->id, NodeType::PARAMETERS);

@@ -69,7 +69,7 @@
 #include "DNA_key_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_layer_types.h"
-#include "DNA_lamp_types.h"
+#include "DNA_light_types.h"
 #include "DNA_linestyle_types.h"
 #include "DNA_meta_types.h"
 #include "DNA_material_types.h"
@@ -1754,19 +1754,19 @@ static void *newlibadr_real_us(FileData *fd, const void *lib, const void *adr)  
 	return id;
 }
 
-static void change_idid_adr_fd(FileData *fd, const void *old, void *new)
+static void change_link_placeholder_to_real_ID_pointer_fd(FileData *fd, const void *old, void *new)
 {
 	for (int i = 0; i < fd->libmap->nentries; i++) {
 		OldNew *entry = &fd->libmap->entries[i];
 
-		if (old == entry->newp && entry->nr == ID_ID) {
+		if (old == entry->newp && entry->nr == ID_LINK_PLACEHOLDER) {
 			entry->newp = new;
 			if (new) entry->nr = GS( ((ID *)new)->name);
 		}
 	}
 }
 
-static void change_idid_adr(ListBase *mainlist, FileData *basefd, void *old, void *new)
+static void change_link_placeholder_to_real_ID_pointer(ListBase *mainlist, FileData *basefd, void *old, void *new)
 {
 	Main *mainptr;
 
@@ -1779,7 +1779,7 @@ static void change_idid_adr(ListBase *mainlist, FileData *basefd, void *old, voi
 			fd = basefd;
 
 		if (fd) {
-			change_idid_adr_fd(fd, old, new);
+			change_link_placeholder_to_real_ID_pointer_fd(fd, old, new);
 		}
 	}
 }
@@ -2135,7 +2135,7 @@ static void *read_struct(FileData *fd, BHead *bh, const char *blockname)
 	if (bh->len) {
 #ifdef USE_BHEAD_READ_ON_DEMAND
 		BHead *bh_orig = bh;
- #endif
+#endif
 
 		/* switch is based on file dna */
 		if (bh->SDNAnr && (fd->flags & FD_FLAGS_SWITCH_ENDIAN)) {
@@ -2147,7 +2147,7 @@ static void *read_struct(FileData *fd, BHead *bh, const char *blockname)
 					return NULL;
 				}
 			}
- #endif
+#endif
 			switch_endian_structs(fd->filesdna, bh);
 		}
 
@@ -2670,7 +2670,7 @@ static void direct_link_brush(FileData *fd, Brush *brush)
 static void lib_link_palette(FileData *fd, Main *main)
 {
 	/* only link ID pointers */
-	for (Palette *palette = main->palettes.first; palette; palette = palette->id.next) {
+	for (Palette *palette = main->palette.first; palette; palette = palette->id.next) {
 		if (palette->id.tag & LIB_TAG_NEED_LINK) {
 			IDP_LibLinkProperty(palette->id.properties, fd);
 
@@ -2689,7 +2689,7 @@ static void direct_link_palette(FileData *fd, Palette *palette)
 static void lib_link_paint_curve(FileData *fd, Main *main)
 {
 	/* only link ID pointers */
-	for (PaintCurve *pc = main->paintcurves.first; pc; pc = pc->id.next) {
+	for (PaintCurve *pc = main->paintcurve.first; pc; pc = pc->id.next) {
 		if (pc->id.tag & LIB_TAG_NEED_LINK) {
 			IDP_LibLinkProperty(pc->id.properties, fd);
 
@@ -3168,7 +3168,7 @@ static void direct_link_animdata(FileData *fd, AnimData *adt)
 static void lib_link_cachefiles(FileData *fd, Main *bmain)
 {
 	/* only link ID pointers */
-	for (CacheFile *cache_file = bmain->cachefiles.first; cache_file; cache_file = cache_file->id.next) {
+	for (CacheFile *cache_file = bmain->cachefile.first; cache_file; cache_file = cache_file->id.next) {
 		if (cache_file->id.tag & LIB_TAG_NEED_LINK) {
 			IDP_LibLinkProperty(cache_file->id.properties, fd);
 			lib_link_animdata(fd, &cache_file->id, cache_file->adt);
@@ -3197,7 +3197,7 @@ static void direct_link_cachefile(FileData *fd, CacheFile *cache_file)
 
 static void lib_link_workspaces(FileData *fd, Main *bmain)
 {
-	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
+	for (WorkSpace *workspace = bmain->workspace.first; workspace; workspace = workspace->id.next) {
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
 		ID *id = (ID *)workspace;
 
@@ -3973,9 +3973,9 @@ static void direct_link_camera(FileData *fd, Camera *ca)
 /** \name Read ID: Light
  * \{ */
 
-static void lib_link_lamp(FileData *fd, Main *main)
+static void lib_link_light(FileData *fd, Main *main)
 {
-	for (Lamp *la = main->lamp.first; la; la = la->id.next) {
+	for (Light *la = main->light.first; la; la = la->id.next) {
 		if (la->id.tag & LIB_TAG_NEED_LINK) {
 			IDP_LibLinkProperty(la->id.properties, fd);
 			lib_link_animdata(fd, &la->id, la->adt);
@@ -3992,7 +3992,7 @@ static void lib_link_lamp(FileData *fd, Main *main)
 	}
 }
 
-static void direct_link_lamp(FileData *fd, Lamp *la)
+static void direct_link_light(FileData *fd, Light *la)
 {
 	la->adt = newdataadr(fd, la->adt);
 	direct_link_animdata(fd, la->adt);
@@ -5142,7 +5142,7 @@ static void direct_link_mesh(FileData *fd, Mesh *mesh)
 
 static void lib_link_latt(FileData *fd, Main *main)
 {
-	for (Lattice *lt = main->latt.first; lt; lt = lt->id.next) {
+	for (Lattice *lt = main->lattice.first; lt; lt = lt->id.next) {
 		if (lt->id.tag & LIB_TAG_NEED_LINK) {
 			IDP_LibLinkProperty(lt->id.properties, fd);
 			lib_link_animdata(fd, &lt->id, lt->adt);
@@ -5777,10 +5777,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 					}
 				}
 			}
-		}
-		else if (md->type == eModifierType_Bevel) {
-			BevelModifierData *bmd = (BevelModifierData *)md;
-			bmd->clnordata.faceHash = NULL;
 		}
 		else if (md->type == eModifierType_Multires) {
 			MultiresModifierData *mmd = (MultiresModifierData *)md;
@@ -8061,7 +8057,7 @@ void blo_lib_link_restore(Main *oldmain, Main *newmain, wmWindowManager *curwm, 
 {
 	struct IDNameLib_Map *id_map = BKE_main_idmap_create(newmain, true, oldmain);
 
-	for (WorkSpace *workspace = newmain->workspaces.first; workspace; workspace = workspace->id.next) {
+	for (WorkSpace *workspace = newmain->workspace.first; workspace; workspace = workspace->id.next) {
 		ListBase *layouts = BKE_workspace_layouts_get(workspace);
 
 		for (WorkSpaceLayout *layout = layouts->first; layout; layout = layout->next) {
@@ -8086,8 +8082,8 @@ void blo_lib_link_restore(Main *oldmain, Main *newmain, wmWindowManager *curwm, 
 		BKE_workspace_active_set(win->workspace_hook, workspace);
 
 		/* keep cursor location through undo */
-		copy_v3_v3(win->scene->cursor.location, oldscene->cursor.location);
-		copy_qt_qt(win->scene->cursor.rotation, oldscene->cursor.rotation);
+		memcpy(&win->scene->cursor, &oldscene->cursor, sizeof(win->scene->cursor));
+
 		lib_link_window_scene_data_restore(win, win->scene, cur_view_layer);
 
 		BLI_assert(win->screen == NULL);
@@ -8160,8 +8156,8 @@ static void direct_link_library(FileData *fd, Library *lib, Main *main)
 				                 TIP_("Library '%s', '%s' had multiple instances, save and reload!"),
 				                 lib->name, lib->filepath);
 
-				change_idid_adr(fd->mainlist, fd, lib, newmain->curlib);
-/*				change_idid_adr_fd(fd, lib, newmain->curlib); */
+				change_link_placeholder_to_real_ID_pointer(fd->mainlist, fd, lib, newmain->curlib);
+/*				change_link_placeholder_to_real_ID_pointer_fd(fd, lib, newmain->curlib); */
 
 				BLI_remlink(&main->library, lib);
 				MEM_freeN(lib);
@@ -8917,7 +8913,7 @@ static BHead *read_data_into_oldnewmap(FileData *fd, BHead *bhead, const char *a
 	return bhead;
 }
 
-static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short tag, ID **r_id)
+static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const int tag, ID **r_id)
 {
 	/* this routine reads a libblock and its direct data. Use link functions to connect it all
 	 */
@@ -8931,7 +8927,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 	 * This leads e.g. to desappearing objects in some undo/redo case, see T34446.
 	 * That means we have to carefully check whether current lib or libdata already exits in old main, if it does
 	 * we merely copy it over into new main area, otherwise we have to do a full read of that bhead... */
-	if (fd->memfile && ELEM(bhead->code, ID_LI, ID_ID)) {
+	if (fd->memfile && ELEM(bhead->code, ID_LI, ID_LINK_PLACEHOLDER)) {
 		const char *idname = blo_bhead_id_name(fd, bhead);
 
 		DEBUG_PRINTF("Checking %s...\n", idname);
@@ -8945,7 +8941,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 					Main *oldmain = fd->old_mainlist->first;
 					DEBUG_PRINTF("FOUND!\n");
 					/* In case of a library, we need to re-add its main to fd->mainlist, because if we have later
-					 * a missing ID_ID, we need to get the correct lib it is linked to!
+					 * a missing ID_LINK_PLACEHOLDER, we need to get the correct lib it is linked to!
 					 * Order is crucial, we cannot bulk-add it in BLO_read_from_memfile() like it used to be... */
 					BLI_remlink(fd->old_mainlist, libmain);
 					BLI_remlink_safe(&oldmain->library, libmain->curlib);
@@ -8969,7 +8965,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 					oldnewmap_insert(fd->libmap, bhead->old, id, GS(id->name));
 				}
 
-				/* No need to do anything else for ID_ID, it's assumed already present in its lib's main... */
+				/* No need to do anything else for ID_LINK_PLACEHOLDER, it's assumed already present in its lib's main... */
 				if (r_id) {
 					*r_id = NULL;  /* Just in case... */
 				}
@@ -8987,7 +8983,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 		/* do after read_struct, for dna reconstruct */
 		lb = which_libbase(main, idcode);
 		if (lb) {
-			oldnewmap_insert(fd->libmap, bhead->old, id, bhead->code);  /* for ID_ID check */
+			oldnewmap_insert(fd->libmap, bhead->old, id, bhead->code);  /* for ID_LINK_PLACEHOLDER check */
 			BLI_addtail(lb, id);
 		}
 		else {
@@ -9011,7 +9007,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 	id->recalc = 0;
 
 	/* this case cannot be direct_linked: it's just the ID part */
-	if (bhead->code == ID_ID) {
+	if (bhead->code == ID_LINK_PLACEHOLDER) {
 		/* That way, we know which datablock needs do_versions (required currently for linking). */
 		id->tag = tag | LIB_TAG_NEED_LINK | LIB_TAG_NEW;
 
@@ -9063,7 +9059,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 			direct_link_image(fd, (Image *)id);
 			break;
 		case ID_LA:
-			direct_link_lamp(fd, (Lamp *)id);
+			direct_link_light(fd, (Light *)id);
 			break;
 		case ID_VF:
 			direct_link_vfont(fd, (VFont *)id);
@@ -9327,7 +9323,7 @@ static void lib_link_all(FileData *fd, Main *main)
 	lib_link_ipo(fd, main);        /* XXX deprecated... still needs to be maintained for version patches still */
 	lib_link_key(fd, main);
 	lib_link_world(fd, main);
-	lib_link_lamp(fd, main);
+	lib_link_light(fd, main);
 	lib_link_latt(fd, main);
 	lib_link_text(fd, main);
 	lib_link_camera(fd, main);
@@ -9520,14 +9516,17 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 				bhead = NULL;
 				break;
 
-			case ID_ID:
-				/* Always adds to the most recently loaded ID_LI block, see direct_link_library.
-				 * This is part of the file format definition. */
+			case ID_LINK_PLACEHOLDER:
 				if (fd->skip_flags & BLO_READ_SKIP_DATA) {
 					bhead = blo_bhead_next(fd, bhead);
 				}
 				else {
-					bhead = read_libblock(fd, mainlist.last, bhead, LIB_TAG_READ | LIB_TAG_EXTERN, NULL);
+					/* Add link placeholder to the main of the library it belongs to.
+					 * The library is the most recently loaded ID_LI block, according
+					 * to the file format definition. So we can use the entry at the
+					 * end of mainlist, added in direct_link_library. */
+					Main *libmain = mainlist.last;
+					bhead = read_libblock(fd, libmain, bhead, LIB_TAG_ID_LINK_PLACEHOLDER | LIB_TAG_EXTERN, NULL);
 				}
 				break;
 			/* in 2.50+ files, the file identifier for screens is patched, forward compatibility */
@@ -9731,83 +9730,89 @@ static ID *is_yet_read(FileData *fd, Main *mainvar, BHead *bhead)
 
 static void expand_doit_library(void *fdhandle, Main *mainvar, void *old)
 {
-	BHead *bhead;
 	FileData *fd = fdhandle;
-	ID *id;
 
-	bhead = find_bhead(fd, old);
-	if (bhead) {
-		/* from another library? */
-		if (bhead->code == ID_ID) {
-			BHead *bheadlib = find_previous_lib(fd, bhead);
+	BHead *bhead = find_bhead(fd, old);
+	if (bhead == NULL) {
+		return;
+	}
 
-			if (bheadlib) {
-				Library *lib = read_struct(fd, bheadlib, "Library");
-				Main *ptr = blo_find_main(fd, lib->name, fd->relabase);
+	if (bhead->code == ID_LINK_PLACEHOLDER) {
+		/* Placeholder link to datablock in another library. */
+		BHead *bheadlib = find_previous_lib(fd, bhead);
+		if (bheadlib == NULL) {
+			return;
+		}
 
-				if (ptr->curlib == NULL) {
-					const char *idname = blo_bhead_id_name(fd, bhead);
+		Library *lib = read_struct(fd, bheadlib, "Library");
+		Main *libmain = blo_find_main(fd, lib->name, fd->relabase);
 
-					blo_reportf_wrap(fd->reports, RPT_WARNING, TIP_("LIB: Data refers to main .blend file: '%s' from %s"),
-					                 idname, mainvar->curlib->filepath);
-					return;
-				}
-				else
-					id = is_yet_read(fd, ptr, bhead);
+		if (libmain->curlib == NULL) {
+			const char *idname = blo_bhead_id_name(fd, bhead);
 
-				if (id == NULL) {
-					read_libblock(fd, ptr, bhead, LIB_TAG_READ | LIB_TAG_INDIRECT, NULL);
-					// commented because this can print way too much
-					// if (G.debug & G_DEBUG) printf("expand_doit: other lib %s\n", lib->name);
+			blo_reportf_wrap(fd->reports, RPT_WARNING, TIP_("LIB: Data refers to main .blend file: '%s' from %s"),
+			                 idname, mainvar->curlib->filepath);
+			return;
+		}
 
-					/* for outliner dependency only */
-					ptr->curlib->parent = mainvar->curlib;
-				}
-				else {
-					/* The line below was commented by Ton (I assume), when Hos did the merge from the orange branch. rev 6568
-					 * This line is NEEDED, the case is that you have 3 blend files...
-					 * user.blend, lib.blend and lib_indirect.blend - if user.blend already references a "tree" from
-					 * lib_indirect.blend but lib.blend does too, linking in a Scene or Group from lib.blend can result in an
-					 * empty without the dupli group referenced. Once you save and reload the group would appear. - Campbell */
-					/* This crashes files, must look further into it */
+		ID *id = is_yet_read(fd, libmain, bhead);
 
-					/* Update: the issue is that in file reading, the oldnewmap is OK, but for existing data, it has to be
-					 * inserted in the map to be found! */
+		if (id == NULL) {
+			/* ID has not been read yet, add placeholder to the main of the
+			 * library it belongs to, so that it will be read later. */
+			read_libblock(fd, libmain, bhead, LIB_TAG_ID_LINK_PLACEHOLDER | LIB_TAG_INDIRECT, NULL);
+			// commented because this can print way too much
+			// if (G.debug & G_DEBUG) printf("expand_doit: other lib %s\n", lib->name);
 
-					/* Update: previously it was checking for id->tag & LIB_TAG_PRE_EXISTING, however that
-					 * does not affect file reading. For file reading we may need to insert it into the libmap as well,
-					 * because you might have two files indirectly linking the same datablock, and in that case
-					 * we need this in the libmap for the fd of both those files.
-					 *
-					 * The crash that this check avoided earlier was because bhead->code wasn't properly passed in, making
-					 * change_idid_adr not detect the mapping was for an ID_ID datablock. */
-					oldnewmap_insert(fd->libmap, bhead->old, id, bhead->code);
-					change_idid_adr_fd(fd, bhead->old, id);
-
-					// commented because this can print way too much
-					// if (G.debug & G_DEBUG) printf("expand_doit: already linked: %s lib: %s\n", id->name, lib->name);
-				}
-
-				MEM_freeN(lib);
-			}
+			/* for outliner dependency only */
+			libmain->curlib->parent = mainvar->curlib;
 		}
 		else {
-			/* in 2.50+ file identifier for screens is patched, forward compatibility */
-			if (bhead->code == ID_SCRN) {
-				bhead->code = ID_SCR;
-			}
+			/* "id" is either a placeholder or real ID that is already in the
+			 * main of the library (A) it belongs to. However it might have been
+			 * put there by another library (C) which only updated its own
+			 * fd->libmap. In that case we also need to update the fd->libmap
+			 * of the current library (B) so we can find it for lookups.
+			 *
+			 * An example of such a setup is:
+			 * (A) tree.blend: contains Tree object.
+			 * (B) forest.blend: contains Forest collection linking in Tree from tree.blend.
+			 * (C) shot.blend: links in both Tree from tree.blend and Forest from forest.blend.
+			 */
+			oldnewmap_insert(fd->libmap, bhead->old, id, bhead->code);
 
-			id = is_yet_read(fd, mainvar, bhead);
-			if (id == NULL) {
-				read_libblock(fd, mainvar, bhead, LIB_TAG_TESTIND, NULL);
-			}
-			else {
-				/* this is actually only needed on UI call? when ID was already read before, and another append
-				 * happens which invokes same ID... in that case the lookup table needs this entry */
-				oldnewmap_insert(fd->libmap, bhead->old, id, bhead->code);
-				// commented because this can print way too much
-				// if (G.debug & G_DEBUG) printf("expand: already read %s\n", id->name);
-			}
+			/* If "id" is a real datablock and not a placeholder, we need to
+			 * update fd->libmap to replace ID_LINK_PLACEHOLDER with the real
+			 * ID_* code.
+			 *
+			 * When the real ID is read this replacement happens for all
+			 * libraries read so far, but not for libraries that have not been
+			 * read yet at that point. */
+			change_link_placeholder_to_real_ID_pointer_fd(fd, bhead->old, id);
+
+			// commented because this can print way too much
+			// if (G.debug & G_DEBUG) printf("expand_doit: already linked: %s lib: %s\n", id->name, lib->name);
+		}
+
+		MEM_freeN(lib);
+	}
+	else {
+		/* Datablock in same library. */
+		/* In 2.50+ file identifier for screens is patched, forward compatibility. */
+		if (bhead->code == ID_SCRN) {
+			bhead->code = ID_SCR;
+		}
+
+		ID *id = is_yet_read(fd, mainvar, bhead);
+		if (id == NULL) {
+			read_libblock(fd, mainvar, bhead, LIB_TAG_NEED_EXPAND | LIB_TAG_INDIRECT, NULL);
+		}
+		else {
+			/* this is actually only needed on UI call? when ID was already read before, and another append
+			 * happens which invokes same ID... in that case the lookup table needs this entry */
+			oldnewmap_insert(fd->libmap, bhead->old, id, bhead->code);
+			// commented because this can print way too much
+			// if (G.debug & G_DEBUG) printf("expand: already read %s\n", id->name);
 		}
 	}
 }
@@ -10130,7 +10135,7 @@ static void expand_material(FileData *fd, Main *mainvar, Material *ma)
 	}
 }
 
-static void expand_lamp(FileData *fd, Main *mainvar, Lamp *la)
+static void expand_light(FileData *fd, Main *mainvar, Light *la)
 {
 	expand_doit(fd, mainvar, la->ipo); // XXX deprecated - old animation system
 
@@ -10696,7 +10701,7 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 							expand_lattice(fd, mainvar, (Lattice *)id);
 							break;
 						case ID_LA:
-							expand_lamp(fd, mainvar, (Lamp *)id);
+							expand_light(fd, mainvar, (Light *)id);
 							break;
 						case ID_KE:
 							expand_key(fd, mainvar, (Key *)id);
@@ -10918,7 +10923,7 @@ static void add_collections_to_scene(
 	}
 }
 
-static ID *create_placeholder(Main *mainvar, const short idcode, const char *idname, const short tag)
+static ID *create_placeholder(Main *mainvar, const short idcode, const char *idname, const int tag)
 {
 	ListBase *lb = which_libbase(mainvar, idcode);
 	ID *ph_id = BKE_libblock_alloc_notest(idcode);
@@ -10954,7 +10959,8 @@ static ID *link_named_part(
 		id = is_yet_read(fd, mainl, bhead);
 		if (id == NULL) {
 			/* not read yet */
-			read_libblock(fd, mainl, bhead, force_indirect ? LIB_TAG_TESTIND : LIB_TAG_TESTEXT, &id);
+			const int tag = force_indirect ? LIB_TAG_INDIRECT : LIB_TAG_EXTERN;
+			read_libblock(fd, mainl, bhead, tag | LIB_TAG_NEED_EXPAND, &id);
 
 			if (id) {
 				/* sort by name in list */
@@ -11001,7 +11007,7 @@ void BLO_library_link_copypaste(Main *mainl, BlendHandle *bh)
 		if (bhead->code == ENDB)
 			break;
 		if (ELEM(bhead->code, ID_OB, ID_GR)) {
-			read_libblock(fd, mainl, bhead, LIB_TAG_TESTIND, &id);
+			read_libblock(fd, mainl, bhead, LIB_TAG_NEED_EXPAND | LIB_TAG_INDIRECT, &id);
 		}
 
 
@@ -11073,48 +11079,6 @@ ID *BLO_library_link_named_part_ex(
 {
 	FileData *fd = (FileData *)(*bh);
 	return link_named_part_ex(mainl, fd, idcode, name, flag);
-}
-
-static void link_id_part(ReportList *reports, FileData *fd, Main *mainvar, ID *id, ID **r_id)
-{
-	BHead *bhead = NULL;
-	const bool is_valid = BKE_idcode_is_linkable(GS(id->name)) || ((id->tag & LIB_TAG_EXTERN) == 0);
-
-	if (fd) {
-		bhead = find_bhead_from_idname(fd, id->name);
-	}
-
-	id->tag &= ~LIB_TAG_READ;
-
-	if (!is_valid) {
-		blo_reportf_wrap(
-		        reports, RPT_ERROR,
-		        TIP_("LIB: %s: '%s' is directly linked from '%s' (parent '%s'), but is a non-linkable data type"),
-		        BKE_idcode_to_name(GS(id->name)),
-		        id->name + 2,
-		        mainvar->curlib->filepath,
-		        library_parent_filepath(mainvar->curlib));
-	}
-
-	if (bhead) {
-		id->tag |= LIB_TAG_NEED_EXPAND;
-		// printf("read lib block %s\n", id->name);
-		read_libblock(fd, mainvar, bhead, id->tag, r_id);
-	}
-	else {
-		blo_reportf_wrap(
-		        reports, RPT_WARNING,
-		        TIP_("LIB: %s: '%s' missing from '%s', parent '%s'"),
-		        BKE_idcode_to_name(GS(id->name)),
-		        id->name + 2,
-		        mainvar->curlib->filepath,
-		        library_parent_filepath(mainvar->curlib));
-
-		/* Generate a placeholder for this ID (simplified version of read_libblock actually...). */
-		if (r_id) {
-			*r_id = is_valid ? create_placeholder(mainvar, GS(id->name), id->name + 2, id->tag) : NULL;
-		}
-	}
 }
 
 /* common routine to append/link something from a library */
@@ -11296,167 +11260,239 @@ void *BLO_library_read_struct(FileData *fd, BHead *bh, const char *blockname)
 /** \name Library Reading
  * \{ */
 
-static int mainvar_id_tag_any_check(Main *mainvar, const short tag)
+static int has_linked_ids_to_read(Main *mainvar)
 {
 	ListBase *lbarray[MAX_LIBARRAY];
-	int a;
+	int a = set_listbasepointers(mainvar, lbarray);
 
-	a = set_listbasepointers(mainvar, lbarray);
 	while (a--) {
-		ID *id;
-
-		for (id = lbarray[a]->first; id; id = id->next) {
-			if (id->tag & tag) {
+		for (ID *id = lbarray[a]->first; id; id = id->next) {
+			if (id->tag & LIB_TAG_ID_LINK_PLACEHOLDER) {
 				return true;
 			}
 		}
 	}
+
 	return false;
+}
+
+static void read_library_linked_id(ReportList *reports, FileData *fd, Main *mainvar, ID *id, ID **r_id)
+{
+	BHead *bhead = NULL;
+	const bool is_valid = BKE_idcode_is_linkable(GS(id->name)) || ((id->tag & LIB_TAG_EXTERN) == 0);
+
+	if (fd) {
+		bhead = find_bhead_from_idname(fd, id->name);
+	}
+
+	if (!is_valid) {
+		blo_reportf_wrap(
+		        reports, RPT_ERROR,
+		        TIP_("LIB: %s: '%s' is directly linked from '%s' (parent '%s'), but is a non-linkable data type"),
+		        BKE_idcode_to_name(GS(id->name)),
+		        id->name + 2,
+		        mainvar->curlib->filepath,
+		        library_parent_filepath(mainvar->curlib));
+	}
+
+	id->tag &= ~LIB_TAG_ID_LINK_PLACEHOLDER;
+
+	if (bhead) {
+		id->tag |= LIB_TAG_NEED_EXPAND;
+		// printf("read lib block %s\n", id->name);
+		read_libblock(fd, mainvar, bhead, id->tag, r_id);
+	}
+	else {
+		blo_reportf_wrap(
+		        reports, RPT_WARNING,
+		        TIP_("LIB: %s: '%s' missing from '%s', parent '%s'"),
+		        BKE_idcode_to_name(GS(id->name)),
+		        id->name + 2,
+		        mainvar->curlib->filepath,
+		        library_parent_filepath(mainvar->curlib));
+
+		/* Generate a placeholder for this ID (simplified version of read_libblock actually...). */
+		if (r_id) {
+			*r_id = is_valid ? create_placeholder(mainvar, GS(id->name), id->name + 2, id->tag) : NULL;
+		}
+	}
+}
+
+static void read_library_linked_ids(FileData *basefd, FileData *fd, ListBase *mainlist, Main *mainvar)
+{
+	GHash *loaded_ids = BLI_ghash_str_new(__func__);
+
+	ListBase *lbarray[MAX_LIBARRAY];
+	int a = set_listbasepointers(mainvar, lbarray);
+
+	while (a--) {
+		ID *id = lbarray[a]->first;
+		ListBase pending_free_ids = {NULL};
+
+		while (id) {
+			ID *id_next = id->next;
+			if (id->tag & LIB_TAG_ID_LINK_PLACEHOLDER) {
+				BLI_remlink(lbarray[a], id);
+
+				/* When playing with lib renaming and such, you may end with cases where
+				 * you have more than one linked ID of the same data-block from same
+				 * library. This is absolutely horrible, hence we use a ghash to ensure
+				 * we go back to a single linked data when loading the file. */
+				ID **realid = NULL;
+				if (!BLI_ghash_ensure_p(loaded_ids, id->name, (void ***)&realid)) {
+					read_library_linked_id(basefd->reports, fd, mainvar, id, realid);
+				}
+
+				/* realid shall never be NULL - unless some source file/lib is broken
+				 * (known case: some directly linked shapekey from a missing lib...). */
+				/* BLI_assert(*realid != NULL); */
+
+				/* Now that we have a real ID, replace all pointers to placeholders in
+				 * fd->libmap with pointers to the real datablocks. We do this for all
+				 * libraries since multiple might be referencing this ID. */
+				change_link_placeholder_to_real_ID_pointer(mainlist, basefd, id, *realid);
+
+				/* We cannot free old lib-ref placeholder ID here anymore, since we use
+				 * its name as key in loaded_ids hash. */
+				BLI_addtail(&pending_free_ids, id);
+			}
+			id = id_next;
+		}
+
+		/* Clear GHash and free link placeholder IDs of the current type. */
+		BLI_ghash_clear(loaded_ids, NULL, NULL);
+		BLI_freelistN(&pending_free_ids);
+	}
+
+	BLI_ghash_free(loaded_ids, NULL, NULL);
+}
+
+static FileData *read_library_file_data(FileData *basefd, ListBase *mainlist, Main *mainl, Main *mainptr)
+{
+	FileData *fd = mainptr->curlib->filedata;
+
+	if (fd != NULL) {
+		/* File already open. */
+		return fd;
+	}
+
+	if (mainptr->curlib->packedfile) {
+		/* Read packed file. */
+		PackedFile *pf = mainptr->curlib->packedfile;
+
+		blo_reportf_wrap(
+		        basefd->reports, RPT_INFO, TIP_("Read packed library:  '%s', parent '%s'"),
+		        mainptr->curlib->name,
+		        library_parent_filepath(mainptr->curlib));
+		fd = blo_filedata_from_memory(pf->data, pf->size, basefd->reports);
+
+		/* Needed for library_append and read_libraries. */
+		BLI_strncpy(fd->relabase, mainptr->curlib->filepath, sizeof(fd->relabase));
+	}
+	else {
+		/* Read file on disk. */
+		blo_reportf_wrap(
+		        basefd->reports, RPT_INFO, TIP_("Read library:  '%s', '%s', parent '%s'"),
+		        mainptr->curlib->filepath,
+		        mainptr->curlib->name,
+		        library_parent_filepath(mainptr->curlib));
+		fd = blo_filedata_from_file(mainptr->curlib->filepath, basefd->reports);
+	}
+
+	if (fd) {
+		/* Share the mainlist, so all libraries are added immediately in a
+		 * single list. It used to be that all FileData's had their own list,
+		 * but with indirectly linking this meant we didn't catch duplicate
+		 * libraries properly. */
+		fd->mainlist = mainlist;
+
+		fd->reports = basefd->reports;
+
+		if (fd->libmap)
+			oldnewmap_free(fd->libmap);
+
+		fd->libmap = oldnewmap_new();
+
+		mainptr->curlib->filedata = fd;
+		mainptr->versionfile =  fd->fileversion;
+
+		/* subversion */
+		read_file_version(fd, mainptr);
+#ifdef USE_GHASH_BHEAD
+		read_file_bhead_idname_map_create(fd);
+#endif
+	}
+	else {
+		mainptr->curlib->filedata = NULL;
+		mainptr->curlib->id.tag |= LIB_TAG_MISSING;
+		/* Set lib version to current main one... Makes assert later happy. */
+		mainptr->versionfile = mainptr->curlib->versionfile = mainl->versionfile;
+		mainptr->subversionfile = mainptr->curlib->subversionfile = mainl->subversionfile;
+	}
+
+	if (fd == NULL) {
+		blo_reportf_wrap(basefd->reports, RPT_WARNING, TIP_("Cannot find lib '%s'"),
+		                 mainptr->curlib->filepath);
+	}
+
+	return fd;
 }
 
 static void read_libraries(FileData *basefd, ListBase *mainlist)
 {
 	Main *mainl = mainlist->first;
-	Main *mainptr;
-	ListBase *lbarray[MAX_LIBARRAY];
-	GHash *loaded_ids = BLI_ghash_str_new(__func__);
-	int a;
 	bool do_it = true;
 
-	/* expander now is callback function */
+	/* Expander is now callback function. */
 	BLO_main_expander(expand_doit_library);
 
+	/* At this point the base blend file has been read, and each library blend
+	 * encountered so far has a main with placeholders for linked datablocks.
+	 *
+	 * Now we will read the library blend files and replace the placeholders
+	 * with actual datablocks. We loop over library mains multiple times in
+	 * case a library needs to link additional datablocks from another library
+	 * that had been read previously. */
 	while (do_it) {
 		do_it = false;
 
-		/* test 1: read libdata */
-		mainptr = mainl->next;
-		while (mainptr) {
-			if (mainvar_id_tag_any_check(mainptr, LIB_TAG_READ)) {
-				// printf("found LIB_TAG_READ %s (%s)\n", mainptr->curlib->id.name, mainptr->curlib->name);
+		/* Loop over mains of all library blend files encountered so far. Note
+		 * this list gets longer as more indirectly library blends are found. */
+		for (Main *mainptr = mainl->next; mainptr; mainptr = mainptr->next) {
+			/* Does this library have any more linked datablocks we need to read? */
+			if (has_linked_ids_to_read(mainptr)) {
+				// printf("Reading linked datablocks from %s (%s)\n", mainptr->curlib->id.name, mainptr->curlib->name);
 
-				FileData *fd = mainptr->curlib->filedata;
+				/* Open file if it has not been done yet. */
+				FileData *fd = read_library_file_data(basefd, mainlist, mainl, mainptr);
 
-				if (fd == NULL) {
-					/* printf and reports for now... its important users know this */
-
-					/* if packed file... */
-					if (mainptr->curlib->packedfile) {
-						PackedFile *pf = mainptr->curlib->packedfile;
-
-						blo_reportf_wrap(
-						        basefd->reports, RPT_INFO, TIP_("Read packed library:  '%s', parent '%s'"),
-						        mainptr->curlib->name,
-						        library_parent_filepath(mainptr->curlib));
-						fd = blo_filedata_from_memory(pf->data, pf->size, basefd->reports);
-
-
-						/* needed for library_append and read_libraries */
-						BLI_strncpy(fd->relabase, mainptr->curlib->filepath, sizeof(fd->relabase));
-					}
-					else {
-						blo_reportf_wrap(
-						        basefd->reports, RPT_INFO, TIP_("Read library:  '%s', '%s', parent '%s'"),
-						        mainptr->curlib->filepath,
-						        mainptr->curlib->name,
-						        library_parent_filepath(mainptr->curlib));
-						fd = blo_filedata_from_file(mainptr->curlib->filepath, basefd->reports);
-					}
-
-					if (fd) {
-						/* share the mainlist, so all libraries are added immediately in a
-						 * single list. it used to be that all FileData's had their own list,
-						 * but with indirectly linking this meant we didn't catch duplicate
-						 * libraries properly */
-						fd->mainlist = mainlist;
-
-						fd->reports = basefd->reports;
-
-						if (fd->libmap)
-							oldnewmap_free(fd->libmap);
-
-						fd->libmap = oldnewmap_new();
-
-						mainptr->curlib->filedata = fd;
-						mainptr->versionfile =  fd->fileversion;
-
-						/* subversion */
-						read_file_version(fd, mainptr);
-#ifdef USE_GHASH_BHEAD
-						read_file_bhead_idname_map_create(fd);
-#endif
-					}
-					else {
-						mainptr->curlib->filedata = NULL;
-						mainptr->curlib->id.tag |= LIB_TAG_MISSING;
-						/* Set lib version to current main one... Makes assert later happy. */
-						mainptr->versionfile = mainptr->curlib->versionfile = mainl->versionfile;
-						mainptr->subversionfile = mainptr->curlib->subversionfile = mainl->subversionfile;
-					}
-
-					if (fd == NULL) {
-						blo_reportf_wrap(basefd->reports, RPT_WARNING, TIP_("Cannot find lib '%s'"),
-						                 mainptr->curlib->filepath);
-					}
-				}
 				if (fd) {
 					do_it = true;
 				}
-				a = set_listbasepointers(mainptr, lbarray);
-				while (a--) {
-					ID *id = lbarray[a]->first;
-					ListBase pending_free_ids = {NULL};
 
-					while (id) {
-						ID *idn = id->next;
-						if (id->tag & LIB_TAG_READ) {
-							BLI_remlink(lbarray[a], id);
+				/* Read linked datablocks for each link placeholder, and replace
+				 * the placeholder with the real datablock. */
+				read_library_linked_ids(basefd, fd, mainlist, mainptr);
 
-							/* When playing with lib renaming and such, you may end with cases where you have
-							 * more than one linked ID of the same data-block from same library.
-							 * This is absolutely horrible, hence we use a ghash to ensure we go back to a single
-							 * linked data when loading the file... */
-							ID **realid = NULL;
-							if (!BLI_ghash_ensure_p(loaded_ids, id->name, (void ***)&realid)) {
-								link_id_part(basefd->reports, fd, mainptr, id, realid);
-							}
-
-							/* realid shall never be NULL - unless some source file/lib is broken
-							 * (known case: some directly linked shapekey from a missing lib...). */
-							/* BLI_assert(*realid != NULL); */
-
-							change_idid_adr(mainlist, basefd, id, *realid);
-
-							/* We cannot free old lib-ref placeholder ID here anymore, since we use its name
-							 * as key in loaded_ids has. */
-							BLI_addtail(&pending_free_ids, id);
-						}
-						id = idn;
-					}
-
-					/* Clear GHash and free all lib-ref placeholders IDs of that type now. */
-					BLI_ghash_clear(loaded_ids, NULL, NULL);
-					BLI_freelistN(&pending_free_ids);
-				}
+				/* Test if linked datablocks need to read further linked datablocks
+				 * and create link placeholders for them. */
 				BLO_expand_main(fd, mainptr);
 			}
-
-			mainptr = mainptr->next;
 		}
 	}
 
-	BLI_ghash_free(loaded_ids, NULL, NULL);
-	loaded_ids = NULL;
-
-	/* do versions, link, and free */
 	Main *main_newid = BKE_main_new();
-	for (mainptr = mainl->next; mainptr; mainptr = mainptr->next) {
-		/* some mains still have to be read, then versionfile is still zero! */
+	for (Main *mainptr = mainl->next; mainptr; mainptr = mainptr->next) {
+		/* Do versioning for newly added linked datablocks. If no datablocks
+		 * were read from a library versionfile will still be zero and we can
+		 * skip it. */
 		if (mainptr->versionfile) {
-			/* We need to split out IDs already existing, or they will go again through do_versions - bad, very bad! */
+			/* Split out already existing IDs to avoid them going through
+			 * do_versions multiple times, which would have bad consequences. */
 			split_main_newid(mainptr, main_newid);
 
-			if (mainptr->curlib->filedata) // can be zero... with shift+f1 append
+			/* File data can be zero with link/append. */
+			if (mainptr->curlib->filedata)
 				do_versions(mainptr->curlib->filedata, mainptr->curlib, main_newid);
 			else
 				do_versions(basefd, NULL, main_newid);
@@ -11464,10 +11500,13 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
 			add_main_to_main(mainptr, main_newid);
 		}
 
+		/* Lib linking. */
 		if (mainptr->curlib->filedata)
 			lib_link_all(mainptr->curlib->filedata, mainptr);
 
-		if (mainptr->curlib->filedata) blo_filedata_free(mainptr->curlib->filedata);
+		/* Free file data we no longer need. */
+		if (mainptr->curlib->filedata)
+			blo_filedata_free(mainptr->curlib->filedata);
 		mainptr->curlib->filedata = NULL;
 	}
 	BKE_main_free(main_newid);

@@ -36,6 +36,11 @@ typedef struct Base {
 	struct Object *object;
 	unsigned int lay DNA_DEPRECATED;
 	int flag_legacy;
+
+	/* Pointer to an original base. Is initialized for evaluated view layer.
+	 * NOTE: Only allowed to be accessed from within active dependency graph. */
+	struct Base *base_orig;
+	void *_pad;
 } Base;
 
 typedef struct ViewLayerEngineData {
@@ -51,7 +56,7 @@ typedef struct LayerCollection {
 	struct SceneCollection *scene_collection DNA_DEPRECATED;
 	short flag;
 	short runtime_flag;
-	short pad[2];
+	char _pad[4];
 	/** Synced with collection->children. */
 	ListBase layer_collections;
 } LayerCollection;
@@ -62,7 +67,7 @@ typedef struct ViewLayer {
 	char name[64];
 	short flag;
 	short runtime_flag;
-	short pad[2];
+	char _pad[4];
 	/** ObjectBase. */
 	ListBase object_bases;
 	/** Default allocated now. */
@@ -158,7 +163,7 @@ typedef struct SceneCollection {
 	int active_object_index;
 	short flag;
 	char type;
-	char pad;
+	char _pad;
 	/** (Object *)LinkData->data. */
 	ListBase objects;
 	/** Nested collections. */
