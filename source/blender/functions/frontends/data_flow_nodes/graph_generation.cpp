@@ -108,7 +108,8 @@ namespace FN { namespace DataFlowNodes {
 			}
 
 			auto inserter = get_node_inserter(bnode->idname);
-			inserter(btree, bnode, graph, socket_map);
+			BLI_assert(inserter.has_value());
+			inserter.value()(btree, bnode, graph, socket_map);
 		}
 
 		SmallSocketVector input_sockets;
@@ -138,7 +139,8 @@ namespace FN { namespace DataFlowNodes {
 				Socket socket = socket_map.lookup(bsocket);
 				if (!socket.is_linked()) {
 					auto inserter = get_socket_inserter(bsocket->idname);
-					Socket new_origin = inserter(btree, bsocket, graph);
+					BLI_assert(inserter.has_value());
+					Socket new_origin = inserter.value()(btree, bsocket, graph);
 					graph->link(new_origin, socket);
 				}
 			}

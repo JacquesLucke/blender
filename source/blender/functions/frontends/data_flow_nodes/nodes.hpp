@@ -3,6 +3,7 @@
 #include "FN_all.hpp"
 #include "BKE_node.h"
 #include "BLI_listbase_wrapper.hpp"
+#include "BLI_optional.hpp"
 #include <functional>
 
 namespace FN { namespace DataFlowNodes {
@@ -25,8 +26,8 @@ namespace FN { namespace DataFlowNodes {
 
 	typedef std::function<SharedFunction ()> NodeFunctionGetter_NoArg;
 
-	InsertNode get_node_inserter(const std::string &idname);
-	InsertSocket get_socket_inserter(const std::string &idname);
+	Optional<InsertNode> get_node_inserter(const std::string &idname);
+	Optional<InsertSocket> get_socket_inserter(const std::string &idname);
 
 
 	void register_node_inserter(

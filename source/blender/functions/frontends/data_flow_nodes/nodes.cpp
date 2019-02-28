@@ -11,15 +11,24 @@ namespace FN { namespace DataFlowNodes {
 		initialize_socket_inserters();
 	}
 
-	InsertNode get_node_inserter(const std::string &name)
+	Optional<InsertNode> get_node_inserter(const std::string &name)
 	{
-		BLI_assert(node_inserters.contains(name));
-		return node_inserters.lookup(name);
+		if (node_inserters.contains(name)) {
+			return node_inserters.lookup(name);
+		}
+		else {
+			return {};
+		}
 	}
 
-	InsertSocket get_socket_inserter(const std::string &name)
+	Optional<InsertSocket> get_socket_inserter(const std::string &name)
 	{
-		return socket_inserters.lookup_default(name, nullptr);
+		if (socket_inserters.contains(name)) {
+			return socket_inserters.lookup(name);
+		}
+		else {
+			return {};
+		}
 	}
 
 	void register_node_inserter(
