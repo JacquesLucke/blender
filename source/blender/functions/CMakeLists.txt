@@ -31,10 +31,20 @@ set(SRC
 	core/type_relations.cpp
 
 	FN_functions.hpp
+	FN_functions_core.hpp
+	FN_functions_types.hpp
 
-	types/types.hpp
 	types/numeric.cpp
 	types/numeric.hpp
+
+	functions/object_input.hpp
+	functions/object_input.cpp
+	functions/random.hpp
+	functions/random.cpp
+	functions/scalar_math.hpp
+	functions/scalar_math.cpp
+	functions/vectors.hpp
+	functions/vectors.cpp
 
 	nodes/nodes.hpp
 	nodes/nodes.cpp
