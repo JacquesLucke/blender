@@ -1,9 +1,6 @@
 #include "FN-C.h"
 #include "FN_all.hpp"
 
-#include "nodes/nodes.hpp"
-#include "nodes/graph_generation.hpp"
-
 #include "BLI_timeit.hpp"
 
 #include <iostream>
@@ -21,7 +18,7 @@ WRAPPERS(const FN::TupleCallBody *, FnTupleCallBody);
 
 void FN_initialize()
 {
-	FN::Nodes::initialize();
+	FN::DataFlowNodes::initialize();
 }
 
 void FN_function_call(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)
@@ -170,7 +167,7 @@ FnFunction FN_tree_to_function(bNodeTree *btree)
 {
 	TIMEIT("Tree to function");
 	BLI_assert(btree);
-	auto fgraph = FN::Nodes::btree_to_graph(btree);
+	auto fgraph = FN::DataFlowNodes::btree_to_graph(btree);
 	//std::cout << fgraph.graph()->to_dot() << std::endl;
 
 	auto fn = FN::SharedFunction::New("Function from Node Tree", fgraph.signature());

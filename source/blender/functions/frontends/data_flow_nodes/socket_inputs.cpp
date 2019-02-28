@@ -2,7 +2,7 @@
 
 #include "RNA_access.h"
 
-namespace FN { namespace Nodes {
+namespace FN { namespace DataFlowNodes {
 
 	using namespace Types;
 

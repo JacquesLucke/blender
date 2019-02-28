@@ -2,8 +2,8 @@
 
 #include "nodes.hpp"
 
-namespace FN { namespace Nodes {
+namespace FN { namespace DataFlowNodes {
 
 	FunctionGraph btree_to_graph(bNodeTree *btree);
 
-} } /* namespace FN::Nodes */
+} }

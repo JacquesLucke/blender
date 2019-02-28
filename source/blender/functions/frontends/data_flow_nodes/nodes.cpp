@@ -1,6 +1,6 @@
 #include "nodes.hpp"
 
-namespace FN { namespace Nodes {
+namespace FN { namespace DataFlowNodes {
 
 	SmallMap<std::string, InsertNode> node_inserters;
 	SmallMap<std::string, InsertSocket> socket_inserters;

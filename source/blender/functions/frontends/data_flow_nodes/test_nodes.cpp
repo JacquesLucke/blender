@@ -4,7 +4,7 @@
 #include "FN_functions.hpp"
 #include "FN_types.hpp"
 
-namespace FN { namespace Nodes {
+namespace FN { namespace DataFlowNodes {
 
 	using namespace Types;
 

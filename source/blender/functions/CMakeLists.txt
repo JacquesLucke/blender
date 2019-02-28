@@ -15,6 +15,7 @@ set(SRC
 	FN_core.hpp
 	FN_types.hpp
 	FN_functions.hpp
+	FN_data_flow_nodes.hpp
 	FN-C.h
 
 	c_wrapper.cpp
@@ -47,12 +48,12 @@ set(SRC
 	functions/vectors.hpp
 	functions/vectors.cpp
 
-	nodes/nodes.hpp
-	nodes/nodes.cpp
-	nodes/graph_generation.hpp
-	nodes/graph_generation.cpp
-	nodes/socket_inputs.cpp
-	nodes/test_nodes.cpp
+	frontends/data_flow_nodes/nodes.hpp
+	frontends/data_flow_nodes/nodes.cpp
+	frontends/data_flow_nodes/graph_generation.hpp
+	frontends/data_flow_nodes/graph_generation.cpp
+	frontends/data_flow_nodes/socket_inputs.cpp
+	frontends/data_flow_nodes/test_nodes.cpp
 )
 
 blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}")

@@ -5,7 +5,7 @@
 #include "BLI_listbase_wrapper.hpp"
 #include <functional>
 
-namespace FN { namespace Nodes {
+namespace FN { namespace DataFlowNodes {
 
 	using bNodeList = ListBaseWrapper<bNode, true>;
 	using bLinkList = ListBaseWrapper<bNodeLink, true>;

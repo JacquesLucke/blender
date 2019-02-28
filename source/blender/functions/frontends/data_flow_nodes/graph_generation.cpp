@@ -1,6 +1,6 @@
 #include "graph_generation.hpp"
 
-namespace FN { namespace Nodes {
+namespace FN { namespace DataFlowNodes {
 
 	using namespace Types;
 
