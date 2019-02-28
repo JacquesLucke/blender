@@ -1,5 +1,5 @@
-#include "FN_functions.h"
-#include "FN_functions.hpp"
+#include "FN-C.h"
+#include "FN_all.hpp"
 
 #include "nodes/nodes.hpp"
 #include "nodes/graph_generation.hpp"

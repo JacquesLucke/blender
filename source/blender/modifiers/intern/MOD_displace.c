@@ -51,7 +51,7 @@
 
 #include "RE_shader_ext.h"
 
-#include "FN_functions.h"
+#include "FN-C.h"
 
 
 /* Displace */

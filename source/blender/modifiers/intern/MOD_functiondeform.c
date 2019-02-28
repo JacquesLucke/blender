@@ -50,7 +50,7 @@
 #include "DEG_depsgraph_query.h"
 #include "time.h"
 
-#include "FN_functions.h"
+#include "FN-C.h"
 
 static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
 {

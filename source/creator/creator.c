@@ -76,7 +76,7 @@
 
 #include "RNA_define.h"
 
-#include "FN_functions.h"
+#include "FN-C.h"
 
 #ifdef WITH_FREESTYLE
 #  include "FRS_freestyle.h"
