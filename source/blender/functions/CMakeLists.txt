@@ -34,8 +34,8 @@ set(SRC
 	backends/tuple_call/cpp_types.cpp
 	backends/tuple_call/tuple_call.hpp
 	backends/tuple_call/tuple_call.cpp
-	backends/tuple_call/fgraph_to_tuple_call.hpp
-	backends/tuple_call/fgraph_to_tuple_call.cpp
+	backends/tuple_call/fgraph_tuple_call.hpp
+	backends/tuple_call/fgraph_tuple_call.cpp
 	backends/tuple_call/tuple.hpp
 
 	backends/dependencies/dependencies.hpp

@@ -17,7 +17,7 @@ namespace FN { namespace DataFlowNodes {
 		FunctionGraph fgraph = fgraph_.value();
 
 		auto fn = SharedFunction::New(btree->id.name, fgraph.signature());
-		fn->add_body(fgraph_to_tuple_call(fgraph));
+		fn->add_body(fgraph_tuple_call(fgraph));
 		fn->add_body(fgraph_dependencies(fgraph));
 		return fn;
 	}
