@@ -207,7 +207,10 @@ void FN_function_update_dependencies(
 	struct DepsNodeHandle *deps_node)
 {
 	RefCounted<Function> *fn_ref = unwrap(fn);
-	Dependencies dependencies;
-	fn_ref->ptr()->body<TupleCallBody>()->dependencies(dependencies);
-	dependencies.update_depsgraph(deps_node);
+	const DependenciesBody *body = fn_ref->ptr()->body<DependenciesBody>();
+	if (body) {
+		Dependencies dependencies;
+		body->dependencies(dependencies);
+		dependencies.update_depsgraph(deps_node);
+	}
 }

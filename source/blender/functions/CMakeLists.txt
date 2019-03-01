@@ -24,8 +24,6 @@ set(SRC
 	core/core.cpp
 	core/data_flow_graph.hpp
 	core/data_flow_graph.cpp
-	core/dependencies.hpp
-	core/dependencies.cpp
 	core/dot_export.cpp
 	core/type_inferencing.hpp
 	core/type_inferencing.cpp
@@ -39,6 +37,11 @@ set(SRC
 	backends/tuple_call/fgraph_to_tuple_call.hpp
 	backends/tuple_call/fgraph_to_tuple_call.cpp
 	backends/tuple_call/tuple.hpp
+
+	backends/dependencies/dependencies.hpp
+	backends/dependencies/dependencies.cpp
+	backends/dependencies/fgraph_dependencies.hpp
+	backends/dependencies/fgraph_dependencies.cpp
 
 	types/numeric.cpp
 	types/numeric.hpp

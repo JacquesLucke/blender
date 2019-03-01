@@ -1,6 +1,7 @@
 #include "object_input.hpp"
 #include "FN_types.hpp"
 #include "FN_tuple_call.hpp"
+#include "FN_dependencies.hpp"
 
 #include "BLI_lazy_init.hpp"
 #include "DNA_object_types.h"
@@ -27,6 +28,15 @@ namespace FN { namespace Functions {
 				fn_out.set<Vector>(0, Vector());
 			}
 		}
+	};
+
+	class ObjectTransformsDependency : public DependenciesBody {
+	private:
+		Object *m_object;
+
+	public:
+		ObjectTransformsDependency(Object *object)
+			: m_object(object) {}
 
 		void dependencies(Dependencies &deps) const override
 		{
@@ -40,6 +50,7 @@ namespace FN { namespace Functions {
 			OutputParameter("Location", get_fvec3_type()),
 		}));
 		fn->add_body(new ObjectTransforms(object));
+		fn->add_body(new ObjectTransformsDependency(object));
 		return fn;
 	}
 

@@ -2,6 +2,5 @@
 
 #include "core/core.hpp"
 #include "core/data_flow_graph.hpp"
-#include "core/dependencies.hpp"
 #include "core/type_relations.hpp"
 #include "core/type_inferencing.hpp"

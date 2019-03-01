@@ -1557,7 +1557,7 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 				auto fn = (BLI::RefCounted<FN::Function> *)get_driver_variable_function(dvar);
 				if (fn != NULL) {
 					FN::Dependencies dependencies;
-					fn->ptr()->body<FN::TupleCallBody>()->dependencies(dependencies);
+					fn->ptr()->body<FN::DependenciesBody>()->dependencies(dependencies);
 					dependencies.add_relations(
 						(struct DepsgraphRelationBuilderRef *)this,
 						(struct OperationKeyRef *)&driver_key);

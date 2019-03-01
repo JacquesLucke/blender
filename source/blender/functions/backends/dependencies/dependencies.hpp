@@ -24,4 +24,12 @@ namespace FN {
 			const struct OperationKeyRef *target);
 	};
 
+	class DependenciesBody {
+	public:
+		static const char *identifier_in_composition();
+		static void free_self(void *value);
+
+		virtual void dependencies(Dependencies &deps) const = 0;
+	};
+
 } /* namespace FN */
