@@ -7,7 +7,9 @@ set(INC
 	../depsgraph
 )
 
+# TODO: figure out how not to hard code this
 set(INC_SYS
+	/usr/lib/llvm-6.0/include
 )
 
 set(SRC
@@ -47,6 +49,9 @@ set(SRC
 	backends/dependencies/dependencies.cpp
 	backends/dependencies/fgraph_dependencies.hpp
 	backends/dependencies/fgraph_dependencies.cpp
+
+	backends/llvm/llvm_types.hpp
+	backends/llvm/llvm_types.cpp
 
 	types/numeric.cpp
 	types/numeric.hpp
