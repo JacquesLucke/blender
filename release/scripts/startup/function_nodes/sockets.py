@@ -5,7 +5,7 @@ from bpy.props import *
 class FloatSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_FloatSocket"
     bl_label = "Float Socket"
-    color = (0, 0, 0, 1)
+    color = (0, 0.3, 0.5, 1)
 
     value: FloatProperty(
         name="Value",

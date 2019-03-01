@@ -73,6 +73,7 @@ static void do_deformation(
 {
 	FnFunction fn = get_current_function(fdmd);
 	if (fn == NULL) {
+		modifier_setError(&fdmd->modifier, "Invalid function");
 		return;
 	}
 
