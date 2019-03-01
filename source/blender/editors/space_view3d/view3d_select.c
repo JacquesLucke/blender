@@ -151,27 +151,33 @@ void ED_view3d_viewcontext_init_object(ViewContext *vc, Object *obact)
 /** \name Internal Object Utilities
  * \{ */
 
-static void object_deselect_all_visible(ViewLayer *view_layer, View3D *v3d)
+static bool object_deselect_all_visible(ViewLayer *view_layer, View3D *v3d)
 {
-	Base *base;
-
-	for (base = view_layer->object_bases.first; base; base = base->next) {
-		if (BASE_SELECTABLE(v3d, base)) {
-			ED_object_base_select(base, BA_DESELECT);
+	bool changed = false;
+	for (Base *base = view_layer->object_bases.first; base; base = base->next) {
+		if (base->flag & BASE_SELECTED) {
+			if (BASE_SELECTABLE(v3d, base)) {
+				ED_object_base_select(base, BA_DESELECT);
+				changed = true;
+			}
 		}
 	}
+	return changed;
 }
 
 /* deselect all except b */
-static void object_deselect_all_except(ViewLayer *view_layer, Base *b)
+static bool object_deselect_all_except(ViewLayer *view_layer, Base *b)
 {
+	bool changed = false;
 	for (Base *base = view_layer->object_bases.first; base; base = base->next) {
 		if (base->flag & BASE_SELECTED) {
 			if (b != base) {
 				ED_object_base_select(base, BA_DESELECT);
+				changed = true;
 			}
 		}
 	}
+	return changed;
 }
 
 /** \} */
@@ -445,11 +451,11 @@ static void do_lasso_select_objects(
 	View3D *v3d = vc->v3d;
 	Base *base;
 
+	bool changed = false;
 	if (SEL_OP_USE_PRE_DESELECT(sel_op)) {
-		object_deselect_all_visible(vc->view_layer, vc->v3d);
+		changed = object_deselect_all_visible(vc->view_layer, vc->v3d);
 	}
 
-	bool changed = false;
 	for (base = vc->view_layer->object_bases.first; base; base = base->next) {
 		if (BASE_SELECTABLE(v3d, base)) { /* use this to avoid un-needed lasso lookups */
 			const bool is_select = base->flag & BASE_SELECTED;
@@ -2553,7 +2559,9 @@ static int do_object_box_select(bContext *C, ViewContext *vc, rcti *rect, const 
 	for (const uint *col = vbuffer + 3, *col_end = col + (hits * 4); col < col_end; col += 4) {
 		Bone *bone;
 		Base *base = ED_armature_base_and_bone_from_select_buffer(bases, BLI_array_len(bases), *col, &bone);
-		base->object->id.tag |= LIB_TAG_DOIT;
+		if (base != NULL) {
+			base->object->id.tag |= LIB_TAG_DOIT;
+		}
 	}
 
 	for (Base *base = vc->view_layer->object_bases.first; base && hits; base = base->next) {

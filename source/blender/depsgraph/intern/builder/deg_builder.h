@@ -32,7 +32,7 @@ struct Depsgraph;
 
 class DepsgraphBuilder {
 public:
-	bool needPullBaseIntoGraph(struct Base *base);
+	bool need_pull_base_into_graph(struct Base *base);
 
 protected:
 	DepsgraphBuilder(Main *bmain, Depsgraph *graph);
@@ -42,6 +42,8 @@ protected:
 	Depsgraph *graph_;
 };
 
+bool deg_check_base_available_for_build(const Depsgraph *graph,
+                                        Base *base);
 void deg_graph_build_finalize(struct Main *bmain, struct Depsgraph *graph);
 
 }  // namespace DEG

@@ -44,6 +44,7 @@
 #include "BKE_effect.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_light.h"
 #include "BKE_lattice.h"
 #include "BKE_material.h"
@@ -428,16 +429,17 @@ void BKE_object_eval_eval_base_flags(Depsgraph *depsgraph,
 	        ? BASE_ENABLED_VIEWPORT
 	        : BASE_ENABLED_RENDER;
 
+	BKE_base_eval_flags(base);
+
 	/* Compute visibility for depsgraph evaluation mode. */
 	if (base->flag & base_enabled_flag) {
-		base->flag |= BASE_ENABLED;
 		/* When rendering, visibility is controlled by the enable/disable option. */
 		if (mode == DAG_EVAL_RENDER) {
 			base->flag |= BASE_VISIBLE;
 		}
 	}
 	else {
-		base->flag &= ~(BASE_ENABLED | BASE_VISIBLE | BASE_SELECTABLE);
+		base->flag &= ~(BASE_VISIBLE | BASE_SELECTABLE);
 	}
 	/* If base is not selectable, clear select. */
 	if ((base->flag & BASE_SELECTABLE) == 0) {
