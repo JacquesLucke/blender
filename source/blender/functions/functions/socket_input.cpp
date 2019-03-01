@@ -3,6 +3,7 @@
 #include "FN_types.hpp"
 #include "FN_tuple_call.hpp"
 #include "DNA_node_types.h"
+#include "RNA_access.h"
 
 namespace FN { namespace Functions {
 

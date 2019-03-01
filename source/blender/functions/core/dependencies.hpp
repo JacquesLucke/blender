@@ -1,9 +1,11 @@
-#include "BLI_small_set.hpp"
+#pragma once
 
-#include "intern/builder/deg_builder_relations.h"
+#include "BLI_small_set.hpp"
 
 struct Object;
 struct DepsNodeHandle;
+struct DepsgraphRelationBuilderRef;
+struct OperationKeyRef;
 
 namespace FN {
 	using namespace BLI;
@@ -13,16 +15,13 @@ namespace FN {
 		SmallSet<struct Object *> m_transform_dependencies;
 
 	public:
-		void add_object_transform_dependency(struct Object *object)
-		{
-			m_transform_dependencies.add(object);
-		}
+		void add_object_transform_dependency(struct Object *object);
 
 		void update_depsgraph(DepsNodeHandle *deps_node);
 
 		void add_relations(
-			DEG::DepsgraphRelationBuilder &builder,
-			const DEG::OperationKey &target);
+			struct DepsgraphRelationBuilderRef *builder,
+			const struct OperationKeyRef *target);
 	};
 
 } /* namespace FN */

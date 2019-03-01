@@ -1,8 +1,14 @@
 #include "dependencies.hpp"
 
 #include "DEG_depsgraph_build.h"
+#include "intern/builder/deg_builder_relations.h"
 
 namespace FN {
+
+	void Dependencies::add_object_transform_dependency(struct Object *object)
+	{
+		m_transform_dependencies.add(object);
+	}
 
 	void Dependencies::update_depsgraph(DepsNodeHandle *deps_node)
 	{
@@ -12,9 +18,12 @@ namespace FN {
 	}
 
 	void Dependencies::add_relations(
-		DEG::DepsgraphRelationBuilder &builder,
-		const DEG::OperationKey &target)
+		struct DepsgraphRelationBuilderRef *builder_,
+		const struct OperationKeyRef *target_)
 	{
+		auto builder = *(DEG::DepsgraphRelationBuilder *)builder_;
+		auto target = *(DEG::OperationKey *)target_;
+
 		for (struct Object *ob : m_transform_dependencies) {
 			DEG::OperationKey from_key(
 				(ID *)ob,
