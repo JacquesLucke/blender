@@ -6,10 +6,10 @@ namespace FN {
 
 	class CPPTypeInfo {
 	public:
-		static const char* identifier_in_composition();
+		static const char *identifier_in_composition();
 		static void free_self(void *value);
 
-		virtual ~CPPTypeInfo() {};
+		virtual ~CPPTypeInfo() {}
 
 		virtual uint size_of_type() const = 0;
 		virtual void construct_default(void *ptr) const = 0;
