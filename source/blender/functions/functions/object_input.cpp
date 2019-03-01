@@ -1,5 +1,6 @@
 #include "object_input.hpp"
 #include "FN_types.hpp"
+#include "FN_tuple_call.hpp"
 
 #include "BLI_lazy_init.hpp"
 #include "DNA_object_types.h"

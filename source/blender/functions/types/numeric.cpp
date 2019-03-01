@@ -1,6 +1,8 @@
 #include "numeric.hpp"
 #include "BLI_lazy_init.hpp"
 
+#include "FN_tuple_call.hpp"
+
 namespace FN { namespace Types {
 
 	LAZY_INIT_REF__NO_ARG(SharedType, get_float_type)

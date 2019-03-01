@@ -1,6 +1,7 @@
 #include "function_generation.hpp"
 #include "graph_generation.hpp"
 
+#include "FN_tuple_call.hpp"
 #include "DNA_node_types.h"
 
 namespace FN { namespace DataFlowNodes {
@@ -15,7 +16,7 @@ namespace FN { namespace DataFlowNodes {
 		FunctionGraph fgraph = fgraph_.value();
 
 		auto fn = SharedFunction::New(btree->id.name, fgraph.signature());
-		fn->add_body(function_graph_to_callable(fgraph));
+		fn->add_body(fgraph_to_tuple_call(fgraph));
 		return fn;
 	}
 

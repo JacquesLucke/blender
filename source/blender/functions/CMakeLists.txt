@@ -22,19 +22,23 @@ set(SRC
 
 	core/core.hpp
 	core/core.cpp
-	core/cpu.hpp
-	core/cpu.cpp
 	core/data_flow_graph.hpp
 	core/data_flow_graph.cpp
 	core/dependencies.hpp
 	core/dependencies.cpp
 	core/dot_export.cpp
-	core/graph_to_function.hpp
-	core/graph_to_function.cpp
 	core/type_inferencing.hpp
 	core/type_inferencing.cpp
 	core/type_relations.hpp
 	core/type_relations.cpp
+
+	backends/tuple_call/cpp_types.hpp
+	backends/tuple_call/cpp_types.cpp
+	backends/tuple_call/tuple_call.hpp
+	backends/tuple_call/tuple_call.cpp
+	backends/tuple_call/fgraph_to_tuple_call.hpp
+	backends/tuple_call/fgraph_to_tuple_call.cpp
+	backends/tuple_call/tuple.hpp
 
 	types/numeric.cpp
 	types/numeric.hpp

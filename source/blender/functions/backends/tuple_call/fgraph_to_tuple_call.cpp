@@ -1,5 +1,4 @@
-#include "graph_to_function.hpp"
-#include "cpu.hpp"
+#include "fgraph_to_tuple_call.hpp"
 
 namespace FN {
 
@@ -58,7 +57,7 @@ namespace FN {
 		}
 	};
 
-	TupleCallBody *function_graph_to_callable(
+	TupleCallBody *fgraph_to_tuple_call(
 		const FunctionGraph &function_graph)
 	{
 		return new ExecuteGraph(function_graph);

@@ -1,13 +1,14 @@
 #include "socket_input.hpp"
 
 #include "FN_types.hpp"
+#include "FN_tuple_call.hpp"
 #include "DNA_node_types.h"
 
 namespace FN { namespace Functions {
 
 	using namespace Types;
 
-	class FloatSocketInput : public FN::TupleCallBody {
+	class FloatSocketInput : public TupleCallBody {
 	private:
 		bNodeTree *m_btree;
 		bNodeSocket *m_bsocket;
@@ -37,7 +38,7 @@ namespace FN { namespace Functions {
 	}
 
 
-	class VectorSocketInput : public FN::TupleCallBody {
+	class VectorSocketInput : public TupleCallBody {
 	private:
 		bNodeTree *m_btree;
 		bNodeSocket *m_bsocket;
