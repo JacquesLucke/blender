@@ -1,10 +1,16 @@
 #include "graph_generation.hpp"
 
+#include "inserters.hpp"
+#include "util_wrappers.hpp"
+
+#include "DNA_node_types.h"
+#include "FN_types.hpp"
+
 namespace FN { namespace DataFlowNodes {
 
 	using namespace Types;
 
-	static SharedType &get_type_of_socket(bNodeTree *UNUSED(btree), bNodeSocket *bsocket)
+	static SharedType &get_type_of_socket(bNodeSocket *bsocket)
 	{
 		if (STREQ(bsocket->idname, "fn_FloatSocket")) {
 			return get_float_type();
@@ -18,51 +24,6 @@ namespace FN { namespace DataFlowNodes {
 		else {
 			BLI_assert(false);
 			return *(SharedType *)nullptr;
-		}
-	}
-
-
-	static void insert_input_node(
-		bNodeTree *btree,
-		bNode *bnode,
-		SharedDataFlowGraph &graph,
-		SocketMap &socket_map)
-	{
-		OutputParameters outputs;
-		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
-			SharedType &type = get_type_of_socket(btree, bsocket);
-			outputs.append(OutputParameter(bsocket->name, type));
-		}
-
-		auto fn = SharedFunction::New("Function Input", Signature({}, outputs));
-		const Node *node = graph->insert(fn);
-
-		uint i = 0;
-		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
-			socket_map.add(bsocket, node->output(i));
-			i++;
-		}
-	}
-
-	static void insert_output_node(
-		bNodeTree *btree,
-		bNode *bnode,
-		SharedDataFlowGraph &graph,
-		SocketMap &socket_map)
-	{
-		InputParameters inputs;
-		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
-			SharedType &type = get_type_of_socket(btree, bsocket);
-			inputs.append(InputParameter(bsocket->name, type));
-		}
-
-		auto fn = SharedFunction::New("Function Output", Signature(inputs, {}));
-		const Node *node = graph->insert(fn);
-
-		uint i = 0;
-		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
-			socket_map.add(bsocket, node->input(i));
-			i++;
 		}
 	}
 
@@ -93,10 +54,42 @@ namespace FN { namespace DataFlowNodes {
 		*r_output = output;
 	}
 
-	FunctionGraph btree_to_graph(bNodeTree *btree)
+	static void insert_input_node(
+		Builder &builder, bNode *bnode)
 	{
-		SocketMap socket_map;
+		OutputParameters outputs;
+		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
+			SharedType &type = get_type_of_socket(bsocket);
+			outputs.append(OutputParameter(bsocket->name, type));
+		}
+
+		auto fn = SharedFunction::New("Function Input", Signature({}, outputs));
+		const Node *node = builder.insert_function(fn);
+		builder.map_sockets(node, bnode);
+	}
+
+	static void insert_output_node(
+		Builder &builder, bNode *bnode)
+	{
+		InputParameters inputs;
+		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
+			SharedType &type = get_type_of_socket(bsocket);
+			inputs.append(InputParameter(bsocket->name, type));
+		}
+
+		auto fn = SharedFunction::New("Function Output", Signature(inputs, {}));
+		const Node *node = builder.insert_function(fn);
+		builder.map_sockets(node, bnode);
+	}
+
+	Optional<FunctionGraph> generate_function_graph(struct bNodeTree *btree)
+	{
 		auto graph = SharedDataFlowGraph::New();
+		SocketMap socket_map;
+
+		Builder builder(graph, socket_map);
+		BuilderContext ctx(btree);
+		GraphInserters &inserters = get_standard_inserters();
 
 		bNode *input_node;
 		bNode *output_node;
@@ -107,22 +100,22 @@ namespace FN { namespace DataFlowNodes {
 				continue;
 			}
 
-			auto inserter = get_node_inserter(bnode->idname);
-			BLI_assert(inserter.has_value());
-			inserter.value()(btree, bnode, graph, socket_map);
+			if (!inserters.insert_node(builder, ctx, bnode)) {
+				return {};
+			}
 		}
 
 		SmallSocketVector input_sockets;
 		SmallSocketVector output_sockets;
 
 		if (input_node != nullptr) {
-			insert_input_node(btree, input_node, graph, socket_map);
+			insert_input_node(builder, input_node);
 			for (bNodeSocket *bsocket : bSocketList(&input_node->outputs)) {
 				input_sockets.append(socket_map.lookup(bsocket));
 			}
 		}
 		if (output_node != nullptr) {
-			insert_output_node(btree, output_node, graph, socket_map);
+			insert_output_node(builder, output_node);
 			for (bNodeSocket *bsocket : bSocketList(&output_node->inputs)) {
 				output_sockets.append(socket_map.lookup(bsocket));
 			}
@@ -131,26 +124,25 @@ namespace FN { namespace DataFlowNodes {
 		for (bNodeLink *blink : bLinkList(&btree->links)) {
 			Socket from = socket_map.lookup(blink->fromsock);
 			Socket to = socket_map.lookup(blink->tosock);
-			graph->link(from, to);
+			builder.insert_link(from, to);
 		}
 
 		for (bNode *bnode : bNodeList(&btree->nodes)) {
 			for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
 				Socket socket = socket_map.lookup(bsocket);
 				if (!socket.is_linked()) {
-					auto inserter = get_socket_inserter(bsocket->idname);
-					BLI_assert(inserter.has_value());
-					Socket new_origin = inserter.value()(btree, bsocket, graph);
-					graph->link(new_origin, socket);
+					Optional<Socket> new_origin = inserters.insert_socket(builder, ctx, bsocket);
+					if (!new_origin.has_value()) {
+						return {};
+					}
+					builder.insert_link(new_origin.value(), socket);
 				}
 			}
 		}
 
 		graph->freeze();
 		FunctionGraph fgraph(graph, input_sockets, output_sockets);
-
 		return fgraph;
-
 	}
 
-} }
+} } /* namespace FN::DataFlowNodes */

@@ -47,13 +47,21 @@ set(SRC
 	functions/scalar_math.cpp
 	functions/vectors.hpp
 	functions/vectors.cpp
+	functions/socket_input.hpp
+	functions/socket_input.cpp
 
-	frontends/data_flow_nodes/nodes.hpp
-	frontends/data_flow_nodes/nodes.cpp
+	frontends/data_flow_nodes/builder.hpp
+	frontends/data_flow_nodes/builder.cpp
+	frontends/data_flow_nodes/function_generation.hpp
+	frontends/data_flow_nodes/function_generation.cpp
 	frontends/data_flow_nodes/graph_generation.hpp
 	frontends/data_flow_nodes/graph_generation.cpp
-	frontends/data_flow_nodes/socket_inputs.cpp
+	frontends/data_flow_nodes/inserters.hpp
+	frontends/data_flow_nodes/inserters.cpp
+	frontends/data_flow_nodes/registry.hpp
 	frontends/data_flow_nodes/test_nodes.cpp
+	frontends/data_flow_nodes/test_sockets.cpp
+	frontends/data_flow_nodes/util_wrappers.hpp
 )
 
 blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}")

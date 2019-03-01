@@ -1,26 +1,28 @@
-#include "nodes.hpp"
-#include "RNA_access.h"
+#include "registry.hpp"
 
 #include "FN_functions.hpp"
 #include "FN_types.hpp"
+
+#include "RNA_access.h"
+
+#include "DNA_node_types.h"
 
 namespace FN { namespace DataFlowNodes {
 
 	using namespace Types;
 
 	static void insert_object_transforms_node(
-		bNodeTree *btree,
-		bNode *bnode,
-		SharedDataFlowGraph &graph,
-		SocketMap &socket_map)
+		Builder &builder,
+		const BuilderContext &ctx,
+		bNode *bnode)
 	{
 		PointerRNA ptr;
-		RNA_pointer_create(&btree->id, &RNA_Node, bnode, &ptr);
+		RNA_pointer_create(ctx.btree_id(), &RNA_Node, bnode, &ptr);
 		Object *object = (Object *)RNA_pointer_get(&ptr, "object").id.data;
 
 		auto fn = Functions::object_location(object);
-		const Node *node = graph->insert(fn);
-		map_node_sockets(socket_map, bnode, node);
+		const Node *node = builder.insert_function(fn);
+		builder.map_sockets(node, bnode);
 	}
 
 	static SharedFunction &get_float_math_function(int operation)
@@ -38,49 +40,47 @@ namespace FN { namespace DataFlowNodes {
 	}
 
 	static void insert_float_math_node(
-		bNodeTree *btree,
-		bNode *bnode,
-		SharedDataFlowGraph &graph,
-		SocketMap &socket_map)
+		Builder &builder,
+		const BuilderContext &ctx,
+		bNode *bnode)
 	{
 		PointerRNA ptr;
-		RNA_pointer_create(&btree->id, &RNA_Node, bnode, &ptr);
+		RNA_pointer_create(ctx.btree_id(), &RNA_Node, bnode, &ptr);
 		int operation = RNA_enum_get(&ptr, "operation");
 
 		SharedFunction &fn = get_float_math_function(operation);
-		const Node *node = graph->insert(fn);
-		map_node_sockets(socket_map, bnode, node);
+		const Node *node = builder.insert_function(fn);
+		builder.map_sockets(node, bnode);
 	}
 
 	static void insert_clamp_node(
-		bNodeTree *UNUSED(btree),
-		bNode *bnode,
-		SharedDataFlowGraph &graph,
-		SocketMap &socket_map)
+		Builder &builder,
+		const BuilderContext &UNUSED(ctx),
+		bNode *bnode)
 	{
 		SharedFunction &max_fn = Functions::max_floats();
 		SharedFunction &min_fn = Functions::min_floats();
 
-		const Node *max_node = graph->insert(max_fn);
-		const Node *min_node = graph->insert(min_fn);
+		const Node *max_node = builder.insert_function(max_fn);
+		const Node *min_node = builder.insert_function(min_fn);
 
-		graph->link(max_node->output(0), min_node->input(0));
-		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->inputs, 0), max_node->input(0));
-		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->inputs, 1), max_node->input(1));
-		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->inputs, 2), min_node->input(1));
-		socket_map.add((bNodeSocket *)BLI_findlink(&bnode->outputs, 0), min_node->output(0));
+		builder.insert_link(max_node->output(0), min_node->input(0));
+		builder.map_input(max_node->input(0), bnode, 0);
+		builder.map_input(max_node->input(1), bnode, 1);
+		builder.map_input(min_node->input(1), bnode, 2);
+		builder.map_output(min_node->output(0), bnode, 0);
 	}
 
-	void initialize_node_inserters()
+	void register_node_inserters(GraphInserters &inserters)
 	{
-		register_node_function_getter__no_arg("fn_CombineVectorNode", Functions::combine_vector);
-		register_node_function_getter__no_arg("fn_SeparateVectorNode", Functions::separate_vector);
-		register_node_function_getter__no_arg("fn_VectorDistanceNode", Functions::separate_vector);
-		register_node_function_getter__no_arg("fn_RandomNumberNode", Functions::random_number);
-		register_node_function_getter__no_arg("fn_MapRangeNode", Functions::map_range);
-		register_node_inserter("fn_ObjectTransformsNode", insert_object_transforms_node);
-		register_node_inserter("fn_FloatMathNode", insert_float_math_node);
-		register_node_inserter("fn_ClampNode", insert_clamp_node);
+		inserters.reg_node_function("fn_CombineVectorNode", Functions::combine_vector);
+		inserters.reg_node_function("fn_SeparateVectorNode", Functions::separate_vector);
+		inserters.reg_node_function("fn_VectorDistanceNode", Functions::separate_vector);
+		inserters.reg_node_function("fn_RandomNumberNode", Functions::random_number);
+		inserters.reg_node_function("fn_MapRangeNode", Functions::map_range);
+		inserters.reg_node_inserter("fn_ObjectTransformsNode", insert_object_transforms_node);
+		inserters.reg_node_inserter("fn_FloatMathNode", insert_float_math_node);
+		inserters.reg_node_inserter("fn_ClampNode", insert_clamp_node);
 	}
 
 } }

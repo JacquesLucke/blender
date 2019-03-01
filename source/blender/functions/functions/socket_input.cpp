@@ -1,8 +1,9 @@
-#include "nodes.hpp"
+#include "socket_input.hpp"
 
-#include "RNA_access.h"
+#include "FN_types.hpp"
+#include "DNA_node_types.h"
 
-namespace FN { namespace DataFlowNodes {
+namespace FN { namespace Functions {
 
 	using namespace Types;
 
@@ -24,6 +25,18 @@ namespace FN { namespace DataFlowNodes {
 		}
 	};
 
+	SharedFunction float_socket_input(
+		struct bNodeTree *btree,
+		struct bNodeSocket *bsocket)
+	{
+		auto fn = SharedFunction::New("Float Input", Signature({}, {
+			OutputParameter("Value", get_float_type()),
+		}));
+		fn->add_body(new FloatSocketInput(btree, bsocket));
+		return fn;
+	}
+
+
 	class VectorSocketInput : public FN::TupleCallBody {
 	private:
 		bNodeTree *m_btree;
@@ -44,36 +57,15 @@ namespace FN { namespace DataFlowNodes {
 		}
 	};
 
-	static Socket insert_float_socket(
-		bNodeTree *btree,
-		bNodeSocket *bsocket,
-		SharedDataFlowGraph &graph)
-	{
-		auto fn = SharedFunction::New("Float Input", Signature({}, {
-			OutputParameter("Value", get_float_type()),
-		}));
-		fn->add_body(new FloatSocketInput(btree, bsocket));
-		const Node *node = graph->insert(fn);
-		return node->output(0);
-	}
-
-	static Socket insert_vector_socket(
-		bNodeTree *btree,
-		bNodeSocket *bsocket,
-		SharedDataFlowGraph &graph)
+	SharedFunction vector_socket_input(
+		struct bNodeTree *btree,
+		struct bNodeSocket *bsocket)
 	{
 		auto fn = SharedFunction::New("Vector Input", Signature({}, {
 			OutputParameter("Vector", get_fvec3_type()),
 		}));
 		fn->add_body(new VectorSocketInput(btree, bsocket));
-		const Node *node = graph->insert(fn);
-		return node->output(0);
+		return fn;
 	}
 
-	void initialize_socket_inserters()
-	{
-		register_socket_inserter("fn_FloatSocket", insert_float_socket);
-		register_socket_inserter("fn_VectorSocket", insert_vector_socket);
-	}
-
-} }
+} } /* namespace FN::Functions */

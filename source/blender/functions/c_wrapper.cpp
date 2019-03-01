@@ -18,7 +18,6 @@ WRAPPERS(const FN::TupleCallBody *, FnTupleCallBody);
 
 void FN_initialize()
 {
-	FN::DataFlowNodes::initialize();
 }
 
 void FN_function_call(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)
@@ -167,13 +166,12 @@ FnFunction FN_tree_to_function(bNodeTree *btree)
 {
 	TIMEIT("Tree to function");
 	BLI_assert(btree);
-	auto fgraph = FN::DataFlowNodes::btree_to_graph(btree);
-	//std::cout << fgraph.graph()->to_dot() << std::endl;
+	auto fn_ = FN::DataFlowNodes::generate_function(btree);
+	if (!fn_.has_value()) {
+		return nullptr;
+	}
 
-	auto fn = FN::SharedFunction::New("Function from Node Tree", fgraph.signature());
-	fn->add_body(FN::function_graph_to_callable(fgraph));
-
-	BLI::RefCounted<FN::Function> *fn_ref = fn.refcounter();
+	BLI::RefCounted<FN::Function> *fn_ref = fn_.value().refcounter();
 	fn_ref->incref();
 	return wrap(fn_ref);
 }
