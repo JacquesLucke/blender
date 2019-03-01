@@ -1,4 +1,4 @@
-#include "core.hpp"
+#include "function.hpp"
 #include "type_relations.hpp"
 
 namespace FN {

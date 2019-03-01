@@ -20,8 +20,13 @@ set(SRC
 
 	c_wrapper.cpp
 
-	core/core.hpp
-	core/core.cpp
+	core/type.hpp
+	core/parameter.hpp
+	core/parameter.cpp
+	core/signature.hpp
+	core/signature.cpp
+	core/function.hpp
+	core/function.cpp
 	core/data_flow_graph.hpp
 	core/data_flow_graph.cpp
 	core/dot_export.cpp

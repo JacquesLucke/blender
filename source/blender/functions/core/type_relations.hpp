@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.hpp"
+#include "function.hpp"
 #include "vector"
 
 namespace FN {

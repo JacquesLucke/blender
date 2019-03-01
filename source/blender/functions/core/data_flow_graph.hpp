@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.hpp"
+#include "function.hpp"
 
 #include "BLI_small_set.hpp"
 #include "BLI_small_set_vector.hpp"

@@ -1,4 +1,4 @@
-#include "core.hpp"
+#include "signature.hpp"
 
 namespace FN {
 
@@ -35,15 +35,6 @@ namespace FN {
 		return this->has_interface(other.input_types(), other.output_types());
 	}
 
-
-	/* Printing
-	 ***************************************/
-
-	void Parameter::print() const
-	{
-		std::cout << this->type()->name() << " - " << this->name();
-	}
-
 	void Signature::print(std::string indent) const
 	{
 		std::cout << indent << "Inputs:" << std::endl;
@@ -58,12 +49,6 @@ namespace FN {
 			param.print();
 			std::cout << std::endl;
 		}
-	}
-
-	void Function::print() const
-	{
-		std::cout << "Function: " << this->name() << std::endl;
-		this->signature().print("  ");
 	}
 
 } /* namespace FN */

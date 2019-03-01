@@ -29,6 +29,7 @@ namespace FN {
 		static const char *identifier_in_composition();
 		static void free_self(void *value);
 
+		virtual ~DependenciesBody() {}
 		virtual void dependencies(Dependencies &deps) const = 0;
 	};
 
