@@ -26,7 +26,7 @@ class FunctionInputNode(BaseNode, bpy.types.Node):
             text="", icon="X", settings=(index, ))
 
     def new_socket(self, idname):
-        self.outputs.new(idname, "Output")
+        self.outputs.new(idname, "Input")
 
     def remove_socket(self, index):
         self.outputs.remove(self.outputs[index])
