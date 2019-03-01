@@ -49,6 +49,7 @@ namespace FN {
 	{
 		BLI_assert(this->can_modify());
 		BLI_assert(a.node() != b.node());
+		BLI_assert(a.type() == b.type());
 		BLI_assert(a.is_input() != b.is_input());
 		BLI_assert(a.graph() == this && b.graph() == this);
 
