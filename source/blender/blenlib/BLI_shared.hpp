@@ -95,7 +95,7 @@ namespace BLI {
 
 		Shared &operator=(const Shared &other)
 		{
-			if (m_object == other->m_object) {
+			if (m_object == other.m_object) {
 				return *this;
 			}
 
