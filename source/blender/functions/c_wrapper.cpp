@@ -46,7 +46,12 @@ void FN_initialize()
 
 void FN_function_call(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)
 {
-	unwrap(fn_call)->call(*unwrap(fn_in), *unwrap(fn_out));
+	Tuple &fn_in_ = *unwrap(fn_in);
+	Tuple &fn_out_ = *unwrap(fn_out);
+
+	BLI_assert(fn_in_.all_initialized());
+	unwrap(fn_call)->call(fn_in_, fn_out_);
+	BLI_assert(fn_out_.all_initialized());
 }
 
 FnTupleCallBody FN_function_get_callable(FnFunction fn)

@@ -4,68 +4,130 @@
 
 namespace FN {
 
-	class Tuple {
+	class TupleMeta {
+	private:
+		SmallTypeVector m_types;
+		SmallVector<CPPTypeInfo *> m_type_info;
+		SmallVector<uint> m_offsets;
+		uint m_total_size;
+
 	public:
-		Tuple(const SmallTypeVector &types = {})
+		TupleMeta(const SmallTypeVector &types = {})
 			: m_types(types)
 		{
-			int total_size = 0;
+			m_total_size = 0;
 			for (const SharedType &type : types) {
 				CPPTypeInfo *info = type->extension<CPPTypeInfo>();
-
-				m_offsets.append(total_size);
-				m_initialized.append(false);
+				m_offsets.append(m_total_size);
 				m_type_info.append(info);
-				total_size += info->size_of_type();
+				m_total_size += info->size_of_type();
 			}
-			m_offsets.append(total_size);
-			m_data = std::malloc(total_size);
+			m_offsets.append(m_total_size);
 		}
+
+		const SmallTypeVector &types() const
+		{
+			return m_types;
+		}
+
+		const SmallVector<CPPTypeInfo *> &type_infos() const
+		{
+			return m_type_info;
+		}
+
+		const SmallVector<uint> &offsets() const
+		{
+			return m_offsets;
+		}
+
+		uint total_size() const
+		{
+			return m_total_size;
+		}
+
+		uint element_amount() const
+		{
+			return m_types.size();
+		}
+
+		uint element_size(uint index) const
+		{
+			return m_offsets[index + 1] - m_offsets[index];
+		}
+	};
+
+	using SharedTupleMeta = Shared<TupleMeta>;
+
+	class Tuple {
+	public:
+		Tuple(SharedTupleMeta meta)
+			: m_meta(std::move(meta))
+		{
+			m_initialized = SmallVector<bool>(m_meta->element_amount());
+			m_initialized.fill(false);
+
+			m_data = std::malloc(m_meta->total_size());
+			m_owns_data = true;
+		}
+
+		Tuple(SharedTupleMeta meta, void *data, bool take_ownership)
+			: m_meta(std::move(meta))
+		{
+			m_initialized = SmallVector<bool>(m_meta->element_amount());
+			m_initialized.fill(false);
+
+			BLI_assert(data != nullptr);
+			m_data = data;
+			m_owns_data = take_ownership;
+		}
+
+		Tuple(SmallTypeVector types)
+			: Tuple(SharedTupleMeta::New(types)) {}
 
 		/* Has to be implemented explicitely in the future. */
 		Tuple(const Tuple &tuple) = delete;
 
 		~Tuple()
 		{
-			for (uint i = 0; i < m_types.size(); i++) {
-				m_type_info[i]->destruct_type(this->element_ptr(i));
+			for (uint i = 0; i < m_meta->element_amount(); i++) {
+				if (m_initialized[i]) {
+					m_meta->type_infos()[i]->destruct_type(this->element_ptr(i));
+				}
 			}
-			std::free(m_data);
+			if (m_owns_data) {
+				std::free(m_data);
+			}
 		}
 
 		template<typename T>
 		inline void set(uint index, const T &value)
 		{
-			BLI_assert(index < m_types.size());
-			BLI_assert(sizeof(T) == this->element_size(index));
+			BLI_assert(index < m_meta->element_amount());
+			BLI_assert(sizeof(T) == m_meta->element_size(index));
 
 			if (std::is_trivial<T>::value) {
 				std::memcpy(this->element_ptr(index), &value, sizeof(T));
 			}
 			else {
-				const T *begin = &value;
-				const T *end = begin + 1;
 				T *dst = (T *)this->element_ptr(index);
 
 				if (m_initialized[index]) {
-					std::copy(begin, end, dst);
+					std::copy_n(&value, 1, dst);
 				}
 				else {
-					std::uninitialized_copy(begin, end, dst);
-					m_initialized[index] = true;
+					std::uninitialized_copy_n(&value, 1, dst);
 				}
 			}
+
+			m_initialized[index] = true;
 		}
 
 		template<typename T>
 		inline const T &get(uint index) const
 		{
-			BLI_assert(index < m_types.size());
-			BLI_assert(sizeof(T) == this->element_size(index));
-
-			if (!std::is_trivial<T>::value) {
-				BLI_assert(m_initialized[index]);
-			}
+			BLI_assert(index < m_meta->element_amount());
+			BLI_assert(sizeof(T) == m_meta->element_size(index));
+			BLI_assert(m_initialized[index]);
 
 			return *(T *)this->element_ptr(index);
 		}
@@ -74,21 +136,38 @@ namespace FN {
 			const Tuple &from, uint from_index,
 			Tuple &to, uint to_index)
 		{
-			BLI_assert(from.m_types[from_index] == to.m_types[to_index]);
+			BLI_assert(from.m_initialized[from_index]);
+			BLI_assert(from.m_meta->types()[from_index] == to.m_meta->types()[to_index]);
 
-			from.m_type_info[from_index]->copy_to_initialized(
-				from.element_ptr(from_index), to.element_ptr(to_index));
+			void *src = from.element_ptr(from_index);
+			void *dst = to.element_ptr(to_index);
+			CPPTypeInfo *type_info = from.m_meta->type_infos()[from_index];
+
+			if (to.m_initialized[to_index]) {
+				type_info->copy_to_initialized(src, dst);
+			}
+			else {
+				type_info->copy_to_uninitialized(src, dst);
+				to.m_initialized[to_index] = true;
+			}
 		}
 
 		inline void init_default(uint index) const
 		{
-			m_type_info[index]->construct_default(this->element_ptr(index));
+			CPPTypeInfo *type_info = m_meta->type_infos()[index];
+			void *ptr = this->element_ptr(index);
+
+			if (m_initialized[index]) {
+				type_info->destruct_type(ptr);
+			}
+
+			type_info->construct_default(ptr);
 			m_initialized[index] = true;
 		}
 
 		inline void init_default_all() const
 		{
-			for (uint i = 0; i < m_types.size(); i++) {
+			for (uint i = 0; i < m_meta->element_amount(); i++) {
 				this->init_default(i);
 			}
 		}
@@ -100,25 +179,34 @@ namespace FN {
 
 		const uint *offsets_ptr() const
 		{
-			return m_offsets.begin();
+			return m_meta->offsets().begin();
+		}
+
+		bool all_initialized() const
+		{
+			for (bool initialized : m_initialized) {
+				if (!initialized) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		void set_all_initialized()
+		{
+			m_initialized.fill(true);
 		}
 
 	private:
-		inline uint element_size(uint index) const
-		{
-			return m_offsets[index + 1] - m_offsets[index];
-		}
-
 		inline void *element_ptr(uint index) const
 		{
-			return (void *)((char *)m_data + m_offsets[index]);
+			return (void *)((char *)m_data + m_meta->offsets()[index]);
 		}
 
-		SmallTypeVector m_types;
-		SmallVector<CPPTypeInfo *> m_type_info;
-		SmallVector<uint> m_offsets;
 		SmallVector<bool> m_initialized;
 		void *m_data;
+		bool m_owns_data;
+		SharedTupleMeta m_meta;
 	};
 
 } /* namespace FN */

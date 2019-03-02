@@ -121,11 +121,15 @@ namespace FN {
 
 		void call(const Tuple &fn_in, Tuple &fn_out) const override
 		{
+			BLI_assert(fn_in.all_initialized());
+
 			m_call(
 				fn_in.data_ptr(),
 				fn_in.offsets_ptr(),
 				fn_out.data_ptr(),
 				fn_out.offsets_ptr());
+
+			fn_out.set_all_initialized();
 		}
 	};
 
