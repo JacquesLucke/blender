@@ -12,7 +12,7 @@ namespace FN {
 
 	using LLVMTypes = BLI::SmallVector<llvm::Type *>;
 
-	static LLVMTypeInfo *type_info(const SharedType &type)
+	static LLVMTypeInfo *get_type_info(const SharedType &type)
 	{
 		auto ext = type->extension<LLVMTypeInfo>();
 		BLI_assert(ext);
@@ -74,13 +74,14 @@ namespace FN {
 
 		LLVMValues input_values;
 		for (uint i = 0; i < fn->signature().inputs().size(); i++) {
-			llvm::Type *value_type = type_info(fn->signature().inputs()[i].type())->get_type(context);
-
 			llvm::Value *value_byte_addr = lookup_tuple_address(
 				builder, fn_in_data, fn_in_offsets, i);
-			llvm::Value *value_addr = builder.CreatePointerCast(
-				value_byte_addr, value_type->getPointerTo());
-			llvm::Value *value = builder.CreateLoad(value_addr);
+
+			LLVMTypeInfo *type_info = get_type_info(
+				fn->signature().inputs()[i].type());
+			llvm::Value *value = type_info->build_load_ir__copy(
+				builder, value_byte_addr);
+
 			input_values.append(value);
 		}
 
@@ -90,13 +91,13 @@ namespace FN {
 		body->build_ir(builder, input_values, output_values);
 
 		for (uint i = 0; i < output_values.size(); i++) {
-			llvm::Type *value_type = output_values[i]->getType();
-
 			llvm::Value *value_byte_addr = lookup_tuple_address(
 				builder, fn_out_data, fn_out_offsets, i);
-			llvm::Value *value_addr = builder.CreatePointerCast(
-				value_byte_addr, value_type->getPointerTo());
-			builder.CreateStore(output_values[i], value_addr);
+
+			LLVMTypeInfo *type_info = get_type_info(
+				fn->signature().outputs()[i].type());
+			type_info->build_store_ir__relocate(
+				builder, output_values[i], value_byte_addr);
 		}
 
 		builder.CreateRetVoid();
