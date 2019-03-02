@@ -21,9 +21,27 @@ WRAPPERS(RefCounted<Type> *, FnType);
 WRAPPERS(Tuple *, FnTuple);
 WRAPPERS(const TupleCallBody *, FnTupleCallBody);
 
+static void playground()
+{
+	SharedFunction fn = Functions::add_floats();
+	llvm::LLVMContext *context = new llvm::LLVMContext();
+	auto body = compile_llvm_to_tuple_call(fn, *context);
+
+	Tuple fn_in(fn->signature().input_types());
+	Tuple fn_out(fn->signature().output_types());
+
+	fn_in.set<float>(0, 12);
+	fn_in.set<float>(1, 30);
+	body->call(fn_in, fn_out);
+	float result = fn_out.get<float>(0);
+	std::cout << "Result: " << result << std::endl;
+
+	delete context;
+}
 
 void FN_initialize()
 {
+	playground();
 }
 
 void FN_function_call(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)

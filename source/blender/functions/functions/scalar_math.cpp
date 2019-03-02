@@ -1,6 +1,7 @@
 #include "scalar_math.hpp"
 #include "FN_types.hpp"
 #include "FN_tuple_call.hpp"
+#include "FN_llvm.hpp"
 
 #include "BLI_lazy_init.hpp"
 
@@ -29,10 +30,22 @@ namespace FN { namespace Functions {
 		}
 	};
 
+	class GenAddFloats : public LLVMGenBody {
+		void build_ir(
+			llvm::IRBuilder<> &builder,
+			const LLVMValues &inputs,
+			LLVMValues &r_outputs) const override
+		{
+			auto output = builder.CreateFAdd(inputs[0], inputs[1]);
+			r_outputs.append(output);
+		}
+	};
+
 	LAZY_INIT_REF__NO_ARG(SharedFunction, add_floats)
 	{
 		auto fn = get_simple_math_function("Add Floats");
 		fn->add_body(new AddFloats());
+		fn->add_body(new GenAddFloats());
 		return fn;
 	}
 

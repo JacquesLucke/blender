@@ -93,6 +93,16 @@ namespace FN {
 			}
 		}
 
+		void *data_ptr() const
+		{
+			return m_data;
+		}
+
+		const uint *offsets_ptr() const
+		{
+			return m_offsets.begin();
+		}
+
 	private:
 		inline uint element_size(uint index) const
 		{
