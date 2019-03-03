@@ -1,9 +1,6 @@
-#include "to_tuple_call.hpp"
-#include "llvm_types.hpp"
-#include "llvm_gen.hpp"
-#include "ir_utils.hpp"
-
+#include "FN_llvm.hpp"
 #include "FN_tuple_call.hpp"
+#include "ir_utils.hpp"
 
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/TargetSelect.h>
@@ -11,9 +8,14 @@
 
 namespace FN {
 
+	typedef std::function<void (
+		llvm::IRBuilder<> &builder,
+		const LLVMValues &inputs,
+		LLVMValues &outputs)> BuildIRFunction;
+
 	static llvm::Function *insert_tuple_call_function(
-		Function *fn,
-		LLVMGenBody *llvm_body,
+		SharedFunction &fn,
+		BuildIRFunction build_ir,
 		llvm::Module *module)
 	{
 		llvm::LLVMContext &context = module->getContext();
@@ -61,7 +63,8 @@ namespace FN {
 		}
 
 		LLVMValues output_values;
-		llvm_body->build_ir(builder, input_values, output_values);
+		build_ir(builder, input_values, output_values);
+		BLI_assert(output_values.size() == fn->signature().outputs().size());
 
 		for (uint i = 0; i < output_values.size(); i++) {
 			llvm::Value *value_byte_addr = lookup_tuple_address(
@@ -106,23 +109,18 @@ namespace FN {
 		}
 	};
 
-	TupleCallBody *compile_llvm_to_tuple_call(
-		LLVMGenBody *llvm_body,
-		llvm::LLVMContext &context)
+	static TupleCallBody *compile_ir_to_tuple_call(
+		SharedFunction &fn,
+		llvm::LLVMContext &context,
+		BuildIRFunction build_ir)
 	{
-		BLI_assert(llvm_body->has_owner());
-		Function *fn = llvm_body->owner();
 		llvm::Module *module = new llvm::Module(fn->name(), context);
-		llvm::Function *function = insert_tuple_call_function(fn, llvm_body, module);
+		llvm::Function *function = insert_tuple_call_function(fn, build_ir, module);
 
 		module->print(llvm::outs(), nullptr);
 
 		llvm::verifyFunction(*function, &llvm::outs());
 		llvm::verifyModule(*module, &llvm::outs());
-
-		llvm::InitializeNativeTarget();
-		llvm::InitializeNativeTargetAsmPrinter();
-		llvm::InitializeNativeTargetAsmParser();
 
 		llvm::ExecutionEngine *ee = llvm::EngineBuilder(
 			std::unique_ptr<llvm::Module>(module)).create();
@@ -133,6 +131,64 @@ namespace FN {
 			function->getName().str());
 
 		return new LLVMTupleCall((LLVMCallFN)fn_ptr);
+	}
+
+	static TupleCallBody *build_from_compiled(
+		SharedFunction &fn,
+		llvm::LLVMContext &context)
+	{
+		auto *body = fn->body<CompiledLLVMBody>();
+		return compile_ir_to_tuple_call(fn, context, [&fn, body](
+				llvm::IRBuilder<> &builder,
+				const LLVMValues &inputs,
+				LLVMValues &outputs)
+			{
+				auto *ftype = function_type_from_signature(fn->signature(), builder.getContext());
+				llvm::Value *output_struct = call_pointer(
+					builder,
+					body->function_ptr(),
+					ftype,
+					inputs);
+				for (uint i = 0; i < ftype->getReturnType()->getStructNumElements(); i++) {
+					llvm::Value *out = builder.CreateExtractValue(output_struct, i);
+					outputs.append(out);
+				}
+			});
+	}
+
+	static TupleCallBody *build_from_ir_generator(
+		SharedFunction &fn,
+		llvm::LLVMContext &context)
+	{
+		auto *body = fn->body<LLVMGenBody>();
+		return compile_ir_to_tuple_call(fn, context, [body](
+				llvm::IRBuilder<> &builder,
+				const LLVMValues &inputs,
+				LLVMValues &outputs)
+			{
+				body->build_ir(builder, inputs, outputs);
+			});
+	}
+
+	bool try_ensure_TupleCallBody(
+		SharedFunction &fn,
+		llvm::LLVMContext &context)
+	{
+		if (fn->body<TupleCallBody>() != nullptr) {
+			return true;
+		}
+
+		if (fn->body<CompiledLLVMBody>() != nullptr) {
+			fn->add_body(build_from_compiled(fn, context));
+			return true;
+		}
+
+		if (fn->body<LLVMGenBody>() != nullptr) {
+			fn->add_body(build_from_ir_generator(fn, context));
+			return true;
+		}
+
+		return false;
 	}
 
 } /* namespace FN */

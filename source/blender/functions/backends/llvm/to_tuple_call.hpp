@@ -7,8 +7,8 @@ namespace FN {
 
 	class TupleCallBody;
 
-	TupleCallBody *compile_llvm_to_tuple_call(
-		LLVMGenBody *llvm_body,
+	bool try_ensure_TupleCallBody(
+		SharedFunction &fn,
 		llvm::LLVMContext &context);
 
 } /* namespace FN */

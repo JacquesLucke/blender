@@ -50,6 +50,8 @@ set(SRC
 	backends/dependencies/fgraph_dependencies.hpp
 	backends/dependencies/fgraph_dependencies.cpp
 
+	backends/llvm/initialize.hpp
+	backends/llvm/initialize.cpp
 	backends/llvm/llvm_types.hpp
 	backends/llvm/llvm_types.cpp
 	backends/llvm/llvm_gen.hpp
@@ -58,6 +60,8 @@ set(SRC
 	backends/llvm/to_tuple_call.cpp
 	backends/llvm/from_tuple_call.hpp
 	backends/llvm/from_tuple_call.cpp
+	backends/llvm/compiled_body.hpp
+	backends/llvm/compiled_body.cpp
 	backends/llvm/ir_utils.hpp
 	backends/llvm/ir_utils.cpp
 

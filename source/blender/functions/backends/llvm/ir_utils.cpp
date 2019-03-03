@@ -63,4 +63,25 @@ namespace FN {
 		return types;
 	}
 
+	LLVMTypes types_of_type_infos(
+		const SmallVector<LLVMTypeInfo *> &type_infos,
+		llvm::LLVMContext &context)
+	{
+		LLVMTypes types;
+		for (auto info : type_infos) {
+			types.append(info->get_type(context));
+		}
+		return types;
+	}
+
+	llvm::FunctionType *function_type_from_signature(
+		const Signature &signature,
+		llvm::LLVMContext &context)
+	{
+		auto input_types = types_of_type_infos(signature.input_extensions<LLVMTypeInfo>(), context);
+		auto output_types = types_of_type_infos(signature.output_extensions<LLVMTypeInfo>(), context);
+		llvm::Type *output_type = llvm::StructType::get(context, to_array_ref(output_types));
+		return llvm::FunctionType::get(output_type, to_array_ref(input_types), false);
+	}
+
 } /* namespace FN */

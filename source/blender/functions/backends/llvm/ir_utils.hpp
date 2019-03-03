@@ -1,6 +1,6 @@
 #pragma once
 
-#include "llvm_gen.hpp"
+#include "FN_llvm.hpp"
 #include <llvm/IR/IRBuilder.h>
 
 namespace FN {
@@ -29,6 +29,14 @@ namespace FN {
 	llvm::Value *ptr_to_ir(llvm::IRBuilder<> &builder, void *ptr, llvm::Type *type);
 
 	LLVMTypes types_of_values(const LLVMValues &values);
+	LLVMTypes types_of_type_infos(
+		const SmallVector<LLVMTypeInfo *> &type_infos,
+		llvm::LLVMContext &context);
 
 	llvm::Value *alloca_bytes(llvm::IRBuilder<> &builder, uint size);
+
+	llvm::FunctionType *function_type_from_signature(
+		const Signature &signature,
+		llvm::LLVMContext &context);
+
  } /* namespace FN */

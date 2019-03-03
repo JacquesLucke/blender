@@ -44,7 +44,7 @@ namespace FN { namespace Functions {
 	LAZY_INIT_REF__NO_ARG(SharedFunction, add_floats)
 	{
 		auto fn = get_simple_math_function("Add Floats");
-		fn->add_body(new AddFloats());
+		//fn->add_body(new AddFloats());
 		fn->add_body(new GenAddFloats());
 		return fn;
 	}
