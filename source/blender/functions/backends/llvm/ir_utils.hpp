@@ -28,5 +28,7 @@ namespace FN {
 	llvm::Value *byte_ptr_to_ir(llvm::IRBuilder<> &builder, void *ptr);
 	llvm::Value *ptr_to_ir(llvm::IRBuilder<> &builder, void *ptr, llvm::Type *type);
 
+	LLVMTypes types_of_values(const LLVMValues &values);
+
 	llvm::Value *alloca_bytes(llvm::IRBuilder<> &builder, uint size);
  } /* namespace FN */

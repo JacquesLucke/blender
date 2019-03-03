@@ -11,15 +11,6 @@
 
 namespace FN {
 
-	using LLVMTypes = BLI::SmallVector<llvm::Type *>;
-
-	static LLVMTypeInfo *get_type_info(const SharedType &type)
-	{
-		auto ext = type->extension<LLVMTypeInfo>();
-		BLI_assert(ext);
-		return ext;
-	}
-
 	static llvm::Function *insert_tuple_call_function(
 		Function *fn,
 		LLVMGenBody *llvm_body,

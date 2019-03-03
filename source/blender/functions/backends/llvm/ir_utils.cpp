@@ -54,4 +54,13 @@ namespace FN {
 		return builder.CreatePointerCast(tuple_in_ptr, builder.getInt8PtrTy());
 	}
 
+	LLVMTypes types_of_values(const LLVMValues &values)
+	{
+		LLVMTypes types;
+		for (llvm::Value *value : values) {
+			types.append(value->getType());
+		}
+		return types;
+	}
+
 } /* namespace FN */

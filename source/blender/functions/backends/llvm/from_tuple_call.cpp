@@ -44,24 +44,68 @@ namespace FN {
 			LLVMValues &r_outputs) const override
 		{
 			Function *fn = m_tuple_call->owner();
+			llvm::LLVMContext &context = builder.getContext();
 
-			llvm::Type *void_ty = builder.getVoidTy();
+			/* Find relevant type information. */
+			auto input_type_infos = fn->signature().input_extensions<LLVMTypeInfo>();
+			auto output_type_infos = fn->signature().output_extensions<LLVMTypeInfo>();
+
+			LLVMTypes input_types = types_of_values(inputs);
+			LLVMTypes output_types;
+			for (auto type_info : output_type_infos) {
+				output_types.append(type_info->get_type(context));
+			}
+
+			/* Build wrapper function. */
+			llvm::Type *wrapper_output_type = llvm::StructType::get(context, to_array_ref(output_types));
+
+			llvm::FunctionType *wrapper_function_type = llvm::FunctionType::get(
+				wrapper_output_type, to_array_ref(input_types), false);
+
+			llvm::Function *wrapper_function = llvm::Function::Create(
+				wrapper_function_type,
+				llvm::GlobalValue::LinkageTypes::InternalLinkage,
+				fn->name() + " Wrapper",
+				builder.GetInsertBlock()->getModule());
+
+			this->build_wrapper_function(
+				wrapper_function,
+				input_type_infos,
+				output_type_infos,
+				wrapper_output_type);
+
+			/* Call wrapper function. */
+			llvm::Value *output_struct = builder.CreateCall(
+				wrapper_function, to_array_ref(const_cast<LLVMValues&>(inputs)));
+
+			/* Extract output values. */
+			for (uint i = 0; i < output_type_infos.size(); i++) {
+				llvm::Value *out = builder.CreateExtractValue(output_struct, i);
+				r_outputs.append(out);
+			}
+		}
+
+	private:
+		void build_wrapper_function(
+			llvm::Function *function,
+			SmallVector<LLVMTypeInfo *> &input_type_infos,
+			SmallVector<LLVMTypeInfo *> &output_type_infos,
+			llvm::Type *output_type) const
+		{
+			llvm::LLVMContext &context = function->getContext();
+
+			llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", function);
+			llvm::IRBuilder<> builder(bb);
+
+			/* Type declarations. */
+			llvm::Type *void_ty = llvm::Type::getVoidTy(context);
 			llvm::Type *void_ptr_ty = void_ty->getPointerTo();
-			llvm::Type *byte_ptr_ty = builder.getInt8PtrTy();
+			llvm::Type *byte_ptr_ty = llvm::Type::getInt8PtrTy(context);
 
 			llvm::FunctionType *construct_ftype = llvm::FunctionType::get(
 				void_ty, {byte_ptr_ty, void_ptr_ty}, false);
 			llvm::FunctionType *call_ftype = llvm::FunctionType::get(
 				void_ty, {void_ptr_ty, byte_ptr_ty, byte_ptr_ty}, false);
-
-			/* Load static pointers into IR. */
-			llvm::Value *meta_in_ptr = void_ptr_to_ir(builder, (void *)&m_in_meta);
-			llvm::Value *meta_out_ptr = void_ptr_to_ir(builder, (void *)&m_out_meta);
-
-			llvm::Value *offsets_in_ptr = int_ptr_to_ir(
-				builder, (int *)m_in_meta->offsets().begin());
-			llvm::Value *offsets_out_ptr = int_ptr_to_ir(
-				builder, (int *)m_out_meta->offsets().begin());
 
 			/* Construct input and output tuple on stack. */
 			llvm::Value *tuple_in_ptr = alloca_bytes(builder, get_total_tuple_size(m_in_meta));
@@ -70,33 +114,37 @@ namespace FN {
 			tuple_out_ptr->setName("tuple_out");
 
 			llvm::Value *tuple_in_data_ptr = builder.CreateConstGEP1_32(tuple_in_ptr, sizeof(Tuple));
+			tuple_in_data_ptr->setName("tuple_in_data");
 			llvm::Value *tuple_out_data_ptr = builder.CreateConstGEP1_32(tuple_out_ptr, sizeof(Tuple));
+			tuple_out_data_ptr->setName("tuple_out_data");
+
+			llvm::Value *meta_in_ptr = void_ptr_to_ir(builder, (void *)&m_in_meta);
+			llvm::Value *meta_out_ptr = void_ptr_to_ir(builder, (void *)&m_out_meta);
 
 			call_pointer(builder, (void *)construct_tuple,
 				construct_ftype, {tuple_in_ptr, meta_in_ptr});
 			call_pointer(builder, (void *)construct_tuple,
 				construct_ftype, {tuple_out_ptr, meta_out_ptr});
 
-
 			/* Write input values into tuple. */
-			for (uint i = 0; i < fn->signature().inputs().size(); i++) {
-				LLVMTypeInfo *type_info = fn->signature().inputs()[i].type()->extension<LLVMTypeInfo>();
-				llvm::Value *store_at_addr = lookup_tuple_address(builder, tuple_in_data_ptr, offsets_in_ptr, i);
-				type_info->build_store_ir__relocate(builder, inputs[i], store_at_addr);
+			for (uint i = 0; i < input_type_infos.size(); i++) {
+				llvm::Value *arg = function->arg_begin() + i;
+				llvm::Value *store_at_addr = builder.CreateConstGEP1_32(tuple_in_data_ptr, m_in_meta->offsets()[i]);
+				input_type_infos[i]->build_store_ir__relocate(builder, arg, store_at_addr);
 			}
 
 			/* Execute tuple call body. */
 			call_pointer(builder, (void *)call,
 				call_ftype, {void_ptr_to_ir(builder, m_tuple_call), tuple_in_ptr, tuple_out_ptr});
 
-			/* Read output values back into virtual registers. */
-			for (uint i = 0; i < fn->signature().outputs().size(); i++) {
-				LLVMTypeInfo *type_info = fn->signature().outputs()[i].type()->extension<LLVMTypeInfo>();
-				llvm::Value *load_from_addr = lookup_tuple_address(builder, tuple_out_data_ptr, offsets_out_ptr, i);
-				llvm::Value *out = type_info->build_load_ir__relocate(builder, load_from_addr);
-				out->setName("output");
-				r_outputs.append(out);
+			/* Read output values into struct and return. */
+			llvm::Value *output = llvm::UndefValue::get(output_type);
+			for (uint i = 0; i < output_type_infos.size(); i++) {
+				llvm::Value *load_from_addr = builder.CreateConstGEP1_32(tuple_out_data_ptr, m_out_meta->offsets()[i]);
+				llvm::Value *out = output_type_infos[i]->build_load_ir__relocate(builder, load_from_addr);
+				output = builder.CreateInsertValue(output, out, i);
 			}
+			builder.CreateRet(output);
 		}
 	};
 

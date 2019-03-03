@@ -64,4 +64,11 @@ namespace FN {
 			: m_create_func(create_func) {}
 	};
 
+	inline LLVMTypeInfo *get_type_info(const SharedType &type)
+	{
+		auto ext = type->extension<LLVMTypeInfo>();
+		BLI_assert(ext);
+		return ext;
+	}
+
 } /* namespace FN */

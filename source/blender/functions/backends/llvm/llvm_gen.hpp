@@ -6,6 +6,7 @@
 namespace FN {
 
 	using LLVMValues = SmallVector<llvm::Value *>;
+	using LLVMTypes = BLI::SmallVector<llvm::Type *>;
 
 	class LLVMGenBody : public FunctionBody {
 	public:
