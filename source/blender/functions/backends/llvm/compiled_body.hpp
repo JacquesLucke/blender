@@ -1,6 +1,7 @@
 #pragma once
 
 #include "FN_core.hpp"
+#include "compile.hpp"
 
 namespace llvm {
 	class ExecutionEngine;
@@ -13,8 +14,7 @@ namespace FN {
 
 	class CompiledLLVMBody : public FunctionBody {
 	private:
-		void *m_func_ptr;
-		llvm::ExecutionEngine *m_engine;
+		std::unique_ptr<CompiledLLVM> m_compiled;
 
 		CompiledLLVMBody() = default;
 
@@ -22,15 +22,12 @@ namespace FN {
 		static const char *identifier_in_composition();
 		static void free_self(void *value);
 
-		static CompiledLLVMBody *FromIR(
-			llvm::Module *module,
-			llvm::Function *main_func);
-
-		~CompiledLLVMBody();
+		CompiledLLVMBody(std::unique_ptr<CompiledLLVM> compiled)
+			: m_compiled(std::move(compiled)) {}
 
 		void *function_ptr()
 		{
-			return m_func_ptr;
+			return m_compiled->function_ptr();
 		}
 	};
 

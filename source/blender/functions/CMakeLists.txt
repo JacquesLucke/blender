@@ -62,6 +62,8 @@ set(SRC
 	backends/llvm/from_tuple_call.cpp
 	backends/llvm/compiled_body.hpp
 	backends/llvm/compiled_body.cpp
+	backends/llvm/compile.hpp
+	backends/llvm/compile.cpp
 	backends/llvm/ir_utils.hpp
 	backends/llvm/ir_utils.cpp
 

@@ -89,11 +89,15 @@ namespace FN {
 
 	class LLVMTupleCall : public TupleCallBody {
 	private:
+		std::unique_ptr<CompiledLLVM> m_compiled;
 		LLVMCallFN m_call;
 
 	public:
-		LLVMTupleCall(LLVMCallFN call)
-			: m_call(call) {}
+		LLVMTupleCall(std::unique_ptr<CompiledLLVM> compiled)
+			: m_compiled(std::move(compiled))
+		{
+			m_call = (LLVMCallFN)m_compiled->function_ptr();
+		}
 
 		void call(const Tuple &fn_in, Tuple &fn_out) const override
 		{
@@ -117,20 +121,8 @@ namespace FN {
 		llvm::Module *module = new llvm::Module(fn->name(), context);
 		llvm::Function *function = insert_tuple_call_function(fn, build_ir, module);
 
-		module->print(llvm::outs(), nullptr);
-
-		llvm::verifyFunction(*function, &llvm::outs());
-		llvm::verifyModule(*module, &llvm::outs());
-
-		llvm::ExecutionEngine *ee = llvm::EngineBuilder(
-			std::unique_ptr<llvm::Module>(module)).create();
-		ee->finalizeObject();
-		ee->generateCodeForModule(module);
-
-		uint64_t fn_ptr = ee->getFunctionAddress(
-			function->getName().str());
-
-		return new LLVMTupleCall((LLVMCallFN)fn_ptr);
+		auto compiled = CompiledLLVM::FromIR(module, function);
+		return new LLVMTupleCall(std::move(compiled));
 	}
 
 	static TupleCallBody *build_from_compiled(

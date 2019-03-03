@@ -17,33 +17,6 @@ namespace FN {
 		delete v;
 	}
 
-	CompiledLLVMBody::~CompiledLLVMBody()
-	{
-		delete m_engine;
-	}
-
-	CompiledLLVMBody *CompiledLLVMBody::FromIR(
-		llvm::Module *module,
-		llvm::Function *main_func)
-	{
-		BLI_assert(!llvm::verifyModule(*module, &llvm::outs()));
-
-		llvm::ExecutionEngine *ee = llvm::EngineBuilder(
-			std::unique_ptr<llvm::Module>(module)).create();
-		ee->finalizeObject();
-		ee->generateCodeForModule(module);
-
-		module->print(llvm::outs(), nullptr);
-
-		uint64_t function_ptr = ee->getFunctionAddress(
-			main_func->getName().str());
-
-		auto body = new CompiledLLVMBody();
-		body->m_engine = ee;
-		body->m_func_ptr = (void *)function_ptr;
-		return body;
-	}
-
 	static CompiledLLVMBody *compile_llvm_body(
 		SharedFunction &fn,
 		llvm::LLVMContext &context)
@@ -87,8 +60,8 @@ namespace FN {
 		}
 		builder.CreateRet(return_value);
 
-		return CompiledLLVMBody::FromIR(
-			module, function);
+		auto compiled = CompiledLLVM::FromIR(module, function);
+		return new CompiledLLVMBody(std::move(compiled));
 	}
 
 	bool try_ensure_CompiledLLVMBody(

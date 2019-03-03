@@ -26,7 +26,7 @@ static void playground()
 	SharedFunction fn = Functions::add_floats();
 
 	llvm::LLVMContext *context = new llvm::LLVMContext();
-	try_ensure_CompiledLLVMBody(fn, *context);
+	//try_ensure_CompiledLLVMBody(fn, *context);
 	try_ensure_TupleCallBody(fn, *context);
 
 	Tuple fn_in(fn->signature().input_types());
