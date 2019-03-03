@@ -63,22 +63,19 @@ namespace FN {
 		Tuple(SharedTupleMeta meta)
 			: m_meta(std::move(meta))
 		{
-			m_initialized = SmallVector<bool>(m_meta->element_amount());
-			m_initialized.fill(false);
-
+			m_initialized = (bool *)std::calloc(m_meta->element_amount(), sizeof(bool));
 			m_data = std::malloc(m_meta->total_size());
-			m_owns_data = true;
+			m_owns_mem = true;
 		}
 
-		Tuple(SharedTupleMeta meta, void *data, bool take_ownership)
+		Tuple(SharedTupleMeta meta, void *data, bool *initialized, bool take_ownership)
 			: m_meta(std::move(meta))
 		{
-			m_initialized = SmallVector<bool>(m_meta->element_amount());
-			m_initialized.fill(false);
-
 			BLI_assert(data != nullptr);
+			BLI_assert(initialized != nullptr);
 			m_data = data;
-			m_owns_data = take_ownership;
+			m_initialized = initialized;
+			m_owns_mem = take_ownership;
 		}
 
 		Tuple(SmallTypeVector types)
@@ -94,8 +91,9 @@ namespace FN {
 					m_meta->type_infos()[i]->destruct_type(this->element_ptr(i));
 				}
 			}
-			if (m_owns_data) {
+			if (m_owns_mem) {
 				std::free(m_data);
+				std::free(m_initialized);
 			}
 		}
 
@@ -184,8 +182,8 @@ namespace FN {
 
 		bool all_initialized() const
 		{
-			for (bool initialized : m_initialized) {
-				if (!initialized) {
+			for (uint i = 0; i < m_meta->element_amount(); i++) {
+				if (!m_initialized[i]) {
 					return false;
 				}
 			}
@@ -194,7 +192,9 @@ namespace FN {
 
 		void set_all_initialized()
 		{
-			m_initialized.fill(true);
+			for (uint i = 0; i < m_meta->element_amount(); i++) {
+				m_initialized[i] = true;
+			}
 		}
 
 	private:
@@ -203,9 +203,9 @@ namespace FN {
 			return (void *)((char *)m_data + m_meta->offsets()[index]);
 		}
 
-		SmallVector<bool> m_initialized;
 		void *m_data;
-		bool m_owns_data;
+		bool *m_initialized;
+		bool m_owns_mem;
 		SharedTupleMeta m_meta;
 	};
 
