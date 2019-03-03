@@ -7,7 +7,7 @@ namespace FN {
 
 	using LLVMValues = SmallVector<llvm::Value *>;
 
-	class LLVMGenBody {
+	class LLVMGenBody : public FunctionBody {
 	public:
 		static const char *identifier_in_composition();
 		static void free_self(void *value);

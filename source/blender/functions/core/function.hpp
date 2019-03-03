@@ -4,6 +4,31 @@
 
 namespace FN {
 
+	class Function;
+
+	class FunctionBody {
+	private:
+		Function *m_owner = nullptr;
+
+		void set_owner(Function *fn)
+		{
+			m_owner = fn;
+		}
+
+		friend class Function;
+
+	public:
+		Function *owner()
+		{
+			return m_owner;
+		}
+
+		bool has_owner()
+		{
+			return m_owner != nullptr;
+		}
+	};
+
 	class Function final {
 	public:
 		Function(const std::string &name, const Signature &signature)
@@ -31,10 +56,13 @@ namespace FN {
 		}
 
 		template<typename T>
-		void add_body(const T *body)
+		void add_body(T *body)
 		{
+			static_assert(std::is_base_of<FunctionBody, T>::value);
 			BLI_assert(m_bodies.get<T>() == nullptr);
+			BLI_assert(!body->has_owner());
 			m_bodies.add(body);
+			body->set_owner(this);
 		}
 
 		void print() const;

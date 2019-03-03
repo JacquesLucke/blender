@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BLI_small_set.hpp"
+#include "FN_core.hpp"
 
 struct Object;
 struct DepsNodeHandle;
@@ -24,7 +24,7 @@ namespace FN {
 			const struct OperationKeyRef *target);
 	};
 
-	class DependenciesBody {
+	class DependenciesBody : public FunctionBody {
 	public:
 		static const char *identifier_in_composition();
 		static void free_self(void *value);

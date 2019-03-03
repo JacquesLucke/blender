@@ -4,7 +4,7 @@
 
 namespace FN {
 
-	class TupleCallBody {
+	class TupleCallBody : public FunctionBody {
 	public:
 		static const char *identifier_in_composition();
 		static void free_self(void *value);
