@@ -38,7 +38,8 @@ namespace FN {
 	}
 
 	static llvm::Function *insert_tuple_call_function(
-		SharedFunction fn,
+		Function *fn,
+		LLVMGenBody *llvm_body,
 		llvm::Module *module)
 	{
 		llvm::LLVMContext &context = module->getContext();
@@ -86,9 +87,7 @@ namespace FN {
 		}
 
 		LLVMValues output_values;
-		auto body = fn->body<LLVMGenBody>();
-		BLI_assert(body);
-		body->build_ir(builder, input_values, output_values);
+		llvm_body->build_ir(builder, input_values, output_values);
 
 		for (uint i = 0; i < output_values.size(); i++) {
 			llvm::Value *value_byte_addr = lookup_tuple_address(
@@ -134,11 +133,13 @@ namespace FN {
 	};
 
 	TupleCallBody *compile_llvm_to_tuple_call(
-		SharedFunction &fn,
+		LLVMGenBody *llvm_body,
 		llvm::LLVMContext &context)
 	{
+		BLI_assert(llvm_body->has_owner());
+		Function *fn = llvm_body->owner();
 		llvm::Module *module = new llvm::Module(fn->name(), context);
-		llvm::Function *function = insert_tuple_call_function(fn, module);
+		llvm::Function *function = insert_tuple_call_function(fn, llvm_body, module);
 
 		// module->print(llvm::outs(), nullptr);
 

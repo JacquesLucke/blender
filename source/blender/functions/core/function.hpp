@@ -50,7 +50,7 @@ namespace FN {
 		}
 
 		template<typename T>
-		inline const T *body() const
+		inline T *body() const
 		{
 			return m_bodies.get<T>();
 		}

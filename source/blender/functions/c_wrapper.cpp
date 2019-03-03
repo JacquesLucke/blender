@@ -25,7 +25,7 @@ static void playground()
 {
 	SharedFunction fn = Functions::add_floats();
 	llvm::LLVMContext *context = new llvm::LLVMContext();
-	auto body = compile_llvm_to_tuple_call(fn, *context);
+	auto body = compile_llvm_to_tuple_call(fn->body<LLVMGenBody>(), *context);
 
 	Tuple fn_in(fn->signature().input_types());
 	Tuple fn_out(fn->signature().output_types());

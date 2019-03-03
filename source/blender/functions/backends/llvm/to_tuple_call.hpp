@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FN_core.hpp"
+#include "llvm_gen.hpp"
 #include <llvm/IR/IRBuilder.h>
 
 namespace FN {
@@ -8,7 +8,7 @@ namespace FN {
 	class TupleCallBody;
 
 	TupleCallBody *compile_llvm_to_tuple_call(
-		SharedFunction &fn,
+		LLVMGenBody *llvm_body,
 		llvm::LLVMContext &context);
 
 } /* namespace FN */
