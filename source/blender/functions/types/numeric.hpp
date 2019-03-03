@@ -9,6 +9,9 @@ namespace FN { namespace Types {
 
 		Vector() = default;
 
+		Vector(float x, float y, float z)
+			: x(x), y(y), z(z) {}
+
 		Vector(float *vec)
 			: x(vec[0]), y(vec[1]), z(vec[2]) {}
 	};

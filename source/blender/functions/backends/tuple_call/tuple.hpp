@@ -40,7 +40,7 @@ namespace FN {
 			return m_offsets;
 		}
 
-		uint total_size() const
+		uint total_data_size() const
 		{
 			return m_total_size;
 		}
@@ -64,7 +64,7 @@ namespace FN {
 			: m_meta(std::move(meta))
 		{
 			m_initialized = (bool *)std::calloc(m_meta->element_amount(), sizeof(bool));
-			m_data = std::malloc(m_meta->total_size());
+			m_data = std::malloc(m_meta->total_data_size());
 			m_owns_mem = true;
 		}
 
@@ -194,6 +194,13 @@ namespace FN {
 		{
 			for (uint i = 0; i < m_meta->element_amount(); i++) {
 				m_initialized[i] = true;
+			}
+		}
+
+		void set_all_uninitialized()
+		{
+			for (uint i = 0; i < m_meta->element_amount(); i++) {
+				m_initialized[i] = false;
 			}
 		}
 

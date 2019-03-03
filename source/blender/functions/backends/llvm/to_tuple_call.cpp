@@ -1,6 +1,7 @@
 #include "to_tuple_call.hpp"
 #include "llvm_types.hpp"
 #include "llvm_gen.hpp"
+#include "ir_utils.hpp"
 
 #include "FN_tuple_call.hpp"
 
@@ -17,24 +18,6 @@ namespace FN {
 		auto ext = type->extension<LLVMTypeInfo>();
 		BLI_assert(ext);
 		return ext;
-	}
-
-	template<typename T>
-	static llvm::ArrayRef<T> array_ref(SmallVector<T> &vector)
-	{
-		return llvm::ArrayRef<T>(vector.begin(), vector.end());
-	}
-
-	static llvm::Value *lookup_tuple_address(
-		llvm::IRBuilder<> &builder,
-		llvm::Value *data_addr,
-		llvm::Value *offsets_addr,
-		uint index)
-	{
-		llvm::Value *offset_addr = builder.CreateConstGEP1_32(offsets_addr, index);
-		llvm::Value *offset = builder.CreateLoad(offset_addr);
-		llvm::Value *value_byte_addr = builder.CreateGEP(data_addr, offset);
-		return value_byte_addr;
 	}
 
 	static llvm::Function *insert_tuple_call_function(
@@ -56,7 +39,7 @@ namespace FN {
 		};
 
 		llvm::FunctionType *function_type = llvm::FunctionType::get(
-			void_ty, array_ref(input_types), false);
+			void_ty, to_array_ref(input_types), false);
 
 		llvm::Function *function = llvm::Function::Create(
 			function_type,
@@ -141,7 +124,7 @@ namespace FN {
 		llvm::Module *module = new llvm::Module(fn->name(), context);
 		llvm::Function *function = insert_tuple_call_function(fn, llvm_body, module);
 
-		// module->print(llvm::outs(), nullptr);
+		module->print(llvm::outs(), nullptr);
 
 		llvm::verifyFunction(*function, &llvm::outs());
 		llvm::verifyModule(*module, &llvm::outs());

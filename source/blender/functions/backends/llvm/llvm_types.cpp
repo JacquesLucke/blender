@@ -62,4 +62,11 @@ namespace FN {
 		return builder.CreateLoad(addr);
 	}
 
+	llvm::Value *LLVMTypeInfo::build_load_ir__relocate(
+			llvm::IRBuilder<> &builder,
+			llvm::Value *byte_addr) const
+	{
+		return this->build_load_ir__copy(builder, byte_addr);
+	}
+
 };

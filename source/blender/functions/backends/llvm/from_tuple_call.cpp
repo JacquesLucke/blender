@@ -1,0 +1,109 @@
+#include "from_tuple_call.hpp"
+#include "llvm_types.hpp"
+#include "FN_tuple_call.hpp"
+#include "ir_utils.hpp"
+
+namespace FN {
+
+	static uint get_total_tuple_size(const SharedTupleMeta &meta)
+	{
+		return sizeof(Tuple) + meta->total_data_size() + meta->element_amount() * sizeof(bool);
+	}
+
+	static void construct_tuple(void *dst, SharedTupleMeta *meta_)
+	{
+		SharedTupleMeta &meta = *meta_;
+		void *data = ((char *)dst) + sizeof(Tuple);
+		bool *initialized = (bool *)(((char *)data) + meta->total_data_size());
+		new(dst) Tuple(meta, data, initialized, false);
+	}
+
+	static void call(TupleCallBody *body, Tuple *fn_in, Tuple *fn_out)
+	{
+		fn_in->set_all_initialized();
+		fn_out->set_all_uninitialized();
+		body->call(*fn_in, *fn_out);
+	}
+
+	class TupleCallLLVM : public LLVMGenBody {
+	private:
+		TupleCallBody *m_tuple_call;
+		SharedTupleMeta m_in_meta;
+		SharedTupleMeta m_out_meta;
+
+	public:
+		TupleCallLLVM(TupleCallBody *tuple_call)
+			: m_tuple_call(tuple_call),
+			  m_in_meta(SharedTupleMeta::New(m_tuple_call->owner()->signature().input_types())),
+			  m_out_meta(SharedTupleMeta::New(m_tuple_call->owner()->signature().output_types()))
+		{}
+
+		void build_ir(
+			llvm::IRBuilder<> &builder,
+			const LLVMValues &inputs,
+			LLVMValues &r_outputs) const override
+		{
+			Function *fn = m_tuple_call->owner();
+
+			llvm::Type *void_ty = builder.getVoidTy();
+			llvm::Type *void_ptr_ty = void_ty->getPointerTo();
+			llvm::Type *byte_ptr_ty = builder.getInt8PtrTy();
+
+			llvm::FunctionType *construct_ftype = llvm::FunctionType::get(
+				void_ty, {byte_ptr_ty, void_ptr_ty}, false);
+			llvm::FunctionType *call_ftype = llvm::FunctionType::get(
+				void_ty, {void_ptr_ty, byte_ptr_ty, byte_ptr_ty}, false);
+
+			/* Load static pointers into IR. */
+			llvm::Value *meta_in_ptr = void_ptr_to_ir(builder, (void *)&m_in_meta);
+			llvm::Value *meta_out_ptr = void_ptr_to_ir(builder, (void *)&m_out_meta);
+
+			llvm::Value *offsets_in_ptr = int_ptr_to_ir(
+				builder, (int *)m_in_meta->offsets().begin());
+			llvm::Value *offsets_out_ptr = int_ptr_to_ir(
+				builder, (int *)m_out_meta->offsets().begin());
+
+			/* Construct input and output tuple on stack. */
+			llvm::Value *tuple_in_ptr = alloca_bytes(builder, get_total_tuple_size(m_in_meta));
+			tuple_in_ptr->setName("tuple_in");
+			llvm::Value *tuple_out_ptr = alloca_bytes(builder, get_total_tuple_size(m_out_meta));
+			tuple_out_ptr->setName("tuple_out");
+
+			llvm::Value *tuple_in_data_ptr = builder.CreateConstGEP1_32(tuple_in_ptr, sizeof(Tuple));
+			llvm::Value *tuple_out_data_ptr = builder.CreateConstGEP1_32(tuple_out_ptr, sizeof(Tuple));
+
+			call_pointer(builder, (void *)construct_tuple,
+				construct_ftype, {tuple_in_ptr, meta_in_ptr});
+			call_pointer(builder, (void *)construct_tuple,
+				construct_ftype, {tuple_out_ptr, meta_out_ptr});
+
+
+			/* Write input values into tuple. */
+			for (uint i = 0; i < fn->signature().inputs().size(); i++) {
+				LLVMTypeInfo *type_info = fn->signature().inputs()[i].type()->extension<LLVMTypeInfo>();
+				llvm::Value *store_at_addr = lookup_tuple_address(builder, tuple_in_data_ptr, offsets_in_ptr, i);
+				type_info->build_store_ir__relocate(builder, inputs[i], store_at_addr);
+			}
+
+			/* Execute tuple call body. */
+			call_pointer(builder, (void *)call,
+				call_ftype, {void_ptr_to_ir(builder, m_tuple_call), tuple_in_ptr, tuple_out_ptr});
+
+			/* Read output values back into virtual registers. */
+			for (uint i = 0; i < fn->signature().outputs().size(); i++) {
+				LLVMTypeInfo *type_info = fn->signature().outputs()[i].type()->extension<LLVMTypeInfo>();
+				llvm::Value *load_from_addr = lookup_tuple_address(builder, tuple_out_data_ptr, offsets_out_ptr, i);
+				llvm::Value *out = type_info->build_load_ir__relocate(builder, load_from_addr);
+				out->setName("output");
+				r_outputs.append(out);
+			}
+		}
+	};
+
+	LLVMGenBody *llvm_body_for_tuple_call(
+		TupleCallBody *tuple_call_body)
+	{
+		return new TupleCallLLVM(tuple_call_body);
+	}
+
+} /* namespace FN */

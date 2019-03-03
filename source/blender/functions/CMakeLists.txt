@@ -56,6 +56,10 @@ set(SRC
 	backends/llvm/llvm_gen.cpp
 	backends/llvm/to_tuple_call.hpp
 	backends/llvm/to_tuple_call.cpp
+	backends/llvm/from_tuple_call.hpp
+	backends/llvm/from_tuple_call.cpp
+	backends/llvm/ir_utils.hpp
+	backends/llvm/ir_utils.cpp
 
 	types/numeric.cpp
 	types/numeric.hpp

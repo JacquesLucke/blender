@@ -38,6 +38,10 @@ namespace FN {
 			llvm::IRBuilder<> &builder,
 			llvm::Value *byte_addr) const;
 
+		virtual llvm::Value *build_load_ir__relocate(
+			llvm::IRBuilder<> &builder,
+			llvm::Value *byte_addr) const;
+
 	private:
 		mutable SmallMap<llvm::LLVMContext *, llvm::Type *> m_type_per_context;
 
