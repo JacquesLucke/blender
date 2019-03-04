@@ -56,10 +56,10 @@ set(SRC
 	backends/llvm/llvm_types.cpp
 	backends/llvm/build_ir_body.hpp
 	backends/llvm/build_ir_body.cpp
-	backends/llvm/to_tuple_call.hpp
-	backends/llvm/to_tuple_call.cpp
-	backends/llvm/from_tuple_call.hpp
-	backends/llvm/from_tuple_call.cpp
+	backends/llvm/ir_to_tuple_call.hpp
+	backends/llvm/ir_to_tuple_call.cpp
+	backends/llvm/ir_for_tuple_call.hpp
+	backends/llvm/ir_for_tuple_call.cpp
 	backends/llvm/compiled_body.hpp
 	backends/llvm/compiled_body.cpp
 	backends/llvm/compile.hpp
