@@ -172,7 +172,7 @@ namespace FN {
 		fn->add_body(build_from_ir_generator(fn, context));
 	}
 
-	void derive_TupleCallBody_from_CompiledLLVMBody(
+	void derive_TupleCallBody_from_LLVMCompiledBody(
 		SharedFunction &fn,
 		llvm::LLVMContext &context)
 	{

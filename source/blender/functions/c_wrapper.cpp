@@ -26,7 +26,7 @@ static void playground()
 	SharedFunction fn = Functions::separate_vector();
 
 	llvm::LLVMContext *context = new llvm::LLVMContext();
-	derive_CompiledLLVMBody_from_LLVMBuildIRBody(fn, *context);
+	derive_LLVMCompiledBody_from_LLVMBuildIRBody(fn, *context);
 
 	Tuple fn_in(fn->signature().input_types());
 	Tuple fn_out(fn->signature().output_types());

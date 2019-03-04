@@ -31,7 +31,7 @@ namespace FN {
 		}
 	};
 
-	void derive_CompiledLLVMBody_from_LLVMBuildIRBody(
+	void derive_LLVMCompiledBody_from_LLVMBuildIRBody(
 		SharedFunction &fn,
 		llvm::LLVMContext &context);
 
