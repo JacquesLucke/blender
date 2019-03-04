@@ -5,7 +5,7 @@
 
 namespace FN { namespace DataFlowNodes {
 
-	const Node *Builder::insert_function(SharedFunction &function)
+	Node *Builder::insert_function(SharedFunction &function)
 	{
 		return m_graph->insert(function);
 	}
@@ -20,7 +20,7 @@ namespace FN { namespace DataFlowNodes {
 		m_socket_map.add(bsocket, socket);
 	}
 
-	void Builder::map_sockets(const Node *node, struct bNode *bnode)
+	void Builder::map_sockets(Node *node, struct bNode *bnode)
 	{
 		uint input_index = 0;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {

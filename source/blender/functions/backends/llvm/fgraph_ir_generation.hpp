@@ -1,11 +1,10 @@
 #pragma once
 
 #include "FN_core.hpp"
-#include "dependencies.hpp"
 
 namespace FN {
 
-	void fgraph_add_DependenciesBody(
+	void fgraph_add_LLVMBuildIRBody(
 		SharedFunction &fn,
 		FunctionGraph &fgraph);
 

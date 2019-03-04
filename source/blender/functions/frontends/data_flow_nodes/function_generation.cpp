@@ -3,6 +3,7 @@
 
 #include "FN_tuple_call.hpp"
 #include "FN_dependencies.hpp"
+#include "FN_llvm.hpp"
 #include "DNA_node_types.h"
 
 namespace FN { namespace DataFlowNodes {
@@ -17,8 +18,9 @@ namespace FN { namespace DataFlowNodes {
 		FunctionGraph fgraph = fgraph_.value();
 
 		auto fn = SharedFunction::New(btree->id.name, fgraph.signature());
-		fn->add_body(fgraph_tuple_call(fgraph));
-		fn->add_body(fgraph_dependencies(fgraph));
+		fgraph_add_DependenciesBody(fn, fgraph);
+		fgraph_add_LLVMBuildIRBody(fn, fgraph);
+		derive_TupleCallBody_from_LLVMBuildIRBody(fn, *(new llvm::LLVMContext()));
 		return fn;
 	}
 

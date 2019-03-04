@@ -3,7 +3,7 @@
 #include <sstream>
 
 namespace FN {
-	static std::string get_id(const Node *node)
+	static std::string get_id(Node *node)
 	{
 		std::stringstream ss;
 		ss << "\"";
@@ -29,7 +29,7 @@ namespace FN {
 		return get_id(socket.node()) + ":" + get_id(socket);
 	}
 
-	static void insert_node_table(std::stringstream &ss, const Node *node)
+	static void insert_node_table(std::stringstream &ss, Node *node)
 	{
 		ss << "<table border=\"0\" cellspacing=\"3\">";
 
@@ -69,7 +69,7 @@ namespace FN {
 		ss << "</table>";
 	}
 
-	static void insert_node(std::stringstream &ss, const Node *node)
+	static void insert_node(std::stringstream &ss, Node *node)
 	{
 		ss << get_id(node) << " ";
 		ss << "[style=\"filled\", fillcolor=\"#FFFFFF\", shape=\"box\"";
@@ -89,7 +89,7 @@ namespace FN {
 		ss << "digraph MyGraph {" << std::endl;
 		ss << "rankdir=LR" << std::endl;
 
-		for (const Node *node : m_nodes) {
+		for (Node *node : m_nodes) {
 			insert_node(ss, node);
 			ss << std::endl;
 		}

@@ -31,7 +31,7 @@ namespace FN {
 				this->compute_socket(fn_in, out, out_index, socket.origin());
 			}
 			else {
-				const Node *node = socket.node();
+				Node *node = socket.node();
 				const Signature &signature = node->signature();
 
 				Tuple tmp_in(signature.input_types());
@@ -41,7 +41,7 @@ namespace FN {
 					this->compute_socket(fn_in, tmp_in, i, node->input(i));
 				}
 
-				const TupleCallBody *body = node->function()->body<TupleCallBody>();
+				TupleCallBody *body = node->function()->body<TupleCallBody>();
 				body->call(tmp_in, tmp_out);
 
 				Tuple::copy_element(tmp_out, socket.index(), out, out_index);
@@ -49,10 +49,11 @@ namespace FN {
 		}
 	};
 
-	TupleCallBody *fgraph_tuple_call(
-		const FunctionGraph &function_graph)
+	void fgraph_add_TupleCallBody(
+		SharedFunction &fn,
+		FunctionGraph &fgraph)
 	{
-		return new ExecuteGraph(function_graph);
+		fn->add_body(new ExecuteGraph(fgraph));
 	}
 
 } /* namespace FN */

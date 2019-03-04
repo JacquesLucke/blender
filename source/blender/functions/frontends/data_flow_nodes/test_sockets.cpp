@@ -13,7 +13,7 @@ namespace FN { namespace DataFlowNodes {
 		struct bNodeSocket *bsocket)
 	{
 		auto fn = Functions::float_socket_input(ctx.btree(), bsocket);
-		const Node *node = builder.insert_function(fn);
+		Node *node = builder.insert_function(fn);
 		return node->output(0);
 	}
 
@@ -23,7 +23,7 @@ namespace FN { namespace DataFlowNodes {
 		struct bNodeSocket *bsocket)
 	{
 		auto fn = Functions::vector_socket_input(ctx.btree(), bsocket);
-		const Node *node = builder.insert_function(fn);
+		Node *node = builder.insert_function(fn);
 		return node->output(0);
 	}
 

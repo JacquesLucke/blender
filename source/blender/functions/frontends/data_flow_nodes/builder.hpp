@@ -23,11 +23,11 @@ namespace FN { namespace DataFlowNodes {
 			SocketMap &socket_map)
 			: m_graph(graph), m_socket_map(socket_map) {}
 
-		const Node *insert_function(SharedFunction &function);
+		Node *insert_function(SharedFunction &function);
 		void insert_link(Socket a, Socket b);
 
 		void map_socket(Socket socket, struct bNodeSocket *bsocket);
-		void map_sockets(const Node *node, struct bNode *bnode);
+		void map_sockets(Node *node, struct bNode *bnode);
 		void map_input(Socket socket, struct bNode *bnode, uint index);
 		void map_output(Socket socket, struct bNode *bnode, uint index);
 	};

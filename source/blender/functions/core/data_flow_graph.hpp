@@ -13,50 +13,51 @@ namespace FN {
 	class GraphLinks;
 	class DataFlowGraph;
 
+	using SocketSet = SmallSet<Socket>;
+	using SmallSocketVector = SmallVector<Socket>;
+	using SmallSocketSetVector = SmallSetVector<Socket>;
+
 	class Socket {
 	public:
-		static inline Socket Input(const Node *node, uint index);
-		static inline Socket Output(const Node *node, uint index);
+		Socket(Node *node, bool is_output, uint index)
+			: m_node(node), m_is_output(is_output), m_index(index) {}
 
-		inline const Node *node() const;
+		static inline Socket Input(Node *node, uint index);
+		static inline Socket Output(Node *node, uint index);
+
+		inline Node *node() const;
 		inline DataFlowGraph *graph() const;
 
 		inline bool is_input() const;
 		inline bool is_output() const;
 		inline uint index() const;
 
-		const SharedType &type() const;
+		SharedType &type() const;
 		std::string name() const;
 
 		friend bool operator==(const Socket &a, const Socket &b);
 
 		inline Socket origin() const;
+		inline SocketSet targets() const;
 		inline bool is_linked() const;
 
 	private:
-		Socket(const Node *node, bool is_output, uint index)
-			: m_node(node), m_is_output(is_output), m_index(index) {}
-
-		const Node *m_node;
+		Node *m_node;
 		bool m_is_output;
 		uint m_index;
 	};
-
-
-	using SmallSocketVector = SmallVector<Socket>;
-	using SmallSocketSetVector = SmallSetVector<Socket>;
 
 	class Node {
 	public:
 		Node(DataFlowGraph *graph, SharedFunction &function)
 			: m_graph(graph), m_function(function) {}
 
-		Socket input(uint index) const
+		Socket input(uint index)
 		{
 			return Socket::Input(this, index);
 		}
 
-		Socket output(uint index) const
+		Socket output(uint index)
 		{
 			return Socket::Output(this, index);
 		}
@@ -71,9 +72,67 @@ namespace FN {
 			return m_function;
 		}
 
+		SharedFunction &function()
+		{
+			return m_function;
+		}
+
 		const Signature &signature() const
 		{
 			return this->function()->signature();
+		}
+
+		class SocketIterator {
+		private:
+			Node *m_node;
+			bool m_is_output;
+			uint m_index;
+
+			SocketIterator(Node *node, bool is_output, uint index)
+				: m_node(node), m_is_output(is_output), m_index(index) {}
+
+		public:
+			SocketIterator(Node *node, bool is_output)
+				: SocketIterator(node, is_output, 0) {}
+
+			using It = SocketIterator;
+
+			It begin() const
+			{
+				return It(m_node, m_is_output, 0);
+			}
+
+			It end() const
+			{
+				return It(m_node, m_is_output,
+					m_node->function()->signature().inputs().size());
+			}
+
+			It &operator++()
+			{
+				m_index++;
+				return *this;
+			}
+
+			bool operator!=(const It &other) const
+			{
+				return m_index != other.m_index;
+			}
+
+			Socket operator*() const
+			{
+				return Socket(m_node, m_is_output, m_index);
+			}
+		};
+
+		SocketIterator inputs()
+		{
+			return SocketIterator(this, false);
+		}
+
+		SocketIterator outputs()
+		{
+			return SocketIterator(this, true);
 		}
 
 	private:
@@ -167,7 +226,7 @@ namespace FN {
 
 		~DataFlowGraph();
 
-		const Node *insert(SharedFunction &function);
+		Node *insert(SharedFunction &function);
 		void link(Socket a, Socket b);
 
 		inline bool can_modify() const
@@ -190,7 +249,7 @@ namespace FN {
 			return m_links.all_links();
 		}
 
-		const SmallSet<const Node *> &all_nodes() const
+		const SmallSet<Node *> &all_nodes() const
 		{
 			return m_nodes;
 		}
@@ -199,7 +258,7 @@ namespace FN {
 
 	private:
 		bool m_frozen = false;
-		SmallSet<const Node *> m_nodes;
+		SmallSet<Node *> m_nodes;
 		GraphLinks m_links;
 		MemPool *m_node_pool;
 
@@ -212,9 +271,9 @@ namespace FN {
 	class FunctionGraph {
 	public:
 		FunctionGraph(
-			const SharedDataFlowGraph &graph,
-			const SmallSocketVector &inputs,
-			const SmallSocketVector &outputs)
+			SharedDataFlowGraph &graph,
+			SmallSocketVector &inputs,
+			SmallSocketVector &outputs)
 			: m_graph(graph), m_inputs(inputs), m_outputs(outputs)
 		{
 			BLI_assert(graph->frozen());
@@ -260,19 +319,19 @@ namespace FN {
 	/* Socket Inline Functions
 	 ********************************************** */
 
-	inline Socket Socket::Input(const Node *node, uint index)
+	inline Socket Socket::Input(Node *node, uint index)
 	{
 		BLI_assert(index < node->signature().inputs().size());
 		return Socket(node, false, index);
 	}
 
-	inline Socket Socket::Output(const Node *node, uint index)
+	inline Socket Socket::Output(Node *node, uint index)
 	{
 		BLI_assert(index < node->signature().outputs().size());
 		return Socket(node, true, index);
 	}
 
-	const Node *Socket::node() const
+	Node *Socket::node() const
 	{
 		return m_node;
 	}
@@ -308,6 +367,11 @@ namespace FN {
 	Socket Socket::origin() const
 	{
 		return this->graph()->m_links.get_origin(*this);
+	}
+
+	SocketSet Socket::targets() const
+	{
+		return this->graph()->m_links.get_linked(*this);
 	}
 
 	bool Socket::is_linked() const

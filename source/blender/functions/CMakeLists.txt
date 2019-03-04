@@ -66,6 +66,8 @@ set(SRC
 	backends/llvm/compile.cpp
 	backends/llvm/ir_utils.hpp
 	backends/llvm/ir_utils.cpp
+	backends/llvm/fgraph_ir_generation.hpp
+	backends/llvm/fgraph_ir_generation.cpp
 
 	types/numeric.cpp
 	types/numeric.hpp

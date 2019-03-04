@@ -23,7 +23,7 @@ namespace FN {
 		ee->finalizeObject();
 		ee->generateCodeForModule(module);
 
-		module->print(llvm::outs(), nullptr);
+		//module->print(llvm::outs(), nullptr);
 
 		uint64_t function_ptr = ee->getFunctionAddress(
 			main_function->getName().str());

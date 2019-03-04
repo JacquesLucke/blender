@@ -14,7 +14,12 @@ namespace FN {
 			return m_name;
 		}
 
-		const SharedType &type() const
+		SharedType type() const
+		{
+			return m_type;
+		}
+
+		SharedType &type()
 		{
 			return m_type;
 		}
@@ -23,7 +28,7 @@ namespace FN {
 
 	private:
 		const std::string m_name;
-		const SharedType m_type;
+		SharedType m_type;
 	};
 
 	class InputParameter final : public Parameter {

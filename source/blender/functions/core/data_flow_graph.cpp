@@ -1,7 +1,7 @@
 #include "data_flow_graph.hpp"
 
 namespace FN {
-	const SharedType &Socket::type() const
+	SharedType &Socket::type() const
 	{
 		if (m_is_output) {
 			return this->node()->signature().outputs()[m_index].type();
@@ -29,18 +29,18 @@ namespace FN {
 
 	DataFlowGraph::~DataFlowGraph()
 	{
-		for (const Node *node : m_nodes) {
+		for (Node *node : m_nodes) {
 			node->~Node();
 		}
 		delete m_node_pool;
 	}
 
-	const Node *DataFlowGraph::insert(SharedFunction &function)
+	Node *DataFlowGraph::insert(SharedFunction &function)
 	{
 		BLI_assert(this->can_modify());
 
 		void *ptr = m_node_pool->allocate();
-		const Node *node = new(ptr) Node(this, function);
+		Node *node = new(ptr) Node(this, function);
 		m_nodes.add(node);
 		return node;
 	}

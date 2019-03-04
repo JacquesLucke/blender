@@ -4,7 +4,8 @@
 
 namespace FN {
 
-	TupleCallBody *fgraph_tuple_call(
-		const FunctionGraph &function_graph);
+	void fgraph_add_TupleCallBody(
+		SharedFunction &fn,
+		FunctionGraph &fgraph);
 
 } /* namespace FN */

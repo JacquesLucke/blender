@@ -21,7 +21,7 @@ namespace FN { namespace DataFlowNodes {
 		Object *object = (Object *)RNA_pointer_get(&ptr, "object").id.data;
 
 		auto fn = Functions::object_location(object);
-		const Node *node = builder.insert_function(fn);
+		Node *node = builder.insert_function(fn);
 		builder.map_sockets(node, bnode);
 	}
 
@@ -49,7 +49,7 @@ namespace FN { namespace DataFlowNodes {
 		int operation = RNA_enum_get(&ptr, "operation");
 
 		SharedFunction &fn = get_float_math_function(operation);
-		const Node *node = builder.insert_function(fn);
+		Node *node = builder.insert_function(fn);
 		builder.map_sockets(node, bnode);
 	}
 
@@ -61,8 +61,8 @@ namespace FN { namespace DataFlowNodes {
 		SharedFunction &max_fn = Functions::max_floats();
 		SharedFunction &min_fn = Functions::min_floats();
 
-		const Node *max_node = builder.insert_function(max_fn);
-		const Node *min_node = builder.insert_function(min_fn);
+		Node *max_node = builder.insert_function(max_fn);
+		Node *min_node = builder.insert_function(min_fn);
 
 		builder.insert_link(max_node->output(0), min_node->input(0));
 		builder.map_input(max_node->input(0), bnode, 0);
