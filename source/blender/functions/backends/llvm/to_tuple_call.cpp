@@ -152,7 +152,7 @@ namespace FN {
 		SharedFunction &fn,
 		llvm::LLVMContext &context)
 	{
-		auto *body = fn->body<LLVMGenBody>();
+		auto *body = fn->body<LLVMGenerateIRBody>();
 		return compile_ir_to_tuple_call(fn, context, [body](
 				llvm::IRBuilder<> &builder,
 				const LLVMValues &inputs,
@@ -175,7 +175,7 @@ namespace FN {
 			return true;
 		}
 
-		if (fn->body<LLVMGenBody>() != nullptr) {
+		if (fn->body<LLVMGenerateIRBody>() != nullptr) {
 			fn->add_body(build_from_ir_generator(fn, context));
 			return true;
 		}

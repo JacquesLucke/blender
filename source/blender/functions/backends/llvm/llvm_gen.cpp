@@ -2,14 +2,14 @@
 
 namespace FN {
 
-	const char *LLVMGenBody::identifier_in_composition()
+	const char *LLVMGenerateIRBody::identifier_in_composition()
 	{
 		return "LLVM Gen Body";
 	}
 
-	void LLVMGenBody::free_self(void *value)
+	void LLVMGenerateIRBody::free_self(void *value)
 	{
-		LLVMGenBody *v = (LLVMGenBody *)value;
+		LLVMGenerateIRBody *v = (LLVMGenerateIRBody *)value;
 		delete v;
 	}
 

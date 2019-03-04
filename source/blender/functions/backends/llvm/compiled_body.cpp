@@ -47,7 +47,7 @@ namespace FN {
 		llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", function);
 		llvm::IRBuilder<> builder(bb);
 
-		LLVMGenBody *gen_body = fn->body<LLVMGenBody>();
+		LLVMGenerateIRBody *gen_body = fn->body<LLVMGenerateIRBody>();
 		BLI_assert(gen_body);
 
 		LLVMValues output_values;
@@ -72,7 +72,7 @@ namespace FN {
 			return true;
 		}
 
-		if (fn->body<LLVMGenBody>() != nullptr) {
+		if (fn->body<LLVMGenerateIRBody>() != nullptr) {
 			fn->add_body(compile_llvm_body(fn, context));
 			return true;
 		}

@@ -7,7 +7,7 @@ namespace FN {
 
 	class TupleCallBody;
 
-	LLVMGenBody *llvm_body_for_tuple_call(
+	LLVMGenerateIRBody *llvm_body_for_tuple_call(
 		TupleCallBody *tuple_call_body);
 
 } /* namespace FN */
