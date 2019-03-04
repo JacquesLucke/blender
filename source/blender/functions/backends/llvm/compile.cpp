@@ -17,13 +17,13 @@ namespace FN {
 		llvm::Function *main_function)
 	{
 		BLI_assert(!llvm::verifyModule(*module, &llvm::outs()));
+		module->print(llvm::outs(), nullptr);
 
 		llvm::ExecutionEngine *ee = llvm::EngineBuilder(
 			std::unique_ptr<llvm::Module>(module)).create();
 		ee->finalizeObject();
 		ee->generateCodeForModule(module);
 
-		//module->print(llvm::outs(), nullptr);
 
 		uint64_t function_ptr = ee->getFunctionAddress(
 			main_function->getName().str());

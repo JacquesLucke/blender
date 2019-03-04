@@ -25,10 +25,15 @@ namespace FN {
 		LLVMCompiledBody(std::unique_ptr<CompiledLLVM> compiled)
 			: m_compiled(std::move(compiled)) {}
 
-		void *function_ptr()
+		void *function_ptr() const
 		{
 			return m_compiled->function_ptr();
 		}
+
+		void build_ir(
+			llvm::IRBuilder<> &builder,
+			const LLVMValues &inputs,
+			LLVMValues &r_outputs) const;
 	};
 
 	void derive_LLVMCompiledBody_from_LLVMBuildIRBody(

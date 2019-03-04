@@ -17,6 +17,25 @@ namespace FN {
 		delete v;
 	}
 
+	void LLVMCompiledBody::build_ir(
+		llvm::IRBuilder<> &builder,
+		const LLVMValues &inputs,
+		LLVMValues &r_outputs) const
+	{
+		auto *ftype = function_type_from_signature(
+			this->owner()->signature(), builder.getContext());
+
+		llvm::Value *output_struct = call_pointer(
+			builder,
+			this->function_ptr(),
+			ftype,
+			inputs);
+		for (uint i = 0; i < ftype->getReturnType()->getStructNumElements(); i++) {
+			llvm::Value *out = builder.CreateExtractValue(output_struct, i);
+			r_outputs.append(out);
+		}
+	}
+
 	static LLVMCompiledBody *compile_body(
 		SharedFunction &fn,
 		llvm::LLVMContext &context)

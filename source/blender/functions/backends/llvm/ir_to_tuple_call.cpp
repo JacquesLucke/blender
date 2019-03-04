@@ -130,21 +130,12 @@ namespace FN {
 		llvm::LLVMContext &context)
 	{
 		auto *body = fn->body<LLVMCompiledBody>();
-		return compile_ir_to_tuple_call(fn, context, [&fn, body](
+		return compile_ir_to_tuple_call(fn, context, [body](
 				llvm::IRBuilder<> &builder,
 				const LLVMValues &inputs,
 				LLVMValues &outputs)
 			{
-				auto *ftype = function_type_from_signature(fn->signature(), builder.getContext());
-				llvm::Value *output_struct = call_pointer(
-					builder,
-					body->function_ptr(),
-					ftype,
-					inputs);
-				for (uint i = 0; i < ftype->getReturnType()->getStructNumElements(); i++) {
-					llvm::Value *out = builder.CreateExtractValue(output_struct, i);
-					outputs.append(out);
-				}
+				body->build_ir(builder, inputs, outputs);
 			});
 	}
 

@@ -18,7 +18,7 @@ namespace FN {
 		friend class Function;
 
 	public:
-		Function *owner()
+		Function *owner() const
 		{
 			return m_owner;
 		}
