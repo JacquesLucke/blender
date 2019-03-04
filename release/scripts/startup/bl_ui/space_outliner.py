@@ -192,7 +192,8 @@ class OUTLINER_MT_collection(Menu):
         space = context.space_data
 
         layout.operator("outliner.collection_new", text="New").nested = True
-        layout.operator("outliner.collection_duplicate", text="Duplicate")
+        layout.operator("outliner.collection_duplicate", text="Duplicate Collection")
+        layout.operator("outliner.collection_duplicate_linked", text="Duplicate Linked")
 
         layout.separator()
 
@@ -218,7 +219,7 @@ class OUTLINER_MT_collection(Menu):
 
         if space.display_mode == 'VIEW_LAYER':
             layout.separator()
-            layout.menu("OUTLINER_MT_collection_view_layer", icon="RENDERLAYERS")
+            layout.menu("OUTLINER_MT_collection_view_layer", icon='RENDERLAYERS')
 
         layout.separator()
 

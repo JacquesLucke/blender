@@ -51,6 +51,8 @@
 
 #include "gpencil_engine.h"
 
+#include "UI_resources.h"
+
 /* fill type to communicate to shader */
 #define SOLID 0
 #define GRADIENT 1
@@ -224,7 +226,7 @@ static void gpencil_calc_stroke_fill_uv(
 
 /* recalc the internal geometry caches for fill and uvs */
 static void DRW_gpencil_recalc_geometry_caches(
-	Object *ob, bGPDlayer *gpl, MaterialGPencilStyle *gp_style, bGPDstroke *gps)
+        Object *ob, bGPDlayer *gpl, MaterialGPencilStyle *gp_style, bGPDstroke *gps)
 {
 	if (gps->flag & GP_STROKE_RECALC_GEOMETRY) {
 		/* Calculate triangles cache for filling area (must be done only after changes) */
@@ -245,10 +247,14 @@ static void DRW_gpencil_recalc_geometry_caches(
 	}
 }
 
-static void set_wireframe_color(Object *ob, bGPDlayer *gpl, View3D *v3d,
-	GPENCIL_StorageList *stl,
-	MaterialGPencilStyle *gp_style, int id)
+static void set_wireframe_color(
+        Object *ob, bGPDlayer *gpl, View3D *v3d,
+        GPENCIL_StorageList *stl,
+        MaterialGPencilStyle *gp_style, int id, const bool is_fill)
 {
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	World *world = draw_ctx->scene->world;
+
 	float color[4];
 	if (((gp_style->stroke_rgba[3] < GPENCIL_ALPHA_OPACITY_THRESH) ||
 	     (((gp_style->flag & GP_STYLE_STROKE_SHOW) == 0))) &&
@@ -263,17 +269,50 @@ static void set_wireframe_color(Object *ob, bGPDlayer *gpl, View3D *v3d,
 
 	/* wire color */
 	if ((v3d) && (id > -1)) {
-		switch (v3d->shading.wire_color_type) {
+		const char type = (
+		        (stl->shgroups[id].shading_type[0] == OB_WIRE) ?
+		        v3d->shading.wire_color_type :
+		        v3d->shading.color_type);
+		/* if fill and wire, use background color */
+		if ((is_fill) && (stl->shgroups[id].shading_type[0] == OB_WIRE)) {
+			if (v3d->shading.background_type == V3D_SHADING_BACKGROUND_THEME) {
+				UI_GetThemeColor4fv(TH_BACK, stl->shgroups[id].wire_color);
+				stl->shgroups[id].wire_color[3] = 1.0f;
+			}
+			else if (v3d->shading.background_type == V3D_SHADING_BACKGROUND_WORLD) {
+				color[0] = world->horr;
+				color[1] = world->horg;
+				color[2] = world->horb;
+				color[3] = 1.0f;
+				linearrgb_to_srgb_v4(stl->shgroups[id].wire_color, color);
+			}
+			else {
+				copy_v3_v3(color, v3d->shading.background_color);
+				color[3] = 1.0f;
+				linearrgb_to_srgb_v4(stl->shgroups[id].wire_color, color);
+			}
+			return;
+		}
+
+		/* strokes */
+		switch (type) {
 			case V3D_SHADING_SINGLE_COLOR:
 			{
-				copy_v4_fl(stl->shgroups[id].wire_color, 0.8f);
-				stl->shgroups[id].wire_color[3] = alpha;
+				if (stl->shgroups[id].shading_type[0] == OB_WIRE) {
+					UI_GetThemeColor4fv(TH_WIRE, color);
+				}
+				else {
+					copy_v3_v3(color, v3d->shading.single_color);
+				}
+				color[3] = alpha;
+				linearrgb_to_srgb_v4(stl->shgroups[id].wire_color, color);
 				break;
 			}
 			case V3D_SHADING_OBJECT_COLOR:
 			{
-				copy_v4_v4(stl->shgroups[id].wire_color, ob->color);
-				stl->shgroups[id].wire_color[3] = alpha;
+				copy_v4_v4(color, ob->color);
+				color[3] = alpha;
+				linearrgb_to_srgb_v4(stl->shgroups[id].wire_color, color);
 				break;
 			}
 			case V3D_SHADING_RANDOM_COLOR:
@@ -305,13 +344,18 @@ static void set_wireframe_color(Object *ob, bGPDlayer *gpl, View3D *v3d,
 	else {
 		copy_v4_v4(stl->shgroups[id].wire_color, color);
 	}
+
+	/* if solid, the alpha must be set to 1.0 */
+	if (stl->shgroups[id].shading_type[0] == OB_SOLID) {
+		stl->shgroups[id].wire_color[3] = 1.0f;
+	}
 }
 
 /* create shading group for filling */
 static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(
         GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass,
         GPUShader *shader, Object *ob, bGPdata *gpd, bGPDlayer *gpl,
-        MaterialGPencilStyle *gp_style, int id, int shading_type)
+        MaterialGPencilStyle *gp_style, int id, int shading_type[2])
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
@@ -379,11 +423,18 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(
 	DRW_shgroup_uniform_int(grp, "viewport_xray", &stl->storage->is_xray, 1);
 
 	/* shading type */
-	stl->shgroups[id].shading_type = GPENCIL_USE_SOLID(stl) ? (int)OB_SOLID : shading_type;
-	DRW_shgroup_uniform_int(grp, "shading_type", &stl->shgroups[id].shading_type, 1);
+	stl->shgroups[id].shading_type[0] = GPENCIL_USE_SOLID(stl) ? (int)OB_RENDER : shading_type[0];
+	if (v3d) {
+		stl->shgroups[id].shading_type[1] = (
+		        (stl->shgroups[id].shading_type[0] == OB_WIRE) ?
+		        v3d->shading.wire_color_type :
+		        v3d->shading.color_type);
+	}
+
+	DRW_shgroup_uniform_int(grp, "shading_type", &stl->shgroups[id].shading_type[0], 2);
 
 	/* wire color */
-	set_wireframe_color(ob, gpl, v3d, stl, gp_style, id);
+	set_wireframe_color(ob, gpl, v3d, stl, gp_style, id, true);
 	DRW_shgroup_uniform_vec4(grp, "wire_color", stl->shgroups[id].wire_color, 1);
 
 	/* image texture */
@@ -438,7 +489,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(
         GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob,
         bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps,
         MaterialGPencilStyle *gp_style, int id,
-        bool onion, const float scale, int shading_type)
+        bool onion, const float scale, const int shading_type[2])
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const float *viewport_size = DRW_viewport_size_get();
@@ -479,11 +530,20 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(
 		stl->shgroups[id].caps_mode[1] = gps->caps[1];
 		DRW_shgroup_uniform_int(grp, "caps_mode", &stl->shgroups[id].caps_mode[0], 2);
 
-		stl->shgroups[id].shading_type = (GPENCIL_USE_SOLID(stl) || onion) ? (int)OB_SOLID : shading_type;
-		DRW_shgroup_uniform_int(grp, "shading_type", &stl->shgroups[id].shading_type, 1);
+		/* viewport x-ray */
+		DRW_shgroup_uniform_int(grp, "viewport_xray", &stl->storage->is_xray, 1);
+
+		stl->shgroups[id].shading_type[0] = (GPENCIL_USE_SOLID(stl) || onion) ? (int)OB_RENDER : shading_type[0];
+		if (v3d) {
+			stl->shgroups[id].shading_type[1] = (
+			        (stl->shgroups[id].shading_type[0] == OB_WIRE) ?
+			        v3d->shading.wire_color_type :
+			        v3d->shading.color_type);
+		}
+		DRW_shgroup_uniform_int(grp, "shading_type", &stl->shgroups[id].shading_type[0], 2);
 
 		/* wire color */
-		set_wireframe_color(ob, gpl, v3d, stl, gp_style, id);
+		set_wireframe_color(ob, gpl, v3d, stl, gp_style, id, false);
 		DRW_shgroup_uniform_vec4(grp, "wire_color", stl->shgroups[id].wire_color, 1);
 	}
 	else {
@@ -502,8 +562,11 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(
 		const int zero[2] = { 0, 0 };
 		DRW_shgroup_uniform_int(grp, "caps_mode", &zero[0], 2);
 
-		stl->shgroups[id].shading_type = (int)OB_SOLID;
-		DRW_shgroup_uniform_int(grp, "shading_type", &stl->shgroups[id].shading_type, 1);
+		/* viewport x-ray */
+		DRW_shgroup_uniform_int(grp, "viewport_xray", &stl->storage->is_xray, 1);
+
+		stl->shgroups[id].shading_type[0] = (int)OB_RENDER;
+		DRW_shgroup_uniform_int(grp, "shading_type", &stl->shgroups[id].shading_type[0], 2);
 	}
 
 	if ((gpd) && (id > -1)) {
@@ -548,7 +611,7 @@ static DRWShadingGroup *DRW_gpencil_shgroup_point_create(
         GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob,
         bGPdata *gpd, bGPDlayer *gpl,
         MaterialGPencilStyle *gp_style, int id, bool onion,
-        const float scale, int shading_type)
+        const float scale, const int shading_type[2])
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const float *viewport_size = DRW_viewport_size_get();
@@ -586,11 +649,20 @@ static DRWShadingGroup *DRW_gpencil_shgroup_point_create(
 		DRW_shgroup_uniform_int(grp, "mode", &stl->shgroups[id].mode, 1);
 		DRW_shgroup_uniform_float(grp, "pixfactor", &gpd->pixfactor, 1);
 
-		stl->shgroups[id].shading_type = (GPENCIL_USE_SOLID(stl) || onion) ? (int)OB_SOLID : shading_type;
-		DRW_shgroup_uniform_int(grp, "shading_type", &stl->shgroups[id].shading_type, 1);
+		/* viewport x-ray */
+		DRW_shgroup_uniform_int(grp, "viewport_xray", &stl->storage->is_xray, 1);
+
+		stl->shgroups[id].shading_type[0] = (GPENCIL_USE_SOLID(stl) || onion) ? (int)OB_RENDER : shading_type[0];
+		if (v3d) {
+			stl->shgroups[id].shading_type[1] = (
+			        (stl->shgroups[id].shading_type[0] == OB_WIRE) ?
+			        v3d->shading.wire_color_type :
+			        v3d->shading.color_type);
+		}
+		DRW_shgroup_uniform_int(grp, "shading_type", &stl->shgroups[id].shading_type[0], 2);
 
 		/* wire color */
-		set_wireframe_color(ob, gpl, v3d, stl, gp_style, id);
+		set_wireframe_color(ob, gpl, v3d, stl, gp_style, id, false);
 		DRW_shgroup_uniform_vec4(grp, "wire_color", stl->shgroups[id].wire_color, 1);
 
 	}
@@ -609,8 +681,11 @@ static DRWShadingGroup *DRW_gpencil_shgroup_point_create(
 		else {
 			DRW_shgroup_uniform_float(grp, "pixfactor", &stl->storage->pixfactor, 1);
 		}
-		stl->shgroups[id].shading_type = (int)OB_SOLID;
-		DRW_shgroup_uniform_int(grp, "shading_type", &stl->shgroups[id].shading_type, 1);
+		/* viewport x-ray */
+		DRW_shgroup_uniform_int(grp, "viewport_xray", &stl->storage->is_xray, 1);
+
+		stl->shgroups[id].shading_type[0] = (int)OB_RENDER;
+		DRW_shgroup_uniform_int(grp, "shading_type", &stl->shgroups[id].shading_type[0], 2);
 	}
 
 	if (gpd) {
@@ -1269,7 +1344,7 @@ void DRW_gpencil_populate_buffer_strokes(GPENCIL_e_data *e_data, void *vedata, T
 	bGPdata *gpd = (bGPdata *)DEG_get_original_id(&gpd_eval->id);
 
 	MaterialGPencilStyle *gp_style = NULL;
-
+	const int shade_render[2] = { OB_RENDER, 0 };
 	float obscale = mat4_to_scale(ob->obmat);
 
 	/* use the brush material */
@@ -1297,12 +1372,12 @@ void DRW_gpencil_populate_buffer_strokes(GPENCIL_e_data *e_data, void *vedata, T
 				if ((gp_style) && (gp_style->mode == GP_STYLE_MODE_LINE)) {
 					stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(
 						e_data, vedata, psl->drawing_pass, e_data->gpencil_stroke_sh, NULL,
-						gpd, NULL, NULL, gp_style, -1, false, 1.0f, (int)OB_SOLID);
+						gpd, NULL, NULL, gp_style, -1, false, 1.0f, shade_render);
 				}
 				else {
 					stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_point_create(
 						e_data, vedata, psl->drawing_pass, e_data->gpencil_point_sh, NULL,
-						gpd, NULL, gp_style, -1, false, 1.0f, (int)OB_SOLID);
+						gpd, NULL, gp_style, -1, false, 1.0f, shade_render);
 				}
 
 				/* clean previous version of the batch */

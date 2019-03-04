@@ -73,7 +73,8 @@ void visibility_animated_check_cb(ID * /*id*/, FCurve *fcu, void *user_data)
 		if (STREQ(fcu->rna_path, "hide_viewport")) {
 			data->is_visibility_animated = true;
 		}
-	} else if (data->eval_mode == DAG_EVAL_RENDER) {
+	}
+	else if (data->eval_mode == DAG_EVAL_RENDER) {
 		if (STREQ(fcu->rna_path, "hide_render")) {
 			data->is_visibility_animated = true;
 		}
@@ -113,7 +114,7 @@ DepsgraphBuilder::DepsgraphBuilder(Main *bmain, Depsgraph *graph)
           graph_(graph) {
 }
 
-bool DepsgraphBuilder::need_pull_base_into_graph(struct Base *base)
+bool DepsgraphBuilder::need_pull_base_into_graph(Base *base)
 {
 	return deg_check_base_available_for_build(graph_, base);
 }
