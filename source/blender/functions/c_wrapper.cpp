@@ -23,20 +23,20 @@ WRAPPERS(const TupleCallBody *, FnTupleCallBody);
 
 static void playground()
 {
-	SharedFunction fn = Functions::add_floats();
+	SharedFunction fn = Functions::separate_vector();
 
 	llvm::LLVMContext *context = new llvm::LLVMContext();
-	//try_ensure_CompiledLLVMBody(fn, *context);
-	try_ensure_TupleCallBody(fn, *context);
+	derive_CompiledLLVMBody_from_LLVMBuildIRBody(fn, *context);
 
 	Tuple fn_in(fn->signature().input_types());
 	Tuple fn_out(fn->signature().output_types());
 
-	fn_in.set<float>(0, 20);
-	fn_in.set<float>(1, 12);
+	fn_in.set<Vector>(0, Vector(60, 30, 11));
 	fn->body<TupleCallBody>()->call(fn_in, fn_out);
-	float result = fn_out.get<float>(0);
-	std::cout << "Result: " << result << std::endl;
+	for (int i = 0; i < 3; i++) {
+		float result = fn_out.get<float>(i);
+		std::cout << "Result: " << result << std::endl;
+	}
 }
 
 void FN_initialize()

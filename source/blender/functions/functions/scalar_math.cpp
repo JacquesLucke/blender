@@ -30,7 +30,7 @@ namespace FN { namespace Functions {
 		}
 	};
 
-	class GenAddFloats : public LLVMGenerateIRBody {
+	class GenAddFloats : public LLVMBuildIRBody {
 		void build_ir(
 			llvm::IRBuilder<> &builder,
 			const LLVMValues &inputs,

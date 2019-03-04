@@ -8,12 +8,12 @@ namespace FN {
 	using LLVMValues = SmallVector<llvm::Value *>;
 	using LLVMTypes = BLI::SmallVector<llvm::Type *>;
 
-	class LLVMGenerateIRBody : public FunctionBody {
+	class LLVMBuildIRBody : public FunctionBody {
 	public:
 		static const char *identifier_in_composition();
 		static void free_self(void *value);
 
-		virtual ~LLVMGenerateIRBody() {};
+		virtual ~LLVMBuildIRBody() {};
 
 		virtual void build_ir(
 			llvm::IRBuilder<> &builder,

@@ -129,7 +129,7 @@ namespace FN {
 		SharedFunction &fn,
 		llvm::LLVMContext &context)
 	{
-		auto *body = fn->body<CompiledLLVMBody>();
+		auto *body = fn->body<LLVMCompiledBody>();
 		return compile_ir_to_tuple_call(fn, context, [&fn, body](
 				llvm::IRBuilder<> &builder,
 				const LLVMValues &inputs,
@@ -152,7 +152,7 @@ namespace FN {
 		SharedFunction &fn,
 		llvm::LLVMContext &context)
 	{
-		auto *body = fn->body<LLVMGenerateIRBody>();
+		auto *body = fn->body<LLVMBuildIRBody>();
 		return compile_ir_to_tuple_call(fn, context, [body](
 				llvm::IRBuilder<> &builder,
 				const LLVMValues &inputs,
@@ -162,25 +162,24 @@ namespace FN {
 			});
 	}
 
-	bool try_ensure_TupleCallBody(
+	void derive_TupleCallBody_from_LLVMBuildIRBody(
 		SharedFunction &fn,
 		llvm::LLVMContext &context)
 	{
-		if (fn->body<TupleCallBody>() != nullptr) {
-			return true;
-		}
+		BLI_assert(fn->has_body<LLVMBuildIRBody>());
+		BLI_assert(!fn->has_body<TupleCallBody>());
 
-		if (fn->body<CompiledLLVMBody>() != nullptr) {
-			fn->add_body(build_from_compiled(fn, context));
-			return true;
-		}
+		fn->add_body(build_from_ir_generator(fn, context));
+	}
 
-		if (fn->body<LLVMGenerateIRBody>() != nullptr) {
-			fn->add_body(build_from_ir_generator(fn, context));
-			return true;
-		}
+	void derive_TupleCallBody_from_CompiledLLVMBody(
+		SharedFunction &fn,
+		llvm::LLVMContext &context)
+	{
+		BLI_assert(fn->has_body<LLVMCompiledBody>());
+		BLI_assert(!fn->has_body<TupleCallBody>());
 
-		return false;
+		fn->add_body(build_from_compiled(fn, context));
 	}
 
 } /* namespace FN */

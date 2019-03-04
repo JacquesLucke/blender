@@ -1,13 +1,18 @@
 #pragma once
 
-#include "llvm_gen.hpp"
-#include <llvm/IR/IRBuilder.h>
+#include "FN_core.hpp"
+
+namespace llvm {
+	class LLVMContext;
+}
 
 namespace FN {
 
-	class TupleCallBody;
+	void derive_TupleCallBody_from_LLVMBuildIRBody(
+		SharedFunction &fn,
+		llvm::LLVMContext &context);
 
-	bool try_ensure_TupleCallBody(
+	void derive_TupleCallBody_from_CompiledLLVMBody(
 		SharedFunction &fn,
 		llvm::LLVMContext &context);
 

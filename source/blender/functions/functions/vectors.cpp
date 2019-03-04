@@ -2,6 +2,7 @@
 #include "FN_types.hpp"
 
 #include "FN_tuple_call.hpp"
+#include "FN_llvm.hpp"
 #include "BLI_lazy_init.hpp"
 #include "BLI_math.h"
 
@@ -44,6 +45,18 @@ namespace FN { namespace Functions {
 		}
 	};
 
+	class SeparateVectorGen : public LLVMBuildIRBody {
+		void build_ir(
+			llvm::IRBuilder<> &builder,
+			const LLVMValues &inputs,
+			LLVMValues &r_outputs) const override
+		{
+			r_outputs.append(builder.CreateExtractValue(inputs[0], 0));
+			r_outputs.append(builder.CreateExtractValue(inputs[0], 1));
+			r_outputs.append(builder.CreateExtractValue(inputs[0], 2));
+		}
+	};
+
 	LAZY_INIT_REF__NO_ARG(SharedFunction, separate_vector)
 	{
 		auto fn = SharedFunction::New("Separate Vector", Signature({
@@ -54,6 +67,7 @@ namespace FN { namespace Functions {
 			OutputParameter("Z", get_float_type()),
 		}));
 		fn->add_body(new SeparateVector());
+		fn->add_body(new SeparateVectorGen());
 		return fn;
 	}
 

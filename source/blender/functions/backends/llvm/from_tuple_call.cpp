@@ -25,7 +25,7 @@ namespace FN {
 		body->call(*fn_in, *fn_out);
 	}
 
-	class TupleCallLLVM : public LLVMGenerateIRBody {
+	class TupleCallLLVM : public LLVMBuildIRBody {
 	private:
 		TupleCallBody *m_tuple_call;
 		SharedTupleMeta m_in_meta;
@@ -148,10 +148,13 @@ namespace FN {
 		}
 	};
 
-	LLVMGenerateIRBody *llvm_body_for_tuple_call(
-		TupleCallBody *tuple_call_body)
+	void derive_LLVMBuildIRBody_from_TupleCallBody(
+		SharedFunction &fn)
 	{
-		return new TupleCallLLVM(tuple_call_body);
+		BLI_assert(fn->has_body<TupleCallBody>());
+		BLI_assert(!fn->has_body<LLVMBuildIRBody>());
+
+		fn->add_body(new TupleCallLLVM(fn->body<TupleCallBody>()));
 	}
 
 } /* namespace FN */

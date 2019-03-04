@@ -65,6 +65,12 @@ namespace FN {
 			body->set_owner(this);
 		}
 
+		template<typename T>
+		inline bool has_body() const
+		{
+			return this->body<T>() != nullptr;
+		}
+
 		void print() const;
 
 	private:

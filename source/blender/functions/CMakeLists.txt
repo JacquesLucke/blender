@@ -54,8 +54,8 @@ set(SRC
 	backends/llvm/initialize.cpp
 	backends/llvm/llvm_types.hpp
 	backends/llvm/llvm_types.cpp
-	backends/llvm/llvm_gen.hpp
-	backends/llvm/llvm_gen.cpp
+	backends/llvm/build_ir_body.hpp
+	backends/llvm/build_ir_body.cpp
 	backends/llvm/to_tuple_call.hpp
 	backends/llvm/to_tuple_call.cpp
 	backends/llvm/from_tuple_call.hpp

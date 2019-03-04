@@ -6,18 +6,18 @@
 
 namespace FN {
 
-	const char *CompiledLLVMBody::identifier_in_composition()
+	const char *LLVMCompiledBody::identifier_in_composition()
 	{
 		return "Compiled LLVM Body";
 	}
 
-	void CompiledLLVMBody::free_self(void *value)
+	void LLVMCompiledBody::free_self(void *value)
 	{
-		CompiledLLVMBody *v = (CompiledLLVMBody *)value;
+		LLVMCompiledBody *v = (LLVMCompiledBody *)value;
 		delete v;
 	}
 
-	static CompiledLLVMBody *compile_llvm_body(
+	static LLVMCompiledBody *compile_body(
 		SharedFunction &fn,
 		llvm::LLVMContext &context)
 	{
@@ -47,7 +47,7 @@ namespace FN {
 		llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", function);
 		llvm::IRBuilder<> builder(bb);
 
-		LLVMGenerateIRBody *gen_body = fn->body<LLVMGenerateIRBody>();
+		LLVMBuildIRBody *gen_body = fn->body<LLVMBuildIRBody>();
 		BLI_assert(gen_body);
 
 		LLVMValues output_values;
@@ -61,23 +61,17 @@ namespace FN {
 		builder.CreateRet(return_value);
 
 		auto compiled = CompiledLLVM::FromIR(module, function);
-		return new CompiledLLVMBody(std::move(compiled));
+		return new LLVMCompiledBody(std::move(compiled));
 	}
 
-	bool try_ensure_CompiledLLVMBody(
+	void derive_CompiledLLVMBody_from_LLVMBuildIRBody(
 		SharedFunction &fn,
 		llvm::LLVMContext &context)
 	{
-		if (fn->body<CompiledLLVMBody>() != nullptr) {
-			return true;
-		}
+		BLI_assert(fn->has_body<LLVMBuildIRBody>());
+		BLI_assert(!fn->has_body<LLVMCompiledBody>());
 
-		if (fn->body<LLVMGenerateIRBody>() != nullptr) {
-			fn->add_body(compile_llvm_body(fn, context));
-			return true;
-		}
-
-		return false;
+		fn->add_body(compile_body(fn, context));
 	}
 
 } /* namespace FN */
