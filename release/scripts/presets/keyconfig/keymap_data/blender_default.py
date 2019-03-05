@@ -272,6 +272,21 @@ def _template_items_tool_select_actions_simple(operator, *, type, value):
          {"properties": [("mode", 'SUB')]}),
     ]
 
+
+# This could have a more generic name, for now use for circle select.
+def _template_items_tool_select_actions_circle(operator, *, type, value):
+    kmi_args = {"type": type, "value": value}
+    return [
+        # Don't define 'SET' here, take from the tool options.
+        (operator, {"type": type, "value": value},
+         {"properties": [("wait_for_input", False)]}),
+        (operator, {"type": type, "value": value, "shift": True},
+         {"properties": [("wait_for_input", False), ("mode", 'ADD')]}),
+        (operator, {"type": type, "value": value, "ctrl": True},
+         {"properties": [("wait_for_input", False), ("mode", 'SUB')]}),
+    ]
+
+
 # ------------------------------------------------------------------------------
 # Window, Screen, Areas, Regions
 
@@ -2951,6 +2966,8 @@ def km_grease_pencil_stroke_edit_mode(params):
         *_grease_pencil_selection(params),
         # Duplicate and move selected points
         ("gpencil.duplicate_move", {"type": 'D', "value": 'PRESS', "shift": True}, None),
+        # Extrude and move selected points
+        ("gpencil.extrude_move", {"type": 'E', "value": 'PRESS'}, None),
         # Delete
         op_menu("VIEW3D_MT_edit_gpencil_delete", {"type": 'X', "value": 'PRESS'}),
         op_menu("VIEW3D_MT_edit_gpencil_delete", {"type": 'DEL', "value": 'PRESS'}),
@@ -5124,12 +5141,7 @@ def km_image_editor_tool_uv_select_circle(params):
     return (
         "Image Editor Tool: Uv, Select Circle",
         {"space_type": 'IMAGE_EDITOR', "region_type": 'WINDOW'},
-        {"items": [
-            ("uv.select_circle", {"type": params.tool_mouse, "value": 'PRESS'},
-             {"properties": [("wait_for_input", False), ("deselect", False)]}),
-            ("uv.select_circle", {"type": params.tool_mouse, "value": 'PRESS', "ctrl": True},
-             {"properties": [("wait_for_input", False), ("deselect", True)]}),
-        ]},
+        {"items": _template_items_tool_select_actions_circle("uv.select_circle", type=params.tool_mouse, value='PRESS')},
     )
 
 
@@ -5177,6 +5189,12 @@ def km_node_editor_tool_select_lasso(params):
         ]},
     )
 
+def km_node_editor_tool_select_circle(params):
+    return (
+        "Node Tool: Select Circle",
+        {"space_type": 'NODE_EDITOR', "region_type": 'WINDOW'},
+        {"items": _template_items_tool_select_actions_circle("node.select_circle", type=params.tool_mouse, value='PRESS')},
+    )
 
 def km_node_editor_tool_links_cut(params):
     return (
@@ -5220,14 +5238,7 @@ def km_3d_view_tool_select_circle(params):
     return (
         "3D View Tool: Select Circle",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("view3d.select_circle", {"type": params.tool_mouse, "value": 'PRESS'},
-             {"properties": [("wait_for_input", False)]}),
-            ("view3d.select_circle", {"type": params.tool_mouse, "value": 'PRESS', "shift": True},
-             {"properties": [("wait_for_input", False), ("mode", 'ADD')]}),
-            ("view3d.select_circle", {"type": params.tool_mouse, "value": 'PRESS', "ctrl": True},
-             {"properties": [("wait_for_input", False), ("mode", 'SUB')]}),
-        ]},
+        {"items": _template_items_tool_select_actions_circle("view3d.select_circle", type=params.tool_mouse, value='PRESS')},
     )
 
 
@@ -5875,11 +5886,7 @@ def km_3d_view_tool_edit_gpencil_select_circle(params):
     return (
         "3D View Tool: Edit Gpencil, Select Circle",
         {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
-        {"items": [
-            ("gpencil.select_circle", {"type": params.tool_tweak, "value": 'ANY'}, None),
-            ("gpencil.select_circle", {"type": params.tool_mouse, "value": 'PRESS', "ctrl": True},
-             {"properties": [("deselect", True)]}),
-        ]},
+        {"items": _template_items_tool_select_actions_circle("gpencil.select_circle", type=params.tool_mouse, value='PRESS')},
     )
 
 
@@ -6109,6 +6116,7 @@ def generate_keymaps(params=None):
         km_node_editor_tool_select(params),
         km_node_editor_tool_select_box(params),
         km_node_editor_tool_select_lasso(params),
+        km_node_editor_tool_select_circle(params),
         km_node_editor_tool_links_cut(params),
         km_3d_view_tool_cursor(params),
         km_3d_view_tool_select(params),
