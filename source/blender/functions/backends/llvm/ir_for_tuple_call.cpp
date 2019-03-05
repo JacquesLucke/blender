@@ -25,6 +25,12 @@ namespace FN {
 		body->call(*fn_in, *fn_out);
 	}
 
+	static void destruct_tuple(Tuple *tuple)
+	{
+		tuple->set_all_uninitialized();
+		tuple->~Tuple();
+	}
+
 	class TupleCallLLVM : public LLVMBuildIRBody {
 	private:
 		TupleCallBody *m_tuple_call;
@@ -106,6 +112,8 @@ namespace FN {
 				void_ty, {byte_ptr_ty, void_ptr_ty}, false);
 			llvm::FunctionType *call_ftype = llvm::FunctionType::get(
 				void_ty, {void_ptr_ty, byte_ptr_ty, byte_ptr_ty}, false);
+			llvm::FunctionType *destruct_ftype = llvm::FunctionType::get(
+				void_ty, {byte_ptr_ty}, false);
 
 			/* Construct input and output tuple on stack. */
 			llvm::Value *tuple_in_ptr = alloca_bytes(builder, get_total_tuple_size(m_in_meta));
@@ -144,6 +152,13 @@ namespace FN {
 				llvm::Value *out = output_type_infos[i]->build_load_ir__relocate(builder, load_from_addr);
 				output = builder.CreateInsertValue(output, out, i);
 			}
+
+			/* Destruct tuples */
+			call_pointer(builder, (void *)destruct_tuple,
+				destruct_ftype, {tuple_in_ptr});
+			call_pointer(builder, (void *)destruct_tuple,
+				destruct_ftype, {tuple_out_ptr});
+
 			builder.CreateRet(output);
 		}
 	};
