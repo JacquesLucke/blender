@@ -80,8 +80,6 @@ set(SRC
 	functions/scalar_math.cpp
 	functions/vectors.hpp
 	functions/vectors.cpp
-	functions/socket_input.hpp
-	functions/socket_input.cpp
 
 	frontends/data_flow_nodes/builder.hpp
 	frontends/data_flow_nodes/builder.cpp

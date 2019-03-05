@@ -1,6 +1,7 @@
 #include "builder.hpp"
 
 #include "DNA_node_types.h"
+#include "FN_types.hpp"
 #include "util_wrappers.hpp"
 
 namespace FN { namespace DataFlowNodes {
@@ -58,6 +59,23 @@ namespace FN { namespace DataFlowNodes {
 	struct ID *BuilderContext::btree_id() const
 	{
 		return &m_btree->id;
+	}
+
+	SharedType &BuilderContext::type_of_socket(bNodeSocket *bsocket) const
+	{
+		if (STREQ(bsocket->idname, "fn_FloatSocket")) {
+			return Types::get_float_type();
+		}
+		else if (STREQ(bsocket->idname, "fn_IntegerSocket")) {
+			return Types::get_int32_type();
+		}
+		else if (STREQ(bsocket->idname, "fn_VectorSocket")) {
+			return Types::get_fvec3_type();
+		}
+		else {
+			BLI_assert(false);
+			return *(SharedType *)nullptr;
+		}
 	}
 
 } } /* namespace FN::DataFlowNodes */

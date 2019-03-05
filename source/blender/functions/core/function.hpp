@@ -49,6 +49,11 @@ namespace FN {
 			return m_signature;
 		}
 
+		inline Signature &signature()
+		{
+			return m_signature;
+		}
+
 		template<typename T>
 		inline T *body() const
 		{
@@ -75,7 +80,7 @@ namespace FN {
 
 	private:
 		const std::string m_name;
-		const Signature m_signature;
+		Signature m_signature;
 		Composition m_bodies;
 	};
 

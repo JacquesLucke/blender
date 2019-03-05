@@ -82,6 +82,11 @@ namespace FN {
 			return this->function()->signature();
 		}
 
+		Signature &signature()
+		{
+			return this->function()->signature();
+		}
+
 		class SocketIterator {
 		private:
 			Node *m_node;
@@ -104,8 +109,9 @@ namespace FN {
 
 			It end() const
 			{
+				Signature &sig = m_node->signature();
 				return It(m_node, m_is_output,
-					m_node->function()->signature().inputs().size());
+					(m_is_output) ? sig.outputs().size() : sig.inputs().size());
 			}
 
 			It &operator++()

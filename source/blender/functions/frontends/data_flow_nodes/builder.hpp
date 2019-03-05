@@ -42,6 +42,8 @@ namespace FN { namespace DataFlowNodes {
 
 		bNodeTree *btree() const;
 		ID *btree_id() const;
+
+		SharedType &type_of_socket(bNodeSocket *bsocket) const;
 	};
 
 } }

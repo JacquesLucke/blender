@@ -4,6 +4,8 @@
 #include "BLI_lazy_init.hpp"
 #include "DNA_node_types.h"
 
+#include "RNA_access.h"
+
 namespace FN { namespace DataFlowNodes {
 
 	static void initialize_standard_inserters(GraphInserters &inserters)
@@ -40,10 +42,10 @@ namespace FN { namespace DataFlowNodes {
 		this->reg_node_inserter(idname, inserter);
 	}
 
-	void GraphInserters::reg_socket_inserter(std::string idname, SocketInserter inserter)
+	void GraphInserters::reg_socket_loader(std::string idname, SocketLoader loader)
 	{
-		BLI_assert(!m_node_inserters.contains(idname));
-		m_socket_inserters.add(idname, inserter);
+		BLI_assert(!m_socket_loaders.contains(idname));
+		m_socket_loaders.add(idname, loader);
 	}
 
 	bool GraphInserters::insert_node(
@@ -59,17 +61,55 @@ namespace FN { namespace DataFlowNodes {
 		return true;
 	}
 
-	Optional<Socket> GraphInserters::insert_socket(
+	class SocketLoaderBody : public TupleCallBody {
+	private:
+		bNodeTree *m_btree;
+		BSockets m_bsockets;
+		SmallVector<SocketLoader> m_loaders;
+
+	public:
+		SocketLoaderBody(
+			bNodeTree *btree,
+			BSockets &bsockets,
+			SmallVector<SocketLoader> &loaders)
+			: m_btree(btree), m_bsockets(bsockets), m_loaders(loaders) {}
+
+		void call(const Tuple &UNUSED(fn_in), Tuple &fn_out) const override
+		{
+			for (uint i = 0; i < m_bsockets.size(); i++) {
+				PointerRNA ptr;
+				bNodeSocket *bsocket = m_bsockets[i];
+				auto loader = m_loaders[i];
+
+				RNA_pointer_create(&m_btree->id,
+					&RNA_NodeSocket, bsocket, &ptr);
+				loader(&ptr, fn_out, i);
+			}
+		}
+	};
+
+	SmallSocketVector GraphInserters::insert_sockets(
 		Builder &builder,
 		const BuilderContext &ctx,
-		struct bNodeSocket *bsocket)
+		BSockets &bsockets)
 	{
-		SocketInserter *inserter = m_socket_inserters.lookup_ptr(bsocket->idname);
-		if (inserter == nullptr) {
-			return {};
+		SmallVector<SocketLoader> loaders;
+		OutputParameters outputs;
+		for (auto *bsocket : bsockets) {
+			SocketLoader loader = m_socket_loaders.lookup(bsocket->idname);
+			loaders.append(loader);
+			outputs.append(OutputParameter(bsocket->name, ctx.type_of_socket(bsocket)));
 		}
-		Socket socket = (*inserter)(builder, ctx, bsocket);
-		return socket;
+
+		auto fn = SharedFunction::New("Input Sockets", Signature({}, outputs));
+		fn->add_body(new SocketLoaderBody(ctx.btree(), bsockets, loaders));
+		Node *node = builder.insert_function(fn);
+
+		SmallSocketVector sockets;
+		for (Socket output : node->outputs()) {
+			sockets.append(output);
+		}
+		return sockets;
 	}
 
 } } /* namespace FN::DataFlowNodes */

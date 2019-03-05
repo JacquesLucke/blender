@@ -4,4 +4,3 @@
 #include "./functions/random.hpp"
 #include "./functions/scalar_math.hpp"
 #include "./functions/vectors.hpp"
-#include "./functions/socket_input.hpp"
