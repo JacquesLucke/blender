@@ -131,7 +131,6 @@ namespace FN { namespace DataFlowNodes {
 		}
 
 		graph->freeze();
-		std::cout << graph->to_dot() << std::endl;
 		FunctionGraph fgraph(graph, input_sockets, output_sockets);
 		return fgraph;
 	}
