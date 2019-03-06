@@ -23,21 +23,22 @@ WRAPPERS(const TupleCallBody *, FnTupleCallBody);
 
 static void playground()
 {
-	SharedFunction fn = Functions::separate_vector();
-
-	llvm::LLVMContext *context = new llvm::LLVMContext();
-	derive_LLVMCompiledBody_from_LLVMBuildIRBody(fn, *context);
-	derive_TupleCallBody_from_LLVMCompiledBody(fn, *context);
+	SharedFunction fn = Functions::append_float();
 
 	Tuple fn_in(fn->signature().input_types());
 	Tuple fn_out(fn->signature().output_types());
 
-	fn_in.set<Vector>(0, Vector(60, 30, 11));
+	auto *list = new FloatList();
+	list->new_user();
+	fn_in.set<FloatList *>(0, list);
+	fn_in.set<float>(1, 42.0f);
+
+	std::cout << "Size before: " << list->size() << std::endl;
 	fn->body<TupleCallBody>()->call(fn_in, fn_out);
-	for (int i = 0; i < 3; i++) {
-		float result = fn_out.get<float>(i);
-		std::cout << "Result: " << result << std::endl;
-	}
+
+	auto *new_list = fn_out.get<FloatList *>(0);
+	std::cout << "Size Old after: " << list->size() << std::endl;
+	std::cout << "Size New after: " << new_list->size() << std::endl;
 }
 
 void FN_initialize()

@@ -68,6 +68,9 @@ set(SRC
 	backends/llvm/fgraph_ir_generation.hpp
 	backends/llvm/fgraph_ir_generation.cpp
 
+	types/lists.hpp
+	types/numeric_lists.hpp
+	types/numeric_lists.cpp
 	types/numeric.cpp
 	types/numeric.hpp
 
@@ -79,6 +82,8 @@ set(SRC
 	functions/scalar_math.cpp
 	functions/vectors.hpp
 	functions/vectors.cpp
+	functions/lists.hpp
+	functions/lists.cpp
 
 	frontends/data_flow_nodes/builder.hpp
 	frontends/data_flow_nodes/builder.cpp
