@@ -63,7 +63,7 @@ namespace FN {
 		template<typename T>
 		void add_body(T *body)
 		{
-			static_assert(std::is_base_of<FunctionBody, T>::value);
+			static_assert(std::is_base_of<FunctionBody, T>::value, "");
 			BLI_assert(m_bodies.get<T>() == nullptr);
 			BLI_assert(!body->has_owner());
 			m_bodies.add(body);

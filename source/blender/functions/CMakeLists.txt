@@ -10,6 +10,7 @@ set(INC
 # TODO: figure out how not to hard code this
 set(INC_SYS
 	/usr/lib/llvm-6.0/include
+	${LLVM_INCLUDE_DIRS}
 )
 
 set(SRC
