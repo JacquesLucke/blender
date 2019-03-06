@@ -71,4 +71,9 @@ namespace FN {
 		return ext;
 	}
 
+	inline llvm::Type *get_llvm_type(SharedType &type, llvm::LLVMContext &context)
+	{
+		return get_type_info(type)->get_type(context);
+	}
+
 } /* namespace FN */

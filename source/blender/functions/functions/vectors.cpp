@@ -10,14 +10,20 @@ namespace FN { namespace Functions {
 
 	using namespace Types;
 
-	class CombineVector : public TupleCallBody {
-		void call(const Tuple &fn_in, Tuple &fn_out) const override
+	class CombineVector : public LLVMBuildIRBody {
+		void build_ir(
+			llvm::IRBuilder<> &builder,
+			const LLVMValues &inputs,
+			LLVMValues &outputs) const override
 		{
-			Vector v;
-			v.x = fn_in.get<float>(0);
-			v.y = fn_in.get<float>(1);
-			v.z = fn_in.get<float>(2);
-			fn_out.set<Vector>(0, v);
+			llvm::Type *vector_ty = get_llvm_type(
+				get_fvec3_type(), builder.getContext());
+
+			llvm::Value *vector = llvm::UndefValue::get(vector_ty);
+			vector = builder.CreateInsertValue(vector, inputs[0], 0);
+			vector = builder.CreateInsertValue(vector, inputs[1], 1);
+			vector = builder.CreateInsertValue(vector, inputs[2], 2);
+			outputs.append(vector);
 		}
 	};
 
@@ -34,18 +40,7 @@ namespace FN { namespace Functions {
 		return fn;
 	}
 
-
-	class SeparateVector : public TupleCallBody {
-		void call(const Tuple &fn_in, Tuple &fn_out) const override
-		{
-			Vector v = fn_in.get<Vector>(0);
-			fn_out.set<float>(0, v.x);
-			fn_out.set<float>(1, v.y);
-			fn_out.set<float>(2, v.z);
-		}
-	};
-
-	class SeparateVectorGen : public LLVMBuildIRBody {
+	class SeparateVector : public LLVMBuildIRBody {
 		void build_ir(
 			llvm::IRBuilder<> &builder,
 			const LLVMValues &inputs,
@@ -67,7 +62,6 @@ namespace FN { namespace Functions {
 			OutputParameter("Z", get_float_type()),
 		}));
 		fn->add_body(new SeparateVector());
-		fn->add_body(new SeparateVectorGen());
 		return fn;
 	}
 

@@ -27,6 +27,7 @@ static void playground()
 
 	llvm::LLVMContext *context = new llvm::LLVMContext();
 	derive_LLVMCompiledBody_from_LLVMBuildIRBody(fn, *context);
+	derive_TupleCallBody_from_LLVMCompiledBody(fn, *context);
 
 	Tuple fn_in(fn->signature().input_types());
 	Tuple fn_out(fn->signature().output_types());
