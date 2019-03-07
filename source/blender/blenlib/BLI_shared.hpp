@@ -1,30 +1,30 @@
 #include <atomic>
 #include <utility>
+#include "BLI_utildefines.h"
 
 namespace BLI {
 
-	template<typename T>
-	class RefCounted {
+	class RefCountedBase {
 	private:
-		T *m_object;
 		std::atomic<int> m_refcount;
 
-		~RefCounted() = default;
+	protected:
+		virtual ~RefCountedBase() {};
+
+		RefCountedBase()
+			: m_refcount(1) {}
 
 	public:
-		RefCounted(T *object)
-			: m_object(object), m_refcount(1) {}
-
-		inline void incref()
+		void incref()
 		{
-			std::atomic_fetch_add(&m_refcount, 1);
+			m_refcount.fetch_add(1);
 		}
 
-		inline void decref()
+		void decref()
 		{
-			int previous_value = std::atomic_fetch_sub(&m_refcount, 1);
-			if (previous_value == 1) {
-				delete m_object;
+			int new_value = m_refcount.fetch_sub(1) - 1;
+			BLI_assert(new_value >= 0);
+			if (new_value == 0) {
 				delete this;
 			}
 		}
@@ -33,6 +33,21 @@ namespace BLI {
 		{
 			return m_refcount;
 		}
+	};
+
+	template<typename T>
+	class RefCounted : public RefCountedBase {
+	private:
+		T *m_object;
+
+		~RefCounted()
+		{
+			delete m_object;
+		}
+
+	public:
+		RefCounted(T *object)
+			: RefCountedBase(), m_object(object) {}
 
 		T *ptr() const
 		{
@@ -43,20 +58,20 @@ namespace BLI {
 	template<typename T>
 	class Shared {
 	private:
-		RefCounted<T> *m_object;
+		RefCounted<T> *m_refcounter;
 
 		Shared() = delete;
 		Shared(RefCounted<T> *object)
-			: m_object(object) {}
+			: m_refcounter(object) {}
 
 		inline void incref()
 		{
-			m_object->incref();
+			m_refcounter->incref();
 		}
 
 		inline void decref()
 		{
-			m_object->decref();
+			m_refcounter->decref();
 		}
 
 	public:
@@ -69,38 +84,38 @@ namespace BLI {
 
 		static Shared<T> FromPointer(T *ptr)
 		{
-			RefCounted<T> *refcounted_value = new RefCounted<T>(ptr);
-			return Shared<T>(refcounted_value);
+			RefCounted<T> *refcounter = new RefCounted<T>(ptr);
+			return Shared<T>(refcounter);
 		}
 
 		Shared(const Shared &other)
 		{
-			m_object = other.m_object;
+			m_refcounter = other.m_refcounter;
 			this->incref();
 		}
 
 		Shared(Shared &&other)
 		{
-			m_object = other.m_object;
-			other.m_object = nullptr;
+			m_refcounter = other.m_refcounter;
+			other.m_refcounter = nullptr;
 		}
 
 		~Shared()
 		{
 			/* Can be nullptr when previously moved. */
-			if (m_object != nullptr) {
+			if (m_refcounter != nullptr) {
 				this->decref();
 			}
 		}
 
 		Shared &operator=(const Shared &other)
 		{
-			if (m_object == other.m_object) {
+			if (m_refcounter == other.m_refcounter) {
 				return *this;
 			}
 
 			this->decref();
-			m_object = other.m_object;
+			m_refcounter = other.m_refcounter;
 			this->incref();
 			return *this;
 		}
@@ -108,19 +123,19 @@ namespace BLI {
 		Shared &operator=(Shared &&other)
 		{
 			this->decref();
-			m_object = other.m_object;
-			other.m_object = nullptr;
+			m_refcounter = other.m_refcounter;
+			other.m_refcounter = nullptr;
 			return *this;
 		}
 
 		T *operator->() const
 		{
-			return m_object->ptr();
+			return m_refcounter->ptr();
 		}
 
 		RefCounted<T> *refcounter() const
 		{
-			return m_object;
+			return m_refcounter;
 		}
 
 		friend bool operator==(const Shared &a, const Shared &b)
