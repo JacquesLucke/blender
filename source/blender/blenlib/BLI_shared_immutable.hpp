@@ -1,49 +1,43 @@
 #pragma once
 
-#include <atomic>
-#include "BLI_utildefines.h"
+#include "BLI_shared.hpp"
 
 namespace BLI {
 
-	class SharedImmutable {
+	class SharedImmutable : protected RefCountedBase {
 	private:
-		std::atomic<int> m_users;
-
 		SharedImmutable(SharedImmutable &other) = delete;
 
 	public:
 		SharedImmutable()
-			: m_users(1) {}
+			: RefCountedBase() {}
 
 		virtual ~SharedImmutable() {}
 
 
 		void new_user()
 		{
-			std::atomic_fetch_add(&m_users, 1);
+			this->incref();
 		}
 
 		void remove_user()
 		{
-			int previous = std::atomic_fetch_sub(&m_users, 1);
-			if (previous == 1) {
-				delete this;
-			}
+			this->decref();
 		}
 
 		int users() const
 		{
-			return m_users;
+			return this->refcount();
 		}
 
 		bool is_mutable() const
 		{
-			return m_users == 1;
+			return this->users() == 1;
 		}
 
 		bool is_immutable() const
 		{
-			return m_users > 1;
+			return this->users() > 1;
 		}
 
 		void assert_mutable() const
