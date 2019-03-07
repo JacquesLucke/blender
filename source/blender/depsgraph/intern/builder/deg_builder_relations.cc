@@ -1554,7 +1554,7 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 			build_id(dtar->id);
 
 			if (dvar->type == DVAR_TYPE_FUNCTION) {
-				auto fn = (BLI::RefCounted<FN::Function> *)get_driver_variable_function(dvar);
+				auto fn = (BLI::RefCountedPtr<FN::Function> *)get_driver_variable_function(dvar);
 				if (fn != NULL) {
 					FN::Dependencies dependencies;
 					fn->ptr()->body<FN::DependenciesBody>()->dependencies(dependencies);

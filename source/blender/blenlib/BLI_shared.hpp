@@ -36,32 +36,32 @@ namespace BLI {
 	};
 
 	template<typename T>
-	class RefCounted : public RefCountedBase {
+	class RefCountedPtr : public RefCountedBase {
 	private:
-		T *m_object;
+		T *m_ptr;
 
-		~RefCounted()
+		~RefCountedPtr()
 		{
-			delete m_object;
+			delete m_ptr;
 		}
 
 	public:
-		RefCounted(T *object)
-			: RefCountedBase(), m_object(object) {}
+		RefCountedPtr(T *object)
+			: RefCountedBase(), m_ptr(object) {}
 
 		T *ptr() const
 		{
-			return m_object;
+			return m_ptr;
 		}
 	};
 
 	template<typename T>
 	class Shared {
 	private:
-		RefCounted<T> *m_refcounter;
+		RefCountedPtr<T> *m_refcounter;
 
 		Shared() = delete;
-		Shared(RefCounted<T> *object)
+		Shared(RefCountedPtr<T> *object)
 			: m_refcounter(object) {}
 
 		inline void incref()
@@ -84,7 +84,7 @@ namespace BLI {
 
 		static Shared<T> FromPointer(T *ptr)
 		{
-			RefCounted<T> *refcounter = new RefCounted<T>(ptr);
+			RefCountedPtr<T> *refcounter = new RefCountedPtr<T>(ptr);
 			return Shared<T>(refcounter);
 		}
 
@@ -133,7 +133,7 @@ namespace BLI {
 			return m_refcounter->ptr();
 		}
 
-		RefCounted<T> *refcounter() const
+		RefCountedPtr<T> *refcounter() const
 		{
 			return m_refcounter;
 		}

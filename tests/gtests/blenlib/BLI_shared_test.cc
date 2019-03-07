@@ -31,7 +31,7 @@ public:
 using namespace BLI;
 
 using SharedClass = Shared<MyTestClass>;
-using RefCountedClass = RefCounted<MyTestClass>;
+using RefCountedClass = RefCountedPtr<MyTestClass>;
 
 TEST(shared, OneReferenceAfterConstruction)
 {

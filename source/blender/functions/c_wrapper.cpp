@@ -16,8 +16,8 @@ using namespace FN::DataFlowNodes;
 	inline T2 wrap(T1 value) { return (T2)value; }
 
 
-WRAPPERS(RefCounted<Function> *, FnFunction);
-WRAPPERS(RefCounted<Type> *, FnType);
+WRAPPERS(RefCountedPtr<Function> *, FnFunction);
+WRAPPERS(RefCountedPtr<Type> *, FnType);
 WRAPPERS(Tuple *, FnTuple);
 WRAPPERS(const TupleCallBody *, FnTupleCallBody);
 
@@ -179,7 +179,7 @@ void FN_type_free(FnType type)
 
 static FnType get_type_with_increased_refcount(const SharedType &type)
 {
-	RefCounted<Type> *typeref = type.refcounter();
+	RefCountedPtr<Type> *typeref = type.refcounter();
 	typeref->incref();
 	return wrap(typeref);
 }
@@ -203,7 +203,7 @@ FnFunction FN_tree_to_function(bNodeTree *btree)
 		return nullptr;
 	}
 
-	RefCounted<Function> *fn_ref = fn_.value().refcounter();
+	RefCountedPtr<Function> *fn_ref = fn_.value().refcounter();
 	fn_ref->incref();
 	return wrap(fn_ref);
 }
@@ -232,7 +232,7 @@ void FN_function_update_dependencies(
 	FnFunction fn,
 	struct DepsNodeHandle *deps_node)
 {
-	RefCounted<Function> *fn_ref = unwrap(fn);
+	RefCountedPtr<Function> *fn_ref = unwrap(fn);
 	const DependenciesBody *body = fn_ref->ptr()->body<DependenciesBody>();
 	if (body) {
 		Dependencies dependencies;
