@@ -8,7 +8,7 @@ namespace FN {
 
 	using namespace BLI;
 
-	class Type final {
+	class Type final : public RefCountedBase {
 	public:
 		Type() = delete;
 		Type(const std::string &name)

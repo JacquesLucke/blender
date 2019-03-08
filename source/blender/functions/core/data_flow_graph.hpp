@@ -226,7 +226,7 @@ namespace FN {
 		SmallVector<Link> m_all_links;
 	};
 
-	class DataFlowGraph {
+	class DataFlowGraph : public RefCountedBase {
 	public:
 		DataFlowGraph();
 

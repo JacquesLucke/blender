@@ -29,7 +29,7 @@ namespace FN {
 		}
 	};
 
-	class Function final {
+	class Function final : public RefCountedBase {
 	public:
 		Function(const std::string &name, const Signature &signature)
 			: m_name(name), m_signature(signature) {}

@@ -5,7 +5,7 @@
 
 #define DEFAULT_VALUE 42
 
-class MyTestClass {
+class MyTestClass : public BLI::RefCountedBase {
 public:
 	int m_value;
 	bool *m_alive = nullptr;
@@ -31,39 +31,38 @@ public:
 using namespace BLI;
 
 using SharedClass = Shared<MyTestClass>;
-using RefCountedClass = RefCountedPtr<MyTestClass>;
 
 TEST(shared, OneReferenceAfterConstruction)
 {
 	SharedClass obj = SharedClass::New();
-	ASSERT_EQ(obj.refcounter()->refcount(), 1);
+	ASSERT_EQ(obj->refcount(), 1);
 }
 
 TEST(shared, CopyConstructorIncreasesRefCount)
 {
 	SharedClass obj1 = SharedClass::New();
-	ASSERT_EQ(obj1.refcounter()->refcount(), 1);
+	ASSERT_EQ(obj1->refcount(), 1);
 	SharedClass obj2(obj1);
-	ASSERT_EQ(obj1.refcounter()->refcount(), 2);
-	ASSERT_EQ(obj2.refcounter()->refcount(), 2);
+	ASSERT_EQ(obj1->refcount(), 2);
+	ASSERT_EQ(obj2->refcount(), 2);
 }
 
 TEST(shared, MoveConstructorKeepsRefCount)
 {
 	SharedClass obj(SharedClass::New());
-	ASSERT_EQ(obj.refcounter()->refcount(), 1);
+	ASSERT_EQ(obj->refcount(), 1);
 }
 
 TEST(shared, DecreasedWhenScopeEnds)
 {
 	SharedClass obj1 = SharedClass::New();
-	ASSERT_EQ(obj1.refcounter()->refcount(), 1);
+	ASSERT_EQ(obj1->refcount(), 1);
 	{
 		SharedClass obj2 = obj1;
-		ASSERT_EQ(obj1.refcounter()->refcount(), 2);
-		ASSERT_EQ(obj2.refcounter()->refcount(), 2);
+		ASSERT_EQ(obj1->refcount(), 2);
+		ASSERT_EQ(obj2->refcount(), 2);
 	}
-	ASSERT_EQ(obj1.refcounter()->refcount(), 1);
+	ASSERT_EQ(obj1->refcount(), 1);
 }
 
 TEST(shared, DefaultConstructorCalled)
@@ -90,35 +89,35 @@ TEST(shared, DestructorCalled)
 
 TEST(shared, CustomIncRef)
 {
-	RefCountedClass *obj = new RefCountedClass(new MyTestClass());
-	ASSERT_EQ(obj->refcount(), 1);
-	obj->incref();
-	ASSERT_EQ(obj->refcount(), 2);
+	auto *ptr = new MyTestClass();
+	ASSERT_EQ(ptr->refcount(), 1);
+	ptr->incref();
+	ASSERT_EQ(ptr->refcount(), 2);
 }
 
 TEST(shared, CustomDecRef)
 {
-	RefCountedClass *obj = new RefCountedClass(new MyTestClass());
-	obj->incref();
-	ASSERT_EQ(obj->refcount(), 2);
-	obj->decref();
-	ASSERT_EQ(obj->refcount(), 1);
+	auto *ptr = new MyTestClass();
+	ptr->incref();
+	ASSERT_EQ(ptr->refcount(), 2);
+	ptr->decref();
+	ASSERT_EQ(ptr->refcount(), 1);
 }
 
 TEST(shared, ExtractRefCounted)
 {
 	SharedClass obj = SharedClass::New();
-	RefCountedClass *ref = obj.refcounter();
-	ASSERT_EQ(obj.refcounter()->refcount(), 1);
-	ref->incref();
-	ASSERT_EQ(obj.refcounter()->refcount(), 2);
+	MyTestClass *ptr = obj.ptr();
+	ASSERT_EQ(obj->refcount(), 1);
+	ptr->incref();
+	ASSERT_EQ(obj->refcount(), 2);
 }
 
 TEST(shared, DecRefToZero)
 {
 	bool alive = false;
-	RefCountedClass *obj = new RefCountedClass(new MyTestClass(&alive));
+	auto *ptr = new MyTestClass(&alive);
 	ASSERT_TRUE(alive);
-	obj->decref();
+	ptr->decref();
 	ASSERT_FALSE(alive);
 }

@@ -38,86 +38,65 @@ namespace BLI {
 	};
 
 	template<typename T>
-	class RefCountedPtr : public RefCountedBase {
-	private:
-		T *m_ptr;
-
-		~RefCountedPtr()
-		{
-			delete m_ptr;
-		}
-
-	public:
-		RefCountedPtr(T *object)
-			: RefCountedBase(), m_ptr(object) {}
-
-		T *ptr() const
-		{
-			return m_ptr;
-		}
-	};
-
-	template<typename T>
 	class Shared {
 	private:
-		RefCountedPtr<T> *m_refcounter;
+		T *m_object;
 
 		Shared() = delete;
-		Shared(RefCountedPtr<T> *object)
-			: m_refcounter(object) {}
+		Shared(T *object)
+			: m_object(object) {}
 
 		inline void incref()
 		{
-			m_refcounter->incref();
+			m_object->incref();
 		}
 
 		inline void decref()
 		{
-			m_refcounter->decref();
+			m_object->decref();
 		}
 
 	public:
 		template<typename ...Args>
 		static Shared<T> New(Args&&... args)
 		{
-			T *actual_value = new T(std::forward<Args>(args)...);
-			return Shared<T>::FromPointer(actual_value);
+			T *object = new T(std::forward<Args>(args)...);
+			return Shared<T>(object);
 		}
 
-		static Shared<T> FromPointer(T *ptr)
+		static Shared<T> FromPointer(T *object)
 		{
-			RefCountedPtr<T> *refcounter = new RefCountedPtr<T>(ptr);
-			return Shared<T>(refcounter);
+			return Shared<T>(object);
 		}
 
 		Shared(const Shared &other)
 		{
-			m_refcounter = other.m_refcounter;
+			m_object = other.m_object;
 			this->incref();
 		}
 
 		Shared(Shared &&other)
 		{
-			m_refcounter = other.m_refcounter;
-			other.m_refcounter = nullptr;
+			m_object = other.m_object;
+			other.m_object = nullptr;
 		}
 
 		~Shared()
 		{
 			/* Can be nullptr when previously moved. */
-			if (m_refcounter != nullptr) {
+			if (m_object != nullptr) {
 				this->decref();
 			}
 		}
 
 		Shared &operator=(const Shared &other)
 		{
-			if (m_refcounter == other.m_refcounter) {
+			if (m_object == other.m_object) {
 				return *this;
 			}
 
 			this->decref();
-			m_refcounter = other.m_refcounter;
+			m_object = other.m_object;
 			this->incref();
 			return *this;
 		}
@@ -125,24 +104,24 @@ namespace BLI {
 		Shared &operator=(Shared &&other)
 		{
 			this->decref();
-			m_refcounter = other.m_refcounter;
-			other.m_refcounter = nullptr;
+			m_object = other.m_object;
+			other.m_object = nullptr;
 			return *this;
+		}
+
+		T *ptr() const
+		{
+			return m_object;
 		}
 
 		T *operator->() const
 		{
-			return m_refcounter->ptr();
-		}
-
-		RefCountedPtr<T> *refcounter() const
-		{
-			return m_refcounter;
+			return this->ptr();
 		}
 
 		friend bool operator==(const Shared &a, const Shared &b)
 		{
-			return a.refcounter()->ptr() == b.refcounter()->ptr();
+			return a.m_object == b.m_object;
 		}
 
 		friend bool operator!=(const Shared &a, const Shared &b)

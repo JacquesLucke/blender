@@ -16,8 +16,8 @@ using namespace FN::DataFlowNodes;
 	inline T2 wrap(T1 value) { return (T2)value; }
 
 
-WRAPPERS(RefCountedPtr<Function> *, FnFunction);
-WRAPPERS(RefCountedPtr<Type> *, FnType);
+WRAPPERS(Function *, FnFunction);
+WRAPPERS(Type *, FnType);
 WRAPPERS(Tuple *, FnTuple);
 WRAPPERS(const TupleCallBody *, FnTupleCallBody);
 
@@ -59,7 +59,7 @@ void FN_function_call(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)
 
 FnTupleCallBody FN_function_get_callable(FnFunction fn)
 {
-	return wrap(unwrap(fn)->ptr()->body<TupleCallBody>());
+	return wrap(unwrap(fn)->body<TupleCallBody>());
 }
 
 void FN_function_free(FnFunction fn)
@@ -89,44 +89,44 @@ bool FN_function_has_signature(FnFunction fn, FnType *inputs, FnType *outputs)
 
 uint FN_input_amount(FnFunction fn)
 {
-	return unwrap(fn)->ptr()->signature().inputs().size();
+	return unwrap(fn)->signature().inputs().size();
 }
 
 uint FN_output_amount(FnFunction fn)
 {
-	return unwrap(fn)->ptr()->signature().outputs().size();
+	return unwrap(fn)->signature().outputs().size();
 }
 
 bool FN_input_has_type(FnFunction fn, uint index, FnType type)
 {
-	Type *type1 = unwrap(fn)->ptr()->signature().inputs()[index].type().refcounter()->ptr();
-	Type *type2 = unwrap(type)->ptr();
+	Type *type1 = unwrap(fn)->signature().inputs()[index].type().ptr();
+	Type *type2 = unwrap(type);
 	return type1 == type2;
 }
 
 bool FN_output_has_type(FnFunction fn, uint index, FnType type)
 {
-	Type *type1 = unwrap(fn)->ptr()->signature().outputs()[index].type().refcounter()->ptr();
-	Type *type2 = unwrap(type)->ptr();
+	Type *type1 = unwrap(fn)->signature().outputs()[index].type().ptr();
+	Type *type2 = unwrap(type);
 	return type1 == type2;
 }
 
 void FN_function_print(FnFunction fn)
 {
-	Function *function = unwrap(fn)->ptr();
+	Function *function = unwrap(fn);
 	function->print();
 }
 
 
 FnTuple FN_tuple_for_input(FnFunction fn)
 {
-	auto tuple = new Tuple(unwrap(fn)->ptr()->signature().input_types());
+	auto tuple = new Tuple(unwrap(fn)->signature().input_types());
 	return wrap(tuple);
 }
 
 FnTuple FN_tuple_for_output(FnFunction fn)
 {
-	auto tuple = new Tuple(unwrap(fn)->ptr()->signature().output_types());
+	auto tuple = new Tuple(unwrap(fn)->signature().output_types());
 	return wrap(tuple);
 }
 
@@ -169,7 +169,7 @@ void FN_tuple_get_float_vector_3(FnTuple tuple, uint index, float dst[3])
 
 const char *FN_type_name(FnType type)
 {
-	return unwrap(type)->ptr()->name().c_str();
+	return unwrap(type)->name().c_str();
 }
 
 void FN_type_free(FnType type)
@@ -179,7 +179,7 @@ void FN_type_free(FnType type)
 
 static FnType get_type_with_increased_refcount(const SharedType &type)
 {
-	RefCountedPtr<Type> *typeref = type.refcounter();
+	Type *typeref = type.ptr();
 	typeref->incref();
 	return wrap(typeref);
 }
@@ -188,7 +188,7 @@ static FnType get_type_with_increased_refcount(const SharedType &type)
 	FnType FN_type_get_##name() \
 	{ return get_type_with_increased_refcount(Types::get_##name##_type()); } \
 	FnType FN_type_borrow_##name() \
-	{ return wrap(Types::get_##name##_type().refcounter()); }
+	{ return wrap(Types::get_##name##_type().ptr()); }
 
 SIMPLE_TYPE_GETTER(float);
 SIMPLE_TYPE_GETTER(int32);
@@ -198,14 +198,14 @@ FnFunction FN_tree_to_function(bNodeTree *btree)
 {
 	TIMEIT("Tree to function");
 	BLI_assert(btree);
-	auto fn_ = DataFlowNodes::generate_function(btree);
-	if (!fn_.has_value()) {
+	auto fn_opt = DataFlowNodes::generate_function(btree);
+	if (!fn_opt.has_value()) {
 		return nullptr;
 	}
 
-	RefCountedPtr<Function> *fn_ref = fn_.value().refcounter();
-	fn_ref->incref();
-	return wrap(fn_ref);
+	Function *fn_ptr = fn_opt.value().ptr();
+	fn_ptr->incref();
+	return wrap(fn_ptr);
 }
 
 FnFunction FN_function_get_with_signature(
@@ -232,8 +232,8 @@ void FN_function_update_dependencies(
 	FnFunction fn,
 	struct DepsNodeHandle *deps_node)
 {
-	RefCountedPtr<Function> *fn_ref = unwrap(fn);
-	const DependenciesBody *body = fn_ref->ptr()->body<DependenciesBody>();
+	Function *fn_ = unwrap(fn);
+	const DependenciesBody *body = fn_->body<DependenciesBody>();
 	if (body) {
 		Dependencies dependencies;
 		body->dependencies(dependencies);

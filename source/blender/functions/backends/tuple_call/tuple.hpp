@@ -4,7 +4,7 @@
 
 namespace FN {
 
-	class TupleMeta {
+	class TupleMeta : public RefCountedBase {
 	private:
 		SmallTypeVector m_types;
 		SmallVector<CPPTypeInfo *> m_type_info;
