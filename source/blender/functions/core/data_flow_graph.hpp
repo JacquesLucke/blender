@@ -272,7 +272,7 @@ namespace FN {
 		friend Socket;
 	};
 
-	using SharedDataFlowGraph = Shared<DataFlowGraph>;
+	using SharedDataFlowGraph = AutoRefCount<DataFlowGraph>;
 
 	class FunctionGraph {
 	public:

@@ -84,6 +84,6 @@ namespace FN {
 		Composition m_bodies;
 	};
 
-	using SharedFunction = Shared<Function>;
+	using SharedFunction = AutoRefCount<Function>;
 
 } /* namespace FN */

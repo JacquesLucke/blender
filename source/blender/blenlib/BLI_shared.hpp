@@ -38,12 +38,12 @@ namespace BLI {
 	};
 
 	template<typename T>
-	class Shared {
+	class AutoRefCount {
 	private:
 		T *m_object;
 
-		Shared() = delete;
-		Shared(T *object)
+		AutoRefCount() = delete;
+		AutoRefCount(T *object)
 			: m_object(object) {}
 
 		inline void incref()
@@ -58,30 +58,30 @@ namespace BLI {
 
 	public:
 		template<typename ...Args>
-		static Shared<T> New(Args&&... args)
+		static AutoRefCount<T> New(Args&&... args)
 		{
 			T *object = new T(std::forward<Args>(args)...);
-			return Shared<T>(object);
+			return AutoRefCount<T>(object);
 		}
 
-		static Shared<T> FromPointer(T *object)
+		static AutoRefCount<T> FromPointer(T *object)
 		{
-			return Shared<T>(object);
+			return AutoRefCount<T>(object);
 		}
 
-		Shared(const Shared &other)
+		AutoRefCount(const AutoRefCount &other)
 		{
 			m_object = other.m_object;
 			this->incref();
 		}
 
-		Shared(Shared &&other)
+		AutoRefCount(AutoRefCount &&other)
 		{
 			m_object = other.m_object;
 			other.m_object = nullptr;
 		}
 
-		~Shared()
+		~AutoRefCount()
 		{
 			/* Can be nullptr when previously moved. */
 			if (m_object != nullptr) {
@@ -89,7 +89,7 @@ namespace BLI {
 			}
 		}
 
-		Shared &operator=(const Shared &other)
+		AutoRefCount &operator=(const AutoRefCount &other)
 		{
 			if (m_object == other.m_object) {
 				return *this;
@@ -101,7 +101,7 @@ namespace BLI {
 			return *this;
 		}
 
-		Shared &operator=(Shared &&other)
+		AutoRefCount &operator=(AutoRefCount &&other)
 		{
 			this->decref();
 			m_object = other.m_object;
@@ -119,12 +119,12 @@ namespace BLI {
 			return this->ptr();
 		}
 
-		friend bool operator==(const Shared &a, const Shared &b)
+		friend bool operator==(const AutoRefCount &a, const AutoRefCount &b)
 		{
 			return a.m_object == b.m_object;
 		}
 
-		friend bool operator!=(const Shared &a, const Shared &b)
+		friend bool operator!=(const AutoRefCount &a, const AutoRefCount &b)
 		{
 			return !(a == b);
 		}

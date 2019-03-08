@@ -37,7 +37,7 @@ namespace FN {
 		Composition m_extensions;
 	};
 
-	using SharedType = Shared<Type>;
+	using SharedType = AutoRefCount<Type>;
 	using SmallTypeVector = SmallVector<SharedType>;
 
 } /* namespace FN */

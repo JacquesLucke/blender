@@ -30,7 +30,7 @@ public:
 
 using namespace BLI;
 
-using SharedClass = Shared<MyTestClass>;
+using SharedClass = AutoRefCount<MyTestClass>;
 
 TEST(shared, OneReferenceAfterConstruction)
 {

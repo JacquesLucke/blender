@@ -56,7 +56,7 @@ namespace FN {
 		}
 	};
 
-	using SharedTupleMeta = Shared<TupleMeta>;
+	using SharedTupleMeta = AutoRefCount<TupleMeta>;
 
 	class Tuple {
 	public:
