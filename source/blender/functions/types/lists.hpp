@@ -73,4 +73,7 @@ namespace FN { namespace Types {
 		}
 	};
 
+	template<typename T>
+	using SharedList = Shared<List<T>>;
+
 } } /* namespace FN::Types */

@@ -8,6 +8,8 @@ namespace BLI {
 	private:
 		SharedImmutable(SharedImmutable &other) = delete;
 
+		template<typename> friend class Shared;
+
 	public:
 		SharedImmutable()
 			: RefCountedBase() {}
