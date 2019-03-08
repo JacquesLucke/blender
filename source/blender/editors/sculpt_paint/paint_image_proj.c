@@ -61,6 +61,7 @@
 #include "BKE_colorband.h"
 #include "BKE_context.h"
 #include "BKE_colortools.h"
+#include "BKE_customdata.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
 #include "BKE_library.h"
@@ -1184,7 +1185,7 @@ static VertSeam *find_adjacent_seam(const ProjPaintState *ps, uint loop_index, u
 {
 	ListBase *vert_seams = &ps->vertSeams[vert_index];
 	VertSeam *seam = vert_seams->first;
-	VertSeam *adjacent;
+	VertSeam *adjacent = NULL;
 
 	while (seam->loop != loop_index) {
 		seam = seam->next;
@@ -3780,17 +3781,26 @@ static bool proj_paint_state_mesh_eval_init(const bContext *C, ProjPaintState *p
 		return false;
 	}
 
+	CustomData_MeshMasks cddata_masks = scene_eval->customdata_mask;
+	cddata_masks.fmask |= CD_MASK_MTFACE;
+	cddata_masks.lmask |= CD_MASK_MLOOPUV;
+
 	/* Workaround for subsurf selection, try the display mesh first */
 	if (ps->source == PROJ_SRC_IMAGE_CAM) {
 		/* using render mesh, assume only camera was rendered from */
 		ps->me_eval = mesh_create_eval_final_render(
-		             depsgraph, scene_eval, ob_eval, scene_eval->customdata_mask | CD_MASK_MLOOPUV | CD_MASK_MTFACE);
+		             depsgraph, scene_eval, ob_eval, &cddata_masks);
 		ps->me_eval_free = true;
 	}
 	else {
+		if (ps->do_face_sel) {
+			cddata_masks.vmask |= CD_MASK_ORIGINDEX;
+			cddata_masks.emask |= CD_MASK_ORIGINDEX;
+			cddata_masks.pmask |= CD_MASK_ORIGINDEX;
+		}
 		ps->me_eval = mesh_get_eval_final(
 		        depsgraph, scene_eval, ob_eval,
-		        scene_eval->customdata_mask | CD_MASK_MLOOPUV | CD_MASK_MTFACE | (ps->do_face_sel ? CD_MASK_ORIGINDEX : 0));
+		        &cddata_masks);
 		ps->me_eval_free = false;
 	}
 
@@ -5694,7 +5704,7 @@ void paint_proj_stroke_done(void *ps_handle_p)
 /* use project paint to re-apply an image */
 static int texture_paint_camera_project_exec(bContext *C, wmOperator *op)
 {
-	Image *image = BLI_findlink(&CTX_data_main(C)->image, RNA_enum_get(op->ptr, "image"));
+	Image *image = BLI_findlink(&CTX_data_main(C)->images, RNA_enum_get(op->ptr, "image"));
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	ProjPaintState ps = {NULL};
@@ -5981,7 +5991,7 @@ bool BKE_paint_proj_mesh_data_check(Scene *scene, Object *ob, bool *uvs, bool *m
 					hasmat = true;
 					if (!ma->texpaintslot) {
 						/* refresh here just in case */
-						BKE_texpaint_slot_refresh_cache(ma);
+						BKE_texpaint_slot_refresh_cache(scene, ma);
 
 						/* if still no slots, we have to add */
 						if (ma->texpaintslot) {
@@ -6241,13 +6251,13 @@ static bool proj_paint_add_slot(bContext *C, wmOperator *op)
 		nodePositionPropagate(out_node);
 
 		if (ima) {
-			BKE_texpaint_slot_refresh_cache(ma);
+			BKE_texpaint_slot_refresh_cache(scene, ma);
 			BKE_image_signal(bmain, ima, NULL, IMA_SIGNAL_USER_NEW_IMAGE);
 			WM_event_add_notifier(C, NC_IMAGE | NA_ADDED, ima);
 		}
 
 		DEG_id_tag_update(&ntree->id, 0);
-		DEG_id_tag_update(&ma->id, ID_RECALC_SHADING | ID_RECALC_COPY_ON_WRITE);
+		DEG_id_tag_update(&ma->id, ID_RECALC_SHADING);
 		ED_area_tag_redraw(CTX_wm_area(C));
 
 		BKE_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);

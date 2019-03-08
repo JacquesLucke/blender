@@ -1013,6 +1013,23 @@ class _defs_image_generic:
             keymap=(),
         )
 
+    # Currently a place holder so we can switch away from the annotation tool.
+    # Falls back to default image editor action.
+    @ToolDef.from_fn
+    def sample():
+        def draw_settings(context, layout, tool):
+            props = tool.operator_properties("image.sample")
+            layout.prop(props, "size")
+        return dict(
+            text="Sample",
+            description=(
+                "Sample pixel values under the cursor"
+            ),
+            icon="ops.paint.weight_sample",  # XXX, needs own icon.
+            keymap="Image Editor Tool: Sample",
+            draw_settings=draw_settings,
+        )
+
 
 class _defs_image_uv_transform:
 
@@ -1237,6 +1254,19 @@ class _defs_gpencil_edit:
         )
 
     @ToolDef.from_fn
+    def radius():
+        return dict(
+            text="Radius",
+            description=(
+                "Expand or contract the radius of the selected points"
+            ),
+            icon="ops.gpencil.radius",
+
+            widget=None,
+            keymap=(),
+        )
+
+    @ToolDef.from_fn
     def shear():
         return dict(
             text="Shear",
@@ -1307,7 +1337,7 @@ class _defs_node_select:
     def box():
         def draw_settings(context, layout, tool):
             props = tool.operator_properties("node.select_box")
-            layout.prop(props, "deselect")
+            layout.prop(props, "mode", expand=True)
             pass
         return dict(
             text="Select Box",
@@ -1321,8 +1351,7 @@ class _defs_node_select:
     def lasso():
         def draw_settings(context, layout, tool):
             props = tool.operator_properties("node.select_lasso")
-            layout.prop(props, "deselect")
-            pass
+            layout.prop(props, "mode", expand=True)
         return dict(
             text="Select Lasso",
             icon="ops.generic.select_lasso",
@@ -1413,6 +1442,8 @@ class IMAGE_PT_tools_active(ToolSelectPanelHelper, Panel):
             # for all modes
         ],
         'VIEW': [
+            _defs_image_generic.sample,
+            *_tools_annotate,
         ],
         'UV': [
             *_tools_select,
@@ -1647,14 +1678,16 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
         'EDIT_CURVE': [
             *_tools_default,
             None,
-            _defs_edit_curve.curve_radius,
-            _defs_edit_curve.curve_vertex_randomize,
-            _defs_edit_curve.tilt,
             _defs_edit_curve.draw,
             (
                 _defs_edit_curve.extrude,
                 _defs_edit_curve.extrude_cursor,
             ),
+            None,
+            _defs_edit_curve.curve_radius,
+            _defs_edit_curve.tilt,
+            None,
+            _defs_edit_curve.curve_vertex_randomize,
         ],
         'EDIT_SURFACE': [
             *_tools_default,
@@ -1729,9 +1762,12 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             *_tools_transform,
             None,
             _defs_gpencil_edit.extrude,
+            _defs_gpencil_edit.radius,
             _defs_gpencil_edit.bend,
-            _defs_gpencil_edit.shear,
-            _defs_gpencil_edit.tosphere,
+            (
+                _defs_gpencil_edit.shear,
+                _defs_gpencil_edit.tosphere,
+            ),
 
         ],
         'SCULPT_GPENCIL': [

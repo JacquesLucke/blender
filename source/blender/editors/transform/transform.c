@@ -624,6 +624,9 @@ static void viewRedrawForce(const bContext *C, TransInfo *t)
 			wmWindow *window = CTX_wm_window(C);
 			WM_paint_cursor_tag_redraw(window, t->ar);
 		}
+		else if (t->flag & T_CURSOR) {
+			ED_area_tag_redraw(t->sa);
+		}
 		else {
 			// XXX how to deal with lock?
 			SpaceImage *sima = (SpaceImage *)t->sa->spacedata.first;
@@ -2397,10 +2400,10 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 		/* keymap for shortcut header prints */
 		t->keymap = WM_keymap_active(CTX_wm_manager(C), op->type->modalkeymap);
 
-		/* Stupid code to have Ctrl-Click on gizmo work ok
+		/* Stupid code to have Ctrl-Click on gizmo work ok.
 		 *
-		 * do this only for translation/rotation/resize due to only this
-		 * moded are available from gizmo and doing such check could
+		 * Do this only for translation/rotation/resize because only these
+		 * modes are available from gizmo and doing such check could
 		 * lead to keymap conflicts for other modes (see #31584)
 		 */
 		if (ELEM(mode, TFM_TRANSLATION, TFM_ROTATION, TFM_RESIZE)) {
