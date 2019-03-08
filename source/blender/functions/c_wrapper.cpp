@@ -28,15 +28,15 @@ static void playground()
 	Tuple fn_in(fn->signature().input_types());
 	Tuple fn_out(fn->signature().output_types());
 
-	auto *list = new FloatList();
+	auto list = SharedFloatList::New();
 	list->new_user();
-	fn_in.set<FloatList *>(0, list);
+	fn_in.copy_in<SharedFloatList>(0, list);
 	fn_in.set<float>(1, 42.0f);
 
 	std::cout << "Size before: " << list->size() << std::endl;
 	fn->body<TupleCallBody>()->call(fn_in, fn_out);
 
-	auto *new_list = fn_out.get<FloatList *>(0);
+	auto new_list = fn_out.copy_out<SharedFloatList>(0);
 	std::cout << "Size Old after: " << list->size() << std::endl;
 	std::cout << "Size New after: " << new_list->size() << std::endl;
 }

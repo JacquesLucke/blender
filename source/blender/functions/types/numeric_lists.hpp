@@ -5,7 +5,7 @@
 
 namespace FN { namespace Types {
 
-	using FloatList = List<float>;
+	using SharedFloatList = SharedList<float>;
 
 	SharedType &get_float_list_type();
 
