@@ -98,7 +98,7 @@ namespace FN {
 		}
 
 		template<typename T>
-		inline void set(uint index, const T &value)
+		inline void copy_in(uint index, const T &value)
 		{
 			BLI_assert(index < m_meta->element_amount());
 			BLI_assert(sizeof(T) == m_meta->element_size(index));
@@ -121,13 +121,29 @@ namespace FN {
 		}
 
 		template<typename T>
-		inline const T &get(uint index) const
+		inline void set(uint index, const T &value)
+		{
+			static_assert(std::is_trivial<T>::value,
+				"this method can be used with trivial types only");
+			this->copy_in<T>(index, value);
+		}
+
+		template<typename T>
+		inline T copy_out(uint index) const
 		{
 			BLI_assert(index < m_meta->element_amount());
 			BLI_assert(sizeof(T) == m_meta->element_size(index));
 			BLI_assert(m_initialized[index]);
 
 			return *(T *)this->element_ptr(index);
+		}
+
+		template<typename T>
+		inline T get(uint index) const
+		{
+			static_assert(std::is_trivial<T>::value,
+				"this method can be used with trivial types only");
+			return this->copy_out<T>(index);
 		}
 
 		static inline void copy_element(
