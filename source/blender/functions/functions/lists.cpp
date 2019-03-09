@@ -11,13 +11,13 @@ namespace FN { namespace Functions {
 	class AppendFloat : public TupleCallBody {
 		void call(Tuple &fn_in, Tuple &fn_out) const override
 		{
-			auto list = fn_in.copy_out<SharedFloatList>(0);
+			auto list = fn_in.relocate_out<SharedFloatList>(0);
 			float value = fn_in.get<float>(1);
 
-			auto mutable_list = list->get_mutable(false);
+			list = list->get_mutable();
+			list->append(value);
 
-			mutable_list->append(value);
-			fn_out.copy_in<SharedFloatList>(0, SharedFloatList::FromPointer(mutable_list));
+			fn_out.move_in(0, list);
 		}
 	};
 

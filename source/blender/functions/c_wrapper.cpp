@@ -29,16 +29,19 @@ static void playground()
 	Tuple fn_out(fn->signature().output_types());
 
 	auto list = SharedFloatList::New();
-	list->new_user();
-	fn_in.copy_in<SharedFloatList>(0, list);
+
+	BLI_assert(list->users() == 1);
+	fn_in.copy_in(0, list);
+	BLI_assert(list->users() == 2);
+
 	fn_in.set<float>(1, 42.0f);
 
-	std::cout << "Size before: " << list->size() << std::endl;
+	BLI_assert(list->users() == 2);
 	fn->body<TupleCallBody>()->call(fn_in, fn_out);
+	BLI_assert(list->users() == 1);
 
-	auto new_list = fn_out.copy_out<SharedFloatList>(0);
-	std::cout << "Size Old after: " << list->size() << std::endl;
-	std::cout << "Size New after: " << new_list->size() << std::endl;
+	auto new_list = fn_out.relocate_out<SharedFloatList>(0);
+	BLI_assert(new_list->users() == 1);
 }
 
 void FN_initialize()

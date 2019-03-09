@@ -91,22 +91,35 @@ namespace BLI {
 
 		AutoRefCount &operator=(const AutoRefCount &other)
 		{
-			if (m_object == other.m_object) {
+			if (this == &other) {
 				return *this;
 			}
-
-			this->decref();
-			m_object = other.m_object;
-			this->incref();
-			return *this;
+			else if (m_object == other.m_object) {
+				return *this;
+			}
+			else {
+				this->decref();
+				m_object = other.m_object;
+				this->incref();
+				return *this;
+			}
 		}
 
 		AutoRefCount &operator=(AutoRefCount &&other)
 		{
-			this->decref();
-			m_object = other.m_object;
-			other.m_object = nullptr;
-			return *this;
+			if (this == &other) {
+				return *this;
+			}
+			else if (m_object == other.m_object) {
+				other.m_object = nullptr;
+				return *this;
+			}
+			else {
+				this->decref();
+				m_object = other.m_object;
+				other.m_object = nullptr;
+				return *this;
+			}
 		}
 
 		T *ptr() const

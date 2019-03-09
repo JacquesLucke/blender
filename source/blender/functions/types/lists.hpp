@@ -5,6 +5,12 @@
 namespace FN { namespace Types {
 
 	template<typename T>
+	class List;
+
+	template<typename T>
+	using SharedList = AutoRefCount<List<T>>;
+
+	template<typename T>
 	class List : public BLI::SharedImmutable {
 	private:
 		SmallVector<T> m_data;
@@ -47,18 +53,15 @@ namespace FN { namespace Types {
 			return m_data[index];
 		}
 
-		List *get_mutable(bool keep_other)
+		SharedList<T> get_mutable()
 		{
 			if (this->is_mutable()) {
-				return this;
+				return SharedList<T>::FromPointer(this);
 			}
 			else {
 				List *new_list = this->copy();
 				BLI_assert(new_list->is_mutable());
-				if (!keep_other) {
-					this->remove_user();
-				}
-				return new_list;
+				return SharedList<T>::FromPointer(new_list);
 			}
 		}
 
@@ -72,8 +75,5 @@ namespace FN { namespace Types {
 			return m_data.end();
 		}
 	};
-
-	template<typename T>
-	using SharedList = AutoRefCount<List<T>>;
 
 } } /* namespace FN::Types */

@@ -117,6 +117,24 @@ namespace FN {
 		}
 
 		template<typename T>
+		inline void move_in(uint index, T &value)
+		{
+			BLI_assert(index < m_meta->element_amount());
+			BLI_assert(sizeof(T) == m_meta->element_size(index));
+
+			T *dst = (T *)this->element_ptr(index);
+
+			if (m_initialized[index]) {
+				std::copy_n(std::make_move_iterator(&value), 1, dst);
+			}
+			else {
+				std::uninitialized_copy_n(std::make_move_iterator(&value), 1, dst);
+			}
+
+			m_initialized[index] = true;
+		}
+
+		template<typename T>
 		inline void set(uint index, const T &value)
 		{
 			static_assert(std::is_trivial<T>::value,
@@ -132,6 +150,21 @@ namespace FN {
 			BLI_assert(m_initialized[index]);
 
 			return *(T *)this->element_ptr(index);
+		}
+
+		template<typename T>
+		inline T relocate_out(uint index) const
+		{
+			BLI_assert(index < m_meta->element_amount());
+			BLI_assert(sizeof(T) == m_meta->element_size(index));
+			BLI_assert(m_initialized[index]);
+
+			T &value = this->element_ref<T>(index);
+			T tmp = std::move(value);
+			value.~T();
+			m_initialized[index] = false;
+
+			return tmp;
 		}
 
 		template<typename T>
@@ -240,6 +273,12 @@ namespace FN {
 		inline void *element_ptr(uint index) const
 		{
 			return (void *)((char *)m_data + m_meta->offsets()[index]);
+		}
+
+		template<typename T>
+		inline T &element_ref(uint index) const
+		{
+			return *(T *)this->element_ptr(index);
 		}
 
 		void *m_data;
