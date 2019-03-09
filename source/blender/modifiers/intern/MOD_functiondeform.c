@@ -83,13 +83,12 @@ static void do_deformation(
 	FnTuple fn_in = FN_tuple_for_input(fn);
 	FnTuple fn_out = FN_tuple_for_output(fn);
 
-	FN_tuple_set_float(fn_in, 2, fdmd->control1);
-
 	clock_t start = clock();
 
 	for (int i = 0; i < numVerts; i++) {
 		FN_tuple_set_float_vector_3(fn_in, 0, vertexCos[i]);
 		FN_tuple_set_int32(fn_in, 1, i);
+		FN_tuple_set_float(fn_in, 2, fdmd->control1);
 		FN_function_call(fn_call, fn_in, fn_out);
 		FN_tuple_get_float_vector_3(fn_out, 0, vertexCos[i]);
 	}

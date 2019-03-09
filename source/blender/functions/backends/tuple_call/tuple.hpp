@@ -86,11 +86,7 @@ namespace FN {
 
 		~Tuple()
 		{
-			for (uint i = 0; i < m_meta->element_amount(); i++) {
-				if (m_initialized[i]) {
-					m_meta->type_infos()[i]->destruct_type(this->element_ptr(i));
-				}
-			}
+			this->destruct_all();
 			if (m_owns_mem) {
 				std::free(m_data);
 				std::free(m_initialized);
@@ -206,6 +202,16 @@ namespace FN {
 			return true;
 		}
 
+		bool all_uninitialized() const
+		{
+			for (uint i = 0; i < m_meta->element_amount(); i++) {
+				if (m_initialized[i]) {
+					return false;
+				}
+			}
+			return true;
+		}
+
 		void set_all_initialized()
 		{
 			for (uint i = 0; i < m_meta->element_amount(); i++) {
@@ -217,6 +223,16 @@ namespace FN {
 		{
 			for (uint i = 0; i < m_meta->element_amount(); i++) {
 				m_initialized[i] = false;
+			}
+		}
+
+		void destruct_all()
+		{
+			for (uint i = 0; i < m_meta->element_amount(); i++) {
+				if (m_initialized[i]) {
+					m_meta->type_infos()[i]->destruct_type(this->element_ptr(i));
+					m_initialized[i] = false;
+				}
 			}
 		}
 

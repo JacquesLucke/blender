@@ -9,7 +9,7 @@ namespace FN { namespace Functions {
 	using namespace Types;
 
 	class AppendFloat : public TupleCallBody {
-		void call(const Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out) const override
 		{
 			auto list = fn_in.copy_out<SharedFloatList>(0);
 			float value = fn_in.get<float>(1);

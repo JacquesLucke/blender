@@ -11,7 +11,7 @@ namespace FN {
 
 		virtual ~TupleCallBody() {};
 
-		virtual void call(const Tuple &fn_in, Tuple &fn_out) const = 0;
+		virtual void call(Tuple &fn_in, Tuple &fn_out) const = 0;
 		virtual void init_defaults(Tuple &fn_in) const;
 	};
 

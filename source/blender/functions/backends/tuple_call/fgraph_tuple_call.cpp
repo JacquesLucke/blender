@@ -14,14 +14,14 @@ namespace FN {
 			  m_inputs(function_graph.inputs()),
 			  m_outputs(function_graph.outputs()) {}
 
-		void call(const Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out) const override
 		{
 			for (uint i = 0; i < m_outputs.size(); i++) {
 				this->compute_socket(fn_in, fn_out, i, m_outputs[i]);
 			}
 		}
 
-		void compute_socket(const Tuple &fn_in, Tuple &out, uint out_index, Socket socket) const
+		void compute_socket(Tuple &fn_in, Tuple &out, uint out_index, Socket socket) const
 		{
 			if (m_inputs.contains(socket)) {
 				uint index = m_inputs.index(socket);

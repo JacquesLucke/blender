@@ -74,7 +74,7 @@ namespace FN { namespace DataFlowNodes {
 			SmallVector<SocketLoader> &loaders)
 			: m_btree(btree), m_bsockets(bsockets), m_loaders(loaders) {}
 
-		void call(const Tuple &UNUSED(fn_in), Tuple &fn_out) const override
+		void call(Tuple &UNUSED(fn_in), Tuple &fn_out) const override
 		{
 			for (uint i = 0; i < m_bsockets.size(); i++) {
 				PointerRNA ptr;

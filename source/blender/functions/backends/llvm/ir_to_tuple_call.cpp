@@ -56,7 +56,7 @@ namespace FN {
 
 			LLVMTypeInfo *type_info = get_type_info(
 				fn->signature().inputs()[i].type());
-			llvm::Value *value = type_info->build_load_ir__copy(
+			llvm::Value *value = type_info->build_load_ir__relocate(
 				builder, value_byte_addr);
 
 			input_values.append(value);
@@ -99,9 +99,11 @@ namespace FN {
 			m_call = (LLVMCallFN)m_compiled->function_ptr();
 		}
 
-		void call(const Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out) const override
 		{
+			fn_out.destruct_all();
 			BLI_assert(fn_in.all_initialized());
+			BLI_assert(fn_out.all_uninitialized());
 
 			m_call(
 				fn_in.data_ptr(),
@@ -109,6 +111,7 @@ namespace FN {
 				fn_out.data_ptr(),
 				fn_out.offsets_ptr());
 
+			fn_in.set_all_uninitialized();
 			fn_out.set_all_initialized();
 		}
 	};
