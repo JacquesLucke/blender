@@ -1,6 +1,7 @@
 #include "data_flow_graph.hpp"
 
 #include <sstream>
+#include "WM_api.h"
 
 namespace FN {
 	static std::string get_id(Node *node)
@@ -101,5 +102,11 @@ namespace FN {
 
 		ss << "}\n";
 		return ss.str();
+	}
+
+	void DataFlowGraph::to_dot__clipboard() const
+	{
+		std::string dot = this->to_dot();
+		WM_clipboard_text_set(dot.c_str(), false);
 	}
 };

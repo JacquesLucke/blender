@@ -5,6 +5,7 @@ set(INC
 	../makesrna
 	../blenkernel
 	../depsgraph
+	../windowmanager
 )
 
 set(INC_SYS

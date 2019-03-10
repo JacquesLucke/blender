@@ -271,6 +271,7 @@ namespace FN {
 		}
 
 		std::string to_dot() const;
+		void to_dot__clipboard() const;
 
 	private:
 		bool m_frozen = false;
