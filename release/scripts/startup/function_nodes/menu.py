@@ -31,4 +31,6 @@ def insert_node(layout, type, text, settings = {}, icon = "NONE"):
         item.value = value
     return operator
 
-bpy.types.NODE_MT_add.append(draw_menu)
+
+def register():
+    bpy.types.NODE_MT_add.append(draw_menu)

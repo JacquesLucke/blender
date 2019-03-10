@@ -12,5 +12,3 @@ class VectorDistanceNode(bpy.types.Node, FunctionNode):
         ], [
             ("fn_FloatSocket", "Distance"),
         ]
-
-bpy.utils.register_class(VectorDistanceNode)

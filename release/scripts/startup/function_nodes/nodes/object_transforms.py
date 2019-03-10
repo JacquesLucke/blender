@@ -18,5 +18,3 @@ class ObjectTransformsNode(bpy.types.Node, FunctionNode):
 
     def draw(self, layout):
         layout.prop(self, "object", text="")
-
-bpy.utils.register_class(ObjectTransformsNode)

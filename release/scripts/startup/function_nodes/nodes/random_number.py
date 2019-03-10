@@ -13,5 +13,3 @@ class RandomNumberNode(bpy.types.Node, FunctionNode):
         ], [
             ("fn_FloatSocket", "Value"),
         ]
-
-bpy.utils.register_class(RandomNumberNode)

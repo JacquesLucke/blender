@@ -25,5 +25,3 @@ class NodeOperator(bpy.types.Operator):
         function(*settings)
 
         return {"FINISHED"}
-
-bpy.utils.register_class(NodeOperator)

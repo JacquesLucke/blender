@@ -41,7 +41,3 @@ class VectorSocket(bpy.types.NodeSocket, DataSocket):
 
     def draw_property(self, layout, node, text):
         layout.column().prop(self, "value", text=text)
-
-bpy.utils.register_class(FloatSocket)
-bpy.utils.register_class(IntegerSocket)
-bpy.utils.register_class(VectorSocket)

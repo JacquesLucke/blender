@@ -13,5 +13,3 @@ class SeparateVectorNode(bpy.types.Node, FunctionNode):
             ("fn_FloatSocket", "Y"),
             ("fn_FloatSocket", "Z"),
         ]
-
-bpy.utils.register_class(SeparateVectorNode)

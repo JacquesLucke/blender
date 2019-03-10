@@ -13,5 +13,3 @@ class CombineVectorNode(bpy.types.Node, FunctionNode):
         ], [
             ("fn_VectorSocket", "Result"),
         ]
-
-bpy.utils.register_class(CombineVectorNode)

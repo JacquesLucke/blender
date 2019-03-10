@@ -13,5 +13,3 @@ class ClampNode(bpy.types.Node, FunctionNode):
         ], [
             ("fn_FloatSocket", "Result"),
         ]
-
-bpy.utils.register_class(ClampNode)

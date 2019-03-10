@@ -30,5 +30,3 @@ class FunctionOutputNode(BaseNode, bpy.types.Node):
 
     def remove_socket(self, index):
         self.inputs.remove(self.inputs[index])
-
-bpy.utils.register_class(FunctionOutputNode)

@@ -1,7 +1,4 @@
+from . auto_load import init, register, unregister
 
-def register():
-    from . import base
-    from . import sockets
-    from . import nodes
-    from . import menu
-    from . import node_operators
+init()
+print("INIT")

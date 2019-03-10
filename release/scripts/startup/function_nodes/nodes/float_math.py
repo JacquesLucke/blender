@@ -28,5 +28,3 @@ class FloatMathNode(bpy.types.Node, FunctionNode):
 
     def draw(self, layout):
         layout.prop(self, "operation", text="")
-
-bpy.utils.register_class(FloatMathNode)

@@ -16,5 +16,3 @@ class MapRangeNode(bpy.types.Node, FunctionNode):
         ], [
             ("fn_FloatSocket", "Value"),
         ]
-
-bpy.utils.register_class(MapRangeNode)
