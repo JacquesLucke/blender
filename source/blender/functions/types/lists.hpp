@@ -15,7 +15,7 @@ namespace FN { namespace Types {
 	private:
 		SmallVector<T> m_data;
 
-		static constexpr bool DEBUG_ALLOCATIONS = true;
+		static constexpr bool DEBUG_ALLOCATIONS = false;
 
 		~List()
 		{

@@ -30,7 +30,6 @@ namespace FN {
 				}
 			}
 			m_required_sockets = this->find_required_sockets();
-			std::cout << "Required Sockets: " << m_required_sockets.size() << std::endl;
 		}
 
 		void build_ir(
