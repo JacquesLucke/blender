@@ -20,6 +20,7 @@ WRAPPERS(Function *, FnFunction);
 WRAPPERS(Type *, FnType);
 WRAPPERS(Tuple *, FnTuple);
 WRAPPERS(TupleCallBody *, FnTupleCallBody);
+WRAPPERS(List<float> *, FnFloatList);
 
 static void playground()
 {
@@ -196,14 +197,20 @@ int32_t FN_tuple_get_int32(FnTuple tuple, uint index)
 
 using Types::Vector;
 
-void FN_tuple_set_float_vector_3(FnTuple tuple, uint index, float value[3])
+void FN_tuple_set_fvec3(FnTuple tuple, uint index, float value[3])
 {
 	unwrap(tuple)->set<Vector>(index, *(Vector *)value);
 }
 
-void FN_tuple_get_float_vector_3(FnTuple tuple, uint index, float dst[3])
+void FN_tuple_get_fvec3(FnTuple tuple, uint index, float dst[3])
 {
 	*(Vector *)dst = unwrap(tuple)->get<Vector>(index);
+}
+
+FnFloatList FN_tuple_relocate_out_float_list(FnTuple tuple, uint index)
+{
+	auto list = unwrap(tuple)->relocate_out<SharedFloatList>(index);
+	return wrap(list.move_ptr());
 }
 
 const char *FN_type_name(FnType type)
@@ -233,6 +240,23 @@ SIMPLE_TYPE_GETTER(float);
 SIMPLE_TYPE_GETTER(int32);
 SIMPLE_TYPE_GETTER(fvec3);
 SIMPLE_TYPE_GETTER(float_list);
+
+
+uint FN_list_size_float(FnFloatList list)
+{
+	return unwrap(list)->size();
+}
+
+float *FN_list_data_float(FnFloatList list)
+{
+	return unwrap(list)->data_ptr();
+}
+
+void FN_list_free_float(FnFloatList list)
+{
+	unwrap(list)->remove_user();
+}
+
 
 FnFunction FN_tree_to_function(bNodeTree *btree)
 {

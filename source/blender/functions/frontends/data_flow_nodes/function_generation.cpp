@@ -16,6 +16,7 @@ namespace FN { namespace DataFlowNodes {
 		}
 
 		FunctionGraph fgraph = fgraph_.value();
+		// fgraph.graph()->to_dot__clipboard();
 
 		auto fn = SharedFunction::New(btree->id.name, fgraph.signature());
 		fgraph_add_DependenciesBody(fn, fgraph);

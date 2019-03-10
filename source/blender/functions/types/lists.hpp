@@ -15,11 +15,23 @@ namespace FN { namespace Types {
 	private:
 		SmallVector<T> m_data;
 
-		~List() {}
+		static constexpr bool DEBUG_ALLOCATIONS = true;
+
+		~List()
+		{
+			if (DEBUG_ALLOCATIONS) {
+				std::cout << "List Freed" << std::endl;
+			}
+		}
 
 	public:
 		List()
-			: BLI::SharedImmutable() {}
+			: BLI::SharedImmutable()
+		{
+			if (DEBUG_ALLOCATIONS) {
+				std::cout << "List Allocated" << std::endl;
+			}
+		}
 
 		void append(T value)
 		{
@@ -35,6 +47,11 @@ namespace FN { namespace Types {
 			}
 			BLI_assert(new_list->users() == 1);
 			return new_list;
+		}
+
+		T *data_ptr() const
+		{
+			return m_data.begin();
 		}
 
 		uint size() const

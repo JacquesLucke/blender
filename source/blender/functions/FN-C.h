@@ -11,12 +11,10 @@ extern "C" {
 
 void FN_initialize(void);
 
+/************** Core *************/
+
 typedef struct OpaqueFnFunction *FnFunction;
 typedef struct OpaqueFnType *FnType;
-typedef struct OpaqueFnTuple *FnTuple;
-typedef struct OpaqueFnTupleCallBody *FnTupleCallBody;
-
-/************** Core *************/
 
 void FN_function_free(FnFunction fn);
 
@@ -31,6 +29,8 @@ void FN_function_print(FnFunction fn);
 
 /************** Types *************/
 
+typedef struct OpaqueFnFloatList *FnFloatList;
+
 const char *FN_type_name(FnType type);
 void FN_type_free(FnType type);
 
@@ -44,8 +44,15 @@ FnType FN_type_borrow_int32(void);
 FnType FN_type_borrow_fvec3(void);
 FnType FN_type_borrow_float_list(void);
 
+uint FN_list_size_float(FnFloatList list);
+float *FN_list_data_float(FnFloatList list);
+void FN_list_free_float(FnFloatList list);
+
 
 /*************** Tuple Call ****************/
+
+typedef struct OpaqueFnTuple *FnTuple;
+typedef struct OpaqueFnTupleCallBody *FnTupleCallBody;
 
 FnTupleCallBody FN_tuple_call_get(FnFunction fn);
 void FN_tuple_call_invoke(FnTupleCallBody body, FnTuple fn_in, FnTuple fn_out);
@@ -56,10 +63,11 @@ void FN_tuple_free(FnTuple tuple);
 
 void FN_tuple_set_float(FnTuple tuple, uint index, float value);
 void FN_tuple_set_int32(FnTuple tuple, uint index, int32_t value);
-void FN_tuple_set_float_vector_3(FnTuple tuple, uint index, float vector[3]);
+void FN_tuple_set_fvec3(FnTuple tuple, uint index, float vector[3]);
 float FN_tuple_get_float(FnTuple tuple, uint index);
 int32_t FN_tuple_get_int32(FnTuple tuple, uint index);
-void FN_tuple_get_float_vector_3(FnTuple tuple, uint index, float dst[3]);
+void FN_tuple_get_fvec3(FnTuple tuple, uint index, float dst[3]);
+FnFloatList FN_tuple_relocate_out_float_list(FnTuple tuple, uint index);
 
 uint fn_tuple_stack_prepare_size(FnTupleCallBody body);
 void fn_tuple_prepare_stack(
@@ -86,6 +94,7 @@ void fn_tuple_destruct(FnTuple tuple);
 #define FN_TUPLE_CALL_DESTRUCT_HEAP(body, fn_in, fn_out) \
 	FN_tuple_free(fn_in); \
 	FN_tuple_free(fn_out);
+
 
 /*************** Dependencies ****************/
 

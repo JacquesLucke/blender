@@ -58,11 +58,9 @@ static FnFunction get_current_function(FunctionPointsModifierData *fpmd)
 
 	FnType float_ty = FN_type_borrow_float();
 	FnType int32_ty = FN_type_borrow_int32();
-	FnType fvec3_ty = FN_type_borrow_fvec3();
-
     FnType float_list_ty = FN_type_borrow_float_list();
 
-	FnType inputs[] = { int32_ty, NULL };
+	FnType inputs[] = { float_ty, int32_ty, NULL };
 	FnType outputs[] = { float_list_ty, NULL };
 
 	return FN_function_get_with_signature(tree, inputs, outputs);
@@ -70,18 +68,43 @@ static FnFunction get_current_function(FunctionPointsModifierData *fpmd)
 
 static Mesh *build_point_mesh(FunctionPointsModifierData *fpmd)
 {
-	Mesh *mesh = BKE_mesh_new_nomain(2, 0, 0, 0, 0);
-	float vec1[] = {4, 6, 3};
-	float vec2[] = {1, 2, 3};
-	copy_v3_v3(mesh->mvert + 0, vec1);
-	copy_v3_v3(mesh->mvert + 1, vec2);
+	FnFunction fn = get_current_function(fpmd);
+	if (fn == NULL) {
+		modifier_setError(&fpmd->modifier, "Invalid function");
+		return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+	}
+
+	FnTupleCallBody body = FN_tuple_call_get(fn);
+
+	FN_TUPLE_CALL_PREPARE_STACK(body, fn_in, fn_out);
+
+	FN_tuple_set_float(fn_in, 0, fpmd->control1);
+	FN_tuple_set_int32(fn_in, 1, fpmd->control2);
+	FN_tuple_call_invoke(body, fn_in, fn_out);
+	FnFloatList list = FN_tuple_relocate_out_float_list(fn_out, 0);
+
+	FN_TUPLE_CALL_DESTRUCT_STACK(body, fn_in, fn_out);
+
+
+	FN_function_free(fn);
+
+	uint amount = FN_list_size_float(list);
+	float *ptr = FN_list_data_float(list);
+
+	Mesh *mesh = BKE_mesh_new_nomain(amount, 0, 0, 0, 0);
+	for (uint i = 0; i < amount; i++) {
+		float vec[3] = {0, 0, ptr[i]};
+		copy_v3_v3(mesh->mvert[i].co, vec);
+	}
+	FN_list_free_float(list);
+
 	return mesh;
 }
 
 static Mesh *applyModifier(
         ModifierData *md,
-        const struct ModifierEvalContext *ctx,
-        struct Mesh *mesh)
+        const struct ModifierEvalContext *UNUSED(ctx),
+        struct Mesh *UNUSED(mesh))
 {
 	return build_point_mesh((FunctionPointsModifierData *)md);
 }

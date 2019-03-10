@@ -129,6 +129,13 @@ namespace BLI {
 			return m_object;
 		}
 
+		T *move_ptr()
+		{
+			T *value = m_object;
+			m_object = nullptr;
+			return value;
+		}
+
 		T *operator->() const
 		{
 			return this->ptr();

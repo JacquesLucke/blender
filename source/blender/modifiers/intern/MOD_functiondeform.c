@@ -87,13 +87,13 @@ static void do_deformation(
 	int seed = fdmd->control2 * 234132;
 
 	for (int i = 0; i < numVerts; i++) {
-		FN_tuple_set_float_vector_3(fn_in, 0, vertexCos[i]);
+		FN_tuple_set_fvec3(fn_in, 0, vertexCos[i]);
 		FN_tuple_set_int32(fn_in, 1, seed + i);
 		FN_tuple_set_float(fn_in, 2, fdmd->control1);
 
 		FN_tuple_call_invoke(body, fn_in, fn_out);
 
-		FN_tuple_get_float_vector_3(fn_out, 0, vertexCos[i]);
+		FN_tuple_get_fvec3(fn_out, 0, vertexCos[i]);
 	}
 
 	clock_t end = clock();

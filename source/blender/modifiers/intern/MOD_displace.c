@@ -227,7 +227,7 @@ static void displaceModifier_do_task(
 
 		FN_TUPLE_CALL_PREPARE_STACK(body, fn_in, fn_out);
 
-		FN_tuple_set_float_vector_3(fn_in, 0, vertexCos[iter]);
+		FN_tuple_set_fvec3(fn_in, 0, vertexCos[iter]);
 		FN_tuple_set_int32(fn_in, 1, iter);
 
 		FN_tuple_call_invoke(body, fn_in, fn_out);
