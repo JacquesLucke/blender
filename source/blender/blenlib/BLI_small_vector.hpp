@@ -102,6 +102,13 @@ namespace BLI {
 			m_size++;
 		}
 
+		void extend(const SmallVector &other)
+		{
+			for (const T &value : other) {
+				this->append(value);
+			}
+		}
+
 		void fill(const T &value)
 		{
 			for (uint i = 0; i < m_size; i++) {

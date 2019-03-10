@@ -91,6 +91,16 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(node, bnode);
 	}
 
+	static void insert_combine_lists_node(
+		Builder &builder,
+		const BuilderContext UNUSED(ctx),
+		bNode *bnode)
+	{
+		SharedFunction &combine_float_lists = Functions::combine_float_lists();
+		Node *node = builder.insert_function(combine_float_lists);
+		builder.map_sockets(node, bnode);
+	}
+
 	void register_node_inserters(GraphInserters &inserters)
 	{
 		inserters.reg_node_function("fn_CombineVectorNode", Functions::combine_vector);
@@ -104,6 +114,7 @@ namespace FN { namespace DataFlowNodes {
 		inserters.reg_node_inserter("fn_ClampNode", insert_clamp_node);
 		inserters.reg_node_inserter("fn_AppendToListNode", insert_append_list_node);
 		inserters.reg_node_inserter("fn_GetListElementNode", insert_get_list_element_node);
+		inserters.reg_node_inserter("fn_CombineListsNode", insert_combine_lists_node);
 	}
 
 } }

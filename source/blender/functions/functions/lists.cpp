@@ -22,6 +22,19 @@ namespace FN { namespace Functions {
 		}
 	};
 
+	LAZY_INIT_REF__NO_ARG(SharedFunction, append_float)
+	{
+		auto fn = SharedFunction::New("Append Float", Signature({
+			InputParameter("List", get_float_list_type()),
+			InputParameter("Value", get_float_type()),
+		}, {
+			OutputParameter("List", get_float_list_type()),
+		}));
+		fn->add_body(new AppendToList<float>());
+		return fn;
+	}
+
+
 	template<typename T>
 	class GetListElement : public TupleCallBody {
 		void call(Tuple &fn_in, Tuple &fn_out) const override
@@ -41,18 +54,6 @@ namespace FN { namespace Functions {
 		}
 	};
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, append_float)
-	{
-		auto fn = SharedFunction::New("Append Float", Signature({
-			InputParameter("List", get_float_list_type()),
-			InputParameter("Value", get_float_type()),
-		}, {
-			OutputParameter("List", get_float_list_type()),
-		}));
-		fn->add_body(new AppendToList<float>());
-		return fn;
-	}
-
 	LAZY_INIT_REF__NO_ARG(SharedFunction, get_float_list_element)
 	{
 		auto fn = SharedFunction::New("Get Float List Element", Signature({
@@ -63,6 +64,35 @@ namespace FN { namespace Functions {
 			OutputParameter("Element", get_float_type()),
 		}));
 		fn->add_body(new GetListElement<float>());
+		return fn;
+	}
+
+
+	template<typename T>
+	class CombineList : public TupleCallBody {
+		void call(Tuple &fn_in, Tuple &fn_out) const override
+		{
+			auto list1 = fn_in.relocate_out<SharedList<T>>(0);
+			auto list2 = fn_in.relocate_out<SharedList<T>>(1);
+
+			list1 = list1->get_mutable();
+			list1->extend(list2.ptr());
+
+			fn_out.move_in(0, list1);
+		}
+	};
+
+	LAZY_INIT_REF__NO_ARG(SharedFunction, combine_float_lists)
+	{
+		SharedType &float_list_ty = get_float_list_type();
+
+		auto fn = SharedFunction::New("Combine Float List", Signature({
+			InputParameter("List 1", float_list_ty),
+			InputParameter("List 2", float_list_ty),
+		}, {
+			OutputParameter("List", float_list_ty),
+		}));
+		fn->add_body(new CombineList<float>());
 		return fn;
 	}
 

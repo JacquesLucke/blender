@@ -39,6 +39,12 @@ namespace FN { namespace Types {
 			m_data.append(std::move(value));
 		}
 
+		void extend(List *other)
+		{
+			this->assert_mutable();
+			m_data.extend(other->m_data);
+		}
+
 		List *copy() const
 		{
 			List *new_list = new List();
