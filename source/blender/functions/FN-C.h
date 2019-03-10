@@ -77,6 +77,13 @@ void fn_tuple_destruct(FnTuple tuple);
 	fn_tuple_destruct(fn_in); \
 	fn_tuple_destruct(fn_out);
 
+#define FN_TUPLE_CALL_PREPARE_HEAP(body, fn_in, fn_out) \
+	FnTuple fn_in = FN_tuple_for_input(body); \
+	FnTuple fn_out = FN_tuple_for_output(body); \
+
+#define FN_TUPLE_CALL_DESTRUCT_HEAP(body, fn_in, fn_out) \
+	FN_tuple_free(fn_in); \
+	FN_tuple_free(fn_out);
 
 /*************** Dependencies ****************/
 

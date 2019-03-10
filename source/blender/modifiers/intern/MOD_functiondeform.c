@@ -80,7 +80,7 @@ static void do_deformation(
 	FnTupleCallBody body = FN_tuple_call_get(fn);
 	BLI_assert(body);
 
-	FN_TUPLE_CALL_PREPARE_STACK(body, fn_in, fn_out);
+	FN_TUPLE_CALL_PREPARE_HEAP(body, fn_in, fn_out);
 
 	clock_t start = clock();
 
@@ -97,7 +97,7 @@ static void do_deformation(
 	clock_t end = clock();
 	printf("Time taken: %f s\n", (float)(end - start) / (float)CLOCKS_PER_SEC);
 
-	FN_TUPLE_CALL_DESTRUCT_STACK(body, fn_in, fn_out);
+	FN_TUPLE_CALL_DESTRUCT_HEAP(body, fn_in, fn_out);
 	FN_function_free(fn);
 }
 

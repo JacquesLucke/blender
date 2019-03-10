@@ -27,6 +27,8 @@
 #include "BLI_math.h"
 #include "BLI_task.h"
 
+#include "PIL_time_utildefines.h"
+
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
@@ -221,8 +223,9 @@ static void displaceModifier_do_task(
 
 	if (data->calc_weight_func) {
 		FnTupleCallBody body = FN_tuple_call_get(data->calc_weight_func);
-		FnTuple fn_in = FN_tuple_for_input(body);
-		FnTuple fn_out = FN_tuple_for_output(body);
+		BLI_assert(body);
+
+		FN_TUPLE_CALL_PREPARE_STACK(body, fn_in, fn_out);
 
 		FN_tuple_set_float_vector_3(fn_in, 0, vertexCos[iter]);
 		FN_tuple_set_int32(fn_in, 1, iter);
@@ -231,8 +234,7 @@ static void displaceModifier_do_task(
 
 		weight = FN_tuple_get_float(fn_out, 0);
 
-		FN_tuple_free(fn_in);
-		FN_tuple_free(fn_out);
+		FN_TUPLE_CALL_DESTRUCT_STACK(body, fn_in, fn_out);
 	}
 
 	if (weight == 0.0f) {
@@ -390,6 +392,8 @@ static void displaceModifier_do(
 	}
 	data.calc_weight_func = getCurrentFunction(dmd);
 
+	TIMEIT_START(displace_timer);
+
 	ParallelRangeSettings settings;
 	BLI_parallel_range_settings_defaults(&settings);
 	settings.use_threading = (numVerts > 512);
@@ -397,6 +401,8 @@ static void displaceModifier_do(
 	                        &data,
 	                        displaceModifier_do_task,
 	                        &settings);
+
+	TIMEIT_END(displace_timer);
 
 	if (data.pool != NULL) {
 		BKE_image_pool_free(data.pool);
