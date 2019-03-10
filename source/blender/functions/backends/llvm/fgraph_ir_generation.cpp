@@ -28,8 +28,6 @@ namespace FN {
 					derive_LLVMBuildIRBody_from_TupleCallBody(fn);
 					continue;
 				}
-				/* TODO: Find easy check to see which nodes
-				 *   will need to be executed. */
 			}
 			m_required_sockets = this->find_required_sockets();
 			std::cout << "Required Sockets: " << m_required_sockets.size() << std::endl;
@@ -110,10 +108,7 @@ namespace FN {
 					input_values.append(values.lookup(input));
 				}
 
-				LLVMValues output_values;
-				auto *body = node->function()->body<LLVMBuildIRBody>();
-				BLI_assert(body);
-				body->build_ir(builder, input_values, output_values);
+				LLVMValues output_values = this->build_node_ir(builder, node, input_values);
 
 				for (uint i = 0; i < output_values.size(); i++) {
 					Socket output = node->output(i);
@@ -172,6 +167,27 @@ namespace FN {
 					values.add(target, copied_value);
 				}
 			}
+		}
+
+		LLVMValues build_node_ir(
+			llvm::IRBuilder<> &builder,
+			Node *node,
+			LLVMValues &input_values) const
+		{
+			LLVMValues output_values;
+			SharedFunction &fn = node->function();
+			if (fn->has_body<LLVMCompiledBody>()) {
+				auto *body = fn->body<LLVMCompiledBody>();
+				body->build_ir(builder, input_values, output_values);
+			}
+			else if (fn->has_body<LLVMBuildIRBody>()) {
+				auto *body = fn->body<LLVMBuildIRBody>();
+				body->build_ir(builder, input_values, output_values);
+			}
+			else {
+				BLI_assert(false);
+			}
+			return output_values;
 		}
 	};
 
