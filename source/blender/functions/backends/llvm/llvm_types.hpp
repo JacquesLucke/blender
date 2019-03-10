@@ -5,6 +5,7 @@
 #include "llvm/IR/IRBuilder.h"
 
 #include <functional>
+#include <mutex>
 
 namespace FN {
 
@@ -43,8 +44,10 @@ namespace FN {
 			llvm::Value *byte_addr) const = 0;
 
 	private:
-		/* TODO: accessing this has to be made thread safe. */
 		mutable SmallMap<llvm::LLVMContext *, llvm::Type *> m_type_per_context;
+		mutable std::mutex m_type_per_context_mutex;
+
+		void ensure_type_exists_for_context(llvm::LLVMContext &context) const;
 
 		virtual llvm::Type *create_type(
 			llvm::LLVMContext &context) const = 0;

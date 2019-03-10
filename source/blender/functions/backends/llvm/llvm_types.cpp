@@ -19,10 +19,7 @@ namespace FN {
 	llvm::Type *LLVMTypeInfo::get_type(
 		llvm::LLVMContext &context) const
 	{
-		if (!m_type_per_context.contains(&context)) {
-			llvm::Type *type = this->create_type(context);
-			m_type_per_context.add(&context, type);
-		}
+		this->ensure_type_exists_for_context(context);
 		return m_type_per_context.lookup(&context);
 	}
 
@@ -30,6 +27,24 @@ namespace FN {
 		llvm::LLVMContext &context) const
 	{
 		return this->get_type(context)->getPointerTo();
+	}
+
+	void LLVMTypeInfo::ensure_type_exists_for_context(llvm::LLVMContext &context) const
+	{
+		if (m_type_per_context.contains(&context)) {
+			return;
+		}
+
+		std::lock_guard<std::mutex> lock(m_type_per_context_mutex);
+
+		if (m_type_per_context.contains(&context)) {
+			return;
+		}
+
+		llvm::Type *type = this->create_type(context);
+		BLI_assert(type);
+		m_type_per_context.add(&context, type);
+		BLI_assert(m_type_per_context.contains(&context));
 	}
 
 

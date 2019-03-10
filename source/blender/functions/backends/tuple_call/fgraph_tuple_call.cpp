@@ -13,7 +13,20 @@ namespace FN {
 		ExecuteGraph(const FunctionGraph &function_graph)
 			: m_graph(function_graph.graph()),
 			  m_inputs(function_graph.inputs()),
-			  m_outputs(function_graph.outputs()) {}
+			  m_outputs(function_graph.outputs())
+		{
+			auto *context = new llvm::LLVMContext();
+
+			for (Node *node : m_graph->all_nodes()) {
+				if (node->function()->has_body<TupleCallBody>()) {
+					continue;
+				}
+
+				if (node->function()->has_body<LLVMBuildIRBody>()) {
+					derive_TupleCallBody_from_LLVMBuildIRBody(node->function(), *context);
+				}
+			}
+		}
 
 		void call(Tuple &fn_in, Tuple &fn_out) const override
 		{
@@ -33,7 +46,7 @@ namespace FN {
 			}
 			else {
 				Node *node = socket.node();
-				TupleCallBody *body = this->get_node_body(node);
+				TupleCallBody *body = node->function()->body<TupleCallBody>();
 
 				FN_TUPLE_STACK_ALLOC(tmp_in, body->meta_in());
 				FN_TUPLE_STACK_ALLOC(tmp_out, body->meta_out());
@@ -46,14 +59,6 @@ namespace FN {
 
 				Tuple::copy_element(tmp_out, socket.index(), out, out_index);
 			}
-		}
-
-		TupleCallBody *get_node_body(Node *node) const
-		{
-			if (!node->function()->has_body<TupleCallBody>()) {
-				derive_TupleCallBody_from_LLVMBuildIRBody(node->function(), *(new llvm::LLVMContext()));
-			}
-			return node->function()->body<TupleCallBody>();
 		}
 	};
 
