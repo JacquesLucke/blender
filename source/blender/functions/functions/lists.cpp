@@ -86,7 +86,7 @@ namespace FN { namespace Functions {
 	{
 		SharedType &float_list_ty = get_float_list_type();
 
-		auto fn = SharedFunction::New("Combine Float List", Signature({
+		auto fn = SharedFunction::New("Combine Float Lists", Signature({
 			InputParameter("List 1", float_list_ty),
 			InputParameter("List 2", float_list_ty),
 		}, {
