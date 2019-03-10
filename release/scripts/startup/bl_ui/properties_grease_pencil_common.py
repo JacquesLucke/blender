@@ -856,22 +856,12 @@ class GreasePencilToolsPanel:
 
 class GreasePencilMaterialsPanel:
     # Mix-in, use for properties editor and top-bar.
-
-    @classmethod
-    def poll(cls, context):
-        ob = context.object
-        ma = context.material
-        return (ob and ob.type == 'GPENCIL') or (ma and ma.grease_pencil)
-
     @staticmethod
     def draw(self, context):
         layout = self.layout
         show_full_ui = (self.bl_space_type == 'PROPERTIES')
 
         ob = context.object
-        gpd = context.gpencil
-        space = context.space_data
-
         row = layout.row()
 
         if ob:
@@ -909,13 +899,14 @@ class GreasePencilMaterialsPanel:
                     icon_link = 'MESH_DATA' if slot.link == 'DATA' else 'OBJECT_DATA'
                     row.prop(slot, "link", icon=icon_link, icon_only=True)
 
-                if gpd and gpd.use_stroke_edit_mode:
+                if ob.data.use_stroke_edit_mode:
                     row = layout.row(align=True)
                     row.operator("gpencil.stroke_change_color", text="Assign")
                     row.operator("gpencil.color_select", text="Select").deselect = False
                     row.operator("gpencil.color_select", text="Deselect").deselect = True
 
         else:
+            space = context.space_data
             row.template_ID(space, "pin_id")
 
 
