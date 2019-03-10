@@ -1,4 +1,5 @@
 #include "fgraph_tuple_call.hpp"
+#include "FN_llvm.hpp"
 
 namespace FN {
 
@@ -34,13 +35,18 @@ namespace FN {
 				Node *node = socket.node();
 				const Signature &signature = node->signature();
 
-				Tuple tmp_in(signature.input_types());
-				Tuple tmp_out(signature.output_types());
+				auto meta_in = SharedTupleMeta::New(signature.input_types());
+				auto meta_out = SharedTupleMeta::New(signature.output_types());
+
+				FN_TUPLE_STACK_ALLOC(tmp_in, meta_in);
+				FN_TUPLE_STACK_ALLOC(tmp_out, meta_out);
 
 				for (uint i = 0; i < signature.inputs().size(); i++) {
 					this->compute_socket(fn_in, tmp_in, i, node->input(i));
 				}
-
+				if (!node->function()->has_body<TupleCallBody>()) {
+					derive_TupleCallBody_from_LLVMBuildIRBody(node->function(), *(new llvm::LLVMContext()));
+				}
 				TupleCallBody *body = node->function()->body<TupleCallBody>();
 				body->call(tmp_in, tmp_out);
 

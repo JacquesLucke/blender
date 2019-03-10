@@ -68,7 +68,12 @@ namespace FN {
 			m_owns_mem = true;
 		}
 
-		Tuple(SharedTupleMeta meta, void *data, bool *initialized, bool take_ownership)
+		Tuple(
+			SharedTupleMeta meta,
+			void *data,
+			bool *initialized,
+			bool take_ownership,
+			bool was_initialized = false)
 			: m_meta(std::move(meta))
 		{
 			BLI_assert(data != nullptr);
@@ -76,6 +81,9 @@ namespace FN {
 			m_data = data;
 			m_initialized = initialized;
 			m_owns_mem = take_ownership;
+			if (!was_initialized) {
+				this->set_all_uninitialized();
+			}
 		}
 
 		Tuple(SmallTypeVector types)
@@ -269,6 +277,8 @@ namespace FN {
 			}
 		}
 
+		void print_initialized(std::string name = "");
+
 	private:
 		inline void *element_ptr(uint index) const
 		{
@@ -288,3 +298,9 @@ namespace FN {
 	};
 
 } /* namespace FN */
+
+#define FN_TUPLE_STACK_ALLOC(name, meta_expr) \
+	SharedTupleMeta &name##_meta = (meta_expr); \
+	void *name##_data = alloca(name##_meta->total_data_size()); \
+	bool *name##_initialized = (bool *)alloca(name##_meta->element_amount()); \
+	Tuple name(name##_meta, name##_data, name##_initialized, false);
