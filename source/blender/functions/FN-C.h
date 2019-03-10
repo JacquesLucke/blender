@@ -73,7 +73,7 @@ void fn_tuple_destruct(FnTuple tuple);
 	void *fn_in##_##fn_out##_buffer = alloca(fn_tuple_stack_prepare_size(body)); \
 	fn_tuple_prepare_stack(body, fn_in##_##fn_out##_buffer, &fn_in, &fn_out);
 
-#define FN_TUPLE_CALL_DESTRUCT_STACK(fn_in, fn_out) \
+#define FN_TUPLE_CALL_DESTRUCT_STACK(body, fn_in, fn_out) \
 	fn_tuple_destruct(fn_in); \
 	fn_tuple_destruct(fn_out);
 
