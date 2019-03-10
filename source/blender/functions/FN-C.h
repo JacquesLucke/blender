@@ -2,6 +2,7 @@
 #define __FUNCTIONS_H__
 
 #include "BLI_utildefines.h"
+#include "BLI_alloca.h"
 #include "DNA_node_types.h"
 
 #ifdef __cplusplus
@@ -57,6 +58,24 @@ void FN_tuple_set_float_vector_3(FnTuple tuple, uint index, float vector[3]);
 float FN_tuple_get_float(FnTuple tuple, uint index);
 int32_t FN_tuple_get_int32(FnTuple tuple, uint index);
 void FN_tuple_get_float_vector_3(FnTuple tuple, uint index, float dst[3]);
+
+uint fn_tuple_stack_prepare_size(FnTupleCallBody body);
+void fn_tuple_prepare_stack(
+	FnTupleCallBody body,
+	void *buffer,
+	FnTuple *fn_in,
+	FnTuple *fn_out);
+
+void fn_tuple_destruct(FnTuple tuple);
+
+#define FN_TUPLE_CALL_PREPARE_STACK(body, fn_in, fn_out) \
+	FnTuple fn_in, fn_out; \
+	void *fn_in##_##fn_out##_buffer = alloca(fn_tuple_stack_prepare_size(body)); \
+	fn_tuple_prepare_stack(body, fn_in##_##fn_out##_buffer, &fn_in, &fn_out);
+
+#define FN_TUPLE_CALL_DESTRUCT_STACK(fn_in, fn_out) \
+	fn_tuple_destruct(fn_in); \
+	fn_tuple_destruct(fn_out);
 
 
 /*************** Dependencies ****************/

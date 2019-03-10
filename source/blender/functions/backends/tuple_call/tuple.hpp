@@ -45,6 +45,8 @@ namespace FN {
 			return m_total_size;
 		}
 
+		inline uint total_stack_size() const;
+
 		uint element_amount() const
 		{
 			return m_types.size();
@@ -296,6 +298,11 @@ namespace FN {
 		bool m_owns_mem;
 		SharedTupleMeta m_meta;
 	};
+
+	inline uint TupleMeta::total_stack_size() const
+	{
+		return sizeof(Tuple) + this->total_data_size() + this->element_amount();
+	}
 
 } /* namespace FN */
 

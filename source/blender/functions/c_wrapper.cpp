@@ -138,6 +138,42 @@ void FN_tuple_free(FnTuple tuple)
 	delete unwrap(tuple);
 }
 
+uint fn_tuple_stack_prepare_size(FnTupleCallBody body_)
+{
+	TupleCallBody *body = unwrap(body_);
+	return body->meta_in()->total_stack_size() + body->meta_out()->total_stack_size();
+}
+
+static Tuple *init_tuple(SharedTupleMeta &meta, void *buffer)
+{
+	char *buf = (char *)buffer;
+	char *tuple_buf = buf + 0;
+	char *data_buf = buf + sizeof(Tuple);
+	char *init_buf = data_buf + meta->total_data_size();
+	return new(tuple_buf) Tuple(meta, data_buf, (bool *)init_buf, false);
+}
+
+void fn_tuple_prepare_stack(
+	FnTupleCallBody body_,
+	void *buffer,
+	FnTuple *fn_in_,
+	FnTuple *fn_out_)
+{
+	TupleCallBody *body = unwrap(body_);
+	char *buf = (char *)buffer;
+	char *buf_in = buf + 0;
+	char *buf_out = buf + body->meta_in()->total_stack_size();
+	Tuple *fn_in = init_tuple(body->meta_in(), buf_in);
+	Tuple *fn_out = init_tuple(body->meta_out(), buf_out);
+	*fn_in_ = wrap(fn_in);
+	*fn_out_ = wrap(fn_out);
+}
+
+void fn_tuple_destruct(FnTuple tuple)
+{
+	unwrap(tuple)->~Tuple();
+}
+
 void FN_tuple_set_float(FnTuple tuple, uint index, float value)
 {
 	unwrap(tuple)->set<float>(index, value);
