@@ -185,6 +185,14 @@ namespace FN {
 			return this->copy_out<T>(index);
 		}
 
+		template<typename T>
+		inline T &get_ref(uint index) const
+		{
+			BLI_assert(index < m_meta->element_amount());
+			BLI_assert(m_initialized[index]);
+			return this->element_ref<T>(index);
+		}
+
 		static inline void copy_element(
 			const Tuple &from, uint from_index,
 			Tuple &to, uint to_index)
