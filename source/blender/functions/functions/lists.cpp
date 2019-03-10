@@ -30,12 +30,12 @@ namespace FN { namespace Functions {
 			int32_t index = fn_in.get<int32_t>(1);
 
 			if (index >= 0 && index < list->size()) {
-				List<T> *list_ = list.ptr();
+				const List<T> *list_ = list.ptr();
 				T value = (*list_)[index];
 				fn_out.move_in(0, value);
 			}
 			else {
-				T fallback = fn_in.relocate_out<T>(0);
+				T fallback = fn_in.relocate_out<T>(2);
 				fn_out.move_in(0, fallback);
 			}
 		}

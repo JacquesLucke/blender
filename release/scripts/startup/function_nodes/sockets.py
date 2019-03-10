@@ -41,3 +41,8 @@ class VectorSocket(bpy.types.NodeSocket, DataSocket):
 
     def draw_property(self, layout, node, text):
         layout.column().prop(self, "value", text=text)
+
+class FloatListSocket(bpy.types.NodeSocket, DataSocket):
+    bl_idname = "fn_FloatListSocket"
+    bl_label = "Float List Socket"
+    color = (0, 0.3, 0.5, 0.5)

@@ -71,6 +71,26 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_output(min_node->output(0), bnode, 0);
 	}
 
+	static void insert_append_list_node(
+		Builder &builder,
+		const BuilderContext UNUSED(ctx),
+		bNode *bnode)
+	{
+		SharedFunction &append_float = Functions::append_float();
+		Node *node = builder.insert_function(append_float);
+		builder.map_sockets(node, bnode);
+	}
+
+	static void insert_get_list_element_node(
+		Builder &builder,
+		const BuilderContext UNUSED(ctx),
+		bNode *bnode)
+	{
+		SharedFunction &get_float = Functions::get_float_list_element();
+		Node *node = builder.insert_function(get_float);
+		builder.map_sockets(node, bnode);
+	}
+
 	void register_node_inserters(GraphInserters &inserters)
 	{
 		inserters.reg_node_function("fn_CombineVectorNode", Functions::combine_vector);
@@ -78,9 +98,12 @@ namespace FN { namespace DataFlowNodes {
 		inserters.reg_node_function("fn_VectorDistanceNode", Functions::separate_vector);
 		inserters.reg_node_function("fn_RandomNumberNode", Functions::random_number);
 		inserters.reg_node_function("fn_MapRangeNode", Functions::map_range);
+
 		inserters.reg_node_inserter("fn_ObjectTransformsNode", insert_object_transforms_node);
 		inserters.reg_node_inserter("fn_FloatMathNode", insert_float_math_node);
 		inserters.reg_node_inserter("fn_ClampNode", insert_clamp_node);
+		inserters.reg_node_inserter("fn_AppendToListNode", insert_append_list_node);
+		inserters.reg_node_inserter("fn_GetListElementNode", insert_get_list_element_node);
 	}
 
 } }
