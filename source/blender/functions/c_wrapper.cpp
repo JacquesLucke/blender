@@ -16,61 +16,25 @@ using namespace FN::DataFlowNodes;
 	inline T2 wrap(T1 value) { return (T2)value; }
 
 
-WRAPPERS(Function *, FnFunction);
-WRAPPERS(Type *, FnType);
-WRAPPERS(Tuple *, FnTuple);
-WRAPPERS(TupleCallBody *, FnTupleCallBody);
-WRAPPERS(List<float> *, FnFloatList);
 
-static void playground()
-{
-	SharedFunction fn = Functions::append_float();
-
-	Tuple fn_in(fn->signature().input_types());
-	Tuple fn_out(fn->signature().output_types());
-
-	auto list = SharedFloatList::New();
-
-	BLI_assert(list->users() == 1);
-	fn_in.copy_in(0, list);
-	BLI_assert(list->users() == 2);
-
-	fn_in.set<float>(1, 42.0f);
-
-	BLI_assert(list->users() == 2);
-	fn->body<TupleCallBody>()->call(fn_in, fn_out);
-	BLI_assert(list->users() == 1);
-
-	auto new_list = fn_out.relocate_out<SharedFloatList>(0);
-	BLI_assert(new_list->users() == 1);
-}
+/************* Generic *****************/
 
 void FN_initialize()
 {
 	initialize_llvm();
-	playground();
 }
 
-void FN_tuple_call_invoke(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)
-{
-	Tuple &fn_in_ = *unwrap(fn_in);
-	Tuple &fn_out_ = *unwrap(fn_out);
 
-	BLI_assert(fn_in_.all_initialized());
-	unwrap(fn_call)->call(fn_in_, fn_out_);
-	BLI_assert(fn_out_.all_initialized());
-}
 
-FnTupleCallBody FN_tuple_call_get(FnFunction fn)
-{
-	return wrap(unwrap(fn)->body<TupleCallBody>());
-}
+/************** Core ****************/
+
+WRAPPERS(Function *, FnFunction);
+WRAPPERS(Type *, FnType);
 
 void FN_function_free(FnFunction fn)
 {
 	unwrap(fn)->decref();
 }
-
 
 bool FN_function_has_signature(FnFunction fn, FnType *inputs, FnType *outputs)
 {
@@ -121,6 +85,76 @@ void FN_function_print(FnFunction fn)
 	function->print();
 }
 
+
+
+/**************** Types ******************/
+
+WRAPPERS(List<float> *, FnFloatList);
+
+const char *FN_type_name(FnType type)
+{
+	return unwrap(type)->name().c_str();
+}
+
+void FN_type_free(FnType type)
+{
+	unwrap(type)->decref();
+}
+
+static FnType get_type_with_increased_refcount(const SharedType &type)
+{
+	Type *typeref = type.ptr();
+	typeref->incref();
+	return wrap(typeref);
+}
+
+#define SIMPLE_TYPE_GETTER(name) \
+	FnType FN_type_get_##name() \
+	{ return get_type_with_increased_refcount(Types::get_##name##_type()); } \
+	FnType FN_type_borrow_##name() \
+	{ return wrap(Types::get_##name##_type().ptr()); }
+
+SIMPLE_TYPE_GETTER(float);
+SIMPLE_TYPE_GETTER(int32);
+SIMPLE_TYPE_GETTER(fvec3);
+SIMPLE_TYPE_GETTER(float_list);
+
+uint FN_list_size_float(FnFloatList list)
+{
+	return unwrap(list)->size();
+}
+
+float *FN_list_data_float(FnFloatList list)
+{
+	return unwrap(list)->data_ptr();
+}
+
+void FN_list_free_float(FnFloatList list)
+{
+	unwrap(list)->remove_user();
+}
+
+
+
+/***************** Tuple Call ******************/
+
+WRAPPERS(Tuple *, FnTuple);
+WRAPPERS(TupleCallBody *, FnTupleCallBody);
+
+void FN_tuple_call_invoke(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)
+{
+	Tuple &fn_in_ = *unwrap(fn_in);
+	Tuple &fn_out_ = *unwrap(fn_out);
+
+	BLI_assert(fn_in_.all_initialized());
+	unwrap(fn_call)->call(fn_in_, fn_out_);
+	BLI_assert(fn_out_.all_initialized());
+}
+
+FnTupleCallBody FN_tuple_call_get(FnFunction fn)
+{
+	return wrap(unwrap(fn)->body<TupleCallBody>());
+}
 
 FnTuple FN_tuple_for_input(FnTupleCallBody body)
 {
@@ -195,8 +229,6 @@ int32_t FN_tuple_get_int32(FnTuple tuple, uint index)
 	return unwrap(tuple)->get<int32_t>(index);
 }
 
-using Types::Vector;
-
 void FN_tuple_set_fvec3(FnTuple tuple, uint index, float value[3])
 {
 	unwrap(tuple)->set<Vector>(index, *(Vector *)value);
@@ -213,50 +245,26 @@ FnFloatList FN_tuple_relocate_out_float_list(FnTuple tuple, uint index)
 	return wrap(list.move_ptr());
 }
 
-const char *FN_type_name(FnType type)
+
+
+/**************** Dependencies *******************/
+
+void FN_function_update_dependencies(
+	FnFunction fn,
+	struct DepsNodeHandle *deps_node)
 {
-	return unwrap(type)->name().c_str();
+	Function *fn_ = unwrap(fn);
+	const DependenciesBody *body = fn_->body<DependenciesBody>();
+	if (body) {
+		Dependencies dependencies;
+		body->dependencies(dependencies);
+		dependencies.update_depsgraph(deps_node);
+	}
 }
 
-void FN_type_free(FnType type)
-{
-	unwrap(type)->decref();
-}
-
-static FnType get_type_with_increased_refcount(const SharedType &type)
-{
-	Type *typeref = type.ptr();
-	typeref->incref();
-	return wrap(typeref);
-}
-
-#define SIMPLE_TYPE_GETTER(name) \
-	FnType FN_type_get_##name() \
-	{ return get_type_with_increased_refcount(Types::get_##name##_type()); } \
-	FnType FN_type_borrow_##name() \
-	{ return wrap(Types::get_##name##_type().ptr()); }
-
-SIMPLE_TYPE_GETTER(float);
-SIMPLE_TYPE_GETTER(int32);
-SIMPLE_TYPE_GETTER(fvec3);
-SIMPLE_TYPE_GETTER(float_list);
 
 
-uint FN_list_size_float(FnFloatList list)
-{
-	return unwrap(list)->size();
-}
-
-float *FN_list_data_float(FnFloatList list)
-{
-	return unwrap(list)->data_ptr();
-}
-
-void FN_list_free_float(FnFloatList list)
-{
-	unwrap(list)->remove_user();
-}
-
+/****************** Data Flow Nodes *****************/
 
 FnFunction FN_tree_to_function(bNodeTree *btree)
 {
@@ -289,18 +297,5 @@ FnFunction FN_function_get_with_signature(
 	else {
 		FN_function_free(fn);
 		return NULL;
-	}
-}
-
-void FN_function_update_dependencies(
-	FnFunction fn,
-	struct DepsNodeHandle *deps_node)
-{
-	Function *fn_ = unwrap(fn);
-	const DependenciesBody *body = fn_->body<DependenciesBody>();
-	if (body) {
-		Dependencies dependencies;
-		body->dependencies(dependencies);
-		dependencies.update_depsgraph(deps_node);
 	}
 }

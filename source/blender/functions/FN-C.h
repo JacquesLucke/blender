@@ -9,7 +9,10 @@
 extern "C" {
 #endif
 
+/************ Generic *************/
+
 void FN_initialize(void);
+
 
 /************** Core *************/
 
