@@ -33,25 +33,27 @@ namespace FN {
 			}
 			else {
 				Node *node = socket.node();
-				const Signature &signature = node->signature();
+				TupleCallBody *body = this->get_node_body(node);
 
-				auto meta_in = SharedTupleMeta::New(signature.input_types());
-				auto meta_out = SharedTupleMeta::New(signature.output_types());
+				FN_TUPLE_STACK_ALLOC(tmp_in, body->meta_in());
+				FN_TUPLE_STACK_ALLOC(tmp_out, body->meta_out());
 
-				FN_TUPLE_STACK_ALLOC(tmp_in, meta_in);
-				FN_TUPLE_STACK_ALLOC(tmp_out, meta_out);
-
-				for (uint i = 0; i < signature.inputs().size(); i++) {
+				for (uint i = 0; i < node->input_amount(); i++) {
 					this->compute_socket(fn_in, tmp_in, i, node->input(i));
 				}
-				if (!node->function()->has_body<TupleCallBody>()) {
-					derive_TupleCallBody_from_LLVMBuildIRBody(node->function(), *(new llvm::LLVMContext()));
-				}
-				TupleCallBody *body = node->function()->body<TupleCallBody>();
+
 				body->call(tmp_in, tmp_out);
 
 				Tuple::copy_element(tmp_out, socket.index(), out, out_index);
 			}
+		}
+
+		TupleCallBody *get_node_body(Node *node) const
+		{
+			if (!node->function()->has_body<TupleCallBody>()) {
+				derive_TupleCallBody_from_LLVMBuildIRBody(node->function(), *(new llvm::LLVMContext()));
+			}
+			return node->function()->body<TupleCallBody>();
 		}
 	};
 

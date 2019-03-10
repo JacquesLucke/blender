@@ -42,7 +42,6 @@ namespace BLI {
 	private:
 		T *m_object;
 
-		AutoRefCount() = delete;
 		AutoRefCount(T *object)
 			: m_object(object) {}
 
@@ -57,6 +56,9 @@ namespace BLI {
 		}
 
 	public:
+		AutoRefCount()
+			: AutoRefCount(new T()) {}
+
 		template<typename ...Args>
 		static AutoRefCount<T> New(Args&&... args)
 		{

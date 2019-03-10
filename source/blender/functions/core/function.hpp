@@ -13,11 +13,17 @@ namespace FN {
 		void set_owner(Function *fn)
 		{
 			m_owner = fn;
+			this->owner_init_post();
 		}
 
 		friend class Function;
 
+	protected:
+		virtual void owner_init_post() {}
+
 	public:
+		virtual ~FunctionBody() {}
+
 		Function *owner() const
 		{
 			return m_owner;

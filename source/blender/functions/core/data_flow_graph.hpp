@@ -87,6 +87,16 @@ namespace FN {
 			return this->function()->signature();
 		}
 
+		uint input_amount() const
+		{
+			return this->signature().inputs().size();
+		}
+
+		uint output_amount() const
+		{
+			return this->signature().outputs().size();
+		}
+
 		class SocketIterator {
 		private:
 			Node *m_node;
