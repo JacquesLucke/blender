@@ -1,11 +1,11 @@
 import bpy
+from . utils.generic import iter_subclasses_recursive
 
 class FunctionNodeTree(bpy.types.NodeTree):
     bl_idname = "FunctionNodeTree"
     bl_icon = "MOD_DATA_TRANSFER"
     bl_label = "Function Nodes"
 
-bpy.utils.register_class(FunctionNodeTree)
 
 class BaseNode:
     def draw_buttons(self, context, layout):
@@ -26,6 +26,10 @@ class BaseNode:
 
     def draw_socket(self, socket, layout, text):
         socket.draw_self(layout, self, text)
+
+    @classmethod
+    def iter_final_subclasses(cls):
+        yield from filter(lambda x: issubclass(x, bpy.types.Node), iter_subclasses_recursive(cls))
 
 class BaseSocket:
     color = (0, 0, 0, 0)
