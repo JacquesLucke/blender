@@ -37,10 +37,12 @@ void FN_type_free(FnType type);
 FnType FN_type_get_float(void);
 FnType FN_type_get_int32(void);
 FnType FN_type_get_fvec3(void);
+FnType FN_type_get_float_list(void);
 
 FnType FN_type_borrow_float(void);
 FnType FN_type_borrow_int32(void);
 FnType FN_type_borrow_fvec3(void);
+FnType FN_type_borrow_float_list(void);
 
 
 /*************** Tuple Call ****************/

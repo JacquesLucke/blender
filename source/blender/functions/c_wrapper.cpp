@@ -232,6 +232,7 @@ static FnType get_type_with_increased_refcount(const SharedType &type)
 SIMPLE_TYPE_GETTER(float);
 SIMPLE_TYPE_GETTER(int32);
 SIMPLE_TYPE_GETTER(fvec3);
+SIMPLE_TYPE_GETTER(float_list);
 
 FnFunction FN_tree_to_function(bNodeTree *btree)
 {
