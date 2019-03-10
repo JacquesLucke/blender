@@ -166,7 +166,8 @@ namespace FN {
 			}
 			else {
 				values.add(targets[0], value_to_forward);
-				for (Socket target : targets) {
+				for (uint i = 1; i < targets.size(); i++) {
+					Socket target = targets[i];
 					llvm::Value *copied_value = type_info->build_copy_ir(builder, value_to_forward);
 					values.add(target, copied_value);
 				}
