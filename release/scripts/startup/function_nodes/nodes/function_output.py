@@ -16,6 +16,8 @@ class FunctionOutputNode(BaseNode, bpy.types.Node):
             "New Integer", settings=("fn_IntegerSocket", ))
         self.invoke_function(col, "new_socket",
             "New Vector", settings=("fn_VectorSocket", ))
+        self.invoke_function(col, "new_socket",
+            "New Float List", settings=("fn_FloatListSocket", ))
 
     def draw_socket(self, socket, layout, text):
         row = layout.row(align=True)
