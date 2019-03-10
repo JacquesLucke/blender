@@ -72,6 +72,9 @@ namespace FN { namespace DataFlowNodes {
 		else if (STREQ(bsocket->idname, "fn_VectorSocket")) {
 			return Types::get_fvec3_type();
 		}
+		else if (STREQ(bsocket->idname, "fn_FloatListSocket")) {
+			return Types::get_float_list_type();
+		}
 		else {
 			BLI_assert(false);
 			return *(SharedType *)nullptr;
