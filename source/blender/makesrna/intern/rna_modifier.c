@@ -86,6 +86,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_Subsurf, "SUBSURF", ICON_MOD_SUBSURF, "Subdivision Surface", ""},
 	{eModifierType_Triangulate, "TRIANGULATE", ICON_MOD_TRIANGULATE, "Triangulate", ""},
 	{eModifierType_Wireframe, "WIREFRAME", ICON_MOD_WIREFRAME, "Wireframe", "Generate a wireframe on the edges of a mesh"},
+	{eModifierType_FunctionPoints, "FUNCTION_POINTS", ICON_NONE, "Function Points", ""},
 	{0, "", 0, N_("Deform"), ""},
 	{eModifierType_Armature, "ARMATURE", ICON_MOD_ARMATURE, "Armature", ""},
 	{eModifierType_Cast, "CAST", ICON_MOD_CAST, "Cast", ""},
@@ -432,6 +433,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_WeightedNormalModifier;
 		case eModifierType_FunctionDeform:
 			return &RNA_FunctionDeformModifier;
+		case eModifierType_FunctionPoints:
+			return &RNA_FunctionPointsModifier;
 		/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -5087,6 +5090,28 @@ static void rna_def_modifier_function_deform(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 }
 
+static void rna_def_modifier_function_points(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "FunctionPointsModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Function Points Modifier", "");
+	RNA_def_struct_sdna(srna, "FunctionPointsModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_NONE);
+
+	prop = RNA_def_float(srna, "control1", 0.0, -FLT_MAX, FLT_MAX, "Control 1", "", -10, 10);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_int(srna, "control2", 0, INT_MIN, INT_MAX, "Control 2", "", -10, 10);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "function_tree", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_EDITABLE);
+	RNA_def_property_ui_text(prop, "Function Tree", "Function node tree");
+	RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5210,6 +5235,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_surfacedeform(brna);
 	rna_def_modifier_weightednormal(brna);
 	rna_def_modifier_function_deform(brna);
+	rna_def_modifier_function_points(brna);
 }
 
 #endif

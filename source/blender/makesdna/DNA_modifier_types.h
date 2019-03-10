@@ -89,6 +89,7 @@ typedef enum ModifierType {
 	eModifierType_SurfaceDeform     = 53,
 	eModifierType_WeightedNormal	= 54,
 	eModifierType_FunctionDeform    = 55,
+	eModifierType_FunctionPoints    = 56,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1951,5 +1952,12 @@ typedef struct FunctionDeformModifierData {
 	int control2;
 	struct bNodeTree *function_tree;
 } FunctionDeformModifierData;
+
+typedef struct FunctionPointsModifierData {
+	ModifierData modifier;
+	float control1;
+	int control2;
+	struct bNodeTree *function_tree;
+} FunctionPointsModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */

@@ -300,5 +300,6 @@ void modifier_type_init(ModifierTypeInfo *types[])
 	INIT_TYPE(SurfaceDeform);
 	INIT_TYPE(WeightedNormal);
 	INIT_TYPE(FunctionDeform);
+	INIT_TYPE(FunctionPoints);
 #undef INIT_TYPE
 }
