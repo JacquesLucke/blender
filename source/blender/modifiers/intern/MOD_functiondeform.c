@@ -77,11 +77,11 @@ static void do_deformation(
 		return;
 	}
 
-	FnTupleCallBody fn_call = FN_function_get_callable(fn);
-	BLI_assert(fn_call);
+	FnTupleCallBody body = FN_tuple_call_get(fn);
+	BLI_assert(body);
 
-	FnTuple fn_in = FN_tuple_for_input(fn);
-	FnTuple fn_out = FN_tuple_for_output(fn);
+	FnTuple fn_in = FN_tuple_for_input(body);
+	FnTuple fn_out = FN_tuple_for_output(body);
 
 	clock_t start = clock();
 
@@ -89,7 +89,9 @@ static void do_deformation(
 		FN_tuple_set_float_vector_3(fn_in, 0, vertexCos[i]);
 		FN_tuple_set_int32(fn_in, 1, i);
 		FN_tuple_set_float(fn_in, 2, fdmd->control1);
-		FN_function_call(fn_call, fn_in, fn_out);
+
+		FN_tuple_call_invoke(body, fn_in, fn_out);
+
 		FN_tuple_get_float_vector_3(fn_out, 0, vertexCos[i]);
 	}
 

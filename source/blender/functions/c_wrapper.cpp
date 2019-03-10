@@ -19,7 +19,7 @@ using namespace FN::DataFlowNodes;
 WRAPPERS(Function *, FnFunction);
 WRAPPERS(Type *, FnType);
 WRAPPERS(Tuple *, FnTuple);
-WRAPPERS(const TupleCallBody *, FnTupleCallBody);
+WRAPPERS(TupleCallBody *, FnTupleCallBody);
 
 static void playground()
 {
@@ -50,7 +50,7 @@ void FN_initialize()
 	playground();
 }
 
-void FN_function_call(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)
+void FN_tuple_call_invoke(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)
 {
 	Tuple &fn_in_ = *unwrap(fn_in);
 	Tuple &fn_out_ = *unwrap(fn_out);
@@ -60,7 +60,7 @@ void FN_function_call(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)
 	BLI_assert(fn_out_.all_initialized());
 }
 
-FnTupleCallBody FN_function_get_callable(FnFunction fn)
+FnTupleCallBody FN_tuple_call_get(FnFunction fn)
 {
 	return wrap(unwrap(fn)->body<TupleCallBody>());
 }
@@ -121,15 +121,15 @@ void FN_function_print(FnFunction fn)
 }
 
 
-FnTuple FN_tuple_for_input(FnFunction fn)
+FnTuple FN_tuple_for_input(FnTupleCallBody body)
 {
-	auto tuple = new Tuple(unwrap(fn)->signature().input_types());
+	auto tuple = new Tuple(unwrap(body)->meta_in());
 	return wrap(tuple);
 }
 
-FnTuple FN_tuple_for_output(FnFunction fn)
+FnTuple FN_tuple_for_output(FnTupleCallBody body)
 {
-	auto tuple = new Tuple(unwrap(fn)->signature().output_types());
+	auto tuple = new Tuple(unwrap(body)->meta_out());
 	return wrap(tuple);
 }
 

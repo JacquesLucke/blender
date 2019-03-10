@@ -1621,12 +1621,13 @@ static float dvar_eval_function(ChannelDriver *UNUSED(driver), DriverVar *dvar)
 		return 0.0f;
 	}
 
-	FnTuple fn_in = FN_tuple_for_input(fn);
-	FnTuple fn_out = FN_tuple_for_output(fn);
-	FN_tuple_set_int32(fn_in, 0, (int64_t)dvar);
-	FnTupleCallBody callable = FN_function_get_callable(fn);
+	FnTupleCallBody body = FN_tuple_call_get(fn);
 
-	FN_function_call(callable, fn_in, fn_out);
+	FnTuple fn_in = FN_tuple_for_input(body);
+	FnTuple fn_out = FN_tuple_for_output(body);
+	FN_tuple_set_int32(fn_in, 0, (int64_t)dvar);
+
+	FN_tuple_call_invoke(body, fn_in, fn_out);
 	float result = FN_tuple_get_float(fn_out, 0);
 
 	FN_tuple_free(fn_in);
