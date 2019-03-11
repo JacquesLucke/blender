@@ -22,16 +22,36 @@ namespace FN { namespace Functions {
 		}
 	};
 
+	template<typename T>
+	SharedFunction build_append_function(
+		std::string name,
+		SharedType &base_type,
+		SharedType &list_type)
+	{
+		auto fn = SharedFunction::New(name, Signature({
+			InputParameter("List", list_type),
+			InputParameter("Value", base_type),
+		}, {
+			OutputParameter("List", list_type),
+		}));
+		fn->add_body(new AppendToList<T>());
+		return fn;
+	}
+
 	LAZY_INIT_REF__NO_ARG(SharedFunction, append_float)
 	{
-		auto fn = SharedFunction::New("Append Float", Signature({
-			InputParameter("List", get_float_list_type()),
-			InputParameter("Value", get_float_type()),
-		}, {
-			OutputParameter("List", get_float_list_type()),
-		}));
-		fn->add_body(new AppendToList<float>());
-		return fn;
+		return build_append_function<float>(
+			"Append Float",
+			get_float_type(),
+			get_float_list_type());
+	}
+
+	LAZY_INIT_REF__NO_ARG(SharedFunction, append_fvec3)
+	{
+		return build_append_function<Vector>(
+			"Append Vector",
+			get_fvec3_type(),
+			get_fvec3_list_type());
 	}
 
 
@@ -54,22 +74,42 @@ namespace FN { namespace Functions {
 		}
 	};
 
+	template<typename T>
+	SharedFunction build_get_element_function(
+		std::string name,
+		SharedType &base_type,
+		SharedType &list_type)
+	{
+		auto fn = SharedFunction::New(name, Signature({
+			InputParameter("List", list_type),
+			InputParameter("Index", get_int32_type()),
+			InputParameter("Fallback", base_type),
+		}, {
+			OutputParameter("Element", base_type),
+		}));
+		fn->add_body(new GetListElement<T>());
+		return fn;
+	}
+
 	LAZY_INIT_REF__NO_ARG(SharedFunction, get_float_list_element)
 	{
-		auto fn = SharedFunction::New("Get Float List Element", Signature({
-			InputParameter("List", get_float_list_type()),
-			InputParameter("Index", get_int32_type()),
-			InputParameter("Fallback", get_float_type()),
-		}, {
-			OutputParameter("Element", get_float_type()),
-		}));
-		fn->add_body(new GetListElement<float>());
-		return fn;
+		return build_get_element_function<float>(
+			"Get Float List Element",
+			get_float_type(),
+			get_float_list_type());
+	}
+
+	LAZY_INIT_REF__NO_ARG(SharedFunction, get_fvec3_list_element)
+	{
+		return build_get_element_function<Vector>(
+			"Get Vector List Element",
+			get_fvec3_type(),
+			get_fvec3_list_type());
 	}
 
 
 	template<typename T>
-	class CombineList : public TupleCallBody {
+	class CombineLists : public TupleCallBody {
 		void call(Tuple &fn_in, Tuple &fn_out) const override
 		{
 			auto list1 = fn_in.relocate_out<SharedList<T>>(0);
@@ -82,18 +122,33 @@ namespace FN { namespace Functions {
 		}
 	};
 
+	template<typename T>
+	SharedFunction build_combine_lists_function(
+		std::string name,
+		SharedType &list_type)
+	{
+		auto fn = SharedFunction::New(name, Signature({
+			InputParameter("List 1", list_type),
+			InputParameter("List 2", list_type),
+		}, {
+			OutputParameter("List", list_type),
+		}));
+		fn->add_body(new CombineLists<float>());
+		return fn;
+	}
+
 	LAZY_INIT_REF__NO_ARG(SharedFunction, combine_float_lists)
 	{
-		SharedType &float_list_ty = get_float_list_type();
+		return build_combine_lists_function<float>(
+			"Combine Float Lists",
+			get_float_list_type());
+	}
 
-		auto fn = SharedFunction::New("Combine Float Lists", Signature({
-			InputParameter("List 1", float_list_ty),
-			InputParameter("List 2", float_list_ty),
-		}, {
-			OutputParameter("List", float_list_ty),
-		}));
-		fn->add_body(new CombineList<float>());
-		return fn;
+	LAZY_INIT_REF__NO_ARG(SharedFunction, combine_fvec3_lists)
+	{
+		return build_combine_lists_function<Vector>(
+			"Combine Vector Lists",
+			get_fvec3_list_type());
 	}
 
 } } /* namespace FN::Functions */

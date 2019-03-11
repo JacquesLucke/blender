@@ -86,4 +86,12 @@ namespace FN { namespace Types {
 		return type;
 	}
 
+	LAZY_INIT_REF__NO_ARG(SharedType, get_fvec3_list_type)
+	{
+		SharedType type = SharedType::New("FVec3 List");
+		type->extend(new ListCPPTypeInfo<Vector>());
+		type->extend(ListLLVMTypeInfo<Vector>::Create());
+		return type;
+	}
+
 } } /* namespace FN::Types */
