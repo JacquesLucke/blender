@@ -52,34 +52,72 @@ class VectorListSocket(bpy.types.NodeSocket, DataSocket):
     bl_label = "Vector List Socket"
     color = (0, 0, 0.5, 0.5)
 
-def socket_cls_from_data_type(data_type):
-    return data_types[data_type]
+class DataTypesInfo:
+    def __init__(self):
+        self.data_types = set()
+        self.cls_by_data_type = dict()
+        self.list_by_base = dict()
+        self.base_by_list = dict()
 
-def to_base_idname(value):
-    return base_idnames[value]
+    def insert_data_type(self, data_type, socket_cls):
+        assert data_type not in self.data_types
 
-def to_list_idname(value):
-    return list_idnames[value]
+        self.data_types.add(data_type)
+        self.cls_by_data_type[data_type] = socket_cls
 
-base_idnames = {
-    "Float List" : "fn_FloatSocket",
-    "Vector List" : "fn_VectorSocket"
-}
+    def insert_list_relation(self, base_type, list_type):
+        assert self.is_data_type(base_type)
+        assert self.is_data_type(list_type)
+        assert base_type not in self.list_by_base
+        assert list_type not in self.base_by_list
 
-list_idnames = {
-    "Float" : "fn_FloatListSocket",
-    "Vector" : "fn_VectorListSocket",
-}
+        self.list_by_base[base_type] = list_type
+        self.base_by_list[list_type] = base_type
 
-list_relations = [
-    (FloatSocket, FloatListSocket),
-    (VectorSocket, VectorListSocket),
-]
+    def is_data_type(self, data_type):
+        return data_type in self.data_types
 
-data_types = {
-    "Float" : FloatSocket,
-    "Integer" : IntegerSocket,
-    "Vector" : VectorSocket,
-    "Float List" : FloatListSocket,
-    "Vector List" : VectorListSocket,
-}
+    def is_base(self, data_type):
+        return data_type in self.list_by_base
+
+    def is_list(self, data_type):
+        return data_type in self.base_by_list
+
+    def to_list(self, data_type):
+        assert self.is_base(data_type)
+        return self.list_by_base[data_type]
+
+    def to_base(self, data_type):
+        assert self.is_list(data_type)
+        return self.base_by_list[data_type]
+
+    def to_cls(self, data_type):
+        assert self.is_data_type(data_type)
+        return self.cls_by_data_type[data_type]
+
+    def to_list_cls(self, data_type):
+        return self.to_cls(self.to_list(data_type))
+
+    def to_base_cls(self, data_type):
+        return self.to_cls(self.to_base(data_type))
+
+    def to_idname(self, data_type):
+        return self.to_cls(data_type).bl_idname
+
+    def to_list_idname(self, data_type):
+        return self.to_list_cls(data_type).bl_idname
+
+    def to_base_idname(self, data_type):
+        return self.to_base_cls(data_type).bl_idname
+
+
+info = DataTypesInfo()
+
+info.insert_data_type("Float", FloatSocket)
+info.insert_data_type("Vector", VectorSocket)
+info.insert_data_type("Integer", VectorSocket)
+info.insert_data_type("Float List", FloatListSocket)
+info.insert_data_type("Vector List", VectorListSocket)
+
+info.insert_list_relation("Float", "Float List")
+info.insert_list_relation("Vector", "Vector List")

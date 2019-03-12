@@ -1,6 +1,6 @@
 from bpy.props import *
 from dataclasses import dataclass
-from . sockets import socket_cls_from_data_type, to_base_idname, to_list_idname
+from . sockets import info
 
 class SocketDeclBase:
     def generate(self, node, node_sockets):
@@ -12,8 +12,8 @@ class FixedSocketDecl(SocketDeclBase):
         self.data_type = data_type
 
     def generate(self, node, node_sockets):
-        socket_cls = socket_cls_from_data_type(self.data_type)
-        return node_sockets.new(socket_cls.bl_idname, self.display_name)
+        idname = info.to_idname(self.data_type)
+        return node_sockets.new(idname, self.display_name)
 
 class ListSocketDecl(SocketDeclBase):
     def __init__(self, display_name: str, type_property: str):
@@ -22,7 +22,7 @@ class ListSocketDecl(SocketDeclBase):
 
     def generate(self, node, node_sockets):
         base_type = getattr(node, self.type_property)
-        idname = to_list_idname(base_type)
+        idname = info.to_list_idname(base_type)
         return node_sockets.new(idname, self.display_name)
 
     @classmethod
@@ -36,8 +36,8 @@ class BaseSocketDecl(SocketDeclBase):
 
     def generate(self, node, node_sockets):
         data_type = getattr(node, self.type_property)
-        socket_cls = socket_cls_from_data_type(data_type)
-        return node_sockets.new(socket_cls.bl_idname, self.display_name)
+        idname = info.to_idname(data_type)
+        return node_sockets.new(idname, self.display_name)
 
     @classmethod
     def Property(cls):
