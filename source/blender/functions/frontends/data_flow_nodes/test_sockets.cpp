@@ -34,10 +34,10 @@ namespace FN { namespace DataFlowNodes {
 
 	void initialize_socket_inserters(GraphInserters &inserters)
 	{
-		inserters.reg_socket_loader("fn_FloatSocket", load_float);
-		inserters.reg_socket_loader("fn_VectorSocket", load_vector);
-		inserters.reg_socket_loader("fn_IntegerSocket", load_integer);
-		inserters.reg_socket_loader("fn_FloatListSocket", load_float_list);
+		inserters.reg_socket_loader("Float", load_float);
+		inserters.reg_socket_loader("Vector", load_vector);
+		inserters.reg_socket_loader("Integer", load_integer);
+		inserters.reg_socket_loader("Float List", load_float_list);
 	}
 
 } }

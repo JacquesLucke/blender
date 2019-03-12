@@ -1,4 +1,5 @@
 import bpy
+from bpy.props import *
 from . utils.generic import iter_subclasses_recursive
 
 class FunctionNodeTree(bpy.types.NodeTree):
@@ -55,6 +56,9 @@ class FunctionNode(BaseNode):
         return [], []
 
 class DataSocket(BaseSocketDecl):
+    data_type: StringProperty(
+        maxlen=64)
+
     def draw_self(self, layout, node, text):
         if not (self.is_linked or self.is_output) and hasattr(self, "draw_property"):
             self.draw_property(layout, node, text)

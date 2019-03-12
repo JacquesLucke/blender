@@ -127,7 +127,9 @@ class DataTypesInfo:
 
     def build(self, data_type, node_sockets, name):
         builder = self.to_builder(data_type)
-        return builder.build(node_sockets, name)
+        socket = builder.build(node_sockets, name)
+        socket.data_type = data_type
+        return socket
 
 
 info = DataTypesInfo()

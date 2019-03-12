@@ -4,6 +4,8 @@
 #include "FN_types.hpp"
 #include "util_wrappers.hpp"
 
+#include "RNA_access.h"
+
 namespace FN { namespace DataFlowNodes {
 
 	Node *Builder::insert_function(SharedFunction &function)
@@ -63,16 +65,24 @@ namespace FN { namespace DataFlowNodes {
 
 	SharedType &BuilderContext::type_of_socket(bNodeSocket *bsocket) const
 	{
-		if (STREQ(bsocket->idname, "fn_FloatSocket")) {
+		PointerRNA ptr;
+		RNA_pointer_create(
+			this->btree_id(), &RNA_NodeSocket,
+			bsocket, &ptr);
+
+		char data_type[64];
+		RNA_string_get(&ptr, "data_type", data_type);
+
+		if (STREQ(data_type, "Float")) {
 			return Types::get_float_type();
 		}
-		else if (STREQ(bsocket->idname, "fn_IntegerSocket")) {
+		else if (STREQ(data_type, "Integer")) {
 			return Types::get_int32_type();
 		}
-		else if (STREQ(bsocket->idname, "fn_VectorSocket")) {
+		else if (STREQ(data_type, "Vector")) {
 			return Types::get_fvec3_type();
 		}
-		else if (STREQ(bsocket->idname, "fn_FloatListSocket")) {
+		else if (STREQ(data_type, "Float List")) {
 			return Types::get_float_list_type();
 		}
 		else {

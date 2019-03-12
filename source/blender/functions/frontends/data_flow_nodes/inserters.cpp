@@ -96,7 +96,15 @@ namespace FN { namespace DataFlowNodes {
 		SmallVector<SocketLoader> loaders;
 		OutputParameters outputs;
 		for (auto *bsocket : bsockets) {
-			SocketLoader loader = m_socket_loaders.lookup(bsocket->idname);
+			PointerRNA ptr;
+			RNA_pointer_create(
+				ctx.btree_id(), &RNA_NodeSocket,
+				bsocket, &ptr);
+
+			char data_type[64];
+			RNA_string_get(&ptr, "data_type", data_type);
+
+			SocketLoader loader = m_socket_loaders.lookup(data_type);
 			loaders.append(loader);
 			outputs.append(OutputParameter(bsocket->name, ctx.type_of_socket(bsocket)));
 		}

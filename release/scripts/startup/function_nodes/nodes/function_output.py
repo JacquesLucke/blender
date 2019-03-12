@@ -1,5 +1,6 @@
 import bpy
 from .. base import BaseNode
+from .. sockets import info
 
 class FunctionOutputNode(BaseNode, bpy.types.Node):
     bl_idname = "fn_FunctionOutputNode"
@@ -11,13 +12,13 @@ class FunctionOutputNode(BaseNode, bpy.types.Node):
     def draw(self, layout):
         col = layout.column(align=True)
         self.invoke_function(col, "new_socket",
-            "New Float", settings=("fn_FloatSocket", ))
+            "New Float", settings=("Float", ))
         self.invoke_function(col, "new_socket",
-            "New Integer", settings=("fn_IntegerSocket", ))
+            "New Integer", settings=("Integer", ))
         self.invoke_function(col, "new_socket",
-            "New Vector", settings=("fn_VectorSocket", ))
+            "New Vector", settings=("Vector", ))
         self.invoke_function(col, "new_socket",
-            "New Float List", settings=("fn_FloatListSocket", ))
+            "New Float List", settings=("Float List", ))
 
     def draw_socket(self, socket, layout, text):
         row = layout.row(align=True)
@@ -27,8 +28,8 @@ class FunctionOutputNode(BaseNode, bpy.types.Node):
         self.invoke_function(row, "remove_socket",
             text="", icon="X", settings=(index, ))
 
-    def new_socket(self, idname):
-        self.inputs.new(idname, "Output")
+    def new_socket(self, data_type):
+        info.build(data_type, self.inputs, "Output")
 
     def remove_socket(self, index):
         self.inputs.remove(self.inputs[index])
