@@ -47,9 +47,9 @@ class FunctionNode(BaseNode):
     def init(self, context):
         inputs, outputs = self.get_sockets()
         for socket_decl in inputs:
-            socket_decl.generate(self, self.inputs)
+            socket_decl.build(self, self.inputs)
         for socket_decl in outputs:
-            socket_decl.generate(self, self.outputs)
+            socket_decl.build(self, self.outputs)
 
     def get_sockets():
         return [], []

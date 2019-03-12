@@ -5,7 +5,6 @@ from bpy.props import *
 class FloatSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_FloatSocket"
     bl_label = "Float Socket"
-    color = (0, 0.3, 0.5, 1)
 
     value: FloatProperty(
         name="Value",
@@ -15,10 +14,12 @@ class FloatSocket(bpy.types.NodeSocket, DataSocket):
     def draw_property(self, layout, node, text):
         layout.prop(self, "value", text=text)
 
+    def draw_color(self, context, node):
+        return (0, 0.3, 0.5, 1)
+
 class IntegerSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_IntegerSocket"
     bl_label = "Integer Socket"
-    color = (0, 0, 0, 1)
 
     value: IntProperty(
         name="Value",
@@ -28,10 +29,12 @@ class IntegerSocket(bpy.types.NodeSocket, DataSocket):
     def draw_property(self, layout, node, text):
         layout.prop(self, "value", text=text)
 
+    def draw_color(self, context, node):
+        return (0, 0.7, 0.5, 1)
+
 class VectorSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_VectorSocket"
     bl_label = "Vector Socket"
-    color = (0, 0, 0.5, 1)
 
     value: FloatVectorProperty(
         name="Value",
@@ -42,28 +45,55 @@ class VectorSocket(bpy.types.NodeSocket, DataSocket):
     def draw_property(self, layout, node, text):
         layout.column().prop(self, "value", text=text)
 
-class FloatListSocket(bpy.types.NodeSocket, DataSocket):
-    bl_idname = "fn_FloatListSocket"
-    bl_label = "Float List Socket"
-    color = (0, 0.3, 0.5, 0.5)
+    def draw_color(self, context, node):
+        return (0, 0, 0.5, 1)
 
-class VectorListSocket(bpy.types.NodeSocket, DataSocket):
-    bl_idname = "fn_VectorListSocket"
-    bl_label = "Vector List Socket"
-    color = (0, 0, 0.5, 0.5)
+class CustomColoredSocket(bpy.types.NodeSocket, DataSocket):
+    bl_idname = "fn_CustomColoredSocket"
+    bl_label = "Custom Colored Socket"
+
+    color: FloatVectorProperty(
+        size=4,
+        subtype='COLOR',
+        soft_min=0.0,
+        soft_max=1.0)
+
+    def draw_color(self, context, node):
+        return self.color
+
+class SocketBuilder:
+    def build(self, node_sockets, name):
+        raise NotImplementedError()
+
+class UniqueSocketBuilder(SocketBuilder):
+    def __init__(self, socket_cls):
+        self.socket_cls = socket_cls
+
+    def build(self, node_sockets, name):
+        return node_sockets.new(self.socket_cls.bl_idname, name)
+
+class ColoredSocketBuilder(SocketBuilder):
+    def __init__(self, color):
+        self.color = color
+
+    def build(self, node_sockets, name):
+        socket = node_sockets.new("fn_CustomColoredSocket", name)
+        socket.color = self.color
+        return socket
 
 class DataTypesInfo:
     def __init__(self):
         self.data_types = set()
-        self.cls_by_data_type = dict()
+        self.builder_by_data_type = dict()
         self.list_by_base = dict()
         self.base_by_list = dict()
 
-    def insert_data_type(self, data_type, socket_cls):
+    def insert_data_type(self, data_type, builder):
         assert data_type not in self.data_types
+        assert isinstance(builder, SocketBuilder)
 
         self.data_types.add(data_type)
-        self.cls_by_data_type[data_type] = socket_cls
+        self.builder_by_data_type[data_type] = builder
 
     def insert_list_relation(self, base_type, list_type):
         assert self.is_data_type(base_type)
@@ -91,33 +121,22 @@ class DataTypesInfo:
         assert self.is_list(data_type)
         return self.base_by_list[data_type]
 
-    def to_cls(self, data_type):
+    def to_builder(self, data_type):
         assert self.is_data_type(data_type)
-        return self.cls_by_data_type[data_type]
+        return self.builder_by_data_type[data_type]
 
-    def to_list_cls(self, data_type):
-        return self.to_cls(self.to_list(data_type))
-
-    def to_base_cls(self, data_type):
-        return self.to_cls(self.to_base(data_type))
-
-    def to_idname(self, data_type):
-        return self.to_cls(data_type).bl_idname
-
-    def to_list_idname(self, data_type):
-        return self.to_list_cls(data_type).bl_idname
-
-    def to_base_idname(self, data_type):
-        return self.to_base_cls(data_type).bl_idname
+    def build(self, data_type, node_sockets, name):
+        builder = self.to_builder(data_type)
+        return builder.build(node_sockets, name)
 
 
 info = DataTypesInfo()
 
-info.insert_data_type("Float", FloatSocket)
-info.insert_data_type("Vector", VectorSocket)
-info.insert_data_type("Integer", VectorSocket)
-info.insert_data_type("Float List", FloatListSocket)
-info.insert_data_type("Vector List", VectorListSocket)
+info.insert_data_type("Float", UniqueSocketBuilder(FloatSocket))
+info.insert_data_type("Vector", UniqueSocketBuilder(VectorSocket))
+info.insert_data_type("Integer", UniqueSocketBuilder(VectorSocket))
+info.insert_data_type("Float List", ColoredSocketBuilder((0, 0.3, 0.5, 0.5)))
+info.insert_data_type("Vector List", ColoredSocketBuilder((0, 0, 0.5, 0.5)))
 
 info.insert_list_relation("Float", "Float List")
 info.insert_list_relation("Vector", "Vector List")
