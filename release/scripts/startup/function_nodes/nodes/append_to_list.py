@@ -1,14 +1,17 @@
 import bpy
 from .. base import FunctionNode
+from .. socket_decl import BaseSocketDecl, ListSocketDecl
 
 class AppendToListNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_AppendToListNode"
     bl_label = "Append to List"
 
+    active_type: BaseSocketDecl.Property()
+
     def get_sockets(self):
         return [
-            ("fn_FloatListSocket", "List"),
-            ("fn_FloatSocket", "Value"),
+            ListSocketDecl("List", "active_type"),
+            BaseSocketDecl("Value", "active_type"),
         ], [
-            ("fn_FloatListSocket", "List"),
+            ListSocketDecl("List", "active_type"),
         ]

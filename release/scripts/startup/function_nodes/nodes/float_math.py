@@ -1,6 +1,7 @@
 import bpy
 from bpy.props import *
 from .. base import FunctionNode
+from .. socket_decl import FixedSocketDecl
 
 operation_items = [
     ("ADD", "Add", "", "", 1),
@@ -20,10 +21,10 @@ class FloatMathNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            ("fn_FloatSocket", "A"),
-            ("fn_FloatSocket", "B"),
+            FixedSocketDecl("A", "Float"),
+            FixedSocketDecl("B", "Float"),
         ], [
-            ("fn_FloatSocket", "Result"),
+            FixedSocketDecl("Result", "Float"),
         ]
 
     def draw(self, layout):

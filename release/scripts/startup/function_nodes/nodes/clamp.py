@@ -1,5 +1,6 @@
 import bpy
 from .. base import FunctionNode
+from .. socket_decl import FixedSocketDecl
 
 class ClampNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_ClampNode"
@@ -7,9 +8,9 @@ class ClampNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            ("fn_FloatSocket", "Value"),
-            ("fn_FloatSocket", "Min"),
-            ("fn_FloatSocket", "Max"),
+            FixedSocketDecl("Value", "Float"),
+            FixedSocketDecl("Min", "Float"),
+            FixedSocketDecl("Max", "Float"),
         ], [
-            ("fn_FloatSocket", "Result"),
+            FixedSocketDecl("Result", "Float"),
         ]

@@ -51,3 +51,35 @@ class VectorListSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_VectorListSocket"
     bl_label = "Vector List Socket"
     color = (0, 0, 0.5, 0.5)
+
+def socket_cls_from_data_type(data_type):
+    return data_types[data_type]
+
+def to_base_idname(value):
+    return base_idnames[value]
+
+def to_list_idname(value):
+    return list_idnames[value]
+
+base_idnames = {
+    "Float List" : "fn_FloatSocket",
+    "Vector List" : "fn_VectorSocket"
+}
+
+list_idnames = {
+    "Float" : "fn_FloatListSocket",
+    "Vector" : "fn_VectorListSocket",
+}
+
+list_relations = [
+    (FloatSocket, FloatListSocket),
+    (VectorSocket, VectorListSocket),
+]
+
+data_types = {
+    "Float" : FloatSocket,
+    "Integer" : IntegerSocket,
+    "Vector" : VectorSocket,
+    "Float List" : FloatListSocket,
+    "Vector List" : VectorListSocket,
+}

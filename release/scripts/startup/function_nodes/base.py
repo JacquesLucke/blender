@@ -31,7 +31,7 @@ class BaseNode:
     def iter_final_subclasses(cls):
         yield from filter(lambda x: issubclass(x, bpy.types.Node), iter_subclasses_recursive(cls))
 
-class BaseSocket:
+class BaseSocketDecl:
     color = (0, 0, 0, 0)
 
     def draw_color(self, context, node):
@@ -46,15 +46,15 @@ class BaseSocket:
 class FunctionNode(BaseNode):
     def init(self, context):
         inputs, outputs = self.get_sockets()
-        for idname, name in inputs:
-            self.inputs.new(idname, name)
-        for idname, name in outputs:
-            self.outputs.new(idname, name)
+        for socket_decl in inputs:
+            socket_decl.generate(self, self.inputs)
+        for socket_decl in outputs:
+            socket_decl.generate(self, self.outputs)
 
     def get_sockets():
         return [], []
 
-class DataSocket(BaseSocket):
+class DataSocket(BaseSocketDecl):
     def draw_self(self, layout, node, text):
         if not (self.is_linked or self.is_output) and hasattr(self, "draw_property"):
             self.draw_property(layout, node, text)

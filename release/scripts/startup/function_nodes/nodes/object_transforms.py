@@ -1,6 +1,7 @@
 import bpy
 from bpy.props import *
 from .. base import FunctionNode
+from .. socket_decl import FixedSocketDecl
 
 class ObjectTransformsNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_ObjectTransformsNode"
@@ -13,7 +14,7 @@ class ObjectTransformsNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [], [
-            ("fn_VectorSocket", "Location"),
+            FixedSocketDecl("Location", "Vector"),
         ]
 
     def draw(self, layout):
