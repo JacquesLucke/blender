@@ -30,7 +30,7 @@ class IntegerSocket(bpy.types.NodeSocket, DataSocket):
         layout.prop(self, "value", text=text)
 
     def draw_color(self, context, node):
-        return (0, 0.7, 0.5, 1)
+        return (0.3, 0.7, 0.5, 1)
 
 class VectorSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_VectorSocket"
@@ -132,13 +132,13 @@ class DataTypesInfo:
         return socket
 
 
-info = DataTypesInfo()
+type_infos = DataTypesInfo()
 
-info.insert_data_type("Float", UniqueSocketBuilder(FloatSocket))
-info.insert_data_type("Vector", UniqueSocketBuilder(VectorSocket))
-info.insert_data_type("Integer", UniqueSocketBuilder(VectorSocket))
-info.insert_data_type("Float List", ColoredSocketBuilder((0, 0.3, 0.5, 0.5)))
-info.insert_data_type("Vector List", ColoredSocketBuilder((0, 0, 0.5, 0.5)))
+type_infos.insert_data_type("Float", UniqueSocketBuilder(FloatSocket))
+type_infos.insert_data_type("Vector", UniqueSocketBuilder(VectorSocket))
+type_infos.insert_data_type("Integer", UniqueSocketBuilder(IntegerSocket))
+type_infos.insert_data_type("Float List", ColoredSocketBuilder((0, 0.3, 0.5, 0.5)))
+type_infos.insert_data_type("Vector List", ColoredSocketBuilder((0, 0, 0.5, 0.5)))
 
-info.insert_list_relation("Float", "Float List")
-info.insert_list_relation("Vector", "Vector List")
+type_infos.insert_list_relation("Float", "Float List")
+type_infos.insert_list_relation("Vector", "Vector List")

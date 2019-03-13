@@ -46,11 +46,24 @@ class BaseSocketDecl:
 
 class FunctionNode(BaseNode):
     def init(self, context):
+        self.rebuild()
+
+    def rebuild(self):
+        self.inputs.clear()
+        self.outputs.clear()
+
         inputs, outputs = self.get_sockets()
         for socket_decl in inputs:
             socket_decl.build(self, self.inputs)
         for socket_decl in outputs:
             socket_decl.build(self, self.outputs)
+
+    def rebuild_existing_sockets(self):
+        amount_in = len(self.inputs)
+        amount_out = len(self.outputs)
+        self.rebuild()
+        assert amount_in == len(self.inputs)
+        assert amount_out == len(self.outputs)
 
     def get_sockets():
         return [], []

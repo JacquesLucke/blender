@@ -1,6 +1,6 @@
 import bpy
 from .. base import BaseNode
-from .. sockets import info
+from .. sockets import type_infos
 
 class FunctionOutputNode(BaseNode, bpy.types.Node):
     bl_idname = "fn_FunctionOutputNode"
@@ -29,7 +29,7 @@ class FunctionOutputNode(BaseNode, bpy.types.Node):
             text="", icon="X", settings=(index, ))
 
     def new_socket(self, data_type):
-        info.build(data_type, self.inputs, "Output")
+        type_infos.build(data_type, self.inputs, "Output")
 
     def remove_socket(self, index):
         self.inputs.remove(self.inputs[index])

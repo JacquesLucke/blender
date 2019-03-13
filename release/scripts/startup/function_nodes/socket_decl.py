@@ -1,6 +1,6 @@
 from bpy.props import *
 from dataclasses import dataclass
-from . sockets import info
+from . sockets import type_infos
 
 class SocketDeclBase:
     def build(self, node, node_sockets):
@@ -12,7 +12,7 @@ class FixedSocketDecl(SocketDeclBase):
         self.data_type = data_type
 
     def build(self, node, node_sockets):
-        return info.build(
+        return type_infos.build(
             self.data_type,
             node_sockets,
             self.display_name)
@@ -24,8 +24,8 @@ class ListSocketDecl(SocketDeclBase):
 
     def build(self, node, node_sockets):
         base_type = getattr(node, self.type_property)
-        list_type = info.to_list(base_type)
-        return info.build(
+        list_type = type_infos.to_list(base_type)
+        return type_infos.build(
             list_type,
             node_sockets,
             self.display_name)
@@ -41,7 +41,7 @@ class BaseSocketDecl(SocketDeclBase):
 
     def build(self, node, node_sockets):
         data_type = getattr(node, self.type_property)
-        return info.build(
+        return type_infos.build(
             data_type,
             node_sockets,
             self.display_name)
