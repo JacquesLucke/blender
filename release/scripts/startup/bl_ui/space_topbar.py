@@ -19,9 +19,6 @@
 # <pep8 compliant>
 import bpy
 from bpy.types import Header, Menu, Panel
-from .properties_grease_pencil_common import (
-    GPENCIL_UL_layer,
-)
 
 
 class TOPBAR_HT_upper_bar(Header):
@@ -90,12 +87,10 @@ class TOPBAR_HT_lower_bar(Header):
     def draw(self, context):
         region = context.region
 
-        if region.alignment == 'LEFT':
-            self.draw_left(context)
-        elif region.alignment == 'RIGHT':
+        if region.alignment == 'RIGHT':
             self.draw_right(context)
         else:
-            self.draw_center(context)
+            self.draw_left(context)
 
     def draw_left(self, context):
         layout = self.layout
@@ -158,9 +153,6 @@ class TOPBAR_HT_lower_bar(Header):
                     layout.popover_group(space_type='PROPERTIES', region_type='WINDOW', context=".paint_common_2d", category="")
             elif context.uv_sculpt_object is not None:
                 layout.popover_group(space_type='PROPERTIES', region_type='WINDOW', context=".uv_sculpt", category="")
-
-    def draw_center(self, context):
-        pass
 
     def draw_right(self, context):
         layout = self.layout
@@ -441,12 +433,12 @@ class _draw_left_context_mode:
                         from .properties_paint_common import UnifiedPaintPanel
 
                         row = layout.row(align=True)
-                        UnifiedPaintPanel.prop_unified_size(row, context, brush, "size", slider=True, text="Radius")
-                        UnifiedPaintPanel.prop_unified_size(row, context, brush, "use_pressure_size")
+                        UnifiedPaintPanel.prop_unified_size(row, context, brush, "size", slider=True)
+                        UnifiedPaintPanel.prop_unified_size(row, context, brush, "use_pressure_size", text="")
 
                         row = layout.row(align=True)
-                        UnifiedPaintPanel.prop_unified_strength(row, context, brush, "strength", slider=True, text="Strength")
-                        UnifiedPaintPanel.prop_unified_strength(row, context, brush, "use_pressure_strength")
+                        UnifiedPaintPanel.prop_unified_strength(row, context, brush, "strength", slider=True)
+                        UnifiedPaintPanel.prop_unified_strength(row, context, brush, "use_pressure_strength", text="")
 
         @staticmethod
         def PAINT(context, layout, tool):
@@ -487,7 +479,6 @@ class TOPBAR_PT_gpencil_layers(Panel):
 
         return False
 
-    @staticmethod
     def draw(self, context):
         layout = self.layout
         gpd = context.gpencil_data
@@ -527,7 +518,7 @@ class TOPBAR_PT_gpencil_layers(Panel):
 
         gpl = context.active_gpencil_layer
         if gpl:
-            sub.menu("GPENCIL_MT_layer_specials", icon='DOWNARROW_HLT', text="")
+            sub.menu("GPENCIL_MT_layer_context_menu", icon='DOWNARROW_HLT', text="")
 
             if len(gpd.layers) > 1:
                 col.separator()
@@ -869,6 +860,10 @@ class TOPBAR_MT_help(Menu):
     bl_label = "Help"
 
     def draw(self, context):
+        # If 'url_prefill_from_blender' becomes slow it could be made into a separate operator
+        # to avoid constructing the bug report just to show this menu.
+        from bl_ui_utils.bug_report_url import url_prefill_from_blender
+
         layout = self.layout
 
         show_developer = context.preferences.view.show_developer_ui
@@ -879,7 +874,7 @@ class TOPBAR_MT_help(Menu):
 
         layout.operator(
             "wm.url_open", text="Report a Bug", icon='URL',
-        ).url = "https://developer.blender.org/maniphest/task/edit/form/1"
+        ).url = url_prefill_from_blender()
 
         layout.separator()
 
@@ -930,7 +925,7 @@ class TOPBAR_MT_help(Menu):
         layout.operator("wm.splash", icon='BLENDER')
 
 
-class TOPBAR_MT_file_specials(Menu):
+class TOPBAR_MT_file_context_menu(Menu):
     bl_label = "File Context Menu"
 
     def draw(self, context):
@@ -951,7 +946,7 @@ class TOPBAR_MT_file_specials(Menu):
         layout.menu("TOPBAR_MT_file_export", icon='EXPORT')
 
 
-class TOPBAR_MT_window_specials(Menu):
+class TOPBAR_MT_window_context_menu(Menu):
     bl_label = "Window Context Menu"
 
     def draw(self, context):
@@ -1031,7 +1026,6 @@ class TOPBAR_PT_gpencil_primitive(Panel):
     bl_region_type = 'HEADER'
     bl_label = "Primitives"
 
-    @staticmethod
     def draw(self, context):
         settings = context.tool_settings.gpencil_sculpt
 
@@ -1043,8 +1037,8 @@ class TOPBAR_PT_gpencil_primitive(Panel):
 classes = (
     TOPBAR_HT_upper_bar,
     TOPBAR_HT_lower_bar,
-    TOPBAR_MT_file_specials,
-    TOPBAR_MT_window_specials,
+    TOPBAR_MT_file_context_menu,
+    TOPBAR_MT_window_context_menu,
     TOPBAR_MT_workspace_menu,
     TOPBAR_MT_editor_menus,
     TOPBAR_MT_file,

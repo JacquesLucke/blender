@@ -148,9 +148,9 @@ class _defs_annotate:
             else:
                 text = ""
 
-            layout.label(text="Annotation:")
             gpl = context.active_gpencil_layer
             if gpl is not None:
+                layout.label(text="Annotation:")
                 sub = layout.row(align=True)
                 sub.ui_units_x = 8
 
@@ -924,6 +924,12 @@ class _defs_vertex_paint:
 class _defs_texture_paint:
 
     @staticmethod
+    def poll_select_mask(context):
+        ob = context.active_object
+        return (ob.type == 'MESH' and
+                (ob.data.use_paint_mask))
+
+    @staticmethod
     def generate_from_brushes(context):
         return generate_from_enum_ex(
             context,
@@ -975,10 +981,8 @@ class _defs_weight_paint:
             brush = context.tool_settings.weight_paint.brush
             if brush is not None:
                 from .properties_paint_common import UnifiedPaintPanel
-                UnifiedPaintPanel.prop_unified_weight(
-                    layout, context, brush, "weight", slider=True, text="Weight")
-                UnifiedPaintPanel.prop_unified_strength(
-                    layout, context, brush, "strength", slider=True, text="Strength")
+                UnifiedPaintPanel.prop_unified_weight(layout, context, brush, "weight", slider=True)
+                UnifiedPaintPanel.prop_unified_strength(layout, context, brush, "strength", slider=True)
             props = tool.operator_properties("paint.weight_gradient")
             layout.prop(props, "type")
 
@@ -1381,7 +1385,7 @@ class _defs_node_edit:
     def links_cut():
         return dict(
             text="Links Cut",
-            icon="ops.mesh.knife_tool",
+            icon="ops.node.links_cut",
             widget=None,
             keymap="Node Tool: Links Cut",
         )
@@ -1717,6 +1721,12 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
         ],
         'PAINT_TEXTURE': [
             _defs_texture_paint.generate_from_brushes,
+            None,
+            lambda context: (
+                VIEW3D_PT_tools_active._tools_select
+                if _defs_texture_paint.poll_select_mask(context)
+                else ()
+            ),
         ],
         'PAINT_VERTEX': [
             _defs_vertex_paint.generate_from_brushes,
@@ -1736,8 +1746,11 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             _defs_weight_paint.sample_weight_group,
             ),
             None,
-            # TODO, check for mixed pose mode
-            _defs_view3d_generic.cursor,
+            lambda context: (
+                (_defs_view3d_generic.cursor,)
+                if context.pose_object
+                else ()
+            ),
             None,
             lambda context: (
                 VIEW3D_PT_tools_active._tools_select

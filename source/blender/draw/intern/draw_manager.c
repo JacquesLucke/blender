@@ -217,6 +217,13 @@ bool DRW_object_is_visible_psys_in_active_context(
         const Object *object,
         const ParticleSystem *psys)
 {
+	const bool for_render = DRW_state_is_image_render();
+	/* NOTE: psys_check_enabled is using object and particle system for only
+	 * reading, but is using some other functions which are more generic and
+	 * which are hard to make const-pointer. */
+	if (!psys_check_enabled((Object *)object, (ParticleSystem *)psys, for_render)) {
+		return false;
+	}
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	const Scene *scene = draw_ctx->scene;
 	if (object == draw_ctx->object_edit) {
@@ -339,6 +346,8 @@ void DRW_transform_to_display(GPUTexture *tex, bool use_view_transform, bool use
 /* Draw texture to framebuffer without any color transforms */
 void DRW_transform_none(GPUTexture *tex)
 {
+	drw_state_set(DRW_STATE_WRITE_COLOR);
+
 	/* Draw as texture for final render (without immediate mode). */
 	GPUBatch *geom = DRW_cache_fullscreen_quad_get();
 	GPU_batch_program_set_builtin(geom, GPU_SHADER_2D_IMAGE_COLOR);
@@ -1874,6 +1883,9 @@ void DRW_render_to_image(RenderEngine *engine, struct Depsgraph *depsgraph)
 		BLI_rcti_init(&render_rect, 0, size[0], 0, size[1]);
 	}
 
+	/* Reset state before drawing */
+	DRW_state_reset();
+
 	/* Init render result. */
 	RenderResult *render_result = RE_engine_begin_result(
 	        engine,
@@ -1893,6 +1905,7 @@ void DRW_render_to_image(RenderEngine *engine, struct Depsgraph *depsgraph)
 		engine_type->draw_engine->render_to_image(data, engine, render_layer, &render_rect);
 		/* grease pencil: render result is merged in the previous render result. */
 		if (DRW_render_check_grease_pencil(depsgraph)) {
+			DRW_state_reset();
 			DRW_render_gpencil_to_image(engine, render_layer, &render_rect);
 		}
 		DST.buffer_finish_called = false;
@@ -1910,6 +1923,9 @@ void DRW_render_to_image(RenderEngine *engine, struct Depsgraph *depsgraph)
 	/* Avoid accidental reuse. */
 	drw_state_ensure_not_reused(&DST);
 #endif
+
+	/* Reset state after drawing */
+	DRW_state_reset();
 
 	/* Changing Context */
 	if (re_gl_context != NULL) {

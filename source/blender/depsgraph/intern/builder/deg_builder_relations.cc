@@ -2452,6 +2452,8 @@ void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
 		ComponentKey animation_key(&ntree->id, NodeType::ANIMATION);
 		add_relation(animation_key, shading_parameters_key, "NTree Shading Parameters");
 	}
+	ComponentKey parameters_key(&ntree->id, NodeType::PARAMETERS);
+	add_relation(parameters_key, shading_parameters_key, "NTree Shading Parameters");
 }
 
 /* Recursively build graph for material */
@@ -2636,10 +2638,6 @@ void DepsgraphRelationBuilder::build_copy_on_write_relations(IDNode *id_node)
 		if (id_type == ID_ME && comp_node->type == NodeType::GEOMETRY) {
 			rel_flag &= ~RELATION_FLAG_NO_FLUSH;
 		}
-		/* materials need update grease pencil objects */
-		if (id_type == ID_MA) {
-			rel_flag &= ~RELATION_FLAG_NO_FLUSH;
-		}
 		/* Notes on exceptions:
 		 * - Parameters component is where drivers are living. Changing any
 		 *   of the (custom) properties in the original datablock (even the
@@ -2652,29 +2650,11 @@ void DepsgraphRelationBuilder::build_copy_on_write_relations(IDNode *id_node)
 		 *   copied by copy-on-write, and not preserved. PROBABLY it is better
 		 *   to preserve that cache in copy-on-write, but for the time being
 		 *   we allow flush to layer collections component which will ensure
-		 *   that cached array fo bases exists and is up-to-date.
-		 *
-		 * - Action is allowed to flush as well, this way it's possible to
-		 *   keep current tagging in animation editors (which tags action for
-		 *   CoW update when it's changed) but yet guarantee evaluation order
-		 *   with objects which are using that action. */
+		 *   that cached array fo bases exists and is up-to-date. */
 		if (comp_node->type == NodeType::PARAMETERS ||
 		    comp_node->type == NodeType::LAYER_COLLECTIONS)
 		{
 			rel_flag &= ~RELATION_FLAG_NO_FLUSH;
-		}
-		if (comp_node->type == NodeType::ANIMATION && id_type == ID_AC) {
-			rel_flag &= ~RELATION_FLAG_NO_FLUSH;
-			/* NOTE: We only allow flush on user edits. If the action block is
-			 * just brought into the dependency graph it is either due to
-			 * initial graph construction or due to some property got animated.
-			 * In first case all the related datablocks will be tagged for an
-			 * update as well. In the second case it is up to the editing
-			 * function to tag changed datablock.
-			 *
-			 * This logic allows to preserve unkeyed changes on file load and on
-			 * undo. */
-			rel_flag |= RELATION_FLAG_FLUSH_USER_EDIT_ONLY;
 		}
 		/* All entry operations of each component should wait for a proper
 		 * copy of ID. */
