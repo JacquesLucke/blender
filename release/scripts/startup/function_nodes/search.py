@@ -15,7 +15,7 @@ class NodeSearch(bpy.types.Operator):
             items.append(item)
         return items
 
-    item: EnumProperty(items = get_search_items)
+    item: EnumProperty(items=get_search_items)
 
     @classmethod
     def poll(cls, context):

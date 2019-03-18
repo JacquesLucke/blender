@@ -54,6 +54,14 @@ namespace FN { namespace Functions {
 			get_fvec3_list_type());
 	}
 
+	LAZY_INIT_REF__NO_ARG(SharedFunction, append_int32)
+	{
+		return build_append_function<int32_t>(
+			"Append Int32",
+			get_int32_type(),
+			get_int32_list_type());
+	}
+
 
 	template<typename T>
 	class GetListElement : public TupleCallBody {
@@ -107,6 +115,14 @@ namespace FN { namespace Functions {
 			get_fvec3_list_type());
 	}
 
+	LAZY_INIT_REF__NO_ARG(SharedFunction, get_int32_list_element)
+	{
+		return build_get_element_function<int32_t>(
+			"Get Int32 List Element",
+			get_int32_type(),
+			get_int32_list_type());
+	}
+
 
 	template<typename T>
 	class CombineLists : public TupleCallBody {
@@ -149,6 +165,13 @@ namespace FN { namespace Functions {
 		return build_combine_lists_function<Vector>(
 			"Combine Vector Lists",
 			get_fvec3_list_type());
+	}
+
+	LAZY_INIT_REF__NO_ARG(SharedFunction, combine_int32_lists)
+	{
+		return build_combine_lists_function<int32_t>(
+			"Combine Int32 Lists",
+			get_int32_list_type());
 	}
 
 } } /* namespace FN::Functions */

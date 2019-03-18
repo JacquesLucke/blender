@@ -14,7 +14,7 @@ class ObjectTransformsNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [], [
-            FixedSocketDecl("Location", "Vector"),
+            FixedSocketDecl("location", "Location", "Vector"),
         ]
 
     def draw(self, layout):

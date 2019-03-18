@@ -26,9 +26,10 @@ namespace FN { namespace DataFlowNodes {
 		tuple.set<int32_t>(index, value);
 	}
 
-	static void load_float_list(PointerRNA *UNUSED(ptr), Tuple &tuple, uint index)
+	template<typename T>
+	static void load_empty_list(PointerRNA *UNUSED(ptr), Tuple &tuple, uint index)
 	{
-		auto list = Types::SharedFloatList::New();
+		auto list = Types::SharedList<T>::New();
 		tuple.move_in(index, list);
 	}
 
@@ -37,7 +38,9 @@ namespace FN { namespace DataFlowNodes {
 		inserters.reg_socket_loader("Float", load_float);
 		inserters.reg_socket_loader("Vector", load_vector);
 		inserters.reg_socket_loader("Integer", load_integer);
-		inserters.reg_socket_loader("Float List", load_float_list);
+		inserters.reg_socket_loader("Float List", load_empty_list<float>);
+		inserters.reg_socket_loader("Vector List", load_empty_list<Types::Vector>);
+		inserters.reg_socket_loader("Integer List", load_empty_list<int32_t>);
 	}
 
 } }

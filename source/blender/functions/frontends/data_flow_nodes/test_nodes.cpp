@@ -45,7 +45,7 @@ namespace FN { namespace DataFlowNodes {
 		bNode *bnode)
 	{
 		PointerRNA ptr;
-		RNA_pointer_create(ctx.btree_id(), &RNA_Node, bnode, &ptr);
+		ctx.get_rna(bnode, &ptr);
 		int operation = RNA_enum_get(&ptr, "operation");
 
 		SharedFunction &fn = get_float_math_function(operation);
@@ -71,33 +71,99 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_output(min_node->output(0), bnode, 0);
 	}
 
+	static SharedFunction &get_function__append(char *base_type)
+	{
+		if (STREQ(base_type, "Float")) {
+			return Functions::append_float();
+		}
+		else if (STREQ(base_type, "Vector")) {
+			return Functions::append_fvec3();
+		}
+		else if (STREQ(base_type, "Integer")) {
+			return Functions::append_int32();
+		}
+		else {
+			BLI_assert(false);
+			return *(SharedFunction *)nullptr;
+		}
+	}
+
 	static void insert_append_list_node(
 		Builder &builder,
-		const BuilderContext UNUSED(ctx),
+		const BuilderContext ctx,
 		bNode *bnode)
 	{
-		SharedFunction &append_float = Functions::append_float();
-		Node *node = builder.insert_function(append_float);
+		PointerRNA ptr;
+		ctx.get_rna(bnode, &ptr);
+		char base_type[64];
+		RNA_string_get(&ptr, "active_type", base_type);
+
+		SharedFunction &fn = get_function__append(base_type);
+		Node *node = builder.insert_function(fn);
 		builder.map_sockets(node, bnode);
+	}
+
+	static SharedFunction &get_function__get_list_element(char *base_type)
+	{
+		if (STREQ(base_type, "Float")) {
+			return Functions::get_float_list_element();
+		}
+		else if (STREQ(base_type, "Vector")) {
+			return Functions::get_fvec3_list_element();
+		}
+		else if (STREQ(base_type, "Integer")) {
+			return Functions::get_int32_list_element();
+		}
+		else {
+			BLI_assert(false);
+			return *(SharedFunction *)nullptr;
+		}
 	}
 
 	static void insert_get_list_element_node(
 		Builder &builder,
-		const BuilderContext UNUSED(ctx),
+		const BuilderContext ctx,
 		bNode *bnode)
 	{
-		SharedFunction &get_float = Functions::get_float_list_element();
-		Node *node = builder.insert_function(get_float);
+		PointerRNA ptr;
+		ctx.get_rna(bnode, &ptr);
+		char base_type[64];
+		RNA_string_get(&ptr, "active_type", base_type);
+
+		SharedFunction &fn = get_function__get_list_element(base_type);
+		Node *node = builder.insert_function(fn);
 		builder.map_sockets(node, bnode);
+	}
+
+	static SharedFunction &get_function__combine_lists(char *base_type)
+	{
+		if (STREQ(base_type, "Float")) {
+			return Functions::combine_float_lists();
+		}
+		else if (STREQ(base_type, "Vector")) {
+			return Functions::combine_fvec3_lists();
+		}
+		else if (STREQ(base_type, "Integer")) {
+			return Functions::combine_int32_lists();
+		}
+		else {
+			BLI_assert(false);
+			return *(SharedFunction *)nullptr;
+		}
 	}
 
 	static void insert_combine_lists_node(
 		Builder &builder,
-		const BuilderContext UNUSED(ctx),
+		const BuilderContext ctx,
 		bNode *bnode)
 	{
-		SharedFunction &combine_float_lists = Functions::combine_float_lists();
-		Node *node = builder.insert_function(combine_float_lists);
+		PointerRNA ptr;
+		ctx.get_rna(bnode, &ptr);
+		char base_type[64];
+		RNA_string_get(&ptr, "active_type", base_type);
+
+		SharedFunction &fn = get_function__combine_lists(base_type);
+		Node *node = builder.insert_function(fn);
 		builder.map_sockets(node, bnode);
 	}
 

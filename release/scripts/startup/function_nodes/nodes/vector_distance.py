@@ -8,8 +8,8 @@ class VectorDistanceNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            FixedSocketDecl("A", "Vector"),
-            FixedSocketDecl("B", "Vector"),
+            FixedSocketDecl("a", "A", "Vector"),
+            FixedSocketDecl("b", "B", "Vector"),
         ], [
-            FixedSocketDecl("Distance", "Float"),
+            FixedSocketDecl("distance", "Distance", "Float"),
         ]

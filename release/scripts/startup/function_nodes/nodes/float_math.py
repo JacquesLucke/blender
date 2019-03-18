@@ -21,10 +21,10 @@ class FloatMathNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            FixedSocketDecl("A", "Float"),
-            FixedSocketDecl("B", "Float"),
+            FixedSocketDecl("a", "A", "Float"),
+            FixedSocketDecl("b", "B", "Float"),
         ], [
-            FixedSocketDecl("Result", "Float"),
+            FixedSocketDecl("result", "Result", "Float"),
         ]
 
     def draw(self, layout):

@@ -7,10 +7,13 @@ struct bNodeLink;
 struct bNodeTree;
 struct bNodeSocket;
 struct ID;
+struct PointerRNA;
 
 namespace FN { namespace DataFlowNodes {
 
 	using SocketMap = SmallMap<struct bNodeSocket *, Socket>;
+
+	class BuilderContext;
 
 	class Builder {
 	private:
@@ -28,6 +31,7 @@ namespace FN { namespace DataFlowNodes {
 
 		void map_socket(Socket socket, struct bNodeSocket *bsocket);
 		void map_sockets(Node *node, struct bNode *bnode);
+		void map_data_sockets(Node *node, struct bNode *bnode, const BuilderContext &ctx);
 		void map_input(Socket socket, struct bNode *bnode, uint index);
 		void map_output(Socket socket, struct bNode *bnode, uint index);
 	};
@@ -43,7 +47,11 @@ namespace FN { namespace DataFlowNodes {
 		bNodeTree *btree() const;
 		ID *btree_id() const;
 
+		bool is_data_socket(bNodeSocket *bsocket) const;
 		SharedType &type_of_socket(bNodeSocket *bsocket) const;
+
+		void get_rna(bNode *node, PointerRNA *ptr) const;
+		void get_rna(bNodeSocket *bsocket, PointerRNA *ptr) const;
 	};
 
 } }

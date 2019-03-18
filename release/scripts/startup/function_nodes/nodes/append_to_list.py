@@ -10,8 +10,8 @@ class AppendToListNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            ListSocketDecl("List", "active_type"),
-            BaseSocketDecl("Value", "active_type"),
+            ListSocketDecl("list", "List", "active_type"),
+            BaseSocketDecl("value", "Value", "active_type"),
         ], [
-            ListSocketDecl("List", "active_type"),
+            ListSocketDecl("list", "List", "active_type"),
         ]

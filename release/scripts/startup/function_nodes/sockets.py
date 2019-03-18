@@ -1,6 +1,13 @@
 import bpy
-from . base import DataSocket
+from . base import DataSocket, BaseSocket
 from bpy.props import *
+
+class OperatorSocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "fn_OperatorSocket"
+    bl_label = "Operator Socket"
+
+    def draw_color(self, context, node):
+        return (0, 0, 0, 0)
 
 class FloatSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_FloatSocket"
@@ -69,15 +76,21 @@ class UniqueSocketBuilder(SocketBuilder):
     def __init__(self, socket_cls):
         self.socket_cls = socket_cls
 
-    def build(self, node_sockets, name):
-        return node_sockets.new(self.socket_cls.bl_idname, name)
+    def build(self, node_sockets, name, identifier):
+        return node_sockets.new(
+            self.socket_cls.bl_idname,
+            name,
+            identifier=identifier)
 
 class ColoredSocketBuilder(SocketBuilder):
     def __init__(self, color):
         self.color = color
 
-    def build(self, node_sockets, name):
-        socket = node_sockets.new("fn_CustomColoredSocket", name)
+    def build(self, node_sockets, name, identifier):
+        socket = node_sockets.new(
+            "fn_CustomColoredSocket",
+            name,
+            identifier=identifier)
         socket.color = self.color
         return socket
 
@@ -125,11 +138,17 @@ class DataTypesInfo:
         assert self.is_data_type(data_type)
         return self.builder_by_data_type[data_type]
 
-    def build(self, data_type, node_sockets, name):
+    def build(self, data_type, node_sockets, name, identifier):
         builder = self.to_builder(data_type)
-        socket = builder.build(node_sockets, name)
+        socket = builder.build(node_sockets, name, identifier)
         socket.data_type = data_type
         return socket
+
+    def get_data_type_items(self):
+        items = []
+        for data_type in self.data_types:
+            items.append((data_type, data_type, ""))
+        return items
 
 
 type_infos = DataTypesInfo()
@@ -139,6 +158,8 @@ type_infos.insert_data_type("Vector", UniqueSocketBuilder(VectorSocket))
 type_infos.insert_data_type("Integer", UniqueSocketBuilder(IntegerSocket))
 type_infos.insert_data_type("Float List", ColoredSocketBuilder((0, 0.3, 0.5, 0.5)))
 type_infos.insert_data_type("Vector List", ColoredSocketBuilder((0, 0, 0.5, 0.5)))
+type_infos.insert_data_type("Integer List", ColoredSocketBuilder((0.3, 0.7, 0.5, 0.5)))
 
 type_infos.insert_list_relation("Float", "Float List")
 type_infos.insert_list_relation("Vector", "Vector List")
+type_infos.insert_list_relation("Integer", "Integer List")

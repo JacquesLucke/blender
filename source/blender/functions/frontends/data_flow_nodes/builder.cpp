@@ -38,6 +38,25 @@ namespace FN { namespace DataFlowNodes {
 		}
 	}
 
+	void Builder::map_data_sockets(Node *node, struct bNode *bnode, const BuilderContext &ctx)
+	{
+		uint input_index = 0;
+		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
+			if (ctx.is_data_socket(bsocket)) {
+				this->map_socket(node->input(input_index), bsocket);
+				input_index++;
+			}
+		}
+
+		uint output_index = 0;
+		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
+			if (ctx.is_data_socket(bsocket)) {
+				this->map_socket(node->output(output_index), bsocket);
+				output_index++;
+			}
+		}
+	}
+
 	void Builder::map_input(Socket socket, struct bNode *bnode, uint index)
 	{
 		BLI_assert(socket.is_input());
@@ -63,12 +82,17 @@ namespace FN { namespace DataFlowNodes {
 		return &m_btree->id;
 	}
 
+	bool BuilderContext::is_data_socket(bNodeSocket *bsocket) const
+	{
+		PointerRNA ptr;
+		this->get_rna(bsocket, &ptr);
+		return RNA_struct_find_property(&ptr, "data_type") != NULL;
+	}
+
 	SharedType &BuilderContext::type_of_socket(bNodeSocket *bsocket) const
 	{
 		PointerRNA ptr;
-		RNA_pointer_create(
-			this->btree_id(), &RNA_NodeSocket,
-			bsocket, &ptr);
+		this->get_rna(bsocket, &ptr);
 
 		char data_type[64];
 		RNA_string_get(&ptr, "data_type", data_type);
@@ -85,10 +109,30 @@ namespace FN { namespace DataFlowNodes {
 		else if (STREQ(data_type, "Float List")) {
 			return Types::get_float_list_type();
 		}
+		else if (STREQ(data_type, "Vector List")) {
+			return Types::get_fvec3_list_type();
+		}
+		else if (STREQ(data_type, "Integer List")) {
+			return Types::get_int32_list_type();
+		}
 		else {
 			BLI_assert(false);
 			return *(SharedType *)nullptr;
 		}
+	}
+
+	void BuilderContext::get_rna(bNode *bnode, PointerRNA *ptr) const
+	{
+		RNA_pointer_create(
+			this->btree_id(), &RNA_Node,
+			bnode, ptr);
+	}
+
+	void BuilderContext::get_rna(bNodeSocket *bsocket, PointerRNA *ptr) const
+	{
+		RNA_pointer_create(
+			this->btree_id(), &RNA_NodeSocket,
+			bsocket, ptr);
 	}
 
 } } /* namespace FN::DataFlowNodes */

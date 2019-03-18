@@ -8,9 +8,9 @@ class ClampNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            FixedSocketDecl("Value", "Float"),
-            FixedSocketDecl("Min", "Float"),
-            FixedSocketDecl("Max", "Float"),
+            FixedSocketDecl("value", "Value", "Float"),
+            FixedSocketDecl("min", "Min", "Float"),
+            FixedSocketDecl("max", "Max", "Float"),
         ], [
-            FixedSocketDecl("Result", "Float"),
+            FixedSocketDecl("result", "Result", "Float"),
         ]

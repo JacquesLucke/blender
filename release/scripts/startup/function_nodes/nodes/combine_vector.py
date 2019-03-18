@@ -8,9 +8,9 @@ class CombineVectorNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            FixedSocketDecl("X", "Float"),
-            FixedSocketDecl("Y", "Float"),
-            FixedSocketDecl("Z", "Float"),
+            FixedSocketDecl("x", "X", "Float"),
+            FixedSocketDecl("y", "Y", "Float"),
+            FixedSocketDecl("z", "Z", "Float"),
         ], [
-            FixedSocketDecl("Result", "Vector"),
+            FixedSocketDecl("result", "Result", "Vector"),
         ]

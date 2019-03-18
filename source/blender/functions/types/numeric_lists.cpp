@@ -78,20 +78,28 @@ namespace FN { namespace Types {
 		}
 	};
 
+	template<typename T>
+	SharedType create_list_type(std::string name)
+	{
+		SharedType type = SharedType::New(name);
+		type->extend(new ListCPPTypeInfo<T>());
+		type->extend(ListLLVMTypeInfo<T>::Create());
+		return type;
+	}
+
 	LAZY_INIT_REF__NO_ARG(SharedType, get_float_list_type)
 	{
-		SharedType type = SharedType::New("Float List");
-		type->extend(new ListCPPTypeInfo<float>());
-		type->extend(ListLLVMTypeInfo<float>::Create());
-		return type;
+		return create_list_type<float>("Float List");
 	}
 
 	LAZY_INIT_REF__NO_ARG(SharedType, get_fvec3_list_type)
 	{
-		SharedType type = SharedType::New("FVec3 List");
-		type->extend(new ListCPPTypeInfo<Vector>());
-		type->extend(ListLLVMTypeInfo<Vector>::Create());
-		return type;
+		return create_list_type<Vector>("FVec3 List");
+	}
+
+	LAZY_INIT_REF__NO_ARG(SharedType, get_int32_list_type)
+	{
+		return create_list_type<int32_t>("Int32 List");
 	}
 
 } } /* namespace FN::Types */

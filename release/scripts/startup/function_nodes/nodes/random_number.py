@@ -8,9 +8,9 @@ class RandomNumberNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            FixedSocketDecl("Seed", "Integer"),
-            FixedSocketDecl("Min", "Float"),
-            FixedSocketDecl("Max", "Float"),
+            FixedSocketDecl("seed", "Seed", "Integer"),
+            FixedSocketDecl("min", "Min", "Float"),
+            FixedSocketDecl("max", "Max", "Float"),
         ], [
-            FixedSocketDecl("Value", "Float"),
+            FixedSocketDecl("value", "Value", "Float"),
         ]

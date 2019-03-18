@@ -8,12 +8,16 @@ class Inferencer:
     def insert_final_type(self, id, data_type):
         self.finalized_ids[id] = data_type
 
-    def insert_equality_constraint(self, ids):
-        constraint = EqualityConstraint(ids)
+    def insert_equality_constraint(self, ids, decision_id=None):
+        constraint = EqualityConstraint(ids, decision_id)
         self.constraints.add(constraint)
 
     def insert_list_constraint(self, list_ids, base_ids=tuple(), decision_id=None):
         constraint = ListConstraint(list_ids, base_ids, decision_id, self.type_infos)
+        self.constraints.add(constraint)
+
+    def insert_union_constraint(self, ids, allowed_types, decision_id=None):
+        constraint = UnionConstraint(ids, decision_id, allowed_types)
         self.constraints.add(constraint)
 
     def finalize_id(self, id, data_type):
@@ -66,16 +70,35 @@ class Constraint:
         raise NotImplementedError()
 
 class EqualityConstraint(Constraint):
-    def __init__(self, ids):
+    def __init__(self, ids, decision_id):
         self.ids = set(ids)
-
-    def can_be_finalized(self, finalized_ids):
-        return any(id in finalized_ids for id in self.ids)
+        self.decision_id = decision_id
 
     def try_finalize(self, finalized_ids, finalize_do, make_decision):
         for id in self.ids:
             if id in finalized_ids:
-                finalize_do(self.ids, finalized_ids[id])
+                data_type = finalized_ids[id]
+                finalize_do(self.ids, data_type)
+                if self.decision_id is not None:
+                    make_decision(self.decision_id, data_type)
+                return True
+        return False
+
+class UnionConstraint(Constraint):
+    def __init__(self, ids, decision_id, allowed_types):
+        self.ids = set(ids)
+        self.decision_id = decision_id
+        self.allowed_types = set(allowed_types)
+
+    def try_finalize(self, finalized_ids, finalize_do, make_decision):
+        for id in self.ids:
+            if id in finalized_ids:
+                data_type = finalized_ids[id]
+                if data_type not in self.allowed_types:
+                    raise InferencingError()
+                finalize_do(self.ids, data_type)
+                if self.decision_id is not None:
+                    make_decision(self.decision_id, data_type)
                 return True
         return False
 
