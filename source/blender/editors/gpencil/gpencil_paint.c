@@ -398,7 +398,9 @@ static void gp_reproject_toplane(tGPsdata *p, bGPDstroke *gps)
 
 	/* get drawing origin */
 	gp_get_3d_reference(p, origin);
-	ED_gp_project_stroke_to_plane(obact, rv3d, gps, origin, p->lock_axis - 1);
+	ED_gp_project_stroke_to_plane(
+	        p->scene, obact, rv3d, gps,
+	        origin, p->lock_axis - 1);
 }
 
 /* convert screen-coordinates to buffer-coordinates */
@@ -752,11 +754,11 @@ static short gp_stroke_addpoint(
 			gp_get_3d_reference(p, origin);
 			/* reproject current */
 			ED_gpencil_tpoint_to_point(p->ar, origin, pt, &spt);
-			ED_gp_project_point_to_plane(obact, rv3d, origin, p->lock_axis - 1, &spt);
+			ED_gp_project_point_to_plane(p->scene, obact, rv3d, origin, p->lock_axis - 1, &spt);
 
 			/* reproject previous */
 			ED_gpencil_tpoint_to_point(p->ar, origin, ptb, &spt2);
-			ED_gp_project_point_to_plane(obact, rv3d, origin, p->lock_axis - 1, &spt2);
+			ED_gp_project_point_to_plane(p->scene, obact, rv3d, origin, p->lock_axis - 1, &spt2);
 			p->totpixlen += len_v3v3(&spt.x, &spt2.x) / pixsize;
 			pt->uv_fac = p->totpixlen;
 			if ((gp_style) && (gp_style->sima)) {
@@ -830,7 +832,7 @@ static short gp_stroke_addpoint(
 			if (gpencil_project_check(p)) {
 				view3d_region_operator_needs_opengl(p->win, p->ar);
 				ED_view3d_autodist_init(
-					p->depsgraph, p->ar, v3d, (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
+				        p->depsgraph, p->ar, v3d, (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
 			}
 
 			/* convert screen-coordinates to appropriate coordinates (and store them) */
@@ -2306,10 +2308,11 @@ static void gpencil_draw_eraser(bContext *UNUSED(C), int x, int y, void *p_ptr)
 		immUniform1f("dash_width", 12.0f);
 		immUniform1f("dash_factor", 0.5f);
 
-		imm_draw_circle_wire_2d(shdr_pos, x, y, p->radius,
-			/* XXX Dashed shader gives bad results with sets of small segments currently,
-			 *     temp hack around the issue. :( */
-			max_ii(8, p->radius / 2));  /* was fixed 40 */
+		imm_draw_circle_wire_2d(
+		        shdr_pos, x, y, p->radius,
+		        /* XXX Dashed shader gives bad results with sets of small segments currently,
+		         *     temp hack around the issue. :( */
+		        max_ii(8, p->radius / 2));  /* was fixed 40 */
 
 		immUnbindProgram();
 
@@ -3363,8 +3366,7 @@ static void gpencil_add_missing_events(bContext *C, wmOperator *op, const wmEven
 		interp_v2_v2v2(pt, a, b, 0.5f);
 		sub_v2_v2v2(pt, b, pt);
 		/* create fake event */
-		gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C),
-			pt[0], pt[1]);
+		gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C), pt[0], pt[1]);
 	}
 	else if (dist >= factor) {
 		int slices = 2 + (int)((dist - 1.0) / factor);
@@ -3373,8 +3375,9 @@ static void gpencil_add_missing_events(bContext *C, wmOperator *op, const wmEven
 			interp_v2_v2v2(pt, a, b, n * i);
 			sub_v2_v2v2(pt, b, pt);
 			/* create fake event */
-			gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C),
-				pt[0], pt[1]);
+			gpencil_draw_apply_event(
+			        C, op, event, CTX_data_depsgraph(C),
+			        pt[0], pt[1]);
 		}
 	}
 }
@@ -3577,8 +3580,8 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
 				if (G.debug & G_DEBUG) {
 					printf("found alternative region %p (old was %p) - at %d %d (sa: %d %d -> %d %d)\n",
-						current_region, p->ar, event->x, event->y,
-						p->sa->totrct.xmin, p->sa->totrct.ymin, p->sa->totrct.xmax, p->sa->totrct.ymax);
+					       current_region, p->ar, event->x, event->y,
+					       p->sa->totrct.xmin, p->sa->totrct.ymin, p->sa->totrct.xmax, p->sa->totrct.ymax);
 				}
 
 				if (current_region) {
@@ -3754,7 +3757,7 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			/* event doesn't need to be handled */
 #if 0
 			printf("unhandled event -> %d (mmb? = %d | mmv? = %d)\n",
-				event->type, event->type == MIDDLEMOUSE, event->type == MOUSEMOVE);
+			       event->type, event->type == MIDDLEMOUSE, event->type == MOUSEMOVE);
 #endif
 			break;
 	}

@@ -186,7 +186,7 @@ typedef struct EffectorWeights {
 #define EFF_WEIGHT_DO_HAIR		1
 
 /* Point cache file data types:
- * - used as (1<<flag) so poke jahka if you reach the limit of 15
+ * - used as (1 << flag) so poke jahka if you reach the limit of 15
  * - to add new data types update:
  *   - BKE_ptcache_data_size()
  *   - ptcache_file_init_pointers()
@@ -274,7 +274,7 @@ typedef struct PointCache {
 	char path[1024];
 
 	/**
-	 * Array of length endframe-startframe+1 with flags to indicate cached frames.
+	 * Array of length `endframe - startframe + 1` with flags to indicate cached frames.
 	 * Can be later used for other per frame flags too if needed.
 	 */
 	char *cached_frames;
@@ -382,18 +382,18 @@ typedef struct SoftBody {
 	/* self collision*/
 	/** Fixed collision ball size if > 0. */
 	float colball;
-	/** Cooling down collision response . */
+	/** Cooling down collision response. */
 	float balldamp;
-	/** Pressure the ball is loaded with . */
+	/** Pressure the ball is loaded with. */
 	float ballstiff;
 	short sbc_mode;
-	short aeroedge,
-		minloops,
-		maxloops,
-		choke,
-		solver_ID,
-		plastic, springpreload
-		;
+	short aeroedge;
+	short minloops;
+	short maxloops;
+	short choke;
+	short solver_ID;
+	short plastic;
+	short springpreload;
 
 	/** Scratchpad/cache on live time not saved in file. */
 	struct SBScratch *scratch;
@@ -450,7 +450,7 @@ typedef struct SoftBody {
 /** used for (simple) force */
 #define PFIELD_GRAVITATION      (1 << 18)
 /** Enable cloth collision side detection based on normal. */
-#define PFIELD_CLOTH_USE_CULLING (1<< 19)
+#define PFIELD_CLOTH_USE_CULLING (1 << 19)
 /** Replace collision direction with collider normal. */
 #define PFIELD_CLOTH_USE_NORMAL (1 << 20)
 

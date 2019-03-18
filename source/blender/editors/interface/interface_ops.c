@@ -949,7 +949,7 @@ static bool jump_to_target_button(bContext *C, bool poll)
 	return false;
 }
 
-static bool jump_to_target_button_poll(bContext *C)
+bool ui_jump_to_target_button_poll(bContext *C)
 {
 	return jump_to_target_button(C, true);
 }
@@ -969,7 +969,7 @@ static void UI_OT_jump_to_target_button(wmOperatorType *ot)
 	ot->description = "Switch to the target object or bone";
 
 	/* callbacks */
-	ot->poll = jump_to_target_button_poll;
+	ot->poll = ui_jump_to_target_button_poll;
 	ot->exec = jump_to_target_button_exec;
 
 	/* flags */
@@ -1598,8 +1598,8 @@ void ED_operatortypes_ui(void)
 
 	/* external */
 	WM_operatortype_append(UI_OT_eyedropper_color);
-	WM_operatortype_append(UI_OT_eyedropper_colorband);
-	WM_operatortype_append(UI_OT_eyedropper_colorband_point);
+	WM_operatortype_append(UI_OT_eyedropper_colorramp);
+	WM_operatortype_append(UI_OT_eyedropper_colorramp_point);
 	WM_operatortype_append(UI_OT_eyedropper_id);
 	WM_operatortype_append(UI_OT_eyedropper_depth);
 	WM_operatortype_append(UI_OT_eyedropper_driver);

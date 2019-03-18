@@ -143,11 +143,11 @@ def op_panel(menu, kmi_args, kmi_data=()):
 
 
 def op_tool(tool, kmi_args):
-    return ("wm.tool_set_by_name", kmi_args, {"properties": [("name", tool)]})
+    return ("wm.tool_set_by_id", kmi_args, {"properties": [("name", tool)]})
 
 
 def op_tool_cycle(tool, kmi_args):
-    return ("wm.tool_set_by_name", kmi_args, {"properties": [("name", tool), ("cycle", True)]})
+    return ("wm.tool_set_by_id", kmi_args, {"properties": [("name", tool), ("cycle", True)]})
 
 
 # ------------------------------------------------------------------------------
@@ -599,8 +599,8 @@ def km_user_interface(_params):
         # Eyedroppers all have the same event, and pass it through until
         # a suitable eyedropper handles it.
         ("ui.eyedropper_color", {"type": 'E', "value": 'PRESS'}, None),
-        ("ui.eyedropper_colorband", {"type": 'E', "value": 'PRESS'}, None),
-        ("ui.eyedropper_colorband_point", {"type": 'E', "value": 'PRESS', "alt": True}, None),
+        ("ui.eyedropper_colorramp", {"type": 'E', "value": 'PRESS'}, None),
+        ("ui.eyedropper_colorramp_point", {"type": 'E', "value": 'PRESS', "alt": True}, None),
         ("ui.eyedropper_id", {"type": 'E', "value": 'PRESS'}, None),
         ("ui.eyedropper_depth", {"type": 'E', "value": 'PRESS'}, None),
         # Copy data path
@@ -698,12 +698,6 @@ def km_outliner(params):
         ("outliner.collection_exclude_clear", {"type": 'E', "value": 'PRESS', "alt": True}, None),
         ("outliner.hide", {"type": 'H', "value": 'PRESS'}, None),
         ("outliner.unhide_all", {"type": 'H', "value": 'PRESS', "alt": True}, None),
-        ("object.hide_view_clear", {"type": 'H', "value": 'PRESS', "alt": True},
-         {"properties": [("select", False)]}),
-        ("object.hide_view_set", {"type": 'H', "value": 'PRESS'},
-         {"properties": [("unselected", False)]}),
-        ("object.hide_view_set", {"type": 'H', "value": 'PRESS', "shift": True},
-         {"properties": [("unselected", True)]}),
     ])
 
     return keymap
@@ -810,7 +804,7 @@ def km_uv_editor(params):
         # Quick switch to select tool, since left select can't easily
         # select with any tool active.
         items.extend([
-            op_tool_cycle("Select Box", {"type": 'W', "value": 'PRESS'}),
+            op_tool_cycle("builtin.select_box", {"type": 'W', "value": 'PRESS'}),
         ])
 
     return keymap
@@ -1173,7 +1167,7 @@ def km_view3d(params):
         # Quick switch to select tool, since left select can't easily
         # select with any tool active.
         items.extend([
-            op_tool_cycle("Select Box", {"type": 'W', "value": 'PRESS'}),
+            op_tool_cycle("builtin.select_box", {"type": 'W', "value": 'PRESS'}),
         ])
 
     return keymap
@@ -4255,10 +4249,10 @@ def km_eyedropper_modal_map(_params):
     return keymap
 
 
-def km_eyedropper_colorband_pointsampling_map(_params):
+def km_eyedropper_colorramp_pointsampling_map(_params):
     items = []
     keymap = (
-        "Eyedropper ColorBand PointSampling Map",
+        "Eyedropper ColorRamp PointSampling Map",
         {"space_type": 'EMPTY', "region_type": 'WINDOW', "modal": True},
         {"items": items},
     )
@@ -5029,9 +5023,9 @@ def km_popup_toolbar(_params):
         "Toolbar Popup",
         {"space_type": 'EMPTY', "region_type": 'TEMPORARY'},
         {"items": [
-            op_tool("Select", {"type": 'W', "value": 'PRESS'}),
-            op_tool("Transform", {"type": 'T', "value": 'PRESS'}),
-            op_tool("Measure", {"type": 'M', "value": 'PRESS'}),
+            op_tool("builtin.select", {"type": 'W', "value": 'PRESS'}),
+            op_tool("builtin.transform", {"type": 'T', "value": 'PRESS'}),
+            op_tool("builtin.measure", {"type": 'M', "value": 'PRESS'}),
         ]},
     )
 
@@ -6065,7 +6059,7 @@ def generate_keymaps(params=None):
 
         # Modal maps.
         km_eyedropper_modal_map(params),
-        km_eyedropper_colorband_pointsampling_map(params),
+        km_eyedropper_colorramp_pointsampling_map(params),
         km_transform_modal_map(params),
         km_view3d_navigate(params),
         km_view3d_navigate_tweak_modal_map(params),

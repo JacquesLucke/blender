@@ -249,7 +249,6 @@ class GreasePencilStrokeSculptPanel:
         layout.use_property_decorate = False
 
         settings = context.tool_settings.gpencil_sculpt
-        tool = settings.sculpt_tool
         brush = settings.brush
 
         layout.template_icon_view(settings, "sculpt_tool", show_labels=True)
@@ -885,7 +884,6 @@ class GPENCIL_UL_layer(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # assert(isinstance(item, bpy.types.GPencilLayer)
         gpl = item
-        gpd = context.gpencil
 
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             if gpl.lock:

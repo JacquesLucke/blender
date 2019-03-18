@@ -362,7 +362,7 @@ static int imapaint_pick_face(
 		return 0;
 
 	/* sample only on the exact position */
-	*r_index = ED_view3d_backbuf_sample(vc, mval[0], mval[1]);
+	*r_index = ED_view3d_select_id_sample(vc, mval[0], mval[1]);
 
 	if ((*r_index) == 0 || (*r_index) > (unsigned int)totpoly) {
 		return 0;
@@ -460,8 +460,10 @@ void paint_sample_color(bContext *C, ARegion *ar, int x, int y, bool texpaint_pr
 		bool use_material = (imapaint->mode == IMAGEPAINT_MODE_MATERIAL);
 
 		if (ob) {
+			CustomData_MeshMasks cddata_masks = CD_MASK_BAREMESH;
+			cddata_masks.pmask |= CD_MASK_ORIGINDEX;
 			Mesh *me = (Mesh *)ob->data;
-			Mesh *me_eval = ob_eval->runtime.mesh_eval;
+			Mesh *me_eval = mesh_get_eval_final(depsgraph, scene, ob_eval, &cddata_masks);
 
 			ViewContext vc;
 			const int mval[2] = {x, y};

@@ -838,11 +838,11 @@ ID *deg_expand_copy_on_write_datablock(const Depsgraph *depsgraph,
 	                                          create_placeholders);
 }
 
-typedef struct ObjectRuntimeBackup {
+struct ObjectRuntimeBackup {
 	Object_Runtime runtime;
 	short base_flag;
 	unsigned short base_local_view_bits;
-} ObjectRuntimeBackup;
+};
 
 /* Make a backup of object's evaluation runtime data, additionally
  * make object to be safe for free without invalidating backed up
@@ -929,7 +929,7 @@ ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph,
 	 * generic backup structure. */
 	DrawDataList drawdata_backup;
 	DrawDataList *drawdata_ptr = NULL;
-	ObjectRuntimeBackup object_runtime_backup = {{0}};
+	ObjectRuntimeBackup object_runtime_backup = {{{0}}};
 	if (check_datablock_expanded(id_cow)) {
 		switch (id_type) {
 			case ID_OB:

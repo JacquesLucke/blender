@@ -2971,8 +2971,7 @@ void node_normal_map(vec4 tangent, vec3 normal, vec3 texnormal, out vec3 outnorm
 		outnormal = normal;
 		return;
 	}
-
-	tangent.xyz = normalize(tangent.xyz);
+	tangent *= (gl_FrontFacing ? 1.0 : -1.0);
 	vec3 B = tangent.w * cross(normal, tangent.xyz);
 
 	outnormal = texnormal.x * tangent.xyz + texnormal.y * B + texnormal.z * normal;

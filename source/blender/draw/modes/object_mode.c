@@ -1359,8 +1359,8 @@ static void OBJECT_cache_init(void *vedata)
 		/* -------- STIPPLES ------- */
 
 		/* Relationship Lines */
-		sgl->relationship_lines = shgroup_dynlines_dashed_uniform_color(sgl->non_meshes, gb->colorWire);
-		sgl->constraint_lines = shgroup_dynlines_dashed_uniform_color(sgl->non_meshes, gb->colorGridAxisZ);
+		sgl->relationship_lines = shgroup_dynlines_dashed_uniform_color(sgl->non_meshes, gb->colorWire, draw_ctx->sh_cfg);
+		sgl->constraint_lines = shgroup_dynlines_dashed_uniform_color(sgl->non_meshes, gb->colorGridAxisZ, draw_ctx->sh_cfg);
 
 		/* Force Field Curve Guide End (here because of stipple) */
 		/* TODO port to shader stipple */
@@ -2914,9 +2914,9 @@ static void OBJECT_gpencil_color_names(Object *ob, struct DRWTextStore *dt, ucha
 					if (pt->flag & GP_SPOINT_SELECT) {
 						mul_v3_m4v3(fpt, ob->obmat, &pt->x);
 						DRW_text_cache_add(
-							dt, fpt,
-							ma->id.name + 2, strlen(ma->id.name + 2),
-							10, 0, DRW_TEXT_CACHE_GLOBALSPACE | DRW_TEXT_CACHE_STRING_PTR, color);
+						        dt, fpt,
+						        ma->id.name + 2, strlen(ma->id.name + 2),
+						        10, 0, DRW_TEXT_CACHE_GLOBALSPACE | DRW_TEXT_CACHE_STRING_PTR, color);
 						break;
 					}
 				}
