@@ -8,6 +8,7 @@ from . socket_decl import (
     FixedSocketDecl,
     ListSocketDecl,
     BaseSocketDecl,
+    VariadicListDecl,
     AnyVariadicDecl,
     AnyOfDecl,
 )
@@ -52,7 +53,7 @@ def run_socket_operators(tree):
 #######################################
 
 def run_socket_type_inferencer(tree):
-    inferencer = Inferencer(type_infos)
+    inferencer = Inferencer()
 
     for node in tree.nodes:
         insert_constraints__within_node(inferencer, node)
@@ -64,10 +65,18 @@ def run_socket_type_inferencer(tree):
 
     nodes_to_rebuild = set()
 
-    for (node, prop_name), value in inferencer.get_decisions().items():
-        if getattr(node, prop_name) != value:
-            setattr(node, prop_name, value)
-            nodes_to_rebuild.add(node)
+    for decision_id, value in inferencer.get_decisions().items():
+        if decision_id[0] == "COLLECTION":
+            node, prop_name, index, attr_name = decision_id[1:]
+            item = getattr(node, prop_name)[index]
+            if getattr(item, attr_name) != value:
+                setattr(item, attr_name, value)
+                nodes_to_rebuild.add(node)
+        else:
+            node, prop_name = decision_id
+            if getattr(node, prop_name) != value:
+                setattr(node, prop_name, value)
+                nodes_to_rebuild.add(node)
 
     for node in nodes_to_rebuild:
         node.rebuild_and_try_keep_state()
@@ -89,6 +98,10 @@ def insert_constraints__within_node(inferencer, node):
             list_ids_per_prop[decl.type_property].add(sockets[0].to_id(node))
         elif isinstance(decl, BaseSocketDecl):
             base_ids_per_prop[decl.type_property].add(sockets[0].to_id(node))
+        elif isinstance(decl, VariadicListDecl):
+            for i, socket in enumerate(sockets[:-1]):
+                inferencer.insert_list_or_base_constraint(
+                    socket.to_id(node), decl.base_type, ("COLLECTION", node, decl.prop_name, i, "state"))
         elif isinstance(decl, AnyVariadicDecl):
             for socket in sockets[:-1]:
                 inferencer.insert_final_type(socket.to_id(node), socket.data_type)

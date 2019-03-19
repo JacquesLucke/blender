@@ -1,10 +1,9 @@
 import unittest
 from . inferencer import Inferencer, ConflictingTypesError
-from . sockets import type_infos
 
 class TestInferencer(unittest.TestCase):
     def setUp(self):
-        self.inferencer = Inferencer(type_infos)
+        self.inferencer = Inferencer()
 
     def test_single_equality(self):
         self.inferencer.insert_equality_constraint((1, 2))

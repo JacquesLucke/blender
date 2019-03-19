@@ -103,6 +103,77 @@ class AnyOfDecl(SocketDeclBase):
     def Property(cls, default_type):
         return StringProperty(default=default_type)
 
+class VariadicListDecl(SocketDeclBase):
+    def __init__(self, identifier: str, prop_name: str, base_type: str):
+        self.identifier_suffix = identifier
+        self.prop_name = prop_name
+        self.base_type = base_type
+        self.list_type = type_infos.to_list(base_type)
+
+    def build(self, node, node_sockets):
+        return list(self._build(node, node_sockets))
+
+    def _build(self, node, node_sockets):
+        for item in self.get_collection(node):
+            data_type = self.base_type if item.state == "BASE" else self.list_type
+            yield type_infos.build(
+                data_type,
+                node_sockets,
+                "",
+                item.identifier_prefix + self.identifier_suffix)
+        yield node_sockets.new("fn_OperatorSocket", "Operator")
+
+    def draw_socket(self, layout, node, socket, index):
+        if isinstance(socket, OperatorSocket):
+            layout.label(text="New")
+        else:
+            socket.draw_self(layout, node)
+
+    def operator_socket_call(self, node, own_socket, other_socket):
+        if not isinstance(other_socket, DataSocket):
+            return
+
+        is_output = own_socket.is_output
+        data_type = other_socket.data_type
+
+        if type_infos.is_base(data_type):
+            if data_type != self.base_type:
+                return
+            state = "BASE"
+        elif type_infos.is_list(data_type):
+            if data_type != self.list_type:
+                return
+            state = "LIST"
+        else:
+            return
+
+        collection = self.get_collection(node)
+        item = collection.add()
+        item.state = state
+        item.identifier_prefix = str(uuid.uuid4())
+
+        node.rebuild_and_try_keep_state()
+
+        identifier = item.identifier_prefix + self.identifier_suffix
+        new_socket = node.find_socket(identifier, is_output)
+        node.tree.new_link(other_socket, new_socket)
+
+    def amount(self, node):
+        return len(self.get_collection(node)) + 1
+
+    def get_collection(self, node):
+        return getattr(node, self.prop_name)
+
+    @classmethod
+    def Property(cls):
+        return CollectionProperty(type=VariadicListPropertyGroup)
+
+class VariadicListPropertyGroup(bpy.types.PropertyGroup):
+    bl_idname = "fn_VariadicListPropertyGroup"
+
+    state: StringProperty(default="BASE")
+    identifier_prefix: StringProperty()
+
 class AnyVariadicDecl(SocketDeclBase):
     def __init__(self, identifier: str, prop_name: str, message: str):
         self.identifier_suffix = identifier
@@ -113,7 +184,7 @@ class AnyVariadicDecl(SocketDeclBase):
         return list(self._build(node, node_sockets))
 
     def _build(self, node, node_sockets):
-        for item in getattr(node, self.prop_name):
+        for item in self.get_collection(node):
             yield type_infos.build(
                 item.data_type,
                 node_sockets,
@@ -122,7 +193,7 @@ class AnyVariadicDecl(SocketDeclBase):
         yield node_sockets.new("fn_OperatorSocket", "Operator")
 
     def amount(self, node):
-        return len(getattr(node, self.prop_name)) + 1
+        return len(self.get_collection(node)) + 1
 
     def draw_socket(self, layout, node, socket, index):
         if isinstance(socket, OperatorSocket):
@@ -149,7 +220,7 @@ class AnyVariadicDecl(SocketDeclBase):
         is_output = own_socket.is_output
         data_type = other_socket.data_type
 
-        collection = getattr(node, self.prop_name)
+        collection = self.get_collection(node)
         item = collection.add()
         item.data_type = data_type
         item.display_name = other_socket.name
