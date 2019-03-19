@@ -7,7 +7,6 @@
 namespace FN { namespace Functions {
 
 	using namespace Types;
-	using FunctionPerType = SmallMap<SharedType, SharedFunction>;
 
 	template<typename T>
 	class AppendToList : public TupleCallBody {
@@ -25,10 +24,10 @@ namespace FN { namespace Functions {
 
 	template<typename T>
 	SharedFunction build_append_function(
-		std::string name,
 		SharedType &base_type,
 		SharedType &list_type)
 	{
+		std::string name = "Append " + base_type->name();
 		auto fn = SharedFunction::New(name, Signature({
 			InputParameter("List", list_type),
 			InputParameter("Value", base_type),
@@ -37,36 +36,6 @@ namespace FN { namespace Functions {
 		}));
 		fn->add_body(new AppendToList<T>());
 		return fn;
-	}
-
-	template<typename T>
-	void insert_append_to_list_function(
-		FunctionPerType &functions,
-		SharedType &base_type,
-		SharedType &list_type)
-	{
-		std::string name = "Append " + base_type->name();
-		SharedFunction fn = build_append_function<T>(name, base_type, list_type);
-		functions.add(base_type, fn);
-	}
-
-	LAZY_INIT_REF_STATIC__NO_ARG(FunctionPerType, get_append_to_list_functions)
-	{
-		FunctionPerType functions;
-		insert_append_to_list_function<float>(
-			functions, get_float_type(), get_float_list_type());
-		insert_append_to_list_function<Vector>(
-			functions, get_fvec3_type(), get_fvec3_list_type());
-		insert_append_to_list_function<int32_t>(
-			functions, get_int32_type(), get_int32_list_type());
-		return functions;
-	}
-
-	SharedFunction &append_to_list(SharedType &base_type)
-	{
-		FunctionPerType &functions = get_append_to_list_functions();
-		BLI_assert(functions.contains(base_type));
-		return functions.lookup_ref(base_type);
 	}
 
 
@@ -91,10 +60,10 @@ namespace FN { namespace Functions {
 
 	template<typename T>
 	SharedFunction build_get_element_function(
-		std::string name,
 		SharedType &base_type,
 		SharedType &list_type)
 	{
+		std::string name = "Get " + base_type->name() + " List Element";
 		auto fn = SharedFunction::New(name, Signature({
 			InputParameter("List", list_type),
 			InputParameter("Index", get_int32_type()),
@@ -106,35 +75,6 @@ namespace FN { namespace Functions {
 		return fn;
 	}
 
-	template<typename T>
-	void insert_get_element_function(
-		FunctionPerType &functions,
-		SharedType &base_type,
-		SharedType &list_type)
-	{
-		std::string name = "Get " + base_type->name() + " List Element";
-		SharedFunction fn = build_get_element_function<T>(name, base_type, list_type);
-		functions.add(base_type, fn);
-	}
-
-	LAZY_INIT_REF_STATIC__NO_ARG(FunctionPerType, get_get_element_functions)
-	{
-		FunctionPerType functions;
-		insert_get_element_function<float>(
-			functions, get_float_type(), get_float_list_type());
-		insert_get_element_function<Vector>(
-			functions, get_fvec3_type(), get_fvec3_list_type());
-		insert_get_element_function<int32_t>(
-			functions, get_int32_type(), get_int32_list_type());
-		return functions;
-	}
-
-	SharedFunction &get_list_element(SharedType &base_type)
-	{
-		FunctionPerType &functions = get_get_element_functions();
-		BLI_assert(functions.contains(base_type));
-		return functions.lookup_ref(base_type);
-	}
 
 	template<typename T>
 	class CombineLists : public TupleCallBody {
@@ -152,9 +92,10 @@ namespace FN { namespace Functions {
 
 	template<typename T>
 	SharedFunction build_combine_lists_function(
-		std::string name,
+		SharedType &base_type,
 		SharedType &list_type)
 	{
+		std::string name = "Combine " + base_type->name() + " Lists";
 		auto fn = SharedFunction::New(name, Signature({
 			InputParameter("List 1", list_type),
 			InputParameter("List 2", list_type),
@@ -165,32 +106,68 @@ namespace FN { namespace Functions {
 		return fn;
 	}
 
+
+	/* Build List Functions
+	 *************************************/
+
+	using FunctionPerType = SmallMap<SharedType, SharedFunction>;
+
+	struct ListFunctions {
+		FunctionPerType m_append;
+		FunctionPerType m_get_element;
+		FunctionPerType m_combine;
+	};
+
 	template<typename T>
-	void insert_combine_lists_function(
-		FunctionPerType &functions,
+	void insert_list_functions_for_type(
+		ListFunctions &functions,
 		SharedType &base_type,
 		SharedType &list_type)
 	{
-		std::string name = "Combine " + base_type->name() + " Lists";
-		SharedFunction fn = build_combine_lists_function<T>(name, list_type);
-		functions.add(base_type, fn);
+		functions.m_append.add(
+			base_type,
+			build_append_function<T>(base_type, list_type));
+		functions.m_get_element.add(
+			base_type,
+			build_get_element_function<T>(base_type, list_type));
+		functions.m_combine.add(
+			base_type,
+			build_combine_lists_function<T>(base_type, list_type));
 	}
 
-	LAZY_INIT_REF_STATIC__NO_ARG(FunctionPerType, get_combine_lists_function)
+	LAZY_INIT_REF_STATIC__NO_ARG(ListFunctions, get_list_functions)
 	{
-		FunctionPerType functions;
-		insert_combine_lists_function<float>(
+		ListFunctions functions;
+		insert_list_functions_for_type<float>(
 			functions, get_float_type(), get_float_list_type());
-		insert_combine_lists_function<Vector>(
+		insert_list_functions_for_type<Vector>(
 			functions, get_fvec3_type(), get_fvec3_list_type());
-		insert_combine_lists_function<int32_t>(
+		insert_list_functions_for_type<int32_t>(
 			functions, get_int32_type(), get_int32_list_type());
 		return functions;
 	}
 
+
+	/* Access List Functions
+	 *************************************/
+
+	SharedFunction &append_to_list(SharedType &base_type)
+	{
+		FunctionPerType &functions = get_list_functions().m_append;
+		BLI_assert(functions.contains(base_type));
+		return functions.lookup_ref(base_type);
+	}
+
+	SharedFunction &get_list_element(SharedType &base_type)
+	{
+		FunctionPerType &functions = get_list_functions().m_get_element;
+		BLI_assert(functions.contains(base_type));
+		return functions.lookup_ref(base_type);
+	}
+
 	SharedFunction &combine_lists(SharedType &base_type)
 	{
-		FunctionPerType &functions = get_combine_lists_function();
+		FunctionPerType &functions = get_list_functions().m_combine;
 		BLI_assert(functions.contains(base_type));
 		return functions.lookup_ref(base_type);
 	}
