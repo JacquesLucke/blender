@@ -48,10 +48,12 @@ namespace FN { namespace DataFlowNodes {
 		ID *btree_id() const;
 
 		bool is_data_socket(bNodeSocket *bsocket) const;
+		SharedType &type_by_name(const char *data_type) const;
 		SharedType &type_of_socket(bNodeSocket *bsocket) const;
 
-		void get_rna(bNode *node, PointerRNA *ptr) const;
+		void get_rna(bNode *bnode, PointerRNA *ptr) const;
 		void get_rna(bNodeSocket *bsocket, PointerRNA *ptr) const;
+		SharedType &type_from_rna(bNode *bnode, const char *prop_name) const;
 	};
 
 } }

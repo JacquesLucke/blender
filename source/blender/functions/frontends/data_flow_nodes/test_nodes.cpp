@@ -71,34 +71,13 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_output(min_node->output(0), bnode, 0);
 	}
 
-	static SharedFunction &get_function__append(char *base_type)
-	{
-		if (STREQ(base_type, "Float")) {
-			return Functions::append_float();
-		}
-		else if (STREQ(base_type, "Vector")) {
-			return Functions::append_fvec3();
-		}
-		else if (STREQ(base_type, "Integer")) {
-			return Functions::append_int32();
-		}
-		else {
-			BLI_assert(false);
-			return *(SharedFunction *)nullptr;
-		}
-	}
-
 	static void insert_append_list_node(
 		Builder &builder,
 		const BuilderContext ctx,
 		bNode *bnode)
 	{
-		PointerRNA ptr;
-		ctx.get_rna(bnode, &ptr);
-		char base_type[64];
-		RNA_string_get(&ptr, "active_type", base_type);
-
-		SharedFunction &fn = get_function__append(base_type);
+		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
+		SharedFunction &fn = Functions::append_to_list(base_type);
 		Node *node = builder.insert_function(fn);
 		builder.map_sockets(node, bnode);
 	}

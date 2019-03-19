@@ -89,14 +89,8 @@ namespace FN { namespace DataFlowNodes {
 		return RNA_struct_find_property(&ptr, "data_type") != NULL;
 	}
 
-	SharedType &BuilderContext::type_of_socket(bNodeSocket *bsocket) const
+	SharedType &BuilderContext::type_by_name(const char *data_type) const
 	{
-		PointerRNA ptr;
-		this->get_rna(bsocket, &ptr);
-
-		char data_type[64];
-		RNA_string_get(&ptr, "data_type", data_type);
-
 		if (STREQ(data_type, "Float")) {
 			return Types::get_float_type();
 		}
@@ -121,6 +115,17 @@ namespace FN { namespace DataFlowNodes {
 		}
 	}
 
+	SharedType &BuilderContext::type_of_socket(bNodeSocket *bsocket) const
+	{
+		PointerRNA ptr;
+		this->get_rna(bsocket, &ptr);
+
+		char data_type[64];
+		RNA_string_get(&ptr, "data_type", data_type);
+
+		return this->type_by_name(data_type);
+	}
+
 	void BuilderContext::get_rna(bNode *bnode, PointerRNA *ptr) const
 	{
 		RNA_pointer_create(
@@ -133,6 +138,15 @@ namespace FN { namespace DataFlowNodes {
 		RNA_pointer_create(
 			this->btree_id(), &RNA_NodeSocket,
 			bsocket, ptr);
+	}
+
+	SharedType &BuilderContext::type_from_rna(bNode *bnode, const char *prop_name) const
+	{
+		PointerRNA ptr;
+		this->get_rna(bnode, &ptr);
+		char type_name[64];
+		RNA_string_get(&ptr, prop_name, type_name);
+		return this->type_by_name(type_name);
 	}
 
 } } /* namespace FN::DataFlowNodes */

@@ -7,6 +7,7 @@
 namespace FN { namespace Functions {
 
 	using namespace Types;
+	using FunctionPerType = SmallMap<SharedType, SharedFunction>;
 
 	template<typename T>
 	class AppendToList : public TupleCallBody {
@@ -38,28 +39,36 @@ namespace FN { namespace Functions {
 		return fn;
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, append_float)
+	template<typename T>
+	void insert_append_to_list_function(
+		FunctionPerType &functions,
+		SharedType &base_type,
+		SharedType &list_type)
 	{
-		return build_append_function<float>(
-			"Append Float",
-			get_float_type(),
-			get_float_list_type());
+		std::string name = "Append " + base_type->name();
+		SharedFunction fn = build_append_function<T>(name, base_type, list_type);
+		functions.add(base_type, fn);
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, append_fvec3)
+	FunctionPerType append_to_list_functions;
+
+	LAZY_INIT_REF_STATIC__NO_ARG(FunctionPerType, get_append_to_list_functions)
 	{
-		return build_append_function<Vector>(
-			"Append Vector",
-			get_fvec3_type(),
-			get_fvec3_list_type());
+		FunctionPerType functions;
+		insert_append_to_list_function<float>(
+			functions, get_float_type(), get_float_list_type());
+		insert_append_to_list_function<Vector>(
+			functions, get_fvec3_type(), get_fvec3_list_type());
+		insert_append_to_list_function<int32_t>(
+			functions, get_int32_type(), get_int32_list_type());
+		return functions;
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, append_int32)
+	SharedFunction &append_to_list(SharedType &base_type)
 	{
-		return build_append_function<int32_t>(
-			"Append Int32",
-			get_int32_type(),
-			get_int32_list_type());
+		FunctionPerType &functions = get_append_to_list_functions();
+		BLI_assert(functions.contains(base_type));
+		return functions.lookup_ref(base_type);
 	}
 
 
