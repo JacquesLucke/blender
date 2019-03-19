@@ -3,6 +3,7 @@ from . base import FunctionNode, DataSocket
 from . inferencer import Inferencer
 from collections import defaultdict
 from . sockets import type_infos, OperatorSocket, DataSocket
+from dataclasses import dataclass
 
 from . socket_decl import (
     FixedSocketDecl,
@@ -52,6 +53,15 @@ def run_socket_operators(tree):
 # Inferencing
 #######################################
 
+@dataclass
+class DecisionID:
+    node: bpy.types.Node
+    prop: object
+    prop_name: str
+
+    def __hash__(self):
+        return id(self)
+
 def run_socket_type_inferencer(tree):
     inferencer = Inferencer()
 
@@ -66,17 +76,10 @@ def run_socket_type_inferencer(tree):
     nodes_to_rebuild = set()
 
     for decision_id, value in inferencer.get_decisions().items():
-        if decision_id[0] == "COLLECTION":
-            node, prop_name, index, attr_name = decision_id[1:]
-            item = getattr(node, prop_name)[index]
-            if getattr(item, attr_name) != value:
-                setattr(item, attr_name, value)
-                nodes_to_rebuild.add(node)
-        else:
-            node, prop_name = decision_id
-            if getattr(node, prop_name) != value:
-                setattr(node, prop_name, value)
-                nodes_to_rebuild.add(node)
+        decision_id: DecisionID
+        if getattr(decision_id.prop, decision_id.prop_name) != value:
+            setattr(decision_id.prop, decision_id.prop_name, value)
+            nodes_to_rebuild.add(decision_id.node)
 
     for node in nodes_to_rebuild:
         node.rebuild_and_try_keep_state()
@@ -101,7 +104,7 @@ def insert_constraints__within_node(inferencer, node):
         elif isinstance(decl, VariadicListDecl):
             for i, socket in enumerate(sockets[:-1]):
                 inferencer.insert_list_or_base_constraint(
-                    socket.to_id(node), decl.base_type, ("COLLECTION", node, decl.prop_name, i, "state"))
+                    socket.to_id(node), decl.base_type, DecisionID(node, getattr(node, decl.prop_name)[i], "state"))
         elif isinstance(decl, AnyVariadicDecl):
             for socket in sockets[:-1]:
                 inferencer.insert_final_type(socket.to_id(node), socket.data_type)
@@ -109,7 +112,7 @@ def insert_constraints__within_node(inferencer, node):
             inferencer.insert_union_constraint(
                 [sockets[0].to_id(node)],
                 decl.allowed_types,
-                (node, decl.prop_name))
+                DecisionID(node, node, decl.prop_name))
 
     properties = set()
     properties.update(list_ids_per_prop.keys())
@@ -119,7 +122,7 @@ def insert_constraints__within_node(inferencer, node):
         inferencer.insert_list_constraint(
             list_ids_per_prop[prop],
             base_ids_per_prop[prop],
-            (node, prop))
+            DecisionID(node, node, prop))
 
 def insert_constraints__link(inferencer, link):
     if not isinstance(link.from_socket, DataSocket):
