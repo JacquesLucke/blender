@@ -82,53 +82,15 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(node, bnode);
 	}
 
-	static SharedFunction &get_function__get_list_element(char *base_type)
-	{
-		if (STREQ(base_type, "Float")) {
-			return Functions::get_float_list_element();
-		}
-		else if (STREQ(base_type, "Vector")) {
-			return Functions::get_fvec3_list_element();
-		}
-		else if (STREQ(base_type, "Integer")) {
-			return Functions::get_int32_list_element();
-		}
-		else {
-			BLI_assert(false);
-			return *(SharedFunction *)nullptr;
-		}
-	}
-
 	static void insert_get_list_element_node(
 		Builder &builder,
 		const BuilderContext ctx,
 		bNode *bnode)
 	{
-		PointerRNA ptr;
-		ctx.get_rna(bnode, &ptr);
-		char base_type[64];
-		RNA_string_get(&ptr, "active_type", base_type);
-
-		SharedFunction &fn = get_function__get_list_element(base_type);
+		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
+		SharedFunction &fn = Functions::get_list_element(base_type);
 		Node *node = builder.insert_function(fn);
 		builder.map_sockets(node, bnode);
-	}
-
-	static SharedFunction &get_function__combine_lists(char *base_type)
-	{
-		if (STREQ(base_type, "Float")) {
-			return Functions::combine_float_lists();
-		}
-		else if (STREQ(base_type, "Vector")) {
-			return Functions::combine_fvec3_lists();
-		}
-		else if (STREQ(base_type, "Integer")) {
-			return Functions::combine_int32_lists();
-		}
-		else {
-			BLI_assert(false);
-			return *(SharedFunction *)nullptr;
-		}
 	}
 
 	static void insert_combine_lists_node(
@@ -136,12 +98,8 @@ namespace FN { namespace DataFlowNodes {
 		const BuilderContext ctx,
 		bNode *bnode)
 	{
-		PointerRNA ptr;
-		ctx.get_rna(bnode, &ptr);
-		char base_type[64];
-		RNA_string_get(&ptr, "active_type", base_type);
-
-		SharedFunction &fn = get_function__combine_lists(base_type);
+		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
+		SharedFunction &fn = Functions::combine_lists(base_type);
 		Node *node = builder.insert_function(fn);
 		builder.map_sockets(node, bnode);
 	}

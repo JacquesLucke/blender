@@ -50,8 +50,6 @@ namespace FN { namespace Functions {
 		functions.add(base_type, fn);
 	}
 
-	FunctionPerType append_to_list_functions;
-
 	LAZY_INIT_REF_STATIC__NO_ARG(FunctionPerType, get_append_to_list_functions)
 	{
 		FunctionPerType functions;
@@ -108,30 +106,35 @@ namespace FN { namespace Functions {
 		return fn;
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, get_float_list_element)
+	template<typename T>
+	void insert_get_element_function(
+		FunctionPerType &functions,
+		SharedType &base_type,
+		SharedType &list_type)
 	{
-		return build_get_element_function<float>(
-			"Get Float List Element",
-			get_float_type(),
-			get_float_list_type());
+		std::string name = "Get " + base_type->name() + " List Element";
+		SharedFunction fn = build_get_element_function<T>(name, base_type, list_type);
+		functions.add(base_type, fn);
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, get_fvec3_list_element)
+	LAZY_INIT_REF_STATIC__NO_ARG(FunctionPerType, get_get_element_functions)
 	{
-		return build_get_element_function<Vector>(
-			"Get Vector List Element",
-			get_fvec3_type(),
-			get_fvec3_list_type());
+		FunctionPerType functions;
+		insert_get_element_function<float>(
+			functions, get_float_type(), get_float_list_type());
+		insert_get_element_function<Vector>(
+			functions, get_fvec3_type(), get_fvec3_list_type());
+		insert_get_element_function<int32_t>(
+			functions, get_int32_type(), get_int32_list_type());
+		return functions;
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, get_int32_list_element)
+	SharedFunction &get_list_element(SharedType &base_type)
 	{
-		return build_get_element_function<int32_t>(
-			"Get Int32 List Element",
-			get_int32_type(),
-			get_int32_list_type());
+		FunctionPerType &functions = get_get_element_functions();
+		BLI_assert(functions.contains(base_type));
+		return functions.lookup_ref(base_type);
 	}
-
 
 	template<typename T>
 	class CombineLists : public TupleCallBody {
@@ -158,29 +161,38 @@ namespace FN { namespace Functions {
 		}, {
 			OutputParameter("List", list_type),
 		}));
-		fn->add_body(new CombineLists<float>());
+		fn->add_body(new CombineLists<T>());
 		return fn;
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, combine_float_lists)
+	template<typename T>
+	void insert_combine_lists_function(
+		FunctionPerType &functions,
+		SharedType &base_type,
+		SharedType &list_type)
 	{
-		return build_combine_lists_function<float>(
-			"Combine Float Lists",
-			get_float_list_type());
+		std::string name = "Combine " + base_type->name() + " Lists";
+		SharedFunction fn = build_combine_lists_function<T>(name, list_type);
+		functions.add(base_type, fn);
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, combine_fvec3_lists)
+	LAZY_INIT_REF_STATIC__NO_ARG(FunctionPerType, get_combine_lists_function)
 	{
-		return build_combine_lists_function<Vector>(
-			"Combine Vector Lists",
-			get_fvec3_list_type());
+		FunctionPerType functions;
+		insert_combine_lists_function<float>(
+			functions, get_float_type(), get_float_list_type());
+		insert_combine_lists_function<Vector>(
+			functions, get_fvec3_type(), get_fvec3_list_type());
+		insert_combine_lists_function<int32_t>(
+			functions, get_int32_type(), get_int32_list_type());
+		return functions;
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, combine_int32_lists)
+	SharedFunction &combine_lists(SharedType &base_type)
 	{
-		return build_combine_lists_function<int32_t>(
-			"Combine Int32 Lists",
-			get_int32_list_type());
+		FunctionPerType &functions = get_combine_lists_function();
+		BLI_assert(functions.contains(base_type));
+		return functions.lookup_ref(base_type);
 	}
 
 } } /* namespace FN::Functions */

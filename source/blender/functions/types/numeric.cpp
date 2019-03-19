@@ -28,7 +28,7 @@ namespace FN { namespace Types {
 
 	LAZY_INIT_REF__NO_ARG(SharedType, get_fvec3_type)
 	{
-		SharedType type = SharedType::New("FloatVector3D");
+		SharedType type = SharedType::New("FVec3");
 		type->extend(new CPPTypeInfoForType<Vector>());
 		type->extend(new SimpleLLVMTypeInfo([](llvm::LLVMContext &context) {
 			llvm::Type *base = llvm::Type::getFloatTy(context);

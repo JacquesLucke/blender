@@ -5,14 +5,7 @@
 namespace FN { namespace Functions {
 
 	SharedFunction &append_to_list(SharedType &base_type);
-
-	SharedFunction &get_float_list_element();
-	SharedFunction &combine_float_lists();
-
-	SharedFunction &get_fvec3_list_element();
-	SharedFunction &combine_fvec3_lists();
-
-	SharedFunction &get_int32_list_element();
-	SharedFunction &combine_int32_lists();
+	SharedFunction &get_list_element(SharedType &base_type);
+	SharedFunction &combine_lists(SharedType &base_type);
 
 } } /* namespace FN::Functions */
