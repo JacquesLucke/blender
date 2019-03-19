@@ -264,7 +264,7 @@ typedef struct BHeadN {
 	struct BHeadN *next, *prev;
 #ifdef USE_BHEAD_READ_ON_DEMAND
 	/** Use to read the data from the file directly into memory as needed. */
-	off_t file_offset;
+	off64_t file_offset;
 	/** When set, the remainder of this allocation is the data, otherwise it needs to be read. */
 	bool has_data;
 #endif
@@ -838,7 +838,7 @@ static BHeadN *get_bhead(FileData *fd)
 					new_bhead->file_offset = fd->file_offset;
 					new_bhead->has_data = false;
 					new_bhead->bhead = bhead;
-					off_t seek_new = fd->seek(fd, bhead.len, SEEK_CUR);
+					off64_t seek_new = fd->seek(fd, bhead.len, SEEK_CUR);
 					if (seek_new == -1) {
 						fd->is_eof = true;
 						MEM_freeN(new_bhead);
@@ -946,7 +946,7 @@ static bool blo_bhead_read_data(FileData *fd, BHead *thisblock, void *buf)
 	bool success = true;
 	BHeadN *new_bhead = BHEADN_FROM_BHEAD(thisblock);
 	BLI_assert(new_bhead->has_data == false && new_bhead->file_offset != 0);
-	off_t offset_backup = fd->file_offset;
+	off64_t offset_backup = fd->file_offset;
 	if (UNLIKELY(fd->seek(fd, new_bhead->file_offset, SEEK_SET) == -1)) {
 		success = false;
 	}
@@ -1136,7 +1136,7 @@ static int fd_read_data_from_file(FileData *filedata, void *buffer, uint size)
 	return (readsize);
 }
 
-static off_t fd_seek_data_from_file(FileData *filedata, off_t offset, int whence)
+static off64_t fd_seek_data_from_file(FileData *filedata, off64_t offset, int whence)
 {
 	filedata->file_offset = lseek(filedata->filedes, offset, whence);
 	return filedata->file_offset;
@@ -5458,6 +5458,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 
 	for (md = lb->first; md; md = md->next) {
 		md->error = NULL;
+		md->runtime = NULL;
 
 		/* if modifiers disappear, or for upward compatibility */
 		if (NULL == modifierType_getInfo(md->type))
@@ -5467,7 +5468,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			SubsurfModifierData *smd = (SubsurfModifierData *)md;
 
 			smd->emCache = smd->mCache = NULL;
-			smd->subdiv = NULL;
 		}
 		else if (md->type == eModifierType_Armature) {
 			ArmatureModifierData *amd = (ArmatureModifierData *)md;
