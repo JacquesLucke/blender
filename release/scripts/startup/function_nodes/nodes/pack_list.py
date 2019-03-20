@@ -17,3 +17,10 @@ class PackListNode(bpy.types.Node, FunctionNode):
         ], [
             FixedSocketDecl("output", "List", type_infos.to_list(self.active_type)),
         ]
+
+    def draw(self, layout):
+        self.invoke_type_selection(layout, "set_type", "Change Type", mode="BASE")
+
+    def set_type(self, data_type):
+        self.active_type = data_type
+        self.rebuild_and_try_keep_state()

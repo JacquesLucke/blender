@@ -150,6 +150,17 @@ class DataTypesInfo:
             items.append((data_type, data_type, ""))
         return items
 
+    def get_base_type_items(self):
+        items = []
+        for data_type in self.list_by_base.keys():
+            items.append((data_type, data_type, ""))
+        return items
+
+    def get_data_type_items_cb(self):
+        def callback(_1, _2):
+            return self.get_data_type_items()
+        return callback
+
 
 type_infos = DataTypesInfo()
 

@@ -247,10 +247,7 @@ class AppendAnyVariadicOperator(bpy.types.Operator):
     node_name: StringProperty()
     prop_name: StringProperty()
 
-    def get_data_type_items(self, context):
-        return type_infos.get_data_type_items()
-
-    item: EnumProperty(items=get_data_type_items)
+    item: EnumProperty(items=type_infos.get_data_type_items_cb())
 
     def invoke(self, context, event):
         context.window_manager.invoke_search_popup(self)

@@ -69,9 +69,9 @@ class BaseNode:
         self.outputs.clear()
 
         inputs, outputs = self.get_sockets()
-        for decl in self.storage.inputs_decl:
+        for decl in inputs:
             decl.build(self, self.inputs)
-        for decl in self.storage.outputs_decl:
+        for decl in outputs:
             decl.build(self, self.outputs)
         self.storage.set_current_declaration(inputs, outputs)
 
@@ -116,6 +116,17 @@ class BaseNode:
             *, icon="NONE", settings=tuple()):
         assert isinstance(settings, tuple)
         props = layout.operator("fn.node_operator", text=text, icon=icon)
+        self._set_common_invoke_props(props, function_name, settings)
+
+    def invoke_type_selection(self,
+            layout, function_name, text,
+            *, mode="ALL", icon="NONE", settings=tuple()):
+        assert isinstance(settings, tuple)
+        props = layout.operator("fn.node_data_type_selector", text=text, icon=icon)
+        self._set_common_invoke_props(props, function_name, settings)
+        props.mode = mode
+
+    def _set_common_invoke_props(self, props, function_name, settings):
         props.tree_name = self.id_data.name
         props.node_name = self.name
         props.function_name = function_name
