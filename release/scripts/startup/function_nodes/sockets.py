@@ -24,6 +24,12 @@ class FloatSocket(bpy.types.NodeSocket, DataSocket):
     def draw_color(self, context, node):
         return (0, 0.3, 0.5, 1)
 
+    def get_state(self):
+        return self.value
+
+    def restore_state(self, state):
+        self.value = state
+
 class IntegerSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_IntegerSocket"
     bl_label = "Integer Socket"
@@ -38,6 +44,12 @@ class IntegerSocket(bpy.types.NodeSocket, DataSocket):
 
     def draw_color(self, context, node):
         return (0.3, 0.7, 0.5, 1)
+
+    def get_state(self):
+        return self.value
+
+    def restore_state(self, state):
+        self.value = state
 
 class VectorSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_VectorSocket"
@@ -54,6 +66,12 @@ class VectorSocket(bpy.types.NodeSocket, DataSocket):
 
     def draw_color(self, context, node):
         return (0, 0, 0.5, 1)
+
+    def get_state(self):
+        return tuple(self.value)
+
+    def restore_state(self, state):
+        self.value = state
 
 class CustomColoredSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_CustomColoredSocket"

@@ -21,6 +21,7 @@ class NodeStorage:
     def __init__(self, node):
         self.node = node
         self.set_current_declaration(*node.get_sockets())
+        self.input_value_storage = dict()
 
     def set_current_declaration(self, inputs, outputs):
         self.inputs_decl = inputs
@@ -49,6 +50,22 @@ class NodeStorage:
                 self.decl_per_socket[socket] = decl
                 self.decl_index_per_socket[socket] = i
 
+    def store_socket_states(self):
+        for socket in self.node.inputs:
+            if not isinstance(socket, DataSocket):
+                continue
+            storage_id = (socket.data_type, socket.identifier)
+            self.input_value_storage[storage_id] = socket.get_state()
+
+    def try_restore_socket_states(self):
+        for socket in self.node.inputs:
+            if not isinstance(socket, DataSocket):
+                continue
+            storage_id = (socket.data_type, socket.identifier)
+            if storage_id in self.input_value_storage:
+                socket.restore_state(self.input_value_storage[storage_id])
+
+
 _storage_per_node = {}
 
 class BaseNode:
@@ -65,6 +82,7 @@ class BaseNode:
         self._try_set_state(state)
 
     def rebuild(self):
+        self.storage.store_socket_states()
         self.inputs.clear()
         self.outputs.clear()
 
@@ -74,6 +92,7 @@ class BaseNode:
         for decl in outputs:
             decl.build(self, self.outputs)
         self.storage.set_current_declaration(inputs, outputs)
+        self.storage.try_restore_socket_states()
 
     def _get_state(self):
         links_per_input = defaultdict(set)
@@ -170,7 +189,7 @@ class BaseNode:
     #########################
 
     @property
-    def storage(self):
+    def storage(self) -> NodeStorage:
         if self not in _storage_per_node:
             _storage_per_node[self] = NodeStorage(self)
         return _storage_per_node[self]
@@ -214,4 +233,10 @@ class DataSocket(BaseSocket):
             self.draw_property(layout, node, text)
         else:
             layout.label(text=text)
+
+    def get_state(self):
+        return None
+
+    def restore_state(self, state):
+        pass
 
