@@ -105,6 +105,8 @@ class BaseNode:
 
     def draw_buttons(self, context, layout):
         self.draw(layout)
+        for decl in self.storage.sockets_per_decl.keys():
+            decl.draw_node(layout, self)
 
     def draw(self, layout):
         pass

@@ -12,6 +12,9 @@ class SocketDeclBase:
     def amount(self, node):
         raise NotImplementedError()
 
+    def draw_node(self, layout, node):
+        pass
+
     def draw_socket(self, layout, node, socket, index):
         socket.draw_self(layout, self)
 
