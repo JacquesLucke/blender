@@ -133,7 +133,11 @@ class PackListDecl(SocketDeclBase):
 class PackListPropertyGroup(bpy.types.PropertyGroup):
     bl_idname = "fn_PackListPropertyGroup"
 
-    state: StringProperty(default="BASE")
+    state: EnumProperty(
+        default="BASE",
+        items=[
+            ("BASE", "Base", "", "NONE", 0),
+            ("LIST", "Base", "", "NONE", 1)])
     identifier_prefix: StringProperty()
 
 class AnyVariadicDecl(SocketDeclBase):

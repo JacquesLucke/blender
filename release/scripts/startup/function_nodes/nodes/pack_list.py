@@ -4,9 +4,9 @@ from .. base import FunctionNode
 from .. socket_decl import PackListDecl, FixedSocketDecl
 from .. sockets import type_infos
 
-class CreateListNode(bpy.types.Node, FunctionNode):
-    bl_idname = "fn_CreateListNode"
-    bl_label = "Create List"
+class PackListNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_PackListNode"
+    bl_label = "Pack List"
 
     active_type: StringProperty(default="Float")
     variadic: PackListDecl.Property()

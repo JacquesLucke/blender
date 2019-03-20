@@ -9,6 +9,29 @@ namespace FN { namespace Functions {
 	using namespace Types;
 
 	template<typename T>
+	class CreateEmptyList : public TupleCallBody {
+		void call(Tuple &UNUSED(fn_in), Tuple &fn_out) const override
+		{
+			auto list = SharedList<T>::New();
+			fn_out.move_in(0, list);
+		}
+	};
+
+	template<typename T>
+	SharedFunction build_create_empty_list_function(
+		SharedType &base_type,
+		SharedType &list_type)
+	{
+		std::string name = "Create Empty " + base_type->name() + " List";
+		auto fn = SharedFunction::New(name, Signature({}, {
+			OutputParameter("List", list_type),
+		}));
+		fn->add_body(new CreateEmptyList<T>());
+		return fn;
+	}
+
+
+	template<typename T>
 	class AppendToList : public TupleCallBody {
 		void call(Tuple &fn_in, Tuple &fn_out) const override
 		{
@@ -113,6 +136,7 @@ namespace FN { namespace Functions {
 	using FunctionPerType = SmallMap<SharedType, SharedFunction>;
 
 	struct ListFunctions {
+		FunctionPerType m_create_empty;
 		FunctionPerType m_append;
 		FunctionPerType m_get_element;
 		FunctionPerType m_combine;
@@ -124,6 +148,9 @@ namespace FN { namespace Functions {
 		SharedType &base_type,
 		SharedType &list_type)
 	{
+		functions.m_create_empty.add(
+			base_type,
+			build_create_empty_list_function<T>(base_type, list_type));
 		functions.m_append.add(
 			base_type,
 			build_append_function<T>(base_type, list_type));
@@ -150,6 +177,13 @@ namespace FN { namespace Functions {
 
 	/* Access List Functions
 	 *************************************/
+
+	SharedFunction &empty_list(SharedType &base_type)
+	{
+		FunctionPerType &functions = get_list_functions().m_create_empty;
+		BLI_assert(functions.contains(base_type));
+		return functions.lookup_ref(base_type);
+	}
 
 	SharedFunction &append_to_list(SharedType &base_type)
 	{

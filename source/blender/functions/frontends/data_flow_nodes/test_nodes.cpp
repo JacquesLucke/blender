@@ -104,6 +104,51 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(node, bnode);
 	}
 
+	static void insert_pack_list_node(
+		Builder &builder,
+		const BuilderContext ctx,
+		bNode *bnode)
+	{
+		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
+
+		PointerRNA ptr;
+		ctx.get_rna(bnode, &ptr);
+		int input_amount = RNA_collection_length(&ptr, "variadic");
+
+		auto &empty_fn = Functions::empty_list(base_type);
+		Node *node = builder.insert_function(empty_fn);
+
+		int index = 0;
+		RNA_BEGIN(&ptr, itemptr, "variadic")
+		{
+			Node *new_node;
+			int state = RNA_enum_get(&itemptr, "state");
+			if (state == 0) {
+				/* single value case */
+				auto &append_fn = Functions::append_to_list(base_type);
+				new_node = builder.insert_function(append_fn);
+				builder.insert_link(node->output(0), new_node->input(0));
+				builder.map_input(new_node->input(1), bnode, index);
+			}
+			else if (state == 1) {
+				/* list case */
+				auto &combine_fn = Functions::combine_lists(base_type);
+				new_node = builder.insert_function(combine_fn);
+				builder.insert_link(node->output(0), new_node->input(0));
+				builder.map_input(new_node->input(1), bnode, index);
+			}
+			else {
+				BLI_assert(false);
+				new_node = nullptr;
+			}
+			node = new_node;
+			index++;
+		}
+		RNA_END;
+
+		builder.map_output(node->output(0), bnode, 0);
+	}
+
 	void register_node_inserters(GraphInserters &inserters)
 	{
 		inserters.reg_node_function("fn_CombineVectorNode", Functions::combine_vector);
@@ -118,6 +163,7 @@ namespace FN { namespace DataFlowNodes {
 		inserters.reg_node_inserter("fn_AppendToListNode", insert_append_list_node);
 		inserters.reg_node_inserter("fn_GetListElementNode", insert_get_list_element_node);
 		inserters.reg_node_inserter("fn_CombineListsNode", insert_combine_lists_node);
+		inserters.reg_node_inserter("fn_PackListNode", insert_pack_list_node);
 	}
 
 } }
