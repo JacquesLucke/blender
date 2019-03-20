@@ -32,10 +32,6 @@ set(SRC
 	core/data_flow_graph.hpp
 	core/data_flow_graph.cpp
 	core/dot_export.cpp
-	core/type_inferencing.hpp
-	core/type_inferencing.cpp
-	core/type_relations.hpp
-	core/type_relations.cpp
 
 	backends/tuple_call/cpp_types.hpp
 	backends/tuple_call/cpp_types.cpp

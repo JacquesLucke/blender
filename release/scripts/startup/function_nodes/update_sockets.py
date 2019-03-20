@@ -1,6 +1,5 @@
 import bpy
 from . base import FunctionNode, DataSocket
-from . inferencer import Inferencer
 from collections import defaultdict
 from . sockets import type_infos, OperatorSocket, DataSocket
 from pprint import pprint
