@@ -9,27 +9,22 @@ namespace FN { namespace Types {
 
 	template<typename T>
 	class ListCPPTypeInfo : public CPPTypeInfo {
-	private:
-		static List<T> *list_from_ptr(void *ptr)
-		{
-			return ((SharedList<T> *)ptr)->ptr();
-		}
 
 	public:
 		uint size_of_type() const override
 		{
+			static_assert(sizeof(SharedList<T>) == sizeof(void *), "");
 			return sizeof(SharedList<T>);
 		}
 
 		void construct_default(void *ptr) const override
 		{
-			List<T> *list = new List<T>();
-			*(SharedList<T> *)ptr = SharedList<T>::FromPointer(list);
+			*(List<T> **)ptr = new List<T>();
 		}
 
 		void destruct_type(void *ptr) const override
 		{
-			List<T> *list = this->list_from_ptr(ptr);
+			List<T> *list = *(List<T> **)ptr;
 			list->remove_user();
 		}
 
@@ -41,9 +36,9 @@ namespace FN { namespace Types {
 
 		void copy_to_uninitialized(void *src, void *dst) const override
 		{
-			List<T> *list = this->list_from_ptr(src);
+			List<T> *list = *(List<T> **)src;
 			list->new_user();
-			*(SharedList<T> *)dst = SharedList<T>::FromPointer(list);
+			*(List<T> **)dst = list;
 		}
 	};
 
