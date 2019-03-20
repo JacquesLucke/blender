@@ -95,7 +95,13 @@ class PackListDecl(SocketDeclBase):
             props.node_name = node.name
             props.prop_name = self.prop_name
         else:
-            socket.draw_self(layout, node)
+            row = layout.row(align=True)
+            socket.draw_self(row, node)
+            props = row.operator("fn.remove_pack_list_input", text="", icon='X')
+            props.tree_name = node.tree.name
+            props.node_name = node.name
+            props.prop_name = self.prop_name
+            props.index = index
 
     def operator_socket_call(self, node, own_socket, other_socket):
         if not isinstance(other_socket, DataSocket):
@@ -166,6 +172,24 @@ class NewPackListInputOperator(bpy.types.Operator):
 
         node.rebuild_and_try_keep_state()
 
+        return {'FINISHED'}
+
+class RemovePackListInputOperator(bpy.types.Operator):
+    bl_idname = "fn.remove_pack_list_input"
+    bl_label = "Remove Pack List Input"
+    bl_options = {'INTERNAL'}
+
+    tree_name: StringProperty()
+    node_name: StringProperty()
+    prop_name: StringProperty()
+    index: IntProperty()
+
+    def execute(self, context):
+        tree = bpy.data.node_groups[self.tree_name]
+        node = tree.nodes[self.node_name]
+        collection = getattr(node, self.prop_name)
+        collection.remove(self.index)
+        node.rebuild_and_try_keep_state()
         return {'FINISHED'}
 
 class AnyVariadicDecl(SocketDeclBase):
