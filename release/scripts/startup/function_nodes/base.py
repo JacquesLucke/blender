@@ -120,8 +120,9 @@ class BaseNode:
         props.settings_repr = repr(settings)
 
     def draw_socket(self, socket, layout):
-        decl = self.storage.decl_per_socket[socket]
-        index = self.storage.decl_index_per_socket[socket]
+        storage = self.storage
+        decl = storage.decl_per_socket[socket]
+        index = storage.decl_index_per_socket[socket]
         decl.draw_socket(layout, self, socket, index)
 
     @classmethod
@@ -183,6 +184,9 @@ class BaseSocket:
 
     def to_id(self, node):
         return (node, self.is_output, self.identifier)
+
+    def get_decl(self, node):
+        return node.storage.decl_per_socket[self]
 
 class FunctionNode(BaseNode):
     pass

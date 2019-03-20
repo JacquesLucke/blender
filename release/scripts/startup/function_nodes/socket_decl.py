@@ -35,75 +35,37 @@ class FixedSocketDecl(SocketDeclBase):
         return 1
 
 class ListSocketDecl(SocketDeclBase):
-    def __init__(self, identifier: str, display_name: str, type_property: str):
-        self.identifier = identifier
-        self.display_name = display_name
-        self.type_property = type_property
-
-    def build(self, node, node_sockets):
-        base_type = getattr(node, self.type_property)
-        list_type = type_infos.to_list(base_type)
-        return [type_infos.build(
-            list_type,
-            node_sockets,
-            self.display_name,
-            self.identifier)]
-
-    def amount(self, node):
-        return 1
-
-    @classmethod
-    def Property(cls):
-        return StringProperty(default="Float")
-
-class BaseSocketDecl(SocketDeclBase):
-    def __init__(self, identifier: str, display_name: str, type_property: str):
-        self.identifier = identifier
-        self.display_name = display_name
-        self.type_property = type_property
-
-    def build(self, node, node_sockets):
-        data_type = getattr(node, self.type_property)
-        return [type_infos.build(
-            data_type,
-            node_sockets,
-            self.display_name,
-            self.identifier)]
-
-    def amount(self, node):
-        return 1
-
-    @classmethod
-    def Property(cls):
-        return StringProperty(default="Float")
-
-class AnyOfDecl(SocketDeclBase):
-    def __init__(self,
-            identifier: str,
-            display_name: str,
-            prop_name: str,
-            allowed_types: str):
+    def __init__(self, identifier: str, display_name: str, prop_name: str, list_or_base: str):
         self.identifier = identifier
         self.display_name = display_name
         self.prop_name = prop_name
-        self.allowed_types = allowed_types
+        self.list_or_base = list_or_base
 
     def build(self, node, node_sockets):
-        data_type = getattr(node, self.prop_name)
+        data_type = self.get_data_type(node)
         return [type_infos.build(
             data_type,
             node_sockets,
             self.display_name,
             self.identifier)]
 
+    def get_data_type(self, node):
+        base_type = getattr(node, self.prop_name)
+        if self.list_or_base == "BASE":
+            return base_type
+        elif self.list_or_base == "LIST":
+            return type_infos.to_list(base_type)
+        else:
+            assert False
+
     def amount(self, node):
         return 1
 
     @classmethod
-    def Property(cls, default_type):
-        return StringProperty(default=default_type)
+    def Property(cls):
+        return StringProperty(default="Float")
 
-class VariadicListDecl(SocketDeclBase):
+class PackListDecl(SocketDeclBase):
     def __init__(self, identifier: str, prop_name: str, base_type: str):
         self.identifier_suffix = identifier
         self.prop_name = prop_name
@@ -166,10 +128,10 @@ class VariadicListDecl(SocketDeclBase):
 
     @classmethod
     def Property(cls):
-        return CollectionProperty(type=VariadicListPropertyGroup)
+        return CollectionProperty(type=PackListPropertyGroup)
 
-class VariadicListPropertyGroup(bpy.types.PropertyGroup):
-    bl_idname = "fn_VariadicListPropertyGroup"
+class PackListPropertyGroup(bpy.types.PropertyGroup):
+    bl_idname = "fn_PackListPropertyGroup"
 
     state: StringProperty(default="BASE")
     identifier_prefix: StringProperty()

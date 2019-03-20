@@ -3,15 +3,13 @@ from . base import FunctionNode, DataSocket
 from . inferencer import Inferencer
 from collections import defaultdict
 from . sockets import type_infos, OperatorSocket, DataSocket
-from dataclasses import dataclass
+from pprint import pprint
 
 from . socket_decl import (
     FixedSocketDecl,
     ListSocketDecl,
-    BaseSocketDecl,
-    VariadicListDecl,
+    PackListDecl,
     AnyVariadicDecl,
-    AnyOfDecl,
 )
 
 class UpdateFunctionTreeOperator(bpy.types.Operator):
@@ -22,7 +20,8 @@ class UpdateFunctionTreeOperator(bpy.types.Operator):
     def execute(self, context):
         tree = context.space_data.node_tree
         run_socket_operators(tree)
-        run_socket_type_inferencer(tree)
+        inference_decisions(tree)
+        remove_invalid_links(tree)
         return {'FINISHED'}
 
 
@@ -53,85 +52,178 @@ def run_socket_operators(tree):
 # Inferencing
 #######################################
 
-@dataclass
-class DecisionID:
-    node: bpy.types.Node
-    prop: object
-    prop_name: str
+from collections import namedtuple
 
-    def __hash__(self):
-        return id(self)
+DecisionID = namedtuple("DecisionID", ("node", "group", "prop_name"))
+LinkSocket = namedtuple("LinkSocket", ("node", "socket"))
 
-def run_socket_type_inferencer(tree):
-    inferencer = Inferencer()
+def depth_first_search(start_node, links):
+    result = set()
+    found = set()
+    found.add(start_node)
+    while len(found) > 0:
+        node = found.pop()
+        result.add(node)
+        for linked_node in links[node]:
+            if linked_node not in result:
+                found.add(linked_node)
+    return result
+
+def iter_connected_components(nodes: set, links: dict):
+    nodes = set(nodes)
+    while len(nodes) > 0:
+        start_node = next(iter(nodes))
+        component = depth_first_search(start_node, links)
+        yield component
+        nodes -= component
+
+def get_linked_sockets_dict(tree):
+    linked_sockets = defaultdict(set)
+    for link in tree.links:
+        origin = LinkSocket(link.from_node, link.from_socket)
+        target = LinkSocket(link.to_node, link.to_socket)
+        linked_sockets[link.from_socket].add(target)
+        linked_sockets[link.to_socket].add(origin)
+    return linked_sockets
+
+def rebuild_nodes(nodes):
+    for node in nodes:
+        node.rebuild_and_try_keep_state()
+
+def make_list_decisions(tree, linked_sockets):
+    decision_ids = set()
+    linked_decisions = defaultdict(set)
+    decision_users = defaultdict(lambda: {"BASE": [], "LIST": []})
 
     for node in tree.nodes:
-        insert_constraints__within_node(inferencer, node)
+        for decl, sockets in node.storage.sockets_per_decl.items():
+            if isinstance(decl, ListSocketDecl):
+                decision_id = DecisionID(node, node, decl.prop_name)
+                decision_ids.add(decision_id)
+                decision_users[decision_id][decl.list_or_base].append(sockets[0])
 
     for link in tree.links:
-        insert_constraints__link(inferencer, link)
+        from_decl = link.from_socket.get_decl(link.from_node)
+        to_decl = link.to_socket.get_decl(link.to_node)
+        if isinstance(from_decl, ListSocketDecl) and isinstance(to_decl, ListSocketDecl):
+            if from_decl.list_or_base == to_decl.list_or_base:
+                from_decision_id = DecisionID(link.from_node, link.from_node, from_decl.prop_name)
+                to_decision_id = DecisionID(link.to_node, link.to_node, to_decl.prop_name)
+                linked_decisions[from_decision_id].add(to_decision_id)
+                linked_decisions[to_decision_id].add(from_decision_id)
 
-    inferencer.inference()
+    decisions = dict()
+
+    for component in iter_connected_components(decision_ids, linked_decisions):
+        possible_types = set()
+        for decision_id in component:
+            for socket in decision_users[decision_id]["LIST"]:
+                for other_node, other_socket in linked_sockets[socket]:
+                    other_decl = other_socket.get_decl(other_node)
+                    if isinstance(other_decl, (FixedSocketDecl, AnyVariadicDecl)):
+                        data_type = other_socket.data_type
+                        if type_infos.is_list(data_type):
+                            possible_types.add(type_infos.to_base(data_type))
+                    if isinstance(other_decl, PackListDecl):
+                        possible_types.add(other_decl.base_type)
+            for socket in decision_users[decision_id]["BASE"]:
+                for other_node, other_socket in linked_sockets[socket]:
+                    other_decl = other_socket.get_decl(other_node)
+                    if isinstance(other_decl, (FixedSocketDecl, AnyVariadicDecl)):
+                        data_type = other_socket.data_type
+                        if type_infos.is_base(data_type):
+                            possible_types.add(data_type)
+                    elif isinstance(other_decl, PackListDecl):
+                        possible_types.add(other_decl.base_type)
+
+        if len(possible_types) == 1:
+            base_type = next(iter(possible_types))
+            for decision_id in component:
+                decisions[decision_id] = base_type
+
+    return decisions
+
+def iter_pack_list_sockets(tree):
+    for node in tree.nodes:
+        for decl, sockets in node.storage.sockets_per_decl.items():
+            if isinstance(decl, PackListDecl):
+                collection = decl.get_collection(node)
+                for i, socket in enumerate(sockets[:-1]):
+                    decision_id = DecisionID(node, collection[i], "state")
+                    yield decision_id, decl, socket,
+
+def make_pack_list_decisions(tree, linked_sockets, list_decisions):
+    decisions = dict()
+
+    for decision_id, decl, socket in iter_pack_list_sockets(tree):
+        assert not socket.is_output
+
+        if len(linked_sockets[socket]) == 0:
+            decisions[decision_id] = "BASE"
+            continue
+
+        assert len(linked_sockets[socket]) == 1
+        origin_node, origin_socket = next(iter(linked_sockets[socket]))
+        origin_decl = origin_socket.get_decl(origin_node)
+        if isinstance(origin_decl, (FixedSocketDecl, AnyVariadicDecl)):
+            data_type = origin_socket.data_type
+            if data_type == decl.base_type:
+                decisions[decision_id] = "BASE"
+            elif data_type == decl.list_type:
+                decisions[decision_id] = "LIST"
+        elif isinstance(origin_decl, ListSocketDecl):
+            list_decision_id = DecisionID(origin_node, origin_node, origin_decl.prop_name)
+            if list_decision_id in list_decisions:
+                other_base_type = list_decisions[list_decision_id]
+                if other_base_type == decl.base_type:
+                    decisions[decision_id] = origin_decl.list_or_base
+                else:
+                    decisions[decision_id] = "BASE"
+            else:
+                old_origin_type = origin_socket.data_type
+                if old_origin_type == decl.list_type:
+                    decisions[decision_id] = "LIST"
+                else:
+                    decisions[decision_id] = "BASE"
+        else:
+            decisions[decision_id] = "BASE"
+
+    return decisions
+
+def inference_decisions(tree):
+    linked_sockets = get_linked_sockets_dict(tree)
+
+    decisions = dict()
+    list_decisions = make_list_decisions(tree, linked_sockets)
+    decisions.update(list_decisions)
+    decisions.update(make_pack_list_decisions(tree, linked_sockets, list_decisions))
 
     nodes_to_rebuild = set()
 
-    for decision_id, value in inferencer.get_decisions().items():
-        decision_id: DecisionID
-        if getattr(decision_id.prop, decision_id.prop_name) != value:
-            setattr(decision_id.prop, decision_id.prop_name, value)
+    for decision_id, base_type in decisions.items():
+        if getattr(decision_id.group, decision_id.prop_name) != base_type:
+            setattr(decision_id.group, decision_id.prop_name, base_type)
             nodes_to_rebuild.add(decision_id.node)
 
-    for node in nodes_to_rebuild:
-        node.rebuild_and_try_keep_state()
+    rebuild_nodes(nodes_to_rebuild)
 
 
-# Insert inferencer constraints
-########################################
+# Remove Invalid Links
+################################
 
-def insert_constraints__within_node(inferencer, node):
-    storage = node.storage
+def remove_invalid_links(tree):
+    for link in list(tree.links):
+        if not is_link_valid(link):
+            tree.links.remove(link)
 
-    list_ids_per_prop = defaultdict(set)
-    base_ids_per_prop = defaultdict(set)
+def is_link_valid(link):
+    is_data_src = isinstance(link.from_socket, DataSocket)
+    is_data_dst = isinstance(link.to_socket, DataSocket)
 
-    for decl, sockets in storage.sockets_per_decl.items():
-        if isinstance(decl, FixedSocketDecl):
-            inferencer.insert_final_type(sockets[0].to_id(node), decl.data_type)
-        elif isinstance(decl, ListSocketDecl):
-            list_ids_per_prop[decl.type_property].add(sockets[0].to_id(node))
-        elif isinstance(decl, BaseSocketDecl):
-            base_ids_per_prop[decl.type_property].add(sockets[0].to_id(node))
-        elif isinstance(decl, VariadicListDecl):
-            for i, socket in enumerate(sockets[:-1]):
-                inferencer.insert_list_or_base_constraint(
-                    socket.to_id(node), decl.base_type, DecisionID(node, getattr(node, decl.prop_name)[i], "state"))
-        elif isinstance(decl, AnyVariadicDecl):
-            for socket in sockets[:-1]:
-                inferencer.insert_final_type(socket.to_id(node), socket.data_type)
-        elif isinstance(decl, AnyOfDecl):
-            inferencer.insert_union_constraint(
-                [sockets[0].to_id(node)],
-                decl.allowed_types,
-                DecisionID(node, node, decl.prop_name))
+    if is_data_src != is_data_dst:
+        return False
 
-    properties = set()
-    properties.update(list_ids_per_prop.keys())
-    properties.update(base_ids_per_prop.keys())
+    if is_data_src and is_data_dst:
+        return link.from_socket.data_type == link.to_socket.data_type
 
-    for prop in properties:
-        inferencer.insert_list_constraint(
-            list_ids_per_prop[prop],
-            base_ids_per_prop[prop],
-            DecisionID(node, node, prop))
-
-def insert_constraints__link(inferencer, link):
-    if not isinstance(link.from_socket, DataSocket):
-        return
-    if not isinstance(link.from_socket, DataSocket):
-        return
-
-    from_id = link.from_socket.to_id(link.from_node)
-    to_id = link.to_socket.to_id(link.to_node)
-
-    inferencer.insert_equality_constraint((from_id, to_id))
-
+    return True

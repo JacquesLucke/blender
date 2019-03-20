@@ -10,8 +10,8 @@ class CombineListsNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            ListSocketDecl("list1", "List 1", "active_type"),
-            ListSocketDecl("list2", "List 2", "active_type"),
+            ListSocketDecl("list1", "List 1", "active_type", "LIST"),
+            ListSocketDecl("list2", "List 2", "active_type", "LIST"),
         ], [
-            ListSocketDecl("list", "List", "active_type"),
+            ListSocketDecl("list", "List", "active_type", "LIST"),
         ]
