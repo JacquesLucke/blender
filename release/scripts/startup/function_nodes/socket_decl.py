@@ -87,7 +87,10 @@ class PackListDecl(SocketDeclBase):
 
     def draw_socket(self, layout, node, socket, index):
         if isinstance(socket, OperatorSocket):
-            layout.label(text="New")
+            props = layout.operator("fn.new_pack_list_input", text="New", emboss=False)
+            props.tree_name = node.tree.name
+            props.node_name = node.name
+            props.prop_name = self.prop_name
         else:
             socket.draw_self(layout, node)
 
@@ -139,6 +142,28 @@ class PackListPropertyGroup(bpy.types.PropertyGroup):
             ("BASE", "Base", "", "NONE", 0),
             ("LIST", "Base", "", "NONE", 1)])
     identifier_prefix: StringProperty()
+
+class NewPackListInputOperator(bpy.types.Operator):
+    bl_idname = "fn.new_pack_list_input"
+    bl_label = "New Pack List Input"
+    bl_options = {'INTERNAL'}
+
+    tree_name: StringProperty()
+    node_name: StringProperty()
+    prop_name: StringProperty()
+
+    def execute(self, context):
+        tree = bpy.data.node_groups[self.tree_name]
+        node = tree.nodes[self.node_name]
+        collection = getattr(node, self.prop_name)
+
+        item = collection.add()
+        item.state = "BASE"
+        item.identifier_prefix = str(uuid.uuid4())
+
+        node.rebuild_and_try_keep_state()
+
+        return {'FINISHED'}
 
 class AnyVariadicDecl(SocketDeclBase):
     def __init__(self, identifier: str, prop_name: str, message: str):
