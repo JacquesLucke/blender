@@ -392,7 +392,7 @@ class ShowHideMenu:
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("%s.reveal" % self._operator_name, text="Show Hidden")
+        layout.operator("%s.reveal" % self._operator_name)
         layout.operator("%s.hide" % self._operator_name, text="Hide Selected").unselected = False
         layout.operator("%s.hide" % self._operator_name, text="Hide Unselected").unselected = True
 
@@ -511,32 +511,16 @@ class VIEW3D_MT_mirror(Menu):
 
         layout.separator()
 
-        layout.operator_context = 'INVOKE_REGION_WIN'
+        layout.operator_context = 'EXEC_REGION_WIN'
 
-        props = layout.operator("transform.mirror", text="X Global")
-        props.constraint_axis = (True, False, False)
-        props.orient_type = 'GLOBAL'
-        props = layout.operator("transform.mirror", text="Y Global")
-        props.constraint_axis = (False, True, False)
-        props.orient_type = 'GLOBAL'
-        props = layout.operator("transform.mirror", text="Z Global")
-        props.constraint_axis = (False, False, True)
-        props.orient_type = 'GLOBAL'
+        for (space_name, space_id) in (("Global", 'GLOBAL'), ("Local", 'LOCAL')):
+            for axis_index, axis_name in enumerate("XYZ"):
+                props = layout.operator("transform.mirror", text=f"{axis_name!s} {space_name!s}")
+                props.constraint_axis[axis_index] = True
+                props.orient_type = 'GLOBAL'
 
-        if context.edit_object:
-            layout.separator()
-
-            props = layout.operator("transform.mirror", text="X Local")
-            props.constraint_axis = (True, False, False)
-            props.orient_type = 'LOCAL'
-            props = layout.operator("transform.mirror", text="Y Local")
-            props.constraint_axis = (False, True, False)
-            props.orient_type = 'LOCAL'
-            props = layout.operator("transform.mirror", text="Z Local")
-            props.constraint_axis = (False, False, True)
-            props.orient_type = 'LOCAL'
-
-            layout.operator("object.vertex_group_mirror")
+            if space_id == 'GLOBAL':
+                layout.separator()
 
 
 class VIEW3D_MT_snap(Menu):
@@ -637,7 +621,7 @@ class VIEW3D_MT_view(Menu):
 
         layout.separator()
 
-        layout.operator("render.opengl", icon='RENDER_STILL')
+        layout.operator("render.opengl", text="Viewport Render Image", icon='RENDER_STILL')
         layout.operator("render.opengl", text="Viewport Render Animation", icon='RENDER_ANIMATION').animation = True
 
         layout.separator()
@@ -1149,6 +1133,29 @@ class VIEW3D_MT_select_edit_surface(Menu):
         layout.operator("curve.select_less")
 
 
+class VIEW3D_MT_edit_text_context_menu(Menu):
+    bl_label = "Text Context Menu"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout = self.layout
+
+        layout.operator_context = 'INVOKE_DEFAULT'
+
+        layout.operator("font.text_cut", text="Cut")
+        layout.operator("font.text_copy", text="Copy", icon='COPYDOWN')
+        layout.operator("font.text_paste", text="Paste", icon='PASTEDOWN')
+
+        layout.separator()
+
+        layout.operator("font.select_all")
+
+        layout.separator()
+
+        layout.menu("VIEW3D_MT_edit_font")
+
+
 class VIEW3D_MT_select_edit_text(Menu):
     # intentional name mismatch
     # select menu for 3d-text doesn't make sense
@@ -1168,6 +1175,8 @@ class VIEW3D_MT_select_edit_text(Menu):
         layout.separator()
 
         layout.operator("font.select_all")
+
+        layout.menu("VIEW3D_MT_edit_font")
 
 
 class VIEW3D_MT_select_edit_metaball(Menu):
@@ -1192,6 +1201,23 @@ class VIEW3D_MT_select_edit_metaball(Menu):
         layout.separator()
 
         layout.operator_menu_enum("mball.select_similar", "type", text="Similar")
+
+
+class VIEW3D_MT_edit_lattice_context_menu(Menu):
+    bl_label = "Lattice Context Menu"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout = self.layout
+
+        layout.menu("VIEW3D_MT_mirror")
+        layout.operator_menu_enum("lattice.flip", "axis")
+        layout.menu("VIEW3D_MT_snap")
+
+        layout.separator()
+
+        layout.operator("lattice.make_regular")
 
 
 class VIEW3D_MT_select_edit_lattice(Menu):
@@ -1437,6 +1463,30 @@ class VIEW3D_MT_surface_add(Menu):
                         text="Nurbs Cylinder", icon='SURFACE_NCYLINDER')
         layout.operator("surface.primitive_nurbs_surface_sphere_add", text="Nurbs Sphere", icon='SURFACE_NSPHERE')
         layout.operator("surface.primitive_nurbs_surface_torus_add", text="Nurbs Torus", icon='SURFACE_NTORUS')
+
+
+class VIEW3D_MT_edit_metaball_context_menu(Menu):
+    bl_label = "Metaball Context Menu"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator_context = 'INVOKE_REGION_WIN'
+
+        # Add
+        layout.operator("mball.duplicate_move")
+
+        layout.separator()
+
+        # Modify
+        layout.menu("VIEW3D_MT_mirror")
+        layout.menu("VIEW3D_MT_snap")
+
+        layout.separator()
+
+        # Remove
+        layout.operator_context = 'EXEC_DEFAULT'
+        layout.operator("mball.delete_metaelems", text="Delete")
 
 
 class VIEW3D_MT_metaball_add(Menu):
@@ -1934,6 +1984,7 @@ class VIEW3D_MT_object_context_menu(Menu):
 
         layout.separator()
 
+        layout.menu("VIEW3D_MT_mirror")
         layout.menu("VIEW3D_MT_snap")
         layout.menu("VIEW3D_MT_object_parent")
         layout.operator_context = 'INVOKE_REGION_WIN'
@@ -2104,7 +2155,7 @@ class VIEW3D_MT_object_showhide(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("object.hide_view_clear", text="Show Hidden")
+        layout.operator("object.hide_view_clear")
 
         layout.separator()
 
@@ -2923,8 +2974,8 @@ class VIEW3D_MT_edit_mesh_context_menu(Menu):
 
             col.separator()
 
+            col.menu("VIEW3D_MT_mirror", text="Mirror Vertices")
             col.menu("VIEW3D_MT_snap", text="Snap Vertices")
-            col.operator("transform.mirror", text="Mirror Vertices")
 
             col.separator()
 
@@ -3624,14 +3675,10 @@ class VIEW3D_MT_edit_surface(Menu):
 
 
 class VIEW3D_MT_edit_font(Menu):
-    bl_label = "Text"
+    bl_label = "Font"
 
     def draw(self, context):
         layout = self.layout
-
-        layout.menu("VIEW3D_MT_edit_text_chars")
-
-        layout.separator()
 
         layout.operator("font.style_toggle", text="Toggle Bold").style = 'BOLD'
         layout.operator("font.style_toggle", text="Toggle Italic").style = 'ITALIC'
@@ -3640,6 +3687,10 @@ class VIEW3D_MT_edit_font(Menu):
 
         layout.operator("font.style_toggle", text="Toggle Underline").style = 'UNDERLINE'
         layout.operator("font.style_toggle", text="Toggle Small Caps").style = 'SMALL_CAPS'
+
+        layout.separator()
+
+        layout.menu("VIEW3D_MT_edit_text_chars")
 
 
 class VIEW3D_MT_edit_text_chars(Menu):
@@ -3710,7 +3761,7 @@ class VIEW3D_MT_edit_meta_showhide(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("mball.reveal_metaelems", text="Show Hidden")
+        layout.operator("mball.reveal_metaelems")
         layout.operator("mball.hide_metaelems", text="Hide Selected").unselected = False
         layout.operator("mball.hide_metaelems", text="Hide Unselected").unselected = True
 
@@ -3804,10 +3855,9 @@ class VIEW3D_MT_armature_context_menu(Menu):
 
         layout.operator_context = 'INVOKE_REGION_WIN'
 
+        # Add
         layout.operator("armature.subdivide", text="Subdivide")
-
         layout.operator("armature.duplicate_move", text="Duplicate")
-
         layout.operator("armature.extrude_move")
         if arm.use_mirror_x:
             layout.operator("armature.extrude_forked")
@@ -3816,11 +3866,13 @@ class VIEW3D_MT_armature_context_menu(Menu):
 
         layout.operator("armature.fill")
 
-        layout.operator("armature.switch_direction", text="Switch Direction")
-
         layout.separator()
 
+        # Modify
+        layout.menu("VIEW3D_MT_mirror")
+        layout.menu("VIEW3D_MT_snap")
         layout.operator("armature.symmetrize")
+        layout.operator("armature.switch_direction", text="Switch Direction")
         layout.menu("VIEW3D_MT_edit_armature_names")
 
         layout.separator()
@@ -3829,6 +3881,7 @@ class VIEW3D_MT_armature_context_menu(Menu):
 
         layout.separator()
 
+        # Remove
         layout.operator("armature.split")
         layout.operator("armature.merge")
         layout.operator("armature.dissolve")
@@ -5640,6 +5693,11 @@ class VIEW3D_MT_gpencil_edit_context_menu(Menu):
 
         layout.separator()
 
+        layout.menu("VIEW3D_MT_mirror")
+        layout.menu("VIEW3D_MT_snap")
+
+        layout.separator()
+
         # Remove
         if is_3d_view:
             layout.menu("GPENCIL_MT_cleanup")
@@ -5815,8 +5873,10 @@ classes = (
     VIEW3D_MT_select_edit_mesh,
     VIEW3D_MT_select_edit_curve,
     VIEW3D_MT_select_edit_surface,
+    VIEW3D_MT_edit_text_context_menu,
     VIEW3D_MT_select_edit_text,
     VIEW3D_MT_select_edit_metaball,
+    VIEW3D_MT_edit_lattice_context_menu,
     VIEW3D_MT_select_edit_lattice,
     VIEW3D_MT_select_edit_armature,
     VIEW3D_MT_select_gpencil,
@@ -5826,6 +5886,7 @@ classes = (
     VIEW3D_MT_mesh_add,
     VIEW3D_MT_curve_add,
     VIEW3D_MT_surface_add,
+    VIEW3D_MT_edit_metaball_context_menu,
     VIEW3D_MT_metaball_add,
     TOPBAR_MT_edit_curve_add,
     TOPBAR_MT_edit_armature_add,

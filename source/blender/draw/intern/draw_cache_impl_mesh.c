@@ -85,6 +85,40 @@ enum {
 };
 
 /* ---------------------------------------------------------------------- */
+/** \name BMesh Inline Wrappers
+ * \{ */
+
+/**
+ * Wrapper for #BM_vert_find_first_loop_visible
+ * since most of the time this can be accessed directly without a function call.
+ */
+BLI_INLINE BMLoop *bm_vert_find_first_loop_visible_inline(BMVert *v)
+{
+	if (v->e) {
+		BMLoop *l = v->e->l;
+		if (l && !BM_elem_flag_test(l->f, BM_ELEM_HIDDEN)) {
+			return l->v == v ? l : l->next;
+		}
+		return BM_vert_find_first_loop_visible(v);
+	}
+	return NULL;
+}
+
+BLI_INLINE BMLoop *bm_edge_find_first_loop_visible_inline(BMEdge *e)
+{
+	if (e->l) {
+		BMLoop *l = e->l;
+		if (!BM_elem_flag_test(l->f, BM_ELEM_HIDDEN)) {
+			return l;
+		}
+		return BM_edge_find_first_loop_visible(e);
+	}
+	return NULL;
+}
+
+/** \} */
+
+/* ---------------------------------------------------------------------- */
 /** \name Mesh/BMesh Interface (direct access to basic data).
  * \{ */
 
@@ -889,11 +923,13 @@ static MeshRenderData *mesh_render_data_create_ex(
 		 * to a safe glsl var name, but without name clash.
 		 * NOTE 2 : Replicate changes to code_generate_vertex_new() in gpu_codegen.c */
 		if (rdata->cd.layers.vcol_len != 0) {
+			int act_vcol = rdata->cd.layers.vcol_active;
 			for (int i_src = 0, i_dst = 0; i_src < cd_layers_src.vcol_len; i_src++, i_dst++) {
 				if ((cd_lused[CD_MLOOPCOL] & (1 << i_src)) == 0) {
+					/* This is a non-used VCol slot. Skip. */
 					i_dst--;
 					if (rdata->cd.layers.vcol_active >= i_src) {
-						rdata->cd.layers.vcol_active--;
+						act_vcol--;
 					}
 				}
 				else {
@@ -915,6 +951,10 @@ static MeshRenderData *mesh_render_data_create_ex(
 						rdata->cd.layers.auto_vcol[i_dst] = true;
 					}
 				}
+			}
+			if (rdata->cd.layers.vcol_active != -1) {
+				/* Actual active Vcol slot inside vcol layers used for shading. */
+				rdata->cd.layers.vcol_active = act_vcol;
 			}
 		}
 
@@ -3420,8 +3460,8 @@ static void mesh_create_loops_lines(
 				if (!BM_elem_flag_test(bm_edge, BM_ELEM_HIDDEN) &&
 				    bm_edge->l != NULL)
 				{
-					BMLoop *bm_loop1 = BM_vert_find_first_loop_visible(bm_edge->v1);
-					BMLoop *bm_loop2 = BM_vert_find_first_loop_visible(bm_edge->v2);
+					BMLoop *bm_loop1 = bm_vert_find_first_loop_visible_inline(bm_edge->v1);
+					BMLoop *bm_loop2 = bm_vert_find_first_loop_visible_inline(bm_edge->v2);
 					int v1 = BM_elem_index_get(bm_loop1);
 					int v2 = BM_elem_index_get(bm_loop2);
 					if (v1 > v2) {
@@ -3663,7 +3703,7 @@ static void mesh_create_edit_loops_points_lines(MeshRenderData *rdata, GPUIndexB
 			BMEdge *eed;
 			BM_ITER_MESH (eed, &iter, bm, BM_EDGES_OF_MESH) {
 				if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
-					BMLoop *l = BM_edge_find_first_loop_visible(eed);
+					BMLoop *l = bm_edge_find_first_loop_visible_inline(eed);
 					if (l != NULL) {
 						int v1 = BM_elem_index_get(eed->l);
 						int v2 = BM_elem_index_get(eed->l->next);
@@ -3677,7 +3717,7 @@ static void mesh_create_edit_loops_points_lines(MeshRenderData *rdata, GPUIndexB
 			BMVert *eve;
 			BM_ITER_MESH (eve, &iter, bm, BM_VERTS_OF_MESH) {
 				if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-					BMLoop *l = BM_vert_find_first_loop_visible(eve);
+					BMLoop *l = bm_vert_find_first_loop_visible_inline(eve);
 					if (l != NULL) {
 						int v = BM_elem_index_get(l);
 						GPU_indexbuf_add_generic_vert(&elb_vert, v);
