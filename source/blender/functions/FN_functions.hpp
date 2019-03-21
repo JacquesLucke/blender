@@ -1,7 +1,8 @@
 #pragma once
 
-#include "./functions/object_input.hpp"
-#include "./functions/random.hpp"
-#include "./functions/scalar_math.hpp"
-#include "./functions/vectors.hpp"
-#include "./functions/lists.hpp"
+#include "functions/object_input.hpp"
+#include "functions/random.hpp"
+#include "functions/scalar_math.hpp"
+#include "functions/vectors.hpp"
+#include "functions/lists.hpp"
+#include "functions/simple_conversions.hpp"

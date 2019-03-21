@@ -237,6 +237,8 @@ def is_link_valid(link):
         return False
 
     if is_data_src and is_data_dst:
-        return link.from_socket.data_type == link.to_socket.data_type
+        from_type = link.from_socket.data_type
+        to_type = link.to_socket.data_type
+        return type_infos.is_link_allowed(from_type, to_type)
 
     return True

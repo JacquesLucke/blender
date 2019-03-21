@@ -71,6 +71,12 @@ namespace FN { namespace DataFlowNodes {
 		this->map_socket(socket, bsocket);
 	}
 
+	Socket Builder::lookup_socket(struct bNodeSocket *bsocket)
+	{
+		BLI_assert(m_socket_map.contains(bsocket));
+		return m_socket_map.lookup(bsocket);
+	}
+
 
 	struct bNodeTree *BuilderContext::btree() const
 	{
@@ -117,13 +123,8 @@ namespace FN { namespace DataFlowNodes {
 
 	SharedType &BuilderContext::type_of_socket(bNodeSocket *bsocket) const
 	{
-		PointerRNA ptr;
-		this->get_rna(bsocket, &ptr);
-
-		char data_type[64];
-		RNA_string_get(&ptr, "data_type", data_type);
-
-		return this->type_by_name(data_type);
+		std::string data_type = this->socket_type_string(bsocket);
+		return this->type_by_name(data_type.c_str());
 	}
 
 	void BuilderContext::get_rna(bNode *bnode, PointerRNA *ptr) const
@@ -147,6 +148,16 @@ namespace FN { namespace DataFlowNodes {
 		char type_name[64];
 		RNA_string_get(&ptr, prop_name, type_name);
 		return this->type_by_name(type_name);
+	}
+
+	std::string BuilderContext::socket_type_string(bNodeSocket *bsocket) const
+	{
+		BLI_assert(this->is_data_socket(bsocket));
+		PointerRNA ptr;
+		this->get_rna(bsocket, &ptr);
+		char type_name[64];
+		RNA_string_get(&ptr, "data_type", type_name);
+		return type_name;
 	}
 
 } } /* namespace FN::DataFlowNodes */

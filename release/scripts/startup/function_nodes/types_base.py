@@ -1,5 +1,11 @@
+import itertools
+from collections import namedtuple
+
+
 # Type Info Container
 #####################################
+
+ImplicitConversion = namedtuple("ImplicitConversion", ("from_type", "to_type"))
 
 class DataTypesInfo:
     def __init__(self):
@@ -7,6 +13,11 @@ class DataTypesInfo:
         self.builder_by_data_type = dict()
         self.list_by_base = dict()
         self.base_by_list = dict()
+        self.implicit_conversions = set()
+
+
+    # Insert New Information
+    #############################
 
     def insert_data_type(self, data_type, builder):
         assert data_type not in self.data_types
@@ -23,6 +34,23 @@ class DataTypesInfo:
 
         self.list_by_base[base_type] = list_type
         self.base_by_list[list_type] = base_type
+
+    def insert_implicitly_convertable_types(self, types):
+        for type_1, type_2 in itertools.combinations(types, 2):
+            self.insert_implicit_conversion(type_1, type_2)
+            self.insert_implicit_conversion(type_2, type_1)
+
+    def insert_implicit_conversion(self, from_type, to_type):
+        assert self.is_data_type(from_type)
+        assert self.is_data_type(to_type)
+
+        conversion = ImplicitConversion(from_type, to_type)
+        assert conversion not in self.implicit_conversions
+        self.implicit_conversions.add(conversion)
+
+
+    # Query Information
+    ##########################
 
     def is_data_type(self, data_type):
         return data_type in self.data_types
@@ -72,6 +100,18 @@ class DataTypesInfo:
         builder = self.to_builder(data_type)
         return builder.get_color()
 
+    def is_link_allowed(self, from_type, to_type):
+        assert self.is_data_type(from_type)
+        assert self.is_data_type(to_type)
+
+        if from_type == to_type:
+            return True
+        else:
+            return self.is_implicitly_convertable(from_type, to_type)
+
+    def is_implicitly_convertable(self, from_type, to_type):
+        return ImplicitConversion(from_type, to_type) in self.implicit_conversions
+
 
 # Data Socket Builders
 ##################################3
@@ -105,7 +145,6 @@ class ColoredSocketBuilder(DataSocketBuilder):
             "fn_CustomColoredSocket",
             name,
             identifier=identifier)
-        socket.color = self.color
         return socket
 
     def get_color(self):

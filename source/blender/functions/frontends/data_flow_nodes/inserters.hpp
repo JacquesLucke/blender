@@ -20,18 +20,35 @@ namespace FN { namespace DataFlowNodes {
 		Tuple &dst,
 		uint index)> SocketLoader;
 
+	typedef std::function<void (
+		Builder &builder,
+		const BuilderContext &ctx,
+		Socket from,
+		Socket to)> ConversionInserter;
+
 	typedef std::function<SharedFunction ()> FunctionGetter;
 
 	class GraphInserters {
 	private:
 		SmallMap<std::string, NodeInserter> m_node_inserters;
 		SmallMap<std::string, SocketLoader> m_socket_loaders;
+		SmallMap<std::pair<std::string, std::string>, ConversionInserter> m_conversion_inserters;
 
 	public:
 		void reg_node_inserter(std::string idname, NodeInserter inserter);
 		void reg_node_function(std::string idname, FunctionGetter getter);
 
 		void reg_socket_loader(std::string idname, SocketLoader loader);
+
+		void reg_conversion_inserter(
+			std::string from_type,
+			std::string to_type,
+			ConversionInserter inserter);
+
+		void reg_conversion_function(
+			std::string from_type,
+			std::string to_type,
+			FunctionGetter getter);
 
 		bool insert_node(
 			Builder &builder,
@@ -42,6 +59,11 @@ namespace FN { namespace DataFlowNodes {
 			Builder &builder,
 			const BuilderContext &ctx,
 			BSockets &bsockets);
+
+		bool insert_link(
+			Builder &builder,
+			const BuilderContext &ctx,
+			struct bNodeLink *blink);
 	};
 
 	GraphInserters &get_standard_inserters();

@@ -23,3 +23,5 @@ type_infos.insert_data_type("Integer List", ColoredSocketBuilder((0.3, 0.7, 0.5,
 type_infos.insert_list_relation("Float", "Float List")
 type_infos.insert_list_relation("Vector", "Vector List")
 type_infos.insert_list_relation("Integer", "Integer List")
+
+type_infos.insert_implicitly_convertable_types({"Float", "Integer"})

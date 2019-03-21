@@ -111,12 +111,9 @@ namespace FN { namespace DataFlowNodes {
 		}
 
 		for (bNodeLink *blink : bLinkList(&btree->links)) {
-			Socket from = socket_map.lookup(blink->fromsock);
-			Socket to = socket_map.lookup(blink->tosock);
-			if (from.type() != to.type()) {
+			if (!inserters.insert_link(builder, ctx, blink)) {
 				return {};
 			}
-			builder.insert_link(from, to);
 		}
 
 		BSockets unlinked_inputs;

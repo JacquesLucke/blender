@@ -82,6 +82,8 @@ set(SRC
 	functions/vectors.cpp
 	functions/lists.hpp
 	functions/lists.cpp
+	functions/simple_conversions.hpp
+	functions/simple_conversions.cpp
 
 	frontends/data_flow_nodes/builder.hpp
 	frontends/data_flow_nodes/builder.cpp
@@ -94,6 +96,7 @@ set(SRC
 	frontends/data_flow_nodes/registry.hpp
 	frontends/data_flow_nodes/test_nodes.cpp
 	frontends/data_flow_nodes/test_sockets.cpp
+	frontends/data_flow_nodes/test_conversions.cpp
 	frontends/data_flow_nodes/util_wrappers.hpp
 )
 

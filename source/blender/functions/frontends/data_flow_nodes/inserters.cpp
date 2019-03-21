@@ -12,6 +12,7 @@ namespace FN { namespace DataFlowNodes {
 	{
 		register_node_inserters(inserters);
 		initialize_socket_inserters(inserters);
+		register_conversion_inserters(inserters);
 	}
 
 	LAZY_INIT_REF__NO_ARG(GraphInserters, get_standard_inserters)
@@ -46,6 +47,35 @@ namespace FN { namespace DataFlowNodes {
 	{
 		BLI_assert(!m_socket_loaders.contains(idname));
 		m_socket_loaders.add(idname, loader);
+	}
+
+	void GraphInserters::reg_conversion_inserter(
+		std::string from_type,
+		std::string to_type,
+		ConversionInserter inserter)
+	{
+		auto key = std::pair<std::string, std::string>(from_type, to_type);
+		BLI_assert(!m_conversion_inserters.contains(key));
+		m_conversion_inserters.add(key, inserter);
+	}
+
+	void GraphInserters::reg_conversion_function(
+		std::string from_type,
+		std::string to_type,
+		FunctionGetter getter)
+	{
+		auto inserter = [getter](
+				Builder &builder,
+				const BuilderContext &UNUSED(ctx),
+				Socket from,
+				Socket to)
+			{
+				auto fn = getter();
+				Node *node = builder.insert_function(fn);
+				builder.insert_link(from, node->input(0));
+				builder.insert_link(node->output(0), to);
+			};
+		this->reg_conversion_inserter(from_type, to_type, inserter);
 	}
 
 	bool GraphInserters::insert_node(
@@ -118,6 +148,35 @@ namespace FN { namespace DataFlowNodes {
 			sockets.append(output);
 		}
 		return sockets;
+	}
+
+	bool GraphInserters::insert_link(
+		Builder &builder,
+		const BuilderContext &ctx,
+		struct bNodeLink *blink)
+	{
+		BLI_assert(ctx.is_data_socket(blink->fromsock));
+		BLI_assert(ctx.is_data_socket(blink->tosock));
+
+		Socket from_socket = builder.lookup_socket(blink->fromsock);
+		Socket to_socket = builder.lookup_socket(blink->tosock);
+
+		std::string from_type = ctx.socket_type_string(blink->fromsock);
+		std::string to_type = ctx.socket_type_string(blink->tosock);
+
+		if (from_type == to_type) {
+			builder.insert_link(from_socket, to_socket);
+			return true;
+		}
+
+		auto key = std::pair<std::string, std::string>(from_type, to_type);
+		if (m_conversion_inserters.contains(key)) {
+			auto inserter = m_conversion_inserters.lookup(key);
+			inserter(builder, ctx, from_socket, to_socket);
+			return true;
+		}
+
+		return false;
 	}
 
 } } /* namespace FN::DataFlowNodes */

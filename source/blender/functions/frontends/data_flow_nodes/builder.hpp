@@ -34,6 +34,8 @@ namespace FN { namespace DataFlowNodes {
 		void map_data_sockets(Node *node, struct bNode *bnode, const BuilderContext &ctx);
 		void map_input(Socket socket, struct bNode *bnode, uint index);
 		void map_output(Socket socket, struct bNode *bnode, uint index);
+
+		Socket lookup_socket(struct bNodeSocket *bsocket);
 	};
 
 	class BuilderContext {
@@ -54,6 +56,7 @@ namespace FN { namespace DataFlowNodes {
 		void get_rna(bNode *bnode, PointerRNA *ptr) const;
 		void get_rna(bNodeSocket *bsocket, PointerRNA *ptr) const;
 		SharedType &type_from_rna(bNode *bnode, const char *prop_name) const;
+		std::string socket_type_string(bNodeSocket *bsocket) const;
 	};
 
 } }
