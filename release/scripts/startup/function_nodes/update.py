@@ -109,16 +109,35 @@ def get_linked_sockets_dict(tree):
     return linked_sockets
 
 def make_list_decisions(tree, linked_sockets):
-    decision_ids = set()
-    linked_decisions = defaultdict(set)
+    decision_users = get_list_decision_ids_with_users(tree)
+    decision_links = get_list_decision_links(tree)
+
+    decisions = dict()
+
+    for component in iter_connected_components(decision_users.keys(), decision_links):
+        possible_types = set(iter_possible_list_component_types(
+            component, decision_users, linked_sockets))
+
+        if len(possible_types) == 1:
+            base_type = next(iter(possible_types))
+            for decision_id in component:
+                decisions[decision_id] = base_type
+
+    return decisions
+
+def get_list_decision_ids_with_users(tree):
     decision_users = defaultdict(lambda: {"BASE": [], "LIST": []})
 
     for node in tree.nodes:
         for decl, sockets in node.storage.sockets_per_decl.items():
             if isinstance(decl, ListSocketDecl):
                 decision_id = DecisionID(node, node, decl.prop_name)
-                decision_ids.add(decision_id)
                 decision_users[decision_id][decl.list_or_base].append(sockets[0])
+
+    return decision_users
+
+def get_list_decision_links(tree):
+    linked_decisions = defaultdict(set)
 
     for link in tree.links:
         from_decl = link.from_socket.get_decl(link.from_node)
@@ -130,36 +149,28 @@ def make_list_decisions(tree, linked_sockets):
                 linked_decisions[from_decision_id].add(to_decision_id)
                 linked_decisions[to_decision_id].add(from_decision_id)
 
-    decisions = dict()
+    return linked_decisions
 
-    for component in iter_connected_components(decision_ids, linked_decisions):
-        possible_types = set()
-        for decision_id in component:
-            for socket in decision_users[decision_id]["LIST"]:
-                for other_node, other_socket in linked_sockets[socket]:
-                    other_decl = other_socket.get_decl(other_node)
-                    if isinstance(other_decl, (FixedSocketDecl, AnyVariadicDecl)):
-                        data_type = other_socket.data_type
-                        if type_infos.is_list(data_type):
-                            possible_types.add(type_infos.to_base(data_type))
-                    if isinstance(other_decl, PackListDecl):
-                        possible_types.add(other_decl.base_type)
-            for socket in decision_users[decision_id]["BASE"]:
-                for other_node, other_socket in linked_sockets[socket]:
-                    other_decl = other_socket.get_decl(other_node)
-                    if isinstance(other_decl, (FixedSocketDecl, AnyVariadicDecl)):
-                        data_type = other_socket.data_type
-                        if type_infos.is_base(data_type):
-                            possible_types.add(data_type)
-                    elif isinstance(other_decl, PackListDecl):
-                        possible_types.add(other_decl.base_type)
-
-        if len(possible_types) == 1:
-            base_type = next(iter(possible_types))
-            for decision_id in component:
-                decisions[decision_id] = base_type
-
-    return decisions
+def iter_possible_list_component_types(component, decision_users, linked_sockets):
+    for decision_id in component:
+        for socket in decision_users[decision_id]["LIST"]:
+            for other_node, other_socket in linked_sockets[socket]:
+                other_decl = other_socket.get_decl(other_node)
+                if isinstance(other_decl, (FixedSocketDecl, AnyVariadicDecl)):
+                    data_type = other_socket.data_type
+                    if type_infos.is_list(data_type):
+                        yield type_infos.to_base(data_type)
+                elif isinstance(other_decl, PackListDecl):
+                    yield other_decl.base_type
+        for socket in decision_users[decision_id]["BASE"]:
+            for other_node, other_socket in linked_sockets[socket]:
+                other_decl = other_socket.get_decl(other_node)
+                if isinstance(other_decl, (FixedSocketDecl, AnyVariadicDecl)):
+                    data_type = other_socket.data_type
+                    if type_infos.is_base(data_type):
+                        yield data_type
+                elif isinstance(other_decl, PackListDecl):
+                    yield other_decl.base_type
 
 def make_pack_list_decisions(tree, linked_sockets, list_decisions):
     decisions = dict()
