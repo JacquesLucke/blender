@@ -12,7 +12,7 @@ class BaseTree:
             self.links.new(b, a)
 
     def update(self):
-        from . update_sockets import update_function_trees
+        from . update import update_function_trees
         update_function_trees()
 
 
@@ -75,7 +75,7 @@ _storage_per_node = {}
 
 class BaseNode:
     def init(self, context):
-        from . update_sockets import managed_update
+        from . update import managed_update
         with managed_update():
             inputs, outputs = self.get_sockets()
             for decl in inputs:
@@ -84,7 +84,7 @@ class BaseNode:
                 decl.build(self, self.outputs)
 
     def refresh(self, context=None):
-        from . update_sockets import update_function_trees
+        from . update import update_function_trees
         self.rebuild_and_try_keep_state()
         update_function_trees()
 
@@ -94,7 +94,7 @@ class BaseNode:
         self._try_set_state(state)
 
     def rebuild(self):
-        from . update_sockets import managed_update
+        from . update import managed_update
 
         self.storage.store_socket_states()
 

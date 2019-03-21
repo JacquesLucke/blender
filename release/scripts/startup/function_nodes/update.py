@@ -12,6 +12,10 @@ from . socket_decl import (
     AnyVariadicDecl,
 )
 
+
+# Managed Update
+#########################################
+
 _managed_update_depth = 0
 
 @contextmanager
