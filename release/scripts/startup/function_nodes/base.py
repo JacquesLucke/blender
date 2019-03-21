@@ -257,3 +257,6 @@ class DataSocket(BaseSocket):
     def restore_state(self, state):
         pass
 
+    def draw_color(self, context, node):
+        from . types import type_infos
+        return type_infos.get_socket_color(self.data_type)

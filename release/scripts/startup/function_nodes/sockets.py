@@ -12,6 +12,7 @@ class OperatorSocket(bpy.types.NodeSocket, BaseSocket):
 class FloatSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_FloatSocket"
     bl_label = "Float Socket"
+    socket_color = (0, 0.3, 0.5, 1)
 
     value: FloatProperty(
         name="Value",
@@ -20,9 +21,6 @@ class FloatSocket(bpy.types.NodeSocket, DataSocket):
 
     def draw_property(self, layout, node, text):
         layout.prop(self, "value", text=text)
-
-    def draw_color(self, context, node):
-        return (0, 0.3, 0.5, 1)
 
     def get_state(self):
         return self.value
@@ -33,6 +31,7 @@ class FloatSocket(bpy.types.NodeSocket, DataSocket):
 class IntegerSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_IntegerSocket"
     bl_label = "Integer Socket"
+    socket_color = (0.3, 0.7, 0.5, 1)
 
     value: IntProperty(
         name="Value",
@@ -41,9 +40,6 @@ class IntegerSocket(bpy.types.NodeSocket, DataSocket):
 
     def draw_property(self, layout, node, text):
         layout.prop(self, "value", text=text)
-
-    def draw_color(self, context, node):
-        return (0.3, 0.7, 0.5, 1)
 
     def get_state(self):
         return self.value
@@ -54,6 +50,7 @@ class IntegerSocket(bpy.types.NodeSocket, DataSocket):
 class VectorSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_VectorSocket"
     bl_label = "Vector Socket"
+    socket_color = (0, 0, 0.5, 1)
 
     value: FloatVectorProperty(
         name="Value",
@@ -63,9 +60,6 @@ class VectorSocket(bpy.types.NodeSocket, DataSocket):
 
     def draw_property(self, layout, node, text):
         layout.column().prop(self, "value", text=text)
-
-    def draw_color(self, context, node):
-        return (0, 0, 0.5, 1)
 
     def get_state(self):
         return tuple(self.value)
@@ -83,5 +77,3 @@ class CustomColoredSocket(bpy.types.NodeSocket, DataSocket):
         soft_min=0.0,
         soft_max=1.0)
 
-    def draw_color(self, context, node):
-        return self.color
