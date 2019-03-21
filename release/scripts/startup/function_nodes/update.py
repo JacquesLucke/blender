@@ -1,9 +1,10 @@
 import bpy
-from . base import FunctionNode, DataSocket, FunctionNodeTree
 from collections import defaultdict
-from . sockets import type_infos, OperatorSocket, DataSocket
-from pprint import pprint
 from contextlib import contextmanager
+
+from . base import DataSocket, FunctionNodeTree
+from . sockets import type_infos, OperatorSocket
+from . utils.graph import iter_connected_components
 
 from . socket_decl import (
     FixedSocketDecl,
@@ -77,25 +78,26 @@ from collections import namedtuple
 DecisionID = namedtuple("DecisionID", ("node", "group", "prop_name"))
 LinkSocket = namedtuple("LinkSocket", ("node", "socket"))
 
-def depth_first_search(start_node, links):
-    result = set()
-    found = set()
-    found.add(start_node)
-    while len(found) > 0:
-        node = found.pop()
-        result.add(node)
-        for linked_node in links[node]:
-            if linked_node not in result:
-                found.add(linked_node)
-    return result
+def inference_decisions(tree):
+    linked_sockets = get_linked_sockets_dict(tree)
 
-def iter_connected_components(nodes: set, links: dict):
-    nodes = set(nodes)
-    while len(nodes) > 0:
-        start_node = next(iter(nodes))
-        component = depth_first_search(start_node, links)
-        yield component
-        nodes -= component
+    decisions = dict()
+    list_decisions = make_list_decisions(tree, linked_sockets)
+    decisions.update(list_decisions)
+    decisions.update(make_pack_list_decisions(tree, linked_sockets, list_decisions))
+
+    nodes_to_rebuild = set()
+
+    for decision_id, base_type in decisions.items():
+        if getattr(decision_id.group, decision_id.prop_name) != base_type:
+            setattr(decision_id.group, decision_id.prop_name, base_type)
+            nodes_to_rebuild.add(decision_id.node)
+
+    rebuild_nodes(nodes_to_rebuild)
+
+def rebuild_nodes(nodes):
+    for node in nodes:
+        node.rebuild_and_try_keep_state()
 
 def get_linked_sockets_dict(tree):
     linked_sockets = defaultdict(set)
@@ -105,10 +107,6 @@ def get_linked_sockets_dict(tree):
         linked_sockets[link.from_socket].add(target)
         linked_sockets[link.to_socket].add(origin)
     return linked_sockets
-
-def rebuild_nodes(nodes):
-    for node in nodes:
-        node.rebuild_and_try_keep_state()
 
 def make_list_decisions(tree, linked_sockets):
     decision_ids = set()
@@ -163,15 +161,6 @@ def make_list_decisions(tree, linked_sockets):
 
     return decisions
 
-def iter_pack_list_sockets(tree):
-    for node in tree.nodes:
-        for decl, sockets in node.storage.sockets_per_decl.items():
-            if isinstance(decl, PackListDecl):
-                collection = decl.get_collection(node)
-                for i, socket in enumerate(sockets[:-1]):
-                    decision_id = DecisionID(node, collection[i], "state")
-                    yield decision_id, decl, socket,
-
 def make_pack_list_decisions(tree, linked_sockets, list_decisions):
     decisions = dict()
 
@@ -210,22 +199,14 @@ def make_pack_list_decisions(tree, linked_sockets, list_decisions):
 
     return decisions
 
-def inference_decisions(tree):
-    linked_sockets = get_linked_sockets_dict(tree)
-
-    decisions = dict()
-    list_decisions = make_list_decisions(tree, linked_sockets)
-    decisions.update(list_decisions)
-    decisions.update(make_pack_list_decisions(tree, linked_sockets, list_decisions))
-
-    nodes_to_rebuild = set()
-
-    for decision_id, base_type in decisions.items():
-        if getattr(decision_id.group, decision_id.prop_name) != base_type:
-            setattr(decision_id.group, decision_id.prop_name, base_type)
-            nodes_to_rebuild.add(decision_id.node)
-
-    rebuild_nodes(nodes_to_rebuild)
+def iter_pack_list_sockets(tree):
+    for node in tree.nodes:
+        for decl, sockets in node.storage.sockets_per_decl.items():
+            if isinstance(decl, PackListDecl):
+                collection = decl.get_collection(node)
+                for i, socket in enumerate(sockets[:-1]):
+                    decision_id = DecisionID(node, collection[i], "state")
+                    yield decision_id, decl, socket
 
 
 # Remove Invalid Links
