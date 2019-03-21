@@ -11,6 +11,11 @@ class BaseTree:
         else:
             self.links.new(b, a)
 
+    def update(self):
+        from . update_sockets import update_function_trees
+        update_function_trees()
+
+
 class FunctionNodeTree(bpy.types.NodeTree, BaseTree):
     bl_idname = "FunctionNodeTree"
     bl_icon = "MOD_DATA_TRANSFER"
@@ -70,11 +75,18 @@ _storage_per_node = {}
 
 class BaseNode:
     def init(self, context):
-        inputs, outputs = self.get_sockets()
-        for decl in inputs:
-            decl.build(self, self.inputs)
-        for decl in outputs:
-            decl.build(self, self.outputs)
+        from . update_sockets import managed_update
+        with managed_update():
+            inputs, outputs = self.get_sockets()
+            for decl in inputs:
+                decl.build(self, self.inputs)
+            for decl in outputs:
+                decl.build(self, self.outputs)
+
+    def refresh(self, context=None):
+        from . update_sockets import update_function_trees
+        self.rebuild_and_try_keep_state()
+        update_function_trees()
 
     def rebuild_and_try_keep_state(self):
         state = self._get_state()
@@ -82,15 +94,20 @@ class BaseNode:
         self._try_set_state(state)
 
     def rebuild(self):
-        self.storage.store_socket_states()
-        self.inputs.clear()
-        self.outputs.clear()
+        from . update_sockets import managed_update
 
-        inputs, outputs = self.get_sockets()
-        for decl in inputs:
-            decl.build(self, self.inputs)
-        for decl in outputs:
-            decl.build(self, self.outputs)
+        self.storage.store_socket_states()
+
+        with managed_update():
+            self.inputs.clear()
+            self.outputs.clear()
+
+            inputs, outputs = self.get_sockets()
+            for decl in inputs:
+                decl.build(self, self.inputs)
+            for decl in outputs:
+                decl.build(self, self.outputs)
+
         self.storage.set_current_declaration(inputs, outputs)
         self.storage.try_restore_socket_states()
 

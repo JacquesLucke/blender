@@ -8,7 +8,7 @@ class PackListNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_PackListNode"
     bl_label = "Pack List"
 
-    active_type: StringProperty(default="Float")
+    active_type: StringProperty(default="Float", update=FunctionNode.refresh)
     variadic: PackListDecl.Property()
 
     def get_sockets(self):
@@ -23,4 +23,3 @@ class PackListNode(bpy.types.Node, FunctionNode):
 
     def set_type(self, data_type):
         self.active_type = data_type
-        self.rebuild_and_try_keep_state()

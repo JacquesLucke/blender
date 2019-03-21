@@ -15,4 +15,3 @@ class TreePanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("fn.update_function_tree")

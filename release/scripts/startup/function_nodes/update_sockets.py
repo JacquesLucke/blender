@@ -1,8 +1,9 @@
 import bpy
-from . base import FunctionNode, DataSocket
+from . base import FunctionNode, DataSocket, FunctionNodeTree
 from collections import defaultdict
 from . sockets import type_infos, OperatorSocket, DataSocket
 from pprint import pprint
+from contextlib import contextmanager
 
 from . socket_decl import (
     FixedSocketDecl,
@@ -11,17 +12,33 @@ from . socket_decl import (
     AnyVariadicDecl,
 )
 
-class UpdateFunctionTreeOperator(bpy.types.Operator):
-    bl_idname = "fn.update_function_tree"
-    bl_label = "Update Function Tree"
-    bl_description = "Execute socket operators and run inferencer"
+_managed_update_depth = 0
 
-    def execute(self, context):
-        tree = context.space_data.node_tree
-        run_socket_operators(tree)
-        inference_decisions(tree)
-        remove_invalid_links(tree)
-        return {'FINISHED'}
+@contextmanager
+def managed_update():
+    global _managed_update_depth
+    try:
+        _managed_update_depth += 1
+        yield
+    finally:
+        _managed_update_depth -= 1
+
+def is_managed_update():
+    return _managed_update_depth > 0
+
+def update_function_trees():
+    if is_managed_update():
+        return
+
+    with managed_update():
+        for tree in bpy.data.node_groups:
+            if isinstance(tree, FunctionNodeTree):
+                update_function_tree(tree)
+
+def update_function_tree(tree):
+    run_socket_operators(tree)
+    inference_decisions(tree)
+    remove_invalid_links(tree)
 
 
 # Socket Operators
