@@ -1,6 +1,6 @@
 import bpy
 from bpy.props import *
-from . sockets import type_infos
+from . types import type_infos
 
 class NodeOperatorBase:
     tree_name: StringProperty()

@@ -1,7 +1,8 @@
 import bpy
 from bpy.props import *
 from dataclasses import dataclass
-from . sockets import type_infos, OperatorSocket
+from . sockets import OperatorSocket
+from . types import type_infos
 from . base import DataSocket
 import uuid
 

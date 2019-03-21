@@ -2,8 +2,9 @@ import bpy
 from collections import defaultdict
 from contextlib import contextmanager
 
+from . types import type_infos
+from . sockets import OperatorSocket
 from . base import DataSocket, FunctionNodeTree
-from . sockets import type_infos, OperatorSocket
 from . utils.graph import iter_connected_components
 
 from . socket_decl import (

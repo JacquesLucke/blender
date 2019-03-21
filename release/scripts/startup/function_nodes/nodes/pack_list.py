@@ -2,7 +2,7 @@ import bpy
 from bpy.props import *
 from .. base import FunctionNode
 from .. socket_decl import PackListDecl, FixedSocketDecl
-from .. sockets import type_infos
+from .. types import type_infos
 
 class PackListNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_PackListNode"
