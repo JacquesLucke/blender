@@ -71,9 +71,4 @@ class CustomColoredSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_CustomColoredSocket"
     bl_label = "Custom Colored Socket"
 
-    color: FloatVectorProperty(
-        size=4,
-        subtype='COLOR',
-        soft_min=0.0,
-        soft_max=1.0)
 
