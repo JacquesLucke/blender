@@ -58,7 +58,7 @@ static FnFunction get_current_function(FunctionPointsModifierData *fpmd)
 
 	FnType float_ty = FN_type_borrow_float();
 	FnType int32_ty = FN_type_borrow_int32();
-    FnType float_list_ty = FN_type_borrow_float_list();
+	FnType float_list_ty = FN_type_borrow_float_list();
 
 	FnType inputs[] = { float_ty, int32_ty, NULL };
 	FnType outputs[] = { float_list_ty, NULL };
