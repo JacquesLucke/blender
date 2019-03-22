@@ -16,8 +16,8 @@ class BaseTree:
         update_function_trees()
 
 
-class FunctionNodeTree(bpy.types.NodeTree, BaseTree):
-    bl_idname = "FunctionNodeTree"
+class FunctionTree(bpy.types.NodeTree, BaseTree):
+    bl_idname = "FunctionTree"
     bl_icon = "MOD_DATA_TRANSFER"
     bl_label = "Function Nodes"
 

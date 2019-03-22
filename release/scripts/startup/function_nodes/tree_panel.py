@@ -1,5 +1,5 @@
 import bpy
-from . base import FunctionNodeTree
+from . base import FunctionTree
 
 class TreePanel(bpy.types.Panel):
     bl_idname = "fn_tree_panel"
@@ -10,7 +10,7 @@ class TreePanel(bpy.types.Panel):
 
     @classmethod
     def poll(self, context):
-        try: return isinstance(context.space_data.edit_tree, FunctionNodeTree)
+        try: return isinstance(context.space_data.edit_tree, FunctionTree)
         except: return False
 
     def draw(self, context):

@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 from . types import type_infos
 from . sockets import OperatorSocket
-from . base import DataSocket, FunctionNodeTree
+from . base import DataSocket, FunctionTree
 from . utils.graph import iter_connected_components
 
 from . socket_decl import (
@@ -38,7 +38,7 @@ def update_function_trees():
 
     with managed_update():
         for tree in bpy.data.node_groups:
-            if isinstance(tree, FunctionNodeTree):
+            if isinstance(tree, FunctionTree):
                 update_function_tree(tree)
 
 def update_function_tree(tree):
