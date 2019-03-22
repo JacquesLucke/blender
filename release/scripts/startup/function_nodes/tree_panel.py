@@ -1,5 +1,5 @@
 import bpy
-from . base import FunctionTree
+from . function_tree import FunctionTree
 
 class TreePanel(bpy.types.Panel):
     bl_idname = "fn_tree_panel"

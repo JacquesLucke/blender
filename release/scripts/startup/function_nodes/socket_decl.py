@@ -1,6 +1,7 @@
 import bpy
 from bpy.props import *
 from dataclasses import dataclass
+from . function_tree import FunctionTree
 from . sockets import OperatorSocket
 from . types import type_infos
 from . base import DataSocket
@@ -37,6 +38,45 @@ class FixedSocketDecl(SocketDeclBase):
 
     def amount(self, node):
         return 1
+
+class TreeInterfaceDecl(SocketDeclBase):
+    def __init__(self, identifier: str, tree: FunctionTree, in_or_out: str):
+        assert tree is not None
+        self.identifier = identifier
+        self.tree = tree
+        self.in_or_out = in_or_out
+
+    def build(self, node, node_sockets):
+        if self.in_or_out == "IN":
+            return list(self._build_inputs(node_sockets))
+        elif self.in_or_out == "OUT":
+            return list(self._build_outputs(node_sockets))
+        else:
+            assert False
+
+    def _build_inputs(self, node_sockets):
+        for data_type, name, identifier in self.tree.iter_function_inputs():
+            yield type_infos.build(
+                data_type,
+                node_sockets,
+                name,
+                self.identifier + identifier)
+
+    def _build_outputs(self, node_sockets):
+        for data_type, name, identifier in self.tree.iter_function_outputs():
+            yield type_infos.build(
+                data_type,
+                node_sockets,
+                name,
+                self.identifier + identifier)
+
+    def amount(self, node):
+        if self.in_or_out == "IN":
+            return len(tuple(self.tree.iter_function_inputs()))
+        elif self.in_or_out == "OUT":
+            return len(tuple(self.tree.iter_function_outputs()))
+        else:
+            assert False
 
 class ListSocketDecl(SocketDeclBase):
     def __init__(self, identifier: str, display_name: str, prop_name: str, list_or_base: str):

@@ -1,5 +1,5 @@
 import bpy
-from . base import FunctionTree
+from . function_tree import FunctionTree
 
 def draw_menu(self, context):
     tree = context.space_data.node_tree

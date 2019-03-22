@@ -2,9 +2,10 @@ import bpy
 from collections import defaultdict
 from contextlib import contextmanager
 
+from . base import DataSocket
 from . types import type_infos
 from . sockets import OperatorSocket
-from . base import DataSocket, FunctionTree
+from . function_tree import FunctionTree
 from . utils.graph import iter_connected_components
 
 from . socket_decl import (
@@ -12,6 +13,7 @@ from . socket_decl import (
     ListSocketDecl,
     PackListDecl,
     AnyVariadicDecl,
+    TreeInterfaceDecl,
 )
 
 
@@ -157,7 +159,7 @@ def iter_possible_list_component_types(component, decision_users, linked_sockets
         for socket in decision_users[decision_id]["LIST"]:
             for other_node, other_socket in linked_sockets[socket]:
                 other_decl = other_socket.get_decl(other_node)
-                if isinstance(other_decl, (FixedSocketDecl, AnyVariadicDecl)):
+                if data_sockets_are_static(other_decl):
                     data_type = other_socket.data_type
                     if type_infos.is_list(data_type):
                         yield type_infos.to_base(data_type)
@@ -166,7 +168,7 @@ def iter_possible_list_component_types(component, decision_users, linked_sockets
         for socket in decision_users[decision_id]["BASE"]:
             for other_node, other_socket in linked_sockets[socket]:
                 other_decl = other_socket.get_decl(other_node)
-                if isinstance(other_decl, (FixedSocketDecl, AnyVariadicDecl)):
+                if data_sockets_are_static(other_decl):
                     data_type = other_socket.data_type
                     if type_infos.is_base(data_type):
                         yield data_type
@@ -186,7 +188,7 @@ def make_pack_list_decisions(tree, linked_sockets, list_decisions):
         assert len(linked_sockets[socket]) == 1
         origin_node, origin_socket = next(iter(linked_sockets[socket]))
         origin_decl = origin_socket.get_decl(origin_node)
-        if isinstance(origin_decl, (FixedSocketDecl, AnyVariadicDecl)):
+        if data_sockets_are_static(origin_decl):
             data_type = origin_socket.data_type
             if data_type == decl.base_type:
                 decisions[decision_id] = "BASE"
@@ -210,6 +212,9 @@ def make_pack_list_decisions(tree, linked_sockets, list_decisions):
             decisions[decision_id] = "BASE"
 
     return decisions
+
+def data_sockets_are_static(decl):
+    return isinstance(decl, (FixedSocketDecl, AnyVariadicDecl, TreeInterfaceDecl))
 
 def iter_pack_list_sockets(tree):
     for node in tree.nodes:
