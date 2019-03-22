@@ -88,6 +88,8 @@ namespace FN { namespace DataFlowNodes {
 			return false;
 		}
 		(*inserter)(builder, ctx, bnode);
+
+		BLI_assert(builder.verify_data_sockets_mapped(bnode, ctx));
 		return true;
 	}
 

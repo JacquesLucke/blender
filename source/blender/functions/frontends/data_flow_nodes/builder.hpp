@@ -1,6 +1,7 @@
 #pragma once
 
 #include "FN_core.hpp"
+#include "./util_wrappers.hpp"
 
 struct bNode;
 struct bNodeLink;
@@ -36,7 +37,15 @@ namespace FN { namespace DataFlowNodes {
 		void map_output(Socket socket, struct bNode *bnode, uint index);
 
 		Socket lookup_socket(struct bNodeSocket *bsocket);
+		bool verify_data_sockets_mapped(struct bNode *bnode, const BuilderContext &ctx) const;
+
+	private:
+		bool check_if_sockets_are_mapped(
+			struct bNode *bnode,
+			bSocketList bsockets,
+			const BuilderContext &ctx) const;
 	};
+
 
 	class BuilderContext {
 	private:

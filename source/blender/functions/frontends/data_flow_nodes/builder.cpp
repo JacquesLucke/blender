@@ -77,6 +77,40 @@ namespace FN { namespace DataFlowNodes {
 		return m_socket_map.lookup(bsocket);
 	}
 
+	bool Builder::check_if_sockets_are_mapped(
+		struct bNode *bnode,
+		bSocketList bsockets,
+		const BuilderContext &ctx) const
+	{
+		int index = 0;
+		for (bNodeSocket *bsocket : bsockets) {
+			if (ctx.is_data_socket(bsocket)) {
+				if (!m_socket_map.contains(bsocket)) {
+					std::cout << "Data Socket not mapped: " << std::endl;
+					std::cout << "    Tree: " << ctx.btree()->id.name << std::endl;
+					std::cout << "    Node: " << bnode->name << std::endl;
+					if (bsocket->in_out == SOCK_IN) {
+						std::cout << "    Input";
+					}
+					else {
+						std::cout << "    Output";
+					}
+					std::cout << " Index: " << index << std::endl;
+					return false;
+				}
+			}
+			index++;
+		}
+		return true;
+	}
+
+	bool Builder::verify_data_sockets_mapped(struct bNode *bnode, const BuilderContext &ctx) const
+	{
+		return (
+			this->check_if_sockets_are_mapped(bnode, bSocketList(&bnode->inputs), ctx) &&
+			this->check_if_sockets_are_mapped(bnode, bSocketList(&bnode->outputs), ctx));
+	}
+
 
 	struct bNodeTree *BuilderContext::btree() const
 	{
