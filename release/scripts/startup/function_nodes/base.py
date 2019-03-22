@@ -74,6 +74,9 @@ class NodeStorage:
 _storage_per_node = {}
 
 class BaseNode:
+    search_terms = tuple()
+    search_terms_only = False
+
     def init(self, context):
         from . update import managed_update
         with managed_update():
@@ -82,6 +85,12 @@ class BaseNode:
                 decl.build(self, self.inputs)
             for decl in outputs:
                 decl.build(self, self.outputs)
+
+    @classmethod
+    def get_search_terms(cls):
+        if not cls.search_terms_only:
+            yield (cls.bl_label, dict())
+        yield from cls.search_terms
 
     def refresh(self, context=None):
         from . update import update_function_trees

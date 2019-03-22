@@ -10,9 +10,10 @@ class NodeSearch(bpy.types.Operator):
 
     def get_search_items(self, context):
         items = []
-        for cls in BaseNode.iter_final_subclasses():
-            item = (cls.bl_idname, cls.bl_label, "")
-            items.append(item)
+        for node_cls in BaseNode.iter_final_subclasses():
+            for search_term, settings in node_cls.get_search_terms():
+                item = encode_search_item(node_cls.bl_idname, search_term, settings)
+                items.append(item)
         return items
 
     item: EnumProperty(items=get_search_items)
@@ -27,6 +28,20 @@ class NodeSearch(bpy.types.Operator):
         return {'CANCELLED'}
 
     def execute(self, context):
-        idname = self.item
-        bpy.ops.node.add_node('INVOKE_DEFAULT', type=idname, use_transform=True)
+        idname, settings = decode_search_item(self.item)
+        op_settings = []
+        for key, value in settings.items():
+            item = {"name" : key, "value" : repr(value)}
+            op_settings.append(item)
+        bpy.ops.node.add_node('INVOKE_DEFAULT', type=idname, use_transform=True, settings=op_settings)
         return {'FINISHED'}
+
+
+def encode_search_item(idname, search_term, settings):
+    identifier = idname + ":" + repr(settings)
+    return (identifier, search_term, "")
+
+def decode_search_item(identifier):
+    idname, settings_repr = identifier.split(":", 1)
+    settings = eval(settings_repr)
+    return idname, settings
