@@ -169,6 +169,7 @@ namespace FN {
 			else {
 				type_info->copy_to_uninitialized(src, dst);
 			}
+			type_info->destruct_type(src);
 
 			m_initialized[index] = true;
 		}
