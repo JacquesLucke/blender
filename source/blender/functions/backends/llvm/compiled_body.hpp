@@ -19,8 +19,7 @@ namespace FN {
 		LLVMCompiledBody() = default;
 
 	public:
-		static const char *identifier_in_composition();
-		static void free_self(void *value);
+		BLI_COMPOSITION_DECLARATION(LLVMCompiledBody);
 
 		LLVMCompiledBody(std::unique_ptr<CompiledLLVM> compiled)
 			: m_compiled(std::move(compiled)) {}

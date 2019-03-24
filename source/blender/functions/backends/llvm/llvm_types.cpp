@@ -5,16 +5,7 @@ namespace FN {
 
 	/******************** LLVMTypeInfo ********************/
 
-	const char *LLVMTypeInfo::identifier_in_composition()
-	{
-		return "LLVM Type Info";
-	}
-
-	void LLVMTypeInfo::free_self(void *value)
-	{
-		LLVMTypeInfo *value_ = (LLVMTypeInfo *)value;
-		delete value_;
-	}
+	BLI_COMPOSITION_IMPLEMENTATION(LLVMTypeInfo);
 
 	llvm::Type *LLVMTypeInfo::get_type(
 		llvm::LLVMContext &context) const

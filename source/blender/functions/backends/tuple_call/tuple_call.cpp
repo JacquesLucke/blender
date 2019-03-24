@@ -2,16 +2,7 @@
 
 namespace FN {
 
-	const char *TupleCallBody::identifier_in_composition()
-	{
-		return "Tuple Call Body";
-	}
-
-	void TupleCallBody::free_self(void *value)
-	{
-		TupleCallBody *v = (TupleCallBody *)value;
-		delete v;
-	}
+	BLI_COMPOSITION_IMPLEMENTATION(TupleCallBody);
 
 	void TupleCallBody::init_defaults(Tuple &fn_in) const
 	{

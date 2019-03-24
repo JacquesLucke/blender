@@ -26,8 +26,7 @@ namespace FN {
 
 	class DependenciesBody : public FunctionBody {
 	public:
-		static const char *identifier_in_composition();
-		static void free_self(void *value);
+		BLI_COMPOSITION_DECLARATION(DependenciesBody);
 
 		virtual ~DependenciesBody() {}
 		virtual void dependencies(Dependencies &deps) const = 0;

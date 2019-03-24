@@ -61,3 +61,13 @@ namespace BLI {
 	};
 
 } /* namespace BLI */
+
+#define BLI_COMPOSITION_DECLARATION(Type) \
+	static const char *identifier_in_composition(); \
+	static void free_self(void *value);
+
+#define BLI_COMPOSITION_IMPLEMENTATION(Type) \
+	const char *Type::identifier_in_composition() \
+	{ return STRINGIFY(Type); } \
+	void Type::free_self(void *value) \
+	{ delete (Type *)value; }

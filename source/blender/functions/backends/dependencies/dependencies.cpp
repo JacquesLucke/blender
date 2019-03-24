@@ -5,17 +5,7 @@
 
 namespace FN {
 
-	const char *DependenciesBody::identifier_in_composition()
-	{
-		return "Dependencies";
-	}
-
-	void DependenciesBody::free_self(void *value)
-	{
-		DependenciesBody *v = (DependenciesBody *)value;
-		delete v;
-	}
-
+	BLI_COMPOSITION_IMPLEMENTATION(DependenciesBody);
 
 	void Dependencies::add_object_transform_dependency(struct Object *object)
 	{

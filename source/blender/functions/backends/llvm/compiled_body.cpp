@@ -6,16 +6,7 @@
 
 namespace FN {
 
-	const char *LLVMCompiledBody::identifier_in_composition()
-	{
-		return "Compiled LLVM Body";
-	}
-
-	void LLVMCompiledBody::free_self(void *value)
-	{
-		LLVMCompiledBody *v = (LLVMCompiledBody *)value;
-		delete v;
-	}
+	BLI_COMPOSITION_IMPLEMENTATION(LLVMCompiledBody);
 
 	void LLVMCompiledBody::build_ir(
 		llvm::IRBuilder<> &builder,

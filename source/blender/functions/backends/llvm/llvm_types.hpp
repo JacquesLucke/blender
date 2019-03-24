@@ -11,8 +11,7 @@ namespace FN {
 
 	class LLVMTypeInfo {
 	public:
-		static const char *identifier_in_composition();
-		static void free_self(void *value);
+		BLI_COMPOSITION_DECLARATION(LLVMTypeInfo);
 
 		virtual ~LLVMTypeInfo() {}
 
