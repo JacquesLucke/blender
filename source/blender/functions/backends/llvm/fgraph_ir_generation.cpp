@@ -29,7 +29,7 @@ namespace FN {
 					continue;
 				}
 			}
-			m_required_sockets = this->find_required_sockets();
+			m_required_sockets = fgraph.find_required_sockets();
 		}
 
 		void build_ir(
@@ -50,41 +50,6 @@ namespace FN {
 		}
 
 	private:
-		SocketSet find_required_sockets() const
-		{
-			SocketSet required_sockets;
-			for (Socket socket : m_fgraph.outputs()) {
-				this->find_required_sockets(socket, required_sockets);
-			}
-			return required_sockets;
-		}
-
-		void find_required_sockets(Socket socket, SocketSet &required_sockets) const
-		{
-			if (required_sockets.contains(socket)) {
-				return;
-			}
-
-			required_sockets.add(socket);
-
-			if (m_inputs.contains(socket)) {
-				/* do nothing */
-			}
-			else if (socket.is_input()) {
-				this->find_required_sockets(socket.origin(), required_sockets);
-				return;
-			}
-			else if (socket.is_output()) {
-				for (Socket input : socket.node()->inputs()) {
-					this->find_required_sockets(input, required_sockets);
-				}
-				return;
-			}
-			else {
-				BLI_assert(!"should never happen");
-			}
-		}
-
 		void generate_for_socket(
 			llvm::IRBuilder<> &builder,
 			Socket socket,

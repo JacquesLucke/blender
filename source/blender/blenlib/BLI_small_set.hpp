@@ -54,6 +54,11 @@ namespace BLI {
 			return m_entries[0];
 		}
 
+		T pop()
+		{
+			return m_entries.pop_last();
+		}
+
 
 		/* Iterators */
 

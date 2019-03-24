@@ -55,4 +55,37 @@ namespace FN {
 
 		m_links.insert(Link::New(a, b));
 	}
+
+
+	SocketSet FunctionGraph::find_required_sockets() const
+	{
+		SocketSet found;
+
+		SocketSet to_be_checked;
+		for (Socket socket : m_outputs) {
+			to_be_checked.add(socket);
+		}
+
+		while (to_be_checked.size() > 0) {
+			Socket socket = to_be_checked.pop();
+
+			if (m_inputs.contains(socket)) {
+				continue;
+			}
+
+			found.add(socket);
+
+			if (socket.is_input()) {
+				to_be_checked.add(socket.origin());
+			}
+			else {
+				for (Socket input : socket.node()->inputs()) {
+					to_be_checked.add(input);
+				}
+			}
+		}
+
+		return found;
+	}
+
 };

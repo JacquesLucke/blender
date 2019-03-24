@@ -133,6 +133,14 @@ namespace BLI {
 			m_size--;
 		}
 
+		T pop_last()
+		{
+			BLI_assert(!this->empty());
+			T value = m_elements[this->size() - 1];
+			this->remove_last();
+			return value;
+		}
+
 		void remove_and_reorder(uint index)
 		{
 			BLI_assert(this->is_index_in_range(index));

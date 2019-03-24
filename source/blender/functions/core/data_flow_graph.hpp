@@ -301,12 +301,12 @@ namespace FN {
 			return m_graph;
 		}
 
-		const SmallSocketVector &inputs() const
+		const SmallSocketSetVector &inputs() const
 		{
 			return m_inputs;
 		}
 
-		const SmallSocketVector &outputs() const
+		const SmallSocketSetVector &outputs() const
 		{
 			return m_outputs;
 		}
@@ -326,10 +326,12 @@ namespace FN {
 			return Signature(inputs, outputs);
 		}
 
+		SocketSet find_required_sockets() const;
+
 	private:
 		SharedDataFlowGraph m_graph;
-		SmallSocketVector m_inputs;
-		SmallSocketVector m_outputs;
+		SmallSocketSetVector m_inputs;
+		SmallSocketSetVector m_outputs;
 	};
 
 
