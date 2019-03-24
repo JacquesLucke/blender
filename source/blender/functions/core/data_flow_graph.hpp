@@ -14,6 +14,8 @@ namespace FN {
 	class DataFlowGraph;
 
 	using SocketSet = SmallSet<Socket>;
+	using NodeSet = SmallSet<Node *>;
+	using NodeSetVector = SmallSetVector<Node *>;
 	using SmallSocketVector = SmallVector<Socket>;
 	using SmallSocketSetVector = SmallSetVector<Socket>;
 
