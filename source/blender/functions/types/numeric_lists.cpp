@@ -8,41 +8,6 @@
 namespace FN { namespace Types {
 
 	template<typename T>
-	class ListCPPTypeInfo : public CPPTypeInfo {
-
-	public:
-		uint size_of_type() const override
-		{
-			static_assert(sizeof(SharedList<T>) == sizeof(void *), "");
-			return sizeof(SharedList<T>);
-		}
-
-		void construct_default(void *ptr) const override
-		{
-			*(List<T> **)ptr = new List<T>();
-		}
-
-		void destruct_type(void *ptr) const override
-		{
-			List<T> *list = *(List<T> **)ptr;
-			list->remove_user();
-		}
-
-		void copy_to_initialized(void *src, void *dst) const override
-		{
-			this->destruct_type(dst);
-			this->copy_to_uninitialized(src, dst);
-		}
-
-		void copy_to_uninitialized(void *src, void *dst) const override
-		{
-			List<T> *list = *(List<T> **)src;
-			list->new_user();
-			*(List<T> **)dst = list;
-		}
-	};
-
-	template<typename T>
 	class ListLLVMTypeInfo : public LLVMTypeInfo {
 	private:
 		static void *copy_func(void *value)
@@ -77,7 +42,7 @@ namespace FN { namespace Types {
 	SharedType create_list_type(std::string name)
 	{
 		SharedType type = SharedType::New(name);
-		type->extend(new ListCPPTypeInfo<T>());
+		type->extend(new CPPTypeInfoForType<SharedList<T>>());
 		type->extend(ListLLVMTypeInfo<T>::Create());
 		return type;
 	}

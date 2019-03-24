@@ -155,7 +155,7 @@ namespace FN {
 			m_initialized[index] = true;
 		}
 
-		inline void move_in__dynamic(uint index, void *src)
+		inline void relocate_in__dynamic(uint index, void *src)
 		{
 			BLI_assert(index < m_meta->element_amount());
 			BLI_assert(src != nullptr);
@@ -164,12 +164,11 @@ namespace FN {
 			auto *type_info = m_meta->type_infos()[index];
 
 			if (m_initialized[index]) {
-				type_info->copy_to_initialized(src, dst);
+				type_info->relocate_to_initialized(src, dst);
 			}
 			else {
-				type_info->copy_to_uninitialized(src, dst);
+				type_info->relocate_to_uninitialized(src, dst);
 			}
-			type_info->destruct_type(src);
 
 			m_initialized[index] = true;
 		}
@@ -215,8 +214,9 @@ namespace FN {
 
 			void *src = this->element_ptr(index);
 			auto *type_info = m_meta->type_infos()[index];
-			type_info->copy_to_uninitialized(src, dst);
-			type_info->destruct_type(src);
+
+			type_info->relocate_to_uninitialized(src, dst);
+
 			m_initialized[index] = false;
 		}
 

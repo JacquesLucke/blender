@@ -26,11 +26,11 @@ namespace FN { namespace Functions {
 			void *value = alloca(size);
 			if (condition) {
 				fn_in.relocate_out__dynamic(1, value);
-				fn_out.move_in__dynamic(0, value);
+				fn_out.relocate_in__dynamic(0, value);
 			}
 			else {
 				fn_in.relocate_out__dynamic(2, value);
-				fn_out.move_in__dynamic(0, value);
+				fn_out.relocate_in__dynamic(0, value);
 			}
 		}
 	};
