@@ -1,5 +1,5 @@
-#include "fgraph_tuple_call.hpp"
 #include "FN_llvm.hpp"
+#include "FN_tuple_call.hpp"
 
 namespace FN {
 
@@ -98,11 +98,15 @@ namespace FN {
 
 			auto *context = new llvm::LLVMContext();
 			for (Node *node : required_nodes) {
-				if (node->function()->has_body<TupleCallBody>()) {
+				SharedFunction &fn = node->function();
+				if (fn->has_body<TupleCallBody>()) {
 					continue;
 				}
-				else if (node->function()->has_body<LLVMBuildIRBody>()) {
-					derive_TupleCallBody_from_LLVMBuildIRBody(node->function(), *context);
+				else if (fn->has_body<LLVMBuildIRBody>()) {
+					derive_TupleCallBody_from_LLVMBuildIRBody(fn, *context);
+				}
+				else if (fn->has_body<LazyInTupleCallBody>()) {
+					derive_TupleCallBody_from_LazyInTupleCallBody(fn);
 				}
 				else {
 					BLI_assert(false);

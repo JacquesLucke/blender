@@ -41,6 +41,8 @@ set(SRC
 	backends/tuple_call/fgraph_tuple_call.cpp
 	backends/tuple_call/tuple.hpp
 	backends/tuple_call/tuple.cpp
+	backends/tuple_call/lazy_to_normal.hpp
+	backends/tuple_call/lazy_to_normal.cpp
 
 	backends/dependencies/dependencies.hpp
 	backends/dependencies/dependencies.cpp

@@ -9,29 +9,45 @@ namespace FN { namespace Functions {
 
 	using namespace Types;
 
-	class BoolSwitch : public TupleCallBody {
+	class LazyBoolSwitch : public LazyInTupleCallBody {
 	private:
-		SharedType m_data_type;
-		CPPTypeInfo *m_type_info;
+		SharedType m_type;
+		uint m_type_size;
+		const SmallVector<uint> m_always_required = {0};
 
 	public:
-		BoolSwitch(SharedType data_type)
-			: m_data_type(data_type),
-			  m_type_info(data_type->extension<CPPTypeInfo>()) {}
+		LazyBoolSwitch(SharedType type)
+			: m_type(type),
+			  m_type_size(type->extension<CPPTypeInfo>()->size_of_type()) {}
 
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		const SmallVector<uint> &always_required() const override
+		{
+			return m_always_required;
+		}
+
+		void call(Tuple &fn_in, Tuple &fn_out, LazyState &state) const override
 		{
 			bool condition = fn_in.get<bool>(0);
-			uint size = m_type_info->size_of_type();
-			void *value = alloca(size);
+
+			if (state.is_first_entry()) {
+				if (condition) {
+					state.request_input(1);
+				}
+				else {
+					state.request_input(2);
+				}
+				return;
+			}
+
+			void *value = alloca(m_type_size);
 			if (condition) {
 				fn_in.relocate_out__dynamic(1, value);
-				fn_out.relocate_in__dynamic(0, value);
 			}
 			else {
 				fn_in.relocate_out__dynamic(2, value);
-				fn_out.relocate_in__dynamic(0, value);
 			}
+			fn_out.relocate_in__dynamic(0, value);
+			state.done();
 		}
 	};
 
@@ -45,7 +61,7 @@ namespace FN { namespace Functions {
 		}, {
 			OutputParameter("Result", data_type),
 		}));
-		fn->add_body(new BoolSwitch(data_type));
+		fn->add_body(new LazyBoolSwitch(data_type));
 		return fn;
 	}
 
