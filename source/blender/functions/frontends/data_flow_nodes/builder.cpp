@@ -140,6 +140,9 @@ namespace FN { namespace DataFlowNodes {
 		else if (STREQ(data_type, "Vector")) {
 			return Types::get_fvec3_type();
 		}
+		else if (STREQ(data_type, "Boolean")) {
+			return Types::get_bool_type();
+		}
 		else if (STREQ(data_type, "Float List")) {
 			return Types::get_float_list_type();
 		}

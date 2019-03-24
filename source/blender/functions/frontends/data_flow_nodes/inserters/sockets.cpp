@@ -26,6 +26,12 @@ namespace FN { namespace DataFlowNodes {
 		tuple.set<int32_t>(index, value);
 	}
 
+	static void load_boolean(PointerRNA *ptr, Tuple &tuple, uint index)
+	{
+		bool value = RNA_boolean_get(ptr, "value");
+		tuple.set<bool>(index, value);
+	}
+
 	template<typename T>
 	static void load_empty_list(PointerRNA *UNUSED(ptr), Tuple &tuple, uint index)
 	{
@@ -38,6 +44,7 @@ namespace FN { namespace DataFlowNodes {
 		inserters.reg_socket_loader("Float", load_float);
 		inserters.reg_socket_loader("Vector", load_vector);
 		inserters.reg_socket_loader("Integer", load_integer);
+		inserters.reg_socket_loader("Boolean", load_boolean);
 		inserters.reg_socket_loader("Float List", load_empty_list<float>);
 		inserters.reg_socket_loader("Vector List", load_empty_list<Types::Vector>);
 		inserters.reg_socket_loader("Integer List", load_empty_list<int32_t>);

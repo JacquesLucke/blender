@@ -69,8 +69,10 @@ set(SRC
 	types/lists.hpp
 	types/numeric_lists.hpp
 	types/numeric_lists.cpp
-	types/numeric.cpp
 	types/numeric.hpp
+	types/numeric.cpp
+	types/boolean.hpp
+	types/boolean.cpp
 
 	functions/object_input.hpp
 	functions/object_input.cpp

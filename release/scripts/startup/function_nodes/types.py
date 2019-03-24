@@ -8,6 +8,7 @@ from . sockets import (
     FloatSocket,
     IntegerSocket,
     VectorSocket,
+    BooleanSocket,
     CustomColoredSocket,
 )
 
@@ -16,6 +17,7 @@ type_infos = DataTypesInfo()
 type_infos.insert_data_type("Float", UniqueSocketBuilder(FloatSocket))
 type_infos.insert_data_type("Vector", UniqueSocketBuilder(VectorSocket))
 type_infos.insert_data_type("Integer", UniqueSocketBuilder(IntegerSocket))
+type_infos.insert_data_type("Boolean", UniqueSocketBuilder(BooleanSocket))
 type_infos.insert_data_type("Float List", ColoredSocketBuilder((0, 0.3, 0.5, 0.5)))
 type_infos.insert_data_type("Vector List", ColoredSocketBuilder((0, 0, 0.5, 0.5)))
 type_infos.insert_data_type("Integer List", ColoredSocketBuilder((0.3, 0.7, 0.5, 0.5)))
