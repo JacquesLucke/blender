@@ -233,7 +233,7 @@ void FN_tuple_get_fvec3(FnTuple tuple, uint index, float dst[3])
 FnFloatList FN_tuple_relocate_out_float_list(FnTuple tuple, uint index)
 {
 	auto list = unwrap(tuple)->relocate_out<SharedFloatList>(index);
-	return wrap(list.move_ptr());
+	return wrap(list.extract_ptr());
 }
 
 

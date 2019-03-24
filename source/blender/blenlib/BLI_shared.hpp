@@ -129,7 +129,7 @@ namespace BLI {
 			return m_object;
 		}
 
-		T *move_ptr()
+		T *extract_ptr()
 		{
 			T *value = m_object;
 			m_object = nullptr;
