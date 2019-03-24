@@ -645,10 +645,12 @@ GPUTexture *GPU_texture_create_nD(
 	tex->bindcode = GPU_tex_alloc();
 
 	if (!tex->bindcode) {
-		if (err_out)
-			BLI_snprintf(err_out, 256, "GPUTexture: texture create failed\n");
-		else
+		if (err_out) {
+			BLI_strncpy(err_out, "GPUTexture: texture create failed\n", 256);
+		}
+		else {
 			fprintf(stderr, "GPUTexture: texture create failed\n");
+		}
 		GPU_texture_free(tex);
 		return NULL;
 	}
@@ -685,7 +687,7 @@ GPUTexture *GPU_texture_create_nD(
 
 	if (!valid) {
 		if (err_out) {
-			BLI_snprintf(err_out, 256, "GPUTexture: texture alloc failed\n");
+			BLI_strncpy(err_out, "GPUTexture: texture alloc failed\n", 256);
 		}
 		else {
 			fprintf(stderr, "GPUTexture: texture alloc failed. Likely not enough Video Memory.\n");
@@ -790,10 +792,12 @@ static GPUTexture *GPU_texture_cube_create(
 	tex->bindcode = GPU_tex_alloc();
 
 	if (!tex->bindcode) {
-		if (err_out)
-			BLI_snprintf(err_out, 256, "GPUTexture: texture create failed\n");
-		else
+		if (err_out) {
+			BLI_strncpy(err_out, "GPUTexture: texture create failed\n", 256);
+		}
+		else {
 			fprintf(stderr, "GPUTexture: texture create failed\n");
+		}
 		GPU_texture_free(tex);
 		return NULL;
 	}
@@ -1264,6 +1268,35 @@ void *GPU_texture_read(GPUTexture *tex, eGPUDataFormat gpu_data_format, int mipl
 	glBindTexture(tex->target, 0);
 
 	return buf;
+}
+
+void GPU_texture_read_rect(
+        GPUTexture *tex, eGPUDataFormat gpu_data_format,
+        const rcti *rect, void *r_buf)
+{
+	gpu_validate_data_format(tex->format, gpu_data_format);
+
+	GPUFrameBuffer *cur_fb = GPU_framebuffer_active_get();
+	GPUFrameBuffer *tmp_fb = GPU_framebuffer_create();
+	GPU_framebuffer_texture_attach(tmp_fb, tex, 0, 0);
+
+	GPU_framebuffer_bind(tmp_fb);
+	glReadBuffer(GL_COLOR_ATTACHMENT0);
+
+	GLenum data_format = gpu_get_gl_dataformat(tex->format, &tex->format_flag);
+	GLenum data_type = gpu_get_gl_datatype(gpu_data_format);
+
+	glReadPixels(rect->xmin, rect->ymin,
+	             BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
+	             data_format, data_type, r_buf);
+
+	if (cur_fb) {
+		GPU_framebuffer_bind(cur_fb);
+	}
+	else {
+		GPU_framebuffer_restore();
+	}
+	GPU_framebuffer_free(tmp_fb);
 }
 
 void GPU_texture_update(GPUTexture *tex, eGPUDataFormat data_format, const void *pixels)

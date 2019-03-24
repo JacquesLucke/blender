@@ -5142,7 +5142,7 @@ static void applyShrinkFatten(TransInfo *t, const int UNUSED(mval[2]))
 	if (t->proptext[0]) {
 		ofs += BLI_snprintf(str + ofs, sizeof(str) - ofs, " %s", t->proptext);
 	}
-	ofs += BLI_snprintf(str + ofs, sizeof(str) - ofs, ", (");
+	ofs += BLI_strncpy_rlen(str + ofs, ", (", sizeof(str) - ofs);
 
 	if (t->keymap) {
 		wmKeyMapItem *kmi = WM_modalkeymap_find_propvalue(t->keymap, TFM_MODAL_RESIZE);
@@ -6127,7 +6127,8 @@ static void slide_origdata_create_data(
 
 			for (i = 0; i < tc->data_len; i++, td++) {
 				BMVert *eve = td->extra;
-				if (eve) {
+				/* Check the vertex has been used since both sides of the mirror may be selected & sliding. */
+				if (eve && !BLI_ghash_haskey(sod->origverts, eve)) {
 					sv_mirror->v = eve;
 					copy_v3_v3(sv_mirror->co_orig_3d, eve->co);
 

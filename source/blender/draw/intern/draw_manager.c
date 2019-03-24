@@ -2023,12 +2023,8 @@ static struct DRWSelectBuffer {
 	struct GPUTexture *texture_u32;
 } g_select_buffer = {NULL};
 
-static void draw_select_framebuffer_depth_only_setup(const rcti *rect)
+static void draw_select_framebuffer_depth_only_setup(const int size[2])
 {
-	float size[2];
-	size[0] = BLI_rcti_size_x(rect);
-	size[1] = BLI_rcti_size_y(rect);
-
 	if (g_select_buffer.framebuffer_depth_only == NULL) {
 		g_select_buffer.framebuffer_depth_only = GPU_framebuffer_create();
 		g_select_buffer.framebuffer_select_id = GPU_framebuffer_create();
@@ -2061,13 +2057,9 @@ static void draw_select_framebuffer_depth_only_setup(const rcti *rect)
 	}
 }
 
-static void draw_select_framebuffer_select_id_setup(const rcti *rect)
+static void draw_select_framebuffer_select_id_setup(const int size[2])
 {
-	float size[2];
-	size[0] = BLI_rcti_size_x(rect);
-	size[1] = BLI_rcti_size_y(rect);
-
-	draw_select_framebuffer_depth_only_setup(rect);
+	draw_select_framebuffer_depth_only_setup(size);
 
 	if ((g_select_buffer.texture_u32 != NULL) &&
 	    ((GPU_texture_width(g_select_buffer.texture_u32) != size[0]) ||
@@ -2144,8 +2136,9 @@ void DRW_draw_select_loop(
 		}
 	}
 
+	int viewport_size[2] = {BLI_rcti_size_x(rect), BLI_rcti_size_y(rect)};
 	struct GPUViewport *viewport = GPU_viewport_create();
-	GPU_viewport_size_set(viewport, (const int[2]){BLI_rcti_size_x(rect), BLI_rcti_size_y(rect)});
+	GPU_viewport_size_set(viewport, viewport_size);
 
 	DST.viewport = viewport;
 	DST.options.is_select = true;
@@ -2253,7 +2246,7 @@ void DRW_draw_select_loop(
 	}
 
 	/* Setup framebuffer */
-	draw_select_framebuffer_depth_only_setup(rect);
+	draw_select_framebuffer_depth_only_setup(viewport_size);
 	GPU_framebuffer_bind(g_select_buffer.framebuffer_depth_only);
 	GPU_framebuffer_clear_depth(g_select_buffer.framebuffer_depth_only, 1.0f);
 
@@ -2355,16 +2348,25 @@ void DRW_draw_depth_loop(
 	/* Reset before using it. */
 	drw_state_prepare_clean_for_draw(&DST);
 
+	int viewport_size[2] = {ar->winx, ar->winy};
 	struct GPUViewport *viewport = GPU_viewport_create();
-	GPU_viewport_size_set(viewport, (const int[2]){ar->winx, ar->winy});
+	GPU_viewport_size_set(viewport, viewport_size);
 
 	/* Setup framebuffer */
-	draw_select_framebuffer_depth_only_setup(&ar->winrct);
+	draw_select_framebuffer_depth_only_setup(viewport_size);
 	GPU_framebuffer_bind(g_select_buffer.framebuffer_depth_only);
 	GPU_framebuffer_clear_depth(g_select_buffer.framebuffer_depth_only, 1.0f);
 
 	DST.viewport = viewport;
 	DST.options.is_depth = true;
+
+	/* Instead of 'DRW_context_state_init(C, &DST.draw_ctx)', assign from args */
+	DST.draw_ctx = (DRWContextState){
+		.ar = ar, .rv3d = rv3d, .v3d = v3d,
+		.scene = scene, .view_layer = view_layer, .obact = OBACT(view_layer),
+		.engine_type = engine_type,
+		.depsgraph = depsgraph,
+	};
 
 	/* Get list of enabled engines */
 	{
@@ -2375,14 +2377,6 @@ void DRW_draw_depth_loop(
 	}
 
 	/* Setup viewport */
-
-	/* Instead of 'DRW_context_state_init(C, &DST.draw_ctx)', assign from args */
-	DST.draw_ctx = (DRWContextState){
-		.ar = ar, .rv3d = rv3d, .v3d = v3d,
-		.scene = scene, .view_layer = view_layer, .obact = OBACT(view_layer),
-		.engine_type = engine_type,
-		.depsgraph = depsgraph,
-	};
 	drw_context_state_init();
 	drw_viewport_var_init();
 
@@ -2474,7 +2468,8 @@ void DRW_framebuffer_select_id_setup(ARegion *ar, const bool clear)
 	DRW_opengl_context_enable();
 
 	/* Setup framebuffer */
-	draw_select_framebuffer_select_id_setup(&ar->winrct);
+	int viewport_size[2] = {ar->winx, ar->winy};
+	draw_select_framebuffer_select_id_setup(viewport_size);
 	GPU_framebuffer_bind(g_select_buffer.framebuffer_select_id);
 
 	/* dithering and AA break color coding, so disable */
@@ -2514,16 +2509,16 @@ void DRW_framebuffer_select_id_release(ARegion *ar)
 /* Read a block of pixels from the select frame buffer. */
 void DRW_framebuffer_select_id_read(const rcti *rect, uint *r_buf)
 {
-	DRW_opengl_context_enable();
-	GPU_framebuffer_bind(g_select_buffer.framebuffer_select_id);
-	glReadBuffer(GL_COLOR_ATTACHMENT0);
+	GPU_texture_read_rect(
+	        g_select_buffer.texture_u32, GPU_DATA_UNSIGNED_INT, rect, r_buf);
+}
 
-	glReadPixels(rect->xmin, rect->ymin,
-	             BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
-	             GL_RED_INTEGER, GL_UNSIGNED_INT, r_buf);
 
-	GPU_framebuffer_restore();
-	DRW_opengl_context_disable();
+/* Read a block of pixels from the depth frame buffer. */
+void DRW_framebuffer_depth_read(const rcti *rect, float *r_buf)
+{
+	GPU_texture_read_rect(
+	        g_select_buffer.texture_depth, GPU_DATA_FLOAT, rect, r_buf);
 }
 
 /** \} */

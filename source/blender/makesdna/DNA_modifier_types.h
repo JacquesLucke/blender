@@ -1554,7 +1554,7 @@ typedef struct TriangulateModifierData {
 	int flag;
 	int quad_method;
 	int ngon_method;
-	char _pad[4];
+	int min_vertices;
 } TriangulateModifierData;
 
 /* TriangulateModifierData.flag */

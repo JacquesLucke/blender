@@ -2920,5 +2920,30 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 				part->draw_as = PART_DRAW_NOT;
 			}
 		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "TriangulateModifierData", "int", "min_vertices")) {
+			for (Object *ob = bmain->objects.first; ob; ob = ob->id.next) {
+				for (ModifierData *md = ob->modifiers.first; md; md = md->next) {
+					if (md->type == eModifierType_Triangulate) {
+						TriangulateModifierData *smd = (TriangulateModifierData *)md;
+						smd->min_vertices = 4;
+					}
+				}
+			}
+		}
+
+		FOREACH_NODETREE_BEGIN(bmain, ntree, id) {
+			if (ntree->type == NTREE_SHADER) {
+				for (bNode *node = ntree->nodes.first; node; node = node->next) {
+					/* Fix missing version patching from earlier changes. */
+					if (STREQ(node->idname, "ShaderNodeOutputLamp")) {
+						STRNCPY(node->idname, "ShaderNodeOutputLight");
+					}
+					if (node->type == SH_NODE_BSDF_PRINCIPLED && node->custom2 == 0) {
+						node->custom2 = SHD_SUBSURFACE_BURLEY;
+					}
+				}
+			}
+		} FOREACH_NODETREE_END;
 	}
 }

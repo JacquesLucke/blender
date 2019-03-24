@@ -216,7 +216,7 @@ static uiBlock *template_common_search_menu(
 	}
 	UI_but_func_search_set(
 	        but, ui_searchbox_create_generic, search_func,
-	        search_arg, handle_func, active_item);
+	        search_arg, false, handle_func, active_item);
 
 
 	UI_block_bounds_set_normal(block, 0.3f * U.widget_unit);
@@ -3347,19 +3347,16 @@ void uiTemplateColorPicker(
 
 	but->custom_data = cpicker;
 
-	if (lock) {
-		but->flag |= UI_BUT_COLOR_LOCK;
-	}
+	cpicker->use_color_lock = lock;
+	cpicker->use_color_cubic = cubic;
+	cpicker->use_luminosity_lock = lock_luminosity;
 
 	if (lock_luminosity) {
 		float color[4]; /* in case of alpha */
-		but->flag |= UI_BUT_VEC_SIZE_LOCK;
 		RNA_property_float_get_array(ptr, prop, color);
 		but->a2 = len_v3(color);
+		cpicker->luminosity_lock_value = len_v3(color);
 	}
-
-	if (cubic)
-		but->flag |= UI_BUT_COLOR_CUBIC;
 
 
 	if (value_slider) {
@@ -3367,25 +3364,25 @@ void uiTemplateColorPicker(
 			case USER_CP_CIRCLE_HSL:
 				uiItemS(row);
 				but = uiDefButR_prop(
-				        block, UI_BTYPE_HSVCUBE, 0, "", WHEEL_SIZE + 6, 0, 14, WHEEL_SIZE, ptr, prop,
+				        block, UI_BTYPE_HSVCUBE, 0, "", WHEEL_SIZE + 6, 0, 14 * UI_DPI_FAC, WHEEL_SIZE, ptr, prop,
 				        -1, softmin, softmax, UI_GRAD_L_ALT, 0, "");
 				break;
 			case USER_CP_SQUARE_SV:
 				uiItemS(col);
 				but = uiDefButR_prop(
-				        block, UI_BTYPE_HSVCUBE, 0, "", 0, 4, WHEEL_SIZE, 18, ptr, prop,
+				        block, UI_BTYPE_HSVCUBE, 0, "", 0, 4, WHEEL_SIZE, 18 * UI_DPI_FAC, ptr, prop,
 				        -1, softmin, softmax, UI_GRAD_SV + 3, 0, "");
 				break;
 			case USER_CP_SQUARE_HS:
 				uiItemS(col);
 				but = uiDefButR_prop(
-				        block, UI_BTYPE_HSVCUBE, 0, "", 0, 4, WHEEL_SIZE, 18, ptr, prop,
+				        block, UI_BTYPE_HSVCUBE, 0, "", 0, 4, WHEEL_SIZE, 18 * UI_DPI_FAC, ptr, prop,
 				        -1, softmin, softmax, UI_GRAD_HS + 3, 0, "");
 				break;
 			case USER_CP_SQUARE_HV:
 				uiItemS(col);
 				but = uiDefButR_prop(
-				        block, UI_BTYPE_HSVCUBE, 0, "", 0, 4, WHEEL_SIZE, 18, ptr, prop,
+				        block, UI_BTYPE_HSVCUBE, 0, "", 0, 4, WHEEL_SIZE, 18 * UI_DPI_FAC, ptr, prop,
 				        -1, softmin, softmax, UI_GRAD_HV + 3, 0, "");
 				break;
 
@@ -3394,7 +3391,7 @@ void uiTemplateColorPicker(
 			default:
 				uiItemS(row);
 				but = uiDefButR_prop(
-				        block, UI_BTYPE_HSVCUBE, 0, "", WHEEL_SIZE + 6, 0, 14, WHEEL_SIZE, ptr, prop,
+				        block, UI_BTYPE_HSVCUBE, 0, "", WHEEL_SIZE + 6, 0, 14 * UI_DPI_FAC, WHEEL_SIZE, ptr, prop,
 				        -1, softmin, softmax, UI_GRAD_V_ALT, 0, "");
 				break;
 		}
@@ -4348,7 +4345,7 @@ void UI_but_func_operator_search(uiBut *but)
 {
 	UI_but_func_search_set(
 	        but, ui_searchbox_create_operator, operator_search_cb,
-	        NULL, operator_call_cb, NULL);
+	        NULL, false, operator_call_cb, NULL);
 }
 
 void uiTemplateOperatorSearch(uiLayout *layout)
@@ -4466,6 +4463,7 @@ eAutoPropButsReturn uiTemplateOperatorPropertyButs(
 		        layout, &ptr,
 		        op->type->poll_property ? ui_layout_operator_buts_poll_property : NULL,
 		        op->type->poll_property ? &user_data : NULL,
+		        op->type->prop,
 		        label_align, (flag & UI_TEMPLATE_OP_PROPS_COMPACT));
 
 		if ((return_info & UI_PROP_BUTS_NONE_ADDED) && (flag & UI_TEMPLATE_OP_PROPS_SHOW_EMPTY)) {
