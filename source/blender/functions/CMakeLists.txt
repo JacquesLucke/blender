@@ -86,6 +86,8 @@ set(SRC
 	functions/lists.cpp
 	functions/simple_conversions.hpp
 	functions/simple_conversions.cpp
+	functions/switch.hpp
+	functions/switch.cpp
 
 	frontends/data_flow_nodes/builder.hpp
 	frontends/data_flow_nodes/builder.cpp

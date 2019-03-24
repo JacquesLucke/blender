@@ -91,5 +91,6 @@ namespace FN {
 	};
 
 	using SharedFunction = AutoRefCount<Function>;
+	using FunctionPerType = SmallMap<SharedType, SharedFunction>;
 
 } /* namespace FN */

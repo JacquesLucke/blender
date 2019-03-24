@@ -151,6 +151,17 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(node, bnode);
 	}
 
+	static void insert_switch_node(
+		Builder &builder,
+		const BuilderContext &ctx,
+		bNode *bnode)
+	{
+		SharedType &data_type = ctx.type_from_rna(bnode, "data_type");
+		auto fn = Functions::bool_switch(data_type);
+		Node *node = builder.insert_function(fn);
+		builder.map_sockets(node, bnode);
+	}
+
 	void register_node_inserters(GraphInserters &inserters)
 	{
 		inserters.reg_node_function("fn_CombineVectorNode", Functions::combine_vector);
@@ -165,6 +176,7 @@ namespace FN { namespace DataFlowNodes {
 		inserters.reg_node_inserter("fn_GetListElementNode", insert_get_list_element_node);
 		inserters.reg_node_inserter("fn_PackListNode", insert_pack_list_node);
 		inserters.reg_node_inserter("fn_CallNode", insert_call_node);
+		inserters.reg_node_inserter("fn_SwitchNode", insert_switch_node);
 	}
 
 } }

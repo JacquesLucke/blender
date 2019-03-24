@@ -133,8 +133,6 @@ namespace FN { namespace Functions {
 	/* Build List Functions
 	 *************************************/
 
-	using FunctionPerType = SmallMap<SharedType, SharedFunction>;
-
 	struct ListFunctions {
 		FunctionPerType m_create_empty;
 		FunctionPerType m_append;

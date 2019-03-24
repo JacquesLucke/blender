@@ -155,6 +155,24 @@ namespace FN {
 			m_initialized[index] = true;
 		}
 
+		inline void move_in__dynamic(uint index, void *src)
+		{
+			BLI_assert(index < m_meta->element_amount());
+			BLI_assert(src != nullptr);
+
+			void *dst = this->element_ptr(index);
+			auto *type_info = m_meta->type_infos()[index];
+
+			if (m_initialized[index]) {
+				type_info->copy_to_initialized(src, dst);
+			}
+			else {
+				type_info->copy_to_uninitialized(src, dst);
+			}
+
+			m_initialized[index] = true;
+		}
+
 		template<typename T>
 		inline void set(uint index, const T &value)
 		{
@@ -186,6 +204,19 @@ namespace FN {
 			m_initialized[index] = false;
 
 			return tmp;
+		}
+
+		inline void relocate_out__dynamic(uint index, void *dst) const
+		{
+			BLI_assert(index < m_meta->element_amount());
+			BLI_assert(m_initialized[index]);
+			BLI_assert(dst != nullptr);
+
+			void *src = this->element_ptr(index);
+			auto *type_info = m_meta->type_infos()[index];
+			type_info->copy_to_uninitialized(src, dst);
+			type_info->destruct_type(src);
+			m_initialized[index] = false;
 		}
 
 		template<typename T>

@@ -6,3 +6,4 @@
 #include "functions/vectors.hpp"
 #include "functions/lists.hpp"
 #include "functions/simple_conversions.hpp"
+#include "functions/switch.hpp"
