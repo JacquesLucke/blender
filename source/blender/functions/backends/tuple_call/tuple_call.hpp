@@ -49,6 +49,7 @@ namespace FN {
 		void start_next_entry()
 		{
 			m_entry_count++;
+			m_requested_inputs.clear();
 		}
 
 		void request_input(uint index)
@@ -59,6 +60,11 @@ namespace FN {
 		void done()
 		{
 			m_is_done = true;
+		}
+
+		const SmallVector<uint> &requested_inputs() const
+		{
+			return m_requested_inputs;
 		}
 
 		bool is_first_entry() const

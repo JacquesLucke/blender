@@ -236,6 +236,12 @@ namespace FN {
 			return this->element_ref<T>(index);
 		}
 
+		inline bool is_initialized(uint index) const
+		{
+			BLI_assert(index < m_meta->element_amount());
+			return m_initialized[index];
+		}
+
 		static inline void copy_element(
 			const Tuple &from, uint from_index,
 			Tuple &to, uint to_index)
@@ -254,6 +260,28 @@ namespace FN {
 				type_info->copy_to_uninitialized(src, dst);
 				to.m_initialized[to_index] = true;
 			}
+		}
+
+		static inline void relocate_element(
+			Tuple &from, uint from_index,
+			Tuple &to, uint to_index)
+		{
+			BLI_assert(from.m_initialized[from_index]);
+			BLI_assert(from.m_meta->types()[from_index] == to.m_meta->types()[to_index]);
+
+			void *src = from.element_ptr(from_index);
+			void *dst = to.element_ptr(to_index);
+			CPPTypeInfo *type_info = from.m_meta->type_infos()[from_index];
+
+			if (to.m_initialized[to_index]) {
+				type_info->relocate_to_initialized(src, dst);
+			}
+			else {
+				type_info->relocate_to_uninitialized(src, dst);
+				to.m_initialized[to_index] = true;
+			}
+
+			from.m_initialized[from_index] = false;
 		}
 
 		inline void init_default(uint index) const

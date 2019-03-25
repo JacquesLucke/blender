@@ -400,12 +400,167 @@ namespace FN {
 		}
 	};
 
+	class LazyExecFGraph : public TupleCallBody {
+	private:
+		FunctionGraph m_fgraph;
+
+	public:
+		LazyExecFGraph(FunctionGraph &fgraph)
+			: m_fgraph(fgraph)
+		{
+			auto *context = new llvm::LLVMContext();
+
+			for (Node *node : fgraph.graph()->all_nodes()) {
+				if (node->function()->has_body<TupleCallBody>()) {
+					continue;
+				}
+				if (node->function()->has_body<LazyInTupleCallBody>()) {
+					continue;
+				}
+				if (node->function()->has_body<LLVMBuildIRBody>()) {
+					derive_TupleCallBody_from_LLVMBuildIRBody(node->function(), *context);
+				}
+			}
+		}
+
+		void call(Tuple &fn_in, Tuple &fn_out) const override
+		{
+			SocketSet required_sockets = m_fgraph.find_required_sockets();
+			for (Socket socket : m_fgraph.inputs()) {
+				required_sockets.add(socket);
+			}
+
+			SmallVector<SharedType> temp_storage_types;
+			SmallMap<Socket, uint> socket_indices;
+
+			uint index = 0;
+			for (Socket socket : required_sockets) {
+				temp_storage_types.append(socket.type());
+				socket_indices.add(socket, index);
+				index++;
+			}
+
+			auto temp_meta = SharedTupleMeta::New(temp_storage_types);
+			Tuple temp_storage(temp_meta);
+
+			for (uint i = 0; i < m_fgraph.inputs().size(); i++) {
+				Socket socket = m_fgraph.inputs()[i];
+				Tuple::relocate_element(
+					fn_in, i,
+					temp_storage, socket_indices.lookup(socket));
+			}
+
+			for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
+				Socket socket = m_fgraph.outputs()[i];
+				this->compute_socket(socket, temp_storage, socket_indices);
+			}
+
+			for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
+				Socket socket = m_fgraph.outputs()[i];
+				Tuple::relocate_element(
+					temp_storage, socket_indices.lookup(socket),
+					fn_out, i);
+			}
+		}
+
+		void compute_socket(
+			Socket socket,
+			Tuple &temp_storage,
+			const SmallMap<Socket, uint> &socket_indices) const
+		{
+			uint socket_index = socket_indices.lookup(socket);
+			if (temp_storage.is_initialized(socket_index)) {
+				/* do nothing */
+			}
+			else if (socket.is_input()) {
+				Socket origin_socket = socket.origin();
+				this->compute_socket(origin_socket, temp_storage, socket_indices);
+				Tuple::copy_element(
+					temp_storage, socket_indices.lookup(origin_socket),
+					temp_storage, socket_indices.lookup(socket));
+			}
+			else if (socket.is_output()) {
+				Node *node = socket.node();
+				SharedFunction &fn = node->function();
+
+				if (fn->has_body<LazyInTupleCallBody>()) {
+					auto *body = node->function()->body<LazyInTupleCallBody>();
+
+					FN_TUPLE_STACK_ALLOC(fn_in, body->meta_in());
+					FN_TUPLE_STACK_ALLOC(fn_out, body->meta_out());
+
+					for (uint input_index : body->always_required()) {
+						Socket input_socket = node->input(input_index);
+						this->compute_socket(
+							input_socket, temp_storage, socket_indices);
+						Tuple::copy_element(
+							temp_storage, socket_indices.lookup(input_socket),
+							fn_in, input_index);
+					}
+
+					void *user_data = alloca(body->user_data_size());
+					LazyState lazy_state(user_data);
+
+					while (!lazy_state.is_done()) {
+						lazy_state.start_next_entry();
+						body->call(fn_in, fn_out, lazy_state);
+						for (uint input_index : lazy_state.requested_inputs()) {
+							Socket input_socket = node->input(input_index);
+							this->compute_socket(
+								input_socket, temp_storage, socket_indices);
+							Tuple::copy_element(
+								temp_storage, socket_indices.lookup(input_socket),
+								fn_in, input_index);
+						}
+					}
+					BLI_assert(fn_out.all_initialized());
+
+					for (uint output_index = 0; output_index < node->output_amount(); output_index++) {
+						Socket output_socket = node->output(output_index);
+						Tuple::relocate_element(
+							fn_out, output_index,
+							temp_storage, socket_indices.lookup(output_socket));
+					}
+				}
+				else if (fn->has_body<TupleCallBody>()) {
+					auto *body = node->function()->body<TupleCallBody>();
+
+					FN_TUPLE_STACK_ALLOC(fn_in, body->meta_in());
+					FN_TUPLE_STACK_ALLOC(fn_out, body->meta_out());
+
+					for (uint input_index = 0; input_index < node->input_amount(); input_index++) {
+						Socket input_socket = node->input(input_index);
+						this->compute_socket(
+							input_socket, temp_storage, socket_indices);
+						Tuple::copy_element(
+							temp_storage, socket_indices.lookup(input_socket),
+							fn_in, input_index);
+					}
+
+					body->call(fn_in, fn_out);
+					BLI_assert(fn_out.all_initialized());
+
+					for (uint output_index = 0; output_index < node->output_amount(); output_index++) {
+						Socket output_socket = node->output(output_index);
+						Tuple::relocate_element(
+							fn_out, output_index,
+							temp_storage, socket_indices.lookup(output_socket));
+					}
+				}
+				else {
+					BLI_assert(false);
+				}
+			}
+		}
+	};
+
 	void fgraph_add_TupleCallBody(
 		SharedFunction &fn,
 		FunctionGraph &fgraph)
 	{
 		// fn->add_body(new ExecuteGraph(fgraph));
-		fn->add_body(new InterpretFGraph(fgraph));
+		// fn->add_body(new InterpretFGraph(fgraph));
+		fn->add_body(new LazyExecFGraph(fgraph));
 	}
 
 } /* namespace FN */

@@ -85,6 +85,12 @@ namespace BLI {
 			this->grow(size);
 		}
 
+		void clear()
+		{
+			this->destruct_elements_but_keep_memory();
+			this->m_size = 0;
+		}
+
 		void append(const T &value)
 		{
 			this->ensure_space_for_one();
