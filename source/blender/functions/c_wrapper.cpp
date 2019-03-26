@@ -149,7 +149,8 @@ void FN_tuple_call_invoke(FnTupleCallBody body, FnTuple fn_in, FnTuple fn_out)
 
 	BLI_assert(fn_in_.all_initialized());
 	ExecutionStack stack;
-	stack.push(body_->owner()->name().c_str());
+	TextStackFrame function_frame(body_->owner()->name().c_str());
+	stack.push(&function_frame);
 	ExecutionContext ctx(stack);
 	body_->call(fn_in_, fn_out_, ctx);
 	BLI_assert(fn_out_.all_initialized());

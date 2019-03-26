@@ -401,8 +401,12 @@ namespace FN {
 					this->compute_socket(fn_in, tmp_in, i, node->input(i), ctx);
 				}
 
-				ctx.stack().push(fn->name().c_str());
+				SourceInfoStackFrame node_frame(node->source());
+				TextStackFrame function_frame(fn->name().c_str());
+				ctx.stack().push(&node_frame);
+				ctx.stack().push(&function_frame);
 				body->call(tmp_in, tmp_out, ctx);
+				ctx.stack().pop();
 				ctx.stack().pop();
 
 				Tuple::copy_element(tmp_out, socket.index(), out, out_index);

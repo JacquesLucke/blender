@@ -33,11 +33,11 @@ namespace FN { namespace DataFlowNodes {
 	{
 		auto inserter = [getter](
 				Builder &builder,
-				const BuilderContext &UNUSED(ctx),
+				const BuilderContext &ctx,
 				bNode *bnode)
 			{
 				SharedFunction fn = getter();
-				Node *node = builder.insert_function(fn);
+				Node *node = builder.insert_function(fn, ctx.btree(), bnode);
 				builder.map_sockets(node, bnode);
 			};
 		this->reg_node_inserter(idname, inserter);

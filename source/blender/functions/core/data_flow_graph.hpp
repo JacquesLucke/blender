@@ -112,6 +112,11 @@ namespace FN {
 			return this->signature().outputs().size();
 		}
 
+		SourceInfo *source() const
+		{
+			return m_source;
+		}
+
 		class SocketIterator {
 		private:
 			Node *m_node;

@@ -8,9 +8,32 @@
 
 namespace FN { namespace DataFlowNodes {
 
+	class NodeSource : public SourceInfo {
+	private:
+		bNodeTree *m_btree;
+		bNode *m_bnode;
+
+	public:
+		NodeSource(bNodeTree *btree, bNode *bnode)
+			: m_btree(btree), m_bnode(bnode) {}
+
+		std::string to_string() const override
+		{
+			return m_btree->id.name + std::string(" : ") + m_bnode->name;
+		}
+	};
+
 	Node *Builder::insert_function(SharedFunction &function)
 	{
 		return m_graph->insert(function);
+	}
+
+	Node *Builder::insert_function(SharedFunction &function, bNodeTree *btree, bNode *bnode)
+	{
+		BLI_assert(btree != nullptr);
+		BLI_assert(bnode != nullptr);
+		NodeSource *source = new NodeSource(btree, bnode);
+		return m_graph->insert(function, source);
 	}
 
 	void Builder::insert_link(Socket a, Socket b)

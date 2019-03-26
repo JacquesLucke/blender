@@ -4,16 +4,64 @@
 
 namespace FN {
 
+	class StackFrame {
+	public:
+		virtual std::string to_string() const = 0;
+	};
+
+	class SourceInfoStackFrame : public StackFrame {
+	private:
+		SourceInfo *m_source;
+
+	public:
+		SourceInfoStackFrame(SourceInfo *source)
+			: m_source(source) {}
+
+		SourceInfo *source() const
+		{
+			return m_source;
+		}
+
+		std::string to_string() const override
+		{
+			if (m_source == nullptr) {
+				return "<unknown source>";
+			} else {
+				return m_source->to_string();
+			}
+		}
+	};
+
+	class TextStackFrame : public StackFrame {
+	private:
+		const char *m_text;
+
+	public:
+		TextStackFrame(const char *text)
+			: m_text(text) {}
+
+		const char *text() const
+		{
+			return m_text;
+		}
+
+		std::string to_string() const override
+		{
+			return std::string(m_text);
+		}
+	};
+
+
 	class ExecutionStack {
 	private:
-		SmallStack<const char *> m_stack;
+		SmallStack<StackFrame *> m_stack;
 
 	public:
 		ExecutionStack() = default;
 
-		void push(const char *info)
+		void push(StackFrame *frame)
 		{
-			m_stack.push(info);
+			m_stack.push(frame);
 		}
 
 		void pop()

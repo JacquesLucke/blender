@@ -22,7 +22,7 @@ namespace FN { namespace DataFlowNodes {
 		Object *object = (Object *)RNA_pointer_get(&ptr, "object").id.data;
 
 		auto fn = Functions::object_location(object);
-		Node *node = builder.insert_function(fn);
+		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
 		builder.map_sockets(node, bnode);
 	}
 
@@ -50,20 +50,20 @@ namespace FN { namespace DataFlowNodes {
 		int operation = RNA_enum_get(&ptr, "operation");
 
 		SharedFunction &fn = get_float_math_function(operation);
-		Node *node = builder.insert_function(fn);
+		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
 		builder.map_sockets(node, bnode);
 	}
 
 	static void insert_clamp_node(
 		Builder &builder,
-		const BuilderContext &UNUSED(ctx),
+		const BuilderContext &ctx,
 		bNode *bnode)
 	{
 		SharedFunction &max_fn = Functions::max_floats();
 		SharedFunction &min_fn = Functions::min_floats();
 
-		Node *max_node = builder.insert_function(max_fn);
-		Node *min_node = builder.insert_function(min_fn);
+		Node *max_node = builder.insert_function(max_fn, ctx.btree(), bnode);
+		Node *min_node = builder.insert_function(min_fn, ctx.btree(), bnode);
 
 		builder.insert_link(max_node->output(0), min_node->input(0));
 		builder.map_input(max_node->input(0), bnode, 0);
@@ -79,7 +79,7 @@ namespace FN { namespace DataFlowNodes {
 	{
 		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
 		SharedFunction &fn = Functions::get_list_element(base_type);
-		Node *node = builder.insert_function(fn);
+		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
 		builder.map_sockets(node, bnode);
 	}
 
@@ -91,7 +91,7 @@ namespace FN { namespace DataFlowNodes {
 		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
 
 		auto &empty_fn = Functions::empty_list(base_type);
-		Node *node = builder.insert_function(empty_fn);
+		Node *node = builder.insert_function(empty_fn, ctx.btree(), bnode);
 
 		PointerRNA ptr;
 		ctx.get_rna(bnode, &ptr);
@@ -104,14 +104,14 @@ namespace FN { namespace DataFlowNodes {
 			if (state == 0) {
 				/* single value case */
 				auto &append_fn = Functions::append_to_list(base_type);
-				new_node = builder.insert_function(append_fn);
+				new_node = builder.insert_function(append_fn, ctx.btree(), bnode);
 				builder.insert_link(node->output(0), new_node->input(0));
 				builder.map_input(new_node->input(1), bnode, index);
 			}
 			else if (state == 1) {
 				/* list case */
 				auto &combine_fn = Functions::combine_lists(base_type);
-				new_node = builder.insert_function(combine_fn);
+				new_node = builder.insert_function(combine_fn, ctx.btree(), bnode);
 				builder.insert_link(node->output(0), new_node->input(0));
 				builder.map_input(new_node->input(1), bnode, index);
 			}
@@ -147,7 +147,7 @@ namespace FN { namespace DataFlowNodes {
 		Optional<SharedFunction> fn = generate_function(btree);
 		BLI_assert(fn.has_value());
 
-		Node *node = builder.insert_function(fn.value());
+		Node *node = builder.insert_function(fn.value(), ctx.btree(), bnode);
 		builder.map_sockets(node, bnode);
 	}
 
