@@ -10,4 +10,18 @@ namespace FN {
 		}
 	}
 
+	std::string SourceInfoStackFrame::to_string() const
+	{
+		if (m_source == nullptr) {
+			return "<unknown source>";
+		} else {
+			return m_source->to_string();
+		}
+	}
+
+	std::string TextStackFrame::to_string() const
+	{
+		return std::string(m_text);
+	}
+
 } /* namespace FN */

@@ -22,14 +22,7 @@ namespace FN {
 			return m_source;
 		}
 
-		std::string to_string() const override
-		{
-			if (m_source == nullptr) {
-				return "<unknown source>";
-			} else {
-				return m_source->to_string();
-			}
-		}
+		std::string to_string() const override;
 	};
 
 	class TextStackFrame : public StackFrame {
@@ -45,10 +38,7 @@ namespace FN {
 			return m_text;
 		}
 
-		std::string to_string() const override
-		{
-			return std::string(m_text);
-		}
+		std::string to_string() const override;
 	};
 
 
