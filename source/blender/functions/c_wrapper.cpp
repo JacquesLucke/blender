@@ -147,7 +147,8 @@ void FN_tuple_call_invoke(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out
 	Tuple &fn_out_ = *unwrap(fn_out);
 
 	BLI_assert(fn_in_.all_initialized());
-	unwrap(fn_call)->call(fn_in_, fn_out_);
+	ExecutionContext ctx;
+	unwrap(fn_call)->call(fn_in_, fn_out_, ctx);
 	BLI_assert(fn_out_.all_initialized());
 }
 

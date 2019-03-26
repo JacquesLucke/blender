@@ -22,7 +22,7 @@ namespace FN { namespace Functions {
 
 
 	class RandomNumber : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			uint32_t seed = fn_in.get<int32_t>(0);
 			float min = fn_in.get<float>(1);

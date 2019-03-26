@@ -269,7 +269,7 @@ namespace FN {
 			computed_nodes.add(node);
 		}
 
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
 		{
 			void *buffer = alloca(m_combined_tuples_size);
 			for (Task &task : m_tasks) {
@@ -301,7 +301,7 @@ namespace FN {
 					{
 						Tuple &fn_in = this->get_tuple(buffer, task.data.call.index_in);
 						Tuple &fn_out = this->get_tuple(buffer, task.data.call.index_out);
-						task.data.call.body->call(fn_in, fn_out);
+						task.data.call.body->call(fn_in, fn_out, ctx);
 						break;
 					}
 					case OpCode::GetInput:
@@ -366,21 +366,23 @@ namespace FN {
 			}
 		}
 
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
 		{
 			for (uint i = 0; i < m_outputs.size(); i++) {
-				this->compute_socket(fn_in, fn_out, i, m_outputs[i]);
+				this->compute_socket(fn_in, fn_out, i, m_outputs[i], ctx);
 			}
 		}
 
-		void compute_socket(Tuple &fn_in, Tuple &out, uint out_index, Socket socket) const
+		void compute_socket(
+			Tuple &fn_in, Tuple &out, uint out_index,
+			Socket socket, ExecutionContext &ctx) const
 		{
 			if (m_inputs.contains(socket)) {
 				uint index = m_inputs.index(socket);
 				Tuple::copy_element(fn_in, index, out, out_index);
 			}
 			else if (socket.is_input()) {
-				this->compute_socket(fn_in, out, out_index, socket.origin());
+				this->compute_socket(fn_in, out, out_index, socket.origin(), ctx);
 			}
 			else {
 				Node *node = socket.node();
@@ -390,10 +392,10 @@ namespace FN {
 				FN_TUPLE_STACK_ALLOC(tmp_out, body->meta_out());
 
 				for (uint i = 0; i < node->input_amount(); i++) {
-					this->compute_socket(fn_in, tmp_in, i, node->input(i));
+					this->compute_socket(fn_in, tmp_in, i, node->input(i), ctx);
 				}
 
-				body->call(tmp_in, tmp_out);
+				body->call(tmp_in, tmp_out, ctx);
 
 				Tuple::copy_element(tmp_out, socket.index(), out, out_index);
 			}
@@ -423,7 +425,7 @@ namespace FN {
 			}
 		}
 
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
 		{
 			SocketSet required_sockets = m_fgraph.find_required_sockets();
 			for (Socket socket : m_fgraph.inputs()) {
@@ -452,7 +454,7 @@ namespace FN {
 
 			for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
 				Socket socket = m_fgraph.outputs()[i];
-				this->compute_socket(socket, temp_storage, socket_indices);
+				this->compute_socket(socket, temp_storage, socket_indices, ctx);
 			}
 
 			for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
@@ -466,7 +468,8 @@ namespace FN {
 		void compute_socket(
 			Socket socket,
 			Tuple &temp_storage,
-			const SmallMap<Socket, uint> &socket_indices) const
+			const SmallMap<Socket, uint> &socket_indices,
+			ExecutionContext &ctx) const
 		{
 			uint socket_index = socket_indices.lookup(socket);
 			if (temp_storage.is_initialized(socket_index)) {
@@ -474,7 +477,7 @@ namespace FN {
 			}
 			else if (socket.is_input()) {
 				Socket origin_socket = socket.origin();
-				this->compute_socket(origin_socket, temp_storage, socket_indices);
+				this->compute_socket(origin_socket, temp_storage, socket_indices, ctx);
 				Tuple::copy_element(
 					temp_storage, socket_indices.lookup(origin_socket),
 					temp_storage, socket_indices.lookup(socket));
@@ -492,7 +495,7 @@ namespace FN {
 					for (uint input_index : body->always_required()) {
 						Socket input_socket = node->input(input_index);
 						this->compute_socket(
-							input_socket, temp_storage, socket_indices);
+							input_socket, temp_storage, socket_indices, ctx);
 						Tuple::copy_element(
 							temp_storage, socket_indices.lookup(input_socket),
 							fn_in, input_index);
@@ -503,11 +506,11 @@ namespace FN {
 
 					while (!lazy_state.is_done()) {
 						lazy_state.start_next_entry();
-						body->call(fn_in, fn_out, lazy_state);
+						body->call(fn_in, fn_out, ctx, lazy_state);
 						for (uint input_index : lazy_state.requested_inputs()) {
 							Socket input_socket = node->input(input_index);
 							this->compute_socket(
-								input_socket, temp_storage, socket_indices);
+								input_socket, temp_storage, socket_indices, ctx);
 							Tuple::copy_element(
 								temp_storage, socket_indices.lookup(input_socket),
 								fn_in, input_index);
@@ -531,13 +534,13 @@ namespace FN {
 					for (uint input_index = 0; input_index < node->input_amount(); input_index++) {
 						Socket input_socket = node->input(input_index);
 						this->compute_socket(
-							input_socket, temp_storage, socket_indices);
+							input_socket, temp_storage, socket_indices, ctx);
 						Tuple::copy_element(
 							temp_storage, socket_indices.lookup(input_socket),
 							fn_in, input_index);
 					}
 
-					body->call(fn_in, fn_out);
+					body->call(fn_in, fn_out, ctx);
 					BLI_assert(fn_out.all_initialized());
 
 					for (uint output_index = 0; output_index < node->output_amount(); output_index++) {

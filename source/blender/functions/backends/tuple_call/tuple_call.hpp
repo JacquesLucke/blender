@@ -1,6 +1,7 @@
 #pragma once
 
 #include "tuple.hpp"
+#include "execution_context.hpp"
 
 namespace FN {
 
@@ -32,7 +33,7 @@ namespace FN {
 	public:
 		BLI_COMPOSITION_DECLARATION(TupleCallBody);
 
-		virtual void call(Tuple &fn_in, Tuple &fn_out) const = 0;
+		virtual void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const = 0;
 	};
 
 	class LazyState {
@@ -89,7 +90,7 @@ namespace FN {
 
 		virtual uint user_data_size() const;
 		virtual const SmallVector<uint> &always_required() const;
-		virtual void call(Tuple &fn_in, Tuple &fn_out, LazyState &state) const = 0;
+		virtual void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx, LazyState &state) const = 0;
 	};
 
 } /* namespace FN */

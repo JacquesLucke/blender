@@ -67,7 +67,7 @@ namespace FN { namespace Functions {
 
 
 	class VectorDistance : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			Vector a = fn_in.get<Vector>(0);
 			Vector b = fn_in.get<Vector>(1);

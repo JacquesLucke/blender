@@ -13,13 +13,13 @@ namespace FN {
 			: m_lazy_body(body),
 			  m_user_data_size(body->user_data_size()) {}
 
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
 		{
 			void *user_data = alloca(m_user_data_size);
 			LazyState state(user_data);
 			while (!state.is_done()) {
 				state.start_next_entry();
-				m_lazy_body->call(fn_in, fn_out, state);
+				m_lazy_body->call(fn_in, fn_out, ctx, state);
 			}
 		}
 	};

@@ -22,7 +22,9 @@ namespace FN {
 		Tuple fn_out(meta_out, data_out, initialized_out, false);
 
 		fn_in.set_all_initialized();
-		body->call(fn_in, fn_out);
+
+		ExecutionContext ctx;
+		body->call(fn_in, fn_out, ctx);
 
 		/* This way the data is not freed with the tuples. */
 		fn_out.set_all_uninitialized();

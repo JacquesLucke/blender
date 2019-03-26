@@ -99,7 +99,7 @@ namespace FN {
 			m_call = (LLVMCallFN)m_compiled->function_ptr();
 		}
 
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			fn_out.destruct_all();
 			BLI_assert(fn_in.all_initialized());

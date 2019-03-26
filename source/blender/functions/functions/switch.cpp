@@ -25,7 +25,7 @@ namespace FN { namespace Functions {
 			return m_always_required;
 		}
 
-		void call(Tuple &fn_in, Tuple &fn_out, LazyState &state) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx), LazyState &state) const override
 		{
 			bool condition = fn_in.get<bool>(0);
 

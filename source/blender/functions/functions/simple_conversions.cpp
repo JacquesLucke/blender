@@ -23,7 +23,7 @@ namespace FN { namespace Functions {
 
 
 	class Int32ToFloat : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			int32_t value = fn_in.get<int32_t>(0);
 			fn_out.set<float>(0, (float)value);
@@ -39,7 +39,7 @@ namespace FN { namespace Functions {
 
 
 	class FloatToInt32 : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			float value = fn_in.get<float>(0);
 			fn_out.set<int32_t>(0, (int32_t)value);

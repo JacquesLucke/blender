@@ -10,7 +10,7 @@ namespace FN { namespace Functions {
 
 	template<typename T>
 	class CreateEmptyList : public TupleCallBody {
-		void call(Tuple &UNUSED(fn_in), Tuple &fn_out) const override
+		void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			auto list = SharedList<T>::New();
 			fn_out.move_in(0, list);
@@ -33,7 +33,7 @@ namespace FN { namespace Functions {
 
 	template<typename T>
 	class AppendToList : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			auto list = fn_in.relocate_out<SharedList<T>>(0);
 			T value = fn_in.relocate_out<T>(1);
@@ -64,7 +64,7 @@ namespace FN { namespace Functions {
 
 	template<typename T>
 	class GetListElement : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			auto list = fn_in.get_ref<SharedList<T>>(0);
 			int32_t index = fn_in.get<int32_t>(1);
@@ -101,7 +101,7 @@ namespace FN { namespace Functions {
 
 	template<typename T>
 	class CombineLists : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			auto list1 = fn_in.relocate_out<SharedList<T>>(0);
 			auto list2 = fn_in.relocate_out<SharedList<T>>(1);

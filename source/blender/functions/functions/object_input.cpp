@@ -18,7 +18,7 @@ namespace FN { namespace Functions {
 		ObjectTransforms(Object *object)
 			: m_object(object) {}
 
-		void call(Tuple &UNUSED(fn_in), Tuple &fn_out) const override
+		void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			if (m_object) {
 				Vector position = *(Vector *)m_object->loc;

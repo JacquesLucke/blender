@@ -22,7 +22,7 @@ namespace FN { namespace Functions {
 
 
 	class AddFloats : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			float a = fn_in.get<float>(0);
 			float b = fn_in.get<float>(1);
@@ -51,7 +51,7 @@ namespace FN { namespace Functions {
 
 
 	class MultiplyFloats : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			float a = fn_in.get<float>(0);
 			float b = fn_in.get<float>(1);
@@ -68,7 +68,7 @@ namespace FN { namespace Functions {
 
 
 	class MinFloats : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			float a = fn_in.get<float>(0);
 			float b = fn_in.get<float>(1);
@@ -85,7 +85,7 @@ namespace FN { namespace Functions {
 
 
 	class MaxFloats : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			float a = fn_in.get<float>(0);
 			float b = fn_in.get<float>(1);
@@ -102,7 +102,7 @@ namespace FN { namespace Functions {
 
 
 	class MapRange : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			float value = fn_in.get<float>(0);
 			float from_min = fn_in.get<float>(1);
