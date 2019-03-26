@@ -1,3 +1,5 @@
+#pragma once
+
 #include "BLI_small_vector.hpp"
 
 namespace BLI {
