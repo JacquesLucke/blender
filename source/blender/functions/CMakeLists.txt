@@ -44,6 +44,7 @@ set(SRC
 	backends/tuple_call/lazy_to_normal.hpp
 	backends/tuple_call/lazy_to_normal.cpp
 	backends/tuple_call/execution_context.hpp
+	backends/tuple_call/execution_context.cpp
 
 	backends/dependencies/dependencies.hpp
 	backends/dependencies/dependencies.cpp

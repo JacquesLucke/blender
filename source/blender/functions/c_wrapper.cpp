@@ -141,14 +141,17 @@ void FN_list_free_float(FnFloatList list)
 WRAPPERS(Tuple *, FnTuple);
 WRAPPERS(TupleCallBody *, FnTupleCallBody);
 
-void FN_tuple_call_invoke(FnTupleCallBody fn_call, FnTuple fn_in, FnTuple fn_out)
+void FN_tuple_call_invoke(FnTupleCallBody body, FnTuple fn_in, FnTuple fn_out)
 {
 	Tuple &fn_in_ = *unwrap(fn_in);
 	Tuple &fn_out_ = *unwrap(fn_out);
+	TupleCallBody *body_ = unwrap(body);
 
 	BLI_assert(fn_in_.all_initialized());
-	ExecutionContext ctx;
-	unwrap(fn_call)->call(fn_in_, fn_out_, ctx);
+	ExecutionStack stack;
+	stack.push(body_->owner()->name().c_str());
+	ExecutionContext ctx(stack);
+	body_->call(fn_in_, fn_out_, ctx);
 	BLI_assert(fn_out_.all_initialized());
 }
 

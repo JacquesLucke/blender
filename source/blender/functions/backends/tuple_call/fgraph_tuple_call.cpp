@@ -356,12 +356,17 @@ namespace FN {
 			auto *context = new llvm::LLVMContext();
 
 			for (Node *node : m_graph->all_nodes()) {
-				if (node->function()->has_body<TupleCallBody>()) {
+				SharedFunction &fn = node->function();
+				if (fn->has_body<TupleCallBody>()) {
 					continue;
 				}
 
-				if (node->function()->has_body<LLVMBuildIRBody>()) {
-					derive_TupleCallBody_from_LLVMBuildIRBody(node->function(), *context);
+				if (fn->has_body<LazyInTupleCallBody>()) {
+					derive_TupleCallBody_from_LazyInTupleCallBody(fn);
+				}
+
+				if (fn->has_body<LLVMBuildIRBody>()) {
+					derive_TupleCallBody_from_LLVMBuildIRBody(fn, *context);
 				}
 			}
 		}
@@ -386,7 +391,8 @@ namespace FN {
 			}
 			else {
 				Node *node = socket.node();
-				TupleCallBody *body = node->function()->body<TupleCallBody>();
+				SharedFunction &fn = node->function();
+				TupleCallBody *body = fn->body<TupleCallBody>();
 
 				FN_TUPLE_STACK_ALLOC(tmp_in, body->meta_in());
 				FN_TUPLE_STACK_ALLOC(tmp_out, body->meta_out());
@@ -395,7 +401,9 @@ namespace FN {
 					this->compute_socket(fn_in, tmp_in, i, node->input(i), ctx);
 				}
 
+				ctx.stack().push(fn->name().c_str());
 				body->call(tmp_in, tmp_out, ctx);
+				ctx.stack().pop();
 
 				Tuple::copy_element(tmp_out, socket.index(), out, out_index);
 			}
@@ -561,9 +569,9 @@ namespace FN {
 		SharedFunction &fn,
 		FunctionGraph &fgraph)
 	{
-		// fn->add_body(new ExecuteGraph(fgraph));
+		fn->add_body(new ExecuteGraph(fgraph));
 		// fn->add_body(new InterpretFGraph(fgraph));
-		fn->add_body(new LazyExecFGraph(fgraph));
+		// fn->add_body(new LazyExecFGraph(fgraph));
 	}
 
 } /* namespace FN */

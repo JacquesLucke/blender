@@ -23,7 +23,8 @@ namespace FN {
 
 		fn_in.set_all_initialized();
 
-		ExecutionContext ctx;
+		ExecutionStack stack;
+		ExecutionContext ctx(stack);
 		body->call(fn_in, fn_out, ctx);
 
 		/* This way the data is not freed with the tuples. */

@@ -38,6 +38,16 @@ namespace BLI {
 			BLI_assert(!this->empty());
 			return m_elements[this->size() - 1];
 		}
+
+		T *begin() const
+		{
+			return m_elements.begin();
+		}
+
+		T *end() const
+		{
+			return m_elements.end();
+		}
 	};
 
 } /* namespace BLI */
