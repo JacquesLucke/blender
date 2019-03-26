@@ -236,6 +236,7 @@ set(SRC
 	BLI_lazy_init.hpp
 	BLI_listbase_wrapper.hpp
 	BLI_mempool.hpp
+	BLI_multipool.hpp
 	BLI_optional.hpp
 	BLI_shared.hpp
 	BLI_small_vector.hpp
