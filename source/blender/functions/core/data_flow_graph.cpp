@@ -23,23 +23,20 @@ namespace FN {
 
 
 	DataFlowGraph::DataFlowGraph()
-	{
-		m_node_pool = new MemPool(sizeof(Node));
-	}
+		: m_node_pool(sizeof(Node)) { }
 
 	DataFlowGraph::~DataFlowGraph()
 	{
 		for (Node *node : m_nodes) {
 			node->~Node();
 		}
-		delete m_node_pool;
 	}
 
 	Node *DataFlowGraph::insert(SharedFunction &function, SourceInfo *source)
 	{
 		BLI_assert(this->can_modify());
 
-		void *ptr = m_node_pool->allocate();
+		void *ptr = m_node_pool.allocate();
 		Node *node = new(ptr) Node(this, function, source);
 		m_nodes.add(node);
 		return node;

@@ -6,6 +6,7 @@
 #include "BLI_small_set.hpp"
 #include "BLI_small_set_vector.hpp"
 #include "BLI_mempool.hpp"
+#include "BLI_multipool.hpp"
 
 namespace FN {
 
@@ -63,7 +64,8 @@ namespace FN {
 		~Node()
 		{
 			if (m_source != nullptr) {
-				delete m_source;
+				/* is allocated in mempool */
+				m_source->~SourceInfo();
 			}
 		}
 
@@ -260,6 +262,7 @@ namespace FN {
 	class DataFlowGraph : public RefCountedBase {
 	public:
 		DataFlowGraph();
+		DataFlowGraph(DataFlowGraph &other) = delete;
 
 		~DataFlowGraph();
 
@@ -295,7 +298,8 @@ namespace FN {
 		T *new_source_info(Args&&... args)
 		{
 			static_assert(std::is_base_of<SourceInfo, T>::value, "");
-			T *source = new T(std::forward<Args>(args)...);
+			void *ptr = m_source_info_pool.allocate(sizeof(T));
+			T *source = new(ptr) T(std::forward<Args>(args)...);
 			return source;
 		}
 
@@ -306,7 +310,8 @@ namespace FN {
 		bool m_frozen = false;
 		SmallSet<Node *> m_nodes;
 		GraphLinks m_links;
-		MemPool *m_node_pool;
+		MemPool m_node_pool;
+		MemMultiPool m_source_info_pool;
 
 		friend Node;
 		friend Socket;
