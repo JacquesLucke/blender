@@ -24,4 +24,10 @@ namespace FN {
 		return std::string(m_text);
 	}
 
+	void ExecutionContext::print_with_traceback(std::string msg)
+	{
+		m_stack.print_traceback();
+		std::cout << "-> " << msg << std::endl;
+	}
+
 } /* namespace FN */

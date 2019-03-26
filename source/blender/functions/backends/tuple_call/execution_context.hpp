@@ -74,6 +74,8 @@ namespace FN {
 		{
 			return m_stack;
 		}
+
+		void print_with_traceback(std::string msg);
 	};
 
 } /* namespace FN */
