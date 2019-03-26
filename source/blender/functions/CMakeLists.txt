@@ -31,6 +31,7 @@ set(SRC
 	core/function.cpp
 	core/data_flow_graph.hpp
 	core/data_flow_graph.cpp
+	core/source_info.hpp
 	core/dot_export.cpp
 
 	backends/tuple_call/cpp_types.hpp

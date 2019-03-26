@@ -5,3 +5,4 @@
 #include "core/signature.hpp"
 #include "core/function.hpp"
 #include "core/data_flow_graph.hpp"
+#include "core/source_info.hpp"

@@ -35,12 +35,12 @@ namespace FN {
 		delete m_node_pool;
 	}
 
-	Node *DataFlowGraph::insert(SharedFunction &function)
+	Node *DataFlowGraph::insert(SharedFunction &function, SourceInfo *source)
 	{
 		BLI_assert(this->can_modify());
 
 		void *ptr = m_node_pool->allocate();
-		Node *node = new(ptr) Node(this, function);
+		Node *node = new(ptr) Node(this, function, source);
 		m_nodes.add(node);
 		return node;
 	}

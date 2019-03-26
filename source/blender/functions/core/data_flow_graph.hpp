@@ -1,6 +1,7 @@
 #pragma once
 
 #include "function.hpp"
+#include "source_info.hpp"
 
 #include "BLI_small_set.hpp"
 #include "BLI_small_set_vector.hpp"
@@ -51,8 +52,20 @@ namespace FN {
 
 	class Node {
 	public:
-		Node(DataFlowGraph *graph, SharedFunction &function)
-			: m_graph(graph), m_function(function) {}
+		Node(
+			DataFlowGraph *graph,
+			SharedFunction &function,
+			SourceInfo *source)
+			: m_graph(graph),
+			  m_function(function),
+			  m_source(source) {}
+
+		~Node()
+		{
+			if (m_source != nullptr) {
+				delete m_source;
+			}
+		}
 
 		Socket input(uint index)
 		{
@@ -156,6 +169,7 @@ namespace FN {
 	private:
 		DataFlowGraph *m_graph;
 		SharedFunction m_function;
+		SourceInfo *m_source;
 	};
 
 	class Link {
@@ -244,7 +258,7 @@ namespace FN {
 
 		~DataFlowGraph();
 
-		Node *insert(SharedFunction &function);
+		Node *insert(SharedFunction &function, SourceInfo *source = nullptr);
 		void link(Socket a, Socket b);
 
 		inline bool can_modify() const
