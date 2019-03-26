@@ -291,6 +291,14 @@ namespace FN {
 			return m_nodes;
 		}
 
+		template<typename T, typename ...Args>
+		T *new_source_info(Args&&... args)
+		{
+			static_assert(std::is_base_of<SourceInfo, T>::value, "");
+			T *source = new T(std::forward<Args>(args)...);
+			return source;
+		}
+
 		std::string to_dot() const;
 		void to_dot__clipboard() const;
 

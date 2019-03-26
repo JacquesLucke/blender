@@ -32,7 +32,7 @@ namespace FN { namespace DataFlowNodes {
 	{
 		BLI_assert(btree != nullptr);
 		BLI_assert(bnode != nullptr);
-		NodeSource *source = new NodeSource(btree, bnode);
+		NodeSource *source = m_graph->new_source_info<NodeSource>(btree, bnode);
 		return m_graph->insert(function, source);
 	}
 
