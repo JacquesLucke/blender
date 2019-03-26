@@ -6,6 +6,8 @@
 
 #include "RNA_access.h"
 
+#include <sstream>
+
 namespace FN { namespace DataFlowNodes {
 
 	class NodeSource : public SourceInfo {
@@ -19,21 +21,50 @@ namespace FN { namespace DataFlowNodes {
 
 		std::string to_string() const override
 		{
-			return m_btree->id.name + std::string(" : ") + m_bnode->name;
+			std::stringstream ss;
+			ss << "NodeTree \"" << m_btree->id.name + 2 << "\"";
+			ss << " - Node \"" << m_bnode->name << "\"";
+			return ss.str();
 		}
 	};
 
-	Node *Builder::insert_function(SharedFunction &function)
+	class LinkSource : public SourceInfo {
+	private:
+		bNodeTree *m_btree;
+		bNodeLink *m_blink;
+
+	public:
+		LinkSource(bNodeTree *btree, bNodeLink *blink)
+			: m_btree(btree), m_blink(blink) {}
+
+		std::string to_string() const override
+		{
+			std::stringstream ss;
+			ss << "NodeTree \"" << m_btree->id.name + 2 << "\"";
+			ss << " - Link";
+			return ss.str();
+		}
+	};
+
+	Node *Builder::insert_function(SharedFunction &fn)
 	{
-		return m_graph->insert(function);
+		return m_graph->insert(fn);
 	}
 
-	Node *Builder::insert_function(SharedFunction &function, bNodeTree *btree, bNode *bnode)
+	Node *Builder::insert_function(SharedFunction &fn, bNodeTree *btree, bNode *bnode)
 	{
 		BLI_assert(btree != nullptr);
 		BLI_assert(bnode != nullptr);
 		NodeSource *source = m_graph->new_source_info<NodeSource>(btree, bnode);
-		return m_graph->insert(function, source);
+		return m_graph->insert(fn, source);
+	}
+
+	Node *Builder::insert_function(SharedFunction &fn, bNodeTree *btree, bNodeLink *blink)
+	{
+		BLI_assert(btree != nullptr);
+		BLI_assert(blink != nullptr);
+		LinkSource *source = m_graph->new_source_info<LinkSource>(btree, blink);
+		return m_graph->insert(fn, source);
 	}
 
 	void Builder::insert_link(Socket a, Socket b)

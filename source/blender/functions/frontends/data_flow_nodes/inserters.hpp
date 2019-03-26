@@ -23,6 +23,7 @@ namespace FN { namespace DataFlowNodes {
 	typedef std::function<void (
 		Builder &builder,
 		const BuilderContext &ctx,
+		bNodeLink *blink,
 		Socket from,
 		Socket to)> ConversionInserter;
 

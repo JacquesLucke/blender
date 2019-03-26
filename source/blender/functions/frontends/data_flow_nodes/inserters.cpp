@@ -66,12 +66,13 @@ namespace FN { namespace DataFlowNodes {
 	{
 		auto inserter = [getter](
 				Builder &builder,
-				const BuilderContext &UNUSED(ctx),
+				const BuilderContext &ctx,
+				bNodeLink *blink,
 				Socket from,
 				Socket to)
 			{
 				auto fn = getter();
-				Node *node = builder.insert_function(fn);
+				Node *node = builder.insert_function(fn, ctx.btree(), blink);
 				builder.insert_link(from, node->input(0));
 				builder.insert_link(node->output(0), to);
 			};
@@ -174,7 +175,7 @@ namespace FN { namespace DataFlowNodes {
 		auto key = std::pair<std::string, std::string>(from_type, to_type);
 		if (m_conversion_inserters.contains(key)) {
 			auto inserter = m_conversion_inserters.lookup(key);
-			inserter(builder, ctx, from_socket, to_socket);
+			inserter(builder, ctx, blink, from_socket, to_socket);
 			return true;
 		}
 
