@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BLI_utildefines.h"
+#include "MEM_guardedalloc.h"
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -244,7 +245,7 @@ namespace BLI {
 
 			m_capacity = min_capacity;
 
-			T *new_array = (T *)std::malloc(sizeof(T) * m_capacity);
+			T *new_array = (T *)MEM_malloc_arrayN(m_capacity, sizeof(T), __func__);
 			std::uninitialized_copy(
 				std::make_move_iterator(this->begin()),
 				std::make_move_iterator(this->end()),
@@ -253,7 +254,7 @@ namespace BLI {
 			this->destruct_elements_but_keep_memory();
 
 			if (!this->is_small()) {
-				std::free(m_elements);
+				MEM_freeN(m_elements);
 			}
 
 			m_elements = new_array;
@@ -265,7 +266,7 @@ namespace BLI {
 				m_elements = this->small_buffer();
 			}
 			else {
-				m_elements = (T *)std::malloc(sizeof(T) * other.m_capacity);
+				m_elements = (T *)MEM_malloc_arrayN(other.m_capacity, sizeof(T), __func__);
 			}
 
 			std::uninitialized_copy(other.begin(), other.end(), m_elements);
@@ -298,7 +299,7 @@ namespace BLI {
 			if (!this->is_small()) {
 				/* Can be nullptr when previously stolen. */
 				if (m_elements != nullptr) {
-					std::free(m_elements);
+					MEM_freeN(m_elements);
 				}
 			}
 		}

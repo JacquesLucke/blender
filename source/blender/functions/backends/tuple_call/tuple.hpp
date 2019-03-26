@@ -65,8 +65,9 @@ namespace FN {
 		Tuple(SharedTupleMeta meta)
 			: m_meta(std::move(meta))
 		{
-			m_initialized = (bool *)std::calloc(m_meta->element_amount(), sizeof(bool));
-			m_data = std::malloc(m_meta->total_data_size());
+			m_initialized = (bool *)MEM_calloc_arrayN(
+				m_meta->element_amount(), sizeof(bool), __func__);
+			m_data = MEM_mallocN(m_meta->total_data_size(), __func__);
 			m_owns_mem = true;
 		}
 
@@ -109,8 +110,8 @@ namespace FN {
 		{
 			this->destruct_all();
 			if (m_owns_mem) {
-				std::free(m_data);
-				std::free(m_initialized);
+				MEM_freeN(m_data);
+				MEM_freeN(m_initialized);
 			}
 		}
 
@@ -389,3 +390,6 @@ namespace FN {
 	SharedTupleMeta &name##_meta = (meta_expr); \
 	void *name##_buffer = alloca(name##_meta->total_size()); \
 	Tuple &name = Tuple::NewInBuffer(name##_meta, name##_buffer);
+
+#define FN_TUPLE_STACK_FREE(name) \
+	name.~Tuple();

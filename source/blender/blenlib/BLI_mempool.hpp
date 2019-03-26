@@ -19,7 +19,7 @@ namespace BLI {
 		~MemPool()
 		{
 			for (void *ptr : m_start_pointers) {
-				std::free(ptr);
+				MEM_freeN(ptr);
 			}
 		}
 
@@ -47,8 +47,7 @@ namespace BLI {
 		void allocate_more()
 		{
 			uint new_amount = 1 << (m_start_pointers.size() + 4);
-			uint byte_size = new_amount * m_element_size;
-			void *ptr = std::malloc(byte_size);
+			void *ptr = MEM_malloc_arrayN(new_amount, m_element_size, __func__);
 
 			for (uint i = 0; i < new_amount; i++) {
 				m_free_stack.push((char *)ptr + i * m_element_size);

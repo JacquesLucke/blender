@@ -6,6 +6,7 @@ set(INC
 	../blenkernel
 	../depsgraph
 	../windowmanager
+	../../../intern/guardedalloc
 )
 
 set(INC_SYS

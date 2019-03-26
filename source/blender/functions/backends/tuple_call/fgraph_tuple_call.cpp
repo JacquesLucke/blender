@@ -410,6 +410,9 @@ namespace FN {
 				ctx.stack().pop();
 
 				Tuple::copy_element(tmp_out, socket.index(), out, out_index);
+
+				FN_TUPLE_STACK_FREE(tmp_in);
+				FN_TUPLE_STACK_FREE(tmp_out);
 			}
 		}
 	};
@@ -536,6 +539,9 @@ namespace FN {
 							fn_out, output_index,
 							temp_storage, socket_indices.lookup(output_socket));
 					}
+
+					FN_TUPLE_STACK_FREE(fn_in);
+					FN_TUPLE_STACK_FREE(fn_out);
 				}
 				else if (fn->has_body<TupleCallBody>()) {
 					auto *body = node->function()->body<TupleCallBody>();
@@ -561,6 +567,9 @@ namespace FN {
 							fn_out, output_index,
 							temp_storage, socket_indices.lookup(output_socket));
 					}
+
+					FN_TUPLE_STACK_FREE(fn_in);
+					FN_TUPLE_STACK_FREE(fn_out);
 				}
 				else {
 					BLI_assert(false);
