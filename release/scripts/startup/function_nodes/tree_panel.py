@@ -2,7 +2,7 @@ import bpy
 from . function_tree import FunctionTree
 
 class TreePanel(bpy.types.Panel):
-    bl_idname = "fn_tree_panel"
+    bl_idname = "FN_PT_tree_panel"
     bl_label = "Functions Tree"
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
