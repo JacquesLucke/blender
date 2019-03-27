@@ -563,9 +563,12 @@ namespace FN {
 
 					for (uint output_index = 0; output_index < node->output_amount(); output_index++) {
 						Socket output_socket = node->output(output_index);
-						Tuple::relocate_element(
-							fn_out, output_index,
-							temp_storage, socket_indices.lookup(output_socket));
+						uint temp_index = socket_indices.lookup_default(output_socket, -1);
+						if (temp_index != -1) {
+							Tuple::relocate_element(
+								fn_out, output_index,
+								temp_storage, temp_index);
+						}
 					}
 
 					FN_TUPLE_STACK_FREE(fn_in);
