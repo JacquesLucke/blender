@@ -2,7 +2,7 @@
 
 namespace FN {
 
-	void SourceInfo::handle_warning(std::string msg) const
+	void SourceInfo::handle_warning(std::string UNUSED(msg)) const
 	{ }
 
 } /* namespace FN */
