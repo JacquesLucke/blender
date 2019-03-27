@@ -19,6 +19,13 @@ namespace FN {
 		}
 	}
 
+	void SourceInfoStackFrame::handle_warning(std::string msg) const
+	{
+		if (m_source != nullptr) {
+			m_source->handle_warning(msg);
+		}
+	}
+
 	std::string TextStackFrame::to_string() const
 	{
 		return std::string(m_text);
@@ -28,6 +35,13 @@ namespace FN {
 	{
 		m_stack.print_traceback();
 		std::cout << "-> " << msg << std::endl;
+	}
+
+	void ExecutionContext::log_warning(std::string msg)
+	{
+		for (StackFrame *frame : m_stack) {
+			frame->handle_warning(msg);
+		}
 	}
 
 } /* namespace FN */

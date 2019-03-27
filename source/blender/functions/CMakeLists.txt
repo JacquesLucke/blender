@@ -33,6 +33,7 @@ set(SRC
 	core/data_flow_graph.hpp
 	core/data_flow_graph.cpp
 	core/source_info.hpp
+	core/source_info.cpp
 	core/dot_export.cpp
 
 	backends/tuple_call/cpp_types.hpp

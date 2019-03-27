@@ -33,7 +33,7 @@ namespace FN { namespace Functions {
 
 	template<typename T>
 	class AppendToList : public TupleCallBody {
-		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
 		{
 			auto list = fn_in.relocate_out<SharedList<T>>(0);
 			T value = fn_in.relocate_out<T>(1);

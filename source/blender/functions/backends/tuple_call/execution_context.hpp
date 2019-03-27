@@ -7,6 +7,8 @@ namespace FN {
 	class StackFrame {
 	public:
 		virtual std::string to_string() const = 0;
+
+		virtual void handle_warning(std::string UNUSED(msg)) const {}
 	};
 
 	class SourceInfoStackFrame : public StackFrame {
@@ -23,6 +25,7 @@ namespace FN {
 		}
 
 		std::string to_string() const override;
+		void handle_warning(std::string msg) const override;
 	};
 
 	class TextStackFrame : public StackFrame {
@@ -60,6 +63,16 @@ namespace FN {
 		}
 
 		void print_traceback() const;
+
+		StackFrame **begin()
+		{
+			return m_stack.begin();
+		}
+
+		StackFrame **end()
+		{
+			return m_stack.end();
+		}
 	};
 
 	class ExecutionContext {
@@ -76,6 +89,7 @@ namespace FN {
 		}
 
 		void print_with_traceback(std::string msg);
+		void log_warning(std::string msg);
 	};
 
 } /* namespace FN */

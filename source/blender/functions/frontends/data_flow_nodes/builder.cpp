@@ -26,6 +26,16 @@ namespace FN { namespace DataFlowNodes {
 			ss << " - Node \"" << m_bnode->name << "\"";
 			return ss.str();
 		}
+
+		void handle_warning(std::string msg) const override
+		{
+			PointerRNA ptr;
+			RNA_pointer_create(
+				&m_btree->id, &RNA_Node,
+				m_bnode, &ptr);
+
+			RNA_string_set(&ptr, "warning_msg", msg.c_str());
+		}
 	};
 
 	class LinkSource : public SourceInfo {
