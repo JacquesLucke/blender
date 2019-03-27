@@ -71,8 +71,6 @@ class BaseNode:
     search_terms = tuple()
     search_terms_only = False
 
-    warning_msg: StringProperty(default="")
-
     def init(self, context):
         from . update import managed_update
         with managed_update():
@@ -145,8 +143,6 @@ class BaseNode:
         return [], []
 
     def draw_buttons(self, context, layout):
-        if self.warning_msg != "":
-            layout.label(text=self.warning_msg)
         self.draw(layout)
         for decl in self.storage.sockets_per_decl.keys():
             decl.draw_node(layout, self)

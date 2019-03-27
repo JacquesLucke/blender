@@ -8,6 +8,14 @@
 
 #include <sstream>
 
+#ifdef WITH_PYTHON
+	#include <Python.h>
+
+	extern "C" {
+		PyObject *pyrna_struct_CreatePyObject(PointerRNA *ptr);
+	}
+#endif
+
 namespace FN { namespace DataFlowNodes {
 
 	class NodeSource : public SourceInfo {
@@ -29,12 +37,26 @@ namespace FN { namespace DataFlowNodes {
 
 		void handle_warning(std::string msg) const override
 		{
+#ifdef WITH_PYTHON
+			PyGILState_STATE gilstate;
+			gilstate = PyGILState_Ensure();
+
+			PyObject *module = PyImport_ImportModule("function_nodes.problems");
+			PyObject *globals = PyModule_GetDict(module);
+			PyObject *function = PyDict_GetItemString(globals, "report_warning");
+
 			PointerRNA ptr;
 			RNA_pointer_create(
 				&m_btree->id, &RNA_Node,
 				m_bnode, &ptr);
 
-			RNA_string_set(&ptr, "warning_msg", msg.c_str());
+			PyObject *py_bnode = pyrna_struct_CreatePyObject(&ptr);
+
+			PyObject *args = Py_BuildValue("(Os)", py_bnode, msg.c_str());
+			PyObject_CallObject(function, args);
+
+			PyGILState_Release(gilstate);
+#endif
 		}
 	};
 

@@ -2,6 +2,12 @@ import bpy
 from bpy.props import *
 from . types import type_infos
 
+def try_find_node(tree_name, node_name):
+    tree = bpy.data.node_groups.get(tree_name)
+    if tree is not None:
+        return tree.nodes.get(node_name)
+    return None
+
 class NodeOperatorBase:
     tree_name: StringProperty()
     node_name: StringProperty()
@@ -9,11 +15,7 @@ class NodeOperatorBase:
     settings_repr: StringProperty()
 
     def call(self, *args):
-        tree = bpy.data.node_groups.get(self.tree_name)
-        if tree is None:
-            return {'CANCELLED'}
-
-        node = tree.nodes.get(self.node_name)
+        node = try_find_node(self.tree_name, self.node_name)
         if node is None:
             return {'CANCELLED'}
 
@@ -59,3 +61,26 @@ class NodeDataTypeSelector(bpy.types.Operator, NodeOperatorBase):
     def execute(self, context):
         return self.call(self.item)
 
+class MoveViewToNode(bpy.types.Operator):
+    bl_idname = "fn.move_view_to_node"
+    bl_label = "Move View to Node"
+    bl_options = {'INTERNAL'}
+
+    tree_name: StringProperty()
+    node_name: StringProperty()
+
+    def execute(self, context):
+        target_node = try_find_node(self.tree_name, self.node_name)
+        if target_node is None:
+            return {'CANCELLED'}
+
+        tree = target_node.tree
+        context.space_data.node_tree = tree
+        for node in tree.nodes:
+            node.select = False
+
+        target_node.select = True
+        tree.nodes.active = target_node
+
+        bpy.ops.node.view_selected('INVOKE_DEFAULT')
+        return {'FINISHED'}

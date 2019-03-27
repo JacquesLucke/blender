@@ -11,7 +11,15 @@ set(INC
 
 set(INC_SYS
 	${LLVM_INCLUDE_DIRS}
+	${PYTHON_INCLUDE_DIRS}
 )
+
+if(WITH_PYTHON)
+	add_definitions(-DWITH_PYTHON)
+	list(APPEND INC
+		../python
+	)
+endif()
 
 set(SRC
 	FN_all.hpp

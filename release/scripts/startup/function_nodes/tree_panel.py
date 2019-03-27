@@ -1,12 +1,10 @@
 import bpy
+from . ui import NodeSidebarPanel
 from . function_tree import FunctionTree
 
-class TreePanel(bpy.types.Panel):
+class TreePanel(bpy.types.Panel, NodeSidebarPanel):
     bl_idname = "FN_PT_tree_panel"
     bl_label = "Functions Tree"
-    bl_space_type = 'NODE_EDITOR'
-    bl_region_type = 'UI'
-    bl_category = "Node"
 
     @classmethod
     def poll(self, context):
