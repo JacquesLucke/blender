@@ -58,10 +58,10 @@ static FnFunction get_current_function(FunctionPointsModifierData *fpmd)
 
 	FnType float_ty = FN_type_borrow_float();
 	FnType int32_ty = FN_type_borrow_int32();
-	FnType float_list_ty = FN_type_borrow_float_list();
+	FnType fvec3_list_ty = FN_type_borrow_fvec3_list();
 
 	FnType inputs[] = { float_ty, int32_ty, NULL };
-	FnType outputs[] = { float_list_ty, NULL };
+	FnType outputs[] = { fvec3_list_ty, NULL };
 
 	return FN_function_get_with_signature(tree, inputs, outputs);
 }
@@ -75,28 +75,25 @@ static Mesh *build_point_mesh(FunctionPointsModifierData *fpmd)
 	}
 
 	FnTupleCallBody body = FN_tuple_call_get(fn);
-
 	FN_TUPLE_CALL_PREPARE_STACK(body, fn_in, fn_out);
 
 	FN_tuple_set_float(fn_in, 0, fpmd->control1);
 	FN_tuple_set_int32(fn_in, 1, fpmd->control2);
 	FN_tuple_call_invoke(body, fn_in, fn_out);
-	FnFloatList list = FN_tuple_relocate_out_float_list(fn_out, 0);
+	FnFVec3List list = FN_tuple_relocate_out_fvec3_list(fn_out, 0);
 
 	FN_TUPLE_CALL_DESTRUCT_STACK(body, fn_in, fn_out);
-
-
 	FN_function_free(fn);
 
-	uint amount = FN_list_size_float(list);
-	float *ptr = FN_list_data_float(list);
+
+	uint amount = FN_list_size_fvec3(list);
+	float *ptr = FN_list_data_fvec3(list);
 
 	Mesh *mesh = BKE_mesh_new_nomain(amount, 0, 0, 0, 0);
 	for (uint i = 0; i < amount; i++) {
-		float vec[3] = {0, 0, ptr[i]};
-		copy_v3_v3(mesh->mvert[i].co, vec);
+		copy_v3_v3(mesh->mvert[i].co, ptr + (3 * i));
 	}
-	FN_list_free_float(list);
+	FN_list_free_fvec3(list);
 
 	return mesh;
 }

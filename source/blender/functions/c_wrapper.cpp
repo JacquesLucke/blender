@@ -90,6 +90,7 @@ void FN_function_print(FnFunction fn)
 /**************** Types ******************/
 
 WRAPPERS(List<float> *, FnFloatList);
+WRAPPERS(List<Vector> *, FnFVec3List);
 
 const char *FN_type_name(FnType type)
 {
@@ -118,21 +119,18 @@ SIMPLE_TYPE_GETTER(float);
 SIMPLE_TYPE_GETTER(int32);
 SIMPLE_TYPE_GETTER(fvec3);
 SIMPLE_TYPE_GETTER(float_list);
+SIMPLE_TYPE_GETTER(fvec3_list);
 
-uint FN_list_size_float(FnFloatList list)
-{
-	return unwrap(list)->size();
-}
+#define LIST_WRAPPER(name, ptr_type, list_type) \
+	uint FN_list_size_##name(list_type list) \
+	{ return unwrap(list)->size(); } \
+	ptr_type FN_list_data_##name(list_type list) \
+	{ return (ptr_type)unwrap(list)->data_ptr(); } \
+	void FN_list_free_##name(list_type list) \
+	{ unwrap(list)->remove_user(); }
 
-float *FN_list_data_float(FnFloatList list)
-{
-	return unwrap(list)->data_ptr();
-}
-
-void FN_list_free_float(FnFloatList list)
-{
-	unwrap(list)->remove_user();
-}
+LIST_WRAPPER(float, float *, FnFloatList);
+LIST_WRAPPER(fvec3, float *, FnFVec3List);
 
 
 
@@ -241,6 +239,11 @@ FnFloatList FN_tuple_relocate_out_float_list(FnTuple tuple, uint index)
 	return wrap(list.extract_ptr());
 }
 
+FnFVec3List FN_tuple_relocate_out_fvec3_list(FnTuple tuple, uint index)
+{
+	auto list = unwrap(tuple)->relocate_out<SharedFVec3List>(index);
+	return wrap(list.extract_ptr());
+}
 
 
 /**************** Dependencies *******************/

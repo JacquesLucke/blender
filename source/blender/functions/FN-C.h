@@ -33,24 +33,30 @@ void FN_function_print(FnFunction fn);
 /************** Types *************/
 
 typedef struct OpaqueFnFloatList *FnFloatList;
+typedef struct OpaqueFnFVec3List *FnFVec3List;
 
 const char *FN_type_name(FnType type);
 void FN_type_free(FnType type);
 
-FnType FN_type_get_float(void);
-FnType FN_type_get_int32(void);
-FnType FN_type_get_fvec3(void);
-FnType FN_type_get_float_list(void);
+#define TYPE_GET_AND_BORROW(name) \
+	FnType FN_type_get_##name(void); \
+	FnType FN_type_borrow_##name(void);
 
-FnType FN_type_borrow_float(void);
-FnType FN_type_borrow_int32(void);
-FnType FN_type_borrow_fvec3(void);
-FnType FN_type_borrow_float_list(void);
+TYPE_GET_AND_BORROW(float);
+TYPE_GET_AND_BORROW(int32);
+TYPE_GET_AND_BORROW(fvec3);
+TYPE_GET_AND_BORROW(float_list);
+TYPE_GET_AND_BORROW(fvec3_list);
+#undef TYPE_GET_AND_BORROW
 
-uint FN_list_size_float(FnFloatList list);
-float *FN_list_data_float(FnFloatList list);
-void FN_list_free_float(FnFloatList list);
+#define LIST_TYPE(name, ptr_type, list_type) \
+	uint FN_list_size_##name(list_type list); \
+	ptr_type FN_list_data_##name(list_type list); \
+	void FN_list_free_##name(list_type list);
 
+LIST_TYPE(float, float *, FnFloatList);
+LIST_TYPE(fvec3, float *, FnFVec3List);
+#undef LIST_TYPE
 
 /*************** Tuple Call ****************/
 
@@ -71,6 +77,7 @@ float FN_tuple_get_float(FnTuple tuple, uint index);
 int32_t FN_tuple_get_int32(FnTuple tuple, uint index);
 void FN_tuple_get_fvec3(FnTuple tuple, uint index, float dst[3]);
 FnFloatList FN_tuple_relocate_out_float_list(FnTuple tuple, uint index);
+FnFVec3List FN_tuple_relocate_out_fvec3_list(FnTuple tuple, uint index);
 
 uint fn_tuple_stack_prepare_size(FnTupleCallBody body);
 void fn_tuple_prepare_stack(
