@@ -37,7 +37,6 @@ namespace FN {
 			CodeInterface &interface,
 			const BuildIRSettings &settings) const override
 		{
-
 			SocketValueMap values;
 			for (uint i = 0; i < interface.inputs().size(); i++) {
 				values.add(m_inputs[i], interface.get_input(i));
