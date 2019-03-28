@@ -76,10 +76,10 @@ set(SRC
 	backends/llvm/compiled_body.cpp
 	backends/llvm/compile.hpp
 	backends/llvm/compile.cpp
-	backends/llvm/ir_utils.hpp
-	backends/llvm/ir_utils.cpp
 	backends/llvm/fgraph_ir_generation.hpp
 	backends/llvm/fgraph_ir_generation.cpp
+	backends/llvm/builder.hpp
+	backends/llvm/builder.cpp
 
 	types/lists.hpp
 	types/numeric_lists.hpp

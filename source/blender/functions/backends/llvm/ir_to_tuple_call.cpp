@@ -1,6 +1,5 @@
 #include "FN_llvm.hpp"
 #include "FN_tuple_call.hpp"
-#include "ir_utils.hpp"
 
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/TargetSelect.h>
@@ -9,9 +8,21 @@
 namespace FN {
 
 	typedef std::function<void (
-		llvm::IRBuilder<> &builder,
-		const LLVMValues &inputs,
-		LLVMValues &outputs)> BuildIRFunction;
+		CodeBuilder &builder,
+		CodeInterface &interface,
+		const BuildIRSettings &settings)> BuildIRFunction;
+
+	static llvm::Value *lookup_tuple_address(
+		CodeBuilder &builder,
+		llvm::Value *data_addr,
+		llvm::Value *offsets_addr,
+		uint index)
+	{
+		llvm::Value *offset_addr = builder.CreateConstGEP1_32(offsets_addr, index);
+		llvm::Value *offset = builder.CreateLoad(offset_addr);
+		llvm::Value *value_byte_addr = builder.CreateGEP(data_addr, offset);
+		return value_byte_addr;
+	}
 
 	static llvm::Function *insert_tuple_call_function(
 		SharedFunction &fn,
@@ -42,7 +53,7 @@ namespace FN {
 
 
 		llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", function);
-		llvm::IRBuilder<> builder(bb);
+		CodeBuilder builder(bb);
 
 		llvm::Value *fn_in_data = function->arg_begin() + 0;
 		llvm::Value *fn_in_offsets = function->arg_begin() + 1;
@@ -62,9 +73,10 @@ namespace FN {
 			input_values.append(value);
 		}
 
-		LLVMValues output_values;
-		build_ir(builder, input_values, output_values);
-		BLI_assert(output_values.size() == fn->signature().outputs().size());
+		LLVMValues output_values(fn->signature().outputs().size());
+		BuildIRSettings settings;
+		CodeInterface interface(input_values, output_values);
+		build_ir(builder, interface, settings);
 
 		for (uint i = 0; i < output_values.size(); i++) {
 			llvm::Value *value_byte_addr = lookup_tuple_address(
@@ -134,11 +146,11 @@ namespace FN {
 	{
 		auto *body = fn->body<LLVMCompiledBody>();
 		return compile_ir_to_tuple_call(fn, context, [body](
-				llvm::IRBuilder<> &builder,
-				const LLVMValues &inputs,
-				LLVMValues &outputs)
+				CodeBuilder &builder,
+				CodeInterface &interface,
+				const BuildIRSettings &settings)
 			{
-				body->build_ir(builder, inputs, outputs);
+				body->build_ir(builder, interface, settings);
 			});
 	}
 
@@ -148,11 +160,11 @@ namespace FN {
 	{
 		auto *body = fn->body<LLVMBuildIRBody>();
 		return compile_ir_to_tuple_call(fn, context, [body](
-				llvm::IRBuilder<> &builder,
-				const LLVMValues &inputs,
-				LLVMValues &outputs)
+				CodeBuilder &builder,
+				CodeInterface &interface,
+				const BuildIRSettings &settings)
 			{
-				body->build_ir(builder, inputs, outputs);
+				body->build_ir(builder, interface, settings);
 			});
 	}
 

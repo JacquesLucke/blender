@@ -12,18 +12,18 @@ namespace FN { namespace Functions {
 
 	class CombineVector : public LLVMBuildIRBody {
 		void build_ir(
-			llvm::IRBuilder<> &builder,
-			const LLVMValues &inputs,
-			LLVMValues &outputs) const override
+			CodeBuilder &builder,
+			CodeInterface &interface,
+			const BuildIRSettings &UNUSED(settings)) const override
 		{
 			llvm::Type *vector_ty = get_llvm_type(
 				get_fvec3_type(), builder.getContext());
 
 			llvm::Value *vector = llvm::UndefValue::get(vector_ty);
-			vector = builder.CreateInsertValue(vector, inputs[0], 0);
-			vector = builder.CreateInsertValue(vector, inputs[1], 1);
-			vector = builder.CreateInsertValue(vector, inputs[2], 2);
-			outputs.append(vector);
+			vector = builder.CreateInsertValue(vector, interface.get_input(0), 0);
+			vector = builder.CreateInsertValue(vector, interface.get_input(1), 1);
+			vector = builder.CreateInsertValue(vector, interface.get_input(2), 2);
+			interface.set_output(0, vector);
 		}
 	};
 
@@ -42,13 +42,14 @@ namespace FN { namespace Functions {
 
 	class SeparateVector : public LLVMBuildIRBody {
 		void build_ir(
-			llvm::IRBuilder<> &builder,
-			const LLVMValues &inputs,
-			LLVMValues &r_outputs) const override
+			CodeBuilder &builder,
+			CodeInterface &interface,
+			const BuildIRSettings &UNUSED(settings)) const override
 		{
-			r_outputs.append(builder.CreateExtractValue(inputs[0], 0));
-			r_outputs.append(builder.CreateExtractValue(inputs[0], 1));
-			r_outputs.append(builder.CreateExtractValue(inputs[0], 2));
+			llvm::Value *vector = interface.get_input(0);
+			interface.set_output(0, builder.CreateExtractValue(vector, 0));
+			interface.set_output(1, builder.CreateExtractValue(vector, 1));
+			interface.set_output(2, builder.CreateExtractValue(vector, 2));
 		}
 	};
 

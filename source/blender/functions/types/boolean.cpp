@@ -16,41 +16,39 @@ namespace FN { namespace Types {
 		}
 
 		llvm::Value *build_copy_ir(
-			llvm::IRBuilder<> &UNUSED(builder),
+			CodeBuilder &UNUSED(builder),
 			llvm::Value *value) const override
 		{
 			return value;
 		}
 
 		void build_free_ir(
-			llvm::IRBuilder<> &UNUSED(builder),
+			CodeBuilder &UNUSED(builder),
 			llvm::Value *UNUSED(value)) const override
 		{
 			return;
 		}
 
 		void build_store_ir__relocate(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *value,
 			llvm::Value *byte_addr) const override
 		{
-			llvm::Value *byte_value = builder.CreateIntCast(
-				value, builder.getInt8Ty(), false);
-			builder.CreateStore(byte_value, byte_addr, false);
+			llvm::Value *byte_value = builder.CreateCastIntTo8(value, false);
+			builder.CreateStore(byte_value, byte_addr);
 		}
 
 		llvm::Value *build_load_ir__copy(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *byte_addr) const override
 		{
 			llvm::Value *byte_value = builder.CreateLoad(byte_addr);
-			llvm::Value *value = builder.CreateIntCast(
-				byte_value, builder.getInt1Ty(), false);
+			llvm::Value *value = builder.CreateCastIntTo1(byte_value);
 			return value;
 		}
 
 		llvm::Value *build_load_ir__relocate(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *byte_addr) const override
 		{
 			return this->build_load_ir__copy(builder, byte_addr);

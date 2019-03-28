@@ -2,7 +2,7 @@
 
 #include "FN_core.hpp"
 
-#include "llvm/IR/IRBuilder.h"
+#include "builder.hpp"
 
 #include <functional>
 #include <mutex>
@@ -22,24 +22,24 @@ namespace FN {
 			llvm::LLVMContext &context) const;
 
 		virtual llvm::Value *build_copy_ir(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *value) const = 0;
 
 		virtual void build_free_ir(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *value) const = 0;
 
 		virtual void build_store_ir__relocate(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *value,
 			llvm::Value *byte_addr) const = 0;
 
 		virtual llvm::Value *build_load_ir__copy(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *byte_addr) const = 0;
 
 		virtual llvm::Value *build_load_ir__relocate(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *byte_addr) const = 0;
 
 	private:
@@ -67,24 +67,24 @@ namespace FN {
 			: m_create_func(create_func) {}
 
 		llvm::Value *build_copy_ir(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *value) const override;
 
 		void build_free_ir(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *value) const override;
 
 		void build_store_ir__relocate(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *value,
 			llvm::Value *byte_addr) const override;
 
 		llvm::Value *build_load_ir__copy(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *byte_addr) const override;
 
 		llvm::Value *build_load_ir__relocate(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *byte_addr) const override;
 	};
 
@@ -114,24 +114,24 @@ namespace FN {
 			  m_default_func(default_func) {}
 
 		llvm::Value *build_copy_ir(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *value) const override;
 
 		void build_free_ir(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *value) const override;
 
 		void build_store_ir__relocate(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *value,
 			llvm::Value *byte_addr) const override;
 
 		llvm::Value *build_load_ir__copy(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *byte_addr) const override;
 
 		llvm::Value *build_load_ir__relocate(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			llvm::Value *byte_addr) const override;
 	};
 
@@ -146,5 +146,13 @@ namespace FN {
 	{
 		return get_type_info(type)->get_type(context);
 	}
+
+	LLVMTypes types_of_type_infos(
+		const SmallVector<LLVMTypeInfo *> &type_infos,
+		llvm::LLVMContext &context);
+
+	llvm::FunctionType *function_type_from_signature(
+		const Signature &signature,
+		llvm::LLVMContext &context);
 
 } /* namespace FN */

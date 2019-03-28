@@ -32,12 +32,14 @@ namespace FN { namespace Functions {
 
 	class GenAddFloats : public LLVMBuildIRBody {
 		void build_ir(
-			llvm::IRBuilder<> &builder,
-			const LLVMValues &inputs,
-			LLVMValues &r_outputs) const override
+			CodeBuilder &builder,
+			CodeInterface &interface,
+			const BuildIRSettings &UNUSED(settings)) const override
 		{
-			auto output = builder.CreateFAdd(inputs[0], inputs[1]);
-			r_outputs.append(output);
+			auto output = builder.CreateFAdd(
+				interface.get_input(0),
+				interface.get_input(1));
+			interface.set_output(0, output);
 		}
 	};
 

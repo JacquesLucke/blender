@@ -33,25 +33,27 @@ namespace FN {
 		}
 
 		void build_ir(
-			llvm::IRBuilder<> &builder,
-			const LLVMValues &input_values,
-			LLVMValues &r_output_values) const override
+			CodeBuilder &builder,
+			CodeInterface &interface,
+			const BuildIRSettings &UNUSED(settings)) const override
 		{
 			SocketValueMap values;
-			for (uint i = 0; i < input_values.size(); i++) {
-				values.add(m_inputs[i], input_values[i]);
+			for (uint i = 0; i < interface.inputs().size(); i++) {
+				values.add(m_inputs[i], interface.get_input(i));
 			}
 
 			SocketSet forwarded_sockets;
-			for (Socket socket : m_outputs) {
+			for (uint i = 0; i < m_outputs.size(); i++) {
+				Socket socket = m_outputs[i];
 				this->generate_for_socket(builder, socket, values, forwarded_sockets);
-				r_output_values.append(values.lookup(socket));
+
+				interface.set_output(i, values.lookup(socket));
 			}
 		}
 
 	private:
 		void generate_for_socket(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			Socket socket,
 			SocketValueMap &values,
 			SocketSet &forwarded_sockets) const
@@ -87,7 +89,7 @@ namespace FN {
 		}
 
 		void forward_output_if_necessary(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			Socket output,
 			SocketValueMap &values,
 			SocketSet &forwarded_sockets) const
@@ -100,7 +102,7 @@ namespace FN {
 		}
 
 		void forward_output(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			Socket output,
 			SocketValueMap &values) const
 		{
@@ -134,19 +136,23 @@ namespace FN {
 		}
 
 		LLVMValues build_node_ir(
-			llvm::IRBuilder<> &builder,
+			CodeBuilder &builder,
 			Node *node,
 			LLVMValues &input_values) const
 		{
-			LLVMValues output_values;
+			BuildIRSettings settings;
 			SharedFunction &fn = node->function();
+
+			LLVMValues output_values(node->output_amount());
+			CodeInterface interface(input_values, output_values);
+
 			if (fn->has_body<LLVMCompiledBody>()) {
 				auto *body = fn->body<LLVMCompiledBody>();
-				body->build_ir(builder, input_values, output_values);
+				body->build_ir(builder, interface, settings);
 			}
 			else if (fn->has_body<LLVMBuildIRBody>()) {
 				auto *body = fn->body<LLVMBuildIRBody>();
-				body->build_ir(builder, input_values, output_values);
+				body->build_ir(builder, interface, settings);
 			}
 			else {
 				BLI_assert(false);

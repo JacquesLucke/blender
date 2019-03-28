@@ -1,12 +1,37 @@
 #pragma once
 
-#include "FN_core.hpp"
-#include <llvm/IR/IRBuilder.h>
+#include "builder.hpp"
 
 namespace FN {
 
-	using LLVMValues = SmallVector<llvm::Value *>;
-	using LLVMTypes = BLI::SmallVector<llvm::Type *>;
+	class BuildIRSettings {
+
+	};
+
+	class CodeInterface {
+	private:
+		LLVMValues &m_inputs;
+		LLVMValues &m_outputs;
+
+	public:
+		CodeInterface(LLVMValues &inputs, LLVMValues &outputs)
+			: m_inputs(inputs), m_outputs(outputs) {}
+
+		llvm::Value *get_input(uint index)
+		{
+			return m_inputs[index];
+		}
+
+		void set_output(uint index, llvm::Value *value)
+		{
+			m_outputs[index] = value;
+		}
+
+		const LLVMValues &inputs()
+		{
+			return m_inputs;
+		}
+	};
 
 	class LLVMBuildIRBody : public FunctionBody {
 	public:
@@ -15,9 +40,9 @@ namespace FN {
 		virtual ~LLVMBuildIRBody() {};
 
 		virtual void build_ir(
-			llvm::IRBuilder<> &builder,
-			const LLVMValues &inputs,
-			LLVMValues &r_outputs) const = 0;
+			CodeBuilder &builder,
+			CodeInterface &interface,
+			const BuildIRSettings &settings) const = 0;
 	};
 
 }

@@ -1,5 +1,4 @@
 #include "FN_llvm.hpp"
-#include "ir_utils.hpp"
 
 #include <llvm/IR/Verifier.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -9,21 +8,17 @@ namespace FN {
 	BLI_COMPOSITION_IMPLEMENTATION(LLVMCompiledBody);
 
 	void LLVMCompiledBody::build_ir(
-		llvm::IRBuilder<> &builder,
-		const LLVMValues &inputs,
-		LLVMValues &r_outputs) const
+		CodeBuilder &builder,
+		CodeInterface &interface,
+		const BuildIRSettings &UNUSED(settings)) const
 	{
 		auto *ftype = function_type_from_signature(
 			this->owner()->signature(), builder.getContext());
 
-		llvm::Value *output_struct = call_pointer(
-			builder,
-			this->function_ptr(),
-			ftype,
-			inputs);
+		llvm::Value *output_struct = builder.CreateCallPointer(this->function_ptr(), ftype, interface.inputs());
 		for (uint i = 0; i < ftype->getReturnType()->getStructNumElements(); i++) {
 			llvm::Value *out = builder.CreateExtractValue(output_struct, i);
-			r_outputs.append(out);
+			interface.set_output(i, out);
 		}
 	}
 
@@ -55,14 +50,15 @@ namespace FN {
 		}
 
 		llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", function);
-		llvm::IRBuilder<> builder(bb);
+		CodeBuilder builder(bb);
 
 		LLVMBuildIRBody *gen_body = fn->body<LLVMBuildIRBody>();
 		BLI_assert(gen_body);
 
-		LLVMValues output_values;
-		gen_body->build_ir(builder, input_values, output_values);
-		BLI_assert(output_values.size() == output_types.size());
+		LLVMValues output_values(output_types.size());
+		BuildIRSettings settings;
+		CodeInterface interface(input_values, output_values);
+		gen_body->build_ir(builder, interface, settings);
 
 		llvm::Value *return_value = llvm::UndefValue::get(output_type);
 		for (uint i = 0; i < output_values.size(); i++) {

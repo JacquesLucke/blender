@@ -2,6 +2,7 @@
 
 #include "FN_core.hpp"
 #include "compile.hpp"
+#include "builder.hpp"
 
 namespace llvm {
 	class ExecutionEngine;
@@ -30,9 +31,9 @@ namespace FN {
 		}
 
 		void build_ir(
-			llvm::IRBuilder<> &builder,
-			const LLVMValues &inputs,
-			LLVMValues &r_outputs) const;
+			CodeBuilder &builder,
+			CodeInterface &interface,
+			const BuildIRSettings &settings) const;
 	};
 
 	void derive_LLVMCompiledBody_from_LLVMBuildIRBody(
