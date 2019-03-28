@@ -9,7 +9,7 @@ namespace FN { namespace Types {
 
 	class LLVMBool : public LLVMTypeInfo {
 
-		llvm::Type *create_type(
+		llvm::Type *get_type(
 			llvm::LLVMContext &context) const override
 		{
 			return llvm::Type::getInt1Ty(context);

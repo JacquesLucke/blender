@@ -15,11 +15,8 @@ namespace FN {
 
 		virtual ~LLVMTypeInfo() {}
 
-		llvm::Type *get_type(
-			llvm::LLVMContext &context) const;
-
-		llvm::Type *get_type_ptr(
-			llvm::LLVMContext &context) const;
+		virtual llvm::Type *get_type(
+			llvm::LLVMContext &context) const = 0;
 
 		virtual llvm::Value *build_copy_ir(
 			CodeBuilder &builder,
@@ -41,15 +38,6 @@ namespace FN {
 		virtual llvm::Value *build_load_ir__relocate(
 			CodeBuilder &builder,
 			llvm::Value *byte_addr) const = 0;
-
-	private:
-		mutable SmallMap<llvm::LLVMContext *, llvm::Type *> m_type_per_context;
-		mutable std::mutex m_type_per_context_mutex;
-
-		void ensure_type_exists_for_context(llvm::LLVMContext &context) const;
-
-		virtual llvm::Type *create_type(
-			llvm::LLVMContext &context) const = 0;
 	};
 
 	class SimpleLLVMTypeInfo : public LLVMTypeInfo {
@@ -57,14 +45,14 @@ namespace FN {
 		typedef std::function<llvm::Type *(llvm::LLVMContext &context)> CreateFunc;
 		CreateFunc m_create_func;
 
-		llvm::Type *create_type(llvm::LLVMContext &context) const override
-		{
-			return m_create_func(context);
-		}
-
 	public:
 		SimpleLLVMTypeInfo(CreateFunc create_func)
 			: m_create_func(create_func) {}
+
+		llvm::Type *get_type(llvm::LLVMContext &context) const override
+		{
+			return m_create_func(context);
+		}
 
 		llvm::Value *build_copy_ir(
 			CodeBuilder &builder,
@@ -98,11 +86,6 @@ namespace FN {
 		FreeFunc m_free_func;
 		DefaultFunc m_default_func;
 
-		llvm::Type *create_type(llvm::LLVMContext &context) const override
-		{
-			return llvm::Type::getVoidTy(context)->getPointerTo();
-		}
-
 		static void *copy_value(PointerLLVMTypeInfo *info, void *value);
 		static void free_value(PointerLLVMTypeInfo *info, void *value);
 		static void *default_value(PointerLLVMTypeInfo *info);
@@ -112,6 +95,11 @@ namespace FN {
 			: m_copy_func(copy_func),
 			  m_free_func(free_func),
 			  m_default_func(default_func) {}
+
+		llvm::Type *get_type(llvm::LLVMContext &context) const override
+		{
+			return llvm::Type::getVoidTy(context)->getPointerTo();
+		}
 
 		llvm::Value *build_copy_ir(
 			CodeBuilder &builder,
