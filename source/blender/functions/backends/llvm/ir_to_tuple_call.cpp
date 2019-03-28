@@ -26,10 +26,10 @@ namespace FN {
 
 	static llvm::Function *insert_tuple_call_function(
 		SharedFunction &fn,
-		BuildIRFunction build_ir,
 		llvm::Module *module)
 	{
 		llvm::LLVMContext &context = module->getContext();
+		LLVMBuildIRBody *body = fn->body<LLVMBuildIRBody>();
 
 		llvm::Type *void_ty = llvm::Type::getVoidTy(context);
 		llvm::Type *void_ptr_ty = void_ty->getPointerTo();
@@ -52,7 +52,6 @@ namespace FN {
 			llvm::GlobalValue::LinkageTypes::ExternalLinkage,
 			fn->name(),
 			module);
-
 
 		llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", function);
 		CodeBuilder builder(bb);
@@ -79,7 +78,7 @@ namespace FN {
 		LLVMValues output_values(fn->signature().outputs().size());
 		BuildIRSettings settings;
 		CodeInterface interface(input_values, output_values, context_ptr);
-		build_ir(builder, interface, settings);
+		body->build_ir(builder, interface, settings);
 
 		for (uint i = 0; i < output_values.size(); i++) {
 			llvm::Value *value_byte_addr = lookup_tuple_address(
@@ -135,42 +134,13 @@ namespace FN {
 
 	static TupleCallBody *compile_ir_to_tuple_call(
 		SharedFunction &fn,
-		llvm::LLVMContext &context,
-		BuildIRFunction build_ir)
+		llvm::LLVMContext &context)
 	{
 		llvm::Module *module = new llvm::Module(fn->name(), context);
-		llvm::Function *function = insert_tuple_call_function(fn, build_ir, module);
+		llvm::Function *function = insert_tuple_call_function(fn, module);
 
 		auto compiled = CompiledLLVM::FromIR(module, function);
 		return new LLVMTupleCall(std::move(compiled));
-	}
-
-	static TupleCallBody *build_from_compiled(
-		SharedFunction &fn,
-		llvm::LLVMContext &context)
-	{
-		auto *body = fn->body<LLVMCompiledBody>();
-		return compile_ir_to_tuple_call(fn, context, [body](
-				CodeBuilder &builder,
-				CodeInterface &interface,
-				const BuildIRSettings &settings)
-			{
-				body->build_ir(builder, interface, settings);
-			});
-	}
-
-	static TupleCallBody *build_from_ir_generator(
-		SharedFunction &fn,
-		llvm::LLVMContext &context)
-	{
-		auto *body = fn->body<LLVMBuildIRBody>();
-		return compile_ir_to_tuple_call(fn, context, [body](
-				CodeBuilder &builder,
-				CodeInterface &interface,
-				const BuildIRSettings &settings)
-			{
-				body->build_ir(builder, interface, settings);
-			});
 	}
 
 	void derive_TupleCallBody_from_LLVMBuildIRBody(
@@ -180,17 +150,7 @@ namespace FN {
 		BLI_assert(fn->has_body<LLVMBuildIRBody>());
 		BLI_assert(!fn->has_body<TupleCallBody>());
 
-		fn->add_body(build_from_ir_generator(fn, context));
-	}
-
-	void derive_TupleCallBody_from_LLVMCompiledBody(
-		SharedFunction &fn,
-		llvm::LLVMContext &context)
-	{
-		BLI_assert(fn->has_body<LLVMCompiledBody>());
-		BLI_assert(!fn->has_body<TupleCallBody>());
-
-		fn->add_body(build_from_compiled(fn, context));
+		fn->add_body(compile_ir_to_tuple_call(fn, context));
 	}
 
 } /* namespace FN */

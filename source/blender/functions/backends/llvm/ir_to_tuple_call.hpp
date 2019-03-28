@@ -12,8 +12,4 @@ namespace FN {
 		SharedFunction &fn,
 		llvm::LLVMContext &context);
 
-	void derive_TupleCallBody_from_LLVMCompiledBody(
-		SharedFunction &fn,
-		llvm::LLVMContext &context);
-
 } /* namespace FN */

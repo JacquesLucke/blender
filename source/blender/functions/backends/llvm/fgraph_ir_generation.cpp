@@ -156,17 +156,10 @@ namespace FN {
 			SharedFunction &fn = node->function();
 			LLVMValues output_values(node->output_amount());
 			CodeInterface sub_interface(input_values, output_values, context_ptr);
-			if (fn->has_body<LLVMCompiledBody>()) {
-				auto *body = fn->body<LLVMCompiledBody>();
-				body->build_ir(builder, sub_interface, settings);
-			}
-			else if (fn->has_body<LLVMBuildIRBody>()) {
-				auto *body = fn->body<LLVMBuildIRBody>();
-				body->build_ir(builder, sub_interface, settings);
-			}
-			else {
-				BLI_assert(false);
-			}
+
+			BLI_assert(fn->has_body<LLVMBuildIRBody>());
+			auto *body = fn->body<LLVMBuildIRBody>();
+			body->build_ir(builder, sub_interface, settings);
 
 			if (settings.maintain_stack()) {
 				this->pop_stack_frames_for_node(builder, context_ptr);
@@ -180,6 +173,8 @@ namespace FN {
 			llvm::Value *context_ptr,
 			Node *node) const
 		{
+			BLI_assert(context_ptr);
+
 			llvm::Value *node_info_frame_buf = builder.CreateAllocaBytes_VoidPtr(sizeof(SourceInfoStackFrame));
 			builder.CreateCallPointer_NoReturnValue(
 				(void *)BuildGraphIR::push_source_frame_on_stack,
@@ -199,6 +194,8 @@ namespace FN {
 			CodeBuilder &builder,
 			llvm::Value *context_ptr) const
 		{
+			BLI_assert(context_ptr);
+
 			for (uint i = 0; i < 2; i++) {
 				builder.CreateCallPointer_NoReturnValue(
 					(void *)BuildGraphIR::pop_frame_from_stack,

@@ -72,8 +72,6 @@ set(SRC
 	backends/llvm/ir_to_tuple_call.cpp
 	backends/llvm/ir_for_tuple_call.hpp
 	backends/llvm/ir_for_tuple_call.cpp
-	backends/llvm/compiled_body.hpp
-	backends/llvm/compiled_body.cpp
 	backends/llvm/compile.hpp
 	backends/llvm/compile.cpp
 	backends/llvm/fgraph_ir_generation.hpp
