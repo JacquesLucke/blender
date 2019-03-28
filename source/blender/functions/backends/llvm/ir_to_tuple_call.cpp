@@ -61,6 +61,11 @@ namespace FN {
 		llvm::Value *fn_out_data = function->arg_begin() + 2;
 		llvm::Value *fn_out_offsets = function->arg_begin() + 3;
 		llvm::Value *context_ptr = function->arg_begin() + 4;
+		fn_in_data->setName("data_in");
+		fn_in_offsets->setName("offsets_in");
+		fn_out_data->setName("data_out");
+		fn_out_offsets->setName("offsets_out");
+		context_ptr->setName("context");
 
 		LLVMValues input_values;
 		for (uint i = 0; i < fn->signature().inputs().size(); i++) {

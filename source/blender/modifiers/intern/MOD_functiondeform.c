@@ -97,7 +97,7 @@ static void do_deformation(
 	}
 
 	clock_t end = clock();
-	printf("Time taken: %f s\n", (float)(end - start) / (float)CLOCKS_PER_SEC);
+	printf("Time taken: %f ms\n", (float)(end - start) / (float)CLOCKS_PER_SEC * 1000.0f);
 
 	FN_TUPLE_CALL_DESTRUCT_HEAP(body, fn_in, fn_out);
 	FN_function_free(fn);
