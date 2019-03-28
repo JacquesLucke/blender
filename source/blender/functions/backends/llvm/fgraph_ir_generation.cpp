@@ -149,7 +149,9 @@ namespace FN {
 			Node *node,
 			LLVMValues &input_values) const
 		{
-			this->push_stack_frames_for_node(builder, context_ptr, node);
+			if (settings.maintain_stack()) {
+				this->push_stack_frames_for_node(builder, context_ptr, node);
+			}
 
 			SharedFunction &fn = node->function();
 			LLVMValues output_values(node->output_amount());
@@ -166,7 +168,9 @@ namespace FN {
 				BLI_assert(false);
 			}
 
-			this->pop_stack_frames_for_node(builder, context_ptr);
+			if (settings.maintain_stack()) {
+				this->pop_stack_frames_for_node(builder, context_ptr);
+			}
 
 			return output_values;
 		}

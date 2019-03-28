@@ -17,7 +17,7 @@ namespace FN {
 
 		fn_in.set_all_initialized();
 
-		TextStackFrame frame("Wrapper");
+		TextStackFrame frame("IR for Tuple Call Wrapper");
 		ctx->stack().push(&frame);
 		body->call(fn_in, fn_out, *ctx);
 		ctx->stack().pop();
@@ -57,7 +57,7 @@ namespace FN {
 		void build_ir(
 			CodeBuilder &builder,
 			CodeInterface &interface,
-			const BuildIRSettings &UNUSED(settings)) const override
+			const BuildIRSettings &settings) const override
 		{
 			Function *fn = m_tuple_call->owner();
 			llvm::LLVMContext &context = builder.getContext();
@@ -67,7 +67,10 @@ namespace FN {
 			auto output_type_infos = fn->signature().output_extensions<LLVMTypeInfo>();
 
 			LLVMTypes input_types = builder.types_of_values(interface.inputs());
-			input_types.append(builder.getVoidPtrTy());
+			if (settings.maintain_stack()) {
+				input_types.append(builder.getVoidPtrTy());
+			}
+
 			LLVMTypes output_types;
 			for (auto type_info : output_type_infos) {
 				output_types.append(type_info->get_type(context));
@@ -86,6 +89,7 @@ namespace FN {
 				builder.getModule());
 
 			this->build_wrapper_function(
+				settings,
 				wrapper_function,
 				input_type_infos,
 				output_type_infos,
@@ -93,7 +97,9 @@ namespace FN {
 
 			/* Call wrapper function. */
 			LLVMValues call_inputs = interface.inputs();
-			call_inputs.append(interface.context_ptr());
+			if (settings.maintain_stack()) {
+				call_inputs.append(interface.context_ptr());
+			}
 			llvm::Value *output_struct = builder.CreateCall(wrapper_function, call_inputs);
 
 			/* Extract output values. */
@@ -105,6 +111,7 @@ namespace FN {
 
 	private:
 		void build_wrapper_function(
+			const BuildIRSettings &settings,
 			llvm::Function *function,
 			SmallVector<LLVMTypeInfo *> &input_type_infos,
 			SmallVector<LLVMTypeInfo *> &output_type_infos,
@@ -129,14 +136,22 @@ namespace FN {
 				input_type_infos[i]->build_store_ir__relocate(builder, arg, store_at_addr);
 			}
 
+			/* Get execution stack for tuple call. */
+			llvm::Value *context_ptr = nullptr;
+			if (settings.maintain_stack()) {
+				context_ptr = function->arg_begin() + input_type_infos.size();
+			}
+			else {
+				context_ptr = build__stack_allocate_ExecutionContext(builder);
+			}
+
 			/* Execute tuple call body. */
-			llvm::Value *exec_ctx = function->arg_begin() + input_type_infos.size();
 			builder.CreateCallPointer_NoReturnValue(
 				(void *)run_TupleCallBody,
 				{builder.getVoidPtr(m_tuple_call),
 				 tuple_in_data_ptr,
 				 tuple_out_data_ptr,
-				 exec_ctx});
+				 context_ptr});
 
 			/* Read output values from buffer. */
 			llvm::Value *output = llvm::UndefValue::get(output_type);

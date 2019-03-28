@@ -5,7 +5,14 @@
 namespace FN {
 
 	class BuildIRSettings {
+	private:
+		bool m_maintain_stack = true;
 
+	public:
+		bool maintain_stack() const
+		{
+			return m_maintain_stack;
+		}
 	};
 
 	class CodeInterface {
