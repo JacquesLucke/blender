@@ -12,10 +12,16 @@ namespace FN {
 	private:
 		LLVMValues &m_inputs;
 		LLVMValues &m_outputs;
+		llvm::Value *m_context_ptr;
 
 	public:
-		CodeInterface(LLVMValues &inputs, LLVMValues &outputs)
-			: m_inputs(inputs), m_outputs(outputs) {}
+		CodeInterface(
+			LLVMValues &inputs,
+			LLVMValues &outputs,
+			llvm::Value *context_ptr = nullptr)
+			: m_inputs(inputs),
+			  m_outputs(outputs),
+			  m_context_ptr(context_ptr) {}
 
 		llvm::Value *get_input(uint index)
 		{
@@ -30,6 +36,11 @@ namespace FN {
 		const LLVMValues &inputs()
 		{
 			return m_inputs;
+		}
+
+		llvm::Value *context_ptr() const
+		{
+			return m_context_ptr;
 		}
 	};
 

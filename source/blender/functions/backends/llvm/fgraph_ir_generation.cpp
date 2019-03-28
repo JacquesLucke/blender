@@ -35,8 +35,9 @@ namespace FN {
 		void build_ir(
 			CodeBuilder &builder,
 			CodeInterface &interface,
-			const BuildIRSettings &UNUSED(settings)) const override
+			const BuildIRSettings &settings) const override
 		{
+
 			SocketValueMap values;
 			for (uint i = 0; i < interface.inputs().size(); i++) {
 				values.add(m_inputs[i], interface.get_input(i));
@@ -45,7 +46,8 @@ namespace FN {
 			SocketSet forwarded_sockets;
 			for (uint i = 0; i < m_outputs.size(); i++) {
 				Socket socket = m_outputs[i];
-				this->generate_for_socket(builder, socket, values, forwarded_sockets);
+				this->generate_for_socket(
+					builder, interface.context_ptr(), settings, socket, values, forwarded_sockets);
 
 				interface.set_output(i, values.lookup(socket));
 			}
@@ -54,6 +56,8 @@ namespace FN {
 	private:
 		void generate_for_socket(
 			CodeBuilder &builder,
+			llvm::Value *context_ptr,
+			const BuildIRSettings &settings,
 			Socket socket,
 			SocketValueMap &values,
 			SocketSet &forwarded_sockets) const
@@ -63,18 +67,21 @@ namespace FN {
 			}
 			else if (socket.is_input()) {
 				Socket origin = socket.origin();
-				this->generate_for_socket(builder, origin, values, forwarded_sockets);
+				this->generate_for_socket(
+					builder, context_ptr, settings, origin, values, forwarded_sockets);
 				this->forward_output_if_necessary(builder, origin, values, forwarded_sockets);
 			}
 			else if (socket.is_output()) {
 				Node *node = socket.node();
 				LLVMValues input_values;
 				for (Socket input : node->inputs()) {
-					this->generate_for_socket(builder, input, values, forwarded_sockets);
+					this->generate_for_socket(
+						builder, context_ptr, settings, input, values, forwarded_sockets);
 					input_values.append(values.lookup(input));
 				}
 
-				LLVMValues output_values = this->build_node_ir(builder, node, input_values);
+				LLVMValues output_values = this->build_node_ir(
+					builder, context_ptr, settings, node, input_values);
 
 				for (uint i = 0; i < output_values.size(); i++) {
 					Socket output = node->output(i);
@@ -137,27 +144,79 @@ namespace FN {
 
 		LLVMValues build_node_ir(
 			CodeBuilder &builder,
+			llvm::Value *context_ptr,
+			const BuildIRSettings &settings,
 			Node *node,
 			LLVMValues &input_values) const
 		{
-			BuildIRSettings settings;
+			this->push_stack_frames_for_node(builder, context_ptr, node);
+
 			SharedFunction &fn = node->function();
-
 			LLVMValues output_values(node->output_amount());
-			CodeInterface interface(input_values, output_values);
-
+			CodeInterface sub_interface(input_values, output_values, context_ptr);
 			if (fn->has_body<LLVMCompiledBody>()) {
 				auto *body = fn->body<LLVMCompiledBody>();
-				body->build_ir(builder, interface, settings);
+				body->build_ir(builder, sub_interface, settings);
 			}
 			else if (fn->has_body<LLVMBuildIRBody>()) {
 				auto *body = fn->body<LLVMBuildIRBody>();
-				body->build_ir(builder, interface, settings);
+				body->build_ir(builder, sub_interface, settings);
 			}
 			else {
 				BLI_assert(false);
 			}
+
+			this->pop_stack_frames_for_node(builder, context_ptr);
+
 			return output_values;
+		}
+
+		void push_stack_frames_for_node(
+			CodeBuilder &builder,
+			llvm::Value *context_ptr,
+			Node *node) const
+		{
+			llvm::Value *node_info_frame_buf = builder.CreateAllocaBytes_VoidPtr(sizeof(SourceInfoStackFrame));
+			builder.CreateCallPointer_NoReturnValue(
+				(void *)BuildGraphIR::push_source_frame_on_stack,
+				{ context_ptr,
+				  node_info_frame_buf,
+				  builder.getVoidPtr(node) });
+
+			llvm::Value *function_info_frame_buf = builder.CreateAllocaBytes_VoidPtr(sizeof(TextStackFrame));
+			builder.CreateCallPointer_NoReturnValue(
+				(void *)BuildGraphIR::push_text_frame_on_stack,
+				{ context_ptr,
+				  function_info_frame_buf,
+				  builder.getVoidPtr((void *)node->function()->name().c_str())});
+		}
+
+		void pop_stack_frames_for_node(
+			CodeBuilder &builder,
+			llvm::Value *context_ptr) const
+		{
+			for (uint i = 0; i < 2; i++) {
+				builder.CreateCallPointer_NoReturnValue(
+					(void *)BuildGraphIR::pop_frame_from_stack,
+					{ context_ptr });
+			}
+		}
+
+		static void push_source_frame_on_stack(ExecutionContext *ctx, void *frame_buf, Node *node)
+		{
+			StackFrame *frame = new(frame_buf) SourceInfoStackFrame(node->source());
+			ctx->stack().push(frame);
+		}
+
+		static void push_text_frame_on_stack(ExecutionContext *ctx, void *frame_buf, const char *text)
+		{
+			StackFrame *frame = new(frame_buf) TextStackFrame(text);
+			ctx->stack().push(frame);
+		}
+
+		static void pop_frame_from_stack(ExecutionContext *ctx)
+		{
+			ctx->stack().pop();
 		}
 	};
 

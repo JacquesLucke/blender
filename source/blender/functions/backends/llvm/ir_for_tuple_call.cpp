@@ -67,6 +67,7 @@ namespace FN {
 			auto output_type_infos = fn->signature().output_extensions<LLVMTypeInfo>();
 
 			LLVMTypes input_types = builder.types_of_values(interface.inputs());
+			input_types.append(builder.getVoidPtrTy());
 			LLVMTypes output_types;
 			for (auto type_info : output_type_infos) {
 				output_types.append(type_info->get_type(context));
@@ -91,7 +92,9 @@ namespace FN {
 				wrapper_output_type);
 
 			/* Call wrapper function. */
-			llvm::Value *output_struct = builder.CreateCall(wrapper_function, interface.inputs());
+			LLVMValues call_inputs = interface.inputs();
+			call_inputs.append(interface.context_ptr());
+			llvm::Value *output_struct = builder.CreateCall(wrapper_function, call_inputs);
 
 			/* Extract output values. */
 			for (uint i = 0; i < output_type_infos.size(); i++) {
@@ -127,7 +130,7 @@ namespace FN {
 			}
 
 			/* Execute tuple call body. */
-			llvm::Value *exec_ctx = build__stack_allocate_ExecutionContext(builder);
+			llvm::Value *exec_ctx = function->arg_begin() + input_type_infos.size();
 			builder.CreateCallPointer_NoReturnValue(
 				(void *)run_TupleCallBody,
 				{builder.getVoidPtr(m_tuple_call),
