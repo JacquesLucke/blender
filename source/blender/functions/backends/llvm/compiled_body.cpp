@@ -15,7 +15,8 @@ namespace FN {
 		auto *ftype = function_type_from_signature(
 			this->owner()->signature(), builder.getContext());
 
-		llvm::Value *output_struct = builder.CreateCallPointer(this->function_ptr(), ftype, interface.inputs());
+		llvm::Value *output_struct = builder.CreateCallPointer(
+			this->function_ptr(), ftype, interface.inputs());
 		for (uint i = 0; i < ftype->getReturnType()->getStructNumElements(); i++) {
 			llvm::Value *out = builder.CreateExtractValue(output_struct, i);
 			interface.set_output(i, out);

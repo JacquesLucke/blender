@@ -36,18 +36,11 @@ namespace FN {
 	static llvm::Value *build__stack_allocate_ExecutionContext(
 		CodeBuilder &builder)
 	{
-		llvm::Type *void_ty = builder.getVoidTy();
-		llvm::Type *void_ptr_ty = void_ty->getPointerTo();
-
-		llvm::FunctionType *ftype = llvm::FunctionType::get(
-			void_ty, {void_ptr_ty, void_ptr_ty}, false);
-
 		llvm::Value *stack_ptr = builder.CreateAllocaBytes_VoidPtr(sizeof(ExecutionStack));
 		llvm::Value *ctx_ptr = builder.CreateAllocaBytes_VoidPtr(sizeof(ExecutionContext));
 
-		builder.CreateCallPointer(
+		builder.CreateCallPointer_NoReturnValue(
 			(void *)run__setup_ExecutionContext_in_buffer,
-			ftype,
 			{stack_ptr, ctx_ptr});
 
 		return ctx_ptr;
@@ -115,18 +108,8 @@ namespace FN {
 			llvm::Type *output_type) const
 		{
 			llvm::LLVMContext &context = function->getContext();
-
 			llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", function);
 			CodeBuilder builder(bb);
-
-			/* Type declarations. */
-			llvm::Type *void_ty = llvm::Type::getVoidTy(context);
-			llvm::Type *void_ptr_ty = void_ty->getPointerTo();
-			llvm::Type *byte_ptr_ty = llvm::Type::getInt8PtrTy(context);
-
-			llvm::FunctionType *call_ftype = llvm::FunctionType::get(
-				void_ty, {void_ptr_ty, byte_ptr_ty, byte_ptr_ty, void_ptr_ty}, false);
-
 
 			/* Allocate temporary stack buffer for tuple input and output. */
 			auto &meta_in = m_tuple_call->meta_in();
@@ -145,9 +128,8 @@ namespace FN {
 
 			/* Execute tuple call body. */
 			llvm::Value *exec_ctx = build__stack_allocate_ExecutionContext(builder);
-			builder.CreateCallPointer(
+			builder.CreateCallPointer_NoReturnValue(
 				(void *)run_TupleCallBody,
-				call_ftype,
 				{builder.getVoidPtr(m_tuple_call),
 				 tuple_in_data_ptr,
 				 tuple_out_data_ptr,

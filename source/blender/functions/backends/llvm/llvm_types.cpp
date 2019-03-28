@@ -119,14 +119,8 @@ namespace FN {
 		CodeBuilder &builder,
 		llvm::Value *value) const
 	{
-		auto *void_ty = builder.getVoidTy();
-		auto *void_ptr_ty = void_ty->getPointerTo();
-		auto free_ftype = llvm::FunctionType::get(
-			void_ty, {void_ptr_ty, void_ptr_ty}, false);
-
-		builder.CreateCallPointer(
+		builder.CreateCallPointer_NoReturnValue(
 			(void *)PointerLLVMTypeInfo::free_value,
-			free_ftype,
 			{builder.getVoidPtr((void *)this), value});
 	}
 

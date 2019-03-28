@@ -172,12 +172,11 @@ namespace FN {
 		llvm::Value *CreateCallPointer(
 			void *func_ptr,
 			llvm::FunctionType *ftype,
-			const LLVMValues &args)
-		{
-			auto address_int = m_builder.getInt64((size_t)func_ptr);
-			auto address = m_builder.CreateIntToPtr(address_int, ftype->getPointerTo());
-			return m_builder.CreateCall(address, to_array_ref(args));
-		}
+			const LLVMValues &args);
+
+		void CreateCallPointer_NoReturnValue(
+			void *func_ptr,
+			const LLVMValues &args);
 
 		llvm::Value *CreateCall(
 			llvm::Function *function,
