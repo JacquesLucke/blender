@@ -64,7 +64,8 @@ typedef struct OpaqueFnTuple *FnTuple;
 typedef struct OpaqueFnTupleCallBody *FnTupleCallBody;
 
 FnTupleCallBody FN_tuple_call_get(FnFunction fn);
-void FN_tuple_call_invoke(FnTupleCallBody body, FnTuple fn_in, FnTuple fn_out);
+void FN_tuple_call_invoke(
+	FnTupleCallBody body, FnTuple fn_in, FnTuple fn_out, const char *caller_info);
 FnTuple FN_tuple_for_input(FnTupleCallBody body);
 FnTuple FN_tuple_for_output(FnTupleCallBody body);
 

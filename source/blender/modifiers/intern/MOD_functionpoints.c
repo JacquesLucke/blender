@@ -79,7 +79,7 @@ static Mesh *build_point_mesh(FunctionPointsModifierData *fpmd)
 
 	FN_tuple_set_float(fn_in, 0, fpmd->control1);
 	FN_tuple_set_int32(fn_in, 1, fpmd->control2);
-	FN_tuple_call_invoke(body, fn_in, fn_out);
+	FN_tuple_call_invoke(body, fn_in, fn_out, __func__);
 	FnFVec3List list = FN_tuple_relocate_out_fvec3_list(fn_out, 0);
 
 	FN_TUPLE_CALL_DESTRUCT_STACK(body, fn_in, fn_out);

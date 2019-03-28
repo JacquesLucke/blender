@@ -139,16 +139,24 @@ LIST_WRAPPER(fvec3, float *, FnFVec3List);
 WRAPPERS(Tuple *, FnTuple);
 WRAPPERS(TupleCallBody *, FnTupleCallBody);
 
-void FN_tuple_call_invoke(FnTupleCallBody body, FnTuple fn_in, FnTuple fn_out)
+void FN_tuple_call_invoke(
+	FnTupleCallBody body,
+	FnTuple fn_in,
+	FnTuple fn_out,
+	const char *caller_info)
 {
 	Tuple &fn_in_ = *unwrap(fn_in);
 	Tuple &fn_out_ = *unwrap(fn_out);
 	TupleCallBody *body_ = unwrap(body);
-
 	BLI_assert(fn_in_.all_initialized());
+
+	/* setup stack */
 	ExecutionStack stack;
+	TextStackFrame caller_frame(caller_info);
+	stack.push(&caller_frame);
 	TextStackFrame function_frame(body_->owner()->name().c_str());
 	stack.push(&function_frame);
+
 	ExecutionContext ctx(stack);
 	body_->call(fn_in_, fn_out_, ctx);
 	BLI_assert(fn_out_.all_initialized());
