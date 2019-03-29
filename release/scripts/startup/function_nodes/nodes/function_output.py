@@ -10,5 +10,5 @@ class FunctionOutputNode(BaseNode, bpy.types.Node):
 
     def get_sockets(self):
         return [
-            AnyVariadicDecl("inputs", "variadic", "New Output"),
+            AnyVariadicDecl(self, "inputs", "variadic", "New Output"),
         ], []

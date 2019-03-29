@@ -18,9 +18,9 @@ class CallNode(bpy.types.Node, FunctionNode):
             return [], []
 
         return [
-            TreeInterfaceDecl("inputs", self.function_tree, "IN"),
+            TreeInterfaceDecl(self, "inputs", self.function_tree, "IN"),
         ], [
-            TreeInterfaceDecl("outputs", self.function_tree, "OUT"),
+            TreeInterfaceDecl(self, "outputs", self.function_tree, "OUT"),
         ]
 
     def draw(self, layout):

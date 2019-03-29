@@ -8,9 +8,9 @@ class SeparateVectorNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            FixedSocketDecl("vector", "Vector", "Vector"),
+            FixedSocketDecl(self, "vector", "Vector", "Vector"),
         ], [
-            FixedSocketDecl("x", "X", "Float"),
-            FixedSocketDecl("y", "Y", "Float"),
-            FixedSocketDecl("z", "Z", "Float"),
+            FixedSocketDecl(self, "x", "X", "Float"),
+            FixedSocketDecl(self, "y", "Y", "Float"),
+            FixedSocketDecl(self, "z", "Z", "Float"),
         ]

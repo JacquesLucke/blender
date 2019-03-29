@@ -9,11 +9,11 @@ class MapRangeNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            FixedSocketDecl("value", "Value", "Float"),
-            FixedSocketDecl("from_min", "From Min", "Float"),
-            FixedSocketDecl("from_max", "From Max", "Float"),
-            FixedSocketDecl("to_min", "To Min", "Float"),
-            FixedSocketDecl("to_max", "To Max", "Float"),
+            FixedSocketDecl(self, "value", "Value", "Float"),
+            FixedSocketDecl(self, "from_min", "From Min", "Float"),
+            FixedSocketDecl(self, "from_max", "From Max", "Float"),
+            FixedSocketDecl(self, "to_min", "To Min", "Float"),
+            FixedSocketDecl(self, "to_max", "To Max", "Float"),
         ], [
-            FixedSocketDecl("value", "Value", "Float"),
+            FixedSocketDecl(self, "value", "Value", "Float"),
         ]

@@ -10,9 +10,9 @@ class GetListElementNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            ListSocketDecl("list", "List", "active_type", "LIST"),
-            FixedSocketDecl("index", "Index", "Integer"),
-            ListSocketDecl("fallback", "Fallback", "active_type", "BASE"),
+            ListSocketDecl(self, "list", "List", "active_type", "LIST"),
+            FixedSocketDecl(self, "index", "Index", "Integer"),
+            ListSocketDecl(self, "fallback", "Fallback", "active_type", "BASE"),
         ], [
-            ListSocketDecl("value", "Value", "active_type", "BASE"),
+            ListSocketDecl(self, "value", "Value", "active_type", "BASE"),
         ]

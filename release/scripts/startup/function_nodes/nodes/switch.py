@@ -14,11 +14,11 @@ class SwitchNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            FixedSocketDecl("condition", "Condition", "Boolean"),
-            FixedSocketDecl("true", "True", self.data_type),
-            FixedSocketDecl("false", "False", self.data_type),
+            FixedSocketDecl(self, "condition", "Condition", "Boolean"),
+            FixedSocketDecl(self, "true", "True", self.data_type),
+            FixedSocketDecl(self, "false", "False", self.data_type),
         ], [
-            FixedSocketDecl("result", "Result", self.data_type),
+            FixedSocketDecl(self, "result", "Result", self.data_type),
         ]
 
     def draw(self, layout):

@@ -29,13 +29,13 @@ class NodeStorage:
         self.inputs_per_decl = {}
         sockets = iter(self.node.inputs)
         for decl in self.inputs_decl:
-            group = tuple(itertools.islice(sockets, decl.amount(self.node)))
+            group = tuple(itertools.islice(sockets, decl.amount()))
             self.inputs_per_decl[decl] = group
 
         self.outputs_per_decl = {}
         sockets = iter(self.node.outputs)
         for decl in self.outputs_decl:
-            group = tuple(itertools.islice(sockets, decl.amount(self.node)))
+            group = tuple(itertools.islice(sockets, decl.amount()))
             self.outputs_per_decl[decl] = group
 
         self.sockets_per_decl = {}
@@ -76,9 +76,9 @@ class BaseNode:
         with managed_update():
             inputs, outputs = self.get_sockets()
             for decl in inputs:
-                decl.build(self, self.inputs)
+                decl.build(self.inputs)
             for decl in outputs:
-                decl.build(self, self.outputs)
+                decl.build(self.outputs)
 
     @classmethod
     def get_search_terms(cls):
@@ -107,9 +107,9 @@ class BaseNode:
 
             inputs, outputs = self.get_sockets()
             for decl in inputs:
-                decl.build(self, self.inputs)
+                decl.build(self.inputs)
             for decl in outputs:
-                decl.build(self, self.outputs)
+                decl.build(self.outputs)
 
         self.storage.set_current_declaration(inputs, outputs)
         self.storage.try_restore_socket_states()
@@ -145,7 +145,7 @@ class BaseNode:
     def draw_buttons(self, context, layout):
         self.draw(layout)
         for decl in self.storage.sockets_per_decl.keys():
-            decl.draw_node(layout, self)
+            decl.draw_node(layout)
 
     def draw(self, layout):
         pass
@@ -175,7 +175,7 @@ class BaseNode:
         storage = self.storage
         decl = storage.decl_per_socket[socket]
         index = storage.decl_index_per_socket[socket]
-        decl.draw_socket(layout, self, socket, index)
+        decl.draw_socket(layout, socket, index)
 
     @classmethod
     def iter_final_subclasses(cls):

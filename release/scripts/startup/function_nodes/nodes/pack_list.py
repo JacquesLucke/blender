@@ -13,9 +13,9 @@ class PackListNode(bpy.types.Node, FunctionNode):
 
     def get_sockets(self):
         return [
-            PackListDecl("inputs", "variadic", self.active_type),
+            PackListDecl(self, "inputs", "variadic", self.active_type),
         ], [
-            FixedSocketDecl("output", "List", type_infos.to_list(self.active_type)),
+            FixedSocketDecl(self, "output", "List", type_infos.to_list(self.active_type)),
         ]
 
     def draw(self, layout):

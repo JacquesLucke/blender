@@ -8,45 +8,47 @@ from . base import DataSocket
 import uuid
 
 class SocketDeclBase:
-    def build(self, node, node_sockets):
+    def build(self, node_sockets):
         raise NotImplementedError()
 
-    def amount(self, node):
+    def amount(self):
         raise NotImplementedError()
 
-    def draw_node(self, layout, node):
+    def draw_node(self, layout):
         pass
 
-    def draw_socket(self, layout, node, socket, index):
+    def draw_socket(self, layout, socket, index):
         socket.draw_self(layout, self)
 
-    def operator_socket_call(self, node, own_socket, other_socket):
+    def operator_socket_call(self, own_socket, other_socket):
         pass
 
 class FixedSocketDecl(SocketDeclBase):
-    def __init__(self, identifier: str, display_name: str, data_type: str):
+    def __init__(self, node, identifier: str, display_name: str, data_type: str):
+        self.node = node
         self.identifier = identifier
         self.display_name = display_name
         self.data_type = data_type
 
-    def build(self, node, node_sockets):
+    def build(self, node_sockets):
         return [type_infos.build(
             self.data_type,
             node_sockets,
             self.display_name,
             self.identifier)]
 
-    def amount(self, node):
+    def amount(self):
         return 1
 
 class TreeInterfaceDecl(SocketDeclBase):
-    def __init__(self, identifier: str, tree: FunctionTree, in_or_out: str):
+    def __init__(self, node, identifier: str, tree: FunctionTree, in_or_out: str):
         assert tree is not None
+        self.node = node
         self.identifier = identifier
         self.tree = tree
         self.in_or_out = in_or_out
 
-    def build(self, node, node_sockets):
+    def build(self, node_sockets):
         if self.in_or_out == "IN":
             return list(self._build_inputs(node_sockets))
         elif self.in_or_out == "OUT":
@@ -70,7 +72,7 @@ class TreeInterfaceDecl(SocketDeclBase):
                 name,
                 self.identifier + identifier)
 
-    def amount(self, node):
+    def amount(self):
         if self.in_or_out == "IN":
             return len(tuple(self.tree.iter_function_inputs()))
         elif self.in_or_out == "OUT":
@@ -79,22 +81,23 @@ class TreeInterfaceDecl(SocketDeclBase):
             assert False
 
 class ListSocketDecl(SocketDeclBase):
-    def __init__(self, identifier: str, display_name: str, prop_name: str, list_or_base: str):
+    def __init__(self, node, identifier: str, display_name: str, prop_name: str, list_or_base: str):
+        self.node = node
         self.identifier = identifier
         self.display_name = display_name
         self.prop_name = prop_name
         self.list_or_base = list_or_base
 
-    def build(self, node, node_sockets):
-        data_type = self.get_data_type(node)
+    def build(self, node_sockets):
+        data_type = self.get_data_type()
         return [type_infos.build(
             data_type,
             node_sockets,
             self.display_name,
             self.identifier)]
 
-    def get_data_type(self, node):
-        base_type = getattr(node, self.prop_name)
+    def get_data_type(self):
+        base_type = getattr(self.node, self.prop_name)
         if self.list_or_base == "BASE":
             return base_type
         elif self.list_or_base == "LIST":
@@ -102,7 +105,7 @@ class ListSocketDecl(SocketDeclBase):
         else:
             assert False
 
-    def amount(self, node):
+    def amount(self):
         return 1
 
     @classmethod
@@ -110,17 +113,18 @@ class ListSocketDecl(SocketDeclBase):
         return StringProperty(default="Float")
 
 class PackListDecl(SocketDeclBase):
-    def __init__(self, identifier: str, prop_name: str, base_type: str):
+    def __init__(self, node, identifier: str, prop_name: str, base_type: str):
+        self.node = node
         self.identifier_suffix = identifier
         self.prop_name = prop_name
         self.base_type = base_type
         self.list_type = type_infos.to_list(base_type)
 
-    def build(self, node, node_sockets):
-        return list(self._build(node, node_sockets))
+    def build(self, node_sockets):
+        return list(self._build(node_sockets))
 
-    def _build(self, node, node_sockets):
-        for item in self.get_collection(node):
+    def _build(self, node_sockets):
+        for item in self.get_collection():
             data_type = self.base_type if item.state == "BASE" else self.list_type
             yield type_infos.build(
                 data_type,
@@ -129,22 +133,22 @@ class PackListDecl(SocketDeclBase):
                 item.identifier_prefix + self.identifier_suffix)
         yield node_sockets.new("fn_OperatorSocket", "Operator")
 
-    def draw_socket(self, layout, node, socket, index):
+    def draw_socket(self, layout, socket, index):
         if isinstance(socket, OperatorSocket):
             props = layout.operator("fn.new_pack_list_input", text="New", emboss=False)
-            props.tree_name = node.tree.name
-            props.node_name = node.name
+            props.tree_name = self.node.tree.name
+            props.node_name = self.node.name
             props.prop_name = self.prop_name
         else:
             row = layout.row(align=True)
-            socket.draw_self(row, node)
+            socket.draw_self(row, self.node)
             props = row.operator("fn.remove_pack_list_input", text="", icon='X')
-            props.tree_name = node.tree.name
-            props.node_name = node.name
+            props.tree_name = self.node.tree.name
+            props.node_name = self.node.name
             props.prop_name = self.prop_name
             props.index = index
 
-    def operator_socket_call(self, node, own_socket, other_socket):
+    def operator_socket_call(self, own_socket, other_socket):
         if not isinstance(other_socket, DataSocket):
             return
 
@@ -162,22 +166,22 @@ class PackListDecl(SocketDeclBase):
         else:
             return
 
-        collection = self.get_collection(node)
+        collection = self.get_collection()
         item = collection.add()
         item.state = state
         item.identifier_prefix = str(uuid.uuid4())
 
-        node.rebuild_and_try_keep_state()
+        self.node.rebuild_and_try_keep_state()
 
         identifier = item.identifier_prefix + self.identifier_suffix
-        new_socket = node.find_socket(identifier, is_output)
-        node.tree.new_link(other_socket, new_socket)
+        new_socket = self.node.find_socket(identifier, is_output)
+        self.node.tree.new_link(other_socket, new_socket)
 
-    def amount(self, node):
-        return len(self.get_collection(node)) + 1
+    def amount(self):
+        return len(self.get_collection()) + 1
 
-    def get_collection(self, node):
-        return getattr(node, self.prop_name)
+    def get_collection(self):
+        return getattr(self.node, self.prop_name)
 
     @classmethod
     def Property(cls):
@@ -234,16 +238,17 @@ class RemovePackListInputOperator(bpy.types.Operator):
         return {'FINISHED'}
 
 class AnyVariadicDecl(SocketDeclBase):
-    def __init__(self, identifier: str, prop_name: str, message: str):
+    def __init__(self, node, identifier: str, prop_name: str, message: str):
+        self.node = node
         self.identifier_suffix = identifier
         self.prop_name = prop_name
         self.message = message
 
-    def build(self, node, node_sockets):
-        return list(self._build(node, node_sockets))
+    def build(self, node_sockets):
+        return list(self._build(node_sockets))
 
-    def _build(self, node, node_sockets):
-        for item in self.get_collection(node):
+    def _build(self, node_sockets):
+        for item in self.get_collection():
             yield type_infos.build(
                 item.data_type,
                 node_sockets,
@@ -251,46 +256,47 @@ class AnyVariadicDecl(SocketDeclBase):
                 item.identifier_prefix + self.identifier_suffix)
         yield node_sockets.new("fn_OperatorSocket", "Operator")
 
-    def amount(self, node):
-        return len(self.get_collection(node)) + 1
+    def amount(self):
+        return len(self.get_collection()) + 1
 
-    def draw_socket(self, layout, node, socket, index):
+    def draw_socket(self, layout, socket, index):
         if isinstance(socket, OperatorSocket):
             props = layout.operator("fn.append_any_variadic", text=self.message, emboss=False)
-            props.tree_name = node.tree.name
-            props.node_name = node.name
+            props.tree_name = self.node.tree.name
+            props.node_name = self.node.name
             props.prop_name = self.prop_name
         else:
             row = layout.row(align=True)
-            row.prop(self.get_collection(node)[index], "display_name", text="")
+            row.prop(self.get_collection()[index], "display_name", text="")
             props = row.operator("fn.remove_any_variadic", text="", icon='X')
-            props.tree_name = node.tree.name
-            props.node_name = node.name
+            props.tree_name = self.node.tree.name
+            props.node_name = self.node.name
             props.prop_name = self.prop_name
             props.index = index
 
-    def get_collection(self, node):
-        return getattr(node, self.prop_name)
+    def get_collection(self):
+        return getattr(self.node, self.prop_name)
 
-    def operator_socket_call(self, node, own_socket, other_socket):
+    def operator_socket_call(self, own_socket, other_socket):
         if not isinstance(other_socket, DataSocket):
             return
 
         is_output = own_socket.is_output
 
-        self.add_item(node, other_socket.data_type, other_socket.name)
-        node.rebuild_and_try_keep_state()
+        item = self.add_item(other_socket.data_type, other_socket.name)
+        self.node.rebuild_and_try_keep_state()
 
         identifier = item.identifier_prefix + self.identifier_suffix
-        new_socket = node.find_socket(identifier, is_output)
-        node.tree.new_link(other_socket, new_socket)
+        new_socket = self.node.find_socket(identifier, is_output)
+        self.node.tree.new_link(other_socket, new_socket)
 
-    def add_item(self, node, data_type, display_name):
-        collection = self.get_collection(node)
+    def add_item(self, data_type, display_name):
+        collection = self.get_collection()
         item = collection.add()
         item.data_type = data_type
         item.display_name = display_name
         item.identifier_prefix = str(uuid.uuid4())
+        return item
 
     @classmethod
     def Property(cls):

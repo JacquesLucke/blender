@@ -68,7 +68,7 @@ def run_socket_operators(tree):
 
             tree.links.remove(link)
             decl = node.storage.decl_per_socket[own_socket]
-            decl.operator_socket_call(node, own_socket, other_socket)
+            decl.operator_socket_call(own_socket, other_socket)
         else:
             return
 
@@ -220,7 +220,7 @@ def iter_pack_list_sockets(tree):
     for node in tree.nodes:
         for decl, sockets in node.storage.sockets_per_decl.items():
             if isinstance(decl, PackListDecl):
-                collection = decl.get_collection(node)
+                collection = decl.get_collection()
                 for i, socket in enumerate(sockets[:-1]):
                     decision_id = DecisionID(node, collection[i], "state")
                     yield decision_id, decl, socket
