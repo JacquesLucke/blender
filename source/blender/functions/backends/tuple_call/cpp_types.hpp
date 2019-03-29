@@ -4,7 +4,7 @@
 
 namespace FN {
 
-	class CPPTypeInfo {
+	class CPPTypeInfo : public TypeExtension {
 	public:
 		BLI_COMPOSITION_DECLARATION(CPPTypeInfo);
 

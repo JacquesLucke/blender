@@ -8,6 +8,10 @@ namespace FN {
 
 	using namespace BLI;
 
+	class TypeExtension {
+
+	};
+
 	class Type final : public RefCountedBase {
 	public:
 		Type() = delete;
@@ -29,6 +33,7 @@ namespace FN {
 		void extend(T *extension)
 		{
 			BLI_assert(m_extensions.get<T>() == nullptr);
+			static_assert(std::is_base_of<TypeExtension, T>::value, "");
 			m_extensions.add(extension);
 		}
 

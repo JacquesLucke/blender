@@ -9,7 +9,7 @@
 
 namespace FN {
 
-	class LLVMTypeInfo {
+	class LLVMTypeInfo : public TypeExtension {
 	public:
 		BLI_COMPOSITION_DECLARATION(LLVMTypeInfo);
 
