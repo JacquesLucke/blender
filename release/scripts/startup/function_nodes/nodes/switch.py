@@ -1,7 +1,6 @@
 import bpy
 from bpy.props import *
 from .. base import FunctionNode
-from .. socket_decl import FixedSocketDecl
 
 class SwitchNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_SwitchNode"
@@ -12,14 +11,11 @@ class SwitchNode(bpy.types.Node, FunctionNode):
         update=FunctionNode.refresh
     )
 
-    def get_sockets(self):
-        return [
-            FixedSocketDecl(self, "condition", "Condition", "Boolean"),
-            FixedSocketDecl(self, "true", "True", self.data_type),
-            FixedSocketDecl(self, "false", "False", self.data_type),
-        ], [
-            FixedSocketDecl(self, "result", "Result", self.data_type),
-        ]
+    def declaration(self, builder):
+        builder.fixed_input("condition", "Condition", "Boolean")
+        builder.fixed_input("true", "True", self.data_type)
+        builder.fixed_input("false", "False", self.data_type)
+        builder.fixed_output("result", "Result", self.data_type)
 
     def draw(self, layout):
         self.invoke_type_selection(layout, "set_type", "Change Type")

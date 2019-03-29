@@ -1,14 +1,12 @@
 import bpy
 from .. base import BaseNode
-from .. socket_decl import AnyVariadicDecl
+from .. socket_builder import SocketBuilder
 
 class FunctionOutputNode(BaseNode, bpy.types.Node):
     bl_idname = "fn_FunctionOutputNode"
     bl_label = "Function Output"
 
-    variadic: AnyVariadicDecl.Property()
+    variadic: SocketBuilder.VariadicProperty()
 
-    def get_sockets(self):
-        return [
-            AnyVariadicDecl(self, "inputs", "variadic", "New Output"),
-        ], []
+    def declaration(self, builder):
+        builder.variadic_input("inputs", "variadic", "New Output")

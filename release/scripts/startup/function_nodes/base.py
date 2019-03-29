@@ -19,35 +19,9 @@ class BaseTree:
 class NodeStorage:
     def __init__(self, node):
         self.node = node
-        self.set_current_declaration(*node.get_sockets())
+        builder = node.get_socket_builder()
+        self.socket_decl_map = builder.get_sockets_decl_map()
         self.input_value_storage = dict()
-
-    def set_current_declaration(self, inputs, outputs):
-        self.inputs_decl = inputs
-        self.outputs_decl = outputs
-
-        self.inputs_per_decl = {}
-        sockets = iter(self.node.inputs)
-        for decl in self.inputs_decl:
-            group = tuple(itertools.islice(sockets, decl.amount()))
-            self.inputs_per_decl[decl] = group
-
-        self.outputs_per_decl = {}
-        sockets = iter(self.node.outputs)
-        for decl in self.outputs_decl:
-            group = tuple(itertools.islice(sockets, decl.amount()))
-            self.outputs_per_decl[decl] = group
-
-        self.sockets_per_decl = {}
-        self.sockets_per_decl.update(self.inputs_per_decl)
-        self.sockets_per_decl.update(self.outputs_per_decl)
-
-        self.decl_per_socket = {}
-        self.decl_index_per_socket = {}
-        for decl, sockets in self.sockets_per_decl.items():
-            for i, socket in enumerate(sockets):
-                self.decl_per_socket[socket] = decl
-                self.decl_index_per_socket[socket] = i
 
     def store_socket_states(self):
         for socket in self.node.inputs:
@@ -74,11 +48,8 @@ class BaseNode:
     def init(self, context):
         from . update import managed_update
         with managed_update():
-            inputs, outputs = self.get_sockets()
-            for decl in inputs:
-                decl.build(self.inputs)
-            for decl in outputs:
-                decl.build(self.outputs)
+            builder = self.get_socket_builder()
+            builder.build()
 
     @classmethod
     def get_search_terms(cls):
@@ -102,16 +73,10 @@ class BaseNode:
         self.storage.store_socket_states()
 
         with managed_update():
-            self.inputs.clear()
-            self.outputs.clear()
+            builder = self.get_socket_builder()
+            builder.build()
 
-            inputs, outputs = self.get_sockets()
-            for decl in inputs:
-                decl.build(self.inputs)
-            for decl in outputs:
-                decl.build(self.outputs)
-
-        self.storage.set_current_declaration(inputs, outputs)
+        self.storage.socket_decl_map = builder.get_sockets_decl_map()
         self.storage.try_restore_socket_states()
 
     def _get_state(self):
@@ -139,12 +104,18 @@ class BaseNode:
     def tree(self):
         return self.id_data
 
-    def get_sockets():
-        return [], []
+    def get_socket_builder(self):
+        from . socket_builder import SocketBuilder
+        builder = SocketBuilder(self)
+        self.declaration(builder)
+        return builder
+
+    def declaration(self, builder):
+        raise NotImplementedError()
 
     def draw_buttons(self, context, layout):
         self.draw(layout)
-        for decl in self.storage.sockets_per_decl.keys():
+        for decl in self.decl_map.iter_decls():
             decl.draw_node(layout)
 
     def draw(self, layout):
@@ -172,9 +143,9 @@ class BaseNode:
         props.settings_repr = repr(settings)
 
     def draw_socket(self, socket, layout):
-        storage = self.storage
-        decl = storage.decl_per_socket[socket]
-        index = storage.decl_index_per_socket[socket]
+        decl_map = self.decl_map
+        decl = decl_map.get_decl_by_socket(socket)
+        index = decl_map.get_socket_index_in_decl(socket)
         decl.draw_socket(layout, socket, index)
 
     @classmethod
@@ -214,6 +185,10 @@ class BaseNode:
             _storage_per_node[self] = NodeStorage(self)
         return _storage_per_node[self]
 
+    @property
+    def decl_map(self):
+        return self.storage.socket_decl_map
+
 
 
 class BaseSocket:
@@ -238,7 +213,7 @@ class BaseSocket:
         return (node, self.is_output, self.identifier)
 
     def get_decl(self, node):
-        return node.storage.decl_per_socket[self]
+        return node.decl_map.get_decl_by_socket(self)
 
 class FunctionNode(BaseNode):
     pass

@@ -8,7 +8,7 @@ from . sockets import OperatorSocket
 from . function_tree import FunctionTree
 from . utils.graph import iter_connected_components
 
-from . socket_decl import (
+from . declaration import (
     FixedSocketDecl,
     ListSocketDecl,
     PackListDecl,
@@ -67,7 +67,7 @@ def run_socket_operators(tree):
                 continue
 
             tree.links.remove(link)
-            decl = node.storage.decl_per_socket[own_socket]
+            decl = node.decl_map.get_decl_by_socket(own_socket)
             decl.operator_socket_call(own_socket, other_socket)
         else:
             return
@@ -132,7 +132,7 @@ def get_list_decision_ids_with_users(tree):
     decision_users = defaultdict(lambda: {"BASE": [], "LIST": []})
 
     for node in tree.nodes:
-        for decl, sockets in node.storage.sockets_per_decl.items():
+        for decl, sockets in node.decl_map.iter_decl_with_sockets():
             if isinstance(decl, ListSocketDecl):
                 decision_id = DecisionID(node, node, decl.prop_name)
                 decision_users[decision_id][decl.list_or_base].append(sockets[0])
@@ -218,7 +218,7 @@ def data_sockets_are_static(decl):
 
 def iter_pack_list_sockets(tree):
     for node in tree.nodes:
-        for decl, sockets in node.storage.sockets_per_decl.items():
+        for decl, sockets in node.decl_map.iter_decl_with_sockets():
             if isinstance(decl, PackListDecl):
                 collection = decl.get_collection()
                 for i, socket in enumerate(sockets[:-1]):

@@ -1,7 +1,6 @@
 import bpy
 from bpy.props import *
 from .. base import FunctionNode
-from .. socket_decl import TreeInterfaceDecl
 
 class CallNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_CallNode"
@@ -13,15 +12,11 @@ class CallNode(bpy.types.Node, FunctionNode):
         update=FunctionNode.refresh,
     )
 
-    def get_sockets(self):
+    def declaration(self, builder):
         if self.function_tree is None:
-            return [], []
-
-        return [
-            TreeInterfaceDecl(self, "inputs", self.function_tree, "IN"),
-        ], [
-            TreeInterfaceDecl(self, "outputs", self.function_tree, "OUT"),
-        ]
+            return
+        builder.tree_interface_input("inputs", self.function_tree, "IN")
+        builder.tree_interface_output("outputs", self.function_tree, "OUT")
 
     def draw(self, layout):
         layout.prop(self, "function_tree", text="")

@@ -1,22 +1,22 @@
 import bpy
 from bpy.props import *
 from .. base import FunctionNode
-from .. socket_decl import PackListDecl, FixedSocketDecl
 from .. types import type_infos
+from .. socket_builder import SocketBuilder
 
 class PackListNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_PackListNode"
     bl_label = "Pack List"
 
-    active_type: StringProperty(default="Float", update=FunctionNode.refresh)
-    variadic: PackListDecl.Property()
+    active_type: StringProperty(
+        default="Float",
+        update=FunctionNode.refresh)
 
-    def get_sockets(self):
-        return [
-            PackListDecl(self, "inputs", "variadic", self.active_type),
-        ], [
-            FixedSocketDecl(self, "output", "List", type_infos.to_list(self.active_type)),
-        ]
+    variadic: SocketBuilder.PackListProperty()
+
+    def declaration(self, builder):
+        builder.pack_list_input("inputs", "variadic", self.active_type)
+        builder.fixed_output("output", "List", type_infos.to_list(self.active_type))
 
     def draw(self, layout):
         self.invoke_type_selection(layout, "set_type", "Change Type", mode="BASE")
