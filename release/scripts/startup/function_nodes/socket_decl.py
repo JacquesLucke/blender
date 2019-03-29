@@ -277,19 +277,20 @@ class AnyVariadicDecl(SocketDeclBase):
             return
 
         is_output = own_socket.is_output
-        data_type = other_socket.data_type
 
-        collection = self.get_collection(node)
-        item = collection.add()
-        item.data_type = data_type
-        item.display_name = other_socket.name
-        item.identifier_prefix = str(uuid.uuid4())
-
+        self.add_item(node, other_socket.data_type, other_socket.name)
         node.rebuild_and_try_keep_state()
 
         identifier = item.identifier_prefix + self.identifier_suffix
         new_socket = node.find_socket(identifier, is_output)
         node.tree.new_link(other_socket, new_socket)
+
+    def add_item(self, node, data_type, display_name):
+        collection = self.get_collection(node)
+        item = collection.add()
+        item.data_type = data_type
+        item.display_name = display_name
+        item.identifier_prefix = str(uuid.uuid4())
 
     @classmethod
     def Property(cls):
