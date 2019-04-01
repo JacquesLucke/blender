@@ -18,6 +18,13 @@ class SocketBuilder:
     def _add_output(self, decl):
         self.output_declarations.append(decl)
 
+    def initialize_decls(self):
+        for decl in self.input_declarations:
+            decl.init()
+
+        for decl in self.output_declarations:
+            decl.init()
+
     def build(self):
         self.node.inputs.clear()
         self.node.outputs.clear()
@@ -56,8 +63,8 @@ class SocketBuilder:
     def PackListProperty():
         return PackListDecl.Property()
 
-    def pack_list_input(self, identifier, prop_name, base_type):
-        decl = PackListDecl(self.node, identifier, prop_name, base_type)
+    def pack_list_input(self, identifier, prop_name, base_type, default_amount=2):
+        decl = PackListDecl(self.node, identifier, prop_name, base_type, default_amount)
         self._add_input(decl)
 
 

@@ -1,4 +1,7 @@
 class SocketDeclBase:
+    def init(self):
+        pass
+
     def build(self, node_sockets):
         raise NotImplementedError()
 

@@ -7,12 +7,20 @@ from .. types import type_infos
 from .. sockets import OperatorSocket
 
 class PackListDecl(SocketDeclBase):
-    def __init__(self, node, identifier: str, prop_name: str, base_type: str):
+    def __init__(self, node, identifier: str, prop_name: str, base_type: str, default_amount: int):
         self.node = node
         self.identifier_suffix = identifier
         self.prop_name = prop_name
         self.base_type = base_type
         self.list_type = type_infos.to_list(base_type)
+        self.default_amount = default_amount
+
+    def init(self):
+        collection = self.get_collection()
+        for _ in range(self.default_amount):
+            item = collection.add()
+            item.state = "BASE"
+            item.identifier_prefix = str(uuid.uuid4())
 
     def build(self, node_sockets):
         return list(self._build(node_sockets))

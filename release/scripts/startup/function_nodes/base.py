@@ -49,6 +49,7 @@ class BaseNode:
         from . update import managed_update
         with managed_update():
             builder = self.get_socket_builder()
+            builder.initialize_decls()
             builder.build()
 
     @classmethod
