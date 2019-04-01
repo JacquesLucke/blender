@@ -111,6 +111,9 @@ namespace FN { namespace DataFlowNodes {
 
 	void Builder::map_sockets(Node *node, struct bNode *bnode)
 	{
+		BLI_assert(BLI_listbase_count(&bnode->inputs) == node->input_amount());
+		BLI_assert(BLI_listbase_count(&bnode->outputs) == node->output_amount());
+
 		uint input_index = 0;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
 			this->map_socket(node->input(input_index), bsocket);

@@ -11,4 +11,5 @@ class GetListElementNode(bpy.types.Node, FunctionNode):
     def declaration(self, builder: SocketBuilder):
         builder.dynamic_list_input("list", "List", "active_type")
         builder.fixed_input("index", "Index", "Integer")
+        builder.dynamic_base_input("fallback", "Fallback", "active_type")
         builder.dynamic_base_output("value", "Value", "active_type")
