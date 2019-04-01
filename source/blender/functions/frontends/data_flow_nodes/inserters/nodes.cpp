@@ -83,21 +83,22 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(node, bnode);
 	}
 
-	static void insert_pack_list_node(
+	static Socket insert_pack_list_sockets(
 		Builder &builder,
 		const BuilderContext ctx,
-		bNode *bnode)
+		bNode *bnode,
+		SharedType &base_type,
+		const char *prop_name,
+		uint start_index)
 	{
-		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
-
 		auto &empty_fn = Functions::empty_list(base_type);
 		Node *node = builder.insert_function(empty_fn, ctx.btree(), bnode);
 
 		PointerRNA ptr;
 		ctx.get_rna(bnode, &ptr);
 
-		int index = 0;
-		RNA_BEGIN(&ptr, itemptr, "variadic")
+		uint index = start_index;
+		RNA_BEGIN(&ptr, itemptr, prop_name)
 		{
 			Node *new_node;
 			int state = RNA_enum_get(&itemptr, "state");
@@ -124,7 +125,18 @@ namespace FN { namespace DataFlowNodes {
 		}
 		RNA_END;
 
-		builder.map_output(node->output(0), bnode, 0);
+		return node->output(0);
+	}
+
+	static void insert_pack_list_node(
+		Builder &builder,
+		const BuilderContext ctx,
+		bNode *bnode)
+	{
+		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
+		Socket packed_list_socket = insert_pack_list_sockets(
+			builder, ctx, bnode, base_type, "variadic", 0);
+		builder.map_output(packed_list_socket, bnode, 0);
 	}
 
 	static void insert_call_node(
