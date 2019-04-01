@@ -15,7 +15,7 @@ class SocketDeclBase:
         pass
 
     def draw_socket(self, layout, socket, index):
-        socket.draw_self(layout, self)
+        socket.draw_self(layout, self, socket.name)
 
     def operator_socket_call(self, own_socket, other_socket):
         pass

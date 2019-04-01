@@ -57,13 +57,13 @@ class PackListDecl(SocketDeclBase):
 
     def draw_socket(self, layout, socket, index):
         if isinstance(socket, OperatorSocket):
-            props = layout.operator("fn.new_pack_list_input", text="New", emboss=False)
+            props = layout.operator("fn.new_pack_list_input", text="New Input", icon='ADD')
             props.tree_name = self.node.tree.name
             props.node_name = self.node.name
             props.prop_name = self.prop_name
         else:
             row = layout.row(align=True)
-            socket.draw_self(row, self.node)
+            socket.draw_self(row, self.node, str(index))
             props = row.operator("fn.remove_pack_list_input", text="", icon='X')
             props.tree_name = self.node.tree.name
             props.node_name = self.node.name
