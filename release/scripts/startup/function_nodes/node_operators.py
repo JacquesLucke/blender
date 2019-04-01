@@ -85,34 +85,26 @@ class MoveViewToNode(bpy.types.Operator):
         bpy.ops.node.view_selected('INVOKE_DEFAULT')
         return {'FINISHED'}
 
-class NewFunctionTree(bpy.types.Operator):
-    bl_idname = "fn.new_function_tree"
-    bl_label = "New Function Tree"
-
-    name: StringProperty()
-    inputs: StringProperty()
-    outputs: StringProperty()
-
-    def execute(self, context):
-        tree = bpy.data.node_groups.new(self.name, "FunctionTree")
-        input_node = self.create_input(tree)
-        output_node = self.create_output(tree)
-        input_node.location.x = -200 - input_node.width
-        output_node.location.x = 200
-        return {'FINISHED'}
-
-    def create_input(self, tree):
+def new_function_tree(name, inputs, outputs):
+    def create_input(tree):
         input_node = tree.nodes.new("fn_FunctionInputNode")
         variadic = input_node.outputs[0].get_decl(input_node)
-        for data_type, name in eval(self.inputs):
+        for data_type, name in inputs:
             variadic.add_item(data_type, name)
         input_node.refresh()
         return input_node
 
-    def create_output(self, tree):
+    def create_output(tree):
         output_node = tree.nodes.new("fn_FunctionOutputNode")
         variadic = output_node.inputs[0].get_decl(output_node)
-        for data_type, name in eval(self.outputs):
+        for data_type, name in outputs:
             variadic.add_item(data_type, name)
         output_node.refresh()
         return output_node
+
+    tree = bpy.data.node_groups.new(name, "FunctionTree")
+    input_node = create_input(tree)
+    output_node = create_output(tree)
+    input_node.location.x = -200 - input_node.width
+    output_node.location.x = 200
+    return tree

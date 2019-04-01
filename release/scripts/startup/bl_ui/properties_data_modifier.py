@@ -1639,12 +1639,22 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
     def FUNCTION_DEFORM(self, layout, ob, md):
         layout.prop(md, "control1")
         layout.prop(md, "control2")
-        layout.prop(md, "function_tree")
+
+        row = layout.row(align=True)
+        row.prop(md, "function_tree")
+        props = row.operator("fn.new_deformation_function", text="", icon="ADD")
+        props.object_name = ob.name
+        props.modifier_name = md.name
 
     def FUNCTION_POINTS(self, layout, ob, md):
         layout.prop(md, "control1")
         layout.prop(md, "control2")
-        layout.prop(md, "function_tree")
+
+        row = layout.row(align=True)
+        row.prop(md, "function_tree")
+        props = row.operator("fn.new_point_generator_function", text="", icon="ADD")
+        props.object_name = ob.name
+        props.modifier_name = md.name
 
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):

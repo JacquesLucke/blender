@@ -34,6 +34,7 @@ _modules = [
     "image",
     "mask",
     "mesh",
+    "modifiers",
     "node",
     "object",
     "object_align",
