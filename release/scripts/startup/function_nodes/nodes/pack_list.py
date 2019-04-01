@@ -18,8 +18,14 @@ class PackListNode(bpy.types.Node, FunctionNode):
         builder.pack_list_input("inputs", "variadic", self.active_type)
         builder.fixed_output("output", "List", type_infos.to_list(self.active_type))
 
-    def draw(self, layout):
+    def draw_advanced(self, layout):
         self.invoke_type_selection(layout, "set_type", "Change Type", mode="BASE")
 
     def set_type(self, data_type):
         self.active_type = data_type
+
+    @classmethod
+    def get_search_terms(cls):
+        for list_type in type_infos.iter_list_types():
+            base_type = type_infos.to_base(list_type)
+            yield ("Pack " + list_type, {"active_type" : base_type})

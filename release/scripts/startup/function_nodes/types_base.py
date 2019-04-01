@@ -87,7 +87,7 @@ class DataTypesInfo:
 
     def get_base_type_items(self):
         items = []
-        for data_type in self.list_by_base.keys():
+        for data_type in self.iter_base_types():
             items.append((data_type, data_type, ""))
         return items
 
@@ -111,6 +111,12 @@ class DataTypesInfo:
 
     def is_implicitly_convertable(self, from_type, to_type):
         return ImplicitConversion(from_type, to_type) in self.implicit_conversions
+
+    def iter_list_types(self):
+        yield from self.base_by_list.keys()
+
+    def iter_base_types(self):
+        yield from self.list_by_base.keys()
 
 
 # Data Socket Builders

@@ -118,7 +118,13 @@ class BaseNode:
         for decl in self.decl_map.iter_decls():
             decl.draw_node(layout)
 
+    def draw_buttons_ext(self, context, layout):
+        self.draw_advanced(layout)
+
     def draw(self, layout):
+        pass
+
+    def draw_advanced(self, layout):
         pass
 
     def invoke_function(self,
