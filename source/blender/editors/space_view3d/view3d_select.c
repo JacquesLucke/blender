@@ -618,6 +618,7 @@ static void do_lasso_select_mesh__doSelectVert(void *userData, BMVert *eve, cons
 	const int sel_op_result = ED_select_op_action_deselected(data->sel_op, is_select, is_inside);
 	if (sel_op_result != -1) {
 		BM_vert_select_set(data->vc->em->bm, eve, sel_op_result);
+		data->is_changed = true;
 	}
 }
 static void do_lasso_select_mesh__doSelectEdge_pass0(
@@ -634,6 +635,7 @@ static void do_lasso_select_mesh__doSelectEdge_pass0(
 	if (sel_op_result != -1) {
 		BM_edge_select_set(data->vc->em->bm, eed, sel_op_result);
 		data->is_done = true;
+		data->is_changed = true;
 	}
 }
 static void do_lasso_select_mesh__doSelectEdge_pass1(
@@ -648,6 +650,7 @@ static void do_lasso_select_mesh__doSelectEdge_pass1(
 	const int sel_op_result = ED_select_op_action_deselected(data->sel_op, is_select, is_inside);
 	if (sel_op_result != -1) {
 		BM_edge_select_set(data->vc->em->bm, eed, sel_op_result);
+		data->is_changed = true;
 	}
 }
 
@@ -662,6 +665,7 @@ static void do_lasso_select_mesh__doSelectFace(void *userData, BMFace *efa, cons
 	const int sel_op_result = ED_select_op_action_deselected(data->sel_op, is_select, is_inside);
 	if (sel_op_result != -1) {
 		BM_face_select_set(data->vc->em->bm, efa, sel_op_result);
+		data->is_changed = true;
 	}
 }
 
@@ -3201,8 +3205,7 @@ static bool lattice_circle_select(ViewContext *vc, const eSelectOp sel_op, const
 	view3d_userdata_circleselect_init(&data, vc, select, mval, rad);
 
 	if (SEL_OP_USE_PRE_DESELECT(sel_op)) {
-		Curve *curve = vc->obedit->data;
-		data.is_changed |= ED_curve_deselect_all(curve->editnurb);
+		data.is_changed |= ED_lattice_flags_set(vc->obedit, 0);
 	}
 	ED_view3d_init_mats_rv3d(vc->obedit, vc->rv3d); /* for foreach's screen/vert projection */
 
