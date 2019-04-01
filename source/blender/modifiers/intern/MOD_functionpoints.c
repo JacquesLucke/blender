@@ -147,12 +147,6 @@ ModifierTypeInfo modifierType_FunctionPoints = {
 	/* flags */             eModifierTypeFlag_AcceptsMesh,
 	/* copyData */          modifier_copyData_generic,
 
-	/* PointsVerts_DM */    NULL,
-	/* deformMatrices_DM */ NULL,
-	/* deformVertsEM_DM */  NULL,
-	/* deformMatricesEM_DM*/NULL,
-	/* applyModifier_DM */  NULL,
-
 	/* deformVerts */       NULL,
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
@@ -169,4 +163,5 @@ ModifierTypeInfo modifierType_FunctionPoints = {
 	/* foreachObjectLink */ NULL,
 	/* foreachIDLink */     foreachIDLink,
 	/* foreachTexLink */    NULL,
+	/* freeRuntimeData */   NULL,
 };
