@@ -67,12 +67,18 @@ namespace FN { namespace DataFlowNodes {
 		auto inserter = [getter](
 				Builder &builder,
 				const BuilderContext &ctx,
-				bNodeLink *blink,
 				Socket from,
-				Socket to)
+				Socket to,
+				struct bNodeLink *source_link)
 			{
 				auto fn = getter();
-				Node *node = builder.insert_function(fn, ctx.btree(), blink);
+				Node *node;
+				if (source_link == NULL) {
+					node = builder.insert_function(fn);
+				}
+				else {
+					node = builder.insert_function(fn, ctx.btree(), source_link);
+				}
 				builder.insert_link(from, node->input(0));
 				builder.insert_link(node->output(0), to);
 			};
@@ -156,16 +162,18 @@ namespace FN { namespace DataFlowNodes {
 	bool GraphInserters::insert_link(
 		Builder &builder,
 		const BuilderContext &ctx,
-		struct bNodeLink *blink)
+		struct bNodeSocket *from_bsocket,
+		struct bNodeSocket *to_bsocket,
+		struct bNodeLink *source_link)
 	{
-		BLI_assert(ctx.is_data_socket(blink->fromsock));
-		BLI_assert(ctx.is_data_socket(blink->tosock));
+		BLI_assert(ctx.is_data_socket(from_bsocket));
+		BLI_assert(ctx.is_data_socket(to_bsocket));
 
-		Socket from_socket = builder.lookup_socket(blink->fromsock);
-		Socket to_socket = builder.lookup_socket(blink->tosock);
+		Socket from_socket = builder.lookup_socket(from_bsocket);
+		Socket to_socket = builder.lookup_socket(to_bsocket);
 
-		std::string from_type = ctx.socket_type_string(blink->fromsock);
-		std::string to_type = ctx.socket_type_string(blink->tosock);
+		std::string from_type = ctx.socket_type_string(from_bsocket);
+		std::string to_type = ctx.socket_type_string(to_bsocket);
 
 		if (from_type == to_type) {
 			builder.insert_link(from_socket, to_socket);
@@ -175,7 +183,7 @@ namespace FN { namespace DataFlowNodes {
 		auto key = std::pair<std::string, std::string>(from_type, to_type);
 		if (m_conversion_inserters.contains(key)) {
 			auto inserter = m_conversion_inserters.lookup(key);
-			inserter(builder, ctx, blink, from_socket, to_socket);
+			inserter(builder, ctx, from_socket, to_socket, source_link);
 			return true;
 		}
 

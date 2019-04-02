@@ -18,6 +18,11 @@ namespace FN { namespace DataFlowNodes {
 		return STREQ(bnode->idname, "fn_FunctionOutputNode");
 	}
 
+	static bool is_reroute_node(const bNode *bnode)
+	{
+		return STREQ(bnode->idname, "NodeReroute");
+	}
+
 	static void find_interface_nodes(
 		bNodeTree *btree,
 		bNode **r_input,
@@ -67,6 +72,77 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_data_sockets(node, bnode, ctx);
 	}
 
+	struct BSocketLink {
+		bNodeSocket *from;
+		bNodeSocket *to;
+		bNodeLink *optional_source_link;
+
+		BSocketLink(bNodeSocket *from, bNodeSocket *to, bNodeLink *link = nullptr)
+			: from(from), to(to), optional_source_link(link) {}
+	};
+
+	using BSocketMapping = SmallMap<bNodeSocket *, bNodeSocket *>;
+	using BSocketLinkVector = SmallVector<BSocketLink>;
+
+	class TreeData {
+	private:
+		SmallMap<bNodeSocket *, bNode *> m_node_by_socket;
+		BSocketMapping m_direct_origin_socket;
+		BSocketLinkVector m_data_links;
+
+	public:
+		TreeData(bNodeTree *btree)
+		{
+			for (bNode *bnode : bNodeList(&btree->nodes)) {
+				for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
+					m_node_by_socket.add(bsocket, bnode);
+				}
+				for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
+					m_node_by_socket.add(bsocket, bnode);
+				}
+			}
+
+			for (bNodeLink *blink : bLinkList(&btree->links)) {
+				BLI_assert(!m_direct_origin_socket.contains(blink->tosock));
+				m_direct_origin_socket.add(blink->tosock, blink->fromsock);
+			}
+
+			for (bNodeLink *blink : bLinkList(&btree->links)) {
+				bNodeSocket *target = blink->tosock;
+				bNode *target_node = m_node_by_socket.lookup(target);
+				if (is_reroute_node(target_node)) {
+					continue;
+				}
+				bNodeSocket *origin = this->try_find_data_origin(target);
+				m_data_links.append(BSocketLink(origin, target, blink));
+			}
+		}
+
+		const BSocketLinkVector &data_origins()
+		{
+			return m_data_links;
+		}
+
+	private:
+		bNodeSocket *try_find_data_origin(bNodeSocket *bsocket)
+		{
+			BLI_assert(bsocket->in_out == SOCK_IN);
+			if (m_direct_origin_socket.contains(bsocket)) {
+				bNodeSocket *origin = m_direct_origin_socket.lookup(bsocket);
+				bNode *origin_node = m_node_by_socket.lookup(origin);
+				if (is_reroute_node(origin_node)) {
+					return this->try_find_data_origin((bNodeSocket *)origin_node->inputs.first);
+				}
+				else {
+					return origin;
+				}
+			}
+			else {
+				return nullptr;
+			}
+		}
+	};
+
 	Optional<FunctionGraph> generate_function_graph(struct bNodeTree *btree)
 	{
 		auto graph = SharedDataFlowGraph::New();
@@ -82,6 +158,9 @@ namespace FN { namespace DataFlowNodes {
 
 		for (bNode *bnode : bNodeList(&btree->nodes)) {
 			if (bnode == input_node || bnode == output_node) {
+				continue;
+			}
+			if (is_reroute_node(bnode)) {
 				continue;
 			}
 
@@ -110,8 +189,13 @@ namespace FN { namespace DataFlowNodes {
 			}
 		}
 
-		for (bNodeLink *blink : bLinkList(&btree->links)) {
-			if (!inserters.insert_link(builder, ctx, blink)) {
+		TreeData tree_data(btree);
+		for (auto &link : tree_data.data_origins()) {
+			if (!inserters.insert_link(
+				builder, ctx,
+				link.from, link.to,
+				link.optional_source_link))
+			{
 				return {};
 			}
 		}

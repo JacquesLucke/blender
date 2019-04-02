@@ -23,9 +23,9 @@ namespace FN { namespace DataFlowNodes {
 	typedef std::function<void (
 		Builder &builder,
 		const BuilderContext &ctx,
-		bNodeLink *blink,
 		Socket from,
-		Socket to)> ConversionInserter;
+		Socket to,
+		struct bNodeLink *source_link)> ConversionInserter;
 
 	typedef std::function<SharedFunction ()> FunctionGetter;
 
@@ -64,7 +64,9 @@ namespace FN { namespace DataFlowNodes {
 		bool insert_link(
 			Builder &builder,
 			const BuilderContext &ctx,
-			struct bNodeLink *blink);
+			struct bNodeSocket *from_bsocket,
+			struct bNodeSocket *to_bsocket,
+			struct bNodeLink *source_link = nullptr);
 	};
 
 	GraphInserters &get_standard_inserters();
