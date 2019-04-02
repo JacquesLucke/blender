@@ -57,18 +57,22 @@ class AnyVariadicDecl(SocketDeclBase):
     def get_collection(self):
         return getattr(self.node, self.prop_name)
 
-    def operator_socket_call(self, own_socket, other_socket):
-        if not isinstance(other_socket, DataSocket):
+    def operator_socket_call(self, own_socket, linked_socket, connected_sockets):
+        connected_types = {s.data_type for s in connected_sockets if isinstance(s, DataSocket)}
+        if len(connected_types) != 1:
             return
+
+        connected_socket = next(iter(connected_sockets))
+        connected_type = next(iter(connected_types))
 
         is_output = own_socket.is_output
 
-        item = self.add_item(other_socket.data_type, other_socket.name)
+        item = self.add_item(connected_type, connected_socket.name)
         self.node.rebuild_and_try_keep_state()
 
         identifier = item.identifier_prefix + self.identifier_suffix
         new_socket = self.node.find_socket(identifier, is_output)
-        self.node.tree.new_link(other_socket, new_socket)
+        self.node.tree.new_link(linked_socket, new_socket)
 
     def add_item(self, data_type, display_name):
         collection = self.get_collection()

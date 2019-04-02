@@ -70,12 +70,15 @@ class PackListDecl(SocketDeclBase):
             props.prop_name = self.prop_name
             props.index = index
 
-    def operator_socket_call(self, own_socket, other_socket):
-        if not isinstance(other_socket, DataSocket):
+    def operator_socket_call(self, own_socket, linked_socket, connected_sockets):
+        if len(connected_sockets) != 1:
+            return
+        connected_socket = next(iter(connected_sockets))
+        if not isinstance(connected_socket, DataSocket):
             return
 
         is_output = own_socket.is_output
-        data_type = other_socket.data_type
+        data_type = connected_socket.data_type
 
         if type_infos.is_base(data_type):
             if data_type != self.base_type:
@@ -97,7 +100,7 @@ class PackListDecl(SocketDeclBase):
 
         identifier = item.identifier_prefix + self.identifier_suffix
         new_socket = self.node.find_socket(identifier, is_output)
-        self.node.tree.new_link(other_socket, new_socket)
+        self.node.tree.new_link(linked_socket, new_socket)
 
     def amount(self):
         return len(self.get_collection()) + 1
