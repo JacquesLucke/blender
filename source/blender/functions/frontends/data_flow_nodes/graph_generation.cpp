@@ -114,7 +114,9 @@ namespace FN { namespace DataFlowNodes {
 					continue;
 				}
 				bNodeSocket *origin = this->try_find_data_origin(target);
-				m_data_links.append(BSocketLink(origin, target, blink));
+				if (origin != nullptr) {
+					m_data_links.append(BSocketLink(origin, target, blink));
+				}
 			}
 		}
 
