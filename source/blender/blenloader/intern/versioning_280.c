@@ -1434,7 +1434,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 							scene->eevee.flag &= ~_flag; \
 						} \
 					} \
-				}
+				} ((void)0)
 
 #define EEVEE_GET_INT(_props, _name) \
 				{ \
@@ -1442,7 +1442,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 					if (_idprop != NULL) { \
 						scene->eevee._name = IDP_Int(_idprop); \
 					} \
-				}
+				} ((void)0)
 
 #define EEVEE_GET_FLOAT(_props, _name) \
 				{ \
@@ -1450,7 +1450,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 					if (_idprop != NULL) { \
 						scene->eevee._name = IDP_Float(_idprop); \
 					} \
-				}
+				} ((void)0)
 
 #define EEVEE_GET_FLOAT_ARRAY(_props, _name, _length) \
 				{ \
@@ -1461,7 +1461,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 							scene->eevee._name [_i] = _values[_i]; \
 						} \
 					} \
-				}
+				} ((void)0)
 
 				IDProperty *props = IDP_GetPropertyFromGroup(scene->layer_properties, RE_engine_id_BLENDER_EEVEE);
 				EEVEE_GET_BOOL(props, volumetric_enable, SCE_EEVEE_VOLUMETRIC_ENABLED);
@@ -2950,6 +2950,19 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 			/* Eevee: Keep material appearance consistent with previous behavior. */
 			if (!mat->use_nodes || !mat->nodetree || mat->blend_method == MA_BM_SOLID) {
 				mat->blend_shadow = MA_BS_SOLID;
+			}
+		}
+
+		/* grease pencil default animation channel color */
+		{
+			for (bGPdata *gpd = bmain->gpencils.first; gpd; gpd = gpd->id.next) {
+				if (gpd->flag & GP_DATA_ANNOTATIONS) {
+					continue;
+				}
+				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+					/* default channel color */
+					ARRAY_SET_ITEMS(gpl->color, 0.2f, 0.2f, 0.2f);
+				}
 			}
 		}
 	}
