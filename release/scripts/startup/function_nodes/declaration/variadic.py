@@ -64,10 +64,11 @@ class AnyVariadicDecl(SocketDeclBase):
 
         connected_socket = next(iter(connected_sockets))
         connected_type = next(iter(connected_types))
+        connected_node = connected_socket.node
 
         is_output = own_socket.is_output
 
-        item = self.add_item(connected_type, connected_socket.name)
+        item = self.add_item(connected_type, connected_socket.get_name(connected_node))
         self.node.rebuild_and_try_keep_state()
 
         identifier = item.identifier_prefix + self.identifier_suffix
@@ -81,6 +82,13 @@ class AnyVariadicDecl(SocketDeclBase):
         item.display_name = display_name
         item.identifier_prefix = str(uuid.uuid4())
         return item
+
+    def get_socket_name(self, socket, index):
+        collection = self.get_collection()
+        if index < len(collection):
+            return collection[index].display_name
+        else:
+            return socket.name
 
     @classmethod
     def Property(cls):

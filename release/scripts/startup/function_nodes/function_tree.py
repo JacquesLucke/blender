@@ -30,7 +30,7 @@ class FunctionTree(bpy.types.NodeTree, BaseTree):
         for socket in node.outputs[:-1]:
             yield FunctionInput(
                 socket.data_type,
-                "hello",
+                socket.get_name(node),
                 socket.identifier)
 
     def iter_function_outputs(self):
@@ -41,7 +41,7 @@ class FunctionTree(bpy.types.NodeTree, BaseTree):
         for socket in node.inputs[:-1]:
             yield FunctionOutput(
                 socket.data_type,
-                "bye",
+                socket.get_name(node),
                 socket.identifier)
 
     def get_input_node(self):

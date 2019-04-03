@@ -19,3 +19,6 @@ class SocketDeclBase:
 
     def operator_socket_call(self, own_socket, other_socket):
         pass
+
+    def get_socket_name(self, socket, index):
+        return socket.name

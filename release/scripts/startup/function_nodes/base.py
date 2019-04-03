@@ -154,12 +154,6 @@ class BaseNode:
         props.function_name = function_name
         props.settings_repr = repr(settings)
 
-    def draw_socket(self, socket, layout):
-        decl_map = self.decl_map
-        decl = decl_map.get_decl_by_socket(socket)
-        index = decl_map.get_socket_index_in_decl(socket)
-        decl.draw_socket(layout, socket, index)
-
     @classmethod
     def iter_final_subclasses(cls):
         yield from filter(lambda x: issubclass(x, bpy.types.Node), iter_subclasses_recursive(cls))
@@ -210,7 +204,8 @@ class BaseSocket:
         return self.color
 
     def draw(self, context, layout, node, text):
-        node.draw_socket(self, layout)
+        decl, index = self.get_decl_with_index(node)
+        decl.draw_socket(layout, self, index)
 
     def draw_self(self, layout, node, text):
         layout.label(text=text)
@@ -221,11 +216,21 @@ class BaseSocket:
         else:
             return tuple(node.inputs).index(self)
 
+    def get_name(self, node):
+        decl, index = self.get_decl_with_index(node)
+        return decl.get_socket_name(self, index)
+
     def to_id(self, node):
         return (node, self.is_output, self.identifier)
 
     def get_decl(self, node):
         return node.decl_map.get_decl_by_socket(self)
+
+    def get_decl_with_index(self, node):
+        decl_map = node.decl_map
+        decl = decl_map.get_decl_by_socket(self)
+        index = decl_map.get_socket_index_in_decl(self)
+        return decl, index
 
 class FunctionNode(BaseNode):
     pass
