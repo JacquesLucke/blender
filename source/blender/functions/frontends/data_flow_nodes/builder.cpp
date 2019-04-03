@@ -16,6 +16,25 @@
 	}
 #endif
 
+#ifdef WITH_PYTHON
+static PyObject *get_py_bnode(bNodeTree *btree, bNode *bnode)
+{
+	PointerRNA ptr;
+	RNA_pointer_create(
+		&btree->id, &RNA_Node,
+		bnode, &ptr);
+	return pyrna_struct_CreatePyObject(&ptr);
+}
+static PyObject *get_py_bsocket(bNodeTree *btree, bNodeSocket *bsocket)
+{
+	PointerRNA ptr;
+	RNA_pointer_create(
+		&btree->id, &RNA_NodeSocket,
+		bsocket, &ptr);
+	return pyrna_struct_CreatePyObject(&ptr);
+}
+#endif
+
 namespace FN { namespace DataFlowNodes {
 
 	class NodeSource : public SourceInfo {
@@ -45,15 +64,9 @@ namespace FN { namespace DataFlowNodes {
 			PyObject *globals = PyModule_GetDict(module);
 			PyObject *function = PyDict_GetItemString(globals, "report_warning");
 
-			PointerRNA ptr;
-			RNA_pointer_create(
-				&m_btree->id, &RNA_Node,
-				m_bnode, &ptr);
-
-			PyObject *py_bnode = pyrna_struct_CreatePyObject(&ptr);
-
-			PyObject *args = Py_BuildValue("(Os)", py_bnode, msg.c_str());
-			PyObject_CallObject(function, args);
+			PyObject *py_bnode = get_py_bnode(m_btree, m_bnode);
+			PyObject *ret = PyObject_CallFunction(function, "Os", py_bnode, msg.c_str());
+			Py_DECREF(ret);
 
 			PyGILState_Release(gilstate);
 #endif
@@ -251,6 +264,26 @@ namespace FN { namespace DataFlowNodes {
 	{
 		std::string data_type = this->socket_type_string(bsocket);
 		return this->type_by_name(data_type.c_str());
+	}
+
+	std::string BuilderContext::name_of_socket(bNode *bnode, bNodeSocket *bsocket) const
+	{
+#ifdef WITH_PYTHON
+		PyGILState_STATE gilstate;
+		gilstate = PyGILState_Ensure();
+
+		PyObject *py_bnode = get_py_bnode(m_btree, bnode);
+		PyObject *py_bsocket = get_py_bsocket(m_btree, bsocket);
+		PyObject *ret = PyObject_CallMethod(py_bsocket, "get_name", "O", py_bnode);
+		BLI_assert(PyUnicode_Check(ret));
+		const char *name_ = PyUnicode_AsUTF8(ret);
+		std::string name(name_);
+		Py_DECREF(ret);
+
+		PyGILState_Release(gilstate);
+		return name;
+#endif
+		return bsocket->name;
 	}
 
 	void BuilderContext::get_rna(bNode *bnode, PointerRNA *ptr) const

@@ -63,6 +63,7 @@ namespace FN { namespace DataFlowNodes {
 		bool is_data_socket(bNodeSocket *bsocket) const;
 		SharedType &type_by_name(const char *data_type) const;
 		SharedType &type_of_socket(bNodeSocket *bsocket) const;
+		std::string name_of_socket(bNode *bnode, bNodeSocket *bsocket) const;
 
 		void get_rna(bNode *bnode, PointerRNA *ptr) const;
 		void get_rna(bNodeSocket *bsocket, PointerRNA *ptr) const;

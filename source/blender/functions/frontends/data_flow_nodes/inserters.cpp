@@ -130,11 +130,17 @@ namespace FN { namespace DataFlowNodes {
 	SmallSocketVector GraphInserters::insert_sockets(
 		Builder &builder,
 		const BuilderContext &ctx,
-		BSockets &bsockets)
+		BSockets &bsockets,
+		BNodes &bnodes)
 	{
+		BLI_assert(bsockets.size() == bnodes.size());
+
 		SmallVector<SocketLoader> loaders;
 		OutputParameters outputs;
-		for (auto *bsocket : bsockets) {
+		for (uint i = 0; i < bsockets.size(); i++) {
+			bNode *bnode = bnodes[i];
+			bNodeSocket *bsocket = bsockets[i];
+
 			PointerRNA ptr;
 			RNA_pointer_create(
 				ctx.btree_id(), &RNA_NodeSocket,
@@ -145,7 +151,9 @@ namespace FN { namespace DataFlowNodes {
 
 			SocketLoader loader = m_socket_loaders.lookup(data_type);
 			loaders.append(loader);
-			outputs.append(OutputParameter(bsocket->name, ctx.type_of_socket(bsocket)));
+			outputs.append(OutputParameter(
+				ctx.name_of_socket(bnode, bsocket),
+				ctx.type_of_socket(bsocket)));
 		}
 
 		auto fn = SharedFunction::New("Input Sockets", Signature({}, outputs));

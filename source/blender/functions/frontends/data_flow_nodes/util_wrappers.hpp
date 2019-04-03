@@ -13,5 +13,6 @@ namespace FN { namespace DataFlowNodes {
 	using bLinkList = ListBaseWrapper<struct bNodeLink, true>;
 	using bSocketList = ListBaseWrapper<struct bNodeSocket, true>;
 	using BSockets = SmallVector<struct bNodeSocket *>;
+	using BNodes = SmallVector<struct bNode *>;
 
 } } /* namespace FN::DataFlowNodes */

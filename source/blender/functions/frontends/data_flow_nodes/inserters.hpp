@@ -59,7 +59,8 @@ namespace FN { namespace DataFlowNodes {
 		SmallSocketVector insert_sockets(
 			Builder &builder,
 			const BuilderContext &ctx,
-			BSockets &bsockets);
+			BSockets &bsockets,
+			BNodes &bnodes);
 
 		bool insert_link(
 			Builder &builder,
