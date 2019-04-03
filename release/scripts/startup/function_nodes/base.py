@@ -80,6 +80,11 @@ class BaseNode:
         self.storage.socket_decl_map = builder.get_sockets_decl_map()
         self.storage.try_restore_socket_states()
 
+        self.on_rebuild_post()
+
+    def on_rebuild_post(self):
+        pass
+
     def _get_state(self):
         links_per_input = defaultdict(set)
         links_per_output = defaultdict(set)

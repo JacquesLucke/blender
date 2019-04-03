@@ -10,3 +10,6 @@ class FunctionOutputNode(BaseNode, bpy.types.Node):
 
     def declaration(self, builder):
         builder.variadic_input("inputs", "variadic", "New Output")
+
+    def on_rebuild_post(self):
+        self.tree.interface_changed()

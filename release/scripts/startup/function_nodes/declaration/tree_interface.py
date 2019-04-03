@@ -38,7 +38,7 @@ class TreeInterfaceDecl(SocketDeclBase):
         if self.in_or_out == "IN":
             data_types = [d.data_type for d in self.tree.iter_function_inputs()]
         elif self.in_or_out == "OUT":
-            data_types = [d.data_type for d in self.tree.iter_function_inputs()]
+            data_types = [d.data_type for d in self.tree.iter_function_outputs()]
         else:
             assert False
 
