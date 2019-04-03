@@ -46,7 +46,7 @@ namespace FN {
 			for (uint i = 0; i < m_outputs.size(); i++) {
 				Socket socket = m_outputs[i];
 				this->generate_for_socket(
-					builder, interface.context_ptr(), settings, socket, values, forwarded_sockets);
+					builder, interface, settings, socket, values, forwarded_sockets);
 
 				interface.set_output(i, values.lookup(socket));
 			}
@@ -55,7 +55,7 @@ namespace FN {
 	private:
 		void generate_for_socket(
 			CodeBuilder &builder,
-			llvm::Value *context_ptr,
+			CodeInterface &interface,
 			const BuildIRSettings &settings,
 			Socket socket,
 			SocketValueMap &values,
@@ -67,7 +67,7 @@ namespace FN {
 			else if (socket.is_input()) {
 				Socket origin = socket.origin();
 				this->generate_for_socket(
-					builder, context_ptr, settings, origin, values, forwarded_sockets);
+					builder, interface, settings, origin, values, forwarded_sockets);
 				this->forward_output_if_necessary(builder, origin, values, forwarded_sockets);
 			}
 			else if (socket.is_output()) {
@@ -75,12 +75,12 @@ namespace FN {
 				LLVMValues input_values;
 				for (Socket input : node->inputs()) {
 					this->generate_for_socket(
-						builder, context_ptr, settings, input, values, forwarded_sockets);
+						builder, interface, settings, input, values, forwarded_sockets);
 					input_values.append(values.lookup(input));
 				}
 
 				LLVMValues output_values = this->build_node_ir(
-					builder, context_ptr, settings, node, input_values);
+					builder, interface, settings, node, input_values);
 
 				for (uint i = 0; i < output_values.size(); i++) {
 					Socket output = node->output(i);
@@ -143,25 +143,27 @@ namespace FN {
 
 		LLVMValues build_node_ir(
 			CodeBuilder &builder,
-			llvm::Value *context_ptr,
+			CodeInterface &interface,
 			const BuildIRSettings &settings,
 			Node *node,
 			LLVMValues &input_values) const
 		{
 			if (settings.maintain_stack()) {
-				this->push_stack_frames_for_node(builder, context_ptr, node);
+				this->push_stack_frames_for_node(builder, interface.context_ptr(), node);
 			}
 
 			SharedFunction &fn = node->function();
 			LLVMValues output_values(node->output_amount());
-			CodeInterface sub_interface(input_values, output_values, context_ptr);
+			CodeInterface sub_interface(
+				input_values, output_values,
+				interface.context_ptr(), interface.function_ir_cache());
 
 			BLI_assert(fn->has_body<LLVMBuildIRBody>());
 			auto *body = fn->body<LLVMBuildIRBody>();
 			body->build_ir(builder, sub_interface, settings);
 
 			if (settings.maintain_stack()) {
-				this->pop_stack_frames_for_node(builder, context_ptr);
+				this->pop_stack_frames_for_node(builder, interface.context_ptr());
 			}
 
 			return output_values;

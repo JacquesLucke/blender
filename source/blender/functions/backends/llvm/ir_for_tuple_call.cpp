@@ -59,41 +59,21 @@ namespace FN {
 			CodeInterface &interface,
 			const BuildIRSettings &settings) const override
 		{
-			Function *fn = m_tuple_call->owner();
+
 			llvm::LLVMContext &context = builder.getContext();
+			Function *fn = m_tuple_call->owner();
 
 			/* Find relevant type information. */
 			auto input_type_infos = fn->signature().input_extensions<LLVMTypeInfo>();
 			auto output_type_infos = fn->signature().output_extensions<LLVMTypeInfo>();
 
-			LLVMTypes input_types = builder.types_of_values(interface.inputs());
-			if (settings.maintain_stack()) {
-				input_types.append(builder.getVoidPtrTy());
-			}
-
-			LLVMTypes output_types;
-			for (auto type_info : output_type_infos) {
-				output_types.append(type_info->get_type(context));
-			}
-
 			/* Build wrapper function. */
-			llvm::Type *wrapper_output_type = llvm::StructType::get(context, to_array_ref(output_types));
-
-			llvm::FunctionType *wrapper_function_type = llvm::FunctionType::get(
-				wrapper_output_type, to_array_ref(input_types), false);
-
-			llvm::Function *wrapper_function = llvm::Function::Create(
-				wrapper_function_type,
-				llvm::GlobalValue::LinkageTypes::InternalLinkage,
-				fn->name() + " Wrapper",
-				builder.getModule());
-
-			this->build_wrapper_function(
+			llvm::Function *wrapper_function = this->get_wrapper_function(
+				builder,
+				interface,
 				settings,
-				wrapper_function,
 				input_type_infos,
-				output_type_infos,
-				wrapper_output_type);
+				output_type_infos);
 
 			/* Call wrapper function. */
 			LLVMValues call_inputs = interface.inputs();
@@ -110,6 +90,54 @@ namespace FN {
 		}
 
 	private:
+		llvm::Function *get_wrapper_function(
+			CodeBuilder &builder,
+			CodeInterface &interface,
+			const BuildIRSettings &settings,
+			SmallVector<LLVMTypeInfo *> input_type_infos,
+			SmallVector<LLVMTypeInfo *> output_type_infos) const
+		{
+			Function *fn = m_tuple_call->owner();
+
+			LLVMTypes input_types = builder.types_of_values(interface.inputs());
+			if (settings.maintain_stack()) {
+				input_types.append(builder.getVoidPtrTy());
+			}
+
+			LLVMTypes output_types;
+			for (auto type_info : output_type_infos) {
+				output_types.append(type_info->get_type(builder.getContext()));
+			}
+
+			llvm::Function *wrapper_function;
+			FunctionIRCache &function_cache = interface.function_ir_cache();
+			if (function_cache.contains((void *)this)) {
+				wrapper_function = function_cache.lookup((void *)this);
+			}
+			else {
+				llvm::Type *wrapper_output_type = builder.getStructType(output_types);
+
+				llvm::FunctionType *wrapper_function_type = builder.getFunctionType(
+					wrapper_output_type, input_types);
+
+				wrapper_function = llvm::Function::Create(
+					wrapper_function_type,
+					llvm::GlobalValue::LinkageTypes::InternalLinkage,
+					fn->name() + " Wrapper",
+					builder.getModule());
+
+				this->build_wrapper_function(
+					settings,
+					wrapper_function,
+					input_type_infos,
+					output_type_infos,
+					wrapper_output_type);
+
+				function_cache.add((void *)this, wrapper_function);
+			}
+			return wrapper_function;
+		}
+
 		void build_wrapper_function(
 			const BuildIRSettings &settings,
 			llvm::Function *function,

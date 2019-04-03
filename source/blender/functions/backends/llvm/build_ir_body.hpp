@@ -15,20 +15,25 @@ namespace FN {
 		}
 	};
 
+	using FunctionIRCache = SmallMap<void *, llvm::Function *>;
+
 	class CodeInterface {
 	private:
 		LLVMValues &m_inputs;
 		LLVMValues &m_outputs;
 		llvm::Value *m_context_ptr;
+		FunctionIRCache &m_function_ir_cache;
 
 	public:
 		CodeInterface(
 			LLVMValues &inputs,
 			LLVMValues &outputs,
-			llvm::Value *context_ptr = nullptr)
+			llvm::Value *context_ptr,
+			FunctionIRCache &function_ir_cache)
 			: m_inputs(inputs),
 			  m_outputs(outputs),
-			  m_context_ptr(context_ptr) {}
+			  m_context_ptr(context_ptr),
+			  m_function_ir_cache(function_ir_cache) {}
 
 		llvm::Value *get_input(uint index)
 		{
@@ -48,6 +53,11 @@ namespace FN {
 		llvm::Value *context_ptr() const
 		{
 			return m_context_ptr;
+		}
+
+		FunctionIRCache &function_ir_cache()
+		{
+			return m_function_ir_cache;
 		}
 	};
 

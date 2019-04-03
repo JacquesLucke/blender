@@ -82,7 +82,8 @@ namespace FN {
 
 		LLVMValues output_values(fn->signature().outputs().size());
 		BuildIRSettings settings;
-		CodeInterface interface(input_values, output_values, context_ptr);
+		FunctionIRCache function_cache;
+		CodeInterface interface(input_values, output_values, context_ptr, function_cache);
 		body->build_ir(builder, interface, settings);
 
 		for (uint i = 0; i < output_values.size(); i++) {

@@ -65,6 +65,17 @@ namespace FN {
 			return llvm::ArrayType::get(m_builder.getInt8Ty(), size);
 		}
 
+		llvm::Type *getStructType(LLVMTypes &types)
+		{
+			return llvm::StructType::get(this->getContext(), to_array_ref(types));
+		}
+
+		llvm::FunctionType *getFunctionType(llvm::Type *ret_type, LLVMTypes &arg_types)
+		{
+			return llvm::FunctionType::get(
+				ret_type, to_array_ref(arg_types), false);
+		}
+
 
 		/* Value Builders
 		 **************************************/
