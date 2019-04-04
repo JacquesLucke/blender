@@ -36,17 +36,36 @@ class TreeInterfaceDecl(SocketDeclBase):
 
     def validate(self, sockets):
         if self.in_or_out == "IN":
-            data_types = [d.data_type for d in self.tree.iter_function_inputs()]
+            return self.validate_in(sockets)
         elif self.in_or_out == "OUT":
-            data_types = [d.data_type for d in self.tree.iter_function_outputs()]
+            return self.validate_out(sockets)
         else:
             assert False
 
-        if len(data_types) != len(sockets):
+    def validate_in(self, sockets):
+        params = list(self.tree.iter_function_inputs())
+        if len(params) != len(sockets):
             return False
-        for data_type, socket in zip(data_types, sockets):
-            if data_type != socket.data_type:
+
+        for param, socket in zip(params, sockets):
+            if param.data_type != socket.data_type:
                 return False
+            if param.name != socket.name:
+                return False
+
+        return True
+
+    def validate_out(self, sockets):
+        params = list(self.tree.iter_function_outputs())
+        if len(params) != len(sockets):
+            return False
+
+        for param, socket in zip(params, sockets):
+            if param.data_type != socket.data_type:
+                return False
+            if param.name != socket.name:
+                return False
+
         return True
 
     def amount(self):

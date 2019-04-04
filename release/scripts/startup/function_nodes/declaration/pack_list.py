@@ -96,7 +96,7 @@ class PackListDecl(SocketDeclBase):
         item.state = state
         item.identifier_prefix = str(uuid.uuid4())
 
-        self.node.rebuild_and_try_keep_state()
+        self.node.rebuild()
 
         identifier = item.identifier_prefix + self.identifier_suffix
         new_socket = self.node.find_socket(identifier, is_output)
@@ -107,6 +107,9 @@ class PackListDecl(SocketDeclBase):
 
     def get_collection(self):
         return getattr(self.node, self.prop_name)
+
+    def get_socket_name(self, socket, index):
+        return "Pack Input " + str(index)
 
     @classmethod
     def Property(cls):
@@ -140,7 +143,7 @@ class NewPackListInputOperator(bpy.types.Operator):
         item.state = "BASE"
         item.identifier_prefix = str(uuid.uuid4())
 
-        node.rebuild_and_try_keep_state()
+        node.refresh()
 
         return {'FINISHED'}
 
@@ -159,5 +162,5 @@ class RemovePackListInputOperator(bpy.types.Operator):
         node = tree.nodes[self.node_name]
         collection = getattr(node, self.prop_name)
         collection.remove(self.index)
-        node.rebuild_and_try_keep_state()
+        node.refresh()
         return {'FINISHED'}

@@ -26,22 +26,43 @@ class SocketBuilder:
             decl.init()
 
     def build(self):
-        self.node.inputs.clear()
-        self.node.outputs.clear()
+        from . sync import skip_syncing
+        with skip_syncing():
+            self.node.inputs.clear()
+            self.node.outputs.clear()
 
-        for decl in self.input_declarations:
-            sockets = decl.build(self.node.inputs)
-            assert len(sockets) == decl.amount()
+            for decl in self.input_declarations:
+                sockets = decl.build(self.node.inputs)
+                assert len(sockets) == decl.amount()
 
-        for decl in self.output_declarations:
-            sockets = decl.build(self.node.outputs)
-            assert len(sockets) == decl.amount()
+            for decl in self.output_declarations:
+                sockets = decl.build(self.node.outputs)
+                assert len(sockets) == decl.amount()
 
     def get_sockets_decl_map(self):
         return SocketDeclMap(
             self.node,
             self.input_declarations,
             self.output_declarations)
+
+    def matches_sockets(self):
+        if not self._declarations_matches_sockets(self.input_declarations, self.node.inputs):
+            return False
+        if not self._declarations_matches_sockets(self.output_declarations, self.node.outputs):
+            return False
+        return True
+
+    def _declarations_matches_sockets(self, declarations, all_sockets):
+        sockets_iter = iter(all_sockets)
+        for decl in declarations:
+            amount = decl.amount()
+            try: sockets = [next(sockets_iter) for _ in range(amount)]
+            except StopIteration: return False
+            if not decl.validate(sockets):
+                return False
+        if len(tuple(sockets_iter)) > 0:
+            return False
+        return True
 
 
     # Fixed
@@ -122,6 +143,7 @@ class SocketBuilder:
 
 class SocketDeclMap:
     def __init__(self, node, input_declarations, output_declarations):
+        self.node = node
         self._sockets_by_decl = dict()
         self._decl_by_socket = dict()
         self._socket_index_in_decl = dict()

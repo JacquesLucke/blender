@@ -69,7 +69,7 @@ class AnyVariadicDecl(SocketDeclBase):
         is_output = own_socket.is_output
 
         item = self.add_item(connected_type, connected_socket.get_name(connected_node))
-        self.node.rebuild_and_try_keep_state()
+        self.node.rebuild()
 
         identifier = item.identifier_prefix + self.identifier_suffix
         new_socket = self.node.find_socket(identifier, is_output)
@@ -81,6 +81,7 @@ class AnyVariadicDecl(SocketDeclBase):
         item.data_type = data_type
         item.display_name = display_name
         item.identifier_prefix = str(uuid.uuid4())
+        self.node.refresh()
         return item
 
     def get_socket_name(self, socket, index):
@@ -97,9 +98,12 @@ class AnyVariadicDecl(SocketDeclBase):
 class DataTypeGroup(bpy.types.PropertyGroup):
     bl_idname = "fn_DataTypeGroup"
 
-    data_type: StringProperty()
-    display_name: StringProperty()
-    identifier_prefix: StringProperty()
+    def tree_update(self, context):
+        self.id_data.update()
+
+    data_type: StringProperty(update=tree_update)
+    display_name: StringProperty(update=tree_update)
+    identifier_prefix: StringProperty(update=tree_update)
 
 class AppendAnyVariadicOperator(bpy.types.Operator):
     bl_idname = "fn.append_any_variadic"
@@ -129,7 +133,7 @@ class AppendAnyVariadicOperator(bpy.types.Operator):
         item.display_name = data_type
         item.identifier_prefix = str(uuid.uuid4())
 
-        node.rebuild_and_try_keep_state()
+        node.refresh()
         return {'FINISHED'}
 
 class RemoveAnyVariadicOperator(bpy.types.Operator):
@@ -147,5 +151,5 @@ class RemoveAnyVariadicOperator(bpy.types.Operator):
         node = tree.nodes[self.node_name]
         collection = getattr(node, self.prop_name)
         collection.remove(self.index)
-        node.rebuild_and_try_keep_state()
+        node.refresh()
         return {'FINISHED'}

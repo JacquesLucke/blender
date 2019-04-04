@@ -12,25 +12,24 @@ class BaseTree:
             self.links.new(b, a)
 
     def update(self):
-        from . update import update_function_trees
-        update_function_trees()
+        from . sync import sync_trees_and_dependent_trees
+        if self.name in bpy.data.node_groups:
+            sync_trees_and_dependent_trees({self})
 
 
-class NodeStorage:
+class SocketValueStates:
     def __init__(self, node):
         self.node = node
-        builder = node.get_socket_builder()
-        self.socket_decl_map = builder.get_sockets_decl_map()
         self.input_value_storage = dict()
 
-    def store_socket_states(self):
+    def store_current(self):
         for socket in self.node.inputs:
             if not isinstance(socket, DataSocket):
                 continue
             storage_id = (socket.data_type, socket.identifier)
             self.input_value_storage[storage_id] = socket.get_state()
 
-    def try_restore_socket_states(self):
+    def try_load(self):
         for socket in self.node.inputs:
             if not isinstance(socket, DataSocket):
                 continue
@@ -39,15 +38,16 @@ class NodeStorage:
                 socket.restore_state(self.input_value_storage[storage_id])
 
 
-_storage_per_node = {}
+_decl_map_per_node = {}
+_socket_value_states_per_node = {}
 
 class BaseNode:
     search_terms = tuple()
     search_terms_only = False
 
     def init(self, context):
-        from . update import managed_update
-        with managed_update():
+        from . sync import skip_syncing
+        with skip_syncing():
             builder = self.get_socket_builder()
             builder.initialize_decls()
             builder.build()
@@ -59,52 +59,27 @@ class BaseNode:
         yield from cls.search_terms
 
     def refresh(self, context=None):
-        from . update import update_function_trees
-        self.rebuild_and_try_keep_state()
-        update_function_trees()
-
-    def rebuild_and_try_keep_state(self):
-        state = self._get_state()
-        self.rebuild()
-        self._try_set_state(state)
-
-    def rebuild(self):
-        from . update import managed_update
-
-        self.storage.store_socket_states()
-
-        with managed_update():
-            builder = self.get_socket_builder()
-            builder.build()
-
-        self.storage.socket_decl_map = builder.get_sockets_decl_map()
-        self.storage.try_restore_socket_states()
-
-        self.on_rebuild_post()
-
-    def on_rebuild_post(self):
+        from . sync import sync_trees_and_dependent_trees
+        sync_trees_and_dependent_trees({self.tree})
         pass
 
-    def _get_state(self):
-        links_per_input = defaultdict(set)
-        links_per_output = defaultdict(set)
+    def rebuild(self):
+        from . sync import skip_syncing
+        with skip_syncing():
+            self.socket_value_states.store_current()
+            linkage_state = LinkageState(self)
 
-        for link in self.tree.links:
-            if link.from_node == self:
-                links_per_output[link.from_socket.identifier].add(link.to_socket)
-            if link.to_node == self:
-                links_per_input[link.to_socket.identifier].add(link.from_socket)
+            self.rebuild_fast()
 
-        return (links_per_input, links_per_output)
+            self.socket_value_states.try_load()
+            linkage_state.try_restore()
 
-    def _try_set_state(self, state):
-        tree = self.tree
-        for socket in self.inputs:
-            for from_socket in state[0][socket.identifier]:
-                tree.links.new(socket, from_socket)
-        for socket in self.outputs:
-            for to_socket in state[1][socket.identifier]:
-                tree.links.new(to_socket, socket)
+    def rebuild_fast(self):
+        from . sync import skip_syncing
+        with skip_syncing():
+            builder = self.get_socket_builder()
+            builder.build()
+            _decl_map_per_node[self] = builder.get_sockets_decl_map()
 
     @property
     def tree(self):
@@ -186,14 +161,17 @@ class BaseNode:
     #########################
 
     @property
-    def storage(self) -> NodeStorage:
-        if self not in _storage_per_node:
-            _storage_per_node[self] = NodeStorage(self)
-        return _storage_per_node[self]
+    def decl_map(self):
+        if self not in _decl_map_per_node:
+            builder = self.get_socket_builder()
+            _decl_map_per_node[self] = builder.get_sockets_decl_map()
+        return _decl_map_per_node[self]
 
     @property
-    def decl_map(self):
-        return self.storage.socket_decl_map
+    def socket_value_states(self):
+        if self not in _socket_value_states_per_node:
+            _socket_value_states_per_node[self] = SocketValueStates(self)
+        return _socket_value_states_per_node[self]
 
 
 
@@ -254,3 +232,26 @@ class DataSocket(BaseSocket):
     def draw_color(self, context, node):
         from . types import type_infos
         return type_infos.get_socket_color(self.data_type)
+
+
+class LinkageState:
+    def __init__(self, node):
+        self.node = node
+        self.tree = node.tree
+        self.links_per_input = defaultdict(set)
+        self.links_per_output = defaultdict(set)
+
+        for link in self.tree.links:
+            if link.from_node == node:
+                self.links_per_output[link.from_socket.identifier].add(link.to_socket)
+            if link.to_node == node:
+                self.links_per_input[link.to_socket.identifier].add(link.from_socket)
+
+    def try_restore(self):
+        tree = self.tree
+        for socket in self.node.inputs:
+            for from_socket in self.links_per_input[socket.identifier]:
+                tree.links.new(socket, from_socket)
+        for socket in self.node.outputs:
+            for to_socket in self.links_per_output[socket.identifier]:
+                tree.links.new(to_socket, socket)
