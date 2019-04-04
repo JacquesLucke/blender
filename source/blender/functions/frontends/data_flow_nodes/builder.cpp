@@ -275,6 +275,11 @@ namespace FN { namespace DataFlowNodes {
 		PyObject *py_bnode = get_py_bnode(m_btree, bnode);
 		PyObject *py_bsocket = get_py_bsocket(m_btree, bsocket);
 		PyObject *ret = PyObject_CallMethod(py_bsocket, "get_name", "O", py_bnode);
+		if (ret == NULL || PyErr_Occurred()) {
+			PyErr_Print();
+			assert(false);
+		}
+
 		BLI_assert(PyUnicode_Check(ret));
 		const char *name_ = PyUnicode_AsUTF8(ret);
 		std::string name(name_);
