@@ -1,5 +1,6 @@
 import bpy
 from pprint import pprint
+from . base import BaseNode
 from . tree_data import TreeData
 from . graph import DirectedGraphBuilder
 from contextlib import contextmanager
@@ -87,8 +88,9 @@ def rebuild_currently_outdated_nodes(tree):
 
 def iter_nodes_with_outdated_sockets(tree):
     for node in tree.nodes:
-        if not node_matches_current_declaration(node):
-            yield node
+        if isinstance(node, BaseNode):
+            if not node_matches_current_declaration(node):
+                yield node
 
 def node_matches_current_declaration(node):
     from . socket_builder import SocketBuilder
