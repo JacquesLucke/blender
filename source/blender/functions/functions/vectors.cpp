@@ -112,10 +112,25 @@ namespace FN { namespace Functions {
 		}
 	};
 
+	class AddVectorsGen : public LLVMBuildIRBody {
+		void build_ir(
+			CodeBuilder &builder,
+			CodeInterface &interface,
+			const BuildIRSettings &UNUSED(settings)) const override
+		{
+			llvm::Value *a = builder.CreateStructToVector(interface.get_input(0));
+			llvm::Value *b = builder.CreateStructToVector(interface.get_input(1));
+			llvm::Value *result = builder.CreateFAdd(a, b);
+			result = builder.CreateVectorToStruct(result);
+			interface.set_output(0, result);
+		}
+	};
+
 	LAZY_INIT_REF__NO_ARG(SharedFunction, add_vectors)
 	{
 		auto fn = get_math_function__two_inputs("Add Vectors");
 		fn->add_body(new AddVectors());
+		fn->add_body(new AddVectorsGen());
 		return fn;
 	}
 

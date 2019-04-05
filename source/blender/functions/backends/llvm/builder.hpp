@@ -217,6 +217,41 @@ namespace FN {
 				this->getModule(), llvm::Intrinsic::sin, value->getType());
 			return m_builder.CreateCall(function, value);
 		}
+
+		llvm::Value *CreateStructToVector(llvm::Value *value)
+		{
+			llvm::Type *struct_type = value->getType();
+			BLI_assert(struct_type->isStructTy());
+			uint length = struct_type->getStructNumElements();
+
+			llvm::Type *base_type = struct_type->getStructElementType(0);
+			llvm::Type *vector_type = llvm::VectorType::get(
+				base_type, length);
+
+			llvm::Value *output = llvm::UndefValue::get(vector_type);
+			for (uint i = 0; i < length; i++) {
+				output = m_builder.CreateInsertElement(output, m_builder.CreateExtractValue(value, i), i);
+			}
+			return output;
+		}
+
+		llvm::Value *CreateVectorToStruct(llvm::Value *value)
+		{
+			llvm::Type *vector_type = value->getType();
+			BLI_assert(vector_type->isVectorTy());
+			uint length = vector_type->getVectorNumElements();
+
+			llvm::Type *base_type = vector_type->getVectorElementType();
+			LLVMTypes types(length);
+			types.fill(base_type);
+			llvm::Type *struct_type = this->getStructType(types);
+
+			llvm::Value *output = llvm::UndefValue::get(struct_type);
+			for (uint i = 0; i < length; i++) {
+				output = m_builder.CreateInsertValue(output, m_builder.CreateExtractElement(value, i), i);
+			}
+			return output;
+		}
 	};
 
 } /* namespace FN */
