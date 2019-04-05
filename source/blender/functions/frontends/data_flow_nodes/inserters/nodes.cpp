@@ -55,6 +55,31 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(node, bnode);
 	}
 
+	static SharedFunction &get_vector_math_function(int operation)
+	{
+		switch (operation)
+		{
+			case 1: return Functions::add_vectors();
+			default:
+				BLI_assert(false);
+				return *(SharedFunction *)nullptr;
+		}
+	}
+
+	static void insert_vector_math_node(
+		Builder &builder,
+		const BuilderContext &ctx,
+		bNode *bnode)
+	{
+		PointerRNA ptr;
+		ctx.get_rna(bnode, &ptr);
+		int operation = RNA_enum_get(&ptr, "operation");
+
+		SharedFunction &fn = get_vector_math_function(operation);
+		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
+		builder.map_sockets(node, bnode);
+	}
+
 	static void insert_clamp_node(
 		Builder &builder,
 		const BuilderContext &ctx,
@@ -185,6 +210,7 @@ namespace FN { namespace DataFlowNodes {
 
 		inserters.reg_node_inserter("fn_ObjectTransformsNode", insert_object_transforms_node);
 		inserters.reg_node_inserter("fn_FloatMathNode", insert_float_math_node);
+		inserters.reg_node_inserter("fn_VectorMathNode", insert_vector_math_node);
 		inserters.reg_node_inserter("fn_ClampNode", insert_clamp_node);
 		inserters.reg_node_inserter("fn_GetListElementNode", insert_get_list_element_node);
 		inserters.reg_node_inserter("fn_PackListNode", insert_pack_list_node);

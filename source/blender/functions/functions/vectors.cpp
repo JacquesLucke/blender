@@ -89,4 +89,34 @@ namespace FN { namespace Functions {
 		return fn;
 	}
 
+
+	static SharedFunction get_math_function__two_inputs(std::string name)
+	{
+		auto fn = SharedFunction::New(name, Signature({
+			InputParameter("A", get_fvec3_type()),
+			InputParameter("B", get_fvec3_type()),
+		}, {
+			OutputParameter("Result", get_fvec3_type()),
+		}));
+		return fn;
+	}
+
+
+	class AddVectors : public TupleCallBody {
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+		{
+			Vector a = fn_in.get<Vector>(0);
+			Vector b = fn_in.get<Vector>(1);
+			Vector result(a.x + b.x, a.y + b.y, a.z + b.z);
+			fn_out.set<Vector>(0, result);
+		}
+	};
+
+	LAZY_INIT_REF__NO_ARG(SharedFunction, add_vectors)
+	{
+		auto fn = get_math_function__two_inputs("Add Vectors");
+		fn->add_body(new AddVectors());
+		return fn;
+	}
+
 } } /* namespace FN::Functions */
