@@ -7,7 +7,12 @@ operation_items = [
     ("MULTIPLY", "Multiply", "", "", 2),
     ("MIN", "Minimum", "", "", 3),
     ("MAX", "Maximum", "", "", 4),
+    ("SIN", "Sin", "", "", 5),
 ]
+
+single_value_operations = {
+    "SIN",
+}
 
 class FloatMathNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_FloatMathNode"
@@ -21,11 +26,13 @@ class FloatMathNode(bpy.types.Node, FunctionNode):
     operation: EnumProperty(
         name="Operation",
         items=operation_items,
+        update=FunctionNode.refresh,
     )
 
     def declaration(self, builder):
         builder.fixed_input("a", "A", "Float")
-        builder.fixed_input("b", "B", "Float")
+        if self.operation not in single_value_operations:
+            builder.fixed_input("b", "B", "Float")
         builder.fixed_output("result", "Result", "Float")
 
     def draw(self, layout):

@@ -9,5 +9,6 @@ namespace FN { namespace Functions {
 	SharedFunction &min_floats();
 	SharedFunction &max_floats();
 	SharedFunction &map_range();
+	SharedFunction &sin_float();
 
 } } /* namespace FN::Functions */

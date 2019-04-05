@@ -1,3 +1,5 @@
+#include <cmath>
+
 #include "scalar_math.hpp"
 #include "FN_types.hpp"
 #include "FN_tuple_call.hpp"
@@ -9,7 +11,17 @@ namespace FN { namespace Functions {
 
 	using namespace Types;
 
-	static SharedFunction get_simple_math_function(std::string name)
+	static SharedFunction get_math_function__one_input(std::string name)
+	{
+		auto fn = SharedFunction::New(name, Signature({
+			InputParameter("Value", get_float_type()),
+		}, {
+			OutputParameter("Result", get_float_type()),
+		}));
+		return fn;
+	}
+
+	static SharedFunction get_math_function__two_inputs(std::string name)
 	{
 		auto fn = SharedFunction::New(name, Signature({
 			InputParameter("A", get_float_type()),
@@ -45,7 +57,7 @@ namespace FN { namespace Functions {
 
 	LAZY_INIT_REF__NO_ARG(SharedFunction, add_floats)
 	{
-		auto fn = get_simple_math_function("Add Floats");
+		auto fn = get_math_function__two_inputs("Add Floats");
 		//fn->add_body(new AddFloats());
 		fn->add_body(new GenAddFloats());
 		return fn;
@@ -63,7 +75,7 @@ namespace FN { namespace Functions {
 
 	LAZY_INIT_REF__NO_ARG(SharedFunction, multiply_floats)
 	{
-		auto fn = get_simple_math_function("Multiply Floats");
+		auto fn = get_math_function__two_inputs("Multiply Floats");
 		fn->add_body(new MultiplyFloats());
 		return fn;
 	}
@@ -80,7 +92,7 @@ namespace FN { namespace Functions {
 
 	LAZY_INIT_REF__NO_ARG(SharedFunction, min_floats)
 	{
-		auto fn = get_simple_math_function("Minimum");
+		auto fn = get_math_function__two_inputs("Minimum");
 		fn->add_body(new MinFloats());
 		return fn;
 	}
@@ -97,7 +109,7 @@ namespace FN { namespace Functions {
 
 	LAZY_INIT_REF__NO_ARG(SharedFunction, max_floats)
 	{
-		auto fn = get_simple_math_function("Maximum");
+		auto fn = get_math_function__two_inputs("Maximum");
 		fn->add_body(new MaxFloats());
 		return fn;
 	}
@@ -141,6 +153,22 @@ namespace FN { namespace Functions {
 			OutputParameter("Value", get_float_type()),
 		}));
 		fn->add_body(new MapRange());
+		return fn;
+	}
+
+
+	class SinFloat : public TupleCallBody {
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+		{
+			float a = fn_in.get<float>(0);
+			fn_out.set<float>(0, std::sin(a));
+		}
+	};
+
+	LAZY_INIT_REF__NO_ARG(SharedFunction, sin_float)
+	{
+		auto fn = get_math_function__one_input("Sin");
+		fn->add_body(new SinFloat());
 		return fn;
 	}
 

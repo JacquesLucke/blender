@@ -34,6 +34,7 @@ namespace FN { namespace DataFlowNodes {
 			case 2: return Functions::multiply_floats();
 			case 3: return Functions::min_floats();
 			case 4: return Functions::max_floats();
+			case 5: return Functions::sin_float();
 			default:
 				BLI_assert(false);
 				return *(SharedFunction *)nullptr;
