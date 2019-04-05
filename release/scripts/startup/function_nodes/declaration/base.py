@@ -20,9 +20,6 @@ class SocketDeclBase:
     def operator_socket_call(self, own_socket, other_socket):
         pass
 
-    def get_socket_name(self, socket, index):
-        return socket.name
-
     def _data_socket_test(self, socket, name, data_type, identifier):
         from .. base import DataSocket
         if not isinstance(socket, DataSocket):

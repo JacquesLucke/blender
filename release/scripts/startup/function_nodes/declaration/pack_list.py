@@ -104,9 +104,6 @@ class PackListDecl(SocketDeclBase):
     def get_collection(self):
         return getattr(self.node, self.prop_name)
 
-    def get_socket_name(self, socket, index):
-        return "Pack Input " + str(index)
-
     @classmethod
     def Property(cls):
         return CollectionProperty(type=PackListPropertyGroup)

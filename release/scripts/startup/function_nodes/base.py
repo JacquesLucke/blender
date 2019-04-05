@@ -193,10 +193,6 @@ class BaseSocket:
         else:
             return tuple(node.inputs).index(self)
 
-    def get_name(self, node):
-        decl, index = self.get_decl_with_index(node)
-        return decl.get_socket_name(self, index)
-
     def to_id(self, node):
         return (node, self.is_output, self.identifier)
 

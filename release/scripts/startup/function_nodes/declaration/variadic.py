@@ -21,7 +21,7 @@ class AnyVariadicDecl(SocketDeclBase):
             yield type_infos.build(
                 item.data_type,
                 node_sockets,
-                item.name,
+                item.display_name,
                 item.identifier_prefix + self.identifier_suffix)
         yield node_sockets.new("fn_OperatorSocket", "Operator")
 
@@ -34,7 +34,7 @@ class AnyVariadicDecl(SocketDeclBase):
 
         for item, socket in zip(self.get_collection(), sockets[:-1]):
             identifier = item.identifier_prefix + self.identifier_suffix
-            if not self._data_socket_test(socket, item.name, item.data_type, identifier):
+            if not self._data_socket_test(socket, item.display_name, item.data_type, identifier):
                 return False
 
         if not isinstance(sockets[-1], OperatorSocket):
@@ -71,7 +71,7 @@ class AnyVariadicDecl(SocketDeclBase):
 
         is_output = own_socket.is_output
 
-        item = self.add_item(connected_type, connected_socket.get_name(connected_node))
+        item = self.add_item(connected_type, connected_socket.name)
         self.node.rebuild()
 
         identifier = item.identifier_prefix + self.identifier_suffix
@@ -86,13 +86,6 @@ class AnyVariadicDecl(SocketDeclBase):
         item.identifier_prefix = str(uuid.uuid4())
         self.node.refresh()
         return item
-
-    def get_socket_name(self, socket, index):
-        collection = self.get_collection()
-        if index < len(collection):
-            return collection[index].display_name
-        else:
-            return socket.name
 
     @classmethod
     def Property(cls):

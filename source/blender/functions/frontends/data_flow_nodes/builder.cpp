@@ -25,14 +25,6 @@ static PyObject *get_py_bnode(bNodeTree *btree, bNode *bnode)
 		bnode, &ptr);
 	return pyrna_struct_CreatePyObject(&ptr);
 }
-static PyObject *get_py_bsocket(bNodeTree *btree, bNodeSocket *bsocket)
-{
-	PointerRNA ptr;
-	RNA_pointer_create(
-		&btree->id, &RNA_NodeSocket,
-		bsocket, &ptr);
-	return pyrna_struct_CreatePyObject(&ptr);
-}
 #endif
 
 namespace FN { namespace DataFlowNodes {
@@ -266,28 +258,8 @@ namespace FN { namespace DataFlowNodes {
 		return this->type_by_name(data_type.c_str());
 	}
 
-	std::string BuilderContext::name_of_socket(bNode *bnode, bNodeSocket *bsocket) const
+	std::string BuilderContext::name_of_socket(bNode *UNUSED(bnode), bNodeSocket *bsocket) const
 	{
-#ifdef WITH_PYTHON
-		PyGILState_STATE gilstate;
-		gilstate = PyGILState_Ensure();
-
-		PyObject *py_bnode = get_py_bnode(m_btree, bnode);
-		PyObject *py_bsocket = get_py_bsocket(m_btree, bsocket);
-		PyObject *ret = PyObject_CallMethod(py_bsocket, "get_name", "O", py_bnode);
-		if (ret == NULL || PyErr_Occurred()) {
-			PyErr_Print();
-			assert(false);
-		}
-
-		BLI_assert(PyUnicode_Check(ret));
-		const char *name_ = PyUnicode_AsUTF8(ret);
-		std::string name(name_);
-		Py_DECREF(ret);
-
-		PyGILState_Release(gilstate);
-		return name;
-#endif
 		return bsocket->name;
 	}
 
