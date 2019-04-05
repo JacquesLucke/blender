@@ -59,8 +59,6 @@ namespace FN {
 			CodeInterface &interface,
 			const BuildIRSettings &settings) const override
 		{
-
-			llvm::LLVMContext &context = builder.getContext();
 			Function *fn = m_tuple_call->owner();
 
 			/* Find relevant type information. */
