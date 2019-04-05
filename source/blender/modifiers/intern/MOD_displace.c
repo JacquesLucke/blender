@@ -32,6 +32,7 @@
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
+#include "DNA_node_types.h"
 
 #include "BKE_customdata.h"
 #include "BKE_editmesh.h"
@@ -53,7 +54,7 @@
 
 #include "RE_shader_ext.h"
 
-#include "FN-C.h"
+#include "FN_all-c.h"
 
 
 /* Displace */

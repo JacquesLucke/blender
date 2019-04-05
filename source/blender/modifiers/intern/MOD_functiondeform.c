@@ -32,6 +32,7 @@
 #include "DNA_modifier_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
+#include "DNA_node_types.h"
 
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
@@ -50,7 +51,7 @@
 #include "DEG_depsgraph_query.h"
 #include "time.h"
 
-#include "FN-C.h"
+#include "FN_all-c.h"
 
 static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
 {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "FN_core-c.h"
 #include "core/type.hpp"
 #include "core/parameter.hpp"
 #include "core/signature.hpp"

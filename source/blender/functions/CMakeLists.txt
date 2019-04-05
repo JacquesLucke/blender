@@ -27,9 +27,14 @@ set(SRC
 	FN_types.hpp
 	FN_functions.hpp
 	FN_data_flow_nodes.hpp
-	FN-C.h
 
-	c_wrapper.cpp
+	FN_all-c.h
+	FN_core-c.h
+	FN_types-c.h
+	FN_dependencies-c.h
+	FN_data_flow_nodes-c.h
+
+	initialize.cpp
 
 	core/type.hpp
 	core/parameter.hpp
@@ -43,6 +48,8 @@ set(SRC
 	core/source_info.hpp
 	core/source_info.cpp
 	core/dot_export.cpp
+	core/core-c.h
+	core/core-c.cpp
 
 	backends/tuple_call/cpp_types.hpp
 	backends/tuple_call/cpp_types.cpp
@@ -56,11 +63,15 @@ set(SRC
 	backends/tuple_call/lazy_to_normal.cpp
 	backends/tuple_call/execution_context.hpp
 	backends/tuple_call/execution_context.cpp
+	backends/tuple_call/tuple_call-c.h
+	backends/tuple_call/tuple_call-c.cpp
 
 	backends/dependencies/dependencies.hpp
 	backends/dependencies/dependencies.cpp
 	backends/dependencies/fgraph_dependencies.hpp
 	backends/dependencies/fgraph_dependencies.cpp
+	backends/dependencies/dependencies-c.h
+	backends/dependencies/dependencies-c.cpp
 
 	backends/llvm/initialize.hpp
 	backends/llvm/initialize.cpp
@@ -86,6 +97,10 @@ set(SRC
 	types/numeric.cpp
 	types/boolean.hpp
 	types/boolean.cpp
+	types/types-c.h
+	types/types-c.cpp
+	types/tuple_access-c.h
+	types/tuple_access-c.cpp
 
 	functions/object_input.hpp
 	functions/object_input.cpp
@@ -115,6 +130,8 @@ set(SRC
 	frontends/data_flow_nodes/inserters/sockets.cpp
 	frontends/data_flow_nodes/inserters/conversions.cpp
 	frontends/data_flow_nodes/util_wrappers.hpp
+	frontends/data_flow_nodes/data_flow_nodes-c.h
+	frontends/data_flow_nodes/data_flow_nodes-c.cpp
 )
 
 blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}")

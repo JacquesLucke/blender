@@ -57,7 +57,7 @@
 
 #include "RNA_access.h"
 
-#include "FN-C.h"
+#include "FN_all-c.h"
 
 #include "atomic_ops.h"
 
