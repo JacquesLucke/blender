@@ -21,7 +21,8 @@ class ListSocketDecl(SocketDeclBase):
     def validate(self, sockets):
         if len(sockets) != 1:
             return False
-        return sockets[0].data_type == self.get_data_type()
+        return self._data_socket_test(sockets[0],
+            self.display_name, self.get_data_type(), self.identifier)
 
     def get_data_type(self):
         base_type = getattr(self.node, self.prop_name)

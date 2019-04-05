@@ -13,8 +13,7 @@ class BaseTree:
 
     def update(self):
         from . sync import sync_trees_and_dependent_trees
-        if self.name in bpy.data.node_groups:
-            sync_trees_and_dependent_trees({self})
+        sync_trees_and_dependent_trees({self})
 
 
 class SocketValueStates:

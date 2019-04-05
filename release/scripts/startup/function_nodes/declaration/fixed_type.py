@@ -18,7 +18,8 @@ class FixedSocketDecl(SocketDeclBase):
     def validate(self, sockets):
         if len(sockets) != 1:
             return False
-        return sockets[0].data_type == self.data_type
+        return self._data_socket_test(sockets[0],
+            self.display_name, self.data_type, self.identifier)
 
     def amount(self):
         return 1

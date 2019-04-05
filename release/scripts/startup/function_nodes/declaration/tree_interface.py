@@ -48,9 +48,8 @@ class TreeInterfaceDecl(SocketDeclBase):
             return False
 
         for param, socket in zip(params, sockets):
-            if param.data_type != socket.data_type:
-                return False
-            if param.name != socket.name:
+            identifier = self.identifier + param.identifier
+            if not self._data_socket_test(socket, param.name, param.data_type, identifier):
                 return False
 
         return True
@@ -61,9 +60,8 @@ class TreeInterfaceDecl(SocketDeclBase):
             return False
 
         for param, socket in zip(params, sockets):
-            if param.data_type != socket.data_type:
-                return False
-            if param.name != socket.name:
+            identifier = self.identifier + param.identifier
+            if not self._data_socket_test(socket, param.name, param.data_type, identifier):
                 return False
 
         return True

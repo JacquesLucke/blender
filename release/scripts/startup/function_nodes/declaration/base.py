@@ -22,3 +22,15 @@ class SocketDeclBase:
 
     def get_socket_name(self, socket, index):
         return socket.name
+
+    def _data_socket_test(self, socket, name, data_type, identifier):
+        from .. base import DataSocket
+        if not isinstance(socket, DataSocket):
+            return False
+        if socket.name != name:
+            return False
+        if socket.data_type != data_type:
+            return False
+        if socket.identifier != identifier:
+            return False
+        return True

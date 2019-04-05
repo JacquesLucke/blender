@@ -41,14 +41,10 @@ class PackListDecl(SocketDeclBase):
             return False
 
         for socket, item in zip(sockets[:-1], collection):
-            if item.state == "BASE":
-                if socket.data_type != self.base_type:
-                    return False
-            elif item.state == "LIST":
-                if socket.data_type != self.list_type:
-                    return False
-            else:
-                assert False
+            data_type = self.base_type if item.state == "BASE" else self.list_type
+            identifier = item.identifier_prefix + self.identifier_suffix
+            if not self._data_socket_test(socket, "", data_type, identifier):
+                return False
 
         if sockets[-1].bl_idname != "fn_OperatorSocket":
             return False

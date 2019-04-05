@@ -56,6 +56,11 @@ def skip_syncing():
 ############################################
 
 def iter_trees_to_sync_in_order(trees):
+    stored_tree_ids = {id(tree) for tree in bpy.data.node_groups}
+    if any(id(tree) not in stored_tree_ids for tree in trees):
+        # can happen after undo or on load
+        return
+
     dependency_graph = build_tree_dependency_graph()
     all_trees_to_sync = dependency_graph.reachable(trees)
     trees_in_sync_order = dependency_graph.toposort_partial(all_trees_to_sync)

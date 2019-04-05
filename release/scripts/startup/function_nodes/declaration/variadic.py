@@ -31,12 +31,15 @@ class AnyVariadicDecl(SocketDeclBase):
     def validate(self, sockets):
         if len(sockets) != self.amount():
             return False
-        collection = self.get_collection()
-        for item, socket in zip(collection, sockets[:-1]):
-            if item.data_type != socket.data_type:
+
+        for item, socket in zip(self.get_collection(), sockets[:-1]):
+            identifier = item.identifier_prefix + self.identifier_suffix
+            if not self._data_socket_test(socket, item.name, item.data_type, identifier):
                 return False
+
         if not isinstance(sockets[-1], OperatorSocket):
             return False
+
         return True
 
     def draw_socket(self, layout, socket, index):
