@@ -131,6 +131,11 @@ namespace FN {
 			return m_builder.CreateFAdd(a, b);
 		}
 
+		llvm::Value *CreateFMul(llvm::Value *a, llvm::Value *b)
+		{
+			return m_builder.CreateFMul(a, b);
+		}
+
 		llvm::Value *CreateAllocaBytes_VoidPtr(uint amount)
 		{
 			llvm::Type *size_type = this->getFixedSizeType(amount);
@@ -204,6 +209,13 @@ namespace FN {
 		llvm::Value *CreateGEP(llvm::Value *addr, llvm::Value *index)
 		{
 			return m_builder.CreateGEP(addr, index);
+		}
+
+		llvm::Value *CreateSin(llvm::Value *value)
+		{
+			auto *function = llvm::Intrinsic::getDeclaration(
+				this->getModule(), llvm::Intrinsic::sin, value->getType());
+			return m_builder.CreateCall(function, value);
 		}
 	};
 

@@ -73,10 +73,24 @@ namespace FN { namespace Functions {
 		}
 	};
 
+	class MultiplyFloatsGen : public LLVMBuildIRBody {
+		void build_ir(
+			CodeBuilder &builder,
+			CodeInterface &interface,
+			const BuildIRSettings &UNUSED(settings)) const override
+		{
+			auto output = builder.CreateFMul(
+				interface.get_input(0),
+				interface.get_input(1));
+			interface.set_output(0, output);
+		}
+	};
+
 	LAZY_INIT_REF__NO_ARG(SharedFunction, multiply_floats)
 	{
 		auto fn = get_math_function__two_inputs("Multiply Floats");
 		fn->add_body(new MultiplyFloats());
+		fn->add_body(new MultiplyFloatsGen());
 		return fn;
 	}
 
@@ -165,10 +179,22 @@ namespace FN { namespace Functions {
 		}
 	};
 
+	class SinFloatGen : public LLVMBuildIRBody {
+		void build_ir(
+			CodeBuilder &builder,
+			CodeInterface &interface,
+			const BuildIRSettings &UNUSED(settings)) const override
+		{
+			auto output = builder.CreateSin(interface.get_input(0));
+			interface.set_output(0, output);
+		}
+	};
+
 	LAZY_INIT_REF__NO_ARG(SharedFunction, sin_float)
 	{
 		auto fn = get_math_function__one_input("Sin");
 		fn->add_body(new SinFloat());
+		fn->add_body(new SinFloatGen());
 		return fn;
 	}
 
