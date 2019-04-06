@@ -6,7 +6,7 @@ class SeparateVectorNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_SeparateVectorNode"
     bl_label = "Separate Vector"
 
-    use_list__vector: SocketBuilder.VectorizedInputProperty()
+    use_list__vector: SocketBuilder.VectorizedProperty()
 
     def declaration(self, builder: SocketBuilder):
         builder.vectorized_input(

@@ -6,7 +6,7 @@ class ListLengthNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_ListLengthNode"
     bl_label = "List Length"
 
-    active_type: SocketBuilder.ListTypeProperty()
+    active_type: SocketBuilder.DynamicListProperty()
 
     def declaration(self, builder: SocketBuilder):
         builder.dynamic_list_input("list", "List", "active_type")

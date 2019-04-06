@@ -95,7 +95,7 @@ class SocketBuilder:
     ###################################
 
     @staticmethod
-    def ListTypeProperty():
+    def DynamicListProperty():
         return ListSocketDecl.Property()
 
     def dynamic_list_input(self, identifier, name, prop_name):
@@ -147,12 +147,8 @@ class SocketBuilder:
     ##################################
 
     @staticmethod
-    def VectorizedInputProperty():
+    def VectorizedProperty():
         return VectorizedInputDecl.Property()
-
-    @staticmethod
-    def VectorizedOutputProperty():
-        return VectorizedOutputDecl.Property()
 
     def vectorized_input(self, identifier, prop_name, base_name, list_name, base_type):
         decl = VectorizedInputDecl(

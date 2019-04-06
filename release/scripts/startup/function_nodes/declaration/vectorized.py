@@ -22,10 +22,6 @@ class VectorizedDeclBase:
     def amount(self):
         return 1
 
-    @staticmethod
-    def Property():
-        return StringProperty(default="BASE")
-
     def get_type_and_name(self):
         if self.is_vectorized():
             return self.list_type, self.list_name
@@ -54,6 +50,10 @@ class VectorizedInputDecl(VectorizedDeclBase, SocketDeclBase):
             return True
         else:
             assert False
+
+    @staticmethod
+    def Property():
+        return StringProperty(default="BASE")
 
 
 class VectorizedOutputDecl(VectorizedDeclBase, SocketDeclBase):
