@@ -1,21 +1,33 @@
 from collections import namedtuple, defaultdict
 
-Edge = namedtuple("Edge", ["from_v", "to_v"])
-
 class DirectedGraph:
     def __init__(self, V, E):
-        assert all(isinstance(e, Edge) for e in E)
+        assert all(isinstance(e, tuple) for e in E)
         assert all(v1 in V and v2 in V for v1, v2 in E)
         self.V = set(V)
         self.E = set(E)
 
         self.outgoing = defaultdict(set)
         self.incoming = defaultdict(set)
+        self.neighbors = defaultdict(set)
         for v1, v2 in E:
             self.outgoing[v1].add(v2)
             self.incoming[v2].add(v1)
+            self.neighbors[v1].add(v2)
+            self.neighbors[v2].add(v1)
 
     def reachable(self, start_verts):
+        return self._reachable(start_verts, self.outgoing)
+
+    def reachable_inversed(self, start_verts):
+        return self._reachable(start_verts, self.incoming)
+
+    def connected(self, start_verts):
+        return self._reachable(start_verts, self.neighbors)
+
+    def _reachable(self, start_verts, next_map):
+        if start_verts in self.V:
+            start_verts = (start_verts, )
         assert all(v in self.V for v in start_verts)
 
         verts_to_check = set(start_verts)
@@ -23,7 +35,7 @@ class DirectedGraph:
         while len(verts_to_check) > 0:
             v = verts_to_check.pop()
             found_verts.add(v)
-            for prev_v in self.outgoing[v]:
+            for prev_v in next_map[v]:
                 if prev_v not in found_verts:
                     verts_to_check.add(prev_v)
         return found_verts
@@ -66,7 +78,7 @@ class DirectedGraphBuilder:
     def add_directed_edge(self, from_v, to_v):
         self.V.add(from_v)
         self.V.add(to_v)
-        self.E.add(Edge(from_v, to_v))
+        self.E.add((from_v, to_v))
 
     def build(self):
         return DirectedGraph(self.V, self.E)

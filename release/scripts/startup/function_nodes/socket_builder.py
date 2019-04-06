@@ -4,6 +4,8 @@ from . declaration import (
     PackListDecl,
     AnyVariadicDecl,
     TreeInterfaceDecl,
+    VectorizedInputDecl,
+    VectorizedOutputDecl,
 )
 
 class SocketBuilder:
@@ -138,6 +140,30 @@ class SocketBuilder:
 
     def tree_interface_output(self, identifier, tree, in_or_out):
         decl = TreeInterfaceDecl(self.node, identifier, tree, in_or_out)
+        self._add_output(decl)
+
+
+    # Vectorized
+    ##################################
+
+    @staticmethod
+    def VectorizedInputProperty():
+        return VectorizedInputDecl.Property()
+
+    @staticmethod
+    def VectorizedOutputProperty():
+        return VectorizedOutputDecl.Property()
+
+    def vectorized_input(self, identifier, prop_name, base_name, list_name, base_type):
+        decl = VectorizedInputDecl(
+            self.node, identifier, prop_name,
+            base_name, list_name, base_type)
+        self._add_input(decl)
+
+    def vectorized_output(self, identifier, prop_name, input_prop_names, base_name, list_name, base_type):
+        decl = VectorizedOutputDecl(
+            self.node, identifier, prop_name, input_prop_names,
+            base_name, list_name, base_type)
         self._add_output(decl)
 
 
