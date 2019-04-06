@@ -59,11 +59,7 @@ namespace FN { namespace Functions {
 		{
 			uint *input_lengths = BLI_array_alloca(input_lengths, m_list_inputs.size());
 			this->get_input_list_lengths(fn_in, ctx, input_lengths);
-
-			uint max_length = 0;
-			for (uint i = 0; i < m_list_inputs.size(); i++) {
-				max_length = std::max(max_length, input_lengths[i]);
-			}
+			uint max_length = *std::max_element(input_lengths, input_lengths + m_list_inputs.size());
 
 			this->initialize_empty_lists(fn_out, ctx);
 
@@ -73,7 +69,9 @@ namespace FN { namespace Functions {
 				uint list_index = 0;
 				for (uint i = 0; i < m_input_is_list.size(); i++) {
 					if (m_input_is_list[i]) {
-						this->copy_in_iteration(iteration, fn_in, main_in, i, list_index, input_lengths[list_index], ctx);
+						this->copy_in_iteration(
+							iteration, fn_in, main_in,
+							i, list_index, input_lengths[list_index], ctx);
 						list_index++;
 					}
 					else {
@@ -92,26 +90,21 @@ namespace FN { namespace Functions {
 	private:
 		void get_input_list_lengths(Tuple &fn_in, ExecutionContext &ctx, uint *r_lengths) const
 		{
-			void *buf_in = alloca(m_max_len_in_size);
-			void *buf_out = alloca(m_max_len_out_size);
-
 			for (uint i = 0; i < m_list_inputs.size(); i++) {
-				uint index = m_list_inputs[i];
-				TupleCallBody *body = m_get_length_bodies[i];
-
-				Tuple &len_in = Tuple::ConstructInBuffer(body->meta_in(), buf_in);
-				Tuple &len_out = Tuple::ConstructInBuffer(body->meta_out(), buf_out);
-
-				Tuple::copy_element(fn_in, index, len_in, 0);
-
-				body->call__setup_stack(len_in, len_out, ctx);
-
-				uint length = len_out.get<uint>(0);
-				r_lengths[i] = length;
-
-				len_in.~Tuple();
-				len_out.~Tuple();
+				uint index_in_tuple = m_list_inputs[i];
+				r_lengths[i] = this->get_input_list_length(fn_in, index_in_tuple, i, ctx);
 			}
+		}
+
+		uint get_input_list_length(Tuple &fn_in, uint index_in_tuple, uint list_index, ExecutionContext &ctx) const
+		{
+			TupleCallBody *body = m_get_length_bodies[list_index];
+			FN_TUPLE_CALL_ALLOC_TUPLES(body, get_length_in, get_length_out);
+
+			Tuple::copy_element(fn_in, index_in_tuple, get_length_in, 0);
+			body->call__setup_stack(get_length_in, get_length_out, ctx);
+			uint length = get_length_out.get<uint>(0);
+			return length;
 		}
 
 		void copy_in_iteration(uint iteration, Tuple &fn_in, Tuple &main_in, uint index, uint list_index, uint list_length, ExecutionContext &ctx) const
@@ -120,19 +113,15 @@ namespace FN { namespace Functions {
 				main_in.init_default(index);
 				return;
 			}
-
-			TupleCallBody *body = m_get_element_bodies[list_index];
-
 			uint load_index = iteration % list_length;
 
+			TupleCallBody *body = m_get_element_bodies[list_index];
 			FN_TUPLE_CALL_ALLOC_TUPLES(body, get_element_in, get_element_out);
 
 			Tuple::copy_element(fn_in, index, get_element_in, 0);
 			get_element_in.set<uint>(1, load_index);
 			get_element_in.init_default(2);
-
 			body->call__setup_stack(get_element_in, get_element_out, ctx);
-
 			Tuple::relocate_element(get_element_out, 0, main_in, index);
 		}
 
@@ -146,24 +135,20 @@ namespace FN { namespace Functions {
 		void initialize_empty_list(Tuple &fn_out, uint index, ExecutionContext &ctx) const
 		{
 			TupleCallBody *body = m_create_empty_bodies[index];
-
 			FN_TUPLE_CALL_ALLOC_TUPLES(body, create_list_in, create_list_out);
-			body->call__setup_stack(create_list_in, create_list_out, ctx);
 
+			body->call__setup_stack(create_list_in, create_list_out, ctx);
 			Tuple::relocate_element(create_list_out, 0, fn_out, index);
 		}
 
 		void append_to_output(Tuple &main_out, Tuple &fn_out, uint index, ExecutionContext &ctx) const
 		{
 			TupleCallBody *body = m_append_bodies[index];
-
 			FN_TUPLE_CALL_ALLOC_TUPLES(body, append_in, append_out);
 
 			Tuple::relocate_element(fn_out, index, append_in, 0);
 			Tuple::relocate_element(main_out, index, append_in, 1);
-
 			body->call__setup_stack(append_in, append_out, ctx);
-
 			Tuple::relocate_element(append_out, 0, fn_out, index);
 		}
 	};
