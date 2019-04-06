@@ -127,14 +127,11 @@ namespace FN { namespace DataFlowNodes {
 	SmallSocketVector GraphInserters::insert_sockets(
 		GraphBuilder &builder,
 		BSockets &bsockets,
-		BNodes &bnodes)
+		BNodes &UNUSED(bnodes))
 	{
-		BLI_assert(bsockets.size() == bnodes.size());
-
 		SmallVector<SocketLoader> loaders;
 		OutputParameters outputs;
 		for (uint i = 0; i < bsockets.size(); i++) {
-			bNode *bnode = bnodes[i];
 			bNodeSocket *bsocket = bsockets[i];
 
 			PointerRNA ptr = builder.get_rna(bsocket);
@@ -145,8 +142,8 @@ namespace FN { namespace DataFlowNodes {
 			SocketLoader loader = m_socket_loaders.lookup(data_type);
 			loaders.append(loader);
 			outputs.append(OutputParameter(
-				builder.name_of_socket(bnode, bsocket),
-				builder.type_of_socket(bsocket)));
+				builder.query_socket_name(bsocket),
+				builder.query_socket_type(bsocket)));
 		}
 
 		auto fn = SharedFunction::New("Input Sockets", Signature({}, outputs));
@@ -172,8 +169,8 @@ namespace FN { namespace DataFlowNodes {
 		Socket from_socket = builder.lookup_socket(from_bsocket);
 		Socket to_socket = builder.lookup_socket(to_bsocket);
 
-		std::string from_type = builder.socket_type_string(from_bsocket);
-		std::string to_type = builder.socket_type_string(to_bsocket);
+		std::string from_type = builder.query_socket_type_name(from_bsocket);
+		std::string to_type = builder.query_socket_type_name(to_bsocket);
 
 		if (from_type == to_type) {
 			builder.insert_link(from_socket, to_socket);

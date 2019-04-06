@@ -55,13 +55,16 @@ namespace FN { namespace DataFlowNodes {
 		/* Query Socket Information */
 		PointerRNA get_rna(bNodeSocket *bsocket) const;
 		bool is_data_socket(bNodeSocket *bsocket) const;
-		SharedType &type_of_socket(bNodeSocket *bsocket) const;
-		std::string name_of_socket(bNode *bnode, bNodeSocket *bsocket) const;
-		std::string socket_type_string(bNodeSocket *bsocket) const;
+		std::string query_socket_name(bNodeSocket *bsocket) const;
+		SharedType &query_socket_type(bNodeSocket *bsocket) const;
+		std::string query_socket_type_name(bNodeSocket *bsocket) const;
 
 		/* Query Node Information */
 		PointerRNA get_rna(bNode *bnode) const;
-		SharedType &type_from_rna(bNode *bnode, const char *prop_name) const;
+		SharedType &query_type_property(bNode *bnode, const char *prop_name) const;
+
+		/* Query RNA */
+		SharedType &type_from_rna(PointerRNA &rna, const char *prop_name) const;
 
 	private:
 		bool check_if_sockets_are_mapped(

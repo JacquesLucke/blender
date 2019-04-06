@@ -109,7 +109,7 @@ namespace FN { namespace DataFlowNodes {
 
 	void GraphBuilder::map_socket(Socket socket, bNodeSocket *bsocket)
 	{
-		BLI_assert(this->is_data_socket(bsocket) ? socket.type() == this->type_of_socket(bsocket) : true);
+		BLI_assert(this->is_data_socket(bsocket) ? socket.type() == this->query_socket_type(bsocket) : true);
 		m_socket_map.add(bsocket, socket);
 	}
 
@@ -249,13 +249,13 @@ namespace FN { namespace DataFlowNodes {
 		}
 	}
 
-	SharedType &GraphBuilder::type_of_socket(bNodeSocket *bsocket) const
+	SharedType &GraphBuilder::query_socket_type(bNodeSocket *bsocket) const
 	{
-		std::string data_type = this->socket_type_string(bsocket);
+		std::string data_type = this->query_socket_type_name(bsocket);
 		return this->type_by_name(data_type.c_str());
 	}
 
-	std::string GraphBuilder::name_of_socket(bNode *UNUSED(bnode), bNodeSocket *bsocket) const
+	std::string GraphBuilder::query_socket_name(bNodeSocket *bsocket) const
 	{
 		return bsocket->name;
 	}
@@ -278,15 +278,20 @@ namespace FN { namespace DataFlowNodes {
 		return ptr;
 	}
 
-	SharedType &GraphBuilder::type_from_rna(bNode *bnode, const char *prop_name) const
+	SharedType &GraphBuilder::query_type_property(bNode *bnode, const char *prop_name) const
 	{
-		PointerRNA ptr = this->get_rna(bnode);
+		PointerRNA rna = this->get_rna(bnode);
+		return this->type_from_rna(rna, prop_name);
+	}
+
+	SharedType &GraphBuilder::type_from_rna(PointerRNA &rna, const char *prop_name) const
+	{
 		char type_name[64];
-		RNA_string_get(&ptr, prop_name, type_name);
+		RNA_string_get(&rna, prop_name, type_name);
 		return this->type_by_name(type_name);
 	}
 
-	std::string GraphBuilder::socket_type_string(bNodeSocket *bsocket) const
+	std::string GraphBuilder::query_socket_type_name(bNodeSocket *bsocket) const
 	{
 		BLI_assert(this->is_data_socket(bsocket));
 		PointerRNA ptr = this->get_rna(bsocket);

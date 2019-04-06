@@ -85,7 +85,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_get_list_element_node(GraphBuilder &builder, bNode *bnode)
 	{
-		SharedType &base_type = builder.type_from_rna(bnode, "active_type");
+		SharedType &base_type = builder.query_type_property(bnode, "active_type");
 		SharedFunction &fn = Functions::GET_FN_get_list_element(base_type);
 		Node *node = builder.insert_function(fn, bnode);
 		builder.map_sockets(node, bnode);
@@ -93,7 +93,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_list_length_node(GraphBuilder &builder, bNode *bnode)
 	{
-		SharedType &base_type = builder.type_from_rna(bnode, "active_type");
+		SharedType &base_type = builder.query_type_property(bnode, "active_type");
 		SharedFunction &fn = Functions::GET_FN_list_length(base_type);
 		Node *node = builder.insert_function(fn, bnode);
 		builder.map_sockets(node, bnode);
@@ -144,7 +144,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_pack_list_node(GraphBuilder &builder, bNode *bnode)
 	{
-		SharedType &base_type = builder.type_from_rna(bnode, "active_type");
+		SharedType &base_type = builder.query_type_property(bnode, "active_type");
 		Socket packed_list_socket = insert_pack_list_sockets(
 			builder, bnode, base_type, "variadic", 0);
 		builder.map_output(packed_list_socket, bnode, 0);
@@ -172,7 +172,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_switch_node(GraphBuilder &builder, bNode *bnode)
 	{
-		SharedType &data_type = builder.type_from_rna(bnode, "data_type");
+		SharedType &data_type = builder.query_type_property(bnode, "data_type");
 		auto fn = Functions::GET_FN_bool_switch(data_type);
 		Node *node = builder.insert_function(fn);
 		builder.map_sockets(node, bnode);

@@ -46,8 +46,8 @@ namespace FN { namespace DataFlowNodes {
 		OutputParameters outputs;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
 			if (builder.is_data_socket(bsocket)) {
-				SharedType &type = builder.type_of_socket(bsocket);
-				outputs.append(OutputParameter(builder.name_of_socket(bnode, bsocket), type));
+				SharedType &type = builder.query_socket_type(bsocket);
+				outputs.append(OutputParameter(builder.query_socket_name(bsocket), type));
 			}
 		}
 
@@ -62,8 +62,8 @@ namespace FN { namespace DataFlowNodes {
 		InputParameters inputs;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
 			if (builder.is_data_socket(bsocket)) {
-				SharedType &type = builder.type_of_socket(bsocket);
-				inputs.append(InputParameter(builder.name_of_socket(bnode, bsocket), type));
+				SharedType &type = builder.query_socket_type(bsocket);
+				inputs.append(InputParameter(builder.query_socket_name(bsocket), type));
 			}
 		}
 
