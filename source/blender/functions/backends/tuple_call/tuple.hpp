@@ -9,20 +9,23 @@ namespace FN {
 		SmallTypeVector m_types;
 		SmallVector<CPPTypeInfo *> m_type_info;
 		SmallVector<uint> m_offsets;
-		uint m_total_size;
+		uint m_size__data;
+		uint m_size__data_and_init;
 
 	public:
 		TupleMeta(const SmallTypeVector &types = {})
 			: m_types(types)
 		{
-			m_total_size = 0;
+			m_size__data = 0;
 			for (const SharedType &type : types) {
 				CPPTypeInfo *info = type->extension<CPPTypeInfo>();
-				m_offsets.append(m_total_size);
+				m_offsets.append(m_size__data);
 				m_type_info.append(info);
-				m_total_size += info->size_of_type();
+				m_size__data += info->size_of_type();
 			}
-			m_offsets.append(m_total_size);
+			m_offsets.append(m_size__data);
+
+			m_size__data_and_init = m_size__data + this->element_amount();
 		}
 
 		const SmallTypeVector &types() const
@@ -40,12 +43,22 @@ namespace FN {
 			return m_offsets;
 		}
 
-		uint total_data_size() const
+		uint size_of_data() const
 		{
-			return m_total_size;
+			return m_size__data;
 		}
 
-		inline uint total_size() const;
+		uint size_of_init() const
+		{
+			return m_size__data_and_init - m_size__data;
+		}
+
+		uint size_of_data_and_init() const
+		{
+			return m_size__data_and_init;
+		}
+
+		inline uint size_of_full_tuple() const;
 
 		uint element_amount() const
 		{
@@ -67,7 +80,7 @@ namespace FN {
 		{
 			m_initialized = (bool *)MEM_calloc_arrayN(
 				m_meta->element_amount(), sizeof(bool), __func__);
-			m_data = MEM_mallocN(m_meta->total_data_size(), __func__);
+			m_data = MEM_mallocN(m_meta->size_of_data(), __func__);
 			m_owns_mem = true;
 		}
 
@@ -89,14 +102,21 @@ namespace FN {
 			}
 		}
 
-		static Tuple &NewInBuffer(
+		Tuple(
+			SharedTupleMeta &meta,
+			void *buffer)
+			: Tuple(
+				meta,
+				buffer,
+				(bool *)buffer + meta->size_of_data(),
+				false,
+				false) {}
+
+		static Tuple &ConstructInBuffer(
 			SharedTupleMeta &meta,
 			void *buffer)
 		{
-			void *tuple_ptr = buffer;
-			void *data_ptr = (char *)buffer + sizeof(Tuple);
-			void *init_ptr = (char *)data_ptr + meta->total_data_size();
-			Tuple *tuple = new(tuple_ptr) Tuple(meta, data_ptr, (bool *)init_ptr, false);
+			Tuple *tuple = new(buffer) Tuple(meta, (char *)buffer + sizeof(Tuple));
 			return *tuple;
 		}
 
@@ -379,17 +399,14 @@ namespace FN {
 		SharedTupleMeta m_meta;
 	};
 
-	inline uint TupleMeta::total_size() const
+	inline uint TupleMeta::size_of_full_tuple() const
 	{
-		return sizeof(Tuple) + this->total_data_size() + this->element_amount();
+		return sizeof(Tuple) + this->size_of_data_and_init();
 	}
 
 } /* namespace FN */
 
 #define FN_TUPLE_STACK_ALLOC(name, meta_expr) \
 	SharedTupleMeta &name##_meta = (meta_expr); \
-	void *name##_buffer = alloca(name##_meta->total_size()); \
-	Tuple &name = Tuple::NewInBuffer(name##_meta, name##_buffer);
-
-#define FN_TUPLE_STACK_FREE(name) \
-	name.~Tuple();
+	void *name##_buffer = alloca(name##_meta->size_of_data_and_init()); \
+	Tuple name(name##_meta, name##_buffer);

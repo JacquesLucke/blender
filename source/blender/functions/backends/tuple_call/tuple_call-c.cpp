@@ -50,7 +50,7 @@ void FN_tuple_free(FnTuple tuple)
 uint fn_tuple_stack_prepare_size(FnTupleCallBody body_)
 {
 	TupleCallBody *body = unwrap(body_);
-	return body->meta_in()->total_size() + body->meta_out()->total_size();
+	return body->meta_in()->size_of_full_tuple() + body->meta_out()->size_of_full_tuple();
 }
 
 void fn_tuple_prepare_stack(
@@ -62,9 +62,9 @@ void fn_tuple_prepare_stack(
 	TupleCallBody *body = unwrap(body_);
 	char *buf = (char *)buffer;
 	char *buf_in = buf + 0;
-	char *buf_out = buf + body->meta_in()->total_size();
-	Tuple::NewInBuffer(body->meta_in(), buf_in);
-	Tuple::NewInBuffer(body->meta_out(), buf_out);
+	char *buf_out = buf + body->meta_in()->size_of_full_tuple();
+	Tuple::ConstructInBuffer(body->meta_in(), buf_in);
+	Tuple::ConstructInBuffer(body->meta_out(), buf_out);
 	*fn_in_ = wrap((Tuple *)buf_in);
 	*fn_out_ = wrap((Tuple *)buf_out);
 }

@@ -43,8 +43,8 @@ namespace FN { namespace Functions {
 				m_max_len_in_size = 0;
 				m_max_len_out_size = 0;
 				for (TupleCallBody *body : m_get_length_bodies) {
-					m_max_len_in_size = std::max(m_max_len_in_size, body->meta_in()->total_size());
-					m_max_len_out_size = std::max(m_max_len_out_size, body->meta_out()->total_size());
+					m_max_len_in_size = std::max(m_max_len_in_size, body->meta_in()->size_of_full_tuple());
+					m_max_len_out_size = std::max(m_max_len_out_size, body->meta_out()->size_of_full_tuple());
 				}
 
 				for (auto output : main->signature().outputs()) {
@@ -89,9 +89,6 @@ namespace FN { namespace Functions {
 					this->append_to_output(main_out, fn_out, i, ctx);
 				}
 			}
-
-			FN_TUPLE_STACK_FREE(main_in);
-			FN_TUPLE_STACK_FREE(main_out);
 		}
 
 	private:
@@ -104,8 +101,8 @@ namespace FN { namespace Functions {
 				uint index = m_list_inputs[i];
 				TupleCallBody *body = m_get_length_bodies[i];
 
-				Tuple &len_in = Tuple::NewInBuffer(body->meta_in(), buf_in);
-				Tuple &len_out = Tuple::NewInBuffer(body->meta_out(), buf_out);
+				Tuple &len_in = Tuple::ConstructInBuffer(body->meta_in(), buf_in);
+				Tuple &len_out = Tuple::ConstructInBuffer(body->meta_out(), buf_out);
 
 				Tuple::copy_element(fn_in, index, len_in, 0);
 
@@ -139,9 +136,6 @@ namespace FN { namespace Functions {
 			body->call__setup_stack(get_element_in, get_element_out, ctx);
 
 			Tuple::relocate_element(get_element_out, 0, main_in, index);
-
-			FN_TUPLE_STACK_FREE(get_element_in);
-			FN_TUPLE_STACK_FREE(get_element_out);
 		}
 
 		void initialize_empty_lists(Tuple &fn_out, ExecutionContext &ctx) const
@@ -161,9 +155,6 @@ namespace FN { namespace Functions {
 			body->call__setup_stack(create_list_in, create_list_out, ctx);
 
 			Tuple::relocate_element(create_list_out, 0, fn_out, index);
-
-			FN_TUPLE_STACK_FREE(create_list_in);
-			FN_TUPLE_STACK_FREE(create_list_out);
 		}
 
 		void append_to_output(Tuple &main_out, Tuple &fn_out, uint index, ExecutionContext &ctx) const
@@ -179,9 +170,6 @@ namespace FN { namespace Functions {
 			body->call__setup_stack(append_in, append_out, ctx);
 
 			Tuple::relocate_element(append_out, index, fn_out, index);
-
-			FN_TUPLE_STACK_FREE(append_in);
-			FN_TUPLE_STACK_FREE(append_out);
 		}
 	};
 

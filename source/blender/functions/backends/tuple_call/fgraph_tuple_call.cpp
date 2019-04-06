@@ -124,9 +124,9 @@ namespace FN {
 				BLI_assert(body != nullptr);
 
 				m_tuple_offsets.append(m_combined_tuples_size);
-				m_combined_tuples_size += body->meta_in()->total_size();
+				m_combined_tuples_size += body->meta_in()->size_of_full_tuple();
 				m_tuple_offsets.append(m_combined_tuples_size);
-				m_combined_tuples_size += body->meta_out()->total_size();
+				m_combined_tuples_size += body->meta_out()->size_of_full_tuple();
 
 				NodeTupleIndices indices;
 				indices.in = tuple_indices.size() * 2 + 0;
@@ -278,7 +278,7 @@ namespace FN {
 					{
 						auto meta = SharedTupleMeta::FromPointer(task.data.init_tuple.meta);
 						void *ptr = (char *)buffer + m_tuple_offsets[task.data.init_tuple.index];
-						Tuple::NewInBuffer(meta, ptr);
+						Tuple::ConstructInBuffer(meta, ptr);
 						meta.extract_ptr();
 						break;
 					}
@@ -410,9 +410,6 @@ namespace FN {
 				ctx.stack().pop();
 
 				Tuple::copy_element(tmp_out, socket.index(), out, out_index);
-
-				FN_TUPLE_STACK_FREE(tmp_in);
-				FN_TUPLE_STACK_FREE(tmp_out);
 			}
 		}
 	};
@@ -539,9 +536,6 @@ namespace FN {
 							fn_out, output_index,
 							temp_storage, socket_indices.lookup(output_socket));
 					}
-
-					FN_TUPLE_STACK_FREE(fn_in);
-					FN_TUPLE_STACK_FREE(fn_out);
 				}
 				else if (fn->has_body<TupleCallBody>()) {
 					auto *body = node->function()->body<TupleCallBody>();
@@ -570,9 +564,6 @@ namespace FN {
 								temp_storage, temp_index);
 						}
 					}
-
-					FN_TUPLE_STACK_FREE(fn_in);
-					FN_TUPLE_STACK_FREE(fn_out);
 				}
 				else {
 					BLI_assert(false);

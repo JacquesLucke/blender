@@ -150,9 +150,9 @@ namespace FN {
 			/* Allocate temporary stack buffer for tuple input and output. */
 			auto &meta_in = m_tuple_call->meta_in();
 			auto &meta_out = m_tuple_call->meta_out();
-			llvm::Value *tuple_in_data_ptr = builder.CreateAllocaBytes_BytePtr(meta_in->total_data_size());
+			llvm::Value *tuple_in_data_ptr = builder.CreateAllocaBytes_BytePtr(meta_in->size_of_data());
 			tuple_in_data_ptr->setName("tuple_in_data");
-			llvm::Value *tuple_out_data_ptr = builder.CreateAllocaBytes_BytePtr(meta_out->total_data_size());
+			llvm::Value *tuple_out_data_ptr = builder.CreateAllocaBytes_BytePtr(meta_out->size_of_data());
 			tuple_out_data_ptr->setName("tuple_out_data");
 
 			/* Write input values into buffer. */
