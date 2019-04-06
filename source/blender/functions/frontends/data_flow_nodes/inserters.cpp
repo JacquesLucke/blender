@@ -113,13 +113,13 @@ namespace FN { namespace DataFlowNodes {
 		void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
 			for (uint i = 0; i < m_bsockets.size(); i++) {
-				PointerRNA ptr;
+				PointerRNA rna;
 				bNodeSocket *bsocket = m_bsockets[i];
 				auto loader = m_loaders[i];
 
 				RNA_pointer_create(&m_btree->id,
-					&RNA_NodeSocket, bsocket, &ptr);
-				loader(&ptr, fn_out, i);
+					&RNA_NodeSocket, bsocket, &rna);
+				loader(&rna, fn_out, i);
 			}
 		}
 	};
@@ -134,10 +134,10 @@ namespace FN { namespace DataFlowNodes {
 		for (uint i = 0; i < bsockets.size(); i++) {
 			bNodeSocket *bsocket = bsockets[i];
 
-			PointerRNA ptr = builder.get_rna(bsocket);
+			PointerRNA rna = builder.get_rna(bsocket);
 
 			char data_type[64];
-			RNA_string_get(&ptr, "data_type", data_type);
+			RNA_string_get(&rna, "data_type", data_type);
 
 			SocketLoader loader = m_socket_loaders.lookup(data_type);
 			loaders.append(loader);

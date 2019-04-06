@@ -12,18 +12,18 @@
 	#include <Python.h>
 
 	extern "C" {
-		PyObject *pyrna_struct_CreatePyObject(PointerRNA *ptr);
+		PyObject *pyrna_struct_CreatePyObject(PointerRNA *rna);
 	}
 #endif
 
 #ifdef WITH_PYTHON
 static PyObject *get_py_bnode(bNodeTree *btree, bNode *bnode)
 {
-	PointerRNA ptr;
+	PointerRNA rna;
 	RNA_pointer_create(
 		&btree->id, &RNA_Node,
-		bnode, &ptr);
-	return pyrna_struct_CreatePyObject(&ptr);
+		bnode, &rna);
+	return pyrna_struct_CreatePyObject(&rna);
 }
 #endif
 
@@ -223,8 +223,8 @@ namespace FN { namespace DataFlowNodes {
 
 	bool GraphBuilder::is_data_socket(bNodeSocket *bsocket) const
 	{
-		PointerRNA ptr = this->get_rna(bsocket);
-		return RNA_struct_find_property(&ptr, "data_type") != NULL;
+		PointerRNA rna = this->get_rna(bsocket);
+		return RNA_struct_find_property(&rna, "data_type") != NULL;
 	}
 
 	SharedType &GraphBuilder::type_by_name(const char *data_type) const
@@ -269,20 +269,20 @@ namespace FN { namespace DataFlowNodes {
 
 	PointerRNA GraphBuilder::get_rna(bNode *bnode) const
 	{
-		PointerRNA ptr;
+		PointerRNA rna;
 		RNA_pointer_create(
 			this->btree_id(), &RNA_Node,
-			bnode, &ptr);
-		return ptr;
+			bnode, &rna);
+		return rna;
 	}
 
 	PointerRNA GraphBuilder::get_rna(bNodeSocket *bsocket) const
 	{
-		PointerRNA ptr;
+		PointerRNA rna;
 		RNA_pointer_create(
 			this->btree_id(), &RNA_NodeSocket,
-			bsocket, &ptr);
-		return ptr;
+			bsocket, &rna);
+		return rna;
 	}
 
 	SharedType &GraphBuilder::query_type_property(bNode *bnode, const char *prop_name) const
@@ -301,9 +301,9 @@ namespace FN { namespace DataFlowNodes {
 	std::string GraphBuilder::query_socket_type_name(bNodeSocket *bsocket) const
 	{
 		BLI_assert(this->is_data_socket(bsocket));
-		PointerRNA ptr = this->get_rna(bsocket);
+		PointerRNA rna = this->get_rna(bsocket);
 		char type_name[64];
-		RNA_string_get(&ptr, "data_type", type_name);
+		RNA_string_get(&rna, "data_type", type_name);
 		return type_name;
 	}
 

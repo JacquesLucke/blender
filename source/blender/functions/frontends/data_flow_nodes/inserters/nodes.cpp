@@ -38,8 +38,8 @@ namespace FN { namespace DataFlowNodes {
 
 	static void INSERT_object_transforms(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr = builder.get_rna(bnode);
-		Object *object = (Object *)RNA_pointer_get(&ptr, "object").id.data;
+		PointerRNA rna = builder.get_rna(bnode);
+		Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
 		auto fn = Functions::GET_FN_object_location(object);
 		builder.insert_matching_function(fn, bnode);
 	}
@@ -131,10 +131,10 @@ namespace FN { namespace DataFlowNodes {
 		auto &empty_fn = Functions::GET_FN_empty_list(base_type);
 		Node *node = builder.insert_function(empty_fn, bnode);
 
-		PointerRNA ptr = builder.get_rna(bnode);
+		PointerRNA rna = builder.get_rna(bnode);
 
 		uint index = start_index;
-		RNA_BEGIN(&ptr, itemptr, prop_name)
+		RNA_BEGIN(&rna, itemptr, prop_name)
 		{
 			Node *new_node;
 			int state = RNA_enum_get(&itemptr, "state");
@@ -174,9 +174,9 @@ namespace FN { namespace DataFlowNodes {
 
 	static void INSERT_call(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr = builder.get_rna(bnode);
+		PointerRNA rna = builder.get_rna(bnode);
 
-		PointerRNA btree_ptr = RNA_pointer_get(&ptr, "function_tree");
+		PointerRNA btree_ptr = RNA_pointer_get(&rna, "function_tree");
 		bNodeTree *btree = (bNodeTree *)btree_ptr.id.data;
 
 		if (btree == nullptr) {
