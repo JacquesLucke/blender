@@ -14,9 +14,9 @@ namespace FN { namespace Functions {
 	static SharedFunction get_math_function__one_input(std::string name)
 	{
 		auto fn = SharedFunction::New(name, Signature({
-			InputParameter("Value", get_float_type()),
+			InputParameter("Value", GET_TYPE_float()),
 		}, {
-			OutputParameter("Result", get_float_type()),
+			OutputParameter("Result", GET_TYPE_float()),
 		}));
 		return fn;
 	}
@@ -24,10 +24,10 @@ namespace FN { namespace Functions {
 	static SharedFunction get_math_function__two_inputs(std::string name)
 	{
 		auto fn = SharedFunction::New(name, Signature({
-			InputParameter("A", get_float_type()),
-			InputParameter("B", get_float_type()),
+			InputParameter("A", GET_TYPE_float()),
+			InputParameter("B", GET_TYPE_float()),
 		}, {
-			OutputParameter("Result", get_float_type()),
+			OutputParameter("Result", GET_TYPE_float()),
 		}));
 		return fn;
 	}
@@ -158,13 +158,13 @@ namespace FN { namespace Functions {
 	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_map_range)
 	{
 		auto fn = SharedFunction::New("Map Range", Signature({
-			InputParameter("Value", get_float_type()),
-			InputParameter("From Min", get_float_type()),
-			InputParameter("From Max", get_float_type()),
-			InputParameter("To Min", get_float_type()),
-			InputParameter("To Max", get_float_type()),
+			InputParameter("Value", GET_TYPE_float()),
+			InputParameter("From Min", GET_TYPE_float()),
+			InputParameter("From Max", GET_TYPE_float()),
+			InputParameter("To Min", GET_TYPE_float()),
+			InputParameter("To Max", GET_TYPE_float()),
 		}, {
-			OutputParameter("Value", get_float_type()),
+			OutputParameter("Value", GET_TYPE_float()),
 		}));
 		fn->add_body(new MapRange());
 		return fn;

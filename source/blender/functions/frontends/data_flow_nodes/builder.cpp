@@ -227,25 +227,25 @@ namespace FN { namespace DataFlowNodes {
 	SharedType &BuilderContext::type_by_name(const char *data_type) const
 	{
 		if (STREQ(data_type, "Float")) {
-			return Types::get_float_type();
+			return Types::GET_TYPE_float();
 		}
 		else if (STREQ(data_type, "Integer")) {
-			return Types::get_int32_type();
+			return Types::GET_TYPE_int32();
 		}
 		else if (STREQ(data_type, "Vector")) {
-			return Types::get_fvec3_type();
+			return Types::GET_TYPE_fvec3();
 		}
 		else if (STREQ(data_type, "Boolean")) {
-			return Types::get_bool_type();
+			return Types::GET_TYPE_bool();
 		}
 		else if (STREQ(data_type, "Float List")) {
-			return Types::get_float_list_type();
+			return Types::GET_TYPE_float_list();
 		}
 		else if (STREQ(data_type, "Vector List")) {
-			return Types::get_fvec3_list_type();
+			return Types::GET_TYPE_fvec3_list();
 		}
 		else if (STREQ(data_type, "Integer List")) {
-			return Types::get_int32_list_type();
+			return Types::GET_TYPE_int32_list();
 		}
 		else {
 			BLI_assert(false);

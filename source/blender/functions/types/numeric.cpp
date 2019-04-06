@@ -6,7 +6,7 @@
 
 namespace FN { namespace Types {
 
-	LAZY_INIT_REF__NO_ARG(SharedType, get_float_type)
+	LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_float)
 	{
 		SharedType type = SharedType::New("Float");
 		type->extend(new CPPTypeInfoForType<float>());
@@ -16,7 +16,7 @@ namespace FN { namespace Types {
 		return type;
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedType, get_int32_type)
+	LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_int32)
 	{
 		SharedType type = SharedType::New("Int32");
 		type->extend(new CPPTypeInfoForType<int32_t>());
@@ -26,7 +26,7 @@ namespace FN { namespace Types {
 		return type;
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedType, get_fvec3_type)
+	LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_fvec3)
 	{
 		SharedType type = SharedType::New("FVec3");
 		type->extend(new CPPTypeInfoForType<Vector>());

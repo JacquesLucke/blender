@@ -17,7 +17,7 @@ namespace FN { namespace Functions {
 			const BuildIRSettings &UNUSED(settings)) const override
 		{
 			llvm::Type *vector_ty = get_llvm_type(
-				get_fvec3_type(), builder.getContext());
+				GET_TYPE_fvec3(), builder.getContext());
 
 			llvm::Value *vector = llvm::UndefValue::get(vector_ty);
 			vector = builder.CreateInsertValue(vector, interface.get_input(0), 0);
@@ -30,11 +30,11 @@ namespace FN { namespace Functions {
 	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_combine_vector)
 	{
 		auto fn = SharedFunction::New("Combine Vector", Signature({
-			InputParameter("X", get_float_type()),
-			InputParameter("Y", get_float_type()),
-			InputParameter("Z", get_float_type()),
+			InputParameter("X", GET_TYPE_float()),
+			InputParameter("Y", GET_TYPE_float()),
+			InputParameter("Z", GET_TYPE_float()),
 		}, {
-			OutputParameter("Vector", get_fvec3_type()),
+			OutputParameter("Vector", GET_TYPE_fvec3()),
 		}));
 		fn->add_body(new CombineVectorGen());
 		return fn;
@@ -56,11 +56,11 @@ namespace FN { namespace Functions {
 	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_separate_vector)
 	{
 		auto fn = SharedFunction::New("Separate Vector", Signature({
-			InputParameter("Vector", get_fvec3_type()),
+			InputParameter("Vector", GET_TYPE_fvec3()),
 		}, {
-			OutputParameter("X", get_float_type()),
-			OutputParameter("Y", get_float_type()),
-			OutputParameter("Z", get_float_type()),
+			OutputParameter("X", GET_TYPE_float()),
+			OutputParameter("Y", GET_TYPE_float()),
+			OutputParameter("Z", GET_TYPE_float()),
 		}));
 		fn->add_body(new SeparateVector());
 		return fn;
@@ -80,10 +80,10 @@ namespace FN { namespace Functions {
 	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_vector_distance)
 	{
 		auto fn = SharedFunction::New("Vector Distance", Signature({
-			InputParameter("A", get_fvec3_type()),
-			InputParameter("B", get_fvec3_type()),
+			InputParameter("A", GET_TYPE_fvec3()),
+			InputParameter("B", GET_TYPE_fvec3()),
 		}, {
-			OutputParameter("Distance", get_float_type()),
+			OutputParameter("Distance", GET_TYPE_float()),
 		}));
 		fn->add_body(new VectorDistance());
 		return fn;
@@ -93,10 +93,10 @@ namespace FN { namespace Functions {
 	static SharedFunction get_math_function__two_inputs(std::string name)
 	{
 		auto fn = SharedFunction::New(name, Signature({
-			InputParameter("A", get_fvec3_type()),
-			InputParameter("B", get_fvec3_type()),
+			InputParameter("A", GET_TYPE_fvec3()),
+			InputParameter("B", GET_TYPE_fvec3()),
 		}, {
-			OutputParameter("Result", get_fvec3_type()),
+			OutputParameter("Result", GET_TYPE_fvec3()),
 		}));
 		return fn;
 	}

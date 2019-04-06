@@ -46,17 +46,17 @@ namespace FN { namespace Types {
 		return type;
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedType, get_float_list_type)
+	LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_float_list)
 	{
 		return create_list_type<float>("Float List");
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedType, get_fvec3_list_type)
+	LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_fvec3_list)
 	{
 		return create_list_type<Vector>("FVec3 List");
 	}
 
-	LAZY_INIT_REF__NO_ARG(SharedType, get_int32_list_type)
+	LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_int32_list)
 	{
 		return create_list_type<int32_t>("Int32 List");
 	}

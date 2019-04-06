@@ -16,8 +16,8 @@ namespace FN { namespace Types {
 			: x(vec[0]), y(vec[1]), z(vec[2]) {}
 	};
 
-	SharedType &get_float_type();
-	SharedType &get_int32_type();
-	SharedType &get_fvec3_type();
+	SharedType &GET_TYPE_float();
+	SharedType &GET_TYPE_int32();
+	SharedType &GET_TYPE_fvec3();
 
 } } /* namespace FN::Types */

@@ -35,11 +35,11 @@ namespace FN { namespace Functions {
 	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_random_number)
 	{
 		auto fn = SharedFunction::New("Random Number", Signature({
-			InputParameter("Seed", get_int32_type()),
-			InputParameter("Min", get_float_type()),
-			InputParameter("Max", get_float_type()),
+			InputParameter("Seed", GET_TYPE_int32()),
+			InputParameter("Min", GET_TYPE_float()),
+			InputParameter("Max", GET_TYPE_float()),
 		}, {
-			OutputParameter("Value", get_float_type()),
+			OutputParameter("Value", GET_TYPE_float()),
 		}));
 		fn->add_body(new RandomNumber());
 		return fn;

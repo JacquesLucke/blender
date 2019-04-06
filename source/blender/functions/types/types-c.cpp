@@ -21,9 +21,9 @@ static FnType get_type_with_increased_refcount(const SharedType &type)
 
 #define SIMPLE_TYPE_GETTER(name) \
 	FnType FN_type_get_##name() \
-	{ return get_type_with_increased_refcount(Types::get_##name##_type()); } \
+	{ return get_type_with_increased_refcount(Types::GET_TYPE_##name()); } \
 	FnType FN_type_borrow_##name() \
-	{ return wrap(Types::get_##name##_type().ptr()); }
+	{ return wrap(Types::GET_TYPE_##name().ptr()); }
 
 SIMPLE_TYPE_GETTER(float);
 SIMPLE_TYPE_GETTER(int32);

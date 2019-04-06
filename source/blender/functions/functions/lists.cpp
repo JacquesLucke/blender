@@ -116,7 +116,7 @@ namespace FN { namespace Functions {
 		std::string name = "Get " + base_type->name() + " List Element";
 		auto fn = SharedFunction::New(name, Signature({
 			InputParameter("List", list_type),
-			InputParameter("Index", get_int32_type()),
+			InputParameter("Index", GET_TYPE_int32()),
 			InputParameter("Fallback", base_type),
 		}, {
 			OutputParameter("Element", base_type),
@@ -176,7 +176,7 @@ namespace FN { namespace Functions {
 		auto fn = SharedFunction::New(name, Signature({
 			InputParameter("List", list_type),
 		}, {
-			OutputParameter("Length", get_int32_type()),
+			OutputParameter("Length", GET_TYPE_int32()),
 		}));
 		fn->add_body(new ListLength<T>());
 		return fn;
@@ -225,11 +225,11 @@ namespace FN { namespace Functions {
 	{
 		ListFunctions functions;
 		insert_list_functions_for_type<float>(
-			functions, get_float_type(), get_float_list_type());
+			functions, GET_TYPE_float(), GET_TYPE_float_list());
 		insert_list_functions_for_type<Vector>(
-			functions, get_fvec3_type(), get_fvec3_list_type());
+			functions, GET_TYPE_fvec3(), GET_TYPE_fvec3_list());
 		insert_list_functions_for_type<int32_t>(
-			functions, get_int32_type(), get_int32_list_type());
+			functions, GET_TYPE_int32(), GET_TYPE_int32_list());
 		return functions;
 	}
 

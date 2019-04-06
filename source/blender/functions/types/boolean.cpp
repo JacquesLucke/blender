@@ -55,7 +55,7 @@ namespace FN { namespace Types {
 		}
 	};
 
-	LAZY_INIT_REF__NO_ARG(SharedType, get_bool_type)
+	LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_bool)
 	{
 		SharedType type = SharedType::New("Bool");
 		type->extend(new CPPTypeInfoForType<bool>());

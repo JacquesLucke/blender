@@ -55,7 +55,7 @@ namespace FN { namespace Functions {
 	{
 		std::string name = "Switch " + data_type->name();
 		auto fn = SharedFunction::New(name, Signature({
-			InputParameter("Condition", get_bool_type()),
+			InputParameter("Condition", GET_TYPE_bool()),
 			InputParameter("True", data_type),
 			InputParameter("False", data_type),
 		}, {

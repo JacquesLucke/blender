@@ -4,6 +4,6 @@
 
 namespace FN { namespace Types {
 
-	SharedType &get_bool_type();
+	SharedType &GET_TYPE_bool();
 
 } } /* namespace FN::Types */

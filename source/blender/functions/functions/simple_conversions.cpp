@@ -32,7 +32,7 @@ namespace FN { namespace Functions {
 
 	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_int32_to_float)
 	{
-		auto fn = get_simple_conversion_function(get_int32_type(), get_float_type());
+		auto fn = get_simple_conversion_function(GET_TYPE_int32(), GET_TYPE_float());
 		fn->add_body(new Int32ToFloat());
 		return fn;
 	}
@@ -48,7 +48,7 @@ namespace FN { namespace Functions {
 
 	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_to_int32)
 	{
-		auto fn = get_simple_conversion_function(get_float_type(), get_int32_type());
+		auto fn = get_simple_conversion_function(GET_TYPE_float(), GET_TYPE_int32());
 		fn->add_body(new FloatToInt32());
 		return fn;
 	}

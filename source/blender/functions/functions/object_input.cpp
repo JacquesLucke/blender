@@ -47,7 +47,7 @@ namespace FN { namespace Functions {
 	SharedFunction GET_FN_object_location(Object *object)
 	{
 		auto fn = SharedFunction::New("Object Transforms", Signature({}, {
-			OutputParameter("Location", get_fvec3_type()),
+			OutputParameter("Location", GET_TYPE_fvec3()),
 		}));
 		fn->add_body(new ObjectTransforms(object));
 		fn->add_body(new ObjectTransformsDependency(object));
