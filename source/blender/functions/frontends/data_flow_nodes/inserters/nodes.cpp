@@ -21,7 +21,7 @@ namespace FN { namespace DataFlowNodes {
 		RNA_pointer_create(ctx.btree_id(), &RNA_Node, bnode, &ptr);
 		Object *object = (Object *)RNA_pointer_get(&ptr, "object").id.data;
 
-		auto fn = Functions::object_location(object);
+		auto fn = Functions::GET_FN_object_location(object);
 		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
 		builder.map_sockets(ctx, node, bnode);
 	}
@@ -30,11 +30,11 @@ namespace FN { namespace DataFlowNodes {
 	{
 		switch (operation)
 		{
-			case 1: return Functions::add_floats();
-			case 2: return Functions::multiply_floats();
-			case 3: return Functions::min_floats();
-			case 4: return Functions::max_floats();
-			case 5: return Functions::sin_float();
+			case 1: return Functions::GET_FN_add_floats();
+			case 2: return Functions::GET_FN_multiply_floats();
+			case 3: return Functions::GET_FN_min_floats();
+			case 4: return Functions::GET_FN_max_floats();
+			case 5: return Functions::GET_FN_sin_float();
 			default:
 				BLI_assert(false);
 				return *(SharedFunction *)nullptr;
@@ -59,7 +59,7 @@ namespace FN { namespace DataFlowNodes {
 	{
 		switch (operation)
 		{
-			case 1: return Functions::add_vectors();
+			case 1: return Functions::GET_FN_add_vectors();
 			default:
 				BLI_assert(false);
 				return *(SharedFunction *)nullptr;
@@ -85,8 +85,8 @@ namespace FN { namespace DataFlowNodes {
 		const BuilderContext &ctx,
 		bNode *bnode)
 	{
-		SharedFunction &max_fn = Functions::max_floats();
-		SharedFunction &min_fn = Functions::min_floats();
+		SharedFunction &max_fn = Functions::GET_FN_max_floats();
+		SharedFunction &min_fn = Functions::GET_FN_min_floats();
 
 		Node *max_node = builder.insert_function(max_fn, ctx.btree(), bnode);
 		Node *min_node = builder.insert_function(min_fn, ctx.btree(), bnode);
@@ -104,7 +104,7 @@ namespace FN { namespace DataFlowNodes {
 		bNode *bnode)
 	{
 		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
-		SharedFunction &fn = Functions::get_list_element(base_type);
+		SharedFunction &fn = Functions::GET_FN_get_list_element(base_type);
 		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
 		builder.map_sockets(ctx, node, bnode);
 	}
@@ -115,7 +115,7 @@ namespace FN { namespace DataFlowNodes {
 		bNode *bnode)
 	{
 		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
-		SharedFunction &fn = Functions::list_length(base_type);
+		SharedFunction &fn = Functions::GET_FN_list_length(base_type);
 		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
 		builder.map_sockets(ctx, node, bnode);
 	}
@@ -128,7 +128,7 @@ namespace FN { namespace DataFlowNodes {
 		const char *prop_name,
 		uint start_index)
 	{
-		auto &empty_fn = Functions::empty_list(base_type);
+		auto &empty_fn = Functions::GET_FN_empty_list(base_type);
 		Node *node = builder.insert_function(empty_fn, ctx.btree(), bnode);
 
 		PointerRNA ptr;
@@ -141,14 +141,14 @@ namespace FN { namespace DataFlowNodes {
 			int state = RNA_enum_get(&itemptr, "state");
 			if (state == 0) {
 				/* single value case */
-				auto &append_fn = Functions::append_to_list(base_type);
+				auto &append_fn = Functions::GET_FN_append_to_list(base_type);
 				new_node = builder.insert_function(append_fn, ctx.btree(), bnode);
 				builder.insert_link(node->output(0), new_node->input(0));
 				builder.map_input(ctx, new_node->input(1), bnode, index);
 			}
 			else if (state == 1) {
 				/* list case */
-				auto &combine_fn = Functions::combine_lists(base_type);
+				auto &combine_fn = Functions::GET_FN_combine_lists(base_type);
 				new_node = builder.insert_function(combine_fn, ctx.btree(), bnode);
 				builder.insert_link(node->output(0), new_node->input(0));
 				builder.map_input(ctx, new_node->input(1), bnode, index);
@@ -206,7 +206,7 @@ namespace FN { namespace DataFlowNodes {
 		bNode *bnode)
 	{
 		SharedType &data_type = ctx.type_from_rna(bnode, "data_type");
-		auto fn = Functions::bool_switch(data_type);
+		auto fn = Functions::GET_FN_bool_switch(data_type);
 		Node *node = builder.insert_function(fn);
 		builder.map_sockets(ctx, node, bnode);
 	}
@@ -224,7 +224,7 @@ namespace FN { namespace DataFlowNodes {
 		SharedFunction &fn, const SmallVector<bool> vectorized_inputs)
 	{
 		if (vectorized_inputs.contains(true)) {
-			return Functions::auto_vectorization(fn, vectorized_inputs);
+			return Functions::to_vectorized_function(fn, vectorized_inputs);
 		}
 		else {
 			return fn;
@@ -245,7 +245,7 @@ namespace FN { namespace DataFlowNodes {
 			vectorized_socket_is_list(&ptr, "use_list__z"),
 		};
 
-		SharedFunction &original_fn = Functions::combine_vector();
+		SharedFunction &original_fn = Functions::GET_FN_combine_vector();
 		SharedFunction final_fn = original_or_vectorized(
 			original_fn, vectorized_inputs);
 
@@ -265,7 +265,7 @@ namespace FN { namespace DataFlowNodes {
 			vectorized_socket_is_list(&ptr, "use_list__vector"),
 		};
 
-		SharedFunction &original_fn = Functions::separate_vector();
+		SharedFunction &original_fn = Functions::GET_FN_separate_vector();
 		SharedFunction final_fn = original_or_vectorized(
 			original_fn, vectorized_inputs);
 
@@ -275,9 +275,9 @@ namespace FN { namespace DataFlowNodes {
 
 	void register_node_inserters(GraphInserters &inserters)
 	{
-		inserters.reg_node_function("fn_VectorDistanceNode", Functions::separate_vector);
-		inserters.reg_node_function("fn_RandomNumberNode", Functions::random_number);
-		inserters.reg_node_function("fn_MapRangeNode", Functions::map_range);
+		inserters.reg_node_function("fn_VectorDistanceNode", Functions::GET_FN_vector_distance);
+		inserters.reg_node_function("fn_RandomNumberNode", Functions::GET_FN_random_number);
+		inserters.reg_node_function("fn_MapRangeNode", Functions::GET_FN_map_range);
 
 		inserters.reg_node_inserter("fn_SeparateVectorNode", insert_separate_vector_node);
 		inserters.reg_node_inserter("fn_CombineVectorNode", insert_combine_vector_node);

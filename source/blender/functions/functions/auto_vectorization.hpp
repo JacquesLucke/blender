@@ -4,7 +4,7 @@
 
 namespace FN { namespace Functions {
 
-	SharedFunction auto_vectorization(
+	SharedFunction to_vectorized_function(
 		SharedFunction &fn,
 		const SmallVector<bool> &vectorize_input);
 

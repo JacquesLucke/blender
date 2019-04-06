@@ -27,7 +27,7 @@ namespace FN { namespace Functions {
 		}
 	};
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, combine_vector)
+	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_combine_vector)
 	{
 		auto fn = SharedFunction::New("Combine Vector", Signature({
 			InputParameter("X", get_float_type()),
@@ -53,7 +53,7 @@ namespace FN { namespace Functions {
 		}
 	};
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, separate_vector)
+	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_separate_vector)
 	{
 		auto fn = SharedFunction::New("Separate Vector", Signature({
 			InputParameter("Vector", get_fvec3_type()),
@@ -77,7 +77,7 @@ namespace FN { namespace Functions {
 		}
 	};
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, vector_distance)
+	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_vector_distance)
 	{
 		auto fn = SharedFunction::New("Vector Distance", Signature({
 			InputParameter("A", get_fvec3_type()),
@@ -126,7 +126,7 @@ namespace FN { namespace Functions {
 		}
 	};
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, add_vectors)
+	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_add_vectors)
 	{
 		auto fn = get_math_function__two_inputs("Add Vectors");
 		fn->add_body(new AddVectors());

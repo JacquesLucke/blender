@@ -4,11 +4,11 @@
 
 namespace FN { namespace Functions {
 
-	SharedFunction &add_floats();
-	SharedFunction &multiply_floats();
-	SharedFunction &min_floats();
-	SharedFunction &max_floats();
-	SharedFunction &map_range();
-	SharedFunction &sin_float();
+	SharedFunction &GET_FN_add_floats();
+	SharedFunction &GET_FN_multiply_floats();
+	SharedFunction &GET_FN_min_floats();
+	SharedFunction &GET_FN_max_floats();
+	SharedFunction &GET_FN_map_range();
+	SharedFunction &GET_FN_sin_float();
 
 } } /* namespace FN::Functions */

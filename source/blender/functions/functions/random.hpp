@@ -4,6 +4,6 @@
 
 namespace FN { namespace Functions {
 
-	SharedFunction &random_number();
+	SharedFunction &GET_FN_random_number();
 
 } } /* namespace FN::Functions */

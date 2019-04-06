@@ -4,6 +4,6 @@
 
 namespace FN { namespace Functions {
 
-	SharedFunction &bool_switch(SharedType &data_type);
+	SharedFunction &GET_FN_bool_switch(SharedType &data_type);
 
 } } /* namespace FN::Functions */

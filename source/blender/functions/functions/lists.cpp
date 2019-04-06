@@ -237,42 +237,42 @@ namespace FN { namespace Functions {
 	/* Access List Functions
 	 *************************************/
 
-	SharedFunction &empty_list(SharedType &base_type)
+	SharedFunction &GET_FN_empty_list(SharedType &base_type)
 	{
 		FunctionPerType &functions = get_list_functions().m_create_empty;
 		BLI_assert(functions.contains(base_type));
 		return functions.lookup_ref(base_type);
 	}
 
-	SharedFunction &list_from_element(SharedType &base_type)
+	SharedFunction &GET_FN_list_from_element(SharedType &base_type)
 	{
 		FunctionPerType &functions = get_list_functions().m_from_element;
 		BLI_assert(functions.contains(base_type));
 		return functions.lookup_ref(base_type);
 	}
 
-	SharedFunction &append_to_list(SharedType &base_type)
+	SharedFunction &GET_FN_append_to_list(SharedType &base_type)
 	{
 		FunctionPerType &functions = get_list_functions().m_append;
 		BLI_assert(functions.contains(base_type));
 		return functions.lookup_ref(base_type);
 	}
 
-	SharedFunction &get_list_element(SharedType &base_type)
+	SharedFunction &GET_FN_get_list_element(SharedType &base_type)
 	{
 		FunctionPerType &functions = get_list_functions().m_get_element;
 		BLI_assert(functions.contains(base_type));
 		return functions.lookup_ref(base_type);
 	}
 
-	SharedFunction &combine_lists(SharedType &base_type)
+	SharedFunction &GET_FN_combine_lists(SharedType &base_type)
 	{
 		FunctionPerType &functions = get_list_functions().m_combine;
 		BLI_assert(functions.contains(base_type));
 		return functions.lookup_ref(base_type);
 	}
 
-	SharedFunction &list_length(SharedType &base_type)
+	SharedFunction &GET_FN_list_length(SharedType &base_type)
 	{
 		FunctionPerType &functions = get_list_functions().m_length;
 		BLI_assert(functions.contains(base_type));
@@ -281,7 +281,7 @@ namespace FN { namespace Functions {
 
 	SharedType &get_list_type(SharedType &base_type)
 	{
-		SharedFunction &fn = append_to_list(base_type);
+		SharedFunction &fn = GET_FN_append_to_list(base_type);
 		return fn->signature().inputs()[0].type();
 	}
 

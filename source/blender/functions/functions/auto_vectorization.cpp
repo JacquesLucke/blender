@@ -37,8 +37,8 @@ namespace FN { namespace Functions {
 				}
 				for (uint i : m_list_inputs) {
 					SharedType &base_type = main->signature().inputs()[i].type();
-					m_get_length_bodies.append(list_length(base_type)->body<TupleCallBody>());
-					m_get_element_bodies.append(get_list_element(base_type)->body<TupleCallBody>());
+					m_get_length_bodies.append(GET_FN_list_length(base_type)->body<TupleCallBody>());
+					m_get_element_bodies.append(GET_FN_get_list_element(base_type)->body<TupleCallBody>());
 				}
 
 				m_max_len_in_size = 0;
@@ -50,8 +50,8 @@ namespace FN { namespace Functions {
 
 				for (auto output : main->signature().outputs()) {
 					SharedType &base_type = output.type();
-					m_create_empty_bodies.append(empty_list(base_type)->body<TupleCallBody>());
-					m_append_bodies.append(append_to_list(base_type)->body<TupleCallBody>());
+					m_create_empty_bodies.append(GET_FN_empty_list(base_type)->body<TupleCallBody>());
+					m_append_bodies.append(GET_FN_append_to_list(base_type)->body<TupleCallBody>());
 				}
 			}
 
@@ -163,7 +163,7 @@ namespace FN { namespace Functions {
 		return false;
 	}
 
-	SharedFunction auto_vectorization(
+	SharedFunction to_vectorized_function(
 		SharedFunction &original_fn,
 		const SmallVector<bool> &vectorize_input)
 	{

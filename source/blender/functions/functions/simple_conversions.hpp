@@ -4,7 +4,7 @@
 
 namespace FN { namespace Functions {
 
-	SharedFunction &int32_to_float();
-	SharedFunction &float_to_int32();
+	SharedFunction &GET_FN_int32_to_float();
+	SharedFunction &GET_FN_float_to_int32();
 
 } } /* namespace FN::Functions */

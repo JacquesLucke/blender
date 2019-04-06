@@ -32,7 +32,7 @@ namespace FN { namespace Functions {
 		}
 	};
 
-	LAZY_INIT_REF__NO_ARG(SharedFunction, random_number)
+	LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_random_number)
 	{
 		auto fn = SharedFunction::New("Random Number", Signature({
 			InputParameter("Seed", get_int32_type()),
