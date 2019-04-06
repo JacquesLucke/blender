@@ -137,10 +137,7 @@ namespace FN { namespace DataFlowNodes {
 			bNode *bnode = bnodes[i];
 			bNodeSocket *bsocket = bsockets[i];
 
-			PointerRNA ptr;
-			RNA_pointer_create(
-				builder.ctx().btree_id(), &RNA_NodeSocket,
-				bsocket, &ptr);
+			PointerRNA ptr = builder.get_rna(bsocket);
 
 			char data_type[64];
 			RNA_string_get(&ptr, "data_type", data_type);
@@ -148,12 +145,12 @@ namespace FN { namespace DataFlowNodes {
 			SocketLoader loader = m_socket_loaders.lookup(data_type);
 			loaders.append(loader);
 			outputs.append(OutputParameter(
-				builder.ctx().name_of_socket(bnode, bsocket),
-				builder.ctx().type_of_socket(bsocket)));
+				builder.name_of_socket(bnode, bsocket),
+				builder.type_of_socket(bsocket)));
 		}
 
 		auto fn = SharedFunction::New("Input Sockets", Signature({}, outputs));
-		fn->add_body(new SocketLoaderBody(builder.ctx().btree(), bsockets, loaders));
+		fn->add_body(new SocketLoaderBody(builder.btree(), bsockets, loaders));
 		Node *node = builder.insert_function(fn);
 
 		SmallSocketVector sockets;
@@ -169,14 +166,14 @@ namespace FN { namespace DataFlowNodes {
 		struct bNodeSocket *to_bsocket,
 		struct bNodeLink *source_link)
 	{
-		BLI_assert(builder.ctx().is_data_socket(from_bsocket));
-		BLI_assert(builder.ctx().is_data_socket(to_bsocket));
+		BLI_assert(builder.is_data_socket(from_bsocket));
+		BLI_assert(builder.is_data_socket(to_bsocket));
 
 		Socket from_socket = builder.lookup_socket(from_bsocket);
 		Socket to_socket = builder.lookup_socket(to_bsocket);
 
-		std::string from_type = builder.ctx().socket_type_string(from_bsocket);
-		std::string to_type = builder.ctx().socket_type_string(to_bsocket);
+		std::string from_type = builder.socket_type_string(from_bsocket);
+		std::string to_type = builder.socket_type_string(to_bsocket);
 
 		if (from_type == to_type) {
 			builder.insert_link(from_socket, to_socket);

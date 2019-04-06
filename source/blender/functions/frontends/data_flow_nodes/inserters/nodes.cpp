@@ -14,8 +14,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_object_transforms_node(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr;
-		builder.ctx().get_rna(bnode, &ptr);
+		PointerRNA ptr = builder.get_rna(bnode);
 		Object *object = (Object *)RNA_pointer_get(&ptr, "object").id.data;
 
 		auto fn = Functions::GET_FN_object_location(object);
@@ -40,8 +39,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_float_math_node(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr;
-		builder.ctx().get_rna(bnode, &ptr);
+		PointerRNA ptr = builder.get_rna(bnode);
 		int operation = RNA_enum_get(&ptr, "operation");
 
 		SharedFunction &fn = get_float_math_function(operation);
@@ -62,8 +60,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_vector_math_node(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr;
-		builder.ctx().get_rna(bnode, &ptr);
+		PointerRNA ptr = builder.get_rna(bnode);
 		int operation = RNA_enum_get(&ptr, "operation");
 
 		SharedFunction &fn = get_vector_math_function(operation);
@@ -88,7 +85,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_get_list_element_node(GraphBuilder &builder, bNode *bnode)
 	{
-		SharedType &base_type = builder.ctx().type_from_rna(bnode, "active_type");
+		SharedType &base_type = builder.type_from_rna(bnode, "active_type");
 		SharedFunction &fn = Functions::GET_FN_get_list_element(base_type);
 		Node *node = builder.insert_function(fn, bnode);
 		builder.map_sockets(node, bnode);
@@ -96,7 +93,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_list_length_node(GraphBuilder &builder, bNode *bnode)
 	{
-		SharedType &base_type = builder.ctx().type_from_rna(bnode, "active_type");
+		SharedType &base_type = builder.type_from_rna(bnode, "active_type");
 		SharedFunction &fn = Functions::GET_FN_list_length(base_type);
 		Node *node = builder.insert_function(fn, bnode);
 		builder.map_sockets(node, bnode);
@@ -112,8 +109,7 @@ namespace FN { namespace DataFlowNodes {
 		auto &empty_fn = Functions::GET_FN_empty_list(base_type);
 		Node *node = builder.insert_function(empty_fn, bnode);
 
-		PointerRNA ptr;
-		builder.ctx().get_rna(bnode, &ptr);
+		PointerRNA ptr = builder.get_rna(bnode);
 
 		uint index = start_index;
 		RNA_BEGIN(&ptr, itemptr, prop_name)
@@ -148,7 +144,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_pack_list_node(GraphBuilder &builder, bNode *bnode)
 	{
-		SharedType &base_type = builder.ctx().type_from_rna(bnode, "active_type");
+		SharedType &base_type = builder.type_from_rna(bnode, "active_type");
 		Socket packed_list_socket = insert_pack_list_sockets(
 			builder, bnode, base_type, "variadic", 0);
 		builder.map_output(packed_list_socket, bnode, 0);
@@ -156,8 +152,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_call_node(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr;
-		builder.ctx().get_rna(bnode, &ptr);
+		PointerRNA ptr = builder.get_rna(bnode);
 
 		PointerRNA btree_ptr = RNA_pointer_get(&ptr, "function_tree");
 		bNodeTree *btree = (bNodeTree *)btree_ptr.id.data;
@@ -177,7 +172,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_switch_node(GraphBuilder &builder, bNode *bnode)
 	{
-		SharedType &data_type = builder.ctx().type_from_rna(bnode, "data_type");
+		SharedType &data_type = builder.type_from_rna(bnode, "data_type");
 		auto fn = Functions::GET_FN_bool_switch(data_type);
 		Node *node = builder.insert_function(fn);
 		builder.map_sockets(node, bnode);
@@ -205,8 +200,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_combine_vector_node(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr;
-		builder.ctx().get_rna(bnode, &ptr);
+		PointerRNA ptr = builder.get_rna(bnode);
 
 		SmallVector<bool> vectorized_inputs = {
 			vectorized_socket_is_list(&ptr, "use_list__x"),
@@ -224,8 +218,7 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_separate_vector_node(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr;
-		builder.ctx().get_rna(bnode, &ptr);
+		PointerRNA ptr = builder.get_rna(bnode);
 
 		SmallVector<bool> vectorized_inputs = {
 			vectorized_socket_is_list(&ptr, "use_list__vector"),
