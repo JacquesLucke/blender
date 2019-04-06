@@ -12,6 +12,30 @@ namespace FN { namespace DataFlowNodes {
 
 	using namespace Types;
 
+	static SharedFunction get_vectorized_function(
+		SharedFunction &original_fn,
+		PointerRNA &node_rna,
+		SmallVector<const char *> vectorize_prop_names)
+	{
+		SmallVector<bool> vectorized_inputs;
+		for (const char *prop_name : vectorize_prop_names) {
+			char state[5];
+			BLI_assert(RNA_string_length(&node_rna, prop_name) == strlen("BASE"));
+			RNA_string_get(&node_rna, prop_name, state);
+			BLI_assert(STREQ(state, "BASE") || STREQ(state, "LIST"));
+
+			bool is_vectorized = STREQ(state, "LIST");
+			vectorized_inputs.append(is_vectorized);
+		}
+
+		if (vectorized_inputs.contains(true)) {
+			return Functions::to_vectorized_function(original_fn, vectorized_inputs);
+		}
+		else {
+			return original_fn;
+		}
+	}
+
 	static void INSERT_object_transforms(GraphBuilder &builder, bNode *bnode)
 	{
 		PointerRNA ptr = builder.get_rna(bnode);
@@ -47,26 +71,6 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(node, bnode);
 	}
 
-	static bool vectorized_socket_is_list(PointerRNA &ptr, const char *prop_name)
-	{
-		BLI_assert(RNA_string_length(&ptr, prop_name) == strlen("BASE"));
-		char value[5];
-		RNA_string_get(&ptr, prop_name, value);
-		BLI_assert(STREQ(value, "BASE") || STREQ(value, "LIST"));
-		return STREQ(value, "LIST");
-	}
-
-	static SharedFunction original_or_vectorized(
-		SharedFunction &fn, const SmallVector<bool> vectorized_inputs)
-	{
-		if (vectorized_inputs.contains(true)) {
-			return Functions::to_vectorized_function(fn, vectorized_inputs);
-		}
-		else {
-			return fn;
-		}
-	}
-
 	static SharedFunction &get_vector_math_function(int operation)
 	{
 		switch (operation)
@@ -80,18 +84,14 @@ namespace FN { namespace DataFlowNodes {
 
 	static void INSERT_vector_math(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr = builder.get_rna(bnode);
-		int operation = RNA_enum_get(&ptr, "operation");
+		PointerRNA rna = builder.get_rna(bnode);
+		int operation = RNA_enum_get(&rna, "operation");
 
-		SmallVector<bool> vectorized_inputs = {
-			vectorized_socket_is_list(ptr, "use_list__a"),
-			vectorized_socket_is_list(ptr, "use_list__b"),
-		};
+		SharedFunction fn = get_vectorized_function(
+			get_vector_math_function(operation),
+			rna, {"use_list__a", "use_list__b"});
 
-		SharedFunction &original_fn = get_vector_math_function(operation);
-		SharedFunction final_fn = original_or_vectorized(original_fn, vectorized_inputs);
-
-		Node *node = builder.insert_function(final_fn, bnode);
+		Node *node = builder.insert_function(fn, bnode);
 		builder.map_sockets(node, bnode);
 	}
 
@@ -207,35 +207,23 @@ namespace FN { namespace DataFlowNodes {
 
 	static void INSERT_combine_vector(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr = builder.get_rna(bnode);
+		PointerRNA rna = builder.get_rna(bnode);
+		SharedFunction fn = get_vectorized_function(
+			Functions::GET_FN_combine_vector(),
+			rna, {"use_list__x", "use_list__y", "use_list__z"});
 
-		SmallVector<bool> vectorized_inputs = {
-			vectorized_socket_is_list(ptr, "use_list__x"),
-			vectorized_socket_is_list(ptr, "use_list__y"),
-			vectorized_socket_is_list(ptr, "use_list__z"),
-		};
-
-		SharedFunction &original_fn = Functions::GET_FN_combine_vector();
-		SharedFunction final_fn = original_or_vectorized(
-			original_fn, vectorized_inputs);
-
-		Node *node = builder.insert_function(final_fn, bnode);
+		Node *node = builder.insert_function(fn, bnode);
 		builder.map_sockets(node, bnode);
 	}
 
 	static void INSERT_separate_vector(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr = builder.get_rna(bnode);
+		PointerRNA rna = builder.get_rna(bnode);
+		SharedFunction fn = get_vectorized_function(
+			Functions::GET_FN_separate_vector(),
+			rna, {"use_list__vector"});
 
-		SmallVector<bool> vectorized_inputs = {
-			vectorized_socket_is_list(ptr, "use_list__vector"),
-		};
-
-		SharedFunction &original_fn = Functions::GET_FN_separate_vector();
-		SharedFunction final_fn = original_or_vectorized(
-			original_fn, vectorized_inputs);
-
-		Node *node = builder.insert_function(final_fn, bnode);
+		Node *node = builder.insert_function(fn, bnode);
 		builder.map_sockets(node, bnode);
 	}
 
