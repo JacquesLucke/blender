@@ -32,6 +32,33 @@ namespace FN { namespace Functions {
 
 
 	template<typename T>
+	class CreateSingleElementList : public TupleCallBody {
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+		{
+			auto list = SharedList<T>::New();
+			T value = fn_in.relocate_out<T>(0);
+			list->append(value);
+			fn_out.move_in(0, list);
+		}
+	};
+
+	template<typename T>
+	SharedFunction build_create_single_element_list_function(
+		SharedType &base_type,
+		SharedType &list_type)
+	{
+		std::string name = "Create " + base_type->name() + " List from Value";
+		auto fn = SharedFunction::New(name, Signature({
+			InputParameter("Value", base_type),
+		}, {
+			OutputParameter("List", list_type),
+		}));
+		fn->add_body(new CreateSingleElementList<T>());
+		return fn;
+	}
+
+
+	template<typename T>
 	class AppendToList : public TupleCallBody {
 		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
 		{
@@ -161,6 +188,7 @@ namespace FN { namespace Functions {
 
 	struct ListFunctions {
 		FunctionPerType m_create_empty;
+		FunctionPerType m_from_element;
 		FunctionPerType m_append;
 		FunctionPerType m_get_element;
 		FunctionPerType m_combine;
@@ -176,6 +204,9 @@ namespace FN { namespace Functions {
 		functions.m_create_empty.add(
 			base_type,
 			build_create_empty_list_function<T>(base_type, list_type));
+		functions.m_from_element.add(
+			base_type,
+			build_create_single_element_list_function<T>(base_type, list_type));
 		functions.m_append.add(
 			base_type,
 			build_append_function<T>(base_type, list_type));
@@ -213,6 +244,13 @@ namespace FN { namespace Functions {
 		return functions.lookup_ref(base_type);
 	}
 
+	SharedFunction &list_from_element(SharedType &base_type)
+	{
+		FunctionPerType &functions = get_list_functions().m_from_element;
+		BLI_assert(functions.contains(base_type));
+		return functions.lookup_ref(base_type);
+	}
+
 	SharedFunction &append_to_list(SharedType &base_type)
 	{
 		FunctionPerType &functions = get_list_functions().m_append;
@@ -239,6 +277,12 @@ namespace FN { namespace Functions {
 		FunctionPerType &functions = get_list_functions().m_length;
 		BLI_assert(functions.contains(base_type));
 		return functions.lookup_ref(base_type);
+	}
+
+	SharedType &get_list_type(SharedType &base_type)
+	{
+		SharedFunction &fn = append_to_list(base_type);
+		return fn->signature().inputs()[0].type();
 	}
 
 } } /* namespace FN::Functions */

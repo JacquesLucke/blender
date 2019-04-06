@@ -35,6 +35,8 @@ class DataTypesInfo:
         self.list_by_base[base_type] = list_type
         self.base_by_list[list_type] = base_type
 
+        self.insert_implicit_conversion(base_type, list_type)
+
     def insert_implicitly_convertable_types(self, types):
         for type_1, type_2 in itertools.combinations(types, 2):
             self.insert_implicit_conversion(type_1, type_2)
