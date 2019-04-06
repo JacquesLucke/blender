@@ -33,6 +33,14 @@ namespace FN {
 	public:
 		BLI_COMPOSITION_DECLARATION(TupleCallBody);
 
+		inline void call__setup_stack(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx)
+		{
+			TextStackFrame frame(this->owner()->name().c_str());
+			ctx.stack().push(&frame);
+			this->call(fn_in, fn_out, ctx);
+			ctx.stack().pop();
+		}
+
 		virtual void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const = 0;
 	};
 

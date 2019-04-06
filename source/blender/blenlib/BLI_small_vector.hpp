@@ -172,6 +172,11 @@ namespace BLI {
 			return -1;
 		}
 
+		bool contains(const T &value) const
+		{
+			return this->index(value) != -1;
+		}
+
 		static bool all_equal(const SmallVector &a, const SmallVector &b)
 		{
 			if (a.size() != b.size()) {

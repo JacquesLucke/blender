@@ -10,7 +10,7 @@ namespace FN { namespace Functions {
 
 	using namespace Types;
 
-	class CombineVector : public LLVMBuildIRBody {
+	class CombineVectorGen : public LLVMBuildIRBody {
 		void build_ir(
 			CodeBuilder &builder,
 			CodeInterface &interface,
@@ -36,7 +36,8 @@ namespace FN { namespace Functions {
 		}, {
 			OutputParameter("Vector", get_fvec3_type()),
 		}));
-		fn->add_body(new CombineVector());
+		fn->add_body(new CombineVectorGen());
+		derive_TupleCallBody_from_LLVMBuildIRBody(fn, *(new llvm::LLVMContext()));
 		return fn;
 	}
 

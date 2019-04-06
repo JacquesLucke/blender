@@ -116,6 +116,8 @@ set(SRC
 	functions/simple_conversions.cpp
 	functions/switch.hpp
 	functions/switch.cpp
+	functions/auto_vectorization.hpp
+	functions/auto_vectorization.cpp
 
 	frontends/data_flow_nodes/builder.hpp
 	frontends/data_flow_nodes/builder.cpp

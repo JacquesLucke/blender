@@ -211,14 +211,57 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(ctx, node, bnode);
 	}
 
+	static bool vectorized_socket_is_list(PointerRNA *ptr, const char *prop_name)
+	{
+		BLI_assert(RNA_string_length(ptr, prop_name) == strlen("BASE"));
+		char value[5];
+		RNA_string_get(ptr, prop_name, value);
+		BLI_assert(STREQ(value, "BASE") || STREQ(value, "LIST"));
+		return STREQ(value, "LIST");
+	}
+
+	static SharedFunction original_or_vectorized(
+		SharedFunction &fn, const SmallVector<bool> vectorized_inputs)
+	{
+		if (vectorized_inputs.contains(true)) {
+			return Functions::auto_vectorization(fn, vectorized_inputs);
+		}
+		else {
+			return fn;
+		}
+	}
+
+	static void insert_combine_vector_node(
+		Builder &builder,
+		const BuilderContext &ctx,
+		bNode *bnode)
+	{
+		PointerRNA ptr;
+		ctx.get_rna(bnode, &ptr);
+
+		SmallVector<bool> vectorized_inputs = {
+			vectorized_socket_is_list(&ptr, "use_list__x"),
+			vectorized_socket_is_list(&ptr, "use_list__y"),
+			vectorized_socket_is_list(&ptr, "use_list__z"),
+		};
+
+		SharedFunction &original_fn = Functions::combine_vector();
+		SharedFunction final_fn = original_or_vectorized(
+			original_fn, vectorized_inputs);
+
+		Node *node = builder.insert_function(final_fn, ctx.btree(), bnode);
+		builder.map_sockets(ctx, node, bnode);
+	}
+
 	void register_node_inserters(GraphInserters &inserters)
 	{
-		inserters.reg_node_function("fn_CombineVectorNode", Functions::combine_vector);
 		inserters.reg_node_function("fn_SeparateVectorNode", Functions::separate_vector);
 		inserters.reg_node_function("fn_VectorDistanceNode", Functions::separate_vector);
 		inserters.reg_node_function("fn_RandomNumberNode", Functions::random_number);
 		inserters.reg_node_function("fn_MapRangeNode", Functions::map_range);
+		//inserters.reg_node_function("fn_CombineVectorNode", Functions::combine_vector);
 
+		inserters.reg_node_inserter("fn_CombineVectorNode", insert_combine_vector_node);
 		inserters.reg_node_inserter("fn_ObjectTransformsNode", insert_object_transforms_node);
 		inserters.reg_node_inserter("fn_FloatMathNode", insert_float_math_node);
 		inserters.reg_node_inserter("fn_VectorMathNode", insert_vector_math_node);
