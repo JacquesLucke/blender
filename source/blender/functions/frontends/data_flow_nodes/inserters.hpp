@@ -12,7 +12,6 @@ namespace FN { namespace DataFlowNodes {
 
 	typedef std::function<void (
 		Builder &builder,
-		const BuilderContext &ctx,
 		struct bNode *bnode)> NodeInserter;
 
 	typedef std::function<void (
@@ -22,7 +21,6 @@ namespace FN { namespace DataFlowNodes {
 
 	typedef std::function<void (
 		Builder &builder,
-		const BuilderContext &ctx,
 		Socket from,
 		Socket to,
 		struct bNodeLink *source_link)> ConversionInserter;
@@ -53,18 +51,15 @@ namespace FN { namespace DataFlowNodes {
 
 		bool insert_node(
 			Builder &builder,
-			const BuilderContext &ctx,
 			struct bNode *bnode);
 
 		SmallSocketVector insert_sockets(
 			Builder &builder,
-			const BuilderContext &ctx,
 			BSockets &bsockets,
 			BNodes &bnodes);
 
 		bool insert_link(
 			Builder &builder,
-			const BuilderContext &ctx,
 			struct bNodeSocket *from_bsocket,
 			struct bNodeSocket *to_bsocket,
 			struct bNodeLink *source_link = nullptr);

@@ -53,7 +53,7 @@ namespace FN { namespace DataFlowNodes {
 
 		auto fn = SharedFunction::New("Function Input", Signature({}, outputs));
 		Node *node = builder.insert_function(fn);
-		builder.map_data_sockets(ctx, node, bnode);
+		builder.map_data_sockets(node, bnode);
 	}
 
 	static void insert_output_node(
@@ -69,7 +69,7 @@ namespace FN { namespace DataFlowNodes {
 
 		auto fn = SharedFunction::New("Function Output", Signature(inputs, {}));
 		Node *node = builder.insert_function(fn);
-		builder.map_data_sockets(ctx, node, bnode);
+		builder.map_data_sockets(node, bnode);
 	}
 
 	struct BSocketLink {
@@ -150,8 +150,8 @@ namespace FN { namespace DataFlowNodes {
 		auto graph = SharedDataFlowGraph::New();
 		SocketMap socket_map;
 
-		Builder builder(graph, socket_map);
 		BuilderContext ctx(btree);
+		Builder builder(ctx, graph, socket_map);
 		GraphInserters &inserters = get_standard_inserters();
 
 		bNode *input_node;
@@ -166,7 +166,7 @@ namespace FN { namespace DataFlowNodes {
 				continue;
 			}
 
-			if (!inserters.insert_node(builder, ctx, bnode)) {
+			if (!inserters.insert_node(builder, bnode)) {
 				return {};
 			}
 		}
@@ -194,7 +194,7 @@ namespace FN { namespace DataFlowNodes {
 		TreeData tree_data(btree);
 		for (auto &link : tree_data.data_origins()) {
 			if (!inserters.insert_link(
-				builder, ctx,
+				builder,
 				link.from, link.to,
 				link.optional_source_link))
 			{
@@ -219,7 +219,7 @@ namespace FN { namespace DataFlowNodes {
 		}
 
 		SmallSocketVector new_origins = inserters.insert_sockets(
-			builder, ctx, unlinked_inputs, unlinked_inputs_nodes);
+			builder, unlinked_inputs, unlinked_inputs_nodes);
 		BLI_assert(unlinked_inputs.size() == new_origins.size());
 
 		for (uint i = 0; i < unlinked_inputs.size(); i++) {

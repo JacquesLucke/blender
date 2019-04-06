@@ -12,18 +12,15 @@ namespace FN { namespace DataFlowNodes {
 
 	using namespace Types;
 
-	static void insert_object_transforms_node(
-		Builder &builder,
-		const BuilderContext &ctx,
-		bNode *bnode)
+	static void insert_object_transforms_node(Builder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
-		RNA_pointer_create(ctx.btree_id(), &RNA_Node, bnode, &ptr);
+		builder.ctx().get_rna(bnode, &ptr);
 		Object *object = (Object *)RNA_pointer_get(&ptr, "object").id.data;
 
 		auto fn = Functions::GET_FN_object_location(object);
-		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
-		builder.map_sockets(ctx, node, bnode);
+		Node *node = builder.insert_function(fn, bnode);
+		builder.map_sockets(node, bnode);
 	}
 
 	static SharedFunction &get_float_math_function(int operation)
@@ -41,18 +38,15 @@ namespace FN { namespace DataFlowNodes {
 		}
 	}
 
-	static void insert_float_math_node(
-		Builder &builder,
-		const BuilderContext &ctx,
-		bNode *bnode)
+	static void insert_float_math_node(Builder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
-		ctx.get_rna(bnode, &ptr);
+		builder.ctx().get_rna(bnode, &ptr);
 		int operation = RNA_enum_get(&ptr, "operation");
 
 		SharedFunction &fn = get_float_math_function(operation);
-		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
-		builder.map_sockets(ctx, node, bnode);
+		Node *node = builder.insert_function(fn, bnode);
+		builder.map_sockets(node, bnode);
 	}
 
 	static SharedFunction &get_vector_math_function(int operation)
@@ -66,73 +60,60 @@ namespace FN { namespace DataFlowNodes {
 		}
 	}
 
-	static void insert_vector_math_node(
-		Builder &builder,
-		const BuilderContext &ctx,
-		bNode *bnode)
+	static void insert_vector_math_node(Builder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
-		ctx.get_rna(bnode, &ptr);
+		builder.ctx().get_rna(bnode, &ptr);
 		int operation = RNA_enum_get(&ptr, "operation");
 
 		SharedFunction &fn = get_vector_math_function(operation);
-		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
-		builder.map_sockets(ctx, node, bnode);
+		Node *node = builder.insert_function(fn, bnode);
+		builder.map_sockets(node, bnode);
 	}
 
-	static void insert_clamp_node(
-		Builder &builder,
-		const BuilderContext &ctx,
-		bNode *bnode)
+	static void insert_clamp_node(Builder &builder, bNode *bnode)
 	{
 		SharedFunction &max_fn = Functions::GET_FN_max_floats();
 		SharedFunction &min_fn = Functions::GET_FN_min_floats();
 
-		Node *max_node = builder.insert_function(max_fn, ctx.btree(), bnode);
-		Node *min_node = builder.insert_function(min_fn, ctx.btree(), bnode);
+		Node *max_node = builder.insert_function(max_fn, bnode);
+		Node *min_node = builder.insert_function(min_fn, bnode);
 
 		builder.insert_link(max_node->output(0), min_node->input(0));
-		builder.map_input(ctx, max_node->input(0), bnode, 0);
-		builder.map_input(ctx, max_node->input(1), bnode, 1);
-		builder.map_input(ctx, min_node->input(1), bnode, 2);
-		builder.map_output(ctx, min_node->output(0), bnode, 0);
+		builder.map_input(max_node->input(0), bnode, 0);
+		builder.map_input(max_node->input(1), bnode, 1);
+		builder.map_input(min_node->input(1), bnode, 2);
+		builder.map_output( min_node->output(0), bnode, 0);
 	}
 
-	static void insert_get_list_element_node(
-		Builder &builder,
-		const BuilderContext &ctx,
-		bNode *bnode)
+	static void insert_get_list_element_node(Builder &builder, bNode *bnode)
 	{
-		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
+		SharedType &base_type = builder.ctx().type_from_rna(bnode, "active_type");
 		SharedFunction &fn = Functions::GET_FN_get_list_element(base_type);
-		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
-		builder.map_sockets(ctx, node, bnode);
+		Node *node = builder.insert_function(fn, bnode);
+		builder.map_sockets(node, bnode);
 	}
 
-	static void insert_list_length_node(
-		Builder &builder,
-		const BuilderContext &ctx,
-		bNode *bnode)
+	static void insert_list_length_node(Builder &builder, bNode *bnode)
 	{
-		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
+		SharedType &base_type = builder.ctx().type_from_rna(bnode, "active_type");
 		SharedFunction &fn = Functions::GET_FN_list_length(base_type);
-		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
-		builder.map_sockets(ctx, node, bnode);
+		Node *node = builder.insert_function(fn, bnode);
+		builder.map_sockets(node, bnode);
 	}
 
 	static Socket insert_pack_list_sockets(
 		Builder &builder,
-		const BuilderContext ctx,
 		bNode *bnode,
 		SharedType &base_type,
 		const char *prop_name,
 		uint start_index)
 	{
 		auto &empty_fn = Functions::GET_FN_empty_list(base_type);
-		Node *node = builder.insert_function(empty_fn, ctx.btree(), bnode);
+		Node *node = builder.insert_function(empty_fn, bnode);
 
 		PointerRNA ptr;
-		ctx.get_rna(bnode, &ptr);
+		builder.ctx().get_rna(bnode, &ptr);
 
 		uint index = start_index;
 		RNA_BEGIN(&ptr, itemptr, prop_name)
@@ -142,16 +123,16 @@ namespace FN { namespace DataFlowNodes {
 			if (state == 0) {
 				/* single value case */
 				auto &append_fn = Functions::GET_FN_append_to_list(base_type);
-				new_node = builder.insert_function(append_fn, ctx.btree(), bnode);
+				new_node = builder.insert_function(append_fn, bnode);
 				builder.insert_link(node->output(0), new_node->input(0));
-				builder.map_input(ctx, new_node->input(1), bnode, index);
+				builder.map_input(new_node->input(1), bnode, index);
 			}
 			else if (state == 1) {
 				/* list case */
 				auto &combine_fn = Functions::GET_FN_combine_lists(base_type);
-				new_node = builder.insert_function(combine_fn, ctx.btree(), bnode);
+				new_node = builder.insert_function(combine_fn, bnode);
 				builder.insert_link(node->output(0), new_node->input(0));
-				builder.map_input(ctx, new_node->input(1), bnode, index);
+				builder.map_input(new_node->input(1), bnode, index);
 			}
 			else {
 				BLI_assert(false);
@@ -165,24 +146,18 @@ namespace FN { namespace DataFlowNodes {
 		return node->output(0);
 	}
 
-	static void insert_pack_list_node(
-		Builder &builder,
-		const BuilderContext ctx,
-		bNode *bnode)
+	static void insert_pack_list_node(Builder &builder, bNode *bnode)
 	{
-		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
+		SharedType &base_type = builder.ctx().type_from_rna(bnode, "active_type");
 		Socket packed_list_socket = insert_pack_list_sockets(
-			builder, ctx, bnode, base_type, "variadic", 0);
-		builder.map_output(ctx, packed_list_socket, bnode, 0);
+			builder, bnode, base_type, "variadic", 0);
+		builder.map_output(packed_list_socket, bnode, 0);
 	}
 
-	static void insert_call_node(
-		Builder &builder,
-		const BuilderContext &ctx,
-		bNode *bnode)
+	static void insert_call_node(Builder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
-		ctx.get_rna(bnode, &ptr);
+		builder.ctx().get_rna(bnode, &ptr);
 
 		PointerRNA btree_ptr = RNA_pointer_get(&ptr, "function_tree");
 		bNodeTree *btree = (bNodeTree *)btree_ptr.id.data;
@@ -196,19 +171,16 @@ namespace FN { namespace DataFlowNodes {
 		Optional<SharedFunction> fn = generate_function(btree);
 		BLI_assert(fn.has_value());
 
-		Node *node = builder.insert_function(fn.value(), ctx.btree(), bnode);
-		builder.map_sockets(ctx, node, bnode);
+		Node *node = builder.insert_function(fn.value(), bnode);
+		builder.map_sockets(node, bnode);
 	}
 
-	static void insert_switch_node(
-		Builder &builder,
-		const BuilderContext &ctx,
-		bNode *bnode)
+	static void insert_switch_node(Builder &builder, bNode *bnode)
 	{
-		SharedType &data_type = ctx.type_from_rna(bnode, "data_type");
+		SharedType &data_type = builder.ctx().type_from_rna(bnode, "data_type");
 		auto fn = Functions::GET_FN_bool_switch(data_type);
 		Node *node = builder.insert_function(fn);
-		builder.map_sockets(ctx, node, bnode);
+		builder.map_sockets(node, bnode);
 	}
 
 	static bool vectorized_socket_is_list(PointerRNA *ptr, const char *prop_name)
@@ -231,13 +203,10 @@ namespace FN { namespace DataFlowNodes {
 		}
 	}
 
-	static void insert_combine_vector_node(
-		Builder &builder,
-		const BuilderContext &ctx,
-		bNode *bnode)
+	static void insert_combine_vector_node(Builder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
-		ctx.get_rna(bnode, &ptr);
+		builder.ctx().get_rna(bnode, &ptr);
 
 		SmallVector<bool> vectorized_inputs = {
 			vectorized_socket_is_list(&ptr, "use_list__x"),
@@ -249,17 +218,14 @@ namespace FN { namespace DataFlowNodes {
 		SharedFunction final_fn = original_or_vectorized(
 			original_fn, vectorized_inputs);
 
-		Node *node = builder.insert_function(final_fn, ctx.btree(), bnode);
-		builder.map_sockets(ctx, node, bnode);
+		Node *node = builder.insert_function(final_fn, bnode);
+		builder.map_sockets(node, bnode);
 	}
 
-	static void insert_separate_vector_node(
-		Builder &builder,
-		const BuilderContext &ctx,
-		bNode *bnode)
+	static void insert_separate_vector_node(Builder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
-		ctx.get_rna(bnode, &ptr);
+		builder.ctx().get_rna(bnode, &ptr);
 
 		SmallVector<bool> vectorized_inputs = {
 			vectorized_socket_is_list(&ptr, "use_list__vector"),
@@ -269,8 +235,8 @@ namespace FN { namespace DataFlowNodes {
 		SharedFunction final_fn = original_or_vectorized(
 			original_fn, vectorized_inputs);
 
-		Node *node = builder.insert_function(final_fn, ctx.btree(), bnode);
-		builder.map_sockets(ctx, node, bnode);
+		Node *node = builder.insert_function(final_fn, bnode);
+		builder.map_sockets(node, bnode);
 	}
 
 	void register_node_inserters(GraphInserters &inserters)

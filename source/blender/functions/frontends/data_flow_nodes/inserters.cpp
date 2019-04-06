@@ -33,12 +33,11 @@ namespace FN { namespace DataFlowNodes {
 	{
 		auto inserter = [getter](
 				Builder &builder,
-				const BuilderContext &ctx,
 				bNode *bnode)
 			{
 				SharedFunction fn = getter();
-				Node *node = builder.insert_function(fn, ctx.btree(), bnode);
-				builder.map_sockets(ctx, node, bnode);
+				Node *node = builder.insert_function(fn, bnode);
+				builder.map_sockets(node, bnode);
 			};
 		this->reg_node_inserter(idname, inserter);
 	}
@@ -66,7 +65,6 @@ namespace FN { namespace DataFlowNodes {
 	{
 		auto inserter = [getter](
 				Builder &builder,
-				const BuilderContext &ctx,
 				Socket from,
 				Socket to,
 				struct bNodeLink *source_link)
@@ -77,7 +75,7 @@ namespace FN { namespace DataFlowNodes {
 					node = builder.insert_function(fn);
 				}
 				else {
-					node = builder.insert_function(fn, ctx.btree(), source_link);
+					node = builder.insert_function(fn, source_link);
 				}
 				builder.insert_link(from, node->input(0));
 				builder.insert_link(node->output(0), to);
@@ -87,16 +85,15 @@ namespace FN { namespace DataFlowNodes {
 
 	bool GraphInserters::insert_node(
 		Builder &builder,
-		const BuilderContext &ctx,
 		bNode *bnode)
 	{
 		NodeInserter *inserter = m_node_inserters.lookup_ptr(bnode->idname);
 		if (inserter == nullptr) {
 			return false;
 		}
-		(*inserter)(builder, ctx, bnode);
+		(*inserter)(builder, bnode);
 
-		BLI_assert(builder.verify_data_sockets_mapped(bnode, ctx));
+		BLI_assert(builder.verify_data_sockets_mapped(bnode));
 		return true;
 	}
 
@@ -129,7 +126,6 @@ namespace FN { namespace DataFlowNodes {
 
 	SmallSocketVector GraphInserters::insert_sockets(
 		Builder &builder,
-		const BuilderContext &ctx,
 		BSockets &bsockets,
 		BNodes &bnodes)
 	{
@@ -143,7 +139,7 @@ namespace FN { namespace DataFlowNodes {
 
 			PointerRNA ptr;
 			RNA_pointer_create(
-				ctx.btree_id(), &RNA_NodeSocket,
+				builder.ctx().btree_id(), &RNA_NodeSocket,
 				bsocket, &ptr);
 
 			char data_type[64];
@@ -152,12 +148,12 @@ namespace FN { namespace DataFlowNodes {
 			SocketLoader loader = m_socket_loaders.lookup(data_type);
 			loaders.append(loader);
 			outputs.append(OutputParameter(
-				ctx.name_of_socket(bnode, bsocket),
-				ctx.type_of_socket(bsocket)));
+				builder.ctx().name_of_socket(bnode, bsocket),
+				builder.ctx().type_of_socket(bsocket)));
 		}
 
 		auto fn = SharedFunction::New("Input Sockets", Signature({}, outputs));
-		fn->add_body(new SocketLoaderBody(ctx.btree(), bsockets, loaders));
+		fn->add_body(new SocketLoaderBody(builder.ctx().btree(), bsockets, loaders));
 		Node *node = builder.insert_function(fn);
 
 		SmallSocketVector sockets;
@@ -169,19 +165,18 @@ namespace FN { namespace DataFlowNodes {
 
 	bool GraphInserters::insert_link(
 		Builder &builder,
-		const BuilderContext &ctx,
 		struct bNodeSocket *from_bsocket,
 		struct bNodeSocket *to_bsocket,
 		struct bNodeLink *source_link)
 	{
-		BLI_assert(ctx.is_data_socket(from_bsocket));
-		BLI_assert(ctx.is_data_socket(to_bsocket));
+		BLI_assert(builder.ctx().is_data_socket(from_bsocket));
+		BLI_assert(builder.ctx().is_data_socket(to_bsocket));
 
 		Socket from_socket = builder.lookup_socket(from_bsocket);
 		Socket to_socket = builder.lookup_socket(to_bsocket);
 
-		std::string from_type = ctx.socket_type_string(from_bsocket);
-		std::string to_type = ctx.socket_type_string(to_bsocket);
+		std::string from_type = builder.ctx().socket_type_string(from_bsocket);
+		std::string to_type = builder.ctx().socket_type_string(to_bsocket);
 
 		if (from_type == to_type) {
 			builder.insert_link(from_socket, to_socket);
@@ -191,7 +186,7 @@ namespace FN { namespace DataFlowNodes {
 		auto key = std::pair<std::string, std::string>(from_type, to_type);
 		if (m_conversion_inserters.contains(key)) {
 			auto inserter = m_conversion_inserters.lookup(key);
-			inserter(builder, ctx, from_socket, to_socket, source_link);
+			inserter(builder, from_socket, to_socket, source_link);
 			return true;
 		}
 

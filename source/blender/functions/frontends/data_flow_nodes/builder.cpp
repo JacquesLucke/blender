@@ -88,19 +88,17 @@ namespace FN { namespace DataFlowNodes {
 		return m_graph->insert(fn);
 	}
 
-	Node *Builder::insert_function(SharedFunction &fn, bNodeTree *btree, bNode *bnode)
+	Node *Builder::insert_function(SharedFunction &fn, bNode *bnode)
 	{
-		BLI_assert(btree != nullptr);
 		BLI_assert(bnode != nullptr);
-		NodeSource *source = m_graph->new_source_info<NodeSource>(btree, bnode);
+		NodeSource *source = m_graph->new_source_info<NodeSource>(m_ctx.btree(), bnode);
 		return m_graph->insert(fn, source);
 	}
 
-	Node *Builder::insert_function(SharedFunction &fn, bNodeTree *btree, bNodeLink *blink)
+	Node *Builder::insert_function(SharedFunction &fn, bNodeLink *blink)
 	{
-		BLI_assert(btree != nullptr);
 		BLI_assert(blink != nullptr);
-		LinkSource *source = m_graph->new_source_info<LinkSource>(btree, blink);
+		LinkSource *source = m_graph->new_source_info<LinkSource>(m_ctx.btree(), blink);
 		return m_graph->insert(fn, source);
 	}
 
@@ -109,61 +107,61 @@ namespace FN { namespace DataFlowNodes {
 		m_graph->link(a, b);
 	}
 
-	void Builder::map_socket(const BuilderContext &ctx, Socket socket, bNodeSocket *bsocket)
+	void Builder::map_socket(Socket socket, bNodeSocket *bsocket)
 	{
-		BLI_assert(ctx.is_data_socket(bsocket) ? socket.type() == ctx.type_of_socket(bsocket) : true);
+		BLI_assert(m_ctx.is_data_socket(bsocket) ? socket.type() == m_ctx.type_of_socket(bsocket) : true);
 		m_socket_map.add(bsocket, socket);
 	}
 
-	void Builder::map_sockets(const BuilderContext &ctx, Node *node, struct bNode *bnode)
+	void Builder::map_sockets(Node *node, struct bNode *bnode)
 	{
 		BLI_assert(BLI_listbase_count(&bnode->inputs) == node->input_amount());
 		BLI_assert(BLI_listbase_count(&bnode->outputs) == node->output_amount());
 
 		uint input_index = 0;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
-			this->map_socket(ctx, node->input(input_index), bsocket);
+			this->map_socket(node->input(input_index), bsocket);
 			input_index++;
 		}
 
 		uint output_index = 0;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
-			this->map_socket(ctx, node->output(output_index), bsocket);
+			this->map_socket( node->output(output_index), bsocket);
 			output_index++;
 		}
 	}
 
-	void Builder::map_data_sockets(const BuilderContext &ctx, Node *node, struct bNode *bnode)
+	void Builder::map_data_sockets(Node *node, struct bNode *bnode)
 	{
 		uint input_index = 0;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
-			if (ctx.is_data_socket(bsocket)) {
-				this->map_socket(ctx, node->input(input_index), bsocket);
+			if (m_ctx.is_data_socket(bsocket)) {
+				this->map_socket(node->input(input_index), bsocket);
 				input_index++;
 			}
 		}
 
 		uint output_index = 0;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
-			if (ctx.is_data_socket(bsocket)) {
-				this->map_socket(ctx, node->output(output_index), bsocket);
+			if (m_ctx.is_data_socket(bsocket)) {
+				this->map_socket( node->output(output_index), bsocket);
 				output_index++;
 			}
 		}
 	}
 
-	void Builder::map_input(const BuilderContext &ctx, Socket socket, struct bNode *bnode, uint index)
+	void Builder::map_input(Socket socket, struct bNode *bnode, uint index)
 	{
 		BLI_assert(socket.is_input());
 		auto bsocket = (bNodeSocket *)BLI_findlink(&bnode->inputs, index);
-		this->map_socket(ctx, socket, bsocket);
+		this->map_socket(socket, bsocket);
 	}
 
-	void Builder::map_output(const BuilderContext &ctx, Socket socket, struct bNode *bnode, uint index)
+	void Builder::map_output(Socket socket, struct bNode *bnode, uint index)
 	{
 		BLI_assert(socket.is_output());
 		auto bsocket = (bNodeSocket *)BLI_findlink(&bnode->outputs, index);
-		this->map_socket(ctx, socket, bsocket);
+		this->map_socket(socket, bsocket);
 	}
 
 	Socket Builder::lookup_socket(struct bNodeSocket *bsocket)
@@ -174,15 +172,14 @@ namespace FN { namespace DataFlowNodes {
 
 	bool Builder::check_if_sockets_are_mapped(
 		struct bNode *bnode,
-		bSocketList bsockets,
-		const BuilderContext &ctx) const
+		bSocketList bsockets) const
 	{
 		int index = 0;
 		for (bNodeSocket *bsocket : bsockets) {
-			if (ctx.is_data_socket(bsocket)) {
+			if (m_ctx.is_data_socket(bsocket)) {
 				if (!m_socket_map.contains(bsocket)) {
 					std::cout << "Data Socket not mapped: " << std::endl;
-					std::cout << "    Tree: " << ctx.btree()->id.name << std::endl;
+					std::cout << "    Tree: " << m_ctx.btree()->id.name << std::endl;
 					std::cout << "    Node: " << bnode->name << std::endl;
 					if (bsocket->in_out == SOCK_IN) {
 						std::cout << "    Input";
@@ -199,11 +196,11 @@ namespace FN { namespace DataFlowNodes {
 		return true;
 	}
 
-	bool Builder::verify_data_sockets_mapped(struct bNode *bnode, const BuilderContext &ctx) const
+	bool Builder::verify_data_sockets_mapped(struct bNode *bnode) const
 	{
 		return (
-			this->check_if_sockets_are_mapped(bnode, bSocketList(&bnode->inputs), ctx) &&
-			this->check_if_sockets_are_mapped(bnode, bSocketList(&bnode->outputs), ctx));
+			this->check_if_sockets_are_mapped(bnode, bSocketList(&bnode->inputs)) &&
+			this->check_if_sockets_are_mapped(bnode, bSocketList(&bnode->outputs)));
 	}
 
 

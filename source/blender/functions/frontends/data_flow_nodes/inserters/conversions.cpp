@@ -6,7 +6,6 @@ namespace FN { namespace DataFlowNodes {
 
 	static void insert_base_to_list_conversion(
 		Builder &builder,
-		const BuilderContext &UNUSED(ctx),
 		Socket from,
 		Socket to,
 		struct bNodeLink *UNUSED(source_link))
