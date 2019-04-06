@@ -61,9 +61,12 @@ namespace FN { namespace DataFlowNodes {
 
 	static void INSERT_float_math(GraphBuilder &builder, bNode *bnode)
 	{
-		PointerRNA ptr = builder.get_rna(bnode);
-		int operation = RNA_enum_get(&ptr, "operation");
-		SharedFunction &fn = get_float_math_function(operation);
+		PointerRNA rna = builder.get_rna(bnode);
+		int operation = RNA_enum_get(&rna, "operation");
+
+		SharedFunction fn = get_vectorized_function(
+			get_float_math_function(operation),
+			rna, {"use_list__a", "use_list__b"});
 		builder.insert_matching_function(fn, bnode);
 	}
 
