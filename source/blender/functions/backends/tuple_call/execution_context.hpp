@@ -47,7 +47,7 @@ namespace FN {
 
 	class ExecutionStack {
 	private:
-		SmallStack<StackFrame *> m_stack;
+		SmallStack<StackFrame *, 10> m_stack;
 
 	public:
 		ExecutionStack() = default;

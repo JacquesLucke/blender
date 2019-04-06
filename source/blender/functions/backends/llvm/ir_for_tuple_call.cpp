@@ -18,9 +18,7 @@ namespace FN {
 		fn_in.set_all_initialized();
 
 		TextStackFrame frame("IR for Tuple Call Wrapper");
-		ctx->stack().push(&frame);
-		body->call(fn_in, fn_out, *ctx);
-		ctx->stack().pop();
+		body->call__setup_stack(fn_in, fn_out, *ctx, frame);
 
 		/* This way the data is not freed with the tuples. */
 		fn_out.set_all_uninitialized();

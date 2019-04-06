@@ -41,6 +41,13 @@ namespace FN {
 			ctx.stack().pop();
 		}
 
+		inline void call__setup_stack(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx, StackFrame &extra_frame)
+		{
+			ctx.stack().push(&extra_frame);
+			this->call__setup_stack(fn_in, fn_out, ctx);
+			ctx.stack().pop();
+		}
+
 		virtual void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const = 0;
 	};
 

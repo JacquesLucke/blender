@@ -80,7 +80,7 @@ namespace FN { namespace Functions {
 					}
 				}
 
-				m_main_body->call(main_in, main_out, ctx);
+				m_main_body->call__setup_stack(main_in, main_out, ctx);
 
 				for (uint i = 0; i < m_main->signature().outputs().size(); i++) {
 					this->append_to_output(main_out, fn_out, i, ctx);

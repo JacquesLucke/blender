@@ -301,7 +301,7 @@ namespace FN {
 					{
 						Tuple &fn_in = this->get_tuple(buffer, task.data.call.index_in);
 						Tuple &fn_out = this->get_tuple(buffer, task.data.call.index_out);
-						task.data.call.body->call(fn_in, fn_out, ctx);
+						task.data.call.body->call__setup_stack(fn_in, fn_out, ctx);
 						break;
 					}
 					case OpCode::GetInput:
@@ -401,12 +401,7 @@ namespace FN {
 				}
 
 				SourceInfoStackFrame node_frame(node->source());
-				TextStackFrame function_frame(fn->name().c_str());
-				ctx.stack().push(&node_frame);
-				ctx.stack().push(&function_frame);
-				body->call(tmp_in, tmp_out, ctx);
-				ctx.stack().pop();
-				ctx.stack().pop();
+				body->call__setup_stack(tmp_in, tmp_out, ctx, node_frame);
 
 				Tuple::copy_element(tmp_out, socket.index(), out, out_index);
 			}
@@ -549,7 +544,7 @@ namespace FN {
 							fn_in, input_index);
 					}
 
-					body->call(fn_in, fn_out, ctx);
+					body->call__setup_stack(fn_in, fn_out, ctx);
 					BLI_assert(fn_out.all_initialized());
 
 					for (uint output_index = 0; output_index < node->output_amount(); output_index++) {

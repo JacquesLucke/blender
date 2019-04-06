@@ -4,10 +4,10 @@
 
 namespace BLI {
 
-	template<typename T>
+	template<typename T, uint N = 4>
 	class SmallStack {
 	private:
-		SmallVector<T> m_elements;
+		SmallVector<T, N> m_elements;
 
 	public:
 		SmallStack() = default;
