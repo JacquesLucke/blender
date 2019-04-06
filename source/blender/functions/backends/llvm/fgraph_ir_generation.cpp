@@ -28,6 +28,11 @@ namespace FN {
 					derive_LLVMBuildIRBody_from_TupleCallBody(fn);
 					continue;
 				}
+				if (fn->has_body<LazyInTupleCallBody>()) {
+					derive_TupleCallBody_from_LazyInTupleCallBody(fn);
+					derive_LLVMBuildIRBody_from_TupleCallBody(fn);
+					continue;
+				}
 			}
 			m_required_sockets = fgraph.find_required_sockets();
 		}
