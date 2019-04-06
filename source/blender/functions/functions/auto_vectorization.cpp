@@ -64,8 +64,6 @@ namespace FN { namespace Functions {
 				max_length = std::max(max_length, input_lengths[i]);
 			}
 
-			ctx.print_with_traceback("Final Length: " + std::to_string(max_length));
-
 			this->initialize_empty_lists(fn_out, ctx);
 
 			FN_TUPLE_CALL_ALLOC_TUPLES(m_main_body, main_in, main_out);
