@@ -3,6 +3,7 @@
 #include "FN_functions.hpp"
 #include "FN_types.hpp"
 #include "FN_tuple_call.hpp"
+#include "FN_llvm.hpp"
 
 namespace FN { namespace Functions {
 
@@ -163,7 +164,7 @@ namespace FN { namespace Functions {
 
 			body->call__setup_stack(append_in, append_out, ctx);
 
-			Tuple::relocate_element(append_out, index, fn_out, index);
+			Tuple::relocate_element(append_out, 0, fn_out, index);
 		}
 	};
 
@@ -186,6 +187,15 @@ namespace FN { namespace Functions {
 
 		BLI_assert(vectorize_input.size() == input_amount);
 		BLI_assert(any_true(vectorize_input));
+
+		if (!original_fn->has_body<TupleCallBody>()) {
+			if (original_fn->has_body<LLVMBuildIRBody>()) {
+				derive_TupleCallBody_from_LLVMBuildIRBody(original_fn, *(new llvm::LLVMContext()));
+			}
+			else {
+				BLI_assert(false);
+			}
+		}
 
 		InputParameters inputs;
 		for (uint i = 0; i < input_amount; i++) {

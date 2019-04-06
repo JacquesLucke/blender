@@ -37,7 +37,6 @@ namespace FN { namespace Functions {
 			OutputParameter("Vector", get_fvec3_type()),
 		}));
 		fn->add_body(new CombineVectorGen());
-		derive_TupleCallBody_from_LLVMBuildIRBody(fn, *(new llvm::LLVMContext()));
 		return fn;
 	}
 

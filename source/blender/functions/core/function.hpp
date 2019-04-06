@@ -81,6 +81,7 @@ namespace FN {
 		template<typename T>
 		inline bool has_body() const
 		{
+			static_assert(std::is_base_of<FunctionBody, T>::value, "");
 			return this->body<T>() != nullptr;
 		}
 

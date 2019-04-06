@@ -253,14 +253,33 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(ctx, node, bnode);
 	}
 
+	static void insert_separate_vector_node(
+		Builder &builder,
+		const BuilderContext &ctx,
+		bNode *bnode)
+	{
+		PointerRNA ptr;
+		ctx.get_rna(bnode, &ptr);
+
+		SmallVector<bool> vectorized_inputs = {
+			vectorized_socket_is_list(&ptr, "use_list__vector"),
+		};
+
+		SharedFunction &original_fn = Functions::separate_vector();
+		SharedFunction final_fn = original_or_vectorized(
+			original_fn, vectorized_inputs);
+
+		Node *node = builder.insert_function(final_fn, ctx.btree(), bnode);
+		builder.map_sockets(ctx, node, bnode);
+	}
+
 	void register_node_inserters(GraphInserters &inserters)
 	{
-		inserters.reg_node_function("fn_SeparateVectorNode", Functions::separate_vector);
 		inserters.reg_node_function("fn_VectorDistanceNode", Functions::separate_vector);
 		inserters.reg_node_function("fn_RandomNumberNode", Functions::random_number);
 		inserters.reg_node_function("fn_MapRangeNode", Functions::map_range);
-		//inserters.reg_node_function("fn_CombineVectorNode", Functions::combine_vector);
 
+		inserters.reg_node_inserter("fn_SeparateVectorNode", insert_separate_vector_node);
 		inserters.reg_node_inserter("fn_CombineVectorNode", insert_combine_vector_node);
 		inserters.reg_node_inserter("fn_ObjectTransformsNode", insert_object_transforms_node);
 		inserters.reg_node_inserter("fn_FloatMathNode", insert_float_math_node);
