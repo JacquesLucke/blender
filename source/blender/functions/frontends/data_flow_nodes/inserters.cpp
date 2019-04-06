@@ -38,7 +38,7 @@ namespace FN { namespace DataFlowNodes {
 			{
 				SharedFunction fn = getter();
 				Node *node = builder.insert_function(fn, ctx.btree(), bnode);
-				builder.map_sockets(node, bnode);
+				builder.map_sockets(ctx, node, bnode);
 			};
 		this->reg_node_inserter(idname, inserter);
 	}

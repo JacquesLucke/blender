@@ -130,6 +130,32 @@ namespace FN { namespace Functions {
 	}
 
 
+	template<typename T>
+	class ListLength : public TupleCallBody {
+		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+		{
+			auto list = fn_in.relocate_out<SharedList<T>>(0);
+			uint length = list->size();
+			fn_out.set<uint>(0, length);
+		}
+	};
+
+	template<typename T>
+	SharedFunction build_list_length_function(
+		SharedType &base_type,
+		SharedType &list_type)
+	{
+		std::string name = base_type->name() + " List Length";
+		auto fn = SharedFunction::New(name, Signature({
+			InputParameter("List", list_type),
+		}, {
+			OutputParameter("Length", get_int32_type()),
+		}));
+		fn->add_body(new ListLength<T>());
+		return fn;
+	}
+
+
 	/* Build List Functions
 	 *************************************/
 
@@ -138,6 +164,7 @@ namespace FN { namespace Functions {
 		FunctionPerType m_append;
 		FunctionPerType m_get_element;
 		FunctionPerType m_combine;
+		FunctionPerType m_length;
 	};
 
 	template<typename T>
@@ -158,6 +185,9 @@ namespace FN { namespace Functions {
 		functions.m_combine.add(
 			base_type,
 			build_combine_lists_function<T>(base_type, list_type));
+		functions.m_length.add(
+			base_type,
+			build_list_length_function<T>(base_type, list_type));
 	}
 
 	LAZY_INIT_REF_STATIC__NO_ARG(ListFunctions, get_list_functions)
@@ -200,6 +230,13 @@ namespace FN { namespace Functions {
 	SharedFunction &combine_lists(SharedType &base_type)
 	{
 		FunctionPerType &functions = get_list_functions().m_combine;
+		BLI_assert(functions.contains(base_type));
+		return functions.lookup_ref(base_type);
+	}
+
+	SharedFunction &list_length(SharedType &base_type)
+	{
+		FunctionPerType &functions = get_list_functions().m_length;
 		BLI_assert(functions.contains(base_type));
 		return functions.lookup_ref(base_type);
 	}

@@ -32,11 +32,11 @@ namespace FN { namespace DataFlowNodes {
 		Node *insert_function(SharedFunction &fn, struct bNodeTree *btree, struct bNodeLink *blink);
 		void insert_link(Socket a, Socket b);
 
-		void map_socket(Socket socket, struct bNodeSocket *bsocket);
-		void map_sockets(Node *node, struct bNode *bnode);
-		void map_data_sockets(Node *node, struct bNode *bnode, const BuilderContext &ctx);
-		void map_input(Socket socket, struct bNode *bnode, uint index);
-		void map_output(Socket socket, struct bNode *bnode, uint index);
+		void map_socket(const BuilderContext &ctx, Socket socket, struct bNodeSocket *bsocket);
+		void map_sockets(const BuilderContext &ctx, Node *node, struct bNode *bnode);
+		void map_data_sockets(const BuilderContext &ctx, Node *node, struct bNode *bnode);
+		void map_input(const BuilderContext &ctx, Socket socket, struct bNode *bnode, uint index);
+		void map_output(const BuilderContext &ctx, Socket socket, struct bNode *bnode, uint index);
 
 		Socket lookup_socket(struct bNodeSocket *bsocket);
 		bool verify_data_sockets_mapped(struct bNode *bnode, const BuilderContext &ctx) const;

@@ -53,7 +53,7 @@ namespace FN { namespace DataFlowNodes {
 
 		auto fn = SharedFunction::New("Function Input", Signature({}, outputs));
 		Node *node = builder.insert_function(fn);
-		builder.map_data_sockets(node, bnode, ctx);
+		builder.map_data_sockets(ctx, node, bnode);
 	}
 
 	static void insert_output_node(
@@ -69,7 +69,7 @@ namespace FN { namespace DataFlowNodes {
 
 		auto fn = SharedFunction::New("Function Output", Signature(inputs, {}));
 		Node *node = builder.insert_function(fn);
-		builder.map_data_sockets(node, bnode, ctx);
+		builder.map_data_sockets(ctx, node, bnode);
 	}
 
 	struct BSocketLink {

@@ -109,35 +109,36 @@ namespace FN { namespace DataFlowNodes {
 		m_graph->link(a, b);
 	}
 
-	void Builder::map_socket(Socket socket, bNodeSocket *bsocket)
+	void Builder::map_socket(const BuilderContext &ctx, Socket socket, bNodeSocket *bsocket)
 	{
+		BLI_assert(ctx.is_data_socket(bsocket) ? socket.type() == ctx.type_of_socket(bsocket) : true);
 		m_socket_map.add(bsocket, socket);
 	}
 
-	void Builder::map_sockets(Node *node, struct bNode *bnode)
+	void Builder::map_sockets(const BuilderContext &ctx, Node *node, struct bNode *bnode)
 	{
 		BLI_assert(BLI_listbase_count(&bnode->inputs) == node->input_amount());
 		BLI_assert(BLI_listbase_count(&bnode->outputs) == node->output_amount());
 
 		uint input_index = 0;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
-			this->map_socket(node->input(input_index), bsocket);
+			this->map_socket(ctx, node->input(input_index), bsocket);
 			input_index++;
 		}
 
 		uint output_index = 0;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
-			this->map_socket(node->output(output_index), bsocket);
+			this->map_socket(ctx, node->output(output_index), bsocket);
 			output_index++;
 		}
 	}
 
-	void Builder::map_data_sockets(Node *node, struct bNode *bnode, const BuilderContext &ctx)
+	void Builder::map_data_sockets(const BuilderContext &ctx, Node *node, struct bNode *bnode)
 	{
 		uint input_index = 0;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
 			if (ctx.is_data_socket(bsocket)) {
-				this->map_socket(node->input(input_index), bsocket);
+				this->map_socket(ctx, node->input(input_index), bsocket);
 				input_index++;
 			}
 		}
@@ -145,24 +146,24 @@ namespace FN { namespace DataFlowNodes {
 		uint output_index = 0;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
 			if (ctx.is_data_socket(bsocket)) {
-				this->map_socket(node->output(output_index), bsocket);
+				this->map_socket(ctx, node->output(output_index), bsocket);
 				output_index++;
 			}
 		}
 	}
 
-	void Builder::map_input(Socket socket, struct bNode *bnode, uint index)
+	void Builder::map_input(const BuilderContext &ctx, Socket socket, struct bNode *bnode, uint index)
 	{
 		BLI_assert(socket.is_input());
 		auto bsocket = (bNodeSocket *)BLI_findlink(&bnode->inputs, index);
-		this->map_socket(socket, bsocket);
+		this->map_socket(ctx, socket, bsocket);
 	}
 
-	void Builder::map_output(Socket socket, struct bNode *bnode, uint index)
+	void Builder::map_output(const BuilderContext &ctx, Socket socket, struct bNode *bnode, uint index)
 	{
 		BLI_assert(socket.is_output());
 		auto bsocket = (bNodeSocket *)BLI_findlink(&bnode->outputs, index);
-		this->map_socket(socket, bsocket);
+		this->map_socket(ctx, socket, bsocket);
 	}
 
 	Socket Builder::lookup_socket(struct bNodeSocket *bsocket)

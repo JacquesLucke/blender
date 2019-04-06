@@ -23,7 +23,7 @@ namespace FN { namespace DataFlowNodes {
 
 		auto fn = Functions::object_location(object);
 		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
-		builder.map_sockets(node, bnode);
+		builder.map_sockets(ctx, node, bnode);
 	}
 
 	static SharedFunction &get_float_math_function(int operation)
@@ -52,7 +52,7 @@ namespace FN { namespace DataFlowNodes {
 
 		SharedFunction &fn = get_float_math_function(operation);
 		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
-		builder.map_sockets(node, bnode);
+		builder.map_sockets(ctx, node, bnode);
 	}
 
 	static SharedFunction &get_vector_math_function(int operation)
@@ -77,7 +77,7 @@ namespace FN { namespace DataFlowNodes {
 
 		SharedFunction &fn = get_vector_math_function(operation);
 		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
-		builder.map_sockets(node, bnode);
+		builder.map_sockets(ctx, node, bnode);
 	}
 
 	static void insert_clamp_node(
@@ -92,10 +92,10 @@ namespace FN { namespace DataFlowNodes {
 		Node *min_node = builder.insert_function(min_fn, ctx.btree(), bnode);
 
 		builder.insert_link(max_node->output(0), min_node->input(0));
-		builder.map_input(max_node->input(0), bnode, 0);
-		builder.map_input(max_node->input(1), bnode, 1);
-		builder.map_input(min_node->input(1), bnode, 2);
-		builder.map_output(min_node->output(0), bnode, 0);
+		builder.map_input(ctx, max_node->input(0), bnode, 0);
+		builder.map_input(ctx, max_node->input(1), bnode, 1);
+		builder.map_input(ctx, min_node->input(1), bnode, 2);
+		builder.map_output(ctx, min_node->output(0), bnode, 0);
 	}
 
 	static void insert_get_list_element_node(
@@ -106,7 +106,18 @@ namespace FN { namespace DataFlowNodes {
 		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
 		SharedFunction &fn = Functions::get_list_element(base_type);
 		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
-		builder.map_sockets(node, bnode);
+		builder.map_sockets(ctx, node, bnode);
+	}
+
+	static void insert_list_length_node(
+		Builder &builder,
+		const BuilderContext &ctx,
+		bNode *bnode)
+	{
+		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
+		SharedFunction &fn = Functions::list_length(base_type);
+		Node *node = builder.insert_function(fn, ctx.btree(), bnode);
+		builder.map_sockets(ctx, node, bnode);
 	}
 
 	static Socket insert_pack_list_sockets(
@@ -133,14 +144,14 @@ namespace FN { namespace DataFlowNodes {
 				auto &append_fn = Functions::append_to_list(base_type);
 				new_node = builder.insert_function(append_fn, ctx.btree(), bnode);
 				builder.insert_link(node->output(0), new_node->input(0));
-				builder.map_input(new_node->input(1), bnode, index);
+				builder.map_input(ctx, new_node->input(1), bnode, index);
 			}
 			else if (state == 1) {
 				/* list case */
 				auto &combine_fn = Functions::combine_lists(base_type);
 				new_node = builder.insert_function(combine_fn, ctx.btree(), bnode);
 				builder.insert_link(node->output(0), new_node->input(0));
-				builder.map_input(new_node->input(1), bnode, index);
+				builder.map_input(ctx, new_node->input(1), bnode, index);
 			}
 			else {
 				BLI_assert(false);
@@ -162,7 +173,7 @@ namespace FN { namespace DataFlowNodes {
 		SharedType &base_type = ctx.type_from_rna(bnode, "active_type");
 		Socket packed_list_socket = insert_pack_list_sockets(
 			builder, ctx, bnode, base_type, "variadic", 0);
-		builder.map_output(packed_list_socket, bnode, 0);
+		builder.map_output(ctx, packed_list_socket, bnode, 0);
 	}
 
 	static void insert_call_node(
@@ -186,7 +197,7 @@ namespace FN { namespace DataFlowNodes {
 		BLI_assert(fn.has_value());
 
 		Node *node = builder.insert_function(fn.value(), ctx.btree(), bnode);
-		builder.map_sockets(node, bnode);
+		builder.map_sockets(ctx, node, bnode);
 	}
 
 	static void insert_switch_node(
@@ -197,7 +208,7 @@ namespace FN { namespace DataFlowNodes {
 		SharedType &data_type = ctx.type_from_rna(bnode, "data_type");
 		auto fn = Functions::bool_switch(data_type);
 		Node *node = builder.insert_function(fn);
-		builder.map_sockets(node, bnode);
+		builder.map_sockets(ctx, node, bnode);
 	}
 
 	void register_node_inserters(GraphInserters &inserters)
@@ -216,6 +227,7 @@ namespace FN { namespace DataFlowNodes {
 		inserters.reg_node_inserter("fn_PackListNode", insert_pack_list_node);
 		inserters.reg_node_inserter("fn_CallNode", insert_call_node);
 		inserters.reg_node_inserter("fn_SwitchNode", insert_switch_node);
+		inserters.reg_node_inserter("fn_ListLengthNode", insert_list_length_node);
 	}
 
 } }
