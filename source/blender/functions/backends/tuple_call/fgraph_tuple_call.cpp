@@ -394,8 +394,7 @@ namespace FN {
 				SharedFunction &fn = node->function();
 				TupleCallBody *body = fn->body<TupleCallBody>();
 
-				FN_TUPLE_STACK_ALLOC(tmp_in, body->meta_in());
-				FN_TUPLE_STACK_ALLOC(tmp_out, body->meta_out());
+				FN_TUPLE_CALL_ALLOC_TUPLES(body, tmp_in, tmp_out);
 
 				for (uint i = 0; i < node->input_amount(); i++) {
 					this->compute_socket(fn_in, tmp_in, i, node->input(i), ctx);
@@ -501,8 +500,7 @@ namespace FN {
 				if (fn->has_body<LazyInTupleCallBody>()) {
 					auto *body = node->function()->body<LazyInTupleCallBody>();
 
-					FN_TUPLE_STACK_ALLOC(fn_in, body->meta_in());
-					FN_TUPLE_STACK_ALLOC(fn_out, body->meta_out());
+					FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
 
 					for (uint input_index : body->always_required()) {
 						Socket input_socket = node->input(input_index);
@@ -540,8 +538,7 @@ namespace FN {
 				else if (fn->has_body<TupleCallBody>()) {
 					auto *body = node->function()->body<TupleCallBody>();
 
-					FN_TUPLE_STACK_ALLOC(fn_in, body->meta_in());
-					FN_TUPLE_STACK_ALLOC(fn_out, body->meta_out());
+					FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
 
 					for (uint input_index = 0; input_index < node->input_amount(); input_index++) {
 						Socket input_socket = node->input(input_index);

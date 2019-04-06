@@ -68,8 +68,7 @@ namespace FN { namespace Functions {
 
 			this->initialize_empty_lists(fn_out, ctx);
 
-			FN_TUPLE_STACK_ALLOC(main_in, m_main_body->meta_in());
-			FN_TUPLE_STACK_ALLOC(main_out, m_main_body->meta_out());
+			FN_TUPLE_CALL_ALLOC_TUPLES(m_main_body, main_in, main_out);
 
 			for (uint iteration = 0; iteration < max_length; iteration++) {
 				uint list_index = 0;
@@ -126,8 +125,8 @@ namespace FN { namespace Functions {
 			TupleCallBody *body = m_get_element_bodies[list_index];
 
 			uint load_index = iteration % list_length;
-			FN_TUPLE_STACK_ALLOC(get_element_in, body->meta_in());
-			FN_TUPLE_STACK_ALLOC(get_element_out, body->meta_out());
+
+			FN_TUPLE_CALL_ALLOC_TUPLES(body, get_element_in, get_element_out);
 
 			Tuple::copy_element(fn_in, index, get_element_in, 0);
 			get_element_in.set<uint>(1, load_index);
@@ -149,9 +148,7 @@ namespace FN { namespace Functions {
 		{
 			TupleCallBody *body = m_create_empty_bodies[index];
 
-			FN_TUPLE_STACK_ALLOC(create_list_in, body->meta_in());
-			FN_TUPLE_STACK_ALLOC(create_list_out, body->meta_out());
-
+			FN_TUPLE_CALL_ALLOC_TUPLES(body, create_list_in, create_list_out);
 			body->call__setup_stack(create_list_in, create_list_out, ctx);
 
 			Tuple::relocate_element(create_list_out, 0, fn_out, index);
@@ -161,8 +158,7 @@ namespace FN { namespace Functions {
 		{
 			TupleCallBody *body = m_append_bodies[index];
 
-			FN_TUPLE_STACK_ALLOC(append_in, body->meta_in());
-			FN_TUPLE_STACK_ALLOC(append_out, body->meta_out());
+			FN_TUPLE_CALL_ALLOC_TUPLES(body, append_in, append_out);
 
 			Tuple::relocate_element(fn_out, index, append_in, 0);
 			Tuple::relocate_element(main_out, index, append_in, 1);
