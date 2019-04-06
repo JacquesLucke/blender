@@ -4,7 +4,7 @@
 
 namespace FN { namespace DataFlowNodes {
 
-	static void insert_base_to_list_conversion(
+	static void INSERT_base_to_list(
 		GraphBuilder &builder,
 		Socket from,
 		Socket to,
@@ -23,9 +23,9 @@ namespace FN { namespace DataFlowNodes {
 		inserters.reg_conversion_function("Integer", "Float", Functions::GET_FN_int32_to_float);
 		inserters.reg_conversion_function("Float", "Integer", Functions::GET_FN_float_to_int32);
 
-		inserters.reg_conversion_inserter("Float", "Float List", insert_base_to_list_conversion);
-		inserters.reg_conversion_inserter("Vector", "Vector List", insert_base_to_list_conversion);
-		inserters.reg_conversion_inserter("Integer", "Integer List", insert_base_to_list_conversion);
+		inserters.reg_conversion_inserter("Float", "Float List", INSERT_base_to_list);
+		inserters.reg_conversion_inserter("Vector", "Vector List", INSERT_base_to_list);
+		inserters.reg_conversion_inserter("Integer", "Integer List", INSERT_base_to_list);
 	}
 
 } } /* namespace FN::DataFlowNodes */

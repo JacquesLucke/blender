@@ -7,33 +7,33 @@
 
 namespace FN { namespace DataFlowNodes {
 
-	static void load_float(PointerRNA *ptr, Tuple &tuple, uint index)
+	static void LOAD_float(PointerRNA *ptr, Tuple &tuple, uint index)
 	{
 		float value = RNA_float_get(ptr, "value");
 		tuple.set<float>(index, value);
 	}
 
-	static void load_vector(PointerRNA *ptr, Tuple &tuple, uint index)
+	static void LOAD_vector(PointerRNA *ptr, Tuple &tuple, uint index)
 	{
 		float vector[3];
 		RNA_float_get_array(ptr, "value", vector);
 		tuple.set<Types::Vector>(index, Types::Vector(vector));
 	}
 
-	static void load_integer(PointerRNA *ptr, Tuple &tuple, uint index)
+	static void LOAD_integer(PointerRNA *ptr, Tuple &tuple, uint index)
 	{
 		int value = RNA_int_get(ptr, "value");
 		tuple.set<int32_t>(index, value);
 	}
 
-	static void load_boolean(PointerRNA *ptr, Tuple &tuple, uint index)
+	static void LOAD_boolean(PointerRNA *ptr, Tuple &tuple, uint index)
 	{
 		bool value = RNA_boolean_get(ptr, "value");
 		tuple.set<bool>(index, value);
 	}
 
 	template<typename T>
-	static void load_empty_list(PointerRNA *UNUSED(ptr), Tuple &tuple, uint index)
+	static void LOAD_empty_list(PointerRNA *UNUSED(ptr), Tuple &tuple, uint index)
 	{
 		auto list = Types::SharedList<T>::New();
 		tuple.move_in(index, list);
@@ -41,13 +41,13 @@ namespace FN { namespace DataFlowNodes {
 
 	void initialize_socket_inserters(GraphInserters &inserters)
 	{
-		inserters.reg_socket_loader("Float", load_float);
-		inserters.reg_socket_loader("Vector", load_vector);
-		inserters.reg_socket_loader("Integer", load_integer);
-		inserters.reg_socket_loader("Boolean", load_boolean);
-		inserters.reg_socket_loader("Float List", load_empty_list<float>);
-		inserters.reg_socket_loader("Vector List", load_empty_list<Types::Vector>);
-		inserters.reg_socket_loader("Integer List", load_empty_list<int32_t>);
+		inserters.reg_socket_loader("Float", LOAD_float);
+		inserters.reg_socket_loader("Vector", LOAD_vector);
+		inserters.reg_socket_loader("Integer", LOAD_integer);
+		inserters.reg_socket_loader("Boolean", LOAD_boolean);
+		inserters.reg_socket_loader("Float List", LOAD_empty_list<float>);
+		inserters.reg_socket_loader("Vector List", LOAD_empty_list<Types::Vector>);
+		inserters.reg_socket_loader("Integer List", LOAD_empty_list<int32_t>);
 	}
 
 } }
