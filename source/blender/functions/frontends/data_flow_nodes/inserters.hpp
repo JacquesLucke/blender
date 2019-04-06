@@ -11,7 +11,7 @@ struct PointerRNA;
 namespace FN { namespace DataFlowNodes {
 
 	typedef std::function<void (
-		Builder &builder,
+		GraphBuilder &builder,
 		struct bNode *bnode)> NodeInserter;
 
 	typedef std::function<void (
@@ -20,7 +20,7 @@ namespace FN { namespace DataFlowNodes {
 		uint index)> SocketLoader;
 
 	typedef std::function<void (
-		Builder &builder,
+		GraphBuilder &builder,
 		Socket from,
 		Socket to,
 		struct bNodeLink *source_link)> ConversionInserter;
@@ -50,16 +50,16 @@ namespace FN { namespace DataFlowNodes {
 			FunctionGetter getter);
 
 		bool insert_node(
-			Builder &builder,
+			GraphBuilder &builder,
 			struct bNode *bnode);
 
 		SmallSocketVector insert_sockets(
-			Builder &builder,
+			GraphBuilder &builder,
 			BSockets &bsockets,
 			BNodes &bnodes);
 
 		bool insert_link(
-			Builder &builder,
+			GraphBuilder &builder,
 			struct bNodeSocket *from_bsocket,
 			struct bNodeSocket *to_bsocket,
 			struct bNodeLink *source_link = nullptr);

@@ -32,7 +32,7 @@ namespace FN { namespace DataFlowNodes {
 	void GraphInserters::reg_node_function(std::string idname, FunctionGetter getter)
 	{
 		auto inserter = [getter](
-				Builder &builder,
+				GraphBuilder &builder,
 				bNode *bnode)
 			{
 				SharedFunction fn = getter();
@@ -64,7 +64,7 @@ namespace FN { namespace DataFlowNodes {
 		FunctionGetter getter)
 	{
 		auto inserter = [getter](
-				Builder &builder,
+				GraphBuilder &builder,
 				Socket from,
 				Socket to,
 				struct bNodeLink *source_link)
@@ -84,7 +84,7 @@ namespace FN { namespace DataFlowNodes {
 	}
 
 	bool GraphInserters::insert_node(
-		Builder &builder,
+		GraphBuilder &builder,
 		bNode *bnode)
 	{
 		NodeInserter *inserter = m_node_inserters.lookup_ptr(bnode->idname);
@@ -125,7 +125,7 @@ namespace FN { namespace DataFlowNodes {
 	};
 
 	SmallSocketVector GraphInserters::insert_sockets(
-		Builder &builder,
+		GraphBuilder &builder,
 		BSockets &bsockets,
 		BNodes &bnodes)
 	{
@@ -164,7 +164,7 @@ namespace FN { namespace DataFlowNodes {
 	}
 
 	bool GraphInserters::insert_link(
-		Builder &builder,
+		GraphBuilder &builder,
 		struct bNodeSocket *from_bsocket,
 		struct bNodeSocket *to_bsocket,
 		struct bNodeLink *source_link)

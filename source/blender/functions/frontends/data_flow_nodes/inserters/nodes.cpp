@@ -12,7 +12,7 @@ namespace FN { namespace DataFlowNodes {
 
 	using namespace Types;
 
-	static void insert_object_transforms_node(Builder &builder, bNode *bnode)
+	static void insert_object_transforms_node(GraphBuilder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
 		builder.ctx().get_rna(bnode, &ptr);
@@ -38,7 +38,7 @@ namespace FN { namespace DataFlowNodes {
 		}
 	}
 
-	static void insert_float_math_node(Builder &builder, bNode *bnode)
+	static void insert_float_math_node(GraphBuilder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
 		builder.ctx().get_rna(bnode, &ptr);
@@ -60,7 +60,7 @@ namespace FN { namespace DataFlowNodes {
 		}
 	}
 
-	static void insert_vector_math_node(Builder &builder, bNode *bnode)
+	static void insert_vector_math_node(GraphBuilder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
 		builder.ctx().get_rna(bnode, &ptr);
@@ -71,7 +71,7 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(node, bnode);
 	}
 
-	static void insert_clamp_node(Builder &builder, bNode *bnode)
+	static void insert_clamp_node(GraphBuilder &builder, bNode *bnode)
 	{
 		SharedFunction &max_fn = Functions::GET_FN_max_floats();
 		SharedFunction &min_fn = Functions::GET_FN_min_floats();
@@ -86,7 +86,7 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_output( min_node->output(0), bnode, 0);
 	}
 
-	static void insert_get_list_element_node(Builder &builder, bNode *bnode)
+	static void insert_get_list_element_node(GraphBuilder &builder, bNode *bnode)
 	{
 		SharedType &base_type = builder.ctx().type_from_rna(bnode, "active_type");
 		SharedFunction &fn = Functions::GET_FN_get_list_element(base_type);
@@ -94,7 +94,7 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(node, bnode);
 	}
 
-	static void insert_list_length_node(Builder &builder, bNode *bnode)
+	static void insert_list_length_node(GraphBuilder &builder, bNode *bnode)
 	{
 		SharedType &base_type = builder.ctx().type_from_rna(bnode, "active_type");
 		SharedFunction &fn = Functions::GET_FN_list_length(base_type);
@@ -103,7 +103,7 @@ namespace FN { namespace DataFlowNodes {
 	}
 
 	static Socket insert_pack_list_sockets(
-		Builder &builder,
+		GraphBuilder &builder,
 		bNode *bnode,
 		SharedType &base_type,
 		const char *prop_name,
@@ -146,7 +146,7 @@ namespace FN { namespace DataFlowNodes {
 		return node->output(0);
 	}
 
-	static void insert_pack_list_node(Builder &builder, bNode *bnode)
+	static void insert_pack_list_node(GraphBuilder &builder, bNode *bnode)
 	{
 		SharedType &base_type = builder.ctx().type_from_rna(bnode, "active_type");
 		Socket packed_list_socket = insert_pack_list_sockets(
@@ -154,7 +154,7 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_output(packed_list_socket, bnode, 0);
 	}
 
-	static void insert_call_node(Builder &builder, bNode *bnode)
+	static void insert_call_node(GraphBuilder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
 		builder.ctx().get_rna(bnode, &ptr);
@@ -175,7 +175,7 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(node, bnode);
 	}
 
-	static void insert_switch_node(Builder &builder, bNode *bnode)
+	static void insert_switch_node(GraphBuilder &builder, bNode *bnode)
 	{
 		SharedType &data_type = builder.ctx().type_from_rna(bnode, "data_type");
 		auto fn = Functions::GET_FN_bool_switch(data_type);
@@ -203,7 +203,7 @@ namespace FN { namespace DataFlowNodes {
 		}
 	}
 
-	static void insert_combine_vector_node(Builder &builder, bNode *bnode)
+	static void insert_combine_vector_node(GraphBuilder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
 		builder.ctx().get_rna(bnode, &ptr);
@@ -222,7 +222,7 @@ namespace FN { namespace DataFlowNodes {
 		builder.map_sockets(node, bnode);
 	}
 
-	static void insert_separate_vector_node(Builder &builder, bNode *bnode)
+	static void insert_separate_vector_node(GraphBuilder &builder, bNode *bnode)
 	{
 		PointerRNA ptr;
 		builder.ctx().get_rna(bnode, &ptr);

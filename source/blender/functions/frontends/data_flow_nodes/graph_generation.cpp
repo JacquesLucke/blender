@@ -41,7 +41,7 @@ namespace FN { namespace DataFlowNodes {
 	}
 
 	static void insert_input_node(
-		Builder &builder, const BuilderContext &ctx, bNode *bnode)
+		GraphBuilder &builder, const BuilderContext &ctx, bNode *bnode)
 	{
 		OutputParameters outputs;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
@@ -57,7 +57,7 @@ namespace FN { namespace DataFlowNodes {
 	}
 
 	static void insert_output_node(
-		Builder &builder, const BuilderContext &ctx, bNode *bnode)
+		GraphBuilder &builder, const BuilderContext &ctx, bNode *bnode)
 	{
 		InputParameters inputs;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
@@ -151,7 +151,7 @@ namespace FN { namespace DataFlowNodes {
 		SocketMap socket_map;
 
 		BuilderContext ctx(btree);
-		Builder builder(ctx, graph, socket_map);
+		GraphBuilder builder(ctx, graph, socket_map);
 		GraphInserters &inserters = get_standard_inserters();
 
 		bNode *input_node;

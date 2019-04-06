@@ -36,14 +36,14 @@ namespace FN { namespace DataFlowNodes {
 		std::string socket_type_string(bNodeSocket *bsocket) const;
 	};
 
-	class Builder {
+	class GraphBuilder {
 	private:
 		const BuilderContext &m_ctx;
 		SharedDataFlowGraph &m_graph;
 		SocketMap &m_socket_map;
 
 	public:
-		Builder(
+		GraphBuilder(
 			const BuilderContext &ctx,
 			SharedDataFlowGraph &graph,
 			SocketMap &socket_map)

@@ -83,37 +83,37 @@ namespace FN { namespace DataFlowNodes {
 		}
 	};
 
-	Node *Builder::insert_function(SharedFunction &fn)
+	Node *GraphBuilder::insert_function(SharedFunction &fn)
 	{
 		return m_graph->insert(fn);
 	}
 
-	Node *Builder::insert_function(SharedFunction &fn, bNode *bnode)
+	Node *GraphBuilder::insert_function(SharedFunction &fn, bNode *bnode)
 	{
 		BLI_assert(bnode != nullptr);
 		NodeSource *source = m_graph->new_source_info<NodeSource>(m_ctx.btree(), bnode);
 		return m_graph->insert(fn, source);
 	}
 
-	Node *Builder::insert_function(SharedFunction &fn, bNodeLink *blink)
+	Node *GraphBuilder::insert_function(SharedFunction &fn, bNodeLink *blink)
 	{
 		BLI_assert(blink != nullptr);
 		LinkSource *source = m_graph->new_source_info<LinkSource>(m_ctx.btree(), blink);
 		return m_graph->insert(fn, source);
 	}
 
-	void Builder::insert_link(Socket a, Socket b)
+	void GraphBuilder::insert_link(Socket a, Socket b)
 	{
 		m_graph->link(a, b);
 	}
 
-	void Builder::map_socket(Socket socket, bNodeSocket *bsocket)
+	void GraphBuilder::map_socket(Socket socket, bNodeSocket *bsocket)
 	{
 		BLI_assert(m_ctx.is_data_socket(bsocket) ? socket.type() == m_ctx.type_of_socket(bsocket) : true);
 		m_socket_map.add(bsocket, socket);
 	}
 
-	void Builder::map_sockets(Node *node, struct bNode *bnode)
+	void GraphBuilder::map_sockets(Node *node, struct bNode *bnode)
 	{
 		BLI_assert(BLI_listbase_count(&bnode->inputs) == node->input_amount());
 		BLI_assert(BLI_listbase_count(&bnode->outputs) == node->output_amount());
@@ -131,7 +131,7 @@ namespace FN { namespace DataFlowNodes {
 		}
 	}
 
-	void Builder::map_data_sockets(Node *node, struct bNode *bnode)
+	void GraphBuilder::map_data_sockets(Node *node, struct bNode *bnode)
 	{
 		uint input_index = 0;
 		for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
@@ -150,27 +150,27 @@ namespace FN { namespace DataFlowNodes {
 		}
 	}
 
-	void Builder::map_input(Socket socket, struct bNode *bnode, uint index)
+	void GraphBuilder::map_input(Socket socket, struct bNode *bnode, uint index)
 	{
 		BLI_assert(socket.is_input());
 		auto bsocket = (bNodeSocket *)BLI_findlink(&bnode->inputs, index);
 		this->map_socket(socket, bsocket);
 	}
 
-	void Builder::map_output(Socket socket, struct bNode *bnode, uint index)
+	void GraphBuilder::map_output(Socket socket, struct bNode *bnode, uint index)
 	{
 		BLI_assert(socket.is_output());
 		auto bsocket = (bNodeSocket *)BLI_findlink(&bnode->outputs, index);
 		this->map_socket(socket, bsocket);
 	}
 
-	Socket Builder::lookup_socket(struct bNodeSocket *bsocket)
+	Socket GraphBuilder::lookup_socket(struct bNodeSocket *bsocket)
 	{
 		BLI_assert(m_socket_map.contains(bsocket));
 		return m_socket_map.lookup(bsocket);
 	}
 
-	bool Builder::check_if_sockets_are_mapped(
+	bool GraphBuilder::check_if_sockets_are_mapped(
 		struct bNode *bnode,
 		bSocketList bsockets) const
 	{
@@ -196,7 +196,7 @@ namespace FN { namespace DataFlowNodes {
 		return true;
 	}
 
-	bool Builder::verify_data_sockets_mapped(struct bNode *bnode) const
+	bool GraphBuilder::verify_data_sockets_mapped(struct bNode *bnode) const
 	{
 		return (
 			this->check_if_sockets_are_mapped(bnode, bSocketList(&bnode->inputs)) &&
