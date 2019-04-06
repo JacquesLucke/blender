@@ -40,10 +40,8 @@ namespace FN { namespace DataFlowNodes {
 	{
 		PointerRNA ptr = builder.get_rna(bnode);
 		Object *object = (Object *)RNA_pointer_get(&ptr, "object").id.data;
-
 		auto fn = Functions::GET_FN_object_location(object);
-		Node *node = builder.insert_function(fn, bnode);
-		builder.map_sockets(node, bnode);
+		builder.insert_matching_function(fn, bnode);
 	}
 
 	static SharedFunction &get_float_math_function(int operation)
@@ -65,10 +63,8 @@ namespace FN { namespace DataFlowNodes {
 	{
 		PointerRNA ptr = builder.get_rna(bnode);
 		int operation = RNA_enum_get(&ptr, "operation");
-
 		SharedFunction &fn = get_float_math_function(operation);
-		Node *node = builder.insert_function(fn, bnode);
-		builder.map_sockets(node, bnode);
+		builder.insert_matching_function(fn, bnode);
 	}
 
 	static SharedFunction &get_vector_math_function(int operation)
@@ -90,9 +86,7 @@ namespace FN { namespace DataFlowNodes {
 		SharedFunction fn = get_vectorized_function(
 			get_vector_math_function(operation),
 			rna, {"use_list__a", "use_list__b"});
-
-		Node *node = builder.insert_function(fn, bnode);
-		builder.map_sockets(node, bnode);
+		builder.insert_matching_function(fn, bnode);
 	}
 
 	static void INSERT_clamp(GraphBuilder &builder, bNode *bnode)
@@ -114,16 +108,14 @@ namespace FN { namespace DataFlowNodes {
 	{
 		SharedType &base_type = builder.query_type_property(bnode, "active_type");
 		SharedFunction &fn = Functions::GET_FN_get_list_element(base_type);
-		Node *node = builder.insert_function(fn, bnode);
-		builder.map_sockets(node, bnode);
+		builder.insert_matching_function(fn, bnode);
 	}
 
 	static void INSERT_list_length(GraphBuilder &builder, bNode *bnode)
 	{
 		SharedType &base_type = builder.query_type_property(bnode, "active_type");
 		SharedFunction &fn = Functions::GET_FN_list_length(base_type);
-		Node *node = builder.insert_function(fn, bnode);
-		builder.map_sockets(node, bnode);
+		builder.insert_matching_function(fn, bnode);
 	}
 
 	static Socket insert_pack_list_sockets(
@@ -192,17 +184,14 @@ namespace FN { namespace DataFlowNodes {
 
 		Optional<SharedFunction> fn = generate_function(btree);
 		BLI_assert(fn.has_value());
-
-		Node *node = builder.insert_function(fn.value(), bnode);
-		builder.map_sockets(node, bnode);
+		builder.insert_matching_function(fn.value(), bnode);
 	}
 
 	static void INSERT_switch(GraphBuilder &builder, bNode *bnode)
 	{
 		SharedType &data_type = builder.query_type_property(bnode, "data_type");
 		auto fn = Functions::GET_FN_bool_switch(data_type);
-		Node *node = builder.insert_function(fn);
-		builder.map_sockets(node, bnode);
+		builder.insert_matching_function(fn, bnode);
 	}
 
 	static void INSERT_combine_vector(GraphBuilder &builder, bNode *bnode)
@@ -211,9 +200,7 @@ namespace FN { namespace DataFlowNodes {
 		SharedFunction fn = get_vectorized_function(
 			Functions::GET_FN_combine_vector(),
 			rna, {"use_list__x", "use_list__y", "use_list__z"});
-
-		Node *node = builder.insert_function(fn, bnode);
-		builder.map_sockets(node, bnode);
+		builder.insert_matching_function(fn, bnode);
 	}
 
 	static void INSERT_separate_vector(GraphBuilder &builder, bNode *bnode)
@@ -222,9 +209,7 @@ namespace FN { namespace DataFlowNodes {
 		SharedFunction fn = get_vectorized_function(
 			Functions::GET_FN_separate_vector(),
 			rna, {"use_list__vector"});
-
-		Node *node = builder.insert_function(fn, bnode);
-		builder.map_sockets(node, bnode);
+		builder.insert_matching_function(fn, bnode);
 	}
 
 	void register_node_inserters(GraphInserters &inserters)

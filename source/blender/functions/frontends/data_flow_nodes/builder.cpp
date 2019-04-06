@@ -88,6 +88,13 @@ namespace FN { namespace DataFlowNodes {
 		return m_graph->insert(fn);
 	}
 
+	Node *GraphBuilder::insert_matching_function(SharedFunction &fn, bNode *bnode)
+	{
+		Node *node = this->insert_function(fn, bnode);
+		this->map_sockets(node, bnode);
+		return node;
+	}
+
 	Node *GraphBuilder::insert_function(SharedFunction &fn, bNode *bnode)
 	{
 		BLI_assert(bnode != nullptr);

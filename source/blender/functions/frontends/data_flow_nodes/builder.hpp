@@ -29,6 +29,7 @@ namespace FN { namespace DataFlowNodes {
 
 		/* Insert Function */
 		Node *insert_function(SharedFunction &fn);
+		Node *insert_matching_function(SharedFunction &fn, struct bNode *bnode);
 		Node *insert_function(SharedFunction &fn, struct bNode *bnode);
 		Node *insert_function(SharedFunction &fn, struct bNodeLink *blink);
 
