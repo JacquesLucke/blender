@@ -109,12 +109,12 @@ def iter_possible_list_component_types(component, decision_users, tree_data):
 ########################################
 
 def make_vector_decisions(tree_data, list_decisions):
-    graph, socket_by_decision_id = get_vector_decisions_graph(tree_data)
+    graph, input_sockets, output_sockets = get_vector_decisions_graph(tree_data)
 
     decisions = dict()
     decision_ids_with_collision = set()
 
-    for initial_decision_id, decision in iter_obligatory_vector_decisions(graph, socket_by_decision_id, tree_data, list_decisions):
+    for initial_decision_id, decision in iter_obligatory_vector_decisions(graph, input_sockets, output_sockets, tree_data, list_decisions):
         for decision_id in graph.reachable(initial_decision_id):
             if decision_id in decisions:
                 if decisions[decision_id] != decision:
@@ -142,21 +142,17 @@ def get_vector_decisions_graph(tree_data):
     '''
     from . graph import DirectedGraphBuilder
     builder = DirectedGraphBuilder()
-    socket_by_decision_id = dict()
+    input_sockets = set()
+    output_sockets = set()
 
     for node in tree_data.iter_nodes():
         for decl, sockets in node.decl_map.iter_decl_with_sockets():
             if isinstance(decl, VectorizedInputDecl):
                 decision_id = DecisionID(node, node, decl.prop_name)
                 builder.add_vertex(decision_id)
-                socket_by_decision_id[decision_id] = sockets[0]
+                input_sockets.add(sockets[0])
             elif isinstance(decl, VectorizedOutputDecl):
-                decision_id = DecisionID(node, node, decl.prop_name)
-                builder.add_vertex(decision_id)
-                socket_by_decision_id[decision_id] = sockets[0]
-                for input_prop_name in decl.input_prop_names:
-                    input_decision_id = DecisionID(node, node, input_prop_name)
-                    builder.add_directed_edge(input_decision_id, decision_id)
+                output_sockets.add(sockets[0])
 
     for from_socket, to_socket in tree_data.iter_connections():
         from_node = tree_data.get_node(from_socket)
@@ -166,16 +162,18 @@ def get_vector_decisions_graph(tree_data):
         to_decl = to_socket.get_decl(to_node)
 
         if isinstance(from_decl, VectorizedOutputDecl) and isinstance(to_decl, VectorizedInputDecl):
-            from_decision_id = DecisionID(from_node, from_node, from_decl.prop_name)
-            to_decision_id = DecisionID(to_node, to_node, to_decl.prop_name)
-            builder.add_directed_edge(from_decision_id, to_decision_id)
+            for prop_name in from_decl.input_prop_names:
+                from_decision_id = DecisionID(from_node, from_node, prop_name)
+                to_decision_id = DecisionID(to_node, to_node, to_decl.prop_name)
+                builder.add_directed_edge(from_decision_id, to_decision_id)
 
-    return builder.build(), socket_by_decision_id
+    return builder.build(), input_sockets, output_sockets
 
-def iter_obligatory_vector_decisions(graph, socket_by_decision_id, tree_data, list_decisions):
-    for decision_id in graph.V:
-        socket = socket_by_decision_id[decision_id]
-        decl = socket.get_decl(decision_id.node)
+def iter_obligatory_vector_decisions(graph, input_sockets, output_sockets, tree_data, list_decisions):
+    for socket in input_sockets:
+        node = tree_data.get_node(socket)
+        decl = socket.get_decl(node)
+        decision_id = DecisionID(node, node, decl.prop_name)
 
         for other_node, other_socket in tree_data.iter_connected_sockets_with_nodes(socket):
             other_decl = other_socket.get_decl(other_node)
@@ -185,8 +183,6 @@ def iter_obligatory_vector_decisions(graph, socket_by_decision_id, tree_data, li
                     yield decision_id, "BASE"
                 elif other_data_type == decl.list_type:
                     yield decision_id, "LIST"
-            elif isinstance(other_decl, PackListDecl):
-                pass
             elif isinstance(other_decl, ListSocketDecl):
                 list_decision_id = DecisionID(other_node, other_node, other_decl.prop_name)
                 if list_decision_id in list_decisions:
@@ -200,6 +196,31 @@ def iter_obligatory_vector_decisions(graph, socket_by_decision_id, tree_data, li
                     elif old_data_type == decl.list_type:
                         yield decision_id, "LIST"
 
+    for socket in output_sockets:
+        node = tree_data.get_node(socket)
+        decl = socket.get_decl(node)
+        decision_ids = [DecisionID(node, node, p) for p in decl.input_prop_names]
+
+        for other_node, other_socket in tree_data.iter_connected_sockets_with_nodes(socket):
+            other_decl = other_socket.get_decl(other_node)
+            if data_sockets_are_static(other_decl):
+                other_data_type = other_socket.data_type
+                if other_data_type == decl.base_type:
+                    for decision_id in decision_ids:
+                        yield decision_id, "BASE"
+            elif isinstance(other_decl, ListSocketDecl):
+                if other_decl.list_or_base == "BASE":
+                    list_decision_id = DecisionID(other_node, other_node, other_decl.prop_name)
+                    if list_decision_id in list_decisions:
+                        other_base_type = list_decisions[list_decision_id]
+                        if other_base_type == decl.base_type:
+                            for decision_id in decision_ids:
+                                yield decision_id, "BASE"
+                    else:
+                        old_data_type = other_socket.data_type
+                        if old_data_type == decl.base_type:
+                            for decision_id in decision_ids:
+                                yield decision_id, "BASE"
 
 
 # Inference pack list decisions
@@ -242,9 +263,12 @@ def make_pack_list_decisions(tree_data, list_decisions, vector_decisions):
         elif isinstance(origin_decl, VectorizedOutputDecl):
             other_base_type = origin_decl.base_type
             if other_base_type == decl.base_type:
-                vector_decision_id = DecisionID(origin_node, origin_node, origin_decl.prop_name)
-                if vector_decision_id in vector_decisions:
-                    decisions[decision_id] = vector_decisions[vector_decision_id]
+                for input_prop_name in origin_decl.input_prop_names:
+                    input_decision_id = DecisionID(origin_node, origin_node, input_prop_name)
+                    if input_decision_id in vector_decisions:
+                        if vector_decisions[input_decision_id] == "LIST":
+                            decisions[decision_id] = "LIST"
+                            break
                 else:
                     decisions[decision_id] = "BASE"
             else:

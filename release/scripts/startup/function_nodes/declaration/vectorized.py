@@ -27,13 +27,10 @@ class VectorizedDeclBase:
         return StringProperty(default="BASE")
 
     def get_type_and_name(self):
-        stored = getattr(self.node, self.prop_name)
-        if stored == "BASE":
-            return self.base_type, self.base_name
-        elif stored == "LIST":
+        if self.is_vectorized():
             return self.list_type, self.list_name
         else:
-            assert False
+            return self.base_type, self.base_name
 
 
 class VectorizedInputDecl(VectorizedDeclBase, SocketDeclBase):
@@ -49,18 +46,31 @@ class VectorizedInputDecl(VectorizedDeclBase, SocketDeclBase):
         self.base_type = base_type
         self.list_type = type_infos.to_list(base_type)
 
+    def is_vectorized(self):
+        stored = getattr(self.node, self.prop_name)
+        if stored == "BASE":
+            return False
+        elif stored == "LIST":
+            return True
+        else:
+            assert False
+
 
 class VectorizedOutputDecl(VectorizedDeclBase, SocketDeclBase):
     def __init__(self,
-            node, identifier, prop_name, input_prop_names,
+            node, identifier, input_prop_names,
             base_name, list_name,
             base_type):
-        assert prop_name not in input_prop_names
         self.node = node
         self.identifier = identifier
-        self.prop_name = prop_name
         self.input_prop_names = input_prop_names
         self.base_name = base_name
         self.list_name = list_name
         self.base_type = base_type
         self.list_type = type_infos.to_list(base_type)
+
+    def is_vectorized(self):
+        for prop_name in self.input_prop_names:
+            if getattr(self.node, prop_name) == "LIST":
+                return True
+        return False

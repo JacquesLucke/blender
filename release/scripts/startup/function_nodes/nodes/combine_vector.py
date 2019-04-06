@@ -9,7 +9,6 @@ class CombineVectorNode(bpy.types.Node, FunctionNode):
     use_list__x: SocketBuilder.VectorizedInputProperty()
     use_list__y: SocketBuilder.VectorizedInputProperty()
     use_list__z: SocketBuilder.VectorizedInputProperty()
-    use_list__vector: SocketBuilder.VectorizedOutputProperty()
 
     def declaration(self, builder):
         builder.vectorized_input(
@@ -23,6 +22,5 @@ class CombineVectorNode(bpy.types.Node, FunctionNode):
             "Z", "Z", "Float")
 
         builder.vectorized_output(
-            "vector", "use_list__vector",
-            ["use_list__x", "use_list__y", "use_list__z"],
+            "vector", ["use_list__x", "use_list__y", "use_list__z"],
             "Vector", "Vectors", "Vector")

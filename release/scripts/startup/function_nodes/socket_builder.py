@@ -160,9 +160,9 @@ class SocketBuilder:
             base_name, list_name, base_type)
         self._add_input(decl)
 
-    def vectorized_output(self, identifier, prop_name, input_prop_names, base_name, list_name, base_type):
+    def vectorized_output(self, identifier, input_prop_names, base_name, list_name, base_type):
         decl = VectorizedOutputDecl(
-            self.node, identifier, prop_name, input_prop_names,
+            self.node, identifier, input_prop_names,
             base_name, list_name, base_type)
         self._add_output(decl)
 
