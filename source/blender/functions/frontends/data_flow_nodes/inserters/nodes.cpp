@@ -17,6 +17,8 @@ namespace FN { namespace DataFlowNodes {
 		PointerRNA &node_rna,
 		SmallVector<const char *> vectorize_prop_names)
 	{
+		BLI_assert(original_fn->signature().inputs().size() == vectorize_prop_names.size());
+
 		SmallVector<bool> vectorized_inputs;
 		for (const char *prop_name : vectorize_prop_names) {
 			char state[5];
@@ -64,10 +66,20 @@ namespace FN { namespace DataFlowNodes {
 		PointerRNA rna = builder.get_rna(bnode);
 		int operation = RNA_enum_get(&rna, "operation");
 
-		SharedFunction fn = get_vectorized_function(
-			get_float_math_function(operation),
-			rna, {"use_list__a", "use_list__b"});
-		builder.insert_matching_function(fn, bnode);
+		SharedFunction &original_fn = get_float_math_function(operation);
+		uint input_amount = original_fn->signature().inputs().size();
+
+		if (input_amount == 1) {
+			SharedFunction fn = get_vectorized_function(
+				original_fn, rna, {"use_list__a"});
+			builder.insert_matching_function(fn, bnode);
+		}
+		else {
+			BLI_assert(input_amount == 2);
+			SharedFunction fn = get_vectorized_function(
+				original_fn, rna, {"use_list__a", "use_list__b"});
+			builder.insert_matching_function(fn, bnode);
+		}
 	}
 
 	static SharedFunction &get_vector_math_function(int operation)
