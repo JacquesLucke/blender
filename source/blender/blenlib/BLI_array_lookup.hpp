@@ -118,6 +118,17 @@ namespace BLI {
 			}
 		}
 
+		void update_index(
+			const Key &key, Index old_index, Index new_index)
+		{
+			ITER_SLOTS(key, slot, state) {
+				if (state == old_index) {
+					m_map[slot] = new_index;
+					break;
+				}
+			}
+		}
+
 		typename std::make_signed<Index>::type find(
 			Item *array, const Key &key) const
 		{

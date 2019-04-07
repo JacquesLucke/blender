@@ -54,3 +54,34 @@ TEST(small_map, AddMany)
 		map.add(i, i);
 	}
 }
+
+TEST(small_map, PopItem)
+{
+	IntFloatMap map;
+	map.add(2, 3.0f);
+	map.add(1, 9.0f);
+	EXPECT_TRUE(map.contains(2));
+	EXPECT_TRUE(map.contains(1));
+
+	EXPECT_EQ(map.pop(1), 9.0f);
+	EXPECT_TRUE(map.contains(2));
+	EXPECT_FALSE(map.contains(1));
+
+	EXPECT_EQ(map.pop(2), 3.0f);
+	EXPECT_FALSE(map.contains(2));
+	EXPECT_FALSE(map.contains(1));
+}
+
+TEST(small_map, PopItemMany)
+{
+	IntFloatMap map;
+	for (uint i = 0; i < 100; i++) {
+		map.add_new(i, i);
+	}
+	for (uint i = 25; i < 80; i++) {
+		EXPECT_EQ(map.pop(i), i);
+	}
+	for (uint i = 0; i < 100; i++) {
+		EXPECT_EQ(map.contains(i), i < 25 || i >= 80);
+	}
+}
