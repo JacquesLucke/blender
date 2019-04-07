@@ -10,4 +10,3 @@ class FunctionInputNode(BaseNode, bpy.types.Node):
 
     def declaration(self, builder):
         builder.variadic_output("outputs", "variadic", "New Input")
-

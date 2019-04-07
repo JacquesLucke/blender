@@ -12,4 +12,3 @@ def register():
         type='A',
         value='PRESS',
         ctrl=True)
-

@@ -89,5 +89,3 @@ class BooleanSocket(bpy.types.NodeSocket, DataSocket):
 class CustomColoredSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_CustomColoredSocket"
     bl_label = "Custom Colored Socket"
-
-
