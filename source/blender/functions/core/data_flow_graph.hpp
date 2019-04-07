@@ -433,3 +433,21 @@ namespace FN {
 	}
 
 } /* namespace FN */
+
+namespace std
+{
+	template<>
+	struct hash<FN::Socket>
+	{
+		typedef FN::Socket argument_type;
+		typedef size_t result_type;
+
+		result_type operator()(argument_type const &v) const noexcept
+		{
+			size_t h1 = std::hash<FN::Node *>{}(v.node());
+			size_t h2 = std::hash<bool>{}(v.is_input());
+			size_t h3 = std::hash<uint>{}(v.index());
+			return h1 ^ h2 ^ h3;
+		}
+	};
+}

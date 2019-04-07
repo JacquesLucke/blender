@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BLI_small_vector.hpp"
+#include "BLI_array_lookup.hpp"
 
 namespace BLI {
 
@@ -16,27 +17,31 @@ namespace BLI {
 				: key(key), value(value) {}
 		};
 
+		static const K &get_key_from_entry(const Entry &entry)
+		{
+			return entry.key;
+		}
+
 		SmallVector<Entry> m_entries;
+		ArrayLookup<K, Entry, get_key_from_entry> m_lookup;
 
 	public:
 		class ValueIterator;
 
 		SmallMap() = default;
 
-		void add(K key, V value)
+		void add(const K &key, const V &value)
 		{
 			BLI_assert(!this->contains(key));
-			m_entries.append(Entry(key, value));
+			uint index = m_entries.size();
+			Entry entry(key, value);
+			m_entries.append(entry);
+			m_lookup.add_new(m_entries.begin(), index);
 		}
 
-		bool contains(K key) const
+		bool contains(const K &key) const
 		{
-			for (Entry entry : m_entries) {
-				if (entry.key == key) {
-					return true;
-				}
-			}
-			return false;
+			return m_lookup.contains(m_entries.begin(), key);
 		}
 
 		V lookup(const K &key) const
@@ -63,12 +68,13 @@ namespace BLI {
 
 		V *lookup_ptr(const K &key) const
 		{
-			for (Entry &entry : m_entries) {
-				if (entry.key == key) {
-					return &entry.value;
-				}
+			int index = m_lookup.find(m_entries.begin(), key);
+			if (index >= 0) {
+				return &m_entries[index].value;
 			}
-			return nullptr;
+			else {
+				return nullptr;
+			}
 		}
 
 		uint size() const

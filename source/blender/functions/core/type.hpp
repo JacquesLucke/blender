@@ -37,6 +37,11 @@ namespace FN {
 			m_extensions.add(extension);
 		}
 
+		friend bool operator==(const Type &a, const Type &b)
+		{
+			return &a == &b;
+		}
+
 	private:
 		std::string m_name;
 		Composition m_extensions;
@@ -46,3 +51,18 @@ namespace FN {
 	using SmallTypeVector = SmallVector<SharedType>;
 
 } /* namespace FN */
+
+namespace std
+{
+	template<>
+	struct hash<FN::Type>
+	{
+		typedef FN::Type argument_type;
+		typedef size_t result_type;
+
+		result_type operator()(argument_type const &v) const noexcept
+		{
+			return std::hash<void *>{}((void *)&v);
+		}
+	};
+}

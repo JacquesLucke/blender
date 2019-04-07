@@ -8,6 +8,8 @@
 
 namespace FN { namespace DataFlowNodes {
 
+	using StringPair = std::pair<std::string, std::string>;
+
 	static void initialize_standard_inserters(GraphInserters &inserters)
 	{
 		register_node_inserters(inserters);
@@ -53,7 +55,7 @@ namespace FN { namespace DataFlowNodes {
 		std::string to_type,
 		ConversionInserter inserter)
 	{
-		auto key = std::pair<std::string, std::string>(from_type, to_type);
+		auto key = StringPair(from_type, to_type);
 		BLI_assert(!m_conversion_inserters.contains(key));
 		m_conversion_inserters.add(key, inserter);
 	}
@@ -177,7 +179,7 @@ namespace FN { namespace DataFlowNodes {
 			return true;
 		}
 
-		auto key = std::pair<std::string, std::string>(from_type, to_type);
+		auto key = StringPair(from_type, to_type);
 		if (m_conversion_inserters.contains(key)) {
 			auto inserter = m_conversion_inserters.lookup(key);
 			inserter(builder, from_socket, to_socket, source_link);
@@ -188,3 +190,20 @@ namespace FN { namespace DataFlowNodes {
 	}
 
 } } /* namespace FN::DataFlowNodes */
+
+namespace std
+{
+	template<>
+	struct hash<FN::DataFlowNodes::StringPair>
+	{
+		typedef FN::DataFlowNodes::StringPair argument_type;
+		typedef size_t result_type;
+
+		result_type operator()(argument_type const &v) const noexcept
+		{
+			size_t h1 = std::hash<std::string>{}(v.first);
+			size_t h2 = std::hash<std::string>{}(v.second);
+			return h1 ^ h2;
+		}
+	};
+}

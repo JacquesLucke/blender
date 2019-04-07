@@ -37,3 +37,20 @@ TEST(small_map, LookupExisting)
 	EXPECT_EQ(map.lookup(2), 6.0f);
 	EXPECT_EQ(map.lookup(4), 1.0f);
 }
+
+TEST(small_map, LookupNotExisting)
+{
+	IntFloatMap map;
+	map.add(2, 4.0f);
+	map.add(1, 1.0f);
+	EXPECT_EQ(map.lookup_ptr(0), nullptr);
+	EXPECT_EQ(map.lookup_ptr(5), nullptr);
+}
+
+TEST(small_map, AddMany)
+{
+	IntFloatMap map;
+	for (int i = 0; i < 100; i++) {
+		map.add(i, i);
+	}
+}

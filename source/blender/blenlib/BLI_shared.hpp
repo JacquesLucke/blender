@@ -143,7 +143,7 @@ namespace BLI {
 
 		friend bool operator==(const AutoRefCount &a, const AutoRefCount &b)
 		{
-			return a.m_object == b.m_object;
+			return *a.ptr() == *b.ptr();
 		}
 
 		friend bool operator!=(const AutoRefCount &a, const AutoRefCount &b)
@@ -153,3 +153,18 @@ namespace BLI {
 	};
 
 } /* namespace BLI */
+
+namespace std
+{
+	template<typename T>
+	struct hash<BLI::AutoRefCount<T>>
+	{
+		typedef BLI::AutoRefCount<T> argument_type;
+		typedef size_t result_type;
+
+		result_type operator()(argument_type const &v) const noexcept
+		{
+			return std::hash<T>{}(*v.ptr());
+		}
+	};
+}

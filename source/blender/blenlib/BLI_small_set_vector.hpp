@@ -19,7 +19,7 @@ namespace BLI {
 		int index(const T &value) const
 		{
 			for (uint i = 0; i < this->size(); i++) {
-				if (this->m_entries[i] == value) {
+				if (this->m_elements[i] == value) {
 					return i;
 				}
 			}
@@ -29,7 +29,7 @@ namespace BLI {
 		T operator[](const int index) const
 		{
 			BLI_assert(index >= 0 && index < this->size());
-			return this->m_entries[index];
+			return this->m_elements[index];
 		}
 	};
 

@@ -56,9 +56,7 @@ namespace BLI {
 
 		~SmallVector()
 		{
-			if (m_elements != nullptr) {
-				this->destruct_elements_and_free_memory();
-			}
+			this->destruct_elements_and_free_memory();
 		}
 
 		SmallVector &operator=(const SmallVector &other)
@@ -75,6 +73,10 @@ namespace BLI {
 
 		SmallVector &operator=(SmallVector &&other)
 		{
+			if (this == &other) {
+				return *this;
+			}
+
 			this->destruct_elements_and_free_memory();
 			this->steal_from_other(std::forward<SmallVector>(other));
 
@@ -295,17 +297,16 @@ namespace BLI {
 			m_capacity = other.m_capacity;
 			m_size = other.m_size;
 
-			other.m_elements = nullptr;
+			other.m_size = 0;
+			other.m_capacity = N;
+			other.m_elements = other.small_buffer();
 		}
 
 		void destruct_elements_and_free_memory()
 		{
 			this->destruct_elements_but_keep_memory();
 			if (!this->is_small()) {
-				/* Can be nullptr when previously stolen. */
-				if (m_elements != nullptr) {
-					MEM_freeN(m_elements);
-				}
+				MEM_freeN(m_elements);
 			}
 		}
 

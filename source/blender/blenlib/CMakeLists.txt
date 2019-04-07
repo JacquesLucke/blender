@@ -232,6 +232,7 @@ set(SRC
 	PIL_time.h
 	PIL_time_utildefines.h
 
+	BLI_array_lookup.hpp
 	BLI_composition.hpp
 	BLI_lazy_init.hpp
 	BLI_listbase_wrapper.hpp
