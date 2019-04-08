@@ -341,6 +341,25 @@ namespace FN {
 		}
 	};
 
+	static SmallMap<Socket, uint> UNUSED_FUNCTION(get_max_usage_amounts)(SocketSet used_sockets)
+	{
+		SmallMap<Socket, uint> usage_counts;
+
+		for (Socket socket : used_sockets) {
+			if (socket.is_input()) {
+				continue;
+			}
+			uint amount = 0;
+			for (Socket target : socket.targets()) {
+				if (used_sockets.contains(target)) {
+					amount++;
+				}
+			}
+			usage_counts.add_new(socket, amount);
+		}
+		return usage_counts;
+	}
+
 	class ExecuteGraph : public TupleCallBody {
 	private:
 		SharedDataFlowGraph m_graph;

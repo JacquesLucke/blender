@@ -40,6 +40,7 @@ namespace FN {
 		std::string name() const;
 
 		friend bool operator==(const Socket &a, const Socket &b);
+		friend std::ostream &operator<<(std::ostream &stream, Socket socket);
 
 		inline Socket origin() const;
 		inline SocketSet targets() const;
@@ -417,6 +418,14 @@ namespace FN {
 			a.m_node == b.m_node &&
 			a.m_is_output == b.m_is_output &&
 			a.m_index == b.m_index);
+	}
+
+	inline std::ostream &operator<<(std::ostream &stream, Socket socket)
+	{
+		stream << "<" << socket.node()->function()->name();
+		stream << ", " << ((socket.is_input()) ? "Input" : "Output");
+		stream << ":" << socket.index() << ">";
+		return stream;
 	}
 
 	Socket Socket::origin() const
