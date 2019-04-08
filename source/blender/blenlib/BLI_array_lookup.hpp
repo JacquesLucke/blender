@@ -11,7 +11,7 @@
 
 #define ITER_SLOTS(KEY, SLOT, STATE) \
 	uint32_t SLOT, SLOT##_perturb; \
-	State STATE; \
+	Index STATE; \
 	for (this->first_slot(KEY, &SLOT, &SLOT##_perturb), STATE = m_map[SLOT];; \
 		 this->next_slot(&SLOT, &SLOT##_perturb), STATE = m_map[SLOT])
 
@@ -29,11 +29,10 @@ namespace BLI {
 		const Key &GetKey(const Item &entry) = get_key_from_item,
 		uint N_EXP = 3,
 		typename Hash = std::hash<Key>,
-		typename Index = uint32_t>
+		typename Index = int>
 	class ArrayLookup {
 	private:
-		using State = typename std::make_signed<Index>::type;
-		using Mapping = SmallVector<State, (1 << N_EXP)>;
+		using Mapping = SmallVector<Index, (1 << N_EXP)>;
 		Mapping m_map;
 		uint m_usable_slots;
 		uint m_length;
@@ -44,20 +43,6 @@ namespace BLI {
 		{
 			this->reset_map(1 << N_EXP);
 			m_length = 0;
-		}
-
-		void ensure_can_add(Item *array, uint amount = 1)
-		{
-			if (LIKELY(m_usable_slots >= amount)) {
-				return;
-			}
-
-			this->reset_map(m_map.size() * 2);
-			for (uint i = 0; i < m_length; i++) {
-				const Key &key = GetKey(array[i]);
-				this->insert_index(key, i);
-			}
-			m_usable_slots -= m_length;
 		}
 
 		bool contains(Item *array, const Key &key) const
@@ -79,32 +64,9 @@ namespace BLI {
 		{
 			this->ensure_can_add(array);
 			const Key &key = GetKey(array[index]);
-			this->add_new__fast(key, index);
+			this->insert_index_for_key(key, index);
 			m_usable_slots--;
 			m_length++;
-		}
-
-		void add_new_range(Item *array, Index start, Index end)
-		{
-			BLI_assert(start <= end);
-			uint amount = end - start;
-			this->ensure_can_add(array, amount);
-			for (Index i = start; i < end; i++) {
-				const Key &key = GetKey(array[index]);
-				this->add_new__fast(key, i);
-			}
-			m_usable_slots -= amount;
-			m_length += amount;
-		}
-
-		void add_new__fast(const Key &key, Index index)
-		{
-			ITER_SLOTS(key, slot, state) {
-				if (state == SLOT_EMPTY) {
-					m_map[slot] = (State)index;
-					break;
-				}
-			}
 		}
 
 		void remove(const Key &key, Index index)
@@ -118,8 +80,7 @@ namespace BLI {
 			}
 		}
 
-		void update_index(
-			const Key &key, Index old_index, Index new_index)
+		void update_index(const Key &key, Index old_index, Index new_index)
 		{
 			ITER_SLOTS(key, slot, state) {
 				if (state == old_index) {
@@ -129,8 +90,7 @@ namespace BLI {
 			}
 		}
 
-		typename std::make_signed<Index>::type find(
-			Item *array, const Key &key) const
+		Index find(Item *array, const Key &key) const
 		{
 			ITER_SLOTS(key, slot, state) {
 				if (state == SLOT_EMPTY) {
@@ -146,7 +106,21 @@ namespace BLI {
 		}
 
 	private:
-		inline void reset_map(uint size)
+		inline void ensure_can_add(Item *array)
+		{
+			if (LIKELY(m_usable_slots > 0)) {
+				return;
+			}
+
+			this->reset_map(m_map.size() * 2);
+			for (uint i = 0; i < m_length; i++) {
+				const Key &key = GetKey(array[i]);
+				this->insert_index_for_key(key, i);
+			}
+			m_usable_slots -= m_length;
+		}
+
+		void reset_map(uint size)
 		{
 			BLI_assert(count_bits_i(size) == 1);
 			m_map = Mapping(size);
@@ -155,7 +129,7 @@ namespace BLI {
 			m_slot_mask = size - 1;
 		}
 
-		inline void insert_index(const Key &key, Index index)
+		inline void insert_index_for_key(const Key &key, Index index)
 		{
 			ITER_SLOTS(key, slot, state) {
 				if (state == SLOT_EMPTY) {
