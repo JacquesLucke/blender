@@ -53,7 +53,7 @@ namespace FN { namespace DataFlowNodes {
 			GraphBuilder &builder,
 			struct bNode *bnode);
 
-		SmallSocketVector insert_sockets(
+		SocketVector insert_sockets(
 			GraphBuilder &builder,
 			BSockets &bsockets,
 			BNodes &bnodes);

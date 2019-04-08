@@ -48,7 +48,7 @@ namespace FN {
 	};
 
 	using SharedType = AutoRefCount<Type>;
-	using SmallTypeVector = SmallVector<SharedType>;
+	using TypeVector = SmallVector<SharedType>;
 
 } /* namespace FN */
 

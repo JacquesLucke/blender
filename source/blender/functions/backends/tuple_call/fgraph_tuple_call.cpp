@@ -6,8 +6,8 @@ namespace FN {
 	class InterpretFGraph : public TupleCallBody {
 	private:
 		SharedDataFlowGraph m_graph;
-		SmallSocketSetVector m_inputs;
-		SmallSocketSetVector m_outputs;
+		SocketSetVector m_inputs;
+		SocketSetVector m_outputs;
 
 		enum OpCode {
 			InitTuple,
@@ -344,8 +344,8 @@ namespace FN {
 	class ExecuteGraph : public TupleCallBody {
 	private:
 		SharedDataFlowGraph m_graph;
-		SmallSocketSetVector m_inputs;
-		SmallSocketSetVector m_outputs;
+		SocketSetVector m_inputs;
+		SocketSetVector m_outputs;
 
 	public:
 		ExecuteGraph(const FunctionGraph &function_graph)

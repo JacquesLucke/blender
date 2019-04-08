@@ -22,8 +22,8 @@ namespace FN {
 			return m_outputs;
 		}
 
-		SmallTypeVector input_types() const;
-		SmallTypeVector output_types() const;
+		TypeVector input_types() const;
+		TypeVector output_types() const;
 
 		template<typename T>
 		SmallVector<T *> input_extensions() const
@@ -50,8 +50,8 @@ namespace FN {
 		}
 
 		bool has_interface(
-			const SmallTypeVector &inputs,
-			const SmallTypeVector &outputs) const;
+			const TypeVector &inputs,
+			const TypeVector &outputs) const;
 
 		bool has_interface(
 			const Signature &other) const;

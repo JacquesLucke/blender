@@ -6,14 +6,14 @@ namespace FN {
 
 	class TupleMeta : public RefCountedBase {
 	private:
-		SmallTypeVector m_types;
+		TypeVector m_types;
 		SmallVector<CPPTypeInfo *> m_type_info;
 		SmallVector<uint> m_offsets;
 		uint m_size__data;
 		uint m_size__data_and_init;
 
 	public:
-		TupleMeta(const SmallTypeVector &types = {})
+		TupleMeta(const TypeVector &types = {})
 			: m_types(types)
 		{
 			m_size__data = 0;
@@ -28,7 +28,7 @@ namespace FN {
 			m_size__data_and_init = m_size__data + this->element_amount();
 		}
 
-		const SmallTypeVector &types() const
+		const TypeVector &types() const
 		{
 			return m_types;
 		}
@@ -120,7 +120,7 @@ namespace FN {
 			return *tuple;
 		}
 
-		Tuple(SmallTypeVector types)
+		Tuple(TypeVector types)
 			: Tuple(SharedTupleMeta::New(types)) {}
 
 		/* Has to be implemented explicitely in the future. */

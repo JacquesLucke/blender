@@ -18,8 +18,8 @@ namespace FN {
 	using SocketSet = SmallSet<Socket>;
 	using NodeSet = SmallSet<Node *>;
 	using NodeSetVector = SmallSetVector<Node *>;
-	using SmallSocketVector = SmallVector<Socket>;
-	using SmallSocketSetVector = SmallSetVector<Socket>;
+	using SocketVector = SmallVector<Socket>;
+	using SocketSetVector = SmallSetVector<Socket>;
 
 	class Socket {
 	public:
@@ -323,8 +323,8 @@ namespace FN {
 	public:
 		FunctionGraph(
 			SharedDataFlowGraph &graph,
-			SmallSocketVector &inputs,
-			SmallSocketVector &outputs)
+			SocketVector &inputs,
+			SocketVector &outputs)
 			: m_graph(graph), m_inputs(inputs), m_outputs(outputs)
 		{
 			BLI_assert(graph->frozen());
@@ -335,12 +335,12 @@ namespace FN {
 			return m_graph;
 		}
 
-		const SmallSocketSetVector &inputs() const
+		const SocketSetVector &inputs() const
 		{
 			return m_inputs;
 		}
 
-		const SmallSocketSetVector &outputs() const
+		const SocketSetVector &outputs() const
 		{
 			return m_outputs;
 		}
@@ -364,8 +364,8 @@ namespace FN {
 
 	private:
 		SharedDataFlowGraph m_graph;
-		SmallSocketSetVector m_inputs;
-		SmallSocketSetVector m_outputs;
+		SocketSetVector m_inputs;
+		SocketSetVector m_outputs;
 	};
 
 

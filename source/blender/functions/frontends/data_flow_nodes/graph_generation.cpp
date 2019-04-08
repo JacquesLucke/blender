@@ -170,8 +170,8 @@ namespace FN { namespace DataFlowNodes {
 			}
 		}
 
-		SmallSocketVector input_sockets;
-		SmallSocketVector output_sockets;
+		SocketVector input_sockets;
+		SocketVector output_sockets;
 
 		if (input_node != nullptr) {
 			insert_input_node(builder, input_node);
@@ -203,7 +203,7 @@ namespace FN { namespace DataFlowNodes {
 
 		BSockets unlinked_inputs;
 		BNodes unlinked_inputs_nodes;
-		SmallSocketVector node_inputs;
+		SocketVector node_inputs;
 		for (bNode *bnode : bNodeList(&btree->nodes)) {
 			for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
 				if (builder.is_data_socket(bsocket)) {
@@ -217,7 +217,7 @@ namespace FN { namespace DataFlowNodes {
 			}
 		}
 
-		SmallSocketVector new_origins = inserters.insert_sockets(
+		SocketVector new_origins = inserters.insert_sockets(
 			builder, unlinked_inputs, unlinked_inputs_nodes);
 		BLI_assert(unlinked_inputs.size() == new_origins.size());
 

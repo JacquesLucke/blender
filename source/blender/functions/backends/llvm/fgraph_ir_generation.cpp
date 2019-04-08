@@ -7,8 +7,8 @@ namespace FN {
 	class BuildGraphIR : public LLVMBuildIRBody {
 	private:
 		FunctionGraph m_fgraph;
-		SmallSocketSetVector m_inputs;
-		SmallSocketSetVector m_outputs;
+		SocketSetVector m_inputs;
+		SocketSetVector m_outputs;
 		SocketSet m_required_sockets;
 
 		using SocketValueMap = SmallMap<Socket, llvm::Value *>;
@@ -122,7 +122,7 @@ namespace FN {
 			LLVMTypeInfo *type_info = type->extension<LLVMTypeInfo>();
 			BLI_assert(type_info);
 
-			SmallSocketVector targets;
+			SocketVector targets;
 			for (Socket target : output.targets()) {
 				if (m_required_sockets.contains(target) && !values.contains(target)) {
 					BLI_assert(type == target.type());

@@ -126,7 +126,7 @@ namespace FN { namespace DataFlowNodes {
 		}
 	};
 
-	SmallSocketVector GraphInserters::insert_sockets(
+	SocketVector GraphInserters::insert_sockets(
 		GraphBuilder &builder,
 		BSockets &bsockets,
 		BNodes &UNUSED(bnodes))
@@ -152,7 +152,7 @@ namespace FN { namespace DataFlowNodes {
 		fn->add_body(new SocketLoaderBody(builder.btree(), bsockets, loaders));
 		Node *node = builder.insert_function(fn);
 
-		SmallSocketVector sockets;
+		SocketVector sockets;
 		for (Socket output : node->outputs()) {
 			sockets.append(output);
 		}

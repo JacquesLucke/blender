@@ -2,18 +2,18 @@
 
 namespace FN {
 
-	SmallTypeVector Signature::input_types() const
+	TypeVector Signature::input_types() const
 	{
-		SmallTypeVector types;
+		TypeVector types;
 		for (const InputParameter &param : this->inputs()) {
 			types.append(param.type());
 		}
 		return types;
 	}
 
-	SmallTypeVector Signature::output_types() const
+	TypeVector Signature::output_types() const
 	{
-		SmallTypeVector types;
+		TypeVector types;
 		for (const OutputParameter &param : this->outputs()) {
 			types.append(param.type());
 		}
@@ -21,12 +21,12 @@ namespace FN {
 	}
 
 	bool Signature::has_interface(
-		const SmallTypeVector &inputs,
-		const SmallTypeVector &outputs) const
+		const TypeVector &inputs,
+		const TypeVector &outputs) const
 	{
 		return (true
-			&& SmallTypeVector::all_equal(this->input_types(), inputs)
-			&& SmallTypeVector::all_equal(this->output_types(), outputs));
+			&& TypeVector::all_equal(this->input_types(), inputs)
+			&& TypeVector::all_equal(this->output_types(), outputs));
 	}
 
 	bool Signature::has_interface(
