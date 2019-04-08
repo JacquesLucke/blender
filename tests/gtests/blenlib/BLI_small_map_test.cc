@@ -85,3 +85,13 @@ TEST(small_map, PopItemMany)
 		EXPECT_EQ(map.contains(i), i < 25 || i >= 80);
 	}
 }
+
+TEST(small_map, LookupPtrOrInsert)
+{
+	IntFloatMap map;
+	float *value = map.lookup_ptr_or_insert(3, 5.0f);
+	EXPECT_EQ(*value, 5.0f);
+	*value += 1;
+	value = map.lookup_ptr_or_insert(3, 5.0f);
+	EXPECT_EQ(*value, 6.0f);
+}

@@ -138,3 +138,23 @@ TEST(small_set, Pop)
 	EXPECT_EQ(set.pop(), 4);
 	EXPECT_EQ(set.size(), 0);
 }
+
+TEST(small_set, Remove)
+{
+	IntSet set = {3, 4, 5};
+	EXPECT_TRUE(set.contains(3));
+	EXPECT_TRUE(set.contains(4));
+	EXPECT_TRUE(set.contains(5));
+	set.remove(4);
+	EXPECT_TRUE(set.contains(3));
+	EXPECT_FALSE(set.contains(4));
+	EXPECT_TRUE(set.contains(5));
+	set.remove(3);
+	EXPECT_FALSE(set.contains(3));
+	EXPECT_FALSE(set.contains(4));
+	EXPECT_TRUE(set.contains(5));
+	set.remove(5);
+	EXPECT_FALSE(set.contains(3));
+	EXPECT_FALSE(set.contains(4));
+	EXPECT_FALSE(set.contains(5));
+}

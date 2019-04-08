@@ -41,13 +41,22 @@ namespace BLI {
 			return m_lookup.contains(m_elements.begin(), value);
 		}
 
-		void add(const T &value)
+		void add_new(const T &value)
 		{
-			if (!this->contains(value)) {
-				uint index = m_elements.size();
+			BLI_assert(!this->contains(value));
+			uint index = m_elements.size();
+			m_elements.append(value);
+			m_lookup.add_new(m_elements.begin(), index);
+		}
+
+		bool add(const T &value)
+		{
+			uint potential_index = m_elements.size();
+			bool newly_inserted = m_lookup.add(m_elements.begin(), value, potential_index);
+			if (newly_inserted) {
 				m_elements.append(value);
-				m_lookup.add_new(m_elements.begin(), index);
 			}
+			return newly_inserted;
 		}
 
 		T pop()
@@ -57,6 +66,24 @@ namespace BLI {
 			uint index = m_elements.size();
 			m_lookup.remove(value, index);
 			return value;
+		}
+
+		void remove(const T &value)
+		{
+			BLI_assert(this->contains(value));
+			uint index = m_lookup.find(m_elements.begin(), value);
+
+			uint last_index = m_elements.size() - 1;
+			if (index == last_index) {
+				m_elements.remove_last();
+				m_lookup.remove(value, index);
+			}
+			else {
+				m_elements.remove_and_reorder(index);
+				m_lookup.remove(value, index);
+				T &moved_value = m_elements[index];
+				m_lookup.update_index(moved_value, last_index, index);
+			}
 		}
 
 		T any() const

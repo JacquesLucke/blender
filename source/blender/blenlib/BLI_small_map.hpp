@@ -107,6 +107,14 @@ namespace BLI {
 			}
 		}
 
+		V *lookup_ptr_or_insert(const K &key, V initial_value)
+		{
+			if (!this->contains(key)) {
+				this->add_new(key, initial_value);
+			}
+			return this->lookup_ptr(key);
+		}
+
 		uint size() const
 		{
 			return m_entries.size();
