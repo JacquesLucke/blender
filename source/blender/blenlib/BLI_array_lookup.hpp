@@ -178,7 +178,7 @@ namespace BLI {
 			uint32_t *slot,
 			uint32_t *perturb) const
 		{
-			*slot = m_slot_mask & ((5 + *slot) + 1 + *perturb);
+			*slot = m_slot_mask & ((5 * *slot) + 1 + *perturb);
 			*perturb >>= PERTURB_SHIFT;
 		}
 	};
