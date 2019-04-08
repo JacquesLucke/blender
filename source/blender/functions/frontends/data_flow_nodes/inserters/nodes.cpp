@@ -232,6 +232,7 @@ namespace FN { namespace DataFlowNodes {
 		inserters.reg_node_function("fn_VectorDistanceNode", Functions::GET_FN_vector_distance);
 		inserters.reg_node_function("fn_RandomNumberNode", Functions::GET_FN_random_number);
 		inserters.reg_node_function("fn_MapRangeNode", Functions::GET_FN_map_range);
+		inserters.reg_node_function("fn_FloatRangeNode", Functions::GET_FN_float_range);
 
 		inserters.reg_node_inserter("fn_SeparateVectorNode", INSERT_separate_vector);
 		inserters.reg_node_inserter("fn_CombineVectorNode", INSERT_combine_vector);

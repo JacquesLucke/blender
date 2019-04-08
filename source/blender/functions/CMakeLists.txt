@@ -118,6 +118,8 @@ set(SRC
 	functions/switch.cpp
 	functions/auto_vectorization.hpp
 	functions/auto_vectorization.cpp
+	functions/ranges.hpp
+	functions/ranges.cpp
 
 	frontends/data_flow_nodes/builder.hpp
 	frontends/data_flow_nodes/builder.cpp
