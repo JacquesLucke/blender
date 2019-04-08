@@ -360,7 +360,9 @@ namespace FN {
 			return Signature(inputs, outputs);
 		}
 
-		SocketSet find_required_sockets() const;
+		SocketSet find_used_sockets(
+			bool include_inputs,
+			bool include_outputs) const;
 
 	private:
 		SharedDataFlowGraph m_graph;

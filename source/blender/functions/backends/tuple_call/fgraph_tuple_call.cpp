@@ -87,7 +87,7 @@ namespace FN {
 			  m_inputs(fgraph.inputs()),
 			  m_outputs(fgraph.outputs())
 		{
-			SocketSet required_sockets = fgraph.find_required_sockets();
+			SocketSet required_sockets = fgraph.find_used_sockets(false, true);
 
 			NodeSetVector required_nodes;
 			for (Socket socket : required_sockets) {
@@ -433,7 +433,7 @@ namespace FN {
 
 		void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
 		{
-			SocketSet required_sockets = m_fgraph.find_required_sockets();
+			SocketSet required_sockets = m_fgraph.find_used_sockets(false, true);
 			for (Socket socket : m_fgraph.inputs()) {
 				required_sockets.add(socket);
 			}

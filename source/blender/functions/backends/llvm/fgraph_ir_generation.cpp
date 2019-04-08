@@ -34,7 +34,7 @@ namespace FN {
 					continue;
 				}
 			}
-			m_required_sockets = fgraph.find_required_sockets();
+			m_required_sockets = fgraph.find_used_sockets(false, true);
 		}
 
 		void build_ir(

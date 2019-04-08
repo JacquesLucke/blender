@@ -54,31 +54,39 @@ namespace FN {
 	}
 
 
-	SocketSet FunctionGraph::find_required_sockets() const
+	SocketSet FunctionGraph::find_used_sockets(
+		bool include_inputs,
+		bool include_outputs) const
 	{
 		SocketSet found;
 
 		SocketSet to_be_checked;
 		for (Socket socket : m_outputs) {
-			to_be_checked.add(socket);
+			to_be_checked.add_new(socket);
 		}
 
 		while (to_be_checked.size() > 0) {
 			Socket socket = to_be_checked.pop();
 
-			if (m_inputs.contains(socket)) {
+			if (!include_inputs && m_inputs.contains(socket)) {
 				continue;
 			}
 
 			found.add(socket);
 
 			if (socket.is_input()) {
-				to_be_checked.add(socket.origin());
+				to_be_checked.add_new(socket.origin());
 			}
 			else {
 				for (Socket input : socket.node()->inputs()) {
-					to_be_checked.add(input);
+					to_be_checked.add_new(input);
 				}
+			}
+		}
+
+		if (!include_outputs) {
+			for (Socket socket : m_outputs) {
+				found.remove(socket);
 			}
 		}
 
