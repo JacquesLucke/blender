@@ -171,30 +171,29 @@ def get_vector_decisions_graph(tree_data):
 
 def iter_obligatory_vector_decisions(graph, input_sockets, output_sockets, tree_data, list_decisions):
     for socket in input_sockets:
+        other_node, other_socket = tree_data.try_get_origin_with_node(socket)
+        if other_node is None:
+            continue
+
         node = tree_data.get_node(socket)
         decl = socket.get_decl(node)
         decision_id = DecisionID(node, node, decl.prop_name)
 
-        for other_node, other_socket in tree_data.iter_connected_sockets_with_nodes(socket):
-            other_decl = other_socket.get_decl(other_node)
-            if data_sockets_are_static(other_decl):
-                other_data_type = other_socket.data_type
-                if other_data_type == decl.base_type:
-                    yield decision_id, "BASE"
-                elif other_data_type == decl.list_type:
+        other_decl = other_socket.get_decl(other_node)
+        if data_sockets_are_static(other_decl):
+            other_data_type = other_socket.data_type
+            if other_data_type == decl.list_type:
+                yield decision_id, "LIST"
+        elif isinstance(other_decl, ListSocketDecl):
+            list_decision_id = DecisionID(other_node, other_node, other_decl.prop_name)
+            if list_decision_id in list_decisions:
+                other_base_type = list_decisions[list_decision_id]
+                if other_base_type == decl.base_type:
+                    yield decision_id, other_decl.list_or_base
+            else:
+                old_data_type = other_socket.data_type
+                if old_data_type == decl.list_type:
                     yield decision_id, "LIST"
-            elif isinstance(other_decl, ListSocketDecl):
-                list_decision_id = DecisionID(other_node, other_node, other_decl.prop_name)
-                if list_decision_id in list_decisions:
-                    other_base_type = list_decisions[list_decision_id]
-                    if other_base_type == decl.base_type:
-                        yield decision_id, other_decl.list_or_base
-                else:
-                    old_data_type = other_socket.data_type
-                    if old_data_type == decl.base_type:
-                        yield decision_id, "BASE"
-                    elif old_data_type == decl.list_type:
-                        yield decision_id, "LIST"
 
     for socket in output_sockets:
         node = tree_data.get_node(socket)
