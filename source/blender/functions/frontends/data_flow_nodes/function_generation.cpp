@@ -22,8 +22,8 @@ namespace FN { namespace DataFlowNodes {
 		fgraph_add_DependenciesBody(fn, fgraph);
 		fgraph_add_LLVMBuildIRBody(fn, fgraph);
 
-		// fgraph_add_TupleCallBody(fn, fgraph);
-		derive_TupleCallBody_from_LLVMBuildIRBody(fn, *(new llvm::LLVMContext()));
+		fgraph_add_TupleCallBody(fn, fgraph);
+		// derive_TupleCallBody_from_LLVMBuildIRBody(fn, *(new llvm::LLVMContext()));
 		return fn;
 	}
 
