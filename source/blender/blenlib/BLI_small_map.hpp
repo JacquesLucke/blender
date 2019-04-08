@@ -32,13 +32,12 @@ namespace BLI {
 
 		bool add(const K &key, const V &value)
 		{
-			if (this->contains(key)) {
-				return false;
+			uint potential_index = m_entries.size();
+			bool newly_inserted = m_lookup.add(m_entries.begin(), key, potential_index);
+			if (newly_inserted) {
+				m_entries.append(Entry(key, value));
 			}
-			else {
-				this->add_new(key, value);
-				return true;
-			}
+			return newly_inserted;
 		}
 
 		void add_new(const K &key, const V &value)

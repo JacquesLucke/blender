@@ -60,6 +60,30 @@ namespace BLI {
 			}
 		}
 
+		bool add(Item *array, const Key &key, Index potential_index)
+		{
+			ITER_SLOTS(key, slot, state) {
+				if (state == SLOT_EMPTY) {
+					bool map_changed = this->ensure_can_add(array);
+					if (map_changed) {
+						this->insert_index_for_key(key, potential_index);
+					}
+					else {
+						m_map[slot] = potential_index;
+					}
+					m_length++;
+					m_usable_slots--;
+					return true;
+				}
+				else if (state == SLOT_DUMMY) {
+					continue;
+				}
+				else if (GetKey(array[state]) == key) {
+					return false;
+				}
+			}
+		}
+
 		void add_new(Item *array, Index index)
 		{
 			this->ensure_can_add(array);
@@ -106,10 +130,10 @@ namespace BLI {
 		}
 
 	private:
-		inline void ensure_can_add(Item *array)
+		inline bool ensure_can_add(Item *array)
 		{
 			if (LIKELY(m_usable_slots > 0)) {
-				return;
+				return false;
 			}
 
 			this->reset_map(m_map.size() * 2);
@@ -118,6 +142,7 @@ namespace BLI {
 				this->insert_index_for_key(key, i);
 			}
 			m_usable_slots -= m_length;
+			return true;
 		}
 
 		void reset_map(uint size)
