@@ -164,7 +164,7 @@ namespace BLI {
 				return m_index != iterator.m_index;
 			}
 
-			V operator*() const
+			V &operator*() const
 			{
 				return m_map.m_entries[m_index].value;
 			}

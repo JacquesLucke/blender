@@ -20,6 +20,18 @@ namespace BLI {
 			}
 		}
 
+		template<typename T>
+		T *allocate()
+		{
+			return (T *)this->allocate(sizeof(T));
+		}
+
+		template<typename T>
+		T *allocate_array(uint length)
+		{
+			return (T *)this->allocate(sizeof(T) * length);
+		}
+
 		void *allocate(uint size)
 		{
 			uint alloc_size = size + sizeof(uint);

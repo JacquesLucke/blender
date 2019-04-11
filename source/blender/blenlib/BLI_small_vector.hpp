@@ -10,6 +10,18 @@
 
 namespace BLI {
 
+	template<typename T>
+	void uninitialized_relocate_n(T *src, uint n, T *dst)
+	{
+		std::uninitialized_copy_n(
+			std::make_move_iterator(src),
+			n,
+			dst);
+		for (uint i = 0; i < n; i++) {
+			src[i].~T();
+		}
+	}
+
 	template<typename T, uint N = 4>
 	class SmallVector {
 	private:
@@ -253,12 +265,7 @@ namespace BLI {
 			m_capacity = min_capacity;
 
 			T *new_array = (T *)MEM_malloc_arrayN(m_capacity, sizeof(T), __func__);
-			std::uninitialized_copy(
-				std::make_move_iterator(this->begin()),
-				std::make_move_iterator(this->end()),
-				new_array);
-
-			this->destruct_elements_but_keep_memory();
+			uninitialized_relocate_n(m_elements, m_size, new_array);
 
 			if (!this->is_small()) {
 				MEM_freeN(m_elements);
@@ -284,10 +291,7 @@ namespace BLI {
 		void steal_from_other(SmallVector &&other)
 		{
 			if (other.is_small()) {
-				std::uninitialized_copy(
-					std::make_move_iterator(other.begin()),
-					std::make_move_iterator(other.end()),
-					this->small_buffer());
+				uninitialized_relocate_n(other.begin(), other.size(), this->small_buffer());
 				m_elements = this->small_buffer();
 			}
 			else {

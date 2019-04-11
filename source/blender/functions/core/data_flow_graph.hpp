@@ -7,6 +7,7 @@
 #include "BLI_small_set_vector.hpp"
 #include "BLI_mempool.hpp"
 #include "BLI_multipool.hpp"
+#include "BLI_multimap.hpp"
 
 namespace FN {
 
@@ -43,7 +44,7 @@ namespace FN {
 		friend std::ostream &operator<<(std::ostream &stream, Socket socket);
 
 		inline Socket origin() const;
-		inline SocketSet targets() const;
+		inline ArrayRef<Socket> targets() const;
 		inline bool is_linked() const;
 
 	private:
@@ -223,23 +224,9 @@ namespace FN {
 			Socket from = link.from();
 			Socket to = link.to();
 
-			if (!m_links.contains(from)) {
-				m_links.add(from, SmallSet<Socket>());
-			}
-			if (!m_links.contains(to)) {
-				m_links.add(to, SmallSet<Socket>());
-			}
-
-			m_links.lookup_ref(from).add(to);
-			m_links.lookup_ref(to).add(from);
-			m_all_links.append(Link::New(from, to));
-		}
-
-		SmallSet<Socket> get_linked(Socket socket) const
-		{
-			SmallSet<Socket> *linked = m_links.lookup_ptr(socket);
-			if (linked == nullptr) return {};
-			return *linked;
+			m_origins.add_new(to, from);
+			m_targets.add(from, to);
+			m_all_links.append(link);
 		}
 
 		SmallVector<Link> all_links() const
@@ -250,13 +237,28 @@ namespace FN {
 		Socket get_origin(Socket socket) const
 		{
 			BLI_assert(socket.is_input());
-			auto linked = this->get_linked(socket);
-			BLI_assert(linked.size() == 1);
-			return linked.any();
+			return m_origins.lookup(socket);
+		}
+
+		ArrayRef<Socket> get_targets(Socket socket) const
+		{
+			BLI_assert(socket.is_output());
+			return m_targets.lookup(socket);
+		}
+
+		bool is_linked(Socket socket) const
+		{
+			if (socket.is_input()) {
+				return m_origins.contains(socket);
+			}
+			else {
+				return m_targets.lookup(socket).size() > 0;
+			}
 		}
 
 	private:
-		SmallMap<Socket, SmallSet<Socket>> m_links;
+		SmallMap<Socket, Socket> m_origins;
+		MultiMap<Socket, Socket> m_targets;
 		SmallVector<Link> m_all_links;
 	};
 
@@ -433,14 +435,14 @@ namespace FN {
 		return this->graph()->m_links.get_origin(*this);
 	}
 
-	SocketSet Socket::targets() const
+	ArrayRef<Socket> Socket::targets() const
 	{
-		return this->graph()->m_links.get_linked(*this);
+		return this->graph()->m_links.get_targets(*this);
 	}
 
 	bool Socket::is_linked() const
 	{
-		return this->graph()->m_links.get_linked(*this).size() > 0;
+		return this->graph()->m_links.is_linked(*this);
 	}
 
 } /* namespace FN */

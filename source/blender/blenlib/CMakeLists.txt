@@ -233,10 +233,12 @@ set(SRC
 	PIL_time_utildefines.h
 
 	BLI_array_lookup.hpp
+	BLI_array_ref.hpp
 	BLI_composition.hpp
 	BLI_lazy_init.hpp
 	BLI_listbase_wrapper.hpp
 	BLI_mempool.hpp
+	BLI_multimap.hpp
 	BLI_multipool.hpp
 	BLI_optional.hpp
 	BLI_shared.hpp
