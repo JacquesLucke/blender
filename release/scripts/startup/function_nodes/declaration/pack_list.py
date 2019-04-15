@@ -77,11 +77,11 @@ class PackListDecl(SocketDeclBase):
         data_type = connected_socket.data_type
 
         if type_infos.is_base(data_type):
-            if data_type != self.base_type:
+            if not type_infos.is_link_allowed(data_type, self.base_type):
                 return
             state = "BASE"
         elif type_infos.is_list(data_type):
-            if data_type != self.list_type:
+            if not type_infos.is_link_allowed(data_type, self.list_type):
                 return
             state = "LIST"
         else:
