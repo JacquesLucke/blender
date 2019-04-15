@@ -138,4 +138,7 @@ set(SRC
 	frontends/data_flow_nodes/data_flow_nodes-c.cpp
 )
 
-blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}")
+set(LIB
+)
+
+blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
