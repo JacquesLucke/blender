@@ -34,8 +34,9 @@ namespace BLI {
 	private:
 		using Mapping = SmallVector<Index, (1 << N_EXP)>;
 		Mapping m_map;
-		uint m_usable_slots;
 		uint m_length;
+		uint m_dummy_amount;
+		uint m_max_length;
 		uint32_t m_slot_mask;
 
 	public:
@@ -62,21 +63,29 @@ namespace BLI {
 
 		bool add(Item *array, const Key &key, Index potential_index)
 		{
+			int dummy_slot = -1;
 			ITER_SLOTS(key, slot, state) {
 				if (state == SLOT_EMPTY) {
-					bool map_changed = this->ensure_can_add(array);
-					if (map_changed) {
-						this->insert_index_for_key(key, potential_index);
+					if (dummy_slot == -1) {
+						bool map_changed = this->ensure_can_add(array);
+						if (map_changed) {
+							this->insert_index_for_key(key, potential_index);
+						}
+						else {
+							m_map[slot] = potential_index;
+						}
 					}
 					else {
 						m_map[slot] = potential_index;
+						m_dummy_amount--;
 					}
 					m_length++;
-					m_usable_slots--;
 					return true;
 				}
 				else if (state == SLOT_DUMMY) {
-					continue;
+					if (dummy_slot == -1) {
+						dummy_slot = slot;
+					}
 				}
 				else if (GetKey(array[state]) == key) {
 					return false;
@@ -89,19 +98,7 @@ namespace BLI {
 			this->ensure_can_add(array);
 			const Key &key = GetKey(array[index]);
 			this->insert_index_for_key(key, index);
-			m_usable_slots--;
 			m_length++;
-		}
-
-		void remove(const Key &key, Index index)
-		{
-			ITER_SLOTS(key, slot, state) {
-				if (state == index) {
-					m_map[slot] = SLOT_DUMMY;
-					m_length--;
-					break;
-				}
-			}
 		}
 
 		void update_index(const Key &key, Index old_index, Index new_index)
@@ -129,6 +126,18 @@ namespace BLI {
 			}
 		}
 
+		void remove(const Key &key, Index index)
+		{
+			ITER_SLOTS(key, slot, state) {
+				if (state == index) {
+					m_map[slot] = SLOT_DUMMY;
+					m_length--;
+					m_dummy_amount++;
+					break;
+				}
+			}
+		}
+
 		Index remove(Item *array, const Key &key)
 		{
 			BLI_assert(this->contains(array, key));
@@ -139,6 +148,7 @@ namespace BLI {
 				else if (GetKey(array[state]) == key) {
 					m_map[slot] = SLOT_DUMMY;
 					m_length--;
+					m_dummy_amount++;
 					return state;
 				}
 			}
@@ -147,16 +157,15 @@ namespace BLI {
 	private:
 		inline bool ensure_can_add(Item *array)
 		{
-			if (LIKELY(m_usable_slots > 0)) {
+			if (LIKELY(m_length + m_dummy_amount < m_max_length)) {
 				return false;
 			}
 
 			this->reset_map(m_map.size() * 2);
 			for (uint i = 0; i < m_length; i++) {
 				const Key &key = GetKey(array[i]);
-				this->insert_index_for_key(key, i);
+				this->insert_index_for_key__no_dummy(key, i);
 			}
-			m_usable_slots -= m_length;
 			return true;
 		}
 
@@ -165,11 +174,27 @@ namespace BLI {
 			BLI_assert(count_bits_i(size) == 1);
 			m_map = Mapping(size);
 			m_map.fill(SLOT_EMPTY);
-			m_usable_slots = m_map.size() * LOAD_FACTOR;
+			m_max_length = m_map.size() * LOAD_FACTOR;
+			m_dummy_amount = 0;
 			m_slot_mask = size - 1;
 		}
 
 		inline void insert_index_for_key(const Key &key, Index index)
+		{
+			ITER_SLOTS(key, slot, state) {
+				if (state == SLOT_EMPTY) {
+					m_map[slot] = index;
+					break;
+				}
+				else if (state == SLOT_DUMMY) {
+					m_map[slot] = index;
+					m_dummy_amount--;
+					break;
+				}
+			}
+		}
+
+		inline void insert_index_for_key__no_dummy(const Key &key, Index index)
 		{
 			ITER_SLOTS(key, slot, state) {
 				if (state == SLOT_EMPTY) {
