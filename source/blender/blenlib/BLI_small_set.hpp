@@ -71,16 +71,14 @@ namespace BLI {
 		void remove(const T &value)
 		{
 			BLI_assert(this->contains(value));
-			uint index = m_lookup.find(m_elements.begin(), value);
+			uint index = m_lookup.remove(m_elements.begin(), value);
 
 			uint last_index = m_elements.size() - 1;
 			if (index == last_index) {
 				m_elements.remove_last();
-				m_lookup.remove(value, index);
 			}
 			else {
 				m_elements.remove_and_reorder(index);
-				m_lookup.remove(value, index);
 				T &moved_value = m_elements[index];
 				m_lookup.update_index(moved_value, last_index, index);
 			}

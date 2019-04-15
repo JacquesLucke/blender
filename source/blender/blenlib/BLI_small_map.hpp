@@ -57,17 +57,15 @@ namespace BLI {
 		V pop(const K &key)
 		{
 			BLI_assert(this->contains(key));
-			uint index = m_lookup.find(m_entries.begin(), key);
+			uint index = m_lookup.remove(m_entries.begin(), key);
 			V value = m_entries[index].value;
 
 			uint last_index = m_entries.size() - 1;
 			if (index == last_index) {
 				m_entries.remove_last();
-				m_lookup.remove(key, index);
 			}
 			else {
 				m_entries.remove_and_reorder(index);
-				m_lookup.remove(key, index);
 				K &moved_key = m_entries[index].key;
 				m_lookup.update_index(moved_key, last_index, index);
 			}

@@ -99,3 +99,27 @@ TEST(small_set, Remove)
 	EXPECT_FALSE(set.contains(4));
 	EXPECT_FALSE(set.contains(5));
 }
+
+TEST(small_set, RemoveMany)
+{
+	IntSet set;
+	for (uint i = 0; i < 1000; i++) {
+		set.add(i);
+	}
+	for (uint i = 100; i < 1000; i++) {
+		set.remove(i);
+	}
+	for (uint i = 900; i < 1000; i++) {
+		set.add(i);
+	}
+
+	for (uint i = 0; i < 1000; i++) {
+		if (i < 100 || i >= 900) {
+			EXPECT_TRUE(set.contains(i));
+		}
+		else {
+			EXPECT_FALSE(set.contains(i));
+		}
+	}
+
+}

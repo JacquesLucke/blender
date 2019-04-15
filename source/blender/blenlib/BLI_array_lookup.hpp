@@ -129,6 +129,21 @@ namespace BLI {
 			}
 		}
 
+		Index remove(Item *array, const Key &key)
+		{
+			BLI_assert(this->contains(array, key));
+			ITER_SLOTS(key, slot, state) {
+				if (state == SLOT_DUMMY) {
+					continue;
+				}
+				else if (GetKey(array[state]) == key) {
+					m_map[slot] = SLOT_DUMMY;
+					m_length--;
+					return state;
+				}
+			}
+		}
+
 	private:
 		inline bool ensure_can_add(Item *array)
 		{
