@@ -18,12 +18,7 @@ namespace BLI {
 
 		int index(const T &value) const
 		{
-			for (uint i = 0; i < this->size(); i++) {
-				if (this->m_elements[i] == value) {
-					return i;
-				}
-			}
-			return -1;
+			return this->m_lookup.find(this->m_elements.begin(), value);
 		}
 
 		T operator[](const int index) const
