@@ -38,6 +38,9 @@ blender_include_dirs(
 	../blender/windowmanager
 )
 
+set(LIB
+)
+
 add_definitions(${GL_DEFINITIONS})
 blender_include_dirs("${GLEW_INCLUDE_PATH}")
 
@@ -634,6 +637,13 @@ if(UNIX AND NOT APPLE)
 
 		endif()
 	endif()
+
+	if(WITH_DRACO)
+		install(
+			PROGRAMS $<TARGET_FILE:extern_draco>
+			DESTINATION ${TARGETDIR_VER}/python/lib/python${PYTHON_VERSION}/site-packages
+		)
+	endif()
 elseif(WIN32)
 
 	set(BLENDER_TEXT_FILES_DESTINATION ".")
@@ -833,6 +843,12 @@ elseif(WIN32)
 		DESTINATION "."
 	)
 
+	if(WITH_DRACO)
+		install(
+			PROGRAMS $<TARGET_FILE:extern_draco>
+			DESTINATION ${TARGETDIR_VER}/python/lib/site-packages
+		)
+	endif()
 elseif(APPLE)
 
 	# handy install macro to exclude files, we use \$ escape for the "to"
@@ -937,6 +953,12 @@ elseif(APPLE)
 		unset(_py_inc_suffix)
 	endif()
 
+	if(WITH_DRACO)
+		install(
+			PROGRAMS $<TARGET_FILE:extern_draco>
+			DESTINATION ${TARGETDIR_VER}/python/lib/python${PYTHON_VERSION}/site-packages
+		)
+	endif()
 endif()
 
 # -----------------------------------------------------------------------------
@@ -1004,10 +1026,18 @@ install(
 
 add_dependencies(blender makesdna)
 
-setup_blender_sorted_libs()
-target_link_libraries(blender ${BLENDER_SORTED_LIBS})
+# Use for testing 'BLENDER_SORTED_LIBS' removal.
+if(NOT (DEFINED WITHOUT_SORTED_LIBS AND WITHOUT_SORTED_LIBS))
+	setup_blender_sorted_libs()
+	target_link_libraries(blender ${BLENDER_SORTED_LIBS})
+else()
+	target_link_libraries(blender ${LIB})
+endif()
+
 
 setup_liblinks(blender)
+
+unset(LIB)
 
 # -----------------------------------------------------------------------------
 # Setup launcher

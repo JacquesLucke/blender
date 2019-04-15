@@ -222,6 +222,7 @@ function(blender_add_lib__impl
 	sources
 	includes
 	includes_sys
+	libraries
 	)
 
 	# message(STATUS "Configuring library ${name}")
@@ -232,6 +233,13 @@ function(blender_add_lib__impl
 	blender_include_dirs_sys("${includes_sys}")
 
 	add_library(${name} ${sources})
+
+	# Use for testing 'BLENDER_SORTED_LIBS' removal.
+	if(DEFINED WITHOUT_SORTED_LIBS AND WITHOUT_SORTED_LIBS)
+		if (NOT "${libraries}" STREQUAL "")
+			target_link_libraries(${name} "${libraries}")
+		endif()
+	endif()
 
 	# works fine without having the includes
 	# listed is helpful for IDE's (QtCreator/MSVC)
@@ -257,11 +265,12 @@ function(blender_add_lib_nolist
 	sources
 	includes
 	includes_sys
+	libraries
 	)
 
 	add_cc_flags_custom_test(${name} PARENT_SCOPE)
 
-	blender_add_lib__impl(${name} "${sources}" "${includes}" "${includes_sys}")
+	blender_add_lib__impl(${name} "${sources}" "${includes}" "${includes_sys}" "${libraries}")
 endfunction()
 
 function(blender_add_lib
@@ -269,11 +278,12 @@ function(blender_add_lib
 	sources
 	includes
 	includes_sys
+	libraries
 	)
 
 	add_cc_flags_custom_test(${name} PARENT_SCOPE)
 
-	blender_add_lib__impl(${name} "${sources}" "${includes}" "${includes_sys}")
+	blender_add_lib__impl(${name} "${sources}" "${includes}" "${includes_sys}" "${libraries}")
 
 	set_property(GLOBAL APPEND PROPERTY BLENDER_LINK_LIBS ${name})
 endfunction()

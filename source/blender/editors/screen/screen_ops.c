@@ -618,7 +618,7 @@ static ARegion *screen_find_region_type(bContext *C, int type)
  *
  * functions:
  *
- * apply() set actionzone event
+ * apply() set action-zone event
  *
  * exit()	free customdata
  *
@@ -826,7 +826,7 @@ static AZone *area_actionzone_refresh_xy(ScrArea *sa, const int xy[2], const boo
 	return az;
 }
 
-/* Finds an actionzone by position in entire screen so azones can overlap */
+/* Finds an action-zone by position in entire screen so azones can overlap. */
 static AZone *screen_actionzone_find_xy(bScreen *sc, const int xy[2])
 {
 	for (ScrArea *sa = sc->areabase.first; sa; sa = sa->next) {
@@ -904,7 +904,7 @@ static int actionzone_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	if (az == NULL || ELEM(az->type, AZONE_REGION_SCROLL))
 		return OPERATOR_PASS_THROUGH;
 
-	/* ok we do the actionzone */
+	/* ok we do the action-zone */
 	sad = op->customdata = MEM_callocN(sizeof(sActionzoneData), "sActionzoneData");
 	sad->sa1 = screen_actionzone_area(sc, az);
 	sad->az = az;
@@ -1054,7 +1054,7 @@ static void SCREEN_OT_actionzone(wmOperatorType *ot)
  *
  * functions:
  *
- * init()   set custom data for operator, based on actionzone event custom data
+ * init()   set custom data for operator, based on action-zone event custom data
  *
  * cancel() cancel the operator
  *
@@ -1062,7 +1062,7 @@ static void SCREEN_OT_actionzone(wmOperatorType *ot)
  *
  * callbacks:
  *
- * invoke() gets called on shift+lmb drag in actionzone
+ * invoke() gets called on shift+lmb drag in action-zone
  * call init(), add handler
  *
  * modal()  accept modal events while doing it
@@ -2280,7 +2280,6 @@ typedef struct RegionMoveData {
 
 static int area_max_regionsize(ScrArea *sa, ARegion *scalear, AZEdge edge)
 {
-	ARegion *ar;
 	int dist;
 
 	/* regions in regions. */
@@ -2288,11 +2287,11 @@ static int area_max_regionsize(ScrArea *sa, ARegion *scalear, AZEdge edge)
 		const int align = scalear->alignment & RGN_ALIGN_ENUM_MASK;
 
 		if (ELEM(align, RGN_ALIGN_TOP, RGN_ALIGN_BOTTOM)) {
-			ar = scalear->prev;
+			ARegion *ar = scalear->prev;
 			dist = ar->winy + scalear->winy - U.pixelsize;
 		}
-		else if (ELEM(align, RGN_ALIGN_LEFT, RGN_ALIGN_RIGHT)) {
-			ar = scalear->prev;
+		else /* if (ELEM(align, RGN_ALIGN_LEFT, RGN_ALIGN_RIGHT)) */ {
+			ARegion *ar = scalear->prev;
 			dist = ar->winx + scalear->winx - U.pixelsize;
 		}
 	}
@@ -2306,7 +2305,7 @@ static int area_max_regionsize(ScrArea *sa, ARegion *scalear, AZEdge edge)
 
 		/* subtractwidth of regions on opposite side
 		 * prevents dragging regions into other opposite regions */
-		for (ar = sa->regionbase.first; ar; ar = ar->next) {
+		for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
 			if (ar == scalear)
 				continue;
 
@@ -3811,8 +3810,8 @@ void ED_screens_header_tools_menu_create(bContext *C, uiLayout *layout, void *UN
 	        (sa->flag & HEADER_NO_PULLDOWN) ? ICON_CHECKBOX_HLT : ICON_CHECKBOX_DEHLT,
 	        "SCREEN_OT_header_toggle_menus");
 
-	/* file browser should be fullscreen all the time, topbar should
-	 * never be. But other regions can be maximized/restored... */
+	/* File browser should be fullscreen all the time, top-bar should
+	 * never be. But other regions can be maximized/restored. */
 	if (!ELEM(sa->spacetype, SPACE_FILE, SPACE_TOPBAR)) {
 		uiItemS(layout);
 

@@ -111,6 +111,9 @@ set(SRC
 	intern/MOD_weightvg_util.h
 )
 
+set(LIB
+)
+
 if(WITH_ALEMBIC)
 	add_definitions(-DWITH_ALEMBIC)
 	list(APPEND INC
@@ -144,4 +147,4 @@ endif()
 # So we can have special tricks in modifier system.
 add_definitions(${GL_DEFINITIONS})
 
-blender_add_lib(bf_modifiers "${SRC}" "${INC}" "${INC_SYS}")
+blender_add_lib(bf_modifiers "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
