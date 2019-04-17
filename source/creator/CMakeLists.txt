@@ -39,6 +39,22 @@ blender_include_dirs(
 )
 
 set(LIB
+	bf_blenfont
+	bf_blenkernel
+	bf_blenlib
+	bf_blenloader
+	bf_depsgraph
+	bf_dna
+	bf_editor_datafiles
+	bf_imbuf
+	bf_intern_clog
+	bf_intern_guardedalloc
+	bf_intern_memutil
+	bf_intern_opencolorio
+	bf_python
+	bf_render
+	bf_rna
+	bf_windowmanager
 )
 
 add_definitions(${GL_DEFINITIONS})
@@ -53,9 +69,14 @@ if(WITH_LIBMV)
 	add_definitions(-DWITH_LIBMV)
 endif()
 
-if(WITH_CYCLES AND WITH_CYCLES_LOGGING)
-	blender_include_dirs(../../intern/cycles/blender)
-	add_definitions(-DWITH_CYCLES_LOGGING)
+if(WITH_CYCLES)
+	if(WITH_CYCLES_LOGGING)
+		blender_include_dirs(../../intern/cycles/blender)
+		add_definitions(-DWITH_CYCLES_LOGGING)
+	endif()
+	list(APPEND LIB
+		bf_intern_cycles
+	)
 endif()
 
 if(WITH_CODEC_FFMPEG)
@@ -77,20 +98,26 @@ endif()
 
 if(WITH_SDL)
 	if(WITH_SDL_DYNLOAD)
-		add_definitions(-DWITH_SDL_DYNLOAD)
 		blender_include_dirs(../../extern/sdlew/include)
+		add_definitions(-DWITH_SDL_DYNLOAD)
 	endif()
 	add_definitions(-DWITH_SDL)
 endif()
 
 if(WITH_BINRELOC)
-	add_definitions(-DWITH_BINRELOC)
 	blender_include_dirs(${BINRELOC_INCLUDE_DIRS})
+	list(APPEND LIB
+		extern_binreloc
+	)
+	add_definitions(-DWITH_BINRELOC)
 endif()
 
 if(WITH_FREESTYLE)
-	add_definitions(-DWITH_FREESTYLE)
 	blender_include_dirs(../blender/freestyle)
+	list(APPEND LIB
+		bf_freestyle
+	)
+	add_definitions(-DWITH_FREESTYLE)
 endif()
 
 # Setup the exe sources and buildinfo
@@ -1025,19 +1052,11 @@ install(
 # Setup link libs
 
 add_dependencies(blender makesdna)
-
-# Use for testing 'BLENDER_SORTED_LIBS' removal.
-if(NOT (DEFINED WITHOUT_SORTED_LIBS AND WITHOUT_SORTED_LIBS))
-	setup_blender_sorted_libs()
-	target_link_libraries(blender ${BLENDER_SORTED_LIBS})
-else()
-	target_link_libraries(blender ${LIB})
-endif()
-
+target_link_libraries(blender ${LIB})
+unset(LIB)
 
 setup_liblinks(blender)
 
-unset(LIB)
 
 # -----------------------------------------------------------------------------
 # Setup launcher

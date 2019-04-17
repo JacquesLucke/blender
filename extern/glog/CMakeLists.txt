@@ -56,6 +56,12 @@ set(SRC
 set(LIB
 )
 
+if(NOT WITH_SYSTEM_GFLAGS)
+	list(APPEND LIB
+		extern_gflags
+	)
+endif()
+
 if(WIN32)
 	list(APPEND SRC
 		src/windows/port.cc

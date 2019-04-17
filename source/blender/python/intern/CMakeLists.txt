@@ -33,7 +33,6 @@ set(INC
 	../../../../intern/clog
 	../../../../intern/guardedalloc
 	../../../../intern/opencolorio
-	../../../../intern/cycles/blender
 )
 
 set(INC_SYS
@@ -118,6 +117,10 @@ set(SRC
 )
 
 set(LIB
+	bf_editor_animation
+	bf_editor_interface
+	bf_editor_space_api
+	bf_python_gpu
 )
 
 # only to check if buildinfo is available
@@ -163,6 +166,12 @@ if(WITH_COMPOSITOR)
 endif()
 
 if(WITH_CYCLES)
+	list(APPEND INC
+		../../../../intern/cycles/blender
+	)
+	list(APPEND LIB
+		bf_intern_cycles
+	)
 	add_definitions(-DWITH_CYCLES)
 endif()
 

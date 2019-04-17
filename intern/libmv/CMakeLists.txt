@@ -33,6 +33,10 @@ set(SRC
 	libmv-capi.h
 )
 
+set(LIB
+
+)
+
 if(WITH_LIBMV)
 	add_definitions(${GFLAGS_DEFINES})
 	add_definitions(${GLOG_DEFINES})
@@ -51,6 +55,11 @@ if(WITH_LIBMV)
 		${EIGEN3_INCLUDE_DIRS}
 		${PNG_INCLUDE_DIRS}
 		${ZLIB_INCLUDE_DIRS}
+	)
+
+	list(APPEND LIB
+		extern_ceres
+		extern_glog
 	)
 
 	add_definitions(
@@ -232,4 +241,4 @@ else()
 	)
 endif()
 
-blender_add_lib(bf_intern_libmv "${SRC}" "${INC}" "${INC_SYS}" "")
+blender_add_lib(bf_intern_libmv "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

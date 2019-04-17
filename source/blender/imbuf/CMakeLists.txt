@@ -84,9 +84,18 @@ set(SRC
 )
 
 set(LIB
+	bf_blenkernel
+	bf_blenlib
+	bf_blenloader
+	bf_intern_guardedalloc
+	bf_intern_memutil
+	bf_intern_opencolorio
 )
 
 if(WITH_IMAGE_OPENEXR)
+	list(APPEND LIB
+		bf_imbuf_openexr
+	)
 	add_definitions(-DWITH_OPENEXR)
 else()
 	list(APPEND SRC
@@ -101,12 +110,14 @@ if(WITH_IMAGE_TIFF)
 	list(APPEND SRC
 		intern/tiff.c
 	)
-
 	add_definitions(-DWITH_TIFF)
 endif()
 
 
 if(WITH_OPENIMAGEIO)
+	list(APPEND LIB
+		bf_imbuf_openimageio
+	)
 	add_definitions(-DWITH_OPENIMAGEIO)
 endif()
 
@@ -124,6 +135,9 @@ endif()
 if(WITH_CODEC_AVI)
 	list(APPEND INC
 		../avi
+	)
+	list(APPEND LIB
+		bf_avi
 	)
 	add_definitions(-DWITH_AVI)
 endif()
@@ -145,10 +159,16 @@ if(WITH_CODEC_FFMPEG)
 endif()
 
 if(WITH_IMAGE_DDS)
+	list(APPEND LIB
+		bf_imbuf_dds
+	)
 	add_definitions(-DWITH_DDS)
 endif()
 
 if(WITH_IMAGE_CINEON)
+	list(APPEND LIB
+		bf_imbuf_cineon
+	)
 	add_definitions(-DWITH_CINEON)
 endif()
 

@@ -101,7 +101,7 @@ typedef enum ModifierMode {
 	eModifierMode_Expanded          = (1 << 4),
 	eModifierMode_Virtual           = (1 << 5),
 	eModifierMode_ApplyOnSpline     = (1 << 6),
-	eModifierMode_DisableTemporary  = (1u << 31)
+	eModifierMode_DisableTemporary  = (1u << 31),
 } ModifierMode;
 
 typedef struct ModifierData {

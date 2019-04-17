@@ -3110,9 +3110,53 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 				}
 			}
 		}
+
+		/* init grease pencil brush gradients */
+		if (!DNA_struct_elem_find(fd->filesdna, "BrushGpencilSettings", "float", "gradient_f")) {
+			for (Brush *brush = bmain->brushes.first; brush; brush = brush->id.next) {
+				if (brush->gpencil_settings != NULL) {
+					BrushGpencilSettings *gp = brush->gpencil_settings;
+					gp->gradient_f = 1.0f;
+					gp->gradient_s[0] = 1.0f;
+					gp->gradient_s[1] = 1.0f;
+				}
+			}
+		}
+
+		/* init grease pencil stroke gradients */
+		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "float", "gradient_f")) {
+			for (bGPdata *gpd = bmain->gpencils.first; gpd; gpd = gpd->id.next) {
+				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+					for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+						for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+							gps->gradient_f = 1.0f;
+							gps->gradient_s[0] = 1.0f;
+							gps->gradient_s[1] = 1.0f;
+						}
+					}
+				}
+			}
+		}
 	}
 
 	{
+		if (!DNA_struct_elem_find(fd->filesdna, "bSplineIKConstraint", "short", "yScaleMode")) {
+			for (Object *ob = bmain->objects.first; ob; ob = ob->id.next) {
+				if (ob->pose) {
+					for (bPoseChannel *pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+						for (bConstraint *con = pchan->constraints.first; con; con = con->next) {
+							if (con->type == CONSTRAINT_TYPE_SPLINEIK) {
+								bSplineIKConstraint *data = (bSplineIKConstraint *)con->data;
+								if ((data->flag & CONSTRAINT_SPLINEIK_SCALE_LIMITED) == 0) {
+									data->yScaleMode = CONSTRAINT_SPLINEIK_YS_FIT_CURVE;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
 		/* Versioning code until next subversion bump goes here. */
 	}
 }

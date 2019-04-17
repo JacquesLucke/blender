@@ -164,6 +164,9 @@ set(SRC
 )
 
 set(LIB
+	bf_blenkernel
+	bf_blenlib
+	extern_rangetree
 )
 
 if(MSVC AND NOT MSVC_CLANG)
@@ -171,10 +174,13 @@ if(MSVC AND NOT MSVC_CLANG)
 endif()
 
 if(WITH_BULLET)
-	add_definitions(-DWITH_BULLET)
 	list(APPEND INC_SYS
 		${BULLET_INCLUDE_DIRS}
 	)
+	list(APPEND LIB
+		extern_bullet
+	)
+	add_definitions(-DWITH_BULLET)
 endif()
 
 if(WITH_INTERNATIONAL)

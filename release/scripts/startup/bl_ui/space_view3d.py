@@ -132,17 +132,6 @@ class VIEW3D_HT_header(Header):
         # Mode & Transform Settings
         scene = context.scene
 
-        # Gizmo popover.
-        row = layout.row(align=True)
-        # FIXME: place-holder icon.
-        row.prop(view, "show_gizmo", text="", toggle=True, icon='EMPTY_DATA')
-        sub = row.row(align=True)
-        sub.active = view.show_gizmo
-        sub.popover(
-            panel="VIEW3D_PT_gizmo_display",
-            text="",
-        )
-
         # Orientation
         if object_mode in {'OBJECT', 'EDIT', 'EDIT_GPENCIL'} or has_pose_mode:
             orient_slot = scene.transform_orientation_slots[0]
@@ -268,13 +257,6 @@ class VIEW3D_HT_header(Header):
 
         layout.separator_spacer()
 
-        # Collection Visibility
-        layout.popover(
-            panel="VIEW3D_PT_collections",
-            icon='GROUP',
-            text="",
-        )
-
         # Viewport Settings
         layout.popover(
             panel="VIEW3D_PT_object_type_visibility",
@@ -282,6 +264,18 @@ class VIEW3D_HT_header(Header):
             text="",
         )
 
+        # Gizmo toggle & popover.
+        row = layout.row(align=True)
+        # FIXME: place-holder icon.
+        row.prop(view, "show_gizmo", text="", toggle=True, icon='EMPTY_DATA')
+        sub = row.row(align=True)
+        sub.active = view.show_gizmo
+        sub.popover(
+            panel="VIEW3D_PT_gizmo_display",
+            text="",
+        )
+
+        # Overlay toggle & popover.
         row = layout.row(align=True)
         row.prop(overlay, "show_overlays", icon='OVERLAY', text="")
         sub = row.row(align=True)
@@ -4094,6 +4088,10 @@ class VIEW3D_MT_weight_gpencil(Menu):
     def draw(self, context):
         layout = self.layout
 
+        layout.operator("gpencil.vertex_group_normalize_all", text="Normalize All")
+        layout.operator("gpencil.vertex_group_normalize", text="Normalize")
+
+        layout.separator()
         layout.operator("gpencil.vertex_group_invert", text="Invert")
         layout.operator("gpencil.vertex_group_smooth", text="Smooth")
 
@@ -4385,9 +4383,9 @@ class VIEW3D_PT_view3d_cursor(Panel):
 
 class VIEW3D_PT_collections(Panel):
     bl_space_type = 'VIEW_3D'
-    bl_region_type = 'HEADER'
+    bl_region_type = 'UI'
+    bl_category = "View"
     bl_label = "Collections Visibility"
-    bl_ui_units_x = 10
 
     def _draw_collection(self, layout, view_layer, collection, index):
         need_separator = index

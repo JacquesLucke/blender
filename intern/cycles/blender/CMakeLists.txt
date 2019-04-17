@@ -39,7 +39,20 @@ set(SRC
 )
 
 set(LIB
+	cycles_bvh
+	cycles_device
+	cycles_graph
+	cycles_kernel
+	cycles_render
+	cycles_subd
+	cycles_util
 )
+
+if(WITH_CYCLES_LOGGING)
+	list(APPEND LIB
+		extern_glog
+	)
+endif()
 
 set(ADDON_FILES
 	addon/__init__.py
