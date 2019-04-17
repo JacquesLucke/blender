@@ -17,4 +17,4 @@ void FN_initialize(void);
 }
 #endif
 
-#endif  /* __FUNCTIONS_H__ */
+#endif /* __FUNCTIONS_H__ */

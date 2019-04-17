@@ -4,7 +4,6 @@
 
 namespace FN {
 
-	void derive_TupleCallBody_from_LazyInTupleCallBody(
-		SharedFunction &fn);
+void derive_TupleCallBody_from_LazyInTupleCallBody(SharedFunction &fn);
 
 } /* namespace FN */

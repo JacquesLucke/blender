@@ -2,5 +2,5 @@
 
 void FN_initialize()
 {
-	FN::initialize_llvm();
+  FN::initialize_llvm();
 }

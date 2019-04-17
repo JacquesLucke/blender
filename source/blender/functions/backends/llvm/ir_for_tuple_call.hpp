@@ -3,12 +3,11 @@
 #include "FN_core.hpp"
 
 namespace llvm {
-	class LLVMContext;
+class LLVMContext;
 }
 
 namespace FN {
 
-	void derive_LLVMBuildIRBody_from_TupleCallBody(
-		SharedFunction &fn);
+void derive_LLVMBuildIRBody_from_TupleCallBody(SharedFunction &fn);
 
 } /* namespace FN */

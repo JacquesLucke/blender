@@ -6,52 +6,58 @@
 #include "BLI_lazy_init.hpp"
 #include "DNA_object_types.h"
 
-namespace FN { namespace Functions {
+namespace FN {
+namespace Functions {
 
-	using namespace Types;
+using namespace Types;
 
-	class ObjectTransforms : public TupleCallBody {
-	private:
-		Object *m_object;
+class ObjectTransforms : public TupleCallBody {
+ private:
+  Object *m_object;
 
-	public:
-		ObjectTransforms(Object *object)
-			: m_object(object) {}
+ public:
+  ObjectTransforms(Object *object) : m_object(object)
+  {
+  }
 
-		void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
-		{
-			if (m_object) {
-				Vector position = *(Vector *)m_object->loc;
-				fn_out.set<Vector>(0, position);
-			}
-			else {
-				fn_out.set<Vector>(0, Vector());
-			}
-		}
-	};
+  void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+  {
+    if (m_object) {
+      Vector position = *(Vector *)m_object->loc;
+      fn_out.set<Vector>(0, position);
+    }
+    else {
+      fn_out.set<Vector>(0, Vector());
+    }
+  }
+};
 
-	class ObjectTransformsDependency : public DependenciesBody {
-	private:
-		Object *m_object;
+class ObjectTransformsDependency : public DependenciesBody {
+ private:
+  Object *m_object;
 
-	public:
-		ObjectTransformsDependency(Object *object)
-			: m_object(object) {}
+ public:
+  ObjectTransformsDependency(Object *object) : m_object(object)
+  {
+  }
 
-		void dependencies(Dependencies &deps) const override
-		{
-			deps.add_object_transform_dependency(m_object);
-		}
-	};
+  void dependencies(Dependencies &deps) const override
+  {
+    deps.add_object_transform_dependency(m_object);
+  }
+};
 
-	SharedFunction GET_FN_object_location(Object *object)
-	{
-		auto fn = SharedFunction::New("Object Transforms", Signature({}, {
-			OutputParameter("Location", GET_TYPE_fvec3()),
-		}));
-		fn->add_body(new ObjectTransforms(object));
-		fn->add_body(new ObjectTransformsDependency(object));
-		return fn;
-	}
+SharedFunction GET_FN_object_location(Object *object)
+{
+  auto fn = SharedFunction::New("Object Transforms",
+                                Signature({},
+                                          {
+                                              OutputParameter("Location", GET_TYPE_fvec3()),
+                                          }));
+  fn->add_body(new ObjectTransforms(object));
+  fn->add_body(new ObjectTransformsDependency(object));
+  return fn;
+}
 
-} } /* namespace FN::Functions */
+}  // namespace Functions
+}  // namespace FN

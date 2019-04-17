@@ -4,11 +4,11 @@
 
 namespace FN {
 
-	void initialize_llvm()
-	{
-		llvm::InitializeNativeTarget();
-		llvm::InitializeNativeTargetAsmPrinter();
-		llvm::InitializeNativeTargetAsmParser();
-	}
+void initialize_llvm()
+{
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetAsmParser();
+}
 
 } /* namespace FN */

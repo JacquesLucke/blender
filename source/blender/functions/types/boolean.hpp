@@ -2,8 +2,9 @@
 
 #include "../FN_core.hpp"
 
-namespace FN { namespace Types {
+namespace FN {
+namespace Types {
 
-	SharedType &GET_TYPE_bool();
-
-} } /* namespace FN::Types */
+SharedType &GET_TYPE_bool();
+}
+}  // namespace FN

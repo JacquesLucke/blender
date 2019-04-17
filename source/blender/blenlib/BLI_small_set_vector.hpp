@@ -4,28 +4,30 @@
 
 namespace BLI {
 
-	template<typename T>
-	class SmallSetVector : public SmallSet<T> {
-	public:
-		SmallSetVector()
-			: SmallSet<T>() {}
+template<typename T> class SmallSetVector : public SmallSet<T> {
+ public:
+  SmallSetVector() : SmallSet<T>()
+  {
+  }
 
-		SmallSetVector(const std::initializer_list<T> &values)
-			: SmallSet<T>(values) {}
+  SmallSetVector(const std::initializer_list<T> &values) : SmallSet<T>(values)
+  {
+  }
 
-		SmallSetVector(const SmallVector<T> &values)
-			: SmallSet<T>(values) {}
+  SmallSetVector(const SmallVector<T> &values) : SmallSet<T>(values)
+  {
+  }
 
-		int index(const T &value) const
-		{
-			return this->m_lookup.find(this->m_elements.begin(), value);
-		}
+  int index(const T &value) const
+  {
+    return this->m_lookup.find(this->m_elements.begin(), value);
+  }
 
-		T operator[](const int index) const
-		{
-			BLI_assert(index >= 0 && index < this->size());
-			return this->m_elements[index];
-		}
-	};
-
+  T operator[](const int index) const
+  {
+    BLI_assert(index >= 0 && index < this->size());
+    return this->m_elements[index];
+  }
 };
+
+};  // namespace BLI

@@ -8,9 +8,7 @@ extern "C" {
 #endif
 
 struct DepsNodeHandle;
-void FN_function_update_dependencies(
-	FnFunction fn,
-	struct DepsNodeHandle *deps_node);
+void FN_function_update_dependencies(FnFunction fn, struct DepsNodeHandle *deps_node);
 
 #ifdef __cplusplus
 }

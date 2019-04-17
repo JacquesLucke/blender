@@ -5,8 +5,9 @@
 
 struct bNodeTree;
 
-namespace FN { namespace DataFlowNodes {
+namespace FN {
+namespace DataFlowNodes {
 
-	Optional<FunctionGraph> generate_function_graph(struct bNodeTree *btree);
-
-} } /* namespace FN::DataFlowNodes */
+Optional<FunctionGraph> generate_function_graph(struct bNodeTree *btree);
+}
+}  // namespace FN

@@ -55,129 +55,124 @@
 
 static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
 {
-	bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
+  bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
 
-	FnType float_ty = FN_type_borrow_float();
-	FnType int32_ty = FN_type_borrow_int32();
-	FnType fvec3_ty = FN_type_borrow_fvec3();
+  FnType float_ty = FN_type_borrow_float();
+  FnType int32_ty = FN_type_borrow_int32();
+  FnType fvec3_ty = FN_type_borrow_fvec3();
 
-	FnType inputs[] = { fvec3_ty, int32_ty, float_ty, NULL };
-	FnType outputs[] = { fvec3_ty, NULL };
+  FnType inputs[] = {fvec3_ty, int32_ty, float_ty, NULL};
+  FnType outputs[] = {fvec3_ty, NULL};
 
-	return FN_function_get_with_signature(tree, inputs, outputs);
+  return FN_function_get_with_signature(tree, inputs, outputs);
 }
 
-static void do_deformation(
-        FunctionDeformModifierData *fdmd,
-        float (*vertexCos)[3],
-        int numVerts)
+static void do_deformation(FunctionDeformModifierData *fdmd, float (*vertexCos)[3], int numVerts)
 {
-	FnFunction fn = get_current_function(fdmd);
-	if (fn == NULL) {
-		modifier_setError(&fdmd->modifier, "Invalid function");
-		return;
-	}
+  FnFunction fn = get_current_function(fdmd);
+  if (fn == NULL) {
+    modifier_setError(&fdmd->modifier, "Invalid function");
+    return;
+  }
 
-	FnTupleCallBody body = FN_tuple_call_get(fn);
-	BLI_assert(body);
+  FnTupleCallBody body = FN_tuple_call_get(fn);
+  BLI_assert(body);
 
-	FN_TUPLE_CALL_PREPARE_HEAP(body, fn_in, fn_out);
+  FN_TUPLE_CALL_PREPARE_HEAP(body, fn_in, fn_out);
 
-	clock_t start = clock();
+  clock_t start = clock();
 
-	int seed = fdmd->control2 * 234132;
+  int seed = fdmd->control2 * 234132;
 
-	for (int i = 0; i < numVerts; i++) {
-		FN_tuple_set_fvec3(fn_in, 0, vertexCos[i]);
-		FN_tuple_set_int32(fn_in, 1, seed + i);
-		FN_tuple_set_float(fn_in, 2, fdmd->control1);
+  for (int i = 0; i < numVerts; i++) {
+    FN_tuple_set_fvec3(fn_in, 0, vertexCos[i]);
+    FN_tuple_set_int32(fn_in, 1, seed + i);
+    FN_tuple_set_float(fn_in, 2, fdmd->control1);
 
-		FN_tuple_call_invoke(body, fn_in, fn_out, __func__);
+    FN_tuple_call_invoke(body, fn_in, fn_out, __func__);
 
-		FN_tuple_get_fvec3(fn_out, 0, vertexCos[i]);
-	}
+    FN_tuple_get_fvec3(fn_out, 0, vertexCos[i]);
+  }
 
-	clock_t end = clock();
-	printf("Time taken: %f ms\n", (float)(end - start) / (float)CLOCKS_PER_SEC * 1000.0f);
+  clock_t end = clock();
+  printf("Time taken: %f ms\n", (float)(end - start) / (float)CLOCKS_PER_SEC * 1000.0f);
 
-	FN_TUPLE_CALL_DESTRUCT_HEAP(body, fn_in, fn_out);
-	FN_function_free(fn);
+  FN_TUPLE_CALL_DESTRUCT_HEAP(body, fn_in, fn_out);
+  FN_function_free(fn);
 }
 
-static void deformVerts(
-        ModifierData *md,
-        const ModifierEvalContext *UNUSED(ctx),
-        Mesh *UNUSED(mesh),
-        float (*vertexCos)[3],
-        int numVerts)
+static void deformVerts(ModifierData *md,
+                        const ModifierEvalContext *UNUSED(ctx),
+                        Mesh *UNUSED(mesh),
+                        float (*vertexCos)[3],
+                        int numVerts)
 {
-	do_deformation((FunctionDeformModifierData *)md, vertexCos, numVerts);
+  do_deformation((FunctionDeformModifierData *)md, vertexCos, numVerts);
 }
 
-static void deformVertsEM(
-        ModifierData *md, const ModifierEvalContext *UNUSED(ctx), struct BMEditMesh *UNUSED(em),
-        Mesh *UNUSED(mesh), float (*vertexCos)[3], int numVerts)
+static void deformVertsEM(ModifierData *md,
+                          const ModifierEvalContext *UNUSED(ctx),
+                          struct BMEditMesh *UNUSED(em),
+                          Mesh *UNUSED(mesh),
+                          float (*vertexCos)[3],
+                          int numVerts)
 {
-	do_deformation((FunctionDeformModifierData *)md, vertexCos, numVerts);
+  do_deformation((FunctionDeformModifierData *)md, vertexCos, numVerts);
 }
-
 
 static void initData(ModifierData *md)
 {
-	FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
-	fdmd->control1 = 1.0f;
-	fdmd->control2 = 0;
+  FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
+  fdmd->control1 = 1.0f;
+  fdmd->control2 = 0;
 }
 
 static bool dependsOnTime(ModifierData *UNUSED(md))
 {
-	return true;
+  return true;
 }
 
 static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
 {
-	FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
+  FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
 
-	FnFunction fn = get_current_function(fdmd);
-	if (fn) {
-		FN_function_update_dependencies(fn, ctx->node);
-		FN_function_free(fn);
-	}
+  FnFunction fn = get_current_function(fdmd);
+  if (fn) {
+    FN_function_update_dependencies(fn, ctx->node);
+    FN_function_free(fn);
+  }
 }
 
-static void foreachIDLink(
-        ModifierData *md, Object *ob,
-        IDWalkFunc walk, void *userData)
+static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
-	FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
+  FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
 
-	walk(userData, ob, (ID **)&fdmd->function_tree, IDWALK_CB_USER);
+  walk(userData, ob, (ID **)&fdmd->function_tree, IDWALK_CB_USER);
 }
-
 
 ModifierTypeInfo modifierType_FunctionDeform = {
-	/* name */              "Function Deform",
-	/* structName */        "FunctionDeformModifierData",
-	/* structSize */        sizeof(FunctionDeformModifierData),
-	/* type */              eModifierTypeType_OnlyDeform,
-	/* flags */             eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsEditmode,
-	/* copyData */          modifier_copyData_generic,
+    /* name */ "Function Deform",
+    /* structName */ "FunctionDeformModifierData",
+    /* structSize */ sizeof(FunctionDeformModifierData),
+    /* type */ eModifierTypeType_OnlyDeform,
+    /* flags */ eModifierTypeFlag_AcceptsMesh | eModifierTypeFlag_SupportsEditmode,
+    /* copyData */ modifier_copyData_generic,
 
-	/* deformVerts */       deformVerts,
-	/* deformMatrices */    NULL,
-	/* deformVertsEM */     deformVertsEM,
-	/* deformMatricesEM */  NULL,
-	/* applyModifier */     NULL,
+    /* deformVerts */ deformVerts,
+    /* deformMatrices */ NULL,
+    /* deformVertsEM */ deformVertsEM,
+    /* deformMatricesEM */ NULL,
+    /* applyModifier */ NULL,
 
-	/* initData */          initData,
-	/* requiredDataMask */  NULL,
-	/* freeData */          NULL,
-	/* isDisabled */        NULL,
-	/* updateDepsgraph */   updateDepsgraph,
-	/* dependsOnTime */     dependsOnTime,
-	/* dependsOnNormals */	NULL,
-	/* foreachObjectLink */ NULL,
-	/* foreachIDLink */     foreachIDLink,
-	/* foreachTexLink */    NULL,
-	/* freeRuntimeData */   NULL,
+    /* initData */ initData,
+    /* requiredDataMask */ NULL,
+    /* freeData */ NULL,
+    /* isDisabled */ NULL,
+    /* updateDepsgraph */ updateDepsgraph,
+    /* dependsOnTime */ dependsOnTime,
+    /* dependsOnNormals */ NULL,
+    /* foreachObjectLink */ NULL,
+    /* foreachIDLink */ foreachIDLink,
+    /* foreachTexLink */ NULL,
+    /* freeRuntimeData */ NULL,
 };

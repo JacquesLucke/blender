@@ -2,6 +2,6 @@
 
 namespace FN {
 
-	BLI_COMPOSITION_IMPLEMENTATION(CPPTypeInfo);
+BLI_COMPOSITION_IMPLEMENTATION(CPPTypeInfo);
 
 } /* namespace FN */

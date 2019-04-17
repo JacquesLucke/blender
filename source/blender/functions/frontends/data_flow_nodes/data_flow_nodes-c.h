@@ -9,11 +9,11 @@ struct bNodeTree;
 extern "C" {
 #endif
 
-FnFunction FN_tree_to_function(
-	struct bNodeTree *bnodetree);
+FnFunction FN_tree_to_function(struct bNodeTree *bnodetree);
 
-FnFunction FN_function_get_with_signature(
-	struct bNodeTree *btree, FnType *inputs, FnType *outputs);
+FnFunction FN_function_get_with_signature(struct bNodeTree *btree,
+                                          FnType *inputs,
+                                          FnType *outputs);
 
 #ifdef __cplusplus
 }

@@ -2,6 +2,6 @@
 
 namespace FN {
 
-	BLI_COMPOSITION_IMPLEMENTATION(LLVMBuildIRBody);
+BLI_COMPOSITION_IMPLEMENTATION(LLVMBuildIRBody);
 
 } /* namespace FN */

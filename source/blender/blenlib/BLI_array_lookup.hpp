@@ -10,218 +10,219 @@
 #define PERTURB_SHIFT 5
 
 #define ITER_SLOTS(KEY, SLOT, STATE) \
-	uint32_t SLOT, SLOT##_perturb; \
-	Index STATE; \
-	for (this->first_slot(KEY, &SLOT, &SLOT##_perturb), STATE = m_map[SLOT];; \
-		 this->next_slot(&SLOT, &SLOT##_perturb), STATE = m_map[SLOT])
+  uint32_t SLOT, SLOT##_perturb; \
+  Index STATE; \
+  for (this->first_slot(KEY, &SLOT, &SLOT##_perturb), STATE = m_map[SLOT];; \
+       this->next_slot(&SLOT, &SLOT##_perturb), STATE = m_map[SLOT])
 
 namespace BLI {
 
-	template<typename T>
-	inline const T &get_key_from_item(const T &item)
-	{
-		return item;
-	}
+template<typename T> inline const T &get_key_from_item(const T &item)
+{
+  return item;
+}
 
-	template<
-		typename Key,
-		typename Item = Key,
-		const Key &GetKey(const Item &entry) = get_key_from_item,
-		uint N_EXP = 3,
-		typename Hash = std::hash<Key>,
-		typename Index = int>
-	class ArrayLookup {
-	private:
-		using Mapping = SmallVector<Index, (1 << N_EXP)>;
-		Mapping m_map;
-		uint m_length;
-		uint m_dummy_amount;
-		uint m_max_length;
-		uint32_t m_slot_mask;
+template<typename Key,
+         typename Item = Key,
+         const Key &GetKey(const Item &entry) = get_key_from_item,
+         uint N_EXP = 3,
+         typename Hash = std::hash<Key>,
+         typename Index = int>
+class ArrayLookup {
+ private:
+  using Mapping = SmallVector<Index, (1 << N_EXP)>;
+  Mapping m_map;
+  uint m_length;
+  uint m_dummy_amount;
+  uint m_max_length;
+  uint32_t m_slot_mask;
 
-	public:
-		ArrayLookup()
-		{
-			this->reset_map(1 << N_EXP);
-			m_length = 0;
-		}
+ public:
+  ArrayLookup()
+  {
+    this->reset_map(1 << N_EXP);
+    m_length = 0;
+  }
 
-		bool contains(Item *array, const Key &key) const
-		{
-			ITER_SLOTS(key, slot, state) {
-				if (state == SLOT_EMPTY) {
-					return false;
-				}
-				else if (state == SLOT_DUMMY) {
-					continue;
-				}
-				else if (GetKey(array[state]) == key) {
-					return true;
-				}
-			}
-		}
+  bool contains(Item *array, const Key &key) const
+  {
+    ITER_SLOTS(key, slot, state)
+    {
+      if (state == SLOT_EMPTY) {
+        return false;
+      }
+      else if (state == SLOT_DUMMY) {
+        continue;
+      }
+      else if (GetKey(array[state]) == key) {
+        return true;
+      }
+    }
+  }
 
-		bool add(Item *array, const Key &key, Index potential_index)
-		{
-			int dummy_slot = -1;
-			ITER_SLOTS(key, slot, state) {
-				if (state == SLOT_EMPTY) {
-					if (dummy_slot == -1) {
-						bool map_changed = this->ensure_can_add(array);
-						if (map_changed) {
-							this->insert_index_for_key(key, potential_index);
-						}
-						else {
-							m_map[slot] = potential_index;
-						}
-					}
-					else {
-						m_map[slot] = potential_index;
-						m_dummy_amount--;
-					}
-					m_length++;
-					return true;
-				}
-				else if (state == SLOT_DUMMY) {
-					if (dummy_slot == -1) {
-						dummy_slot = slot;
-					}
-				}
-				else if (GetKey(array[state]) == key) {
-					return false;
-				}
-			}
-		}
+  bool add(Item *array, const Key &key, Index potential_index)
+  {
+    int dummy_slot = -1;
+    ITER_SLOTS(key, slot, state)
+    {
+      if (state == SLOT_EMPTY) {
+        if (dummy_slot == -1) {
+          bool map_changed = this->ensure_can_add(array);
+          if (map_changed) {
+            this->insert_index_for_key(key, potential_index);
+          }
+          else {
+            m_map[slot] = potential_index;
+          }
+        }
+        else {
+          m_map[slot] = potential_index;
+          m_dummy_amount--;
+        }
+        m_length++;
+        return true;
+      }
+      else if (state == SLOT_DUMMY) {
+        if (dummy_slot == -1) {
+          dummy_slot = slot;
+        }
+      }
+      else if (GetKey(array[state]) == key) {
+        return false;
+      }
+    }
+  }
 
-		void add_new(Item *array, Index index)
-		{
-			this->ensure_can_add(array);
-			const Key &key = GetKey(array[index]);
-			this->insert_index_for_key(key, index);
-			m_length++;
-		}
+  void add_new(Item *array, Index index)
+  {
+    this->ensure_can_add(array);
+    const Key &key = GetKey(array[index]);
+    this->insert_index_for_key(key, index);
+    m_length++;
+  }
 
-		void update_index(const Key &key, Index old_index, Index new_index)
-		{
-			ITER_SLOTS(key, slot, state) {
-				if (state == old_index) {
-					m_map[slot] = new_index;
-					break;
-				}
-			}
-		}
+  void update_index(const Key &key, Index old_index, Index new_index)
+  {
+    ITER_SLOTS(key, slot, state)
+    {
+      if (state == old_index) {
+        m_map[slot] = new_index;
+        break;
+      }
+    }
+  }
 
-		Index find(Item *array, const Key &key) const
-		{
-			ITER_SLOTS(key, slot, state) {
-				if (state == SLOT_EMPTY) {
-					return -1;
-				}
-				else if (state == SLOT_DUMMY) {
-					continue;
-				}
-				else if (GetKey(array[state]) == key) {
-					return state;
-				}
-			}
-		}
+  Index find(Item *array, const Key &key) const
+  {
+    ITER_SLOTS(key, slot, state)
+    {
+      if (state == SLOT_EMPTY) {
+        return -1;
+      }
+      else if (state == SLOT_DUMMY) {
+        continue;
+      }
+      else if (GetKey(array[state]) == key) {
+        return state;
+      }
+    }
+  }
 
-		void remove(const Key &key, Index index)
-		{
-			ITER_SLOTS(key, slot, state) {
-				if (state == index) {
-					m_map[slot] = SLOT_DUMMY;
-					m_length--;
-					m_dummy_amount++;
-					break;
-				}
-			}
-		}
+  void remove(const Key &key, Index index)
+  {
+    ITER_SLOTS(key, slot, state)
+    {
+      if (state == index) {
+        m_map[slot] = SLOT_DUMMY;
+        m_length--;
+        m_dummy_amount++;
+        break;
+      }
+    }
+  }
 
-		Index remove(Item *array, const Key &key)
-		{
-			BLI_assert(this->contains(array, key));
-			ITER_SLOTS(key, slot, state) {
-				if (state == SLOT_DUMMY) {
-					continue;
-				}
-				else if (GetKey(array[state]) == key) {
-					m_map[slot] = SLOT_DUMMY;
-					m_length--;
-					m_dummy_amount++;
-					return state;
-				}
-			}
-		}
+  Index remove(Item *array, const Key &key)
+  {
+    BLI_assert(this->contains(array, key));
+    ITER_SLOTS(key, slot, state)
+    {
+      if (state == SLOT_DUMMY) {
+        continue;
+      }
+      else if (GetKey(array[state]) == key) {
+        m_map[slot] = SLOT_DUMMY;
+        m_length--;
+        m_dummy_amount++;
+        return state;
+      }
+    }
+  }
 
-	private:
-		inline bool ensure_can_add(Item *array)
-		{
-			if (LIKELY(m_length + m_dummy_amount < m_max_length)) {
-				return false;
-			}
+ private:
+  inline bool ensure_can_add(Item *array)
+  {
+    if (LIKELY(m_length + m_dummy_amount < m_max_length)) {
+      return false;
+    }
 
-			this->reset_map(m_map.size() * 2);
-			for (uint i = 0; i < m_length; i++) {
-				const Key &key = GetKey(array[i]);
-				this->insert_index_for_key__no_dummy(key, i);
-			}
-			return true;
-		}
+    this->reset_map(m_map.size() * 2);
+    for (uint i = 0; i < m_length; i++) {
+      const Key &key = GetKey(array[i]);
+      this->insert_index_for_key__no_dummy(key, i);
+    }
+    return true;
+  }
 
-		void reset_map(uint size)
-		{
-			BLI_assert(count_bits_i(size) == 1);
-			m_map = Mapping(size);
-			m_map.fill(SLOT_EMPTY);
-			m_max_length = m_map.size() * LOAD_FACTOR;
-			m_dummy_amount = 0;
-			m_slot_mask = size - 1;
-		}
+  void reset_map(uint size)
+  {
+    BLI_assert(count_bits_i(size) == 1);
+    m_map = Mapping(size);
+    m_map.fill(SLOT_EMPTY);
+    m_max_length = m_map.size() * LOAD_FACTOR;
+    m_dummy_amount = 0;
+    m_slot_mask = size - 1;
+  }
 
-		inline void insert_index_for_key(const Key &key, Index index)
-		{
-			ITER_SLOTS(key, slot, state) {
-				if (state == SLOT_EMPTY) {
-					m_map[slot] = index;
-					break;
-				}
-				else if (state == SLOT_DUMMY) {
-					m_map[slot] = index;
-					m_dummy_amount--;
-					break;
-				}
-			}
-		}
+  inline void insert_index_for_key(const Key &key, Index index)
+  {
+    ITER_SLOTS(key, slot, state)
+    {
+      if (state == SLOT_EMPTY) {
+        m_map[slot] = index;
+        break;
+      }
+      else if (state == SLOT_DUMMY) {
+        m_map[slot] = index;
+        m_dummy_amount--;
+        break;
+      }
+    }
+  }
 
-		inline void insert_index_for_key__no_dummy(const Key &key, Index index)
-		{
-			ITER_SLOTS(key, slot, state) {
-				if (state == SLOT_EMPTY) {
-					m_map[slot] = index;
-					break;
-				}
-			}
-		}
+  inline void insert_index_for_key__no_dummy(const Key &key, Index index)
+  {
+    ITER_SLOTS(key, slot, state)
+    {
+      if (state == SLOT_EMPTY) {
+        m_map[slot] = index;
+        break;
+      }
+    }
+  }
 
-		inline void first_slot(
-			const Key &key,
-			uint32_t *slot,
-			uint32_t *perturb) const
-		{
-			uint32_t hash_value = Hash{}(key);
-			*slot = hash_value & m_slot_mask;
-			*perturb = hash_value;
-		}
+  inline void first_slot(const Key &key, uint32_t *slot, uint32_t *perturb) const
+  {
+    uint32_t hash_value = Hash{}(key);
+    *slot = hash_value & m_slot_mask;
+    *perturb = hash_value;
+  }
 
-		inline void next_slot(
-			uint32_t *slot,
-			uint32_t *perturb) const
-		{
-			*slot = m_slot_mask & ((5 * *slot) + 1 + *perturb);
-			*perturb >>= PERTURB_SHIFT;
-		}
-	};
+  inline void next_slot(uint32_t *slot, uint32_t *perturb) const
+  {
+    *slot = m_slot_mask & ((5 * *slot) + 1 + *perturb);
+    *perturb >>= PERTURB_SHIFT;
+  }
+};
 
 } /* namespace BLI */
 

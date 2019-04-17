@@ -4,92 +4,96 @@
 
 namespace FN {
 
-	class StackFrame {
-	public:
-		virtual std::string to_string() const = 0;
+class StackFrame {
+ public:
+  virtual std::string to_string() const = 0;
 
-		virtual void handle_warning(std::string UNUSED(msg)) const {}
-	};
+  virtual void handle_warning(std::string UNUSED(msg)) const
+  {
+  }
+};
 
-	class SourceInfoStackFrame : public StackFrame {
-	private:
-		SourceInfo *m_source;
+class SourceInfoStackFrame : public StackFrame {
+ private:
+  SourceInfo *m_source;
 
-	public:
-		SourceInfoStackFrame(SourceInfo *source)
-			: m_source(source) {}
+ public:
+  SourceInfoStackFrame(SourceInfo *source) : m_source(source)
+  {
+  }
 
-		SourceInfo *source() const
-		{
-			return m_source;
-		}
+  SourceInfo *source() const
+  {
+    return m_source;
+  }
 
-		std::string to_string() const override;
-		void handle_warning(std::string msg) const override;
-	};
+  std::string to_string() const override;
+  void handle_warning(std::string msg) const override;
+};
 
-	class TextStackFrame : public StackFrame {
-	private:
-		const char *m_text;
+class TextStackFrame : public StackFrame {
+ private:
+  const char *m_text;
 
-	public:
-		TextStackFrame(const char *text)
-			: m_text(text) {}
+ public:
+  TextStackFrame(const char *text) : m_text(text)
+  {
+  }
 
-		const char *text() const
-		{
-			return m_text;
-		}
+  const char *text() const
+  {
+    return m_text;
+  }
 
-		std::string to_string() const override;
-	};
+  std::string to_string() const override;
+};
 
+class ExecutionStack {
+ private:
+  SmallStack<StackFrame *, 10> m_stack;
 
-	class ExecutionStack {
-	private:
-		SmallStack<StackFrame *, 10> m_stack;
+ public:
+  ExecutionStack() = default;
 
-	public:
-		ExecutionStack() = default;
+  void push(StackFrame *frame)
+  {
+    m_stack.push(frame);
+  }
 
-		void push(StackFrame *frame)
-		{
-			m_stack.push(frame);
-		}
+  void pop()
+  {
+    m_stack.pop();
+  }
 
-		void pop()
-		{
-			m_stack.pop();
-		}
+  void print_traceback() const;
 
-		void print_traceback() const;
+  StackFrame **begin()
+  {
+    return m_stack.begin();
+  }
 
-		StackFrame **begin()
-		{
-			return m_stack.begin();
-		}
+  StackFrame **end()
+  {
+    return m_stack.end();
+  }
+};
 
-		StackFrame **end()
-		{
-			return m_stack.end();
-		}
-	};
+class ExecutionContext {
+ private:
+  ExecutionStack &m_stack;
 
-	class ExecutionContext {
-	private:
-		ExecutionStack &m_stack;
+ public:
+  ExecutionContext(ExecutionStack &stack) : m_stack(stack)
+  {
+  }
 
-	public:
-		ExecutionContext(ExecutionStack &stack)
-			: m_stack(stack) {}
+  ExecutionStack &stack() const
+  {
+    return m_stack;
+  }
 
-		ExecutionStack &stack() const
-		{
-			return m_stack;
-		}
-
-		void print_with_traceback(std::string msg);
-		void log_warning(std::string msg);
-	};
+  void print_with_traceback(std::string msg);
+  void log_warning(std::string msg);
+};
 
 } /* namespace FN */

@@ -23,16 +23,22 @@ void FN_function_print(FnFunction fn);
 #ifdef __cplusplus
 }
 
-#include "type.hpp"
-#include "function.hpp"
+#  include "type.hpp"
+#  include "function.hpp"
 
-#define WRAPPERS(T1, T2) \
-	inline T1 unwrap(T2 value) { return (T1)value; } \
-	inline T2 wrap(T1 value) { return (T2)value; }
+#  define WRAPPERS(T1, T2) \
+    inline T1 unwrap(T2 value) \
+    { \
+      return (T1)value; \
+    } \
+    inline T2 wrap(T1 value) \
+    { \
+      return (T2)value; \
+    }
 
 WRAPPERS(FN::Function *, FnFunction);
 WRAPPERS(FN::Type *, FnType);
 
 #endif /* __cplusplus */
 
-#endif  /* __FUNCTIONS_CORE_WRAPPER_C_H__ */
+#endif /* __FUNCTIONS_CORE_WRAPPER_C_H__ */

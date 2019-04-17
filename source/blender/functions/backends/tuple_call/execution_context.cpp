@@ -2,46 +2,47 @@
 
 namespace FN {
 
-	void ExecutionStack::print_traceback() const
-	{
-		std::cout << "Traceback:" << std::endl;
-		for (StackFrame *frame : m_stack) {
-			std::cout << " > " << frame->to_string() << std::endl;
-		}
-	}
+void ExecutionStack::print_traceback() const
+{
+  std::cout << "Traceback:" << std::endl;
+  for (StackFrame *frame : m_stack) {
+    std::cout << " > " << frame->to_string() << std::endl;
+  }
+}
 
-	std::string SourceInfoStackFrame::to_string() const
-	{
-		if (m_source == nullptr) {
-			return "<unknown source>";
-		} else {
-			return m_source->to_string();
-		}
-	}
+std::string SourceInfoStackFrame::to_string() const
+{
+  if (m_source == nullptr) {
+    return "<unknown source>";
+  }
+  else {
+    return m_source->to_string();
+  }
+}
 
-	void SourceInfoStackFrame::handle_warning(std::string msg) const
-	{
-		if (m_source != nullptr) {
-			m_source->handle_warning(msg);
-		}
-	}
+void SourceInfoStackFrame::handle_warning(std::string msg) const
+{
+  if (m_source != nullptr) {
+    m_source->handle_warning(msg);
+  }
+}
 
-	std::string TextStackFrame::to_string() const
-	{
-		return std::string(m_text);
-	}
+std::string TextStackFrame::to_string() const
+{
+  return std::string(m_text);
+}
 
-	void ExecutionContext::print_with_traceback(std::string msg)
-	{
-		m_stack.print_traceback();
-		std::cout << "-> " << msg << std::endl;
-	}
+void ExecutionContext::print_with_traceback(std::string msg)
+{
+  m_stack.print_traceback();
+  std::cout << "-> " << msg << std::endl;
+}
 
-	void ExecutionContext::log_warning(std::string msg)
-	{
-		for (StackFrame *frame : m_stack) {
-			frame->handle_warning(msg);
-		}
-	}
+void ExecutionContext::log_warning(std::string msg)
+{
+  for (StackFrame *frame : m_stack) {
+    frame->handle_warning(msg);
+  }
+}
 
 } /* namespace FN */

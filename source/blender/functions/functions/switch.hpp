@@ -2,8 +2,9 @@
 
 #include "FN_core.hpp"
 
-namespace FN { namespace Functions {
+namespace FN {
+namespace Functions {
 
-	SharedFunction &GET_FN_bool_switch(SharedType &data_type);
-
-} } /* namespace FN::Functions */
+SharedFunction &GET_FN_bool_switch(SharedType &data_type);
+}
+}  // namespace FN

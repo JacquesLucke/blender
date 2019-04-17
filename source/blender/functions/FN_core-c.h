@@ -3,4 +3,4 @@
 
 #include "core/core-c.h"
 
-#endif  /* __FUNCTIONS_CORE_C_H__ */
+#endif /* __FUNCTIONS_CORE_C_H__ */

@@ -8,28 +8,29 @@ struct DepsgraphRelationBuilderRef;
 struct OperationKeyRef;
 
 namespace FN {
-	using namespace BLI;
+using namespace BLI;
 
-	class Dependencies {
-	private:
-		SmallSet<struct Object *> m_transform_dependencies;
+class Dependencies {
+ private:
+  SmallSet<struct Object *> m_transform_dependencies;
 
-	public:
-		void add_object_transform_dependency(struct Object *object);
+ public:
+  void add_object_transform_dependency(struct Object *object);
 
-		void update_depsgraph(DepsNodeHandle *deps_node);
+  void update_depsgraph(DepsNodeHandle *deps_node);
 
-		void add_relations(
-			struct DepsgraphRelationBuilderRef *builder,
-			const struct OperationKeyRef *target);
-	};
+  void add_relations(struct DepsgraphRelationBuilderRef *builder,
+                     const struct OperationKeyRef *target);
+};
 
-	class DependenciesBody : public FunctionBody {
-	public:
-		BLI_COMPOSITION_DECLARATION(DependenciesBody);
+class DependenciesBody : public FunctionBody {
+ public:
+  BLI_COMPOSITION_DECLARATION(DependenciesBody);
 
-		virtual ~DependenciesBody() {}
-		virtual void dependencies(Dependencies &deps) const = 0;
-	};
+  virtual ~DependenciesBody()
+  {
+  }
+  virtual void dependencies(Dependencies &deps) const = 0;
+};
 
 } /* namespace FN */

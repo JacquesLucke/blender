@@ -4,8 +4,9 @@
 
 struct Object;
 
-namespace FN { namespace Functions {
+namespace FN {
+namespace Functions {
 
-	SharedFunction GET_FN_object_location(struct Object *object);
-
-} } /* namespace FN::Functions */
+SharedFunction GET_FN_object_location(struct Object *object);
+}
+}  // namespace FN

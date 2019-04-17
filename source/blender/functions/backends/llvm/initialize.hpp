@@ -2,6 +2,6 @@
 
 namespace FN {
 
-	void initialize_llvm();
+void initialize_llvm();
 
 } /* namespace FN */

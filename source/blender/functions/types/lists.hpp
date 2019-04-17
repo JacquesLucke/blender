@@ -2,101 +2,99 @@
 
 #include "BLI_shared_immutable.hpp"
 
-namespace FN { namespace Types {
+namespace FN {
+namespace Types {
 
-	template<typename T>
-	class List;
+template<typename T> class List;
 
-	template<typename T>
-	using SharedList = AutoRefCount<List<T>>;
+template<typename T> using SharedList = AutoRefCount<List<T>>;
 
-	template<typename T>
-	class List : public BLI::SharedImmutable {
-	private:
-		SmallVector<T> m_data;
+template<typename T> class List : public BLI::SharedImmutable {
+ private:
+  SmallVector<T> m_data;
 
-		static constexpr bool DEBUG_ALLOCATIONS = false;
+  static constexpr bool DEBUG_ALLOCATIONS = false;
 
-		~List()
-		{
-			if (DEBUG_ALLOCATIONS) {
-				std::cout << "List Freed" << std::endl;
-			}
-		}
+  ~List()
+  {
+    if (DEBUG_ALLOCATIONS) {
+      std::cout << "List Freed" << std::endl;
+    }
+  }
 
-	public:
-		List()
-			: BLI::SharedImmutable()
-		{
-			if (DEBUG_ALLOCATIONS) {
-				std::cout << "List Allocated" << std::endl;
-			}
-		}
+ public:
+  List() : BLI::SharedImmutable()
+  {
+    if (DEBUG_ALLOCATIONS) {
+      std::cout << "List Allocated" << std::endl;
+    }
+  }
 
-		void append(T value)
-		{
-			this->assert_mutable();
-			m_data.append(std::move(value));
-		}
+  void append(T value)
+  {
+    this->assert_mutable();
+    m_data.append(std::move(value));
+  }
 
-		void extend(List *other)
-		{
-			this->assert_mutable();
-			m_data.extend(other->m_data);
-		}
+  void extend(List *other)
+  {
+    this->assert_mutable();
+    m_data.extend(other->m_data);
+  }
 
-		List *copy() const
-		{
-			List *new_list = new List();
-			for (T &value : m_data) {
-				new_list->append(value);
-			}
-			BLI_assert(new_list->users() == 1);
-			return new_list;
-		}
+  List *copy() const
+  {
+    List *new_list = new List();
+    for (T &value : m_data) {
+      new_list->append(value);
+    }
+    BLI_assert(new_list->users() == 1);
+    return new_list;
+  }
 
-		T *data_ptr() const
-		{
-			return m_data.begin();
-		}
+  T *data_ptr() const
+  {
+    return m_data.begin();
+  }
 
-		uint size() const
-		{
-			return m_data.size();
-		}
+  uint size() const
+  {
+    return m_data.size();
+  }
 
-		T operator[](int index) const
-		{
-			return m_data[index];
-		}
+  T operator[](int index) const
+  {
+    return m_data[index];
+  }
 
-		T &operator[](int index)
-		{
-			this->assert_mutable();
-			return m_data[index];
-		}
+  T &operator[](int index)
+  {
+    this->assert_mutable();
+    return m_data[index];
+  }
 
-		SharedList<T> get_mutable()
-		{
-			if (this->is_mutable()) {
-				return SharedList<T>::FromPointer(this);
-			}
-			else {
-				List *new_list = this->copy();
-				BLI_assert(new_list->is_mutable());
-				return SharedList<T>::FromPointer(new_list);
-			}
-		}
+  SharedList<T> get_mutable()
+  {
+    if (this->is_mutable()) {
+      return SharedList<T>::FromPointer(this);
+    }
+    else {
+      List *new_list = this->copy();
+      BLI_assert(new_list->is_mutable());
+      return SharedList<T>::FromPointer(new_list);
+    }
+  }
 
-		T *begin() const
-		{
-			return m_data.begin();
-		}
+  T *begin() const
+  {
+    return m_data.begin();
+  }
 
-		T *end() const
-		{
-			return m_data.end();
-		}
-	};
+  T *end() const
+  {
+    return m_data.end();
+  }
+};
 
-} } /* namespace FN::Types */
+}  // namespace Types
+}  // namespace FN
