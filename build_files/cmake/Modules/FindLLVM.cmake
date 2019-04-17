@@ -45,10 +45,11 @@ if(NOT DEFINED LLVM_VERSION)
   set(LLVM_VERSION ${LLVM_VERSION} CACHE STRING "Version of LLVM to use")
 endif()
 if(NOT LLVM_ROOT_DIR)
-execute_process(COMMAND ${LLVM_CONFIG} --prefix
-        OUTPUT_VARIABLE LLVM_ROOT_DIR
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-set(LLVM_ROOT_DIR ${LLVM_ROOT_DIR} CACHE PATH "Path to the LLVM installation")
+  execute_process(COMMAND ${LLVM_CONFIG} --prefix
+          OUTPUT_VARIABLE LLVM_ROOT_DIR
+          OUTPUT_STRIP_TRAILING_WHITESPACE)
+  set(LLVM_ROOT_DIR ${LLVM_ROOT_DIR} CACHE PATH "Path to the LLVM installation")
+  set(LLVM_INCLUDE_DIRS ${LLVM_ROOT_DIR}/include CACHE PATH "Path to the LLVM include directory")
 endif()
 if(NOT LLVM_LIBPATH)
   execute_process(COMMAND ${LLVM_CONFIG} --libdir
