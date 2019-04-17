@@ -1311,7 +1311,8 @@ static void rna_def_charinfo(BlenderRNA *brna)
   prop = RNA_def_property(srna, "use_wrap", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", CU_CHINFO_WRAP);
   RNA_def_property_ui_text(prop, "Wrap", "");
-  RNA_def_property_update(prop, 0, "rna_Curve_update_data"); */
+  RNA_def_property_update(prop, 0, "rna_Curve_update_data");
+  * /
 #  endif
 
   prop = RNA_def_property(srna, "use_small_caps", PROP_BOOLEAN, PROP_NONE);
