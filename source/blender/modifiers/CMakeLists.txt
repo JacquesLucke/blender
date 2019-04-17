@@ -114,6 +114,7 @@ set(SRC
 set(LIB
   bf_blenkernel
   bf_blenlib
+  bf_functions
 )
 
 if(WITH_ALEMBIC)

@@ -46,6 +46,7 @@ set(LIB
   bf_depsgraph
   bf_dna
   bf_editor_datafiles
+  bf_functions
   bf_imbuf
   bf_intern_clog
   bf_intern_guardedalloc
