@@ -31,4 +31,4 @@ type_infos.insert_data_type(
     UniqueSocketBuilder(BooleanSocket),
     ColoredSocketBuilder((0.3, 0.3, 0.3, 0.5)))
 
-type_infos.insert_conversion_group(["Integer", "Float"])
+type_infos.insert_conversion_group(["Boolean", "Integer", "Float"])

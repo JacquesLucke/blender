@@ -10,6 +10,14 @@ namespace Functions {
 
 using namespace Types;
 
+template<typename From, typename To> class ImplicitConversion : public TupleCallBody {
+  void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+  {
+    To value = (To)fn_in.relocate_out<From>(0);
+    fn_out.move_in<To>(0, value);
+  }
+};
+
 static SharedFunction get_simple_conversion_function(SharedType &from_type, SharedType &to_type)
 {
   auto name = from_type->name() + " to " + to_type->name();
@@ -24,34 +32,56 @@ static SharedFunction get_simple_conversion_function(SharedType &from_type, Shar
   return fn;
 }
 
-class Int32ToFloat : public TupleCallBody {
-  void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
-  {
-    int32_t value = fn_in.get<int32_t>(0);
-    fn_out.set<float>(0, (float)value);
-  }
-};
-
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_int32_to_float)
+template<typename From, typename To>
+static SharedFunction get_implicit_conversion_function(SharedType &from_type, SharedType &to_type)
 {
-  auto fn = get_simple_conversion_function(GET_TYPE_int32(), GET_TYPE_float());
-  fn->add_body(new Int32ToFloat());
+  auto fn = get_simple_conversion_function(from_type, to_type);
+  fn->add_body(new ImplicitConversion<From, To>());
   return fn;
 }
 
-class FloatToInt32 : public TupleCallBody {
-  void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
-  {
-    float value = fn_in.get<float>(0);
-    fn_out.set<int32_t>(0, (int32_t)value);
-  }
-};
+/* Individual Element Conversion */
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_bool_to_int32)
+{
+  return get_implicit_conversion_function<bool, int32_t>(GET_TYPE_bool(), GET_TYPE_int32());
+}
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_bool_to_float)
+{
+  return get_implicit_conversion_function<bool, float>(GET_TYPE_bool(), GET_TYPE_float());
+}
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_int32_to_float)
+{
+  return get_implicit_conversion_function<int32_t, float>(GET_TYPE_int32(), GET_TYPE_float());
+}
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_int32_to_bool)
+{
+  return get_implicit_conversion_function<int32_t, bool>(GET_TYPE_int32(), GET_TYPE_bool());
+}
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_to_int32)
 {
-  auto fn = get_simple_conversion_function(GET_TYPE_float(), GET_TYPE_int32());
-  fn->add_body(new FloatToInt32());
-  return fn;
+  return get_implicit_conversion_function<float, int32_t>(GET_TYPE_float(), GET_TYPE_int32());
+}
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_to_bool)
+{
+  return get_implicit_conversion_function<float, bool>(GET_TYPE_float(), GET_TYPE_bool());
+}
+
+/* List Conversions */
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_bool_list_to_int32_list)
+{
+  return to_vectorized_function(GET_FN_bool_to_int32(), {true});
+}
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_bool_list_to_float_list)
+{
+  return to_vectorized_function(GET_FN_bool_to_float(), {true});
 }
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_int32_list_to_float_list)
@@ -59,9 +89,19 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_int32_list_to_float_list)
   return to_vectorized_function(GET_FN_int32_to_float(), {true});
 }
 
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_int32_list_to_bool_list)
+{
+  return to_vectorized_function(GET_FN_int32_to_bool(), {true});
+}
+
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_list_to_int32_list)
 {
   return to_vectorized_function(GET_FN_float_to_int32(), {true});
+}
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_list_to_bool_list)
+{
+  return to_vectorized_function(GET_FN_float_to_bool(), {true});
 }
 
 }  // namespace Functions
