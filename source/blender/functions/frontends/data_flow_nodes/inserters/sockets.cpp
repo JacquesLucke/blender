@@ -48,6 +48,7 @@ void initialize_socket_inserters(GraphInserters &inserters)
   inserters.reg_socket_loader("Float List", LOAD_empty_list<float>);
   inserters.reg_socket_loader("Vector List", LOAD_empty_list<Types::Vector>);
   inserters.reg_socket_loader("Integer List", LOAD_empty_list<int32_t>);
+  inserters.reg_socket_loader("Boolean List", LOAD_empty_list<bool>);
 }
 
 }  // namespace DataFlowNodes

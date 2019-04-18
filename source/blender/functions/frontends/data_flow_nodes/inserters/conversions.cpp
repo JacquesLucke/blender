@@ -25,6 +25,7 @@ void register_conversion_inserters(GraphInserters &inserters)
   inserters.reg_conversion_inserter("Float", "Float List", INSERT_base_to_list);
   inserters.reg_conversion_inserter("Vector", "Vector List", INSERT_base_to_list);
   inserters.reg_conversion_inserter("Integer", "Integer List", INSERT_base_to_list);
+  inserters.reg_conversion_inserter("Boolean", "Boolean List", INSERT_base_to_list);
 
   inserters.reg_conversion_function(
       "Float List", "Integer List", Functions::GET_FN_float_list_to_int32_list);

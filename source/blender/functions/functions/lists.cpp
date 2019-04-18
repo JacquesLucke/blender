@@ -211,6 +211,7 @@ LAZY_INIT_REF_STATIC__NO_ARG(ListFunctions, get_list_functions)
   insert_list_functions_for_type<float>(functions, GET_TYPE_float(), GET_TYPE_float_list());
   insert_list_functions_for_type<Vector>(functions, GET_TYPE_fvec3(), GET_TYPE_fvec3_list());
   insert_list_functions_for_type<int32_t>(functions, GET_TYPE_int32(), GET_TYPE_int32_list());
+  insert_list_functions_for_type<bool>(functions, GET_TYPE_bool(), GET_TYPE_bool_list());
   return functions;
 }
 

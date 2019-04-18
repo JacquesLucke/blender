@@ -59,5 +59,10 @@ LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_int32_list)
   return create_list_type<int32_t>("Int32 List");
 }
 
+LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_bool_list)
+{
+  return create_list_type<bool>("Bool List");
+}
+
 }  // namespace Types
 }  // namespace FN

@@ -1,6 +1,27 @@
 import itertools
 from collections import namedtuple
 
+'''
+Type Rules
+==========
+
+A -> B means, Type A can be converted to type B implicitely.
+A -!> B means, Type A cannot be converted to type B implicitely.
+A_List is the type that contains a list of elements of type A
+
+Iff T1 -> T2, then T1_List -> T2_List.
+T -> T_List.
+T_List -!> T.
+
+Types always come in pairs: T and T_List.
+There are no lists of lists.
+
+<
+Every group of implicitely convertable types, must define an order.
+This order specifies which type should be worked with, when multiple types come together.
+E.g. when adding a Float and an Integer, a float addition is performed.
+> not yet
+'''
 
 # Type Info Container
 #####################################
@@ -19,36 +40,39 @@ class DataTypesInfo:
     # Insert New Information
     #############################
 
-    def insert_data_type(self, data_type, builder):
-        assert data_type not in self.data_types
-        assert isinstance(builder, DataSocketBuilder)
+    def insert_data_type(self, base_type_name, base_builder, list_builder):
+        base_type = base_type_name
+        list_type = base_type_name + " List"
 
-        self.data_types.add(data_type)
-        self.builder_by_data_type[data_type] = builder
+        assert base_type not in self.data_types
+        assert list_type not in self.data_types
+        assert isinstance(base_builder, DataSocketBuilder)
+        assert isinstance(list_builder, DataSocketBuilder)
 
-    def insert_list_relation(self, base_type, list_type):
-        assert self.is_data_type(base_type)
-        assert self.is_data_type(list_type)
-        assert base_type not in self.list_by_base
-        assert list_type not in self.base_by_list
-
+        self.data_types.add(base_type)
+        self.data_types.add(list_type)
         self.list_by_base[base_type] = list_type
         self.base_by_list[list_type] = base_type
+        self.builder_by_data_type[base_type] = base_builder
+        self.builder_by_data_type[list_type] = list_builder
 
-        self.insert_implicit_conversion(base_type, list_type)
-
-    def insert_implicitly_convertable_types(self, types):
-        for type_1, type_2 in itertools.combinations(types, 2):
-            self.insert_implicit_conversion(type_1, type_2)
-            self.insert_implicit_conversion(type_2, type_1)
+        list_conversion = ImplicitConversion(base_type, list_type)
+        self.implicit_conversions.add(list_conversion)
 
     def insert_implicit_conversion(self, from_type, to_type):
         assert self.is_data_type(from_type)
         assert self.is_data_type(to_type)
+        assert self.is_base(from_type)
+        assert self.is_base(to_type)
 
-        conversion = ImplicitConversion(from_type, to_type)
-        assert conversion not in self.implicit_conversions
-        self.implicit_conversions.add(conversion)
+        base_conversion = ImplicitConversion(from_type, to_type)
+        assert base_conversion not in self.implicit_conversions
+        self.implicit_conversions.add(base_conversion)
+
+        list_conversion = ImplicitConversion(
+            self.to_list(from_type), self.to_list(to_type))
+        assert list_conversion not in self.implicit_conversions
+        self.implicit_conversions.add(list_conversion)
 
 
     # Query Information
