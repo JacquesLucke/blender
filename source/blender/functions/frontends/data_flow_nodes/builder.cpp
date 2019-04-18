@@ -248,6 +248,9 @@ SharedType &GraphBuilder::type_by_name(const char *data_type) const
   else if (STREQ(data_type, "Integer List")) {
     return Types::GET_TYPE_int32_list();
   }
+  else if (STREQ(data_type, "Boolean List")) {
+    return Types::GET_TYPE_bool_list();
+  }
   else {
     BLI_assert(false);
     return *(SharedType *)nullptr;

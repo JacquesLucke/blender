@@ -185,16 +185,16 @@ def iter_obligatory_vector_decisions(graph, input_sockets, output_sockets, tree_
             if type_infos.is_list(other_data_type) and type_infos.is_link_allowed(other_data_type, decl.list_type):
                 yield decision_id, "LIST"
         elif isinstance(other_decl, ListSocketDecl):
-            list_decision_id = DecisionID(other_node, other_node, other_decl.prop_name)
-            if list_decision_id in list_decisions:
-                if other_decl.list_or_base == "LIST":
+            if other_decl.list_or_base == "LIST":
+                list_decision_id = DecisionID(other_node, other_node, other_decl.prop_name)
+                if list_decision_id in list_decisions:
                     other_base_type = list_decisions[list_decision_id]
                     if type_infos.is_link_allowed(other_base_type, decl.base_type):
                         yield decision_id, "LIST"
-            else:
-                old_data_type = other_socket.data_type
-                if old_data_type == decl.list_type:
-                    yield decision_id, "LIST"
+                else:
+                    old_data_type = other_socket.data_type
+                    if type_infos.is_link_allowed(old_data_type, decl.list_type):
+                        yield decision_id, "LIST"
 
     for socket in output_sockets:
         node = tree_data.get_node(socket)
@@ -205,7 +205,7 @@ def iter_obligatory_vector_decisions(graph, input_sockets, output_sockets, tree_
             other_decl = other_socket.get_decl(other_node)
             if data_sockets_are_static(other_decl):
                 other_data_type = other_socket.data_type
-                if other_data_type == decl.base_type:
+                if type_infos.is_base(other_data_type) and type_infos.is_link_allowed(other_data_type, decl.base_type):
                     for decision_id in decision_ids:
                         yield decision_id, "BASE"
             elif isinstance(other_decl, ListSocketDecl):
@@ -213,12 +213,12 @@ def iter_obligatory_vector_decisions(graph, input_sockets, output_sockets, tree_
                     list_decision_id = DecisionID(other_node, other_node, other_decl.prop_name)
                     if list_decision_id in list_decisions:
                         other_base_type = list_decisions[list_decision_id]
-                        if other_base_type == decl.base_type:
+                        if type_infos.is_link_allowed(decl.base_type, other_base_type):
                             for decision_id in decision_ids:
                                 yield decision_id, "BASE"
                     else:
                         old_data_type = other_socket.data_type
-                        if old_data_type == decl.base_type:
+                        if type_infos.is_link_allowed(decl.base_type, old_data_type):
                             for decision_id in decision_ids:
                                 yield decision_id, "BASE"
 
@@ -258,8 +258,10 @@ def make_pack_list_decisions(tree_data, list_decisions, vector_decisions):
                 old_origin_type = origin_socket.data_type
                 if type_infos.is_link_allowed(old_origin_type, decl.base_type):
                     decisions[decision_id] = "BASE"
-                else:
+                elif type_infos.is_link_allowed(old_origin_type, decl.list_type):
                     decisions[decision_id] = "LIST"
+                else:
+                    decisions[decision_id] = "BASE"
         elif isinstance(origin_decl, VectorizedOutputDecl):
             other_base_type = origin_decl.base_type
             if type_infos.is_link_allowed(other_base_type, decl.base_type):
