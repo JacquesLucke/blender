@@ -27,3 +27,4 @@ type_infos.insert_list_relation("Vector", "Vector List")
 type_infos.insert_list_relation("Integer", "Integer List")
 
 type_infos.insert_implicitly_convertable_types({"Float", "Integer"})
+type_infos.insert_implicitly_convertable_types({"Float List", "Integer List"})

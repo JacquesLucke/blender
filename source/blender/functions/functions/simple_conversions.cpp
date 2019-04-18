@@ -1,5 +1,6 @@
 #include "simple_conversions.hpp"
 #include "FN_types.hpp"
+#include "FN_functions.hpp"
 #include "FN_tuple_call.hpp"
 
 #include "BLI_lazy_init.hpp"
@@ -51,6 +52,16 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_to_int32)
   auto fn = get_simple_conversion_function(GET_TYPE_float(), GET_TYPE_int32());
   fn->add_body(new FloatToInt32());
   return fn;
+}
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_int32_list_to_float_list)
+{
+  return to_vectorized_function(GET_FN_int32_to_float(), {true});
+}
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_list_to_int32_list)
+{
+  return to_vectorized_function(GET_FN_float_to_int32(), {true});
 }
 
 }  // namespace Functions
