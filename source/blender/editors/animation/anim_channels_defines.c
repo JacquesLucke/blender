@@ -3667,7 +3667,7 @@ static bAnimChannelType ACF_NLAACTION = {
     ACHANNEL_ROLE_CHANNEL, /* role */
 
     acf_nlaaction_color,            /* backdrop color (NOTE: the backdrop handles this too,
-                                   * since it needs special hacks) */
+                                     * since it needs special hacks). */
     acf_nlaaction_backdrop,         /* backdrop */
     acf_generic_indention_flexible, /* indent level */
     acf_generic_group_offset,
@@ -4630,12 +4630,14 @@ static void draw_setting_widget(bAnimContext *ac,
           UI_but_func_set(but, achannel_setting_widget_cb, NULL, NULL);
           break;
       }
-    }
-  }
 
-  if ((ale->fcurve_owner_id != NULL && ID_IS_LINKED(ale->fcurve_owner_id)) ||
-      (ale->id != NULL && ID_IS_LINKED(ale->id))) {
-    UI_but_flag_enable(but, UI_BUT_DISABLED);
+      if ((ale->fcurve_owner_id != NULL && ID_IS_LINKED(ale->fcurve_owner_id)) ||
+          (ale->id != NULL && ID_IS_LINKED(ale->id))) {
+        if (setting != ACHANNEL_SETTING_EXPAND) {
+          UI_but_flag_enable(but, UI_BUT_DISABLED);
+        }
+      }
+    }
   }
 }
 

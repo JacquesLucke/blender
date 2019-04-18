@@ -1344,7 +1344,7 @@ static size_t animfilter_act_group(bAnimContext *ac,
       /* filter selection of channel specially here again,
        * since may be open and not subject to previous test */
       if (ANIMCHANNEL_SELOK(SEL_AGRP(agrp))) {
-        ANIMCHANNEL_NEW_CHANNEL(agrp, ANIMTYPE_GROUP, owner_id, NULL);
+        ANIMCHANNEL_NEW_CHANNEL(agrp, ANIMTYPE_GROUP, owner_id, &act->id);
       }
     }
 
@@ -2596,20 +2596,21 @@ static size_t animdata_filter_ds_obanim(
 
   /* determine the type of expander channels to use */
   /* this is the best way to do this for now... */
-  ANIMDATA_FILTER_CASES(ob,
-                        {/* AnimData - no channel, but consider data */},
-                        {/* NLA - no channel, but consider data */},
-                        { /* Drivers */
-                          type = ANIMTYPE_FILLDRIVERS;
-                          cdata = adt;
-                          expanded = EXPANDED_DRVD(adt);
-                        },
-                        {/* NLA Strip Controls - no dedicated channel for now (XXX) */},
-                        { /* Keyframes */
-                          type = ANIMTYPE_FILLACTD;
-                          cdata = adt->action;
-                          expanded = EXPANDED_ACTC(adt->action);
-                        });
+  ANIMDATA_FILTER_CASES(
+      ob, /* Some useless long comment to prevent wrapping by old clang-format versions... */
+      {/* AnimData - no channel, but consider data */},
+      {/* NLA - no channel, but consider data */},
+      { /* Drivers */
+        type = ANIMTYPE_FILLDRIVERS;
+        cdata = adt;
+        expanded = EXPANDED_DRVD(adt);
+      },
+      {/* NLA Strip Controls - no dedicated channel for now (XXX) */},
+      { /* Keyframes */
+        type = ANIMTYPE_FILLACTD;
+        cdata = adt->action;
+        expanded = EXPANDED_ACTC(adt->action);
+      });
 
   /* add object-level animation channels */
   BEGIN_ANIMFILTER_SUBCHANNELS(expanded)
@@ -2767,20 +2768,21 @@ static size_t animdata_filter_ds_scene(
 
   /* determine the type of expander channels to use */
   // this is the best way to do this for now...
-  ANIMDATA_FILTER_CASES(sce,
-                        {/* AnimData - no channel, but consider data */},
-                        {/* NLA - no channel, but consider data */},
-                        { /* Drivers */
-                          type = ANIMTYPE_FILLDRIVERS;
-                          cdata = adt;
-                          expanded = EXPANDED_DRVD(adt);
-                        },
-                        {/* NLA Strip Controls - no dedicated channel for now (XXX) */},
-                        { /* Keyframes */
-                          type = ANIMTYPE_FILLACTD;
-                          cdata = adt->action;
-                          expanded = EXPANDED_ACTC(adt->action);
-                        });
+  ANIMDATA_FILTER_CASES(
+      sce, /* Some useless long comment to prevent wrapping by old clang-format versions... */
+      {/* AnimData - no channel, but consider data */},
+      {/* NLA - no channel, but consider data */},
+      { /* Drivers */
+        type = ANIMTYPE_FILLDRIVERS;
+        cdata = adt;
+        expanded = EXPANDED_DRVD(adt);
+      },
+      {/* NLA Strip Controls - no dedicated channel for now (XXX) */},
+      { /* Keyframes */
+        type = ANIMTYPE_FILLACTD;
+        cdata = adt->action;
+        expanded = EXPANDED_ACTC(adt->action);
+      });
 
   /* add scene-level animation channels */
   BEGIN_ANIMFILTER_SUBCHANNELS(expanded)
