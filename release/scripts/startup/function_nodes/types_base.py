@@ -16,11 +16,11 @@ T_List -!> T.
 Types always come in pairs: T and T_List.
 There are no lists of lists.
 
-<
-Every group of implicitely convertable types, must define an order.
-This order specifies which type should be worked with, when multiple types come together.
-E.g. when adding a Float and an Integer, a float addition is performed.
-> not yet
+A type can be in zero or one conversion group.
+Every type in this group can be converted to any other implicitely.
+The types within a group are ordered by their "rank".
+When two types with different rank are used in one expression,
+the type with lower rank is converted to the other.
 '''
 
 # Type Info Container
@@ -34,7 +34,9 @@ class DataTypesInfo:
         self.builder_by_data_type = dict()
         self.list_by_base = dict()
         self.base_by_list = dict()
-        self.implicit_conversions = set()
+        self.unidirectional_conversions = set()
+        self.conversion_groups = dict()
+        self.all_implicit_conversions = set()
 
 
     # Insert New Information
@@ -56,10 +58,29 @@ class DataTypesInfo:
         self.builder_by_data_type[base_type] = base_builder
         self.builder_by_data_type[list_type] = list_builder
 
-        list_conversion = ImplicitConversion(base_type, list_type)
-        self.implicit_conversions.add(list_conversion)
+        self.all_implicit_conversions.add(ImplicitConversion(base_type, list_type))
 
-    def insert_implicit_conversion(self, from_type, to_type):
+    def insert_conversion_group(self, types_by_rank):
+        '''lowest rank comes first'''
+
+        for data_type in types_by_rank:
+            assert self.is_data_type(data_type)
+            assert self.is_base(data_type)
+            assert data_type not in self.conversion_groups
+
+        group = tuple(types_by_rank)
+        for data_type in types_by_rank:
+            self.conversion_groups[data_type] = group
+
+        for from_base_type, to_base_type in itertools.combinations(group, 2):
+            from_list_type = self.to_list(from_base_type)
+            to_list_type = self.to_list(to_base_type)
+            self.all_implicit_conversions.add(ImplicitConversion(from_base_type, to_base_type))
+            self.all_implicit_conversions.add(ImplicitConversion(to_base_type, from_base_type))
+            self.all_implicit_conversions.add(ImplicitConversion(from_list_type, to_list_type))
+            self.all_implicit_conversions.add(ImplicitConversion(to_list_type, from_list_type))
+
+    def insert_unidirectional_conversion(self, from_type, to_type):
         assert self.is_data_type(from_type)
         assert self.is_data_type(to_type)
         assert self.is_base(from_type)
@@ -68,11 +89,13 @@ class DataTypesInfo:
         base_conversion = ImplicitConversion(from_type, to_type)
         assert base_conversion not in self.implicit_conversions
         self.implicit_conversions.add(base_conversion)
+        self.all_implicit_conversions.add(base_conversion)
 
         list_conversion = ImplicitConversion(
             self.to_list(from_type), self.to_list(to_type))
         assert list_conversion not in self.implicit_conversions
         self.implicit_conversions.add(list_conversion)
+        self.all_implicit_conversions.add(list_conversion)
 
 
     # Query Information
@@ -136,7 +159,7 @@ class DataTypesInfo:
             return self.is_implicitly_convertable(from_type, to_type)
 
     def is_implicitly_convertable(self, from_type, to_type):
-        return ImplicitConversion(from_type, to_type) in self.implicit_conversions
+        return ImplicitConversion(from_type, to_type) in self.all_implicit_conversions
 
     def iter_list_types(self):
         yield from self.base_by_list.keys()
