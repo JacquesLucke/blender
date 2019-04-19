@@ -241,6 +241,7 @@ set(SRC
   BLI_multimap.hpp
   BLI_multipool.hpp
   BLI_optional.hpp
+  BLI_range.hpp
   BLI_shared.hpp
   BLI_small_vector.hpp
   BLI_small_map.hpp
