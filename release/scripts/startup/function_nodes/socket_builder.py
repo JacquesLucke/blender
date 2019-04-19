@@ -78,6 +78,10 @@ class SocketBuilder:
         decl = FixedSocketDecl(self.node, identifier, name, data_type)
         self._add_output(decl)
 
+    def fixed_pass_through(self, identifier, name, data_type):
+        self.fixed_input(identifier, name, data_type)
+        self.fixed_output(identifier, name, data_type)
+
 
     # Packed List
     ###################################
