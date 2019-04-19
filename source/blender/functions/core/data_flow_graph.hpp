@@ -245,7 +245,12 @@ class GraphLinks {
   ArrayRef<Socket> get_targets(Socket socket) const
   {
     BLI_assert(socket.is_output());
-    return m_targets.lookup(socket);
+    if (m_targets.contains(socket)) {
+      return m_targets.lookup(socket);
+    }
+    else {
+      return ArrayRef<Socket>();
+    }
   }
 
   bool is_linked(Socket socket) const

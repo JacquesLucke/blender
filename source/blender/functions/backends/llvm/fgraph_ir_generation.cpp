@@ -6,19 +6,17 @@ namespace FN {
 
 class BuildGraphIR : public LLVMBuildIRBody {
  private:
-  FunctionGraph m_fgraph;
-  SocketSetVector m_inputs;
-  SocketSetVector m_outputs;
+  CompactFunctionGraph m_fgraph;
+  SharedCompactDataFlowGraph &m_graph;
   SocketSet m_required_sockets;
 
   using SocketValueMap = SmallMap<Socket, llvm::Value *>;
 
  public:
-  BuildGraphIR(FunctionGraph &fgraph)
-      : m_fgraph(fgraph), m_inputs(fgraph.inputs()), m_outputs(fgraph.outputs())
+  BuildGraphIR(CompactFunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph())
   {
-    for (Node *node : m_fgraph.graph()->all_nodes()) {
-      SharedFunction &fn = node->function();
+    for (uint node = 0; m_fgraph.graph()->nodes_amount(); node++) {
+      SharedFunction &fn = m_fgraph.graph()->function_of_node(node);
       if (fn->has_body<LLVMBuildIRBody>()) {
         continue;
       }
@@ -205,9 +203,9 @@ class BuildGraphIR : public LLVMBuildIRBody {
   {
     ctx->stack().pop();
   }
-};
+};  // namespace FN
 
-void fgraph_add_LLVMBuildIRBody(SharedFunction &fn, FunctionGraph &fgraph)
+void fgraph_add_LLVMBuildIRBody(SharedFunction &fn, CompactFunctionGraph &fgraph)
 {
   fn->add_body(new BuildGraphIR(fgraph));
 }

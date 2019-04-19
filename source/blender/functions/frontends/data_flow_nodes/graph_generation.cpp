@@ -221,6 +221,8 @@ Optional<FunctionGraph> generate_function_graph(struct bNodeTree *btree)
     builder.insert_link(new_origins[i], node_inputs[i]);
   }
 
+  CompactDataFlowGraph test(graph.ptr());
+
   graph->freeze();
   FunctionGraph fgraph(graph, input_sockets, output_sockets);
   return fgraph;
