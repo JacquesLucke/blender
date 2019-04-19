@@ -34,7 +34,7 @@ class ArrayLookup {
   Mapping m_map;
   uint m_length;
   uint m_dummy_amount;
-  uint m_max_length;
+  uint m_max_used_slots;
   uint32_t m_slot_mask;
 
  public:
@@ -161,7 +161,7 @@ class ArrayLookup {
  private:
   inline bool ensure_can_add(Item *array)
   {
-    if (LIKELY(m_length + m_dummy_amount < m_max_length)) {
+    if (LIKELY(m_length + m_dummy_amount < m_max_used_slots)) {
       return false;
     }
 
@@ -178,7 +178,7 @@ class ArrayLookup {
     BLI_assert(count_bits_i(size) == 1);
     m_map = Mapping(size);
     m_map.fill(SLOT_EMPTY);
-    m_max_length = m_map.size() * LOAD_FACTOR;
+    m_max_used_slots = m_map.size() * LOAD_FACTOR;
     m_dummy_amount = 0;
     m_slot_mask = size - 1;
   }
@@ -210,6 +210,11 @@ class ArrayLookup {
     }
   }
 
+  inline float load_factor() const
+  {
+    return m_length / (float)m_map.size();
+  }
+
   inline void first_slot(const Key &key, uint32_t *slot, uint32_t *perturb) const
   {
     uint32_t hash_value = Hash{}(key);
@@ -221,6 +226,82 @@ class ArrayLookup {
   {
     *slot = m_slot_mask & ((5 * *slot) + 1 + *perturb);
     *perturb >>= PERTURB_SHIFT;
+  }
+
+  /* Produce Statistics
+   *******************************************/
+
+ private:
+  struct LookupStats {
+    SmallVector<uint> collisions_amount_distribution;
+    uint max_collisions = 0;
+    float average_collisions;
+  };
+
+  struct KeyLookupStats {
+    uint collisions_with_dummies = 0;
+    uint collisions_with_other_keys = 0;
+    bool found = false;
+  };
+
+  KeyLookupStats create_lookup_stats_for_key(Item *array, const Key &key) const
+  {
+    KeyLookupStats key_stats;
+
+    ITER_SLOTS(key, slot, state)
+    {
+      if (state == SLOT_DUMMY) {
+        key_stats.collisions_with_dummies++;
+      }
+      else if (state == SLOT_EMPTY) {
+        return key_stats;
+      }
+      else if (GetKey(array[state]) == key) {
+        key_stats.found = true;
+        return key_stats;
+      }
+      else {
+        key_stats.collisions_with_other_keys++;
+      }
+    }
+  }
+
+  LookupStats create_lookup_stats(Item *array) const
+  {
+    LookupStats stats;
+    stats.collisions_amount_distribution = SmallVector<uint>(m_map.size());
+    stats.collisions_amount_distribution.fill(0);
+
+    uint collisions_sum = 0;
+
+    for (uint i = 0; i < m_length; i++) {
+      KeyLookupStats key_stats = this->create_lookup_stats_for_key(array, GetKey(array[i]));
+      uint total_collisions = key_stats.collisions_with_dummies +
+                              key_stats.collisions_with_other_keys;
+      stats.collisions_amount_distribution[total_collisions]++;
+      stats.max_collisions = MAX2(stats.max_collisions, total_collisions);
+      collisions_sum += total_collisions;
+    }
+    stats.average_collisions = collisions_sum / (float)m_length;
+    return stats;
+  }
+
+ public:
+  void print_lookup_stats(Item *array) const
+  {
+    LookupStats stats = this->create_lookup_stats(array);
+    std::cout << "Lookup Stats:\n";
+    std::cout << "  Stored Keys: " << m_length << "\n";
+    std::cout << "  Stored Dummies: " << m_dummy_amount << "\n";
+    std::cout << "  Map Size: " << m_map.size() << "\n";
+    std::cout << "  Load Factor: " << this->load_factor() << "\n";
+    std::cout << "  Average Collisions: " << stats.average_collisions << "\n";
+    std::cout << "  Max Lookup Collisions: " << stats.max_collisions << "\n\n";
+
+    for (uint i = 0; i <= stats.max_collisions; i++) {
+      std::cout << "  " << i << " collision(s): " << stats.collisions_amount_distribution[i]
+                << "\n";
+    }
   }
 };
 

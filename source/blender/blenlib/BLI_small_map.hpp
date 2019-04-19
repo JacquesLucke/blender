@@ -120,6 +120,11 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return m_entries.size();
   }
 
+  void print_lookup_stats() const
+  {
+    m_lookup.print_lookup_stats(m_entries.begin());
+  }
+
   ValueIterator values() const
   {
     return ValueIterator(*this);

@@ -95,6 +95,11 @@ template<typename T, uint N = 4, typename Hash = std::hash<T>> class SmallSet {
   {
     return m_elements.end();
   }
+
+  void print_lookup_stats()
+  {
+    m_lookup.print_lookup_stats(m_elements.begin());
+  }
 };
 
 } /* namespace BLI */
