@@ -18,11 +18,11 @@ using SocketMap = SmallMap<struct bNodeSocket *, Socket>;
 class GraphBuilder {
  private:
   struct bNodeTree *m_btree;
-  SharedDataFlowGraph &m_graph;
+  DataFlowGraph *m_graph;
   SocketMap &m_socket_map;
 
  public:
-  GraphBuilder(struct bNodeTree *btree, SharedDataFlowGraph &graph, SocketMap &socket_map)
+  GraphBuilder(struct bNodeTree *btree, DataFlowGraph *graph, SocketMap &socket_map)
       : m_btree(btree), m_graph(graph), m_socket_map(socket_map)
   {
   }

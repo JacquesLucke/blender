@@ -4,31 +4,38 @@
 
 namespace FN {
 
-using FunctionSockets = SmallSetVector<FunctionSocket>;
+using FunctionSocketVector = SmallSetVector<FunctionSocket>;
 
 class CompactFunctionGraph {
  private:
   SharedCompactDataFlowGraph m_graph;
-  FunctionSockets m_inputs;
-  FunctionSockets m_outputs;
+  FunctionSocketVector m_inputs;
+  FunctionSocketVector m_outputs;
 
  public:
+  CompactFunctionGraph(SharedCompactDataFlowGraph graph,
+                       FunctionSocketVector inputs,
+                       FunctionSocketVector outputs)
+      : m_graph(std::move(graph)), m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
+  {
+  }
+
   const SharedCompactDataFlowGraph &graph() const
   {
     return m_graph;
   }
 
-  const FunctionSockets &inputs() const
+  const FunctionSocketVector &inputs() const
   {
     return m_inputs;
   }
 
-  const FunctionSockets &outputs() const
+  const FunctionSocketVector &outputs() const
   {
     return m_outputs;
   }
 
-  Signature CompactFunctionGraph::signature() const;
+  Signature signature() const;
   SmallSet<FunctionSocket> find_used_sockets(bool include_inputs, bool include_outputs) const;
 };
 

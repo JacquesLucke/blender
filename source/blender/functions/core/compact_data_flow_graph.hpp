@@ -11,11 +11,11 @@ struct FunctionSocket {
   bool m_is_output;
   uint m_id;
 
+ public:
   FunctionSocket(bool is_output, uint id) : m_is_output(is_output), m_id(id)
   {
   }
 
- public:
   static FunctionSocket FromInput(uint id)
   {
     return FunctionSocket(false, id);
@@ -40,48 +40,65 @@ struct FunctionSocket {
   {
     return m_id;
   }
+
+  friend inline bool operator==(const FunctionSocket &a, const FunctionSocket &b)
+  {
+    return a.m_id == b.m_id && a.m_is_output == b.m_is_output;
+  }
 };
 
-template<typename SequenceT> class FunctionSocketIterator {
+template<typename IdIteratorT> class FunctionSocketIterator {
  private:
   bool m_is_output;
-  SequenceT m_sequence;
+  IdIteratorT m_it;
 
  public:
-  FunctionSocketIterator(bool is_output, SequenceT sequence)
-      : m_is_output(is_output), m_sequence(sequence)
+  FunctionSocketIterator(bool is_output, IdIteratorT it) : m_is_output(is_output), m_it(it)
   {
-  }
-
-  FunctionSocketIterator begin() const
-  {
-    return FunctionSocketIterator(m_is_output, m_sequence.begin());
-  }
-
-  FunctionSocketIterator end() const
-  {
-    return FunctionSocketIterator(m_is_output, m_sequence.end());
-  }
-
-  uint size() const
-  {
-    return m_sequence.size();
   }
 
   FunctionSocketIterator &operator++()
   {
-    ++m_sequence;
+    ++m_it;
     return *this;
   }
 
   bool operator!=(const FunctionSocketIterator &other)
   {
-    return m_sequence != other.m_sequence;
+    return m_it != other.m_it;
   }
 
   FunctionSocket operator*() const
   {
-    return FunctionSocket(m_is_output, *m_sequence);
+    return FunctionSocket(m_is_output, *m_it);
+  }
+};
+
+template<typename SequenceT> class FunctionSocketSequence {
+ private:
+  bool m_is_output;
+  SequenceT m_sequence;
+  using IdIteratorT = decltype(m_sequence.begin());
+
+ public:
+  FunctionSocketSequence(bool is_output, SequenceT sequence)
+      : m_is_output(is_output), m_sequence(sequence)
+  {
+  }
+
+  FunctionSocketIterator<IdIteratorT> begin()
+  {
+    return FunctionSocketIterator<IdIteratorT>(m_is_output, m_sequence.begin());
+  }
+
+  FunctionSocketIterator<IdIteratorT> end()
+  {
+    return FunctionSocketIterator<IdIteratorT>(m_is_output, m_sequence.end());
+  }
+
+  uint size() const
+  {
+    return m_sequence.size();
   }
 };
 
@@ -130,6 +147,10 @@ class CompactDataFlowGraph : public RefCountedBase {
   SmallVector<uint> m_targets;
   std::unique_ptr<DataFlowGraph> m_builder;
 
+  SmallMap<Node *, uint> m_node_indices;
+  SmallMap<Socket, uint> m_input_socket_indices;
+  SmallMap<Socket, uint> m_output_socket_indices;
+
  public:
   CompactDataFlowGraph(std::unique_ptr<DataFlowGraph> orig_graph);
   CompactDataFlowGraph(CompactDataFlowGraph &other) = delete;
@@ -151,9 +172,9 @@ class CompactDataFlowGraph : public RefCountedBase {
                        node.inputs_start + node.function->signature().inputs().size());
   }
 
-  FunctionSocketIterator<Range<uint>> inputs_of_node(uint node_id) const
+  FunctionSocketSequence<Range<uint>> inputs_of_node(uint node_id) const
   {
-    return FunctionSocketIterator<Range<uint>>(false, this->input_ids_of_node(node_id));
+    return FunctionSocketSequence<Range<uint>>(false, this->input_ids_of_node(node_id));
   }
 
   Range<uint> output_ids_of_node(uint node_id) const
@@ -163,9 +184,9 @@ class CompactDataFlowGraph : public RefCountedBase {
                        node.outputs_start + node.function->signature().outputs().size());
   }
 
-  FunctionSocketIterator<Range<uint>> outputs_of_node(uint node_id) const
+  FunctionSocketSequence<Range<uint>> outputs_of_node(uint node_id) const
   {
-    return FunctionSocketIterator<Range<uint>>(true, this->output_ids_of_node(node_id));
+    return FunctionSocketSequence<Range<uint>>(true, this->output_ids_of_node(node_id));
   }
 
   SourceInfo *source_info_of_node(uint node_id) const
@@ -195,10 +216,10 @@ class CompactDataFlowGraph : public RefCountedBase {
     return ArrayRef<uint>(&m_targets[data.targets_start], data.targets_amount);
   }
 
-  FunctionSocketIterator<ArrayRef<uint>> targets_of_output(FunctionSocket output_socket) const
+  FunctionSocketSequence<ArrayRef<uint>> targets_of_output(FunctionSocket output_socket) const
   {
     BLI_assert(output_socket.is_output());
-    return FunctionSocketIterator<ArrayRef<uint>>(false,
+    return FunctionSocketSequence<ArrayRef<uint>>(false,
                                                   this->targets_of_output(output_socket.id()));
   }
 
@@ -299,8 +320,30 @@ class CompactDataFlowGraph : public RefCountedBase {
     uint index = this->index_of_output(output_socket);
     return this->function_of_node(node)->signature().outputs()[index];
   }
+
+  FunctionSocket map_socket(Socket socket)
+  {
+    if (socket.is_input()) {
+      return FunctionSocket::FromInput(m_input_socket_indices.lookup(socket));
+    }
+    else {
+      return FunctionSocket::FromOutput(m_output_socket_indices.lookup(socket));
+    }
+  }
 };
 
 using SharedCompactDataFlowGraph = AutoRefCount<CompactDataFlowGraph>;
 
 }  // namespace FN
+
+namespace std {
+template<> struct hash<FN::FunctionSocket> {
+  typedef FN::FunctionSocket argument_type;
+  typedef size_t result_type;
+
+  result_type operator()(argument_type const &v) const noexcept
+  {
+    return v.id() + (int)v.is_input() * 12345;
+  }
+};
+}  // namespace std

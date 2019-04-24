@@ -269,7 +269,7 @@ class GraphLinks {
   SmallVector<Link> m_all_links;
 };
 
-class DataFlowGraph : public RefCountedBase {
+class DataFlowGraph {
  public:
   DataFlowGraph();
   DataFlowGraph(DataFlowGraph &other) = delete;
@@ -325,8 +325,6 @@ class DataFlowGraph : public RefCountedBase {
   friend Node;
   friend Socket;
 };
-
-using SharedDataFlowGraph = AutoRefCount<DataFlowGraph>;
 
 /* Socket Inline Functions
    ********************************************** */

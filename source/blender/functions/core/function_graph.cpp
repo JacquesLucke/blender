@@ -39,12 +39,12 @@ SmallSet<FunctionSocket> CompactFunctionGraph::find_used_sockets(bool include_in
     found.add(socket);
 
     if (socket.is_input()) {
-      to_be_checked.add_new(FunctionSocket::FromOutput(m_graph->origin(socket.id())));
+      to_be_checked.add_new(m_graph->origin_of_input(socket));
     }
     else {
-      uint node = m_graph->node_of_output(socket.id());
-      for (uint input_id : this->graph()->inputs_of_node(node)) {
-        to_be_checked.add_new(FunctionSocket::FromInput(input_id));
+      uint node_id = m_graph->node_id_of_output(socket.id());
+      for (FunctionSocket input_socket : this->graph()->inputs_of_node(node_id)) {
+        to_be_checked.add_new(input_socket);
       }
     }
   }

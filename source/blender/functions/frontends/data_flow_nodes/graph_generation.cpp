@@ -147,7 +147,7 @@ class TreeData {
 
 Optional<CompactFunctionGraph> generate_function_graph(struct bNodeTree *btree)
 {
-  auto graph = SharedDataFlowGraph::New();
+  DataFlowGraph *graph = new DataFlowGraph();
   SocketMap socket_map;
 
   GraphBuilder builder(btree, graph, socket_map);
@@ -221,10 +221,19 @@ Optional<CompactFunctionGraph> generate_function_graph(struct bNodeTree *btree)
     builder.insert_link(new_origins[i], node_inputs[i]);
   }
 
-  auto compact_graph = SharedCompactDataFlowGraph::New(graph.ptr());
-  CompactFunctionGraph compact_fgraph();
-  FunctionGraph fgraph(graph, input_sockets, output_sockets);
-  return fgraph;
+  auto compact_graph = SharedCompactDataFlowGraph::New(std::unique_ptr<DataFlowGraph>(graph));
+
+  FunctionSocketVector inputs, outputs;
+
+  for (Socket socket : input_sockets) {
+    inputs.add(compact_graph->map_socket(socket));
+  }
+  for (Socket socket : output_sockets) {
+    outputs.add(compact_graph->map_socket(socket));
+  }
+
+  CompactFunctionGraph compact_fgraph(compact_graph, inputs, outputs);
+  return compact_fgraph;
 }
 
 }  // namespace DataFlowNodes
