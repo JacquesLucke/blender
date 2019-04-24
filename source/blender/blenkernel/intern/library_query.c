@@ -161,8 +161,9 @@ static void library_foreach_idproperty_ID_link(LibraryForeachIDData *data,
                                                IDProperty *prop,
                                                int flag)
 {
-  if (!prop)
+  if (!prop) {
     return;
+  }
 
   switch (prop->type) {
     case IDP_GROUP: {
@@ -1412,8 +1413,7 @@ void BKE_library_unused_linked_data_set_tag(Main *bmain, const bool do_init_tag)
   ID *id;
 
   if (do_init_tag) {
-    FOREACH_MAIN_ID_BEGIN(bmain, id)
-    {
+    FOREACH_MAIN_ID_BEGIN (bmain, id) {
       if (id->lib && (id->tag & LIB_TAG_INDIRECT) != 0) {
         id->tag |= LIB_TAG_DOIT;
       }
@@ -1426,8 +1426,7 @@ void BKE_library_unused_linked_data_set_tag(Main *bmain, const bool do_init_tag)
 
   for (bool do_loop = true; do_loop;) {
     do_loop = false;
-    FOREACH_MAIN_ID_BEGIN(bmain, id)
-    {
+    FOREACH_MAIN_ID_BEGIN (bmain, id) {
       /* We only want to check that ID if it is currently known as used... */
       if ((id->tag & LIB_TAG_DOIT) == 0) {
         BKE_library_foreach_ID_link(

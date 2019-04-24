@@ -722,14 +722,67 @@ static void ui_item_enum_expand_handle(bContext *C, void *arg1, void *arg2)
     RNA_property_enum_set(&but->rnapoin, but->rnaprop, current_value);
   }
 }
+
+/**
+ * Draw a single enum button, a utility for #ui_item_enum_expand_exec
+ */
+static void ui_item_enum_expand_elem_exec(uiLayout *layout,
+                                          uiBlock *block,
+                                          PointerRNA *ptr,
+                                          PropertyRNA *prop,
+                                          const char *uiname,
+                                          const int h,
+                                          const eButType but_type,
+                                          const bool icon_only,
+                                          const EnumPropertyItem *item,
+                                          const bool is_first)
+{
+  const char *name = (!uiname || uiname[0]) ? item->name : "";
+  const int icon = item->icon;
+  const int value = item->value;
+  const int itemw = ui_text_icon_width(block->curlayout, icon_only ? "" : name, icon, 0);
+
+  uiBut *but;
+
+  if (icon && name[0] && !icon_only) {
+    but = uiDefIconTextButR_prop(
+        block, but_type, 0, icon, name, 0, 0, itemw, h, ptr, prop, -1, 0, value, -1, -1, NULL);
+  }
+  else if (icon) {
+    const int w = (is_first) ? itemw : ceilf(itemw - U.pixelsize);
+    but = uiDefIconButR_prop(
+        block, but_type, 0, icon, 0, 0, w, h, ptr, prop, -1, 0, value, -1, -1, NULL);
+  }
+  else {
+    but = uiDefButR_prop(
+        block, but_type, 0, name, 0, 0, itemw, h, ptr, prop, -1, 0, value, -1, -1, NULL);
+  }
+
+  if (RNA_property_flag(prop) & PROP_ENUM_FLAG) {
+    /* If this is set, assert since we're clobbering someone elses callback. */
+    BLI_assert(but->func == NULL);
+    UI_but_func_set(but, ui_item_enum_expand_handle, but, POINTER_FROM_INT(value));
+  }
+
+  if (uiLayoutGetLocalDir(layout) != UI_LAYOUT_HORIZONTAL) {
+    but->drawflag |= UI_BUT_TEXT_LEFT;
+  }
+
+  /* Allow quick, inaccurate swipe motions to switch tabs
+   * (no need to keep cursor over them). */
+  if (but_type == UI_BTYPE_TAB) {
+    but->flag |= UI_BUT_DRAG_LOCK;
+  }
+}
+
 static void ui_item_enum_expand_exec(uiLayout *layout,
                                      uiBlock *block,
                                      PointerRNA *ptr,
                                      PropertyRNA *prop,
                                      const char *uiname,
-                                     int h,
-                                     int but_type,
-                                     bool icon_only)
+                                     const int h,
+                                     const eButType but_type,
+                                     const bool icon_only)
 {
   /* XXX: The way this function currently handles uiname parameter
    * is insane and inconsistent with general UI API:
@@ -743,16 +796,13 @@ static void ui_item_enum_expand_exec(uiLayout *layout,
    * - mont29
    */
 
-  uiBut *but;
-  uiLayout *layout_radial = NULL;
   const EnumPropertyItem *item, *item_array;
-  const char *name;
-  int itemw, icon, value;
   bool free;
-  bool radial = (layout->root->type == UI_LAYOUT_PIEMENU);
 
   BLI_assert(RNA_property_type(prop) == PROP_ENUM);
 
+  uiLayout *layout_radial = NULL;
+  bool radial = (layout->root->type == UI_LAYOUT_PIEMENU);
   if (radial) {
     RNA_property_enum_items_gettexted_all(block->evil_C, ptr, prop, &item_array, NULL, &free);
   }
@@ -773,11 +823,12 @@ static void ui_item_enum_expand_exec(uiLayout *layout,
       UI_block_layout_set_current(block, layout);
     }
   }
-  else if (layout->root->type != UI_LAYOUT_MENU) {
-    UI_block_layout_set_current(block, ui_item_local_sublayout(layout, layout, 1));
+  else if (ELEM(layout->item.type, ITEM_LAYOUT_GRID_FLOW, ITEM_LAYOUT_COLUMN_FLOW) ||
+           layout->root->type == UI_LAYOUT_MENU) {
+    UI_block_layout_set_current(block, layout);
   }
   else {
-    UI_block_layout_set_current(block, layout);
+    UI_block_layout_set_current(block, ui_item_local_sublayout(layout, layout, 1));
   }
 
   for (item = item_array; item->identifier; item++) {
@@ -789,7 +840,7 @@ static void ui_item_enum_expand_exec(uiLayout *layout,
       /* Separate items, potentially with a label. */
       if (next_item->identifier) {
         /* Item without identifier but with name:
-         * Add group label for the following items. */
+        * Add group label for the following items. */
         if (item->name) {
           if (!is_first) {
             uiItemS(block->curlayout);
@@ -806,54 +857,10 @@ static void ui_item_enum_expand_exec(uiLayout *layout,
       continue;
     }
 
-    name = (!uiname || uiname[0]) ? item->name : "";
-    icon = item->icon;
-    value = item->value;
-    itemw = ui_text_icon_width(block->curlayout, icon_only ? "" : name, icon, 0);
-
-    if (icon && name[0] && !icon_only) {
-      but = uiDefIconTextButR_prop(
-          block, but_type, 0, icon, name, 0, 0, itemw, h, ptr, prop, -1, 0, value, -1, -1, NULL);
-    }
-    else if (icon) {
-      but = uiDefIconButR_prop(block,
-                               but_type,
-                               0,
-                               icon,
-                               0,
-                               0,
-                               (is_first) ? itemw : ceilf(itemw - U.pixelsize),
-                               h,
-                               ptr,
-                               prop,
-                               -1,
-                               0,
-                               value,
-                               -1,
-                               -1,
-                               NULL);
-    }
-    else {
-      but = uiDefButR_prop(
-          block, but_type, 0, name, 0, 0, itemw, h, ptr, prop, -1, 0, value, -1, -1, NULL);
-    }
-
-    if (RNA_property_flag(prop) & PROP_ENUM_FLAG) {
-      /* If this is set, assert since we're clobbering someone elses callback. */
-      BLI_assert(but->func == NULL);
-      UI_but_func_set(but, ui_item_enum_expand_handle, but, POINTER_FROM_INT(value));
-    }
-
-    if (uiLayoutGetLocalDir(layout) != UI_LAYOUT_HORIZONTAL) {
-      but->drawflag |= UI_BUT_TEXT_LEFT;
-    }
-
-    /* Allow quick, inaccurate swipe motions to switch tabs
-     * (no need to keep cursor over them). */
-    if (but_type == UI_BTYPE_TAB) {
-      but->flag |= UI_BUT_DRAG_LOCK;
-    }
+    ui_item_enum_expand_elem_exec(
+        layout, block, ptr, prop, uiname, h, but_type, icon_only, item, is_first);
   }
+
   UI_block_layout_set_current(block, layout);
 
   if (free) {
@@ -865,8 +872,8 @@ static void ui_item_enum_expand(uiLayout *layout,
                                 PointerRNA *ptr,
                                 PropertyRNA *prop,
                                 const char *uiname,
-                                int h,
-                                bool icon_only)
+                                const int h,
+                                const bool icon_only)
 {
   ui_item_enum_expand_exec(layout, block, ptr, prop, uiname, h, UI_BTYPE_ROW, icon_only);
 }
@@ -876,8 +883,8 @@ static void ui_item_enum_expand_tabs(uiLayout *layout,
                                      PointerRNA *ptr,
                                      PropertyRNA *prop,
                                      const char *uiname,
-                                     int h,
-                                     bool icon_only)
+                                     const int h,
+                                     const bool icon_only)
 {
   uiBut *last = block->buttons.last;
 

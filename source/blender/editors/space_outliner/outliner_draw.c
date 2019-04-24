@@ -333,7 +333,7 @@ static void hidebutton_base_flag_cb(bContext *C, void *poin, void *poin2)
 
   if (depsgraph_changed) {
     BKE_main_collection_sync_remap(bmain);
-    DEG_id_tag_update(&ob->id, LIB_TAG_COPIED_ON_WRITE);
+    DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);
     DEG_relations_tag_update(bmain);
     WM_main_add_notifier(NC_OBJECT | ND_DRAW, &ob->id);
   }
@@ -1563,7 +1563,8 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
         data.icon = ICON_GROUP;
         break;
       }
-      /* Removed the icons from outliner. Need a better structure with Layers, Palettes and Colors */
+      /* Removed the icons from outliner.
+       * Need a better structure with Layers, Palettes and Colors. */
       case TSE_GP_LAYER: {
         /* indicate whether layer is active */
         bGPDlayer *gpl = te->directdata;

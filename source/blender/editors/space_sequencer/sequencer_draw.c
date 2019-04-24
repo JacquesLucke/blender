@@ -62,6 +62,8 @@
 #include "ED_screen.h"
 #include "ED_space_api.h"
 
+#include "BIF_glutil.h"
+
 #include "UI_interface.h"
 #include "UI_resources.h"
 #include "UI_view2d.h"
@@ -280,8 +282,8 @@ static void drawseqwave(View2D *v2d,
     waveform = sound->waveform;
 
     if (waveform->length == 0) {
-      /* BKE_sound_read_waveform() set an empty SoundWaveform data in case it cannot generate a valid one...
-       * See T45726. */
+      /* BKE_sound_read_waveform() set an empty SoundWaveform data in case it cannot generate a
+       * valid one. See T45726. */
       return;
     }
 
@@ -1226,7 +1228,7 @@ static void *sequencer_OCIO_transform_ibuf(
   void *cache_handle = NULL;
   bool force_fallback = false;
   *glsl_used = false;
-  force_fallback |= (U.image_draw_method != IMAGE_DRAW_METHOD_GLSL);
+  force_fallback |= (ED_draw_imbuf_method(ibuf) != IMAGE_DRAW_METHOD_GLSL);
   force_fallback |= (ibuf->dither != 0.0f);
 
   if (force_fallback) {
@@ -1601,7 +1603,8 @@ void sequencer_draw_preview(const bContext *C,
   /* TODO */
   /* sequencer_draw_maskedit(C, scene, ar, sseq); */
 
-  /* Scope is freed in sequencer_check_scopes when ibuf changes and scope image is to be replaced. */
+  /* Scope is freed in sequencer_check_scopes when ibuf changes and
+   * scope image is to be replaced. */
   if (ibuf) {
     IMB_freeImBuf(ibuf);
   }

@@ -86,6 +86,14 @@ typedef struct uiPopupBlockHandle uiPopupBlockHandle;
 #define UI_MAX_NAME_STR 128
 #define UI_MAX_SHORTCUT_STR 64
 
+/**
+ * For #ARegion.overlap regions, pass events though if they don't overlap
+ * the regions contents (the usable part of the #View2D and buttons).
+ *
+ * The margin is needed so it's not possible to accidentally click inbetween buttons.
+ */
+#define UI_REGION_OVERLAP_MARGIN (U.widget_unit / 3)
+
 /* use for clamping popups within the screen */
 #define UI_SCREEN_MARGIN 10
 
@@ -1614,7 +1622,7 @@ void UI_panels_scale(struct ARegion *ar, float new_width);
 void UI_panel_label_offset(struct uiBlock *block, int *r_x, int *r_y);
 int UI_panel_size_y(const struct Panel *pa);
 
-bool UI_panel_category_is_visible(struct ARegion *ar);
+bool UI_panel_category_is_visible(const struct ARegion *ar);
 void UI_panel_category_add(struct ARegion *ar, const char *name);
 struct PanelCategoryDyn *UI_panel_category_find(struct ARegion *ar, const char *idname);
 struct PanelCategoryStack *UI_panel_category_active_find(struct ARegion *ar, const char *idname);
@@ -2302,6 +2310,7 @@ void UI_context_active_but_prop_get_templateID(struct bContext *C,
 struct ID *UI_context_active_but_get_tab_ID(struct bContext *C);
 
 uiBut *UI_region_active_but_get(struct ARegion *ar);
+uiBut *UI_region_but_find_rect_over(const struct ARegion *ar, const struct rcti *isect);
 
 /* uiFontStyle.align */
 typedef enum eFontStyle_Align {

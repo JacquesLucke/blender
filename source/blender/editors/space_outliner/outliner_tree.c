@@ -958,7 +958,7 @@ static TreeElement *outliner_add_element(
 
     /* Don't display arrays larger, weak but index is stored as a short,
      * also the outliner isn't intended for editing such large data-sets. */
-    BLI_STATIC_ASSERT(sizeof(te->index) == 2, "Index is no longer short!");
+    BLI_STATIC_ASSERT(sizeof(te->index) == 2, "Index is no longer short!")
     const int tot_limit = SHRT_MAX;
 
     int a, tot;
@@ -1470,10 +1470,7 @@ static void outliner_make_object_parent_hierarchy(ListBase *lb)
         BLI_remlink(lb, te);
         tep = (TreeElement *)ob->parent->id.newid;
         BLI_addtail(&tep->subtree, te);
-        // set correct parent pointers
-        for (te = tep->subtree.first; te; te = te->next) {
-          te->parent = tep;
-        }
+        te->parent = tep;
       }
     }
     te = ten;
@@ -1785,10 +1782,11 @@ static TreeElement *outliner_find_first_desired_element_at_y(const SpaceOutliner
 }
 
 /**
- * Store information of current outliner scrolling status to be restored later
+ * Store information of current outliner scrolling status to be restored later.
  *
- * Finds the top-most collection visible in the outliner and populates the OutlinerTreeElementFocus
- * struct to retrieve this element later to make sure it is in the same original position as before filtering
+ * Finds the top-most collection visible in the outliner and populates the
+ * #OutlinerTreeElementFocus struct to retrieve this element later to make sure it is in the same
+ * original position as before filtering.
  */
 static void outliner_store_scrolling_position(SpaceOutliner *soops,
                                               ARegion *ar,

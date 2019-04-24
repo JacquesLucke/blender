@@ -213,6 +213,16 @@ void ui_window_to_block_fl(const ARegion *ar, uiBlock *block, float *x, float *y
   }
 }
 
+void ui_window_to_block_rctf(const struct ARegion *ar,
+                             uiBlock *block,
+                             rctf *rct_dst,
+                             const rctf *rct_src)
+{
+  *rct_dst = *rct_src;
+  ui_window_to_block_fl(ar, block, &rct_dst->xmin, &rct_dst->ymin);
+  ui_window_to_block_fl(ar, block, &rct_dst->xmax, &rct_dst->ymax);
+}
+
 void ui_window_to_block(const ARegion *ar, uiBlock *block, int *x, int *y)
 {
   float fx, fy;
@@ -230,6 +240,14 @@ void ui_window_to_region(const ARegion *ar, int *x, int *y)
 {
   *x -= ar->winrct.xmin;
   *y -= ar->winrct.ymin;
+}
+
+void ui_window_to_region_rcti(const ARegion *ar, rcti *rect_dst, const rcti *rct_src)
+{
+  rect_dst->xmin = rct_src->xmin - ar->winrct.xmin;
+  rect_dst->xmax = rct_src->xmax - ar->winrct.xmin;
+  rect_dst->ymin = rct_src->ymin - ar->winrct.ymin;
+  rect_dst->ymax = rct_src->ymax - ar->winrct.ymin;
 }
 
 void ui_region_to_window(const ARegion *ar, int *x, int *y)
@@ -1375,14 +1393,16 @@ static bool ui_but_event_property_operator_string(const bContext *C,
  *
  * --Matt 07/2006
  */
-const char ui_radial_dir_order[8] = {UI_RADIAL_W,
-                                     UI_RADIAL_E,
-                                     UI_RADIAL_S,
-                                     UI_RADIAL_N,
-                                     UI_RADIAL_NW,
-                                     UI_RADIAL_NE,
-                                     UI_RADIAL_SW,
-                                     UI_RADIAL_SE};
+const char ui_radial_dir_order[8] = {
+    UI_RADIAL_W,
+    UI_RADIAL_E,
+    UI_RADIAL_S,
+    UI_RADIAL_N,
+    UI_RADIAL_NW,
+    UI_RADIAL_NE,
+    UI_RADIAL_SW,
+    UI_RADIAL_SE,
+};
 
 const char ui_radial_dir_to_numpad[8] = {8, 9, 6, 3, 2, 1, 4, 7};
 const short ui_radial_dir_to_angle[8] = {90, 45, 0, 315, 270, 225, 180, 135};

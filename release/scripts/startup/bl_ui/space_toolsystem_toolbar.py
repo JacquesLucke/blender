@@ -32,7 +32,6 @@ from .space_toolsystem_common import (
     ToolDef,
 )
 
-from bpy.app.translations import pgettext_iface as iface_
 from bpy.app.translations import pgettext_tip as tip_
 
 
@@ -44,7 +43,7 @@ def kmi_to_string_or_none(kmi):
 
 
 def generate_from_enum_ex(
-        context, *,
+        _context, *,
         idname_prefix,
         icon_prefix,
         type,
@@ -73,7 +72,7 @@ def generate_from_enum_ex(
 class _template_widget:
     class VIEW3D_GGT_xform_extrude:
         @staticmethod
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.gizmo_group_properties("VIEW3D_GGT_xform_extrude")
             layout.prop(props, "axis_type", expand=True)
 
@@ -88,7 +87,7 @@ class _template_widget:
 class _defs_view3d_generic:
     @ToolDef.from_fn
     def cursor():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("view3d.cursor3d")
             layout.prop(props, "use_depth")
             layout.prop(props, "orientation")
@@ -114,7 +113,7 @@ class _defs_view3d_generic:
 
     @ToolDef.from_fn
     def ruler():
-        def description(context, item, km):
+        def description(_context, _item, km):
             if km is not None:
                 kmi_add = km.keymap_items.find_from_operator("view3d.ruler_add")
                 kmi_remove = km.keymap_items.find_from_operator("view3d.ruler_remove")
@@ -218,7 +217,7 @@ class _defs_annotate:
 
     @ToolDef.from_fn
     def eraser():
-        def draw_settings(context, layout, tool):
+        def draw_settings(context, layout, _tool):
             # TODO: Move this setting to tool_settings
             prefs = context.preferences
             layout.prop(prefs.edit, "grease_pencil_eraser_radius", text="Radius")
@@ -236,7 +235,7 @@ class _defs_transform:
 
     @ToolDef.from_fn
     def translate():
-        def draw_settings(context, layout, tool):
+        def draw_settings(context, layout, _tool):
             _template_widget.VIEW3D_GGT_xform_gizmo.draw_settings_with_index(context, layout, 1)
         return dict(
             idname="builtin.move",
@@ -251,7 +250,7 @@ class _defs_transform:
 
     @ToolDef.from_fn
     def rotate():
-        def draw_settings(context, layout, tool):
+        def draw_settings(context, layout, _tool):
             _template_widget.VIEW3D_GGT_xform_gizmo.draw_settings_with_index(context, layout, 2)
         return dict(
             idname="builtin.rotate",
@@ -266,7 +265,7 @@ class _defs_transform:
 
     @ToolDef.from_fn
     def scale():
-        def draw_settings(context, layout, tool):
+        def draw_settings(context, layout, _tool):
             _template_widget.VIEW3D_GGT_xform_gizmo.draw_settings_with_index(context, layout, 3)
         return dict(
             idname="builtin.scale",
@@ -281,7 +280,7 @@ class _defs_transform:
 
     @ToolDef.from_fn
     def scale_cage():
-        def draw_settings(context, layout, tool):
+        def draw_settings(context, layout, _tool):
             _template_widget.VIEW3D_GGT_xform_gizmo.draw_settings_with_index(context, layout, 3)
         return dict(
             idname="builtin.scale_cage",
@@ -298,7 +297,7 @@ class _defs_view3d_select:
 
     @ToolDef.from_fn
     def select():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, _layout, _tool):
             pass
         return dict(
             idname="builtin.select",
@@ -311,7 +310,7 @@ class _defs_view3d_select:
 
     @ToolDef.from_fn
     def box():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("view3d.select_box")
             layout.prop(props, "mode", text="")
         return dict(
@@ -325,7 +324,7 @@ class _defs_view3d_select:
 
     @ToolDef.from_fn
     def lasso():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("view3d.select_lasso")
             layout.prop(props, "mode", text="")
         return dict(
@@ -339,12 +338,12 @@ class _defs_view3d_select:
 
     @ToolDef.from_fn
     def circle():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("view3d.select_circle")
             layout.prop(props, "mode", text="")
             layout.prop(props, "radius")
 
-        def draw_cursor(context, tool, xy):
+        def draw_cursor(_context, tool, xy):
             from gpu_extras.presets import draw_circle_2d
             props = tool.operator_properties("view3d.select_circle")
             radius = props.radius
@@ -436,7 +435,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def rip_region():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("mesh.rip_move")
             props_macro = props.MESH_OT_rip
             layout.prop(props_macro, "use_fill")
@@ -472,7 +471,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def edge_slide():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("transform.edge_slide")
             layout.prop(props, "correct_uv")
 
@@ -487,7 +486,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def vert_slide():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("transform.vert_slide")
             layout.prop(props, "correct_uv")
 
@@ -502,7 +501,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def spin():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("mesh.spin")
             layout.prop(props, "steps")
             props = tool.gizmo_group_properties("MESH_GGT_spin")
@@ -519,7 +518,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def spin_duplicate():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("mesh.spin")
             layout.prop(props, "steps")
             props = tool.gizmo_group_properties("MESH_GGT_spin")
@@ -536,7 +535,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def inset():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("mesh.inset")
             layout.prop(props, "use_outset")
             layout.prop(props, "use_individual")
@@ -554,7 +553,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def bevel():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("mesh.bevel")
             layout.prop(props, "offset_type")
             layout.prop(props, "segments")
@@ -589,7 +588,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def extrude_normals():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("mesh.extrude_region_shrink_fatten")
             props_macro = props.TRANSFORM_OT_shrink_fatten
             layout.prop(props_macro, "use_even_offset")
@@ -615,7 +614,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def extrude_cursor():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("mesh.dupli_extrude_cursor")
             layout.prop(props, "rotate_source")
 
@@ -631,7 +630,7 @@ class _defs_edit_mesh:
     @ToolDef.from_fn
     def loopcut_slide():
 
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("mesh.loopcut_slide")
             props_macro = props.MESH_OT_loopcut
             layout.prop(props_macro, "number_cuts")
@@ -659,7 +658,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def vertex_smooth():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("mesh.vertices_smooth")
             layout.prop(props, "repeat")
         return dict(
@@ -673,7 +672,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def vertex_randomize():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("transform.vertex_random")
             layout.prop(props, "uniform")
             layout.prop(props, "normal")
@@ -715,7 +714,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def shrink_fatten():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("transform.shrink_fatten")
             layout.prop(props, "use_even_offset")
 
@@ -740,7 +739,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def knife():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("mesh.knife_tool")
             layout.prop(props, "use_occlude_geometry")
             layout.prop(props, "only_selected")
@@ -756,7 +755,7 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def bisect():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("mesh.bisect")
             layout.prop(props, "use_fill")
             layout.prop(props, "clear_inner")
@@ -776,7 +775,7 @@ class _defs_edit_curve:
 
     @ToolDef.from_fn
     def draw():
-        def draw_settings(context, layout, tool):
+        def draw_settings(context, layout, _tool):
             # Tool settings initialize operator options.
             tool_settings = context.tool_settings
             cps = tool_settings.curve_paint_settings
@@ -850,7 +849,7 @@ class _defs_edit_curve:
 
     @ToolDef.from_fn
     def curve_vertex_randomize():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("transform.vertex_random")
             layout.prop(props, "uniform")
             layout.prop(props, "normal")
@@ -1078,7 +1077,7 @@ class _defs_image_generic:
     # Falls back to default image editor action.
     @ToolDef.from_fn
     def sample():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("image.sample")
             layout.prop(props, "size")
         return dict(
@@ -1113,7 +1112,7 @@ class _defs_image_uv_select:
 
     @ToolDef.from_fn
     def select():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, _layout, _tool):
             pass
         return dict(
             idname="builtin.select",
@@ -1126,7 +1125,7 @@ class _defs_image_uv_select:
 
     @ToolDef.from_fn
     def box():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("uv.select_box")
             layout.prop(props, "mode", text="")
         return dict(
@@ -1140,7 +1139,7 @@ class _defs_image_uv_select:
 
     @ToolDef.from_fn
     def lasso():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("uv.select_lasso")
             layout.prop(props, "mode", text="")
         return dict(
@@ -1154,7 +1153,7 @@ class _defs_image_uv_select:
 
     @ToolDef.from_fn
     def circle():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("uv.select_circle")
             layout.prop(props, "mode", text="")
             layout.prop(props, "radius")
@@ -1276,7 +1275,7 @@ class _defs_gpencil_edit:
 
     @ToolDef.from_fn
     def select():
-        def draw_settings(context, layout, tool):
+        def draw_settings(context, layout, _tool):
             layout.prop(context.tool_settings.gpencil_sculpt, "intersection_threshold")
         return dict(
             idname="builtin.select",
@@ -1409,7 +1408,7 @@ class _defs_node_select:
 
     @ToolDef.from_fn
     def select():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, _layout, _tool):
             pass
         return dict(
             idname="builtin.select",
@@ -1422,7 +1421,7 @@ class _defs_node_select:
 
     @ToolDef.from_fn
     def box():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("node.select_box")
             layout.prop(props, "mode", text="")
             pass
@@ -1437,7 +1436,7 @@ class _defs_node_select:
 
     @ToolDef.from_fn
     def lasso():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("node.select_lasso")
             layout.prop(props, "mode", text="")
         return dict(
@@ -1451,7 +1450,7 @@ class _defs_node_select:
 
     @ToolDef.from_fn
     def circle():
-        def draw_settings(context, layout, tool):
+        def draw_settings(_context, layout, tool):
             props = tool.operator_properties("node.select_circle")
             layout.prop(props, "mode", text="")
             layout.prop(props, "radius")

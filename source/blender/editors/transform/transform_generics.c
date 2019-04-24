@@ -126,8 +126,7 @@ void getViewVector(const TransInfo *t, const float coord[3], float vec[3])
 
 static void clipMirrorModifier(TransInfo *t)
 {
-  FOREACH_TRANS_DATA_CONTAINER(t, tc)
-  {
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     Object *ob = tc->obedit;
     ModifierData *md = ob->modifiers.first;
     float tolerance[3] = {0.0f, 0.0f, 0.0f};
@@ -168,13 +167,16 @@ static void clipMirrorModifier(TransInfo *t)
               int clip;
               float loc[3], iloc[3];
 
-              if (td->flag & TD_NOACTION)
+              if (td->flag & TD_NOACTION) {
                 break;
-              if (td->loc == NULL)
+              }
+              if (td->loc == NULL) {
                 break;
+              }
 
-              if (td->flag & TD_SKIP)
+              if (td->flag & TD_SKIP) {
                 continue;
+              }
 
               copy_v3_v3(loc, td->loc);
               copy_v3_v3(iloc, td->iloc);
@@ -221,20 +223,22 @@ static void clipMirrorModifier(TransInfo *t)
 /* assumes obedit set to mesh object */
 static void editbmesh_apply_to_mirror(TransInfo *t)
 {
-  FOREACH_TRANS_DATA_CONTAINER(t, tc)
-  {
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     if (tc->mirror.axis_flag) {
       TransData *td = tc->data;
       BMVert *eve;
       int i;
 
       for (i = 0; i < tc->data_len; i++, td++) {
-        if (td->flag & TD_NOACTION)
+        if (td->flag & TD_NOACTION) {
           break;
-        if (td->loc == NULL)
+        }
+        if (td->loc == NULL) {
           break;
-        if (td->flag & TD_SKIP)
+        }
+        if (td->flag & TD_SKIP) {
           continue;
+        }
 
         eve = td->extra;
         if (eve) {
@@ -257,8 +261,9 @@ static void animrecord_check_state(Scene *scene, ID *id, wmTimer *animtimer)
   ScreenAnimData *sad = (animtimer) ? animtimer->customdata : NULL;
 
   /* sanity checks */
-  if (ELEM(NULL, scene, id, sad))
+  if (ELEM(NULL, scene, id, sad)) {
     return;
+  }
 
   /* check if we need a new strip if:
    * - if animtimer is running
@@ -331,12 +336,14 @@ static bool fcu_test_selected(FCurve *fcu)
   BezTriple *bezt = fcu->bezt;
   unsigned int i;
 
-  if (bezt == NULL) /* ignore baked */
+  if (bezt == NULL) { /* ignore baked */
     return 0;
+  }
 
   for (i = 0; i < fcu->totvert; i++, bezt++) {
-    if (BEZT_ISSEL_ANY(bezt))
+    if (BEZT_ISSEL_ANY(bezt)) {
       return 1;
+    }
   }
 
   return 0;
@@ -432,25 +439,30 @@ static void recalcData_graphedit(TransInfo *t)
     FCurve *fcu = (FCurve *)ale->key_data;
 
     /* ignore FC-Curves without any selected verts */
-    if (!fcu_test_selected(fcu))
+    if (!fcu_test_selected(fcu)) {
       continue;
+    }
 
     /* watch it: if the time is wrong: do not correct handles yet */
-    if (test_time_fcurve(fcu))
+    if (test_time_fcurve(fcu)) {
       dosort++;
-    else
+    }
+    else {
       calchandles_fcurve(fcu);
+    }
 
     /* set refresh tags for objects using this animation,
      * BUT only if realtime updates are enabled
      */
-    if ((sipo->flag & SIPO_NOREALTIMEUPDATES) == 0)
+    if ((sipo->flag & SIPO_NOREALTIMEUPDATES) == 0) {
       ANIM_list_elem_update(CTX_data_main(t->context), t->scene, ale);
+    }
   }
 
   /* do resort and other updates? */
-  if (dosort)
+  if (dosort) {
     remake_graph_transdata(t, &anim_data);
+  }
 
   /* now free temp channels */
   ANIM_animdata_freelist(&anim_data);
@@ -478,14 +490,16 @@ static void recalcData_nla(TransInfo *t)
     int delta_y1, delta_y2;
 
     /* if this tdn has no handles, that means it is just a dummy that should be skipped */
-    if (tdn->handle == 0)
+    if (tdn->handle == 0) {
       continue;
+    }
 
     /* set refresh tags for objects using this animation,
      * BUT only if realtime updates are enabled
      */
-    if ((snla->flag & SNLA_NOREALTIMEUPDATES) == 0)
+    if ((snla->flag & SNLA_NOREALTIMEUPDATES) == 0) {
       ANIM_id_update(CTX_data_main(t->context), tdn->id);
+    }
 
     /* if canceling transform, just write the values without validating, then move on */
     if (t->state == TRANS_CANCEL) {
@@ -496,14 +510,16 @@ static void recalcData_nla(TransInfo *t)
       /* start */
       strip->start = tdn->h1[0];
 
-      if ((strip->prev) && (strip->prev->type == NLASTRIP_TYPE_TRANSITION))
+      if ((strip->prev) && (strip->prev->type == NLASTRIP_TYPE_TRANSITION)) {
         strip->prev->end = tdn->h1[0];
+      }
 
       /* end */
       strip->end = tdn->h2[0];
 
-      if ((strip->next) && (strip->next->type == NLASTRIP_TYPE_TRANSITION))
+      if ((strip->next) && (strip->next->type == NLASTRIP_TYPE_TRANSITION)) {
         strip->next->start = tdn->h2[0];
+      }
 
       /* flush transforms to child strips (since this should be a meta) */
       BKE_nlameta_flush_transforms(strip);
@@ -559,8 +575,9 @@ static void recalcData_nla(TransInfo *t)
         tdn->h1[0] += offset;
         tdn->h2[0] += offset;
       }
-      else /* all is fine and well */
+      else { /* all is fine and well */
         break;
+      }
     }
 
     /* handle auto-snapping
@@ -651,8 +668,9 @@ static void recalcData_nla(TransInfo *t)
             tdn->nlt = track;
             tdn->trackIndex++;
           }
-          else /* can't move any further */
+          else { /* can't move any further */
             break;
+          }
         }
       }
       else {
@@ -669,8 +687,9 @@ static void recalcData_nla(TransInfo *t)
             tdn->nlt = track;
             tdn->trackIndex--;
           }
-          else /* can't move any further */
+          else { /* can't move any further */
             break;
+          }
         }
       }
     }
@@ -699,11 +718,11 @@ static void recalcData_image(TransInfo *t)
     SpaceImage *sima = t->sa->spacedata.first;
 
     flushTransUVs(t);
-    if (sima->flag & SI_LIVE_UNWRAP)
+    if (sima->flag & SI_LIVE_UNWRAP) {
       ED_uvedit_live_unwrap_re_solve();
+    }
 
-    FOREACH_TRANS_DATA_CONTAINER(t, tc)
-    {
+    FOREACH_TRANS_DATA_CONTAINER (t, tc) {
       if (tc->data_len) {
         DEG_id_tag_update(tc->obedit->data, 0);
       }
@@ -730,20 +749,25 @@ static void recalcData_spaceclip(TransInfo *t)
         MovieTrackingMarker *marker = BKE_tracking_marker_get(track, framenr);
 
         if (t->mode == TFM_TRANSLATION) {
-          if (TRACK_AREA_SELECTED(track, TRACK_AREA_PAT))
+          if (TRACK_AREA_SELECTED(track, TRACK_AREA_PAT)) {
             BKE_tracking_marker_clamp(marker, CLAMP_PAT_POS);
-          if (TRACK_AREA_SELECTED(track, TRACK_AREA_SEARCH))
+          }
+          if (TRACK_AREA_SELECTED(track, TRACK_AREA_SEARCH)) {
             BKE_tracking_marker_clamp(marker, CLAMP_SEARCH_POS);
+          }
         }
         else if (t->mode == TFM_RESIZE) {
-          if (TRACK_AREA_SELECTED(track, TRACK_AREA_PAT))
+          if (TRACK_AREA_SELECTED(track, TRACK_AREA_PAT)) {
             BKE_tracking_marker_clamp(marker, CLAMP_PAT_DIM);
-          if (TRACK_AREA_SELECTED(track, TRACK_AREA_SEARCH))
+          }
+          if (TRACK_AREA_SELECTED(track, TRACK_AREA_SEARCH)) {
             BKE_tracking_marker_clamp(marker, CLAMP_SEARCH_DIM);
+          }
         }
         else if (t->mode == TFM_ROTATION) {
-          if (TRACK_AREA_SELECTED(track, TRACK_AREA_PAT))
+          if (TRACK_AREA_SELECTED(track, TRACK_AREA_PAT)) {
             BKE_tracking_marker_clamp(marker, CLAMP_PAT_POS);
+          }
         }
       }
 
@@ -770,8 +794,7 @@ static void recalcData_objects(TransInfo *t)
         applyProject(t);
       }
 
-      FOREACH_TRANS_DATA_CONTAINER(t, tc)
-      {
+      FOREACH_TRANS_DATA_CONTAINER (t, tc) {
         Curve *cu = tc->obedit->data;
         ListBase *nurbs = BKE_curve_editNurbs_get(cu);
         Nurb *nu = nurbs->first;
@@ -801,8 +824,7 @@ static void recalcData_objects(TransInfo *t)
         applyProject(t);
       }
 
-      FOREACH_TRANS_DATA_CONTAINER(t, tc)
-      {
+      FOREACH_TRANS_DATA_CONTAINER (t, tc) {
         Lattice *la = tc->obedit->data;
         DEG_id_tag_update(tc->obedit->data, 0); /* sets recalc flags */
         if (la->editlatt->latt->flag & LT_OUTSIDE) {
@@ -828,8 +850,7 @@ static void recalcData_objects(TransInfo *t)
         projectVertSlideData(t, false);
       }
 
-      FOREACH_TRANS_DATA_CONTAINER(t, tc)
-      {
+      FOREACH_TRANS_DATA_CONTAINER (t, tc) {
         DEG_id_tag_update(tc->obedit->data, 0); /* sets recalc flags */
         BMEditMesh *em = BKE_editmesh_from_object(tc->obedit);
         EDBM_mesh_normals_update(em);
@@ -842,8 +863,7 @@ static void recalcData_objects(TransInfo *t)
         applyProject(t);
       }
 
-      FOREACH_TRANS_DATA_CONTAINER(t, tc)
-      {
+      FOREACH_TRANS_DATA_CONTAINER (t, tc) {
         bArmature *arm = tc->obedit->data;
         ListBase *edbo = arm->edbo;
         EditBone *ebo, *ebo_parent;
@@ -858,14 +878,16 @@ static void recalcData_objects(TransInfo *t)
             /* If this bone has a parent tip that has been moved */
             if (ebo_parent->flag & BONE_TIPSEL) {
               copy_v3_v3(ebo->head, ebo_parent->tail);
-              if (t->mode == TFM_BONE_ENVELOPE)
+              if (t->mode == TFM_BONE_ENVELOPE) {
                 ebo->rad_head = ebo_parent->rad_tail;
+              }
             }
             /* If this bone has a parent tip that has NOT been moved */
             else {
               copy_v3_v3(ebo_parent->tail, ebo->head);
-              if (t->mode == TFM_BONE_ENVELOPE)
+              if (t->mode == TFM_BONE_ENVELOPE) {
                 ebo_parent->rad_tail = ebo->rad_head;
+              }
             }
           }
 
@@ -876,8 +898,9 @@ static void recalcData_objects(TransInfo *t)
             ebo->rad_tail = 0.10f * ebo->length;
             ebo->dist = 0.25f * ebo->length;
             if (ebo->parent) {
-              if (ebo->rad_head > ebo->parent->rad_tail)
+              if (ebo->rad_head > ebo->parent->rad_tail) {
                 ebo->rad_head = ebo->parent->rad_tail;
+              }
             }
           }
           else if (t->mode != TFM_BONE_ENVELOPE) {
@@ -938,8 +961,7 @@ static void recalcData_objects(TransInfo *t)
       if (t->state != TRANS_CANCEL) {
         applyProject(t);
       }
-      FOREACH_TRANS_DATA_CONTAINER(t, tc)
-      {
+      FOREACH_TRANS_DATA_CONTAINER (t, tc) {
         if (tc->data_len) {
           DEG_id_tag_update(tc->obedit->data, 0); /* sets recalc flags */
         }
@@ -949,8 +971,7 @@ static void recalcData_objects(TransInfo *t)
   else if (t->flag & T_POSE) {
     GSet *motionpath_updates = BLI_gset_ptr_new("motionpath updates");
 
-    FOREACH_TRANS_DATA_CONTAINER(t, tc)
-    {
+    FOREACH_TRANS_DATA_CONTAINER (t, tc) {
       Object *ob = tc->poseobj;
       bArmature *arm = ob->data;
 
@@ -1008,18 +1029,19 @@ static void recalcData_objects(TransInfo *t)
       applyProject(t);
     }
 
-    FOREACH_TRANS_DATA_CONTAINER(t, tc)
-    {
+    FOREACH_TRANS_DATA_CONTAINER (t, tc) {
       TransData *td = tc->data;
 
       for (int i = 0; i < tc->data_len; i++, td++) {
         Object *ob = td->ob;
 
-        if (td->flag & TD_NOACTION)
+        if (td->flag & TD_NOACTION) {
           break;
+        }
 
-        if (td->flag & TD_SKIP)
+        if (td->flag & TD_SKIP) {
           continue;
+        }
 
         /* if animtimer is running, and the object already has animation data,
          * check if the auto-record feature means that we should record 'samples'
@@ -1039,8 +1061,9 @@ static void recalcData_objects(TransInfo *t)
          */
         DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM);
 
-        if (t->flag & T_TEXTURE)
+        if (t->flag & T_TEXTURE) {
           DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
+        }
       }
     }
 
@@ -1523,10 +1546,12 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
     t->view = &ar->v2d;
     t->around = sclip->around;
 
-    if (ED_space_clip_check_show_trackedit(sclip))
+    if (ED_space_clip_check_show_trackedit(sclip)) {
       t->options |= CTX_MOVIECLIP;
-    else if (ED_space_clip_check_show_maskedit(sclip))
+    }
+    else if (ED_space_clip_check_show_maskedit(sclip)) {
       t->options |= CTX_MASK;
+    }
   }
   else {
     if (ar) {
@@ -1726,8 +1751,7 @@ static void freeTransCustomDataContainer(TransInfo *t,
 void freeTransCustomDataForMode(TransInfo *t)
 {
   freeTransCustomData(t, NULL, &t->custom.mode);
-  FOREACH_TRANS_DATA_CONTAINER(t, tc)
-  {
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     freeTransCustomData(t, tc, &tc->custom.mode);
   }
 }
@@ -1735,14 +1759,18 @@ void freeTransCustomDataForMode(TransInfo *t)
 /* Here I would suggest only TransInfo related issues, like free data & reset vars. Not redraws */
 void postTrans(bContext *C, TransInfo *t)
 {
-  if (t->draw_handle_view)
+  if (t->draw_handle_view) {
     ED_region_draw_cb_exit(t->ar->type, t->draw_handle_view);
-  if (t->draw_handle_apply)
+  }
+  if (t->draw_handle_apply) {
     ED_region_draw_cb_exit(t->ar->type, t->draw_handle_apply);
-  if (t->draw_handle_pixel)
+  }
+  if (t->draw_handle_pixel) {
     ED_region_draw_cb_exit(t->ar->type, t->draw_handle_pixel);
-  if (t->draw_handle_cursor)
+  }
+  if (t->draw_handle_cursor) {
     WM_paint_cursor_end(CTX_wm_manager(C), t->draw_handle_cursor);
+  }
 
   if (t->flag & T_MODAL_CURSOR_SET) {
     WM_cursor_modal_restore(CTX_wm_window(C));
@@ -1750,15 +1778,13 @@ void postTrans(bContext *C, TransInfo *t)
 
   /* Free all custom-data */
   freeTransCustomDataContainer(t, NULL, &t->custom);
-  FOREACH_TRANS_DATA_CONTAINER(t, tc)
-  {
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     freeTransCustomDataContainer(t, tc, &tc->custom);
   }
 
   /* postTrans can be called when nothing is selected, so data is NULL already */
   if (t->data_len_all != 0) {
-    FOREACH_TRANS_DATA_CONTAINER(t, tc)
-    {
+    FOREACH_TRANS_DATA_CONTAINER (t, tc) {
       /* free data malloced per trans-data */
       if (ELEM(t->obedit_type, OB_CURVE, OB_SURF) || (t->spacetype == SPACE_GRAPH)) {
         TransData *td = tc->data;
@@ -1786,8 +1812,9 @@ void postTrans(bContext *C, TransInfo *t)
     }
     else {
       SpaceImage *sima = t->sa->spacedata.first;
-      if (sima->flag & SI_LIVE_UNWRAP)
+      if (sima->flag & SI_LIVE_UNWRAP) {
         ED_uvedit_live_unwrap_end(t->state == TRANS_CANCEL);
+      }
     }
   }
   else if (t->spacetype == SPACE_VIEW3D) {
@@ -1864,8 +1891,7 @@ static void restoreElement(TransData *td)
 
 void restoreTransObjects(TransInfo *t)
 {
-  FOREACH_TRANS_DATA_CONTAINER(t, tc)
-  {
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
 
     TransData *td;
     TransData2D *td2d;
@@ -1901,8 +1927,7 @@ void calculateCenterLocal(TransInfo *t, const float center_global[3])
 {
   /* setting constraint center */
   /* note, init functions may over-ride t->center */
-  FOREACH_TRANS_DATA_CONTAINER(t, tc)
-  {
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     if (tc->use_local_mat) {
       mul_v3_m4v3(tc->center_local, tc->imat, center_global);
     }
@@ -1994,8 +2019,7 @@ void calculateCenterMedian(TransInfo *t, float r_center[3])
   float partial[3] = {0.0f, 0.0f, 0.0f};
   int total = 0;
 
-  FOREACH_TRANS_DATA_CONTAINER(t, tc)
-  {
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     for (int i = 0; i < tc->data_len; i++) {
       if (tc->data[i].flag & TD_SELECTED) {
         if (!(tc->data[i].flag & TD_NOCENTER)) {
@@ -2023,8 +2047,7 @@ void calculateCenterBound(TransInfo *t, float r_center[3])
   float max[3], min[3];
   bool changed = false;
   INIT_MINMAX(min, max);
-  FOREACH_TRANS_DATA_CONTAINER(t, tc)
-  {
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     for (int i = 0; i < tc->data_len; i++) {
       if (tc->data[i].flag & TD_SELECTED) {
         if (!(tc->data[i].flag & TD_NOCENTER)) {
@@ -2102,12 +2125,15 @@ static void calculateCenter_FromAround(TransInfo *t, int around, float r_center[
       calculateCenterMedian(t, r_center);
       break;
     case V3D_AROUND_CURSOR:
-      if (ELEM(t->spacetype, SPACE_IMAGE, SPACE_CLIP))
+      if (ELEM(t->spacetype, SPACE_IMAGE, SPACE_CLIP)) {
         calculateCenterCursor2D(t, r_center);
-      else if (t->spacetype == SPACE_GRAPH)
+      }
+      else if (t->spacetype == SPACE_GRAPH) {
         calculateCenterCursorGraph2D(t, r_center);
-      else
+      }
+      else {
         calculateCenterCursor(t, r_center);
+      }
       break;
     case V3D_AROUND_LOCAL_ORIGINS:
       /* Individual element center uses median center for helpline and such */
@@ -2213,8 +2239,7 @@ void calculatePropRatio(TransInfo *t)
 
   if (t->flag & T_PROP_EDIT) {
     const char *pet_id = NULL;
-    FOREACH_TRANS_DATA_CONTAINER(t, tc)
-    {
+    FOREACH_TRANS_DATA_CONTAINER (t, tc) {
       TransData *td = tc->data;
       for (i = 0; i < tc->data_len; i++, td++) {
         if (td->flag & TD_SELECTED) {
@@ -2240,18 +2265,21 @@ void calculatePropRatio(TransInfo *t)
           /* Use rdist for falloff calculations, it is the real distance */
           td->flag &= ~TD_NOACTION;
 
-          if (connected)
+          if (connected) {
             dist = (t->prop_size - td->dist) / t->prop_size;
-          else
+          }
+          else {
             dist = (t->prop_size - td->rdist) / t->prop_size;
+          }
 
           /*
            * Clamp to positive numbers.
            * Certain corner cases with connectivity and individual centers
            * can give values of rdist larger than propsize.
            */
-          if (dist < 0.0f)
+          if (dist < 0.0f) {
             dist = 0.0f;
+          }
 
           switch (t->prop_mode) {
             case PROP_SHARP:
@@ -2325,8 +2353,7 @@ void calculatePropRatio(TransInfo *t)
     }
   }
   else {
-    FOREACH_TRANS_DATA_CONTAINER(t, tc)
-    {
+    FOREACH_TRANS_DATA_CONTAINER (t, tc) {
       TransData *td = tc->data;
       for (i = 0; i < tc->data_len; i++, td++) {
         td->factor = 1.0;
