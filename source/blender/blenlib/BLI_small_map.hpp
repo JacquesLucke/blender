@@ -2,6 +2,7 @@
 
 #include "BLI_small_vector.hpp"
 #include "BLI_array_lookup.hpp"
+#include "BLI_array_ref.hpp"
 
 namespace BLI {
 
@@ -22,6 +23,16 @@ template<typename K, typename V, uint N = 4> class SmallMap {
   static const K &get_key_from_entry(const Entry &entry)
   {
     return entry.key;
+  }
+
+  static const K &get_key_from_entry(Entry &entry)
+  {
+    return entry.key;
+  }
+
+  static V &get_value_from_entry(Entry &entry)
+  {
+    return entry.value;
   }
 
   SmallVector<Entry> m_entries;
@@ -125,57 +136,15 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     m_lookup.print_lookup_stats(m_entries.begin());
   }
 
-  ValueIterator values() const
+  StridedArrayRef<Entry, V &, get_value_from_entry> values() const
   {
-    return ValueIterator(*this);
+    return StridedArrayRef<Entry, V &, get_value_from_entry>(m_entries.begin(), m_entries.size());
   }
 
-  class ValueIterator {
-   private:
-    const SmallMap &m_map;
-    uint m_index;
-
-    ValueIterator(const SmallMap &map, uint index) : m_map(map), m_index(index)
-    {
-    }
-
-   public:
-    ValueIterator(const SmallMap &map) : ValueIterator(map, 0)
-    {
-    }
-
-    ValueIterator begin() const
-    {
-      return ValueIterator(m_map, 0);
-    }
-
-    ValueIterator end() const
-    {
-      return ValueIterator(m_map, m_map.size());
-    }
-
-    ValueIterator &operator++()
-    {
-      m_index++;
-      return *this;
-    }
-
-    ValueIterator operator++(int)
-    {
-      ValueIterator iterator = *this;
-      ++*this;
-      return iterator;
-    }
-
-    bool operator!=(const ValueIterator &iterator) const
-    {
-      return m_index != iterator.m_index;
-    }
-
-    V &operator*() const
-    {
-      return m_map.m_entries[m_index].value;
-    }
-  };
+  StridedArrayRef<Entry, const K &, get_key_from_entry> keys() const
+  {
+    return StridedArrayRef<Entry, const K &, get_key_from_entry>(m_entries.begin(),
+                                                                 m_entries.size());
+  }
 };
 };  // namespace BLI
