@@ -145,7 +145,7 @@ class TreeData {
   }
 };
 
-Optional<FunctionGraph> generate_function_graph(struct bNodeTree *btree)
+Optional<CompactFunctionGraph> generate_function_graph(struct bNodeTree *btree)
 {
   auto graph = SharedDataFlowGraph::New();
   SocketMap socket_map;
@@ -221,9 +221,8 @@ Optional<FunctionGraph> generate_function_graph(struct bNodeTree *btree)
     builder.insert_link(new_origins[i], node_inputs[i]);
   }
 
-  CompactDataFlowGraph test(graph.ptr());
-
-  graph->freeze();
+  auto compact_graph = SharedCompactDataFlowGraph::New(graph.ptr());
+  CompactFunctionGraph compact_fgraph();
   FunctionGraph fgraph(graph, input_sockets, output_sockets);
   return fgraph;
 }

@@ -4,6 +4,6 @@
 
 namespace FN {
 
-void fgraph_add_TupleCallBody(SharedFunction &fn, CompactDataFlowGraph &fgraph);
+void fgraph_add_TupleCallBody(SharedFunction &fn, CompactFunctionGraph &fgraph);
 
 } /* namespace FN */

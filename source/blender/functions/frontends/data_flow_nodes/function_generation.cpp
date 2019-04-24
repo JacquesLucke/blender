@@ -11,13 +11,12 @@ namespace DataFlowNodes {
 
 Optional<SharedFunction> generate_function(bNodeTree *btree)
 {
-  Optional<FunctionGraph> fgraph_ = generate_function_graph(btree);
+  Optional<CompactFunctionGraph> fgraph_ = generate_function_graph(btree);
   if (!fgraph_.has_value()) {
     return {};
   }
 
-  FunctionGraph fgraph = fgraph_.value();
-  // fgraph.graph()->to_dot__clipboard();
+  CompactFunctionGraph fgraph = fgraph_.value();
 
   auto fn = SharedFunction::New(btree->id.name, fgraph.signature());
   fgraph_add_DependenciesBody(fn, fgraph);

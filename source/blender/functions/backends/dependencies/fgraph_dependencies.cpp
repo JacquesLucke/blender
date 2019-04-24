@@ -13,8 +13,8 @@ class FGraphDependencies : public DependenciesBody {
 
   void dependencies(Dependencies &deps) const override
   {
-    for (uint node : m_graph->nodes()) {
-      DependenciesBody *body = m_graph->function_of_node(node)->body<DependenciesBody>();
+    for (uint node_id : m_graph->node_ids()) {
+      DependenciesBody *body = m_graph->function_of_node(node_id)->body<DependenciesBody>();
       if (body) {
         body->dependencies(deps);
       }

@@ -15,7 +15,7 @@ class ExecuteGraph : public TupleCallBody {
   {
     auto *context = new llvm::LLVMContext();
 
-    for (uint node : m_graph->nodes()) {
+    for (uint node : m_graph->node_ids()) {
       SharedFunction &fn = m_graph->function_of_node(node);
       if (fn->has_body<TupleCallBody>()) {
         continue;
@@ -47,22 +47,22 @@ class ExecuteGraph : public TupleCallBody {
       Tuple::copy_element(fn_in, index, out, out_index);
     }
     else if (socket.is_input()) {
-      this->compute_socket(fn_in, out, out_index, m_graph->origin(socket), ctx);
+      this->compute_socket(fn_in, out, out_index, m_graph->origin_of_input(socket), ctx);
     }
     else {
-      uint node_id = m_graph->node_of_output(socket.id());
+      uint node_id = m_graph->node_id_of_output(socket);
       SharedFunction &fn = m_graph->function_of_node(node_id);
       TupleCallBody *body = fn->body<TupleCallBody>();
 
       FN_TUPLE_CALL_ALLOC_TUPLES(body, tmp_in, tmp_out);
 
       uint index = 0;
-      for (uint input_id : m_graph->inputs_of_node(node_id)) {
-        this->compute_socket(fn_in, tmp_in, index, FunctionSocket::FromInput(input_id), ctx);
+      for (FunctionSocket input_socket : m_graph->inputs_of_node(node_id)) {
+        this->compute_socket(fn_in, tmp_in, index, input_socket, ctx);
         index++;
       }
 
-      SourceInfoStackFrame node_frame(m_graph->source_of_node(node_id));
+      SourceInfoStackFrame node_frame(m_graph->source_info_of_node(node_id));
       body->call__setup_stack(tmp_in, tmp_out, ctx, node_frame);
 
       Tuple::copy_element(tmp_out, m_graph->index_of_output(socket.id()), out, out_index);

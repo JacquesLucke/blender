@@ -2,9 +2,10 @@
 
 namespace FN {
 
-CompactDataFlowGraph::CompactDataFlowGraph(DataFlowGraph *orig_graph)
+CompactDataFlowGraph::CompactDataFlowGraph(std::unique_ptr<DataFlowGraph> orig_graph)
+    : m_builder(std::move(orig_graph))
 {
-  m_nodes.reserve(orig_graph->all_nodes().size());
+  m_nodes.reserve(m_builder->all_nodes().size());
 
   const uint dummy = (uint)-1;
 
@@ -12,7 +13,7 @@ CompactDataFlowGraph::CompactDataFlowGraph(DataFlowGraph *orig_graph)
   SmallMap<Socket, uint> input_socket_indices;
   SmallMap<Socket, uint> output_socket_indices;
 
-  for (Node *node : orig_graph->all_nodes()) {
+  for (Node *node : m_builder->all_nodes()) {
     uint node_index = m_nodes.size();
     m_nodes.append(MyNode(node->function(), node->source(), m_inputs.size(), m_outputs.size()));
     node_indices.add_new(node, node_index);
@@ -31,7 +32,7 @@ CompactDataFlowGraph::CompactDataFlowGraph(DataFlowGraph *orig_graph)
     }
   }
 
-  for (Node *node : orig_graph->all_nodes()) {
+  for (Node *node : m_builder->all_nodes()) {
     for (Socket input : node->inputs()) {
       uint input_index = input_socket_indices.lookup(input);
       uint origin_index = output_socket_indices.lookup(input.origin());

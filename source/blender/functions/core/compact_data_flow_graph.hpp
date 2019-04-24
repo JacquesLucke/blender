@@ -42,6 +42,49 @@ struct FunctionSocket {
   }
 };
 
+template<typename SequenceT> class FunctionSocketIterator {
+ private:
+  bool m_is_output;
+  SequenceT m_sequence;
+
+ public:
+  FunctionSocketIterator(bool is_output, SequenceT sequence)
+      : m_is_output(is_output), m_sequence(sequence)
+  {
+  }
+
+  FunctionSocketIterator begin() const
+  {
+    return FunctionSocketIterator(m_is_output, m_sequence.begin());
+  }
+
+  FunctionSocketIterator end() const
+  {
+    return FunctionSocketIterator(m_is_output, m_sequence.end());
+  }
+
+  uint size() const
+  {
+    return m_sequence.size();
+  }
+
+  FunctionSocketIterator &operator++()
+  {
+    ++m_sequence;
+    return *this;
+  }
+
+  bool operator!=(const FunctionSocketIterator &other)
+  {
+    return m_sequence != other.m_sequence;
+  }
+
+  FunctionSocket operator*() const
+  {
+    return FunctionSocket(m_is_output, *m_sequence);
+  }
+};
+
 class CompactDataFlowGraph : public RefCountedBase {
  private:
   struct MyNode {
@@ -85,86 +128,122 @@ class CompactDataFlowGraph : public RefCountedBase {
   SmallVector<InputSocket> m_inputs;
   SmallVector<OutputSocket> m_outputs;
   SmallVector<uint> m_targets;
-  MemMultiPool *m_source_info_pool;
+  std::unique_ptr<DataFlowGraph> m_builder;
 
  public:
-  CompactDataFlowGraph(DataFlowGraph *orig_graph);
+  CompactDataFlowGraph(std::unique_ptr<DataFlowGraph> orig_graph);
   CompactDataFlowGraph(CompactDataFlowGraph &other) = delete;
 
-  ~CompactDataFlowGraph()
-  {
-    delete m_source_info_pool;
-  }
-
-  Range<uint> nodes() const
+  Range<uint> node_ids() const
   {
     return Range<uint>(0, m_nodes.size());
   }
 
-  SharedFunction &function_of_node(uint node)
+  SharedFunction &function_of_node(uint node_id)
   {
-    return m_nodes[node].function;
+    return m_nodes[node_id].function;
   }
 
-  Range<uint> inputs_of_node(uint node) const
+  Range<uint> input_ids_of_node(uint node_id) const
   {
-    MyNode &node_ = m_nodes[node];
-    return Range<uint>(node_.inputs_start,
-                       node_.inputs_start + node_.function->signature().inputs().size());
+    MyNode &node = m_nodes[node_id];
+    return Range<uint>(node.inputs_start,
+                       node.inputs_start + node.function->signature().inputs().size());
   }
 
-  Range<uint> outputs_of_node(uint node) const
+  FunctionSocketIterator<Range<uint>> inputs_of_node(uint node_id) const
   {
-    MyNode &node_ = m_nodes[node];
-    return Range<uint>(node_.outputs_start,
-                       node_.outputs_start + node_.function->signature().outputs().size());
+    return FunctionSocketIterator<Range<uint>>(false, this->input_ids_of_node(node_id));
   }
 
-  SourceInfo *source_of_node(uint node) const
+  Range<uint> output_ids_of_node(uint node_id) const
   {
-    return m_nodes[node].source;
+    MyNode &node = m_nodes[node_id];
+    return Range<uint>(node.outputs_start,
+                       node.outputs_start + node.function->signature().outputs().size());
   }
 
-  const char *name_of_node(uint node) const
+  FunctionSocketIterator<Range<uint>> outputs_of_node(uint node_id) const
   {
-    return m_nodes[node].function->name().c_str();
+    return FunctionSocketIterator<Range<uint>>(true, this->output_ids_of_node(node_id));
   }
 
-  uint origin(uint input_socket) const
+  SourceInfo *source_info_of_node(uint node_id) const
   {
-    return m_inputs[input_socket].origin;
+    return m_nodes[node_id].source;
   }
 
-  FunctionSocket origin(FunctionSocket input_socket) const
+  const char *name_ptr_of_node(uint node_id) const
+  {
+    return m_nodes[node_id].function->name().c_str();
+  }
+
+  uint origin_of_input(uint input_id) const
+  {
+    return m_inputs[input_id].origin;
+  }
+
+  FunctionSocket origin_of_input(FunctionSocket input_socket) const
   {
     BLI_assert(input_socket.is_input());
-    return FunctionSocket::FromOutput(this->origin(input_socket.id()));
+    return FunctionSocket::FromOutput(this->origin_of_input(input_socket.id()));
   }
 
-  ArrayRef<uint> targets(uint output_socket) const
+  ArrayRef<uint> targets_of_output(uint output_id) const
   {
-    OutputSocket &data = m_outputs[output_socket];
+    OutputSocket &data = m_outputs[output_id];
     return ArrayRef<uint>(&m_targets[data.targets_start], data.targets_amount);
   }
 
-  uint node_of_input(uint input_socket) const
+  FunctionSocketIterator<ArrayRef<uint>> targets_of_output(FunctionSocket output_socket) const
   {
-    return m_inputs[input_socket].node;
+    BLI_assert(output_socket.is_output());
+    return FunctionSocketIterator<ArrayRef<uint>>(false,
+                                                  this->targets_of_output(output_socket.id()));
   }
 
-  uint node_of_output(uint output_socket) const
+  uint node_id_of_input(uint input_id) const
   {
-    return m_outputs[output_socket].node;
+    return m_inputs[input_id].node;
   }
 
-  uint index_of_input(uint input_socket) const
+  uint node_id_of_input(FunctionSocket input_socket) const
   {
-    return input_socket - m_nodes[m_inputs[input_socket].node].inputs_start;
+    BLI_assert(input_socket.is_input());
+    return this->node_id_of_input(input_socket.id());
   }
 
-  uint index_of_output(uint output_socket) const
+  uint node_id_of_output(uint output_id) const
   {
-    return output_socket - m_nodes[m_outputs[output_socket].node].outputs_start;
+    return m_outputs[output_id].node;
+  }
+
+  uint node_id_of_output(FunctionSocket output_socket) const
+  {
+    BLI_assert(output_socket.is_output());
+    return this->node_id_of_output(output_socket.id());
+  }
+
+  uint index_of_input(uint input_id) const
+  {
+    return input_id - m_nodes[m_inputs[input_id].node].inputs_start;
+  }
+
+  uint index_of_input(FunctionSocket input_socket) const
+  {
+    BLI_assert(input_socket.is_input());
+    return this->index_of_input(input_socket.id());
+  }
+
+  uint index_of_output(uint output_id) const
+  {
+    return output_id - m_nodes[m_outputs[output_id].node].outputs_start;
+  }
+
+  uint index_of_output(FunctionSocket output_socket) const
+  {
+    BLI_assert(output_socket.is_output());
+    return this->index_of_output(output_socket.id());
   }
 
   const std::string &name_of_socket(FunctionSocket socket)
@@ -209,14 +288,14 @@ class CompactDataFlowGraph : public RefCountedBase {
 
   InputParameter &input_parameter(uint input_socket)
   {
-    uint node = this->node_of_input(input_socket);
+    uint node = this->node_id_of_input(input_socket);
     uint index = this->index_of_input(input_socket);
     return this->function_of_node(node)->signature().inputs()[index];
   }
 
   OutputParameter &output_parameter(uint output_socket)
   {
-    uint node = this->node_of_output(output_socket);
+    uint node = this->node_id_of_output(output_socket);
     uint index = this->index_of_output(output_socket);
     return this->function_of_node(node)->signature().outputs()[index];
   }

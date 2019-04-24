@@ -328,52 +328,6 @@ class DataFlowGraph : public RefCountedBase {
 
 using SharedDataFlowGraph = AutoRefCount<DataFlowGraph>;
 
-class FunctionGraph {
- public:
-  FunctionGraph(SharedDataFlowGraph &graph, SocketVector &inputs, SocketVector &outputs)
-      : m_graph(graph), m_inputs(inputs), m_outputs(outputs)
-  {
-    BLI_assert(graph->frozen());
-  }
-
-  const SharedDataFlowGraph &graph() const
-  {
-    return m_graph;
-  }
-
-  const SocketSetVector &inputs() const
-  {
-    return m_inputs;
-  }
-
-  const SocketSetVector &outputs() const
-  {
-    return m_outputs;
-  }
-
-  Signature signature() const
-  {
-    InputParameters inputs;
-    OutputParameters outputs;
-
-    for (const Socket &socket : m_inputs) {
-      inputs.append(InputParameter(socket.name(), socket.type()));
-    }
-    for (const Socket &socket : m_outputs) {
-      outputs.append(OutputParameter(socket.name(), socket.type()));
-    }
-
-    return Signature(inputs, outputs);
-  }
-
-  SocketSet find_used_sockets(bool include_inputs, bool include_outputs) const;
-
- private:
-  SharedDataFlowGraph m_graph;
-  SocketSetVector m_inputs;
-  SocketSetVector m_outputs;
-};
-
 /* Socket Inline Functions
    ********************************************** */
 
