@@ -13,7 +13,7 @@ class CompactFunctionGraph {
   FunctionSockets m_outputs;
 
  public:
-  SharedCompactDataFlowGraph &graph()
+  const SharedCompactDataFlowGraph &graph() const
   {
     return m_graph;
   }

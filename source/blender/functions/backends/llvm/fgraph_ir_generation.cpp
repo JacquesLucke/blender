@@ -7,16 +7,17 @@ namespace FN {
 class BuildGraphIR : public LLVMBuildIRBody {
  private:
   CompactFunctionGraph m_fgraph;
-  SharedCompactDataFlowGraph &m_graph;
-  SocketSet m_required_sockets;
+  CompactDataFlowGraph *m_graph;
+  SmallSet<FunctionSocket> m_required_sockets;
 
-  using SocketValueMap = SmallMap<Socket, llvm::Value *>;
+  using SocketValueMap = SmallMap<FunctionSocket, llvm::Value *>;
+  using FunctionSocketSet = SmallSet<FunctionSocket>;
 
  public:
-  BuildGraphIR(CompactFunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph())
+  BuildGraphIR(CompactFunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph().ptr())
   {
-    for (uint node = 0; m_fgraph.graph()->nodes_amount(); node++) {
-      SharedFunction &fn = m_fgraph.graph()->function_of_node(node);
+    for (uint node_id : m_graph->nodes()) {
+      SharedFunction &fn = m_fgraph.graph()->function_of_node(node_id);
       if (fn->has_body<LLVMBuildIRBody>()) {
         continue;
       }
@@ -38,13 +39,13 @@ class BuildGraphIR : public LLVMBuildIRBody {
                 const BuildIRSettings &settings) const override
   {
     SocketValueMap values;
-    for (uint i = 0; i < interface.inputs().size(); i++) {
-      values.add(m_inputs[i], interface.get_input(i));
+    for (uint i = 0; i < m_fgraph.inputs().size(); i++) {
+      values.add(m_fgraph.inputs()[i], interface.get_input(i));
     }
 
-    SocketSet forwarded_sockets;
-    for (uint i = 0; i < m_outputs.size(); i++) {
-      Socket socket = m_outputs[i];
+    FunctionSocketSet forwarded_sockets;
+    for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
+      FunctionSocket socket = m_fgraph.outputs()[i];
       this->generate_for_socket(builder, interface, settings, socket, values, forwarded_sockets);
 
       interface.set_output(i, values.lookup(socket));
@@ -55,33 +56,37 @@ class BuildGraphIR : public LLVMBuildIRBody {
   void generate_for_socket(CodeBuilder &builder,
                            CodeInterface &interface,
                            const BuildIRSettings &settings,
-                           Socket socket,
+                           FunctionSocket socket,
                            SocketValueMap &values,
-                           SocketSet &forwarded_sockets) const
+                           FunctionSocketSet &forwarded_sockets) const
   {
     if (values.contains(socket)) {
       /* do nothing */
     }
     else if (socket.is_input()) {
-      Socket origin = socket.origin();
+      FunctionSocket origin = m_graph->origin(socket);
       this->generate_for_socket(builder, interface, settings, origin, values, forwarded_sockets);
       this->forward_output_if_necessary(builder, origin, values, forwarded_sockets);
     }
     else if (socket.is_output()) {
-      Node *node = socket.node();
+      uint node_id = m_graph->node_of_output(socket.id());
       LLVMValues input_values;
-      for (Socket input : node->inputs()) {
-        this->generate_for_socket(builder, interface, settings, input, values, forwarded_sockets);
-        input_values.append(values.lookup(input));
+      for (uint input_id : m_graph->inputs_of_node(node_id)) {
+        FunctionSocket input_socket = FunctionSocket::FromInput(input_id);
+        this->generate_for_socket(
+            builder, interface, settings, input_socket, values, forwarded_sockets);
+        input_values.append(values.lookup(input_socket));
       }
 
       LLVMValues output_values = this->build_node_ir(
-          builder, interface, settings, node, input_values);
+          builder, interface, settings, node_id, input_values);
 
-      for (uint i = 0; i < output_values.size(); i++) {
-        Socket output = node->output(i);
-        values.add(output, output_values[i]);
-        this->forward_output_if_necessary(builder, output, values, forwarded_sockets);
+      uint index = 0;
+      for (uint output_id : m_graph->outputs_of_node(node_id)) {
+        FunctionSocket output_socket = FunctionSocket::FromOutput(output_id);
+        values.add(output_socket, output_values[index]);
+        this->forward_output_if_necessary(builder, output_socket, values, forwarded_sockets);
+        index++;
       }
     }
     else {
@@ -90,9 +95,9 @@ class BuildGraphIR : public LLVMBuildIRBody {
   }
 
   void forward_output_if_necessary(CodeBuilder &builder,
-                                   Socket output,
+                                   FunctionSocket output,
                                    SocketValueMap &values,
-                                   SocketSet &forwarded_sockets) const
+                                   FunctionSocketSet &forwarded_sockets) const
   {
     BLI_assert(output.is_output());
     if (!forwarded_sockets.contains(output)) {
@@ -101,17 +106,18 @@ class BuildGraphIR : public LLVMBuildIRBody {
     }
   }
 
-  void forward_output(CodeBuilder &builder, Socket output, SocketValueMap &values) const
+  void forward_output(CodeBuilder &builder, FunctionSocket output, SocketValueMap &values) const
   {
     llvm::Value *value_to_forward = values.lookup(output);
-    SharedType &type = output.type();
+    SharedType &type = m_graph->type_of_socket(output);
     LLVMTypeInfo *type_info = type->extension<LLVMTypeInfo>();
     BLI_assert(type_info);
 
-    SocketVector targets;
-    for (Socket target : output.targets()) {
+    SmallVector<FunctionSocket> targets;
+    for (uint target_id : m_graph->targets(output.id())) {
+      FunctionSocket target = FunctionSocket::FromInput(target_id);
       if (m_required_sockets.contains(target) && !values.contains(target)) {
-        BLI_assert(type == target.type());
+        BLI_assert(type == m_graph->type_of_socket(target));
         targets.append(target);
       }
     }
@@ -125,7 +131,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
     else {
       values.add(targets[0], value_to_forward);
       for (uint i = 1; i < targets.size(); i++) {
-        Socket target = targets[i];
+        FunctionSocket target = targets[i];
         llvm::Value *copied_value = type_info->build_copy_ir(builder, value_to_forward);
         values.add(target, copied_value);
       }
@@ -135,15 +141,15 @@ class BuildGraphIR : public LLVMBuildIRBody {
   LLVMValues build_node_ir(CodeBuilder &builder,
                            CodeInterface &interface,
                            const BuildIRSettings &settings,
-                           Node *node,
+                           uint node_id,
                            LLVMValues &input_values) const
   {
     if (settings.maintain_stack()) {
-      this->push_stack_frames_for_node(builder, interface.context_ptr(), node);
+      this->push_stack_frames_for_node(builder, interface.context_ptr(), node_id);
     }
 
-    SharedFunction &fn = node->function();
-    LLVMValues output_values(node->output_amount());
+    SharedFunction &fn = m_graph->function_of_node(node_id);
+    LLVMValues output_values(m_graph->outputs_of_node(node_id).size());
     CodeInterface sub_interface(
         input_values, output_values, interface.context_ptr(), interface.function_ir_cache());
 
@@ -158,15 +164,18 @@ class BuildGraphIR : public LLVMBuildIRBody {
     return output_values;
   }
 
-  void push_stack_frames_for_node(CodeBuilder &builder, llvm::Value *context_ptr, Node *node) const
+  void push_stack_frames_for_node(CodeBuilder &builder,
+                                  llvm::Value *context_ptr,
+                                  uint node_id) const
   {
     BLI_assert(context_ptr);
+    SourceInfo *source_info = m_graph->source_of_node(node_id);
 
     llvm::Value *node_info_frame_buf = builder.CreateAllocaBytes_VoidPtr(
         sizeof(SourceInfoStackFrame));
     builder.CreateCallPointer_NoReturnValue(
         (void *)BuildGraphIR::push_source_frame_on_stack,
-        {context_ptr, node_info_frame_buf, builder.getVoidPtr(node)});
+        {context_ptr, node_info_frame_buf, builder.getVoidPtr((void *)source_info)});
 
     llvm::Value *function_info_frame_buf = builder.CreateAllocaBytes_VoidPtr(
         sizeof(TextStackFrame));
@@ -174,7 +183,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
         (void *)BuildGraphIR::push_text_frame_on_stack,
         {context_ptr,
          function_info_frame_buf,
-         builder.getVoidPtr((void *)node->function()->name().c_str())});
+         builder.getVoidPtr((void *)m_graph->name_of_node(node_id))});
   }
 
   void pop_stack_frames_for_node(CodeBuilder &builder, llvm::Value *context_ptr) const
@@ -187,9 +196,11 @@ class BuildGraphIR : public LLVMBuildIRBody {
     }
   }
 
-  static void push_source_frame_on_stack(ExecutionContext *ctx, void *frame_buf, Node *node)
+  static void push_source_frame_on_stack(ExecutionContext *ctx,
+                                         void *frame_buf,
+                                         SourceInfo *source_info)
   {
-    StackFrame *frame = new (frame_buf) SourceInfoStackFrame(node->source());
+    StackFrame *frame = new (frame_buf) SourceInfoStackFrame(source_info);
     ctx->stack().push(frame);
   }
 
@@ -203,7 +214,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
   {
     ctx->stack().pop();
   }
-};  // namespace FN
+};
 
 void fgraph_add_LLVMBuildIRBody(SharedFunction &fn, CompactFunctionGraph &fgraph)
 {

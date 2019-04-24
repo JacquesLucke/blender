@@ -9,21 +9,21 @@ namespace FN {
 struct FunctionSocket {
  private:
   bool m_is_output;
-  uint m_index;
+  uint m_id;
 
-  FunctionSocket(bool is_output, uint index) : m_is_output(is_output), m_index(index)
+  FunctionSocket(bool is_output, uint id) : m_is_output(is_output), m_id(id)
   {
   }
 
  public:
-  static FunctionSocket FromInput(uint index)
+  static FunctionSocket FromInput(uint id)
   {
-    return FunctionSocket(false, index);
+    return FunctionSocket(false, id);
   }
 
-  static FunctionSocket FromOutput(uint index)
+  static FunctionSocket FromOutput(uint id)
   {
-    return FunctionSocket(true, index);
+    return FunctionSocket(true, id);
   }
 
   bool is_input() const
@@ -36,9 +36,9 @@ struct FunctionSocket {
     return m_is_output;
   }
 
-  uint index() const
+  uint id() const
   {
-    return m_index;
+    return m_id;
   }
 };
 
@@ -85,9 +85,16 @@ class CompactDataFlowGraph : public RefCountedBase {
   SmallVector<InputSocket> m_inputs;
   SmallVector<OutputSocket> m_outputs;
   SmallVector<uint> m_targets;
+  MemMultiPool *m_source_info_pool;
 
  public:
   CompactDataFlowGraph(DataFlowGraph *orig_graph);
+  CompactDataFlowGraph(CompactDataFlowGraph &other) = delete;
+
+  ~CompactDataFlowGraph()
+  {
+    delete m_source_info_pool;
+  }
 
   Range<uint> nodes() const
   {
@@ -99,9 +106,39 @@ class CompactDataFlowGraph : public RefCountedBase {
     return m_nodes[node].function;
   }
 
+  Range<uint> inputs_of_node(uint node) const
+  {
+    MyNode &node_ = m_nodes[node];
+    return Range<uint>(node_.inputs_start,
+                       node_.inputs_start + node_.function->signature().inputs().size());
+  }
+
+  Range<uint> outputs_of_node(uint node) const
+  {
+    MyNode &node_ = m_nodes[node];
+    return Range<uint>(node_.outputs_start,
+                       node_.outputs_start + node_.function->signature().outputs().size());
+  }
+
+  SourceInfo *source_of_node(uint node) const
+  {
+    return m_nodes[node].source;
+  }
+
+  const char *name_of_node(uint node) const
+  {
+    return m_nodes[node].function->name().c_str();
+  }
+
   uint origin(uint input_socket) const
   {
     return m_inputs[input_socket].origin;
+  }
+
+  FunctionSocket origin(FunctionSocket input_socket) const
+  {
+    BLI_assert(input_socket.is_input());
+    return FunctionSocket::FromOutput(this->origin(input_socket.id()));
   }
 
   ArrayRef<uint> targets(uint output_socket) const
@@ -133,20 +170,20 @@ class CompactDataFlowGraph : public RefCountedBase {
   const std::string &name_of_socket(FunctionSocket socket)
   {
     if (socket.is_input()) {
-      return this->name_of_input(socket.index());
+      return this->name_of_input(socket.id());
     }
     else {
-      return this->name_of_output(socket.index());
+      return this->name_of_output(socket.id());
     }
   }
 
   SharedType &type_of_socket(FunctionSocket socket)
   {
     if (socket.is_input()) {
-      return this->type_of_input(socket.index());
+      return this->type_of_input(socket.id());
     }
     else {
-      return this->type_of_output(socket.index());
+      return this->type_of_output(socket.id());
     }
   }
 
