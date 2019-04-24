@@ -16,7 +16,7 @@ template<typename T> class Optional {
   static Optional FromPointer(T *ptr)
   {
     if (ptr == nullptr) {
-      return Optional()
+      return Optional();
     }
     else {
       return Optional(*ptr);

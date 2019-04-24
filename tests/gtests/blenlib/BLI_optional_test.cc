@@ -35,3 +35,17 @@ TEST(optional, Reset)
   a.reset();
   EXPECT_FALSE(a.has_value());
 }
+
+TEST(optional, FromNullPointer)
+{
+  Optional<int> a = Optional<int>::FromPointer(nullptr);
+  EXPECT_FALSE(a.has_value());
+}
+
+TEST(optional, FromNonNullPointer)
+{
+  int value = 42;
+  Optional<int> a = Optional<int>::FromPointer(&value);
+  EXPECT_TRUE(a.has_value());
+  EXPECT_EQ(a.value(), 42);
+}
