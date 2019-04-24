@@ -138,3 +138,29 @@ TEST(small_map, KeyIterator)
   EXPECT_TRUE(keys.contains(2));
   EXPECT_TRUE(keys.contains(6));
 }
+
+TEST(small_map, ItemIterator)
+{
+  IntFloatMap map;
+  map.add(5, 3.0f);
+  map.add(2, 9.0f);
+  map.add(1, 0.0f);
+
+  BLI::SmallSet<int> keys;
+  BLI::SmallSet<float> values;
+
+  uint iterations = 0;
+  for (auto item : map.items()) {
+    keys.add(item.key);
+    values.add(item.value);
+    iterations++;
+  }
+
+  EXPECT_EQ(iterations, 3);
+  EXPECT_TRUE(keys.contains(5));
+  EXPECT_TRUE(keys.contains(2));
+  EXPECT_TRUE(keys.contains(1));
+  EXPECT_TRUE(values.contains(3.0f));
+  EXPECT_TRUE(values.contains(9.0f));
+  EXPECT_TRUE(values.contains(0.0f));
+}
