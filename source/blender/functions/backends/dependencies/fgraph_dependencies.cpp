@@ -4,26 +4,27 @@ namespace FN {
 
 class FGraphDependencies : public DependenciesBody {
  private:
-  SharedDataFlowGraph m_graph;
+  SharedCompactDataFlowGraph m_graph;
 
  public:
-  FGraphDependencies(FunctionGraph &function_graph) : m_graph(function_graph.graph())
+  FGraphDependencies(CompactFunctionGraph &function_graph) : m_graph(function_graph.graph())
   {
   }
 
   void dependencies(Dependencies &deps) const override
   {
-    for (Node *node : m_graph->all_nodes()) {
-      DependenciesBody *body = node->function()->body<DependenciesBody>();
-      if (body)
+    for (uint node : m_graph->nodes()) {
+      DependenciesBody *body = m_graph->function_of_node(node)->body<DependenciesBody>();
+      if (body) {
         body->dependencies(deps);
+      }
     }
   }
 };
 
-void fgraph_add_DependenciesBody(SharedFunction &fn, FunctionGraph &fgraph)
+void fgraph_add_DependenciesBody(SharedFunction &fn, CompactFunctionGraph &fgraph)
 {
   fn->add_body(new FGraphDependencies(fgraph));
 }
 
-} /* namespace FN */
+}  // namespace FN

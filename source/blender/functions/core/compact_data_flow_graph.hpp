@@ -2,6 +2,7 @@
 
 #include "function.hpp"
 #include "data_flow_graph.hpp"
+#include "BLI_range.hpp"
 
 namespace FN {
 
@@ -88,9 +89,9 @@ class CompactDataFlowGraph : public RefCountedBase {
  public:
   CompactDataFlowGraph(DataFlowGraph *orig_graph);
 
-  uint nodes_amount() const
+  Range<uint> nodes() const
   {
-    return m_nodes.size();
+    return Range<uint>(0, m_nodes.size());
   }
 
   SharedFunction &function_of_node(uint node)
