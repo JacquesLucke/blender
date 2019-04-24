@@ -13,6 +13,16 @@ template<typename T> class Optional {
   bool m_set;
 
  public:
+  static Optional FromPointer(T *ptr)
+  {
+    if (ptr == nullptr) {
+      return Optional()
+    }
+    else {
+      return Optional(*ptr);
+    }
+  }
+
   Optional() : m_set(false)
   {
   }

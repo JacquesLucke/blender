@@ -68,11 +68,33 @@ template<typename K, typename V> class MultiMap {
     return m_map.contains(key);
   }
 
+  bool has_at_least_one_value(const K &key) const
+  {
+    Entry *entry = m_map.lookup_ptr(key);
+    if (entry == nullptr) {
+      return false;
+    }
+    else {
+      return entry->length >= 1;
+    }
+  }
+
   ArrayRef<V> lookup(const K &key) const
   {
     BLI_assert(this->contains(key));
     Entry &entry = m_map.lookup_ref(key);
     return ArrayRef<V>(entry.ptr, entry.length);
+  }
+
+  ArrayRef<V> lookup_default(const K &key, ArrayRef<V> default_return = ArrayRef<V>())
+  {
+    Entry *entry = m_map.lookup_ptr(key);
+    if (entry == nullptr) {
+      return default_return;
+    }
+    else {
+      return ArrayRef<V>(entry->ptr, entry->length);
+    }
   }
 };
 
