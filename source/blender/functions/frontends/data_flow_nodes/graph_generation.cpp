@@ -51,7 +51,7 @@ static void insert_input_node(GraphBuilder &builder, bNode *bnode)
   }
 
   auto fn = SharedFunction::New("Function Input", Signature({}, outputs));
-  Node *node = builder.insert_function(fn);
+  DFGB_Node *node = builder.insert_function(fn);
   builder.map_data_sockets(node, bnode);
 }
 
@@ -66,7 +66,7 @@ static void insert_output_node(GraphBuilder &builder, bNode *bnode)
   }
 
   auto fn = SharedFunction::New("Function Output", Signature(inputs, {}));
-  Node *node = builder.insert_function(fn);
+  DFGB_Node *node = builder.insert_function(fn);
   builder.map_data_sockets(node, bnode);
 }
 
@@ -147,10 +147,10 @@ class TreeData {
 
 Optional<CompactFunctionGraph> generate_function_graph(struct bNodeTree *btree)
 {
-  DataFlowGraph *graph = new DataFlowGraph();
+  DataFlowGraphBuilder graph_builder;
   SocketMap socket_map;
 
-  GraphBuilder builder(btree, graph, socket_map);
+  GraphBuilder builder(btree, graph_builder, socket_map);
   GraphInserters &inserters = get_standard_inserters();
 
   bNode *input_node;
@@ -170,8 +170,8 @@ Optional<CompactFunctionGraph> generate_function_graph(struct bNodeTree *btree)
     }
   }
 
-  SocketVector input_sockets;
-  SocketVector output_sockets;
+  DFGB_SocketVector input_sockets;
+  DFGB_SocketVector output_sockets;
 
   if (input_node != nullptr) {
     insert_input_node(builder, input_node);
@@ -199,11 +199,11 @@ Optional<CompactFunctionGraph> generate_function_graph(struct bNodeTree *btree)
 
   BSockets unlinked_inputs;
   BNodes unlinked_inputs_nodes;
-  SocketVector node_inputs;
+  DFGB_SocketVector node_inputs;
   for (bNode *bnode : bNodeList(&btree->nodes)) {
     for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
       if (builder.is_data_socket(bsocket)) {
-        Socket socket = socket_map.lookup(bsocket);
+        DFGB_Socket socket = socket_map.lookup(bsocket);
         if (!socket.is_linked()) {
           unlinked_inputs.append(bsocket);
           unlinked_inputs_nodes.append(bnode);
@@ -213,7 +213,7 @@ Optional<CompactFunctionGraph> generate_function_graph(struct bNodeTree *btree)
     }
   }
 
-  SocketVector new_origins = inserters.insert_sockets(
+  DFGB_SocketVector new_origins = inserters.insert_sockets(
       builder, unlinked_inputs, unlinked_inputs_nodes);
   BLI_assert(unlinked_inputs.size() == new_origins.size());
 
@@ -221,15 +221,16 @@ Optional<CompactFunctionGraph> generate_function_graph(struct bNodeTree *btree)
     builder.insert_link(new_origins[i], node_inputs[i]);
   }
 
-  auto compact_graph = SharedCompactDataFlowGraph::New(std::unique_ptr<DataFlowGraph>(graph));
+  CompactDataFlowGraph::ToBuilderMapping builder_mapping;
+  auto compact_graph = CompactDataFlowGraph::FromBuilder(graph_builder, builder_mapping);
 
   FunctionSocketVector inputs, outputs;
 
-  for (Socket socket : input_sockets) {
-    inputs.add(compact_graph->map_socket(socket));
+  for (DFGB_Socket socket : input_sockets) {
+    inputs.add(builder_mapping.map_socket(socket));
   }
-  for (Socket socket : output_sockets) {
-    outputs.add(compact_graph->map_socket(socket));
+  for (DFGB_Socket socket : output_sockets) {
+    outputs.add(builder_mapping.map_socket(socket));
   }
 
   CompactFunctionGraph compact_fgraph(compact_graph, inputs, outputs);

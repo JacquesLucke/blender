@@ -16,7 +16,7 @@ typedef std::function<void(GraphBuilder &builder, struct bNode *bnode)> NodeInse
 typedef std::function<void(PointerRNA *socket_rna_ptr, Tuple &dst, uint index)> SocketLoader;
 
 typedef std::function<void(
-    GraphBuilder &builder, Socket from, Socket to, struct bNodeLink *source_link)>
+    GraphBuilder &builder, DFGB_Socket from, DFGB_Socket to, struct bNodeLink *source_link)>
     ConversionInserter;
 
 typedef std::function<SharedFunction()> FunctionGetter;
@@ -41,7 +41,7 @@ class GraphInserters {
 
   bool insert_node(GraphBuilder &builder, struct bNode *bnode);
 
-  SocketVector insert_sockets(GraphBuilder &builder, BSockets &bsockets, BNodes &bnodes);
+  DFGB_SocketVector insert_sockets(GraphBuilder &builder, BSockets &bsockets, BNodes &bnodes);
 
   bool insert_link(GraphBuilder &builder,
                    struct bNodeSocket *from_bsocket,

@@ -42,7 +42,7 @@ class NodeSource : public SourceInfo {
   {
     std::stringstream ss;
     ss << "NodeTree \"" << m_btree->id.name + 2 << "\"";
-    ss << " - Node \"" << m_bnode->name << "\"";
+    ss << " - DFGB_Node \"" << m_bnode->name << "\"";
     return ss.str();
   }
 
@@ -84,45 +84,45 @@ class LinkSource : public SourceInfo {
   }
 };
 
-Node *GraphBuilder::insert_function(SharedFunction &fn)
+DFGB_Node *GraphBuilder::insert_function(SharedFunction &fn)
 {
-  return m_graph->insert(fn);
+  return m_graph.insert_function(fn);
 }
 
-Node *GraphBuilder::insert_matching_function(SharedFunction &fn, bNode *bnode)
+DFGB_Node *GraphBuilder::insert_matching_function(SharedFunction &fn, bNode *bnode)
 {
-  Node *node = this->insert_function(fn, bnode);
+  DFGB_Node *node = this->insert_function(fn, bnode);
   this->map_sockets(node, bnode);
   return node;
 }
 
-Node *GraphBuilder::insert_function(SharedFunction &fn, bNode *bnode)
+DFGB_Node *GraphBuilder::insert_function(SharedFunction &fn, bNode *bnode)
 {
   BLI_assert(bnode != nullptr);
-  NodeSource *source = m_graph->new_source_info<NodeSource>(m_btree, bnode);
-  return m_graph->insert(fn, source);
+  NodeSource *source = m_graph.new_source_info<NodeSource>(m_btree, bnode);
+  return m_graph.insert_function(fn, source);
 }
 
-Node *GraphBuilder::insert_function(SharedFunction &fn, bNodeLink *blink)
+DFGB_Node *GraphBuilder::insert_function(SharedFunction &fn, bNodeLink *blink)
 {
   BLI_assert(blink != nullptr);
-  LinkSource *source = m_graph->new_source_info<LinkSource>(m_btree, blink);
-  return m_graph->insert(fn, source);
+  LinkSource *source = m_graph.new_source_info<LinkSource>(m_btree, blink);
+  return m_graph.insert_function(fn, source);
 }
 
-void GraphBuilder::insert_link(Socket a, Socket b)
+void GraphBuilder::insert_link(DFGB_Socket a, DFGB_Socket b)
 {
-  m_graph->link(a, b);
+  m_graph.insert_link(a, b);
 }
 
-void GraphBuilder::map_socket(Socket socket, bNodeSocket *bsocket)
+void GraphBuilder::map_socket(DFGB_Socket socket, bNodeSocket *bsocket)
 {
   BLI_assert(this->is_data_socket(bsocket) ? socket.type() == this->query_socket_type(bsocket) :
                                              true);
   m_socket_map.add(bsocket, socket);
 }
 
-void GraphBuilder::map_sockets(Node *node, struct bNode *bnode)
+void GraphBuilder::map_sockets(DFGB_Node *node, struct bNode *bnode)
 {
   BLI_assert(BLI_listbase_count(&bnode->inputs) == node->input_amount());
   BLI_assert(BLI_listbase_count(&bnode->outputs) == node->output_amount());
@@ -140,7 +140,7 @@ void GraphBuilder::map_sockets(Node *node, struct bNode *bnode)
   }
 }
 
-void GraphBuilder::map_data_sockets(Node *node, struct bNode *bnode)
+void GraphBuilder::map_data_sockets(DFGB_Node *node, struct bNode *bnode)
 {
   uint input_index = 0;
   for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
@@ -159,21 +159,21 @@ void GraphBuilder::map_data_sockets(Node *node, struct bNode *bnode)
   }
 }
 
-void GraphBuilder::map_input(Socket socket, struct bNode *bnode, uint index)
+void GraphBuilder::map_input(DFGB_Socket socket, struct bNode *bnode, uint index)
 {
   BLI_assert(socket.is_input());
   auto bsocket = (bNodeSocket *)BLI_findlink(&bnode->inputs, index);
   this->map_socket(socket, bsocket);
 }
 
-void GraphBuilder::map_output(Socket socket, struct bNode *bnode, uint index)
+void GraphBuilder::map_output(DFGB_Socket socket, struct bNode *bnode, uint index)
 {
   BLI_assert(socket.is_output());
   auto bsocket = (bNodeSocket *)BLI_findlink(&bnode->outputs, index);
   this->map_socket(socket, bsocket);
 }
 
-Socket GraphBuilder::lookup_socket(struct bNodeSocket *bsocket)
+DFGB_Socket GraphBuilder::lookup_socket(struct bNodeSocket *bsocket)
 {
   BLI_assert(m_socket_map.contains(bsocket));
   return m_socket_map.lookup(bsocket);
@@ -185,9 +185,9 @@ bool GraphBuilder::check_if_sockets_are_mapped(struct bNode *bnode, bSocketList 
   for (bNodeSocket *bsocket : bsockets) {
     if (this->is_data_socket(bsocket)) {
       if (!m_socket_map.contains(bsocket)) {
-        std::cout << "Data Socket not mapped: " << std::endl;
+        std::cout << "Data DFGB_Socket not mapped: " << std::endl;
         std::cout << "    Tree: " << m_btree->id.name << std::endl;
-        std::cout << "    Node: " << bnode->name << std::endl;
+        std::cout << "    DFGB_Node: " << bnode->name << std::endl;
         if (bsocket->in_out == SOCK_IN) {
           std::cout << "    Input";
         }

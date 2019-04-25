@@ -32,6 +32,7 @@ DFGB_Node *DataFlowGraphBuilder::insert_function(SharedFunction &fn, SourceInfo 
   BLI_assert(this->is_mutable());
   void *ptr = m_node_pool.allocate();
   DFGB_Node *node = new (ptr) DFGB_Node(*this, fn, source);
+  m_nodes.add_new(node);
   return node;
 }
 
@@ -70,6 +71,7 @@ SmallVector<DFGB_Link> DataFlowGraphBuilder::links()
   for (auto item : m_input_origins.items()) {
     links.append(DFGB_Link(item.value, item.key));
   }
+  return links;
 }
 
 }  // namespace FN

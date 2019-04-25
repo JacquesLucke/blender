@@ -55,6 +55,8 @@ SharedCompactDataFlowGraph CompactDataFlowGraph::FromBuilder(
   }
 
   graph->m_source_info_pool = std::move(builder.m_source_info_pool);
+
+  return graph;
 }
 
 }  // namespace FN

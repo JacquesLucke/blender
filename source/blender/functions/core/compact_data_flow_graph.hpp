@@ -1,7 +1,7 @@
 #pragma once
 
 #include "function.hpp"
-#include "data_flow_graph.hpp"
+#include "data_flow_graph_builder.hpp"
 #include "BLI_range.hpp"
 
 namespace FN {
@@ -102,7 +102,6 @@ template<typename SequenceT> class FunctionSocketSequence {
   }
 };
 
-class DataFlowGraphBuilder;
 class CompactDataFlowGraph;
 using SharedCompactDataFlowGraph = AutoRefCount<CompactDataFlowGraph>;
 
@@ -151,16 +150,24 @@ class CompactDataFlowGraph : public RefCountedBase {
   SmallVector<uint> m_targets;
   std::unique_ptr<MemMultiPool> m_source_info_pool;
 
-  CompactDataFlowGraph() = default;
-
  public:
-  CompactDataFlowGraph(std::unique_ptr<DataFlowGraph> orig_graph);
+  CompactDataFlowGraph() = default;
   CompactDataFlowGraph(CompactDataFlowGraph &other) = delete;
 
   struct ToBuilderMapping {
     SmallMap<DFGB_Node *, uint> node_indices;
     SmallMap<DFGB_Socket, uint> input_socket_indices;
     SmallMap<DFGB_Socket, uint> output_socket_indices;
+
+    FunctionSocket map_socket(DFGB_Socket dfgb_socket)
+    {
+      if (dfgb_socket.is_input()) {
+        return FunctionSocket(false, input_socket_indices.lookup(dfgb_socket));
+      }
+      else {
+        return FunctionSocket(true, output_socket_indices.lookup(dfgb_socket));
+      }
+    }
   };
 
   static SharedCompactDataFlowGraph FromBuilder(DataFlowGraphBuilder &builder,

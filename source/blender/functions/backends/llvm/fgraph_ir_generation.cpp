@@ -11,7 +11,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
   SmallSet<FunctionSocket> m_required_sockets;
 
   using SocketValueMap = SmallMap<FunctionSocket, llvm::Value *>;
-  using FunctionSocketSet = SmallSet<FunctionSocket>;
+  using FunctionDFGB_SocketSet = SmallSet<FunctionSocket>;
 
  public:
   BuildGraphIR(CompactFunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph().ptr())
@@ -43,7 +43,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
       values.add(m_fgraph.inputs()[i], interface.get_input(i));
     }
 
-    FunctionSocketSet forwarded_sockets;
+    FunctionDFGB_SocketSet forwarded_sockets;
     for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
       FunctionSocket socket = m_fgraph.outputs()[i];
       this->generate_for_socket(builder, interface, settings, socket, values, forwarded_sockets);
@@ -58,7 +58,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
                            const BuildIRSettings &settings,
                            FunctionSocket socket,
                            SocketValueMap &values,
-                           FunctionSocketSet &forwarded_sockets) const
+                           FunctionDFGB_SocketSet &forwarded_sockets) const
   {
     if (values.contains(socket)) {
       /* do nothing */
@@ -95,7 +95,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
   void forward_output_if_necessary(CodeBuilder &builder,
                                    FunctionSocket output,
                                    SocketValueMap &values,
-                                   FunctionSocketSet &forwarded_sockets) const
+                                   FunctionDFGB_SocketSet &forwarded_sockets) const
   {
     BLI_assert(output.is_output());
     if (!forwarded_sockets.contains(output)) {

@@ -1,13 +1,23 @@
 #pragma once
 
-#include "compact_data_flow_graph.hpp"
+#include "function.hpp"
+#include "source_info.hpp"
+
 #include "BLI_optional.hpp"
+#include "BLI_small_set_vector.hpp"
+#include "BLI_multipool.hpp"
+#include "BLI_multimap.hpp"
 
 namespace FN {
 
 class DFGB_Socket;
 class DFGB_Node;
 class DataFlowGraphBuilder;
+class CompactDataFlowGraph;
+
+using DFGB_SocketSet = SmallSet<DFGB_Socket>;
+using DFGB_SocketVector = SmallVector<DFGB_Socket>;
+using DFGB_SocketSetVector = SmallSetVector<DFGB_Socket>;
 
 class DFGB_Socket {
  public:
@@ -146,8 +156,6 @@ class DataFlowGraphBuilder {
  public:
   DataFlowGraphBuilder();
   DataFlowGraphBuilder(DataFlowGraphBuilder &other) = delete;
-
-  SharedCompactDataFlowGraph build();
 
   DFGB_Node *insert_function(SharedFunction &fn, SourceInfo *source = nullptr);
   void insert_link(DFGB_Socket a, DFGB_Socket b);

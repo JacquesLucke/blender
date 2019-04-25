@@ -13,37 +13,37 @@ struct PointerRNA;
 namespace FN {
 namespace DataFlowNodes {
 
-using SocketMap = SmallMap<struct bNodeSocket *, Socket>;
+using SocketMap = SmallMap<struct bNodeSocket *, DFGB_Socket>;
 
 class GraphBuilder {
  private:
   struct bNodeTree *m_btree;
-  DataFlowGraph *m_graph;
+  DataFlowGraphBuilder &m_graph;
   SocketMap &m_socket_map;
 
  public:
-  GraphBuilder(struct bNodeTree *btree, DataFlowGraph *graph, SocketMap &socket_map)
+  GraphBuilder(struct bNodeTree *btree, DataFlowGraphBuilder &graph, SocketMap &socket_map)
       : m_btree(btree), m_graph(graph), m_socket_map(socket_map)
   {
   }
 
   /* Insert Function */
-  Node *insert_function(SharedFunction &fn);
-  Node *insert_matching_function(SharedFunction &fn, struct bNode *bnode);
-  Node *insert_function(SharedFunction &fn, struct bNode *bnode);
-  Node *insert_function(SharedFunction &fn, struct bNodeLink *blink);
+  DFGB_Node *insert_function(SharedFunction &fn);
+  DFGB_Node *insert_matching_function(SharedFunction &fn, struct bNode *bnode);
+  DFGB_Node *insert_function(SharedFunction &fn, struct bNode *bnode);
+  DFGB_Node *insert_function(SharedFunction &fn, struct bNodeLink *blink);
 
   /* Insert Link */
-  void insert_link(Socket a, Socket b);
+  void insert_link(DFGB_Socket a, DFGB_Socket b);
 
   /* Socket Mapping */
-  void map_socket(Socket socket, struct bNodeSocket *bsocket);
-  void map_sockets(Node *node, struct bNode *bnode);
-  void map_data_sockets(Node *node, struct bNode *bnode);
-  void map_input(Socket socket, struct bNode *bnode, uint index);
-  void map_output(Socket socket, struct bNode *bnode, uint index);
+  void map_socket(DFGB_Socket socket, struct bNodeSocket *bsocket);
+  void map_sockets(DFGB_Node *node, struct bNode *bnode);
+  void map_data_sockets(DFGB_Node *node, struct bNode *bnode);
+  void map_input(DFGB_Socket socket, struct bNode *bnode, uint index);
+  void map_output(DFGB_Socket socket, struct bNode *bnode, uint index);
 
-  Socket lookup_socket(struct bNodeSocket *bsocket);
+  DFGB_Socket lookup_socket(struct bNodeSocket *bsocket);
   bool verify_data_sockets_mapped(struct bNode *bnode) const;
 
   /* Type Mapping */

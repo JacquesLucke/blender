@@ -43,8 +43,8 @@ set(SRC
   core/signature.cpp
   core/function.hpp
   core/function.cpp
-  core/data_flow_graph.hpp
-  core/data_flow_graph.cpp
+  core/data_flow_graph_builder.hpp
+  core/data_flow_graph_builder.cpp
   core/compact_data_flow_graph.hpp
   core/compact_data_flow_graph.cpp
   core/function_graph.hpp
