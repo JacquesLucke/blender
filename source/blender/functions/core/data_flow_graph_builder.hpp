@@ -156,6 +156,7 @@ class DataFlowGraphBuilder {
  public:
   DataFlowGraphBuilder();
   DataFlowGraphBuilder(DataFlowGraphBuilder &other) = delete;
+  ~DataFlowGraphBuilder();
 
   DFGB_Node *insert_function(SharedFunction &fn, SourceInfo *source = nullptr);
   void insert_link(DFGB_Socket a, DFGB_Socket b);

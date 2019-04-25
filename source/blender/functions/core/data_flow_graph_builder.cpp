@@ -27,6 +27,21 @@ DataFlowGraphBuilder::DataFlowGraphBuilder() : m_node_pool(sizeof(DFGB_Node))
   m_source_info_pool = std::unique_ptr<MemMultiPool>(new MemMultiPool());
 }
 
+DataFlowGraphBuilder::~DataFlowGraphBuilder()
+{
+  /* Destruct source info if it is still owned. */
+  if (m_source_info_pool.get()) {
+    for (DFGB_Node *node : m_nodes) {
+      if (node->source()) {
+        node->source()->~SourceInfo();
+      }
+    }
+  }
+  for (DFGB_Node *node : m_nodes) {
+    node->~DFGB_Node();
+  }
+}
+
 DFGB_Node *DataFlowGraphBuilder::insert_function(SharedFunction &fn, SourceInfo *source)
 {
   BLI_assert(this->is_mutable());
