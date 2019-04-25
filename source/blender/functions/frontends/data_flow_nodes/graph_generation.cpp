@@ -221,6 +221,8 @@ Optional<CompactFunctionGraph> generate_function_graph(struct bNodeTree *btree)
     builder.insert_link(new_origins[i], node_inputs[i]);
   }
 
+  // graph_builder.to_dot__clipboard();
+
   CompactDataFlowGraph::ToBuilderMapping builder_mapping;
   auto compact_graph = CompactDataFlowGraph::FromBuilder(graph_builder, builder_mapping);
 
