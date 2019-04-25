@@ -109,15 +109,15 @@ class CompactDataFlowGraph : public RefCountedBase {
  private:
   struct MyNode {
     SharedFunction function;
-    SourceInfo *source;
+    SourceInfo *source_info;
     /* Index into m_origins. */
     uint inputs_start;
     /* Index into m_targets_info. */
     uint outputs_start;
 
-    MyNode(SharedFunction fn, SourceInfo *source, uint inputs_start, uint outputs_start)
+    MyNode(SharedFunction fn, SourceInfo *source_info, uint inputs_start, uint outputs_start)
         : function(std::move(fn)),
-          source(source),
+          source_info(source_info),
           inputs_start(inputs_start),
           outputs_start(outputs_start)
     {
@@ -153,6 +153,7 @@ class CompactDataFlowGraph : public RefCountedBase {
  public:
   CompactDataFlowGraph() = default;
   CompactDataFlowGraph(CompactDataFlowGraph &other) = delete;
+  ~CompactDataFlowGraph();
 
   struct ToBuilderMapping {
     SmallMap<DFGB_Node *, uint> node_indices;
@@ -209,7 +210,7 @@ class CompactDataFlowGraph : public RefCountedBase {
 
   SourceInfo *source_info_of_node(uint node_id) const
   {
-    return m_nodes[node_id].source;
+    return m_nodes[node_id].source_info;
   }
 
   const char *name_ptr_of_node(uint node_id) const

@@ -59,4 +59,13 @@ SharedCompactDataFlowGraph CompactDataFlowGraph::FromBuilder(
   return graph;
 }
 
+CompactDataFlowGraph::~CompactDataFlowGraph()
+{
+  for (MyNode node : m_nodes) {
+    if (node.source_info != nullptr) {
+      node.source_info->~SourceInfo();
+    }
+  }
+}
+
 }  // namespace FN
