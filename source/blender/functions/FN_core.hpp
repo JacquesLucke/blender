@@ -9,3 +9,4 @@
 #include "core/source_info.hpp"
 #include "core/compact_data_flow_graph.hpp"
 #include "core/function_graph.hpp"
+#include "core/data_flow_graph_builder.hpp"

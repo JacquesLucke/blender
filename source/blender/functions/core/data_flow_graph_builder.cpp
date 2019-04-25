@@ -29,6 +29,7 @@ DataFlowGraphBuilder::DataFlowGraphBuilder() : m_node_pool(sizeof(DFGB_Node))
 
 DFGB_Node *DataFlowGraphBuilder::insert_function(SharedFunction &fn, SourceInfo *source)
 {
+  BLI_assert(this->is_mutable());
   void *ptr = m_node_pool.allocate();
   DFGB_Node *node = new (ptr) DFGB_Node(*this, fn, source);
   return node;
@@ -36,6 +37,7 @@ DFGB_Node *DataFlowGraphBuilder::insert_function(SharedFunction &fn, SourceInfo 
 
 void DataFlowGraphBuilder::insert_link(DFGB_Socket a, DFGB_Socket b)
 {
+  BLI_assert(this->is_mutable());
   BLI_assert(a.node() != b.node());
   BLI_assert(a.type() == b.type());
   BLI_assert(a.is_input() != b.is_input());

@@ -49,6 +49,9 @@ class DFGB_Node {
   Signature &signature();
   SharedFunction &function();
 
+  DFGB_Socket input(uint index);
+  DFGB_Socket output(uint index);
+
   uint input_amount() const;
   uint output_amount() const;
 
@@ -95,6 +98,16 @@ class DFGB_Node {
       return DFGB_Socket(m_node, m_is_output, m_index);
     }
   };
+
+  SocketIt inputs()
+  {
+    return SocketIt(this, false, 0);
+  }
+
+  SocketIt outputs()
+  {
+    return SocketIt(this, true, 0);
+  }
 
  private:
   DataFlowGraphBuilder &m_builder;
@@ -144,8 +157,20 @@ class DataFlowGraphBuilder {
 
   template<typename T, typename... Args> T *new_source_info(Args &&... args)
   {
-    // TODO
+    static_assert(std::is_base_of<SourceInfo, T>::value, "");
+    void *ptr = m_source_info_pool->allocate(sizeof(T));
+    T *source = new (ptr) T(std::forward<Args>(args)...);
+    return source;
   }
+
+  inline bool is_mutable() const
+  {
+    /* This pool is stolen as soon, as the actual graph is build. */
+    return m_source_info_pool.get() != nullptr;
+  }
+
+  std::string to_dot();
+  void to_dot__clipboard();
 
  private:
   SmallSet<DFGB_Node *> m_nodes;
@@ -155,6 +180,7 @@ class DataFlowGraphBuilder {
   std::unique_ptr<MemMultiPool> m_source_info_pool;
 
   friend DFGB_Socket;
+  friend CompactDataFlowGraph;
 };
 
 /* Inline methods of Socket
@@ -252,6 +278,18 @@ inline uint DFGB_Node::output_amount() const
 inline SourceInfo *DFGB_Node::source() const
 {
   return m_source;
+}
+
+inline DFGB_Socket DFGB_Node::input(uint index)
+{
+  BLI_assert(index < this->input_amount());
+  return DFGB_Socket(this, false, index);
+}
+
+inline DFGB_Socket DFGB_Node::output(uint index)
+{
+  BLI_assert(index < this->output_amount());
+  return DFGB_Socket(this, true, index);
 }
 
 }  // namespace FN

@@ -102,6 +102,10 @@ template<typename SequenceT> class FunctionSocketSequence {
   }
 };
 
+class DataFlowGraphBuilder;
+class CompactDataFlowGraph;
+using SharedCompactDataFlowGraph = AutoRefCount<CompactDataFlowGraph>;
+
 class CompactDataFlowGraph : public RefCountedBase {
  private:
   struct MyNode {
@@ -145,15 +149,22 @@ class CompactDataFlowGraph : public RefCountedBase {
   SmallVector<InputSocket> m_inputs;
   SmallVector<OutputSocket> m_outputs;
   SmallVector<uint> m_targets;
-  std::unique_ptr<DataFlowGraph> m_builder;
+  std::unique_ptr<MemMultiPool> m_source_info_pool;
 
-  SmallMap<Node *, uint> m_node_indices;
-  SmallMap<Socket, uint> m_input_socket_indices;
-  SmallMap<Socket, uint> m_output_socket_indices;
+  CompactDataFlowGraph() = default;
 
  public:
   CompactDataFlowGraph(std::unique_ptr<DataFlowGraph> orig_graph);
   CompactDataFlowGraph(CompactDataFlowGraph &other) = delete;
+
+  struct ToBuilderMapping {
+    SmallMap<DFGB_Node *, uint> node_indices;
+    SmallMap<DFGB_Socket, uint> input_socket_indices;
+    SmallMap<DFGB_Socket, uint> output_socket_indices;
+  };
+
+  static SharedCompactDataFlowGraph FromBuilder(DataFlowGraphBuilder &builder,
+                                                ToBuilderMapping &r_mapping);
 
   Range<uint> node_ids() const
   {
@@ -320,19 +331,7 @@ class CompactDataFlowGraph : public RefCountedBase {
     uint index = this->index_of_output(output_socket);
     return this->function_of_node(node)->signature().outputs()[index];
   }
-
-  FunctionSocket map_socket(Socket socket)
-  {
-    if (socket.is_input()) {
-      return FunctionSocket::FromInput(m_input_socket_indices.lookup(socket));
-    }
-    else {
-      return FunctionSocket::FromOutput(m_output_socket_indices.lookup(socket));
-    }
-  }
 };
-
-using SharedCompactDataFlowGraph = AutoRefCount<CompactDataFlowGraph>;
 
 }  // namespace FN
 
