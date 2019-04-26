@@ -902,7 +902,7 @@ static void outliner_draw_restrictbuts(uiBlock *block,
                                                                         ICON_HIDE_OFF;
             }
             bt = uiDefIconBut(block,
-                              UI_BTYPE_TOGGLE,
+                              UI_BTYPE_ICON_TOGGLE,
                               0,
                               icon,
                               (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_VIEWX),
@@ -1014,7 +1014,7 @@ static void outliner_draw_userbuts(uiBlock *block, ARegion *ar, SpaceOutliner *s
           tip = TIP_("Data-block has no users and will be deleted");
         }
         bt = uiDefIconButBitS(block,
-                              UI_BTYPE_TOGGLE,
+                              UI_BTYPE_ICON_TOGGLE,
                               LIB_FAKEUSER,
                               1,
                               icon,
@@ -1049,7 +1049,7 @@ static void outliner_draw_userbuts(uiBlock *block, ARegion *ar, SpaceOutliner *s
         UI_but_flag_enable(bt, but_flag);
 
         bt = uiDefButBitS(block,
-                          UI_BTYPE_TOGGLE,
+                          UI_BTYPE_ICON_TOGGLE,
                           LIB_FAKEUSER,
                           1,
                           (id->flag & LIB_FAKEUSER) ? "F" : " ",
@@ -2109,7 +2109,8 @@ static void outliner_draw_tree_element(bContext *C,
       }
       else if (te->idcode == ID_OB) {
         Object *ob = (Object *)tselem->id;
-        Base *base = BKE_view_layer_base_find(view_layer, ob);
+        Base *base = (te->directdata) ? (Base *)te->directdata :
+                                        BKE_view_layer_base_find(view_layer, ob);
         const bool is_selected = (base != NULL) && ((base->flag & BASE_SELECTED) != 0);
 
         if (ob == obact || is_selected) {
