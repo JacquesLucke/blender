@@ -2,6 +2,7 @@
 
 #include "BLI_small_vector.hpp"
 #include "BLI_array_lookup.hpp"
+#include "BLI_array_ref.hpp"
 
 namespace BLI {
 
@@ -125,57 +126,48 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     m_lookup.print_lookup_stats(m_entries.begin());
   }
 
-  ValueIterator values() const
+  /* Iterators
+   **************************************************/
+
+  static V &get_value_from_entry(Entry &entry)
   {
-    return ValueIterator(*this);
+    return entry.value;
   }
 
-  class ValueIterator {
-   private:
-    const SmallMap &m_map;
-    uint m_index;
+  StridedArrayRef<Entry, V &, get_value_from_entry> values() const
+  {
+    return StridedArrayRef<Entry, V &, get_value_from_entry>(m_entries.begin(), m_entries.size());
+  }
 
-    ValueIterator(const SmallMap &map, uint index) : m_map(map), m_index(index)
-    {
-    }
+  static const K &get_key_from_entry(Entry &entry)
+  {
+    return entry.key;
+  }
 
-   public:
-    ValueIterator(const SmallMap &map) : ValueIterator(map, 0)
-    {
-    }
+  StridedArrayRef<Entry, const K &, get_key_from_entry> keys() const
+  {
+    return StridedArrayRef<Entry, const K &, get_key_from_entry>(m_entries.begin(),
+                                                                 m_entries.size());
+  }
 
-    ValueIterator begin() const
-    {
-      return ValueIterator(m_map, 0);
-    }
+  struct KeyValuePair {
+    const K &key;
+    V &value;
 
-    ValueIterator end() const
+    KeyValuePair(const K &key, V &value) : key(key), value(value)
     {
-      return ValueIterator(m_map, m_map.size());
-    }
-
-    ValueIterator &operator++()
-    {
-      m_index++;
-      return *this;
-    }
-
-    ValueIterator operator++(int)
-    {
-      ValueIterator iterator = *this;
-      ++*this;
-      return iterator;
-    }
-
-    bool operator!=(const ValueIterator &iterator) const
-    {
-      return m_index != iterator.m_index;
-    }
-
-    V &operator*() const
-    {
-      return m_map.m_entries[m_index].value;
     }
   };
+
+  static KeyValuePair get_key_value_pair_from_entry(Entry &entry)
+  {
+    return KeyValuePair(entry.key, entry.value);
+  }
+
+  StridedArrayRef<Entry, KeyValuePair, get_key_value_pair_from_entry> items() const
+  {
+    return StridedArrayRef<Entry, KeyValuePair, get_key_value_pair_from_entry>(m_entries.begin(),
+                                                                               m_entries.size());
+  }
 };
 };  // namespace BLI

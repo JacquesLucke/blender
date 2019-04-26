@@ -38,7 +38,7 @@ static SharedFunction get_vectorized_function(SharedFunction &original_fn,
   }
 }
 
-static void INSERT_object_transforms(GraphBuilder &builder, bNode *bnode)
+static void INSERT_object_transforms(BTreeGraphBuilder &builder, bNode *bnode)
 {
   PointerRNA rna = builder.get_rna(bnode);
   Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
@@ -65,7 +65,7 @@ static SharedFunction &get_float_math_function(int operation)
   }
 }
 
-static void INSERT_float_math(GraphBuilder &builder, bNode *bnode)
+static void INSERT_float_math(BTreeGraphBuilder &builder, bNode *bnode)
 {
   PointerRNA rna = builder.get_rna(bnode);
   int operation = RNA_enum_get(&rna, "operation");
@@ -95,7 +95,7 @@ static SharedFunction &get_vector_math_function(int operation)
   }
 }
 
-static void INSERT_vector_math(GraphBuilder &builder, bNode *bnode)
+static void INSERT_vector_math(BTreeGraphBuilder &builder, bNode *bnode)
 {
   PointerRNA rna = builder.get_rna(bnode);
   int operation = RNA_enum_get(&rna, "operation");
@@ -105,13 +105,13 @@ static void INSERT_vector_math(GraphBuilder &builder, bNode *bnode)
   builder.insert_matching_function(fn, bnode);
 }
 
-static void INSERT_clamp(GraphBuilder &builder, bNode *bnode)
+static void INSERT_clamp(BTreeGraphBuilder &builder, bNode *bnode)
 {
   SharedFunction &max_fn = Functions::GET_FN_max_floats();
   SharedFunction &min_fn = Functions::GET_FN_min_floats();
 
-  Node *max_node = builder.insert_function(max_fn, bnode);
-  Node *min_node = builder.insert_function(min_fn, bnode);
+  DFGB_Node *max_node = builder.insert_function(max_fn, bnode);
+  DFGB_Node *min_node = builder.insert_function(min_fn, bnode);
 
   builder.insert_link(max_node->output(0), min_node->input(0));
   builder.map_input(max_node->input(0), bnode, 0);
@@ -120,34 +120,34 @@ static void INSERT_clamp(GraphBuilder &builder, bNode *bnode)
   builder.map_output(min_node->output(0), bnode, 0);
 }
 
-static void INSERT_get_list_element(GraphBuilder &builder, bNode *bnode)
+static void INSERT_get_list_element(BTreeGraphBuilder &builder, bNode *bnode)
 {
   SharedType &base_type = builder.query_type_property(bnode, "active_type");
   SharedFunction &fn = Functions::GET_FN_get_list_element(base_type);
   builder.insert_matching_function(fn, bnode);
 }
 
-static void INSERT_list_length(GraphBuilder &builder, bNode *bnode)
+static void INSERT_list_length(BTreeGraphBuilder &builder, bNode *bnode)
 {
   SharedType &base_type = builder.query_type_property(bnode, "active_type");
   SharedFunction &fn = Functions::GET_FN_list_length(base_type);
   builder.insert_matching_function(fn, bnode);
 }
 
-static Socket insert_pack_list_sockets(GraphBuilder &builder,
-                                       bNode *bnode,
-                                       SharedType &base_type,
-                                       const char *prop_name,
-                                       uint start_index)
+static DFGB_Socket insert_pack_list_sockets(BTreeGraphBuilder &builder,
+                                            bNode *bnode,
+                                            SharedType &base_type,
+                                            const char *prop_name,
+                                            uint start_index)
 {
   auto &empty_fn = Functions::GET_FN_empty_list(base_type);
-  Node *node = builder.insert_function(empty_fn, bnode);
+  DFGB_Node *node = builder.insert_function(empty_fn, bnode);
 
   PointerRNA rna = builder.get_rna(bnode);
 
   uint index = start_index;
   RNA_BEGIN (&rna, itemptr, prop_name) {
-    Node *new_node;
+    DFGB_Node *new_node;
     int state = RNA_enum_get(&itemptr, "state");
     if (state == 0) {
       /* single value case */
@@ -175,14 +175,15 @@ static Socket insert_pack_list_sockets(GraphBuilder &builder,
   return node->output(0);
 }
 
-static void INSERT_pack_list(GraphBuilder &builder, bNode *bnode)
+static void INSERT_pack_list(BTreeGraphBuilder &builder, bNode *bnode)
 {
   SharedType &base_type = builder.query_type_property(bnode, "active_type");
-  Socket packed_list_socket = insert_pack_list_sockets(builder, bnode, base_type, "variadic", 0);
+  DFGB_Socket packed_list_socket = insert_pack_list_sockets(
+      builder, bnode, base_type, "variadic", 0);
   builder.map_output(packed_list_socket, bnode, 0);
 }
 
-static void INSERT_call(GraphBuilder &builder, bNode *bnode)
+static void INSERT_call(BTreeGraphBuilder &builder, bNode *bnode)
 {
   PointerRNA rna = builder.get_rna(bnode);
 
@@ -200,14 +201,14 @@ static void INSERT_call(GraphBuilder &builder, bNode *bnode)
   builder.insert_matching_function(fn.value(), bnode);
 }
 
-static void INSERT_switch(GraphBuilder &builder, bNode *bnode)
+static void INSERT_switch(BTreeGraphBuilder &builder, bNode *bnode)
 {
   SharedType &data_type = builder.query_type_property(bnode, "data_type");
   auto fn = Functions::GET_FN_bool_switch(data_type);
   builder.insert_matching_function(fn, bnode);
 }
 
-static void INSERT_combine_vector(GraphBuilder &builder, bNode *bnode)
+static void INSERT_combine_vector(BTreeGraphBuilder &builder, bNode *bnode)
 {
   PointerRNA rna = builder.get_rna(bnode);
   SharedFunction fn = get_vectorized_function(
@@ -215,7 +216,7 @@ static void INSERT_combine_vector(GraphBuilder &builder, bNode *bnode)
   builder.insert_matching_function(fn, bnode);
 }
 
-static void INSERT_separate_vector(GraphBuilder &builder, bNode *bnode)
+static void INSERT_separate_vector(BTreeGraphBuilder &builder, bNode *bnode)
 {
   PointerRNA rna = builder.get_rna(bnode);
   SharedFunction fn = get_vectorized_function(

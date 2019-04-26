@@ -1,455 +1,356 @@
 #pragma once
 
 #include "function.hpp"
-#include "source_info.hpp"
-
-#include "BLI_small_set.hpp"
-#include "BLI_small_set_vector.hpp"
-#include "BLI_mempool.hpp"
-#include "BLI_multipool.hpp"
-#include "BLI_multimap.hpp"
+#include "data_flow_graph_builder.hpp"
+#include "BLI_range.hpp"
 
 namespace FN {
 
-class Socket;
-class Node;
-class GraphLinks;
-class DataFlowGraph;
+struct DFGraphSocket {
+ private:
+  bool m_is_output;
+  uint m_id;
 
-using SocketSet = SmallSet<Socket>;
-using NodeSet = SmallSet<Node *>;
-using NodeSetVector = SmallSetVector<Node *>;
-using SocketVector = SmallVector<Socket>;
-using SocketSetVector = SmallSetVector<Socket>;
-
-class Socket {
  public:
-  Socket(Node *node, bool is_output, uint index)
-      : m_node(node), m_is_output(is_output), m_index(index)
+  DFGraphSocket(bool is_output, uint id) : m_is_output(is_output), m_id(id)
   {
   }
 
-  static inline Socket Input(Node *node, uint index);
-  static inline Socket Output(Node *node, uint index);
+  static DFGraphSocket FromInput(uint id)
+  {
+    return DFGraphSocket(false, id);
+  }
 
-  inline Node *node() const;
-  inline DataFlowGraph *graph() const;
+  static DFGraphSocket FromOutput(uint id)
+  {
+    return DFGraphSocket(true, id);
+  }
 
-  inline bool is_input() const;
-  inline bool is_output() const;
-  inline uint index() const;
+  bool is_input() const
+  {
+    return !m_is_output;
+  }
 
-  SharedType &type() const;
-  std::string name() const;
+  bool is_output() const
+  {
+    return m_is_output;
+  }
 
-  friend bool operator==(const Socket &a, const Socket &b);
-  friend std::ostream &operator<<(std::ostream &stream, Socket socket);
+  uint id() const
+  {
+    return m_id;
+  }
 
-  inline Socket origin() const;
-  inline ArrayRef<Socket> targets() const;
-  inline bool is_linked() const;
-
- private:
-  Node *m_node;
-  bool m_is_output;
-  uint m_index;
+  friend inline bool operator==(const DFGraphSocket &a, const DFGraphSocket &b)
+  {
+    return a.m_id == b.m_id && a.m_is_output == b.m_is_output;
+  }
 };
 
-class Node {
+template<typename IdIteratorT> class DFGraphSocketIterator {
+ private:
+  bool m_is_output;
+  IdIteratorT m_it;
+
  public:
-  Node(DataFlowGraph *graph, SharedFunction &function, SourceInfo *source)
-      : m_graph(graph), m_function(function), m_source(source)
+  DFGraphSocketIterator(bool is_output, IdIteratorT it) : m_is_output(is_output), m_it(it)
   {
   }
 
-  ~Node()
+  DFGraphSocketIterator &operator++()
   {
-    if (m_source != nullptr) {
-      /* is allocated in mempool */
-      m_source->~SourceInfo();
-    }
+    ++m_it;
+    return *this;
   }
 
-  Socket input(uint index)
+  bool operator!=(const DFGraphSocketIterator &other)
   {
-    return Socket::Input(this, index);
+    return m_it != other.m_it;
   }
 
-  Socket output(uint index)
+  DFGraphSocket operator*() const
   {
-    return Socket::Output(this, index);
+    return DFGraphSocket(m_is_output, *m_it);
+  }
+};
+
+template<typename SequenceT> class DFGraphSocketSequence {
+ private:
+  bool m_is_output;
+  SequenceT m_sequence;
+  using IdIteratorT = decltype(m_sequence.begin());
+
+ public:
+  DFGraphSocketSequence(bool is_output, SequenceT sequence)
+      : m_is_output(is_output), m_sequence(sequence)
+  {
   }
 
-  DataFlowGraph *graph() const
+  DFGraphSocketIterator<IdIteratorT> begin()
   {
-    return m_graph;
+    return DFGraphSocketIterator<IdIteratorT>(m_is_output, m_sequence.begin());
   }
 
-  const SharedFunction &function() const
+  DFGraphSocketIterator<IdIteratorT> end()
   {
-    return m_function;
+    return DFGraphSocketIterator<IdIteratorT>(m_is_output, m_sequence.end());
   }
 
-  SharedFunction &function()
+  uint size() const
   {
-    return m_function;
+    return m_sequence.size();
   }
+};
 
-  const Signature &signature() const
-  {
-    return this->function()->signature();
-  }
+class DataFlowGraph;
+using SharedDataFlowGraph = AutoRefCount<DataFlowGraph>;
 
-  Signature &signature()
-  {
-    return this->function()->signature();
-  }
+class DataFlowGraph : public RefCountedBase {
+ private:
+  struct MyNode {
+    SharedFunction function;
+    SourceInfo *source_info;
+    /* Index into m_origins. */
+    uint inputs_start;
+    /* Index into m_targets_info. */
+    uint outputs_start;
 
-  uint input_amount() const
-  {
-    return this->signature().inputs().size();
-  }
-
-  uint output_amount() const
-  {
-    return this->signature().outputs().size();
-  }
-
-  SourceInfo *source() const
-  {
-    return m_source;
-  }
-
-  class SocketIterator {
-   private:
-    Node *m_node;
-    bool m_is_output;
-    uint m_index;
-
-    SocketIterator(Node *node, bool is_output, uint index)
-        : m_node(node), m_is_output(is_output), m_index(index)
+    MyNode(SharedFunction fn, SourceInfo *source_info, uint inputs_start, uint outputs_start)
+        : function(std::move(fn)),
+          source_info(source_info),
+          inputs_start(inputs_start),
+          outputs_start(outputs_start)
     {
-    }
-
-   public:
-    SocketIterator(Node *node, bool is_output) : SocketIterator(node, is_output, 0)
-    {
-    }
-
-    using It = SocketIterator;
-
-    It begin() const
-    {
-      return It(m_node, m_is_output, 0);
-    }
-
-    It end() const
-    {
-      Signature &sig = m_node->signature();
-      return It(m_node, m_is_output, (m_is_output) ? sig.outputs().size() : sig.inputs().size());
-    }
-
-    It &operator++()
-    {
-      m_index++;
-      return *this;
-    }
-
-    bool operator!=(const It &other) const
-    {
-      return m_index != other.m_index;
-    }
-
-    Socket operator*() const
-    {
-      return Socket(m_node, m_is_output, m_index);
     }
   };
 
-  SocketIterator inputs()
-  {
-    return SocketIterator(this, false);
-  }
+  struct InputSocket {
+    uint node;
+    uint origin;
 
-  SocketIterator outputs()
-  {
-    return SocketIterator(this, true);
-  }
+    InputSocket(uint node, uint origin) : node(node), origin(origin)
+    {
+    }
+  };
 
- private:
-  DataFlowGraph *m_graph;
-  SharedFunction m_function;
-  SourceInfo *m_source;
-};
+  struct OutputSocket {
+    uint node;
+    uint targets_start;
+    uint targets_amount;
 
-class Link {
+    OutputSocket(uint node, uint targets_start, uint targets_amount)
+        : node(node), targets_start(targets_start), targets_amount(targets_amount)
+    {
+    }
+  };
+
+  SmallVector<MyNode> m_nodes;
+  SmallVector<InputSocket> m_inputs;
+  SmallVector<OutputSocket> m_outputs;
+  SmallVector<uint> m_targets;
+  std::unique_ptr<MemMultiPool> m_source_info_pool;
+
  public:
-  static Link New(Socket a, Socket b)
-  {
-    BLI_assert(a.is_input() != b.is_input());
-    if (a.is_input()) {
-      return Link(b, a);
-    }
-    else {
-      return Link(a, b);
-    }
-  }
-
-  Socket from() const
-  {
-    return m_from;
-  }
-
-  Socket to() const
-  {
-    return m_to;
-  }
-
-  friend bool operator==(const Link &a, const Link &b)
-  {
-    return a.m_from == b.m_from && a.m_to == b.m_to;
-  }
-
- private:
-  Link(Socket from, Socket to) : m_from(from), m_to(to)
-  {
-  }
-
-  Socket m_from;
-  Socket m_to;
-};
-
-class GraphLinks {
- public:
-  void insert(Link link)
-  {
-    Socket from = link.from();
-    Socket to = link.to();
-
-    m_origins.add_new(to, from);
-    m_targets.add(from, to);
-    m_all_links.append(link);
-  }
-
-  SmallVector<Link> all_links() const
-  {
-    return m_all_links;
-  }
-
-  Socket get_origin(Socket socket) const
-  {
-    BLI_assert(socket.is_input());
-    return m_origins.lookup(socket);
-  }
-
-  ArrayRef<Socket> get_targets(Socket socket) const
-  {
-    BLI_assert(socket.is_output());
-    return m_targets.lookup(socket);
-  }
-
-  bool is_linked(Socket socket) const
-  {
-    if (socket.is_input()) {
-      return m_origins.contains(socket);
-    }
-    else {
-      return m_targets.lookup(socket).size() > 0;
-    }
-  }
-
- private:
-  SmallMap<Socket, Socket> m_origins;
-  MultiMap<Socket, Socket> m_targets;
-  SmallVector<Link> m_all_links;
-};
-
-class DataFlowGraph : public RefCountedBase {
- public:
-  DataFlowGraph();
+  DataFlowGraph() = default;
   DataFlowGraph(DataFlowGraph &other) = delete;
-
   ~DataFlowGraph();
 
-  Node *insert(SharedFunction &function, SourceInfo *source = nullptr);
-  void link(Socket a, Socket b);
+  struct ToBuilderMapping {
+    SmallMap<DFGB_Node *, uint> node_indices;
+    SmallMap<DFGB_Socket, uint> input_socket_indices;
+    SmallMap<DFGB_Socket, uint> output_socket_indices;
 
-  inline bool can_modify() const
+    DFGraphSocket map_socket(DFGB_Socket dfgb_socket)
+    {
+      if (dfgb_socket.is_input()) {
+        return DFGraphSocket(false, input_socket_indices.lookup(dfgb_socket));
+      }
+      else {
+        return DFGraphSocket(true, output_socket_indices.lookup(dfgb_socket));
+      }
+    }
+  };
+
+  static SharedDataFlowGraph FromBuilder(DataFlowGraphBuilder &builder,
+                                         ToBuilderMapping &r_mapping);
+
+  Range<uint> node_ids() const
   {
-    return !this->frozen();
+    return Range<uint>(0, m_nodes.size());
   }
 
-  inline bool frozen() const
+  SharedFunction &function_of_node(uint node_id)
   {
-    return m_frozen;
+    return m_nodes[node_id].function;
   }
 
-  void freeze()
+  Range<uint> input_ids_of_node(uint node_id) const
   {
-    m_frozen = true;
+    MyNode &node = m_nodes[node_id];
+    return Range<uint>(node.inputs_start,
+                       node.inputs_start + node.function->signature().inputs().size());
   }
 
-  SmallVector<Link> all_links() const
+  DFGraphSocketSequence<Range<uint>> inputs_of_node(uint node_id) const
   {
-    return m_links.all_links();
+    return DFGraphSocketSequence<Range<uint>>(false, this->input_ids_of_node(node_id));
   }
 
-  const SmallSet<Node *> &all_nodes() const
+  Range<uint> output_ids_of_node(uint node_id) const
   {
-    return m_nodes;
+    MyNode &node = m_nodes[node_id];
+    return Range<uint>(node.outputs_start,
+                       node.outputs_start + node.function->signature().outputs().size());
   }
 
-  template<typename T, typename... Args> T *new_source_info(Args &&... args)
+  DFGraphSocketSequence<Range<uint>> outputs_of_node(uint node_id) const
   {
-    static_assert(std::is_base_of<SourceInfo, T>::value, "");
-    void *ptr = m_source_info_pool.allocate(sizeof(T));
-    T *source = new (ptr) T(std::forward<Args>(args)...);
-    return source;
+    return DFGraphSocketSequence<Range<uint>>(true, this->output_ids_of_node(node_id));
   }
 
-  std::string to_dot() const;
-  void to_dot__clipboard() const;
+  SourceInfo *source_info_of_node(uint node_id) const
+  {
+    return m_nodes[node_id].source_info;
+  }
 
- private:
-  bool m_frozen = false;
-  SmallSet<Node *> m_nodes;
-  GraphLinks m_links;
-  MemPool m_node_pool;
-  MemMultiPool m_source_info_pool;
+  const char *name_ptr_of_node(uint node_id) const
+  {
+    return m_nodes[node_id].function->name().c_str();
+  }
 
-  friend Node;
-  friend Socket;
+  uint origin_of_input(uint input_id) const
+  {
+    return m_inputs[input_id].origin;
+  }
+
+  DFGraphSocket origin_of_input(DFGraphSocket input_socket) const
+  {
+    BLI_assert(input_socket.is_input());
+    return DFGraphSocket::FromOutput(this->origin_of_input(input_socket.id()));
+  }
+
+  ArrayRef<uint> targets_of_output(uint output_id) const
+  {
+    OutputSocket &data = m_outputs[output_id];
+    return ArrayRef<uint>(&m_targets[data.targets_start], data.targets_amount);
+  }
+
+  DFGraphSocketSequence<ArrayRef<uint>> targets_of_output(DFGraphSocket output_socket) const
+  {
+    BLI_assert(output_socket.is_output());
+    return DFGraphSocketSequence<ArrayRef<uint>>(false,
+                                                 this->targets_of_output(output_socket.id()));
+  }
+
+  uint node_id_of_input(uint input_id) const
+  {
+    return m_inputs[input_id].node;
+  }
+
+  uint node_id_of_input(DFGraphSocket input_socket) const
+  {
+    BLI_assert(input_socket.is_input());
+    return this->node_id_of_input(input_socket.id());
+  }
+
+  uint node_id_of_output(uint output_id) const
+  {
+    return m_outputs[output_id].node;
+  }
+
+  uint node_id_of_output(DFGraphSocket output_socket) const
+  {
+    BLI_assert(output_socket.is_output());
+    return this->node_id_of_output(output_socket.id());
+  }
+
+  uint index_of_input(uint input_id) const
+  {
+    return input_id - m_nodes[m_inputs[input_id].node].inputs_start;
+  }
+
+  uint index_of_input(DFGraphSocket input_socket) const
+  {
+    BLI_assert(input_socket.is_input());
+    return this->index_of_input(input_socket.id());
+  }
+
+  uint index_of_output(uint output_id) const
+  {
+    return output_id - m_nodes[m_outputs[output_id].node].outputs_start;
+  }
+
+  uint index_of_output(DFGraphSocket output_socket) const
+  {
+    BLI_assert(output_socket.is_output());
+    return this->index_of_output(output_socket.id());
+  }
+
+  const std::string &name_of_socket(DFGraphSocket socket)
+  {
+    if (socket.is_input()) {
+      return this->name_of_input(socket.id());
+    }
+    else {
+      return this->name_of_output(socket.id());
+    }
+  }
+
+  SharedType &type_of_socket(DFGraphSocket socket)
+  {
+    if (socket.is_input()) {
+      return this->type_of_input(socket.id());
+    }
+    else {
+      return this->type_of_output(socket.id());
+    }
+  }
+
+  const std::string &name_of_input(uint input_socket)
+  {
+    return this->input_parameter(input_socket).name();
+  }
+
+  const std::string &name_of_output(uint output_socket)
+  {
+    return this->output_parameter(output_socket).name();
+  }
+
+  SharedType &type_of_input(uint input_socket)
+  {
+    return this->input_parameter(input_socket).type();
+  }
+
+  SharedType &type_of_output(uint output_socket)
+  {
+    return this->output_parameter(output_socket).type();
+  }
+
+  InputParameter &input_parameter(uint input_socket)
+  {
+    uint node = this->node_id_of_input(input_socket);
+    uint index = this->index_of_input(input_socket);
+    return this->function_of_node(node)->signature().inputs()[index];
+  }
+
+  OutputParameter &output_parameter(uint output_socket)
+  {
+    uint node = this->node_id_of_output(output_socket);
+    uint index = this->index_of_output(output_socket);
+    return this->function_of_node(node)->signature().outputs()[index];
+  }
 };
 
-using SharedDataFlowGraph = AutoRefCount<DataFlowGraph>;
-
-class FunctionGraph {
- public:
-  FunctionGraph(SharedDataFlowGraph &graph, SocketVector &inputs, SocketVector &outputs)
-      : m_graph(graph), m_inputs(inputs), m_outputs(outputs)
-  {
-    BLI_assert(graph->frozen());
-  }
-
-  const SharedDataFlowGraph &graph() const
-  {
-    return m_graph;
-  }
-
-  const SocketSetVector &inputs() const
-  {
-    return m_inputs;
-  }
-
-  const SocketSetVector &outputs() const
-  {
-    return m_outputs;
-  }
-
-  Signature signature() const
-  {
-    InputParameters inputs;
-    OutputParameters outputs;
-
-    for (const Socket &socket : m_inputs) {
-      inputs.append(InputParameter(socket.name(), socket.type()));
-    }
-    for (const Socket &socket : m_outputs) {
-      outputs.append(OutputParameter(socket.name(), socket.type()));
-    }
-
-    return Signature(inputs, outputs);
-  }
-
-  SocketSet find_used_sockets(bool include_inputs, bool include_outputs) const;
-
- private:
-  SharedDataFlowGraph m_graph;
-  SocketSetVector m_inputs;
-  SocketSetVector m_outputs;
-};
-
-/* Socket Inline Functions
-   ********************************************** */
-
-inline Socket Socket::Input(Node *node, uint index)
-{
-  BLI_assert(index < node->signature().inputs().size());
-  return Socket(node, false, index);
-}
-
-inline Socket Socket::Output(Node *node, uint index)
-{
-  BLI_assert(index < node->signature().outputs().size());
-  return Socket(node, true, index);
-}
-
-Node *Socket::node() const
-{
-  return m_node;
-}
-
-DataFlowGraph *Socket::graph() const
-{
-  return this->node()->graph();
-}
-
-bool Socket::is_input() const
-{
-  return !m_is_output;
-}
-
-bool Socket::is_output() const
-{
-  return m_is_output;
-}
-
-uint Socket::index() const
-{
-  return m_index;
-}
-
-inline bool operator==(const Socket &a, const Socket &b)
-{
-  return (a.m_node == b.m_node && a.m_is_output == b.m_is_output && a.m_index == b.m_index);
-}
-
-inline std::ostream &operator<<(std::ostream &stream, Socket socket)
-{
-  stream << "<" << socket.node()->function()->name();
-  stream << ", " << ((socket.is_input()) ? "Input" : "Output");
-  stream << ":" << socket.index() << ">";
-  return stream;
-}
-
-Socket Socket::origin() const
-{
-  return this->graph()->m_links.get_origin(*this);
-}
-
-ArrayRef<Socket> Socket::targets() const
-{
-  return this->graph()->m_links.get_targets(*this);
-}
-
-bool Socket::is_linked() const
-{
-  return this->graph()->m_links.is_linked(*this);
-}
-
-} /* namespace FN */
+}  // namespace FN
 
 namespace std {
-template<> struct hash<FN::Socket> {
-  typedef FN::Socket argument_type;
+template<> struct hash<FN::DFGraphSocket> {
+  typedef FN::DFGraphSocket argument_type;
   typedef size_t result_type;
 
   result_type operator()(argument_type const &v) const noexcept
   {
-    size_t h1 = std::hash<FN::Node *>{}(v.node());
-    size_t h2 = std::hash<bool>{}(v.is_input());
-    size_t h3 = std::hash<uint>{}(v.index());
-    return h1 ^ h2 ^ h3;
+    return v.id() + (int)v.is_input() * 12345;
   }
 };
 }  // namespace std

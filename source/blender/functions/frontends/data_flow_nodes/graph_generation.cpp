@@ -24,23 +24,27 @@ static bool is_reroute_node(const bNode *bnode)
   return STREQ(bnode->idname, "NodeReroute");
 }
 
-static void find_interface_nodes(bNodeTree *btree, bNode **r_input, bNode **r_output)
+static bNode *find_input_node(bNodeTree *btree)
 {
-  bNode *input = nullptr;
-  bNode *output = nullptr;
-
   for (bNode *bnode : bNodeList(&btree->nodes)) {
-    if (is_input_node(bnode))
-      input = bnode;
-    if (is_output_node(bnode))
-      output = bnode;
+    if (is_input_node(bnode)) {
+      return bnode;
+    }
   }
-
-  *r_input = input;
-  *r_output = output;
+  return nullptr;
 }
 
-static void insert_input_node(GraphBuilder &builder, bNode *bnode)
+static bNode *find_output_node(bNodeTree *btree)
+{
+  for (bNode *bnode : bNodeList(&btree->nodes)) {
+    if (is_output_node(bnode)) {
+      return bnode;
+    }
+  }
+  return nullptr;
+}
+
+static void insert_input_node(BTreeGraphBuilder &builder, bNode *bnode)
 {
   OutputParameters outputs;
   for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
@@ -51,11 +55,11 @@ static void insert_input_node(GraphBuilder &builder, bNode *bnode)
   }
 
   auto fn = SharedFunction::New("Function Input", Signature({}, outputs));
-  Node *node = builder.insert_function(fn);
+  DFGB_Node *node = builder.insert_function(fn);
   builder.map_data_sockets(node, bnode);
 }
 
-static void insert_output_node(GraphBuilder &builder, bNode *bnode)
+static void insert_output_node(BTreeGraphBuilder &builder, bNode *bnode)
 {
   InputParameters inputs;
   for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
@@ -66,7 +70,7 @@ static void insert_output_node(GraphBuilder &builder, bNode *bnode)
   }
 
   auto fn = SharedFunction::New("Function Output", Signature(inputs, {}));
-  Node *node = builder.insert_function(fn);
+  DFGB_Node *node = builder.insert_function(fn);
   builder.map_data_sockets(node, bnode);
 }
 
@@ -145,20 +149,10 @@ class TreeData {
   }
 };
 
-Optional<FunctionGraph> generate_function_graph(struct bNodeTree *btree)
+static bool insert_functions_for_bnodes(BTreeGraphBuilder &builder, GraphInserters &inserters)
 {
-  auto graph = SharedDataFlowGraph::New();
-  SocketMap socket_map;
-
-  GraphBuilder builder(btree, graph, socket_map);
-  GraphInserters &inserters = get_standard_inserters();
-
-  bNode *input_node;
-  bNode *output_node;
-  find_interface_nodes(btree, &input_node, &output_node);
-
-  for (bNode *bnode : bNodeList(&btree->nodes)) {
-    if (bnode == input_node || bnode == output_node) {
+  for (bNode *bnode : bNodeList(&builder.btree()->nodes)) {
+    if (is_input_node(bnode) || is_output_node(bnode)) {
       continue;
     }
     if (is_reroute_node(bnode)) {
@@ -166,64 +160,125 @@ Optional<FunctionGraph> generate_function_graph(struct bNodeTree *btree)
     }
 
     if (!inserters.insert_node(builder, bnode)) {
-      return {};
+      return false;
     }
   }
+  return true;
+}
 
-  SocketVector input_sockets;
-  SocketVector output_sockets;
-
-  if (input_node != nullptr) {
-    insert_input_node(builder, input_node);
-    for (bNodeSocket *bsocket : bSocketList(&input_node->outputs)) {
-      if (builder.is_data_socket(bsocket)) {
-        input_sockets.append(socket_map.lookup(bsocket));
-      }
-    }
-  }
-  if (output_node != nullptr) {
-    insert_output_node(builder, output_node);
-    for (bNodeSocket *bsocket : bSocketList(&output_node->inputs)) {
-      if (builder.is_data_socket(bsocket)) {
-        output_sockets.append(socket_map.lookup(bsocket));
-      }
-    }
+static DFGB_SocketVector insert_function_input(BTreeGraphBuilder &builder)
+{
+  bNode *input_bnode = find_input_node(builder.btree());
+  if (input_bnode == nullptr) {
+    return {};
   }
 
-  TreeData tree_data(btree);
+  DFGB_SocketVector input_sockets;
+  insert_input_node(builder, input_bnode);
+  for (bNodeSocket *bsocket : bSocketList(&input_bnode->outputs)) {
+    if (builder.is_data_socket(bsocket)) {
+      input_sockets.append(builder.lookup_socket(bsocket));
+    }
+  }
+  return input_sockets;
+}
+
+static DFGB_SocketVector insert_function_output(BTreeGraphBuilder &builder)
+{
+  bNode *output_bnode = find_output_node(builder.btree());
+  if (output_bnode == nullptr) {
+    return {};
+  }
+
+  DFGB_SocketVector output_sockets;
+  insert_output_node(builder, output_bnode);
+  for (bNodeSocket *bsocket : bSocketList(&output_bnode->inputs)) {
+    if (builder.is_data_socket(bsocket)) {
+      output_sockets.append(builder.lookup_socket(bsocket));
+    }
+  }
+  return output_sockets;
+}
+
+static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
+{
+  TreeData tree_data(builder.btree());
   for (auto &link : tree_data.data_origins()) {
     if (!inserters.insert_link(builder, link.from, link.to, link.optional_source_link)) {
-      return {};
+      return false;
     }
   }
+  return true;
+}
 
+static void insert_unlinked_inputs(BTreeGraphBuilder &builder, GraphInserters &inserters)
+{
   BSockets unlinked_inputs;
-  BNodes unlinked_inputs_nodes;
-  SocketVector node_inputs;
-  for (bNode *bnode : bNodeList(&btree->nodes)) {
+  DFGB_SocketVector node_inputs;
+
+  for (bNode *bnode : bNodeList(&builder.btree()->nodes)) {
     for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
       if (builder.is_data_socket(bsocket)) {
-        Socket socket = socket_map.lookup(bsocket);
+        DFGB_Socket socket = builder.lookup_socket(bsocket);
         if (!socket.is_linked()) {
           unlinked_inputs.append(bsocket);
-          unlinked_inputs_nodes.append(bnode);
           node_inputs.append(socket);
         }
       }
     }
   }
 
-  SocketVector new_origins = inserters.insert_sockets(
-      builder, unlinked_inputs, unlinked_inputs_nodes);
+  DFGB_SocketVector new_origins = inserters.insert_sockets(builder, unlinked_inputs);
   BLI_assert(unlinked_inputs.size() == new_origins.size());
 
   for (uint i = 0; i < unlinked_inputs.size(); i++) {
     builder.insert_link(new_origins[i], node_inputs[i]);
   }
+}
 
-  graph->freeze();
-  FunctionGraph fgraph(graph, input_sockets, output_sockets);
-  return fgraph;
+static FunctionGraph finalize_function_graph(DataFlowGraphBuilder &builder,
+                                             DFGB_SocketVector input_sockets,
+                                             DFGB_SocketVector output_sockets)
+{
+  DataFlowGraph::ToBuilderMapping builder_mapping;
+  auto compact_graph = DataFlowGraph::FromBuilder(builder, builder_mapping);
+
+  DFGraphSocketVector inputs, outputs;
+
+  for (DFGB_Socket socket : input_sockets) {
+    inputs.add(builder_mapping.map_socket(socket));
+  }
+  for (DFGB_Socket socket : output_sockets) {
+    outputs.add(builder_mapping.map_socket(socket));
+  }
+
+  return FunctionGraph(compact_graph, inputs, outputs);
+}
+
+Optional<FunctionGraph> generate_function_graph(bNodeTree *btree)
+{
+  DataFlowGraphBuilder graph_builder;
+  SmallMap<struct bNodeSocket *, DFGB_Socket> socket_map;
+
+  BTreeGraphBuilder builder(btree, graph_builder, socket_map);
+  GraphInserters &inserters = get_standard_inserters();
+
+  if (!insert_functions_for_bnodes(builder, inserters)) {
+    return {};
+  }
+
+  DFGB_SocketVector input_sockets = insert_function_input(builder);
+  DFGB_SocketVector output_sockets = insert_function_output(builder);
+
+  if (!insert_links(builder, inserters)) {
+    return {};
+  }
+
+  insert_unlinked_inputs(builder, inserters);
+
+  // graph_builder.to_dot__clipboard();
+
+  return finalize_function_graph(graph_builder, input_sockets, output_sockets);
 }
 
 }  // namespace DataFlowNodes

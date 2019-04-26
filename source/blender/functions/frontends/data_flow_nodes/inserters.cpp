@@ -33,9 +33,9 @@ void GraphInserters::reg_node_inserter(std::string idname, NodeInserter inserter
 
 void GraphInserters::reg_node_function(std::string idname, FunctionGetter getter)
 {
-  auto inserter = [getter](GraphBuilder &builder, bNode *bnode) {
+  auto inserter = [getter](BTreeGraphBuilder &builder, bNode *bnode) {
     SharedFunction fn = getter();
-    Node *node = builder.insert_function(fn, bnode);
+    DFGB_Node *node = builder.insert_function(fn, bnode);
     builder.map_sockets(node, bnode);
   };
   this->reg_node_inserter(idname, inserter);
@@ -60,23 +60,25 @@ void GraphInserters::reg_conversion_function(std::string from_type,
                                              std::string to_type,
                                              FunctionGetter getter)
 {
-  auto inserter =
-      [getter](GraphBuilder &builder, Socket from, Socket to, struct bNodeLink *source_link) {
-        auto fn = getter();
-        Node *node;
-        if (source_link == NULL) {
-          node = builder.insert_function(fn);
-        }
-        else {
-          node = builder.insert_function(fn, source_link);
-        }
-        builder.insert_link(from, node->input(0));
-        builder.insert_link(node->output(0), to);
-      };
+  auto inserter = [getter](BTreeGraphBuilder &builder,
+                           DFGB_Socket from,
+                           DFGB_Socket to,
+                           struct bNodeLink *source_link) {
+    auto fn = getter();
+    DFGB_Node *node;
+    if (source_link == NULL) {
+      node = builder.insert_function(fn);
+    }
+    else {
+      node = builder.insert_function(fn, source_link);
+    }
+    builder.insert_link(from, node->input(0));
+    builder.insert_link(node->output(0), to);
+  };
   this->reg_conversion_inserter(from_type, to_type, inserter);
 }
 
-bool GraphInserters::insert_node(GraphBuilder &builder, bNode *bnode)
+bool GraphInserters::insert_node(BTreeGraphBuilder &builder, bNode *bnode)
 {
   NodeInserter *inserter = m_node_inserters.lookup_ptr(bnode->idname);
   if (inserter == nullptr) {
@@ -113,9 +115,7 @@ class SocketLoaderBody : public TupleCallBody {
   }
 };
 
-SocketVector GraphInserters::insert_sockets(GraphBuilder &builder,
-                                            BSockets &bsockets,
-                                            BNodes &UNUSED(bnodes))
+DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder, BSockets &bsockets)
 {
   SmallVector<SocketLoader> loaders;
   OutputParameters outputs;
@@ -135,16 +135,16 @@ SocketVector GraphInserters::insert_sockets(GraphBuilder &builder,
 
   auto fn = SharedFunction::New("Input Sockets", Signature({}, outputs));
   fn->add_body(new SocketLoaderBody(builder.btree(), bsockets, loaders));
-  Node *node = builder.insert_function(fn);
+  DFGB_Node *node = builder.insert_function(fn);
 
-  SocketVector sockets;
-  for (Socket output : node->outputs()) {
+  DFGB_SocketVector sockets;
+  for (DFGB_Socket output : node->outputs()) {
     sockets.append(output);
   }
   return sockets;
 }
 
-bool GraphInserters::insert_link(GraphBuilder &builder,
+bool GraphInserters::insert_link(BTreeGraphBuilder &builder,
                                  struct bNodeSocket *from_bsocket,
                                  struct bNodeSocket *to_bsocket,
                                  struct bNodeLink *source_link)
@@ -152,8 +152,8 @@ bool GraphInserters::insert_link(GraphBuilder &builder,
   BLI_assert(builder.is_data_socket(from_bsocket));
   BLI_assert(builder.is_data_socket(to_bsocket));
 
-  Socket from_socket = builder.lookup_socket(from_bsocket);
-  Socket to_socket = builder.lookup_socket(to_bsocket);
+  DFGB_Socket from_socket = builder.lookup_socket(from_bsocket);
+  DFGB_Socket to_socket = builder.lookup_socket(to_bsocket);
 
   std::string from_type = builder.query_socket_type_name(from_bsocket);
   std::string to_type = builder.query_socket_type_name(to_bsocket);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BLI_small_stack.hpp"
+#include "BLI_small_set.hpp"
 
 namespace BLI {
 
@@ -9,6 +10,10 @@ class MemPool {
   SmallStack<void *> m_free_stack;
   SmallVector<void *> m_start_pointers;
   uint m_element_size;
+
+#ifdef DEBUG
+  SmallSet<void *> m_allocated_pointers;
+#endif
 
  public:
   MemPool(uint element_size) : m_element_size(element_size)
@@ -29,11 +34,19 @@ class MemPool {
     if (m_free_stack.empty()) {
       this->allocate_more();
     }
-    return m_free_stack.pop();
+    void *ptr = m_free_stack.pop();
+#ifdef DEBUG
+    m_allocated_pointers.add_new(ptr);
+#endif
+    return ptr;
   }
 
   void deallocate(void *ptr)
   {
+#ifdef DEBUG
+    BLI_assert(m_allocated_pointers.contains(ptr));
+    m_allocated_pointers.remove(ptr);
+#endif
     m_free_stack.push(ptr);
   }
 

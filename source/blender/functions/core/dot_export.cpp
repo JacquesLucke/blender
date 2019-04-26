@@ -1,10 +1,10 @@
-#include "data_flow_graph.hpp"
+#include "FN_core.hpp"
 
 #include <sstream>
 #include "WM_api.h"
 
 namespace FN {
-static std::string get_id(Node *node)
+static std::string get_id(DFGB_Node *node)
 {
   std::stringstream ss;
   ss << "\"";
@@ -13,7 +13,7 @@ static std::string get_id(Node *node)
   return ss.str();
 }
 
-static std::string get_id(Socket socket)
+static std::string get_id(DFGB_Socket socket)
 {
   std::stringstream ss;
   ss << "\"";
@@ -23,14 +23,14 @@ static std::string get_id(Socket socket)
   return ss.str();
 }
 
-static std::string port_id(Socket socket)
+static std::string port_id(DFGB_Socket socket)
 {
   std::string n = get_id(socket.node());
   std::string s = get_id(socket);
   return get_id(socket.node()) + ":" + get_id(socket);
 }
 
-static void insert_node_table(std::stringstream &ss, Node *node)
+static void insert_node_table(std::stringstream &ss, DFGB_Node *node)
 {
   ss << "<table border=\"0\" cellspacing=\"3\">";
 
@@ -47,7 +47,7 @@ static void insert_node_table(std::stringstream &ss, Node *node)
   for (uint i = 0; i < socket_max_amount; i++) {
     ss << "<tr>";
     if (i < inputs_amount) {
-      Socket socket = node->input(i);
+      DFGB_Socket socket = node->input(i);
       ss << "<td align=\"left\" port=" << get_id(socket) << ">";
       ss << socket.name();
       ss << "</td>";
@@ -70,7 +70,7 @@ static void insert_node_table(std::stringstream &ss, Node *node)
   ss << "</table>";
 }
 
-static void insert_node(std::stringstream &ss, Node *node)
+static void insert_node(std::stringstream &ss, DFGB_Node *node)
 {
   ss << get_id(node) << " ";
   ss << "[style=\"filled\", fillcolor=\"#FFFFFF\", shape=\"box\"";
@@ -79,24 +79,24 @@ static void insert_node(std::stringstream &ss, Node *node)
   ss << ">]";
 }
 
-static void insert_link(std::stringstream &ss, Link link)
+static void dot__insert_link(std::stringstream &ss, DFGB_Link link)
 {
   ss << port_id(link.from()) << " -> " << port_id(link.to());
 }
 
-std::string DataFlowGraph::to_dot() const
+std::string DataFlowGraphBuilder::to_dot()
 {
   std::stringstream ss;
   ss << "digraph MyGraph {" << std::endl;
   ss << "rankdir=LR" << std::endl;
 
-  for (Node *node : m_nodes) {
+  for (DFGB_Node *node : m_nodes) {
     insert_node(ss, node);
     ss << std::endl;
   }
 
-  for (Link link : this->all_links()) {
-    insert_link(ss, link);
+  for (DFGB_Link link : this->links()) {
+    dot__insert_link(ss, link);
     ss << std::endl;
   }
 
@@ -104,7 +104,7 @@ std::string DataFlowGraph::to_dot() const
   return ss.str();
 }
 
-void DataFlowGraph::to_dot__clipboard() const
+void DataFlowGraphBuilder::to_dot__clipboard()
 {
   std::string dot = this->to_dot();
   WM_clipboard_text_set(dot.c_str(), false);

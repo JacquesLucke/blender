@@ -1,93 +1,71 @@
-#include "data_flow_graph.hpp"
+#include "FN_core.hpp"
 
 namespace FN {
-SharedType &Socket::type() const
+
+SharedDataFlowGraph DataFlowGraph::FromBuilder(DataFlowGraphBuilder &builder,
+                                               DataFlowGraph::ToBuilderMapping &r_mapping)
 {
-  if (m_is_output) {
-    return this->node()->signature().outputs()[m_index].type();
-  }
-  else {
-    return this->node()->signature().inputs()[m_index].type();
-  }
-}
+  auto graph = SharedDataFlowGraph::New();
+  auto dfgb_nodes = builder.nodes();
 
-std::string Socket::name() const
-{
-  if (m_is_output) {
-    return this->node()->signature().outputs()[m_index].name();
-  }
-  else {
-    return this->node()->signature().inputs()[m_index].name();
-  }
-}
+  graph->m_nodes.reserve(dfgb_nodes.size());
 
-DataFlowGraph::DataFlowGraph() : m_node_pool(sizeof(Node))
-{
-}
+  const uint dummy = (uint)-1;
 
-DataFlowGraph::~DataFlowGraph()
-{
-  for (Node *node : m_nodes) {
-    node->~Node();
-  }
-}
+  for (DFGB_Node *dfgb_node : dfgb_nodes) {
+    uint node_id = graph->m_nodes.size();
+    graph->m_nodes.append(MyNode(dfgb_node->function(),
+                                 dfgb_node->source(),
+                                 graph->m_inputs.size(),
+                                 graph->m_outputs.size()));
+    r_mapping.node_indices.add_new(dfgb_node, node_id);
 
-Node *DataFlowGraph::insert(SharedFunction &function, SourceInfo *source)
-{
-  BLI_assert(this->can_modify());
-
-  void *ptr = m_node_pool.allocate();
-  Node *node = new (ptr) Node(this, function, source);
-  m_nodes.add(node);
-  return node;
-}
-
-void DataFlowGraph::link(Socket a, Socket b)
-{
-  BLI_assert(this->can_modify());
-  BLI_assert(a.node() != b.node());
-  BLI_assert(a.type() == b.type());
-  BLI_assert(a.is_input() != b.is_input());
-  BLI_assert(a.graph() == this && b.graph() == this);
-
-  m_links.insert(Link::New(a, b));
-}
-
-SocketSet FunctionGraph::find_used_sockets(bool include_inputs, bool include_outputs) const
-{
-  SocketSet found;
-
-  SocketSet to_be_checked;
-  for (Socket socket : m_outputs) {
-    to_be_checked.add_new(socket);
-  }
-
-  while (to_be_checked.size() > 0) {
-    Socket socket = to_be_checked.pop();
-
-    if (!include_inputs && m_inputs.contains(socket)) {
-      continue;
+    for (DFGB_Socket dfgb_input : dfgb_node->inputs()) {
+      r_mapping.input_socket_indices.add_new(dfgb_input, graph->m_inputs.size());
+      graph->m_inputs.append(InputSocket(node_id, dummy));
     }
-
-    found.add(socket);
-
-    if (socket.is_input()) {
-      to_be_checked.add_new(socket.origin());
-    }
-    else {
-      for (Socket input : socket.node()->inputs()) {
-        to_be_checked.add_new(input);
+    for (DFGB_Socket output : dfgb_node->outputs()) {
+      auto targets = output.targets();
+      r_mapping.output_socket_indices.add_new(output, graph->m_outputs.size());
+      graph->m_outputs.append(OutputSocket(node_id, graph->m_targets.size(), targets.size()));
+      for (uint i = 0; i < targets.size(); i++) {
+        graph->m_targets.append(dummy);
       }
     }
   }
 
-  if (!include_outputs) {
-    for (Socket socket : m_outputs) {
-      found.remove(socket);
+  for (DFGB_Node *dfgb_node : dfgb_nodes) {
+    for (DFGB_Socket dfgb_input : dfgb_node->inputs()) {
+      uint input_id = r_mapping.input_socket_indices.lookup(dfgb_input);
+      Optional<DFGB_Socket> dfgb_origin = dfgb_input.origin();
+      BLI_assert(dfgb_origin.has_value());
+      uint origin_id = r_mapping.output_socket_indices.lookup(dfgb_origin.value());
+      graph->m_inputs[input_id].origin = origin_id;
+    }
+    for (DFGB_Socket dfgb_output : dfgb_node->outputs()) {
+      uint output_id = r_mapping.output_socket_indices.lookup(dfgb_output);
+      uint start = graph->m_outputs[output_id].targets_start;
+      auto dfgb_targets = dfgb_output.targets();
+      for (uint i = 0; i < dfgb_targets.size(); i++) {
+        DFGB_Socket dfgb_target = dfgb_targets[i];
+        uint target_id = r_mapping.input_socket_indices.lookup(dfgb_target);
+        graph->m_targets[start + i] = target_id;
+      }
     }
   }
 
-  return found;
+  graph->m_source_info_pool = std::move(builder.m_source_info_pool);
+
+  return graph;
 }
 
-};  // namespace FN
+DataFlowGraph::~DataFlowGraph()
+{
+  for (MyNode node : m_nodes) {
+    if (node.source_info != nullptr) {
+      node.source_info->~SourceInfo();
+    }
+  }
+}
+
+}  // namespace FN

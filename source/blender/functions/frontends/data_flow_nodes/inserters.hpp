@@ -11,12 +11,12 @@ struct PointerRNA;
 namespace FN {
 namespace DataFlowNodes {
 
-typedef std::function<void(GraphBuilder &builder, struct bNode *bnode)> NodeInserter;
+typedef std::function<void(BTreeGraphBuilder &builder, struct bNode *bnode)> NodeInserter;
 
 typedef std::function<void(PointerRNA *socket_rna_ptr, Tuple &dst, uint index)> SocketLoader;
 
 typedef std::function<void(
-    GraphBuilder &builder, Socket from, Socket to, struct bNodeLink *source_link)>
+    BTreeGraphBuilder &builder, DFGB_Socket from, DFGB_Socket to, struct bNodeLink *source_link)>
     ConversionInserter;
 
 typedef std::function<SharedFunction()> FunctionGetter;
@@ -39,11 +39,11 @@ class GraphInserters {
 
   void reg_conversion_function(std::string from_type, std::string to_type, FunctionGetter getter);
 
-  bool insert_node(GraphBuilder &builder, struct bNode *bnode);
+  bool insert_node(BTreeGraphBuilder &builder, struct bNode *bnode);
 
-  SocketVector insert_sockets(GraphBuilder &builder, BSockets &bsockets, BNodes &bnodes);
+  DFGB_SocketVector insert_sockets(BTreeGraphBuilder &builder, BSockets &bsockets);
 
-  bool insert_link(GraphBuilder &builder,
+  bool insert_link(BTreeGraphBuilder &builder,
                    struct bNodeSocket *from_bsocket,
                    struct bNodeSocket *to_bsocket,
                    struct bNodeLink *source_link = nullptr);

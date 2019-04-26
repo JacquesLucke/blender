@@ -5,14 +5,14 @@
 namespace FN {
 namespace DataFlowNodes {
 
-static void INSERT_base_to_list(GraphBuilder &builder,
-                                Socket from,
-                                Socket to,
+static void INSERT_base_to_list(BTreeGraphBuilder &builder,
+                                DFGB_Socket from,
+                                DFGB_Socket to,
                                 struct bNodeLink *UNUSED(source_link))
 {
   SharedType &base_type = from.type();
   auto fn = Functions::GET_FN_list_from_element(base_type);
-  Node *node = builder.insert_function(fn);
+  DFGB_Node *node = builder.insert_function(fn);
   builder.insert_link(from, node->input(0));
   builder.insert_link(node->output(0), to);
 }
