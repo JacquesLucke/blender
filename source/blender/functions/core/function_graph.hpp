@@ -23,6 +23,11 @@ class FunctionGraph {
     return m_graph;
   }
 
+  SharedDataFlowGraph &graph()
+  {
+    return m_graph;
+  }
+
   const DFGraphSocketVector &inputs() const
   {
     return m_inputs;

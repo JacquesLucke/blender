@@ -3,6 +3,26 @@
 
 namespace FN {
 
+static void try_ensure_tuple_call_bodies(SharedDataFlowGraph &graph)
+{
+  auto *context = new llvm::LLVMContext();
+
+  for (uint node_id : graph->node_ids()) {
+    SharedFunction &fn = graph->function_of_node(node_id);
+    if (fn->has_body<TupleCallBody>()) {
+      continue;
+    }
+
+    if (fn->has_body<LazyInTupleCallBody>()) {
+      derive_TupleCallBody_from_LazyInTupleCallBody(fn);
+    }
+
+    if (fn->has_body<LLVMBuildIRBody>()) {
+      derive_TupleCallBody_from_LLVMBuildIRBody(fn, *context);
+    }
+  }
+}
+
 class ExecuteGraph : public TupleCallBody {
  private:
   FunctionGraph m_fgraph;
@@ -10,25 +30,9 @@ class ExecuteGraph : public TupleCallBody {
   DataFlowGraph *m_graph;
 
  public:
-  ExecuteGraph(const FunctionGraph &function_graph)
+  ExecuteGraph(FunctionGraph &function_graph)
       : m_fgraph(function_graph), m_graph(function_graph.graph().ptr())
   {
-    auto *context = new llvm::LLVMContext();
-
-    for (uint node : m_graph->node_ids()) {
-      SharedFunction &fn = m_graph->function_of_node(node);
-      if (fn->has_body<TupleCallBody>()) {
-        continue;
-      }
-
-      if (fn->has_body<LazyInTupleCallBody>()) {
-        derive_TupleCallBody_from_LazyInTupleCallBody(fn);
-      }
-
-      if (fn->has_body<LLVMBuildIRBody>()) {
-        derive_TupleCallBody_from_LLVMBuildIRBody(fn, *context);
-      }
-    }
   }
 
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
@@ -72,6 +76,7 @@ class ExecuteGraph : public TupleCallBody {
 
 void fgraph_add_TupleCallBody(SharedFunction &fn, FunctionGraph &fgraph)
 {
+  try_ensure_tuple_call_bodies(fgraph.graph());
   fn->add_body(new ExecuteGraph(fgraph));
 }
 
