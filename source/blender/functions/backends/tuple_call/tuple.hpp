@@ -81,25 +81,21 @@ class Tuple {
     m_owns_mem = true;
   }
 
-  Tuple(SharedTupleMeta meta,
-        void *data,
-        bool *initialized,
-        bool take_ownership,
-        bool was_initialized = false)
+  Tuple(SharedTupleMeta meta, void *data, bool *initialized, bool was_initialized = false)
       : m_meta(std::move(meta))
   {
     BLI_assert(data != nullptr);
     BLI_assert(initialized != nullptr);
     m_data = data;
     m_initialized = initialized;
-    m_owns_mem = take_ownership;
+    m_owns_mem = false;
     if (!was_initialized) {
       this->set_all_uninitialized();
     }
   }
 
   Tuple(SharedTupleMeta &meta, void *buffer)
-      : Tuple(meta, buffer, (bool *)buffer + meta->size_of_data(), false, false)
+      : Tuple(meta, buffer, (bool *)buffer + meta->size_of_data(), false)
   {
   }
 

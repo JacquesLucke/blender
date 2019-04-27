@@ -23,14 +23,219 @@ static void try_ensure_tuple_call_bodies(SharedDataFlowGraph &graph)
   }
 }
 
-class ExecuteGraph : public TupleCallBody {
+class ExecuteFGraph : public TupleCallBody {
+ private:
+  FunctionGraph m_fgraph;
+  DataFlowGraph *m_graph;
+
+  SmallVector<TupleCallBody *> m_bodies;
+  SmallVector<uint> m_input_starts;
+  SmallVector<uint> m_output_starts;
+
+  SmallVector<CPPTypeInfo *> m_input_types;
+  SmallVector<CPPTypeInfo *> m_output_types;
+  uint m_inputs_buffer_size = 0;
+  uint m_outputs_buffer_size = 0;
+  SmallVector<uint> m_input_offsets;
+  SmallVector<uint> m_output_offsets;
+
+  uint m_inputs_init_buffer_size = 0;
+  uint m_outputs_init_buffer_size = 0;
+
+ public:
+  ExecuteFGraph(FunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph().ptr())
+  {
+    for (uint node_id : m_graph->node_ids()) {
+      SharedFunction &fn = m_graph->function_of_node(node_id);
+      TupleCallBody *body = fn->body<TupleCallBody>();
+      m_bodies.append(body);
+
+      m_inputs_init_buffer_size += fn->signature().inputs().size();
+      m_outputs_init_buffer_size += fn->signature().outputs().size();
+
+      m_input_starts.append(m_inputs_buffer_size);
+      m_output_starts.append(m_outputs_buffer_size);
+
+      if (body == nullptr) {
+        for (auto param : fn->signature().inputs()) {
+          CPPTypeInfo *type_info = param.type()->extension<CPPTypeInfo>();
+          BLI_assert(type_info);
+          uint type_size = type_info->size_of_type();
+
+          m_input_types.append(type_info);
+          m_input_offsets.append(m_inputs_buffer_size);
+          m_inputs_buffer_size += type_size;
+        }
+
+        for (auto param : fn->signature().outputs()) {
+          CPPTypeInfo *type_info = param.type()->extension<CPPTypeInfo>();
+          BLI_assert(type_info);
+          uint type_size = type_info->size_of_type();
+
+          m_output_types.append(type_info);
+          m_output_offsets.append(m_outputs_buffer_size);
+          m_outputs_buffer_size += type_size;
+        }
+      }
+      else {
+        SharedTupleMeta &meta_in = body->meta_in();
+        for (uint i = 0; i < fn->signature().inputs().size(); i++) {
+          m_input_types.append(meta_in->type_infos()[i]);
+          m_input_offsets.append(m_inputs_buffer_size + meta_in->offsets()[i]);
+        }
+        m_inputs_buffer_size += meta_in->size_of_data();
+
+        SharedTupleMeta &meta_out = body->meta_out();
+        for (uint i = 0; i < fn->signature().outputs().size(); i++) {
+          m_output_types.append(meta_out->type_infos()[i]);
+          m_output_offsets.append(m_outputs_buffer_size + meta_out->offsets()[i]);
+        }
+        m_outputs_buffer_size += meta_in->size_of_data();
+      }
+    }
+  }
+
+  void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
+  {
+    char *input_values = BLI_array_alloca(input_values, m_inputs_buffer_size);
+    char *output_values = BLI_array_alloca(output_values, m_outputs_buffer_size);
+
+    bool *input_inits = BLI_array_alloca(input_inits, m_inputs_init_buffer_size);
+    bool *output_inits = BLI_array_alloca(output_inits, m_outputs_init_buffer_size);
+    memset(input_inits, 0, m_inputs_init_buffer_size);
+    memset(output_inits, 0, m_outputs_init_buffer_size);
+
+    for (uint i = 0; i < m_fgraph.inputs().size(); i++) {
+      DFGraphSocket socket = m_fgraph.inputs()[i];
+      if (socket.is_input()) {
+        fn_in.relocate_out__dynamic(i, input_values + m_input_offsets[socket.id()]);
+        input_inits[socket.id()] = true;
+      }
+      else {
+        fn_in.relocate_out__dynamic(i, output_values + m_output_offsets[socket.id()]);
+        output_inits[socket.id()] = true;
+      }
+    }
+
+    SmallStack<DFGraphSocket> sockets_to_compute;
+    for (auto socket : m_fgraph.outputs()) {
+      sockets_to_compute.push(socket);
+    }
+
+    while (!sockets_to_compute.empty()) {
+      DFGraphSocket socket = sockets_to_compute.peek();
+
+      if (socket.is_input()) {
+        if (input_inits[socket.id()]) {
+          sockets_to_compute.pop();
+        }
+        else {
+          DFGraphSocket origin = m_graph->origin_of_input(socket);
+          sockets_to_compute.push(origin);
+        }
+      }
+      else {
+        if (output_inits[socket.id()]) {
+          this->forward_output(
+              socket.id(), input_values, output_values, input_inits, output_inits);
+          sockets_to_compute.pop();
+        }
+        else {
+          bool all_inputs_computed = true;
+          uint node_id = m_graph->node_id_of_output(socket.id());
+          for (uint input_id : m_graph->input_ids_of_node(node_id)) {
+            if (!input_inits[input_id]) {
+              sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
+              all_inputs_computed = false;
+            }
+          }
+
+          if (all_inputs_computed) {
+            TupleCallBody *body = m_bodies[node_id];
+            BLI_assert(body);
+
+            Tuple body_in(body->meta_in(),
+                          input_values + m_input_starts[node_id],
+                          input_inits + m_graph->first_input_id_of_node(node_id),
+                          true);
+            Tuple body_out(body->meta_out(),
+                           output_values + m_output_starts[node_id],
+                           output_inits + m_graph->first_output_id_of_node(node_id),
+                           true);
+
+            SourceInfoStackFrame frame(m_graph->source_info_of_node(node_id));
+            body->call__setup_stack(body_in, body_out, ctx, frame);
+
+            for (uint output_id : m_graph->output_ids_of_node(node_id)) {
+              this->forward_output(
+                  output_id, input_values, output_values, input_inits, output_inits);
+            }
+
+            sockets_to_compute.pop();
+          }
+        }
+      }
+    }
+
+    for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
+      DFGraphSocket socket = m_fgraph.outputs()[i];
+      if (socket.is_input()) {
+        BLI_assert(input_inits[socket.id()]);
+        fn_out.relocate_in__dynamic(i, input_values + m_input_offsets[socket.id()]);
+        input_inits[socket.id()] = false;
+      }
+      else {
+        BLI_assert(output_inits[socket.id()]);
+        fn_out.relocate_in__dynamic(i, output_values + m_input_offsets[socket.id()]);
+        output_inits[socket.id()] = false;
+      }
+    }
+
+    for (uint input_id = 0; input_id < m_inputs_init_buffer_size; input_id++) {
+      if (input_inits[input_id]) {
+        CPPTypeInfo *type_info = m_input_types[input_id];
+        type_info->destruct_type(input_values + m_input_offsets[input_id]);
+      }
+    }
+    for (uint output_id = 0; output_id < m_outputs_init_buffer_size; output_id++) {
+      if (output_inits[output_id]) {
+        CPPTypeInfo *type_info = m_output_types[output_id];
+        type_info->destruct_type(output_values + m_output_offsets[output_id]);
+      }
+    }
+  }
+
+ private:
+  void forward_output(uint output_id,
+                      char *input_values,
+                      char *output_values,
+                      bool *input_inits,
+                      bool *output_inits) const
+  {
+    BLI_assert(output_inits[output_id]);
+    auto target_ids = m_graph->targets_of_output(output_id);
+    CPPTypeInfo *type_info = m_output_types[output_id];
+    void *value_src = output_values + m_output_offsets[output_id];
+
+    for (uint target_id : target_ids) {
+      BLI_assert(type_info == m_input_types[target_id]);
+      if (!input_inits[target_id]) {
+        void *value_dst = input_values + m_input_offsets[target_id];
+        type_info->copy_to_uninitialized(value_src, value_dst);
+        input_inits[target_id] = true;
+      }
+    }
+  }
+};
+
+class ExecuteFGraph_Simple : public TupleCallBody {
  private:
   FunctionGraph m_fgraph;
   /* Just for easy access. */
   DataFlowGraph *m_graph;
 
  public:
-  ExecuteGraph(FunctionGraph &function_graph)
+  ExecuteFGraph_Simple(FunctionGraph &function_graph)
       : m_fgraph(function_graph), m_graph(function_graph.graph().ptr())
   {
   }
@@ -77,7 +282,7 @@ class ExecuteGraph : public TupleCallBody {
 void fgraph_add_TupleCallBody(SharedFunction &fn, FunctionGraph &fgraph)
 {
   try_ensure_tuple_call_bodies(fgraph.graph());
-  fn->add_body(new ExecuteGraph(fgraph));
+  fn->add_body(new ExecuteFGraph(fgraph));
 }
 
 } /* namespace FN */

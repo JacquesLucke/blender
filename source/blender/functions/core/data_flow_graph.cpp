@@ -68,6 +68,20 @@ DataFlowGraph::~DataFlowGraph()
   }
 }
 
+void DataFlowGraph::print_socket(DFGraphSocket socket) const
+{
+  uint node_id = this->node_id_of_socket(socket);
+  auto &node = m_nodes[node_id];
+  std::cout << "<" << node.function->name() << " - ";
+  if (socket.is_input()) {
+    std::cout << "Input";
+  }
+  else {
+    std::cout << "Output";
+  }
+  std::cout << ":" << this->index_of_socket(socket) << ">";
+}
+
 std::string DataFlowGraph::to_dot()
 {
   DataFlowGraphBuilder builder;

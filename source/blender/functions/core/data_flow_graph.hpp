@@ -208,6 +208,16 @@ class DataFlowGraph : public RefCountedBase {
     return DFGraphSocketSequence<Range<uint>>(true, this->output_ids_of_node(node_id));
   }
 
+  uint first_input_id_of_node(uint node_id) const
+  {
+    return m_nodes[node_id].inputs_start;
+  }
+
+  uint first_output_id_of_node(uint node_id) const
+  {
+    return m_nodes[node_id].outputs_start;
+  }
+
   SourceInfo *source_info_of_node(uint node_id) const
   {
     return m_nodes[node_id].source_info;
@@ -242,6 +252,16 @@ class DataFlowGraph : public RefCountedBase {
                                                  this->targets_of_output(output_socket.id()));
   }
 
+  uint node_id_of_socket(DFGraphSocket socket) const
+  {
+    if (socket.is_input()) {
+      return this->node_id_of_input(socket);
+    }
+    else {
+      return this->node_id_of_output(socket);
+    }
+  }
+
   uint node_id_of_input(uint input_id) const
   {
     return m_inputs[input_id].node;
@@ -262,6 +282,16 @@ class DataFlowGraph : public RefCountedBase {
   {
     BLI_assert(output_socket.is_output());
     return this->node_id_of_output(output_socket.id());
+  }
+
+  uint index_of_socket(DFGraphSocket socket) const
+  {
+    if (socket.is_input()) {
+      return this->index_of_input(socket);
+    }
+    else {
+      return this->index_of_output(socket);
+    }
   }
 
   uint index_of_input(uint input_id) const
@@ -342,6 +372,8 @@ class DataFlowGraph : public RefCountedBase {
 
   std::string to_dot();
   void to_dot__clipboard();
+
+  void print_socket(DFGraphSocket socket) const;
 
  private:
   void insert_in_builder(DataFlowGraphBuilder &builder);
