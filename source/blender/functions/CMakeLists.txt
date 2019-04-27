@@ -143,6 +143,7 @@ set(SRC
 )
 
 set(LIB
+  bf_blenlib
 )
 
 blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

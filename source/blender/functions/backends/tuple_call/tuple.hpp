@@ -403,6 +403,6 @@ inline uint TupleMeta::size_of_full_tuple() const
 } /* namespace FN */
 
 #define FN_TUPLE_STACK_ALLOC(name, meta_expr) \
-  SharedTupleMeta &name##_meta = (meta_expr); \
+  FN::SharedTupleMeta &name##_meta = (meta_expr); \
   void *name##_buffer = alloca(name##_meta->size_of_data_and_init()); \
-  Tuple name(name##_meta, name##_buffer);
+  FN::Tuple name(name##_meta, name##_buffer);

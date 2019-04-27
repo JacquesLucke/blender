@@ -33,7 +33,7 @@ class TupleCallBody : public TupleCallBodyBase {
  public:
   BLI_COMPOSITION_DECLARATION(TupleCallBody);
 
-  inline void call__setup_stack(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx)
+  inline void call__setup_stack(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const
   {
     TextStackFrame frame(this->owner()->name().c_str());
     ctx.stack().push(&frame);
@@ -44,11 +44,18 @@ class TupleCallBody : public TupleCallBodyBase {
   inline void call__setup_stack(Tuple &fn_in,
                                 Tuple &fn_out,
                                 ExecutionContext &ctx,
-                                StackFrame &extra_frame)
+                                StackFrame &extra_frame) const
   {
     ctx.stack().push(&extra_frame);
     this->call__setup_stack(fn_in, fn_out, ctx);
     ctx.stack().pop();
+  }
+
+  inline void call__setup_execution_context(Tuple &fn_in, Tuple &fn_out) const
+  {
+    ExecutionStack stack;
+    ExecutionContext ctx(stack);
+    this->call__setup_stack(fn_in, fn_out, ctx);
   }
 
   virtual void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const = 0;
