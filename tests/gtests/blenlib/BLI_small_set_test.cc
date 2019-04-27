@@ -122,3 +122,19 @@ TEST(small_set, RemoveMany)
     }
   }
 }
+
+TEST(small_set, Intersects)
+{
+  IntSet a = {3, 4, 5, 6};
+  IntSet b = {1, 2, 5};
+  EXPECT_TRUE(IntSet::Intersects(a, b));
+  EXPECT_FALSE(IntSet::Disjoint(a, b));
+}
+
+TEST(small_set, Disjoint)
+{
+  IntSet a = {5, 6, 7, 8};
+  IntSet b = {2, 3, 4, 9};
+  EXPECT_FALSE(IntSet::Intersects(a, b));
+  EXPECT_TRUE(IntSet::Disjoint(a, b));
+}

@@ -86,6 +86,21 @@ template<typename T, uint N = 4, typename Hash = std::hash<T>> class SmallSet {
     return m_elements[0];
   }
 
+  static bool Disjoint(const SmallSet &a, const SmallSet &b)
+  {
+    return !SmallSet::Intersects(a, b);
+  }
+
+  static bool Intersects(const SmallSet &a, const SmallSet &b)
+  {
+    for (const T &value : a) {
+      if (b.contains(value)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   T *begin() const
   {
     return m_elements.begin();
