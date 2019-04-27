@@ -34,13 +34,21 @@ class ExecuteFGraph : public TupleCallBody {
 
   SmallVector<CPPTypeInfo *> m_input_types;
   SmallVector<CPPTypeInfo *> m_output_types;
-  uint m_inputs_buffer_size = 0;
-  uint m_outputs_buffer_size = 0;
   SmallVector<uint> m_input_offsets;
   SmallVector<uint> m_output_offsets;
 
+  uint m_inputs_buffer_size = 0;
+  uint m_outputs_buffer_size = 0;
   uint m_inputs_init_buffer_size = 0;
   uint m_outputs_init_buffer_size = 0;
+
+  struct SocketFlag {
+    char is_fn_input : 1;
+    char is_fn_output : 1;
+  };
+
+  SmallVector<SocketFlag> m_input_socket_flags;
+  SmallVector<SocketFlag> m_output_socket_flags;
 
  public:
   ExecuteFGraph(FunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph().ptr())
@@ -55,6 +63,20 @@ class ExecuteFGraph : public TupleCallBody {
 
       m_input_starts.append(m_inputs_buffer_size);
       m_output_starts.append(m_outputs_buffer_size);
+
+      for (auto socket : m_graph->inputs_of_node(node_id)) {
+        SocketFlag flag;
+        flag.is_fn_input = fgraph.inputs().contains(socket);
+        flag.is_fn_output = fgraph.outputs().contains(socket);
+        m_input_socket_flags.append(flag);
+      }
+
+      for (auto socket : m_graph->outputs_of_node(node_id)) {
+        SocketFlag flag;
+        flag.is_fn_input = fgraph.inputs().contains(socket);
+        flag.is_fn_output = fgraph.outputs().contains(socket);
+        m_output_socket_flags.append(flag);
+      }
 
       if (body == nullptr) {
         for (auto param : fn->signature().inputs()) {
@@ -90,7 +112,7 @@ class ExecuteFGraph : public TupleCallBody {
           m_output_types.append(meta_out->type_infos()[i]);
           m_output_offsets.append(m_outputs_buffer_size + meta_out->offsets()[i]);
         }
-        m_outputs_buffer_size += meta_in->size_of_data();
+        m_outputs_buffer_size += meta_out->size_of_data();
       }
     }
   }
@@ -110,10 +132,20 @@ class ExecuteFGraph : public TupleCallBody {
       if (socket.is_input()) {
         fn_in.relocate_out__dynamic(i, input_values + m_input_offsets[socket.id()]);
         input_inits[socket.id()] = true;
+
+        if (m_input_socket_flags[socket.id()].is_fn_output) {
+          uint index = m_fgraph.outputs().index(socket);
+          fn_out.copy_in__dynamic(index, input_values + m_input_offsets[socket.id()]);
+        }
       }
       else {
         fn_in.relocate_out__dynamic(i, output_values + m_output_offsets[socket.id()]);
         output_inits[socket.id()] = true;
+
+        if (m_output_socket_flags[socket.id()].is_fn_output) {
+          uint index = m_fgraph.outputs().index(socket);
+          fn_out.copy_in__dynamic(index, output_values + m_output_offsets[socket.id()]);
+        }
       }
     }
 
@@ -131,13 +163,18 @@ class ExecuteFGraph : public TupleCallBody {
         }
         else {
           DFGraphSocket origin = m_graph->origin_of_input(socket);
-          sockets_to_compute.push(origin);
+          if (output_inits[origin.id()]) {
+            this->forward_output(
+                origin.id(), input_values, output_values, input_inits, output_inits, fn_out);
+            sockets_to_compute.pop();
+          }
+          else {
+            sockets_to_compute.push(origin);
+          }
         }
       }
       else {
         if (output_inits[socket.id()]) {
-          this->forward_output(
-              socket.id(), input_values, output_values, input_inits, output_inits);
           sockets_to_compute.pop();
         }
         else {
@@ -157,37 +194,27 @@ class ExecuteFGraph : public TupleCallBody {
             Tuple body_in(body->meta_in(),
                           input_values + m_input_starts[node_id],
                           input_inits + m_graph->first_input_id_of_node(node_id),
+                          true,
                           true);
             Tuple body_out(body->meta_out(),
                            output_values + m_output_starts[node_id],
                            output_inits + m_graph->first_output_id_of_node(node_id),
-                           true);
+                           true,
+                           false);
 
             SourceInfoStackFrame frame(m_graph->source_info_of_node(node_id));
             body->call__setup_stack(body_in, body_out, ctx, frame);
 
             for (uint output_id : m_graph->output_ids_of_node(node_id)) {
-              this->forward_output(
-                  output_id, input_values, output_values, input_inits, output_inits);
+              if (m_output_socket_flags[output_id].is_fn_output) {
+                uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
+                fn_out.copy_in__dynamic(index, output_values + m_output_offsets[output_id]);
+              }
             }
 
             sockets_to_compute.pop();
           }
         }
-      }
-    }
-
-    for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
-      DFGraphSocket socket = m_fgraph.outputs()[i];
-      if (socket.is_input()) {
-        BLI_assert(input_inits[socket.id()]);
-        fn_out.relocate_in__dynamic(i, input_values + m_input_offsets[socket.id()]);
-        input_inits[socket.id()] = false;
-      }
-      else {
-        BLI_assert(output_inits[socket.id()]);
-        fn_out.relocate_in__dynamic(i, output_values + m_input_offsets[socket.id()]);
-        output_inits[socket.id()] = false;
       }
     }
 
@@ -210,7 +237,8 @@ class ExecuteFGraph : public TupleCallBody {
                       char *input_values,
                       char *output_values,
                       bool *input_inits,
-                      bool *output_inits) const
+                      bool *output_inits,
+                      Tuple &fn_out) const
   {
     BLI_assert(output_inits[output_id]);
     auto target_ids = m_graph->targets_of_output(output_id);
@@ -223,6 +251,11 @@ class ExecuteFGraph : public TupleCallBody {
         void *value_dst = input_values + m_input_offsets[target_id];
         type_info->copy_to_uninitialized(value_src, value_dst);
         input_inits[target_id] = true;
+
+        if (m_input_socket_flags[target_id].is_fn_output) {
+          uint index = m_fgraph.outputs().index(DFGraphSocket::FromInput(target_id));
+          fn_out.copy_in__dynamic(index, value_dst);
+        }
       }
     }
   }

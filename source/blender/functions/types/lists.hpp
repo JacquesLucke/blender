@@ -18,7 +18,7 @@ template<typename T> class List : public BLI::SharedImmutable {
   ~List()
   {
     if (DEBUG_ALLOCATIONS) {
-      std::cout << "List Freed" << std::endl;
+      std::cout << "List Freed:     " << (void *)this << std::endl;
     }
   }
 
@@ -26,7 +26,7 @@ template<typename T> class List : public BLI::SharedImmutable {
   List() : BLI::SharedImmutable()
   {
     if (DEBUG_ALLOCATIONS) {
-      std::cout << "List Allocated" << std::endl;
+      std::cout << "List Allocated: " << (void *)this << std::endl;
     }
   }
 

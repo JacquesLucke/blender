@@ -151,6 +151,23 @@ class Tuple {
     m_initialized[index] = true;
   }
 
+  inline void copy_in__dynamic(uint index, void *src)
+  {
+    BLI_assert(index < m_meta->element_amount());
+    BLI_assert(src != nullptr);
+
+    void *dst = this->element_ptr(index);
+    auto *type_info = m_meta->type_infos()[index];
+
+    if (m_initialized[index]) {
+      type_info->copy_to_initialized(src, dst);
+    }
+    else {
+      type_info->copy_to_uninitialized(src, dst);
+      m_initialized[index] = true;
+    }
+  }
+
   template<typename T> inline void move_in(uint index, T &value)
   {
     BLI_assert(index < m_meta->element_amount());
@@ -163,9 +180,8 @@ class Tuple {
     }
     else {
       std::uninitialized_copy_n(std::make_move_iterator(&value), 1, dst);
+      m_initialized[index] = true;
     }
-
-    m_initialized[index] = true;
   }
 
   inline void relocate_in__dynamic(uint index, void *src)
@@ -181,9 +197,8 @@ class Tuple {
     }
     else {
       type_info->relocate_to_uninitialized(src, dst);
+      m_initialized[index] = true;
     }
-
-    m_initialized[index] = true;
   }
 
   template<typename T> inline void set(uint index, const T &value)
