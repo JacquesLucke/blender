@@ -109,36 +109,79 @@ class ExecuteFGraph : public TupleCallBody {
     }
   }
 
+  struct SocketValueStorage {
+    const ExecuteFGraph &m_parent;
+    void *m_input_values;
+    void *m_output_values;
+    bool *input_inits;
+    bool *output_inits;
+
+    SocketValueStorage(const ExecuteFGraph &parent) : m_parent(parent)
+    {
+    }
+
+    void *input_value_ptr(uint input_socket_id)
+    {
+      return POINTER_OFFSET(m_input_values, m_parent.m_input_info[input_socket_id].offset);
+    }
+
+    void *output_value_ptr(uint output_socket_id)
+    {
+      return POINTER_OFFSET(m_output_values, m_parent.m_output_info[output_socket_id].offset);
+    }
+
+    void *node_input_values_ptr(uint node_id)
+    {
+      return POINTER_OFFSET(m_input_values, m_parent.m_input_starts[node_id]);
+    }
+
+    void *node_output_values_ptr(uint node_id)
+    {
+      return POINTER_OFFSET(m_output_values, m_parent.m_output_starts[node_id]);
+    }
+
+    bool *node_input_inits_ptr(uint node_id)
+    {
+      return (bool *)POINTER_OFFSET(input_inits,
+                                    m_parent.m_graph->first_input_id_of_node(node_id));
+    }
+
+    bool *node_output_inits_ptr(uint node_id)
+    {
+      return (bool *)POINTER_OFFSET(output_inits,
+                                    m_parent.m_graph->first_output_id_of_node(node_id));
+    }
+  };
+
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
   {
-    char *input_values = BLI_array_alloca(input_values, m_inputs_buffer_size);
-    char *output_values = BLI_array_alloca(output_values, m_outputs_buffer_size);
+    SocketValueStorage storage(*this);
 
-    bool *input_inits = BLI_array_alloca(input_inits, m_inputs_init_buffer_size);
-    bool *output_inits = BLI_array_alloca(output_inits, m_outputs_init_buffer_size);
-    memset(input_inits, 0, m_inputs_init_buffer_size);
-    memset(output_inits, 0, m_outputs_init_buffer_size);
+    storage.m_input_values = alloca(m_inputs_buffer_size);
+    storage.m_output_values = alloca(m_outputs_buffer_size);
+    storage.input_inits = (bool *)alloca(m_inputs_init_buffer_size);
+    storage.output_inits = (bool *)alloca(m_outputs_init_buffer_size);
+    memset(storage.input_inits, 0, m_inputs_init_buffer_size);
+    memset(storage.output_inits, 0, m_outputs_init_buffer_size);
 
     for (uint i = 0; i < m_fgraph.inputs().size(); i++) {
       DFGraphSocket socket = m_fgraph.inputs()[i];
       if (socket.is_input()) {
-        SocketInfo &socket_info = m_input_info[socket.id()];
-        fn_in.relocate_out__dynamic(i, POINTER_OFFSET(input_values, socket_info.offset));
-        input_inits[socket.id()] = true;
+        fn_in.relocate_out__dynamic(i, storage.input_value_ptr(socket.id()));
+        storage.input_inits[socket.id()] = true;
 
-        if (socket_info.is_fn_output) {
+        if (m_input_info[socket.id()].is_fn_output) {
           uint index = m_fgraph.outputs().index(socket);
-          fn_out.copy_in__dynamic(index, POINTER_OFFSET(input_values, socket_info.offset));
+          fn_out.copy_in__dynamic(index, storage.input_value_ptr(socket.id()));
         }
       }
       else {
-        SocketInfo &socket_info = m_output_info[socket.id()];
-        fn_in.relocate_out__dynamic(i, POINTER_OFFSET(output_values, socket_info.offset));
-        output_inits[socket.id()] = true;
+        fn_in.relocate_out__dynamic(i, storage.output_value_ptr(socket.id()));
+        storage.output_inits[socket.id()] = true;
 
-        if (socket_info.is_fn_output) {
+        if (m_output_info[socket.id()].is_fn_output) {
           uint index = m_fgraph.outputs().index(socket);
-          fn_out.copy_in__dynamic(index, POINTER_OFFSET(output_values, socket_info.offset));
+          fn_out.copy_in__dynamic(index, storage.output_value_ptr(socket.id()));
         }
       }
     }
@@ -152,14 +195,13 @@ class ExecuteFGraph : public TupleCallBody {
       DFGraphSocket socket = sockets_to_compute.peek();
 
       if (socket.is_input()) {
-        if (input_inits[socket.id()]) {
+        if (storage.input_inits[socket.id()]) {
           sockets_to_compute.pop();
         }
         else {
           DFGraphSocket origin = m_graph->origin_of_input(socket);
-          if (output_inits[origin.id()]) {
-            this->forward_output(
-                origin.id(), input_values, output_values, input_inits, output_inits, fn_out);
+          if (storage.output_inits[origin.id()]) {
+            this->forward_output(origin.id(), storage, fn_out);
             sockets_to_compute.pop();
           }
           else {
@@ -168,14 +210,14 @@ class ExecuteFGraph : public TupleCallBody {
         }
       }
       else {
-        if (output_inits[socket.id()]) {
+        if (storage.output_inits[socket.id()]) {
           sockets_to_compute.pop();
         }
         else {
           bool all_inputs_computed = true;
           uint node_id = m_graph->node_id_of_output(socket.id());
           for (uint input_id : m_graph->input_ids_of_node(node_id)) {
-            if (!input_inits[input_id]) {
+            if (!storage.input_inits[input_id]) {
               sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
               all_inputs_computed = false;
             }
@@ -186,13 +228,13 @@ class ExecuteFGraph : public TupleCallBody {
             BLI_assert(body);
 
             Tuple body_in(body->meta_in(),
-                          POINTER_OFFSET(input_values, m_input_starts[node_id]),
-                          POINTER_OFFSET(input_inits, m_graph->first_input_id_of_node(node_id)),
+                          storage.node_input_values_ptr(node_id),
+                          storage.node_input_inits_ptr(node_id),
                           true,
                           true);
             Tuple body_out(body->meta_out(),
-                           POINTER_OFFSET(output_values, m_output_starts[node_id]),
-                           POINTER_OFFSET(output_inits, m_graph->first_output_id_of_node(node_id)),
+                           storage.node_output_values_ptr(node_id),
+                           storage.node_output_inits_ptr(node_id),
                            true,
                            false);
 
@@ -200,10 +242,9 @@ class ExecuteFGraph : public TupleCallBody {
             body->call__setup_stack(body_in, body_out, ctx, frame);
 
             for (uint output_id : m_graph->output_ids_of_node(node_id)) {
-              SocketInfo &socket_info = m_output_info[output_id];
-              if (socket_info.is_fn_output) {
+              if (m_output_info[output_id].is_fn_output) {
                 uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
-                fn_out.copy_in__dynamic(index, POINTER_OFFSET(output_values, socket_info.offset));
+                fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
               }
             }
 
@@ -214,38 +255,33 @@ class ExecuteFGraph : public TupleCallBody {
     }
 
     for (uint input_id = 0; input_id < m_inputs_init_buffer_size; input_id++) {
-      if (input_inits[input_id]) {
+      if (storage.input_inits[input_id]) {
         SocketInfo &socket_info = m_input_info[input_id];
-        socket_info.type->destruct_type(POINTER_OFFSET(input_values, socket_info.offset));
+        socket_info.type->destruct_type(storage.input_value_ptr(input_id));
       }
     }
     for (uint output_id = 0; output_id < m_outputs_init_buffer_size; output_id++) {
-      if (output_inits[output_id]) {
+      if (storage.output_inits[output_id]) {
         SocketInfo &socket_info = m_output_info[output_id];
-        socket_info.type->destruct_type(POINTER_OFFSET(output_values, socket_info.offset));
+        socket_info.type->destruct_type(storage.output_value_ptr(output_id));
       }
     }
   }
 
  private:
-  void forward_output(uint output_id,
-                      char *input_values,
-                      char *output_values,
-                      bool *input_inits,
-                      bool *output_inits,
-                      Tuple &fn_out) const
+  void forward_output(uint output_id, SocketValueStorage &storage, Tuple &fn_out) const
   {
-    BLI_assert(output_inits[output_id]);
+    BLI_assert(storage.output_inits[output_id]);
     auto possible_target_ids = m_graph->targets_of_output(output_id);
 
     SocketInfo &output_info = m_output_info[output_id];
     CPPTypeInfo *type_info = output_info.type;
-    void *value_src = POINTER_OFFSET(output_values, output_info.offset);
+    void *value_src = storage.output_value_ptr(output_id);
 
     uint *target_ids = BLI_array_alloca(target_ids, possible_target_ids.size());
     uint target_amount = 0;
     for (uint possible_target_id : possible_target_ids) {
-      if (!input_inits[possible_target_id]) {
+      if (!storage.input_inits[possible_target_id]) {
         target_ids[target_amount] = possible_target_id;
         target_amount++;
       }
@@ -253,28 +289,28 @@ class ExecuteFGraph : public TupleCallBody {
 
     if (target_amount == 0) {
       type_info->destruct_type(value_src);
-      output_inits[output_id] = false;
+      storage.output_inits[output_id] = false;
     }
     else if (target_amount == 1) {
       uint target_id = target_ids[0];
-      void *value_dst = POINTER_OFFSET(input_values, m_input_info[target_id].offset);
+      void *value_dst = storage.input_value_ptr(target_id);
       type_info->relocate_to_uninitialized(value_src, value_dst);
-      output_inits[output_id] = false;
-      input_inits[target_id] = true;
+      storage.output_inits[output_id] = false;
+      storage.input_inits[target_id] = true;
     }
     else {
       for (uint i = 1; i < target_amount; i++) {
         uint target_id = target_ids[i];
-        void *value_dst = POINTER_OFFSET(input_values, m_input_info[target_id].offset);
+        void *value_dst = storage.input_value_ptr(target_id);
         type_info->copy_to_uninitialized(value_src, value_dst);
-        input_inits[target_id] = true;
+        storage.input_inits[target_id] = true;
       }
 
       uint target_id = target_ids[0];
-      void *value_dst = POINTER_OFFSET(input_values, m_input_info[target_id].offset);
+      void *value_dst = storage.input_value_ptr(target_id);
       type_info->copy_to_uninitialized(value_src, value_dst);
-      output_inits[output_id] = false;
-      input_inits[target_id] = true;
+      storage.output_inits[output_id] = false;
+      storage.input_inits[target_id] = true;
     }
 
     for (uint i = 0; i < target_amount; i++) {
@@ -283,7 +319,7 @@ class ExecuteFGraph : public TupleCallBody {
       BLI_assert(type_info == socket_info.type);
       if (socket_info.is_fn_output) {
         uint index = m_fgraph.outputs().index(DFGraphSocket::FromInput(target_id));
-        void *value_ptr = POINTER_OFFSET(input_values, socket_info.offset);
+        void *value_ptr = storage.input_value_ptr(target_id);
         fn_out.copy_in__dynamic(index, value_ptr);
       }
     }
