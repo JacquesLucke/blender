@@ -183,6 +183,14 @@ class ExecuteFGraph : public TupleCallBody {
     memset(storage.m_input_inits, 0, m_inputs_init_buffer_size);
     memset(storage.m_output_inits, 0, m_outputs_init_buffer_size);
 
+    this->copy_inputs_to_storage(fn_in, fn_out, storage);
+    this->evaluate_graph_to_compute_outputs(storage, fn_out, ctx);
+    this->destruct_remaining_values(storage);
+  }
+
+ private:
+  void copy_inputs_to_storage(Tuple &fn_in, Tuple &fn_out, SocketValueStorage &storage) const
+  {
     for (uint i = 0; i < m_fgraph.inputs().size(); i++) {
       DFGraphSocket socket = m_fgraph.inputs()[i];
       if (socket.is_input()) {
@@ -204,7 +212,12 @@ class ExecuteFGraph : public TupleCallBody {
         }
       }
     }
+  }
 
+  void evaluate_graph_to_compute_outputs(SocketValueStorage &storage,
+                                         Tuple &fn_out,
+                                         ExecutionContext &ctx) const
+  {
     SmallStack<DFGraphSocket> sockets_to_compute;
     for (auto socket : m_fgraph.outputs()) {
       sockets_to_compute.push(socket);
@@ -273,22 +286,8 @@ class ExecuteFGraph : public TupleCallBody {
         }
       }
     }
-
-    for (uint input_id = 0; input_id < m_inputs_init_buffer_size; input_id++) {
-      if (storage.is_input_initialized(input_id)) {
-        SocketInfo &socket_info = m_input_info[input_id];
-        socket_info.type->destruct_type(storage.input_value_ptr(input_id));
-      }
-    }
-    for (uint output_id = 0; output_id < m_outputs_init_buffer_size; output_id++) {
-      if (storage.is_output_initialized(output_id)) {
-        SocketInfo &socket_info = m_output_info[output_id];
-        socket_info.type->destruct_type(storage.output_value_ptr(output_id));
-      }
-    }
   }
 
- private:
   void forward_output(uint output_id, SocketValueStorage &storage, Tuple &fn_out) const
   {
     BLI_assert(storage.is_output_initialized(output_id));
@@ -341,6 +340,22 @@ class ExecuteFGraph : public TupleCallBody {
         uint index = m_fgraph.outputs().index(DFGraphSocket::FromInput(target_id));
         void *value_ptr = storage.input_value_ptr(target_id);
         fn_out.copy_in__dynamic(index, value_ptr);
+      }
+    }
+  }
+
+  void destruct_remaining_values(SocketValueStorage &storage) const
+  {
+    for (uint input_id = 0; input_id < m_inputs_init_buffer_size; input_id++) {
+      if (storage.is_input_initialized(input_id)) {
+        SocketInfo &socket_info = m_input_info[input_id];
+        socket_info.type->destruct_type(storage.input_value_ptr(input_id));
+      }
+    }
+    for (uint output_id = 0; output_id < m_outputs_init_buffer_size; output_id++) {
+      if (storage.is_output_initialized(output_id)) {
+        SocketInfo &socket_info = m_output_info[output_id];
+        socket_info.type->destruct_type(storage.output_value_ptr(output_id));
       }
     }
   }
