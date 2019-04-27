@@ -54,7 +54,7 @@ class MemMultiPool {
     BLI_assert(m_pools.contains(alloc_size));
 
     MemPool *pool = m_pools.lookup(alloc_size);
-    pool->deallocate(ptr);
+    pool->deallocate(real_ptr);
   }
 };
 
