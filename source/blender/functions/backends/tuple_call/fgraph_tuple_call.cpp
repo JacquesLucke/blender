@@ -241,21 +241,52 @@ class ExecuteFGraph : public TupleCallBody {
                       Tuple &fn_out) const
   {
     BLI_assert(output_inits[output_id]);
-    auto target_ids = m_graph->targets_of_output(output_id);
+    auto possible_target_ids = m_graph->targets_of_output(output_id);
     CPPTypeInfo *type_info = m_output_types[output_id];
     void *value_src = output_values + m_output_offsets[output_id];
 
-    for (uint target_id : target_ids) {
-      BLI_assert(type_info == m_input_types[target_id]);
-      if (!input_inits[target_id]) {
+    uint *target_ids = BLI_array_alloca(target_ids, possible_target_ids.size());
+    uint target_amount = 0;
+    for (uint possible_target_id : possible_target_ids) {
+      if (!input_inits[possible_target_id]) {
+        target_ids[target_amount] = possible_target_id;
+        target_amount++;
+      }
+    }
+
+    if (target_amount == 0) {
+      type_info->destruct_type(value_src);
+      output_inits[output_id] = false;
+    }
+    else if (target_amount == 1) {
+      uint target_id = target_ids[0];
+      void *value_dst = input_values + m_input_offsets[target_id];
+      type_info->relocate_to_uninitialized(value_src, value_dst);
+      output_inits[output_id] = false;
+      input_inits[target_id] = true;
+    }
+    else {
+      for (uint i = 1; i < target_amount; i++) {
+        uint target_id = target_ids[i];
         void *value_dst = input_values + m_input_offsets[target_id];
         type_info->copy_to_uninitialized(value_src, value_dst);
         input_inits[target_id] = true;
+      }
 
-        if (m_input_socket_flags[target_id].is_fn_output) {
-          uint index = m_fgraph.outputs().index(DFGraphSocket::FromInput(target_id));
-          fn_out.copy_in__dynamic(index, value_dst);
-        }
+      uint target_id = target_ids[0];
+      void *value_dst = input_values + m_input_offsets[target_id];
+      type_info->copy_to_uninitialized(value_src, value_dst);
+      output_inits[output_id] = false;
+      input_inits[target_id] = true;
+    }
+
+    for (uint i = 0; i < target_amount; i++) {
+      uint target_id = target_ids[i];
+      BLI_assert(type_info == m_input_types[target_id]);
+      if (m_input_socket_flags[target_id].is_fn_output) {
+        uint index = m_fgraph.outputs().index(DFGraphSocket::FromInput(target_id));
+        void *value_ptr = input_values + m_input_offsets[target_id];
+        fn_out.copy_in__dynamic(index, value_ptr);
       }
     }
   }
