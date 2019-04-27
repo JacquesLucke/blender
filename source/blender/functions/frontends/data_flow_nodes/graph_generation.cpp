@@ -276,8 +276,6 @@ Optional<FunctionGraph> generate_function_graph(bNodeTree *btree)
 
   insert_unlinked_inputs(builder, inserters);
 
-  // graph_builder.to_dot__clipboard();
-
   return finalize_function_graph(graph_builder, input_sockets, output_sockets);
 }
 

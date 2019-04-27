@@ -68,4 +68,44 @@ DataFlowGraph::~DataFlowGraph()
   }
 }
 
+std::string DataFlowGraph::to_dot()
+{
+  DataFlowGraphBuilder builder;
+  this->insert_in_builder(builder);
+  return builder.to_dot();
+}
+
+void DataFlowGraph::to_dot__clipboard()
+{
+  DataFlowGraphBuilder builder;
+  this->insert_in_builder(builder);
+  builder.to_dot__clipboard();
+}
+
+void DataFlowGraph::insert_in_builder(DataFlowGraphBuilder &builder)
+{
+  SmallVector<DFGB_Node *> dfgb_nodes;
+
+  for (auto &node : m_nodes) {
+    DFGB_Node *dfgb_node = builder.insert_function(node.function);
+    dfgb_nodes.append(dfgb_node);
+  }
+
+  for (uint input_id = 0; input_id < m_inputs.size(); input_id++) {
+    uint from_id = m_inputs[input_id].origin;
+    uint from_node_id = m_outputs[from_id].node;
+    uint from_index = this->index_of_output(from_id);
+    DFGB_Node *from_dfgb_node = dfgb_nodes[from_node_id];
+    DFGB_Socket from_dfgb_socket = from_dfgb_node->output(from_index);
+
+    uint to_id = input_id;
+    uint to_node_id = m_inputs[to_id].node;
+    uint to_index = this->index_of_input(to_id);
+    DFGB_Node *to_dfgb_node = dfgb_nodes[to_node_id];
+    DFGB_Socket to_dfgb_socket = to_dfgb_node->input(to_index);
+
+    builder.insert_link(from_dfgb_socket, to_dfgb_socket);
+  }
+}
+
 }  // namespace FN

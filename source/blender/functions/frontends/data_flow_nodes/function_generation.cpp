@@ -17,6 +17,7 @@ Optional<SharedFunction> generate_function(bNodeTree *btree)
   }
 
   FunctionGraph fgraph = fgraph_.value();
+  // fgraph.graph()->to_dot__clipboard();
 
   auto fn = SharedFunction::New(btree->id.name, fgraph.signature());
   fgraph_add_DependenciesBody(fn, fgraph);

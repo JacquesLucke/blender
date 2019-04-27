@@ -339,6 +339,12 @@ class DataFlowGraph : public RefCountedBase {
     uint index = this->index_of_output(output_socket);
     return this->function_of_node(node)->signature().outputs()[index];
   }
+
+  std::string to_dot();
+  void to_dot__clipboard();
+
+ private:
+  void insert_in_builder(DataFlowGraphBuilder &builder);
 };
 
 }  // namespace FN
