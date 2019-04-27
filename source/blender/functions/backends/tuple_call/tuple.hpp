@@ -79,9 +79,14 @@ class Tuple {
     m_initialized = (bool *)MEM_calloc_arrayN(m_meta->element_amount(), sizeof(bool), __func__);
     m_data = MEM_mallocN(m_meta->size_of_data(), __func__);
     m_owns_mem = true;
+    m_run_destructors = true;
   }
 
-  Tuple(SharedTupleMeta meta, void *data, bool *initialized, bool was_initialized = false)
+  Tuple(SharedTupleMeta meta,
+        void *data,
+        bool *initialized,
+        bool was_initialized = false,
+        bool run_destructors = true)
       : m_meta(std::move(meta))
   {
     BLI_assert(data != nullptr);
@@ -89,13 +94,14 @@ class Tuple {
     m_data = data;
     m_initialized = initialized;
     m_owns_mem = false;
+    m_run_destructors = run_destructors;
     if (!was_initialized) {
       this->set_all_uninitialized();
     }
   }
 
   Tuple(SharedTupleMeta &meta, void *buffer)
-      : Tuple(meta, buffer, (bool *)buffer + meta->size_of_data(), false)
+      : Tuple(meta, buffer, (bool *)buffer + meta->size_of_data())
   {
   }
 
@@ -114,7 +120,9 @@ class Tuple {
 
   ~Tuple()
   {
-    this->destruct_all();
+    if (m_run_destructors) {
+      this->destruct_all();
+    }
     if (m_owns_mem) {
       MEM_freeN(m_data);
       MEM_freeN(m_initialized);
@@ -368,6 +376,7 @@ class Tuple {
   void *m_data;
   bool *m_initialized;
   bool m_owns_mem;
+  bool m_run_destructors;
   SharedTupleMeta m_meta;
 };
 
