@@ -43,8 +43,11 @@ class ExecuteFGraph : public TupleCallBody {
   uint m_outputs_init_buffer_size = 0;
 
   struct SocketFlag {
-    char is_fn_input : 1;
     char is_fn_output : 1;
+
+    SocketFlag() : is_fn_output(false)
+    {
+    }
   };
 
   SmallVector<SocketFlag> m_input_socket_flags;
@@ -64,18 +67,11 @@ class ExecuteFGraph : public TupleCallBody {
       m_input_starts.append(m_inputs_buffer_size);
       m_output_starts.append(m_outputs_buffer_size);
 
-      for (auto socket : m_graph->inputs_of_node(node_id)) {
-        SocketFlag flag;
-        flag.is_fn_input = fgraph.inputs().contains(socket);
-        flag.is_fn_output = fgraph.outputs().contains(socket);
-        m_input_socket_flags.append(flag);
+      for (auto UNUSED(input_id) : m_graph->input_ids_of_node(node_id)) {
+        m_input_socket_flags.append(SocketFlag());
       }
-
-      for (auto socket : m_graph->outputs_of_node(node_id)) {
-        SocketFlag flag;
-        flag.is_fn_input = fgraph.inputs().contains(socket);
-        flag.is_fn_output = fgraph.outputs().contains(socket);
-        m_output_socket_flags.append(flag);
+      for (auto UNUSED(output_id) : m_graph->output_ids_of_node(node_id)) {
+        m_output_socket_flags.append(SocketFlag());
       }
 
       if (body == nullptr) {
@@ -113,6 +109,15 @@ class ExecuteFGraph : public TupleCallBody {
           m_output_offsets.append(m_outputs_buffer_size + meta_out->offsets()[i]);
         }
         m_outputs_buffer_size += meta_out->size_of_data();
+      }
+    }
+
+    for (auto socket : m_fgraph.outputs()) {
+      if (socket.is_input()) {
+        m_input_socket_flags[socket.id()].is_fn_output = true;
+      }
+      else {
+        m_output_socket_flags[socket.id()].is_fn_output = true;
       }
     }
   }
