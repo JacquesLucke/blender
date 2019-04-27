@@ -218,7 +218,8 @@ class ExecuteFGraph : public TupleCallBody {
                                          Tuple &fn_out,
                                          ExecutionContext &ctx) const
   {
-    SmallStack<DFGraphSocket> sockets_to_compute;
+    SmallStack<DFGraphSocket, 64> sockets_to_compute;
+
     for (auto socket : m_fgraph.outputs()) {
       sockets_to_compute.push(socket);
     }
@@ -248,6 +249,7 @@ class ExecuteFGraph : public TupleCallBody {
         else {
           bool all_inputs_computed = true;
           uint node_id = m_graph->node_id_of_output(socket.id());
+
           for (uint input_id : m_graph->input_ids_of_node(node_id)) {
             if (!storage.is_input_initialized(input_id)) {
               sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
