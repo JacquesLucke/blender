@@ -243,7 +243,7 @@ static FunctionGraph finalize_function_graph(DataFlowGraphBuilder &builder,
   DataFlowGraph::ToBuilderMapping builder_mapping;
   auto compact_graph = DataFlowGraph::FromBuilder(builder, builder_mapping);
 
-  DFGraphSocketVector inputs, outputs;
+  DFGraphSocketSetVector inputs, outputs;
 
   for (DFGB_Socket socket : input_sockets) {
     inputs.add(builder_mapping.map_socket(socket));
