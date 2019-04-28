@@ -391,8 +391,8 @@ class ExecuteFGraph : public TupleCallBody {
                              true,
                              false);
 
-              SourceInfoStackFrame frame(m_graph->source_info_of_node(node_id));
-              body->call__setup_stack(body_in, body_out, ctx, frame);
+              SourceInfo *source_info = m_graph->source_info_of_node(node_id);
+              body->call__setup_stack(body_in, body_out, ctx, source_info);
               BLI_assert(body_out.all_initialized());
 
               for (uint output_id : m_graph->output_ids_of_node(node_id)) {

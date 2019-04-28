@@ -51,6 +51,15 @@ class TupleCallBody : public TupleCallBodyBase {
     ctx.stack().pop();
   }
 
+  inline void call__setup_stack(Tuple &fn_in,
+                                Tuple &fn_out,
+                                ExecutionContext &ctx,
+                                SourceInfo *source_info) const
+  {
+    SourceInfoStackFrame frame(source_info);
+    this->call__setup_stack(fn_in, fn_out, ctx, frame);
+  }
+
   inline void call__setup_execution_context(Tuple &fn_in, Tuple &fn_out) const
   {
     ExecutionStack stack;
