@@ -440,47 +440,96 @@ class ExecuteFGraph : public TupleCallBody {
 
     SocketInfo &output_info = m_output_info[output_id];
     CPPTypeInfo *type_info = output_info.type;
-    void *value_src = storage.output_value_ptr(output_id);
 
     uint *target_ids = BLI_array_alloca(target_ids, possible_target_ids.size());
+    uint target_amount = this->filter_uninitialized_targets(
+        possible_target_ids, storage, target_ids);
+
+    this->forward_output_to_targets(output_id, target_ids, target_amount, type_info, storage);
+    this->copy_targets_to_final_output_if_necessary(target_ids, target_amount, storage, fn_out);
+  }
+
+  uint filter_uninitialized_targets(ArrayRef<uint> &possible_target_ids,
+                                    SocketValueStorage &storage,
+                                    uint *r_target_ids) const
+  {
     uint target_amount = 0;
     for (uint possible_target_id : possible_target_ids) {
       if (!storage.is_input_initialized(possible_target_id)) {
-        target_ids[target_amount] = possible_target_id;
+        r_target_ids[target_amount] = possible_target_id;
         target_amount++;
       }
     }
+    return target_amount;
+  }
 
+  void forward_output_to_targets(uint output_id,
+                                 uint *target_ids,
+                                 uint target_amount,
+                                 CPPTypeInfo *type_info,
+                                 SocketValueStorage &storage) const
+  {
     if (target_amount == 0) {
-      type_info->destruct_type(value_src);
-      storage.set_output_initialized(output_id, false);
+      this->destruct_output(output_id, type_info, storage);
     }
     else if (target_amount == 1) {
-      uint target_id = target_ids[0];
-      void *value_dst = storage.input_value_ptr(target_id);
-      type_info->relocate_to_uninitialized(value_src, value_dst);
-      storage.set_output_initialized(output_id, false);
-      storage.set_input_initialized(target_id, true);
+      this->relocate_output_to_input(output_id, target_ids[0], type_info, storage);
     }
     else {
-      for (uint i = 1; i < target_amount; i++) {
-        uint target_id = target_ids[i];
-        void *value_dst = storage.input_value_ptr(target_id);
-        type_info->copy_to_uninitialized(value_src, value_dst);
-        storage.set_input_initialized(target_id, true);
-      }
+      this->forward_output_to_multiple_inputs(
+          output_id, target_ids, target_amount, type_info, storage);
+    }
+  }
 
-      uint target_id = target_ids[0];
+  void destruct_output(uint output_id, CPPTypeInfo *type_info, SocketValueStorage &storage) const
+  {
+    void *value_ptr = storage.output_value_ptr(output_id);
+    type_info->destruct_type(value_ptr);
+    storage.set_output_initialized(output_id, false);
+  }
+
+  void relocate_output_to_input(uint output_id,
+                                uint target_id,
+                                CPPTypeInfo *type_info,
+                                SocketValueStorage &storage) const
+  {
+    void *value_src = storage.output_value_ptr(output_id);
+    void *value_dst = storage.input_value_ptr(target_id);
+    type_info->relocate_to_uninitialized(value_src, value_dst);
+    storage.set_output_initialized(output_id, false);
+    storage.set_input_initialized(target_id, true);
+  }
+
+  void forward_output_to_multiple_inputs(uint output_id,
+                                         uint *target_ids,
+                                         uint target_amount,
+                                         CPPTypeInfo *type_info,
+                                         SocketValueStorage &storage) const
+  {
+    void *value_src = storage.output_value_ptr(output_id);
+
+    for (uint i = 1; i < target_amount; i++) {
+      uint target_id = target_ids[i];
       void *value_dst = storage.input_value_ptr(target_id);
       type_info->copy_to_uninitialized(value_src, value_dst);
-      storage.set_output_initialized(output_id, false);
       storage.set_input_initialized(target_id, true);
     }
 
+    uint target_id = target_ids[0];
+    void *value_dst = storage.input_value_ptr(target_id);
+    type_info->copy_to_uninitialized(value_src, value_dst);
+    storage.set_output_initialized(output_id, false);
+    storage.set_input_initialized(target_id, true);
+  }
+
+  void copy_targets_to_final_output_if_necessary(uint *target_ids,
+                                                 uint target_amount,
+                                                 SocketValueStorage &storage,
+                                                 Tuple &fn_out) const
+  {
     for (uint i = 0; i < target_amount; i++) {
       uint target_id = target_ids[i];
       SocketInfo &socket_info = m_input_info[target_id];
-      BLI_assert(type_info == socket_info.type);
       if (socket_info.is_fn_output) {
         uint index = m_fgraph.outputs().index(DFGraphSocket::FromInput(target_id));
         void *value_ptr = storage.input_value_ptr(target_id);
