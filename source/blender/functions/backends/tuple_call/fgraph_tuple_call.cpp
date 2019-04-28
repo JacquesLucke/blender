@@ -28,9 +28,29 @@ class ExecuteFGraph : public TupleCallBody {
   FunctionGraph m_fgraph;
   DataFlowGraph *m_graph;
 
-  SmallVector<TupleCallBody *> m_bodies;
-  SmallVector<uint> m_input_starts;
-  SmallVector<uint> m_output_starts;
+  struct NodeInfo {
+    union {
+      TupleCallBody *direct;
+      LazyInTupleCallBody *lazy;
+    } body;
+    uint input_start;
+    uint output_start;
+    bool is_lazy;
+
+    NodeInfo(TupleCallBody *body, uint input_start, uint output_start)
+        : input_start(input_start), output_start(output_start), is_lazy(false)
+    {
+      this->body.direct = body;
+    }
+
+    NodeInfo(LazyInTupleCallBody *body, uint input_start, uint output_start)
+        : input_start(input_start), output_start(output_start), is_lazy(true)
+    {
+      this->body.lazy = body;
+    }
+  };
+
+  SmallVector<NodeInfo> m_node_info;
 
   struct SocketInfo {
     CPPTypeInfo *type;
@@ -57,13 +77,10 @@ class ExecuteFGraph : public TupleCallBody {
     for (uint node_id : m_graph->node_ids()) {
       SharedFunction &fn = m_graph->function_of_node(node_id);
       TupleCallBody *body = fn->body<TupleCallBody>();
-      m_bodies.append(body);
+      m_node_info.append(NodeInfo(body, m_inputs_buffer_size, m_outputs_buffer_size));
 
       m_inputs_init_buffer_size += fn->signature().inputs().size();
       m_outputs_init_buffer_size += fn->signature().outputs().size();
-
-      m_input_starts.append(m_inputs_buffer_size);
-      m_output_starts.append(m_outputs_buffer_size);
 
       if (body == nullptr) {
         for (auto param : fn->signature().inputs()) {
@@ -132,12 +149,12 @@ class ExecuteFGraph : public TupleCallBody {
 
     void *node_input_values_ptr(uint node_id)
     {
-      return POINTER_OFFSET(m_input_values, m_parent.m_input_starts[node_id]);
+      return POINTER_OFFSET(m_input_values, m_parent.m_node_info[node_id].input_start);
     }
 
     void *node_output_values_ptr(uint node_id)
     {
-      return POINTER_OFFSET(m_output_values, m_parent.m_output_starts[node_id]);
+      return POINTER_OFFSET(m_output_values, m_parent.m_node_info[node_id].output_start);
     }
 
     bool *node_input_inits_ptr(uint node_id)
@@ -258,7 +275,8 @@ class ExecuteFGraph : public TupleCallBody {
           }
 
           if (all_inputs_computed) {
-            TupleCallBody *body = m_bodies[node_id];
+            BLI_assert(!m_node_info[node_id].is_lazy);
+            TupleCallBody *body = m_node_info[node_id].body.direct;
             BLI_assert(body);
 
             Tuple body_in(body->meta_in(),
