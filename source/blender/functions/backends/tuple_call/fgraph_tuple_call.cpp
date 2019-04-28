@@ -315,12 +315,7 @@ class ExecuteFGraph : public TupleCallBody {
                 ctx.stack().pop();
 
                 if (state.is_done()) {
-                  for (uint output_id : m_graph->output_ids_of_node(node_id)) {
-                    if (m_output_info[output_id].is_fn_output) {
-                      uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
-                      fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
-                    }
-                  }
+                  this->copy_outputs_to_final_output_if_necessary(node_id, storage, fn_out);
                   sockets_to_compute.pop();
                 }
                 else {
@@ -344,12 +339,7 @@ class ExecuteFGraph : public TupleCallBody {
               ctx.stack().pop();
 
               if (state.is_done()) {
-                for (uint output_id : m_graph->output_ids_of_node(node_id)) {
-                  if (m_output_info[output_id].is_fn_output) {
-                    uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
-                    fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
-                  }
-                }
+                this->copy_outputs_to_final_output_if_necessary(node_id, storage, fn_out);
                 sockets_to_compute.pop();
                 lazy_states.pop();
 
@@ -395,17 +385,23 @@ class ExecuteFGraph : public TupleCallBody {
               body->call__setup_stack(body_in, body_out, ctx, source_info);
               BLI_assert(body_out.all_initialized());
 
-              for (uint output_id : m_graph->output_ids_of_node(node_id)) {
-                if (m_output_info[output_id].is_fn_output) {
-                  uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
-                  fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
-                }
-              }
-
+              this->copy_outputs_to_final_output_if_necessary(node_id, storage, fn_out);
               sockets_to_compute.pop();
             }
           }
         }
+      }
+    }
+  }
+
+  void copy_outputs_to_final_output_if_necessary(uint node_id,
+                                                 SocketValueStorage &storage,
+                                                 Tuple &fn_out) const
+  {
+    for (uint output_id : m_graph->output_ids_of_node(node_id)) {
+      if (m_output_info[output_id].is_fn_output) {
+        uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
+        fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
       }
     }
   }
