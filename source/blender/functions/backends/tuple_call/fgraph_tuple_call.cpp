@@ -343,14 +343,8 @@ class ExecuteFGraph : public TupleCallBody {
             }
           }
           else {
-            bool all_inputs_computed = true;
-
-            for (uint input_id : m_graph->input_ids_of_node(node_id)) {
-              if (!storage.is_input_initialized(input_id)) {
-                sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
-                all_inputs_computed = false;
-              }
-            }
+            bool all_inputs_computed = this->ensure_all_inputs(
+                node_id, storage, sockets_to_compute);
 
             if (all_inputs_computed) {
               BLI_assert(!m_node_info[node_id].is_lazy);
@@ -400,6 +394,20 @@ class ExecuteFGraph : public TupleCallBody {
         sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
       }
     }
+  }
+
+  bool ensure_all_inputs(uint node_id,
+                         SocketValueStorage &storage,
+                         SocketsToComputeStack &sockets_to_compute) const
+  {
+    bool all_inputs_computed = true;
+    for (uint input_id : m_graph->input_ids_of_node(node_id)) {
+      if (!storage.is_input_initialized(input_id)) {
+        sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
+        all_inputs_computed = false;
+      }
+    }
+    return all_inputs_computed;
   }
 
   void copy_outputs_to_final_output_if_necessary(uint node_id,
