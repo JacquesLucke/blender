@@ -253,6 +253,8 @@ struct FCurve *iter_step_fcurve(struct FCurve *fcu_iter, const char rna_path[]);
 struct FCurve *id_data_find_fcurve(
     ID *id, void *data, struct StructRNA *type, const char *prop_name, int index, bool *r_driven);
 
+void *get_driver_variable_function(struct DriverVar *dvar);
+
 /* Get list of LinkData's containing pointers to the F-Curves which control the types of data
  * indicated
  * e.g.  numMatches = list_find_data_fcurves(matches, &act->curves, "pose.bones[", "MyFancyBone");
