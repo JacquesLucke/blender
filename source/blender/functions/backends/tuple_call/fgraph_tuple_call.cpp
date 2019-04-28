@@ -29,24 +29,14 @@ class ExecuteFGraph : public TupleCallBody {
   DataFlowGraph *m_graph;
 
   struct NodeInfo {
-    union {
-      TupleCallBody *direct;
-      LazyInTupleCallBody *lazy;
-    } body;
+    TupleCallBodyBase *body;
     uint input_start;
     uint output_start;
     bool is_lazy;
 
-    NodeInfo(TupleCallBody *body, uint input_start, uint output_start)
-        : input_start(input_start), output_start(output_start), is_lazy(false)
+    NodeInfo(TupleCallBodyBase *body, bool is_lazy, uint input_start, uint output_start)
+        : body(body), input_start(input_start), output_start(output_start), is_lazy(is_lazy)
     {
-      this->body.direct = body;
-    }
-
-    NodeInfo(LazyInTupleCallBody *body, uint input_start, uint output_start)
-        : input_start(input_start), output_start(output_start), is_lazy(true)
-    {
-      this->body.lazy = body;
     }
   };
 
@@ -76,8 +66,20 @@ class ExecuteFGraph : public TupleCallBody {
   {
     for (uint node_id : m_graph->node_ids()) {
       SharedFunction &fn = m_graph->function_of_node(node_id);
-      TupleCallBody *body = fn->body<TupleCallBody>();
-      m_node_info.append(NodeInfo(body, m_inputs_buffer_size, m_outputs_buffer_size));
+
+      TupleCallBodyBase *body;
+      bool is_lazy_body;
+      if (fn->has_body<LazyInTupleCallBody>()) {
+        body = fn->body<LazyInTupleCallBody>();
+        is_lazy_body = true;
+      }
+      else {
+        body = fn->body<TupleCallBody>();
+        is_lazy_body = false;
+      }
+
+      m_node_info.append(
+          NodeInfo(body, is_lazy_body, m_inputs_buffer_size, m_outputs_buffer_size));
 
       m_inputs_init_buffer_size += fn->signature().inputs().size();
       m_outputs_init_buffer_size += fn->signature().outputs().size();
@@ -231,11 +233,21 @@ class ExecuteFGraph : public TupleCallBody {
     }
   }
 
+  struct LazyStateOnStack {
+    uint node_id;
+    LazyState state;
+
+    LazyStateOnStack(uint node_id, LazyState state) : node_id(node_id), state(state)
+    {
+    }
+  };
+
   void evaluate_graph_to_compute_outputs(SocketValueStorage &storage,
                                          Tuple &fn_out,
                                          ExecutionContext &ctx) const
   {
     SmallStack<DFGraphSocket, 64> sockets_to_compute;
+    SmallStack<LazyStateOnStack> lazy_states;
 
     for (auto socket : m_fgraph.outputs()) {
       sockets_to_compute.push(socket);
@@ -264,44 +276,134 @@ class ExecuteFGraph : public TupleCallBody {
           sockets_to_compute.pop();
         }
         else {
-          bool all_inputs_computed = true;
           uint node_id = m_graph->node_id_of_output(socket.id());
 
-          for (uint input_id : m_graph->input_ids_of_node(node_id)) {
-            if (!storage.is_input_initialized(input_id)) {
-              sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
-              all_inputs_computed = false;
-            }
-          }
-
-          if (all_inputs_computed) {
-            BLI_assert(!m_node_info[node_id].is_lazy);
-            TupleCallBody *body = m_node_info[node_id].body.direct;
-            BLI_assert(body);
+          if (m_node_info[node_id].is_lazy) {
+            LazyInTupleCallBody *body = (LazyInTupleCallBody *)m_node_info[node_id].body;
 
             Tuple body_in(body->meta_in(),
                           storage.node_input_values_ptr(node_id),
                           storage.node_input_inits_ptr(node_id),
                           true,
-                          true);
+                          false);
             Tuple body_out(body->meta_out(),
                            storage.node_output_values_ptr(node_id),
                            storage.node_output_inits_ptr(node_id),
                            true,
                            false);
 
-            SourceInfoStackFrame frame(m_graph->source_info_of_node(node_id));
-            body->call__setup_stack(body_in, body_out, ctx, frame);
-            BLI_assert(body_out.all_initialized());
+            if (lazy_states.empty() || lazy_states.peek().node_id != node_id) {
 
-            for (uint output_id : m_graph->output_ids_of_node(node_id)) {
-              if (m_output_info[output_id].is_fn_output) {
-                uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
-                fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
+              bool required_inputs_computed = true;
+
+              for (uint input_index : body->always_required()) {
+                uint input_id = m_graph->id_of_node_input(node_id, input_index);
+                if (!storage.is_input_initialized(input_id)) {
+                  sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
+                  required_inputs_computed = false;
+                }
+              }
+
+              if (required_inputs_computed) {
+                void *user_data = alloca(body->user_data_size());
+                LazyState state(user_data);
+                state.start_next_entry();
+
+                SourceInfoStackFrame frame(m_graph->source_info_of_node(node_id));
+                ctx.stack().push(&frame);
+                body->call(body_in, body_out, ctx, state);
+                ctx.stack().pop();
+
+                if (state.is_done()) {
+                  for (uint output_id : m_graph->output_ids_of_node(node_id)) {
+                    if (m_output_info[output_id].is_fn_output) {
+                      uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
+                      fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
+                    }
+                  }
+                  sockets_to_compute.pop();
+                }
+                else {
+                  for (uint requested_input_index : state.requested_inputs()) {
+                    uint input_id = m_graph->id_of_node_input(node_id, requested_input_index);
+                    if (!storage.is_input_initialized(input_id)) {
+                      sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
+                    }
+                  }
+                  lazy_states.push(LazyStateOnStack(node_id, state));
+                }
+              }
+            }
+            else {
+              LazyState &state = lazy_states.peek().state;
+              state.start_next_entry();
+
+              SourceInfoStackFrame frame(m_graph->source_info_of_node(node_id));
+              ctx.stack().push(&frame);
+              body->call(body_in, body_out, ctx, state);
+              ctx.stack().pop();
+
+              if (state.is_done()) {
+                for (uint output_id : m_graph->output_ids_of_node(node_id)) {
+                  if (m_output_info[output_id].is_fn_output) {
+                    uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
+                    fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
+                  }
+                }
+                sockets_to_compute.pop();
+                lazy_states.pop();
+
+                // TODO: destruct inputs
+              }
+              else {
+                for (uint requested_input_index : state.requested_inputs()) {
+                  uint input_id = m_graph->id_of_node_input(node_id, requested_input_index);
+                  if (!storage.is_input_initialized(input_id)) {
+                    sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
+                  }
+                }
+              }
+            }
+          }
+          else {
+            bool all_inputs_computed = true;
+
+            for (uint input_id : m_graph->input_ids_of_node(node_id)) {
+              if (!storage.is_input_initialized(input_id)) {
+                sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
+                all_inputs_computed = false;
               }
             }
 
-            sockets_to_compute.pop();
+            if (all_inputs_computed) {
+              BLI_assert(!m_node_info[node_id].is_lazy);
+              TupleCallBody *body = (TupleCallBody *)m_node_info[node_id].body;
+              BLI_assert(body);
+
+              Tuple body_in(body->meta_in(),
+                            storage.node_input_values_ptr(node_id),
+                            storage.node_input_inits_ptr(node_id),
+                            true,
+                            true);
+              Tuple body_out(body->meta_out(),
+                             storage.node_output_values_ptr(node_id),
+                             storage.node_output_inits_ptr(node_id),
+                             true,
+                             false);
+
+              SourceInfoStackFrame frame(m_graph->source_info_of_node(node_id));
+              body->call__setup_stack(body_in, body_out, ctx, frame);
+              BLI_assert(body_out.all_initialized());
+
+              for (uint output_id : m_graph->output_ids_of_node(node_id)) {
+                if (m_output_info[output_id].is_fn_output) {
+                  uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
+                  fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
+                }
+              }
+
+              sockets_to_compute.pop();
+            }
           }
         }
       }

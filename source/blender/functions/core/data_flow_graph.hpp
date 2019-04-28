@@ -184,6 +184,18 @@ class DataFlowGraph : public RefCountedBase {
     return m_nodes[node_id].function;
   }
 
+  uint id_of_node_input(uint node_id, uint input_index)
+  {
+    BLI_assert(input_index < this->input_ids_of_node(node_id).size());
+    return m_nodes[node_id].inputs_start + input_index;
+  }
+
+  uint id_of_node_output(uint node_id, uint output_index)
+  {
+    BLI_assert(output_index < this->output_ids_of_node(node_id).size());
+    return m_nodes[node_id].outputs_start + output_index;
+  }
+
   Range<uint> input_ids_of_node(uint node_id) const
   {
     MyNode &node = m_nodes[node_id];
