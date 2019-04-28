@@ -242,6 +242,18 @@ class ExecuteFGraph : public TupleCallBody {
     }
   };
 
+#define SETUP_SUB_TUPLES(node_id, body, body_in, body_out) \
+  Tuple body_in(body->meta_in(), \
+                storage.node_input_values_ptr(node_id), \
+                storage.node_input_inits_ptr(node_id), \
+                true, \
+                false); \
+  Tuple body_out(body->meta_out(), \
+                 storage.node_output_values_ptr(node_id), \
+                 storage.node_output_inits_ptr(node_id), \
+                 true, \
+                 false);
+
   void evaluate_graph_to_compute_outputs(SocketValueStorage &storage,
                                          Tuple &fn_out,
                                          ExecutionContext &ctx) const
@@ -281,17 +293,6 @@ class ExecuteFGraph : public TupleCallBody {
           if (m_node_info[node_id].is_lazy) {
             LazyInTupleCallBody *body = (LazyInTupleCallBody *)m_node_info[node_id].body;
 
-            Tuple body_in(body->meta_in(),
-                          storage.node_input_values_ptr(node_id),
-                          storage.node_input_inits_ptr(node_id),
-                          true,
-                          false);
-            Tuple body_out(body->meta_out(),
-                           storage.node_output_values_ptr(node_id),
-                           storage.node_output_inits_ptr(node_id),
-                           true,
-                           false);
-
             if (lazy_states.empty() || lazy_states.peek().node_id != node_id) {
 
               bool required_inputs_computed = true;
@@ -308,6 +309,8 @@ class ExecuteFGraph : public TupleCallBody {
                 void *user_data = alloca(body->user_data_size());
                 LazyState state(user_data);
                 state.start_next_entry();
+
+                SETUP_SUB_TUPLES(node_id, body, body_in, body_out);
 
                 SourceInfoStackFrame frame(m_graph->source_info_of_node(node_id));
                 ctx.stack().push(&frame);
@@ -332,6 +335,8 @@ class ExecuteFGraph : public TupleCallBody {
             else {
               LazyState &state = lazy_states.peek().state;
               state.start_next_entry();
+
+              SETUP_SUB_TUPLES(node_id, body, body_in, body_out);
 
               SourceInfoStackFrame frame(m_graph->source_info_of_node(node_id));
               ctx.stack().push(&frame);
@@ -370,16 +375,7 @@ class ExecuteFGraph : public TupleCallBody {
               TupleCallBody *body = (TupleCallBody *)m_node_info[node_id].body;
               BLI_assert(body);
 
-              Tuple body_in(body->meta_in(),
-                            storage.node_input_values_ptr(node_id),
-                            storage.node_input_inits_ptr(node_id),
-                            true,
-                            true);
-              Tuple body_out(body->meta_out(),
-                             storage.node_output_values_ptr(node_id),
-                             storage.node_output_inits_ptr(node_id),
-                             true,
-                             false);
+              SETUP_SUB_TUPLES(node_id, body, body_in, body_out);
 
               SourceInfo *source_info = m_graph->source_info_of_node(node_id);
               body->call__setup_stack(body_in, body_out, ctx, source_info);
