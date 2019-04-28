@@ -297,16 +297,8 @@ class ExecuteFGraph : public TupleCallBody {
             LazyInTupleCallBody *body = (LazyInTupleCallBody *)m_node_info[node_id].body;
 
             if (lazy_states.empty() || lazy_states.peek().node_id != node_id) {
-
-              bool required_inputs_computed = true;
-
-              for (uint input_index : body->always_required()) {
-                uint input_id = m_graph->id_of_node_input(node_id, input_index);
-                if (!storage.is_input_initialized(input_id)) {
-                  sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
-                  required_inputs_computed = false;
-                }
-              }
+              bool required_inputs_computed = this->ensure_required_inputs(
+                  body, node_id, storage, sockets_to_compute);
 
               if (required_inputs_computed) {
                 void *user_data = alloca(body->user_data_size());
@@ -379,6 +371,22 @@ class ExecuteFGraph : public TupleCallBody {
         }
       }
     }
+  }
+
+  bool ensure_required_inputs(LazyInTupleCallBody *body,
+                              uint node_id,
+                              SocketValueStorage &storage,
+                              SocketsToComputeStack &sockets_to_compute) const
+  {
+    bool required_inputs_computed = true;
+    for (uint input_index : body->always_required()) {
+      uint input_id = m_graph->id_of_node_input(node_id, input_index);
+      if (!storage.is_input_initialized(input_id)) {
+        sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
+        required_inputs_computed = false;
+      }
+    }
+    return required_inputs_computed;
   }
 
   void push_requested_inputs_to_stack(LazyState &state,
