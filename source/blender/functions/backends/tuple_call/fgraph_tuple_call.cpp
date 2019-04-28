@@ -233,11 +233,11 @@ class ExecuteFGraph : public TupleCallBody {
     }
   }
 
-  struct LazyStateOnStack {
+  struct LazyStateOfNode {
     uint node_id;
     LazyState state;
 
-    LazyStateOnStack(uint node_id, LazyState state) : node_id(node_id), state(state)
+    LazyStateOfNode(uint node_id, LazyState state) : node_id(node_id), state(state)
     {
     }
   };
@@ -254,12 +254,15 @@ class ExecuteFGraph : public TupleCallBody {
                  true, \
                  false);
 
+  using SocketsToComputeStack = SmallStack<DFGraphSocket, 64>;
+  using LazyStatesStack = SmallStack<LazyStateOfNode>;
+
   void evaluate_graph_to_compute_outputs(SocketValueStorage &storage,
                                          Tuple &fn_out,
                                          ExecutionContext &ctx) const
   {
-    SmallStack<DFGraphSocket, 64> sockets_to_compute;
-    SmallStack<LazyStateOnStack> lazy_states;
+    SocketsToComputeStack sockets_to_compute;
+    LazyStatesStack lazy_states;
 
     for (auto socket : m_fgraph.outputs()) {
       sockets_to_compute.push(socket);
@@ -329,7 +332,7 @@ class ExecuteFGraph : public TupleCallBody {
                       sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
                     }
                   }
-                  lazy_states.push(LazyStateOnStack(node_id, state));
+                  lazy_states.push(LazyStateOfNode(node_id, state));
                 }
               }
             }
