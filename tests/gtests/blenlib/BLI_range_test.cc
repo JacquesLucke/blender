@@ -47,3 +47,11 @@ TEST(range, MultipleElementRange)
     EXPECT_EQ(vector[i], i + 6);
   }
 }
+
+TEST(range, SubscriptOperator)
+{
+  IntRange range(5, 10);
+  EXPECT_EQ(range[0], 5);
+  EXPECT_EQ(range[1], 6);
+  EXPECT_EQ(range[2], 7);
+}

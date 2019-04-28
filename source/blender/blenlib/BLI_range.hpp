@@ -54,6 +54,12 @@ template<typename T> class Range {
     return RangeIterator(*this, m_one_after_last);
   }
 
+  T operator[](uint index) const
+  {
+    BLI_assert(index < this->size());
+    return m_start + index;
+  }
+
   uint size() const
   {
     return m_one_after_last - m_start;
