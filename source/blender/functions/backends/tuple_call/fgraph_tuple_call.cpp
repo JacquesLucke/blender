@@ -326,12 +326,8 @@ class ExecuteFGraph : public TupleCallBody {
                   sockets_to_compute.pop();
                 }
                 else {
-                  for (uint requested_input_index : state.requested_inputs()) {
-                    uint input_id = m_graph->id_of_node_input(node_id, requested_input_index);
-                    if (!storage.is_input_initialized(input_id)) {
-                      sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
-                    }
-                  }
+                  this->push_requested_inputs_to_stack(
+                      state, node_id, storage, sockets_to_compute);
                   lazy_states.push(LazyStateOfNode(node_id, state));
                 }
               }
@@ -354,12 +350,7 @@ class ExecuteFGraph : public TupleCallBody {
                 lazy_states.pop();
               }
               else {
-                for (uint requested_input_index : state.requested_inputs()) {
-                  uint input_id = m_graph->id_of_node_input(node_id, requested_input_index);
-                  if (!storage.is_input_initialized(input_id)) {
-                    sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
-                  }
-                }
+                this->push_requested_inputs_to_stack(state, node_id, storage, sockets_to_compute);
               }
             }
           }
@@ -390,6 +381,19 @@ class ExecuteFGraph : public TupleCallBody {
             }
           }
         }
+      }
+    }
+  }
+
+  void push_requested_inputs_to_stack(LazyState &state,
+                                      uint node_id,
+                                      SocketValueStorage &storage,
+                                      SocketsToComputeStack &sockets_to_compute) const
+  {
+    for (uint requested_input_index : state.requested_inputs()) {
+      uint input_id = m_graph->id_of_node_input(node_id, requested_input_index);
+      if (!storage.is_input_initialized(input_id)) {
+        sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
       }
     }
   }
