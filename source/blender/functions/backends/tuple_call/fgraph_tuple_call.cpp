@@ -315,10 +315,8 @@ class ExecuteFGraph : public TupleCallBody {
 
                 SETUP_SUB_TUPLES(node_id, body, body_in, body_out);
 
-                SourceInfoStackFrame frame(m_graph->source_info_of_node(node_id));
-                ctx.stack().push(&frame);
-                body->call(body_in, body_out, ctx, state);
-                ctx.stack().pop();
+                SourceInfo *source_info = m_graph->source_info_of_node(node_id);
+                body->call__setup_stack(body_in, body_out, ctx, state, source_info);
 
                 if (state.is_done()) {
                   this->destruct_remaining_node_inputs(node_id, storage);
@@ -338,10 +336,8 @@ class ExecuteFGraph : public TupleCallBody {
 
               SETUP_SUB_TUPLES(node_id, body, body_in, body_out);
 
-              SourceInfoStackFrame frame(m_graph->source_info_of_node(node_id));
-              ctx.stack().push(&frame);
-              body->call(body_in, body_out, ctx, state);
-              ctx.stack().pop();
+              SourceInfo *source_info = m_graph->source_info_of_node(node_id);
+              body->call__setup_stack(body_in, body_out, ctx, state, source_info);
 
               if (state.is_done()) {
                 this->destruct_remaining_node_inputs(node_id, storage);

@@ -129,6 +129,38 @@ class LazyInTupleCallBody : public TupleCallBodyBase {
                     Tuple &fn_out,
                     ExecutionContext &ctx,
                     LazyState &state) const = 0;
+
+  inline void call__setup_stack(Tuple &fn_in,
+                                Tuple &fn_out,
+                                ExecutionContext &ctx,
+                                LazyState &state) const
+  {
+    TextStackFrame frame(this->owner()->name().c_str());
+    ctx.stack().push(&frame);
+    this->call(fn_in, fn_out, ctx, state);
+    ctx.stack().pop();
+  }
+
+  inline void call__setup_stack(Tuple &fn_in,
+                                Tuple &fn_out,
+                                ExecutionContext &ctx,
+                                LazyState &state,
+                                StackFrame &extra_frame) const
+  {
+    ctx.stack().push(&extra_frame);
+    this->call__setup_stack(fn_in, fn_out, ctx, state);
+    ctx.stack().pop();
+  }
+
+  inline void call__setup_stack(Tuple &fn_in,
+                                Tuple &fn_out,
+                                ExecutionContext &ctx,
+                                LazyState &state,
+                                SourceInfo *source_info) const
+  {
+    SourceInfoStackFrame frame(source_info);
+    this->call__setup_stack(fn_in, fn_out, ctx, state, frame);
+  }
 };
 
 } /* namespace FN */
