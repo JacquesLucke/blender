@@ -318,6 +318,7 @@ class ExecuteFGraph : public TupleCallBody {
                 ctx.stack().pop();
 
                 if (state.is_done()) {
+                  this->destruct_remaining_node_inputs(node_id, storage);
                   this->copy_outputs_to_final_output_if_necessary(node_id, storage, fn_out);
                   sockets_to_compute.pop();
                 }
@@ -344,11 +345,10 @@ class ExecuteFGraph : public TupleCallBody {
               ctx.stack().pop();
 
               if (state.is_done()) {
+                this->destruct_remaining_node_inputs(node_id, storage);
                 this->copy_outputs_to_final_output_if_necessary(node_id, storage, fn_out);
                 sockets_to_compute.pop();
                 lazy_states.pop();
-
-                // TODO: destruct inputs
               }
               else {
                 for (uint requested_input_index : state.requested_inputs()) {
@@ -381,6 +381,7 @@ class ExecuteFGraph : public TupleCallBody {
               body->call__setup_stack(body_in, body_out, ctx, source_info);
               BLI_assert(body_out.all_initialized());
 
+              this->destruct_remaining_node_inputs(node_id, storage);
               this->copy_outputs_to_final_output_if_necessary(node_id, storage, fn_out);
               sockets_to_compute.pop();
             }
@@ -398,6 +399,17 @@ class ExecuteFGraph : public TupleCallBody {
       if (m_output_info[output_id].is_fn_output) {
         uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
         fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
+      }
+    }
+  }
+
+  void destruct_remaining_node_inputs(uint node_id, SocketValueStorage &storage) const
+  {
+    for (uint input_id : m_graph->input_ids_of_node(node_id)) {
+      if (storage.is_input_initialized(input_id)) {
+        CPPTypeInfo *type_info = m_input_info[input_id].type;
+        type_info->destruct_type(storage.input_value_ptr(input_id));
+        storage.set_input_initialized(input_id, false);
       }
     }
   }
