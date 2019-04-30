@@ -2,6 +2,7 @@
 
 #include "inserters.hpp"
 #include "util_wrappers.hpp"
+#include "btree_lookup.hpp"
 
 #include "DNA_node_types.h"
 #include "FN_types.hpp"
@@ -85,70 +86,6 @@ struct BSocketLink {
   }
 };
 
-using BSocketMapping = SmallMap<bNodeSocket *, bNodeSocket *>;
-using BSocketLinkVector = SmallVector<BSocketLink>;
-
-class TreeData {
- private:
-  SmallMap<bNodeSocket *, bNode *> m_node_by_socket;
-  BSocketMapping m_direct_origin_socket;
-  BSocketLinkVector m_data_links;
-
- public:
-  TreeData(bNodeTree *btree)
-  {
-    for (bNode *bnode : bNodeList(&btree->nodes)) {
-      for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
-        m_node_by_socket.add(bsocket, bnode);
-      }
-      for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
-        m_node_by_socket.add(bsocket, bnode);
-      }
-    }
-
-    for (bNodeLink *blink : bLinkList(&btree->links)) {
-      BLI_assert(!m_direct_origin_socket.contains(blink->tosock));
-      m_direct_origin_socket.add(blink->tosock, blink->fromsock);
-    }
-
-    for (bNodeLink *blink : bLinkList(&btree->links)) {
-      bNodeSocket *target = blink->tosock;
-      bNode *target_node = m_node_by_socket.lookup(target);
-      if (is_reroute_node(target_node)) {
-        continue;
-      }
-      bNodeSocket *origin = this->try_find_data_origin(target);
-      if (origin != nullptr) {
-        m_data_links.append(BSocketLink(origin, target, blink));
-      }
-    }
-  }
-
-  const BSocketLinkVector &data_origins()
-  {
-    return m_data_links;
-  }
-
- private:
-  bNodeSocket *try_find_data_origin(bNodeSocket *bsocket)
-  {
-    BLI_assert(bsocket->in_out == SOCK_IN);
-    if (m_direct_origin_socket.contains(bsocket)) {
-      bNodeSocket *origin = m_direct_origin_socket.lookup(bsocket);
-      bNode *origin_node = m_node_by_socket.lookup(origin);
-      if (is_reroute_node(origin_node)) {
-        return this->try_find_data_origin((bNodeSocket *)origin_node->inputs.first);
-      }
-      else {
-        return origin;
-      }
-    }
-    else {
-      return nullptr;
-    }
-  }
-};
-
 static bool insert_functions_for_bnodes(BTreeGraphBuilder &builder, GraphInserters &inserters)
 {
   for (bNode *bnode : bNodeList(&builder.btree()->nodes)) {
@@ -202,9 +139,9 @@ static DFGB_SocketVector insert_function_output(BTreeGraphBuilder &builder)
 
 static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
 {
-  TreeData tree_data(builder.btree());
-  for (auto &link : tree_data.data_origins()) {
-    if (!inserters.insert_link(builder, link.from, link.to, link.optional_source_link)) {
+  BTreeLookup btree_lookup(builder.btree());
+  for (auto &link : btree_lookup.data_links()) {
+    if (!inserters.insert_link(builder, link.from, link.to, link.source_link)) {
       return false;
     }
   }

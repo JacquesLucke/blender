@@ -6,6 +6,7 @@
 struct bNode;
 struct bNodeLink;
 struct bNodeSocket;
+struct bNodeTree;
 
 namespace FN {
 namespace DataFlowNodes {

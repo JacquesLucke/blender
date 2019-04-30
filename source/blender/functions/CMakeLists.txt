@@ -131,6 +131,8 @@ set(SRC
   frontends/data_flow_nodes/function_generation.cpp
   frontends/data_flow_nodes/graph_generation.hpp
   frontends/data_flow_nodes/graph_generation.cpp
+  frontends/data_flow_nodes/btree_lookup.hpp
+  frontends/data_flow_nodes/btree_lookup.cpp
   frontends/data_flow_nodes/inserters.hpp
   frontends/data_flow_nodes/inserters.cpp
   frontends/data_flow_nodes/registry.hpp
