@@ -45,6 +45,11 @@ class CodeBuilder {
     return m_builder.GetInsertBlock();
   }
 
+  llvm::Type *getFloatTy()
+  {
+    return m_builder.getFloatTy();
+  }
+
   llvm::Type *getVoidTy()
   {
     return m_builder.getVoidTy();
@@ -77,6 +82,11 @@ class CodeBuilder {
 
   /* Value Builders
      **************************************/
+
+  llvm::Value *getUndef(llvm::Type *type)
+  {
+    return llvm::UndefValue::get(type);
+  }
 
   llvm::Value *getVoidPtr(void *ptr)
   {
@@ -173,12 +183,26 @@ class CodeBuilder {
 
   llvm::Value *CreateExtractValue(llvm::Value *aggregate, uint index)
   {
+    BLI_assert(aggregate->getType()->isStructTy());
     return m_builder.CreateExtractValue(aggregate, index);
   }
 
   llvm::Value *CreateInsertValue(llvm::Value *aggregate, llvm::Value *value, uint index)
   {
+    BLI_assert(aggregate->getType()->isStructTy());
     return m_builder.CreateInsertValue(aggregate, value, index);
+  }
+
+  llvm::Value *CreateExtractElement(llvm::Value *vector, uint index)
+  {
+    BLI_assert(vector->getType()->isVectorTy());
+    return m_builder.CreateExtractElement(vector, index);
+  }
+
+  llvm::Value *CreateInsertElement(llvm::Value *vector, llvm::Value *value, uint index)
+  {
+    BLI_assert(vector->getType()->isVectorTy());
+    return m_builder.CreateInsertElement(vector, value, index);
   }
 
   llvm::Value *CreateCallPointer(void *func_ptr,

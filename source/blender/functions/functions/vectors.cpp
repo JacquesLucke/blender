@@ -18,10 +18,10 @@ class CombineVectorGen : public LLVMBuildIRBody {
   {
     llvm::Type *vector_ty = get_llvm_type(GET_TYPE_fvec3(), builder.getContext());
 
-    llvm::Value *vector = llvm::UndefValue::get(vector_ty);
-    vector = builder.CreateInsertValue(vector, interface.get_input(0), 0);
-    vector = builder.CreateInsertValue(vector, interface.get_input(1), 1);
-    vector = builder.CreateInsertValue(vector, interface.get_input(2), 2);
+    llvm::Value *vector = builder.getUndef(vector_ty);
+    vector = builder.CreateInsertElement(vector, interface.get_input(0), 0);
+    vector = builder.CreateInsertElement(vector, interface.get_input(1), 1);
+    vector = builder.CreateInsertElement(vector, interface.get_input(2), 2);
     interface.set_output(0, vector);
   }
 };
@@ -124,10 +124,9 @@ class AddVectorsGen : public LLVMBuildIRBody {
                 CodeInterface &interface,
                 const BuildIRSettings &UNUSED(settings)) const override
   {
-    llvm::Value *a = builder.CreateStructToVector(interface.get_input(0));
-    llvm::Value *b = builder.CreateStructToVector(interface.get_input(1));
+    llvm::Value *a = interface.get_input(0);
+    llvm::Value *b = interface.get_input(1);
     llvm::Value *result = builder.CreateFAdd(a, b);
-    result = builder.CreateVectorToStruct(result);
     interface.set_output(0, result);
   }
 };
