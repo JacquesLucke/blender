@@ -37,14 +37,14 @@ void TrivialLLVMTypeInfo::build_store_ir__relocate(CodeBuilder &builder,
   return this->build_store_ir__copy(builder, value, address);
 }
 
-/******************** SimpleLLVMTypeInfo ********************/
+/******************** PackedLLVMTypeInfo ********************/
 
-llvm::Type *SimpleLLVMTypeInfo::get_type(llvm::LLVMContext &context) const
+llvm::Type *PackedLLVMTypeInfo::get_type(llvm::LLVMContext &context) const
 {
   return m_create_func(context);
 }
 
-void SimpleLLVMTypeInfo::build_store_ir__copy(CodeBuilder &builder,
+void PackedLLVMTypeInfo::build_store_ir__copy(CodeBuilder &builder,
                                               llvm::Value *value,
                                               llvm::Value *address) const
 {
@@ -53,7 +53,7 @@ void SimpleLLVMTypeInfo::build_store_ir__copy(CodeBuilder &builder,
   builder.CreateStore(value, addr);
 }
 
-llvm::Value *SimpleLLVMTypeInfo::build_load_ir__copy(CodeBuilder &builder,
+llvm::Value *PackedLLVMTypeInfo::build_load_ir__copy(CodeBuilder &builder,
                                                      llvm::Value *address) const
 {
   llvm::Type *type = this->get_type(builder.getContext());

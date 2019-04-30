@@ -29,6 +29,10 @@ class LLVMTypeInfo : public TypeExtension {
                                                llvm::Value *address) const = 0;
 };
 
+/* Trivial: The type could be copied with memcpy
+ *   and freeing the type does nothing.
+ *   Subclasses still have to implement functions to
+ *   store and load this type from memory. */
 class TrivialLLVMTypeInfo : public LLVMTypeInfo {
  public:
   llvm::Value *build_copy_ir(CodeBuilder &builder, llvm::Value *value) const override;
@@ -39,13 +43,17 @@ class TrivialLLVMTypeInfo : public LLVMTypeInfo {
   llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override;
 };
 
-class SimpleLLVMTypeInfo : public TrivialLLVMTypeInfo {
+/* Packed: The memory layout in llvm matches
+ *   the layout used in the rest of the C/C++ code.
+ *   That means, that no special load/store functions
+ *   have to be written. */
+class PackedLLVMTypeInfo : public TrivialLLVMTypeInfo {
  private:
   typedef std::function<llvm::Type *(llvm::LLVMContext &context)> CreateFunc;
   CreateFunc m_create_func;
 
  public:
-  SimpleLLVMTypeInfo(CreateFunc create_func) : m_create_func(create_func)
+  PackedLLVMTypeInfo(CreateFunc create_func) : m_create_func(create_func)
   {
   }
 
