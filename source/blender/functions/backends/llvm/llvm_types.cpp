@@ -12,11 +12,6 @@ LLVMTypeInfo::~LLVMTypeInfo()
 
 /******************** TrivialLLVMTypeInfo ********************/
 
-llvm::Type *TrivialLLVMTypeInfo::get_type(llvm::LLVMContext &context) const
-{
-  return m_create_func(context);
-}
-
 llvm::Value *TrivialLLVMTypeInfo::build_copy_ir(CodeBuilder &UNUSED(builder),
                                                 llvm::Value *value) const
 {
@@ -43,6 +38,11 @@ void TrivialLLVMTypeInfo::build_store_ir__relocate(CodeBuilder &builder,
 }
 
 /******************** SimpleLLVMTypeInfo ********************/
+
+llvm::Type *SimpleLLVMTypeInfo::get_type(llvm::LLVMContext &context) const
+{
+  return m_create_func(context);
+}
 
 void SimpleLLVMTypeInfo::build_store_ir__copy(CodeBuilder &builder,
                                               llvm::Value *value,

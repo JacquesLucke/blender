@@ -30,16 +30,7 @@ class LLVMTypeInfo : public TypeExtension {
 };
 
 class TrivialLLVMTypeInfo : public LLVMTypeInfo {
- protected:
-  typedef std::function<llvm::Type *(llvm::LLVMContext &context)> CreateFunc;
-  CreateFunc m_create_func;
-
  public:
-  TrivialLLVMTypeInfo(CreateFunc create_func) : m_create_func(create_func)
-  {
-  }
-
-  llvm::Type *get_type(llvm::LLVMContext &context) const override;
   llvm::Value *build_copy_ir(CodeBuilder &builder, llvm::Value *value) const override;
   void build_free_ir(CodeBuilder &builder, llvm::Value *value) const override;
   void build_store_ir__relocate(CodeBuilder &builder,
@@ -49,11 +40,16 @@ class TrivialLLVMTypeInfo : public LLVMTypeInfo {
 };
 
 class SimpleLLVMTypeInfo : public TrivialLLVMTypeInfo {
+ private:
+  typedef std::function<llvm::Type *(llvm::LLVMContext &context)> CreateFunc;
+  CreateFunc m_create_func;
+
  public:
-  SimpleLLVMTypeInfo(CreateFunc create_func) : TrivialLLVMTypeInfo(create_func)
+  SimpleLLVMTypeInfo(CreateFunc create_func) : m_create_func(create_func)
   {
   }
 
+  llvm::Type *get_type(llvm::LLVMContext &context) const override;
   llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const override;
   void build_store_ir__copy(CodeBuilder &builder,
                             llvm::Value *value,
