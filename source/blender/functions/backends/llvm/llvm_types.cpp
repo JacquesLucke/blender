@@ -6,44 +6,67 @@ namespace FN {
 
 BLI_COMPOSITION_IMPLEMENTATION(LLVMTypeInfo);
 
-/******************** SimpleLLVMTypeInfo ********************/
+LLVMTypeInfo::~LLVMTypeInfo()
+{
+}
 
-llvm::Value *SimpleLLVMTypeInfo::build_copy_ir(CodeBuilder &UNUSED(builder),
-                                               llvm::Value *value) const
+/******************** TrivialLLVMTypeInfo ********************/
+
+llvm::Type *TrivialLLVMTypeInfo::get_type(llvm::LLVMContext &context) const
+{
+  return m_create_func(context);
+}
+
+llvm::Value *TrivialLLVMTypeInfo::build_copy_ir(CodeBuilder &UNUSED(builder),
+                                                llvm::Value *value) const
 {
   return value;
 }
 
-void SimpleLLVMTypeInfo::build_free_ir(CodeBuilder &UNUSED(builder),
-                                       llvm::Value *UNUSED(value)) const
+void TrivialLLVMTypeInfo::build_free_ir(CodeBuilder &UNUSED(builder),
+                                        llvm::Value *UNUSED(value)) const
 {
   return;
 }
 
-void SimpleLLVMTypeInfo::build_store_ir__relocate(CodeBuilder &builder,
-                                                  llvm::Value *value,
-                                                  llvm::Value *byte_addr) const
+llvm::Value *TrivialLLVMTypeInfo::build_load_ir__relocate(CodeBuilder &builder,
+                                                          llvm::Value *address) const
+{
+  return this->build_load_ir__copy(builder, address);
+}
+
+void TrivialLLVMTypeInfo::build_store_ir__relocate(CodeBuilder &builder,
+                                                   llvm::Value *value,
+                                                   llvm::Value *address) const
+{
+  return this->build_store_ir__copy(builder, value, address);
+}
+
+/******************** SimpleLLVMTypeInfo ********************/
+
+void SimpleLLVMTypeInfo::build_store_ir__copy(CodeBuilder &builder,
+                                              llvm::Value *value,
+                                              llvm::Value *address) const
 {
   llvm::Type *type = value->getType();
-  llvm::Value *addr = builder.CastToPointerOf(byte_addr, type);
+  llvm::Value *addr = builder.CastToPointerOf(address, type);
   builder.CreateStore(value, addr);
 }
 
 llvm::Value *SimpleLLVMTypeInfo::build_load_ir__copy(CodeBuilder &builder,
-                                                     llvm::Value *byte_addr) const
+                                                     llvm::Value *address) const
 {
   llvm::Type *type = this->get_type(builder.getContext());
-  llvm::Value *addr = builder.CastToPointerOf(byte_addr, type);
+  llvm::Value *addr = builder.CastToPointerOf(address, type);
   return builder.CreateLoad(addr);
 }
 
-llvm::Value *SimpleLLVMTypeInfo::build_load_ir__relocate(CodeBuilder &builder,
-                                                         llvm::Value *byte_addr) const
-{
-  return this->build_load_ir__copy(builder, byte_addr);
-}
-
 /******************** PointerLLVMTypeInfo ********************/
+
+llvm::Type *PointerLLVMTypeInfo::get_type(llvm::LLVMContext &context) const
+{
+  return llvm::Type::getVoidTy(context)->getPointerTo();
+}
 
 void *PointerLLVMTypeInfo::copy_value(PointerLLVMTypeInfo *info, void *value)
 {
@@ -76,26 +99,34 @@ void PointerLLVMTypeInfo::build_free_ir(CodeBuilder &builder, llvm::Value *value
                                           {builder.getVoidPtr((void *)this), value});
 }
 
+void PointerLLVMTypeInfo::build_store_ir__copy(CodeBuilder &builder,
+                                               llvm::Value *value,
+                                               llvm::Value *address) const
+{
+  auto *copied_value = this->build_copy_ir(builder, value);
+  this->build_store_ir__relocate(builder, copied_value, address);
+}
+
 void PointerLLVMTypeInfo::build_store_ir__relocate(CodeBuilder &builder,
                                                    llvm::Value *value,
-                                                   llvm::Value *byte_addr) const
+                                                   llvm::Value *address) const
 {
-  auto *addr = builder.CastToPointerOf(byte_addr, builder.getVoidPtrTy());
+  auto *addr = builder.CastToPointerOf(address, builder.getVoidPtrTy());
   builder.CreateStore(value, addr);
 }
 
 llvm::Value *PointerLLVMTypeInfo::build_load_ir__copy(CodeBuilder &builder,
-                                                      llvm::Value *byte_addr) const
+                                                      llvm::Value *address) const
 {
-  auto *value = this->build_load_ir__relocate(builder, byte_addr);
+  auto *value = this->build_load_ir__relocate(builder, address);
   this->build_copy_ir(builder, value);
   return value;
 }
 
 llvm::Value *PointerLLVMTypeInfo::build_load_ir__relocate(CodeBuilder &builder,
-                                                          llvm::Value *byte_addr) const
+                                                          llvm::Value *address) const
 {
-  auto *addr = builder.CastToPointerOf(byte_addr, builder.getVoidPtrTy());
+  auto *addr = builder.CastToPointerOf(address, builder.getVoidPtrTy());
   return builder.CreateLoad(addr);
 }
 

@@ -13,53 +13,51 @@ class LLVMTypeInfo : public TypeExtension {
  public:
   BLI_COMPOSITION_DECLARATION(LLVMTypeInfo);
 
-  virtual ~LLVMTypeInfo()
-  {
-  }
+  virtual ~LLVMTypeInfo();
 
   virtual llvm::Type *get_type(llvm::LLVMContext &context) const = 0;
-
   virtual llvm::Value *build_copy_ir(CodeBuilder &builder, llvm::Value *value) const = 0;
-
   virtual void build_free_ir(CodeBuilder &builder, llvm::Value *value) const = 0;
-
   virtual void build_store_ir__relocate(CodeBuilder &builder,
                                         llvm::Value *value,
-                                        llvm::Value *byte_addr) const = 0;
-
-  virtual llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *byte_addr) const = 0;
-
+                                        llvm::Value *address) const = 0;
+  virtual void build_store_ir__copy(CodeBuilder &builder,
+                                    llvm::Value *value,
+                                    llvm::Value *address) const = 0;
+  virtual llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const = 0;
   virtual llvm::Value *build_load_ir__relocate(CodeBuilder &builder,
-                                               llvm::Value *byte_addr) const = 0;
+                                               llvm::Value *address) const = 0;
 };
 
-class SimpleLLVMTypeInfo : public LLVMTypeInfo {
- private:
+class TrivialLLVMTypeInfo : public LLVMTypeInfo {
+ protected:
   typedef std::function<llvm::Type *(llvm::LLVMContext &context)> CreateFunc;
   CreateFunc m_create_func;
 
  public:
-  SimpleLLVMTypeInfo(CreateFunc create_func) : m_create_func(create_func)
+  TrivialLLVMTypeInfo(CreateFunc create_func) : m_create_func(create_func)
   {
   }
 
-  llvm::Type *get_type(llvm::LLVMContext &context) const override
-  {
-    return m_create_func(context);
-  }
-
+  llvm::Type *get_type(llvm::LLVMContext &context) const override;
   llvm::Value *build_copy_ir(CodeBuilder &builder, llvm::Value *value) const override;
-
   void build_free_ir(CodeBuilder &builder, llvm::Value *value) const override;
-
   void build_store_ir__relocate(CodeBuilder &builder,
                                 llvm::Value *value,
-                                llvm::Value *byte_addr) const override;
+                                llvm::Value *address) const override;
+  llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override;
+};
 
-  llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *byte_addr) const override;
+class SimpleLLVMTypeInfo : public TrivialLLVMTypeInfo {
+ public:
+  SimpleLLVMTypeInfo(CreateFunc create_func) : TrivialLLVMTypeInfo(create_func)
+  {
+  }
 
-  llvm::Value *build_load_ir__relocate(CodeBuilder &builder,
-                                       llvm::Value *byte_addr) const override;
+  llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const override;
+  void build_store_ir__copy(CodeBuilder &builder,
+                            llvm::Value *value,
+                            llvm::Value *address) const override;
 };
 
 class PointerLLVMTypeInfo : public LLVMTypeInfo {
@@ -82,23 +80,17 @@ class PointerLLVMTypeInfo : public LLVMTypeInfo {
   {
   }
 
-  llvm::Type *get_type(llvm::LLVMContext &context) const override
-  {
-    return llvm::Type::getVoidTy(context)->getPointerTo();
-  }
-
+  llvm::Type *get_type(llvm::LLVMContext &context) const override;
   llvm::Value *build_copy_ir(CodeBuilder &builder, llvm::Value *value) const override;
-
   void build_free_ir(CodeBuilder &builder, llvm::Value *value) const override;
-
+  void build_store_ir__copy(CodeBuilder &builder,
+                            llvm::Value *value,
+                            llvm::Value *address) const override;
   void build_store_ir__relocate(CodeBuilder &builder,
                                 llvm::Value *value,
-                                llvm::Value *byte_addr) const override;
-
-  llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *byte_addr) const override;
-
-  llvm::Value *build_load_ir__relocate(CodeBuilder &builder,
-                                       llvm::Value *byte_addr) const override;
+                                llvm::Value *address) const override;
+  llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const override;
+  llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override;
 };
 
 inline LLVMTypeInfo *get_type_info(const SharedType &type)

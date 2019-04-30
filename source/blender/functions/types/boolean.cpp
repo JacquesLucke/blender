@@ -25,12 +25,19 @@ class LLVMBool : public LLVMTypeInfo {
     return;
   }
 
+  void build_store_ir__copy(CodeBuilder &builder,
+                            llvm::Value *value,
+                            llvm::Value *byte_addr) const override
+  {
+    llvm::Value *byte_value = builder.CreateCastIntTo8(value, false);
+    builder.CreateStore(byte_value, byte_addr);
+  }
+
   void build_store_ir__relocate(CodeBuilder &builder,
                                 llvm::Value *value,
                                 llvm::Value *byte_addr) const override
   {
-    llvm::Value *byte_value = builder.CreateCastIntTo8(value, false);
-    builder.CreateStore(byte_value, byte_addr);
+    this->build_store_ir__copy(builder, value, byte_addr);
   }
 
   llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *byte_addr) const override
