@@ -37,9 +37,6 @@ class SocketValueStates:
                 socket.restore_state(self.input_value_storage[storage_id])
 
 
-_decl_map_per_node = {}
-_socket_value_states_per_node = {}
-
 class BaseNode:
     search_terms = tuple()
     search_terms_only = False
@@ -250,3 +247,15 @@ class LinkageState:
         for socket in self.node.outputs:
             for to_socket in self.links_per_output[socket.identifier]:
                 tree.links.new(to_socket, socket)
+
+
+_decl_map_per_node = {}
+_socket_value_states_per_node = {}
+
+@bpy.app.handlers.persistent
+def clear_cached_node_states(_):
+    _decl_map_per_node.clear()
+    _socket_value_states_per_node.clear()
+
+def register():
+    bpy.app.handlers.load_pre.append(clear_cached_node_states)
