@@ -20,6 +20,10 @@ template<typename T> class ArrayRef {
   {
   }
 
+  ArrayRef(const SmallVector<T> &vector) : m_start(vector.begin()), m_size(vector.size())
+  {
+  }
+
   ArrayRef slice(uint start, uint length) const
   {
     BLI_assert(start + length <= this->size());

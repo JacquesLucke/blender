@@ -170,13 +170,13 @@ class BuildGraphIR : public LLVMBuildIRBody {
 
     llvm::Value *node_info_frame_buf = builder.CreateAllocaBytes_VoidPtr(
         sizeof(SourceInfoStackFrame));
-    builder.CreateCallPointer_NoReturnValue(
+    builder.CreateCallPointer_RetVoid(
         (void *)BuildGraphIR::push_source_frame_on_stack,
         {context_ptr, node_info_frame_buf, builder.getVoidPtr((void *)source_info)});
 
     llvm::Value *function_info_frame_buf = builder.CreateAllocaBytes_VoidPtr(
         sizeof(TextStackFrame));
-    builder.CreateCallPointer_NoReturnValue(
+    builder.CreateCallPointer_RetVoid(
         (void *)BuildGraphIR::push_text_frame_on_stack,
         {context_ptr,
          function_info_frame_buf,
@@ -188,8 +188,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
     BLI_assert(context_ptr);
 
     for (uint i = 0; i < 2; i++) {
-      builder.CreateCallPointer_NoReturnValue((void *)BuildGraphIR::pop_frame_from_stack,
-                                              {context_ptr});
+      builder.CreateCallPointer_RetVoid((void *)BuildGraphIR::pop_frame_from_stack, {context_ptr});
     }
   }
 

@@ -8,6 +8,229 @@
 namespace FN {
 namespace Functions {
 
+template<typename T> uint get_list_length(const Types::List<T> *list)
+{
+  return list->size();
+}
+
+static llvm::Value *build_ir__get_list_length(CodeBuilder &builder,
+                                              SharedType &base_type,
+                                              llvm::Value *list,
+                                              CodeInterface &parent_interface,
+                                              const BuildIRSettings &settings)
+{
+  if (base_type == Types::GET_TYPE_float()) {
+    return builder.CreateCallPointer((void *)get_list_length<float>, {list}, builder.getInt32Ty());
+  }
+  else if (base_type == Types::GET_TYPE_fvec3()) {
+    return builder.CreateCallPointer(
+        (void *)get_list_length<Types::Vector>, {list}, builder.getInt32Ty());
+  }
+  else {
+    BLI_assert(!"not yet supported");
+    return nullptr;
+  }
+
+  SharedFunction &get_length_fn = GET_FN_list_length(base_type);
+  if (!get_length_fn->has_body<LLVMBuildIRBody>()) {
+    derive_LLVMBuildIRBody_from_TupleCallBody(get_length_fn);
+  }
+
+  auto *body = get_length_fn->body<LLVMBuildIRBody>();
+  LLVMValues inputs = {list};
+  LLVMValues outputs(1);
+  CodeInterface interface(
+      inputs, outputs, parent_interface.context_ptr(), parent_interface.function_ir_cache());
+  body->build_ir(builder, interface, settings);
+  return outputs[0];
+}
+
+template<typename T> T *get_value_ptr(const Types::List<T> *list)
+{
+  return list->data_ptr();
+}
+
+static llvm::Value *build_ir__get_list_value_ptr(CodeBuilder &builder,
+                                                 SharedType &base_type,
+                                                 llvm::Value *list)
+{
+  if (base_type == Types::GET_TYPE_float()) {
+    return builder.CreateCallPointer_RetVoidPtr((void *)get_value_ptr<float>, {list});
+  }
+  else if (base_type == Types::GET_TYPE_fvec3()) {
+    return builder.CreateCallPointer_RetVoidPtr((void *)get_value_ptr<Types::Vector>, {list});
+  }
+  else {
+    BLI_assert(!"not yet supported");
+    return nullptr;
+  }
+}
+
+template<typename T> Types::List<T> *new_list_with_prepared_memory(uint length)
+{
+  auto *list = new Types::List<T>(length);
+  return list;
+}
+
+static llvm::Value *build_ir__new_list_with_prepared_memory(CodeBuilder &builder,
+                                                            SharedType &base_type,
+                                                            llvm::Value *length)
+{
+  LLVMValues args = {length};
+  if (base_type == Types::GET_TYPE_float()) {
+    return builder.CreateCallPointer_RetVoidPtr((void *)new_list_with_prepared_memory<float>,
+                                                args);
+  }
+  else if (base_type == Types::GET_TYPE_fvec3()) {
+    return builder.CreateCallPointer_RetVoidPtr(
+        (void *)new_list_with_prepared_memory<Types::Vector>, args);
+  }
+  else {
+    BLI_assert(!"not yet supported");
+    return nullptr;
+  }
+}
+
+class AutoVectorizationGen : public LLVMBuildIRBody {
+ private:
+  SharedFunction m_main;
+  SmallVector<bool> m_input_is_list;
+  SmallVector<uint> m_list_inputs;
+
+ public:
+  AutoVectorizationGen(SharedFunction main, const SmallVector<bool> &input_is_list)
+      : m_main(main), m_input_is_list(input_is_list)
+  {
+    for (uint i = 0; i < input_is_list.size(); i++) {
+      if (input_is_list[i]) {
+        m_list_inputs.append(i);
+      }
+    }
+
+    BLI_assert(m_list_inputs.size() >= 1);
+  }
+
+  void build_ir(CodeBuilder &builder,
+                CodeInterface &interface,
+                const BuildIRSettings &settings) const override
+  {
+    LLVMValues list_lengths;
+    Signature &main_sig = m_main->signature();
+
+    for (uint index : m_list_inputs) {
+      llvm::Value *length = build_ir__get_list_length(
+          builder, this->input_type(index), interface.get_input(index), interface, settings);
+      list_lengths.append(length);
+    }
+
+    llvm::Value *max_length = builder.CreateSIntMax(list_lengths);
+
+    LLVMValues input_data_pointers;
+    for (uint index : m_list_inputs) {
+      SharedType &type = this->input_type(index);
+      auto *cpp_type_info = type->extension<CPPTypeInfo>();
+      llvm::Type *stride_type = builder.getFixedSizeType(cpp_type_info->size_of_type());
+
+      llvm::Value *data_ptr = build_ir__get_list_value_ptr(
+          builder, type, interface.get_input(index));
+      llvm::Value *typed_data_ptr = builder.CastToPointerOf(data_ptr, stride_type);
+
+      input_data_pointers.append(typed_data_ptr);
+    }
+
+    LLVMValues output_data_pointers;
+    for (uint i = 0; i < main_sig.outputs().size(); i++) {
+      SharedType &type = main_sig.outputs()[i].type();
+      auto *cpp_type_info = type->extension<CPPTypeInfo>();
+      llvm::Type *stride_type = builder.getFixedSizeType(cpp_type_info->size_of_type());
+
+      llvm::Value *output_list = build_ir__new_list_with_prepared_memory(
+          builder, type, max_length);
+      llvm::Value *data_ptr = build_ir__get_list_value_ptr(builder, type, output_list);
+      llvm::Value *typed_data_ptr = builder.CastToPointerOf(data_ptr, stride_type);
+
+      output_data_pointers.append(typed_data_ptr);
+      interface.set_output(i, output_list);
+    }
+
+    auto *setup_block = builder.GetInsertBlock();
+    auto *condition_block = builder.NewBlockInFunction("Loop Condition");
+    auto *body_block = builder.NewBlockInFunction("Loop Body");
+    auto *end_block = builder.NewBlockInFunction("Loop End");
+
+    builder.CreateBr(condition_block);
+
+    CodeBuilder body_builder(body_block);
+    CodeBuilder condition_builder(condition_block);
+    CodeBuilder end_builder(end_block);
+
+    auto *iteration = condition_builder.CreatePhi(condition_builder.getInt32Ty(), 2);
+    auto *condition = condition_builder.CreateICmpULT(iteration, max_length);
+    condition_builder.CreateCondBr(condition, body_block, end_block);
+
+    LLVMValues main_inputs;
+
+    uint list_input_index = 0;
+    for (uint i = 0; i < main_sig.inputs().size(); i++) {
+      SharedType &type = this->input_type(i);
+      auto *llvm_type_info = type->extension<LLVMTypeInfo>();
+      BLI_assert(llvm_type_info);
+      if (m_input_is_list[i]) {
+
+        llvm::Value *load_address = body_builder.CreateGEP(input_data_pointers[list_input_index],
+                                                           iteration);
+        // TODO: handle different lengths
+        llvm::Value *value_for_main = llvm_type_info->build_load_ir__relocate(body_builder,
+                                                                              load_address);
+        main_inputs.append(value_for_main);
+        list_input_index++;
+      }
+      else {
+        llvm::Value *source_value = interface.get_input(i);
+        llvm::Value *value_for_main = llvm_type_info->build_copy_ir(body_builder, source_value);
+        main_inputs.append(value_for_main);
+      }
+    }
+
+    LLVMValues main_outputs(main_sig.outputs().size());
+    CodeInterface main_interface(
+        main_inputs, main_outputs, interface.context_ptr(), interface.function_ir_cache());
+    auto *body = m_main->body<LLVMBuildIRBody>();
+    body->build_ir(body_builder, main_interface, settings);
+
+    for (uint i = 0; i < main_sig.outputs().size(); i++) {
+      SharedType &type = main_sig.outputs()[i].type();
+      auto *type_info = type->extension<LLVMTypeInfo>();
+      llvm::Value *store_address = body_builder.CreateGEP(output_data_pointers[i], iteration);
+      llvm::Value *computed_value = main_outputs[i];
+      type_info->build_store_ir__relocate(body_builder, computed_value, store_address);
+    }
+
+    llvm::Value *next_iteration = body_builder.CreateIAdd(iteration, body_builder.getInt32(1));
+    body_builder.CreateBr(condition_block);
+
+    iteration->addIncoming(condition_builder.getInt32(0), setup_block);
+    iteration->addIncoming(next_iteration, body_block);
+
+    builder.SetInsertPoint(end_block);
+
+    for (uint i = 0; i < m_list_inputs.size(); i++) {
+      uint index = m_list_inputs[i];
+      SharedType &base_type = main_sig.inputs()[index].type();
+      SharedType &list_type = get_list_type(base_type);
+      auto *type_info = list_type->extension<LLVMTypeInfo>();
+      llvm::Value *input_list = interface.get_input(index);
+      type_info->build_free_ir(builder, input_list);
+    }
+  }
+
+ private:
+  SharedType &input_type(uint index) const
+  {
+    return m_main->signature().inputs()[index].type();
+  }
+};
+
 class AutoVectorization : public TupleCallBody {
  private:
   SharedFunction m_main;
@@ -208,6 +431,7 @@ SharedFunction to_vectorized_function(SharedFunction &original_fn,
   std::string name = original_fn->name() + " (Vectorized)";
   auto fn = SharedFunction::New(name, Signature(inputs, outputs));
   fn->add_body(new AutoVectorization(original_fn, vectorize_input));
+  // fn->add_body(new AutoVectorizationGen(original_fn, vectorize_input));
   return fn;
 }
 

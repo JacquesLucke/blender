@@ -30,6 +30,11 @@ template<typename T> class List : public BLI::SharedImmutable {
     }
   }
 
+  List(uint size) : List()
+  {
+    m_data = SmallVector<T>(size);
+  }
+
   void append(T value)
   {
     this->assert_mutable();

@@ -41,7 +41,7 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   };
 
   llvm::FunctionType *function_type = llvm::FunctionType::get(
-      void_ty, to_array_ref(input_types), false);
+      void_ty, to_llvm_array_ref(input_types), false);
 
   llvm::Function *function = llvm::Function::Create(
       function_type, llvm::GlobalValue::LinkageTypes::ExternalLinkage, fn->name(), module);

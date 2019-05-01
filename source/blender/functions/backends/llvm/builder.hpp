@@ -7,11 +7,18 @@ namespace FN {
 
 using LLVMValues = SmallVector<llvm::Value *>;
 using LLVMTypes = BLI::SmallVector<llvm::Type *>;
+using LLVMValuesRef = ArrayRef<llvm::Value *>;
+
 class LLVMTypeInfo;
 
-template<typename T> static llvm::ArrayRef<T> to_array_ref(const SmallVector<T> &vector)
+template<typename T> static llvm::ArrayRef<T> to_llvm_array_ref(const SmallVector<T> &vector)
 {
   return llvm::ArrayRef<T>(vector.begin(), vector.end());
+}
+
+template<typename T> static llvm::ArrayRef<T> to_llvm_array_ref(ArrayRef<T> array_ref)
+{
+  return llvm::ArrayRef<T>(array_ref.begin(), array_ref.end());
 }
 
 class CodeBuilder {
@@ -45,6 +52,11 @@ class CodeBuilder {
     return m_builder.GetInsertBlock();
   }
 
+  llvm::Function *GetFunction()
+  {
+    return this->GetInsertBlock()->getParent();
+  }
+
   llvm::Type *getFloatTy()
   {
     return m_builder.getFloatTy();
@@ -65,6 +77,11 @@ class CodeBuilder {
     return this->getVoidPtrTy()->getPointerTo();
   }
 
+  llvm::Type *getInt32Ty()
+  {
+    return m_builder.getInt32Ty();
+  }
+
   llvm::Type *getFixedSizeType(uint size)
   {
     return llvm::ArrayType::get(m_builder.getInt8Ty(), size);
@@ -72,12 +89,12 @@ class CodeBuilder {
 
   llvm::Type *getStructType(LLVMTypes &types)
   {
-    return llvm::StructType::get(this->getContext(), to_array_ref(types));
+    return llvm::StructType::get(this->getContext(), to_llvm_array_ref(types));
   }
 
   llvm::FunctionType *getFunctionType(llvm::Type *ret_type, LLVMTypes &arg_types)
   {
-    return llvm::FunctionType::get(ret_type, to_array_ref(arg_types), false);
+    return llvm::FunctionType::get(ret_type, to_llvm_array_ref(arg_types), false);
   }
 
   /* Value Builders
@@ -104,9 +121,34 @@ class CodeBuilder {
     return m_builder.getInt64(value);
   }
 
+  llvm::Value *getInt32(int value)
+  {
+    return m_builder.getInt32(value);
+  }
+
+  /* Create new blocks
+     **************************************/
+
+  llvm::BasicBlock *NewBlockInFunction(std::string name)
+  {
+    auto *new_block = llvm::BasicBlock::Create(this->getContext(), name, this->GetFunction());
+    return new_block;
+  }
+
+  CodeBuilder NewBuilderInNewBlock(std::string name)
+  {
+    return CodeBuilder(this->NewBlockInFunction(name));
+  }
+
   /* Misc
      **************************************/
 
+  void SetInsertPoint(llvm::BasicBlock *block)
+  {
+    m_builder.SetInsertPoint(block);
+  }
+
+  LLVMTypes types_of_values(LLVMValuesRef values);
   LLVMTypes types_of_values(const LLVMValues &values);
 
   /* Instruction Builders
@@ -122,6 +164,31 @@ class CodeBuilder {
     m_builder.CreateRetVoid();
   }
 
+  llvm::PHINode *CreatePhi(llvm::Type *type, uint reserved_values)
+  {
+    return m_builder.CreatePHI(type, reserved_values);
+  }
+
+  llvm::Value *CreateICmpULT(llvm::Value *a, llvm::Value *b)
+  {
+    return m_builder.CreateICmpULT(a, b);
+  }
+
+  void CreatePrint(const char *str);
+  void CreatePrintFloat(llvm::Value *value);
+
+  void CreateBr(llvm::BasicBlock *destination_block)
+  {
+    m_builder.CreateBr(destination_block);
+  }
+
+  void CreateCondBr(llvm::Value *condition,
+                    llvm::BasicBlock *true_block,
+                    llvm::BasicBlock *false_block)
+  {
+    m_builder.CreateCondBr(condition, true_block, false_block);
+  }
+
   llvm::Value *CreateCastIntTo8(llvm::Value *value, bool is_signed)
   {
     return m_builder.CreateIntCast(value, m_builder.getInt8Ty(), is_signed);
@@ -130,6 +197,11 @@ class CodeBuilder {
   llvm::Value *CreateCastIntTo1(llvm::Value *value)
   {
     return m_builder.CreateIntCast(value, m_builder.getInt1Ty(), false);
+  }
+
+  llvm::Value *CreateIAdd(llvm::Value *a, llvm::Value *b)
+  {
+    return m_builder.CreateAdd(a, b);
   }
 
   llvm::Value *CreateFAdd(llvm::Value *a, llvm::Value *b)
@@ -205,15 +277,20 @@ class CodeBuilder {
     return m_builder.CreateInsertElement(vector, value, index);
   }
 
+  llvm::Value *CreateCallPointer(void *func_ptr, llvm::FunctionType *ftype, LLVMValuesRef args);
   llvm::Value *CreateCallPointer(void *func_ptr,
                                  llvm::FunctionType *ftype,
                                  const LLVMValues &args);
+  llvm::Value *CreateCallPointer(void *func_ptr, LLVMValuesRef args, llvm::Type *return_type);
+  llvm::Value *CreateCallPointer(void *func_ptr, const LLVMValues &args, llvm::Type *return_type);
+  void CreateCallPointer_RetVoid(void *func_ptr, LLVMValuesRef args);
+  void CreateCallPointer_RetVoid(void *func_ptr, const LLVMValues &args);
+  llvm::Value *CreateCallPointer_RetVoidPtr(void *func_ptr, LLVMValuesRef args);
+  llvm::Value *CreateCallPointer_RetVoidPtr(void *func_ptr, const LLVMValues &args);
 
-  void CreateCallPointer_NoReturnValue(void *func_ptr, const LLVMValues &args);
-
-  llvm::Value *CreateCall(llvm::Function *function, const LLVMValues &args)
+  llvm::Value *CreateCall(llvm::Function *function, LLVMValuesRef args)
   {
-    return m_builder.CreateCall(function, to_array_ref(args));
+    return m_builder.CreateCall(function, to_llvm_array_ref(args));
   }
 
   llvm::Value *CreateConstGEP1_32(llvm::Value *addr, uint index)
@@ -231,6 +308,22 @@ class CodeBuilder {
     auto *function = llvm::Intrinsic::getDeclaration(
         this->getModule(), llvm::Intrinsic::sin, value->getType());
     return m_builder.CreateCall(function, value);
+  }
+
+  llvm::Value *CreateSIntMax(llvm::Value *a, llvm::Value *b)
+  {
+    llvm::Value *a_is_larger = m_builder.CreateICmpSGE(a, b);
+    return m_builder.CreateSelect(a_is_larger, a, b);
+  }
+
+  llvm::Value *CreateSIntMax(LLVMValuesRef values)
+  {
+    BLI_assert(values.size() >= 1);
+    llvm::Value *max_value = values[0];
+    for (llvm::Value *value : values.drop_front(1)) {
+      max_value = this->CreateSIntMax(max_value, value);
+    }
+    return max_value;
   }
 
   llvm::Value *CreateStructToVector(llvm::Value *value)
