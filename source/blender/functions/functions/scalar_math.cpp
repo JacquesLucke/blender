@@ -61,7 +61,7 @@ class GenAddFloats : public LLVMBuildIRBody {
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_add_floats)
 {
   auto fn = get_math_function__two_inputs("Add Floats");
-  //fn->add_body(new AddFloats());
+  // fn->add_body(new AddFloats());
   fn->add_body(new GenAddFloats());
   return fn;
 }

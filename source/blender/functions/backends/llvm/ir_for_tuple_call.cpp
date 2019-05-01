@@ -35,7 +35,7 @@ static llvm::Value *build__stack_allocate_ExecutionContext(CodeBuilder &builder)
   llvm::Value *ctx_ptr = builder.CreateAllocaBytes_VoidPtr(sizeof(ExecutionContext));
 
   builder.CreateCallPointer_RetVoid((void *)run__setup_ExecutionContext_in_buffer,
-                                          {stack_ptr, ctx_ptr});
+                                    {stack_ptr, ctx_ptr});
 
   return ctx_ptr;
 }

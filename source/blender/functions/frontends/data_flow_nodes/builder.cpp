@@ -179,7 +179,8 @@ DFGB_Socket BTreeGraphBuilder::lookup_socket(struct bNodeSocket *bsocket)
   return m_socket_map.lookup(bsocket);
 }
 
-bool BTreeGraphBuilder::check_if_sockets_are_mapped(struct bNode *bnode, bSocketList bsockets) const
+bool BTreeGraphBuilder::check_if_sockets_are_mapped(struct bNode *bnode,
+                                                    bSocketList bsockets) const
 {
   int index = 0;
   for (bNodeSocket *bsocket : bsockets) {

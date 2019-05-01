@@ -35,7 +35,7 @@ class CodeBuilder {
   }
 
   /* Getters
-     ***************************************/
+   ***************************************/
 
   llvm::LLVMContext &getContext()
   {
@@ -98,7 +98,7 @@ class CodeBuilder {
   }
 
   /* Value Builders
-     **************************************/
+   **************************************/
 
   llvm::Value *getUndef(llvm::Type *type)
   {
@@ -127,7 +127,7 @@ class CodeBuilder {
   }
 
   /* Create new blocks
-     **************************************/
+   **************************************/
 
   llvm::BasicBlock *NewBlockInFunction(std::string name)
   {
@@ -141,7 +141,7 @@ class CodeBuilder {
   }
 
   /* Misc
-     **************************************/
+   **************************************/
 
   void SetInsertPoint(llvm::BasicBlock *block)
   {
@@ -152,7 +152,7 @@ class CodeBuilder {
   LLVMTypes types_of_values(const LLVMValues &values);
 
   /* Instruction Builders
-     **************************************/
+   **************************************/
 
   void CreateRet(llvm::Value *value)
   {

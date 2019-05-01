@@ -179,7 +179,7 @@ SharedFunction build_list_length_function(SharedType &base_type, SharedType &lis
 }
 
 /* Build List Functions
-   *************************************/
+ *************************************/
 
 struct ListFunctions {
   FunctionPerType m_create_empty;
@@ -216,7 +216,7 @@ LAZY_INIT_REF_STATIC__NO_ARG(ListFunctions, get_list_functions)
 }
 
 /* Access List Functions
-   *************************************/
+ *************************************/
 
 SharedFunction &GET_FN_empty_list(SharedType &base_type)
 {
