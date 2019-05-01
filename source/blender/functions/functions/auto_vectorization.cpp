@@ -8,87 +8,93 @@
 namespace FN {
 namespace Functions {
 
-static llvm::Value *build_ir__get_list_length(CodeBuilder &builder,
-                                              SharedType &base_type,
-                                              llvm::Value *list)
-{
-  return builder.CreateCallPointer(
-      (void *)GET_C_FN_list_length(base_type), {list}, builder.getInt32Ty());
-}
-
-static llvm::Value *build_ir__get_list_value_ptr(CodeBuilder &builder,
-                                                 SharedType &base_type,
-                                                 llvm::Value *list)
-{
-  return builder.CreateCallPointer_RetVoidPtr((void *)GET_C_FN_list_data_ptr(base_type), {list});
-}
-
-static llvm::Value *build_ir__new_list_with_prepared_memory(CodeBuilder &builder,
-                                                            SharedType &base_type,
-                                                            llvm::Value *length)
-{
-  return builder.CreateCallPointer_RetVoidPtr(
-      (void *)GET_C_FN_new_list_with_allocated_buffer(base_type), {length});
-}
-
 class AutoVectorizationGen : public LLVMBuildIRBody {
  private:
   SharedFunction m_main;
   SmallVector<bool> m_input_is_list;
-  SmallVector<uint> m_list_inputs;
+
+  struct InputInfo {
+    bool is_list;
+    CPPTypeInfo *base_cpp_type;
+    LLVMTypeInfo *base_llvm_type;
+    LLVMTypeInfo *list_llvm_type;
+    GetListLength get_length_fn;
+    GetListDataPtr get_data_ptr_fn;
+  };
+
+  struct OutputInfo {
+    CPPTypeInfo *base_cpp_type;
+    LLVMTypeInfo *base_llvm_type;
+    NewListWithAllocatedBuffer get_new_list_fn;
+    GetListDataPtr get_data_ptr_fn;
+  };
+
+  SmallVector<InputInfo> m_input_info;
+  SmallVector<OutputInfo> m_output_info;
 
  public:
   AutoVectorizationGen(SharedFunction main, const SmallVector<bool> &input_is_list)
       : m_main(main), m_input_is_list(input_is_list)
   {
-    for (uint i = 0; i < input_is_list.size(); i++) {
-      if (input_is_list[i]) {
-        m_list_inputs.append(i);
-      }
+    BLI_assert(input_is_list.contains(true));
+    for (uint i = 0; i < main->signature().inputs().size(); i++) {
+      SharedType &base_type = main->signature().inputs()[i].type();
+      SharedType &list_type = get_list_type(base_type);
+      InputInfo info;
+      info.is_list = input_is_list[i];
+      info.base_cpp_type = base_type->extension<CPPTypeInfo>();
+      info.base_llvm_type = base_type->extension<LLVMTypeInfo>();
+      info.list_llvm_type = list_type->extension<LLVMTypeInfo>();
+      info.get_length_fn = GET_C_FN_list_length(base_type);
+      info.get_data_ptr_fn = GET_C_FN_list_data_ptr(base_type);
+      m_input_info.append(info);
     }
-
-    BLI_assert(m_list_inputs.size() >= 1);
+    for (auto &output : main->signature().outputs()) {
+      SharedType &base_type = output.type();
+      OutputInfo info;
+      info.base_cpp_type = base_type->extension<CPPTypeInfo>();
+      info.base_llvm_type = base_type->extension<LLVMTypeInfo>();
+      info.get_new_list_fn = GET_C_FN_new_list_with_allocated_buffer(base_type);
+      info.get_data_ptr_fn = GET_C_FN_list_data_ptr(base_type);
+      m_output_info.append(info);
+    }
   }
 
   void build_ir(CodeBuilder &builder,
                 CodeInterface &interface,
                 const BuildIRSettings &settings) const override
   {
-    LLVMValues list_lengths;
-    Signature &main_sig = m_main->signature();
-
-    for (uint index : m_list_inputs) {
-      llvm::Value *length = build_ir__get_list_length(
-          builder, this->input_type(index), interface.get_input(index));
-      list_lengths.append(length);
+    LLVMValues input_list_lengths;
+    for (uint i = 0; i < m_input_info.size(); i++) {
+      if (m_input_info[i].is_list) {
+        auto *length = builder.CreateCallPointer(
+            (void *)m_input_info[i].get_length_fn, {interface.get_input(i)}, builder.getInt32Ty());
+        input_list_lengths.append(length);
+      }
     }
 
-    llvm::Value *max_length = builder.CreateSIntMax(list_lengths);
+    llvm::Value *max_length = builder.CreateSIntMax(input_list_lengths);
 
     LLVMValues input_data_pointers;
-    for (uint index : m_list_inputs) {
-      SharedType &type = this->input_type(index);
-      auto *cpp_type_info = type->extension<CPPTypeInfo>();
-      llvm::Type *stride_type = builder.getFixedSizeType(cpp_type_info->size_of_type());
-
-      llvm::Value *data_ptr = build_ir__get_list_value_ptr(
-          builder, type, interface.get_input(index));
-      llvm::Value *typed_data_ptr = builder.CastToPointerOf(data_ptr, stride_type);
-
-      input_data_pointers.append(typed_data_ptr);
+    for (uint i = 0; i < m_input_info.size(); i++) {
+      if (m_input_info[i].is_list) {
+        uint stride = m_input_info[i].base_cpp_type->size_of_type();
+        llvm::Value *data_ptr = builder.CreateCallPointer_RetVoidPtr(
+            (void *)m_input_info[i].get_data_ptr_fn, {interface.get_input(i)});
+        llvm::Value *typed_data_ptr = builder.CastToPointerWithStride(data_ptr, stride);
+        input_data_pointers.append(typed_data_ptr);
+      }
     }
 
     LLVMValues output_data_pointers;
-    for (uint i = 0; i < main_sig.outputs().size(); i++) {
-      SharedType &type = main_sig.outputs()[i].type();
-      auto *cpp_type_info = type->extension<CPPTypeInfo>();
-      llvm::Type *stride_type = builder.getFixedSizeType(cpp_type_info->size_of_type());
+    for (uint i = 0; i < m_output_info.size(); i++) {
+      uint stride = m_output_info[i].base_cpp_type->size_of_type();
 
-      llvm::Value *output_list = build_ir__new_list_with_prepared_memory(
-          builder, type, max_length);
-      llvm::Value *data_ptr = build_ir__get_list_value_ptr(builder, type, output_list);
-      llvm::Value *typed_data_ptr = builder.CastToPointerOf(data_ptr, stride_type);
-
+      llvm::Value *output_list = builder.CreateCallPointer_RetVoidPtr(
+          (void *)m_output_info[i].get_new_list_fn, {max_length});
+      llvm::Value *data_ptr = builder.CreateCallPointer_RetVoidPtr(
+          (void *)m_output_info[i].get_data_ptr_fn, {output_list});
+      llvm::Value *typed_data_ptr = builder.CastToPointerWithStride(data_ptr, stride);
       output_data_pointers.append(typed_data_ptr);
       interface.set_output(i, output_list);
     }
@@ -111,39 +117,35 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     LLVMValues main_inputs;
 
     uint list_input_index = 0;
-    for (uint i = 0; i < main_sig.inputs().size(); i++) {
-      SharedType &type = this->input_type(i);
-      auto *llvm_type_info = type->extension<LLVMTypeInfo>();
-      BLI_assert(llvm_type_info);
+    for (uint i = 0; i < m_input_info.size(); i++) {
       if (m_input_is_list[i]) {
 
         llvm::Value *load_address = body_builder.CreateGEP(input_data_pointers[list_input_index],
                                                            iteration);
         // TODO: handle different lengths
-        llvm::Value *value_for_main = llvm_type_info->build_load_ir__relocate(body_builder,
-                                                                              load_address);
+        llvm::Value *value_for_main = m_input_info[i].base_llvm_type->build_load_ir__relocate(
+            body_builder, load_address);
         main_inputs.append(value_for_main);
         list_input_index++;
       }
       else {
         llvm::Value *source_value = interface.get_input(i);
-        llvm::Value *value_for_main = llvm_type_info->build_copy_ir(body_builder, source_value);
+        llvm::Value *value_for_main = m_input_info[i].base_llvm_type->build_copy_ir(body_builder,
+                                                                                    source_value);
         main_inputs.append(value_for_main);
       }
     }
 
-    LLVMValues main_outputs(main_sig.outputs().size());
+    LLVMValues main_outputs(m_output_info.size());
     CodeInterface main_interface(
         main_inputs, main_outputs, interface.context_ptr(), interface.function_ir_cache());
     auto *body = m_main->body<LLVMBuildIRBody>();
     body->build_ir(body_builder, main_interface, settings);
 
-    for (uint i = 0; i < main_sig.outputs().size(); i++) {
-      SharedType &type = main_sig.outputs()[i].type();
-      auto *type_info = type->extension<LLVMTypeInfo>();
+    for (uint i = 0; i < m_output_info.size(); i++) {
       llvm::Value *store_address = body_builder.CreateGEP(output_data_pointers[i], iteration);
-      llvm::Value *computed_value = main_outputs[i];
-      type_info->build_store_ir__relocate(body_builder, computed_value, store_address);
+      m_output_info[i].base_llvm_type->build_store_ir__relocate(
+          body_builder, main_outputs[i], store_address);
     }
 
     llvm::Value *next_iteration = body_builder.CreateIAdd(iteration, body_builder.getInt32(1));
@@ -154,20 +156,12 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
 
     builder.SetInsertPoint(end_block);
 
-    for (uint i = 0; i < m_list_inputs.size(); i++) {
-      uint index = m_list_inputs[i];
-      SharedType &base_type = main_sig.inputs()[index].type();
-      SharedType &list_type = get_list_type(base_type);
-      auto *type_info = list_type->extension<LLVMTypeInfo>();
-      llvm::Value *input_list = interface.get_input(index);
-      type_info->build_free_ir(builder, input_list);
+    for (uint i = 0; i < m_input_info.size(); i++) {
+      if (m_input_info[i].is_list) {
+        llvm::Value *input_list = interface.get_input(i);
+        m_input_info[i].list_llvm_type->build_free_ir(builder, input_list);
+      }
     }
-  }
-
- private:
-  SharedType &input_type(uint index) const
-  {
-    return m_main->signature().inputs()[index].type();
   }
 };
 
@@ -370,8 +364,8 @@ SharedFunction to_vectorized_function(SharedFunction &original_fn,
 
   std::string name = original_fn->name() + " (Vectorized)";
   auto fn = SharedFunction::New(name, Signature(inputs, outputs));
-  fn->add_body(new AutoVectorization(original_fn, vectorize_input));
-  // fn->add_body(new AutoVectorizationGen(original_fn, vectorize_input));
+  // fn->add_body(new AutoVectorization(original_fn, vectorize_input));
+  fn->add_body(new AutoVectorizationGen(original_fn, vectorize_input));
   return fn;
 }
 

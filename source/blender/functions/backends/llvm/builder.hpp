@@ -233,6 +233,12 @@ class CodeBuilder {
     return m_builder.CreatePointerCast(addr, base_type->getPointerTo());
   }
 
+  llvm::Value *CastToPointerWithStride(llvm::Value *addr, uint stride)
+  {
+    llvm::Type *stride_type = this->getFixedSizeType(stride);
+    return this->CastToPointerOf(addr, stride_type);
+  }
+
   llvm::Value *CastToVoidPtr(llvm::Value *addr)
   {
     return m_builder.CreatePointerCast(addr, this->getVoidPtrTy());
