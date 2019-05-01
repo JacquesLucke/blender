@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BLI_small_vector.hpp"
+
 namespace BLI {
 
 template<typename T> class ArrayRef {
@@ -14,12 +16,34 @@ template<typename T> class ArrayRef {
   {
   }
 
-  T *begin()
+  ArrayRef(SmallVector<T> &vector) : m_start(vector.begin()), m_size(vector.size())
+  {
+  }
+
+  ArrayRef slice(uint start, uint length) const
+  {
+    BLI_assert(start + length <= this->size());
+    return ArrayRef(m_start + start, length);
+  }
+
+  ArrayRef drop_front(uint n = 1) const
+  {
+    BLI_assert(n <= this->size());
+    return this->slice(n, this->size() - n);
+  }
+
+  ArrayRef drop_back(uint n = 1) const
+  {
+    BLI_assert(n <= this->size());
+    return this->slice(0, this->size() - n);
+  }
+
+  T *begin() const
   {
     return m_start;
   }
 
-  T *end()
+  T *end() const
   {
     return m_start + m_size;
   }

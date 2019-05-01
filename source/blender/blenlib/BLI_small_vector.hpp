@@ -1,7 +1,6 @@
 #pragma once
 
 #include "BLI_utildefines.h"
-#include "BLI_array_ref.hpp"
 
 #include "MEM_guardedalloc.h"
 #include <cstdlib>
@@ -181,25 +180,6 @@ template<typename T, uint N = 4> class SmallVector {
   bool contains(const T &value) const
   {
     return this->index(value) != -1;
-  }
-
-  ArrayRef<T> slice_start(uint end_exlusive) const
-  {
-    return this->slice(0, end_exlusive);
-  }
-
-  ArrayRef<T> slice_end(uint start_inclusive) const
-  {
-    return this->slice(start_inclusive, this->size());
-  }
-
-  ArrayRef<T> slice(uint start_inclusive, uint end_exclusive) const
-  {
-    BLI_assert(start_inclusive <= this->size());
-    BLI_assert(end_exclusive <= this->size());
-    BLI_assert(start_inclusive <= end_exclusive);
-    uint length = end_exclusive - start_inclusive;
-    return ArrayRef<T>(this->begin() + start_inclusive, length);
   }
 
   static bool all_equal(const SmallVector &a, const SmallVector &b)
