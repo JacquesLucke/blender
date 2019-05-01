@@ -461,7 +461,7 @@ static void draw_seq_handle(View2D *v2d,
                             const short direction,
                             unsigned int pos)
 {
-  float v1[2], v2[2], v3[2], rx1 = 0, rx2 = 0;  //for triangles and rect
+  float v1[2], v2[2], v3[2], rx1 = 0, rx2 = 0;  // for triangles and rect
   float x1, x2, y1, y2;
   unsigned int whichsel = 0;
 
@@ -817,7 +817,7 @@ static void draw_seq_strip(const bContext *C,
   immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
   /* get the correct color per strip type*/
-  //color3ubv_from_seq(scene, seq, col);
+  // color3ubv_from_seq(scene, seq, col);
   color3ubv_from_seq(scene, seq, background_col);
 
   if (seq->flag & SEQ_MUTE) {
@@ -2088,10 +2088,16 @@ void draw_timeline_seq(const bContext *C, ARegion *ar)
 
   /* scrollers */
   unit = (sseq->flag & SEQ_DRAWFRAMES) ? V2D_UNIT_FRAMES : V2D_UNIT_SECONDS;
-  scrollers = UI_view2d_scrollers_calc(
-      C, v2d, NULL, unit, V2D_GRID_CLAMP, V2D_UNIT_VALUES, V2D_GRID_CLAMP);
-  UI_view2d_scrollers_draw(C, v2d, scrollers);
+  scrollers = UI_view2d_scrollers_calc(v2d, NULL);
+  UI_view2d_scrollers_draw(v2d, scrollers);
   UI_view2d_scrollers_free(scrollers);
+
+  /* scale numbers */
+  View2DGrid *grid = UI_view2d_grid_calc(
+      scene, v2d, unit, V2D_GRID_CLAMP, V2D_UNIT_VALUES, V2D_GRID_CLAMP, ar->winx, ar->winy);
+  UI_view2d_grid_draw_numbers_horizontal(scene, v2d, grid, &v2d->hor, unit, true);
+  UI_view2d_grid_draw_numbers_vertical(scene, v2d, grid, &v2d->vert, V2D_UNIT_VALUES, 0.5f);
+  UI_view2d_grid_free(grid);
 
   /* draw current frame number-indicator on top of scrollers */
   if ((sseq->flag & SEQ_NO_DRAW_CFRANUM) == 0) {

@@ -321,11 +321,12 @@ typedef enum eMRDataType {
 } eMRDataType;
 
 #define MR_DATATYPE_VERT_LOOP_POLY (MR_DATATYPE_VERT | MR_DATATYPE_POLY | MR_DATATYPE_LOOP)
+#define MR_DATATYPE_VERT_LOOP_TRI_POLY (MR_DATATYPE_VERT_LOOP_POLY | MR_DATATYPE_LOOPTRI)
 #define MR_DATATYPE_LOOSE_VERT_EGDE (MR_DATATYPE_LOOSE_VERT | MR_DATATYPE_LOOSE_EDGE)
 
 /**
- * These functions look like they would be slow but they will typically return true on the first iteration.
- * Only false when all attached elements are hidden.
+ * These functions look like they would be slow but they will typically return true on the first
+ * iteration. Only false when all attached elements are hidden.
  */
 static bool bm_vert_has_visible_edge(const BMVert *v)
 {
@@ -1158,7 +1159,8 @@ static MeshRenderData *mesh_render_data_create_ex(Mesh *me,
           /* note: BKE_editmesh_loop_tangent_calc calculates 'CD_TANGENT',
            * not 'CD_MLOOPTANGENT' (as done below). It's OK, they're compatible. */
 
-          /* note: normally we'd use 'i_src' here, but 'i_dst' is in sync with 'rdata->cd.output' */
+          /* note: normally we'd use 'i_src' here, but 'i_dst' is in sync with 'rdata->cd.output'
+           */
           rdata->cd.layers.tangent[i_dst] = CustomData_get_layer_n(
               &rdata->cd.output.ldata, CD_TANGENT, i_dst);
           if (rdata->tri_len != 0) {
@@ -5111,6 +5113,10 @@ void DRW_mesh_batch_cache_create_requested(
     return;
   }
 
+#ifdef DRW_DEBUG_MESH_CACHE_REQUEST
+  printf("-- %s %s --\n", __func__, ob->id.name + 2);
+#endif
+
   /* Generate MeshRenderData flags */
   eMRDataType mr_flag = 0, mr_edit_flag = 0;
   DRW_ADD_FLAG_FROM_VBO_REQUEST(
@@ -5120,7 +5126,7 @@ void DRW_mesh_batch_cache_create_requested(
   DRW_ADD_FLAG_FROM_VBO_REQUEST(
       mr_flag, cache->ordered.loop_pos_nor, MR_DATATYPE_VERT_LOOP_POLY | MR_DATATYPE_LOOP_NORMALS);
   DRW_ADD_FLAG_FROM_VBO_REQUEST(
-      mr_flag, cache->ordered.loop_uv_tan, MR_DATATYPE_VERT_LOOP_POLY | MR_DATATYPE_SHADING);
+      mr_flag, cache->ordered.loop_uv_tan, MR_DATATYPE_VERT_LOOP_TRI_POLY | MR_DATATYPE_SHADING);
   DRW_ADD_FLAG_FROM_VBO_REQUEST(
       mr_flag, cache->ordered.loop_orco, MR_DATATYPE_VERT_LOOP_POLY | MR_DATATYPE_SHADING);
   DRW_ADD_FLAG_FROM_VBO_REQUEST(
@@ -5196,6 +5202,10 @@ void DRW_mesh_batch_cache_create_requested(
 
   Mesh *me_original = me;
   MBC_GET_FINAL_MESH(me);
+
+#ifdef DRW_DEBUG_MESH_CACHE_REQUEST
+  printf("  mr_flag %u, mr_edit_flag %u\n\n", mr_flag, mr_edit_flag);
+#endif
 
   if (me_original == me) {
     mr_flag |= mr_edit_flag;
