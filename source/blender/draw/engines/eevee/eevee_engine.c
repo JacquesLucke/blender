@@ -301,15 +301,14 @@ static void eevee_draw_background(void *vedata)
     }
   }
 
-  /* LookDev */
-  EEVEE_lookdev_draw_background(vedata);
-  /* END */
-
   /* Tonemapping and transfer result to default framebuffer. */
   bool use_render_settings = stl->g_data->use_color_render_settings;
 
   GPU_framebuffer_bind(dfbl->default_fb);
   DRW_transform_to_display(stl->effects->final_tx, true, use_render_settings);
+
+  /* Draw checkerboard with alpha under. */
+  EEVEE_draw_alpha_checker(vedata);
 
   /* Debug : Output buffer to view. */
   switch (G.debug_value) {
