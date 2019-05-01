@@ -8,87 +8,27 @@
 namespace FN {
 namespace Functions {
 
-template<typename T> uint get_list_length(const Types::List<T> *list)
-{
-  return list->size();
-}
-
 static llvm::Value *build_ir__get_list_length(CodeBuilder &builder,
                                               SharedType &base_type,
-                                              llvm::Value *list,
-                                              CodeInterface &parent_interface,
-                                              const BuildIRSettings &settings)
+                                              llvm::Value *list)
 {
-  if (base_type == Types::GET_TYPE_float()) {
-    return builder.CreateCallPointer((void *)get_list_length<float>, {list}, builder.getInt32Ty());
-  }
-  else if (base_type == Types::GET_TYPE_fvec3()) {
-    return builder.CreateCallPointer(
-        (void *)get_list_length<Types::Vector>, {list}, builder.getInt32Ty());
-  }
-  else {
-    BLI_assert(!"not yet supported");
-    return nullptr;
-  }
-
-  SharedFunction &get_length_fn = GET_FN_list_length(base_type);
-  if (!get_length_fn->has_body<LLVMBuildIRBody>()) {
-    derive_LLVMBuildIRBody_from_TupleCallBody(get_length_fn);
-  }
-
-  auto *body = get_length_fn->body<LLVMBuildIRBody>();
-  LLVMValues inputs = {list};
-  LLVMValues outputs(1);
-  CodeInterface interface(
-      inputs, outputs, parent_interface.context_ptr(), parent_interface.function_ir_cache());
-  body->build_ir(builder, interface, settings);
-  return outputs[0];
-}
-
-template<typename T> T *get_value_ptr(const Types::List<T> *list)
-{
-  return list->data_ptr();
+  return builder.CreateCallPointer(
+      (void *)GET_C_FN_list_length(base_type), {list}, builder.getInt32Ty());
 }
 
 static llvm::Value *build_ir__get_list_value_ptr(CodeBuilder &builder,
                                                  SharedType &base_type,
                                                  llvm::Value *list)
 {
-  if (base_type == Types::GET_TYPE_float()) {
-    return builder.CreateCallPointer_RetVoidPtr((void *)get_value_ptr<float>, {list});
-  }
-  else if (base_type == Types::GET_TYPE_fvec3()) {
-    return builder.CreateCallPointer_RetVoidPtr((void *)get_value_ptr<Types::Vector>, {list});
-  }
-  else {
-    BLI_assert(!"not yet supported");
-    return nullptr;
-  }
-}
-
-template<typename T> Types::List<T> *new_list_with_prepared_memory(uint length)
-{
-  auto *list = new Types::List<T>(length);
-  return list;
+  return builder.CreateCallPointer_RetVoidPtr((void *)GET_C_FN_list_data_ptr(base_type), {list});
 }
 
 static llvm::Value *build_ir__new_list_with_prepared_memory(CodeBuilder &builder,
                                                             SharedType &base_type,
                                                             llvm::Value *length)
 {
-  LLVMValues args = {length};
-  if (base_type == Types::GET_TYPE_float()) {
-    return builder.CreateCallPointer_RetVoidPtr((void *)new_list_with_prepared_memory<float>,
-                                                args);
-  }
-  else if (base_type == Types::GET_TYPE_fvec3()) {
-    return builder.CreateCallPointer_RetVoidPtr(
-        (void *)new_list_with_prepared_memory<Types::Vector>, args);
-  }
-  else {
-    BLI_assert(!"not yet supported");
-    return nullptr;
-  }
+  return builder.CreateCallPointer_RetVoidPtr(
+      (void *)GET_C_FN_new_list_with_allocated_buffer(base_type), {length});
 }
 
 class AutoVectorizationGen : public LLVMBuildIRBody {
@@ -119,7 +59,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
 
     for (uint index : m_list_inputs) {
       llvm::Value *length = build_ir__get_list_length(
-          builder, this->input_type(index), interface.get_input(index), interface, settings);
+          builder, this->input_type(index), interface.get_input(index));
       list_lengths.append(length);
     }
 

@@ -178,6 +178,27 @@ SharedFunction build_list_length_function(SharedType &base_type, SharedType &lis
   return fn;
 }
 
+/* C Functions for List access
+ **************************************/
+
+template<typename T> uint get_list_length(void *list)
+{
+  const List<T> *list_ = (Types::List<T> *)list;
+  return list_->size();
+}
+
+template<typename T> void *get_value_ptr(void *list)
+{
+  const List<T> *list_ = (Types::List<T> *)list;
+  return (void *)list_->data_ptr();
+}
+
+template<typename T> void *new_list_with_prepared_memory(uint length)
+{
+  auto *list = new Types::List<T>(length);
+  return (void *)list;
+}
+
 /* Build List Functions
  *************************************/
 
@@ -188,6 +209,10 @@ struct ListFunctions {
   FunctionPerType m_get_element;
   FunctionPerType m_combine;
   FunctionPerType m_length;
+
+  SmallMap<SharedType, GetListLength> m_c_length;
+  SmallMap<SharedType, GetListDataPtr> m_c_data_ptr;
+  SmallMap<SharedType, NewListWithAllocatedBuffer> m_c_new_allocated;
 };
 
 template<typename T>
@@ -203,6 +228,10 @@ void insert_list_functions_for_type(ListFunctions &functions,
   functions.m_get_element.add(base_type, build_get_element_function<T>(base_type, list_type));
   functions.m_combine.add(base_type, build_combine_lists_function<T>(base_type, list_type));
   functions.m_length.add(base_type, build_list_length_function<T>(base_type, list_type));
+
+  functions.m_c_length.add(base_type, get_list_length<T>);
+  functions.m_c_data_ptr.add(base_type, get_value_ptr<T>);
+  functions.m_c_new_allocated.add(base_type, new_list_with_prepared_memory<T>);
 }
 
 LAZY_INIT_REF_STATIC__NO_ARG(ListFunctions, get_list_functions)
@@ -264,6 +293,19 @@ SharedType &get_list_type(SharedType &base_type)
 {
   SharedFunction &fn = GET_FN_append_to_list(base_type);
   return fn->signature().inputs()[0].type();
+}
+
+GetListLength GET_C_FN_list_length(SharedType &base_type)
+{
+  return get_list_functions().m_c_length.lookup(base_type);
+}
+GetListDataPtr GET_C_FN_list_data_ptr(SharedType &base_type)
+{
+  return get_list_functions().m_c_data_ptr.lookup(base_type);
+}
+NewListWithAllocatedBuffer GET_C_FN_new_list_with_allocated_buffer(SharedType &base_type)
+{
+  return get_list_functions().m_c_new_allocated.lookup(base_type);
 }
 
 }  // namespace Functions
