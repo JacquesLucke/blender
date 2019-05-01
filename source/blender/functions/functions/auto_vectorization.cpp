@@ -64,40 +64,11 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
                 CodeInterface &interface,
                 const BuildIRSettings &settings) const override
   {
-    LLVMValues input_list_lengths;
-    for (uint i = 0; i < m_input_info.size(); i++) {
-      if (m_input_info[i].is_list) {
-        auto *length = builder.CreateCallPointer(
-            (void *)m_input_info[i].get_length_fn, {interface.get_input(i)}, builder.getInt32Ty());
-        input_list_lengths.append(length);
-      }
-    }
-
+    LLVMValues input_list_lengths = this->get_input_list_lengths(builder, interface);
     llvm::Value *max_length = builder.CreateSIntMax(input_list_lengths);
 
-    LLVMValues input_data_pointers;
-    for (uint i = 0; i < m_input_info.size(); i++) {
-      if (m_input_info[i].is_list) {
-        uint stride = m_input_info[i].base_cpp_type->size_of_type();
-        llvm::Value *data_ptr = builder.CreateCallPointer_RetVoidPtr(
-            (void *)m_input_info[i].get_data_ptr_fn, {interface.get_input(i)});
-        llvm::Value *typed_data_ptr = builder.CastToPointerWithStride(data_ptr, stride);
-        input_data_pointers.append(typed_data_ptr);
-      }
-    }
-
-    LLVMValues output_data_pointers;
-    for (uint i = 0; i < m_output_info.size(); i++) {
-      uint stride = m_output_info[i].base_cpp_type->size_of_type();
-
-      llvm::Value *output_list = builder.CreateCallPointer_RetVoidPtr(
-          (void *)m_output_info[i].get_new_list_fn, {max_length});
-      llvm::Value *data_ptr = builder.CreateCallPointer_RetVoidPtr(
-          (void *)m_output_info[i].get_data_ptr_fn, {output_list});
-      llvm::Value *typed_data_ptr = builder.CastToPointerWithStride(data_ptr, stride);
-      output_data_pointers.append(typed_data_ptr);
-      interface.set_output(i, output_list);
-    }
+    LLVMValues input_data_pointers = this->get_input_data_pointers(builder, interface);
+    LLVMValues output_data_pointers = this->create_output_lists(builder, interface, max_length);
 
     auto *setup_block = builder.GetInsertBlock();
     auto *condition_block = builder.NewBlockInFunction("Loop Condition");
@@ -108,33 +79,13 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
 
     CodeBuilder body_builder(body_block);
     CodeBuilder condition_builder(condition_block);
-    CodeBuilder end_builder(end_block);
 
     auto *iteration = condition_builder.CreatePhi(condition_builder.getInt32Ty(), 2);
     auto *condition = condition_builder.CreateICmpULT(iteration, max_length);
     condition_builder.CreateCondBr(condition, body_block, end_block);
 
-    LLVMValues main_inputs;
-
-    uint list_input_index = 0;
-    for (uint i = 0; i < m_input_info.size(); i++) {
-      if (m_input_is_list[i]) {
-
-        llvm::Value *load_address = body_builder.CreateGEP(input_data_pointers[list_input_index],
-                                                           iteration);
-        // TODO: handle different lengths
-        llvm::Value *value_for_main = m_input_info[i].base_llvm_type->build_load_ir__relocate(
-            body_builder, load_address);
-        main_inputs.append(value_for_main);
-        list_input_index++;
-      }
-      else {
-        llvm::Value *source_value = interface.get_input(i);
-        llvm::Value *value_for_main = m_input_info[i].base_llvm_type->build_copy_ir(body_builder,
-                                                                                    source_value);
-        main_inputs.append(value_for_main);
-      }
-    }
+    LLVMValues main_inputs = this->prepare_main_function_inputs(
+        body_builder, interface, input_data_pointers, iteration);
 
     LLVMValues main_outputs(m_output_info.size());
     CodeInterface main_interface(
@@ -142,11 +93,8 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     auto *body = m_main->body<LLVMBuildIRBody>();
     body->build_ir(body_builder, main_interface, settings);
 
-    for (uint i = 0; i < m_output_info.size(); i++) {
-      llvm::Value *store_address = body_builder.CreateGEP(output_data_pointers[i], iteration);
-      m_output_info[i].base_llvm_type->build_store_ir__relocate(
-          body_builder, main_outputs[i], store_address);
-    }
+    this->store_computed_values_in_output_lists(
+        body_builder, main_outputs, output_data_pointers, iteration);
 
     llvm::Value *next_iteration = body_builder.CreateIAdd(iteration, body_builder.getInt32(1));
     body_builder.CreateBr(condition_block);
@@ -155,7 +103,100 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     iteration->addIncoming(next_iteration, body_block);
 
     builder.SetInsertPoint(end_block);
+    this->free_input_lists(builder, interface);
+  }
 
+ private:
+  LLVMValues get_input_list_lengths(CodeBuilder &builder, CodeInterface &interface) const
+  {
+    LLVMValues list_lengths;
+    for (uint i = 0; i < m_input_info.size(); i++) {
+      if (m_input_info[i].is_list) {
+        auto *length = builder.CreateCallPointer(
+            (void *)m_input_info[i].get_length_fn, {interface.get_input(i)}, builder.getInt32Ty());
+        list_lengths.append(length);
+      }
+    }
+    return list_lengths;
+  }
+
+  LLVMValues get_input_data_pointers(CodeBuilder &builder, CodeInterface &interface) const
+  {
+    LLVMValues data_pointers;
+    for (uint i = 0; i < m_input_info.size(); i++) {
+      if (m_input_info[i].is_list) {
+        uint stride = m_input_info[i].base_cpp_type->size_of_type();
+        llvm::Value *data_ptr = builder.CreateCallPointer_RetVoidPtr(
+            (void *)m_input_info[i].get_data_ptr_fn, {interface.get_input(i)});
+        llvm::Value *typed_data_ptr = builder.CastToPointerWithStride(data_ptr, stride);
+        data_pointers.append(typed_data_ptr);
+      }
+    }
+    return data_pointers;
+  }
+
+  LLVMValues create_output_lists(CodeBuilder &builder,
+                                 CodeInterface &interface,
+                                 llvm::Value *length) const
+  {
+    LLVMValues data_pointers;
+    for (uint i = 0; i < m_output_info.size(); i++) {
+      uint stride = m_output_info[i].base_cpp_type->size_of_type();
+
+      llvm::Value *output_list = builder.CreateCallPointer_RetVoidPtr(
+          (void *)m_output_info[i].get_new_list_fn, {length});
+      llvm::Value *data_ptr = builder.CreateCallPointer_RetVoidPtr(
+          (void *)m_output_info[i].get_data_ptr_fn, {output_list});
+      llvm::Value *typed_data_ptr = builder.CastToPointerWithStride(data_ptr, stride);
+      data_pointers.append(typed_data_ptr);
+      interface.set_output(i, output_list);
+    }
+    return data_pointers;
+  }
+
+  void store_computed_values_in_output_lists(CodeBuilder &builder,
+                                             const LLVMValues &computed_values,
+                                             const LLVMValues &output_data_pointers,
+                                             llvm::Value *iteration) const
+  {
+    for (uint i = 0; i < m_output_info.size(); i++) {
+      llvm::Value *store_address = builder.CreateGEP(output_data_pointers[i], iteration);
+      m_output_info[i].base_llvm_type->build_store_ir__relocate(
+          builder, computed_values[i], store_address);
+    }
+  }
+
+  LLVMValues prepare_main_function_inputs(CodeBuilder &builder,
+                                          CodeInterface &interface,
+                                          const LLVMValues &input_data_pointers,
+                                          llvm::Value *iteration) const
+  {
+    LLVMValues main_inputs;
+
+    uint list_input_index = 0;
+    for (uint i = 0; i < m_input_info.size(); i++) {
+      if (m_input_is_list[i]) {
+
+        llvm::Value *load_address = builder.CreateGEP(input_data_pointers[list_input_index],
+                                                      iteration);
+        // TODO: handle different lengths
+        llvm::Value *value_for_main = m_input_info[i].base_llvm_type->build_load_ir__relocate(
+            builder, load_address);
+        main_inputs.append(value_for_main);
+        list_input_index++;
+      }
+      else {
+        llvm::Value *source_value = interface.get_input(i);
+        llvm::Value *value_for_main = m_input_info[i].base_llvm_type->build_copy_ir(builder,
+                                                                                    source_value);
+        main_inputs.append(value_for_main);
+      }
+    }
+    return main_inputs;
+  }
+
+  void free_input_lists(CodeBuilder &builder, CodeInterface &interface) const
+  {
     for (uint i = 0; i < m_input_info.size(); i++) {
       if (m_input_info[i].is_list) {
         llvm::Value *input_list = interface.get_input(i);
