@@ -240,6 +240,7 @@ set(SRC
   BLI_mempool.hpp
   BLI_multimap.hpp
   BLI_multipool.hpp
+  BLI_object_pool.hpp
   BLI_optional.hpp
   BLI_range.hpp
   BLI_shared.hpp

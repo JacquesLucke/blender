@@ -5,8 +5,6 @@ namespace FN {
 
 static void try_ensure_tuple_call_bodies(SharedDataFlowGraph &graph)
 {
-  auto *context = new llvm::LLVMContext();
-
   for (uint node_id : graph->node_ids()) {
     SharedFunction &fn = graph->function_of_node(node_id);
     if (fn->has_body<TupleCallBody>()) {
@@ -18,7 +16,7 @@ static void try_ensure_tuple_call_bodies(SharedDataFlowGraph &graph)
     }
 
     if (fn->has_body<LLVMBuildIRBody>()) {
-      derive_TupleCallBody_from_LLVMBuildIRBody(fn, *context);
+      derive_TupleCallBody_from_LLVMBuildIRBody(fn);
     }
   }
 }

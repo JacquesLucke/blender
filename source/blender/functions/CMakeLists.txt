@@ -93,6 +93,8 @@ set(SRC
   backends/llvm/fgraph_ir_generation.cpp
   backends/llvm/builder.hpp
   backends/llvm/builder.cpp
+  backends/llvm/context_pool.hpp
+  backends/llvm/context_pool.cpp
 
   types/lists.hpp
   types/numeric_lists.hpp

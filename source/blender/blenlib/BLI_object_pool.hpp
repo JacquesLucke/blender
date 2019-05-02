@@ -1,0 +1,66 @@
+#pragma once
+
+#include <mutex>
+
+#include "BLI_small_stack.hpp"
+#include "BLI_small_set.hpp"
+
+namespace BLI {
+
+template<typename T> class ThreadSafeObjectPool {
+ private:
+  std::mutex m_mutex;
+  SmallStack<T *> m_free_objects;
+
+#ifdef DEBUG
+  SmallSet<T *> m_all_objects;
+#else
+  SmallVector<T *> m_all_objects;
+#endif
+
+ public:
+  ThreadSafeObjectPool() = default;
+  ThreadSafeObjectPool(ThreadSafeObjectPool &other) = delete;
+
+  ~ThreadSafeObjectPool()
+  {
+    BLI_assert(m_free_objects.size() == m_all_objects.size());
+    for (T *object : m_all_objects) {
+      delete object;
+    }
+  }
+
+  T *aquire()
+  {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    if (m_free_objects.empty()) {
+      T *new_object = new T();
+      this->remember(new_object);
+      return new_object;
+    }
+    else {
+      return m_free_objects.pop();
+    }
+  }
+
+  void release(T *object)
+  {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    BLI_assert(m_all_objects.contains(object));
+    m_free_objects.push(object);
+  }
+
+ private:
+  void remember(T *object)
+  {
+#ifdef DEBUG
+    m_all_objects.add(object);
+#else
+    m_all_objects.append(object);
+#endif
+  }
+};
+
+}  // namespace BLI

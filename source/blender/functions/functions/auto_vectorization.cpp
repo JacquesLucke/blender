@@ -377,7 +377,7 @@ SharedFunction to_vectorized_function(SharedFunction &original_fn,
 
   if (!original_fn->has_body<TupleCallBody>()) {
     if (original_fn->has_body<LLVMBuildIRBody>()) {
-      derive_TupleCallBody_from_LLVMBuildIRBody(original_fn, *(new llvm::LLVMContext()));
+      derive_TupleCallBody_from_LLVMBuildIRBody(original_fn);
     }
     else {
       BLI_assert(false);

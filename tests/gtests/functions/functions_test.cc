@@ -50,7 +50,7 @@ TEST_F(functions_impl, FloatRange)
 TEST_F(functions_impl, AddFloats)
 {
   auto fn = Functions::GET_FN_add_floats();
-  derive_TupleCallBody_from_LLVMBuildIRBody(fn, *(new llvm::LLVMContext()));
+  derive_TupleCallBody_from_LLVMBuildIRBody(fn);
   PREPARE_TUPLE_CALL_TEST(fn);
 
   fn_in.set<float>(0, 3.5f);

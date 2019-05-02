@@ -5,6 +5,8 @@
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 
+#include "context_pool.hpp"
+
 namespace FN {
 
 typedef std::function<void(
@@ -127,12 +129,14 @@ static TupleCallBody *compile_ir_to_tuple_call(SharedFunction &fn, llvm::LLVMCon
   return new LLVMTupleCall(std::move(compiled));
 }
 
-void derive_TupleCallBody_from_LLVMBuildIRBody(SharedFunction &fn, llvm::LLVMContext &context)
+void derive_TupleCallBody_from_LLVMBuildIRBody(SharedFunction &fn)
 {
   BLI_assert(fn->has_body<LLVMBuildIRBody>());
   BLI_assert(!fn->has_body<TupleCallBody>());
 
-  fn->add_body(compile_ir_to_tuple_call(fn, context));
+  auto *context = aquire_llvm_context();
+  fn->add_body(compile_ir_to_tuple_call(fn, *context));
+  release_llvm_context(context);
 }
 
 } /* namespace FN */
