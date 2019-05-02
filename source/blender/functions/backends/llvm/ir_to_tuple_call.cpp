@@ -120,13 +120,14 @@ class LLVMTupleCall : public TupleCallBody {
   }
 };
 
-static TupleCallBody *compile_ir_to_tuple_call(SharedFunction &fn, llvm::LLVMContext &context)
+static std::unique_ptr<CompiledLLVM> compile_ir_to_tuple_call(SharedFunction &fn,
+                                                              llvm::LLVMContext &context)
 {
   llvm::Module *module = new llvm::Module(fn->name(), context);
   llvm::Function *function = insert_tuple_call_function(fn, module);
 
   auto compiled = CompiledLLVM::FromIR(module, function);
-  return new LLVMTupleCall(std::move(compiled));
+  return compiled;
 }
 
 void derive_TupleCallBody_from_LLVMBuildIRBody(SharedFunction &fn)
@@ -135,7 +136,7 @@ void derive_TupleCallBody_from_LLVMBuildIRBody(SharedFunction &fn)
   BLI_assert(!fn->has_body<TupleCallBody>());
 
   auto *context = aquire_llvm_context();
-  fn->add_body(compile_ir_to_tuple_call(fn, *context));
+  fn->add_body<LLVMTupleCall>(compile_ir_to_tuple_call(fn, *context));
   release_llvm_context(context);
 }
 

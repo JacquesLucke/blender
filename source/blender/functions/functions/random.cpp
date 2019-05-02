@@ -44,7 +44,7 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_random_number)
                                     {
                                         OutputParameter("Value", GET_TYPE_float()),
                                     }));
-  fn->add_body(new RandomNumber());
+  fn->add_body<RandomNumber>();
   return fn;
 }
 

@@ -69,7 +69,7 @@ static SharedFunction build_bool_switch_function(SharedType &data_type)
                                     {
                                         OutputParameter("Result", data_type),
                                     }));
-  fn->add_body(new LazyBoolSwitch(data_type));
+  fn->add_body<LazyBoolSwitch>(data_type);
   return fn;
 }
 

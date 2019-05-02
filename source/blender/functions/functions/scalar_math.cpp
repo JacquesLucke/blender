@@ -61,8 +61,8 @@ class GenAddFloats : public LLVMBuildIRBody {
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_add_floats)
 {
   auto fn = get_math_function__two_inputs("Add Floats");
-  // fn->add_body(new AddFloats());
-  fn->add_body(new GenAddFloats());
+  // fn->add_body<AddFloats>();
+  fn->add_body<GenAddFloats>();
   return fn;
 }
 
@@ -88,8 +88,8 @@ class MultiplyFloatsGen : public LLVMBuildIRBody {
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_multiply_floats)
 {
   auto fn = get_math_function__two_inputs("Multiply Floats");
-  fn->add_body(new MultiplyFloats());
-  fn->add_body(new MultiplyFloatsGen());
+  fn->add_body<MultiplyFloats>();
+  fn->add_body<MultiplyFloatsGen>();
   return fn;
 }
 
@@ -105,7 +105,7 @@ class MinFloats : public TupleCallBody {
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_min_floats)
 {
   auto fn = get_math_function__two_inputs("Minimum");
-  fn->add_body(new MinFloats());
+  fn->add_body<MinFloats>();
   return fn;
 }
 
@@ -121,7 +121,7 @@ class MaxFloats : public TupleCallBody {
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_max_floats)
 {
   auto fn = get_math_function__two_inputs("Maximum");
-  fn->add_body(new MaxFloats());
+  fn->add_body<MaxFloats>();
   return fn;
 }
 
@@ -165,7 +165,7 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_map_range)
                                     {
                                         OutputParameter("Value", GET_TYPE_float()),
                                     }));
-  fn->add_body(new MapRange());
+  fn->add_body<MapRange>();
   return fn;
 }
 
@@ -190,8 +190,8 @@ class SinFloatGen : public LLVMBuildIRBody {
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_sin_float)
 {
   auto fn = get_math_function__one_input("Sin");
-  fn->add_body(new SinFloat());
-  fn->add_body(new SinFloatGen());
+  fn->add_body<SinFloat>();
+  fn->add_body<SinFloatGen>();
   return fn;
 }
 

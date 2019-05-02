@@ -24,7 +24,7 @@ class FGraphDependencies : public DependenciesBody {
 
 void fgraph_add_DependenciesBody(SharedFunction &fn, FunctionGraph &fgraph)
 {
-  fn->add_body(new FGraphDependencies(fgraph));
+  fn->add_body<FGraphDependencies>(fgraph);
 }
 
 }  // namespace FN

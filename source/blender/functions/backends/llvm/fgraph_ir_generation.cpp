@@ -214,7 +214,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
 
 void fgraph_add_LLVMBuildIRBody(SharedFunction &fn, FunctionGraph &fgraph)
 {
-  fn->add_body(new BuildGraphIR(fgraph));
+  fn->add_body<BuildGraphIR>(fgraph);
 }
 
 } /* namespace FN */

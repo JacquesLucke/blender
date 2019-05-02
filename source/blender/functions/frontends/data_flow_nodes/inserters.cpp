@@ -134,7 +134,7 @@ DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder, BSo
   }
 
   auto fn = SharedFunction::New("Input Sockets", Signature({}, outputs));
-  fn->add_body(new SocketLoaderBody(builder.btree(), bsockets, loaders));
+  fn->add_body<SocketLoaderBody>(builder.btree(), bsockets, loaders);
   DFGB_Node *node = builder.insert_function(fn);
 
   DFGB_SocketVector sockets;

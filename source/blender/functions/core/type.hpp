@@ -22,6 +22,10 @@ class TypeExtension {
   }
 
  public:
+  virtual ~TypeExtension()
+  {
+  }
+
   Type *owner() const
   {
     return m_owner;
@@ -43,6 +47,7 @@ class Type final : public RefCountedBase {
   template<typename T> bool has_extension() const
   {
     std::lock_guard<std::mutex> lock(m_extension_mutex);
+    static_assert(std::is_base_of<TypeExtension, T>::value, "");
     return m_extensions.has<T>();
   }
 
@@ -52,6 +57,7 @@ class Type final : public RefCountedBase {
      *   Since extensions can't be removed, it might be
      *   to access existing extensions without a lock. */
     std::lock_guard<std::mutex> lock(m_extension_mutex);
+    static_assert(std::is_base_of<TypeExtension, T>::value, "");
     return m_extensions.get<T>();
   }
 

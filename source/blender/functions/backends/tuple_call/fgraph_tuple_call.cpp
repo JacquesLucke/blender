@@ -607,7 +607,7 @@ class ExecuteFGraph_Simple : public TupleCallBody {
 void fgraph_add_TupleCallBody(SharedFunction &fn, FunctionGraph &fgraph)
 {
   try_ensure_tuple_call_bodies(fgraph.graph());
-  fn->add_body(new ExecuteFGraph(fgraph));
+  fn->add_body<ExecuteFGraph>(fgraph);
 }
 
 } /* namespace FN */

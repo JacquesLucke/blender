@@ -54,8 +54,8 @@ SharedFunction GET_FN_object_location(Object *object)
                                           {
                                               OutputParameter("Location", GET_TYPE_fvec3()),
                                           }));
-  fn->add_body(new ObjectTransforms(object));
-  fn->add_body(new ObjectTransformsDependency(object));
+  fn->add_body<ObjectTransforms>(object);
+  fn->add_body<ObjectTransformsDependency>(object);
   return fn;
 }
 

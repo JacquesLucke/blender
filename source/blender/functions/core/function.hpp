@@ -32,11 +32,6 @@ class FunctionBody {
   {
     return m_owner;
   }
-
-  bool has_owner()
-  {
-    return m_owner != nullptr;
-  }
 };
 
 class Function final : public RefCountedBase {
@@ -69,24 +64,34 @@ class Function final : public RefCountedBase {
     return m_signature;
   }
 
+  template<typename T> inline bool has_body() const
+  {
+    std::lock_guard<std::mutex> lock(m_body_mutex);
+    static_assert(std::is_base_of<FunctionBody, T>::value, "");
+    return this->m_bodies.has<T>();
+  }
+
   template<typename T> inline T *body() const
   {
+    std::lock_guard<std::mutex> lock(m_body_mutex);
+    static_assert(std::is_base_of<FunctionBody, T>::value, "");
     return m_bodies.get<T>();
   }
 
-  template<typename T> void add_body(T *body)
+  template<typename T, typename... Args> bool add_body(Args &&... args)
   {
+    std::lock_guard<std::mutex> lock(m_body_mutex);
     static_assert(std::is_base_of<FunctionBody, T>::value, "");
-    BLI_assert(m_bodies.get<T>() == nullptr);
-    BLI_assert(!body->has_owner());
-    m_bodies.add(body);
-    body->set_owner(this);
-  }
 
-  template<typename T> inline bool has_body() const
-  {
-    static_assert(std::is_base_of<FunctionBody, T>::value, "");
-    return this->body<T>() != nullptr;
+    if (m_bodies.has<T>()) {
+      return false;
+    }
+    else {
+      T *new_body = new T(std::forward<Args>(args)...);
+      new_body->set_owner(this);
+      m_bodies.add(new_body);
+      return true;
+    }
   }
 
   void print() const;
@@ -95,6 +100,7 @@ class Function final : public RefCountedBase {
   const std::string m_name;
   Signature m_signature;
   Composition m_bodies;
+  mutable std::mutex m_body_mutex;
 };
 
 using SharedFunction = AutoRefCount<Function>;

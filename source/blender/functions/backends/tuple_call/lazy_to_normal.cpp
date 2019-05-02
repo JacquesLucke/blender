@@ -30,7 +30,7 @@ void derive_TupleCallBody_from_LazyInTupleCallBody(SharedFunction &fn)
   BLI_assert(fn->has_body<LazyInTupleCallBody>());
   BLI_assert(!fn->has_body<TupleCallBody>());
 
-  fn->add_body(new MakeEagerBody(fn->body<LazyInTupleCallBody>()));
+  fn->add_body<MakeEagerBody>(fn->body<LazyInTupleCallBody>());
 }
 
 } /* namespace FN */

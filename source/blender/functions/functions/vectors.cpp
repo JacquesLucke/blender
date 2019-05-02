@@ -38,7 +38,7 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_combine_vector)
                                     {
                                         OutputParameter("Vector", GET_TYPE_fvec3()),
                                     }));
-  fn->add_body(new CombineVectorGen());
+  fn->add_body<CombineVectorGen>();
   return fn;
 }
 
@@ -66,7 +66,7 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_separate_vector)
                                         OutputParameter("Y", GET_TYPE_float()),
                                         OutputParameter("Z", GET_TYPE_float()),
                                     }));
-  fn->add_body(new SeparateVector());
+  fn->add_body<SeparateVector>();
   return fn;
 }
 
@@ -91,7 +91,7 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_vector_distance)
                                     {
                                         OutputParameter("Distance", GET_TYPE_float()),
                                     }));
-  fn->add_body(new VectorDistance());
+  fn->add_body<VectorDistance>();
   return fn;
 }
 
@@ -134,8 +134,8 @@ class AddVectorsGen : public LLVMBuildIRBody {
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_add_vectors)
 {
   auto fn = get_math_function__two_inputs("Add Vectors");
-  fn->add_body(new AddVectors());
-  fn->add_body(new AddVectorsGen());
+  fn->add_body<AddVectors>();
+  fn->add_body<AddVectorsGen>();
   return fn;
 }
 

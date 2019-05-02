@@ -405,8 +405,8 @@ SharedFunction to_vectorized_function(SharedFunction &original_fn,
 
   std::string name = original_fn->name() + " (Vectorized)";
   auto fn = SharedFunction::New(name, Signature(inputs, outputs));
-  // fn->add_body(new AutoVectorization(original_fn, vectorize_input));
-  fn->add_body(new AutoVectorizationGen(original_fn, vectorize_input));
+  // fn->add_body<AutoVectorization>(original_fn, vectorize_input);
+  fn->add_body<AutoVectorizationGen>(original_fn, vectorize_input);
   return fn;
 }
 

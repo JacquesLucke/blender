@@ -178,7 +178,7 @@ void derive_LLVMBuildIRBody_from_TupleCallBody(SharedFunction &fn)
   BLI_assert(fn->has_body<TupleCallBody>());
   BLI_assert(!fn->has_body<LLVMBuildIRBody>());
 
-  fn->add_body(new TupleCallLLVM(fn->body<TupleCallBody>()));
+  fn->add_body<TupleCallLLVM>(fn->body<TupleCallBody>());
 }
 
 } /* namespace FN */

@@ -36,7 +36,7 @@ template<typename From, typename To>
 static SharedFunction get_implicit_conversion_function(SharedType &from_type, SharedType &to_type)
 {
   auto fn = get_simple_conversion_function(from_type, to_type);
-  fn->add_body(new ImplicitConversion<From, To>());
+  fn->add_body<ImplicitConversion<From, To>>();
   return fn;
 }
 

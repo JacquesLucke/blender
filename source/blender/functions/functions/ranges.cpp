@@ -43,7 +43,7 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_range)
                                     {
                                         OutputParameter("List", GET_TYPE_float_list()),
                                     }));
-  fn->add_body(new FloatRange());
+  fn->add_body<FloatRange>();
   return fn;
 }
 

@@ -26,7 +26,7 @@ SharedFunction build_create_empty_list_function(SharedType &base_type, SharedTyp
                                           {
                                               OutputParameter("List", list_type),
                                           }));
-  fn->add_body(new CreateEmptyList<T>());
+  fn->add_body<CreateEmptyList<T>>();
   return fn;
 }
 
@@ -53,7 +53,7 @@ SharedFunction build_create_single_element_list_function(SharedType &base_type,
                                     {
                                         OutputParameter("List", list_type),
                                     }));
-  fn->add_body(new CreateSingleElementList<T>());
+  fn->add_body<CreateSingleElementList<T>>();
   return fn;
 }
 
@@ -83,7 +83,7 @@ SharedFunction build_append_function(SharedType &base_type, SharedType &list_typ
                                     {
                                         OutputParameter("List", list_type),
                                     }));
-  fn->add_body(new AppendToList<T>());
+  fn->add_body<AppendToList<T>>();
   return fn;
 }
 
@@ -119,7 +119,7 @@ SharedFunction build_get_element_function(SharedType &base_type, SharedType &lis
                                     {
                                         OutputParameter("Element", base_type),
                                     }));
-  fn->add_body(new GetListElement<T>());
+  fn->add_body<GetListElement<T>>();
   return fn;
 }
 
@@ -149,7 +149,7 @@ SharedFunction build_combine_lists_function(SharedType &base_type, SharedType &l
                                     {
                                         OutputParameter("List", list_type),
                                     }));
-  fn->add_body(new CombineLists<T>());
+  fn->add_body<CombineLists<T>>();
   return fn;
 }
 
@@ -174,7 +174,7 @@ SharedFunction build_list_length_function(SharedType &base_type, SharedType &lis
                                     {
                                         OutputParameter("Length", GET_TYPE_int32()),
                                     }));
-  fn->add_body(new ListLength<T>());
+  fn->add_body<ListLength<T>>();
   return fn;
 }
 
