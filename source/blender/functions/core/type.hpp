@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <mutex>
 #include "BLI_composition.hpp"
 #include "BLI_shared.hpp"
 
@@ -8,7 +9,23 @@ namespace FN {
 
 using namespace BLI;
 
+class Type;
+
 class TypeExtension {
+ private:
+  Type *m_owner = nullptr;
+  friend Type;
+
+  void set_owner(Type *owner)
+  {
+    m_owner = owner;
+  }
+
+ public:
+  Type *owner() const
+  {
+    return m_owner;
+  }
 };
 
 class Type final : public RefCountedBase {
@@ -23,16 +40,35 @@ class Type final : public RefCountedBase {
     return m_name;
   }
 
-  template<typename T> inline T *extension() const
+  template<typename T> bool has_extension() const
   {
+    std::lock_guard<std::mutex> lock(m_extension_mutex);
+    return m_extensions.has<T>();
+  }
+
+  template<typename T> T *extension() const
+  {
+    /* TODO: Check if we really need a lock here.
+     *   Since extensions can't be removed, it might be
+     *   to access existing extensions without a lock. */
+    std::lock_guard<std::mutex> lock(m_extension_mutex);
     return m_extensions.get<T>();
   }
 
-  template<typename T> void extend(T *extension)
+  template<typename T, typename... Args> bool extend(Args &&... args)
   {
-    BLI_assert(m_extensions.get<T>() == nullptr);
+    std::lock_guard<std::mutex> lock(m_extension_mutex);
     static_assert(std::is_base_of<TypeExtension, T>::value, "");
-    m_extensions.add(extension);
+
+    if (m_extensions.has<T>()) {
+      return false;
+    }
+    else {
+      T *new_extension = new T(std::forward<Args>(args)...);
+      new_extension->set_owner(this);
+      m_extensions.add(new_extension);
+      return true;
+    }
   }
 
   friend bool operator==(const Type &a, const Type &b)
@@ -43,6 +79,7 @@ class Type final : public RefCountedBase {
  private:
   std::string m_name;
   Composition m_extensions;
+  mutable std::mutex m_extension_mutex;
 };
 
 using SharedType = AutoRefCount<Type>;

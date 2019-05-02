@@ -7,40 +7,32 @@
 namespace FN {
 namespace Types {
 
-template<typename T> class ListLLVMTypeInfo : public LLVMTypeInfo {
- private:
-  static void *copy_func(void *value)
-  {
-    List<T> *list = (List<T> *)value;
-    list->new_user();
-    return list;
-  }
+template<typename T> static void *copy_func(void *value)
+{
+  List<T> *list = (List<T> *)value;
+  list->new_user();
+  return list;
+}
 
-  static void free_func(void *value)
-  {
-    List<T> *list = (List<T> *)value;
-    list->remove_user();
-  }
+template<typename T> static void free_func(void *value)
+{
+  List<T> *list = (List<T> *)value;
+  list->remove_user();
+}
 
-  static void *default_func()
-  {
-    return new List<T>();
-  }
-
- public:
-  static LLVMTypeInfo *Create()
-  {
-    static_assert(sizeof(SharedList<T>) == sizeof(List<T> *),
-                  "Currently it is assumed that only a pointer to the list is stored");
-    return new PointerLLVMTypeInfo(copy_func, free_func, default_func);
-  }
-};
+template<typename T> static void *default_func()
+{
+  return new List<T>();
+}
 
 template<typename T> SharedType create_list_type(std::string name)
 {
+  static_assert(sizeof(SharedList<T>) == sizeof(List<T> *),
+                "Currently it is assumed that only a pointer to the list is stored");
+
   SharedType type = SharedType::New(name);
-  type->extend(new CPPTypeInfoForType<SharedList<T>>());
-  type->extend(ListLLVMTypeInfo<T>::Create());
+  type->extend<CPPTypeInfoForType<SharedList<T>>>();
+  type->extend<PointerLLVMTypeInfo>(copy_func<T>, free_func<T>, default_func<T>);
   return type;
 }
 

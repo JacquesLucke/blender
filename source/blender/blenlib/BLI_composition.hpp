@@ -35,6 +35,11 @@ class Composition {
     }
   }
 
+  template<typename T> inline bool has() const
+  {
+    return m_elements.contains(this->get_key<T>());
+  }
+
   ~Composition()
   {
     for (const Entry &entry : m_elements.values()) {
