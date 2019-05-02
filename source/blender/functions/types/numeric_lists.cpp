@@ -31,8 +31,8 @@ template<typename T> SharedType create_list_type(std::string name)
                 "Currently it is assumed that only a pointer to the list is stored");
 
   SharedType type = SharedType::New(name);
-  type->extend<CPPTypeInfoForType<SharedList<T>>>();
-  type->extend<PointerLLVMTypeInfo>(copy_func<T>, free_func<T>, default_func<T>);
+  type->add_extension<CPPTypeInfoForType<SharedList<T>>>();
+  type->add_extension<PointerLLVMTypeInfo>(copy_func<T>, free_func<T>, default_func<T>);
   return type;
 }
 

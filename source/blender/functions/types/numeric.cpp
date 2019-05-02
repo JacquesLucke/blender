@@ -10,8 +10,8 @@ namespace Types {
 LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_float)
 {
   SharedType type = SharedType::New("Float");
-  type->extend<CPPTypeInfoForType<float>>();
-  type->extend<PackedLLVMTypeInfo>(
+  type->add_extension<CPPTypeInfoForType<float>>();
+  type->add_extension<PackedLLVMTypeInfo>(
       [](llvm::LLVMContext &context) { return llvm::Type::getFloatTy(context); });
   return type;
 }
@@ -19,8 +19,8 @@ LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_float)
 LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_int32)
 {
   SharedType type = SharedType::New("Int32");
-  type->extend<CPPTypeInfoForType<int32_t>>();
-  type->extend<PackedLLVMTypeInfo>(
+  type->add_extension<CPPTypeInfoForType<int32_t>>();
+  type->add_extension<PackedLLVMTypeInfo>(
       [](llvm::LLVMContext &context) { return llvm::Type::getIntNTy(context, 32); });
   return type;
 }
@@ -67,8 +67,8 @@ class FloatVectorType : public TrivialLLVMTypeInfo {
 LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_fvec3)
 {
   SharedType type = SharedType::New("FVec3");
-  type->extend<CPPTypeInfoForType<Vector>>();
-  type->extend<FloatVectorType>(3);
+  type->add_extension<CPPTypeInfoForType<Vector>>();
+  type->add_extension<FloatVectorType>(3);
   return type;
 }
 

@@ -55,7 +55,7 @@ class Type final : public RefCountedBase {
     return m_extensions.get<T>();
   }
 
-  template<typename T, typename... Args> bool extend(Args &&... args)
+  template<typename T, typename... Args> bool add_extension(Args &&... args)
   {
     std::lock_guard<std::mutex> lock(m_extension_mutex);
     static_assert(std::is_base_of<TypeExtension, T>::value, "");
