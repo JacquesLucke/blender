@@ -2265,26 +2265,6 @@ static void outliner_draw_tree_element(bContext *C,
 
           GPU_blend(true);
 
-          /* divider */
-          {
-            GPUVertFormat *format = immVertexFormat();
-            uint pos = GPU_vertformat_attr_add(
-                format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-            unsigned char col[4];
-
-            immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-            UI_GetThemeColorShade4ubv(TH_BACK, -40, col);
-            col[3] *= alpha_fac;
-
-            immUniformColor4ubv(col);
-            immRecti(pos,
-                     tempx - 10.0f * ufac,
-                     *starty + 4.0f * ufac,
-                     tempx - 8.0f * ufac,
-                     *starty + UI_UNIT_Y - 4.0f * ufac);
-            immUnbindProgram();
-          }
-
           MergedIconRow merged = {{0}};
           outliner_draw_iconrow(C,
                                 block,
@@ -2521,7 +2501,7 @@ static void outliner_draw_highlights_recursive(unsigned pos,
     /* selection status */
     if (tselem->flag & TSE_SELECTED) {
       immUniformColor4fv(col_selection);
-      immRecti(pos, 0, start_y + 1, (int)ar->v2d.cur.xmax, start_y + UI_UNIT_Y - 1);
+      immRecti(pos, 0, start_y, (int)ar->v2d.cur.xmax, start_y + UI_UNIT_Y);
     }
 
     /* highlights */
@@ -2535,15 +2515,15 @@ static void outliner_draw_highlights_recursive(unsigned pos,
 
         if (tselem->flag & TSE_DRAG_BEFORE) {
           immUniformColor4fv(col);
-          immRecti(pos, start_x, start_y + UI_UNIT_Y - 1, end_x, start_y + UI_UNIT_Y + 1);
+          immRecti(pos, start_x, start_y + UI_UNIT_Y, end_x, start_y + UI_UNIT_Y);
         }
         else if (tselem->flag & TSE_DRAG_AFTER) {
           immUniformColor4fv(col);
-          immRecti(pos, start_x, start_y - 1, end_x, start_y + 1);
+          immRecti(pos, start_x, start_y, end_x, start_y);
         }
         else {
           immUniformColor3fvAlpha(col, col[3] * 0.5f);
-          immRecti(pos, start_x, start_y + 1, end_x, start_y + UI_UNIT_Y - 1);
+          immRecti(pos, start_x, start_y, end_x, start_y + UI_UNIT_Y);
         }
       }
       else {
@@ -2552,12 +2532,12 @@ static void outliner_draw_highlights_recursive(unsigned pos,
            *   we don't expand items when searching in the datablocks but we
            *   still want to highlight any filter matches. */
           immUniformColor4fv(col_searchmatch);
-          immRecti(pos, start_x, start_y + 1, end_x, start_y + UI_UNIT_Y - 1);
+          immRecti(pos, start_x, start_y, end_x, start_y + UI_UNIT_Y);
         }
         else if (tselem->flag & TSE_HIGHLIGHTED) {
           /* mouse hover highlight */
           immUniformColor4fv(col_highlight);
-          immRecti(pos, 0, start_y + 1, end_x, start_y + UI_UNIT_Y - 1);
+          immRecti(pos, 0, start_y, end_x, start_y + UI_UNIT_Y);
         }
       }
     }
@@ -2698,29 +2678,6 @@ static void outliner_back(ARegion *ar)
   immUnbindProgram();
 }
 
-static void outliner_draw_restrictcols(ARegion *ar)
-{
-  GPU_line_width(1.0f);
-
-  uint pos = GPU_vertformat_attr_add(
-      immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-  immUniformThemeColorShadeAlpha(TH_BACK, -15, -200);
-  immBegin(GPU_PRIM_LINES, 6);
-
-  immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_VIEWX), (int)ar->v2d.cur.ymax);
-  immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_VIEWX), (int)ar->v2d.cur.ymin);
-
-  immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_SELECTX), (int)ar->v2d.cur.ymax);
-  immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_SELECTX), (int)ar->v2d.cur.ymin);
-
-  immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_RENDERX), (int)ar->v2d.cur.ymax);
-  immVertex2i(pos, (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_RENDERX), (int)ar->v2d.cur.ymin);
-
-  immEnd();
-  immUnbindProgram();
-}
-
 /* ****************************************************** */
 /* Main Entrypoint - Draw contents of Outliner editor */
 
@@ -2808,13 +2765,10 @@ void draw_outliner(const bContext *C)
   }
   else if ((soops->outlinevis == SO_ID_ORPHANS) && has_restrict_icons) {
     /* draw user toggle columns */
-    outliner_draw_restrictcols(ar);
     outliner_draw_userbuts(block, ar, soops, &soops->tree);
   }
   else if (has_restrict_icons) {
     /* draw restriction columns */
-    outliner_draw_restrictcols(ar);
-
     outliner_draw_restrictbuts(block, scene, view_layer, ar, soops, &soops->tree);
   }
 
