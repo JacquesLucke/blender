@@ -39,12 +39,14 @@ static void UNUSED_FUNCTION(save_machine_code)(std::string filepath,
 std::unique_ptr<CompiledLLVM> CompiledLLVM::FromIR(llvm::Module *module,
                                                    llvm::Function *main_function)
 {
-  BLI_assert(!llvm::verifyModule(*module, &llvm::outs()));
+  // optimize_module(module);
   // module->print(llvm::outs(), nullptr);
+  BLI_assert(!llvm::verifyModule(*module, &llvm::outs()));
 
   llvm::ExecutionEngine *ee = llvm::EngineBuilder(std::unique_ptr<llvm::Module>(module)).create();
   ee->finalizeObject();
   ee->generateCodeForModule(module);
+  // save_machine_code("/home/jacques/Documents/mc.txt", ee->getTargetMachine(), module);
 
   uint64_t function_ptr = ee->getFunctionAddress(main_function->getName().str());
 

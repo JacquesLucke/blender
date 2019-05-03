@@ -90,14 +90,16 @@ llvm::Value *PointerLLVMTypeInfo::build_copy_ir(CodeBuilder &builder, llvm::Valu
 
   return builder.CreateCallPointer((void *)PointerLLVMTypeInfo::copy_value,
                                    copy_ftype,
-                                   {builder.getVoidPtr((void *)this), value});
+                                   {builder.getVoidPtr((void *)this), value},
+                                   "Copy value");
 }
 
 void PointerLLVMTypeInfo::build_free_ir(CodeBuilder &builder, llvm::Value *value) const
 {
   builder.CreateCallPointer((void *)PointerLLVMTypeInfo::free_value,
                             {builder.getVoidPtr((void *)this), value},
-                            builder.getVoidTy());
+                            builder.getVoidTy(),
+                            "Free value");
 }
 
 void PointerLLVMTypeInfo::build_store_ir__copy(CodeBuilder &builder,

@@ -34,8 +34,10 @@ static llvm::Value *build__stack_allocate_ExecutionContext(CodeBuilder &builder)
   llvm::Value *stack_ptr = builder.CreateAllocaBytes_VoidPtr(sizeof(ExecutionStack));
   llvm::Value *ctx_ptr = builder.CreateAllocaBytes_VoidPtr(sizeof(ExecutionContext));
 
-  builder.CreateCallPointer(
-      (void *)run__setup_ExecutionContext_in_buffer, {stack_ptr, ctx_ptr}, builder.getVoidTy());
+  builder.CreateCallPointer((void *)run__setup_ExecutionContext_in_buffer,
+                            {stack_ptr, ctx_ptr},
+                            builder.getVoidTy(),
+                            "Setup execution context in buffer");
 
   return ctx_ptr;
 }
@@ -159,7 +161,8 @@ class TupleCallLLVM : public LLVMBuildIRBody {
     builder.CreateCallPointer(
         (void *)run_TupleCallBody,
         {builder.getVoidPtr(m_tuple_call), tuple_in_data_ptr, tuple_out_data_ptr, context_ptr},
-        builder.getVoidTy());
+        builder.getVoidTy(),
+        "Run tuple call body");
 
     /* Read output values from buffer. */
     llvm::Value *output = llvm::UndefValue::get(output_type);
