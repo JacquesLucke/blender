@@ -38,8 +38,9 @@ template<typename T, uint N = 4> class SmallVector {
   {
     this->reserve(size);
     for (uint i = 0; i < size; i++) {
-      this->append(T());
+      new (this->element_ptr(i)) T();
     }
+    m_size = size;
   }
 
   SmallVector(std::initializer_list<T> values) : SmallVector()
