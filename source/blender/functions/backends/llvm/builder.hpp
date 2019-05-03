@@ -233,6 +233,11 @@ class CodeBuilder {
     return this->CastToBytePtr(addr);
   }
 
+  llvm::Value *CreateIntToPtr(llvm::Value *value, llvm::Type *pointer_type)
+  {
+    return m_builder.CreateIntToPtr(value, pointer_type);
+  }
+
   llvm::Value *CastToPointerOf(llvm::Value *addr, llvm::Type *base_type)
   {
     return m_builder.CreatePointerCast(addr, base_type->getPointerTo());
@@ -288,7 +293,10 @@ class CodeBuilder {
     return m_builder.CreateInsertElement(vector, value, index);
   }
 
-  llvm::Value *CreateCallPointer(void *func_ptr, llvm::FunctionType *ftype, LLVMValuesRef args);
+  llvm::Value *CreateCallPointer(void *func_ptr,
+                                 llvm::FunctionType *ftype,
+                                 LLVMValuesRef args,
+                                 const char *function_name = "");
   llvm::Value *CreateCallPointer(void *func_ptr,
                                  llvm::FunctionType *ftype,
                                  const LLVMValues &args);
