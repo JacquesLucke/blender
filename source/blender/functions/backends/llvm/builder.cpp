@@ -65,26 +65,29 @@ llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
 
 llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
                                             llvm::FunctionType *ftype,
-                                            const LLVMValues &args)
+                                            const LLVMValues &args,
+                                            const char *function_name)
 {
-  return this->CreateCallPointer(func_ptr, ftype, LLVMValuesRef(args));
+  return this->CreateCallPointer(func_ptr, ftype, LLVMValuesRef(args), function_name);
 }
 
 llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
                                             LLVMValuesRef args,
-                                            llvm::Type *return_type)
+                                            llvm::Type *return_type,
+                                            const char *function_name)
 {
   LLVMTypes arg_types = this->types_of_values(args);
   llvm::FunctionType *ftype = llvm::FunctionType::get(
       return_type, to_llvm_array_ref(arg_types), false);
-  return this->CreateCallPointer(func_ptr, ftype, args);
+  return this->CreateCallPointer(func_ptr, ftype, args, function_name);
 }
 
 llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
                                             const LLVMValues &args,
-                                            llvm::Type *return_type)
+                                            llvm::Type *return_type,
+                                            const char *function_name)
 {
-  return this->CreateCallPointer(func_ptr, LLVMValuesRef(args), return_type);
+  return this->CreateCallPointer(func_ptr, LLVMValuesRef(args), return_type, function_name);
 }
 
 static void simple_print(const char *str)
