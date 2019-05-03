@@ -100,7 +100,7 @@ class CodeBuilder {
   /* Value Builders
    **************************************/
 
-  llvm::Value *getUndef(llvm::Type *type)
+  llvm::UndefValue *getUndef(llvm::Type *type)
   {
     return llvm::UndefValue::get(type);
   }
@@ -116,14 +116,19 @@ class CodeBuilder {
     return m_builder.CreateIntToPtr(ptr_value, ptr_type);
   }
 
-  llvm::Value *getInt64(int64_t value)
+  llvm::ConstantInt *getInt64(int64_t value)
   {
     return m_builder.getInt64(value);
   }
 
-  llvm::Value *getInt32(int value)
+  llvm::ConstantInt *getInt32(int value)
   {
     return m_builder.getInt32(value);
+  }
+
+  llvm::Constant *getFloat(float value)
+  {
+    return llvm::ConstantFP::get(this->getFloatTy(), value);
   }
 
   /* Create new blocks
