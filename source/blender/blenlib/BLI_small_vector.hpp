@@ -103,15 +103,14 @@ template<typename T, uint N = 4> class SmallVector {
   void append(const T &value)
   {
     this->ensure_space_for_one();
-    std::uninitialized_copy(&value, &value + 1, this->end());
+    std::uninitialized_copy_n(&value, 1, this->end());
     m_size++;
   }
 
   void append(T &&value)
   {
     this->ensure_space_for_one();
-    std::uninitialized_copy(
-        std::make_move_iterator(&value), std::make_move_iterator(&value + 1), this->end());
+    std::uninitialized_copy_n(std::make_move_iterator(&value), 1, this->end());
     m_size++;
   }
 
