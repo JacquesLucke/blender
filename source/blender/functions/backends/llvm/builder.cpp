@@ -87,26 +87,6 @@ llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
   return this->CreateCallPointer(func_ptr, LLVMValuesRef(args), return_type);
 }
 
-void CodeBuilder::CreateCallPointer_RetVoid(void *func_ptr, LLVMValuesRef args)
-{
-  this->CreateCallPointer(func_ptr, args, this->getVoidTy());
-}
-
-void CodeBuilder::CreateCallPointer_RetVoid(void *func_ptr, const LLVMValues &args)
-{
-  return this->CreateCallPointer_RetVoid(func_ptr, LLVMValuesRef(args));
-}
-
-llvm::Value *CodeBuilder::CreateCallPointer_RetVoidPtr(void *func_ptr, LLVMValuesRef args)
-{
-  return this->CreateCallPointer(func_ptr, args, this->getVoidPtrTy());
-}
-
-llvm::Value *CodeBuilder::CreateCallPointer_RetVoidPtr(void *func_ptr, const LLVMValues &args)
-{
-  return this->CreateCallPointer_RetVoidPtr(func_ptr, LLVMValuesRef(args));
-}
-
 static void simple_print(const char *str)
 {
   std::cout << str << std::endl;
@@ -114,7 +94,8 @@ static void simple_print(const char *str)
 
 void CodeBuilder::CreatePrint(const char *str)
 {
-  this->CreateCallPointer_RetVoid((void *)simple_print, {this->getVoidPtr((void *)str)});
+  this->CreateCallPointer(
+      (void *)simple_print, {this->getVoidPtr((void *)str)}, this->getVoidTy());
 }
 
 static void simple_print_float(float value)
@@ -125,7 +106,7 @@ static void simple_print_float(float value)
 void CodeBuilder::CreatePrintFloat(llvm::Value *value)
 {
   BLI_assert(value->getType()->isFloatTy());
-  this->CreateCallPointer_RetVoid((void *)simple_print_float, {value});
+  this->CreateCallPointer((void *)simple_print_float, {value}, this->getVoidTy());
 }
 
 } /* namespace FN */

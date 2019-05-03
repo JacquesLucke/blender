@@ -302,10 +302,6 @@ class CodeBuilder {
                                  const LLVMValues &args);
   llvm::Value *CreateCallPointer(void *func_ptr, LLVMValuesRef args, llvm::Type *return_type);
   llvm::Value *CreateCallPointer(void *func_ptr, const LLVMValues &args, llvm::Type *return_type);
-  void CreateCallPointer_RetVoid(void *func_ptr, LLVMValuesRef args);
-  void CreateCallPointer_RetVoid(void *func_ptr, const LLVMValues &args);
-  llvm::Value *CreateCallPointer_RetVoidPtr(void *func_ptr, LLVMValuesRef args);
-  llvm::Value *CreateCallPointer_RetVoidPtr(void *func_ptr, const LLVMValues &args);
 
   llvm::Value *CreateCall(llvm::Function *function, LLVMValuesRef args)
   {

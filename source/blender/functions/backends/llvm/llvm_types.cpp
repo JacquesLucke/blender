@@ -95,8 +95,9 @@ llvm::Value *PointerLLVMTypeInfo::build_copy_ir(CodeBuilder &builder, llvm::Valu
 
 void PointerLLVMTypeInfo::build_free_ir(CodeBuilder &builder, llvm::Value *value) const
 {
-  builder.CreateCallPointer_RetVoid((void *)PointerLLVMTypeInfo::free_value,
-                                    {builder.getVoidPtr((void *)this), value});
+  builder.CreateCallPointer((void *)PointerLLVMTypeInfo::free_value,
+                            {builder.getVoidPtr((void *)this), value},
+                            builder.getVoidTy());
 }
 
 void PointerLLVMTypeInfo::build_store_ir__copy(CodeBuilder &builder,

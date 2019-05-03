@@ -126,8 +126,9 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     for (uint i = 0; i < m_input_info.size(); i++) {
       if (m_input_info[i].is_list) {
         uint stride = m_input_info[i].base_cpp_type->size_of_type();
-        llvm::Value *data_ptr = builder.CreateCallPointer_RetVoidPtr(
-            (void *)m_input_info[i].get_data_ptr_fn, {interface.get_input(i)});
+        llvm::Value *data_ptr = builder.CreateCallPointer((void *)m_input_info[i].get_data_ptr_fn,
+                                                          {interface.get_input(i)},
+                                                          builder.getVoidPtrTy());
         llvm::Value *typed_data_ptr = builder.CastToPointerWithStride(data_ptr, stride);
         data_pointers.append(typed_data_ptr);
       }
@@ -143,10 +144,10 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     for (uint i = 0; i < m_output_info.size(); i++) {
       uint stride = m_output_info[i].base_cpp_type->size_of_type();
 
-      llvm::Value *output_list = builder.CreateCallPointer_RetVoidPtr(
-          (void *)m_output_info[i].get_new_list_fn, {length});
-      llvm::Value *data_ptr = builder.CreateCallPointer_RetVoidPtr(
-          (void *)m_output_info[i].get_data_ptr_fn, {output_list});
+      llvm::Value *output_list = builder.CreateCallPointer(
+          (void *)m_output_info[i].get_new_list_fn, {length}, builder.getVoidPtrTy());
+      llvm::Value *data_ptr = builder.CreateCallPointer(
+          (void *)m_output_info[i].get_data_ptr_fn, {output_list}, builder.getVoidPtrTy());
       llvm::Value *typed_data_ptr = builder.CastToPointerWithStride(data_ptr, stride);
       data_pointers.append(typed_data_ptr);
       interface.set_output(i, output_list);
