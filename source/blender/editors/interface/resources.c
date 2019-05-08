@@ -309,6 +309,9 @@ const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
         case TH_GRID:
           cp = ts->grid;
           break;
+        case TH_SCRUBBING_BACKGROUND:
+          cp = ts->scrubbing_background;
+          break;
         case TH_VIEW_OVERLAY:
           cp = ts->view_overlay;
           break;
@@ -881,6 +884,10 @@ const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
           cp = btheme->tui.icon_shading;
           break;
 
+        case TH_SCROLL_TEXT:
+          cp = btheme->tui.wcol_scroll.text;
+          break;
+
         case TH_INFO_SELECTED:
           cp = ts->info_selected;
           break;
@@ -1356,7 +1363,8 @@ bool UI_GetIconThemeColor4fv(int colorid, float col[4])
   /* Only colored icons in outliner and popups, overall UI is intended
    * to stay monochrome and out of the way except a few places where it
    * is important to communicate different data types. */
-  if (!((theme_spacetype == SPACE_OUTLINER) || (theme_regionid == RGN_TYPE_TEMPORARY))) {
+  if (!((theme_spacetype == SPACE_OUTLINER && theme_regionid == RGN_TYPE_WINDOW) ||
+        (theme_spacetype == SPACE_PROPERTIES && theme_regionid == RGN_TYPE_NAV_BAR))) {
     return false;
   }
 

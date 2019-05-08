@@ -692,6 +692,26 @@ static void do_version_bbone_scale_animdata_cb(ID *UNUSED(id),
   }
 }
 
+static void do_version_constraints_maintain_volume_mode_uniform(ListBase *lb)
+{
+  for (bConstraint *con = lb->first; con; con = con->next) {
+    if (con->type == CONSTRAINT_TYPE_SAMEVOL) {
+      bSameVolumeConstraint *data = (bSameVolumeConstraint *)con->data;
+      data->mode = SAMEVOL_UNIFORM;
+    }
+  }
+}
+
+static void do_version_constraints_copy_scale_power(ListBase *lb)
+{
+  for (bConstraint *con = lb->first; con; con = con->next) {
+    if (con->type == CONSTRAINT_TYPE_SIZELIKE) {
+      bSizeLikeConstraint *data = (bSizeLikeConstraint *)con->data;
+      data->power = 1.0f;
+    }
+  }
+}
+
 void do_versions_after_linking_280(Main *bmain)
 {
   bool use_collection_compat_28 = true;
@@ -1287,6 +1307,16 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
                            CURVE_PRESET_GAUSS,
                            CURVEMAP_SLOPE_POSITIVE);
           }
+        }
+      }
+    }
+
+    /* 2.79 style Maintain Volume mode. */
+    LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
+      do_version_constraints_maintain_volume_mode_uniform(&ob->constraints);
+      if (ob->pose) {
+        LISTBASE_FOREACH (bPoseChannel *, pchan, &ob->pose->chanbase) {
+          do_version_constraints_maintain_volume_mode_uniform(&pchan->constraints);
         }
       }
     }
@@ -3009,7 +3039,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
     }
 
     LISTBASE_FOREACH (bArmature *, arm, &bmain->armatures) {
-      arm->flag &= ~(ARM_FLAG_UNUSED_1 | ARM_FLAG_UNUSED_5 | ARM_FLAG_UNUSED_7 |
+      arm->flag &= ~(ARM_FLAG_UNUSED_1 | ARM_FLAG_UNUSED_5 | ARM_MIRROR_RELATIVE |
                      ARM_FLAG_UNUSED_12);
     }
 
@@ -3328,6 +3358,43 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
   }
 
   {
+    /* Added a power option to Copy Scale. */
+    if (!DNA_struct_elem_find(fd->filesdna, "bSizeLikeConstraint", "float", "power")) {
+      LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
+        do_version_constraints_copy_scale_power(&ob->constraints);
+        if (ob->pose) {
+          LISTBASE_FOREACH (bPoseChannel *, pchan, &ob->pose->chanbase) {
+            do_version_constraints_copy_scale_power(&pchan->constraints);
+          }
+        }
+      }
+    }
+
+    for (bScreen *screen = bmain->screens.first; screen; screen = screen->id.next) {
+      for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+        if (ELEM(sa->spacetype, SPACE_CLIP, SPACE_GRAPH, SPACE_SEQ)) {
+          for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+            ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
+
+            ARegion *ar = NULL;
+            if (sa->spacetype == SPACE_CLIP) {
+              if (((SpaceClip *)sl)->view == SC_VIEW_GRAPH) {
+                ar = do_versions_find_region(regionbase, RGN_TYPE_PREVIEW);
+              }
+            }
+            else {
+              ar = do_versions_find_region(regionbase, RGN_TYPE_WINDOW);
+            }
+
+            if (ar != NULL) {
+              ar->v2d.scroll &= ~V2D_SCROLL_LEFT;
+              ar->v2d.scroll |= V2D_SCROLL_RIGHT;
+            }
+          }
+        }
+      }
+    }
+
     /* Versioning code until next subversion bump goes here. */
   }
 }

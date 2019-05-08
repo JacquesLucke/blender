@@ -37,6 +37,9 @@
 #include "BLI_hash.h"
 #include "BLI_link_utils.h"
 #include "BLI_mempool.h"
+#include "BLI_memblock.h"
+
+#include "GPU_buffers.h"
 
 #include "intern/gpu_codegen.h"
 
@@ -74,7 +77,7 @@ static void drw_shgroup_uniform_create_ex(DRWShadingGroup *shgroup,
                                           int length,
                                           int arraysize)
 {
-  DRWUniform *uni = BLI_mempool_alloc(DST.vmempool->uniforms);
+  DRWUniform *uni = BLI_memblock_alloc(DST.vmempool->uniforms);
   uni->location = loc;
   uni->type = type;
   uni->length = length;
@@ -368,12 +371,21 @@ static void drw_call_state_update_matflag(DRWCallState *state,
    * This is the opposite of what draw_matrices_model_prepare() does. */
   state->matflag |= shgroup->matflag;
 
+  if (new_flags & DRW_CALL_MODELINVERSE) {
+    if (ob) {
+      copy_m4_m4(state->modelinverse, ob->imat);
+    }
+    else {
+      invert_m4_m4(state->modelinverse, state->model);
+    }
+  }
+
   /* Orco factors: We compute this at creation to not have to save the *ob_data */
-  if ((new_flags & DRW_CALL_ORCOTEXFAC) != 0) {
+  if (new_flags & DRW_CALL_ORCOTEXFAC) {
     drw_call_calc_orco(ob, state->orcotexfac);
   }
 
-  if ((new_flags & DRW_CALL_OBJECTINFO) != 0) {
+  if (new_flags & DRW_CALL_OBJECTINFO) {
     state->objectinfo[0] = ob ? ob->index : 0;
     uint random;
     if (DST.dupli_source) {
@@ -388,17 +400,19 @@ static void drw_call_state_update_matflag(DRWCallState *state,
 
 static DRWCallState *drw_call_state_create(DRWShadingGroup *shgroup, float (*obmat)[4], Object *ob)
 {
-  DRWCallState *state = BLI_mempool_alloc(DST.vmempool->states);
+  DRWCallState *state = BLI_memblock_alloc(DST.vmempool->states);
   state->flag = 0;
   state->cache_id = 0;
   state->visibility_cb = NULL;
   state->matflag = 0;
 
+  drw_call_state_update_matflag(state, shgroup, ob);
+
   /* Matrices */
   if (obmat != NULL) {
     copy_m4_m4(state->model, obmat);
 
-    if (is_negative_m4(state->model)) {
+    if (ob && (ob->transflag & OB_NEG_SCALE)) {
       state->flag |= DRW_CALL_NEGSCALE;
     }
   }
@@ -419,8 +433,6 @@ static DRWCallState *drw_call_state_create(DRWShadingGroup *shgroup, float (*obm
     /* Bypass test. */
     state->bsphere.radius = -1.0f;
   }
-
-  drw_call_state_update_matflag(state, shgroup, ob);
 
   return state;
 }
@@ -443,15 +455,15 @@ void DRW_shgroup_call_add(DRWShadingGroup *shgroup, GPUBatch *geom, float (*obma
   BLI_assert(geom != NULL);
   BLI_assert(ELEM(shgroup->type, DRW_SHG_NORMAL, DRW_SHG_FEEDBACK_TRANSFORM));
 
-  DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
+  DRWCall *call = BLI_memblock_alloc(DST.vmempool->calls);
+  BLI_LINKS_APPEND(&shgroup->calls, call);
+
   call->state = drw_call_state_create(shgroup, obmat, NULL);
   call->type = DRW_CALL_SINGLE;
   call->single.geometry = geom;
 #ifdef USE_GPU_SELECT
   call->select_id = DST.select_id;
 #endif
-
-  BLI_LINKS_APPEND(&shgroup->calls, call);
 }
 
 void DRW_shgroup_call_range_add(
@@ -461,7 +473,9 @@ void DRW_shgroup_call_range_add(
   BLI_assert(ELEM(shgroup->type, DRW_SHG_NORMAL, DRW_SHG_FEEDBACK_TRANSFORM));
   BLI_assert(v_count);
 
-  DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
+  DRWCall *call = BLI_memblock_alloc(DST.vmempool->calls);
+  BLI_LINKS_APPEND(&shgroup->calls, call);
+
   call->state = drw_call_state_create(shgroup, obmat, NULL);
   call->type = DRW_CALL_RANGE;
   call->range.geometry = geom;
@@ -470,8 +484,6 @@ void DRW_shgroup_call_range_add(
 #ifdef USE_GPU_SELECT
   call->select_id = DST.select_id;
 #endif
-
-  BLI_LINKS_APPEND(&shgroup->calls, call);
 }
 
 static void drw_shgroup_call_procedural_add_ex(DRWShadingGroup *shgroup,
@@ -482,21 +494,16 @@ static void drw_shgroup_call_procedural_add_ex(DRWShadingGroup *shgroup,
 {
   BLI_assert(ELEM(shgroup->type, DRW_SHG_NORMAL, DRW_SHG_FEEDBACK_TRANSFORM));
 
-  DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
-  if (ob) {
-    call->state = drw_call_state_object(shgroup, ob->obmat, ob);
-  }
-  else {
-    call->state = drw_call_state_create(shgroup, obmat, NULL);
-  }
+  DRWCall *call = BLI_memblock_alloc(DST.vmempool->calls);
+  BLI_LINKS_APPEND(&shgroup->calls, call);
+
+  call->state = drw_call_state_object(shgroup, ob ? ob->obmat : obmat, ob);
   call->type = DRW_CALL_PROCEDURAL;
   call->procedural.prim_type = prim_type;
   call->procedural.vert_count = vert_count;
 #ifdef USE_GPU_SELECT
   call->select_id = DST.select_id;
 #endif
-
-  BLI_LINKS_APPEND(&shgroup->calls, call);
 }
 
 void DRW_shgroup_call_procedural_points_add(DRWShadingGroup *shgroup,
@@ -520,15 +527,6 @@ void DRW_shgroup_call_procedural_triangles_add(DRWShadingGroup *shgroup,
   drw_shgroup_call_procedural_add_ex(shgroup, GPU_PRIM_TRIS, tria_count * 3, obmat, NULL);
 }
 
-/* TODO (fclem): this is a sign that the api is starting to be limiting.
- * Maybe add special function that general purpose for special cases. */
-void DRW_shgroup_call_object_procedural_triangles_culled_add(DRWShadingGroup *shgroup,
-                                                             uint tria_count,
-                                                             Object *ob)
-{
-  drw_shgroup_call_procedural_add_ex(shgroup, GPU_PRIM_TRIS, tria_count * 3, NULL, ob);
-}
-
 /* These calls can be culled and are optimized for redraw */
 void DRW_shgroup_call_object_add_ex(
     DRWShadingGroup *shgroup, GPUBatch *geom, Object *ob, Material *ma, bool bypass_culling)
@@ -536,19 +534,18 @@ void DRW_shgroup_call_object_add_ex(
   BLI_assert(geom != NULL);
   BLI_assert(ELEM(shgroup->type, DRW_SHG_NORMAL, DRW_SHG_FEEDBACK_TRANSFORM));
 
-  DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
+  DRWCall *call = BLI_memblock_alloc(DST.vmempool->calls);
+  BLI_LINKS_APPEND(&shgroup->calls, call);
+
   call->state = drw_call_state_object(shgroup, ob->obmat, ob);
+  /* NOTE this will disable culling for the whole object. */
+  call->state->flag |= (bypass_culling) ? DRW_CALL_BYPASS_CULLING : 0;
   call->type = DRW_CALL_SINGLE;
   call->single.geometry = geom;
   call->single.ma_index = ma ? ma->index : 0;
 #ifdef USE_GPU_SELECT
   call->select_id = DST.select_id;
 #endif
-
-  /* NOTE this will disable culling for the whole object. */
-  call->state->flag |= (bypass_culling) ? DRW_CALL_BYPASS_CULLING : 0;
-
-  BLI_LINKS_APPEND(&shgroup->calls, call);
 }
 
 void DRW_shgroup_call_object_add_with_callback(DRWShadingGroup *shgroup,
@@ -561,7 +558,9 @@ void DRW_shgroup_call_object_add_with_callback(DRWShadingGroup *shgroup,
   BLI_assert(geom != NULL);
   BLI_assert(ELEM(shgroup->type, DRW_SHG_NORMAL, DRW_SHG_FEEDBACK_TRANSFORM));
 
-  DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
+  DRWCall *call = BLI_memblock_alloc(DST.vmempool->calls);
+  BLI_LINKS_APPEND(&shgroup->calls, call);
+
   call->state = drw_call_state_object(shgroup, ob->obmat, ob);
   call->state->visibility_cb = callback;
   call->state->user_data = user_data;
@@ -571,8 +570,6 @@ void DRW_shgroup_call_object_add_with_callback(DRWShadingGroup *shgroup,
 #ifdef USE_GPU_SELECT
   call->select_id = DST.select_id;
 #endif
-
-  BLI_LINKS_APPEND(&shgroup->calls, call);
 }
 
 void DRW_shgroup_call_instances_add(DRWShadingGroup *shgroup,
@@ -583,7 +580,9 @@ void DRW_shgroup_call_instances_add(DRWShadingGroup *shgroup,
   BLI_assert(geom != NULL);
   BLI_assert(ELEM(shgroup->type, DRW_SHG_NORMAL, DRW_SHG_FEEDBACK_TRANSFORM));
 
-  DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
+  DRWCall *call = BLI_memblock_alloc(DST.vmempool->calls);
+  BLI_LINKS_APPEND(&shgroup->calls, call);
+
   call->state = drw_call_state_create(shgroup, obmat, NULL);
   call->type = DRW_CALL_INSTANCES;
   call->instances.geometry = geom;
@@ -591,8 +590,6 @@ void DRW_shgroup_call_instances_add(DRWShadingGroup *shgroup,
 #ifdef USE_GPU_SELECT
   call->select_id = DST.select_id;
 #endif
-
-  BLI_LINKS_APPEND(&shgroup->calls, call);
 }
 
 /* These calls can be culled and are optimized for redraw */
@@ -604,7 +601,9 @@ void DRW_shgroup_call_object_instances_add(DRWShadingGroup *shgroup,
   BLI_assert(geom != NULL);
   BLI_assert(ELEM(shgroup->type, DRW_SHG_NORMAL, DRW_SHG_FEEDBACK_TRANSFORM));
 
-  DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
+  DRWCall *call = BLI_memblock_alloc(DST.vmempool->calls);
+  BLI_LINKS_APPEND(&shgroup->calls, call);
+
   call->state = drw_call_state_object(shgroup, ob->obmat, ob);
   call->type = DRW_CALL_INSTANCES;
   call->instances.geometry = geom;
@@ -612,114 +611,152 @@ void DRW_shgroup_call_object_instances_add(DRWShadingGroup *shgroup,
 #ifdef USE_GPU_SELECT
   call->select_id = DST.select_id;
 #endif
-
-  BLI_LINKS_APPEND(&shgroup->calls, call);
 }
 
-void DRW_shgroup_call_generate_add(DRWShadingGroup *shgroup,
-                                   DRWCallGenerateFn *geometry_fn,
-                                   void *user_data,
-                                   float (*obmat)[4])
-{
-  BLI_assert(geometry_fn != NULL);
-  BLI_assert(ELEM(shgroup->type, DRW_SHG_NORMAL, DRW_SHG_FEEDBACK_TRANSFORM));
+// #define SCULPT_DEBUG_BUFFERS
 
-  DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
-  call->state = drw_call_state_create(shgroup, obmat, NULL);
-  call->type = DRW_CALL_GENERATE;
-  call->generate.geometry_fn = geometry_fn;
-  call->generate.user_data = user_data;
-#ifdef USE_GPU_SELECT
-  call->select_id = DST.select_id;
+typedef struct DRWSculptCallbackData {
+  Object *ob;
+  DRWShadingGroup **shading_groups;
+  Material **materials;
+  bool use_wire;
+  bool use_mats;
+  bool use_mask;
+  bool fast_mode; /* Set by draw manager. Do not init. */
+#ifdef SCULPT_DEBUG_BUFFERS
+  int node_nr;
+#endif
+} DRWSculptCallbackData;
+
+#ifdef SCULPT_DEBUG_BUFFERS
+#  define SCULPT_DEBUG_COLOR(id) (sculpt_debug_colors[id % 9])
+static float sculpt_debug_colors[9][4] = {
+    {1.0f, 0.2f, 0.2f, 1.0f},
+    {0.2f, 1.0f, 0.2f, 1.0f},
+    {0.2f, 0.2f, 1.0f, 1.0f},
+    {1.0f, 1.0f, 0.2f, 1.0f},
+    {0.2f, 1.0f, 1.0f, 1.0f},
+    {1.0f, 0.2f, 1.0f, 1.0f},
+    {1.0f, 0.7f, 0.2f, 1.0f},
+    {0.2f, 1.0f, 0.7f, 1.0f},
+    {0.7f, 0.2f, 1.0f, 1.0f},
+};
 #endif
 
-  BLI_LINKS_APPEND(&shgroup->calls, call);
+static void sculpt_draw_cb(DRWSculptCallbackData *scd, GPU_PBVH_Buffers *buffers)
+{
+  GPUBatch *geom = GPU_pbvh_buffers_batch_get(buffers, scd->fast_mode, scd->use_wire);
+  Material *ma = NULL;
+  short index = 0;
+
+  /* Meh... use_mask is a bit misleading here. */
+  if (scd->use_mask && !GPU_pbvh_buffers_has_mask(buffers)) {
+    return;
+  }
+
+  if (scd->use_mats) {
+    index = GPU_pbvh_buffers_material_index_get(buffers);
+    ma = scd->materials[index];
+  }
+
+  DRWShadingGroup *shgrp = scd->shading_groups[index];
+  if (geom != NULL && shgrp != NULL) {
+#ifdef SCULPT_DEBUG_BUFFERS
+    /* Color each buffers in different colors. Only work in solid/Xray mode. */
+    shgrp = DRW_shgroup_create_sub(shgrp);
+    DRW_shgroup_uniform_vec3(shgrp, "materialDiffuseColor", SCULPT_DEBUG_COLOR(scd->node_nr++), 1);
+#endif
+    /* DRW_shgroup_call_object_add_ex reuses matrices calculations for all the drawcalls of this
+     * object. */
+    DRW_shgroup_call_object_add_ex(shgrp, geom, scd->ob, ma, true);
+  }
 }
 
-/* This function tests if the current draw engine draws the vertex colors
- * It is used when drawing sculpts
- *
- * XXX: should we use a callback to a the draw engine to retrieve this
- *      setting, this makes the draw manager more clean? */
-static bool DRW_draw_vertex_color_active(const DRWContextState *draw_ctx)
+#ifdef SCULPT_DEBUG_BUFFERS
+static void sculpt_debug_cb(void *user_data,
+                            const float bmin[3],
+                            const float bmax[3],
+                            PBVHNodeFlags flag)
 {
-  View3D *v3d = draw_ctx->v3d;
-  return v3d->shading.type == OB_SOLID && v3d->shading.color_type == V3D_SHADING_VERTEX_COLOR;
+  int *node_nr = (int *)user_data;
+  BoundBox bb;
+  BKE_boundbox_init_from_minmax(&bb, bmin, bmax);
+
+#  if 0 /* Nodes hierarchy. */
+  if (flag & PBVH_Leaf) {
+    DRW_debug_bbox(&bb, (float[4]){0.0f, 1.0f, 0.0f, 1.0f});
+  }
+  else {
+    DRW_debug_bbox(&bb, (float[4]){0.5f, 0.5f, 0.5f, 0.6f});
+  }
+#  else /* Color coded leaf bounds. */
+  if (flag & PBVH_Leaf) {
+    DRW_debug_bbox(&bb, SCULPT_DEBUG_COLOR((*node_nr)++));
+  }
+#  endif
 }
+#endif
 
-static void sculpt_draw_cb(DRWShadingGroup *shgroup,
-                           void (*draw_fn)(DRWShadingGroup *shgroup, GPUBatch *geom),
-                           void *user_data)
+static void drw_sculpt_generate_calls(DRWSculptCallbackData *scd, bool use_vcol)
 {
-  Object *ob = user_data;
-
   /* XXX should be ensured before but sometime it's not... go figure (see T57040). */
-  PBVH *pbvh = BKE_sculpt_object_pbvh_ensure(DST.draw_ctx.depsgraph, ob);
+  PBVH *pbvh = BKE_sculpt_object_pbvh_ensure(DST.draw_ctx.depsgraph, scd->ob);
+  if (!pbvh) {
+    return;
+  }
+
+  float(*planes)[4] = NULL; /* TODO proper culling. */
+  scd->fast_mode = false;
 
   const DRWContextState *drwctx = DRW_context_state_get();
-  int fast_mode = 0;
-
   if (drwctx->evil_C != NULL) {
     Paint *p = BKE_paint_get_active_from_context(drwctx->evil_C);
     if (p && (p->flags & PAINT_FAST_NAVIGATE)) {
-      fast_mode = drwctx->rv3d->rflag & RV3D_NAVIGATING;
+      scd->fast_mode = (drwctx->rv3d->rflag & RV3D_NAVIGATING) != 0;
     }
   }
 
-  if (pbvh) {
-    const bool show_vcol = DRW_draw_vertex_color_active(drwctx);
-    BKE_pbvh_draw_cb(pbvh,
-                     NULL,
-                     NULL,
-                     fast_mode,
-                     false,
-                     false,
-                     show_vcol,
-                     (void (*)(void *, GPUBatch *))draw_fn,
-                     shgroup);
-  }
+  BKE_pbvh_draw_cb(
+      pbvh, planes, NULL, use_vcol, (void (*)(void *, GPU_PBVH_Buffers *))sculpt_draw_cb, scd);
+
+#ifdef SCULPT_DEBUG_BUFFERS
+  int node_nr = 0;
+  DRW_debug_modelmat(scd->ob->obmat);
+  BKE_pbvh_draw_debug_cb(
+      pbvh,
+      (void (*)(void *d, const float min[3], const float max[3], PBVHNodeFlags f))sculpt_debug_cb,
+      &node_nr);
+#endif
 }
 
-static void sculpt_draw_wires_cb(DRWShadingGroup *shgroup,
-                                 void (*draw_fn)(DRWShadingGroup *shgroup, GPUBatch *geom),
-                                 void *user_data)
+void DRW_shgroup_call_sculpt_add(
+    DRWShadingGroup *shgroup, Object *ob, bool use_wire, bool use_mask, bool use_vcol)
 {
-  Object *ob = user_data;
-
-  /* XXX should be ensured before but sometime it's not... go figure (see T57040). */
-  PBVH *pbvh = BKE_sculpt_object_pbvh_ensure(DST.draw_ctx.depsgraph, ob);
-
-  const DRWContextState *drwctx = DRW_context_state_get();
-  int fast_mode = 0;
-
-  if (drwctx->evil_C != NULL) {
-    Paint *p = BKE_paint_get_active_from_context(drwctx->evil_C);
-    if (p && (p->flags & PAINT_FAST_NAVIGATE)) {
-      fast_mode = drwctx->rv3d->rflag & RV3D_NAVIGATING;
-    }
-  }
-
-  if (pbvh) {
-    BKE_pbvh_draw_cb(pbvh,
-                     NULL,
-                     NULL,
-                     fast_mode,
-                     true,
-                     false,
-                     false,
-                     (void (*)(void *, GPUBatch *))draw_fn,
-                     shgroup);
-  }
+  DRWSculptCallbackData scd = {
+      .ob = ob,
+      .shading_groups = &shgroup,
+      .materials = NULL,
+      .use_wire = use_wire,
+      .use_mats = false,
+      .use_mask = use_mask,
+  };
+  drw_sculpt_generate_calls(&scd, use_vcol);
 }
 
-void DRW_shgroup_call_sculpt_add(DRWShadingGroup *shgroup, Object *ob, float (*obmat)[4])
+void DRW_shgroup_call_sculpt_with_materials_add(DRWShadingGroup **shgroups,
+                                                Material **materials,
+                                                Object *ob,
+                                                bool use_vcol)
 {
-  DRW_shgroup_call_generate_add(shgroup, sculpt_draw_cb, ob, obmat);
-}
-
-void DRW_shgroup_call_sculpt_wires_add(DRWShadingGroup *shgroup, Object *ob, float (*obmat)[4])
-{
-  DRW_shgroup_call_generate_add(shgroup, sculpt_draw_wires_cb, ob, obmat);
+  DRWSculptCallbackData scd = {
+      .ob = ob,
+      .shading_groups = shgroups,
+      .materials = materials,
+      .use_wire = false,
+      .use_mats = true,
+      .use_mask = false,
+  };
+  drw_sculpt_generate_calls(&scd, use_vcol);
 }
 
 void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup,
@@ -805,7 +842,6 @@ static void drw_shgroup_init(DRWShadingGroup *shgroup, GPUShader *shader)
   shgroup->normalworld = GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_WORLDNORMAL);
   shgroup->orcotexfac = GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_ORCO);
   shgroup->objectinfo = GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_OBJECT_INFO);
-  shgroup->eye = GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_EYE);
   shgroup->callid = GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_CALLID);
 
   shgroup->matflag = 0;
@@ -835,9 +871,6 @@ static void drw_shgroup_init(DRWShadingGroup *shgroup, GPUShader *shader)
   }
   if (shgroup->objectinfo > -1) {
     shgroup->matflag |= DRW_CALL_OBJECTINFO;
-  }
-  if (shgroup->eye > -1) {
-    shgroup->matflag |= DRW_CALL_EYEVEC;
   }
 }
 
@@ -930,7 +963,7 @@ static void drw_shgroup_batching_init(DRWShadingGroup *shgroup,
 
 static DRWShadingGroup *drw_shgroup_create_ex(struct GPUShader *shader, DRWPass *pass)
 {
-  DRWShadingGroup *shgroup = BLI_mempool_alloc(DST.vmempool->shgroups);
+  DRWShadingGroup *shgroup = BLI_memblock_alloc(DST.vmempool->shgroups);
 
   BLI_LINKS_APPEND(&pass->shgroups, shgroup);
 
@@ -983,7 +1016,7 @@ static DRWShadingGroup *drw_shgroup_material_inputs(DRWShadingGroup *grp,
       GPUTexture *tex = NULL;
 
       if (input->ima) {
-        GPUTexture **tex_ref = BLI_mempool_alloc(DST.vmempool->images);
+        GPUTexture **tex_ref = BLI_memblock_alloc(DST.vmempool->images);
 
         *tex_ref = tex = GPU_texture_from_blender(
             input->ima, input->iuser, GL_TEXTURE_2D, input->image_isdata);
@@ -1235,7 +1268,7 @@ DRWShadingGroup *DRW_shgroup_create_sub(DRWShadingGroup *shgroup)
   /* Remove this assertion if needed but implement the other cases first! */
   BLI_assert(shgroup->type == DRW_SHG_NORMAL);
 
-  DRWShadingGroup *shgroup_new = BLI_mempool_alloc(DST.vmempool->shgroups);
+  DRWShadingGroup *shgroup_new = BLI_memblock_alloc(DST.vmempool->shgroups);
 
   *shgroup_new = *shgroup;
   shgroup_new->uniforms = NULL;
@@ -1255,7 +1288,7 @@ DRWShadingGroup *DRW_shgroup_create_sub(DRWShadingGroup *shgroup)
 
 DRWPass *DRW_pass_create(const char *name, DRWState state)
 {
-  DRWPass *pass = BLI_mempool_alloc(DST.vmempool->passes);
+  DRWPass *pass = BLI_memblock_alloc(DST.vmempool->passes);
   pass->state = state;
   if (((G.debug_value > 20) && (G.debug_value < 30)) || (G.debug & G_DEBUG)) {
     BLI_strncpy(pass->name, name, MAX_PASS_NAME);

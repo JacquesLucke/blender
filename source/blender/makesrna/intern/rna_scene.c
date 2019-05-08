@@ -2805,7 +2805,7 @@ static void rna_def_tool_settings(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, NULL, "proportional_objects", 0);
   RNA_def_property_ui_text(
       prop, "Proportional Editing Objects", "Proportional editing object mode");
-  RNA_def_property_ui_icon(prop, ICON_PROP_ON, 0);
+  RNA_def_property_ui_icon(prop, ICON_PROP_OFF, 1);
   RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL); /* header redraw */
 
   prop = RNA_def_property(srna, "use_proportional_projected", PROP_BOOLEAN, PROP_NONE);
@@ -3568,7 +3568,8 @@ static void rna_def_unit_settings(BlenderRNA *brna)
   /* Units */
   prop = RNA_def_property(srna, "system", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, unit_systems);
-  RNA_def_property_ui_text(prop, "Unit System", "The unit system to use for button display");
+  RNA_def_property_ui_text(
+      prop, "Unit System", "The unit system to use for user interface controls");
   RNA_def_property_update(prop, NC_WINDOW, "rna_UnitSettings_system_update");
 
   prop = RNA_def_property(srna, "system_rotation", PROP_ENUM, PROP_NONE);

@@ -283,6 +283,8 @@ typedef struct ThemeSpace {
   char cframe[4];
   char time_keyframe[4], time_gp_keyframe[4];
   char freestyle_edge_mark[4], freestyle_face_mark[4];
+  char scrubbing_background[4];
+  char _pad5[4];
 
   char nurb_uline[4], nurb_vline[4];
   char act_spline[4], nurb_sel_uline[4], nurb_sel_vline[4], lastsel_point[4];
@@ -643,7 +645,7 @@ typedef struct UserDef {
   char _pad3[4];
   short gizmo_flag, gizmo_size;
   short edit_studio_light;
-  char _pad6[2];
+  short lookdev_ball_size;
   short vbotimeout, vbocollectrate;
   short textimeout, texcollectrate;
   int memcachelimit;

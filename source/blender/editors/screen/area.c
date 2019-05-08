@@ -50,6 +50,7 @@
 #include "ED_screen.h"
 #include "ED_screen_types.h"
 #include "ED_space_api.h"
+#include "ED_scrubbing.h"
 
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
@@ -1058,11 +1059,11 @@ static void region_azones_scrollbars_initialize(ScrArea *sa, ARegion *ar)
 {
   const View2D *v2d = &ar->v2d;
 
-  if ((v2d->scroll & V2D_SCROLL_VERTICAL) && ((v2d->scroll & V2D_SCROLL_SCALE_VERTICAL) == 0)) {
+  if ((v2d->scroll & V2D_SCROLL_VERTICAL) && ((v2d->scroll & V2D_SCROLL_VERTICAL_HANDLES) == 0)) {
     region_azone_scrollbar_initialize(sa, ar, AZ_SCROLL_VERT);
   }
   if ((v2d->scroll & V2D_SCROLL_HORIZONTAL) &&
-      ((v2d->scroll & V2D_SCROLL_SCALE_HORIZONTAL) == 0)) {
+      ((v2d->scroll & V2D_SCROLL_HORIZONTAL_HANDLES) == 0)) {
     region_azone_scrollbar_initialize(sa, ar, AZ_SCROLL_HOR);
   }
 }
@@ -1604,14 +1605,19 @@ static void ed_default_handlers(
     wmKeyMap *keymap = WM_keymap_ensure(wm->defaultconf, "View2D", 0, 0);
     WM_event_add_keymap_handler(handlers, keymap);
   }
-  if (flag & ED_KEYMAP_MARKERS) {
-    /* time-markers */
-    wmKeyMap *keymap = WM_keymap_ensure(wm->defaultconf, "Markers", 0, 0);
-    WM_event_add_keymap_handler_poll(handlers, keymap, event_in_markers_region);
-  }
   if (flag & ED_KEYMAP_ANIMATION) {
+    wmKeyMap *keymap;
+
+    /* time-markers */
+    keymap = WM_keymap_ensure(wm->defaultconf, "Markers", 0, 0);
+    WM_event_add_keymap_handler_poll(handlers, keymap, event_in_markers_region);
+
+    /* time-scrubbing */
+    keymap = WM_keymap_ensure(wm->defaultconf, "Scrubbing", 0, 0);
+    WM_event_add_keymap_handler_poll(handlers, keymap, ED_event_in_scrubbing_region);
+
     /* frame changing and timeline operators (for time spaces) */
-    wmKeyMap *keymap = WM_keymap_ensure(wm->defaultconf, "Animation", 0, 0);
+    keymap = WM_keymap_ensure(wm->defaultconf, "Animation", 0, 0);
     WM_event_add_keymap_handler(handlers, keymap);
   }
   if (flag & ED_KEYMAP_FRAMES) {

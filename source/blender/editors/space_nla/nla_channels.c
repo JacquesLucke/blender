@@ -52,6 +52,8 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "UI_interface.h"
+
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 
@@ -384,19 +386,12 @@ static int nlachannels_mouseclick_invoke(bContext *C, wmOperator *op, const wmEv
     selectmode = SELECT_REPLACE;
   }
 
-  /**
-   * Figure out which channel user clicked in:
-   *
-   * \note Although channels technically start at y= NLACHANNEL_FIRST,
-   * we need to adjust by half a channel's height so that the tops of channels get caught ok.
-   * Since NLACHANNEL_FIRST is really NLACHANNEL_HEIGHT, we simply use NLACHANNEL_HEIGHT_HALF.
-   */
+  /* Figure out which channel user clicked in. */
   UI_view2d_region_to_view(v2d, event->mval[0], event->mval[1], &x, &y);
-  UI_view2d_listview_view_to_cell(v2d,
-                                  NLACHANNEL_NAMEWIDTH,
+  UI_view2d_listview_view_to_cell(NLACHANNEL_NAMEWIDTH,
                                   NLACHANNEL_STEP(snla),
                                   0,
-                                  (float)NLACHANNEL_HEIGHT_HALF(snla),
+                                  NLACHANNEL_FIRST_TOP(&ac),
                                   x,
                                   y,
                                   NULL,

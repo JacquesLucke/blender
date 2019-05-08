@@ -2065,6 +2065,11 @@ static void rna_def_userdef_theme_space_graph(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Current Frame", "");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 
+  prop = RNA_def_property(srna, "scrubbing_background", PROP_FLOAT, PROP_COLOR_GAMMA);
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_ui_text(prop, "Scrubbing/Markers Region", "");
+  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
+
   prop = RNA_def_property(srna, "window_sliders", PROP_FLOAT, PROP_COLOR_GAMMA);
   RNA_def_property_float_sdna(prop, NULL, "shade1");
   RNA_def_property_array(prop, 3);
@@ -2759,6 +2764,11 @@ static void rna_def_userdef_theme_space_seq(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Current Frame", "");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 
+  prop = RNA_def_property(srna, "scrubbing_background", PROP_FLOAT, PROP_COLOR_GAMMA);
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_ui_text(prop, "Scrubbing/Markers Region", "");
+  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
+
   prop = RNA_def_property(srna, "keyframe", PROP_FLOAT, PROP_COLOR_GAMMA);
   RNA_def_property_float_sdna(prop, NULL, "vertex_select");
   RNA_def_property_array(prop, 3);
@@ -2814,6 +2824,11 @@ static void rna_def_userdef_theme_space_action(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "cframe");
   RNA_def_property_array(prop, 3);
   RNA_def_property_ui_text(prop, "Current Frame", "");
+  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
+
+  prop = RNA_def_property(srna, "scrubbing_background", PROP_FLOAT, PROP_COLOR_GAMMA);
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_ui_text(prop, "Scrubbing/Markers Region", "");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 
   prop = RNA_def_property(srna, "value_sliders", PROP_FLOAT, PROP_COLOR_GAMMA);
@@ -3108,6 +3123,11 @@ static void rna_def_userdef_theme_space_nla(BlenderRNA *brna)
   RNA_def_property_array(prop, 3);
   RNA_def_property_ui_text(prop, "Current Frame", "");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
+
+  prop = RNA_def_property(srna, "scrubbing_background", PROP_FLOAT, PROP_COLOR_GAMMA);
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_ui_text(prop, "Scrubbing/Markers Region", "");
+  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 }
 
 static void rna_def_userdef_theme_colorset(BlenderRNA *brna)
@@ -3213,6 +3233,11 @@ static void rna_def_userdef_theme_space_clip(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, NULL, "cframe");
   RNA_def_property_array(prop, 3);
   RNA_def_property_ui_text(prop, "Current Frame", "");
+  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
+
+  prop = RNA_def_property(srna, "scrubbing_background", PROP_FLOAT, PROP_COLOR_GAMMA);
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_ui_text(prop, "Scrubbing/Markers Region", "");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 
   prop = RNA_def_property(srna, "strips", PROP_FLOAT, PROP_COLOR_GAMMA);
@@ -4106,6 +4131,15 @@ static void rna_def_userdef_view(BlenderRNA *brna)
   RNA_def_property_range(prop, 10, 200);
   RNA_def_property_int_default(prop, 75);
   RNA_def_property_ui_text(prop, "Gizmo Size", "Diameter of the gizmo");
+  RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+  /* Lookdev */
+  prop = RNA_def_property(srna, "lookdev_ball_size", PROP_INT, PROP_PIXEL);
+  RNA_def_property_int_sdna(prop, NULL, "lookdev_ball_size");
+  RNA_def_property_range(prop, 50, 400);
+  RNA_def_property_int_default(prop, 150);
+  RNA_def_property_ui_text(
+      prop, "LookDev Balls Size", "Maximum diameter of the LookDev balls size");
   RNA_def_property_update(prop, 0, "rna_userdef_update");
 
   /* View2D Grid Displays */

@@ -474,10 +474,15 @@ class VIEW3D_HT_header(Header):
             else:
                 attr = "use_proportional_edit"
 
-                if tool_settings.use_proportional_connected:
-                    kw["icon"] = 'PROP_CON'
-                elif tool_settings.use_proportional_projected:
-                    kw["icon"] = 'PROP_PROJECTED'
+                if tool_settings.use_proportional_edit:
+                    if tool_settings.use_proportional_connected:
+                        kw["icon"] = 'PROP_CON'
+                    elif tool_settings.use_proportional_projected:
+                        kw["icon"] = 'PROP_PROJECTED'
+                    else:
+                        kw["icon"] = 'PROP_ON'
+                else:
+                    kw["icon"] = 'PROP_OFF'
 
             row.prop(tool_settings, attr, icon_only=True, **kw)
             sub = row.row(align=True)
@@ -627,7 +632,7 @@ class VIEW3D_HT_header(Header):
         # Gizmo toggle & popover.
         row = layout.row(align=True)
         # FIXME: place-holder icon.
-        row.prop(view, "show_gizmo", text="", toggle=True, icon='EMPTY_DATA')
+        row.prop(view, "show_gizmo", text="", toggle=True, icon='GIZMO')
         sub = row.row(align=True)
         sub.active = view.show_gizmo
         sub.popover(
@@ -3023,6 +3028,8 @@ class VIEW3D_MT_pose_slide(Menu):
     def draw(self, _context):
         layout = self.layout
 
+        layout.operator("pose.push_rest")
+        layout.operator("pose.relax_rest")
         layout.operator("pose.push")
         layout.operator("pose.relax")
         layout.operator("pose.breakdown")
@@ -3359,6 +3366,8 @@ class VIEW3D_MT_edit_mesh_context_menu(Menu):
             # Removal Operators
             if selected_verts_len > 1:
                 col.menu("VIEW3D_MT_edit_mesh_merge", text="Merge Vertices")
+            col.operator("mesh.split")
+            col.operator_menu_enum("mesh.separate", "type")
             col.operator("mesh.dissolve_verts")
             col.operator("mesh.delete", text="Delete Vertices").type = 'VERT'
 
@@ -3424,6 +3433,8 @@ class VIEW3D_MT_edit_mesh_context_menu(Menu):
 
             # Removal Operators
             col.operator("mesh.unsubdivide")
+            col.operator("mesh.split")
+            col.operator_menu_enum("mesh.separate", "type")
             col.operator("mesh.dissolve_edges")
             col.operator("mesh.delete", text="Delete Edges").type = 'EDGE'
 
@@ -3468,6 +3479,8 @@ class VIEW3D_MT_edit_mesh_context_menu(Menu):
 
             # Removal Operators
             col.operator("mesh.unsubdivide")
+            col.operator("mesh.split")
+            col.operator_menu_enum("mesh.separate", "type")
             col.operator("mesh.dissolve_faces")
             col.operator("mesh.delete", text="Delete Faces").type = 'FACE'
 
@@ -3737,6 +3750,51 @@ class VIEW3D_MT_edit_mesh_faces(Menu):
 
         layout.menu("VIEW3D_MT_edit_mesh_faces_data")
 
+class VIEW3D_MT_edit_mesh_normals_select_strength(Menu):
+    bl_label = "Select by Face Strength"
+
+    def draw(self, _context):
+        layout = self.layout
+
+        op = layout.operator("mesh.mod_weighted_strength", text="Weak")
+        op.set = False
+        op.face_strength = 'WEAK'
+
+        op = layout.operator("mesh.mod_weighted_strength", text="Medium")
+        op.set = False
+        op.face_strength = 'MEDIUM'
+
+        op = layout.operator("mesh.mod_weighted_strength", text="Strong")
+        op.set = False
+        op.face_strength = 'STRONG'
+
+class VIEW3D_MT_edit_mesh_normals_set_strength(Menu):
+    bl_label = "Select by Face Strength"
+
+    def draw(self, _context):
+        layout = self.layout
+
+        op = layout.operator("mesh.mod_weighted_strength", text="Weak")
+        op.set = True
+        op.face_strength = 'WEAK'
+
+        op = layout.operator("mesh.mod_weighted_strength", text="Medium")
+        op.set = True
+        op.face_strength = 'MEDIUM'
+
+        op = layout.operator("mesh.mod_weighted_strength", text="Strong")
+        op.set = True
+        op.face_strength = 'STRONG'
+
+class VIEW3D_MT_edit_mesh_normals_average(Menu):
+    bl_label = "Average"
+
+    def draw(self, _context):
+        layout = self.layout
+
+        layout.operator("mesh.average_normals", text="Custom Normal").average_type = 'CUSTOM_NORMAL'
+        layout.operator("mesh.average_normals", text="Face Area").average_type = 'FACE_AREA'
+        layout.operator("mesh.average_normals", text="Corner Angle").average_type = 'CORNER_ANGLE'
 
 class VIEW3D_MT_edit_mesh_normals(Menu):
     bl_label = "Normals"
@@ -3755,7 +3813,7 @@ class VIEW3D_MT_edit_mesh_normals(Menu):
         layout.operator("mesh.point_normals", text="Point to Target")
         layout.operator("mesh.merge_normals", text="Merge")
         layout.operator("mesh.split_normals", text="Split")
-        layout.operator("mesh.average_normals", text="Average")
+        layout.menu("VIEW3D_MT_edit_mesh_normals_average", text="Average")
 
         layout.separator()
 
@@ -3769,8 +3827,8 @@ class VIEW3D_MT_edit_mesh_normals(Menu):
 
         layout.separator()
 
-        layout.operator("mesh.mod_weighted_strength", text="Get Face Strength").set = False
-        layout.operator("mesh.mod_weighted_strength", text="Set Face Strength").set = True
+        layout.menu("VIEW3D_MT_edit_mesh_normals_select_strength", text="Select by Face Strength")
+        layout.menu("VIEW3D_MT_edit_mesh_normals_set_strength", text="Set Face Strength")
 
 
 class VIEW3D_MT_edit_mesh_shading(Menu):
@@ -6235,8 +6293,15 @@ class VIEW3D_PT_paint_vertex_context_menu(Panel):
 
     def draw(self, context):
         layout = self.layout
-
         brush = context.tool_settings.vertex_paint.brush
+        capabilities = brush.vertex_paint_capabilities
+
+        if capabilities.has_color:
+            split = layout.split(factor=0.1)
+            UnifiedPaintPanel.prop_unified_color(split, context, brush, "color", text="")
+            UnifiedPaintPanel.prop_unified_color_picker(split, context, brush, "color", value_slider=True)
+            layout.prop(brush, "blend", text="")
+
         UnifiedPaintPanel.prop_unified_size(layout, context, brush, "size", slider=True)
         UnifiedPaintPanel.prop_unified_strength(layout, context, brush, "strength")
 
@@ -6251,6 +6316,12 @@ class VIEW3D_PT_paint_texture_context_menu(Panel):
         layout = self.layout
         brush = context.tool_settings.image_paint.brush
         capabilities = brush.image_paint_capabilities
+
+        if capabilities.has_color:
+            split = layout.split(factor=0.1)
+            UnifiedPaintPanel.prop_unified_color(split, context, brush, "color", text="")
+            UnifiedPaintPanel.prop_unified_color_picker(split, context, brush, "color", value_slider=True)
+            layout.prop(brush, "blend", text="")
 
         if capabilities.has_radius:
             UnifiedPaintPanel.prop_unified_size(layout, context, brush, "size", slider=True)
@@ -6426,6 +6497,9 @@ classes = (
     VIEW3D_MT_edit_mesh_faces,
     VIEW3D_MT_edit_mesh_faces_data,
     VIEW3D_MT_edit_mesh_normals,
+    VIEW3D_MT_edit_mesh_normals_select_strength,
+    VIEW3D_MT_edit_mesh_normals_set_strength,
+    VIEW3D_MT_edit_mesh_normals_average,
     VIEW3D_MT_edit_mesh_shading,
     VIEW3D_MT_edit_mesh_weights,
     VIEW3D_MT_edit_mesh_clean,

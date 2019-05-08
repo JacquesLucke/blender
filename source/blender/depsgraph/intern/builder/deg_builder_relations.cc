@@ -58,6 +58,7 @@ extern "C" {
 #include "DNA_object_types.h"
 #include "DNA_rigidbody_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_sound_types.h"
 #include "DNA_speaker_types.h"
 #include "DNA_texture_types.h"
 #include "DNA_world_types.h"
@@ -489,6 +490,9 @@ void DepsgraphRelationBuilder::build_id(ID *id)
     case ID_SPK:
       build_speaker((Speaker *)id);
       break;
+    case ID_SO:
+      build_sound((bSound *)id);
+      break;
     case ID_TXT:
       /* Not a part of dependency graph. */
       break;
@@ -768,9 +772,9 @@ void DepsgraphRelationBuilder::build_object_data_speaker(Object *object)
 {
   Speaker *speaker = (Speaker *)object->data;
   build_speaker(speaker);
-  OperationKey probe_key(&speaker->id, NodeType::PARAMETERS, OperationCode::SPEAKER_EVAL);
-  OperationKey object_key(&object->id, NodeType::PARAMETERS, OperationCode::SPEAKER_EVAL);
-  add_relation(probe_key, object_key, "Speaker Update");
+  ComponentKey speaker_key(&speaker->id, NodeType::AUDIO);
+  ComponentKey object_key(&object->id, NodeType::AUDIO);
+  add_relation(speaker_key, object_key, "Speaker Update");
 }
 
 void DepsgraphRelationBuilder::build_object_parent(Object *object)
@@ -1323,25 +1327,47 @@ void DepsgraphRelationBuilder::build_driver(ID *id, FCurve *fcu)
 
 void DepsgraphRelationBuilder::build_driver_data(ID *id, FCurve *fcu)
 {
-  OperationKey driver_key(id,
-                          NodeType::PARAMETERS,
-                          OperationCode::DRIVER,
-                          fcu->rna_path ? fcu->rna_path : "",
-                          fcu->array_index);
-  const char *rna_path = fcu->rna_path ? fcu->rna_path : "";
-  if (GS(id->name) == ID_AR && STRPREFIX(rna_path, "bones[")) {
+  /* Validate the RNA path pointer just in case. */
+  const char *rna_path = fcu->rna_path;
+  if (rna_path == NULL || rna_path[0] == '\0') {
+    return;
+  }
+  /* Parse the RNA path to find the target property pointer. */
+  RNAPathKey property_entry_key(id, rna_path, RNAPointerSource::ENTRY);
+  if (RNA_pointer_is_null(&property_entry_key.ptr)) {
+    /* TODO(sergey): This would only mean that driver is broken.
+     * so we can't create relation anyway. However, we need to avoid
+     * adding drivers which are known to be buggy to a dependency
+     * graph, in order to save computational power. */
+    return;
+  }
+  OperationKey driver_key(
+      id, NodeType::PARAMETERS, OperationCode::DRIVER, rna_path, fcu->array_index);
+  /* If the target of the driver is a Bone property, find the Armature data,
+   * and then link the driver to all pose bone evaluation components that use
+   * it. This is necessary to provide more granular dependencies specifically for
+   * Bone objects, because the armature data doesn't have per-bone components,
+   * and generic add_relation can only add one link. */
+  ID *id_ptr = (ID *)property_entry_key.ptr.id.data;
+  bool is_bone = id_ptr && property_entry_key.ptr.type == &RNA_Bone;
+  /* If the Bone property is referenced via obj.pose.bones[].bone,
+   * the RNA pointer refers to the Object ID, so skip to data. */
+  if (is_bone && GS(id_ptr->name) == ID_OB) {
+    id_ptr = (ID *)((Object *)id_ptr)->data;
+  }
+  if (is_bone && GS(id_ptr->name) == ID_AR) {
     /* Drivers on armature-level bone settings (i.e. bbone stuff),
      * which will affect the evaluation of corresponding pose bones. */
-    char *bone_name = BLI_str_quoted_substrN(rna_path, "bones[");
-    if (bone_name != NULL) {
+    Bone *bone = (Bone *)property_entry_key.ptr.data;
+    if (bone != NULL) {
       /* Find objects which use this, and make their eval callbacks
        * depend on this. */
       for (IDNode *to_node : graph_->id_nodes) {
         if (GS(to_node->id_orig->name) == ID_OB) {
           Object *object = (Object *)to_node->id_orig;
           /* We only care about objects with pose data which use this. */
-          if (object->data == id && object->pose != NULL) {
-            bPoseChannel *pchan = BKE_pose_channel_find_name(object->pose, bone_name);
+          if (object->data == id_ptr && object->pose != NULL) {
+            bPoseChannel *pchan = BKE_pose_channel_find_name(object->pose, bone->name);
             if (pchan != NULL) {
               OperationKey bone_key(
                   &object->id, NodeType::BONE, pchan->name, OperationCode::BONE_LOCAL);
@@ -1350,23 +1376,18 @@ void DepsgraphRelationBuilder::build_driver_data(ID *id, FCurve *fcu)
           }
         }
       }
-      /* Free temp data. */
-      MEM_freeN(bone_name);
-      bone_name = NULL;
+      /* Make the driver depend on COW, similar to the generic case below. */
+      if (id_ptr != id) {
+        ComponentKey cow_key(id_ptr, NodeType::COPY_ON_WRITE);
+        add_relation(cow_key, driver_key, "Driven CoW -> Driver", RELATION_CHECK_BEFORE_ADD);
+      }
     }
     else {
       fprintf(stderr, "Couldn't find armature bone name for driver path - '%s'\n", rna_path);
     }
   }
-  else if (rna_path != NULL && rna_path[0] != '\0') {
-    RNAPathKey property_entry_key(id, rna_path, RNAPointerSource::ENTRY);
-    if (RNA_pointer_is_null(&property_entry_key.ptr)) {
-      /* TODO(sergey): This would only mean that driver is broken.
-       * so we can't create relation anyway. However, we need to avoid
-       * adding drivers which are known to be buggy to a dependency
-       * graph, in order to save computational power. */
-      return;
-    }
+  else {
+    /* If it's not a Bone, handle the generic single dependency case. */
     add_relation(driver_key, property_entry_key, "Driver -> Driven Property");
     /* Similar to the case with f-curves, driver might drive a nested
      * datablock, which means driver execution should wait for that
@@ -2279,6 +2300,21 @@ void DepsgraphRelationBuilder::build_speaker(Speaker *speaker)
   }
   build_animdata(&speaker->id);
   build_parameters(&speaker->id);
+  if (speaker->sound != NULL) {
+    build_sound(speaker->sound);
+    ComponentKey speaker_key(&speaker->id, NodeType::AUDIO);
+    ComponentKey sound_key(&speaker->sound->id, NodeType::AUDIO);
+    add_relation(sound_key, speaker_key, "Sound -> Speaker");
+  }
+}
+
+void DepsgraphRelationBuilder::build_sound(bSound *sound)
+{
+  if (built_map_.checkIsBuiltAndTag(sound)) {
+    return;
+  }
+  build_animdata(&sound->id);
+  build_parameters(&sound->id);
 }
 
 void DepsgraphRelationBuilder::build_copy_on_write_relations()

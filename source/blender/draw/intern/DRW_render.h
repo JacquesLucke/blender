@@ -401,10 +401,6 @@ DRWShadingGroup *DRW_shgroup_transform_feedback_create(struct GPUShader *shader,
                                                        DRWPass *pass,
                                                        struct GPUVertBuf *tf_target);
 
-typedef void(DRWCallGenerateFn)(DRWShadingGroup *shgroup,
-                                void (*draw_fn)(DRWShadingGroup *shgroup, struct GPUBatch *geom),
-                                void *user_data);
-
 /* return final visibility */
 typedef bool(DRWCallVisibilityFn)(bool vis_in, void *user_data);
 
@@ -422,9 +418,6 @@ void DRW_shgroup_call_procedural_lines_add(DRWShadingGroup *shgroup,
 void DRW_shgroup_call_procedural_triangles_add(DRWShadingGroup *shgroup,
                                                uint tria_count,
                                                float (*obmat)[4]);
-void DRW_shgroup_call_object_procedural_triangles_culled_add(DRWShadingGroup *shgroup,
-                                                             uint tria_count,
-                                                             struct Object *ob);
 void DRW_shgroup_call_object_add_ex(DRWShadingGroup *shgroup,
                                     struct GPUBatch *geom,
                                     struct Object *ob,
@@ -440,6 +433,17 @@ void DRW_shgroup_call_object_add_with_callback(DRWShadingGroup *shgroup,
                                                struct Material *ma,
                                                DRWCallVisibilityFn *callback,
                                                void *user_data);
+
+void DRW_shgroup_call_sculpt_add(DRWShadingGroup *shading_group,
+                                 Object *object,
+                                 bool use_wire,
+                                 bool use_mask,
+                                 bool use_vert_color);
+void DRW_shgroup_call_sculpt_with_materials_add(DRWShadingGroup **shgroups,
+                                                Material **materials,
+                                                Object *ob,
+                                                bool use_vcol);
+
 /* Used for drawing a batch with instancing without instance attributes. */
 void DRW_shgroup_call_instances_add(DRWShadingGroup *shgroup,
                                     struct GPUBatch *geom,
@@ -449,14 +453,6 @@ void DRW_shgroup_call_object_instances_add(DRWShadingGroup *shgroup,
                                            struct GPUBatch *geom,
                                            struct Object *ob,
                                            uint *count);
-void DRW_shgroup_call_sculpt_add(DRWShadingGroup *shgroup, struct Object *ob, float (*obmat)[4]);
-void DRW_shgroup_call_sculpt_wires_add(DRWShadingGroup *shgroup,
-                                       struct Object *ob,
-                                       float (*obmat)[4]);
-void DRW_shgroup_call_generate_add(DRWShadingGroup *shgroup,
-                                   DRWCallGenerateFn *geometry_fn,
-                                   void *user_data,
-                                   float (*obmat)[4]);
 void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup,
                                         const void *attr[],
                                         uint attr_len);
@@ -635,6 +631,7 @@ DrawData *DRW_drawdata_ensure(ID *id,
                               size_t size,
                               DrawDataInitCb init_cb,
                               DrawDataFreeCb free_cb);
+void **DRW_duplidata_get(void *vedata);
 
 /* Settings */
 bool DRW_object_is_renderable(const struct Object *ob);

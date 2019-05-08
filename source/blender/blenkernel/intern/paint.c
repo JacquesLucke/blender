@@ -82,8 +82,11 @@ static eOverlayControlFlags overlay_flags = 0;
 void BKE_paint_invalidate_overlay_tex(Scene *scene, ViewLayer *view_layer, const Tex *tex)
 {
   Paint *p = BKE_paint_get_active(scene, view_layer);
-  Brush *br = p->brush;
+  if (!p) {
+    return;
+  }
 
+  Brush *br = p->brush;
   if (!br) {
     return;
   }
@@ -1273,9 +1276,6 @@ void BKE_sculpt_update_mesh_elements(
       }
     }
   }
-
-  /* 2.8x - avoid full mesh update! */
-  BKE_mesh_batch_cache_dirty_tag(me, BKE_MESH_BATCH_DIRTY_SCULPT_COORDS);
 }
 
 int BKE_sculpt_mask_layers_ensure(Object *ob, MultiresModifierData *mmd)

@@ -63,9 +63,9 @@ enum eView2D_CommonViewTypes {
 /* scroller area */
 #define V2D_SCROLL_HEIGHT (0.45f * U.widget_unit)
 #define V2D_SCROLL_WIDTH (0.45f * U.widget_unit)
-/* For scrollers with scale markings (text written onto them) */
-#define V2D_SCROLL_HEIGHT_TEXT (0.79f * U.widget_unit)
-#define V2D_SCROLL_WIDTH_TEXT (0.79f * U.widget_unit)
+/* For scrollers with scale handlers */
+#define V2D_SCROLL_HEIGHT_HANDLES (0.6f * U.widget_unit)
+#define V2D_SCROLL_WIDTH_HANDLES (0.6f * U.widget_unit)
 
 /* scroller 'handles' hotspot radius for mouse */
 #define V2D_SCROLLER_HANDLE_SIZE (0.6f * U.widget_unit)
@@ -152,30 +152,24 @@ float UI_view2d_grid_resolution_y__values(const struct View2D *v2d);
 /* scale indicator text drawing */
 void UI_view2d_draw_scale_y__values(const struct ARegion *ar,
                                     const struct View2D *v2d,
-                                    const struct rcti *rect);
+                                    const struct rcti *rect,
+                                    int colorid);
 void UI_view2d_draw_scale_y__block(const struct ARegion *ar,
                                    const struct View2D *v2d,
-                                   const struct rcti *rect);
-void UI_view2d_draw_scale_x__values(const struct ARegion *ar,
-                                    const struct View2D *v2d,
-                                    const struct rcti *rect);
-void UI_view2d_draw_scale_x__discrete_values(const struct ARegion *ar,
-                                             const struct View2D *v2d,
-                                             const struct rcti *rect);
-void UI_view2d_draw_scale_x__discrete_time(const struct ARegion *ar,
-                                           const struct View2D *v2d,
-                                           const struct rcti *rect,
-                                           const struct Scene *scene);
+                                   const struct rcti *rect,
+                                   int colorid);
 void UI_view2d_draw_scale_x__discrete_frames_or_seconds(const struct ARegion *ar,
                                                         const struct View2D *v2d,
                                                         const struct rcti *rect,
                                                         const struct Scene *scene,
-                                                        bool display_seconds);
+                                                        bool display_seconds,
+                                                        int colorid);
 void UI_view2d_draw_scale_x__frames_or_seconds(const struct ARegion *ar,
                                                const struct View2D *v2d,
                                                const struct rcti *rect,
                                                const struct Scene *scene,
-                                               bool display_seconds);
+                                               bool display_seconds,
+                                               int colorid);
 
 /* scrollbar drawing */
 View2DScrollers *UI_view2d_scrollers_calc(struct View2D *v2d, const struct rcti *mask_custom);
@@ -183,16 +177,7 @@ void UI_view2d_scrollers_draw(struct View2D *v2d, View2DScrollers *scrollers);
 void UI_view2d_scrollers_free(View2DScrollers *scrollers);
 
 /* list view tools */
-void UI_view2d_listview_cell_to_view(struct View2D *v2d,
-                                     float columnwidth,
-                                     float rowheight,
-                                     float startx,
-                                     float starty,
-                                     int column,
-                                     int row,
-                                     struct rctf *rect);
-void UI_view2d_listview_view_to_cell(struct View2D *v2d,
-                                     float columnwidth,
+void UI_view2d_listview_view_to_cell(float columnwidth,
                                      float rowheight,
                                      float startx,
                                      float starty,
@@ -200,15 +185,6 @@ void UI_view2d_listview_view_to_cell(struct View2D *v2d,
                                      float viewy,
                                      int *column,
                                      int *row);
-void UI_view2d_listview_visible_cells(struct View2D *v2d,
-                                      float columnwidth,
-                                      float rowheight,
-                                      float startx,
-                                      float starty,
-                                      int *column_min,
-                                      int *column_max,
-                                      int *row_min,
-                                      int *row_max);
 
 /* coordinate conversion */
 float UI_view2d_region_to_view_x(const struct View2D *v2d, float x);
@@ -282,6 +258,8 @@ void UI_view2d_smooth_view(struct bContext *C,
                            struct ARegion *ar,
                            const struct rctf *cur,
                            const int smooth_viewtx);
+
 #define UI_MARKER_MARGIN_Y (42 * UI_DPI_FAC)
+#define UI_SCRUBBING_MARGIN_Y (23 * UI_DPI_FAC)
 
 #endif /* __UI_VIEW2D_H__ */
