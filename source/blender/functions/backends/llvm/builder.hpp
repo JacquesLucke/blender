@@ -10,6 +10,7 @@ using LLVMTypes = BLI::SmallVector<llvm::Type *>;
 using LLVMValuesRef = ArrayRef<llvm::Value *>;
 
 class LLVMTypeInfo;
+class LLVMForLoopData;
 
 template<typename T> static llvm::ArrayRef<T> to_llvm_array_ref(const SmallVector<T> &vector)
 {
@@ -381,6 +382,48 @@ class CodeBuilder {
     }
     return output;
   }
+
+  /* Control Flow Construction
+   **************************************/
+
+  LLVMForLoopData CreateForLoop(std::string name = "");
+};
+
+class LLVMForLoopData {
+ private:
+  CodeBuilder m_entry;
+  CodeBuilder m_condition;
+  CodeBuilder m_body;
+
+  llvm::BasicBlock *m_condition_entry;
+  llvm::BasicBlock *m_body_entry;
+
+ public:
+  LLVMForLoopData(CodeBuilder entry, CodeBuilder condition, CodeBuilder body)
+      : m_entry(entry),
+        m_condition(condition),
+        m_body(body),
+        m_condition_entry(condition.GetInsertBlock()),
+        m_body_entry(body.GetInsertBlock())
+  {
+  }
+
+  CodeBuilder &entry_builder()
+  {
+    return m_entry;
+  }
+
+  CodeBuilder &condition_builder()
+  {
+    return m_condition;
+  }
+
+  CodeBuilder &body_builder()
+  {
+    return m_body;
+  }
+
+  CodeBuilder finalize(llvm::Value *condition);
 };
 
 } /* namespace FN */

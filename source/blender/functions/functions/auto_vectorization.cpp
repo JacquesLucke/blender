@@ -64,25 +64,20 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
                 CodeInterface &interface,
                 const BuildIRSettings &settings) const override
   {
-    LLVMValues input_list_lengths = this->get_input_list_lengths(builder, interface);
-    llvm::Value *max_length = builder.CreateSIntMax(input_list_lengths);
+    auto loop = builder.CreateForLoop();
+    CodeBuilder &entry_builder = loop.entry_builder();
+    CodeBuilder &condition_builder = loop.condition_builder();
+    CodeBuilder &body_builder = loop.body_builder();
 
-    LLVMValues input_data_pointers = this->get_input_data_pointers(builder, interface);
-    LLVMValues output_data_pointers = this->create_output_lists(builder, interface, max_length);
+    LLVMValues input_list_lengths = this->get_input_list_lengths(entry_builder, interface);
+    llvm::Value *max_length = entry_builder.CreateSIntMax(input_list_lengths);
 
-    auto *setup_block = builder.GetInsertBlock();
-    auto *condition_block = builder.NewBlockInFunction("Loop Condition");
-    auto *body_block = builder.NewBlockInFunction("Loop Body");
-    auto *end_block = builder.NewBlockInFunction("Loop End");
-
-    builder.CreateBr(condition_block);
-
-    CodeBuilder body_builder(body_block);
-    CodeBuilder condition_builder(condition_block);
+    LLVMValues input_data_pointers = this->get_input_data_pointers(entry_builder, interface);
+    LLVMValues output_data_pointers = this->create_output_lists(
+        entry_builder, interface, max_length);
 
     auto *iteration = condition_builder.CreatePhi(condition_builder.getInt32Ty(), 2);
     auto *condition = condition_builder.CreateICmpULT(iteration, max_length);
-    condition_builder.CreateCondBr(condition, body_block, end_block);
 
     LLVMValues main_inputs = this->prepare_main_function_inputs(
         body_builder, interface, input_data_pointers, iteration);
@@ -97,12 +92,11 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
         body_builder, main_outputs, output_data_pointers, iteration);
 
     llvm::Value *next_iteration = body_builder.CreateIAdd(iteration, body_builder.getInt32(1));
-    body_builder.CreateBr(condition_block);
 
-    iteration->addIncoming(condition_builder.getInt32(0), setup_block);
-    iteration->addIncoming(next_iteration, body_block);
+    iteration->addIncoming(condition_builder.getInt32(0), entry_builder.GetInsertBlock());
+    iteration->addIncoming(next_iteration, body_builder.GetInsertBlock());
 
-    builder.SetInsertPoint(end_block);
+    builder.SetInsertPoint(loop.finalize(condition).GetInsertBlock());
     this->free_input_lists(builder, interface);
   }
 

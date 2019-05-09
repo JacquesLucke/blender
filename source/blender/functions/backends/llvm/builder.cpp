@@ -112,4 +112,29 @@ void CodeBuilder::CreatePrintFloat(llvm::Value *value)
   this->CreateCallPointer((void *)simple_print_float, {value}, this->getVoidTy());
 }
 
+LLVMForLoopData CodeBuilder::CreateForLoop(std::string name)
+{
+  auto entry_block = this->NewBlockInFunction(name + " Entry");
+  auto condition_block = this->NewBlockInFunction(name + " Condition");
+  auto body_block = this->NewBlockInFunction(name + " Body");
+
+  CodeBuilder entry_builder(entry_block);
+  CodeBuilder condition_builder(condition_block);
+  CodeBuilder body_builder(body_block);
+
+  this->CreateBr(entry_block);
+
+  return LLVMForLoopData(entry_builder, condition_builder, body_builder);
+}
+
+CodeBuilder LLVMForLoopData::finalize(llvm::Value *condition)
+{
+  m_entry.CreateBr(m_condition_entry);
+  m_body.CreateBr(m_condition_entry);
+
+  auto after_block = m_entry.NewBlockInFunction("After Loop");
+  m_condition.CreateCondBr(condition, m_body_entry, after_block);
+  return CodeBuilder(after_block);
+}
+
 } /* namespace FN */
