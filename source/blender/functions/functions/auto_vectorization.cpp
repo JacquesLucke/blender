@@ -64,20 +64,15 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
                 CodeInterface &interface,
                 const BuildIRSettings &settings) const override
   {
-    auto loop = builder.CreateForLoop();
-    CodeBuilder &entry_builder = loop.entry_builder();
-    CodeBuilder &condition_builder = loop.condition_builder();
+    LLVMValues input_list_lengths = this->get_input_list_lengths(builder, interface);
+    llvm::Value *max_length = builder.CreateSIntMax(input_list_lengths);
+
+    LLVMValues input_data_pointers = this->get_input_data_pointers(builder, interface);
+    LLVMValues output_data_pointers = this->create_output_lists(builder, interface, max_length);
+
+    auto loop = builder.CreateNIterationsLoop(max_length);
     CodeBuilder &body_builder = loop.body_builder();
-
-    LLVMValues input_list_lengths = this->get_input_list_lengths(entry_builder, interface);
-    llvm::Value *max_length = entry_builder.CreateSIntMax(input_list_lengths);
-
-    LLVMValues input_data_pointers = this->get_input_data_pointers(entry_builder, interface);
-    LLVMValues output_data_pointers = this->create_output_lists(
-        entry_builder, interface, max_length);
-
-    auto *iteration = condition_builder.CreatePhi(condition_builder.getInt32Ty(), 2);
-    auto *condition = condition_builder.CreateICmpULT(iteration, max_length);
+    llvm::Value *iteration = loop.current_iteration();
 
     LLVMValues main_inputs = this->prepare_main_function_inputs(
         body_builder, interface, input_data_pointers, iteration);
@@ -91,12 +86,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     this->store_computed_values_in_output_lists(
         body_builder, main_outputs, output_data_pointers, iteration);
 
-    llvm::Value *next_iteration = body_builder.CreateIAdd(iteration, body_builder.getInt32(1));
-
-    iteration->addIncoming(condition_builder.getInt32(0), entry_builder.GetInsertBlock());
-    iteration->addIncoming(next_iteration, body_builder.GetInsertBlock());
-
-    builder.SetInsertPoint(loop.finalize(condition).GetInsertBlock());
+    builder.SetInsertPoint(loop.finalize().GetInsertBlock());
     this->free_input_lists(builder, interface);
   }
 

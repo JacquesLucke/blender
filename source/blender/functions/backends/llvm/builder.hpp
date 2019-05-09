@@ -11,6 +11,7 @@ using LLVMValuesRef = ArrayRef<llvm::Value *>;
 
 class LLVMTypeInfo;
 class LLVMForLoopData;
+class LLVMIterationsLoopData;
 
 template<typename T> static llvm::ArrayRef<T> to_llvm_array_ref(const SmallVector<T> &vector)
 {
@@ -210,6 +211,11 @@ class CodeBuilder {
     return m_builder.CreateAdd(a, b);
   }
 
+  llvm::Value *CreateIAdd(llvm::Value *a, int value)
+  {
+    return m_builder.CreateAdd(a, this->getInt32(value));
+  }
+
   llvm::Value *CreateFAdd(llvm::Value *a, llvm::Value *b)
   {
     return m_builder.CreateFAdd(a, b);
@@ -387,6 +393,7 @@ class CodeBuilder {
    **************************************/
 
   LLVMForLoopData CreateForLoop(std::string name = "");
+  LLVMIterationsLoopData CreateNIterationsLoop(llvm::Value *iterations, std::string name = "");
 };
 
 class LLVMForLoopData {
@@ -424,6 +431,33 @@ class LLVMForLoopData {
   }
 
   CodeBuilder finalize(llvm::Value *condition);
+};
+
+class LLVMIterationsLoopData {
+ private:
+  LLVMForLoopData m_loop;
+  llvm::Value *m_iterations;
+  llvm::PHINode *m_current_iteration;
+
+ public:
+  LLVMIterationsLoopData(LLVMForLoopData loop,
+                         llvm::Value *iterations,
+                         llvm::PHINode *current_iteration)
+      : m_loop(loop), m_iterations(iterations), m_current_iteration(current_iteration)
+  {
+  }
+
+  CodeBuilder &body_builder()
+  {
+    return m_loop.body_builder();
+  }
+
+  llvm::Value *current_iteration()
+  {
+    return m_current_iteration;
+  }
+
+  CodeBuilder finalize();
 };
 
 } /* namespace FN */

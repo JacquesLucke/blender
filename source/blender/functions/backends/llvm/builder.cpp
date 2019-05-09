@@ -112,6 +112,9 @@ void CodeBuilder::CreatePrintFloat(llvm::Value *value)
   this->CreateCallPointer((void *)simple_print_float, {value}, this->getVoidTy());
 }
 
+/* For Loop
+ ******************************************/
+
 LLVMForLoopData CodeBuilder::CreateForLoop(std::string name)
 {
   auto entry_block = this->NewBlockInFunction(name + " Entry");
@@ -135,6 +138,35 @@ CodeBuilder LLVMForLoopData::finalize(llvm::Value *condition)
   auto after_block = m_entry.NewBlockInFunction("After Loop");
   m_condition.CreateCondBr(condition, m_body_entry, after_block);
   return CodeBuilder(after_block);
+}
+
+/* Iterations Loop
+ **************************************/
+
+LLVMIterationsLoopData CodeBuilder::CreateNIterationsLoop(llvm::Value *iterations,
+                                                          std::string name)
+{
+  BLI_assert(iterations->getType()->isIntegerTy());
+
+  LLVMForLoopData loop = this->CreateForLoop(name);
+  CodeBuilder &condition_builder = loop.condition_builder();
+
+  llvm::PHINode *current_iteration = condition_builder.CreatePhi(iterations->getType(), 2);
+
+  return LLVMIterationsLoopData(loop, iterations, current_iteration);
+}
+
+CodeBuilder LLVMIterationsLoopData::finalize()
+{
+  CodeBuilder &entry_builder = m_loop.entry_builder();
+  CodeBuilder &condition_builder = m_loop.condition_builder();
+  CodeBuilder &body_builder = m_loop.body_builder();
+
+  llvm::Value *next_iteration = body_builder.CreateIAdd(m_current_iteration, 1);
+  m_current_iteration->addIncoming(entry_builder.getInt32(0), entry_builder.GetInsertBlock());
+  m_current_iteration->addIncoming(next_iteration, body_builder.GetInsertBlock());
+  llvm::Value *condition = condition_builder.CreateICmpULT(m_current_iteration, m_iterations);
+  return m_loop.finalize(condition);
 }
 
 } /* namespace FN */
