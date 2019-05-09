@@ -1,5 +1,6 @@
 #include "builder.hpp"
 #include "BLI_string.h"
+#include "llvm/IR/TypeBuilder.h"
 
 namespace FN {
 
@@ -51,6 +52,7 @@ llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
                                             LLVMValuesRef args,
                                             const char *function_name)
 {
+  BLI_assert(!ftype->isVarArg());
   char name[64];
   BLI_snprintf(name, sizeof(name), "%s (%p)", function_name, func_ptr);
 
@@ -90,21 +92,29 @@ llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
   return this->CreateCallPointer(func_ptr, LLVMValuesRef(args), return_type, function_name);
 }
 
-template<typename T> void simple_print(T value)
-{
-  std::cout << value;
-}
+/* Printing
+ **********************************/
 
-void CodeBuilder::CreatePrint(const char *str)
+void CodeBuilder::CreatePrintf(const char *format, const LLVMValues &values)
 {
-  this->CreateCallPointer(
-      (void *)simple_print<const char *>, {this->getVoidPtr((void *)str)}, this->getVoidTy());
-}
+  llvm::FunctionType *printf_ftype = llvm::TypeBuilder<int(char *, ...), false>::get(
+      this->getContext());
 
-void CodeBuilder::CreatePrintFloat(llvm::Value *value)
-{
-  BLI_assert(value->getType()->isFloatTy());
-  this->CreateCallPointer((void *)simple_print<float>, {value}, this->getVoidTy());
+  llvm::Function *printf_func = llvm::cast<llvm::Function>(
+      this->getModule()->getOrInsertFunction("printf", printf_ftype));
+  printf_func->addParamAttr(0, llvm::Attribute::NoAlias);
+
+  LLVMValues args;
+  args.append(this->getInt8Ptr(format));
+  for (llvm::Value *arg : values) {
+    llvm::Value *passed_arg = arg;
+    if (arg->getType()->isFloatTy()) {
+      passed_arg = this->CastFloatToDouble(arg);
+    }
+    args.append(passed_arg);
+  }
+  args.extend(values);
+  m_builder.CreateCall(printf_func, to_llvm_array_ref(args));
 }
 
 /* For Loop

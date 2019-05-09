@@ -65,6 +65,11 @@ class CodeBuilder {
     return m_builder.getFloatTy();
   }
 
+  llvm::Type *getDoubleTy()
+  {
+    return m_builder.getDoubleTy();
+  }
+
   llvm::Type *getVoidTy()
   {
     return m_builder.getVoidTy();
@@ -78,6 +83,16 @@ class CodeBuilder {
   llvm::Type *getVoidPtrPtrTy()
   {
     return this->getVoidPtrTy()->getPointerTo();
+  }
+
+  llvm::Type *getInt8Ty()
+  {
+    return m_builder.getInt8Ty();
+  }
+
+  llvm::Type *getInt8PtrTy()
+  {
+    return m_builder.getInt8PtrTy();
   }
 
   llvm::Type *getInt32Ty()
@@ -129,9 +144,19 @@ class CodeBuilder {
     return m_builder.getInt32(value);
   }
 
+  llvm::Value *getInt8Ptr(const char *ptr)
+  {
+    return this->getPtr((void *)ptr, this->getInt8PtrTy());
+  }
+
   llvm::Constant *getFloat(float value)
   {
     return llvm::ConstantFP::get(this->getFloatTy(), value);
+  }
+
+  llvm::Constant *getDouble(double value)
+  {
+    return llvm::ConstantFP::get(this->getDoubleTy(), value);
   }
 
   /* Create new blocks
@@ -264,6 +289,11 @@ class CodeBuilder {
     return m_builder.CreatePointerCast(addr, m_builder.getInt8PtrTy());
   }
 
+  llvm::Value *CastFloatToDouble(llvm::Value *value)
+  {
+    return m_builder.CreateFPCast(value, this->getDoubleTy());
+  }
+
   llvm::Value *CreateLoad(llvm::Value *addr)
   {
     return m_builder.CreateLoad(addr);
@@ -390,8 +420,7 @@ class CodeBuilder {
   /* Print
    **************************************/
 
-  void CreatePrint(const char *str);
-  void CreatePrintFloat(llvm::Value *value);
+  void CreatePrintf(const char *format, const LLVMValues &values);
 
   /* Control Flow Construction
    **************************************/
