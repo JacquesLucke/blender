@@ -207,6 +207,11 @@ class CodeBuilder {
     return m_builder.CreateICmpULT(a, b);
   }
 
+  llvm::Value *CreateFCmpOLT(llvm::Value *a, llvm::Value *b)
+  {
+    return m_builder.CreateFCmpOLT(a, b);
+  }
+
   void CreateBr(llvm::BasicBlock *destination_block)
   {
     m_builder.CreateBr(destination_block);
