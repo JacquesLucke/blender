@@ -8,6 +8,16 @@
 namespace FN {
 namespace Functions {
 
+class IterationStackFrame : public StackFrame {
+ public:
+  uint m_iteration;
+
+  std::string to_string() const override
+  {
+    return "Iteration: " + std::to_string(m_iteration);
+  }
+};
+
 class AutoVectorizationGen : public LLVMBuildIRBody {
  private:
   SharedFunction m_main;
@@ -253,6 +263,11 @@ class AutoVectorization : public TupleCallBody {
 
     FN_TUPLE_CALL_ALLOC_TUPLES(m_main_body, main_in, main_out);
 
+    IterationStackFrame iteration_frame;
+    TextStackFrame function_name_frame(m_main->name().c_str());
+    ctx.stack().push(&iteration_frame);
+    ctx.stack().push(&function_name_frame);
+
     for (uint iteration = 0; iteration < max_length; iteration++) {
       uint list_index = 0;
       for (uint i = 0; i < m_input_is_list.size(); i++) {
@@ -266,12 +281,16 @@ class AutoVectorization : public TupleCallBody {
         }
       }
 
-      m_main_body->call__setup_stack(main_in, main_out, ctx);
+      iteration_frame.m_iteration = iteration;
+      m_main_body->call(main_in, main_out, ctx);
 
       for (uint i = 0; i < m_main->signature().outputs().size(); i++) {
         this->append_to_output(main_out, fn_out, i, ctx);
       }
     }
+
+    ctx.stack().pop();
+    ctx.stack().pop();
   }
 
  private:
