@@ -12,6 +12,7 @@ using LLVMValuesRef = ArrayRef<llvm::Value *>;
 class LLVMTypeInfo;
 class IRConstruct_ForLoop;
 class IRConstruct_IterationsLoop;
+class IRConstruct_IfThenElse;
 
 template<typename T> static llvm::ArrayRef<T> to_llvm_array_ref(const SmallVector<T> &vector)
 {
@@ -394,6 +395,7 @@ class CodeBuilder {
 
   IRConstruct_ForLoop CreateForLoop(std::string name = "");
   IRConstruct_IterationsLoop CreateNIterationsLoop(llvm::Value *iterations, std::string name = "");
+  IRConstruct_IfThenElse CreateIfThenElse(llvm::Value *condition, std::string name = "");
 };
 
 class IRConstruct_ForLoop {
@@ -455,6 +457,30 @@ class IRConstruct_IterationsLoop {
   llvm::Value *current_iteration()
   {
     return m_current_iteration;
+  }
+
+  llvm::BasicBlock *finalize();
+};
+
+class IRConstruct_IfThenElse {
+ private:
+  CodeBuilder m_then_builder;
+  CodeBuilder m_else_builder;
+
+ public:
+  IRConstruct_IfThenElse(CodeBuilder then_builder, CodeBuilder else_builder)
+      : m_then_builder(then_builder), m_else_builder(else_builder)
+  {
+  }
+
+  CodeBuilder &then_builder()
+  {
+    return m_then_builder;
+  }
+
+  CodeBuilder &else_builder()
+  {
+    return m_else_builder;
   }
 
   llvm::BasicBlock *finalize();

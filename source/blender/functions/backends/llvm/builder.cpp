@@ -169,4 +169,23 @@ llvm::BasicBlock *IRConstruct_IterationsLoop::finalize()
   return m_loop.finalize(condition);
 }
 
+/* If Then Else
+ ************************************/
+
+IRConstruct_IfThenElse CodeBuilder::CreateIfThenElse(llvm::Value *condition, std::string name)
+{
+  auto then_block = this->NewBlockInFunction(name + " Then");
+  auto else_block = this->NewBlockInFunction(name + " Else");
+  this->CreateCondBr(condition, then_block, else_block);
+  return IRConstruct_IfThenElse(CodeBuilder(then_block), CodeBuilder(else_block));
+}
+
+llvm::BasicBlock *IRConstruct_IfThenElse::finalize()
+{
+  auto after_block = m_then_builder.NewBlockInFunction("After If");
+  m_then_builder.CreateBr(after_block);
+  m_else_builder.CreateBr(after_block);
+  return after_block;
+}
+
 } /* namespace FN */
