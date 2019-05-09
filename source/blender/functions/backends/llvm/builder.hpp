@@ -464,7 +464,7 @@ class IRConstruct_ForLoop {
     return m_body;
   }
 
-  llvm::BasicBlock *finalize(llvm::Value *condition);
+  void finalize(CodeBuilder &after_builder, llvm::Value *condition);
 };
 
 class IRConstruct_IterationsLoop {
@@ -491,7 +491,7 @@ class IRConstruct_IterationsLoop {
     return m_current_iteration;
   }
 
-  llvm::BasicBlock *finalize();
+  void finalize(CodeBuilder &after_builder);
 };
 
 class IRConstruct_IfThenElse {
@@ -515,7 +515,7 @@ class IRConstruct_IfThenElse {
     return m_else_builder;
   }
 
-  llvm::BasicBlock *finalize();
+  void finalize(CodeBuilder &after_builder);
 };
 
 } /* namespace FN */

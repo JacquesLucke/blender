@@ -86,7 +86,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     this->store_computed_values_in_output_lists(
         body_builder, main_outputs, output_data_pointers, iteration);
 
-    builder.SetInsertPoint(loop.finalize());
+    loop.finalize(builder);
     this->free_input_lists(builder, interface);
   }
 

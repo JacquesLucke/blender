@@ -135,14 +135,14 @@ IRConstruct_ForLoop CodeBuilder::CreateForLoop(std::string name)
   return IRConstruct_ForLoop(entry_builder, condition_builder, body_builder);
 }
 
-llvm::BasicBlock *IRConstruct_ForLoop::finalize(llvm::Value *condition)
+void IRConstruct_ForLoop::finalize(CodeBuilder &after_builder, llvm::Value *condition)
 {
   m_entry.CreateBr(m_condition_entry);
   m_body.CreateBr(m_condition_entry);
 
   auto after_block = m_entry.NewBlockInFunction("After Loop");
   m_condition.CreateCondBr(condition, m_body_entry, after_block);
-  return after_block;
+  after_builder.SetInsertPoint(after_block);
 }
 
 /* Iterations Loop
@@ -161,7 +161,7 @@ IRConstruct_IterationsLoop CodeBuilder::CreateNIterationsLoop(llvm::Value *itera
   return IRConstruct_IterationsLoop(loop, iterations, current_iteration);
 }
 
-llvm::BasicBlock *IRConstruct_IterationsLoop::finalize()
+void IRConstruct_IterationsLoop::finalize(CodeBuilder &after_builder)
 {
   CodeBuilder &entry_builder = m_loop.entry_builder();
   CodeBuilder &condition_builder = m_loop.condition_builder();
@@ -171,7 +171,7 @@ llvm::BasicBlock *IRConstruct_IterationsLoop::finalize()
   m_current_iteration->addIncoming(entry_builder.getInt32(0), entry_builder.GetInsertBlock());
   m_current_iteration->addIncoming(next_iteration, body_builder.GetInsertBlock());
   llvm::Value *condition = condition_builder.CreateICmpULT(m_current_iteration, m_iterations);
-  return m_loop.finalize(condition);
+  m_loop.finalize(after_builder, condition);
 }
 
 /* If Then Else
@@ -185,12 +185,12 @@ IRConstruct_IfThenElse CodeBuilder::CreateIfThenElse(llvm::Value *condition, std
   return IRConstruct_IfThenElse(CodeBuilder(then_block), CodeBuilder(else_block));
 }
 
-llvm::BasicBlock *IRConstruct_IfThenElse::finalize()
+void IRConstruct_IfThenElse::finalize(CodeBuilder &after_builder)
 {
   auto after_block = m_then_builder.NewBlockInFunction("After If");
   m_then_builder.CreateBr(after_block);
   m_else_builder.CreateBr(after_block);
-  return after_block;
+  after_builder.SetInsertPoint(after_block);
 }
 
 } /* namespace FN */
