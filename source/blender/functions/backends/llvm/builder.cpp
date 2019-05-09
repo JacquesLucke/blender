@@ -115,7 +115,7 @@ void CodeBuilder::CreatePrintFloat(llvm::Value *value)
 /* For Loop
  ******************************************/
 
-LLVMForLoopData CodeBuilder::CreateForLoop(std::string name)
+IRConstruct_ForLoop CodeBuilder::CreateForLoop(std::string name)
 {
   auto entry_block = this->NewBlockInFunction(name + " Entry");
   auto condition_block = this->NewBlockInFunction(name + " Condition");
@@ -127,36 +127,36 @@ LLVMForLoopData CodeBuilder::CreateForLoop(std::string name)
 
   this->CreateBr(entry_block);
 
-  return LLVMForLoopData(entry_builder, condition_builder, body_builder);
+  return IRConstruct_ForLoop(entry_builder, condition_builder, body_builder);
 }
 
-CodeBuilder LLVMForLoopData::finalize(llvm::Value *condition)
+llvm::BasicBlock *IRConstruct_ForLoop::finalize(llvm::Value *condition)
 {
   m_entry.CreateBr(m_condition_entry);
   m_body.CreateBr(m_condition_entry);
 
   auto after_block = m_entry.NewBlockInFunction("After Loop");
   m_condition.CreateCondBr(condition, m_body_entry, after_block);
-  return CodeBuilder(after_block);
+  return after_block;
 }
 
 /* Iterations Loop
  **************************************/
 
-LLVMIterationsLoopData CodeBuilder::CreateNIterationsLoop(llvm::Value *iterations,
-                                                          std::string name)
+IRConstruct_IterationsLoop CodeBuilder::CreateNIterationsLoop(llvm::Value *iterations,
+                                                              std::string name)
 {
   BLI_assert(iterations->getType()->isIntegerTy());
 
-  LLVMForLoopData loop = this->CreateForLoop(name);
+  IRConstruct_ForLoop loop = this->CreateForLoop(name);
   CodeBuilder &condition_builder = loop.condition_builder();
 
   llvm::PHINode *current_iteration = condition_builder.CreatePhi(iterations->getType(), 2);
 
-  return LLVMIterationsLoopData(loop, iterations, current_iteration);
+  return IRConstruct_IterationsLoop(loop, iterations, current_iteration);
 }
 
-CodeBuilder LLVMIterationsLoopData::finalize()
+llvm::BasicBlock *IRConstruct_IterationsLoop::finalize()
 {
   CodeBuilder &entry_builder = m_loop.entry_builder();
   CodeBuilder &condition_builder = m_loop.condition_builder();

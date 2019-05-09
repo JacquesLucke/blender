@@ -10,8 +10,8 @@ using LLVMTypes = BLI::SmallVector<llvm::Type *>;
 using LLVMValuesRef = ArrayRef<llvm::Value *>;
 
 class LLVMTypeInfo;
-class LLVMForLoopData;
-class LLVMIterationsLoopData;
+class IRConstruct_ForLoop;
+class IRConstruct_IterationsLoop;
 
 template<typename T> static llvm::ArrayRef<T> to_llvm_array_ref(const SmallVector<T> &vector)
 {
@@ -392,11 +392,11 @@ class CodeBuilder {
   /* Control Flow Construction
    **************************************/
 
-  LLVMForLoopData CreateForLoop(std::string name = "");
-  LLVMIterationsLoopData CreateNIterationsLoop(llvm::Value *iterations, std::string name = "");
+  IRConstruct_ForLoop CreateForLoop(std::string name = "");
+  IRConstruct_IterationsLoop CreateNIterationsLoop(llvm::Value *iterations, std::string name = "");
 };
 
-class LLVMForLoopData {
+class IRConstruct_ForLoop {
  private:
   CodeBuilder m_entry;
   CodeBuilder m_condition;
@@ -406,7 +406,7 @@ class LLVMForLoopData {
   llvm::BasicBlock *m_body_entry;
 
  public:
-  LLVMForLoopData(CodeBuilder entry, CodeBuilder condition, CodeBuilder body)
+  IRConstruct_ForLoop(CodeBuilder entry, CodeBuilder condition, CodeBuilder body)
       : m_entry(entry),
         m_condition(condition),
         m_body(body),
@@ -430,19 +430,19 @@ class LLVMForLoopData {
     return m_body;
   }
 
-  CodeBuilder finalize(llvm::Value *condition);
+  llvm::BasicBlock *finalize(llvm::Value *condition);
 };
 
-class LLVMIterationsLoopData {
+class IRConstruct_IterationsLoop {
  private:
-  LLVMForLoopData m_loop;
+  IRConstruct_ForLoop m_loop;
   llvm::Value *m_iterations;
   llvm::PHINode *m_current_iteration;
 
  public:
-  LLVMIterationsLoopData(LLVMForLoopData loop,
-                         llvm::Value *iterations,
-                         llvm::PHINode *current_iteration)
+  IRConstruct_IterationsLoop(IRConstruct_ForLoop loop,
+                             llvm::Value *iterations,
+                             llvm::PHINode *current_iteration)
       : m_loop(loop), m_iterations(iterations), m_current_iteration(current_iteration)
   {
   }
@@ -457,7 +457,7 @@ class LLVMIterationsLoopData {
     return m_current_iteration;
   }
 
-  CodeBuilder finalize();
+  llvm::BasicBlock *finalize();
 };
 
 } /* namespace FN */
