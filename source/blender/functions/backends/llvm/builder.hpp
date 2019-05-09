@@ -425,7 +425,10 @@ class CodeBuilder {
   /* Print
    **************************************/
 
-  void CreatePrintf(const char *format, const LLVMValues &values);
+  void CreatePrintf(const char *format, const LLVMValues &values = {});
+  void CreatePrintfWithStacktrace(llvm::Value *context_ptr,
+                                  const char *format,
+                                  const LLVMValues &values);
 
   /* Control Flow Construction
    **************************************/

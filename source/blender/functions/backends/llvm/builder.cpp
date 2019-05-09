@@ -1,6 +1,7 @@
 #include "builder.hpp"
 #include "BLI_string.h"
 #include "llvm/IR/TypeBuilder.h"
+#include "FN_tuple_call.hpp"
 
 namespace FN {
 
@@ -113,8 +114,23 @@ void CodeBuilder::CreatePrintf(const char *format, const LLVMValues &values)
     }
     args.append(passed_arg);
   }
-  args.extend(values);
   m_builder.CreateCall(printf_func, to_llvm_array_ref(args));
+}
+
+void print_stacktrace(ExecutionContext *context)
+{
+  context->stack().print_traceback();
+}
+
+void CodeBuilder::CreatePrintfWithStacktrace(llvm::Value *context_ptr,
+                                             const char *format,
+                                             const LLVMValues &values)
+{
+  this->CreateCallPointer(
+      (void *)print_stacktrace, {context_ptr}, this->getVoidTy(), "Print Stacktrace");
+  this->CreatePrintf("-> ");
+  this->CreatePrintf(format, values);
+  this->CreatePrintf("\n");
 }
 
 /* For Loop
