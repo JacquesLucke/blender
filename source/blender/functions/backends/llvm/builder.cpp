@@ -90,26 +90,21 @@ llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
   return this->CreateCallPointer(func_ptr, LLVMValuesRef(args), return_type, function_name);
 }
 
-static void simple_print(const char *str)
+template<typename T> void simple_print(T value)
 {
-  std::cout << str << std::endl;
+  std::cout << value;
 }
 
 void CodeBuilder::CreatePrint(const char *str)
 {
   this->CreateCallPointer(
-      (void *)simple_print, {this->getVoidPtr((void *)str)}, this->getVoidTy());
-}
-
-static void simple_print_float(float value)
-{
-  std::cout << value << std::endl;
+      (void *)simple_print<const char *>, {this->getVoidPtr((void *)str)}, this->getVoidTy());
 }
 
 void CodeBuilder::CreatePrintFloat(llvm::Value *value)
 {
   BLI_assert(value->getType()->isFloatTy());
-  this->CreateCallPointer((void *)simple_print_float, {value}, this->getVoidTy());
+  this->CreateCallPointer((void *)simple_print<float>, {value}, this->getVoidTy());
 }
 
 /* For Loop

@@ -182,9 +182,6 @@ class CodeBuilder {
     return m_builder.CreateICmpULT(a, b);
   }
 
-  void CreatePrint(const char *str);
-  void CreatePrintFloat(llvm::Value *value);
-
   void CreateBr(llvm::BasicBlock *destination_block)
   {
     m_builder.CreateBr(destination_block);
@@ -389,6 +386,12 @@ class CodeBuilder {
     }
     return output;
   }
+
+  /* Print
+   **************************************/
+
+  void CreatePrint(const char *str);
+  void CreatePrintFloat(llvm::Value *value);
 
   /* Control Flow Construction
    **************************************/
