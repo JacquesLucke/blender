@@ -85,7 +85,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     llvm::Value *iteration = loop.current_iteration();
 
     LLVMValues main_inputs = this->prepare_main_function_inputs(
-        body_builder, interface, input_data_pointers, iteration);
+        body_builder, interface, input_data_pointers, input_list_lengths, iteration);
 
     LLVMValues main_outputs(m_output_info.size());
     CodeInterface main_interface(
@@ -172,26 +172,45 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
   LLVMValues prepare_main_function_inputs(CodeBuilder &builder,
                                           CodeInterface &interface,
                                           const LLVMValues &input_data_pointers,
+                                          const LLVMValues &input_list_lengths,
                                           llvm::Value *iteration) const
   {
     LLVMValues main_inputs;
 
     uint list_input_index = 0;
     for (uint i = 0; i < m_input_info.size(); i++) {
+      auto *type_info = m_input_info[i].base_llvm_type;
       if (m_input_is_list[i]) {
+        llvm::Value *list_length = input_list_lengths[list_input_index];
+        llvm::Value *list_is_empty = builder.CreateICmpEQ(list_length, builder.getInt32(0));
 
-        llvm::Value *load_address = builder.CreateGEP(input_data_pointers[list_input_index],
-                                                      iteration);
-        // TODO: handle different lengths
-        llvm::Value *value_for_main = m_input_info[i].base_llvm_type->build_load_ir__relocate(
-            builder, load_address);
-        main_inputs.append(value_for_main);
+        auto ifthenelse = builder.CreateIfThenElse(list_is_empty, "List is Empty");
+        CodeBuilder &then_builder = ifthenelse.then_builder();
+        CodeBuilder &else_builder = ifthenelse.else_builder();
+
+        /* Use default value when list has no elements. */
+        then_builder.CreateAssertFalse("cannot handle empty lists yet");
+        llvm::Value *default_value = then_builder.getUndef(
+            type_info->get_type(then_builder.getContext()));
+
+        /* Load value from list. */
+        llvm::Value *current_index = else_builder.CreateURem(iteration, list_length);
+        llvm::Value *load_address = else_builder.CreateGEP(input_data_pointers[list_input_index],
+                                                           current_index);
+        llvm::Value *loaded_value_for_main = type_info->build_load_ir__copy(else_builder,
+                                                                            load_address);
+
+        ifthenelse.finalize(builder);
+
+        auto *phi = builder.CreatePhi(type_info->get_type(builder.getContext()), 2);
+        phi->addIncoming(default_value, then_builder.GetInsertBlock());
+        phi->addIncoming(loaded_value_for_main, else_builder.GetInsertBlock());
+        main_inputs.append(phi);
         list_input_index++;
       }
       else {
         llvm::Value *source_value = interface.get_input(i);
-        llvm::Value *value_for_main = m_input_info[i].base_llvm_type->build_copy_ir(builder,
-                                                                                    source_value);
+        llvm::Value *value_for_main = type_info->build_copy_ir(builder, source_value);
         main_inputs.append(value_for_main);
       }
     }

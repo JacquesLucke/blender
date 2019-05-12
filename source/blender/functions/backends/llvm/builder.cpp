@@ -93,6 +93,28 @@ llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
   return this->CreateCallPointer(func_ptr, LLVMValuesRef(args), return_type, function_name);
 }
 
+static void assert_impl(bool value, const char *message)
+{
+  if (!value) {
+    std::cout << "Assert Message: " << message << std::endl;
+    BLI_assert(false);
+  }
+}
+
+void CodeBuilder::CreateAssert(llvm::Value *condition, std::string message)
+{
+  llvm::Value *condition_as_byte = this->CreateCastIntTo8(condition, false);
+  llvm::Value *message_ptr = this->getInt8Ptr(message.c_str());
+  this->CreateCallPointer(
+      (void *)assert_impl, {condition_as_byte, message_ptr}, this->getVoidTy(), "Assert");
+}
+
+void CodeBuilder::CreateAssertFalse(std::string message)
+{
+  llvm::Value *condition = this->getInt1(false);
+  this->CreateAssert(condition, message);
+}
+
 /* Printing
  **********************************/
 
@@ -117,7 +139,7 @@ void CodeBuilder::CreatePrintf(const char *format, const LLVMValues &values)
   m_builder.CreateCall(printf_func, to_llvm_array_ref(args));
 }
 
-void print_stacktrace(ExecutionContext *context)
+static void print_stacktrace(ExecutionContext *context)
 {
   context->stack().print_traceback();
 }

@@ -144,6 +144,11 @@ class CodeBuilder {
     return m_builder.getInt32(value);
   }
 
+  llvm::ConstantInt *getInt1(bool value)
+  {
+    return m_builder.getInt1(value);
+  }
+
   llvm::Value *getInt8Ptr(const char *ptr)
   {
     return this->getPtr((void *)ptr, this->getInt8PtrTy());
@@ -207,6 +212,11 @@ class CodeBuilder {
     return m_builder.CreateICmpULT(a, b);
   }
 
+  llvm::Value *CreateICmpEQ(llvm::Value *a, llvm::Value *b)
+  {
+    return m_builder.CreateICmpEQ(a, b);
+  }
+
   llvm::Value *CreateFCmpOLT(llvm::Value *a, llvm::Value *b)
   {
     return m_builder.CreateFCmpOLT(a, b);
@@ -252,6 +262,11 @@ class CodeBuilder {
   llvm::Value *CreateFMul(llvm::Value *a, llvm::Value *b)
   {
     return m_builder.CreateFMul(a, b);
+  }
+
+  llvm::Value *CreateURem(llvm::Value *a, llvm::Value *b)
+  {
+    return m_builder.CreateURem(a, b);
   }
 
   llvm::Value *CreateAllocaBytes_VoidPtr(uint amount)
@@ -388,6 +403,13 @@ class CodeBuilder {
     return max_value;
   }
 
+  llvm::SwitchInst *CreateSwitch(llvm::Value *value,
+                                 llvm::BasicBlock *default_destination,
+                                 uint case_amount)
+  {
+    return m_builder.CreateSwitch(value, default_destination, case_amount);
+  }
+
   llvm::Value *CreateStructToVector(llvm::Value *value)
   {
     llvm::Type *struct_type = value->getType();
@@ -421,6 +443,9 @@ class CodeBuilder {
     }
     return output;
   }
+
+  void CreateAssert(llvm::Value *condition, std::string message = "");
+  void CreateAssertFalse(std::string message = "");
 
   /* Print
    **************************************/
