@@ -232,7 +232,7 @@ static void INSERT_combine_vector(BTreeGraphBuilder &builder, bNode *bnode)
   SharedFunction fn = get_vectorized_function(
       Functions::GET_FN_combine_vector(),
       rna,
-      {{"use_list__x", Functions::GET_FN_output_float_1()},
+      {{"use_list__x", Functions::GET_FN_output_float_0()},
        {"use_list__y", Functions::GET_FN_output_float_0()},
        {"use_list__z", Functions::GET_FN_output_float_0()}});
   builder.insert_matching_function(fn, bnode);
