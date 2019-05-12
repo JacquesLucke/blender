@@ -14,11 +14,6 @@ LLVMTypes CodeBuilder::types_of_values(LLVMValuesRef values)
   return types;
 }
 
-LLVMTypes CodeBuilder::types_of_values(const LLVMValues &values)
-{
-  return this->types_of_values(LLVMValuesRef(values));
-}
-
 static llvm::Function *create_wrapper_function(llvm::Module *module,
                                                llvm::FunctionType *ftype,
                                                void *func_ptr,
@@ -102,7 +97,7 @@ void CodeBuilder::CreateAssertFalse(std::string message)
 /* Printing
  **********************************/
 
-void CodeBuilder::CreatePrintf(const char *format, const LLVMValues &values)
+void CodeBuilder::CreatePrintf(const char *format, LLVMValuesRef values)
 {
   llvm::FunctionType *printf_ftype = llvm::TypeBuilder<int(char *, ...), false>::get(
       this->getContext());
@@ -130,7 +125,7 @@ static void print_stacktrace(ExecutionContext *context)
 
 void CodeBuilder::CreatePrintfWithStacktrace(llvm::Value *context_ptr,
                                              const char *format,
-                                             const LLVMValues &values)
+                                             LLVMValuesRef values)
 {
   this->CreateCallPointer(
       (void *)print_stacktrace, {context_ptr}, this->getVoidTy(), "Print Stacktrace");

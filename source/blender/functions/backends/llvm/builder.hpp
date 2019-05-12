@@ -187,7 +187,6 @@ class CodeBuilder {
   }
 
   LLVMTypes types_of_values(LLVMValuesRef values);
-  LLVMTypes types_of_values(const LLVMValues &values);
 
   /* Instruction Builders
    **************************************/
@@ -442,10 +441,10 @@ class CodeBuilder {
   /* Print
    **************************************/
 
-  void CreatePrintf(const char *format, const LLVMValues &values = {});
+  void CreatePrintf(const char *format, LLVMValuesRef values = {});
   void CreatePrintfWithStacktrace(llvm::Value *context_ptr,
                                   const char *format,
-                                  const LLVMValues &values);
+                                  LLVMValuesRef values);
 
   /* Control Flow Construction
    **************************************/
