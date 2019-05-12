@@ -353,15 +353,7 @@ class CodeBuilder {
                                  LLVMValuesRef args,
                                  const char *function_name = "");
   llvm::Value *CreateCallPointer(void *func_ptr,
-                                 llvm::FunctionType *ftype,
-                                 const LLVMValues &args,
-                                 const char *function_name = "");
-  llvm::Value *CreateCallPointer(void *func_ptr,
                                  LLVMValuesRef args,
-                                 llvm::Type *return_type,
-                                 const char *function_name = "");
-  llvm::Value *CreateCallPointer(void *func_ptr,
-                                 const LLVMValues &args,
                                  llvm::Type *return_type,
                                  const char *function_name = "");
 

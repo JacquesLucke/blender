@@ -66,9 +66,64 @@ TEST(array_ref, Slice)
   EXPECT_EQ(slice[1], 6);
 }
 
-TEST(small_vector, SliceEmpty)
+TEST(array_ref, SliceEmpty)
 {
   IntVector a = {4, 5, 6, 7};
   auto slice = IntArrayRef(a).slice(2, 0);
   EXPECT_EQ(slice.size(), 0);
+}
+
+TEST(array_ref, Contains)
+{
+  IntVector a = {4, 5, 6, 7};
+  IntArrayRef a_ref = a;
+  EXPECT_TRUE(a_ref.contains(4));
+  EXPECT_TRUE(a_ref.contains(5));
+  EXPECT_TRUE(a_ref.contains(6));
+  EXPECT_TRUE(a_ref.contains(7));
+  EXPECT_FALSE(a_ref.contains(3));
+  EXPECT_FALSE(a_ref.contains(8));
+}
+
+TEST(array_ref, Count)
+{
+  IntVector a = {2, 3, 4, 3, 3, 2, 2, 2, 2};
+  IntArrayRef a_ref = a;
+  EXPECT_EQ(a_ref.count(1), 0);
+  EXPECT_EQ(a_ref.count(2), 5);
+  EXPECT_EQ(a_ref.count(3), 3);
+  EXPECT_EQ(a_ref.count(4), 1);
+  EXPECT_EQ(a_ref.count(5), 0);
+}
+
+TEST(array_ref, ToSmallVector)
+{
+  IntVector a = {1, 2, 3, 4};
+  IntArrayRef a_ref = a;
+  IntVector b = a_ref.to_small_vector();
+  IntVector::all_equal(a, b);
+}
+
+static void test_ref_from_initializer_list(IntArrayRef ref)
+{
+  EXPECT_EQ(ref.size(), 4);
+  EXPECT_EQ(ref[0], 3);
+  EXPECT_EQ(ref[1], 6);
+  EXPECT_EQ(ref[2], 8);
+  EXPECT_EQ(ref[3], 9);
+}
+
+TEST(array_ref, FromInitializerList)
+{
+  test_ref_from_initializer_list({3, 6, 8, 9});
+}
+
+TEST(array_ref, FromSingleValue)
+{
+  int a = 4;
+  IntArrayRef a_ref(a);
+  EXPECT_EQ(a_ref.size(), 1);
+  EXPECT_EQ(a_ref[0], 4);
+  a = 10;
+  EXPECT_EQ(a_ref[0], 10);
 }

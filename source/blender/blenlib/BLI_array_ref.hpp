@@ -12,15 +12,24 @@ template<typename T> class ArrayRef {
  public:
   ArrayRef() = default;
 
+  ArrayRef(T &value) : m_start(&value), m_size(1)
+  {
+  }
+
   ArrayRef(T *start, uint size) : m_start(start), m_size(size)
   {
   }
 
-  ArrayRef(SmallVector<T> &vector) : m_start(vector.begin()), m_size(vector.size())
+  template<uint N>
+  ArrayRef(const SmallVector<T, N> &vector) : m_start(vector.begin()), m_size(vector.size())
   {
   }
 
   ArrayRef(const SmallVector<T> &vector) : m_start(vector.begin()), m_size(vector.size())
+  {
+  }
+
+  ArrayRef(const std::initializer_list<T> &list) : m_start((T *)list.begin()), m_size(list.size())
   {
   }
 
@@ -61,6 +70,36 @@ template<typename T> class ArrayRef {
   uint size() const
   {
     return m_size;
+  }
+
+  bool contains(const T &value)
+  {
+    for (T &element : *this) {
+      if (element == value) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  uint count(const T &value)
+  {
+    uint counter = 0;
+    for (T &element : *this) {
+      if (element == value) {
+        counter++;
+      }
+    }
+    return counter;
+  }
+
+  SmallVector<T> to_small_vector() const
+  {
+    SmallVector<T> vector;
+    for (T &value : *this) {
+      vector.append(value);
+    }
+    return vector;
   }
 };
 
