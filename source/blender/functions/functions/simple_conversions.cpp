@@ -76,32 +76,32 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_to_bool)
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_bool_list_to_int32_list)
 {
-  return to_vectorized_function(GET_FN_bool_to_int32(), {true});
+  return to_vectorized_function(GET_FN_bool_to_int32(), {true}, {GET_FN_output_false()});
 }
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_bool_list_to_float_list)
 {
-  return to_vectorized_function(GET_FN_bool_to_float(), {true});
+  return to_vectorized_function(GET_FN_bool_to_float(), {true}, {GET_FN_output_false()});
 }
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_int32_list_to_float_list)
 {
-  return to_vectorized_function(GET_FN_int32_to_float(), {true});
+  return to_vectorized_function(GET_FN_int32_to_float(), {true}, {GET_FN_output_int32_0()});
 }
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_int32_list_to_bool_list)
 {
-  return to_vectorized_function(GET_FN_int32_to_bool(), {true});
+  return to_vectorized_function(GET_FN_int32_to_bool(), {true}, {GET_FN_output_int32_0()});
 }
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_list_to_int32_list)
 {
-  return to_vectorized_function(GET_FN_float_to_int32(), {true});
+  return to_vectorized_function(GET_FN_float_to_int32(), {true}, {GET_FN_output_float_0()});
 }
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_list_to_bool_list)
 {
-  return to_vectorized_function(GET_FN_float_to_bool(), {true});
+  return to_vectorized_function(GET_FN_float_to_bool(), {true}, {GET_FN_output_float_0()});
 }
 
 }  // namespace Functions

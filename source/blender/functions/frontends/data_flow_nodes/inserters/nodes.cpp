@@ -13,25 +13,35 @@ namespace DataFlowNodes {
 
 using namespace Types;
 
+struct AutoVectorizedInput {
+  const char *prop_name;
+  SharedFunction &default_value_builder;
+};
+
 static SharedFunction get_vectorized_function(SharedFunction &original_fn,
                                               PointerRNA &node_rna,
-                                              SmallVector<const char *> vectorize_prop_names)
+                                              ArrayRef<AutoVectorizedInput> auto_vectorized_inputs)
 {
-  BLI_assert(original_fn->signature().inputs().size() == vectorize_prop_names.size());
+  BLI_assert(original_fn->signature().inputs().size() == auto_vectorized_inputs.size());
 
   SmallVector<bool> vectorized_inputs;
-  for (const char *prop_name : vectorize_prop_names) {
+  SmallVector<SharedFunction> used_default_value_builders;
+  for (auto &input : auto_vectorized_inputs) {
     char state[5];
-    BLI_assert(RNA_string_length(&node_rna, prop_name) == strlen("BASE"));
-    RNA_string_get(&node_rna, prop_name, state);
+    BLI_assert(RNA_string_length(&node_rna, input.prop_name) == strlen("BASE"));
+    RNA_string_get(&node_rna, input.prop_name, state);
     BLI_assert(STREQ(state, "BASE") || STREQ(state, "LIST"));
 
     bool is_vectorized = STREQ(state, "LIST");
     vectorized_inputs.append(is_vectorized);
+    if (is_vectorized) {
+      used_default_value_builders.append(input.default_value_builder);
+    }
   }
 
   if (vectorized_inputs.contains(true)) {
-    return Functions::to_vectorized_function(original_fn, vectorized_inputs);
+    return Functions::to_vectorized_function(
+        original_fn, vectorized_inputs, used_default_value_builders);
   }
   else {
     return original_fn;
@@ -74,12 +84,17 @@ static void INSERT_float_math(BTreeGraphBuilder &builder, bNode *bnode)
   uint input_amount = original_fn->signature().inputs().size();
 
   if (input_amount == 1) {
-    SharedFunction fn = get_vectorized_function(original_fn, rna, {"use_list__a"});
+    SharedFunction fn = get_vectorized_function(
+        original_fn, rna, {{"use_list__a", Functions::GET_FN_output_float_0()}});
     builder.insert_matching_function(fn, bnode);
   }
   else {
     BLI_assert(input_amount == 2);
-    SharedFunction fn = get_vectorized_function(original_fn, rna, {"use_list__a", "use_list__b"});
+    SharedFunction fn = get_vectorized_function(
+        original_fn,
+        rna,
+        {{"use_list__a", Functions::GET_FN_output_float_0()},
+         {"use_list__b", Functions::GET_FN_output_float_0()}});
     builder.insert_matching_function(fn, bnode);
   }
 }
@@ -101,7 +116,10 @@ static void INSERT_vector_math(BTreeGraphBuilder &builder, bNode *bnode)
   int operation = RNA_enum_get(&rna, "operation");
 
   SharedFunction fn = get_vectorized_function(
-      get_vector_math_function(operation), rna, {"use_list__a", "use_list__b"});
+      get_vector_math_function(operation),
+      rna,
+      {{"use_list__a", Functions::GET_FN_output_float_0()},
+       {"use_list__b", Functions::GET_FN_output_float_0()}});
   builder.insert_matching_function(fn, bnode);
 }
 
@@ -212,7 +230,11 @@ static void INSERT_combine_vector(BTreeGraphBuilder &builder, bNode *bnode)
 {
   PointerRNA rna = builder.get_rna(bnode);
   SharedFunction fn = get_vectorized_function(
-      Functions::GET_FN_combine_vector(), rna, {"use_list__x", "use_list__y", "use_list__z"});
+      Functions::GET_FN_combine_vector(),
+      rna,
+      {{"use_list__x", Functions::GET_FN_output_float_1()},
+       {"use_list__y", Functions::GET_FN_output_float_0()},
+       {"use_list__z", Functions::GET_FN_output_float_0()}});
   builder.insert_matching_function(fn, bnode);
 }
 
@@ -220,7 +242,9 @@ static void INSERT_separate_vector(BTreeGraphBuilder &builder, bNode *bnode)
 {
   PointerRNA rna = builder.get_rna(bnode);
   SharedFunction fn = get_vectorized_function(
-      Functions::GET_FN_separate_vector(), rna, {"use_list__vector"});
+      Functions::GET_FN_separate_vector(),
+      rna,
+      {{"use_list__vector", Functions::GET_FN_output_float_0()}});
   builder.insert_matching_function(fn, bnode);
 }
 

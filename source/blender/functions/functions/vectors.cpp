@@ -139,5 +139,65 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_add_vectors)
   return fn;
 }
 
+/* Constant vector builders
+ *****************************************/
+
+class ConstFVec3 : public TupleCallBody {
+ private:
+  Vector m_vector;
+
+ public:
+  ConstFVec3(Vector vector) : m_vector(vector)
+  {
+  }
+
+  void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+  {
+    fn_out.set<Vector>(0, m_vector);
+  }
+};
+
+class ConstFVec3Gen : public LLVMBuildIRBody {
+ private:
+  Vector m_vector;
+  LLVMTypeInfo *m_type_info;
+
+ public:
+  ConstFVec3Gen(Vector vector) : m_vector(vector)
+  {
+    m_type_info = GET_TYPE_fvec3()->extension<LLVMTypeInfo>();
+  }
+
+  void build_ir(CodeBuilder &builder,
+                CodeInterface &interface,
+                const BuildIRSettings &UNUSED(settings)) const override
+  {
+    llvm::Value *output = builder.getUndef(m_type_info->get_type(builder.getContext()));
+    output = builder.CreateInsertElement(output, builder.getFloat(m_vector.x), 0);
+    output = builder.CreateInsertElement(output, builder.getFloat(m_vector.y), 1);
+    output = builder.CreateInsertElement(output, builder.getFloat(m_vector.z), 2);
+    interface.set_output(0, output);
+  }
+};
+
+static SharedFunction get_output_fvec3_function(Vector vector)
+{
+  auto fn = SharedFunction::New("Build Vector",
+                                Signature({}, {OutputParameter("Vector", GET_TYPE_fvec3())}));
+  fn->add_body<ConstFVec3>(vector);
+  fn->add_body<ConstFVec3Gen>(vector);
+  return fn;
+}
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_fvec3_0)
+{
+  return get_output_fvec3_function(Vector(0, 0, 0));
+}
+
+LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_fvec3_1)
+{
+  return get_output_fvec3_function(Vector(1, 1, 1));
+}
+
 }  // namespace Functions
 }  // namespace FN

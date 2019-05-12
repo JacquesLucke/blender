@@ -22,6 +22,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
  private:
   SharedFunction m_main;
   SmallVector<bool> m_input_is_list;
+  SmallVector<SharedFunction> m_empty_list_value_builders;
 
   struct InputInfo {
     bool is_list;
@@ -43,8 +44,12 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
   SmallVector<OutputInfo> m_output_info;
 
  public:
-  AutoVectorizationGen(SharedFunction main, const SmallVector<bool> &input_is_list)
-      : m_main(main), m_input_is_list(input_is_list)
+  AutoVectorizationGen(SharedFunction main,
+                       ArrayRef<bool> input_is_list,
+                       ArrayRef<SharedFunction> empty_list_value_builders)
+      : m_main(main),
+        m_input_is_list(input_is_list.to_small_vector()),
+        m_empty_list_value_builders(empty_list_value_builders.to_small_vector())
   {
     BLI_assert(input_is_list.contains(true));
     for (uint i = 0; i < main->signature().inputs().size(); i++) {
@@ -85,7 +90,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     llvm::Value *iteration = loop.current_iteration();
 
     LLVMValues main_inputs = this->prepare_main_function_inputs(
-        body_builder, interface, input_data_pointers, input_list_lengths, iteration);
+        body_builder, interface, settings, input_data_pointers, input_list_lengths, iteration);
 
     LLVMValues main_outputs(m_output_info.size());
     CodeInterface main_interface(
@@ -171,6 +176,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
 
   LLVMValues prepare_main_function_inputs(CodeBuilder &builder,
                                           CodeInterface &interface,
+                                          const BuildIRSettings &settings,
                                           const LLVMValues &input_data_pointers,
                                           const LLVMValues &input_list_lengths,
                                           llvm::Value *iteration) const
@@ -189,9 +195,16 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
         CodeBuilder &else_builder = ifthenelse.else_builder();
 
         /* Use default value when list has no elements. */
-        then_builder.CreateAssertFalse("cannot handle empty lists yet");
-        llvm::Value *default_value = then_builder.getUndef(
-            type_info->get_type(then_builder.getContext()));
+        SharedFunction &default_builder = m_empty_list_value_builders[list_input_index];
+        auto *default_builder_body = default_builder->body<LLVMBuildIRBody>();
+        LLVMValues default_builder_inputs(0);
+        LLVMValues default_builder_outputs(1);
+        CodeInterface default_builder_interface(default_builder_inputs,
+                                                default_builder_outputs,
+                                                interface.context_ptr(),
+                                                interface.function_ir_cache());
+        default_builder_body->build_ir(builder, default_builder_interface, settings);
+        llvm::Value *default_value = default_builder_outputs[0];
 
         /* Load value from list. */
         llvm::Value *current_index = else_builder.CreateURem(iteration, list_length);
@@ -387,24 +400,16 @@ class AutoVectorization : public TupleCallBody {
   }
 };
 
-static bool any_true(const SmallVector<bool> &list)
-{
-  for (bool value : list) {
-    if (value) {
-      return true;
-    }
-  }
-  return false;
-}
-
 SharedFunction to_vectorized_function(SharedFunction &original_fn,
-                                      const SmallVector<bool> &vectorize_input)
+                                      ArrayRef<bool> vectorized_inputs_mask,
+                                      ArrayRef<SharedFunction> empty_list_value_builders)
 {
   uint input_amount = original_fn->signature().inputs().size();
   uint output_amount = original_fn->signature().outputs().size();
 
-  BLI_assert(vectorize_input.size() == input_amount);
-  BLI_assert(any_true(vectorize_input));
+  BLI_assert(vectorized_inputs_mask.size() == input_amount);
+  BLI_assert(vectorized_inputs_mask.contains(true));
+  BLI_assert(empty_list_value_builders.size() == vectorized_inputs_mask.count(true));
 
   if (!original_fn->has_body<TupleCallBody>()) {
     if (original_fn->has_body<LLVMBuildIRBody>()) {
@@ -418,7 +423,7 @@ SharedFunction to_vectorized_function(SharedFunction &original_fn,
   InputParameters inputs;
   for (uint i = 0; i < input_amount; i++) {
     auto original_parameter = original_fn->signature().inputs()[i];
-    if (vectorize_input[i]) {
+    if (vectorized_inputs_mask[i]) {
       SharedType &list_type = get_list_type(original_parameter.type());
       inputs.append(InputParameter(original_parameter.name() + " (List)", list_type));
     }
@@ -436,8 +441,9 @@ SharedFunction to_vectorized_function(SharedFunction &original_fn,
 
   std::string name = original_fn->name() + " (Vectorized)";
   auto fn = SharedFunction::New(name, Signature(inputs, outputs));
-  // fn->add_body<AutoVectorization>(original_fn, vectorize_input);
-  fn->add_body<AutoVectorizationGen>(original_fn, vectorize_input);
+  // fn->add_body<AutoVectorization>(original_fn, vectorized_inputs_mask);
+  fn->add_body<AutoVectorizationGen>(
+      original_fn, vectorized_inputs_mask, empty_list_value_builders);
   return fn;
 }
 

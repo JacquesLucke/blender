@@ -6,6 +6,7 @@ namespace FN {
 namespace Functions {
 
 SharedFunction to_vectorized_function(SharedFunction &fn,
-                                      const SmallVector<bool> &vectorize_input);
+                                      ArrayRef<bool> vectorized_inputs_mask,
+                                      ArrayRef<SharedFunction> empty_list_value_builders);
 }
 }  // namespace FN
