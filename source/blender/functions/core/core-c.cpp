@@ -34,24 +34,24 @@ bool FN_function_has_signature(FnFunction fn, FnType *inputs, FnType *outputs)
 
 uint FN_input_amount(FnFunction fn)
 {
-  return unwrap(fn)->signature().inputs().size();
+  return unwrap(fn)->input_amount();
 }
 
 uint FN_output_amount(FnFunction fn)
 {
-  return unwrap(fn)->signature().outputs().size();
+  return unwrap(fn)->output_amount();
 }
 
 bool FN_input_has_type(FnFunction fn, uint index, FnType type)
 {
-  Type *type1 = unwrap(fn)->signature().inputs()[index].type().ptr();
+  Type *type1 = unwrap(fn)->input_type(index).ptr();
   Type *type2 = unwrap(type);
   return type1 == type2;
 }
 
 bool FN_output_has_type(FnFunction fn, uint index, FnType type)
 {
-  Type *type1 = unwrap(fn)->signature().outputs()[index].type().ptr();
+  Type *type1 = unwrap(fn)->output_type(index).ptr();
   Type *type2 = unwrap(type);
   return type1 == type2;
 }

@@ -96,6 +96,27 @@ class Function final : public RefCountedBase {
 
   void print() const;
 
+  /* Utility accessors */
+  uint input_amount() const
+  {
+    return m_signature.inputs().size();
+  }
+
+  uint output_amount() const
+  {
+    return m_signature.outputs().size();
+  }
+
+  SharedType &input_type(uint index)
+  {
+    return m_signature.inputs()[index].type();
+  }
+
+  SharedType &output_type(uint index)
+  {
+    return m_signature.outputs()[index].type();
+  }
+
  private:
   const std::string m_name;
   Signature m_signature;

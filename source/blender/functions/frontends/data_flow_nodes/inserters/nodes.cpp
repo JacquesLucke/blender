@@ -22,7 +22,7 @@ static SharedFunction get_vectorized_function(SharedFunction &original_fn,
                                               PointerRNA &node_rna,
                                               ArrayRef<AutoVectorizedInput> auto_vectorized_inputs)
 {
-  BLI_assert(original_fn->signature().inputs().size() == auto_vectorized_inputs.size());
+  BLI_assert(original_fn->input_amount() == auto_vectorized_inputs.size());
 
   SmallVector<bool> vectorized_inputs;
   SmallVector<SharedFunction> used_default_value_builders;
@@ -81,7 +81,7 @@ static void INSERT_float_math(BTreeGraphBuilder &builder, bNode *bnode)
   int operation = RNA_enum_get(&rna, "operation");
 
   SharedFunction &original_fn = get_float_math_function(operation);
-  uint input_amount = original_fn->signature().inputs().size();
+  uint input_amount = original_fn->input_amount();
 
   if (input_amount == 1) {
     SharedFunction fn = get_vectorized_function(

@@ -199,8 +199,7 @@ class DataFlowGraph : public RefCountedBase {
   Range<uint> input_ids_of_node(uint node_id) const
   {
     MyNode &node = m_nodes[node_id];
-    return Range<uint>(node.inputs_start,
-                       node.inputs_start + node.function->signature().inputs().size());
+    return Range<uint>(node.inputs_start, node.inputs_start + node.function->input_amount());
   }
 
   DFGraphSocketSequence<Range<uint>> inputs_of_node(uint node_id) const

@@ -5,10 +5,10 @@ namespace FN {
 SharedType &DFGB_Socket::type() const
 {
   if (m_is_output) {
-    return this->node()->signature().outputs()[m_index].type();
+    return this->node()->function()->output_type(m_index);
   }
   else {
-    return this->node()->signature().inputs()[m_index].type();
+    return this->node()->function()->input_type(m_index);
   }
 }
 

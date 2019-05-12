@@ -292,7 +292,7 @@ SharedFunction &GET_FN_list_length(SharedType &base_type)
 SharedType &get_list_type(SharedType &base_type)
 {
   SharedFunction &fn = GET_FN_append_to_list(base_type);
-  return fn->signature().inputs()[0].type();
+  return fn->input_type(0);
 }
 
 GetListLength GET_C_FN_list_length(SharedType &base_type)

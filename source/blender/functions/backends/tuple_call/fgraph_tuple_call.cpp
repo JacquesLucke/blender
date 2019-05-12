@@ -79,8 +79,8 @@ class ExecuteFGraph : public TupleCallBody {
       m_node_info.append(
           NodeInfo(body, is_lazy_body, m_inputs_buffer_size, m_outputs_buffer_size));
 
-      m_inputs_init_buffer_size += fn->signature().inputs().size();
-      m_outputs_init_buffer_size += fn->signature().outputs().size();
+      m_inputs_init_buffer_size += fn->input_amount();
+      m_outputs_init_buffer_size += fn->output_amount();
 
       if (body == nullptr) {
         for (auto param : fn->signature().inputs()) {
@@ -101,14 +101,14 @@ class ExecuteFGraph : public TupleCallBody {
       }
       else {
         SharedTupleMeta &meta_in = body->meta_in();
-        for (uint i = 0; i < fn->signature().inputs().size(); i++) {
+        for (uint i = 0; i < fn->input_amount(); i++) {
           m_input_info.append(SocketInfo(
               meta_in->type_infos()[i], m_inputs_buffer_size + meta_in->offsets()[i], false));
         }
         m_inputs_buffer_size += meta_in->size_of_data();
 
         SharedTupleMeta &meta_out = body->meta_out();
-        for (uint i = 0; i < fn->signature().outputs().size(); i++) {
+        for (uint i = 0; i < fn->output_amount(); i++) {
           m_output_info.append(SocketInfo(
               meta_out->type_infos()[i], m_outputs_buffer_size + meta_out->offsets()[i], false));
         }

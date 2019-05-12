@@ -63,16 +63,16 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   context_ptr->setName("context");
 
   LLVMValues input_values;
-  for (uint i = 0; i < fn->signature().inputs().size(); i++) {
+  for (uint i = 0; i < fn->input_amount(); i++) {
     llvm::Value *value_byte_addr = lookup_tuple_address(builder, fn_in_data, fn_in_offsets, i);
 
-    LLVMTypeInfo *type_info = get_type_info(fn->signature().inputs()[i].type());
+    LLVMTypeInfo *type_info = get_type_info(fn->input_type(i));
     llvm::Value *value = type_info->build_load_ir__relocate(builder, value_byte_addr);
 
     input_values.append(value);
   }
 
-  LLVMValues output_values(fn->signature().outputs().size());
+  LLVMValues output_values(fn->output_amount());
   BuildIRSettings settings;
   FunctionIRCache function_cache;
   CodeInterface interface(input_values, output_values, context_ptr, function_cache);
@@ -81,7 +81,7 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   for (uint i = 0; i < output_values.size(); i++) {
     llvm::Value *value_byte_addr = lookup_tuple_address(builder, fn_out_data, fn_out_offsets, i);
 
-    LLVMTypeInfo *type_info = get_type_info(fn->signature().outputs()[i].type());
+    LLVMTypeInfo *type_info = get_type_info(fn->output_type(i));
     type_info->build_store_ir__relocate(builder, output_values[i], value_byte_addr);
   }
 

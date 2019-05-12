@@ -52,8 +52,8 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
         m_empty_list_value_builders(empty_list_value_builders.to_small_vector())
   {
     BLI_assert(input_is_list.contains(true));
-    for (uint i = 0; i < main->signature().inputs().size(); i++) {
-      SharedType &base_type = main->signature().inputs()[i].type();
+    for (uint i = 0; i < main->input_amount(); i++) {
+      SharedType &base_type = main->input_type(i);
       SharedType &list_type = get_list_type(base_type);
       InputInfo info;
       info.is_list = input_is_list[i];
@@ -266,7 +266,7 @@ class AutoVectorization : public TupleCallBody {
       }
     }
     for (uint i : m_list_inputs) {
-      SharedType &base_type = main->signature().inputs()[i].type();
+      SharedType &base_type = main->input_type(i);
       m_get_length_bodies.append(GET_FN_list_length(base_type)->body<TupleCallBody>());
       m_get_element_bodies.append(GET_FN_get_list_element(base_type)->body<TupleCallBody>());
     }
@@ -316,7 +316,7 @@ class AutoVectorization : public TupleCallBody {
       iteration_frame.m_iteration = iteration;
       m_main_body->call(main_in, main_out, ctx);
 
-      for (uint i = 0; i < m_main->signature().outputs().size(); i++) {
+      for (uint i = 0; i < m_main->output_amount(); i++) {
         this->append_to_output(main_out, fn_out, i, ctx);
       }
     }
@@ -374,7 +374,7 @@ class AutoVectorization : public TupleCallBody {
 
   void initialize_empty_lists(Tuple &fn_out, ExecutionContext &ctx) const
   {
-    for (uint i = 0; i < m_main->signature().outputs().size(); i++) {
+    for (uint i = 0; i < m_main->output_amount(); i++) {
       this->initialize_empty_list(fn_out, i, ctx);
     }
   }
@@ -404,8 +404,8 @@ SharedFunction to_vectorized_function(SharedFunction &original_fn,
                                       ArrayRef<bool> vectorized_inputs_mask,
                                       ArrayRef<SharedFunction> empty_list_value_builders)
 {
-  uint input_amount = original_fn->signature().inputs().size();
-  uint output_amount = original_fn->signature().outputs().size();
+  uint input_amount = original_fn->input_amount();
+  uint output_amount = original_fn->output_amount();
 
   BLI_assert(vectorized_inputs_mask.size() == input_amount);
   BLI_assert(vectorized_inputs_mask.contains(true));

@@ -276,12 +276,12 @@ inline SharedFunction &DFGB_Node::function()
 
 inline uint DFGB_Node::input_amount() const
 {
-  return m_function->signature().inputs().size();
+  return m_function->input_amount();
 }
 
 inline uint DFGB_Node::output_amount() const
 {
-  return m_function->signature().outputs().size();
+  return m_function->output_amount();
 }
 
 inline SourceInfo *DFGB_Node::source() const
