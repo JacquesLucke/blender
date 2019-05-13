@@ -88,6 +88,7 @@ extern char datatoc_object_particle_prim_vert_glsl[];
 extern char datatoc_object_particle_dot_vert_glsl[];
 extern char datatoc_object_particle_dot_frag_glsl[];
 extern char datatoc_common_globals_lib_glsl[];
+extern char datatoc_common_view_lib_glsl[];
 extern char datatoc_common_fxaa_lib_glsl[];
 extern char datatoc_gpu_shader_flat_color_frag_glsl[];
 extern char datatoc_gpu_shader_flat_id_frag_glsl[];
@@ -331,7 +332,6 @@ static struct {
 
   OBJECT_Shaders sh_data[GPU_SHADER_CFG_LEN];
 
-  float camera_pos[3];
   float grid_settings[5];
   float grid_mesh_size;
   int grid_flag;
@@ -419,8 +419,14 @@ static void OBJECT_engine_init(void *vedata)
         .defs = (const char *[]){sh_cfg_data->def, NULL},
     });
     sh_data->outline_prepass_wire = GPU_shader_create_from_arrays({
-        .vert = (const char *[]){sh_cfg_data->lib, datatoc_object_outline_prepass_vert_glsl, NULL},
-        .geom = (const char *[]){sh_cfg_data->lib, datatoc_object_outline_prepass_geom_glsl, NULL},
+        .vert = (const char *[]){sh_cfg_data->lib,
+                                 datatoc_common_view_lib_glsl,
+                                 datatoc_object_outline_prepass_vert_glsl,
+                                 NULL},
+        .geom = (const char *[]){sh_cfg_data->lib,
+                                 datatoc_common_view_lib_glsl,
+                                 datatoc_object_outline_prepass_geom_glsl,
+                                 NULL},
         .frag = (const char *[]){datatoc_object_outline_prepass_frag_glsl, NULL},
         .defs = (const char *[]){sh_cfg_data->def, NULL},
     });
@@ -462,37 +468,53 @@ static void OBJECT_engine_init(void *vedata)
               "#define DEPTH_BACK " STRINGIFY(OB_EMPTY_IMAGE_DEPTH_BACK) "\n");
 
       sh_data->object_empty_image = GPU_shader_create_from_arrays({
-          .vert = (const char *[]){sh_cfg_data->lib, datatoc_object_empty_image_vert_glsl, NULL},
+          .vert = (const char *[]){sh_cfg_data->lib,
+                                   datatoc_common_view_lib_glsl,
+                                   datatoc_object_empty_image_vert_glsl,
+                                   NULL},
           .frag = (const char *[]){datatoc_object_empty_image_frag_glsl, NULL},
           .defs = (const char *[]){sh_cfg_data->def, empty_image_defs, NULL},
       });
       sh_data->object_empty_image_wire = GPU_shader_create_from_arrays({
-          .vert = (const char *[]){sh_cfg_data->lib, datatoc_object_empty_image_vert_glsl, NULL},
+          .vert = (const char *[]){sh_cfg_data->lib,
+                                   datatoc_common_view_lib_glsl,
+                                   datatoc_object_empty_image_vert_glsl,
+                                   NULL},
           .frag = (const char *[]){datatoc_object_empty_image_frag_glsl, NULL},
           .defs = (const char *[]){sh_cfg_data->def, "#define USE_WIRE\n", empty_image_defs, NULL},
       });
     }
 
     /* Grid */
-    sh_data->grid = DRW_shader_create_with_lib(datatoc_object_grid_vert_glsl,
-                                               NULL,
-                                               datatoc_object_grid_frag_glsl,
-                                               datatoc_common_globals_lib_glsl,
-                                               NULL);
+    sh_data->grid = GPU_shader_create_from_arrays({
+        .vert = (const char *[]){datatoc_common_globals_lib_glsl,
+                                 datatoc_common_view_lib_glsl,
+                                 datatoc_object_grid_vert_glsl,
+                                 NULL},
+        .frag = (const char *[]){datatoc_common_globals_lib_glsl,
+                                 datatoc_common_view_lib_glsl,
+                                 datatoc_object_grid_frag_glsl,
+                                 NULL},
+    });
 
     /* Particles */
-    sh_data->part_prim = DRW_shader_create(datatoc_object_particle_prim_vert_glsl,
-                                           NULL,
-                                           datatoc_gpu_shader_flat_color_frag_glsl,
-                                           NULL);
+    sh_data->part_prim = DRW_shader_create_with_lib(datatoc_object_particle_prim_vert_glsl,
+                                                    NULL,
+                                                    datatoc_gpu_shader_flat_color_frag_glsl,
+                                                    datatoc_common_view_lib_glsl,
+                                                    NULL);
 
-    sh_data->part_axis = DRW_shader_create(datatoc_object_particle_prim_vert_glsl,
-                                           NULL,
-                                           datatoc_gpu_shader_flat_color_frag_glsl,
-                                           "#define USE_AXIS\n");
+    sh_data->part_axis = DRW_shader_create_with_lib(datatoc_object_particle_prim_vert_glsl,
+                                                    NULL,
+                                                    datatoc_gpu_shader_flat_color_frag_glsl,
+                                                    datatoc_common_view_lib_glsl,
+                                                    "#define USE_AXIS\n");
 
-    sh_data->part_dot = DRW_shader_create(
-        datatoc_object_particle_dot_vert_glsl, NULL, datatoc_object_particle_dot_frag_glsl, NULL);
+    sh_data->part_dot = DRW_shader_create_with_lib(datatoc_object_particle_dot_vert_glsl,
+                                                   NULL,
+                                                   datatoc_object_particle_dot_frag_glsl,
+                                                   datatoc_common_view_lib_glsl,
+                                                   NULL);
 
     /* Lightprobes */
     sh_data->lightprobe_grid = DRW_shader_create(datatoc_object_lightprobe_grid_vert_glsl,
@@ -529,9 +551,6 @@ static void OBJECT_engine_init(void *vedata)
     DRW_viewport_matrix_get(viewmat, DRW_MAT_VIEW);
     DRW_viewport_matrix_get(invwinmat, DRW_MAT_WININV);
     DRW_viewport_matrix_get(invviewmat, DRW_MAT_VIEWINV);
-
-    /* Setup camera pos */
-    copy_v3_v3(e_data.camera_pos, invviewmat[3]);
 
     /* if perps */
     if (winmat[3][3] == 0.0f) {
@@ -604,8 +623,9 @@ static void OBJECT_engine_init(void *vedata)
     if (((rv3d->view == RV3D_VIEW_USER) || (rv3d->persp != RV3D_ORTHO)) && show_axis_z) {
       e_data.zpos_flag = SHOW_AXIS_Z;
 
-      float zvec[4] = {0.0f, 0.0f, -1.0f, 0.0f};
-      mul_m4_v4(invviewmat, zvec);
+      float zvec[3], campos[3];
+      negate_v3_v3(zvec, invviewmat[2]);
+      copy_v3_v3(campos, invviewmat[3]);
 
       /* z axis : chose the most facing plane */
       if (fabsf(zvec[0]) < fabsf(zvec[1])) {
@@ -619,7 +639,7 @@ static void OBJECT_engine_init(void *vedata)
 
       /* Persp : If camera is below floor plane, we switch clipping
        * Ortho : If eye vector is looking up, we switch clipping */
-      if (((winmat[3][3] == 0.0f) && (e_data.camera_pos[2] > 0.0f)) ||
+      if (((winmat[3][3] == 0.0f) && (campos[2] > 0.0f)) ||
           ((winmat[3][3] != 0.0f) && (zvec[2] < 0.0f))) {
         e_data.zpos_flag |= CLIP_ZPOS;
         e_data.zneg_flag |= CLIP_ZNEG;
@@ -1179,7 +1199,6 @@ static void OBJECT_cache_init(void *vedata)
     DRWShadingGroup *grp = DRW_shgroup_create(sh_data->grid, psl->grid);
     DRW_shgroup_uniform_int(grp, "gridFlag", &e_data.zneg_flag, 1);
     DRW_shgroup_uniform_vec3(grp, "planeAxes", e_data.zplane_axes, 1);
-    DRW_shgroup_uniform_vec3(grp, "cameraPos", e_data.camera_pos, 1);
     DRW_shgroup_uniform_vec4(grp, "gridSettings", e_data.grid_settings, 1);
     DRW_shgroup_uniform_float_copy(grp, "lineKernel", grid_line_size);
     DRW_shgroup_uniform_float_copy(grp, "meshSize", e_data.grid_mesh_size);
@@ -1923,13 +1942,14 @@ static void camera_view3d_stereoscopy_display_extra(OBJECT_ShadingGroupList *sgl
 static void camera_view3d_reconstruction(OBJECT_ShadingGroupList *sgl,
                                          Scene *scene,
                                          View3D *v3d,
-                                         const Object *camera_object,
+                                         Object *camera_object,
                                          Object *ob,
                                          const float color[4],
                                          const bool is_select)
 {
   const DRWContextState *draw_ctx = DRW_context_state_get();
   Camera *cam = ob->data;
+  const Object *orig_camera_object = DEG_get_original_object(camera_object);
 
   if ((v3d->flag2 & V3D_SHOW_RECONSTRUCTION) == 0) {
     return;
@@ -2010,7 +2030,7 @@ static void camera_view3d_reconstruction(OBJECT_ShadingGroupList *sgl,
       }
 
       if (is_select) {
-        DRW_select_load_id(camera_object->select_id | (track_index << 16));
+        DRW_select_load_id(orig_camera_object->runtime.select_id | (track_index << 16));
         track_index++;
       }
 
@@ -2076,7 +2096,7 @@ static void DRW_shgroup_camera(OBJECT_ShadingGroupList *sgl, Object *ob, ViewLay
   RegionView3D *rv3d = draw_ctx->rv3d;
 
   Camera *cam = ob->data;
-  const Object *camera_object = DEG_get_evaluated_object(draw_ctx->depsgraph, v3d->camera);
+  Object *camera_object = DEG_get_evaluated_object(draw_ctx->depsgraph, v3d->camera);
   const bool is_select = DRW_state_is_select();
   const bool is_active = (ob == camera_object);
   const bool look_through = (is_active && (rv3d->persp == RV3D_CAMOB));
@@ -2987,7 +3007,6 @@ static void OBJECT_cache_populate_particles(OBJECT_Shaders *sh_data,
     if (draw_as != PART_DRAW_PATH) {
       struct GPUBatch *geom = DRW_cache_particles_get_dots(ob, psys);
       DRWShadingGroup *shgrp = NULL;
-      static int screen_space[2] = {0, 1};
       static float def_prim_col[3] = {0.5f, 0.5f, 0.5f};
       static float def_sec_col[3] = {1.0f, 1.0f, 1.0f};
 
@@ -3013,7 +3032,9 @@ static void OBJECT_cache_populate_particles(OBJECT_Shaders *sh_data,
                                               e_data.particle_format);
           DRW_shgroup_uniform_texture(shgrp, "ramp", G_draw.ramp);
           DRW_shgroup_uniform_vec3(shgrp, "color", ma ? &ma->r : def_prim_col, 1);
-          DRW_shgroup_uniform_int(shgrp, "screen_space", &screen_space[0], 1);
+          DRW_shgroup_uniform_float(shgrp, "draw_size", &part->draw_size, 1);
+          DRW_shgroup_uniform_bool_copy(shgrp, "screen_space", false);
+          DRW_shgroup_instance_batch(shgrp, geom);
           break;
         case PART_DRAW_CIRC:
           shgrp = DRW_shgroup_instance_create(sh_data->part_prim,
@@ -3022,24 +3043,21 @@ static void OBJECT_cache_populate_particles(OBJECT_Shaders *sh_data,
                                               e_data.particle_format);
           DRW_shgroup_uniform_texture(shgrp, "ramp", G_draw.ramp);
           DRW_shgroup_uniform_vec3(shgrp, "color", ma ? &ma->r : def_prim_col, 1);
-          DRW_shgroup_uniform_int(shgrp, "screen_space", &screen_space[1], 1);
+          DRW_shgroup_uniform_float(shgrp, "draw_size", &part->draw_size, 1);
+          DRW_shgroup_uniform_bool_copy(shgrp, "screen_space", true);
+          DRW_shgroup_instance_batch(shgrp, geom);
           break;
         case PART_DRAW_AXIS:
           shgrp = DRW_shgroup_instance_create(sh_data->part_axis,
                                               psl->particle,
                                               DRW_cache_particles_get_prim(PART_DRAW_AXIS),
                                               e_data.particle_format);
-          DRW_shgroup_uniform_int(shgrp, "screen_space", &screen_space[0], 1);
+          DRW_shgroup_uniform_float(shgrp, "draw_size", &part->draw_size, 1);
+          DRW_shgroup_uniform_bool_copy(shgrp, "screen_space", false);
+          DRW_shgroup_instance_batch(shgrp, geom);
           break;
         default:
           break;
-      }
-
-      if (shgrp) {
-        if (draw_as != PART_DRAW_DOT) {
-          DRW_shgroup_uniform_float(shgrp, "draw_size", &part->draw_size, 1);
-          DRW_shgroup_instance_batch(shgrp, geom);
-        }
       }
     }
   }

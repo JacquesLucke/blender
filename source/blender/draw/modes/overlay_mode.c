@@ -100,6 +100,8 @@ extern char datatoc_overlay_face_wireframe_geom_glsl[];
 extern char datatoc_overlay_face_wireframe_frag_glsl[];
 extern char datatoc_gpu_shader_depth_only_frag_glsl[];
 
+extern char datatoc_common_view_lib_glsl[];
+
 /* Functions */
 static void overlay_engine_init(void *vedata)
 {
@@ -124,8 +126,10 @@ static void overlay_engine_init(void *vedata)
   if (!sh_data->face_orientation) {
     /* Face orientation */
     sh_data->face_orientation = GPU_shader_create_from_arrays({
-        .vert =
-            (const char *[]){sh_cfg_data->lib, datatoc_overlay_face_orientation_vert_glsl, NULL},
+        .vert = (const char *[]){sh_cfg_data->lib,
+                                 datatoc_common_view_lib_glsl,
+                                 datatoc_overlay_face_orientation_vert_glsl,
+                                 NULL},
         .frag = (const char *[]){datatoc_overlay_face_orientation_frag_glsl, NULL},
         .defs = (const char *[]){sh_cfg_data->def, NULL},
     });
@@ -133,7 +137,10 @@ static void overlay_engine_init(void *vedata)
 
   if (!sh_data->face_wireframe) {
     sh_data->select_wireframe = GPU_shader_create_from_arrays({
-        .vert = (const char *[]){sh_cfg_data->lib, datatoc_overlay_face_wireframe_vert_glsl, NULL},
+        .vert = (const char *[]){sh_cfg_data->lib,
+                                 datatoc_common_view_lib_glsl,
+                                 datatoc_overlay_face_wireframe_vert_glsl,
+                                 NULL},
         .geom = (const char *[]){sh_cfg_data->lib, datatoc_overlay_face_wireframe_geom_glsl, NULL},
         .frag = (const char *[]){datatoc_gpu_shader_depth_only_frag_glsl, NULL},
         .defs = (const char *[]){sh_cfg_data->def, "#define SELECT_EDGES\n", NULL},
@@ -141,14 +148,20 @@ static void overlay_engine_init(void *vedata)
 #if USE_GEOM_SHADER_WORKAROUND
     /* Apple drivers does not support wide wires. Use geometry shader as a workaround. */
     sh_data->face_wireframe = GPU_shader_create_from_arrays({
-        .vert = (const char *[]){sh_cfg_data->lib, datatoc_overlay_face_wireframe_vert_glsl, NULL},
+        .vert = (const char *[]){sh_cfg_data->lib,
+                                 datatoc_common_view_lib_glsl,
+                                 datatoc_overlay_face_wireframe_vert_glsl,
+                                 NULL},
         .geom = (const char *[]){sh_cfg_data->lib, datatoc_overlay_face_wireframe_geom_glsl, NULL},
         .frag = (const char *[]){datatoc_overlay_face_wireframe_frag_glsl, NULL},
         .defs = (const char *[]){sh_cfg_data->def, "#define USE_GEOM\n", NULL},
     });
 #else
     sh_data->face_wireframe = GPU_shader_create_from_arrays({
-        .vert = (const char *[]){sh_cfg_data->lib, datatoc_overlay_face_wireframe_vert_glsl, NULL},
+        .vert = (const char *[]){sh_cfg_data->lib,
+                                 datatoc_common_view_lib_glsl,
+                                 datatoc_overlay_face_wireframe_vert_glsl,
+                                 NULL},
         .frag = (const char *[]){datatoc_overlay_face_wireframe_frag_glsl, NULL},
         .defs = (const char *[]){sh_cfg_data->def, NULL},
     });
@@ -356,7 +369,9 @@ static void overlay_cache_populate(void *vedata, Object *ob)
         *dupli_data = MEM_callocN(sizeof(OVERLAY_DupliData), "OVERLAY_DupliData");
       }
       else {
-        DRW_shgroup_call_object_add((*dupli_data)->shgrp, (*dupli_data)->geom, ob);
+        if ((*dupli_data)->shgrp && (*dupli_data)->geom) {
+          DRW_shgroup_call_object_add((*dupli_data)->shgrp, (*dupli_data)->geom, ob);
+        }
         return;
       }
     }

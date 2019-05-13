@@ -2078,17 +2078,6 @@ static bool mesh_batch_cache_valid(Mesh *me)
     return false;
   }
 
-  if (cache->is_editmode) {
-    return false;
-  }
-  else if ((cache->vert_len != mesh_render_verts_len_get(me)) ||
-           (cache->edge_len != mesh_render_edges_len_get(me)) ||
-           (cache->tri_len != mesh_render_looptri_len_get(me)) ||
-           (cache->poly_len != mesh_render_polys_len_get(me)) ||
-           (cache->mat_len != mesh_render_mat_len_get(me))) {
-    return false;
-  }
-
   return true;
 }
 
@@ -2118,6 +2107,8 @@ static void mesh_batch_cache_init(Mesh *me)
   cache->surf_per_mat = MEM_callocN(sizeof(*cache->surf_per_mat) * cache->mat_len, __func__);
 
   cache->is_dirty = false;
+  cache->batch_ready = 0;
+  cache->batch_requested = 0;
 
   drw_mesh_weight_state_clear(&cache->weight_state);
 }
@@ -4294,7 +4285,7 @@ GPUBatch *DRW_mesh_batch_cache_get_loose_edges(Mesh *me)
 GPUBatch *DRW_mesh_batch_cache_get_surface_weights(Mesh *me)
 {
   MeshBatchCache *cache = mesh_batch_cache_get(me);
-  mesh_batch_cache_add_request(cache, MBC_LOOSE_EDGES);
+  mesh_batch_cache_add_request(cache, MBC_SURFACE_WEIGHTS);
   return DRW_batch_request(&cache->batch.surface_weights);
 }
 
@@ -4902,12 +4893,18 @@ void DRW_mesh_batch_cache_create_requested(
 
   /* Early out */
   if (cache->batch_requested == 0) {
+#ifdef DEBUG
+    goto check;
+#endif
     return;
   }
 
-  if (cache->batch_requested & MBC_SURFACE_WEIGHTS) {
+  DRWBatchFlag batch_requested = cache->batch_requested;
+  cache->batch_requested = 0;
+
+  if (batch_requested & MBC_SURFACE_WEIGHTS) {
     /* Check vertex weights. */
-    if ((cache->batch.surface_weights != 0) && (ts != NULL)) {
+    if ((cache->batch.surface_weights != NULL) && (ts != NULL)) {
       struct DRW_MeshWeightState wstate;
       BLI_assert(ob->type == OB_MESH);
       drw_mesh_weight_state_extract(ob, me, ts, is_paint_mode, &wstate);
@@ -4917,7 +4914,7 @@ void DRW_mesh_batch_cache_create_requested(
     }
   }
 
-  if (cache->batch_requested & (MBC_SURFACE | MBC_SURF_PER_MAT)) {
+  if (batch_requested & (MBC_SURFACE | MBC_SURF_PER_MAT | MBC_WIRE_LOOPS_UVS)) {
     /* Optimization : Only create orco layer if mesh is deformed. */
     if (cache->cd_needed.orco != 0) {
       CustomData *cd_vdata = (me->edit_mesh) ? &me->edit_mesh->bm->vdata : &me->vdata;
@@ -4954,7 +4951,7 @@ void DRW_mesh_batch_cache_create_requested(
         GPU_BATCH_CLEAR_SAFE(cache->surf_per_mat[i]);
       }
       GPU_BATCH_CLEAR_SAFE(cache->batch.surface);
-      cache->batch_ready = ~(MBC_SURFACE | MBC_SURF_PER_MAT);
+      cache->batch_ready &= ~(MBC_SURFACE | MBC_SURF_PER_MAT);
 
       mesh_cd_layers_type_merge(&cache->cd_used, cache->cd_needed);
     }
@@ -4962,7 +4959,7 @@ void DRW_mesh_batch_cache_create_requested(
     mesh_cd_layers_type_clear(&cache->cd_needed);
   }
 
-  if (cache->batch_requested & MBC_EDITUV) {
+  if (batch_requested & MBC_EDITUV) {
     /* Discard UV batches if sync_selection changes */
     if (ts != NULL) {
       const bool is_uvsyncsel = (ts->uv_flag & UV_SYNC_SELECTION);
@@ -4990,11 +4987,14 @@ void DRW_mesh_batch_cache_create_requested(
   }
 
   /* Second chance to early out */
-  if ((cache->batch_requested & ~cache->batch_ready) == 0) {
+  if ((batch_requested & ~cache->batch_ready) == 0) {
+#ifdef DEBUG
+    goto check;
+#endif
     return;
   }
 
-  cache->batch_ready |= cache->batch_requested;
+  cache->batch_ready |= batch_requested;
 
   /* Init batches and request VBOs & IBOs */
   if (DRW_batch_requested(cache->batch.surface, GPU_PRIM_TRIS)) {
@@ -5386,6 +5386,7 @@ void DRW_mesh_batch_cache_create_requested(
   }
 
 #ifdef DEBUG
+check:
   /* Make sure all requested batches have been setup. */
   for (int i = 0; i < sizeof(cache->batch) / sizeof(void *); ++i) {
     BLI_assert(!DRW_batch_requested(((GPUBatch **)&cache->batch)[i], 0));

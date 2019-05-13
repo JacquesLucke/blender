@@ -42,6 +42,8 @@
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 
+#include "UI_interface_icons.h"
+
 #include "rna_internal.h"
 
 #include "WM_api.h"
@@ -99,6 +101,45 @@ static const EnumPropertyItem rna_enum_studio_light_type_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
+static const EnumPropertyItem rna_enum_userdef_viewport_aa_items[] = {
+    {SCE_DISPLAY_AA_OFF,
+     "OFF",
+     0,
+     "No Anti-Aliasing",
+     "Scene will be rendering without any anti-aliasing"},
+    {SCE_DISPLAY_AA_FXAA,
+     "FXAA",
+     0,
+     "Single Pass Anti-Aliasing",
+     "Scene will be rendered using a single pass anti-aliasing method (FXAA)"},
+    {SCE_DISPLAY_AA_SAMPLES_5,
+     "5",
+     0,
+     "5 Samples",
+     "Scene will be rendered using 5 anti-aliasing samples"},
+    {SCE_DISPLAY_AA_SAMPLES_8,
+     "8",
+     0,
+     "8 Samples",
+     "Scene will be rendered using 8 anti-aliasing samples"},
+    {SCE_DISPLAY_AA_SAMPLES_11,
+     "11",
+     0,
+     "11 Samples",
+     "Scene will be rendered using 11 anti-aliasing samples"},
+    {SCE_DISPLAY_AA_SAMPLES_16,
+     "16",
+     0,
+     "16 Samples",
+     "Scene will be rendered using 16 anti-aliasing samples"},
+    {SCE_DISPLAY_AA_SAMPLES_32,
+     "32",
+     0,
+     "32 Samples",
+     "Scene will be rendered using 32 anti-aliasing samples"},
+    {0, NULL, 0, NULL, NULL},
+};
+
 #ifdef RNA_RUNTIME
 
 #  include "BLI_math_vector.h"
@@ -145,6 +186,10 @@ static void rna_userdef_version_get(PointerRNA *ptr, int *value)
 
 static void rna_userdef_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
+  /* We can't use 'ptr->data' because this update function
+   * is used for themes and other nested data. */
+  U.runtime.is_dirty = true;
+
   WM_main_add_notifier(NC_WINDOW, NULL);
 }
 
@@ -154,6 +199,12 @@ static void rna_userdef_theme_update(Main *bmain, Scene *scene, PointerRNA *ptr)
   WM_reinit_gizmomap_all(bmain);
 
   rna_userdef_update(bmain, scene, ptr);
+}
+
+static void rna_userdef_theme_update_icons(Main *bmain, Scene *scene, PointerRNA *ptr)
+{
+  UI_icons_reload_internal_textures();
+  rna_userdef_theme_update(bmain, scene, ptr);
 }
 
 /* also used by buffer swap switching */
@@ -401,6 +452,7 @@ static bAddon *rna_userdef_addon_new(void)
   ListBase *addons_list = &U.addons;
   bAddon *addon = BKE_addon_new();
   BLI_addtail(addons_list, addon);
+  U.runtime.is_dirty = true;
   return addon;
 }
 
@@ -415,12 +467,14 @@ static void rna_userdef_addon_remove(ReportList *reports, PointerRNA *addon_ptr)
   BLI_remlink(addons_list, addon);
   BKE_addon_free(addon);
   RNA_POINTER_INVALIDATE(addon_ptr);
+  U.runtime.is_dirty = true;
 }
 
 static bPathCompare *rna_userdef_pathcompare_new(void)
 {
   bPathCompare *path_cmp = MEM_callocN(sizeof(bPathCompare), "bPathCompare");
   BLI_addtail(&U.autoexec_paths, path_cmp);
+  U.runtime.is_dirty = true;
   return path_cmp;
 }
 
@@ -434,6 +488,7 @@ static void rna_userdef_pathcompare_remove(ReportList *reports, PointerRNA *path
 
   BLI_freelinkN(&U.autoexec_paths, path_cmp);
   RNA_POINTER_INVALIDATE(path_cmp_ptr);
+  U.runtime.is_dirty = true;
 }
 
 static void rna_userdef_temp_update(Main *UNUSED(bmain),
@@ -1338,6 +1393,12 @@ static void rna_def_userdef_theme_ui(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 
   /* Icon colors. */
+  prop = RNA_def_property(srna, "icon_scene", PROP_FLOAT, PROP_COLOR_GAMMA);
+  RNA_def_property_float_sdna(prop, NULL, "icon_scene");
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_ui_text(prop, "Scene", "");
+  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
+
   prop = RNA_def_property(srna, "icon_collection", PROP_FLOAT, PROP_COLOR_GAMMA);
   RNA_def_property_float_sdna(prop, NULL, "icon_collection");
   RNA_def_property_array(prop, 4);
@@ -1367,6 +1428,13 @@ static void rna_def_userdef_theme_ui(BlenderRNA *brna)
   RNA_def_property_array(prop, 4);
   RNA_def_property_ui_text(prop, "Shading", "");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
+
+  prop = RNA_def_property(srna, "icon_border_intensity", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "icon_border_intensity");
+  RNA_def_property_ui_text(
+      prop, "Icon Border", "Control the intensity of the border around themes icons");
+  RNA_def_property_ui_range(prop, 0.0, 1.0, 0.1, 2);
+  RNA_def_property_update(prop, 0, "rna_userdef_theme_update_icons");
 }
 
 static void rna_def_userdef_theme_space_common(StructRNA *srna)
@@ -4134,12 +4202,12 @@ static void rna_def_userdef_view(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_userdef_update");
 
   /* Lookdev */
-  prop = RNA_def_property(srna, "lookdev_ball_size", PROP_INT, PROP_PIXEL);
-  RNA_def_property_int_sdna(prop, NULL, "lookdev_ball_size");
+  prop = RNA_def_property(srna, "lookdev_sphere_size", PROP_INT, PROP_PIXEL);
+  RNA_def_property_int_sdna(prop, NULL, "lookdev_sphere_size");
   RNA_def_property_range(prop, 50, 400);
   RNA_def_property_int_default(prop, 150);
   RNA_def_property_ui_text(
-      prop, "LookDev Balls Size", "Maximum diameter of the LookDev balls size");
+      prop, "Look Dev Spheres Size", "Maximum diameter of the look development sphere size");
   RNA_def_property_update(prop, 0, "rna_userdef_update");
 
   /* View2D Grid Displays */
@@ -4731,12 +4799,11 @@ static void rna_def_userdef_system(BlenderRNA *brna)
       prop, "Region Overlap", "Draw tool/property regions over the main region");
   RNA_def_property_update(prop, 0, "rna_userdef_dpi_update");
 
-  prop = RNA_def_property(srna, "gpu_viewport_quality", PROP_FLOAT, PROP_FACTOR);
-  RNA_def_property_float_sdna(prop, NULL, "gpu_viewport_quality");
-  RNA_def_property_float_default(prop, 0.6f);
-  RNA_def_property_range(prop, 0.0f, 1.0f);
+  prop = RNA_def_property(srna, "viewport_aa", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, rna_enum_userdef_viewport_aa_items);
   RNA_def_property_ui_text(
-      prop, "Viewport Quality", "Quality setting for Solid mode rendering in the 3d viewport");
+      prop, "Viewport Anti-Aliasing", "Method of anti-aliasing in 3d viewport");
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, 0, "rna_userdef_update");
 
   prop = RNA_def_property(srna, "solid_lights", PROP_COLLECTION, PROP_NONE);
@@ -5619,6 +5686,11 @@ void RNA_def_userdef(BlenderRNA *brna)
                                     NULL,
                                     NULL);
   RNA_def_property_ui_text(prop, "Studio Lights", "");
+
+  /* Preferences Flags */
+  prop = RNA_def_property(srna, "use_preferences_save", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "pref_flag", USER_PREF_FLAG_SAVE);
+  RNA_def_property_ui_text(prop, "Save on Exit", "Save modified preferences on exit");
 
   rna_def_userdef_view(brna);
   rna_def_userdef_edit(brna);
