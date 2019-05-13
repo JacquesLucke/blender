@@ -1,5 +1,12 @@
 #pragma once
 
+/* This vector wraps a dynamically sized array of a specific type.
+ * It supports small object optimization. That means, when the
+ * vector only contains a few elements, no extra memory allocation
+ * is performed. Instead, those elements are stored directly in
+ * the vector.
+ */
+
 #include "BLI_utildefines.h"
 
 #include "MEM_guardedalloc.h"

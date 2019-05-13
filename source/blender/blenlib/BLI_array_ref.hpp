@@ -1,5 +1,11 @@
 #pragma once
 
+/* An ArrayRef references some memory buffer owned
+ * by someone else. If possible, functions should take
+ * an ArrayRef as input. This allows passing on different
+ * kinds of class types without doing unnecessary conversions.
+ */
+
 #include "BLI_small_vector.hpp"
 
 namespace BLI {

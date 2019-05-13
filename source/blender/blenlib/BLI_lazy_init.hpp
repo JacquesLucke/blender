@@ -1,3 +1,5 @@
+#pragma once
+
 /* These macros help to define functions that initialize
  * some data the first time it is used.
  * Currently the memory is freed after Blender prints information

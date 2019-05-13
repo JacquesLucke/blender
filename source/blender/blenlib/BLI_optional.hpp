@@ -1,5 +1,9 @@
 #pragma once
 
+/* Simple version of std::optional, which is only
+ * available since C++17.
+ */
+
 #include "BLI_utildefines.h"
 
 #include <algorithm>

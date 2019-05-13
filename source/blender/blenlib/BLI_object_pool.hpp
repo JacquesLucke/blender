@@ -1,5 +1,18 @@
 #pragma once
 
+/* This structure allows reusing the same object.
+ *
+ * Aquire:
+ *   Get an object that might have been used before.
+ *   If no unused object exists currently, a new one
+ *   will be allocated and constructed.
+ *
+ * Release:
+ *   Give back the object instance, so that someone
+ *   else can use it later. The destructor is not
+ *   necessarily called.
+ */
+
 #include <mutex>
 
 #include "BLI_small_stack.hpp"

@@ -1,5 +1,9 @@
 #pragma once
 
+/* This file contains utilities to make timing of
+ * code segments easy.
+ */
+
 #include <chrono>
 #include <iostream>
 

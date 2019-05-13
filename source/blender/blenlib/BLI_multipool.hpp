@@ -1,5 +1,14 @@
 #pragma once
 
+/* This is similar to a normal MemPool, but supports
+ * allocating different sizes. It should only be used
+ * when the amount of different sizes is expected to
+ * be very small.
+ *
+ * It is not thread-safe, so only a single thread should
+ * allocate memory using this pool at the same time.
+ */
+
 #include "BLI_small_map.hpp"
 #include "BLI_mempool.hpp"
 

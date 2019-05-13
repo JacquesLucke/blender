@@ -1,5 +1,10 @@
 #pragma once
 
+/* The purpose of this wrapper is just to make it more
+ * comfortable to iterate of ListBase instances, that
+ * are used in many places in Blender.
+ */
+
 #include "BLI_listbase.h"
 #include "DNA_listBase.h"
 

@@ -1,5 +1,24 @@
 #pragma once
 
+/* Use this memory allocator when:
+ *   - all allocations have the same size
+ *   - only a single thread allocates from this allocator
+ *   - all allocated memory should be returned to the system at once
+ *
+ * The allocator keeps track of all unused allocated chunks
+ * in a stack. Allocation pops the top chunk, while deallocation
+ * pushes the chunk back to the stack.
+ *
+ * Memory is never returned to the system in this allocator.
+ * If the task requires that to happen, another allocator should be
+ * used, so that this allocator can stay simple.
+ *
+ * allocate: O(1) amortized
+ * deallocate: O(1)
+ * internal allocations: O(lg n) where n is the number of allocations
+ *
+ */
+
 #include "BLI_small_stack.hpp"
 #include "BLI_small_set.hpp"
 

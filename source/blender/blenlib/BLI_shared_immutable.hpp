@@ -1,5 +1,23 @@
 #pragma once
 
+/* A shared immutable type has a reference count and
+ * is freed automatically, when it is not used anymore.
+ * Furthermore, it must not be modified, when it is
+ * referenced in two or more places.
+ *
+ * When the reference is one, it can be mutated.
+ *
+ * This approach reduces the amount of defensive
+ * copies of data (data that is copied to make sure
+ * that nobody does not change it anymore). Instead,
+ * to one just have to increase the user count.
+ *
+ * A copy has to be made, when the user count is >= 2.
+ *
+ * Reference counting can be automated with the
+ * AutoRefCount class.
+ */
+
 #include "BLI_shared.hpp"
 
 namespace BLI {

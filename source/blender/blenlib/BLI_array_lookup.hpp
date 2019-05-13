@@ -1,5 +1,13 @@
 #pragma once
 
+/* The ArrayLookup allows sharing code between a
+ * map and set implementation without hacks
+ * (like using an empty value when a set is needed).
+ *
+ * It is search index for another array. Once build,
+ * it allows fast `contains` and `find` calls on that array.
+ */
+
 #include "BLI_utildefines.h"
 #include "BLI_small_vector.hpp"
 #include "BLI_math_bits.h"

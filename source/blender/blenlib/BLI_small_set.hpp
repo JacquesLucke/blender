@@ -1,5 +1,11 @@
 #pragma once
 
+/* A unordered set implementation that supports small object optimization.
+ * It builds on top of SmallVector and ArrayLookup, so that
+ * it does not have to deal with memory management and the
+ * details of the hashing and probing algorithm.
+ */
+
 #include "BLI_small_vector.hpp"
 #include "BLI_array_lookup.hpp"
 

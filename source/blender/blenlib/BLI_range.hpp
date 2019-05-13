@@ -1,5 +1,9 @@
 #pragma once
 
+/* Allows passing iterators over ranges of integers without
+ * actually allocating an array.
+ */
+
 #include "BLI_utildefines.h"
 
 namespace BLI {

@@ -1,5 +1,10 @@
 #pragma once
 
+/* A set with small object optimization that keeps track
+ * of insertion order. Internally, it is the same as SmallSet
+ * but that could potentially change in the future.
+ */
+
 #include "BLI_small_set.hpp"
 
 namespace BLI {

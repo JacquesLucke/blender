@@ -1,5 +1,9 @@
 #pragma once
 
+/* Basic stack implementation with support for
+ * small object optimization.
+ */
+
 #include "BLI_small_vector.hpp"
 
 namespace BLI {

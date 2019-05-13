@@ -1,5 +1,14 @@
 #pragma once
 
+/* A map that allows storing multiple values per key.
+ *
+ * Values per key are stored in an array without being
+ * able to efficiently check if a specific value exists
+ * for a key. A linear search through all values for
+ * a key has to be performed. When the number of values
+ * per key is expected to be small, this is still fast.
+ */
+
 #include "BLI_small_map.hpp"
 #include "BLI_multipool.hpp"
 #include "BLI_array_ref.hpp"

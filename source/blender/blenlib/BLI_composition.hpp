@@ -1,5 +1,13 @@
 #pragma once
 
+/* This class allows to create a set of objects
+ * of different types. Only one instance of a type
+ * can exist in the set.
+ *
+ * In some cases, this approach should be preferred
+ * over multiple inheritance.
+ */
+
 #include "BLI_small_map.hpp"
 
 namespace BLI {
