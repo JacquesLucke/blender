@@ -129,6 +129,13 @@ template<typename T, uint N = 4> class SmallVector {
     }
   }
 
+  void extend(const T *start, uint amount)
+  {
+    for (uint i = 0; i < amount; i++) {
+      this->append(start[i]);
+    }
+  }
+
   void fill(const T &value)
   {
     for (uint i = 0; i < m_size; i++) {

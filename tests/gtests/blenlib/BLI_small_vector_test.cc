@@ -208,3 +208,15 @@ TEST(small_vector, AllEqual_True)
   bool result = IntVector::all_equal(a, b);
   EXPECT_TRUE(result);
 }
+
+TEST(small_vector, ExtendArray)
+{
+  int array[] = {3, 4, 5, 6};
+
+  IntVector a;
+  a.extend(array, 2);
+
+  EXPECT_EQ(a.size(), 2);
+  EXPECT_EQ(a[0], 3);
+  EXPECT_EQ(a[1], 4);
+}

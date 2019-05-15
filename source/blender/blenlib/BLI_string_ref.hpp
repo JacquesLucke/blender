@@ -1,7 +1,9 @@
 #pragma once
 
 /* Two types of string references. One that guarantees null termination
- * and one that does not. */
+ * and one that does not. The data referenced should be considered
+ * to be immutable. If we need a StringRef to a mutable string,
+ * a new class (e.g. MutableStringRef) should be implemented. */
 
 #include <cstring>
 #include <string>
