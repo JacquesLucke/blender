@@ -1,6 +1,7 @@
 #pragma once
 
-/* Reference to a string that might NOT be null-terminated. */
+/* Two types of string references. One that guarantees null termination
+ * and one that does not. */
 
 #include <cstring>
 #include <string>
@@ -8,6 +9,46 @@
 #include "BLI_utildefines.h"
 
 namespace BLI {
+
+class StringRefNull {
+ public:
+  using size_type = size_t;
+
+ private:
+  const char *m_data;
+  size_type m_size;
+
+ public:
+  StringRefNull() : m_data(""), m_size(0)
+  {
+  }
+
+  StringRefNull(const char *str) : m_data(str), m_size(strlen(str))
+  {
+    BLI_assert(str != NULL);
+    BLI_assert(m_data[m_size] == '\0');
+  }
+
+  StringRefNull(const std::string &str) : StringRefNull(str.data())
+  {
+  }
+
+  size_type size() const
+  {
+    return m_size;
+  }
+
+  const char *data() const
+  {
+    return m_data;
+  }
+
+  char operator[](size_type index) const
+  {
+    BLI_assert(index <= m_size);
+    return m_data[index];
+  }
+};
 
 class StringRef {
  public:
@@ -19,6 +60,10 @@ class StringRef {
 
  public:
   StringRef() : m_data(nullptr), m_size(0)
+  {
+  }
+
+  StringRef(StringRefNull other) : m_data(other.data()), m_size(other.size())
   {
   }
 

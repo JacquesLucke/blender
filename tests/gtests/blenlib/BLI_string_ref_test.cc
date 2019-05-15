@@ -2,6 +2,22 @@
 #include "BLI_string_ref.hpp"
 
 using BLI::StringRef;
+using BLI::StringRefNull;
+
+TEST(string_ref_null, DefaultConstructor)
+{
+  StringRefNull ref;
+  EXPECT_EQ(ref.size(), 0);
+  EXPECT_EQ(ref[0], '\0');
+}
+
+TEST(string_ref_null, CStringConstructor)
+{
+  const char *str = "Hello";
+  StringRefNull ref(str);
+  EXPECT_EQ(ref.size(), 5);
+  EXPECT_EQ(ref.data(), str);
+}
 
 TEST(string_ref, DefaultConstructor)
 {
