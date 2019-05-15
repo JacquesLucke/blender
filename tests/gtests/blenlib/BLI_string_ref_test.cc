@@ -78,3 +78,39 @@ TEST(string_ref, Print)
   EXPECT_EQ(str.size(), 8);
   EXPECT_EQ(str, "testtest");
 }
+
+TEST(string_ref, Add)
+{
+  StringRef a("qwe");
+  StringRef b("asd");
+  std::string result = a + b;
+  EXPECT_EQ(result, "qweasd");
+}
+
+TEST(string_ref, AddCharPtr1)
+{
+  StringRef ref("test");
+  std::string result = ref + "qwe";
+  EXPECT_EQ(result, "testqwe");
+}
+
+TEST(string_ref, AddCharPtr2)
+{
+  StringRef ref("test");
+  std::string result = "qwe" + ref;
+  EXPECT_EQ(result, "qwetest");
+}
+
+TEST(string_ref, AddString1)
+{
+  StringRef ref("test");
+  std::string result = ref + std::string("asd");
+  EXPECT_EQ(result, "testasd");
+}
+
+TEST(string_ref, AddString2)
+{
+  StringRef ref("test");
+  std::string result = std::string("asd") + ref;
+  EXPECT_EQ(result, "asdtest");
+}
