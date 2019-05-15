@@ -4,6 +4,7 @@
 #include <mutex>
 #include "BLI_composition.hpp"
 #include "BLI_shared.hpp"
+#include "BLI_string_ref.hpp"
 
 namespace FN {
 
@@ -39,7 +40,7 @@ class Type final : public RefCountedBase {
   {
   }
 
-  const std::string &name() const
+  const StringRefNull name() const
   {
     return m_name;
   }

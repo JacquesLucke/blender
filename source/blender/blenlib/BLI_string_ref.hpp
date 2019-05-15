@@ -48,6 +48,37 @@ class StringRefNull {
     BLI_assert(index <= m_size);
     return m_data[index];
   }
+
+  std::string to_std_string() const
+  {
+    return std::string(m_data, m_size);
+  }
+
+  friend std::ostream &operator<<(std::ostream &stream, StringRefNull ref)
+  {
+    stream << ref.to_std_string();
+    return stream;
+  }
+
+  friend std::string operator+(const char *a, const StringRefNull b)
+  {
+    return a + b.to_std_string();
+  }
+
+  friend std::string operator+(const StringRefNull a, const char *b)
+  {
+    return a.to_std_string() + b;
+  }
+
+  friend std::string operator+(const std::string &a, const StringRefNull b)
+  {
+    return a + b.data();
+  }
+
+  friend std::string operator+(const StringRefNull a, const std::string &b)
+  {
+    return a.data() + b;
+  }
 };
 
 class StringRef {

@@ -4,7 +4,7 @@ using namespace FN;
 
 const char *FN_type_name(FnType type)
 {
-  return unwrap(type)->name().c_str();
+  return unwrap(type)->name().data();
 }
 
 void FN_type_free(FnType type)
