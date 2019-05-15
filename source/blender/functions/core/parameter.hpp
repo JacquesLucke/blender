@@ -6,11 +6,11 @@ namespace FN {
 
 class Parameter {
  public:
-  Parameter(const std::string &name, const SharedType &type) : m_name(name), m_type(type)
+  Parameter(StringRef name, const SharedType &type) : m_name(name.to_std_string()), m_type(type)
   {
   }
 
-  const std::string &name() const
+  const StringRefNull name() const
   {
     return m_name;
   }
@@ -34,14 +34,14 @@ class Parameter {
 
 class InputParameter final : public Parameter {
  public:
-  InputParameter(const std::string &name, const SharedType &type) : Parameter(name, type)
+  InputParameter(StringRef name, const SharedType &type) : Parameter(name, type)
   {
   }
 };
 
 class OutputParameter final : public Parameter {
  public:
-  OutputParameter(const std::string &name, const SharedType &type) : Parameter(name, type)
+  OutputParameter(StringRef name, const SharedType &type) : Parameter(name, type)
   {
   }
 };

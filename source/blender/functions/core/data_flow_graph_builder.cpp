@@ -12,7 +12,7 @@ SharedType &DFGB_Socket::type() const
   }
 }
 
-std::string DFGB_Socket::name() const
+const StringRefNull DFGB_Socket::name() const
 {
   if (m_is_output) {
     return this->node()->signature().outputs()[m_index].name();

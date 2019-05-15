@@ -36,7 +36,7 @@ class TypeExtension {
 class Type final : public RefCountedBase {
  public:
   Type() = delete;
-  Type(const std::string &name) : m_name(name)
+  Type(StringRef name) : m_name(name.to_std_string())
   {
   }
 

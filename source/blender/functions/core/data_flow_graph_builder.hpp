@@ -33,7 +33,7 @@ class DFGB_Socket {
   inline DataFlowGraphBuilder &builder();
 
   SharedType &type() const;
-  std::string name() const;
+  const StringRefNull name() const;
 
   inline Optional<DFGB_Socket> origin();
   inline ArrayRef<DFGB_Socket> targets();

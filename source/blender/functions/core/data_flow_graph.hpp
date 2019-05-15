@@ -327,7 +327,7 @@ class DataFlowGraph : public RefCountedBase {
     return this->index_of_output(output_socket.id());
   }
 
-  const std::string &name_of_socket(DFGraphSocket socket)
+  const StringRefNull name_of_socket(DFGraphSocket socket)
   {
     if (socket.is_input()) {
       return this->name_of_input(socket.id());
@@ -347,12 +347,12 @@ class DataFlowGraph : public RefCountedBase {
     }
   }
 
-  const std::string &name_of_input(uint input_socket)
+  const StringRefNull name_of_input(uint input_socket)
   {
     return this->input_parameter(input_socket).name();
   }
 
-  const std::string &name_of_output(uint output_socket)
+  const StringRefNull name_of_output(uint output_socket)
   {
     return this->output_parameter(output_socket).name();
   }
