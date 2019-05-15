@@ -70,6 +70,7 @@ BLENDER_TEST(BLI_small_stack "bf_blenlib")
 BLENDER_TEST(BLI_small_map "bf_blenlib")
 BLENDER_TEST(BLI_stack "bf_blenlib")
 BLENDER_TEST(BLI_string "bf_blenlib")
+BLENDER_TEST(BLI_string_ref "bf_blenlib")
 BLENDER_TEST(BLI_string_utf8 "bf_blenlib")
 BLENDER_TEST(BLI_task "bf_blenlib;bf_intern_numaapi")
 
