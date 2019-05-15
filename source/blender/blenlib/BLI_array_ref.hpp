@@ -109,16 +109,15 @@ template<typename T> class ArrayRef {
   }
 };
 
-template<typename ArrayT, typename ValueT, ValueT (*GetValue)(ArrayT &item)>
-class StridedArrayRef {
+template<typename ArrayT, typename ValueT, ValueT (*GetValue)(ArrayT &item)> class MappedArrayRef {
  private:
   ArrayT *m_start = nullptr;
   uint m_size = 0;
 
  public:
-  StridedArrayRef() = default;
+  MappedArrayRef() = default;
 
-  StridedArrayRef(ArrayT *start, uint size) : m_start(start), m_size(size)
+  MappedArrayRef(ArrayT *start, uint size) : m_start(start), m_size(size)
   {
   }
 
@@ -129,11 +128,11 @@ class StridedArrayRef {
 
   class It {
    private:
-    StridedArrayRef m_array_ref;
+    MappedArrayRef m_array_ref;
     uint m_index;
 
    public:
-    It(StridedArrayRef array_ref, uint index) : m_array_ref(array_ref), m_index(index)
+    It(MappedArrayRef array_ref, uint index) : m_array_ref(array_ref), m_index(index)
     {
     }
 

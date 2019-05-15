@@ -139,9 +139,9 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return entry.value;
   }
 
-  StridedArrayRef<Entry, V &, get_value_from_entry> values() const
+  MappedArrayRef<Entry, V &, get_value_from_entry> values() const
   {
-    return StridedArrayRef<Entry, V &, get_value_from_entry>(m_entries.begin(), m_entries.size());
+    return MappedArrayRef<Entry, V &, get_value_from_entry>(m_entries.begin(), m_entries.size());
   }
 
   static const K &get_key_from_entry(Entry &entry)
@@ -149,10 +149,10 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return entry.key;
   }
 
-  StridedArrayRef<Entry, const K &, get_key_from_entry> keys() const
+  MappedArrayRef<Entry, const K &, get_key_from_entry> keys() const
   {
-    return StridedArrayRef<Entry, const K &, get_key_from_entry>(m_entries.begin(),
-                                                                 m_entries.size());
+    return MappedArrayRef<Entry, const K &, get_key_from_entry>(m_entries.begin(),
+                                                                m_entries.size());
   }
 
   struct KeyValuePair {
@@ -169,10 +169,10 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return KeyValuePair(entry.key, entry.value);
   }
 
-  StridedArrayRef<Entry, KeyValuePair, get_key_value_pair_from_entry> items() const
+  MappedArrayRef<Entry, KeyValuePair, get_key_value_pair_from_entry> items() const
   {
-    return StridedArrayRef<Entry, KeyValuePair, get_key_value_pair_from_entry>(m_entries.begin(),
-                                                                               m_entries.size());
+    return MappedArrayRef<Entry, KeyValuePair, get_key_value_pair_from_entry>(m_entries.begin(),
+                                                                              m_entries.size());
   }
 };
 };  // namespace BLI
