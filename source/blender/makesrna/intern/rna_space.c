@@ -644,6 +644,20 @@ static void rna_Space_show_region_header_update(bContext *C, PointerRNA *ptr)
   rna_Space_bool_from_region_flag_update_by_type(C, ptr, RGN_TYPE_HEADER, RGN_FLAG_HIDDEN);
 }
 
+/* Footer Region. */
+static bool rna_Space_show_region_footer_get(PointerRNA *ptr)
+{
+  return !rna_Space_bool_from_region_flag_get_by_type(ptr, RGN_TYPE_FOOTER, RGN_FLAG_HIDDEN);
+}
+static void rna_Space_show_region_footer_set(PointerRNA *ptr, bool value)
+{
+  rna_Space_bool_from_region_flag_set_by_type(ptr, RGN_TYPE_FOOTER, RGN_FLAG_HIDDEN, !value);
+}
+static void rna_Space_show_region_footer_update(bContext *C, PointerRNA *ptr)
+{
+  rna_Space_bool_from_region_flag_update_by_type(C, ptr, RGN_TYPE_FOOTER, RGN_FLAG_HIDDEN);
+}
+
 /* Tool Header Region.
  *
  * This depends on the 'RGN_TYPE_TOOL_HEADER'
@@ -2460,6 +2474,10 @@ static void rna_def_space_generic_show_region_toggles(StructRNA *srna, int regio
     region_type_mask &= ~(1 << RGN_TYPE_HEADER);
     DEF_SHOW_REGION_PROPERTY(show_region_header, "Header", "");
   }
+  if (region_type_mask & (1 << RGN_TYPE_FOOTER)) {
+    region_type_mask &= ~(1 << RGN_TYPE_FOOTER);
+    DEF_SHOW_REGION_PROPERTY(show_region_footer, "Footer", "");
+  }
   if (region_type_mask & (1 << RGN_TYPE_TOOLS)) {
     region_type_mask &= ~(1 << RGN_TYPE_TOOLS);
     DEF_SHOW_REGION_PROPERTY(show_region_toolbar, "Toolbar", "");
@@ -2766,31 +2784,31 @@ static void rna_def_space_outliner(BlenderRNA *brna)
   /* Granular restriction column option. */
   prop = RNA_def_property(srna, "show_restrict_column_enable", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "show_restrict_flags", SO_RESTRICT_ENABLE);
-  RNA_def_property_ui_text(prop, "Enabled/Disabled", "Enable/ddisable");
+  RNA_def_property_ui_text(prop, "Exclude from View Layer", "Exclude from view layer");
   RNA_def_property_ui_icon(prop, ICON_CHECKBOX_HLT, 0);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_OUTLINER, NULL);
 
-  prop = RNA_def_property(srna, "show_restrict_column_selectable", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "show_restrict_flags", SO_RESTRICT_SELECTABLE);
+  prop = RNA_def_property(srna, "show_restrict_column_select", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "show_restrict_flags", SO_RESTRICT_SELECT);
   RNA_def_property_ui_text(prop, "Selectable", "Selectable");
   RNA_def_property_ui_icon(prop, ICON_RESTRICT_SELECT_OFF, 0);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_OUTLINER, NULL);
 
-  prop = RNA_def_property(srna, "show_restrict_column_instance", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "show_restrict_flags", SO_RESTRICT_INSTANCE);
-  RNA_def_property_ui_text(prop, "Instance Visibility", "Instance visibility");
-  RNA_def_property_ui_icon(prop, ICON_LINKED, 0);
+  prop = RNA_def_property(srna, "show_restrict_column_hide", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "show_restrict_flags", SO_RESTRICT_HIDE);
+  RNA_def_property_ui_text(prop, "Hide in Viewport", "Temporarily hide in viewport");
+  RNA_def_property_ui_icon(prop, ICON_HIDE_OFF, 0);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_OUTLINER, NULL);
 
   prop = RNA_def_property(srna, "show_restrict_column_viewport", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "show_restrict_flags", SO_RESTRICT_VIEWPORT);
-  RNA_def_property_ui_text(prop, "Viewport Visibility", "Viewport visibility");
-  RNA_def_property_ui_icon(prop, ICON_HIDE_OFF, 0);
+  RNA_def_property_ui_text(prop, "Disable in Viewports", "Globally disable in viewports");
+  RNA_def_property_ui_icon(prop, ICON_RESTRICT_VIEW_OFF, 0);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_OUTLINER, NULL);
 
   prop = RNA_def_property(srna, "show_restrict_column_render", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "show_restrict_flags", SO_RESTRICT_RENDER);
-  RNA_def_property_ui_text(prop, "Render Visibility", "Render visibility");
+  RNA_def_property_ui_text(prop, "Disable in Renders", "Globally disable in renders");
   RNA_def_property_ui_icon(prop, ICON_RESTRICT_RENDER_OFF, 0);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_OUTLINER, NULL);
 
@@ -4508,7 +4526,7 @@ static void rna_def_space_text(BlenderRNA *brna)
   RNA_def_struct_sdna(srna, "SpaceText");
   RNA_def_struct_ui_text(srna, "Space Text Editor", "Text editor space data");
 
-  rna_def_space_generic_show_region_toggles(srna, (1 << RGN_TYPE_UI));
+  rna_def_space_generic_show_region_toggles(srna, (1 << RGN_TYPE_UI) | (1 << RGN_TYPE_FOOTER));
 
   /* text */
   prop = RNA_def_property(srna, "text", PROP_POINTER, PROP_NONE);

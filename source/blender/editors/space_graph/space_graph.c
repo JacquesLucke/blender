@@ -42,7 +42,7 @@
 #include "ED_screen.h"
 #include "ED_anim_api.h"
 #include "ED_markers.h"
-#include "ED_scrubbing.h"
+#include "ED_time_scrub_ui.h"
 
 #include "GPU_immediate.h"
 #include "GPU_state.h"
@@ -293,12 +293,14 @@ static void graph_main_region_draw(const bContext *C, ARegion *ar)
   }
 
   /* markers */
-  UI_view2d_view_orthoSpecial(ar, v2d, 1);
-  int marker_draw_flag = DRAW_MARKERS_MARGIN;
-  if (sipo->flag & SIPO_MARKER_LINES) {
-    marker_draw_flag |= DRAW_MARKERS_LINES;
+  if (sipo->mode != SIPO_MODE_DRIVERS) {
+    UI_view2d_view_orthoSpecial(ar, v2d, 1);
+    int marker_draw_flag = DRAW_MARKERS_MARGIN;
+    if (sipo->flag & SIPO_MARKER_LINES) {
+      marker_draw_flag |= DRAW_MARKERS_LINES;
+    }
+    ED_markers_draw(C, marker_draw_flag);
   }
-  ED_markers_draw(C, marker_draw_flag);
 
   /* preview range */
   UI_view2d_view_ortho(v2d);

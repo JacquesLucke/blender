@@ -1753,6 +1753,7 @@ static void wm_userpref_update_when_changed(bContext *C,
   PointerRNA ptr_a, ptr_b;
   RNA_pointer_create(NULL, &RNA_Preferences, userdef_prev, &ptr_a);
   RNA_pointer_create(NULL, &RNA_Preferences, userdef_curr, &ptr_b);
+  const bool is_dirty = userdef_curr->runtime.is_dirty;
 
   rna_struct_update_when_changed(C, bmain, &ptr_a, &ptr_b);
 
@@ -1761,6 +1762,7 @@ static void wm_userpref_update_when_changed(bContext *C,
 #endif
 
   WM_keyconfig_reload(C);
+  userdef_curr->runtime.is_dirty = is_dirty;
 }
 
 static int wm_userpref_read_exec(bContext *C, wmOperator *op)
@@ -1818,6 +1820,7 @@ void WM_OT_read_factory_userpref(wmOperatorType *ot)
 {
   ot->name = "Load Factory Preferences";
   ot->idname = "WM_OT_read_factory_userpref";
+  ot->description = "Load default preferences";
 
   ot->invoke = WM_operator_confirm;
   ot->exec = wm_userpref_read_exec;
@@ -1880,6 +1883,7 @@ static int wm_homefile_read_exec(bContext *C, wmOperator *op)
   PropertyRNA *prop_app_template = RNA_struct_find_property(op->ptr, "app_template");
   const bool use_splash = !use_factory_settings && RNA_boolean_get(op->ptr, "use_splash");
   const bool use_empty_data = RNA_boolean_get(op->ptr, "use_empty");
+  const bool use_temporary_preferences = RNA_boolean_get(op->ptr, "use_temporary_preferences");
 
   if (prop_app_template && RNA_property_is_set(op->ptr, prop_app_template)) {
     RNA_property_string_get(op->ptr, prop_app_template, app_template_buf);
@@ -1910,6 +1914,8 @@ static int wm_homefile_read_exec(bContext *C, wmOperator *op)
   if (use_splash) {
     WM_init_splash(C);
   }
+  SET_FLAG_FROM_TEST(G.f, use_temporary_preferences, G_FLAG_USERPREF_NO_SAVE_ON_EXIT);
+
   return OPERATOR_FINISHED;
 }
 
@@ -1922,6 +1928,24 @@ static int wm_homefile_read_invoke(bContext *C, wmOperator *op, const wmEvent *U
   else {
     return wm_homefile_read_exec(C, op);
   }
+}
+
+static void read_homefile_props(wmOperatorType *ot)
+{
+  PropertyRNA *prop;
+
+  prop = RNA_def_string(ot->srna, "app_template", "Template", sizeof(U.app_template), "", "");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+
+  prop = RNA_def_boolean(ot->srna, "use_empty", false, "Empty", "");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+
+  prop = RNA_def_boolean(ot->srna,
+                         "use_temporary_preferences",
+                         false,
+                         "Temporary Preferences",
+                         "Don't save preferences on exit");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 
 void WM_OT_read_homefile(wmOperatorType *ot)
@@ -1943,23 +1967,17 @@ void WM_OT_read_homefile(wmOperatorType *ot)
       ot->srna, "load_ui", true, "Load UI", "Load user interface setup from the .blend file");
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 
-  prop = RNA_def_boolean(ot->srna, "use_empty", false, "Empty", "");
-  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-
   /* So the splash can be kept open after loading a file (for templates). */
   prop = RNA_def_boolean(ot->srna, "use_splash", false, "Splash", "");
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 
-  prop = RNA_def_string(ot->srna, "app_template", "Template", sizeof(U.app_template), "", "");
-  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+  read_homefile_props(ot);
 
   /* omit poll to run in background mode */
 }
 
 void WM_OT_read_factory_settings(wmOperatorType *ot)
 {
-  PropertyRNA *prop;
-
   ot->name = "Load Factory Settings";
   ot->idname = "WM_OT_read_factory_settings";
   ot->description = "Load default file and preferences";
@@ -1967,12 +1985,7 @@ void WM_OT_read_factory_settings(wmOperatorType *ot)
   ot->invoke = WM_operator_confirm;
   ot->exec = wm_homefile_read_exec;
 
-  prop = RNA_def_string(ot->srna, "app_template", "Template", sizeof(U.app_template), "", "");
-  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-
-  prop = RNA_def_boolean(ot->srna, "use_empty", false, "Empty", "");
-  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-
+  read_homefile_props(ot);
   /* omit poll to run in background mode */
 }
 
@@ -2005,13 +2018,83 @@ static bool wm_file_read_opwrap(bContext *C,
   return success;
 }
 
-/* currently fits in a pointer */
-struct FileRuntime {
-  bool is_untrusted;
+/* Generic operator state utilities
+ *********************************************/
+
+static void create_operator_state(wmOperatorType *ot, int first_state)
+{
+  PropertyRNA *prop = RNA_def_int(
+      ot->srna, "state", first_state, INT32_MIN, INT32_MAX, "State", "", INT32_MIN, INT32_MAX);
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  RNA_def_property_flag(prop, PROP_HIDDEN);
+}
+
+static int get_operator_state(wmOperator *op)
+{
+  return RNA_int_get(op->ptr, "state");
+}
+
+static void set_next_operator_state(wmOperator *op, int state)
+{
+  RNA_int_set(op->ptr, "state", state);
+}
+
+typedef struct OperatorDispatchTarget {
+  int state;
+  int (*run)(bContext *C, wmOperator *op);
+} OperatorDispatchTarget;
+
+static int operator_state_dispatch(bContext *C, wmOperator *op, OperatorDispatchTarget *targets)
+{
+  int state = get_operator_state(op);
+  for (int i = 0; targets[i].run; i++) {
+    OperatorDispatchTarget target = targets[i];
+    if (target.state == state) {
+      return target.run(C, op);
+    }
+  }
+  BLI_assert(false);
+  return OPERATOR_CANCELLED;
+}
+
+/* Open Mainfile operator
+ ********************************************/
+
+enum {
+  OPEN_MAINFILE_STATE_DISCARD_CHANGES,
+  OPEN_MAINFILE_STATE_SELECT_FILE_PATH,
+  OPEN_MAINFILE_STATE_OPEN,
 };
 
-static int wm_open_mainfile_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+static int wm_open_mainfile_dispatch(bContext *C, wmOperator *op);
+
+static int wm_open_mainfile__discard_changes(bContext *C, wmOperator *op)
 {
+  if (RNA_boolean_get(op->ptr, "display_file_selector")) {
+    set_next_operator_state(op, OPEN_MAINFILE_STATE_SELECT_FILE_PATH);
+  }
+  else {
+    set_next_operator_state(op, OPEN_MAINFILE_STATE_OPEN);
+  }
+
+  wmWindowManager *wm = CTX_wm_manager(C);
+  if (U.uiflag & USER_SAVE_PROMPT && !wm->file_saved) {
+    return WM_operator_confirm_message_ex(C,
+                                          op,
+                                          "Warning",
+                                          ICON_INFO,
+                                          "Changes in current file will be lost. Continue?",
+                                          WM_OP_INVOKE_DEFAULT);
+  }
+  else {
+    return wm_open_mainfile_dispatch(C, op);
+  }
+}
+
+static int wm_open_mainfile__select_file_path(bContext *C, wmOperator *op)
+{
+  set_next_operator_state(op, OPEN_MAINFILE_STATE_OPEN);
+
   Main *bmain = CTX_data_main(C);
   const char *openname = BKE_main_blendfile_path(bmain);
 
@@ -2039,7 +2122,7 @@ static int wm_open_mainfile_invoke(bContext *C, wmOperator *op, const wmEvent *U
   return OPERATOR_RUNNING_MODAL;
 }
 
-static int wm_open_mainfile_exec(bContext *C, wmOperator *op)
+static int wm_open_mainfile__open(bContext *C, wmOperator *op)
 {
   char filepath[FILE_MAX];
   bool success;
@@ -2076,6 +2159,33 @@ static int wm_open_mainfile_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 }
+
+static OperatorDispatchTarget wm_open_mainfile_dispatch_targets[] = {
+    {OPEN_MAINFILE_STATE_DISCARD_CHANGES, wm_open_mainfile__discard_changes},
+    {OPEN_MAINFILE_STATE_SELECT_FILE_PATH, wm_open_mainfile__select_file_path},
+    {OPEN_MAINFILE_STATE_OPEN, wm_open_mainfile__open},
+    {0, NULL},
+};
+
+static int wm_open_mainfile_dispatch(bContext *C, wmOperator *op)
+{
+  return operator_state_dispatch(C, op, wm_open_mainfile_dispatch_targets);
+}
+
+static int wm_open_mainfile_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+  return wm_open_mainfile_dispatch(C, op);
+}
+
+static int wm_open_mainfile_exec(bContext *C, wmOperator *op)
+{
+  return wm_open_mainfile__open(C, op);
+}
+
+/* currently fits in a pointer */
+struct FileRuntime {
+  bool is_untrusted;
+};
 
 static bool wm_open_mainfile_check(bContext *UNUSED(C), wmOperator *op)
 {
@@ -2157,6 +2267,12 @@ void WM_OT_open_mainfile(wmOperatorType *ot)
                   "Trusted Source",
                   "Allow .blend file to execute scripts automatically, default available from "
                   "system preferences");
+
+  PropertyRNA *prop = RNA_def_boolean(
+      ot->srna, "display_file_selector", true, "Display File Selector", "");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
+  create_operator_state(ot, OPEN_MAINFILE_STATE_DISCARD_CHANGES);
 }
 
 /** \} */
@@ -2695,7 +2811,7 @@ void wm_test_autorun_warning(bContext *C)
   if (win) {
     wmWindow *prevwin = CTX_wm_window(C);
     CTX_wm_window_set(C, win);
-    UI_popup_block_invoke(C, block_create_autorun_warning, NULL);
+    UI_popup_block_invoke(C, block_create_autorun_warning, NULL, NULL);
     CTX_wm_window_set(C, prevwin);
   }
 }

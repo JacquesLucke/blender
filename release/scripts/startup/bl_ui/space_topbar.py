@@ -172,6 +172,7 @@ class TOPBAR_MT_file(Menu):
 
     def draw(self, context):
         layout = self.layout
+        prefs = context.preferences
 
         layout.operator_context = 'INVOKE_AREA'
         layout.menu("TOPBAR_MT_file_new", text="New", icon='FILE_NEW')
@@ -195,20 +196,26 @@ class TOPBAR_MT_file(Menu):
         layout.operator_context = 'INVOKE_AREA'
 
         if any(bpy.utils.app_template_paths()):
-            app_template = context.preferences.app_template
+            app_template = prefs.app_template
         else:
             app_template = None
 
         if app_template:
             layout.label(text=bpy.path.display_name(app_template, has_ext=False))
-            layout.operator("wm.save_homefile")
-            layout.operator(
+
+        layout.operator("wm.save_homefile")
+        props = layout.operator("wm.read_factory_settings")
+        if app_template:
+            props.app_template = app_template
+
+        if prefs.use_preferences_save:
+            props = layout.operator(
                 "wm.read_factory_settings",
-                text="Load Factory Settings",
-            ).app_template = app_template
-        else:
-            layout.operator("wm.save_homefile")
-            layout.operator("wm.read_factory_settings")
+                text="Load Factory Settings (Temporary)"
+            )
+            if app_template:
+                props.app_template = app_template
+            props.use_temporary_preferences = True
 
         layout.separator()
 
@@ -601,33 +608,6 @@ class TOPBAR_MT_workspace_menu(Menu):
         props.direction = 'NEXT'
 
 
-class TOPBAR_PT_active_tool(Panel):
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_category = ""
-    bl_context = ".active_tool"  # dot on purpose (access from tool settings)
-    bl_label = "Active Tool"
-    bl_options = {'HIDE_HEADER'}
-
-    def draw(self, context):
-        layout = self.layout
-        tool_mode = context.mode
-
-        # Panel display of topbar tool settings.
-        # currently displays in tool settings, keep here since the same functionality is used for the topbar.
-
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        from .space_toolsystem_common import ToolSelectPanelHelper
-        ToolSelectPanelHelper.draw_active_tool_header(
-            context,
-            layout,
-            show_tool_name=True,
-            tool_key=('VIEW_3D', tool_mode),
-        )
-
-
 # Grease Pencil Object - Primitive curve
 class TOPBAR_PT_gpencil_primitive(Panel):
     bl_space_type = 'VIEW_3D'
@@ -744,7 +724,6 @@ classes = (
     TOPBAR_MT_render,
     TOPBAR_MT_window,
     TOPBAR_MT_help,
-    TOPBAR_PT_active_tool,
     TOPBAR_PT_gpencil_layers,
     TOPBAR_PT_gpencil_primitive,
     TOPBAR_PT_gpencil_fill,

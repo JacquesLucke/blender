@@ -184,6 +184,13 @@ static void rna_userdef_version_get(PointerRNA *ptr, int *value)
   value[2] = userdef->subversionfile;
 }
 
+static void rna_userdef_ui_update(Main *UNUSED(bmain),
+                                  Scene *UNUSED(scene),
+                                  PointerRNA *UNUSED(ptr))
+{
+  WM_main_add_notifier(NC_WINDOW, NULL);
+}
+
 static void rna_userdef_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
   /* We can't use 'ptr->data' because this update function
@@ -5591,7 +5598,7 @@ void RNA_def_userdef(BlenderRNA *brna)
   RNA_def_property_enum_items(prop, preference_section_items);
   RNA_def_property_ui_text(
       prop, "Active Section", "Active section of the preferences shown in the user interface");
-  RNA_def_property_update(prop, 0, "rna_userdef_update");
+  RNA_def_property_update(prop, 0, "rna_userdef_ui_update");
 
   /* don't expose this directly via the UI, modify via an operator */
   prop = RNA_def_property(srna, "app_template", PROP_STRING, PROP_NONE);
@@ -5691,6 +5698,11 @@ void RNA_def_userdef(BlenderRNA *brna)
   prop = RNA_def_property(srna, "use_preferences_save", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "pref_flag", USER_PREF_FLAG_SAVE);
   RNA_def_property_ui_text(prop, "Save on Exit", "Save modified preferences on exit");
+
+  prop = RNA_def_property(srna, "is_dirty", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "runtime.is_dirty", 0);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Dirty", "Preferences have changed");
 
   rna_def_userdef_view(brna);
   rna_def_userdef_edit(brna);
