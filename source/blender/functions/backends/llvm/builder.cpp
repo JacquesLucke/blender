@@ -80,15 +80,15 @@ static void assert_impl(bool value, const char *message)
   }
 }
 
-void CodeBuilder::CreateAssert(llvm::Value *condition, std::string message)
+void CodeBuilder::CreateAssert(llvm::Value *condition, const char *message)
 {
   llvm::Value *condition_as_byte = this->CreateCastIntTo8(condition, false);
-  llvm::Value *message_ptr = this->getInt8Ptr(message.c_str());
+  llvm::Value *message_ptr = this->getInt8Ptr(message);
   this->CreateCallPointer(
       (void *)assert_impl, {condition_as_byte, message_ptr}, this->getVoidTy(), "Assert");
 }
 
-void CodeBuilder::CreateAssertFalse(std::string message)
+void CodeBuilder::CreateAssertFalse(const char *message)
 {
   llvm::Value *condition = this->getInt1(false);
   this->CreateAssert(condition, message);
@@ -137,7 +137,7 @@ void CodeBuilder::CreatePrintfWithStacktrace(llvm::Value *context_ptr,
 /* For Loop
  ******************************************/
 
-IRConstruct_ForLoop CodeBuilder::CreateForLoop(std::string name)
+IRConstruct_ForLoop CodeBuilder::CreateForLoop(StringRef name)
 {
   auto entry_block = this->NewBlockInFunction(name + " Entry");
   auto condition_block = this->NewBlockInFunction(name + " Condition");
@@ -166,7 +166,7 @@ void IRConstruct_ForLoop::finalize(CodeBuilder &after_builder, llvm::Value *cond
  **************************************/
 
 IRConstruct_IterationsLoop CodeBuilder::CreateNIterationsLoop(llvm::Value *iterations,
-                                                              std::string name)
+                                                              StringRef name)
 {
   BLI_assert(iterations->getType()->isIntegerTy());
 
@@ -194,7 +194,7 @@ void IRConstruct_IterationsLoop::finalize(CodeBuilder &after_builder)
 /* If Then Else
  ************************************/
 
-IRConstruct_IfThenElse CodeBuilder::CreateIfThenElse(llvm::Value *condition, std::string name)
+IRConstruct_IfThenElse CodeBuilder::CreateIfThenElse(llvm::Value *condition, StringRef name)
 {
   auto then_block = this->NewBlockInFunction(name + " Then");
   auto else_block = this->NewBlockInFunction(name + " Else");

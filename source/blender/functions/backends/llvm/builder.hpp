@@ -167,15 +167,16 @@ class CodeBuilder {
   /* Create new blocks
    **************************************/
 
-  llvm::BasicBlock *NewBlockInFunction(std::string name)
+  llvm::BasicBlock *NewBlockInFunction(StringRef name)
   {
-    auto *new_block = llvm::BasicBlock::Create(this->getContext(), name, this->GetFunction());
+    auto *new_block = llvm::BasicBlock::Create(
+        this->getContext(), name.data(), this->GetFunction());
     return new_block;
   }
 
-  CodeBuilder NewBuilderInNewBlock(std::string name)
+  CodeBuilder NewBuilderInNewBlock(StringRef name)
   {
-    return CodeBuilder(this->NewBlockInFunction(name));
+    return CodeBuilder(this->NewBlockInFunction(name.data()));
   }
 
   /* Misc
@@ -435,8 +436,8 @@ class CodeBuilder {
     return output;
   }
 
-  void CreateAssert(llvm::Value *condition, std::string message = "");
-  void CreateAssertFalse(std::string message = "");
+  void CreateAssert(llvm::Value *condition, const char *message = "");
+  void CreateAssertFalse(const char *message = "");
 
   /* Print
    **************************************/
@@ -449,9 +450,9 @@ class CodeBuilder {
   /* Control Flow Construction
    **************************************/
 
-  IRConstruct_ForLoop CreateForLoop(std::string name = "");
-  IRConstruct_IterationsLoop CreateNIterationsLoop(llvm::Value *iterations, std::string name = "");
-  IRConstruct_IfThenElse CreateIfThenElse(llvm::Value *condition, std::string name = "");
+  IRConstruct_ForLoop CreateForLoop(StringRef name = "");
+  IRConstruct_IterationsLoop CreateNIterationsLoop(llvm::Value *iterations, StringRef name = "");
+  IRConstruct_IfThenElse CreateIfThenElse(llvm::Value *condition, StringRef name = "");
 };
 
 class IRConstruct_ForLoop {
