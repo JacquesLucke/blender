@@ -46,7 +46,7 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
       void_ty, to_llvm_array_ref(input_types), false);
 
   llvm::Function *function = llvm::Function::Create(
-      function_type, llvm::GlobalValue::LinkageTypes::ExternalLinkage, fn->name(), module);
+      function_type, llvm::GlobalValue::LinkageTypes::ExternalLinkage, fn->name().data(), module);
 
   llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", function);
   CodeBuilder builder(bb);
@@ -123,7 +123,7 @@ class LLVMTupleCall : public TupleCallBody {
 static std::unique_ptr<CompiledLLVM> compile_ir_to_tuple_call(SharedFunction &fn,
                                                               llvm::LLVMContext &context)
 {
-  llvm::Module *module = new llvm::Module(fn->name(), context);
+  llvm::Module *module = new llvm::Module(fn->name().data(), context);
   llvm::Function *function = insert_tuple_call_function(fn, module);
 
   auto compiled = CompiledLLVM::FromIR(module, function);

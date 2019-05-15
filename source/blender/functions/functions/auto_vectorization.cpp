@@ -296,7 +296,7 @@ class AutoVectorization : public TupleCallBody {
     FN_TUPLE_CALL_ALLOC_TUPLES(m_main_body, main_in, main_out);
 
     IterationStackFrame iteration_frame;
-    TextStackFrame function_name_frame(m_main->name().c_str());
+    TextStackFrame function_name_frame(m_main->name().data());
     ctx.stack().push(&iteration_frame);
     ctx.stack().push(&function_name_frame);
 

@@ -236,7 +236,7 @@ class DataFlowGraph : public RefCountedBase {
 
   const char *name_ptr_of_node(uint node_id) const
   {
-    return m_nodes[node_id].function->name().c_str();
+    return m_nodes[node_id].function->name().data();
   }
 
   uint origin_of_input(uint input_id) const

@@ -38,8 +38,8 @@ class Function final : public RefCountedBase {
  public:
   Function(Function &fn) = delete;
 
-  Function(const std::string &name, const Signature &signature)
-      : m_name(name), m_signature(signature)
+  Function(StringRef name, const Signature &signature)
+      : m_name(name.to_std_string()), m_signature(signature)
   {
   }
 
@@ -49,7 +49,7 @@ class Function final : public RefCountedBase {
 
   ~Function() = default;
 
-  const std::string &name() const
+  const StringRefNull name() const
   {
     return m_name;
   }

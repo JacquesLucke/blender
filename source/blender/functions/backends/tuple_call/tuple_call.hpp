@@ -35,7 +35,7 @@ class TupleCallBody : public TupleCallBodyBase {
 
   inline void call__setup_stack(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const
   {
-    TextStackFrame frame(this->owner()->name().c_str());
+    TextStackFrame frame(this->owner()->name().data());
     ctx.stack().push(&frame);
     this->call(fn_in, fn_out, ctx);
     ctx.stack().pop();
@@ -135,7 +135,7 @@ class LazyInTupleCallBody : public TupleCallBodyBase {
                                 ExecutionContext &ctx,
                                 LazyState &state) const
   {
-    TextStackFrame frame(this->owner()->name().c_str());
+    TextStackFrame frame(this->owner()->name().data());
     ctx.stack().push(&frame);
     this->call(fn_in, fn_out, ctx, state);
     ctx.stack().pop();
