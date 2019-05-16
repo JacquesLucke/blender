@@ -28,16 +28,13 @@ class CombineVectorGen : public LLVMBuildIRBody {
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_combine_vector)
 {
-  auto fn = SharedFunction::New("Combine Vector",
-                                Signature(
-                                    {
-                                        InputParameter("X", GET_TYPE_float()),
-                                        InputParameter("Y", GET_TYPE_float()),
-                                        InputParameter("Z", GET_TYPE_float()),
-                                    },
-                                    {
-                                        OutputParameter("Vector", GET_TYPE_fvec3()),
-                                    }));
+  FunctionBuilder builder;
+  builder.add_input("X", GET_TYPE_float());
+  builder.add_input("Y", GET_TYPE_float());
+  builder.add_input("Z", GET_TYPE_float());
+  builder.add_output("Vector", GET_TYPE_fvec3());
+
+  auto fn = builder.build("Combine Vector");
   fn->add_body<CombineVectorGen>();
   return fn;
 }
@@ -56,16 +53,13 @@ class SeparateVector : public LLVMBuildIRBody {
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_separate_vector)
 {
-  auto fn = SharedFunction::New("Separate Vector",
-                                Signature(
-                                    {
-                                        InputParameter("Vector", GET_TYPE_fvec3()),
-                                    },
-                                    {
-                                        OutputParameter("X", GET_TYPE_float()),
-                                        OutputParameter("Y", GET_TYPE_float()),
-                                        OutputParameter("Z", GET_TYPE_float()),
-                                    }));
+  FunctionBuilder builder;
+  builder.add_input("Vector", GET_TYPE_fvec3());
+  builder.add_output("X", GET_TYPE_float());
+  builder.add_output("Y", GET_TYPE_float());
+  builder.add_output("Z", GET_TYPE_float());
+
+  auto fn = builder.build("Separate Vector");
   fn->add_body<SeparateVector>();
   return fn;
 }
@@ -82,31 +76,23 @@ class VectorDistance : public TupleCallBody {
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_vector_distance)
 {
-  auto fn = SharedFunction::New("Vector Distance",
-                                Signature(
-                                    {
-                                        InputParameter("A", GET_TYPE_fvec3()),
-                                        InputParameter("B", GET_TYPE_fvec3()),
-                                    },
-                                    {
-                                        OutputParameter("Distance", GET_TYPE_float()),
-                                    }));
+  FunctionBuilder builder;
+  builder.add_input("A", GET_TYPE_fvec3());
+  builder.add_input("B", GET_TYPE_fvec3());
+  builder.add_output("Distance", GET_TYPE_float());
+
+  auto fn = builder.build("Vector Distance");
   fn->add_body<VectorDistance>();
   return fn;
 }
 
 static SharedFunction get_math_function__two_inputs(std::string name)
 {
-  auto fn = SharedFunction::New(name,
-                                Signature(
-                                    {
-                                        InputParameter("A", GET_TYPE_fvec3()),
-                                        InputParameter("B", GET_TYPE_fvec3()),
-                                    },
-                                    {
-                                        OutputParameter("Result", GET_TYPE_fvec3()),
-                                    }));
-  return fn;
+  FunctionBuilder builder;
+  builder.add_input("A", GET_TYPE_fvec3());
+  builder.add_input("B", GET_TYPE_fvec3());
+  builder.add_output("Result", GET_TYPE_fvec3());
+  return builder.build(name);
 }
 
 class AddVectors : public TupleCallBody {
@@ -182,8 +168,9 @@ class ConstFVec3Gen : public LLVMBuildIRBody {
 
 static SharedFunction get_output_fvec3_function(Vector vector)
 {
-  auto fn = SharedFunction::New("Build Vector",
-                                Signature({}, {OutputParameter("Vector", GET_TYPE_fvec3())}));
+  FunctionBuilder builder;
+  builder.add_output("Vector", GET_TYPE_fvec3());
+  auto fn = builder.build("Build Vector");
   fn->add_body<ConstFVec3>(vector);
   fn->add_body<ConstFVec3Gen>(vector);
   return fn;

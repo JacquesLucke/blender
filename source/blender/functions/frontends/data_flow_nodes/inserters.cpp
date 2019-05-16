@@ -118,7 +118,8 @@ class SocketLoaderBody : public TupleCallBody {
 DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder, BSockets &bsockets)
 {
   SmallVector<SocketLoader> loaders;
-  OutputParameters outputs;
+
+  FunctionBuilder fn_builder;
   for (uint i = 0; i < bsockets.size(); i++) {
     bNodeSocket *bsocket = bsockets[i];
 
@@ -129,11 +130,10 @@ DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder, BSo
 
     SocketLoader loader = m_socket_loaders.lookup(data_type);
     loaders.append(loader);
-    outputs.append(
-        OutputParameter(builder.query_socket_name(bsocket), builder.query_socket_type(bsocket)));
+    fn_builder.add_output(builder.query_socket_name(bsocket), builder.query_socket_type(bsocket));
   }
 
-  auto fn = SharedFunction::New("Input Sockets", Signature({}, outputs));
+  auto fn = fn_builder.build("Input Sockets");
   fn->add_body<SocketLoaderBody>(builder.btree(), bsockets, loaders);
   DFGB_Node *node = builder.insert_function(fn);
 

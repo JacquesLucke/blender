@@ -420,27 +420,26 @@ SharedFunction to_vectorized_function(SharedFunction &original_fn,
     }
   }
 
-  InputParameters inputs;
+  FunctionBuilder builder;
   for (uint i = 0; i < input_amount; i++) {
     auto original_parameter = original_fn->signature().inputs()[i];
     if (vectorized_inputs_mask[i]) {
       SharedType &list_type = get_list_type(original_parameter.type());
-      inputs.append(InputParameter(original_parameter.name() + " (List)", list_type));
+      builder.add_input(original_parameter.name() + " (List)", list_type);
     }
     else {
-      inputs.append(original_parameter);
+      builder.add_input(original_parameter.name(), original_parameter.type());
     }
   }
 
-  OutputParameters outputs;
   for (uint i = 0; i < output_amount; i++) {
     auto original_parameter = original_fn->signature().outputs()[i];
     SharedType &list_type = get_list_type(original_parameter.type());
-    outputs.append(OutputParameter(original_parameter.name() + " (List)", list_type));
+    builder.add_output(original_parameter.name() + " (List)", list_type);
   }
 
   std::string name = original_fn->name() + " (Vectorized)";
-  auto fn = SharedFunction::New(name, Signature(inputs, outputs));
+  auto fn = builder.build(name);
   // fn->add_body<AutoVectorization>(original_fn, vectorized_inputs_mask);
   fn->add_body<AutoVectorizationGen>(
       original_fn, vectorized_inputs_mask, empty_list_value_builders);

@@ -127,4 +127,17 @@ class Function final : public RefCountedBase {
 using SharedFunction = AutoRefCount<Function>;
 using FunctionPerType = SmallMap<SharedType, SharedFunction>;
 
+class FunctionBuilder {
+ private:
+  InputParameters m_inputs;
+  OutputParameters m_outputs;
+
+ public:
+  FunctionBuilder();
+  void add_input(StringRef input_name, SharedType &type);
+  void add_output(StringRef output_name, SharedType &type);
+
+  SharedFunction build(StringRef function_name);
+};
+
 } /* namespace FN */

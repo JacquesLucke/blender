@@ -40,7 +40,7 @@ class FunctionGraph {
     return m_outputs;
   }
 
-  Signature signature() const;
+  SharedFunction new_function(StringRef name) const;
   SmallSet<DFGraphSocket> find_used_sockets(bool include_inputs, bool include_outputs) const;
 };
 

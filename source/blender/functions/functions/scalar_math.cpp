@@ -14,29 +14,19 @@ using namespace Types;
 
 static SharedFunction get_math_function__one_input(std::string name)
 {
-  auto fn = SharedFunction::New(name,
-                                Signature(
-                                    {
-                                        InputParameter("Value", GET_TYPE_float()),
-                                    },
-                                    {
-                                        OutputParameter("Result", GET_TYPE_float()),
-                                    }));
-  return fn;
+  FunctionBuilder builder;
+  builder.add_input("Value", GET_TYPE_float());
+  builder.add_output("Result", GET_TYPE_float());
+  return builder.build(name);
 }
 
 static SharedFunction get_math_function__two_inputs(std::string name)
 {
-  auto fn = SharedFunction::New(name,
-                                Signature(
-                                    {
-                                        InputParameter("A", GET_TYPE_float()),
-                                        InputParameter("B", GET_TYPE_float()),
-                                    },
-                                    {
-                                        OutputParameter("Result", GET_TYPE_float()),
-                                    }));
-  return fn;
+  FunctionBuilder builder;
+  builder.add_input("A", GET_TYPE_float());
+  builder.add_input("B", GET_TYPE_float());
+  builder.add_output("Result", GET_TYPE_float());
+  return builder.build(name);
 }
 
 class AddFloats : public TupleCallBody {
@@ -153,18 +143,15 @@ class MapRange : public TupleCallBody {
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_map_range)
 {
-  auto fn = SharedFunction::New("Map Range",
-                                Signature(
-                                    {
-                                        InputParameter("Value", GET_TYPE_float()),
-                                        InputParameter("From Min", GET_TYPE_float()),
-                                        InputParameter("From Max", GET_TYPE_float()),
-                                        InputParameter("To Min", GET_TYPE_float()),
-                                        InputParameter("To Max", GET_TYPE_float()),
-                                    },
-                                    {
-                                        OutputParameter("Value", GET_TYPE_float()),
-                                    }));
+  FunctionBuilder builder;
+  builder.add_input("Value", GET_TYPE_float());
+  builder.add_input("From Min", GET_TYPE_float());
+  builder.add_input("From Max", GET_TYPE_float());
+  builder.add_input("To Min", GET_TYPE_float());
+  builder.add_input("To Max", GET_TYPE_float());
+  builder.add_output("Value", GET_TYPE_float());
+
+  auto fn = builder.build("Map Range");
   fn->add_body<MapRange>();
   return fn;
 }
@@ -269,8 +256,9 @@ class ConstBoolGen : public LLVMBuildIRBody {
 
 static SharedFunction get_output_int32_function(int32_t value)
 {
-  auto fn = SharedFunction::New("Build Value: " + std::to_string(value),
-                                Signature({}, {OutputParameter("Value", GET_TYPE_int32())}));
+  FunctionBuilder builder;
+  builder.add_output("Value", GET_TYPE_int32());
+  auto fn = builder.build("Build Value: " + std::to_string(value));
   fn->add_body<ConstValue<int32_t>>(value);
   fn->add_body<ConstInt32Gen>(value);
   return fn;
@@ -288,8 +276,9 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_int32_1)
 
 static SharedFunction get_output_float_function(float value)
 {
-  auto fn = SharedFunction::New("Build Value: " + std::to_string(value),
-                                Signature({}, {OutputParameter("Value", GET_TYPE_float())}));
+  FunctionBuilder builder;
+  builder.add_output("Value", GET_TYPE_float());
+  auto fn = builder.build("Build Value: " + std::to_string(value));
   fn->add_body<ConstValue<float>>(value);
   fn->add_body<ConstFloatGen>(value);
   return fn;
@@ -307,8 +296,9 @@ LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_float_1)
 
 static SharedFunction get_output_bool_function(bool value)
 {
-  auto fn = SharedFunction::New("Build Value",
-                                Signature({}, {OutputParameter("Value", GET_TYPE_bool())}));
+  FunctionBuilder builder;
+  builder.add_output("Value", GET_TYPE_bool());
+  auto fn = builder.build("Build Value");
   fn->add_body<ConstValue<bool>>(value);
   fn->add_body<ConstBoolGen>(value);
   return fn;

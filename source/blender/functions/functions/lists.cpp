@@ -20,12 +20,11 @@ template<typename T> class CreateEmptyList : public TupleCallBody {
 template<typename T>
 SharedFunction build_create_empty_list_function(SharedType &base_type, SharedType &list_type)
 {
+  FunctionBuilder builder;
+  builder.add_output("List", list_type);
+
   std::string name = "Create Empty " + base_type->name() + " List";
-  auto fn = SharedFunction::New(name,
-                                Signature({},
-                                          {
-                                              OutputParameter("List", list_type),
-                                          }));
+  auto fn = builder.build(name);
   fn->add_body<CreateEmptyList<T>>();
   return fn;
 }
@@ -44,15 +43,12 @@ template<typename T>
 SharedFunction build_create_single_element_list_function(SharedType &base_type,
                                                          SharedType &list_type)
 {
+  FunctionBuilder builder;
+  builder.add_input("Value", base_type);
+  builder.add_output("List", list_type);
+
   std::string name = "Create " + base_type->name() + " List from Value";
-  auto fn = SharedFunction::New(name,
-                                Signature(
-                                    {
-                                        InputParameter("Value", base_type),
-                                    },
-                                    {
-                                        OutputParameter("List", list_type),
-                                    }));
+  auto fn = builder.build(name);
   fn->add_body<CreateSingleElementList<T>>();
   return fn;
 }
@@ -73,16 +69,13 @@ template<typename T> class AppendToList : public TupleCallBody {
 template<typename T>
 SharedFunction build_append_function(SharedType &base_type, SharedType &list_type)
 {
+  FunctionBuilder builder;
+  builder.add_input("List", list_type);
+  builder.add_input("Value", base_type);
+  builder.add_output("List", list_type);
+
   std::string name = "Append " + base_type->name();
-  auto fn = SharedFunction::New(name,
-                                Signature(
-                                    {
-                                        InputParameter("List", list_type),
-                                        InputParameter("Value", base_type),
-                                    },
-                                    {
-                                        OutputParameter("List", list_type),
-                                    }));
+  auto fn = builder.build(name);
   fn->add_body<AppendToList<T>>();
   return fn;
 }
@@ -108,17 +101,14 @@ template<typename T> class GetListElement : public TupleCallBody {
 template<typename T>
 SharedFunction build_get_element_function(SharedType &base_type, SharedType &list_type)
 {
+  FunctionBuilder builder;
+  builder.add_input("List", list_type);
+  builder.add_input("Index", GET_TYPE_int32());
+  builder.add_input("Fallback", base_type);
+  builder.add_output("Element", base_type);
+
   std::string name = "Get " + base_type->name() + " List Element";
-  auto fn = SharedFunction::New(name,
-                                Signature(
-                                    {
-                                        InputParameter("List", list_type),
-                                        InputParameter("Index", GET_TYPE_int32()),
-                                        InputParameter("Fallback", base_type),
-                                    },
-                                    {
-                                        OutputParameter("Element", base_type),
-                                    }));
+  auto fn = builder.build(name);
   fn->add_body<GetListElement<T>>();
   return fn;
 }
@@ -139,16 +129,13 @@ template<typename T> class CombineLists : public TupleCallBody {
 template<typename T>
 SharedFunction build_combine_lists_function(SharedType &base_type, SharedType &list_type)
 {
+  FunctionBuilder builder;
+  builder.add_input("List 1", list_type);
+  builder.add_input("List 2", list_type);
+  builder.add_output("List", list_type);
+
   std::string name = "Combine " + base_type->name() + " Lists";
-  auto fn = SharedFunction::New(name,
-                                Signature(
-                                    {
-                                        InputParameter("List 1", list_type),
-                                        InputParameter("List 2", list_type),
-                                    },
-                                    {
-                                        OutputParameter("List", list_type),
-                                    }));
+  auto fn = builder.build(name);
   fn->add_body<CombineLists<T>>();
   return fn;
 }
@@ -165,15 +152,12 @@ template<typename T> class ListLength : public TupleCallBody {
 template<typename T>
 SharedFunction build_list_length_function(SharedType &base_type, SharedType &list_type)
 {
+  FunctionBuilder builder;
+  builder.add_input("List", list_type);
+  builder.add_output("Length", GET_TYPE_int32());
+
   std::string name = base_type->name() + " List Length";
-  auto fn = SharedFunction::New(name,
-                                Signature(
-                                    {
-                                        InputParameter("List", list_type),
-                                    },
-                                    {
-                                        OutputParameter("Length", GET_TYPE_int32()),
-                                    }));
+  auto fn = builder.build(name);
   fn->add_body<ListLength<T>>();
   return fn;
 }

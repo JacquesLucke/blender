@@ -34,16 +34,13 @@ class RandomNumber : public TupleCallBody {
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_random_number)
 {
-  auto fn = SharedFunction::New("Random Number",
-                                Signature(
-                                    {
-                                        InputParameter("Seed", GET_TYPE_int32()),
-                                        InputParameter("Min", GET_TYPE_float()),
-                                        InputParameter("Max", GET_TYPE_float()),
-                                    },
-                                    {
-                                        OutputParameter("Value", GET_TYPE_float()),
-                                    }));
+  FunctionBuilder builder;
+  builder.add_input("Seed", GET_TYPE_int32());
+  builder.add_input("Min", GET_TYPE_float());
+  builder.add_input("Max", GET_TYPE_float());
+  builder.add_output("Value", GET_TYPE_float());
+
+  auto fn = builder.build("Random Number");
   fn->add_body<RandomNumber>();
   return fn;
 }

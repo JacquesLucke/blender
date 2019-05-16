@@ -47,30 +47,30 @@ static bNode *find_output_node(bNodeTree *btree)
 
 static void insert_input_node(BTreeGraphBuilder &builder, bNode *bnode)
 {
-  OutputParameters outputs;
+  FunctionBuilder fn_builder;
   for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
     if (builder.is_data_socket(bsocket)) {
       SharedType &type = builder.query_socket_type(bsocket);
-      outputs.append(OutputParameter(builder.query_socket_name(bsocket), type));
+      fn_builder.add_output(builder.query_socket_name(bsocket), type);
     }
   }
 
-  auto fn = SharedFunction::New("Function Input", Signature({}, outputs));
+  auto fn = fn_builder.build("Function Input");
   DFGB_Node *node = builder.insert_function(fn);
   builder.map_data_sockets(node, bnode);
 }
 
 static void insert_output_node(BTreeGraphBuilder &builder, bNode *bnode)
 {
-  InputParameters inputs;
+  FunctionBuilder fn_builder;
   for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
     if (builder.is_data_socket(bsocket)) {
       SharedType &type = builder.query_socket_type(bsocket);
-      inputs.append(InputParameter(builder.query_socket_name(bsocket), type));
+      fn_builder.add_input(builder.query_socket_name(bsocket), type);
     }
   }
 
-  auto fn = SharedFunction::New("Function Output", Signature(inputs, {}));
+  auto fn = fn_builder.build("Function Output");
   DFGB_Node *node = builder.insert_function(fn);
   builder.map_data_sockets(node, bnode);
 }

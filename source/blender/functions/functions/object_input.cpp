@@ -49,11 +49,9 @@ class ObjectTransformsDependency : public DependenciesBody {
 
 SharedFunction GET_FN_object_location(Object *object)
 {
-  auto fn = SharedFunction::New("Object Transforms",
-                                Signature({},
-                                          {
-                                              OutputParameter("Location", GET_TYPE_fvec3()),
-                                          }));
+  FunctionBuilder builder;
+  builder.add_output("Location", GET_TYPE_fvec3());
+  auto fn = builder.build("Object Transforms");
   fn->add_body<ObjectTransforms>(object);
   fn->add_body<ObjectTransformsDependency>(object);
   return fn;

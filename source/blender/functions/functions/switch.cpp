@@ -58,17 +58,14 @@ class LazyBoolSwitch : public LazyInTupleCallBody {
 
 static SharedFunction build_bool_switch_function(SharedType &data_type)
 {
+  FunctionBuilder builder;
+  builder.add_input("Condition", GET_TYPE_bool());
+  builder.add_input("True", data_type);
+  builder.add_input("False", data_type);
+  builder.add_output("Result", data_type);
+
   std::string name = "Switch " + data_type->name();
-  auto fn = SharedFunction::New(name,
-                                Signature(
-                                    {
-                                        InputParameter("Condition", GET_TYPE_bool()),
-                                        InputParameter("True", data_type),
-                                        InputParameter("False", data_type),
-                                    },
-                                    {
-                                        OutputParameter("Result", data_type),
-                                    }));
+  auto fn = builder.build(name);
   fn->add_body<LazyBoolSwitch>(data_type);
   return fn;
 }

@@ -33,16 +33,13 @@ class FloatRange : public TupleCallBody {
 
 LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_float_range)
 {
-  auto fn = SharedFunction::New("Float Range",
-                                Signature(
-                                    {
-                                        InputParameter("Amount", GET_TYPE_int32()),
-                                        InputParameter("Start", GET_TYPE_float()),
-                                        InputParameter("Step", GET_TYPE_float()),
-                                    },
-                                    {
-                                        OutputParameter("List", GET_TYPE_float_list()),
-                                    }));
+  FunctionBuilder builder;
+  builder.add_input("Amount", GET_TYPE_int32());
+  builder.add_input("Start", GET_TYPE_float());
+  builder.add_input("Step", GET_TYPE_float());
+  builder.add_output("List", GET_TYPE_float_list());
+
+  auto fn = builder.build("Float Range");
   fn->add_body<FloatRange>();
   return fn;
 }

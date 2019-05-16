@@ -19,7 +19,7 @@ Optional<SharedFunction> generate_function(bNodeTree *btree)
   FunctionGraph fgraph = fgraph_.value();
   // fgraph.graph()->to_dot__clipboard();
 
-  auto fn = SharedFunction::New(btree->id.name, fgraph.signature());
+  auto fn = fgraph.new_function(btree->id.name);
   fgraph_add_DependenciesBody(fn, fgraph);
   fgraph_add_LLVMBuildIRBody(fn, fgraph);
 

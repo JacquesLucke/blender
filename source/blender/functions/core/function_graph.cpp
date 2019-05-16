@@ -2,21 +2,18 @@
 
 namespace FN {
 
-Signature FunctionGraph::signature() const
+SharedFunction FunctionGraph::new_function(StringRef name) const
 {
-  InputParameters inputs;
-  OutputParameters outputs;
+  FunctionBuilder builder;
 
   for (const DFGraphSocket &socket : m_inputs) {
-    inputs.append(
-        InputParameter(m_graph->name_of_socket(socket), m_graph->type_of_socket(socket)));
+    builder.add_input(m_graph->name_of_socket(socket), m_graph->type_of_socket(socket));
   }
   for (const DFGraphSocket &socket : m_outputs) {
-    outputs.append(
-        OutputParameter(m_graph->name_of_socket(socket), m_graph->type_of_socket(socket)));
+    builder.add_output(m_graph->name_of_socket(socket), m_graph->type_of_socket(socket));
   }
 
-  return Signature(inputs, outputs);
+  return builder.build(name);
 }
 
 SmallSet<DFGraphSocket> FunctionGraph::find_used_sockets(bool include_inputs,

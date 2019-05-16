@@ -20,16 +20,11 @@ template<typename From, typename To> class ImplicitConversion : public TupleCall
 
 static SharedFunction get_simple_conversion_function(SharedType &from_type, SharedType &to_type)
 {
+  FunctionBuilder builder;
+  builder.add_input("In", from_type);
+  builder.add_output("Out", to_type);
   auto name = from_type->name() + " to " + to_type->name();
-  auto fn = SharedFunction::New(name,
-                                Signature(
-                                    {
-                                        InputParameter("In", from_type),
-                                    },
-                                    {
-                                        OutputParameter("Out", to_type),
-                                    }));
-  return fn;
+  return builder.build(name);
 }
 
 template<typename From, typename To>
