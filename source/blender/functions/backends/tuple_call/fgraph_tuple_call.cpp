@@ -439,7 +439,7 @@ class ExecuteFGraph : public TupleCallBody {
     SocketInfo &output_info = m_output_info[output_id];
     CPPTypeInfo *type_info = output_info.type;
 
-    uint *target_ids = BLI_array_alloca(target_ids, possible_target_ids.size());
+    uint *target_ids = (uint *)BLI_array_alloca(target_ids, possible_target_ids.size());
     uint target_amount = this->filter_uninitialized_targets(
         possible_target_ids, storage, target_ids);
 

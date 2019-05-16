@@ -287,7 +287,7 @@ class AutoVectorization : public TupleCallBody {
 
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
   {
-    uint *input_lengths = BLI_array_alloca(input_lengths, m_list_inputs.size());
+    uint *input_lengths = (uint *)BLI_array_alloca(input_lengths, m_list_inputs.size());
     this->get_input_list_lengths(fn_in, ctx, input_lengths);
     uint max_length = *std::max_element(input_lengths, input_lengths + m_list_inputs.size());
 
