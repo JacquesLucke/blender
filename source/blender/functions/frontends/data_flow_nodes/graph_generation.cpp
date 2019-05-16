@@ -150,7 +150,7 @@ static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
 
 static void insert_unlinked_inputs(BTreeGraphBuilder &builder, GraphInserters &inserters)
 {
-  BSockets unlinked_inputs;
+  SmallVector<bNodeSocket *> unlinked_inputs;
   DFGB_SocketVector node_inputs;
 
   for (bNode *bnode : bNodeList(&builder.btree()->nodes)) {

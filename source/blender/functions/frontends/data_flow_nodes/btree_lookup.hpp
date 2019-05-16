@@ -16,7 +16,7 @@ class BTreeLookup {
     bNodeLink *source_link;
   };
 
-  const SmallVector<DataLink> data_links()
+  const ArrayRef<DataLink> data_links()
   {
     return m_data_links;
   }
