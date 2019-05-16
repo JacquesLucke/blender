@@ -83,8 +83,8 @@ class TupleCallLLVM : public LLVMBuildIRBody {
   llvm::Function *get_wrapper_function(CodeBuilder &builder,
                                        CodeInterface &interface,
                                        const BuildIRSettings &settings,
-                                       SmallVector<LLVMTypeInfo *> input_type_infos,
-                                       SmallVector<LLVMTypeInfo *> output_type_infos) const
+                                       ArrayRef<LLVMTypeInfo *> input_type_infos,
+                                       ArrayRef<LLVMTypeInfo *> output_type_infos) const
   {
     Function *fn = m_tuple_call->owner();
 
@@ -124,8 +124,8 @@ class TupleCallLLVM : public LLVMBuildIRBody {
 
   void build_wrapper_function(const BuildIRSettings &settings,
                               llvm::Function *function,
-                              SmallVector<LLVMTypeInfo *> &input_type_infos,
-                              SmallVector<LLVMTypeInfo *> &output_type_infos,
+                              ArrayRef<LLVMTypeInfo *> input_type_infos,
+                              ArrayRef<LLVMTypeInfo *> output_type_infos,
                               llvm::Type *output_type) const
   {
     llvm::LLVMContext &context = function->getContext();

@@ -20,7 +20,7 @@ std::string SourceInfoStackFrame::to_string() const
   }
 }
 
-void SourceInfoStackFrame::handle_warning(std::string msg) const
+void SourceInfoStackFrame::handle_warning(StringRef msg) const
 {
   if (m_source != nullptr) {
     m_source->handle_warning(msg);
@@ -32,13 +32,13 @@ std::string TextStackFrame::to_string() const
   return std::string(m_text);
 }
 
-void ExecutionContext::print_with_traceback(std::string msg)
+void ExecutionContext::print_with_traceback(StringRef msg)
 {
   m_stack.print_traceback();
   std::cout << "-> " << msg << std::endl;
 }
 
-void ExecutionContext::log_warning(std::string msg)
+void ExecutionContext::log_warning(StringRef msg)
 {
   for (StackFrame *frame : m_stack) {
     frame->handle_warning(msg);

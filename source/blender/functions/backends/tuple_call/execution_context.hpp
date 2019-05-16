@@ -8,7 +8,7 @@ class StackFrame {
  public:
   virtual std::string to_string() const = 0;
 
-  virtual void handle_warning(std::string UNUSED(msg)) const
+  virtual void handle_warning(StringRef UNUSED(msg)) const
   {
   }
 };
@@ -28,7 +28,7 @@ class SourceInfoStackFrame : public StackFrame {
   }
 
   std::string to_string() const override;
-  void handle_warning(std::string msg) const override;
+  void handle_warning(StringRef msg) const override;
 };
 
 class TextStackFrame : public StackFrame {
@@ -92,8 +92,8 @@ class ExecutionContext {
     return m_stack;
   }
 
-  void print_with_traceback(std::string msg);
-  void log_warning(std::string msg);
+  void print_with_traceback(StringRef msg);
+  void log_warning(StringRef msg);
 };
 
 } /* namespace FN */

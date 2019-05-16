@@ -46,7 +46,7 @@ class NodeSource : public SourceInfo {
     return ss.str();
   }
 
-  void handle_warning(std::string msg) const override
+  void handle_warning(StringRef msg) const override
   {
 #ifdef WITH_PYTHON
     PyGILState_STATE gilstate;
@@ -57,7 +57,7 @@ class NodeSource : public SourceInfo {
     PyObject *function = PyDict_GetItemString(globals, "report_warning");
 
     PyObject *py_bnode = get_py_bnode(m_btree, m_bnode);
-    PyObject *ret = PyObject_CallFunction(function, "Os", py_bnode, msg.c_str());
+    PyObject *ret = PyObject_CallFunction(function, "Os", py_bnode, msg.to_std_string().c_str());
     Py_DECREF(ret);
 
     PyGILState_Release(gilstate);

@@ -13,7 +13,7 @@ class TupleMeta : public RefCountedBase {
   uint m_size__data_and_init;
 
  public:
-  TupleMeta(const TypeVector &types = {}) : m_types(types)
+  TupleMeta(ArrayRef<SharedType> types = {}) : m_types(types.to_small_vector())
   {
     m_size__data = 0;
     for (const SharedType &type : types) {
@@ -27,17 +27,17 @@ class TupleMeta : public RefCountedBase {
     m_size__data_and_init = m_size__data + this->element_amount();
   }
 
-  const TypeVector &types() const
+  const ArrayRef<SharedType> types() const
   {
     return m_types;
   }
 
-  const SmallVector<CPPTypeInfo *> &type_infos() const
+  const ArrayRef<CPPTypeInfo *> type_infos() const
   {
     return m_type_info;
   }
 
-  const SmallVector<uint> &offsets() const
+  const ArrayRef<uint> offsets() const
   {
     return m_offsets;
   }

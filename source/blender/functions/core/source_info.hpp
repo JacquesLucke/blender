@@ -11,7 +11,7 @@ class SourceInfo {
   }
 
   virtual std::string to_string() const = 0;
-  virtual void handle_warning(std::string msg) const;
+  virtual void handle_warning(StringRef msg) const;
 };
 
 } /* namespace FN */
