@@ -129,8 +129,10 @@ using FunctionPerType = SmallMap<SharedType, SharedFunction>;
 
 class FunctionBuilder {
  private:
-  InputParameters m_inputs;
-  OutputParameters m_outputs;
+  SmallVector<std::string> m_input_names;
+  SmallVector<std::string> m_output_names;
+  SmallVector<SharedType> m_input_types;
+  SmallVector<SharedType> m_output_types;
 
  public:
   FunctionBuilder();
