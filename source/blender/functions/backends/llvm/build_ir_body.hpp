@@ -46,7 +46,7 @@ class CodeInterface {
     m_outputs[index] = value;
   }
 
-  const LLVMValues &inputs()
+  const ArrayRef<llvm::Value *> inputs()
   {
     return m_inputs;
   }

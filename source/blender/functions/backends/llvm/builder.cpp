@@ -5,7 +5,7 @@
 
 namespace FN {
 
-LLVMTypes CodeBuilder::types_of_values(LLVMValuesRef values)
+LLVMTypes CodeBuilder::types_of_values(ArrayRef<llvm::Value *> values)
 {
   LLVMTypes types;
   for (llvm::Value *value : values) {
@@ -45,7 +45,7 @@ static llvm::Function *create_wrapper_function(llvm::Module *module,
 
 llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
                                             llvm::FunctionType *ftype,
-                                            LLVMValuesRef args,
+                                            ArrayRef<llvm::Value *> args,
                                             const char *function_name)
 {
   BLI_assert(!ftype->isVarArg());
@@ -62,7 +62,7 @@ llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
 }
 
 llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
-                                            LLVMValuesRef args,
+                                            ArrayRef<llvm::Value *> args,
                                             llvm::Type *return_type,
                                             const char *function_name)
 {
@@ -97,7 +97,7 @@ void CodeBuilder::CreateAssertFalse(const char *message)
 /* Printing
  **********************************/
 
-void CodeBuilder::CreatePrintf(const char *format, LLVMValuesRef values)
+void CodeBuilder::CreatePrintf(const char *format, ArrayRef<llvm::Value *> values)
 {
   llvm::FunctionType *printf_ftype = llvm::TypeBuilder<int(char *, ...), false>::get(
       this->getContext());
@@ -125,7 +125,7 @@ static void print_stacktrace(ExecutionContext *context)
 
 void CodeBuilder::CreatePrintfWithStacktrace(llvm::Value *context_ptr,
                                              const char *format,
-                                             LLVMValuesRef values)
+                                             ArrayRef<llvm::Value *> values)
 {
   this->CreateCallPointer(
       (void *)print_stacktrace, {context_ptr}, this->getVoidTy(), "Print Stacktrace");

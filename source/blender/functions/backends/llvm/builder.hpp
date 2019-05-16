@@ -7,7 +7,6 @@ namespace FN {
 
 using LLVMValues = SmallVector<llvm::Value *>;
 using LLVMTypes = BLI::SmallVector<llvm::Type *>;
-using LLVMValuesRef = ArrayRef<llvm::Value *>;
 
 class LLVMTypeInfo;
 class IRConstruct_ForLoop;
@@ -105,12 +104,12 @@ class CodeBuilder {
     return llvm::ArrayType::get(m_builder.getInt8Ty(), size);
   }
 
-  llvm::Type *getStructType(LLVMTypes &types)
+  llvm::Type *getStructType(ArrayRef<llvm::Type *> types)
   {
     return llvm::StructType::get(this->getContext(), to_llvm_array_ref(types));
   }
 
-  llvm::FunctionType *getFunctionType(llvm::Type *ret_type, LLVMTypes &arg_types)
+  llvm::FunctionType *getFunctionType(llvm::Type *ret_type, ArrayRef<llvm::Type *> arg_types)
   {
     return llvm::FunctionType::get(ret_type, to_llvm_array_ref(arg_types), false);
   }
@@ -187,7 +186,7 @@ class CodeBuilder {
     m_builder.SetInsertPoint(block);
   }
 
-  LLVMTypes types_of_values(LLVMValuesRef values);
+  LLVMTypes types_of_values(ArrayRef<llvm::Value *> values);
 
   /* Instruction Builders
    **************************************/
@@ -350,14 +349,14 @@ class CodeBuilder {
 
   llvm::Value *CreateCallPointer(void *func_ptr,
                                  llvm::FunctionType *ftype,
-                                 LLVMValuesRef args,
+                                 ArrayRef<llvm::Value *> args,
                                  const char *function_name = "");
   llvm::Value *CreateCallPointer(void *func_ptr,
-                                 LLVMValuesRef args,
+                                 ArrayRef<llvm::Value *> args,
                                  llvm::Type *return_type,
                                  const char *function_name = "");
 
-  llvm::Value *CreateCall(llvm::Function *function, LLVMValuesRef args)
+  llvm::Value *CreateCall(llvm::Function *function, ArrayRef<llvm::Value *> args)
   {
     return m_builder.CreateCall(function, to_llvm_array_ref(args));
   }
@@ -385,7 +384,7 @@ class CodeBuilder {
     return m_builder.CreateSelect(a_is_larger, a, b);
   }
 
-  llvm::Value *CreateSIntMax(LLVMValuesRef values)
+  llvm::Value *CreateSIntMax(ArrayRef<llvm::Value *> values)
   {
     BLI_assert(values.size() >= 1);
     llvm::Value *max_value = values[0];
@@ -442,10 +441,10 @@ class CodeBuilder {
   /* Print
    **************************************/
 
-  void CreatePrintf(const char *format, LLVMValuesRef values = {});
+  void CreatePrintf(const char *format, ArrayRef<llvm::Value *> values = {});
   void CreatePrintfWithStacktrace(llvm::Value *context_ptr,
                                   const char *format,
-                                  LLVMValuesRef values);
+                                  ArrayRef<llvm::Value *> values);
 
   /* Control Flow Construction
    **************************************/
