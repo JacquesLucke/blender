@@ -184,6 +184,16 @@ class DataFlowGraph : public RefCountedBase {
     return m_nodes[node_id].function;
   }
 
+  SharedFunction &function_of_input(uint input_id)
+  {
+    return this->function_of_node(m_inputs[input_id].node);
+  }
+
+  SharedFunction &function_of_output(uint output_id)
+  {
+    return this->function_of_node(m_outputs[output_id].node);
+  }
+
   uint id_of_node_input(uint node_id, uint input_index)
   {
     BLI_assert(input_index < this->input_ids_of_node(node_id).size());
@@ -210,8 +220,7 @@ class DataFlowGraph : public RefCountedBase {
   Range<uint> output_ids_of_node(uint node_id) const
   {
     MyNode &node = m_nodes[node_id];
-    return Range<uint>(node.outputs_start,
-                       node.outputs_start + node.function->signature().outputs().size());
+    return Range<uint>(node.outputs_start, node.outputs_start + node.function->output_amount());
   }
 
   DFGraphSocketSequence<Range<uint>> outputs_of_node(uint node_id) const
@@ -347,38 +356,24 @@ class DataFlowGraph : public RefCountedBase {
     }
   }
 
-  const StringRefNull name_of_input(uint input_socket)
+  const StringRefNull name_of_input(uint input_id)
   {
-    return this->input_parameter(input_socket).name();
+    return this->function_of_input(input_id)->input_name(this->index_of_input(input_id));
   }
 
-  const StringRefNull name_of_output(uint output_socket)
+  const StringRefNull name_of_output(uint output_id)
   {
-    return this->output_parameter(output_socket).name();
+    return this->function_of_output(output_id)->output_name(this->index_of_output(output_id));
   }
 
-  SharedType &type_of_input(uint input_socket)
+  SharedType &type_of_input(uint input_id)
   {
-    return this->input_parameter(input_socket).type();
+    return this->function_of_input(input_id)->input_type(this->index_of_input(input_id));
   }
 
-  SharedType &type_of_output(uint output_socket)
+  SharedType &type_of_output(uint output_id)
   {
-    return this->output_parameter(output_socket).type();
-  }
-
-  InputParameter &input_parameter(uint input_socket)
-  {
-    uint node = this->node_id_of_input(input_socket);
-    uint index = this->index_of_input(input_socket);
-    return this->function_of_node(node)->signature().inputs()[index];
-  }
-
-  OutputParameter &output_parameter(uint output_socket)
-  {
-    uint node = this->node_id_of_output(output_socket);
-    uint index = this->index_of_output(output_socket);
-    return this->function_of_node(node)->signature().outputs()[index];
+    return this->function_of_output(output_id)->output_type(this->index_of_output(output_id));
   }
 
   std::string to_dot();

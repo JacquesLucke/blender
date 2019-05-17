@@ -31,8 +31,6 @@ class Signature {
 
   bool has_interface(const Signature &other) const;
 
-  void print(std::string indent = "") const;
-
  private:
   const InputParameters m_inputs;
   const OutputParameters m_outputs;

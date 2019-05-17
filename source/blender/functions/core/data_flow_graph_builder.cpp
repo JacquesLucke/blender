@@ -15,10 +15,10 @@ SharedType &DFGB_Socket::type() const
 const StringRefNull DFGB_Socket::name() const
 {
   if (m_is_output) {
-    return this->node()->signature().outputs()[m_index].name();
+    return this->node()->function()->output_name(m_index);
   }
   else {
-    return this->node()->signature().inputs()[m_index].name();
+    return this->node()->function()->input_name(m_index);
   }
 }
 

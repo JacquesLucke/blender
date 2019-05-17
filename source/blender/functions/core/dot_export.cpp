@@ -40,9 +40,8 @@ static void insert_node_table(std::stringstream &ss, DFGB_Node *node)
   ss << "</b></td></tr>";
 
   /* Sockets */
-  const Signature &sig = node->signature();
-  uint inputs_amount = sig.inputs().size();
-  uint outputs_amount = sig.outputs().size();
+  uint inputs_amount = node->function()->input_amount();
+  uint outputs_amount = node->function()->output_amount();
   uint socket_max_amount = std::max(inputs_amount, outputs_amount);
   for (uint i = 0; i < socket_max_amount; i++) {
     ss << "<tr>";

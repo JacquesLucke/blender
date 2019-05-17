@@ -83,16 +83,16 @@ class ExecuteFGraph : public TupleCallBody {
       m_outputs_init_buffer_size += fn->output_amount();
 
       if (body == nullptr) {
-        for (auto param : fn->signature().inputs()) {
-          CPPTypeInfo *type_info = param.type()->extension<CPPTypeInfo>();
+        for (auto type : fn->input_types()) {
+          CPPTypeInfo *type_info = type->extension<CPPTypeInfo>();
           BLI_assert(type_info);
           uint type_size = type_info->size_of_type();
           m_input_info.append(SocketInfo(type_info, m_inputs_init_buffer_size, false));
           m_inputs_buffer_size += type_size;
         }
 
-        for (auto param : fn->signature().outputs()) {
-          CPPTypeInfo *type_info = param.type()->extension<CPPTypeInfo>();
+        for (auto type : fn->output_types()) {
+          CPPTypeInfo *type_info = type->extension<CPPTypeInfo>();
           BLI_assert(type_info);
           uint type_size = type_info->size_of_type();
           m_output_info.append(SocketInfo(type_info, m_outputs_buffer_size, false));

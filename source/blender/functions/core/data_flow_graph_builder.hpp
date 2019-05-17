@@ -56,7 +56,6 @@ class DFGB_Node {
   }
 
   DataFlowGraphBuilder &builder() const;
-  Signature &signature();
   SharedFunction &function();
 
   DFGB_Socket input(uint index);
@@ -85,8 +84,8 @@ class DFGB_Node {
     }
     SocketIt end() const
     {
-      Signature &sig = m_node->signature();
-      uint size = m_is_output ? sig.outputs().size() : sig.inputs().size();
+      SharedFunction &fn = m_node->function();
+      uint size = m_is_output ? fn->output_amount() : fn->input_amount();
       return SocketIt(m_node, m_is_output, size);
     }
 
@@ -262,11 +261,6 @@ inline std::ostream &operator<<(std::ostream &stream, DFGB_Socket socket)
 inline DataFlowGraphBuilder &DFGB_Node::builder() const
 {
   return m_builder;
-}
-
-inline Signature &DFGB_Node::signature()
-{
-  return m_function->signature();
 }
 
 inline SharedFunction &DFGB_Node::function()

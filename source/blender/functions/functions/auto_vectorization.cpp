@@ -64,8 +64,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
       info.get_data_ptr_fn = GET_C_FN_list_data_ptr(base_type);
       m_input_info.append(info);
     }
-    for (auto &output : main->signature().outputs()) {
-      SharedType &base_type = output.type();
+    for (auto &base_type : main->output_types()) {
       OutputInfo info;
       info.base_cpp_type = base_type->extension<CPPTypeInfo>();
       info.base_llvm_type = base_type->extension<LLVMTypeInfo>();
@@ -278,8 +277,7 @@ class AutoVectorization : public TupleCallBody {
       m_max_len_out_size = std::max(m_max_len_out_size, body->meta_out()->size_of_full_tuple());
     }
 
-    for (auto output : main->signature().outputs()) {
-      SharedType &base_type = output.type();
+    for (auto base_type : main->output_types()) {
       m_create_empty_bodies.append(GET_FN_empty_list(base_type)->body<TupleCallBody>());
       m_append_bodies.append(GET_FN_append_to_list(base_type)->body<TupleCallBody>());
     }
@@ -422,20 +420,22 @@ SharedFunction to_vectorized_function(SharedFunction &original_fn,
 
   FunctionBuilder builder;
   for (uint i = 0; i < input_amount; i++) {
-    auto original_parameter = original_fn->signature().inputs()[i];
+    StringRef original_name = original_fn->input_name(i);
+    SharedType &original_type = original_fn->input_type(i);
     if (vectorized_inputs_mask[i]) {
-      SharedType &list_type = get_list_type(original_parameter.type());
-      builder.add_input(original_parameter.name() + " (List)", list_type);
+      SharedType &list_type = get_list_type(original_type);
+      builder.add_input(original_name + " (List)", list_type);
     }
     else {
-      builder.add_input(original_parameter.name(), original_parameter.type());
+      builder.add_input(original_name, original_type);
     }
   }
 
   for (uint i = 0; i < output_amount; i++) {
-    auto original_parameter = original_fn->signature().outputs()[i];
-    SharedType &list_type = get_list_type(original_parameter.type());
-    builder.add_output(original_parameter.name() + " (List)", list_type);
+    StringRef original_name = original_fn->output_name(i);
+    SharedType &original_type = original_fn->output_type(i);
+    SharedType &list_type = get_list_type(original_type);
+    builder.add_output(original_name + " (List)", list_type);
   }
 
   std::string name = original_fn->name() + " (Vectorized)";

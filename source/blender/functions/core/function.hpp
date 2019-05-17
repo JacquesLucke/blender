@@ -117,6 +117,16 @@ class Function final : public RefCountedBase {
     return m_signature.outputs()[index].type();
   }
 
+  StringRefNull input_name(uint index)
+  {
+    return m_signature.inputs()[index].name();
+  }
+
+  StringRefNull output_name(uint index)
+  {
+    return m_signature.outputs()[index].name();
+  }
+
   template<typename T> SmallVector<T *> input_extensions() const
   {
     SmallVector<T *> extensions;
@@ -131,12 +141,30 @@ class Function final : public RefCountedBase {
   template<typename T> SmallVector<T *> output_extensions() const
   {
     SmallVector<T *> extensions;
-    for (InputParameter &param : m_signature.outputs()) {
+    for (OutputParameter &param : m_signature.outputs()) {
       T *ext = param.type()->extension<T>();
       BLI_assert(ext);
       extensions.append(ext);
     }
     return extensions;
+  }
+
+  SmallVector<SharedType> input_types() const
+  {
+    SmallVector<SharedType> types;
+    for (InputParameter &param : m_signature.inputs()) {
+      types.append(param.type());
+    }
+    return types;
+  }
+
+  SmallVector<SharedType> output_types() const
+  {
+    SmallVector<SharedType> types;
+    for (OutputParameter &param : m_signature.outputs()) {
+      types.append(param.type());
+    }
+    return types;
   }
 
  private:

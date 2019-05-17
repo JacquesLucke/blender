@@ -5,7 +5,18 @@ namespace FN {
 void Function::print() const
 {
   std::cout << "Function: " << this->name() << std::endl;
-  this->signature().print("  ");
+  std::cout << "  Inputs:" << std::endl;
+  for (InputParameter &param : m_signature.inputs()) {
+    std::cout << "    ";
+    param.print();
+    std::cout << std::endl;
+  }
+  std::cout << "  Outputs:" << std::endl;
+  for (OutputParameter &param : m_signature.outputs()) {
+    std::cout << "    ";
+    param.print();
+    std::cout << std::endl;
+  }
 }
 
 /* Function builder

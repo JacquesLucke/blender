@@ -31,20 +31,4 @@ bool Signature::has_interface(const Signature &other) const
   return this->has_interface(other.input_types(), other.output_types());
 }
 
-void Signature::print(std::string indent) const
-{
-  std::cout << indent << "Inputs:" << std::endl;
-  for (InputParameter &param : this->inputs()) {
-    std::cout << indent << "  ";
-    param.print();
-    std::cout << std::endl;
-  }
-  std::cout << indent << "Outputs:" << std::endl;
-  for (OutputParameter &param : this->outputs()) {
-    std::cout << indent << "  ";
-    param.print();
-    std::cout << std::endl;
-  }
-}
-
 } /* namespace FN */
