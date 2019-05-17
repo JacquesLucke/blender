@@ -58,8 +58,8 @@ class TupleCallLLVM : public LLVMBuildIRBody {
     Function *fn = m_tuple_call->owner();
 
     /* Find relevant type information. */
-    auto input_type_infos = fn->signature().input_extensions<LLVMTypeInfo>();
-    auto output_type_infos = fn->signature().output_extensions<LLVMTypeInfo>();
+    auto input_type_infos = fn->input_extensions<LLVMTypeInfo>();
+    auto output_type_infos = fn->output_extensions<LLVMTypeInfo>();
 
     /* Build wrapper function. */
     llvm::Function *wrapper_function = this->get_wrapper_function(

@@ -117,6 +117,28 @@ class Function final : public RefCountedBase {
     return m_signature.outputs()[index].type();
   }
 
+  template<typename T> SmallVector<T *> input_extensions() const
+  {
+    SmallVector<T *> extensions;
+    for (InputParameter &param : m_signature.inputs()) {
+      T *ext = param.type()->extension<T>();
+      BLI_assert(ext);
+      extensions.append(ext);
+    }
+    return extensions;
+  }
+
+  template<typename T> SmallVector<T *> output_extensions() const
+  {
+    SmallVector<T *> extensions;
+    for (InputParameter &param : m_signature.outputs()) {
+      T *ext = param.type()->extension<T>();
+      BLI_assert(ext);
+      extensions.append(ext);
+    }
+    return extensions;
+  }
+
  private:
   const std::string m_name;
   Signature m_signature;

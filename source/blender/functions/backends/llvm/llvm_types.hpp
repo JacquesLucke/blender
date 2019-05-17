@@ -112,7 +112,4 @@ inline llvm::Type *get_llvm_type(SharedType &type, llvm::LLVMContext &context)
 LLVMTypes types_of_type_infos(const SmallVector<LLVMTypeInfo *> &type_infos,
                               llvm::LLVMContext &context);
 
-llvm::FunctionType *function_type_from_signature(const Signature &signature,
-                                                 llvm::LLVMContext &context);
-
 } /* namespace FN */

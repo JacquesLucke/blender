@@ -27,28 +27,6 @@ class Signature {
   TypeVector input_types() const;
   TypeVector output_types() const;
 
-  template<typename T> SmallVector<T *> input_extensions() const
-  {
-    SmallVector<T *> extensions;
-    for (InputParameter &param : m_inputs) {
-      T *ext = param.type()->extension<T>();
-      BLI_assert(ext);
-      extensions.append(ext);
-    }
-    return extensions;
-  }
-
-  template<typename T> SmallVector<T *> output_extensions() const
-  {
-    SmallVector<T *> extensions;
-    for (OutputParameter &param : m_outputs) {
-      T *ext = param.type()->extension<T>();
-      BLI_assert(ext);
-      extensions.append(ext);
-    }
-    return extensions;
-  }
-
   bool has_interface(const TypeVector &inputs, const TypeVector &outputs) const;
 
   bool has_interface(const Signature &other) const;
