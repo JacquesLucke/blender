@@ -2,20 +2,18 @@
 
 namespace FN {
 
-void Function::print() const
+void Function::print()
 {
   std::cout << "Function: " << this->name() << std::endl;
   std::cout << "  Inputs:" << std::endl;
-  for (InputParameter &param : m_signature.inputs()) {
-    std::cout << "    ";
-    param.print();
-    std::cout << std::endl;
+  for (uint i = 0; i < this->input_amount(); i++) {
+    std::cout << "    " << this->input_type(i)->name() << " - " << this->input_name(i)
+              << std::endl;
   }
   std::cout << "  Outputs:" << std::endl;
-  for (OutputParameter &param : m_signature.outputs()) {
-    std::cout << "    ";
-    param.print();
-    std::cout << std::endl;
+  for (uint i = 0; i < this->output_amount(); i++) {
+    std::cout << "    " << this->output_type(i)->name() << " - " << this->output_name(i)
+              << std::endl;
   }
 }
 
@@ -40,15 +38,8 @@ void FunctionBuilder::add_output(StringRef name, SharedType &type)
 
 SharedFunction FunctionBuilder::build(StringRef function_name)
 {
-  InputParameters inputs;
-  for (uint i = 0; i < m_input_names.size(); i++) {
-    inputs.append(InputParameter(m_input_names[i], m_input_types[i]));
-  }
-  OutputParameters outputs;
-  for (uint i = 0; i < m_output_names.size(); i++) {
-    outputs.append(OutputParameter(m_output_names[i], m_output_types[i]));
-  }
-  return SharedFunction::New(function_name, Signature(inputs, outputs));
+  return SharedFunction::New(
+      function_name, m_input_names, m_input_types, m_output_names, m_output_types);
 }
 
 } /* namespace FN */

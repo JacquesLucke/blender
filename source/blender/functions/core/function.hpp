@@ -38,13 +38,19 @@ class Function final : public RefCountedBase {
  public:
   Function(Function &fn) = delete;
 
-  Function(StringRef name, const Signature &signature)
-      : m_name(name.to_std_string()), m_signature(signature)
+  Function(StringRef name,
+           ArrayRef<std::string> input_names,
+           ArrayRef<SharedType> input_types,
+           ArrayRef<std::string> output_names,
+           ArrayRef<SharedType> output_types)
+      : m_name(name.to_std_string()),
+        m_input_names(input_names.to_small_vector()),
+        m_input_types(input_types.to_small_vector()),
+        m_output_names(output_names.to_small_vector()),
+        m_output_types(output_types.to_small_vector())
   {
-  }
-
-  Function(const Signature &signature) : Function("Function", signature)
-  {
+    BLI_assert(m_input_names.size() == m_input_types.size());
+    BLI_assert(m_output_names.size() == m_output_types.size());
   }
 
   ~Function() = default;
@@ -52,16 +58,6 @@ class Function final : public RefCountedBase {
   const StringRefNull name() const
   {
     return m_name;
-  }
-
-  inline const Signature &signature() const
-  {
-    return m_signature;
-  }
-
-  inline Signature &signature()
-  {
-    return m_signature;
   }
 
   template<typename T> inline bool has_body() const
@@ -94,44 +90,44 @@ class Function final : public RefCountedBase {
     }
   }
 
-  void print() const;
+  void print();
 
   /* Utility accessors */
   uint input_amount() const
   {
-    return m_signature.inputs().size();
+    return m_input_names.size();
   }
 
   uint output_amount() const
   {
-    return m_signature.outputs().size();
+    return m_output_names.size();
   }
 
   SharedType &input_type(uint index)
   {
-    return m_signature.inputs()[index].type();
+    return m_input_types[index];
   }
 
   SharedType &output_type(uint index)
   {
-    return m_signature.outputs()[index].type();
+    return m_output_types[index];
   }
 
   StringRefNull input_name(uint index)
   {
-    return m_signature.inputs()[index].name();
+    return m_input_names[index];
   }
 
   StringRefNull output_name(uint index)
   {
-    return m_signature.outputs()[index].name();
+    return m_output_names[index];
   }
 
   template<typename T> SmallVector<T *> input_extensions() const
   {
     SmallVector<T *> extensions;
-    for (InputParameter &param : m_signature.inputs()) {
-      T *ext = param.type()->extension<T>();
+    for (auto &type : m_input_types) {
+      T *ext = type->extension<T>();
       BLI_assert(ext);
       extensions.append(ext);
     }
@@ -141,37 +137,33 @@ class Function final : public RefCountedBase {
   template<typename T> SmallVector<T *> output_extensions() const
   {
     SmallVector<T *> extensions;
-    for (OutputParameter &param : m_signature.outputs()) {
-      T *ext = param.type()->extension<T>();
+    for (auto &type : m_output_types) {
+      T *ext = type->extension<T>();
       BLI_assert(ext);
       extensions.append(ext);
     }
     return extensions;
   }
 
-  SmallVector<SharedType> input_types() const
+  ArrayRef<SharedType> input_types() const
   {
-    SmallVector<SharedType> types;
-    for (InputParameter &param : m_signature.inputs()) {
-      types.append(param.type());
-    }
-    return types;
+    return m_input_types;
   }
 
-  SmallVector<SharedType> output_types() const
+  ArrayRef<SharedType> output_types() const
   {
-    SmallVector<SharedType> types;
-    for (OutputParameter &param : m_signature.outputs()) {
-      types.append(param.type());
-    }
-    return types;
+    return m_output_types;
   }
 
  private:
   const std::string m_name;
-  Signature m_signature;
   Composition m_bodies;
   mutable std::mutex m_body_mutex;
+
+  SmallVector<std::string> m_input_names;
+  SmallVector<SharedType> m_input_types;
+  SmallVector<std::string> m_output_names;
+  SmallVector<SharedType> m_output_types;
 };
 
 using SharedFunction = AutoRefCount<Function>;
@@ -180,8 +172,8 @@ using FunctionPerType = SmallMap<SharedType, SharedFunction>;
 class FunctionBuilder {
  private:
   SmallVector<std::string> m_input_names;
-  SmallVector<std::string> m_output_names;
   SmallVector<SharedType> m_input_types;
+  SmallVector<std::string> m_output_names;
   SmallVector<SharedType> m_output_types;
 
  public:
