@@ -34,8 +34,10 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_math.h"
 #include "BLI_blenlib.h"
+#include "BLI_ghash.h"
+#include "BLI_math.h"
+#include "BLI_string.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
@@ -2152,6 +2154,146 @@ void IMAGE_OT_save_sequence(wmOperatorType *ot)
   /* api callbacks */
   ot->exec = image_save_sequence_exec;
   ot->poll = space_image_buffer_exists_poll;
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/********************** save all operator **********************/
+
+static int image_save_all_modified(const bContext *C,
+                                   ReportList *reports,
+                                   int *num_files,
+                                   const bool dry_run,
+                                   const bool ignore_dry_run_warnings)
+{
+  Main *bmain = CTX_data_main(C);
+  Scene *scene = CTX_data_scene(C);
+  GSet *unique_paths = BLI_gset_str_new(__func__);
+  bool ok = true;
+
+  if (num_files) {
+    *num_files = 0;
+  }
+
+  for (Image *ima = bmain->images.first; ima; ima = ima->id.next) {
+    if (ELEM(ima->type, IMA_TYPE_R_RESULT, IMA_TYPE_COMPOSITE)) {
+      /* Don't save render results automatically. */
+    }
+    else if (BKE_image_is_dirty(ima) && (ima->source == IMA_SRC_FILE)) {
+      if (BKE_image_has_packedfile(ima)) {
+        if (ima->id.lib == NULL) {
+          /* Re-pack. */
+          if (!dry_run) {
+            BKE_image_memorypack(ima);
+          }
+
+          if (num_files) {
+            (*num_files)++;
+          }
+        }
+        else if (!ignore_dry_run_warnings) {
+          /* Can't pack to library data. */
+          BKE_reportf(reports,
+                      RPT_WARNING,
+                      "Packed library image: %s from library %s can't be saved",
+                      ima->id.name,
+                      ima->id.lib->name);
+          ok = false;
+        }
+      }
+      else {
+        /* Save to file. */
+        const bool valid_path = strchr(ima->name, '\\') || strchr(ima->name, '/');
+
+        if (valid_path) {
+          ImageSaveOptions opts;
+
+          BKE_image_save_options_init(&opts, bmain, scene);
+
+          if (image_save_options_init(bmain, &opts, ima, NULL, false, false)) {
+            if (!BLI_gset_haskey(unique_paths, opts.filepath)) {
+              if (!dry_run) {
+                const bool save_ok = BKE_image_save(reports, bmain, ima, NULL, &opts);
+
+                if (save_ok) {
+                  BLI_gset_insert(unique_paths, BLI_strdup(opts.filepath));
+                }
+
+                ok = ok && save_ok;
+              }
+
+              if (num_files) {
+                (*num_files)++;
+              }
+            }
+            else if (!ignore_dry_run_warnings) {
+              BKE_reportf(reports,
+                          RPT_WARNING,
+                          "File path used by more than one saved image: %s",
+                          opts.filepath);
+              ok = false;
+            }
+          }
+        }
+        else if (!ignore_dry_run_warnings) {
+          BKE_reportf(reports,
+                      RPT_WARNING,
+                      "Image %s can't be saved, no valid file path: %s",
+                      ima->id.name,
+                      ima->name);
+          ok = false;
+        }
+      }
+    }
+  }
+
+  BLI_gset_free(unique_paths, MEM_freeN);
+
+  return ok;
+}
+
+int ED_image_save_all_modified_info(const bContext *C, ReportList *reports)
+{
+  /* Dry run to get number of files, and any warnings we can detect in advance. */
+  int num_files;
+  image_save_all_modified(C, reports, &num_files, true, false);
+  return num_files;
+}
+
+bool ED_image_save_all_modified(const bContext *C, ReportList *reports)
+{
+  /* Save, and ignore any warnings that we already detected in
+   * ED_image_save_all_modified_info. */
+  return image_save_all_modified(C, reports, NULL, false, true);
+}
+
+static bool image_save_all_modified_poll(bContext *C)
+{
+  /* Let operator run if there are any files to saved, or any warnings to
+   * report about files that we can't save. */
+  int num_files;
+  bool ok = image_save_all_modified(C, NULL, &num_files, true, false);
+  return (num_files > 0) || !ok;
+}
+
+static int image_save_all_modified_exec(bContext *C, wmOperator *op)
+{
+  /* Save, and show all warnings. */
+  image_save_all_modified(C, op->reports, NULL, false, false);
+  return OPERATOR_FINISHED;
+}
+
+void IMAGE_OT_save_all_modified(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Save All Modified";
+  ot->idname = "IMAGE_OT_save_all_modified";
+  ot->description = "Save all modified images";
+
+  /* api callbacks */
+  ot->exec = image_save_all_modified_exec;
+  ot->poll = image_save_all_modified_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

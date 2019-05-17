@@ -2537,7 +2537,7 @@ static void _IDP_DirectLinkGroup_OrFree(IDProperty **prop,
       /* corrupt file! */
       printf("%s: found non group data, freeing type %d!\n", caller_func_id, (*prop)->type);
       /* don't risk id, data's likely corrupt. */
-      // IDP_FreeProperty(*prop);
+      // IDP_FreePropertyContent(*prop);
       *prop = NULL;
     }
   }
@@ -7106,7 +7106,6 @@ static void direct_link_panel_list(FileData *fd, ListBase *lb)
   link_list(fd, lb);
 
   for (Panel *pa = lb->first; pa; pa = pa->next) {
-    pa->paneltab = newdataadr(fd, pa->paneltab);
     pa->runtime_flag = 0;
     pa->activedata = NULL;
     pa->type = NULL;

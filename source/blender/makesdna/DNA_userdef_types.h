@@ -363,6 +363,14 @@ typedef struct ThemeSpace {
   char match[4];
   /** Outliner - selected item. */
   char selected_highlight[4];
+  /** Outliner - selected object. */
+  char selected_object[4];
+  /** Outliner - active object. */
+  char active_object[4];
+  /** Outliner - edited object. */
+  char edited_object[4];
+  /** Outliner - row color difference. */
+  char row_alternate[4];
 
   /** Skin modifier root color. */
   char skin_root[4];
@@ -374,7 +382,6 @@ typedef struct ThemeSpace {
   char anim_non_active[4];
   /** Preview range overlay. */
   char anim_preview_range[4];
-  char _pad2[4];
 
   /** NLA 'Tweaking' action/strip. */
   char nla_tweaking[4];
@@ -400,6 +407,8 @@ typedef struct ThemeSpace {
 
   char metadatabg[4];
   char metadatatext[4];
+
+  char _pad2[4];
 } ThemeSpace;
 
 /* set of colors for use as a custom color set for Objects/Bones wire drawing */
@@ -833,7 +842,7 @@ typedef enum eUserPref_Flag {
   USER_TOOLTIPS = (1 << 11),
   USER_TWOBUTTONMOUSE = (1 << 12),
   USER_NONUMPAD = (1 << 13),
-  USER_FLAG_UNUSED_14 = (1 << 14), /* cleared */
+  USER_ADD_CURSORALIGNED = (1 << 14),
   USER_FILECOMPRESS = (1 << 15),
   USER_SAVE_PREVIEWS = (1 << 16),
   USER_CUSTOM_RANGE = (1 << 17),

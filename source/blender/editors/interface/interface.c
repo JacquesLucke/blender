@@ -1086,7 +1086,6 @@ static bool ui_but_event_operator_string_from_menu(const bContext *C,
   }
 
   IDP_FreeProperty(prop_menu);
-  MEM_freeN(prop_menu);
   return found;
 }
 
@@ -1135,7 +1134,6 @@ static bool ui_but_event_operator_string_from_panel(const bContext *C,
   }
 
   IDP_FreeProperty(prop_panel);
-  MEM_freeN(prop_panel);
   return found;
 }
 
@@ -1356,7 +1354,6 @@ static bool ui_but_event_property_operator_string(const bContext *C,
 
       /* cleanup */
       IDP_FreeProperty(prop_path);
-      MEM_freeN(prop_path);
       if (data_path) {
         MEM_freeN(data_path);
       }
@@ -1687,6 +1684,18 @@ void UI_block_draw(const bContext *C, uiBlock *block)
   }
   else if (block->panel) {
     bool show_background = ar->alignment != RGN_ALIGN_FLOAT;
+    if (show_background) {
+      if (block->panel->type && (block->panel->type->flag & PNL_NO_HEADER)) {
+        if (ar->regiontype == RGN_TYPE_TOOLS) {
+          /* We never want a background around active tools. */
+          show_background = false;
+        }
+        else {
+          /* Without a header there is no background except for region overlap. */
+          show_background = ar->overlap != 0;
+        }
+      }
+    }
     ui_draw_aligned_panel(&style, block, &rect, UI_panel_category_is_visible(ar), show_background);
   }
 

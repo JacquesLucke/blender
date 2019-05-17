@@ -1849,6 +1849,20 @@ static void rna_View3DCursor_rotation_axis_angle_set(PointerRNA *ptr, const floa
   copy_v3_v3(cursor->rotation_axis, &value[1]);
 }
 
+static void rna_View3DCursor_matrix_get(PointerRNA *ptr, float *values)
+{
+  const View3DCursor *cursor = ptr->data;
+  BKE_scene_cursor_to_mat4(cursor, (float(*)[4])values);
+}
+
+static void rna_View3DCursor_matrix_set(PointerRNA *ptr, const float *values)
+{
+  View3DCursor *cursor = ptr->data;
+  float unit_mat[4][4];
+  normalize_m4_m4(unit_mat, (const float(*)[4])values);
+  BKE_scene_cursor_from_mat4(cursor, unit_mat, false);
+}
+
 static char *rna_View3DCursor_path(PointerRNA *UNUSED(ptr))
 {
   return BLI_strdup("cursor");
@@ -2586,6 +2600,14 @@ static void rna_def_view3d_cursor(BlenderRNA *brna)
   RNA_def_property_enum_funcs(prop, NULL, "rna_View3DCursor_rotation_mode_set", NULL);
   RNA_def_property_ui_text(prop, "Rotation Mode", "");
   RNA_def_property_update(prop, NC_WINDOW, NULL);
+
+  /* Matrix access to avoid having to check current rotation mode. */
+  prop = RNA_def_property(srna, "matrix", PROP_FLOAT, PROP_MATRIX);
+  RNA_def_property_multi_array(prop, 2, rna_matrix_dimsize_4x4);
+  RNA_def_property_flag(prop, PROP_THICK_WRAP); /* no reference to original data */
+  RNA_def_property_ui_text(prop, "Transform Matrix", "Matrix combining loc/rot of the cursor");
+  RNA_def_property_float_funcs(
+      prop, "rna_View3DCursor_matrix_get", "rna_View3DCursor_matrix_set", NULL);
 }
 
 static void rna_def_tool_settings(BlenderRNA *brna)
@@ -5476,16 +5498,6 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
   StructRNA *srna;
   PropertyRNA *prop;
 
-  static const EnumPropertyItem alpha_mode_items[] = {
-      {R_ADDSKY, "SKY", 0, "Sky", "Transparent pixels are filled with sky color"},
-      {R_ALPHAPREMUL,
-       "TRANSPARENT",
-       0,
-       "Transparent",
-       "World background is transparent with premultiplied alpha"},
-      {0, NULL, 0, NULL, NULL},
-  };
-
   static const EnumPropertyItem display_mode_items[] = {
       {R_OUTPUT_SCREEN,
        "SCREEN",
@@ -5713,11 +5725,12 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
       prop, "Filter Size", "Width over which the reconstruction filter combines samples");
   RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
 
-  prop = RNA_def_property(srna, "alpha_mode", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_sdna(prop, NULL, "alphamode");
-  RNA_def_property_enum_items(prop, alpha_mode_items);
+  prop = RNA_def_property(srna, "film_transparent", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "alphamode", R_ALPHAPREMUL);
   RNA_def_property_ui_text(
-      prop, "Alpha Mode", "Representation of alpha information in the RGBA pixels");
+      prop,
+      "Transparent",
+      "World background is transparent, for compositing the render over another background");
   RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, "rna_Scene_glsl_update");
 
   prop = RNA_def_property(srna, "use_freestyle", PROP_BOOLEAN, PROP_NONE);

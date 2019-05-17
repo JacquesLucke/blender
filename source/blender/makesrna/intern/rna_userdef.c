@@ -2235,6 +2235,26 @@ static void rna_def_userdef_theme_space_outliner(BlenderRNA *brna)
   RNA_def_property_array(prop, 3);
   RNA_def_property_ui_text(prop, "Selected Highlight", "");
   RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
+
+  prop = RNA_def_property(srna, "selected_object", PROP_FLOAT, PROP_COLOR_GAMMA);
+  RNA_def_property_array(prop, 3);
+  RNA_def_property_ui_text(prop, "Selected Objects", "");
+  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
+
+  prop = RNA_def_property(srna, "active_object", PROP_FLOAT, PROP_COLOR_GAMMA);
+  RNA_def_property_array(prop, 3);
+  RNA_def_property_ui_text(prop, "Active Object", "");
+  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
+
+  prop = RNA_def_property(srna, "edited_object", PROP_FLOAT, PROP_COLOR_GAMMA);
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_ui_text(prop, "Edited Object", "");
+  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
+
+  prop = RNA_def_property(srna, "row_alternate", PROP_FLOAT, PROP_COLOR_GAMMA);
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_ui_text(prop, "Alternate Rows", "Overlay color on every other row");
+  RNA_def_property_update(prop, 0, "rna_userdef_theme_update");
 }
 
 static void rna_def_userdef_theme_space_userpref(BlenderRNA *brna)
@@ -4347,7 +4367,12 @@ static void rna_def_userdef_edit(BlenderRNA *brna)
        "VIEW",
        0,
        "View",
-       "Align newly added objects facing the active 3D View direction"},
+       "Align newly added objects to the active 3D View direction"},
+      {USER_ADD_CURSORALIGNED,
+       "CURSOR",
+       0,
+       "3D Cursor",
+       "Align newly added objects to the 3D Cursor's rotation"},
       {0, NULL, 0, NULL, NULL},
   };
 
