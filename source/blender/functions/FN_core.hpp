@@ -2,8 +2,6 @@
 
 #include "FN_core-c.h"
 #include "core/type.hpp"
-#include "core/parameter.hpp"
-#include "core/signature.hpp"
 #include "core/function.hpp"
 #include "core/source_info.hpp"
 #include "core/function_graph.hpp"

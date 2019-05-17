@@ -37,10 +37,6 @@ set(SRC
   initialize.cpp
 
   core/type.hpp
-  core/parameter.hpp
-  core/parameter.cpp
-  core/signature.hpp
-  core/signature.cpp
   core/function.hpp
   core/function.cpp
   core/data_flow_graph.hpp
