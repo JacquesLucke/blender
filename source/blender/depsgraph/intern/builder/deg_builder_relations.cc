@@ -2072,9 +2072,9 @@ void DepsgraphRelationBuilder::build_camera(Camera *camera)
   }
   build_animdata(&camera->id);
   build_parameters(&camera->id);
-  if (camera->dof_ob != NULL) {
+  if (camera->dof.focus_object != NULL) {
     ComponentKey camera_parameters_key(&camera->id, NodeType::PARAMETERS);
-    ComponentKey dof_ob_key(&camera->dof_ob->id, NodeType::TRANSFORM);
+    ComponentKey dof_ob_key(&camera->dof.focus_object->id, NodeType::TRANSFORM);
     add_relation(dof_ob_key, camera_parameters_key, "Camera DOF");
   }
 }
@@ -2272,8 +2272,8 @@ void DepsgraphRelationBuilder::build_mask(Mask *mask)
   TimeSourceKey time_src_key;
   add_relation(time_src_key, mask_animation_key, "TimeSrc -> Mask Animation");
   /* Final mask evaluation. */
-  ComponentKey parameters_key(mask_id, NodeType::PARAMETERS);
-  add_relation(mask_animation_key, parameters_key, "Mask Animation -> Mask Eval");
+  OperationKey mask_eval_key(mask_id, NodeType::PARAMETERS, OperationCode::MASK_EVAL);
+  add_relation(mask_animation_key, mask_eval_key, "Mask Animation -> Mask Eval");
 }
 
 void DepsgraphRelationBuilder::build_movieclip(MovieClip *clip)

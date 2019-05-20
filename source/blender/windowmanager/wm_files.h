@@ -25,6 +25,7 @@
 #define __WM_FILES_H__
 
 struct Main;
+struct wmGenericCallback;
 struct wmOperatorType;
 
 /* wm_files.c */
@@ -39,6 +40,9 @@ void wm_homefile_read(struct bContext *C,
                       const char *app_template_override,
                       bool *r_is_factory_startup);
 void wm_file_read_report(bContext *C, struct Main *bmain);
+
+void wm_close_file_dialog(bContext *C, struct wmGenericCallback *post_action);
+bool wm_file_or_image_is_modified(const struct bContext *C);
 
 void WM_OT_save_homefile(struct wmOperatorType *ot);
 void WM_OT_userpref_autoexec_path_add(struct wmOperatorType *ot);

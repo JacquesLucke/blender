@@ -67,7 +67,9 @@ static PointerRNA rna_ViewLayer_active_layer_collection_get(PointerRNA *ptr)
   return rna_pointer_inherit_refine(ptr, &RNA_LayerCollection, lc);
 }
 
-static void rna_ViewLayer_active_layer_collection_set(PointerRNA *ptr, PointerRNA value)
+static void rna_ViewLayer_active_layer_collection_set(struct ReportList *UNUSED(reports),
+                                                      PointerRNA *ptr,
+                                                      PointerRNA value)
 {
   ViewLayer *view_layer = (ViewLayer *)ptr->data;
   LayerCollection *lc = (LayerCollection *)value.data;
@@ -84,7 +86,9 @@ static PointerRNA rna_LayerObjects_active_object_get(PointerRNA *ptr)
       ptr, &RNA_Object, view_layer->basact ? view_layer->basact->object : NULL);
 }
 
-static void rna_LayerObjects_active_object_set(PointerRNA *ptr, PointerRNA value)
+static void rna_LayerObjects_active_object_set(struct ReportList *UNUSED(reports),
+                                               PointerRNA *ptr,
+                                               PointerRNA value)
 {
   ViewLayer *view_layer = (ViewLayer *)ptr->data;
   if (value.data)
@@ -304,14 +308,14 @@ static void rna_def_layer_collection(BlenderRNA *brna)
   prop = RNA_def_property(srna, "holdout", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", LAYER_COLLECTION_HOLDOUT);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_icon(prop, ICON_CLIPUV_HLT, -1);
+  RNA_def_property_ui_icon(prop, ICON_HOLDOUT_OFF, 1);
   RNA_def_property_ui_text(prop, "Holdout", "Mask out objects in collection from view layer");
   RNA_def_property_update(prop, NC_SCENE | ND_LAYER, "rna_LayerCollection_update");
 
   prop = RNA_def_property(srna, "indirect_only", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", LAYER_COLLECTION_INDIRECT_ONLY);
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-  RNA_def_property_ui_icon(prop, ICON_MOD_PHYSICS, 0);
+  RNA_def_property_ui_icon(prop, ICON_INDIRECT_ONLY_OFF, 1);
   RNA_def_property_ui_text(
       prop,
       "Indirect Only",

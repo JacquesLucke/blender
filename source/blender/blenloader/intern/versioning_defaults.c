@@ -24,6 +24,7 @@
 #include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_string.h"
+#include "BLI_system.h"
 
 #include "DNA_gpencil_types.h"
 #include "DNA_mesh_types.h"
@@ -93,10 +94,13 @@ void BLO_update_defaults_userpref_blend(void)
   /* Leave temp directory empty, will then get appropriate value per OS. */
   U.tempdir[0] = '\0';
 
+  /* System-specific fonts directory. */
+  BKE_appdir_font_folder_default(U.fontdir);
+
   /* Only enable tooltips translation by default,
    * without actually enabling translation itself, for now. */
   U.transopts = USER_TR_TOOLTIPS;
-  U.memcachelimit = 4096;
+  U.memcachelimit = min_ii(BLI_system_memory_max_in_megabytes_int() / 2, 4096);
 
   /* Auto perspective. */
   U.uiflag |= USER_AUTOPERSP;
@@ -157,6 +161,10 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
         /* Remove all stored panels, we want to use defaults
          * (order, open/closed) as defined by UI code here! */
         BKE_area_region_panels_free(&ar->panels);
+
+        /* Reset size so it uses consistent defaults from the region types. */
+        ar->sizex = 0;
+        ar->sizey = 0;
 
         /* some toolbars have been saved as initialized,
          * we don't want them to have odd zoom-level or scrolling set, see: T47047 */

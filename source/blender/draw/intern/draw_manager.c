@@ -1729,15 +1729,14 @@ void DRW_draw_render_loop_ex(struct Depsgraph *depsgraph,
   }
 
   DRW_draw_callbacks_post_scene();
+  DRW_state_reset();
+
   if (DST.draw_ctx.evil_C) {
-    DRW_state_reset();
     ED_region_draw_cb_draw(DST.draw_ctx.evil_C, DST.draw_ctx.ar, REGION_DRAW_POST_VIEW);
     /* Callback can be nasty and do whatever they want with the state.
      * Don't trust them! */
     DRW_state_reset();
   }
-
-  DRW_state_reset();
 
   drw_debug_draw();
 
@@ -2772,7 +2771,6 @@ void DRW_draw_select_id_object(Scene *scene,
   }
 
   GPU_matrix_mul(ob->obmat);
-  GPU_depth_test(true);
 
   const float(*world_clip_planes)[4] = NULL;
   if (rv3d->rflag & RV3D_CLIPPING) {
@@ -2780,7 +2778,7 @@ void DRW_draw_select_id_object(Scene *scene,
     world_clip_planes = rv3d->clip_local;
   }
 
-  initial_offset += 1;
+  BLI_assert(initial_offset > 0);
 
   switch (ob->type) {
     case OB_MESH:
@@ -2862,6 +2860,7 @@ void DRW_draw_select_id_object(Scene *scene,
           draw_mesh_face(geom_faces, 0, false, world_clip_planes);
           draw_mesh_verts(geom_verts, 1, world_clip_planes);
 
+          *r_face_offset = *r_edge_offset = initial_offset;
           *r_vert_offset = me_eval->totvert + 1;
         }
         else {
@@ -2870,7 +2869,8 @@ void DRW_draw_select_id_object(Scene *scene,
 
           draw_mesh_face(geom_faces, initial_offset, true, world_clip_planes);
 
-          *r_face_offset = initial_offset + me_eval->totface;
+          *r_face_offset = initial_offset + me_eval->totpoly;
+          *r_edge_offset = *r_vert_offset = *r_face_offset;
         }
       }
       break;
@@ -2898,7 +2898,7 @@ void DRW_framebuffer_select_id_setup(ARegion *ar, const bool clear)
   glDisable(GL_DITHER);
 
   GPU_depth_test(true);
-  glDisable(GL_SCISSOR_TEST);
+  GPU_enable_program_point_size();
 
   if (clear) {
     GPU_framebuffer_clear_color_depth(

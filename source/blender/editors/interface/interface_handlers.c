@@ -1744,7 +1744,7 @@ static void ui_selectcontext_apply(bContext *C,
       }
       else if (rna_type == PROP_POINTER) {
         const PointerRNA other_value = delta.p;
-        RNA_property_pointer_set(&lptr, lprop, other_value);
+        RNA_property_pointer_set(NULL, &lptr, lprop, other_value);
       }
 
       RNA_property_update(C, &lptr, prop);
@@ -6530,7 +6530,7 @@ static int ui_do_but_CURVE(
       CurveMap *cuma = cumap->cm + cumap->cur;
       CurveMapPoint *cmp;
       const float m_xy[2] = {mx, my};
-      float dist_min_sq = SQUARE(14.0f); /* 14 pixels radius */
+      float dist_min_sq = SQUARE(U.dpi_fac * 14.0f); /* 14 pixels radius */
       int sel = -1;
 
       if (event->ctrl) {
@@ -6565,7 +6565,7 @@ static int ui_do_but_CURVE(
         BLI_rctf_transform_pt_v(&but->rect, &cumap->curr, f_xy, &cmp[0].x);
 
         /* with 160px height 8px should translate to the old 0.05 coefficient at no zoom */
-        dist_min_sq = SQUARE(8.0f);
+        dist_min_sq = SQUARE(U.dpi_fac * 8.0f);
 
         /* loop through the curve segment table and find what's near the mouse. */
         for (i = 1; i <= CM_TABLE; i++) {

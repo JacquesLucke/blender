@@ -237,12 +237,14 @@ class IMAGE_MT_image(Menu):
 
             layout.menu("IMAGE_MT_image_invert")
 
-            if not show_render:
+        if ima and not show_render:
+            if ima.packed_file:
+                if len(ima.filepath):
+                    layout.separator()
+                    layout.operator("image.unpack", text="Unpack")
+            else:
                 layout.separator()
-                if ima.packed_file:
-                    layout.operator("image.pack", text="Repack")
-                else:
-                    layout.operator("image.pack", text="Pack")
+                layout.operator("image.pack", text="Pack")
 
 
 class IMAGE_MT_image_invert(Menu):
@@ -1491,7 +1493,6 @@ class IMAGE_PT_view_waveform(ImageScopesPanel, Panel):
     bl_region_type = 'UI'
     bl_category = "Scopes"
     bl_label = "Waveform"
-    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
@@ -1509,7 +1510,6 @@ class IMAGE_PT_view_vectorscope(ImageScopesPanel, Panel):
     bl_region_type = 'UI'
     bl_category = "Scopes"
     bl_label = "Vectorscope"
-    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
@@ -1524,7 +1524,6 @@ class IMAGE_PT_sample_line(ImageScopesPanel, Panel):
     bl_region_type = 'UI'
     bl_category = "Scopes"
     bl_label = "Sample Line"
-    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout

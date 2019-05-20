@@ -581,6 +581,7 @@ def km_view3d(params):
         ("wm.search_menu", {"type": 'TAB', "value": 'PRESS'}, None),
         # Visibility.
         ("view3d.localview", {"type": 'I', "value": 'PRESS', "shift": True}, None),
+        op_menu_pie("VIEW3D_MT_view_pie", {"type": 'V', "value": 'PRESS'}),
         # Navigation.
         ("view3d.rotate", {"type": 'LEFTMOUSE', "value": 'PRESS', "alt": True}, None),
         ("view3d.move", {"type": 'MIDDLEMOUSE', "value": 'PRESS', "alt": True}, None),
@@ -666,9 +667,7 @@ def km_view3d(params):
             ("view3d.select", ("deselect_all",), ()),
             ("view3d.select", ("toggle",), ("shift",)),
             ("view3d.select", ("center", "object"), ("ctrl",)),
-            ("view3d.select", ("enumerate",), ("alt",)),
             ("view3d.select", ("extend", "toggle", "center"), ("shift", "ctrl")),
-            ("view3d.select", ("center", "enumerate"), ("ctrl", "alt")),
             ("view3d.select", ("toggle", "enumerate"), ("shift", "alt")),
             ("view3d.select", ("toggle", "center", "enumerate"), ("shift", "ctrl", "alt")),
         )),
@@ -962,9 +961,13 @@ def km_image(params):
          {"properties": [("point", 'BLACK_POINT')]}),
         ("image.curves_point_set", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
          {"properties": [("point", 'WHITE_POINT')]}),
-        ("object.mode_set", {"type": 'TWO', "value": 'PRESS'},
-         {"properties": [("mode", 'EDIT')]}),
         ("object.mode_set", {"type": 'ONE', "value": 'PRESS'},
+         {"properties": [("mode", 'EDIT')]}),
+        ("object.mode_set", {"type": 'TWO', "value": 'PRESS'},
+         {"properties": [("mode", 'OBJECT')]}),
+        ("object.mode_set", {"type": 'THREE', "value": 'PRESS'},
+         {"properties": [("mode", 'OBJECT')]}),
+        ("object.mode_set", {"type": 'FOUR', "value": 'PRESS'},
          {"properties": [("mode", 'OBJECT')]}),
         op_menu_pie("IMAGE_MT_pivot_pie", {"type": 'PERIOD', "value": 'PRESS'}),
         # Tools
@@ -1047,9 +1050,9 @@ def km_node_editor(params):
         ("node.backimage_fit", {"type": 'A', "value": 'PRESS', "alt": True}, None),
         ("node.backimage_sample", {"type": 'LEFTMOUSE', "value": 'PRESS', "alt": True}, None),
         op_menu("NODE_MT_context_menu", {"type": 'RIGHTMOUSE', "value": 'PRESS'}),
-        ("node.link_make", {"type": 'F', "value": 'PRESS'},
+        ("node.link_make", {"type": 'L', "value": 'PRESS'},
          {"properties": [("replace", False)]}),
-        ("node.link_make", {"type": 'F', "value": 'PRESS', "shift": True},
+        ("node.link_make", {"type": 'L', "value": 'PRESS', "shift": True},
          {"properties": [("replace", True)]}),
         ("node.duplicate_move", {"type": 'D', "value": 'PRESS', "ctrl": True}, None),
         ("node.parent_set", {"type": 'P', "value": 'PRESS'}, None),
@@ -1666,6 +1669,7 @@ def km_sequencer(params):
 
     items.extend([
         ("wm.search_menu", {"type": 'TAB', "value": 'PRESS'}, None),
+        *_template_items_animation(),
         ("sequencer.select_all", {"type": 'A', "value": 'PRESS', "ctrl": True}, {"properties": [("action", 'SELECT')]}),
         ("sequencer.select_all", {"type": 'A', "value": 'PRESS', "ctrl": True, "shift": True}, {"properties": [("action", 'DESELECT')]}),
         ("sequencer.select_all", {"type": 'I', "value": 'PRESS', "ctrl": True}, {"properties": [("action", 'INVERT')]}),
@@ -1739,13 +1743,13 @@ def km_sequencer(params):
          {"properties": [("extend", False), ("linked_handle", False), ("left_right", 'MOUSE'), ("linked_time", True)]}),
         ("sequencer.select", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True, "ctrl": True},
          {"properties": [("extend", True), ("linked_handle", False), ("left_right", 'NONE'), ("linked_time", True)]}),
-        ("sequencer.select_more", {"type": 'NUMPAD_PLUS', "value": 'PRESS', "ctrl": True}, None),
-        ("sequencer.select_less", {"type": 'NUMPAD_MINUS', "value": 'PRESS', "ctrl": True}, None),
-        ("sequencer.select_linked_pick", {"type": 'L', "value": 'PRESS'},
+        ("sequencer.select_more", {"type": 'UP_ARROW', "value": 'PRESS'}, None),
+        ("sequencer.select_less", {"type": 'DOWN_ARROW', "value": 'PRESS'}, None),
+        ("sequencer.select_linked_pick", {"type": 'RIGHT_BRACKET', "value": 'PRESS'},
          {"properties": [("extend", False)]}),
-        ("sequencer.select_linked_pick", {"type": 'L', "value": 'PRESS', "shift": True},
+        ("sequencer.select_linked_pick", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "shift": True},
          {"properties": [("extend", True)]}),
-        ("sequencer.select_linked", {"type": 'L', "value": 'PRESS', "ctrl": True}, None),
+        ("sequencer.select_linked", {"type": 'RIGHT_BRACKET', "value": 'PRESS', "ctrl": True}, None),
         ("sequencer.select_box", {"type": 'Q', "value": 'PRESS'}, None),
         ("sequencer.select_box", {"type": 'EVT_TWEAK_L', "value": 'ANY'},
          {"properties":[("wait_for_input", False), ("mode", 'SET')]}),
@@ -2264,7 +2268,6 @@ def km_grease_pencil_stroke_edit_mode(params):
         # Separate
         op_menu("GPENCIL_MT_separate", {"type": 'P', "value": 'PRESS'}),
         # Split and joint strokes
-        ("gpencil.stroke_split", {"type": 'V', "value": 'PRESS'}, None),
         ("gpencil.stroke_join", {"type": 'J', "value": 'PRESS', "ctrl": True}, None),
         ("gpencil.stroke_join", {"type": 'J', "value": 'PRESS', "shift": True, "ctrl": True},
          {"properties": [("type", 'JOINCOPY')]}),
@@ -2373,7 +2376,7 @@ def km_grease_pencil_stroke_paint_draw_brush(params):
         ("gpencil.draw", {"type": 'L', "value": 'PRESS'}, None),
         ("gpencil.draw", {"type": 'L', "value": 'PRESS', "alt": True}, None),
         ("gpencil.draw", {"type": 'L', "value": 'PRESS', "ctrl": True}, None),
-        ("gpencil.draw", {"type": 'V', "value": 'PRESS'}, None),
+        ("gpencil.draw", {"type": 'B', "value": 'PRESS'}, None),
         # Mode
         ("gpencil.draw", {"type": 'P', "value": 'PRESS'}, None),
         # Set reference point
@@ -2458,10 +2461,10 @@ def km_grease_pencil_stroke_sculpt_mode(params):
         ("gpencil.sculpt_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "shift": True},
          {"properties": [("wait_for_input", False)]}),
         # Brush strength
-        ("wm.radial_control", {"type": 'F', "value": 'PRESS', "shift": True},
+        ("wm.radial_control", {"type": 'U', "value": 'PRESS'},
          {"properties": [("data_path_primary", 'tool_settings.gpencil_sculpt.brush.strength')]}),
         # Brush size
-        ("wm.radial_control", {"type": 'F', "value": 'PRESS'},
+        ("wm.radial_control", {"type": 'S', "value": 'PRESS'},
          {"properties": [("data_path_primary", 'tool_settings.gpencil_sculpt.brush.size')]}),
         # Context menu
         op_panel("VIEW3D_PT_gpencil_sculpt_context_menu", {"type": 'RIGHTMOUSE', "value": 'PRESS'}),
@@ -3359,16 +3362,17 @@ def km_object_non_modal(params):
     )
 
     items.extend([
-        ("object.mode_set",{"type": 'ONE', "value": 'PRESS'},
-         {"properties": [("mode", 'OBJECT')]}),
-        ("ic_keymap.mesh_select_mode",{"type": 'TWO', "value": 'PRESS'},
+
+        ("ic_keymap.mesh_select_mode",{"type": 'ONE', "value": 'PRESS'},
          {"properties": [("type", 'VERT')]}),
-        ("ic_keymap.mesh_select_mode",{"type": 'THREE', "value": 'PRESS'},
+        ("ic_keymap.mesh_select_mode",{"type": 'TWO', "value": 'PRESS'},
          {"properties": [("type", 'EDGE')]}),
-        ("ic_keymap.mesh_select_mode",{"type": 'FOUR', "value": 'PRESS'},
+        ("ic_keymap.mesh_select_mode",{"type": 'THREE', "value": 'PRESS'},
          {"properties": [("type", 'FACE')]}),
-        ("object.mode_set",{"type": 'TWO', "value": 'PRESS'},
+        ("object.mode_set",{"type": 'ONE', "value": 'PRESS'},
          {"properties": [("mode", 'EDIT')]}),
+        ("object.mode_set",{"type": 'FOUR', "value": 'PRESS'},
+         {"properties": [("mode", 'OBJECT')]}),
         ("object.mode_set",{"type": 'FIVE', "value": 'PRESS'},
          {"properties": [("mode", 'SCULPT')]}),
         ("object.mode_set",{"type": 'SIX', "value": 'PRESS'},
