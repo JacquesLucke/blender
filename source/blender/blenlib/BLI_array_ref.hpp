@@ -99,9 +99,9 @@ template<typename T> class ArrayRef {
     return counter;
   }
 
-  SmallVector<T> to_small_vector() const
+  template<uint N = 4> SmallVector<T, N> to_small_vector() const
   {
-    SmallVector<T> vector;
+    SmallVector<T, N> vector;
     for (T &value : *this) {
       vector.append(value);
     }
