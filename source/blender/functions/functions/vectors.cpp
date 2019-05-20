@@ -45,9 +45,9 @@ class SeparateVector : public LLVMBuildIRBody {
                 const BuildIRSettings &UNUSED(settings)) const override
   {
     llvm::Value *vector = interface.get_input(0);
-    interface.set_output(0, builder.CreateExtractValue(vector, 0));
-    interface.set_output(1, builder.CreateExtractValue(vector, 1));
-    interface.set_output(2, builder.CreateExtractValue(vector, 2));
+    interface.set_output(0, builder.CreateExtractElement(vector, 0));
+    interface.set_output(1, builder.CreateExtractElement(vector, 1));
+    interface.set_output(2, builder.CreateExtractElement(vector, 2));
   }
 };
 
