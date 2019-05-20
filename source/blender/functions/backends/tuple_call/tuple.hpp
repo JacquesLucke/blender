@@ -11,16 +11,21 @@ class TupleMeta : public RefCountedBase {
   SmallVector<uint> m_offsets;
   uint m_size__data;
   uint m_size__data_and_init;
+  bool m_all_trivially_destructible;
 
  public:
   TupleMeta(ArrayRef<SharedType> types = {}) : m_types(types.to_small_vector())
   {
+    m_all_trivially_destructible = true;
     m_size__data = 0;
     for (const SharedType &type : types) {
       CPPTypeInfo *info = type->extension<CPPTypeInfo>();
       m_offsets.append(m_size__data);
       m_type_info.append(info);
       m_size__data += info->size_of_type();
+      if (!info->trivially_destructible()) {
+        m_all_trivially_destructible = false;
+      }
     }
     m_offsets.append(m_size__data);
 
@@ -67,6 +72,11 @@ class TupleMeta : public RefCountedBase {
   uint element_size(uint index) const
   {
     return m_offsets[index + 1] - m_offsets[index];
+  }
+
+  bool all_trivially_destructible() const
+  {
+    return m_all_trivially_destructible;
   }
 };
 
@@ -367,10 +377,15 @@ class Tuple {
 
   void destruct_all()
   {
-    for (uint i = 0; i < m_meta->element_amount(); i++) {
-      if (m_initialized[i]) {
-        m_meta->type_infos()[i]->destruct_type(this->element_ptr(i));
-        m_initialized[i] = false;
+    if (m_meta->all_trivially_destructible()) {
+      this->set_all_uninitialized();
+    }
+    else {
+      for (uint i = 0; i < m_meta->element_amount(); i++) {
+        if (m_initialized[i]) {
+          m_meta->type_infos()[i]->destruct_type(this->element_ptr(i));
+          m_initialized[i] = false;
+        }
       }
     }
   }
