@@ -20,7 +20,8 @@ struct AutoVectorizedInput {
 
 static SharedFunction get_vectorized_function(SharedFunction &original_fn,
                                               PointerRNA &node_rna,
-                                              ArrayRef<AutoVectorizedInput> auto_vectorized_inputs)
+                                              ArrayRef<AutoVectorizedInput> auto_vectorized_inputs,
+                                              bool use_cache = true)
 {
   BLI_assert(original_fn->input_amount() == auto_vectorized_inputs.size());
 
@@ -40,8 +41,14 @@ static SharedFunction get_vectorized_function(SharedFunction &original_fn,
   }
 
   if (vectorized_inputs.contains(true)) {
-    return Functions::to_vectorized_function(
-        original_fn, vectorized_inputs, used_default_value_builders);
+    if (use_cache) {
+      return Functions::to_vectorized_function__with_cache(
+          original_fn, vectorized_inputs, used_default_value_builders);
+    }
+    else {
+      return Functions::to_vectorized_function(
+          original_fn, vectorized_inputs, used_default_value_builders);
+    }
   }
   else {
     return original_fn;

@@ -398,9 +398,10 @@ class AutoVectorization : public TupleCallBody {
   }
 };
 
-SharedFunction to_vectorized_function(SharedFunction &original_fn,
-                                      ArrayRef<bool> vectorized_inputs_mask,
-                                      ArrayRef<SharedFunction> empty_list_value_builders)
+static SharedFunction to_vectorized_function_internal(
+    SharedFunction &original_fn,
+    ArrayRef<bool> &vectorized_inputs_mask,
+    ArrayRef<SharedFunction> &empty_list_value_builders)
 {
   uint input_amount = original_fn->input_amount();
   uint output_amount = original_fn->output_amount();
@@ -446,5 +447,64 @@ SharedFunction to_vectorized_function(SharedFunction &original_fn,
   return fn;
 }
 
+SharedFunction to_vectorized_function(SharedFunction &original_fn,
+                                      ArrayRef<bool> vectorized_inputs_mask,
+                                      ArrayRef<SharedFunction> empty_list_value_builders)
+{
+  return to_vectorized_function_internal(
+      original_fn, vectorized_inputs_mask, empty_list_value_builders);
+}
+
+struct AutoVectorizationInput {
+  SharedFunction m_original_fn;
+  SmallVector<bool> m_vectorized_inputs_mask;
+  SmallVector<SharedFunction> m_empty_list_value_builders;
+
+  AutoVectorizationInput(SharedFunction &original_fn,
+                         ArrayRef<bool> vectorized_inputs_mask,
+                         ArrayRef<SharedFunction> empty_list_value_builders)
+      : m_original_fn(original_fn),
+        m_vectorized_inputs_mask(vectorized_inputs_mask.to_small_vector()),
+        m_empty_list_value_builders(empty_list_value_builders.to_small_vector())
+  {
+  }
+
+  friend bool operator==(const AutoVectorizationInput &a, const AutoVectorizationInput &b)
+  {
+    return (a.m_original_fn == b.m_original_fn &&
+            SmallVector<bool>::all_equal(a.m_vectorized_inputs_mask, b.m_vectorized_inputs_mask) &&
+            SmallVector<SharedFunction>::all_equal(a.m_empty_list_value_builders,
+                                                   b.m_empty_list_value_builders));
+  }
+};
+
+SharedFunction to_vectorized_function__with_cache(
+    SharedFunction &original_fn,
+    ArrayRef<bool> vectorized_inputs_mask,
+    ArrayRef<SharedFunction> empty_list_value_builders)
+{
+  static SmallMap<AutoVectorizationInput, SharedFunction> cache;
+
+  AutoVectorizationInput cache_key(original_fn, vectorized_inputs_mask, empty_list_value_builders);
+  return cache.lookup_ref_or_insert_func(cache_key,
+                                         to_vectorized_function_internal,
+                                         original_fn,
+                                         vectorized_inputs_mask,
+                                         empty_list_value_builders);
+}
+
 }  // namespace Functions
 }  // namespace FN
+
+namespace std {
+template<> struct hash<FN::Functions::AutoVectorizationInput> {
+  typedef FN::Functions::AutoVectorizationInput argument_type;
+  typedef size_t result_type;
+
+  result_type operator()(argument_type const &v) const noexcept
+  {
+    /* TODO: take other struct fields into account. */
+    return BLI_ghashutil_ptrhash(v.m_original_fn.ptr());
+  }
+};
+}  // namespace std

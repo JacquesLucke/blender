@@ -23,8 +23,8 @@ Optional<SharedFunction> generate_function(bNodeTree *btree)
   fgraph_add_DependenciesBody(fn, fgraph);
   fgraph_add_LLVMBuildIRBody(fn, fgraph);
 
-  // fgraph_add_TupleCallBody(fn, fgraph);
-  derive_TupleCallBody_from_LLVMBuildIRBody(fn);
+  fgraph_add_TupleCallBody(fn, fgraph);
+  // derive_TupleCallBody_from_LLVMBuildIRBody(fn);
   return fn;
 }
 
