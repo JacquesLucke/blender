@@ -90,6 +90,11 @@ class Function final : public RefCountedBase {
     }
   }
 
+  friend bool operator==(const Function &a, const Function &b)
+  {
+    return &a == &b;
+  }
+
   void print();
 
   /* Utility accessors */
