@@ -132,6 +132,11 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return this->lookup_ref(key);
   }
 
+  V &lookup_ref_or_insert_key_func(const K &key, V (*create_value)(const K &key))
+  {
+    return lookup_ref_or_insert_func(key, create_value, key);
+  }
+
   uint size() const
   {
     return m_entries.size();

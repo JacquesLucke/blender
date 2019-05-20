@@ -225,3 +225,18 @@ TEST(small_map, LookupOrInsertFunc_FuncCalledOnce)
   EXPECT_EQ(map.lookup_ref_or_insert_func(0, inc_value_and_return_42, &counter), 42.0f);
   EXPECT_EQ(counter, 1);
 }
+
+float add_10(const int &value)
+{
+  return value + 10.0f;
+}
+
+TEST(small_map, LookupOrInsertKeyFunc)
+{
+  IntFloatMap map;
+  EXPECT_EQ(map.lookup_ref_or_insert_key_func(4, add_10), 14.0f);
+  EXPECT_EQ(map.lookup_ref_or_insert_key_func(10, add_10), 20.0f);
+
+  EXPECT_EQ(map.lookup(4), 14.0f);
+  EXPECT_EQ(map.lookup(10), 20.0f);
+}
