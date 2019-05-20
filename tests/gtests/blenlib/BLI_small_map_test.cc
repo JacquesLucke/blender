@@ -164,3 +164,64 @@ TEST(small_map, ItemIterator)
   EXPECT_TRUE(values.contains(9.0f));
   EXPECT_TRUE(values.contains(0.0f));
 }
+
+float return_42()
+{
+  return 42.0f;
+}
+
+TEST(small_map, LookupOrInsertFunc_NoArgs)
+{
+  IntFloatMap map;
+  EXPECT_EQ(map.lookup_ref_or_insert_func(0, return_42), 42.0f);
+  EXPECT_EQ(map.lookup(0), 42);
+}
+
+float return_identity(float a)
+{
+  return a;
+}
+
+TEST(small_map, LookupOrInsertFunc_SingleArg)
+{
+  IntFloatMap map;
+  EXPECT_EQ(map.lookup_ref_or_insert_func(1, return_identity, 5.0f), 5.0f);
+  EXPECT_EQ(map.lookup(1), 5.0f);
+}
+
+float add_func(float a, float b)
+{
+  return a + b;
+}
+
+TEST(small_map, LookupOrInsertFunc_TwoArgs)
+{
+  IntFloatMap map;
+  EXPECT_EQ(map.lookup_ref_or_insert_func(2, add_func, 4.0f, 6.0f), 10.0f);
+  EXPECT_EQ(map.lookup(2), 10.0f);
+}
+
+TEST(small_map, LookupOrInsertFunc_NoReinsert)
+{
+  IntFloatMap map;
+  EXPECT_EQ(map.lookup_ref_or_insert_func(2, return_identity, 4.0f), 4.0f);
+  EXPECT_EQ(map.lookup_ref_or_insert_func(2, return_identity, 6.0f), 4.0f);
+  EXPECT_EQ(map.lookup_ref_or_insert_func(2, return_identity, 8.0f), 4.0f);
+  EXPECT_EQ(map.size(), 1);
+}
+
+float inc_value_and_return_42(int *ptr)
+{
+  *ptr += 1;
+  return 42.0f;
+}
+
+TEST(small_map, LookupOrInsertFunc_FuncCalledOnce)
+{
+  int counter = 0;
+  IntFloatMap map;
+  EXPECT_EQ(map.lookup_ref_or_insert_func(0, inc_value_and_return_42, &counter), 42.0f);
+  EXPECT_EQ(counter, 1);
+  EXPECT_EQ(map.lookup_ref_or_insert_func(0, inc_value_and_return_42, &counter), 42.0f);
+  EXPECT_EQ(counter, 1);
+}
