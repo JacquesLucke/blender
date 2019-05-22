@@ -25,17 +25,19 @@ template<typename T, uint N = 4> class SmallStack {
     return this->size() == 0;
   }
 
-  void push(T value)
+  void push(const T &value)
   {
     m_elements.append(value);
   }
 
+  void push(T &&value)
+  {
+    m_elements.append(std::forward<T>(value));
+  }
+
   T pop()
   {
-    BLI_assert(!this->empty());
-    T value = m_elements[this->size() - 1];
-    m_elements.remove_last();
-    return value;
+    return m_elements.pop_last();
   }
 
   T &peek()
