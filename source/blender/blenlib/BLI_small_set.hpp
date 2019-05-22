@@ -8,6 +8,7 @@
 
 #include "BLI_small_vector.hpp"
 #include "BLI_array_lookup.hpp"
+#include "BLI_array_ref.hpp"
 
 namespace BLI {
 
@@ -19,18 +20,19 @@ template<typename T, uint N = 4> class SmallSet {
  public:
   SmallSet() = default;
 
-  SmallSet(const SmallVector<T> &values)
+  SmallSet(ArrayRef<T> values)
   {
     for (const T &value : values) {
       this->add(value);
     }
   }
 
-  SmallSet(const std::initializer_list<T> &values)
+  SmallSet(const SmallVector<T> &values) : SmallSet(ArrayRef<T>(values))
   {
-    for (const T &value : values) {
-      this->add(value);
-    }
+  }
+
+  SmallSet(const std::initializer_list<T> &values) : SmallSet(ArrayRef<T>(values))
+  {
   }
 
   uint size() const
