@@ -5,7 +5,7 @@ using namespace FN;
 
 FnFunction FN_tree_to_function(bNodeTree *btree)
 {
-  TIMEIT("Tree to function");
+  SCOPED_TIMER("Tree to function");
   BLI_assert(btree);
   auto fn_opt = DataFlowNodes::generate_function(btree);
   if (!fn_opt.has_value()) {

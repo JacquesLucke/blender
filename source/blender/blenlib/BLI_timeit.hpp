@@ -9,28 +9,30 @@
 
 namespace BLI {
 
-class Timer {
+class ScopedTimer {
  private:
-  const char *name;
-  std::chrono::high_resolution_clock::time_point start, end;
-  std::chrono::duration<float> duration;
+  using Clock = std::chrono::high_resolution_clock;
+  using Duration = std::chrono::duration<float>;
+
+  const char *m_name;
+  Clock::time_point m_start;
 
  public:
-  Timer(const char *name = "")
+  ScopedTimer(const char *name = "")
   {
-    this->name = name;
-    this->start = std::chrono::high_resolution_clock::now();
+    m_name = name;
+    m_start = Clock::now();
   }
 
-  ~Timer()
+  ~ScopedTimer()
   {
-    end = std::chrono::high_resolution_clock::now();
-    duration = end - start;
+    Clock::time_point end = Clock::now();
+    Duration duration = end - m_start;
     double ms = duration.count() * 1000.0f;
-    std::cout << "Timer '" << name << "' took " << ms << " ms" << std::endl;
+    std::cout << "Timer '" << m_name << "' took " << ms << " ms\n";
   }
 };
 
 };  // namespace BLI
 
-#define TIMEIT(name) BLI::Timer t(name);
+#define SCOPED_TIMER(name) BLI::ScopedTimer t(name);
