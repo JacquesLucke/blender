@@ -30,8 +30,8 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return entry.key;
   }
 
-  SmallVector<Entry> m_entries;
-  ArrayLookup<K, Entry, get_key_from_entry> m_lookup;
+  SmallVector<Entry, N> m_entries;
+  ArrayLookup<K, N, Entry, get_key_from_entry> m_lookup;
 
  public:
   class ValueIterator;

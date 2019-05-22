@@ -8,6 +8,8 @@
  * it allows fast `contains` and `find` calls on that array.
  */
 
+#include <cmath>
+
 #include "BLI_utildefines.h"
 #include "BLI_small_vector.hpp"
 #include "BLI_math_bits.h"
@@ -47,14 +49,16 @@ template<typename T> struct ArrayLookupHash<T *> {
 };
 
 template<typename Key,
+         uint N = 4,
          typename Item = Key,
          const Key &GetKey(const Item &entry) = get_key_from_item,
-         uint N_EXP = 3,
          typename Hash = ArrayLookupHash<Key>,
          typename Index = int>
 class ArrayLookup {
  private:
+  static const uint N_EXP = (uint)std::ceil(std::log2(N)) + 1;
   using Mapping = SmallVector<Index, (1 << N_EXP)>;
+
   Mapping m_map;
   uint m_length;
   uint m_dummy_amount;

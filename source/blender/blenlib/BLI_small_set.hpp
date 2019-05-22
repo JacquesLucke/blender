@@ -11,10 +11,10 @@
 
 namespace BLI {
 
-template<typename T, uint N = 4, typename Hash = std::hash<T>> class SmallSet {
+template<typename T, uint N = 4> class SmallSet {
  protected:
-  SmallVector<T> m_elements;
-  ArrayLookup<T> m_lookup;
+  SmallVector<T, N> m_elements;
+  ArrayLookup<T, N> m_lookup;
 
  public:
   SmallSet() = default;
