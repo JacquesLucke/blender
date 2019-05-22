@@ -16,13 +16,6 @@ template<typename K, typename V, uint N = 4> class SmallMap {
   struct Entry {
     K key;
     V value;
-
-    Entry()
-    {
-    }
-    Entry(K key, V value) : key(key), value(value)
-    {
-    }
   };
 
   static const K &get_key_from_entry(const Entry &entry)
@@ -43,7 +36,7 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     uint potential_index = m_entries.size();
     bool newly_inserted = m_lookup.add(m_entries.begin(), key, potential_index);
     if (newly_inserted) {
-      m_entries.append(Entry(key, value));
+      m_entries.append({key, value});
     }
     return newly_inserted;
   }
@@ -52,8 +45,7 @@ template<typename K, typename V, uint N = 4> class SmallMap {
   {
     BLI_assert(!this->contains(key));
     uint index = m_entries.size();
-    Entry entry(key, value);
-    m_entries.append(entry);
+    m_entries.append({key, value});
     m_lookup.add_new(m_entries.begin(), index);
   }
 
@@ -66,7 +58,7 @@ template<typename K, typename V, uint N = 4> class SmallMap {
   {
     BLI_assert(this->contains(key));
     uint index = m_lookup.remove(m_entries.begin(), key);
-    V value = m_entries[index].value;
+    V value = std::move(m_entries[index].value);
 
     uint last_index = m_entries.size() - 1;
     if (index == last_index) {
@@ -87,8 +79,9 @@ template<typename K, typename V, uint N = 4> class SmallMap {
 
   V lookup_default(const K &key, V default_value) const
   {
-    if (this->contains(key)) {
-      return this->lookup(key);
+    V *ptr = this->lookup_ptr(key);
+    if (ptr != nullptr) {
+      return *ptr;
     }
     else {
       return default_value;
@@ -115,10 +108,12 @@ template<typename K, typename V, uint N = 4> class SmallMap {
 
   V *lookup_ptr_or_insert(const K &key, V initial_value)
   {
-    if (!this->contains(key)) {
+    V *ptr = this->lookup_ptr(key);
+    if (ptr == nullptr) {
       this->add_new(key, initial_value);
+      ptr = &m_entries[m_entries.size() - 1].value;
     }
-    return this->lookup_ptr(key);
+    return ptr;
   }
 
   template<typename... Args>
@@ -174,15 +169,11 @@ template<typename K, typename V, uint N = 4> class SmallMap {
   struct KeyValuePair {
     const K &key;
     V &value;
-
-    KeyValuePair(const K &key, V &value) : key(key), value(value)
-    {
-    }
   };
 
   static KeyValuePair get_key_value_pair_from_entry(Entry &entry)
   {
-    return KeyValuePair(entry.key, entry.value);
+    return {entry.key, entry.value};
   }
 
   MappedArrayRef<Entry, KeyValuePair, get_key_value_pair_from_entry> items() const
