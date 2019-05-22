@@ -56,7 +56,12 @@ template<typename Key,
          typename Index = int>
 class ArrayLookup {
  private:
-  static const uint N_EXP = (uint)std::ceil(std::log2(N)) + 1;
+  static constexpr uint calc_exp(uint n)
+  {
+    return (n > 0) ? 1 + calc_exp(n >> 1) : 0;
+  }
+
+  static const uint N_EXP = calc_exp(N);
   using Mapping = SmallVector<Index, (1 << N_EXP)>;
 
   Mapping m_map;
