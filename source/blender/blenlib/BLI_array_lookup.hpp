@@ -130,6 +130,7 @@ class ArrayLookup {
   void update_index(const Key &key, Index old_index, Index new_index)
   {
     ITER_SLOTS (key, slot, state) {
+      BLI_assert(state != SLOT_EMPTY);
       if (state == old_index) {
         m_map[slot] = new_index;
         break;
@@ -155,6 +156,7 @@ class ArrayLookup {
   void remove(const Key &key, Index index)
   {
     ITER_SLOTS (key, slot, state) {
+      BLI_assert(state != SLOT_EMPTY);
       if (state == index) {
         m_map[slot] = SLOT_DUMMY;
         m_length--;
@@ -223,6 +225,7 @@ class ArrayLookup {
   inline void insert_index_for_key__no_dummy(const Key &key, Index index)
   {
     ITER_SLOTS (key, slot, state) {
+      BLI_assert(state != SLOT_DUMMY);
       if (state == SLOT_EMPTY) {
         m_map[slot] = index;
         break;
