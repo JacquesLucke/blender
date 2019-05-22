@@ -53,9 +53,8 @@ template<typename T, uint N = 4> class SmallVector {
   SmallVector(std::initializer_list<T> values) : SmallVector()
   {
     this->reserve(values.size());
-    for (T value : values) {
-      this->append(value);
-    }
+    std::uninitialized_copy_n(values.begin(), values.size(), this->begin());
+    m_size = values.size();
   }
 
   SmallVector(const SmallVector &other)
@@ -124,16 +123,14 @@ template<typename T, uint N = 4> class SmallVector {
 
   void extend(const SmallVector &other)
   {
-    for (const T &value : other) {
-      this->append(value);
-    }
+    this->extend(other.begin(), other.size());
   }
 
   void extend(const T *start, uint amount)
   {
-    for (uint i = 0; i < amount; i++) {
-      this->append(start[i]);
-    }
+    this->reserve(m_size + amount);
+    std::uninitialized_copy_n(start, amount, this->end());
+    m_size += amount;
   }
 
   void fill(const T &value)

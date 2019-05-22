@@ -209,6 +209,19 @@ TEST(small_vector, AllEqual_True)
   EXPECT_TRUE(result);
 }
 
+TEST(small_vector, ExtendSmallVector)
+{
+  IntVector a = {2, 3, 4};
+  IntVector b = {11, 12};
+  b.extend(a);
+  EXPECT_EQ(b.size(), 5);
+  EXPECT_EQ(b[0], 11);
+  EXPECT_EQ(b[1], 12);
+  EXPECT_EQ(b[2], 2);
+  EXPECT_EQ(b[3], 3);
+  EXPECT_EQ(b[4], 4);
+}
+
 TEST(small_vector, ExtendArray)
 {
   int array[] = {3, 4, 5, 6};
