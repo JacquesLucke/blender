@@ -127,3 +127,23 @@ TEST(array_ref, FromSingleValue)
   a = 10;
   EXPECT_EQ(a_ref[0], 10);
 }
+
+TEST(array_ref, FromVector)
+{
+  std::vector<int> a = {1, 2, 3, 4};
+  IntArrayRef a_ref(a);
+  EXPECT_EQ(a_ref.size(), 4);
+  EXPECT_EQ(a_ref[0], 1);
+  EXPECT_EQ(a_ref[1], 2);
+  EXPECT_EQ(a_ref[2], 3);
+  EXPECT_EQ(a_ref[3], 4);
+}
+
+TEST(array_ref, FromArray)
+{
+  std::array<int, 2> a = {5, 6};
+  IntArrayRef a_ref(a);
+  EXPECT_EQ(a_ref.size(), 2);
+  EXPECT_EQ(a_ref[0], 5);
+  EXPECT_EQ(a_ref[1], 6);
+}

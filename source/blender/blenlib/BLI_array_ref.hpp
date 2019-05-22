@@ -7,6 +7,8 @@
  */
 
 #include "BLI_small_vector.hpp"
+#include <vector>
+#include <array>
 
 namespace BLI {
 
@@ -26,16 +28,28 @@ template<typename T> class ArrayRef {
   {
   }
 
+  ArrayRef(const T *start, uint size) : m_start((T *)start), m_size(size)
+  {
+  }
+
   template<uint N>
-  ArrayRef(const SmallVector<T, N> &vector) : m_start(vector.begin()), m_size(vector.size())
+  ArrayRef(const SmallVector<T, N> &vector) : ArrayRef(vector.begin(), vector.size())
   {
   }
 
-  ArrayRef(const SmallVector<T> &vector) : m_start(vector.begin()), m_size(vector.size())
+  ArrayRef(const SmallVector<T> &vector) : ArrayRef(vector.begin(), vector.size())
   {
   }
 
-  ArrayRef(const std::initializer_list<T> &list) : m_start((T *)list.begin()), m_size(list.size())
+  ArrayRef(const std::initializer_list<T> &list) : ArrayRef((T *)list.begin(), list.size())
+  {
+  }
+
+  ArrayRef(const std::vector<T> &vector) : ArrayRef(vector.data(), vector.size())
+  {
+  }
+
+  template<std::size_t N> ArrayRef(const std::array<T, N> &array) : ArrayRef(array.data(), N)
   {
   }
 
