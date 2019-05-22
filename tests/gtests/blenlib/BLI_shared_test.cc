@@ -95,6 +95,8 @@ TEST(shared, CustomIncRef)
   ASSERT_EQ(ptr->refcount(), 1);
   ptr->incref();
   ASSERT_EQ(ptr->refcount(), 2);
+  ptr->decref();
+  ptr->decref();
 }
 
 TEST(shared, CustomDecRef)
@@ -104,6 +106,7 @@ TEST(shared, CustomDecRef)
   ASSERT_EQ(ptr->refcount(), 2);
   ptr->decref();
   ASSERT_EQ(ptr->refcount(), 1);
+  ptr->decref();
 }
 
 TEST(shared, ExtractRefCounted)
@@ -113,6 +116,7 @@ TEST(shared, ExtractRefCounted)
   ASSERT_EQ(obj->refcount(), 1);
   ptr->incref();
   ASSERT_EQ(obj->refcount(), 2);
+  ptr->decref();
 }
 
 TEST(shared, DecRefToZero)

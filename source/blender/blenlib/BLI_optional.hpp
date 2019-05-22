@@ -46,23 +46,17 @@ template<typename T> class Optional {
     this->set(value);
   }
 
-  Optional(const Optional &other)
+  Optional(const Optional &other) : Optional()
   {
     if (other.has_value()) {
       this->set(other.value());
     }
-    else {
-      m_set = false;
-    }
   }
 
-  Optional(Optional &&other)
+  Optional(Optional &&other) : Optional()
   {
     if (other.has_value()) {
       this->set(std::move(other.value()));
-    }
-    else {
-      m_set = false;
     }
   }
 
