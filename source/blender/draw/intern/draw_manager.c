@@ -656,7 +656,7 @@ static void drw_viewport_var_init(void)
 
     DST.pixsize = rv3d->pixsize;
     DST.view_default = DRW_view_create(rv3d->viewmat, rv3d->winmat, NULL, NULL, NULL);
-    copy_v4_v4(DST.view_default->storage.viewcamtexcofac, rv3d->viewcamtexcofac);
+    DRW_view_camtexco_set(DST.view_default, rv3d->viewcamtexcofac);
 
     if (DST.draw_ctx.sh_cfg == GPU_SHADER_CFG_CLIPPED) {
       int plane_len = (rv3d->viewlock & RV3D_BOXCLIP) ? 4 : 6;
@@ -1975,6 +1975,11 @@ void DRW_render_to_image(RenderEngine *engine, struct Depsgraph *depsgraph)
     /* grease pencil: render result is merged in the previous render result. */
     if (DRW_render_check_grease_pencil(depsgraph)) {
       DRW_state_reset();
+      /* HACK: this is just for sanity and not trigger asserts. */
+      DST.view_default = NULL;
+      DST.view_active = NULL;
+      DST.view_previous = NULL;
+
       DRW_render_gpencil_to_image(engine, render_layer, &render_rect);
     }
     DST.buffer_finish_called = false;
