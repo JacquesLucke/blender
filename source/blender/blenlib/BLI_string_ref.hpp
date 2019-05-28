@@ -76,6 +76,34 @@ class StringRefBase {
   {
     return a.data() + b;
   }
+
+  friend bool operator==(const StringRefBase a, const StringRefBase b)
+  {
+    if (a.size() != b.size()) {
+      return false;
+    }
+    return STREQLEN(a.data(), b.data(), a.size());
+  }
+
+  friend bool operator==(const StringRefBase a, const char *b)
+  {
+    return STREQ(a.data(), b);
+  }
+
+  friend bool operator==(const char *a, const StringRefBase b)
+  {
+    return b == a;
+  }
+
+  friend bool operator==(const StringRefBase a, const std::string &b)
+  {
+    return a == StringRefBase(b.data(), b.size());
+  }
+
+  friend bool operator==(const std::string &a, const StringRefBase b)
+  {
+    return b == a;
+  }
 };
 
 class StringRefNull : public StringRefBase {
