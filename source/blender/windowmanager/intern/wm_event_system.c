@@ -732,6 +732,24 @@ void WM_operator_region_active_win_set(bContext *C)
   }
 }
 
+int WM_event_modifier_flag(const wmEvent *event)
+{
+  int flag = 0;
+  if (event->ctrl) {
+    flag |= KM_CTRL;
+  }
+  if (event->alt) {
+    flag |= KM_ALT;
+  }
+  if (event->shift) {
+    flag |= KM_SHIFT;
+  }
+  if (event->oskey) {
+    flag |= KM_OSKEY;
+  }
+  return flag;
+}
+
 /* for debugging only, getting inspecting events manually is tedious */
 void WM_event_print(const wmEvent *event)
 {
@@ -2721,8 +2739,27 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
         wm_gizmomap_handler_context_gizmo(C, handler);
         wm_region_mouse_co(C, event);
 
+        /* Drag events use the previous click location to highlight the gizmos,
+         * Get the highlight again in case the user dragged off the gizmo. */
+        const bool is_event_drag = ISTWEAK(event->type) || (event->val == KM_CLICK_DRAG);
+        const bool is_event_modifier = ISKEYMODIFIER(event->type);
+
+        bool handle_highlight = false;
+        bool handle_keymap = false;
+
         /* handle gizmo highlighting */
-        if (event->type == MOUSEMOVE && !wm_gizmomap_modal_get(gzmap)) {
+        if (!wm_gizmomap_modal_get(gzmap) &&
+            ((event->type == MOUSEMOVE) || is_event_modifier || is_event_drag)) {
+          handle_highlight = true;
+          if (is_event_modifier || is_event_drag) {
+            handle_keymap = true;
+          }
+        }
+        else {
+          handle_keymap = true;
+        }
+
+        if (handle_highlight) {
           int part;
           gz = wm_gizmomap_highlight_find(gzmap, C, event, &part);
           if (wm_gizmomap_highlight_set(gzmap, C, gz, part) && gz != NULL) {
@@ -2731,11 +2768,13 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
             }
           }
         }
-        else {
+
+        if (handle_keymap) {
           /* Handle highlight gizmo. */
           if (gz != NULL) {
             wmGizmoGroup *gzgroup = gz->parent_gzgroup;
-            wmKeyMap *keymap = WM_keymap_active(wm, gzgroup->type->keymap);
+            wmKeyMap *keymap = WM_keymap_active(wm,
+                                                gz->keymap ? gz->keymap : gzgroup->type->keymap);
             action |= wm_handlers_do_keymap_with_gizmo_handler(
                 C, event, handlers, handler, gzgroup, keymap, do_debug_handler);
           }

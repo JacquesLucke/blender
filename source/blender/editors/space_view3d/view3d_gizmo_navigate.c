@@ -131,7 +131,7 @@ static bool WIDGETGROUP_navigate_poll(const bContext *C, wmGizmoGroupType *UNUSE
   return true;
 }
 
-static void WIDGETGROUP_navigate_setup(const bContext *UNUSED(C), wmGizmoGroup *gzgroup)
+static void WIDGETGROUP_navigate_setup(const bContext *C, wmGizmoGroup *gzgroup)
 {
   struct NavigateWidgetGroup *navgroup = MEM_callocN(sizeof(struct NavigateWidgetGroup), __func__);
 
@@ -227,6 +227,9 @@ static void WIDGETGROUP_navigate_setup(const bContext *UNUSED(C), wmGizmoGroup *
     }
 
     /* When dragging an axis, use this instead. */
+    wmWindowManager *wm = CTX_wm_manager(C);
+    gz->keymap = WM_keymap_ensure(
+        wm->defaultconf, "Generic Gizmo Click Drag", SPACE_EMPTY, RGN_TYPE_WINDOW);
     gz->drag_part = 0;
   }
 

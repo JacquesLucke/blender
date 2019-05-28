@@ -49,6 +49,7 @@
 #include "BKE_node.h"
 #include "BKE_paint.h"
 #include "BKE_screen.h"
+#include "BKE_studiolight.h"
 #include "BKE_workspace.h"
 
 #include "BLO_readfile.h"
@@ -117,6 +118,9 @@ void BLO_update_defaults_userpref_blend(void)
 
   /* Increase a little for new scrubbing area. */
   U.v2d_min_gridsize = 45;
+
+  /* Default studio light. */
+  BKE_studiolight_default(U.light_param, U.light_ambient);
 }
 
 /**
@@ -187,9 +191,13 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
             v3d->overlay.texture_paint_mode_opacity = 1.0f;
             v3d->overlay.weight_paint_mode_opacity = 1.0f;
             v3d->overlay.vertex_paint_mode_opacity = 1.0f;
+            /* Use dimmed selected edges. */
+            v3d->overlay.edit_flag &= ~V3D_OVERLAY_EDIT_EDGES;
             /* grease pencil settings */
             v3d->vertex_opacity = 1.0f;
             v3d->gp_flag |= V3D_GP_SHOW_EDIT_LINES;
+            /* Remove dither pattern in wireframe mode. */
+            v3d->shading.xray_alpha_wire = 0.0f;
             /* Skip startups that use the viewport color by default. */
             if (v3d->shading.background_type != V3D_SHADING_BACKGROUND_VIEWPORT) {
               copy_v3_fl(v3d->shading.background_color, 0.05f);
@@ -329,7 +337,6 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
           /* Screen space cavity by default for faster performance. */
           View3D *v3d = sa->spacedata.first;
           v3d->shading.cavity_type = V3D_SHADING_CAVITY_CURVATURE;
-          v3d->shading.light = V3D_LIGHTING_MATCAP;
         }
         else if (sa->spacetype == SPACE_CLIP) {
           SpaceClip *sclip = sa->spacedata.first;
@@ -419,6 +426,21 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
       camera->dof.focus_distance = 10.0f;
       camera->dof.aperture_fstop = 2.8f;
     }
+
+    for (Material *ma = bmain->materials.first; ma; ma = ma->id.next) {
+      /* Update default material to be a bit more rough. */
+      ma->roughness = 0.4f;
+
+      if (ma->nodetree) {
+        for (bNode *node = ma->nodetree->nodes.first; node; node = node->next) {
+          if (node->type == SH_NODE_BSDF_PRINCIPLED) {
+            bNodeSocket *roughness_socket = nodeFindSocket(node, SOCK_IN, "Roughness");
+            bNodeSocketValueFloat *roughness_data = roughness_socket->default_value;
+            roughness_data->value = 0.4f;
+          }
+        }
+      }
+    }
   }
 
   for (bScreen *sc = bmain->screens.first; sc; sc = sc->id.next) {
@@ -436,6 +458,9 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
     copy_v3_v3(scene->display.light_direction, (float[3]){M_SQRT1_3, M_SQRT1_3, M_SQRT1_3});
     copy_v2_fl2(scene->safe_areas.title, 0.1f, 0.05f);
     copy_v2_fl2(scene->safe_areas.action, 0.035f, 0.035f);
+
+    /* Change default cubemap quality. */
+    scene->eevee.gi_filter_quality = 3.0f;
   }
 
   if (app_template == NULL) {

@@ -1497,7 +1497,8 @@ void DRW_draw_view(const bContext *C)
   drw_state_prepare_clean_for_draw(&DST);
   DST.options.draw_text = ((v3d->flag2 & V3D_HIDE_OVERLAYS) == 0 &&
                            (v3d->overlay.flag & V3D_OVERLAY_HIDE_TEXT) != 0);
-  DST.options.draw_background = scene->r.alphamode == R_ADDSKY;
+  DST.options.draw_background = (scene->r.alphamode == R_ADDSKY) ||
+                                (v3d->shading.type != OB_RENDER);
   DRW_draw_render_loop_ex(depsgraph, engine_type, ar, v3d, viewport, C);
 }
 
@@ -2541,7 +2542,7 @@ void DRW_draw_depth_loop_gpencil(struct Depsgraph *depsgraph,
 /** See #DRW_shgroup_world_clip_planes_from_rv3d. */
 static void draw_world_clip_planes_from_rv3d(GPUBatch *batch, const float world_clip_planes[6][4])
 {
-  GPU_batch_uniform_4fv_array(batch, "WorldClipPlanes", 6, world_clip_planes[0]);
+  GPU_batch_uniform_4fv_array(batch, "clipPlanes", 6, world_clip_planes[0]);
 }
 
 /**

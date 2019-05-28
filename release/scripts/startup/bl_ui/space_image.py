@@ -347,7 +347,6 @@ class IMAGE_MT_uvs(Menu):
 
         sima = context.space_data
         uv = sima.uv_editor
-        tool_settings = context.tool_settings
 
         layout.menu("IMAGE_MT_uvs_transform")
         layout.menu("IMAGE_MT_uvs_mirror")
@@ -536,8 +535,6 @@ class IMAGE_HT_tool_header(Header):
 
         self.draw_tool_settings(context)
 
-        sima = context.space_data
-
         layout.separator_spacer()
 
         IMAGE_HT_header.draw_xform_template(layout, context)
@@ -706,7 +703,7 @@ class IMAGE_HT_header(Header):
             row.template_ID(sima, "mask", new="mask.new")
 
         if not show_render:
-            layout.prop(sima, "use_image_pin", text="")
+            layout.prop(sima, "use_image_pin", text="", emboss=False)
 
         layout.separator_spacer()
 
