@@ -1,6 +1,7 @@
 #pragma once
 
 #include "type.hpp"
+#include "BLI_chained_strings.hpp"
 
 namespace FN {
 
@@ -38,26 +39,28 @@ class Function final : public RefCountedBase {
  public:
   Function(Function &fn) = delete;
 
-  Function(StringRef name,
-           ArrayRef<std::string> input_names,
+  Function(ChainedStringRef name,
+           ArrayRef<ChainedStringRef> input_names,
            ArrayRef<SharedType> input_types,
-           ArrayRef<std::string> output_names,
-           ArrayRef<SharedType> output_types)
-      : m_name(name.to_std_string()),
+           ArrayRef<ChainedStringRef> output_names,
+           ArrayRef<SharedType> output_types,
+           const char *strings)
+      : m_name(name),
         m_input_names(input_names.to_small_vector()),
         m_input_types(input_types.to_small_vector()),
         m_output_names(output_names.to_small_vector()),
-        m_output_types(output_types.to_small_vector())
+        m_output_types(output_types.to_small_vector()),
+        m_strings(strings)
   {
     BLI_assert(m_input_names.size() == m_input_types.size());
     BLI_assert(m_output_names.size() == m_output_types.size());
   }
 
-  ~Function() = default;
+  ~Function();
 
   const StringRefNull name() const
   {
-    return m_name;
+    return m_name.to_string_ref(m_strings);
   }
 
   template<typename T> inline bool has_body() const
@@ -120,12 +123,12 @@ class Function final : public RefCountedBase {
 
   StringRefNull input_name(uint index)
   {
-    return m_input_names[index];
+    return m_input_names[index].to_string_ref(m_strings);
   }
 
   StringRefNull output_name(uint index)
   {
-    return m_output_names[index];
+    return m_output_names[index].to_string_ref(m_strings);
   }
 
   template<typename T> SmallVector<T *> input_extensions() const
@@ -161,14 +164,16 @@ class Function final : public RefCountedBase {
   }
 
  private:
-  const std::string m_name;
+  ChainedStringRef m_name;
   Composition m_bodies;
   mutable std::mutex m_body_mutex;
 
-  SmallVector<std::string> m_input_names;
+  SmallVector<ChainedStringRef> m_input_names;
   SmallVector<SharedType> m_input_types;
-  SmallVector<std::string> m_output_names;
+  SmallVector<ChainedStringRef> m_output_names;
   SmallVector<SharedType> m_output_types;
+
+  const char *m_strings;
 };
 
 using SharedFunction = AutoRefCount<Function>;
@@ -176,9 +181,10 @@ using FunctionPerType = SmallMap<SharedType, SharedFunction>;
 
 class FunctionBuilder {
  private:
-  SmallVector<std::string> m_input_names;
+  ChainedStringsBuilder m_strings_builder;
+  SmallVector<ChainedStringRef> m_input_names;
   SmallVector<SharedType> m_input_types;
-  SmallVector<std::string> m_output_names;
+  SmallVector<ChainedStringRef> m_output_names;
   SmallVector<SharedType> m_output_types;
 
  public:

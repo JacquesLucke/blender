@@ -236,6 +236,7 @@ set(SRC
 
   BLI_array_lookup.hpp
   BLI_array_ref.hpp
+  BLI_chained_strings.hpp
   BLI_composition.hpp
   BLI_lazy_init.hpp
   BLI_listbase_wrapper.hpp
