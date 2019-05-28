@@ -6,9 +6,10 @@
  * kinds of class types without doing unnecessary conversions.
  */
 
-#include "BLI_small_vector.hpp"
 #include <vector>
 #include <array>
+
+#include "BLI_small_vector.hpp"
 
 namespace BLI {
 
