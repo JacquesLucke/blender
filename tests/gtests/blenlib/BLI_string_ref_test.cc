@@ -19,6 +19,14 @@ TEST(string_ref_null, CStringConstructor)
   EXPECT_EQ(ref.data(), str);
 }
 
+TEST(string_ref_null, CStringLengthConstructor)
+{
+  const char *str = "Hello";
+  StringRefNull ref(str, 5);
+  EXPECT_EQ(ref.size(), 5);
+  EXPECT_EQ(ref.data(), str);
+}
+
 TEST(string_ref, DefaultConstructor)
 {
   StringRef ref;

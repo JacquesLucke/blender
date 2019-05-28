@@ -91,6 +91,11 @@ class StringRefNull : public StringRefBase {
     BLI_assert(m_data[m_size] == '\0');
   }
 
+  StringRefNull(const char *str, size_type size) : StringRefBase(str, size)
+  {
+    BLI_assert(str[size] == '\0');
+  }
+
   StringRefNull(const std::string &str) : StringRefNull(str.data())
   {
   }
