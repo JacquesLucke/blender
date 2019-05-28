@@ -7,14 +7,14 @@
  * the vector.
  */
 
-#include "BLI_utildefines.h"
-
-#include "MEM_guardedalloc.h"
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
 #include <iostream>
-#include <algorithm>
+#include <memory>
+
+#include "BLI_utildefines.h"
+#include "MEM_guardedalloc.h"
 
 namespace BLI {
 
@@ -64,7 +64,7 @@ template<typename T, uint N = 4> class SmallVector {
 
   SmallVector(SmallVector &&other)
   {
-    this->steal_from_other(std::forward<SmallVector>(other));
+    this->steal_from_other(other);
   }
 
   ~SmallVector()
@@ -91,7 +91,7 @@ template<typename T, uint N = 4> class SmallVector {
     }
 
     this->destruct_elements_and_free_memory();
-    this->steal_from_other(std::forward<SmallVector>(other));
+    this->steal_from_other(other);
 
     return *this;
   }
@@ -298,7 +298,7 @@ template<typename T, uint N = 4> class SmallVector {
     m_size = other.m_size;
   }
 
-  void steal_from_other(SmallVector &&other)
+  void steal_from_other(SmallVector &other)
   {
     if (other.is_small()) {
       uninitialized_relocate_n(other.begin(), other.size(), this->small_buffer());
