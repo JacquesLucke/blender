@@ -43,7 +43,7 @@ template<typename T> class Optional {
 
   Optional(T &&value) : Optional()
   {
-    this->set(value);
+    this->set(std::forward<T>(value));
   }
 
   Optional(const Optional &other) : Optional()
@@ -118,10 +118,11 @@ template<typename T> class Optional {
   void set(T &&value)
   {
     if (m_set) {
-      std::copy_n(&value, 1, this->value_ptr());
+      std::copy_n(std::make_move_iterator(&value), 1, this->value_ptr());
     }
     else {
-      std::uninitialized_copy_n(&value, 1, this->value_ptr());
+      std::uninitialized_copy_n(std::make_move_iterator(&value), 1, this->value_ptr());
+      m_set = true;
     }
   }
 
