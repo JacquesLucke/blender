@@ -55,6 +55,16 @@ template<typename T, uint N = 4> class SmallStack {
   {
     return m_elements.end();
   }
+
+  void clear()
+  {
+    m_elements.clear();
+  }
+
+  void clear_and_make_small()
+  {
+    m_elements.clear_and_make_small();
+  }
 };
 
 } /* namespace BLI */

@@ -238,7 +238,9 @@ set(SRC
   BLI_array_ref.hpp
   BLI_chained_strings.hpp
   BLI_composition.hpp
+  BLI_lazy_init.h
   BLI_lazy_init.hpp
+  intern/BLI_lazy_init.cpp
   BLI_listbase_wrapper.hpp
   BLI_mempool.hpp
   BLI_multimap.hpp

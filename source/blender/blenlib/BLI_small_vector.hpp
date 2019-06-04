@@ -104,7 +104,14 @@ template<typename T, uint N = 4> class SmallVector {
   void clear()
   {
     this->destruct_elements_but_keep_memory();
-    this->m_size = 0;
+    m_size = 0;
+  }
+
+  void clear_and_make_small()
+  {
+    this->destruct_elements_and_free_memory();
+    m_size = 0;
+    m_elements = this->small_buffer();
   }
 
   void append(const T &value)

@@ -48,6 +48,7 @@
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
 #include "BLI_timer.h"
+#include "BLI_lazy_init.h"
 
 #include "BLO_writefile.h"
 #include "BLO_undofile.h"
@@ -486,6 +487,7 @@ void WM_exit_ext(bContext *C, const bool do_python)
   }
 
   BLI_timer_free();
+  BLI_lazy_init_free_all();
 
   WM_paneltype_clear();
 
