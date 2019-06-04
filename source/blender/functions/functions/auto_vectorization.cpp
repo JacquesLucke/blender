@@ -5,6 +5,8 @@
 #include "FN_tuple_call.hpp"
 #include "FN_llvm.hpp"
 
+#include "BLI_lazy_init.hpp"
+
 namespace FN {
 namespace Functions {
 
@@ -478,12 +480,19 @@ struct AutoVectorizationInput {
   }
 };
 
+using VectorizeCacheMap = SmallMap<AutoVectorizationInput, SharedFunction>;
+
+LAZY_INIT_REF_STATIC__NO_ARG(VectorizeCacheMap, get_vectorized_function_cache)
+{
+  return VectorizeCacheMap{};
+}
+
 SharedFunction to_vectorized_function__with_cache(
     SharedFunction &original_fn,
     ArrayRef<bool> vectorized_inputs_mask,
     ArrayRef<SharedFunction> empty_list_value_builders)
 {
-  static SmallMap<AutoVectorizationInput, SharedFunction> cache;
+  static VectorizeCacheMap &cache = get_vectorized_function_cache();
 
   AutoVectorizationInput cache_key(original_fn, vectorized_inputs_mask, empty_list_value_builders);
   return cache.lookup_ref_or_insert_func(cache_key,
