@@ -301,8 +301,9 @@ static void print_lvector(lfVector *v, int numverts)
 {
   int i;
   for (i = 0; i < numverts; ++i) {
-    if (i > 0)
+    if (i > 0) {
       printf("\n");
+    }
 
     printf("%f,\n", v[i][0]);
     printf("%f,\n", v[i][1]);
@@ -340,12 +341,14 @@ static void print_bfmatrix(fmatrix3x3 *m)
   }
 
   for (j = 0; j < size; ++j) {
-    if (j > 0 && j % 3 == 0)
+    if (j > 0 && j % 3 == 0) {
       printf("\n");
+    }
 
     for (i = 0; i < size; ++i) {
-      if (i > 0 && i % 3 == 0)
+      if (i > 0 && i % 3 == 0) {
         printf("  ");
+      }
 
       implicit_print_matrix_elem(t[i + j * size]);
     }
@@ -1233,10 +1236,12 @@ void BPH_mass_spring_get_motion_state(struct Implicit_Data *data,
                                       float x[3],
                                       float v[3])
 {
-  if (x)
+  if (x) {
     root_to_world_v3(data, index, x, data->X[index]);
-  if (v)
+  }
+  if (v) {
     root_to_world_v3(data, index, v, data->V[index]);
+  }
 }
 
 void BPH_mass_spring_get_position(struct Implicit_Data *data, int index, float x[3])
@@ -1595,10 +1600,12 @@ BLI_INLINE float fbstar(float length, float L, float kb, float cb)
   float tempfb_fl = kb * fb(length, L);
   float fbstar_fl = cb * (length - L);
 
-  if (tempfb_fl < fbstar_fl)
+  if (tempfb_fl < fbstar_fl) {
     return fbstar_fl;
-  else
+  }
+  else {
     return tempfb_fl;
+  }
 }
 
 // function to calculae bending spring force (taken from Choi & Co)
@@ -1925,30 +1932,38 @@ BLI_INLINE void spring_hairbend_forces(Implicit_Data *data,
   zero_v3(fk);
 
   sub_v3_v3v3(edge_ij, data->X[j], data->X[i]);
-  if (q == i)
+  if (q == i) {
     sub_v3_v3(edge_ij, dx);
-  if (q == j)
+  }
+  if (q == j) {
     add_v3_v3(edge_ij, dx);
+  }
   normalize_v3_v3(dir_ij, edge_ij);
 
   sub_v3_v3v3(edge_jk, data->X[k], data->X[j]);
-  if (q == j)
+  if (q == j) {
     sub_v3_v3(edge_jk, dx);
-  if (q == k)
+  }
+  if (q == k) {
     add_v3_v3(edge_jk, dx);
+  }
   normalize_v3_v3(dir_jk, edge_jk);
 
   sub_v3_v3v3(vel_ij, data->V[j], data->V[i]);
-  if (q == i)
+  if (q == i) {
     sub_v3_v3(vel_ij, dv);
-  if (q == j)
+  }
+  if (q == j) {
     add_v3_v3(vel_ij, dv);
+  }
 
   sub_v3_v3v3(vel_jk, data->V[k], data->V[j]);
-  if (q == j)
+  if (q == j) {
     sub_v3_v3(vel_jk, dv);
-  if (q == k)
+  }
+  if (q == k) {
     add_v3_v3(vel_jk, dv);
+  }
 
   /* bending force */
   sub_v3_v3v3(dist, goal, edge_jk);

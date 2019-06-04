@@ -28,9 +28,8 @@
 #include "BLI_rand.h"
 #include "BLI_string_utils.h"
 
-#include "BKE_particle.h"
 #include "BKE_paint.h"
-#include "BKE_pbvh.h"
+#include "BKE_particle.h"
 
 #include "DNA_world_types.h"
 #include "DNA_modifier_types.h"
@@ -226,26 +225,34 @@ static struct GPUTexture *create_ggx_refraction_lut_texture(int w, int h)
     fprintf(f, "\t{\n\t\t");
     for (int i = 0; i < w * h * 3; i += 3) {
       fprintf(f, "%ff,", data[i]);
-      if (((i / 3) + 1) % 12 == 0)
+      if (((i / 3) + 1) % 12 == 0) {
         fprintf(f, "\n\t\t");
-      else
+      }
+      else {
         fprintf(f, " ");
+      }
     }
     fprintf(f, "\n\t},\n");
 #  else
     for (int i = 0; i < w * h * 3; i += 3) {
-      if (data[i] < 0.01)
+      if (data[i] < 0.01) {
         printf(" ");
-      else if (data[i] < 0.3)
+      }
+      else if (data[i] < 0.3) {
         printf(".");
-      else if (data[i] < 0.6)
+      }
+      else if (data[i] < 0.6) {
         printf("+");
-      else if (data[i] < 0.9)
+      }
+      else if (data[i] < 0.9) {
         printf("%%");
-      else
+      }
+      else {
         printf("#");
-      if ((i / 3 + 1) % 64 == 0)
+      }
+      if ((i / 3 + 1) % 64 == 0) {
         printf("\n");
+      }
     }
 #  endif
 
@@ -1126,10 +1133,10 @@ void EEVEE_materials_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 #define ADD_SHGROUP_CALL(shgrp, ob, geom, oedata) \
   do { \
     if (oedata) { \
-      DRW_shgroup_call_object_with_callback(shgrp, geom, ob, oedata); \
+      DRW_shgroup_call_with_callback(shgrp, geom, ob, oedata); \
     } \
     else { \
-      DRW_shgroup_call_object(shgrp, geom, ob); \
+      DRW_shgroup_call(shgrp, geom, ob); \
     } \
   } while (0)
 
@@ -1406,10 +1413,10 @@ static void material_transparent(Material *ma,
   const bool do_cull = (ma->blend_flag & MA_BL_CULL_BACKFACE) != 0;
   const bool use_ssrefract = (((ma->blend_flag & MA_BL_SS_REFRACTION) != 0) &&
                               ((stl->effects->enabled_effects & EFFECT_REFRACT) != 0));
-  float *color_p = &ma->r;
-  float *metal_p = &ma->metallic;
-  float *spec_p = &ma->spec;
-  float *rough_p = &ma->roughness;
+  const float *color_p = &ma->r;
+  const float *metal_p = &ma->metallic;
+  const float *spec_p = &ma->spec;
+  const float *rough_p = &ma->roughness;
 
   if (ma->use_nodes && ma->nodetree) {
     static float error_col[3] = {1.0f, 0.0f, 1.0f};
@@ -1476,8 +1483,8 @@ static void material_transparent(Material *ma,
   const bool use_prepass = ((ma->blend_flag & MA_BL_HIDE_BACKFACE) != 0);
 
   DRWState all_state = (DRW_STATE_WRITE_DEPTH | DRW_STATE_WRITE_COLOR | DRW_STATE_CULL_BACK |
-                        DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND |
-                        DRW_STATE_ADDITIVE | DRW_STATE_MULTIPLY);
+                        DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_DEPTH_EQUAL |
+                        DRW_STATE_BLEND_ALPHA | DRW_STATE_BLEND_ADD | DRW_STATE_BLEND_MUL);
 
   DRWState cur_state = DRW_STATE_WRITE_COLOR;
   cur_state |= (use_prepass) ? DRW_STATE_DEPTH_EQUAL : DRW_STATE_DEPTH_LESS_EQUAL;
@@ -1485,13 +1492,13 @@ static void material_transparent(Material *ma,
 
   switch (ma->blend_method) {
     case MA_BM_ADD:
-      cur_state |= DRW_STATE_ADDITIVE;
+      cur_state |= DRW_STATE_BLEND_ADD;
       break;
     case MA_BM_MULTIPLY:
-      cur_state |= DRW_STATE_MULTIPLY;
+      cur_state |= DRW_STATE_BLEND_MUL;
       break;
     case MA_BM_BLEND:
-      cur_state |= DRW_STATE_BLEND;
+      cur_state |= DRW_STATE_BLEND_ALPHA;
       break;
     default:
       BLI_assert(0);
@@ -1535,10 +1542,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata,
   Scene *scene = draw_ctx->scene;
   GHash *material_hash = stl->g_data->material_hash;
 
-  bool is_sculpt_mode = DRW_object_use_pbvh_drawing(ob);
-  /* For now just force fully shaded with eevee when supported. */
-  is_sculpt_mode = is_sculpt_mode &&
-                   !(ob->sculpt->pbvh && BKE_pbvh_type(ob->sculpt->pbvh) == PBVH_FACES);
+  bool use_sculpt_pbvh = BKE_sculptsession_use_pbvh_draw(ob, draw_ctx->v3d);
 
   /* First get materials for this mesh. */
   if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_MBALL)) {
@@ -1606,7 +1610,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata,
       int auto_layer_count;
       struct GPUBatch **mat_geom = NULL;
 
-      if (!is_sculpt_mode) {
+      if (!use_sculpt_pbvh) {
         mat_geom = DRW_cache_object_surface_material_get(ob,
                                                          gpumat_array,
                                                          materials_len,
@@ -1615,7 +1619,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata,
                                                          &auto_layer_count);
       }
 
-      if (is_sculpt_mode) {
+      if (use_sculpt_pbvh) {
         /* Vcol is not supported in the modes that require PBVH drawing. */
         bool use_vcol = false;
         DRW_shgroup_call_sculpt_with_materials(shgrp_array, ob, use_vcol);

@@ -284,10 +284,12 @@ static void rna_userdef_script_autoexec_update(Main *UNUSED(bmain),
                                                PointerRNA *ptr)
 {
   UserDef *userdef = (UserDef *)ptr->data;
-  if (userdef->flag & USER_SCRIPT_AUTOEXEC_DISABLE)
+  if (userdef->flag & USER_SCRIPT_AUTOEXEC_DISABLE) {
     G.f &= ~G_FLAG_SCRIPT_AUTOEXEC;
-  else
+  }
+  else {
     G.f |= G_FLAG_SCRIPT_AUTOEXEC;
+  }
 
   USERDEF_TAG_DIRTY;
 }
@@ -295,10 +297,12 @@ static void rna_userdef_script_autoexec_update(Main *UNUSED(bmain),
 static void rna_userdef_load_ui_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
   UserDef *userdef = (UserDef *)ptr->data;
-  if (userdef->flag & USER_FILENOUI)
+  if (userdef->flag & USER_FILENOUI) {
     G.fileflags |= G_FILE_NO_UI;
-  else
+  }
+  else {
     G.fileflags &= ~G_FILE_NO_UI;
+  }
 
   USERDEF_TAG_DIRTY;
 }
@@ -328,8 +332,9 @@ static int rna_userdef_autokeymode_get(PointerRNA *ptr)
   UserDef *userdef = (UserDef *)ptr->data;
   short retval = userdef->autokey_mode;
 
-  if (!(userdef->autokey_mode & AUTOKEY_ON))
+  if (!(userdef->autokey_mode & AUTOKEY_ON)) {
     retval |= AUTOKEY_ON;
+  }
 
   return retval;
 }
@@ -406,8 +411,9 @@ static void rna_userdef_timecode_style_set(PointerRNA *ptr, int value)
       break;
   }
 
-  if (U.v2d_min_gridsize < required_size)
+  if (U.v2d_min_gridsize < required_size) {
     U.v2d_min_gridsize = required_size;
+  }
 }
 
 static PointerRNA rna_UserDef_view_get(PointerRNA *ptr)
@@ -459,8 +465,9 @@ static void rna_UserDef_weight_color_update(Main *bmain, Scene *scene, PointerRN
   Object *ob;
 
   for (ob = bmain->objects.first; ob; ob = ob->id.next) {
-    if (ob->mode & OB_MODE_WEIGHT_PAINT)
+    if (ob->mode & OB_MODE_WEIGHT_PAINT) {
       DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
+    }
   }
 
   rna_userdef_update(bmain, scene, ptr);
@@ -484,8 +491,9 @@ static void rna_userdef_autosave_update(Main *bmain, Scene *scene, PointerRNA *p
 {
   wmWindowManager *wm = bmain->wm.first;
 
-  if (wm)
+  if (wm) {
     WM_autosave_init(wm);
+  }
   rna_userdef_update(bmain, scene, ptr);
 }
 
@@ -698,8 +706,9 @@ static void rna_AddonPref_unregister(Main *UNUSED(bmain), StructRNA *type)
 {
   bAddonPrefType *apt = RNA_struct_blender_type_get(type);
 
-  if (!apt)
+  if (!apt) {
     return;
+  }
 
   RNA_struct_free_extension(type, &apt->ext);
   RNA_struct_free(&BLENDER_RNA, type);
@@ -727,8 +736,9 @@ static StructRNA *rna_AddonPref_register(Main *bmain,
   RNA_pointer_create(NULL, &RNA_AddonPreferences, &dummy_addon, &dummy_ptr);
 
   /* validate the python class */
-  if (validate(&dummy_ptr, data, NULL /* have_function */) != 0)
+  if (validate(&dummy_ptr, data, NULL /* have_function */) != 0) {
     return NULL;
+  }
 
   BLI_strncpy(dummy_apt.idname, dummy_addon.module, sizeof(dummy_apt.idname));
   if (strlen(identifier) >= sizeof(dummy_apt.idname)) {
@@ -5201,23 +5211,37 @@ static void rna_def_userdef_input(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Walk Navigation", "Settings for walk navigation mode");
 
   /* tweak tablet & mouse preset */
+  prop = RNA_def_property(srna, "drag_threshold_mouse", PROP_INT, PROP_PIXEL);
+  RNA_def_property_range(prop, 3, 255);
+  RNA_def_property_ui_text(prop,
+                           "Mouse Drag Threshold",
+                           "Number of pixels to drag before a tweak/drag event is triggered "
+                           "for mouse/track-pad input "
+                           "(otherwise click events are detected)");
+
+  prop = RNA_def_property(srna, "drag_threshold_tablet", PROP_INT, PROP_PIXEL);
+  RNA_def_property_range(prop, 3, 255);
+  RNA_def_property_ui_text(prop,
+                           "Tablet Drag Threshold",
+                           "Number of pixels to drag before a tweak/drag event is triggered "
+                           "for tablet input "
+                           "(otherwise click events are detected)");
+
   prop = RNA_def_property(srna, "drag_threshold", PROP_INT, PROP_PIXEL);
-  RNA_def_property_int_sdna(prop, NULL, "tweak_threshold");
-  RNA_def_property_range(prop, 3, 1024);
-  RNA_def_property_ui_text(
-      prop,
-      "Drag Threshold",
-      "Number of pixels you have to drag before a tweak/drag event is triggered "
-      "(otherwise click events are detected)");
+  RNA_def_property_range(prop, 3, 255);
+  RNA_def_property_ui_text(prop,
+                           "Drag Threshold",
+                           "Number of pixels to drag before a drag event is triggered "
+                           "for keyboard and other non mouse/tablet input "
+                           "(otherwise click events are detected)");
 
   prop = RNA_def_property(srna, "move_threshold", PROP_INT, PROP_PIXEL);
   RNA_def_property_range(prop, 0, 255);
   RNA_def_property_ui_range(prop, 0, 10, 1, -1);
-  RNA_def_property_ui_text(
-      prop,
-      "Motion Threshold",
-      "Number of pixels you have to before the cursor is considered to have moved "
-      "(used for cycling selected items on successive clicks)");
+  RNA_def_property_ui_text(prop,
+                           "Motion Threshold",
+                           "Number of pixels to before the cursor is considered to have moved "
+                           "(used for cycling selected items on successive clicks)");
 
   /* tablet pressure curve */
   prop = RNA_def_property(srna, "pressure_threshold_max", PROP_FLOAT, PROP_FACTOR);

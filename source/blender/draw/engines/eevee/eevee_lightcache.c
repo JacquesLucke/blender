@@ -409,7 +409,7 @@ static void eevee_lightbake_context_enable(EEVEE_LightBake *lbake)
   if (lbake->gl_context) {
     DRW_opengl_render_context_enable(lbake->gl_context);
     if (lbake->gpu_context == NULL) {
-      lbake->gpu_context = GPU_context_create();
+      lbake->gpu_context = GPU_context_create(0);
     }
     DRW_gawain_render_context_enable(lbake->gpu_context);
   }
@@ -748,6 +748,7 @@ static void eevee_lightbake_cache_create(EEVEE_Data *vedata, EEVEE_LightBake *lb
   EEVEE_effects_cache_init(sldata, vedata);
   EEVEE_materials_cache_init(sldata, vedata);
   EEVEE_subsurface_cache_init(sldata, vedata);
+  EEVEE_volumes_cache_init(sldata, vedata);
   EEVEE_lights_cache_init(sldata, vedata);
   EEVEE_lightprobes_cache_init(sldata, vedata);
 
@@ -766,6 +767,9 @@ static void eevee_lightbake_cache_create(EEVEE_Data *vedata, EEVEE_LightBake *lb
   EEVEE_materials_cache_finish(sldata, vedata);
   EEVEE_lights_cache_finish(sldata, vedata);
   EEVEE_lightprobes_cache_finish(sldata, vedata);
+
+  /* Disable volumetrics when baking. */
+  stl->effects->enabled_effects &= ~EFFECT_VOLUMETRIC;
 
   EEVEE_effects_draw_init(sldata, vedata);
   EEVEE_volumes_draw_init(sldata, vedata);

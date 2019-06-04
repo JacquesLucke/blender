@@ -76,7 +76,7 @@ static EnumPropertyItem rna_enum_gpencil_onion_modes_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
-const EnumPropertyItem rna_enum_onion_keyframe_type_items[] = {
+static const EnumPropertyItem rna_enum_onion_keyframe_type_items[] = {
     {-1, "ALL", ICON_ACTION, "All Types", "Include all Keyframe types"},
     {BEZT_KEYTYPE_KEYFRAME,
      "KEYFRAME",
@@ -113,7 +113,7 @@ static const EnumPropertyItem rna_enum_gplayer_move_type_items[] = {
 };
 
 static const EnumPropertyItem rna_enum_layer_blend_modes_items[] = {
-    {eGplBlendMode_Normal, "NORMAL", 0, "Regular", ""},
+    {eGplBlendMode_Regular, "REGULAR", 0, "Regular", ""},
     {eGplBlendMode_Overlay, "OVERLAY", 0, "Overlay", ""},
     {eGplBlendMode_Add, "ADD", 0, "Add", ""},
     {eGplBlendMode_Subtract, "SUBTRACT", 0, "Subtract", ""},
@@ -207,10 +207,12 @@ static void UNUSED_FUNCTION(rna_GPencil_onion_skinning_update)(Main *bmain,
     }
   }
 
-  if (enabled)
+  if (enabled) {
     gpd->flag |= GP_DATA_SHOW_ONIONSKINS;
-  else
+  }
+  else {
     gpd->flag &= ~GP_DATA_SHOW_ONIONSKINS;
+  }
 
   /* Now do standard updates... */
   rna_GPencil_update(bmain, scene, ptr);
@@ -245,10 +247,12 @@ static int rna_GPencilLayer_active_frame_editable(PointerRNA *ptr, const char **
   bGPDlayer *gpl = (bGPDlayer *)ptr->data;
 
   /* surely there must be other criteria too... */
-  if (gpl->flag & GP_LAYER_LOCKED)
+  if (gpl->flag & GP_LAYER_LOCKED) {
     return 0;
-  else
+  }
+  else {
     return PROP_EDITABLE;
+  }
 }
 
 /* set parent */
@@ -503,10 +507,12 @@ static bGPDstroke *rna_GPencil_stroke_point_find_stroke(const bGPdata *gpd,
     return NULL;
   }
 
-  if (r_gpl)
+  if (r_gpl) {
     *r_gpl = NULL;
-  if (r_gpf)
+  }
+  if (r_gpf) {
     *r_gpf = NULL;
+  }
 
   /* there's no faster alternative than just looping over everything... */
   for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
@@ -514,10 +520,12 @@ static bGPDstroke *rna_GPencil_stroke_point_find_stroke(const bGPdata *gpd,
       for (gps = gpl->actframe->strokes.first; gps; gps = gps->next) {
         if ((pt >= gps->points) && (pt < &gps->points[gps->totpoints])) {
           /* found it */
-          if (r_gpl)
+          if (r_gpl) {
             *r_gpl = gpl;
-          if (r_gpf)
+          }
+          if (r_gpf) {
             *r_gpf = gpl->actframe;
+          }
 
           return gps;
         }
@@ -543,10 +551,12 @@ static void rna_GPencil_stroke_point_select_set(PointerRNA *ptr, const bool valu
   gps = rna_GPencil_stroke_point_find_stroke(gpd, pt, NULL, NULL);
   if (gps) {
     /* Set the new selection state for the point */
-    if (value)
+    if (value) {
       pt->flag |= GP_SPOINT_SELECT;
-    else
+    }
+    else {
       pt->flag &= ~GP_SPOINT_SELECT;
+    }
 
     /* Check if the stroke should be selected or not... */
     BKE_gpencil_stroke_sync_selection(gps);
@@ -682,17 +692,21 @@ static void rna_GPencil_stroke_select_set(PointerRNA *ptr, const bool value)
   int i;
 
   /* set new value */
-  if (value)
+  if (value) {
     gps->flag |= GP_STROKE_SELECT;
-  else
+  }
+  else {
     gps->flag &= ~GP_STROKE_SELECT;
+  }
 
   /* ensure that the stroke's points are selected in the same way */
   for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-    if (value)
+    if (value) {
       pt->flag |= GP_SPOINT_SELECT;
-    else
+    }
+    else {
       pt->flag &= ~GP_SPOINT_SELECT;
+    }
   }
 }
 
@@ -817,8 +831,9 @@ static void rna_GpencilVertex_groups_begin(CollectionPropertyIterator *iter, Poi
     rna_iterator_array_begin(
         iter, (void *)dvert->dw, sizeof(MDeformWeight), dvert->totweight, 0, NULL);
   }
-  else
+  else {
     rna_iterator_array_begin(iter, NULL, 0, 0, 0, NULL);
+  }
 }
 
 static char *rna_GreasePencilGrid_path(PointerRNA *UNUSED(ptr))
@@ -1424,7 +1439,7 @@ static void rna_def_gpencil_layer(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(
       prop, "Clamp Layer", "Clamp any pixel outside underlying layers drawing");
-  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+  RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
   /* solo mode: Only display frames with keyframe */
   prop = RNA_def_property(srna, "use_solo_mode", PROP_BOOLEAN, PROP_NONE);

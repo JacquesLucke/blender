@@ -87,10 +87,6 @@
 
 #include "DEG_depsgraph.h"
 
-/* Motion in pixels allowed before we don't consider single/double click,
- * or detect the start of a tweak event. */
-#define WM_EVENT_CLICK_TWEAK_THRESHOLD (U.tweak_threshold * U.dpi_fac)
-
 static void wm_notifier_clear(wmNotifier *note);
 static void update_tablet_data(wmWindow *win, wmEvent *event);
 
@@ -1469,26 +1465,20 @@ static int wm_operator_invoke(bContext *C,
        */
       if (ot->flag & OPTYPE_BLOCKING || (op->opm && op->opm->type->flag & OPTYPE_BLOCKING)) {
         int bounds[4] = {-1, -1, -1, -1};
-        bool wrap;
+        int wrap = WM_CURSOR_WRAP_NONE;
 
-        if (event == NULL) {
-          wrap = false;
-        }
-        else if (op->opm) {
-          wrap = (U.uiflag & USER_CONTINUOUS_MOUSE) &&
-                 ((op->opm->flag & OP_IS_MODAL_GRAB_CURSOR) ||
-                  (op->opm->type->flag & OPTYPE_GRAB_CURSOR));
-        }
-        else {
-          wrap = (U.uiflag & USER_CONTINUOUS_MOUSE) &&
-                 ((op->flag & OP_IS_MODAL_GRAB_CURSOR) || (ot->flag & OPTYPE_GRAB_CURSOR));
-        }
-
-        /* exception, cont. grab in header is annoying */
-        if (wrap) {
-          ARegion *ar = CTX_wm_region(C);
-          if (ar && ELEM(ar->regiontype, RGN_TYPE_HEADER, RGN_TYPE_TOOL_HEADER, RGN_TYPE_FOOTER)) {
-            wrap = false;
+        if (event && (U.uiflag & USER_CONTINUOUS_MOUSE)) {
+          const wmOperator *op_test = op->opm ? op->opm : op;
+          const wmOperatorType *ot_test = op_test->type;
+          if ((ot_test->flag & OPTYPE_GRAB_CURSOR_XY) ||
+              (op_test->flag & OP_IS_MODAL_GRAB_CURSOR)) {
+            wrap = WM_CURSOR_WRAP_XY;
+          }
+          else if (ot_test->flag & OPTYPE_GRAB_CURSOR_X) {
+            wrap = WM_CURSOR_WRAP_X;
+          }
+          else if (ot_test->flag & OPTYPE_GRAB_CURSOR_Y) {
+            wrap = WM_CURSOR_WRAP_Y;
           }
         }
 
@@ -1496,6 +1486,11 @@ static int wm_operator_invoke(bContext *C,
           const rcti *winrect = NULL;
           ARegion *ar = CTX_wm_region(C);
           ScrArea *sa = CTX_wm_area(C);
+
+          /* Wrap only in X for header. */
+          if (ar && ELEM(ar->regiontype, RGN_TYPE_HEADER, RGN_TYPE_TOOL_HEADER, RGN_TYPE_FOOTER)) {
+            wrap = WM_CURSOR_WRAP_X;
+          }
 
           if (ar && ar->regiontype == RGN_TYPE_WINDOW &&
               BLI_rcti_isect_pt_v(&ar->winrct, &event->x)) {
@@ -1741,14 +1736,16 @@ int WM_operator_call_py(bContext *C,
   op = wm_operator_create(wm, ot, properties, reports);
 
   if (op->type->exec) {
-    if (is_undo && op->type->flag & OPTYPE_UNDO)
+    if (is_undo && op->type->flag & OPTYPE_UNDO) {
       wm->op_undo_depth++;
+    }
 
     retval = op->type->exec(C, op);
     OPERATOR_RETVAL_CHECK(retval);
 
-    if (is_undo && op->type->flag & OPTYPE_UNDO && CTX_wm_manager(C) == wm)
+    if (is_undo && op->type->flag & OPTYPE_UNDO && CTX_wm_manager(C) == wm) {
       wm->op_undo_depth--;
+    }
   }
   else {
     CLOG_WARN(WM_LOG_OPERATORS,
@@ -2567,7 +2564,7 @@ static int wm_handlers_do_keymap_with_keymap_handler(
   return action;
 }
 
-static bool wm_handlers_do_keymap_with_gizmo_handler(
+static int wm_handlers_do_keymap_with_gizmo_handler(
     /* From 'wm_handlers_do_intern' */
     bContext *C,
     wmEvent *event,
@@ -2769,6 +2766,9 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
           }
         }
 
+        /* Don't use from now on. */
+        const bool is_event_handle_all = gz && (gz->flag & WM_GIZMO_EVENT_HANDLE_ALL);
+
         if (handle_keymap) {
           /* Handle highlight gizmo. */
           if (gz != NULL) {
@@ -2797,6 +2797,12 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
                 }
               }
             }
+          }
+        }
+
+        if (is_event_handle_all) {
+          if (action == WM_HANDLER_CONTINUE) {
+            action |= WM_HANDLER_BREAK | WM_HANDLER_MODAL;
           }
         }
 
@@ -2874,10 +2880,7 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
     if (wm_action_not_handled(action)) {
       if (event->check_drag) {
         wmWindow *win = CTX_wm_window(C);
-        if ((abs(event->x - win->eventstate->prevclickx)) >=
-                WM_EVENT_CURSOR_CLICK_DRAG_THRESHOLD ||
-            (abs(event->y - win->eventstate->prevclicky)) >=
-                WM_EVENT_CURSOR_CLICK_DRAG_THRESHOLD) {
+        if (WM_event_drag_test(event, &win->eventstate->prevclickx)) {
           int x = event->x;
           int y = event->y;
           short val = event->val;
@@ -2933,8 +2936,11 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
 
         if ((event->val == KM_RELEASE) && (win->eventstate->prevval == KM_PRESS) &&
             (win->eventstate->check_click == true)) {
-          if ((abs(event->x - win->eventstate->prevclickx)) < WM_EVENT_CLICK_TWEAK_THRESHOLD &&
-              (abs(event->y - win->eventstate->prevclicky)) < WM_EVENT_CLICK_TWEAK_THRESHOLD) {
+          if (WM_event_drag_test(event, &win->eventstate->prevclickx)) {
+            win->eventstate->check_click = 0;
+            win->eventstate->check_drag = 0;
+          }
+          else {
             /* Position is where the actual click happens, for more
              * accurate selecting in case the mouse drifts a little. */
             int x = event->x;
@@ -2951,10 +2957,6 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
             event->val = KM_RELEASE;
             event->x = x;
             event->y = y;
-          }
-          else {
-            win->eventstate->check_click = 0;
-            win->eventstate->check_drag = 0;
           }
         }
         else if (event->val == KM_DBL_CLICK) {
@@ -3071,7 +3073,7 @@ static void wm_paintcursor_test(bContext *C, const wmEvent *event)
   }
 }
 
-static void wm_event_drag_test(wmWindowManager *wm, wmWindow *win, wmEvent *event)
+static void wm_event_drag_and_drop_test(wmWindowManager *wm, wmWindow *win, wmEvent *event)
 {
   bScreen *screen = WM_window_get_active_screen(win);
 
@@ -3246,7 +3248,7 @@ void wm_event_do_handlers(bContext *C)
       }
 
       /* check dragging, creates new event or frees, adds draw tag */
-      wm_event_drag_test(wm, win, event);
+      wm_event_drag_and_drop_test(wm, win, event);
 
       /* builtin tweak, if action is break it removes tweak */
       wm_tweakevent_test(C, event, action);
@@ -4257,13 +4259,14 @@ static wmWindow *wm_event_cursor_other_windows(wmWindowManager *wm, wmWindow *wi
   return NULL;
 }
 
-static bool wm_event_is_double_click(wmEvent *event, const wmEvent *event_state)
+static bool wm_event_is_double_click(const wmEvent *event, const wmEvent *event_state)
 {
   if ((event->type == event_state->prevtype) && (event_state->prevval == KM_RELEASE) &&
       (event->val == KM_PRESS)) {
-    if ((ISMOUSE(event->type) == false) ||
-        ((abs(event->x - event_state->prevclickx)) < WM_EVENT_CLICK_TWEAK_THRESHOLD &&
-         (abs(event->y - event_state->prevclicky)) < WM_EVENT_CLICK_TWEAK_THRESHOLD)) {
+    if (ISMOUSE(event->type) && WM_event_drag_test(event, &event_state->prevclickx)) {
+      /* pass */
+    }
+    else {
       if ((PIL_check_seconds_timer() - event_state->prevclicktime) * 1000 < U.dbl_click_time) {
         return true;
       }
@@ -4295,8 +4298,7 @@ static wmEvent *wm_event_add_mousemove(wmWindow *win, const wmEvent *event)
 
 /* windows store own event queues, no bContext here */
 /* time is in 1000s of seconds, from ghost */
-void wm_event_add_ghostevent(
-    wmWindowManager *wm, wmWindow *win, int type, int UNUSED(time), void *customdata)
+void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, void *customdata)
 {
   wmWindow *owin;
 
@@ -4327,6 +4329,8 @@ void wm_event_add_ghostevent(
       copy_v2_v2_int(&event.x, &cd->x);
       wm_stereo3d_mouse_offset_apply(win, &event.x);
 
+      event.prevtype = event.type;
+      event.prevval = event.val;
       event.type = MOUSEMOVE;
       {
         wmEvent *event_new = wm_event_add_mousemove(win, &event);
@@ -4343,6 +4347,8 @@ void wm_event_add_ghostevent(
         oevent = *oevt;
 
         copy_v2_v2_int(&oevent.x, &event.x);
+        oevent.prevtype = oevent.type;
+        oevent.prevval = oevent.val;
         oevent.type = MOUSEMOVE;
         {
           wmEvent *event_new = wm_event_add_mousemove(owin, &oevent);
@@ -5188,6 +5194,46 @@ bool WM_window_modal_keymap_status_draw(bContext *UNUSED(C), wmWindow *win, uiLa
     }
   }
   return true;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Event Click/Drag Checks
+ *
+ * Values under this limit are detected as clicks.
+ *
+ * \{ */
+
+int WM_event_drag_threshold(const struct wmEvent *event)
+{
+  int drag_threshold;
+  if (WM_event_is_tablet(event)) {
+    drag_threshold = U.drag_threshold_tablet;
+  }
+  else if (ISMOUSE(event->prevtype)) {
+    drag_threshold = U.drag_threshold_mouse;
+  }
+  else {
+    /* Typically keyboard, could be NDOF button or other less common types. */
+    drag_threshold = U.drag_threshold;
+  }
+  return drag_threshold * U.dpi_fac;
+}
+
+bool WM_event_drag_test_with_delta(const wmEvent *event, const int drag_delta[2])
+{
+  const int drag_threshold = WM_event_drag_threshold(event);
+  return abs(drag_delta[0]) > drag_threshold || abs(drag_delta[1]) > drag_threshold;
+}
+
+bool WM_event_drag_test(const wmEvent *event, const int prev_xy[2])
+{
+  const int drag_delta[2] = {
+      prev_xy[0] - event->x,
+      prev_xy[1] - event->y,
+  };
+  return WM_event_drag_test_with_delta(event, drag_delta);
 }
 
 /** \} */

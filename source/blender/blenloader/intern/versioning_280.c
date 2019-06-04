@@ -718,16 +718,18 @@ static void do_version_constraints_copy_scale_power(ListBase *lb)
 static void do_versions_seq_alloc_transform_and_crop(ListBase *seqbase)
 {
   for (Sequence *seq = seqbase->first; seq != NULL; seq = seq->next) {
-    if (seq->strip->transform == NULL) {
-      seq->strip->transform = MEM_callocN(sizeof(struct StripTransform), "StripTransform");
-    }
+    if (ELEM(seq->type, SEQ_TYPE_SOUND_RAM, SEQ_TYPE_SOUND_HD) == 0) {
+      if (seq->strip->transform == NULL) {
+        seq->strip->transform = MEM_callocN(sizeof(struct StripTransform), "StripTransform");
+      }
 
-    if (seq->strip->crop == NULL) {
-      seq->strip->crop = MEM_callocN(sizeof(struct StripCrop), "StripCrop");
-    }
+      if (seq->strip->crop == NULL) {
+        seq->strip->crop = MEM_callocN(sizeof(struct StripCrop), "StripCrop");
+      }
 
-    if (seq->seqbase.first != NULL) {
-      do_versions_seq_alloc_transform_and_crop(&seq->seqbase);
+      if (seq->seqbase.first != NULL) {
+        do_versions_seq_alloc_transform_and_crop(&seq->seqbase);
+      }
     }
   }
 }
@@ -2740,13 +2742,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
     for (Camera *ca = bmain->cameras.first; ca; ca = ca->id.next) {
       ca->drawsize *= 2.0f;
     }
-    for (Object *ob = bmain->objects.first; ob; ob = ob->id.next) {
-      if (ob->type != OB_EMPTY) {
-        if (UNLIKELY(ob->transflag & OB_DUPLICOLLECTION)) {
-          BKE_object_type_set_empty_for_versioning(ob);
-        }
-      }
-    }
 
     /* Grease pencil primitive curve */
     if (!DNA_struct_elem_find(
@@ -3493,7 +3488,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
     }
   }
 
-  if (!MAIN_VERSION_ATLEAST(bmain, 280, 72)) {
+  if (!MAIN_VERSION_ATLEAST(bmain, 280, 74)) {
     for (Scene *scene = bmain->scenes.first; scene; scene = scene->id.next) {
       if (scene->ed != NULL) {
         do_versions_seq_alloc_transform_and_crop(&scene->ed->seqbase);
@@ -3503,5 +3498,13 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 
   {
     /* Versioning code until next subversion bump goes here. */
+
+    for (Scene *scene = bmain->scenes.first; scene; scene = scene->id.next) {
+      if (scene->master_collection != NULL) {
+        scene->master_collection->flag &= ~(COLLECTION_RESTRICT_VIEWPORT |
+                                            COLLECTION_RESTRICT_SELECT |
+                                            COLLECTION_RESTRICT_RENDER);
+      }
+    }
   }
 }

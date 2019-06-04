@@ -1762,7 +1762,7 @@ static bool ui_but_drag_init(bContext *C,
   /* Clamp the maximum to half the UI unit size so a high user preference
    * doesn't require the user to drag more then half the default button height. */
   const int drag_threshold = min_ii(
-      U.tweak_threshold * U.dpi_fac,
+      WM_event_drag_threshold(event),
       (int)((UI_UNIT_Y / 2) * ui_block_to_window_scale(data->region, but->block)));
 
   if (ABS(data->dragstartx - event->x) + ABS(data->dragstarty - event->y) > drag_threshold) {
@@ -7320,7 +7320,7 @@ static void button_activate_state(bContext *C, uiBut *but, uiHandleButtonState s
   /* number editing */
   if (state == BUTTON_STATE_NUM_EDITING) {
     if (ui_but_is_cursor_warp(but)) {
-      WM_cursor_grab_enable(CTX_wm_window(C), true, true, NULL);
+      WM_cursor_grab_enable(CTX_wm_window(C), WM_CURSOR_WRAP_XY, true, NULL);
     }
     ui_numedit_begin(but, data);
   }

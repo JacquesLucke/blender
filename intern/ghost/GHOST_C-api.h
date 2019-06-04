@@ -410,6 +410,7 @@ extern GHOST_TSuccess GHOST_SetCursorPosition(GHOST_SystemHandle systemhandle,
  */
 extern GHOST_TSuccess GHOST_SetCursorGrab(GHOST_WindowHandle windowhandle,
                                           GHOST_TGrabCursorMode mode,
+                                          GHOST_TAxisFlag warp_axis,
                                           int bounds[4],
                                           const int mouse_ungrab_xy[2]);
 
@@ -719,6 +720,11 @@ extern GHOST_TSuccess GHOST_ActivateOpenGLContext(GHOST_ContextHandle contexthan
  * \return A success indicator.
  */
 extern GHOST_TSuccess GHOST_ReleaseOpenGLContext(GHOST_ContextHandle contexthandle);
+
+/**
+ * Get the OpenGL framebuffer handle that serves as a default framebuffer.
+ */
+extern unsigned int GHOST_GetDefaultOpenGLFramebuffer(GHOST_WindowHandle windwHandle);
 
 /**
  * Set which tablet API to use. Only affects Windows, other platforms have a single API.

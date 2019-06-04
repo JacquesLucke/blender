@@ -94,8 +94,9 @@ bool ArmatureExporter::add_instance_controller(Object *ob)
   ins.setUrl(COLLADASW::URI(COLLADABU::Utils::EMPTY_STRING, controller_id));
 
   Mesh *me = (Mesh *)ob->data;
-  if (!me->dvert)
+  if (!me->dvert) {
     return false;
+  }
 
   // write root bone URLs
   Bone *bone;
@@ -234,8 +235,9 @@ void ArmatureExporter::add_bone_node(Bone *bone,
         copy_m4_m4(ob->parentinv, backup_parinv);
         iter = child_objects.erase(iter);
       }
-      else
+      else {
         iter++;
+      }
     }
 
     for (Bone *child = (Bone *)bone->childbase.first; child; child = child->next) {
@@ -313,7 +315,7 @@ void ArmatureExporter::add_bone_transform(Object *ob_arm, Bone *bone, COLLADASW:
   }
 
   if (this->export_settings.get_limit_precision()) {
-    bc_sanitize_mat(mat, LIMITTED_PRECISION);
+    BCMatrix::sanitize(mat, LIMITTED_PRECISION);
   }
 
   TransformWriter::add_joint_transform(node, mat, NULL, this->export_settings, has_restmat);

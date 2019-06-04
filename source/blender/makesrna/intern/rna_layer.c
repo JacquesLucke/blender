@@ -91,10 +91,12 @@ static void rna_LayerObjects_active_object_set(PointerRNA *ptr,
                                                struct ReportList *UNUSED(reports))
 {
   ViewLayer *view_layer = (ViewLayer *)ptr->data;
-  if (value.data)
+  if (value.data) {
     view_layer->basact = BKE_view_layer_base_find(view_layer, (Object *)value.data);
-  else
+  }
+  else {
     view_layer->basact = NULL;
+  }
 }
 
 static char *rna_ViewLayer_path(PointerRNA *ptr)
@@ -121,8 +123,9 @@ static IDProperty *rna_ViewLayer_idprops(PointerRNA *ptr, bool create)
 static void rna_ViewLayer_update_render_passes(ID *id)
 {
   Scene *scene = (Scene *)id;
-  if (scene->nodetree)
+  if (scene->nodetree) {
     ntreeCompositUpdateRLayers(scene->nodetree);
+  }
 }
 
 static PointerRNA rna_ViewLayer_objects_get(CollectionPropertyIterator *iter)
@@ -212,6 +215,43 @@ int rna_LayerCollection_name_length(PointerRNA *ptr)
   return strlen(id->name + 2);
 }
 
+static void rna_LayerCollection_flag_set(PointerRNA *ptr, const bool value, const int flag)
+{
+  LayerCollection *layer_collection = (LayerCollection *)ptr->data;
+  Collection *collection = layer_collection->collection;
+
+  if (collection->flag & COLLECTION_IS_MASTER) {
+    return;
+  }
+
+  if (value) {
+    layer_collection->flag |= flag;
+  }
+  else {
+    layer_collection->flag &= ~flag;
+  }
+}
+
+static void rna_LayerCollection_exclude_set(PointerRNA *ptr, bool value)
+{
+  rna_LayerCollection_flag_set(ptr, value, LAYER_COLLECTION_EXCLUDE);
+}
+
+static void rna_LayerCollection_holdout_set(PointerRNA *ptr, bool value)
+{
+  rna_LayerCollection_flag_set(ptr, value, LAYER_COLLECTION_HOLDOUT);
+}
+
+static void rna_LayerCollection_indirect_only_set(PointerRNA *ptr, bool value)
+{
+  rna_LayerCollection_flag_set(ptr, value, LAYER_COLLECTION_INDIRECT_ONLY);
+}
+
+static void rna_LayerCollection_hide_viewport_set(PointerRNA *ptr, bool value)
+{
+  rna_LayerCollection_flag_set(ptr, value, LAYER_COLLECTION_HIDE);
+}
+
 static void rna_LayerCollection_exclude_update_recursive(ListBase *lb, const bool exclude)
 {
   for (LayerCollection *lc = lb->first; lc; lc = lc->next) {
@@ -299,6 +339,7 @@ static void rna_def_layer_collection(BlenderRNA *brna)
   /* Restriction flags. */
   prop = RNA_def_property(srna, "exclude", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", LAYER_COLLECTION_EXCLUDE);
+  RNA_def_property_boolean_funcs(prop, NULL, "rna_LayerCollection_exclude_set");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_text(prop, "Exclude from View Layer", "Exclude from view layer");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
@@ -307,6 +348,7 @@ static void rna_def_layer_collection(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "holdout", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", LAYER_COLLECTION_HOLDOUT);
+  RNA_def_property_boolean_funcs(prop, NULL, "rna_LayerCollection_holdout_set");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_icon(prop, ICON_HOLDOUT_OFF, 1);
   RNA_def_property_ui_text(prop, "Holdout", "Mask out objects in collection from view layer");
@@ -314,6 +356,7 @@ static void rna_def_layer_collection(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "indirect_only", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", LAYER_COLLECTION_INDIRECT_ONLY);
+  RNA_def_property_boolean_funcs(prop, NULL, "rna_LayerCollection_indirect_only_set");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_ui_icon(prop, ICON_INDIRECT_ONLY_OFF, 1);
   RNA_def_property_ui_text(
@@ -325,6 +368,7 @@ static void rna_def_layer_collection(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "hide_viewport", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", LAYER_COLLECTION_HIDE);
+  RNA_def_property_boolean_funcs(prop, NULL, "rna_LayerCollection_hide_viewport_set");
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_STATIC);
   RNA_def_property_ui_icon(prop, ICON_HIDE_OFF, -1);
   RNA_def_property_ui_text(prop, "Hide in Viewport", "Temporarily hide in viewport");

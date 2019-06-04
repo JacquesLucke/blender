@@ -26,8 +26,9 @@
 #include "BIF_glutil.h"
 
 #include "BKE_editmesh.h"
-#include "BKE_object.h"
 #include "BKE_global.h"
+#include "BKE_object.h"
+#include "BKE_paint.h"
 
 #include "BLI_hash.h"
 
@@ -205,7 +206,7 @@ static void overlay_cache_init(void *vedata)
 
   {
     /* Face Orientation Pass */
-    DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND;
+    DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND_ALPHA;
     psl->face_orientation_pass = DRW_pass_create("Face Orientation", state);
     g_data->face_orientation_shgrp = DRW_shgroup_create(sh_data->face_orientation,
                                                         psl->face_orientation_pass);
@@ -354,7 +355,7 @@ static void overlay_cache_populate(void *vedata, Object *ob)
   if (DRW_object_is_renderable(ob) && pd->overlay.flag & V3D_OVERLAY_FACE_ORIENTATION) {
     struct GPUBatch *geom = DRW_cache_object_surface_get(ob);
     if (geom) {
-      DRW_shgroup_call_object(pd->face_orientation_shgrp, geom, ob);
+      DRW_shgroup_call(pd->face_orientation_shgrp, geom, ob);
     }
   }
 
@@ -369,7 +370,7 @@ static void overlay_cache_populate(void *vedata, Object *ob)
       }
       else {
         if ((*dupli_data)->shgrp && (*dupli_data)->geom) {
-          DRW_shgroup_call_object((*dupli_data)->shgrp, (*dupli_data)->geom, ob);
+          DRW_shgroup_call((*dupli_data)->shgrp, (*dupli_data)->geom, ob);
         }
         return;
       }
@@ -391,10 +392,10 @@ static void overlay_cache_populate(void *vedata, Object *ob)
     if ((!pd->show_overlays) ||
         (((ob != draw_ctx->object_edit) && !is_edit_mode) || has_edit_mesh_cage) ||
         ob->type != OB_MESH) {
-      const bool is_sculpt_mode = DRW_object_use_pbvh_drawing(ob);
+      const bool use_sculpt_pbvh = BKE_sculptsession_use_pbvh_draw(ob, draw_ctx->v3d);
       const bool all_wires = (ob->dtx & OB_DRAW_ALL_EDGES);
       const bool is_wire = (ob->dt < OB_SOLID);
-      const bool use_coloring = (pd->show_overlays && !is_edit_mode && !is_sculpt_mode &&
+      const bool use_coloring = (pd->show_overlays && !is_edit_mode && !use_sculpt_pbvh &&
                                  !has_edit_mesh_cage);
       const int stencil_mask = (ob->dtx & OB_DRAWXRAY) ? 0x00 : 0xFF;
       float *rim_col, *wire_col;
@@ -405,11 +406,11 @@ static void overlay_cache_populate(void *vedata, Object *ob)
       struct GPUBatch *geom;
       geom = DRW_cache_object_face_wireframe_get(ob);
 
-      if (geom || is_sculpt_mode) {
+      if (geom || use_sculpt_pbvh) {
         shgrp = DRW_shgroup_create_sub(pd->face_wires_shgrp);
 
         float wire_step_param = 10.0f;
-        if (!is_sculpt_mode) {
+        if (!use_sculpt_pbvh) {
           wire_step_param = (all_wires) ? 1.0f : pd->wire_step_param;
         }
         DRW_shgroup_uniform_float_copy(shgrp, "wireStepParam", wire_step_param);
@@ -420,11 +421,11 @@ static void overlay_cache_populate(void *vedata, Object *ob)
           DRW_shgroup_uniform_vec3(shgrp, "rimColor", rim_col, 1);
         }
 
-        if (is_sculpt_mode) {
+        if (use_sculpt_pbvh) {
           DRW_shgroup_call_sculpt(shgrp, ob, true, false, false);
         }
         else {
-          DRW_shgroup_call_object(shgrp, geom, ob);
+          DRW_shgroup_call(shgrp, geom, ob);
         }
       }
 
@@ -481,7 +482,7 @@ static void overlay_draw_scene(void *vedata)
   /* This is replaced by the next code block  */
   // MULTISAMPLE_SYNC_ENABLE(dfbl, dtxl);
 
-  if (dfbl->multisample_fb != NULL) {
+  if (dfbl->multisample_fb != NULL && DRW_state_is_fbo()) {
     DRW_stats_query_start("Multisample Blit");
     GPU_framebuffer_bind(dfbl->multisample_fb);
     GPU_framebuffer_clear_color(dfbl->multisample_fb, (const float[4]){0.0f});
