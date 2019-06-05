@@ -1,7 +1,6 @@
 #include <mutex>
 
 #include "BLI_lazy_init.hpp"
-#include "BLI_lazy_init.h"
 #include "BLI_small_stack.hpp"
 
 struct FreeFunc {
