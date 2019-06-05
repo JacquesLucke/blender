@@ -1,7 +1,17 @@
 #pragma once
 
-/* These macros help to define functions that initialize
- * some data the first time it is used. */
+/* These macros help to define functions that should only be
+ * executed once to initialize some data. The initialized data
+ * will only be freed when Blender quits.
+ *
+ * Requirements:
+ *   - Very simple usage, without exposing the implementation details.
+ *   - No additional heap allocation for every lazy initialized piece of data.
+ *   - Blender has to be able to free all lazy-initialized data shortly
+ *     before it quits. This is to make Blenders leak detection not detect
+ *     false positives. It would, when we would just depend on static variables.
+ *     These are destructed, after Blender prints non-freed memory blocks.
+ */
 
 #include <functional>
 #include <BLI_optional.hpp>
