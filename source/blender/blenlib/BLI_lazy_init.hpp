@@ -6,9 +6,11 @@
 #include <functional>
 #include <BLI_optional.hpp>
 
+#include "BLI_lazy_init.h"
+
 namespace BLI {
 
-void register_lazy_init_free_func(std::function<void()> free_func);
+void register_lazy_init_free_func(std::function<void()> free_func, const char *name);
 
 }  // namespace BLI
 
@@ -17,7 +19,7 @@ void register_lazy_init_free_func(std::function<void()> free_func);
   static builder_ret_type &func_name##_builder(void) \
   { \
     static BLI::Optional<builder_ret_type> value = func_name##_impl(); \
-    BLI::register_lazy_init_free_func([]() { value.reset(); }); \
+    BLI::register_lazy_init_free_func([]() { value.reset(); }, #func_name); \
     return value.value(); \
   } \
   final_ret_type func_name(void) \
