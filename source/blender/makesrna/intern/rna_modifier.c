@@ -147,6 +147,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
     {eModifierType_Smoke, "SMOKE", ICON_MOD_SMOKE, "Smoke", ""},
     {eModifierType_Softbody, "SOFT_BODY", ICON_MOD_SOFT, "Soft Body", ""},
     {eModifierType_Surface, "SURFACE", ICON_MODIFIER, "Surface", ""},
+    {eModifierType_NodeParticles, "NODE_PARTICLES", ICON_NONE, "Node Particles", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -579,6 +580,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
       return &RNA_FunctionDeformModifier;
     case eModifierType_FunctionPoints:
       return &RNA_FunctionPointsModifier;
+    case eModifierType_NodeParticles:
+      return &RNA_NodeParticlesModifier;
     /* Default */
     case eModifierType_None:
     case eModifierType_ShapeKey:
@@ -5970,6 +5973,16 @@ static void rna_def_modifier_function_points(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 }
 
+static void rna_def_modifier_node_particles(BlenderRNA *brna)
+{
+  StructRNA *srna;
+
+  srna = RNA_def_struct(brna, "NodeParticlesModifier", "Modifier");
+  RNA_def_struct_ui_text(srna, "Node Particles Modifier", "");
+  RNA_def_struct_sdna(srna, "NodeParticlesModifierData");
+  RNA_def_struct_ui_icon(srna, ICON_NONE);
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -6097,6 +6110,7 @@ void RNA_def_modifier(BlenderRNA *brna)
   rna_def_modifier_weightednormal(brna);
   rna_def_modifier_function_deform(brna);
   rna_def_modifier_function_points(brna);
+  rna_def_modifier_node_particles(brna);
 }
 
 #endif

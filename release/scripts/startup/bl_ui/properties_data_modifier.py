@@ -1663,6 +1663,9 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         props.object_name = ob.name
         props.modifier_name = md.name
 
+    def NODE_PARTICLES(self, layout, ob, md):
+        layout.label(text="Hello World")
+
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
     bl_label = "Modifiers"

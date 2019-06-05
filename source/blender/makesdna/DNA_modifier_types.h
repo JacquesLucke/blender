@@ -90,6 +90,7 @@ typedef enum ModifierType {
   eModifierType_WeightedNormal = 54,
   eModifierType_FunctionDeform = 55,
   eModifierType_FunctionPoints = 56,
+  eModifierType_NodeParticles = 57,
   NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1962,5 +1963,9 @@ typedef struct FunctionPointsModifierData {
   int control2;
   struct bNodeTree *function_tree;
 } FunctionPointsModifierData;
+
+typedef struct NodeParticlesModifierData {
+  ModifierData modifier;
+} NodeParticlesModifierData;
 
 #endif /* __DNA_MODIFIER_TYPES_H__ */

@@ -309,5 +309,6 @@ void modifier_type_init(ModifierTypeInfo *types[])
   INIT_TYPE(WeightedNormal);
   INIT_TYPE(FunctionDeform);
   INIT_TYPE(FunctionPoints);
+  INIT_TYPE(NodeParticles);
 #undef INIT_TYPE
 }
