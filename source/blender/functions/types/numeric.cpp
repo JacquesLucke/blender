@@ -7,7 +7,7 @@
 namespace FN {
 namespace Types {
 
-LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_float)
+BLI_LAZY_INIT(SharedType, GET_TYPE_float)
 {
   SharedType type = SharedType::New("Float");
   type->add_extension<CPPTypeInfoForType<float>>();
@@ -16,7 +16,7 @@ LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_float)
   return type;
 }
 
-LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_int32)
+BLI_LAZY_INIT(SharedType, GET_TYPE_int32)
 {
   SharedType type = SharedType::New("Int32");
   type->add_extension<CPPTypeInfoForType<int32_t>>();
@@ -64,7 +64,7 @@ class FloatVectorType : public TrivialLLVMTypeInfo {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_fvec3)
+BLI_LAZY_INIT(SharedType, GET_TYPE_fvec3)
 {
   SharedType type = SharedType::New("FVec3");
   type->add_extension<CPPTypeInfoForType<Vector>>();

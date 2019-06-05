@@ -36,22 +36,22 @@ template<typename T> SharedType create_list_type(std::string name)
   return type;
 }
 
-LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_float_list)
+BLI_LAZY_INIT(SharedType, GET_TYPE_float_list)
 {
   return create_list_type<float>("Float List");
 }
 
-LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_fvec3_list)
+BLI_LAZY_INIT(SharedType, GET_TYPE_fvec3_list)
 {
   return create_list_type<Vector>("FVec3 List");
 }
 
-LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_int32_list)
+BLI_LAZY_INIT(SharedType, GET_TYPE_int32_list)
 {
   return create_list_type<int32_t>("Int32 List");
 }
 
-LAZY_INIT_REF__NO_ARG(SharedType, GET_TYPE_bool_list)
+BLI_LAZY_INIT(SharedType, GET_TYPE_bool_list)
 {
   return create_list_type<bool>("Bool List");
 }

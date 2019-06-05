@@ -218,7 +218,7 @@ void insert_list_functions_for_type(ListFunctions &functions,
   functions.m_c_new_allocated.add(base_type, new_list_with_prepared_memory<T>);
 }
 
-LAZY_INIT_REF_STATIC__NO_ARG(ListFunctions, get_list_functions)
+BLI_LAZY_INIT_STATIC(ListFunctions, get_list_functions)
 {
   ListFunctions functions;
   insert_list_functions_for_type<float>(functions, GET_TYPE_float(), GET_TYPE_float_list());

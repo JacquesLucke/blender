@@ -10,30 +10,25 @@
 
 namespace BLI {
 
-void register_lazy_init_free_func(std::function<void()> free_func, const char *name);
+void lazy_init_register(std::function<void()> free_func, const char *name);
 
 }  // namespace BLI
 
-#define LAZY_INIT__NO_ARG(final_ret_type, builder_ret_type, func_name) \
-  static builder_ret_type func_name##_impl(void); \
-  static builder_ret_type &func_name##_builder(void) \
+#define BLI_LAZY_INIT(type, func_name) \
+  static type func_name##_impl(void); \
+  static type &func_name##_builder(void) \
   { \
-    static BLI::Optional<builder_ret_type> value = func_name##_impl(); \
-    BLI::register_lazy_init_free_func([]() { value.reset(); }, #func_name); \
+    static BLI::Optional<type> value = func_name##_impl(); \
+    BLI::lazy_init_register([]() { value.reset(); }, #func_name); \
     return value.value(); \
   } \
-  final_ret_type func_name(void) \
+  type &func_name(void) \
   { \
-    static builder_ret_type &value = func_name##_builder(); \
+    static type &value = func_name##_builder(); \
     return value; \
   } \
-  builder_ret_type func_name##_impl(void)
+  type func_name##_impl(void)
 
-#define LAZY_INIT_STATIC__NO_ARG(final_ret_type, builder_ret_type, func_name) \
-  static final_ret_type func_name(void); \
-  LAZY_INIT__NO_ARG(final_ret_type, builder_ret_type, func_name)
-
-#define LAZY_INIT_REF__NO_ARG(type, func_name) LAZY_INIT__NO_ARG(type &, type, func_name)
-
-#define LAZY_INIT_REF_STATIC__NO_ARG(type, func_name) \
-  LAZY_INIT_STATIC__NO_ARG(type &, type, func_name)
+#define BLI_LAZY_INIT_STATIC(type, func_name) \
+  static type &func_name(void); \
+  BLI_LAZY_INIT(type, func_name)

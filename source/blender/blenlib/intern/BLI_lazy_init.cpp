@@ -30,7 +30,7 @@ void BLI_lazy_init_list_all()
 
 namespace BLI {
 
-void register_lazy_init_free_func(std::function<void()> free_func, const char *name)
+void lazy_init_register(std::function<void()> free_func, const char *name)
 {
   std::lock_guard<std::mutex> lock(store_free_func_mutex);
   free_functions.push({free_func, name});

@@ -48,7 +48,7 @@ class GenAddFloats : public LLVMBuildIRBody {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_add_floats)
+BLI_LAZY_INIT(SharedFunction, GET_FN_add_floats)
 {
   auto fn = get_math_function__two_inputs("Add Floats");
   // fn->add_body<AddFloats>();
@@ -75,7 +75,7 @@ class MultiplyFloatsGen : public LLVMBuildIRBody {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_multiply_floats)
+BLI_LAZY_INIT(SharedFunction, GET_FN_multiply_floats)
 {
   auto fn = get_math_function__two_inputs("Multiply Floats");
   fn->add_body<MultiplyFloats>();
@@ -92,7 +92,7 @@ class MinFloats : public TupleCallBody {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_min_floats)
+BLI_LAZY_INIT(SharedFunction, GET_FN_min_floats)
 {
   auto fn = get_math_function__two_inputs("Minimum");
   fn->add_body<MinFloats>();
@@ -108,7 +108,7 @@ class MaxFloats : public TupleCallBody {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_max_floats)
+BLI_LAZY_INIT(SharedFunction, GET_FN_max_floats)
 {
   auto fn = get_math_function__two_inputs("Maximum");
   fn->add_body<MaxFloats>();
@@ -141,7 +141,7 @@ class MapRange : public TupleCallBody {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_map_range)
+BLI_LAZY_INIT(SharedFunction, GET_FN_map_range)
 {
   FunctionBuilder builder;
   builder.add_input("Value", GET_TYPE_float());
@@ -174,7 +174,7 @@ class SinFloatGen : public LLVMBuildIRBody {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_sin_float)
+BLI_LAZY_INIT(SharedFunction, GET_FN_sin_float)
 {
   auto fn = get_math_function__one_input("Sin");
   fn->add_body<SinFloat>();
@@ -264,12 +264,12 @@ static SharedFunction get_output_int32_function(int32_t value)
   return fn;
 }
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_int32_0)
+BLI_LAZY_INIT(SharedFunction, GET_FN_output_int32_0)
 {
   return get_output_int32_function(0);
 }
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_int32_1)
+BLI_LAZY_INIT(SharedFunction, GET_FN_output_int32_1)
 {
   return get_output_int32_function(1);
 }
@@ -284,12 +284,12 @@ static SharedFunction get_output_float_function(float value)
   return fn;
 }
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_float_0)
+BLI_LAZY_INIT(SharedFunction, GET_FN_output_float_0)
 {
   return get_output_float_function(0.0f);
 }
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_float_1)
+BLI_LAZY_INIT(SharedFunction, GET_FN_output_float_1)
 {
   return get_output_float_function(1.0f);
 }
@@ -304,12 +304,12 @@ static SharedFunction get_output_bool_function(bool value)
   return fn;
 }
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_false)
+BLI_LAZY_INIT(SharedFunction, GET_FN_output_false)
 {
   return get_output_bool_function(false);
 }
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_true)
+BLI_LAZY_INIT(SharedFunction, GET_FN_output_true)
 {
   return get_output_bool_function(true);
 }

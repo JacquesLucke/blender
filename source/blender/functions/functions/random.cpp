@@ -32,7 +32,7 @@ class RandomNumber : public TupleCallBody {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_random_number)
+BLI_LAZY_INIT(SharedFunction, GET_FN_random_number)
 {
   FunctionBuilder builder;
   builder.add_input("Seed", GET_TYPE_int32());

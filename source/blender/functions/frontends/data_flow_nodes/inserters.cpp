@@ -18,7 +18,7 @@ static void initialize_standard_inserters(GraphInserters &inserters)
   register_conversion_inserters(inserters);
 }
 
-LAZY_INIT_REF__NO_ARG(GraphInserters, get_standard_inserters)
+BLI_LAZY_INIT(GraphInserters, get_standard_inserters)
 {
   GraphInserters inserters;
   initialize_standard_inserters(inserters);

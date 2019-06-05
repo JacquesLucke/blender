@@ -26,7 +26,7 @@ class CombineVectorGen : public LLVMBuildIRBody {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_combine_vector)
+BLI_LAZY_INIT(SharedFunction, GET_FN_combine_vector)
 {
   FunctionBuilder builder;
   builder.add_input("X", GET_TYPE_float());
@@ -51,7 +51,7 @@ class SeparateVector : public LLVMBuildIRBody {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_separate_vector)
+BLI_LAZY_INIT(SharedFunction, GET_FN_separate_vector)
 {
   FunctionBuilder builder;
   builder.add_input("Vector", GET_TYPE_fvec3());
@@ -74,7 +74,7 @@ class VectorDistance : public TupleCallBody {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_vector_distance)
+BLI_LAZY_INIT(SharedFunction, GET_FN_vector_distance)
 {
   FunctionBuilder builder;
   builder.add_input("A", GET_TYPE_fvec3());
@@ -117,7 +117,7 @@ class AddVectorsGen : public LLVMBuildIRBody {
   }
 };
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_add_vectors)
+BLI_LAZY_INIT(SharedFunction, GET_FN_add_vectors)
 {
   auto fn = get_math_function__two_inputs("Add Vectors");
   fn->add_body<AddVectors>();
@@ -176,12 +176,12 @@ static SharedFunction get_output_fvec3_function(Vector vector)
   return fn;
 }
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_fvec3_0)
+BLI_LAZY_INIT(SharedFunction, GET_FN_output_fvec3_0)
 {
   return get_output_fvec3_function(Vector(0, 0, 0));
 }
 
-LAZY_INIT_REF__NO_ARG(SharedFunction, GET_FN_output_fvec3_1)
+BLI_LAZY_INIT(SharedFunction, GET_FN_output_fvec3_1)
 {
   return get_output_fvec3_function(Vector(1, 1, 1));
 }

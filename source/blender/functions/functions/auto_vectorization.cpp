@@ -482,7 +482,7 @@ struct AutoVectorizationInput {
 
 using VectorizeCacheMap = SmallMap<AutoVectorizationInput, SharedFunction>;
 
-LAZY_INIT_REF_STATIC__NO_ARG(VectorizeCacheMap, get_vectorized_function_cache)
+BLI_LAZY_INIT_STATIC(VectorizeCacheMap, get_vectorized_function_cache)
 {
   return VectorizeCacheMap{};
 }
