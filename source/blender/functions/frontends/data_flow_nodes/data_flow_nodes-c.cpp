@@ -17,7 +17,7 @@ FnFunction FN_tree_to_function(bNodeTree *btree)
   return wrap(fn_ptr);
 }
 
-FnFunction FN_function_get_with_signature(bNodeTree *btree, FnType *inputs, FnType *outputs)
+FnFunction FN_function_get_with_signature(bNodeTree *btree, FnType *inputs_c, FnType *outputs_c)
 {
   if (btree == NULL) {
     return NULL;
@@ -27,7 +27,7 @@ FnFunction FN_function_get_with_signature(bNodeTree *btree, FnType *inputs, FnTy
   if (fn == NULL) {
     return NULL;
   }
-  else if (FN_function_has_signature(fn, inputs, outputs)) {
+  else if (FN_function_has_signature(fn, inputs_c, outputs_c)) {
     return fn;
   }
   else {

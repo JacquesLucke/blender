@@ -35,39 +35,39 @@ ParticleSystemRef SIM_particle_system_new()
   return wrap(new ParticleSystem());
 }
 
-void SIM_particle_system_free(ParticleSystemRef particle_system)
+void SIM_particle_system_free(ParticleSystemRef particle_system_c)
 {
-  delete unwrap(particle_system);
+  delete unwrap(particle_system_c);
 }
 
-ParticlesStateRef SIM_particles_state_new(ParticleSystemRef UNUSED(particle_system))
+ParticlesStateRef SIM_particles_state_new(ParticleSystemRef UNUSED(particle_system_c))
 {
   ParticlesState *state = new ParticlesState();
   return wrap(state);
 }
 
-void SIM_particles_state_free(ParticlesStateRef state)
+void SIM_particles_state_free(ParticlesStateRef state_c)
 {
-  delete unwrap(state);
+  delete unwrap(state_c);
 }
 
-void SIM_particle_system_step(ParticlesStateRef state_)
+void SIM_particle_system_step(ParticlesStateRef state_c)
 {
-  ParticlesState *state = unwrap(state_);
+  ParticlesState *state = unwrap(state_c);
   for (Vector &position : state->m_positions) {
     position.x += 0.1f;
   }
   state->m_positions.append({0, 0, 1});
 }
 
-uint SIM_particles_count(ParticlesStateRef state_)
+uint SIM_particles_count(ParticlesStateRef state_c)
 {
-  ParticlesState *state = unwrap(state_);
+  ParticlesState *state = unwrap(state_c);
   return state->m_positions.size();
 }
 
-void SIM_particles_get_positions(ParticlesStateRef state_, float (*dst)[3])
+void SIM_particles_get_positions(ParticlesStateRef state_c, float (*dst)[3])
 {
-  ParticlesState *state = unwrap(state_);
+  ParticlesState *state = unwrap(state_c);
   memcpy(dst, state->m_positions.begin(), state->m_positions.size() * sizeof(Vector));
 }
