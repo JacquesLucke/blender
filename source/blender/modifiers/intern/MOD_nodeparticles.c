@@ -26,6 +26,8 @@
  *
  */
 
+#include "MEM_guardedalloc.h"
+
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
@@ -38,13 +40,25 @@
 
 #include "MOD_util.h"
 
+#include "SIM_particles.h"
+
 static Mesh *applyModifier(ModifierData *UNUSED(md),
                            const struct ModifierEvalContext *UNUSED(ctx),
                            Mesh *UNUSED(mesh))
 {
-  Mesh *mesh = BKE_mesh_new_nomain(1, 0, 0, 0, 0);
-  float point[] = {1, 2, 3};
-  copy_v3_v3(mesh->mvert[0].co, point);
+  ParticleSystemRef particle_system = NULL;
+  uint point_amount = SIM_particles_count(particle_system);
+  Mesh *mesh = BKE_mesh_new_nomain(point_amount, 0, 0, 0, 0);
+
+  float(*positions)[3] = MEM_malloc_arrayN(point_amount, sizeof(float[3]), __func__);
+  SIM_particles_get_positions(particle_system, positions);
+
+  for (uint i = 0; i < point_amount; i++) {
+    copy_v3_v3(mesh->mvert[i].co, positions[i]);
+  }
+
+  MEM_freeN(positions);
+
   return mesh;
 }
 

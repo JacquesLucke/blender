@@ -27,6 +27,7 @@ set(INC
   ../bmesh
   ../depsgraph
   ../functions
+  ../simulations
   ../makesdna
   ../makesrna
   ../render/extern/include
@@ -116,6 +117,7 @@ set(LIB
   bf_blenkernel
   bf_blenlib
   bf_functions
+  bf_simulations
 )
 
 if(WITH_ALEMBIC)
