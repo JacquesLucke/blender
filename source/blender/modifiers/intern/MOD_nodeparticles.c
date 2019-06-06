@@ -42,16 +42,60 @@
 
 #include "SIM_particles.h"
 
-static Mesh *applyModifier(ModifierData *UNUSED(md),
+typedef struct RuntimeData {
+  ParticleSystemRef particle_system;
+  ParticlesStateRef state;
+} RuntimeData;
+
+static RuntimeData *get_runtime_data(NodeParticlesModifierData *npmd)
+{
+  RuntimeData *data = npmd->modifier.runtime;
+  BLI_assert(data);
+  return data;
+}
+
+static void ensure_runtime_data(NodeParticlesModifierData *npmd)
+{
+  if (npmd->modifier.runtime != NULL) {
+    return;
+  }
+
+  RuntimeData *data = MEM_callocN(sizeof(RuntimeData), __func__);
+  data->particle_system = SIM_particle_system_new();
+  data->state = SIM_particles_state_new(data->particle_system);
+  npmd->modifier.runtime = data;
+}
+
+static void free_runtime_data(RuntimeData *npmd)
+{
+  SIM_particles_state_free(npmd->state);
+  SIM_particle_system_free(npmd->particle_system);
+  MEM_freeN(npmd);
+}
+
+static void clear_runtime_data(NodeParticlesModifierData *npmd)
+{
+  if (npmd->modifier.runtime != NULL) {
+    free_runtime_data(npmd->modifier.runtime);
+    npmd->modifier.runtime = NULL;
+  }
+}
+
+static Mesh *applyModifier(ModifierData *md,
                            const struct ModifierEvalContext *UNUSED(ctx),
                            Mesh *UNUSED(mesh))
 {
-  ParticleSystemRef particle_system = NULL;
-  uint point_amount = SIM_particles_count(particle_system);
+  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
+  ensure_runtime_data(npmd);
+  RuntimeData *runtime = get_runtime_data(npmd);
+
+  SIM_particle_system_step(runtime->state);
+
+  uint point_amount = SIM_particles_count(runtime->state);
   Mesh *mesh = BKE_mesh_new_nomain(point_amount, 0, 0, 0, 0);
 
   float(*positions)[3] = MEM_malloc_arrayN(point_amount, sizeof(float[3]), __func__);
-  SIM_particles_get_positions(particle_system, positions);
+  SIM_particles_get_positions(runtime->state, positions);
 
   for (uint i = 0; i < point_amount; i++) {
     copy_v3_v3(mesh->mvert[i].co, positions[i]);
@@ -66,9 +110,24 @@ static void initData(ModifierData *UNUSED(md))
 {
 }
 
+static void freeData(ModifierData *md)
+{
+  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
+  clear_runtime_data(npmd);
+}
+
+static void freeRuntimeData(void *runtime_data_v)
+{
+  if (runtime_data_v == NULL) {
+    return;
+  }
+  RuntimeData *data = (RuntimeData *)runtime_data_v;
+  free_runtime_data(data);
+}
+
 static bool dependsOnTime(ModifierData *UNUSED(md))
 {
-  return false;
+  return true;
 }
 
 static void updateDepsgraph(ModifierData *UNUSED(md),
@@ -99,7 +158,7 @@ ModifierTypeInfo modifierType_NodeParticles = {
 
     /* initData */ initData,
     /* requiredDataMask */ NULL,
-    /* freeData */ NULL,
+    /* freeData */ freeData,
     /* isDisabled */ NULL,
     /* updateDepsgraph */ updateDepsgraph,
     /* dependsOnTime */ dependsOnTime,
@@ -107,5 +166,5 @@ ModifierTypeInfo modifierType_NodeParticles = {
     /* foreachObjectLink */ NULL,
     /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ NULL,
-    /* freeRuntimeData */ NULL,
+    /* freeRuntimeData */ freeRuntimeData,
 };
