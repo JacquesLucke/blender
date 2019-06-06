@@ -235,7 +235,7 @@ function(blender_add_lib__impl
   add_library(${name} ${sources})
 
   if (NOT "${library_deps}" STREQUAL "")
-    target_link_libraries(${name} "${library_deps}")
+    target_link_libraries(${name} INTERFACE "${library_deps}")
   endif()
 
   # works fine without having the includes
@@ -1218,5 +1218,13 @@ macro(WINDOWS_SIGN_TARGET target)
         VERBATIM
       )
     endif()
+  endif()
+endmacro()
+
+macro(blender_precompile_headers target cpp header)
+  if (MSVC AND NOT MSVC_CLANG)
+    target_sources(${target} PRIVATE ${cpp} ${header})
+    set_target_properties(${target} PROPERTIES COMPILE_FLAGS "/Yu${header} /FI${header}")
+    set_source_files_properties(${cpp} PROPERTIES COMPILE_FLAGS "/Yc${header}")
   endif()
 endmacro()
