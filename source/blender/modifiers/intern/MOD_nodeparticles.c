@@ -32,19 +32,25 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
+#include "BKE_scene.h"
 
 #include "BLI_math.h"
 
 #include "MOD_util.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
 
 #include "SIM_particles.h"
 
 typedef struct RuntimeData {
   ParticleSystemRef particle_system;
   ParticlesStateRef state;
+  float last_simulated_frame;
 } RuntimeData;
 
 static RuntimeData *get_runtime_data(NodeParticlesModifierData *npmd)
@@ -63,6 +69,8 @@ static void ensure_runtime_data(NodeParticlesModifierData *npmd)
   RuntimeData *data = MEM_callocN(sizeof(RuntimeData), __func__);
   data->particle_system = SIM_particle_system_new();
   data->state = SIM_particles_state_new(data->particle_system);
+  data->last_simulated_frame = 0.0f;
+
   npmd->modifier.runtime = data;
 }
 
@@ -82,14 +90,25 @@ static void clear_runtime_data(NodeParticlesModifierData *npmd)
 }
 
 static Mesh *applyModifier(ModifierData *md,
-                           const struct ModifierEvalContext *UNUSED(ctx),
+                           const struct ModifierEvalContext *ctx,
                            Mesh *UNUSED(mesh))
 {
   NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
   ensure_runtime_data(npmd);
   RuntimeData *runtime = get_runtime_data(npmd);
 
-  SIM_particle_system_step(runtime->state);
+  Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
+  float current_frame = BKE_scene_frame_get(scene);
+
+  if (current_frame == runtime->last_simulated_frame + 1) {
+    SIM_particle_system_step(runtime->state);
+    runtime->last_simulated_frame = current_frame;
+  }
+  else {
+    SIM_particles_state_free(runtime->state);
+    runtime->state = SIM_particles_state_new(runtime->particle_system);
+    runtime->last_simulated_frame = current_frame;
+  }
 
   uint point_amount = SIM_particles_count(runtime->state);
   Mesh *mesh = BKE_mesh_new_nomain(point_amount, 0, 0, 0, 0);
