@@ -56,6 +56,7 @@ class ParticlesBlock {
                  uint active_amount = 0);
 
   uint &active_amount();
+  uint inactive_amount();
   bool is_full();
   uint next_inactive_index();
   uint size();
@@ -68,6 +69,9 @@ class ParticlesBlock {
   ArrayRef<Vec3 *> vec3_buffers();
   float *float_buffer(StringRef name);
   Vec3 *vec3_buffer(StringRef name);
+
+  static void MoveUntilFull(ParticlesBlock *from, ParticlesBlock *to);
+  static void Compress(ArrayRef<ParticlesBlock *> blocks);
 };
 
 /* Particles Container
@@ -109,6 +113,11 @@ inline const SmallSet<ParticlesBlock *> &ParticlesContainer::active_blocks()
 inline uint &ParticlesBlock::active_amount()
 {
   return m_active_amount;
+}
+
+inline uint ParticlesBlock::inactive_amount()
+{
+  return this->size() - m_active_amount;
 }
 
 inline bool ParticlesBlock::is_full()
