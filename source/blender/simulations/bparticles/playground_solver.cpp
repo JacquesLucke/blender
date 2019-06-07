@@ -14,6 +14,7 @@ class SimpleSolver : public Solver {
 
   struct MyState : StateBase {
     SmallVector<Vector> positions;
+    SmallVector<Vector> velocities;
   };
 
  public:
@@ -30,10 +31,21 @@ class SimpleSolver : public Solver {
   void step(WrappedState &wrapped_state) override
   {
     MyState &state = wrapped_state.state<MyState>();
-    for (Vector &position : state.positions) {
-      position.x += 0.1f;
+
+    for (uint i = 0; i < state.positions.size(); i++) {
+      Vector &position = state.positions[i];
+      Vector &velocity = state.velocities[i];
+      position.x += velocity.x;
+      position.y += velocity.y;
+      position.z += velocity.z;
     }
-    state.positions.append({0, 0, 1});
+
+    for (Vector &velocity : state.velocities) {
+      velocity.z -= 0.001f;
+    }
+
+    state.positions.append({(float)(rand() % 100) / 100.0f, 0, 1});
+    state.velocities.append({0, 0.1, 0});
   }
 
   uint particle_amount(WrappedState &wrapped_state) override
