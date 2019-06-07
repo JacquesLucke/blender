@@ -103,29 +103,31 @@ static Mesh *applyModifier(ModifierData *md,
   Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
   float current_frame = BKE_scene_frame_get(scene);
 
-  BParticlesDescription new_description = BParticles_playground_description();
-  BParticlesSolver new_solver = BParticles_solver_build(new_description);
+  if (current_frame != runtime->last_simulated_frame) {
+    BParticlesDescription new_description = BParticles_playground_description();
+    BParticlesSolver new_solver = BParticles_solver_build(new_description);
 
-  if (current_frame == runtime->last_simulated_frame + 1) {
-    BParticles_state_adapt(new_solver, runtime->state);
+    if (current_frame == runtime->last_simulated_frame + 1) {
+      BParticles_state_adapt(new_solver, runtime->state);
 
-    BParticles_solver_free(runtime->solver);
-    BParticles_description_free(runtime->description);
-    runtime->description = new_description;
-    runtime->solver = new_solver;
+      BParticles_solver_free(runtime->solver);
+      BParticles_description_free(runtime->description);
+      runtime->description = new_description;
+      runtime->solver = new_solver;
 
-    BParticles_state_step(runtime->solver, runtime->state);
+      BParticles_state_step(runtime->solver, runtime->state);
+    }
+    else {
+      BParticles_state_free(runtime->state);
+      BParticles_solver_free(runtime->solver);
+      BParticles_description_free(runtime->description);
+
+      runtime->description = new_description;
+      runtime->solver = new_solver;
+      runtime->state = BParticles_state_init(new_solver);
+    }
+    runtime->last_simulated_frame = current_frame;
   }
-  else {
-    BParticles_state_free(runtime->state);
-    BParticles_solver_free(runtime->solver);
-    BParticles_description_free(runtime->description);
-
-    runtime->description = new_description;
-    runtime->solver = new_solver;
-    runtime->state = BParticles_state_init(new_solver);
-  }
-  runtime->last_simulated_frame = current_frame;
 
   uint point_amount = BParticles_state_particle_count(runtime->solver, runtime->state);
   Mesh *mesh = BKE_mesh_new_nomain(point_amount, 0, 0, 0, 0);
