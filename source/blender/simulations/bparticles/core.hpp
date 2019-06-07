@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include "BLI_array_ref.hpp"
+#include "BLI_math.hpp"
 #include "BLI_utildefines.h"
 
 namespace BParticles {
@@ -10,11 +12,31 @@ class Solver;
 class WrappedState;
 class StateBase;
 
-class Description {
- public:
-  virtual ~Description();
+using BLI::ArrayRef;
+using BLI::SmallVector;
+using BLI::Vec3;
+using std::unique_ptr;
 
-  float m_gravity = 0.0f;
+class Force {
+ public:
+  virtual void add_force(ArrayRef<Vec3> dst) = 0;
+};
+
+class Description {
+ private:
+  SmallVector<Force *> m_forces;
+
+ public:
+  Description(ArrayRef<Force *> forces) : m_forces(forces.to_small_vector())
+  {
+  }
+
+  ArrayRef<Force *> forces()
+  {
+    return m_forces;
+  }
+
+  virtual ~Description();
 };
 
 class Solver {

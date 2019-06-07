@@ -3,5 +3,5 @@
 #include "core.hpp"
 
 namespace BParticles {
-Solver *new_playground_solver(Description *description);
+Solver *new_playground_solver(Description &description);
 }

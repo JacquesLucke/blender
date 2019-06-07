@@ -17,14 +17,34 @@ using BParticles::Solver;
 using BParticles::StateBase;
 using BParticles::WrappedState;
 
+using BLI::ArrayRef;
+using BLI::Vec3;
+
 WRAPPERS(BParticles::Description *, BParticlesDescription);
 WRAPPERS(BParticles::Solver *, BParticlesSolver);
 WRAPPERS(BParticles::WrappedState *, BParticlesState);
 
-BParticlesDescription BParticles_playground_description(float control1, float UNUSED(control2))
+class TestForce : public BParticles::Force {
+ private:
+  float m_value_1, m_value_2;
+
+ public:
+  TestForce(float value_1, float value_2) : m_value_1(value_1), m_value_2(value_2)
+  {
+  }
+
+  void add_force(ArrayRef<Vec3> dst) override
+  {
+    for (uint i = 0; i < dst.size(); i++) {
+      dst[i].x += m_value_1;
+      dst[i].z += m_value_2;
+    }
+  };
+};
+
+BParticlesDescription BParticles_playground_description(float control1, float control2)
 {
-  Description *description = new Description();
-  description->m_gravity = control1;
+  Description *description = new Description({new TestForce(control1, control2)});
   return wrap(description);
 }
 void BParticles_description_free(BParticlesDescription description_c)
@@ -35,7 +55,7 @@ void BParticles_description_free(BParticlesDescription description_c)
 BParticlesSolver BParticles_solver_build(BParticlesDescription description_c)
 {
   Description *description = unwrap(description_c);
-  return wrap(BParticles::new_playground_solver(description));
+  return wrap(BParticles::new_playground_solver(*description));
 }
 void BParticles_solver_free(BParticlesSolver solver_c)
 {

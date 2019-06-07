@@ -242,6 +242,7 @@ set(SRC
   BLI_lazy_init.hpp
   intern/BLI_lazy_init.cpp
   BLI_listbase_wrapper.hpp
+  BLI_math.hpp
   BLI_mempool.hpp
   BLI_multimap.hpp
   BLI_multipool.hpp
