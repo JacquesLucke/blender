@@ -114,7 +114,7 @@ static Mesh *applyModifier(ModifierData *md,
     runtime->description = new_description;
     runtime->solver = new_solver;
 
-    BParticles_state_step(runtime->state);
+    BParticles_state_step(runtime->solver, runtime->state);
   }
   else {
     BParticles_state_free(runtime->state);
@@ -127,11 +127,11 @@ static Mesh *applyModifier(ModifierData *md,
   }
   runtime->last_simulated_frame = current_frame;
 
-  uint point_amount = BParticles_state_particle_count(runtime->state);
+  uint point_amount = BParticles_state_particle_count(runtime->solver, runtime->state);
   Mesh *mesh = BKE_mesh_new_nomain(point_amount, 0, 0, 0, 0);
 
   float(*positions)[3] = MEM_malloc_arrayN(point_amount, sizeof(float[3]), __func__);
-  BParticles_state_get_positions(runtime->state, positions);
+  BParticles_state_get_positions(runtime->solver, runtime->state, positions);
 
   for (uint i = 0; i < point_amount; i++) {
     copy_v3_v3(mesh->mvert[i].co, positions[i]);

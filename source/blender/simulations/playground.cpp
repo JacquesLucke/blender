@@ -19,7 +19,8 @@ namespace BParticles {
 
 class Description;
 class Solver;
-class State;
+class WrappedState;
+class StateBase;
 
 class Description {
  public:
@@ -30,14 +31,50 @@ class Solver {
  public:
   virtual ~Solver();
 
-  virtual void step(State *state) const = 0;
+  virtual WrappedState *init() = 0;
+  virtual void step(WrappedState &wrapped_state) = 0;
+
+  virtual uint particle_amount(WrappedState &wrapped_state) = 0;
+  virtual void get_positions(WrappedState &wrapped_state, float (*dst)[3]) = 0;
 };
 
-class State {
+class StateBase {
  public:
-  virtual ~State();
+  virtual ~StateBase();
+};
 
-  virtual Solver *solver() const = 0;
+class WrappedState final {
+ private:
+  Solver *m_solver;
+  std::unique_ptr<StateBase> m_state;
+
+ public:
+  WrappedState(Solver *solver, std::unique_ptr<StateBase> state)
+      : m_solver(solver), m_state(std::move(state))
+  {
+    BLI_assert(solver);
+    BLI_assert(m_state.get() != NULL);
+  }
+
+  WrappedState(WrappedState &other) = delete;
+  WrappedState(WrappedState &&other) = delete;
+  WrappedState &operator=(WrappedState &other) = delete;
+  WrappedState &operator=(WrappedState &&other) = delete;
+
+  Solver &solver() const
+  {
+    BLI_assert(m_solver);
+    return *m_solver;
+  }
+
+  template<typename T> T &state() const
+  {
+    T *state = dynamic_cast<T *>(m_state.get());
+    BLI_assert(state);
+    return *state;
+  }
+
+  friend void ::BParticles_state_adapt(BParticlesSolver, BParticlesState *);
 };
 
 Description::~Description()
@@ -46,7 +83,8 @@ Description::~Description()
 Solver::~Solver()
 {
 }
-State::~State()
+
+StateBase::~StateBase()
 {
 }
 
@@ -58,11 +96,12 @@ struct Vector {
 
 using BParticles::Description;
 using BParticles::Solver;
-using BParticles::State;
+using BParticles::StateBase;
+using BParticles::WrappedState;
 
 WRAPPERS(BParticles::Description *, BParticlesDescription);
 WRAPPERS(BParticles::Solver *, BParticlesSolver);
-WRAPPERS(BParticles::State *, BParticlesState);
+WRAPPERS(BParticles::WrappedState *, BParticlesState);
 
 BParticlesDescription BParticles_playground_description()
 {
@@ -73,44 +112,44 @@ void BParticles_description_free(BParticlesDescription description_c)
   delete unwrap(description_c);
 }
 
-class SimpleState : public State {
- private:
-  SmallVector<Vector> m_positions;
-
- public:
-  Solver *m_solver;
-
-  SimpleState(Solver *solver) : m_solver(solver)
-  {
-  }
-
-  Solver *solver() const override
-  {
-    return m_solver;
-  }
-
-  SmallVector<Vector> &positions()
-  {
-    return m_positions;
-  }
-};
-
 class SimpleSolver : public Solver {
  private:
   Description *m_description;
+
+  struct MyState : StateBase {
+    SmallVector<Vector> positions;
+  };
 
  public:
   SimpleSolver(Description *description) : m_description(description)
   {
   }
 
-  void step(State *state_) const override
+  WrappedState *init() override
   {
-    SimpleState *state = (SimpleState *)state_;
-    for (Vector &position : state->positions()) {
+    MyState *state = new MyState();
+    return new WrappedState(this, std::unique_ptr<MyState>(state));
+  }
+
+  void step(WrappedState &wrapped_state) override
+  {
+    MyState &state = wrapped_state.state<MyState>();
+    for (Vector &position : state.positions) {
       position.x += 0.1f;
     }
-    state->positions().append({0, 0, 1});
+    state.positions.append({0, 0, 1});
+  }
+
+  uint particle_amount(WrappedState &wrapped_state) override
+  {
+    MyState &state = wrapped_state.state<MyState>();
+    return state.positions.size();
+  }
+
+  void get_positions(WrappedState &wrapped_state, float (*dst)[3]) override
+  {
+    MyState &state = wrapped_state.state<MyState>();
+    memcpy(dst, state.positions.begin(), state.positions.size() * sizeof(Vector));
   }
 };
 
@@ -125,31 +164,39 @@ void BParticles_solver_free(BParticlesSolver solver_c)
 
 BParticlesState BParticles_state_init(BParticlesSolver solver_c)
 {
-  return wrap(new SimpleState(unwrap(solver_c)));
+  Solver *solver = unwrap(solver_c);
+  return wrap(solver->init());
 }
 void BParticles_state_adapt(BParticlesSolver new_solver_c, BParticlesState *state_to_adapt_c)
 {
-  SimpleState *state = (SimpleState *)unwrap(*state_to_adapt_c);
-  state->m_solver = unwrap(new_solver_c);
+  Solver *new_solver = unwrap(new_solver_c);
+  WrappedState *wrapped_state = unwrap(*state_to_adapt_c);
+  wrapped_state->m_solver = new_solver;
 }
-void BParticles_state_step(BParticlesState state_c)
+void BParticles_state_step(BParticlesSolver solver_c, BParticlesState state_c)
 {
-  State *state = unwrap(state_c);
-  Solver *solver = state->solver();
-  solver->step(state);
+  Solver *solver = unwrap(solver_c);
+  WrappedState *wrapped_state = unwrap(state_c);
+
+  BLI_assert(solver == &wrapped_state->solver());
+  solver->step(*wrapped_state);
 }
 void BParticles_state_free(BParticlesState state_c)
 {
   delete unwrap(state_c);
 }
 
-uint BParticles_state_particle_count(BParticlesState state_c)
+uint BParticles_state_particle_count(BParticlesSolver solver_c, BParticlesState state_c)
 {
-  SimpleState *state = (SimpleState *)unwrap(state_c);
-  return state->positions().size();
+  Solver *solver = unwrap(solver_c);
+  WrappedState *wrapped_state = unwrap(state_c);
+  return solver->particle_amount(*wrapped_state);
 }
-void BParticles_state_get_positions(BParticlesState state_c, float (*dst)[3])
+void BParticles_state_get_positions(BParticlesSolver solver_c,
+                                    BParticlesState state_c,
+                                    float (*dst)[3])
 {
-  SimpleState *state = (SimpleState *)unwrap(state_c);
-  memcpy(dst, state->positions().begin(), state->positions().size() * sizeof(Vector));
+  Solver *solver = unwrap(solver_c);
+  WrappedState *wrapped_state = unwrap(state_c);
+  solver->get_positions(*wrapped_state, dst);
 }
