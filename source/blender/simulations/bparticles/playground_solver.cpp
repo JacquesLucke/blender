@@ -22,10 +22,9 @@ class SimpleSolver : public Solver {
   {
   }
 
-  WrappedState *init() override
+  StateBase *init() override
   {
-    MyState *state = new MyState();
-    return new WrappedState(this, std::unique_ptr<MyState>(state));
+    return new MyState();
   }
 
   void step(WrappedState &wrapped_state) override

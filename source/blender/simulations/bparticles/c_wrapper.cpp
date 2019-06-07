@@ -42,7 +42,8 @@ void BParticles_solver_free(BParticlesSolver solver_c)
 BParticlesState BParticles_state_init(BParticlesSolver solver_c)
 {
   Solver *solver = unwrap(solver_c);
-  return wrap(solver->init());
+  StateBase *state = solver->init();
+  return wrap(new WrappedState(solver, std::unique_ptr<StateBase>(state)));
 }
 void BParticles_state_adapt(BParticlesSolver new_solver_c, BParticlesState state_to_adapt_c)
 {

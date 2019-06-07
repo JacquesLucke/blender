@@ -19,7 +19,7 @@ class Solver {
  public:
   virtual ~Solver();
 
-  virtual WrappedState *init() = 0;
+  virtual StateBase *init() = 0;
   virtual void step(WrappedState &wrapped_state) = 0;
 
   virtual uint particle_amount(WrappedState &wrapped_state) = 0;
