@@ -17,8 +17,10 @@ class SimpleSolver : public Solver {
     SmallVector<Vector> velocities;
   };
 
+  Description *m_description;
+
  public:
-  SimpleSolver()
+  SimpleSolver(Description *description) : m_description(description)
   {
   }
 
@@ -40,7 +42,7 @@ class SimpleSolver : public Solver {
     }
 
     for (Vector &velocity : state.velocities) {
-      velocity.z -= 0.001f;
+      velocity.z -= m_description->m_gravity / 100.0f;
     }
 
     state.positions.append({(float)(rand() % 100) / 100.0f, 0, 1});
@@ -60,9 +62,9 @@ class SimpleSolver : public Solver {
   }
 };
 
-Solver *new_playground_solver()
+Solver *new_playground_solver(Description *description)
 {
-  return new SimpleSolver();
+  return new SimpleSolver(description);
 }
 
 }  // namespace BParticles

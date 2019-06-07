@@ -13,6 +13,8 @@ class StateBase;
 class Description {
  public:
   virtual ~Description();
+
+  float m_gravity = 0.0f;
 };
 
 class Solver {

@@ -12,7 +12,7 @@ typedef struct OpaqueBParticlesDescription *BParticlesDescription;
 typedef struct OpaqueBParticlesSolver *BParticlesSolver;
 typedef struct OpaqueBParticlesState *BParticlesState;
 
-BParticlesDescription BParticles_playground_description(void);
+BParticlesDescription BParticles_playground_description(float control1, float control2);
 void BParticles_description_free(BParticlesDescription description);
 
 BParticlesSolver BParticles_solver_build(BParticlesDescription description);

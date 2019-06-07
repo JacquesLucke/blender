@@ -5976,11 +5976,18 @@ static void rna_def_modifier_function_points(BlenderRNA *brna)
 static void rna_def_modifier_node_particles(BlenderRNA *brna)
 {
   StructRNA *srna;
+  PropertyRNA *prop;
 
   srna = RNA_def_struct(brna, "NodeParticlesModifier", "Modifier");
   RNA_def_struct_ui_text(srna, "Node Particles Modifier", "");
   RNA_def_struct_sdna(srna, "NodeParticlesModifierData");
   RNA_def_struct_ui_icon(srna, ICON_NONE);
+
+  prop = RNA_def_float(srna, "control1", 0.0, -FLT_MAX, FLT_MAX, "Control 1", "", -10, 10);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_float(srna, "control2", 0.0, -FLT_MAX, FLT_MAX, "Control 2", "", -10, 10);
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)

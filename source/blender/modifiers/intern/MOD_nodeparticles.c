@@ -68,7 +68,7 @@ static void ensure_runtime_data(NodeParticlesModifierData *npmd)
   }
 
   RuntimeData *runtime = MEM_callocN(sizeof(RuntimeData), __func__);
-  runtime->description = BParticles_playground_description();
+  runtime->description = BParticles_playground_description(npmd->control1, npmd->control2);
   runtime->solver = BParticles_solver_build(runtime->description);
   runtime->state = BParticles_state_init(runtime->solver);
   runtime->last_simulated_frame = 0.0f;
@@ -104,7 +104,8 @@ static Mesh *applyModifier(ModifierData *md,
   float current_frame = BKE_scene_frame_get(scene);
 
   if (current_frame != runtime->last_simulated_frame) {
-    BParticlesDescription new_description = BParticles_playground_description();
+    BParticlesDescription new_description = BParticles_playground_description(npmd->control1,
+                                                                              npmd->control2);
     BParticlesSolver new_solver = BParticles_solver_build(new_description);
 
     if (current_frame == runtime->last_simulated_frame + 1) {

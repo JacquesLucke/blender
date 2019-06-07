@@ -21,18 +21,21 @@ WRAPPERS(BParticles::Description *, BParticlesDescription);
 WRAPPERS(BParticles::Solver *, BParticlesSolver);
 WRAPPERS(BParticles::WrappedState *, BParticlesState);
 
-BParticlesDescription BParticles_playground_description()
+BParticlesDescription BParticles_playground_description(float control1, float UNUSED(control2))
 {
-  return wrap(new Description());
+  Description *description = new Description();
+  description->m_gravity = control1;
+  return wrap(description);
 }
 void BParticles_description_free(BParticlesDescription description_c)
 {
   delete unwrap(description_c);
 }
 
-BParticlesSolver BParticles_solver_build(BParticlesDescription UNUSED(description_c))
+BParticlesSolver BParticles_solver_build(BParticlesDescription description_c)
 {
-  return wrap(BParticles::new_playground_solver());
+  Description *description = unwrap(description_c);
+  return wrap(BParticles::new_playground_solver(description));
 }
 void BParticles_solver_free(BParticlesSolver solver_c)
 {
