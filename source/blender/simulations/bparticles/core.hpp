@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <functional>
 
 #include "BLI_array_ref.hpp"
 #include "BLI_math.hpp"
@@ -30,18 +31,32 @@ class Force {
   virtual void add_force(NamedBuffersRef &buffers, ArrayRef<Vec3> dst) = 0;
 };
 
+class ParticlesBlock;
+
+class Emitter {
+ public:
+  virtual void emit(std::function<ParticlesBlock *()> request_block) = 0;
+};
+
 class Description {
  private:
   SmallVector<Force *> m_forces;
+  SmallVector<Emitter *> m_emitters;
 
  public:
-  Description(ArrayRef<Force *> forces) : m_forces(forces.to_small_vector())
+  Description(ArrayRef<Force *> forces, ArrayRef<Emitter *> emitters)
+      : m_forces(forces.to_small_vector()), m_emitters(emitters.to_small_vector())
   {
   }
 
   ArrayRef<Force *> forces()
   {
     return m_forces;
+  }
+
+  ArrayRef<Emitter *> emitters()
+  {
+    return m_emitters;
   }
 
   virtual ~Description();

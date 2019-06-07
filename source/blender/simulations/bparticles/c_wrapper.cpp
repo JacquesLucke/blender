@@ -1,5 +1,6 @@
 #include "BParticles.h"
 #include "core.hpp"
+#include "particles_container.hpp"
 #include "playground_solver.hpp"
 
 #define WRAPPERS(T1, T2) \
@@ -14,6 +15,7 @@
 
 using BParticles::Description;
 using BParticles::NamedBuffersRef;
+using BParticles::ParticlesBlock;
 using BParticles::Solver;
 using BParticles::StateBase;
 using BParticles::WrappedState;
@@ -43,9 +45,24 @@ class TestForce : public BParticles::Force {
   };
 };
 
+class TestEmitter : public BParticles::Emitter {
+ public:
+  void emit(std::function<ParticlesBlock *()> request_block) override
+  {
+    ParticlesBlock *block = request_block();
+
+    uint index = block->next_inactive_index();
+    block->vec3_buffer("Position")[index] = {(float)(rand() % 100) / 30.0f, 0, 1};
+    block->vec3_buffer("Velocity")[index] = {0, 0.1, 0};
+    block->float_buffer("Age")[index] = 0;
+    block->active_amount()++;
+  }
+};
+
 BParticlesDescription BParticles_playground_description(float control1, float control2)
 {
-  Description *description = new Description({new TestForce(control1, control2)});
+  Description *description = new Description({new TestForce(control1, control2)},
+                                             {new TestEmitter()});
   return wrap(description);
 }
 void BParticles_description_free(BParticlesDescription description_c)

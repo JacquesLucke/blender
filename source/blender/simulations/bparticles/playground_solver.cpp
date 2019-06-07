@@ -92,23 +92,13 @@ class SimpleSolver : public Solver {
 
   void emit_new_particles(ParticlesContainer &particles)
   {
-    ParticlesBlock *non_full_block = nullptr;
-    for (ParticlesBlock *block : particles.active_blocks()) {
-      if (!block->is_full()) {
-        non_full_block = block;
-        break;
-      }
-    }
+    std::function<ParticlesBlock *()> request_non_full_block = [&particles]() -> ParticlesBlock * {
+      return particles.new_block();
+    };
 
-    if (non_full_block == nullptr) {
-      non_full_block = particles.new_block();
+    for (Emitter *emitter : m_description.emitters()) {
+      emitter->emit(request_non_full_block);
     }
-
-    uint index = non_full_block->next_inactive_index();
-    non_full_block->vec3_buffer("Position")[index] = {(float)(rand() % 100) / 100.0f, 0, 1};
-    non_full_block->vec3_buffer("Velocity")[index] = {0, 0.1, 0};
-    non_full_block->float_buffer("Age")[index] = 0;
-    non_full_block->active_amount()++;
   }
 
   void compress_all_blocks(ParticlesContainer &particles)

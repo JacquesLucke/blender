@@ -4,6 +4,12 @@ namespace BParticles {
 
 Description::~Description()
 {
+  for (Force *force : m_forces) {
+    delete force;
+  }
+  for (Emitter *emitter : m_emitters) {
+    delete emitter;
+  }
 }
 
 Solver::~Solver()
