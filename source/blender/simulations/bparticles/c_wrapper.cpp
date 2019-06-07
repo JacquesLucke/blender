@@ -13,6 +13,7 @@
   }
 
 using BParticles::Description;
+using BParticles::NamedBuffersRef;
 using BParticles::Solver;
 using BParticles::StateBase;
 using BParticles::WrappedState;
@@ -33,7 +34,7 @@ class TestForce : public BParticles::Force {
   {
   }
 
-  void add_force(ArrayRef<Vec3> dst) override
+  void add_force(NamedBuffersRef &UNUSED(buffers), ArrayRef<Vec3> dst) override
   {
     for (uint i = 0; i < dst.size(); i++) {
       dst[i].x += m_value_1;

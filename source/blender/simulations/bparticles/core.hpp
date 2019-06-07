@@ -5,6 +5,7 @@
 #include "BLI_array_ref.hpp"
 #include "BLI_math.hpp"
 #include "BLI_utildefines.h"
+#include "BLI_string_ref.hpp"
 
 namespace BParticles {
 class Description;
@@ -14,12 +15,19 @@ class StateBase;
 
 using BLI::ArrayRef;
 using BLI::SmallVector;
+using BLI::StringRef;
 using BLI::Vec3;
 using std::unique_ptr;
 
+class NamedBuffersRef {
+ public:
+  virtual ArrayRef<float> float_buffer(StringRef name) = 0;
+  virtual ArrayRef<Vec3> vec3_buffer(StringRef name) = 0;
+};
+
 class Force {
  public:
-  virtual void add_force(ArrayRef<Vec3> dst) = 0;
+  virtual void add_force(NamedBuffersRef &buffers, ArrayRef<Vec3> dst) = 0;
 };
 
 class Description {

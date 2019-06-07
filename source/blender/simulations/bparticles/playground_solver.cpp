@@ -50,8 +50,10 @@ class SimpleSolver : public Solver {
     SmallVector<Vec3> combined_force(active_amount);
     combined_force.fill({0, 0, 0});
 
+    BlockBuffersRef buffers{block};
+
     for (Force *force : m_description.forces()) {
-      force->add_force(combined_force);
+      force->add_force(buffers, combined_force);
     }
 
     float time_step = 0.01f;

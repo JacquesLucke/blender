@@ -6,6 +6,8 @@
 #include "BLI_math.hpp"
 #include "BLI_string_ref.hpp"
 
+#include "core.hpp"
+
 namespace BParticles {
 
 using BLI::ArrayRef;
@@ -17,6 +19,7 @@ using BLI::Vec3;
 
 class ParticlesContainer;
 class ParticlesBlock;
+class BlockBuffersRef;
 
 class ParticlesContainer {
  private:
@@ -72,6 +75,26 @@ class ParticlesBlock {
 
   static void MoveUntilFull(ParticlesBlock *from, ParticlesBlock *to);
   static void Compress(ArrayRef<ParticlesBlock *> blocks);
+};
+
+class BlockBuffersRef : public NamedBuffersRef {
+ private:
+  ParticlesBlock *m_block;
+
+ public:
+  BlockBuffersRef(ParticlesBlock *block) : m_block(block)
+  {
+  }
+
+  ArrayRef<float> float_buffer(StringRef name) override
+  {
+    return ArrayRef<float>(m_block->float_buffer(name), m_block->active_amount());
+  }
+
+  ArrayRef<Vec3> vec3_buffer(StringRef name) override
+  {
+    return ArrayRef<Vec3>(m_block->vec3_buffer(name), m_block->active_amount());
+  }
 };
 
 /* Particles Container
