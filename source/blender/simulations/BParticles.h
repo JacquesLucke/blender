@@ -19,7 +19,7 @@ BParticlesSolver BParticles_solver_build(BParticlesDescription description);
 void BParticles_solver_free(BParticlesSolver solver);
 
 BParticlesState BParticles_state_init(BParticlesSolver solver);
-void BParticles_state_adapt(BParticlesSolver new_solver, BParticlesState *state_to_adapt);
+void BParticles_state_adapt(BParticlesSolver new_solver, BParticlesState state_to_adapt);
 void BParticles_state_step(BParticlesSolver solver, BParticlesState state);
 void BParticles_state_free(BParticlesState state);
 

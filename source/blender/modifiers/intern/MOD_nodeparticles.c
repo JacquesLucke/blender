@@ -107,7 +107,7 @@ static Mesh *applyModifier(ModifierData *md,
   BParticlesSolver new_solver = BParticles_solver_build(new_description);
 
   if (current_frame == runtime->last_simulated_frame + 1) {
-    BParticles_state_adapt(new_solver, &runtime->state);
+    BParticles_state_adapt(new_solver, runtime->state);
 
     BParticles_solver_free(runtime->solver);
     BParticles_description_free(runtime->description);

@@ -13,7 +13,13 @@ set(INC_SYS
 
 
 set(SRC
-   playground.cpp
+  BParticles.h
+
+  bparticles/core.hpp
+  bparticles/core.cpp
+  bparticles/playground_solver.hpp
+  bparticles/playground_solver.cpp
+  bparticles/c_wrapper.cpp
 )
 
 set(LIB
