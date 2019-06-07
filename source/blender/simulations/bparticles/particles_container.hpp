@@ -61,6 +61,7 @@ class ParticlesBlock {
   uint &active_amount();
   uint inactive_amount();
   bool is_full();
+  bool is_empty();
   uint next_inactive_index();
   uint size();
 
@@ -72,6 +73,8 @@ class ParticlesBlock {
   ArrayRef<Vec3 *> vec3_buffers();
   float *float_buffer(StringRef name);
   Vec3 *vec3_buffer(StringRef name);
+
+  void move(uint old_index, uint new_index);
 
   static void MoveUntilFull(ParticlesBlock *from, ParticlesBlock *to);
   static void Compress(ArrayRef<ParticlesBlock *> blocks);
@@ -148,6 +151,11 @@ inline bool ParticlesBlock::is_full()
   return m_active_amount == this->size();
 }
 
+inline bool ParticlesBlock::is_empty()
+{
+  return m_active_amount == 0;
+}
+
 inline uint ParticlesBlock::next_inactive_index()
 {
   return m_active_amount;
@@ -188,6 +196,16 @@ inline Vec3 *ParticlesBlock::vec3_buffer(StringRef name)
 {
   uint index = m_container.vec3_buffer_index(name);
   return m_vec3_buffers[index];
+}
+
+inline void ParticlesBlock::move(uint old_index, uint new_index)
+{
+  for (float *buffer : m_float_buffers) {
+    buffer[new_index] = buffer[old_index];
+  }
+  for (Vec3 *buffer : m_vec3_buffers) {
+    buffer[new_index] = buffer[old_index];
+  }
 }
 
 }  // namespace BParticles

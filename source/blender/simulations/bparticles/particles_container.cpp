@@ -107,7 +107,7 @@ void ParticlesBlock::Compress(ArrayRef<ParticlesBlock *> blocks)
     return a->active_amount() < b->active_amount();
   });
 
-  uint last_non_full = blocks.size();
+  uint last_non_full = blocks.size() - 1;
 
   for (uint i = 0; i < blocks.size(); i++) {
     while (i < last_non_full) {
