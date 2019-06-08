@@ -1,7 +1,7 @@
 #include "testing/testing.h"
 #include "BLI_lazy_init.hpp"
 
-LAZY_INIT__NO_ARG(void *, void *, get_single_pointer)
+BLI_LAZY_INIT(void *, get_single_pointer)
 {
   return std::malloc(42);
 }
