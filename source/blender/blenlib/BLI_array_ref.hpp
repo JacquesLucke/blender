@@ -72,6 +72,18 @@ template<typename T> class ArrayRef {
     return this->slice(0, this->size() - n);
   }
 
+  ArrayRef take_front(uint n) const
+  {
+    BLI_assert(n <= this->size());
+    return this->slice(0, n);
+  }
+
+  ArrayRef take_back(uint n) const
+  {
+    BLI_assert(n <= this->size());
+    return this->slice(this->size() - n, n);
+  }
+
   void fill(const T &element)
   {
     std::fill_n(m_start, m_size, element);

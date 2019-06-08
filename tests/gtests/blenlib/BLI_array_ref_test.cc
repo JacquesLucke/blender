@@ -57,6 +57,24 @@ TEST(array_ref, DropFrontAll)
   EXPECT_EQ(slice.size(), 0);
 }
 
+TEST(array_ref, TakeFront)
+{
+  IntVector a = {4, 5, 6, 7};
+  auto slice = IntArrayRef(a).take_front(2);
+  EXPECT_EQ(slice.size(), 2);
+  EXPECT_EQ(slice[0], 4);
+  EXPECT_EQ(slice[1], 5);
+}
+
+TEST(array_ref, TakeBack)
+{
+  IntVector a = {5, 6, 7, 8};
+  auto slice = IntArrayRef(a).take_back(2);
+  EXPECT_EQ(slice.size(), 2);
+  EXPECT_EQ(slice[0], 7);
+  EXPECT_EQ(slice[1], 8);
+}
+
 TEST(array_ref, Slice)
 {
   IntVector a = {4, 5, 6, 7};
