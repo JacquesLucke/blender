@@ -140,6 +140,12 @@ template<typename T, uint N = 4> class SmallVector {
     m_size += amount;
   }
 
+  T &last() const
+  {
+    BLI_assert(m_size > 0);
+    return m_elements[m_size - 1];
+  }
+
   void fill(const T &value)
   {
     for (uint i = 0; i < m_size; i++) {

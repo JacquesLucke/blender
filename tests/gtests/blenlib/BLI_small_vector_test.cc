@@ -233,3 +233,9 @@ TEST(small_vector, ExtendArray)
   EXPECT_EQ(a[0], 3);
   EXPECT_EQ(a[1], 4);
 }
+
+TEST(small_vector, Last)
+{
+  IntVector a{3, 5, 7};
+  EXPECT_EQ(a.last(), 7);
+}
