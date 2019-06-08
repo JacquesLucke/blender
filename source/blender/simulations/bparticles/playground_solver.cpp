@@ -75,18 +75,13 @@ class SimpleSolver : public Solver {
 
     uint index = 0;
     while (index < block->active_amount()) {
-      if (state.seconds_since_start - 3 < birth_time[index]) {
-        index++;
-        continue;
-      }
-
-      if (state.seconds_since_start - 3 < birth_time[block->active_amount() - 1]) {
+      if (state.seconds_since_start - 3 > birth_time[index]) {
+        block->move(block->active_amount() - 1, index);
         block->active_amount() -= 1;
-        continue;
       }
-      block->move(block->active_amount() - 1, index);
-      index++;
-      block->active_amount() -= 1;
+      else {
+        index++;
+      }
     }
   }
 
