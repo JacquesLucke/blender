@@ -13,6 +13,7 @@
     return (T2)value; \
   }
 
+using BParticles::AttributeType;
 using BParticles::Description;
 using BParticles::EmitterDestination;
 using BParticles::NamedBuffers;
@@ -22,6 +23,7 @@ using BParticles::StateBase;
 using BParticles::WrappedState;
 
 using BLI::ArrayRef;
+using BLI::StringRef;
 using BLI::Vec3;
 
 WRAPPERS(BParticles::Description *, BParticlesDescription);
@@ -48,6 +50,14 @@ class TestForce : public BParticles::Force {
 
 class TestEmitter : public BParticles::Emitter {
  public:
+  void attributes(std::function<void(AttributeType type, StringRef attribute_name)>
+                      register_attribute) override
+  {
+    register_attribute(AttributeType::Vector3, "Position");
+    register_attribute(AttributeType::Vector3, "Velocity");
+    register_attribute(AttributeType::Float, "Age");
+  }
+
   void emit(std::function<EmitterDestination &()> request_destination) override
   {
     EmitterDestination &dst = request_destination();

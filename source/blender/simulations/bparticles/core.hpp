@@ -20,6 +20,11 @@ using BLI::StringRef;
 using BLI::Vec3;
 using std::unique_ptr;
 
+enum AttributeType {
+  Float = 1,
+  Vector3 = 2,
+};
+
 class NamedBuffers {
  public:
   virtual ~NamedBuffers();
@@ -74,6 +79,8 @@ class EmitterDestination {
 class Emitter {
  public:
   virtual ~Emitter();
+  virtual void attributes(
+      std::function<void(AttributeType type, StringRef name)> register_attribute) = 0;
   virtual void emit(std::function<EmitterDestination &()> request_destination) = 0;
 };
 

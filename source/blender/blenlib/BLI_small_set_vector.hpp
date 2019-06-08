@@ -28,6 +28,11 @@ template<typename T> class SmallSetVector : public SmallSet<T> {
     return this->m_lookup.find(this->m_elements.begin(), value);
   }
 
+  ArrayRef<T> values() const
+  {
+    return ArrayRef<T>(this->begin(), this->size());
+  }
+
   T operator[](const int index) const
   {
     BLI_assert(index >= 0 && index < this->size());

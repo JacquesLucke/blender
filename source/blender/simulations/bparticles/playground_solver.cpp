@@ -25,8 +25,28 @@ class SimpleSolver : public Solver {
 
   StateBase *init() override
   {
+    SmallSetVector<std::string> float_attributes;
+    SmallSetVector<std::string> vec3_attributes;
+
+    for (Emitter *emitter : m_description.emitters()) {
+      emitter->attributes(
+          [&float_attributes, &vec3_attributes](AttributeType type, StringRef name) -> void {
+            switch (type) {
+              case AttributeType::Float:
+                float_attributes.add(name.to_std_string());
+                break;
+              case AttributeType::Vector3:
+                vec3_attributes.add(name.to_std_string());
+                break;
+              default:
+                BLI_assert(false);
+            }
+          });
+    }
+
     MyState *state = new MyState();
-    state->particles = new ParticlesContainer(10, {"Age"}, {"Position", "Velocity"});
+    state->particles = new ParticlesContainer(
+        10, float_attributes.values(), vec3_attributes.values());
     return state;
   }
 

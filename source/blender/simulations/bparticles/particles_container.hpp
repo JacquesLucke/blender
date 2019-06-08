@@ -30,8 +30,8 @@ class ParticlesContainer {
 
  public:
   ParticlesContainer(uint block_size,
-                     const SmallVector<std::string> &float_attribute_names,
-                     const SmallVector<std::string> &vec3_attribute_names);
+                     ArrayRef<std::string> float_attribute_names,
+                     ArrayRef<std::string> vec3_attribute_names);
 
   ~ParticlesContainer();
 

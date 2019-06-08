@@ -16,11 +16,11 @@ ParticlesBlock::ParticlesBlock(ParticlesContainer &container,
 }
 
 ParticlesContainer::ParticlesContainer(uint block_size,
-                                       const SmallVector<std::string> &float_attribute_names,
-                                       const SmallVector<std::string> &vec3_attribute_names)
+                                       ArrayRef<std::string> float_attribute_names,
+                                       ArrayRef<std::string> vec3_attribute_names)
     : m_block_size(block_size),
-      m_float_attribute_names(float_attribute_names),
-      m_vec3_attribute_names(vec3_attribute_names)
+      m_float_attribute_names(float_attribute_names.to_small_vector()),
+      m_vec3_attribute_names(vec3_attribute_names.to_small_vector())
 {
   BLI_assert(
       SmallSetVector<std::string>::Disjoint(m_float_attribute_names, m_vec3_attribute_names));
