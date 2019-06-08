@@ -80,13 +80,18 @@ class ParticlesBlock {
   static void Compress(ArrayRef<ParticlesBlock *> blocks);
 };
 
-class BlockBuffersRef : public NamedBuffersRef {
+class BlockBuffersRef : public NamedBuffers {
  private:
   ParticlesBlock *m_block;
 
  public:
   BlockBuffersRef(ParticlesBlock *block) : m_block(block)
   {
+  }
+
+  uint size() override
+  {
+    return m_block->size();
   }
 
   ArrayRef<float> float_buffer(StringRef name) override

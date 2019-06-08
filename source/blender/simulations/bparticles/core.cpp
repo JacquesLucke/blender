@@ -2,6 +2,10 @@
 
 namespace BParticles {
 
+NamedBuffers::~NamedBuffers()
+{
+}
+
 Description::~Description()
 {
   for (Force *force : m_forces) {
@@ -17,6 +21,14 @@ Solver::~Solver()
 }
 
 StateBase::~StateBase()
+{
+}
+
+Force::~Force()
+{
+}
+
+Emitter::~Emitter()
 {
 }
 

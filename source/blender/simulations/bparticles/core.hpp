@@ -20,21 +20,25 @@ using BLI::StringRef;
 using BLI::Vec3;
 using std::unique_ptr;
 
-class NamedBuffersRef {
+class NamedBuffers {
  public:
+  virtual ~NamedBuffers();
+  virtual uint size() = 0;
   virtual ArrayRef<float> float_buffer(StringRef name) = 0;
   virtual ArrayRef<Vec3> vec3_buffer(StringRef name) = 0;
 };
 
 class Force {
  public:
-  virtual void add_force(NamedBuffersRef &buffers, ArrayRef<Vec3> dst) = 0;
+  virtual ~Force();
+  virtual void add_force(NamedBuffers &buffers, ArrayRef<Vec3> dst) = 0;
 };
 
 class ParticlesBlock;
 
 class Emitter {
  public:
+  virtual ~Emitter();
   virtual void emit(std::function<ParticlesBlock *()> request_block) = 0;
 };
 
