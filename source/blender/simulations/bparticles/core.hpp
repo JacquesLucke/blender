@@ -34,12 +34,47 @@ class Force {
   virtual void add_force(NamedBuffers &buffers, ArrayRef<Vec3> dst) = 0;
 };
 
-class ParticlesBlock;
+class EmitterDestination {
+ private:
+  NamedBuffers &m_buffers;
+  uint m_emitted_amount = 0;
+
+ public:
+  EmitterDestination(NamedBuffers &buffers) : m_buffers(buffers)
+  {
+  }
+
+  void initialized_n(uint n)
+  {
+    m_emitted_amount += n;
+    BLI_assert(m_emitted_amount <= m_buffers.size());
+  }
+
+  uint emitted_amount()
+  {
+    return m_emitted_amount;
+  }
+
+  ArrayRef<float> float_buffer(StringRef name)
+  {
+    return m_buffers.float_buffer(name);
+  }
+
+  ArrayRef<Vec3> vec3_buffer(StringRef name)
+  {
+    return m_buffers.vec3_buffer(name);
+  }
+
+  uint size()
+  {
+    return m_buffers.size();
+  }
+};
 
 class Emitter {
  public:
   virtual ~Emitter();
-  virtual void emit(std::function<ParticlesBlock *()> request_block) = 0;
+  virtual void emit(std::function<EmitterDestination &()> request_destination) = 0;
 };
 
 class Description {

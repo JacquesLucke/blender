@@ -5,12 +5,6 @@
 
 namespace BParticles {
 
-using BLI::SmallVector;
-
-struct Vector {
-  float x, y, z;
-};
-
 class SimpleSolver : public Solver {
 
   struct MyState : StateBase {
@@ -52,10 +46,10 @@ class SimpleSolver : public Solver {
     SmallVector<Vec3> combined_force(active_amount);
     combined_force.fill({0, 0, 0});
 
-    BlockBuffersRef buffers{block};
+    ParticlesBlockSlice slice = block->slice_active();
 
     for (Force *force : m_description.forces()) {
-      force->add_force(buffers, combined_force);
+      force->add_force(slice, combined_force);
     }
 
     float time_step = 0.01f;
@@ -92,12 +86,25 @@ class SimpleSolver : public Solver {
 
   void emit_new_particles(ParticlesContainer &particles)
   {
-    std::function<ParticlesBlock *()> request_non_full_block = [&particles]() -> ParticlesBlock * {
-      return particles.new_block();
+    SmallVector<ParticlesBlockSlice> block_slices;
+    SmallVector<EmitterDestination> destinations;
+    auto request_destination =
+        [&particles, &block_slices, &destinations]() -> EmitterDestination & {
+      ParticlesBlock *block = particles.new_block();
+      block_slices.append(block->slice_all());
+      destinations.append(EmitterDestination{block_slices.last()});
+      return destinations.last();
     };
 
     for (Emitter *emitter : m_description.emitters()) {
-      emitter->emit(request_non_full_block);
+      emitter->emit(request_destination);
+    }
+
+    for (uint i = 0; i < destinations.size(); i++) {
+      ParticlesBlockSlice &slice = block_slices[i];
+      EmitterDestination &dst = destinations[i];
+      ParticlesBlock *block = slice.block();
+      block->active_amount() += dst.emitted_amount();
     }
   }
 

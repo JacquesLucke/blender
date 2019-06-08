@@ -14,6 +14,7 @@
   }
 
 using BParticles::Description;
+using BParticles::EmitterDestination;
 using BParticles::NamedBuffers;
 using BParticles::ParticlesBlock;
 using BParticles::Solver;
@@ -47,15 +48,15 @@ class TestForce : public BParticles::Force {
 
 class TestEmitter : public BParticles::Emitter {
  public:
-  void emit(std::function<ParticlesBlock *()> request_block) override
+  void emit(std::function<EmitterDestination &()> request_destination) override
   {
-    ParticlesBlock *block = request_block();
+    EmitterDestination &dst = request_destination();
+    BLI_assert(dst.size() > 0);
 
-    uint index = block->next_inactive_index();
-    block->vec3_buffer("Position")[index] = {(float)(rand() % 100) / 30.0f, 0, 1};
-    block->vec3_buffer("Velocity")[index] = {0, 0.1, 0};
-    block->float_buffer("Age")[index] = 0;
-    block->active_amount()++;
+    dst.vec3_buffer("Position")[0] = {(float)(rand() % 100) / 30.0f, 0, 1};
+    dst.vec3_buffer("Velocity")[0] = {0, 0.1, 0};
+    dst.float_buffer("Age")[0] = 0;
+    dst.initialized_n(1);
   }
 };
 
