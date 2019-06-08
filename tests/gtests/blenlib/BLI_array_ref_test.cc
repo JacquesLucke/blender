@@ -147,3 +147,15 @@ TEST(array_ref, FromArray)
   EXPECT_EQ(a_ref[0], 5);
   EXPECT_EQ(a_ref[1], 6);
 }
+
+TEST(array_ref, Fill)
+{
+  std::array<int, 5> a = {4, 5, 6, 7, 8};
+  IntArrayRef a_ref(a);
+  a_ref.fill(1);
+  EXPECT_EQ(a[0], 1);
+  EXPECT_EQ(a[1], 1);
+  EXPECT_EQ(a[2], 1);
+  EXPECT_EQ(a[3], 1);
+  EXPECT_EQ(a[4], 1);
+}

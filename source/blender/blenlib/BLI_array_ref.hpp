@@ -72,6 +72,11 @@ template<typename T> class ArrayRef {
     return this->slice(0, this->size() - n);
   }
 
+  void fill(const T &element)
+  {
+    std::fill_n(m_start, m_size, element);
+  }
+
   T *begin() const
   {
     return m_start;
