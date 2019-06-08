@@ -114,7 +114,7 @@ class Solver {
   virtual ~Solver();
 
   virtual StateBase *init() = 0;
-  virtual void step(WrappedState &wrapped_state) = 0;
+  virtual void step(WrappedState &wrapped_state, float elapsed_seconds) = 0;
 
   virtual uint particle_amount(WrappedState &wrapped_state) = 0;
   virtual void get_positions(WrappedState &wrapped_state, float (*dst)[3]) = 0;

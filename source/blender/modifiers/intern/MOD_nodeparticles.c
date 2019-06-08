@@ -102,6 +102,7 @@ static Mesh *applyModifier(ModifierData *md,
 
   Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
   float current_frame = BKE_scene_frame_get(scene);
+  float fps = FPS;
 
   if (current_frame != runtime->last_simulated_frame) {
     BParticlesDescription new_description = BParticles_playground_description(npmd->control1,
@@ -116,7 +117,7 @@ static Mesh *applyModifier(ModifierData *md,
       runtime->description = new_description;
       runtime->solver = new_solver;
 
-      BParticles_state_step(runtime->solver, runtime->state);
+      BParticles_state_step(runtime->solver, runtime->state, 1.0f / fps);
     }
     else {
       BParticles_state_free(runtime->state);

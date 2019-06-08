@@ -43,7 +43,7 @@ class SimpleSolver : public Solver {
     return state;
   }
 
-  void step_block(ParticlesBlock *block)
+  void step_block(ParticlesBlock *block, float elapsed_seconds)
   {
     uint active_amount = block->active_amount();
 
@@ -52,7 +52,7 @@ class SimpleSolver : public Solver {
     float *age = block->float_buffer("Age");
 
     for (uint i = 0; i < active_amount; i++) {
-      positions[i] += velocities[i];
+      positions[i] += velocities[i] * elapsed_seconds;
       age[i] += 1;
     }
 
@@ -65,9 +65,8 @@ class SimpleSolver : public Solver {
       force->add_force(slice, combined_force);
     }
 
-    float time_step = 0.01f;
     for (uint i = 0; i < active_amount; i++) {
-      velocities[i] += combined_force[i] * time_step;
+      velocities[i] += combined_force[i] * elapsed_seconds;
     }
 
     if (rand() % 10 == 0) {
@@ -153,14 +152,14 @@ class SimpleSolver : public Solver {
     }
   }
 
-  void step(WrappedState &wrapped_state) override
+  void step(WrappedState &wrapped_state, float elapsed_seconds) override
   {
     MyState &state = wrapped_state.state<MyState>();
 
     ParticlesContainer &particles = *state.particles;
 
     for (ParticlesBlock *block : particles.active_blocks()) {
-      this->step_block(block);
+      this->step_block(block, elapsed_seconds);
       this->delete_old_particles(block);
     }
 

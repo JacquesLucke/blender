@@ -77,7 +77,7 @@ class TestEmitter : public BParticles::Emitter {
     BLI_assert(dst.size() > 0);
 
     dst.vec3_buffer("Position")[0] = {(float)(rand() % 100) / 30.0f, 0, 1};
-    dst.vec3_buffer("Velocity")[0] = {0, 0.1, 0.1};
+    dst.vec3_buffer("Velocity")[0] = {0, 1, 1};
     dst.initialized_n(1);
   }
 };
@@ -115,13 +115,15 @@ void BParticles_state_adapt(BParticlesSolver new_solver_c, BParticlesState state
   WrappedState *wrapped_state = unwrap(state_to_adapt_c);
   BParticles::adapt_state(new_solver, wrapped_state);
 }
-void BParticles_state_step(BParticlesSolver solver_c, BParticlesState state_c)
+void BParticles_state_step(BParticlesSolver solver_c,
+                           BParticlesState state_c,
+                           float elapsed_seconds)
 {
   Solver *solver = unwrap(solver_c);
   WrappedState *wrapped_state = unwrap(state_c);
 
   BLI_assert(solver == &wrapped_state->solver());
-  solver->step(*wrapped_state);
+  solver->step(*wrapped_state, elapsed_seconds);
 }
 void BParticles_state_free(BParticlesState state_c)
 {

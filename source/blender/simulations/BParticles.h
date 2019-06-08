@@ -20,7 +20,7 @@ void BParticles_solver_free(BParticlesSolver solver);
 
 BParticlesState BParticles_state_init(BParticlesSolver solver);
 void BParticles_state_adapt(BParticlesSolver new_solver, BParticlesState state_to_adapt);
-void BParticles_state_step(BParticlesSolver solver, BParticlesState state);
+void BParticles_state_step(BParticlesSolver solver, BParticlesState state, float elapsed_seconds);
 void BParticles_state_free(BParticlesState state);
 
 uint BParticles_state_particle_count(BParticlesSolver solver, BParticlesState state);
