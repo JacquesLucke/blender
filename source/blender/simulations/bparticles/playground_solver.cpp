@@ -9,6 +9,7 @@ class SimpleSolver : public Solver {
 
   struct MyState : StateBase {
     ParticlesContainer *particles;
+    float seconds_since_start = 0.0f;
 
     ~MyState()
     {
@@ -25,7 +26,7 @@ class SimpleSolver : public Solver {
 
   StateBase *init() override
   {
-    SmallSetVector<std::string> float_attributes = {"Age"};
+    SmallSetVector<std::string> float_attributes = {"Birth Time"};
     SmallSetVector<std::string> vec3_attributes;
 
     for (Emitter *emitter : m_description.emitters()) {
@@ -49,11 +50,9 @@ class SimpleSolver : public Solver {
 
     Vec3 *positions = block->vec3_buffer("Position");
     Vec3 *velocities = block->vec3_buffer("Velocity");
-    float *age = block->float_buffer("Age");
 
     for (uint i = 0; i < active_amount; i++) {
       positions[i] += velocities[i] * elapsed_seconds;
-      age[i] += 1;
     }
 
     SmallVector<Vec3> combined_force(active_amount);
@@ -68,25 +67,20 @@ class SimpleSolver : public Solver {
     for (uint i = 0; i < active_amount; i++) {
       velocities[i] += combined_force[i] * elapsed_seconds;
     }
-
-    if (rand() % 10 == 0) {
-      for (uint i = 0; i < active_amount; i++) {
-        age[i] = rand() % 70;
-      }
-    }
   }
 
-  void delete_old_particles(ParticlesBlock *block)
+  void delete_old_particles(MyState &state, ParticlesBlock *block)
   {
-    float *age = block->float_buffer("Age");
+    float *birth_time = block->float_buffer("Birth Time");
 
     uint index = 0;
     while (index < block->active_amount()) {
-      if (age[index] < 50) {
+      if (state.seconds_since_start - 3 < birth_time[index]) {
         index++;
         continue;
       }
-      if (age[block->active_amount() - 1] > 50) {
+
+      if (state.seconds_since_start - 3 < birth_time[block->active_amount() - 1]) {
         block->active_amount() -= 1;
         continue;
       }
@@ -96,20 +90,19 @@ class SimpleSolver : public Solver {
     }
   }
 
-  void emit_new_particles(ParticlesContainer &particles)
+  void emit_new_particles(MyState &state)
   {
     for (Emitter *emitter : m_description.emitters()) {
-      this->emit_from_emitter(particles, *emitter);
+      this->emit_from_emitter(state, *emitter);
     }
   }
 
-  void emit_from_emitter(ParticlesContainer &particles, Emitter &emitter)
+  void emit_from_emitter(MyState &state, Emitter &emitter)
   {
     SmallVector<ParticlesBlockSlice> block_slices;
     SmallVector<EmitterDestination> destinations;
-    auto request_destination =
-        [&particles, &block_slices, &destinations]() -> EmitterDestination & {
-      ParticlesBlock *block = particles.new_block();
+    auto request_destination = [&state, &block_slices, &destinations]() -> EmitterDestination & {
+      ParticlesBlock *block = state.particles->new_block();
       block_slices.append(block->slice_all());
       destinations.append(EmitterDestination{block_slices.last()});
       return destinations.last();
@@ -122,14 +115,16 @@ class SimpleSolver : public Solver {
       EmitterDestination &dst = destinations[i];
       ParticlesBlock *block = slice.block();
 
-      for (auto &name : particles.float_attribute_names()) {
+      for (auto &name : state.particles->float_attribute_names()) {
         if (!emitter.used_float_attributes().contains(name)) {
-          slice.float_buffer(name).fill(0);
+          slice.float_buffer(name)
+              .take_front(dst.emitted_amount())
+              .fill(state.seconds_since_start);
         }
       }
-      for (auto &name : particles.vec3_attribute_names()) {
+      for (auto &name : state.particles->vec3_attribute_names()) {
         if (!emitter.used_vec3_attributes().contains(name)) {
-          slice.vec3_buffer(name).fill(Vec3{0, 0, 0});
+          slice.vec3_buffer(name).take_front(dst.emitted_amount()).fill(Vec3{0, 0, 0});
         }
       }
 
@@ -155,15 +150,16 @@ class SimpleSolver : public Solver {
   void step(WrappedState &wrapped_state, float elapsed_seconds) override
   {
     MyState &state = wrapped_state.state<MyState>();
+    state.seconds_since_start += elapsed_seconds;
 
     ParticlesContainer &particles = *state.particles;
 
     for (ParticlesBlock *block : particles.active_blocks()) {
       this->step_block(block, elapsed_seconds);
-      this->delete_old_particles(block);
+      this->delete_old_particles(state, block);
     }
 
-    this->emit_new_particles(particles);
+    this->emit_new_particles(state);
     this->compress_all_blocks(particles);
 
     std::cout << "Particle Amount: " << this->particle_amount(wrapped_state) << "\n";
