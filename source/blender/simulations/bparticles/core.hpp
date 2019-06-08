@@ -79,8 +79,9 @@ class EmitterDestination {
 class Emitter {
  public:
   virtual ~Emitter();
-  virtual void attributes(
-      std::function<void(AttributeType type, StringRef name)> register_attribute) = 0;
+
+  virtual ArrayRef<std::string> used_float_attributes() = 0;
+  virtual ArrayRef<std::string> used_vec3_attributes() = 0;
   virtual void emit(std::function<EmitterDestination &()> request_destination) = 0;
 };
 

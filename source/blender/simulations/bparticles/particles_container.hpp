@@ -36,6 +36,8 @@ class ParticlesContainer {
   ~ParticlesContainer();
 
   uint block_size() const;
+  SmallSetVector<std::string> &float_attribute_names();
+  SmallSetVector<std::string> &vec3_attribute_names();
   uint float_attribute_amount() const;
   uint vec3_attribute_amount() const;
   uint float_buffer_index(StringRef name) const;
@@ -105,6 +107,16 @@ class ParticlesBlock {
 inline uint ParticlesContainer::block_size() const
 {
   return m_block_size;
+}
+
+inline SmallSetVector<std::string> &ParticlesContainer::float_attribute_names()
+{
+  return m_float_attribute_names;
+}
+
+inline SmallSetVector<std::string> &ParticlesContainer::vec3_attribute_names()
+{
+  return m_vec3_attribute_names;
 }
 
 inline uint ParticlesContainer::float_attribute_amount() const

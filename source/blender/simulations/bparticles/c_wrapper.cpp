@@ -23,6 +23,7 @@ using BParticles::StateBase;
 using BParticles::WrappedState;
 
 using BLI::ArrayRef;
+using BLI::SmallVector;
 using BLI::StringRef;
 using BLI::Vec3;
 
@@ -49,13 +50,25 @@ class TestForce : public BParticles::Force {
 };
 
 class TestEmitter : public BParticles::Emitter {
+ private:
+  SmallVector<std::string> m_used_float_attributes;
+  SmallVector<std::string> m_used_vec3_attributes;
+
  public:
-  void attributes(std::function<void(AttributeType type, StringRef attribute_name)>
-                      register_attribute) override
+  TestEmitter()
   {
-    register_attribute(AttributeType::Vector3, "Position");
-    register_attribute(AttributeType::Vector3, "Velocity");
-    register_attribute(AttributeType::Float, "Age");
+    m_used_float_attributes = {};
+    m_used_vec3_attributes = {"Position", "Velocity"};
+  }
+
+  ArrayRef<std::string> used_float_attributes() override
+  {
+    return m_used_float_attributes;
+  }
+
+  ArrayRef<std::string> used_vec3_attributes() override
+  {
+    return m_used_vec3_attributes;
   }
 
   void emit(std::function<EmitterDestination &()> request_destination) override
@@ -64,8 +77,7 @@ class TestEmitter : public BParticles::Emitter {
     BLI_assert(dst.size() > 0);
 
     dst.vec3_buffer("Position")[0] = {(float)(rand() % 100) / 30.0f, 0, 1};
-    dst.vec3_buffer("Velocity")[0] = {0, 0.1, 0};
-    dst.float_buffer("Age")[0] = 0;
+    dst.vec3_buffer("Velocity")[0] = {0, 0.1, 0.1};
     dst.initialized_n(1);
   }
 };
