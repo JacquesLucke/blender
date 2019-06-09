@@ -32,7 +32,7 @@ class SimpleSolver : public Solver {
 
   StateBase *init() override
   {
-    SmallSetVector<std::string> float_attributes = {"Birth Time"};
+    SmallSetVector<std::string> float_attributes = {"Birth Time", "Kill State"};
     SmallSetVector<std::string> vec3_attributes;
 
     for (EmitterInfo &emitter : m_emitter_infos) {
@@ -62,7 +62,7 @@ class SimpleSolver : public Solver {
     }
   }
 
-  BLI_NOINLINE void step_slice(ParticlesBlockSlice slice, float elapsed_seconds)
+  BLI_NOINLINE void step_slice(MyState &state, ParticlesBlockSlice slice, float elapsed_seconds)
   {
     auto positions = slice.vec3_buffer("Position");
     auto velocities = slice.vec3_buffer("Velocity");
@@ -74,11 +74,21 @@ class SimpleSolver : public Solver {
       positions[i] += velocities[i] * elapsed_seconds;
       velocities[i] += combined_force[i] * elapsed_seconds;
     }
+
+    auto birth_times = slice.float_buffer("Birth Time");
+    auto kill_states = slice.float_buffer("Kill State");
+
+    for (uint i = 0; i < slice.size(); i++) {
+      float age = state.seconds_since_start - birth_times[i];
+      if (age > 5) {
+        kill_states[i] = 1;
+      }
+    }
   }
 
-  BLI_NOINLINE void step_block(ParticlesBlock *block, float elapsed_seconds)
+  BLI_NOINLINE void step_block(MyState &state, ParticlesBlock *block, float elapsed_seconds)
   {
-    this->step_slice(block->slice_active(), elapsed_seconds);
+    this->step_slice(state, block->slice_active(), elapsed_seconds);
   }
 
   BLI_NOINLINE void compute_combined_force(ParticlesBlockSlice &slice, ArrayRef<Vec3> dst)
@@ -90,13 +100,13 @@ class SimpleSolver : public Solver {
     }
   }
 
-  BLI_NOINLINE void delete_old_particles(MyState &state, ParticlesBlock *block)
+  BLI_NOINLINE void delete_dead_particles(ParticlesBlock *block)
   {
-    float *birth_time = block->float_buffer("Birth Time");
+    float *kill_states = block->float_buffer("Kill State");
 
     uint index = 0;
     while (index < block->active_amount()) {
-      if (state.seconds_since_start - 3 > birth_time[index]) {
+      if (kill_states[index] == 1) {
         block->move(block->active_amount() - 1, index);
         block->active_amount() -= 1;
       }
@@ -175,8 +185,8 @@ class SimpleSolver : public Solver {
     ParticlesContainer &particles = *state.particles;
 
     for (ParticlesBlock *block : particles.active_blocks()) {
-      this->step_block(block, elapsed_seconds);
-      this->delete_old_particles(state, block);
+      this->step_block(state, block, elapsed_seconds);
+      this->delete_dead_particles(block);
     }
 
     this->emit_new_particles(state, elapsed_seconds);
