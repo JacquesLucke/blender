@@ -5,22 +5,27 @@ namespace BParticles {
 ParticlesBlock::ParticlesBlock(ParticlesContainer &container,
                                ArrayRef<float *> float_buffers,
                                ArrayRef<Vec3 *> vec3_buffers,
+                               ArrayRef<uint8_t *> byte_buffers,
                                uint active_amount)
     : m_container(container),
       m_float_buffers(float_buffers.to_small_vector()),
       m_vec3_buffers(vec3_buffers.to_small_vector()),
+      m_byte_buffers(byte_buffers.to_small_vector()),
       m_active_amount(active_amount)
 {
-  BLI_assert(m_float_buffers.size() == container.float_attribute_amount());
-  BLI_assert(m_vec3_buffers.size() == container.vec3_attribute_amount());
+  BLI_assert(m_float_buffers.size() == container.float_attribute_names().size());
+  BLI_assert(m_vec3_buffers.size() == container.vec3_attribute_names().size());
+  BLI_assert(m_byte_buffers.size() == container.byte_attribute_names().size());
 }
 
 ParticlesContainer::ParticlesContainer(uint block_size,
                                        ArrayRef<std::string> float_attribute_names,
-                                       ArrayRef<std::string> vec3_attribute_names)
+                                       ArrayRef<std::string> vec3_attribute_names,
+                                       ArrayRef<std::string> byte_attribute_names)
     : m_block_size(block_size),
       m_float_attribute_names(float_attribute_names.to_small_vector()),
-      m_vec3_attribute_names(vec3_attribute_names.to_small_vector())
+      m_vec3_attribute_names(vec3_attribute_names.to_small_vector()),
+      m_byte_attribute_names(byte_attribute_names.to_small_vector())
 {
   BLI_assert(
       SmallSetVector<std::string>::Disjoint(m_float_attribute_names, m_vec3_attribute_names));
@@ -45,7 +50,11 @@ ParticlesBlock *ParticlesContainer::new_block()
   for (uint i = 0; i < m_vec3_attribute_names.size(); i++) {
     vec3_buffers.append((Vec3 *)MEM_malloc_arrayN(m_block_size, sizeof(Vec3), __func__));
   }
-  ParticlesBlock *block = new ParticlesBlock(*this, float_buffers, vec3_buffers);
+  SmallVector<uint8_t *> byte_buffers;
+  for (uint i = 0; i < m_byte_attribute_names.size(); i++) {
+    byte_buffers.append((uint8_t *)MEM_malloc_arrayN(m_block_size, sizeof(uint8_t), __func__));
+  }
+  ParticlesBlock *block = new ParticlesBlock(*this, float_buffers, vec3_buffers, byte_buffers);
   m_blocks.add_new(block);
   return block;
 }
@@ -61,6 +70,9 @@ void ParticlesContainer::release_block(ParticlesBlock *block)
     MEM_freeN((void *)buffer);
   }
   for (Vec3 *buffer : block->vec3_buffers()) {
+    MEM_freeN((void *)buffer);
+  }
+  for (uint8_t *buffer : block->byte_buffers()) {
     MEM_freeN((void *)buffer);
   }
   m_blocks.remove(block);
@@ -80,7 +92,6 @@ static void move_buffers(ArrayRef<T *> from_buffers,
   }
 }
 
-/* TODO: test if this actually works */
 void ParticlesBlock::MoveUntilFull(ParticlesBlock *from, ParticlesBlock *to)
 {
   BLI_assert(&from->container() == &to->container());
@@ -95,12 +106,13 @@ void ParticlesBlock::MoveUntilFull(ParticlesBlock *from, ParticlesBlock *to)
   move_buffers<float>(
       from->float_buffers(), to->float_buffers(), src_start, dst_start, move_amount);
   move_buffers<Vec3>(from->vec3_buffers(), to->vec3_buffers(), src_start, dst_start, move_amount);
+  move_buffers<uint8_t>(
+      from->byte_buffers(), to->byte_buffers(), src_start, dst_start, move_amount);
 
   from->active_amount() -= move_amount;
   to->active_amount() += move_amount;
 }
 
-/* TODO: test if this actually works */
 void ParticlesBlock::Compress(ArrayRef<ParticlesBlock *> blocks)
 {
   std::sort(blocks.begin(), blocks.end(), [](ParticlesBlock *a, ParticlesBlock *b) {

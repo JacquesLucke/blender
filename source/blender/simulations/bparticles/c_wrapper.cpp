@@ -14,7 +14,6 @@
     return (T2)value; \
   }
 
-using BParticles::AttributeType;
 using BParticles::Description;
 using BParticles::EmitterBuffers;
 using BParticles::EmitterInfoBuilder;

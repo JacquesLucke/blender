@@ -25,17 +25,13 @@ using BLI::StringRef;
 using BLI::Vec3;
 using std::unique_ptr;
 
-enum AttributeType {
-  Float = 1,
-  Vector3 = 2,
-};
-
 class NamedBuffers {
  public:
   virtual ~NamedBuffers();
   virtual uint size() = 0;
   virtual ArrayRef<float> float_buffer(StringRef name) = 0;
   virtual ArrayRef<Vec3> vec3_buffer(StringRef name) = 0;
+  virtual ArrayRef<uint8_t> byte_buffer(StringRef name) = 0;
 };
 
 class Force {
@@ -75,6 +71,11 @@ class EmitterBuffers {
     return m_buffers.vec3_buffer(name);
   }
 
+  ArrayRef<uint8_t> byte_buffer(StringRef name)
+  {
+    return m_buffers.byte_buffer(name);
+  }
+
   uint size()
   {
     return m_buffers.size();
@@ -90,6 +91,7 @@ class EmitterInfo {
   Emitter *m_emitter;
   SmallSetVector<std::string> m_used_float_attributes;
   SmallSetVector<std::string> m_used_vec3_attributes;
+  SmallSetVector<std::string> m_used_byte_attributes;
 
   friend EmitterInfoBuilder;
 
@@ -107,6 +109,11 @@ class EmitterInfo {
   ArrayRef<std::string> used_vec3_attributes()
   {
     return m_used_vec3_attributes.values();
+  }
+
+  ArrayRef<std::string> used_byte_attributes()
+  {
+    return m_used_byte_attributes.values();
   }
 
   bool uses_float_attribute(StringRef name)

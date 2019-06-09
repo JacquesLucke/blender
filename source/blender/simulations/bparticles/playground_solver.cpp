@@ -32,17 +32,19 @@ class SimpleSolver : public Solver {
 
   StateBase *init() override
   {
-    SmallSetVector<std::string> float_attributes = {"Birth Time", "Kill State"};
+    SmallSetVector<std::string> float_attributes = {"Birth Time"};
     SmallSetVector<std::string> vec3_attributes;
+    SmallSetVector<std::string> byte_attributes = {"Kill State"};
 
     for (EmitterInfo &emitter : m_emitter_infos) {
       float_attributes.add_multiple(emitter.used_float_attributes());
       vec3_attributes.add_multiple(emitter.used_vec3_attributes());
+      byte_attributes.add_multiple(emitter.used_byte_attributes());
     }
 
     MyState *state = new MyState();
     state->particles = new ParticlesContainer(
-        1000, float_attributes.values(), vec3_attributes.values());
+        1000, float_attributes.values(), vec3_attributes.values(), byte_attributes.values());
     return state;
   }
 
@@ -76,7 +78,7 @@ class SimpleSolver : public Solver {
     }
 
     auto birth_times = slice.float_buffer("Birth Time");
-    auto kill_states = slice.float_buffer("Kill State");
+    auto kill_states = slice.byte_buffer("Kill State");
 
     for (uint i = 0; i < slice.size(); i++) {
       float age = state.seconds_since_start - birth_times[i];
@@ -102,7 +104,7 @@ class SimpleSolver : public Solver {
 
   BLI_NOINLINE void delete_dead_particles(ParticlesBlock *block)
   {
-    float *kill_states = block->float_buffer("Kill State");
+    uint8_t *kill_states = block->byte_buffer("Kill State");
 
     uint index = 0;
     while (index < block->active_amount()) {
