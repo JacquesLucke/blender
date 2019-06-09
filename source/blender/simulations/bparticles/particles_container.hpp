@@ -61,6 +61,8 @@ class ParticlesBlockSlice : public NamedBuffers {
   uint size() override;
   ArrayRef<float> float_buffer(StringRef name) override;
   ArrayRef<Vec3> vec3_buffer(StringRef name) override;
+
+  ParticlesBlockSlice take_front(uint n);
 };
 
 class ParticlesBlock {
@@ -261,6 +263,11 @@ inline ArrayRef<float> ParticlesBlockSlice::float_buffer(StringRef name)
 inline ArrayRef<Vec3> ParticlesBlockSlice::vec3_buffer(StringRef name)
 {
   return ArrayRef<Vec3>(m_block->vec3_buffer(name) + m_start, m_length);
+}
+
+inline ParticlesBlockSlice ParticlesBlockSlice::take_front(uint n)
+{
+  return ParticlesBlockSlice(m_block, m_start, n);
 }
 
 }  // namespace BParticles

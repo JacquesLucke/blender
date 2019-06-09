@@ -42,11 +42,27 @@ class SimpleSolver : public Solver {
 
     MyState *state = new MyState();
     state->particles = new ParticlesContainer(
-        10, float_attributes.values(), vec3_attributes.values());
+        1000, float_attributes.values(), vec3_attributes.values());
     return state;
   }
 
-  void step_block(ParticlesBlock *block, float elapsed_seconds)
+  BLI_NOINLINE void step_new_particles(ParticlesBlockSlice slice, MyState &state)
+  {
+    auto positions = slice.vec3_buffer("Position");
+    auto velocities = slice.vec3_buffer("Velocity");
+    auto birth_times = slice.float_buffer("Birth Time");
+
+    SmallVector<Vec3> combined_force(slice.size());
+    this->compute_combined_force(slice, combined_force);
+
+    for (uint i = 0; i < slice.size(); i++) {
+      float seconds_since_birth = state.seconds_since_start - birth_times[i];
+      positions[i] += velocities[i] * seconds_since_birth;
+      velocities[i] += combined_force[i] * seconds_since_birth;
+    }
+  }
+
+  BLI_NOINLINE void step_block(ParticlesBlock *block, float elapsed_seconds)
   {
     uint active_amount = block->active_amount();
 
@@ -57,21 +73,25 @@ class SimpleSolver : public Solver {
       positions[i] += velocities[i] * elapsed_seconds;
     }
 
-    SmallVector<Vec3> combined_force(active_amount);
-    combined_force.fill({0, 0, 0});
-
     ParticlesBlockSlice slice = block->slice_active();
-
-    for (Force *force : m_description.forces()) {
-      force->add_force(slice, combined_force);
-    }
+    SmallVector<Vec3> combined_force(active_amount);
+    this->compute_combined_force(slice, combined_force);
 
     for (uint i = 0; i < active_amount; i++) {
       velocities[i] += combined_force[i] * elapsed_seconds;
     }
   }
 
-  void delete_old_particles(MyState &state, ParticlesBlock *block)
+  BLI_NOINLINE void compute_combined_force(ParticlesBlockSlice &slice, ArrayRef<Vec3> dst)
+  {
+    BLI_assert(slice.size() == dst.size());
+    dst.fill({0, 0, 0});
+    for (Force *force : m_description.forces()) {
+      force->add_force(slice, dst);
+    }
+  }
+
+  BLI_NOINLINE void delete_old_particles(MyState &state, ParticlesBlock *block)
   {
     float *birth_time = block->float_buffer("Birth Time");
 
@@ -87,14 +107,14 @@ class SimpleSolver : public Solver {
     }
   }
 
-  void emit_new_particles(MyState &state)
+  BLI_NOINLINE void emit_new_particles(MyState &state, float elapsed_seconds)
   {
     for (EmitterInfo &emitter : m_emitter_infos) {
-      this->emit_from_emitter(state, emitter);
+      this->emit_from_emitter(state, emitter, elapsed_seconds);
     }
   }
 
-  void emit_from_emitter(MyState &state, EmitterInfo &emitter)
+  void emit_from_emitter(MyState &state, EmitterInfo &emitter, float elapsed_seconds)
   {
     SmallVector<ParticlesBlockSlice> block_slices;
     SmallVector<EmitterDestination> destinations;
@@ -108,28 +128,32 @@ class SimpleSolver : public Solver {
     emitter.emitter().emit(request_destination);
 
     for (uint i = 0; i < destinations.size(); i++) {
-      ParticlesBlockSlice &slice = block_slices[i];
       EmitterDestination &dst = destinations[i];
-      ParticlesBlock *block = slice.block();
+      ParticlesBlockSlice emitted_data = block_slices[i].take_front(dst.emitted_amount());
+      ParticlesBlock *block = emitted_data.block();
 
       for (auto &name : state.particles->float_attribute_names()) {
         if (!emitter.uses_float_attribute(name)) {
-          slice.float_buffer(name)
-              .take_front(dst.emitted_amount())
-              .fill(state.seconds_since_start);
+          emitted_data.float_buffer(name).fill(0);
         }
       }
       for (auto &name : state.particles->vec3_attribute_names()) {
         if (!emitter.uses_vec3_attribute(name)) {
-          slice.vec3_buffer(name).take_front(dst.emitted_amount()).fill(Vec3{0, 0, 0});
+          emitted_data.vec3_buffer(name).fill(Vec3{0, 0, 0});
         }
       }
 
+      auto birth_times = emitted_data.float_buffer("Birth Time");
+      for (float &birth_time : birth_times) {
+        float fac = (rand() % 1000) / 1000.0f;
+        birth_time = state.seconds_since_start - elapsed_seconds * fac;
+      }
       block->active_amount() += dst.emitted_amount();
+      this->step_new_particles(emitted_data, state);
     }
   }
 
-  void compress_all_blocks(ParticlesContainer &particles)
+  BLI_NOINLINE void compress_all_blocks(ParticlesContainer &particles)
   {
     SmallVector<ParticlesBlock *> blocks;
     for (auto block : particles.active_blocks()) {
@@ -156,7 +180,7 @@ class SimpleSolver : public Solver {
       this->delete_old_particles(state, block);
     }
 
-    this->emit_new_particles(state);
+    this->emit_new_particles(state, elapsed_seconds);
     this->compress_all_blocks(particles);
 
     std::cout << "Particle Amount: " << this->particle_amount(wrapped_state) << "\n";

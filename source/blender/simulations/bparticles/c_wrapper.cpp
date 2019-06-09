@@ -63,9 +63,14 @@ class TestEmitter : public BParticles::Emitter {
     EmitterDestination &dst = request_destination();
     BLI_assert(dst.size() > 0);
 
-    dst.vec3_buffer("Position")[0] = {(float)(rand() % 100) / 30.0f, 0, 1};
-    dst.vec3_buffer("Velocity")[0] = {0, 1, 1};
-    dst.initialized_n(1);
+    auto positions = dst.vec3_buffer("Position");
+    auto velocities = dst.vec3_buffer("Velocity");
+
+    for (uint i = 0; i < dst.size(); i++) {
+      positions[i] = {(float)(rand() % 10000) / 3000.0f, 0, 1};
+      velocities[i] = {0, 1, 1};
+    }
+    dst.initialized_n(dst.size());
   }
 };
 
