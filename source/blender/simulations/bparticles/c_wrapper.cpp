@@ -16,6 +16,7 @@
 using BParticles::AttributeType;
 using BParticles::Description;
 using BParticles::EmitterDestination;
+using BParticles::EmitterInfoBuilder;
 using BParticles::NamedBuffers;
 using BParticles::ParticlesBlock;
 using BParticles::Solver;
@@ -50,25 +51,11 @@ class TestForce : public BParticles::Force {
 };
 
 class TestEmitter : public BParticles::Emitter {
- private:
-  SmallVector<std::string> m_used_float_attributes;
-  SmallVector<std::string> m_used_vec3_attributes;
-
  public:
-  TestEmitter()
+  void info(EmitterInfoBuilder &builder) const override
   {
-    m_used_float_attributes = {};
-    m_used_vec3_attributes = {"Position", "Velocity"};
-  }
-
-  ArrayRef<std::string> used_float_attributes() override
-  {
-    return m_used_float_attributes;
-  }
-
-  ArrayRef<std::string> used_vec3_attributes() override
-  {
-    return m_used_vec3_attributes;
+    builder.inits_vec3_attribute("Position");
+    builder.inits_vec3_attribute("Velocity");
   }
 
   void emit(std::function<EmitterDestination &()> request_destination) override

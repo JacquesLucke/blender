@@ -18,10 +18,16 @@ class SimpleSolver : public Solver {
   };
 
   Description &m_description;
+  SmallVector<EmitterInfo> m_emitter_infos;
 
  public:
   SimpleSolver(Description &description) : m_description(description)
   {
+    for (Emitter *emitter : m_description.emitters()) {
+      EmitterInfoBuilder builder{emitter};
+      emitter->info(builder);
+      m_emitter_infos.append(builder.build());
+    }
   }
 
   StateBase *init() override
@@ -29,13 +35,9 @@ class SimpleSolver : public Solver {
     SmallSetVector<std::string> float_attributes = {"Birth Time"};
     SmallSetVector<std::string> vec3_attributes;
 
-    for (Emitter *emitter : m_description.emitters()) {
-      for (auto &name : emitter->used_float_attributes()) {
-        float_attributes.add(name);
-      }
-      for (auto &name : emitter->used_vec3_attributes()) {
-        vec3_attributes.add(name);
-      }
+    for (EmitterInfo &emitter : m_emitter_infos) {
+      float_attributes.add_multiple(emitter.used_float_attributes());
+      vec3_attributes.add_multiple(emitter.used_vec3_attributes());
     }
 
     MyState *state = new MyState();
@@ -87,12 +89,12 @@ class SimpleSolver : public Solver {
 
   void emit_new_particles(MyState &state)
   {
-    for (Emitter *emitter : m_description.emitters()) {
-      this->emit_from_emitter(state, *emitter);
+    for (EmitterInfo &emitter : m_emitter_infos) {
+      this->emit_from_emitter(state, emitter);
     }
   }
 
-  void emit_from_emitter(MyState &state, Emitter &emitter)
+  void emit_from_emitter(MyState &state, EmitterInfo &emitter)
   {
     SmallVector<ParticlesBlockSlice> block_slices;
     SmallVector<EmitterDestination> destinations;
@@ -103,7 +105,7 @@ class SimpleSolver : public Solver {
       return destinations.last();
     };
 
-    emitter.emit(request_destination);
+    emitter.emitter().emit(request_destination);
 
     for (uint i = 0; i < destinations.size(); i++) {
       ParticlesBlockSlice &slice = block_slices[i];
@@ -111,14 +113,14 @@ class SimpleSolver : public Solver {
       ParticlesBlock *block = slice.block();
 
       for (auto &name : state.particles->float_attribute_names()) {
-        if (!emitter.used_float_attributes().contains(name)) {
+        if (!emitter.uses_float_attribute(name)) {
           slice.float_buffer(name)
               .take_front(dst.emitted_amount())
               .fill(state.seconds_since_start);
         }
       }
       for (auto &name : state.particles->vec3_attribute_names()) {
-        if (!emitter.used_vec3_attributes().contains(name)) {
+        if (!emitter.uses_vec3_attribute(name)) {
           slice.vec3_buffer(name).take_front(dst.emitted_amount()).fill(Vec3{0, 0, 0});
         }
       }

@@ -4,6 +4,7 @@
 #include <functional>
 
 #include "BLI_array_ref.hpp"
+#include "BLI_small_set_vector.hpp"
 #include "BLI_math.hpp"
 #include "BLI_utildefines.h"
 #include "BLI_string_ref.hpp"
@@ -13,8 +14,12 @@ class Description;
 class Solver;
 class WrappedState;
 class StateBase;
+class Emitter;
+class EmitterInfo;
+class EmitterInfoBuilder;
 
 using BLI::ArrayRef;
+using BLI::SmallSetVector;
 using BLI::SmallVector;
 using BLI::StringRef;
 using BLI::Vec3;
@@ -76,12 +81,80 @@ class EmitterDestination {
   }
 };
 
+class EmitterInfo {
+ private:
+  EmitterInfo()
+  {
+  }
+
+  Emitter *m_emitter;
+  SmallSetVector<std::string> m_used_float_attributes;
+  SmallSetVector<std::string> m_used_vec3_attributes;
+
+  friend EmitterInfoBuilder;
+
+ public:
+  Emitter &emitter()
+  {
+    return *m_emitter;
+  }
+
+  ArrayRef<std::string> used_float_attributes()
+  {
+    return m_used_float_attributes.values();
+  }
+
+  ArrayRef<std::string> used_vec3_attributes()
+  {
+    return m_used_vec3_attributes.values();
+  }
+
+  bool uses_float_attribute(StringRef name)
+  {
+    return m_used_float_attributes.contains(name.to_std_string());
+  }
+
+  bool uses_vec3_attribute(StringRef name)
+  {
+    return m_used_vec3_attributes.contains(name.to_std_string());
+  }
+};
+
+class EmitterInfoBuilder {
+ private:
+  Emitter *m_emitter;
+  SmallSetVector<std::string> m_used_float_attributes;
+  SmallSetVector<std::string> m_used_vec3_attributes;
+
+ public:
+  EmitterInfoBuilder(Emitter *emitter) : m_emitter(emitter)
+  {
+  }
+
+  void inits_float_attribute(StringRef name)
+  {
+    m_used_float_attributes.add(name.to_std_string());
+  }
+  void inits_vec3_attribute(StringRef name)
+  {
+    m_used_vec3_attributes.add(name.to_std_string());
+  }
+
+  EmitterInfo build()
+  {
+    EmitterInfo info;
+    info.m_emitter = m_emitter;
+    info.m_used_float_attributes = m_used_float_attributes;
+    info.m_used_vec3_attributes = m_used_vec3_attributes;
+    return info;
+  }
+};
+
 class Emitter {
  public:
   virtual ~Emitter();
 
-  virtual ArrayRef<std::string> used_float_attributes() = 0;
-  virtual ArrayRef<std::string> used_vec3_attributes() = 0;
+  virtual void info(EmitterInfoBuilder &info) const = 0;
   virtual void emit(std::function<EmitterDestination &()> request_destination) = 0;
 };
 

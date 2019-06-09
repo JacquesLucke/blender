@@ -38,10 +38,6 @@ template<typename T> class ArrayRef {
   {
   }
 
-  ArrayRef(const SmallVector<T> &vector) : ArrayRef(vector.begin(), vector.size())
-  {
-  }
-
   ArrayRef(const std::initializer_list<T> &list) : ArrayRef((T *)list.begin(), list.size())
   {
   }

@@ -138,3 +138,15 @@ TEST(small_set, Disjoint)
   EXPECT_FALSE(IntSet::Intersects(a, b));
   EXPECT_TRUE(IntSet::Disjoint(a, b));
 }
+
+TEST(small_set, AddMultiple)
+{
+  IntSet a;
+  a.add_multiple({5, 7});
+  EXPECT_TRUE(a.contains(5));
+  EXPECT_TRUE(a.contains(7));
+  EXPECT_FALSE(a.contains(4));
+  a.add_multiple({2, 4});
+  EXPECT_TRUE(a.contains(4));
+  EXPECT_TRUE(a.contains(2));
+}

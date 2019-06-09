@@ -22,9 +22,7 @@ template<typename T, uint N = 4> class SmallSet {
 
   SmallSet(ArrayRef<T> values)
   {
-    for (const T &value : values) {
-      this->add(value);
-    }
+    this->add_multiple(values);
   }
 
   SmallSet(const SmallVector<T> &values) : SmallSet(ArrayRef<T>(values))
@@ -61,6 +59,13 @@ template<typename T, uint N = 4> class SmallSet {
       m_elements.append(value);
     }
     return newly_inserted;
+  }
+
+  void add_multiple(ArrayRef<T> values)
+  {
+    for (T &value : values) {
+      this->add(value);
+    }
   }
 
   T pop()
