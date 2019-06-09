@@ -62,24 +62,23 @@ class SimpleSolver : public Solver {
     }
   }
 
-  BLI_NOINLINE void step_block(ParticlesBlock *block, float elapsed_seconds)
+  BLI_NOINLINE void step_slice(ParticlesBlockSlice slice, float elapsed_seconds)
   {
-    uint active_amount = block->active_amount();
+    auto positions = slice.vec3_buffer("Position");
+    auto velocities = slice.vec3_buffer("Velocity");
 
-    Vec3 *positions = block->vec3_buffer("Position");
-    Vec3 *velocities = block->vec3_buffer("Velocity");
-
-    for (uint i = 0; i < active_amount; i++) {
-      positions[i] += velocities[i] * elapsed_seconds;
-    }
-
-    ParticlesBlockSlice slice = block->slice_active();
-    SmallVector<Vec3> combined_force(active_amount);
+    SmallVector<Vec3> combined_force(slice.size());
     this->compute_combined_force(slice, combined_force);
 
-    for (uint i = 0; i < active_amount; i++) {
+    for (uint i = 0; i < slice.size(); i++) {
+      positions[i] += velocities[i] * elapsed_seconds;
       velocities[i] += combined_force[i] * elapsed_seconds;
     }
+  }
+
+  BLI_NOINLINE void step_block(ParticlesBlock *block, float elapsed_seconds)
+  {
+    this->step_slice(block->slice_active(), elapsed_seconds);
   }
 
   BLI_NOINLINE void compute_combined_force(ParticlesBlockSlice &slice, ArrayRef<Vec3> dst)
