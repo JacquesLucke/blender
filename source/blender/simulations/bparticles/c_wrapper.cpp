@@ -15,7 +15,7 @@
 
 using BParticles::AttributeType;
 using BParticles::Description;
-using BParticles::EmitterDestination;
+using BParticles::EmitterBuffers;
 using BParticles::EmitterInfoBuilder;
 using BParticles::NamedBuffers;
 using BParticles::ParticlesBlock;
@@ -58,9 +58,9 @@ class TestEmitter : public BParticles::Emitter {
     builder.inits_vec3_attribute("Velocity");
   }
 
-  void emit(std::function<EmitterDestination &()> request_destination) override
+  void emit(std::function<EmitterBuffers &()> request_buffers) override
   {
-    EmitterDestination &dst = request_destination();
+    EmitterBuffers &dst = request_buffers();
     BLI_assert(dst.size() > 0);
 
     auto positions = dst.vec3_buffer("Position");
@@ -70,7 +70,7 @@ class TestEmitter : public BParticles::Emitter {
       positions[i] = {(float)(rand() % 10000) / 3000.0f, 0, 1};
       velocities[i] = {0, 1, 1};
     }
-    dst.initialized_n(dst.size());
+    dst.set_initialized(dst.size());
   }
 };
 

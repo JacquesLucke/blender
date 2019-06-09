@@ -44,17 +44,17 @@ class Force {
   virtual void add_force(NamedBuffers &buffers, ArrayRef<Vec3> dst) = 0;
 };
 
-class EmitterDestination {
+class EmitterBuffers {
  private:
   NamedBuffers &m_buffers;
   uint m_emitted_amount = 0;
 
  public:
-  EmitterDestination(NamedBuffers &buffers) : m_buffers(buffers)
+  EmitterBuffers(NamedBuffers &buffers) : m_buffers(buffers)
   {
   }
 
-  void initialized_n(uint n)
+  void set_initialized(uint n)
   {
     m_emitted_amount += n;
     BLI_assert(m_emitted_amount <= m_buffers.size());
@@ -155,7 +155,7 @@ class Emitter {
   virtual ~Emitter();
 
   virtual void info(EmitterInfoBuilder &info) const = 0;
-  virtual void emit(std::function<EmitterDestination &()> request_destination) = 0;
+  virtual void emit(std::function<EmitterBuffers &()> request_buffers) = 0;
 };
 
 class Description {

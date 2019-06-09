@@ -126,18 +126,18 @@ class SimpleSolver : public Solver {
   void emit_from_emitter(MyState &state, EmitterInfo &emitter, float elapsed_seconds)
   {
     SmallVector<ParticlesBlockSlice> block_slices;
-    SmallVector<EmitterDestination> destinations;
-    auto request_destination = [&state, &block_slices, &destinations]() -> EmitterDestination & {
+    SmallVector<EmitterBuffers> destinations;
+    auto request_buffers = [&state, &block_slices, &destinations]() -> EmitterBuffers & {
       ParticlesBlock *block = state.particles->new_block();
       block_slices.append(block->slice_all());
-      destinations.append(EmitterDestination{block_slices.last()});
+      destinations.append(EmitterBuffers{block_slices.last()});
       return destinations.last();
     };
 
-    emitter.emitter().emit(request_destination);
+    emitter.emitter().emit(request_buffers);
 
     for (uint i = 0; i < destinations.size(); i++) {
-      EmitterDestination &dst = destinations[i];
+      EmitterBuffers &dst = destinations[i];
       ParticlesBlockSlice emitted_data = block_slices[i].take_front(dst.emitted_amount());
       ParticlesBlock *block = emitted_data.block();
 
