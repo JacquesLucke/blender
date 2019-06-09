@@ -2,6 +2,7 @@
 #include "core.hpp"
 #include "particles_container.hpp"
 #include "playground_solver.hpp"
+#include "BLI_noise.h"
 
 #define WRAPPERS(T1, T2) \
   inline T1 unwrap(T2 value) \
@@ -34,20 +35,39 @@ WRAPPERS(BParticles::WrappedState *, BParticlesState);
 
 class TestForce : public BParticles::Force {
  private:
-  float m_value_1, m_value_2;
+  float m_strength;
 
  public:
-  TestForce(float value_1, float value_2) : m_value_1(value_1), m_value_2(value_2)
+  TestForce(float strength) : m_strength(strength)
   {
   }
 
   void add_force(NamedBuffers &UNUSED(buffers), ArrayRef<Vec3> dst) override
   {
     for (uint i = 0; i < dst.size(); i++) {
-      dst[i].x += m_value_1;
-      dst[i].z += m_value_2;
+      dst[i].z += m_strength;
     }
   };
+};
+
+class TurbulenceForce : public BParticles::Force {
+ private:
+  float m_strength;
+
+ public:
+  TurbulenceForce(float strength) : m_strength(strength)
+  {
+  }
+
+  void add_force(NamedBuffers &buffers, ArrayRef<Vec3> dst) override
+  {
+    auto positions = buffers.vec3_buffer("Position");
+    for (uint i = 0; i < dst.size(); i++) {
+      Vec3 pos = positions[i];
+      float value = BLI_hnoise(0.5f, pos.x, pos.y, pos.z);
+      dst[i].z += value * m_strength;
+    }
+  }
 };
 
 class TestEmitter : public BParticles::Emitter {
@@ -76,8 +96,8 @@ class TestEmitter : public BParticles::Emitter {
 
 BParticlesDescription BParticles_playground_description(float control1, float control2)
 {
-  Description *description = new Description({new TestForce(control1, control2)},
-                                             {new TestEmitter()});
+  Description *description = new Description(
+      {new TestForce(control1), new TurbulenceForce(control2)}, {new TestEmitter()});
   return wrap(description);
 }
 void BParticles_description_free(BParticlesDescription description_c)
