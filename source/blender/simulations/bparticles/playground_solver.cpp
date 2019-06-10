@@ -5,6 +5,18 @@
 
 namespace BParticles {
 
+class MoveUpAction : public BParticles::Action {
+ public:
+  void execute(NamedBuffers &buffers, ArrayRef<uint> indices_to_influence) override
+  {
+    auto positions = buffers.get_float3("Position");
+
+    for (uint i : indices_to_influence) {
+      positions[i].z += 2.0f;
+    }
+  }
+};
+
 class SimpleSolver : public Solver {
 
   struct MyState : StateBase {
@@ -81,15 +93,21 @@ class SimpleSolver : public Solver {
       new_velocities[i] = velocities[i] + combined_force[i] / mass * elapsed_seconds;
     }
 
+    SmallVector<uint> indices;
+
     for (uint i = 0; i < buffers.size(); i++) {
       if (positions[i].y <= 2 && new_positions[i].y > 2) {
-        new_positions[i].z += 1;
-        new_velocities[i].y *= -1;
+        new_positions[i] = (positions[i] + new_positions[i]) * 0.5f;
+        new_velocities[i] = (velocities[i] + new_velocities[i]) * 0.5f;
+        indices.append(i);
       }
     }
 
     positions.copy_from(new_positions);
     velocities.copy_from(new_velocities);
+
+    MoveUpAction action;
+    action.execute(buffers, indices);
 
     auto birth_times = buffers.get_float("Birth Time");
     auto kill_states = buffers.get_byte("Kill State");

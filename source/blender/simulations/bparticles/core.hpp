@@ -40,6 +40,13 @@ class Force {
   virtual void add_force(NamedBuffers &buffers, ArrayRef<float3> dst) = 0;
 };
 
+class Action {
+ public:
+  virtual ~Action();
+
+  virtual void execute(NamedBuffers &buffers, ArrayRef<uint> indices_to_influence) = 0;
+};
+
 class EmitterBuffers {
  private:
   NamedBuffers &m_buffers;
