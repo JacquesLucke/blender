@@ -19,10 +19,10 @@ class EmitterInfo;
 class EmitterInfoBuilder;
 
 using BLI::ArrayRef;
+using BLI::float3;
 using BLI::SmallSetVector;
 using BLI::SmallVector;
 using BLI::StringRef;
-using BLI::Vec3;
 using std::unique_ptr;
 
 class NamedBuffers {
@@ -30,14 +30,14 @@ class NamedBuffers {
   virtual ~NamedBuffers();
   virtual uint size() = 0;
   virtual ArrayRef<float> float_buffer(StringRef name) = 0;
-  virtual ArrayRef<Vec3> vec3_buffer(StringRef name) = 0;
+  virtual ArrayRef<float3> float3_buffer(StringRef name) = 0;
   virtual ArrayRef<uint8_t> byte_buffer(StringRef name) = 0;
 };
 
 class Force {
  public:
   virtual ~Force();
-  virtual void add_force(NamedBuffers &buffers, ArrayRef<Vec3> dst) = 0;
+  virtual void add_force(NamedBuffers &buffers, ArrayRef<float3> dst) = 0;
 };
 
 class EmitterBuffers {
@@ -66,9 +66,9 @@ class EmitterBuffers {
     return m_buffers.float_buffer(name);
   }
 
-  ArrayRef<Vec3> vec3_buffer(StringRef name)
+  ArrayRef<float3> float3_buffer(StringRef name)
   {
-    return m_buffers.vec3_buffer(name);
+    return m_buffers.float3_buffer(name);
   }
 
   ArrayRef<uint8_t> byte_buffer(StringRef name)

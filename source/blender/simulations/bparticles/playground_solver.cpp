@@ -50,11 +50,11 @@ class SimpleSolver : public Solver {
 
   BLI_NOINLINE void step_new_particles(ParticlesBlockSlice slice, MyState &state)
   {
-    auto positions = slice.vec3_buffer("Position");
-    auto velocities = slice.vec3_buffer("Velocity");
+    auto positions = slice.float3_buffer("Position");
+    auto velocities = slice.float3_buffer("Velocity");
     auto birth_times = slice.float_buffer("Birth Time");
 
-    SmallVector<Vec3> combined_force(slice.size());
+    SmallVector<float3> combined_force(slice.size());
     this->compute_combined_force(slice, combined_force);
 
     for (uint i = 0; i < slice.size(); i++) {
@@ -66,10 +66,10 @@ class SimpleSolver : public Solver {
 
   BLI_NOINLINE void step_slice(MyState &state, ParticlesBlockSlice slice, float elapsed_seconds)
   {
-    auto positions = slice.vec3_buffer("Position");
-    auto velocities = slice.vec3_buffer("Velocity");
+    auto positions = slice.float3_buffer("Position");
+    auto velocities = slice.float3_buffer("Velocity");
 
-    SmallVector<Vec3> combined_force(slice.size());
+    SmallVector<float3> combined_force(slice.size());
     this->compute_combined_force(slice, combined_force);
 
     for (uint i = 0; i < slice.size(); i++) {
@@ -93,7 +93,7 @@ class SimpleSolver : public Solver {
     this->step_slice(state, block->slice_active(), elapsed_seconds);
   }
 
-  BLI_NOINLINE void compute_combined_force(ParticlesBlockSlice &slice, ArrayRef<Vec3> dst)
+  BLI_NOINLINE void compute_combined_force(ParticlesBlockSlice &slice, ArrayRef<float3> dst)
   {
     BLI_assert(slice.size() == dst.size());
     dst.fill({0, 0, 0});
@@ -150,7 +150,7 @@ class SimpleSolver : public Solver {
       }
       for (auto &name : state.particles->vec3_attribute_names()) {
         if (!emitter.uses_vec3_attribute(name)) {
-          emitted_data.vec3_buffer(name).fill(Vec3{0, 0, 0});
+          emitted_data.float3_buffer(name).fill(float3{0, 0, 0});
         }
       }
 
@@ -217,7 +217,7 @@ class SimpleSolver : public Solver {
     uint index = 0;
     for (auto *block : state.particles->active_blocks()) {
       uint length = block->active_amount();
-      memcpy(dst + index, block->vec3_buffer("Position"), sizeof(Vec3) * length);
+      memcpy(dst + index, block->float3_buffer("Position"), sizeof(float3) * length);
       index += length;
     }
   }

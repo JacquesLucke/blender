@@ -24,9 +24,9 @@ using BParticles::StateBase;
 using BParticles::WrappedState;
 
 using BLI::ArrayRef;
+using BLI::float3;
 using BLI::SmallVector;
 using BLI::StringRef;
-using BLI::Vec3;
 
 WRAPPERS(BParticles::Description *, BParticlesDescription);
 WRAPPERS(BParticles::Solver *, BParticlesSolver);
@@ -41,7 +41,7 @@ class TestForce : public BParticles::Force {
   {
   }
 
-  void add_force(NamedBuffers &UNUSED(buffers), ArrayRef<Vec3> dst) override
+  void add_force(NamedBuffers &UNUSED(buffers), ArrayRef<float3> dst) override
   {
     for (uint i = 0; i < dst.size(); i++) {
       dst[i].z += m_strength;
@@ -58,11 +58,11 @@ class TurbulenceForce : public BParticles::Force {
   {
   }
 
-  void add_force(NamedBuffers &buffers, ArrayRef<Vec3> dst) override
+  void add_force(NamedBuffers &buffers, ArrayRef<float3> dst) override
   {
-    auto positions = buffers.vec3_buffer("Position");
+    auto positions = buffers.float3_buffer("Position");
     for (uint i = 0; i < dst.size(); i++) {
-      Vec3 pos = positions[i];
+      float3 pos = positions[i];
       float value = BLI_hnoise(0.5f, pos.x, pos.y, pos.z);
       dst[i].z += value * m_strength;
     }
@@ -82,8 +82,8 @@ class TestEmitter : public BParticles::Emitter {
     EmitterBuffers &dst = request_buffers();
     BLI_assert(dst.size() > 0);
 
-    auto positions = dst.vec3_buffer("Position");
-    auto velocities = dst.vec3_buffer("Velocity");
+    auto positions = dst.float3_buffer("Position");
+    auto velocities = dst.float3_buffer("Velocity");
 
     for (uint i = 0; i < dst.size(); i++) {
       positions[i] = {(float)(rand() % 10000) / 3000.0f, 0, 1};

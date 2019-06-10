@@ -11,11 +11,11 @@
 namespace BParticles {
 
 using BLI::ArrayRef;
+using BLI::float3;
 using BLI::SmallSet;
 using BLI::SmallSetVector;
 using BLI::SmallVector;
 using BLI::StringRef;
-using BLI::Vec3;
 
 class ParticlesContainer;
 class ParticlesBlock;
@@ -66,7 +66,7 @@ class ParticlesBlockSlice : public NamedBuffers {
   uint size() override;
 
   ArrayRef<float> float_buffer(StringRef name) override;
-  ArrayRef<Vec3> vec3_buffer(StringRef name) override;
+  ArrayRef<float3> float3_buffer(StringRef name) override;
   ArrayRef<uint8_t> byte_buffer(StringRef name) override;
 
   ParticlesBlockSlice take_front(uint n);
@@ -75,14 +75,14 @@ class ParticlesBlockSlice : public NamedBuffers {
 class ParticlesBlock {
   ParticlesContainer &m_container;
   SmallVector<float *> m_float_buffers;
-  SmallVector<Vec3 *> m_vec3_buffers;
+  SmallVector<float3 *> m_vec3_buffers;
   SmallVector<uint8_t *> m_byte_buffers;
   uint m_active_amount;
 
  public:
   ParticlesBlock(ParticlesContainer &container,
                  ArrayRef<float *> float_buffers,
-                 ArrayRef<Vec3 *> vec3_buffers,
+                 ArrayRef<float3 *> float3_buffers,
                  ArrayRef<uint8_t *> byte_buffers,
                  uint active_amount = 0);
 
@@ -98,11 +98,11 @@ class ParticlesBlock {
   void clear();
 
   ArrayRef<float *> float_buffers();
-  ArrayRef<Vec3 *> vec3_buffers();
+  ArrayRef<float3 *> float3_buffers();
   ArrayRef<uint8_t *> byte_buffers();
 
   float *float_buffer(StringRef name);
-  Vec3 *vec3_buffer(StringRef name);
+  float3 *float3_buffer(StringRef name);
   uint8_t *byte_buffer(StringRef name);
 
   ParticlesBlockSlice slice(uint start, uint length);
@@ -206,7 +206,7 @@ inline ArrayRef<float *> ParticlesBlock::float_buffers()
   return m_float_buffers;
 }
 
-inline ArrayRef<Vec3 *> ParticlesBlock::vec3_buffers()
+inline ArrayRef<float3 *> ParticlesBlock::float3_buffers()
 {
   return m_vec3_buffers;
 }
@@ -222,7 +222,7 @@ inline float *ParticlesBlock::float_buffer(StringRef name)
   return m_float_buffers[index];
 }
 
-inline Vec3 *ParticlesBlock::vec3_buffer(StringRef name)
+inline float3 *ParticlesBlock::float3_buffer(StringRef name)
 {
   uint index = m_container.vec3_buffer_index(name);
   return m_vec3_buffers[index];
@@ -254,7 +254,7 @@ inline void ParticlesBlock::move(uint old_index, uint new_index)
   for (float *buffer : m_float_buffers) {
     buffer[new_index] = buffer[old_index];
   }
-  for (Vec3 *buffer : m_vec3_buffers) {
+  for (float3 *buffer : m_vec3_buffers) {
     buffer[new_index] = buffer[old_index];
   }
 }
@@ -283,9 +283,9 @@ inline ArrayRef<float> ParticlesBlockSlice::float_buffer(StringRef name)
   return ArrayRef<float>(m_block->float_buffer(name) + m_start, m_length);
 }
 
-inline ArrayRef<Vec3> ParticlesBlockSlice::vec3_buffer(StringRef name)
+inline ArrayRef<float3> ParticlesBlockSlice::float3_buffer(StringRef name)
 {
-  return ArrayRef<Vec3>(m_block->vec3_buffer(name) + m_start, m_length);
+  return ArrayRef<float3>(m_block->float3_buffer(name) + m_start, m_length);
 }
 
 inline ArrayRef<uint8_t> ParticlesBlockSlice::byte_buffer(StringRef name)
