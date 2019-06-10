@@ -48,7 +48,7 @@ class SimpleSolver : public Solver {
     return state;
   }
 
-  BLI_NOINLINE void step_new_particles(ParticlesBlockSlice slice, MyState &state)
+  BLI_NOINLINE void step_new_particles(NamedBuffers &slice, MyState &state)
   {
     auto positions = slice.get_float3("Position");
     auto velocities = slice.get_float3("Velocity");
@@ -64,7 +64,7 @@ class SimpleSolver : public Solver {
     }
   }
 
-  BLI_NOINLINE void step_slice(MyState &state, ParticlesBlockSlice slice, float elapsed_seconds)
+  BLI_NOINLINE void step_slice(MyState &state, NamedBuffers &slice, float elapsed_seconds)
   {
     auto positions = slice.get_float3("Position");
     auto velocities = slice.get_float3("Velocity");
@@ -90,10 +90,11 @@ class SimpleSolver : public Solver {
 
   BLI_NOINLINE void step_block(MyState &state, ParticlesBlock *block, float elapsed_seconds)
   {
-    this->step_slice(state, block->slice_active(), elapsed_seconds);
+    ParticlesBlockSlice slice = block->slice_active();
+    this->step_slice(state, slice, elapsed_seconds);
   }
 
-  BLI_NOINLINE void compute_combined_force(ParticlesBlockSlice &slice, ArrayRef<float3> dst)
+  BLI_NOINLINE void compute_combined_force(NamedBuffers &slice, ArrayRef<float3> dst)
   {
     BLI_assert(slice.size() == dst.size());
     dst.fill({0, 0, 0});
