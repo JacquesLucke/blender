@@ -38,7 +38,7 @@ class SimpleSolver : public Solver {
 
     for (EmitterInfo &emitter : m_emitter_infos) {
       float_attributes.add_multiple(emitter.used_float_attributes());
-      vec3_attributes.add_multiple(emitter.used_vec3_attributes());
+      vec3_attributes.add_multiple(emitter.used_float3_attributes());
       byte_attributes.add_multiple(emitter.used_byte_attributes());
     }
 
@@ -150,8 +150,13 @@ class SimpleSolver : public Solver {
         }
       }
       for (auto &name : state.particles->vec3_attribute_names()) {
-        if (!emitter.uses_vec3_attribute(name)) {
+        if (!emitter.uses_float3_attribute(name)) {
           emitted_data.get_float3(name).fill(float3{0, 0, 0});
+        }
+      }
+      for (auto &name : state.particles->byte_attribute_names()) {
+        if (!emitter.uses_byte_attribute(name)) {
+          emitted_data.get_byte(name).fill(0);
         }
       }
 

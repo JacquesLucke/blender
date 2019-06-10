@@ -73,8 +73,8 @@ class TestEmitter : public BParticles::Emitter {
  public:
   void info(EmitterInfoBuilder &builder) const override
   {
-    builder.inits_vec3_attribute("Position");
-    builder.inits_vec3_attribute("Velocity");
+    builder.inits_float3_attribute("Position");
+    builder.inits_float3_attribute("Velocity");
   }
 
   void emit(std::function<EmitterBuffers &()> request_buffers) override

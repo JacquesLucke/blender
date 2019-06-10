@@ -80,7 +80,7 @@ class EmitterInfo {
 
   Emitter *m_emitter;
   SmallSetVector<std::string> m_used_float_attributes;
-  SmallSetVector<std::string> m_used_vec3_attributes;
+  SmallSetVector<std::string> m_used_float3_attributes;
   SmallSetVector<std::string> m_used_byte_attributes;
 
   friend EmitterInfoBuilder;
@@ -96,9 +96,9 @@ class EmitterInfo {
     return m_used_float_attributes.values();
   }
 
-  ArrayRef<std::string> used_vec3_attributes()
+  ArrayRef<std::string> used_float3_attributes()
   {
-    return m_used_vec3_attributes.values();
+    return m_used_float3_attributes.values();
   }
 
   ArrayRef<std::string> used_byte_attributes()
@@ -111,9 +111,14 @@ class EmitterInfo {
     return m_used_float_attributes.contains(name.to_std_string());
   }
 
-  bool uses_vec3_attribute(StringRef name)
+  bool uses_float3_attribute(StringRef name)
   {
-    return m_used_vec3_attributes.contains(name.to_std_string());
+    return m_used_float3_attributes.contains(name.to_std_string());
+  }
+
+  bool uses_byte_attribute(StringRef name)
+  {
+    return m_used_byte_attributes.contains(name.to_std_string());
   }
 };
 
@@ -121,7 +126,7 @@ class EmitterInfoBuilder {
  private:
   Emitter *m_emitter;
   SmallSetVector<std::string> m_used_float_attributes;
-  SmallSetVector<std::string> m_used_vec3_attributes;
+  SmallSetVector<std::string> m_used_float3_attributes;
 
  public:
   EmitterInfoBuilder(Emitter *emitter) : m_emitter(emitter)
@@ -132,9 +137,9 @@ class EmitterInfoBuilder {
   {
     m_used_float_attributes.add(name.to_std_string());
   }
-  void inits_vec3_attribute(StringRef name)
+  void inits_float3_attribute(StringRef name)
   {
-    m_used_vec3_attributes.add(name.to_std_string());
+    m_used_float3_attributes.add(name.to_std_string());
   }
 
   EmitterInfo build()
@@ -142,7 +147,7 @@ class EmitterInfoBuilder {
     EmitterInfo info;
     info.m_emitter = m_emitter;
     info.m_used_float_attributes = m_used_float_attributes;
-    info.m_used_vec3_attributes = m_used_vec3_attributes;
+    info.m_used_float3_attributes = m_used_float3_attributes;
     return info;
   }
 };
