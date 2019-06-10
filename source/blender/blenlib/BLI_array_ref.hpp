@@ -85,6 +85,17 @@ template<typename T> class ArrayRef {
     std::fill_n(m_start, m_size, element);
   }
 
+  void copy_from(const T *ptr)
+  {
+    std::copy_n(ptr, m_size, m_start);
+  }
+
+  void copy_from(ArrayRef<T> other)
+  {
+    BLI_assert(this->size() == other.size());
+    this->copy_from(other.begin());
+  }
+
   T *begin() const
   {
     return m_start;
