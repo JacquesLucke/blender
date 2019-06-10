@@ -64,23 +64,37 @@ class SimpleSolver : public Solver {
     }
   }
 
-  BLI_NOINLINE void step_slice(MyState &state, NamedBuffers &slice, float elapsed_seconds)
+  BLI_NOINLINE void step_slice(MyState &state, NamedBuffers &buffers, float elapsed_seconds)
   {
-    auto positions = slice.get_float3("Position");
-    auto velocities = slice.get_float3("Velocity");
+    auto positions = buffers.get_float3("Position");
+    auto velocities = buffers.get_float3("Velocity");
 
-    SmallVector<float3> combined_force(slice.size());
-    this->compute_combined_force(slice, combined_force);
+    SmallVector<float3> combined_force(buffers.size());
+    this->compute_combined_force(buffers, combined_force);
 
-    for (uint i = 0; i < slice.size(); i++) {
-      positions[i] += velocities[i] * elapsed_seconds;
-      velocities[i] += combined_force[i] * elapsed_seconds;
+    SmallVector<float3> new_positions(buffers.size());
+    SmallVector<float3> new_velocities(buffers.size());
+
+    float mass = 1.0f;
+    for (uint i = 0; i < buffers.size(); i++) {
+      new_positions[i] = positions[i] + velocities[i] * elapsed_seconds;
+      new_velocities[i] = velocities[i] + combined_force[i] / mass * elapsed_seconds;
     }
 
-    auto birth_times = slice.get_float("Birth Time");
-    auto kill_states = slice.get_byte("Kill State");
+    for (uint i = 0; i < buffers.size(); i++) {
+      if (positions[i].y <= 2 && new_positions[i].y > 2) {
+        new_positions[i].z += 1;
+        new_velocities[i].y *= -1;
+      }
+    }
 
-    for (uint i = 0; i < slice.size(); i++) {
+    positions.copy_from(new_positions);
+    velocities.copy_from(new_velocities);
+
+    auto birth_times = buffers.get_float("Birth Time");
+    auto kill_states = buffers.get_byte("Kill State");
+
+    for (uint i = 0; i < buffers.size(); i++) {
       float age = state.seconds_since_start - birth_times[i];
       if (age > 5) {
         kill_states[i] = 1;
