@@ -65,9 +65,9 @@ class ParticlesBlockSlice : public NamedBuffers {
   ParticlesBlock *block();
   uint size() override;
 
-  ArrayRef<float> float_buffer(StringRef name) override;
-  ArrayRef<float3> float3_buffer(StringRef name) override;
-  ArrayRef<uint8_t> byte_buffer(StringRef name) override;
+  ArrayRef<float> get_float(StringRef name) override;
+  ArrayRef<float3> get_float3(StringRef name) override;
+  ArrayRef<uint8_t> get_byte(StringRef name) override;
 
   ParticlesBlockSlice take_front(uint n);
 };
@@ -278,17 +278,17 @@ inline uint ParticlesBlockSlice::size()
   return m_length;
 }
 
-inline ArrayRef<float> ParticlesBlockSlice::float_buffer(StringRef name)
+inline ArrayRef<float> ParticlesBlockSlice::get_float(StringRef name)
 {
   return ArrayRef<float>(m_block->float_buffer(name) + m_start, m_length);
 }
 
-inline ArrayRef<float3> ParticlesBlockSlice::float3_buffer(StringRef name)
+inline ArrayRef<float3> ParticlesBlockSlice::get_float3(StringRef name)
 {
   return ArrayRef<float3>(m_block->float3_buffer(name) + m_start, m_length);
 }
 
-inline ArrayRef<uint8_t> ParticlesBlockSlice::byte_buffer(StringRef name)
+inline ArrayRef<uint8_t> ParticlesBlockSlice::get_byte(StringRef name)
 {
   return ArrayRef<uint8_t>(m_block->byte_buffer(name) + m_start, m_length);
 }

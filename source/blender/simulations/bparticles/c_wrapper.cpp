@@ -60,7 +60,7 @@ class TurbulenceForce : public BParticles::Force {
 
   void add_force(NamedBuffers &buffers, ArrayRef<float3> dst) override
   {
-    auto positions = buffers.float3_buffer("Position");
+    auto positions = buffers.get_float3("Position");
     for (uint i = 0; i < dst.size(); i++) {
       float3 pos = positions[i];
       float value = BLI_hnoise(0.5f, pos.x, pos.y, pos.z);
@@ -82,8 +82,8 @@ class TestEmitter : public BParticles::Emitter {
     EmitterBuffers &dst = request_buffers();
     BLI_assert(dst.size() > 0);
 
-    auto positions = dst.float3_buffer("Position");
-    auto velocities = dst.float3_buffer("Velocity");
+    auto positions = dst.buffers().get_float3("Position");
+    auto velocities = dst.buffers().get_float3("Velocity");
 
     for (uint i = 0; i < dst.size(); i++) {
       positions[i] = {(float)(rand() % 10000) / 3000.0f, 0, 1};

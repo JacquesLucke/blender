@@ -50,9 +50,9 @@ class SimpleSolver : public Solver {
 
   BLI_NOINLINE void step_new_particles(ParticlesBlockSlice slice, MyState &state)
   {
-    auto positions = slice.float3_buffer("Position");
-    auto velocities = slice.float3_buffer("Velocity");
-    auto birth_times = slice.float_buffer("Birth Time");
+    auto positions = slice.get_float3("Position");
+    auto velocities = slice.get_float3("Velocity");
+    auto birth_times = slice.get_float("Birth Time");
 
     SmallVector<float3> combined_force(slice.size());
     this->compute_combined_force(slice, combined_force);
@@ -66,8 +66,8 @@ class SimpleSolver : public Solver {
 
   BLI_NOINLINE void step_slice(MyState &state, ParticlesBlockSlice slice, float elapsed_seconds)
   {
-    auto positions = slice.float3_buffer("Position");
-    auto velocities = slice.float3_buffer("Velocity");
+    auto positions = slice.get_float3("Position");
+    auto velocities = slice.get_float3("Velocity");
 
     SmallVector<float3> combined_force(slice.size());
     this->compute_combined_force(slice, combined_force);
@@ -77,8 +77,8 @@ class SimpleSolver : public Solver {
       velocities[i] += combined_force[i] * elapsed_seconds;
     }
 
-    auto birth_times = slice.float_buffer("Birth Time");
-    auto kill_states = slice.byte_buffer("Kill State");
+    auto birth_times = slice.get_float("Birth Time");
+    auto kill_states = slice.get_byte("Kill State");
 
     for (uint i = 0; i < slice.size(); i++) {
       float age = state.seconds_since_start - birth_times[i];
@@ -145,16 +145,16 @@ class SimpleSolver : public Solver {
 
       for (auto &name : state.particles->float_attribute_names()) {
         if (!emitter.uses_float_attribute(name)) {
-          emitted_data.float_buffer(name).fill(0);
+          emitted_data.get_float(name).fill(0);
         }
       }
       for (auto &name : state.particles->vec3_attribute_names()) {
         if (!emitter.uses_vec3_attribute(name)) {
-          emitted_data.float3_buffer(name).fill(float3{0, 0, 0});
+          emitted_data.get_float3(name).fill(float3{0, 0, 0});
         }
       }
 
-      auto birth_times = emitted_data.float_buffer("Birth Time");
+      auto birth_times = emitted_data.get_float("Birth Time");
       for (float &birth_time : birth_times) {
         float fac = (rand() % 1000) / 1000.0f;
         birth_time = state.seconds_since_start - elapsed_seconds * fac;

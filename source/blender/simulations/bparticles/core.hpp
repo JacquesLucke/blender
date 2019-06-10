@@ -29,9 +29,9 @@ class NamedBuffers {
  public:
   virtual ~NamedBuffers();
   virtual uint size() = 0;
-  virtual ArrayRef<float> float_buffer(StringRef name) = 0;
-  virtual ArrayRef<float3> float3_buffer(StringRef name) = 0;
-  virtual ArrayRef<uint8_t> byte_buffer(StringRef name) = 0;
+  virtual ArrayRef<float> get_float(StringRef name) = 0;
+  virtual ArrayRef<float3> get_float3(StringRef name) = 0;
+  virtual ArrayRef<uint8_t> get_byte(StringRef name) = 0;
 };
 
 class Force {
@@ -61,19 +61,9 @@ class EmitterBuffers {
     return m_emitted_amount;
   }
 
-  ArrayRef<float> float_buffer(StringRef name)
+  NamedBuffers &buffers()
   {
-    return m_buffers.float_buffer(name);
-  }
-
-  ArrayRef<float3> float3_buffer(StringRef name)
-  {
-    return m_buffers.float3_buffer(name);
-  }
-
-  ArrayRef<uint8_t> byte_buffer(StringRef name)
-  {
-    return m_buffers.byte_buffer(name);
+    return m_buffers;
   }
 
   uint size()
