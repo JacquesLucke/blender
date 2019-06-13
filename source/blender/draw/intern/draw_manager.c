@@ -849,7 +849,7 @@ void **DRW_view_layer_engine_data_ensure(DrawEngineType *engine_type,
  * \{ */
 
 /* Used for DRW_drawdata_from_id()
- * All ID-datablocks which have their own 'local' DrawData
+ * All ID-data-blocks which have their own 'local' DrawData
  * should have the same arrangement in their structs.
  */
 typedef struct IdDdtTemplate {
@@ -2001,6 +2001,8 @@ void DRW_render_to_image(RenderEngine *engine, struct Depsgraph *depsgraph)
 
   /* Reset state before drawing */
   DRW_state_reset();
+  /* Set the default Blender draw state */
+  GPU_state_init();
 
   /* Init render result. */
   RenderResult *render_result = RE_engine_begin_result(engine,

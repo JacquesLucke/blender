@@ -76,6 +76,7 @@ extern "C" {
 #include "BKE_fcurve.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_material.h"
 #include "BKE_mball.h"
 #include "BKE_modifier.h"
@@ -1194,7 +1195,7 @@ void DepsgraphRelationBuilder::build_animdata_curves_targets(ID *id,
     }
     graph_->add_new_relation(
         operation_from, operation_to, "Animation -> Prop", RELATION_CHECK_BEFORE_ADD);
-    /* It is possible that animation is writing to a nested ID datablock,
+    /* It is possible that animation is writing to a nested ID data-block,
      * need to make sure animation is evaluated after target ID is copied. */
     const IDNode *id_node_from = operation_from->owner->owner;
     const IDNode *id_node_to = operation_to->owner->owner;
@@ -1398,8 +1399,8 @@ void DepsgraphRelationBuilder::build_driver_data(ID *id, FCurve *fcu)
     /* If it's not a Bone, handle the generic single dependency case. */
     add_relation(driver_key, property_entry_key, "Driver -> Driven Property");
     /* Similar to the case with f-curves, driver might drive a nested
-     * datablock, which means driver execution should wait for that
-     * datablock to be copied. */
+     * data-block, which means driver execution should wait for that
+     * data-block to be copied. */
     {
       PointerRNA id_ptr;
       PointerRNA ptr;
@@ -1840,11 +1841,11 @@ void DepsgraphRelationBuilder::build_shapekeys(Key *key)
  *   Therefore, each user of a piece of shared geometry data ends up evaluating
  *   its own version of the stuff, complete with whatever modifiers it may use.
  *
- * - The datablocks for the geometry data - "obdata" (e.g. ID_ME, ID_CU, ID_LT.)
+ * - The data-blocks for the geometry data - "obdata" (e.g. ID_ME, ID_CU, ID_LT.)
  *   are used for
  *     1) calculating the bounding boxes of the geometry data,
  *     2) aggregating inward links from other objects (e.g. for text on curve)
- *        and also for the links coming from the shapekey datablocks
+ *        and also for the links coming from the shapekey data-blocks
  * - Animation/Drivers affecting the parameters of the geometry are made to
  *   trigger updates on the obdata geometry component, which then trigger
  *   downstream re-evaluation of the individual instances of this geometry. */
@@ -1968,7 +1969,7 @@ void DepsgraphRelationBuilder::build_object_data_geometry(Object *object)
         &object->id, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
     add_relation(time_key, obdata_ubereval_key, "Legacy particle time");
   }
-  /* Object data datablock. */
+  /* Object data data-block. */
   build_object_data_geometry_datablock((ID *)object->data);
   Key *key = BKE_key_from_object(object);
   if (key != NULL) {
@@ -2126,15 +2127,25 @@ void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
     ID_Type id_type = GS(id->name);
     if (id_type == ID_MA) {
       build_material((Material *)bnode->id);
+      ComponentKey material_key(id, NodeType::SHADING);
+      add_relation(material_key, shading_key, "Material -> Node");
     }
     else if (id_type == ID_TE) {
       build_texture((Tex *)bnode->id);
+      ComponentKey texture_key(id, NodeType::GENERIC_DATABLOCK);
+      add_relation(texture_key, shading_key, "Texture -> Node");
     }
     else if (id_type == ID_IM) {
       build_image((Image *)bnode->id);
+      ComponentKey image_key(id, NodeType::GENERIC_DATABLOCK);
+      add_relation(image_key, shading_key, "Image -> Node");
     }
     else if (id_type == ID_OB) {
       build_object(NULL, (Object *)id);
+      ComponentKey object_transform_key(id, NodeType::TRANSFORM);
+      ComponentKey object_geometry_key(id, NodeType::GEOMETRY);
+      add_relation(object_transform_key, shading_key, "Object Transform -> Node");
+      add_relation(object_geometry_key, shading_key, "Object Geometry -> Node");
     }
     else if (id_type == ID_SCE) {
       Scene *node_scene = (Scene *)id;
@@ -2152,9 +2163,13 @@ void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
     }
     else if (id_type == ID_MSK) {
       build_mask((Mask *)id);
+      OperationKey mask_key(id, NodeType::PARAMETERS, OperationCode::MASK_EVAL);
+      add_relation(mask_key, shading_key, "Mask -> Node");
     }
     else if (id_type == ID_MC) {
       build_movieclip((MovieClip *)id);
+      OperationKey clip_key(id, NodeType::PARAMETERS, OperationCode::MOVIECLIP_EVAL);
+      add_relation(clip_key, shading_key, "Clip -> Node");
     }
     else if (ELEM(bnode->type, NODE_GROUP, NODE_CUSTOM_GROUP)) {
       bNodeTree *group_ntree = (bNodeTree *)id;
@@ -2334,6 +2349,8 @@ void DepsgraphRelationBuilder::build_scene_sequencer(Scene *scene)
   if (scene->ed == NULL) {
     return;
   }
+  build_scene_audio(scene);
+  ComponentKey scene_audio_key(&scene->id, NodeType::AUDIO);
   /* Make sure dependencies from sequences data goes to the sequencer evaluation. */
   ComponentKey sequencer_key(&scene->id, NodeType::SEQUENCER);
   Sequence *seq;
@@ -2345,17 +2362,41 @@ void DepsgraphRelationBuilder::build_scene_sequencer(Scene *scene)
       add_relation(sound_key, sequencer_key, "Sound -> Sequencer");
       has_audio_strips = true;
     }
-    /* TODO(sergey): Movie clip, scene, camera, mask. */
+    if (seq->scene != NULL) {
+      build_scene_parameters(seq->scene);
+      /* This is to support 3D audio. */
+      has_audio_strips = true;
+    }
+    if (seq->type == SEQ_TYPE_SCENE && seq->scene != NULL) {
+      if (seq->flag & SEQ_SCENE_STRIPS) {
+        build_scene_sequencer(seq->scene);
+        ComponentKey sequence_scene_audio_key(&seq->scene->id, NodeType::AUDIO);
+        add_relation(sequence_scene_audio_key, scene_audio_key, "Sequence Audio -> Scene Audio");
+      }
+      ViewLayer *sequence_view_layer = BKE_view_layer_default_render(seq->scene);
+      build_scene_speakers(seq->scene, sequence_view_layer);
+    }
+    /* TODO(sergey): Movie clip, camera, mask. */
   }
   SEQ_END;
   if (has_audio_strips) {
-    ComponentKey scene_audio_key(&scene->id, NodeType::AUDIO);
     add_relation(sequencer_key, scene_audio_key, "Sequencer -> Audio");
   }
 }
 
 void DepsgraphRelationBuilder::build_scene_audio(Scene * /*scene*/)
 {
+}
+
+void DepsgraphRelationBuilder::build_scene_speakers(Scene * /*scene*/, ViewLayer *view_layer)
+{
+  LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+    Object *object = base->object;
+    if (object->type != OB_SPEAKER || !need_pull_base_into_graph(base)) {
+      continue;
+    }
+    build_object(NULL, base->object);
+  }
 }
 
 void DepsgraphRelationBuilder::build_copy_on_write_relations()
@@ -2478,7 +2519,7 @@ void DepsgraphRelationBuilder::build_copy_on_write_relations(IDNode *id_node)
     }
     GHASH_FOREACH_END();
     /* NOTE: We currently ignore implicit relations to an external
-     * datablocks for copy-on-write operations. This means, for example,
+     * data-blocks for copy-on-write operations. This means, for example,
      * copy-on-write component of Object will not wait for copy-on-write
      * component of it's Mesh. This is because pointers are all known
      * already so remapping will happen all correct. And then If some object

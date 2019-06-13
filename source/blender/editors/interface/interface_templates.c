@@ -1723,7 +1723,7 @@ void uiTemplatePathBuilder(uiLayout *layout,
 
 /************************ Modifier Template *************************/
 
-#define ERROR_LIBDATA_MESSAGE IFACE_("Can't edit external library data")
+#define ERROR_LIBDATA_MESSAGE TIP_("Can't edit external library data")
 
 static void modifiers_convertToReal(bContext *C, void *ob_v, void *md_v)
 {
@@ -2550,7 +2550,7 @@ static uiLayout *draw_constraint(uiLayout *layout, Object *ob, bConstraint *con)
 
   /* Set but-locks for protected settings (magic numbers are used here!) */
   if (proxy_protected) {
-    UI_block_lock_set(block, true, IFACE_("Cannot edit Proxy-Protected Constraint"));
+    UI_block_lock_set(block, true, TIP_("Cannot edit Proxy-Protected Constraint"));
   }
 
   /* Draw constraint data */
@@ -3079,7 +3079,7 @@ static void colorband_update_cb(bContext *UNUSED(C), void *bt_v, void *coba_v)
   uiBut *bt = bt_v;
   ColorBand *coba = coba_v;
 
-  /* sneaky update here, we need to sort the colorband points to be in order,
+  /* Sneaky update here, we need to sort the color-band points to be in order,
    * however the RNA pointer then is wrong, so we update it */
   BKE_colorband_update_sort(coba);
   bt->rnapoin.data = coba->data + coba->cur;
