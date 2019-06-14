@@ -59,18 +59,18 @@ static uint8_t lookup_table[256] = {
 
 ccl_device uint hash(uint kx, uint ky, uint kz)
 {
-  uint8_t b1 = (kx & 0xFF000000) >> 24;
-  uint8_t b2 = (kx & 0x00FF0000) >> 16;
-  uint8_t b3 = (kx & 0x0000FF00) >> 8;
-  uint8_t b4 = (kx & 0x000000FF);
-  uint8_t b5 = (ky & 0xFF000000) >> 24;
-  uint8_t b6 = (ky & 0x00FF0000) >> 16;
-  uint8_t b7 = (ky & 0x0000FF00) >> 8;
-  uint8_t b8 = (ky & 0x000000FF);
-  uint8_t b9 = (kz & 0xFF000000) >> 24;
-  uint8_t b10 = (kz & 0x00FF0000) >> 16;
-  uint8_t b11 = (kz & 0x0000FF00) >> 8;
-  uint8_t b12 = (kz & 0x000000FF);
+  uint8_t b1 = (kx >> 0) & 0xFF;
+  uint8_t b2 = (kx >> 8) & 0xFF;
+  uint8_t b3 = (kx >> 16) & 0xFF;
+  uint8_t b4 = (kx >> 24) & 0xFF;
+  uint8_t b5 = (ky >> 0) & 0xFF;
+  uint8_t b6 = (ky >> 8) & 0xFF;
+  uint8_t b7 = (ky >> 16) & 0xFF;
+  uint8_t b8 = (ky >> 24) & 0xFF;
+  uint8_t b9 = (kz >> 0) & 0xFF;
+  uint8_t b10 = (kz >> 8) & 0xFF;
+  uint8_t b11 = (kz >> 16) & 0xFF;
+  uint8_t b12 = (kz >> 24) & 0xFF;
 
   b1 = b1 * 61 + 200;
   b2 = b2 * 59 + 18;
