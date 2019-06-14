@@ -72,18 +72,18 @@ ccl_device uint hash(uint kx, uint ky, uint kz)
   uint8_t b11 = kz >> 16;
   uint8_t b12 = kz >> 24;
 
-  b1 = b1 * 61 + 200;
-  b2 = b2 * 59 + 18;
-  b3 = b3 * 11 + 99;
-  b4 = b4 * 245 + 107;
-  b5 = b5 * 31 + 11;
-  b6 = b6 * 217 + 51;
-  b7 = b7 * 133 + 35;
-  b8 = b8 * 113 + 36;
-  b9 = b9 * 223 + 92;
-  b10 = b10 * 81 + 82;
-  b11 = b11 * 175 + 128;
-  b12 = b12 * 241 + 209;
+  b1 = b1 * 1;
+  b2 = b2 * 3;
+  b3 = b3 * 5;
+  b4 = b4 * 7;
+  b5 = b5 * 9;
+  b6 = b6 * 11;
+  b7 = b7 * 13;
+  b8 = b8 * 15;
+  b9 = b9 * 17;
+  b10 = b10 * 19;
+  b11 = b11 * 21;
+  b12 = b12 * 23;
 
   uint8_t mixed = b1 ^ b2 ^ b3 ^ b4 ^ b5 ^ b6 ^ b7 ^ b8 ^ b9 ^ b10 ^ b11 ^ b12;
   return lookup_table[mixed];
