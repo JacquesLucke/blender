@@ -41,69 +41,72 @@ ccl_device_inline ssei quick_floor_sse(const ssef &x)
 }
 #endif
 
+static uint8_t lookup_table[256] = {
+    229, 239, 214, 247, 11,  206, 113, 235, 250, 44,  234, 221, 197, 147, 49,  213, 36,  249, 91,
+    7,   173, 176, 172, 245, 246, 211, 17,  146, 6,   107, 59,  244, 120, 134, 156, 215, 243, 119,
+    240, 190, 153, 159, 200, 186, 188, 73,  0,   64,  224, 116, 208, 139, 136, 124, 154, 219, 68,
+    30,  83,  60,  118, 241, 37,  180, 112, 102, 148, 131, 227, 171, 40,  43,  1,   130, 90,  192,
+    210, 97,  184, 104, 222, 54,  81,  255, 72,  128, 62,  252, 205, 19,  185, 46,  48,  58,  207,
+    13,  168, 79,  162, 248, 82,  26,  32,  178, 63,  138, 135, 157, 253, 57,  67,  3,   89,  151,
+    110, 105, 8,   14,  170, 24,  129, 152, 99,  169, 177, 28,  47,  141, 108, 55,  125, 114, 181,
+    132, 100, 161, 198, 98,  15,  56,  50,  21,  16,  22,  201, 144, 42,  230, 194, 212, 187, 109,
+    127, 175, 231, 31,  87,  189, 254, 123, 143, 25,  27,  106, 76,  84,  103, 77,  18,  237, 203,
+    78,  12,  61,  122, 232, 75,  33,  140, 251, 92,  199, 149, 196, 41,  195, 216, 9,   158, 193,
+    23,  183, 94,  86,  85,  69,  38,  35,  2,   74,  150, 96,  53,  45,  137, 95,  111, 163, 117,
+    164, 182, 126, 238, 155, 179, 191, 225, 228, 145, 93,  80,  142, 66,  174, 52,  226, 10,  4,
+    217, 71,  39,  223, 242, 88,  165, 166, 209, 133, 167, 34,  65,  220, 29,  202, 204, 115, 233,
+    70,  5,   20,  160, 101, 236, 218, 121, 51};
+
 ccl_device uint hash(uint kx, uint ky, uint kz)
 {
-  // define some handy macros
-#define rot(x, k) (((x) << (k)) | ((x) >> (32 - (k))))
-#define final(a, b, c) \
-  { \
-    c ^= b; \
-    c -= rot(b, 14); \
-    a ^= c; \
-    a -= rot(c, 11); \
-    b ^= a; \
-    b -= rot(a, 25); \
-    c ^= b; \
-    c -= rot(b, 16); \
-    a ^= c; \
-    a -= rot(c, 4); \
-    b ^= a; \
-    b -= rot(a, 14); \
-    c ^= b; \
-    c -= rot(b, 24); \
-  }
-  // now hash the data!
-  uint a, b, c, len = 3;
-  a = b = c = 0xdeadbeef + (len << 2) + 13;
+  uint8_t b1 = (kx & 0xFF000000) >> 24;
+  uint8_t b2 = (kx & 0x00FF0000) >> 16;
+  uint8_t b3 = (kx & 0x0000FF00) >> 8;
+  uint8_t b4 = (kx & 0x000000FF);
+  uint8_t b5 = (ky & 0xFF000000) >> 24;
+  uint8_t b6 = (ky & 0x00FF0000) >> 16;
+  uint8_t b7 = (ky & 0x0000FF00) >> 8;
+  uint8_t b8 = (ky & 0x000000FF);
+  uint8_t b9 = (kz & 0xFF000000) >> 24;
+  uint8_t b10 = (kz & 0x00FF0000) >> 16;
+  uint8_t b11 = (kz & 0x0000FF00) >> 8;
+  uint8_t b12 = (kz & 0x000000FF);
 
-  c += kz;
-  b += ky;
-  a += kx;
-  final(a, b, c);
+  b1 = b1 * 61 + 200;
+  b2 = b2 * 59 + 18;
+  b3 = b3 * 11 + 99;
+  b4 = b4 * 245 + 107;
+  b5 = b5 * 31 + 11;
+  b6 = b6 * 217 + 51;
+  b7 = b7 * 133 + 35;
+  b8 = b8 * 113 + 36;
+  b9 = b9 * 223 + 92;
+  b10 = b10 * 81 + 82;
+  b11 = b11 * 175 + 128;
+  b12 = b12 * 241 + 209;
 
-  return c;
-  // macros not needed anymore
-#undef rot
-#undef final
+  uint8_t mixed = b1 ^ b2 ^ b3 ^ b4 ^ b5 ^ b6 ^ b7 ^ b8 ^ b9 ^ b10 ^ b11 ^ b12;
+  return lookup_table[mixed];
 }
 
 #ifdef __KERNEL_SSE2__
 ccl_device_inline ssei hash_sse(const ssei &kx, const ssei &ky, const ssei &kz)
 {
-#  define rot(x, k) (((x) << (k)) | (srl(x, 32 - (k))))
-#  define xor_rot(a, b, c) \
-    do { \
-      a = a ^ b; \
-      a = a - rot(b, c); \
-    } while (0)
+  uint kx_[4];
+  uint ky_[4];
+  uint kz_[4];
 
-  uint len = 3;
-  ssei magic = ssei(0xdeadbeef + (len << 2) + 13);
-  ssei a = magic + kx;
-  ssei b = magic + ky;
-  ssei c = magic + kz;
+  store4i(kx_, kx);
+  store4i(ky_, ky);
+  store4i(kz_, kz);
 
-  xor_rot(c, b, 14);
-  xor_rot(a, c, 11);
-  xor_rot(b, a, 25);
-  xor_rot(c, b, 16);
-  xor_rot(a, c, 4);
-  xor_rot(b, a, 14);
-  xor_rot(c, b, 24);
+  uint result[4];
+  result[0] = hash(kx_[0], ky_[0], kz_[0]);
+  result[1] = hash(kx_[1], ky_[1], kz_[1]);
+  result[2] = hash(kx_[2], ky_[2], kz_[2]);
+  result[3] = hash(kx_[3], ky_[3], kz_[3]);
 
-  return c;
-#  undef rot
-#  undef xor_rot
+  return load4i(result);
 }
 #endif
 
