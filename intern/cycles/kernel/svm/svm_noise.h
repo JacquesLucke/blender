@@ -431,11 +431,11 @@ ccl_device float fade(float t)
   return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 }
 #ifdef __KERNEL_SSE2__
-ccl_device_inline ssef fade_sse(const ssef *t)
+ccl_device_inline ssef fade_sse(ssef t)
 {
-  ssef a = madd(*t, ssef(6.0f), ssef(-15.0f));
-  ssef b = madd(*t, a, ssef(10.0f));
-  return ((*t) * (*t)) * ((*t) * b);
+  ssef a = madd(t, ssef(6.0f), ssef(-15.0f));
+  ssef b = madd(t, a, ssef(10.0f));
+  return t * t * t * b;
 }
 #endif
 
@@ -546,28 +546,31 @@ ccl_device_noinline float perlin(float x, float y, float z)
 #else
 ccl_device_noinline float perlin(float x, float y, float z)
 {
-  float x_low = floorf(x);
-  float y_low = floorf(y);
-  float z_low = floorf(z);
+  ssef xyz = ssef(x, y, z, 0.0f);
+#  if defined(__KERNEL_SSE41__)
+  ssef xyz_low = floor(xyz);
+  ssef xyz_high = ceil(xyz);
+#  else
+  ssef xyz_low = ssef(0);
+  ssef xyz_high = ssef(1);
+#  endif
+  ssef xyz_frac = xyz - xyz_low;
+  ssef xyz_fac = fade_sse(xyz_frac);
 
-  float x_high = ceilf(x);
-  float y_high = ceilf(y);
-  float z_high = ceilf(z);
+  float xyz_factors[4];
+  store4f(xyz_factors, xyz_fac);
 
-  float x_frac = x - x_low;
-  float y_frac = y - y_low;
-  float z_frac = z - z_low;
+  uint32_t xyz_low_ids[4];
+  uint32_t xyz_high_ids[4];
+  store4f(xyz_low_ids, xyz_low);
+  store4f(xyz_high_ids, xyz_high);
 
-  float x_fac = fade(x_frac);
-  float y_fac = fade(y_frac);
-  float z_fac = fade(z_frac);
-
-  uint32_t x_low_id = as_uint(x_low);
-  uint32_t y_low_id = as_uint(y_low);
-  uint32_t z_low_id = as_uint(z_low);
-  uint32_t x_high_id = as_uint(x_high);
-  uint32_t y_high_id = as_uint(y_high);
-  uint32_t z_high_id = as_uint(z_high);
+  uint32_t x_low_id = xyz_low_ids[0];
+  uint32_t y_low_id = xyz_low_ids[1];
+  uint32_t z_low_id = xyz_low_ids[2];
+  uint32_t x_high_id = xyz_high_ids[0];
+  uint32_t y_high_id = xyz_high_ids[1];
+  uint32_t z_high_id = xyz_high_ids[2];
 
   float corner_lll = hash_to_float(x_low_id, y_low_id, z_low_id);
   float corner_llh = hash_to_float(x_low_id, y_low_id, z_high_id);
@@ -578,9 +581,9 @@ ccl_device_noinline float perlin(float x, float y, float z)
   float corner_hhl = hash_to_float(x_high_id, y_high_id, z_low_id);
   float corner_hhh = hash_to_float(x_high_id, y_high_id, z_high_id);
 
-  float result = interpolate_trilinear(x_fac,
-                                       y_fac,
-                                       z_fac,
+  float result = interpolate_trilinear(xyz_factors[0],
+                                       xyz_factors[1],
+                                       xyz_factors[2],
                                        corner_lll,
                                        corner_llh,
                                        corner_lhl,
