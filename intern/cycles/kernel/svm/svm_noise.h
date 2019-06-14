@@ -59,9 +59,9 @@ static uint8_t lookup_table[256] = {
 
 ccl_device uint hash(uint kx, uint ky, uint kz)
 {
-  uint32_t p32_1 = kx * 75;
-  uint32_t p32_2 = ky * 47;
-  uint32_t p32_3 = kz * 115;
+  uint32_t p32_1 = kx * 33;
+  uint32_t p32_2 = ky * 65;
+  uint32_t p32_3 = kz * 129;
   uint32_t mixed32 = p32_1 ^ p32_2 ^ p32_3;
 
   uint8_t b1 = mixed32 >> 0;
@@ -69,10 +69,10 @@ ccl_device uint hash(uint kx, uint ky, uint kz)
   uint8_t b3 = mixed32 >> 16;
   uint8_t b4 = mixed32 >> 24;
 
-  b1 *= 103;
-  b2 *= 233;
-  b3 *= 241;
-  b4 *= 215;
+  b1 *= 17;
+  b2 *= 33;
+  b3 *= 65;
+  b4 *= 129;
 
   uint8_t mixed = b1 ^ b2 ^ b3 ^ b4;
   return lookup_table[mixed];
