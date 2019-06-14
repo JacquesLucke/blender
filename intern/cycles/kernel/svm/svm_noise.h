@@ -41,6 +41,38 @@ ccl_device_inline ssei quick_floor_sse(const ssef &x)
 }
 #endif
 
+static float interpolate_linear(float t, float v_0, float v_1)
+{
+  return (1 - t) * v_0 + t * v_1;
+}
+
+static float interpolate_bilinear(
+    float t1, float t2, float v_0_0, float v_0_1, float v_1_0, float v_1_1)
+{
+  float v_t1_0 = interpolate_linear(t1, v_0_0, v_1_0);
+  float v_t1_1 = interpolate_linear(t1, v_0_1, v_1_1);
+  float v_t1_t2 = interpolate_linear(t2, v_t1_0, v_t1_1);
+  return v_t1_t2;
+}
+
+static float interpolate_trilinear(float t1,
+                                   float t2,
+                                   float t3,
+                                   float v_0_0_0,
+                                   float v_0_0_1,
+                                   float v_0_1_0,
+                                   float v_0_1_1,
+                                   float v_1_0_0,
+                                   float v_1_0_1,
+                                   float v_1_1_0,
+                                   float v_1_1_1)
+{
+  float v_t1_t2_0 = interpolate_bilinear(t1, t2, v_0_0_0, v_0_1_0, v_1_0_0, v_1_1_0);
+  float v_t1_t2_1 = interpolate_bilinear(t1, t2, v_0_0_1, v_0_1_1, v_1_0_1, v_1_1_1);
+  float v_t1_t2_t3 = interpolate_linear(t3, v_t1_t2_0, v_t1_t2_1);
+  return v_t1_t2_t3;
+}
+
 static uint8_t lookup_table[256] = {
     229, 239, 214, 247, 11,  206, 113, 235, 250, 44,  234, 221, 197, 147, 49,  213, 36,  249, 91,
     7,   173, 176, 172, 245, 246, 211, 17,  146, 6,   107, 59,  244, 120, 134, 156, 215, 243, 119,
@@ -57,7 +89,264 @@ static uint8_t lookup_table[256] = {
     217, 71,  39,  223, 242, 88,  165, 166, 209, 133, 167, 34,  65,  220, 29,  202, 204, 115, 233,
     70,  5,   20,  160, 101, 236, 218, 121, 51};
 
-ccl_device uint hash(uint kx, uint ky, uint kz)
+static float float_lookup_table[256] = {0.41960784313725497f,
+                                        0.5450980392156863f,
+                                        -0.4117647058823529f,
+                                        -0.5372549019607843f,
+                                        -0.403921568627451f,
+                                        0.12941176470588234f,
+                                        -0.04313725490196074f,
+                                        0.0980392156862746f,
+                                        -0.9529411764705882f,
+                                        0.16862745098039222f,
+                                        0.7725490196078431f,
+                                        0.0117647058823529f,
+                                        -0.584313725490196f,
+                                        -0.7568627450980392f,
+                                        0.9529411764705882f,
+                                        0.8509803921568628f,
+                                        0.37254901960784315f,
+                                        0.07450980392156858f,
+                                        1.0f,
+                                        -0.23921568627450984f,
+                                        -0.2784313725490196f,
+                                        -0.7176470588235294f,
+                                        -0.7803921568627451f,
+                                        -0.09019607843137256f,
+                                        0.8352941176470587f,
+                                        -0.4509803921568627f,
+                                        -0.3647058823529412f,
+                                        0.7490196078431373f,
+                                        -0.7725490196078432f,
+                                        -0.41960784313725485f,
+                                        -0.8980392156862745f,
+                                        0.7411764705882353f,
+                                        0.3411764705882352f,
+                                        -0.19215686274509802f,
+                                        -0.13725490196078427f,
+                                        -0.9686274509803922f,
+                                        -0.2705882352941177f,
+                                        0.3254901960784313f,
+                                        -0.4901960784313726f,
+                                        0.027450980392156765f,
+                                        -0.0980392156862745f,
+                                        0.6627450980392158f,
+                                        -0.9450980392156862f,
+                                        -0.45882352941176474f,
+                                        0.41176470588235303f,
+                                        -0.15294117647058825f,
+                                        -0.1215686274509804f,
+                                        -0.050980392156862786f,
+                                        0.9450980392156862f,
+                                        0.08235294117647052f,
+                                        0.10588235294117654f,
+                                        0.584313725490196f,
+                                        -0.26274509803921564f,
+                                        -0.5764705882352941f,
+                                        0.6862745098039216f,
+                                        0.5294117647058822f,
+                                        0.9372549019607843f,
+                                        -0.5137254901960784f,
+                                        -0.07450980392156858f,
+                                        -0.6470588235294117f,
+                                        0.19999999999999996f,
+                                        0.6000000000000001f,
+                                        0.04313725490196085f,
+                                        0.5137254901960784f,
+                                        0.44313725490196076f,
+                                        0.9215686274509804f,
+                                        0.4274509803921569f,
+                                        -0.019607843137254943f,
+                                        -0.7098039215686274f,
+                                        0.050980392156862786f,
+                                        -0.3411764705882353f,
+                                        -0.8274509803921568f,
+                                        -0.4666666666666667f,
+                                        -0.6313725490196078f,
+                                        -0.5686274509803921f,
+                                        -0.5450980392156863f,
+                                        -0.5058823529411764f,
+                                        0.1450980392156862f,
+                                        0.28627450980392166f,
+                                        -0.43529411764705883f,
+                                        0.9058823529411764f,
+                                        0.15294117647058814f,
+                                        0.4509803921568627f,
+                                        0.03529411764705892f,
+                                        -0.7960784313725491f,
+                                        0.615686274509804f,
+                                        -0.9607843137254902f,
+                                        -0.207843137254902f,
+                                        0.8431372549019607f,
+                                        -0.8509803921568627f,
+                                        -0.2313725490196078f,
+                                        0.6313725490196078f,
+                                        -0.35686274509803917f,
+                                        -0.2549019607843137f,
+                                        0.1607843137254903f,
+                                        0.6470588235294117f,
+                                        0.9607843137254901f,
+                                        -0.7490196078431373f,
+                                        0.7333333333333334f,
+                                        0.26274509803921564f,
+                                        -0.14509803921568631f,
+                                        -0.9843137254901961f,
+                                        0.8745098039215686f,
+                                        0.8901960784313725f,
+                                        -0.607843137254902f,
+                                        -0.5294117647058824f,
+                                        0.4980392156862745f,
+                                        -0.8196078431372549f,
+                                        -0.30980392156862746f,
+                                        -0.7254901960784313f,
+                                        -0.7019607843137254f,
+                                        0.9137254901960785f,
+                                        0.8588235294117648f,
+                                        0.45882352941176463f,
+                                        0.9294117647058824f,
+                                        0.8980392156862744f,
+                                        -0.8117647058823529f,
+                                        0.06666666666666665f,
+                                        -0.388235294117647f,
+                                        -0.4745098039215686f,
+                                        -0.3254901960784313f,
+                                        -0.17647058823529416f,
+                                        -0.0039215686274509665f,
+                                        0.24705882352941178f,
+                                        0.388235294117647f,
+                                        -0.9921568627450981f,
+                                        -0.788235294117647f,
+                                        0.11372549019607847f,
+                                        -0.37254901960784315f,
+                                        0.2078431372549019f,
+                                        0.21568627450980382f,
+                                        0.5058823529411764f,
+                                        0.7176470588235293f,
+                                        -0.8352941176470589f,
+                                        -0.6235294117647059f,
+                                        0.2313725490196079f,
+                                        -0.9058823529411765f,
+                                        0.8823529411764706f,
+                                        0.7647058823529411f,
+                                        -0.34901960784313724f,
+                                        -0.0117647058823529f,
+                                        -0.9294117647058824f,
+                                        0.30980392156862746f,
+                                        0.5215686274509803f,
+                                        -0.027450980392156876f,
+                                        0.7882352941176471f,
+                                        0.17647058823529416f,
+                                        0.2784313725490195f,
+                                        0.8274509803921568f,
+                                        -0.8745098039215686f,
+                                        0.2549019607843137f,
+                                        -0.6705882352941177f,
+                                        0.803921568627451f,
+                                        -0.16078431372549018f,
+                                        0.607843137254902f,
+                                        -0.19999999999999996f,
+                                        -0.9372549019607843f,
+                                        0.6392156862745098f,
+                                        0.5921568627450979f,
+                                        -0.24705882352941178f,
+                                        -0.10588235294117643f,
+                                        -0.5529411764705883f,
+                                        0.43529411764705883f,
+                                        0.7098039215686274f,
+                                        0.4745098039215687f,
+                                        -0.615686274509804f,
+                                        0.6549019607843136f,
+                                        -1.0f,
+                                        0.4901960784313726f,
+                                        0.5686274509803921f,
+                                        -0.1686274509803921f,
+                                        0.5529411764705883f,
+                                        0.7254901960784315f,
+                                        -0.7411764705882353f,
+                                        0.9921568627450981f,
+                                        0.2705882352941176f,
+                                        0.1843137254901961f,
+                                        0.5607843137254902f,
+                                        0.7568627450980392f,
+                                        -0.4274509803921569f,
+                                        0.22352941176470598f,
+                                        -0.2941176470588235f,
+                                        -0.03529411764705881f,
+                                        -0.5215686274509803f,
+                                        -0.7333333333333334f,
+                                        -0.44313725490196076f,
+                                        0.09019607843137245f,
+                                        -0.9137254901960784f,
+                                        -0.33333333333333337f,
+                                        -0.8431372549019608f,
+                                        0.48235294117647065f,
+                                        -0.08235294117647063f,
+                                        0.6235294117647059f,
+                                        0.3803921568627451f,
+                                        0.1215686274509804f,
+                                        -0.6941176470588235f,
+                                        0.9764705882352942f,
+                                        0.3176470588235294f,
+                                        -0.22352941176470587f,
+                                        0.8196078431372549f,
+                                        0.3019607843137255f,
+                                        -0.3803921568627451f,
+                                        0.019607843137254832f,
+                                        0.780392156862745f,
+                                        -0.1843137254901961f,
+                                        0.3647058823529412f,
+                                        0.7960784313725491f,
+                                        -0.9764705882352941f,
+                                        -0.6549019607843137f,
+                                        0.33333333333333326f,
+                                        -0.11372549019607847f,
+                                        0.8666666666666667f,
+                                        -0.7647058823529411f,
+                                        -0.4980392156862745f,
+                                        0.05882352941176472f,
+                                        -0.3176470588235294f,
+                                        -0.6784313725490196f,
+                                        0.6941176470588235f,
+                                        -0.6862745098039216f,
+                                        0.3568627450980393f,
+                                        0.5764705882352941f,
+                                        -0.8901960784313725f,
+                                        0.5372549019607844f,
+                                        -0.592156862745098f,
+                                        0.34901960784313735f,
+                                        0.39607843137254894f,
+                                        -0.6627450980392157f,
+                                        0.13725490196078427f,
+                                        0.6784313725490196f,
+                                        -0.05882352941176472f,
+                                        0.46666666666666656f,
+                                        0.8117647058823529f,
+                                        -0.28627450980392155f,
+                                        0.968627450980392f,
+                                        -0.6f,
+                                        -0.21568627450980393f,
+                                        0.4039215686274509f,
+                                        0.9843137254901961f,
+                                        0.19215686274509802f,
+                                        -0.9215686274509804f,
+                                        -0.06666666666666665f,
+                                        0.0039215686274509665f,
+                                        -0.8823529411764706f,
+                                        -0.6392156862745098f,
+                                        -0.12941176470588234f,
+                                        -0.3019607843137255f,
+                                        -0.39607843137254906f,
+                                        0.2941176470588236f,
+                                        -0.8588235294117648f,
+                                        -0.5607843137254902f,
+                                        -0.8666666666666667f,
+                                        -0.48235294117647054f,
+                                        0.6705882352941177f,
+                                        -0.803921568627451f,
+                                        0.23921568627450984f,
+                                        0.7019607843137254f};
+
+ccl_device uint8_t hash_impl(uint kx, uint ky, uint kz)
 {
   uint32_t part_1 = kx * 1;
   uint32_t part_2 = ky * 75;
@@ -76,7 +365,17 @@ ccl_device uint hash(uint kx, uint ky, uint kz)
   b4 *= 233;
 
   uint8_t mixed = b1 ^ b2 ^ b3 ^ b4;
-  return lookup_table[mixed];
+  return mixed;
+}
+
+ccl_device uint8_t hash(uint kx, uint ky, uint kz)
+{
+  return lookup_table[hash_impl(kx, ky, kz)];
+}
+
+ccl_device float hash_to_float(uint kx, uint ky, uint kz)
+{
+  return float_lookup_table[hash_impl(kx, ky, kz)];
 }
 
 #ifdef __KERNEL_SSE2__
@@ -127,12 +426,11 @@ ccl_device_inline ssef floorfrac_sse(const ssef &x, ssei *i)
 }
 #endif
 
-#ifndef __KERNEL_SSE2__
 ccl_device float fade(float t)
 {
   return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 }
-#else
+#ifdef __KERNEL_SSE2__
 ccl_device_inline ssef fade_sse(const ssef *t)
 {
   ssef a = madd(*t, ssef(6.0f), ssef(-15.0f));
@@ -248,43 +546,88 @@ ccl_device_noinline float perlin(float x, float y, float z)
 #else
 ccl_device_noinline float perlin(float x, float y, float z)
 {
-  ssef xyz = ssef(x, y, z, 0.0f);
-  ssei XYZ;
+  float x_low = floorf(x);
+  float y_low = floorf(y);
+  float z_low = floorf(z);
 
-  ssef fxyz = floorfrac_sse(xyz, &XYZ);
+  float x_high = ceilf(x);
+  float y_high = ceilf(y);
+  float z_high = ceilf(z);
 
-  ssef uvw = fade_sse(&fxyz);
-  ssef u = shuffle<0>(uvw), v = shuffle<1>(uvw), w = shuffle<2>(uvw);
+  float x_frac = x - x_low;
+  float y_frac = y - y_low;
+  float z_frac = z - z_low;
 
-  ssei XYZ_ofc = XYZ + ssei(1);
-  ssei vdy = shuffle<1, 1, 1, 1>(XYZ, XYZ_ofc);                       // +0, +0, +1, +1
-  ssei vdz = shuffle<0, 2, 0, 2>(shuffle<2, 2, 2, 2>(XYZ, XYZ_ofc));  // +0, +1, +0, +1
+  float x_fac = fade(x_frac);
+  float y_fac = fade(y_frac);
+  float z_fac = fade(z_frac);
 
-  ssei h1 = hash_sse(shuffle<0>(XYZ), vdy, vdz);      // hash directions 000, 001, 010, 011
-  ssei h2 = hash_sse(shuffle<0>(XYZ_ofc), vdy, vdz);  // hash directions 100, 101, 110, 111
+  uint32_t x_low_id = as_uint(x_low);
+  uint32_t y_low_id = as_uint(y_low);
+  uint32_t z_low_id = as_uint(z_low);
+  uint32_t x_high_id = as_uint(x_high);
+  uint32_t y_high_id = as_uint(y_high);
+  uint32_t z_high_id = as_uint(z_high);
 
-  ssef fxyz_ofc = fxyz - ssef(1.0f);
-  ssef vfy = shuffle<1, 1, 1, 1>(fxyz, fxyz_ofc);
-  ssef vfz = shuffle<0, 2, 0, 2>(shuffle<2, 2, 2, 2>(fxyz, fxyz_ofc));
+  float corner_lll = hash_to_float(x_low_id, y_low_id, z_low_id);
+  float corner_llh = hash_to_float(x_low_id, y_low_id, z_high_id);
+  float corner_lhl = hash_to_float(x_low_id, y_high_id, z_low_id);
+  float corner_lhh = hash_to_float(x_low_id, y_high_id, z_high_id);
+  float corner_hll = hash_to_float(x_high_id, y_low_id, z_low_id);
+  float corner_hlh = hash_to_float(x_high_id, y_low_id, z_high_id);
+  float corner_hhl = hash_to_float(x_high_id, y_high_id, z_low_id);
+  float corner_hhh = hash_to_float(x_high_id, y_high_id, z_high_id);
 
-  ssef g1 = grad_sse(h1, shuffle<0>(fxyz), vfy, vfz);
-  ssef g2 = grad_sse(h2, shuffle<0>(fxyz_ofc), vfy, vfz);
-  ssef n1 = nerp_sse(u, g1, g2);
+  float result = interpolate_trilinear(x_fac,
+                                       y_fac,
+                                       z_fac,
+                                       corner_lll,
+                                       corner_llh,
+                                       corner_lhl,
+                                       corner_lhh,
+                                       corner_hll,
+                                       corner_hlh,
+                                       corner_hhl,
+                                       corner_hhh);
+  return result;
 
-  ssef n1_half = shuffle<2, 3, 2, 3>(n1);  // extract 2 floats to a separate vector
-  ssef n2 = nerp_sse(
-      v, n1, n1_half);  // process nerp([a, b, _, _], [c, d, _, _]) -> [a', b', _, _]
+  // ssef xyz = ssef(x, y, z, 0.0f);
+  // ssei XYZ;
 
-  ssef n2_second = shuffle<1>(n2);  // extract b to a separate vector
-  ssef result = nerp_sse(
-      w, n2, n2_second);  // process nerp([a', _, _, _], [b', _, _, _]) -> [a'', _, _, _]
+  // ssef fxyz = floorfrac_sse(xyz, &XYZ);
 
-  ssef r = scale3_sse(result);
+  // ssef uvw = fade_sse(&fxyz);
+  // ssef u = shuffle<0>(uvw), v = shuffle<1>(uvw), w = shuffle<2>(uvw);
 
-  ssef infmask = cast(ssei(0x7f800000));
-  ssef rinfmask = ((r & infmask) == infmask).m128;  // 0xffffffff if r is inf/-inf/nan else 0
-  ssef rfinite = andnot(rinfmask, r);               // 0 if r is inf/-inf/nan else r
-  return extract<0>(rfinite);
+  // ssei XYZ_ofc = XYZ + ssei(1);
+  // ssei vdy = shuffle<1, 1, 1, 1>(XYZ, XYZ_ofc);                       // +0, +0, +1, +1
+  // ssei vdz = shuffle<0, 2, 0, 2>(shuffle<2, 2, 2, 2>(XYZ, XYZ_ofc));  // +0, +1, +0, +1
+
+  // ssei h1 = hash_sse(shuffle<0>(XYZ), vdy, vdz);      // hash directions 000, 001, 010, 011
+  // ssei h2 = hash_sse(shuffle<0>(XYZ_ofc), vdy, vdz);  // hash directions 100, 101, 110, 111
+
+  // ssef fxyz_ofc = fxyz - ssef(1.0f);
+  // ssef vfy = shuffle<1, 1, 1, 1>(fxyz, fxyz_ofc);
+  // ssef vfz = shuffle<0, 2, 0, 2>(shuffle<2, 2, 2, 2>(fxyz, fxyz_ofc));
+
+  // ssef g1 = grad_sse(h1, shuffle<0>(fxyz), vfy, vfz);
+  // ssef g2 = grad_sse(h2, shuffle<0>(fxyz_ofc), vfy, vfz);
+  // ssef n1 = nerp_sse(u, g1, g2);
+
+  // ssef n1_half = shuffle<2, 3, 2, 3>(n1);  // extract 2 floats to a separate vector
+  // ssef n2 = nerp_sse(
+  //     v, n1, n1_half);  // process nerp([a, b, _, _], [c, d, _, _]) -> [a', b', _, _]
+
+  // ssef n2_second = shuffle<1>(n2);  // extract b to a separate vector
+  // ssef result = nerp_sse(
+  //     w, n2, n2_second);  // process nerp([a', _, _, _], [b', _, _, _]) -> [a'', _, _, _]
+
+  // ssef r = scale3_sse(result);
+
+  // ssef infmask = cast(ssei(0x7f800000));
+  // ssef rinfmask = ((r & infmask) == infmask).m128;  // 0xffffffff if r is inf/-inf/nan else 0
+  // ssef rfinite = andnot(rinfmask, r);               // 0 if r is inf/-inf/nan else r
+  // return extract<0>(rfinite);
 }
 #endif
 
