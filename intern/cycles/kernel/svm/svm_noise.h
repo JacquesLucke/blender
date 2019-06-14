@@ -346,26 +346,25 @@ static float float_lookup_table[256] = {0.41960784313725497f,
                                         0.23921568627450984f,
                                         0.7019607843137254f};
 
-ccl_device uint8_t hash_impl(uint kx, uint ky, uint kz)
+ccl_device_inline uint8_t hash_to_byte(uint32_t value)
 {
-  uint32_t part_1 = kx * 1;
-  uint32_t part_2 = ky * 75;
-  uint32_t part_3 = kz * 177;
-
-  uint32_t mixed32 = part_1 ^ part_2 ^ part_3;
-
-  uint8_t b1 = mixed32 >> 0;
-  uint8_t b2 = mixed32 >> 8;
-  uint8_t b3 = mixed32 >> 16;
-  uint8_t b4 = mixed32 >> 24;
+  uint8_t b1 = value >> 0;
+  uint8_t b2 = value >> 8;
+  uint8_t b3 = value >> 16;
+  uint8_t b4 = value >> 24;
 
   b1 *= 1;
   b2 *= 75;
   b3 *= 177;
   b4 *= 233;
 
-  uint8_t mixed = b1 ^ b2 ^ b3 ^ b4;
-  return mixed;
+  uint8_t result = b1 ^ b2 ^ b3 ^ b4;
+  return result;
+}
+
+ccl_device_inline uint8_t hash_impl(uint kx, uint ky, uint kz)
+{
+  return hash_to_byte(kx ^ ky ^ kz);
 }
 
 ccl_device uint8_t hash(uint kx, uint ky, uint kz)
@@ -566,11 +565,11 @@ ccl_device_noinline float perlin(float x, float y, float z)
   store4f(xyz_high_ids, xyz_high);
 
   uint32_t x_low_id = xyz_low_ids[0];
-  uint32_t y_low_id = xyz_low_ids[1];
-  uint32_t z_low_id = xyz_low_ids[2];
+  uint32_t y_low_id = xyz_low_ids[1] * 75;
+  uint32_t z_low_id = xyz_low_ids[2] * 177;
   uint32_t x_high_id = xyz_high_ids[0];
-  uint32_t y_high_id = xyz_high_ids[1];
-  uint32_t z_high_id = xyz_high_ids[2];
+  uint32_t y_high_id = xyz_high_ids[1] * 75;
+  uint32_t z_high_id = xyz_high_ids[2] * 177;
 
   float corner_lll = hash_to_float(x_low_id, y_low_id, z_low_id);
   float corner_llh = hash_to_float(x_low_id, y_low_id, z_high_id);
