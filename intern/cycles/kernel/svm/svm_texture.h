@@ -20,27 +20,40 @@ CCL_NAMESPACE_BEGIN
 
 ccl_device_noinline float noise_turbulence(float3 p, float octaves, int hard)
 {
+  octaves = clamp(octaves, 0.0f, 16.0f);
+  int n = float_to_int(octaves);
+
+  int i = n;
+  float sum = 0.0f;
   float fscale = 1.0f;
   float amp = 1.0f;
-  float sum = 0.0f;
-  int i, n;
+  while (i > 0) {
+#ifdef __KERNEL_SSE2__
+    if (i > 4) {
+      ssef x = ssef(p.x, p.x * 2.0f, p.x * 4.0f, p.x * 8.0f);
+      ssef y = ssef(p.y, p.y * 2.0f, p.y * 4.0f, p.y * 8.0f);
+      ssef z = ssef(p.z, p.z * 2.0f, p.z * 4.0f, p.z * 8.0f);
+      ssef t = noise(x, y, z);
+      t *= ssef(amp, amp * 0.5f, amp * 0.25f, amp * 0.125f);
 
-  octaves = clamp(octaves, 0.0f, 16.0f);
-  n = float_to_int(octaves);
+      float ts[4];
+      store4f(ts, t);
+      sum += ts[0] + ts[1] + ts[2] + ts[3];
 
-  for (i = 0; i <= n; i++) {
+      fscale *= 16.0f;
+      amp *= 0.06125f;
+      i -= 4;
+      continue;
+    }
+#endif
     float t = noise(fscale * p);
-
-    if (hard)
-      t = fabsf(2.0f * t - 1.0f);
-
     sum += t * amp;
     amp *= 0.5f;
     fscale *= 2.0f;
+    i -= 1;
   }
 
   float rmd = octaves - floorf(octaves);
-
   if (rmd != 0.0f) {
     float t = noise(fscale * p);
 

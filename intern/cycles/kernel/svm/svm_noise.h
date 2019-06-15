@@ -589,7 +589,7 @@ ccl_device_noinline ssef perlin(ssef x, ssef y, ssef z)
                                       corner_hlh,
                                       corner_hhl,
                                       corner_hhh);
-
+  return result;
 #  else
   return ssef(0.0f);
 #  endif
@@ -659,6 +659,18 @@ ccl_device float snoise(float3 p)
 {
   return perlin(p.x, p.y, p.z);
 }
+
+#ifdef __KERNEL_SSE2__
+ccl_device ssef noise(ssef x, ssef y, ssef z)
+{
+  return 0.5 * perlin(x, y, z) + 0.5f;
+}
+
+ccl_device ssef snoise(ssef x, ssef y, ssef z)
+{
+  return perlin(x, y, z);
+}
+#endif
 
 /* cell noise */
 ccl_device float cellnoise(float3 p)
