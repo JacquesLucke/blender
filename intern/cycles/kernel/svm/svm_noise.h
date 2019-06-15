@@ -348,54 +348,29 @@ static float float_lookup_table[256] = {0.41960784313725497f,
 
 ccl_device_inline uint8_t hash_to_byte(uint32_t value)
 {
-  uint8_t b1 = value >> 0;
-  uint8_t b2 = value >> 8;
-  uint8_t b3 = value >> 16;
-  uint8_t b4 = value >> 24;
+  uint32_t part_1 = value;
+  uint32_t part_2 = (value >> 8) * 75;
+  uint32_t part_3 = (value >> 16) * 177;
+  uint32_t part_4 = (value >> 24) * 233;
 
-  b1 *= 1;
-  b2 *= 75;
-  b3 *= 177;
-  b4 *= 233;
-
-  uint8_t result = b1 ^ b2 ^ b3 ^ b4;
-  return result;
+  return part_1 ^ part_2 ^ part_3 ^ part_4;
 }
 
-ccl_device_inline uint8_t hash_impl(uint kx, uint ky, uint kz)
+ccl_device_inline float hash_to_float(uint32_t value)
 {
-  return hash_to_byte(kx ^ ky ^ kz);
+  return float_lookup_table[hash_to_byte(value)];
 }
 
-ccl_device uint8_t hash(uint kx, uint ky, uint kz)
+ccl_device_inline uint hash(uint x, uint y, uint z)
 {
-  return lookup_table[hash_impl(kx, ky, kz)];
-}
-
-ccl_device float hash_to_float(uint kx, uint ky, uint kz)
-{
-  return float_lookup_table[hash_impl(kx, ky, kz)];
+  return x;
 }
 
 #ifdef __KERNEL_SSE2__
-ccl_device_inline ssei hash_sse(const ssei &kx, const ssei &ky, const ssei &kz)
-{
-  uint kx_[4];
-  uint ky_[4];
-  uint kz_[4];
-
-  store4i(kx_, kx);
-  store4i(ky_, ky);
-  store4i(kz_, kz);
-
-  uint result[4];
-  result[0] = hash(kx_[0], ky_[0], kz_[0]);
-  result[1] = hash(kx_[1], ky_[1], kz_[1]);
-  result[2] = hash(kx_[2], ky_[2], kz_[2]);
-  result[3] = hash(kx_[3], ky_[3], kz_[3]);
-
-  return load4i(result);
-}
+  ccl_device_inline ssei hash_sse(const ssei &kx, const ssei &ky, const ssei &kz)
+  {
+    return ssei(0);
+  }
 #endif
 
 #if 0  // unused
@@ -412,262 +387,277 @@ ccl_device uint phash(int kx, int ky, int kz, int3 p)
 #endif
 
 #ifndef __KERNEL_SSE2__
-ccl_device float floorfrac(float x, int *i)
-{
-  *i = quick_floor_to_int(x);
-  return x - *i;
-}
+  ccl_device float floorfrac(float x, int *i)
+  {
+    *i = quick_floor_to_int(x);
+    return x - *i;
+  }
 #else
-ccl_device_inline ssef floorfrac_sse(const ssef &x, ssei *i)
-{
-  *i = quick_floor_sse(x);
-  return x - ssef(*i);
-}
+  ccl_device_inline ssef floorfrac_sse(const ssef &x, ssei *i)
+  {
+    *i = quick_floor_sse(x);
+    return x - ssef(*i);
+  }
 #endif
 
-ccl_device float fade(float t)
-{
-  return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
-}
+  ccl_device float fade(float t)
+  {
+    return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+  }
 #ifdef __KERNEL_SSE2__
-ccl_device_inline ssef fade_sse(ssef t)
-{
-  ssef a = madd(t, ssef(6.0f), ssef(-15.0f));
-  ssef b = madd(t, a, ssef(10.0f));
-  return t * t * t * b;
-}
+  ccl_device_inline ssef fade_sse(ssef t)
+  {
+    ssef a = madd(t, ssef(6.0f), ssef(-15.0f));
+    ssef b = madd(t, a, ssef(10.0f));
+    return t * t * t * b;
+  }
 #endif
 
 #ifndef __KERNEL_SSE2__
-ccl_device float nerp(float t, float a, float b)
-{
-  return (1.0f - t) * a + t * b;
-}
+  ccl_device float nerp(float t, float a, float b)
+  {
+    return (1.0f - t) * a + t * b;
+  }
 #else
-ccl_device_inline ssef nerp_sse(const ssef &t, const ssef &a, const ssef &b)
-{
-  ssef x1 = (ssef(1.0f) - t) * a;
-  return madd(t, b, x1);
-}
+  ccl_device_inline ssef nerp_sse(const ssef &t, const ssef &a, const ssef &b)
+  {
+    ssef x1 = (ssef(1.0f) - t) * a;
+    return madd(t, b, x1);
+  }
 #endif
 
 #ifndef __KERNEL_SSE2__
-ccl_device float grad(int hash, float x, float y, float z)
-{
-  // use vectors pointing to the edges of the cube
-  int h = hash & 15;
-  float u = h < 8 ? x : y;
-  float vt = ((h == 12) | (h == 14)) ? x : z;
-  float v = h < 4 ? y : vt;
-  return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
-}
+  ccl_device float grad(int hash, float x, float y, float z)
+  {
+    // use vectors pointing to the edges of the cube
+    int h = hash & 15;
+    float u = h < 8 ? x : y;
+    float vt = ((h == 12) | (h == 14)) ? x : z;
+    float v = h < 4 ? y : vt;
+    return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
+  }
 #else
-ccl_device_inline ssef grad_sse(const ssei &hash, const ssef &x, const ssef &y, const ssef &z)
-{
-  ssei c1 = ssei(1);
-  ssei c2 = ssei(2);
+  ccl_device_inline ssef grad_sse(const ssei &hash, const ssef &x, const ssef &y, const ssef &z)
+  {
+    ssei c1 = ssei(1);
+    ssei c2 = ssei(2);
 
-  ssei h = hash & ssei(15);  // h = hash & 15
+    ssei h = hash & ssei(15);  // h = hash & 15
 
-  sseb case_ux = h < ssei(8);  // 0xffffffff if h < 8 else 0
+    sseb case_ux = h < ssei(8);  // 0xffffffff if h < 8 else 0
 
-  ssef u = select(case_ux, x, y);  // u = h<8 ? x : y
+    ssef u = select(case_ux, x, y);  // u = h<8 ? x : y
 
-  sseb case_vy = h < ssei(4);  // 0xffffffff if h < 4 else 0
+    sseb case_vy = h < ssei(4);  // 0xffffffff if h < 4 else 0
 
-  sseb case_h12 = h == ssei(12);  // 0xffffffff if h == 12 else 0
-  sseb case_h14 = h == ssei(14);  // 0xffffffff if h == 14 else 0
+    sseb case_h12 = h == ssei(12);  // 0xffffffff if h == 12 else 0
+    sseb case_h14 = h == ssei(14);  // 0xffffffff if h == 14 else 0
 
-  sseb case_vx = case_h12 | case_h14;  // 0xffffffff if h == 12 or h == 14 else 0
+    sseb case_vx = case_h12 | case_h14;  // 0xffffffff if h == 12 or h == 14 else 0
 
-  ssef v = select(case_vy, y, select(case_vx, x, z));  // v = h<4 ? y : h == 12 || h == 14 ? x : z
+    ssef v = select(
+        case_vy, y, select(case_vx, x, z));  // v = h<4 ? y : h == 12 || h == 14 ? x : z
 
-  ssei case_uneg = (h & c1) << 31;        // 1<<31 if h&1 else 0
-  ssef case_uneg_mask = cast(case_uneg);  // -0.0 if h&1 else +0.0
-  ssef ru = u ^ case_uneg_mask;           // -u if h&1 else u (copy float sign)
+    ssei case_uneg = (h & c1) << 31;        // 1<<31 if h&1 else 0
+    ssef case_uneg_mask = cast(case_uneg);  // -0.0 if h&1 else +0.0
+    ssef ru = u ^ case_uneg_mask;           // -u if h&1 else u (copy float sign)
 
-  ssei case_vneg = (h & c2) << 30;        // 2<<30 if h&2 else 0
-  ssef case_vneg_mask = cast(case_vneg);  // -0.0 if h&2 else +0.0
-  ssef rv = v ^ case_vneg_mask;           // -v if h&2 else v (copy float sign)
+    ssei case_vneg = (h & c2) << 30;        // 2<<30 if h&2 else 0
+    ssef case_vneg_mask = cast(case_vneg);  // -0.0 if h&2 else +0.0
+    ssef rv = v ^ case_vneg_mask;           // -v if h&2 else v (copy float sign)
 
-  ssef r = ru + rv;  // ((h&1) ? -u : u) + ((h&2) ? -v : v)
-  return r;
-}
+    ssef r = ru + rv;  // ((h&1) ? -u : u) + ((h&2) ? -v : v)
+    return r;
+  }
 #endif
 
 #ifndef __KERNEL_SSE2__
-ccl_device float scale3(float result)
-{
-  return 0.9820f * result;
-}
+  ccl_device float scale3(float result)
+  {
+    return 0.9820f * result;
+  }
 #else
-ccl_device_inline ssef scale3_sse(const ssef &result)
-{
-  return ssef(0.9820f) * result;
-}
+  ccl_device_inline ssef scale3_sse(const ssef &result)
+  {
+    return ssef(0.9820f) * result;
+  }
 #endif
 
 #ifndef __KERNEL_SSE2__
-ccl_device_noinline float perlin(float x, float y, float z)
-{
-  int X;
-  float fx = floorfrac(x, &X);
-  int Y;
-  float fy = floorfrac(y, &Y);
-  int Z;
-  float fz = floorfrac(z, &Z);
+  ccl_device_noinline float perlin(float x, float y, float z)
+  {
+    int X;
+    float fx = floorfrac(x, &X);
+    int Y;
+    float fy = floorfrac(y, &Y);
+    int Z;
+    float fz = floorfrac(z, &Z);
 
-  float u = fade(fx);
-  float v = fade(fy);
-  float w = fade(fz);
+    float u = fade(fx);
+    float v = fade(fy);
+    float w = fade(fz);
 
-  float result;
+    float result;
 
-  result = nerp(
-      w,
-      nerp(v,
-           nerp(u, grad(hash(X, Y, Z), fx, fy, fz), grad(hash(X + 1, Y, Z), fx - 1.0f, fy, fz)),
-           nerp(u,
-                grad(hash(X, Y + 1, Z), fx, fy - 1.0f, fz),
-                grad(hash(X + 1, Y + 1, Z), fx - 1.0f, fy - 1.0f, fz))),
-      nerp(v,
-           nerp(u,
-                grad(hash(X, Y, Z + 1), fx, fy, fz - 1.0f),
-                grad(hash(X + 1, Y, Z + 1), fx - 1.0f, fy, fz - 1.0f)),
-           nerp(u,
-                grad(hash(X, Y + 1, Z + 1), fx, fy - 1.0f, fz - 1.0f),
-                grad(hash(X + 1, Y + 1, Z + 1), fx - 1.0f, fy - 1.0f, fz - 1.0f))));
-  float r = scale3(result);
+    result = nerp(
+        w,
+        nerp(v,
+             nerp(u, grad(hash(X, Y, Z), fx, fy, fz), grad(hash(X + 1, Y, Z), fx - 1.0f, fy, fz)),
+             nerp(u,
+                  grad(hash(X, Y + 1, Z), fx, fy - 1.0f, fz),
+                  grad(hash(X + 1, Y + 1, Z), fx - 1.0f, fy - 1.0f, fz))),
+        nerp(v,
+             nerp(u,
+                  grad(hash(X, Y, Z + 1), fx, fy, fz - 1.0f),
+                  grad(hash(X + 1, Y, Z + 1), fx - 1.0f, fy, fz - 1.0f)),
+             nerp(u,
+                  grad(hash(X, Y + 1, Z + 1), fx, fy - 1.0f, fz - 1.0f),
+                  grad(hash(X + 1, Y + 1, Z + 1), fx - 1.0f, fy - 1.0f, fz - 1.0f))));
+    float r = scale3(result);
 
-  /* can happen for big coordinates, things even out to 0.0 then anyway */
-  return (isfinite(r)) ? r : 0.0f;
-}
+    /* can happen for big coordinates, things even out to 0.0 then anyway */
+    return (isfinite(r)) ? r : 0.0f;
+  }
 #else
-ccl_device_noinline float perlin(float x, float y, float z)
-{
-  ssef xyz = ssef(x, y, z, 0.0f);
+  ccl_device_noinline float perlin(float x, float y, float z)
+  {
+    ssef xyz = ssef(x, y, z, 0.0f);
 #  if defined(__KERNEL_SSE41__)
-  ssef xyz_low = floor(xyz);
-  ssef xyz_high = ceil(xyz);
+    ssef xyz_low = floor(xyz);
+    ssef xyz_high = ceil(xyz);
 #  else
-  ssef xyz_low = ssef(0);
-  ssef xyz_high = ssef(1);
+    ssef xyz_low = ssef(0);
+    ssef xyz_high = ssef(1);
 #  endif
-  ssef xyz_frac = xyz - xyz_low;
-  ssef xyz_fac = fade_sse(xyz_frac);
+    ssef xyz_frac = xyz - xyz_low;
+    ssef xyz_fac = fade_sse(xyz_frac);
 
-  float xyz_factors[4];
-  store4f(xyz_factors, xyz_fac);
+    float xyz_factors[4];
+    store4f(xyz_factors, xyz_fac);
 
-  uint32_t xyz_low_ids[4];
-  uint32_t xyz_high_ids[4];
-  store4f(xyz_low_ids, xyz_low);
-  store4f(xyz_high_ids, xyz_high);
+    uint32_t xyz_low_ids[4];
+    uint32_t xyz_high_ids[4];
+    store4f(xyz_low_ids, xyz_low);
+    store4f(xyz_high_ids, xyz_high);
 
-  uint32_t x_low_id = xyz_low_ids[0];
-  uint32_t y_low_id = xyz_low_ids[1] * 75;
-  uint32_t z_low_id = xyz_low_ids[2] * 177;
-  uint32_t x_high_id = xyz_high_ids[0];
-  uint32_t y_high_id = xyz_high_ids[1] * 75;
-  uint32_t z_high_id = xyz_high_ids[2] * 177;
+    uint32_t x_low_id = xyz_low_ids[0];
+    uint32_t y_low_id = xyz_low_ids[1] * 75;
+    uint32_t z_low_id = xyz_low_ids[2] * 177;
+    uint32_t x_high_id = xyz_high_ids[0];
+    uint32_t y_high_id = xyz_high_ids[1] * 75;
+    uint32_t z_high_id = xyz_high_ids[2] * 177;
 
-  float corner_lll = hash_to_float(x_low_id, y_low_id, z_low_id);
-  float corner_llh = hash_to_float(x_low_id, y_low_id, z_high_id);
-  float corner_lhl = hash_to_float(x_low_id, y_high_id, z_low_id);
-  float corner_lhh = hash_to_float(x_low_id, y_high_id, z_high_id);
-  float corner_hll = hash_to_float(x_high_id, y_low_id, z_low_id);
-  float corner_hlh = hash_to_float(x_high_id, y_low_id, z_high_id);
-  float corner_hhl = hash_to_float(x_high_id, y_high_id, z_low_id);
-  float corner_hhh = hash_to_float(x_high_id, y_high_id, z_high_id);
+    uint32_t corner_ll_id = x_low_id ^ y_low_id;
+    uint32_t corner_lh_id = x_low_id ^ y_high_id;
+    uint32_t corner_hl_id = x_high_id ^ y_low_id;
+    uint32_t corner_hh_id = x_high_id ^ y_high_id;
 
-  float result = interpolate_trilinear(xyz_factors[0],
-                                       xyz_factors[1],
-                                       xyz_factors[2],
-                                       corner_lll,
-                                       corner_llh,
-                                       corner_lhl,
-                                       corner_lhh,
-                                       corner_hll,
-                                       corner_hlh,
-                                       corner_hhl,
-                                       corner_hhh);
-  return result;
+    uint32_t corner_lll_id = corner_ll_id ^ z_low_id;
+    uint32_t corner_llh_id = corner_ll_id ^ z_high_id;
+    uint32_t corner_lhl_id = corner_lh_id ^ z_low_id;
+    uint32_t corner_lhh_id = corner_lh_id ^ z_high_id;
+    uint32_t corner_hll_id = corner_hl_id ^ z_low_id;
+    uint32_t corner_hlh_id = corner_hl_id ^ z_high_id;
+    uint32_t corner_hhl_id = corner_hh_id ^ z_low_id;
+    uint32_t corner_hhh_id = corner_hh_id ^ z_high_id;
 
-  // ssef xyz = ssef(x, y, z, 0.0f);
-  // ssei XYZ;
+    float corner_lll = hash_to_float(corner_lll_id);
+    float corner_llh = hash_to_float(corner_llh_id);
+    float corner_lhl = hash_to_float(corner_lhl_id);
+    float corner_lhh = hash_to_float(corner_lhh_id);
+    float corner_hll = hash_to_float(corner_hll_id);
+    float corner_hlh = hash_to_float(corner_hlh_id);
+    float corner_hhl = hash_to_float(corner_hhl_id);
+    float corner_hhh = hash_to_float(corner_hhh_id);
 
-  // ssef fxyz = floorfrac_sse(xyz, &XYZ);
+    float result = interpolate_trilinear(xyz_factors[0],
+                                         xyz_factors[1],
+                                         xyz_factors[2],
+                                         corner_lll,
+                                         corner_llh,
+                                         corner_lhl,
+                                         corner_lhh,
+                                         corner_hll,
+                                         corner_hlh,
+                                         corner_hhl,
+                                         corner_hhh);
+    return result;
 
-  // ssef uvw = fade_sse(&fxyz);
-  // ssef u = shuffle<0>(uvw), v = shuffle<1>(uvw), w = shuffle<2>(uvw);
+    // ssef xyz = ssef(x, y, z, 0.0f);
+    // ssei XYZ;
 
-  // ssei XYZ_ofc = XYZ + ssei(1);
-  // ssei vdy = shuffle<1, 1, 1, 1>(XYZ, XYZ_ofc);                       // +0, +0, +1, +1
-  // ssei vdz = shuffle<0, 2, 0, 2>(shuffle<2, 2, 2, 2>(XYZ, XYZ_ofc));  // +0, +1, +0, +1
+    // ssef fxyz = floorfrac_sse(xyz, &XYZ);
 
-  // ssei h1 = hash_sse(shuffle<0>(XYZ), vdy, vdz);      // hash directions 000, 001, 010, 011
-  // ssei h2 = hash_sse(shuffle<0>(XYZ_ofc), vdy, vdz);  // hash directions 100, 101, 110, 111
+    // ssef uvw = fade_sse(&fxyz);
+    // ssef u = shuffle<0>(uvw), v = shuffle<1>(uvw), w = shuffle<2>(uvw);
 
-  // ssef fxyz_ofc = fxyz - ssef(1.0f);
-  // ssef vfy = shuffle<1, 1, 1, 1>(fxyz, fxyz_ofc);
-  // ssef vfz = shuffle<0, 2, 0, 2>(shuffle<2, 2, 2, 2>(fxyz, fxyz_ofc));
+    // ssei XYZ_ofc = XYZ + ssei(1);
+    // ssei vdy = shuffle<1, 1, 1, 1>(XYZ, XYZ_ofc);                       // +0, +0, +1, +1
+    // ssei vdz = shuffle<0, 2, 0, 2>(shuffle<2, 2, 2, 2>(XYZ, XYZ_ofc));  // +0, +1, +0, +1
 
-  // ssef g1 = grad_sse(h1, shuffle<0>(fxyz), vfy, vfz);
-  // ssef g2 = grad_sse(h2, shuffle<0>(fxyz_ofc), vfy, vfz);
-  // ssef n1 = nerp_sse(u, g1, g2);
+    // ssei h1 = hash_sse(shuffle<0>(XYZ), vdy, vdz);      // hash directions 000, 001, 010, 011
+    // ssei h2 = hash_sse(shuffle<0>(XYZ_ofc), vdy, vdz);  // hash directions 100, 101, 110, 111
 
-  // ssef n1_half = shuffle<2, 3, 2, 3>(n1);  // extract 2 floats to a separate vector
-  // ssef n2 = nerp_sse(
-  //     v, n1, n1_half);  // process nerp([a, b, _, _], [c, d, _, _]) -> [a', b', _, _]
+    // ssef fxyz_ofc = fxyz - ssef(1.0f);
+    // ssef vfy = shuffle<1, 1, 1, 1>(fxyz, fxyz_ofc);
+    // ssef vfz = shuffle<0, 2, 0, 2>(shuffle<2, 2, 2, 2>(fxyz, fxyz_ofc));
 
-  // ssef n2_second = shuffle<1>(n2);  // extract b to a separate vector
-  // ssef result = nerp_sse(
-  //     w, n2, n2_second);  // process nerp([a', _, _, _], [b', _, _, _]) -> [a'', _, _, _]
+    // ssef g1 = grad_sse(h1, shuffle<0>(fxyz), vfy, vfz);
+    // ssef g2 = grad_sse(h2, shuffle<0>(fxyz_ofc), vfy, vfz);
+    // ssef n1 = nerp_sse(u, g1, g2);
 
-  // ssef r = scale3_sse(result);
+    // ssef n1_half = shuffle<2, 3, 2, 3>(n1);  // extract 2 floats to a separate vector
+    // ssef n2 = nerp_sse(
+    //     v, n1, n1_half);  // process nerp([a, b, _, _], [c, d, _, _]) -> [a', b', _, _]
 
-  // ssef infmask = cast(ssei(0x7f800000));
-  // ssef rinfmask = ((r & infmask) == infmask).m128;  // 0xffffffff if r is inf/-inf/nan else 0
-  // ssef rfinite = andnot(rinfmask, r);               // 0 if r is inf/-inf/nan else r
-  // return extract<0>(rfinite);
-}
+    // ssef n2_second = shuffle<1>(n2);  // extract b to a separate vector
+    // ssef result = nerp_sse(
+    //     w, n2, n2_second);  // process nerp([a', _, _, _], [b', _, _, _]) -> [a'', _, _, _]
+
+    // ssef r = scale3_sse(result);
+
+    // ssef infmask = cast(ssei(0x7f800000));
+    // ssef rinfmask = ((r & infmask) == infmask).m128;  // 0xffffffff if r is inf/-inf/nan else 0
+    // ssef rfinite = andnot(rinfmask, r);               // 0 if r is inf/-inf/nan else r
+    // return extract<0>(rfinite);
+  }
 #endif
 
-/* perlin noise in range 0..1 */
-ccl_device float noise(float3 p)
-{
-  float r = perlin(p.x, p.y, p.z);
-  return 0.5f * r + 0.5f;
-}
+  /* perlin noise in range 0..1 */
+  ccl_device float noise(float3 p)
+  {
+    float r = perlin(p.x, p.y, p.z);
+    return 0.5f * r + 0.5f;
+  }
 
-/* perlin noise in range -1..1 */
-ccl_device float snoise(float3 p)
-{
-  return perlin(p.x, p.y, p.z);
-}
+  /* perlin noise in range -1..1 */
+  ccl_device float snoise(float3 p)
+  {
+    return perlin(p.x, p.y, p.z);
+  }
 
-/* cell noise */
-ccl_device float cellnoise(float3 p)
-{
-  int3 ip = quick_floor_to_int3(p);
-  return bits_to_01(hash(ip.x, ip.y, ip.z));
-}
+  /* cell noise */
+  ccl_device float cellnoise(float3 p)
+  {
+    int3 ip = quick_floor_to_int3(p);
+    return bits_to_01(hash(ip.x, ip.y, ip.z));
+  }
 
-ccl_device float3 cellnoise3(float3 p)
-{
-  int3 ip = quick_floor_to_int3(p);
+  ccl_device float3 cellnoise3(float3 p)
+  {
+    int3 ip = quick_floor_to_int3(p);
 #ifndef __KERNEL_SSE__
-  float r = bits_to_01(hash(ip.x, ip.y, ip.z));
-  float g = bits_to_01(hash(ip.y, ip.x, ip.z));
-  float b = bits_to_01(hash(ip.y, ip.z, ip.x));
-  return make_float3(r, g, b);
+    float r = bits_to_01(hash(ip.x, ip.y, ip.z));
+    float g = bits_to_01(hash(ip.y, ip.x, ip.z));
+    float b = bits_to_01(hash(ip.y, ip.z, ip.x));
+    return make_float3(r, g, b);
 #else
-  ssei ip_yxz = shuffle<1, 0, 2, 3>(ssei(ip.m128));
-  ssei ip_xyy = shuffle<0, 1, 1, 3>(ssei(ip.m128));
-  ssei ip_zzx = shuffle<2, 2, 0, 3>(ssei(ip.m128));
-  ssei bits = hash_sse(ip_xyy, ip_yxz, ip_zzx);
-  return float3(uint32_to_float(bits) * ssef(1.0f / (float)0xFFFFFFFF));
+    ssei ip_yxz = shuffle<1, 0, 2, 3>(ssei(ip.m128));
+    ssei ip_xyy = shuffle<0, 1, 1, 3>(ssei(ip.m128));
+    ssei ip_zzx = shuffle<2, 2, 0, 3>(ssei(ip.m128));
+    ssei bits = hash_sse(ip_xyy, ip_yxz, ip_zzx);
+    return float3(uint32_to_float(bits) * ssef(1.0f / (float)0xFFFFFFFF));
 #endif
-}
+  }
 
-CCL_NAMESPACE_END
+  CCL_NAMESPACE_END
