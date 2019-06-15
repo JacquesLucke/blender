@@ -41,24 +41,13 @@ ccl_device_inline ssei quick_floor_sse(const ssef &x)
 }
 #endif
 
-static float interpolate_trilinear(float t1,
-                                   float t2,
-                                   float t3,
-                                   float v_0_0_0,
-                                   float v_0_0_1,
-                                   float v_0_1_0,
-                                   float v_0_1_1,
-                                   float v_1_0_0,
-                                   float v_1_0_1,
-                                   float v_1_1_0,
-                                   float v_1_1_1)
+static float interpolate_trilinear(
+    float t1, float t2, float t3, ssef vs_000_001_010_011, ssef vs_100_101_110_111)
 {
   float t1_inv = 1.0f - t1;
   float t2_inv = 1.0f - t2;
   float t3_inv = 1.0f - t3;
 
-  ssef vs_000_001_010_011 = ssef(v_0_0_0, v_0_0_1, v_0_1_0, v_0_1_1);
-  ssef vs_100_101_110_111 = ssef(v_1_0_0, v_1_0_1, v_1_1_0, v_1_1_1);
   ssef vs_t00_t01_t10_t11 = vs_000_001_010_011 * t1_inv + vs_100_101_110_111 * t1;
   ssef vs_t01_x_t11_x = shuffle<1, 0, 3, 0>(vs_t00_t01_t10_t11);
   ssef vs_t0t_x_t1t_x = vs_t00_t01_t10_t11 * t3_inv + vs_t01_x_t11_x * t3;
@@ -340,6 +329,26 @@ ccl_device_inline float hash_to_float(uint32_t value)
   return float_lookup_table[hash_to_byte(value)];
 }
 
+#ifdef __KERNEL_SSE2__
+ccl_device_inline ssef hash_to_float(ssei values)
+{
+  ssei part_1 = values;
+  ssei part_2 = _mm_mullo_epi32(values >> 8, ssei(75));
+  ssei part_3 = _mm_mullo_epi32(values >> 16, ssei(177));
+  ssei part_4 = _mm_mullo_epi32(values >> 24, ssei(233));
+
+  ssei mixed = part_1 ^ part_2 ^ part_3 ^ part_4;
+  mixed &= ssei(0xFF);
+
+  uint32_t indices[4];
+  store4i(indices, mixed);
+  return ssef(float_lookup_table[indices[0]],
+              float_lookup_table[indices[1]],
+              float_lookup_table[indices[2]],
+              float_lookup_table[indices[3]]);
+}
+#endif
+
 ccl_device_inline uint hash(uint x, uint y, uint z)
 {
   return x;
@@ -530,35 +539,21 @@ ccl_device_noinline float perlin(float x, float y, float z)
   uint32_t corner_hl_id = x_high_id ^ y_low_id;
   uint32_t corner_hh_id = x_high_id ^ y_high_id;
 
-  uint32_t corner_lll_id = corner_ll_id ^ z_low_id;
-  uint32_t corner_llh_id = corner_ll_id ^ z_high_id;
-  uint32_t corner_lhl_id = corner_lh_id ^ z_low_id;
-  uint32_t corner_lhh_id = corner_lh_id ^ z_high_id;
-  uint32_t corner_hll_id = corner_hl_id ^ z_low_id;
-  uint32_t corner_hlh_id = corner_hl_id ^ z_high_id;
-  uint32_t corner_hhl_id = corner_hh_id ^ z_low_id;
-  uint32_t corner_hhh_id = corner_hh_id ^ z_high_id;
+  ssei corner_ids_ll_ll_lh_lh = ssei(corner_ll_id, corner_ll_id, corner_lh_id, corner_lh_id);
+  ssei corner_ids_hl_hl_hh_hh = ssei(corner_hl_id, corner_hl_id, corner_hh_id, corner_hh_id);
+  ssei z_ids = ssei(z_low_id, z_high_id, z_low_id, z_high_id);
 
-  float corner_lll = hash_to_float(corner_lll_id);
-  float corner_llh = hash_to_float(corner_llh_id);
-  float corner_lhl = hash_to_float(corner_lhl_id);
-  float corner_lhh = hash_to_float(corner_lhh_id);
-  float corner_hll = hash_to_float(corner_hll_id);
-  float corner_hlh = hash_to_float(corner_hlh_id);
-  float corner_hhl = hash_to_float(corner_hhl_id);
-  float corner_hhh = hash_to_float(corner_hhh_id);
+  ssei corner_ids_lll_llh_lhl_lhh = corner_ids_ll_ll_lh_lh ^ z_ids;
+  ssei corner_ids_hll_hlh_hhl_hhh = corner_ids_hl_hl_hh_hh ^ z_ids;
+
+  ssef corners_lll_llh_lhl_lhh = hash_to_float(corner_ids_lll_llh_lhl_lhh);
+  ssef corners_hll_hlh_hhl_hhh = hash_to_float(corner_ids_hll_hlh_hhl_hhh);
 
   float result = interpolate_trilinear(xyz_factors[0],
                                        xyz_factors[1],
                                        xyz_factors[2],
-                                       corner_lll,
-                                       corner_llh,
-                                       corner_lhl,
-                                       corner_lhh,
-                                       corner_hll,
-                                       corner_hlh,
-                                       corner_hhl,
-                                       corner_hhh);
+                                       corners_lll_llh_lhl_lhh,
+                                       corners_hll_hlh_hhl_hhh);
   return result;
 
   // ssef xyz = ssef(x, y, z, 0.0f);
