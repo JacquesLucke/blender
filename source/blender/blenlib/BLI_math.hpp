@@ -5,6 +5,16 @@ namespace BLI {
 struct float3 {
   float x, y, z;
 
+  float3() = default;
+
+  float3(float *value) : x{value[0]}, y{value[1]}, z{value[2]}
+  {
+  }
+
+  float3(float x, float y, float z) : x{x}, y{y}, z{z}
+  {
+  }
+
   friend float3 operator+(float3 a, float3 b)
   {
     return {a.x + b.x, a.y + b.y, a.z + b.z};

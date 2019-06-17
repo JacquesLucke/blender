@@ -5988,6 +5988,11 @@ static void rna_def_modifier_node_particles(BlenderRNA *brna)
 
   prop = RNA_def_float(srna, "control2", 0.0, -FLT_MAX, FLT_MAX, "Control 2", "", -10, 10);
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "emitter_object", PROP_POINTER, PROP_NONE);
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Emitter Object", "Object to emit from");
+  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)

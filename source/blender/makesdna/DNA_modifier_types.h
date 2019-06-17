@@ -1974,6 +1974,7 @@ typedef struct FunctionPointsModifierData {
 typedef struct NodeParticlesModifierData {
   ModifierData modifier;
   float control1, control2;
+  struct Object *emitter_object;
 } NodeParticlesModifierData;
 
 #endif /* __DNA_MODIFIER_TYPES_H__ */

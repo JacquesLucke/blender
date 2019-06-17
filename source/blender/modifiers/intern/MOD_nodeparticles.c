@@ -37,6 +37,7 @@
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_scene.h"
+#include "BKE_library_query.h"
 
 #include "BLI_math.h"
 
@@ -61,14 +62,30 @@ static RuntimeData *get_runtime_data(NodeParticlesModifierData *npmd)
   return data;
 }
 
-static void ensure_runtime_data(NodeParticlesModifierData *npmd)
+static BParticlesDescription create_current_description(Object *self,
+                                                        NodeParticlesModifierData *npmd,
+                                                        Depsgraph *depsgraph)
+{
+  float position[3] = {0, 0, 0};
+  if (npmd->emitter_object != NULL) {
+    Object *emitter_eval = DEG_get_evaluated_object(depsgraph, npmd->emitter_object);
+    copy_v3_v3(position, emitter_eval->loc);
+  }
+  mul_m4_v3(self->imat, position);
+  return BParticles_playground_description(npmd->control1, npmd->control2, position);
+}
+
+static void ensure_runtime_data(Object *self,
+                                NodeParticlesModifierData *npmd,
+                                Depsgraph *depsgraph)
 {
   if (npmd->modifier.runtime != NULL) {
     return;
   }
 
   RuntimeData *runtime = MEM_callocN(sizeof(RuntimeData), __func__);
-  runtime->description = BParticles_playground_description(npmd->control1, npmd->control2);
+
+  runtime->description = create_current_description(self, npmd, depsgraph);
   runtime->solver = BParticles_solver_build(runtime->description);
   runtime->state = BParticles_state_init(runtime->solver);
   runtime->last_simulated_frame = 0.0f;
@@ -97,7 +114,7 @@ static Mesh *applyModifier(ModifierData *md,
                            Mesh *UNUSED(mesh))
 {
   NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
-  ensure_runtime_data(npmd);
+  ensure_runtime_data(ctx->object, npmd, ctx->depsgraph);
   RuntimeData *runtime = get_runtime_data(npmd);
 
   Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
@@ -105,8 +122,8 @@ static Mesh *applyModifier(ModifierData *md,
   float fps = FPS;
 
   if (current_frame != runtime->last_simulated_frame) {
-    BParticlesDescription new_description = BParticles_playground_description(npmd->control1,
-                                                                              npmd->control2);
+    BParticlesDescription new_description = create_current_description(
+        ctx->object, npmd, ctx->depsgraph);
     BParticlesSolver new_solver = BParticles_solver_build(new_description);
 
     if (current_frame == runtime->last_simulated_frame + 1) {
@@ -170,9 +187,20 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
   return true;
 }
 
-static void updateDepsgraph(ModifierData *UNUSED(md),
-                            const ModifierUpdateDepsgraphContext *UNUSED(ctx))
+static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
 {
+  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
+  if (npmd->emitter_object) {
+    DEG_add_object_relation(
+        ctx->node, npmd->emitter_object, DEG_OB_COMP_TRANSFORM, "Node Particles Modifier");
+  }
+}
+
+static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk, void *userData)
+{
+  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
+
+  walk(userData, ob, &npmd->emitter_object, IDWALK_CB_NOP);
 }
 
 static void foreachIDLink(ModifierData *UNUSED(md),
@@ -203,7 +231,7 @@ ModifierTypeInfo modifierType_NodeParticles = {
     /* updateDepsgraph */ updateDepsgraph,
     /* dependsOnTime */ dependsOnTime,
     /* dependsOnNormals */ NULL,
-    /* foreachObjectLink */ NULL,
+    /* foreachObjectLink */ foreachObjectLink,
     /* foreachIDLink */ foreachIDLink,
     /* foreachTexLink */ NULL,
     /* freeRuntimeData */ freeRuntimeData,

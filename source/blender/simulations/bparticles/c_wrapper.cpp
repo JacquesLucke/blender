@@ -94,9 +94,11 @@ class TestEmitter : public BParticles::Emitter {
   }
 };
 
-BParticlesDescription BParticles_playground_description(float control1, float control2)
+BParticlesDescription BParticles_playground_description(float control1,
+                                                        float control2,
+                                                        float *emitter_position)
 {
-  auto emitter = BParticles::new_point_emitter({4, 4, 4});
+  auto emitter = BParticles::new_point_emitter(emitter_position);
 
   Description *description = new Description(
       {new TestForce(control1), new TurbulenceForce(control2)}, {emitter.release()});
