@@ -2,6 +2,7 @@
 #include "core.hpp"
 #include "particles_container.hpp"
 #include "playground_solver.hpp"
+#include "emitter.hpp"
 #include "BLI_noise.h"
 
 #define WRAPPERS(T1, T2) \
@@ -77,7 +78,7 @@ class TestEmitter : public BParticles::Emitter {
     builder.inits_float3_attribute("Velocity");
   }
 
-  void emit(std::function<EmitterBuffers &()> request_buffers) override
+  void emit(BParticles::RequestEmitterBufferCB request_buffers) override
   {
     EmitterBuffers &dst = request_buffers();
     BLI_assert(dst.size() > 0);
@@ -95,8 +96,10 @@ class TestEmitter : public BParticles::Emitter {
 
 BParticlesDescription BParticles_playground_description(float control1, float control2)
 {
+  auto emitter = BParticles::new_point_emitter({4, 4, 4});
+
   Description *description = new Description(
-      {new TestForce(control1), new TurbulenceForce(control2)}, {new TestEmitter()});
+      {new TestForce(control1), new TurbulenceForce(control2)}, {emitter.release()});
   return wrap(description);
 }
 void BParticles_description_free(BParticlesDescription description_c)

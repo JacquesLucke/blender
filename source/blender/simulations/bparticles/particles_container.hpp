@@ -257,6 +257,9 @@ inline void ParticlesBlock::move(uint old_index, uint new_index)
   for (float3 *buffer : m_vec3_buffers) {
     buffer[new_index] = buffer[old_index];
   }
+  for (uint8_t *buffer : m_byte_buffers) {
+    buffer[new_index] = buffer[old_index];
+  }
 }
 
 /* Particles Block Slice

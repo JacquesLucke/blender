@@ -159,12 +159,14 @@ class EmitterInfoBuilder {
   }
 };
 
+using RequestEmitterBufferCB = std::function<EmitterBuffers &()>;
+
 class Emitter {
  public:
   virtual ~Emitter();
 
   virtual void info(EmitterInfoBuilder &info) const = 0;
-  virtual void emit(std::function<EmitterBuffers &()> request_buffers) = 0;
+  virtual void emit(RequestEmitterBufferCB request_buffers) = 0;
 };
 
 class Description {
