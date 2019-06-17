@@ -55,3 +55,22 @@ TEST(range, SubscriptOperator)
   EXPECT_EQ(range[1], 6);
   EXPECT_EQ(range[2], 7);
 }
+
+TEST(range, Before)
+{
+  IntRange range = IntRange(5, 10).before(3);
+  EXPECT_EQ(range[0], 2);
+  EXPECT_EQ(range[1], 3);
+  EXPECT_EQ(range[2], 4);
+  EXPECT_EQ(range.size(), 3);
+}
+
+TEST(range, After)
+{
+  IntRange range = IntRange(5, 10).after(4);
+  EXPECT_EQ(range[0], 10);
+  EXPECT_EQ(range[1], 11);
+  EXPECT_EQ(range[2], 12);
+  EXPECT_EQ(range[3], 13);
+  EXPECT_EQ(range.size(), 4);
+}

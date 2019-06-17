@@ -68,5 +68,15 @@ template<typename T> class Range {
   {
     return m_one_after_last - m_start;
   }
+
+  Range after(uint n) const
+  {
+    return Range(m_one_after_last, m_one_after_last + n);
+  }
+
+  Range before(uint n) const
+  {
+    return Range(m_start - n, m_start);
+  }
 };
 }  // namespace BLI
