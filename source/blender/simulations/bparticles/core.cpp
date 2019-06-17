@@ -2,10 +2,6 @@
 
 namespace BParticles {
 
-NamedBuffers::~NamedBuffers()
-{
-}
-
 Description::~Description()
 {
   for (Force *force : m_forces) {

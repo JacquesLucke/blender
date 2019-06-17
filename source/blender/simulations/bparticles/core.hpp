@@ -9,6 +9,8 @@
 #include "BLI_utildefines.h"
 #include "BLI_string_ref.hpp"
 
+#include "attributes.hpp"
+
 namespace BParticles {
 class Description;
 class Solver;
@@ -25,35 +27,26 @@ using BLI::SmallVector;
 using BLI::StringRef;
 using std::unique_ptr;
 
-class NamedBuffers {
- public:
-  virtual ~NamedBuffers();
-  virtual uint size() = 0;
-  virtual ArrayRef<float> get_float(StringRef name) = 0;
-  virtual ArrayRef<float3> get_float3(StringRef name) = 0;
-  virtual ArrayRef<uint8_t> get_byte(StringRef name) = 0;
-};
-
 class Force {
  public:
   virtual ~Force();
-  virtual void add_force(NamedBuffers &buffers, ArrayRef<float3> dst) = 0;
+  virtual void add_force(AttributeArrays &attributes, ArrayRef<float3> dst) = 0;
 };
 
 class Action {
  public:
   virtual ~Action();
 
-  virtual void execute(NamedBuffers &buffers, ArrayRef<uint> indices_to_influence) = 0;
+  virtual void execute(AttributeArrays &attributes, ArrayRef<uint> indices_to_influence) = 0;
 };
 
 class EmitterBuffers {
  private:
-  NamedBuffers &m_buffers;
+  AttributeArrays m_buffers;
   uint m_emitted_amount = 0;
 
  public:
-  EmitterBuffers(NamedBuffers &buffers) : m_buffers(buffers)
+  EmitterBuffers(AttributeArrays buffers) : m_buffers(buffers)
   {
   }
 
@@ -68,7 +61,7 @@ class EmitterBuffers {
     return m_emitted_amount;
   }
 
-  NamedBuffers &buffers()
+  AttributeArrays &buffers()
   {
     return m_buffers;
   }

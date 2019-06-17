@@ -15,10 +15,10 @@
     return (T2)value; \
   }
 
+using BParticles::AttributeArrays;
 using BParticles::Description;
 using BParticles::EmitterBuffers;
 using BParticles::EmitterInfoBuilder;
-using BParticles::NamedBuffers;
 using BParticles::ParticlesBlock;
 using BParticles::Solver;
 using BParticles::StateBase;
@@ -42,7 +42,7 @@ class TestForce : public BParticles::Force {
   {
   }
 
-  void add_force(NamedBuffers &UNUSED(buffers), ArrayRef<float3> dst) override
+  void add_force(AttributeArrays &UNUSED(buffers), ArrayRef<float3> dst) override
   {
     for (uint i = 0; i < dst.size(); i++) {
       dst[i].z += m_strength;
@@ -59,7 +59,7 @@ class TurbulenceForce : public BParticles::Force {
   {
   }
 
-  void add_force(NamedBuffers &buffers, ArrayRef<float3> dst) override
+  void add_force(AttributeArrays &buffers, ArrayRef<float3> dst) override
   {
     auto positions = buffers.get_float3("Position");
     for (uint i = 0; i < dst.size(); i++) {

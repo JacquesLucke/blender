@@ -23,6 +23,8 @@ set(SRC
   bparticles/playground_solver.cpp
   bparticles/emitter.hpp
   bparticles/emitter.cpp
+  bparticles/attributes.hpp
+  bparticles/attributes.cpp
   bparticles/c_wrapper.cpp
 )
 

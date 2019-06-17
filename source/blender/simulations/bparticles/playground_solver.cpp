@@ -7,9 +7,9 @@ namespace BParticles {
 
 class MoveUpAction : public BParticles::Action {
  public:
-  void execute(NamedBuffers &buffers, ArrayRef<uint> indices_to_influence) override
+  void execute(AttributeArrays &buffers, ArrayRef<uint> indices_to_influence) override
   {
-    auto positions = buffers.get_float3("Position");
+    auto positions = buffers.get_float3(buffers.info().attribute_index("Position"));
 
     for (uint i : indices_to_influence) {
       positions[i].z += 2.0f;
@@ -30,6 +30,7 @@ class SimpleSolver : public Solver {
   };
 
   Description &m_description;
+  AttributesInfo m_attributes;
   SmallVector<EmitterInfo> m_emitter_infos;
 
  public:
@@ -40,27 +41,29 @@ class SimpleSolver : public Solver {
       emitter->info(builder);
       m_emitter_infos.append(builder.build());
     }
+
+    SmallSetVector<std::string> byte_attributes = {"Kill State"};
+    SmallSetVector<std::string> float_attributes = {"Birth Time"};
+    SmallSetVector<std::string> float3_attributes;
+
+    for (EmitterInfo &emitter : m_emitter_infos) {
+      byte_attributes.add_multiple(emitter.used_byte_attributes());
+      float_attributes.add_multiple(emitter.used_float_attributes());
+      float3_attributes.add_multiple(emitter.used_float3_attributes());
+    }
+
+    m_attributes = AttributesInfo(
+        byte_attributes.values(), float_attributes.values(), float3_attributes.values());
   }
 
   StateBase *init() override
   {
-    SmallSetVector<std::string> float_attributes = {"Birth Time"};
-    SmallSetVector<std::string> vec3_attributes;
-    SmallSetVector<std::string> byte_attributes = {"Kill State"};
-
-    for (EmitterInfo &emitter : m_emitter_infos) {
-      float_attributes.add_multiple(emitter.used_float_attributes());
-      vec3_attributes.add_multiple(emitter.used_float3_attributes());
-      byte_attributes.add_multiple(emitter.used_byte_attributes());
-    }
-
     MyState *state = new MyState();
-    state->particles = new ParticlesContainer(
-        1000, float_attributes.values(), vec3_attributes.values(), byte_attributes.values());
+    state->particles = new ParticlesContainer(m_attributes, 1000);
     return state;
   }
 
-  BLI_NOINLINE void step_new_particles(NamedBuffers &slice, MyState &state)
+  BLI_NOINLINE void step_new_particles(AttributeArrays &slice, MyState &state)
   {
     auto positions = slice.get_float3("Position");
     auto velocities = slice.get_float3("Velocity");
@@ -76,7 +79,7 @@ class SimpleSolver : public Solver {
     }
   }
 
-  BLI_NOINLINE void step_slice(MyState &state, NamedBuffers &buffers, float elapsed_seconds)
+  BLI_NOINLINE void step_slice(MyState &state, AttributeArrays &buffers, float elapsed_seconds)
   {
     auto positions = buffers.get_float3("Position");
     auto velocities = buffers.get_float3("Velocity");
@@ -122,11 +125,11 @@ class SimpleSolver : public Solver {
 
   BLI_NOINLINE void step_block(MyState &state, ParticlesBlock *block, float elapsed_seconds)
   {
-    ParticlesBlockSlice slice = block->slice_active();
+    AttributeArrays slice = block->slice_active();
     this->step_slice(state, slice, elapsed_seconds);
   }
 
-  BLI_NOINLINE void compute_combined_force(NamedBuffers &slice, ArrayRef<float3> dst)
+  BLI_NOINLINE void compute_combined_force(AttributeArrays &slice, ArrayRef<float3> dst)
   {
     BLI_assert(slice.size() == dst.size());
     dst.fill({0, 0, 0});
@@ -137,7 +140,7 @@ class SimpleSolver : public Solver {
 
   BLI_NOINLINE void delete_dead_particles(ParticlesBlock *block)
   {
-    uint8_t *kill_states = block->byte_buffer("Kill State");
+    auto kill_states = block->slice_active().get_byte("Kill State");
 
     uint index = 0;
     while (index < block->active_amount()) {
@@ -160,12 +163,12 @@ class SimpleSolver : public Solver {
 
   void emit_from_emitter(MyState &state, EmitterInfo &emitter, float elapsed_seconds)
   {
-    SmallVector<ParticlesBlockSlice> block_slices;
     SmallVector<EmitterBuffers> destinations;
-    auto request_buffers = [&state, &block_slices, &destinations]() -> EmitterBuffers & {
+    SmallVector<ParticlesBlock *> blocks;
+    auto request_buffers = [&state, &destinations, &blocks]() -> EmitterBuffers & {
       ParticlesBlock *block = state.particles->new_block();
-      block_slices.append(block->slice_all());
-      destinations.append(EmitterBuffers{block_slices.last()});
+      blocks.append(block);
+      destinations.append(EmitterBuffers{block->slice_all()});
       return destinations.last();
     };
 
@@ -173,22 +176,22 @@ class SimpleSolver : public Solver {
 
     for (uint i = 0; i < destinations.size(); i++) {
       EmitterBuffers &dst = destinations[i];
-      ParticlesBlockSlice emitted_data = block_slices[i].take_front(dst.emitted_amount());
-      ParticlesBlock *block = emitted_data.block();
+      ParticlesBlock *block = blocks[i];
+      AttributeArrays emitted_data = dst.buffers().take_front(dst.emitted_amount());
 
-      for (auto &name : state.particles->float_attribute_names()) {
-        if (!emitter.uses_float_attribute(name)) {
-          emitted_data.get_float(name).fill(0);
+      for (uint i : m_attributes.byte_attributes()) {
+        if (!emitter.uses_byte_attribute(m_attributes.name_of(i))) {
+          emitted_data.get_byte(i).fill(0);
         }
       }
-      for (auto &name : state.particles->vec3_attribute_names()) {
-        if (!emitter.uses_float3_attribute(name)) {
-          emitted_data.get_float3(name).fill(float3{0, 0, 0});
+      for (uint i : m_attributes.float_attributes()) {
+        if (!emitter.uses_float_attribute(m_attributes.name_of(i))) {
+          emitted_data.get_float(i).fill(0);
         }
       }
-      for (auto &name : state.particles->byte_attribute_names()) {
-        if (!emitter.uses_byte_attribute(name)) {
-          emitted_data.get_byte(name).fill(0);
+      for (uint i : m_attributes.float3_attributes()) {
+        if (!emitter.uses_float3_attribute(m_attributes.name_of(i))) {
+          emitted_data.get_float3(i).fill({0, 0, 0});
         }
       }
 
@@ -254,9 +257,9 @@ class SimpleSolver : public Solver {
 
     uint index = 0;
     for (auto *block : state.particles->active_blocks()) {
-      uint length = block->active_amount();
-      memcpy(dst + index, block->float3_buffer("Position"), sizeof(float3) * length);
-      index += length;
+      auto positions = block->slice_active().get_float3("Position");
+      memcpy(dst + index, positions.begin(), sizeof(float3) * positions.size());
+      index += positions.size();
     }
   }
 };
