@@ -78,7 +78,7 @@ ccl_device_inline ssef interpolate_trilinear(ssef t1,
   ssef v_t10 = v_010 * t1_inv + v_110 * t1;
   ssef v_t11 = v_011 * t1_inv + v_111 * t1;
 
-  ssef v_tt0 = v_t00 * t2_inv + v_t10 * t2;
+  ssef v_tt0 = v_t00 * t2_inv + v_t01 * t2;
   ssef v_tt1 = v_t10 * t2_inv + v_t11 * t2;
 
   ssef v_ttt = v_tt0 * t3_inv + v_tt1 * t3;
@@ -360,6 +360,7 @@ ccl_device_inline float hash_to_float(uint32_t value)
 #ifdef __KERNEL_SSE2__
 ccl_device_inline ssef hash_to_float(ssei values)
 {
+#  if defined(__KERNEL_SSE41__)
   ssei part_1 = values;
   ssei part_2 = _mm_mullo_epi32(values >> 8, ssei(75));
   ssei part_3 = _mm_mullo_epi32(values >> 16, ssei(177));
@@ -374,6 +375,9 @@ ccl_device_inline ssef hash_to_float(ssei values)
               float_lookup_table[indices[1]],
               float_lookup_table[indices[2]],
               float_lookup_table[indices[3]]);
+#  else
+  return ssef(0.0f);
+#  endif
 }
 #endif
 
