@@ -128,6 +128,13 @@ template<typename T, uint N = 4> class SmallVector {
     m_size++;
   }
 
+  void append_n_times(const T &value, uint n)
+  {
+    this->reserve(m_size + n);
+    std::uninitialized_fill_n(this->end(), n, value);
+    m_size += n;
+  }
+
   void extend(const SmallVector &other)
   {
     this->extend(other.begin(), other.size());

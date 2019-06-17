@@ -239,3 +239,16 @@ TEST(small_vector, Last)
   IntVector a{3, 5, 7};
   EXPECT_EQ(a.last(), 7);
 }
+
+TEST(small_vector, AppendNTimes)
+{
+  IntVector a;
+  a.append_n_times(5, 3);
+  a.append_n_times(2, 2);
+  EXPECT_EQ(a.size(), 5);
+  EXPECT_EQ(a[0], 5);
+  EXPECT_EQ(a[1], 5);
+  EXPECT_EQ(a[2], 5);
+  EXPECT_EQ(a[3], 2);
+  EXPECT_EQ(a[4], 2);
+}
