@@ -72,7 +72,8 @@ static BParticlesDescription create_current_description(Object *self,
     copy_v3_v3(position, emitter_eval->loc);
   }
   mul_m4_v3(self->imat, position);
-  return BParticles_playground_description(npmd->control1, npmd->control2, position);
+  return BParticles_playground_description(
+      npmd->control1, npmd->control2, position, (Mesh *)self->data);
 }
 
 static void ensure_runtime_data(Object *self,
@@ -199,15 +200,13 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
 static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk, void *userData)
 {
   NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
-
   walk(userData, ob, &npmd->emitter_object, IDWALK_CB_NOP);
 }
 
-static void foreachIDLink(ModifierData *UNUSED(md),
-                          Object *UNUSED(ob),
-                          IDWalkFunc UNUSED(walk),
-                          void *UNUSED(userData))
+static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
+  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
+  walk(userData, ob, (ID **)&npmd->emitter_object, IDWALK_CB_NOP);
 }
 
 ModifierTypeInfo modifierType_NodeParticles = {

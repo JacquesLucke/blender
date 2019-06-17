@@ -7,12 +7,17 @@ struct float3 {
 
   float3() = default;
 
-  float3(float *value) : x{value[0]}, y{value[1]}, z{value[2]}
+  float3(const float *ptr) : x{ptr[0]}, y{ptr[1]}, z{ptr[2]}
   {
   }
 
   float3(float x, float y, float z) : x{x}, y{y}, z{z}
   {
+  }
+
+  operator float *()
+  {
+    return (float *)this;
   }
 
   friend float3 operator+(float3 a, float3 b)

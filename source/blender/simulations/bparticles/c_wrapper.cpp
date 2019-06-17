@@ -96,12 +96,15 @@ class TestEmitter : public BParticles::Emitter {
 
 BParticlesDescription BParticles_playground_description(float control1,
                                                         float control2,
-                                                        float *emitter_position)
+                                                        float *emitter_position,
+                                                        struct Mesh *mesh)
 {
-  auto emitter = BParticles::new_point_emitter(emitter_position);
+  auto emitter1 = BParticles::new_point_emitter(emitter_position);
+  auto emitter2 = BParticles::new_surface_emitter(mesh);
 
   Description *description = new Description(
-      {new TestForce(control1), new TurbulenceForce(control2)}, {emitter.release()});
+      {new TestForce(control1), new TurbulenceForce(control2)},
+      {emitter1.release(), emitter2.release()});
   return wrap(description);
 }
 void BParticles_description_free(BParticlesDescription description_c)
