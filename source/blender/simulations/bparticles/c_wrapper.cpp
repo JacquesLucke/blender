@@ -18,8 +18,9 @@
 using BParticles::AttributeArrays;
 using BParticles::AttributeType;
 using BParticles::Description;
-using BParticles::EmitterBuffers;
+using BParticles::EmitterHelper;
 using BParticles::EmitterInfoBuilder;
+using BParticles::EmitterTarget;
 using BParticles::ParticlesBlock;
 using BParticles::Solver;
 using BParticles::StateBase;
@@ -79,10 +80,9 @@ class TestEmitter : public BParticles::Emitter {
     builder.inits_attribute("Velocity", AttributeType::Float3);
   }
 
-  void emit(BParticles::RequestEmitterBufferCB request_buffers) override
+  void emit(EmitterHelper helper) override
   {
-    EmitterBuffers &dst = request_buffers();
-    BLI_assert(dst.size() > 0);
+    EmitterTarget &dst = helper.request_raw();
 
     auto positions = dst.buffers().get_float3("Position");
     auto velocities = dst.buffers().get_float3("Velocity");

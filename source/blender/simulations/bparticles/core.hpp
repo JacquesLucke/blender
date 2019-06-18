@@ -10,6 +10,7 @@
 #include "BLI_string_ref.hpp"
 
 #include "attributes.hpp"
+#include "particles_container.hpp"
 
 namespace BParticles {
 class Description;
@@ -38,38 +39,6 @@ class Action {
   virtual ~Action();
 
   virtual void execute(AttributeArrays &attributes, ArrayRef<uint> indices_to_influence) = 0;
-};
-
-class EmitterBuffers {
- private:
-  AttributeArrays m_buffers;
-  uint m_emitted_amount = 0;
-
- public:
-  EmitterBuffers(AttributeArrays buffers) : m_buffers(buffers)
-  {
-  }
-
-  void set_initialized(uint n)
-  {
-    m_emitted_amount += n;
-    BLI_assert(m_emitted_amount <= m_buffers.size());
-  }
-
-  uint emitted_amount()
-  {
-    return m_emitted_amount;
-  }
-
-  AttributeArrays &buffers()
-  {
-    return m_buffers;
-  }
-
-  uint size()
-  {
-    return m_buffers.size();
-  }
 };
 
 class EmitterInfo {
@@ -162,14 +131,82 @@ class EmitterInfoBuilder {
   }
 };
 
-using RequestEmitterBufferCB = std::function<EmitterBuffers &()>;
+class EmitterTarget {
+ private:
+  AttributeArrays m_buffers;
+  uint m_emitted_amount = 0;
+
+ public:
+  EmitterTarget(AttributeArrays buffers) : m_buffers(buffers)
+  {
+  }
+
+  void set_initialized(uint n)
+  {
+    m_emitted_amount += n;
+    BLI_assert(m_emitted_amount <= m_buffers.size());
+  }
+
+  uint emitted_amount()
+  {
+    return m_emitted_amount;
+  }
+
+  AttributeArrays &buffers()
+  {
+    return m_buffers;
+  }
+
+  uint size()
+  {
+    return m_buffers.size();
+  }
+};
+
+using RequestEmitterTarget = std::function<EmitterTarget &()>;
+
+class EmitterHelper {
+ private:
+  RequestEmitterTarget &m_request_target;
+
+ public:
+  EmitterHelper(RequestEmitterTarget &request_target) : m_request_target(request_target)
+  {
+  }
+
+  EmitterTarget &request_raw()
+  {
+    EmitterTarget &target = m_request_target();
+    BLI_assert(target.size() > 0);
+    return target;
+  }
+
+  JoinedAttributeArrays request(uint size)
+  {
+    SmallVector<AttributeArrays> arrays_list;
+    uint remaining_size = size;
+    while (remaining_size > 0) {
+      EmitterTarget &target = this->request_raw();
+
+      uint size_to_use = std::min(target.size(), remaining_size);
+      target.set_initialized(size_to_use);
+      arrays_list.append(target.buffers().take_front(size_to_use));
+      remaining_size -= size_to_use;
+    }
+
+    AttributesInfo &info = (arrays_list.size() == 0) ? this->request_raw().buffers().info() :
+                                                       arrays_list[0].info();
+
+    return JoinedAttributeArrays(info, arrays_list);
+  }
+};
 
 class Emitter {
  public:
   virtual ~Emitter();
 
   virtual void info(EmitterInfoBuilder &info) const = 0;
-  virtual void emit(RequestEmitterBufferCB request_buffers) = 0;
+  virtual void emit(EmitterHelper helper) = 0;
 };
 
 class Description {

@@ -21,9 +21,9 @@ class PointEmitter : public Emitter {
     builder.inits_attribute("Velocity", AttributeType::Float3);
   }
 
-  void emit(RequestEmitterBufferCB request_buffers) override
+  void emit(EmitterHelper helper) override
   {
-    auto &buffer = request_buffers();
+    auto &buffer = helper.request_raw();
     auto positions = buffer.buffers().get_float3("Position");
     auto velocities = buffer.buffers().get_float3("Velocity");
 
@@ -48,18 +48,17 @@ class SurfaceEmitter : public Emitter {
     builder.inits_attribute("Velocity", AttributeType::Float3);
   }
 
-  void emit(RequestEmitterBufferCB request_buffers) override
+  void emit(EmitterHelper helper) override
   {
     MLoop *loops = m_mesh->mloop;
     MVert *verts = m_mesh->mvert;
     const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(m_mesh);
     int triangle_amount = BKE_mesh_runtime_looptri_len(m_mesh);
 
-    for (int i = 0; i < triangle_amount; i++) {
-      auto &buffer = request_buffers();
-      auto positions = buffer.buffers().get_float3("Position");
-      auto velocities = buffer.buffers().get_float3("Velocity");
+    SmallVector<float3> positions;
+    SmallVector<float3> velocities;
 
+    for (int i = 0; i < triangle_amount; i++) {
       MLoopTri triangle = triangles[i];
 
       float3 v1 = verts[loops[triangle.tri[0]].v].co;
@@ -70,10 +69,13 @@ class SurfaceEmitter : public Emitter {
       normal_tri_v3(normal, v1, v2, v3);
 
       float3 pos = (v1 + v2 + v3) / 3.0f;
-      positions[0] = pos;
-      velocities[0] = normal;
-      buffer.set_initialized(1);
+      positions.append(pos);
+      velocities.append(normal);
     }
+
+    auto target = helper.request(positions.size());
+    target.set_float3("Position", positions);
+    target.set_float3("Velocity", velocities);
   }
 };
 

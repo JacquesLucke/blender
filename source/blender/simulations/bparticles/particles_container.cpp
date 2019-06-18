@@ -5,7 +5,8 @@ namespace BParticles {
 ParticlesBlock::ParticlesBlock(ParticlesContainer &container)
     : m_container(container),
       m_arrays(m_container.attributes(),
-               m_container.attributes().allocate_separate_arrays(container.block_size())),
+               m_container.attributes().allocate_separate_arrays(container.block_size()),
+               container.block_size()),
       m_active_amount(0)
 {
 }
