@@ -129,20 +129,18 @@ class SimpleSolver : public Solver {
     ParticlesBlock *block = data->blocks[index];
     AttributeArrays attributes = block->slice_active();
 
-    data->solver->step_slice(data->state,
-                             attributes,
-                             Range<uint>(0, attributes.size()).to_small_vector(),
-                             data->elapsed_seconds);
+    SmallVector<float> time_diffs(attributes.size());
+    time_diffs.fill(data->elapsed_seconds);
+
+    data->solver->step_slice(
+        data->state, attributes, Range<uint>(0, attributes.size()).to_small_vector(), time_diffs);
   }
 
   BLI_NOINLINE void step_slice(MyState &state,
                                AttributeArrays attributes,
                                ArrayRef<uint> indices_mask,
-                               float elapsed_seconds)
+                               ArrayRef<float> time_diffs)
   {
-    SmallVector<float> time_diffs(attributes.size());
-    time_diffs.fill(elapsed_seconds);
-
     SmallVector<float3> position_offsets(attributes.size());
     SmallVector<float3> velocity_offsets(attributes.size());
 
@@ -206,23 +204,6 @@ class SimpleSolver : public Solver {
     dst.fill({0, 0, 0});
     for (Force *force : m_description.forces()) {
       force->add_force(attributes, indices_mask, dst);
-    }
-  }
-
-  BLI_NOINLINE void step_new_particles(AttributeArrays attributes, MyState &state)
-  {
-    auto positions = attributes.get_float3("Position");
-    auto velocities = attributes.get_float3("Velocity");
-    auto birth_times = attributes.get_float("Birth Time");
-
-    SmallVector<float3> combined_force(attributes.size());
-    this->compute_combined_force(
-        attributes, Range<uint>(0, attributes.size()).to_small_vector(), combined_force);
-
-    for (uint i = 0; i < attributes.size(); i++) {
-      float seconds_since_birth = state.seconds_since_start - birth_times[i];
-      positions[i] += velocities[i] * seconds_since_birth;
-      velocities[i] += combined_force[i] * seconds_since_birth;
     }
   }
 
@@ -296,8 +277,15 @@ class SimpleSolver : public Solver {
         float fac = (rand() % 1000) / 1000.0f;
         birth_time = state.seconds_since_start - elapsed_seconds * fac;
       }
+
+      SmallVector<float> time_steps;
+      for (float birth_time : birth_times) {
+        time_steps.append(state.seconds_since_start - birth_time);
+      }
+
       block->active_amount() += target.emitted_amount();
-      this->step_new_particles(emitted_data, state);
+      this->step_slice(
+          state, emitted_data, Range<uint>(0, emitted_data.size()).to_small_vector(), time_steps);
     }
   }
 
