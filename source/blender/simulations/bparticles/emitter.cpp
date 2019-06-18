@@ -23,13 +23,13 @@ class PointEmitter : public Emitter {
 
   void emit(EmitterHelper helper) override
   {
-    auto &buffer = helper.request_raw();
-    auto positions = buffer.buffers().get_float3("Position");
-    auto velocities = buffer.buffers().get_float3("Velocity");
+    auto &target = helper.request_raw();
+    auto positions = target.attributes().get_float3("Position");
+    auto velocities = target.attributes().get_float3("Velocity");
 
     positions[0] = m_point;
     velocities[0] = float3{-1, -1, 0};
-    buffer.set_initialized(1);
+    target.set_initialized(1);
   }
 };
 

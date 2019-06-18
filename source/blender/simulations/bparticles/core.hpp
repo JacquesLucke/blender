@@ -31,14 +31,14 @@ using std::unique_ptr;
 class Force {
  public:
   virtual ~Force();
-  virtual void add_force(AttributeArrays &attributes, ArrayRef<float3> dst) = 0;
+  virtual void add_force(AttributeArrays attributes, ArrayRef<float3> dst) = 0;
 };
 
 class Action {
  public:
   virtual ~Action();
 
-  virtual void execute(AttributeArrays &attributes, ArrayRef<uint> indices_to_influence) = 0;
+  virtual void execute(AttributeArrays attributes, ArrayRef<uint> indices_to_influence) = 0;
 };
 
 class PositionalEvent {
@@ -143,18 +143,18 @@ class EmitterInfoBuilder {
 
 class EmitterTarget {
  private:
-  AttributeArrays m_buffers;
+  AttributeArrays m_attributes;
   uint m_emitted_amount = 0;
 
  public:
-  EmitterTarget(AttributeArrays buffers) : m_buffers(buffers)
+  EmitterTarget(AttributeArrays attributes) : m_attributes(attributes)
   {
   }
 
   void set_initialized(uint n)
   {
     m_emitted_amount += n;
-    BLI_assert(m_emitted_amount <= m_buffers.size());
+    BLI_assert(m_emitted_amount <= m_attributes.size());
   }
 
   uint emitted_amount()
@@ -162,14 +162,14 @@ class EmitterTarget {
     return m_emitted_amount;
   }
 
-  AttributeArrays &buffers()
+  AttributeArrays &attributes()
   {
-    return m_buffers;
+    return m_attributes;
   }
 
   uint size()
   {
-    return m_buffers.size();
+    return m_attributes.size();
   }
 };
 
@@ -200,11 +200,11 @@ class EmitterHelper {
 
       uint size_to_use = std::min(target.size(), remaining_size);
       target.set_initialized(size_to_use);
-      arrays_list.append(target.buffers().take_front(size_to_use));
+      arrays_list.append(target.attributes().take_front(size_to_use));
       remaining_size -= size_to_use;
     }
 
-    AttributesInfo &info = (arrays_list.size() == 0) ? this->request_raw().buffers().info() :
+    AttributesInfo &info = (arrays_list.size() == 0) ? this->request_raw().attributes().info() :
                                                        arrays_list[0].info();
 
     return JoinedAttributeArrays(info, arrays_list);

@@ -8,9 +8,9 @@ namespace BParticles {
 
 class MoveUpAction : public BParticles::Action {
  public:
-  void execute(AttributeArrays &buffers, ArrayRef<uint> indices_to_influence) override
+  void execute(AttributeArrays attributes, ArrayRef<uint> indices_to_influence) override
   {
-    auto positions = buffers.get_float3(buffers.info().attribute_index("Position"));
+    auto positions = attributes.get_float3("Position");
 
     for (uint i : indices_to_influence) {
       positions[i].y += 5.0f;
@@ -257,9 +257,9 @@ class SimpleSolver : public Solver {
     emitter.emitter().emit(EmitterHelper{request_target});
 
     for (uint i = 0; i < targets.size(); i++) {
-      EmitterTarget &dst = targets[i];
+      EmitterTarget &target = targets[i];
       ParticlesBlock *block = blocks[i];
-      AttributeArrays emitted_data = dst.buffers().take_front(dst.emitted_amount());
+      AttributeArrays emitted_data = target.attributes().take_front(target.emitted_amount());
 
       for (uint i : m_attributes.byte_attributes()) {
         if (!emitter.uses_byte_attribute(m_attributes.name_of(i))) {
@@ -282,7 +282,7 @@ class SimpleSolver : public Solver {
         float fac = (rand() % 1000) / 1000.0f;
         birth_time = state.seconds_since_start - elapsed_seconds * fac;
       }
-      block->active_amount() += dst.emitted_amount();
+      block->active_amount() += target.emitted_amount();
       this->step_new_particles(emitted_data, state);
     }
   }
