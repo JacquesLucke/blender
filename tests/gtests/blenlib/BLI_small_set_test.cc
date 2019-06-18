@@ -150,3 +150,13 @@ TEST(small_set, AddMultiple)
   EXPECT_TRUE(a.contains(4));
   EXPECT_TRUE(a.contains(2));
 }
+
+TEST(small_set, ToSmallVector)
+{
+  IntSet a = {5, 2, 8};
+  BLI::SmallVector<int> vec = a.to_small_vector();
+  EXPECT_EQ(vec.size(), 3);
+  EXPECT_TRUE(vec.contains(5));
+  EXPECT_TRUE(vec.contains(2));
+  EXPECT_TRUE(vec.contains(8));
+}

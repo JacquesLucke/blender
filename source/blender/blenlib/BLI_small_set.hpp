@@ -99,6 +99,11 @@ template<typename T, uint N = 4> class SmallSet {
     return m_elements[0];
   }
 
+  SmallVector<T> to_small_vector() const
+  {
+    return m_elements;
+  }
+
   static bool Disjoint(const SmallSet &a, const SmallSet &b)
   {
     return !SmallSet::Intersects(a, b);
