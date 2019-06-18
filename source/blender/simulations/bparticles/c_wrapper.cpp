@@ -16,6 +16,7 @@
   }
 
 using BParticles::AttributeArrays;
+using BParticles::AttributeType;
 using BParticles::Description;
 using BParticles::EmitterBuffers;
 using BParticles::EmitterInfoBuilder;
@@ -74,8 +75,8 @@ class TestEmitter : public BParticles::Emitter {
  public:
   void info(EmitterInfoBuilder &builder) const override
   {
-    builder.inits_float3_attribute("Position");
-    builder.inits_float3_attribute("Velocity");
+    builder.inits_attribute("Position", AttributeType::Float3);
+    builder.inits_attribute("Velocity", AttributeType::Float3);
   }
 
   void emit(BParticles::RequestEmitterBufferCB request_buffers) override

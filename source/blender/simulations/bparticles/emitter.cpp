@@ -17,8 +17,8 @@ class PointEmitter : public Emitter {
 
   void info(EmitterInfoBuilder &builder) const override
   {
-    builder.inits_float3_attribute("Position");
-    builder.inits_float3_attribute("Velocity");
+    builder.inits_attribute("Position", AttributeType::Float3);
+    builder.inits_attribute("Velocity", AttributeType::Float3);
   }
 
   void emit(RequestEmitterBufferCB request_buffers) override
@@ -44,8 +44,8 @@ class SurfaceEmitter : public Emitter {
 
   void info(EmitterInfoBuilder &builder) const override
   {
-    builder.inits_float3_attribute("Position");
-    builder.inits_float3_attribute("Velocity");
+    builder.inits_attribute("Position", AttributeType::Float3);
+    builder.inits_attribute("Velocity", AttributeType::Float3);
   }
 
   void emit(RequestEmitterBufferCB request_buffers) override

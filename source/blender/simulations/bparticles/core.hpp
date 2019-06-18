@@ -125,6 +125,7 @@ class EmitterInfo {
 class EmitterInfoBuilder {
  private:
   Emitter *m_emitter;
+  SmallSetVector<std::string> m_used_byte_attributes;
   SmallSetVector<std::string> m_used_float_attributes;
   SmallSetVector<std::string> m_used_float3_attributes;
 
@@ -133,19 +134,28 @@ class EmitterInfoBuilder {
   {
   }
 
-  void inits_float_attribute(StringRef name)
+  void inits_attribute(StringRef name, AttributeType type)
   {
-    m_used_float_attributes.add(name.to_std_string());
-  }
-  void inits_float3_attribute(StringRef name)
-  {
-    m_used_float3_attributes.add(name.to_std_string());
+    switch (type) {
+      case AttributeType::Byte:
+        m_used_byte_attributes.add(name.to_std_string());
+        break;
+      case AttributeType::Float:
+        m_used_float_attributes.add(name.to_std_string());
+        break;
+      case AttributeType::Float3:
+        m_used_float3_attributes.add(name.to_std_string());
+        break;
+      default:
+        BLI_assert(false);
+    }
   }
 
   EmitterInfo build()
   {
     EmitterInfo info;
     info.m_emitter = m_emitter;
+    info.m_used_byte_attributes = m_used_byte_attributes;
     info.m_used_float_attributes = m_used_float_attributes;
     info.m_used_float3_attributes = m_used_float3_attributes;
     return info;
