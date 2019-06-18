@@ -8,11 +8,11 @@ namespace BParticles {
 
 class MoveUpAction : public BParticles::Action {
  public:
-  void execute(AttributeArrays attributes, ArrayRef<uint> indices_to_influence) override
+  void execute(AttributeArrays attributes, ArrayRef<uint> indices_mask) override
   {
     auto positions = attributes.get_float3("Position");
 
-    for (uint i : indices_to_influence) {
+    for (uint i : indices_mask) {
       positions[i].y += 5.0f;
     }
   }
@@ -21,12 +21,13 @@ class MoveUpAction : public BParticles::Action {
 class HitPlaneEvent : public PositionalEvent {
  public:
   virtual void filter(AttributeArrays attributes,
+                      ArrayRef<uint> indices_mask,
                       ArrayRef<float3> next_movement,
                       SmallVector<uint> &r_filtered_indices,
                       SmallVector<float> &r_time_factors) override
   {
     auto positions = attributes.get_float3("Position");
-    for (uint i = 0; i < attributes.size(); i++) {
+    for (uint i : indices_mask) {
       if (positions[i].y < 2.0f && positions[i].y + next_movement[i].y >= 2.0f) {
         float time_factor = (2.0f - positions[i].y) / next_movement[i].y;
         r_filtered_indices.append(i);
@@ -127,10 +128,17 @@ class SimpleSolver : public Solver {
     StepBlocksParallelData *data = (StepBlocksParallelData *)userdata;
     ParticlesBlock *block = data->blocks[index];
     AttributeArrays attributes = block->slice_active();
-    data->solver->step_slice(data->state, attributes, data->elapsed_seconds);
+
+    data->solver->step_slice(data->state,
+                             attributes,
+                             Range<uint>(0, attributes.size()).to_small_vector(),
+                             data->elapsed_seconds);
   }
 
-  BLI_NOINLINE void step_slice(MyState &state, AttributeArrays attributes, float elapsed_seconds)
+  BLI_NOINLINE void step_slice(MyState &state,
+                               AttributeArrays attributes,
+                               ArrayRef<uint> indices_mask,
+                               float elapsed_seconds)
   {
     SmallVector<float> time_diffs(attributes.size());
     time_diffs.fill(elapsed_seconds);
@@ -138,7 +146,8 @@ class SimpleSolver : public Solver {
     SmallVector<float3> position_offsets(attributes.size());
     SmallVector<float3> velocity_offsets(attributes.size());
 
-    this->integrate_particles(attributes, time_diffs, position_offsets, velocity_offsets);
+    this->integrate_particles(
+        attributes, indices_mask, time_diffs, position_offsets, velocity_offsets);
 
     auto positions = attributes.get_float3("Position");
     auto velocities = attributes.get_float3("Velocity");
@@ -146,7 +155,8 @@ class SimpleSolver : public Solver {
     HitPlaneEvent event;
     SmallVector<uint> triggered_indices;
     SmallVector<float> triggered_time_factors;
-    event.filter(attributes, position_offsets, triggered_indices, triggered_time_factors);
+    event.filter(
+        attributes, indices_mask, position_offsets, triggered_indices, triggered_time_factors);
 
     MoveUpAction action;
     action.execute(attributes, triggered_indices);
@@ -154,20 +164,21 @@ class SimpleSolver : public Solver {
     auto birth_times = attributes.get_float("Birth Time");
     auto kill_states = attributes.get_byte("Kill State");
 
-    for (uint i = 0; i < attributes.size(); i++) {
+    for (uint i : indices_mask) {
       float age = state.seconds_since_start - birth_times[i];
       if (age > 5) {
         kill_states[i] = 1;
       }
     }
 
-    for (uint i = 0; i < attributes.size(); i++) {
+    for (uint i : indices_mask) {
       positions[i] += position_offsets[i];
       velocities[i] += velocity_offsets[i];
     }
   }
 
   BLI_NOINLINE void integrate_particles(AttributeArrays attributes,
+                                        ArrayRef<uint> indices_mask,
                                         ArrayRef<float> time_diffs,
                                         ArrayRef<float3> r_position_offsets,
                                         ArrayRef<float3> r_velocity_offsets)
@@ -175,11 +186,11 @@ class SimpleSolver : public Solver {
     BLI_assert(attributes.size() == time_diffs.size());
 
     SmallVector<float3> combined_force(attributes.size());
-    this->compute_combined_force(attributes, combined_force);
+    this->compute_combined_force(attributes, indices_mask, combined_force);
 
     auto velocities = attributes.get_float3("Velocity");
 
-    for (uint i = 0; i < attributes.size(); i++) {
+    for (uint i : indices_mask) {
       float mass = 1.0f;
       float time_diff = time_diffs[i];
       r_velocity_offsets[i] = time_diff * combined_force[i] / mass;
@@ -187,25 +198,28 @@ class SimpleSolver : public Solver {
     }
   }
 
-  BLI_NOINLINE void compute_combined_force(AttributeArrays attributes, ArrayRef<float3> dst)
+  BLI_NOINLINE void compute_combined_force(AttributeArrays attributes,
+                                           ArrayRef<uint> indices_mask,
+                                           ArrayRef<float3> dst)
   {
-    BLI_assert(attributes.size() == dst.size());
+    BLI_assert(indices_mask.size() == dst.size());
     dst.fill({0, 0, 0});
     for (Force *force : m_description.forces()) {
-      force->add_force(attributes, dst);
+      force->add_force(attributes, indices_mask, dst);
     }
   }
 
-  BLI_NOINLINE void step_new_particles(AttributeArrays slice, MyState &state)
+  BLI_NOINLINE void step_new_particles(AttributeArrays attributes, MyState &state)
   {
-    auto positions = slice.get_float3("Position");
-    auto velocities = slice.get_float3("Velocity");
-    auto birth_times = slice.get_float("Birth Time");
+    auto positions = attributes.get_float3("Position");
+    auto velocities = attributes.get_float3("Velocity");
+    auto birth_times = attributes.get_float("Birth Time");
 
-    SmallVector<float3> combined_force(slice.size());
-    this->compute_combined_force(slice, combined_force);
+    SmallVector<float3> combined_force(attributes.size());
+    this->compute_combined_force(
+        attributes, Range<uint>(0, attributes.size()).to_small_vector(), combined_force);
 
-    for (uint i = 0; i < slice.size(); i++) {
+    for (uint i = 0; i < attributes.size(); i++) {
       float seconds_since_birth = state.seconds_since_start - birth_times[i];
       positions[i] += velocities[i] * seconds_since_birth;
       velocities[i] += combined_force[i] * seconds_since_birth;

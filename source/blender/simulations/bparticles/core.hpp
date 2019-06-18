@@ -31,14 +31,16 @@ using std::unique_ptr;
 class Force {
  public:
   virtual ~Force();
-  virtual void add_force(AttributeArrays attributes, ArrayRef<float3> dst) = 0;
+  virtual void add_force(AttributeArrays attributes,
+                         ArrayRef<uint> indices_mask,
+                         ArrayRef<float3> dst) = 0;
 };
 
 class Action {
  public:
   virtual ~Action();
 
-  virtual void execute(AttributeArrays attributes, ArrayRef<uint> indices_to_influence) = 0;
+  virtual void execute(AttributeArrays attributes, ArrayRef<uint> indices_mask) = 0;
 };
 
 class PositionalEvent {
@@ -46,6 +48,7 @@ class PositionalEvent {
   virtual ~PositionalEvent();
 
   virtual void filter(AttributeArrays attributes,
+                      ArrayRef<uint> indices_mask,
                       ArrayRef<float3> next_movement,
                       SmallVector<uint> &r_filtered_indices,
                       SmallVector<float> &r_time_factors) = 0;

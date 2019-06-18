@@ -74,3 +74,13 @@ TEST(range, After)
   EXPECT_EQ(range[3], 13);
   EXPECT_EQ(range.size(), 4);
 }
+
+TEST(range, ToSmallVector)
+{
+  IntRange range = IntRange(5, 8);
+  IntVector vec = range.to_small_vector();
+  EXPECT_EQ(vec.size(), 3);
+  EXPECT_EQ(vec[0], 5);
+  EXPECT_EQ(vec[1], 6);
+  EXPECT_EQ(vec[2], 7);
+}

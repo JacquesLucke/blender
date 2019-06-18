@@ -5,6 +5,7 @@
  */
 
 #include "BLI_utildefines.h"
+#include "BLI_small_vector.hpp"
 
 namespace BLI {
 
@@ -77,6 +78,16 @@ template<typename T> class Range {
   Range before(uint n) const
   {
     return Range(m_start - n, m_start);
+  }
+
+  BLI_NOINLINE SmallVector<T> to_small_vector() const
+  {
+    SmallVector<T> values;
+    values.reserve(this->size());
+    for (T value : *this) {
+      values.append(value);
+    }
+    return values;
   }
 };
 }  // namespace BLI

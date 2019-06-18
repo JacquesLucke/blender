@@ -45,9 +45,11 @@ class TestForce : public BParticles::Force {
   {
   }
 
-  void add_force(AttributeArrays UNUSED(attributes), ArrayRef<float3> dst) override
+  void add_force(AttributeArrays UNUSED(attributes),
+                 ArrayRef<uint> indices_mask,
+                 ArrayRef<float3> dst) override
   {
-    for (uint i = 0; i < dst.size(); i++) {
+    for (uint i : indices_mask) {
       dst[i].z += m_strength;
     }
   };
@@ -62,10 +64,12 @@ class TurbulenceForce : public BParticles::Force {
   {
   }
 
-  void add_force(AttributeArrays attributes, ArrayRef<float3> dst) override
+  void add_force(AttributeArrays attributes,
+                 ArrayRef<uint> indices_mask,
+                 ArrayRef<float3> dst) override
   {
     auto positions = attributes.get_float3("Position");
-    for (uint i = 0; i < dst.size(); i++) {
+    for (uint i : indices_mask) {
       float3 pos = positions[i];
       float value = BLI_hnoise(0.5f, pos.x, pos.y, pos.z);
       dst[i].z += value * m_strength;
