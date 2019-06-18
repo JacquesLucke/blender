@@ -13,7 +13,7 @@ class MoveUpAction : public BParticles::Action {
     auto positions = buffers.get_float3(buffers.info().attribute_index("Position"));
 
     for (uint i : indices_to_influence) {
-      positions[i].z += 2.0f;
+      positions[i].y += 5.0f;
     }
   }
 };
@@ -112,56 +112,72 @@ class SimpleSolver : public Solver {
     data->solver->step_slice(data->state, attributes, data->elapsed_seconds);
   }
 
-  BLI_NOINLINE void step_slice(MyState &state, AttributeArrays buffers, float elapsed_seconds)
+  BLI_NOINLINE void step_slice(MyState &state, AttributeArrays attributes, float elapsed_seconds)
   {
-    auto positions = buffers.get_float3("Position");
-    auto velocities = buffers.get_float3("Velocity");
+    SmallVector<float> time_diffs(attributes.size());
+    time_diffs.fill(elapsed_seconds);
 
-    SmallVector<float3> combined_force(buffers.size());
-    this->compute_combined_force(buffers, combined_force);
+    SmallVector<float3> position_offsets(attributes.size());
+    SmallVector<float3> velocity_offsets(attributes.size());
 
-    SmallVector<float3> new_positions(buffers.size());
-    SmallVector<float3> new_velocities(buffers.size());
+    this->integrate_particles(attributes, time_diffs, position_offsets, velocity_offsets);
 
-    float mass = 1.0f;
-    for (uint i = 0; i < buffers.size(); i++) {
-      new_positions[i] = positions[i] + velocities[i] * elapsed_seconds;
-      new_velocities[i] = velocities[i] + combined_force[i] / mass * elapsed_seconds;
-    }
+    auto positions = attributes.get_float3("Position");
+    auto velocities = attributes.get_float3("Velocity");
 
     SmallVector<uint> indices;
-
-    for (uint i = 0; i < buffers.size(); i++) {
-      if (positions[i].y <= 2 && new_positions[i].y > 2) {
-        new_positions[i] = (positions[i] + new_positions[i]) * 0.5f;
-        new_velocities[i] = (velocities[i] + new_velocities[i]) * 0.5f;
+    for (uint i = 0; i < attributes.size(); i++) {
+      float y_offset = position_offsets[i].y;
+      if (positions[i].y < 2 && positions[i].y + y_offset >= 2.0f) {
         indices.append(i);
       }
     }
 
-    positions.copy_from(new_positions);
-    velocities.copy_from(new_velocities);
-
     MoveUpAction action;
-    action.execute(buffers, indices);
+    action.execute(attributes, indices);
 
-    auto birth_times = buffers.get_float("Birth Time");
-    auto kill_states = buffers.get_byte("Kill State");
+    auto birth_times = attributes.get_float("Birth Time");
+    auto kill_states = attributes.get_byte("Kill State");
 
-    for (uint i = 0; i < buffers.size(); i++) {
+    for (uint i = 0; i < attributes.size(); i++) {
       float age = state.seconds_since_start - birth_times[i];
       if (age > 5) {
         kill_states[i] = 1;
       }
     }
+
+    for (uint i = 0; i < attributes.size(); i++) {
+      positions[i] += position_offsets[i];
+      velocities[i] += velocity_offsets[i];
+    }
   }
 
-  BLI_NOINLINE void compute_combined_force(AttributeArrays slice, ArrayRef<float3> dst)
+  BLI_NOINLINE void integrate_particles(AttributeArrays attributes,
+                                        ArrayRef<float> time_diffs,
+                                        ArrayRef<float3> r_position_offsets,
+                                        ArrayRef<float3> r_velocity_offsets)
   {
-    BLI_assert(slice.size() == dst.size());
+    BLI_assert(attributes.size() == time_diffs.size());
+
+    SmallVector<float3> combined_force(attributes.size());
+    this->compute_combined_force(attributes, combined_force);
+
+    auto velocities = attributes.get_float3("Velocity");
+
+    for (uint i = 0; i < attributes.size(); i++) {
+      float mass = 1.0f;
+      float time_diff = time_diffs[i];
+      r_velocity_offsets[i] = time_diff * combined_force[i] / mass;
+      r_position_offsets[i] = time_diff * (velocities[i] + r_velocity_offsets[i] * 0.5f);
+    }
+  }
+
+  BLI_NOINLINE void compute_combined_force(AttributeArrays attributes, ArrayRef<float3> dst)
+  {
+    BLI_assert(attributes.size() == dst.size());
     dst.fill({0, 0, 0});
     for (Force *force : m_description.forces()) {
-      force->add_force(slice, dst);
+      force->add_force(attributes, dst);
     }
   }
 

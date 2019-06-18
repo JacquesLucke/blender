@@ -42,6 +42,11 @@ struct float3 {
     return {a.x * b, a.y * b, a.z * b};
   }
 
+  friend float3 operator*(float a, float3 b)
+  {
+    return b * a;
+  }
+
   friend float3 operator/(float3 a, float b)
   {
     BLI_assert(b != 0);
