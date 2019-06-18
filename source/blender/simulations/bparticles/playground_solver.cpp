@@ -70,11 +70,11 @@ class SimpleSolver : public Solver {
 
     ParticlesContainer &particles = *state.particles;
 
-    for (ParticlesBlock *block : particles.active_blocks()) {
-      this->step_block(state, block, elapsed_seconds);
-      this->delete_dead_particles(block);
-    }
+    SmallVector<ParticlesBlock *> already_existing_blocks =
+        particles.active_blocks().to_small_vector();
 
+    this->step_blocks(state, already_existing_blocks, elapsed_seconds);
+    this->delete_dead_particles(already_existing_blocks);
     this->emit_new_particles(state, elapsed_seconds);
     this->compress_all_blocks(particles);
 
@@ -82,13 +82,17 @@ class SimpleSolver : public Solver {
     std::cout << "Block amount: " << particles.active_blocks().size() << "\n";
   }
 
-  BLI_NOINLINE void step_block(MyState &state, ParticlesBlock *block, float elapsed_seconds)
+  BLI_NOINLINE void step_blocks(MyState &state,
+                                ArrayRef<ParticlesBlock *> blocks,
+                                float elapsed_seconds)
   {
-    AttributeArrays slice = block->slice_active();
-    this->step_slice(state, slice, elapsed_seconds);
+    for (ParticlesBlock *block : blocks) {
+      AttributeArrays attributes = block->slice_active();
+      this->step_slice(state, attributes, elapsed_seconds);
+    }
   }
 
-  BLI_NOINLINE void step_slice(MyState &state, AttributeArrays &buffers, float elapsed_seconds)
+  BLI_NOINLINE void step_slice(MyState &state, AttributeArrays buffers, float elapsed_seconds)
   {
     auto positions = buffers.get_float3("Position");
     auto velocities = buffers.get_float3("Velocity");
@@ -132,7 +136,7 @@ class SimpleSolver : public Solver {
     }
   }
 
-  BLI_NOINLINE void compute_combined_force(AttributeArrays &slice, ArrayRef<float3> dst)
+  BLI_NOINLINE void compute_combined_force(AttributeArrays slice, ArrayRef<float3> dst)
   {
     BLI_assert(slice.size() == dst.size());
     dst.fill({0, 0, 0});
@@ -141,7 +145,7 @@ class SimpleSolver : public Solver {
     }
   }
 
-  BLI_NOINLINE void step_new_particles(AttributeArrays &slice, MyState &state)
+  BLI_NOINLINE void step_new_particles(AttributeArrays slice, MyState &state)
   {
     auto positions = slice.get_float3("Position");
     auto velocities = slice.get_float3("Velocity");
@@ -154,6 +158,13 @@ class SimpleSolver : public Solver {
       float seconds_since_birth = state.seconds_since_start - birth_times[i];
       positions[i] += velocities[i] * seconds_since_birth;
       velocities[i] += combined_force[i] * seconds_since_birth;
+    }
+  }
+
+  BLI_NOINLINE void delete_dead_particles(ArrayRef<ParticlesBlock *> blocks)
+  {
+    for (auto block : blocks) {
+      this->delete_dead_particles(block);
     }
   }
 
