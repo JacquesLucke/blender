@@ -41,6 +41,16 @@ class Action {
   virtual void execute(AttributeArrays &attributes, ArrayRef<uint> indices_to_influence) = 0;
 };
 
+class PositionalEvent {
+ public:
+  virtual ~PositionalEvent();
+
+  virtual void filter(AttributeArrays attributes,
+                      ArrayRef<float3> next_movement,
+                      SmallVector<uint> &r_filtered_indices,
+                      SmallVector<float> &r_time_factors) = 0;
+};
+
 class EmitterInfo {
  private:
   EmitterInfo()

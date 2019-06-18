@@ -18,6 +18,24 @@ class MoveUpAction : public BParticles::Action {
   }
 };
 
+class HitPlaneEvent : public PositionalEvent {
+ public:
+  virtual void filter(AttributeArrays attributes,
+                      ArrayRef<float3> next_movement,
+                      SmallVector<uint> &r_filtered_indices,
+                      SmallVector<float> &r_time_factors) override
+  {
+    auto positions = attributes.get_float3("Position");
+    for (uint i = 0; i < attributes.size(); i++) {
+      if (positions[i].y < 2.0f && positions[i].y + next_movement[i].y >= 2.0f) {
+        float time_factor = (2.0f - positions[i].y) / next_movement[i].y;
+        r_filtered_indices.append(i);
+        r_time_factors.append(time_factor);
+      }
+    }
+  }
+};
+
 class SimpleSolver : public Solver {
 
   struct MyState : StateBase {
@@ -125,16 +143,13 @@ class SimpleSolver : public Solver {
     auto positions = attributes.get_float3("Position");
     auto velocities = attributes.get_float3("Velocity");
 
-    SmallVector<uint> indices;
-    for (uint i = 0; i < attributes.size(); i++) {
-      float y_offset = position_offsets[i].y;
-      if (positions[i].y < 2 && positions[i].y + y_offset >= 2.0f) {
-        indices.append(i);
-      }
-    }
+    HitPlaneEvent event;
+    SmallVector<uint> triggered_indices;
+    SmallVector<float> triggered_time_factors;
+    event.filter(attributes, position_offsets, triggered_indices, triggered_time_factors);
 
     MoveUpAction action;
-    action.execute(attributes, indices);
+    action.execute(attributes, triggered_indices);
 
     auto birth_times = attributes.get_float("Birth Time");
     auto kill_states = attributes.get_byte("Kill State");
