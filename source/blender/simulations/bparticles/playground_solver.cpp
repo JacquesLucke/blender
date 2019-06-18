@@ -144,6 +144,35 @@ class SimpleSolver : public Solver {
                                ArrayRef<uint> indices_mask,
                                ArrayRef<float> time_diffs)
   {
+    SmallVector<uint> unfinished_mask;
+    SmallVector<float> unfinished_time_diffs;
+    this->step_slice_to_next_event(
+        state, attributes, indices_mask, time_diffs, unfinished_mask, unfinished_time_diffs);
+    BLI_assert(unfinished_mask.size() == unfinished_time_diffs.size());
+
+    if (unfinished_mask.size() > 0) {
+      this->step_slice_ignoring_events(attributes, unfinished_mask, unfinished_time_diffs);
+    }
+
+    /* Temporary Kill Code */
+    auto birth_times = attributes.get_float("Birth Time");
+    auto kill_states = attributes.get_byte("Kill State");
+
+    for (uint pindex : indices_mask) {
+      float age = state.seconds_since_start - birth_times[pindex];
+      if (age > 5) {
+        kill_states[pindex] = 1;
+      }
+    }
+  }
+
+  BLI_NOINLINE void step_slice_to_next_event(MyState &UNUSED(state),
+                                             AttributeArrays attributes,
+                                             ArrayRef<uint> indices_mask,
+                                             ArrayRef<float> time_diffs,
+                                             SmallVector<uint> &r_unfinished_mask,
+                                             SmallVector<float> &r_unfinished_time_diffs)
+  {
     SmallVector<float3> position_offsets(indices_mask.size());
     SmallVector<float3> velocity_offsets(indices_mask.size());
 
@@ -158,9 +187,6 @@ class SimpleSolver : public Solver {
     SmallVector<float> triggered_time_factors;
     event.filter(
         attributes, indices_mask, position_offsets, triggered_indices, triggered_time_factors);
-
-    SmallVector<float> new_time_diffs;
-    new_time_diffs.reserve(triggered_indices.size());
 
     if (triggered_indices.size() == 0) {
       /* Finalize all particles. */
@@ -181,7 +207,7 @@ class SimpleSolver : public Solver {
             float partial_time_factor = triggered_time_factors[used_triggered_count];
             positions[pindex] += position_offsets[i] * partial_time_factor;
             velocities[pindex] += velocity_offsets[i] * partial_time_factor;
-            new_time_diffs.append(time_diffs[i] * (1.0f - partial_time_factor));
+            r_unfinished_time_diffs.append(time_diffs[i] * (1.0f - partial_time_factor));
             used_triggered_count++;
             continue;
           }
@@ -195,32 +221,29 @@ class SimpleSolver : public Solver {
     MoveUpAction action;
     action.execute(attributes, triggered_indices);
 
-    /* Integrate again after event. */
-    {
-      SmallVector<float3> final_position_offsets(triggered_indices.size());
-      SmallVector<float3> final_velocity_offsets(triggered_indices.size());
-
-      this->integrate_particles(attributes,
-                                triggered_indices,
-                                new_time_diffs,
-                                final_position_offsets,
-                                final_velocity_offsets);
-
-      for (uint i = 0; i < triggered_indices.size(); i++) {
-        uint pindex = triggered_indices[i];
-        positions[pindex] += final_position_offsets[i];
-        velocities[pindex] += final_velocity_offsets[i];
-      }
+    for (uint pindex : triggered_indices) {
+      r_unfinished_mask.append(pindex);
     }
+  }
 
-    auto birth_times = attributes.get_float("Birth Time");
-    auto kill_states = attributes.get_byte("Kill State");
+  BLI_NOINLINE void step_slice_ignoring_events(AttributeArrays attributes,
+                                               ArrayRef<uint> indices_mask,
+                                               ArrayRef<float> time_diffs)
+  {
+    SmallVector<float3> position_offsets(indices_mask.size());
+    SmallVector<float3> velocity_offsets(indices_mask.size());
 
-    for (uint pindex : indices_mask) {
-      float age = state.seconds_since_start - birth_times[pindex];
-      if (age > 5) {
-        kill_states[pindex] = 1;
-      }
+    this->integrate_particles(
+        attributes, indices_mask, time_diffs, position_offsets, velocity_offsets);
+
+    auto positions = attributes.get_float3("Position");
+    auto velocities = attributes.get_float3("Velocity");
+
+    for (uint i = 0; i < indices_mask.size(); i++) {
+      uint pindex = indices_mask[i];
+
+      positions[pindex] += position_offsets[i];
+      velocities[pindex] += velocity_offsets[i];
     }
   }
 
