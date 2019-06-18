@@ -1,4 +1,5 @@
 #include "BLI_small_vector.hpp"
+#include "BLI_task.h"
 
 #include "particles_container.hpp"
 #include "playground_solver.hpp"
@@ -82,14 +83,33 @@ class SimpleSolver : public Solver {
     std::cout << "Block amount: " << particles.active_blocks().size() << "\n";
   }
 
+  struct StepBlocksParallelData {
+    SimpleSolver *solver;
+    MyState &state;
+    ArrayRef<ParticlesBlock *> blocks;
+    float elapsed_seconds;
+  };
+
   BLI_NOINLINE void step_blocks(MyState &state,
                                 ArrayRef<ParticlesBlock *> blocks,
                                 float elapsed_seconds)
   {
-    for (ParticlesBlock *block : blocks) {
-      AttributeArrays attributes = block->slice_active();
-      this->step_slice(state, attributes, elapsed_seconds);
-    }
+    ParallelRangeSettings settings;
+    BLI_parallel_range_settings_defaults(&settings);
+
+    StepBlocksParallelData data = {this, state, blocks, elapsed_seconds};
+
+    BLI_task_parallel_range(0, blocks.size(), (void *)&data, step_block_cb, &settings);
+  }
+
+  static void step_block_cb(void *__restrict userdata,
+                            const int index,
+                            const ParallelRangeTLS *__restrict UNUSED(tls))
+  {
+    StepBlocksParallelData *data = (StepBlocksParallelData *)userdata;
+    ParticlesBlock *block = data->blocks[index];
+    AttributeArrays attributes = block->slice_active();
+    data->solver->step_slice(data->state, attributes, data->elapsed_seconds);
   }
 
   BLI_NOINLINE void step_slice(MyState &state, AttributeArrays buffers, float elapsed_seconds)

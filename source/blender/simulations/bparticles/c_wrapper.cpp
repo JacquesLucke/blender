@@ -4,6 +4,7 @@
 #include "playground_solver.hpp"
 #include "emitter.hpp"
 #include "BLI_noise.h"
+#include "BLI_timeit.hpp"
 
 #define WRAPPERS(T1, T2) \
   inline T1 unwrap(T2 value) \
@@ -139,6 +140,7 @@ void BParticles_state_step(BParticlesSolver solver_c,
                            BParticlesState state_c,
                            float elapsed_seconds)
 {
+  SCOPED_TIMER("step");
   Solver *solver = unwrap(solver_c);
   WrappedState *wrapped_state = unwrap(state_c);
 
