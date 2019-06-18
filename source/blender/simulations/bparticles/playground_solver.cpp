@@ -63,20 +63,29 @@ class SimpleSolver : public Solver {
     return state;
   }
 
-  BLI_NOINLINE void step_new_particles(AttributeArrays &slice, MyState &state)
+  void step(WrappedState &wrapped_state, float elapsed_seconds) override
   {
-    auto positions = slice.get_float3("Position");
-    auto velocities = slice.get_float3("Velocity");
-    auto birth_times = slice.get_float("Birth Time");
+    MyState &state = wrapped_state.state<MyState>();
+    state.seconds_since_start += elapsed_seconds;
 
-    SmallVector<float3> combined_force(slice.size());
-    this->compute_combined_force(slice, combined_force);
+    ParticlesContainer &particles = *state.particles;
 
-    for (uint i = 0; i < slice.size(); i++) {
-      float seconds_since_birth = state.seconds_since_start - birth_times[i];
-      positions[i] += velocities[i] * seconds_since_birth;
-      velocities[i] += combined_force[i] * seconds_since_birth;
+    for (ParticlesBlock *block : particles.active_blocks()) {
+      this->step_block(state, block, elapsed_seconds);
+      this->delete_dead_particles(block);
     }
+
+    this->emit_new_particles(state, elapsed_seconds);
+    this->compress_all_blocks(particles);
+
+    std::cout << "Particle Amount: " << this->particle_amount(wrapped_state) << "\n";
+    std::cout << "Block amount: " << particles.active_blocks().size() << "\n";
+  }
+
+  BLI_NOINLINE void step_block(MyState &state, ParticlesBlock *block, float elapsed_seconds)
+  {
+    AttributeArrays slice = block->slice_active();
+    this->step_slice(state, slice, elapsed_seconds);
   }
 
   BLI_NOINLINE void step_slice(MyState &state, AttributeArrays &buffers, float elapsed_seconds)
@@ -123,18 +132,28 @@ class SimpleSolver : public Solver {
     }
   }
 
-  BLI_NOINLINE void step_block(MyState &state, ParticlesBlock *block, float elapsed_seconds)
-  {
-    AttributeArrays slice = block->slice_active();
-    this->step_slice(state, slice, elapsed_seconds);
-  }
-
   BLI_NOINLINE void compute_combined_force(AttributeArrays &slice, ArrayRef<float3> dst)
   {
     BLI_assert(slice.size() == dst.size());
     dst.fill({0, 0, 0});
     for (Force *force : m_description.forces()) {
       force->add_force(slice, dst);
+    }
+  }
+
+  BLI_NOINLINE void step_new_particles(AttributeArrays &slice, MyState &state)
+  {
+    auto positions = slice.get_float3("Position");
+    auto velocities = slice.get_float3("Velocity");
+    auto birth_times = slice.get_float("Birth Time");
+
+    SmallVector<float3> combined_force(slice.size());
+    this->compute_combined_force(slice, combined_force);
+
+    for (uint i = 0; i < slice.size(); i++) {
+      float seconds_since_birth = state.seconds_since_start - birth_times[i];
+      positions[i] += velocities[i] * seconds_since_birth;
+      velocities[i] += combined_force[i] * seconds_since_birth;
     }
   }
 
@@ -221,24 +240,8 @@ class SimpleSolver : public Solver {
     }
   }
 
-  void step(WrappedState &wrapped_state, float elapsed_seconds) override
-  {
-    MyState &state = wrapped_state.state<MyState>();
-    state.seconds_since_start += elapsed_seconds;
-
-    ParticlesContainer &particles = *state.particles;
-
-    for (ParticlesBlock *block : particles.active_blocks()) {
-      this->step_block(state, block, elapsed_seconds);
-      this->delete_dead_particles(block);
-    }
-
-    this->emit_new_particles(state, elapsed_seconds);
-    this->compress_all_blocks(particles);
-
-    std::cout << "Particle Amount: " << this->particle_amount(wrapped_state) << "\n";
-    std::cout << "Block amount: " << particles.active_blocks().size() << "\n";
-  }
+  /* Access data from the outside.
+   *********************************************/
 
   uint particle_amount(WrappedState &wrapped_state) override
   {
