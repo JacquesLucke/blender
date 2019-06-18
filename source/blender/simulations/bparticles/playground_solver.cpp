@@ -6,34 +6,48 @@
 
 namespace BParticles {
 
-class MoveUpAction : public BParticles::Action {
+class MoveAction : public BParticles::Action {
+ private:
+  float3 m_offset;
+
  public:
+  MoveAction(float3 offset) : m_offset(offset)
+  {
+  }
+
   void execute(AttributeArrays attributes, ArrayRef<uint> indices_mask) override
   {
     auto positions = attributes.get_float3("Position");
 
     for (uint pindex : indices_mask) {
-      positions[pindex].y += 5.0f;
+      positions[pindex] += m_offset;
     }
   }
 };
 
 class HitPlaneEvent : public PositionalEvent {
+ private:
+  float m_value;
+
  public:
-  virtual void filter(AttributeArrays attributes,
-                      ArrayRef<uint> indices_mask,
-                      ArrayRef<float3> next_movement,
-                      SmallVector<uint> &r_filtered_indices,
-                      SmallVector<float> &r_time_factors) override
+  HitPlaneEvent(float value) : m_value(value)
+  {
+  }
+
+  void filter(AttributeArrays attributes,
+              ArrayRef<uint> indices_mask,
+              ArrayRef<float3> next_movement,
+              SmallVector<uint> &r_filtered_indices,
+              SmallVector<float> &r_time_factors) override
   {
     auto positions = attributes.get_float3("Position");
 
     for (uint i = 0; i < indices_mask.size(); i++) {
       uint pindex = indices_mask[i];
 
-      if (positions[pindex].y < 2.0f && positions[pindex].y + next_movement[i].y >= 2.0f) {
-        float time_factor = (2.0f - positions[pindex].y) / next_movement[i].y;
-        r_filtered_indices.append(pindex);
+      if (positions[pindex].y < m_value && positions[pindex].y + next_movement[i].y >= m_value) {
+        float time_factor = (m_value - positions[pindex].y) / next_movement[i].y;
+        r_filtered_indices.append(i);
         r_time_factors.append(time_factor);
       }
     }
@@ -56,6 +70,13 @@ class SimpleSolver : public Solver {
   AttributesInfo m_attributes;
   SmallVector<EmitterInfo> m_emitter_infos;
 
+  struct EventWithAction {
+    PositionalEvent *event;
+    Action *action;
+  };
+
+  SmallVector<EventWithAction> m_events;
+
  public:
   SimpleSolver(Description &description) : m_description(description)
   {
@@ -77,6 +98,9 @@ class SimpleSolver : public Solver {
 
     m_attributes = AttributesInfo(
         byte_attributes.values(), float_attributes.values(), float3_attributes.values());
+
+    m_events.append({new HitPlaneEvent(1.0f), new MoveAction({0, 2, 0})});
+    m_events.append({new HitPlaneEvent(5.0f), new MoveAction({0, 2, -2})});
   }
 
   StateBase *init() override
@@ -166,6 +190,11 @@ class SimpleSolver : public Solver {
     }
   }
 
+  struct EventIndexAtTime {
+    int index = -1;
+    float time_factor = 2.0f; /* Just has to be > 1.0f. */
+  };
+
   BLI_NOINLINE void step_slice_to_next_event(MyState &UNUSED(state),
                                              AttributeArrays attributes,
                                              ArrayRef<uint> indices_mask,
@@ -179,50 +208,110 @@ class SimpleSolver : public Solver {
     this->integrate_particles(
         attributes, indices_mask, time_diffs, position_offsets, velocity_offsets);
 
+    SmallVector<EventIndexAtTime> first_event_per_particle(indices_mask.size());
+    this->find_next_events(attributes, indices_mask, position_offsets, first_event_per_particle);
+    this->forward_particles_to_next_event(
+        attributes, indices_mask, first_event_per_particle, position_offsets, velocity_offsets);
+
+    SmallVector<SmallVector<uint>> particles_per_event(m_events.size());
+    this->find_particles_per_event(indices_mask, first_event_per_particle, particles_per_event);
+    this->run_actions(attributes, particles_per_event);
+
+    this->find_unfinished_particles(indices_mask,
+                                    first_event_per_particle,
+                                    time_diffs,
+                                    r_unfinished_mask,
+                                    r_unfinished_time_diffs);
+  }
+
+  BLI_NOINLINE void find_next_events(AttributeArrays attributes,
+                                     ArrayRef<uint> indices_mask,
+                                     ArrayRef<float3> position_offsets,
+                                     ArrayRef<EventIndexAtTime> r_first_event_per_particle)
+  {
+    for (uint event_index = 0; event_index < m_events.size(); event_index++) {
+      SmallVector<uint> triggered_indices;
+      SmallVector<float> triggered_time_factors;
+      m_events[event_index].event->filter(
+          attributes, indices_mask, position_offsets, triggered_indices, triggered_time_factors);
+
+      for (uint i = 0; i < triggered_indices.size(); i++) {
+        uint index = triggered_indices[i];
+        if (triggered_time_factors[i] < r_first_event_per_particle[index].time_factor) {
+          r_first_event_per_particle[index].index = event_index;
+          r_first_event_per_particle[index].time_factor = triggered_time_factors[i];
+        }
+      }
+    }
+  }
+
+  BLI_NOINLINE void forward_particles_to_next_event(
+      AttributeArrays attributes,
+      ArrayRef<uint> indices_mask,
+      ArrayRef<EventIndexAtTime> first_event_per_particle,
+      ArrayRef<float3> position_offsets,
+      ArrayRef<float3> velocity_offsets)
+  {
     auto positions = attributes.get_float3("Position");
     auto velocities = attributes.get_float3("Velocity");
 
-    HitPlaneEvent event;
-    SmallVector<uint> triggered_indices;
-    SmallVector<float> triggered_time_factors;
-    event.filter(
-        attributes, indices_mask, position_offsets, triggered_indices, triggered_time_factors);
-
-    if (triggered_indices.size() == 0) {
-      /* Finalize all particles. */
-      for (uint i = 0; i < indices_mask.size(); i++) {
-        uint pindex = indices_mask[i];
-        positions[pindex] += position_offsets[pindex];
-        velocities[pindex] += velocity_offsets[pindex];
-      }
-    }
-    else {
-      uint used_triggered_count = 0;
-      for (uint i = 0; i < indices_mask.size(); i++) {
-        uint pindex = indices_mask[i];
-
-        if (used_triggered_count < triggered_indices.size()) {
-          uint next_triggered_affected_index = triggered_indices[used_triggered_count];
-          if (pindex == next_triggered_affected_index) {
-            float partial_time_factor = triggered_time_factors[used_triggered_count];
-            positions[pindex] += position_offsets[i] * partial_time_factor;
-            velocities[pindex] += velocity_offsets[i] * partial_time_factor;
-            r_unfinished_time_diffs.append(time_diffs[i] * (1.0f - partial_time_factor));
-            used_triggered_count++;
-            continue;
-          }
-        }
-
+    for (uint i = 0; i < indices_mask.size(); i++) {
+      uint pindex = indices_mask[i];
+      int event_index = first_event_per_particle[i].index;
+      if (event_index == -1) {
+        /* Particle has no event. */
         positions[pindex] += position_offsets[i];
         velocities[pindex] += velocity_offsets[i];
       }
+      else {
+        /* Particle has an event. */
+        float time_factor = first_event_per_particle[i].time_factor;
+        BLI_assert(time_factor >= 0.0f && time_factor <= 1.0f);
+
+        positions[pindex] += time_factor * position_offsets[i];
+        velocities[pindex] += time_factor * velocity_offsets[i];
+      }
     }
+  }
 
-    MoveUpAction action;
-    action.execute(attributes, triggered_indices);
+  BLI_NOINLINE void find_particles_per_event(ArrayRef<uint> indices_mask,
+                                             ArrayRef<EventIndexAtTime> first_event_per_particle,
+                                             ArrayRef<SmallVector<uint>> r_particles_per_event)
+  {
+    for (uint i = 0; i < indices_mask.size(); i++) {
+      uint pindex = indices_mask[i];
+      int event_index = first_event_per_particle[i].index;
+      if (event_index != -1) {
+        r_particles_per_event[event_index].append(pindex);
+      }
+    }
+  }
 
-    for (uint pindex : triggered_indices) {
-      r_unfinished_mask.append(pindex);
+  BLI_NOINLINE void find_unfinished_particles(ArrayRef<uint> indices_mask,
+                                              ArrayRef<EventIndexAtTime> first_event_per_particle,
+                                              ArrayRef<float> time_diffs,
+                                              SmallVector<uint> &r_unfinished_mask,
+                                              SmallVector<float> &r_unfinished_time_diffs)
+  {
+    for (uint i = 0; i < indices_mask.size(); i++) {
+      uint pindex = indices_mask[i];
+      int event_index = first_event_per_particle[i].index;
+      if (event_index != -1) {
+        float time_factor = first_event_per_particle[i].time_factor;
+        float remaining_time = time_diffs[i] * (1.0f - time_factor);
+
+        r_unfinished_mask.append(pindex);
+        r_unfinished_time_diffs.append(remaining_time);
+      }
+    }
+  }
+
+  BLI_NOINLINE void run_actions(AttributeArrays attributes,
+                                ArrayRef<SmallVector<uint>> particles_per_event)
+  {
+    for (uint event_index = 0; event_index < m_events.size(); event_index++) {
+      Action *action = m_events[event_index].action;
+      action->execute(attributes, particles_per_event[event_index]);
     }
   }
 
@@ -405,7 +494,7 @@ class SimpleSolver : public Solver {
       index += positions.size();
     }
   }
-};
+};  // namespace BParticles
 
 Solver *new_playground_solver(Description &description)
 {
