@@ -49,7 +49,7 @@ class TestForce : public BParticles::Force {
                  ArrayRef<uint> indices_mask,
                  ArrayRef<float3> dst) override
   {
-    for (uint i : indices_mask) {
+    for (uint i = 0; i < indices_mask.size(); i++) {
       dst[i].z += m_strength;
     }
   };
@@ -69,8 +69,10 @@ class TurbulenceForce : public BParticles::Force {
                  ArrayRef<float3> dst) override
   {
     auto positions = attributes.get_float3("Position");
-    for (uint i : indices_mask) {
-      float3 pos = positions[i];
+    for (uint i = 0; i < indices_mask.size(); i++) {
+      uint pindex = indices_mask[i];
+
+      float3 pos = positions[pindex];
       float value = BLI_hnoise(0.5f, pos.x, pos.y, pos.z);
       dst[i].z += value * m_strength;
     }

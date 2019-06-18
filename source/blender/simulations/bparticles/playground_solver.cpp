@@ -12,8 +12,8 @@ class MoveUpAction : public BParticles::Action {
   {
     auto positions = attributes.get_float3("Position");
 
-    for (uint i : indices_mask) {
-      positions[i].y += 5.0f;
+    for (uint pindex : indices_mask) {
+      positions[pindex].y += 5.0f;
     }
   }
 };
@@ -27,10 +27,13 @@ class HitPlaneEvent : public PositionalEvent {
                       SmallVector<float> &r_time_factors) override
   {
     auto positions = attributes.get_float3("Position");
-    for (uint i : indices_mask) {
-      if (positions[i].y < 2.0f && positions[i].y + next_movement[i].y >= 2.0f) {
-        float time_factor = (2.0f - positions[i].y) / next_movement[i].y;
-        r_filtered_indices.append(i);
+
+    for (uint i = 0; i < indices_mask.size(); i++) {
+      uint pindex = indices_mask[i];
+
+      if (positions[pindex].y < 2.0f && positions[pindex].y + next_movement[i].y >= 2.0f) {
+        float time_factor = (2.0f - positions[pindex].y) / next_movement[i].y;
+        r_filtered_indices.append(pindex);
         r_time_factors.append(time_factor);
       }
     }
@@ -141,8 +144,8 @@ class SimpleSolver : public Solver {
                                ArrayRef<uint> indices_mask,
                                ArrayRef<float> time_diffs)
   {
-    SmallVector<float3> position_offsets(attributes.size());
-    SmallVector<float3> velocity_offsets(attributes.size());
+    SmallVector<float3> position_offsets(indices_mask.size());
+    SmallVector<float3> velocity_offsets(indices_mask.size());
 
     this->integrate_particles(
         attributes, indices_mask, time_diffs, position_offsets, velocity_offsets);
@@ -156,22 +159,68 @@ class SimpleSolver : public Solver {
     event.filter(
         attributes, indices_mask, position_offsets, triggered_indices, triggered_time_factors);
 
+    SmallVector<float> new_time_diffs;
+    new_time_diffs.reserve(triggered_indices.size());
+
+    if (triggered_indices.size() == 0) {
+      /* Finalize all particles. */
+      for (uint i = 0; i < indices_mask.size(); i++) {
+        uint pindex = indices_mask[i];
+        positions[pindex] += position_offsets[pindex];
+        velocities[pindex] += velocity_offsets[pindex];
+      }
+    }
+    else {
+      uint used_triggered_count = 0;
+      for (uint i = 0; i < indices_mask.size(); i++) {
+        uint pindex = indices_mask[i];
+
+        if (used_triggered_count < triggered_indices.size()) {
+          uint next_triggered_affected_index = triggered_indices[used_triggered_count];
+          if (pindex == next_triggered_affected_index) {
+            float partial_time_factor = triggered_time_factors[used_triggered_count];
+            positions[pindex] += position_offsets[i] * partial_time_factor;
+            velocities[pindex] += velocity_offsets[i] * partial_time_factor;
+            new_time_diffs.append(time_diffs[i] * (1.0f - partial_time_factor));
+            used_triggered_count++;
+            continue;
+          }
+        }
+
+        positions[pindex] += position_offsets[i];
+        velocities[pindex] += velocity_offsets[i];
+      }
+    }
+
     MoveUpAction action;
     action.execute(attributes, triggered_indices);
+
+    /* Integrate again after event. */
+    {
+      SmallVector<float3> final_position_offsets(triggered_indices.size());
+      SmallVector<float3> final_velocity_offsets(triggered_indices.size());
+
+      this->integrate_particles(attributes,
+                                triggered_indices,
+                                new_time_diffs,
+                                final_position_offsets,
+                                final_velocity_offsets);
+
+      for (uint i = 0; i < triggered_indices.size(); i++) {
+        uint pindex = triggered_indices[i];
+        positions[pindex] += final_position_offsets[i];
+        velocities[pindex] += final_velocity_offsets[i];
+      }
+    }
 
     auto birth_times = attributes.get_float("Birth Time");
     auto kill_states = attributes.get_byte("Kill State");
 
-    for (uint i : indices_mask) {
-      float age = state.seconds_since_start - birth_times[i];
+    for (uint pindex : indices_mask) {
+      float age = state.seconds_since_start - birth_times[pindex];
       if (age > 5) {
-        kill_states[i] = 1;
+        kill_states[pindex] = 1;
       }
-    }
-
-    for (uint i : indices_mask) {
-      positions[i] += position_offsets[i];
-      velocities[i] += velocity_offsets[i];
     }
   }
 
@@ -181,18 +230,21 @@ class SimpleSolver : public Solver {
                                         ArrayRef<float3> r_position_offsets,
                                         ArrayRef<float3> r_velocity_offsets)
   {
-    BLI_assert(attributes.size() == time_diffs.size());
+    BLI_assert(indices_mask.size() == time_diffs.size());
 
-    SmallVector<float3> combined_force(attributes.size());
+    SmallVector<float3> combined_force(indices_mask.size());
     this->compute_combined_force(attributes, indices_mask, combined_force);
 
     auto velocities = attributes.get_float3("Velocity");
 
-    for (uint i : indices_mask) {
+    for (uint i = 0; i < indices_mask.size(); i++) {
+      uint pindex = indices_mask[i];
+
       float mass = 1.0f;
       float time_diff = time_diffs[i];
+
       r_velocity_offsets[i] = time_diff * combined_force[i] / mass;
-      r_position_offsets[i] = time_diff * (velocities[i] + r_velocity_offsets[i] * 0.5f);
+      r_position_offsets[i] = time_diff * (velocities[pindex] + r_velocity_offsets[i] * 0.5f);
     }
   }
 
