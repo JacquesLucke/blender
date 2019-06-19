@@ -185,15 +185,7 @@ class SimpleSolver : public Solver {
     }
 
     /* Temporary Kill Code */
-    auto birth_times = attributes.get_float("Birth Time");
-    auto kill_states = attributes.get_byte("Kill State");
-
-    for (uint pindex : indices_mask) {
-      float age = state.seconds_since_start - birth_times[pindex];
-      if (age > 5) {
-        kill_states[pindex] = 1;
-      }
-    }
+    this->tag_old_particles_for_deletion(state, attributes, indices_mask);
   }
 
   struct EventIndexAtTime {
@@ -374,6 +366,21 @@ class SimpleSolver : public Solver {
     dst.fill({0, 0, 0});
     for (Force *force : m_description.forces()) {
       force->add_force(attributes, indices_mask, dst);
+    }
+  }
+
+  BLI_NOINLINE void tag_old_particles_for_deletion(MyState &state,
+                                                   AttributeArrays attributes,
+                                                   ArrayRef<uint> indices_mask)
+  {
+    auto birth_times = attributes.get_float("Birth Time");
+    auto kill_states = attributes.get_byte("Kill State");
+
+    for (uint pindex : indices_mask) {
+      float age = state.seconds_since_start - birth_times[pindex];
+      if (age > 5) {
+        kill_states[pindex] = 1;
+      }
     }
   }
 
