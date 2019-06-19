@@ -23,6 +23,7 @@ class EmitterInfoBuilder;
 
 using BLI::ArrayRef;
 using BLI::float3;
+using BLI::float4x4;
 using BLI::SmallSetVector;
 using BLI::SmallVector;
 using BLI::StringRef;

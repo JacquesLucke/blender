@@ -6,6 +6,12 @@
 #include "forces.hpp"
 
 #include "BLI_timeit.hpp"
+#include "BLI_listbase.h"
+
+#include "BKE_curve.h"
+
+#include "DNA_object_types.h"
+#include "DNA_curve_types.h"
 
 #define WRAPPERS(T1, T2) \
   inline T1 unwrap(T2 value) \
@@ -20,6 +26,7 @@
 using BParticles::AttributeArrays;
 using BParticles::AttributeType;
 using BParticles::Description;
+using BParticles::Emitter;
 using BParticles::EmitterHelper;
 using BParticles::EmitterInfoBuilder;
 using BParticles::EmitterTarget;
@@ -39,16 +46,31 @@ WRAPPERS(BParticles::WrappedState *, BParticlesState);
 
 BParticlesDescription BParticles_playground_description(float control1,
                                                         float control2,
-                                                        float *emitter_position,
-                                                        struct Mesh *mesh)
+                                                        Object *object)
 {
+  if (object == NULL) {
+    return wrap(new Description({}, {BParticles::EMITTER_point({1, 1, 1}).release()}));
+  }
+
   auto force = BParticles::FORCE_directional({0.0, 0.0, control1});
 
-  auto emitter1 = BParticles::EMITTER_point(emitter_position);
-  auto emitter2 = BParticles::EMITTER_mesh_surface(mesh, control2);
+  std::unique_ptr<Emitter> emitter;
 
-  Description *description = new Description({force.release()},
-                                             {emitter1.release(), emitter2.release()});
+  ID *object_data = (ID *)object->data;
+  ID_Type type = GS(object_data->name);
+  if (type == ID_ME) {
+    emitter = BParticles::EMITTER_mesh_surface((Mesh *)object_data, control2);
+  }
+  else if (type == ID_CU) {
+    Path *path = object->runtime.curve_cache->path;
+    BLI_assert(path);
+    emitter = BParticles::EMITTER_path(path, object->obmat);
+  }
+  else {
+    BLI_assert(false);
+  }
+
+  Description *description = new Description({force.release()}, {emitter.release()});
   return wrap(description);
 }
 void BParticles_description_free(BParticlesDescription description_c)

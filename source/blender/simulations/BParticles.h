@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-struct Mesh;
+struct Object;
 
 typedef struct OpaqueBParticlesDescription *BParticlesDescription;
 typedef struct OpaqueBParticlesSolver *BParticlesSolver;
@@ -16,8 +16,7 @@ typedef struct OpaqueBParticlesState *BParticlesState;
 
 BParticlesDescription BParticles_playground_description(float control1,
                                                         float control2,
-                                                        float *emitter_position,
-                                                        struct Mesh *mesh);
+                                                        struct Object *object);
 void BParticles_description_free(BParticlesDescription description);
 
 BParticlesSolver BParticles_solver_build(BParticlesDescription description);

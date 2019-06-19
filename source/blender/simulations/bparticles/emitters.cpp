@@ -1,7 +1,12 @@
 #include "emitters.hpp"
+
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_curve_types.h"
+
+#include "BKE_curve.h"
 #include "BKE_mesh_runtime.h"
+
 #include "BLI_math_geom.h"
 
 namespace BParticles {
@@ -81,6 +86,43 @@ class SurfaceEmitter : public Emitter {
   }
 };
 
+class PathEmitter : public Emitter {
+ private:
+  Path &m_path;
+  float4x4 m_transform;
+
+ public:
+  PathEmitter(Path &path, float4x4 transform) : m_path(path), m_transform(transform)
+  {
+  }
+
+  void info(EmitterInfoBuilder &builder) const override
+  {
+    builder.inits_attribute("Position", AttributeType::Float3);
+    builder.inits_attribute("Velocity", AttributeType::Float3);
+  }
+
+  void emit(EmitterHelper helper) override
+  {
+    SmallVector<float3> positions;
+    for (uint i = 0; i < m_path.len - 1; i++) {
+      float3 pos1 = m_path.data[i].vec;
+      float3 pos2 = m_path.data[i + 1].vec;
+
+      for (uint j = 0; j < 100; j++) {
+        float factor = (float)j / 100.0f;
+        float3 pos = pos1 * (1.0f - factor) + pos2 * factor;
+        pos = m_transform.transform_position(pos);
+        positions.append(pos);
+      }
+    }
+
+    auto target = helper.request(positions.size());
+    target.set_float3("Position", positions);
+    target.set_float3("Velocity", SmallVector<float3>(positions.size()));
+  }
+};
+
 std::unique_ptr<Emitter> EMITTER_point(float3 point)
 {
   Emitter *emitter = new PointEmitter(point);
@@ -90,6 +132,13 @@ std::unique_ptr<Emitter> EMITTER_point(float3 point)
 std::unique_ptr<Emitter> EMITTER_mesh_surface(Mesh *mesh, float normal_velocity)
 {
   Emitter *emitter = new SurfaceEmitter(mesh, normal_velocity);
+  return std::unique_ptr<Emitter>(emitter);
+}
+
+std::unique_ptr<Emitter> EMITTER_path(Path *path, float4x4 transform)
+{
+  BLI_assert(path);
+  Emitter *emitter = new PathEmitter(*path, transform);
   return std::unique_ptr<Emitter>(emitter);
 }
 

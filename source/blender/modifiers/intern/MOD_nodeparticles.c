@@ -62,18 +62,11 @@ static RuntimeData *get_runtime_data(NodeParticlesModifierData *npmd)
   return data;
 }
 
-static BParticlesDescription create_current_description(Object *self,
+static BParticlesDescription create_current_description(Object *UNUSED(self),
                                                         NodeParticlesModifierData *npmd,
-                                                        Depsgraph *depsgraph)
+                                                        Depsgraph *UNUSED(depsgraph))
 {
-  float position[3] = {0, 0, 0};
-  if (npmd->emitter_object != NULL) {
-    Object *emitter_eval = DEG_get_evaluated_object(depsgraph, npmd->emitter_object);
-    copy_v3_v3(position, emitter_eval->loc);
-  }
-  mul_m4_v3(self->imat, position);
-  return BParticles_playground_description(
-      npmd->control1, npmd->control2, position, (Mesh *)self->data);
+  return BParticles_playground_description(npmd->control1, npmd->control2, npmd->emitter_object);
 }
 
 static void ensure_runtime_data(Object *self,
@@ -193,7 +186,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
   if (npmd->emitter_object) {
     DEG_add_object_relation(
-        ctx->node, npmd->emitter_object, DEG_OB_COMP_TRANSFORM, "Node Particles Modifier");
+        ctx->node, npmd->emitter_object, DEG_OB_COMP_GEOMETRY, "Node Particles Modifier");
   }
 }
 

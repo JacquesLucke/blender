@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BLI_math_matrix.h"
+
 namespace BLI {
 
 struct float3 {
@@ -51,6 +53,30 @@ struct float3 {
   {
     BLI_assert(b != 0);
     return {a.x / b, a.y / b, a.z / b};
+  }
+};
+
+struct float4x4 {
+  float v[4][4];
+
+  float4x4(float *matrix)
+  {
+    memcpy(v, matrix, sizeof(float) * 16);
+  }
+
+  float4x4(float matrix[4][4]) : float4x4((float *)matrix)
+  {
+  }
+
+  operator float *()
+  {
+    return (float *)this;
+  }
+
+  float3 transform_position(float3 position)
+  {
+    mul_m4_v3((float(*)[4])this, position);
+    return position;
   }
 };
 
