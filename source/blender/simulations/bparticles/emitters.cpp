@@ -36,9 +36,11 @@ class PointEmitter : public Emitter {
 class SurfaceEmitter : public Emitter {
  private:
   Mesh *m_mesh;
+  float m_normal_velocity;
 
  public:
-  SurfaceEmitter(Mesh *mesh) : m_mesh(mesh)
+  SurfaceEmitter(Mesh *mesh, float normal_velocity)
+      : m_mesh(mesh), m_normal_velocity(normal_velocity)
   {
   }
 
@@ -70,7 +72,7 @@ class SurfaceEmitter : public Emitter {
 
       float3 pos = (v1 + v2 + v3) / 3.0f;
       positions.append(pos);
-      velocities.append(normal);
+      velocities.append(normal * m_normal_velocity);
     }
 
     auto target = helper.request(positions.size());
@@ -79,15 +81,15 @@ class SurfaceEmitter : public Emitter {
   }
 };
 
-std::unique_ptr<Emitter> new_point_emitter(float3 point)
+std::unique_ptr<Emitter> EMITTER_point(float3 point)
 {
   Emitter *emitter = new PointEmitter(point);
   return std::unique_ptr<Emitter>(emitter);
 }
 
-std::unique_ptr<Emitter> new_surface_emitter(Mesh *mesh)
+std::unique_ptr<Emitter> EMITTER_mesh_surface(Mesh *mesh, float normal_velocity)
 {
-  Emitter *emitter = new SurfaceEmitter(mesh);
+  Emitter *emitter = new SurfaceEmitter(mesh, normal_velocity);
   return std::unique_ptr<Emitter>(emitter);
 }
 

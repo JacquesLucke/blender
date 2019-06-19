@@ -3,7 +3,8 @@
 #include "particles_container.hpp"
 #include "playground_solver.hpp"
 #include "emitters.hpp"
-#include "BLI_noise.h"
+#include "forces.hpp"
+
 #include "BLI_timeit.hpp"
 
 #define WRAPPERS(T1, T2) \
@@ -36,81 +37,17 @@ WRAPPERS(BParticles::Description *, BParticlesDescription);
 WRAPPERS(BParticles::Solver *, BParticlesSolver);
 WRAPPERS(BParticles::WrappedState *, BParticlesState);
 
-class TestForce : public BParticles::Force {
- private:
-  float m_strength;
-
- public:
-  TestForce(float strength) : m_strength(strength)
-  {
-  }
-
-  void add_force(AttributeArrays UNUSED(attributes),
-                 ArrayRef<uint> indices_mask,
-                 ArrayRef<float3> dst) override
-  {
-    for (uint i = 0; i < indices_mask.size(); i++) {
-      dst[i].z += m_strength;
-    }
-  };
-};
-
-class TurbulenceForce : public BParticles::Force {
- private:
-  float m_strength;
-
- public:
-  TurbulenceForce(float strength) : m_strength(strength)
-  {
-  }
-
-  void add_force(AttributeArrays attributes,
-                 ArrayRef<uint> indices_mask,
-                 ArrayRef<float3> dst) override
-  {
-    auto positions = attributes.get_float3("Position");
-    for (uint i = 0; i < indices_mask.size(); i++) {
-      uint pindex = indices_mask[i];
-
-      float3 pos = positions[pindex];
-      float value = BLI_hnoise(0.5f, pos.x, pos.y, pos.z);
-      dst[i].z += value * m_strength;
-    }
-  }
-};
-
-class TestEmitter : public BParticles::Emitter {
- public:
-  void info(EmitterInfoBuilder &builder) const override
-  {
-    builder.inits_attribute("Position", AttributeType::Float3);
-    builder.inits_attribute("Velocity", AttributeType::Float3);
-  }
-
-  void emit(EmitterHelper helper) override
-  {
-    EmitterTarget &dst = helper.request_raw();
-
-    auto positions = dst.attributes().get_float3("Position");
-    auto velocities = dst.attributes().get_float3("Velocity");
-
-    for (uint i = 0; i < dst.size(); i++) {
-      positions[i] = {(float)(rand() % 10000) / 3000.0f, 0, 1};
-      velocities[i] = {0, 1, 1};
-    }
-    dst.set_initialized(dst.size());
-  }
-};
-
 BParticlesDescription BParticles_playground_description(float control1,
                                                         float control2,
                                                         float *emitter_position,
                                                         struct Mesh *mesh)
 {
-  auto emitter1 = BParticles::new_point_emitter(emitter_position);
-  auto emitter2 = BParticles::new_surface_emitter(mesh);
+  auto force = BParticles::FORCE_directional({0.0, 0.0, control1});
 
-  Description *description = new Description({new TestForce(control1)},
+  auto emitter1 = BParticles::EMITTER_point(emitter_position);
+  auto emitter2 = BParticles::EMITTER_mesh_surface(mesh, control2);
+
+  Description *description = new Description({force.release()},
                                              {emitter1.release(), emitter2.release()});
   return wrap(description);
 }
