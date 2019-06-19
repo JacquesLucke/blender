@@ -2,7 +2,7 @@
 #include "core.hpp"
 #include "particles_container.hpp"
 #include "playground_solver.hpp"
-#include "emitter.hpp"
+#include "emitters.hpp"
 #include "BLI_noise.h"
 #include "BLI_timeit.hpp"
 

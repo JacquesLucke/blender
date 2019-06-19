@@ -1,4 +1,4 @@
-#include "emitter.hpp"
+#include "emitters.hpp"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "BKE_mesh_runtime.h"

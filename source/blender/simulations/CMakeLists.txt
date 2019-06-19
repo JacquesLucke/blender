@@ -21,8 +21,8 @@ set(SRC
   bparticles/particles_container.cpp
   bparticles/playground_solver.hpp
   bparticles/playground_solver.cpp
-  bparticles/emitter.hpp
-  bparticles/emitter.cpp
+  bparticles/emitters.hpp
+  bparticles/emitters.cpp
   bparticles/attributes.hpp
   bparticles/attributes.cpp
   bparticles/c_wrapper.cpp
