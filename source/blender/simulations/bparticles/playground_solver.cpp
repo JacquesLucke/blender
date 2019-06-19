@@ -66,6 +66,7 @@ class SimpleSolver : public Solver {
     }
   };
 
+  static const uint m_block_size = 1000;
   Description &m_description;
   AttributesInfo m_attributes;
   SmallVector<EmitterInfo> m_emitter_infos;
@@ -106,7 +107,7 @@ class SimpleSolver : public Solver {
   StateBase *init() override
   {
     MyState *state = new MyState();
-    state->particles = new ParticlesContainer(m_attributes, 1000);
+    state->particles = new ParticlesContainer(m_attributes, m_block_size);
     return state;
   }
 
@@ -133,7 +134,8 @@ class SimpleSolver : public Solver {
     SimpleSolver *solver;
     MyState &state;
     ArrayRef<ParticlesBlock *> blocks;
-    float elapsed_seconds;
+    ArrayRef<uint> full_indices_mask;
+    ArrayRef<float> full_time_diffs;
   };
 
   BLI_NOINLINE void step_blocks(MyState &state,
@@ -142,8 +144,13 @@ class SimpleSolver : public Solver {
   {
     ParallelRangeSettings settings;
     BLI_parallel_range_settings_defaults(&settings);
+    settings.use_threading = false;
 
-    StepBlocksParallelData data = {this, state, blocks, elapsed_seconds};
+    SmallVector<uint> full_indices_mask = Range<uint>(0, m_block_size).to_small_vector();
+    SmallVector<float> full_time_diffs(m_block_size);
+    full_time_diffs.fill(elapsed_seconds);
+
+    StepBlocksParallelData data = {this, state, blocks, full_indices_mask, full_time_diffs};
 
     BLI_task_parallel_range(0, blocks.size(), (void *)&data, step_block_cb, &settings);
   }
@@ -156,11 +163,10 @@ class SimpleSolver : public Solver {
     ParticlesBlock *block = data->blocks[index];
     AttributeArrays attributes = block->slice_active();
 
-    SmallVector<float> time_diffs(attributes.size());
-    time_diffs.fill(data->elapsed_seconds);
+    ArrayRef<uint> indices_mask = data->full_indices_mask.take_front(attributes.size());
+    ArrayRef<float> time_diffs = data->full_time_diffs.take_front(attributes.size());
 
-    data->solver->step_slice(
-        data->state, attributes, Range<uint>(0, attributes.size()).to_small_vector(), time_diffs);
+    data->solver->step_slice(data->state, attributes, indices_mask, time_diffs);
   }
 
   BLI_NOINLINE void step_slice(MyState &state,
