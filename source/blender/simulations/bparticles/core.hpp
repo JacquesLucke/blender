@@ -18,8 +18,6 @@ class Solver;
 class WrappedState;
 class StateBase;
 class Emitter;
-class EmitterInfo;
-class EmitterInfoBuilder;
 
 using BLI::ArrayRef;
 using BLI::float3;
@@ -37,16 +35,9 @@ class Force {
                          ArrayRef<float3> dst) = 0;
 };
 
-class Action {
+class Event {
  public:
-  virtual ~Action();
-
-  virtual void execute(AttributeArrays attributes, ArrayRef<uint> indices_mask) = 0;
-};
-
-class PositionalEvent {
- public:
-  virtual ~PositionalEvent();
+  virtual ~Event();
 
   virtual void filter(AttributeArrays attributes,
                       ArrayRef<uint> indices_mask,
@@ -55,94 +46,11 @@ class PositionalEvent {
                       SmallVector<float> &r_time_factors) = 0;
 };
 
-class EmitterInfo {
- private:
-  EmitterInfo()
-  {
-  }
-
-  Emitter *m_emitter;
-  SmallSetVector<std::string> m_used_float_attributes;
-  SmallSetVector<std::string> m_used_float3_attributes;
-  SmallSetVector<std::string> m_used_byte_attributes;
-
-  friend EmitterInfoBuilder;
-
+class Action {
  public:
-  Emitter &emitter()
-  {
-    return *m_emitter;
-  }
+  virtual ~Action();
 
-  ArrayRef<std::string> used_float_attributes()
-  {
-    return m_used_float_attributes.values();
-  }
-
-  ArrayRef<std::string> used_float3_attributes()
-  {
-    return m_used_float3_attributes.values();
-  }
-
-  ArrayRef<std::string> used_byte_attributes()
-  {
-    return m_used_byte_attributes.values();
-  }
-
-  bool uses_float_attribute(StringRef name)
-  {
-    return m_used_float_attributes.contains(name.to_std_string());
-  }
-
-  bool uses_float3_attribute(StringRef name)
-  {
-    return m_used_float3_attributes.contains(name.to_std_string());
-  }
-
-  bool uses_byte_attribute(StringRef name)
-  {
-    return m_used_byte_attributes.contains(name.to_std_string());
-  }
-};
-
-class EmitterInfoBuilder {
- private:
-  Emitter *m_emitter;
-  SmallSetVector<std::string> m_used_byte_attributes;
-  SmallSetVector<std::string> m_used_float_attributes;
-  SmallSetVector<std::string> m_used_float3_attributes;
-
- public:
-  EmitterInfoBuilder(Emitter *emitter) : m_emitter(emitter)
-  {
-  }
-
-  void inits_attribute(StringRef name, AttributeType type)
-  {
-    switch (type) {
-      case AttributeType::Byte:
-        m_used_byte_attributes.add(name.to_std_string());
-        break;
-      case AttributeType::Float:
-        m_used_float_attributes.add(name.to_std_string());
-        break;
-      case AttributeType::Float3:
-        m_used_float3_attributes.add(name.to_std_string());
-        break;
-      default:
-        BLI_assert(false);
-    }
-  }
-
-  EmitterInfo build()
-  {
-    EmitterInfo info;
-    info.m_emitter = m_emitter;
-    info.m_used_byte_attributes = m_used_byte_attributes;
-    info.m_used_float_attributes = m_used_float_attributes;
-    info.m_used_float3_attributes = m_used_float3_attributes;
-    return info;
-  }
+  virtual void execute(AttributeArrays attributes, ArrayRef<uint> indices_mask) = 0;
 };
 
 class EmitterTarget {
@@ -219,7 +127,6 @@ class Emitter {
  public:
   virtual ~Emitter();
 
-  virtual void info(EmitterInfoBuilder &info) const = 0;
   virtual void emit(EmitterHelper helper) = 0;
 };
 

@@ -28,7 +28,6 @@ using BParticles::AttributeType;
 using BParticles::Description;
 using BParticles::Emitter;
 using BParticles::EmitterHelper;
-using BParticles::EmitterInfoBuilder;
 using BParticles::EmitterTarget;
 using BParticles::ParticlesBlock;
 using BParticles::Solver;

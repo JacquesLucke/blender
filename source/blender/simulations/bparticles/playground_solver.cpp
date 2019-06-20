@@ -25,7 +25,7 @@ class MoveAction : public BParticles::Action {
   }
 };
 
-class HitPlaneEvent : public PositionalEvent {
+class HitPlaneEvent : public Event {
  private:
   float m_value;
 
@@ -69,10 +69,9 @@ class SimpleSolver : public Solver {
   static const uint m_block_size = 1000;
   Description &m_description;
   AttributesInfo m_attributes;
-  SmallVector<EmitterInfo> m_emitter_infos;
 
   struct EventWithAction {
-    PositionalEvent *event;
+    Event *event;
     Action *action;
   };
 
@@ -81,21 +80,9 @@ class SimpleSolver : public Solver {
  public:
   SimpleSolver(Description &description) : m_description(description)
   {
-    for (Emitter *emitter : m_description.emitters()) {
-      EmitterInfoBuilder builder{emitter};
-      emitter->info(builder);
-      m_emitter_infos.append(builder.build());
-    }
-
     SmallSetVector<std::string> byte_attributes = {"Kill State"};
     SmallSetVector<std::string> float_attributes = {"Birth Time"};
-    SmallSetVector<std::string> float3_attributes;
-
-    for (EmitterInfo &emitter : m_emitter_infos) {
-      byte_attributes.add_multiple(emitter.used_byte_attributes());
-      float_attributes.add_multiple(emitter.used_float_attributes());
-      float3_attributes.add_multiple(emitter.used_float3_attributes());
-    }
+    SmallSetVector<std::string> float3_attributes = {"Position", "Velocity"};
 
     m_attributes = AttributesInfo(
         byte_attributes.values(), float_attributes.values(), float3_attributes.values());
@@ -409,12 +396,12 @@ class SimpleSolver : public Solver {
 
   BLI_NOINLINE void emit_new_particles(MyState &state, float elapsed_seconds)
   {
-    for (EmitterInfo &emitter : m_emitter_infos) {
+    for (Emitter *emitter : m_description.emitters()) {
       this->emit_from_emitter(state, emitter, elapsed_seconds);
     }
   }
 
-  void emit_from_emitter(MyState &state, EmitterInfo &emitter, float elapsed_seconds)
+  void emit_from_emitter(MyState &state, Emitter *emitter, float elapsed_seconds)
   {
     SmallVector<EmitterTarget> targets;
     SmallVector<ParticlesBlock *> blocks;
@@ -426,28 +413,14 @@ class SimpleSolver : public Solver {
       return targets.last();
     };
 
-    emitter.emitter().emit(EmitterHelper{request_target});
+    emitter->emit(EmitterHelper{request_target});
 
     for (uint i = 0; i < targets.size(); i++) {
       EmitterTarget &target = targets[i];
       ParticlesBlock *block = blocks[i];
       AttributeArrays emitted_data = target.attributes().take_front(target.emitted_amount());
 
-      for (uint i : m_attributes.byte_attributes()) {
-        if (!emitter.uses_byte_attribute(m_attributes.name_of(i))) {
-          emitted_data.get_byte(i).fill(0);
-        }
-      }
-      for (uint i : m_attributes.float_attributes()) {
-        if (!emitter.uses_float_attribute(m_attributes.name_of(i))) {
-          emitted_data.get_float(i).fill(0);
-        }
-      }
-      for (uint i : m_attributes.float3_attributes()) {
-        if (!emitter.uses_float3_attribute(m_attributes.name_of(i))) {
-          emitted_data.get_float3(i).fill({0, 0, 0});
-        }
-      }
+      emitted_data.get_byte("Kill State").fill(0);
 
       auto birth_times = emitted_data.get_float("Birth Time");
       for (float &birth_time : birth_times) {

@@ -20,12 +20,6 @@ class PointEmitter : public Emitter {
   {
   }
 
-  void info(EmitterInfoBuilder &builder) const override
-  {
-    builder.inits_attribute("Position", AttributeType::Float3);
-    builder.inits_attribute("Velocity", AttributeType::Float3);
-  }
-
   void emit(EmitterHelper helper) override
   {
     auto &target = helper.request_raw();
@@ -47,12 +41,6 @@ class SurfaceEmitter : public Emitter {
   SurfaceEmitter(Mesh *mesh, float normal_velocity)
       : m_mesh(mesh), m_normal_velocity(normal_velocity)
   {
-  }
-
-  void info(EmitterInfoBuilder &builder) const override
-  {
-    builder.inits_attribute("Position", AttributeType::Float3);
-    builder.inits_attribute("Velocity", AttributeType::Float3);
   }
 
   void emit(EmitterHelper helper) override
@@ -96,12 +84,6 @@ class PathEmitter : public Emitter {
   {
   }
 
-  void info(EmitterInfoBuilder &builder) const override
-  {
-    builder.inits_attribute("Position", AttributeType::Float3);
-    builder.inits_attribute("Velocity", AttributeType::Float3);
-  }
-
   void emit(EmitterHelper helper) override
   {
     SmallVector<float3> positions;
@@ -109,7 +91,7 @@ class PathEmitter : public Emitter {
       float3 pos1 = m_path.data[i].vec;
       float3 pos2 = m_path.data[i + 1].vec;
 
-      for (uint j = 0; j < 100; j++) {
+      for (uint j = 0; j < 10; j++) {
         float factor = (float)j / 100.0f;
         float3 pos = pos1 * (1.0f - factor) + pos2 * factor;
         pos = m_transform.transform_position(pos);

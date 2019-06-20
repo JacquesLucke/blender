@@ -32,7 +32,7 @@ Action::~Action()
 {
 }
 
-PositionalEvent::~PositionalEvent()
+Event::~Event()
 {
 }
 
