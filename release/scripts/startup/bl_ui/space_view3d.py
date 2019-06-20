@@ -1596,6 +1596,11 @@ class VIEW3D_MT_select_edit_text(Menu):
 
         layout.separator()
 
+        layout.operator("font.case_set", text="To Uppercase").case = 'UPPER'
+        layout.operator("font.case_set", text="To Lowercase").case = 'LOWER'
+
+        layout.separator()
+
         layout.menu("VIEW3D_MT_edit_text_chars")
 
 
@@ -4611,10 +4616,6 @@ class VIEW3D_MT_edit_gpencil_transform(Menu):
         layout.operator("transform.shear", text="Shear")
         layout.operator("transform.tosphere", text="To Sphere")
         layout.operator("transform.transform", text="Shrink Fatten").mode = 'GPENCIL_SHRINKFATTEN'
-
-        layout.separator()
-
-        layout.operator("gpencil.reproject")
 
 
 class VIEW3D_MT_edit_gpencil_interpolate(Menu):
