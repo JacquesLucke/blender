@@ -51,18 +51,12 @@ void BParticles_state_free(BParticlesState state)
   delete unwrap(state);
 }
 
-class ModifierStepDescription : public StepDescription {
+class ModifierStepParticleInfluencers : public ParticleInfluencers {
  public:
-  float m_duration;
-  SmallVector<Emitter *> m_emitters;
   SmallVector<Force *> m_forces;
   SmallVector<Event *> m_events;
   SmallVector<Action *> m_actions;
 
-  ArrayRef<Emitter *> emitters() override
-  {
-    return m_emitters;
-  }
   ArrayRef<Force *> forces() override
   {
     return m_forces;
@@ -71,14 +65,31 @@ class ModifierStepDescription : public StepDescription {
   {
     return m_events;
   }
-  ArrayRef<Action *> actions_per_event() override
+  ArrayRef<Action *> action_per_event() override
   {
     return m_actions;
   }
+};
+
+class ModifierStepDescription : public StepDescription {
+ public:
+  float m_duration;
+  SmallVector<Emitter *> m_emitters;
+  ModifierStepParticleInfluencers m_influencers;
 
   float step_duration() override
   {
     return m_duration;
+  }
+
+  ArrayRef<Emitter *> emitters() override
+  {
+    return m_emitters;
+  }
+
+  ParticleInfluencers &influencers() override
+  {
+    return m_influencers;
   }
 };
 
@@ -88,9 +99,9 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *UNUSED(npmd),
 {
   ParticlesState &state = *unwrap(state_c);
   ModifierStepDescription description;
-  description.m_emitters.append(EMITTER_point({1, 1, 1}).release());
-  description.m_forces.append(FORCE_directional({0, 0, -2}).release());
   description.m_duration = 1.0f / 24.0f;
+  description.m_emitters.append(EMITTER_point({1, 1, 1}).release());
+  description.m_influencers.m_forces.append(FORCE_directional({0, 0, -2}).release());
   simulate_step(state, description);
 }
 
