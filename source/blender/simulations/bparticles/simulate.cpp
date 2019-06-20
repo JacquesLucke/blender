@@ -22,7 +22,8 @@ static ArrayRef<uint> static_number_range_ref()
 
 static void step_individual_particles(AttributeArrays attributes,
                                       ArrayRef<uint> particle_indices,
-                                      ArrayRef<float> durations)
+                                      ArrayRef<float> durations,
+                                      ParticleInfluences &UNUSED(influences))
 {
   auto positions = attributes.get_float3("Position");
 
@@ -37,6 +38,7 @@ static void step_individual_particles(AttributeArrays attributes,
 
 static void emit_new_particles_from_emitter(ParticlesContainer &container,
                                             Emitter &emitter,
+                                            ParticleInfluences &influences,
                                             TimeSpan time_span)
 {
   SmallVector<EmitterTarget> targets;
@@ -72,16 +74,18 @@ static void emit_new_particles_from_emitter(ParticlesContainer &container,
     block->active_amount() += target.emitted_amount();
     step_individual_particles(emitted_attributes,
                               Range<uint>(0, emitted_attributes.size()).to_small_vector(),
-                              initial_step_durations);
+                              initial_step_durations,
+                              influences);
   }
 }
 
 static void emit_new_particles_from_emitters(ParticlesContainer &container,
                                              ArrayRef<Emitter *> emitters,
+                                             ParticleInfluences &influences,
                                              TimeSpan time_span)
 {
   for (Emitter *emitter : emitters) {
-    emit_new_particles_from_emitter(container, *emitter, time_span);
+    emit_new_particles_from_emitter(container, *emitter, influences, time_span);
   }
 }
 
@@ -105,10 +109,12 @@ void simulate_step(ParticlesState &state, StepDescription &description)
   for (ParticlesBlock *block : already_existing_blocks) {
     step_individual_particles(block->slice_active(),
                               static_number_range_ref().take_front(block->active_amount()),
-                              durations.take_front(block->active_amount()));
+                              durations.take_front(block->active_amount()),
+                              description.influences());
   }
 
-  emit_new_particles_from_emitters(particles, description.emitters(), time_span);
+  emit_new_particles_from_emitters(
+      particles, description.emitters(), description.influences(), time_span);
 }
 
 }  // namespace BParticles

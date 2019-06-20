@@ -51,7 +51,7 @@ void BParticles_state_free(BParticlesState state)
   delete unwrap(state);
 }
 
-class ModifierStepParticleInfluencers : public ParticleInfluencers {
+class ModifierStepParticleInfluences : public ParticleInfluences {
  public:
   SmallVector<Force *> m_forces;
   SmallVector<Event *> m_events;
@@ -75,7 +75,7 @@ class ModifierStepDescription : public StepDescription {
  public:
   float m_duration;
   SmallVector<Emitter *> m_emitters;
-  ModifierStepParticleInfluencers m_influencers;
+  ModifierStepParticleInfluences m_influences;
 
   float step_duration() override
   {
@@ -87,9 +87,9 @@ class ModifierStepDescription : public StepDescription {
     return m_emitters;
   }
 
-  ParticleInfluencers &influencers() override
+  ParticleInfluences &influences() override
   {
-    return m_influencers;
+    return m_influences;
   }
 };
 
@@ -101,7 +101,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *UNUSED(npmd),
   ModifierStepDescription description;
   description.m_duration = 1.0f / 24.0f;
   description.m_emitters.append(EMITTER_point({1, 1, 1}).release());
-  description.m_influencers.m_forces.append(FORCE_directional({0, 0, -2}).release());
+  description.m_influences.m_forces.append(FORCE_directional({0, 0, -2}).release());
   simulate_step(state, description);
 }
 

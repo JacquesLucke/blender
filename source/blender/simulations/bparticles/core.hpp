@@ -127,7 +127,7 @@ class Emitter {
   virtual void emit(EmitterHelper helper) = 0;
 };
 
-class ParticleInfluencers {
+class ParticleInfluences {
   virtual ArrayRef<Force *> forces() = 0;
   virtual ArrayRef<Event *> events() = 0;
   virtual ArrayRef<Action *> action_per_event() = 0;
@@ -137,7 +137,7 @@ class StepDescription {
  public:
   virtual float step_duration() = 0;
   virtual ArrayRef<Emitter *> emitters() = 0;
-  virtual ParticleInfluencers &influencers() = 0;
+  virtual ParticleInfluences &influences() = 0;
 };
 
 class ParticlesState {
