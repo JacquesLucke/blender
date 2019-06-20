@@ -136,13 +136,10 @@ class StepDescription {
 };
 
 class ParticlesState {
- private:
+ public:
   ParticlesContainer *m_container;
 
- public:
   ParticlesState() = default;
-
-  ParticlesContainer &particles_container();
 };
 
 }  // namespace BParticles

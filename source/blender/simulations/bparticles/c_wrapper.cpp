@@ -37,7 +37,13 @@ WRAPPERS(ParticlesState *, BParticlesState);
 
 BParticlesState BParticles_new_empty_state()
 {
-  return wrap(new BParticles::ParticlesState());
+  ParticlesState *state = new ParticlesState();
+
+  AttributesInfo info{{"Kill State"}, {"Birth Time"}, {"Position", "Velocity"}};
+  ParticlesContainer *container = new ParticlesContainer(info, 1000);
+  state->m_container = container;
+
+  return wrap(state);
 }
 
 void BParticles_state_free(BParticlesState state)
@@ -46,21 +52,27 @@ void BParticles_state_free(BParticlesState state)
 }
 
 class ModifierStepDescription : public StepDescription {
-  ArrayRef<Emitter *> emitters()
+ public:
+  SmallVector<Emitter *> m_emitters;
+  SmallVector<Force *> m_forces;
+  SmallVector<Event *> m_events;
+  SmallVector<Action *> m_actions;
+
+  ArrayRef<Emitter *> emitters() override
   {
-    return {};
+    return m_emitters;
   }
-  ArrayRef<Force *> forces()
+  ArrayRef<Force *> forces() override
   {
-    return {};
+    return m_forces;
   }
-  ArrayRef<Event *> events()
+  ArrayRef<Event *> events() override
   {
-    return {};
+    return m_events;
   }
-  ArrayRef<Action *> actions_per_event()
+  ArrayRef<Action *> actions_per_event() override
   {
-    return {};
+    return m_actions;
   }
 };
 
@@ -70,17 +82,31 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *UNUSED(npmd),
 {
   ParticlesState &state = *unwrap(state_c);
   ModifierStepDescription description;
+  description.m_emitters.append(EMITTER_point({1, 1, 1}).release());
+  description.m_forces.append(FORCE_directional({0, 0, -2}).release());
   simulate_step(state, description);
 }
 
-uint BParticles_state_particle_count(BParticlesState UNUSED(state))
+uint BParticles_state_particle_count(BParticlesState state_c)
 {
-  return 1;
+  ParticlesState &state = *unwrap(state_c);
+
+  uint count = 0;
+  for (auto *block : state.m_container->active_blocks()) {
+    count += block->active_amount();
+  }
+
+  return count;
 }
 
-void BParticles_state_get_positions(BParticlesState UNUSED(state), float (*dst)[3])
+void BParticles_state_get_positions(BParticlesState state_c, float (*dst)[3])
 {
-  dst[0][0] = 1;
-  dst[0][1] = 2;
-  dst[0][2] = 3;
+  ParticlesState &state = *unwrap(state_c);
+
+  uint index = 0;
+  for (auto *block : state.m_container->active_blocks()) {
+    auto positions = block->slice_active().get_float3("Position");
+    memcpy(dst + index, positions.begin(), sizeof(float3) * positions.size());
+    index += positions.size();
+  }
 }
