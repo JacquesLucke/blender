@@ -32,13 +32,18 @@ class Force {
                          ArrayRef<float3> dst) = 0;
 };
 
+struct IdealOffsets {
+  ArrayRef<float3> position_offsets;
+  ArrayRef<float3> velocity_offsets;
+};
+
 class Event {
  public:
   virtual ~Event();
 
   virtual void filter(AttributeArrays attributes,
                       ArrayRef<uint> indices_mask,
-                      ArrayRef<float3> next_movement,
+                      IdealOffsets &next_movement,
                       SmallVector<uint> &r_filtered_indices,
                       SmallVector<float> &r_time_factors) = 0;
 };

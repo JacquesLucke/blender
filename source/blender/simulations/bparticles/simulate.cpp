@@ -17,6 +17,97 @@ static ArrayRef<uint> static_number_range_ref()
   return static_number_range_vector();
 }
 
+/* Events
+ **************************************************/
+
+static void find_next_event_per_particle(AttributeArrays attributes,
+                                         ArrayRef<uint> particle_indices,
+                                         IdealOffsets &ideal_offsets,
+                                         ArrayRef<float> durations,
+                                         ArrayRef<Event *> events,
+                                         ArrayRef<int> r_next_event_indices,
+                                         ArrayRef<float> r_time_factors_to_next_event)
+{
+  r_next_event_indices.fill(-1);
+  r_time_factors_to_next_event.fill(1.0f);
+
+  for (uint event_index = 0; event_index < events.size(); event_index++) {
+    SmallVector<uint> triggered_indices;
+    SmallVector<float> triggered_time_factors;
+
+    Event *event = events[event_index];
+    event->filter(
+        attributes, particle_indices, ideal_offsets, triggered_indices, triggered_time_factors);
+
+    for (uint i = 0; i < triggered_indices.size(); i++) {
+      uint index = triggered_indices[i];
+      if (triggered_time_factors[i] < r_time_factors_to_next_event[index]) {
+        r_next_event_indices[index] = event_index;
+        r_time_factors_to_next_event[index] = triggered_time_factors[i];
+      }
+    }
+  }
+}
+
+static void forward_particles_to_next_event(AttributeArrays attributes,
+                                            ArrayRef<uint> particle_indices,
+                                            IdealOffsets &ideal_offsets,
+                                            ArrayRef<float> time_factors_to_next_event)
+{
+  auto positions = attributes.get_float3("Position");
+  auto velocities = attributes.get_float3("Velocity");
+
+  for (uint i = 0; i < particle_indices.size(); i++) {
+    uint pindex = particle_indices[i];
+    float time_factor = time_factors_to_next_event[i];
+    positions[pindex] += time_factor * ideal_offsets.position_offsets[i];
+    velocities[pindex] += time_factor * ideal_offsets.velocity_offsets[i];
+  }
+}
+
+static void find_particles_per_event(ArrayRef<uint> particle_indices,
+                                     ArrayRef<int> next_event_indices,
+                                     ArrayRef<SmallVector<uint>> r_particles_per_event)
+{
+  for (uint i = 0; i < particle_indices.size(); i++) {
+    int event_index = next_event_indices[i];
+    if (event_index != -1) {
+      uint pindex = particle_indices[i];
+      r_particles_per_event[event_index].append(pindex);
+    }
+  }
+}
+
+static void find_unfinished_particles(ArrayRef<uint> particle_indices,
+                                      ArrayRef<int> next_event_indices,
+                                      ArrayRef<float> time_factors_to_next_event,
+                                      ArrayRef<float> durations,
+                                      SmallVector<uint> &r_unfinished_particle_indices,
+                                      SmallVector<float> &r_remaining_durations)
+{
+  for (uint i = 0; i < particle_indices.size(); i++) {
+    uint pindex = particle_indices[i];
+    if (next_event_indices[i] != -1) {
+      float time_factor = time_factors_to_next_event[i];
+      float remaining_duration = durations[i] * (1.0f - time_factor);
+
+      r_unfinished_particle_indices.append(pindex);
+      r_remaining_durations.append(remaining_duration);
+    }
+  }
+}
+
+static void run_actions(AttributeArrays attributes,
+                        ArrayRef<SmallVector<uint>> particles_per_event,
+                        ArrayRef<Event *> events,
+                        ArrayRef<Action *> action_per_event)
+{
+  for (uint event_index = 0; event_index < events.size(); event_index++) {
+    Action *action = action_per_event[event_index];
+    action->execute(attributes, particles_per_event[event_index]);
+  }
+}
+
 /* Evaluate Forces
  ***********************************************/
 
@@ -39,12 +130,11 @@ static void compute_ideal_attribute_offsets(AttributeArrays attributes,
                                             ArrayRef<uint> particle_indices,
                                             ArrayRef<float> durations,
                                             ParticleInfluences &influences,
-                                            ArrayRef<float3> r_position_offsets,
-                                            ArrayRef<float3> r_velocity_offsets)
+                                            IdealOffsets r_offsets)
 {
   BLI_assert(particle_indices.size() == durations.size());
-  BLI_assert(particle_indices.size() == r_position_offsets.size());
-  BLI_assert(particle_indices.size() == r_velocity_offsets.size());
+  BLI_assert(particle_indices.size() == r_offsets.position_offsets.size());
+  BLI_assert(particle_indices.size() == r_offsets.velocity_offsets.size());
 
   SmallVector<float3> combined_force{particle_indices.size()};
   compute_combined_forces_on_particles(
@@ -58,8 +148,71 @@ static void compute_ideal_attribute_offsets(AttributeArrays attributes,
     float mass = 1.0f;
     float duration = durations[i];
 
-    r_velocity_offsets[i] = duration * combined_force[i] / mass;
-    r_position_offsets[i] = duration * (velocities[pindex] + r_velocity_offsets[i] * 0.5f);
+    r_offsets.velocity_offsets[i] = duration * combined_force[i] / mass;
+    r_offsets.position_offsets[i] = duration *
+                                    (velocities[pindex] + r_offsets.velocity_offsets[i] * 0.5f);
+  }
+}
+
+static void simulate_to_next_event(AttributeArrays attributes,
+                                   ArrayRef<uint> particle_indices,
+                                   ArrayRef<float> durations,
+                                   ParticleInfluences &influences,
+                                   SmallVector<uint> &r_unfinished_particle_indices,
+                                   SmallVector<float> &r_remaining_durations)
+{
+  SmallVector<float3> position_offsets(particle_indices.size());
+  SmallVector<float3> velocity_offsets(particle_indices.size());
+  IdealOffsets ideal_offsets{position_offsets, velocity_offsets};
+
+  compute_ideal_attribute_offsets(
+      attributes, particle_indices, durations, influences, ideal_offsets);
+
+  SmallVector<int> next_event_indices(particle_indices.size());
+  SmallVector<float> time_factors_to_next_event(particle_indices.size());
+
+  find_next_event_per_particle(attributes,
+                               particle_indices,
+                               ideal_offsets,
+                               durations,
+                               influences.events(),
+                               next_event_indices,
+                               time_factors_to_next_event);
+
+  forward_particles_to_next_event(
+      attributes, particle_indices, ideal_offsets, time_factors_to_next_event);
+
+  SmallVector<SmallVector<uint>> particles_per_event(influences.events().size());
+  find_particles_per_event(particle_indices, next_event_indices, particles_per_event);
+  run_actions(attributes, particles_per_event, influences.events(), influences.action_per_event());
+
+  find_unfinished_particles(particle_indices,
+                            next_event_indices,
+                            time_factors_to_next_event,
+                            durations,
+                            r_unfinished_particle_indices,
+                            r_remaining_durations);
+}
+
+static void simulate_ignoring_events(AttributeArrays attributes,
+                                     ArrayRef<uint> particle_indices,
+                                     ArrayRef<float> durations,
+                                     ParticleInfluences &influences)
+{
+  SmallVector<float3> position_offsets{particle_indices.size()};
+  SmallVector<float3> velocity_offsets{particle_indices.size()};
+  IdealOffsets offsets{position_offsets, velocity_offsets};
+
+  compute_ideal_attribute_offsets(attributes, particle_indices, durations, influences, offsets);
+
+  auto positions = attributes.get_float3("Position");
+  auto velocities = attributes.get_float3("Velocity");
+
+  for (uint i = 0; i < particle_indices.size(); i++) {
+    uint pindex = particle_indices[i];
+
+    positions[pindex] += offsets.position_offsets[i];
+    velocities[pindex] += offsets.velocity_offsets[i];
   }
 }
 
@@ -68,21 +221,18 @@ static void step_individual_particles(AttributeArrays attributes,
                                       ArrayRef<float> durations,
                                       ParticleInfluences &influences)
 {
-  SmallVector<float3> position_offsets{particle_indices.size()};
-  SmallVector<float3> velocity_offsets{particle_indices.size()};
+  SmallVector<uint> unfinished_particle_indices;
+  SmallVector<float> remaining_durations;
+  simulate_to_next_event(attributes,
+                         particle_indices,
+                         durations,
+                         influences,
+                         unfinished_particle_indices,
+                         remaining_durations);
+  BLI_assert(unfinished_particle_indices.size() == remaining_durations.size());
 
-  compute_ideal_attribute_offsets(
-      attributes, particle_indices, durations, influences, position_offsets, velocity_offsets);
-
-  auto positions = attributes.get_float3("Position");
-  auto velocities = attributes.get_float3("Velocity");
-
-  for (uint i = 0; i < particle_indices.size(); i++) {
-    uint pindex = particle_indices[i];
-
-    positions[pindex] += position_offsets[i];
-    velocities[pindex] += velocity_offsets[i];
-  }
+  simulate_ignoring_events(
+      attributes, unfinished_particle_indices, remaining_durations, influences);
 }
 
 /* Emit new particles from emitters.
