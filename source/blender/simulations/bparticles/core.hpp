@@ -129,6 +129,8 @@ class Emitter {
 
 class StepDescription {
  public:
+  virtual float step_duration() = 0;
+
   virtual ArrayRef<Emitter *> emitters() = 0;
   virtual ArrayRef<Force *> forces() = 0;
   virtual ArrayRef<Event *> events() = 0;
@@ -138,6 +140,7 @@ class StepDescription {
 class ParticlesState {
  public:
   ParticlesContainer *m_container;
+  float m_current_time = 0.0f;
 
   ParticlesState() = default;
 };
