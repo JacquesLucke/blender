@@ -25,6 +25,10 @@ set(SRC
   bparticles/emitters.cpp
   bparticles/forces.hpp
   bparticles/forces.cpp
+  bparticles/actions.hpp
+  bparticles/actions.cpp
+  bparticles/events.hpp
+  bparticles/events.cpp
   bparticles/attributes.hpp
   bparticles/attributes.cpp
   bparticles/c_wrapper.cpp
