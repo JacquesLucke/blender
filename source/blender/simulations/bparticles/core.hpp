@@ -129,6 +129,8 @@ class Emitter {
 
 class ParticleInfluences {
  public:
+  virtual ~ParticleInfluences();
+
   virtual ArrayRef<Force *> forces() = 0;
   virtual ArrayRef<Event *> events() = 0;
   virtual ArrayRef<Action *> action_per_event() = 0;
@@ -136,6 +138,8 @@ class ParticleInfluences {
 
 class StepDescription {
  public:
+  virtual ~StepDescription();
+
   virtual float step_duration() = 0;
   virtual ArrayRef<Emitter *> emitters() = 0;
   virtual ParticleInfluences &influences() = 0;
@@ -147,6 +151,7 @@ class ParticlesState {
   float m_current_time = 0.0f;
 
   ParticlesState() = default;
+  ~ParticlesState();
 };
 
 }  // namespace BParticles

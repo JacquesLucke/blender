@@ -57,6 +57,19 @@ class ModifierStepParticleInfluences : public ParticleInfluences {
   SmallVector<Event *> m_events;
   SmallVector<Action *> m_actions;
 
+  ~ModifierStepParticleInfluences()
+  {
+    for (Force *force : m_forces) {
+      delete force;
+    }
+    for (Event *event : m_events) {
+      delete event;
+    }
+    for (Action *action : m_actions) {
+      delete action;
+    }
+  }
+
   ArrayRef<Force *> forces() override
   {
     return m_forces;
@@ -76,6 +89,13 @@ class ModifierStepDescription : public StepDescription {
   float m_duration;
   SmallVector<Emitter *> m_emitters;
   ModifierStepParticleInfluences m_influences;
+
+  ~ModifierStepDescription()
+  {
+    for (Emitter *emitter : m_emitters) {
+      delete emitter;
+    }
+  }
 
   float step_duration() override
   {

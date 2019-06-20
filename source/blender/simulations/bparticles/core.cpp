@@ -18,4 +18,17 @@ Event::~Event()
 {
 }
 
+ParticleInfluences::~ParticleInfluences()
+{
+}
+
+StepDescription::~StepDescription()
+{
+}
+
+ParticlesState::~ParticlesState()
+{
+  delete m_container;
+}
+
 }  // namespace BParticles
