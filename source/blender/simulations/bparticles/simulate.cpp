@@ -141,6 +141,21 @@ static void emit_new_particles_from_emitters(ParticlesContainer &container,
   }
 }
 
+/* Compress particle blocks.
+ **************************************************/
+
+static void compress_all_blocks(ParticlesContainer &particles)
+{
+  SmallVector<ParticlesBlock *> blocks = particles.active_blocks().to_small_vector();
+  ParticlesBlock::Compress(blocks);
+
+  for (ParticlesBlock *block : blocks) {
+    if (block->is_empty()) {
+      particles.release_block(block);
+    }
+  }
+}
+
 /* Main Entry Point
  **************************************************/
 
@@ -167,6 +182,8 @@ void simulate_step(ParticlesState &state, StepDescription &description)
 
   emit_new_particles_from_emitters(
       particles, description.emitters(), description.influences(), time_span);
+
+  compress_all_blocks(particles);
 }
 
 }  // namespace BParticles

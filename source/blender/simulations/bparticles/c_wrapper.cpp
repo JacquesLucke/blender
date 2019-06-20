@@ -123,6 +123,9 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *UNUSED(npmd),
   description.m_emitters.append(EMITTER_point({1, 1, 1}).release());
   description.m_influences.m_forces.append(FORCE_directional({0, 0, -2}).release());
   simulate_step(state, description);
+
+  std::cout << "Active Blocks: " << state.m_container->active_blocks().size() << "\n";
+  std::cout << " Particle Amount: " << BParticles_state_particle_count(state_c) << "\n";
 }
 
 uint BParticles_state_particle_count(BParticlesState state_c)
