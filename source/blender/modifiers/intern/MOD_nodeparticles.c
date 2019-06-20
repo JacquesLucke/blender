@@ -49,104 +49,44 @@
 #include "BParticles.h"
 
 typedef struct RuntimeData {
-  BParticlesDescription description;
-  BParticlesSolver solver;
   BParticlesState state;
   float last_simulated_frame;
 } RuntimeData;
 
-static RuntimeData *get_runtime_data(NodeParticlesModifierData *npmd)
+static RuntimeData *get_runtime_struct(NodeParticlesModifierData *npmd)
 {
-  RuntimeData *data = npmd->modifier.runtime;
-  BLI_assert(data);
-  return data;
-}
-
-static BParticlesDescription create_current_description(Object *UNUSED(self),
-                                                        NodeParticlesModifierData *npmd,
-                                                        Depsgraph *UNUSED(depsgraph))
-{
-  return BParticles_playground_description(npmd->control1, npmd->control2, npmd->emitter_object);
-}
-
-static void ensure_runtime_data(Object *self,
-                                NodeParticlesModifierData *npmd,
-                                Depsgraph *depsgraph)
-{
-  if (npmd->modifier.runtime != NULL) {
-    return;
+  if (npmd->modifier.runtime == NULL) {
+    RuntimeData *runtime = MEM_callocN(sizeof(RuntimeData), __func__);
+    runtime->state = NULL;
+    runtime->last_simulated_frame = 0.0f;
+    npmd->modifier.runtime = runtime;
   }
 
-  RuntimeData *runtime = MEM_callocN(sizeof(RuntimeData), __func__);
-
-  runtime->description = create_current_description(self, npmd, depsgraph);
-  runtime->solver = BParticles_solver_build(runtime->description);
-  runtime->state = BParticles_state_init(runtime->solver);
-  runtime->last_simulated_frame = 0.0f;
-
-  npmd->modifier.runtime = runtime;
+  return npmd->modifier.runtime;
 }
 
 static void free_runtime_data(RuntimeData *runtime)
 {
   BParticles_state_free(runtime->state);
-  BParticles_solver_free(runtime->solver);
-  BParticles_description_free(runtime->description);
   MEM_freeN(runtime);
 }
 
-static void clear_runtime_data(NodeParticlesModifierData *npmd)
+static void free_modifier_runtime_data(NodeParticlesModifierData *npmd)
 {
-  if (npmd->modifier.runtime != NULL) {
-    free_runtime_data(npmd->modifier.runtime);
+  RuntimeData *runtime = (RuntimeData *)npmd->modifier.runtime;
+  if (runtime != NULL) {
+    free_runtime_data(runtime);
     npmd->modifier.runtime = NULL;
   }
 }
 
-static Mesh *applyModifier(ModifierData *md,
-                           const struct ModifierEvalContext *ctx,
-                           Mesh *UNUSED(mesh))
+static Mesh *mesh_from_particles_state(BParticlesState state)
 {
-  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
-  ensure_runtime_data(ctx->object, npmd, ctx->depsgraph);
-  RuntimeData *runtime = get_runtime_data(npmd);
-
-  Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
-  float current_frame = BKE_scene_frame_get(scene);
-  float fps = FPS;
-
-  if (current_frame != runtime->last_simulated_frame) {
-    BParticlesDescription new_description = create_current_description(
-        ctx->object, npmd, ctx->depsgraph);
-    BParticlesSolver new_solver = BParticles_solver_build(new_description);
-
-    if (current_frame == runtime->last_simulated_frame + 1) {
-      BParticles_state_adapt(new_solver, runtime->state);
-
-      BParticles_solver_free(runtime->solver);
-      BParticles_description_free(runtime->description);
-      runtime->description = new_description;
-      runtime->solver = new_solver;
-
-      BParticles_state_step(runtime->solver, runtime->state, 1.0f / fps);
-    }
-    else {
-      BParticles_state_free(runtime->state);
-      BParticles_solver_free(runtime->solver);
-      BParticles_description_free(runtime->description);
-
-      runtime->description = new_description;
-      runtime->solver = new_solver;
-      runtime->state = BParticles_state_init(new_solver);
-    }
-    runtime->last_simulated_frame = current_frame;
-  }
-
-  uint point_amount = BParticles_state_particle_count(runtime->solver, runtime->state);
+  uint point_amount = BParticles_state_particle_count(state);
   Mesh *mesh = BKE_mesh_new_nomain(point_amount, 0, 0, 0, 0);
 
   float(*positions)[3] = MEM_malloc_arrayN(point_amount, sizeof(float[3]), __func__);
-  BParticles_state_get_positions(runtime->solver, runtime->state, positions);
+  BParticles_state_get_positions(state, positions);
 
   for (uint i = 0; i < point_amount; i++) {
     copy_v3_v3(mesh->mvert[i].co, positions[i]);
@@ -157,6 +97,37 @@ static Mesh *applyModifier(ModifierData *md,
   return mesh;
 }
 
+static Mesh *applyModifier(ModifierData *md,
+                           const struct ModifierEvalContext *ctx,
+                           Mesh *UNUSED(mesh))
+{
+  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
+  RuntimeData *runtime = get_runtime_struct(npmd);
+
+  if (runtime->state == NULL) {
+    runtime->state = BParticles_new_empty_state();
+  }
+
+  Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
+  float current_frame = BKE_scene_frame_get(scene);
+
+  if (current_frame == runtime->last_simulated_frame) {
+    /* do nothing */
+  }
+  else if (current_frame == runtime->last_simulated_frame + 1.0f) {
+    BParticles_simulate_modifier(npmd, ctx->depsgraph, runtime->state);
+    runtime->last_simulated_frame = current_frame;
+  }
+  else {
+    free_modifier_runtime_data(npmd);
+    runtime = get_runtime_struct(npmd);
+    runtime->state = BParticles_new_empty_state();
+    runtime->last_simulated_frame = current_frame;
+  }
+
+  return mesh_from_particles_state(runtime->state);
+}
+
 static void initData(ModifierData *UNUSED(md))
 {
 }
@@ -164,7 +135,7 @@ static void initData(ModifierData *UNUSED(md))
 static void freeData(ModifierData *md)
 {
   NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
-  clear_runtime_data(npmd);
+  free_modifier_runtime_data(npmd);
 }
 
 static void freeRuntimeData(void *runtime_data_v)
@@ -172,8 +143,8 @@ static void freeRuntimeData(void *runtime_data_v)
   if (runtime_data_v == NULL) {
     return;
   }
-  RuntimeData *data = (RuntimeData *)runtime_data_v;
-  free_runtime_data(data);
+  RuntimeData *runtime = (RuntimeData *)runtime_data_v;
+  free_runtime_data(runtime);
 }
 
 static bool dependsOnTime(ModifierData *UNUSED(md))

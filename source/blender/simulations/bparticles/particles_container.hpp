@@ -7,7 +7,7 @@
 #include "BLI_string_ref.hpp"
 #include "BLI_small_map.hpp"
 
-#include "core.hpp"
+#include "attributes.hpp"
 
 namespace BParticles {
 

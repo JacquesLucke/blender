@@ -8,29 +8,20 @@
 extern "C" {
 #endif
 
-struct Object;
+struct Depsgraph;
+struct NodeParticlesModifierData;
 
-typedef struct OpaqueBParticlesDescription *BParticlesDescription;
-typedef struct OpaqueBParticlesSolver *BParticlesSolver;
 typedef struct OpaqueBParticlesState *BParticlesState;
 
-BParticlesDescription BParticles_playground_description(float control1,
-                                                        float control2,
-                                                        struct Object *object);
-void BParticles_description_free(BParticlesDescription description);
-
-BParticlesSolver BParticles_solver_build(BParticlesDescription description);
-void BParticles_solver_free(BParticlesSolver solver);
-
-BParticlesState BParticles_state_init(BParticlesSolver solver);
-void BParticles_state_adapt(BParticlesSolver new_solver, BParticlesState state_to_adapt);
-void BParticles_state_step(BParticlesSolver solver, BParticlesState state, float elapsed_seconds);
+BParticlesState BParticles_new_empty_state(void);
 void BParticles_state_free(BParticlesState state);
 
-uint BParticles_state_particle_count(BParticlesSolver solver, BParticlesState state);
-void BParticles_state_get_positions(BParticlesSolver solver,
-                                    BParticlesState state,
-                                    float (*dst)[3]);
+void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
+                                  Depsgraph *depsgraph,
+                                  BParticlesState state);
+
+uint BParticles_state_particle_count(BParticlesState state);
+void BParticles_state_get_positions(BParticlesState state, float (*dst)[3]);
 
 #ifdef __cplusplus
 }

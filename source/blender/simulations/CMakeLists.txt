@@ -19,8 +19,8 @@ set(SRC
   bparticles/core.cpp
   bparticles/particles_container.hpp
   bparticles/particles_container.cpp
-  bparticles/playground_solver.hpp
-  bparticles/playground_solver.cpp
+  bparticles/simulate.hpp
+  bparticles/simulate.cpp
   bparticles/emitters.hpp
   bparticles/emitters.cpp
   bparticles/forces.hpp
