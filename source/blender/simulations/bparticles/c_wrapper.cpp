@@ -10,6 +10,7 @@
 
 #include "BKE_curve.h"
 
+#include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_curve_types.h"
 
@@ -176,19 +177,24 @@ class ModifierStepDescription : public StepDescription {
   }
 };
 
-void BParticles_simulate_modifier(NodeParticlesModifierData *UNUSED(npmd),
+void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
                                   Depsgraph *UNUSED(depsgraph),
                                   BParticlesState state_c)
 {
+  SCOPED_TIMER("simulate");
+
   ParticlesState &state = *unwrap(state_c);
   ModifierStepDescription description;
   description.m_duration = 1.0f / 24.0f;
-  description.m_emitters.append(EMITTER_point({1, 1, 1}).release());
+  if (npmd->emitter_object) {
+    description.m_emitters.append(
+        EMITTER_mesh_surface((Mesh *)npmd->emitter_object->data, npmd->control1).release());
+  }
   description.m_influences.m_forces.append(FORCE_directional({0, 0, -2}).release());
-  description.m_influences.m_events.append(new AgeReachedEvent(1));
+  description.m_influences.m_events.append(new AgeReachedEvent(6.0f));
   description.m_influences.m_actions.append(new KillAction());
-  description.m_influences.m_events.append(new AgeReachedEvent(0.5f));
-  description.m_influences.m_actions.append(new MoveAction({0, 1, 0}));
+  description.m_influences.m_events.append(new AgeReachedEvent(3.0f));
+  description.m_influences.m_actions.append(new MoveAction({0, 10, 0}));
   simulate_step(state, description);
 
   std::cout << "Active Blocks: " << state.m_container->active_blocks().size() << "\n";
