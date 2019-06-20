@@ -51,6 +51,49 @@ void BParticles_state_free(BParticlesState state)
   delete unwrap(state);
 }
 
+class AgeReachedEvent : public Event {
+ private:
+  float m_age;
+
+ public:
+  AgeReachedEvent(float age) : m_age(age)
+  {
+  }
+
+  void filter(AttributeArrays attributes,
+              ArrayRef<uint> particle_indices,
+              IdealOffsets &ideal_offsets,
+              ArrayRef<float> durations,
+              float end_time,
+              SmallVector<uint> &r_filtered_indices,
+              SmallVector<float> &r_time_factors) override
+  {
+    auto birth_times = attributes.get_float("Birth Time");
+
+    for (uint i = 0; i < particle_indices.size(); i++) {
+      uint pindex = particle_indices[i];
+      float duration = durations[i];
+      float birth_time = birth_times[i];
+      float age = end_time - birth_time;
+      if (age >= m_age && age - duration < m_age) {
+        r_filtered_indices.append(i);
+        r_time_factors.append(
+            TimeSpan(end_time - duration, duration).get_factor(birth_time + m_age));
+      }
+    }
+  }
+};
+
+class KillAction : public Action {
+  void execute(AttributeArrays attributes, ArrayRef<uint> particle_indices) override
+  {
+    auto kill_states = attributes.get_byte("Kill State");
+    for (uint pindex : particle_indices) {
+      kill_states[pindex] = 1;
+    }
+  }
+};
+
 class ModifierStepParticleInfluences : public ParticleInfluences {
  public:
   SmallVector<Force *> m_forces;
@@ -122,6 +165,8 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *UNUSED(npmd),
   description.m_duration = 1.0f / 24.0f;
   description.m_emitters.append(EMITTER_point({1, 1, 1}).release());
   description.m_influences.m_forces.append(FORCE_directional({0, 0, -2}).release());
+  description.m_influences.m_events.append(new AgeReachedEvent(3));
+  description.m_influences.m_actions.append(new KillAction());
   simulate_step(state, description);
 
   std::cout << "Active Blocks: " << state.m_container->active_blocks().size() << "\n";

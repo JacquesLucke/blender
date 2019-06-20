@@ -30,6 +30,12 @@ struct TimeSpan {
   {
     return m_start + t * m_duration;
   }
+
+  float get_factor(float time) const
+  {
+    BLI_assert(m_duration > 0.0f);
+    return (time - m_start) / m_duration;
+  }
 };
 
 }  // namespace BParticles

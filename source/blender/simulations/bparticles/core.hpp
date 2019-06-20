@@ -12,6 +12,7 @@
 
 #include "attributes.hpp"
 #include "particles_container.hpp"
+#include "time_span.hpp"
 
 namespace BParticles {
 
@@ -28,7 +29,7 @@ class Force {
  public:
   virtual ~Force();
   virtual void add_force(AttributeArrays attributes,
-                         ArrayRef<uint> indices_mask,
+                         ArrayRef<uint> particle_indices,
                          ArrayRef<float3> dst) = 0;
 };
 
@@ -42,8 +43,10 @@ class Event {
   virtual ~Event();
 
   virtual void filter(AttributeArrays attributes,
-                      ArrayRef<uint> indices_mask,
-                      IdealOffsets &next_movement,
+                      ArrayRef<uint> particle_indices,
+                      IdealOffsets &ideal_offsets,
+                      ArrayRef<float> durations,
+                      float end_time,
                       SmallVector<uint> &r_filtered_indices,
                       SmallVector<float> &r_time_factors) = 0;
 };
@@ -52,7 +55,7 @@ class Action {
  public:
   virtual ~Action();
 
-  virtual void execute(AttributeArrays attributes, ArrayRef<uint> indices_mask) = 0;
+  virtual void execute(AttributeArrays attributes, ArrayRef<uint> particle_indices) = 0;
 };
 
 class EmitterTarget {

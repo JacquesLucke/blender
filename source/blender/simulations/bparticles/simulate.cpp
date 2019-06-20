@@ -24,6 +24,7 @@ static void find_next_event_per_particle(AttributeArrays attributes,
                                          ArrayRef<uint> particle_indices,
                                          IdealOffsets &ideal_offsets,
                                          ArrayRef<float> durations,
+                                         float end_time,
                                          ArrayRef<Event *> events,
                                          ArrayRef<int> r_next_event_indices,
                                          ArrayRef<float> r_time_factors_to_next_event)
@@ -36,8 +37,13 @@ static void find_next_event_per_particle(AttributeArrays attributes,
     SmallVector<float> triggered_time_factors;
 
     Event *event = events[event_index];
-    event->filter(
-        attributes, particle_indices, ideal_offsets, triggered_indices, triggered_time_factors);
+    event->filter(attributes,
+                  particle_indices,
+                  ideal_offsets,
+                  durations,
+                  end_time,
+                  triggered_indices,
+                  triggered_time_factors);
 
     for (uint i = 0; i < triggered_indices.size(); i++) {
       uint index = triggered_indices[i];
@@ -157,6 +163,7 @@ static void compute_ideal_attribute_offsets(AttributeArrays attributes,
 static void simulate_to_next_event(AttributeArrays attributes,
                                    ArrayRef<uint> particle_indices,
                                    ArrayRef<float> durations,
+                                   float end_time,
                                    ParticleInfluences &influences,
                                    SmallVector<uint> &r_unfinished_particle_indices,
                                    SmallVector<float> &r_remaining_durations)
@@ -175,6 +182,7 @@ static void simulate_to_next_event(AttributeArrays attributes,
                                particle_indices,
                                ideal_offsets,
                                durations,
+                               end_time,
                                influences.events(),
                                next_event_indices,
                                time_factors_to_next_event);
@@ -219,6 +227,7 @@ static void simulate_ignoring_events(AttributeArrays attributes,
 static void step_individual_particles(AttributeArrays attributes,
                                       ArrayRef<uint> particle_indices,
                                       ArrayRef<float> durations,
+                                      float end_time,
                                       ParticleInfluences &influences)
 {
   SmallVector<uint> unfinished_particle_indices;
@@ -226,6 +235,7 @@ static void step_individual_particles(AttributeArrays attributes,
   simulate_to_next_event(attributes,
                          particle_indices,
                          durations,
+                         end_time,
                          influences,
                          unfinished_particle_indices,
                          remaining_durations);
@@ -233,6 +243,32 @@ static void step_individual_particles(AttributeArrays attributes,
 
   simulate_ignoring_events(
       attributes, unfinished_particle_indices, remaining_durations, influences);
+}
+
+/* Delete particles.
+ **********************************************/
+
+static void delete_tagged_particles_and_reorder(ParticlesBlock &block)
+{
+  auto kill_states = block.slice_active().get_byte("Kill State");
+
+  uint index = 0;
+  while (index < block.active_amount()) {
+    if (kill_states[index] == 1) {
+      block.move(block.active_amount() - 1, index);
+      block.active_amount() -= 1;
+    }
+    else {
+      index++;
+    }
+  }
+}
+
+static void delete_tagged_particles(ArrayRef<ParticlesBlock *> blocks)
+{
+  for (ParticlesBlock *block : blocks) {
+    delete_tagged_particles_and_reorder(*block);
+  }
 }
 
 /* Emit new particles from emitters.
@@ -277,6 +313,7 @@ static void emit_new_particles_from_emitter(ParticlesContainer &container,
     step_individual_particles(emitted_attributes,
                               Range<uint>(0, emitted_attributes.size()).to_small_vector(),
                               initial_step_durations,
+                              time_span.end(),
                               influences);
   }
 }
@@ -327,12 +364,14 @@ void simulate_step(ParticlesState &state, StepDescription &description)
     step_individual_particles(block->slice_active(),
                               static_number_range_ref().take_front(block->active_amount()),
                               durations.take_front(block->active_amount()),
+                              time_span.end(),
                               description.influences());
   }
 
   emit_new_particles_from_emitters(
       particles, description.emitters(), description.influences(), time_span);
 
+  delete_tagged_particles(particles.active_blocks().to_small_vector());
   compress_all_blocks(particles);
 }
 
