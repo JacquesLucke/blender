@@ -1,6 +1,8 @@
 #include "simulate.hpp"
 #include "time_span.hpp"
+
 #include "BLI_lazy_init.hpp"
+#include "BLI_task.h"
 
 namespace BParticles {
 
@@ -265,6 +267,48 @@ BLI_NOINLINE static void step_individual_particles(AttributeArrays attributes,
       attributes, unfinished_particle_indices, remaining_durations, influences);
 }
 
+struct StepBlocksParallelData {
+  ArrayRef<ParticlesBlock *> blocks;
+  ArrayRef<float> all_durations;
+  float end_time;
+  ParticleInfluences &influences;
+};
+
+BLI_NOINLINE static void step_individual_particles_cb(
+    void *__restrict userdata, const int index, const ParallelRangeTLS *__restrict UNUSED(tls))
+{
+  StepBlocksParallelData *data = (StepBlocksParallelData *)userdata;
+  ParticlesBlock *block = data->blocks[index];
+
+  uint active_amount = block->active_amount();
+  step_individual_particles(block->slice_active(),
+                            static_number_range_ref().take_front(active_amount),
+                            data->all_durations.take_front(active_amount),
+                            data->end_time,
+                            data->influences);
+}
+
+BLI_NOINLINE static void step_individual_particles(ArrayRef<ParticlesBlock *> blocks,
+                                                   TimeSpan time_span,
+                                                   ParticleInfluences &influences)
+{
+  if (blocks.size() == 0) {
+    return;
+  }
+
+  ParallelRangeSettings settings;
+  BLI_parallel_range_settings_defaults(&settings);
+
+  uint block_size = blocks[0]->container().block_size();
+  SmallVector<float> all_durations(block_size);
+  all_durations.fill(time_span.duration());
+
+  StepBlocksParallelData data = {blocks, all_durations, time_span.end(), influences};
+
+  BLI_task_parallel_range(
+      0, blocks.size(), (void *)&data, step_individual_particles_cb, &settings);
+}
+
 /* Delete particles.
  **********************************************/
 
@@ -373,24 +417,10 @@ void simulate_step(ParticlesState &state, StepDescription &description)
 
   ParticlesContainer &particles = *state.m_container;
 
-  SmallVector<ParticlesBlock *> already_existing_blocks =
-      particles.active_blocks().to_small_vector();
-
-  SmallVector<float> durations_vector(particles.block_size());
-  durations_vector.fill(time_span.duration());
-  ArrayRef<float> durations = durations_vector;
-
-  for (ParticlesBlock *block : already_existing_blocks) {
-    step_individual_particles(block->slice_active(),
-                              static_number_range_ref().take_front(block->active_amount()),
-                              durations.take_front(block->active_amount()),
-                              time_span.end(),
-                              description.influences());
-  }
-
+  step_individual_particles(
+      particles.active_blocks().to_small_vector(), time_span, description.influences());
   emit_new_particles_from_emitters(
       particles, description.emitters(), description.influences(), time_span);
-
   delete_tagged_particles(particles.active_blocks().to_small_vector());
   compress_all_blocks(particles);
 }
