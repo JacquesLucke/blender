@@ -17,19 +17,71 @@ static ArrayRef<uint> static_number_range_ref()
   return static_number_range_vector();
 }
 
+/* Evaluate Forces
+ ***********************************************/
+
+static void compute_combined_forces_on_particles(AttributeArrays attributes,
+                                                 ArrayRef<uint> particle_indices,
+                                                 ArrayRef<Force *> forces,
+                                                 ArrayRef<float3> r_force_vectors)
+{
+  BLI_assert(particle_indices.size() == r_force_vectors.size());
+  r_force_vectors.fill({0, 0, 0});
+  for (Force *force : forces) {
+    force->add_force(attributes, particle_indices, r_force_vectors);
+  }
+}
+
 /* Step individual particles.
  **********************************************/
+
+static void compute_ideal_attribute_offsets(AttributeArrays attributes,
+                                            ArrayRef<uint> particle_indices,
+                                            ArrayRef<float> durations,
+                                            ParticleInfluences &influences,
+                                            ArrayRef<float3> r_position_offsets,
+                                            ArrayRef<float3> r_velocity_offsets)
+{
+  BLI_assert(particle_indices.size() == durations.size());
+  BLI_assert(particle_indices.size() == r_position_offsets.size());
+  BLI_assert(particle_indices.size() == r_velocity_offsets.size());
+
+  SmallVector<float3> combined_force{particle_indices.size()};
+  compute_combined_forces_on_particles(
+      attributes, particle_indices, influences.forces(), combined_force);
+
+  auto velocities = attributes.get_float3("Velocity");
+
+  for (uint i = 0; i < particle_indices.size(); i++) {
+    uint pindex = particle_indices[i];
+
+    float mass = 1.0f;
+    float duration = durations[i];
+
+    r_velocity_offsets[i] = duration * combined_force[i] / mass;
+    r_position_offsets[i] = duration * (velocities[pindex] + r_velocity_offsets[i] * 0.5f);
+  }
+}
 
 static void step_individual_particles(AttributeArrays attributes,
                                       ArrayRef<uint> particle_indices,
                                       ArrayRef<float> durations,
-                                      ParticleInfluences &UNUSED(influences))
+                                      ParticleInfluences &influences)
 {
+  SmallVector<float3> position_offsets{particle_indices.size()};
+  SmallVector<float3> velocity_offsets{particle_indices.size()};
+
+  compute_ideal_attribute_offsets(
+      attributes, particle_indices, durations, influences, position_offsets, velocity_offsets);
+
   auto positions = attributes.get_float3("Position");
+  auto velocities = attributes.get_float3("Velocity");
 
   for (uint i = 0; i < particle_indices.size(); i++) {
     uint pindex = particle_indices[i];
-    positions[pindex].x += durations[i] * 2.0f;
+
+    positions[pindex] += position_offsets[i];
+    velocities[pindex] += velocity_offsets[i];
   }
 }
 

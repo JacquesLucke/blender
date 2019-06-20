@@ -128,6 +128,7 @@ class Emitter {
 };
 
 class ParticleInfluences {
+ public:
   virtual ArrayRef<Force *> forces() = 0;
   virtual ArrayRef<Event *> events() = 0;
   virtual ArrayRef<Action *> action_per_event() = 0;
