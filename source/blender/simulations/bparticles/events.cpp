@@ -78,7 +78,7 @@ class MeshCollisionEvent : public Event {
                            (void *)m_treedata);
 
       if (hit.index != -1) {
-        float time_factor = hit.dist / direction.length();
+        float time_factor = hit.dist / length;
         r_filtered_indices.append(i);
         r_time_factors.append(time_factor);
       }
