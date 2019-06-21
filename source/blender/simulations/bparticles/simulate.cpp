@@ -438,11 +438,11 @@ void simulate_step(ParticlesState &state, StepDescription &description)
   state.m_current_time = time_span.end();
 
   ParticlesContainer &particles = *state.m_container;
+  ParticleType &type = description.particle_type();
 
   step_individual_particles(
-      particles.active_blocks().to_small_vector(), time_span, description.influences());
-  emit_new_particles_from_emitters(
-      particles, description.emitters(), description.influences(), time_span);
+      particles.active_blocks().to_small_vector(), time_span, type.influences());
+  emit_new_particles_from_emitters(particles, type.emitters(), type.influences(), time_span);
   delete_tagged_particles(particles.active_blocks().to_small_vector());
   compress_all_blocks(particles);
 }

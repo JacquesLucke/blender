@@ -22,6 +22,10 @@ ParticleInfluences::~ParticleInfluences()
 {
 }
 
+ParticleType::~ParticleType()
+{
+}
+
 StepDescription::~StepDescription()
 {
 }

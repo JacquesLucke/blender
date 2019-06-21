@@ -183,13 +183,20 @@ class ParticleInfluences {
   virtual ArrayRef<Action *> action_per_event() = 0;
 };
 
+class ParticleType {
+ public:
+  virtual ~ParticleType();
+
+  virtual ArrayRef<Emitter *> emitters() = 0;
+  virtual ParticleInfluences &influences() = 0;
+};
+
 class StepDescription {
  public:
   virtual ~StepDescription();
 
   virtual float step_duration() = 0;
-  virtual ArrayRef<Emitter *> emitters() = 0;
-  virtual ParticleInfluences &influences() = 0;
+  virtual ParticleType &particle_type() = 0;
 };
 
 class ParticlesState {

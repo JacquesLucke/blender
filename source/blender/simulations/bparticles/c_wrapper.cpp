@@ -88,22 +88,16 @@ class ModifierStepParticleInfluences : public ParticleInfluences {
   }
 };
 
-class ModifierStepDescription : public StepDescription {
+class ModifierParticleType : public ParticleType {
  public:
-  float m_duration;
   SmallVector<Emitter *> m_emitters;
   ModifierStepParticleInfluences m_influences;
 
-  ~ModifierStepDescription()
+  ~ModifierParticleType()
   {
     for (Emitter *emitter : m_emitters) {
       delete emitter;
     }
-  }
-
-  float step_duration() override
-  {
-    return m_duration;
   }
 
   ArrayRef<Emitter *> emitters() override
@@ -117,6 +111,22 @@ class ModifierStepDescription : public StepDescription {
   }
 };
 
+class ModifierStepDescription : public StepDescription {
+ public:
+  float m_duration;
+  ModifierParticleType m_type;
+
+  float step_duration() override
+  {
+    return m_duration;
+  }
+
+  ParticleType &particle_type() override
+  {
+    return m_type;
+  }
+};
+
 void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
                                   Depsgraph *UNUSED(depsgraph),
                                   BParticlesState state_c)
@@ -127,22 +137,22 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   ModifierStepDescription description;
   description.m_duration = 1.0f / 24.0f;
   if (npmd->emitter_object) {
-    description.m_emitters.append(EMITTER_mesh_surface((Mesh *)npmd->emitter_object->data,
-                                                       npmd->emitter_object->obmat,
-                                                       npmd->control1)
-                                      .release());
+    description.m_type.m_emitters.append(EMITTER_mesh_surface((Mesh *)npmd->emitter_object->data,
+                                                              npmd->emitter_object->obmat,
+                                                              npmd->control1)
+                                             .release());
   }
   BVHTreeFromMesh treedata = {0};
   if (npmd->collision_object) {
     BKE_bvhtree_from_mesh_get(
         &treedata, (Mesh *)npmd->collision_object->data, BVHTREE_FROM_LOOPTRI, 4);
-    description.m_influences.m_events.append(
+    description.m_type.m_influences.m_events.append(
         EVENT_mesh_collection(&treedata, npmd->collision_object->obmat).release());
-    description.m_influences.m_actions.append(ACTION_kill().release());
+    description.m_type.m_influences.m_actions.append(ACTION_kill().release());
   }
-  description.m_influences.m_forces.append(FORCE_directional({0, 0, -2}).release());
-  description.m_influences.m_events.append(EVENT_age_reached(3.0f).release());
-  description.m_influences.m_actions.append(ACTION_move({0, 1, 0}).release());
+  description.m_type.m_influences.m_forces.append(FORCE_directional({0, 0, -2}).release());
+  description.m_type.m_influences.m_events.append(EVENT_age_reached(3.0f).release());
+  description.m_type.m_influences.m_actions.append(ACTION_move({0, 1, 0}).release());
   simulate_step(state, description);
 
   if (npmd->collision_object) {
