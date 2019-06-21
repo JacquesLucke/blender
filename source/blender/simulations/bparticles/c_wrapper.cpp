@@ -133,7 +133,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   description.m_influences.m_events.append(EVENT_age_reached(6.0f).release());
   description.m_influences.m_actions.append(ACTION_kill().release());
   description.m_influences.m_events.append(EVENT_age_reached(3.0f).release());
-  description.m_influences.m_actions.append(ACTION_move({0, 10, 0}).release());
+  description.m_influences.m_actions.append(ACTION_move({0, 1, 0}).release());
   simulate_step(state, description);
 
   std::cout << "Active Blocks: " << state.m_container->active_blocks().size() << "\n";

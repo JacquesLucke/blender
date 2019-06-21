@@ -28,8 +28,7 @@ class AgeReachedEvent : public Event {
       float age = end_time - birth_time;
       if (age >= m_age && age - duration < m_age) {
         r_filtered_indices.append(i);
-        float time_factor =
-            TimeSpan(end_time - duration, duration).get_factor(birth_time + m_age) + 0.00001f;
+        float time_factor = TimeSpan(end_time - duration, duration).get_factor(birth_time + m_age);
         r_time_factors.append(time_factor);
       }
     }
