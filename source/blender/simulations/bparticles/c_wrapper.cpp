@@ -194,15 +194,16 @@ uint BParticles_state_particle_count(BParticlesState state_c)
   return count;
 }
 
-void BParticles_state_get_positions(BParticlesState state_c, float (*dst)[3])
+void BParticles_state_get_positions(BParticlesState state_c, float (*dst_c)[3])
 {
   ParticlesState &state = *unwrap(state_c);
+  float3 *dst = (float3 *)dst_c;
 
   uint index = 0;
   for (ParticlesContainer *container : state.particle_containers().values()) {
     for (auto *block : container->active_blocks()) {
       auto positions = block->slice_active().get_float3("Position");
-      memcpy(dst + index, positions.begin(), sizeof(float3) * positions.size());
+      positions.copy_to(dst + index);
       index += positions.size();
     }
   }

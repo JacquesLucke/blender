@@ -190,3 +190,23 @@ TEST(array_ref, CopyFrom)
   EXPECT_EQ(a[1], 2);
   EXPECT_EQ(a[2], 3);
 }
+
+TEST(array_ref, ByteSize)
+{
+  std::array<int, 10> a;
+  IntArrayRef a_ref(a);
+  EXPECT_EQ(a_ref.byte_size(), sizeof(a));
+  EXPECT_EQ(a_ref.byte_size(), 40);
+}
+
+TEST(array_ref, CopyTo)
+{
+  std::array<int, 3> a = {5, 6, 7};
+  int b[3] = {0};
+  IntArrayRef a_ref(a);
+  a_ref.copy_to(b);
+
+  EXPECT_EQ(b[0], 5);
+  EXPECT_EQ(b[1], 6);
+  EXPECT_EQ(b[2], 7);
+}

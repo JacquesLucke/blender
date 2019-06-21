@@ -96,6 +96,11 @@ template<typename T> class ArrayRef {
     this->copy_from(other.begin());
   }
 
+  void copy_to(T *ptr)
+  {
+    std::copy_n(m_start, m_size, ptr);
+  }
+
   T *begin() const
   {
     return m_start;
@@ -115,6 +120,11 @@ template<typename T> class ArrayRef {
   uint size() const
   {
     return m_size;
+  }
+
+  uint byte_size() const
+  {
+    return sizeof(T) * m_size;
   }
 
   bool contains(const T &value)
