@@ -1,11 +1,30 @@
-#pragma once
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
-/* This vector wraps a dynamically sized array of a specific type.
+/** \file
+ * \ingroup bli
+ *
+ * This vector wraps a dynamically sized array of a specific type.
  * It supports small object optimization. That means, when the
  * vector only contains a few elements, no extra memory allocation
  * is performed. Instead, those elements are stored directly in
  * the vector.
  */
+
+#pragma once
 
 #include <algorithm>
 #include <cstdlib>
@@ -34,6 +53,10 @@ template<typename T, uint N = 4> class SmallVector {
   uint m_capacity = N;
 
  public:
+  /**
+   * Create an empty vector.
+   * This does not do any memory allocation.
+   */
   SmallVector()
   {
     m_elements = this->small_buffer();
@@ -41,6 +64,10 @@ template<typename T, uint N = 4> class SmallVector {
     m_size = 0;
   }
 
+  /**
+   * Create a vector with a specific size.
+   * The elements will be default initialized.
+   */
   SmallVector(uint size) : SmallVector()
   {
     this->reserve(size);
@@ -50,6 +77,9 @@ template<typename T, uint N = 4> class SmallVector {
     m_size = size;
   }
 
+  /**
+   * Create a vector from an initializer list.
+   */
   SmallVector(std::initializer_list<T> values) : SmallVector()
   {
     this->reserve(values.size());
@@ -57,11 +87,21 @@ template<typename T, uint N = 4> class SmallVector {
     m_size = values.size();
   }
 
+  /**
+   * Create a copy of another vector.
+   * The other vector will not be changed.
+   * If the other vector has less than N elements, no allocation will be made.
+   */
   SmallVector(const SmallVector &other)
   {
     this->copy_from_other(other);
   }
 
+  /**
+   * Steal the elements from another vector.
+   * This does not do an allocation.
+   * The other vector will have zero elements afterwards.
+   */
   SmallVector(SmallVector &&other)
   {
     this->steal_from_other(other);
@@ -96,17 +136,30 @@ template<typename T, uint N = 4> class SmallVector {
     return *this;
   }
 
+  /**
+   * Make sure that enough memory is allocated to hold size elements.
+   * This won't necessarily make an allocation when size is small.
+   * The actual size of the vector does not change.
+   */
   void reserve(uint size)
   {
     this->grow(size);
   }
 
+  /**
+   * Afterwards the vector has 0 elements, but will still have
+   * memory to be refilled again.
+   */
   void clear()
   {
     this->destruct_elements_but_keep_memory();
     m_size = 0;
   }
 
+  /**
+   * Afterwards the vector has 0 elements and any allocated memory
+   * will be freed.
+   */
   void clear_and_make_small()
   {
     this->destruct_elements_and_free_memory();
@@ -114,6 +167,10 @@ template<typename T, uint N = 4> class SmallVector {
     m_elements = this->small_buffer();
   }
 
+  /**
+   * Insert a new element at the end of the vector.
+   * This might cause a reallocation with the capacity is exceeded.
+   */
   void append(const T &value)
   {
     this->ensure_space_for_one();
@@ -128,6 +185,10 @@ template<typename T, uint N = 4> class SmallVector {
     m_size++;
   }
 
+  /**
+   * Insert the same element n times at the end of the vector.
+   * This might result in a reallocation internally.
+   */
   void append_n_times(const T &value, uint n)
   {
     this->reserve(m_size + n);
@@ -135,6 +196,9 @@ template<typename T, uint N = 4> class SmallVector {
     m_size += n;
   }
 
+  /**
+   * Copy the elements of another vector to the end of this vector.
+   */
   void extend(const SmallVector &other)
   {
     this->extend(other.begin(), other.size());
@@ -147,12 +211,19 @@ template<typename T, uint N = 4> class SmallVector {
     m_size += amount;
   }
 
+  /**
+   * Return a reference to the last element in the vector.
+   * This will assert when the vector is empty.
+   */
   T &last() const
   {
     BLI_assert(m_size > 0);
     return m_elements[m_size - 1];
   }
 
+  /**
+   * Replace every element with a new value.
+   */
   void fill(const T &value)
   {
     for (uint i = 0; i < m_size; i++) {
@@ -160,16 +231,26 @@ template<typename T, uint N = 4> class SmallVector {
     }
   }
 
+  /**
+   * Return how many values are currently stored in the vector.
+   */
   uint size() const
   {
     return m_size;
   }
 
+  /**
+   * Returns true when the vector contains no elements, otherwise false.
+   */
   bool empty() const
   {
     return this->size() == 0;
   }
 
+  /**
+   * Deconstructs the last element and decreases the size by one.
+   * This will assert when the vector is empty.
+   */
   void remove_last()
   {
     BLI_assert(!this->empty());
@@ -177,6 +258,9 @@ template<typename T, uint N = 4> class SmallVector {
     m_size--;
   }
 
+  /**
+   * Remove the last element from the vector and return it.
+   */
   T pop_last()
   {
     BLI_assert(!this->empty());
@@ -185,6 +269,10 @@ template<typename T, uint N = 4> class SmallVector {
     return value;
   }
 
+  /**
+   * Delete any element in the vector.
+   * The empty space will be filled by the previously last element.
+   */
   void remove_and_reorder(uint index)
   {
     BLI_assert(this->is_index_in_range(index));
@@ -198,6 +286,10 @@ template<typename T, uint N = 4> class SmallVector {
     m_size--;
   }
 
+  /**
+   * Do a linear search to find the value in the vector.
+   * When found, return the first index, otherwise return -1.
+   */
   int index(const T &value) const
   {
     for (uint i = 0; i < m_size; i++) {
@@ -208,11 +300,20 @@ template<typename T, uint N = 4> class SmallVector {
     return -1;
   }
 
+  /**
+   * Do a linear search to see of the value is in the vector.
+   * Return true when it exists, otherwise false.
+   */
   bool contains(const T &value) const
   {
     return this->index(value) != -1;
   }
 
+  /**
+   * Compare vectors element-wise.
+   * Return true when they have the same length and all elements
+   * compare equal, otherwise false.
+   */
   static bool all_equal(const SmallVector &a, const SmallVector &b)
   {
     if (a.size() != b.size()) {
