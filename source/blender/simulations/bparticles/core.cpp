@@ -32,7 +32,6 @@ StepDescription::~StepDescription()
 
 ParticlesState::~ParticlesState()
 {
-  delete m_container;
 }
 
 }  // namespace BParticles

@@ -196,16 +196,25 @@ class StepDescription {
   virtual ~StepDescription();
 
   virtual float step_duration() = 0;
-  virtual ParticleType &particle_type() = 0;
+
+  virtual ArrayRef<uint> particle_type_ids() = 0;
+  virtual ParticleType &particle_type(uint type_id) = 0;
 };
 
 class ParticlesState {
+ private:
+  SmallMap<uint, ParticlesContainer *> m_particle_containers;
+
  public:
-  ParticlesContainer *m_container;
   float m_current_time = 0.0f;
 
   ParticlesState() = default;
   ~ParticlesState();
+
+  SmallMap<uint, ParticlesContainer *> &particle_containers()
+  {
+    return m_particle_containers;
+  }
 };
 
 }  // namespace BParticles

@@ -437,8 +437,8 @@ void simulate_step(ParticlesState &state, StepDescription &description)
   TimeSpan time_span{state.m_current_time, description.step_duration()};
   state.m_current_time = time_span.end();
 
-  ParticlesContainer &particles = *state.m_container;
-  ParticleType &type = description.particle_type();
+  ParticlesContainer &particles = *state.particle_containers().lookup(0);
+  ParticleType &type = description.particle_type(0);
 
   step_individual_particles(
       particles.active_blocks().to_small_vector(), time_span, type.influences());

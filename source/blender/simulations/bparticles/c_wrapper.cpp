@@ -44,8 +44,8 @@ BParticlesState BParticles_new_empty_state()
   ParticlesState *state = new ParticlesState();
 
   AttributesInfo info{{"Kill State"}, {"Birth Time"}, {"Position", "Velocity"}};
-  ParticlesContainer *container = new ParticlesContainer(info, 1000);
-  state->m_container = container;
+  auto &containers = state->particle_containers();
+  containers.add_new(0, new ParticlesContainer(info, 1000));
 
   return wrap(state);
 }
@@ -114,16 +114,28 @@ class ModifierParticleType : public ParticleType {
 class ModifierStepDescription : public StepDescription {
  public:
   float m_duration;
-  ModifierParticleType m_type;
+  SmallMap<uint, ModifierParticleType *> m_types;
+
+  ~ModifierStepDescription()
+  {
+    for (auto *type : m_types.values()) {
+      delete type;
+    }
+  }
 
   float step_duration() override
   {
     return m_duration;
   }
 
-  ParticleType &particle_type() override
+  ArrayRef<uint> particle_type_ids() override
   {
-    return m_type;
+    return {0};
+  }
+
+  ParticleType &particle_type(uint type_id) override
+  {
+    return *m_types.lookup(type_id);
   }
 };
 
@@ -136,31 +148,39 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   ParticlesState &state = *unwrap(state_c);
   ModifierStepDescription description;
   description.m_duration = 1.0f / 24.0f;
+
+  auto *type = new ModifierParticleType();
+  description.m_types.add_new(0, type);
+
   if (npmd->emitter_object) {
-    description.m_type.m_emitters.append(EMITTER_mesh_surface((Mesh *)npmd->emitter_object->data,
-                                                              npmd->emitter_object->obmat,
-                                                              npmd->control1)
-                                             .release());
+    type->m_emitters.append(EMITTER_mesh_surface((Mesh *)npmd->emitter_object->data,
+                                                 npmd->emitter_object->obmat,
+                                                 npmd->control1)
+                                .release());
   }
   BVHTreeFromMesh treedata = {0};
   if (npmd->collision_object) {
     BKE_bvhtree_from_mesh_get(
         &treedata, (Mesh *)npmd->collision_object->data, BVHTREE_FROM_LOOPTRI, 4);
-    description.m_type.m_influences.m_events.append(
+    type->m_influences.m_events.append(
         EVENT_mesh_collection(&treedata, npmd->collision_object->obmat).release());
-    description.m_type.m_influences.m_actions.append(ACTION_kill().release());
+    type->m_influences.m_actions.append(ACTION_kill().release());
   }
-  description.m_type.m_influences.m_forces.append(FORCE_directional({0, 0, -2}).release());
-  description.m_type.m_influences.m_events.append(EVENT_age_reached(3.0f).release());
-  description.m_type.m_influences.m_actions.append(ACTION_move({0, 1, 0}).release());
+  type->m_influences.m_forces.append(FORCE_directional({0, 0, -2}).release());
+  type->m_influences.m_events.append(EVENT_age_reached(3.0f).release());
+  type->m_influences.m_actions.append(ACTION_move({0, 1, 0}).release());
   simulate_step(state, description);
 
   if (npmd->collision_object) {
     free_bvhtree_from_mesh(&treedata);
   }
 
-  std::cout << "Active Blocks: " << state.m_container->active_blocks().size() << "\n";
-  std::cout << " Particle Amount: " << BParticles_state_particle_count(state_c) << "\n";
+  auto &containers = state.particle_containers();
+  for (auto item : containers.items()) {
+    std::cout << "Particle Type: " << item.key << "\n";
+    std::cout << "  Particles: " << item.value->count_active() << "\n";
+    std::cout << "  Blocks: " << item.value->active_blocks().size() << "\n";
+  }
 }
 
 uint BParticles_state_particle_count(BParticlesState state_c)
@@ -168,10 +188,9 @@ uint BParticles_state_particle_count(BParticlesState state_c)
   ParticlesState &state = *unwrap(state_c);
 
   uint count = 0;
-  for (auto *block : state.m_container->active_blocks()) {
-    count += block->active_amount();
+  for (ParticlesContainer *container : state.particle_containers().values()) {
+    count += container->count_active();
   }
-
   return count;
 }
 
@@ -180,9 +199,11 @@ void BParticles_state_get_positions(BParticlesState state_c, float (*dst)[3])
   ParticlesState &state = *unwrap(state_c);
 
   uint index = 0;
-  for (auto *block : state.m_container->active_blocks()) {
-    auto positions = block->slice_active().get_float3("Position");
-    memcpy(dst + index, positions.begin(), sizeof(float3) * positions.size());
-    index += positions.size();
+  for (ParticlesContainer *container : state.particle_containers().values()) {
+    for (auto *block : container->active_blocks()) {
+      auto positions = block->slice_active().get_float3("Position");
+      memcpy(dst + index, positions.begin(), sizeof(float3) * positions.size());
+      index += positions.size();
+    }
   }
 }

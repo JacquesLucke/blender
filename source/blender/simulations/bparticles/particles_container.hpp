@@ -34,6 +34,7 @@ class ParticlesContainer {
   ~ParticlesContainer();
 
   uint block_size() const;
+  uint count_active() const;
 
   AttributesInfo &attributes();
 
@@ -79,6 +80,15 @@ class ParticlesBlock {
 inline uint ParticlesContainer::block_size() const
 {
   return m_block_size;
+}
+
+inline uint ParticlesContainer::count_active() const
+{
+  uint count = 0;
+  for (ParticlesBlock *block : m_blocks) {
+    count += block->active_amount();
+  }
+  return count;
 }
 
 inline AttributesInfo &ParticlesContainer::attributes()
