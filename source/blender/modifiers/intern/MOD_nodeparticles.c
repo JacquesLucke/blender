@@ -80,17 +80,47 @@ static void free_modifier_runtime_data(NodeParticlesModifierData *npmd)
   }
 }
 
-static Mesh *mesh_from_particles_state(BParticlesState state)
+static Mesh *mesh_from_particles_state(BParticlesState state, float scale)
 {
   uint point_amount = BParticles_state_particle_count(state);
-  Mesh *mesh = BKE_mesh_new_nomain(point_amount, 0, 0, 0, 0);
+  Mesh *mesh = BKE_mesh_new_nomain(point_amount * 4, 0, 0, point_amount * 12, point_amount * 4);
 
   float(*positions)[3] = MEM_malloc_arrayN(point_amount, sizeof(float[3]), __func__);
   BParticles_state_get_positions(state, positions);
 
   for (uint i = 0; i < point_amount; i++) {
-    copy_v3_v3(mesh->mvert[i].co, positions[i]);
+    float offset0[3] = {1, -1, -1};
+    float offset1[3] = {1, 1, 1};
+    float offset2[3] = {-1, -1, 1};
+    float offset3[3] = {-1, 1, -1};
+
+    madd_v3_v3v3fl(mesh->mvert[i * 4 + 0].co, positions[i], offset0, scale);
+    madd_v3_v3v3fl(mesh->mvert[i * 4 + 1].co, positions[i], offset1, scale);
+    madd_v3_v3v3fl(mesh->mvert[i * 4 + 2].co, positions[i], offset2, scale);
+    madd_v3_v3v3fl(mesh->mvert[i * 4 + 3].co, positions[i], offset3, scale);
+
+    for (uint j = 0; j < 4; j++) {
+      mesh->mpoly[i * 4 + j].loopstart = (i * 4 + j) * 3;
+      mesh->mpoly[i * 4 + j].totloop = 3;
+    }
+
+    mesh->mloop[i * 12 + 0].v = i * 4 + 0;
+    mesh->mloop[i * 12 + 1].v = i * 4 + 1;
+    mesh->mloop[i * 12 + 2].v = i * 4 + 2;
+
+    mesh->mloop[i * 12 + 3].v = i * 4 + 0;
+    mesh->mloop[i * 12 + 4].v = i * 4 + 3;
+    mesh->mloop[i * 12 + 5].v = i * 4 + 1;
+
+    mesh->mloop[i * 12 + 6].v = i * 4 + 0;
+    mesh->mloop[i * 12 + 7].v = i * 4 + 2;
+    mesh->mloop[i * 12 + 8].v = i * 4 + 3;
+
+    mesh->mloop[i * 12 + 9].v = i * 4 + 1;
+    mesh->mloop[i * 12 + 10].v = i * 4 + 2;
+    mesh->mloop[i * 12 + 11].v = i * 4 + 3;
   }
+  BKE_mesh_calc_edges(mesh, false, false);
 
   MEM_freeN(positions);
 
@@ -125,11 +155,13 @@ static Mesh *applyModifier(ModifierData *md,
     runtime->last_simulated_frame = current_frame;
   }
 
-  return mesh_from_particles_state(runtime->state);
+  return mesh_from_particles_state(runtime->state, npmd->control1);
 }
 
-static void initData(ModifierData *UNUSED(md))
+static void initData(ModifierData *md)
 {
+  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
+  npmd->control1 = 0.02f;
 }
 
 static void freeData(ModifierData *md)
