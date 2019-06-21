@@ -22,13 +22,19 @@ AttributesInfo::AttributesInfo(ArrayRef<std::string> byte_names,
   m_types.append_n_times(AttributeType::Float3, m_float3_attributes.size());
 }
 
-SmallVector<void *> AttributesInfo::allocate_separate_arrays(uint size) const
+AttributeArraysCore::AttributeArraysCore(AttributesInfo &info, uint size)
+    : m_info(info), m_size(size)
 {
-  SmallVector<void *> pointers;
-  for (AttributeType type : m_types) {
-    pointers.append(MEM_malloc_arrayN(size, size_of_attribute_type(type), __func__));
+  for (AttributeType type : info.types()) {
+    m_arrays.append(MEM_malloc_arrayN(size, size_of_attribute_type(type), __func__));
   }
-  return pointers;
+}
+
+AttributeArraysCore::~AttributeArraysCore()
+{
+  for (void *ptr : m_arrays) {
+    MEM_freeN(ptr);
+  }
 }
 
 void JoinedAttributeArrays::set_elements(uint index, void *data)

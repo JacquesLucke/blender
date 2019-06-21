@@ -4,15 +4,13 @@ namespace BParticles {
 
 ParticlesBlock::ParticlesBlock(ParticlesContainer &container)
     : m_container(container),
-      m_arrays(m_container.attributes(),
-               m_container.attributes().allocate_separate_arrays(container.block_size()),
-               container.block_size()),
+      m_arrays(m_container.attributes(), container.block_size()),
       m_active_amount(0)
 {
 }
 
-ParticlesContainer::ParticlesContainer(AttributesInfo &attributes, uint block_size)
-    : m_attributes(attributes), m_block_size(block_size)
+ParticlesContainer::ParticlesContainer(AttributesInfo attributes, uint block_size)
+    : m_attributes(std::move(attributes)), m_block_size(block_size)
 {
 }
 
@@ -39,9 +37,6 @@ void ParticlesContainer::release_block(ParticlesBlock *block)
   BLI_assert(m_blocks.contains(block));
   BLI_assert(&block->container() == this);
 
-  for (void *buffer : block->arrays_core().pointers()) {
-    MEM_freeN(buffer);
-  }
   m_blocks.remove(block);
   delete block;
 }

@@ -69,6 +69,11 @@ class AttributesInfo {
     return m_types[index];
   }
 
+  ArrayRef<AttributeType> types() const
+  {
+    return m_types;
+  }
+
   uint attribute_index(StringRef name) const
   {
     int index = m_indices.index(name.to_std_string());
@@ -95,8 +100,6 @@ class AttributesInfo {
   {
     return &a == &b;
   }
-
-  SmallVector<void *> allocate_separate_arrays(uint size) const;
 };
 
 class AttributeArrays;
@@ -108,9 +111,8 @@ class AttributeArraysCore {
   uint m_size = 0;
 
  public:
-  AttributeArraysCore() = default;
-
-  AttributeArraysCore(AttributesInfo &info, ArrayRef<void *> arrays, uint size);
+  AttributeArraysCore(AttributesInfo &info, uint size);
+  ~AttributeArraysCore();
 
   AttributesInfo &info();
   void *get_ptr(uint index);
@@ -173,13 +175,6 @@ class JoinedAttributeArrays {
 
 /* Attribute Arrays Core
  *****************************************/
-
-inline AttributeArraysCore::AttributeArraysCore(AttributesInfo &info,
-                                                ArrayRef<void *> arrays,
-                                                uint size)
-    : m_info(info), m_arrays(arrays.to_small_vector()), m_size(size)
-{
-}
 
 inline AttributesInfo &AttributeArraysCore::info()
 {

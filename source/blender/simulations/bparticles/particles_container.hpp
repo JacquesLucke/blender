@@ -29,7 +29,7 @@ class ParticlesContainer {
   uint m_block_size;
 
  public:
-  ParticlesContainer(AttributesInfo &attributes, uint block_size);
+  ParticlesContainer(AttributesInfo attributes, uint block_size);
 
   ~ParticlesContainer();
 
