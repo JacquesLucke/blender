@@ -28,6 +28,11 @@ using std::unique_ptr;
 struct ParticleSet {
  private:
   AttributeArrays m_attributes;
+
+  /* Indices into the attribute arrays.
+   * Invariants:
+   *   - Every index must exist at most once.
+   *   - The indices must be sorted. */
   ArrayRef<uint> m_particle_indices;
 
  public:
