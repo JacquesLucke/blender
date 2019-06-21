@@ -429,6 +429,40 @@ BLI_NOINLINE static void compress_all_blocks(ParticlesContainer &particles)
   }
 }
 
+/* Fix state based on description.
+ *****************************************************/
+
+BLI_NOINLINE static void ensure_required_containers_exist(
+    SmallMap<uint, ParticlesContainer *> &containers, StepDescription &description)
+{
+  for (uint type_id : description.particle_type_ids()) {
+    if (!containers.contains(type_id)) {
+      ParticlesContainer *container = new ParticlesContainer({}, 1000);
+      containers.add_new(type_id, container);
+    }
+  }
+}
+
+BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &UNUSED(type),
+                                                                 AttributesInfo &UNUSED(last_info))
+{
+  AttributesInfo new_info{{"Kill State"}, {"Birth Time"}, {"Position", "Velocity"}};
+  return new_info;
+}
+
+BLI_NOINLINE static void ensure_required_attributes_exist(
+    SmallMap<uint, ParticlesContainer *> &containers, StepDescription &description)
+{
+  for (uint type_id : description.particle_type_ids()) {
+    ParticleType &type = description.particle_type(type_id);
+    ParticlesContainer &container = *containers.lookup(type_id);
+
+    AttributesInfo new_attributes_info = build_attribute_info_for_type(type,
+                                                                       container.attributes());
+    container.update_attributes(new_attributes_info);
+  }
+}
+
 /* Main Entry Point
  **************************************************/
 
@@ -438,12 +472,8 @@ void simulate_step(ParticlesState &state, StepDescription &description)
   state.m_current_time = time_span.end();
 
   auto &containers = state.particle_containers();
-
-  for (uint type_id : description.particle_type_ids()) {
-    if (!containers.contains(type_id)) {
-      /* TODO: create container */
-    }
-  }
+  ensure_required_containers_exist(containers, description);
+  ensure_required_attributes_exist(containers, description);
 
   for (uint type_id : description.particle_type_ids()) {
     ParticleType &type = description.particle_type(type_id);

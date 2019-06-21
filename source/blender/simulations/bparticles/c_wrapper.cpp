@@ -42,11 +42,6 @@ WRAPPERS(ParticlesState *, BParticlesState);
 BParticlesState BParticles_new_empty_state()
 {
   ParticlesState *state = new ParticlesState();
-
-  AttributesInfo info{{"Kill State"}, {"Birth Time"}, {"Position", "Velocity"}};
-  auto &containers = state->particle_containers();
-  containers.add_new(0, new ParticlesContainer(info, 1000));
-
   return wrap(state);
 }
 

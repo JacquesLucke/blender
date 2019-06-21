@@ -37,6 +37,7 @@ class ParticlesContainer {
   uint count_active() const;
 
   AttributesInfo &attributes();
+  void update_attributes(AttributesInfo new_info);
 
   const SmallSet<ParticlesBlock *> &active_blocks();
 

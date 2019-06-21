@@ -41,6 +41,12 @@ void ParticlesContainer::release_block(ParticlesBlock *block)
   delete block;
 }
 
+void ParticlesContainer::update_attributes(AttributesInfo new_info)
+{
+  m_attributes = new_info;
+  /* TODO: actually update attributes */
+}
+
 void ParticlesBlock::MoveUntilFull(ParticlesBlock &from, ParticlesBlock &to)
 {
   BLI_assert(&from.container() == &to.container());
