@@ -15,18 +15,17 @@ class AgeReachedEvent : public Event {
   {
   }
 
-  void filter(AttributeArrays attributes,
-              ArrayRef<uint> particle_indices,
+  void filter(ParticleSet particles,
               IdealOffsets &UNUSED(ideal_offsets),
               ArrayRef<float> durations,
               float end_time,
               SmallVector<uint> &r_filtered_indices,
               SmallVector<float> &r_time_factors) override
   {
-    auto birth_times = attributes.get_float("Birth Time");
+    auto birth_times = particles.attributes().get_float("Birth Time");
 
-    for (uint i = 0; i < particle_indices.size(); i++) {
-      uint pindex = particle_indices[i];
+    for (uint i : particles.range()) {
+      uint pindex = particles.pindex_of(i);
       float duration = durations[i];
       float birth_time = birth_times[pindex];
       float age = end_time - birth_time;
@@ -50,19 +49,18 @@ class MeshCollisionEvent : public Event {
   {
   }
 
-  void filter(AttributeArrays attributes,
-              ArrayRef<uint> particle_indices,
+  void filter(ParticleSet particles,
               IdealOffsets &ideal_offsets,
               ArrayRef<float> UNUSED(durations),
               float UNUSED(end_time),
               SmallVector<uint> &r_filtered_indices,
               SmallVector<float> &r_time_factors) override
   {
-    auto positions = attributes.get_float3("Position");
+    auto positions = particles.attributes().get_float3("Position");
     auto position_offsets = ideal_offsets.position_offsets;
 
-    for (uint i = 0; i < particle_indices.size(); i++) {
-      uint pindex = particle_indices[i];
+    for (uint i : particles.range()) {
+      uint pindex = particles.pindex_of(i);
 
       float3 start_position = m_ray_transform.transform_position(positions[pindex]);
       float3 direction = m_ray_transform.transform_direction(position_offsets[i]);

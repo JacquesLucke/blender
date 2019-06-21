@@ -25,12 +25,47 @@ using BLI::SmallVector;
 using BLI::StringRef;
 using std::unique_ptr;
 
+struct ParticleSet {
+ private:
+  AttributeArrays m_attributes;
+  ArrayRef<uint> m_particle_indices;
+
+ public:
+  ParticleSet(AttributeArrays attributes, ArrayRef<uint> particle_indices)
+      : m_attributes(attributes), m_particle_indices(particle_indices)
+  {
+  }
+
+  AttributeArrays attributes()
+  {
+    return m_attributes;
+  }
+
+  ArrayRef<uint> indices()
+  {
+    return m_particle_indices;
+  }
+
+  uint pindex_of(uint i)
+  {
+    return m_particle_indices[i];
+  }
+
+  Range<uint> range()
+  {
+    return Range<uint>(0, m_particle_indices.size());
+  }
+
+  uint size()
+  {
+    return m_particle_indices.size();
+  }
+};
+
 class Force {
  public:
   virtual ~Force();
-  virtual void add_force(AttributeArrays attributes,
-                         ArrayRef<uint> particle_indices,
-                         ArrayRef<float3> dst) = 0;
+  virtual void add_force(ParticleSet particles, ArrayRef<float3> dst) = 0;
 };
 
 struct IdealOffsets {
@@ -42,8 +77,7 @@ class Event {
  public:
   virtual ~Event();
 
-  virtual void filter(AttributeArrays attributes,
-                      ArrayRef<uint> particle_indices,
+  virtual void filter(ParticleSet particles,
                       IdealOffsets &ideal_offsets,
                       ArrayRef<float> durations,
                       float end_time,
@@ -55,7 +89,7 @@ class Action {
  public:
   virtual ~Action();
 
-  virtual void execute(AttributeArrays attributes, ArrayRef<uint> particle_indices) = 0;
+  virtual void execute(ParticleSet particles) = 0;
 };
 
 class EmitterTarget {
