@@ -437,14 +437,24 @@ void simulate_step(ParticlesState &state, StepDescription &description)
   TimeSpan time_span{state.m_current_time, description.step_duration()};
   state.m_current_time = time_span.end();
 
-  ParticlesContainer &particles = *state.particle_containers().lookup(0);
-  ParticleType &type = description.particle_type(0);
+  auto &containers = state.particle_containers();
 
-  step_individual_particles(
-      particles.active_blocks().to_small_vector(), time_span, type.influences());
-  emit_new_particles_from_emitters(particles, type.emitters(), type.influences(), time_span);
-  delete_tagged_particles(particles.active_blocks().to_small_vector());
-  compress_all_blocks(particles);
+  for (uint type_id : description.particle_type_ids()) {
+    if (!containers.contains(type_id)) {
+      /* TODO: create container */
+    }
+  }
+
+  for (uint type_id : description.particle_type_ids()) {
+    ParticleType &type = description.particle_type(type_id);
+    ParticlesContainer &container = *containers.lookup(type_id);
+
+    step_individual_particles(
+        container.active_blocks().to_small_vector(), time_span, type.influences());
+    emit_new_particles_from_emitters(container, type.emitters(), type.influences(), time_span);
+    delete_tagged_particles(container.active_blocks().to_small_vector());
+    compress_all_blocks(container);
+  }
 }
 
 }  // namespace BParticles

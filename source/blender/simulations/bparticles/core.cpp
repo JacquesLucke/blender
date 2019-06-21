@@ -32,6 +32,9 @@ StepDescription::~StepDescription()
 
 ParticlesState::~ParticlesState()
 {
+  for (ParticlesContainer *container : m_particle_containers.values()) {
+    delete container;
+  }
 }
 
 }  // namespace BParticles
