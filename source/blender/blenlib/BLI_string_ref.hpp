@@ -1,9 +1,26 @@
-#pragma once
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
-/* Two types of string references. One that guarantees null termination
- * and one that does not. The data referenced should be considered
- * to be immutable. If we need a StringRef to a mutable string,
- * a new class (e.g. MutableStringRef) should be implemented. */
+/** \file
+ * \ingroup bli
+ *
+ * Two types of string references. One that guarantees null termination
+ * and one that does not. */
+
+#pragma once
 
 #include <cstring>
 #include <string>
@@ -25,11 +42,17 @@ class StringRefBase {
   }
 
  public:
+  /**
+   * Return the (byte-)length of the referenced string, without any null-terminator.
+   */
   size_type size() const
   {
     return m_size;
   }
 
+  /**
+   * Return a pointer to the start of the string.
+   */
   const char *data() const
   {
     return m_data;
@@ -41,6 +64,9 @@ class StringRefBase {
     return m_data[index];
   }
 
+  /**
+   * Convert the referenced string into a std::string object.
+   */
   std::string to_std_string() const
   {
     return std::string(m_data, m_size);

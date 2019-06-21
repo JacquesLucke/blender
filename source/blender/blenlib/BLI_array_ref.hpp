@@ -1,10 +1,31 @@
-#pragma once
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
-/* An ArrayRef references some memory buffer owned
+/** \file
+ * \ingroup bli
+ *
+ * An ArrayRef references some memory buffer owned
  * by someone else. If possible, functions should take
  * an ArrayRef as input. This allows passing on different
  * kinds of class types without doing unnecessary conversions.
+ *
+ * ArrayRef instances should be passed by value.
  */
+
+#pragma once
 
 #include <vector>
 #include <array>
@@ -19,8 +40,15 @@ template<typename T> class ArrayRef {
   uint m_size = 0;
 
  public:
+  /**
+   * Create a reference to an empty array.
+   * The pointer is allowed to be nullptr.
+   */
   ArrayRef() = default;
 
+  /**
+   * Reference a single element as if it were an array with one element.
+   */
   ArrayRef(T &value) : m_start(&value), m_size(1)
   {
   }
@@ -50,41 +78,63 @@ template<typename T> class ArrayRef {
   {
   }
 
+  /**
+   * Return a continuous part of the array.
+   * This will assert when the slice is out of bounds.
+   */
   ArrayRef slice(uint start, uint length) const
   {
     BLI_assert(start + length <= this->size());
     return ArrayRef(m_start + start, length);
   }
 
+  /**
+   * Return a new ArrayRef with n elements removed from the beginning.
+   */
   ArrayRef drop_front(uint n = 1) const
   {
     BLI_assert(n <= this->size());
     return this->slice(n, this->size() - n);
   }
 
+  /**
+   * Return a new ArrayRef with n elements removed from the beginning.
+   */
   ArrayRef drop_back(uint n = 1) const
   {
     BLI_assert(n <= this->size());
     return this->slice(0, this->size() - n);
   }
 
+  /**
+   * Return a new ArrayRef that only contains the first n elements.
+   */
   ArrayRef take_front(uint n) const
   {
     BLI_assert(n <= this->size());
     return this->slice(0, n);
   }
 
+  /**
+   * Return a new ArrayRef that only contains the last n elements.
+   */
   ArrayRef take_back(uint n) const
   {
     BLI_assert(n <= this->size());
     return this->slice(this->size() - n, n);
   }
 
+  /**
+   * Replace all elements in the referenced array with the given value.
+   */
   void fill(const T &element)
   {
     std::fill_n(m_start, m_size, element);
   }
 
+  /**
+   * Copy the values from another array into the references array.
+   */
   void copy_from(const T *ptr)
   {
     std::copy_n(ptr, m_size, m_start);
@@ -96,6 +146,9 @@ template<typename T> class ArrayRef {
     this->copy_from(other.begin());
   }
 
+  /**
+   * Copy the values in this array to another array.
+   */
   void copy_to(T *ptr)
   {
     std::copy_n(m_start, m_size, ptr);
@@ -117,16 +170,26 @@ template<typename T> class ArrayRef {
     return m_start[index];
   }
 
+  /**
+   * Return the number of elements in the referenced array.
+   */
   uint size() const
   {
     return m_size;
   }
 
+  /**
+   * Return the number of bytes referenced by this ArrayRef.
+   */
   uint byte_size() const
   {
     return sizeof(T) * m_size;
   }
 
+  /**
+   * Does a linear search to see of the value is in the array.
+   * Return true if it is, otherwise false.
+   */
   bool contains(const T &value)
   {
     for (T &element : *this) {
@@ -137,6 +200,10 @@ template<typename T> class ArrayRef {
     return false;
   }
 
+  /**
+   * Does a linear search to count how often the value is in the array.
+   * Returns the number of occurences.
+   */
   uint count(const T &value)
   {
     uint counter = 0;
@@ -148,6 +215,9 @@ template<typename T> class ArrayRef {
     return counter;
   }
 
+  /**
+   * Create a new SmallVector based on the referenced array.
+   */
   template<uint N = 4> SmallVector<T, N> to_small_vector() const
   {
     SmallVector<T, N> vector;
