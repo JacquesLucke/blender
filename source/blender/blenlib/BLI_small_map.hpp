@@ -1,9 +1,28 @@
-#pragma once
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
-/* An unordered map implementation with small object optimization.
+/** \file
+ * \ingroup bli
+ *
+ * An unordered map implementation with small object optimization.
  * Similar to SmallSet, this builds on top of SmallVector
  * and ArrayLookup to reduce what this code has to deal with.
  */
+
+#pragma once
 
 #include "BLI_small_vector.hpp"
 #include "BLI_array_lookup.hpp"
@@ -29,8 +48,15 @@ template<typename K, typename V, uint N = 4> class SmallMap {
  public:
   class ValueIterator;
 
+  /**
+   * Create an empty map.
+   */
   SmallMap() = default;
 
+  /**
+   * Insert a key-value pair in the map, when the key does not exist.
+   * Return true when the pair has been newly inserted, otherwise false.
+   */
   bool add(const K &key, const V &value)
   {
     uint potential_index = m_entries.size();
@@ -41,6 +67,10 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return newly_inserted;
   }
 
+  /**
+   * Insert a new key-value pair in the map.
+   * This will assert when the key exists already.
+   */
   void add_new(const K &key, const V &value)
   {
     BLI_assert(!this->contains(key));
@@ -49,11 +79,19 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     m_lookup.add_new(m_entries.begin(), index);
   }
 
+  /**
+   * Return true when the key exists in the map, otherwise false.
+   */
   bool contains(const K &key) const
   {
     return m_lookup.contains(m_entries.begin(), key);
   }
 
+  /**
+   * Remove the key-value pair identified by the key from the map.
+   * Returns the corresponding value.
+   * This will assert when the key does not exist.
+   */
   V pop(const K &key)
   {
     BLI_assert(this->contains(key));
@@ -72,11 +110,19 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return value;
   }
 
+  /**
+   * Return the value corresponding to the key.
+   * This will assert when the key does not exist.
+   */
   V lookup(const K &key) const
   {
     return this->lookup_ref(key);
   }
 
+  /**
+   * Return the value corresponding to the key.
+   * If the key does not exist, return the given default value.
+   */
   V lookup_default(const K &key, V default_value) const
   {
     V *ptr = this->lookup_ptr(key);
@@ -88,6 +134,10 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     }
   }
 
+  /**
+   * Return a reference to the value corresponding to a key.
+   * This will assert when the key does not exist.
+   */
   V &lookup_ref(const K &key) const
   {
     V *ptr = this->lookup_ptr(key);
@@ -95,6 +145,10 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return *ptr;
   }
 
+  /**
+   * Return a pointer to the value corresponding to the key.
+   * Returns nullptr when the key does not exist.
+   */
   V *lookup_ptr(const K &key) const
   {
     int index = m_lookup.find(m_entries.begin(), key);
@@ -106,6 +160,10 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     }
   }
 
+  /**
+   * Return the pointer to the value corresponding to the key.
+   * If the key does not exist yet, insert the given key-value-pair first.
+   */
   V *lookup_ptr_or_insert(const K &key, V initial_value)
   {
     V *ptr = this->lookup_ptr(key);
@@ -116,6 +174,11 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return ptr;
   }
 
+  /**
+   * Return a reference to the value corresponding to the key.
+   * If the key does not exist yet, the given function will be called
+   * with the given parameters, to create the value that will be stored for the key.
+   */
   template<typename... Args>
   V &lookup_ref_or_insert_func(const K &key, V (*create_value)(Args... args), Args &&... args)
   {
@@ -127,11 +190,19 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return this->lookup_ref(key);
   }
 
+  /**
+   * Returns a reference to the value corresponding to the key.
+   * If the key does not exist yet, the given function will be called
+   * with the key as parameter, to create the value that will be stored for the key.
+   */
   V &lookup_ref_or_insert_key_func(const K &key, V (*create_value)(const K &key))
   {
     return lookup_ref_or_insert_func(key, create_value, key);
   }
 
+  /**
+   * Return the number of key-value pairs in the map.
+   */
   uint size() const
   {
     return m_entries.size();

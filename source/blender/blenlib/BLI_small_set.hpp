@@ -1,10 +1,29 @@
-#pragma once
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
-/* A unordered set implementation that supports small object optimization.
+/** \file
+ * \ingroup bli
+ *
+ * A unordered set implementation that supports small object optimization.
  * It builds on top of SmallVector and ArrayLookup, so that
  * it does not have to deal with memory management and the
  * details of the hashing and probing algorithm.
  */
+
+#pragma once
 
 #include "BLI_small_vector.hpp"
 #include "BLI_array_lookup.hpp"
@@ -18,8 +37,15 @@ template<typename T, uint N = 4> class SmallSet {
   ArrayLookup<T, N> m_lookup;
 
  public:
+  /**
+   * Create an empty set.
+   */
   SmallSet() = default;
 
+  /**
+   * Create a set that contains any of the given values at least once.
+   * The size of the set might be small than the original array.
+   */
   SmallSet(ArrayRef<T> values)
   {
     this->add_multiple(values);
@@ -33,16 +59,28 @@ template<typename T, uint N = 4> class SmallSet {
   {
   }
 
+  /**
+   * Return the number elements in the set.
+   */
   uint size() const
   {
     return m_elements.size();
   }
 
+  /**
+   * Return true when the value is in the set, otherwise false.
+   */
   bool contains(const T &value) const
   {
     return m_lookup.contains(m_elements.begin(), value);
   }
 
+  /**
+   * Insert a value in the set, that was not there before.
+   * This will assert when the value existed before.
+   * This method might be faster than "add".
+   * Furthermore, it should be used whenever applicable because it expresses the intent better.
+   */
   void add_new(const T &value)
   {
     BLI_assert(!this->contains(value));
@@ -51,6 +89,10 @@ template<typename T, uint N = 4> class SmallSet {
     m_lookup.add_new(m_elements.begin(), index);
   }
 
+  /**
+   * Insert the value in the set if it did not exist before.
+   * Return false, when it existed before, otherwise true.
+   */
   bool add(const T &value)
   {
     uint potential_index = m_elements.size();
@@ -61,6 +103,10 @@ template<typename T, uint N = 4> class SmallSet {
     return newly_inserted;
   }
 
+  /**
+   * Insert multiple values in the set.
+   * Any value that already exists will be skipped.
+   */
   void add_multiple(ArrayRef<T> values)
   {
     for (T &value : values) {
@@ -68,6 +114,9 @@ template<typename T, uint N = 4> class SmallSet {
     }
   }
 
+  /**
+   * Remove and return any value from the set.
+   */
   T pop()
   {
     BLI_assert(this->size() > 0);
@@ -77,6 +126,10 @@ template<typename T, uint N = 4> class SmallSet {
     return value;
   }
 
+  /**
+   * Remove the value from the set.
+   * This expects that the value existed before and will assert otherwise.
+   */
   void remove(const T &value)
   {
     BLI_assert(this->contains(value));
@@ -93,22 +146,34 @@ template<typename T, uint N = 4> class SmallSet {
     }
   }
 
+  /**
+   * Return any of the elements of the set.
+   */
   T any() const
   {
     BLI_assert(this->size() > 0);
     return m_elements[0];
   }
 
+  /**
+   * Convert all values in the set into a vector.
+   */
   SmallVector<T> to_small_vector() const
   {
     return m_elements;
   }
 
+  /**
+   * Return true when there is no value that exists in both sets, otherwise false.
+   */
   static bool Disjoint(const SmallSet &a, const SmallSet &b)
   {
     return !SmallSet::Intersects(a, b);
   }
 
+  /**
+   * Return true when there is at least one value that exists in both sets, otherwise false.
+   */
   static bool Intersects(const SmallSet &a, const SmallSet &b)
   {
     for (const T &value : a) {
