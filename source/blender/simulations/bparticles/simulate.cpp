@@ -28,6 +28,7 @@ BLI_NOINLINE static void find_next_event_per_particle(AttributeArrays attributes
                                                       ArrayRef<float> durations,
                                                       float end_time,
                                                       ArrayRef<Event *> events,
+                                                      ArrayRef<float> last_event_times,
                                                       ArrayRef<int> r_next_event_indices,
                                                       ArrayRef<float> r_time_factors_to_next_event)
 {
@@ -49,9 +50,16 @@ BLI_NOINLINE static void find_next_event_per_particle(AttributeArrays attributes
 
     for (uint i = 0; i < triggered_indices.size(); i++) {
       uint index = triggered_indices[i];
-      if (triggered_time_factors[i] < r_time_factors_to_next_event[index]) {
+      float time_factor = triggered_time_factors[i];
+      if (time_factor < r_time_factors_to_next_event[index]) {
+        if (last_event_times.size() > 0) {
+          float trigger_time = end_time - durations[index] * (1.0f - time_factor);
+          if (trigger_time - last_event_times[index] < 0.00001) {
+            continue;
+          }
+        }
         r_next_event_indices[index] = event_index;
-        r_time_factors_to_next_event[index] = triggered_time_factors[i];
+        r_time_factors_to_next_event[index] = time_factor;
       }
     }
   }
@@ -172,6 +180,7 @@ BLI_NOINLINE static void simulate_to_next_event(AttributeArrays attributes,
                                                 ArrayRef<float> durations,
                                                 float end_time,
                                                 ParticleInfluences &influences,
+                                                ArrayRef<float> last_event_times,
                                                 SmallVector<uint> &r_unfinished_particle_indices,
                                                 SmallVector<float> &r_remaining_durations)
 {
@@ -191,6 +200,7 @@ BLI_NOINLINE static void simulate_to_next_event(AttributeArrays attributes,
                                durations,
                                end_time,
                                influences.events(),
+                               last_event_times,
                                next_event_indices,
                                time_factors_to_next_event);
 
@@ -220,6 +230,8 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     SmallVector<uint> &r_unfinished_particle_indices,
     SmallVector<float> &r_remaining_durations)
 {
+  SmallVector<float> last_event_times;
+
   for (uint iteration = 0; iteration < max_events; iteration++) {
     r_unfinished_particle_indices.clear();
     r_remaining_durations.clear();
@@ -229,6 +241,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
                            durations,
                            end_time,
                            influences,
+                           last_event_times,
                            r_unfinished_particle_indices,
                            r_remaining_durations);
     BLI_assert(r_unfinished_particle_indices.size() == r_remaining_durations.size());
@@ -239,6 +252,11 @@ BLI_NOINLINE static void simulate_with_max_n_events(
 
     particle_indices = r_unfinished_particle_indices;
     durations = r_remaining_durations;
+
+    last_event_times.clear();
+    for (float duration : durations) {
+      last_event_times.append(end_time - duration);
+    }
   }
 }
 
