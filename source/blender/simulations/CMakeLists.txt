@@ -36,6 +36,7 @@ set(SRC
 
 set(LIB
   bf_blenlib
+  bf_blenkernel
 )
 
 blender_add_lib(bf_simulations "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

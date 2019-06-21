@@ -189,7 +189,11 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
   if (npmd->emitter_object) {
     DEG_add_object_relation(
-        ctx->node, npmd->emitter_object, DEG_OB_COMP_GEOMETRY, "Node Particles Modifier");
+        ctx->node, npmd->emitter_object, DEG_OB_COMP_GEOMETRY, "Modifier Emitter");
+  }
+  if (npmd->collision_object) {
+    DEG_add_object_relation(
+        ctx->node, npmd->collision_object, DEG_OB_COMP_GEOMETRY, "Modifer Collision");
   }
 }
 
@@ -197,12 +201,14 @@ static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk,
 {
   NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
   walk(userData, ob, &npmd->emitter_object, IDWALK_CB_NOP);
+  walk(userData, ob, &npmd->collision_object, IDWALK_CB_NOP);
 }
 
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
   NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
   walk(userData, ob, (ID **)&npmd->emitter_object, IDWALK_CB_NOP);
+  walk(userData, ob, (ID **)&npmd->collision_object, IDWALK_CB_NOP);
 }
 
 ModifierTypeInfo modifierType_NodeParticles = {

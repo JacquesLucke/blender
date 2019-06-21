@@ -11,6 +11,7 @@
 #include "BLI_listbase.h"
 
 #include "BKE_curve.h"
+#include "BKE_bvhutils.h"
 
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
@@ -129,12 +130,21 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
     description.m_emitters.append(
         EMITTER_mesh_surface((Mesh *)npmd->emitter_object->data, npmd->control1).release());
   }
+  BVHTreeFromMesh treedata = {0};
+  if (npmd->collision_object) {
+    BKE_bvhtree_from_mesh_get(
+        &treedata, (Mesh *)npmd->collision_object->data, BVHTREE_FROM_LOOPTRI, 4);
+    description.m_influences.m_events.append(EVENT_mesh_collection(&treedata).release());
+    description.m_influences.m_actions.append(ACTION_kill().release());
+  }
   description.m_influences.m_forces.append(FORCE_directional({0, 0, -2}).release());
-  description.m_influences.m_events.append(EVENT_age_reached(6.0f).release());
-  description.m_influences.m_actions.append(ACTION_kill().release());
   description.m_influences.m_events.append(EVENT_age_reached(3.0f).release());
   description.m_influences.m_actions.append(ACTION_move({0, 1, 0}).release());
   simulate_step(state, description);
+
+  if (npmd->collision_object) {
+    free_bvhtree_from_mesh(&treedata);
+  }
 
   std::cout << "Active Blocks: " << state.m_container->active_blocks().size() << "\n";
   std::cout << " Particle Amount: " << BParticles_state_particle_count(state_c) << "\n";

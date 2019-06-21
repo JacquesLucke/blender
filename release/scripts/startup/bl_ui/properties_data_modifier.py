@@ -1667,6 +1667,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         layout.prop(md, "control1")
         layout.prop(md, "control2")
         layout.prop(md, "emitter_object")
+        layout.prop(md, "collision_object")
 
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):

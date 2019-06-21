@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BLI_math_vector.h"
 #include "BLI_math_matrix.h"
 
 namespace BLI {
@@ -17,9 +18,31 @@ struct float3 {
   {
   }
 
+  operator const float *() const
+  {
+    return (const float *)this;
+  }
+
   operator float *()
   {
     return (float *)this;
+  }
+
+  float normalize_and_get_length()
+  {
+    return normalize_v3(*this);
+  }
+
+  float3 normalized() const
+  {
+    float3 result;
+    normalize_v3_v3(result, *this);
+    return result;
+  }
+
+  float length() const
+  {
+    return len_v3(*this);
   }
 
   friend float3 operator+(float3 a, float3 b)
