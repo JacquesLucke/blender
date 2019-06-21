@@ -80,7 +80,23 @@ static void free_modifier_runtime_data(NodeParticlesModifierData *npmd)
   }
 }
 
-static Mesh *mesh_from_particles_state(BParticlesState state, float scale)
+static Mesh *point_mesh_from_particle_state(BParticlesState state)
+{
+  uint point_amount = BParticles_state_particle_count(state);
+  Mesh *mesh = BKE_mesh_new_nomain(point_amount, 0, 0, 0, 0);
+
+  float(*positions)[3] = MEM_malloc_arrayN(point_amount, sizeof(float[3]), __func__);
+  BParticles_state_get_positions(state, positions);
+
+  for (uint i = 0; i < point_amount; i++) {
+    copy_v3_v3(mesh->mvert[i].co, positions[i]);
+  }
+
+  MEM_freeN(positions);
+  return mesh;
+}
+
+static Mesh *tetrahedon_mesh_from_particle_state(BParticlesState state, float scale)
 {
   uint point_amount = BParticles_state_particle_count(state);
   Mesh *mesh = BKE_mesh_new_nomain(point_amount * 4, 0, 0, point_amount * 12, point_amount * 4);
@@ -155,7 +171,7 @@ static Mesh *applyModifier(ModifierData *md,
     runtime->last_simulated_frame = current_frame;
   }
 
-  return mesh_from_particles_state(runtime->state, npmd->control1);
+  return point_mesh_from_particle_state(runtime->state);
 }
 
 static void initData(ModifierData *md)
