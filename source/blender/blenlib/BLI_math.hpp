@@ -102,10 +102,28 @@ struct float4x4 {
     return (float *)this;
   }
 
+  float4x4 inverted() const
+  {
+    float result[4][4];
+    invert_m4_m4(result, (float(*)[4])this);
+    return result;
+  }
+
+  float4x4 inverted__LocRotScale() const
+  {
+    return this->inverted();
+  }
+
   float3 transform_position(float3 position)
   {
     mul_m4_v3((float(*)[4])this, position);
     return position;
+  }
+
+  float3 transform_direction(float3 direction)
+  {
+    mul_mat3_m4_v3((float(*)[4])this, direction);
+    return direction;
   }
 };
 

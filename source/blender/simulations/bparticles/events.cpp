@@ -42,9 +42,11 @@ class AgeReachedEvent : public Event {
 class MeshCollisionEvent : public Event {
  private:
   BVHTreeFromMesh *m_treedata;
+  float4x4 m_ray_transform;
 
  public:
-  MeshCollisionEvent(BVHTreeFromMesh *treedata) : m_treedata(treedata)
+  MeshCollisionEvent(BVHTreeFromMesh *treedata, float4x4 transform)
+      : m_treedata(treedata), m_ray_transform(transform.inverted__LocRotScale())
   {
   }
 
@@ -62,8 +64,8 @@ class MeshCollisionEvent : public Event {
     for (uint i = 0; i < particle_indices.size(); i++) {
       uint pindex = particle_indices[i];
 
-      float3 start_position = positions[pindex];
-      float3 direction = position_offsets[i];
+      float3 start_position = m_ray_transform.transform_position(positions[pindex]);
+      float3 direction = m_ray_transform.transform_direction(position_offsets[i]);
       float length = direction.normalize_and_get_length();
 
       BVHTreeRayHit hit;
@@ -92,9 +94,9 @@ std::unique_ptr<Event> EVENT_age_reached(float age)
   return std::unique_ptr<Event>(event);
 }
 
-std::unique_ptr<Event> EVENT_mesh_collection(BVHTreeFromMesh *treedata)
+std::unique_ptr<Event> EVENT_mesh_collection(BVHTreeFromMesh *treedata, const float4x4 &transform)
 {
-  Event *event = new MeshCollisionEvent(treedata);
+  Event *event = new MeshCollisionEvent(treedata, transform);
   return std::unique_ptr<Event>(event);
 }
 

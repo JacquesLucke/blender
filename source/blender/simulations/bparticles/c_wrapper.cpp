@@ -134,7 +134,8 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   if (npmd->collision_object) {
     BKE_bvhtree_from_mesh_get(
         &treedata, (Mesh *)npmd->collision_object->data, BVHTREE_FROM_LOOPTRI, 4);
-    description.m_influences.m_events.append(EVENT_mesh_collection(&treedata).release());
+    description.m_influences.m_events.append(
+        EVENT_mesh_collection(&treedata, npmd->collision_object->obmat).release());
     description.m_influences.m_actions.append(ACTION_kill().release());
   }
   description.m_influences.m_forces.append(FORCE_directional({0, 0, -2}).release());
