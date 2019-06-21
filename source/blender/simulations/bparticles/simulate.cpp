@@ -210,6 +210,38 @@ BLI_NOINLINE static void simulate_to_next_event(AttributeArrays attributes,
                             r_remaining_durations);
 }
 
+BLI_NOINLINE static void simulate_with_max_n_events(
+    uint max_events,
+    AttributeArrays attributes,
+    ArrayRef<uint> particle_indices,
+    ArrayRef<float> durations,
+    float end_time,
+    ParticleInfluences &influences,
+    SmallVector<uint> &r_unfinished_particle_indices,
+    SmallVector<float> &r_remaining_durations)
+{
+  for (uint iteration = 0; iteration < max_events; iteration++) {
+    r_unfinished_particle_indices.clear();
+    r_remaining_durations.clear();
+
+    simulate_to_next_event(attributes,
+                           particle_indices,
+                           durations,
+                           end_time,
+                           influences,
+                           r_unfinished_particle_indices,
+                           r_remaining_durations);
+    BLI_assert(r_unfinished_particle_indices.size() == r_remaining_durations.size());
+
+    if (r_unfinished_particle_indices.size() == 0) {
+      break;
+    }
+
+    particle_indices = r_unfinished_particle_indices;
+    durations = r_remaining_durations;
+  }
+}
+
 BLI_NOINLINE static void simulate_ignoring_events(AttributeArrays attributes,
                                                   ArrayRef<uint> particle_indices,
                                                   ArrayRef<float> durations,
@@ -241,27 +273,14 @@ BLI_NOINLINE static void step_individual_particles(AttributeArrays attributes,
   SmallVector<uint> unfinished_particle_indices;
   SmallVector<float> remaining_durations;
 
-  const uint max_events_per_particle = 10;
-  for (uint iteration = 0; iteration < max_events_per_particle; iteration++) {
-    unfinished_particle_indices.clear();
-    remaining_durations.clear();
-
-    simulate_to_next_event(attributes,
-                           particle_indices,
-                           durations,
-                           end_time,
-                           influences,
-                           unfinished_particle_indices,
-                           remaining_durations);
-    BLI_assert(unfinished_particle_indices.size() == remaining_durations.size());
-
-    if (unfinished_particle_indices.size() == 0) {
-      break;
-    }
-
-    particle_indices = unfinished_particle_indices;
-    durations = remaining_durations;
-  }
+  simulate_with_max_n_events(10,
+                             attributes,
+                             particle_indices,
+                             durations,
+                             end_time,
+                             influences,
+                             unfinished_particle_indices,
+                             remaining_durations);
 
   simulate_ignoring_events(
       attributes, unfinished_particle_indices, remaining_durations, influences);

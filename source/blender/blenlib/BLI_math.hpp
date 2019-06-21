@@ -54,6 +54,12 @@ struct float3 {
     BLI_assert(b != 0);
     return {a.x / b, a.y / b, a.z / b};
   }
+
+  friend std::ostream &operator<<(std::ostream &stream, float3 v)
+  {
+    stream << "(" << v.x << ", " << v.y << ", " << v.z << ")";
+    return stream;
+  }
 };
 
 struct float4x4 {
