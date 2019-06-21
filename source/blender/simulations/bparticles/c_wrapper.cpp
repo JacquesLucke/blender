@@ -127,8 +127,10 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   ModifierStepDescription description;
   description.m_duration = 1.0f / 24.0f;
   if (npmd->emitter_object) {
-    description.m_emitters.append(
-        EMITTER_mesh_surface((Mesh *)npmd->emitter_object->data, npmd->control1).release());
+    description.m_emitters.append(EMITTER_mesh_surface((Mesh *)npmd->emitter_object->data,
+                                                       npmd->emitter_object->obmat,
+                                                       npmd->control1)
+                                      .release());
   }
   BVHTreeFromMesh treedata = {0};
   if (npmd->collision_object) {
