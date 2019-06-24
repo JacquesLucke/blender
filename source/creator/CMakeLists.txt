@@ -342,7 +342,7 @@ elseif(APPLE)
   if(WITH_PYTHON_MODULE)
     set(TARGETDIR_VER ${BLENDER_VERSION})
   else()
-    set(TARGETDIR_VER blender.app/Contents/Resources/${BLENDER_VERSION})
+    set(TARGETDIR_VER Blender.app/Contents/Resources/${BLENDER_VERSION})
   endif()
   # Skip relinking on cpack / install
   set_target_properties(blender PROPERTIES BUILD_WITH_INSTALL_RPATH true)
@@ -870,6 +870,8 @@ elseif(WIN32)
     )
   endif()
 elseif(APPLE)
+  # Uppercase name for app bundle
+  set_target_properties(blender PROPERTIES OUTPUT_NAME Blender)
 
   # handy install macro to exclude files, we use \$ escape for the "to"
   # argument when calling so ${BUILD_TYPE} does not get expanded
@@ -897,7 +899,7 @@ elseif(APPLE)
     )
   endmacro()
 
-  set(OSX_APP_SOURCEDIR ${CMAKE_SOURCE_DIR}/release/darwin/blender.app)
+  set(OSX_APP_SOURCEDIR ${CMAKE_SOURCE_DIR}/release/darwin/Blender.app)
 
   # setup Info.plist
   execute_process(COMMAND date "+%Y-%m-%d"
@@ -916,7 +918,7 @@ elseif(APPLE)
 
   # Give the bundle actual creation/modification date
   execute_process(COMMAND SetFile -d ${SETFILE_DATE} -m ${SETFILE_DATE}
-                  ${EXECUTABLE_OUTPUT_PATH}/blender.app)
+                  ${EXECUTABLE_OUTPUT_PATH}/Blender.app)
 
   install(
     TARGETS blender
@@ -924,29 +926,29 @@ elseif(APPLE)
   )
 
   # install release and app files
-  set(BLENDER_TEXT_FILES_DESTINATION ".")
+  set(BLENDER_TEXT_FILES_DESTINATION Blender.app/Contents/Resources/text)
 
   install(
     FILES ${OSX_APP_SOURCEDIR}/Contents/PkgInfo
-    DESTINATION blender.app/Contents
+    DESTINATION Blender.app/Contents
   )
 
   install_dir(
     ${OSX_APP_SOURCEDIR}/Contents/Resources
-    blender.app/Contents/
+    Blender.app/Contents/
   )
 
   if(WITH_OPENMP AND OPENMP_CUSTOM)
     install(
       FILES ${LIBDIR}/openmp/lib/libomp.dylib
-      DESTINATION blender.app/Contents/Resources/lib
+      DESTINATION Blender.app/Contents/Resources/lib
     )
   endif()
 
   if(WITH_LLVM AND NOT LLVM_STATIC)
     install(
       FILES ${LIBDIR}/llvm/lib/libLLVM-3.4.dylib
-      DESTINATION blender.app/Contents/MacOS
+      DESTINATION Blender.app/Contents/MacOS
     )
   endif()
 

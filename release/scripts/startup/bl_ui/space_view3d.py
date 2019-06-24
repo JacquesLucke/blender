@@ -699,7 +699,7 @@ class VIEW3D_HT_header(Header):
         sub.popover(panel="VIEW3D_PT_overlay", text="")
 
         row = layout.row()
-        row.active = (shading.type in {'WIREFRAME', 'SOLID'}) or object_mode in {'EDIT'}
+        row.active = (object_mode == 'EDIT') or (shading.type in {'WIREFRAME', 'SOLID'})
 
         if shading.type == 'WIREFRAME':
             row.prop(shading, "show_xray_wireframe", text="", icon='XRAY')
@@ -1113,7 +1113,7 @@ class VIEW3D_MT_view_navigation(Menu):
 
         layout.operator("view3d.zoom", text="Zoom In").delta = 1
         layout.operator("view3d.zoom", text="Zoom Out").delta = -1
-        layout.operator("view3d.zoom_border", text="Zoom Border...")
+        layout.operator("view3d.zoom_border", text="Zoom Region...")
         layout.operator("view3d.zoom_camera_1_to_1", text="Zoom Camera 1:1")
 
         layout.separator()
@@ -6021,14 +6021,14 @@ class VIEW3D_PT_gpencil_guide(Panel):
         col.active = settings.use_guide
         col.prop(settings, "type", expand=True)
 
-        if settings.type in {'PARALLEL'}:
+        if settings.type == 'PARALLEL':
             col.prop(settings, "angle")
             row = col.row(align=True)
 
         col.prop(settings, "use_snapping")
         if settings.use_snapping:
 
-            if settings.type in {'RADIAL'}:
+            if settings.type == 'RADIAL':
                 col.prop(settings, "angle_snap")
             else:
                 col.prop(settings, "spacing")
@@ -6036,9 +6036,9 @@ class VIEW3D_PT_gpencil_guide(Panel):
         col.label(text="Reference Point")
         row = col.row(align=True)
         row.prop(settings, "reference_point", expand=True)
-        if settings.reference_point in {'CUSTOM'}:
+        if settings.reference_point == 'CUSTOM':
             col.prop(settings, "location", text="Custom Location")
-        if settings.reference_point in {'OBJECT'}:
+        elif settings.reference_point == 'OBJECT':
             col.prop(settings, "reference_object", text="Object Location")
             if not settings.reference_object:
                 col.label(text="No object selected, using cursor")
