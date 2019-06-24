@@ -15,24 +15,21 @@ class AgeReachedEvent : public Event {
   {
   }
 
-  void filter(ParticleSet particles,
-              IdealOffsets &UNUSED(ideal_offsets),
-              ArrayRef<float> durations,
-              float end_time,
-              SmallVector<uint> &r_filtered_indices,
-              SmallVector<float> &r_time_factors) override
+  void filter(EventInterface &interface) override
   {
+    ParticleSet particles = interface.particles();
     auto birth_times = particles.attributes().get_float("Birth Time");
+    float end_time = interface.end_time();
 
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
-      float duration = durations[i];
+      TimeSpan time_span = interface.time_span(i);
+      float duration = interface.durations()[i];
       float birth_time = birth_times[pindex];
       float age = end_time - birth_time;
       if (age >= m_age && age - duration < m_age) {
-        r_filtered_indices.append(i);
         float time_factor = TimeSpan(end_time - duration, duration).get_factor(birth_time + m_age);
-        r_time_factors.append(time_factor);
+        interface.trigger_particle(i, time_factor);
       }
     }
   }
@@ -49,15 +46,11 @@ class MeshCollisionEvent : public Event {
   {
   }
 
-  void filter(ParticleSet particles,
-              IdealOffsets &ideal_offsets,
-              ArrayRef<float> UNUSED(durations),
-              float UNUSED(end_time),
-              SmallVector<uint> &r_filtered_indices,
-              SmallVector<float> &r_time_factors) override
+  void filter(EventInterface &interface) override
   {
+    ParticleSet &particles = interface.particles();
     auto positions = particles.attributes().get_float3("Position");
-    auto position_offsets = ideal_offsets.position_offsets;
+    auto position_offsets = interface.ideal_offsets().position_offsets;
 
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
@@ -79,8 +72,7 @@ class MeshCollisionEvent : public Event {
 
       if (hit.index != -1) {
         float time_factor = hit.dist / length;
-        r_filtered_indices.append(i);
-        r_time_factors.append(time_factor);
+        interface.trigger_particle(i, time_factor);
       }
     }
   }

@@ -78,16 +78,70 @@ struct IdealOffsets {
   ArrayRef<float3> velocity_offsets;
 };
 
+class EventInterface {
+ private:
+  ParticleSet m_particles;
+  IdealOffsets &m_ideal_offsets;
+  ArrayRef<float> m_durations;
+  float m_end_time;
+
+  SmallVector<uint> &m_filtered_indices;
+  SmallVector<float> &m_filtered_time_factors;
+
+ public:
+  EventInterface(ParticleSet particles,
+                 IdealOffsets &ideal_offsets,
+                 ArrayRef<float> durations,
+                 float end_time,
+                 SmallVector<uint> &r_filtered_indices,
+                 SmallVector<float> &r_filtered_time_factors)
+      : m_particles(particles),
+        m_ideal_offsets(ideal_offsets),
+        m_durations(durations),
+        m_end_time(end_time),
+        m_filtered_indices(r_filtered_indices),
+        m_filtered_time_factors(r_filtered_time_factors)
+  {
+  }
+
+  ParticleSet &particles()
+  {
+    return m_particles;
+  }
+
+  ArrayRef<float> durations()
+  {
+    return m_durations;
+  }
+
+  TimeSpan time_span(uint index)
+  {
+    float duration = m_durations[index];
+    return TimeSpan(m_end_time - duration, duration);
+  }
+
+  IdealOffsets &ideal_offsets()
+  {
+    return m_ideal_offsets;
+  }
+
+  float end_time()
+  {
+    return m_end_time;
+  }
+
+  void trigger_particle(uint index, float time_factor)
+  {
+    m_filtered_indices.append(index);
+    m_filtered_time_factors.append(time_factor);
+  }
+};
+
 class Event {
  public:
   virtual ~Event();
 
-  virtual void filter(ParticleSet particles,
-                      IdealOffsets &ideal_offsets,
-                      ArrayRef<float> durations,
-                      float end_time,
-                      SmallVector<uint> &r_filtered_indices,
-                      SmallVector<float> &r_time_factors) = 0;
+  virtual void filter(EventInterface &interface) = 0;
 };
 
 class Action {

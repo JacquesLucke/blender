@@ -39,8 +39,9 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
     SmallVector<float> triggered_time_factors;
 
     Event *event = events[event_index];
-    event->filter(
+    EventInterface interface(
         particles, ideal_offsets, durations, end_time, triggered_indices, triggered_time_factors);
+    event->filter(interface);
 
     for (uint i = 0; i < triggered_indices.size(); i++) {
       uint index = triggered_indices[i];
