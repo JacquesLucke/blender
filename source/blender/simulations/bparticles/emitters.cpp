@@ -20,7 +20,7 @@ class PointEmitter : public Emitter {
   {
   }
 
-  void emit(EmitterInterface interface) override
+  void emit(EmitterInterface &interface) override
   {
     auto &target = interface.request_raw();
     auto positions = target.attributes().get_float3("Position");
@@ -44,7 +44,7 @@ class SurfaceEmitter : public Emitter {
   {
   }
 
-  void emit(EmitterInterface interface) override
+  void emit(EmitterInterface &interface) override
   {
     MLoop *loops = m_mesh->mloop;
     MVert *verts = m_mesh->mvert;
@@ -85,7 +85,7 @@ class PathEmitter : public Emitter {
   {
   }
 
-  void emit(EmitterInterface interface) override
+  void emit(EmitterInterface &interface) override
   {
     SmallVector<float3> positions;
     for (uint i = 0; i < m_path.len - 1; i++) {

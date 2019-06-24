@@ -171,7 +171,7 @@ class Emitter {
  public:
   virtual ~Emitter();
 
-  virtual void emit(EmitterInterface interface) = 0;
+  virtual void emit(EmitterInterface &interface) = 0;
 };
 
 class ParticleInfluences {
