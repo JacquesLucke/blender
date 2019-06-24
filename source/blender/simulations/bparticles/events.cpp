@@ -25,7 +25,7 @@ class AgeReachedEvent : public Event {
     auto birth_times = particles.attributes().get_float("Birth Time");
 
     for (uint i : particles.range()) {
-      uint pindex = particles.pindex_of(i);
+      uint pindex = particles.get_particle_index(i);
       float duration = durations[i];
       float birth_time = birth_times[pindex];
       float age = end_time - birth_time;
@@ -60,7 +60,7 @@ class MeshCollisionEvent : public Event {
     auto position_offsets = ideal_offsets.position_offsets;
 
     for (uint i : particles.range()) {
-      uint pindex = particles.pindex_of(i);
+      uint pindex = particles.get_particle_index(i);
 
       float3 start_position = m_ray_transform.transform_position(positions[pindex]);
       float3 direction = m_ray_transform.transform_direction(position_offsets[i]);

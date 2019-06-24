@@ -66,7 +66,7 @@ BLI_NOINLINE static void forward_particles_to_next_event(
   auto velocities = particles.attributes().get_float3("Velocity");
 
   for (uint i : particles.range()) {
-    uint pindex = particles.pindex_of(i);
+    uint pindex = particles.get_particle_index(i);
     float time_factor = time_factors_to_next_event[i];
     positions[pindex] += time_factor * ideal_offsets.position_offsets[i];
     velocities[pindex] += time_factor * ideal_offsets.velocity_offsets[i];
@@ -153,7 +153,7 @@ BLI_NOINLINE static void compute_ideal_attribute_offsets(ParticleSet particles,
   auto velocities = particles.attributes().get_float3("Velocity");
 
   for (uint i : particles.range()) {
-    uint pindex = particles.pindex_of(i);
+    uint pindex = particles.get_particle_index(i);
 
     float mass = 1.0f;
     float duration = durations[i];
@@ -262,7 +262,7 @@ BLI_NOINLINE static void simulate_ignoring_events(ParticleSet particles,
   auto velocities = particles.attributes().get_float3("Velocity");
 
   for (uint i : particles.indices()) {
-    uint pindex = particles.pindex_of(i);
+    uint pindex = particles.get_particle_index(i);
 
     positions[pindex] += offsets.position_offsets[i];
     velocities[pindex] += offsets.velocity_offsets[i];

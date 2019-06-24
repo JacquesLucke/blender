@@ -51,7 +51,7 @@ struct ParticleSet {
     return m_particle_indices;
   }
 
-  uint pindex_of(uint i)
+  uint get_particle_index(uint i)
   {
     return m_particle_indices[i];
   }

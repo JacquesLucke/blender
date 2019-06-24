@@ -34,7 +34,7 @@ class TurbulenceForce : public BParticles::Force {
   {
     auto positions = particles.attributes().get_float3("Position");
     for (uint i : particles.indices()) {
-      uint pindex = particles.pindex_of(i);
+      uint pindex = particles.get_particle_index(i);
 
       float3 pos = positions[pindex];
       float value = BLI_hnoise(0.5f, pos.x, pos.y, pos.z);
