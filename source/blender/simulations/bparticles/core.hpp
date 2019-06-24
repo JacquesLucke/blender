@@ -131,12 +131,12 @@ class EmitterTarget {
 
 using RequestEmitterTarget = std::function<EmitterTarget &()>;
 
-class EmitterHelper {
+class EmitterInterface {
  private:
   RequestEmitterTarget &m_request_target;
 
  public:
-  EmitterHelper(RequestEmitterTarget &request_target) : m_request_target(request_target)
+  EmitterInterface(RequestEmitterTarget &request_target) : m_request_target(request_target)
   {
   }
 
@@ -171,7 +171,7 @@ class Emitter {
  public:
   virtual ~Emitter();
 
-  virtual void emit(EmitterHelper helper) = 0;
+  virtual void emit(EmitterInterface interface) = 0;
 };
 
 class ParticleInfluences {

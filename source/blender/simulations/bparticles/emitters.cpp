@@ -20,9 +20,9 @@ class PointEmitter : public Emitter {
   {
   }
 
-  void emit(EmitterHelper helper) override
+  void emit(EmitterInterface interface) override
   {
-    auto &target = helper.request_raw();
+    auto &target = interface.request_raw();
     auto positions = target.attributes().get_float3("Position");
     auto velocities = target.attributes().get_float3("Velocity");
 
@@ -44,7 +44,7 @@ class SurfaceEmitter : public Emitter {
   {
   }
 
-  void emit(EmitterHelper helper) override
+  void emit(EmitterInterface interface) override
   {
     MLoop *loops = m_mesh->mloop;
     MVert *verts = m_mesh->mvert;
@@ -69,7 +69,7 @@ class SurfaceEmitter : public Emitter {
       velocities.append(m_transform.transform_direction(normal * m_normal_velocity));
     }
 
-    auto target = helper.request(positions.size());
+    auto target = interface.request(positions.size());
     target.set_float3("Position", positions);
     target.set_float3("Velocity", velocities);
   }
@@ -85,7 +85,7 @@ class PathEmitter : public Emitter {
   {
   }
 
-  void emit(EmitterHelper helper) override
+  void emit(EmitterInterface interface) override
   {
     SmallVector<float3> positions;
     for (uint i = 0; i < m_path.len - 1; i++) {
@@ -100,7 +100,7 @@ class PathEmitter : public Emitter {
       }
     }
 
-    auto target = helper.request(positions.size());
+    auto target = interface.request(positions.size());
     target.set_float3("Position", positions);
     target.set_float3("Velocity", SmallVector<float3>(positions.size()));
   }

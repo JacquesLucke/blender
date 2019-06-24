@@ -376,7 +376,7 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(ParticlesContainer &con
     return targets.last();
   };
 
-  emitter.emit(EmitterHelper{request_target});
+  emitter.emit(EmitterInterface{request_target});
 
   for (uint i = 0; i < targets.size(); i++) {
     EmitterTarget &target = targets[i];
