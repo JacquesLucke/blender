@@ -51,14 +51,17 @@ set(SRC
   core/core-c.h
   core/core-c.cpp
 
-  backends/tuple_call/cpp_types.hpp
-  backends/tuple_call/cpp_types.cpp
+  backends/tuple/cpp_types.hpp
+  backends/tuple/cpp_types.cpp
+  backends/tuple/tuple.hpp
+  backends/tuple/tuple.cpp
+  backends/tuple/tuple-c.h
+  backends/tuple/tuple-c.cpp
+
   backends/tuple_call/tuple_call.hpp
   backends/tuple_call/tuple_call.cpp
   backends/tuple_call/fgraph_tuple_call.hpp
   backends/tuple_call/fgraph_tuple_call.cpp
-  backends/tuple_call/tuple.hpp
-  backends/tuple_call/tuple.cpp
   backends/tuple_call/lazy_to_normal.hpp
   backends/tuple_call/lazy_to_normal.cpp
   backends/tuple_call/execution_context.hpp

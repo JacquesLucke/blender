@@ -2,13 +2,13 @@
 #define __FUNCTIONS_TUPLE_CALL_WRAPPER_C_H__
 
 #include "FN_core-c.h"
+#include "FN_tuple-c.h"
 #include "BLI_alloca.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct OpaqueFnTuple *FnTuple;
 typedef struct OpaqueFnTupleCallBody *FnTupleCallBody;
 
 FnTupleCallBody FN_tuple_call_get(FnFunction fn);
@@ -19,12 +19,8 @@ void FN_tuple_call_invoke(FnTupleCallBody body,
 FnTuple FN_tuple_for_input(FnTupleCallBody body);
 FnTuple FN_tuple_for_output(FnTupleCallBody body);
 
-void FN_tuple_free(FnTuple tuple);
-
 uint fn_tuple_stack_prepare_size(FnTupleCallBody body);
 void fn_tuple_prepare_stack(FnTupleCallBody body, void *buffer, FnTuple *fn_in, FnTuple *fn_out);
-
-void fn_tuple_destruct(FnTuple tuple);
 
 #define FN_TUPLE_CALL_PREPARE_STACK(body, fn_in, fn_out) \
   FnTuple fn_in, fn_out; \
@@ -46,10 +42,8 @@ void fn_tuple_destruct(FnTuple tuple);
 #ifdef __cplusplus
 }
 
-#  include "tuple.hpp"
 #  include "tuple_call.hpp"
 
-WRAPPERS(FN::Tuple *, FnTuple);
 WRAPPERS(FN::TupleCallBody *, FnTupleCallBody);
 
 #endif /* __cplusplus */

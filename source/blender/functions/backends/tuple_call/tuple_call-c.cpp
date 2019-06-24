@@ -39,11 +39,6 @@ FnTuple FN_tuple_for_output(FnTupleCallBody body_c)
   return wrap(tuple);
 }
 
-void FN_tuple_free(FnTuple tuple_c)
-{
-  delete unwrap(tuple_c);
-}
-
 uint fn_tuple_stack_prepare_size(FnTupleCallBody body_c)
 {
   TupleCallBody *body = unwrap(body_c);
@@ -63,9 +58,4 @@ void fn_tuple_prepare_stack(FnTupleCallBody body_c,
   Tuple::ConstructInBuffer(body->meta_out(), buf_out);
   *fn_in_c = wrap((Tuple *)buf_in);
   *fn_out_c = wrap((Tuple *)buf_out);
-}
-
-void fn_tuple_destruct(FnTuple tuple_c)
-{
-  unwrap(tuple_c)->~Tuple();
 }
