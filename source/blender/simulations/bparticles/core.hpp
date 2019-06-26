@@ -144,11 +144,26 @@ class Event {
   virtual void filter(EventInterface &interface) = 0;
 };
 
+class ActionInterface {
+ private:
+  ParticleSet m_particles;
+
+ public:
+  ActionInterface(ParticleSet particles) : m_particles(particles)
+  {
+  }
+
+  ParticleSet &particles()
+  {
+    return m_particles;
+  }
+};
+
 class Action {
  public:
   virtual ~Action();
 
-  virtual void execute(ParticleSet particles) = 0;
+  virtual void execute(ActionInterface &interface) = 0;
 };
 
 class EmitterTarget {

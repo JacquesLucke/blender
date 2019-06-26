@@ -3,8 +3,10 @@
 namespace BParticles {
 
 class KillAction : public Action {
-  void execute(ParticleSet particles) override
+  void execute(ActionInterface &interface) override
   {
+    ParticleSet &particles = interface.particles();
+
     auto kill_states = particles.attributes().get_byte("Kill State");
     for (uint pindex : particles.indices()) {
       kill_states[pindex] = 1;
@@ -21,10 +23,11 @@ class MoveAction : public BParticles::Action {
   {
   }
 
-  void execute(ParticleSet particles) override
+  void execute(ActionInterface &interface) override
   {
-    auto positions = particles.attributes().get_float3("Position");
+    ParticleSet &particles = interface.particles();
 
+    auto positions = particles.attributes().get_float3("Position");
     for (uint pindex : particles.indices()) {
       positions[pindex] += m_offset;
     }

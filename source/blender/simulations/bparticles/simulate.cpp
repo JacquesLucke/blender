@@ -118,7 +118,9 @@ BLI_NOINLINE static void run_actions(AttributeArrays attributes,
   for (uint event_index = 0; event_index < events.size(); event_index++) {
     Action *action = action_per_event[event_index];
     ParticleSet particles(attributes, particles_per_event[event_index]);
-    action->execute(particles);
+
+    ActionInterface interface(particles);
+    action->execute(interface);
   }
 }
 
