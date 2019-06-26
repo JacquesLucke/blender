@@ -23,7 +23,6 @@ class AgeReachedEvent : public Event {
 
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
-      TimeSpan time_span = interface.time_span(i);
       float duration = interface.durations()[i];
       float birth_time = birth_times[pindex];
       float age = end_time - birth_time;
