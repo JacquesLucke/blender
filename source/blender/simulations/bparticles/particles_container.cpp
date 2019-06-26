@@ -42,10 +42,69 @@ void ParticlesContainer::release_block(ParticlesBlock *block)
   delete block;
 }
 
+static SmallVector<int> map_attribute_indices(AttributesInfo &from_info, AttributesInfo &to_info)
+{
+  SmallVector<int> mapping;
+  mapping.reserve(from_info.amount());
+
+  for (uint from_index : from_info.attribute_indices()) {
+    StringRef name = from_info.name_of(from_index);
+    int to_index = to_info.attribute_index_try(name);
+    if (to_index == -1) {
+      mapping.append(-1);
+    }
+    else if (from_info.type_of(from_index) != to_info.type_of(to_index)) {
+      mapping.append(-1);
+    }
+    else {
+      mapping.append((uint)to_index);
+    }
+  }
+
+  return mapping;
+}
+
 void ParticlesContainer::update_attributes(AttributesInfo new_info)
 {
+
+  AttributesInfo &old_info = m_attributes_info;
+
+  SmallVector<int> new_to_old_mapping = map_attribute_indices(new_info, old_info);
+  SmallVector<int> old_to_new_mapping = map_attribute_indices(old_info, new_info);
+
+  SmallVector<uint> unused_old_indices;
+  for (uint i = 0; i < old_to_new_mapping.size(); i++) {
+    if (old_to_new_mapping[i] == -1) {
+      unused_old_indices.append(i);
+    }
+  }
+
   m_attributes_info = new_info;
-  /* TODO: actually update attributes */
+
+  SmallVector<void *> arrays;
+  arrays.reserve(new_info.amount());
+  for (ParticlesBlock *block : m_blocks) {
+    arrays.clear();
+
+    for (uint new_index : new_info.attribute_indices()) {
+      int old_index = new_to_old_mapping[new_index];
+      AttributeType type = new_info.type_of(new_index);
+
+      if (old_index == -1) {
+        arrays.append(MEM_calloc_arrayN(m_block_size, size_of_attribute_type(type), __func__));
+      }
+      else {
+        arrays.append(block->attributes_core().get_ptr((uint)old_index));
+      }
+    }
+
+    for (uint old_index : unused_old_indices) {
+      void *ptr = block->attributes_core().get_ptr(old_index);
+      MEM_freeN(ptr);
+    }
+
+    block->m_attributes_core = AttributeArraysCore(m_attributes_info, arrays, m_block_size);
+  }
 }
 
 void ParticlesBlock::MoveUntilFull(ParticlesBlock &from, ParticlesBlock &to)

@@ -74,11 +74,21 @@ class AttributesInfo {
     return m_types;
   }
 
+  int attribute_index_try(StringRef name) const
+  {
+    return m_indices.index(name.to_std_string());
+  }
+
   uint attribute_index(StringRef name) const
   {
-    int index = m_indices.index(name.to_std_string());
+    int index = this->attribute_index_try(name);
     BLI_assert(index >= 0);
     return (uint)index;
+  }
+
+  Range<uint> attribute_indices() const
+  {
+    return Range<uint>(0, m_indices.size());
   }
 
   Range<uint> byte_attributes() const
@@ -106,7 +116,7 @@ class AttributeArrays;
 
 class AttributeArraysCore {
  private:
-  AttributesInfo &m_info;
+  AttributesInfo *m_info;
   SmallVector<void *> m_arrays;
   uint m_size = 0;
 
@@ -181,7 +191,7 @@ class JoinedAttributeArrays {
 
 inline AttributesInfo &AttributeArraysCore::info()
 {
-  return m_info;
+  return *m_info;
 }
 
 inline void *AttributeArraysCore::get_ptr(uint index)
@@ -191,7 +201,7 @@ inline void *AttributeArraysCore::get_ptr(uint index)
 
 inline AttributeType AttributeArraysCore::get_type(uint index)
 {
-  return m_info.type_of(index);
+  return m_info->type_of(index);
 }
 
 inline AttributeArrays AttributeArraysCore::slice_all()

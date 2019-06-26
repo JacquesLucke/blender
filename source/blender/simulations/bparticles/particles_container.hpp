@@ -50,6 +50,8 @@ class ParticlesBlock {
   AttributeArraysCore m_attributes_core;
   uint m_active_amount = 0;
 
+  friend ParticlesContainer;
+
  public:
   ParticlesBlock(ParticlesContainer &container, AttributeArraysCore &attributes_core);
 

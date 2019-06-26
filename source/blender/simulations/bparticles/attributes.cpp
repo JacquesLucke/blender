@@ -23,7 +23,7 @@ AttributesInfo::AttributesInfo(ArrayRef<std::string> byte_names,
 }
 
 AttributeArraysCore::AttributeArraysCore(AttributesInfo &info, ArrayRef<void *> arrays, uint size)
-    : m_info(info), m_arrays(arrays.to_small_vector()), m_size(size)
+    : m_info(&info), m_arrays(arrays.to_small_vector()), m_size(size)
 {
 }
 
