@@ -22,7 +22,7 @@ class PointEmitter : public Emitter {
 
   void emit(EmitterInterface &interface) override
   {
-    auto &target = interface.request_raw();
+    auto &target = interface.request_raw(0);
     auto positions = target.attributes().get_float3("Position");
     auto velocities = target.attributes().get_float3("Velocity");
 
@@ -69,7 +69,7 @@ class SurfaceEmitter : public Emitter {
       velocities.append(m_transform.transform_direction(normal * m_normal_velocity));
     }
 
-    auto target = interface.request(positions.size());
+    auto target = interface.request(0, positions.size());
     target.set_float3("Position", positions);
     target.set_float3("Velocity", velocities);
   }
@@ -100,7 +100,7 @@ class PathEmitter : public Emitter {
       }
     }
 
-    auto target = interface.request(positions.size());
+    auto target = interface.request(0, positions.size());
     target.set_float3("Position", positions);
     target.set_float3("Velocity", SmallVector<float3>(positions.size()));
   }

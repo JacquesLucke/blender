@@ -18,10 +18,6 @@ Event::~Event()
 {
 }
 
-ParticleInfluences::~ParticleInfluences()
-{
-}
-
 ParticleType::~ParticleType()
 {
 }

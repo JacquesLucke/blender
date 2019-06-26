@@ -198,7 +198,7 @@ class EmitterTarget {
   }
 };
 
-using RequestEmitterTarget = std::function<EmitterTarget &()>;
+using RequestEmitterTarget = std::function<EmitterTarget &(uint particle_type_id)>;
 
 class EmitterInterface {
  private:
@@ -209,19 +209,19 @@ class EmitterInterface {
   {
   }
 
-  EmitterTarget &request_raw()
+  EmitterTarget &request_raw(uint particle_type_id)
   {
-    EmitterTarget &target = m_request_target();
+    EmitterTarget &target = m_request_target(particle_type_id);
     BLI_assert(target.size() > 0);
     return target;
   }
 
-  JoinedAttributeArrays request(uint size)
+  JoinedAttributeArrays request(uint particle_type_id, uint size)
   {
     SmallVector<AttributeArrays> arrays_list;
     uint remaining_size = size;
     while (remaining_size > 0) {
-      EmitterTarget &target = this->request_raw();
+      EmitterTarget &target = this->request_raw(particle_type_id);
 
       uint size_to_use = std::min(target.size(), remaining_size);
       target.set_initialized(size_to_use);
@@ -229,8 +229,9 @@ class EmitterInterface {
       remaining_size -= size_to_use;
     }
 
-    AttributesInfo &info = (arrays_list.size() == 0) ? this->request_raw().attributes().info() :
-                                                       arrays_list[0].info();
+    AttributesInfo &info = (arrays_list.size() == 0) ?
+                               this->request_raw(particle_type_id).attributes().info() :
+                               arrays_list[0].info();
 
     return JoinedAttributeArrays(info, arrays_list);
   }
@@ -243,21 +244,13 @@ class Emitter {
   virtual void emit(EmitterInterface &interface) = 0;
 };
 
-class ParticleInfluences {
- public:
-  virtual ~ParticleInfluences();
-
-  virtual ArrayRef<Force *> forces() = 0;
-  virtual ArrayRef<Event *> events() = 0;
-  virtual ArrayRef<Action *> action_per_event() = 0;
-};
-
 class ParticleType {
  public:
   virtual ~ParticleType();
 
-  virtual ArrayRef<Emitter *> emitters() = 0;
-  virtual ParticleInfluences &influences() = 0;
+  virtual ArrayRef<Force *> forces() = 0;
+  virtual ArrayRef<Event *> events() = 0;
+  virtual ArrayRef<Action *> action_per_event() = 0;
 };
 
 class StepDescription {
@@ -265,6 +258,7 @@ class StepDescription {
   virtual ~StepDescription();
 
   virtual float step_duration() = 0;
+  virtual ArrayRef<Emitter *> emitters() = 0;
 
   virtual ArrayRef<uint> particle_type_ids() = 0;
   virtual ParticleType &particle_type(uint type_id) = 0;
@@ -283,6 +277,11 @@ class ParticlesState {
   SmallMap<uint, ParticlesContainer *> &particle_containers()
   {
     return m_particle_containers;
+  }
+
+  ParticlesContainer &particle_container(uint type_id)
+  {
+    return *m_particle_containers.lookup(type_id);
   }
 };
 

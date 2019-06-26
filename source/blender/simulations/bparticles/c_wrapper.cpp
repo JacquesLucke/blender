@@ -50,13 +50,13 @@ void BParticles_state_free(BParticlesState state)
   delete unwrap(state);
 }
 
-class ModifierStepParticleInfluences : public ParticleInfluences {
+class ModifierParticleType : public ParticleType {
  public:
   SmallVector<Force *> m_forces;
   SmallVector<Event *> m_events;
   SmallVector<Action *> m_actions;
 
-  ~ModifierStepParticleInfluences()
+  ~ModifierParticleType()
   {
     for (Force *force : m_forces) {
       delete force;
@@ -83,44 +83,30 @@ class ModifierStepParticleInfluences : public ParticleInfluences {
   }
 };
 
-class ModifierParticleType : public ParticleType {
- public:
-  SmallVector<Emitter *> m_emitters;
-  ModifierStepParticleInfluences m_influences;
-
-  ~ModifierParticleType()
-  {
-    for (Emitter *emitter : m_emitters) {
-      delete emitter;
-    }
-  }
-
-  ArrayRef<Emitter *> emitters() override
-  {
-    return m_emitters;
-  }
-
-  ParticleInfluences &influences() override
-  {
-    return m_influences;
-  }
-};
-
 class ModifierStepDescription : public StepDescription {
  public:
   float m_duration;
   SmallMap<uint, ModifierParticleType *> m_types;
+  SmallVector<Emitter *> m_emitters;
 
   ~ModifierStepDescription()
   {
     for (auto *type : m_types.values()) {
       delete type;
     }
+    for (Emitter *emitter : m_emitters) {
+      delete emitter;
+    }
   }
 
   float step_duration() override
   {
     return m_duration;
+  }
+
+  ArrayRef<Emitter *> emitters() override
+  {
+    return m_emitters;
   }
 
   ArrayRef<uint> particle_type_ids() override
@@ -148,22 +134,22 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   description.m_types.add_new(0, type);
 
   if (npmd->emitter_object) {
-    type->m_emitters.append(EMITTER_mesh_surface((Mesh *)npmd->emitter_object->data,
-                                                 npmd->emitter_object->obmat,
-                                                 npmd->control1)
-                                .release());
+    description.m_emitters.append(EMITTER_mesh_surface((Mesh *)npmd->emitter_object->data,
+                                                       npmd->emitter_object->obmat,
+                                                       npmd->control1)
+                                      .release());
   }
   BVHTreeFromMesh treedata = {0};
   if (npmd->collision_object) {
     BKE_bvhtree_from_mesh_get(
         &treedata, (Mesh *)npmd->collision_object->data, BVHTREE_FROM_LOOPTRI, 4);
-    type->m_influences.m_events.append(
+    type->m_events.append(
         EVENT_mesh_collection(&treedata, npmd->collision_object->obmat).release());
-    type->m_influences.m_actions.append(ACTION_kill().release());
+    type->m_actions.append(ACTION_kill().release());
   }
-  type->m_influences.m_forces.append(FORCE_directional({0, 0, -2}).release());
-  type->m_influences.m_events.append(EVENT_age_reached(3.0f).release());
-  type->m_influences.m_actions.append(ACTION_move({0, 1, 0}).release());
+  type->m_forces.append(FORCE_directional({0, 0, -2}).release());
+  type->m_events.append(EVENT_age_reached(3.0f).release());
+  type->m_actions.append(ACTION_move({0, 1, 0}).release());
   simulate_step(state, description);
 
   if (npmd->collision_object) {
