@@ -20,6 +20,10 @@ AttributesInfo::AttributesInfo(ArrayRef<std::string> byte_names,
   m_types.append_n_times(AttributeType::Byte, m_byte_attributes.size());
   m_types.append_n_times(AttributeType::Float, m_float_attributes.size());
   m_types.append_n_times(AttributeType::Float3, m_float3_attributes.size());
+
+  m_byte_defaults.append_n_times(0, m_byte_attributes.size());
+  m_float_defaults.append_n_times(0, m_float_attributes.size());
+  m_float3_defaults.append_n_times({0, 0, 0}, m_float3_attributes.size());
 }
 
 AttributeArraysCore::AttributeArraysCore(AttributesInfo &info, ArrayRef<void *> arrays, uint size)

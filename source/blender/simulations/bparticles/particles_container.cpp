@@ -91,7 +91,13 @@ void ParticlesContainer::update_attributes(AttributesInfo new_info)
       AttributeType type = new_info.type_of(new_index);
 
       if (old_index == -1) {
-        arrays.append(MEM_calloc_arrayN(m_block_size, size_of_attribute_type(type), __func__));
+        void *array = MEM_malloc_arrayN(m_block_size, size_of_attribute_type(type), __func__);
+        uint value_size = size_of_attribute_type(type);
+        void *default_ptr = new_info.default_value_ptr(new_index);
+        for (uint i = 0; i < m_block_size; i++) {
+          memcpy(POINTER_OFFSET(array, i * value_size), default_ptr, value_size);
+        }
+        arrays.append(array);
       }
       else {
         arrays.append(block->attributes_core().get_ptr((uint)old_index));

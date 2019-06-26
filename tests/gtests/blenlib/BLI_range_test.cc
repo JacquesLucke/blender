@@ -84,3 +84,25 @@ TEST(range, ToSmallVector)
   EXPECT_EQ(vec[1], 6);
   EXPECT_EQ(vec[2], 7);
 }
+
+TEST(range, Contains)
+{
+  IntRange range = IntRange(5, 8);
+  EXPECT_TRUE(range.contains(5));
+  EXPECT_TRUE(range.contains(6));
+  EXPECT_TRUE(range.contains(7));
+  EXPECT_FALSE(range.contains(4));
+  EXPECT_FALSE(range.contains(8));
+}
+
+TEST(range, First)
+{
+  IntRange range = IntRange(5, 8);
+  EXPECT_EQ(range.first(), 5);
+}
+
+TEST(range, Last)
+{
+  IntRange range = IntRange(5, 8);
+  EXPECT_EQ(range.last(), 7);
+}

@@ -48,6 +48,10 @@ class AttributesInfo {
   SmallVector<AttributeType> m_types;
   SmallSetVector<std::string> m_indices;
 
+  SmallVector<uint8_t> m_byte_defaults;
+  SmallVector<float> m_float_defaults;
+  SmallVector<float3> m_float3_defaults;
+
  public:
   AttributesInfo() = default;
   AttributesInfo(ArrayRef<std::string> byte_names,
@@ -104,6 +108,22 @@ class AttributesInfo {
   Range<uint> float3_attributes() const
   {
     return m_float3_attributes;
+  }
+
+  void *default_value_ptr(uint index) const
+  {
+    BLI_assert(index < m_indices.size());
+    AttributeType type = this->type_of(index);
+    switch (type) {
+      case AttributeType::Byte:
+        return (void *)&m_byte_defaults[index - m_byte_attributes.first()];
+      case AttributeType::Float:
+        return (void *)&m_float_defaults[index - m_float_attributes.first()];
+      case AttributeType::Float3:
+        return (void *)&m_float3_defaults[index - m_float3_attributes.first()];
+    }
+    BLI_assert(false);
+    return nullptr;
   }
 
   friend bool operator==(const AttributesInfo &a, const AttributesInfo &b)

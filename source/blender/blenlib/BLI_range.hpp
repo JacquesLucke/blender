@@ -80,6 +80,23 @@ template<typename T> class Range {
     return Range(m_start - n, m_start);
   }
 
+  T first() const
+  {
+    BLI_assert(this->size() > 0);
+    return m_start;
+  }
+
+  T last() const
+  {
+    BLI_assert(this->size() > 0);
+    return m_one_after_last - 1;
+  }
+
+  bool contains(T value) const
+  {
+    return value >= m_start && value < m_one_after_last;
+  }
+
   BLI_NOINLINE SmallVector<T> to_small_vector() const
   {
     SmallVector<T> values;
