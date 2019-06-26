@@ -24,7 +24,7 @@ class ParticlesBlock;
 
 class ParticlesContainer {
  private:
-  AttributesInfo m_attributes;
+  AttributesInfo m_attributes_info;
   SmallSet<ParticlesBlock *> m_blocks;
   uint m_block_size;
 
@@ -36,7 +36,7 @@ class ParticlesContainer {
   uint block_size() const;
   uint count_active() const;
 
-  AttributesInfo &attributes();
+  AttributesInfo &attributes_info();
   void update_attributes(AttributesInfo new_info);
 
   const SmallSet<ParticlesBlock *> &active_blocks();
@@ -47,11 +47,11 @@ class ParticlesContainer {
 
 class ParticlesBlock {
   ParticlesContainer &m_container;
-  AttributeArraysCore m_arrays;
-  uint m_active_amount;
+  AttributeArraysCore m_attributes_core;
+  uint m_active_amount = 0;
 
  public:
-  ParticlesBlock(ParticlesContainer &container);
+  ParticlesBlock(ParticlesContainer &container, AttributeArraysCore &attributes_core);
 
   uint &active_amount();
   uint inactive_amount();
@@ -64,7 +64,7 @@ class ParticlesBlock {
 
   void clear();
 
-  AttributeArraysCore &arrays_core();
+  AttributeArraysCore &attributes_core();
   AttributeArrays slice(uint start, uint length);
   AttributeArrays slice_all();
   AttributeArrays slice_active();
@@ -92,9 +92,9 @@ inline uint ParticlesContainer::count_active() const
   return count;
 }
 
-inline AttributesInfo &ParticlesContainer::attributes()
+inline AttributesInfo &ParticlesContainer::attributes_info()
 {
-  return m_attributes;
+  return m_attributes_info;
 }
 
 inline const SmallSet<ParticlesBlock *> &ParticlesContainer::active_blocks()
@@ -147,12 +147,12 @@ inline ParticlesContainer &ParticlesBlock::container()
 
 inline AttributeArrays ParticlesBlock::slice(uint start, uint length)
 {
-  return m_arrays.slice_all().slice(start, length);
+  return m_attributes_core.slice_all().slice(start, length);
 }
 
 inline AttributeArrays ParticlesBlock::slice_all()
 {
-  return m_arrays.slice_all();
+  return m_attributes_core.slice_all();
 }
 
 inline AttributeArrays ParticlesBlock::slice_active()
@@ -160,14 +160,14 @@ inline AttributeArrays ParticlesBlock::slice_active()
   return this->slice(0, m_active_amount);
 }
 
-inline AttributeArraysCore &ParticlesBlock::arrays_core()
+inline AttributeArraysCore &ParticlesBlock::attributes_core()
 {
-  return m_arrays;
+  return m_attributes_core;
 }
 
 inline void ParticlesBlock::move(uint old_index, uint new_index)
 {
-  AttributesInfo &attributes = m_container.attributes();
+  AttributesInfo &attributes = m_container.attributes_info();
   AttributeArrays arrays = this->slice_all();
 
   for (uint i : attributes.byte_attributes()) {

@@ -22,15 +22,26 @@ AttributesInfo::AttributesInfo(ArrayRef<std::string> byte_names,
   m_types.append_n_times(AttributeType::Float3, m_float3_attributes.size());
 }
 
-AttributeArraysCore::AttributeArraysCore(AttributesInfo &info, uint size)
-    : m_info(info), m_size(size)
+AttributeArraysCore::AttributeArraysCore(AttributesInfo &info, ArrayRef<void *> arrays, uint size)
+    : m_info(info), m_arrays(arrays.to_small_vector()), m_size(size)
 {
-  for (AttributeType type : info.types()) {
-    m_arrays.append(MEM_malloc_arrayN(size, size_of_attribute_type(type), __func__));
-  }
 }
 
 AttributeArraysCore::~AttributeArraysCore()
+{
+}
+
+AttributeArraysCore AttributeArraysCore::NewWithSeparateAllocations(AttributesInfo &info,
+                                                                    uint size)
+{
+  SmallVector<void *> arrays;
+  for (AttributeType type : info.types()) {
+    arrays.append(MEM_malloc_arrayN(size, size_of_attribute_type(type), __func__));
+  }
+  return AttributeArraysCore(info, arrays, size);
+}
+
+void AttributeArraysCore::free_buffers()
 {
   for (void *ptr : m_arrays) {
     MEM_freeN(ptr);

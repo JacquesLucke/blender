@@ -111,8 +111,11 @@ class AttributeArraysCore {
   uint m_size = 0;
 
  public:
-  AttributeArraysCore(AttributesInfo &info, uint size);
+  AttributeArraysCore(AttributesInfo &info, ArrayRef<void *> arrays, uint size);
   ~AttributeArraysCore();
+
+  static AttributeArraysCore NewWithSeparateAllocations(AttributesInfo &info, uint size);
+  void free_buffers();
 
   AttributesInfo &info();
   void *get_ptr(uint index);

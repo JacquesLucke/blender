@@ -459,8 +459,8 @@ BLI_NOINLINE static void ensure_required_attributes_exist(
     ParticleType &type = description.particle_type(type_id);
     ParticlesContainer &container = *containers.lookup(type_id);
 
-    AttributesInfo new_attributes_info = build_attribute_info_for_type(type,
-                                                                       container.attributes());
+    AttributesInfo new_attributes_info = build_attribute_info_for_type(
+        type, container.attributes_info());
     container.update_attributes(new_attributes_info);
   }
 }
