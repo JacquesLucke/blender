@@ -179,7 +179,7 @@ static Mesh *applyModifier(ModifierData *md,
     runtime->last_simulated_frame = current_frame;
   }
 
-  return point_mesh_from_particle_state(runtime->state);
+  return BParticles_test_mesh_from_state(runtime->state);
 }
 
 static void initData(ModifierData *md)

@@ -8,6 +8,7 @@
 extern "C" {
 #endif
 
+struct Mesh;
 struct Depsgraph;
 struct NodeParticlesModifierData;
 
@@ -22,6 +23,8 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
 
 uint BParticles_state_particle_count(BParticlesState state);
 void BParticles_state_get_positions(BParticlesState state, float (*dst)[3]);
+
+struct Mesh *BParticles_test_mesh_from_state(BParticlesState state_c);
 
 #ifdef __cplusplus
 }
