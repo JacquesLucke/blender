@@ -104,6 +104,14 @@ static Mesh *tetrahedon_mesh_from_particle_state(BParticlesState state, float sc
   float(*positions)[3] = MEM_malloc_arrayN(point_amount, sizeof(float[3]), __func__);
   BParticles_state_get_positions(state, positions);
 
+  MLoopCol *loop_colors = CustomData_add_layer_named(
+      &mesh->ldata, CD_MLOOPCOL, CD_DEFAULT, NULL, mesh->totloop, "test");
+
+  for (uint i = 0; i < mesh->totloop; i++) {
+    MLoopCol color = {255, 255, 0, 255};
+    memcpy(loop_colors + i, &color, sizeof(MLoopCol));
+  }
+
   for (uint i = 0; i < point_amount; i++) {
     float offset0[3] = {1, -1, -1};
     float offset1[3] = {1, 1, 1};
