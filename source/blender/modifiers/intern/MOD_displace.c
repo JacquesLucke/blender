@@ -201,9 +201,7 @@ static void displaceModifier_do_task(void *__restrict userdata,
 {
   DisplaceUserdata *data = (DisplaceUserdata *)userdata;
   DisplaceModifierData *dmd = data->dmd;
-  MDeformVert *dvert = data->dvert;
   float weight = data->weight;
-  int defgrp_index = data->defgrp_index;
   int direction = data->direction;
   bool use_global_direction = data->use_global_direction;
   float(*tex_co)[3] = data->tex_co;
@@ -239,6 +237,8 @@ static void displaceModifier_do_task(void *__restrict userdata,
     return;
   }
 
+  // MDeformVert *dvert = data->dvert;
+  // int defgrp_index = data->defgrp_index;
   // if (dvert) {
   //  weight = defvert_find_weight(dvert + iter, defgrp_index);
   //  if (weight == 0.0f) {
