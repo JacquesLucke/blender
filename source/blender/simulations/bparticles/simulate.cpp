@@ -110,14 +110,14 @@ BLI_NOINLINE static void find_unfinished_particles(
   }
 }
 
-BLI_NOINLINE static void run_actions(AttributeArrays attributes,
+BLI_NOINLINE static void run_actions(ParticlesBlock &block,
                                      ArrayRef<SmallVector<uint>> particles_per_event,
                                      ArrayRef<Event *> events,
                                      ArrayRef<Action *> action_per_event)
 {
   for (uint event_index = 0; event_index < events.size(); event_index++) {
     Action *action = action_per_event[event_index];
-    ParticleSet particles(attributes, particles_per_event[event_index]);
+    ParticleSet particles(block, particles_per_event[event_index]);
 
     ActionInterface interface(particles);
     action->execute(interface);
@@ -197,7 +197,7 @@ BLI_NOINLINE static void simulate_to_next_event(ParticleSet particles,
 
   SmallVector<SmallVector<uint>> particles_per_event(particle_type.events().size());
   find_particles_per_event(particles.indices(), next_event_indices, particles_per_event);
-  run_actions(particles.attributes(),
+  run_actions(particles.block(),
               particles_per_event,
               particle_type.events(),
               particle_type.action_per_event());
@@ -227,7 +227,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     r_unfinished_particle_indices.clear();
     r_remaining_durations.clear();
 
-    ParticleSet particles_to_simulate(particles.attributes(), remaining_particle_indices);
+    ParticleSet particles_to_simulate(particles.block(), remaining_particle_indices);
     simulate_to_next_event(particles_to_simulate,
                            durations,
                            end_time,
@@ -288,7 +288,7 @@ BLI_NOINLINE static void step_individual_particles(ParticleSet particles,
                              unfinished_particle_indices,
                              remaining_durations);
 
-  ParticleSet remaining_particles(particles.attributes(), unfinished_particle_indices);
+  ParticleSet remaining_particles(particles.block(), unfinished_particle_indices);
   simulate_ignoring_events(remaining_particles, remaining_durations, particle_type);
 }
 
@@ -303,11 +303,10 @@ BLI_NOINLINE static void step_individual_particles_cb(
     void *__restrict userdata, const int index, const ParallelRangeTLS *__restrict UNUSED(tls))
 {
   StepBlocksParallelData *data = (StepBlocksParallelData *)userdata;
-  ParticlesBlock *block = data->blocks[index];
+  ParticlesBlock &block = *data->blocks[index];
 
-  uint active_amount = block->active_amount();
-  ParticleSet active_particles(block->slice_active(),
-                               static_number_range_ref().take_front(active_amount));
+  uint active_amount = block.active_amount();
+  ParticleSet active_particles(block, static_number_range_ref().take_front(active_amount));
   step_individual_particles(active_particles,
                             data->all_durations.take_front(active_amount),
                             data->end_time,
@@ -388,7 +387,7 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &descri
 
   for (uint i = 0; i < targets.size(); i++) {
     EmitterTarget &target = targets[i];
-    ParticlesBlock *block = blocks[i];
+    ParticlesBlock &block = *blocks[i];
     ParticleType &particle_type = *particle_types[i];
     AttributeArrays emitted_attributes = target.attributes().take_front(target.emitted_amount());
 
@@ -405,8 +404,8 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &descri
       initial_step_durations.append(time_span.end() - birth_time);
     }
 
-    block->active_amount() += target.emitted_amount();
-    ParticleSet emitted_particles(emitted_attributes,
+    block.active_amount() += target.emitted_amount();
+    ParticleSet emitted_particles(block,
                                   static_number_range_ref().take_front(emitted_attributes.size()));
     step_individual_particles(
         emitted_particles, initial_step_durations, time_span.end(), particle_type);

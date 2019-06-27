@@ -27,7 +27,7 @@ using std::unique_ptr;
 
 struct ParticleSet {
  private:
-  AttributeArrays m_attributes;
+  ParticlesBlock &m_block;
 
   /* Indices into the attribute arrays.
    * Invariants:
@@ -36,14 +36,19 @@ struct ParticleSet {
   ArrayRef<uint> m_particle_indices;
 
  public:
-  ParticleSet(AttributeArrays attributes, ArrayRef<uint> particle_indices)
-      : m_attributes(attributes), m_particle_indices(particle_indices)
+  ParticleSet(ParticlesBlock &block, ArrayRef<uint> particle_indices)
+      : m_block(block), m_particle_indices(particle_indices)
   {
+  }
+
+  ParticlesBlock &block()
+  {
+    return m_block;
   }
 
   AttributeArrays attributes()
   {
-    return m_attributes;
+    return m_block.slice_all();
   }
 
   ArrayRef<uint> indices()
