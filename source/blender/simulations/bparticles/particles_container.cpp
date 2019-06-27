@@ -23,6 +23,8 @@ ParticlesContainer::~ParticlesContainer()
 
 ParticlesBlock &ParticlesContainer::new_block()
 {
+  std::lock_guard<std::mutex> lock(m_blocks_mutex);
+
   AttributeArraysCore attributes_core = AttributeArraysCore::NewWithSeparateAllocations(
       m_attributes_info, m_block_size);
   ParticlesBlock *block = new ParticlesBlock(*this, attributes_core);
@@ -32,6 +34,8 @@ ParticlesBlock &ParticlesContainer::new_block()
 
 void ParticlesContainer::release_block(ParticlesBlock &block)
 {
+  std::lock_guard<std::mutex> lock(m_blocks_mutex);
+
   BLI_assert(block.active_amount() == 0);
   BLI_assert(m_blocks.contains(&block));
   BLI_assert(&block.container() == this);

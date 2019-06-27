@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mutex>
+
 #include "BLI_array_ref.hpp"
 #include "BLI_small_vector.hpp"
 #include "BLI_small_set_vector.hpp"
@@ -27,6 +29,7 @@ class ParticlesContainer {
   AttributesInfo m_attributes_info;
   SmallSet<ParticlesBlock *> m_blocks;
   uint m_block_size;
+  std::mutex m_blocks_mutex;
 
  public:
   ParticlesContainer(AttributesInfo attributes, uint block_size);
