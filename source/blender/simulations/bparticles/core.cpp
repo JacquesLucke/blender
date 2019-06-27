@@ -33,19 +33,46 @@ ParticlesState::~ParticlesState()
   }
 }
 
+/* Block Allocator
+ ******************************************/
+
+BlockAllocator::BlockAllocator(ParticlesState &state) : m_state(state)
+{
+}
+
+ParticlesBlock &BlockAllocator::get_non_full_block(uint particle_type_id)
+{
+  ParticlesContainer &container = m_state.particle_container(particle_type_id);
+
+  uint index = 0;
+  while (index < m_block_cache.size()) {
+    if (m_block_cache[index]->inactive_amount() == 0) {
+      m_block_cache.remove_and_reorder(index);
+      continue;
+    }
+
+    if (m_block_cache[index]->container() == container) {
+      return *m_block_cache[index];
+    }
+    index++;
+  }
+
+  ParticlesBlock &block = container.new_block();
+  m_block_cache.append(&block);
+  return block;
+}
+
 /* EmitterInterface
  ******************************************/
 
 EmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
 {
-  ParticlesContainer &container = m_state.particle_container(particle_type_id);
-
   SmallVector<ParticlesBlock *> blocks;
   SmallVector<Range<uint>> ranges;
 
   uint remaining_size = size;
   while (remaining_size > 0) {
-    ParticlesBlock &block = *container.new_block();
+    ParticlesBlock &block = m_allocator.get_non_full_block(particle_type_id);
 
     uint size_to_use = std::min(block.size(), remaining_size);
     block.active_amount() += size_to_use;
@@ -56,6 +83,7 @@ EmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
     remaining_size -= size_to_use;
   }
 
+  ParticlesContainer &container = m_state.particle_container(particle_type_id);
   m_targets.append(EmitTarget(particle_type_id, container.attributes_info(), blocks, ranges));
   return m_targets.last();
 }

@@ -17,29 +17,28 @@ ParticlesContainer::~ParticlesContainer()
   while (m_blocks.size() > 0) {
     ParticlesBlock *block = m_blocks.any();
     block->clear();
-    this->release_block(block);
+    this->release_block(*block);
   }
 }
 
-ParticlesBlock *ParticlesContainer::new_block()
+ParticlesBlock &ParticlesContainer::new_block()
 {
   AttributeArraysCore attributes_core = AttributeArraysCore::NewWithSeparateAllocations(
       m_attributes_info, m_block_size);
   ParticlesBlock *block = new ParticlesBlock(*this, attributes_core);
   m_blocks.add_new(block);
-  return block;
+  return *block;
 }
 
-void ParticlesContainer::release_block(ParticlesBlock *block)
+void ParticlesContainer::release_block(ParticlesBlock &block)
 {
-  BLI_assert(block);
-  BLI_assert(block->active_amount() == 0);
-  BLI_assert(m_blocks.contains(block));
-  BLI_assert(&block->container() == this);
+  BLI_assert(block.active_amount() == 0);
+  BLI_assert(m_blocks.contains(&block));
+  BLI_assert(&block.container() == this);
 
-  block->attributes_core().free_buffers();
-  m_blocks.remove(block);
-  delete block;
+  block.attributes_core().free_buffers();
+  m_blocks.remove(&block);
+  delete &block;
 }
 
 static SmallVector<int> map_attribute_indices(AttributesInfo &from_info, AttributesInfo &to_info)

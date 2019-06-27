@@ -41,8 +41,10 @@ class ParticlesContainer {
 
   const SmallSet<ParticlesBlock *> &active_blocks();
 
-  ParticlesBlock *new_block();
-  void release_block(ParticlesBlock *block);
+  ParticlesBlock &new_block();
+  void release_block(ParticlesBlock &block);
+
+  friend bool operator==(const ParticlesContainer &a, const ParticlesContainer &b);
 };
 
 class ParticlesBlock {
@@ -103,6 +105,11 @@ inline AttributesInfo &ParticlesContainer::attributes_info()
 inline const SmallSet<ParticlesBlock *> &ParticlesContainer::active_blocks()
 {
   return m_blocks;
+}
+
+inline bool operator==(const ParticlesContainer &a, const ParticlesContainer &b)
+{
+  return &a == &b;
 }
 
 /* Particles Block

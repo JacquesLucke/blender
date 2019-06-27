@@ -47,6 +47,17 @@ class ParticlesState {
   }
 };
 
+class BlockAllocator {
+ private:
+  ParticlesState &m_state;
+  SmallVector<ParticlesBlock *> m_block_cache;
+
+ public:
+  BlockAllocator(ParticlesState &state);
+
+  ParticlesBlock &get_non_full_block(uint particle_type_id);
+};
+
 class EmitTarget {
  private:
   uint m_particle_type_id;
@@ -110,10 +121,12 @@ class EmitTarget {
 class EmitterInterface {
  private:
   ParticlesState &m_state;
+  BlockAllocator &m_allocator;
   SmallVector<EmitTarget> m_targets;
 
  public:
-  EmitterInterface(ParticlesState &state) : m_state(state)
+  EmitterInterface(ParticlesState &state, BlockAllocator &allocator)
+      : m_state(state), m_allocator(allocator)
   {
   }
 
