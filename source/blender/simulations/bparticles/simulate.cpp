@@ -380,18 +380,23 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &descri
   EmitterInterface interface(state, block_allocator);
   emitter.emit(interface);
 
-  for (EmitTarget &target : interface.targets()) {
+  for (EmitTarget *target_ptr : interface.targets()) {
+    EmitTarget &target = *target_ptr;
+
     ParticleType &particle_type = description.particle_type(target.particle_type_id());
+    ArrayRef<float> all_birth_moments = target.birth_moments();
+    uint particle_count = 0;
+
     for (uint part = 0; part < target.part_amount(); part++) {
       ParticlesBlock &block = *target.blocks()[part];
       Range<uint> range = target.ranges()[part];
       AttributeArrays attributes = block.slice(range);
 
-      auto birth_times = attributes.get_float("Birth Time");
-      auto birth_factors = attributes.get_float("Birth Factor");
+      ArrayRef<float> birth_moments = all_birth_moments.slice(particle_count, range.size());
 
-      for (uint i = 0; i < birth_factors.size(); i++) {
-        birth_times[i] = time_span.interpolate(birth_factors[i]);
+      auto birth_times = attributes.get_float("Birth Time");
+      for (uint i = 0; i < birth_moments.size(); i++) {
+        birth_times[i] = time_span.interpolate(birth_moments[i]);
       }
 
       SmallVector<float> initial_step_durations;
@@ -402,6 +407,8 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &descri
       ParticleSet emitted_particles(block, static_number_range_ref(range));
       step_individual_particles(
           emitted_particles, initial_step_durations, time_span.end(), particle_type);
+
+      particle_count += emitted_particles.size();
     }
   }
 }
@@ -438,8 +445,7 @@ BLI_NOINLINE static void ensure_required_containers_exist(
 BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &UNUSED(type),
                                                                  AttributesInfo &UNUSED(last_info))
 {
-  AttributesInfo new_info{
-      {"Kill State"}, {"Birth Time", "Birth Factor"}, {"Position", "Velocity"}};
+  AttributesInfo new_info{{"Kill State"}, {"Birth Time"}, {"Position", "Velocity"}};
   return new_info;
 }
 

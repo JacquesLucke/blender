@@ -64,6 +64,7 @@ class EmitTarget {
   AttributesInfo &m_attributes_info;
   SmallVector<ParticlesBlock *> m_blocks;
   SmallVector<Range<uint>> m_ranges;
+  SmallVector<float> m_birth_moments;
   uint m_size = 0;
 
  public:
@@ -80,7 +81,10 @@ class EmitTarget {
     for (auto range : ranges) {
       m_size += range.size();
     }
+    m_birth_moments = SmallVector<float>(m_size, 1.0f);
   }
+
+  EmitTarget(EmitTarget &other) = delete;
 
   void set_byte(uint index, ArrayRef<uint8_t> data);
   void set_byte(StringRef name, ArrayRef<uint8_t> data);
@@ -96,6 +100,9 @@ class EmitTarget {
   void fill_float3(uint index, float3 value);
   void fill_float3(StringRef name, float3 value);
 
+  void set_birth_moment(float time_factor);
+  void set_randomized_birth_moments();
+
   ArrayRef<ParticlesBlock *> blocks()
   {
     return m_blocks;
@@ -104,6 +111,11 @@ class EmitTarget {
   ArrayRef<Range<uint>> ranges()
   {
     return m_ranges;
+  }
+
+  ArrayRef<float> birth_moments()
+  {
+    return m_birth_moments;
   }
 
   uint part_amount()
@@ -130,7 +142,7 @@ class EmitterInterface {
  private:
   ParticlesState &m_state;
   BlockAllocator &m_allocator;
-  SmallVector<EmitTarget> m_targets;
+  SmallVector<EmitTarget *> m_targets;
 
  public:
   EmitterInterface(ParticlesState &state, BlockAllocator &allocator)
@@ -138,7 +150,9 @@ class EmitterInterface {
   {
   }
 
-  ArrayRef<EmitTarget> targets()
+  ~EmitterInterface();
+
+  ArrayRef<EmitTarget *> targets()
   {
     return m_targets;
   }

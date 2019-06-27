@@ -62,8 +62,15 @@ ParticlesBlock &BlockAllocator::get_non_full_block(uint particle_type_id)
   return block;
 }
 
-/* EmitterInterface
+/* Emitter Interface
  ******************************************/
+
+EmitterInterface::~EmitterInterface()
+{
+  for (EmitTarget *target : m_targets) {
+    delete target;
+  }
+}
 
 EmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
 {
@@ -90,8 +97,8 @@ EmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
   }
 
   ParticlesContainer &container = m_state.particle_container(particle_type_id);
-  m_targets.append(EmitTarget(particle_type_id, container.attributes_info(), blocks, ranges));
-  return m_targets.last();
+  m_targets.append(new EmitTarget(particle_type_id, container.attributes_info(), blocks, ranges));
+  return *m_targets.last();
 }
 
 /* EmitTarget
@@ -198,6 +205,19 @@ void EmitTarget::fill_float3(StringRef name, float3 value)
 {
   uint index = m_attributes_info.attribute_index(name);
   this->fill_float3(index, value);
+}
+
+void EmitTarget::set_birth_moment(float time_factor)
+{
+  BLI_assert(time_factor >= 0.0 && time_factor <= 1.0f);
+  m_birth_moments.fill(time_factor);
+}
+
+void EmitTarget::set_randomized_birth_moments()
+{
+  for (float &birth_moment : m_birth_moments) {
+    birth_moment = (rand() % 10000) / 10000.0f;
+  }
 }
 
 }  // namespace BParticles
