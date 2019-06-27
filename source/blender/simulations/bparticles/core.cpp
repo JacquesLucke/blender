@@ -45,20 +45,21 @@ ParticlesBlock &BlockAllocator::get_non_full_block(uint particle_type_id)
   ParticlesContainer &container = m_state.particle_container(particle_type_id);
 
   uint index = 0;
-  while (index < m_block_cache.size()) {
-    if (m_block_cache[index]->inactive_amount() == 0) {
-      m_block_cache.remove_and_reorder(index);
+  while (index < m_non_full_cache.size()) {
+    if (m_non_full_cache[index]->inactive_amount() == 0) {
+      m_non_full_cache.remove_and_reorder(index);
       continue;
     }
 
-    if (m_block_cache[index]->container() == container) {
-      return *m_block_cache[index];
+    if (m_non_full_cache[index]->container() == container) {
+      return *m_non_full_cache[index];
     }
     index++;
   }
 
   ParticlesBlock &block = container.new_block();
-  m_block_cache.append(&block);
+  m_non_full_cache.append(&block);
+  m_allocated_blocks.append(&block);
   return block;
 }
 

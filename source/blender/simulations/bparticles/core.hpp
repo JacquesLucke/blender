@@ -56,7 +56,8 @@ class ParticlesState {
 class BlockAllocator {
  private:
   ParticlesState &m_state;
-  SmallVector<ParticlesBlock *> m_block_cache;
+  SmallVector<ParticlesBlock *> m_non_full_cache;
+  SmallVector<ParticlesBlock *> m_allocated_blocks;
 
  public:
   BlockAllocator(ParticlesState &state);
@@ -66,6 +67,11 @@ class BlockAllocator {
   ParticlesState &particles_state()
   {
     return m_state;
+  }
+
+  ArrayRef<ParticlesBlock *> allocated_blocks()
+  {
+    return m_allocated_blocks;
   }
 };
 
