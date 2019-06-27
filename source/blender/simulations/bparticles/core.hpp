@@ -47,6 +47,12 @@ class ParticlesState {
   }
 };
 
+/**
+ * This class allows allocating new blocks from different particle containers.
+ * A single instance is not thread safe, but multiple allocator instances can
+ * be used by multiple threads at the same time.
+ * It might hand out the same block more than once until it is full.
+ */
 class BlockAllocator {
  private:
   ParticlesState &m_state;
@@ -290,10 +296,17 @@ class Event {
 class ActionInterface {
  private:
   ParticleSet m_particles;
+  BlockAllocator &m_block_allocator;
 
  public:
-  ActionInterface(ParticleSet particles) : m_particles(particles)
+  ActionInterface(ParticleSet particles, BlockAllocator &block_allocator)
+      : m_particles(particles), m_block_allocator(block_allocator)
   {
+  }
+
+  BlockAllocator &block_allocator()
+  {
+    return m_block_allocator;
   }
 
   ParticleSet &particles()

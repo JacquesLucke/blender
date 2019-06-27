@@ -118,7 +118,8 @@ BLI_NOINLINE static void find_unfinished_particles(
   }
 }
 
-BLI_NOINLINE static void run_actions(ParticlesBlock &block,
+BLI_NOINLINE static void run_actions(BlockAllocator &block_allocator,
+                                     ParticlesBlock &block,
                                      ArrayRef<SmallVector<uint>> particles_per_event,
                                      ArrayRef<Event *> events,
                                      ArrayRef<Action *> action_per_event)
@@ -127,7 +128,7 @@ BLI_NOINLINE static void run_actions(ParticlesBlock &block,
     Action *action = action_per_event[event_index];
     ParticleSet particles(block, particles_per_event[event_index]);
 
-    ActionInterface interface(particles);
+    ActionInterface interface(particles, block_allocator);
     action->execute(interface);
   }
 }
@@ -175,7 +176,8 @@ BLI_NOINLINE static void compute_ideal_attribute_offsets(ParticleSet particles,
   }
 }
 
-BLI_NOINLINE static void simulate_to_next_event(ParticleSet particles,
+BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
+                                                ParticleSet particles,
                                                 ArrayRef<float> durations,
                                                 float end_time,
                                                 ParticleType &particle_type,
@@ -205,7 +207,8 @@ BLI_NOINLINE static void simulate_to_next_event(ParticleSet particles,
 
   SmallVector<SmallVector<uint>> particles_per_event(particle_type.events().size());
   find_particles_per_event(particles.indices(), next_event_indices, particles_per_event);
-  run_actions(particles.block(),
+  run_actions(block_allocator,
+              particles.block(),
               particles_per_event,
               particle_type.events(),
               particle_type.action_per_event());
@@ -221,6 +224,7 @@ BLI_NOINLINE static void simulate_to_next_event(ParticleSet particles,
 
 BLI_NOINLINE static void simulate_with_max_n_events(
     uint max_events,
+    BlockAllocator &block_allocator,
     ParticleSet particles,
     ArrayRef<float> durations,
     float end_time,
@@ -236,7 +240,8 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     r_remaining_durations.clear();
 
     ParticleSet particles_to_simulate(particles.block(), remaining_particle_indices);
-    simulate_to_next_event(particles_to_simulate,
+    simulate_to_next_event(block_allocator,
+                           particles_to_simulate,
                            durations,
                            end_time,
                            particle_type,
@@ -280,7 +285,8 @@ BLI_NOINLINE static void simulate_ignoring_events(ParticleSet particles,
   }
 }
 
-BLI_NOINLINE static void step_individual_particles(ParticleSet particles,
+BLI_NOINLINE static void step_individual_particles(BlockAllocator &block_allocator,
+                                                   ParticleSet particles,
                                                    ArrayRef<float> durations,
                                                    float end_time,
                                                    ParticleType &particle_type)
@@ -289,6 +295,7 @@ BLI_NOINLINE static void step_individual_particles(ParticleSet particles,
   SmallVector<float> remaining_durations;
 
   simulate_with_max_n_events(10,
+                             block_allocator,
                              particles,
                              durations,
                              end_time,
@@ -305,6 +312,7 @@ struct StepBlocksParallelData {
   ArrayRef<float> all_durations;
   float end_time;
   ParticleType &particle_type;
+  ParticlesState &particles_state;
 };
 
 BLI_NOINLINE static void step_individual_particles_cb(
@@ -313,15 +321,19 @@ BLI_NOINLINE static void step_individual_particles_cb(
   StepBlocksParallelData *data = (StepBlocksParallelData *)userdata;
   ParticlesBlock &block = *data->blocks[index];
 
+  BlockAllocator block_allocator(data->particles_state);
+
   uint active_amount = block.active_amount();
   ParticleSet active_particles(block, static_number_range_ref(0, active_amount));
-  step_individual_particles(active_particles,
+  step_individual_particles(block_allocator,
+                            active_particles,
                             data->all_durations.take_front(active_amount),
                             data->end_time,
                             data->particle_type);
 }
 
-BLI_NOINLINE static void step_individual_particles(ArrayRef<ParticlesBlock *> blocks,
+BLI_NOINLINE static void step_individual_particles(ParticlesState &state,
+                                                   ArrayRef<ParticlesBlock *> blocks,
                                                    TimeSpan time_span,
                                                    ParticleType &particle_type)
 {
@@ -336,7 +348,7 @@ BLI_NOINLINE static void step_individual_particles(ArrayRef<ParticlesBlock *> bl
   SmallVector<float> all_durations(block_size);
   all_durations.fill(time_span.duration());
 
-  StepBlocksParallelData data = {blocks, all_durations, time_span.end(), particle_type};
+  StepBlocksParallelData data = {blocks, all_durations, time_span.end(), particle_type, state};
 
   BLI_task_parallel_range(
       0, blocks.size(), (void *)&data, step_individual_particles_cb, &settings);
@@ -404,8 +416,11 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &descri
       }
 
       ParticleSet emitted_particles(block, static_number_range_ref(range));
-      step_individual_particles(
-          emitted_particles, initial_step_durations, time_span.end(), particle_type);
+      step_individual_particles(block_allocator,
+                                emitted_particles,
+                                initial_step_durations,
+                                time_span.end(),
+                                particle_type);
 
       particle_count += emitted_particles.size();
     }
@@ -477,7 +492,7 @@ void simulate_step(ParticlesState &state, StepDescription &description)
     ParticleType &type = description.particle_type(type_id);
     ParticlesContainer &container = *containers.lookup(type_id);
 
-    step_individual_particles(container.active_blocks().to_small_vector(), time_span, type);
+    step_individual_particles(state, container.active_blocks().to_small_vector(), time_span, type);
   }
 
   BlockAllocator block_allocator(state);
