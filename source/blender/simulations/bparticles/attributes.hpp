@@ -181,31 +181,6 @@ class AttributeArrays {
   AttributeArrays take_front(uint n) const;
 };
 
-class JoinedAttributeArrays {
- private:
-  AttributesInfo &m_info;
-  SmallVector<AttributeArrays> m_arrays;
-  uint m_size;
-
- public:
-  JoinedAttributeArrays(AttributesInfo &info, ArrayRef<AttributeArrays> arrays_list);
-
-  AttributesInfo &info();
-
-  uint size() const;
-  ArrayRef<AttributeArrays> arrays_list();
-
-  void set_byte(uint index, ArrayRef<uint8_t> data);
-  void set_byte(StringRef name, ArrayRef<uint8_t> data);
-  void set_float(uint index, ArrayRef<float> data);
-  void set_float(StringRef name, ArrayRef<float> data);
-  void set_float3(uint index, ArrayRef<float3> data);
-  void set_float3(StringRef name, ArrayRef<float3> data);
-
- private:
-  void set_elements(uint index, void *data);
-};
-
 /* Attribute Arrays Core
  *****************************************/
 
@@ -313,35 +288,6 @@ inline AttributeArrays AttributeArrays::take_front(uint n) const
 {
   BLI_assert(n <= m_size);
   return AttributeArrays(m_core, m_start, n);
-}
-
-/* Joined Attribute Arrays
- ******************************************/
-
-inline JoinedAttributeArrays::JoinedAttributeArrays(AttributesInfo &info,
-                                                    ArrayRef<AttributeArrays> arrays_list)
-    : m_info(info), m_arrays(arrays_list.to_small_vector())
-{
-  m_size = 0;
-  for (AttributeArrays arrays : arrays_list) {
-    BLI_assert(arrays.info() == m_info);
-    m_size += arrays.size();
-  }
-}
-
-inline AttributesInfo &JoinedAttributeArrays::info()
-{
-  return m_info;
-}
-
-inline uint JoinedAttributeArrays::size() const
-{
-  return m_size;
-}
-
-inline ArrayRef<AttributeArrays> JoinedAttributeArrays::arrays_list()
-{
-  return m_arrays;
 }
 
 }  // namespace BParticles

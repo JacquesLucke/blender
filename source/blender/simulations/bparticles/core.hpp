@@ -25,6 +25,128 @@ using BLI::SmallVector;
 using BLI::StringRef;
 using std::unique_ptr;
 
+class ParticlesState {
+ private:
+  SmallMap<uint, ParticlesContainer *> m_particle_containers;
+
+ public:
+  float m_current_time = 0.0f;
+
+  ParticlesState() = default;
+  ParticlesState(ParticlesState &other) = delete;
+  ~ParticlesState();
+
+  SmallMap<uint, ParticlesContainer *> &particle_containers()
+  {
+    return m_particle_containers;
+  }
+
+  ParticlesContainer &particle_container(uint type_id)
+  {
+    return *m_particle_containers.lookup(type_id);
+  }
+};
+
+class EmitTarget {
+ private:
+  uint m_particle_type_id;
+  AttributesInfo &m_attributes_info;
+  SmallVector<ParticlesBlock *> m_blocks;
+  SmallVector<Range<uint>> m_ranges;
+  uint m_size = 0;
+
+ public:
+  EmitTarget(uint particle_type_id,
+             AttributesInfo &attributes_info,
+             ArrayRef<ParticlesBlock *> blocks,
+             ArrayRef<Range<uint>> ranges)
+      : m_particle_type_id(particle_type_id),
+        m_attributes_info(attributes_info),
+        m_blocks(blocks.to_small_vector()),
+        m_ranges(ranges.to_small_vector())
+  {
+    BLI_assert(blocks.size() == ranges.size());
+    for (auto range : ranges) {
+      m_size += range.size();
+    }
+  }
+
+  void set_byte(uint index, ArrayRef<uint8_t> data);
+  void set_byte(StringRef name, ArrayRef<uint8_t> data);
+  void set_float(uint index, ArrayRef<float> data);
+  void set_float(StringRef name, ArrayRef<float> data);
+  void set_float3(uint index, ArrayRef<float3> data);
+  void set_float3(StringRef name, ArrayRef<float3> data);
+
+  ArrayRef<ParticlesBlock *> blocks()
+  {
+    return m_blocks;
+  }
+
+  ArrayRef<Range<uint>> ranges()
+  {
+    return m_ranges;
+  }
+
+  uint part_amount()
+  {
+    return m_ranges.size();
+  }
+
+  AttributeArrays attributes(uint part)
+  {
+    return m_blocks[part]->slice(m_ranges[part]);
+  }
+
+  uint particle_type_id()
+  {
+    return m_particle_type_id;
+  }
+
+ private:
+  void set_elements(uint index, void *data);
+};
+
+class EmitterInterface {
+ private:
+  ParticlesState &m_state;
+  SmallVector<EmitTarget> m_targets;
+
+ public:
+  EmitterInterface(ParticlesState &state) : m_state(state)
+  {
+  }
+
+  ArrayRef<EmitTarget> targets()
+  {
+    return m_targets;
+  }
+
+  EmitTarget &request(uint particle_type_id, uint size)
+  {
+    ParticlesContainer &container = m_state.particle_container(particle_type_id);
+
+    SmallVector<ParticlesBlock *> blocks;
+    SmallVector<Range<uint>> ranges;
+
+    uint remaining_size = size;
+    while (remaining_size > 0) {
+      ParticlesBlock &block = *container.new_block();
+
+      uint size_to_use = std::min(block.size(), remaining_size);
+      block.active_amount() += size_to_use;
+
+      blocks.append(&block);
+      ranges.append(Range<uint>(0, size_to_use));
+
+      remaining_size -= size_to_use;
+    }
+
+    m_targets.append(EmitTarget(particle_type_id, container.attributes_info(), blocks, ranges));
+    return m_targets.last();
+  }
+};
+
 struct ParticleSet {
  private:
   ParticlesBlock &m_block;
@@ -171,77 +293,6 @@ class Action {
   virtual void execute(ActionInterface &interface) = 0;
 };
 
-class EmitterTarget {
- private:
-  AttributeArrays m_attributes;
-  uint m_emitted_amount = 0;
-
- public:
-  EmitterTarget(AttributeArrays attributes) : m_attributes(attributes)
-  {
-  }
-
-  void set_initialized(uint n)
-  {
-    m_emitted_amount += n;
-    BLI_assert(m_emitted_amount <= m_attributes.size());
-  }
-
-  uint emitted_amount()
-  {
-    return m_emitted_amount;
-  }
-
-  AttributeArrays &attributes()
-  {
-    return m_attributes;
-  }
-
-  uint size()
-  {
-    return m_attributes.size();
-  }
-};
-
-using RequestEmitterTarget = std::function<EmitterTarget &(uint particle_type_id)>;
-
-class EmitterInterface {
- private:
-  RequestEmitterTarget &m_request_target;
-
-  EmitterTarget &request_raw(uint particle_type_id)
-  {
-    EmitterTarget &target = m_request_target(particle_type_id);
-    BLI_assert(target.size() > 0);
-    return target;
-  }
-
- public:
-  EmitterInterface(RequestEmitterTarget &request_target) : m_request_target(request_target)
-  {
-  }
-
-  JoinedAttributeArrays request(uint particle_type_id, uint size)
-  {
-    SmallVector<AttributeArrays> arrays_list;
-    uint remaining_size = size;
-    while (remaining_size > 0) {
-      EmitterTarget &target = this->request_raw(particle_type_id);
-
-      uint size_to_use = std::min(target.size(), remaining_size);
-      target.set_initialized(size_to_use);
-      arrays_list.append(target.attributes().take_front(size_to_use));
-      remaining_size -= size_to_use;
-    }
-
-    AttributesInfo &info = (arrays_list.size() == 0) ?
-                               this->request_raw(particle_type_id).attributes().info() :
-                               arrays_list[0].info();
-
-    return JoinedAttributeArrays(info, arrays_list);
-  }
-};
-
 class Emitter {
  public:
   virtual ~Emitter();
@@ -267,27 +318,6 @@ class StepDescription {
 
   virtual ArrayRef<uint> particle_type_ids() = 0;
   virtual ParticleType &particle_type(uint type_id) = 0;
-};
-
-class ParticlesState {
- private:
-  SmallMap<uint, ParticlesContainer *> m_particle_containers;
-
- public:
-  float m_current_time = 0.0f;
-
-  ParticlesState() = default;
-  ~ParticlesState();
-
-  SmallMap<uint, ParticlesContainer *> &particle_containers()
-  {
-    return m_particle_containers;
-  }
-
-  ParticlesContainer &particle_container(uint type_id)
-  {
-    return *m_particle_containers.lookup(type_id);
-  }
 };
 
 }  // namespace BParticles

@@ -67,6 +67,7 @@ class ParticlesBlock {
   void clear();
 
   AttributeArraysCore &attributes_core();
+  AttributeArrays slice(Range<uint> range);
   AttributeArrays slice(uint start, uint length);
   AttributeArrays slice_all();
   AttributeArrays slice_active();
@@ -145,6 +146,14 @@ inline void ParticlesBlock::clear()
 inline ParticlesContainer &ParticlesBlock::container()
 {
   return m_container;
+}
+
+inline AttributeArrays ParticlesBlock::slice(Range<uint> range)
+{
+  if (range.size() == 0) {
+    return this->slice(0, 0);
+  }
+  return this->slice(range.first(), range.size());
 }
 
 inline AttributeArrays ParticlesBlock::slice(uint start, uint length)

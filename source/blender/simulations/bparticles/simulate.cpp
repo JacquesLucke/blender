@@ -14,9 +14,17 @@ BLI_LAZY_INIT_STATIC(SmallVector<uint>, static_number_range_vector)
   return Range<uint>(0, 10000).to_small_vector();
 }
 
-static ArrayRef<uint> static_number_range_ref()
+static ArrayRef<uint> static_number_range_ref(uint start, uint length)
 {
-  return static_number_range_vector();
+  return ArrayRef<uint>(static_number_range_vector()).slice(start, length);
+}
+
+static ArrayRef<uint> static_number_range_ref(Range<uint> range)
+{
+  if (range.size() == 0) {
+    return {};
+  }
+  return static_number_range_ref(range.first(), range.size());
 }
 
 /* Events
@@ -306,7 +314,7 @@ BLI_NOINLINE static void step_individual_particles_cb(
   ParticlesBlock &block = *data->blocks[index];
 
   uint active_amount = block.active_amount();
-  ParticleSet active_particles(block, static_number_range_ref().take_front(active_amount));
+  ParticleSet active_particles(block, static_number_range_ref(0, active_amount));
   step_individual_particles(active_particles,
                             data->all_durations.take_front(active_amount),
                             data->end_time,
@@ -368,47 +376,33 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &descri
                                                          TimeSpan time_span,
                                                          Emitter &emitter)
 {
-  SmallVector<EmitterTarget> targets;
-  SmallVector<ParticlesBlock *> blocks;
-  SmallVector<ParticleType *> particle_types;
-
-  RequestEmitterTarget request_target = [&description, &state, &particle_types, &targets, &blocks](
-                                            uint particle_type_id) -> EmitterTarget & {
-    ParticlesBlock *block = state.particle_containers().lookup(particle_type_id)->new_block();
-    ParticleType &particle_type = description.particle_type(particle_type_id);
-    blocks.append(block);
-    particle_types.append(&particle_type);
-    targets.append(EmitterTarget{block->slice_all()});
-    return targets.last();
-  };
-
-  EmitterInterface interface{request_target};
+  EmitterInterface interface(state);
   emitter.emit(interface);
 
-  for (uint i = 0; i < targets.size(); i++) {
-    EmitterTarget &target = targets[i];
-    ParticlesBlock &block = *blocks[i];
-    ParticleType &particle_type = *particle_types[i];
-    AttributeArrays emitted_attributes = target.attributes().take_front(target.emitted_amount());
+  for (EmitTarget &target : interface.targets()) {
+    ParticleType &particle_type = description.particle_type(target.particle_type_id());
+    for (uint part = 0; part < target.part_amount(); part++) {
+      ParticlesBlock &block = *target.blocks()[part];
+      Range<uint> range = target.ranges()[part];
+      AttributeArrays attributes = block.slice(range);
 
-    emitted_attributes.get_byte("Kill State").fill(0);
+      attributes.get_byte("Kill State").fill(0);
 
-    auto birth_times = emitted_attributes.get_float("Birth Time");
-    for (float &birth_time : birth_times) {
-      float fac = (rand() % 1000) / 1000.0f;
-      birth_time = time_span.interpolate(fac);
+      auto birth_times = attributes.get_float("Birth Time");
+      for (float &birth_time : birth_times) {
+        float fac = (rand() % 1000) / 1000.0f;
+        birth_time = time_span.interpolate(fac);
+      }
+
+      SmallVector<float> initial_step_durations;
+      for (float birth_time : birth_times) {
+        initial_step_durations.append(time_span.end() - birth_time);
+      }
+
+      ParticleSet emitted_particles(block, static_number_range_ref(range));
+      step_individual_particles(
+          emitted_particles, initial_step_durations, time_span.end(), particle_type);
     }
-
-    SmallVector<float> initial_step_durations;
-    for (float birth_time : birth_times) {
-      initial_step_durations.append(time_span.end() - birth_time);
-    }
-
-    block.active_amount() += target.emitted_amount();
-    ParticleSet emitted_particles(block,
-                                  static_number_range_ref().take_front(emitted_attributes.size()));
-    step_individual_particles(
-        emitted_particles, initial_step_durations, time_span.end(), particle_type);
   }
 }
 
