@@ -89,6 +89,13 @@ class EmitTarget {
   void set_float3(uint index, ArrayRef<float3> data);
   void set_float3(StringRef name, ArrayRef<float3> data);
 
+  void fill_byte(uint index, uint8_t value);
+  void fill_byte(StringRef name, uint8_t value);
+  void fill_float(uint index, float value);
+  void fill_float(StringRef name, float value);
+  void fill_float3(uint index, float3 value);
+  void fill_float3(StringRef name, float3 value);
+
   ArrayRef<ParticlesBlock *> blocks()
   {
     return m_blocks;
@@ -116,6 +123,7 @@ class EmitTarget {
 
  private:
   void set_elements(uint index, void *data);
+  void fill_elements(uint index, void *value);
 };
 
 class EmitterInterface {

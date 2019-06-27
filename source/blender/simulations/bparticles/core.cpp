@@ -104,9 +104,9 @@ void EmitTarget::set_elements(uint index, void *data)
 
   void *remaining_data = data;
 
-  for (uint i = 0; i < m_ranges.size(); i++) {
-    ParticlesBlock &block = *m_blocks[i];
-    Range<uint> range = m_ranges[i];
+  for (uint part = 0; part < m_ranges.size(); part++) {
+    ParticlesBlock &block = *m_blocks[part];
+    Range<uint> range = m_ranges[part];
 
     AttributeArrays attributes = block.slice(range);
     void *dst = attributes.get_ptr(index);
@@ -114,6 +114,21 @@ void EmitTarget::set_elements(uint index, void *data)
     memcpy(dst, remaining_data, bytes_to_copy);
 
     remaining_data = POINTER_OFFSET(remaining_data, bytes_to_copy);
+  }
+}
+
+void EmitTarget::fill_elements(uint index, void *value)
+{
+  AttributeType type = m_attributes_info.type_of(index);
+  uint element_size = size_of_attribute_type(type);
+
+  for (uint part = 0; part < m_ranges.size(); part++) {
+    ParticlesBlock &block = *m_blocks[part];
+
+    void *dst = block.slice_all().get_ptr(index);
+    for (uint i : m_ranges[part]) {
+      memcpy(POINTER_OFFSET(dst, element_size * i), value, element_size);
+    }
   }
 }
 
@@ -150,6 +165,39 @@ void EmitTarget::set_float3(StringRef name, ArrayRef<float3> data)
 {
   uint index = m_attributes_info.attribute_index(name);
   this->set_float3(index, data);
+}
+
+void EmitTarget::fill_byte(uint index, uint8_t value)
+{
+  this->fill_elements(index, (void *)&value);
+}
+
+void EmitTarget::fill_byte(StringRef name, uint8_t value)
+{
+  uint index = m_attributes_info.attribute_index(name);
+  this->fill_byte(index, value);
+}
+
+void EmitTarget::fill_float(uint index, float value)
+{
+  this->fill_elements(index, (void *)&value);
+}
+
+void EmitTarget::fill_float(StringRef name, float value)
+{
+  uint index = m_attributes_info.attribute_index(name);
+  this->fill_float(index, value);
+}
+
+void EmitTarget::fill_float3(uint index, float3 value)
+{
+  this->fill_elements(index, (void *)&value);
+}
+
+void EmitTarget::fill_float3(StringRef name, float3 value)
+{
+  uint index = m_attributes_info.attribute_index(name);
+  this->fill_float3(index, value);
 }
 
 }  // namespace BParticles

@@ -387,12 +387,11 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &descri
       Range<uint> range = target.ranges()[part];
       AttributeArrays attributes = block.slice(range);
 
-      attributes.get_byte("Kill State").fill(0);
-
       auto birth_times = attributes.get_float("Birth Time");
-      for (float &birth_time : birth_times) {
-        float fac = (rand() % 1000) / 1000.0f;
-        birth_time = time_span.interpolate(fac);
+      auto birth_factors = attributes.get_float("Birth Factor");
+
+      for (uint i = 0; i < birth_factors.size(); i++) {
+        birth_times[i] = time_span.interpolate(birth_factors[i]);
       }
 
       SmallVector<float> initial_step_durations;
@@ -439,7 +438,8 @@ BLI_NOINLINE static void ensure_required_containers_exist(
 BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &UNUSED(type),
                                                                  AttributesInfo &UNUSED(last_info))
 {
-  AttributesInfo new_info{{"Kill State"}, {"Birth Time"}, {"Position", "Velocity"}};
+  AttributesInfo new_info{
+      {"Kill State"}, {"Birth Time", "Birth Factor"}, {"Position", "Velocity"}};
   return new_info;
 }
 
