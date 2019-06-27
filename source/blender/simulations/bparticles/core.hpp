@@ -209,16 +209,16 @@ class EmitterInterface {
  private:
   RequestEmitterTarget &m_request_target;
 
- public:
-  EmitterInterface(RequestEmitterTarget &request_target) : m_request_target(request_target)
-  {
-  }
-
   EmitterTarget &request_raw(uint particle_type_id)
   {
     EmitterTarget &target = m_request_target(particle_type_id);
     BLI_assert(target.size() > 0);
     return target;
+  }
+
+ public:
+  EmitterInterface(RequestEmitterTarget &request_target) : m_request_target(request_target)
+  {
   }
 
   JoinedAttributeArrays request(uint particle_type_id, uint size)

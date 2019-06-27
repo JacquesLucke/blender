@@ -22,13 +22,9 @@ class PointEmitter : public Emitter {
 
   void emit(EmitterInterface &interface) override
   {
-    auto &target = interface.request_raw(0);
-    auto positions = target.attributes().get_float3("Position");
-    auto velocities = target.attributes().get_float3("Velocity");
-
-    positions[0] = m_point;
-    velocities[0] = float3{-1, -1, 0};
-    target.set_initialized(1);
+    auto attributes = interface.request(0, 1);
+    attributes.set_float3("Position", {m_point});
+    attributes.set_float3("Velocity", {float3{-1, -1, 0}});
   }
 };
 
