@@ -122,29 +122,7 @@ class EmitterInterface {
     return m_targets;
   }
 
-  EmitTarget &request(uint particle_type_id, uint size)
-  {
-    ParticlesContainer &container = m_state.particle_container(particle_type_id);
-
-    SmallVector<ParticlesBlock *> blocks;
-    SmallVector<Range<uint>> ranges;
-
-    uint remaining_size = size;
-    while (remaining_size > 0) {
-      ParticlesBlock &block = *container.new_block();
-
-      uint size_to_use = std::min(block.size(), remaining_size);
-      block.active_amount() += size_to_use;
-
-      blocks.append(&block);
-      ranges.append(Range<uint>(0, size_to_use));
-
-      remaining_size -= size_to_use;
-    }
-
-    m_targets.append(EmitTarget(particle_type_id, container.attributes_info(), blocks, ranges));
-    return m_targets.last();
-  }
+  EmitTarget &request(uint particle_type_id, uint size);
 };
 
 struct ParticleSet {
