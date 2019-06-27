@@ -253,8 +253,88 @@ ccl_device_noinline float perlin(float x, float y, float z)
   return (isfinite(r)) ? r : 0.0f;
 }
 #else
+ccl_device_inline ssef interpolate_trilinear(ssef t1,
+                                             ssef t2,
+                                             ssef t3,
+                                             ssef v_000,
+                                             ssef v_001,
+                                             ssef v_010,
+                                             ssef v_011,
+                                             ssef v_100,
+                                             ssef v_101,
+                                             ssef v_110,
+                                             ssef v_111)
+{
+  ssef t1_inv = ssef(1.0f) - t1;
+  ssef t2_inv = ssef(1.0f) - t2;
+  ssef t3_inv = ssef(1.0f) - t3;
+
+  ssef v_t00 = v_000 * t1_inv + v_100 * t1;
+  ssef v_t01 = v_001 * t1_inv + v_101 * t1;
+  ssef v_t10 = v_010 * t1_inv + v_110 * t1;
+  ssef v_t11 = v_011 * t1_inv + v_111 * t1;
+
+  ssef v_tt0 = v_t00 * t2_inv + v_t01 * t2;
+  ssef v_tt1 = v_t10 * t2_inv + v_t11 * t2;
+
+  ssef v_ttt = v_tt0 * t3_inv + v_tt1 * t3;
+  return v_ttt;
+}
+
+ccl_device_noinline ssef perlin(ssef x, ssef y, ssef z)
+{
+#  if defined(__KERNEL_SSE41__)
+
+  ssei x_low, y_low, z_low;
+
+  ssef x_frac = floorfrac_sse(x, &x_low);
+  ssef y_frac = floorfrac_sse(y, &y_low);
+  ssef z_frac = floorfrac_sse(z, &z_low);
+  ssei x_high = x_low + ssei(1.0f);
+  ssei y_high = y_low + ssei(1.0f);
+  ssei z_high = z_low + ssei(1.0f);
+
+  ssef x_fac = fade_sse(&x_frac);
+  ssef y_fac = fade_sse(&y_frac);
+  ssef z_fac = fade_sse(&z_frac);
+
+  ssei hash_lll = hash_sse(x_low, y_low, z_low);
+  ssei hash_llh = hash_sse(x_low, y_low, z_high);
+  ssei hash_lhl = hash_sse(x_low, y_high, z_low);
+  ssei hash_lhh = hash_sse(x_low, y_high, z_high);
+  ssei hash_hll = hash_sse(x_high, y_low, z_low);
+  ssei hash_hlh = hash_sse(x_high, y_low, z_high);
+  ssei hash_hhl = hash_sse(x_high, y_high, z_low);
+  ssei hash_hhh = hash_sse(x_high, y_high, z_high);
+
+  ssef value_lll = grad_sse(hash_lll, x_frac, y_frac, z_frac);
+  ssef value_llh = grad_sse(hash_llh, x_frac, y_frac, z_frac);
+  ssef value_lhl = grad_sse(hash_lhl, x_frac, y_frac, z_frac);
+  ssef value_lhh = grad_sse(hash_lhh, x_frac, y_frac, z_frac);
+  ssef value_hll = grad_sse(hash_hll, x_frac, y_frac, z_frac);
+  ssef value_hlh = grad_sse(hash_hlh, x_frac, y_frac, z_frac);
+  ssef value_hhl = grad_sse(hash_hhl, x_frac, y_frac, z_frac);
+  ssef value_hhh = grad_sse(hash_hhh, x_frac, y_frac, z_frac);
+
+  return interpolate_trilinear(x_fac,
+                               y_fac,
+                               z_fac,
+                               value_lll,
+                               value_llh,
+                               value_lhl,
+                               value_lhh,
+                               value_hll,
+                               value_hlh,
+                               value_hhl,
+                               value_hhh);
+#  else
+  return ssef(0.0f);
+#  endif
+}
+
 ccl_device_noinline float perlin(float x, float y, float z)
 {
+  return extract<0>(perlin(ssef(x), ssef(y), ssef(z)));
   ssef xyz = ssef(x, y, z, 0.0f);
   ssei XYZ;
 
