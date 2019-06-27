@@ -285,11 +285,11 @@ BLI_NOINLINE static void simulate_ignoring_events(ParticleSet particles,
   }
 }
 
-BLI_NOINLINE static void step_individual_particles(BlockAllocator &block_allocator,
-                                                   ParticleSet particles,
-                                                   ArrayRef<float> durations,
-                                                   float end_time,
-                                                   ParticleType &particle_type)
+BLI_NOINLINE static void step_particle_set(BlockAllocator &block_allocator,
+                                           ParticleSet particles,
+                                           ArrayRef<float> durations,
+                                           float end_time,
+                                           ParticleType &particle_type)
 {
   SmallVector<uint> unfinished_particle_indices;
   SmallVector<float> remaining_durations;
@@ -307,32 +307,78 @@ BLI_NOINLINE static void step_individual_particles(BlockAllocator &block_allocat
   simulate_ignoring_events(remaining_particles, remaining_durations, particle_type);
 }
 
+class BlockAllocators {
+ private:
+  ParticlesState &m_state;
+  SmallVector<BlockAllocator *> m_allocators;
+  SmallMap<int, BlockAllocator *> m_allocator_per_thread_id;
+  std::mutex m_access_mutex;
+
+ public:
+  BlockAllocators(ParticlesState &state) : m_state(state)
+  {
+  }
+
+  ~BlockAllocators()
+  {
+    for (BlockAllocator *allocator : m_allocators) {
+      delete allocator;
+    }
+  }
+
+  BlockAllocator &get_standalone_allocator()
+  {
+    BlockAllocator *new_allocator = new BlockAllocator(m_state);
+    m_allocators.append(new_allocator);
+    return *new_allocator;
+  }
+
+  BlockAllocator &get_threadlocal_allocator(int thread_id)
+  {
+    std::lock_guard<std::mutex> lock(m_access_mutex);
+
+    if (!m_allocator_per_thread_id.contains(thread_id)) {
+      BlockAllocator *new_allocator = new BlockAllocator(m_state);
+      m_allocators.append(new_allocator);
+      m_allocator_per_thread_id.add_new(thread_id, new_allocator);
+    }
+    return *m_allocator_per_thread_id.lookup(thread_id);
+  }
+
+  ArrayRef<BlockAllocator *> allocators()
+  {
+    return m_allocators;
+  }
+};
+
 struct StepBlocksParallelData {
   ArrayRef<ParticlesBlock *> blocks;
   ArrayRef<float> all_durations;
   float end_time;
   ParticleType &particle_type;
-  ParticlesState &particles_state;
+  BlockAllocators &block_allocators;
 };
 
-BLI_NOINLINE static void step_individual_particles_cb(
-    void *__restrict userdata, const int index, const ParallelRangeTLS *__restrict UNUSED(tls))
+BLI_NOINLINE static void step_individual_particles_cb(void *__restrict userdata,
+                                                      const int index,
+                                                      const ParallelRangeTLS *__restrict tls)
 {
   StepBlocksParallelData *data = (StepBlocksParallelData *)userdata;
   ParticlesBlock &block = *data->blocks[index];
 
-  BlockAllocator block_allocator(data->particles_state);
+  BlockAllocator block_allocator = data->block_allocators.get_threadlocal_allocator(
+      tls->thread_id);
 
   uint active_amount = block.active_amount();
   ParticleSet active_particles(block, static_number_range_ref(0, active_amount));
-  step_individual_particles(block_allocator,
-                            active_particles,
-                            data->all_durations.take_front(active_amount),
-                            data->end_time,
-                            data->particle_type);
+  step_particle_set(block_allocator,
+                    active_particles,
+                    data->all_durations.take_front(active_amount),
+                    data->end_time,
+                    data->particle_type);
 }
 
-BLI_NOINLINE static void step_individual_particles(ParticlesState &state,
+BLI_NOINLINE static void step_individual_particles(BlockAllocators &block_allocators,
                                                    ArrayRef<ParticlesBlock *> blocks,
                                                    TimeSpan time_span,
                                                    ParticleType &particle_type)
@@ -348,7 +394,8 @@ BLI_NOINLINE static void step_individual_particles(ParticlesState &state,
   SmallVector<float> all_durations(block_size);
   all_durations.fill(time_span.duration());
 
-  StepBlocksParallelData data = {blocks, all_durations, time_span.end(), particle_type, state};
+  StepBlocksParallelData data = {
+      blocks, all_durations, time_span.end(), particle_type, block_allocators};
 
   BLI_task_parallel_range(
       0, blocks.size(), (void *)&data, step_individual_particles_cb, &settings);
@@ -416,11 +463,11 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &descri
       }
 
       ParticleSet emitted_particles(block, static_number_range_ref(range));
-      step_individual_particles(block_allocator,
-                                emitted_particles,
-                                initial_step_durations,
-                                time_span.end(),
-                                particle_type);
+      step_particle_set(block_allocator,
+                        emitted_particles,
+                        initial_step_durations,
+                        time_span.end(),
+                        particle_type);
 
       particle_count += emitted_particles.size();
     }
@@ -488,16 +535,19 @@ void simulate_step(ParticlesState &state, StepDescription &description)
   ensure_required_containers_exist(containers, description);
   ensure_required_attributes_exist(containers, description);
 
+  BlockAllocators block_allocators(state);
+
   for (uint type_id : description.particle_type_ids()) {
     ParticleType &type = description.particle_type(type_id);
     ParticlesContainer &container = *containers.lookup(type_id);
 
-    step_individual_particles(state, container.active_blocks().to_small_vector(), time_span, type);
+    step_individual_particles(
+        block_allocators, container.active_blocks().to_small_vector(), time_span, type);
   }
 
-  BlockAllocator block_allocator(state);
+  BlockAllocator &emitter_allocator = block_allocators.get_standalone_allocator();
   for (Emitter *emitter : description.emitters()) {
-    emit_new_particles_from_emitter(description, block_allocator, time_span, *emitter);
+    emit_new_particles_from_emitter(description, emitter_allocator, time_span, *emitter);
   }
 
   for (uint type_id : description.particle_type_ids()) {
