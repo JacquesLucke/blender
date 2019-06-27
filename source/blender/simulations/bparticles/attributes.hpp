@@ -170,6 +170,9 @@ class AttributeArrays {
 
   void *get_ptr(uint index) const;
 
+  void init_default(uint index);
+  void init_default(StringRef name);
+
   ArrayRef<uint8_t> get_byte(uint index) const;
   ArrayRef<uint8_t> get_byte(StringRef name);
   ArrayRef<float> get_float(uint index) const;
@@ -244,6 +247,23 @@ inline void *AttributeArrays::get_ptr(uint index) const
   AttributeType type = m_core.get_type(index);
   uint size = size_of_attribute_type(type);
   return POINTER_OFFSET(ptr, m_start * size);
+}
+
+inline void AttributeArrays::init_default(uint index)
+{
+  void *default_value = m_core.info().default_value_ptr(index);
+  void *dst = this->get_ptr(index);
+  AttributeType type = m_core.get_type(index);
+  uint element_size = size_of_attribute_type(type);
+
+  for (uint i = 0; i < m_size; i++) {
+    memcpy(POINTER_OFFSET(dst, element_size * i), default_value, element_size);
+  }
+}
+
+inline void AttributeArrays::init_default(StringRef name)
+{
+  this->init_default(this->attribute_index(name));
 }
 
 inline ArrayRef<uint8_t> AttributeArrays::get_byte(uint index) const

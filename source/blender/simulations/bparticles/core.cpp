@@ -74,11 +74,17 @@ EmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
   while (remaining_size > 0) {
     ParticlesBlock &block = m_allocator.get_non_full_block(particle_type_id);
 
-    uint size_to_use = std::min(block.size(), remaining_size);
+    uint size_to_use = std::min(block.inactive_amount(), remaining_size);
+    Range<uint> range(block.active_amount(), block.active_amount() + size_to_use);
     block.active_amount() += size_to_use;
 
     blocks.append(&block);
-    ranges.append(Range<uint>(0, size_to_use));
+    ranges.append(range);
+
+    AttributeArrays attributes = block.slice(range);
+    for (uint i : attributes.info().attribute_indices()) {
+      attributes.init_default(i);
+    }
 
     remaining_size -= size_to_use;
   }

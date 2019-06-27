@@ -82,6 +82,13 @@ void ParticlesContainer::update_attributes(AttributesInfo new_info)
     }
   }
 
+  SmallVector<uint> indices_to_allocate;
+  for (uint i = 0; i < new_to_old_mapping.size(); i++) {
+    if (new_to_old_mapping[i] == -1) {
+      indices_to_allocate.append(i);
+    }
+  }
+
   m_attributes_info = new_info;
 
   SmallVector<void *> arrays;
@@ -94,13 +101,7 @@ void ParticlesContainer::update_attributes(AttributesInfo new_info)
       AttributeType type = new_info.type_of(new_index);
 
       if (old_index == -1) {
-        void *array = MEM_malloc_arrayN(m_block_size, size_of_attribute_type(type), __func__);
-        uint value_size = size_of_attribute_type(type);
-        void *default_ptr = new_info.default_value_ptr(new_index);
-        for (uint i = 0; i < m_block_size; i++) {
-          memcpy(POINTER_OFFSET(array, i * value_size), default_ptr, value_size);
-        }
-        arrays.append(array);
+        arrays.append(MEM_malloc_arrayN(m_block_size, size_of_attribute_type(type), __func__));
       }
       else {
         arrays.append(block->attributes_core().get_ptr((uint)old_index));
@@ -113,6 +114,10 @@ void ParticlesContainer::update_attributes(AttributesInfo new_info)
     }
 
     block->m_attributes_core = AttributeArraysCore(m_attributes_info, arrays, m_block_size);
+
+    for (uint new_index : indices_to_allocate) {
+      block->m_attributes_core.slice_all().init_default(new_index);
+    }
   }
 }
 
