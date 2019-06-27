@@ -372,12 +372,11 @@ BLI_NOINLINE static void delete_tagged_particles(ArrayRef<ParticlesBlock *> bloc
  **********************************************/
 
 BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &description,
-                                                         ParticlesState &state,
                                                          BlockAllocator &block_allocator,
                                                          TimeSpan time_span,
                                                          Emitter &emitter)
 {
-  EmitterInterface interface(state, block_allocator);
+  EmitterInterface interface(block_allocator);
   emitter.emit(interface);
 
   for (EmitTarget *target_ptr : interface.targets()) {
@@ -483,7 +482,7 @@ void simulate_step(ParticlesState &state, StepDescription &description)
 
   BlockAllocator block_allocator(state);
   for (Emitter *emitter : description.emitters()) {
-    emit_new_particles_from_emitter(description, state, block_allocator, time_span, *emitter);
+    emit_new_particles_from_emitter(description, block_allocator, time_span, *emitter);
   }
 
   for (uint type_id : description.particle_type_ids()) {

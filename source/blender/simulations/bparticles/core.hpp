@@ -56,6 +56,11 @@ class BlockAllocator {
   BlockAllocator(ParticlesState &state);
 
   ParticlesBlock &get_non_full_block(uint particle_type_id);
+
+  ParticlesState &particles_state()
+  {
+    return m_state;
+  }
 };
 
 class EmitTarget {
@@ -140,13 +145,11 @@ class EmitTarget {
 
 class EmitterInterface {
  private:
-  ParticlesState &m_state;
-  BlockAllocator &m_allocator;
+  BlockAllocator &m_block_allocator;
   SmallVector<EmitTarget *> m_targets;
 
  public:
-  EmitterInterface(ParticlesState &state, BlockAllocator &allocator)
-      : m_state(state), m_allocator(allocator)
+  EmitterInterface(BlockAllocator &allocator) : m_block_allocator(allocator)
   {
   }
 
