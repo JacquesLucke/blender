@@ -78,6 +78,16 @@ template<typename T, uint N = 4> class SmallVector {
   }
 
   /**
+   * Create a vector filled with a specific value.
+   */
+  SmallVector(uint size, const T &value) : SmallVector()
+  {
+    this->reserve(size);
+    std::fill_n(m_elements, size, value);
+    m_size = size;
+  }
+
+  /**
    * Create a vector from an initializer list.
    */
   SmallVector(std::initializer_list<T> values) : SmallVector()

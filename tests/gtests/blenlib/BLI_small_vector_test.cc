@@ -18,6 +18,16 @@ TEST(small_vector, SizeConstructor)
   EXPECT_EQ(vec[2], 0);
 }
 
+TEST(small_vector, SizeValueConstructor)
+{
+  IntVector vec(4, 10);
+  EXPECT_EQ(vec.size(), 4);
+  EXPECT_EQ(vec[0], 10);
+  EXPECT_EQ(vec[1], 10);
+  EXPECT_EQ(vec[2], 10);
+  EXPECT_EQ(vec[3], 10);
+}
+
 TEST(small_vector, InitializerListConstructor)
 {
   IntVector vec = {1, 3, 4, 6};
