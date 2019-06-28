@@ -57,6 +57,13 @@ struct float3 {
     this->z += b.z;
   }
 
+  void operator*=(float scalar)
+  {
+    this->x *= scalar;
+    this->y *= scalar;
+    this->z *= scalar;
+  }
+
   friend float3 operator*(float3 a, float3 b)
   {
     return {a.x * b.x, a.y * b.y, a.z * b.z};
