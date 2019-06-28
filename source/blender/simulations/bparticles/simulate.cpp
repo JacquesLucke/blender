@@ -513,39 +513,6 @@ BLI_NOINLINE static void delete_tagged_particles(ArrayRef<ParticlesBlock *> bloc
   }
 }
 
-/* Emit new particles from emitters.
- **********************************************/
-
-BLI_NOINLINE static void emit_new_particles_from_emitter(BlockAllocator &block_allocator,
-                                                         TimeSpan time_span,
-                                                         Emitter &emitter)
-{
-  EmitterInterface interface(block_allocator);
-  emitter.emit(interface);
-
-  for (TimeSpanEmitTarget *target_ptr : interface.targets()) {
-    TimeSpanEmitTarget &target = *target_ptr;
-
-    ArrayRef<float> all_birth_moments = target.birth_moments();
-    uint particle_count = 0;
-
-    for (uint part = 0; part < target.part_amount(); part++) {
-      ParticlesBlock &block = *target.blocks()[part];
-      Range<uint> range = target.ranges()[part];
-      AttributeArrays attributes = block.slice(range);
-
-      ArrayRef<float> birth_moments = all_birth_moments.slice(particle_count, range.size());
-
-      auto birth_times = attributes.get_float("Birth Time");
-      for (uint i = 0; i < birth_moments.size(); i++) {
-        birth_times[i] = time_span.interpolate(birth_moments[i]);
-      }
-
-      particle_count += range.size();
-    }
-  }
-}
-
 /* Compress particle blocks.
  **************************************************/
 
@@ -618,7 +585,8 @@ void simulate_step(ParticlesState &state, StepDescription &description)
 
   BlockAllocator &emitter_allocator = block_allocators.get_standalone_allocator();
   for (Emitter *emitter : description.emitters()) {
-    emit_new_particles_from_emitter(emitter_allocator, time_span, *emitter);
+    EmitterInterface interface(emitter_allocator, time_span);
+    emitter->emit(interface);
   }
 
   blocks_to_simulate_next = block_allocators.all_allocated_blocks();

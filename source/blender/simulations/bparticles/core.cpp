@@ -110,7 +110,8 @@ TimeSpanEmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
   m_block_allocator.allocate_block_ranges(particle_type_id, size, blocks, ranges);
   AttributesInfo &attributes_info = m_block_allocator.attributes_info(particle_type_id);
 
-  auto *target = new TimeSpanEmitTarget(particle_type_id, attributes_info, blocks, ranges);
+  auto *target = new TimeSpanEmitTarget(
+      particle_type_id, attributes_info, blocks, ranges, m_time_span);
   m_targets.append(target);
   return *target;
 }
@@ -246,14 +247,17 @@ void EmitTargetBase::fill_float3(StringRef name, float3 value)
 void TimeSpanEmitTarget::set_birth_moment(float time_factor)
 {
   BLI_assert(time_factor >= 0.0 && time_factor <= 1.0f);
-  m_birth_moments.fill(time_factor);
+  this->fill_float("Birth Time", m_time_span.interpolate(time_factor));
 }
 
 void TimeSpanEmitTarget::set_randomized_birth_moments()
 {
-  for (float &birth_moment : m_birth_moments) {
-    birth_moment = (rand() % 10000) / 10000.0f;
+  SmallVector<float> birth_times(m_size);
+  for (uint i = 0; i < m_size; i++) {
+    float factor = (rand() % 10000) / 10000.0f;
+    birth_times[i] = m_time_span.interpolate(factor);
   }
+  this->set_float("Birth Time", birth_times);
 }
 
 }  // namespace BParticles

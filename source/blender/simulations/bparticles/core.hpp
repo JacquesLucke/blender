@@ -177,21 +177,16 @@ class InstantEmitTarget : public EmitTargetBase {
 
 class TimeSpanEmitTarget : public EmitTargetBase {
  private:
-  SmallVector<float> m_birth_moments;
+  TimeSpan m_time_span;
 
  public:
   TimeSpanEmitTarget(uint particle_type_id,
                      AttributesInfo &attributes_info,
                      ArrayRef<ParticlesBlock *> blocks,
-                     ArrayRef<Range<uint>> ranges)
-      : EmitTargetBase(particle_type_id, attributes_info, blocks, ranges)
+                     ArrayRef<Range<uint>> ranges,
+                     TimeSpan time_span)
+      : EmitTargetBase(particle_type_id, attributes_info, blocks, ranges), m_time_span(time_span)
   {
-    m_birth_moments = SmallVector<float>(m_size, 1.0f);
-  }
-
-  ArrayRef<float> birth_moments()
-  {
-    return m_birth_moments;
   }
 
   void set_birth_moment(float time_factor);
@@ -202,9 +197,11 @@ class EmitterInterface {
  private:
   BlockAllocator &m_block_allocator;
   SmallVector<TimeSpanEmitTarget *> m_targets;
+  TimeSpan m_time_span;
 
  public:
-  EmitterInterface(BlockAllocator &allocator) : m_block_allocator(allocator)
+  EmitterInterface(BlockAllocator &allocator, TimeSpan time_span)
+      : m_block_allocator(allocator), m_time_span(time_span)
   {
   }
 
