@@ -344,6 +344,19 @@ BLI_NOINLINE static void step_particle_set(BlockAllocator &block_allocator,
   apply_remaining_offsets(remaining_particles, ideal_offsets);
 }
 
+BLI_NOINLINE static void simulate_block(BlockAllocator &block_allocator,
+                                        ParticlesBlock &block,
+                                        ParticleType &particle_type,
+                                        ArrayRef<float> durations,
+                                        float end_time)
+{
+  step_particle_set(block_allocator,
+                    ParticleSet(block, static_number_range_ref(0, block.active_amount())),
+                    durations,
+                    end_time,
+                    particle_type);
+}
+
 class BlockAllocators {
  private:
   ParticlesState &m_state;
@@ -412,23 +425,20 @@ BLI_NOINLINE static void simulate_block_time_span_cb(void *__restrict userdata,
                                                      const ParallelRangeTLS *__restrict tls)
 {
   SimulateTimeSpanData *data = (SimulateTimeSpanData *)userdata;
-  ParticlesBlock &block = *data->blocks[index];
 
   BlockAllocator &block_allocator = data->block_allocators.get_threadlocal_allocator(
       tls->thread_id);
 
+  ParticlesBlock &block = *data->blocks[index];
   ParticlesState &state = block_allocator.particles_state();
   uint particle_type_id = state.particle_container_id(block.container());
-
   ParticleType &particle_type = data->step_description.particle_type(particle_type_id);
 
-  uint active_amount = block.active_amount();
-  ParticleSet active_particles(block, static_number_range_ref(0, active_amount));
-  step_particle_set(block_allocator,
-                    active_particles,
-                    data->all_durations.take_front(active_amount),
-                    data->end_time,
-                    particle_type);
+  simulate_block(block_allocator,
+                 block,
+                 particle_type,
+                 data->all_durations.take_back(block.active_amount()),
+                 data->end_time);
 }
 
 BLI_NOINLINE static void simulate_blocks_for_time_span(BlockAllocators &block_allocators,
@@ -466,26 +476,23 @@ BLI_NOINLINE static void simulate_block_from_birth_cb(void *__restrict userdata,
                                                       const ParallelRangeTLS *__restrict tls)
 {
   SimulateFromBirthData *data = (SimulateFromBirthData *)userdata;
-  ParticlesBlock &block = *data->blocks[index];
 
   BlockAllocator &block_allocator = data->block_allocators.get_threadlocal_allocator(
       tls->thread_id);
 
+  ParticlesBlock &block = *data->blocks[index];
   ParticlesState &state = block_allocator.particles_state();
-  uint particle_type_id = state.particle_container_id(block.container());
 
+  uint particle_type_id = state.particle_container_id(block.container());
   ParticleType &particle_type = data->step_description.particle_type(particle_type_id);
 
   uint active_amount = block.active_amount();
   SmallVector<float> durations(active_amount);
-
   auto birth_times = block.slice_active().get_float("Birth Time");
   for (uint i = 0; i < active_amount; i++) {
     durations[i] = data->end_time - birth_times[i];
   }
-
-  ParticleSet active_particles(block, static_number_range_ref(0, active_amount));
-  step_particle_set(block_allocator, active_particles, durations, data->end_time, particle_type);
+  simulate_block(block_allocator, block, particle_type, durations, data->end_time);
 }
 
 BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
