@@ -229,7 +229,6 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
   SmallVector<float3> position_offsets(particles.size());
   SmallVector<float3> velocity_offsets(particles.size());
   IdealOffsets ideal_offsets{position_offsets, velocity_offsets};
-
   compute_ideal_attribute_offsets(particles, durations, particle_type, ideal_offsets);
 
   SmallVector<int> next_event_indices(particles.size());
@@ -320,24 +319,16 @@ BLI_NOINLINE static void simulate_with_max_n_events(
   }
 }
 
-BLI_NOINLINE static void simulate_ignoring_events(ParticleSet particles,
-                                                  ArrayRef<float> durations,
-                                                  ParticleType &particle_type)
+BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles, IdealOffsets ideal_offsets)
 {
-  SmallVector<float3> position_offsets{particles.size()};
-  SmallVector<float3> velocity_offsets{particles.size()};
-  IdealOffsets offsets{position_offsets, velocity_offsets};
-
-  compute_ideal_attribute_offsets(particles, durations, particle_type, offsets);
-
   auto positions = particles.attributes().get_float3("Position");
   auto velocities = particles.attributes().get_float3("Velocity");
 
   for (uint i : particles.indices()) {
     uint pindex = particles.get_particle_index(i);
 
-    positions[pindex] += offsets.position_offsets[i];
-    velocities[pindex] += offsets.velocity_offsets[i];
+    positions[pindex] += ideal_offsets.position_offsets[i];
+    velocities[pindex] += ideal_offsets.velocity_offsets[i];
   }
 }
 
@@ -360,7 +351,14 @@ BLI_NOINLINE static void step_particle_set(BlockAllocator &block_allocator,
                              remaining_durations);
 
   ParticleSet remaining_particles(particles.block(), unfinished_particle_indices);
-  simulate_ignoring_events(remaining_particles, remaining_durations, particle_type);
+
+  SmallVector<float3> position_offsets(unfinished_particle_indices.size());
+  SmallVector<float3> velocity_offsets(unfinished_particle_indices.size());
+  IdealOffsets ideal_offsets{position_offsets, velocity_offsets};
+  compute_ideal_attribute_offsets(
+      remaining_particles, remaining_durations, particle_type, ideal_offsets);
+
+  apply_remaining_offsets(remaining_particles, ideal_offsets);
 }
 
 class BlockAllocators {
