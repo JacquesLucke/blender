@@ -72,6 +72,7 @@ class BlockAllocator {
 
  public:
   BlockAllocator(ParticlesState &state);
+  BlockAllocator(BlockAllocator &other) = delete;
 
   ParticlesBlock &get_non_full_block(uint particle_type_id);
   void allocate_block_ranges(uint particle_type_id,
@@ -346,10 +347,13 @@ class ActionInterface {
   ParticleSet m_particles;
   BlockAllocator &m_block_allocator;
   SmallVector<InstantEmitTarget *> m_emit_targets;
+  ArrayRef<float> m_current_times;
 
  public:
-  ActionInterface(ParticleSet particles, BlockAllocator &block_allocator)
-      : m_particles(particles), m_block_allocator(block_allocator)
+  ActionInterface(ParticleSet particles,
+                  BlockAllocator &block_allocator,
+                  ArrayRef<float> current_times)
+      : m_particles(particles), m_block_allocator(block_allocator), m_current_times(current_times)
   {
   }
 
@@ -370,6 +374,11 @@ class ActionInterface {
   ArrayRef<InstantEmitTarget *> emit_targets()
   {
     return m_emit_targets;
+  }
+
+  ArrayRef<float> current_times()
+  {
+    return m_current_times;
   }
 };
 

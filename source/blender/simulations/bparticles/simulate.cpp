@@ -4,6 +4,8 @@
 #include "BLI_lazy_init.hpp"
 #include "BLI_task.h"
 
+#define USE_THREADING true
+
 namespace BParticles {
 
 /* Static Data
@@ -121,20 +123,19 @@ BLI_NOINLINE static void find_unfinished_particles(
 BLI_NOINLINE static void run_actions(BlockAllocator &block_allocator,
                                      ParticlesBlock &block,
                                      ArrayRef<SmallVector<uint>> particles_per_event,
+                                     ArrayRef<SmallVector<float>> current_time_per_particle,
                                      ArrayRef<Event *> events,
                                      ArrayRef<Action *> action_per_event)
 {
   for (uint event_index = 0; event_index < events.size(); event_index++) {
     Action *action = action_per_event[event_index];
     ParticleSet particles(block, particles_per_event[event_index]);
-
-    ActionInterface interface(particles, block_allocator);
-    action->execute(interface);
-
-    for (InstantEmitTarget *target_ptr : interface.emit_targets()) {
-      InstantEmitTarget &target = *target_ptr;
-      target.fill_float("Birth Time", block_allocator.particles_state().m_current_time);
+    if (particles.size() == 0) {
+      continue;
     }
+
+    ActionInterface interface(particles, block_allocator, current_time_per_particle[event_index]);
+    action->execute(interface);
   }
 }
 
@@ -212,9 +213,20 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
 
   SmallVector<SmallVector<uint>> particles_per_event(particle_type.events().size());
   find_particles_per_event(particles.indices(), next_event_indices, particles_per_event);
+
+  SmallVector<SmallVector<float>> current_time_per_particle(particle_type.events().size());
+  for (uint i : particles.range()) {
+    int event_index = next_event_indices[i];
+    if (event_index != -1) {
+      current_time_per_particle[event_index].append(
+          end_time - durations[i] * (1.0f - time_factors_to_next_event[i]));
+    }
+  }
+
   run_actions(block_allocator,
               particles.block(),
               particles_per_event,
+              current_time_per_particle,
               particle_type.events(),
               particle_type.action_per_event());
 
@@ -382,7 +394,7 @@ BLI_NOINLINE static void simulate_block_time_span_cb(void *__restrict userdata,
   SimulateTimeSpanData *data = (SimulateTimeSpanData *)userdata;
   ParticlesBlock &block = *data->blocks[index];
 
-  BlockAllocator block_allocator = data->block_allocators.get_threadlocal_allocator(
+  BlockAllocator &block_allocator = data->block_allocators.get_threadlocal_allocator(
       tls->thread_id);
 
   ParticlesState &state = block_allocator.particles_state();
@@ -410,6 +422,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(BlockAllocators &block_al
 
   ParallelRangeSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
+  settings.use_threading = USE_THREADING;
 
   uint block_size = blocks[0]->container().block_size();
   SmallVector<float> all_durations(block_size);
@@ -435,7 +448,7 @@ BLI_NOINLINE static void simulate_block_from_birth_cb(void *__restrict userdata,
   SimulateFromBirthData *data = (SimulateFromBirthData *)userdata;
   ParticlesBlock &block = *data->blocks[index];
 
-  BlockAllocator block_allocator = data->block_allocators.get_threadlocal_allocator(
+  BlockAllocator &block_allocator = data->block_allocators.get_threadlocal_allocator(
       tls->thread_id);
 
   ParticlesState &state = block_allocator.particles_state();
@@ -467,6 +480,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
 
   ParallelRangeSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
+  settings.use_threading = USE_THREADING;
 
   SimulateFromBirthData data = {blocks, end_time, block_allocators, step_description};
   BLI_task_parallel_range(

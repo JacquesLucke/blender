@@ -43,16 +43,19 @@ class SpawnAction : public Action {
 
     SmallVector<float3> new_positions;
     SmallVector<float3> new_velocities;
+    SmallVector<float> new_birth_times;
 
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
       new_positions.append(positions[pindex] + float3(20, 0, 0));
       new_velocities.append(float3(1, 1, 10));
+      new_birth_times.append(interface.current_times()[i]);
     }
 
     auto &target = interface.request_emit_target(0, particles.size());
     target.set_float3("Position", new_positions);
     target.set_float3("Velocity", new_velocities);
+    target.set_float("Birth Time", new_birth_times);
   }
 };
 
