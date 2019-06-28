@@ -70,7 +70,7 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
   }
 }
 
-BLI_NOINLINE static void forward_particles_to_next_event(
+BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     ParticleSet particles, IdealOffsets &ideal_offsets, ArrayRef<float> time_factors_to_next_event)
 {
   auto positions = particles.attributes().get_float3("Position");
@@ -85,38 +85,38 @@ BLI_NOINLINE static void forward_particles_to_next_event(
 }
 
 BLI_NOINLINE static void find_particles_per_event(
+    ArrayRef<uint> indices_with_events,
     ArrayRef<uint> particle_indices,
     ArrayRef<int> next_event_indices,
     ArrayRef<SmallVector<uint>> r_particles_per_event)
 {
-  for (uint i = 0; i < particle_indices.size(); i++) {
+  for (uint i : indices_with_events) {
     int event_index = next_event_indices[i];
-    if (event_index != -1) {
-      uint pindex = particle_indices[i];
-      r_particles_per_event[event_index].append(pindex);
-    }
+    BLI_assert(event_index >= 0);
+    uint pindex = particle_indices[i];
+    r_particles_per_event[event_index].append(pindex);
   }
 }
 
 BLI_NOINLINE static void compute_current_time_per_particle(
+    ArrayRef<uint> indices_with_events,
     ArrayRef<float> durations,
     float end_time,
     ArrayRef<int> next_event_indices,
     ArrayRef<float> time_factors_to_next_event,
     ArrayRef<SmallVector<float>> r_current_time_per_particle)
 {
-  for (uint i = 0; i < next_event_indices.size(); i++) {
+  for (uint i : indices_with_events) {
     int event_index = next_event_indices[i];
-    if (event_index != -1) {
-      r_current_time_per_particle[event_index].append(
-          end_time - durations[i] * (1.0f - time_factors_to_next_event[i]));
-    }
+    BLI_assert(event_index >= 0);
+    r_current_time_per_particle[event_index].append(
+        end_time - durations[i] * (1.0f - time_factors_to_next_event[i]));
   }
 }
 
 BLI_NOINLINE static void find_unfinished_particles(
+    ArrayRef<uint> indices_with_event,
     ArrayRef<uint> particle_indices,
-    ArrayRef<int> next_event_indices,
     ArrayRef<float> time_factors_to_next_event,
     ArrayRef<float> durations,
     ArrayRef<uint8_t> kill_states,
@@ -124,9 +124,9 @@ BLI_NOINLINE static void find_unfinished_particles(
     SmallVector<float> &r_remaining_durations)
 {
 
-  for (uint i = 0; i < particle_indices.size(); i++) {
+  for (uint i : indices_with_event) {
     uint pindex = particle_indices[i];
-    if (next_event_indices[i] != -1 && kill_states[pindex] == 0) {
+    if (kill_states[pindex] == 0) {
       float time_factor = time_factors_to_next_event[i];
       float remaining_duration = durations[i] * (1.0f - time_factor);
 
@@ -225,13 +225,22 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                next_event_indices,
                                time_factors_to_next_event);
 
-  forward_particles_to_next_event(particles, ideal_offsets, time_factors_to_next_event);
+  SmallVector<uint> indices_with_event;
+  for (uint i = 0; i < next_event_indices.size(); i++) {
+    if (next_event_indices[i] != -1) {
+      indices_with_event.append(i);
+    }
+  }
+
+  forward_particles_to_next_event_or_end(particles, ideal_offsets, time_factors_to_next_event);
 
   SmallVector<SmallVector<uint>> particles_per_event(particle_type.events().size());
-  find_particles_per_event(particles.indices(), next_event_indices, particles_per_event);
+  find_particles_per_event(
+      indices_with_event, particles.indices(), next_event_indices, particles_per_event);
 
   SmallVector<SmallVector<float>> current_time_per_particle(particle_type.events().size());
-  compute_current_time_per_particle(durations,
+  compute_current_time_per_particle(indices_with_event,
+                                    durations,
                                     end_time,
                                     next_event_indices,
                                     time_factors_to_next_event,
@@ -244,8 +253,8 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
               particle_type.events(),
               particle_type.action_per_event());
 
-  find_unfinished_particles(particles.indices(),
-                            next_event_indices,
+  find_unfinished_particles(indices_with_event,
+                            particles.indices(),
                             time_factors_to_next_event,
                             durations,
                             particles.attributes().get_byte("Kill State"),
