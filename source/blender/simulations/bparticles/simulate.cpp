@@ -279,10 +279,10 @@ BLI_NOINLINE static void simulate_with_max_n_events(uint UNUSED(max_events),
                                                     ArrayRef<float> durations,
                                                     float end_time,
                                                     ParticleType &particle_type,
-                                                    SmallVector<uint> &r_unfinished_indices,
-                                                    SmallVector<float> &r_remaining_durations)
+                                                    SmallVector<uint> &r_unfinished_indices)
 {
   SmallVector<float> last_event_times;
+  SmallVector<float> remaining_durations;
 
   simulate_to_next_event(block_allocator,
                          particles,
@@ -292,7 +292,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(uint UNUSED(max_events),
                          particle_type,
                          last_event_times,
                          r_unfinished_indices,
-                         r_remaining_durations);
+                         remaining_durations);
 }
 
 BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles, IdealOffsets ideal_offsets)
@@ -320,8 +320,6 @@ BLI_NOINLINE static void step_particle_set(BlockAllocator &block_allocator,
   compute_ideal_attribute_offsets(particles, durations, particle_type, ideal_offsets);
 
   SmallVector<uint> unfinished_indices;
-  SmallVector<float> remaining_durations;
-
   simulate_with_max_n_events(10,
                              block_allocator,
                              particles,
@@ -329,8 +327,7 @@ BLI_NOINLINE static void step_particle_set(BlockAllocator &block_allocator,
                              durations,
                              end_time,
                              particle_type,
-                             unfinished_indices,
-                             remaining_durations);
+                             unfinished_indices);
 
   SmallVector<uint> remaining_particle_indices(unfinished_indices.size());
   SmallVector<float3> remaining_position_offsets(unfinished_indices.size());
