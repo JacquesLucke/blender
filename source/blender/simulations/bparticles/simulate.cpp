@@ -355,8 +355,8 @@ struct StepBlocksParallelData {
   ArrayRef<ParticlesBlock *> blocks;
   ArrayRef<float> all_durations;
   float end_time;
-  ParticleType &particle_type;
   BlockAllocators &block_allocators;
+  StepDescription &step_description;
 };
 
 BLI_NOINLINE static void step_individual_particles_cb(void *__restrict userdata,
@@ -369,19 +369,24 @@ BLI_NOINLINE static void step_individual_particles_cb(void *__restrict userdata,
   BlockAllocator block_allocator = data->block_allocators.get_threadlocal_allocator(
       tls->thread_id);
 
+  ParticlesState &state = block_allocator.particles_state();
+  uint particle_type_id = state.particle_container_id(block.container());
+
+  ParticleType &particle_type = data->step_description.particle_type(particle_type_id);
+
   uint active_amount = block.active_amount();
   ParticleSet active_particles(block, static_number_range_ref(0, active_amount));
   step_particle_set(block_allocator,
                     active_particles,
                     data->all_durations.take_front(active_amount),
                     data->end_time,
-                    data->particle_type);
+                    particle_type);
 }
 
-BLI_NOINLINE static void step_individual_particles(BlockAllocators &block_allocators,
-                                                   ArrayRef<ParticlesBlock *> blocks,
-                                                   TimeSpan time_span,
-                                                   ParticleType &particle_type)
+BLI_NOINLINE static void simulate_blocks_threaded(BlockAllocators &block_allocators,
+                                                  ArrayRef<ParticlesBlock *> blocks,
+                                                  TimeSpan time_span,
+                                                  StepDescription &step_description)
 {
   if (blocks.size() == 0) {
     return;
@@ -395,7 +400,7 @@ BLI_NOINLINE static void step_individual_particles(BlockAllocators &block_alloca
   all_durations.fill(time_span.duration());
 
   StepBlocksParallelData data = {
-      blocks, all_durations, time_span.end(), particle_type, block_allocators};
+      blocks, all_durations, time_span.end(), block_allocators, step_description};
 
   BLI_task_parallel_range(
       0, blocks.size(), (void *)&data, step_individual_particles_cb, &settings);
@@ -537,13 +542,12 @@ void simulate_step(ParticlesState &state, StepDescription &description)
 
   BlockAllocators block_allocators(state);
 
+  SmallVector<ParticlesBlock *> existing_blocks;
   for (uint type_id : description.particle_type_ids()) {
-    ParticleType &type = description.particle_type(type_id);
     ParticlesContainer &container = *containers.lookup(type_id);
-
-    step_individual_particles(
-        block_allocators, container.active_blocks().to_small_vector(), time_span, type);
+    existing_blocks.extend(container.active_blocks().to_small_vector());
   }
+  simulate_blocks_threaded(block_allocators, existing_blocks, time_span, description);
 
   BlockAllocator &emitter_allocator = block_allocators.get_standalone_allocator();
   for (Emitter *emitter : description.emitters()) {

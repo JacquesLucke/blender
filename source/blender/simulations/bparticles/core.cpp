@@ -28,7 +28,7 @@ StepDescription::~StepDescription()
 
 ParticlesState::~ParticlesState()
 {
-  for (ParticlesContainer *container : m_particle_containers.values()) {
+  for (ParticlesContainer *container : m_container_by_id.values()) {
     delete container;
   }
 }

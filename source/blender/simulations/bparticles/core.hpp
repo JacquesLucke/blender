@@ -27,7 +27,7 @@ using std::unique_ptr;
 
 class ParticlesState {
  private:
-  SmallMap<uint, ParticlesContainer *> m_particle_containers;
+  SmallMap<uint, ParticlesContainer *> m_container_by_id;
 
  public:
   float m_current_time = 0.0f;
@@ -38,12 +38,23 @@ class ParticlesState {
 
   SmallMap<uint, ParticlesContainer *> &particle_containers()
   {
-    return m_particle_containers;
+    return m_container_by_id;
   }
 
   ParticlesContainer &particle_container(uint type_id)
   {
-    return *m_particle_containers.lookup(type_id);
+    return *m_container_by_id.lookup(type_id);
+  }
+
+  uint particle_container_id(ParticlesContainer &container)
+  {
+    for (auto item : m_container_by_id.items()) {
+      if (item.value == &container) {
+        return item.key;
+      }
+    }
+    BLI_assert(false);
+    return 0;
   }
 };
 
