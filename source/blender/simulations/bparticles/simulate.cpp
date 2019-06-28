@@ -39,7 +39,8 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
                                                       ArrayRef<Event *> events,
                                                       ArrayRef<float> last_event_times,
                                                       ArrayRef<int> r_next_event_indices,
-                                                      ArrayRef<float> r_time_factors_to_next_event)
+                                                      ArrayRef<float> r_time_factors_to_next_event,
+                                                      SmallVector<uint> &r_indices_with_event)
 {
   r_next_event_indices.fill(-1);
   r_time_factors_to_next_event.fill(1.0f);
@@ -68,6 +69,12 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
       }
     }
   }
+
+  for (uint i = 0; i < r_next_event_indices.size(); i++) {
+    if (r_next_event_indices[i] != -1) {
+      r_indices_with_event.append(i);
+    }
+  }
 }
 
 BLI_NOINLINE static void forward_particles_to_next_event_or_end(
@@ -81,6 +88,18 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     float time_factor = time_factors_to_next_event[i];
     positions[pindex] += time_factor * ideal_offsets.position_offsets[i];
     velocities[pindex] += time_factor * ideal_offsets.velocity_offsets[i];
+  }
+}
+
+BLI_NOINLINE static void update_ideal_offsets_for_particles_with_events(
+    ArrayRef<uint> indices_with_events,
+    ArrayRef<float> time_factors_to_next_event,
+    IdealOffsets &ideal_offsets)
+{
+  for (uint i : indices_with_events) {
+    float factor = 1.0f - time_factors_to_next_event[i];
+    ideal_offsets.position_offsets[i] *= factor;
+    ideal_offsets.velocity_offsets[i] *= factor;
   }
 }
 
@@ -215,6 +234,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
 
   SmallVector<int> next_event_indices(particles.size());
   SmallVector<float> time_factors_to_next_event(particles.size());
+  SmallVector<uint> indices_with_event;
 
   find_next_event_per_particle(particles,
                                ideal_offsets,
@@ -223,16 +243,12 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                particle_type.events(),
                                last_event_times,
                                next_event_indices,
-                               time_factors_to_next_event);
-
-  SmallVector<uint> indices_with_event;
-  for (uint i = 0; i < next_event_indices.size(); i++) {
-    if (next_event_indices[i] != -1) {
-      indices_with_event.append(i);
-    }
-  }
+                               time_factors_to_next_event,
+                               indices_with_event);
 
   forward_particles_to_next_event_or_end(particles, ideal_offsets, time_factors_to_next_event);
+  update_ideal_offsets_for_particles_with_events(
+      indices_with_event, time_factors_to_next_event, ideal_offsets);
 
   SmallVector<SmallVector<uint>> particles_per_event(particle_type.events().size());
   find_particles_per_event(
