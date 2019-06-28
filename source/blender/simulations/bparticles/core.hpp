@@ -74,6 +74,12 @@ class BlockAllocator {
   BlockAllocator(ParticlesState &state);
 
   ParticlesBlock &get_non_full_block(uint particle_type_id);
+  void allocate_block_ranges(uint particle_type_id,
+                             uint size,
+                             SmallVector<ParticlesBlock *> &r_blocks,
+                             SmallVector<Range<uint>> &r_ranges);
+
+  AttributesInfo &attributes_info(uint particle_type_id);
 
   ParticlesState &particles_state()
   {
@@ -155,6 +161,17 @@ class EmitTargetBase {
  private:
   void set_elements(uint index, void *data);
   void fill_elements(uint index, void *value);
+};
+
+class InstantEmitTarget : public EmitTargetBase {
+ public:
+  InstantEmitTarget(uint particle_type_id,
+                    AttributesInfo &attributes_info,
+                    ArrayRef<ParticlesBlock *> blocks,
+                    ArrayRef<Range<uint>> ranges)
+      : EmitTargetBase(particle_type_id, attributes_info, blocks, ranges)
+  {
+  }
 };
 
 class TimeSpanEmitTarget : public EmitTargetBase {
@@ -328,12 +345,15 @@ class ActionInterface {
  private:
   ParticleSet m_particles;
   BlockAllocator &m_block_allocator;
+  SmallVector<InstantEmitTarget *> m_emit_targets;
 
  public:
   ActionInterface(ParticleSet particles, BlockAllocator &block_allocator)
       : m_particles(particles), m_block_allocator(block_allocator)
   {
   }
+
+  ~ActionInterface();
 
   BlockAllocator &block_allocator()
   {
@@ -343,6 +363,13 @@ class ActionInterface {
   ParticleSet &particles()
   {
     return m_particles;
+  }
+
+  InstantEmitTarget &request_emit_target(uint particle_type_id, uint size);
+
+  ArrayRef<InstantEmitTarget *> emit_targets()
+  {
+    return m_emit_targets;
   }
 };
 

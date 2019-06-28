@@ -63,6 +63,36 @@ ParticlesBlock &BlockAllocator::get_non_full_block(uint particle_type_id)
   return block;
 }
 
+void BlockAllocator::allocate_block_ranges(uint particle_type_id,
+                                           uint size,
+                                           SmallVector<ParticlesBlock *> &r_blocks,
+                                           SmallVector<Range<uint>> &r_ranges)
+{
+  uint remaining_size = size;
+  while (remaining_size > 0) {
+    ParticlesBlock &block = this->get_non_full_block(particle_type_id);
+
+    uint size_to_use = std::min(block.inactive_amount(), remaining_size);
+    Range<uint> range(block.active_amount(), block.active_amount() + size_to_use);
+    block.active_amount() += size_to_use;
+
+    r_blocks.append(&block);
+    r_ranges.append(range);
+
+    AttributeArrays attributes = block.slice(range);
+    for (uint i : attributes.info().attribute_indices()) {
+      attributes.init_default(i);
+    }
+
+    remaining_size -= size_to_use;
+  }
+}
+
+AttributesInfo &BlockAllocator::attributes_info(uint particle_type_id)
+{
+  return m_state.particle_container(particle_type_id).attributes_info();
+}
+
 /* Emitter Interface
  ******************************************/
 
@@ -77,31 +107,34 @@ TimeSpanEmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
 {
   SmallVector<ParticlesBlock *> blocks;
   SmallVector<Range<uint>> ranges;
+  m_block_allocator.allocate_block_ranges(particle_type_id, size, blocks, ranges);
+  AttributesInfo &attributes_info = m_block_allocator.attributes_info(particle_type_id);
 
-  uint remaining_size = size;
-  while (remaining_size > 0) {
-    ParticlesBlock &block = m_block_allocator.get_non_full_block(particle_type_id);
+  auto *target = new TimeSpanEmitTarget(particle_type_id, attributes_info, blocks, ranges);
+  m_targets.append(target);
+  return *target;
+}
 
-    uint size_to_use = std::min(block.inactive_amount(), remaining_size);
-    Range<uint> range(block.active_amount(), block.active_amount() + size_to_use);
-    block.active_amount() += size_to_use;
+/* Action Interface
+ **************************************/
 
-    blocks.append(&block);
-    ranges.append(range);
-
-    AttributeArrays attributes = block.slice(range);
-    for (uint i : attributes.info().attribute_indices()) {
-      attributes.init_default(i);
-    }
-
-    remaining_size -= size_to_use;
+ActionInterface::~ActionInterface()
+{
+  for (InstantEmitTarget *target : m_emit_targets) {
+    delete target;
   }
+}
 
-  ParticlesContainer &container = m_block_allocator.particles_state().particle_container(
-      particle_type_id);
-  m_targets.append(
-      new TimeSpanEmitTarget(particle_type_id, container.attributes_info(), blocks, ranges));
-  return *m_targets.last();
+InstantEmitTarget &ActionInterface::request_emit_target(uint particle_type_id, uint size)
+{
+  SmallVector<ParticlesBlock *> blocks;
+  SmallVector<Range<uint>> ranges;
+  m_block_allocator.allocate_block_ranges(particle_type_id, size, blocks, ranges);
+  AttributesInfo &attributes_info = m_block_allocator.attributes_info(particle_type_id);
+
+  auto *target = new InstantEmitTarget(particle_type_id, attributes_info, blocks, ranges);
+  m_emit_targets.append(target);
+  return *target;
 }
 
 /* EmitTarget

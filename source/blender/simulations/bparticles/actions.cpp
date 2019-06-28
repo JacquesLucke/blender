@@ -14,7 +14,7 @@ class KillAction : public Action {
   }
 };
 
-class MoveAction : public BParticles::Action {
+class MoveAction : public Action {
  private:
   float3 m_offset;
 
@@ -34,6 +34,28 @@ class MoveAction : public BParticles::Action {
   }
 };
 
+class SpawnAction : public Action {
+  void execute(ActionInterface &interface) override
+  {
+    ParticleSet &particles = interface.particles();
+
+    auto positions = particles.attributes().get_float3("Position");
+
+    SmallVector<float3> new_positions;
+    SmallVector<float3> new_velocities;
+
+    for (uint i : particles.range()) {
+      uint pindex = particles.get_particle_index(i);
+      new_positions.append(positions[pindex] + float3(20, 0, 0));
+      new_velocities.append(float3(1, 1, 10));
+    }
+
+    auto &target = interface.request_emit_target(0, particles.size());
+    target.set_float3("Position", new_positions);
+    target.set_float3("Velocity", new_velocities);
+  }
+};
+
 std::unique_ptr<Action> ACTION_kill()
 {
   Action *action = new KillAction();
@@ -43,6 +65,12 @@ std::unique_ptr<Action> ACTION_kill()
 std::unique_ptr<Action> ACTION_move(float3 offset)
 {
   Action *action = new MoveAction(offset);
+  return std::unique_ptr<Action>(action);
+}
+
+std::unique_ptr<Action> ACTION_spawn()
+{
+  Action *action = new SpawnAction();
   return std::unique_ptr<Action>(action);
 }
 

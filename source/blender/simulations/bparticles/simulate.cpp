@@ -130,6 +130,11 @@ BLI_NOINLINE static void run_actions(BlockAllocator &block_allocator,
 
     ActionInterface interface(particles, block_allocator);
     action->execute(interface);
+
+    for (InstantEmitTarget *target_ptr : interface.emit_targets()) {
+      InstantEmitTarget &target = *target_ptr;
+      target.fill_float("Birth Time", block_allocator.particles_state().m_current_time);
+    }
   }
 }
 

@@ -157,7 +157,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   }
   type0->m_forces.append(FORCE_directional({0, 0, -2}).release());
   type0->m_events.append(EVENT_age_reached(3.0f).release());
-  type0->m_actions.append(ACTION_move({0, 1, 0}).release());
+  type0->m_actions.append(ACTION_spawn().release());
 
   auto *type1 = new ModifierParticleType();
   description.m_types.add_new(1, type1);
