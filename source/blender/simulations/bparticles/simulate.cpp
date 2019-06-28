@@ -219,6 +219,7 @@ BLI_NOINLINE static void compute_ideal_attribute_offsets(ParticleSet particles,
 
 BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                                 ParticleSet particles,
+                                                IdealOffsets ideal_offsets,
                                                 ArrayRef<float> durations,
                                                 float end_time,
                                                 ParticleType &particle_type,
@@ -226,11 +227,6 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                                 SmallVector<uint> &r_unfinished_particle_indices,
                                                 SmallVector<float> &r_remaining_durations)
 {
-  SmallVector<float3> position_offsets(particles.size());
-  SmallVector<float3> velocity_offsets(particles.size());
-  IdealOffsets ideal_offsets{position_offsets, velocity_offsets};
-  compute_ideal_attribute_offsets(particles, durations, particle_type, ideal_offsets);
-
   SmallVector<int> next_event_indices(particles.size());
   SmallVector<float> time_factors_to_next_event(particles.size());
   SmallVector<uint> indices_with_event;
@@ -295,8 +291,16 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     r_remaining_durations.clear();
 
     ParticleSet particles_to_simulate(particles.block(), remaining_particle_indices);
+
+    SmallVector<float3> position_offsets(remaining_particle_indices.size());
+    SmallVector<float3> velocity_offsets(remaining_particle_indices.size());
+    IdealOffsets ideal_offsets{position_offsets, velocity_offsets};
+    compute_ideal_attribute_offsets(
+        particles_to_simulate, durations, particle_type, ideal_offsets);
+
     simulate_to_next_event(block_allocator,
                            particles_to_simulate,
+                           ideal_offsets,
                            durations,
                            end_time,
                            particle_type,
