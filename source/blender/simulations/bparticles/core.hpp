@@ -86,20 +86,20 @@ class BlockAllocator {
   }
 };
 
-class EmitTarget {
- private:
+class EmitTargetBase {
+ protected:
   uint m_particle_type_id;
   AttributesInfo &m_attributes_info;
   SmallVector<ParticlesBlock *> m_blocks;
   SmallVector<Range<uint>> m_ranges;
-  SmallVector<float> m_birth_moments;
+
   uint m_size = 0;
 
  public:
-  EmitTarget(uint particle_type_id,
-             AttributesInfo &attributes_info,
-             ArrayRef<ParticlesBlock *> blocks,
-             ArrayRef<Range<uint>> ranges)
+  EmitTargetBase(uint particle_type_id,
+                 AttributesInfo &attributes_info,
+                 ArrayRef<ParticlesBlock *> blocks,
+                 ArrayRef<Range<uint>> ranges)
       : m_particle_type_id(particle_type_id),
         m_attributes_info(attributes_info),
         m_blocks(blocks),
@@ -109,10 +109,9 @@ class EmitTarget {
     for (auto range : ranges) {
       m_size += range.size();
     }
-    m_birth_moments = SmallVector<float>(m_size, 1.0f);
   }
 
-  EmitTarget(EmitTarget &other) = delete;
+  EmitTargetBase(EmitTargetBase &other) = delete;
 
   void set_byte(uint index, ArrayRef<uint8_t> data);
   void set_byte(StringRef name, ArrayRef<uint8_t> data);
@@ -128,9 +127,6 @@ class EmitTarget {
   void fill_float3(uint index, float3 value);
   void fill_float3(StringRef name, float3 value);
 
-  void set_birth_moment(float time_factor);
-  void set_randomized_birth_moments();
-
   ArrayRef<ParticlesBlock *> blocks()
   {
     return m_blocks;
@@ -139,11 +135,6 @@ class EmitTarget {
   ArrayRef<Range<uint>> ranges()
   {
     return m_ranges;
-  }
-
-  ArrayRef<float> birth_moments()
-  {
-    return m_birth_moments;
   }
 
   uint part_amount()
@@ -166,10 +157,33 @@ class EmitTarget {
   void fill_elements(uint index, void *value);
 };
 
+class TimeSpanEmitTarget : public EmitTargetBase {
+ private:
+  SmallVector<float> m_birth_moments;
+
+ public:
+  TimeSpanEmitTarget(uint particle_type_id,
+                     AttributesInfo &attributes_info,
+                     ArrayRef<ParticlesBlock *> blocks,
+                     ArrayRef<Range<uint>> ranges)
+      : EmitTargetBase(particle_type_id, attributes_info, blocks, ranges)
+  {
+    m_birth_moments = SmallVector<float>(m_size, 1.0f);
+  }
+
+  ArrayRef<float> birth_moments()
+  {
+    return m_birth_moments;
+  }
+
+  void set_birth_moment(float time_factor);
+  void set_randomized_birth_moments();
+};
+
 class EmitterInterface {
  private:
   BlockAllocator &m_block_allocator;
-  SmallVector<EmitTarget *> m_targets;
+  SmallVector<TimeSpanEmitTarget *> m_targets;
 
  public:
   EmitterInterface(BlockAllocator &allocator) : m_block_allocator(allocator)
@@ -178,12 +192,12 @@ class EmitterInterface {
 
   ~EmitterInterface();
 
-  ArrayRef<EmitTarget *> targets()
+  ArrayRef<TimeSpanEmitTarget *> targets()
   {
     return m_targets;
   }
 
-  EmitTarget &request(uint particle_type_id, uint size);
+  TimeSpanEmitTarget &request(uint particle_type_id, uint size);
 };
 
 struct ParticleSet {

@@ -68,12 +68,12 @@ ParticlesBlock &BlockAllocator::get_non_full_block(uint particle_type_id)
 
 EmitterInterface::~EmitterInterface()
 {
-  for (EmitTarget *target : m_targets) {
+  for (TimeSpanEmitTarget *target : m_targets) {
     delete target;
   }
 }
 
-EmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
+TimeSpanEmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
 {
   SmallVector<ParticlesBlock *> blocks;
   SmallVector<Range<uint>> ranges;
@@ -99,14 +99,15 @@ EmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
 
   ParticlesContainer &container = m_block_allocator.particles_state().particle_container(
       particle_type_id);
-  m_targets.append(new EmitTarget(particle_type_id, container.attributes_info(), blocks, ranges));
+  m_targets.append(
+      new TimeSpanEmitTarget(particle_type_id, container.attributes_info(), blocks, ranges));
   return *m_targets.last();
 }
 
 /* EmitTarget
  ******************************************/
 
-void EmitTarget::set_elements(uint index, void *data)
+void EmitTargetBase::set_elements(uint index, void *data)
 {
   AttributeType type = m_attributes_info.type_of(index);
   uint element_size = size_of_attribute_type(type);
@@ -126,7 +127,7 @@ void EmitTarget::set_elements(uint index, void *data)
   }
 }
 
-void EmitTarget::fill_elements(uint index, void *value)
+void EmitTargetBase::fill_elements(uint index, void *value)
 {
   AttributeType type = m_attributes_info.type_of(index);
   uint element_size = size_of_attribute_type(type);
@@ -141,81 +142,81 @@ void EmitTarget::fill_elements(uint index, void *value)
   }
 }
 
-void EmitTarget::set_byte(uint index, ArrayRef<uint8_t> data)
+void EmitTargetBase::set_byte(uint index, ArrayRef<uint8_t> data)
 {
   BLI_assert(data.size() == m_size);
   BLI_assert(m_attributes_info.type_of(index) == AttributeType::Byte);
   this->set_elements(index, (void *)data.begin());
 }
-void EmitTarget::set_float(uint index, ArrayRef<float> data)
+void EmitTargetBase::set_float(uint index, ArrayRef<float> data)
 {
   BLI_assert(data.size() == m_size);
   BLI_assert(m_attributes_info.type_of(index) == AttributeType::Float);
   this->set_elements(index, (void *)data.begin());
 }
-void EmitTarget::set_float3(uint index, ArrayRef<float3> data)
+void EmitTargetBase::set_float3(uint index, ArrayRef<float3> data)
 {
   BLI_assert(data.size() == m_size);
   BLI_assert(m_attributes_info.type_of(index) == AttributeType::Float3);
   this->set_elements(index, (void *)data.begin());
 }
 
-void EmitTarget::set_byte(StringRef name, ArrayRef<uint8_t> data)
+void EmitTargetBase::set_byte(StringRef name, ArrayRef<uint8_t> data)
 {
   uint index = m_attributes_info.attribute_index(name);
   this->set_byte(index, data);
 }
-void EmitTarget::set_float(StringRef name, ArrayRef<float> data)
+void EmitTargetBase::set_float(StringRef name, ArrayRef<float> data)
 {
   uint index = m_attributes_info.attribute_index(name);
   this->set_float(index, data);
 }
-void EmitTarget::set_float3(StringRef name, ArrayRef<float3> data)
+void EmitTargetBase::set_float3(StringRef name, ArrayRef<float3> data)
 {
   uint index = m_attributes_info.attribute_index(name);
   this->set_float3(index, data);
 }
 
-void EmitTarget::fill_byte(uint index, uint8_t value)
+void EmitTargetBase::fill_byte(uint index, uint8_t value)
 {
   this->fill_elements(index, (void *)&value);
 }
 
-void EmitTarget::fill_byte(StringRef name, uint8_t value)
+void EmitTargetBase::fill_byte(StringRef name, uint8_t value)
 {
   uint index = m_attributes_info.attribute_index(name);
   this->fill_byte(index, value);
 }
 
-void EmitTarget::fill_float(uint index, float value)
+void EmitTargetBase::fill_float(uint index, float value)
 {
   this->fill_elements(index, (void *)&value);
 }
 
-void EmitTarget::fill_float(StringRef name, float value)
+void EmitTargetBase::fill_float(StringRef name, float value)
 {
   uint index = m_attributes_info.attribute_index(name);
   this->fill_float(index, value);
 }
 
-void EmitTarget::fill_float3(uint index, float3 value)
+void EmitTargetBase::fill_float3(uint index, float3 value)
 {
   this->fill_elements(index, (void *)&value);
 }
 
-void EmitTarget::fill_float3(StringRef name, float3 value)
+void EmitTargetBase::fill_float3(StringRef name, float3 value)
 {
   uint index = m_attributes_info.attribute_index(name);
   this->fill_float3(index, value);
 }
 
-void EmitTarget::set_birth_moment(float time_factor)
+void TimeSpanEmitTarget::set_birth_moment(float time_factor)
 {
   BLI_assert(time_factor >= 0.0 && time_factor <= 1.0f);
   m_birth_moments.fill(time_factor);
 }
 
-void EmitTarget::set_randomized_birth_moments()
+void TimeSpanEmitTarget::set_randomized_birth_moments()
 {
   for (float &birth_moment : m_birth_moments) {
     birth_moment = (rand() % 10000) / 10000.0f;

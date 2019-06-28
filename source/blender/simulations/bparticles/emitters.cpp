@@ -22,7 +22,7 @@ class PointEmitter : public Emitter {
 
   void emit(EmitterInterface &interface) override
   {
-    EmitTarget &target = interface.request(0, 1);
+    auto &target = interface.request(0, 1);
     target.set_float3("Position", {m_point});
     target.set_float3("Velocity", {float3{-1, -1, 0}});
     target.set_birth_moment(1.0f);
@@ -70,7 +70,7 @@ class SurfaceEmitter : public Emitter {
       velocities.append(m_transform.transform_direction(normal * m_normal_velocity));
     }
 
-    EmitTarget &target = interface.request(m_particle_type_id, positions.size());
+    auto &target = interface.request(m_particle_type_id, positions.size());
     target.set_float3("Position", positions);
     target.set_float3("Velocity", velocities);
     target.set_randomized_birth_moments();
@@ -102,7 +102,7 @@ class PathEmitter : public Emitter {
       }
     }
 
-    EmitTarget &target = interface.request(0, positions.size());
+    auto &target = interface.request(0, positions.size());
     target.set_float3("Position", positions);
     target.set_float3("Velocity", SmallVector<float3>(positions.size()));
     target.set_birth_moment(1.0f);

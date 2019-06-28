@@ -504,8 +504,8 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(BlockAllocator &block_a
   EmitterInterface interface(block_allocator);
   emitter.emit(interface);
 
-  for (EmitTarget *target_ptr : interface.targets()) {
-    EmitTarget &target = *target_ptr;
+  for (TimeSpanEmitTarget *target_ptr : interface.targets()) {
+    TimeSpanEmitTarget &target = *target_ptr;
 
     ArrayRef<float> all_birth_moments = target.birth_moments();
     uint particle_count = 0;
