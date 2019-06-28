@@ -50,8 +50,8 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
                        ArrayRef<bool> input_is_list,
                        ArrayRef<SharedFunction> empty_list_value_builders)
       : m_main(main),
-        m_input_is_list(input_is_list.to_small_vector()),
-        m_empty_list_value_builders(empty_list_value_builders.to_small_vector())
+        m_input_is_list(input_is_list),
+        m_empty_list_value_builders(empty_list_value_builders)
   {
     BLI_assert(input_is_list.contains(true));
     for (uint i = 0; i < main->input_amount(); i++) {
@@ -466,8 +466,8 @@ struct AutoVectorizationInput {
                          ArrayRef<bool> vectorized_inputs_mask,
                          ArrayRef<SharedFunction> empty_list_value_builders)
       : m_original_fn(original_fn),
-        m_vectorized_inputs_mask(vectorized_inputs_mask.to_small_vector()),
-        m_empty_list_value_builders(empty_list_value_builders.to_small_vector())
+        m_vectorized_inputs_mask(vectorized_inputs_mask),
+        m_empty_list_value_builders(empty_list_value_builders)
   {
   }
 

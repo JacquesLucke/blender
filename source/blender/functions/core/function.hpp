@@ -46,10 +46,10 @@ class Function final : public RefCountedBase {
            ArrayRef<SharedType> output_types,
            const char *strings)
       : m_name(name),
-        m_input_names(input_names.to_small_vector()),
-        m_input_types(input_types.to_small_vector()),
-        m_output_names(output_names.to_small_vector()),
-        m_output_types(output_types.to_small_vector()),
+        m_input_names(input_names),
+        m_input_types(input_types),
+        m_output_names(output_names),
+        m_output_types(output_types),
         m_strings(strings)
   {
     BLI_assert(m_input_names.size() == m_input_types.size());

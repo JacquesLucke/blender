@@ -100,7 +100,7 @@ class SocketLoaderBody : public TupleCallBody {
   SocketLoaderBody(bNodeTree *btree,
                    ArrayRef<bNodeSocket *> bsockets,
                    SmallVector<SocketLoader> &loaders)
-      : m_btree(btree), m_bsockets(bsockets.to_small_vector()), m_loaders(loaders)
+      : m_btree(btree), m_bsockets(bsockets), m_loaders(loaders)
   {
   }
 

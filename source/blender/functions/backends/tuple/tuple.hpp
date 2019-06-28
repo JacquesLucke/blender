@@ -14,7 +14,7 @@ class TupleMeta : public RefCountedBase {
   bool m_all_trivially_destructible;
 
  public:
-  TupleMeta(ArrayRef<SharedType> types = {}) : m_types(types.to_small_vector())
+  TupleMeta(ArrayRef<SharedType> types = {}) : m_types(types)
   {
     m_all_trivially_destructible = true;
     m_size__data = 0;

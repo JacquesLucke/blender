@@ -33,6 +33,8 @@
 #include <memory>
 
 #include "BLI_utildefines.h"
+#include "BLI_array_ref.hpp"
+
 #include "MEM_guardedalloc.h"
 
 namespace BLI {
@@ -90,7 +92,14 @@ template<typename T, uint N = 4> class SmallVector {
   /**
    * Create a vector from an initializer list.
    */
-  SmallVector(std::initializer_list<T> values) : SmallVector()
+  SmallVector(std::initializer_list<T> values) : SmallVector(ArrayRef<T>(values))
+  {
+  }
+
+  /**
+   * Create a vector from an array ref.
+   */
+  SmallVector(ArrayRef<T> values) : SmallVector()
   {
     this->reserve(values.size());
     std::uninitialized_copy_n(values.begin(), values.size(), this->begin());
@@ -120,6 +129,11 @@ template<typename T, uint N = 4> class SmallVector {
   ~SmallVector()
   {
     this->destruct_elements_and_free_memory();
+  }
+
+  operator ArrayRef<T>() const
+  {
+    return ArrayRef<T>(m_elements, m_size);
   }
 
   SmallVector &operator=(const SmallVector &other)

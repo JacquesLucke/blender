@@ -66,7 +66,7 @@ class TupleCallLLVM : public LLVMBuildIRBody {
         builder, interface, settings, input_type_infos, output_type_infos);
 
     /* Call wrapper function. */
-    LLVMValues call_inputs = interface.inputs().to_small_vector();
+    LLVMValues call_inputs = interface.inputs();
     if (settings.maintain_stack()) {
       call_inputs.append(interface.context_ptr());
     }

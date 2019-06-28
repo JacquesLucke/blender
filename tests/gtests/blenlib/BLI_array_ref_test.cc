@@ -1,5 +1,6 @@
 #include "testing/testing.h"
 #include "BLI_array_ref.hpp"
+#include "BLI_small_vector.hpp"
 
 using IntVector = BLI::SmallVector<int>;
 using IntArrayRef = BLI::ArrayRef<int>;
@@ -118,7 +119,7 @@ TEST(array_ref, ToSmallVector)
 {
   IntVector a = {1, 2, 3, 4};
   IntArrayRef a_ref = a;
-  IntVector b = a_ref.to_small_vector();
+  IntVector b = a_ref;
   IntVector::all_equal(a, b);
 }
 

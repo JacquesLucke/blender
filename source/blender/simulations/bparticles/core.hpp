@@ -102,8 +102,8 @@ class EmitTarget {
              ArrayRef<Range<uint>> ranges)
       : m_particle_type_id(particle_type_id),
         m_attributes_info(attributes_info),
-        m_blocks(blocks.to_small_vector()),
-        m_ranges(ranges.to_small_vector())
+        m_blocks(blocks),
+        m_ranges(ranges)
   {
     BLI_assert(blocks.size() == ranges.size());
     for (auto range : ranges) {

@@ -29,8 +29,9 @@
 
 #include <vector>
 #include <array>
+#include <algorithm>
 
-#include "BLI_small_vector.hpp"
+#include "BLI_utildefines.h"
 
 namespace BLI {
 
@@ -58,11 +59,6 @@ template<typename T> class ArrayRef {
   }
 
   ArrayRef(const T *start, uint size) : m_start((T *)start), m_size(size)
-  {
-  }
-
-  template<uint N>
-  ArrayRef(const SmallVector<T, N> &vector) : ArrayRef(vector.begin(), vector.size())
   {
   }
 
@@ -213,18 +209,6 @@ template<typename T> class ArrayRef {
       }
     }
     return counter;
-  }
-
-  /**
-   * Create a new SmallVector based on the referenced array.
-   */
-  template<uint N = 4> SmallVector<T, N> to_small_vector() const
-  {
-    SmallVector<T, N> vector;
-    for (T &value : *this) {
-      vector.append(value);
-    }
-    return vector;
   }
 };
 
