@@ -133,14 +133,13 @@ BLI_NOINLINE static void compute_current_time_per_particle(
   }
 }
 
-BLI_NOINLINE static void find_unfinished_particles(
-    ArrayRef<uint> indices_with_event,
-    ArrayRef<uint> particle_indices,
-    ArrayRef<float> time_factors_to_next_event,
-    ArrayRef<float> durations,
-    ArrayRef<uint8_t> kill_states,
-    SmallVector<uint> &r_unfinished_particle_indices,
-    SmallVector<float> &r_remaining_durations)
+BLI_NOINLINE static void find_unfinished_particles(ArrayRef<uint> indices_with_event,
+                                                   ArrayRef<uint> particle_indices,
+                                                   ArrayRef<float> time_factors_to_next_event,
+                                                   ArrayRef<float> durations,
+                                                   ArrayRef<uint8_t> kill_states,
+                                                   SmallVector<uint> &r_unfinished_indices,
+                                                   SmallVector<float> &r_remaining_durations)
 {
 
   for (uint i : indices_with_event) {
@@ -149,7 +148,7 @@ BLI_NOINLINE static void find_unfinished_particles(
       float time_factor = time_factors_to_next_event[i];
       float remaining_duration = durations[i] * (1.0f - time_factor);
 
-      r_unfinished_particle_indices.append(pindex);
+      r_unfinished_indices.append(i);
       r_remaining_durations.append(remaining_duration);
     }
   }
@@ -224,7 +223,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                                 float end_time,
                                                 ParticleType &particle_type,
                                                 ArrayRef<float> last_event_times,
-                                                SmallVector<uint> &r_unfinished_particle_indices,
+                                                SmallVector<uint> &r_unfinished_indices,
                                                 SmallVector<float> &r_remaining_durations)
 {
   SmallVector<int> next_event_indices(particles.size());
@@ -269,58 +268,31 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                             time_factors_to_next_event,
                             durations,
                             particles.attributes().get_byte("Kill State"),
-                            r_unfinished_particle_indices,
+                            r_unfinished_indices,
                             r_remaining_durations);
 }
 
-BLI_NOINLINE static void simulate_with_max_n_events(
-    uint max_events,
-    BlockAllocator &block_allocator,
-    ParticleSet particles,
-    ArrayRef<float> durations,
-    float end_time,
-    ParticleType &particle_type,
-    SmallVector<uint> &r_unfinished_particle_indices,
-    SmallVector<float> &r_remaining_durations)
+BLI_NOINLINE static void simulate_with_max_n_events(uint UNUSED(max_events),
+                                                    BlockAllocator &block_allocator,
+                                                    ParticleSet particles,
+                                                    IdealOffsets ideal_offsets,
+                                                    ArrayRef<float> durations,
+                                                    float end_time,
+                                                    ParticleType &particle_type,
+                                                    SmallVector<uint> &r_unfinished_indices,
+                                                    SmallVector<float> &r_remaining_durations)
 {
   SmallVector<float> last_event_times;
-  ArrayRef<uint> remaining_particle_indices = particles.indices();
 
-  for (uint iteration = 0; iteration < max_events; iteration++) {
-    r_unfinished_particle_indices.clear();
-    r_remaining_durations.clear();
-
-    ParticleSet particles_to_simulate(particles.block(), remaining_particle_indices);
-
-    SmallVector<float3> position_offsets(remaining_particle_indices.size());
-    SmallVector<float3> velocity_offsets(remaining_particle_indices.size());
-    IdealOffsets ideal_offsets{position_offsets, velocity_offsets};
-    compute_ideal_attribute_offsets(
-        particles_to_simulate, durations, particle_type, ideal_offsets);
-
-    simulate_to_next_event(block_allocator,
-                           particles_to_simulate,
-                           ideal_offsets,
-                           durations,
-                           end_time,
-                           particle_type,
-                           last_event_times,
-                           r_unfinished_particle_indices,
-                           r_remaining_durations);
-    BLI_assert(r_unfinished_particle_indices.size() == r_remaining_durations.size());
-
-    if (r_unfinished_particle_indices.size() == 0) {
-      break;
-    }
-
-    remaining_particle_indices = r_unfinished_particle_indices;
-    durations = r_remaining_durations;
-
-    last_event_times.clear();
-    for (float duration : durations) {
-      last_event_times.append(end_time - duration);
-    }
-  }
+  simulate_to_next_event(block_allocator,
+                         particles,
+                         ideal_offsets,
+                         durations,
+                         end_time,
+                         particle_type,
+                         last_event_times,
+                         r_unfinished_indices,
+                         r_remaining_durations);
 }
 
 BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles, IdealOffsets ideal_offsets)
@@ -342,26 +314,36 @@ BLI_NOINLINE static void step_particle_set(BlockAllocator &block_allocator,
                                            float end_time,
                                            ParticleType &particle_type)
 {
-  SmallVector<uint> unfinished_particle_indices;
+  SmallVector<float3> position_offsets(particles.size());
+  SmallVector<float3> velocity_offsets(particles.size());
+  IdealOffsets ideal_offsets{position_offsets, velocity_offsets};
+  compute_ideal_attribute_offsets(particles, durations, particle_type, ideal_offsets);
+
+  SmallVector<uint> unfinished_indices;
   SmallVector<float> remaining_durations;
 
   simulate_with_max_n_events(10,
                              block_allocator,
                              particles,
+                             ideal_offsets,
                              durations,
                              end_time,
                              particle_type,
-                             unfinished_particle_indices,
+                             unfinished_indices,
                              remaining_durations);
 
-  ParticleSet remaining_particles(particles.block(), unfinished_particle_indices);
+  SmallVector<uint> remaining_particle_indices(unfinished_indices.size());
+  SmallVector<float3> remaining_position_offsets(unfinished_indices.size());
+  SmallVector<float3> remaining_velocity_offsets(unfinished_indices.size());
+  for (uint i = 0; i < unfinished_indices.size(); i++) {
+    uint index = unfinished_indices[i];
+    uint pindex = particles.get_particle_index(index);
+    remaining_position_offsets[i] = ideal_offsets.position_offsets[index];
+    remaining_velocity_offsets[i] = ideal_offsets.velocity_offsets[index];
+    remaining_particle_indices[i] = pindex;
+  }
 
-  SmallVector<float3> position_offsets(unfinished_particle_indices.size());
-  SmallVector<float3> velocity_offsets(unfinished_particle_indices.size());
-  IdealOffsets ideal_offsets{position_offsets, velocity_offsets};
-  compute_ideal_attribute_offsets(
-      remaining_particles, remaining_durations, particle_type, ideal_offsets);
-
+  ParticleSet remaining_particles(particles.block(), remaining_particle_indices);
   apply_remaining_offsets(remaining_particles, ideal_offsets);
 }
 
