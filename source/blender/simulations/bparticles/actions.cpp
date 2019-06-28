@@ -1,5 +1,7 @@
 #include "actions.hpp"
 
+#include "BLI_hash.h"
+
 namespace BParticles {
 
 class KillAction : public Action {
@@ -53,10 +55,16 @@ class SpawnAction : public Action {
   }
 };
 
+static float random_number()
+{
+  static uint number = 0;
+  number++;
+  return BLI_hash_int_01(number) * 2.0f - 1.0f;
+}
+
 static float3 random_direction()
 {
-  return float3(
-      (rand() % 1000 - 500) / 500.f, (rand() % 1000 - 500) / 500.f, (rand() % 1000 - 500) / 500.f);
+  return float3(random_number(), random_number(), random_number());
 }
 
 class ExplodeAction : public Action {
