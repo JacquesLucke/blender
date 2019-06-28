@@ -345,12 +345,16 @@ class ActionInterface {
   BlockAllocator &m_block_allocator;
   SmallVector<InstantEmitTarget *> m_emit_targets;
   ArrayRef<float> m_current_times;
+  ArrayRef<uint8_t> m_kill_states;
 
  public:
   ActionInterface(ParticleSet particles,
                   BlockAllocator &block_allocator,
                   ArrayRef<float> current_times)
-      : m_particles(particles), m_block_allocator(block_allocator), m_current_times(current_times)
+      : m_particles(particles),
+        m_block_allocator(block_allocator),
+        m_current_times(current_times),
+        m_kill_states(m_particles.attributes().get_byte("Kill State"))
   {
   }
 
@@ -367,6 +371,13 @@ class ActionInterface {
   }
 
   InstantEmitTarget &request_emit_target(uint particle_type_id, ArrayRef<uint> original_indices);
+
+  void kill(ArrayRef<uint> particle_indices)
+  {
+    for (uint pindex : particle_indices) {
+      m_kill_states[pindex] = 1;
+    }
+  }
 
   ArrayRef<InstantEmitTarget *> emit_targets()
   {

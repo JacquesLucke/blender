@@ -5,12 +5,7 @@ namespace BParticles {
 class KillAction : public Action {
   void execute(ActionInterface &interface) override
   {
-    ParticleSet &particles = interface.particles();
-
-    auto kill_states = particles.attributes().get_byte("Kill State");
-    for (uint pindex : particles.indices()) {
-      kill_states[pindex] = 1;
-    }
+    interface.kill(interface.particles().indices());
   }
 };
 
@@ -70,18 +65,15 @@ class ExplodeAction : public Action {
     ParticleSet &particles = interface.particles();
 
     auto positions = particles.attributes().get_float3("Position");
-    auto kill_states = particles.attributes().get_byte("Kill State");
 
     SmallVector<float3> new_positions;
     SmallVector<float3> new_velocities;
     SmallVector<uint> original_indices;
 
     uint parts_amount = 100;
-
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
 
-      kill_states[pindex] = 1;
       new_positions.append_n_times(positions[pindex], parts_amount);
       original_indices.append_n_times(i, parts_amount);
 
@@ -93,6 +85,8 @@ class ExplodeAction : public Action {
     auto &target = interface.request_emit_target(1, original_indices);
     target.set_float3("Position", new_positions);
     target.set_float3("Velocity", new_velocities);
+
+    interface.kill(particles.indices());
   }
 };
 
