@@ -729,9 +729,8 @@ static bToolRef *toolsystem_reinit_ensure_toolref(bContext *C,
   return tref;
 }
 
-void WM_toolsystem_update_from_context_view3d(bContext *C)
+static void wm_toolsystem_update_from_context_view3d_impl(bContext *C, WorkSpace *workspace)
 {
-  WorkSpace *workspace = CTX_wm_workspace(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   int space_type = SPACE_VIEW3D;
   const bToolKey tkey = {
@@ -739,6 +738,37 @@ void WM_toolsystem_update_from_context_view3d(bContext *C)
       .mode = WM_toolsystem_mode_from_spacetype(view_layer, NULL, space_type),
   };
   toolsystem_reinit_ensure_toolref(C, workspace, &tkey, NULL);
+}
+
+void WM_toolsystem_update_from_context_view3d(bContext *C)
+{
+  WorkSpace *workspace = CTX_wm_workspace(C);
+  wm_toolsystem_update_from_context_view3d_impl(C, workspace);
+
+  /* Multi window support. */
+  Main *bmain = CTX_data_main(C);
+  wmWindowManager *wm = bmain->wm.first;
+  if (!BLI_listbase_is_single(&wm->windows)) {
+    wmWindow *win_prev = CTX_wm_window(C);
+    ScrArea *area_prev = CTX_wm_area(C);
+    ARegion *ar_prev = CTX_wm_region(C);
+
+    for (wmWindow *win = wm->windows.first; win; win = win->next) {
+      if (win != win_prev) {
+        WorkSpace *workspace_iter = WM_window_get_active_workspace(win);
+        if (workspace_iter != workspace) {
+
+          CTX_wm_window_set(C, win);
+
+          wm_toolsystem_update_from_context_view3d_impl(C, workspace_iter);
+
+          CTX_wm_window_set(C, win_prev);
+          CTX_wm_area_set(C, area_prev);
+          CTX_wm_region_set(C, ar_prev);
+        }
+      }
+    }
+  }
 }
 
 void WM_toolsystem_update_from_context(bContext *C,
@@ -769,12 +799,23 @@ void WM_toolsystem_do_msg_notify_tag_refresh(bContext *C,
                                              wmMsgSubscribeKey *UNUSED(msg_key),
                                              wmMsgSubscribeValue *msg_val)
 {
-  WorkSpace *workspace = CTX_wm_workspace(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
   ScrArea *sa = msg_val->user_data;
-  int space_type = sa->spacetype;
+  Main *bmain = CTX_data_main(C);
+  wmWindow *win = ((wmWindowManager *)bmain->wm.first)->windows.first;
+  if (win->next != NULL) {
+    do {
+      bScreen *screen = WM_window_get_active_screen(win);
+      if (BLI_findindex(&screen->areabase, sa) != -1) {
+        break;
+      }
+    } while ((win = win->next));
+  }
+
+  WorkSpace *workspace = WM_window_get_active_workspace(win);
+  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
+
   const bToolKey tkey = {
-      .space_type = space_type,
+      .space_type = sa->spacetype,
       .mode = WM_toolsystem_mode_from_spacetype(view_layer, sa, sa->spacetype),
   };
   WM_toolsystem_refresh(C, workspace, &tkey);
