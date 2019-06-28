@@ -80,6 +80,11 @@ wmGizmoGroup *wm_gizmogroup_new_from_type(wmGizmoMap *gzmap, wmGizmoGroupType *g
   return gzgroup;
 }
 
+wmGizmoGroup *wm_gizmogroup_find_by_type(const wmGizmoMap *gzmap, const wmGizmoGroupType *gzgt)
+{
+  return BLI_findptr(&gzmap->groups, gzgt, offsetof(wmGizmoGroup, type));
+}
+
 void wm_gizmogroup_free(bContext *C, wmGizmoGroup *gzgroup)
 {
   wmGizmoMap *gzmap = gzgroup->parent_gzmap;
@@ -283,6 +288,34 @@ bool WM_gizmo_group_type_poll(const bContext *C, const struct wmGizmoGroupType *
   /* Check for poll function, if gizmo-group belongs to an operator,
    * also check if the operator is running. */
   return (!gzgt->poll || gzgt->poll(C, (wmGizmoGroupType *)gzgt));
+}
+
+void WM_gizmo_group_remove_by_tool(bContext *C,
+                                   Main *bmain,
+                                   const wmGizmoGroupType *gzgt,
+                                   const bToolRef *tref)
+{
+  wmGizmoMapType *gzmap_type = WM_gizmomaptype_find(&gzgt->gzmap_params);
+  for (bScreen *sc = bmain->screens.first; sc; sc = sc->id.next) {
+    for (ScrArea *sa = sc->areabase.first; sa; sa = sa->next) {
+      if (sa->runtime.tool == tref) {
+        for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+          wmGizmoMap *gzmap = ar->gizmo_map;
+          if (gzmap && gzmap->type == gzmap_type) {
+            wmGizmoGroup *gzgroup, *gzgroup_next;
+            for (gzgroup = gzmap->groups.first; gzgroup; gzgroup = gzgroup_next) {
+              gzgroup_next = gzgroup->next;
+              if (gzgroup->type == gzgt) {
+                BLI_assert(gzgroup->parent_gzmap == gzmap);
+                wm_gizmogroup_free(C, gzgroup);
+                ED_region_tag_redraw(ar);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 bool wm_gizmogroup_is_visible_in_drawstep(const wmGizmoGroup *gzgroup,
@@ -970,7 +1003,7 @@ void WM_gizmo_group_type_add_ptr_ex(wmGizmoGroupType *gzgt, wmGizmoMapType *gzma
 {
   WM_gizmomaptype_group_link_ptr(gzmap_type, gzgt);
 
-  WM_gizmoconfig_update_tag_init(gzmap_type, gzgt);
+  WM_gizmoconfig_update_tag_group_type_init(gzmap_type, gzgt);
 }
 void WM_gizmo_group_type_add_ptr(wmGizmoGroupType *gzgt)
 {
@@ -1050,7 +1083,7 @@ void WM_gizmo_group_type_reinit(struct Main *bmain, const char *idname)
 
 void WM_gizmo_group_type_unlink_delayed_ptr_ex(wmGizmoGroupType *gzgt, wmGizmoMapType *gzmap_type)
 {
-  WM_gizmoconfig_update_tag_remove(gzmap_type, gzgt);
+  WM_gizmoconfig_update_tag_group_type_remove(gzmap_type, gzgt);
 }
 
 void WM_gizmo_group_type_unlink_delayed_ptr(wmGizmoGroupType *gzgt)

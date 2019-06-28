@@ -34,6 +34,7 @@ struct GHashIterator;
 struct IDProperty;
 struct Main;
 struct PropertyRNA;
+struct bToolRef;
 struct wmGizmo;
 struct wmGizmoGroup;
 struct wmGizmoGroupType;
@@ -159,10 +160,10 @@ struct wmGizmoGroupTypeRef *WM_gizmogrouptype_append_and_link(
 /* wm_gizmo_map.c */
 
 /* Dynamic Updates (for RNA runtime registration) */
-void WM_gizmoconfig_update_tag_init(struct wmGizmoMapType *gzmap_type,
-                                    struct wmGizmoGroupType *gzgt);
-void WM_gizmoconfig_update_tag_remove(struct wmGizmoMapType *gzmap_type,
-                                      struct wmGizmoGroupType *gzgt);
+void WM_gizmoconfig_update_tag_group_type_init(struct wmGizmoMapType *gzmap_type,
+                                               struct wmGizmoGroupType *gzgt);
+void WM_gizmoconfig_update_tag_group_type_remove(struct wmGizmoMapType *gzmap_type,
+                                                 struct wmGizmoGroupType *gzgt);
 void WM_gizmoconfig_update(struct Main *bmain);
 
 /* wm_maniulator_target_props.c */
@@ -364,5 +365,9 @@ void WM_gizmo_group_type_reinit(struct Main *bmain, const char *idname);
 bool WM_gizmo_context_check_drawstep(const struct bContext *C, eWM_GizmoFlagMapDrawStep step);
 
 bool WM_gizmo_group_type_poll(const struct bContext *C, const struct wmGizmoGroupType *gzgt);
+void WM_gizmo_group_remove_by_tool(struct bContext *C,
+                                   struct Main *bmain,
+                                   const struct wmGizmoGroupType *gzgt,
+                                   const struct bToolRef *tref);
 
 #endif /* __WM_GIZMO_API_H__ */

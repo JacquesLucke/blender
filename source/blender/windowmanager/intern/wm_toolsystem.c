@@ -128,36 +128,15 @@ bool WM_toolsystem_ref_ensure(struct WorkSpace *workspace, const bToolKey *tkey,
 
 /** \} */
 
-static void toolsystem_unlink_ref(bContext *C, WorkSpace *workspace, bToolRef *tref)
+static void toolsystem_unlink_ref(bContext *C, WorkSpace *UNUSED(workspace), bToolRef *tref)
 {
   bToolRef_Runtime *tref_rt = tref->runtime;
 
   if (tref_rt->gizmo_group[0]) {
     wmGizmoGroupType *gzgt = WM_gizmogrouptype_find(tref_rt->gizmo_group, false);
     if (gzgt != NULL) {
-      bool found = false;
-
-      /* TODO(campbell) */
       Main *bmain = CTX_data_main(C);
-#if 0
-      wmWindowManager *wm = bmain->wm.first;
-      /* Check another workspace isn't using this tool. */
-      for (wmWindow *win = wm->windows.first; win; win = win->next) {
-        const WorkSpace *workspace_iter = WM_window_get_active_workspace(win);
-        if (workspace != workspace_iter) {
-          if (STREQ(workspace->tool.gizmo_group, workspace_iter->tool.gizmo_group)) {
-            found = true;
-            break;
-          }
-        }
-      }
-#else
-      UNUSED_VARS(workspace);
-#endif
-      if (!found) {
-        wmGizmoMapType *gzmap_type = WM_gizmomaptype_ensure(&gzgt->gzmap_params);
-        WM_gizmomaptype_group_unlink(C, bmain, gzmap_type, gzgt);
-      }
+      WM_gizmo_group_remove_by_tool(C, bmain, gzgt, tref);
     }
   }
 }
@@ -181,7 +160,7 @@ static void toolsystem_ref_link(bContext *C, WorkSpace *workspace, bToolRef *tre
           /* Even if the group-type was has been linked, it's possible the space types
            * were not previously using it. (happens with multiple windows.) */
           wmGizmoMapType *gzmap_type = WM_gizmomaptype_ensure(&gzgt->gzmap_params);
-          WM_gizmoconfig_update_tag_init(gzmap_type, gzgt);
+          WM_gizmoconfig_update_tag_group_type_init(gzmap_type, gzgt);
         }
       }
     }
