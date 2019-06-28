@@ -142,10 +142,6 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
         EMITTER_mesh_surface(
             0, (Mesh *)npmd->emitter_object->data, npmd->emitter_object->obmat, npmd->control1)
             .release());
-    description.m_emitters.append(
-        EMITTER_mesh_surface(
-            1, (Mesh *)npmd->emitter_object->data, npmd->emitter_object->obmat, npmd->control1)
-            .release());
   }
   BVHTreeFromMesh treedata = {0};
   if (npmd->collision_object) {
@@ -153,15 +149,14 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
         &treedata, (Mesh *)npmd->collision_object->data, BVHTREE_FROM_LOOPTRI, 4);
     type0->m_events.append(
         EVENT_mesh_collection(&treedata, npmd->collision_object->obmat).release());
-    type0->m_actions.append(ACTION_kill().release());
+    type0->m_actions.append(ACTION_explode().release());
+    type0->m_forces.append(FORCE_directional({0, 0, -2}).release());
   }
-  type0->m_forces.append(FORCE_directional({0, 0, -2}).release());
-  type0->m_events.append(EVENT_age_reached(3.0f).release());
-  type0->m_actions.append(ACTION_spawn().release());
 
   auto *type1 = new ModifierParticleType();
   description.m_types.add_new(1, type1);
-  type1->m_forces.append(FORCE_directional({0, 0, 1}).release());
+  type1->m_events.append(EVENT_age_reached(0.3f).release());
+  type1->m_actions.append(ACTION_kill().release());
 
   simulate_step(state, description);
 
