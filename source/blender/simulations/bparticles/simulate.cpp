@@ -328,6 +328,8 @@ class BlockAllocators {
 
   BlockAllocator &get_standalone_allocator()
   {
+    std::lock_guard<std::mutex> lock(m_access_mutex);
+
     BlockAllocator *new_allocator = new BlockAllocator(m_state);
     m_allocators.append(new_allocator);
     return *new_allocator;
@@ -588,22 +590,25 @@ void simulate_step(ParticlesState &state, StepDescription &description)
 
   BlockAllocators block_allocators(state);
 
-  SmallVector<ParticlesBlock *> existing_blocks;
+  SmallVector<ParticlesBlock *> blocks_to_simulate_next;
   for (uint type_id : description.particle_type_ids()) {
     ParticlesContainer &container = *containers.lookup(type_id);
-    existing_blocks.extend(container.active_blocks().to_small_vector());
+    blocks_to_simulate_next.extend(container.active_blocks().to_small_vector());
   }
-  simulate_blocks_for_time_span(block_allocators, existing_blocks, description, time_span);
+  simulate_blocks_for_time_span(block_allocators, blocks_to_simulate_next, description, time_span);
 
   BlockAllocator &emitter_allocator = block_allocators.get_standalone_allocator();
   for (Emitter *emitter : description.emitters()) {
     emit_new_particles_from_emitter(emitter_allocator, time_span, *emitter);
   }
 
-  BlockAllocators new_allocators(state);
-  SmallVector<ParticlesBlock *> newly_created_blocks = block_allocators.all_allocated_blocks();
-  simulate_blocks_from_birth_to_current_time(
-      new_allocators, newly_created_blocks, description, time_span.end());
+  blocks_to_simulate_next = block_allocators.all_allocated_blocks();
+  while (blocks_to_simulate_next.size() > 0) {
+    BlockAllocators allocators(state);
+    simulate_blocks_from_birth_to_current_time(
+        allocators, blocks_to_simulate_next, description, time_span.end());
+    blocks_to_simulate_next = allocators.all_allocated_blocks();
+  }
 
   for (uint type_id : description.particle_type_ids()) {
     ParticlesContainer &container = *containers.lookup(type_id);
