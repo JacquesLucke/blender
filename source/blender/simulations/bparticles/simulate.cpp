@@ -349,9 +349,18 @@ class BlockAllocators {
   {
     return m_allocators;
   }
+
+  SmallVector<ParticlesBlock *> all_allocated_blocks()
+  {
+    SmallVector<ParticlesBlock *> blocks;
+    for (BlockAllocator *allocator : m_allocators) {
+      blocks.extend(allocator->allocated_blocks());
+    }
+    return blocks;
+  }
 };
 
-struct StepBlocksParallelData {
+struct SimulateTimeSpanData {
   ArrayRef<ParticlesBlock *> blocks;
   ArrayRef<float> all_durations;
   float end_time;
@@ -359,11 +368,11 @@ struct StepBlocksParallelData {
   StepDescription &step_description;
 };
 
-BLI_NOINLINE static void step_individual_particles_cb(void *__restrict userdata,
-                                                      const int index,
-                                                      const ParallelRangeTLS *__restrict tls)
+BLI_NOINLINE static void simulate_block_time_span_cb(void *__restrict userdata,
+                                                     const int index,
+                                                     const ParallelRangeTLS *__restrict tls)
 {
-  StepBlocksParallelData *data = (StepBlocksParallelData *)userdata;
+  SimulateTimeSpanData *data = (SimulateTimeSpanData *)userdata;
   ParticlesBlock &block = *data->blocks[index];
 
   BlockAllocator block_allocator = data->block_allocators.get_threadlocal_allocator(
@@ -383,10 +392,10 @@ BLI_NOINLINE static void step_individual_particles_cb(void *__restrict userdata,
                     particle_type);
 }
 
-BLI_NOINLINE static void simulate_blocks_threaded(BlockAllocators &block_allocators,
-                                                  ArrayRef<ParticlesBlock *> blocks,
-                                                  TimeSpan time_span,
-                                                  StepDescription &step_description)
+BLI_NOINLINE static void simulate_blocks_for_time_span(BlockAllocators &block_allocators,
+                                                       ArrayRef<ParticlesBlock *> blocks,
+                                                       StepDescription &step_description,
+                                                       TimeSpan time_span)
 {
   if (blocks.size() == 0) {
     return;
@@ -399,11 +408,62 @@ BLI_NOINLINE static void simulate_blocks_threaded(BlockAllocators &block_allocat
   SmallVector<float> all_durations(block_size);
   all_durations.fill(time_span.duration());
 
-  StepBlocksParallelData data = {
+  SimulateTimeSpanData data = {
       blocks, all_durations, time_span.end(), block_allocators, step_description};
 
+  BLI_task_parallel_range(0, blocks.size(), (void *)&data, simulate_block_time_span_cb, &settings);
+}
+
+struct SimulateFromBirthData {
+  ArrayRef<ParticlesBlock *> blocks;
+  float end_time;
+  BlockAllocators &block_allocators;
+  StepDescription &step_description;
+};
+
+BLI_NOINLINE static void simulate_block_from_birth_cb(void *__restrict userdata,
+                                                      const int index,
+                                                      const ParallelRangeTLS *__restrict tls)
+{
+  SimulateFromBirthData *data = (SimulateFromBirthData *)userdata;
+  ParticlesBlock &block = *data->blocks[index];
+
+  BlockAllocator block_allocator = data->block_allocators.get_threadlocal_allocator(
+      tls->thread_id);
+
+  ParticlesState &state = block_allocator.particles_state();
+  uint particle_type_id = state.particle_container_id(block.container());
+
+  ParticleType &particle_type = data->step_description.particle_type(particle_type_id);
+
+  uint active_amount = block.active_amount();
+  SmallVector<float> durations(active_amount);
+
+  auto birth_times = block.slice_active().get_float("Birth Time");
+  for (uint i = 0; i < active_amount; i++) {
+    durations[i] = data->end_time - birth_times[i];
+  }
+
+  ParticleSet active_particles(block, static_number_range_ref(0, active_amount));
+  step_particle_set(block_allocator, active_particles, durations, data->end_time, particle_type);
+}
+
+BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
+    BlockAllocators &block_allocators,
+    ArrayRef<ParticlesBlock *> blocks,
+    StepDescription &step_description,
+    float end_time)
+{
+  if (blocks.size() == 0) {
+    return;
+  }
+
+  ParallelRangeSettings settings;
+  BLI_parallel_range_settings_defaults(&settings);
+
+  SimulateFromBirthData data = {blocks, end_time, block_allocators, step_description};
   BLI_task_parallel_range(
-      0, blocks.size(), (void *)&data, step_individual_particles_cb, &settings);
+      0, blocks.size(), (void *)&data, simulate_block_from_birth_cb, &settings);
 }
 
 /* Delete particles.
@@ -435,8 +495,7 @@ BLI_NOINLINE static void delete_tagged_particles(ArrayRef<ParticlesBlock *> bloc
 /* Emit new particles from emitters.
  **********************************************/
 
-BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &description,
-                                                         BlockAllocator &block_allocator,
+BLI_NOINLINE static void emit_new_particles_from_emitter(BlockAllocator &block_allocator,
                                                          TimeSpan time_span,
                                                          Emitter &emitter)
 {
@@ -446,7 +505,6 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &descri
   for (EmitTarget *target_ptr : interface.targets()) {
     EmitTarget &target = *target_ptr;
 
-    ParticleType &particle_type = description.particle_type(target.particle_type_id());
     ArrayRef<float> all_birth_moments = target.birth_moments();
     uint particle_count = 0;
 
@@ -462,19 +520,7 @@ BLI_NOINLINE static void emit_new_particles_from_emitter(StepDescription &descri
         birth_times[i] = time_span.interpolate(birth_moments[i]);
       }
 
-      SmallVector<float> initial_step_durations;
-      for (float birth_time : birth_times) {
-        initial_step_durations.append(time_span.end() - birth_time);
-      }
-
-      ParticleSet emitted_particles(block, static_number_range_ref(range));
-      step_particle_set(block_allocator,
-                        emitted_particles,
-                        initial_step_durations,
-                        time_span.end(),
-                        particle_type);
-
-      particle_count += emitted_particles.size();
+      particle_count += range.size();
     }
   }
 }
@@ -547,12 +593,17 @@ void simulate_step(ParticlesState &state, StepDescription &description)
     ParticlesContainer &container = *containers.lookup(type_id);
     existing_blocks.extend(container.active_blocks().to_small_vector());
   }
-  simulate_blocks_threaded(block_allocators, existing_blocks, time_span, description);
+  simulate_blocks_for_time_span(block_allocators, existing_blocks, description, time_span);
 
   BlockAllocator &emitter_allocator = block_allocators.get_standalone_allocator();
   for (Emitter *emitter : description.emitters()) {
-    emit_new_particles_from_emitter(description, emitter_allocator, time_span, *emitter);
+    emit_new_particles_from_emitter(emitter_allocator, time_span, *emitter);
   }
+
+  BlockAllocators new_allocators(state);
+  SmallVector<ParticlesBlock *> newly_created_blocks = block_allocators.all_allocated_blocks();
+  simulate_blocks_from_birth_to_current_time(
+      new_allocators, newly_created_blocks, description, time_span.end());
 
   for (uint type_id : description.particle_type_ids()) {
     ParticlesContainer &container = *containers.lookup(type_id);
