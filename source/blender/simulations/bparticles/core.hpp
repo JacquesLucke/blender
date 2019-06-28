@@ -366,7 +366,7 @@ class ActionInterface {
     return m_particles;
   }
 
-  InstantEmitTarget &request_emit_target(uint particle_type_id, uint size);
+  InstantEmitTarget &request_emit_target(uint particle_type_id, ArrayRef<uint> original_indices);
 
   ArrayRef<InstantEmitTarget *> emit_targets()
   {

@@ -43,19 +43,18 @@ class SpawnAction : public Action {
 
     SmallVector<float3> new_positions;
     SmallVector<float3> new_velocities;
-    SmallVector<float> new_birth_times;
+    SmallVector<uint> original_indices;
 
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
       new_positions.append(positions[pindex] + float3(20, 0, 0));
       new_velocities.append(float3(1, 1, 10));
-      new_birth_times.append(interface.current_times()[i]);
+      original_indices.append(i);
     }
 
-    auto &target = interface.request_emit_target(0, particles.size());
+    auto &target = interface.request_emit_target(0, original_indices);
     target.set_float3("Position", new_positions);
     target.set_float3("Velocity", new_velocities);
-    target.set_float("Birth Time", new_birth_times);
   }
 };
 
@@ -72,11 +71,10 @@ class ExplodeAction : public Action {
 
     auto positions = particles.attributes().get_float3("Position");
     auto kill_states = particles.attributes().get_byte("Kill State");
-    auto current_times = interface.current_times();
 
     SmallVector<float3> new_positions;
     SmallVector<float3> new_velocities;
-    SmallVector<float> new_birth_times;
+    SmallVector<uint> original_indices;
 
     uint parts_amount = 100;
 
@@ -85,16 +83,16 @@ class ExplodeAction : public Action {
 
       kill_states[pindex] = 1;
       new_positions.append_n_times(positions[pindex], parts_amount);
-      new_birth_times.append_n_times(current_times[i], parts_amount);
+      original_indices.append_n_times(i, parts_amount);
+
       for (uint j = 0; j < parts_amount; j++) {
         new_velocities.append(random_direction() * 4);
       }
     }
 
-    auto &target = interface.request_emit_target(1, new_positions.size());
+    auto &target = interface.request_emit_target(1, original_indices);
     target.set_float3("Position", new_positions);
     target.set_float3("Velocity", new_velocities);
-    target.set_float("Birth Time", new_birth_times);
   }
 };
 

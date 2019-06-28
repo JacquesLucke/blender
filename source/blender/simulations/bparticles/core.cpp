@@ -126,8 +126,11 @@ ActionInterface::~ActionInterface()
   }
 }
 
-InstantEmitTarget &ActionInterface::request_emit_target(uint particle_type_id, uint size)
+InstantEmitTarget &ActionInterface::request_emit_target(uint particle_type_id,
+                                                        ArrayRef<uint> original_indices)
 {
+  uint size = original_indices.size();
+
   SmallVector<ParticlesBlock *> blocks;
   SmallVector<Range<uint>> ranges;
   m_block_allocator.allocate_block_ranges(particle_type_id, size, blocks, ranges);
@@ -135,6 +138,13 @@ InstantEmitTarget &ActionInterface::request_emit_target(uint particle_type_id, u
 
   auto *target = new InstantEmitTarget(particle_type_id, attributes_info, blocks, ranges);
   m_emit_targets.append(target);
+
+  SmallVector<float> birth_times(size);
+  for (uint i = 0; i < size; i++) {
+    birth_times[i] = m_current_times[original_indices[i]];
+  }
+  target->set_float("Birth Time", birth_times);
+
   return *target;
 }
 
