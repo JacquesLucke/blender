@@ -645,16 +645,19 @@ BLI_NOINLINE static void emit_and_simulate_particles(ParticlesState &state,
                                                      StepDescription &step_description,
                                                      TimeSpan time_span)
 {
-  BlockAllocators block_allocators(state);
-  simulate_all_existing_blocks(state, step_description, block_allocators, time_span);
-  create_particles_from_emitters(step_description, block_allocators, time_span);
+  SmallVector<ParticlesBlock *> newly_created_blocks;
+  {
+    BlockAllocators block_allocators(state);
+    simulate_all_existing_blocks(state, step_description, block_allocators, time_span);
+    create_particles_from_emitters(step_description, block_allocators, time_span);
+    newly_created_blocks = block_allocators.all_allocated_blocks();
+  }
 
-  SmallVector<ParticlesBlock *> blocks_to_simulate_next = block_allocators.all_allocated_blocks();
-  while (blocks_to_simulate_next.size() > 0) {
-    BlockAllocators allocators(state);
+  while (newly_created_blocks.size() > 0) {
+    BlockAllocators block_allocators(state);
     simulate_blocks_from_birth_to_current_time(
-        allocators, blocks_to_simulate_next, step_description, time_span.end());
-    blocks_to_simulate_next = allocators.all_allocated_blocks();
+        block_allocators, newly_created_blocks, step_description, time_span.end());
+    newly_created_blocks = block_allocators.all_allocated_blocks();
   }
 }
 
