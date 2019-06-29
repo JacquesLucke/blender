@@ -60,6 +60,7 @@ class ParticlesBlock {
  public:
   ParticlesBlock(ParticlesContainer &container, AttributeArraysCore &attributes_core);
 
+  Range<uint> active_range();
   uint &active_amount();
   uint inactive_amount();
   bool is_full();
@@ -117,6 +118,11 @@ inline bool operator==(const ParticlesContainer &a, const ParticlesContainer &b)
 
 /* Particles Block
  ****************************************/
+
+inline Range<uint> ParticlesBlock::active_range()
+{
+  return Range<uint>(0, m_active_amount);
+}
 
 inline uint &ParticlesBlock::active_amount()
 {
