@@ -211,3 +211,19 @@ TEST(array_ref, CopyTo)
   EXPECT_EQ(b[1], 6);
   EXPECT_EQ(b[2], 7);
 }
+
+TEST(array_ref, FirstLast)
+{
+  std::array<int, 4> a = {6, 7, 8, 9};
+  IntArrayRef a_ref(a);
+  EXPECT_EQ(a_ref.first(), 6);
+  EXPECT_EQ(a_ref.last(), 9);
+}
+
+TEST(array_ref, FirstLast_OneElement)
+{
+  int a = 3;
+  IntArrayRef a_ref(a);
+  EXPECT_EQ(a_ref.first(), 3);
+  EXPECT_EQ(a_ref.last(), 3);
+}

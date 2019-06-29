@@ -210,6 +210,26 @@ template<typename T> class ArrayRef {
     }
     return counter;
   }
+
+  /**
+   * Return a reference to the first element in the array.
+   * Asserts when the array is empty.
+   */
+  T &first()
+  {
+    BLI_assert(m_size > 0);
+    return m_start[0];
+  }
+
+  /**
+   * Return a reference to the last elemeent in the array.
+   * Asserts when the array is empty.
+   */
+  T &last()
+  {
+    BLI_assert(m_size > 0);
+    return m_start[m_size - 1];
+  }
 };
 
 template<typename ArrayT, typename ValueT, ValueT (*GetValue)(ArrayT &item)> class MappedArrayRef {
