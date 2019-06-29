@@ -54,12 +54,12 @@ template<typename T> class SmallSetVector : public SmallSet<T> {
    * Gives access to the underlying array of values.
    * The values should not be changed in ways that would modify their hash.
    */
-  ArrayRef<T> values() const
+  operator ArrayRef<T>() const
   {
     return ArrayRef<T>(this->begin(), this->size());
   }
 
-  T operator[](const int index) const
+  T &operator[](const int index) const
   {
     BLI_assert(index >= 0 && index < this->size());
     return this->m_elements[index];

@@ -65,7 +65,7 @@ class AttributesInfo {
 
   StringRefNull name_of(uint index) const
   {
-    return m_indices.values()[index];
+    return m_indices[index];
   }
 
   AttributeType type_of(uint index) const

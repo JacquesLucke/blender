@@ -577,8 +577,7 @@ BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &t
   float_attributes.add_multiple(type.float_attributes());
   float3_attributes.add_multiple(type.float3_attributes());
 
-  return AttributesInfo(
-      byte_attributes.values(), float_attributes.values(), float3_attributes.values());
+  return AttributesInfo(byte_attributes, float_attributes, float3_attributes);
 }
 
 BLI_NOINLINE static void ensure_required_attributes_exist(
