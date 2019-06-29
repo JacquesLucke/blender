@@ -107,31 +107,45 @@ class EulerIntegrator : public Integrator {
   }
 };
 
+class EventActionTest : public EventAction {
+ public:
+  Event *m_event;
+  Action *m_action;
+
+  ~EventActionTest()
+  {
+    delete m_event;
+    delete m_action;
+  }
+
+  void filter(EventInterface &interface) override
+  {
+    m_event->filter(interface);
+  }
+
+  void execute(ActionInterface &interface) override
+  {
+    m_action->execute(interface);
+  }
+};
+
 class ModifierParticleType : public ParticleType {
  public:
-  SmallVector<Event *> m_events;
-  SmallVector<Action *> m_actions;
+  SmallVector<EventAction *> m_event_actions;
   EulerIntegrator *m_integrator;
 
   ~ModifierParticleType()
   {
     delete m_integrator;
 
-    for (Event *event : m_events) {
-      delete event;
-    }
-    for (Action *action : m_actions) {
-      delete action;
+    for (EventAction *event_action : m_event_actions) {
+      delete event_action;
     }
   }
 
-  ArrayRef<Event *> events() override
+  ArrayRef<EventAction *> event_actions() override
   {
-    return m_events;
-  }
-  ArrayRef<Action *> action_per_event() override
-  {
-    return m_actions;
+    return m_event_actions;
   }
 
   Integrator &integrator() override
@@ -206,17 +220,24 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   if (npmd->collision_object) {
     BKE_bvhtree_from_mesh_get(
         &treedata, (Mesh *)npmd->collision_object->data, BVHTREE_FROM_LOOPTRI, 4);
-    type0->m_events.append(
-        EVENT_mesh_collection(&treedata, npmd->collision_object->obmat).release());
-    type0->m_actions.append(ACTION_explode().release());
+
+    EventActionTest *event_action = new EventActionTest();
+    event_action->m_event =
+        EVENT_mesh_collection(&treedata, npmd->collision_object->obmat).release();
+    event_action->m_action = ACTION_explode().release();
+    type0->m_event_actions.append(event_action);
   }
   type0->m_integrator = new EulerIntegrator();
   type0->m_integrator->m_forces.append(FORCE_directional({0, 0, -2}).release());
 
   auto *type1 = new ModifierParticleType();
   description.m_types.add_new(1, type1);
-  type1->m_events.append(EVENT_age_reached(0.3f).release());
-  type1->m_actions.append(ACTION_kill().release());
+  {
+    EventActionTest *event_action = new EventActionTest();
+    event_action->m_event = EVENT_age_reached(0.3f).release();
+    event_action->m_action = ACTION_kill().release();
+    type1->m_event_actions.append(event_action);
+  }
   type1->m_integrator = new EulerIntegrator();
 
   simulate_step(state, description);

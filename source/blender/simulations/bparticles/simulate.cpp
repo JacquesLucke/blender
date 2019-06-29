@@ -36,7 +36,7 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
                                                       AttributeArrays &attribute_offsets,
                                                       ArrayRef<float> durations,
                                                       float end_time,
-                                                      ArrayRef<Event *> events,
+                                                      ArrayRef<EventAction *> event_actions,
                                                       ArrayRef<float> last_event_times,
                                                       ArrayRef<int> r_next_event_indices,
                                                       ArrayRef<float> r_time_factors_to_next_event,
@@ -45,18 +45,18 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
   r_next_event_indices.fill(-1);
   r_time_factors_to_next_event.fill(1.0f);
 
-  for (uint event_index = 0; event_index < events.size(); event_index++) {
+  for (uint event_index = 0; event_index < event_actions.size(); event_index++) {
     SmallVector<uint> triggered_indices;
     SmallVector<float> triggered_time_factors;
 
-    Event *event = events[event_index];
+    EventAction *event_action = event_actions[event_index];
     EventInterface interface(particles,
                              attribute_offsets,
                              durations,
                              end_time,
                              triggered_indices,
                              triggered_time_factors);
-    event->filter(interface);
+    event_action->filter(interface);
 
     for (uint i = 0; i < triggered_indices.size(); i++) {
       uint index = triggered_indices[i];
@@ -180,22 +180,20 @@ BLI_NOINLINE static void run_actions(BlockAllocator &block_allocator,
                                      ParticlesBlock &block,
                                      ArrayRef<SmallVector<uint>> particle_indices_per_event,
                                      ArrayRef<SmallVector<float>> current_time_per_particle,
-                                     ArrayRef<Event *> events,
-                                     ArrayRef<Action *> action_per_event)
+                                     ArrayRef<EventAction *> event_actions)
 {
-  BLI_assert(events.size() == particle_indices_per_event.size());
-  BLI_assert(events.size() == current_time_per_particle.size());
-  BLI_assert(events.size() == action_per_event.size());
+  BLI_assert(event_actions.size() == particle_indices_per_event.size());
+  BLI_assert(event_actions.size() == current_time_per_particle.size());
 
-  for (uint event_index = 0; event_index < events.size(); event_index++) {
-    Action *action = action_per_event[event_index];
+  for (uint event_index = 0; event_index < event_actions.size(); event_index++) {
+    EventAction *event_action = event_actions[event_index];
     ParticleSet particles(block, particle_indices_per_event[event_index]);
     if (particles.size() == 0) {
       continue;
     }
 
     ActionInterface interface(particles, block_allocator, current_time_per_particle[event_index]);
-    action->execute(interface);
+    event_action->execute(interface);
   }
 }
 
@@ -220,7 +218,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                attribute_offsets,
                                durations,
                                end_time,
-                               particle_type.events(),
+                               particle_type.event_actions(),
                                last_event_times,
                                next_event_indices,
                                time_factors_to_next_event,
@@ -237,11 +235,11 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
   update_remaining_attribute_offsets(
       particles_with_events, time_factors_to_next_event, attribute_offsets);
 
-  SmallVector<SmallVector<uint>> particles_per_event(particle_type.events().size());
+  SmallVector<SmallVector<uint>> particles_per_event(particle_type.event_actions().size());
   find_particle_indices_per_event(
       indices_with_event, particles.indices(), next_event_indices, particles_per_event);
 
-  SmallVector<SmallVector<float>> current_time_per_particle(particle_type.events().size());
+  SmallVector<SmallVector<float>> current_time_per_particle(particle_type.event_actions().size());
   compute_current_time_per_particle(indices_with_event,
                                     durations,
                                     end_time,
@@ -253,8 +251,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
               particles.block(),
               particles_per_event,
               current_time_per_particle,
-              particle_type.events(),
-              particle_type.action_per_event());
+              particle_type.event_actions());
 
   find_unfinished_particles(indices_with_event,
                             particles.indices(),

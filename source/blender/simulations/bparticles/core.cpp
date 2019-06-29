@@ -22,6 +22,10 @@ Event::~Event()
 {
 }
 
+EventAction::~EventAction()
+{
+}
+
 ParticleType::~ParticleType()
 {
 }

@@ -407,6 +407,14 @@ class Action {
   virtual void execute(ActionInterface &interface) = 0;
 };
 
+class EventAction {
+ public:
+  virtual ~EventAction();
+
+  virtual void filter(EventInterface &interface) = 0;
+  virtual void execute(ActionInterface &interface) = 0;
+};
+
 class Emitter {
  public:
   virtual ~Emitter();
@@ -429,9 +437,8 @@ class ParticleType {
  public:
   virtual ~ParticleType();
 
-  virtual ArrayRef<Event *> events() = 0;
-  virtual ArrayRef<Action *> action_per_event() = 0;
   virtual Integrator &integrator() = 0;
+  virtual ArrayRef<EventAction *> event_actions() = 0;
 
   virtual ArrayRef<std::string> byte_attributes()
   {
