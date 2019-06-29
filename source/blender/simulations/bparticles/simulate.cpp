@@ -86,33 +86,33 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     AttributeArrays attribute_offsets,
     ArrayRef<float> time_factors_to_next_event)
 {
-  auto positions = particles.attributes().get_float3("Position");
-  auto velocities = particles.attributes().get_float3("Velocity");
+  for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
+    StringRef name = attribute_offsets.info().name_of(attribute_index);
 
-  auto position_offsets = attribute_offsets.get_float3("Position");
-  auto velocity_offsets = attribute_offsets.get_float3("Velocity");
+    auto values = particles.attributes().get_float3(name);
+    auto offsets = attribute_offsets.get_float3(attribute_index);
 
-  for (uint i : particles.range()) {
-    uint pindex = particles.get_particle_index(i);
-    float time_factor = time_factors_to_next_event[i];
-    positions[pindex] += time_factor * position_offsets[pindex];
-    velocities[pindex] += time_factor * velocity_offsets[pindex];
+    for (uint i : particles.range()) {
+      uint pindex = particles.get_particle_index(i);
+      float time_factor = time_factors_to_next_event[i];
+      values[pindex] += time_factor * offsets[pindex];
+    }
   }
 }
 
-BLI_NOINLINE static void update_ideal_offsets_for_particles_with_events(
+BLI_NOINLINE static void update_remaining_attribute_offsets(
     ParticleSet particles_with_events,
     ArrayRef<float> time_factors_to_next_event,
     AttributeArrays attribute_offsets)
 {
-  auto position_offsets = attribute_offsets.get_float3("Position");
-  auto velocity_offsets = attribute_offsets.get_float3("Velocity");
+  for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
+    auto offsets = attribute_offsets.get_float3(attribute_index);
 
-  for (uint i : particles_with_events.range()) {
-    uint pindex = particles_with_events.get_particle_index(i);
-    float factor = 1.0f - time_factors_to_next_event[i];
-    position_offsets[pindex] *= factor;
-    velocity_offsets[pindex] *= factor;
+    for (uint i : particles_with_events.range()) {
+      uint pindex = particles_with_events.get_particle_index(i);
+      float factor = 1.0f - time_factors_to_next_event[i];
+      offsets[pindex] *= factor;
+    }
   }
 }
 
@@ -226,7 +226,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
   }
 
   ParticleSet particles_with_events(particles.block(), particle_indices_with_event);
-  update_ideal_offsets_for_particles_with_events(
+  update_remaining_attribute_offsets(
       particles_with_events, time_factors_to_next_event, attribute_offsets);
 
   SmallVector<SmallVector<uint>> particles_per_event(particle_type.events().size());
@@ -309,17 +309,15 @@ BLI_NOINLINE static void simulate_with_max_n_events(
 BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
                                                  AttributeArrays attribute_offsets)
 {
-  auto positions = particles.attributes().get_float3("Position");
-  auto velocities = particles.attributes().get_float3("Velocity");
+  for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
+    StringRef name = attribute_offsets.info().name_of(attribute_index);
 
-  auto position_offsets = attribute_offsets.get_float3("Position");
-  auto velocity_offsets = attribute_offsets.get_float3("Velocity");
+    auto values = particles.attributes().get_float3(name);
+    auto offsets = attribute_offsets.get_float3(attribute_index);
 
-  for (uint i : particles.indices()) {
-    uint pindex = particles.get_particle_index(i);
-
-    positions[pindex] += position_offsets[i];
-    velocities[pindex] += velocity_offsets[i];
+    for (uint pindex : particles.indices()) {
+      values[pindex] += offsets[pindex];
+    }
   }
 }
 
