@@ -92,10 +92,18 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     auto values = particles.attributes().get_float3(name);
     auto offsets = attribute_offsets.get_float3(attribute_index);
 
-    for (uint i : particles.range()) {
-      uint pindex = particles.get_particle_index(i);
-      float time_factor = time_factors_to_next_event[i];
-      values[pindex] += time_factor * offsets[pindex];
+    if (particles.indices_are_trivial()) {
+      for (uint pindex = 0; pindex < particles.size(); pindex++) {
+        float time_factor = time_factors_to_next_event[pindex];
+        values[pindex] += time_factor * offsets[pindex];
+      }
+    }
+    else {
+      for (uint i : particles.range()) {
+        uint pindex = particles.get_particle_index(i);
+        float time_factor = time_factors_to_next_event[i];
+        values[pindex] += time_factor * offsets[pindex];
+      }
     }
   }
 }

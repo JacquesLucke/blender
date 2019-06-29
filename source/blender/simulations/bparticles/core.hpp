@@ -260,6 +260,21 @@ struct ParticleSet {
   {
     return m_particle_indices.size();
   }
+
+  /**
+   * Returns true when get_particle_index(i) == i for all i, otherwise false.
+   */
+  bool indices_are_trivial()
+  {
+    if (m_particle_indices.size() == 0) {
+      return true;
+    }
+    else {
+      /* This works due to the invariants mentioned above. */
+      return m_particle_indices.first() == 0 &&
+             m_particle_indices.last() == m_particle_indices.size() - 1;
+    }
+  }
 };
 
 class Force {
