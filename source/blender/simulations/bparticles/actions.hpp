@@ -4,9 +4,9 @@
 
 namespace BParticles {
 
-std::unique_ptr<Action> ACTION_kill();
-std::unique_ptr<Action> ACTION_move(float3 offset);
-std::unique_ptr<Action> ACTION_spawn();
-std::unique_ptr<Action> ACTION_explode();
+Action *ACTION_kill();
+Action *ACTION_move(float3 offset);
+Action *ACTION_spawn();
+Action *ACTION_explode();
 
 }  // namespace BParticles

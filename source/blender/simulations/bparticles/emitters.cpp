@@ -109,26 +109,23 @@ class PathEmitter : public Emitter {
   }
 };
 
-std::unique_ptr<Emitter> EMITTER_point(float3 point)
+Emitter *EMITTER_point(float3 point)
 {
-  Emitter *emitter = new PointEmitter(point);
-  return std::unique_ptr<Emitter>(emitter);
+  return new PointEmitter(point);
 }
 
-std::unique_ptr<Emitter> EMITTER_mesh_surface(uint particle_type_id,
-                                              Mesh *mesh,
-                                              const float4x4 &transform,
-                                              float normal_velocity)
+Emitter *EMITTER_mesh_surface(uint particle_type_id,
+                              Mesh *mesh,
+                              const float4x4 &transform,
+                              float normal_velocity)
 {
-  Emitter *emitter = new SurfaceEmitter(particle_type_id, mesh, transform, normal_velocity);
-  return std::unique_ptr<Emitter>(emitter);
+  return new SurfaceEmitter(particle_type_id, mesh, transform, normal_velocity);
 }
 
-std::unique_ptr<Emitter> EMITTER_path(Path *path, float4x4 transform)
+Emitter *EMITTER_path(Path *path, float4x4 transform)
 {
   BLI_assert(path);
-  Emitter *emitter = new PathEmitter(*path, transform);
-  return std::unique_ptr<Emitter>(emitter);
+  return new PathEmitter(*path, transform);
 }
 
 }  // namespace BParticles

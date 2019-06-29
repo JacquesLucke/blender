@@ -42,14 +42,14 @@ class TurbulenceForce : public BParticles::Force {
   }
 };
 
-std::unique_ptr<Force> FORCE_directional(float3 force)
+Force *FORCE_directional(float3 force)
 {
-  return std::unique_ptr<Force>(new DirectionalForce(force));
+  return new DirectionalForce(force);
 }
 
-std::unique_ptr<Force> FORCE_turbulence(float strength)
+Force *FORCE_turbulence(float strength)
 {
-  return std::unique_ptr<Force>(new TurbulenceForce(strength));
+  return new TurbulenceForce(strength);
 }
 
 }  // namespace BParticles

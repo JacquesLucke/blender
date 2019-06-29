@@ -98,28 +98,24 @@ class ExplodeAction : public Action {
   }
 };
 
-std::unique_ptr<Action> ACTION_kill()
+Action *ACTION_kill()
 {
-  Action *action = new KillAction();
-  return std::unique_ptr<Action>(action);
+  return new KillAction();
 }
 
-std::unique_ptr<Action> ACTION_move(float3 offset)
+Action *ACTION_move(float3 offset)
 {
-  Action *action = new MoveAction(offset);
-  return std::unique_ptr<Action>(action);
+  return new MoveAction(offset);
 }
 
-std::unique_ptr<Action> ACTION_spawn()
+Action *ACTION_spawn()
 {
-  Action *action = new SpawnAction();
-  return std::unique_ptr<Action>(action);
+  return new SpawnAction();
 }
 
-std::unique_ptr<Action> ACTION_explode()
+Action *ACTION_explode()
 {
-  Action *action = new ExplodeAction();
-  return std::unique_ptr<Action>(action);
+  return new ExplodeAction();
 }
 
 }  // namespace BParticles

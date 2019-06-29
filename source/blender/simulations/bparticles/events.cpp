@@ -77,16 +77,14 @@ class MeshCollisionEvent : public Event {
   }
 };
 
-std::unique_ptr<Event> EVENT_age_reached(float age)
+Event *EVENT_age_reached(float age)
 {
-  Event *event = new AgeReachedEvent(age);
-  return std::unique_ptr<Event>(event);
+  return new AgeReachedEvent(age);
 }
 
-std::unique_ptr<Event> EVENT_mesh_collection(BVHTreeFromMesh *treedata, const float4x4 &transform)
+Event *EVENT_mesh_collection(BVHTreeFromMesh *treedata, const float4x4 &transform)
 {
-  Event *event = new MeshCollisionEvent(treedata, transform);
-  return std::unique_ptr<Event>(event);
+  return new MeshCollisionEvent(treedata, transform);
 }
 
 }  // namespace BParticles
