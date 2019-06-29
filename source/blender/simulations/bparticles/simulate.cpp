@@ -33,7 +33,7 @@ static ArrayRef<uint> static_number_range_ref(Range<uint> range)
  **************************************************/
 
 BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
-                                                      AttributeArrays &integrated_attributes,
+                                                      AttributeArrays &attribute_offsets,
                                                       ArrayRef<float> durations,
                                                       float end_time,
                                                       ArrayRef<Event *> events,
@@ -51,7 +51,7 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
 
     Event *event = events[event_index];
     EventInterface interface(particles,
-                             integrated_attributes,
+                             attribute_offsets,
                              durations,
                              end_time,
                              triggered_indices,
@@ -83,14 +83,14 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
 
 BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     ParticleSet particles,
-    AttributeArrays integrated_attributes,
+    AttributeArrays attribute_offsets,
     ArrayRef<float> time_factors_to_next_event)
 {
   auto positions = particles.attributes().get_float3("Position");
   auto velocities = particles.attributes().get_float3("Velocity");
 
-  auto position_offsets = integrated_attributes.get_float3("Position");
-  auto velocity_offsets = integrated_attributes.get_float3("Velocity");
+  auto position_offsets = attribute_offsets.get_float3("Position");
+  auto velocity_offsets = attribute_offsets.get_float3("Velocity");
 
   for (uint i : particles.range()) {
     uint pindex = particles.get_particle_index(i);
@@ -103,10 +103,10 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
 BLI_NOINLINE static void update_ideal_offsets_for_particles_with_events(
     ParticleSet particles_with_events,
     ArrayRef<float> time_factors_to_next_event,
-    AttributeArrays integrated_attributes)
+    AttributeArrays attribute_offsets)
 {
-  auto position_offsets = integrated_attributes.get_float3("Position");
-  auto velocity_offsets = integrated_attributes.get_float3("Velocity");
+  auto position_offsets = attribute_offsets.get_float3("Position");
+  auto velocity_offsets = attribute_offsets.get_float3("Velocity");
 
   for (uint i : particles_with_events.range()) {
     uint pindex = particles_with_events.get_particle_index(i);
@@ -196,7 +196,7 @@ BLI_NOINLINE static void run_actions(BlockAllocator &block_allocator,
 
 BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                                 ParticleSet particles,
-                                                AttributeArrays integrated_attributes,
+                                                AttributeArrays attribute_offsets,
                                                 ArrayRef<float> durations,
                                                 float end_time,
                                                 ParticleType &particle_type,
@@ -209,7 +209,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
   SmallVector<uint> indices_with_event;
 
   find_next_event_per_particle(particles,
-                               integrated_attributes,
+                               attribute_offsets,
                                durations,
                                end_time,
                                particle_type.events(),
@@ -218,8 +218,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                time_factors_to_next_event,
                                indices_with_event);
 
-  forward_particles_to_next_event_or_end(
-      particles, integrated_attributes, time_factors_to_next_event);
+  forward_particles_to_next_event_or_end(particles, attribute_offsets, time_factors_to_next_event);
 
   SmallVector<uint> particle_indices_with_event(indices_with_event.size());
   for (uint i = 0; i < indices_with_event.size(); i++) {
@@ -228,7 +227,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
 
   ParticleSet particles_with_events(particles.block(), particle_indices_with_event);
   update_ideal_offsets_for_particles_with_events(
-      particles_with_events, time_factors_to_next_event, integrated_attributes);
+      particles_with_events, time_factors_to_next_event, attribute_offsets);
 
   SmallVector<SmallVector<uint>> particles_per_event(particle_type.events().size());
   find_particle_indices_per_event(
@@ -262,7 +261,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     uint max_events,
     BlockAllocator &block_allocator,
     ParticlesBlock &block,
-    AttributeArrays integrated_attributes,
+    AttributeArrays attribute_offsets,
     ArrayRef<float> durations,
     float end_time,
     ParticleType &particle_type,
@@ -277,7 +276,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
 
   simulate_to_next_event(block_allocator,
                          particles_to_simulate,
-                         integrated_attributes,
+                         attribute_offsets,
                          durations,
                          end_time,
                          particle_type,
@@ -292,7 +291,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
 
     simulate_to_next_event(block_allocator,
                            particles_to_simulate,
-                           integrated_attributes,
+                           attribute_offsets,
                            remaining_durations,
                            end_time,
                            particle_type,
@@ -308,13 +307,13 @@ BLI_NOINLINE static void simulate_with_max_n_events(
 }
 
 BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
-                                                 AttributeArrays integrated_attributes)
+                                                 AttributeArrays attribute_offsets)
 {
   auto positions = particles.attributes().get_float3("Position");
   auto velocities = particles.attributes().get_float3("Velocity");
 
-  auto position_offsets = integrated_attributes.get_float3("Position");
-  auto velocity_offsets = integrated_attributes.get_float3("Velocity");
+  auto position_offsets = attribute_offsets.get_float3("Position");
+  auto velocity_offsets = attribute_offsets.get_float3("Velocity");
 
   for (uint i : particles.indices()) {
     uint pindex = particles.get_particle_index(i);
@@ -334,25 +333,25 @@ BLI_NOINLINE static void simulate_block(BlockAllocator &block_allocator,
   BLI_assert(amount == durations.size());
 
   Integrator &integrator = particle_type.integrator();
-  AttributesInfo &integrate_info = integrator.integrated_attributes_info();
-  AttributeArraysCore integrated_attributes_core = AttributeArraysCore::NewWithSeparateAllocations(
-      integrate_info, amount);
-  AttributeArrays integrated_attributes = integrated_attributes_core.slice_all();
+  AttributesInfo &offsets_info = integrator.offset_attributes_info();
+  auto integrated_attributes_core = AttributeArraysCore::NewWithSeparateAllocations(offsets_info,
+                                                                                    amount);
+  AttributeArrays attribute_offsets = integrated_attributes_core.slice_all();
 
-  integrator.integrate(block, durations, integrated_attributes);
+  integrator.integrate(block, durations, attribute_offsets);
 
   SmallVector<uint> unfinished_particle_indices;
   simulate_with_max_n_events(10,
                              block_allocator,
                              block,
-                             integrated_attributes,
+                             attribute_offsets,
                              durations,
                              end_time,
                              particle_type,
                              unfinished_particle_indices);
 
   ParticleSet remaining_particles(block, unfinished_particle_indices);
-  apply_remaining_offsets(remaining_particles, integrated_attributes);
+  apply_remaining_offsets(remaining_particles, attribute_offsets);
 
   integrated_attributes_core.free_buffers();
 }

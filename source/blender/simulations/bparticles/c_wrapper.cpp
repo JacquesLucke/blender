@@ -56,12 +56,12 @@ void BParticles_state_free(BParticlesState state)
 
 class EulerIntegrator : public Integrator {
  private:
-  AttributesInfo m_integrated_attributes_info;
+  AttributesInfo m_offset_attributes_info;
 
  public:
   SmallVector<Force *> m_forces;
 
-  EulerIntegrator() : m_integrated_attributes_info({}, {}, {"Position", "Velocity"})
+  EulerIntegrator() : m_offset_attributes_info({}, {}, {"Position", "Velocity"})
   {
   }
 
@@ -72,17 +72,17 @@ class EulerIntegrator : public Integrator {
     }
   }
 
-  AttributesInfo &integrated_attributes_info() override
+  AttributesInfo &offset_attributes_info() override
   {
-    return m_integrated_attributes_info;
+    return m_offset_attributes_info;
   }
 
   void integrate(ParticlesBlock &block,
                  ArrayRef<float> durations,
-                 AttributeArrays r_values) override
+                 AttributeArrays r_offsets) override
   {
     uint amount = block.active_amount();
-    BLI_assert(amount == r_values.size());
+    BLI_assert(amount == r_offsets.size());
 
     SmallVector<float3> combined_force(amount);
     combined_force.fill({0, 0, 0});
@@ -93,8 +93,8 @@ class EulerIntegrator : public Integrator {
 
     auto last_velocities = block.slice_active().get_float3("Velocity");
 
-    auto position_offsets = r_values.get_float3("Position");
-    auto velocity_offsets = r_values.get_float3("Velocity");
+    auto position_offsets = r_offsets.get_float3("Position");
+    auto velocity_offsets = r_offsets.get_float3("Velocity");
 
     for (uint pindex = 0; pindex < amount; pindex++) {
       float mass = 1.0f;

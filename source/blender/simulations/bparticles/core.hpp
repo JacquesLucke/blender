@@ -271,7 +271,7 @@ class Force {
 class EventInterface {
  private:
   ParticleSet m_particles;
-  AttributeArrays &m_integrated_attributes;
+  AttributeArrays &m_attribute_offsets;
   ArrayRef<float> m_durations;
   float m_end_time;
 
@@ -280,13 +280,13 @@ class EventInterface {
 
  public:
   EventInterface(ParticleSet particles,
-                 AttributeArrays &integrated_attributes,
+                 AttributeArrays &attribute_offsets,
                  ArrayRef<float> durations,
                  float end_time,
                  SmallVector<uint> &r_filtered_indices,
                  SmallVector<float> &r_filtered_time_factors)
       : m_particles(particles),
-        m_integrated_attributes(integrated_attributes),
+        m_attribute_offsets(attribute_offsets),
         m_durations(durations),
         m_end_time(end_time),
         m_filtered_indices(r_filtered_indices),
@@ -310,9 +310,9 @@ class EventInterface {
     return TimeSpan(m_end_time - duration, duration);
   }
 
-  AttributeArrays integrated_attributes()
+  AttributeArrays attribute_offsets()
   {
-    return m_integrated_attributes;
+    return m_attribute_offsets;
   }
 
   float end_time()
@@ -403,11 +403,11 @@ class Integrator {
  public:
   virtual ~Integrator();
 
-  virtual AttributesInfo &integrated_attributes_info() = 0;
+  virtual AttributesInfo &offset_attributes_info() = 0;
 
   virtual void integrate(ParticlesBlock &block,
                          ArrayRef<float> durations,
-                         AttributeArrays r_values) = 0;
+                         AttributeArrays r_offsets) = 0;
 };
 
 class ParticleType {
