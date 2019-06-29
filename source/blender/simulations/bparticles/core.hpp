@@ -417,6 +417,21 @@ class ParticleType {
   virtual ArrayRef<Event *> events() = 0;
   virtual ArrayRef<Action *> action_per_event() = 0;
   virtual Integrator &integrator() = 0;
+
+  virtual ArrayRef<std::string> byte_attributes()
+  {
+    return {};
+  }
+
+  virtual ArrayRef<std::string> float_attributes()
+  {
+    return {};
+  }
+
+  virtual ArrayRef<std::string> float3_attributes()
+  {
+    return {};
+  }
 };
 
 class StepDescription {

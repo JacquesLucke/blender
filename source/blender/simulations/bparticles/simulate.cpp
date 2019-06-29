@@ -566,11 +566,19 @@ BLI_NOINLINE static void ensure_required_containers_exist(
   }
 }
 
-BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &UNUSED(type),
+BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &type,
                                                                  AttributesInfo &UNUSED(last_info))
 {
-  AttributesInfo new_info{{"Kill State"}, {"Birth Time"}, {"Position", "Velocity"}};
-  return new_info;
+  SmallSetVector<std::string> byte_attributes = {"Kill State"};
+  SmallSetVector<std::string> float_attributes = {"Birth Time"};
+  SmallSetVector<std::string> float3_attributes = {};
+
+  byte_attributes.add_multiple(type.byte_attributes());
+  float_attributes.add_multiple(type.float_attributes());
+  float3_attributes.add_multiple(type.float3_attributes());
+
+  return AttributesInfo(
+      byte_attributes.values(), float_attributes.values(), float3_attributes.values());
 }
 
 BLI_NOINLINE static void ensure_required_attributes_exist(

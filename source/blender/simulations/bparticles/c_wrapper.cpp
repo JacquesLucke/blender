@@ -138,6 +138,12 @@ class ModifierParticleType : public ParticleType {
   {
     return *m_integrator;
   }
+
+  ArrayRef<std::string> float3_attributes() override
+  {
+    static std::array<std::string, 2> attributes = {"Position", "Velocity"};
+    return attributes;
+  }
 };
 
 class ModifierStepDescription : public StepDescription {
