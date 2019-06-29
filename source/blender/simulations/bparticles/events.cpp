@@ -49,7 +49,7 @@ class MeshCollisionEvent : public Event {
   {
     ParticleSet &particles = interface.particles();
     auto positions = particles.attributes().get_float3("Position");
-    auto position_offsets = interface.ideal_offsets().position_offsets;
+    auto position_offsets = interface.integrated_attributes().get_float3("Position");
 
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);

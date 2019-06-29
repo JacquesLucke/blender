@@ -54,17 +54,69 @@ void BParticles_state_free(BParticlesState state)
   delete unwrap(state);
 }
 
-class ModifierParticleType : public ParticleType {
+class EulerIntegrator : public Integrator {
+ private:
+  AttributesInfo m_integrated_attributes_info;
+
  public:
   SmallVector<Force *> m_forces;
-  SmallVector<Event *> m_events;
-  SmallVector<Action *> m_actions;
 
-  ~ModifierParticleType()
+  EulerIntegrator() : m_integrated_attributes_info({}, {}, {"Position", "Velocity"})
+  {
+  }
+
+  ~EulerIntegrator()
   {
     for (Force *force : m_forces) {
       delete force;
     }
+  }
+
+  AttributesInfo &integrated_attributes_info() override
+  {
+    return m_integrated_attributes_info;
+  }
+
+  void integrate(ParticlesBlock &block,
+                 ArrayRef<float> durations,
+                 AttributeArrays r_values) override
+  {
+    uint amount = block.active_amount();
+    BLI_assert(amount == r_values.size());
+
+    SmallVector<float3> combined_force(amount);
+    combined_force.fill({0, 0, 0});
+
+    for (Force *force : m_forces) {
+      force->add_force(block, combined_force);
+    }
+
+    auto last_velocities = block.slice_active().get_float3("Velocity");
+
+    auto position_offsets = r_values.get_float3("Position");
+    auto velocity_offsets = r_values.get_float3("Velocity");
+
+    for (uint pindex = 0; pindex < amount; pindex++) {
+      float mass = 1.0f;
+      float duration = durations[pindex];
+
+      velocity_offsets[pindex] = duration * combined_force[pindex] / mass;
+      position_offsets[pindex] = duration *
+                                 (last_velocities[pindex] + velocity_offsets[pindex] * 0.5f);
+    }
+  }
+};
+
+class ModifierParticleType : public ParticleType {
+ public:
+  SmallVector<Event *> m_events;
+  SmallVector<Action *> m_actions;
+  EulerIntegrator *m_integrator;
+
+  ~ModifierParticleType()
+  {
+    delete m_integrator;
+
     for (Event *event : m_events) {
       delete event;
     }
@@ -73,10 +125,6 @@ class ModifierParticleType : public ParticleType {
     }
   }
 
-  ArrayRef<Force *> forces() override
-  {
-    return m_forces;
-  }
   ArrayRef<Event *> events() override
   {
     return m_events;
@@ -84,6 +132,11 @@ class ModifierParticleType : public ParticleType {
   ArrayRef<Action *> action_per_event() override
   {
     return m_actions;
+  }
+
+  Integrator &integrator() override
+  {
+    return *m_integrator;
   }
 };
 
@@ -150,13 +203,15 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
     type0->m_events.append(
         EVENT_mesh_collection(&treedata, npmd->collision_object->obmat).release());
     type0->m_actions.append(ACTION_explode().release());
-    type0->m_forces.append(FORCE_directional({0, 0, -2}).release());
   }
+  type0->m_integrator = new EulerIntegrator();
+  type0->m_integrator->m_forces.append(FORCE_directional({0, 0, -2}).release());
 
   auto *type1 = new ModifierParticleType();
   description.m_types.add_new(1, type1);
   type1->m_events.append(EVENT_age_reached(0.3f).release());
   type1->m_actions.append(ACTION_kill().release());
+  type1->m_integrator = new EulerIntegrator();
 
   simulate_step(state, description);
 

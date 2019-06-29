@@ -10,6 +10,10 @@ Emitter::~Emitter()
 {
 }
 
+Integrator::~Integrator()
+{
+}
+
 Action::~Action()
 {
 }

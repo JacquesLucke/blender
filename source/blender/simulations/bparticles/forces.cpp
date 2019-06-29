@@ -13,10 +13,10 @@ class DirectionalForce : public Force {
   {
   }
 
-  void add_force(ParticleSet particles, ArrayRef<float3> dst) override
+  void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) override
   {
-    for (uint i : particles.range()) {
-      dst[i] += m_force;
+    for (uint i = 0; i < block.active_amount(); i++) {
+      r_force[i] += m_force;
     }
   };
 };
@@ -30,15 +30,14 @@ class TurbulenceForce : public BParticles::Force {
   {
   }
 
-  void add_force(ParticleSet particles, ArrayRef<float3> dst) override
+  void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) override
   {
-    auto positions = particles.attributes().get_float3("Position");
-    for (uint i : particles.indices()) {
-      uint pindex = particles.get_particle_index(i);
+    auto positions = block.slice_active().get_float3("Position");
 
+    for (uint pindex = 0; pindex < block.active_amount(); pindex++) {
       float3 pos = positions[pindex];
       float value = BLI_hnoise(0.5f, pos.x, pos.y, pos.z);
-      dst[i].z += value * m_strength;
+      r_force[pindex].z += value * m_strength;
     }
   }
 };

@@ -265,18 +265,13 @@ struct ParticleSet {
 class Force {
  public:
   virtual ~Force();
-  virtual void add_force(ParticleSet particles, ArrayRef<float3> dst) = 0;
-};
-
-struct IdealOffsets {
-  ArrayRef<float3> position_offsets;
-  ArrayRef<float3> velocity_offsets;
+  virtual void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) = 0;
 };
 
 class EventInterface {
  private:
   ParticleSet m_particles;
-  IdealOffsets &m_ideal_offsets;
+  AttributeArrays &m_integrated_attributes;
   ArrayRef<float> m_durations;
   float m_end_time;
 
@@ -285,13 +280,13 @@ class EventInterface {
 
  public:
   EventInterface(ParticleSet particles,
-                 IdealOffsets &ideal_offsets,
+                 AttributeArrays &integrated_attributes,
                  ArrayRef<float> durations,
                  float end_time,
                  SmallVector<uint> &r_filtered_indices,
                  SmallVector<float> &r_filtered_time_factors)
       : m_particles(particles),
-        m_ideal_offsets(ideal_offsets),
+        m_integrated_attributes(integrated_attributes),
         m_durations(durations),
         m_end_time(end_time),
         m_filtered_indices(r_filtered_indices),
@@ -315,9 +310,9 @@ class EventInterface {
     return TimeSpan(m_end_time - duration, duration);
   }
 
-  IdealOffsets &ideal_offsets()
+  AttributeArrays integrated_attributes()
   {
-    return m_ideal_offsets;
+    return m_integrated_attributes;
   }
 
   float end_time()
@@ -404,13 +399,24 @@ class Emitter {
   virtual void emit(EmitterInterface &interface) = 0;
 };
 
+class Integrator {
+ public:
+  virtual ~Integrator();
+
+  virtual AttributesInfo &integrated_attributes_info() = 0;
+
+  virtual void integrate(ParticlesBlock &block,
+                         ArrayRef<float> durations,
+                         AttributeArrays r_values) = 0;
+};
+
 class ParticleType {
  public:
   virtual ~ParticleType();
 
-  virtual ArrayRef<Force *> forces() = 0;
   virtual ArrayRef<Event *> events() = 0;
   virtual ArrayRef<Action *> action_per_event() = 0;
+  virtual Integrator &integrator() = 0;
 };
 
 class StepDescription {
