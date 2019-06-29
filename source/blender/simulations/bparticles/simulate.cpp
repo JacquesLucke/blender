@@ -535,10 +535,12 @@ BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &blo
   }
 }
 
-BLI_NOINLINE static void delete_tagged_particles(ArrayRef<ParticlesBlock *> blocks)
+BLI_NOINLINE static void delete_tagged_particles(ParticlesState &state)
 {
-  for (ParticlesBlock *block : blocks) {
-    delete_tagged_particles_and_reorder(*block);
+  for (ParticlesContainer *container : state.particle_containers().values()) {
+    for (ParticlesBlock *block : container->active_blocks()) {
+      delete_tagged_particles_and_reorder(*block);
+    }
   }
 }
 
@@ -557,12 +559,21 @@ BLI_NOINLINE static void compress_all_blocks(ParticlesContainer &particles)
   }
 }
 
+BLI_NOINLINE static void compress_all_containers(ParticlesState &state)
+{
+  for (ParticlesContainer *container : state.particle_containers().values()) {
+    compress_all_blocks(*container);
+  }
+}
+
 /* Fix state based on description.
  *****************************************************/
 
-BLI_NOINLINE static void ensure_required_containers_exist(
-    SmallMap<uint, ParticlesContainer *> &containers, StepDescription &description)
+BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
+                                                          StepDescription &description)
 {
+  auto &containers = state.particle_containers();
+
   for (uint type_id : description.particle_type_ids()) {
     if (!containers.contains(type_id)) {
       ParticlesContainer *container = new ParticlesContainer({}, 1000);
@@ -585,9 +596,11 @@ BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &t
   return AttributesInfo(byte_attributes, float_attributes, float3_attributes);
 }
 
-BLI_NOINLINE static void ensure_required_attributes_exist(
-    SmallMap<uint, ParticlesContainer *> &containers, StepDescription &description)
+BLI_NOINLINE static void ensure_required_attributes_exist(ParticlesState &state,
+                                                          StepDescription &description)
 {
+  auto &containers = state.particle_containers();
+
   for (uint type_id : description.particle_type_ids()) {
     ParticleType &type = description.particle_type(type_id);
     ParticlesContainer &container = *containers.lookup(type_id);
@@ -601,10 +614,10 @@ BLI_NOINLINE static void ensure_required_attributes_exist(
 /* Main Entry Point
  **************************************************/
 
-static void simulate_all_existing_blocks(ParticlesState &state,
-                                         StepDescription &step_description,
-                                         BlockAllocators &block_allocators,
-                                         TimeSpan time_span)
+BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,
+                                                      StepDescription &step_description,
+                                                      BlockAllocators &block_allocators,
+                                                      TimeSpan time_span)
 {
   auto &containers = state.particle_containers();
 
@@ -617,9 +630,9 @@ static void simulate_all_existing_blocks(ParticlesState &state,
       block_allocators, blocks_to_simulate_next, step_description, time_span);
 }
 
-static void create_particles_from_emitters(StepDescription &step_description,
-                                           BlockAllocators &block_allocators,
-                                           TimeSpan time_span)
+BLI_NOINLINE static void create_particles_from_emitters(StepDescription &step_description,
+                                                        BlockAllocators &block_allocators,
+                                                        TimeSpan time_span)
 {
   BlockAllocator &emitter_allocator = block_allocators.get_standalone_allocator();
   for (Emitter *emitter : step_description.emitters()) {
@@ -628,15 +641,10 @@ static void create_particles_from_emitters(StepDescription &step_description,
   }
 }
 
-void simulate_step(ParticlesState &state, StepDescription &step_description)
+BLI_NOINLINE static void emit_and_simulate_particles(ParticlesState &state,
+                                                     StepDescription &step_description,
+                                                     TimeSpan time_span)
 {
-  TimeSpan time_span(state.m_current_time, step_description.step_duration());
-  state.m_current_time = time_span.end();
-
-  auto &containers = state.particle_containers();
-  ensure_required_containers_exist(containers, step_description);
-  ensure_required_attributes_exist(containers, step_description);
-
   BlockAllocators block_allocators(state);
   simulate_all_existing_blocks(state, step_description, block_allocators, time_span);
   create_particles_from_emitters(step_description, block_allocators, time_span);
@@ -648,16 +656,20 @@ void simulate_step(ParticlesState &state, StepDescription &step_description)
         allocators, blocks_to_simulate_next, step_description, time_span.end());
     blocks_to_simulate_next = allocators.all_allocated_blocks();
   }
+}
 
-  for (uint type_id : step_description.particle_type_ids()) {
-    ParticlesContainer &container = *containers.lookup(type_id);
-    delete_tagged_particles(container.active_blocks().to_small_vector());
-  }
+void simulate_step(ParticlesState &state, StepDescription &step_description)
+{
+  TimeSpan time_span(state.m_current_time, step_description.step_duration());
+  state.m_current_time = time_span.end();
 
-  for (uint type_id : step_description.particle_type_ids()) {
-    ParticlesContainer &container = *containers.lookup(type_id);
-    compress_all_blocks(container);
-  }
+  ensure_required_containers_exist(state, step_description);
+  ensure_required_attributes_exist(state, step_description);
+
+  emit_and_simulate_particles(state, step_description, time_span);
+
+  delete_tagged_particles(state);
+  compress_all_containers(state);
 }
 
 }  // namespace BParticles
