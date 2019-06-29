@@ -601,44 +601,60 @@ BLI_NOINLINE static void ensure_required_attributes_exist(
 /* Main Entry Point
  **************************************************/
 
-void simulate_step(ParticlesState &state, StepDescription &description)
+static void simulate_all_existing_blocks(ParticlesState &state,
+                                         StepDescription &step_description,
+                                         BlockAllocators &block_allocators,
+                                         TimeSpan time_span)
 {
-  TimeSpan time_span(state.m_current_time, description.step_duration());
-  state.m_current_time = time_span.end();
-
   auto &containers = state.particle_containers();
-  ensure_required_containers_exist(containers, description);
-  ensure_required_attributes_exist(containers, description);
-
-  BlockAllocators block_allocators(state);
 
   SmallVector<ParticlesBlock *> blocks_to_simulate_next;
-  for (uint type_id : description.particle_type_ids()) {
+  for (uint type_id : step_description.particle_type_ids()) {
     ParticlesContainer &container = *containers.lookup(type_id);
     blocks_to_simulate_next.extend(container.active_blocks().to_small_vector());
   }
-  simulate_blocks_for_time_span(block_allocators, blocks_to_simulate_next, description, time_span);
+  simulate_blocks_for_time_span(
+      block_allocators, blocks_to_simulate_next, step_description, time_span);
+}
 
+static void create_particles_from_emitters(StepDescription &step_description,
+                                           BlockAllocators &block_allocators,
+                                           TimeSpan time_span)
+{
   BlockAllocator &emitter_allocator = block_allocators.get_standalone_allocator();
-  for (Emitter *emitter : description.emitters()) {
+  for (Emitter *emitter : step_description.emitters()) {
     EmitterInterface interface(emitter_allocator, time_span);
     emitter->emit(interface);
   }
+}
 
-  blocks_to_simulate_next = block_allocators.all_allocated_blocks();
+void simulate_step(ParticlesState &state, StepDescription &step_description)
+{
+  TimeSpan time_span(state.m_current_time, step_description.step_duration());
+  state.m_current_time = time_span.end();
+
+  auto &containers = state.particle_containers();
+  ensure_required_containers_exist(containers, step_description);
+  ensure_required_attributes_exist(containers, step_description);
+
+  BlockAllocators block_allocators(state);
+  simulate_all_existing_blocks(state, step_description, block_allocators, time_span);
+  create_particles_from_emitters(step_description, block_allocators, time_span);
+
+  SmallVector<ParticlesBlock *> blocks_to_simulate_next = block_allocators.all_allocated_blocks();
   while (blocks_to_simulate_next.size() > 0) {
     BlockAllocators allocators(state);
     simulate_blocks_from_birth_to_current_time(
-        allocators, blocks_to_simulate_next, description, time_span.end());
+        allocators, blocks_to_simulate_next, step_description, time_span.end());
     blocks_to_simulate_next = allocators.all_allocated_blocks();
   }
 
-  for (uint type_id : description.particle_type_ids()) {
+  for (uint type_id : step_description.particle_type_ids()) {
     ParticlesContainer &container = *containers.lookup(type_id);
     delete_tagged_particles(container.active_blocks().to_small_vector());
   }
 
-  for (uint type_id : description.particle_type_ids()) {
+  for (uint type_id : step_description.particle_type_ids()) {
     ParticlesContainer &container = *containers.lookup(type_id);
     compress_all_blocks(container);
   }
