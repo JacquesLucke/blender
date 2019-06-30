@@ -206,7 +206,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                                 AttributeArrays attribute_offsets,
                                                 ArrayRef<float> durations,
                                                 float end_time,
-                                                ParticleType &particle_type,
+                                                ArrayRef<EventAction *> events,
                                                 ArrayRef<float> last_event_times,
                                                 SmallVector<uint> &r_unfinished_particle_indices,
                                                 SmallVector<float> &r_remaining_durations)
@@ -219,7 +219,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                attribute_offsets,
                                durations,
                                end_time,
-                               particle_type.event_actions(),
+                               events,
                                last_event_times,
                                next_event_indices,
                                time_factors_to_next_event,
@@ -236,11 +236,11 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
   update_remaining_attribute_offsets(
       particles_with_events, time_factors_to_next_event, attribute_offsets);
 
-  SmallVector<SmallVector<uint>> particles_per_event(particle_type.event_actions().size());
+  SmallVector<SmallVector<uint>> particles_per_event(events.size());
   find_particle_indices_per_event(
       indices_with_event, particles.indices(), next_event_indices, particles_per_event);
 
-  SmallVector<SmallVector<float>> current_time_per_particle(particle_type.event_actions().size());
+  SmallVector<SmallVector<float>> current_time_per_particle(events.size());
   compute_current_time_per_particle(indices_with_event,
                                     durations,
                                     end_time,
@@ -248,11 +248,8 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                     time_factors_to_next_event,
                                     current_time_per_particle);
 
-  run_actions(block_allocator,
-              particles.block(),
-              particles_per_event,
-              current_time_per_particle,
-              particle_type.event_actions());
+  run_actions(
+      block_allocator, particles.block(), particles_per_event, current_time_per_particle, events);
 
   find_unfinished_particles(indices_with_event,
                             particles.indices(),
@@ -270,7 +267,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     AttributeArrays attribute_offsets,
     ArrayRef<float> durations,
     float end_time,
-    ParticleType &particle_type,
+    ArrayRef<EventAction *> events,
     SmallVector<uint> &r_unfinished_particle_indices)
 {
   SmallVector<float> last_event_times;
@@ -285,7 +282,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
                          attribute_offsets,
                          durations,
                          end_time,
-                         particle_type,
+                         events,
                          last_event_times,
                          unfinished_particle_indices,
                          remaining_durations);
@@ -300,7 +297,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
                            attribute_offsets,
                            remaining_durations,
                            end_time,
-                           particle_type,
+                           events,
                            last_event_times,
                            unfinished_particle_indices_after,
                            remaining_durations_after);
@@ -344,6 +341,8 @@ BLI_NOINLINE static void simulate_block(BlockAllocator &block_allocator,
 
   integrator.integrate(block, durations, attribute_offsets);
 
+  ArrayRef<EventAction *> events = particle_type.event_actions();
+
   SmallVector<uint> unfinished_particle_indices;
   simulate_with_max_n_events(10,
                              block_allocator,
@@ -351,7 +350,7 @@ BLI_NOINLINE static void simulate_block(BlockAllocator &block_allocator,
                              attribute_offsets,
                              durations,
                              end_time,
-                             particle_type,
+                             events,
                              unfinished_particle_indices);
 
   ParticleSet remaining_particles(block, unfinished_particle_indices);
