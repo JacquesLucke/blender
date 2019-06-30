@@ -3,8 +3,9 @@
 
 #include "BLI_lazy_init.hpp"
 #include "BLI_task.h"
+#include "BLI_timeit.hpp"
 
-#define USE_THREADING true
+#define USE_THREADING false
 
 namespace BParticles {
 
@@ -337,9 +338,9 @@ BLI_NOINLINE static void simulate_block(BlockAllocator &block_allocator,
 
   Integrator &integrator = particle_type.integrator();
   AttributesInfo &offsets_info = integrator.offset_attributes_info();
-  auto integrated_attributes_core = AttributeArraysCore::NewWithSeparateAllocations(offsets_info,
-                                                                                    amount);
-  AttributeArrays attribute_offsets = integrated_attributes_core.slice_all();
+  AttributeArraysCore attribute_offsets_core = AttributeArraysCore::NewWithSeparateAllocations(
+      offsets_info, amount);
+  AttributeArrays attribute_offsets = attribute_offsets_core.slice_all();
 
   integrator.integrate(block, durations, attribute_offsets);
 
@@ -356,7 +357,7 @@ BLI_NOINLINE static void simulate_block(BlockAllocator &block_allocator,
   ParticleSet remaining_particles(block, unfinished_particle_indices);
   apply_remaining_offsets(remaining_particles, attribute_offsets);
 
-  integrated_attributes_core.free_buffers();
+  attribute_offsets_core.free_buffers();
 }
 
 class BlockAllocators {
@@ -426,6 +427,8 @@ BLI_NOINLINE static void simulate_block_time_span_cb(void *__restrict userdata,
                                                      const int index,
                                                      const ParallelRangeTLS *__restrict tls)
 {
+  SCOPED_TIMER(__func__);
+
   SimulateTimeSpanData *data = (SimulateTimeSpanData *)userdata;
 
   BlockAllocator &block_allocator = data->block_allocators.get_threadlocal_allocator(

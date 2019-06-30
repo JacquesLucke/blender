@@ -188,7 +188,7 @@ class ModifierStepDescription : public StepDescription {
 
   ArrayRef<uint> particle_type_ids() override
   {
-    return {0, 1};
+    return {0};
   }
 
   ParticleType &particle_type(uint type_id) override
@@ -206,42 +206,43 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   ParticlesState &state = *unwrap(state_c);
   ModifierStepDescription description;
   description.m_duration = 1.0f / 24.0f;
+  description.m_emitters.append(EMITTER_emit_at_start());
 
   auto *type0 = new ModifierParticleType();
   description.m_types.add_new(0, type0);
 
-  if (npmd->emitter_object) {
-    description.m_emitters.append(EMITTER_mesh_surface(
-        0, (Mesh *)npmd->emitter_object->data, npmd->emitter_object->obmat, npmd->control1));
-  }
-  BVHTreeFromMesh treedata = {0};
-  if (npmd->collision_object) {
-    BKE_bvhtree_from_mesh_get(
-        &treedata, (Mesh *)npmd->collision_object->data, BVHTREE_FROM_LOOPTRI, 4);
+  // if (npmd->emitter_object) {
+  //   description.m_emitters.append(EMITTER_mesh_surface(
+  //       0, (Mesh *)npmd->emitter_object->data, npmd->emitter_object->obmat, npmd->control1));
+  // }
+  // BVHTreeFromMesh treedata = {0};
+  // if (npmd->collision_object) {
+  //   BKE_bvhtree_from_mesh_get(
+  //       &treedata, (Mesh *)npmd->collision_object->data, BVHTREE_FROM_LOOPTRI, 4);
 
-    EventActionTest *event_action = new EventActionTest();
-    event_action->m_event = EVENT_mesh_collection(&treedata, npmd->collision_object->obmat);
-    event_action->m_action = ACTION_explode();
-    type0->m_event_actions.append(event_action);
-  }
+  //   EventActionTest *event_action = new EventActionTest();
+  //   event_action->m_event = EVENT_mesh_collection(&treedata, npmd->collision_object->obmat);
+  //   event_action->m_action = ACTION_explode();
+  //   type0->m_event_actions.append(event_action);
+  // }
   type0->m_integrator = new EulerIntegrator();
   type0->m_integrator->m_forces.append(FORCE_directional({0, 0, -2}));
 
-  auto *type1 = new ModifierParticleType();
-  description.m_types.add_new(1, type1);
-  {
-    EventActionTest *event_action = new EventActionTest();
-    event_action->m_event = EVENT_age_reached(0.3f);
-    event_action->m_action = ACTION_kill();
-    type1->m_event_actions.append(event_action);
-  }
-  type1->m_integrator = new EulerIntegrator();
+  // auto *type1 = new ModifierParticleType();
+  // description.m_types.add_new(1, type1);
+  // {
+  //   EventActionTest *event_action = new EventActionTest();
+  //   event_action->m_event = EVENT_age_reached(0.3f);
+  //   event_action->m_action = ACTION_kill();
+  //   type1->m_event_actions.append(event_action);
+  // }
+  // type1->m_integrator = new EulerIntegrator();
 
   simulate_step(state, description);
 
-  if (npmd->collision_object) {
-    free_bvhtree_from_mesh(&treedata);
-  }
+  // if (npmd->collision_object) {
+  //   free_bvhtree_from_mesh(&treedata);
+  // }
 
   auto &containers = state.particle_containers();
   for (auto item : containers.items()) {
