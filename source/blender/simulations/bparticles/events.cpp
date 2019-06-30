@@ -104,7 +104,7 @@ class MeshBounceEvent : public Event {
       position_offsets[pindex].reflect(data.normal);
 
       /* Temporary solution to avoid double collision. */
-      positions[pindex] += velocities[pindex] * 0.01f;
+      positions[pindex] += velocities[pindex] * 0.0001f;
     }
   }
 };

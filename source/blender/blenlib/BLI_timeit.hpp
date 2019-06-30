@@ -88,6 +88,9 @@ class ScopedTimerStatistics {
     std::cout << "  Shortest: ";
     print_duration(m_shortest_duration);
     std::cout << "\n";
+    std::cout << "  Last: ";
+    print_duration(duration);
+    std::cout << "\n";
   }
 };
 
