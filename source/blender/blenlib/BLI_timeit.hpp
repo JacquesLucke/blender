@@ -9,13 +9,26 @@
 
 namespace BLI {
 
+namespace Timers {
+
+using Clock = std::chrono::high_resolution_clock;
+using TimePoint = Clock::time_point;
+using Nanoseconds = std::chrono::nanoseconds;
+
+inline void print_duration(Nanoseconds duration)
+{
+  if (duration.count() < 10000) {
+    std::cout << duration.count() << " ns";
+  }
+  else {
+    std::cout << duration.count() / 1000000.0 << " ms";
+  }
+}
+
 class ScopedTimer {
  private:
-  using Clock = std::chrono::high_resolution_clock;
-  using Duration = std::chrono::duration<float>;
-
   const char *m_name;
-  Clock::time_point m_start;
+  TimePoint m_start;
 
  public:
   ScopedTimer(const char *name = "")
@@ -26,13 +39,16 @@ class ScopedTimer {
 
   ~ScopedTimer()
   {
-    Clock::time_point end = Clock::now();
-    Duration duration = end - m_start;
-    double ms = duration.count() * 1000.0f;
-    std::cout << "Timer '" << m_name << "' took " << ms << " ms\n";
+    TimePoint end = Clock::now();
+    Nanoseconds duration = end - m_start;
+    std::cout << "Timer '" << m_name << "' took ";
+    print_duration(duration);
+    std::cout << "\n";
   }
 };
 
+}  // namespace Timers
+
 };  // namespace BLI
 
-#define SCOPED_TIMER(name) BLI::ScopedTimer t(name);
+#define SCOPED_TIMER(name) BLI::Timers::ScopedTimer t(name);
