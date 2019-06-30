@@ -41,7 +41,6 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
                                                       ArrayRef<float> durations,
                                                       float end_time,
                                                       ArrayRef<EventAction *> event_actions,
-                                                      ArrayRef<float> last_event_times,
                                                       ArrayRef<int> r_next_event_indices,
                                                       ArrayRef<float> r_time_factors_to_next_event,
                                                       SmallVector<uint> &r_indices_with_event)
@@ -66,12 +65,6 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
       uint index = triggered_indices[i];
       float time_factor = triggered_time_factors[i];
       if (time_factor < r_time_factors_to_next_event[index]) {
-        if (last_event_times.size() > 0) {
-          float trigger_time = end_time - durations[index] * (1.0f - time_factor);
-          if (trigger_time - last_event_times[index] < 0.00001) {
-            continue;
-          }
-        }
         r_next_event_indices[index] = event_index;
         r_time_factors_to_next_event[index] = time_factor;
       }
@@ -210,7 +203,6 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                                 ArrayRef<float> durations,
                                                 float end_time,
                                                 ArrayRef<EventAction *> events,
-                                                ArrayRef<float> last_event_times,
                                                 SmallVector<uint> &r_unfinished_particle_indices,
                                                 SmallVector<float> &r_remaining_durations)
 {
@@ -223,7 +215,6 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                durations,
                                end_time,
                                events,
-                               last_event_times,
                                next_event_indices,
                                time_factors_to_next_event,
                                indices_with_event);
@@ -273,8 +264,6 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     ArrayRef<EventAction *> events,
     SmallVector<uint> &r_unfinished_particle_indices)
 {
-  SmallVector<float> last_event_times;
-
   /* Handle first event separately to be able to use the static number range. */
   ParticleSet particles_to_simulate(block, static_number_range_ref(block.active_range()));
   SmallVector<uint> unfinished_particle_indices;
@@ -286,7 +275,6 @@ BLI_NOINLINE static void simulate_with_max_n_events(
                          durations,
                          end_time,
                          events,
-                         last_event_times,
                          unfinished_particle_indices,
                          remaining_durations);
 
@@ -301,7 +289,6 @@ BLI_NOINLINE static void simulate_with_max_n_events(
                            remaining_durations,
                            end_time,
                            events,
-                           last_event_times,
                            unfinished_particle_indices_after,
                            remaining_durations_after);
 
