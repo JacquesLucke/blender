@@ -41,6 +41,7 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
                                                       ArrayRef<float> durations,
                                                       float end_time,
                                                       ArrayRef<Event *> events,
+                                                      EventStorage &r_event_storage,
                                                       ArrayRef<int> r_next_event_indices,
                                                       ArrayRef<float> r_time_factors_to_next_event,
                                                       VectorAdaptor<uint> &r_indices_with_event)
@@ -52,11 +53,14 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
     SmallVector<uint> triggered_indices;
     SmallVector<float> triggered_time_factors;
 
+    /* TODO: make sure that one event does not override the storage of another,
+     * if it comes later. */
     Event *event = events[event_index];
     EventFilterInterface interface(particles,
                                    attribute_offsets,
                                    durations,
                                    end_time,
+                                   r_event_storage,
                                    triggered_indices,
                                    triggered_time_factors);
     event->filter(interface);
@@ -177,7 +181,8 @@ BLI_NOINLINE static void execute_events(BlockAllocator &block_allocator,
                                         ParticlesBlock &block,
                                         ArrayRef<SmallVector<uint>> particle_indices_per_event,
                                         ArrayRef<SmallVector<float>> current_time_per_particle,
-                                        ArrayRef<Event *> events)
+                                        ArrayRef<Event *> events,
+                                        EventStorage &event_storage)
 {
   BLI_assert(events.size() == particle_indices_per_event.size());
   BLI_assert(events.size() == current_time_per_particle.size());
@@ -190,7 +195,7 @@ BLI_NOINLINE static void execute_events(BlockAllocator &block_allocator,
     }
 
     EventExecuteInterface interface(
-        particles, block_allocator, current_time_per_particle[event_index]);
+        particles, block_allocator, current_time_per_particle[event_index], event_storage);
     event->execute(interface);
   }
 }
@@ -220,11 +225,19 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
       time_factors_to_next_event_array, amount, amount);
   VectorAdaptor<uint> indices_with_event(indices_with_event_array, amount);
 
+  uint max_event_storage_size = 1;
+  for (Event *event : events) {
+    max_event_storage_size = std::max(max_event_storage_size, event->storage_size());
+  }
+  void *event_storage_array = array_allocator.allocate_array(max_event_storage_size);
+  EventStorage event_storage(event_storage_array, max_event_storage_size);
+
   find_next_event_per_particle(particles,
                                attribute_offsets,
                                durations,
                                end_time,
                                events,
+                               event_storage,
                                next_event_indices,
                                time_factors_to_next_event,
                                indices_with_event);
@@ -256,8 +269,12 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
                                     time_factors_to_next_event,
                                     current_time_per_particle);
 
-  execute_events(
-      block_allocator, particles.block(), particles_per_event, current_time_per_particle, events);
+  execute_events(block_allocator,
+                 particles.block(),
+                 particles_per_event,
+                 current_time_per_particle,
+                 events,
+                 event_storage);
 
   find_unfinished_particles(indices_with_event,
                             particles.indices(),
@@ -271,6 +288,7 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
   array_allocator.deallocate_array(time_factors_to_next_event_array);
   array_allocator.deallocate_array(indices_with_event_array);
   array_allocator.deallocate_array(particle_indices_with_event_array);
+  array_allocator.deallocate_array(event_storage_array, max_event_storage_size);
 }
 
 BLI_NOINLINE static void simulate_with_max_n_events(

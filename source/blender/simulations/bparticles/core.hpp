@@ -295,6 +295,29 @@ class Force {
   virtual void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) = 0;
 };
 
+class EventStorage {
+ private:
+  void *m_array;
+  uint m_stride;
+
+ public:
+  EventStorage(void *array, uint stride) : m_array(array), m_stride(stride)
+  {
+  }
+
+  EventStorage(EventStorage &other) = delete;
+
+  void *operator[](uint index)
+  {
+    return POINTER_OFFSET(m_array, m_stride * index);
+  }
+
+  template<typename T> T &get(uint index)
+  {
+    return *(T *)(*this)[index];
+  }
+};
+
 class EventFilterInterface {
  private:
   ParticleSet m_particles;
@@ -302,6 +325,7 @@ class EventFilterInterface {
   ArrayRef<float> m_durations;
   float m_end_time;
 
+  EventStorage &m_event_storage;
   SmallVector<uint> &m_filtered_indices;
   SmallVector<float> &m_filtered_time_factors;
 
@@ -310,12 +334,14 @@ class EventFilterInterface {
                        AttributeArrays &attribute_offsets,
                        ArrayRef<float> durations,
                        float end_time,
+                       EventStorage &r_event_storage,
                        SmallVector<uint> &r_filtered_indices,
                        SmallVector<float> &r_filtered_time_factors)
       : m_particles(particles),
         m_attribute_offsets(attribute_offsets),
         m_durations(durations),
         m_end_time(end_time),
+        m_event_storage(r_event_storage),
         m_filtered_indices(r_filtered_indices),
         m_filtered_time_factors(r_filtered_time_factors)
   {
@@ -352,6 +378,12 @@ class EventFilterInterface {
     m_filtered_indices.append(index);
     m_filtered_time_factors.append(time_factor);
   }
+
+  template<typename T> T &trigger_particle(uint index, float time_factor)
+  {
+    this->trigger_particle(index, time_factor);
+    return m_event_storage.get<T>(m_particles.get_particle_index(index));
+  }
 };
 
 class EventFilter {
@@ -368,15 +400,18 @@ class EventExecuteInterface {
   SmallVector<InstantEmitTarget *> m_emit_targets;
   ArrayRef<float> m_current_times;
   ArrayRef<uint8_t> m_kill_states;
+  EventStorage &m_event_storage;
 
  public:
   EventExecuteInterface(ParticleSet particles,
                         BlockAllocator &block_allocator,
-                        ArrayRef<float> current_times)
+                        ArrayRef<float> current_times,
+                        EventStorage &event_storage)
       : m_particles(particles),
         m_block_allocator(block_allocator),
         m_current_times(current_times),
-        m_kill_states(m_particles.attributes().get_byte("Kill State"))
+        m_kill_states(m_particles.attributes().get_byte("Kill State")),
+        m_event_storage(event_storage)
   {
   }
 
@@ -410,6 +445,11 @@ class EventExecuteInterface {
   {
     return m_current_times;
   }
+
+  template<typename T> T &get_storage(uint pindex)
+  {
+    return m_event_storage.get<T>(pindex);
+  }
 };
 
 class Action {
@@ -422,6 +462,11 @@ class Action {
 class Event {
  public:
   virtual ~Event();
+
+  virtual uint storage_size()
+  {
+    return 0;
+  }
 
   virtual void filter(EventFilterInterface &interface) = 0;
   virtual void execute(EventExecuteInterface &interface) = 0;
