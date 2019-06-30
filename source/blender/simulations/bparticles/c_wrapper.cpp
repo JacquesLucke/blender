@@ -97,8 +97,6 @@ class EulerIntegrator : public Integrator {
 
   BLI_NOINLINE void compute_combined_force(ParticlesBlock &block, ArrayRef<float3> r_force)
   {
-    SCOPED_TIMER_STATS(__func__);
-
     r_force.fill({0, 0, 0});
 
     for (Force *force : m_forces) {
@@ -112,8 +110,6 @@ class EulerIntegrator : public Integrator {
                                     ArrayRef<float3> r_position_offsets,
                                     ArrayRef<float3> r_velocity_offsets)
   {
-    SCOPED_TIMER_STATS(__func__);
-
     uint amount = durations.size();
     for (uint pindex = 0; pindex < amount; pindex++) {
       float mass = 1.0f;

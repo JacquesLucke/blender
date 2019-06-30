@@ -342,8 +342,6 @@ BLI_NOINLINE static void add_float3_arrays(ArrayRef<float3> base, ArrayRef<float
 BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
                                                  AttributeArrays attribute_offsets)
 {
-  SCOPED_TIMER_STATS(__func__);
-
   for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
