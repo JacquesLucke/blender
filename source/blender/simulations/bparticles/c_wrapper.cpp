@@ -124,10 +124,10 @@ class EulerIntegrator : public Integrator {
 
 class EventActionTest : public EventAction {
  public:
-  Event *m_event;
+  EventFilter *m_event;
   Action *m_action;
 
-  EventActionTest(Event *event, Action *action) : m_event(event), m_action(action)
+  EventActionTest(EventFilter *event, Action *action) : m_event(event), m_action(action)
   {
   }
 

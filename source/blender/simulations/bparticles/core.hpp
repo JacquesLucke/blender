@@ -354,9 +354,9 @@ class EventInterface {
   }
 };
 
-class Event {
+class EventFilter {
  public:
-  virtual ~Event();
+  virtual ~EventFilter();
 
   virtual void filter(EventInterface &interface) = 0;
 };

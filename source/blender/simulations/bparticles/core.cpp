@@ -18,7 +18,7 @@ Action::~Action()
 {
 }
 
-Event::~Event()
+EventFilter::~EventFilter()
 {
 }
 

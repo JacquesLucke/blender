@@ -6,7 +6,7 @@
 
 namespace BParticles {
 
-class AgeReachedEvent : public Event {
+class AgeReachedEvent : public EventFilter {
  private:
   float m_age;
 
@@ -34,7 +34,7 @@ class AgeReachedEvent : public Event {
   }
 };
 
-class MeshCollisionEvent : public Event {
+class MeshCollisionEvent : public EventFilter {
  private:
   BVHTreeFromMesh *m_treedata;
   float4x4 m_ray_transform;
@@ -77,12 +77,12 @@ class MeshCollisionEvent : public Event {
   }
 };
 
-Event *EVENT_age_reached(float age)
+EventFilter *EVENT_age_reached(float age)
 {
   return new AgeReachedEvent(age);
 }
 
-Event *EVENT_mesh_collection(BVHTreeFromMesh *treedata, const float4x4 &transform)
+EventFilter *EVENT_mesh_collection(BVHTreeFromMesh *treedata, const float4x4 &transform)
 {
   return new MeshCollisionEvent(treedata, transform);
 }
