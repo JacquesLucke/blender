@@ -43,7 +43,7 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
                                                       ArrayRef<EventAction *> event_actions,
                                                       ArrayRef<int> r_next_event_indices,
                                                       ArrayRef<float> r_time_factors_to_next_event,
-                                                      SmallVector<uint> &r_indices_with_event)
+                                                      VectorAdaptor<uint> &r_indices_with_event)
 {
   r_next_event_indices.fill(-1);
   r_time_factors_to_next_event.fill(1.0f);
@@ -197,7 +197,8 @@ BLI_NOINLINE static void run_actions(BlockAllocator &block_allocator,
 /* Step individual particles.
  **********************************************/
 
-BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
+BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_allocator,
+                                                BlockAllocator &block_allocator,
                                                 ParticleSet particles,
                                                 AttributeArrays attribute_offsets,
                                                 ArrayRef<float> durations,
@@ -206,9 +207,17 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                                 VectorAdaptor<uint> &r_unfinished_particle_indices,
                                                 VectorAdaptor<float> &r_remaining_durations)
 {
-  SmallVector<int> next_event_indices(particles.size());
-  SmallVector<float> time_factors_to_next_event(particles.size());
-  SmallVector<uint> indices_with_event;
+  uint amount = particles.size();
+
+  BLI_assert(array_allocator.array_size() >= amount);
+  int *next_event_indices_array = array_allocator.allocate_array<int>();
+  float *time_factors_to_next_event_array = array_allocator.allocate_array<float>();
+  uint *indices_with_event_array = array_allocator.allocate_array<uint>();
+
+  VectorAdaptor<int> next_event_indices(next_event_indices_array, amount, amount);
+  VectorAdaptor<float> time_factors_to_next_event(
+      time_factors_to_next_event_array, amount, amount);
+  VectorAdaptor<uint> indices_with_event(indices_with_event_array, amount);
 
   find_next_event_per_particle(particles,
                                attribute_offsets,
@@ -218,11 +227,15 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                next_event_indices,
                                time_factors_to_next_event,
                                indices_with_event);
+  uint filtered_particles_amount = indices_with_event.size();
 
   forward_particles_to_next_event_or_end(particles, attribute_offsets, time_factors_to_next_event);
 
-  SmallVector<uint> particle_indices_with_event(indices_with_event.size());
-  for (uint i = 0; i < indices_with_event.size(); i++) {
+  uint *particle_indices_with_event_array = array_allocator.allocate_array<uint>();
+  VectorAdaptor<uint> particle_indices_with_event(
+      particle_indices_with_event_array, filtered_particles_amount, filtered_particles_amount);
+
+  for (uint i = 0; i < filtered_particles_amount; i++) {
     particle_indices_with_event[i] = particles.get_particle_index(i);
   }
 
@@ -252,6 +265,11 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                             particles.attributes().get_byte("Kill State"),
                             r_unfinished_particle_indices,
                             r_remaining_durations);
+
+  array_allocator.deallocate_array(next_event_indices_array);
+  array_allocator.deallocate_array(time_factors_to_next_event_array);
+  array_allocator.deallocate_array(indices_with_event_array);
+  array_allocator.deallocate_array(particle_indices_with_event_array);
 }
 
 BLI_NOINLINE static void simulate_with_max_n_events(
@@ -277,7 +295,8 @@ BLI_NOINLINE static void simulate_with_max_n_events(
   {
     VectorAdaptor<uint> indices_output(indices_A, amount_left);
     VectorAdaptor<float> durations_output(durations_A, amount_left);
-    simulate_to_next_event(block_allocator,
+    simulate_to_next_event(array_allocator,
+                           block_allocator,
                            ParticleSet(block, static_number_range_ref(0, amount_left)),
                            attribute_offsets,
                            durations,
@@ -295,7 +314,8 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     VectorAdaptor<float> durations_input(durations_A, amount_left, amount_left);
     VectorAdaptor<float> durations_output(durations_B, amount_left, 0);
 
-    simulate_to_next_event(block_allocator,
+    simulate_to_next_event(array_allocator,
+                           block_allocator,
                            ParticleSet(block, indices_input),
                            attribute_offsets,
                            durations_input,
