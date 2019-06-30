@@ -47,6 +47,18 @@ AttributeArraysCore AttributeArraysCore::NewWithSeparateAllocations(AttributesIn
   return AttributeArraysCore(info, arrays, size);
 }
 
+AttributeArraysCore AttributeArraysCore::NewWithArrayAllocator(AttributesInfo &info,
+                                                               FixedArrayAllocator &allocator)
+{
+  SmallVector<void *> arrays;
+  for (AttributeType type : info.types()) {
+    uint element_size = size_of_attribute_type(type);
+    void *ptr = allocator.allocate_array(element_size);
+    arrays.append(ptr);
+  }
+  return AttributeArraysCore(info, arrays, allocator.array_size());
+}
+
 void AttributeArraysCore::free_buffers()
 {
   for (void *ptr : m_arrays) {
