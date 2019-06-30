@@ -147,9 +147,11 @@ class AttributeArraysCore {
   ~AttributeArraysCore();
 
   static AttributeArraysCore NewWithSeparateAllocations(AttributesInfo &info, uint size);
+  void free_buffers();
+
   static AttributeArraysCore NewWithArrayAllocator(AttributesInfo &info,
                                                    FixedArrayAllocator &allocator);
-  void free_buffers();
+  void deallocate_in_array_allocator(FixedArrayAllocator &allocator);
 
   AttributesInfo &info();
   void *get_ptr(uint index);

@@ -66,4 +66,13 @@ void AttributeArraysCore::free_buffers()
   }
 }
 
+void AttributeArraysCore::deallocate_in_array_allocator(FixedArrayAllocator &allocator)
+{
+  for (uint i = 0; i < m_arrays.size(); i++) {
+    void *ptr = m_arrays[i];
+    uint element_size = size_of_attribute_type(m_info->type_of(i));
+    allocator.deallocate_array(ptr, element_size);
+  }
+}
+
 };  // namespace BParticles
