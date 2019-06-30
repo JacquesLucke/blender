@@ -631,6 +631,17 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
 /* Delete particles.
  **********************************************/
 
+BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(ParticlesState &state)
+{
+  SmallVector<ParticlesBlock *> blocks;
+  for (ParticlesContainer *container : state.particle_containers().values()) {
+    for (ParticlesBlock *block : container->active_blocks()) {
+      blocks.append(block);
+    }
+  }
+  return blocks;
+}
+
 BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &block)
 {
   auto kill_states = block.slice_active().get_byte("Kill State");
@@ -647,13 +658,29 @@ BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &blo
   }
 }
 
+struct DeleteTaggedParticlesData {
+  ArrayRef<ParticlesBlock *> blocks;
+};
+
+BLI_NOINLINE static void delete_tagged_particles_in_block_cb(
+    void *__restrict userdata, const int index, const ParallelRangeTLS *__restrict UNUSED(tls))
+{
+  DeleteTaggedParticlesData *data = (DeleteTaggedParticlesData *)userdata;
+  ParticlesBlock &block = *data->blocks[index];
+  delete_tagged_particles_and_reorder(block);
+}
+
 BLI_NOINLINE static void delete_tagged_particles(ParticlesState &state)
 {
-  for (ParticlesContainer *container : state.particle_containers().values()) {
-    for (ParticlesBlock *block : container->active_blocks()) {
-      delete_tagged_particles_and_reorder(*block);
-    }
-  }
+  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state);
+
+  ParallelRangeSettings settings;
+  BLI_parallel_range_settings_defaults(&settings);
+  settings.use_threading = USE_THREADING;
+
+  DeleteTaggedParticlesData data = {blocks};
+  BLI_task_parallel_range(
+      0, blocks.size(), (void *)&data, delete_tagged_particles_in_block_cb, &settings);
 }
 
 /* Compress particle blocks.
@@ -731,15 +758,8 @@ BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,
                                                       BlockAllocators &block_allocators,
                                                       TimeSpan time_span)
 {
-  auto &containers = state.particle_containers();
-
-  SmallVector<ParticlesBlock *> blocks_to_simulate_next;
-  for (uint type_id : step_description.particle_type_ids()) {
-    ParticlesContainer &container = *containers.lookup(type_id);
-    blocks_to_simulate_next.extend(container.active_blocks().to_small_vector());
-  }
-  simulate_blocks_for_time_span(
-      block_allocators, blocks_to_simulate_next, step_description, time_span);
+  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state);
+  simulate_blocks_for_time_span(block_allocators, blocks, step_description, time_span);
 }
 
 BLI_NOINLINE static void create_particles_from_emitters(StepDescription &step_description,
