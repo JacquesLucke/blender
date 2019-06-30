@@ -5,6 +5,8 @@
 #include "BLI_task.h"
 #include "BLI_timeit.hpp"
 
+#include "xmmintrin.h"
+
 #define USE_THREADING false
 
 namespace BParticles {
@@ -309,9 +311,39 @@ BLI_NOINLINE static void simulate_with_max_n_events(
   r_unfinished_particle_indices = std::move(unfinished_particle_indices);
 }
 
+BLI_NOINLINE static void add_float3_arrays(ArrayRef<float3> base, ArrayRef<float3> values)
+{
+  /* I'm just testing the impact of vectorization here.
+   * This should eventually be moved to another place. */
+  BLI_assert(base.size() == values.size());
+  BLI_assert(POINTER_AS_UINT(base.begin()) % 16 == 0);
+  BLI_assert(POINTER_AS_UINT(values.begin()) % 16 == 0);
+
+  float *base_start = (float *)base.begin();
+  float *values_start = (float *)values.begin();
+  uint total_size = base.size() * 3;
+  uint overshoot = total_size % 4;
+  uint vectorized_size = total_size - overshoot;
+
+  /* Twice as fast in my test than the normal loop.
+   * The compiler did not vectorize it, maybe for compatibility? */
+  for (uint i = 0; i < vectorized_size; i += 4) {
+    __m128 a = _mm_load_ps(base_start + i);
+    __m128 b = _mm_load_ps(values_start + i);
+    __m128 result = _mm_add_ps(a, b);
+    _mm_store_ps(base_start + i, result);
+  }
+
+  for (uint i = vectorized_size; i < total_size; i++) {
+    base_start[i] += values_start[i];
+  }
+}
+
 BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
                                                  AttributeArrays attribute_offsets)
 {
+  SCOPED_TIMER_STATS(__func__);
+
   for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
@@ -319,9 +351,7 @@ BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
     auto offsets = attribute_offsets.get_float3(attribute_index);
 
     if (particles.indices_are_trivial()) {
-      for (uint pindex : particles.range()) {
-        values[pindex] += offsets[pindex];
-      }
+      add_float3_arrays(values, offsets);
     }
     else {
       for (uint pindex : particles.indices()) {
