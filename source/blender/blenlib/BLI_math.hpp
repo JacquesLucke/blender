@@ -45,6 +45,13 @@ struct float3 {
     return len_v3(*this);
   }
 
+  void reflect(float3 normal)
+  {
+    float3 result;
+    reflect_v3_v3v3(result, *this, normal);
+    *this = result;
+  }
+
   friend float3 operator+(float3 a, float3 b)
   {
     return {a.x + b.x, a.y + b.y, a.z + b.z};

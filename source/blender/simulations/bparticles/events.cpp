@@ -34,15 +34,27 @@ class AgeReachedEvent : public EventFilter {
   }
 };
 
-class MeshCollisionEvent : public EventFilter {
+class MeshBounceEvent : public Event {
  private:
   BVHTreeFromMesh *m_treedata;
+  float4x4 m_normal_transform;
   float4x4 m_ray_transform;
 
+  struct CollisionData {
+    float3 normal;
+  };
+
  public:
-  MeshCollisionEvent(BVHTreeFromMesh *treedata, float4x4 transform)
-      : m_treedata(treedata), m_ray_transform(transform.inverted__LocRotScale())
+  MeshBounceEvent(BVHTreeFromMesh *treedata, float4x4 transform)
+      : m_treedata(treedata),
+        m_normal_transform(transform),
+        m_ray_transform(transform.inverted__LocRotScale())
   {
+  }
+
+  uint storage_size() override
+  {
+    return sizeof(CollisionData);
   }
 
   void filter(EventFilterInterface &interface) override
@@ -71,8 +83,28 @@ class MeshCollisionEvent : public EventFilter {
 
       if (hit.index != -1) {
         float time_factor = hit.dist / length;
-        interface.trigger_particle(i, time_factor);
+        auto &data = interface.trigger_particle<CollisionData>(i, time_factor);
+        data.normal = m_normal_transform.transform_direction(hit.no).normalized();
       }
+    }
+  }
+
+  void execute(EventExecuteInterface &interface) override
+  {
+    ParticleSet &particles = interface.particles();
+
+    auto velocities = particles.attributes().get_float3("Velocity");
+    auto positions = particles.attributes().get_float3("Position");
+    auto position_offsets = interface.attribute_offsets().get_float3("Position");
+
+    for (uint pindex : particles.indices()) {
+      auto &data = interface.get_storage<CollisionData>(pindex);
+
+      velocities[pindex].reflect(data.normal);
+      position_offsets[pindex].reflect(data.normal);
+
+      /* Temporary solution to avoid double collision. */
+      positions[pindex] += velocities[pindex] * 0.01f;
     }
   }
 };
@@ -82,9 +114,9 @@ EventFilter *EVENT_age_reached(float age)
   return new AgeReachedEvent(age);
 }
 
-EventFilter *EVENT_mesh_collection(BVHTreeFromMesh *treedata, const float4x4 &transform)
+Event *EVENT_mesh_bounce(BVHTreeFromMesh *treedata, const float4x4 &transform)
 {
-  return new MeshCollisionEvent(treedata, transform);
+  return new MeshBounceEvent(treedata, transform);
 }
 
 }  // namespace BParticles

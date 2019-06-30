@@ -401,17 +401,20 @@ class EventExecuteInterface {
   ArrayRef<float> m_current_times;
   ArrayRef<uint8_t> m_kill_states;
   EventStorage &m_event_storage;
+  AttributeArrays m_attribute_offsets;
 
  public:
   EventExecuteInterface(ParticleSet particles,
                         BlockAllocator &block_allocator,
                         ArrayRef<float> current_times,
-                        EventStorage &event_storage)
+                        EventStorage &event_storage,
+                        AttributeArrays attribute_offsets)
       : m_particles(particles),
         m_block_allocator(block_allocator),
         m_current_times(current_times),
         m_kill_states(m_particles.attributes().get_byte("Kill State")),
-        m_event_storage(event_storage)
+        m_event_storage(event_storage),
+        m_attribute_offsets(attribute_offsets)
   {
   }
 
@@ -449,6 +452,11 @@ class EventExecuteInterface {
   template<typename T> T &get_storage(uint pindex)
   {
     return m_event_storage.get<T>(pindex);
+  }
+
+  AttributeArrays attribute_offsets()
+  {
+    return m_attribute_offsets;
   }
 };
 

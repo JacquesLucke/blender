@@ -239,8 +239,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   if (npmd->collision_object) {
     BKE_bvhtree_from_mesh_get(
         &treedata, (Mesh *)npmd->collision_object->data, BVHTREE_FROM_LOOPTRI, 4);
-    type0->m_events.append(new EventActionTest(
-        EVENT_mesh_collection(&treedata, npmd->collision_object->obmat), ACTION_explode()));
+    type0->m_events.append(EVENT_mesh_bounce(&treedata, npmd->collision_object->obmat));
   }
 
   auto *type1 = new ModifierParticleType();
