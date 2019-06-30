@@ -110,16 +110,20 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
 }
 
 BLI_NOINLINE static void update_remaining_attribute_offsets(
-    ParticleSet particles_with_events,
+    ArrayRef<uint> indices_with_event,
+    ArrayRef<uint> particle_indices_with_event,
     ArrayRef<float> time_factors_to_next_event,
     AttributeArrays attribute_offsets)
 {
+  BLI_assert(indices_with_event.size() == particle_indices_with_event.size());
+
   for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
     auto offsets = attribute_offsets.get_float3(attribute_index);
 
-    for (uint i : particles_with_events.range()) {
-      uint pindex = particles_with_events.get_particle_index(i);
-      float factor = 1.0f - time_factors_to_next_event[i];
+    for (uint i = 0; i < indices_with_event.size(); i++) {
+      uint index = indices_with_event[i];
+      uint pindex = particle_indices_with_event[i];
+      float factor = 1.0f - time_factors_to_next_event[index];
       offsets[pindex] *= factor;
     }
   }
@@ -127,14 +131,16 @@ BLI_NOINLINE static void update_remaining_attribute_offsets(
 
 BLI_NOINLINE static void find_particle_indices_per_event(
     ArrayRef<uint> indices_with_events,
-    ArrayRef<uint> particle_indices,
+    ArrayRef<uint> particle_indices_with_events,
     ArrayRef<int> next_event_indices,
     ArrayRef<SmallVector<uint>> r_particles_per_event)
 {
-  for (uint i : indices_with_events) {
-    int event_index = next_event_indices[i];
+  BLI_assert(indices_with_events.size() == particle_indices_with_events.size());
+  for (uint i = 0; i < indices_with_events.size(); i++) {
+    uint index = indices_with_events[i];
+    uint pindex = particle_indices_with_events[i];
+    int event_index = next_event_indices[index];
     BLI_assert(event_index >= 0);
-    uint pindex = particle_indices[i];
     r_particles_per_event[event_index].append(pindex);
   }
 }
@@ -254,16 +260,17 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
       particle_indices_with_event_array, filtered_particles_amount, filtered_particles_amount);
 
   for (uint i = 0; i < filtered_particles_amount; i++) {
-    particle_indices_with_event[i] = particles.get_particle_index(i);
+    particle_indices_with_event[i] = particles.get_particle_index(indices_with_event[i]);
   }
 
-  ParticleSet particles_with_events(particles.block(), particle_indices_with_event);
-  update_remaining_attribute_offsets(
-      particles_with_events, time_factors_to_next_event, attribute_offsets);
+  update_remaining_attribute_offsets(indices_with_event,
+                                     particle_indices_with_event,
+                                     time_factors_to_next_event,
+                                     attribute_offsets);
 
   SmallVector<SmallVector<uint>> particles_per_event(events.size());
   find_particle_indices_per_event(
-      indices_with_event, particles.indices(), next_event_indices, particles_per_event);
+      indices_with_event, particle_indices_with_event, next_event_indices, particles_per_event);
 
   SmallVector<SmallVector<float>> current_time_per_particle(events.size());
   compute_current_time_per_particle(indices_with_event,
