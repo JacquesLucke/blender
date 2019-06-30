@@ -343,18 +343,24 @@ BLI_NOINLINE static void simulate_block(BlockAllocator &block_allocator,
 
   ArrayRef<EventAction *> events = particle_type.event_actions();
 
-  SmallVector<uint> unfinished_particle_indices;
-  simulate_with_max_n_events(10,
-                             block_allocator,
-                             block,
-                             attribute_offsets,
-                             durations,
-                             end_time,
-                             events,
-                             unfinished_particle_indices);
+  if (events.size() == 0) {
+    ParticleSet all_particles_in_block(block, static_number_range_ref(block.active_range()));
+    apply_remaining_offsets(all_particles_in_block, attribute_offsets);
+  }
+  else {
+    SmallVector<uint> unfinished_particle_indices;
+    simulate_with_max_n_events(10,
+                               block_allocator,
+                               block,
+                               attribute_offsets,
+                               durations,
+                               end_time,
+                               events,
+                               unfinished_particle_indices);
 
-  ParticleSet remaining_particles(block, unfinished_particle_indices);
-  apply_remaining_offsets(remaining_particles, attribute_offsets);
+    ParticleSet remaining_particles(block, unfinished_particle_indices);
+    apply_remaining_offsets(remaining_particles, attribute_offsets);
+  }
 
   attribute_offsets_core.free_buffers();
 }
