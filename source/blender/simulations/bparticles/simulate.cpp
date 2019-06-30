@@ -94,7 +94,7 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     auto offsets = attribute_offsets.get_float3(attribute_index);
 
     if (particles.indices_are_trivial()) {
-      for (uint pindex = 0; pindex < particles.size(); pindex++) {
+      for (uint pindex : particles.range()) {
         float time_factor = time_factors_to_next_event[pindex];
         values[pindex] += time_factor * offsets[pindex];
       }
@@ -318,8 +318,15 @@ BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
     auto values = particles.attributes().get_float3(name);
     auto offsets = attribute_offsets.get_float3(attribute_index);
 
-    for (uint pindex : particles.indices()) {
-      values[pindex] += offsets[pindex];
+    if (particles.indices_are_trivial()) {
+      for (uint pindex : particles.range()) {
+        values[pindex] += offsets[pindex];
+      }
+    }
+    else {
+      for (uint pindex : particles.indices()) {
+        values[pindex] += offsets[pindex];
+      }
     }
   }
 }
