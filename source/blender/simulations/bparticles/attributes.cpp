@@ -40,7 +40,9 @@ AttributeArraysCore AttributeArraysCore::NewWithSeparateAllocations(AttributesIn
 {
   SmallVector<void *> arrays;
   for (AttributeType type : info.types()) {
-    arrays.append(MEM_malloc_arrayN(size, size_of_attribute_type(type), __func__));
+    uint bytes_size = size * size_of_attribute_type(type);
+    void *ptr = MEM_mallocN_aligned(bytes_size, 64, __func__);
+    arrays.append(ptr);
   }
   return AttributeArraysCore(info, arrays, size);
 }
