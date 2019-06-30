@@ -379,7 +379,7 @@ BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
     auto offsets = attribute_offsets.get_float3(attribute_index);
 
     if (particles.indices_are_trivial()) {
-      add_float3_arrays(values, offsets);
+      add_float3_arrays(values.take_front(particles.size()), offsets);
     }
     else {
       for (uint pindex : particles.indices()) {
