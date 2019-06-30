@@ -157,8 +157,8 @@ BLI_NOINLINE static void find_unfinished_particles(
     ArrayRef<float> time_factors_to_next_event,
     ArrayRef<float> durations,
     ArrayRef<uint8_t> kill_states,
-    SmallVector<uint> &r_unfinished_particle_indices,
-    SmallVector<float> &r_remaining_durations)
+    VectorAdaptor<uint> &r_unfinished_particle_indices,
+    VectorAdaptor<float> &r_remaining_durations)
 {
 
   for (uint i : indices_with_event) {
@@ -203,8 +203,8 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
                                                 ArrayRef<float> durations,
                                                 float end_time,
                                                 ArrayRef<EventAction *> events,
-                                                SmallVector<uint> &r_unfinished_particle_indices,
-                                                SmallVector<float> &r_remaining_durations)
+                                                VectorAdaptor<uint> &r_unfinished_particle_indices,
+                                                VectorAdaptor<float> &r_remaining_durations)
 {
   SmallVector<int> next_event_indices(particles.size());
   SmallVector<float> time_factors_to_next_event(particles.size());
@@ -256,47 +256,68 @@ BLI_NOINLINE static void simulate_to_next_event(BlockAllocator &block_allocator,
 
 BLI_NOINLINE static void simulate_with_max_n_events(
     uint max_events,
+    FixedArrayAllocator &array_allocator,
     BlockAllocator &block_allocator,
     ParticlesBlock &block,
     AttributeArrays attribute_offsets,
     ArrayRef<float> durations,
     float end_time,
     ArrayRef<EventAction *> events,
-    SmallVector<uint> &r_unfinished_particle_indices)
+    VectorAdaptor<uint> &r_unfinished_particle_indices)
 {
+  BLI_assert(array_allocator.array_size() >= block.active_amount());
+  uint *indices_A = array_allocator.allocate_array<uint>();
+  uint *indices_B = array_allocator.allocate_array<uint>();
+  float *durations_A = array_allocator.allocate_array<float>();
+  float *durations_B = array_allocator.allocate_array<float>();
+
   /* Handle first event separately to be able to use the static number range. */
-  ParticleSet particles_to_simulate(block, static_number_range_ref(block.active_range()));
-  SmallVector<uint> unfinished_particle_indices;
-  SmallVector<float> remaining_durations;
+  uint amount_left = block.active_amount();
 
-  simulate_to_next_event(block_allocator,
-                         particles_to_simulate,
-                         attribute_offsets,
-                         durations,
-                         end_time,
-                         events,
-                         unfinished_particle_indices,
-                         remaining_durations);
-
-  for (uint iteration = 0; iteration < max_events - 1; iteration++) {
-    particles_to_simulate = ParticleSet(block, unfinished_particle_indices);
-    SmallVector<uint> unfinished_particle_indices_after;
-    SmallVector<float> remaining_durations_after;
-
+  {
+    VectorAdaptor<uint> indices_output(indices_A, amount_left);
+    VectorAdaptor<float> durations_output(durations_A, amount_left);
     simulate_to_next_event(block_allocator,
-                           particles_to_simulate,
+                           ParticleSet(block, static_number_range_ref(0, amount_left)),
                            attribute_offsets,
-                           remaining_durations,
+                           durations,
                            end_time,
                            events,
-                           unfinished_particle_indices_after,
-                           remaining_durations_after);
-
-    unfinished_particle_indices = std::move(unfinished_particle_indices_after);
-    remaining_durations = std::move(remaining_durations_after);
+                           indices_output,
+                           durations_output);
+    BLI_assert(indices_output.size() == durations_output.size());
+    amount_left = indices_output.size();
   }
 
-  r_unfinished_particle_indices = std::move(unfinished_particle_indices);
+  for (uint iteration = 0; iteration < max_events - 1 && amount_left > 0; iteration++) {
+    VectorAdaptor<uint> indices_input(indices_A, amount_left, amount_left);
+    VectorAdaptor<uint> indices_output(indices_B, amount_left, 0);
+    VectorAdaptor<float> durations_input(durations_A, amount_left, amount_left);
+    VectorAdaptor<float> durations_output(durations_B, amount_left, 0);
+
+    simulate_to_next_event(block_allocator,
+                           ParticleSet(block, indices_input),
+                           attribute_offsets,
+                           durations_input,
+                           end_time,
+                           events,
+                           indices_output,
+                           durations_output);
+    BLI_assert(indices_output.size() == durations_output.size());
+
+    amount_left = indices_output.size();
+    std::swap(indices_A, indices_B);
+    std::swap(durations_A, durations_B);
+  }
+
+  for (uint i = 0; i < amount_left; i++) {
+    r_unfinished_particle_indices.append(indices_A[i]);
+  }
+
+  array_allocator.deallocate_array(indices_A);
+  array_allocator.deallocate_array(indices_B);
+  array_allocator.deallocate_array(durations_A);
+  array_allocator.deallocate_array(durations_B);
 }
 
 BLI_NOINLINE static void add_float3_arrays(ArrayRef<float3> base, ArrayRef<float3> values)
@@ -372,8 +393,11 @@ BLI_NOINLINE static void simulate_block(FixedArrayAllocator &array_allocator,
     apply_remaining_offsets(all_particles_in_block, attribute_offsets);
   }
   else {
-    SmallVector<uint> unfinished_particle_indices;
+    uint *indices_array = array_allocator.allocate_array<uint>();
+    VectorAdaptor<uint> unfinished_particle_indices(indices_array, amount);
+
     simulate_with_max_n_events(10,
+                               array_allocator,
                                block_allocator,
                                block,
                                attribute_offsets,
@@ -382,8 +406,12 @@ BLI_NOINLINE static void simulate_block(FixedArrayAllocator &array_allocator,
                                events,
                                unfinished_particle_indices);
 
-    ParticleSet remaining_particles(block, unfinished_particle_indices);
-    apply_remaining_offsets(remaining_particles, attribute_offsets);
+    if (unfinished_particle_indices.size() > 0) {
+      ParticleSet remaining_particles(block, unfinished_particle_indices);
+      apply_remaining_offsets(remaining_particles, attribute_offsets);
+    }
+
+    array_allocator.deallocate_array(indices_array);
   }
 
   attribute_offsets_core.deallocate_in_array_allocator(array_allocator);

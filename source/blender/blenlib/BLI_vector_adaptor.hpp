@@ -29,6 +29,7 @@
 #pragma once
 
 #include "BLI_array_ref.hpp"
+#include "BLI_vector_adaptor.hpp"
 
 namespace BLI {
 
@@ -51,12 +52,14 @@ template<typename T> class VectorAdaptor {
    * clear, where the new adaptor should take the memory from.
    */
   VectorAdaptor(VectorAdaptor &other) = delete;
+  VectorAdaptor(VectorAdaptor &&other) = delete;
 
   /**
    * Construct using any pointer and a capacity.
    * The initial size is set to zero.
    */
-  VectorAdaptor(T *ptr, uint capacity) : m_start(ptr), m_end(ptr), m_capacity(capacity)
+  VectorAdaptor(T *ptr, uint capacity, uint size = 0)
+      : m_start(ptr), m_end(ptr + size), m_capacity(capacity)
   {
   }
 
@@ -69,11 +72,19 @@ template<typename T> class VectorAdaptor {
   {
   }
 
+  /**
+   * Elements should continue to live after the adapter is destructed.
+   */
   ~VectorAdaptor()
+  {
+  }
+
+  void clear()
   {
     for (T &value : *this) {
       value.~T();
     }
+    m_end = m_start;
   }
 
   /**
@@ -119,6 +130,11 @@ template<typename T> class VectorAdaptor {
   uint size() const
   {
     return m_end - m_start;
+  }
+
+  operator ArrayRef<T>() const
+  {
+    return ArrayRef<T>(m_start, this->size());
   }
 
   T &operator[](uint index)

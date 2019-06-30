@@ -15,6 +15,8 @@ class FixedArrayAllocator {
   {
   }
 
+  FixedArrayAllocator(FixedArrayAllocator &other) = delete;
+
   ~FixedArrayAllocator()
   {
     for (void *ptr : m_all_pointers) {
@@ -46,7 +48,7 @@ class FixedArrayAllocator {
 
   template<typename T> T *allocate_array()
   {
-    return this->allocate_array(sizeof(T));
+    return (T *)this->allocate_array(sizeof(T));
   }
 
   template<typename T> void deallocate_array(T *ptr)

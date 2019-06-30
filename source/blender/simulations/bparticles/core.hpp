@@ -9,6 +9,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_string_ref.hpp"
 #include "BLI_small_map.hpp"
+#include "BLI_vector_adaptor.hpp"
 
 #include "attributes.hpp"
 #include "particles_container.hpp"
@@ -23,6 +24,7 @@ using BLI::SmallMap;
 using BLI::SmallSetVector;
 using BLI::SmallVector;
 using BLI::StringRef;
+using BLI::VectorAdaptor;
 using std::unique_ptr;
 
 class ParticlesState {
