@@ -8,6 +8,7 @@
 #include "xmmintrin.h"
 
 #define USE_THREADING false
+#define BLOCK_SIZE 1000
 
 namespace BParticles {
 
@@ -359,7 +360,8 @@ BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
   }
 }
 
-BLI_NOINLINE static void simulate_block(BlockAllocator &block_allocator,
+BLI_NOINLINE static void simulate_block(FixedArrayAllocator &array_allocator,
+                                        BlockAllocator &block_allocator,
                                         ParticlesBlock &block,
                                         ParticleType &particle_type,
                                         ArrayRef<float> durations,
@@ -370,9 +372,9 @@ BLI_NOINLINE static void simulate_block(BlockAllocator &block_allocator,
 
   Integrator &integrator = particle_type.integrator();
   AttributesInfo &offsets_info = integrator.offset_attributes_info();
-  AttributeArraysCore attribute_offsets_core = AttributeArraysCore::NewWithSeparateAllocations(
-      offsets_info, amount);
-  AttributeArrays attribute_offsets = attribute_offsets_core.slice_all();
+  AttributeArraysCore attribute_offsets_core = AttributeArraysCore::NewWithArrayAllocator(
+      offsets_info, array_allocator);
+  AttributeArrays attribute_offsets = attribute_offsets_core.slice_all().slice(0, amount);
 
   integrator.integrate(block, durations, attribute_offsets);
 
@@ -396,8 +398,6 @@ BLI_NOINLINE static void simulate_block(BlockAllocator &block_allocator,
     ParticleSet remaining_particles(block, unfinished_particle_indices);
     apply_remaining_offsets(remaining_particles, attribute_offsets);
   }
-
-  attribute_offsets_core.free_buffers();
 }
 
 class BlockAllocators {
@@ -479,7 +479,10 @@ BLI_NOINLINE static void simulate_block_time_span_cb(void *__restrict userdata,
   uint particle_type_id = state.particle_container_id(block.container());
   ParticleType &particle_type = data->step_description.particle_type(particle_type_id);
 
-  simulate_block(block_allocator,
+  FixedArrayAllocator array_allocator(block.container().block_size());
+
+  simulate_block(array_allocator,
+                 block_allocator,
                  block,
                  particle_type,
                  data->all_durations.take_back(block.active_amount()),
@@ -528,6 +531,8 @@ BLI_NOINLINE static void simulate_block_from_birth_cb(void *__restrict userdata,
   ParticlesBlock &block = *data->blocks[index];
   ParticlesState &state = block_allocator.particles_state();
 
+  FixedArrayAllocator array_allocator(block.container().block_size());
+
   uint particle_type_id = state.particle_container_id(block.container());
   ParticleType &particle_type = data->step_description.particle_type(particle_type_id);
 
@@ -537,7 +542,8 @@ BLI_NOINLINE static void simulate_block_from_birth_cb(void *__restrict userdata,
   for (uint i = 0; i < active_amount; i++) {
     durations[i] = data->end_time - birth_times[i];
   }
-  simulate_block(block_allocator, block, particle_type, durations, data->end_time);
+  simulate_block(
+      array_allocator, block_allocator, block, particle_type, durations, data->end_time);
 }
 
 BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
@@ -619,7 +625,7 @@ BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
 
   for (uint type_id : description.particle_type_ids()) {
     if (!containers.contains(type_id)) {
-      ParticlesContainer *container = new ParticlesContainer({}, 1000);
+      ParticlesContainer *container = new ParticlesContainer({}, BLOCK_SIZE);
       containers.add_new(type_id, container);
     }
   }
