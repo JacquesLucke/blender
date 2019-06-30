@@ -15,7 +15,7 @@ class AgeReachedEvent : public EventFilter {
   {
   }
 
-  void filter(EventInterface &interface) override
+  void filter(EventFilterInterface &interface) override
   {
     ParticleSet particles = interface.particles();
     auto birth_times = particles.attributes().get_float("Birth Time");
@@ -45,7 +45,7 @@ class MeshCollisionEvent : public EventFilter {
   {
   }
 
-  void filter(EventInterface &interface) override
+  void filter(EventFilterInterface &interface) override
   {
     ParticleSet &particles = interface.particles();
     auto positions = particles.attributes().get_float3("Position");

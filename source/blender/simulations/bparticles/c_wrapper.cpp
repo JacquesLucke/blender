@@ -122,7 +122,7 @@ class EulerIntegrator : public Integrator {
   }
 };
 
-class EventActionTest : public EventAction {
+class EventActionTest : public Event {
  public:
   EventFilter *m_event;
   Action *m_action;
@@ -137,12 +137,12 @@ class EventActionTest : public EventAction {
     delete m_action;
   }
 
-  void filter(EventInterface &interface) override
+  void filter(EventFilterInterface &interface) override
   {
     m_event->filter(interface);
   }
 
-  void execute(ActionInterface &interface) override
+  void execute(EventExecuteInterface &interface) override
   {
     m_action->execute(interface);
   }
@@ -150,21 +150,21 @@ class EventActionTest : public EventAction {
 
 class ModifierParticleType : public ParticleType {
  public:
-  SmallVector<EventAction *> m_event_actions;
+  SmallVector<Event *> m_events;
   EulerIntegrator *m_integrator;
 
   ~ModifierParticleType()
   {
     delete m_integrator;
 
-    for (EventAction *event_action : m_event_actions) {
-      delete event_action;
+    for (Event *event : m_events) {
+      delete event;
     }
   }
 
-  ArrayRef<EventAction *> event_actions() override
+  ArrayRef<Event *> events() override
   {
-    return m_event_actions;
+    return m_events;
   }
 
   Integrator &integrator() override
@@ -229,7 +229,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
 
   auto *type0 = new ModifierParticleType();
   description.m_types.add_new(0, type0);
-  type0->m_event_actions.append(new EventActionTest(EVENT_age_reached(30.0f), ACTION_kill()));
+  type0->m_events.append(new EventActionTest(EVENT_age_reached(30.0f), ACTION_kill()));
 
   // if (npmd->emitter_object) {
   //   description.m_emitters.append(EMITTER_mesh_surface(
@@ -243,7 +243,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   //   EventActionTest *event_action = new EventActionTest();
   //   event_action->m_event = EVENT_mesh_collection(&treedata, npmd->collision_object->obmat);
   //   event_action->m_action = ACTION_explode();
-  //   type0->m_event_actions.append(event_action);
+  //   type0->m_events.append(event_action);
   // }
   type0->m_integrator = new EulerIntegrator();
   type0->m_integrator->m_forces.append(FORCE_directional({0, 0, -2}));
@@ -254,7 +254,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   //   EventActionTest *event_action = new EventActionTest();
   //   event_action->m_event = EVENT_age_reached(0.3f);
   //   event_action->m_action = ACTION_kill();
-  //   type1->m_event_actions.append(event_action);
+  //   type1->m_events.append(event_action);
   // }
   // type1->m_integrator = new EulerIntegrator();
 

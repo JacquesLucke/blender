@@ -22,7 +22,7 @@ EventFilter::~EventFilter()
 {
 }
 
-EventAction::~EventAction()
+Event::~Event()
 {
 }
 
@@ -127,15 +127,15 @@ TimeSpanEmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
 /* Action Interface
  **************************************/
 
-ActionInterface::~ActionInterface()
+EventExecuteInterface::~EventExecuteInterface()
 {
   for (InstantEmitTarget *target : m_emit_targets) {
     delete target;
   }
 }
 
-InstantEmitTarget &ActionInterface::request_emit_target(uint particle_type_id,
-                                                        ArrayRef<uint> original_indices)
+InstantEmitTarget &EventExecuteInterface::request_emit_target(uint particle_type_id,
+                                                              ArrayRef<uint> original_indices)
 {
   uint size = original_indices.size();
 

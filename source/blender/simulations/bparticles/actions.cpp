@@ -5,7 +5,7 @@
 namespace BParticles {
 
 class KillAction : public Action {
-  void execute(ActionInterface &interface) override
+  void execute(EventExecuteInterface &interface) override
   {
     interface.kill(interface.particles().indices());
   }
@@ -20,7 +20,7 @@ class MoveAction : public Action {
   {
   }
 
-  void execute(ActionInterface &interface) override
+  void execute(EventExecuteInterface &interface) override
   {
     ParticleSet &particles = interface.particles();
 
@@ -32,7 +32,7 @@ class MoveAction : public Action {
 };
 
 class SpawnAction : public Action {
-  void execute(ActionInterface &interface) override
+  void execute(EventExecuteInterface &interface) override
   {
     ParticleSet &particles = interface.particles();
 
@@ -68,7 +68,7 @@ static float3 random_direction()
 }
 
 class ExplodeAction : public Action {
-  void execute(ActionInterface &interface) override
+  void execute(EventExecuteInterface &interface) override
   {
     ParticleSet &particles = interface.particles();
 

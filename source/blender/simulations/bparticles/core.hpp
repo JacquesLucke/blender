@@ -295,7 +295,7 @@ class Force {
   virtual void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) = 0;
 };
 
-class EventInterface {
+class EventFilterInterface {
  private:
   ParticleSet m_particles;
   AttributeArrays &m_attribute_offsets;
@@ -306,12 +306,12 @@ class EventInterface {
   SmallVector<float> &m_filtered_time_factors;
 
  public:
-  EventInterface(ParticleSet particles,
-                 AttributeArrays &attribute_offsets,
-                 ArrayRef<float> durations,
-                 float end_time,
-                 SmallVector<uint> &r_filtered_indices,
-                 SmallVector<float> &r_filtered_time_factors)
+  EventFilterInterface(ParticleSet particles,
+                       AttributeArrays &attribute_offsets,
+                       ArrayRef<float> durations,
+                       float end_time,
+                       SmallVector<uint> &r_filtered_indices,
+                       SmallVector<float> &r_filtered_time_factors)
       : m_particles(particles),
         m_attribute_offsets(attribute_offsets),
         m_durations(durations),
@@ -358,10 +358,10 @@ class EventFilter {
  public:
   virtual ~EventFilter();
 
-  virtual void filter(EventInterface &interface) = 0;
+  virtual void filter(EventFilterInterface &interface) = 0;
 };
 
-class ActionInterface {
+class EventExecuteInterface {
  private:
   ParticleSet m_particles;
   BlockAllocator &m_block_allocator;
@@ -370,9 +370,9 @@ class ActionInterface {
   ArrayRef<uint8_t> m_kill_states;
 
  public:
-  ActionInterface(ParticleSet particles,
-                  BlockAllocator &block_allocator,
-                  ArrayRef<float> current_times)
+  EventExecuteInterface(ParticleSet particles,
+                        BlockAllocator &block_allocator,
+                        ArrayRef<float> current_times)
       : m_particles(particles),
         m_block_allocator(block_allocator),
         m_current_times(current_times),
@@ -380,7 +380,7 @@ class ActionInterface {
   {
   }
 
-  ~ActionInterface();
+  ~EventExecuteInterface();
 
   BlockAllocator &block_allocator()
   {
@@ -416,15 +416,15 @@ class Action {
  public:
   virtual ~Action();
 
-  virtual void execute(ActionInterface &interface) = 0;
+  virtual void execute(EventExecuteInterface &interface) = 0;
 };
 
-class EventAction {
+class Event {
  public:
-  virtual ~EventAction();
+  virtual ~Event();
 
-  virtual void filter(EventInterface &interface) = 0;
-  virtual void execute(ActionInterface &interface) = 0;
+  virtual void filter(EventFilterInterface &interface) = 0;
+  virtual void execute(EventExecuteInterface &interface) = 0;
 };
 
 class Emitter {
@@ -450,7 +450,7 @@ class ParticleType {
   virtual ~ParticleType();
 
   virtual Integrator &integrator() = 0;
-  virtual ArrayRef<EventAction *> event_actions() = 0;
+  virtual ArrayRef<Event *> events() = 0;
 
   virtual ArrayRef<std::string> byte_attributes()
   {
