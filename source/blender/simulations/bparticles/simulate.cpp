@@ -7,7 +7,7 @@
 
 #include "xmmintrin.h"
 
-#define USE_THREADING false
+#define USE_THREADING true
 #define BLOCK_SIZE 1000
 
 namespace BParticles {
@@ -466,7 +466,6 @@ BLI_NOINLINE static void simulate_block_time_span_cb(void *__restrict userdata,
                                                      const int index,
                                                      const ParallelRangeTLS *__restrict tls)
 {
-  SCOPED_TIMER_STATS(__func__);
   SimulateTimeSpanData *data = (SimulateTimeSpanData *)userdata;
 
   ThreadLocalData *my_data;
