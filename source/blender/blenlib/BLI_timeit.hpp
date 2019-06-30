@@ -31,9 +31,8 @@ class ScopedTimer {
   TimePoint m_start;
 
  public:
-  ScopedTimer(const char *name = "")
+  ScopedTimer(const char *name = "") : m_name(name)
   {
-    m_name = name;
     m_start = Clock::now();
   }
 
@@ -47,8 +46,59 @@ class ScopedTimer {
   }
 };
 
+class ScopedTimerStatistics {
+ private:
+  TimePoint m_start;
+  const char *m_name;
+  Nanoseconds &m_shortest_duration;
+  Nanoseconds &m_timings_sum;
+  uint64_t &m_timings_done;
+
+ public:
+  ScopedTimerStatistics(const char *name,
+                        Nanoseconds &shortest_duration,
+                        Nanoseconds &timings_sum,
+                        uint64_t &timings_done)
+      : m_name(name),
+        m_shortest_duration(shortest_duration),
+        m_timings_sum(timings_sum),
+        m_timings_done(timings_done)
+  {
+    m_start = Clock::now();
+  }
+
+  ~ScopedTimerStatistics()
+  {
+    TimePoint end = Clock::now();
+    Nanoseconds duration = end - m_start;
+    m_timings_sum += duration;
+    m_timings_done++;
+
+    if (duration < m_shortest_duration) {
+      m_shortest_duration = duration;
+    }
+
+    Nanoseconds average_duration = m_timings_sum / m_timings_done;
+
+    std::cout << "Timings stats for '" << m_name << "':\n";
+    std::cout << "  Calls: " << m_timings_done << "\n";
+    std::cout << "  Average: ";
+    print_duration(average_duration);
+    std::cout << "\n";
+    std::cout << "  Shortest: ";
+    print_duration(m_shortest_duration);
+    std::cout << "\n";
+  }
+};
+
 }  // namespace Timers
 
 };  // namespace BLI
 
 #define SCOPED_TIMER(name) BLI::Timers::ScopedTimer t(name);
+
+#define SCOPED_TIMER_STATS(name) \
+  static uint64_t timings_done = 0; \
+  static BLI::Timers::Nanoseconds shortest_duration = std::chrono::seconds(100); \
+  static BLI::Timers::Nanoseconds timings_sum(0); \
+  BLI::Timers::ScopedTimerStatistics t(name, shortest_duration, timings_sum, timings_done);
