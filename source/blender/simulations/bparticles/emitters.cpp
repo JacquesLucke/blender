@@ -117,7 +117,7 @@ class EmitAtStartEmitter : public Emitter {
     }
 
     SmallVector<float3> positions;
-    for (uint i = 0; i < 10000; i++) {
+    for (uint i = 0; i < 1000000; i++) {
       positions.append(float3(i / 1000.0f, 0, 0));
     }
 

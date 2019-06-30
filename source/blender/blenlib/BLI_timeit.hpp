@@ -17,7 +17,7 @@ using Nanoseconds = std::chrono::nanoseconds;
 
 inline void print_duration(Nanoseconds duration)
 {
-  if (duration.count() < 10000000) {
+  if (duration.count() < 100000) {
     std::cout << duration.count() << " ns";
   }
   else {

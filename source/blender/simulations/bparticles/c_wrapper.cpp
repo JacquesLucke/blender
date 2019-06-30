@@ -127,6 +127,10 @@ class EventActionTest : public EventAction {
   Event *m_event;
   Action *m_action;
 
+  EventActionTest(Event *event, Action *action) : m_event(event), m_action(action)
+  {
+  }
+
   ~EventActionTest()
   {
     delete m_event;
@@ -216,7 +220,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
                                   Depsgraph *UNUSED(depsgraph),
                                   BParticlesState state_c)
 {
-  SCOPED_TIMER("simulate");
+  SCOPED_TIMER_STATS("simulate");
 
   ParticlesState &state = *unwrap(state_c);
   ModifierStepDescription description;
@@ -225,6 +229,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
 
   auto *type0 = new ModifierParticleType();
   description.m_types.add_new(0, type0);
+  type0->m_event_actions.append(new EventActionTest(EVENT_age_reached(30.0f), ACTION_kill()));
 
   // if (npmd->emitter_object) {
   //   description.m_emitters.append(EMITTER_mesh_surface(
