@@ -213,6 +213,16 @@ class EmitterInterface {
   }
 
   TimeSpanEmitTarget &request(uint particle_type_id, uint size);
+
+  TimeSpan time_span()
+  {
+    return m_time_span;
+  }
+
+  bool is_first_step()
+  {
+    return m_time_span.start() < 0.00001f;
+  }
 };
 
 struct ParticleSet {

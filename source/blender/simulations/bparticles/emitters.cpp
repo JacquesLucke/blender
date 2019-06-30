@@ -109,6 +109,24 @@ class PathEmitter : public Emitter {
   }
 };
 
+class EmitAtStartEmitter : public Emitter {
+  void emit(EmitterInterface &interface) override
+  {
+    if (!interface.is_first_step()) {
+      return;
+    }
+
+    SmallVector<float3> positions;
+    for (uint i = 0; i < 10000; i++) {
+      positions.append(float3(i / 1000.0f, 0, 0));
+    }
+
+    auto &target = interface.request(0, positions.size());
+    target.set_float3("Position", positions);
+    target.set_birth_moment(0.0f);
+  }
+};
+
 Emitter *EMITTER_point(float3 point)
 {
   return new PointEmitter(point);
@@ -126,6 +144,11 @@ Emitter *EMITTER_path(Path *path, float4x4 transform)
 {
   BLI_assert(path);
   return new PathEmitter(*path, transform);
+}
+
+Emitter *EMITTER_emit_at_start()
+{
+  return new EmitAtStartEmitter();
 }
 
 }  // namespace BParticles
