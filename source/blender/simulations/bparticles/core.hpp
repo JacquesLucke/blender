@@ -17,6 +17,163 @@
 
 namespace BParticles {
 
+class EventFilterInterface;
+class EventExecuteInterface;
+class EmitterInterface;
+
+/* Main API for the particle simulation. These classes have to be subclassed to define how the
+ * particles should behave.
+ ******************************************/
+
+/**
+ * An event consists of two parts.
+ *   1. Filter the particles that trigger the event within a specific time span.
+ *   2. Modify the particles that were triggered.
+ *
+ * In some cases it is necessary to pass data from the filter to the execute function (e.g. the
+ * normal of the surface at a collision point). So that is supported as well. Currently, only POD
+ * (plain-old-data / simple C structs) can be used.
+ */
+class Event {
+ public:
+  virtual ~Event();
+
+  /**
+   * Return how many bytes this event wants to pass between the filter and execute function.
+   */
+  virtual uint storage_size()
+  {
+    return 0;
+  }
+
+  /**
+   * Gets a set of particles and checks which of those trigger the event.
+   */
+  virtual void filter(EventFilterInterface &interface) = 0;
+
+  /**
+   * Gets a set of particles that trigger this event and can do the following operations:
+   *   - Change any attribute of the particles.
+   *   - Change the remaining integrated attribute offsets of the particles.
+   *   - Kill the particles.
+   *   - Spawn new particles of any type.
+   *
+   * Currently, it is not supported to change the attributes of other particles, that exist
+   * already. However, the attributes of new particles can be changed.
+   */
+  virtual void execute(EventExecuteInterface &interface) = 0;
+};
+
+/**
+ * An emitter creates new particles of possibly different types within a certain time span.
+ */
+class Emitter {
+ public:
+  virtual ~Emitter();
+
+  /**
+   * Create new particles within a time span.
+   *
+   * In general it works like so:
+   *   1. Prepare vectors with attribute values for e.g. position and velocity of the new
+   *      particles.
+   *   2. Request an emit target that can contain a given amount of particles of a specific type.
+   *   3. Copy the prepared attribute arrays into the target. Other attributes are initialized with
+   *      some default value.
+   *   4. Specify the exact birth times of every particle within the time span. This will allow the
+   *      framework to simulate the new particles for partial time steps to avoid stepping.
+   *
+   * To create particles of different types, multiple emit targets have to be requested.
+   */
+  virtual void emit(EmitterInterface &interface) = 0;
+};
+
+/**
+ * The integrator is the core of the particle system. It's main task is to determine how the
+ * simulation would go if there were no events.
+ */
+class Integrator {
+ public:
+  virtual ~Integrator();
+
+  /**
+   * Specify which attributes are integrated (usually Position and Velocity).
+   */
+  virtual AttributesInfo &offset_attributes_info() = 0;
+
+  /**
+   * Compute the offsets for all integrated attributes. Those are not applied immediately, because
+   * there might be events that modify the attributes within a time step.
+   */
+  virtual void integrate(ParticlesBlock &block,
+                         ArrayRef<float> durations,
+                         AttributeArrays r_offsets) = 0;
+};
+
+/**
+ * Describes how one type of particle behaves and which attributes it has.
+ */
+class ParticleType {
+ public:
+  virtual ~ParticleType();
+
+  /**
+   * Return the integrator to be used with particles of this type.
+   */
+  virtual Integrator &integrator() = 0;
+
+  /**
+   * Return the events that particles of this type can trigger.
+   */
+  virtual ArrayRef<Event *> events() = 0;
+
+  virtual ArrayRef<std::string> byte_attributes()
+  {
+    return {};
+  }
+
+  virtual ArrayRef<std::string> float_attributes()
+  {
+    return {};
+  }
+
+  virtual ArrayRef<std::string> float3_attributes()
+  {
+    return {};
+  }
+};
+
+/**
+ * Describes how the current state of a particle system transitions to the next state.
+ */
+class StepDescription {
+ public:
+  virtual ~StepDescription();
+
+  /**
+   * Return how many seconds the this time step takes.
+   */
+  virtual float step_duration() = 0;
+
+  /**
+   * Return the emitters that might emit particles in this time step.
+   */
+  virtual ArrayRef<Emitter *> emitters() = 0;
+
+  /**
+   * Return the particle type ids that will be modified in this step.
+   */
+  virtual ArrayRef<uint> particle_type_ids() = 0;
+
+  /**
+   * Return the description of a particle type based on its id.
+   */
+  virtual ParticleType &particle_type(uint type_id) = 0;
+};
+
+/* Classes used by the interface
+ ***********************************************/
+
 class ParticlesState {
  private:
   SmallMap<uint, ParticlesContainer *> m_container_by_id;
@@ -240,74 +397,6 @@ class EventExecuteInterface {
   ArrayRef<float> current_times();
   template<typename T> T &get_storage(uint pindex);
   AttributeArrays attribute_offsets();
-};
-
-/* Functions to be subclassed
- ******************************************/
-
-class Event {
- public:
-  virtual ~Event();
-
-  virtual uint storage_size()
-  {
-    return 0;
-  }
-
-  virtual void filter(EventFilterInterface &interface) = 0;
-  virtual void execute(EventExecuteInterface &interface) = 0;
-};
-
-class Emitter {
- public:
-  virtual ~Emitter();
-
-  virtual void emit(EmitterInterface &interface) = 0;
-};
-
-class Integrator {
- public:
-  virtual ~Integrator();
-
-  virtual AttributesInfo &offset_attributes_info() = 0;
-
-  virtual void integrate(ParticlesBlock &block,
-                         ArrayRef<float> durations,
-                         AttributeArrays r_offsets) = 0;
-};
-
-class ParticleType {
- public:
-  virtual ~ParticleType();
-
-  virtual Integrator &integrator() = 0;
-  virtual ArrayRef<Event *> events() = 0;
-
-  virtual ArrayRef<std::string> byte_attributes()
-  {
-    return {};
-  }
-
-  virtual ArrayRef<std::string> float_attributes()
-  {
-    return {};
-  }
-
-  virtual ArrayRef<std::string> float3_attributes()
-  {
-    return {};
-  }
-};
-
-class StepDescription {
- public:
-  virtual ~StepDescription();
-
-  virtual float step_duration() = 0;
-  virtual ArrayRef<Emitter *> emitters() = 0;
-
-  virtual ArrayRef<uint> particle_type_ids() = 0;
-  virtual ParticleType &particle_type(uint type_id) = 0;
 };
 
 /* ParticlesState inline functions
