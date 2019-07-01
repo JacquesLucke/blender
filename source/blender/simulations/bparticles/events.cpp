@@ -74,28 +74,40 @@ class MeshBounceEvent : public Event {
       float3 direction = m_ray_transform.transform_direction(position_offsets[i]);
       float length = direction.normalize_and_get_length();
 
-      BVHTreeRayHit hit;
-      hit.dist = length;
-      hit.index = -1;
-      BLI_bvhtree_ray_cast(m_treedata->tree,
-                           start_position,
-                           direction,
-                           0.0f,
-                           &hit,
-                           m_treedata->raycast_callback,
-                           (void *)m_treedata);
-
-      if (hit.index != -1) {
-        float time_factor = hit.dist / length;
+      float3 hit_normal;
+      float hit_distance;
+      if (this->ray_cast(start_position, direction, length, hit_distance, hit_normal)) {
+        float time_factor = hit_distance / length;
         auto &data = interface.trigger_particle<CollisionData>(i, time_factor);
 
-        float3 normal = hit.no;
-        if (float3::dot(hit.no, direction) > 0) {
-          normal.invert();
+        if (float3::dot(hit_normal, direction) > 0) {
+          hit_normal.invert();
         }
-        data.normal = m_normal_transform.transform_direction(normal).normalized();
+        data.normal = m_normal_transform.transform_direction(hit_normal).normalized();
       }
     }
+  }
+
+  bool ray_cast(float3 start,
+                float3 normalized_direction,
+                float max_distance,
+                float &r_hit_distance,
+                float3 &r_hit_normal)
+  {
+    BVHTreeRayHit hit;
+    hit.dist = max_distance;
+    hit.index = -1;
+    BLI_bvhtree_ray_cast(m_treedata->tree,
+                         start,
+                         normalized_direction,
+                         0.0f,
+                         &hit,
+                         m_treedata->raycast_callback,
+                         (void *)m_treedata);
+
+    r_hit_distance = hit.dist;
+    r_hit_normal = hit.no;
+    return hit.index >= 0;
   }
 
   void execute(EventExecuteInterface &interface) override
