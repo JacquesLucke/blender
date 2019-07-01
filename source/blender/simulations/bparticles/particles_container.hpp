@@ -102,7 +102,7 @@ class ParticlesBlock {
   bool is_full();
   bool is_empty();
   uint first_unused_index();
-  uint size();
+  uint capacity();
 
   ParticlesContainer &container();
 
@@ -167,12 +167,12 @@ inline uint &ParticlesBlock::active_amount()
 
 inline uint ParticlesBlock::unused_amount()
 {
-  return this->size() - m_active_amount;
+  return this->capacity() - m_active_amount;
 }
 
 inline bool ParticlesBlock::is_full()
 {
-  return m_active_amount == this->size();
+  return m_active_amount == this->capacity();
 }
 
 inline bool ParticlesBlock::is_empty()
@@ -186,7 +186,7 @@ inline uint ParticlesBlock::first_unused_index()
   return m_active_amount;
 }
 
-inline uint ParticlesBlock::size()
+inline uint ParticlesBlock::capacity()
 {
   return m_container.block_size();
 }
