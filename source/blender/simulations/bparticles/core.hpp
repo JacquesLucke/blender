@@ -745,7 +745,7 @@ inline ParticlesBlock &ParticleSet::block()
 
 inline AttributeArrays ParticleSet::attributes()
 {
-  return m_block->slice_all();
+  return m_block->attributes();
 }
 
 inline ArrayRef<uint> ParticleSet::indices()

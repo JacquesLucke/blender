@@ -212,7 +212,8 @@ void EmitTargetBase::fill_elements(uint index, void *value)
   for (uint part = 0; part < m_ranges.size(); part++) {
     ParticlesBlock &block = *m_blocks[part];
 
-    void *dst = block.slice_all().get_ptr(index);
+    /* TODO(jacques): Check if this is correct. */
+    void *dst = block.attributes_all().get_ptr(index);
     for (uint i : m_ranges[part]) {
       memcpy(POINTER_OFFSET(dst, element_size * i), value, element_size);
     }

@@ -111,7 +111,7 @@ class ParticlesBlock {
   AttributeArraysCore &attributes_core();
   AttributeArrays slice(Range<uint> range);
   AttributeArrays slice(uint start, uint length);
-  AttributeArrays slice_all();
+  AttributeArrays attributes_all();
   AttributeArrays attributes();
 
   void move(uint old_index, uint new_index);
@@ -213,7 +213,7 @@ inline AttributeArrays ParticlesBlock::slice(uint start, uint length)
   return m_attributes_core.slice_all().slice(start, length);
 }
 
-inline AttributeArrays ParticlesBlock::slice_all()
+inline AttributeArrays ParticlesBlock::attributes_all()
 {
   return m_attributes_core.slice_all();
 }
@@ -231,7 +231,7 @@ inline AttributeArraysCore &ParticlesBlock::attributes_core()
 inline void ParticlesBlock::move(uint old_index, uint new_index)
 {
   AttributesInfo &attributes = m_container.attributes_info();
-  AttributeArrays arrays = this->slice_all();
+  AttributeArrays arrays = this->attributes_all();
 
   for (uint i : attributes.byte_attributes()) {
     auto buffer = arrays.get_byte(i);
