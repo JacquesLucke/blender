@@ -69,7 +69,7 @@ class SurfaceEmitter : public Emitter {
       float3 v1 = verts[loops[triangle.tri[0]].v].co;
       float3 v2 = verts[loops[triangle.tri[1]].v].co;
       float3 v3 = verts[loops[triangle.tri[2]].v].co;
-      float3 pos = (v1 + v2 + v3) / 3.0f;
+      float3 pos = random_point_in_triangle(v1, v2, v3);
 
       float3 normal;
       normal_tri_v3(normal, v1, v2, v3);
@@ -85,6 +85,20 @@ class SurfaceEmitter : public Emitter {
     target.set_float3("Position", positions);
     target.set_float3("Velocity", velocities);
     target.set_birth_moments(birth_moments);
+  }
+
+  float3 random_point_in_triangle(float3 a, float3 b, float3 c)
+  {
+    float3 dir1 = b - a;
+    float3 dir2 = c - a;
+    float rand1, rand2;
+
+    do {
+      rand1 = (rand() % 1000) / 1000.0f;
+      rand2 = (rand() % 1000) / 1000.0f;
+    } while (rand1 + rand2 > 1.0f);
+
+    return a + dir1 * rand1 + dir2 * rand2;
   }
 };
 
