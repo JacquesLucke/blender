@@ -89,7 +89,7 @@ class EulerIntegrator : public Integrator {
     SmallVector<float3> combined_force(amount);
     this->compute_combined_force(block, combined_force);
 
-    auto last_velocities = block.slice_active().get_float3("Velocity");
+    auto last_velocities = block.attributes().get_float3("Velocity");
 
     auto position_offsets = r_offsets.get_float3("Position");
     auto velocity_offsets = r_offsets.get_float3("Velocity");
@@ -332,7 +332,7 @@ Mesh *BParticles_test_mesh_from_state(BParticlesState state_c)
   uint type_index = 0;
   for (ParticlesContainer *container : state.particle_containers().values()) {
     for (ParticlesBlock *block : container->active_blocks()) {
-      AttributeArrays attributes = block->slice_active();
+      AttributeArrays attributes = block->attributes();
       auto positions = attributes.get_float3("Position");
 
       for (uint pindex = 0; pindex < attributes.size(); pindex++) {

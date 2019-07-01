@@ -577,7 +577,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
 
         uint active_amount = block->active_amount();
         SmallVector<float> durations(active_amount);
-        auto birth_times = block->slice_active().get_float("Birth Time");
+        auto birth_times = block->attributes().get_float("Birth Time");
         for (uint i = 0; i < active_amount; i++) {
           durations[i] = end_time - birth_times[i];
         }
@@ -613,7 +613,7 @@ BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(ParticlesState 
 
 BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &block)
 {
-  auto kill_states = block.slice_active().get_byte("Kill State");
+  auto kill_states = block.attributes().get_byte("Kill State");
 
   uint index = 0;
   while (index < block.active_amount()) {

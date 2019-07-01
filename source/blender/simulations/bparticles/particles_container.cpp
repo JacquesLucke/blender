@@ -129,7 +129,7 @@ void ParticlesContainer::flatten_attribute_data(StringRef attribute_name, void *
   uint offset = 0;
   for (ParticlesBlock *block : m_blocks) {
     uint amount = block->active_amount();
-    void *src = block->slice_active().get_ptr(attribute_index);
+    void *src = block->attributes().get_ptr(attribute_index);
     memcpy(POINTER_OFFSET(dst, offset), src, amount * element_size);
     offset += amount * element_size;
   }

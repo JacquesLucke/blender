@@ -112,7 +112,7 @@ class ParticlesBlock {
   AttributeArrays slice(Range<uint> range);
   AttributeArrays slice(uint start, uint length);
   AttributeArrays slice_all();
-  AttributeArrays slice_active();
+  AttributeArrays attributes();
 
   void move(uint old_index, uint new_index);
 
@@ -218,7 +218,7 @@ inline AttributeArrays ParticlesBlock::slice_all()
   return m_attributes_core.slice_all();
 }
 
-inline AttributeArrays ParticlesBlock::slice_active()
+inline AttributeArrays ParticlesBlock::attributes()
 {
   return this->slice(0, m_active_amount);
 }

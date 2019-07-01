@@ -36,7 +36,7 @@ class TurbulenceForce : public BParticles::Force {
 
   void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) override
   {
-    auto positions = block.slice_active().get_float3("Position");
+    auto positions = block.attributes().get_float3("Position");
 
     for (uint pindex = 0; pindex < block.active_amount(); pindex++) {
       float3 pos = positions[pindex];
