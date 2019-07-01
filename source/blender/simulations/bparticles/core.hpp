@@ -21,6 +21,7 @@ class EventFilterInterface;
 class EventExecuteInterface;
 class EmitterInterface;
 class IntegratorInterface;
+class TypeAttributeInterface;
 
 /* Main API for the particle simulation. These classes have to be subclassed to define how the
  * particles should behave.
@@ -126,20 +127,11 @@ class ParticleType {
    */
   virtual ArrayRef<Event *> events() = 0;
 
-  virtual ArrayRef<std::string> byte_attributes()
-  {
-    return {};
-  }
-
-  virtual ArrayRef<std::string> float_attributes()
-  {
-    return {};
-  }
-
-  virtual ArrayRef<std::string> float3_attributes()
-  {
-    return {};
-  }
+  /**
+   * Determines which attributes have to be stored for particles of this type. The actual number of
+   * attributes might be larger.
+   */
+  virtual void attributes(TypeAttributeInterface &interface) = 0;
 };
 
 /**
@@ -414,6 +406,17 @@ class IntegratorInterface {
   AttributeArrays offset_targets();
 };
 
+class TypeAttributeInterface {
+  SmallVector<std::string> m_names;
+  SmallVector<AttributeType> m_types;
+
+ public:
+  void use(AttributeType type, StringRef attribute_name);
+
+  ArrayRef<std::string> names();
+  ArrayRef<AttributeType> types();
+};
+
 /* ParticlesState inline functions
  ********************************************/
 
@@ -662,6 +665,25 @@ inline ArrayRef<float> IntegratorInterface::durations()
 inline AttributeArrays IntegratorInterface::offset_targets()
 {
   return m_offsets;
+}
+
+/* TypeAttributeInterface
+ ********************************************/
+
+inline void TypeAttributeInterface::use(AttributeType type, StringRef attribute_name)
+{
+  m_types.append(type);
+  m_names.append(attribute_name.to_std_string());
+}
+
+inline ArrayRef<std::string> TypeAttributeInterface::names()
+{
+  return m_names;
+}
+
+inline ArrayRef<AttributeType> TypeAttributeInterface::types()
+{
+  return m_types;
 }
 
 }  // namespace BParticles
