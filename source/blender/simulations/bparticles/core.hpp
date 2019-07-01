@@ -165,6 +165,13 @@ class StepDescription {
 /* Classes used by the interface
  ***********************************************/
 
+/**
+ * This holds the current state of an entire particle particle system. It only knows about the
+ * particles and the current time, not how the system got there.
+ *
+ * The state can also be created independent of any particle system. It gets "fixed up" when it is
+ * used in a simulation.
+ */
 class ParticlesState {
  private:
   SmallMap<uint, ParticlesContainer *> m_container_by_id;
@@ -175,11 +182,25 @@ class ParticlesState {
   ParticlesState(ParticlesState &other) = delete;
   ~ParticlesState();
 
+  /**
+   * Access the time since the simulation started.
+   */
   float &current_time();
 
+  /**
+   * Access the mapping from particle type ids to their corresponding containers.
+   */
   SmallMap<uint, ParticlesContainer *> &particle_containers();
 
+  /**
+   * Get the container corresponding to a particle type id.
+   * Asserts when the container does not exist.
+   */
   ParticlesContainer &particle_container(uint type_id);
+
+  /**
+   * Get the id of a container in the context of this particle state.
+   */
   uint particle_container_id(ParticlesContainer &container);
 };
 
@@ -199,7 +220,16 @@ class BlockAllocator {
   BlockAllocator(ParticlesState &state);
   BlockAllocator(BlockAllocator &other) = delete;
 
+  /**
+   * Return a block that can hold new particles. It might create an entirely new one or use a
+   * cached block.
+   */
   ParticlesBlock &get_non_full_block(uint particle_type_id);
+
+  /**
+   * Allocate space for a given number of new particles. The attribute buffers might be distributed
+   * over multiple blocks.
+   */
   void allocate_block_ranges(uint particle_type_id,
                              uint size,
                              SmallVector<ParticlesBlock *> &r_blocks,
@@ -207,9 +237,17 @@ class BlockAllocator {
 
   AttributesInfo &attributes_info(uint particle_type_id);
   ParticlesState &particles_state();
+
+  /**
+   * Access all blocks that have been allocated by this allocator.
+   */
   ArrayRef<ParticlesBlock *> allocated_blocks();
 };
 
+/**
+ * Base class for different kinds of emitters. It's main purpose is to make it easy to initialize
+ * particle attributes.
+ */
 class EmitTargetBase {
  protected:
   uint m_particle_type_id;
@@ -227,6 +265,9 @@ class EmitTargetBase {
 
   EmitTargetBase(EmitTargetBase &other) = delete;
 
+  /**
+   * Copy attributes from an array into the particle block ranges referenced by this target.
+   */
   void set_byte(uint index, ArrayRef<uint8_t> data);
   void set_byte(StringRef name, ArrayRef<uint8_t> data);
   void set_float(uint index, ArrayRef<float> data);
@@ -234,6 +275,9 @@ class EmitTargetBase {
   void set_float3(uint index, ArrayRef<float3> data);
   void set_float3(StringRef name, ArrayRef<float3> data);
 
+  /**
+   * Set an attribute type to a constant for all referenced particle block ranges.
+   */
   void fill_byte(uint index, uint8_t value);
   void fill_byte(StringRef name, uint8_t value);
   void fill_float(uint index, float value);
@@ -241,10 +285,29 @@ class EmitTargetBase {
   void fill_float3(uint index, float3 value);
   void fill_float3(StringRef name, float3 value);
 
+  /**
+   * Access the particle blocks referenced by this emit target.
+   */
   ArrayRef<ParticlesBlock *> blocks();
+
+  /**
+   * Access the referenced ranges in the blocks.
+   */
   ArrayRef<Range<uint>> ranges();
+
+  /**
+   * Return the amount of different parts this emit target is made up of.
+   */
   uint part_amount();
+
+  /**
+   * Get the attribute arrays for a specific part.
+   */
   AttributeArrays attributes(uint part);
+
+  /**
+   * Get the particle type id in the context of the current simulation step.
+   */
   uint particle_type_id();
 
  private:
@@ -252,6 +315,9 @@ class EmitTargetBase {
   void fill_elements(uint index, void *value);
 };
 
+/**
+ * A specialized emit target for the case when the birth time of all particles is known beforehand.
+ */
 class InstantEmitTarget : public EmitTargetBase {
  public:
   InstantEmitTarget(uint particle_type_id,
@@ -260,6 +326,9 @@ class InstantEmitTarget : public EmitTargetBase {
                     ArrayRef<Range<uint>> ranges);
 };
 
+/**
+ * A specialized emit target for the case when the emitter can create particles within a time span.
+ */
 class TimeSpanEmitTarget : public EmitTargetBase {
  private:
   TimeSpan m_time_span;
@@ -271,7 +340,14 @@ class TimeSpanEmitTarget : public EmitTargetBase {
                      ArrayRef<Range<uint>> ranges,
                      TimeSpan time_span);
 
+  /**
+   * Set a factor [0, 1] that determines when in the time span all particles are born.
+   */
   void set_birth_moment(float time_factor);
+
+  /**
+   * Randomize the birth times within a time span.
+   */
   void set_randomized_birth_moments();
 };
 
