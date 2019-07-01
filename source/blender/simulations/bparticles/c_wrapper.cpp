@@ -77,10 +77,12 @@ class EulerIntegrator : public Integrator {
     return m_offset_attributes_info;
   }
 
-  void integrate(ParticlesBlock &block,
-                 ArrayRef<float> durations,
-                 AttributeArrays r_offsets) override
+  void integrate(IntegratorInterface &interface) override
   {
+    ParticlesBlock &block = interface.block();
+    AttributeArrays r_offsets = interface.offset_targets();
+    ArrayRef<float> durations = interface.durations();
+
     uint amount = block.active_amount();
     BLI_assert(amount == r_offsets.size());
 

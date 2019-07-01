@@ -20,6 +20,7 @@ namespace BParticles {
 class EventFilterInterface;
 class EventExecuteInterface;
 class EmitterInterface;
+class IntegratorInterface;
 
 /* Main API for the particle simulation. These classes have to be subclassed to define how the
  * particles should behave.
@@ -105,9 +106,7 @@ class Integrator {
    * Compute the offsets for all integrated attributes. Those are not applied immediately, because
    * there might be events that modify the attributes within a time step.
    */
-  virtual void integrate(ParticlesBlock &block,
-                         ArrayRef<float> durations,
-                         AttributeArrays r_offsets) = 0;
+  virtual void integrate(IntegratorInterface &interface) = 0;
 };
 
 /**
@@ -399,6 +398,22 @@ class EventExecuteInterface {
   AttributeArrays attribute_offsets();
 };
 
+class IntegratorInterface {
+ private:
+  ParticlesBlock &m_block;
+  ArrayRef<float> m_durations;
+
+  AttributeArrays m_offsets;
+
+ public:
+  IntegratorInterface(ParticlesBlock &block, ArrayRef<float> durations, AttributeArrays r_offsets);
+
+  ParticlesBlock &block();
+  ArrayRef<float> durations();
+
+  AttributeArrays offset_targets();
+};
+
 /* ParticlesState inline functions
  ********************************************/
 
@@ -629,6 +644,24 @@ template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)
 inline AttributeArrays EventExecuteInterface::attribute_offsets()
 {
   return m_attribute_offsets;
+}
+
+/* IntegratorInterface inline functions
+ *********************************************/
+
+inline ParticlesBlock &IntegratorInterface::block()
+{
+  return m_block;
+}
+
+inline ArrayRef<float> IntegratorInterface::durations()
+{
+  return m_durations;
+}
+
+inline AttributeArrays IntegratorInterface::offset_targets()
+{
+  return m_offsets;
 }
 
 }  // namespace BParticles

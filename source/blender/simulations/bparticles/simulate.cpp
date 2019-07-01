@@ -437,7 +437,8 @@ BLI_NOINLINE static void simulate_block(FixedArrayAllocator &array_allocator,
       offsets_info, array_allocator);
   AttributeArrays attribute_offsets = attribute_offsets_core.slice_all().slice(0, amount);
 
-  integrator.integrate(block, durations, attribute_offsets);
+  IntegratorInterface interface(block, durations, attribute_offsets);
+  integrator.integrate(interface);
 
   ArrayRef<Event *> events = particle_type.events();
 

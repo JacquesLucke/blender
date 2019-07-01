@@ -340,4 +340,14 @@ EventExecuteInterface::EventExecuteInterface(ParticleSet particles,
 {
 }
 
+/* IntegratorInterface
+ ***************************************************/
+
+IntegratorInterface::IntegratorInterface(ParticlesBlock &block,
+                                         ArrayRef<float> durations,
+                                         AttributeArrays r_offsets)
+    : m_block(block), m_durations(durations), m_offsets(r_offsets)
+{
+}
+
 }  // namespace BParticles
