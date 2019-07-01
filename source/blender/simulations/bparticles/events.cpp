@@ -48,6 +48,13 @@ class MeshBounceEvent : public Event {
     float3 normal;
   };
 
+  struct RayCastResult {
+    bool success;
+    int index;
+    float3 normal;
+    float distance;
+  };
+
  public:
   MeshBounceEvent(BVHTreeFromMesh *treedata, float4x4 transform)
       : m_treedata(treedata),
@@ -70,29 +77,25 @@ class MeshBounceEvent : public Event {
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
 
-      float3 start_position = m_ray_transform.transform_position(positions[pindex]);
-      float3 direction = m_ray_transform.transform_direction(position_offsets[i]);
-      float length = direction.normalize_and_get_length();
+      float3 ray_start = m_ray_transform.transform_position(positions[pindex]);
+      float3 ray_direction = m_ray_transform.transform_direction(position_offsets[i]);
+      float length = ray_direction.normalize_and_get_length();
 
-      float3 hit_normal;
-      float hit_distance;
-      if (this->ray_cast(start_position, direction, length, hit_distance, hit_normal)) {
-        float time_factor = hit_distance / length;
+      auto result = this->ray_cast(ray_start, ray_direction, length);
+      if (result.success) {
+        float time_factor = result.distance / length;
         auto &data = interface.trigger_particle<CollisionData>(i, time_factor);
 
-        if (float3::dot(hit_normal, direction) > 0) {
-          hit_normal.invert();
+        float3 normal = result.normal;
+        if (float3::dot(normal, ray_direction) > 0) {
+          normal.invert();
         }
-        data.normal = m_normal_transform.transform_direction(hit_normal).normalized();
+        data.normal = m_normal_transform.transform_direction(normal).normalized();
       }
     }
   }
 
-  bool ray_cast(float3 start,
-                float3 normalized_direction,
-                float max_distance,
-                float &r_hit_distance,
-                float3 &r_hit_normal)
+  RayCastResult ray_cast(float3 start, float3 normalized_direction, float max_distance)
   {
     BVHTreeRayHit hit;
     hit.dist = max_distance;
@@ -105,9 +108,7 @@ class MeshBounceEvent : public Event {
                          m_treedata->raycast_callback,
                          (void *)m_treedata);
 
-    r_hit_distance = hit.dist;
-    r_hit_normal = hit.no;
-    return hit.index >= 0;
+    return {hit.index >= 0, hit.index, float3(hit.no), hit.dist};
   }
 
   void execute(EventExecuteInterface &interface) override
