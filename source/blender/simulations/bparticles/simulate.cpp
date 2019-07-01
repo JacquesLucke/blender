@@ -38,15 +38,26 @@ static ArrayRef<uint> static_number_range_ref(Range<uint> range)
 /* Events
  **************************************************/
 
-BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
-                                                      AttributeArrays &attribute_offsets,
-                                                      ArrayRef<float> durations,
-                                                      float end_time,
-                                                      ArrayRef<Event *> events,
-                                                      EventStorage &r_event_storage,
-                                                      ArrayRef<int> r_next_event_indices,
-                                                      ArrayRef<float> r_time_factors_to_next_event,
-                                                      VectorAdaptor<uint> &r_indices_with_event)
+static uint get_max_event_storage_size(ArrayRef<Event *> events)
+{
+  uint max_size = 0;
+  for (Event *event : events) {
+    max_size = std::max(max_size, event->storage_size());
+  }
+  return max_size;
+}
+
+BLI_NOINLINE static void find_next_event_per_particle(
+    ParticleSet particles,
+    AttributeArrays &attribute_offsets,
+    ArrayRef<float> durations,
+    float end_time,
+    ArrayRef<Event *> events,
+    EventStorage &r_event_storage,
+    ArrayRef<int> r_next_event_indices,
+    ArrayRef<float> r_time_factors_to_next_event,
+    VectorAdaptor<uint> &r_indices_with_event,
+    VectorAdaptor<uint> &r_particle_indices_with_event)
 {
   r_next_event_indices.fill(-1);
   r_time_factors_to_next_event.fill(1.0f);
@@ -79,6 +90,7 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
   for (uint i = 0; i < r_next_event_indices.size(); i++) {
     if (r_next_event_indices[i] != -1) {
       r_indices_with_event.append(i);
+      r_particle_indices_with_event.append(particles.get_particle_index(i));
     }
   }
 }
@@ -230,16 +242,15 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
   int *next_event_indices_array = array_allocator.allocate_array<int>();
   float *time_factors_to_next_event_array = array_allocator.allocate_array<float>();
   uint *indices_with_event_array = array_allocator.allocate_array<uint>();
+  uint *particle_indices_with_event_array = array_allocator.allocate_array<uint>();
 
   VectorAdaptor<int> next_event_indices(next_event_indices_array, amount, amount);
   VectorAdaptor<float> time_factors_to_next_event(
       time_factors_to_next_event_array, amount, amount);
   VectorAdaptor<uint> indices_with_event(indices_with_event_array, amount);
+  VectorAdaptor<uint> particle_indices_with_event(particle_indices_with_event_array, amount);
 
-  uint max_event_storage_size = 1;
-  for (Event *event : events) {
-    max_event_storage_size = std::max(max_event_storage_size, event->storage_size());
-  }
+  uint max_event_storage_size = std::max(get_max_event_storage_size(events), 1u);
   void *event_storage_array = array_allocator.allocate_array(max_event_storage_size);
   EventStorage event_storage(event_storage_array, max_event_storage_size);
 
@@ -251,18 +262,10 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
                                event_storage,
                                next_event_indices,
                                time_factors_to_next_event,
-                               indices_with_event);
-  uint filtered_particles_amount = indices_with_event.size();
+                               indices_with_event,
+                               particle_indices_with_event);
 
   forward_particles_to_next_event_or_end(particles, attribute_offsets, time_factors_to_next_event);
-
-  uint *particle_indices_with_event_array = array_allocator.allocate_array<uint>();
-  VectorAdaptor<uint> particle_indices_with_event(
-      particle_indices_with_event_array, filtered_particles_amount, filtered_particles_amount);
-
-  for (uint i = 0; i < filtered_particles_amount; i++) {
-    particle_indices_with_event[i] = particles.get_particle_index(indices_with_event[i]);
-  }
 
   update_remaining_attribute_offsets(indices_with_event,
                                      particle_indices_with_event,
