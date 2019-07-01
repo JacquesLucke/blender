@@ -21,12 +21,21 @@ using BLI::SmallVector;
 using BLI::StringRef;
 using BLI::StringRefNull;
 
+/**
+ * Possible types of attributes. All types are expected to be POD (plain old data).
+ * New types can be added when necessary.
+ */
 enum AttributeType {
   Byte,
   Float,
   Float3,
 };
 
+/**
+ * Get the size of an attribute type.
+ *
+ * TODO(jacques): Figure out how to make type.size() work nicely instead.
+ */
 inline uint size_of_attribute_type(AttributeType type)
 {
   switch (type) {
@@ -42,6 +51,14 @@ inline uint size_of_attribute_type(AttributeType type)
   };
 }
 
+/**
+ * Contains information about a set of attributes. Every attribute is identified by a unique name
+ * and a unique index. So two attributes of different types have to have different names.
+ *
+ * The attributes are sorted such that attributes with the same type have consecutive indices.
+ *
+ * Furthermore, every attribute has a default value.
+ */
 class AttributesInfo {
  private:
   Range<uint> m_byte_attributes;
@@ -60,31 +77,54 @@ class AttributesInfo {
                  ArrayRef<std::string> float_names,
                  ArrayRef<std::string> float3_names);
 
+  /**
+   * Get the number of different attributes.
+   */
   uint amount() const
   {
     return m_indices.size();
   }
 
+  /**
+   * Get the attribute name that corresponds to an index.
+   * Asserts when the index is too large.
+   */
   StringRefNull name_of(uint index) const
   {
     return m_indices[index];
   }
 
+  /**
+   * Get the type of an attribute identified by its index.
+   * Asserts when the index is too large.
+   */
   AttributeType type_of(uint index) const
   {
     return m_types[index];
   }
 
+  /**
+   * Get the types of all attributes. The index into the array is the index of the corresponding
+   * attribute.
+   */
   ArrayRef<AttributeType> types() const
   {
     return m_types;
   }
 
+  /**
+   * Get the index corresponding to an attribute name.
+   * Returns -1 when the attribute does not exist.
+   */
   int attribute_index_try(StringRef name) const
   {
     return m_indices.index(name.to_std_string());
   }
 
+  /**
+   * Get the index corresponding to an attribute name.
+   * Asserts when the attribute does not exist.
+   */
   uint attribute_index(StringRef name) const
   {
     int index = this->attribute_index_try(name);
@@ -92,26 +132,42 @@ class AttributesInfo {
     return (uint)index;
   }
 
+  /**
+   * Get a range with all attribute indices.
+   * The range will start at 0.
+   */
   Range<uint> attribute_indices() const
   {
     return Range<uint>(0, m_indices.size());
   }
 
+  /**
+   * Get a range with all byte attribute indices.
+   */
   Range<uint> byte_attributes() const
   {
     return m_byte_attributes;
   }
 
+  /**
+   * Get a range with all float attribute indices.
+   */
   Range<uint> float_attributes() const
   {
     return m_float_attributes;
   }
 
+  /**
+   * Get a range with all float3 attribute indices.
+   */
   Range<uint> float3_attributes() const
   {
     return m_float3_attributes;
   }
 
+  /**
+   * Get a pointer to the default value of an attribute.
+   */
   void *default_value_ptr(uint index) const
   {
     BLI_assert(index < m_indices.size());
@@ -128,6 +184,9 @@ class AttributesInfo {
     return nullptr;
   }
 
+  /**
+   * Don't do a deep comparison for now. This might change later.
+   */
   friend bool operator==(const AttributesInfo &a, const AttributesInfo &b)
   {
     return &a == &b;
