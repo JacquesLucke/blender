@@ -14,9 +14,6 @@ namespace BParticles {
 
 using BLI::VectorAdaptor;
 
-/* Static Data
- **************************************************/
-
 BLI_LAZY_INIT_STATIC(SmallVector<uint>, static_number_range_vector)
 {
   return Range<uint>(0, 10000).to_small_vector();
@@ -34,9 +31,6 @@ static ArrayRef<uint> static_number_range_ref(Range<uint> range)
   }
   return static_number_range_ref(range.first(), range.size());
 }
-
-/* Events
- **************************************************/
 
 static uint get_max_event_storage_size(ArrayRef<Event *> events)
 {
@@ -222,9 +216,6 @@ BLI_NOINLINE static void execute_events(BlockAllocator &block_allocator,
     event->execute(interface);
   }
 }
-
-/* Step individual particles.
- **********************************************/
 
 BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_allocator,
                                                 BlockAllocator &block_allocator,
@@ -600,9 +591,6 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
       USE_THREADING);
 }
 
-/* Delete particles.
- **********************************************/
-
 BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(ParticlesState &state)
 {
   SmallVector<ParticlesBlock *> blocks;
@@ -640,9 +628,6 @@ BLI_NOINLINE static void delete_tagged_particles(ParticlesState &state)
       USE_THREADING);
 }
 
-/* Compress particle blocks.
- **************************************************/
-
 BLI_NOINLINE static void compress_all_blocks(ParticlesContainer &particles)
 {
   SmallVector<ParticlesBlock *> blocks = particles.active_blocks().to_small_vector();
@@ -661,9 +646,6 @@ BLI_NOINLINE static void compress_all_containers(ParticlesState &state)
     compress_all_blocks(*container);
   }
 }
-
-/* Fix state based on description.
- *****************************************************/
 
 BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
                                                           StepDescription &description)
@@ -720,9 +702,6 @@ BLI_NOINLINE static void ensure_required_attributes_exist(ParticlesState &state,
     container.update_attributes(new_attributes_info);
   }
 }
-
-/* Main Entry Point
- **************************************************/
 
 BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,
                                                       StepDescription &step_description,
