@@ -195,6 +195,18 @@ class AttributesInfo {
 
 class AttributeArrays;
 
+/**
+ * Contains a memory buffer for every attribute in an AttributesInfo object.
+ * All buffers have equal element-length but not necessarily equal byte-length.
+ *
+ * The pointers are not owned by this structure. They are passed on creation and have to be freed
+ * manually. This is necessary because in different contexts, it makes sense to allocate the
+ * buffers in different ways. Nevertheless, there are some utilities to simplify allocation and
+ * deallocation in common cases.
+ *
+ * Most code does not use this class directly. Instead it uses AttributeArrays, which is just a
+ * slice of this.
+ */
 class AttributeArraysCore {
  private:
   AttributesInfo *m_info;
@@ -205,21 +217,63 @@ class AttributeArraysCore {
   AttributeArraysCore(AttributesInfo &info, ArrayRef<void *> arrays, uint size);
   ~AttributeArraysCore();
 
+  /**
+   * Create a new instance in which the pointers are all separately allocated using MEM_mallocN.
+   */
   static AttributeArraysCore NewWithSeparateAllocations(AttributesInfo &info, uint size);
+  /**
+   * Free all buffers separately using MEM_freeN.
+   */
   void free_buffers();
 
+  /**
+   * Create a new instance in which all pointers are separately allocated from a
+   * fixed-array-allocator. No separate length has to be provided, since the allocator only
+   * allocates arrays of one specific length.
+   */
   static AttributeArraysCore NewWithArrayAllocator(AttributesInfo &info,
                                                    FixedArrayAllocator &allocator);
+
+  /**
+   * Deallocate pointers in the given fixed-array-allocator.
+   */
   void deallocate_in_array_allocator(FixedArrayAllocator &allocator);
 
+  /**
+   * Get information about the stored attributes.
+   */
   AttributesInfo &info();
+
+  /**
+   * Get the raw pointer to the beginning of an attribute array identified by an index.
+   */
   void *get_ptr(uint index);
+
+  /**
+   * Get the type of an attribute identified by an index.
+   */
   AttributeType get_type(uint index);
+
+  /**
+   * Get a slice containing everything for further processing.
+   */
   AttributeArrays slice_all();
+
+  /**
+   * Get the number of elements stored per attribute.
+   */
   uint size() const;
+
+  /**
+   * Get all raw pointers.
+   */
   ArrayRef<void *> pointers();
 };
 
+/**
+ * The main class used to interact with attributes. It represents a continuous slice of an
+ * AttributeArraysCore instance. So, it is very light weight and can be passed by value.
+ */
 class AttributeArrays {
  private:
   AttributeArraysCore &m_core;
@@ -228,16 +282,35 @@ class AttributeArrays {
  public:
   AttributeArrays(AttributeArraysCore &core, uint start, uint size);
 
+  /**
+   * Get the number of referenced elements.
+   */
   uint size() const;
+
+  /**
+   * Get information about the referenced attributes.
+   */
   AttributesInfo &info();
 
+  /**
+   * Get the index of an attributed identified by a name.
+   */
   uint attribute_index(StringRef name);
 
+  /**
+   * Get the raw pointer to the buffer that contains attribute values.
+   */
   void *get_ptr(uint index) const;
 
+  /**
+   * Initialize an attribute array using its default value.
+   */
   void init_default(uint index);
   void init_default(StringRef name);
 
+  /**
+   * Get access do the underlying attribute arrays.
+   */
   ArrayRef<uint8_t> get_byte(uint index) const;
   ArrayRef<uint8_t> get_byte(StringRef name);
   ArrayRef<float> get_float(uint index) const;
@@ -245,7 +318,14 @@ class AttributeArrays {
   ArrayRef<float3> get_float3(uint index) const;
   ArrayRef<float3> get_float3(StringRef name);
 
+  /**
+   * Get a continuous slice of the attribute arrays.
+   */
   AttributeArrays slice(uint start, uint size) const;
+
+  /**
+   * Create a new slice containing only the first n elements.
+   */
   AttributeArrays take_front(uint n) const;
 };
 
