@@ -4,6 +4,10 @@
 
 namespace BParticles {
 
+Force::~Force()
+{
+}
+
 class DirectionalForce : public Force {
  private:
   float3 m_force;

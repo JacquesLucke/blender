@@ -2,23 +2,11 @@
 
 namespace BParticles {
 
-Force::~Force()
-{
-}
-
 Emitter::~Emitter()
 {
 }
 
 Integrator::~Integrator()
-{
-}
-
-Action::~Action()
-{
-}
-
-EventFilter::~EventFilter()
 {
 }
 

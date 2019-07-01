@@ -4,6 +4,10 @@
 
 namespace BParticles {
 
+Action::~Action()
+{
+}
+
 class KillAction : public Action {
   void execute(EventExecuteInterface &interface) override
   {

@@ -17,16 +17,6 @@
 
 namespace BParticles {
 
-using BLI::ArrayRef;
-using BLI::float3;
-using BLI::float4x4;
-using BLI::SmallMap;
-using BLI::SmallSetVector;
-using BLI::SmallVector;
-using BLI::StringRef;
-using BLI::VectorAdaptor;
-using std::unique_ptr;
-
 class ParticlesState {
  private:
   SmallMap<uint, ParticlesContainer *> m_container_by_id;
@@ -289,12 +279,6 @@ struct ParticleSet {
   }
 };
 
-class Force {
- public:
-  virtual ~Force();
-  virtual void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) = 0;
-};
-
 class EventStorage {
  private:
   void *m_array;
@@ -386,13 +370,6 @@ class EventFilterInterface {
   }
 };
 
-class EventFilter {
- public:
-  virtual ~EventFilter();
-
-  virtual void filter(EventFilterInterface &interface) = 0;
-};
-
 class EventExecuteInterface {
  private:
   ParticleSet m_particles;
@@ -458,13 +435,6 @@ class EventExecuteInterface {
   {
     return m_attribute_offsets;
   }
-};
-
-class Action {
- public:
-  virtual ~Action();
-
-  virtual void execute(EventExecuteInterface &interface) = 0;
 };
 
 class Event {

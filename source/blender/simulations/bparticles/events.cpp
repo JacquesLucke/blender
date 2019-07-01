@@ -6,6 +6,10 @@
 
 namespace BParticles {
 
+EventFilter::~EventFilter()
+{
+}
+
 class AgeReachedEvent : public EventFilter {
  private:
   float m_age;

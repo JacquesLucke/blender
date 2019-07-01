@@ -12,6 +12,8 @@
 
 namespace BParticles {
 
+using BLI::VectorAdaptor;
+
 /* Static Data
  **************************************************/
 

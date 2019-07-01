@@ -7,6 +7,8 @@ struct Path;
 
 namespace BParticles {
 
+using BLI::float4x4;
+
 Emitter *EMITTER_point(float3 point);
 Emitter *EMITTER_mesh_surface(uint particle_type_id,
                               struct Mesh *mesh,
