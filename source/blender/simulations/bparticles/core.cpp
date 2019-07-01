@@ -92,6 +92,11 @@ AttributesInfo &BlockAllocator::attributes_info(uint particle_type_id)
 /* Emitter Interface
  ******************************************/
 
+EmitterInterface::EmitterInterface(BlockAllocator &allocator, TimeSpan time_span)
+    : m_block_allocator(allocator), m_time_span(time_span)
+{
+}
+
 EmitterInterface::~EmitterInterface()
 {
   for (TimeSpanEmitTarget *target : m_targets) {
@@ -146,6 +151,38 @@ InstantEmitTarget &EventExecuteInterface::request_emit_target(uint particle_type
 
 /* EmitTarget
  ******************************************/
+
+EmitTargetBase::EmitTargetBase(uint particle_type_id,
+                               AttributesInfo &attributes_info,
+                               ArrayRef<ParticlesBlock *> blocks,
+                               ArrayRef<Range<uint>> ranges)
+    : m_particle_type_id(particle_type_id),
+      m_attributes_info(attributes_info),
+      m_blocks(blocks),
+      m_ranges(ranges)
+{
+  BLI_assert(blocks.size() == ranges.size());
+  for (auto range : ranges) {
+    m_size += range.size();
+  }
+}
+
+InstantEmitTarget::InstantEmitTarget(uint particle_type_id,
+                                     AttributesInfo &attributes_info,
+                                     ArrayRef<ParticlesBlock *> blocks,
+                                     ArrayRef<Range<uint>> ranges)
+    : EmitTargetBase(particle_type_id, attributes_info, blocks, ranges)
+{
+}
+
+TimeSpanEmitTarget::TimeSpanEmitTarget(uint particle_type_id,
+                                       AttributesInfo &attributes_info,
+                                       ArrayRef<ParticlesBlock *> blocks,
+                                       ArrayRef<Range<uint>> ranges,
+                                       TimeSpan time_span)
+    : EmitTargetBase(particle_type_id, attributes_info, blocks, ranges), m_time_span(time_span)
+{
+}
 
 void EmitTargetBase::set_elements(uint index, void *data)
 {
@@ -264,6 +301,43 @@ void TimeSpanEmitTarget::set_randomized_birth_moments()
     birth_times[i] = m_time_span.interpolate(factor);
   }
   this->set_float("Birth Time", birth_times);
+}
+
+/* EventFilterInterface
+ *****************************************/
+
+EventFilterInterface::EventFilterInterface(ParticleSet particles,
+                                           AttributeArrays &attribute_offsets,
+                                           ArrayRef<float> durations,
+                                           float end_time,
+                                           EventStorage &r_event_storage,
+                                           SmallVector<uint> &r_filtered_indices,
+                                           SmallVector<float> &r_filtered_time_factors)
+    : m_particles(particles),
+      m_attribute_offsets(attribute_offsets),
+      m_durations(durations),
+      m_end_time(end_time),
+      m_event_storage(r_event_storage),
+      m_filtered_indices(r_filtered_indices),
+      m_filtered_time_factors(r_filtered_time_factors)
+{
+}
+
+/* EventExecuteInterface
+ *************************************************/
+
+EventExecuteInterface::EventExecuteInterface(ParticleSet particles,
+                                             BlockAllocator &block_allocator,
+                                             ArrayRef<float> current_times,
+                                             EventStorage &event_storage,
+                                             AttributeArrays attribute_offsets)
+    : m_particles(particles),
+      m_block_allocator(block_allocator),
+      m_current_times(current_times),
+      m_kill_states(m_particles.attributes().get_byte("Kill State")),
+      m_event_storage(event_storage),
+      m_attribute_offsets(attribute_offsets)
+{
 }
 
 }  // namespace BParticles

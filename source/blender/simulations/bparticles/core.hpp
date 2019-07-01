@@ -28,26 +28,10 @@ class ParticlesState {
   ParticlesState(ParticlesState &other) = delete;
   ~ParticlesState();
 
-  SmallMap<uint, ParticlesContainer *> &particle_containers()
-  {
-    return m_container_by_id;
-  }
+  SmallMap<uint, ParticlesContainer *> &particle_containers();
 
-  ParticlesContainer &particle_container(uint type_id)
-  {
-    return *m_container_by_id.lookup(type_id);
-  }
-
-  uint particle_container_id(ParticlesContainer &container)
-  {
-    for (auto item : m_container_by_id.items()) {
-      if (item.value == &container) {
-        return item.key;
-      }
-    }
-    BLI_assert(false);
-    return 0;
-  }
+  ParticlesContainer &particle_container(uint type_id);
+  uint particle_container_id(ParticlesContainer &container);
 };
 
 /**
@@ -73,16 +57,8 @@ class BlockAllocator {
                              SmallVector<Range<uint>> &r_ranges);
 
   AttributesInfo &attributes_info(uint particle_type_id);
-
-  ParticlesState &particles_state()
-  {
-    return m_state;
-  }
-
-  ArrayRef<ParticlesBlock *> allocated_blocks()
-  {
-    return m_allocated_blocks;
-  }
+  ParticlesState &particles_state();
+  ArrayRef<ParticlesBlock *> allocated_blocks();
 };
 
 class EmitTargetBase {
@@ -98,17 +74,7 @@ class EmitTargetBase {
   EmitTargetBase(uint particle_type_id,
                  AttributesInfo &attributes_info,
                  ArrayRef<ParticlesBlock *> blocks,
-                 ArrayRef<Range<uint>> ranges)
-      : m_particle_type_id(particle_type_id),
-        m_attributes_info(attributes_info),
-        m_blocks(blocks),
-        m_ranges(ranges)
-  {
-    BLI_assert(blocks.size() == ranges.size());
-    for (auto range : ranges) {
-      m_size += range.size();
-    }
-  }
+                 ArrayRef<Range<uint>> ranges);
 
   EmitTargetBase(EmitTargetBase &other) = delete;
 
@@ -126,30 +92,11 @@ class EmitTargetBase {
   void fill_float3(uint index, float3 value);
   void fill_float3(StringRef name, float3 value);
 
-  ArrayRef<ParticlesBlock *> blocks()
-  {
-    return m_blocks;
-  }
-
-  ArrayRef<Range<uint>> ranges()
-  {
-    return m_ranges;
-  }
-
-  uint part_amount()
-  {
-    return m_ranges.size();
-  }
-
-  AttributeArrays attributes(uint part)
-  {
-    return m_blocks[part]->slice(m_ranges[part]);
-  }
-
-  uint particle_type_id()
-  {
-    return m_particle_type_id;
-  }
+  ArrayRef<ParticlesBlock *> blocks();
+  ArrayRef<Range<uint>> ranges();
+  uint part_amount();
+  AttributeArrays attributes(uint part);
+  uint particle_type_id();
 
  private:
   void set_elements(uint index, void *data);
@@ -161,10 +108,7 @@ class InstantEmitTarget : public EmitTargetBase {
   InstantEmitTarget(uint particle_type_id,
                     AttributesInfo &attributes_info,
                     ArrayRef<ParticlesBlock *> blocks,
-                    ArrayRef<Range<uint>> ranges)
-      : EmitTargetBase(particle_type_id, attributes_info, blocks, ranges)
-  {
-  }
+                    ArrayRef<Range<uint>> ranges);
 };
 
 class TimeSpanEmitTarget : public EmitTargetBase {
@@ -176,10 +120,7 @@ class TimeSpanEmitTarget : public EmitTargetBase {
                      AttributesInfo &attributes_info,
                      ArrayRef<ParticlesBlock *> blocks,
                      ArrayRef<Range<uint>> ranges,
-                     TimeSpan time_span)
-      : EmitTargetBase(particle_type_id, attributes_info, blocks, ranges), m_time_span(time_span)
-  {
-  }
+                     TimeSpan time_span);
 
   void set_birth_moment(float time_factor);
   void set_randomized_birth_moments();
@@ -192,29 +133,14 @@ class EmitterInterface {
   TimeSpan m_time_span;
 
  public:
-  EmitterInterface(BlockAllocator &allocator, TimeSpan time_span)
-      : m_block_allocator(allocator), m_time_span(time_span)
-  {
-  }
-
+  EmitterInterface(BlockAllocator &allocator, TimeSpan time_span);
   ~EmitterInterface();
 
-  ArrayRef<TimeSpanEmitTarget *> targets()
-  {
-    return m_targets;
-  }
+  ArrayRef<TimeSpanEmitTarget *> targets();
 
   TimeSpanEmitTarget &request(uint particle_type_id, uint size);
-
-  TimeSpan time_span()
-  {
-    return m_time_span;
-  }
-
-  bool is_first_step()
-  {
-    return m_time_span.start() < 0.00001f;
-  }
+  TimeSpan time_span();
+  bool is_first_step();
 };
 
 struct ParticleSet {
@@ -228,55 +154,19 @@ struct ParticleSet {
   ArrayRef<uint> m_particle_indices;
 
  public:
-  ParticleSet(ParticlesBlock &block, ArrayRef<uint> particle_indices)
-      : m_block(&block), m_particle_indices(particle_indices)
-  {
-  }
+  ParticleSet(ParticlesBlock &block, ArrayRef<uint> particle_indices);
 
-  ParticlesBlock &block()
-  {
-    return *m_block;
-  }
-
-  AttributeArrays attributes()
-  {
-    return m_block->slice_all();
-  }
-
-  ArrayRef<uint> indices()
-  {
-    return m_particle_indices;
-  }
-
-  uint get_particle_index(uint i)
-  {
-    return m_particle_indices[i];
-  }
-
-  Range<uint> range()
-  {
-    return Range<uint>(0, m_particle_indices.size());
-  }
-
-  uint size()
-  {
-    return m_particle_indices.size();
-  }
+  ParticlesBlock &block();
+  AttributeArrays attributes();
+  ArrayRef<uint> indices();
+  uint get_particle_index(uint i);
+  Range<uint> range();
+  uint size();
 
   /**
    * Returns true when get_particle_index(i) == i for all i, otherwise false.
    */
-  bool indices_are_trivial()
-  {
-    if (m_particle_indices.size() == 0) {
-      return true;
-    }
-    else {
-      /* This works due to the invariants mentioned above. */
-      return m_particle_indices.first() == 0 &&
-             m_particle_indices.last() == m_particle_indices.size() - 1;
-    }
-  }
+  bool indices_are_trivial();
 };
 
 class EventStorage {
@@ -285,21 +175,11 @@ class EventStorage {
   uint m_stride;
 
  public:
-  EventStorage(void *array, uint stride) : m_array(array), m_stride(stride)
-  {
-  }
-
+  EventStorage(void *array, uint stride);
   EventStorage(EventStorage &other) = delete;
 
-  void *operator[](uint index)
-  {
-    return POINTER_OFFSET(m_array, m_stride * index);
-  }
-
-  template<typename T> T &get(uint index)
-  {
-    return *(T *)(*this)[index];
-  }
+  void *operator[](uint index);
+  template<typename T> T &get(uint index);
 };
 
 class EventFilterInterface {
@@ -320,54 +200,16 @@ class EventFilterInterface {
                        float end_time,
                        EventStorage &r_event_storage,
                        SmallVector<uint> &r_filtered_indices,
-                       SmallVector<float> &r_filtered_time_factors)
-      : m_particles(particles),
-        m_attribute_offsets(attribute_offsets),
-        m_durations(durations),
-        m_end_time(end_time),
-        m_event_storage(r_event_storage),
-        m_filtered_indices(r_filtered_indices),
-        m_filtered_time_factors(r_filtered_time_factors)
-  {
-  }
+                       SmallVector<float> &r_filtered_time_factors);
 
-  ParticleSet &particles()
-  {
-    return m_particles;
-  }
+  ParticleSet &particles();
+  ArrayRef<float> durations();
+  TimeSpan time_span(uint index);
+  AttributeArrays attribute_offsets();
+  float end_time();
 
-  ArrayRef<float> durations()
-  {
-    return m_durations;
-  }
-
-  TimeSpan time_span(uint index)
-  {
-    float duration = m_durations[index];
-    return TimeSpan(m_end_time - duration, duration);
-  }
-
-  AttributeArrays attribute_offsets()
-  {
-    return m_attribute_offsets;
-  }
-
-  float end_time()
-  {
-    return m_end_time;
-  }
-
-  void trigger_particle(uint index, float time_factor)
-  {
-    m_filtered_indices.append(index);
-    m_filtered_time_factors.append(time_factor);
-  }
-
-  template<typename T> T &trigger_particle(uint index, float time_factor)
-  {
-    this->trigger_particle(index, time_factor);
-    return m_event_storage.get<T>(m_particles.get_particle_index(index));
-  }
+  void trigger_particle(uint index, float time_factor);
+  template<typename T> T &trigger_particle(uint index, float time_factor);
 };
 
 class EventExecuteInterface {
@@ -385,57 +227,23 @@ class EventExecuteInterface {
                         BlockAllocator &block_allocator,
                         ArrayRef<float> current_times,
                         EventStorage &event_storage,
-                        AttributeArrays attribute_offsets)
-      : m_particles(particles),
-        m_block_allocator(block_allocator),
-        m_current_times(current_times),
-        m_kill_states(m_particles.attributes().get_byte("Kill State")),
-        m_event_storage(event_storage),
-        m_attribute_offsets(attribute_offsets)
-  {
-  }
+                        AttributeArrays attribute_offsets);
 
   ~EventExecuteInterface();
 
-  BlockAllocator &block_allocator()
-  {
-    return m_block_allocator;
-  }
-
-  ParticleSet &particles()
-  {
-    return m_particles;
-  }
-
   InstantEmitTarget &request_emit_target(uint particle_type_id, ArrayRef<uint> original_indices);
+  void kill(ArrayRef<uint> particle_indices);
 
-  void kill(ArrayRef<uint> particle_indices)
-  {
-    for (uint pindex : particle_indices) {
-      m_kill_states[pindex] = 1;
-    }
-  }
-
-  ArrayRef<InstantEmitTarget *> emit_targets()
-  {
-    return m_emit_targets;
-  }
-
-  ArrayRef<float> current_times()
-  {
-    return m_current_times;
-  }
-
-  template<typename T> T &get_storage(uint pindex)
-  {
-    return m_event_storage.get<T>(pindex);
-  }
-
-  AttributeArrays attribute_offsets()
-  {
-    return m_attribute_offsets;
-  }
+  BlockAllocator &block_allocator();
+  ParticleSet &particles();
+  ArrayRef<InstantEmitTarget *> emit_targets();
+  ArrayRef<float> current_times();
+  template<typename T> T &get_storage(uint pindex);
+  AttributeArrays attribute_offsets();
 };
+
+/* Functions to be subclassed
+ ******************************************/
 
 class Event {
  public:
@@ -501,5 +309,237 @@ class StepDescription {
   virtual ArrayRef<uint> particle_type_ids() = 0;
   virtual ParticleType &particle_type(uint type_id) = 0;
 };
+
+/* ParticlesState inline functions
+ ********************************************/
+
+inline SmallMap<uint, ParticlesContainer *> &ParticlesState::particle_containers()
+{
+  return m_container_by_id;
+}
+
+inline ParticlesContainer &ParticlesState::particle_container(uint type_id)
+{
+  return *m_container_by_id.lookup(type_id);
+}
+
+inline uint ParticlesState::particle_container_id(ParticlesContainer &container)
+{
+  for (auto item : m_container_by_id.items()) {
+    if (item.value == &container) {
+      return item.key;
+    }
+  }
+  BLI_assert(false);
+  return 0;
+}
+
+/* BlockAllocator inline functions
+ ********************************************/
+
+inline ParticlesState &BlockAllocator::particles_state()
+{
+  return m_state;
+}
+
+inline ArrayRef<ParticlesBlock *> BlockAllocator::allocated_blocks()
+{
+  return m_allocated_blocks;
+}
+
+/* EmitTargetBase inline functions
+ ********************************************/
+
+inline ArrayRef<ParticlesBlock *> EmitTargetBase::blocks()
+{
+  return m_blocks;
+}
+
+inline ArrayRef<Range<uint>> EmitTargetBase::ranges()
+{
+  return m_ranges;
+}
+
+inline uint EmitTargetBase::part_amount()
+{
+  return m_ranges.size();
+}
+
+inline AttributeArrays EmitTargetBase::attributes(uint part)
+{
+  return m_blocks[part]->slice(m_ranges[part]);
+}
+
+inline uint EmitTargetBase::particle_type_id()
+{
+  return m_particle_type_id;
+}
+
+/* EmitterInterface inline functions
+ ***********************************************/
+
+inline ArrayRef<TimeSpanEmitTarget *> EmitterInterface::targets()
+{
+  return m_targets;
+}
+
+inline TimeSpan EmitterInterface::time_span()
+{
+  return m_time_span;
+}
+
+inline bool EmitterInterface::is_first_step()
+{
+  return m_time_span.start() < 0.00001f;
+}
+
+/* ParticleSet inline functions
+ *******************************************/
+
+inline ParticleSet::ParticleSet(ParticlesBlock &block, ArrayRef<uint> particle_indices)
+    : m_block(&block), m_particle_indices(particle_indices)
+{
+}
+
+inline ParticlesBlock &ParticleSet::block()
+{
+  return *m_block;
+}
+
+inline AttributeArrays ParticleSet::attributes()
+{
+  return m_block->slice_all();
+}
+
+inline ArrayRef<uint> ParticleSet::indices()
+{
+  return m_particle_indices;
+}
+
+inline uint ParticleSet::get_particle_index(uint i)
+{
+  return m_particle_indices[i];
+}
+
+inline Range<uint> ParticleSet::range()
+{
+  return Range<uint>(0, m_particle_indices.size());
+}
+
+inline uint ParticleSet::size()
+{
+  return m_particle_indices.size();
+}
+
+inline bool ParticleSet::indices_are_trivial()
+{
+  if (m_particle_indices.size() == 0) {
+    return true;
+  }
+  else {
+    /* This works due to the invariants mentioned above. */
+    return m_particle_indices.first() == 0 &&
+           m_particle_indices.last() == m_particle_indices.size() - 1;
+  }
+}
+
+/* EventStorage inline functions
+ ****************************************/
+
+inline EventStorage::EventStorage(void *array, uint stride) : m_array(array), m_stride(stride)
+{
+}
+
+inline void *EventStorage::operator[](uint index)
+{
+  return POINTER_OFFSET(m_array, m_stride * index);
+}
+
+template<typename T> inline T &EventStorage::get(uint index)
+{
+  return *(T *)(*this)[index];
+}
+
+/* EventFilterInterface inline functions
+ **********************************************/
+
+inline ParticleSet &EventFilterInterface::particles()
+{
+  return m_particles;
+}
+
+inline ArrayRef<float> EventFilterInterface::durations()
+{
+  return m_durations;
+}
+
+inline TimeSpan EventFilterInterface::time_span(uint index)
+{
+  float duration = m_durations[index];
+  return TimeSpan(m_end_time - duration, duration);
+}
+
+inline AttributeArrays EventFilterInterface::attribute_offsets()
+{
+  return m_attribute_offsets;
+}
+
+inline float EventFilterInterface::end_time()
+{
+  return m_end_time;
+}
+
+inline void EventFilterInterface::trigger_particle(uint index, float time_factor)
+{
+  m_filtered_indices.append(index);
+  m_filtered_time_factors.append(time_factor);
+}
+
+template<typename T>
+inline T &EventFilterInterface::trigger_particle(uint index, float time_factor)
+{
+  this->trigger_particle(index, time_factor);
+  return m_event_storage.get<T>(m_particles.get_particle_index(index));
+}
+
+/* EventExecuteInterface inline functions
+ **********************************************/
+
+inline BlockAllocator &EventExecuteInterface::block_allocator()
+{
+  return m_block_allocator;
+}
+
+inline ParticleSet &EventExecuteInterface::particles()
+{
+  return m_particles;
+}
+
+inline void EventExecuteInterface::kill(ArrayRef<uint> particle_indices)
+{
+  for (uint pindex : particle_indices) {
+    m_kill_states[pindex] = 1;
+  }
+}
+
+inline ArrayRef<InstantEmitTarget *> EventExecuteInterface::emit_targets()
+{
+  return m_emit_targets;
+}
+
+inline ArrayRef<float> EventExecuteInterface::current_times()
+{
+  return m_current_times;
+}
+
+template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)
+{
+  return m_event_storage.get<T>(pindex);
+}
+
+inline AttributeArrays EventExecuteInterface::attribute_offsets()
+{
+  return m_attribute_offsets;
+}
 
 }  // namespace BParticles
