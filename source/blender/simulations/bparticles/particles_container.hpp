@@ -96,27 +96,92 @@ class ParticlesBlock {
  public:
   ParticlesBlock(ParticlesContainer &container, AttributeArraysCore &attributes_core);
 
+  /**
+   * Get the range of attribute indices that contain active particles.
+   * This will always start at 0.
+   */
   Range<uint> active_range();
+
+  /**
+   * Get the number of active particles in this block.
+   * This is also a reference, so it allows changing the number of active particles.
+   */
   uint &active_amount();
+
+  /**
+   * Get the number of inactive attribute "slots" in this block.
+   */
   uint unused_amount();
+
+  /**
+   * Return true when all attribute arrays are used entirely, otherwise false.
+   */
   bool is_full();
+
+  /**
+   * Return true when this block contains no particles currently, otherwise false.
+   */
   bool is_empty();
+
+  /**
+   * Return the first index that is not used currently.
+   * Asserts when the block is full.
+   */
   uint first_unused_index();
+
+  /**
+   * Return the maximum amount of particles in this block.
+   */
   uint capacity();
 
+  /**
+   * Get the container that owns this block.
+   */
   ParticlesContainer &container();
 
+  /**
+   * Set the number of active particles in this block to zero.
+   */
   void clear();
 
-  AttributeArraysCore &attributes_core();
-  AttributeArrays attributes_slice(Range<uint> range);
-  AttributeArrays attributes_slice(uint start, uint length);
-  AttributeArrays attributes_all();
+  /**
+   * Get the attributes of all active particles.
+   */
   AttributeArrays attributes();
 
+  /**
+   * Get the attribute arrays owned by this block. The arrays might be longer than there are active
+   * particles currently.
+   */
+  AttributeArrays attributes_all();
+
+  /**
+   * Get a slice of the attribute arrays.
+   */
+  AttributeArrays attributes_slice(uint start, uint length);
+  AttributeArrays attributes_slice(Range<uint> range);
+
+  /**
+   * Get the attributes core owned by this block.
+   */
+  AttributeArraysCore &attributes_core();
+
+  /**
+   * Copy the attributes of one particle to another index in the same block.
+   */
   void move(uint old_index, uint new_index);
 
+  /**
+   * Move as many particles from the end of `from` to the end of `to` as possible. Either `from` is
+   * empty first, or `to` is full. Both blocks have to be owned by the same container.
+   */
   static void MoveUntilFull(ParticlesBlock &from, ParticlesBlock &to);
+
+  /**
+   * Try to fit all particle data into as few blocks as possible, leaving some empty.
+   * Afterwards there will be at most on block the is not full and not empty. Empty blocks are not
+   * freed by this function.
+   */
   static void Compress(ArrayRef<ParticlesBlock *> blocks);
 };
 
