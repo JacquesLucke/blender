@@ -88,7 +88,12 @@ class MeshBounceEvent : public Event {
       if (hit.index != -1) {
         float time_factor = hit.dist / length;
         auto &data = interface.trigger_particle<CollisionData>(i, time_factor);
-        data.normal = m_normal_transform.transform_direction(hit.no).normalized();
+
+        float3 normal = hit.no;
+        if (float3::dot(hit.no, direction) > 0) {
+          normal.invert();
+        }
+        data.normal = m_normal_transform.transform_direction(normal).normalized();
       }
     }
   }
@@ -104,12 +109,23 @@ class MeshBounceEvent : public Event {
     for (uint pindex : particles.indices()) {
       auto &data = interface.get_storage<CollisionData>(pindex);
 
-      velocities[pindex].reflect(data.normal);
-      position_offsets[pindex].reflect(data.normal);
+      /* Move particle back a little bit to avoid double collision. */
+      positions[pindex] += data.normal * 0.001f;
 
-      /* Temporary solution to avoid double collision. */
-      positions[pindex] += velocities[pindex] * 0.0001f;
+      velocities[pindex] = this->bounce_direction(velocities[pindex], data.normal);
+      position_offsets[pindex] = this->bounce_direction(position_offsets[pindex], data.normal);
     }
+  }
+
+  float3 bounce_direction(float3 direction, float3 normal)
+  {
+    direction = direction.reflected(normal);
+
+    float normal_part = float3::dot(direction, normal);
+    float3 direction_normal = normal * normal_part;
+    float3 direction_tangent = direction - direction_normal;
+
+    return direction_normal * 0.5 + direction_tangent * 0.99;
   }
 };
 

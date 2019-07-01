@@ -47,9 +47,21 @@ struct float3 {
 
   void reflect(float3 normal)
   {
+    *this = this->reflected(normal);
+  }
+
+  float3 reflected(float3 normal)
+  {
     float3 result;
     reflect_v3_v3v3(result, *this, normal);
-    *this = result;
+    return result;
+  }
+
+  void invert()
+  {
+    x = -x;
+    y = -y;
+    z = -z;
   }
 
   friend float3 operator+(float3 a, float3 b)
@@ -62,6 +74,18 @@ struct float3 {
     this->x += b.x;
     this->y += b.y;
     this->z += b.z;
+  }
+
+  friend float3 operator-(float3 a, float3 b)
+  {
+    return {a.x - b.x, a.y - b.y, a.z - b.z};
+  }
+
+  void operator-=(float3 b)
+  {
+    this->x -= b.x;
+    this->y -= b.y;
+    this->z -= b.z;
   }
 
   void operator*=(float scalar)
@@ -96,6 +120,11 @@ struct float3 {
   {
     stream << "(" << v.x << ", " << v.y << ", " << v.z << ")";
     return stream;
+  }
+
+  static float dot(float3 a, float3 b)
+  {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
   }
 };
 
