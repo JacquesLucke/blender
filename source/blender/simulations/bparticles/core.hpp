@@ -168,13 +168,14 @@ class StepDescription {
 class ParticlesState {
  private:
   SmallMap<uint, ParticlesContainer *> m_container_by_id;
-
- public:
   float m_current_time = 0.0f;
 
+ public:
   ParticlesState() = default;
   ParticlesState(ParticlesState &other) = delete;
   ~ParticlesState();
+
+  float &current_time();
 
   SmallMap<uint, ParticlesContainer *> &particle_containers();
 
@@ -439,6 +440,11 @@ inline uint ParticlesState::particle_container_id(ParticlesContainer &container)
   }
   BLI_assert(false);
   return 0;
+}
+
+inline float &ParticlesState::current_time()
+{
+  return m_current_time;
 }
 
 /* BlockAllocator inline functions

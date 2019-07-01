@@ -764,8 +764,8 @@ BLI_NOINLINE static void emit_and_simulate_particles(ParticlesState &state,
 
 void simulate_step(ParticlesState &state, StepDescription &step_description)
 {
-  TimeSpan time_span(state.m_current_time, step_description.step_duration());
-  state.m_current_time = time_span.end();
+  TimeSpan time_span(state.current_time(), step_description.step_duration());
+  state.current_time() = time_span.end();
 
   ensure_required_containers_exist(state, step_description);
   ensure_required_attributes_exist(state, step_description);
