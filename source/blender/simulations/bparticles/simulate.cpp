@@ -7,7 +7,7 @@
 
 #include "xmmintrin.h"
 
-#define USE_THREADING false
+#define USE_THREADING true
 #define BLOCK_SIZE 1000
 
 namespace BParticles {
@@ -693,14 +693,10 @@ BLI_NOINLINE static void delete_tagged_particles(ParticlesState &state)
 {
   SmallVector<ParticlesBlock *> blocks = get_all_blocks(state);
 
-  ParallelRangeSettings settings;
-  BLI_parallel_range_settings_defaults(&settings);
-  settings.use_threading = USE_THREADING;
-
-  BLI::Task::parallel_array(
+  BLI::Task::parallel_array_elements(
       ArrayRef<ParticlesBlock *>(blocks),
       [](ParticlesBlock *block) { delete_tagged_particles_and_reorder(*block); },
-      settings);
+      USE_THREADING);
 }
 
 /* Compress particle blocks.
