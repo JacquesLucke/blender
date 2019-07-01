@@ -351,6 +351,9 @@ class TimeSpanEmitTarget : public EmitTargetBase {
   void set_randomized_birth_moments();
 };
 
+/**
+ * The interface between the simulation core and individual emitters.
+ */
 class EmitterInterface {
  private:
   BlockAllocator &m_block_allocator;
@@ -361,13 +364,30 @@ class EmitterInterface {
   EmitterInterface(BlockAllocator &allocator, TimeSpan time_span);
   ~EmitterInterface();
 
+  /**
+   * Access emit targets created by the emitter.
+   */
   ArrayRef<TimeSpanEmitTarget *> targets();
 
+  /**
+   * Get a new emit target with the given size and particle type.
+   */
   TimeSpanEmitTarget &request(uint particle_type_id, uint size);
+
+  /**
+   * Time span that new particles should be emitted in.
+   */
   TimeSpan time_span();
+
+  /**
+   * True when this is the first time step in a simulation, otherwise false.
+   */
   bool is_first_step();
 };
 
+/**
+ * A set of particles all of which are in the same block.
+ */
 struct ParticleSet {
  private:
   ParticlesBlock *m_block;
@@ -381,11 +401,36 @@ struct ParticleSet {
  public:
   ParticleSet(ParticlesBlock &block, ArrayRef<uint> particle_indices);
 
+  /**
+   * Return the block that contains the particles of this set.
+   */
   ParticlesBlock &block();
+
+  /**
+   * Access the attributes of particles in the block on this set.
+   */
   AttributeArrays attributes();
+
+  /**
+   * Access particle indices in the block that are part of the set.
+   * Every value in this array is an index into the attribute arrays.
+   */
   ArrayRef<uint> indices();
+
+  /**
+   * Get the particle index of an index in this set. E.g. the 4th element in this set could be the
+   * 350th element in the block.
+   */
   uint get_particle_index(uint i);
+
+  /**
+   * Utility to get [0, 1, ..., size() - 1].
+   */
   Range<uint> range();
+
+  /**
+   * Number of particles in this set.
+   */
   uint size();
 
   /**
@@ -394,6 +439,9 @@ struct ParticleSet {
   bool indices_are_trivial();
 };
 
+/**
+ * Utility array wrapper that can hold different kinds of plain-old-data values.
+ */
 class EventStorage {
  private:
   void *m_array;
@@ -407,6 +455,9 @@ class EventStorage {
   template<typename T> T &get(uint index);
 };
 
+/**
+ * Interface between the Event->filter() function and the core simulation code.
+ */
 class EventFilterInterface {
  private:
   ParticleSet m_particles;
@@ -427,16 +478,47 @@ class EventFilterInterface {
                        SmallVector<uint> &r_filtered_indices,
                        SmallVector<float> &r_filtered_time_factors);
 
+  /**
+   * Return the particle set that should be checked.
+   */
   ParticleSet &particles();
+
+  /**
+   * Return the durations that should be checked for every particle.
+   */
   ArrayRef<float> durations();
-  TimeSpan time_span(uint index);
+
+  /**
+   * Return the offsets that every particle will experience when no event is triggered.
+   */
   AttributeArrays attribute_offsets();
+
+  /**
+   * Get the time span that should be checked for a specific particle.
+   */
+  TimeSpan time_span(uint index);
+
+  /**
+   * Get the end time of the current time step.
+   */
   float end_time();
 
+  /**
+   * Mark a particle as triggered by the event at a specific point in time.
+   * Note: The index must increase between consecutive calls to this function.
+   */
   void trigger_particle(uint index, float time_factor);
+
+  /**
+   * Same as above but returns a pointer to a struct that can be used to pass data to the execute
+   * function.
+   */
   template<typename T> T &trigger_particle(uint index, float time_factor);
 };
 
+/**
+ * Interface between the Event->execute() function and the core simulation code.
+ */
 class EventExecuteInterface {
  private:
   ParticleSet m_particles;
@@ -456,17 +538,54 @@ class EventExecuteInterface {
 
   ~EventExecuteInterface();
 
+  /**
+   * Access the set of particles that should be modified by this event.
+   */
+  ParticleSet &particles();
+
+  /**
+   * Get the time at which every particle is modified by this event.
+   */
+  ArrayRef<float> current_times();
+
+  /**
+   * Get the data stored in the Event->filter() function for a particle index.
+   */
+  template<typename T> T &get_storage(uint pindex);
+
+  /**
+   * Access the offsets that are applied to every particle in the remaining time step.
+   * The event is allowed to modify the arrays.
+   */
+  AttributeArrays attribute_offsets();
+
+  /**
+   * Get a new emit target that allows creating new particles. Every new particle is mapped to some
+   * original particle. Multiple new particles can be mapped to the same original particle.
+   * This mapping is necessary to ensure that the new particles are create at the right moments in
+   * time.
+   */
   InstantEmitTarget &request_emit_target(uint particle_type_id, ArrayRef<uint> original_indices);
+
+  /**
+   * Kill all particles with the given indices in the current block.
+   */
   void kill(ArrayRef<uint> particle_indices);
 
+  /**
+   * Get a block allocator. Not that the request_emit_target should usually be used instead.
+   */
   BlockAllocator &block_allocator();
-  ParticleSet &particles();
+
+  /**
+   * Get all emit targets created when the event is executed.
+   */
   ArrayRef<InstantEmitTarget *> emit_targets();
-  ArrayRef<float> current_times();
-  template<typename T> T &get_storage(uint pindex);
-  AttributeArrays attribute_offsets();
 };
 
+/**
+ * Interface between the Integrator->integrate() function and the core simulation code.
+ */
 class IntegratorInterface {
  private:
   ParticlesBlock &m_block;
@@ -477,20 +596,43 @@ class IntegratorInterface {
  public:
   IntegratorInterface(ParticlesBlock &block, ArrayRef<float> durations, AttributeArrays r_offsets);
 
+  /**
+   * Get the block for which the attribute offsets should be computed.
+   */
   ParticlesBlock &block();
+
+  /**
+   * Access durations for every particle that should be integrated.
+   */
   ArrayRef<float> durations();
 
+  /**
+   * Get the arrays that the offsets should be written into.
+   */
   AttributeArrays offset_targets();
 };
 
+/**
+ * Interface between the ParticleType->attributes() function and the core simulation code.
+ */
 class TypeAttributeInterface {
   SmallVector<std::string> m_names;
   SmallVector<AttributeType> m_types;
 
  public:
+  /**
+   * Specify that a specific attribute is required to exist for the simulation.
+   */
   void use(AttributeType type, StringRef attribute_name);
 
+  /**
+   * Access all attribute names.
+   */
   ArrayRef<std::string> names();
+
+  /**
+   * Access all attribute types. This array has the same length as the names array.
+   */
   ArrayRef<AttributeType> types();
 };
 
