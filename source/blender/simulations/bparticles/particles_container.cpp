@@ -121,6 +121,20 @@ void ParticlesContainer::update_attributes(AttributesInfo new_info)
   }
 }
 
+void ParticlesContainer::flatten_attribute_data(StringRef attribute_name, void *dst)
+{
+  uint attribute_index = m_attributes_info.attribute_index(attribute_name);
+  uint element_size = size_of_attribute_type(m_attributes_info.type_of(attribute_index));
+
+  uint offset = 0;
+  for (ParticlesBlock *block : m_blocks) {
+    uint amount = block->active_amount();
+    void *src = block->slice_active().get_ptr(attribute_index);
+    memcpy(POINTER_OFFSET(dst, offset), src, amount * element_size);
+    offset += amount * element_size;
+  }
+}
+
 void ParticlesBlock::MoveUntilFull(ParticlesBlock &from, ParticlesBlock &to)
 {
   BLI_assert(&from.container() == &to.container());

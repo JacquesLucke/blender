@@ -222,7 +222,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
                                   Depsgraph *UNUSED(depsgraph),
                                   BParticlesState state_c)
 {
-  SCOPED_TIMER_STATS("simulate");
+  SCOPED_TIMER(__func__);
 
   ParticlesState &state = *unwrap(state_c);
   ModifierStepDescription description;
@@ -276,16 +276,13 @@ uint BParticles_state_particle_count(BParticlesState state_c)
 
 void BParticles_state_get_positions(BParticlesState state_c, float (*dst_c)[3])
 {
+  SCOPED_TIMER(__func__);
   ParticlesState &state = *unwrap(state_c);
-  float3 *dst = (float3 *)dst_c;
 
   uint index = 0;
   for (ParticlesContainer *container : state.particle_containers().values()) {
-    for (auto *block : container->active_blocks()) {
-      auto positions = block->slice_active().get_float3("Position");
-      positions.copy_to(dst + index);
-      index += positions.size();
-    }
+    container->flatten_attribute_data("Position", dst_c + index);
+    index += container->count_active();
   }
 }
 

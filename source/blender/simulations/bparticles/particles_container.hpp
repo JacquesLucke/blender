@@ -47,6 +47,8 @@ class ParticlesContainer {
   ParticlesBlock &new_block();
   void release_block(ParticlesBlock &block);
 
+  void flatten_attribute_data(StringRef attribute_name, void *dst);
+
   friend bool operator==(const ParticlesContainer &a, const ParticlesContainer &b);
 };
 
