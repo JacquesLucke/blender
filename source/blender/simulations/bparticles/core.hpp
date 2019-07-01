@@ -349,6 +349,11 @@ class TimeSpanEmitTarget : public EmitTargetBase {
    * Randomize the birth times within a time span.
    */
   void set_randomized_birth_moments();
+
+  /**
+   * Set custom bith moments. All values should be in [0, 1].
+   */
+  void set_birth_moments(ArrayRef<float> time_factors);
 };
 
 /**

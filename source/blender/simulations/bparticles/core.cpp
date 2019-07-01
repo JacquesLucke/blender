@@ -304,6 +304,16 @@ void TimeSpanEmitTarget::set_randomized_birth_moments()
   this->set_float("Birth Time", birth_times);
 }
 
+void TimeSpanEmitTarget::set_birth_moments(ArrayRef<float> time_factors)
+{
+  BLI_assert(time_factors.size() == m_size);
+  SmallVector<float> birth_times(time_factors.size());
+  for (uint i = 0; i < m_size; i++) {
+    birth_times[i] = m_time_span.interpolate(time_factors[i]);
+  }
+  this->set_float("Birth Time", birth_times);
+}
+
 /* EventFilterInterface
  *****************************************/
 

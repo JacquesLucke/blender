@@ -33,14 +33,20 @@ class SurfaceEmitter : public Emitter {
  private:
   uint m_particle_type_id;
   Mesh *m_mesh;
-  float4x4 m_transform;
+  float4x4 m_transform_start;
+  float4x4 m_transform_end;
   float m_normal_velocity;
 
  public:
-  SurfaceEmitter(uint particle_type_id, Mesh *mesh, float4x4 transform, float normal_velocity)
+  SurfaceEmitter(uint particle_type_id,
+                 Mesh *mesh,
+                 float4x4 transform_start,
+                 float4x4 transform_end,
+                 float normal_velocity)
       : m_particle_type_id(particle_type_id),
         m_mesh(mesh),
-        m_transform(transform),
+        m_transform_start(transform_start),
+        m_transform_end(transform_end),
         m_normal_velocity(normal_velocity)
   {
   }
@@ -54,26 +60,31 @@ class SurfaceEmitter : public Emitter {
 
     SmallVector<float3> positions;
     SmallVector<float3> velocities;
+    SmallVector<float> birth_moments;
 
     for (int i = 0; i < triangle_amount; i++) {
       MLoopTri triangle = triangles[i];
+      float birth_moment = (rand() % 1000) / 1000.0f;
 
       float3 v1 = verts[loops[triangle.tri[0]].v].co;
       float3 v2 = verts[loops[triangle.tri[1]].v].co;
       float3 v3 = verts[loops[triangle.tri[2]].v].co;
+      float3 pos = (v1 + v2 + v3) / 3.0f;
 
       float3 normal;
       normal_tri_v3(normal, v1, v2, v3);
 
-      float3 pos = (v1 + v2 + v3) / 3.0f;
-      positions.append(m_transform.transform_position(pos));
-      velocities.append(m_transform.transform_direction(normal * m_normal_velocity));
+      float4x4 transform = float4x4::interpolate(m_transform_start, m_transform_end, birth_moment);
+
+      positions.append(transform.transform_position(pos));
+      velocities.append(transform.transform_direction(normal * m_normal_velocity));
+      birth_moments.append(birth_moment);
     }
 
     auto &target = interface.request(m_particle_type_id, positions.size());
     target.set_float3("Position", positions);
     target.set_float3("Velocity", velocities);
-    target.set_randomized_birth_moments();
+    target.set_birth_moments(birth_moments);
   }
 };
 
@@ -134,10 +145,12 @@ Emitter *EMITTER_point(float3 point)
 
 Emitter *EMITTER_mesh_surface(uint particle_type_id,
                               Mesh *mesh,
-                              const float4x4 &transform,
+                              const float4x4 &transform_start,
+                              const float4x4 &transform_end,
                               float normal_velocity)
 {
-  return new SurfaceEmitter(particle_type_id, mesh, transform, normal_velocity);
+  return new SurfaceEmitter(
+      particle_type_id, mesh, transform_start, transform_end, normal_velocity);
 }
 
 Emitter *EMITTER_path(Path *path, float4x4 transform)

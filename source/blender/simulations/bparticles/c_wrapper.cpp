@@ -234,8 +234,12 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   type0->m_integrator->m_forces.append(FORCE_directional({0, 0, -2}));
 
   if (npmd->emitter_object) {
-    description.m_emitters.append(EMITTER_mesh_surface(
-        0, (Mesh *)npmd->emitter_object->data, npmd->emitter_object->obmat, npmd->control1));
+    description.m_emitters.append(EMITTER_mesh_surface(0,
+                                                       (Mesh *)npmd->emitter_object->data,
+                                                       npmd->last_emitter_transforms,
+                                                       npmd->emitter_object->obmat,
+                                                       npmd->control1));
+    copy_m4_m4(npmd->last_emitter_transforms, npmd->emitter_object->obmat);
   }
   BVHTreeFromMesh treedata = {0};
   if (npmd->collision_object) {

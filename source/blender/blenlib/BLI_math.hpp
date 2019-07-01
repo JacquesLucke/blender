@@ -129,11 +129,11 @@ struct float3 {
 };
 
 struct float4x4 {
-  float v[4][4];
+  float values[4][4];
 
   float4x4(float *matrix)
   {
-    memcpy(v, matrix, sizeof(float) * 16);
+    memcpy(values, matrix, sizeof(float) * 16);
   }
 
   float4x4(float matrix[4][4]) : float4x4((float *)matrix)
@@ -148,7 +148,7 @@ struct float4x4 {
   float4x4 inverted() const
   {
     float result[4][4];
-    invert_m4_m4(result, (float(*)[4])this);
+    invert_m4_m4(result, values);
     return result;
   }
 
@@ -159,14 +159,21 @@ struct float4x4 {
 
   float3 transform_position(float3 position)
   {
-    mul_m4_v3((float(*)[4])this, position);
+    mul_m4_v3(values, position);
     return position;
   }
 
   float3 transform_direction(float3 direction)
   {
-    mul_mat3_m4_v3((float(*)[4])this, direction);
+    mul_mat3_m4_v3(values, direction);
     return direction;
+  }
+
+  static float4x4 interpolate(float4x4 a, float4x4 b, float t)
+  {
+    float result[4][4];
+    interp_m4_m4m4(result, a.values, b.values, t);
+    return result;
   }
 };
 
