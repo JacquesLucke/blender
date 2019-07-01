@@ -2,28 +2,26 @@
 
 #include <mutex>
 
-#include "BLI_array_ref.hpp"
-#include "BLI_small_vector.hpp"
-#include "BLI_small_set_vector.hpp"
-#include "BLI_math.hpp"
-#include "BLI_string_ref.hpp"
 #include "BLI_small_map.hpp"
 
 #include "attributes.hpp"
 
 namespace BParticles {
 
-using BLI::ArrayRef;
-using BLI::float3;
 using BLI::SmallMap;
 using BLI::SmallSet;
-using BLI::SmallSetVector;
-using BLI::SmallVector;
-using BLI::StringRef;
 
 class ParticlesContainer;
 class ParticlesBlock;
 
+/**
+ * A dynamic data structure that can data for an arbitrary amount of particles. All particles in
+ * one container must have the same set of attributes.
+ *
+ * Particles are not stored in the container directly. Instead the container contains multiple
+ * blocks, each of which can contain a fixed amount of particles. The number of blocks can change
+ * dynamically.
+ */
 class ParticlesContainer {
  private:
   AttributesInfo m_attributes_info;
@@ -36,22 +34,58 @@ class ParticlesContainer {
 
   ~ParticlesContainer();
 
+  /**
+   * Get the maximum number of particles that can fit into the blocks.
+   */
   uint block_size() const;
+
+  /**
+   * Get the number of particles in this container. For that it is necessary to iterate over all
+   * blocks.
+   */
   uint count_active() const;
 
+  /**
+   * Get information about the attributes of the particles.
+   */
   AttributesInfo &attributes_info();
+
+  /**
+   * Change the set of attributes. This can involve many allocations and deallocations of attribute
+   * buffers.
+   */
   void update_attributes(AttributesInfo new_info);
 
+  /**
+   * Get a read-only buffer of all the blocks currently in use.
+   */
   const SmallSet<ParticlesBlock *> &active_blocks();
 
+  /**
+   * Create a new block in this container. It safe to call this function from separate threads at
+   * the same time.
+   */
   ParticlesBlock &new_block();
+
+  /**
+   * Destroy a block. The block must have been created in this container before. It is safe to call
+   * this function separate threads at the same time.
+   */
   void release_block(ParticlesBlock &block);
 
+  /**
+   * Gather an attribute value from all particles in this container and write them into the given
+   * buffer.
+   */
   void flatten_attribute_data(StringRef attribute_name, void *dst);
 
   friend bool operator==(const ParticlesContainer &a, const ParticlesContainer &b);
 };
 
+/**
+ * A block can hold up to a fixed amount of particles. Every block is owned by exactly one
+ * particles container. All active particles are at the beginning of the block.
+ */
 class ParticlesBlock {
   ParticlesContainer &m_container;
   AttributeArraysCore m_attributes_core;
