@@ -464,16 +464,21 @@ class EventFilterInterface {
   AttributeArrays &m_attribute_offsets;
   ArrayRef<float> m_durations;
   float m_end_time;
+  ArrayRef<float> m_known_min_time_factors;
 
   EventStorage &m_event_storage;
   SmallVector<uint> &m_filtered_indices;
   SmallVector<float> &m_filtered_time_factors;
+
+  /* Size can be increased when necessary. */
+  char m_dummy_event_storage[64];
 
  public:
   EventFilterInterface(ParticleSet particles,
                        AttributeArrays &attribute_offsets,
                        ArrayRef<float> durations,
                        float end_time,
+                       ArrayRef<float> known_min_time_factors,
                        EventStorage &r_event_storage,
                        SmallVector<uint> &r_filtered_indices,
                        SmallVector<float> &r_filtered_time_factors);
@@ -510,8 +515,9 @@ class EventFilterInterface {
   void trigger_particle(uint index, float time_factor);
 
   /**
-   * Same as above but returns a pointer to a struct that can be used to pass data to the execute
-   * function.
+   * Same as above but returns a reference to a struct that can be used to pass data to the execute
+   * function. The reference might point to a dummy buffer when the time_factor is after a known
+   * other event.
    */
   template<typename T> T &trigger_particle(uint index, float time_factor);
 };
@@ -822,15 +828,23 @@ inline float EventFilterInterface::end_time()
 
 inline void EventFilterInterface::trigger_particle(uint index, float time_factor)
 {
-  m_filtered_indices.append(index);
-  m_filtered_time_factors.append(time_factor);
+  if (time_factor <= m_known_min_time_factors[index]) {
+    m_filtered_indices.append(index);
+    m_filtered_time_factors.append(time_factor);
+  }
 }
 
 template<typename T>
 inline T &EventFilterInterface::trigger_particle(uint index, float time_factor)
 {
-  this->trigger_particle(index, time_factor);
-  return m_event_storage.get<T>(m_particles.get_particle_index(index));
+  BLI_assert(sizeof(T) <= sizeof(m_dummy_event_storage));
+  if (time_factor <= m_known_min_time_factors[index]) {
+    this->trigger_particle(index, time_factor);
+    return m_event_storage.get<T>(m_particles.get_particle_index(index));
+  }
+  else {
+    return *(T *)m_dummy_event_storage;
+  }
 }
 
 /* EventExecuteInterface inline functions

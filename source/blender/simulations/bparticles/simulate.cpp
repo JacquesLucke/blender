@@ -55,13 +55,12 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
     SmallVector<uint> triggered_indices;
     SmallVector<float> triggered_time_factors;
 
-    /* TODO: make sure that one event does not override the storage of another,
-     * if it comes later. */
     Event *event = events[event_index];
     EventFilterInterface interface(particles,
                                    attribute_offsets,
                                    durations,
                                    end_time,
+                                   r_time_factors_to_next_event,
                                    r_event_storage,
                                    triggered_indices,
                                    triggered_time_factors);
@@ -70,10 +69,10 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
     for (uint i = 0; i < triggered_indices.size(); i++) {
       uint index = triggered_indices[i];
       float time_factor = triggered_time_factors[i];
-      if (time_factor < r_time_factors_to_next_event[index]) {
-        r_next_event_indices[index] = event_index;
-        r_time_factors_to_next_event[index] = time_factor;
-      }
+      BLI_assert(time_factor <= r_time_factors_to_next_event[index]);
+
+      r_next_event_indices[index] = event_index;
+      r_time_factors_to_next_event[index] = time_factor;
     }
   }
 
