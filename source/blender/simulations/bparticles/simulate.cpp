@@ -2,7 +2,7 @@
 #include "time_span.hpp"
 
 #include "BLI_lazy_init.hpp"
-#include "BLI_task.h"
+#include "BLI_task.hpp"
 #include "BLI_timeit.hpp"
 
 #include "xmmintrin.h"
@@ -689,18 +689,6 @@ BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &blo
   }
 }
 
-struct DeleteTaggedParticlesData {
-  ArrayRef<ParticlesBlock *> blocks;
-};
-
-BLI_NOINLINE static void delete_tagged_particles_in_block_cb(
-    void *__restrict userdata, const int index, const ParallelRangeTLS *__restrict UNUSED(tls))
-{
-  DeleteTaggedParticlesData *data = (DeleteTaggedParticlesData *)userdata;
-  ParticlesBlock &block = *data->blocks[index];
-  delete_tagged_particles_and_reorder(block);
-}
-
 BLI_NOINLINE static void delete_tagged_particles(ParticlesState &state)
 {
   SmallVector<ParticlesBlock *> blocks = get_all_blocks(state);
@@ -709,9 +697,10 @@ BLI_NOINLINE static void delete_tagged_particles(ParticlesState &state)
   BLI_parallel_range_settings_defaults(&settings);
   settings.use_threading = USE_THREADING;
 
-  DeleteTaggedParticlesData data = {blocks};
-  BLI_task_parallel_range(
-      0, blocks.size(), (void *)&data, delete_tagged_particles_in_block_cb, &settings);
+  BLI::Task::parallel_array(
+      ArrayRef<ParticlesBlock *>(blocks),
+      [](ParticlesBlock *block) { delete_tagged_particles_and_reorder(*block); },
+      settings);
 }
 
 /* Compress particle blocks.
