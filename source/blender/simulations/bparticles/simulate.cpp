@@ -517,51 +517,6 @@ struct ThreadLocalData {
   }
 };
 
-struct SimulateTimeSpanData {
-  ArrayRef<ParticlesBlock *> blocks;
-  ArrayRef<float> all_durations;
-  float end_time;
-  BlockAllocators &block_allocators;
-  StepDescription &step_description;
-
-  std::mutex data_per_thread_mutex;
-  SmallMap<uint, ThreadLocalData *> data_per_thread;
-};
-
-BLI_NOINLINE static void simulate_block_time_span_cb(void *__restrict userdata,
-                                                     const int index,
-                                                     const ParallelRangeTLS *__restrict tls)
-{
-  SimulateTimeSpanData *data = (SimulateTimeSpanData *)userdata;
-
-  ThreadLocalData *my_data;
-  {
-    std::lock_guard<std::mutex> lock(data->data_per_thread_mutex);
-    if (!data->data_per_thread.contains(tls->thread_id)) {
-      ThreadLocalData *new_data = new ThreadLocalData(BLOCK_SIZE,
-                                                      data->block_allocators.new_allocator());
-      data->data_per_thread.add_new(tls->thread_id, new_data);
-    }
-
-    my_data = data->data_per_thread.lookup(tls->thread_id);
-  }
-
-  BlockAllocator &block_allocator = my_data->block_allocator;
-  FixedArrayAllocator &array_allocator = my_data->array_allocator;
-
-  ParticlesBlock &block = *data->blocks[index];
-  ParticlesState &state = block_allocator.particles_state();
-  uint particle_type_id = state.particle_container_id(block.container());
-  ParticleType &particle_type = data->step_description.particle_type(particle_type_id);
-
-  simulate_block(array_allocator,
-                 block_allocator,
-                 block,
-                 particle_type,
-                 data->all_durations.take_back(block.active_amount()),
-                 data->end_time);
-}
-
 BLI_NOINLINE static void simulate_blocks_for_time_span(BlockAllocators &block_allocators,
                                                        ArrayRef<ParticlesBlock *> blocks,
                                                        StepDescription &step_description,
@@ -571,69 +526,33 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(BlockAllocators &block_al
     return;
   }
 
-  ParallelRangeSettings settings;
-  BLI_parallel_range_settings_defaults(&settings);
-  settings.use_threading = USE_THREADING;
-
   uint block_size = blocks[0]->container().block_size();
   SmallVector<float> all_durations(block_size);
   all_durations.fill(time_span.duration());
 
-  SimulateTimeSpanData data = {
-      blocks, all_durations, time_span.end(), block_allocators, step_description, {}, {}};
+  BLI::Task::parallel_array_elements(
+      blocks,
+      /* Process individual element. */
+      [&step_description, &all_durations, time_span](ParticlesBlock *block,
+                                                     ThreadLocalData *local_data) {
+        ParticlesState &state = local_data->block_allocator.particles_state();
+        uint particle_type_id = state.particle_container_id(block->container());
+        ParticleType &particle_type = step_description.particle_type(particle_type_id);
 
-  BLI_task_parallel_range(0, blocks.size(), (void *)&data, simulate_block_time_span_cb, &settings);
-
-  for (ThreadLocalData *local_data : data.data_per_thread.values()) {
-    delete local_data;
-  }
-}
-
-struct SimulateFromBirthData {
-  ArrayRef<ParticlesBlock *> blocks;
-  float end_time;
-  BlockAllocators &block_allocators;
-  StepDescription &step_description;
-
-  std::mutex data_per_thread_mutex;
-  SmallMap<uint, ThreadLocalData *> data_per_thread;
-};
-
-BLI_NOINLINE static void simulate_block_from_birth_cb(void *__restrict userdata,
-                                                      const int index,
-                                                      const ParallelRangeTLS *__restrict tls)
-{
-  SimulateFromBirthData *data = (SimulateFromBirthData *)userdata;
-
-  ThreadLocalData *my_data;
-  {
-    std::lock_guard<std::mutex> lock(data->data_per_thread_mutex);
-    if (!data->data_per_thread.contains(tls->thread_id)) {
-      ThreadLocalData *new_data = new ThreadLocalData(BLOCK_SIZE,
-                                                      data->block_allocators.new_allocator());
-      data->data_per_thread.add_new(tls->thread_id, new_data);
-    }
-
-    my_data = data->data_per_thread.lookup(tls->thread_id);
-  }
-
-  FixedArrayAllocator &array_allocator = my_data->array_allocator;
-  BlockAllocator &block_allocator = my_data->block_allocator;
-
-  ParticlesBlock &block = *data->blocks[index];
-  ParticlesState &state = block_allocator.particles_state();
-
-  uint particle_type_id = state.particle_container_id(block.container());
-  ParticleType &particle_type = data->step_description.particle_type(particle_type_id);
-
-  uint active_amount = block.active_amount();
-  SmallVector<float> durations(active_amount);
-  auto birth_times = block.slice_active().get_float("Birth Time");
-  for (uint i = 0; i < active_amount; i++) {
-    durations[i] = data->end_time - birth_times[i];
-  }
-  simulate_block(
-      array_allocator, block_allocator, block, particle_type, durations, data->end_time);
+        simulate_block(local_data->array_allocator,
+                       local_data->block_allocator,
+                       *block,
+                       particle_type,
+                       ArrayRef<float>(all_durations).take_back(block->active_amount()),
+                       time_span.end());
+      },
+      /* Create thread-local data. */
+      [&block_allocators]() {
+        return new ThreadLocalData(BLOCK_SIZE, block_allocators.new_allocator());
+      },
+      /* Free thread-local data. */
+      [](ThreadLocalData *local_data) { delete local_data; },
+      USE_THREADING);
 }
 
 BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
@@ -646,17 +565,34 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
     return;
   }
 
-  ParallelRangeSettings settings;
-  BLI_parallel_range_settings_defaults(&settings);
-  settings.use_threading = USE_THREADING;
+  BLI::Task::parallel_array_elements(
+      blocks,
+      /* Process individual element. */
+      [&step_description, end_time](ParticlesBlock *block, ThreadLocalData *local_data) {
+        ParticlesState &state = local_data->block_allocator.particles_state();
+        uint particle_type_id = state.particle_container_id(block->container());
+        ParticleType &particle_type = step_description.particle_type(particle_type_id);
 
-  SimulateFromBirthData data = {blocks, end_time, block_allocators, step_description, {}, {}};
-  BLI_task_parallel_range(
-      0, blocks.size(), (void *)&data, simulate_block_from_birth_cb, &settings);
-
-  for (ThreadLocalData *local_data : data.data_per_thread.values()) {
-    delete local_data;
-  }
+        uint active_amount = block->active_amount();
+        SmallVector<float> durations(active_amount);
+        auto birth_times = block->slice_active().get_float("Birth Time");
+        for (uint i = 0; i < active_amount; i++) {
+          durations[i] = end_time - birth_times[i];
+        }
+        simulate_block(local_data->array_allocator,
+                       local_data->block_allocator,
+                       *block,
+                       particle_type,
+                       durations,
+                       end_time);
+      },
+      /* Create thread-local data. */
+      [&block_allocators]() {
+        return new ThreadLocalData(BLOCK_SIZE, block_allocators.new_allocator());
+      },
+      /* Free thread-local data. */
+      [](ThreadLocalData *local_data) { delete local_data; },
+      USE_THREADING);
 }
 
 /* Delete particles.
