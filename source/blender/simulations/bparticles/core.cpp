@@ -75,7 +75,7 @@ void BlockAllocator::allocate_block_ranges(uint particle_type_id,
     r_blocks.append(&block);
     r_ranges.append(range);
 
-    AttributeArrays attributes = block.slice(range);
+    AttributeArrays attributes = block.attributes_slice(range);
     for (uint i : attributes.info().attribute_indices()) {
       attributes.init_default(i);
     }
@@ -195,7 +195,7 @@ void EmitTargetBase::set_elements(uint index, void *data)
     ParticlesBlock &block = *m_blocks[part];
     Range<uint> range = m_ranges[part];
 
-    AttributeArrays attributes = block.slice(range);
+    AttributeArrays attributes = block.attributes_slice(range);
     void *dst = attributes.get_ptr(index);
     uint bytes_to_copy = element_size * attributes.size();
     memcpy(dst, remaining_data, bytes_to_copy);

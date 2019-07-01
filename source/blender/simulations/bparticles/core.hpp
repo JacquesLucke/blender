@@ -704,7 +704,7 @@ inline uint EmitTargetBase::part_amount()
 
 inline AttributeArrays EmitTargetBase::attributes(uint part)
 {
-  return m_blocks[part]->slice(m_ranges[part]);
+  return m_blocks[part]->attributes_slice(m_ranges[part]);
 }
 
 inline uint EmitTargetBase::particle_type_id()

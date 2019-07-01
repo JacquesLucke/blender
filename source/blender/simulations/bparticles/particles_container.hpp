@@ -109,8 +109,8 @@ class ParticlesBlock {
   void clear();
 
   AttributeArraysCore &attributes_core();
-  AttributeArrays slice(Range<uint> range);
-  AttributeArrays slice(uint start, uint length);
+  AttributeArrays attributes_slice(Range<uint> range);
+  AttributeArrays attributes_slice(uint start, uint length);
   AttributeArrays attributes_all();
   AttributeArrays attributes();
 
@@ -200,15 +200,15 @@ inline ParticlesContainer &ParticlesBlock::container()
   return m_container;
 }
 
-inline AttributeArrays ParticlesBlock::slice(Range<uint> range)
+inline AttributeArrays ParticlesBlock::attributes_slice(Range<uint> range)
 {
   if (range.size() == 0) {
-    return this->slice(0, 0);
+    return this->attributes_slice(0, 0);
   }
-  return this->slice(range.first(), range.size());
+  return this->attributes_slice(range.first(), range.size());
 }
 
-inline AttributeArrays ParticlesBlock::slice(uint start, uint length)
+inline AttributeArrays ParticlesBlock::attributes_slice(uint start, uint length)
 {
   return m_attributes_core.slice_all().slice(start, length);
 }
@@ -220,7 +220,7 @@ inline AttributeArrays ParticlesBlock::attributes_all()
 
 inline AttributeArrays ParticlesBlock::attributes()
 {
-  return this->slice(0, m_active_amount);
+  return this->attributes_slice(0, m_active_amount);
 }
 
 inline AttributeArraysCore &ParticlesBlock::attributes_core()
