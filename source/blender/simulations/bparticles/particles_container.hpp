@@ -98,10 +98,10 @@ class ParticlesBlock {
 
   Range<uint> active_range();
   uint &active_amount();
-  uint inactive_amount();
+  uint unused_amount();
   bool is_full();
   bool is_empty();
-  uint next_inactive_index();
+  uint first_unused_index();
   uint size();
 
   ParticlesContainer &container();
@@ -165,7 +165,7 @@ inline uint &ParticlesBlock::active_amount()
   return m_active_amount;
 }
 
-inline uint ParticlesBlock::inactive_amount()
+inline uint ParticlesBlock::unused_amount()
 {
   return this->size() - m_active_amount;
 }
@@ -180,8 +180,9 @@ inline bool ParticlesBlock::is_empty()
   return m_active_amount == 0;
 }
 
-inline uint ParticlesBlock::next_inactive_index()
+inline uint ParticlesBlock::first_unused_index()
 {
+  BLI_assert(!this->is_full());
   return m_active_amount;
 }
 

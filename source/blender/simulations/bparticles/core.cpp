@@ -42,7 +42,7 @@ ParticlesBlock &BlockAllocator::get_non_full_block(uint particle_type_id)
 
   uint index = 0;
   while (index < m_non_full_cache.size()) {
-    if (m_non_full_cache[index]->inactive_amount() == 0) {
+    if (m_non_full_cache[index]->unused_amount() == 0) {
       m_non_full_cache.remove_and_reorder(index);
       continue;
     }
@@ -68,7 +68,7 @@ void BlockAllocator::allocate_block_ranges(uint particle_type_id,
   while (remaining_size > 0) {
     ParticlesBlock &block = this->get_non_full_block(particle_type_id);
 
-    uint size_to_use = std::min(block.inactive_amount(), remaining_size);
+    uint size_to_use = std::min(block.unused_amount(), remaining_size);
     Range<uint> range(block.active_amount(), block.active_amount() + size_to_use);
     block.active_amount() += size_to_use;
 

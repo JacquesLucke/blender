@@ -138,13 +138,14 @@ void ParticlesContainer::flatten_attribute_data(StringRef attribute_name, void *
 void ParticlesBlock::MoveUntilFull(ParticlesBlock &from, ParticlesBlock &to)
 {
   BLI_assert(&from.container() == &to.container());
-  uint move_amount = MIN2(from.active_amount(), to.inactive_amount());
-  uint src_start = from.active_amount() - move_amount;
-  uint dst_start = to.next_inactive_index();
+  uint move_amount = MIN2(from.active_amount(), to.unused_amount());
 
   if (move_amount == 0) {
     return;
   }
+
+  uint src_start = from.active_amount() - move_amount;
+  uint dst_start = to.first_unused_index();
 
   uint attribute_amount = from.container().attributes_info().amount();
   for (uint i = 0; i < attribute_amount; i++) {
