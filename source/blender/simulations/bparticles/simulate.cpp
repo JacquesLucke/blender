@@ -592,11 +592,13 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
       USE_THREADING);
 }
 
-BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(ParticlesState &state)
+BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(ParticlesState &state,
+                                                                 ArrayRef<uint> particle_type_ids)
 {
   SmallVector<ParticlesBlock *> blocks;
-  for (ParticlesContainer *container : state.particle_containers().values()) {
-    for (ParticlesBlock *block : container->active_blocks()) {
+  for (uint particle_type_id : particle_type_ids) {
+    ParticlesContainer &container = state.particle_container(particle_type_id);
+    for (ParticlesBlock *block : container.active_blocks()) {
       blocks.append(block);
     }
   }
@@ -619,9 +621,10 @@ BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &blo
   }
 }
 
-BLI_NOINLINE static void delete_tagged_particles(ParticlesState &state)
+BLI_NOINLINE static void delete_tagged_particles(ParticlesState &state,
+                                                 ArrayRef<uint> particle_type_ids)
 {
-  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state);
+  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state, particle_type_ids);
 
   BLI::Task::parallel_array_elements(
       ArrayRef<ParticlesBlock *>(blocks),
@@ -709,7 +712,8 @@ BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,
                                                       BlockAllocators &block_allocators,
                                                       TimeSpan time_span)
 {
-  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state);
+  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state,
+                                                        step_description.particle_type_ids());
   simulate_blocks_for_time_span(block_allocators, blocks, step_description, time_span);
 }
 
@@ -754,7 +758,7 @@ void simulate_step(ParticlesState &state, StepDescription &step_description)
 
   emit_and_simulate_particles(state, step_description, time_span);
 
-  delete_tagged_particles(state);
+  delete_tagged_particles(state, step_description.particle_type_ids());
   compress_all_containers(state);
 }
 

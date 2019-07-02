@@ -38,6 +38,7 @@ class BNodeTreeLookup {
   }
 
   SmallVector<bNode *> nodes_with_idname(StringRef idname);
+  SmallVector<bNode *> nodes_connected_to_socket(bNodeSocket *bsocket);
 
  private:
   bool is_reroute(bNode *bnode);
@@ -45,7 +46,7 @@ class BNodeTreeLookup {
 
   SmallVector<bNode *> m_nodes;
   SmallMap<bNodeSocket *, bNode *> m_node_by_socket;
-  MultiMap<bNodeSocket *, bNodeSocket *> m_direct_origins;
+  MultiMap<bNodeSocket *, bNodeSocket *> m_direct_links;
   SmallVector<SingleOriginLink> m_single_origin_links;
 };
 

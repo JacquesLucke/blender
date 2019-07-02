@@ -16,11 +16,15 @@
 #include "BKE_customdata.h"
 #include "BKE_node_tree.hpp"
 
+#include "DEG_depsgraph_query.h"
+
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_curve_types.h"
+
+#include "RNA_access.h"
 
 #define WRAPPERS(T1, T2) \
   inline T1 unwrap(T2 value) \
@@ -226,13 +230,38 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
   ModifierStepDescription *step_description = new ModifierStepDescription();
   BNodeTreeLookup btree_lookup(btree);
 
+  SmallMap<bNode *, uint> id_per_type_node;
+
   auto particle_type_nodes = btree_lookup.nodes_with_idname("bp_ParticleTypeNode");
   for (uint i = 0; i < particle_type_nodes.size(); i++) {
+    bNode *particle_type_node = particle_type_nodes[i];
+
     ModifierParticleType *type = new ModifierParticleType();
+    type->m_integrator = new EulerIntegrator();
     step_description->m_types.add_new(i, type);
     step_description->m_particle_type_ids.append(i);
+    id_per_type_node.add_new(particle_type_node, i);
   }
 
+  auto emitter_nodes = btree_lookup.nodes_with_idname("bp_MeshEmitterNode");
+  for (bNode *emitter_node : emitter_nodes) {
+    bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
+    auto connected_nodes = btree_lookup.nodes_connected_to_socket(emitter_output);
+    for (bNode *connected_node : connected_nodes) {
+      uint type_id = id_per_type_node.lookup(connected_node);
+
+      PointerRNA rna;
+      RNA_pointer_create(&btree->id, &RNA_Node, emitter_node, &rna);
+      Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
+      if (object == nullptr) {
+        continue;
+      }
+
+      Emitter *emitter = EMITTER_mesh_surface(
+          type_id, (Mesh *)object->data, object->obmat, object->obmat, 1.0f);
+      step_description->m_emitters.append(emitter);
+    }
+  }
   return step_description;
 }
 
@@ -247,7 +276,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   }
 
   ModifierStepDescription *step_description = step_description_from_node_tree(
-      npmd->bparticles_tree);
+      (bNodeTree *)DEG_get_original_id((ID *)npmd->bparticles_tree));
   step_description->m_duration = 1.0f / 24.0f;
 
   ParticlesState &state = *unwrap(state_c);
