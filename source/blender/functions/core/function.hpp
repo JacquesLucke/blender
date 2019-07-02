@@ -11,28 +11,17 @@ class FunctionBody {
  private:
   Function *m_owner = nullptr;
 
-  void set_owner(Function *fn)
-  {
-    m_owner = fn;
-    this->owner_init_post();
-  }
+  void set_owner(Function *fn);
 
   friend class Function;
 
  protected:
-  virtual void owner_init_post()
-  {
-  }
+  virtual void owner_init_post();
 
  public:
-  virtual ~FunctionBody()
-  {
-  }
+  virtual ~FunctionBody();
 
-  Function *owner() const
-  {
-    return m_owner;
-  }
+  Function *owner() const;
 };
 
 class Function final : public RefCountedBase {
@@ -44,124 +33,28 @@ class Function final : public RefCountedBase {
            ArrayRef<SharedType> input_types,
            ArrayRef<ChainedStringRef> output_names,
            ArrayRef<SharedType> output_types,
-           const char *strings)
-      : m_name(name),
-        m_input_names(input_names),
-        m_input_types(input_types),
-        m_output_names(output_names),
-        m_output_types(output_types),
-        m_strings(strings)
-  {
-    BLI_assert(m_input_names.size() == m_input_types.size());
-    BLI_assert(m_output_names.size() == m_output_types.size());
-  }
+           const char *strings);
 
   ~Function();
 
-  const StringRefNull name() const
-  {
-    return m_name.to_string_ref(m_strings);
-  }
+  const StringRefNull name() const;
 
-  template<typename T> inline bool has_body() const
-  {
-    std::lock_guard<std::mutex> lock(m_body_mutex);
-    static_assert(std::is_base_of<FunctionBody, T>::value, "");
-    return this->m_bodies.has<T>();
-  }
-
-  template<typename T> inline T *body() const
-  {
-    std::lock_guard<std::mutex> lock(m_body_mutex);
-    static_assert(std::is_base_of<FunctionBody, T>::value, "");
-    return m_bodies.get<T>();
-  }
-
-  template<typename T, typename... Args> bool add_body(Args &&... args)
-  {
-    std::lock_guard<std::mutex> lock(m_body_mutex);
-    static_assert(std::is_base_of<FunctionBody, T>::value, "");
-
-    if (m_bodies.has<T>()) {
-      return false;
-    }
-    else {
-      T *new_body = new T(std::forward<Args>(args)...);
-      new_body->set_owner(this);
-      m_bodies.add(new_body);
-      return true;
-    }
-  }
-
-  friend bool operator==(const Function &a, const Function &b)
-  {
-    return &a == &b;
-  }
+  template<typename T> inline bool has_body() const;
+  template<typename T> inline T *body() const;
+  template<typename T, typename... Args> bool add_body(Args &&... args);
 
   void print();
 
-  /* Utility accessors */
-  uint input_amount() const
-  {
-    return m_input_names.size();
-  }
-
-  uint output_amount() const
-  {
-    return m_output_names.size();
-  }
-
-  SharedType &input_type(uint index)
-  {
-    return m_input_types[index];
-  }
-
-  SharedType &output_type(uint index)
-  {
-    return m_output_types[index];
-  }
-
-  StringRefNull input_name(uint index)
-  {
-    return m_input_names[index].to_string_ref(m_strings);
-  }
-
-  StringRefNull output_name(uint index)
-  {
-    return m_output_names[index].to_string_ref(m_strings);
-  }
-
-  template<typename T> SmallVector<T *> input_extensions() const
-  {
-    SmallVector<T *> extensions;
-    for (auto &type : m_input_types) {
-      T *ext = type->extension<T>();
-      BLI_assert(ext);
-      extensions.append(ext);
-    }
-    return extensions;
-  }
-
-  template<typename T> SmallVector<T *> output_extensions() const
-  {
-    SmallVector<T *> extensions;
-    for (auto &type : m_output_types) {
-      T *ext = type->extension<T>();
-      BLI_assert(ext);
-      extensions.append(ext);
-    }
-    return extensions;
-  }
-
-  ArrayRef<SharedType> input_types() const
-  {
-    return m_input_types;
-  }
-
-  ArrayRef<SharedType> output_types() const
-  {
-    return m_output_types;
-  }
+  uint input_amount() const;
+  uint output_amount() const;
+  SharedType &input_type(uint index);
+  SharedType &output_type(uint index);
+  StringRefNull input_name(uint index);
+  StringRefNull output_name(uint index);
+  template<typename T> SmallVector<T *> input_extensions() const;
+  template<typename T> SmallVector<T *> output_extensions() const;
+  ArrayRef<SharedType> input_types() const;
+  ArrayRef<SharedType> output_types() const;
 
  private:
   ChainedStringRef m_name;
@@ -177,7 +70,6 @@ class Function final : public RefCountedBase {
 };
 
 using SharedFunction = AutoRefCount<Function>;
-using FunctionPerType = SmallMap<SharedType, SharedFunction>;
 
 class FunctionBuilder {
  private:
@@ -194,5 +86,124 @@ class FunctionBuilder {
 
   SharedFunction build(StringRef function_name);
 };
+
+/* Function inline functions
+ ***********************************************/
+
+inline const StringRefNull Function::name() const
+{
+  return m_name.to_string_ref(m_strings);
+}
+
+template<typename T> inline bool Function::has_body() const
+{
+  std::lock_guard<std::mutex> lock(m_body_mutex);
+  static_assert(std::is_base_of<FunctionBody, T>::value, "");
+  return this->m_bodies.has<T>();
+}
+
+template<typename T> inline T *Function::body() const
+{
+  std::lock_guard<std::mutex> lock(m_body_mutex);
+  static_assert(std::is_base_of<FunctionBody, T>::value, "");
+  return m_bodies.get<T>();
+}
+
+template<typename T, typename... Args> inline bool Function::add_body(Args &&... args)
+{
+  std::lock_guard<std::mutex> lock(m_body_mutex);
+  static_assert(std::is_base_of<FunctionBody, T>::value, "");
+
+  if (m_bodies.has<T>()) {
+    return false;
+  }
+  else {
+    T *new_body = new T(std::forward<Args>(args)...);
+    new_body->set_owner(this);
+    m_bodies.add(new_body);
+    return true;
+  }
+}
+
+inline bool operator==(const Function &a, const Function &b)
+{
+  return &a == &b;
+}
+
+inline uint Function::input_amount() const
+{
+  return m_input_names.size();
+}
+
+inline uint Function::output_amount() const
+{
+  return m_output_names.size();
+}
+
+inline SharedType &Function::input_type(uint index)
+{
+  return m_input_types[index];
+}
+
+inline SharedType &Function::output_type(uint index)
+{
+  return m_output_types[index];
+}
+
+inline StringRefNull Function::input_name(uint index)
+{
+  return m_input_names[index].to_string_ref(m_strings);
+}
+
+inline StringRefNull Function::output_name(uint index)
+{
+  return m_output_names[index].to_string_ref(m_strings);
+}
+
+template<typename T> inline SmallVector<T *> Function::input_extensions() const
+{
+  SmallVector<T *> extensions;
+  for (auto &type : m_input_types) {
+    T *ext = type->extension<T>();
+    BLI_assert(ext);
+    extensions.append(ext);
+  }
+  return extensions;
+}
+
+template<typename T> inline SmallVector<T *> Function::output_extensions() const
+{
+  SmallVector<T *> extensions;
+  for (auto &type : m_output_types) {
+    T *ext = type->extension<T>();
+    BLI_assert(ext);
+    extensions.append(ext);
+  }
+  return extensions;
+}
+
+inline ArrayRef<SharedType> Function::input_types() const
+{
+  return m_input_types;
+}
+
+inline ArrayRef<SharedType> Function::output_types() const
+{
+  return m_output_types;
+}
+
+/* Function Body inline functions
+ ********************************************/
+
+inline void FunctionBody::set_owner(Function *fn)
+{
+  m_owner = fn;
+  this->owner_init_post();
+}
+
+inline Function *FunctionBody::owner() const
+{
+  return m_owner;
+}
 
 } /* namespace FN */

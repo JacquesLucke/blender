@@ -2,6 +2,26 @@
 
 namespace FN {
 
+/* Function
+ **********************************************/
+
+Function::Function(ChainedStringRef name,
+                   ArrayRef<ChainedStringRef> input_names,
+                   ArrayRef<SharedType> input_types,
+                   ArrayRef<ChainedStringRef> output_names,
+                   ArrayRef<SharedType> output_types,
+                   const char *strings)
+    : m_name(name),
+      m_input_names(input_names),
+      m_input_types(input_types),
+      m_output_names(output_names),
+      m_output_types(output_types),
+      m_strings(strings)
+{
+  BLI_assert(m_input_names.size() == m_input_types.size());
+  BLI_assert(m_output_names.size() == m_output_types.size());
+}
+
 Function::~Function()
 {
   MEM_freeN((void *)m_strings);
@@ -20,6 +40,17 @@ void Function::print()
     std::cout << "    " << this->output_type(i)->name() << " - " << this->output_name(i)
               << std::endl;
   }
+}
+
+/* Function Body
+ ***********************************************/
+
+void FunctionBody::owner_init_post()
+{
+}
+
+FunctionBody::~FunctionBody()
+{
 }
 
 /* Function builder
