@@ -11,8 +11,8 @@ static void run_TupleCallBody(TupleCallBody *body,
   bool *initialized_in = (bool *)alloca(body->meta_in()->element_amount());
   bool *initialized_out = (bool *)alloca(body->meta_out()->element_amount());
 
-  Tuple fn_in(body->meta_in(), data_in, initialized_in, false);
-  Tuple fn_out(body->meta_out(), data_out, initialized_out, false);
+  Tuple fn_in(body->meta_in().ref(), data_in, initialized_in, false);
+  Tuple fn_out(body->meta_out().ref(), data_out, initialized_out, false);
 
   fn_in.set_all_initialized();
 

@@ -166,5 +166,5 @@ class LazyInTupleCallBody : public TupleCallBodyBase {
 } /* namespace FN */
 
 #define FN_TUPLE_CALL_ALLOC_TUPLES(body, name_in, name_out) \
-  FN_TUPLE_STACK_ALLOC(name_in, body->meta_in()); \
-  FN_TUPLE_STACK_ALLOC(name_out, body->meta_out());
+  FN_TUPLE_STACK_ALLOC(name_in, body->meta_in().ref()); \
+  FN_TUPLE_STACK_ALLOC(name_out, body->meta_out().ref());

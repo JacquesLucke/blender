@@ -84,7 +84,7 @@ using SharedTupleMeta = AutoRefCount<TupleMeta>;
 
 class Tuple {
  public:
-  Tuple(SharedTupleMeta meta) : m_meta(std::move(meta))
+  Tuple(TupleMeta &meta) : m_meta(&meta)
   {
     m_initialized = (bool *)MEM_calloc_arrayN(m_meta->element_amount(), sizeof(bool), __func__);
     m_data = MEM_mallocN(m_meta->size_of_data(), __func__);
@@ -92,12 +92,12 @@ class Tuple {
     m_run_destructors = true;
   }
 
-  Tuple(SharedTupleMeta meta,
+  Tuple(TupleMeta &meta,
         void *data,
         bool *initialized,
         bool was_initialized = false,
         bool run_destructors = true)
-      : m_meta(std::move(meta))
+      : m_meta(&meta)
   {
     BLI_assert(data != nullptr);
     BLI_assert(initialized != nullptr);
@@ -110,19 +110,14 @@ class Tuple {
     }
   }
 
-  Tuple(SharedTupleMeta &meta, void *buffer)
-      : Tuple(meta, buffer, (bool *)buffer + meta->size_of_data())
+  Tuple(TupleMeta &meta, void *buffer) : Tuple(meta, buffer, (bool *)buffer + meta.size_of_data())
   {
   }
 
-  static Tuple &ConstructInBuffer(SharedTupleMeta &meta, void *buffer)
+  static Tuple &ConstructInBuffer(TupleMeta &meta, void *buffer)
   {
     Tuple *tuple = new (buffer) Tuple(meta, (char *)buffer + sizeof(Tuple));
     return *tuple;
-  }
-
-  Tuple(TypeVector types) : Tuple(SharedTupleMeta::New(types))
-  {
   }
 
   /* Has to be implemented explicitely in the future. */
@@ -407,7 +402,7 @@ class Tuple {
   bool *m_initialized;
   bool m_owns_mem;
   bool m_run_destructors;
-  SharedTupleMeta m_meta;
+  TupleMeta *m_meta;
 };
 
 inline uint TupleMeta::size_of_full_tuple() const
@@ -418,6 +413,6 @@ inline uint TupleMeta::size_of_full_tuple() const
 } /* namespace FN */
 
 #define FN_TUPLE_STACK_ALLOC(name, meta_expr) \
-  FN::SharedTupleMeta &name##_meta = (meta_expr); \
-  void *name##_buffer = alloca(name##_meta->size_of_data_and_init()); \
+  FN::TupleMeta &name##_meta = (meta_expr); \
+  void *name##_buffer = alloca(name##_meta.size_of_data_and_init()); \
   FN::Tuple name(name##_meta, name##_buffer);

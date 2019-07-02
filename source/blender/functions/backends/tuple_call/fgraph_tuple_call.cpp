@@ -241,12 +241,12 @@ class ExecuteFGraph : public TupleCallBody {
   };
 
 #define SETUP_SUB_TUPLES(node_id, body, body_in, body_out) \
-  Tuple body_in(body->meta_in(), \
+  Tuple body_in(body->meta_in().ref(), \
                 storage.node_input_values_ptr(node_id), \
                 storage.node_input_inits_ptr(node_id), \
                 true, \
                 false); \
-  Tuple body_out(body->meta_out(), \
+  Tuple body_out(body->meta_out().ref(), \
                  storage.node_output_values_ptr(node_id), \
                  storage.node_output_inits_ptr(node_id), \
                  true, \

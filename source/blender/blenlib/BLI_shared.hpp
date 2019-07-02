@@ -146,6 +146,11 @@ template<typename T> class AutoRefCount {
     return m_object;
   }
 
+  T &ref() const
+  {
+    return *m_object;
+  }
+
   T *extract_ptr()
   {
     T *value = m_object;

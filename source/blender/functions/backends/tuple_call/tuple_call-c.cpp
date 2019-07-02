@@ -29,13 +29,13 @@ FnTupleCallBody FN_tuple_call_get(FnFunction fn_c)
 
 FnTuple FN_tuple_for_input(FnTupleCallBody body_c)
 {
-  auto tuple = new Tuple(unwrap(body_c)->meta_in());
+  auto tuple = new Tuple(unwrap(body_c)->meta_in().ref());
   return wrap(tuple);
 }
 
 FnTuple FN_tuple_for_output(FnTupleCallBody body_c)
 {
-  auto tuple = new Tuple(unwrap(body_c)->meta_out());
+  auto tuple = new Tuple(unwrap(body_c)->meta_out().ref());
   return wrap(tuple);
 }
 
@@ -54,8 +54,8 @@ void fn_tuple_prepare_stack(FnTupleCallBody body_c,
   char *buf = (char *)buffer;
   char *buf_in = buf + 0;
   char *buf_out = buf + body->meta_in()->size_of_full_tuple();
-  Tuple::ConstructInBuffer(body->meta_in(), buf_in);
-  Tuple::ConstructInBuffer(body->meta_out(), buf_out);
+  Tuple::ConstructInBuffer(body->meta_in().ref(), buf_in);
+  Tuple::ConstructInBuffer(body->meta_out().ref(), buf_out);
   *fn_in_c = wrap((Tuple *)buf_in);
   *fn_out_c = wrap((Tuple *)buf_out);
 }
