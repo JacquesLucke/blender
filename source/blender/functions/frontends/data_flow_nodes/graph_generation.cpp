@@ -140,7 +140,10 @@ static DFGB_SocketVector insert_function_output(BTreeGraphBuilder &builder)
 static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
 {
   BNodeTreeLookup btree_lookup(builder.btree());
-  for (auto &link : btree_lookup.data_links()) {
+  for (auto &link : btree_lookup.single_origin_links()) {
+    if (!builder.is_data_socket(link.to)) {
+      continue;
+    }
     if (!inserters.insert_link(builder, link.from, link.to, link.source_link)) {
       return false;
     }

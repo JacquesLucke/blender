@@ -14,8 +14,7 @@ BNodeTreeLookup::BNodeTreeLookup(bNodeTree *btree) : m_nodes(btree->nodes, true)
   }
 
   for (bNodeLink *blink : bLinkList(&btree->links)) {
-    BLI_assert(!m_direct_origin.contains(blink->tosock));
-    m_direct_origin.add(blink->tosock, blink->fromsock);
+    m_direct_origins.add(blink->tosock, blink->fromsock);
   }
 
   for (bNodeLink *blink : bLinkList(&btree->links)) {
@@ -24,21 +23,21 @@ BNodeTreeLookup::BNodeTreeLookup(bNodeTree *btree) : m_nodes(btree->nodes, true)
     if (this->is_reroute(target_node)) {
       continue;
     }
-    bNodeSocket *origin = this->try_find_data_origin(target);
+    bNodeSocket *origin = this->try_find_single_origin(target);
     if (origin != nullptr) {
-      m_data_links.append(DataLink{origin, target, blink});
+      m_single_origin_links.append(SingleOriginLink{origin, target, blink});
     }
   }
 }
 
-bNodeSocket *BNodeTreeLookup::try_find_data_origin(bNodeSocket *bsocket)
+bNodeSocket *BNodeTreeLookup::try_find_single_origin(bNodeSocket *bsocket)
 {
   BLI_assert(bsocket->in_out == SOCK_IN);
-  if (m_direct_origin.contains(bsocket)) {
-    bNodeSocket *origin = m_direct_origin.lookup(bsocket);
+  if (m_direct_origins.values_for_key(bsocket) == 1) {
+    bNodeSocket *origin = m_direct_origins.lookup(bsocket)[0];
     bNode *origin_node = m_node_by_socket.lookup(origin);
     if (this->is_reroute(origin_node)) {
-      return this->try_find_data_origin((bNodeSocket *)origin_node->inputs.first);
+      return this->try_find_single_origin((bNodeSocket *)origin_node->inputs.first);
     }
     else {
       return origin;

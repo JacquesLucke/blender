@@ -188,6 +188,7 @@ class ModifierStepDescription : public StepDescription {
   float m_duration;
   SmallMap<uint, ModifierParticleType *> m_types;
   SmallVector<Emitter *> m_emitters;
+  SmallVector<uint> m_particle_type_ids;
 
   ~ModifierStepDescription()
   {
@@ -211,7 +212,7 @@ class ModifierStepDescription : public StepDescription {
 
   ArrayRef<uint> particle_type_ids() override
   {
-    return {0, 1};
+    return m_particle_type_ids;
   }
 
   ParticleType &particle_type(uint type_id) override
@@ -220,10 +221,20 @@ class ModifierStepDescription : public StepDescription {
   }
 };
 
-// ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree)
-// {
-//   BNodeTreeLookup btree_lookup(btree);
-// }
+static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree)
+{
+  ModifierStepDescription *step_description = new ModifierStepDescription();
+  BNodeTreeLookup btree_lookup(btree);
+
+  auto particle_type_nodes = btree_lookup.nodes_with_idname("bp_ParticleTypeNode");
+  for (uint i = 0; i < particle_type_nodes.size(); i++) {
+    ModifierParticleType *type = new ModifierParticleType();
+    step_description->m_types.add_new(i, type);
+    step_description->m_particle_type_ids.append(i);
+  }
+
+  return step_description;
+}
 
 void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
                                   Depsgraph *UNUSED(depsgraph),
@@ -231,40 +242,16 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
 {
   SCOPED_TIMER(__func__);
 
+  if (npmd->bparticles_tree == NULL) {
+    return;
+  }
+
+  ModifierStepDescription *step_description = step_description_from_node_tree(
+      npmd->bparticles_tree);
+  step_description->m_duration = 1.0f / 24.0f;
+
   ParticlesState &state = *unwrap(state_c);
-  ModifierStepDescription description;
-  description.m_duration = 1.0f / 24.0f;
-
-  auto *type0 = new ModifierParticleType();
-  description.m_types.add_new(0, type0);
-  type0->m_integrator = new EulerIntegrator();
-  type0->m_integrator->m_forces.append(FORCE_directional({0, 0, -2}));
-
-  if (npmd->emitter_object) {
-    description.m_emitters.append(EMITTER_mesh_surface(0,
-                                                       (Mesh *)npmd->emitter_object->data,
-                                                       npmd->last_emitter_transforms,
-                                                       npmd->emitter_object->obmat,
-                                                       npmd->control1));
-    copy_m4_m4(npmd->last_emitter_transforms, npmd->emitter_object->obmat);
-  }
-  BVHTreeFromMesh treedata = {0};
-  if (npmd->collision_object) {
-    BKE_bvhtree_from_mesh_get(
-        &treedata, (Mesh *)npmd->collision_object->data, BVHTREE_FROM_LOOPTRI, 4);
-    type0->m_events.append(EVENT_mesh_bounce(&treedata, npmd->collision_object->obmat));
-  }
-
-  auto *type1 = new ModifierParticleType();
-  description.m_types.add_new(1, type1);
-  type1->m_integrator = new EulerIntegrator();
-  type1->m_events.append(new EventActionTest(EVENT_age_reached(0.3f), ACTION_kill()));
-
-  simulate_step(state, description);
-
-  if (npmd->collision_object) {
-    free_bvhtree_from_mesh(&treedata);
-  }
+  simulate_step(state, *step_description);
 
   auto &containers = state.particle_containers();
   for (auto item : containers.items()) {

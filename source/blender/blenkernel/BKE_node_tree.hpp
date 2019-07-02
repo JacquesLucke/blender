@@ -7,11 +7,13 @@
 #include "BLI_small_map.hpp"
 #include "BLI_small_vector.hpp"
 #include "BLI_listbase_wrapper.hpp"
+#include "BLI_multimap.hpp"
 
 namespace BKE {
 
 using BLI::ArrayRef;
 using BLI::ListBaseWrapper;
+using BLI::MultiMap;
 using BLI::SmallMap;
 using BLI::SmallVector;
 using BLI::StringRef;
@@ -24,27 +26,27 @@ class BNodeTreeLookup {
  public:
   BNodeTreeLookup(bNodeTree *btree);
 
-  struct DataLink {
+  struct SingleOriginLink {
     bNodeSocket *from;
     bNodeSocket *to;
     bNodeLink *source_link;
   };
 
-  const ArrayRef<DataLink> data_links()
+  const ArrayRef<SingleOriginLink> single_origin_links()
   {
-    return m_data_links;
+    return m_single_origin_links;
   }
 
   SmallVector<bNode *> nodes_with_idname(StringRef idname);
 
  private:
   bool is_reroute(bNode *bnode);
-  bNodeSocket *try_find_data_origin(bNodeSocket *bsocket);
+  bNodeSocket *try_find_single_origin(bNodeSocket *bsocket);
 
   SmallVector<bNode *> m_nodes;
   SmallMap<bNodeSocket *, bNode *> m_node_by_socket;
-  SmallMap<bNodeSocket *, bNodeSocket *> m_direct_origin;
-  SmallVector<DataLink> m_data_links;
+  MultiMap<bNodeSocket *, bNodeSocket *> m_direct_origins;
+  SmallVector<SingleOriginLink> m_single_origin_links;
 };
 
 }  // namespace BKE
