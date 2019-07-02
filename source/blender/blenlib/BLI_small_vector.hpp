@@ -34,6 +34,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_array_ref.hpp"
+#include "BLI_listbase_wrapper.hpp"
 
 #include "MEM_guardedalloc.h"
 
@@ -104,6 +105,23 @@ template<typename T, uint N = 4> class SmallVector {
     this->reserve(values.size());
     std::uninitialized_copy_n(values.begin(), values.size(), this->begin());
     m_size = values.size();
+  }
+
+  /**
+   * Create a vector from a ListBase.
+   */
+  SmallVector(ListBase &values, bool intrusive_next_and_prev_pointers) : SmallVector()
+  {
+    if (intrusive_next_and_prev_pointers) {
+      for (T value : ListBaseWrapper<T, true>(&values)) {
+        this->append(value);
+      }
+    }
+    else {
+      for (T value : ListBaseWrapper<T, false>(&values)) {
+        this->append(value);
+      }
+    }
   }
 
   /**

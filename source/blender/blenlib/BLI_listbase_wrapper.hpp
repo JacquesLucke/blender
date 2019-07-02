@@ -48,13 +48,13 @@ template<typename T, bool intrusive> class ListBaseWrapper {
       return m_current != iterator.m_current;
     }
 
-    T *operator*() const
+    T operator*() const
     {
       if (intrusive) {
-        return (T *)m_current;
+        return (T)m_current;
       }
       else {
-        return (T *)((LinkData *)m_current)->data;
+        return (T)((LinkData *)m_current)->data;
       }
     }
   };

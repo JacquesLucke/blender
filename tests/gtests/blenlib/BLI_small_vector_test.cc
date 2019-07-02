@@ -1,7 +1,8 @@
 #include "testing/testing.h"
 #include "BLI_small_vector.hpp"
 
-using IntVector = BLI::SmallVector<int>;
+using BLI::SmallVector;
+using IntVector = SmallVector<int>;
 
 TEST(small_vector, DefaultConstructor)
 {
@@ -36,6 +37,42 @@ TEST(small_vector, InitializerListConstructor)
   EXPECT_EQ(vec[1], 3);
   EXPECT_EQ(vec[2], 4);
   EXPECT_EQ(vec[3], 6);
+}
+
+TEST(small_vector, NonIntrusiveListBaseConstructor)
+{
+  ListBase list = {0};
+  BLI_addtail(&list, BLI_genericNodeN(POINTER_FROM_INT(42)));
+  BLI_addtail(&list, BLI_genericNodeN(POINTER_FROM_INT(60)));
+  BLI_addtail(&list, BLI_genericNodeN(POINTER_FROM_INT(90)));
+  BLI::SmallVector<void *> vec(list, false);
+  EXPECT_EQ(vec.size(), 3);
+  EXPECT_EQ(POINTER_AS_INT(vec[0]), 42);
+  EXPECT_EQ(POINTER_AS_INT(vec[1]), 60);
+  EXPECT_EQ(POINTER_AS_INT(vec[2]), 90);
+  BLI_freelistN(&list);
+}
+
+struct TestListValue {
+  TestListValue *prev, *next;
+  int value;
+};
+
+TEST(small_vector, IntrusiveListBaseConstructor)
+{
+  ListBase list = {0};
+  BLI_addtail(&list, new TestListValue{0, 0, 4});
+  BLI_addtail(&list, new TestListValue{0, 0, 6});
+  BLI_addtail(&list, new TestListValue{0, 0, 7});
+  SmallVector<TestListValue *> vec(list, true);
+  EXPECT_EQ(vec.size(), 3);
+  EXPECT_EQ(vec[0]->value, 4);
+  EXPECT_EQ(vec[1]->value, 6);
+  EXPECT_EQ(vec[2]->value, 7);
+
+  delete vec[0];
+  delete vec[1];
+  delete vec[2];
 }
 
 TEST(small_vector, CopyConstructor)
@@ -115,7 +152,7 @@ TEST(small_vector, Iterator)
 
 TEST(small_vector, BecomeLarge)
 {
-  BLI::SmallVector<int, 4> vec;
+  SmallVector<int, 4> vec;
   for (int i = 0; i < 100; i++) {
     vec.append(i * 5);
   }
@@ -141,7 +178,7 @@ TEST(small_vector, ReturnByValue)
 
 TEST(small_vector, VectorOfVectors_Append)
 {
-  BLI::SmallVector<IntVector> vec;
+  SmallVector<IntVector> vec;
   EXPECT_EQ(vec.size(), 0);
 
   IntVector v({1, 2});
@@ -156,7 +193,7 @@ TEST(small_vector, VectorOfVectors_Append)
 
 TEST(small_vector, VectorOfVectors_Fill)
 {
-  BLI::SmallVector<IntVector> vec(3);
+  SmallVector<IntVector> vec(3);
   vec.fill({4, 5});
 
   EXPECT_EQ(vec[0][0], 4);
