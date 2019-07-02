@@ -1,5 +1,13 @@
 #pragma once
 
+/**
+ * The CPPTypeInfo class is a type extension for the C++ backend. It contains run-time type
+ * information for an arbitrary C++ type.
+ *
+ * Usually, the class does not have to be subclassed manually, because there is a template that
+ * implements all methods for any C++ type automatically.
+ */
+
 #include "FN_core.hpp"
 
 namespace FN {
@@ -12,14 +20,48 @@ class CPPTypeInfo : public TypeExtension {
   {
   }
 
+  /**
+   * Get the size of the type in bytes.
+   */
   virtual uint size_of_type() const = 0;
+
+  /**
+   * Construct a default version of that type at the given pointer.
+   */
   virtual void construct_default(void *ptr) const = 0;
+
+  /**
+   * Destruct the value at the given pointer.
+   */
   virtual void destruct_type(void *ptr) const = 0;
+
+  /**
+   * Copy the value from src to dst. The destination buffer already contains another instance of
+   * the same type which should be overriden.
+   */
   virtual void copy_to_initialized(void *src, void *dst) const = 0;
+
+  /**
+   * Copy the value from src to dst. The destination buffer contains uninitialized memory.
+   */
   virtual void copy_to_uninitialized(void *src, void *dst) const = 0;
+
+  /**
+   * Copy the value from src to dst and destroy the original value in src. The destination buffer
+   * already contains another instance of the same type which should be overriden.
+   */
   virtual void relocate_to_initialized(void *src, void *dst) const = 0;
+
+  /**
+   * Copy the value from src to dst and destroy the original value in src. The destination buffer
+   * contains uninitialized memory.
+   */
   virtual void relocate_to_uninitialized(void *src, void *dst) const = 0;
 
+  /**
+   * Return true when the type can be destructed without doing anything. Otherwise false.
+   * This is just a hint to improve performance in some cases.
+   */
   virtual bool trivially_destructible() const = 0;
 };
 
