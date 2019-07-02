@@ -1,3 +1,24 @@
+/**
+ * The type system is a fundamental part of the functions system. It is essentially a runtime RTTI
+ * (run-time type information) system that can support multiple execution backends (e.g. C++, LLVM,
+ * GLSL).
+ *
+ * The Type class is a container for a specific type. A type is identified by its pointer at
+ * run-time. Every type also has a name, but that should only be used for e.g. debugging and not as
+ * identifier.
+ *
+ * A Type instance can contain an arbitrary amount of type extensions. By having multiple
+ * extensions for the same type, it can be used by multiple execution backends.
+ *
+ * Type extensions are identified by their C++ type. So, every type can have each extension type at
+ * most once.
+ *
+ * A type owns its extensions. They can be dynamically added, but not removed. The extensions are
+ * freed whenever the type is freed.
+ *
+ * Types are reference counted. They will be freed automatically, when nobody uses them anymore.
+ */
+
 #pragma once
 
 #include <string>
@@ -30,10 +51,26 @@ class Type final : public RefCountedBase {
   Type() = delete;
   Type(StringRef name);
 
+  /**
+   * Get the name of the type.
+   */
   const StringRefNull name() const;
 
+  /**
+   * Return true, when the type has an extension of type T. Otherwise false.
+   */
   template<typename T> bool has_extension() const;
+
+  /**
+   * Return the extension of type T or nullptr when the extension does not exist on this type.
+   */
   template<typename T> T *extension() const;
+
+  /**
+   * Add a new extension of type T to the type. It will be constructed using the args passed to
+   * this function. When this function is called multiple types with the same T, only the first
+   * call will change the type.
+   */
   template<typename T, typename... Args> bool add_extension(Args &&... args);
 
  private:
