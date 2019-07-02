@@ -231,8 +231,9 @@ static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk,
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
   NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
-  walk(userData, ob, (ID **)&npmd->emitter_object, IDWALK_CB_NOP);
-  walk(userData, ob, (ID **)&npmd->collision_object, IDWALK_CB_NOP);
+  walk(userData, ob, (ID **)&npmd->bparticles_tree, IDWALK_CB_NOP);
+
+  foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
 }
 
 ModifierTypeInfo modifierType_NodeParticles = {

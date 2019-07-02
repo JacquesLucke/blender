@@ -1970,6 +1970,7 @@ typedef struct NodeParticlesModifierData {
   struct Object *emitter_object;
   struct Object *collision_object;
   float last_emitter_transforms[4][4];
+  struct bNodeTree *bparticles_tree;
 } NodeParticlesModifierData;
 
 #endif /* __DNA_MODIFIER_TYPES_H__ */

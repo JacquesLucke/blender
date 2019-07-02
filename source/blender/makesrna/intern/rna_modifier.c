@@ -5998,6 +5998,11 @@ static void rna_def_modifier_node_particles(BlenderRNA *brna)
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Collision Object", "Object to collide with");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
+
+  prop = RNA_def_property(srna, "bparticles_tree", PROP_POINTER, PROP_NONE);
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "BParticles Tree", "BParticles node tree");
+  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)
