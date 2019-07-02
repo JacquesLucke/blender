@@ -37,6 +37,7 @@ set(SRC
   initialize.cpp
 
   core/type.hpp
+  core/type.cpp
   core/function.hpp
   core/function.cpp
   core/data_flow_graph.hpp
