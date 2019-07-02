@@ -52,7 +52,7 @@ class NodeSource : public SourceInfo {
     PyGILState_STATE gilstate;
     gilstate = PyGILState_Ensure();
 
-    PyObject *module = PyImport_ImportModule("function_nodes.problems");
+    PyObject *module = PyImport_ImportModule("nodes.problems");
     PyObject *globals = PyModule_GetDict(module);
     PyObject *function = PyDict_GetItemString(globals, "report_warning");
 

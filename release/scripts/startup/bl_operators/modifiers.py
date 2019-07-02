@@ -22,7 +22,7 @@ class NewDeformationFunction(bpy.types.Operator, ModifierOperator):
         if mod is None:
             return {'CANCELLED'}
 
-        from function_nodes.node_operators import new_function_tree
+        from nodes.node_operators import new_function_tree
         tree = new_function_tree("Deformation Function", [
             ("Vector", "Old Position"),
             ("Integer", "Vertex Seed"),
@@ -47,7 +47,7 @@ class NewPointGeneratorFunction(bpy.types.Operator, ModifierOperator):
         if mod is None:
             return {'CANCELLED'}
 
-        from function_nodes.node_operators import new_function_tree
+        from nodes.node_operators import new_function_tree
         tree = new_function_tree("Point Generator", [
             ("Float", "Control 1"),
             ("Integer", "Control 2"),
