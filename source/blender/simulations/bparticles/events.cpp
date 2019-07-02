@@ -41,11 +41,11 @@ class AgeReachedEvent : public EventFilter {
 class MeshBounceEvent : public Event {
  private:
   BVHTreeFromMesh *m_treedata;
-  float4x4 m_normal_transform;
-  float4x4 m_ray_transform;
+  float4x4 m_local_to_world;
+  float4x4 m_world_to_local;
 
-  struct CollisionData {
-    float3 normal;
+  struct EventData {
+    float3 hit_normal;
   };
 
   struct RayCastResult {
@@ -58,14 +58,14 @@ class MeshBounceEvent : public Event {
  public:
   MeshBounceEvent(BVHTreeFromMesh *treedata, float4x4 transform)
       : m_treedata(treedata),
-        m_normal_transform(transform),
-        m_ray_transform(transform.inverted__LocRotScale())
+        m_local_to_world(transform),
+        m_world_to_local(transform.inverted__LocRotScale())
   {
   }
 
   uint storage_size() override
   {
-    return sizeof(CollisionData);
+    return sizeof(EventData);
   }
 
   void filter(EventFilterInterface &interface) override
@@ -77,20 +77,20 @@ class MeshBounceEvent : public Event {
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
 
-      float3 ray_start = m_ray_transform.transform_position(positions[pindex]);
-      float3 ray_direction = m_ray_transform.transform_direction(position_offsets[i]);
+      float3 ray_start = m_world_to_local.transform_position(positions[pindex]);
+      float3 ray_direction = m_world_to_local.transform_direction(position_offsets[i]);
       float length = ray_direction.normalize_and_get_length();
 
       auto result = this->ray_cast(ray_start, ray_direction, length);
       if (result.success) {
         float time_factor = result.distance / length;
-        auto &data = interface.trigger_particle<CollisionData>(i, time_factor);
+        auto &data = interface.trigger_particle<EventData>(i, time_factor);
 
         float3 normal = result.normal;
         if (float3::dot(normal, ray_direction) > 0) {
           normal.invert();
         }
-        data.normal = m_normal_transform.transform_direction(normal).normalized();
+        data.hit_normal = m_local_to_world.transform_direction(normal).normalized();
       }
     }
   }
@@ -120,13 +120,13 @@ class MeshBounceEvent : public Event {
     auto position_offsets = interface.attribute_offsets().get_float3("Position");
 
     for (uint pindex : particles.indices()) {
-      auto &data = interface.get_storage<CollisionData>(pindex);
+      auto &data = interface.get_storage<EventData>(pindex);
 
       /* Move particle back a little bit to avoid double collision. */
-      positions[pindex] += data.normal * 0.001f;
+      positions[pindex] += data.hit_normal * 0.001f;
 
-      velocities[pindex] = this->bounce_direction(velocities[pindex], data.normal);
-      position_offsets[pindex] = this->bounce_direction(position_offsets[pindex], data.normal);
+      velocities[pindex] = this->bounce_direction(velocities[pindex], data.hit_normal);
+      position_offsets[pindex] = this->bounce_direction(position_offsets[pindex], data.hit_normal);
     }
   }
 
@@ -138,7 +138,7 @@ class MeshBounceEvent : public Event {
     float3 direction_normal = normal * normal_part;
     float3 direction_tangent = direction - direction_normal;
 
-    return direction_normal * 0.5 + direction_tangent * 0.99;
+    return direction_normal * 0.5 + direction_tangent * 0.9;
   }
 };
 

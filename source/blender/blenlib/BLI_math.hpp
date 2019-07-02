@@ -50,7 +50,7 @@ struct float3 {
     *this = this->reflected(normal);
   }
 
-  float3 reflected(float3 normal)
+  float3 reflected(float3 normal) const
   {
     float3 result;
     reflect_v3_v3v3(result, *this, normal);
@@ -62,6 +62,18 @@ struct float3 {
     x = -x;
     y = -y;
     z = -z;
+  }
+
+  bool is_zero() const
+  {
+    return is_zero_v3(*this);
+  }
+
+  void zero_small_values(float eps = 0.000001f)
+  {
+    x = (std::abs(x) < eps) ? 0.0f : x;
+    y = (std::abs(y) < eps) ? 0.0f : y;
+    z = (std::abs(z) < eps) ? 0.0f : z;
   }
 
   friend float3 operator+(float3 a, float3 b)

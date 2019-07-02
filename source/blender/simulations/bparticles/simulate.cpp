@@ -443,7 +443,7 @@ BLI_NOINLINE static void simulate_block(FixedArrayAllocator &array_allocator,
     uint *indices_array = array_allocator.allocate_array<uint>();
     VectorAdaptor<uint> unfinished_particle_indices(indices_array, amount);
 
-    simulate_with_max_n_events(1,
+    simulate_with_max_n_events(10,
                                array_allocator,
                                block_allocator,
                                block,
@@ -453,6 +453,7 @@ BLI_NOINLINE static void simulate_block(FixedArrayAllocator &array_allocator,
                                events,
                                unfinished_particle_indices);
 
+    /* Not sure yet, if this really should be done. */
     if (unfinished_particle_indices.size() > 0) {
       ParticleSet remaining_particles(block, unfinished_particle_indices);
       apply_remaining_offsets(remaining_particles, attribute_offsets);
