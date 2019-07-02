@@ -1,11 +1,37 @@
 #pragma once
 
+/**
+ * A data flow graph is the primary way to connect multiple functions to compose more powerful new
+ * functions. It can be thought of as a normal node graph with the important constraint, that every
+ * input socket has to be linked to some output.
+ *
+ * The graph itself does not represent a new function. Only when some sockets are selected as
+ * inputs and outputs, a new function can be created from it.
+ *
+ * Every node in the graph contains one function. The inputs and outputs of the node correspond to
+ * the inputs and outputs of the function.
+ *
+ * This data structure is immutable once it has been created. This allows it to implement very
+ * efficient ways to iterate over it. To create a new data flow graph, the corresponding builder
+ * should be used. That makes it much easier to dynamically add nodes and links at build-time.
+ *
+ * A data flow graph is reference counted and can therefore have multiple owners.
+ *
+ * Every node in the graph is identified by an integer. The identifiers are all in [0, #nodes - 1].
+ * Similarly, every input and output socket is identified by an integer. However, an input and an
+ * output socket can have the same identifier. So, to identify any socket, its ID and whether it is
+ * an output or output has to be stored.
+ */
+
 #include "function.hpp"
 #include "data_flow_graph_builder.hpp"
 #include "BLI_range.hpp"
 
 namespace FN {
 
+/**
+ * Represents any socket in the graph by storing its ID and whether it is an input or output.
+ */
 struct DFGraphSocket {
  private:
   bool m_is_output;
@@ -47,6 +73,10 @@ struct DFGraphSocket {
   }
 };
 
+/**
+ * An iterator over sockets. This type should never appear in user code. Instead it is either used
+ * directly in a range-for loop or it should be used with the auto keyword.
+ */
 template<typename IdIteratorT> class DFGraphSocketIterator {
  private:
   bool m_is_output;
@@ -74,6 +104,10 @@ template<typename IdIteratorT> class DFGraphSocketIterator {
   }
 };
 
+/**
+ * An iterator over sockets. This type should never appear in user code. Instead it is either used
+ * directly in a range-for loop or it should be used with the auto keyword.
+ */
 template<typename SequenceT> class DFGraphSocketSequence {
  private:
   bool m_is_output;
