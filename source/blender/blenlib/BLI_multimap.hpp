@@ -79,12 +79,17 @@ template<typename K, typename V> class MultiMap {
 
   bool has_at_least_one_value(const K &key) const
   {
+    return this->values_for_key(key) >= 1;
+  }
+
+  uint values_for_key(const K &key) const
+  {
     Entry *entry = m_map.lookup_ptr(key);
     if (entry == nullptr) {
-      return false;
+      return 0;
     }
     else {
-      return entry->length >= 1;
+      return entry->length;
     }
   }
 

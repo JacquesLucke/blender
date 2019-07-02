@@ -49,3 +49,15 @@ TEST(multimap, AddMany)
   EXPECT_EQ(map.lookup(6)[1], 16);
   EXPECT_EQ(map.lookup(7).size(), 10);
 }
+
+TEST(multimap, ValuesForKey)
+{
+  IntMap map;
+  map.add(3, 5);
+  map.add(3, 7);
+  map.add(3, 8);
+  map.add(4, 2);
+  map.add(4, 3);
+  EXPECT_EQ(map.values_for_key(3), 3);
+  EXPECT_EQ(map.values_for_key(4), 2);
+}
