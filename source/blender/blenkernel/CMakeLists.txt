@@ -161,6 +161,7 @@ set(SRC
   intern/multires_subdiv.c
   intern/nla.c
   intern/node.c
+  intern/node_tree.cpp
   intern/object.c
   intern/object_deform.c
   intern/object_dupli.c
@@ -307,6 +308,7 @@ set(SRC
   BKE_multires.h
   BKE_nla.h
   BKE_node.h
+  BKE_node_tree.hpp
   BKE_object.h
   BKE_object_deform.h
   BKE_object_facemap.h

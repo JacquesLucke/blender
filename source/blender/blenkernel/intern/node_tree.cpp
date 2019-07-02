@@ -1,11 +1,8 @@
-#include "btree_lookup.hpp"
+#include "BKE_node_tree.hpp"
 
-#include "DNA_node_types.h"
+namespace BKE {
 
-namespace FN {
-namespace DataFlowNodes {
-
-BTreeLookup::BTreeLookup(bNodeTree *btree)
+BNodeTreeLookup::BNodeTreeLookup(bNodeTree *btree)
 {
   for (bNode *bnode : bNodeList(&btree->nodes)) {
     for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
@@ -34,7 +31,7 @@ BTreeLookup::BTreeLookup(bNodeTree *btree)
   }
 }
 
-bNodeSocket *BTreeLookup::try_find_data_origin(bNodeSocket *bsocket)
+bNodeSocket *BNodeTreeLookup::try_find_data_origin(bNodeSocket *bsocket)
 {
   BLI_assert(bsocket->in_out == SOCK_IN);
   if (m_direct_origin.contains(bsocket)) {
@@ -52,10 +49,9 @@ bNodeSocket *BTreeLookup::try_find_data_origin(bNodeSocket *bsocket)
   }
 }
 
-bool BTreeLookup::is_reroute(bNode *bnode)
+bool BNodeTreeLookup::is_reroute(bNode *bnode)
 {
   return STREQ(bnode->idname, "NodeReroute");
 }
 
-}  // namespace DataFlowNodes
-}  // namespace FN
+}  // namespace BKE

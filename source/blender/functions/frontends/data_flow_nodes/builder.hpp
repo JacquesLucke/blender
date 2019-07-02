@@ -1,17 +1,17 @@
 #pragma once
 
 #include "FN_core.hpp"
-#include "./util_wrappers.hpp"
+#include "BKE_node_tree.hpp"
 
-struct bNode;
-struct bNodeLink;
-struct bNodeTree;
-struct bNodeSocket;
 struct ID;
 struct PointerRNA;
 
 namespace FN {
 namespace DataFlowNodes {
+
+using BKE::bLinkList;
+using BKE::bNodeList;
+using BKE::bSocketList;
 
 class BTreeGraphBuilder {
  private:

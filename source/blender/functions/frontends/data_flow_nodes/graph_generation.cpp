@@ -1,14 +1,14 @@
 #include "graph_generation.hpp"
 
 #include "inserters.hpp"
-#include "util_wrappers.hpp"
-#include "btree_lookup.hpp"
 
 #include "DNA_node_types.h"
 #include "FN_types.hpp"
 
 namespace FN {
 namespace DataFlowNodes {
+
+using BKE::BNodeTreeLookup;
 
 static bool is_input_node(const bNode *bnode)
 {
@@ -139,7 +139,7 @@ static DFGB_SocketVector insert_function_output(BTreeGraphBuilder &builder)
 
 static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
 {
-  BTreeLookup btree_lookup(builder.btree());
+  BNodeTreeLookup btree_lookup(builder.btree());
   for (auto &link : btree_lookup.data_links()) {
     if (!inserters.insert_link(builder, link.from, link.to, link.source_link)) {
       return false;

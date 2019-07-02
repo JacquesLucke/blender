@@ -24,6 +24,10 @@
  * \ingroup bke
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "BLI_compiler_compat.h"
 #include "BLI_ghash.h"
 
@@ -1273,5 +1277,9 @@ void BKE_nodetree_shading_params_eval(struct Depsgraph *depsgraph,
 
 extern struct bNodeType NodeTypeUndefined;
 extern struct bNodeSocketType NodeSocketTypeUndefined;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __BKE_NODE_H__ */

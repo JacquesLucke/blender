@@ -132,15 +132,12 @@ set(SRC
   frontends/data_flow_nodes/function_generation.cpp
   frontends/data_flow_nodes/graph_generation.hpp
   frontends/data_flow_nodes/graph_generation.cpp
-  frontends/data_flow_nodes/btree_lookup.hpp
-  frontends/data_flow_nodes/btree_lookup.cpp
   frontends/data_flow_nodes/inserters.hpp
   frontends/data_flow_nodes/inserters.cpp
   frontends/data_flow_nodes/registry.hpp
   frontends/data_flow_nodes/inserters/nodes.cpp
   frontends/data_flow_nodes/inserters/sockets.cpp
   frontends/data_flow_nodes/inserters/conversions.cpp
-  frontends/data_flow_nodes/util_wrappers.hpp
   frontends/data_flow_nodes/data_flow_nodes-c.h
   frontends/data_flow_nodes/data_flow_nodes-c.cpp
 )

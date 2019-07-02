@@ -4,7 +4,6 @@
 #include <functional>
 #include "BLI_optional.hpp"
 #include "FN_tuple_call.hpp"
-#include "util_wrappers.hpp"
 
 struct PointerRNA;
 
