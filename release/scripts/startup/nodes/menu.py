@@ -1,9 +1,10 @@
 import bpy
 from . function_tree import FunctionTree
+from . bparticles_tree import BParticlesTree
 
 def draw_menu(self, context):
     tree = context.space_data.node_tree
-    if not isinstance(tree, FunctionTree):
+    if not isinstance(tree, (FunctionTree, BParticlesTree)):
         return
 
     layout = self.layout

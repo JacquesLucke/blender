@@ -205,6 +205,9 @@ class BaseSocket:
 class FunctionNode(BaseNode):
     pass
 
+class BParticlesNode(BaseNode):
+    pass
+
 class DataSocket(BaseSocket):
     data_type: StringProperty(
         maxlen=64)

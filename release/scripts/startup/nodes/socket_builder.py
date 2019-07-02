@@ -6,6 +6,7 @@ from . declaration import (
     TreeInterfaceDecl,
     VectorizedInputDecl,
     VectorizedOutputDecl,
+    EmitterSocketDecl,
 )
 
 class SocketBuilder:
@@ -164,6 +165,18 @@ class SocketBuilder:
         decl = VectorizedOutputDecl(
             self.node, identifier, input_prop_names,
             base_name, list_name, base_type)
+        self._add_output(decl)
+
+
+    # BParticles
+    ###################################
+
+    def emitter_input(self, identifier, name):
+        decl = EmitterSocketDecl(self.node, identifier, name)
+        self._add_input(decl)
+
+    def emitter_output(self, identifier, name):
+        decl = EmitterSocketDecl(self.node, identifier, name)
         self._add_output(decl)
 
 
