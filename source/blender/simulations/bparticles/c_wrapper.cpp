@@ -14,6 +14,7 @@
 #include "BKE_bvhutils.h"
 #include "BKE_mesh.h"
 #include "BKE_customdata.h"
+#include "BKE_node_tree.hpp"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -33,6 +34,7 @@
 
 using namespace BParticles;
 
+using BKE::BNodeTreeLookup;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::SmallVector;
@@ -217,6 +219,11 @@ class ModifierStepDescription : public StepDescription {
     return *m_types.lookup(type_id);
   }
 };
+
+// ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree)
+// {
+//   BNodeTreeLookup btree_lookup(btree);
+// }
 
 void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
                                   Depsgraph *UNUSED(depsgraph),

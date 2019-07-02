@@ -2,9 +2,9 @@
 
 namespace BKE {
 
-BNodeTreeLookup::BNodeTreeLookup(bNodeTree *btree)
+BNodeTreeLookup::BNodeTreeLookup(bNodeTree *btree) : m_nodes(btree->nodes, true)
 {
-  for (bNode *bnode : bNodeList(&btree->nodes)) {
+  for (bNode *bnode : m_nodes) {
     for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
       m_node_by_socket.add(bsocket, bnode);
     }
@@ -52,6 +52,17 @@ bNodeSocket *BNodeTreeLookup::try_find_data_origin(bNodeSocket *bsocket)
 bool BNodeTreeLookup::is_reroute(bNode *bnode)
 {
   return STREQ(bnode->idname, "NodeReroute");
+}
+
+SmallVector<bNode *> BNodeTreeLookup::nodes_with_idname(StringRef idname)
+{
+  SmallVector<bNode *> result;
+  for (bNode *bnode : m_nodes) {
+    if (bnode->idname == idname) {
+      result.append(bnode);
+    }
+  }
+  return result;
 }
 
 }  // namespace BKE

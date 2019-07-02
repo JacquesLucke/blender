@@ -23,6 +23,7 @@ set(INC
   ..
   ../../../source/blender/blenlib
   ../../../source/blender/functions
+  ../../../source/blender/makesdna
   ../../../intern/guardedalloc
   ${LLVM_INCLUDE_DIRS}
 )
