@@ -1,5 +1,11 @@
 #pragma once
 
+/**
+ * The SourceInfo class is used to track debugging information through the various stages of
+ * building an function. It is not directly part of a function, because the same function can be
+ * used in very different contexts.
+ */
+
 #include <string>
 
 namespace FN {

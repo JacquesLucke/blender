@@ -1,5 +1,11 @@
 #pragma once
 
+/**
+ * A function graph is a data flow graph with specified inputs and outputs. Therefore, it can be
+ * used to define new functions. Multiple function graphs can be build on top of the same data flow
+ * graph.
+ */
+
 #include "data_flow_graph.hpp"
 
 namespace FN {
@@ -40,7 +46,16 @@ class FunctionGraph {
     return m_outputs;
   }
 
+  /**
+   * Create a new function with the given name. The inputs and outputs correspond to the sockets in
+   * the graph. The returned function does not contain any bodies.
+   */
   SharedFunction new_function(StringRef name) const;
+
+  /**
+   * Get a subset of all sockets in the graph that can influence the function execution (under the
+   * assumption, that functions do not have side effects).
+   */
   SmallSet<DFGraphSocket> find_used_sockets(bool include_inputs, bool include_outputs) const;
 };
 

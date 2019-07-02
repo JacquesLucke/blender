@@ -1,5 +1,12 @@
 #pragma once
 
+/**
+ * This should be used to construct new data flow graphs. Nodes and links can be added dynamically.
+ * At the same time is it possible to query information (like connected sockets) at any point.
+ * Once all nodes and links are inserted, the actual data flow graph can be build from it, which
+ * allows much faster queries, but cannot be changed anymore.
+ */
+
 #include "function.hpp"
 #include "source_info.hpp"
 
