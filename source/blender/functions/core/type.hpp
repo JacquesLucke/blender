@@ -90,7 +90,6 @@ class Type final : public RefCountedBase {
 };
 
 using SharedType = AutoRefCount<Type>;
-using TypeVector = SmallVector<SharedType>;
 
 } /* namespace FN */
 
