@@ -87,14 +87,14 @@ TEST(small_map, PopItemMany)
   }
 }
 
-TEST(small_map, LookupPtrOrInsert)
+TEST(small_map, LookupRefOrInsert)
 {
   IntFloatMap map;
-  float *value = map.lookup_ptr_or_insert(3, 5.0f);
-  EXPECT_EQ(*value, 5.0f);
-  *value += 1;
-  value = map.lookup_ptr_or_insert(3, 5.0f);
-  EXPECT_EQ(*value, 6.0f);
+  float &value = map.lookup_ref_or_insert(3, 5.0f);
+  EXPECT_EQ(value, 5.0f);
+  value += 1;
+  value = map.lookup_ref_or_insert(3, 5.0f);
+  EXPECT_EQ(value, 6.0f);
 }
 
 TEST(small_map, ValueIterator)
@@ -170,73 +170,32 @@ float return_42()
   return 42.0f;
 }
 
-TEST(small_map, LookupOrInsertFunc_NoArgs)
+TEST(small_map, LookupOrInsertFunc_SeparateFunction)
 {
   IntFloatMap map;
   EXPECT_EQ(map.lookup_ref_or_insert_func(0, return_42), 42.0f);
   EXPECT_EQ(map.lookup(0), 42);
 }
 
-float return_identity(float a)
-{
-  return a;
-}
-
-TEST(small_map, LookupOrInsertFunc_SingleArg)
+TEST(small_map, LookupOrInsertFunc_Lambdas)
 {
   IntFloatMap map;
-  EXPECT_EQ(map.lookup_ref_or_insert_func(1, return_identity, 5.0f), 5.0f);
-  EXPECT_EQ(map.lookup(1), 5.0f);
+  auto lambda1 = []() { return 11.0f; };
+  EXPECT_EQ(map.lookup_ref_or_insert_func(0, lambda1), 11.0f);
+  auto lambda2 = []() { return 20.0f; };
+  EXPECT_EQ(map.lookup_ref_or_insert_func(1, lambda2), 20.0f);
+
+  EXPECT_EQ(map.lookup_ref_or_insert_func(0, lambda2), 11.0f);
+  EXPECT_EQ(map.lookup_ref_or_insert_func(1, lambda1), 20.0f);
 }
 
-float add_func(float a, float b)
-{
-  return a + b;
-}
-
-TEST(small_map, LookupOrInsertFunc_TwoArgs)
-{
-  IntFloatMap map;
-  EXPECT_EQ(map.lookup_ref_or_insert_func(2, add_func, 4.0f, 6.0f), 10.0f);
-  EXPECT_EQ(map.lookup(2), 10.0f);
-}
-
-TEST(small_map, LookupOrInsertFunc_NoReinsert)
+TEST(small_map, InsertOrModify)
 {
   IntFloatMap map;
-  EXPECT_EQ(map.lookup_ref_or_insert_func(2, return_identity, 4.0f), 4.0f);
-  EXPECT_EQ(map.lookup_ref_or_insert_func(2, return_identity, 6.0f), 4.0f);
-  EXPECT_EQ(map.lookup_ref_or_insert_func(2, return_identity, 8.0f), 4.0f);
-  EXPECT_EQ(map.size(), 1);
-}
-
-float inc_value_and_return_42(int *ptr)
-{
-  *ptr += 1;
-  return 42.0f;
-}
-
-TEST(small_map, LookupOrInsertFunc_FuncCalledOnce)
-{
-  int counter = 0;
-  IntFloatMap map;
-  EXPECT_EQ(map.lookup_ref_or_insert_func(0, inc_value_and_return_42, &counter), 42.0f);
-  EXPECT_EQ(counter, 1);
-  EXPECT_EQ(map.lookup_ref_or_insert_func(0, inc_value_and_return_42, &counter), 42.0f);
-  EXPECT_EQ(counter, 1);
-}
-
-float add_10(const int &value)
-{
-  return value + 10.0f;
-}
-
-TEST(small_map, LookupOrInsertKeyFunc)
-{
-  IntFloatMap map;
-  EXPECT_EQ(map.lookup_ref_or_insert_key_func(4, add_10), 14.0f);
-  EXPECT_EQ(map.lookup_ref_or_insert_key_func(10, add_10), 20.0f);
-
-  EXPECT_EQ(map.lookup(4), 14.0f);
-  EXPECT_EQ(map.lookup(10), 20.0f);
+  auto create_func = []() { return 10.0f; };
+  auto modify_func = [](float &value) { value += 5; };
+  EXPECT_TRUE(map.insert_or_modify(1, create_func, modify_func));
+  EXPECT_EQ(map.lookup(1), 10.0f);
+  EXPECT_FALSE(map.insert_or_modify(1, create_func, modify_func));
+  EXPECT_EQ(map.lookup(1), 15.0f);
 }

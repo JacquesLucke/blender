@@ -162,43 +162,55 @@ template<typename K, typename V, uint N = 4> class SmallMap {
   }
 
   /**
-   * Return the pointer to the value corresponding to the key.
+   * Return a reference to the value corresponding to the key.
    * If the key does not exist yet, insert the given key-value-pair first.
    */
-  V *lookup_ptr_or_insert(const K &key, V initial_value)
+  V &lookup_ref_or_insert(const K &key, V initial_value)
   {
     V *ptr = this->lookup_ptr(key);
-    if (ptr == nullptr) {
-      this->add_new(key, initial_value);
-      ptr = &m_entries[m_entries.size() - 1].value;
+    if (ptr != nullptr) {
+      return *ptr;
     }
-    return ptr;
+    this->add_new(key, initial_value);
+    return m_entries[m_entries.size() - 1].value;
   }
 
   /**
    * Return a reference to the value corresponding to the key.
-   * If the key does not exist yet, the given function will be called
-   * with the given parameters, to create the value that will be stored for the key.
+   * If the key does not exist yet, create the value by calling the function, and insert the
+   * key-value pair.
    */
-  template<typename... Args>
-  V &lookup_ref_or_insert_func(const K &key, V (*create_value)(Args... args), Args &&... args)
+  template<typename CreateValueFunc>
+  V &lookup_ref_or_insert_func(const K &key, const CreateValueFunc &create_value)
   {
-    V *value = this->lookup_ptr(key);
-    if (value != NULL) {
-      return *value;
+    V *ptr = this->lookup_ptr(key);
+    if (ptr != nullptr) {
+      return *ptr;
     }
-    this->add_new(key, create_value(std::forward<Args>(args)...));
-    return this->lookup_ref(key);
+
+    this->add_new(key, create_value());
+    return m_entries[m_entries.size() - 1].value;
   }
 
   /**
-   * Returns a reference to the value corresponding to the key.
-   * If the key does not exist yet, the given function will be called
-   * with the key as parameter, to create the value that will be stored for the key.
+   * Insert a new value for the given key or modify the existing one.
+   * Return true when a new value was inserted, false otherwise.
    */
-  V &lookup_ref_or_insert_key_func(const K &key, V (*create_value)(const K &key))
+  template<typename CreateValueFunc, typename ModifyValueFunc>
+  bool insert_or_modify(const K &key,
+                        const CreateValueFunc &create_value,
+                        const ModifyValueFunc &modify_value)
   {
-    return lookup_ref_or_insert_func(key, create_value, key);
+    uint desired_new_index = m_entries.size();
+    uint value_index = m_lookup.add(m_entries.begin(), key, desired_new_index);
+    if (value_index == desired_new_index) {
+      m_entries.append({key, create_value()});
+      return true;
+    }
+    else {
+      modify_value(m_entries[value_index].value);
+      return false;
+    }
   }
 
   /**
