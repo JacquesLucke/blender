@@ -21,12 +21,13 @@ NodeTreeQuery::NodeTreeQuery(bNodeTree *btree)
   }
 
   for (bNodeLink *blink : m_links) {
-    if (!this->is_reroute(blink->fromnode)) {
+    if (!this->is_reroute(blink->fromnode) &&
+        !m_links_without_reroutes.contains(blink->fromsock)) {
       SmallVector<bNodeSocket *> others;
       this->find_connected_sockets_right(blink->fromsock, others);
       m_links_without_reroutes.add_multiple_new(blink->fromsock, others);
     }
-    if (!this->is_reroute(blink->tonode)) {
+    if (!this->is_reroute(blink->tonode) && !m_links_without_reroutes.contains(blink->tosock)) {
       SmallVector<bNodeSocket *> others;
       this->find_connected_sockets_left(blink->tosock, others);
       m_links_without_reroutes.add_multiple_new(blink->tosock, others);

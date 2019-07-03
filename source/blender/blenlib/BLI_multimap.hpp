@@ -92,6 +92,7 @@ template<typename K, typename V, uint N = 4> class ValueArrayMap {
 
   void add_multiple_new(const K &key, ArrayRef<V> values)
   {
+    BLI_assert(!m_map.contains(key));
     for (const V &value : values) {
       this->add(key, value);
     }
