@@ -75,9 +75,9 @@ static FnFunction getCurrentFunction(DisplaceModifierData *dmd)
 
   FnType float_ty = FN_type_borrow_float();
   FnType int32_ty = FN_type_borrow_int32();
-  FnType fvec3_ty = FN_type_borrow_fvec3();
+  FnType float3_ty = FN_type_borrow_float3();
 
-  FnType inputs[] = {fvec3_ty, int32_ty, NULL};
+  FnType inputs[] = {float3_ty, int32_ty, NULL};
   FnType outputs[] = {float_ty, NULL};
 
   return FN_function_get_with_signature(tree, inputs, outputs);
@@ -223,7 +223,7 @@ static void displaceModifier_do_task(void *__restrict userdata,
 
     FN_TUPLE_CALL_PREPARE_STACK(body, fn_in, fn_out);
 
-    FN_tuple_set_fvec3(fn_in, 0, vertexCos[iter]);
+    FN_tuple_set_float3(fn_in, 0, vertexCos[iter]);
     FN_tuple_set_int32(fn_in, 1, iter);
 
     FN_tuple_call_invoke(body, fn_in, fn_out, __func__);

@@ -31,9 +31,9 @@ static FnType get_type_with_increased_refcount(const SharedType &type)
 
 SIMPLE_TYPE_GETTER(float);
 SIMPLE_TYPE_GETTER(int32);
-SIMPLE_TYPE_GETTER(fvec3);
+SIMPLE_TYPE_GETTER(float3);
 SIMPLE_TYPE_GETTER(float_list);
-SIMPLE_TYPE_GETTER(fvec3_list);
+SIMPLE_TYPE_GETTER(float3_list);
 
 #define LIST_WRAPPER(name, ptr_type, list_type) \
   uint FN_list_size_##name(list_type list) \
@@ -50,4 +50,4 @@ SIMPLE_TYPE_GETTER(fvec3_list);
   }
 
 LIST_WRAPPER(float, float *, FnFloatList);
-LIST_WRAPPER(fvec3, float *, FnFVec3List);
+LIST_WRAPPER(float3, float *, FnFloat3List);

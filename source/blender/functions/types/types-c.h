@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 typedef struct OpaqueFnFloatList *FnFloatList;
-typedef struct OpaqueFnFVec3List *FnFVec3List;
+typedef struct OpaqueFnFloat3List *FnFloat3List;
 
 const char *FN_type_name(FnType type);
 void FN_type_free(FnType type);
@@ -19,9 +19,9 @@ void FN_type_free(FnType type);
 
 TYPE_GET_AND_BORROW(float);
 TYPE_GET_AND_BORROW(int32);
-TYPE_GET_AND_BORROW(fvec3);
+TYPE_GET_AND_BORROW(float3);
 TYPE_GET_AND_BORROW(float_list);
-TYPE_GET_AND_BORROW(fvec3_list);
+TYPE_GET_AND_BORROW(float3_list);
 #undef TYPE_GET_AND_BORROW
 
 #define LIST_TYPE(name, ptr_type, list_type) \
@@ -30,7 +30,7 @@ TYPE_GET_AND_BORROW(fvec3_list);
   void FN_list_free_##name(list_type list);
 
 LIST_TYPE(float, float *, FnFloatList);
-LIST_TYPE(fvec3, float *, FnFVec3List);
+LIST_TYPE(float3, float *, FnFloat3List);
 #undef LIST_TYPE
 
 #ifdef __cplusplus
@@ -40,7 +40,7 @@ LIST_TYPE(fvec3, float *, FnFVec3List);
 #  include "numeric.hpp"
 
 WRAPPERS(FN::Types::List<float> *, FnFloatList);
-WRAPPERS(FN::Types::List<FN::Types::Vector> *, FnFVec3List);
+WRAPPERS(FN::Types::List<BLI::float3> *, FnFloat3List);
 
 #endif /* __cplusplus */
 

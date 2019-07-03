@@ -224,7 +224,7 @@ BLI_LAZY_INIT_STATIC(ListFunctions, get_list_functions)
 {
   ListFunctions functions;
   insert_list_functions_for_type<float>(functions, GET_TYPE_float(), GET_TYPE_float_list());
-  insert_list_functions_for_type<Vector>(functions, GET_TYPE_fvec3(), GET_TYPE_fvec3_list());
+  insert_list_functions_for_type<float3>(functions, GET_TYPE_float3(), GET_TYPE_float3_list());
   insert_list_functions_for_type<int32_t>(functions, GET_TYPE_int32(), GET_TYPE_int32_list());
   insert_list_functions_for_type<bool>(functions, GET_TYPE_bool(), GET_TYPE_bool_list());
   return functions;

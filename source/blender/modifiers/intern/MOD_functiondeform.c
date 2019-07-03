@@ -59,10 +59,10 @@ static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
 
   FnType float_ty = FN_type_borrow_float();
   FnType int32_ty = FN_type_borrow_int32();
-  FnType fvec3_ty = FN_type_borrow_fvec3();
+  FnType float3_ty = FN_type_borrow_float3();
 
-  FnType inputs[] = {fvec3_ty, int32_ty, float_ty, NULL};
-  FnType outputs[] = {fvec3_ty, NULL};
+  FnType inputs[] = {float3_ty, int32_ty, float_ty, NULL};
+  FnType outputs[] = {float3_ty, NULL};
 
   return FN_function_get_with_signature(tree, inputs, outputs);
 }
@@ -85,13 +85,13 @@ static void do_deformation(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   int seed = fdmd->control2 * 234132;
 
   for (int i = 0; i < numVerts; i++) {
-    FN_tuple_set_fvec3(fn_in, 0, vertexCos[i]);
+    FN_tuple_set_float3(fn_in, 0, vertexCos[i]);
     FN_tuple_set_int32(fn_in, 1, seed + i);
     FN_tuple_set_float(fn_in, 2, fdmd->control1);
 
     FN_tuple_call_invoke(body, fn_in, fn_out, __func__);
 
-    FN_tuple_get_fvec3(fn_out, 0, vertexCos[i]);
+    FN_tuple_get_float3(fn_out, 0, vertexCos[i]);
   }
 
   clock_t end = clock();

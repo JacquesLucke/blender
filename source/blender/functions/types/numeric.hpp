@@ -1,27 +1,16 @@
 #pragma once
 
 #include "../FN_core.hpp"
+#include "BLI_math.hpp"
 
 namespace FN {
 namespace Types {
 
-struct Vector {
-  float x, y, z;
-
-  Vector() = default;
-
-  Vector(float x, float y, float z) : x(x), y(y), z(z)
-  {
-  }
-
-  Vector(float *vec) : x(vec[0]), y(vec[1]), z(vec[2])
-  {
-  }
-};
+using BLI::float3;
 
 SharedType &GET_TYPE_float();
 SharedType &GET_TYPE_int32();
-SharedType &GET_TYPE_fvec3();
+SharedType &GET_TYPE_float3();
 
 }  // namespace Types
 }  // namespace FN

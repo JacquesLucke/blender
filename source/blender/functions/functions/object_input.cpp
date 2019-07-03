@@ -23,11 +23,11 @@ class ObjectTransforms : public TupleCallBody {
   void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
     if (m_object) {
-      Vector position = *(Vector *)m_object->loc;
-      fn_out.set<Vector>(0, position);
+      float3 position = m_object->loc;
+      fn_out.set<float3>(0, position);
     }
     else {
-      fn_out.set<Vector>(0, Vector());
+      fn_out.set<float3>(0, float3());
     }
   }
 };
@@ -50,7 +50,7 @@ class ObjectTransformsDependency : public DependenciesBody {
 SharedFunction GET_FN_object_location(Object *object)
 {
   FunctionBuilder builder;
-  builder.add_output("Location", GET_TYPE_fvec3());
+  builder.add_output("Location", GET_TYPE_float3());
   auto fn = builder.build("Object Transforms");
   fn->add_body<ObjectTransforms>(object);
   fn->add_body<ObjectTransformsDependency>(object);

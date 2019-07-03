@@ -64,10 +64,10 @@ class FloatVectorType : public TrivialLLVMTypeInfo {
   }
 };
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_fvec3)
+BLI_LAZY_INIT(SharedType, GET_TYPE_float3)
 {
-  SharedType type = SharedType::New("FVec3");
-  type->add_extension<CPPTypeInfoForType<Vector>>();
+  SharedType type = SharedType::New("Float3");
+  type->add_extension<CPPTypeInfoForType<float3>>();
   type->add_extension<FloatVectorType>(3);
   return type;
 }

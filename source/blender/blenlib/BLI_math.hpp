@@ -138,6 +138,11 @@ struct float3 {
   {
     return a.x * b.x + a.y * b.y + a.z * b.z;
   }
+
+  static float distance(float3 a, float3 b)
+  {
+    return (a - b).length();
+  }
 };
 
 struct float4x4 {

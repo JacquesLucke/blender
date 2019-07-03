@@ -41,9 +41,9 @@ BLI_LAZY_INIT(SharedType, GET_TYPE_float_list)
   return create_list_type<float>("Float List");
 }
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_fvec3_list)
+BLI_LAZY_INIT(SharedType, GET_TYPE_float3_list)
 {
-  return create_list_type<Vector>("FVec3 List");
+  return create_list_type<float3>("Float3 List");
 }
 
 BLI_LAZY_INIT(SharedType, GET_TYPE_int32_list)
