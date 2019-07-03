@@ -23,7 +23,7 @@
 
 #define ITER_SLOTS(KEY, SLOT, STATE) \
   uint32_t SLOT, SLOT##_perturb; \
-  Index STATE; \
+  int STATE; \
   for (this->first_slot(KEY, &SLOT, &SLOT##_perturb), STATE = m_map[SLOT];; \
        this->next_slot(&SLOT, &SLOT##_perturb), STATE = m_map[SLOT])
 
@@ -52,8 +52,7 @@ template<typename Key,
          uint N = 4,
          typename Item = Key,
          const Key &GetKey(const Item &entry) = get_key_from_item,
-         typename Hash = ArrayLookupHash<Key>,
-         typename Index = int>
+         typename Hash = ArrayLookupHash<Key>>
 class ArrayLookup {
  private:
   static constexpr uint calc_exp(uint n)
@@ -62,7 +61,7 @@ class ArrayLookup {
   }
 
   static const uint N_EXP = calc_exp(N);
-  using Mapping = SmallVector<Index, (1 << N_EXP)>;
+  using Mapping = SmallVector<int, (1 << N_EXP)>;
 
   Mapping m_map;
   uint m_length;
@@ -92,7 +91,7 @@ class ArrayLookup {
     }
   }
 
-  bool add(Item *array, const Key &key, Index potential_index)
+  bool add(Item *array, const Key &key, uint potential_index)
   {
     int dummy_slot = -1;
     ITER_SLOTS (key, slot, state) {
@@ -124,7 +123,7 @@ class ArrayLookup {
     }
   }
 
-  void add_new(Item *array, Index index)
+  void add_new(Item *array, uint index)
   {
     this->ensure_can_add(array);
     const Key &key = GetKey(array[index]);
@@ -132,7 +131,7 @@ class ArrayLookup {
     m_length++;
   }
 
-  void update_index(const Key &key, Index old_index, Index new_index)
+  void update_index(const Key &key, uint old_index, uint new_index)
   {
     ITER_SLOTS (key, slot, state) {
       BLI_assert(state != SLOT_EMPTY);
@@ -143,7 +142,7 @@ class ArrayLookup {
     }
   }
 
-  Index find(Item *array, const Key &key) const
+  int find(Item *array, const Key &key) const
   {
     ITER_SLOTS (key, slot, state) {
       if (state == SLOT_EMPTY) {
@@ -158,7 +157,7 @@ class ArrayLookup {
     }
   }
 
-  void remove(const Key &key, Index index)
+  void remove(const Key &key, uint index)
   {
     ITER_SLOTS (key, slot, state) {
       BLI_assert(state != SLOT_EMPTY);
@@ -171,7 +170,7 @@ class ArrayLookup {
     }
   }
 
-  Index remove(Item *array, const Key &key)
+  uint remove(Item *array, const Key &key)
   {
     BLI_assert(this->contains(array, key));
     ITER_SLOTS (key, slot, state) {
@@ -212,7 +211,7 @@ class ArrayLookup {
     m_slot_mask = size - 1;
   }
 
-  inline void insert_index_for_key(const Key &key, Index index)
+  inline void insert_index_for_key(const Key &key, uint index)
   {
     ITER_SLOTS (key, slot, state) {
       if (state == SLOT_EMPTY) {
@@ -227,7 +226,7 @@ class ArrayLookup {
     }
   }
 
-  inline void insert_index_for_key__no_dummy(const Key &key, Index index)
+  inline void insert_index_for_key__no_dummy(const Key &key, uint index)
   {
     ITER_SLOTS (key, slot, state) {
       BLI_assert(state != SLOT_DUMMY);
