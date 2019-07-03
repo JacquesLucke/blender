@@ -225,16 +225,39 @@ class ModifierStepDescription : public StepDescription {
   }
 };
 
+class BParticlesTreeQuery : public NodeTreeQuery {
+ private:
+  SmallVector<bNode *> m_particle_type_nodes;
+  SmallVector<bNode *> m_emitter_nodes;
+
+ public:
+  BParticlesTreeQuery(bNodeTree *btree) : NodeTreeQuery(btree)
+  {
+    m_particle_type_nodes = this->nodes_with_idname("bp_ParticleTypeNode");
+    m_emitter_nodes = this->nodes_with_idname("bp_MeshEmitterNode");
+  }
+
+  ArrayRef<bNode *> type_nodes() const
+  {
+    return m_particle_type_nodes;
+  }
+
+  ArrayRef<bNode *> emitter_nodes() const
+  {
+    return m_emitter_nodes;
+  }
+};
+
 static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree)
 {
   ModifierStepDescription *step_description = new ModifierStepDescription();
-  NodeTreeQuery btree_query(btree);
+  BParticlesTreeQuery btree_query(btree);
 
   SmallMap<bNode *, uint> id_per_type_node;
 
-  auto particle_type_nodes = btree_query.nodes_with_idname("bp_ParticleTypeNode");
-  for (uint i = 0; i < particle_type_nodes.size(); i++) {
-    bNode *particle_type_node = particle_type_nodes[i];
+  auto type_nodes = btree_query.type_nodes();
+  for (uint i = 0; i < type_nodes.size(); i++) {
+    bNode *particle_type_node = type_nodes[i];
 
     ModifierParticleType *type = new ModifierParticleType();
     type->m_integrator = new EulerIntegrator();
@@ -243,7 +266,7 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
     id_per_type_node.add_new(particle_type_node, i);
   }
 
-  auto emitter_nodes = btree_query.nodes_with_idname("bp_MeshEmitterNode");
+  auto emitter_nodes = btree_query.emitter_nodes();
   for (bNode *emitter_node : emitter_nodes) {
     bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
     auto connected_nodes = btree_query.nodes_connected_to_socket(emitter_output);

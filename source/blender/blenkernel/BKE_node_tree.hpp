@@ -32,17 +32,17 @@ class NodeTreeQuery {
     bNodeLink *source_link;
   };
 
-  const ArrayRef<SingleOriginLink> single_origin_links()
+  const ArrayRef<SingleOriginLink> single_origin_links() const
   {
     return m_single_origin_links;
   }
 
-  SmallVector<bNode *> nodes_with_idname(StringRef idname);
-  SmallVector<bNode *> nodes_connected_to_socket(bNodeSocket *bsocket);
+  SmallVector<bNode *> nodes_with_idname(StringRef idname) const;
+  SmallVector<bNode *> nodes_connected_to_socket(bNodeSocket *bsocket) const;
 
  private:
-  bool is_reroute(bNode *bnode);
-  bNodeSocket *try_find_single_origin(bNodeSocket *bsocket);
+  bool is_reroute(bNode *bnode) const;
+  bNodeSocket *try_find_single_origin(bNodeSocket *bsocket) const;
 
   SmallVector<bNode *> m_nodes;
   SmallMap<bNodeSocket *, bNode *> m_node_by_socket;

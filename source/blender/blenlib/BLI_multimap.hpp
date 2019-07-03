@@ -100,7 +100,7 @@ template<typename K, typename V> class MultiMap {
     return ArrayRef<V>(entry.ptr, entry.length);
   }
 
-  ArrayRef<V> lookup_default(const K &key, ArrayRef<V> default_return = ArrayRef<V>())
+  ArrayRef<V> lookup_default(const K &key, ArrayRef<V> default_return = ArrayRef<V>()) const
   {
     Entry *entry = m_map.lookup_ptr(key);
     if (entry == nullptr) {

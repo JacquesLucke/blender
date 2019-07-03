@@ -31,7 +31,7 @@ NodeTreeQuery::NodeTreeQuery(bNodeTree *btree) : m_nodes(btree->nodes, true)
   }
 }
 
-bNodeSocket *NodeTreeQuery::try_find_single_origin(bNodeSocket *bsocket)
+bNodeSocket *NodeTreeQuery::try_find_single_origin(bNodeSocket *bsocket) const
 {
   BLI_assert(bsocket->in_out == SOCK_IN);
   if (m_direct_links.values_for_key(bsocket) == 1) {
@@ -49,12 +49,12 @@ bNodeSocket *NodeTreeQuery::try_find_single_origin(bNodeSocket *bsocket)
   }
 }
 
-bool NodeTreeQuery::is_reroute(bNode *bnode)
+bool NodeTreeQuery::is_reroute(bNode *bnode) const
 {
   return STREQ(bnode->idname, "NodeReroute");
 }
 
-SmallVector<bNode *> NodeTreeQuery::nodes_with_idname(StringRef idname)
+SmallVector<bNode *> NodeTreeQuery::nodes_with_idname(StringRef idname) const
 {
   SmallVector<bNode *> result;
   for (bNode *bnode : m_nodes) {
@@ -65,7 +65,7 @@ SmallVector<bNode *> NodeTreeQuery::nodes_with_idname(StringRef idname)
   return result;
 }
 
-SmallVector<bNode *> NodeTreeQuery::nodes_connected_to_socket(bNodeSocket *bsocket)
+SmallVector<bNode *> NodeTreeQuery::nodes_connected_to_socket(bNodeSocket *bsocket) const
 {
   SmallVector<bNode *> result;
   for (bNodeSocket *origin : m_direct_links.lookup_default(bsocket)) {
