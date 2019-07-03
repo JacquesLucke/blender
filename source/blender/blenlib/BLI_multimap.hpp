@@ -88,9 +88,9 @@ template<typename K, typename V, uint N = 4> class SmallMultiMap {
   void add_multiple_new(const K &key, ArrayRef<V> values)
   {
     BLI_assert(!m_map.contains(key));
-    for (const V &value : values) {
-      this->add(key, value);
-    }
+    uint offset = m_elements.size();
+    m_elements.extend(values);
+    m_map.add_new(key, {key, offset, values.size(), values.size()});
   }
 
   ArrayRef<V> lookup(const K &key) const
