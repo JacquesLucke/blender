@@ -42,12 +42,17 @@ class NodeTreeQuery {
 
  private:
   bool is_reroute(bNode *bnode) const;
-  bNodeSocket *try_find_single_origin(bNodeSocket *bsocket) const;
+
+  void find_connected_sockets_left(bNodeSocket *bsocket,
+                                   SmallVector<bNodeSocket *> &r_sockets) const;
+  void find_connected_sockets_right(bNodeSocket *bsocket,
+                                    SmallVector<bNodeSocket *> &r_sockets) const;
 
   SmallVector<bNode *> m_nodes;
   SmallVector<bNodeLink *> m_links;
   SmallMap<bNodeSocket *, bNode *> m_node_by_socket;
   MultiMap<bNodeSocket *, bNodeSocket *> m_direct_links;
+  MultiMap<bNodeSocket *, bNodeSocket *> m_links_without_reroutes;
   SmallVector<SingleOriginLink> m_single_origin_links;
 };
 

@@ -1,4 +1,5 @@
 #include "BKE_node_tree.hpp"
+#include "BLI_timeit.hpp"
 
 namespace BKE {
 
@@ -20,33 +21,48 @@ NodeTreeQuery::NodeTreeQuery(bNodeTree *btree)
   }
 
   for (bNodeLink *blink : m_links) {
-    bNodeSocket *target = blink->tosock;
-    bNode *target_node = blink->tonode;
-    if (this->is_reroute(target_node)) {
-      continue;
+    if (!this->is_reroute(blink->fromnode)) {
+      SmallVector<bNodeSocket *> others;
+      this->find_connected_sockets_right(blink->fromsock, others);
+      m_links_without_reroutes.add_multiple_new(blink->fromsock, others);
     }
-    bNodeSocket *origin = this->try_find_single_origin(target);
-    if (origin != nullptr) {
-      m_single_origin_links.append(SingleOriginLink{origin, target, blink});
+    if (!this->is_reroute(blink->tonode)) {
+      SmallVector<bNodeSocket *> others;
+      this->find_connected_sockets_left(blink->tosock, others);
+      m_links_without_reroutes.add_multiple_new(blink->tosock, others);
+      if (others.size() == 1) {
+        m_single_origin_links.append(SingleOriginLink{others[0], blink->tosock, blink});
+      }
     }
   }
 }
 
-bNodeSocket *NodeTreeQuery::try_find_single_origin(bNodeSocket *bsocket) const
+void NodeTreeQuery::find_connected_sockets_left(bNodeSocket *bsocket,
+                                                SmallVector<bNodeSocket *> &r_sockets) const
 {
   BLI_assert(bsocket->in_out == SOCK_IN);
-  if (m_direct_links.values_for_key(bsocket) == 1) {
-    bNodeSocket *origin = m_direct_links.lookup(bsocket)[0];
-    bNode *origin_node = m_node_by_socket.lookup(origin);
-    if (this->is_reroute(origin_node)) {
-      return this->try_find_single_origin((bNodeSocket *)origin_node->inputs.first);
+  for (bNodeSocket *other : m_direct_links.lookup_default(bsocket)) {
+    bNode *other_node = m_node_by_socket.lookup(other);
+    if (this->is_reroute(other_node)) {
+      this->find_connected_sockets_left((bNodeSocket *)other_node->inputs.first, r_sockets);
     }
     else {
-      return origin;
+      r_sockets.append(other);
     }
   }
-  else {
-    return nullptr;
+}
+void NodeTreeQuery::find_connected_sockets_right(bNodeSocket *bsocket,
+                                                 SmallVector<bNodeSocket *> &r_sockets) const
+{
+  BLI_assert(bsocket->in_out == SOCK_OUT);
+  for (bNodeSocket *other : m_direct_links.lookup_default(bsocket)) {
+    bNode *other_node = m_node_by_socket.lookup(other);
+    if (this->is_reroute(other_node)) {
+      this->find_connected_sockets_right((bNodeSocket *)other_node->outputs.first, r_sockets);
+    }
+    else {
+      r_sockets.append(other);
+    }
   }
 }
 
@@ -69,8 +85,8 @@ SmallVector<bNode *> NodeTreeQuery::nodes_with_idname(StringRef idname) const
 SmallVector<bNode *> NodeTreeQuery::nodes_connected_to_socket(bNodeSocket *bsocket) const
 {
   SmallVector<bNode *> result;
-  for (bNodeSocket *origin : m_direct_links.lookup_default(bsocket)) {
-    bNode *bnode = m_node_by_socket.lookup(origin);
+  for (bNodeSocket *other : m_links_without_reroutes.lookup_default(bsocket)) {
+    bNode *bnode = m_node_by_socket.lookup(other);
     result.append(bnode);
   }
   return result;
