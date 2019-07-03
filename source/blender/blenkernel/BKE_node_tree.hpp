@@ -22,9 +22,9 @@ using bNodeList = ListBaseWrapper<struct bNode *, true>;
 using bLinkList = ListBaseWrapper<struct bNodeLink *, true>;
 using bSocketList = ListBaseWrapper<struct bNodeSocket *, true>;
 
-class BNodeTreeLookup {
+class NodeTreeQuery {
  public:
-  BNodeTreeLookup(bNodeTree *btree);
+  NodeTreeQuery(bNodeTree *btree);
 
   struct SingleOriginLink {
     bNodeSocket *from;

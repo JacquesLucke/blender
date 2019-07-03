@@ -2,7 +2,7 @@
 
 namespace BKE {
 
-BNodeTreeLookup::BNodeTreeLookup(bNodeTree *btree) : m_nodes(btree->nodes, true)
+NodeTreeQuery::NodeTreeQuery(bNodeTree *btree) : m_nodes(btree->nodes, true)
 {
   for (bNode *bnode : m_nodes) {
     for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
@@ -31,7 +31,7 @@ BNodeTreeLookup::BNodeTreeLookup(bNodeTree *btree) : m_nodes(btree->nodes, true)
   }
 }
 
-bNodeSocket *BNodeTreeLookup::try_find_single_origin(bNodeSocket *bsocket)
+bNodeSocket *NodeTreeQuery::try_find_single_origin(bNodeSocket *bsocket)
 {
   BLI_assert(bsocket->in_out == SOCK_IN);
   if (m_direct_links.values_for_key(bsocket) == 1) {
@@ -49,12 +49,12 @@ bNodeSocket *BNodeTreeLookup::try_find_single_origin(bNodeSocket *bsocket)
   }
 }
 
-bool BNodeTreeLookup::is_reroute(bNode *bnode)
+bool NodeTreeQuery::is_reroute(bNode *bnode)
 {
   return STREQ(bnode->idname, "NodeReroute");
 }
 
-SmallVector<bNode *> BNodeTreeLookup::nodes_with_idname(StringRef idname)
+SmallVector<bNode *> NodeTreeQuery::nodes_with_idname(StringRef idname)
 {
   SmallVector<bNode *> result;
   for (bNode *bnode : m_nodes) {
@@ -65,7 +65,7 @@ SmallVector<bNode *> BNodeTreeLookup::nodes_with_idname(StringRef idname)
   return result;
 }
 
-SmallVector<bNode *> BNodeTreeLookup::nodes_connected_to_socket(bNodeSocket *bsocket)
+SmallVector<bNode *> NodeTreeQuery::nodes_connected_to_socket(bNodeSocket *bsocket)
 {
   SmallVector<bNode *> result;
   for (bNodeSocket *origin : m_direct_links.lookup_default(bsocket)) {

@@ -8,7 +8,7 @@
 namespace FN {
 namespace DataFlowNodes {
 
-using BKE::BNodeTreeLookup;
+using BKE::NodeTreeQuery;
 
 static bool is_input_node(const bNode *bnode)
 {
@@ -139,8 +139,8 @@ static DFGB_SocketVector insert_function_output(BTreeGraphBuilder &builder)
 
 static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
 {
-  BNodeTreeLookup btree_lookup(builder.btree());
-  for (auto &link : btree_lookup.single_origin_links()) {
+  NodeTreeQuery btree_query(builder.btree());
+  for (auto &link : btree_query.single_origin_links()) {
     if (!builder.is_data_socket(link.to)) {
       continue;
     }

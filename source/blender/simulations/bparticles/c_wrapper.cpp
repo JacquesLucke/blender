@@ -38,7 +38,7 @@
 
 using namespace BParticles;
 
-using BKE::BNodeTreeLookup;
+using BKE::NodeTreeQuery;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::SmallVector;
@@ -228,11 +228,11 @@ class ModifierStepDescription : public StepDescription {
 static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree)
 {
   ModifierStepDescription *step_description = new ModifierStepDescription();
-  BNodeTreeLookup btree_lookup(btree);
+  NodeTreeQuery btree_query(btree);
 
   SmallMap<bNode *, uint> id_per_type_node;
 
-  auto particle_type_nodes = btree_lookup.nodes_with_idname("bp_ParticleTypeNode");
+  auto particle_type_nodes = btree_query.nodes_with_idname("bp_ParticleTypeNode");
   for (uint i = 0; i < particle_type_nodes.size(); i++) {
     bNode *particle_type_node = particle_type_nodes[i];
 
@@ -243,10 +243,10 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
     id_per_type_node.add_new(particle_type_node, i);
   }
 
-  auto emitter_nodes = btree_lookup.nodes_with_idname("bp_MeshEmitterNode");
+  auto emitter_nodes = btree_query.nodes_with_idname("bp_MeshEmitterNode");
   for (bNode *emitter_node : emitter_nodes) {
     bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
-    auto connected_nodes = btree_lookup.nodes_connected_to_socket(emitter_output);
+    auto connected_nodes = btree_query.nodes_connected_to_socket(emitter_output);
     for (bNode *connected_node : connected_nodes) {
       uint type_id = id_per_type_node.lookup(connected_node);
 
