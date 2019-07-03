@@ -50,6 +50,19 @@ TEST(multimap, AddMany)
   EXPECT_EQ(map.lookup(7).size(), 10);
 }
 
+TEST(multimap, AddMultipleNew)
+{
+  IntMap map;
+  map.add_multiple_new(3, {6, 7, 8});
+  map.add_multiple_new(2, {1, 2, 5, 7});
+
+  EXPECT_EQ(map.size(), 2);
+  EXPECT_TRUE(map.contains(3));
+  EXPECT_TRUE(map.contains(2));
+  EXPECT_TRUE(map.lookup(2).contains(2));
+  EXPECT_FALSE(map.lookup(2).contains(3));
+}
+
 TEST(multimap, ValuesForKey)
 {
   IntMap map;

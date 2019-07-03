@@ -72,6 +72,15 @@ template<typename K, typename V> class MultiMap {
     m_map.add_new(key, Entry(key, ptr, 1, 1));
   }
 
+  void add_multiple_new(const K &key, ArrayRef<V> values)
+  {
+    BLI_assert(!m_map.contains(key));
+    uint amount = values.size();
+    V *ptr = m_pool.allocate_array<V>(amount);
+    std::uninitialized_copy_n(values.begin(), amount, ptr);
+    m_map.add_new(key, Entry(key, ptr, amount, amount));
+  }
+
   bool contains(const K &key) const
   {
     return m_map.contains(key);
