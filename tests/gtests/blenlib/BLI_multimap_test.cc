@@ -4,6 +4,59 @@
 using namespace BLI;
 
 using IntMap = MultiMap<int, int>;
+using IntArrayMap = ValueArrayMap<int, int>;
+
+TEST(value_array_map, DefaultConstructor)
+{
+  IntArrayMap map;
+  EXPECT_EQ(map.key_amount(), 0);
+}
+
+TEST(value_array_map, Add)
+{
+  IntArrayMap map;
+  EXPECT_FALSE(map.contains(4));
+  map.add(4, 6);
+  EXPECT_TRUE(map.contains(4));
+}
+
+TEST(value_array_map, AddMultipleTimes)
+{
+  IntArrayMap map;
+  EXPECT_FALSE(map.contains(3));
+  EXPECT_FALSE(map.contains(4));
+  EXPECT_FALSE(map.contains(5));
+  map.add(3, 10);
+  map.add(3, 11);
+  map.add(4, 10);
+  map.add(5, 10);
+  map.add(6, 10);
+  EXPECT_TRUE(map.contains(3));
+  EXPECT_TRUE(map.contains(4));
+  EXPECT_TRUE(map.contains(5));
+  EXPECT_EQ(map.key_amount(), 4);
+}
+
+TEST(value_array_map, AddMultipleNew)
+{
+  IntArrayMap map;
+  map.add_multiple_new(3, {5, 6, 7});
+  map.add_multiple_new(1, {7, 4, 2});
+  map.add_multiple_new(1, {3, 4});
+  EXPECT_EQ(map.key_amount(), 2);
+  EXPECT_EQ(map.lookup(1).size(), 5);
+  EXPECT_EQ(map.lookup(3).size(), 3);
+  EXPECT_EQ(map.lookup(1)[1], 4);
+  EXPECT_EQ(map.lookup(1)[3], 3);
+}
+
+TEST(value_array_map, LookupDefault)
+{
+  IntArrayMap map;
+  EXPECT_EQ(map.lookup_default(10).size(), 0);
+  map.add(10, 1);
+  EXPECT_EQ(map.lookup_default(10).size(), 1);
+}
 
 TEST(multimap, DefaultConstructor)
 {
