@@ -3,6 +3,10 @@
 
 namespace FN {
 
+/**
+ * This just turns a lazy tuple-call body into a normal one by calling it multiple times, until it
+ * is done.
+ */
 class MakeEagerBody : public TupleCallBody {
  private:
   LazyInTupleCallBody *m_lazy_body;

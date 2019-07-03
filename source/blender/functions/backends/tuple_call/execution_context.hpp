@@ -1,5 +1,16 @@
 #pragma once
 
+/**
+ * When a function is executed using the tuple-call backend, there is always an execution context.
+ * The context contains information about the current call stack. This information is important to
+ * produce good error messages. The call stack of tuple-call functions can be very different from
+ * the actual C/C++ call stack. Therefore it is handled separately.
+ *
+ * Obviously, setting up the call stack should be very efficient, since might be done very often
+ * when e.g. a function is called for every vertex of a mesh. Nevertheless, it should contain a lot
+ * of information in the case of an error.
+ */
+
 #include "FN_core.hpp"
 
 namespace FN {
