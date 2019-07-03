@@ -14,9 +14,9 @@ namespace BKE {
 using BLI::ArrayRef;
 using BLI::ListBaseWrapper;
 using BLI::SmallMap;
+using BLI::SmallMultiMap;
 using BLI::SmallVector;
 using BLI::StringRef;
-using BLI::ValueArrayMap;
 
 using bNodeList = ListBaseWrapper<struct bNode *, true>;
 using bLinkList = ListBaseWrapper<struct bNodeLink *, true>;
@@ -51,8 +51,8 @@ class NodeTreeQuery {
   SmallVector<bNode *> m_nodes;
   SmallVector<bNodeLink *> m_links;
   SmallMap<bNodeSocket *, bNode *> m_node_by_socket;
-  ValueArrayMap<bNodeSocket *, bNodeSocket *> m_direct_links;
-  ValueArrayMap<bNodeSocket *, bNodeSocket *> m_links_without_reroutes;
+  SmallMultiMap<bNodeSocket *, bNodeSocket *> m_direct_links;
+  SmallMultiMap<bNodeSocket *, bNodeSocket *> m_links_without_reroutes;
   SmallVector<SingleOriginLink> m_single_origin_links;
 };
 

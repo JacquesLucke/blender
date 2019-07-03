@@ -190,7 +190,7 @@ class DataFlowGraphBuilder {
  private:
   SmallSet<DFGB_Node *> m_nodes;
   SmallMap<DFGB_Socket, DFGB_Socket> m_input_origins;
-  MultiMap<DFGB_Socket, DFGB_Socket> m_output_targets;
+  SmallMultiMap<DFGB_Socket, DFGB_Socket> m_output_targets;
   MemPool m_node_pool;
   std::unique_ptr<MemMultiPool> m_source_info_pool;
 
@@ -245,7 +245,7 @@ inline bool DFGB_Socket::is_linked()
     return this->builder().m_input_origins.contains(*this);
   }
   else {
-    return this->builder().m_output_targets.has_at_least_one_value(*this);
+    return this->builder().m_output_targets.value_amount(*this) > 0;
   }
 }
 

@@ -3,72 +3,19 @@
 
 using namespace BLI;
 
-using IntMap = MultiMap<int, int>;
-using IntArrayMap = ValueArrayMap<int, int>;
-
-TEST(value_array_map, DefaultConstructor)
-{
-  IntArrayMap map;
-  EXPECT_EQ(map.key_amount(), 0);
-}
-
-TEST(value_array_map, Add)
-{
-  IntArrayMap map;
-  EXPECT_FALSE(map.contains(4));
-  map.add(4, 6);
-  EXPECT_TRUE(map.contains(4));
-}
-
-TEST(value_array_map, AddMultipleTimes)
-{
-  IntArrayMap map;
-  EXPECT_FALSE(map.contains(3));
-  EXPECT_FALSE(map.contains(4));
-  EXPECT_FALSE(map.contains(5));
-  map.add(3, 10);
-  map.add(3, 11);
-  map.add(4, 10);
-  map.add(5, 10);
-  map.add(6, 10);
-  EXPECT_TRUE(map.contains(3));
-  EXPECT_TRUE(map.contains(4));
-  EXPECT_TRUE(map.contains(5));
-  EXPECT_EQ(map.key_amount(), 4);
-}
-
-TEST(value_array_map, AddMultipleNew)
-{
-  IntArrayMap map;
-  map.add_multiple_new(3, {5, 6, 7});
-  map.add_multiple_new(1, {7, 4, 2});
-  map.add_multiple_new(1, {3, 4});
-  EXPECT_EQ(map.key_amount(), 2);
-  EXPECT_EQ(map.lookup(1).size(), 5);
-  EXPECT_EQ(map.lookup(3).size(), 3);
-  EXPECT_EQ(map.lookup(1)[1], 4);
-  EXPECT_EQ(map.lookup(1)[3], 3);
-}
-
-TEST(value_array_map, LookupDefault)
-{
-  IntArrayMap map;
-  EXPECT_EQ(map.lookup_default(10).size(), 0);
-  map.add(10, 1);
-  EXPECT_EQ(map.lookup_default(10).size(), 1);
-}
+using IntMultiMap = SmallMultiMap<int, int>;
 
 TEST(multimap, DefaultConstructor)
 {
-  IntMap map;
-  EXPECT_EQ(map.size(), 0);
+  IntMultiMap map;
+  EXPECT_EQ(map.key_amount(), 0);
 }
 
 TEST(multimap, AddNewSingle)
 {
-  IntMap map;
+  IntMultiMap map;
   map.add_new(2, 5);
-  EXPECT_EQ(map.size(), 1);
+  EXPECT_EQ(map.key_amount(), 1);
   EXPECT_TRUE(map.contains(2));
   EXPECT_FALSE(map.contains(5));
   EXPECT_EQ(map.lookup(2)[0], 5);
@@ -76,11 +23,11 @@ TEST(multimap, AddNewSingle)
 
 TEST(multimap, AddMultipleforSameKey)
 {
-  IntMap map;
+  IntMultiMap map;
   map.add(3, 5);
   map.add(3, 1);
   map.add(3, 7);
-  EXPECT_EQ(map.size(), 1);
+  EXPECT_EQ(map.key_amount(), 1);
   EXPECT_EQ(map.lookup(3).size(), 3);
   EXPECT_EQ(map.lookup(3)[0], 5);
   EXPECT_EQ(map.lookup(3)[1], 1);
@@ -89,13 +36,13 @@ TEST(multimap, AddMultipleforSameKey)
 
 TEST(multimap, AddMany)
 {
-  IntMap map;
+  IntMultiMap map;
   for (uint i = 0; i < 100; i++) {
     int key = i % 10;
     map.add(key, i);
   }
 
-  EXPECT_EQ(map.size(), 10);
+  EXPECT_EQ(map.key_amount(), 10);
   EXPECT_TRUE(map.contains(3));
   EXPECT_FALSE(map.contains(11));
   EXPECT_EQ(map.lookup(2)[4], 42);
@@ -105,11 +52,11 @@ TEST(multimap, AddMany)
 
 TEST(multimap, AddMultipleNew)
 {
-  IntMap map;
+  IntMultiMap map;
   map.add_multiple_new(3, {6, 7, 8});
   map.add_multiple_new(2, {1, 2, 5, 7});
 
-  EXPECT_EQ(map.size(), 2);
+  EXPECT_EQ(map.key_amount(), 2);
   EXPECT_TRUE(map.contains(3));
   EXPECT_TRUE(map.contains(2));
   EXPECT_TRUE(map.lookup(2).contains(2));
@@ -118,19 +65,19 @@ TEST(multimap, AddMultipleNew)
 
 TEST(multimap, ValuesForKey)
 {
-  IntMap map;
+  IntMultiMap map;
   map.add(3, 5);
   map.add(3, 7);
   map.add(3, 8);
   map.add(4, 2);
   map.add(4, 3);
-  EXPECT_EQ(map.values_for_key(3), 3);
-  EXPECT_EQ(map.values_for_key(4), 2);
+  EXPECT_EQ(map.value_amount(3), 3);
+  EXPECT_EQ(map.value_amount(4), 2);
 }
 
 TEST(multimap, Keys)
 {
-  IntMap map;
+  IntMultiMap map;
   map.add(3, 6);
   map.add(3, 3);
   map.add(3, 4);
