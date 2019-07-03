@@ -45,6 +45,7 @@ class NodeTreeQuery {
   bNodeSocket *try_find_single_origin(bNodeSocket *bsocket) const;
 
   SmallVector<bNode *> m_nodes;
+  SmallVector<bNodeLink *> m_links;
   SmallMap<bNodeSocket *, bNode *> m_node_by_socket;
   MultiMap<bNodeSocket *, bNodeSocket *> m_direct_links;
   SmallVector<SingleOriginLink> m_single_origin_links;

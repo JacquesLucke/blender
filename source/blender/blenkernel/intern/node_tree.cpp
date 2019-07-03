@@ -2,7 +2,8 @@
 
 namespace BKE {
 
-NodeTreeQuery::NodeTreeQuery(bNodeTree *btree) : m_nodes(btree->nodes, true)
+NodeTreeQuery::NodeTreeQuery(bNodeTree *btree)
+    : m_nodes(btree->nodes, true), m_links(btree->links, true)
 {
   for (bNode *bnode : m_nodes) {
     for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
@@ -13,12 +14,12 @@ NodeTreeQuery::NodeTreeQuery(bNodeTree *btree) : m_nodes(btree->nodes, true)
     }
   }
 
-  for (bNodeLink *blink : bLinkList(&btree->links)) {
+  for (bNodeLink *blink : m_links) {
     m_direct_links.add(blink->tosock, blink->fromsock);
     m_direct_links.add(blink->fromsock, blink->tosock);
   }
 
-  for (bNodeLink *blink : bLinkList(&btree->links)) {
+  for (bNodeLink *blink : m_links) {
     bNodeSocket *target = blink->tosock;
     bNode *target_node = blink->tonode;
     if (this->is_reroute(target_node)) {
