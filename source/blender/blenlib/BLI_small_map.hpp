@@ -59,8 +59,9 @@ template<typename K, typename V, uint N = 4> class SmallMap {
    */
   bool add(const K &key, const V &value)
   {
-    uint potential_index = m_entries.size();
-    bool newly_inserted = m_lookup.add(m_entries.begin(), key, potential_index);
+    uint desired_new_index = m_entries.size();
+    uint value_index = m_lookup.add(m_entries.begin(), key, desired_new_index);
+    bool newly_inserted = value_index == desired_new_index;
     if (newly_inserted) {
       m_entries.append({key, value});
     }

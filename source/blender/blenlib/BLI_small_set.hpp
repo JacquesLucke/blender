@@ -95,8 +95,9 @@ template<typename T, uint N = 4> class SmallSet {
    */
   bool add(const T &value)
   {
-    uint potential_index = m_elements.size();
-    bool newly_inserted = m_lookup.add(m_elements.begin(), value, potential_index);
+    uint desired_new_index = m_elements.size();
+    uint value_index = m_lookup.add(m_elements.begin(), value, desired_new_index);
+    bool newly_inserted = value_index == desired_new_index;
     if (newly_inserted) {
       m_elements.append(value);
     }

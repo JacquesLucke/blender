@@ -91,7 +91,7 @@ class ArrayLookup {
     }
   }
 
-  bool add(Item *array, const Key &key, uint potential_index)
+  uint add(Item *array, const Key &key, uint desired_new_index)
   {
     int dummy_slot = -1;
     ITER_SLOTS (key, slot, state) {
@@ -99,18 +99,18 @@ class ArrayLookup {
         if (dummy_slot == -1) {
           bool map_changed = this->ensure_can_add(array);
           if (map_changed) {
-            this->insert_index_for_key(key, potential_index);
+            this->insert_index_for_key(key, desired_new_index);
           }
           else {
-            m_map[slot] = potential_index;
+            m_map[slot] = desired_new_index;
           }
         }
         else {
-          m_map[slot] = potential_index;
+          m_map[slot] = desired_new_index;
           m_dummy_amount--;
         }
         m_length++;
-        return true;
+        return desired_new_index;
       }
       else if (state == SLOT_DUMMY) {
         if (dummy_slot == -1) {
@@ -118,7 +118,7 @@ class ArrayLookup {
         }
       }
       else if (GetKey(array[state]) == key) {
-        return false;
+        return state;
       }
     }
   }
