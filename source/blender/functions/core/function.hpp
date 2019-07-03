@@ -191,21 +191,21 @@ inline const StringRefNull Function::name() const
 template<typename T> inline bool Function::has_body() const
 {
   std::lock_guard<std::mutex> lock(m_body_mutex);
-  static_assert(std::is_base_of<FunctionBody, T>::value, "");
+  BLI_STATIC_ASSERT((std::is_base_of<FunctionBody, T>::value), "");
   return this->m_bodies.has<T>();
 }
 
 template<typename T> inline T *Function::body() const
 {
   std::lock_guard<std::mutex> lock(m_body_mutex);
-  static_assert(std::is_base_of<FunctionBody, T>::value, "");
+  BLI_STATIC_ASSERT((std::is_base_of<FunctionBody, T>::value), "");
   return m_bodies.get<T>();
 }
 
 template<typename T, typename... Args> inline bool Function::add_body(Args &&... args)
 {
   std::lock_guard<std::mutex> lock(m_body_mutex);
-  static_assert(std::is_base_of<FunctionBody, T>::value, "");
+  BLI_STATIC_ASSERT((std::is_base_of<FunctionBody, T>::value), "");
 
   if (m_bodies.has<T>()) {
     return false;

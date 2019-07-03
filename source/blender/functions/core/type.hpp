@@ -96,7 +96,7 @@ inline const StringRefNull Type::name() const
 template<typename T> inline bool Type::has_extension() const
 {
   std::lock_guard<std::mutex> lock(m_extension_mutex);
-  static_assert(std::is_base_of<TypeExtension, T>::value, "");
+  BLI_STATIC_ASSERT((std::is_base_of<TypeExtension, T>::value), "");
   return m_extensions.has<T>();
 }
 
@@ -106,14 +106,14 @@ template<typename T> inline T *Type::extension() const
    *   Since extensions can't be removed, it might be
    *   to access existing extensions without a lock. */
   std::lock_guard<std::mutex> lock(m_extension_mutex);
-  static_assert(std::is_base_of<TypeExtension, T>::value, "");
+  BLI_STATIC_ASSERT((std::is_base_of<TypeExtension, T>::value), "");
   return m_extensions.get<T>();
 }
 
 template<typename T, typename... Args> inline bool Type::add_extension(Args &&... args)
 {
   std::lock_guard<std::mutex> lock(m_extension_mutex);
-  static_assert(std::is_base_of<TypeExtension, T>::value, "");
+  BLI_STATIC_ASSERT((std::is_base_of<TypeExtension, T>::value), "");
 
   if (m_extensions.has<T>()) {
     return false;

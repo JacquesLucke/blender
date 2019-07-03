@@ -273,7 +273,8 @@ class Tuple {
    */
   template<typename T> inline void set(uint index, const T &value)
   {
-    static_assert(std::is_trivial<T>::value, "this method can be used with trivial types only");
+    BLI_STATIC_ASSERT(std::is_trivial<T>::value,
+                      "this method can be used with trivial types only");
     this->copy_in<T>(index, value);
   }
 
@@ -336,7 +337,8 @@ class Tuple {
    */
   template<typename T> inline T get(uint index) const
   {
-    static_assert(std::is_trivial<T>::value, "this method can be used with trivial types only");
+    BLI_STATIC_ASSERT(std::is_trivial<T>::value,
+                      "this method can be used with trivial types only");
     return this->copy_out<T>(index);
   }
 

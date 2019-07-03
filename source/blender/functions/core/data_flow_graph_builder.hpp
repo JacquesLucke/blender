@@ -172,7 +172,7 @@ class DataFlowGraphBuilder {
 
   template<typename T, typename... Args> T *new_source_info(Args &&... args)
   {
-    static_assert(std::is_base_of<SourceInfo, T>::value, "");
+    BLI_STATIC_ASSERT((std::is_base_of<SourceInfo, T>::value), "");
     void *ptr = m_source_info_pool->allocate(sizeof(T));
     T *source = new (ptr) T(std::forward<Args>(args)...);
     return source;

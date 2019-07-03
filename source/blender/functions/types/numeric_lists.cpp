@@ -27,8 +27,8 @@ template<typename T> static void *default_func()
 
 template<typename T> SharedType create_list_type(std::string name)
 {
-  static_assert(sizeof(SharedList<T>) == sizeof(List<T> *),
-                "Currently it is assumed that only a pointer to the list is stored");
+  BLI_STATIC_ASSERT(sizeof(SharedList<T>) == sizeof(List<T> *),
+                    "Currently it is assumed that only a pointer to the list is stored");
 
   SharedType type = SharedType::New(name);
   type->add_extension<CPPTypeInfoForType<SharedList<T>>>();
