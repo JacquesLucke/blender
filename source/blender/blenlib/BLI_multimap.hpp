@@ -110,6 +110,11 @@ template<typename K, typename V> class MultiMap {
       return ArrayRef<V>(entry->ptr, entry->length);
     }
   }
+
+  typename SmallMap<K, Entry>::KeysReturnT keys() const
+  {
+    return m_map.keys();
+  }
 };
 
 } /* namespace BLI */

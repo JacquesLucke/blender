@@ -61,3 +61,22 @@ TEST(multimap, ValuesForKey)
   EXPECT_EQ(map.values_for_key(3), 3);
   EXPECT_EQ(map.values_for_key(4), 2);
 }
+
+TEST(multimap, Keys)
+{
+  IntMap map;
+  map.add(3, 6);
+  map.add(3, 3);
+  map.add(3, 4);
+  map.add(4, 1);
+  map.add(2, 1);
+
+  SmallVector<int> values;
+  for (auto value : map.keys()) {
+    values.append(value);
+  }
+  EXPECT_EQ(values.size(), 3);
+  EXPECT_TRUE(values.contains(3));
+  EXPECT_TRUE(values.contains(4));
+  EXPECT_TRUE(values.contains(2));
+}

@@ -231,7 +231,8 @@ template<typename K, typename V, uint N = 4> class SmallMap {
     return entry.key;
   }
 
-  MappedArrayRef<Entry, const K &, get_key_from_entry> keys() const
+  using KeysReturnT = MappedArrayRef<Entry, const K &, get_key_from_entry>;
+  KeysReturnT keys() const
   {
     return MappedArrayRef<Entry, const K &, get_key_from_entry>(m_entries.begin(),
                                                                 m_entries.size());
