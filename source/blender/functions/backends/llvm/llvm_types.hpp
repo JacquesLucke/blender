@@ -9,22 +9,64 @@
 
 namespace FN {
 
+/**
+ * This is the main type extension for llvm types.
+ */
 class LLVMTypeInfo : public TypeExtension {
  public:
   BLI_COMPOSITION_DECLARATION(LLVMTypeInfo);
 
   virtual ~LLVMTypeInfo();
 
+  /**
+   * Return the llvm::Type object corresponding to the parent FN::Type. Note, that llvm::Type
+   * objects belong to some LLVMContext and therefore cannot be stored globally. Different
+   * LLVMContexts exist when llvm is used from multiple threads at the same time.
+   */
   virtual llvm::Type *get_type(llvm::LLVMContext &context) const = 0;
+
+  /**
+   * Build the code to create a copy of the given value. Since values are immutable in llvm, this
+   * function can just return the original value. Only when it is e.g. a pointer to some outside
+   * object, that has to be copied, a non trivial implementation has to be provided.
+   */
   virtual llvm::Value *build_copy_ir(CodeBuilder &builder, llvm::Value *value) const = 0;
+
+  /**
+   * Build code to free the given value.
+   */
   virtual void build_free_ir(CodeBuilder &builder, llvm::Value *value) const = 0;
+
+  /**
+   * Build code to relocate the value to a specific memory address. The original value in the
+   * virtual register should be freed.
+   *
+   * Usually, it should be possible to interpret the stored bytes as C++ object.
+   */
   virtual void build_store_ir__relocate(CodeBuilder &builder,
                                         llvm::Value *value,
                                         llvm::Value *address) const = 0;
+
+  /**
+   * Build code to copy the value to a specific memory address. The original value should stay the
+   * same.
+   *
+   * Usually, it should be possible to interpret the stored bytes as C++ object.
+   */
   virtual void build_store_ir__copy(CodeBuilder &builder,
                                     llvm::Value *value,
                                     llvm::Value *address) const = 0;
+
+  /**
+   * Build code to copy the value from a specific memory address into a llvm::Value. The stored
+   * value should not be changed.
+   */
   virtual llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const = 0;
+
+  /**
+   * Build code to relocate the value froma specific memory address into a llvm::Value. The stored
+   * value should be freed in the process.
+   */
   virtual llvm::Value *build_load_ir__relocate(CodeBuilder &builder,
                                                llvm::Value *address) const = 0;
 };

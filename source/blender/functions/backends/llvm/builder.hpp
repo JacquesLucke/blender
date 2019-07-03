@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * This is a wrapper for llvm::IRBuilder<>. It allows extending the normal builder with methods
+ * that are helpful for the use cases in Blender.
+ */
+
 #include "FN_core.hpp"
 #include <llvm/IR/IRBuilder.h>
 
