@@ -22,9 +22,9 @@ const StringRefNull DFGB_Socket::name() const
   }
 }
 
-DataFlowGraphBuilder::DataFlowGraphBuilder() : m_node_pool(sizeof(DFGB_Node))
+DataFlowGraphBuilder::DataFlowGraphBuilder()
 {
-  m_source_info_pool = std::unique_ptr<MemMultiPool>(new MemMultiPool());
+  m_source_info_pool = std::unique_ptr<MonotonicAllocator<>>(new MonotonicAllocator<>());
 }
 
 DataFlowGraphBuilder::~DataFlowGraphBuilder()
@@ -45,7 +45,7 @@ DataFlowGraphBuilder::~DataFlowGraphBuilder()
 DFGB_Node *DataFlowGraphBuilder::insert_function(SharedFunction &fn, SourceInfo *source)
 {
   BLI_assert(this->is_mutable());
-  void *ptr = m_node_pool.allocate();
+  void *ptr = m_node_pool.allocate(sizeof(DFGB_Node));
   DFGB_Node *node = new (ptr) DFGB_Node(*this, fn, source);
   m_nodes.add_new(node);
   return node;

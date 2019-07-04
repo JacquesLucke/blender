@@ -3,7 +3,6 @@
 /* A multimap is a map that allows storing multiple values per key. */
 
 #include "BLI_small_map.hpp"
-#include "BLI_multipool.hpp"
 #include "BLI_array_ref.hpp"
 
 namespace BLI {

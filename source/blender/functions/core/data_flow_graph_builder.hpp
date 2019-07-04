@@ -12,7 +12,7 @@
 
 #include "BLI_optional.hpp"
 #include "BLI_small_set_vector.hpp"
-#include "BLI_multipool.hpp"
+#include "BLI_monotonic_allocator.hpp"
 #include "BLI_multimap.hpp"
 
 namespace FN {
@@ -191,8 +191,8 @@ class DataFlowGraphBuilder {
   SmallSet<DFGB_Node *> m_nodes;
   SmallMap<DFGB_Socket, DFGB_Socket> m_input_origins;
   SmallMultiMap<DFGB_Socket, DFGB_Socket> m_output_targets;
-  MemPool m_node_pool;
-  std::unique_ptr<MemMultiPool> m_source_info_pool;
+  MonotonicAllocator<sizeof(DFGB_Node) * 4> m_node_pool;
+  std::unique_ptr<MonotonicAllocator<>> m_source_info_pool;
 
   friend DFGB_Socket;
   friend DataFlowGraph;

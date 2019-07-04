@@ -12,8 +12,11 @@
  */
 
 #include "FN_core.hpp"
+#include "BLI_small_stack.hpp"
 
 namespace FN {
+
+using BLI::SmallStack;
 
 class StackFrame {
  public:
