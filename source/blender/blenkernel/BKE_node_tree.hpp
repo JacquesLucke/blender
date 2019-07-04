@@ -22,9 +22,18 @@ using bNodeList = ListBaseWrapper<struct bNode *, true>;
 using bLinkList = ListBaseWrapper<struct bNodeLink *, true>;
 using bSocketList = ListBaseWrapper<struct bNodeSocket *, true>;
 
-class NodeTreeQuery {
+/**
+ * The DNA structure of a node tree is difficult to parse, since it does not support e.g. the
+ * following queries efficiently:
+ *   - Which nodes have a specific type?
+ *   - Which node corresponds to a socket?
+ *   - Which other sockets are connected to a socket (with and without reroutes)?
+ *
+ * This data structure does some preprocessing to make these queries more efficient.
+ */
+class IndexedNodeTree {
  public:
-  NodeTreeQuery(bNodeTree *btree);
+  IndexedNodeTree(bNodeTree *btree);
 
   struct SingleOriginLink {
     bNodeSocket *from;

@@ -3,7 +3,7 @@
 
 namespace BKE {
 
-NodeTreeQuery::NodeTreeQuery(bNodeTree *btree)
+IndexedNodeTree::IndexedNodeTree(bNodeTree *btree)
     : m_nodes(btree->nodes, true), m_links(btree->links, true)
 {
   for (bNode *bnode : m_nodes) {
@@ -38,8 +38,8 @@ NodeTreeQuery::NodeTreeQuery(bNodeTree *btree)
   }
 }
 
-void NodeTreeQuery::find_connected_sockets_left(bNodeSocket *bsocket,
-                                                SmallVector<bNodeSocket *> &r_sockets) const
+void IndexedNodeTree::find_connected_sockets_left(bNodeSocket *bsocket,
+                                                  SmallVector<bNodeSocket *> &r_sockets) const
 {
   BLI_assert(bsocket->in_out == SOCK_IN);
   for (bNodeSocket *other : m_direct_links.lookup_default(bsocket)) {
@@ -52,8 +52,8 @@ void NodeTreeQuery::find_connected_sockets_left(bNodeSocket *bsocket,
     }
   }
 }
-void NodeTreeQuery::find_connected_sockets_right(bNodeSocket *bsocket,
-                                                 SmallVector<bNodeSocket *> &r_sockets) const
+void IndexedNodeTree::find_connected_sockets_right(bNodeSocket *bsocket,
+                                                   SmallVector<bNodeSocket *> &r_sockets) const
 {
   BLI_assert(bsocket->in_out == SOCK_OUT);
   for (bNodeSocket *other : m_direct_links.lookup_default(bsocket)) {
@@ -67,12 +67,12 @@ void NodeTreeQuery::find_connected_sockets_right(bNodeSocket *bsocket,
   }
 }
 
-bool NodeTreeQuery::is_reroute(bNode *bnode) const
+bool IndexedNodeTree::is_reroute(bNode *bnode) const
 {
   return STREQ(bnode->idname, "NodeReroute");
 }
 
-SmallVector<bNode *> NodeTreeQuery::nodes_with_idname(StringRef idname) const
+SmallVector<bNode *> IndexedNodeTree::nodes_with_idname(StringRef idname) const
 {
   SmallVector<bNode *> result;
   for (bNode *bnode : m_nodes) {
@@ -83,7 +83,7 @@ SmallVector<bNode *> NodeTreeQuery::nodes_with_idname(StringRef idname) const
   return result;
 }
 
-SmallVector<bNode *> NodeTreeQuery::nodes_connected_to_socket(bNodeSocket *bsocket) const
+SmallVector<bNode *> IndexedNodeTree::nodes_connected_to_socket(bNodeSocket *bsocket) const
 {
   SmallVector<bNode *> result;
   for (bNodeSocket *other : m_links_without_reroutes.lookup_default(bsocket)) {
