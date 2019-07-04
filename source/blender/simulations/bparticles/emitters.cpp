@@ -13,16 +13,18 @@ namespace BParticles {
 
 class PointEmitter : public Emitter {
  private:
+  std::string m_particle_type_name;
   float3 m_point;
 
  public:
-  PointEmitter(float3 point) : m_point(point)
+  PointEmitter(StringRef particle_type_name, float3 point)
+      : m_particle_type_name(particle_type_name.to_std_string()), m_point(point)
   {
   }
 
   void emit(EmitterInterface &interface) override
   {
-    auto &target = interface.request(0, 1);
+    auto &target = interface.request(m_particle_type_name, 1);
     target.set_float3("Position", {m_point});
     target.set_float3("Velocity", {float3{-1, -1, 0}});
     target.set_birth_moment(1.0f);
@@ -102,59 +104,9 @@ class SurfaceEmitter : public Emitter {
   }
 };
 
-class PathEmitter : public Emitter {
- private:
-  Path &m_path;
-  float4x4 m_transform;
-
- public:
-  PathEmitter(Path &path, float4x4 transform) : m_path(path), m_transform(transform)
-  {
-  }
-
-  void emit(EmitterInterface &interface) override
-  {
-    SmallVector<float3> positions;
-    for (uint i = 0; i < m_path.len - 1; i++) {
-      float3 pos1 = m_path.data[i].vec;
-      float3 pos2 = m_path.data[i + 1].vec;
-
-      for (uint j = 0; j < 10; j++) {
-        float factor = (float)j / 100.0f;
-        float3 pos = pos1 * (1.0f - factor) + pos2 * factor;
-        pos = m_transform.transform_position(pos);
-        positions.append(pos);
-      }
-    }
-
-    auto &target = interface.request(0, positions.size());
-    target.set_float3("Position", positions);
-    target.set_float3("Velocity", SmallVector<float3>(positions.size()));
-    target.set_birth_moment(1.0f);
-  }
-};
-
-class EmitAtStartEmitter : public Emitter {
-  void emit(EmitterInterface &interface) override
-  {
-    if (!interface.is_first_step()) {
-      return;
-    }
-
-    SmallVector<float3> positions;
-    for (uint i = 0; i < 1000000; i++) {
-      positions.append(float3(i / 1000.0f, 0, 0));
-    }
-
-    auto &target = interface.request(0, positions.size());
-    target.set_float3("Position", positions);
-    target.set_birth_moment(0.0f);
-  }
-};
-
-Emitter *EMITTER_point(float3 point)
+Emitter *EMITTER_point(StringRef particle_type_name, float3 point)
 {
-  return new PointEmitter(point);
+  return new PointEmitter(particle_type_name, point);
 }
 
 Emitter *EMITTER_mesh_surface(StringRef particle_type_name,
@@ -165,17 +117,6 @@ Emitter *EMITTER_mesh_surface(StringRef particle_type_name,
 {
   return new SurfaceEmitter(
       particle_type_name, mesh, transform_start, transform_end, normal_velocity);
-}
-
-Emitter *EMITTER_path(Path *path, float4x4 transform)
-{
-  BLI_assert(path);
-  return new PathEmitter(*path, transform);
-}
-
-Emitter *EMITTER_emit_at_start()
-{
-  return new EmitAtStartEmitter();
 }
 
 }  // namespace BParticles

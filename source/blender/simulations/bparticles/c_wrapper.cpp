@@ -295,10 +295,35 @@ static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
   }
 }
 
+static void INSERT_EMITTER_point(bNode *emitter_node,
+                                 IndexedBParticlesTree &bparticles_tree,
+                                 SmallVector<Emitter *> &r_emitters)
+{
+  BLI_assert(STREQ(emitter_node->idname, "bp_PointEmitterNode"));
+  bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
+
+  for (SocketWithNode linked : bparticles_tree.base().linked(emitter_output)) {
+    if (!bparticles_tree.is_particle_type_node(linked.node)) {
+      continue;
+    }
+
+    bNode *type_node = linked.node;
+
+    float3 position;
+    PointerRNA rna;
+    RNA_pointer_create(bparticles_tree.btree_id(), &RNA_Node, emitter_node, &rna);
+    RNA_float_get_array(&rna, "position", position);
+
+    Emitter *emitter = EMITTER_point(type_node->name, position);
+    r_emitters.append(emitter);
+  }
+}
+
 static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree)
 {
   SmallMap<std::string, EmitterInserter> emitter_inserters;
   emitter_inserters.add_new("bp_MeshEmitterNode", INSERT_EMITTER_mesh_surface);
+  emitter_inserters.add_new("bp_PointEmitterNode", INSERT_EMITTER_point);
 
   ModifierStepDescription *step_description = new ModifierStepDescription();
 
