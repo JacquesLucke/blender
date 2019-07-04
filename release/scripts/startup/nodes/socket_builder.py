@@ -7,6 +7,7 @@ from . declaration import (
     VectorizedInputDecl,
     VectorizedOutputDecl,
     EmitterSocketDecl,
+    EventSocketDecl,
 )
 
 class SocketBuilder:
@@ -177,6 +178,14 @@ class SocketBuilder:
 
     def emitter_output(self, identifier, name):
         decl = EmitterSocketDecl(self.node, identifier, name)
+        self._add_output(decl)
+
+    def event_input(self, identifier, name):
+        decl = EventSocketDecl(self.node, identifier, name)
+        self._add_input(decl)
+
+    def event_output(self, identifier, name):
+        decl = EventSocketDecl(self.node, identifier, name)
         self._add_output(decl)
 
 

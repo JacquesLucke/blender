@@ -96,3 +96,10 @@ class EmitterSocket(bpy.types.NodeSocket, BaseSocket):
 
     def draw_color(self, context, node):
         return (1, 1, 1, 1)
+
+class EventSocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "bp_EventSocket"
+    bl_label = "Event Socket"
+
+    def draw_color(self, context, node):
+        return (0.2, 0.8, 0.2, 1)

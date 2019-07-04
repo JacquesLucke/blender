@@ -8,3 +8,4 @@ class ParticleTypeNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder : SocketBuilder):
         builder.emitter_input("emitters", "Emitters")
+        builder.event_output("events", "Events")

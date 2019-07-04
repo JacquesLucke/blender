@@ -269,6 +269,11 @@ typedef std::function<void(
     bNode *bnode, IndexedBParticlesTree &bparticles_tree, SmallVector<Emitter *> &r_emitters)>
     EmitterInserter;
 
+typedef std::function<void(bNode *bnode,
+                           IndexedBParticlesTree &bparticles_tree,
+                           ModifierStepDescription &step_description)>
+    EventInserter;
+
 static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
                                         IndexedBParticlesTree &bparticles_tree,
                                         SmallVector<Emitter *> &r_emitters)
@@ -319,11 +324,40 @@ static void INSERT_EMITTER_point(bNode *emitter_node,
   }
 }
 
+static void INSERT_EVENT_age_reached(bNode *event_node,
+                                     IndexedBParticlesTree &bparticles_tree,
+                                     ModifierStepDescription &step_description)
+{
+  BLI_assert(STREQ(event_node->idname, "bp_AgeReachedEventNode"));
+  bNodeSocket *event_input = (bNodeSocket *)event_node->inputs.first;
+
+  for (SocketWithNode linked : bparticles_tree.base().linked(event_input)) {
+    if (!bparticles_tree.is_particle_type_node(linked.node)) {
+      continue;
+    }
+
+    bNode *type_node = linked.node;
+
+    PointerRNA rna = bparticles_tree.base().get_rna(event_node);
+    float age = RNA_float_get(&rna, "age");
+
+    EventFilter *event_filter = EVENT_age_reached(age);
+    Action *action = ACTION_kill();
+    Event *event = new EventActionTest(event_filter, action);
+    step_description.m_types.lookup_ref(type_node->name)->m_events.append(event);
+  }
+}
+
 static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree)
 {
+  SCOPED_TIMER(__func__);
+
   SmallMap<std::string, EmitterInserter> emitter_inserters;
   emitter_inserters.add_new("bp_MeshEmitterNode", INSERT_EMITTER_mesh_surface);
   emitter_inserters.add_new("bp_PointEmitterNode", INSERT_EMITTER_point);
+
+  SmallMap<std::string, EventInserter> event_inserters;
+  event_inserters.add_new("bp_AgeReachedEventNode", INSERT_EVENT_age_reached);
 
   ModifierStepDescription *step_description = new ModifierStepDescription();
 
@@ -345,6 +379,12 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
   for (auto item : emitter_inserters.items()) {
     for (bNode *emitter_node : indexed_tree.nodes_with_idname(item.key)) {
       item.value(emitter_node, bparticles_tree, step_description->m_emitters);
+    }
+  }
+
+  for (auto item : event_inserters.items()) {
+    for (bNode *event_node : indexed_tree.nodes_with_idname(item.key)) {
+      item.value(event_node, bparticles_tree, *step_description);
     }
   }
 
