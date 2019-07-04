@@ -451,6 +451,8 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
     std::cout << "  Particles: " << item.value->count_active() << "\n";
     std::cout << "  Blocks: " << item.value->active_blocks().size() << "\n";
   }
+
+  delete step_description;
 }
 
 uint BParticles_state_particle_count(BParticlesState state_c)
