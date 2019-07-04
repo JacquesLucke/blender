@@ -5,6 +5,7 @@ set(INC
   ../makesrna
   ../blenkernel
   ../depsgraph
+  ../functions
   ../../../intern/guardedalloc
 )
 

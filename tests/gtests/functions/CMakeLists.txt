@@ -22,6 +22,8 @@ set(INC
   .
   ..
   ../../../source/blender/blenlib
+  ../../../source/blender/blenkernel
+  ../../../source/blender/makesrna
   ../../../source/blender/functions
   ../../../source/blender/makesdna
   ../../../intern/guardedalloc

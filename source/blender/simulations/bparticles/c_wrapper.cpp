@@ -26,6 +26,9 @@
 
 #include "RNA_access.h"
 
+#include "FN_tuple_call.hpp"
+#include "FN_data_flow_nodes.hpp"
+
 #define WRAPPERS(T1, T2) \
   inline T1 unwrap(T2 value) \
   { \
@@ -270,6 +273,7 @@ typedef std::function<void(
     EmitterInserter;
 
 typedef std::function<void(bNode *bnode,
+                           FN::DataFlowNodes::GeneratedGraph &generated_graph,
                            IndexedBParticlesTree &bparticles_tree,
                            ModifierStepDescription &step_description)>
     EventInserter;
@@ -324,12 +328,48 @@ static void INSERT_EMITTER_point(bNode *emitter_node,
   }
 }
 
+class OldKillEvent : public Event {
+ private:
+  FN::SharedFunction m_compute_age_fn;
+
+ public:
+  OldKillEvent(FN::SharedFunction compute_age_fn) : m_compute_age_fn(compute_age_fn)
+  {
+  }
+
+  void filter(EventFilterInterface &interface) override
+  {
+    auto *body = m_compute_age_fn->body<FN::TupleCallBody>();
+    FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+
+    FN::ExecutionStack stack;
+    FN::ExecutionContext execution_context(stack);
+    body->call(fn_in, fn_out, execution_context);
+
+    float age = fn_out.get<float>(0);
+    EventFilter *filter = EVENT_age_reached(age);
+    filter->filter(interface);
+    delete filter;
+  }
+
+  void execute(EventExecuteInterface &interface) override
+  {
+    interface.kill(interface.particles().indices());
+  }
+};
+
 static void INSERT_EVENT_age_reached(bNode *event_node,
+                                     FN::DataFlowNodes::GeneratedGraph &generated_graph,
                                      IndexedBParticlesTree &bparticles_tree,
                                      ModifierStepDescription &step_description)
 {
   BLI_assert(STREQ(event_node->idname, "bp_AgeReachedEventNode"));
   bNodeSocket *event_input = (bNodeSocket *)event_node->inputs.first;
+
+  FN::DFGraphSocket age_input_socket = generated_graph.lookup_socket(event_input->next);
+  FN::FunctionGraph function_graph(generated_graph.graph(), {}, {age_input_socket});
+  FN::SharedFunction compute_age_function = function_graph.new_function("Compute Age");
+  FN::fgraph_add_TupleCallBody(compute_age_function, function_graph);
 
   for (SocketWithNode linked : bparticles_tree.base().linked(event_input)) {
     if (!bparticles_tree.is_particle_type_node(linked.node)) {
@@ -338,12 +378,7 @@ static void INSERT_EVENT_age_reached(bNode *event_node,
 
     bNode *type_node = linked.node;
 
-    PointerRNA rna = bparticles_tree.base().get_rna(event_node);
-    float age = RNA_float_get(&rna, "age");
-
-    EventFilter *event_filter = EVENT_age_reached(age);
-    Action *action = ACTION_kill();
-    Event *event = new EventActionTest(event_filter, action);
+    Event *event = new OldKillEvent(compute_age_function);
     step_description.m_types.lookup_ref(type_node->name)->m_events.append(event);
   }
 }
@@ -363,6 +398,8 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
 
   IndexedNodeTree indexed_tree(btree);
   IndexedBParticlesTree bparticles_tree(indexed_tree);
+
+  auto generated_graph = FN::DataFlowNodes::generate_graph(indexed_tree).value();
 
   auto type_nodes = bparticles_tree.type_nodes();
   for (uint i = 0; i < type_nodes.size(); i++) {
@@ -384,7 +421,7 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
 
   for (auto item : event_inserters.items()) {
     for (bNode *event_node : indexed_tree.nodes_with_idname(item.key)) {
-      item.value(event_node, bparticles_tree, *step_description);
+      item.value(event_node, generated_graph, bparticles_tree, *step_description);
     }
   }
 
