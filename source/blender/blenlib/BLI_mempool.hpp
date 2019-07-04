@@ -48,6 +48,10 @@ class MemPool {
     }
   }
 
+  /**
+   * Get a pointer to an uninitialized memory buffer of the size set in the constructor. The buffer
+   * will be invalidated when the MemPool is destroyed.
+   */
   void *allocate()
   {
     if (m_free_stack.empty()) {
@@ -60,6 +64,10 @@ class MemPool {
     return ptr;
   }
 
+  /**
+   * Deallocate a pointer that has been allocated using the same mempool before. The memory won't
+   * actually be freed immediatly.
+   */
   void deallocate(void *ptr)
   {
 #ifdef DEBUG

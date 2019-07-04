@@ -1,5 +1,11 @@
 #pragma once
 
+/**
+ * This allocator should be used, when arrays of the same length are often allocated and
+ * deallocated. Knowing that all arrays have the same length makes it possible to just store the
+ * size of a single element to identify the buffer length, which is a small number usually.
+ */
+
 #include "BLI_small_stack.hpp"
 
 namespace BLI {
