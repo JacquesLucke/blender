@@ -59,10 +59,11 @@ static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
   return true;
 }
 
-static void insert_unlinked_inputs(BTreeGraphBuilder &builder, GraphInserters &inserters)
+static void insert_unlinked_inputs(BTreeGraphBuilder &builder,
+                                   UnlinkedInputsHandler &unlinked_inputs_handler)
 {
   SmallVector<bNodeSocket *> unlinked_inputs;
-  DFGB_SocketVector node_inputs;
+  SmallVector<DFGB_Socket> sockets_in_builder;
 
   for (bNode *bnode : builder.indexed_btree().actual_nodes()) {
     for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
@@ -70,17 +71,20 @@ static void insert_unlinked_inputs(BTreeGraphBuilder &builder, GraphInserters &i
         DFGB_Socket socket = builder.lookup_socket(bsocket);
         if (!socket.is_linked()) {
           unlinked_inputs.append(bsocket);
-          node_inputs.append(socket);
+          sockets_in_builder.append(socket);
         }
       }
     }
   }
 
-  DFGB_SocketVector new_origins = inserters.insert_sockets(builder, unlinked_inputs);
-  BLI_assert(unlinked_inputs.size() == new_origins.size());
+  DFGB_SocketVector inserted_data_origins;
+  inserted_data_origins.reserve(unlinked_inputs.size());
+  unlinked_inputs_handler.insert(builder, unlinked_inputs, inserted_data_origins);
+
+  BLI_assert(unlinked_inputs.size() == inserted_data_origins.size());
 
   for (uint i = 0; i < unlinked_inputs.size(); i++) {
-    builder.insert_link(new_origins[i], node_inputs[i]);
+    builder.insert_link(inserted_data_origins[i], sockets_in_builder[i]);
   }
 }
 
@@ -122,6 +126,23 @@ static SmallMap<bNodeSocket *, DFGraphSocket> build_mapping_for_original_sockets
   return original_socket_mapping;
 }
 
+class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
+ private:
+  GraphInserters &m_inserters;
+
+ public:
+  BasicUnlinkedInputsHandler(GraphInserters &inserters) : m_inserters(inserters)
+  {
+  }
+
+  void insert(BTreeGraphBuilder &builder,
+              ArrayRef<bNodeSocket *> unlinked_inputs,
+              DFGB_SocketVector &r_inserted_data_origins) override
+  {
+    r_inserted_data_origins = std::move(m_inserters.insert_sockets(builder, unlinked_inputs));
+  }
+};
+
 Optional<GeneratedGraph> generate_graph(IndexedNodeTree &indexed_btree)
 {
   DataFlowGraphBuilder graph_builder;
@@ -138,7 +159,9 @@ Optional<GeneratedGraph> generate_graph(IndexedNodeTree &indexed_btree)
     return {};
   }
 
-  insert_unlinked_inputs(builder, inserters);
+  BasicUnlinkedInputsHandler unlinked_inputs_handler(inserters);
+
+  insert_unlinked_inputs(builder, unlinked_inputs_handler);
 
   auto build_result = DataFlowGraph::FromBuilder(graph_builder);
   return GeneratedGraph(std::move(build_result.graph),

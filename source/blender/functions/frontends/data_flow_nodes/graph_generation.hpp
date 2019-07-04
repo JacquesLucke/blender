@@ -4,10 +4,20 @@
 #include "BLI_optional.hpp"
 #include "BKE_node_tree.hpp"
 
+#include "builder.hpp"
+
 namespace FN {
 namespace DataFlowNodes {
 
 using BKE::IndexedNodeTree;
+using BKE::SocketWithNode;
+
+class UnlinkedInputsHandler {
+ public:
+  virtual void insert(BTreeGraphBuilder &builder,
+                      ArrayRef<bNodeSocket *> unlinked_inputs,
+                      DFGB_SocketVector &r_inserted_data_origins) = 0;
+};
 
 class GeneratedGraph {
  private:
