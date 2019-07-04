@@ -20,11 +20,6 @@ static bool is_output_node(const bNode *bnode)
   return STREQ(bnode->idname, "fn_FunctionOutputNode");
 }
 
-static bool is_reroute_node(const bNode *bnode)
-{
-  return STREQ(bnode->idname, "NodeReroute");
-}
-
 static void insert_input_node(BTreeGraphBuilder &builder, bNode *bnode)
 {
   FunctionBuilder fn_builder;
@@ -57,11 +52,8 @@ static void insert_output_node(BTreeGraphBuilder &builder, bNode *bnode)
 
 static bool insert_functions_for_bnodes(BTreeGraphBuilder &builder, GraphInserters &inserters)
 {
-  for (bNode *bnode : builder.indexed_btree().original_nodes()) {
+  for (bNode *bnode : builder.indexed_btree().actual_nodes()) {
     if (is_input_node(bnode) || is_output_node(bnode)) {
-      continue;
-    }
-    if (is_reroute_node(bnode)) {
       continue;
     }
 

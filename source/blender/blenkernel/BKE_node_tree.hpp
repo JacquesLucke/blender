@@ -66,14 +66,28 @@ class IndexedNodeTree {
     return rna;
   }
 
+  /**
+   * Get all nodes that are in the btree->nodes list.
+   */
   ArrayRef<bNode *> original_nodes() const
   {
     return m_original_nodes;
   }
 
+  /**
+   * Get all links that are in the btree->links list.
+   */
   ArrayRef<bNodeLink *> original_links() const
   {
     return m_original_links;
+  }
+
+  /**
+   * Get all nodes that are not reroutes or frames.
+   */
+  ArrayRef<bNode *> actual_nodes() const
+  {
+    return m_actual_nodes;
   }
 
   ArrayRef<SingleOriginLink> single_origin_links() const;
@@ -82,6 +96,7 @@ class IndexedNodeTree {
 
  private:
   bool is_reroute(bNode *bnode) const;
+  bool is_frame(bNode *bnode) const;
 
   void find_connected_sockets_left(bNodeSocket *bsocket,
                                    SmallVector<SocketWithNode> &r_sockets) const;
@@ -91,6 +106,7 @@ class IndexedNodeTree {
   bNodeTree *m_btree;
   SmallVector<bNode *> m_original_nodes;
   SmallVector<bNodeLink *> m_original_links;
+  SmallVector<bNode *> m_actual_nodes;
   SmallMap<bNodeSocket *, bNode *> m_node_by_socket;
   SmallMultiMap<bNodeSocket *, SocketWithNode> m_direct_links;
   SmallMultiMap<bNodeSocket *, SocketWithNode> m_links;

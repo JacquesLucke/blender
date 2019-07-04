@@ -17,6 +17,9 @@ IndexedNodeTree::IndexedNodeTree(bNodeTree *btree)
 
   for (bNode *bnode : m_original_nodes) {
     m_nodes_by_idname.add(bnode->idname, bnode);
+    if (!this->is_reroute(bnode) && !this->is_frame(bnode)) {
+      m_actual_nodes.append(bnode);
+    }
   }
 
   for (bNodeLink *blink : m_original_links) {
@@ -71,6 +74,11 @@ void IndexedNodeTree::find_connected_sockets_right(bNodeSocket *bsocket,
 bool IndexedNodeTree::is_reroute(bNode *bnode) const
 {
   return STREQ(bnode->idname, "NodeReroute");
+}
+
+bool IndexedNodeTree::is_frame(bNode *bnode) const
+{
+  return STREQ(bnode->idname, "NodeFrame");
 }
 
 /* Queries
