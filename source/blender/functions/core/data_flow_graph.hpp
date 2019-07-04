@@ -205,8 +205,12 @@ class DataFlowGraph : public RefCountedBase {
     }
   };
 
-  static SharedDataFlowGraph FromBuilder(DataFlowGraphBuilder &builder,
-                                         ToBuilderMapping &r_mapping);
+  struct BuildResult {
+    SharedDataFlowGraph graph;
+    ToBuilderMapping mapping;
+  };
+
+  static BuildResult FromBuilder(DataFlowGraphBuilder &builder);
 
   Range<uint> node_ids() const
   {

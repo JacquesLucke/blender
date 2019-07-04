@@ -88,8 +88,8 @@ static FunctionGraph finalize_function_graph(DataFlowGraphBuilder &builder,
                                              DFGB_SocketVector input_sockets,
                                              DFGB_SocketVector output_sockets)
 {
-  DataFlowGraph::ToBuilderMapping builder_mapping;
-  auto compact_graph = DataFlowGraph::FromBuilder(builder, builder_mapping);
+  auto build_result = DataFlowGraph::FromBuilder(builder);
+  auto &builder_mapping = build_result.mapping;
 
   DFGraphSocketSetVector inputs, outputs;
 
@@ -100,7 +100,7 @@ static FunctionGraph finalize_function_graph(DataFlowGraphBuilder &builder,
     outputs.add(builder_mapping.map_socket(socket));
   }
 
-  return FunctionGraph(compact_graph, inputs, outputs);
+  return FunctionGraph(build_result.graph, inputs, outputs);
 }
 
 static void find_interface_sockets(BTreeGraphBuilder &builder,
