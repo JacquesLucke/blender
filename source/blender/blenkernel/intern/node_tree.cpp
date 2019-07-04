@@ -4,9 +4,9 @@
 namespace BKE {
 
 IndexedNodeTree::IndexedNodeTree(bNodeTree *btree)
-    : m_nodes(btree->nodes, true), m_links(btree->links, true)
+    : m_original_nodes(btree->nodes, true), m_original_links(btree->links, true)
 {
-  for (bNode *bnode : m_nodes) {
+  for (bNode *bnode : m_original_nodes) {
     for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
       m_node_by_socket.add(bsocket, bnode);
     }
@@ -15,51 +15,52 @@ IndexedNodeTree::IndexedNodeTree(bNodeTree *btree)
     }
   }
 
-  for (bNodeLink *blink : m_links) {
-    m_direct_links.add(blink->tosock, blink->fromsock);
-    m_direct_links.add(blink->fromsock, blink->tosock);
+  for (bNode *bnode : m_original_nodes) {
+    m_nodes_by_idname.add(bnode->idname, bnode);
   }
 
-  for (bNodeLink *blink : m_links) {
-    if (!this->is_reroute(blink->fromnode) &&
-        !m_links_without_reroutes.contains(blink->fromsock)) {
-      SmallVector<bNodeSocket *> others;
-      this->find_connected_sockets_right(blink->fromsock, others);
-      m_links_without_reroutes.add_multiple_new(blink->fromsock, others);
+  for (bNodeLink *blink : m_original_links) {
+    m_direct_links.add(blink->tosock, {blink->fromsock, blink->fromnode});
+    m_direct_links.add(blink->fromsock, {blink->tosock, blink->tonode});
+  }
+
+  for (bNodeLink *blink : m_original_links) {
+    if (!this->is_reroute(blink->fromnode) && !m_links.contains(blink->fromsock)) {
+      SmallVector<SocketWithNode> connected;
+      this->find_connected_sockets_right(blink->fromsock, connected);
+      m_links.add_multiple_new(blink->fromsock, connected);
     }
-    if (!this->is_reroute(blink->tonode) && !m_links_without_reroutes.contains(blink->tosock)) {
-      SmallVector<bNodeSocket *> others;
-      this->find_connected_sockets_left(blink->tosock, others);
-      m_links_without_reroutes.add_multiple_new(blink->tosock, others);
-      if (others.size() == 1) {
-        m_single_origin_links.append(SingleOriginLink{others[0], blink->tosock, blink});
+    if (!this->is_reroute(blink->tonode) && !m_links.contains(blink->tosock)) {
+      SmallVector<SocketWithNode> connected;
+      this->find_connected_sockets_left(blink->tosock, connected);
+      m_links.add_multiple_new(blink->tosock, connected);
+      if (connected.size() == 1) {
+        m_single_origin_links.append(SingleOriginLink{connected[0].socket, blink->tosock, blink});
       }
     }
   }
 }
 
 void IndexedNodeTree::find_connected_sockets_left(bNodeSocket *bsocket,
-                                                  SmallVector<bNodeSocket *> &r_sockets) const
+                                                  SmallVector<SocketWithNode> &r_sockets) const
 {
   BLI_assert(bsocket->in_out == SOCK_IN);
-  for (bNodeSocket *other : m_direct_links.lookup_default(bsocket)) {
-    bNode *other_node = m_node_by_socket.lookup(other);
-    if (this->is_reroute(other_node)) {
-      this->find_connected_sockets_left((bNodeSocket *)other_node->inputs.first, r_sockets);
+  for (SocketWithNode linked : m_direct_links.lookup_default(bsocket)) {
+    if (this->is_reroute(linked.node)) {
+      this->find_connected_sockets_left((bNodeSocket *)linked.node->inputs.first, r_sockets);
     }
     else {
-      r_sockets.append(other);
+      r_sockets.append(linked);
     }
   }
 }
 void IndexedNodeTree::find_connected_sockets_right(bNodeSocket *bsocket,
-                                                   SmallVector<bNodeSocket *> &r_sockets) const
+                                                   SmallVector<SocketWithNode> &r_sockets) const
 {
   BLI_assert(bsocket->in_out == SOCK_OUT);
-  for (bNodeSocket *other : m_direct_links.lookup_default(bsocket)) {
-    bNode *other_node = m_node_by_socket.lookup(other);
-    if (this->is_reroute(other_node)) {
-      this->find_connected_sockets_right((bNodeSocket *)other_node->outputs.first, r_sockets);
+  for (SocketWithNode other : m_direct_links.lookup_default(bsocket)) {
+    if (this->is_reroute(other.node)) {
+      this->find_connected_sockets_right((bNodeSocket *)other.node->outputs.first, r_sockets);
     }
     else {
       r_sockets.append(other);
@@ -72,25 +73,22 @@ bool IndexedNodeTree::is_reroute(bNode *bnode) const
   return STREQ(bnode->idname, "NodeReroute");
 }
 
-SmallVector<bNode *> IndexedNodeTree::nodes_with_idname(StringRef idname) const
+/* Queries
+ *******************************************************/
+
+ArrayRef<bNode *> IndexedNodeTree::nodes_with_idname(StringRef idname) const
 {
-  SmallVector<bNode *> result;
-  for (bNode *bnode : m_nodes) {
-    if (bnode->idname == idname) {
-      result.append(bnode);
-    }
-  }
-  return result;
+  return m_nodes_by_idname.lookup_default(idname.to_std_string());
 }
 
-SmallVector<bNode *> IndexedNodeTree::nodes_connected_to_socket(bNodeSocket *bsocket) const
+ArrayRef<SocketWithNode> IndexedNodeTree::linked(bNodeSocket *bsocket) const
 {
-  SmallVector<bNode *> result;
-  for (bNodeSocket *other : m_links_without_reroutes.lookup_default(bsocket)) {
-    bNode *bnode = m_node_by_socket.lookup(other);
-    result.append(bnode);
-  }
-  return result;
+  return m_links.lookup_default(bsocket);
+}
+
+ArrayRef<SingleOriginLink> IndexedNodeTree::single_origin_links() const
+{
+  return m_single_origin_links;
 }
 
 }  // namespace BKE

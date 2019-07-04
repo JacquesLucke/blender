@@ -39,6 +39,7 @@
 using namespace BParticles;
 
 using BKE::IndexedNodeTree;
+using BKE::SocketWithNode;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::SmallVector;
@@ -228,8 +229,8 @@ class ModifierStepDescription : public StepDescription {
 class IndexedBParticlesTree {
  private:
   IndexedNodeTree &m_indexed_tree;
-  SmallVector<bNode *> m_particle_type_nodes;
-  SmallVector<bNode *> m_emitter_nodes;
+  ArrayRef<bNode *> m_particle_type_nodes;
+  ArrayRef<bNode *> m_emitter_nodes;
 
  public:
   IndexedBParticlesTree(IndexedNodeTree &indexed_tree) : m_indexed_tree(indexed_tree)
@@ -271,8 +272,7 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
   auto emitter_nodes = bparticles_tree.emitter_nodes();
   for (bNode *emitter_node : emitter_nodes) {
     bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
-    auto connected_nodes = indexed_tree.nodes_connected_to_socket(emitter_output);
-    for (bNode *connected_node : connected_nodes) {
+    for (SocketWithNode linked : indexed_tree.linked(emitter_output)) {
       PointerRNA rna;
       RNA_pointer_create(&btree->id, &RNA_Node, emitter_node, &rna);
       Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
@@ -281,7 +281,7 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
       }
 
       Emitter *emitter = EMITTER_mesh_surface(
-          connected_node->name, (Mesh *)object->data, object->obmat, object->obmat, 1.0f);
+          linked.node->name, (Mesh *)object->data, object->obmat, object->obmat, 1.0f);
       step_description->m_emitters.append(emitter);
     }
   }

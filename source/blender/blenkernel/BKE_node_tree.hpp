@@ -22,6 +22,17 @@ using bNodeList = ListBaseWrapper<struct bNode *, true>;
 using bLinkList = ListBaseWrapper<struct bNodeLink *, true>;
 using bSocketList = ListBaseWrapper<struct bNodeSocket *, true>;
 
+struct SocketWithNode {
+  bNodeSocket *socket;
+  bNode *node;
+};
+
+struct SingleOriginLink {
+  bNodeSocket *from;
+  bNodeSocket *to;
+  bNodeLink *source_link;
+};
+
 /**
  * The DNA structure of a node tree is difficult to parse, since it does not support e.g. the
  * following queries efficiently:
@@ -35,33 +46,24 @@ class IndexedNodeTree {
  public:
   IndexedNodeTree(bNodeTree *btree);
 
-  struct SingleOriginLink {
-    bNodeSocket *from;
-    bNodeSocket *to;
-    bNodeLink *source_link;
-  };
-
-  const ArrayRef<SingleOriginLink> single_origin_links() const
-  {
-    return m_single_origin_links;
-  }
-
-  SmallVector<bNode *> nodes_with_idname(StringRef idname) const;
-  SmallVector<bNode *> nodes_connected_to_socket(bNodeSocket *bsocket) const;
+  ArrayRef<SingleOriginLink> single_origin_links() const;
+  ArrayRef<bNode *> nodes_with_idname(StringRef idname) const;
+  ArrayRef<SocketWithNode> linked(bNodeSocket *bsocket) const;
 
  private:
   bool is_reroute(bNode *bnode) const;
 
   void find_connected_sockets_left(bNodeSocket *bsocket,
-                                   SmallVector<bNodeSocket *> &r_sockets) const;
+                                   SmallVector<SocketWithNode> &r_sockets) const;
   void find_connected_sockets_right(bNodeSocket *bsocket,
-                                    SmallVector<bNodeSocket *> &r_sockets) const;
+                                    SmallVector<SocketWithNode> &r_sockets) const;
 
-  SmallVector<bNode *> m_nodes;
-  SmallVector<bNodeLink *> m_links;
+  SmallVector<bNode *> m_original_nodes;
+  SmallVector<bNodeLink *> m_original_links;
   SmallMap<bNodeSocket *, bNode *> m_node_by_socket;
-  SmallMultiMap<bNodeSocket *, bNodeSocket *> m_direct_links;
-  SmallMultiMap<bNodeSocket *, bNodeSocket *> m_links_without_reroutes;
+  SmallMultiMap<bNodeSocket *, SocketWithNode> m_direct_links;
+  SmallMultiMap<bNodeSocket *, SocketWithNode> m_links;
+  SmallMultiMap<std::string, bNode *> m_nodes_by_idname;
   SmallVector<SingleOriginLink> m_single_origin_links;
 };
 
