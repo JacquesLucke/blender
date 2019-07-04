@@ -225,16 +225,17 @@ class ModifierStepDescription : public StepDescription {
   }
 };
 
-class BParticlesTreeQuery : public IndexedNodeTree {
+class IndexedBParticlesTree {
  private:
+  IndexedNodeTree &m_indexed_tree;
   SmallVector<bNode *> m_particle_type_nodes;
   SmallVector<bNode *> m_emitter_nodes;
 
  public:
-  BParticlesTreeQuery(bNodeTree *btree) : IndexedNodeTree(btree)
+  IndexedBParticlesTree(IndexedNodeTree &indexed_tree) : m_indexed_tree(indexed_tree)
   {
-    m_particle_type_nodes = this->nodes_with_idname("bp_ParticleTypeNode");
-    m_emitter_nodes = this->nodes_with_idname("bp_MeshEmitterNode");
+    m_particle_type_nodes = indexed_tree.nodes_with_idname("bp_ParticleTypeNode");
+    m_emitter_nodes = indexed_tree.nodes_with_idname("bp_MeshEmitterNode");
   }
 
   ArrayRef<bNode *> type_nodes() const
@@ -251,9 +252,11 @@ class BParticlesTreeQuery : public IndexedNodeTree {
 static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree)
 {
   ModifierStepDescription *step_description = new ModifierStepDescription();
-  BParticlesTreeQuery indexed_btree(btree);
 
-  auto type_nodes = indexed_btree.type_nodes();
+  IndexedNodeTree indexed_tree(btree);
+  IndexedBParticlesTree bparticles_tree(indexed_tree);
+
+  auto type_nodes = bparticles_tree.type_nodes();
   for (uint i = 0; i < type_nodes.size(); i++) {
     bNode *particle_type_node = type_nodes[i];
 
@@ -265,10 +268,10 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
     step_description->m_particle_type_names.append(type_name);
   }
 
-  auto emitter_nodes = indexed_btree.emitter_nodes();
+  auto emitter_nodes = bparticles_tree.emitter_nodes();
   for (bNode *emitter_node : emitter_nodes) {
     bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
-    auto connected_nodes = indexed_btree.nodes_connected_to_socket(emitter_output);
+    auto connected_nodes = indexed_tree.nodes_connected_to_socket(emitter_output);
     for (bNode *connected_node : connected_nodes) {
       PointerRNA rna;
       RNA_pointer_create(&btree->id, &RNA_Node, emitter_node, &rna);
