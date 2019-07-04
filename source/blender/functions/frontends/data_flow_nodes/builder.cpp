@@ -98,14 +98,14 @@ DFGB_Node *BTreeGraphBuilder::insert_matching_function(SharedFunction &fn, bNode
 DFGB_Node *BTreeGraphBuilder::insert_function(SharedFunction &fn, bNode *bnode)
 {
   BLI_assert(bnode != nullptr);
-  NodeSource *source = m_graph.new_source_info<NodeSource>(m_btree, bnode);
+  NodeSource *source = m_graph.new_source_info<NodeSource>(m_indexed_btree.btree(), bnode);
   return m_graph.insert_function(fn, source);
 }
 
 DFGB_Node *BTreeGraphBuilder::insert_function(SharedFunction &fn, bNodeLink *blink)
 {
   BLI_assert(blink != nullptr);
-  LinkSource *source = m_graph.new_source_info<LinkSource>(m_btree, blink);
+  LinkSource *source = m_graph.new_source_info<LinkSource>(m_indexed_btree.btree(), blink);
   return m_graph.insert_function(fn, source);
 }
 
@@ -186,7 +186,7 @@ bool BTreeGraphBuilder::check_if_sockets_are_mapped(struct bNode *bnode,
     if (this->is_data_socket(bsocket)) {
       if (!m_socket_map.contains(bsocket)) {
         std::cout << "Data DFGB_Socket not mapped: " << std::endl;
-        std::cout << "    Tree: " << m_btree->id.name << std::endl;
+        std::cout << "    Tree: " << m_indexed_btree.btree_id()->name << std::endl;
         std::cout << "    DFGB_Node: " << bnode->name << std::endl;
         if (bsocket->in_out == SOCK_IN) {
           std::cout << "    Input";
@@ -211,12 +211,12 @@ bool BTreeGraphBuilder::verify_data_sockets_mapped(struct bNode *bnode) const
 
 struct bNodeTree *BTreeGraphBuilder::btree() const
 {
-  return m_btree;
+  return m_indexed_btree.btree();
 }
 
 struct ID *BTreeGraphBuilder::btree_id() const
 {
-  return &m_btree->id;
+  return m_indexed_btree.btree_id();
 }
 
 bool BTreeGraphBuilder::is_data_socket(bNodeSocket *bsocket) const

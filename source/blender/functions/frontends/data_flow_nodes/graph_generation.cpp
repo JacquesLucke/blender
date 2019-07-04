@@ -197,10 +197,12 @@ static FunctionGraph finalize_function_graph(DataFlowGraphBuilder &builder,
 
 Optional<FunctionGraph> generate_function_graph(bNodeTree *btree)
 {
+  IndexedNodeTree indexed_btree(btree);
+
   DataFlowGraphBuilder graph_builder;
   SmallMap<struct bNodeSocket *, DFGB_Socket> socket_map;
 
-  BTreeGraphBuilder builder(btree, graph_builder, socket_map);
+  BTreeGraphBuilder builder(indexed_btree, graph_builder, socket_map);
   GraphInserters &inserters = get_standard_inserters();
 
   if (!insert_functions_for_bnodes(builder, inserters)) {

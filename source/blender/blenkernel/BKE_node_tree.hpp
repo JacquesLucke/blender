@@ -42,7 +42,8 @@ struct SingleOriginLink {
  *   - Which node corresponds to a socket?
  *   - Which other sockets are connected to a socket (with and without reroutes)?
  *
- * This data structure does some preprocessing to make these queries more efficient.
+ * This data structure does some preprocessing to make these queries more efficient. It is only
+ * valid as long as the underlying node tree is not modified.
  */
 class IndexedNodeTree {
  public:

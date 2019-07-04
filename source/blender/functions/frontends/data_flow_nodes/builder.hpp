@@ -12,18 +12,19 @@ namespace DataFlowNodes {
 using BKE::bLinkList;
 using BKE::bNodeList;
 using BKE::bSocketList;
+using BKE::IndexedNodeTree;
 
 class BTreeGraphBuilder {
  private:
   DataFlowGraphBuilder &m_graph;
-  struct bNodeTree *m_btree;
+  IndexedNodeTree &m_indexed_btree;
   SmallMap<struct bNodeSocket *, DFGB_Socket> &m_socket_map;
 
  public:
-  BTreeGraphBuilder(struct bNodeTree *btree,
+  BTreeGraphBuilder(IndexedNodeTree &indexed_btree,
                     DataFlowGraphBuilder &graph,
                     SmallMap<struct bNodeSocket *, DFGB_Socket> &socket_map)
-      : m_graph(graph), m_btree(btree), m_socket_map(socket_map)
+      : m_graph(graph), m_indexed_btree(indexed_btree), m_socket_map(socket_map)
   {
   }
 
