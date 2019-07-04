@@ -127,13 +127,13 @@ void BTreeGraphBuilder::map_sockets(DFGB_Node *node, struct bNode *bnode)
   BLI_assert(BLI_listbase_count(&bnode->outputs) == node->output_amount());
 
   uint input_index = 0;
-  for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
+  for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
     this->map_socket(node->input(input_index), bsocket);
     input_index++;
   }
 
   uint output_index = 0;
-  for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
+  for (bNodeSocket *bsocket : bSocketList(bnode->outputs)) {
     this->map_socket(node->output(output_index), bsocket);
     output_index++;
   }
@@ -142,7 +142,7 @@ void BTreeGraphBuilder::map_sockets(DFGB_Node *node, struct bNode *bnode)
 void BTreeGraphBuilder::map_data_sockets(DFGB_Node *node, struct bNode *bnode)
 {
   uint input_index = 0;
-  for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
+  for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
     if (this->is_data_socket(bsocket)) {
       this->map_socket(node->input(input_index), bsocket);
       input_index++;
@@ -150,7 +150,7 @@ void BTreeGraphBuilder::map_data_sockets(DFGB_Node *node, struct bNode *bnode)
   }
 
   uint output_index = 0;
-  for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
+  for (bNodeSocket *bsocket : bSocketList(bnode->outputs)) {
     if (this->is_data_socket(bsocket)) {
       this->map_socket(node->output(output_index), bsocket);
       output_index++;
@@ -205,8 +205,8 @@ bool BTreeGraphBuilder::check_if_sockets_are_mapped(struct bNode *bnode,
 
 bool BTreeGraphBuilder::verify_data_sockets_mapped(struct bNode *bnode) const
 {
-  return (this->check_if_sockets_are_mapped(bnode, bSocketList(&bnode->inputs)) &&
-          this->check_if_sockets_are_mapped(bnode, bSocketList(&bnode->outputs)));
+  return (this->check_if_sockets_are_mapped(bnode, bSocketList(bnode->inputs)) &&
+          this->check_if_sockets_are_mapped(bnode, bSocketList(bnode->outputs)));
 }
 
 IndexedNodeTree &BTreeGraphBuilder::indexed_btree() const
@@ -307,6 +307,21 @@ std::string BTreeGraphBuilder::query_socket_type_name(bNodeSocket *bsocket) cons
   char type_name[64];
   RNA_string_get(&rna, "data_type", type_name);
   return type_name;
+}
+
+bool BTreeGraphBuilder::has_data_socket(bNode *bnode) const
+{
+  for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
+    if (this->is_data_socket(bsocket)) {
+      return true;
+    }
+  }
+  for (bNodeSocket *bsocket : bSocketList(bnode->outputs)) {
+    if (this->is_data_socket(bsocket)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace DataFlowNodes

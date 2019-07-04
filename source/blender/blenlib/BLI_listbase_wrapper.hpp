@@ -20,6 +20,10 @@ template<typename T, bool intrusive> class ListBaseWrapper {
     BLI_assert(listbase);
   }
 
+  ListBaseWrapper(ListBase &listbase) : m_listbase(&listbase)
+  {
+  }
+
   class Iterator {
    private:
     ListBase *m_listbase;

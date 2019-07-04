@@ -9,8 +9,6 @@ struct PointerRNA;
 namespace FN {
 namespace DataFlowNodes {
 
-using BKE::bLinkList;
-using BKE::bNodeList;
 using BKE::bSocketList;
 using BKE::IndexedNodeTree;
 
@@ -65,6 +63,7 @@ class BTreeGraphBuilder {
   /* Query Node Information */
   PointerRNA get_rna(bNode *bnode) const;
   SharedType &query_type_property(bNode *bnode, const char *prop_name) const;
+  bool has_data_socket(bNode *bnode) const;
 
   /* Query RNA */
   SharedType &type_from_rna(PointerRNA &rna, const char *prop_name) const;

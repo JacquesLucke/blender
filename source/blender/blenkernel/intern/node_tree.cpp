@@ -7,10 +7,10 @@ IndexedNodeTree::IndexedNodeTree(bNodeTree *btree)
     : m_btree(btree), m_original_nodes(btree->nodes, true), m_original_links(btree->links, true)
 {
   for (bNode *bnode : m_original_nodes) {
-    for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {
+    for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
       m_node_by_socket.add(bsocket, bnode);
     }
-    for (bNodeSocket *bsocket : bSocketList(&bnode->outputs)) {
+    for (bNodeSocket *bsocket : bSocketList(bnode->outputs)) {
       m_node_by_socket.add(bsocket, bnode);
     }
   }

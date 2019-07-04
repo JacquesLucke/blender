@@ -113,12 +113,12 @@ template<typename T, uint N = 4> class SmallVector {
   SmallVector(ListBase &values, bool intrusive_next_and_prev_pointers) : SmallVector()
   {
     if (intrusive_next_and_prev_pointers) {
-      for (T value : ListBaseWrapper<T, true>(&values)) {
+      for (T value : ListBaseWrapper<T, true>(values)) {
         this->append(value);
       }
     }
     else {
-      for (T value : ListBaseWrapper<T, false>(&values)) {
+      for (T value : ListBaseWrapper<T, false>(values)) {
         this->append(value);
       }
     }

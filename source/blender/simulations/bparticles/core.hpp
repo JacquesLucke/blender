@@ -669,7 +669,7 @@ inline StringRefNull ParticlesState::particle_container_id(ParticlesContainer &c
     }
   }
   BLI_assert(false);
-  return 0;
+  return *(StringRefNull *)nullptr;
 }
 
 inline float &ParticlesState::current_time()
