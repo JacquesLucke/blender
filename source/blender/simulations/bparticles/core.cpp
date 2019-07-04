@@ -36,9 +36,9 @@ BlockAllocator::BlockAllocator(ParticlesState &state) : m_state(state)
 {
 }
 
-ParticlesBlock &BlockAllocator::get_non_full_block(uint particle_type_id)
+ParticlesBlock &BlockAllocator::get_non_full_block(StringRef particle_type_name)
 {
-  ParticlesContainer &container = m_state.particle_container(particle_type_id);
+  ParticlesContainer &container = m_state.particle_container(particle_type_name);
 
   uint index = 0;
   while (index < m_non_full_cache.size()) {
@@ -59,14 +59,14 @@ ParticlesBlock &BlockAllocator::get_non_full_block(uint particle_type_id)
   return block;
 }
 
-void BlockAllocator::allocate_block_ranges(uint particle_type_id,
+void BlockAllocator::allocate_block_ranges(StringRef particle_type_name,
                                            uint size,
                                            SmallVector<ParticlesBlock *> &r_blocks,
                                            SmallVector<Range<uint>> &r_ranges)
 {
   uint remaining_size = size;
   while (remaining_size > 0) {
-    ParticlesBlock &block = this->get_non_full_block(particle_type_id);
+    ParticlesBlock &block = this->get_non_full_block(particle_type_name);
 
     uint size_to_use = std::min(block.unused_amount(), remaining_size);
     Range<uint> range(block.active_amount(), block.active_amount() + size_to_use);
@@ -84,9 +84,9 @@ void BlockAllocator::allocate_block_ranges(uint particle_type_id,
   }
 }
 
-AttributesInfo &BlockAllocator::attributes_info(uint particle_type_id)
+AttributesInfo &BlockAllocator::attributes_info(StringRef particle_type_name)
 {
-  return m_state.particle_container(particle_type_id).attributes_info();
+  return m_state.particle_container(particle_type_name).attributes_info();
 }
 
 /* Emitter Interface
@@ -104,15 +104,15 @@ EmitterInterface::~EmitterInterface()
   }
 }
 
-TimeSpanEmitTarget &EmitterInterface::request(uint particle_type_id, uint size)
+TimeSpanEmitTarget &EmitterInterface::request(StringRef particle_type_name, uint size)
 {
   SmallVector<ParticlesBlock *> blocks;
   SmallVector<Range<uint>> ranges;
-  m_block_allocator.allocate_block_ranges(particle_type_id, size, blocks, ranges);
-  AttributesInfo &attributes_info = m_block_allocator.attributes_info(particle_type_id);
+  m_block_allocator.allocate_block_ranges(particle_type_name, size, blocks, ranges);
+  AttributesInfo &attributes_info = m_block_allocator.attributes_info(particle_type_name);
 
   auto *target = new TimeSpanEmitTarget(
-      particle_type_id, attributes_info, blocks, ranges, m_time_span);
+      particle_type_name, attributes_info, blocks, ranges, m_time_span);
   m_targets.append(target);
   return *target;
 }
@@ -127,17 +127,17 @@ EventExecuteInterface::~EventExecuteInterface()
   }
 }
 
-InstantEmitTarget &EventExecuteInterface::request_emit_target(uint particle_type_id,
+InstantEmitTarget &EventExecuteInterface::request_emit_target(StringRef particle_type_name,
                                                               ArrayRef<uint> original_indices)
 {
   uint size = original_indices.size();
 
   SmallVector<ParticlesBlock *> blocks;
   SmallVector<Range<uint>> ranges;
-  m_block_allocator.allocate_block_ranges(particle_type_id, size, blocks, ranges);
-  AttributesInfo &attributes_info = m_block_allocator.attributes_info(particle_type_id);
+  m_block_allocator.allocate_block_ranges(particle_type_name, size, blocks, ranges);
+  AttributesInfo &attributes_info = m_block_allocator.attributes_info(particle_type_name);
 
-  auto *target = new InstantEmitTarget(particle_type_id, attributes_info, blocks, ranges);
+  auto *target = new InstantEmitTarget(particle_type_name, attributes_info, blocks, ranges);
   m_emit_targets.append(target);
 
   SmallVector<float> birth_times(size);
@@ -152,11 +152,11 @@ InstantEmitTarget &EventExecuteInterface::request_emit_target(uint particle_type
 /* EmitTarget
  ******************************************/
 
-EmitTargetBase::EmitTargetBase(uint particle_type_id,
+EmitTargetBase::EmitTargetBase(StringRef particle_type_name,
                                AttributesInfo &attributes_info,
                                ArrayRef<ParticlesBlock *> blocks,
                                ArrayRef<Range<uint>> ranges)
-    : m_particle_type_id(particle_type_id),
+    : m_particle_type_name(particle_type_name.to_std_string()),
       m_attributes_info(attributes_info),
       m_blocks(blocks),
       m_ranges(ranges)
@@ -167,20 +167,20 @@ EmitTargetBase::EmitTargetBase(uint particle_type_id,
   }
 }
 
-InstantEmitTarget::InstantEmitTarget(uint particle_type_id,
+InstantEmitTarget::InstantEmitTarget(StringRef particle_type_name,
                                      AttributesInfo &attributes_info,
                                      ArrayRef<ParticlesBlock *> blocks,
                                      ArrayRef<Range<uint>> ranges)
-    : EmitTargetBase(particle_type_id, attributes_info, blocks, ranges)
+    : EmitTargetBase(particle_type_name, attributes_info, blocks, ranges)
 {
 }
 
-TimeSpanEmitTarget::TimeSpanEmitTarget(uint particle_type_id,
+TimeSpanEmitTarget::TimeSpanEmitTarget(StringRef particle_type_name,
                                        AttributesInfo &attributes_info,
                                        ArrayRef<ParticlesBlock *> blocks,
                                        ArrayRef<Range<uint>> ranges,
                                        TimeSpan time_span)
-    : EmitTargetBase(particle_type_id, attributes_info, blocks, ranges), m_time_span(time_span)
+    : EmitTargetBase(particle_type_name, attributes_info, blocks, ranges), m_time_span(time_span)
 {
 }
 

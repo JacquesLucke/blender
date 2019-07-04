@@ -533,8 +533,8 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(BlockAllocators &block_al
       [&step_description, &all_durations, time_span](ParticlesBlock *block,
                                                      ThreadLocalData *local_data) {
         ParticlesState &state = local_data->block_allocator.particles_state();
-        uint particle_type_id = state.particle_container_id(block->container());
-        ParticleType &particle_type = step_description.particle_type(particle_type_id);
+        StringRef particle_type_name = state.particle_container_id(block->container());
+        ParticleType &particle_type = step_description.particle_type(particle_type_name);
 
         simulate_block(local_data->array_allocator,
                        local_data->block_allocator,
@@ -567,7 +567,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
       /* Process individual element. */
       [&step_description, end_time](ParticlesBlock *block, ThreadLocalData *local_data) {
         ParticlesState &state = local_data->block_allocator.particles_state();
-        uint particle_type_id = state.particle_container_id(block->container());
+        StringRef particle_type_id = state.particle_container_id(block->container());
         ParticleType &particle_type = step_description.particle_type(particle_type_id);
 
         uint active_amount = block->active_amount();
@@ -592,12 +592,12 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
       USE_THREADING);
 }
 
-BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(ParticlesState &state,
-                                                                 ArrayRef<uint> particle_type_ids)
+BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(
+    ParticlesState &state, ArrayRef<std::string> particle_type_names)
 {
   SmallVector<ParticlesBlock *> blocks;
-  for (uint particle_type_id : particle_type_ids) {
-    ParticlesContainer &container = state.particle_container(particle_type_id);
+  for (StringRef particle_type_name : particle_type_names) {
+    ParticlesContainer &container = state.particle_container(particle_type_name);
     for (ParticlesBlock *block : container.active_blocks()) {
       blocks.append(block);
     }
@@ -622,9 +622,9 @@ BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &blo
 }
 
 BLI_NOINLINE static void delete_tagged_particles(ParticlesState &state,
-                                                 ArrayRef<uint> particle_type_ids)
+                                                 ArrayRef<std::string> particle_type_names)
 {
-  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state, particle_type_ids);
+  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state, particle_type_names);
 
   BLI::Task::parallel_array_elements(
       ArrayRef<ParticlesBlock *>(blocks),
@@ -656,10 +656,10 @@ BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
 {
   auto &containers = state.particle_containers();
 
-  for (uint type_id : description.particle_type_ids()) {
-    if (!containers.contains(type_id)) {
+  for (std::string &type_name : description.particle_type_names()) {
+    if (!containers.contains(type_name)) {
       ParticlesContainer *container = new ParticlesContainer({}, BLOCK_SIZE);
-      containers.add_new(type_id, container);
+      containers.add_new(type_name, container);
     }
   }
 }
@@ -697,9 +697,9 @@ BLI_NOINLINE static void ensure_required_attributes_exist(ParticlesState &state,
 {
   auto &containers = state.particle_containers();
 
-  for (uint type_id : description.particle_type_ids()) {
-    ParticleType &type = description.particle_type(type_id);
-    ParticlesContainer &container = *containers.lookup(type_id);
+  for (std::string &type_name : description.particle_type_names()) {
+    ParticleType &type = description.particle_type(type_name);
+    ParticlesContainer &container = *containers.lookup(type_name);
 
     AttributesInfo new_attributes_info = build_attribute_info_for_type(
         type, container.attributes_info());
@@ -713,7 +713,7 @@ BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,
                                                       TimeSpan time_span)
 {
   SmallVector<ParticlesBlock *> blocks = get_all_blocks(state,
-                                                        step_description.particle_type_ids());
+                                                        step_description.particle_type_names());
   simulate_blocks_for_time_span(block_allocators, blocks, step_description, time_span);
 }
 
@@ -758,7 +758,7 @@ void simulate_step(ParticlesState &state, StepDescription &step_description)
 
   emit_and_simulate_particles(state, step_description, time_span);
 
-  delete_tagged_particles(state, step_description.particle_type_ids());
+  delete_tagged_particles(state, step_description.particle_type_names());
   compress_all_containers(state);
 }
 

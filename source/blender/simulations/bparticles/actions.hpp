@@ -14,6 +14,6 @@ class Action {
 Action *ACTION_kill();
 Action *ACTION_move(float3 offset);
 Action *ACTION_spawn();
-Action *ACTION_explode();
+Action *ACTION_explode(StringRef new_particle_name);
 
 }  // namespace BParticles

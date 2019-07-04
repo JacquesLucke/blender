@@ -190,9 +190,9 @@ class ModifierParticleType : public ParticleType {
 class ModifierStepDescription : public StepDescription {
  public:
   float m_duration;
-  SmallMap<uint, ModifierParticleType *> m_types;
+  SmallMap<std::string, ModifierParticleType *> m_types;
   SmallVector<Emitter *> m_emitters;
-  SmallVector<uint> m_particle_type_ids;
+  SmallVector<std::string> m_particle_type_names;
 
   ~ModifierStepDescription()
   {
@@ -214,14 +214,14 @@ class ModifierStepDescription : public StepDescription {
     return m_emitters;
   }
 
-  ArrayRef<uint> particle_type_ids() override
+  ArrayRef<std::string> particle_type_names() override
   {
-    return m_particle_type_ids;
+    return m_particle_type_names;
   }
 
-  ParticleType &particle_type(uint type_id) override
+  ParticleType &particle_type(StringRef type_name) override
   {
-    return *m_types.lookup(type_id);
+    return *m_types.lookup(type_name.to_std_string());
   }
 };
 
@@ -253,17 +253,16 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
   ModifierStepDescription *step_description = new ModifierStepDescription();
   BParticlesTreeQuery btree_query(btree);
 
-  SmallMap<bNode *, uint> id_per_type_node;
-
   auto type_nodes = btree_query.type_nodes();
   for (uint i = 0; i < type_nodes.size(); i++) {
     bNode *particle_type_node = type_nodes[i];
 
     ModifierParticleType *type = new ModifierParticleType();
     type->m_integrator = new EulerIntegrator();
-    step_description->m_types.add_new(i, type);
-    step_description->m_particle_type_ids.append(i);
-    id_per_type_node.add_new(particle_type_node, i);
+
+    std::string type_name = particle_type_node->name;
+    step_description->m_types.add_new(type_name, type);
+    step_description->m_particle_type_names.append(type_name);
   }
 
   auto emitter_nodes = btree_query.emitter_nodes();
@@ -271,8 +270,6 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
     bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
     auto connected_nodes = btree_query.nodes_connected_to_socket(emitter_output);
     for (bNode *connected_node : connected_nodes) {
-      uint type_id = id_per_type_node.lookup(connected_node);
-
       PointerRNA rna;
       RNA_pointer_create(&btree->id, &RNA_Node, emitter_node, &rna);
       Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
@@ -281,7 +278,7 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
       }
 
       Emitter *emitter = EMITTER_mesh_surface(
-          type_id, (Mesh *)object->data, object->obmat, object->obmat, 1.0f);
+          connected_node->name, (Mesh *)object->data, object->obmat, object->obmat, 1.0f);
       step_description->m_emitters.append(emitter);
     }
   }

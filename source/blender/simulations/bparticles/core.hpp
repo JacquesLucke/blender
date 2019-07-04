@@ -154,12 +154,12 @@ class StepDescription {
   /**
    * Return the particle type ids that will be modified in this step.
    */
-  virtual ArrayRef<uint> particle_type_ids() = 0;
+  virtual ArrayRef<std::string> particle_type_names() = 0;
 
   /**
    * Return the description of a particle type based on its id.
    */
-  virtual ParticleType &particle_type(uint type_id) = 0;
+  virtual ParticleType &particle_type(StringRef name) = 0;
 };
 
 /* Classes used by the interface
@@ -174,7 +174,7 @@ class StepDescription {
  */
 class ParticlesState {
  private:
-  SmallMap<uint, ParticlesContainer *> m_container_by_id;
+  SmallMap<std::string, ParticlesContainer *> m_container_by_id;
   float m_current_time = 0.0f;
 
  public:
@@ -188,20 +188,20 @@ class ParticlesState {
   float &current_time();
 
   /**
-   * Access the mapping from particle type ids to their corresponding containers.
+   * Access the mapping from particle type names to their corresponding containers.
    */
-  SmallMap<uint, ParticlesContainer *> &particle_containers();
+  SmallMap<std::string, ParticlesContainer *> &particle_containers();
 
   /**
-   * Get the container corresponding to a particle type id.
+   * Get the container corresponding to a particle type name.
    * Asserts when the container does not exist.
    */
-  ParticlesContainer &particle_container(uint type_id);
+  ParticlesContainer &particle_container(StringRef name);
 
   /**
-   * Get the id of a container in the context of this particle state.
+   * Get the name of a container in the context of this particle state.
    */
-  uint particle_container_id(ParticlesContainer &container);
+  StringRefNull particle_container_id(ParticlesContainer &container);
 };
 
 /**
@@ -224,18 +224,18 @@ class BlockAllocator {
    * Return a block that can hold new particles. It might create an entirely new one or use a
    * cached block.
    */
-  ParticlesBlock &get_non_full_block(uint particle_type_id);
+  ParticlesBlock &get_non_full_block(StringRef particle_type_name);
 
   /**
    * Allocate space for a given number of new particles. The attribute buffers might be distributed
    * over multiple blocks.
    */
-  void allocate_block_ranges(uint particle_type_id,
+  void allocate_block_ranges(StringRef particle_type_name,
                              uint size,
                              SmallVector<ParticlesBlock *> &r_blocks,
                              SmallVector<Range<uint>> &r_ranges);
 
-  AttributesInfo &attributes_info(uint particle_type_id);
+  AttributesInfo &attributes_info(StringRef particle_type_name);
   ParticlesState &particles_state();
 
   /**
@@ -250,7 +250,7 @@ class BlockAllocator {
  */
 class EmitTargetBase {
  protected:
-  uint m_particle_type_id;
+  std::string m_particle_type_name;
   AttributesInfo &m_attributes_info;
   SmallVector<ParticlesBlock *> m_blocks;
   SmallVector<Range<uint>> m_ranges;
@@ -258,7 +258,7 @@ class EmitTargetBase {
   uint m_size = 0;
 
  public:
-  EmitTargetBase(uint particle_type_id,
+  EmitTargetBase(StringRef particle_type_name,
                  AttributesInfo &attributes_info,
                  ArrayRef<ParticlesBlock *> blocks,
                  ArrayRef<Range<uint>> ranges);
@@ -308,7 +308,7 @@ class EmitTargetBase {
   /**
    * Get the particle type id in the context of the current simulation step.
    */
-  uint particle_type_id();
+  StringRefNull particle_type_name();
 
  private:
   void set_elements(uint index, void *data);
@@ -320,7 +320,7 @@ class EmitTargetBase {
  */
 class InstantEmitTarget : public EmitTargetBase {
  public:
-  InstantEmitTarget(uint particle_type_id,
+  InstantEmitTarget(StringRef particle_type_name,
                     AttributesInfo &attributes_info,
                     ArrayRef<ParticlesBlock *> blocks,
                     ArrayRef<Range<uint>> ranges);
@@ -334,7 +334,7 @@ class TimeSpanEmitTarget : public EmitTargetBase {
   TimeSpan m_time_span;
 
  public:
-  TimeSpanEmitTarget(uint particle_type_id,
+  TimeSpanEmitTarget(StringRef particle_type_name,
                      AttributesInfo &attributes_info,
                      ArrayRef<ParticlesBlock *> blocks,
                      ArrayRef<Range<uint>> ranges,
@@ -377,7 +377,7 @@ class EmitterInterface {
   /**
    * Get a new emit target with the given size and particle type.
    */
-  TimeSpanEmitTarget &request(uint particle_type_id, uint size);
+  TimeSpanEmitTarget &request(StringRef particle_type_name, uint size);
 
   /**
    * Time span that new particles should be emitted in.
@@ -576,7 +576,8 @@ class EventExecuteInterface {
    * This mapping is necessary to ensure that the new particles are create at the right moments in
    * time.
    */
-  InstantEmitTarget &request_emit_target(uint particle_type_id, ArrayRef<uint> original_indices);
+  InstantEmitTarget &request_emit_target(StringRef particle_type_name,
+                                         ArrayRef<uint> original_indices);
 
   /**
    * Kill all particles with the given indices in the current block.
@@ -650,17 +651,17 @@ class TypeAttributeInterface {
 /* ParticlesState inline functions
  ********************************************/
 
-inline SmallMap<uint, ParticlesContainer *> &ParticlesState::particle_containers()
+inline SmallMap<std::string, ParticlesContainer *> &ParticlesState::particle_containers()
 {
   return m_container_by_id;
 }
 
-inline ParticlesContainer &ParticlesState::particle_container(uint type_id)
+inline ParticlesContainer &ParticlesState::particle_container(StringRef name)
 {
-  return *m_container_by_id.lookup(type_id);
+  return *m_container_by_id.lookup(name.to_std_string());
 }
 
-inline uint ParticlesState::particle_container_id(ParticlesContainer &container)
+inline StringRefNull ParticlesState::particle_container_id(ParticlesContainer &container)
 {
   for (auto item : m_container_by_id.items()) {
     if (item.value == &container) {
@@ -712,9 +713,9 @@ inline AttributeArrays EmitTargetBase::attributes(uint part)
   return m_blocks[part]->attributes_slice(m_ranges[part]);
 }
 
-inline uint EmitTargetBase::particle_type_id()
+inline StringRefNull EmitTargetBase::particle_type_name()
 {
-  return m_particle_type_id;
+  return m_particle_type_name;
 }
 
 /* EmitterInterface inline functions

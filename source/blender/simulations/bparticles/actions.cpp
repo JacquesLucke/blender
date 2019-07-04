@@ -72,6 +72,15 @@ static float3 random_direction()
 }
 
 class ExplodeAction : public Action {
+ private:
+  std::string m_new_particle_name;
+
+ public:
+  ExplodeAction(StringRef new_particle_name)
+      : m_new_particle_name(new_particle_name.to_std_string())
+  {
+  }
+
   void execute(EventExecuteInterface &interface) override
   {
     ParticleSet &particles = interface.particles();
@@ -94,7 +103,7 @@ class ExplodeAction : public Action {
       }
     }
 
-    auto &target = interface.request_emit_target(1, original_indices);
+    auto &target = interface.request_emit_target(m_new_particle_name, original_indices);
     target.set_float3("Position", new_positions);
     target.set_float3("Velocity", new_velocities);
 
@@ -117,9 +126,9 @@ Action *ACTION_spawn()
   return new SpawnAction();
 }
 
-Action *ACTION_explode()
+Action *ACTION_explode(StringRef new_particle_name)
 {
-  return new ExplodeAction();
+  return new ExplodeAction(new_particle_name);
 }
 
 }  // namespace BParticles

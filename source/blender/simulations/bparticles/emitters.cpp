@@ -31,19 +31,19 @@ class PointEmitter : public Emitter {
 
 class SurfaceEmitter : public Emitter {
  private:
-  uint m_particle_type_id;
+  std::string m_particle_type_name;
   Mesh *m_mesh;
   float4x4 m_transform_start;
   float4x4 m_transform_end;
   float m_normal_velocity;
 
  public:
-  SurfaceEmitter(uint particle_type_id,
+  SurfaceEmitter(StringRef particle_type_name,
                  Mesh *mesh,
                  float4x4 transform_start,
                  float4x4 transform_end,
                  float normal_velocity)
-      : m_particle_type_id(particle_type_id),
+      : m_particle_type_name(particle_type_name.to_std_string()),
         m_mesh(mesh),
         m_transform_start(transform_start),
         m_transform_end(transform_end),
@@ -81,7 +81,7 @@ class SurfaceEmitter : public Emitter {
       birth_moments.append(birth_moment);
     }
 
-    auto &target = interface.request(m_particle_type_id, positions.size());
+    auto &target = interface.request(m_particle_type_name, positions.size());
     target.set_float3("Position", positions);
     target.set_float3("Velocity", velocities);
     target.set_birth_moments(birth_moments);
@@ -157,14 +157,14 @@ Emitter *EMITTER_point(float3 point)
   return new PointEmitter(point);
 }
 
-Emitter *EMITTER_mesh_surface(uint particle_type_id,
+Emitter *EMITTER_mesh_surface(StringRef particle_type_name,
                               Mesh *mesh,
                               const float4x4 &transform_start,
                               const float4x4 &transform_end,
                               float normal_velocity)
 {
   return new SurfaceEmitter(
-      particle_type_id, mesh, transform_start, transform_end, normal_velocity);
+      particle_type_name, mesh, transform_start, transform_end, normal_velocity);
 }
 
 Emitter *EMITTER_path(Path *path, float4x4 transform)
