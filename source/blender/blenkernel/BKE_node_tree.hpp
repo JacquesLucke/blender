@@ -66,6 +66,16 @@ class IndexedNodeTree {
     return rna;
   }
 
+  ArrayRef<bNode *> original_nodes() const
+  {
+    return m_original_nodes;
+  }
+
+  ArrayRef<bNodeLink *> original_links() const
+  {
+    return m_original_links;
+  }
+
   ArrayRef<SingleOriginLink> single_origin_links() const;
   ArrayRef<bNode *> nodes_with_idname(StringRef idname) const;
   ArrayRef<SocketWithNode> linked(bNodeSocket *bsocket) const;

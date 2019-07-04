@@ -209,6 +209,11 @@ bool BTreeGraphBuilder::verify_data_sockets_mapped(struct bNode *bnode) const
           this->check_if_sockets_are_mapped(bnode, bSocketList(&bnode->outputs)));
 }
 
+IndexedNodeTree &BTreeGraphBuilder::indexed_btree() const
+{
+  return m_indexed_btree;
+}
+
 struct bNodeTree *BTreeGraphBuilder::btree() const
 {
   return m_indexed_btree.btree();

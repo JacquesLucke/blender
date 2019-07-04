@@ -227,3 +227,14 @@ TEST(array_ref, FirstLast_OneElement)
   EXPECT_EQ(a_ref.first(), 3);
   EXPECT_EQ(a_ref.last(), 3);
 }
+
+TEST(array_ref, Get)
+{
+  std::array<int, 3> a = {5, 6, 7};
+  IntArrayRef a_ref(a);
+  EXPECT_EQ(a_ref.get(0, 42), 5);
+  EXPECT_EQ(a_ref.get(1, 42), 6);
+  EXPECT_EQ(a_ref.get(2, 42), 7);
+  EXPECT_EQ(a_ref.get(3, 42), 42);
+  EXPECT_EQ(a_ref.get(4, 42), 42);
+}

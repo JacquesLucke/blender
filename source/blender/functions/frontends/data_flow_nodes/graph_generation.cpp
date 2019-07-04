@@ -25,26 +25,6 @@ static bool is_reroute_node(const bNode *bnode)
   return STREQ(bnode->idname, "NodeReroute");
 }
 
-static bNode *find_input_node(bNodeTree *btree)
-{
-  for (bNode *bnode : bNodeList(&btree->nodes)) {
-    if (is_input_node(bnode)) {
-      return bnode;
-    }
-  }
-  return nullptr;
-}
-
-static bNode *find_output_node(bNodeTree *btree)
-{
-  for (bNode *bnode : bNodeList(&btree->nodes)) {
-    if (is_output_node(bnode)) {
-      return bnode;
-    }
-  }
-  return nullptr;
-}
-
 static void insert_input_node(BTreeGraphBuilder &builder, bNode *bnode)
 {
   FunctionBuilder fn_builder;
@@ -75,20 +55,9 @@ static void insert_output_node(BTreeGraphBuilder &builder, bNode *bnode)
   builder.map_data_sockets(node, bnode);
 }
 
-struct BSocketLink {
-  bNodeSocket *from;
-  bNodeSocket *to;
-  bNodeLink *optional_source_link;
-
-  BSocketLink(bNodeSocket *from, bNodeSocket *to, bNodeLink *link = nullptr)
-      : from(from), to(to), optional_source_link(link)
-  {
-  }
-};
-
 static bool insert_functions_for_bnodes(BTreeGraphBuilder &builder, GraphInserters &inserters)
 {
-  for (bNode *bnode : bNodeList(&builder.btree()->nodes)) {
+  for (bNode *bnode : builder.indexed_btree().original_nodes()) {
     if (is_input_node(bnode) || is_output_node(bnode)) {
       continue;
     }
@@ -105,7 +74,8 @@ static bool insert_functions_for_bnodes(BTreeGraphBuilder &builder, GraphInserte
 
 static DFGB_SocketVector insert_function_input(BTreeGraphBuilder &builder)
 {
-  bNode *input_bnode = find_input_node(builder.btree());
+  bNode *input_bnode =
+      builder.indexed_btree().nodes_with_idname("fn_FunctionInputNode").get(0, nullptr);
   if (input_bnode == nullptr) {
     return {};
   }
@@ -122,7 +92,8 @@ static DFGB_SocketVector insert_function_input(BTreeGraphBuilder &builder)
 
 static DFGB_SocketVector insert_function_output(BTreeGraphBuilder &builder)
 {
-  bNode *output_bnode = find_output_node(builder.btree());
+  bNode *output_bnode =
+      builder.indexed_btree().nodes_with_idname("fn_FunctionOutputNode").get(0, nullptr);
   if (output_bnode == nullptr) {
     return {};
   }

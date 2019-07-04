@@ -51,6 +51,7 @@ class BTreeGraphBuilder {
   SharedType &type_by_name(const char *data_type) const;
 
   /* Query Node Tree */
+  IndexedNodeTree &indexed_btree() const;
   bNodeTree *btree() const;
   ID *btree_id() const;
 

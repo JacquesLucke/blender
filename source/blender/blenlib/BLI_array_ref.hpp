@@ -230,6 +230,17 @@ template<typename T> class ArrayRef {
     BLI_assert(m_size > 0);
     return m_start[m_size - 1];
   }
+
+  /**
+   * Get element at the given index. If the index is out of range, return the fallback value.
+   */
+  T get(uint index, const T &fallback)
+  {
+    if (index < m_size) {
+      return m_start[index];
+    }
+    return fallback;
+  }
 };
 
 template<typename ArrayT, typename ValueT, ValueT (*GetValue)(ArrayT &item)> class MappedArrayRef {
