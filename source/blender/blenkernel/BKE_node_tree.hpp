@@ -46,6 +46,16 @@ class IndexedNodeTree {
  public:
   IndexedNodeTree(bNodeTree *btree);
 
+  bNodeTree *btree() const
+  {
+    return m_btree;
+  }
+
+  ID *btree_id() const
+  {
+    return &m_btree->id;
+  }
+
   ArrayRef<SingleOriginLink> single_origin_links() const;
   ArrayRef<bNode *> nodes_with_idname(StringRef idname) const;
   ArrayRef<SocketWithNode> linked(bNodeSocket *bsocket) const;
@@ -58,6 +68,7 @@ class IndexedNodeTree {
   void find_connected_sockets_right(bNodeSocket *bsocket,
                                     SmallVector<SocketWithNode> &r_sockets) const;
 
+  bNodeTree *m_btree;
   SmallVector<bNode *> m_original_nodes;
   SmallVector<bNodeLink *> m_original_links;
   SmallMap<bNodeSocket *, bNode *> m_node_by_socket;

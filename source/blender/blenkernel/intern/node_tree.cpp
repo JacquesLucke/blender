@@ -4,7 +4,7 @@
 namespace BKE {
 
 IndexedNodeTree::IndexedNodeTree(bNodeTree *btree)
-    : m_original_nodes(btree->nodes, true), m_original_links(btree->links, true)
+    : m_btree(btree), m_original_nodes(btree->nodes, true), m_original_links(btree->links, true)
 {
   for (bNode *bnode : m_original_nodes) {
     for (bNodeSocket *bsocket : bSocketList(&bnode->inputs)) {

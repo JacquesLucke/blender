@@ -248,10 +248,58 @@ class IndexedBParticlesTree {
   {
     return m_emitter_nodes;
   }
+
+  const IndexedNodeTree &base() const
+  {
+    return m_indexed_tree;
+  }
+
+  bool is_particle_type_node(bNode *bnode) const
+  {
+    return STREQ(bnode->idname, "bp_ParticleTypeNode");
+  }
+
+  ID *btree_id() const
+  {
+    return m_indexed_tree.btree_id();
+  }
 };
+
+typedef std::function<void(
+    bNode *bnode, IndexedBParticlesTree &bparticles_tree, SmallVector<Emitter *> &r_emitters)>
+    EmitterInserter;
+
+static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
+                                        IndexedBParticlesTree &bparticles_tree,
+                                        SmallVector<Emitter *> &r_emitters)
+{
+  BLI_assert(STREQ(emitter_node->idname, "bp_MeshEmitterNode"));
+  bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
+  for (SocketWithNode linked : bparticles_tree.base().linked(emitter_output)) {
+    if (!bparticles_tree.is_particle_type_node(linked.node)) {
+      continue;
+    }
+
+    bNode *type_node = linked.node;
+
+    PointerRNA rna;
+    RNA_pointer_create(bparticles_tree.btree_id(), &RNA_Node, emitter_node, &rna);
+    Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
+    if (object == nullptr) {
+      continue;
+    }
+
+    Emitter *emitter = EMITTER_mesh_surface(
+        type_node->name, (Mesh *)object->data, object->obmat, object->obmat, 1.0f);
+    r_emitters.append(emitter);
+  }
+}
 
 static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree)
 {
+  SmallMap<std::string, EmitterInserter> emitter_inserters;
+  emitter_inserters.add_new("bp_MeshEmitterNode", INSERT_EMITTER_mesh_surface);
+
   ModifierStepDescription *step_description = new ModifierStepDescription();
 
   IndexedNodeTree indexed_tree(btree);
@@ -269,22 +317,12 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
     step_description->m_particle_type_names.append(type_name);
   }
 
-  auto emitter_nodes = bparticles_tree.emitter_nodes();
-  for (bNode *emitter_node : emitter_nodes) {
-    bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
-    for (SocketWithNode linked : indexed_tree.linked(emitter_output)) {
-      PointerRNA rna;
-      RNA_pointer_create(&btree->id, &RNA_Node, emitter_node, &rna);
-      Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
-      if (object == nullptr) {
-        continue;
-      }
-
-      Emitter *emitter = EMITTER_mesh_surface(
-          linked.node->name, (Mesh *)object->data, object->obmat, object->obmat, 1.0f);
-      step_description->m_emitters.append(emitter);
+  for (auto item : emitter_inserters.items()) {
+    for (bNode *emitter_node : indexed_tree.nodes_with_idname(item.key)) {
+      item.value(emitter_node, bparticles_tree, step_description->m_emitters);
     }
   }
+
   return step_description;
 }
 
