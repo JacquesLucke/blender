@@ -9,6 +9,8 @@
 #include "BLI_listbase_wrapper.hpp"
 #include "BLI_multimap.hpp"
 
+#include "RNA_access.h"
+
 namespace BKE {
 
 using BLI::ArrayRef;
@@ -54,6 +56,13 @@ class IndexedNodeTree {
   ID *btree_id() const
   {
     return &m_btree->id;
+  }
+
+  PointerRNA get_rna(bNode *bnode) const
+  {
+    PointerRNA rna;
+    RNA_pointer_create(this->btree_id(), &RNA_Node, bnode, &rna);
+    return rna;
   }
 
   ArrayRef<SingleOriginLink> single_origin_links() const;

@@ -282,8 +282,8 @@ static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
 
     bNode *type_node = linked.node;
 
-    PointerRNA rna;
-    RNA_pointer_create(bparticles_tree.btree_id(), &RNA_Node, emitter_node, &rna);
+    PointerRNA rna = bparticles_tree.base().get_rna(emitter_node);
+
     Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
     if (object == nullptr) {
       continue;
@@ -309,9 +309,9 @@ static void INSERT_EMITTER_point(bNode *emitter_node,
 
     bNode *type_node = linked.node;
 
+    PointerRNA rna = bparticles_tree.base().get_rna(emitter_node);
+
     float3 position;
-    PointerRNA rna;
-    RNA_pointer_create(bparticles_tree.btree_id(), &RNA_Node, emitter_node, &rna);
     RNA_float_get_array(&rna, "position", position);
 
     Emitter *emitter = EMITTER_point(type_node->name, position);
