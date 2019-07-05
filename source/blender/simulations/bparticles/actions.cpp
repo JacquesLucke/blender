@@ -14,6 +14,36 @@ class NoneAction : public Action {
   }
 };
 
+class ChangeDirectionAction : public Action {
+ private:
+  SharedFunction m_compute_direction_fn;
+  TupleCallBody *m_compute_direction_body;
+
+ public:
+  ChangeDirectionAction(SharedFunction &compute_direction_fn)
+      : m_compute_direction_fn(compute_direction_fn)
+  {
+    m_compute_direction_body = m_compute_direction_fn->body<TupleCallBody>();
+  }
+
+  void execute(EventExecuteInterface &interface) override
+  {
+    ParticleSet particles = interface.particles();
+    auto velocities = particles.attributes().get_float3("Velocity");
+
+    FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_direction_body, fn_in, fn_out);
+
+    FN::ExecutionStack stack;
+    FN::ExecutionContext execution_context(stack);
+
+    for (uint pindex : particles.indices()) {
+      m_compute_direction_body->call(fn_in, fn_out, execution_context);
+      float3 direction = fn_out.get<float3>(0);
+      velocities[pindex] = direction;
+    }
+  }
+};
+
 class KillAction : public Action {
   void execute(EventExecuteInterface &interface) override
   {
@@ -120,6 +150,11 @@ class ExplodeAction : public Action {
 Action *ACTION_none()
 {
   return new NoneAction();
+}
+
+Action *ACTION_change_direction(SharedFunction &compute_direction_fn)
+{
+  return new ChangeDirectionAction(compute_direction_fn);
 }
 
 Action *ACTION_kill()

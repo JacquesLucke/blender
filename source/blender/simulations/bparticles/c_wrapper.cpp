@@ -41,6 +41,7 @@
 
 using namespace BParticles;
 
+using BKE::bSocketList;
 using BKE::IndexedNodeTree;
 using BKE::SocketWithNode;
 using BLI::ArrayRef;
@@ -241,6 +242,16 @@ static Action *build_action(SocketWithNode start,
   bNode *bnode = start.node;
   if (STREQ(bnode->idname, "bp_KillParticleNode")) {
     return ACTION_kill();
+  }
+  else if (STREQ(bnode->idname, "bp_ChangeParticleDirectionNode")) {
+    bNodeSocket *direction_socket = bSocketList(bnode->inputs).get(1);
+
+    FN::DFGraphSocket direction_input = data_graph.lookup_socket(direction_socket);
+    FN::FunctionGraph function_graph(data_graph.graph(), {}, {direction_input});
+    SharedFunction compute_direction_fn = function_graph.new_function("Compute Direction");
+    FN::fgraph_add_TupleCallBody(compute_direction_fn, function_graph);
+
+    return ACTION_change_direction(compute_direction_fn);
   }
   else {
     return nullptr;
