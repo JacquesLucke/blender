@@ -229,45 +229,6 @@ class ModifierStepDescription : public StepDescription {
   }
 };
 
-class IndexedBParticlesTree {
- private:
-  IndexedNodeTree &m_indexed_tree;
-  ArrayRef<bNode *> m_particle_type_nodes;
-  ArrayRef<bNode *> m_emitter_nodes;
-
- public:
-  IndexedBParticlesTree(IndexedNodeTree &indexed_tree) : m_indexed_tree(indexed_tree)
-  {
-    m_particle_type_nodes = indexed_tree.nodes_with_idname("bp_ParticleTypeNode");
-    m_emitter_nodes = indexed_tree.nodes_with_idname("bp_MeshEmitterNode");
-  }
-
-  ArrayRef<bNode *> type_nodes() const
-  {
-    return m_particle_type_nodes;
-  }
-
-  ArrayRef<bNode *> emitter_nodes() const
-  {
-    return m_emitter_nodes;
-  }
-
-  const IndexedNodeTree &base() const
-  {
-    return m_indexed_tree;
-  }
-
-  bool is_particle_type_node(bNode *bnode) const
-  {
-    return STREQ(bnode->idname, "bp_ParticleTypeNode");
-  }
-
-  ID *btree_id() const
-  {
-    return m_indexed_tree.btree_id();
-  }
-};
-
 using EmitterInserter = std::function<void(bNode *bnode,
                                            IndexedNodeTree &indexed_tree,
                                            FN::DataFlowNodes::GeneratedGraph &data_graph,
@@ -277,6 +238,11 @@ using EventInserter = EmitterInserter;
 static bool is_particle_type_node(bNode *bnode)
 {
   return STREQ(bnode->idname, "bp_ParticleTypeNode");
+}
+
+static ArrayRef<bNode *> get_particle_type_nodes(IndexedNodeTree &indexed_tree)
+{
+  return indexed_tree.nodes_with_idname("bp_ParticleTypeNode");
 }
 
 static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
@@ -400,14 +366,10 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
   ModifierStepDescription *step_description = new ModifierStepDescription();
 
   IndexedNodeTree indexed_tree(btree);
-  IndexedBParticlesTree bparticles_tree(indexed_tree);
 
   auto generated_graph = FN::DataFlowNodes::generate_graph(indexed_tree).value();
 
-  auto type_nodes = bparticles_tree.type_nodes();
-  for (uint i = 0; i < type_nodes.size(); i++) {
-    bNode *particle_type_node = type_nodes[i];
-
+  for (bNode *particle_type_node : get_particle_type_nodes(indexed_tree)) {
     ModifierParticleType *type = new ModifierParticleType();
     type->m_integrator = new EulerIntegrator();
 
