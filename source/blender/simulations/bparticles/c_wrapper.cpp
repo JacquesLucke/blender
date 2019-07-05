@@ -467,6 +467,30 @@ static void INSERT_FORCE_gravity(bNode *force_node,
   }
 }
 
+static void INSERT_FORCE_turbulence(bNode *force_node,
+                                    IndexedNodeTree &indexed_tree,
+                                    FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                    ModifierStepDescription &step_description)
+{
+  BLI_assert(STREQ(force_node->idname, "bp_TurbulenceForceNode"));
+  bSocketList node_inputs(force_node->inputs);
+  bSocketList node_outputs(force_node->outputs);
+
+  for (SocketWithNode linked : indexed_tree.linked(node_outputs.get(0))) {
+    if (!is_particle_type_node(linked.node)) {
+      continue;
+    }
+
+    SharedFunction fn = create_function(
+        indexed_tree, data_graph, {node_inputs.get(0)}, force_node->name);
+
+    Force *force = FORCE_turbulence(fn);
+
+    bNode *type_node = linked.node;
+    step_description.m_types.lookup_ref(type_node->name)->m_integrator->m_forces.append(force);
+  }
+}
+
 static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree)
 {
   SCOPED_TIMER(__func__);
@@ -481,6 +505,7 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
 
   SmallMap<std::string, ModifierInserter> modifier_inserters;
   event_inserters.add_new("bp_GravityForceNode", INSERT_FORCE_gravity);
+  event_inserters.add_new("bp_TurbulenceForceNode", INSERT_FORCE_turbulence);
 
   ModifierStepDescription *step_description = new ModifierStepDescription();
 

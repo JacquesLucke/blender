@@ -12,6 +12,6 @@ class Force {
 };
 
 Force *FORCE_gravity(SharedFunction &compute_acceleration_fn);
-Force *FORCE_turbulence(float strength);
+Force *FORCE_turbulence(SharedFunction &compute_strength_fn);
 
 }  // namespace BParticles
