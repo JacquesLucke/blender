@@ -12,31 +12,60 @@ EventFilter::~EventFilter()
 
 class AgeReachedEvent : public EventFilter {
  private:
-  float m_age;
+  std::string m_identifier;
+  SharedFunction m_compute_age_fn;
+  TupleCallBody *m_compute_age_body;
 
  public:
-  AgeReachedEvent(float age) : m_age(age)
+  AgeReachedEvent(StringRef identifier, SharedFunction &compute_age_fn)
+      : m_identifier(identifier.to_std_string()), m_compute_age_fn(compute_age_fn)
   {
+    m_compute_age_body = compute_age_fn->body<TupleCallBody>();
+  }
+
+  void attributes(TypeAttributeInterface &interface) override
+  {
+    interface.use(AttributeType::Byte, m_identifier);
   }
 
   void filter(EventFilterInterface &interface) override
   {
     ParticleSet particles = interface.particles();
     auto birth_times = particles.attributes().get_float("Birth Time");
+    auto was_activated_before = particles.attributes().get_byte(m_identifier);
+
     float end_time = interface.end_time();
+
+    FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_age_body, fn_in, fn_out);
+    FN::ExecutionStack stack;
+    FN::ExecutionContext execution_context(stack);
+    m_compute_age_body->call(fn_in, fn_out, execution_context);
+    float trigger_age = fn_out.get<float>(0);
 
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
-      TimeSpan time_span = interface.time_span(i);
+      if (was_activated_before[pindex]) {
+        continue;
+      }
 
       float birth_time = birth_times[pindex];
       float age_at_end = end_time - birth_time;
-      float age_at_start = age_at_end - time_span.duration();
 
-      if (age_at_end >= m_age && age_at_start < m_age) {
-        float time_factor = time_span.get_factor(birth_time + m_age);
+      if (age_at_end >= trigger_age) {
+        TimeSpan time_span = interface.time_span(i);
+        float time_factor = time_span.get_factor(birth_time + trigger_age);
         interface.trigger_particle(i, time_factor);
       }
+    }
+  }
+
+  void triggered(EventExecuteInterface &interface) override
+  {
+    ParticleSet particles = interface.particles();
+
+    auto was_activated_before = particles.attributes().get_byte(m_identifier);
+    for (uint pindex : particles.indices()) {
+      was_activated_before[pindex] = true;
     }
   }
 };
@@ -145,9 +174,9 @@ class MeshBounceEvent : public Event {
   }
 };
 
-EventFilter *EVENT_age_reached(float age)
+EventFilter *EVENT_age_reached(StringRef identifier, SharedFunction &compute_age_fn)
 {
-  return new AgeReachedEvent(age);
+  return new AgeReachedEvent(identifier, compute_age_fn);
 }
 
 Event *EVENT_mesh_bounce(BVHTreeFromMesh *treedata, const float4x4 &transform)

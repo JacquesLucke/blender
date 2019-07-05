@@ -65,6 +65,39 @@ void BParticles_state_free(BParticlesState state)
   delete unwrap(state);
 }
 
+class EventFilterWithAction : public Event {
+ private:
+  EventFilter *m_filter;
+  Action *m_action;
+
+ public:
+  EventFilterWithAction(EventFilter *filter, Action *action) : m_filter(filter), m_action(action)
+  {
+  }
+
+  ~EventFilterWithAction()
+  {
+    delete m_filter;
+    delete m_action;
+  }
+
+  void filter(EventFilterInterface &interface) override
+  {
+    m_filter->filter(interface);
+  }
+
+  void execute(EventExecuteInterface &interface) override
+  {
+    m_filter->triggered(interface);
+    m_action->execute(interface);
+  }
+
+  EventFilter *get_filter() const
+  {
+    return m_filter;
+  }
+};
+
 class EulerIntegrator : public Integrator {
  private:
   AttributesInfo m_offset_attributes_info;
@@ -163,6 +196,12 @@ class ModifierParticleType : public ParticleType {
   {
     interface.use(AttributeType::Float3, "Position");
     interface.use(AttributeType::Float3, "Velocity");
+
+    for (Event *event : m_events) {
+      EventFilterWithAction *event_action = dynamic_cast<EventFilterWithAction *>(event);
+      BLI_assert(event_action);
+      event_action->get_filter()->attributes(interface);
+    }
   }
 };
 
@@ -310,58 +349,6 @@ static void INSERT_EMITTER_point(bNode *emitter_node,
   }
 }
 
-class EventFilterWithAction : public Event {
- private:
-  EventFilter *m_filter;
-  Action *m_action;
-
- public:
-  EventFilterWithAction(EventFilter *filter, Action *action) : m_filter(filter), m_action(action)
-  {
-  }
-
-  ~EventFilterWithAction()
-  {
-    delete m_filter;
-    delete m_action;
-  }
-
-  void filter(EventFilterInterface &interface) override
-  {
-    m_filter->filter(interface);
-  }
-
-  void execute(EventExecuteInterface &interface) override
-  {
-    m_action->execute(interface);
-  }
-};
-
-class AgeReachedEventFilter : public EventFilter {
- private:
-  FN::SharedFunction m_compute_age_fn;
-
- public:
-  AgeReachedEventFilter(FN::SharedFunction compute_age_fn) : m_compute_age_fn(compute_age_fn)
-  {
-  }
-
-  void filter(EventFilterInterface &interface) override
-  {
-    auto *body = m_compute_age_fn->body<FN::TupleCallBody>();
-    FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-
-    FN::ExecutionStack stack;
-    FN::ExecutionContext execution_context(stack);
-    body->call(fn_in, fn_out, execution_context);
-
-    float age = fn_out.get<float>(0);
-    EventFilter *filter = EVENT_age_reached(age);
-    filter->filter(interface);
-    delete filter;
-  }
-};
-
 static void INSERT_EVENT_age_reached(bNode *event_node,
                                      IndexedNodeTree &indexed_tree,
                                      FN::DataFlowNodes::GeneratedGraph &data_graph,
@@ -372,8 +359,8 @@ static void INSERT_EVENT_age_reached(bNode *event_node,
 
   FN::DFGraphSocket age_input_socket = data_graph.lookup_socket(event_input->next);
   FN::FunctionGraph function_graph(data_graph.graph(), {}, {age_input_socket});
-  FN::SharedFunction compute_age_function = function_graph.new_function("Compute Age");
-  FN::fgraph_add_TupleCallBody(compute_age_function, function_graph);
+  FN::SharedFunction compute_age_fn = function_graph.new_function("Compute Age");
+  FN::fgraph_add_TupleCallBody(compute_age_fn, function_graph);
 
   for (SocketWithNode linked : indexed_tree.linked(event_input)) {
     if (!is_particle_type_node(linked.node)) {
@@ -382,7 +369,7 @@ static void INSERT_EVENT_age_reached(bNode *event_node,
 
     bNode *type_node = linked.node;
 
-    EventFilter *event_filter = new AgeReachedEventFilter(compute_age_function);
+    EventFilter *event_filter = EVENT_age_reached(event_node->name, compute_age_fn);
     Action *action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
                                   indexed_tree,
                                   data_graph,
