@@ -156,6 +156,8 @@ struct float3 {
 struct float4x4 {
   float values[4][4];
 
+  float4x4() = default;
+
   float4x4(float *matrix)
   {
     memcpy(values, matrix, sizeof(float) * 16);

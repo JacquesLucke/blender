@@ -3,7 +3,7 @@
 #include "core.hpp"
 #include "actions.hpp"
 
-struct BVHTreeFromMesh;
+struct Object;
 
 namespace BParticles {
 
@@ -24,7 +24,7 @@ class EventFilter {
   }
 };
 
+EventFilter *EVENT_mesh_collision(StringRef identifier, Object *object);
 EventFilter *EVENT_age_reached(StringRef identifier, SharedFunction &compute_age_fn);
-Event *EVENT_mesh_bounce(struct BVHTreeFromMesh *treedata, const float4x4 &transform);
 
 }  // namespace BParticles

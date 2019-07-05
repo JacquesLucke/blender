@@ -399,14 +399,45 @@ static void INSERT_EVENT_age_reached(bNode *event_node,
       continue;
     }
 
-    bNode *type_node = linked.node;
-
     EventFilter *event_filter = EVENT_age_reached(event_node->name, fn);
     Action *action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
                                   indexed_tree,
                                   data_graph,
                                   step_description);
     Event *event = new EventFilterWithAction(event_filter, action);
+
+    bNode *type_node = linked.node;
+    step_description.m_types.lookup_ref(type_node->name)->m_events.append(event);
+  }
+}
+
+static void INSERT_EVENT_mesh_collision(bNode *event_node,
+                                        IndexedNodeTree &indexed_tree,
+                                        FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                        ModifierStepDescription &step_description)
+{
+  BLI_assert(STREQ(event_node->idname, "bp_MeshCollisionEventNode"));
+  bSocketList node_inputs(event_node->inputs);
+
+  for (SocketWithNode linked : indexed_tree.linked(node_inputs.get(0))) {
+    if (!is_particle_type_node(linked.node)) {
+      continue;
+    }
+
+    PointerRNA rna = indexed_tree.get_rna(event_node);
+    Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
+    if (object == nullptr || object->type != OB_MESH) {
+      continue;
+    }
+
+    EventFilter *event_filter = EVENT_mesh_collision(event_node->name, object);
+    Action *action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
+                                  indexed_tree,
+                                  data_graph,
+                                  step_description);
+    Event *event = new EventFilterWithAction(event_filter, action);
+
+    bNode *type_node = linked.node;
     step_description.m_types.lookup_ref(type_node->name)->m_events.append(event);
   }
 }
@@ -421,6 +452,7 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
 
   SmallMap<std::string, EventInserter> event_inserters;
   event_inserters.add_new("bp_AgeReachedEventNode", INSERT_EVENT_age_reached);
+  event_inserters.add_new("bp_MeshCollisionEventNode", INSERT_EVENT_mesh_collision);
 
   ModifierStepDescription *step_description = new ModifierStepDescription();
 
