@@ -72,6 +72,19 @@ template<typename T, bool intrusive> class ListBaseWrapper {
   {
     return Iterator(m_listbase, nullptr);
   }
+
+  T get(uint index) const
+  {
+    void *ptr = BLI_findlink(m_listbase, index);
+    BLI_assert(ptr);
+
+    if (intrusive) {
+      return (T)ptr;
+    }
+    else {
+      return (T)((LinkData *)ptr)->data;
+    }
+  }
 };
 
 } /* namespace BLI */
