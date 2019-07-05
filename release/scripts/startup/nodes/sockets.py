@@ -103,3 +103,10 @@ class EventSocket(bpy.types.NodeSocket, BaseSocket):
 
     def draw_color(self, context, node):
         return (0.2, 0.8, 0.2, 1)
+
+class ControlFlowSocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "bp_ControlFlowSocket"
+    bl_label = "Control Flow Socket"
+
+    def draw_color(self, context, node):
+        return (0.8, 0.2, 0.2, 1)

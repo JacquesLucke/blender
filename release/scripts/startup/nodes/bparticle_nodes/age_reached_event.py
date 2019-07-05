@@ -8,5 +8,6 @@ class AgeReachedEventNode(bpy.types.Node, BParticlesNode):
     bl_label = "Age Reached Event"
 
     def declaration(self, builder : SocketBuilder):
-        builder.event_input("events", "Event")
+        builder.event_input("event", "Event")
         builder.fixed_input("age", "Age", "Float")
+        builder.control_flow_output("on_event", "On Event")
