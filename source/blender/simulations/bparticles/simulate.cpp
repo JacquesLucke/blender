@@ -446,7 +446,7 @@ BLI_NOINLINE static void simulate_block(FixedArrayAllocator &array_allocator,
     uint *indices_array = array_allocator.allocate_array<uint>();
     VectorAdaptor<uint> unfinished_particle_indices(indices_array, amount);
 
-    simulate_with_max_n_events(1,
+    simulate_with_max_n_events(10,
                                array_allocator,
                                block_allocator,
                                block,
