@@ -12,6 +12,7 @@ class ExplodeParticleNode(bpy.types.Node, BParticlesNode):
     def declaration(self, builder : SocketBuilder):
         builder.control_flow_input("control_in", "(In)")
         builder.fixed_input("amount", "Amount", "Integer")
+        builder.fixed_input("speed", "Speed", "Float")
         builder.control_flow_output("control_out", "(Out)")
 
     def draw(self, layout):

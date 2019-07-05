@@ -155,6 +155,7 @@ class ExplodeAction : public Action {
     m_compute_amount_body->call(fn_in, fn_out, execution_context);
 
     uint parts_amount = std::max(0, fn_out.get<int>(0));
+    float speed = fn_out.get<float>(1);
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
 
@@ -162,7 +163,7 @@ class ExplodeAction : public Action {
       original_indices.append_n_times(i, parts_amount);
 
       for (uint j = 0; j < parts_amount; j++) {
-        new_velocities.append(random_direction() * 4);
+        new_velocities.append(random_direction() * speed);
       }
     }
 

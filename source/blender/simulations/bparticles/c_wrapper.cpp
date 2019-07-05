@@ -297,10 +297,9 @@ static Action *build_action(SocketWithNode start,
                                                 step_description));
   }
   else if (STREQ(bnode->idname, "bp_ExplodeParticleNode")) {
-    bNodeSocket *amount_socket = bSocketList(bnode->inputs).get(1);
-
-    FN::DFGraphSocket amount_input = data_graph.lookup_socket(amount_socket);
-    FN::FunctionGraph function_graph(data_graph.graph(), {}, {amount_input});
+    FN::DFGraphSocket amount_input = data_graph.lookup_socket(bSocketList(bnode->inputs).get(1));
+    FN::DFGraphSocket speed_input = data_graph.lookup_socket(bSocketList(bnode->inputs).get(2));
+    FN::FunctionGraph function_graph(data_graph.graph(), {}, {amount_input, speed_input});
     SharedFunction compute_amount_fn = function_graph.new_function("Compute Amount");
     FN::fgraph_add_TupleCallBody(compute_amount_fn, function_graph);
 
