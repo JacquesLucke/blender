@@ -219,6 +219,34 @@ static ArrayRef<bNode *> get_particle_type_nodes(IndexedNodeTree &indexed_tree)
   return indexed_tree.nodes_with_idname("bp_ParticleTypeNode");
 }
 
+static Action *build_action(SocketWithNode start,
+                            IndexedNodeTree &indexed_tree,
+                            FN::DataFlowNodes::GeneratedGraph &data_graph,
+                            ModifierStepDescription &step_description)
+{
+  if (start.socket->in_out == SOCK_OUT) {
+    auto linked = indexed_tree.linked(start.socket);
+    if (linked.size() == 0) {
+      return ACTION_none();
+    }
+    else if (linked.size() == 1) {
+      return build_action(linked[0], indexed_tree, data_graph, step_description);
+    }
+    else {
+      return nullptr;
+    }
+  }
+
+  BLI_assert(start.socket->in_out == SOCK_IN);
+  bNode *bnode = start.node;
+  if (STREQ(bnode->idname, "bp_KillParticleNode")) {
+    return ACTION_kill();
+  }
+  else {
+    return nullptr;
+  }
+}
+
 static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
                                         IndexedNodeTree &indexed_tree,
                                         FN::DataFlowNodes::GeneratedGraph &UNUSED(data_graph),
@@ -344,7 +372,10 @@ static void INSERT_EVENT_age_reached(bNode *event_node,
     bNode *type_node = linked.node;
 
     EventFilter *event_filter = new AgeReachedEventFilter(compute_age_function);
-    Action *action = ACTION_kill();
+    Action *action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
+                                  indexed_tree,
+                                  data_graph,
+                                  step_description);
     Event *event = new EventFilterWithAction(event_filter, action);
     step_description.m_types.lookup_ref(type_node->name)->m_events.append(event);
   }
