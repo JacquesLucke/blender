@@ -259,6 +259,22 @@ static ArrayRef<bNode *> get_particle_type_nodes(IndexedNodeTree &indexed_tree)
   return indexed_tree.nodes_with_idname("bp_ParticleTypeNode");
 }
 
+static SharedFunction create_function(IndexedNodeTree &UNUSED(indexed_tree),
+                                      FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                      ArrayRef<bNodeSocket *> output_bsockets,
+                                      StringRef name)
+{
+  SmallVector<FN::DFGraphSocket> outputs;
+  for (bNodeSocket *bsocket : output_bsockets) {
+    outputs.append(data_graph.lookup_socket(bsocket));
+  }
+
+  FN::FunctionGraph function_graph(data_graph.graph(), {}, outputs);
+  SharedFunction fn = function_graph.new_function(name);
+  FN::fgraph_add_TupleCallBody(fn, function_graph);
+  return fn;
+}
+
 static Action *build_action(SocketWithNode start,
                             IndexedNodeTree &indexed_tree,
                             FN::DataFlowNodes::GeneratedGraph &data_graph,
@@ -279,29 +295,23 @@ static Action *build_action(SocketWithNode start,
 
   BLI_assert(start.socket->in_out == SOCK_IN);
   bNode *bnode = start.node;
+  bSocketList node_inputs(bnode->inputs);
+
   if (STREQ(bnode->idname, "bp_KillParticleNode")) {
     return ACTION_kill();
   }
   else if (STREQ(bnode->idname, "bp_ChangeParticleDirectionNode")) {
-    bNodeSocket *direction_socket = bSocketList(bnode->inputs).get(1);
-
-    FN::DFGraphSocket direction_input = data_graph.lookup_socket(direction_socket);
-    FN::FunctionGraph function_graph(data_graph.graph(), {}, {direction_input});
-    SharedFunction compute_direction_fn = function_graph.new_function("Compute Direction");
-    FN::fgraph_add_TupleCallBody(compute_direction_fn, function_graph);
-
-    return ACTION_change_direction(compute_direction_fn,
+    SharedFunction fn = create_function(
+        indexed_tree, data_graph, {node_inputs.get(1)}, "Compute Direction");
+    return ACTION_change_direction(fn,
                                    build_action({bSocketList(bnode->outputs).get(0), bnode},
                                                 indexed_tree,
                                                 data_graph,
                                                 step_description));
   }
   else if (STREQ(bnode->idname, "bp_ExplodeParticleNode")) {
-    FN::DFGraphSocket amount_input = data_graph.lookup_socket(bSocketList(bnode->inputs).get(1));
-    FN::DFGraphSocket speed_input = data_graph.lookup_socket(bSocketList(bnode->inputs).get(2));
-    FN::FunctionGraph function_graph(data_graph.graph(), {}, {amount_input, speed_input});
-    SharedFunction compute_amount_fn = function_graph.new_function("Compute Amount");
-    FN::fgraph_add_TupleCallBody(compute_amount_fn, function_graph);
+    SharedFunction fn = create_function(
+        indexed_tree, data_graph, {node_inputs.get(1), node_inputs.get(2)}, bnode->name);
 
     PointerRNA rna = indexed_tree.get_rna(bnode);
     char name[65];
@@ -311,7 +321,7 @@ static Action *build_action(SocketWithNode start,
         {bSocketList(bnode->outputs).get(0), bnode}, indexed_tree, data_graph, step_description);
 
     if (step_description.m_types.contains(name)) {
-      return ACTION_explode(name, compute_amount_fn, post_action);
+      return ACTION_explode(name, fn, post_action);
     }
     else {
       return post_action;
