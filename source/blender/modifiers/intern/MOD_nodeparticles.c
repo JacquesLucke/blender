@@ -182,10 +182,8 @@ static Mesh *applyModifier(ModifierData *md,
   return point_mesh_from_particle_state(runtime->state);
 }
 
-static void initData(ModifierData *md)
+static void initData(ModifierData *UNUSED(md))
 {
-  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
-  npmd->control1 = 0.02f;
 }
 
 static void freeData(ModifierData *md)
@@ -208,24 +206,16 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
   return true;
 }
 
-static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
+static void updateDepsgraph(ModifierData *UNUSED(md),
+                            const ModifierUpdateDepsgraphContext *UNUSED(ctx))
 {
-  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
-  if (npmd->emitter_object) {
-    DEG_add_object_relation(
-        ctx->node, npmd->emitter_object, DEG_OB_COMP_GEOMETRY, "Modifier Emitter");
-  }
-  if (npmd->collision_object) {
-    DEG_add_object_relation(
-        ctx->node, npmd->collision_object, DEG_OB_COMP_GEOMETRY, "Modifer Collision");
-  }
 }
 
-static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk, void *userData)
+static void foreachObjectLink(ModifierData *UNUSED(md),
+                              Object *UNUSED(ob),
+                              ObjectWalkFunc UNUSED(walk),
+                              void *UNUSED(userData))
 {
-  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
-  walk(userData, ob, &npmd->emitter_object, IDWALK_CB_NOP);
-  walk(userData, ob, &npmd->collision_object, IDWALK_CB_NOP);
 }
 
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)

@@ -1966,10 +1966,6 @@ typedef struct FunctionPointsModifierData {
 
 typedef struct NodeParticlesModifierData {
   ModifierData modifier;
-  float control1, control2;
-  struct Object *emitter_object;
-  struct Object *collision_object;
-  float last_emitter_transforms[4][4];
   struct bNodeTree *bparticles_tree;
 } NodeParticlesModifierData;
 

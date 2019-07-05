@@ -5983,22 +5983,6 @@ static void rna_def_modifier_node_particles(BlenderRNA *brna)
   RNA_def_struct_sdna(srna, "NodeParticlesModifierData");
   RNA_def_struct_ui_icon(srna, ICON_NONE);
 
-  prop = RNA_def_float(srna, "control1", 0.0, -FLT_MAX, FLT_MAX, "Control 1", "", -10, 10);
-  RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-  prop = RNA_def_float(srna, "control2", 0.0, -FLT_MAX, FLT_MAX, "Control 2", "", -10, 10);
-  RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-  prop = RNA_def_property(srna, "emitter_object", PROP_POINTER, PROP_NONE);
-  RNA_def_property_flag(prop, PROP_EDITABLE);
-  RNA_def_property_ui_text(prop, "Emitter Object", "Object to emit from");
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
-  prop = RNA_def_property(srna, "collision_object", PROP_POINTER, PROP_NONE);
-  RNA_def_property_flag(prop, PROP_EDITABLE);
-  RNA_def_property_ui_text(prop, "Collision Object", "Object to collide with");
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
   prop = RNA_def_property(srna, "bparticles_tree", PROP_POINTER, PROP_NONE);
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "BParticles Tree", "BParticles node tree");

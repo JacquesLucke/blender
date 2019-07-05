@@ -1664,10 +1664,6 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         props.modifier_name = md.name
 
     def NODE_PARTICLES(self, layout, ob, md):
-        layout.prop(md, "control1")
-        layout.prop(md, "control2")
-        layout.prop(md, "emitter_object")
-        layout.prop(md, "collision_object")
         layout.prop(md, "bparticles_tree")
 
 
