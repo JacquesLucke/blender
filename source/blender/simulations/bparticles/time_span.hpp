@@ -56,6 +56,19 @@ struct TimeSpan {
     BLI_assert(m_duration > 0.0f);
     return (time - m_start) / m_duration;
   }
+
+  /**
+   * Same as get_factor, but returns zero when the duration is zero.
+   */
+  float get_factor_safe(float time) const
+  {
+    if (m_duration > 0) {
+      return this->get_factor(time);
+    }
+    else {
+      return 0.0f;
+    }
+  }
 };
 
 }  // namespace BParticles

@@ -182,10 +182,12 @@ BLI_NOINLINE static void find_unfinished_particles(
     uint pindex = particle_indices[i];
     if (kill_states[pindex] == 0) {
       float time_factor = time_factors_to_next_event[i];
-      float remaining_duration = durations[i] * (1.0f - time_factor);
 
-      r_unfinished_particle_indices.append(pindex);
-      r_remaining_durations.append(remaining_duration);
+      if (time_factor < 1.0f) {
+        float remaining_duration = durations[i] * (1.0f - time_factor);
+        r_unfinished_particle_indices.append(pindex);
+        r_remaining_durations.append(remaining_duration);
+      }
     }
   }
 }

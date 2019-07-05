@@ -846,6 +846,7 @@ inline float EventFilterInterface::end_time()
 
 inline void EventFilterInterface::trigger_particle(uint index, float time_factor)
 {
+  BLI_assert(0.0f <= time_factor && time_factor <= 1.0f);
   if (time_factor <= m_known_min_time_factors[index]) {
     m_filtered_indices.append(index);
     m_filtered_time_factors.append(time_factor);

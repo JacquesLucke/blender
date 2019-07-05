@@ -53,8 +53,16 @@ class AgeReachedEvent : public EventFilter {
 
       if (age_at_end >= trigger_age) {
         TimeSpan time_span = interface.time_span(i);
-        float time_factor = time_span.get_factor(birth_time + trigger_age);
-        interface.trigger_particle(i, time_factor);
+
+        float age_at_start = age_at_end - time_span.duration();
+        if (trigger_age < age_at_start) {
+          interface.trigger_particle(i, 0.0f);
+        }
+        else {
+          float time_factor = time_span.get_factor_safe(birth_time + trigger_age);
+          CLAMP(time_factor, 0.0f, 1.0f);
+          interface.trigger_particle(i, time_factor);
+        }
       }
     }
   }
