@@ -90,6 +90,11 @@ class IndexedNodeTree {
     return m_actual_nodes;
   }
 
+  bNode *node_of_socket(bNodeSocket *bsocket) const
+  {
+    return m_node_by_socket.lookup(bsocket);
+  }
+
   ArrayRef<SingleOriginLink> single_origin_links() const;
   ArrayRef<bNode *> nodes_with_idname(StringRef idname) const;
   ArrayRef<SocketWithNode> linked(bNodeSocket *bsocket) const;
