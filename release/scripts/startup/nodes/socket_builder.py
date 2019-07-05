@@ -9,6 +9,7 @@ from . declaration import (
     EmitterSocketDecl,
     EventSocketDecl,
     ControlFlowSocketDecl,
+    ParticleModifierSocketDecl,
 )
 
 class SocketBuilder:
@@ -198,11 +199,11 @@ class SocketBuilder:
         self._add_output(decl)
 
     def particle_modifier_input(self, identifier, name):
-        decl = ControlFlowSocketDecl(self.node, identifier, name)
+        decl = ParticleModifierSocketDecl(self.node, identifier, name)
         self._add_input(decl)
 
     def particle_modifier_output(self, identifier, name):
-        decl = ControlFlowSocketDecl(self.node, identifier, name)
+        decl = ParticleModifierSocketDecl(self.node, identifier, name)
         self._add_output(decl)
 
 
