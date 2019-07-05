@@ -18,12 +18,18 @@ class ChangeDirectionAction : public Action {
  private:
   SharedFunction m_compute_direction_fn;
   TupleCallBody *m_compute_direction_body;
+  Action *m_post_action;
 
  public:
-  ChangeDirectionAction(SharedFunction &compute_direction_fn)
-      : m_compute_direction_fn(compute_direction_fn)
+  ChangeDirectionAction(SharedFunction &compute_direction_fn, Action *post_action)
+      : m_compute_direction_fn(compute_direction_fn), m_post_action(post_action)
   {
     m_compute_direction_body = m_compute_direction_fn->body<TupleCallBody>();
+  }
+
+  ~ChangeDirectionAction()
+  {
+    delete m_post_action;
   }
 
   void execute(EventExecuteInterface &interface) override
@@ -46,6 +52,8 @@ class ChangeDirectionAction : public Action {
       position_offsets[pindex] = direction * interface.remaining_time_in_step(i);
       velocity_offsets[pindex] = float3(0);
     }
+
+    m_post_action->execute(interface);
   }
 };
 
@@ -115,11 +123,19 @@ static float3 random_direction()
 class ExplodeAction : public Action {
  private:
   std::string m_new_particle_name;
+  SharedFunction m_compute_amount_fn;
+  TupleCallBody *m_compute_amount_body;
+  std::unique_ptr<Action> m_post_action;
 
  public:
-  ExplodeAction(StringRef new_particle_name)
-      : m_new_particle_name(new_particle_name.to_std_string())
+  ExplodeAction(StringRef new_particle_name,
+                SharedFunction &compute_amount_fn,
+                std::unique_ptr<Action> post_action)
+      : m_new_particle_name(new_particle_name.to_std_string()),
+        m_compute_amount_fn(compute_amount_fn),
+        m_post_action(std::move(post_action))
   {
+    m_compute_amount_body = m_compute_amount_fn->body<TupleCallBody>();
   }
 
   void execute(EventExecuteInterface &interface) override
@@ -132,7 +148,13 @@ class ExplodeAction : public Action {
     SmallVector<float3> new_velocities;
     SmallVector<uint> original_indices;
 
-    uint parts_amount = 100;
+    FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_amount_body, fn_in, fn_out);
+
+    FN::ExecutionStack stack;
+    FN::ExecutionContext execution_context(stack);
+    m_compute_amount_body->call(fn_in, fn_out, execution_context);
+
+    uint parts_amount = std::max(0, fn_out.get<int>(0));
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
 
@@ -148,7 +170,7 @@ class ExplodeAction : public Action {
     target.set_float3("Position", new_positions);
     target.set_float3("Velocity", new_velocities);
 
-    interface.kill(particles.indices());
+    m_post_action->execute(interface);
   }
 };
 
@@ -157,9 +179,9 @@ Action *ACTION_none()
   return new NoneAction();
 }
 
-Action *ACTION_change_direction(SharedFunction &compute_direction_fn)
+Action *ACTION_change_direction(SharedFunction &compute_direction_fn, Action *post_action)
 {
-  return new ChangeDirectionAction(compute_direction_fn);
+  return new ChangeDirectionAction(compute_direction_fn, post_action);
 }
 
 Action *ACTION_kill()
@@ -177,9 +199,12 @@ Action *ACTION_spawn()
   return new SpawnAction();
 }
 
-Action *ACTION_explode(StringRef new_particle_name)
+Action *ACTION_explode(StringRef new_particle_name,
+                       SharedFunction &compute_amount_fn,
+                       Action *post_action)
 {
-  return new ExplodeAction(new_particle_name);
+  return new ExplodeAction(
+      new_particle_name, compute_amount_fn, std::unique_ptr<Action>(post_action));
 }
 
 }  // namespace BParticles

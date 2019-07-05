@@ -290,7 +290,33 @@ static Action *build_action(SocketWithNode start,
     SharedFunction compute_direction_fn = function_graph.new_function("Compute Direction");
     FN::fgraph_add_TupleCallBody(compute_direction_fn, function_graph);
 
-    return ACTION_change_direction(compute_direction_fn);
+    return ACTION_change_direction(compute_direction_fn,
+                                   build_action({bSocketList(bnode->outputs).get(0), bnode},
+                                                indexed_tree,
+                                                data_graph,
+                                                step_description));
+  }
+  else if (STREQ(bnode->idname, "bp_ExplodeParticleNode")) {
+    bNodeSocket *amount_socket = bSocketList(bnode->inputs).get(1);
+
+    FN::DFGraphSocket amount_input = data_graph.lookup_socket(amount_socket);
+    FN::FunctionGraph function_graph(data_graph.graph(), {}, {amount_input});
+    SharedFunction compute_amount_fn = function_graph.new_function("Compute Amount");
+    FN::fgraph_add_TupleCallBody(compute_amount_fn, function_graph);
+
+    PointerRNA rna = indexed_tree.get_rna(bnode);
+    char name[65];
+    RNA_string_get(&rna, "particle_type_name", name);
+
+    Action *post_action = build_action(
+        {bSocketList(bnode->outputs).get(0), bnode}, indexed_tree, data_graph, step_description);
+
+    if (step_description.m_types.contains(name)) {
+      return ACTION_explode(name, compute_amount_fn, post_action);
+    }
+    else {
+      return post_action;
+    }
   }
   else {
     return nullptr;

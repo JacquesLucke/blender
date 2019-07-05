@@ -17,10 +17,12 @@ class Action {
 };
 
 Action *ACTION_none();
-Action *ACTION_change_direction(SharedFunction &compute_direction_fn);
+Action *ACTION_change_direction(SharedFunction &compute_direction_fn, Action *post_action);
 Action *ACTION_kill();
 Action *ACTION_move(float3 offset);
 Action *ACTION_spawn();
-Action *ACTION_explode(StringRef new_particle_name);
+Action *ACTION_explode(StringRef new_particle_name,
+                       SharedFunction &compute_amount_fn,
+                       Action *post_action);
 
 }  // namespace BParticles
