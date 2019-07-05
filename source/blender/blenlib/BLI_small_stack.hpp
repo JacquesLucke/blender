@@ -35,6 +35,14 @@ template<typename T, uint N = 4> class SmallStack {
   SmallStack() = default;
 
   /**
+   * Construct a stack from an array ref. The elements will be pushed in the same order they are in
+   * the array.
+   */
+  SmallStack(ArrayRef<T> values) : m_elements(values)
+  {
+  }
+
+  /**
    * Return the number of elements in the stack.
    */
   uint size() const

@@ -10,6 +10,17 @@ TEST(small_stack, DefaultConstructor)
   EXPECT_TRUE(stack.empty());
 }
 
+TEST(small_stack, ArrayRefConstructor)
+{
+  std::array<int, 3> array = {4, 7, 2};
+  IntStack stack(array);
+  EXPECT_EQ(stack.size(), 3);
+  EXPECT_EQ(stack.pop(), 2);
+  EXPECT_EQ(stack.pop(), 7);
+  EXPECT_EQ(stack.pop(), 4);
+  EXPECT_TRUE(stack.empty());
+}
+
 TEST(small_stack, Push)
 {
   IntStack stack;
