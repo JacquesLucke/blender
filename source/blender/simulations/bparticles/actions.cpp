@@ -8,6 +8,12 @@ Action::~Action()
 {
 }
 
+class NoneAction : public Action {
+  void execute(EventExecuteInterface &UNUSED(interface)) override
+  {
+  }
+};
+
 class KillAction : public Action {
   void execute(EventExecuteInterface &interface) override
   {
@@ -110,6 +116,11 @@ class ExplodeAction : public Action {
     interface.kill(particles.indices());
   }
 };
+
+Action *ACTION_none()
+{
+  return new NoneAction();
+}
 
 Action *ACTION_kill()
 {
