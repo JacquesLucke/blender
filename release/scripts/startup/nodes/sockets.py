@@ -110,3 +110,10 @@ class ControlFlowSocket(bpy.types.NodeSocket, BaseSocket):
 
     def draw_color(self, context, node):
         return (0.8, 0.2, 0.2, 1)
+
+class ParticleModifierSocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "bp_ParticleModifierSocket"
+    bl_label = "Particle Modifier Socket"
+
+    def draw_color(self, context, node):
+        return (0.8, 0.8, 0.2, 1)

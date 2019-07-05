@@ -197,6 +197,14 @@ class SocketBuilder:
         decl = ControlFlowSocketDecl(self.node, identifier, name)
         self._add_output(decl)
 
+    def particle_modifier_input(self, identifier, name):
+        decl = ControlFlowSocketDecl(self.node, identifier, name)
+        self._add_input(decl)
+
+    def particle_modifier_output(self, identifier, name):
+        decl = ControlFlowSocketDecl(self.node, identifier, name)
+        self._add_output(decl)
+
 
 class SocketDeclMap:
     def __init__(self, node, input_declarations, output_declarations):
