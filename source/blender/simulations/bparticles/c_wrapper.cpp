@@ -268,30 +268,32 @@ class IndexedBParticlesTree {
   }
 };
 
-typedef std::function<void(
-    bNode *bnode, IndexedBParticlesTree &bparticles_tree, SmallVector<Emitter *> &r_emitters)>
-    EmitterInserter;
+using EmitterInserter = std::function<void(bNode *bnode,
+                                           IndexedNodeTree &indexed_tree,
+                                           FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                           ModifierStepDescription &step_description)>;
+using EventInserter = EmitterInserter;
 
-typedef std::function<void(bNode *bnode,
-                           FN::DataFlowNodes::GeneratedGraph &generated_graph,
-                           IndexedBParticlesTree &bparticles_tree,
-                           ModifierStepDescription &step_description)>
-    EventInserter;
+static bool is_particle_type_node(bNode *bnode)
+{
+  return STREQ(bnode->idname, "bp_ParticleTypeNode");
+}
 
 static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
-                                        IndexedBParticlesTree &bparticles_tree,
-                                        SmallVector<Emitter *> &r_emitters)
+                                        IndexedNodeTree &indexed_tree,
+                                        FN::DataFlowNodes::GeneratedGraph &UNUSED(data_graph),
+                                        ModifierStepDescription &step_description)
 {
   BLI_assert(STREQ(emitter_node->idname, "bp_MeshEmitterNode"));
   bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
-  for (SocketWithNode linked : bparticles_tree.base().linked(emitter_output)) {
-    if (!bparticles_tree.is_particle_type_node(linked.node)) {
+  for (SocketWithNode linked : indexed_tree.linked(emitter_output)) {
+    if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
     bNode *type_node = linked.node;
 
-    PointerRNA rna = bparticles_tree.base().get_rna(emitter_node);
+    PointerRNA rna = indexed_tree.get_rna(emitter_node);
 
     Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
     if (object == nullptr) {
@@ -300,31 +302,32 @@ static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
 
     Emitter *emitter = EMITTER_mesh_surface(
         type_node->name, (Mesh *)object->data, object->obmat, object->obmat, 1.0f);
-    r_emitters.append(emitter);
+    step_description.m_emitters.append(emitter);
   }
 }
 
 static void INSERT_EMITTER_point(bNode *emitter_node,
-                                 IndexedBParticlesTree &bparticles_tree,
-                                 SmallVector<Emitter *> &r_emitters)
+                                 IndexedNodeTree &indexed_tree,
+                                 FN::DataFlowNodes::GeneratedGraph &UNUSED(data_graph),
+                                 ModifierStepDescription &step_description)
 {
   BLI_assert(STREQ(emitter_node->idname, "bp_PointEmitterNode"));
   bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
 
-  for (SocketWithNode linked : bparticles_tree.base().linked(emitter_output)) {
-    if (!bparticles_tree.is_particle_type_node(linked.node)) {
+  for (SocketWithNode linked : indexed_tree.linked(emitter_output)) {
+    if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
     bNode *type_node = linked.node;
 
-    PointerRNA rna = bparticles_tree.base().get_rna(emitter_node);
+    PointerRNA rna = indexed_tree.get_rna(emitter_node);
 
     float3 position;
     RNA_float_get_array(&rna, "position", position);
 
     Emitter *emitter = EMITTER_point(type_node->name, position);
-    r_emitters.append(emitter);
+    step_description.m_emitters.append(emitter);
   }
 }
 
@@ -359,20 +362,20 @@ class OldKillEvent : public Event {
 };
 
 static void INSERT_EVENT_age_reached(bNode *event_node,
-                                     FN::DataFlowNodes::GeneratedGraph &generated_graph,
-                                     IndexedBParticlesTree &bparticles_tree,
+                                     IndexedNodeTree &indexed_tree,
+                                     FN::DataFlowNodes::GeneratedGraph &data_graph,
                                      ModifierStepDescription &step_description)
 {
   BLI_assert(STREQ(event_node->idname, "bp_AgeReachedEventNode"));
   bNodeSocket *event_input = (bNodeSocket *)event_node->inputs.first;
 
-  FN::DFGraphSocket age_input_socket = generated_graph.lookup_socket(event_input->next);
-  FN::FunctionGraph function_graph(generated_graph.graph(), {}, {age_input_socket});
+  FN::DFGraphSocket age_input_socket = data_graph.lookup_socket(event_input->next);
+  FN::FunctionGraph function_graph(data_graph.graph(), {}, {age_input_socket});
   FN::SharedFunction compute_age_function = function_graph.new_function("Compute Age");
   FN::fgraph_add_TupleCallBody(compute_age_function, function_graph);
 
-  for (SocketWithNode linked : bparticles_tree.base().linked(event_input)) {
-    if (!bparticles_tree.is_particle_type_node(linked.node)) {
+  for (SocketWithNode linked : indexed_tree.linked(event_input)) {
+    if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
@@ -415,13 +418,13 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
 
   for (auto item : emitter_inserters.items()) {
     for (bNode *emitter_node : indexed_tree.nodes_with_idname(item.key)) {
-      item.value(emitter_node, bparticles_tree, step_description->m_emitters);
+      item.value(emitter_node, indexed_tree, generated_graph, *step_description);
     }
   }
 
   for (auto item : event_inserters.items()) {
     for (bNode *event_node : indexed_tree.nodes_with_idname(item.key)) {
-      item.value(event_node, generated_graph, bparticles_tree, *step_description);
+      item.value(event_node, indexed_tree, generated_graph, *step_description);
     }
   }
 
