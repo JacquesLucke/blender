@@ -390,21 +390,18 @@ static void INSERT_EVENT_age_reached(bNode *event_node,
                                      ModifierStepDescription &step_description)
 {
   BLI_assert(STREQ(event_node->idname, "bp_AgeReachedEventNode"));
-  bNodeSocket *event_input = (bNodeSocket *)event_node->inputs.first;
+  bSocketList node_inputs(event_node->inputs);
+  FN::SharedFunction fn = create_function(
+      indexed_tree, data_graph, {node_inputs.get(1)}, event_node->name);
 
-  FN::DFGraphSocket age_input_socket = data_graph.lookup_socket(event_input->next);
-  FN::FunctionGraph function_graph(data_graph.graph(), {}, {age_input_socket});
-  FN::SharedFunction compute_age_fn = function_graph.new_function("Compute Age");
-  FN::fgraph_add_TupleCallBody(compute_age_fn, function_graph);
-
-  for (SocketWithNode linked : indexed_tree.linked(event_input)) {
+  for (SocketWithNode linked : indexed_tree.linked(node_inputs.get(0))) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
     bNode *type_node = linked.node;
 
-    EventFilter *event_filter = EVENT_age_reached(event_node->name, compute_age_fn);
+    EventFilter *event_filter = EVENT_age_reached(event_node->name, fn);
     Action *action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
                                   indexed_tree,
                                   data_graph,
