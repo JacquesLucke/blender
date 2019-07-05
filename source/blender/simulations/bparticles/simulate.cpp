@@ -196,7 +196,8 @@ BLI_NOINLINE static void execute_events(BlockAllocator &block_allocator,
                                         ArrayRef<SmallVector<float>> current_time_per_particle,
                                         ArrayRef<Event *> events,
                                         EventStorage &event_storage,
-                                        AttributeArrays attribute_offsets)
+                                        AttributeArrays attribute_offsets,
+                                        float end_time)
 {
   BLI_assert(events.size() == particle_indices_per_event.size());
   BLI_assert(events.size() == current_time_per_particle.size());
@@ -212,7 +213,8 @@ BLI_NOINLINE static void execute_events(BlockAllocator &block_allocator,
                                     block_allocator,
                                     current_time_per_particle[event_index],
                                     event_storage,
-                                    attribute_offsets);
+                                    attribute_offsets,
+                                    end_time);
     event->execute(interface);
   }
 }
@@ -281,7 +283,8 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
                  current_time_per_particle,
                  events,
                  event_storage,
-                 attribute_offsets);
+                 attribute_offsets,
+                 end_time);
 
   find_unfinished_particles(indices_with_event,
                             particles.indices(),
@@ -443,7 +446,7 @@ BLI_NOINLINE static void simulate_block(FixedArrayAllocator &array_allocator,
     uint *indices_array = array_allocator.allocate_array<uint>();
     VectorAdaptor<uint> unfinished_particle_indices(indices_array, amount);
 
-    simulate_with_max_n_events(10,
+    simulate_with_max_n_events(1,
                                array_allocator,
                                block_allocator,
                                block,

@@ -27,11 +27,14 @@ class AgeReachedEvent : public EventFilter {
 
     for (uint i : particles.range()) {
       uint pindex = particles.get_particle_index(i);
-      float duration = interface.durations()[i];
+      TimeSpan time_span = interface.time_span(i);
+
       float birth_time = birth_times[pindex];
-      float age = end_time - birth_time;
-      if (age >= m_age && age - duration < m_age) {
-        float time_factor = TimeSpan(end_time - duration, duration).get_factor(birth_time + m_age);
+      float age_at_end = end_time - birth_time;
+      float age_at_start = age_at_end - time_span.duration();
+
+      if (age_at_end >= m_age && age_at_start < m_age) {
+        float time_factor = time_span.get_factor(birth_time + m_age);
         interface.trigger_particle(i, time_factor);
       }
     }

@@ -14,6 +14,14 @@ struct float3 {
   {
   }
 
+  explicit float3(float value) : x(value), y(value), z(value)
+  {
+  }
+
+  explicit float3(int value) : x(value), y(value), z(value)
+  {
+  }
+
   float3(float x, float y, float z) : x{x}, y{y}, z{z}
   {
   }

@@ -539,13 +539,15 @@ class EventExecuteInterface {
   ArrayRef<uint8_t> m_kill_states;
   EventStorage &m_event_storage;
   AttributeArrays m_attribute_offsets;
+  float m_step_end_time;
 
  public:
   EventExecuteInterface(ParticleSet particles,
                         BlockAllocator &block_allocator,
                         ArrayRef<float> current_times,
                         EventStorage &event_storage,
-                        AttributeArrays attribute_offsets);
+                        AttributeArrays attribute_offsets,
+                        float step_end_time);
 
   ~EventExecuteInterface();
 
@@ -558,6 +560,16 @@ class EventExecuteInterface {
    * Get the time at which every particle is modified by this event.
    */
   ArrayRef<float> current_times();
+
+  /**
+   * Get the end time of the current step.
+   */
+  float step_end_time();
+
+  /**
+   * Get the remaining time a particle in the current step.
+   */
+  float remaining_time_in_step(uint index);
 
   /**
    * Get the data stored in the Event->filter() function for a particle index.
@@ -881,6 +893,16 @@ inline ArrayRef<InstantEmitTarget *> EventExecuteInterface::emit_targets()
 inline ArrayRef<float> EventExecuteInterface::current_times()
 {
   return m_current_times;
+}
+
+inline float EventExecuteInterface::step_end_time()
+{
+  return m_step_end_time;
+}
+
+inline float EventExecuteInterface::remaining_time_in_step(uint index)
+{
+  return m_step_end_time - m_current_times[index];
 }
 
 template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)

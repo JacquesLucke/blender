@@ -343,13 +343,15 @@ EventExecuteInterface::EventExecuteInterface(ParticleSet particles,
                                              BlockAllocator &block_allocator,
                                              ArrayRef<float> current_times,
                                              EventStorage &event_storage,
-                                             AttributeArrays attribute_offsets)
+                                             AttributeArrays attribute_offsets,
+                                             float step_end_time)
     : m_particles(particles),
       m_block_allocator(block_allocator),
       m_current_times(current_times),
       m_kill_states(m_particles.attributes().get_byte("Kill State")),
       m_event_storage(event_storage),
-      m_attribute_offsets(attribute_offsets)
+      m_attribute_offsets(attribute_offsets),
+      m_step_end_time(step_end_time)
 {
 }
 

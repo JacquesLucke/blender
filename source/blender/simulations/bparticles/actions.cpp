@@ -30,16 +30,21 @@ class ChangeDirectionAction : public Action {
   {
     ParticleSet particles = interface.particles();
     auto velocities = particles.attributes().get_float3("Velocity");
+    auto position_offsets = interface.attribute_offsets().get_float3("Position");
+    auto velocity_offsets = interface.attribute_offsets().get_float3("Velocity");
 
     FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_direction_body, fn_in, fn_out);
 
     FN::ExecutionStack stack;
     FN::ExecutionContext execution_context(stack);
 
-    for (uint pindex : particles.indices()) {
+    for (uint i : particles.range()) {
+      uint pindex = particles.get_particle_index(i);
       m_compute_direction_body->call(fn_in, fn_out, execution_context);
       float3 direction = fn_out.get<float3>(0);
       velocities[pindex] = direction;
+      position_offsets[pindex] = direction * interface.remaining_time_in_step(i);
+      velocity_offsets[pindex] = float3(0);
     }
   }
 };
