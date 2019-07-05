@@ -134,32 +134,6 @@ class EulerIntegrator : public Integrator {
   }
 };
 
-class EventActionTest : public Event {
- public:
-  EventFilter *m_event;
-  Action *m_action;
-
-  EventActionTest(EventFilter *event, Action *action) : m_event(event), m_action(action)
-  {
-  }
-
-  ~EventActionTest()
-  {
-    delete m_event;
-    delete m_action;
-  }
-
-  void filter(EventFilterInterface &interface) override
-  {
-    m_event->filter(interface);
-  }
-
-  void execute(EventExecuteInterface &interface) override
-  {
-    m_action->execute(interface);
-  }
-};
-
 class ModifierParticleType : public ParticleType {
  public:
   SmallVector<Event *> m_events;
@@ -297,12 +271,39 @@ static void INSERT_EMITTER_point(bNode *emitter_node,
   }
 }
 
-class OldKillEvent : public Event {
+class EventFilterWithAction : public Event {
+ private:
+  EventFilter *m_filter;
+  Action *m_action;
+
+ public:
+  EventFilterWithAction(EventFilter *filter, Action *action) : m_filter(filter), m_action(action)
+  {
+  }
+
+  ~EventFilterWithAction()
+  {
+    delete m_filter;
+    delete m_action;
+  }
+
+  void filter(EventFilterInterface &interface) override
+  {
+    m_filter->filter(interface);
+  }
+
+  void execute(EventExecuteInterface &interface) override
+  {
+    m_action->execute(interface);
+  }
+};
+
+class AgeReachedEventFilter : public EventFilter {
  private:
   FN::SharedFunction m_compute_age_fn;
 
  public:
-  OldKillEvent(FN::SharedFunction compute_age_fn) : m_compute_age_fn(compute_age_fn)
+  AgeReachedEventFilter(FN::SharedFunction compute_age_fn) : m_compute_age_fn(compute_age_fn)
   {
   }
 
@@ -319,11 +320,6 @@ class OldKillEvent : public Event {
     EventFilter *filter = EVENT_age_reached(age);
     filter->filter(interface);
     delete filter;
-  }
-
-  void execute(EventExecuteInterface &interface) override
-  {
-    interface.kill(interface.particles().indices());
   }
 };
 
@@ -347,7 +343,9 @@ static void INSERT_EVENT_age_reached(bNode *event_node,
 
     bNode *type_node = linked.node;
 
-    Event *event = new OldKillEvent(compute_age_function);
+    EventFilter *event_filter = new AgeReachedEventFilter(compute_age_function);
+    Action *action = ACTION_kill();
+    Event *event = new EventFilterWithAction(event_filter, action);
     step_description.m_types.lookup_ref(type_node->name)->m_events.append(event);
   }
 }
