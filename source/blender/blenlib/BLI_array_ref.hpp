@@ -260,6 +260,12 @@ template<typename ArrayT, typename ValueT, ValueT (*GetValue)(ArrayT &item)> cla
     return m_size;
   }
 
+  ValueT operator[](uint index)
+  {
+    BLI_assert(index < m_size);
+    return GetValue(m_start[index]);
+  }
+
   class It {
    private:
     MappedArrayRef m_array_ref;

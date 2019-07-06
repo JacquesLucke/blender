@@ -1,6 +1,8 @@
 #include "testing/testing.h"
 #include "BLI_small_vector.hpp"
+#include "BLI_small_map.hpp"
 
+using BLI::SmallMap;
 using BLI::SmallVector;
 using IntVector = SmallVector<int>;
 
@@ -37,6 +39,27 @@ TEST(small_vector, InitializerListConstructor)
   EXPECT_EQ(vec[1], 3);
   EXPECT_EQ(vec[2], 4);
   EXPECT_EQ(vec[3], 6);
+}
+
+TEST(small_vector, MappedArrayRefConstructor)
+{
+  SmallMap<int, int> map;
+  map.add(2, 5);
+  map.add(1, 6);
+  map.add(3, 2);
+
+  IntVector keys = map.keys();
+  IntVector values = map.values();
+
+  EXPECT_EQ(keys.size(), 3);
+  EXPECT_TRUE(keys.contains(1));
+  EXPECT_TRUE(keys.contains(2));
+  EXPECT_TRUE(keys.contains(3));
+
+  EXPECT_EQ(values.size(), 3);
+  EXPECT_TRUE(values.contains(2));
+  EXPECT_TRUE(values.contains(5));
+  EXPECT_TRUE(values.contains(6));
 }
 
 TEST(small_vector, NonIntrusiveListBaseConstructor)

@@ -109,6 +109,20 @@ template<typename T, uint N = 4> class SmallVector {
   }
 
   /**
+   * Create a vector from a mapped array ref. This can e.g. be used to create vectors from
+   * map.keys() for map.values().
+   */
+  template<typename ArrayT, typename ValueT, ValueT (*GetValue)(ArrayT &item)>
+  SmallVector(MappedArrayRef<ArrayT, ValueT, GetValue> values) : SmallVector()
+  {
+    this->reserve(values.size());
+    for (uint i = 0; i < values.size(); i++) {
+      std::uninitialized_copy_n(&values[i], 1, m_elements + i);
+    }
+    m_size = values.size();
+  }
+
+  /**
    * Create a vector from a ListBase.
    */
   SmallVector(ListBase &values, bool intrusive_next_and_prev_pointers) : SmallVector()
