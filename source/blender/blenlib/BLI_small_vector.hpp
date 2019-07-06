@@ -35,6 +35,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_array_ref.hpp"
 #include "BLI_listbase_wrapper.hpp"
+#include "BLI_math_base.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -434,6 +435,10 @@ template<typename T, uint N = 4> class SmallVector {
     if (m_capacity >= min_capacity) {
       return;
     }
+
+    /* Round up to the next power of two. Otherwise consecutive calls to grow can cause a
+     * reallocation every time even though the min_capacity only increments. */
+    min_capacity = power_of_2_max_u(min_capacity);
 
     m_capacity = min_capacity;
 
