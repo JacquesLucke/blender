@@ -298,6 +298,11 @@ class AttributeArrays {
   uint attribute_index(StringRef name);
 
   /**
+   * Get the size of an element in one attribute.
+   */
+  uint attribute_stride(uint index);
+
+  /**
    * Get the raw pointer to the buffer that contains attribute values.
    */
   void *get_ptr(uint index) const;
@@ -384,6 +389,11 @@ inline AttributesInfo &AttributeArrays::info()
 inline uint AttributeArrays::attribute_index(StringRef name)
 {
   return this->info().attribute_index(name);
+}
+
+inline uint AttributeArrays::attribute_stride(uint index)
+{
+  return size_of_attribute_type(this->info().type_of(index));
 }
 
 inline void *AttributeArrays::get_ptr(uint index) const

@@ -517,6 +517,14 @@ class Tuple {
     }
   }
 
+  /**
+   * Return the number of elements in the tuple.
+   */
+  uint size() const
+  {
+    return m_meta->element_amount();
+  }
+
   void print_initialized(std::string name = "");
 
  private:

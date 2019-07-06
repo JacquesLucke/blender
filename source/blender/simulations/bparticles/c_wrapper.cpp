@@ -255,22 +255,65 @@ static bool is_particle_type_node(bNode *bnode)
   return STREQ(bnode->idname, "bp_ParticleTypeNode");
 }
 
+static bool is_particle_info_node(bNode *bnode)
+{
+  return STREQ(bnode->idname, "bp_ParticleInfoNode");
+}
+
 static ArrayRef<bNode *> get_particle_type_nodes(IndexedNodeTree &indexed_tree)
 {
   return indexed_tree.nodes_with_idname("bp_ParticleTypeNode");
 }
 
-static SharedFunction create_function(IndexedNodeTree &UNUSED(indexed_tree),
+static SmallVector<bNodeSocket *> find_input_sockets(IndexedNodeTree &indexed_tree,
+                                                     ArrayRef<bNodeSocket *> output_sockets)
+{
+  /* TODO: this has bad time complexity currently */
+  SmallSet<bNodeSocket *> to_be_checked = output_sockets;
+  SmallSetVector<bNodeSocket *> found_inputs;
+
+  while (to_be_checked.size() > 0) {
+    bNodeSocket *bsocket = to_be_checked.pop();
+    if (bsocket->in_out == SOCK_IN) {
+      auto linked = indexed_tree.linked(bsocket);
+      BLI_assert(linked.size() <= 1);
+      if (linked.size() == 1) {
+        SocketWithNode origin = linked[0];
+        if (is_particle_info_node(origin.node)) {
+          found_inputs.add(origin.socket);
+        }
+        else {
+          to_be_checked.add(origin.socket);
+        }
+      }
+    }
+    else {
+      bNode *bnode = indexed_tree.node_of_socket(bsocket);
+      for (bNodeSocket *input : bSocketList(bnode->inputs)) {
+        to_be_checked.add(input);
+      }
+    }
+  }
+
+  return found_inputs.to_small_vector();
+}
+
+static SharedFunction create_function(IndexedNodeTree &indexed_tree,
                                       FN::DataFlowNodes::GeneratedGraph &data_graph,
                                       ArrayRef<bNodeSocket *> output_bsockets,
                                       StringRef name)
 {
+  SmallVector<FN::DFGraphSocket> inputs;
+  for (bNodeSocket *bsocket : find_input_sockets(indexed_tree, output_bsockets)) {
+    inputs.append(data_graph.lookup_socket(bsocket));
+  }
+
   SmallVector<FN::DFGraphSocket> outputs;
   for (bNodeSocket *bsocket : output_bsockets) {
     outputs.append(data_graph.lookup_socket(bsocket));
   }
 
-  FN::FunctionGraph function_graph(data_graph.graph(), {}, outputs);
+  FN::FunctionGraph function_graph(data_graph.graph(), inputs, outputs);
   SharedFunction fn = function_graph.new_function(name);
   FN::fgraph_add_TupleCallBody(fn, function_graph);
   return fn;
@@ -304,7 +347,8 @@ static Action *build_action(SocketWithNode start,
   else if (STREQ(bnode->idname, "bp_ChangeParticleDirectionNode")) {
     SharedFunction fn = create_function(
         indexed_tree, data_graph, {node_inputs.get(1)}, "Compute Direction");
-    return ACTION_change_direction(fn,
+    ParticleFunction particle_fn(fn);
+    return ACTION_change_direction(particle_fn,
                                    build_action({bSocketList(bnode->outputs).get(0), bnode},
                                                 indexed_tree,
                                                 data_graph,
@@ -313,6 +357,7 @@ static Action *build_action(SocketWithNode start,
   else if (STREQ(bnode->idname, "bp_ExplodeParticleNode")) {
     SharedFunction fn = create_function(
         indexed_tree, data_graph, {node_inputs.get(1), node_inputs.get(2)}, bnode->name);
+    ParticleFunction particle_fn(fn);
 
     PointerRNA rna = indexed_tree.get_rna(bnode);
     char name[65];
@@ -322,7 +367,7 @@ static Action *build_action(SocketWithNode start,
         {bSocketList(bnode->outputs).get(0), bnode}, indexed_tree, data_graph, step_description);
 
     if (step_description.m_types.contains(name)) {
-      return ACTION_explode(name, fn, post_action);
+      return ACTION_explode(name, particle_fn, post_action);
     }
     else {
       return post_action;
