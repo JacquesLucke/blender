@@ -91,30 +91,48 @@ class ArrayLookup {
     }
   }
 
-  uint add(Item *array, const Key &key, uint desired_new_index)
+  uint add__no_deleted(Item *array, const Key &key, uint desired_new_index)
   {
-    int dummy_slot = -1;
+    BLI_assert(m_dummy_amount == 0);
     ITER_SLOTS (key, slot, state) {
       if (state == SLOT_EMPTY) {
-        if (dummy_slot == -1) {
-          bool map_changed = this->ensure_can_add(array);
-          if (map_changed) {
-            this->insert_index_for_key(key, desired_new_index);
-          }
-          else {
-            m_map[slot] = desired_new_index;
-          }
+        this->insert_if_fits_or_grow(array, key, desired_new_index, slot);
+        m_length++;
+        return desired_new_index;
+      }
+      else if (GetKey(array[state]) == key) {
+        return state;
+      }
+    }
+  }
+
+  uint add(Item *array, const Key &key, uint desired_new_index)
+  {
+    if (m_dummy_amount == 0) {
+      return this->add__no_deleted(array, key, desired_new_index);
+    }
+
+    int first_dummy_slot = -1;
+    ITER_SLOTS (key, slot, state) {
+      if (state == SLOT_EMPTY) {
+        if (first_dummy_slot == -1) {
+          this->insert_if_fits_or_grow(array, key, desired_new_index, slot);
         }
         else {
-          m_map[slot] = desired_new_index;
+          m_map[first_dummy_slot] = desired_new_index;
           m_dummy_amount--;
         }
         m_length++;
         return desired_new_index;
       }
       else if (state == SLOT_DUMMY) {
-        if (dummy_slot == -1) {
-          dummy_slot = slot;
+        if (first_dummy_slot == -1) {
+          first_dummy_slot = slot;
+        }
+        /* Fallback in case there are no empty slots left. */
+        if (m_map.size() == m_length + m_dummy_amount) {
+          this->ensure_can_add(array);
+          this->add(array, key, desired_new_index);
         }
       }
       else if (GetKey(array[state]) == key) {
@@ -234,6 +252,20 @@ class ArrayLookup {
         m_map[slot] = index;
         break;
       }
+    }
+  }
+
+  inline void insert_if_fits_or_grow(Item *array,
+                                     const Key &key,
+                                     uint index,
+                                     uint slot_in_current_map)
+  {
+    bool map_changed = this->ensure_can_add(array);
+    if (map_changed) {
+      this->insert_index_for_key(key, index);
+    }
+    else {
+      m_map[slot_in_current_map] = index;
     }
   }
 
