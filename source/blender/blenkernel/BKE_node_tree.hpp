@@ -7,7 +7,7 @@
 #include "BLI_small_map.hpp"
 #include "BLI_small_vector.hpp"
 #include "BLI_listbase_wrapper.hpp"
-#include "BLI_multimap.hpp"
+#include "BLI_small_multimap.hpp"
 
 #include "RNA_access.h"
 

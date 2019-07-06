@@ -13,7 +13,7 @@
 #include "BLI_optional.hpp"
 #include "BLI_small_set_vector.hpp"
 #include "BLI_monotonic_allocator.hpp"
-#include "BLI_multimap.hpp"
+#include "BLI_small_multimap.hpp"
 
 namespace FN {
 

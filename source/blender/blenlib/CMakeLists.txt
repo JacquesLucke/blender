@@ -246,13 +246,13 @@ set(SRC
   BLI_math.hpp
   BLI_mempool.hpp
   BLI_monotonic_allocator.hpp
-  BLI_multimap.hpp
   BLI_object_pool.hpp
   BLI_optional.hpp
   BLI_range.hpp
   BLI_shared.hpp
   BLI_small_vector.hpp
   BLI_small_map.hpp
+  BLI_small_multimap.hpp
   BLI_small_set.hpp
   BLI_small_set_vector.hpp
   BLI_small_stack.hpp
