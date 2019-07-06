@@ -694,10 +694,37 @@ Mesh *BParticles_test_mesh_from_state(BParticlesState state_c)
 
   ParticlesState &state = *unwrap(state_c);
 
+  SmallVector<ParticlesContainer *> containers = state.particle_containers().values();
+
   SmallVector<float3> positions;
-  for (ParticlesContainer *container : state.particle_containers().values()) {
-    positions.extend(container->flatten_attribute_float3("Position"));
+  SmallVector<uint> particle_counts;
+  for (ParticlesContainer *container : containers) {
+    SmallVector<float3> positions_in_container = container->flatten_attribute_float3("Position");
+    particle_counts.append(positions_in_container.size());
+    positions.extend(positions_in_container);
   }
 
-  return distribute_tetrahedons(positions, 0.025f);
+  Mesh *mesh = distribute_tetrahedons(positions, 0.025f);
+  if (positions.size() == 0) {
+    return mesh;
+  }
+
+  uint loops_per_particle = mesh->totloop / positions.size();
+
+  SmallVector<MLoopCol> colors_to_use = {
+      {230, 30, 30, 255}, {30, 230, 30, 255}, {30, 30, 230, 255}};
+
+  MLoopCol *loop_colors = (MLoopCol *)CustomData_add_layer_named(
+      &mesh->ldata, CD_MLOOPCOL, CD_DEFAULT, nullptr, mesh->totloop, "Color");
+  uint loop_offset = 0;
+  for (uint i = 0; i < containers.size(); i++) {
+    uint loop_count = particle_counts[i] * loops_per_particle;
+    MLoopCol color = colors_to_use[i];
+    for (uint j = 0; j < loop_count; j++) {
+      loop_colors[loop_offset + j] = color;
+    }
+    loop_offset += loop_count;
+  }
+
+  return mesh;
 }
