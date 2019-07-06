@@ -638,92 +638,63 @@ void BParticles_state_get_positions(BParticlesState state_c, float (*dst_c)[3])
   }
 }
 
-static inline void append_tetrahedon_mesh_data(float3 position,
-                                               float scale,
-                                               MLoopCol color,
-                                               SmallVector<float3> &vertex_positions,
-                                               SmallVector<uint> &poly_starts,
-                                               SmallVector<uint> &poly_lengths,
-                                               SmallVector<uint> &loops,
-                                               SmallVector<MLoopCol> &loop_colors)
+static float3 tetrahedon_vertices[4] = {
+    {1, -1, -1},
+    {1, 1, 1},
+    {-1, -1, 1},
+    {-1, 1, -1},
+};
+
+static uint tetrahedon_loop_starts[4] = {0, 3, 6, 9};
+static uint tetrahedon_loop_lengths[4] = {3, 3, 3, 3};
+static uint tetrahedon_loop_vertices[12] = {0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 2, 3};
+static uint tetrahedon_edges[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
+
+static Mesh *distribute_tetrahedons(ArrayRef<float3> centers, float scale)
 {
-  uint vertex_offset = vertex_positions.size();
+  uint amount = centers.size();
+  Mesh *mesh = BKE_mesh_new_nomain(amount * ARRAY_SIZE(tetrahedon_vertices),
+                                   amount * ARRAY_SIZE(tetrahedon_edges),
+                                   0,
+                                   amount * ARRAY_SIZE(tetrahedon_loop_vertices),
+                                   amount * ARRAY_SIZE(tetrahedon_loop_starts));
 
-  vertex_positions.append(position + scale * float3(1, -1, -1));
-  vertex_positions.append(position + scale * float3(1, 1, 1));
-  vertex_positions.append(position + scale * float3(-1, -1, 1));
-  vertex_positions.append(position + scale * float3(-1, 1, -1));
+  for (uint instance = 0; instance < amount; instance++) {
+    uint vertex_offset = instance * ARRAY_SIZE(tetrahedon_vertices);
+    uint face_offset = instance * ARRAY_SIZE(tetrahedon_loop_starts);
+    uint loop_offset = instance * ARRAY_SIZE(tetrahedon_loop_vertices);
+    uint edge_offset = instance * ARRAY_SIZE(tetrahedon_edges);
 
-  poly_lengths.append_n_times(3, 4);
+    float3 center = centers[instance];
+    for (uint i = 0; i < ARRAY_SIZE(tetrahedon_vertices); i++) {
+      copy_v3_v3(mesh->mvert[vertex_offset + i].co, center + tetrahedon_vertices[i] * scale);
+    }
 
-  poly_starts.append(loops.size());
-  loops.extend({vertex_offset + 0, vertex_offset + 1, vertex_offset + 2});
-  poly_starts.append(loops.size());
-  loops.extend({vertex_offset + 0, vertex_offset + 3, vertex_offset + 1});
-  poly_starts.append(loops.size());
-  loops.extend({vertex_offset + 0, vertex_offset + 2, vertex_offset + 3});
-  poly_starts.append(loops.size());
-  loops.extend({vertex_offset + 1, vertex_offset + 2, vertex_offset + 3});
+    for (uint i = 0; i < ARRAY_SIZE(tetrahedon_loop_starts); i++) {
+      mesh->mpoly[face_offset + i].loopstart = loop_offset + tetrahedon_loop_starts[i];
+      mesh->mpoly[face_offset + i].totloop = tetrahedon_loop_lengths[i];
+    }
 
-  loop_colors.append_n_times(color, 12);
+    for (uint i = 0; i < ARRAY_SIZE(tetrahedon_loop_vertices); i++) {
+      mesh->mloop[loop_offset + i].v = vertex_offset + tetrahedon_loop_vertices[i];
+    }
+
+    for (uint i = 0; i < ARRAY_SIZE(tetrahedon_edges); i++) {
+      mesh->medge[edge_offset + i].v1 = vertex_offset + tetrahedon_edges[i][0];
+      mesh->medge[edge_offset + i].v2 = vertex_offset + tetrahedon_edges[i][1];
+    }
+  }
+
+  return mesh;
 }
 
 Mesh *BParticles_test_mesh_from_state(BParticlesState state_c)
 {
-  ParticlesState &state = *unwrap(state_c);
+  SCOPED_TIMER(__func__);
 
-  SmallVector<float3> vertex_positions;
-  SmallVector<uint> poly_starts;
-  SmallVector<uint> poly_lengths;
-  SmallVector<uint> loops;
-  SmallVector<MLoopCol> loop_colors;
+  uint particle_count = BParticles_state_particle_count(state_c);
+  SmallVector<float3> positions(particle_count);
+  BParticles_state_get_positions(state_c, (float(*)[3])positions.begin());
 
-  SmallVector<MLoopCol> colors_to_use = {
-      {230, 30, 30, 255}, {30, 230, 30, 255}, {30, 30, 230, 255}};
-
-  uint type_index = 0;
-  for (ParticlesContainer *container : state.particle_containers().values()) {
-    for (ParticlesBlock *block : container->active_blocks()) {
-      AttributeArrays attributes = block->attributes();
-      auto positions = attributes.get_float3("Position");
-
-      for (uint pindex = 0; pindex < attributes.size(); pindex++) {
-        append_tetrahedon_mesh_data(positions[pindex],
-                                    0.03f,
-                                    colors_to_use[type_index],
-                                    vertex_positions,
-                                    poly_starts,
-                                    poly_lengths,
-                                    loops,
-                                    loop_colors);
-      }
-    }
-    type_index++;
-  }
-
-  Mesh *mesh = BKE_mesh_new_nomain(
-      vertex_positions.size(), 0, 0, loops.size(), poly_starts.size());
-
-  for (uint i = 0; i < vertex_positions.size(); i++) {
-    copy_v3_v3(mesh->mvert[i].co, vertex_positions[i]);
-  }
-
-  for (uint i = 0; i < poly_starts.size(); i++) {
-    mesh->mpoly[i].loopstart = poly_starts[i];
-    mesh->mpoly[i].totloop = poly_lengths[i];
-  }
-
-  for (uint i = 0; i < loops.size(); i++) {
-    mesh->mloop[i].v = loops[i];
-  }
-
-  MLoopCol *mesh_loop_colors = (MLoopCol *)CustomData_add_layer_named(
-      &mesh->ldata, CD_MLOOPCOL, CD_DEFAULT, nullptr, mesh->totloop, "test");
-
-  for (uint i = 0; i < loop_colors.size(); i++) {
-    mesh_loop_colors[i] = loop_colors[i];
-  }
-
-  BKE_mesh_calc_edges(mesh, false, false);
-  return mesh;
+  return distribute_tetrahedons(positions, 0.025f);
 }
