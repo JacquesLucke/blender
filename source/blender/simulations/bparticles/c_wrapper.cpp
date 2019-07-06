@@ -692,9 +692,12 @@ Mesh *BParticles_test_mesh_from_state(BParticlesState state_c)
 {
   SCOPED_TIMER(__func__);
 
-  uint particle_count = BParticles_state_particle_count(state_c);
-  SmallVector<float3> positions(particle_count);
-  BParticles_state_get_positions(state_c, (float(*)[3])positions.begin());
+  ParticlesState &state = *unwrap(state_c);
+
+  SmallVector<float3> positions;
+  for (ParticlesContainer *container : state.particle_containers().values()) {
+    positions.extend(container->flatten_attribute_float3("Position"));
+  }
 
   return distribute_tetrahedons(positions, 0.025f);
 }

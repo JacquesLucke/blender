@@ -104,6 +104,15 @@ class AttributesInfo {
   }
 
   /**
+   * Get the type of an attribute identified by its name.
+   * Asserts when the name does not exist.
+   */
+  AttributeType type_of(StringRef name) const
+  {
+    return this->type_of(this->attribute_index(name));
+  }
+
+  /**
    * Get the types of all attributes. The index into the array is the index of the corresponding
    * attribute.
    */
