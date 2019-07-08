@@ -65,6 +65,11 @@ template<typename T> class Range {
     return m_start + index;
   }
 
+  friend bool operator==(Range<T> a, Range<T> b)
+  {
+    return a.m_start == b.m_start && a.m_one_after_last == b.m_one_after_last;
+  }
+
   uint size() const
   {
     return m_one_after_last - m_start;
@@ -92,6 +97,11 @@ template<typename T> class Range {
     return m_one_after_last - 1;
   }
 
+  T one_after_last() const
+  {
+    return m_one_after_last;
+  }
+
   bool contains(T value) const
   {
     return value >= m_start && value < m_one_after_last;
@@ -107,4 +117,33 @@ template<typename T> class Range {
     return values;
   }
 };
+
+template<typename T> class ChunkedRange {
+ private:
+  Range<T> m_total_range;
+  uint m_chunk_size;
+  uint m_chunk_amount;
+
+ public:
+  ChunkedRange(Range<T> total_range, uint chunk_size)
+      : m_total_range(total_range),
+        m_chunk_size(chunk_size),
+        m_chunk_amount(std::ceil(m_total_range.size() / (float)m_chunk_size))
+  {
+  }
+
+  uint chunks() const
+  {
+    return m_chunk_amount;
+  }
+
+  Range<T> chunk_range(uint index) const
+  {
+    BLI_assert(index < m_chunk_amount);
+    T start = m_total_range[index * m_chunk_size];
+    T one_after_last = std::min<T>(start + m_chunk_size, m_total_range.one_after_last());
+    return Range<T>(start, one_after_last);
+  }
+};
+
 }  // namespace BLI

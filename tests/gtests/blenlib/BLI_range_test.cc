@@ -3,6 +3,7 @@
 #include "BLI_small_vector.hpp"
 
 using IntRange = BLI::Range<int>;
+using ChunkedIntRange = BLI::ChunkedRange<int>;
 using IntVector = BLI::SmallVector<int>;
 
 TEST(range, DefaultConstructor)
@@ -105,4 +106,39 @@ TEST(range, Last)
 {
   IntRange range = IntRange(5, 8);
   EXPECT_EQ(range.last(), 7);
+}
+
+TEST(range, OneAfterEnd)
+{
+  IntRange range = IntRange(5, 8);
+  EXPECT_EQ(range.one_after_last(), 8);
+}
+
+TEST(chunked_range, ChunksExact)
+{
+  IntRange range = IntRange(10, 50);
+  ChunkedIntRange chunked_range(range, 10);
+  EXPECT_EQ(chunked_range.chunks(), 4);
+
+  EXPECT_EQ(chunked_range.chunk_range(0), IntRange(10, 20));
+  EXPECT_EQ(chunked_range.chunk_range(1), IntRange(20, 30));
+  EXPECT_EQ(chunked_range.chunk_range(2), IntRange(30, 40));
+  EXPECT_EQ(chunked_range.chunk_range(3), IntRange(40, 50));
+}
+
+TEST(chunked_range, ChunksMore)
+{
+  IntRange range = IntRange(25, 40);
+  ChunkedIntRange chunked_range(range, 10);
+  EXPECT_EQ(chunked_range.chunks(), 2);
+
+  EXPECT_EQ(chunked_range.chunk_range(0), IntRange(25, 35));
+  EXPECT_EQ(chunked_range.chunk_range(1), IntRange(35, 40));
+}
+
+TEST(chunked_range, ChunksZero)
+{
+  IntRange range = IntRange(20, 20);
+  ChunkedIntRange chunked_range(range, 10);
+  EXPECT_EQ(chunked_range.chunks(), 0);
 }
