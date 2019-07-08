@@ -76,8 +76,14 @@ class StringRefBase {
     return m_data + m_size;
   }
 
+  /**
+   * Returns true when the string begins with the given prefix. Otherwise false.
+   */
   bool startswith(StringRef prefix) const;
 
+  /**
+   * Returns true when the string ends with the given suffix. Otherwise false.
+   */
   bool endswith(StringRef suffix) const;
 
   /**
@@ -132,6 +138,25 @@ class StringRef : public StringRefBase {
 
   StringRef(const std::string &str) : StringRefBase(str.data(), str.size())
   {
+  }
+
+  /**
+   * Return a new StringRef that does not contain the first n chars.
+   */
+  StringRef drop_prefix(uint n) const
+  {
+    BLI_assert(n <= m_size);
+    return StringRef(m_data + n, m_size - n);
+  }
+
+  /**
+   * Return a new StringRef that with the given prefix being skipped.
+   * Asserts when the string does not begin with the prefix.
+   */
+  StringRef drop_prefix(StringRef prefix) const
+  {
+    BLI_assert(this->startswith(prefix));
+    return this->drop_prefix(prefix.size());
   }
 };
 

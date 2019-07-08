@@ -199,3 +199,22 @@ TEST(string_ref, EndsWith)
   EXPECT_FALSE(ref.endswith(" test"));
   EXPECT_FALSE(ref.endswith("a"));
 }
+
+TEST(string_ref, DropPrefixN)
+{
+  StringRef ref("test");
+  StringRef ref2 = ref.drop_prefix(2);
+  StringRef ref3 = ref2.drop_prefix(2);
+  EXPECT_EQ(ref2.size(), 2);
+  EXPECT_EQ(ref3.size(), 0);
+  EXPECT_EQ(ref2, "st");
+  EXPECT_EQ(ref3, "");
+}
+
+TEST(string_ref, DropPrefix)
+{
+  StringRef ref("test");
+  StringRef ref2 = ref.drop_prefix("tes");
+  EXPECT_EQ(ref2.size(), 1);
+  EXPECT_EQ(ref2, "t");
+}
