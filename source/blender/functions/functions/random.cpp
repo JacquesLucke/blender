@@ -24,10 +24,10 @@ static float random_float(uint32_t x)
 class RandomNumber : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    uint32_t seed = fn_in.get<int32_t>(0);
+    float seed = fn_in.get<float>(0);
     float min = fn_in.get<float>(1);
     float max = fn_in.get<float>(2);
-    float result = random_float(seed) * (max - min) + min;
+    float result = random_float(float_as_uint(seed)) * (max - min) + min;
     fn_out.set<float>(0, result);
   }
 };
@@ -35,7 +35,7 @@ class RandomNumber : public TupleCallBody {
 BLI_LAZY_INIT(SharedFunction, GET_FN_random_number)
 {
   FunctionBuilder builder;
-  builder.add_input("Seed", GET_TYPE_int32());
+  builder.add_input("Seed", GET_TYPE_float());
   builder.add_input("Min", GET_TYPE_float());
   builder.add_input("Max", GET_TYPE_float());
   builder.add_output("Value", GET_TYPE_float());

@@ -6,7 +6,7 @@ class RandomNumberNode(bpy.types.Node, FunctionNode):
     bl_label = "Random Number"
 
     def declaration(self, builder):
-        builder.fixed_input("seed", "Seed", "Integer")
+        builder.fixed_input("seed", "Seed", "Float")
         builder.fixed_input("min", "Min", "Float")
         builder.fixed_input("max", "Max", "Float")
         builder.fixed_output("value", "Value", "Float")
