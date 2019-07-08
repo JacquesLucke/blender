@@ -9,22 +9,18 @@ namespace BParticles {
 
 using BLI::float4x4;
 
-class EventFilter {
+class CustomEvent : public Event {
  public:
-  virtual ~EventFilter() = 0;
-
-  virtual void filter(EventFilterInterface &interface) = 0;
-
-  virtual void triggered(EventExecuteInterface &UNUSED(interface))
-  {
-  }
+  virtual ~CustomEvent();
 
   virtual void attributes(TypeAttributeInterface &UNUSED(interface))
   {
   }
 };
 
-EventFilter *EVENT_mesh_collision(StringRef identifier, Object *object);
-EventFilter *EVENT_age_reached(StringRef identifier, SharedFunction &compute_age_fn);
+Event *EVENT_mesh_collision(StringRef identifier, Object *object, Action *action);
+CustomEvent *EVENT_age_reached(StringRef identifier,
+                               SharedFunction &compute_age_fn,
+                               Action *action);
 
 }  // namespace BParticles

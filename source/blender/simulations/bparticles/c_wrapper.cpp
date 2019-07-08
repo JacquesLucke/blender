@@ -66,39 +66,6 @@ void BParticles_state_free(BParticlesState state)
   delete unwrap(state);
 }
 
-class EventFilterWithAction : public Event {
- private:
-  EventFilter *m_filter;
-  Action *m_action;
-
- public:
-  EventFilterWithAction(EventFilter *filter, Action *action) : m_filter(filter), m_action(action)
-  {
-  }
-
-  ~EventFilterWithAction()
-  {
-    delete m_filter;
-    delete m_action;
-  }
-
-  void filter(EventFilterInterface &interface) override
-  {
-    m_filter->filter(interface);
-  }
-
-  void execute(EventExecuteInterface &interface) override
-  {
-    m_filter->triggered(interface);
-    m_action->execute(interface);
-  }
-
-  EventFilter *get_filter() const
-  {
-    return m_filter;
-  }
-};
-
 class EulerIntegrator : public Integrator {
  private:
   AttributesInfo m_offset_attributes_info;
@@ -196,9 +163,10 @@ class ModifierParticleType : public ParticleType {
     interface.use(AttributeType::Float3, "Velocity");
 
     for (Event *event : m_events) {
-      EventFilterWithAction *event_action = dynamic_cast<EventFilterWithAction *>(event);
-      BLI_assert(event_action);
-      event_action->get_filter()->attributes(interface);
+      CustomEvent *custom_event = dynamic_cast<CustomEvent *>(event);
+      if (custom_event != nullptr) {
+        custom_event->attributes(interface);
+      }
     }
   }
 };
@@ -443,12 +411,11 @@ static void INSERT_EVENT_age_reached(bNode *event_node,
       continue;
     }
 
-    EventFilter *event_filter = EVENT_age_reached(event_node->name, fn);
     Action *action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
                                   indexed_tree,
                                   data_graph,
                                   step_description);
-    Event *event = new EventFilterWithAction(event_filter, action);
+    Event *event = EVENT_age_reached(event_node->name, fn, action);
 
     bNode *type_node = linked.node;
     step_description.m_types.lookup_ref(type_node->name)->m_events.append(event);
@@ -474,12 +441,11 @@ static void INSERT_EVENT_mesh_collision(bNode *event_node,
       continue;
     }
 
-    EventFilter *event_filter = EVENT_mesh_collision(event_node->name, object);
     Action *action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
                                   indexed_tree,
                                   data_graph,
                                   step_description);
-    Event *event = new EventFilterWithAction(event_filter, action);
+    Event *event = EVENT_mesh_collision(event_node->name, object, action);
 
     bNode *type_node = linked.node;
     step_description.m_types.lookup_ref(type_node->name)->m_events.append(event);

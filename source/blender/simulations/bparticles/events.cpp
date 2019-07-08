@@ -8,19 +8,24 @@
 
 namespace BParticles {
 
-EventFilter::~EventFilter()
+CustomEvent::~CustomEvent()
 {
 }
 
-class AgeReachedEvent : public EventFilter {
+class AgeReachedEvent : public CustomEvent {
  private:
   std::string m_identifier;
   SharedFunction m_compute_age_fn;
   TupleCallBody *m_compute_age_body;
+  std::unique_ptr<Action> m_action;
 
  public:
-  AgeReachedEvent(StringRef identifier, SharedFunction &compute_age_fn)
-      : m_identifier(identifier.to_std_string()), m_compute_age_fn(compute_age_fn)
+  AgeReachedEvent(StringRef identifier,
+                  SharedFunction &compute_age_fn,
+                  std::unique_ptr<Action> action)
+      : m_identifier(identifier.to_std_string()),
+        m_compute_age_fn(compute_age_fn),
+        m_action(std::move(action))
   {
     m_compute_age_body = compute_age_fn->body<TupleCallBody>();
   }
@@ -69,7 +74,7 @@ class AgeReachedEvent : public EventFilter {
     }
   }
 
-  void triggered(EventExecuteInterface &interface) override
+  void execute(EventExecuteInterface &interface) override
   {
     ParticleSet particles = interface.particles();
 
@@ -77,16 +82,19 @@ class AgeReachedEvent : public EventFilter {
     for (uint pindex : particles.indices()) {
       was_activated_before[pindex] = true;
     }
+
+    m_action->execute(interface);
   }
 };
 
-class MeshCollisionEventFilter : public EventFilter {
+class MeshCollisionEventFilter : public Event {
  private:
   std::string m_identifier;
   Object *m_object;
   BVHTreeFromMesh m_bvhtree_data;
   float4x4 m_local_to_world;
   float4x4 m_world_to_local;
+  std::unique_ptr<Action> m_action;
 
   struct RayCastResult {
     bool success;
@@ -96,8 +104,8 @@ class MeshCollisionEventFilter : public EventFilter {
   };
 
  public:
-  MeshCollisionEventFilter(StringRef identifier, Object *object)
-      : m_identifier(identifier.to_std_string()), m_object(object)
+  MeshCollisionEventFilter(StringRef identifier, Object *object, std::unique_ptr<Action> action)
+      : m_identifier(identifier.to_std_string()), m_object(object), m_action(std::move(action))
   {
     BLI_assert(object->type == OB_MESH);
     m_local_to_world = m_object->obmat;
@@ -147,16 +155,23 @@ class MeshCollisionEventFilter : public EventFilter {
 
     return {hit.index >= 0, hit.index, float3(hit.no), hit.dist};
   }
+
+  void execute(EventExecuteInterface &interface) override
+  {
+    m_action->execute(interface);
+  }
 };
 
-EventFilter *EVENT_age_reached(StringRef identifier, SharedFunction &compute_age_fn)
+CustomEvent *EVENT_age_reached(StringRef identifier,
+                               SharedFunction &compute_age_fn,
+                               Action *action)
 {
-  return new AgeReachedEvent(identifier, compute_age_fn);
+  return new AgeReachedEvent(identifier, compute_age_fn, std::unique_ptr<Action>(action));
 }
 
-EventFilter *EVENT_mesh_collision(StringRef identifier, Object *object)
+Event *EVENT_mesh_collision(StringRef identifier, Object *object, Action *action)
 {
-  return new MeshCollisionEventFilter(identifier, object);
+  return new MeshCollisionEventFilter(identifier, object, std::unique_ptr<Action>(action));
 }
 
 }  // namespace BParticles
