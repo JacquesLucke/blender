@@ -9,7 +9,7 @@ Action::~Action()
 }
 
 class NoneAction : public Action {
-  void execute(EventExecuteInterface &UNUSED(interface)) override
+  void execute(EventExecuteInterface &UNUSED(interface), EventInfo &UNUSED(event_info)) override
   {
   }
 };
@@ -30,14 +30,14 @@ class ChangeDirectionAction : public Action {
     delete m_post_action;
   }
 
-  void execute(EventExecuteInterface &interface) override
+  void execute(EventExecuteInterface &interface, EventInfo &event_info) override
   {
     ParticleSet particles = interface.particles();
     auto velocities = particles.attributes().get_float3("Velocity");
     auto position_offsets = interface.attribute_offsets().get_float3("Position");
     auto velocity_offsets = interface.attribute_offsets().get_float3("Velocity");
 
-    auto caller = m_compute_inputs.get_caller(particles.attributes());
+    auto caller = m_compute_inputs.get_caller(particles.attributes(), event_info);
 
     FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
 
@@ -55,58 +55,14 @@ class ChangeDirectionAction : public Action {
       velocity_offsets[pindex] = float3(0);
     }
 
-    m_post_action->execute(interface);
+    m_post_action->execute(interface, event_info);
   }
 };
 
 class KillAction : public Action {
-  void execute(EventExecuteInterface &interface) override
+  void execute(EventExecuteInterface &interface, EventInfo &UNUSED(event_info)) override
   {
     interface.kill(interface.particles().indices());
-  }
-};
-
-class MoveAction : public Action {
- private:
-  float3 m_offset;
-
- public:
-  MoveAction(float3 offset) : m_offset(offset)
-  {
-  }
-
-  void execute(EventExecuteInterface &interface) override
-  {
-    ParticleSet &particles = interface.particles();
-
-    auto positions = particles.attributes().get_float3("Position");
-    for (uint pindex : particles.indices()) {
-      positions[pindex] += m_offset;
-    }
-  }
-};
-
-class SpawnAction : public Action {
-  void execute(EventExecuteInterface &interface) override
-  {
-    ParticleSet &particles = interface.particles();
-
-    auto positions = particles.attributes().get_float3("Position");
-
-    SmallVector<float3> new_positions;
-    SmallVector<float3> new_velocities;
-    SmallVector<uint> original_indices;
-
-    for (uint i : particles.range()) {
-      uint pindex = particles.get_particle_index(i);
-      new_positions.append(positions[pindex] + float3(20, 0, 0));
-      new_velocities.append(float3(1, 1, 10));
-      original_indices.append(i);
-    }
-
-    auto &target = interface.request_emit_target(0, original_indices);
-    target.set_float3("Position", new_positions);
-    target.set_float3("Velocity", new_velocities);
   }
 };
 
@@ -138,7 +94,7 @@ class ExplodeAction : public Action {
   {
   }
 
-  void execute(EventExecuteInterface &interface) override
+  void execute(EventExecuteInterface &interface, EventInfo &event_info) override
   {
     ParticleSet &particles = interface.particles();
 
@@ -148,7 +104,7 @@ class ExplodeAction : public Action {
     SmallVector<float3> new_velocities;
     SmallVector<uint> original_indices;
 
-    auto caller = m_compute_inputs.get_caller(particles.attributes());
+    auto caller = m_compute_inputs.get_caller(particles.attributes(), event_info);
     FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
 
     FN::ExecutionStack stack;
@@ -173,7 +129,7 @@ class ExplodeAction : public Action {
     target.set_float3("Position", new_positions);
     target.set_float3("Velocity", new_velocities);
 
-    m_post_action->execute(interface);
+    m_post_action->execute(interface, event_info);
   }
 };
 
@@ -190,16 +146,6 @@ Action *ACTION_change_direction(ParticleFunction &compute_inputs, Action *post_a
 Action *ACTION_kill()
 {
   return new KillAction();
-}
-
-Action *ACTION_move(float3 offset)
-{
-  return new MoveAction(offset);
-}
-
-Action *ACTION_spawn()
-{
-  return new SpawnAction();
 }
 
 Action *ACTION_explode(StringRef new_particle_name,

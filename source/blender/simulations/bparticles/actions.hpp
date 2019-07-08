@@ -11,11 +11,9 @@ using FN::SharedFunction;
 using FN::Tuple;
 using FN::TupleCallBody;
 
-class Action {
+class EventInfo {
  public:
-  virtual ~Action() = 0;
-
-  virtual void execute(EventExecuteInterface &interface) = 0;
+  virtual void *get_info_array(StringRef name) = 0;
 };
 
 class ParticleFunction;
@@ -59,17 +57,27 @@ class ParticleFunction {
     BLI_assert(m_tuple_call);
   }
 
-  ParticleFunctionCaller get_caller(AttributeArrays attributes)
+  ParticleFunctionCaller get_caller(AttributeArrays attributes, EventInfo &event_info)
   {
     ParticleFunctionCaller caller;
     caller.m_body = m_tuple_call;
 
     for (uint i = 0; i < m_function->input_amount(); i++) {
       StringRef input_name = m_function->input_name(i);
-      uint index = attributes.attribute_index(input_name);
-      uint stride = attributes.attribute_stride(index);
-      void *ptr = attributes.get_ptr(index);
+      void *ptr;
+      uint stride;
+      if (input_name.startswith("EVENT")) {
+        StringRef event_attribute_name = input_name.drop_prefix("EVENT");
+        ptr = event_info.get_info_array(event_attribute_name);
+        stride = sizeof(float3); /* TODO make not hardcoded */
+      }
+      else {
+        uint index = attributes.attribute_index(input_name);
+        stride = attributes.attribute_stride(index);
+        ptr = attributes.get_ptr(index);
+      }
 
+      BLI_assert(ptr);
       caller.m_attribute_buffers.append(ptr);
       caller.m_strides.append(stride);
     }
@@ -78,11 +86,16 @@ class ParticleFunction {
   }
 };
 
+class Action {
+ public:
+  virtual ~Action() = 0;
+
+  virtual void execute(EventExecuteInterface &interface, EventInfo &event_info) = 0;
+};
+
 Action *ACTION_none();
 Action *ACTION_change_direction(ParticleFunction &compute_inputs, Action *post_action);
 Action *ACTION_kill();
-Action *ACTION_move(float3 offset);
-Action *ACTION_spawn();
 Action *ACTION_explode(StringRef new_particle_name,
                        ParticleFunction &compute_inputs,
                        Action *post_action);

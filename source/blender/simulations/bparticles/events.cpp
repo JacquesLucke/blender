@@ -8,6 +8,13 @@
 
 namespace BParticles {
 
+class EmptyEventInfo : public EventInfo {
+  void *get_info_array(StringRef UNUSED(name)) override
+  {
+    return nullptr;
+  }
+};
+
 class AgeReachedEvent : public Event {
  private:
   std::string m_identifier;
@@ -79,7 +86,8 @@ class AgeReachedEvent : public Event {
       was_activated_before[pindex] = true;
     }
 
-    m_action->execute(interface);
+    EmptyEventInfo event_info;
+    m_action->execute(interface, event_info);
   }
 };
 
@@ -154,7 +162,8 @@ class MeshCollisionEventFilter : public Event {
 
   void execute(EventExecuteInterface &interface) override
   {
-    m_action->execute(interface);
+    EmptyEventInfo event_info;
+    m_action->execute(interface, event_info);
   }
 };
 
