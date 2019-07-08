@@ -255,6 +255,29 @@ static void INSERT_separate_vector(BTreeGraphBuilder &builder, bNode *bnode)
   builder.insert_matching_function(fn, bnode);
 }
 
+static SharedFunction &get_compare_function(int operation)
+{
+  switch (operation) {
+    case 1:
+      return Functions::GET_FN_less_than_float();
+    default:
+      BLI_assert(false);
+      return *(SharedFunction *)nullptr;
+  }
+}
+
+static void INSERT_compare(BTreeGraphBuilder &builder, bNode *bnode)
+{
+  PointerRNA rna = builder.get_rna(bnode);
+  int operation = RNA_enum_get(&rna, "operation");
+  SharedFunction fn = get_vectorized_function(
+      get_compare_function(operation),
+      rna,
+      {{"use_list__a", Functions::GET_FN_output_float_0()},
+       {"use_list__b", Functions::GET_FN_output_float_0()}});
+  builder.insert_matching_function(fn, bnode);
+}
+
 void register_node_inserters(GraphInserters &inserters)
 {
   inserters.reg_node_function("fn_VectorDistanceNode", Functions::GET_FN_vector_distance);
@@ -273,6 +296,7 @@ void register_node_inserters(GraphInserters &inserters)
   inserters.reg_node_inserter("fn_CallNode", INSERT_call);
   inserters.reg_node_inserter("fn_SwitchNode", INSERT_switch);
   inserters.reg_node_inserter("fn_ListLengthNode", INSERT_list_length);
+  inserters.reg_node_inserter("fn_CompareNode", INSERT_compare);
 }
 
 }  // namespace DataFlowNodes

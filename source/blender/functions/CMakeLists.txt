@@ -126,6 +126,8 @@ set(SRC
   functions/auto_vectorization.cpp
   functions/ranges.hpp
   functions/ranges.cpp
+  functions/comparisons.hpp
+  functions/comparisons.cpp
 
   frontends/data_flow_nodes/builder.hpp
   frontends/data_flow_nodes/builder.cpp
