@@ -1,6 +1,8 @@
 #include "testing/testing.h"
 #include "BLI_string_ref.hpp"
+#include "BLI_small_vector.hpp"
 
+using BLI::SmallVector;
 using BLI::StringRef;
 using BLI::StringRefNull;
 
@@ -158,4 +160,42 @@ TEST(string_ref, CompareEqualString2)
   StringRef ref("test");
   EXPECT_TRUE(std::string("test") == ref);
   EXPECT_FALSE(std::string("other") == ref);
+}
+
+TEST(string_ref, Iterate)
+{
+  StringRef ref("test");
+  SmallVector<char> chars;
+  for (char c : ref) {
+    chars.append(c);
+  }
+  EXPECT_EQ(chars.size(), 4);
+  EXPECT_EQ(chars[0], 't');
+  EXPECT_EQ(chars[1], 'e');
+  EXPECT_EQ(chars[2], 's');
+  EXPECT_EQ(chars[3], 't');
+}
+
+TEST(string_ref, StartsWith)
+{
+  StringRef ref("test");
+  EXPECT_TRUE(ref.startswith(""));
+  EXPECT_TRUE(ref.startswith("t"));
+  EXPECT_TRUE(ref.startswith("te"));
+  EXPECT_TRUE(ref.startswith("tes"));
+  EXPECT_TRUE(ref.startswith("test"));
+  EXPECT_FALSE(ref.startswith("test "));
+  EXPECT_FALSE(ref.startswith("a"));
+}
+
+TEST(string_ref, EndsWith)
+{
+  StringRef ref("test");
+  EXPECT_TRUE(ref.endswith(""));
+  EXPECT_TRUE(ref.endswith("t"));
+  EXPECT_TRUE(ref.endswith("st"));
+  EXPECT_TRUE(ref.endswith("est"));
+  EXPECT_TRUE(ref.endswith("test"));
+  EXPECT_FALSE(ref.endswith(" test"));
+  EXPECT_FALSE(ref.endswith("a"));
 }

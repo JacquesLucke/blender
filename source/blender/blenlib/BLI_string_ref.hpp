@@ -29,6 +29,8 @@
 
 namespace BLI {
 
+class StringRef;
+
 class StringRefBase {
  public:
   using size_type = size_t;
@@ -63,6 +65,20 @@ class StringRefBase {
     BLI_assert(index <= m_size);
     return m_data[index];
   }
+
+  const char *begin() const
+  {
+    return m_data;
+  }
+
+  const char *end()
+  {
+    return m_data + m_size;
+  }
+
+  bool startswith(StringRef prefix) const;
+
+  bool endswith(StringRef suffix) const;
 
   /**
    * Convert the referenced string into a std::string object.
@@ -177,5 +193,35 @@ class StringRef : public StringRefBase {
   {
   }
 };
+
+/* More inline functions
+ ***************************************/
+
+inline bool StringRefBase::startswith(StringRef prefix) const
+{
+  if (m_size < prefix.m_size) {
+    return false;
+  }
+  for (uint i = 0; i < prefix.m_size; i++) {
+    if (m_data[i] != prefix.m_data[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+inline bool StringRefBase::endswith(StringRef suffix) const
+{
+  if (m_size < suffix.m_size) {
+    return false;
+  }
+  uint offset = m_size - suffix.m_size;
+  for (uint i = 0; i < suffix.m_size; i++) {
+    if (m_data[offset + i] != suffix.m_data[i]) {
+      return false;
+    }
+  }
+  return true;
+}
 
 }  // namespace BLI
