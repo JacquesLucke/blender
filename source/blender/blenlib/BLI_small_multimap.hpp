@@ -10,16 +10,9 @@ namespace BLI {
 template<typename K, typename V, uint N = 4> class SmallMultiMap {
  private:
   struct Entry {
-    K key;
     uint offset;
     uint length;
     uint capacity;
-
-    static const K &get_key(const Entry &entry)
-    {
-      BLI_STATIC_ASSERT(std::is_trivial<V>::value, "only works with trivial value types");
-      return entry.key;
-    }
 
     ArrayRef<V> get_slice(ArrayRef<V> array)
     {
@@ -45,13 +38,14 @@ template<typename K, typename V, uint N = 4> class SmallMultiMap {
 
   bool add(const K &key, const V &value)
   {
+    BLI_STATIC_ASSERT(std::is_trivially_destructible<V>::value, "");
     bool newly_inserted = m_map.insert_or_modify(
         key,
         /* Insert new key with value. */
         [this, &key, &value]() -> Entry {
           uint offset = m_elements.size();
           m_elements.append(value);
-          return {key, offset, 1, 1};
+          return {offset, 1, 1};
         },
         /* Append new value for existing key. */
         [this, &value](Entry &entry) {
@@ -81,7 +75,7 @@ template<typename K, typename V, uint N = 4> class SmallMultiMap {
     BLI_assert(!m_map.contains(key));
     uint offset = m_elements.size();
     m_elements.append(value);
-    m_map.add_new(key, {key, offset, 1, 1});
+    m_map.add_new(key, {offset, 1, 1});
   }
 
   void add_multiple_new(const K &key, ArrayRef<V> values)
@@ -89,7 +83,7 @@ template<typename K, typename V, uint N = 4> class SmallMultiMap {
     BLI_assert(!m_map.contains(key));
     uint offset = m_elements.size();
     m_elements.extend(values);
-    m_map.add_new(key, {key, offset, values.size(), values.size()});
+    m_map.add_new(key, {offset, values.size(), values.size()});
   }
 
   ArrayRef<V> lookup(const K &key) const
