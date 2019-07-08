@@ -232,18 +232,12 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
                                                 VectorAdaptor<float> &r_remaining_durations)
 {
   uint amount = particles.size();
-
   BLI_assert(array_allocator.array_size() >= amount);
-  auto next_event_indices_array = array_allocator.allocate_scoped<int>();
-  auto time_factors_to_next_event_array = array_allocator.allocate_scoped<float>();
-  auto indices_with_event_array = array_allocator.allocate_scoped<uint>();
-  auto particle_indices_with_event_array = array_allocator.allocate_scoped<uint>();
 
-  VectorAdaptor<int> next_event_indices(next_event_indices_array, amount, amount);
-  VectorAdaptor<float> time_factors_to_next_event(
-      time_factors_to_next_event_array, amount, amount);
-  VectorAdaptor<uint> indices_with_event(indices_with_event_array, amount);
-  VectorAdaptor<uint> particle_indices_with_event(particle_indices_with_event_array, amount);
+  FixedArrayAllocator::Array<int> next_event_indices(array_allocator, amount);
+  FixedArrayAllocator::Array<float> time_factors_to_next_event(array_allocator, amount);
+  FixedArrayAllocator::Vector<uint> indices_with_event(array_allocator);
+  FixedArrayAllocator::Vector<uint> particle_indices_with_event(array_allocator);
 
   uint max_event_storage_size = std::max(get_max_event_storage_size(events), 1u);
   auto event_storage_array = array_allocator.allocate_scoped(max_event_storage_size);

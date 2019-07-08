@@ -7,6 +7,7 @@
  */
 
 #include "BLI_small_stack.hpp"
+#include "BLI_vector_adaptor.hpp"
 
 namespace BLI {
 
@@ -123,6 +124,11 @@ class FixedArrayAllocator {
     {
       return (T *)m_ptr;
     }
+
+    FixedArrayAllocator &allocator()
+    {
+      return m_allocator;
+    }
   };
 
   /**
@@ -142,6 +148,52 @@ class FixedArrayAllocator {
   {
     return ScopedAllocation<T>(*this, this->allocate<T>(), sizeof(T));
   }
+
+  template<typename T> class Vector {
+   private:
+    ScopedAllocation<T> m_ptr;
+    VectorAdaptor<T> m_vector;
+
+   public:
+    Vector(FixedArrayAllocator &allocator)
+        : m_ptr(allocator.allocate_scoped<T>()), m_vector(m_ptr, allocator.array_size())
+    {
+    }
+
+    ~Vector() = default;
+
+    operator VectorAdaptor<T> &()
+    {
+      return m_vector;
+    }
+
+    operator ArrayRef<T>()
+    {
+      return m_vector;
+    }
+  };
+
+  template<typename T> class Array {
+   private:
+    ScopedAllocation<T> m_ptr;
+    uint m_size;
+
+   public:
+    Array(FixedArrayAllocator &allocator) : Array(allocator, allocator.array_size())
+    {
+    }
+
+    Array(FixedArrayAllocator &allocator, uint size)
+        : m_ptr(allocator.allocate_scoped<T>()), m_size(size)
+    {
+      BLI_assert(size <= allocator.array_size());
+    }
+
+    operator ArrayRef<T>()
+    {
+      return ArrayRef<T>(m_ptr, m_size);
+    }
+  };
 
  private:
   SmallStack<void *> &stack_for_element_size(uint element_size)

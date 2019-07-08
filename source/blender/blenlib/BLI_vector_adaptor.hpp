@@ -75,9 +75,7 @@ template<typename T> class VectorAdaptor {
   /**
    * Elements should continue to live after the adapter is destructed.
    */
-  ~VectorAdaptor()
-  {
-  }
+  ~VectorAdaptor() = default;
 
   void clear()
   {
