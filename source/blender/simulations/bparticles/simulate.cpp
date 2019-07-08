@@ -656,6 +656,10 @@ BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &t
   TypeAttributeInterface interface;
   type.attributes(interface);
 
+  for (Event *event : type.events()) {
+    event->attributes(interface);
+  }
+
   SmallSetVector<std::string> byte_attributes = {"Kill State"};
   SmallSetVector<std::string> float_attributes = {"Birth Time"};
   SmallSetVector<std::string> float3_attributes = {};

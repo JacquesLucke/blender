@@ -8,11 +8,7 @@
 
 namespace BParticles {
 
-CustomEvent::~CustomEvent()
-{
-}
-
-class AgeReachedEvent : public CustomEvent {
+class AgeReachedEvent : public Event {
  private:
   std::string m_identifier;
   SharedFunction m_compute_age_fn;
@@ -162,9 +158,7 @@ class MeshCollisionEventFilter : public Event {
   }
 };
 
-CustomEvent *EVENT_age_reached(StringRef identifier,
-                               SharedFunction &compute_age_fn,
-                               Action *action)
+Event *EVENT_age_reached(StringRef identifier, SharedFunction &compute_age_fn, Action *action)
 {
   return new AgeReachedEvent(identifier, compute_age_fn, std::unique_ptr<Action>(action));
 }

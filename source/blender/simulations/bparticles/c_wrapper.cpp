@@ -161,13 +161,6 @@ class ModifierParticleType : public ParticleType {
   {
     interface.use(AttributeType::Float3, "Position");
     interface.use(AttributeType::Float3, "Velocity");
-
-    for (Event *event : m_events) {
-      CustomEvent *custom_event = dynamic_cast<CustomEvent *>(event);
-      if (custom_event != nullptr) {
-        custom_event->attributes(interface);
-      }
-    }
   }
 };
 

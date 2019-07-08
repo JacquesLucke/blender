@@ -7,9 +7,9 @@ AttributesInfo::AttributesInfo(ArrayRef<std::string> byte_names,
                                ArrayRef<std::string> float3_names)
 {
   m_indices = {};
-  m_indices.add_multiple(byte_names);
-  m_indices.add_multiple(float_names);
-  m_indices.add_multiple(float3_names);
+  m_indices.add_multiple_new(byte_names);
+  m_indices.add_multiple_new(float_names);
+  m_indices.add_multiple_new(float3_names);
   BLI_assert(m_indices.size() == byte_names.size() + float_names.size() + float3_names.size());
 
   m_byte_attributes = Range<uint>(0, byte_names.size());

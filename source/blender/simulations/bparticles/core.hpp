@@ -64,6 +64,11 @@ class Event {
    * already. However, the attributes of new particles can be changed.
    */
   virtual void execute(EventExecuteInterface &interface) = 0;
+
+  /**
+   * Allows to define which attributes are required by the event.
+   */
+  virtual void attributes(TypeAttributeInterface &interface);
 };
 
 /**
@@ -128,10 +133,9 @@ class ParticleType {
   virtual ArrayRef<Event *> events() = 0;
 
   /**
-   * Determines which attributes have to be stored for particles of this type. The actual number of
-   * attributes might be larger.
+   * Allows to define which attributes should exist for the type.
    */
-  virtual void attributes(TypeAttributeInterface &interface) = 0;
+  virtual void attributes(TypeAttributeInterface &interface);
 };
 
 /**
@@ -672,6 +676,20 @@ class TypeAttributeInterface {
    */
   ArrayRef<AttributeType> types();
 };
+
+/* Event inline functions
+ ********************************************/
+
+inline void Event::attributes(TypeAttributeInterface &UNUSED(interface))
+{
+}
+
+/* ParticleType inline functions
+ ********************************************/
+
+inline void ParticleType::attributes(TypeAttributeInterface &UNUSED(interface))
+{
+}
 
 /* ParticlesState inline functions
  ********************************************/
