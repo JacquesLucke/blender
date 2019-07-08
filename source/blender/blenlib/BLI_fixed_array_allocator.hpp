@@ -62,6 +62,57 @@ class FixedArrayAllocator {
     return this->deallocate_array(ptr, sizeof(T));
   }
 
+  template<typename T> class ScopedAllocation {
+   private:
+    FixedArrayAllocator &m_allocator;
+    void *m_ptr;
+    uint m_element_size;
+
+   public:
+    ScopedAllocation(FixedArrayAllocator &allocator, T *ptr, uint element_size)
+        : m_allocator(allocator), m_ptr(ptr), m_element_size(element_size)
+    {
+    }
+
+    ScopedAllocation(ScopedAllocation &other) = delete;
+    ScopedAllocation(ScopedAllocation &&other)
+        : m_allocator(other.m_allocator), m_ptr(other.m_ptr), m_element_size(other.m_element_size)
+    {
+      other.m_ptr = nullptr;
+    }
+
+    ScopedAllocation &operator=(ScopedAllocation &other) = delete;
+    ScopedAllocation &operator=(ScopedAllocation &&other)
+    {
+      this->~ScopedAllocation();
+      new (this) ScopedAllocation(std::move(other));
+      return *this;
+    }
+
+    ~ScopedAllocation()
+    {
+      if (m_ptr != nullptr) {
+        m_allocator.deallocate_array(m_ptr, m_element_size);
+      }
+    }
+
+    operator T *() const
+    {
+      return (T *)m_ptr;
+    }
+  };
+
+  ScopedAllocation<void> allocate_array_scoped(uint element_size)
+  {
+    return ScopedAllocation<void>(*this, this->allocate_array(element_size), element_size);
+  }
+
+  template<typename T> ScopedAllocation<T> allocate_array_scoped()
+  {
+    return ScopedAllocation<T>(*this, this->allocate_array<T>(), sizeof(T));
+  }
+
+ private:
   SmallStack<void *> &stack_for_element_size(uint element_size)
   {
     BLI_assert(element_size > 0);
