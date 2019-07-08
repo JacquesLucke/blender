@@ -197,9 +197,9 @@ template<typename K, typename V, uint N = 4> class SmallMap {
    * Return true when a new value was inserted, false otherwise.
    */
   template<typename CreateValueFunc, typename ModifyValueFunc>
-  bool insert_or_modify(const K &key,
-                        const CreateValueFunc &create_value,
-                        const ModifyValueFunc &modify_value)
+  bool add_or_modify(const K &key,
+                     const CreateValueFunc &create_value,
+                     const ModifyValueFunc &modify_value)
   {
     uint desired_new_index = m_entries.size();
     uint value_index = m_lookup.add(m_entries.begin(), key, desired_new_index);

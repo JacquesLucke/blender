@@ -194,8 +194,8 @@ TEST(small_map, InsertOrModify)
   IntFloatMap map;
   auto create_func = []() { return 10.0f; };
   auto modify_func = [](float &value) { value += 5; };
-  EXPECT_TRUE(map.insert_or_modify(1, create_func, modify_func));
+  EXPECT_TRUE(map.add_or_modify(1, create_func, modify_func));
   EXPECT_EQ(map.lookup(1), 10.0f);
-  EXPECT_FALSE(map.insert_or_modify(1, create_func, modify_func));
+  EXPECT_FALSE(map.add_or_modify(1, create_func, modify_func));
   EXPECT_EQ(map.lookup(1), 15.0f);
 }

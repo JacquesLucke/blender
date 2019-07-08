@@ -39,34 +39,33 @@ template<typename K, typename V, uint N = 4> class SmallMultiMap {
   bool add(const K &key, const V &value)
   {
     BLI_STATIC_ASSERT(std::is_trivially_destructible<V>::value, "");
-    bool newly_inserted = m_map.insert_or_modify(
-        key,
-        /* Insert new key with value. */
-        [this, &key, &value]() -> Entry {
-          uint offset = m_elements.size();
-          m_elements.append(value);
-          return {offset, 1, 1};
-        },
-        /* Append new value for existing key. */
-        [this, &value](Entry &entry) {
-          if (entry.length < entry.capacity) {
-            m_elements[entry.offset + entry.length] = value;
-            entry.length += 1;
-          }
-          else {
-            uint new_offset = m_elements.size();
+    bool newly_inserted = m_map.add_or_modify(key,
+                                              /* Insert new key with value. */
+                                              [this, &key, &value]() -> Entry {
+                                                uint offset = m_elements.size();
+                                                m_elements.append(value);
+                                                return {offset, 1, 1};
+                                              },
+                                              /* Append new value for existing key. */
+                                              [this, &value](Entry &entry) {
+                                                if (entry.length < entry.capacity) {
+                                                  m_elements[entry.offset + entry.length] = value;
+                                                  entry.length += 1;
+                                                }
+                                                else {
+                                                  uint new_offset = m_elements.size();
 
-            /* Copy the existing elements to the end. */
-            m_elements.extend(entry.get_slice(m_elements));
-            /* Insert the new value and reserve the capacity for this
-             * entry. */
-            m_elements.append_n_times(value, entry.length);
+                                                  /* Copy the existing elements to the end. */
+                                                  m_elements.extend(entry.get_slice(m_elements));
+                                                  /* Insert the new value and reserve the capacity
+                                                   * for this entry. */
+                                                  m_elements.append_n_times(value, entry.length);
 
-            entry.offset = new_offset;
-            entry.length += 1;
-            entry.capacity *= 2;
-          }
-        });
+                                                  entry.offset = new_offset;
+                                                  entry.length += 1;
+                                                  entry.capacity *= 2;
+                                                }
+                                              });
     return newly_inserted;
   }
 
