@@ -87,65 +87,6 @@ class StringRefBase {
   {
     return std::string(m_data, m_size);
   }
-
-  friend std::ostream &operator<<(std::ostream &stream, StringRefBase ref)
-  {
-    stream << ref.to_std_string();
-    return stream;
-  }
-
-  friend std::string operator+(const StringRefBase a, const StringRefBase b)
-  {
-    return a.to_std_string() + b.data();
-  }
-
-  friend std::string operator+(const char *a, const StringRefBase b)
-  {
-    return a + b.to_std_string();
-  }
-
-  friend std::string operator+(const StringRefBase a, const char *b)
-  {
-    return a.to_std_string() + b;
-  }
-
-  friend std::string operator+(const std::string &a, const StringRefBase b)
-  {
-    return a + b.data();
-  }
-
-  friend std::string operator+(const StringRefBase a, const std::string &b)
-  {
-    return a.data() + b;
-  }
-
-  friend bool operator==(const StringRefBase a, const StringRefBase b)
-  {
-    if (a.size() != b.size()) {
-      return false;
-    }
-    return STREQLEN(a.data(), b.data(), a.size());
-  }
-
-  friend bool operator==(const StringRefBase a, const char *b)
-  {
-    return STREQ(a.data(), b);
-  }
-
-  friend bool operator==(const char *a, const StringRefBase b)
-  {
-    return b == a;
-  }
-
-  friend bool operator==(const StringRefBase a, const std::string &b)
-  {
-    return a == StringRefBase(b.data(), b.size());
-  }
-
-  friend bool operator==(const std::string &a, const StringRefBase b)
-  {
-    return b == a;
-  }
 };
 
 class StringRefNull : public StringRefBase {
@@ -196,6 +137,25 @@ class StringRef : public StringRefBase {
 
 /* More inline functions
  ***************************************/
+
+inline std::ostream &operator<<(std::ostream &stream, StringRef ref)
+{
+  stream << ref.to_std_string();
+  return stream;
+}
+
+inline std::string operator+(StringRef a, StringRef b)
+{
+  return a.to_std_string() + b.to_std_string();
+}
+
+inline bool operator==(StringRef a, StringRef b)
+{
+  if (a.size() != b.size()) {
+    return false;
+  }
+  return STREQLEN(a.data(), b.data(), a.size());
+}
 
 inline bool StringRefBase::startswith(StringRef prefix) const
 {
