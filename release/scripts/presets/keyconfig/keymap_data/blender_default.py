@@ -3235,8 +3235,6 @@ def km_grease_pencil_stroke_weight_mode(params):
     )
 
     items.extend([
-        # Selection
-        *_grease_pencil_selection(params),
         # Painting
         ("gpencil.sculpt_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
          {"properties": [("wait_for_input", False)]}),
@@ -3664,7 +3662,10 @@ def km_vertex_paint(params):
     )
 
     items.extend([
-        ("paint.vertex_paint", {"type": 'LEFTMOUSE', "value": 'PRESS'}, None),
+        ("paint.vertex_paint", {"type": 'LEFTMOUSE', "value": 'PRESS'},
+         {"properties": [("mode", 'NORMAL')]}),
+        ("paint.vertex_paint", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
+         {"properties": [("mode", 'INVERT')]}),
         ("paint.brush_colors_flip", {"type": 'X', "value": 'PRESS'}, None),
         ("paint.sample_color", {"type": 'S', "value": 'PRESS'}, None),
         ("paint.vertex_color_set", {"type": 'K', "value": 'PRESS', "shift": True}, None),
@@ -3697,6 +3698,11 @@ def km_vertex_paint(params):
 
     if params.legacy:
         items.extend(_template_items_legacy_tools_from_numbers())
+    else:
+        items.append(
+            ("wm.context_toggle", {"type": 'V', "value": 'PRESS'},
+             {"properties": [("data_path", 'vertex_paint_object.data.use_paint_mask_vertex')]})
+        )
 
     return keymap
 
