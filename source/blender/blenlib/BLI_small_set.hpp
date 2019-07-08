@@ -116,6 +116,17 @@ template<typename T, uint N = 4> class SmallSet {
   }
 
   /**
+   * Insert multiple values in the set.
+   * Asserts when any of the values exists already.
+   */
+  void add_multiple_new(ArrayRef<T> values)
+  {
+    for (T &value : values) {
+      this->add_new(value);
+    }
+  }
+
+  /**
    * Remove and return any value from the set.
    */
   T pop()

@@ -146,9 +146,18 @@ TEST(small_set, AddMultiple)
   EXPECT_TRUE(a.contains(5));
   EXPECT_TRUE(a.contains(7));
   EXPECT_FALSE(a.contains(4));
-  a.add_multiple({2, 4});
+  a.add_multiple({2, 4, 7});
   EXPECT_TRUE(a.contains(4));
   EXPECT_TRUE(a.contains(2));
+  EXPECT_EQ(a.size(), 4);
+}
+
+TEST(small_set, AddMultipleNew)
+{
+  IntSet a;
+  a.add_multiple_new({5, 6});
+  EXPECT_TRUE(a.contains(5));
+  EXPECT_TRUE(a.contains(6));
 }
 
 TEST(small_set, ToSmallVector)
