@@ -573,11 +573,6 @@ class EventExecuteInterface {
   float step_end_time();
 
   /**
-   * Get the remaining time a particle in the current step.
-   */
-  float remaining_time_in_step(uint index);
-
-  /**
    * Get the data stored in the Event->filter() function for a particle index.
    */
   template<typename T> T &get_storage(uint pindex);
@@ -939,11 +934,6 @@ inline ArrayRef<float> EventExecuteInterface::current_times()
 inline float EventExecuteInterface::step_end_time()
 {
   return m_step_end_time;
-}
-
-inline float EventExecuteInterface::remaining_time_in_step(uint index)
-{
-  return m_step_end_time - m_current_times[index];
 }
 
 template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)

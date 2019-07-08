@@ -17,6 +17,7 @@ class EventInfo {
 };
 
 class ParticleFunction;
+class Action;
 
 class ParticleFunctionCaller {
  private:
@@ -64,8 +65,8 @@ class ParticleFunction {
 
     for (uint i = 0; i < m_function->input_amount(); i++) {
       StringRef input_name = m_function->input_name(i);
-      void *ptr;
-      uint stride;
+      void *ptr = nullptr;
+      uint stride = 0;
       if (input_name.startswith("Event")) {
         StringRef event_attribute_name = input_name.drop_prefix("Event: ");
         ptr = event_info.get_info_array(event_attribute_name);
@@ -110,6 +111,40 @@ class ActionInterface {
   {
     return m_event_info;
   }
+
+  ParticleSet &particles()
+  {
+    return m_event_execute_interface.particles();
+  }
+
+  AttributeArrays attribute_offsets()
+  {
+    return m_event_execute_interface.attribute_offsets();
+  }
+
+  float remaining_time_in_step(uint index)
+  {
+    return m_event_execute_interface.step_end_time() -
+           m_event_execute_interface.current_times()[index];
+  }
+
+  ArrayRef<float> current_times()
+  {
+    return m_event_execute_interface.current_times();
+  }
+
+  void kill(ArrayRef<uint> particle_indices)
+  {
+    m_event_execute_interface.kill(particle_indices);
+  }
+
+  InstantEmitTarget &request_emit_target(StringRef particle_type_name,
+                                         ArrayRef<uint> original_indices)
+  {
+    return m_event_execute_interface.request_emit_target(particle_type_name, original_indices);
+  }
+
+  void execute_action_for_subset(ArrayRef<uint> indices, std::unique_ptr<Action> &action);
 };
 
 class Action {
