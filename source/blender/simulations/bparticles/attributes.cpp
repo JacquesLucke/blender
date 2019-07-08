@@ -48,7 +48,7 @@ AttributeArraysCore AttributeArraysCore::NewWithSeparateAllocations(AttributesIn
 }
 
 AttributeArraysCore AttributeArraysCore::NewWithArrayAllocator(AttributesInfo &info,
-                                                               FixedArrayAllocator &allocator)
+                                                               ArrayAllocator &allocator)
 {
   SmallVector<void *> arrays;
   for (AttributeType type : info.types()) {
@@ -66,7 +66,7 @@ void AttributeArraysCore::free_buffers()
   }
 }
 
-void AttributeArraysCore::deallocate_in_array_allocator(FixedArrayAllocator &allocator)
+void AttributeArraysCore::deallocate_in_array_allocator(ArrayAllocator &allocator)
 {
   for (uint i = 0; i < m_arrays.size(); i++) {
     void *ptr = m_arrays[i];

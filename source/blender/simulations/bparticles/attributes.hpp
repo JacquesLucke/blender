@@ -8,12 +8,12 @@
 #include "BLI_string_ref.hpp"
 #include "BLI_range.hpp"
 #include "BLI_small_set_vector.hpp"
-#include "BLI_fixed_array_allocator.hpp"
+#include "BLI_array_allocator.hpp"
 
 namespace BParticles {
 
+using BLI::ArrayAllocator;
 using BLI::ArrayRef;
-using BLI::FixedArrayAllocator;
 using BLI::float3;
 using BLI::Range;
 using BLI::SmallSetVector;
@@ -241,12 +241,12 @@ class AttributeArraysCore {
    * allocates arrays of one specific length.
    */
   static AttributeArraysCore NewWithArrayAllocator(AttributesInfo &info,
-                                                   FixedArrayAllocator &allocator);
+                                                   ArrayAllocator &allocator);
 
   /**
    * Deallocate pointers in the given fixed-array-allocator.
    */
-  void deallocate_in_array_allocator(FixedArrayAllocator &allocator);
+  void deallocate_in_array_allocator(ArrayAllocator &allocator);
 
   /**
    * Get information about the stored attributes.

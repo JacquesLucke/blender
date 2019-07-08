@@ -11,7 +11,7 @@
 
 namespace BLI {
 
-class FixedArrayAllocator {
+class ArrayAllocator {
  private:
   SmallVector<void *, 16> m_all_pointers;
   SmallVector<SmallStack<void *>, 16> m_pointer_stacks;
@@ -22,13 +22,13 @@ class FixedArrayAllocator {
    * Create a new allocator that will allocate arrays with the given length (the element size may
    * vary).
    */
-  FixedArrayAllocator(uint array_length) : m_array_length(array_length)
+  ArrayAllocator(uint array_length) : m_array_length(array_length)
   {
   }
 
-  FixedArrayAllocator(FixedArrayAllocator &other) = delete;
+  ArrayAllocator(ArrayAllocator &other) = delete;
 
-  ~FixedArrayAllocator()
+  ~ArrayAllocator()
   {
     for (void *ptr : m_all_pointers) {
       MEM_freeN(ptr);
@@ -88,12 +88,12 @@ class FixedArrayAllocator {
    */
   template<typename T> class ScopedAllocation {
    private:
-    FixedArrayAllocator &m_allocator;
+    ArrayAllocator &m_allocator;
     void *m_ptr;
     uint m_element_size;
 
    public:
-    ScopedAllocation(FixedArrayAllocator &allocator, T *ptr, uint element_size)
+    ScopedAllocation(ArrayAllocator &allocator, T *ptr, uint element_size)
         : m_allocator(allocator), m_ptr(ptr), m_element_size(element_size)
     {
     }
@@ -125,7 +125,7 @@ class FixedArrayAllocator {
       return (T *)m_ptr;
     }
 
-    FixedArrayAllocator &allocator()
+    ArrayAllocator &allocator()
     {
       return m_allocator;
     }
@@ -155,7 +155,7 @@ class FixedArrayAllocator {
     VectorAdaptor<T> m_vector;
 
    public:
-    Vector(FixedArrayAllocator &allocator)
+    Vector(ArrayAllocator &allocator)
         : m_ptr(allocator.allocate_scoped<T>()), m_vector(m_ptr, allocator.array_size())
     {
     }
@@ -179,11 +179,11 @@ class FixedArrayAllocator {
     uint m_size;
 
    public:
-    Array(FixedArrayAllocator &allocator) : Array(allocator, allocator.array_size())
+    Array(ArrayAllocator &allocator) : Array(allocator, allocator.array_size())
     {
     }
 
-    Array(FixedArrayAllocator &allocator, uint size)
+    Array(ArrayAllocator &allocator, uint size)
         : m_ptr(allocator.allocate_scoped<T>()), m_size(size)
     {
       BLI_assert(size <= allocator.array_size());

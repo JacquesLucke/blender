@@ -221,7 +221,7 @@ BLI_NOINLINE static void execute_events(BlockAllocator &block_allocator,
   }
 }
 
-BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_allocator,
+BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
                                                 BlockAllocator &block_allocator,
                                                 ParticleSet particles,
                                                 AttributeArrays attribute_offsets,
@@ -234,10 +234,10 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
   uint amount = particles.size();
   BLI_assert(array_allocator.array_size() >= amount);
 
-  FixedArrayAllocator::Array<int> next_event_indices(array_allocator, amount);
-  FixedArrayAllocator::Array<float> time_factors_to_next_event(array_allocator, amount);
-  FixedArrayAllocator::Vector<uint> indices_with_event(array_allocator);
-  FixedArrayAllocator::Vector<uint> particle_indices_with_event(array_allocator);
+  ArrayAllocator::Array<int> next_event_indices(array_allocator, amount);
+  ArrayAllocator::Array<float> time_factors_to_next_event(array_allocator, amount);
+  ArrayAllocator::Vector<uint> indices_with_event(array_allocator);
+  ArrayAllocator::Vector<uint> particle_indices_with_event(array_allocator);
 
   uint max_event_storage_size = std::max(get_max_event_storage_size(events), 1u);
   auto event_storage_array = array_allocator.allocate_scoped(max_event_storage_size);
@@ -293,7 +293,7 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
 
 BLI_NOINLINE static void simulate_with_max_n_events(
     uint max_events,
-    FixedArrayAllocator &array_allocator,
+    ArrayAllocator &array_allocator,
     BlockAllocator &block_allocator,
     ParticlesBlock &block,
     AttributeArrays attribute_offsets,
@@ -402,7 +402,7 @@ BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
   }
 }
 
-BLI_NOINLINE static void simulate_block(FixedArrayAllocator &array_allocator,
+BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
                                         BlockAllocator &block_allocator,
                                         ParticlesBlock &block,
                                         ParticleType &particle_type,
@@ -491,7 +491,7 @@ class BlockAllocators {
 };
 
 struct ThreadLocalData {
-  FixedArrayAllocator array_allocator;
+  ArrayAllocator array_allocator;
   BlockAllocator &block_allocator;
 
   ThreadLocalData(uint block_size, BlockAllocator &block_allocator)
