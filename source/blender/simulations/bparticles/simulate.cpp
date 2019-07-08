@@ -234,10 +234,10 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
   uint amount = particles.size();
 
   BLI_assert(array_allocator.array_size() >= amount);
-  auto next_event_indices_array = array_allocator.allocate_array_scoped<int>();
-  auto time_factors_to_next_event_array = array_allocator.allocate_array_scoped<float>();
-  auto indices_with_event_array = array_allocator.allocate_array_scoped<uint>();
-  auto particle_indices_with_event_array = array_allocator.allocate_array_scoped<uint>();
+  auto next_event_indices_array = array_allocator.allocate_scoped<int>();
+  auto time_factors_to_next_event_array = array_allocator.allocate_scoped<float>();
+  auto indices_with_event_array = array_allocator.allocate_scoped<uint>();
+  auto particle_indices_with_event_array = array_allocator.allocate_scoped<uint>();
 
   VectorAdaptor<int> next_event_indices(next_event_indices_array, amount, amount);
   VectorAdaptor<float> time_factors_to_next_event(
@@ -246,7 +246,7 @@ BLI_NOINLINE static void simulate_to_next_event(FixedArrayAllocator &array_alloc
   VectorAdaptor<uint> particle_indices_with_event(particle_indices_with_event_array, amount);
 
   uint max_event_storage_size = std::max(get_max_event_storage_size(events), 1u);
-  auto event_storage_array = array_allocator.allocate_array_scoped(max_event_storage_size);
+  auto event_storage_array = array_allocator.allocate_scoped(max_event_storage_size);
   EventStorage event_storage(event_storage_array, max_event_storage_size);
 
   find_next_event_per_particle(particles,
@@ -309,10 +309,10 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     VectorAdaptor<uint> &r_unfinished_particle_indices)
 {
   BLI_assert(array_allocator.array_size() >= block.active_amount());
-  auto indices_A = array_allocator.allocate_array_scoped<uint>();
-  auto indices_B = array_allocator.allocate_array_scoped<uint>();
-  auto durations_A = array_allocator.allocate_array_scoped<float>();
-  auto durations_B = array_allocator.allocate_array_scoped<float>();
+  auto indices_A = array_allocator.allocate_scoped<uint>();
+  auto indices_B = array_allocator.allocate_scoped<uint>();
+  auto durations_A = array_allocator.allocate_scoped<float>();
+  auto durations_B = array_allocator.allocate_scoped<float>();
 
   /* Handle first event separately to be able to use the static number range. */
   uint amount_left = block.active_amount();
@@ -434,7 +434,7 @@ BLI_NOINLINE static void simulate_block(FixedArrayAllocator &array_allocator,
     apply_remaining_offsets(all_particles_in_block, attribute_offsets);
   }
   else {
-    uint *indices_array = array_allocator.allocate_array<uint>();
+    auto indices_array = array_allocator.allocate_scoped<uint>();
     VectorAdaptor<uint> unfinished_particle_indices(indices_array, amount);
 
     simulate_with_max_n_events(10,
@@ -452,8 +452,6 @@ BLI_NOINLINE static void simulate_block(FixedArrayAllocator &array_allocator,
       ParticleSet remaining_particles(block, unfinished_particle_indices);
       apply_remaining_offsets(remaining_particles, attribute_offsets);
     }
-
-    array_allocator.deallocate_array(indices_array);
   }
 
   attribute_offsets_core.deallocate_in_array_allocator(array_allocator);

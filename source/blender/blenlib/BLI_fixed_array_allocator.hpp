@@ -35,7 +35,7 @@ class FixedArrayAllocator {
     return m_array_length;
   }
 
-  void *allocate_array(uint element_size)
+  void *allocate(uint element_size)
   {
     SmallStack<void *> &stack = this->stack_for_element_size(element_size);
     if (stack.size() > 0) {
@@ -46,20 +46,20 @@ class FixedArrayAllocator {
     return ptr;
   }
 
-  void deallocate_array(void *ptr, uint element_size)
+  void deallocate(void *ptr, uint element_size)
   {
     SmallStack<void *> &stack = this->stack_for_element_size(element_size);
     stack.push(ptr);
   }
 
-  template<typename T> T *allocate_array()
+  template<typename T> T *allocate()
   {
-    return (T *)this->allocate_array(sizeof(T));
+    return (T *)this->allocate(sizeof(T));
   }
 
-  template<typename T> void deallocate_array(T *ptr)
+  template<typename T> void deallocate(T *ptr)
   {
-    return this->deallocate_array(ptr, sizeof(T));
+    return this->deallocate(ptr, sizeof(T));
   }
 
   template<typename T> class ScopedAllocation {
@@ -92,7 +92,7 @@ class FixedArrayAllocator {
     ~ScopedAllocation()
     {
       if (m_ptr != nullptr) {
-        m_allocator.deallocate_array(m_ptr, m_element_size);
+        m_allocator.deallocate(m_ptr, m_element_size);
       }
     }
 
@@ -102,14 +102,14 @@ class FixedArrayAllocator {
     }
   };
 
-  ScopedAllocation<void> allocate_array_scoped(uint element_size)
+  ScopedAllocation<void> allocate_scoped(uint element_size)
   {
-    return ScopedAllocation<void>(*this, this->allocate_array(element_size), element_size);
+    return ScopedAllocation<void>(*this, this->allocate(element_size), element_size);
   }
 
-  template<typename T> ScopedAllocation<T> allocate_array_scoped()
+  template<typename T> ScopedAllocation<T> allocate_scoped()
   {
-    return ScopedAllocation<T>(*this, this->allocate_array<T>(), sizeof(T));
+    return ScopedAllocation<T>(*this, this->allocate<T>(), sizeof(T));
   }
 
  private:

@@ -53,7 +53,7 @@ AttributeArraysCore AttributeArraysCore::NewWithArrayAllocator(AttributesInfo &i
   SmallVector<void *> arrays;
   for (AttributeType type : info.types()) {
     uint element_size = size_of_attribute_type(type);
-    void *ptr = allocator.allocate_array(element_size);
+    void *ptr = allocator.allocate(element_size);
     arrays.append(ptr);
   }
   return AttributeArraysCore(info, arrays, allocator.array_size());
@@ -71,7 +71,7 @@ void AttributeArraysCore::deallocate_in_array_allocator(FixedArrayAllocator &all
   for (uint i = 0; i < m_arrays.size(); i++) {
     void *ptr = m_arrays[i];
     uint element_size = size_of_attribute_type(m_info->type_of(i));
-    allocator.deallocate_array(ptr, element_size);
+    allocator.deallocate(ptr, element_size);
   }
 }
 
