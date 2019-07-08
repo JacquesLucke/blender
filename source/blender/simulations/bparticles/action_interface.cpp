@@ -2,6 +2,36 @@
 
 namespace BParticles {
 
+Action::~Action()
+{
+}
+
+void ActionInterface::execute_action_for_subset(ArrayRef<uint> indices,
+                                                std::unique_ptr<Action> &action)
+{
+  EventExecuteInterface &interface = m_event_execute_interface;
+
+  ParticleSet &particles = interface.particles();
+  auto current_times = interface.current_times();
+
+  SmallVector<float> sub_current_times;
+  SmallVector<uint> particle_indices;
+  for (uint i : indices) {
+    particle_indices.append(particles.get_particle_index(i));
+    sub_current_times.append(current_times[i]);
+  }
+
+  ParticleSet sub_particles(particles.block(), particle_indices);
+  EventExecuteInterface sub_execute_interface(sub_particles,
+                                              interface.block_allocator(),
+                                              sub_current_times,
+                                              interface.event_storage(),
+                                              interface.attribute_offsets(),
+                                              interface.step_end_time());
+  ActionInterface sub_interface(sub_execute_interface, m_event_info);
+  action->execute(sub_interface);
+}
+
 ParticleFunctionCaller ParticleFunction::get_caller(AttributeArrays attributes,
                                                     EventInfo &event_info)
 {
