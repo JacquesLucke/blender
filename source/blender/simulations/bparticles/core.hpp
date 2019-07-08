@@ -608,9 +608,9 @@ class EventExecuteInterface {
   BlockAllocator &block_allocator();
 
   /**
-   * Get all emit targets created when the event is executed.
+   * Get the entire event storage.
    */
-  ArrayRef<InstantEmitTarget *> emit_targets();
+  EventStorage &event_storage();
 };
 
 /**
@@ -914,6 +914,11 @@ inline BlockAllocator &EventExecuteInterface::block_allocator()
   return m_block_allocator;
 }
 
+inline EventStorage &EventExecuteInterface::event_storage()
+{
+  return m_event_storage;
+}
+
 inline ParticleSet &EventExecuteInterface::particles()
 {
   return m_particles;
@@ -924,11 +929,6 @@ inline void EventExecuteInterface::kill(ArrayRef<uint> particle_indices)
   for (uint pindex : particle_indices) {
     m_kill_states[pindex] = 1;
   }
-}
-
-inline ArrayRef<InstantEmitTarget *> EventExecuteInterface::emit_targets()
-{
-  return m_emit_targets;
 }
 
 inline ArrayRef<float> EventExecuteInterface::current_times()

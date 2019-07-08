@@ -312,6 +312,7 @@ static Action *build_action(SocketWithNode start,
   BLI_assert(start.socket->in_out == SOCK_IN);
   bNode *bnode = start.node;
   bSocketList node_inputs(bnode->inputs);
+  bSocketList node_outputs(bnode->outputs);
 
   if (STREQ(bnode->idname, "bp_KillParticleNode")) {
     return ACTION_kill();
@@ -320,11 +321,9 @@ static Action *build_action(SocketWithNode start,
     SharedFunction fn = create_function(
         indexed_tree, data_graph, {node_inputs.get(1)}, "Compute Direction");
     ParticleFunction particle_fn(fn);
-    return ACTION_change_direction(particle_fn,
-                                   build_action({bSocketList(bnode->outputs).get(0), bnode},
-                                                indexed_tree,
-                                                data_graph,
-                                                step_description));
+    return ACTION_change_direction(
+        particle_fn,
+        build_action({node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description));
   }
   else if (STREQ(bnode->idname, "bp_ExplodeParticleNode")) {
     SharedFunction fn = create_function(
@@ -336,7 +335,7 @@ static Action *build_action(SocketWithNode start,
     RNA_string_get(&rna, "particle_type_name", name);
 
     Action *post_action = build_action(
-        {bSocketList(bnode->outputs).get(0), bnode}, indexed_tree, data_graph, step_description);
+        {node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description);
 
     if (step_description.m_types.contains(name)) {
       return ACTION_explode(name, particle_fn, post_action);
@@ -344,6 +343,18 @@ static Action *build_action(SocketWithNode start,
     else {
       return post_action;
     }
+  }
+  else if (STREQ(bnode->idname, "bp_ParticleConditionNode")) {
+    SharedFunction fn = create_function(
+        indexed_tree, data_graph, {node_inputs.get(1)}, bnode->name);
+    ParticleFunction particle_fn(fn);
+
+    Action *true_action = build_action(
+        {node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description);
+    Action *false_action = build_action(
+        {node_outputs.get(1), bnode}, indexed_tree, data_graph, step_description);
+
+    return ACTION_condition(particle_fn, true_action, false_action);
   }
   else {
     return nullptr;

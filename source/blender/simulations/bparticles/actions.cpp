@@ -133,6 +133,68 @@ class ExplodeAction : public Action {
   }
 };
 
+class ConditionAction : public Action {
+ private:
+  ParticleFunction m_compute_inputs;
+  std::unique_ptr<Action> m_true_action, m_false_action;
+
+ public:
+  ConditionAction(ParticleFunction &compute_inputs,
+                  std::unique_ptr<Action> true_action,
+                  std::unique_ptr<Action> false_action)
+      : m_compute_inputs(compute_inputs),
+        m_true_action(std::move(true_action)),
+        m_false_action(std::move(false_action))
+  {
+  }
+
+  void execute(EventExecuteInterface &interface, EventInfo &event_info) override
+  {
+    SmallVector<uint> true_indices, false_indices;
+    SmallVector<float> true_times, false_times;
+
+    ParticleSet particles = interface.particles();
+    auto current_times = interface.current_times();
+
+    auto caller = m_compute_inputs.get_caller(particles.attributes(), event_info);
+    FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
+
+    FN::ExecutionStack stack;
+    FN::ExecutionContext execution_context(stack);
+    for (uint i : particles.range()) {
+      uint pindex = particles.get_particle_index(i);
+      caller.call(fn_in, fn_out, execution_context, pindex);
+      bool condition = fn_out.get<bool>(0);
+      if (condition) {
+        true_indices.append(pindex);
+        true_times.append(current_times[i]);
+      }
+      else {
+        false_indices.append(pindex);
+        false_times.append(current_times[i]);
+      }
+    }
+
+    ParticleSet true_particles(particles.block(), true_indices);
+    EventExecuteInterface true_interface(true_particles,
+                                         interface.block_allocator(),
+                                         true_times,
+                                         interface.event_storage(),
+                                         interface.attribute_offsets(),
+                                         interface.step_end_time());
+    m_true_action->execute(true_interface, event_info);
+
+    ParticleSet false_particles(particles.block(), false_indices);
+    EventExecuteInterface false_interface(false_particles,
+                                          interface.block_allocator(),
+                                          false_times,
+                                          interface.event_storage(),
+                                          interface.attribute_offsets(),
+                                          interface.step_end_time());
+    m_false_action->execute(false_interface, event_info);
+  }
+};
+
 Action *ACTION_none()
 {
   return new NoneAction();
@@ -154,6 +216,14 @@ Action *ACTION_explode(StringRef new_particle_name,
 {
   return new ExplodeAction(
       new_particle_name, compute_inputs, std::unique_ptr<Action>(post_action));
+}
+
+Action *ACTION_condition(ParticleFunction &compute_inputs,
+                         Action *true_action,
+                         Action *false_action)
+{
+  return new ConditionAction(
+      compute_inputs, std::unique_ptr<Action>(true_action), std::unique_ptr<Action>(false_action));
 }
 
 }  // namespace BParticles
