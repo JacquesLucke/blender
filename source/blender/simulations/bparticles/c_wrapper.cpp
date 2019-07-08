@@ -291,10 +291,10 @@ static SharedFunction create_function(IndexedNodeTree &indexed_tree,
   return fn;
 }
 
-static Action *build_action(SocketWithNode start,
-                            IndexedNodeTree &indexed_tree,
-                            FN::DataFlowNodes::GeneratedGraph &data_graph,
-                            ModifierStepDescription &step_description)
+static std::unique_ptr<Action> build_action(SocketWithNode start,
+                                            IndexedNodeTree &indexed_tree,
+                                            FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                            ModifierStepDescription &step_description)
 {
   if (start.socket->in_out == SOCK_OUT) {
     auto linked = indexed_tree.linked(start.socket);
@@ -334,11 +334,11 @@ static Action *build_action(SocketWithNode start,
     char name[65];
     RNA_string_get(&rna, "particle_type_name", name);
 
-    Action *post_action = build_action(
+    auto post_action = build_action(
         {node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description);
 
     if (step_description.m_types.contains(name)) {
-      return ACTION_explode(name, particle_fn, post_action);
+      return ACTION_explode(name, particle_fn, std::move(post_action));
     }
     else {
       return post_action;
@@ -349,12 +349,12 @@ static Action *build_action(SocketWithNode start,
         indexed_tree, data_graph, {node_inputs.get(1)}, bnode->name);
     ParticleFunction particle_fn(fn);
 
-    Action *true_action = build_action(
+    auto true_action = build_action(
         {node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description);
-    Action *false_action = build_action(
+    auto false_action = build_action(
         {node_outputs.get(1), bnode}, indexed_tree, data_graph, step_description);
 
-    return ACTION_condition(particle_fn, true_action, false_action);
+    return ACTION_condition(particle_fn, std::move(true_action), std::move(false_action));
   }
   else {
     return nullptr;
@@ -428,14 +428,14 @@ static void INSERT_EVENT_age_reached(bNode *event_node,
       continue;
     }
 
-    Action *action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
-                                  indexed_tree,
-                                  data_graph,
-                                  step_description);
-    Event *event = EVENT_age_reached(event_node->name, fn, action);
+    auto action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
+                               indexed_tree,
+                               data_graph,
+                               step_description);
+    auto event = EVENT_age_reached(event_node->name, fn, std::move(action));
 
     bNode *type_node = linked.node;
-    step_description.m_types.lookup_ref(type_node->name)->m_events.append(event);
+    step_description.m_types.lookup_ref(type_node->name)->m_events.append(event.release());
   }
 }
 
@@ -458,14 +458,14 @@ static void INSERT_EVENT_mesh_collision(bNode *event_node,
       continue;
     }
 
-    Action *action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
-                                  indexed_tree,
-                                  data_graph,
-                                  step_description);
-    Event *event = EVENT_mesh_collision(event_node->name, object, action);
+    auto action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
+                               indexed_tree,
+                               data_graph,
+                               step_description);
+    auto event = EVENT_mesh_collision(event_node->name, object, std::move(action));
 
     bNode *type_node = linked.node;
-    step_description.m_types.lookup_ref(type_node->name)->m_events.append(event);
+    step_description.m_types.lookup_ref(type_node->name)->m_events.append(event.release());
   }
 }
 

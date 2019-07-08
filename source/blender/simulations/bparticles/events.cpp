@@ -218,14 +218,20 @@ class MeshCollisionEventFilter : public Event {
   }
 };
 
-Event *EVENT_age_reached(StringRef identifier, SharedFunction &compute_age_fn, Action *action)
+std::unique_ptr<Event> EVENT_age_reached(StringRef identifier,
+                                         SharedFunction &compute_age_fn,
+                                         std::unique_ptr<Action> action)
 {
-  return new AgeReachedEvent(identifier, compute_age_fn, std::unique_ptr<Action>(action));
+  Event *event = new AgeReachedEvent(identifier, compute_age_fn, std::move(action));
+  return std::unique_ptr<Event>(event);
 }
 
-Event *EVENT_mesh_collision(StringRef identifier, Object *object, Action *action)
+std::unique_ptr<Event> EVENT_mesh_collision(StringRef identifier,
+                                            Object *object,
+                                            std::unique_ptr<Action> action)
 {
-  return new MeshCollisionEventFilter(identifier, object, std::unique_ptr<Action>(action));
+  Event *event = new MeshCollisionEventFilter(identifier, object, std::move(action));
+  return std::unique_ptr<Event>(event);
 }
 
 }  // namespace BParticles
