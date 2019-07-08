@@ -9,6 +9,7 @@
 
 #include "BLI_timeit.hpp"
 #include "BLI_listbase.h"
+#include "BLI_task.hpp"
 
 #include "BKE_curve.h"
 #include "BKE_bvhutils.h"
@@ -647,16 +648,12 @@ static uint tetrahedon_loop_lengths[4] = {3, 3, 3, 3};
 static uint tetrahedon_loop_vertices[12] = {0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 2, 3};
 static uint tetrahedon_edges[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
 
-static Mesh *distribute_tetrahedons(ArrayRef<float3> centers, float scale)
+static void distribute_tetrahedons_range(Mesh *mesh,
+                                         Range<uint> range,
+                                         ArrayRef<float3> centers,
+                                         float scale)
 {
-  uint amount = centers.size();
-  Mesh *mesh = BKE_mesh_new_nomain(amount * ARRAY_SIZE(tetrahedon_vertices),
-                                   amount * ARRAY_SIZE(tetrahedon_edges),
-                                   0,
-                                   amount * ARRAY_SIZE(tetrahedon_loop_vertices),
-                                   amount * ARRAY_SIZE(tetrahedon_loop_starts));
-
-  for (uint instance = 0; instance < amount; instance++) {
+  for (uint instance : range) {
     uint vertex_offset = instance * ARRAY_SIZE(tetrahedon_vertices);
     uint face_offset = instance * ARRAY_SIZE(tetrahedon_loop_starts);
     uint loop_offset = instance * ARRAY_SIZE(tetrahedon_loop_vertices);
@@ -681,6 +678,21 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers, float scale)
       mesh->medge[edge_offset + i].v2 = vertex_offset + tetrahedon_edges[i][1];
     }
   }
+}
+
+static Mesh *distribute_tetrahedons(ArrayRef<float3> centers, float scale)
+{
+  uint amount = centers.size();
+  Mesh *mesh = BKE_mesh_new_nomain(amount * ARRAY_SIZE(tetrahedon_vertices),
+                                   amount * ARRAY_SIZE(tetrahedon_edges),
+                                   0,
+                                   amount * ARRAY_SIZE(tetrahedon_loop_vertices),
+                                   amount * ARRAY_SIZE(tetrahedon_loop_starts));
+
+  BLI::Task::parallel_range(
+      Range<uint>(0, amount), 1000, [mesh, centers, scale](Range<uint> range) {
+        distribute_tetrahedons_range(mesh, range, centers, scale);
+      });
 
   return mesh;
 }
