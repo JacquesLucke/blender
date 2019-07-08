@@ -90,11 +90,33 @@ class ParticleFunction {
   }
 };
 
+class ActionInterface {
+ private:
+  EventExecuteInterface &m_event_execute_interface;
+  EventInfo &m_event_info;
+
+ public:
+  ActionInterface(EventExecuteInterface &event_execute_interface, EventInfo &event_info)
+      : m_event_execute_interface(event_execute_interface), m_event_info(event_info)
+  {
+  }
+
+  EventExecuteInterface &execute_interface()
+  {
+    return m_event_execute_interface;
+  }
+
+  EventInfo &event_info()
+  {
+    return m_event_info;
+  }
+};
+
 class Action {
  public:
   virtual ~Action() = 0;
 
-  virtual void execute(EventExecuteInterface &interface, EventInfo &event_info) = 0;
+  virtual void execute(ActionInterface &interface) = 0;
 };
 
 Action *ACTION_none();

@@ -87,7 +87,8 @@ class AgeReachedEvent : public Event {
     }
 
     EmptyEventInfo event_info;
-    m_action->execute(interface, event_info);
+    ActionInterface action_interface(interface, event_info);
+    m_action->execute(action_interface);
   }
 };
 
@@ -212,7 +213,8 @@ class MeshCollisionEventFilter : public Event {
     }
 
     CollisionEventInfo event_info(normals);
-    m_action->execute(interface, event_info);
+    ActionInterface action_interface(interface, event_info);
+    m_action->execute(action_interface);
   }
 };
 

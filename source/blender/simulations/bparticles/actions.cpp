@@ -9,7 +9,7 @@ Action::~Action()
 }
 
 class NoneAction : public Action {
-  void execute(EventExecuteInterface &UNUSED(interface), EventInfo &UNUSED(event_info)) override
+  void execute(ActionInterface &UNUSED(interface)) override
   {
   }
 };
@@ -30,14 +30,16 @@ class ChangeDirectionAction : public Action {
     delete m_post_action;
   }
 
-  void execute(EventExecuteInterface &interface, EventInfo &event_info) override
+  void execute(ActionInterface &interface) override
   {
-    ParticleSet particles = interface.particles();
-    auto velocities = particles.attributes().get_float3("Velocity");
-    auto position_offsets = interface.attribute_offsets().get_float3("Position");
-    auto velocity_offsets = interface.attribute_offsets().get_float3("Velocity");
+    EventExecuteInterface &execute_interface = interface.execute_interface();
 
-    auto caller = m_compute_inputs.get_caller(particles.attributes(), event_info);
+    ParticleSet particles = execute_interface.particles();
+    auto velocities = particles.attributes().get_float3("Velocity");
+    auto position_offsets = execute_interface.attribute_offsets().get_float3("Position");
+    auto velocity_offsets = execute_interface.attribute_offsets().get_float3("Velocity");
+
+    auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
 
     FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
 
@@ -51,18 +53,18 @@ class ChangeDirectionAction : public Action {
       float3 direction = fn_out.get<float3>(0);
 
       velocities[pindex] = direction;
-      position_offsets[pindex] = direction * interface.remaining_time_in_step(i);
+      position_offsets[pindex] = direction * execute_interface.remaining_time_in_step(i);
       velocity_offsets[pindex] = float3(0);
     }
 
-    m_post_action->execute(interface, event_info);
+    m_post_action->execute(interface);
   }
 };
 
 class KillAction : public Action {
-  void execute(EventExecuteInterface &interface, EventInfo &UNUSED(event_info)) override
+  void execute(ActionInterface &interface) override
   {
-    interface.kill(interface.particles().indices());
+    interface.execute_interface().kill(interface.execute_interface().particles().indices());
   }
 };
 
@@ -94,9 +96,9 @@ class ExplodeAction : public Action {
   {
   }
 
-  void execute(EventExecuteInterface &interface, EventInfo &event_info) override
+  void execute(ActionInterface &interface) override
   {
-    ParticleSet &particles = interface.particles();
+    ParticleSet &particles = interface.execute_interface().particles();
 
     auto positions = particles.attributes().get_float3("Position");
 
@@ -104,7 +106,7 @@ class ExplodeAction : public Action {
     SmallVector<float3> new_velocities;
     SmallVector<uint> original_indices;
 
-    auto caller = m_compute_inputs.get_caller(particles.attributes(), event_info);
+    auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
     FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
 
     FN::ExecutionStack stack;
@@ -125,11 +127,12 @@ class ExplodeAction : public Action {
       }
     }
 
-    auto &target = interface.request_emit_target(m_new_particle_name, original_indices);
+    auto &target = interface.execute_interface().request_emit_target(m_new_particle_name,
+                                                                     original_indices);
     target.set_float3("Position", new_positions);
     target.set_float3("Velocity", new_velocities);
 
-    m_post_action->execute(interface, event_info);
+    m_post_action->execute(interface);
   }
 };
 
@@ -148,15 +151,17 @@ class ConditionAction : public Action {
   {
   }
 
-  void execute(EventExecuteInterface &interface, EventInfo &event_info) override
+  void execute(ActionInterface &interface) override
   {
+    EventExecuteInterface &execute_interface = interface.execute_interface();
+
     SmallVector<uint> true_indices, false_indices;
     SmallVector<float> true_times, false_times;
 
-    ParticleSet particles = interface.particles();
-    auto current_times = interface.current_times();
+    ParticleSet particles = execute_interface.particles();
+    auto current_times = execute_interface.current_times();
 
-    auto caller = m_compute_inputs.get_caller(particles.attributes(), event_info);
+    auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
     FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
 
     FN::ExecutionStack stack;
@@ -176,22 +181,24 @@ class ConditionAction : public Action {
     }
 
     ParticleSet true_particles(particles.block(), true_indices);
-    EventExecuteInterface true_interface(true_particles,
-                                         interface.block_allocator(),
-                                         true_times,
-                                         interface.event_storage(),
-                                         interface.attribute_offsets(),
-                                         interface.step_end_time());
-    m_true_action->execute(true_interface, event_info);
+    EventExecuteInterface true_execute_interface(true_particles,
+                                                 execute_interface.block_allocator(),
+                                                 true_times,
+                                                 execute_interface.event_storage(),
+                                                 execute_interface.attribute_offsets(),
+                                                 execute_interface.step_end_time());
+    ActionInterface true_interface(true_execute_interface, interface.event_info());
+    m_true_action->execute(true_interface);
 
     ParticleSet false_particles(particles.block(), false_indices);
-    EventExecuteInterface false_interface(false_particles,
-                                          interface.block_allocator(),
-                                          false_times,
-                                          interface.event_storage(),
-                                          interface.attribute_offsets(),
-                                          interface.step_end_time());
-    m_false_action->execute(false_interface, event_info);
+    EventExecuteInterface false_execute_interface(false_particles,
+                                                  execute_interface.block_allocator(),
+                                                  false_times,
+                                                  execute_interface.event_storage(),
+                                                  execute_interface.attribute_offsets(),
+                                                  execute_interface.step_end_time());
+    ActionInterface false_interface(false_execute_interface, interface.event_info());
+    m_false_action->execute(false_interface);
   }
 };
 
