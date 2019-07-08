@@ -66,15 +66,19 @@ class ParticleFunction {
       StringRef input_name = m_function->input_name(i);
       void *ptr;
       uint stride;
-      if (input_name.startswith("EVENT")) {
-        StringRef event_attribute_name = input_name.drop_prefix("EVENT");
+      if (input_name.startswith("Event")) {
+        StringRef event_attribute_name = input_name.drop_prefix("Event: ");
         ptr = event_info.get_info_array(event_attribute_name);
         stride = sizeof(float3); /* TODO make not hardcoded */
       }
-      else {
-        uint index = attributes.attribute_index(input_name);
+      else if (input_name.startswith("Attribute")) {
+        StringRef attribute_name = input_name.drop_prefix("Attribute: ");
+        uint index = attributes.attribute_index(attribute_name);
         stride = attributes.attribute_stride(index);
         ptr = attributes.get_ptr(index);
+      }
+      else {
+        BLI_assert(false);
       }
 
       BLI_assert(ptr);

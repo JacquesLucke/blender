@@ -225,12 +225,14 @@ static ArrayRef<bNode *> get_particle_type_nodes(IndexedNodeTree &indexed_tree)
   return indexed_tree.nodes_with_idname("bp_ParticleTypeNode");
 }
 
-static SmallVector<bNodeSocket *> find_input_sockets(IndexedNodeTree &indexed_tree,
-                                                     ArrayRef<bNodeSocket *> output_sockets)
+static SmallVector<FN::DFGraphSocket> insert_inputs(FN::FunctionBuilder &fn_builder,
+                                                    IndexedNodeTree &indexed_tree,
+                                                    FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                                    ArrayRef<bNodeSocket *> output_sockets)
 {
-  /* TODO: this has bad time complexity currently */
   SmallSet<bNodeSocket *> to_be_checked = output_sockets;
-  SmallSetVector<bNodeSocket *> found_inputs;
+  SmallSet<bNodeSocket *> found_inputs;
+  SmallVector<FN::DFGraphSocket> inputs;
 
   while (to_be_checked.size() > 0) {
     bNodeSocket *bsocket = to_be_checked.pop();
@@ -239,8 +241,19 @@ static SmallVector<bNodeSocket *> find_input_sockets(IndexedNodeTree &indexed_tr
       BLI_assert(linked.size() <= 1);
       if (linked.size() == 1) {
         SocketWithNode origin = linked[0];
-        if (is_particle_data_input(origin.node)) {
+        if (is_particle_data_input(origin.node) && !found_inputs.contains(origin.socket)) {
+          FN::DFGraphSocket socket = data_graph.lookup_socket(origin.socket);
+          FN::SharedType &type = data_graph.graph()->type_of_socket(socket);
+          std::string name_prefix;
+          if (STREQ(origin.node->idname, "bp_ParticleInfoNode")) {
+            name_prefix = "Attribute: ";
+          }
+          else if (STREQ(origin.node->idname, "bp_MeshCollisionEventNode")) {
+            name_prefix = "Event: ";
+          }
+          fn_builder.add_input(name_prefix + origin.socket->name, type);
           found_inputs.add(origin.socket);
+          inputs.append(socket);
         }
         else {
           to_be_checked.add(origin.socket);
@@ -254,8 +267,7 @@ static SmallVector<bNodeSocket *> find_input_sockets(IndexedNodeTree &indexed_tr
       }
     }
   }
-
-  return found_inputs.to_small_vector();
+  return inputs;
 }
 
 static SharedFunction create_function(IndexedNodeTree &indexed_tree,
@@ -263,18 +275,18 @@ static SharedFunction create_function(IndexedNodeTree &indexed_tree,
                                       ArrayRef<bNodeSocket *> output_bsockets,
                                       StringRef name)
 {
-  SmallVector<FN::DFGraphSocket> inputs;
-  for (bNodeSocket *bsocket : find_input_sockets(indexed_tree, output_bsockets)) {
-    inputs.append(data_graph.lookup_socket(bsocket));
-  }
+  FN::FunctionBuilder fn_builder;
+  auto inputs = insert_inputs(fn_builder, indexed_tree, data_graph, output_bsockets);
 
   SmallVector<FN::DFGraphSocket> outputs;
   for (bNodeSocket *bsocket : output_bsockets) {
-    outputs.append(data_graph.lookup_socket(bsocket));
+    FN::DFGraphSocket socket = data_graph.lookup_socket(bsocket);
+    fn_builder.add_output(bsocket->name, data_graph.graph()->type_of_socket(socket));
+    outputs.append(socket);
   }
 
   FN::FunctionGraph function_graph(data_graph.graph(), inputs, outputs);
-  SharedFunction fn = function_graph.new_function(name);
+  SharedFunction fn = fn_builder.build(name);
   FN::fgraph_add_TupleCallBody(fn, function_graph);
   return fn;
 }
