@@ -360,8 +360,12 @@ EventExecuteInterface::EventExecuteInterface(ParticleSet particles,
 
 IntegratorInterface::IntegratorInterface(ParticlesBlock &block,
                                          ArrayRef<float> durations,
+                                         ArrayAllocator &array_allocator,
                                          AttributeArrays r_offsets)
-    : m_block(block), m_durations(durations), m_offsets(r_offsets)
+    : m_block(block),
+      m_durations(durations),
+      m_array_allocator(array_allocator),
+      m_offsets(r_offsets)
 {
 }
 

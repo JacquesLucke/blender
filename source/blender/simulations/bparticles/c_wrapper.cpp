@@ -127,10 +127,7 @@ class EulerIntegrator : public Integrator {
     AttributeArrays r_offsets = interface.offset_targets();
     ArrayRef<float> durations = interface.durations();
 
-    uint amount = block.active_amount();
-    BLI_assert(amount == r_offsets.size());
-
-    SmallVector<float3> combined_force(amount);
+    ArrayAllocator::Array<float3> combined_force(interface.array_allocator());
     this->compute_combined_force(block, combined_force);
 
     auto last_velocities = block.attributes().get_float3("Velocity");

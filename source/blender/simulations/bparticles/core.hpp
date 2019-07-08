@@ -614,11 +614,15 @@ class IntegratorInterface {
  private:
   ParticlesBlock &m_block;
   ArrayRef<float> m_durations;
+  ArrayAllocator &m_array_allocator;
 
   AttributeArrays m_offsets;
 
  public:
-  IntegratorInterface(ParticlesBlock &block, ArrayRef<float> durations, AttributeArrays r_offsets);
+  IntegratorInterface(ParticlesBlock &block,
+                      ArrayRef<float> durations,
+                      ArrayAllocator &array_allocator,
+                      AttributeArrays r_offsets);
 
   /**
    * Get the block for which the attribute offsets should be computed.
@@ -629,6 +633,15 @@ class IntegratorInterface {
    * Access durations for every particle that should be integrated.
    */
   ArrayRef<float> durations();
+
+  /**
+   * Get an array allocator that creates arrays with the number of elements being >= the number of
+   * particles in the block.
+   */
+  ArrayAllocator &array_allocator()
+  {
+    return m_array_allocator;
+  }
 
   /**
    * Get the arrays that the offsets should be written into.
