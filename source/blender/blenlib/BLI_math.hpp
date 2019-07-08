@@ -101,6 +101,11 @@ struct float3 {
     return {a.x - b.x, a.y - b.y, a.z - b.z};
   }
 
+  friend float3 operator-(float3 a)
+  {
+    return {-a.x, -a.y, -a.z};
+  }
+
   void operator-=(float3 b)
   {
     this->x -= b.x;

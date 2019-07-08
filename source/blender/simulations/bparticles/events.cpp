@@ -91,6 +91,21 @@ class AgeReachedEvent : public Event {
   }
 };
 
+class CollisionEventInfo : public EventInfo {
+ private:
+  ArrayRef<float3> m_normals;
+
+ public:
+  CollisionEventInfo(ArrayRef<float3> normals) : m_normals(normals)
+  {
+  }
+
+  void *get_info_array(StringRef UNUSED(name)) override
+  {
+    return (void *)m_normals.begin();
+  }
+};
+
 class MeshCollisionEventFilter : public Event {
  private:
   std::string m_identifier;
@@ -105,6 +120,10 @@ class MeshCollisionEventFilter : public Event {
     int index;
     float3 normal;
     float distance;
+  };
+
+  struct EventStorage {
+    float3 normal;
   };
 
  public:
@@ -123,10 +142,21 @@ class MeshCollisionEventFilter : public Event {
     free_bvhtree_from_mesh(&m_bvhtree_data);
   }
 
+  void attributes(TypeAttributeInterface &interface) override
+  {
+    interface.use(AttributeType::Float, m_identifier);
+  }
+
+  uint storage_size() override
+  {
+    return sizeof(EventStorage);
+  }
+
   void filter(EventFilterInterface &interface) override
   {
     ParticleSet &particles = interface.particles();
     auto positions = particles.attributes().get_float3("Position");
+    auto last_collision_times = particles.attributes().get_float(m_identifier);
     auto position_offsets = interface.attribute_offsets().get_float3("Position");
 
     for (uint i : particles.range()) {
@@ -139,7 +169,15 @@ class MeshCollisionEventFilter : public Event {
       auto result = this->ray_cast(ray_start, ray_direction, length);
       if (result.success) {
         float time_factor = result.distance / length;
-        interface.trigger_particle(i, time_factor);
+        float time = interface.time_span(i).interpolate(time_factor);
+        if (std::abs(last_collision_times[pindex] - time) < 0.0001f) {
+          continue;
+        }
+        auto &storage = interface.trigger_particle<EventStorage>(i, time_factor);
+        if (float3::dot(result.normal, ray_direction) > 0) {
+          result.normal = -result.normal;
+        }
+        storage.normal = m_local_to_world.transform_direction(result.normal).normalized();
       }
     }
   }
@@ -162,7 +200,18 @@ class MeshCollisionEventFilter : public Event {
 
   void execute(EventExecuteInterface &interface) override
   {
-    EmptyEventInfo event_info;
+    ParticleSet &particles = interface.particles();
+    SmallVector<float3> normals(particles.block().active_amount());
+    auto last_collision_times = particles.attributes().get_float(m_identifier);
+
+    for (uint i : particles.range()) {
+      uint pindex = particles.get_particle_index(i);
+      auto storage = interface.get_storage<EventStorage>(pindex);
+      normals[pindex] = storage.normal;
+      last_collision_times[pindex] = interface.current_times()[i];
+    }
+
+    CollisionEventInfo event_info(normals);
     m_action->execute(interface, event_info);
   }
 };

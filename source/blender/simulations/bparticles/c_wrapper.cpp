@@ -214,9 +214,10 @@ static bool is_particle_type_node(bNode *bnode)
   return STREQ(bnode->idname, "bp_ParticleTypeNode");
 }
 
-static bool is_particle_info_node(bNode *bnode)
+static bool is_particle_data_input(bNode *bnode)
 {
-  return STREQ(bnode->idname, "bp_ParticleInfoNode");
+  return STREQ(bnode->idname, "bp_ParticleInfoNode") ||
+         STREQ(bnode->idname, "bp_MeshCollisionEventNode");
 }
 
 static ArrayRef<bNode *> get_particle_type_nodes(IndexedNodeTree &indexed_tree)
@@ -238,7 +239,7 @@ static SmallVector<bNodeSocket *> find_input_sockets(IndexedNodeTree &indexed_tr
       BLI_assert(linked.size() <= 1);
       if (linked.size() == 1) {
         SocketWithNode origin = linked[0];
-        if (is_particle_info_node(origin.node)) {
+        if (is_particle_data_input(origin.node)) {
           found_inputs.add(origin.socket);
         }
         else {

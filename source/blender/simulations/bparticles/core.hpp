@@ -462,6 +462,8 @@ class EventStorage {
 
   void *operator[](uint index);
   template<typename T> T &get(uint index);
+
+  uint max_element_size() const;
 };
 
 /**
@@ -846,6 +848,11 @@ template<typename T> inline T &EventStorage::get(uint index)
   return *(T *)(*this)[index];
 }
 
+inline uint EventStorage::max_element_size() const
+{
+  return m_stride;
+}
+
 /* EventFilterInterface inline functions
  **********************************************/
 
@@ -887,7 +894,9 @@ inline void EventFilterInterface::trigger_particle(uint index, float time_factor
 template<typename T>
 inline T &EventFilterInterface::trigger_particle(uint index, float time_factor)
 {
-  BLI_assert(sizeof(T) <= sizeof(m_dummy_event_storage));
+  BLI_STATIC_ASSERT(std::is_trivial<T>::value, "");
+  BLI_assert(sizeof(T) <= m_event_storage.max_element_size());
+  BLI_assert(sizeof(m_dummy_event_storage) >= m_event_storage.max_element_size());
   if (time_factor <= m_known_min_time_factors[index]) {
     this->trigger_particle(index, time_factor);
     return m_event_storage.get<T>(m_particles.get_particle_index(index));
@@ -939,6 +948,8 @@ inline float EventExecuteInterface::remaining_time_in_step(uint index)
 
 template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)
 {
+  BLI_STATIC_ASSERT(std::is_trivial<T>::value, "");
+  BLI_assert(sizeof(T) <= m_event_storage.max_element_size());
   return m_event_storage.get<T>(pindex);
 }
 
