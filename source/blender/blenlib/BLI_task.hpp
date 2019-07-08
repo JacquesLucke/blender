@@ -5,6 +5,7 @@
 #include "BLI_task.h"
 #include "BLI_array_ref.hpp"
 #include "BLI_small_map.hpp"
+#include "BLI_range.hpp"
 
 namespace BLI {
 namespace Task {
@@ -18,7 +19,7 @@ namespace Task {
 template<typename T, typename ProcessElement>
 static void parallel_array_elements(ArrayRef<T> array,
                                     ProcessElement process_element,
-                                    bool use_threading = false)
+                                    bool use_threading = true)
 {
   if (!use_threading) {
     for (T &element : array) {
@@ -54,7 +55,7 @@ static void parallel_array_elements(ArrayRef<T> array,
                                     ProcessElement process_element,
                                     CreateThreadLocal create_thread_local,
                                     FreeThreadLocal free_thread_local,
-                                    bool use_threading = false)
+                                    bool use_threading = true)
 {
   using LocalData = decltype(create_thread_local());
 
@@ -104,6 +105,38 @@ static void parallel_array_elements(ArrayRef<T> array,
   for (LocalData data : data.thread_locals.values()) {
     free_thread_local(data);
   }
+}
+
+template<typename ProcessRange>
+static void parallel_range(Range<uint> total_range,
+                           uint chunk_size,
+                           ProcessRange process_range,
+                           bool use_threading = true)
+{
+  if (!use_threading) {
+    process_range(total_range);
+    return;
+  }
+
+  ParallelRangeSettings settings = {0};
+  BLI_parallel_range_settings_defaults(&settings);
+
+  struct ParallelData {
+    ChunkedRange<uint> chunks;
+    ProcessRange &process_range;
+  } data = {ChunkedRange<uint>(total_range, chunk_size), process_range};
+
+  BLI_task_parallel_range(0,
+                          data.chunks.chunks(),
+                          (void *)&data,
+                          [](void *__restrict userdata,
+                             const int index,
+                             const ParallelRangeTLS *__restrict UNUSED(tls)) {
+                            ParallelData &data = *(ParallelData *)userdata;
+                            Range<uint> range = data.chunks.chunk_range(index);
+                            data.process_range(range);
+                          },
+                          &settings);
 }
 
 }  // namespace Task
