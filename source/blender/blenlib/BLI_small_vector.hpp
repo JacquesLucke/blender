@@ -51,10 +51,10 @@ template<typename T> void uninitialized_relocate_n(T *src, uint n, T *dst)
 
 template<typename T, uint N = 4> class SmallVector {
  private:
-  char m_small_buffer[sizeof(T) * N];
   T *m_elements;
   uint m_size = 0;
   uint m_capacity = N;
+  char m_small_buffer[sizeof(T) * N];
 
  public:
   /**

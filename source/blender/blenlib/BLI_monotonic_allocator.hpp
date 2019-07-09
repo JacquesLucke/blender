@@ -15,12 +15,13 @@ namespace BLI {
 
 template<uint N = 0> class MonotonicAllocator {
  private:
-  char m_small_buffer[N];
   SmallVector<void *> m_pointers;
 
   void *m_current_buffer;
   uint m_remaining_capacity;
   uint m_next_min_alloc_size;
+
+  char m_small_buffer[N];
 
  public:
   MonotonicAllocator()
