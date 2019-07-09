@@ -15,17 +15,7 @@
 
 namespace BParticles {
 
-using BKE::bSocketList;
-using BKE::SocketWithNode;
 using FN::SharedFunction;
-
-using EmitterInserter = std::function<void(bNode *bnode,
-                                           IndexedNodeTree &indexed_tree,
-                                           FN::DataFlowNodes::GeneratedGraph &data_graph,
-                                           ModifierStepDescription &step_description,
-                                           WorldState &world_state)>;
-using EventInserter = EmitterInserter;
-using ModifierInserter = EmitterInserter;
 
 static bool is_particle_type_node(bNode *bnode)
 {
