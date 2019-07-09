@@ -214,10 +214,11 @@ static void INSERT_EMITTER_mesh_surface(ProcessNodeInterface &interface)
     }
 
     bSocketList inputs = interface.inputs();
-    SharedFunction fn = create_function(interface.indexed_tree(),
-                                        interface.data_graph(),
-                                        {inputs.get(0), inputs.get(1)},
-                                        interface.bnode()->name);
+    SharedFunction fn = create_function(
+        interface.indexed_tree(),
+        interface.data_graph(),
+        {inputs.get(0), inputs.get(1), inputs.get(2), inputs.get(3)},
+        interface.bnode()->name);
 
     bNode *type_node = linked.node;
     Emitter *emitter = EMITTER_mesh_surface(type_node->name, fn, interface.world_state());

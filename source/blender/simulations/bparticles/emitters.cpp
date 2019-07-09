@@ -60,6 +60,9 @@ class SurfaceEmitter : public Emitter {
     m_compute_inputs_body->call(fn_in, fn_out, execution_context);
     Object *object = fn_out.get<Object *>(0);
     float rate = fn_out.get<float>(1);
+    float normal_velocity_factor = fn_out.get<float>(2);
+    float emitter_velocity_factor = fn_out.get<float>(3);
+
     float particles_to_emit_f = rate * interface.time_span().duration();
     float fraction = particles_to_emit_f - std::floor(particles_to_emit_f);
     if ((rand() % 1000) / 1000.0f < fraction) {
@@ -77,7 +80,6 @@ class SurfaceEmitter : public Emitter {
     Mesh *mesh = (Mesh *)object->data;
     float4x4 transform_start = m_world_state.update(object->id.name, object->obmat);
     float4x4 transform_end = object->obmat;
-    float normal_factor = 1.0f;
 
     MLoop *loops = mesh->mloop;
     MVert *verts = mesh->mvert;
@@ -114,7 +116,8 @@ class SurfaceEmitter : public Emitter {
       float3 emitter_velocity = (point_at_birth - point_before_birth) / epsilon;
 
       positions.append(point_at_birth);
-      velocities.append(normal_velocity * normal_factor + emitter_velocity * 0.3f);
+      velocities.append(normal_velocity * normal_velocity_factor +
+                        emitter_velocity * emitter_velocity_factor);
       birth_moments.append(birth_moment);
     }
 
