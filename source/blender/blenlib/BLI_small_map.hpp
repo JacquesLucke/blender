@@ -81,6 +81,17 @@ template<typename K, typename V, uint N = 4> class SmallMap {
   }
 
   /**
+   * Insert a new key-value pair in the map. If the key exists already, the value will be
+   * overriden.
+   * Returns when the value was newly inserted, otherwise false.
+   */
+  bool add_override(const K &key, const V &value)
+  {
+    return this->add_or_modify(
+        key, [value]() { return value; }, [value](V &old_value) { old_value = value; });
+  }
+
+  /**
    * Return true when the key exists in the map, otherwise false.
    */
   bool contains(const K &key) const

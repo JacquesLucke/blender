@@ -199,3 +199,15 @@ TEST(small_map, InsertOrModify)
   EXPECT_FALSE(map.add_or_modify(1, create_func, modify_func));
   EXPECT_EQ(map.lookup(1), 15.0f);
 }
+
+TEST(small_map, AddOverride)
+{
+  IntFloatMap map;
+  EXPECT_FALSE(map.contains(3));
+  EXPECT_TRUE(map.add_override(3, 6.0f));
+  EXPECT_EQ(map.lookup(3), 6.0f);
+  EXPECT_FALSE(map.add_override(3, 7.0f));
+  EXPECT_EQ(map.lookup(3), 7.0f);
+  EXPECT_FALSE(map.add(3, 8.0f));
+  EXPECT_EQ(map.lookup(3), 7.0f);
+}
