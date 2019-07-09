@@ -103,6 +103,8 @@ set(SRC
   types/numeric.cpp
   types/boolean.hpp
   types/boolean.cpp
+  types/external.hpp
+  types/external.cpp
   types/types-c.h
   types/types-c.cpp
   types/tuple_access-c.h
