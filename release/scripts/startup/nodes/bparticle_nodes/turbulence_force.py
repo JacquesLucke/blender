@@ -8,5 +8,5 @@ class TurbulenceForceNode(bpy.types.Node, BParticlesNode):
     bl_label = "Turbulence Force"
 
     def declaration(self, builder : SocketBuilder):
-        builder.fixed_input("strength", "Strength", "Vector")
+        builder.fixed_input("strength", "Strength", "Vector", default=(1, 1, 1))
         builder.particle_modifier_output("force", "Force")

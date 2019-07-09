@@ -8,5 +8,5 @@ class GravityForceNode(bpy.types.Node, BParticlesNode):
     bl_label = "Gravity Force"
 
     def declaration(self, builder : SocketBuilder):
-        builder.fixed_input("direction", "Direction", "Vector")
+        builder.fixed_input("direction", "Direction", "Vector", default=(0, 0, -1))
         builder.particle_modifier_output("force", "Force")

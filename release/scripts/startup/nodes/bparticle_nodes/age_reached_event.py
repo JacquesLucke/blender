@@ -9,5 +9,5 @@ class AgeReachedEventNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder : SocketBuilder):
         builder.event_input("event", "Event")
-        builder.fixed_input("age", "Age", "Float")
+        builder.fixed_input("age", "Age", "Float", default=3)
         builder.control_flow_output("on_event", "On Event")
