@@ -3,6 +3,7 @@
 #include "FN_tuple_call.hpp"
 
 #include "BLI_timeit.hpp"
+#include "BLI_lazy_init.hpp"
 
 #include "inserters.hpp"
 #include "core.hpp"
@@ -35,11 +36,6 @@ static bool is_particle_data_input(bNode *bnode)
 {
   return STREQ(bnode->idname, "bp_ParticleInfoNode") ||
          STREQ(bnode->idname, "bp_MeshCollisionEventNode");
-}
-
-static ArrayRef<bNode *> get_particle_type_nodes(IndexedNodeTree &indexed_tree)
-{
-  return indexed_tree.nodes_with_idname("bp_ParticleTypeNode");
 }
 
 static SmallVector<FN::DFGraphSocket> insert_inputs(FN::FunctionBuilder &fn_builder,
@@ -178,15 +174,13 @@ static std::unique_ptr<Action> build_action(SocketWithNode start,
   }
 }
 
-static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
-                                        IndexedNodeTree &indexed_tree,
-                                        FN::DataFlowNodes::GeneratedGraph &UNUSED(data_graph),
-                                        ModifierStepDescription &step_description,
-                                        WorldState &world_state)
+static void INSERT_EMITTER_mesh_surface(ProcessNodeInterface &interface)
 {
-  BLI_assert(STREQ(emitter_node->idname, "bp_MeshEmitterNode"));
+  bNode *emitter_node = interface.bnode();
+  IndexedNodeTree &indexed_tree = interface.indexed_tree();
+
   bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
-  for (SocketWithNode linked : indexed_tree.linked(emitter_output)) {
+  for (SocketWithNode linked : interface.indexed_tree().linked(emitter_output)) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
@@ -200,202 +194,151 @@ static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
       continue;
     }
 
-    float4x4 last_transformation = world_state.update(emitter_node->name, object->obmat);
+    float4x4 last_transformation = interface.world_state().update(emitter_node->name,
+                                                                  object->obmat);
     float4x4 current_transformation = object->obmat;
 
     Emitter *emitter = EMITTER_mesh_surface(
         type_node->name, (Mesh *)object->data, last_transformation, current_transformation, 1.0f);
-    step_description.m_emitters.append(emitter);
+    interface.step_description().m_emitters.append(emitter);
   }
 }
 
-static void INSERT_EMITTER_point(bNode *emitter_node,
-                                 IndexedNodeTree &indexed_tree,
-                                 FN::DataFlowNodes::GeneratedGraph &UNUSED(data_graph),
-                                 ModifierStepDescription &step_description,
-                                 WorldState &UNUSED(world_state))
+static void INSERT_EMITTER_point(ProcessNodeInterface &interface)
 {
-  BLI_assert(STREQ(emitter_node->idname, "bp_PointEmitterNode"));
-  bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
+  bNodeSocket *emitter_output = (bNodeSocket *)interface.bnode()->outputs.first;
 
-  for (SocketWithNode linked : indexed_tree.linked(emitter_output)) {
+  for (SocketWithNode linked : interface.indexed_tree().linked(emitter_output)) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
     bNode *type_node = linked.node;
 
-    PointerRNA rna = indexed_tree.get_rna(emitter_node);
+    PointerRNA rna = interface.indexed_tree().get_rna(interface.bnode());
 
     float3 position;
     RNA_float_get_array(&rna, "position", position);
 
     Emitter *emitter = EMITTER_point(type_node->name, position);
-    step_description.m_emitters.append(emitter);
+    interface.step_description().m_emitters.append(emitter);
   }
 }
 
-static void INSERT_EVENT_age_reached(bNode *event_node,
-                                     IndexedNodeTree &indexed_tree,
-                                     FN::DataFlowNodes::GeneratedGraph &data_graph,
-                                     ModifierStepDescription &step_description,
-                                     WorldState &UNUSED(world_state))
+static void INSERT_EVENT_age_reached(ProcessNodeInterface &interface)
 {
-  BLI_assert(STREQ(event_node->idname, "bp_AgeReachedEventNode"));
-  bSocketList node_inputs(event_node->inputs);
-  FN::SharedFunction fn = create_function(
-      indexed_tree, data_graph, {node_inputs.get(1)}, event_node->name);
+  bSocketList node_inputs(interface.bnode()->inputs);
+  FN::SharedFunction fn = create_function(interface.indexed_tree(),
+                                          interface.data_graph(),
+                                          {node_inputs.get(1)},
+                                          interface.bnode()->name);
 
-  for (SocketWithNode linked : indexed_tree.linked(node_inputs.get(0))) {
+  for (SocketWithNode linked : interface.indexed_tree().linked(node_inputs.get(0))) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
-    auto action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
-                               indexed_tree,
-                               data_graph,
-                               step_description);
-    auto event = EVENT_age_reached(event_node->name, fn, std::move(action));
+    auto action = build_action(
+        {(bNodeSocket *)interface.bnode()->outputs.first, interface.bnode()},
+        interface.indexed_tree(),
+        interface.data_graph(),
+        interface.step_description());
+    auto event = EVENT_age_reached(interface.bnode()->name, fn, std::move(action));
 
     bNode *type_node = linked.node;
-    step_description.m_types.lookup_ref(type_node->name)->m_events.append(event.release());
+    interface.step_description()
+        .m_types.lookup_ref(type_node->name)
+        ->m_events.append(event.release());
   }
 }
 
-static void INSERT_EVENT_mesh_collision(bNode *event_node,
-                                        IndexedNodeTree &indexed_tree,
-                                        FN::DataFlowNodes::GeneratedGraph &data_graph,
-                                        ModifierStepDescription &step_description,
-                                        WorldState &UNUSED(world_state))
+static void INSERT_EVENT_mesh_collision(ProcessNodeInterface &interface)
 {
-  BLI_assert(STREQ(event_node->idname, "bp_MeshCollisionEventNode"));
-  bSocketList node_inputs(event_node->inputs);
+  bSocketList node_inputs(interface.bnode()->inputs);
 
-  for (SocketWithNode linked : indexed_tree.linked(node_inputs.get(0))) {
+  for (SocketWithNode linked : interface.indexed_tree().linked(node_inputs.get(0))) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
-    PointerRNA rna = indexed_tree.get_rna(event_node);
+    PointerRNA rna = interface.indexed_tree().get_rna(interface.bnode());
     Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
     if (object == nullptr || object->type != OB_MESH) {
       continue;
     }
 
-    auto action = build_action({(bNodeSocket *)event_node->outputs.first, event_node},
-                               indexed_tree,
-                               data_graph,
-                               step_description);
-    auto event = EVENT_mesh_collision(event_node->name, object, std::move(action));
+    auto action = build_action(
+        {(bNodeSocket *)interface.bnode()->outputs.first, interface.bnode()},
+        interface.indexed_tree(),
+        interface.data_graph(),
+        interface.step_description());
+    auto event = EVENT_mesh_collision(interface.bnode()->name, object, std::move(action));
 
     bNode *type_node = linked.node;
-    step_description.m_types.lookup_ref(type_node->name)->m_events.append(event.release());
+    interface.step_description()
+        .m_types.lookup_ref(type_node->name)
+        ->m_events.append(event.release());
   }
 }
 
-static void INSERT_FORCE_gravity(bNode *force_node,
-                                 IndexedNodeTree &indexed_tree,
-                                 FN::DataFlowNodes::GeneratedGraph &data_graph,
-                                 ModifierStepDescription &step_description,
-                                 WorldState &UNUSED(world_state))
+static void INSERT_FORCE_gravity(ProcessNodeInterface &interface)
 {
-  BLI_assert(STREQ(force_node->idname, "bp_GravityForceNode"));
-  bSocketList node_inputs(force_node->inputs);
-  bSocketList node_outputs(force_node->outputs);
+  bSocketList node_inputs(interface.bnode()->inputs);
+  bSocketList node_outputs(interface.bnode()->outputs);
 
-  for (SocketWithNode linked : indexed_tree.linked(node_outputs.get(0))) {
+  for (SocketWithNode linked : interface.indexed_tree().linked(node_outputs.get(0))) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
-    SharedFunction fn = create_function(
-        indexed_tree, data_graph, {node_inputs.get(0)}, force_node->name);
+    SharedFunction fn = create_function(interface.indexed_tree(),
+                                        interface.data_graph(),
+                                        {node_inputs.get(0)},
+                                        interface.bnode()->name);
 
     Force *force = FORCE_gravity(fn);
 
     bNode *type_node = linked.node;
     EulerIntegrator *integrator = reinterpret_cast<EulerIntegrator *>(
-        step_description.m_types.lookup_ref(type_node->name)->m_integrator);
+        interface.step_description().m_types.lookup_ref(type_node->name)->m_integrator);
     integrator->add_force(std::unique_ptr<Force>(force));
   }
 }
 
-static void INSERT_FORCE_turbulence(bNode *force_node,
-                                    IndexedNodeTree &indexed_tree,
-                                    FN::DataFlowNodes::GeneratedGraph &data_graph,
-                                    ModifierStepDescription &step_description,
-                                    WorldState &UNUSED(world_state))
+static void INSERT_FORCE_turbulence(ProcessNodeInterface &interface)
 {
-  BLI_assert(STREQ(force_node->idname, "bp_TurbulenceForceNode"));
-  bSocketList node_inputs(force_node->inputs);
-  bSocketList node_outputs(force_node->outputs);
+  bSocketList node_inputs(interface.bnode()->inputs);
+  bSocketList node_outputs(interface.bnode()->outputs);
 
-  for (SocketWithNode linked : indexed_tree.linked(node_outputs.get(0))) {
+  for (SocketWithNode linked : interface.indexed_tree().linked(node_outputs.get(0))) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
-    SharedFunction fn = create_function(
-        indexed_tree, data_graph, {node_inputs.get(0)}, force_node->name);
+    SharedFunction fn = create_function(interface.indexed_tree(),
+                                        interface.data_graph(),
+                                        {node_inputs.get(0)},
+                                        interface.bnode()->name);
 
     Force *force = FORCE_turbulence(fn);
 
     bNode *type_node = linked.node;
     EulerIntegrator *integrator = reinterpret_cast<EulerIntegrator *>(
-        step_description.m_types.lookup_ref(type_node->name)->m_integrator);
+        interface.step_description().m_types.lookup_ref(type_node->name)->m_integrator);
     integrator->add_force(std::unique_ptr<Force>(force));
   }
 }
 
-ModifierStepDescription *step_description_from_node_tree_impl(IndexedNodeTree &indexed_tree,
-                                                              WorldState &world_state)
+BLI_LAZY_INIT(ProcessFunctionsMap, get_node_processors)
 {
-  SCOPED_TIMER(__func__);
-
-  SmallMap<std::string, EmitterInserter> emitter_inserters;
-  emitter_inserters.add_new("bp_MeshEmitterNode", INSERT_EMITTER_mesh_surface);
-  emitter_inserters.add_new("bp_PointEmitterNode", INSERT_EMITTER_point);
-
-  SmallMap<std::string, EventInserter> event_inserters;
-  event_inserters.add_new("bp_AgeReachedEventNode", INSERT_EVENT_age_reached);
-  event_inserters.add_new("bp_MeshCollisionEventNode", INSERT_EVENT_mesh_collision);
-
-  SmallMap<std::string, ModifierInserter> modifier_inserters;
-  event_inserters.add_new("bp_GravityForceNode", INSERT_FORCE_gravity);
-  event_inserters.add_new("bp_TurbulenceForceNode", INSERT_FORCE_turbulence);
-
-  ModifierStepDescription *step_description = new ModifierStepDescription();
-
-  auto generated_graph = FN::DataFlowNodes::generate_graph(indexed_tree).value();
-
-  for (bNode *particle_type_node : get_particle_type_nodes(indexed_tree)) {
-    ModifierParticleType *type = new ModifierParticleType();
-    type->m_integrator = new EulerIntegrator();
-
-    std::string type_name = particle_type_node->name;
-    step_description->m_types.add_new(type_name, type);
-    step_description->m_particle_type_names.append(type_name);
-  }
-
-  for (auto item : emitter_inserters.items()) {
-    for (bNode *emitter_node : indexed_tree.nodes_with_idname(item.key)) {
-      item.value(emitter_node, indexed_tree, generated_graph, *step_description, world_state);
-    }
-  }
-
-  for (auto item : event_inserters.items()) {
-    for (bNode *event_node : indexed_tree.nodes_with_idname(item.key)) {
-      item.value(event_node, indexed_tree, generated_graph, *step_description, world_state);
-    }
-  }
-
-  for (auto item : modifier_inserters.items()) {
-    for (bNode *modifier_node : indexed_tree.nodes_with_idname(item.key)) {
-      item.value(modifier_node, indexed_tree, generated_graph, *step_description, world_state);
-    }
-  }
-
-  return step_description;
+  ProcessFunctionsMap processors;
+  processors.add_new("bp_MeshEmitterNode", INSERT_EMITTER_mesh_surface);
+  processors.add_new("bp_PointEmitterNode", INSERT_EMITTER_point);
+  processors.add_new("bp_AgeReachedEventNode", INSERT_EVENT_age_reached);
+  processors.add_new("bp_MeshCollisionEventNode", INSERT_EVENT_mesh_collision);
+  processors.add_new("bp_GravityForceNode", INSERT_FORCE_gravity);
+  processors.add_new("bp_TurbulenceForceNode", INSERT_FORCE_turbulence);
+  return processors;
 }
 
 }  // namespace BParticles
