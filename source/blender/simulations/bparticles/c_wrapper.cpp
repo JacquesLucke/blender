@@ -8,6 +8,7 @@
 #include "simulate.hpp"
 #include "world_state.hpp"
 #include "step_description.hpp"
+#include "integrator.hpp"
 
 #include "BLI_timeit.hpp"
 #include "BLI_listbase.h"
@@ -77,73 +78,6 @@ void BParticles_world_state_free(BParticlesWorldState world_state_c)
 {
   delete unwrap(world_state_c);
 }
-
-class EulerIntegrator : public Integrator {
- private:
-  AttributesInfo m_offset_attributes_info;
-
- public:
-  SmallVector<Force *> m_forces;
-
-  EulerIntegrator() : m_offset_attributes_info({}, {}, {"Position", "Velocity"})
-  {
-  }
-
-  ~EulerIntegrator()
-  {
-    for (Force *force : m_forces) {
-      delete force;
-    }
-  }
-
-  AttributesInfo &offset_attributes_info() override
-  {
-    return m_offset_attributes_info;
-  }
-
-  void integrate(IntegratorInterface &interface) override
-  {
-    ParticlesBlock &block = interface.block();
-    AttributeArrays r_offsets = interface.offset_targets();
-    ArrayRef<float> durations = interface.durations();
-
-    ArrayAllocator::Array<float3> combined_force(interface.array_allocator());
-    this->compute_combined_force(block, combined_force);
-
-    auto last_velocities = block.attributes().get_float3("Velocity");
-
-    auto position_offsets = r_offsets.get_float3("Position");
-    auto velocity_offsets = r_offsets.get_float3("Velocity");
-    this->compute_offsets(
-        durations, last_velocities, combined_force, position_offsets, velocity_offsets);
-  }
-
-  BLI_NOINLINE void compute_combined_force(ParticlesBlock &block, ArrayRef<float3> r_force)
-  {
-    r_force.fill({0, 0, 0});
-
-    for (Force *force : m_forces) {
-      force->add_force(block, r_force);
-    }
-  }
-
-  BLI_NOINLINE void compute_offsets(ArrayRef<float> durations,
-                                    ArrayRef<float3> last_velocities,
-                                    ArrayRef<float3> combined_force,
-                                    ArrayRef<float3> r_position_offsets,
-                                    ArrayRef<float3> r_velocity_offsets)
-  {
-    uint amount = durations.size();
-    for (uint pindex = 0; pindex < amount; pindex++) {
-      float mass = 1.0f;
-      float duration = durations[pindex];
-
-      r_velocity_offsets[pindex] = duration * combined_force[pindex] / mass;
-      r_position_offsets[pindex] = duration *
-                                   (last_velocities[pindex] + r_velocity_offsets[pindex] * 0.5f);
-    }
-  }
-};
 
 using EmitterInserter = std::function<void(bNode *bnode,
                                            IndexedNodeTree &indexed_tree,
@@ -443,7 +377,7 @@ static void INSERT_FORCE_gravity(bNode *force_node,
     bNode *type_node = linked.node;
     EulerIntegrator *integrator = reinterpret_cast<EulerIntegrator *>(
         step_description.m_types.lookup_ref(type_node->name)->m_integrator);
-    integrator->m_forces.append(force);
+    integrator->add_force(std::unique_ptr<Force>(force));
   }
 }
 
@@ -470,7 +404,7 @@ static void INSERT_FORCE_turbulence(bNode *force_node,
     bNode *type_node = linked.node;
     EulerIntegrator *integrator = reinterpret_cast<EulerIntegrator *>(
         step_description.m_types.lookup_ref(type_node->name)->m_integrator);
-    integrator->m_forces.append(force);
+    integrator->add_force(std::unique_ptr<Force>(force));
   }
 }
 

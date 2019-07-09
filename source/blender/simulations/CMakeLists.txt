@@ -37,6 +37,8 @@ set(SRC
   bparticles/c_wrapper.cpp
   bparticles/step_description.hpp
   bparticles/world_state.hpp
+  bparticles/integrator.hpp
+  bparticles/integrator.cpp
 )
 
 set(LIB
