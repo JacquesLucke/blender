@@ -83,7 +83,7 @@ extern ModifierTypeInfo modifierType_SurfaceDeform;
 extern ModifierTypeInfo modifierType_WeightedNormal;
 extern ModifierTypeInfo modifierType_FunctionDeform;
 extern ModifierTypeInfo modifierType_FunctionPoints;
-extern ModifierTypeInfo modifierType_NodeParticles;
+extern ModifierTypeInfo modifierType_BParticles;
 
 /* MOD_util.c */
 void modifier_type_init(ModifierTypeInfo *types[]);

@@ -74,7 +74,7 @@ set(SRC
   intern/MOD_meshsequencecache.c
   intern/MOD_mirror.c
   intern/MOD_multires.c
-  intern/MOD_nodeparticles.c
+  intern/MOD_bparticles.c
   intern/MOD_none.c
   intern/MOD_normal_edit.c
   intern/MOD_ocean.c

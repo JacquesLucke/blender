@@ -21,7 +21,7 @@
  *
  */
 
-/** \file blender/modifiers/intern/MOD_nodeparticles.c
+/** \file blender/modifiers/intern/MOD_bparticles.c
  *  \ingroup modifiers
  *
  */
@@ -54,17 +54,17 @@ typedef struct RuntimeData {
   float last_simulated_frame;
 } RuntimeData;
 
-static RuntimeData *get_runtime_struct(NodeParticlesModifierData *npmd)
+static RuntimeData *get_runtime_struct(BParticlesModifierData *bpmd)
 {
-  if (npmd->modifier.runtime == NULL) {
+  if (bpmd->modifier.runtime == NULL) {
     RuntimeData *runtime = MEM_callocN(sizeof(RuntimeData), __func__);
     runtime->particles_state = NULL;
     runtime->world_state = NULL;
     runtime->last_simulated_frame = 0.0f;
-    npmd->modifier.runtime = runtime;
+    bpmd->modifier.runtime = runtime;
   }
 
-  return npmd->modifier.runtime;
+  return bpmd->modifier.runtime;
 }
 
 static void free_runtime_data(RuntimeData *runtime)
@@ -74,12 +74,12 @@ static void free_runtime_data(RuntimeData *runtime)
   MEM_freeN(runtime);
 }
 
-static void free_modifier_runtime_data(NodeParticlesModifierData *npmd)
+static void free_modifier_runtime_data(BParticlesModifierData *bpmd)
 {
-  RuntimeData *runtime = (RuntimeData *)npmd->modifier.runtime;
+  RuntimeData *runtime = (RuntimeData *)bpmd->modifier.runtime;
   if (runtime != NULL) {
     free_runtime_data(runtime);
-    npmd->modifier.runtime = NULL;
+    bpmd->modifier.runtime = NULL;
   }
 }
 
@@ -103,8 +103,8 @@ static Mesh *applyModifier(ModifierData *md,
                            const struct ModifierEvalContext *ctx,
                            Mesh *UNUSED(mesh))
 {
-  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
-  RuntimeData *runtime = get_runtime_struct(npmd);
+  BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
+  RuntimeData *runtime = get_runtime_struct(bpmd);
 
   if (runtime->particles_state == NULL) {
     runtime->particles_state = BParticles_new_empty_state();
@@ -119,12 +119,12 @@ static Mesh *applyModifier(ModifierData *md,
   }
   else if (current_frame == runtime->last_simulated_frame + 1.0f) {
     BParticles_simulate_modifier(
-        npmd, ctx->depsgraph, runtime->particles_state, runtime->world_state);
+        bpmd, ctx->depsgraph, runtime->particles_state, runtime->world_state);
     runtime->last_simulated_frame = current_frame;
   }
   else {
-    free_modifier_runtime_data(npmd);
-    runtime = get_runtime_struct(npmd);
+    free_modifier_runtime_data(bpmd);
+    runtime = get_runtime_struct(bpmd);
     runtime->particles_state = BParticles_new_empty_state();
     runtime->world_state = BParticles_new_world_state();
     runtime->last_simulated_frame = current_frame;
@@ -139,8 +139,8 @@ static void initData(ModifierData *UNUSED(md))
 
 static void freeData(ModifierData *md)
 {
-  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
-  free_modifier_runtime_data(npmd);
+  BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
+  free_modifier_runtime_data(bpmd);
 }
 
 static void freeRuntimeData(void *runtime_data_v)
@@ -171,16 +171,16 @@ static void foreachObjectLink(ModifierData *UNUSED(md),
 
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
-  NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
-  walk(userData, ob, (ID **)&npmd->bparticles_tree, IDWALK_CB_NOP);
+  BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
+  walk(userData, ob, (ID **)&bpmd->bparticles_tree, IDWALK_CB_NOP);
 
   foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
 }
 
-ModifierTypeInfo modifierType_NodeParticles = {
-    /* name */ "Node Particles",
-    /* structName */ "NodeParticlesModifierData",
-    /* structSize */ sizeof(NodeParticlesModifierData),
+ModifierTypeInfo modifierType_BParticles = {
+    /* name */ "BParticles",
+    /* structName */ "BParticlesModifierData",
+    /* structSize */ sizeof(BParticlesModifierData),
     /* type */ eModifierTypeType_Constructive,
     /* flags */ eModifierTypeFlag_AcceptsMesh,
     /* copyData */ modifier_copyData_generic,

@@ -63,20 +63,20 @@ void BParticles_world_state_free(BParticlesWorldState world_state_c)
   delete unwrap(world_state_c);
 }
 
-void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
+void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
                                   Depsgraph *UNUSED(depsgraph),
                                   BParticlesState particles_state_c,
                                   BParticlesWorldState world_state_c)
 {
   SCOPED_TIMER(__func__);
 
-  if (npmd->bparticles_tree == NULL) {
+  if (bpmd->bparticles_tree == NULL) {
     return;
   }
 
   WorldState &world_state = *unwrap(world_state_c);
 
-  bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)npmd->bparticles_tree);
+  bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)bpmd->bparticles_tree);
   IndexedNodeTree indexed_tree(btree);
 
   auto step_description = step_description_from_node_tree(indexed_tree, world_state, 1.0f / 24.0f);

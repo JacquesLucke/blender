@@ -2017,7 +2017,7 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
             case eModifierType_ShapeKey:
             case eModifierType_FunctionDeform:
             case eModifierType_FunctionPoints:
-            case eModifierType_NodeParticles:
+            case eModifierType_BParticles:
 
             case NUM_MODIFIER_TYPES:
               data.icon = ICON_DOT;

@@ -10,7 +10,7 @@ extern "C" {
 
 struct Mesh;
 struct Depsgraph;
-struct NodeParticlesModifierData;
+struct BParticlesModifierData;
 
 typedef struct OpaqueBParticlesState *BParticlesState;
 typedef struct OpaqueBParticlesWorldState *BParticlesWorldState;
@@ -21,7 +21,7 @@ void BParticles_state_free(BParticlesState particles_state);
 BParticlesWorldState BParticles_new_world_state(void);
 void BParticles_world_state_free(BParticlesWorldState world_state);
 
-void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
+void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
                                   Depsgraph *depsgraph,
                                   BParticlesState particles_state,
                                   BParticlesWorldState world_state);
