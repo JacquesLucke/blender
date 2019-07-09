@@ -244,6 +244,9 @@ SharedType &BTreeGraphBuilder::type_by_name(const char *data_type) const
   else if (STREQ(data_type, "Boolean")) {
     return Types::GET_TYPE_bool();
   }
+  else if (STREQ(data_type, "Object")) {
+    return Types::GET_TYPE_object();
+  }
   else if (STREQ(data_type, "Float List")) {
     return Types::GET_TYPE_float_list();
   }
@@ -255,6 +258,9 @@ SharedType &BTreeGraphBuilder::type_by_name(const char *data_type) const
   }
   else if (STREQ(data_type, "Boolean List")) {
     return Types::GET_TYPE_bool_list();
+  }
+  else if (STREQ(data_type, "Object List")) {
+    return Types::GET_TYPE_object_list();
   }
   else {
     BLI_assert(false);

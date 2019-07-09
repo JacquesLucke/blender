@@ -56,5 +56,10 @@ BLI_LAZY_INIT(SharedType, GET_TYPE_bool_list)
   return create_list_type<bool>("Bool List");
 }
 
+BLI_LAZY_INIT(SharedType, GET_TYPE_object_list)
+{
+  return create_list_type<Object *>("Object List");
+}
+
 }  // namespace Types
 }  // namespace FN
