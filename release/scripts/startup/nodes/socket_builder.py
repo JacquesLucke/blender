@@ -10,6 +10,8 @@ from . declaration import (
     EventSocketDecl,
     ControlFlowSocketDecl,
     ParticleModifierSocketDecl,
+
+    NoDefaultValue,
 )
 
 class SocketBuilder:
@@ -45,6 +47,10 @@ class SocketBuilder:
                 sockets = decl.build(self.node.outputs)
                 assert len(sockets) == decl.amount()
 
+    def init_defaults(self):
+        for decl, sockets in self.get_sockets_decl_map().iter_decl_with_sockets():
+            decl.init_default(sockets)
+
     def get_sockets_decl_map(self):
         return SocketDeclMap(
             self.node,
@@ -74,17 +80,17 @@ class SocketBuilder:
     # Fixed
     ###################################
 
-    def fixed_input(self, identifier, name, data_type):
-        decl = FixedSocketDecl(self.node, identifier, name, data_type)
+    def fixed_input(self, identifier, name, data_type, *, default=NoDefaultValue):
+        decl = FixedSocketDecl(self.node, identifier, name, data_type, default)
         self._add_input(decl)
 
-    def fixed_output(self, identifier, name, data_type):
-        decl = FixedSocketDecl(self.node, identifier, name, data_type)
+    def fixed_output(self, identifier, name, data_type, *, default=NoDefaultValue):
+        decl = FixedSocketDecl(self.node, identifier, name, data_type, default)
         self._add_output(decl)
 
-    def fixed_pass_through(self, identifier, name, data_type):
-        self.fixed_input(identifier, name, data_type)
-        self.fixed_output(identifier, name, data_type)
+    def fixed_pass_through(self, identifier, name, data_type, *, default=NoDefaultValue):
+        self.fixed_input(identifier, name, data_type, default=default)
+        self.fixed_output(identifier, name, data_type, default=default)
 
 
     # Packed List

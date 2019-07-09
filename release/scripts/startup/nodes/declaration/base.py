@@ -5,6 +5,9 @@ class SocketDeclBase:
     def build(self, node_sockets):
         raise NotImplementedError()
 
+    def init_default(self, node_sockets):
+        pass
+
     def amount(self):
         raise NotImplementedError()
 
