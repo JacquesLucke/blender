@@ -7,13 +7,7 @@ class MeshEmitterNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_MeshEmitterNode"
     bl_label = "Mesh Emitter"
 
-    object: PointerProperty(
-        name="Object",
-        type=bpy.types.Object,
-    )
-
     def declaration(self, builder : SocketBuilder):
+        builder.fixed_input("object", "Object", "Object")
+        builder.fixed_input("rate", "Rate", "Float", default=10)
         builder.emitter_output("emitter", "Emitter")
-
-    def draw(self, layout):
-        layout.prop(self, "object", text="")

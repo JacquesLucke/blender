@@ -213,21 +213,14 @@ static void INSERT_EMITTER_mesh_surface(ProcessNodeInterface &interface)
       continue;
     }
 
+    bSocketList inputs = interface.inputs();
+    SharedFunction fn = create_function(interface.indexed_tree(),
+                                        interface.data_graph(),
+                                        {inputs.get(0), inputs.get(1)},
+                                        interface.bnode()->name);
+
     bNode *type_node = linked.node;
-
-    PointerRNA rna = interface.node_rna();
-
-    Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
-    if (object == nullptr) {
-      continue;
-    }
-
-    float4x4 last_transformation = interface.world_state().update(interface.bnode()->name,
-                                                                  object->obmat);
-    float4x4 current_transformation = object->obmat;
-
-    Emitter *emitter = EMITTER_mesh_surface(
-        type_node->name, (Mesh *)object->data, last_transformation, current_transformation, 1.0f);
+    Emitter *emitter = EMITTER_mesh_surface(type_node->name, fn);
     interface.step_description().m_emitters.append(emitter);
   }
 }

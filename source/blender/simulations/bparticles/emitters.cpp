@@ -3,6 +3,7 @@
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_curve_types.h"
+#include "DNA_object_types.h"
 
 #include "BKE_curve.h"
 #include "BKE_mesh_runtime.h"
@@ -34,38 +35,57 @@ class PointEmitter : public Emitter {
 class SurfaceEmitter : public Emitter {
  private:
   std::string m_particle_type_name;
-  Mesh *m_mesh;
-  float4x4 m_transform_start;
-  float4x4 m_transform_end;
-  float m_normal_velocity;
+  SharedFunction m_compute_inputs_fn;
+  TupleCallBody *m_compute_inputs_body;
 
  public:
-  SurfaceEmitter(StringRef particle_type_name,
-                 Mesh *mesh,
-                 float4x4 transform_start,
-                 float4x4 transform_end,
-                 float normal_velocity)
+  SurfaceEmitter(StringRef particle_type_name, SharedFunction &compute_inputs)
       : m_particle_type_name(particle_type_name.to_std_string()),
-        m_mesh(mesh),
-        m_transform_start(transform_start),
-        m_transform_end(transform_end),
-        m_normal_velocity(normal_velocity)
+        m_compute_inputs_fn(compute_inputs)
   {
+    m_compute_inputs_body = m_compute_inputs_fn->body<TupleCallBody>();
   }
 
   void emit(EmitterInterface &interface) override
   {
-    MLoop *loops = m_mesh->mloop;
-    MVert *verts = m_mesh->mvert;
-    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(m_mesh);
-    int triangle_amount = BKE_mesh_runtime_looptri_len(m_mesh);
+    FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_inputs_body, fn_in, fn_out);
+
+    FN::ExecutionStack stack;
+    FN::ExecutionContext execution_context(stack);
+
+    m_compute_inputs_body->call(fn_in, fn_out, execution_context);
+    Object *object = fn_out.get<Object *>(0);
+    float rate = fn_out.get<float>(1);
+    float particles_to_emit_f = rate * interface.time_span().duration();
+    float fraction = particles_to_emit_f - std::floor(particles_to_emit_f);
+    if ((rand() % 1000) / 1000.0f < fraction) {
+      particles_to_emit_f = std::floor(particles_to_emit_f) + 1;
+    }
+    uint particles_to_emit = particles_to_emit_f;
+
+    if (object == nullptr) {
+      return;
+    }
+    if (object->type != OB_MESH) {
+      return;
+    }
+
+    Mesh *mesh = (Mesh *)object->data;
+    float4x4 transform_start = object->obmat;
+    float4x4 transform_end = object->obmat;
+    float normal_factor = 1.0f;
+
+    MLoop *loops = mesh->mloop;
+    MVert *verts = mesh->mvert;
+    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+    int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
     SmallVector<float3> positions;
     SmallVector<float3> velocities;
     SmallVector<float> birth_moments;
 
-    for (int i = 0; i < triangle_amount; i++) {
-      MLoopTri triangle = triangles[i];
+    for (uint i = 0; i < particles_to_emit; i++) {
+      MLoopTri triangle = triangles[rand() % triangle_amount];
       float birth_moment = (rand() % 1000) / 1000.0f;
 
       float3 v1 = verts[loops[triangle.tri[0]].v].co;
@@ -79,9 +99,9 @@ class SurfaceEmitter : public Emitter {
       float epsilon = 0.01f;
       /* TODO: interpolate decomposed matrices */
       float4x4 transform_at_birth = float4x4::interpolate(
-          m_transform_start, m_transform_end, birth_moment);
+          transform_start, transform_end, birth_moment);
       float4x4 transform_before_birth = float4x4::interpolate(
-          m_transform_start, m_transform_end, birth_moment - epsilon);
+          transform_start, transform_end, birth_moment - epsilon);
 
       float3 point_at_birth = transform_at_birth.transform_position(pos);
       float3 point_before_birth = transform_before_birth.transform_position(pos);
@@ -90,7 +110,7 @@ class SurfaceEmitter : public Emitter {
       float3 emitter_velocity = (point_at_birth - point_before_birth) / epsilon;
 
       positions.append(point_at_birth);
-      velocities.append(normal_velocity * m_normal_velocity + emitter_velocity * 0.3f);
+      velocities.append(normal_velocity * normal_factor + emitter_velocity * 0.3f);
       birth_moments.append(birth_moment);
     }
 
@@ -120,14 +140,9 @@ Emitter *EMITTER_point(StringRef particle_type_name, float3 point)
   return new PointEmitter(particle_type_name, point);
 }
 
-Emitter *EMITTER_mesh_surface(StringRef particle_type_name,
-                              Mesh *mesh,
-                              const float4x4 &transform_start,
-                              const float4x4 &transform_end,
-                              float normal_velocity)
+Emitter *EMITTER_mesh_surface(StringRef particle_type_name, SharedFunction &compute_inputs_fn)
 {
-  return new SurfaceEmitter(
-      particle_type_name, mesh, transform_start, transform_end, normal_velocity);
+  return new SurfaceEmitter(particle_type_name, compute_inputs_fn);
 }
 
 }  // namespace BParticles
