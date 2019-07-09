@@ -9,6 +9,7 @@ from . sockets import (
     IntegerSocket,
     VectorSocket,
     BooleanSocket,
+    ObjectSocket,
     CustomColoredSocket,
 )
 
@@ -30,5 +31,9 @@ type_infos.insert_data_type(
     "Boolean",
     UniqueSocketBuilder(BooleanSocket),
     ColoredSocketBuilder((0.3, 0.3, 0.3, 0.5)))
+type_infos.insert_data_type(
+    "Object",
+    UniqueSocketBuilder(ObjectSocket),
+    ColoredSocketBuilder((0, 0, 0, 0.5)))
 
 type_infos.insert_conversion_group(["Boolean", "Integer", "Float"])

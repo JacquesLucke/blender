@@ -86,6 +86,25 @@ class BooleanSocket(bpy.types.NodeSocket, DataSocket):
     def restore_state(self, state):
         self.value = state
 
+class ObjectSocket(bpy.types.NodeSocket, DataSocket):
+    bl_idname = "fn_ObjectSocket"
+    bl_label = "Object Socket"
+    socket_color = (0, 0, 0, 1)
+
+    value: PointerProperty(
+        name="Value",
+        type=bpy.types.Object,
+    )
+
+    def draw_property(self, layout, node, text):
+        layout.prop(self, "value", text=text)
+
+    def get_state(self):
+        return self.value
+
+    def restore_state(self, state):
+        self.value = state
+
 class CustomColoredSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_CustomColoredSocket"
     bl_label = "Custom Colored Socket"
