@@ -107,6 +107,80 @@ static SharedFunction create_function(IndexedNodeTree &indexed_tree,
 static std::unique_ptr<Action> build_action(SocketWithNode start,
                                             IndexedNodeTree &indexed_tree,
                                             FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                            ModifierStepDescription &step_description);
+
+static std::unique_ptr<Action> BUILD_ACTION_kill()
+{
+  return ACTION_kill();
+}
+
+static std::unique_ptr<Action> BUILD_ACTION_change_direction(
+    IndexedNodeTree &indexed_tree,
+    FN::DataFlowNodes::GeneratedGraph &data_graph,
+    bNode *bnode,
+    ModifierStepDescription &step_description)
+{
+  bSocketList node_inputs(bnode->inputs);
+  bSocketList node_outputs(bnode->outputs);
+
+  SharedFunction fn = create_function(
+      indexed_tree, data_graph, {node_inputs.get(1)}, "Compute Direction");
+  ParticleFunction particle_fn(fn);
+  return ACTION_change_direction(
+      particle_fn,
+      build_action({node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description));
+}
+
+static std::unique_ptr<Action> BUILD_ACTION_explode(IndexedNodeTree &indexed_tree,
+                                                    FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                                    bNode *bnode,
+                                                    ModifierStepDescription &step_description)
+{
+  bSocketList node_inputs(bnode->inputs);
+  bSocketList node_outputs(bnode->outputs);
+
+  SharedFunction fn = create_function(
+      indexed_tree, data_graph, {node_inputs.get(1), node_inputs.get(2)}, bnode->name);
+  ParticleFunction particle_fn(fn);
+
+  PointerRNA rna = indexed_tree.get_rna(bnode);
+  char name[65];
+  RNA_string_get(&rna, "particle_type_name", name);
+
+  auto post_action = build_action(
+      {node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description);
+
+  if (step_description.m_types.contains(name)) {
+    return ACTION_explode(name, particle_fn, std::move(post_action));
+  }
+  else {
+    return post_action;
+  }
+}
+
+static std::unique_ptr<Action> BUILD_ACTION_condition(
+    IndexedNodeTree &indexed_tree,
+    FN::DataFlowNodes::GeneratedGraph &data_graph,
+    bNode *bnode,
+    ModifierStepDescription &step_description)
+{
+  bSocketList node_inputs(bnode->inputs);
+  bSocketList node_outputs(bnode->outputs);
+
+  SharedFunction fn = create_function(indexed_tree, data_graph, {node_inputs.get(1)}, bnode->name);
+  ParticleFunction particle_fn(fn);
+
+  auto true_action = build_action(
+      {node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description);
+  auto false_action = build_action(
+      {node_outputs.get(1), bnode}, indexed_tree, data_graph, step_description);
+
+  return ACTION_condition(particle_fn, std::move(true_action), std::move(false_action));
+}
+
+static std::unique_ptr<Action> build_action(SocketWithNode start,
+                                            IndexedNodeTree &indexed_tree,
+                                            FN::DataFlowNodes::GeneratedGraph &data_graph,
                                             ModifierStepDescription &step_description)
 {
   if (start.socket->in_out == SOCK_OUT) {
@@ -124,50 +198,18 @@ static std::unique_ptr<Action> build_action(SocketWithNode start,
 
   BLI_assert(start.socket->in_out == SOCK_IN);
   bNode *bnode = start.node;
-  bSocketList node_inputs(bnode->inputs);
-  bSocketList node_outputs(bnode->outputs);
 
   if (STREQ(bnode->idname, "bp_KillParticleNode")) {
-    return ACTION_kill();
+    return BUILD_ACTION_kill();
   }
   else if (STREQ(bnode->idname, "bp_ChangeParticleDirectionNode")) {
-    SharedFunction fn = create_function(
-        indexed_tree, data_graph, {node_inputs.get(1)}, "Compute Direction");
-    ParticleFunction particle_fn(fn);
-    return ACTION_change_direction(
-        particle_fn,
-        build_action({node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description));
+    return BUILD_ACTION_change_direction(indexed_tree, data_graph, bnode, step_description);
   }
   else if (STREQ(bnode->idname, "bp_ExplodeParticleNode")) {
-    SharedFunction fn = create_function(
-        indexed_tree, data_graph, {node_inputs.get(1), node_inputs.get(2)}, bnode->name);
-    ParticleFunction particle_fn(fn);
-
-    PointerRNA rna = indexed_tree.get_rna(bnode);
-    char name[65];
-    RNA_string_get(&rna, "particle_type_name", name);
-
-    auto post_action = build_action(
-        {node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description);
-
-    if (step_description.m_types.contains(name)) {
-      return ACTION_explode(name, particle_fn, std::move(post_action));
-    }
-    else {
-      return post_action;
-    }
+    return BUILD_ACTION_explode(indexed_tree, data_graph, bnode, step_description);
   }
   else if (STREQ(bnode->idname, "bp_ParticleConditionNode")) {
-    SharedFunction fn = create_function(
-        indexed_tree, data_graph, {node_inputs.get(1)}, bnode->name);
-    ParticleFunction particle_fn(fn);
-
-    auto true_action = build_action(
-        {node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description);
-    auto false_action = build_action(
-        {node_outputs.get(1), bnode}, indexed_tree, data_graph, step_description);
-
-    return ACTION_condition(particle_fn, std::move(true_action), std::move(false_action));
+    return BUILD_ACTION_condition(indexed_tree, data_graph, bnode, step_description);
   }
   else {
     return nullptr;
