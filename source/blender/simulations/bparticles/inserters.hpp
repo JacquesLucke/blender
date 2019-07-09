@@ -10,7 +10,9 @@
 
 namespace BParticles {
 
+using BKE::bSocketList;
 using BKE::IndexedNodeTree;
+using BKE::SocketWithNode;
 
 class ProcessNodeInterface {
  private:
@@ -57,6 +59,33 @@ class ProcessNodeInterface {
   ModifierStepDescription &step_description()
   {
     return m_step_description;
+  }
+
+  ArrayRef<SocketWithNode> linked_with_input(uint index)
+  {
+    bNodeSocket *socket = this->inputs().get(index);
+    return m_indexed_tree.linked(socket);
+  }
+
+  ArrayRef<SocketWithNode> linked_with_output(uint index)
+  {
+    bNodeSocket *socket = this->outputs().get(index);
+    return m_indexed_tree.linked(socket);
+  }
+
+  bSocketList inputs()
+  {
+    return bSocketList(m_bnode->inputs);
+  }
+
+  bSocketList outputs()
+  {
+    return bSocketList(m_bnode->outputs);
+  }
+
+  PointerRNA node_rna()
+  {
+    return m_indexed_tree.get_rna(m_bnode);
   }
 };
 

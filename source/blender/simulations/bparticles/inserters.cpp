@@ -176,25 +176,21 @@ static std::unique_ptr<Action> build_action(SocketWithNode start,
 
 static void INSERT_EMITTER_mesh_surface(ProcessNodeInterface &interface)
 {
-  bNode *emitter_node = interface.bnode();
-  IndexedNodeTree &indexed_tree = interface.indexed_tree();
-
-  bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
-  for (SocketWithNode linked : interface.indexed_tree().linked(emitter_output)) {
+  for (SocketWithNode linked : interface.linked_with_output(0)) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
     bNode *type_node = linked.node;
 
-    PointerRNA rna = indexed_tree.get_rna(emitter_node);
+    PointerRNA rna = interface.node_rna();
 
     Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
     if (object == nullptr) {
       continue;
     }
 
-    float4x4 last_transformation = interface.world_state().update(emitter_node->name,
+    float4x4 last_transformation = interface.world_state().update(interface.bnode()->name,
                                                                   object->obmat);
     float4x4 current_transformation = object->obmat;
 
@@ -206,43 +202,38 @@ static void INSERT_EMITTER_mesh_surface(ProcessNodeInterface &interface)
 
 static void INSERT_EMITTER_point(ProcessNodeInterface &interface)
 {
-  bNodeSocket *emitter_output = (bNodeSocket *)interface.bnode()->outputs.first;
-
-  for (SocketWithNode linked : interface.indexed_tree().linked(emitter_output)) {
+  for (SocketWithNode linked : interface.linked_with_output(0)) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
-    bNode *type_node = linked.node;
-
-    PointerRNA rna = interface.indexed_tree().get_rna(interface.bnode());
-
     float3 position;
+    PointerRNA rna = interface.node_rna();
     RNA_float_get_array(&rna, "position", position);
 
+    bNode *type_node = linked.node;
     Emitter *emitter = EMITTER_point(type_node->name, position);
+
     interface.step_description().m_emitters.append(emitter);
   }
 }
 
 static void INSERT_EVENT_age_reached(ProcessNodeInterface &interface)
 {
-  bSocketList node_inputs(interface.bnode()->inputs);
   FN::SharedFunction fn = create_function(interface.indexed_tree(),
                                           interface.data_graph(),
-                                          {node_inputs.get(1)},
+                                          {interface.inputs().get(1)},
                                           interface.bnode()->name);
 
-  for (SocketWithNode linked : interface.indexed_tree().linked(node_inputs.get(0))) {
+  for (SocketWithNode linked : interface.linked_with_input(0)) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
-    auto action = build_action(
-        {(bNodeSocket *)interface.bnode()->outputs.first, interface.bnode()},
-        interface.indexed_tree(),
-        interface.data_graph(),
-        interface.step_description());
+    auto action = build_action({interface.outputs().get(0), interface.bnode()},
+                               interface.indexed_tree(),
+                               interface.data_graph(),
+                               interface.step_description());
     auto event = EVENT_age_reached(interface.bnode()->name, fn, std::move(action));
 
     bNode *type_node = linked.node;
@@ -254,24 +245,21 @@ static void INSERT_EVENT_age_reached(ProcessNodeInterface &interface)
 
 static void INSERT_EVENT_mesh_collision(ProcessNodeInterface &interface)
 {
-  bSocketList node_inputs(interface.bnode()->inputs);
-
-  for (SocketWithNode linked : interface.indexed_tree().linked(node_inputs.get(0))) {
+  for (SocketWithNode linked : interface.linked_with_input(0)) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
-    PointerRNA rna = interface.indexed_tree().get_rna(interface.bnode());
+    PointerRNA rna = interface.node_rna();
     Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
     if (object == nullptr || object->type != OB_MESH) {
       continue;
     }
 
-    auto action = build_action(
-        {(bNodeSocket *)interface.bnode()->outputs.first, interface.bnode()},
-        interface.indexed_tree(),
-        interface.data_graph(),
-        interface.step_description());
+    auto action = build_action({interface.outputs().get(0), interface.bnode()},
+                               interface.indexed_tree(),
+                               interface.data_graph(),
+                               interface.step_description());
     auto event = EVENT_mesh_collision(interface.bnode()->name, object, std::move(action));
 
     bNode *type_node = linked.node;
@@ -283,17 +271,14 @@ static void INSERT_EVENT_mesh_collision(ProcessNodeInterface &interface)
 
 static void INSERT_FORCE_gravity(ProcessNodeInterface &interface)
 {
-  bSocketList node_inputs(interface.bnode()->inputs);
-  bSocketList node_outputs(interface.bnode()->outputs);
-
-  for (SocketWithNode linked : interface.indexed_tree().linked(node_outputs.get(0))) {
+  for (SocketWithNode linked : interface.linked_with_output(0)) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
     SharedFunction fn = create_function(interface.indexed_tree(),
                                         interface.data_graph(),
-                                        {node_inputs.get(0)},
+                                        {interface.inputs().get(0)},
                                         interface.bnode()->name);
 
     Force *force = FORCE_gravity(fn);
@@ -307,17 +292,14 @@ static void INSERT_FORCE_gravity(ProcessNodeInterface &interface)
 
 static void INSERT_FORCE_turbulence(ProcessNodeInterface &interface)
 {
-  bSocketList node_inputs(interface.bnode()->inputs);
-  bSocketList node_outputs(interface.bnode()->outputs);
-
-  for (SocketWithNode linked : interface.indexed_tree().linked(node_outputs.get(0))) {
+  for (SocketWithNode linked : interface.linked_with_output(0)) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
 
     SharedFunction fn = create_function(interface.indexed_tree(),
                                         interface.data_graph(),
-                                        {node_inputs.get(0)},
+                                        {interface.inputs().get(0)},
                                         interface.bnode()->name);
 
     Force *force = FORCE_turbulence(fn);
