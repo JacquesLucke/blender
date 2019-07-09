@@ -35,6 +35,12 @@ static void LOAD_boolean(PointerRNA *rna, Tuple &tuple, uint index)
   tuple.set<bool>(index, value);
 }
 
+static void LOAD_object(PointerRNA *rna, Tuple &tuple, uint index)
+{
+  Object *value = (Object *)RNA_pointer_get(rna, "value").id.data;
+  tuple.set<Object *>(index, value);
+}
+
 template<typename T> static void LOAD_empty_list(PointerRNA *UNUSED(rna), Tuple &tuple, uint index)
 {
   auto list = Types::SharedList<T>::New();
@@ -47,10 +53,12 @@ void initialize_socket_inserters(GraphInserters &inserters)
   inserters.reg_socket_loader("Vector", LOAD_vector);
   inserters.reg_socket_loader("Integer", LOAD_integer);
   inserters.reg_socket_loader("Boolean", LOAD_boolean);
+  inserters.reg_socket_loader("Object", LOAD_object);
   inserters.reg_socket_loader("Float List", LOAD_empty_list<float>);
   inserters.reg_socket_loader("Vector List", LOAD_empty_list<float3>);
   inserters.reg_socket_loader("Integer List", LOAD_empty_list<int32_t>);
   inserters.reg_socket_loader("Boolean List", LOAD_empty_list<bool>);
+  inserters.reg_socket_loader("Object List", LOAD_empty_list<Object *>);
 }
 
 }  // namespace DataFlowNodes

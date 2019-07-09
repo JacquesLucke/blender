@@ -2,11 +2,9 @@
 
 #include "FN_core.hpp"
 
-struct Object;
-
 namespace FN {
 namespace Functions {
 
-SharedFunction GET_FN_object_location(struct Object *object);
+SharedFunction &GET_FN_object_location();
 }
 }  // namespace FN

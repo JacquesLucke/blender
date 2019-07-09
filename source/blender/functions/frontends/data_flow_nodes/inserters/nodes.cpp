@@ -57,9 +57,7 @@ static SharedFunction get_vectorized_function(SharedFunction &original_fn,
 
 static void INSERT_object_transforms(BTreeGraphBuilder &builder, bNode *bnode)
 {
-  PointerRNA rna = builder.get_rna(bnode);
-  Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
-  auto fn = Functions::GET_FN_object_location(object);
+  auto fn = Functions::GET_FN_object_location();
   builder.insert_matching_function(fn, bnode);
 }
 
