@@ -26,12 +26,9 @@
 #include "BLI_math.h"
 #include "BLI_task.h"
 
-#include "PIL_time_utildefines.h"
-
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
-#include "DNA_node_types.h"
 
 #include "BKE_customdata.h"
 #include "BKE_editmesh.h"
@@ -53,8 +50,6 @@
 
 #include "RE_shader_ext.h"
 
-#include "FN_all-c.h"
-
 /* Displace */
 
 static void initData(ModifierData *md)
@@ -66,21 +61,6 @@ static void initData(ModifierData *md)
   dmd->direction = MOD_DISP_DIR_NOR;
   dmd->midlevel = 0.5;
   dmd->space = MOD_DISP_SPACE_LOCAL;
-  dmd->function_tree = NULL;
-}
-
-static FnFunction getCurrentFunction(DisplaceModifierData *dmd)
-{
-  bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)dmd->function_tree);
-
-  FnType float_ty = FN_type_borrow_float();
-  FnType int32_ty = FN_type_borrow_int32();
-  FnType float3_ty = FN_type_borrow_float3();
-
-  FnType inputs[] = {float3_ty, int32_ty, NULL};
-  FnType outputs[] = {float_ty, NULL};
-
-  return FN_function_get_with_signature(tree, inputs, outputs);
 }
 
 static void requiredDataMask(Object *UNUSED(ob),
@@ -134,7 +114,6 @@ static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *u
   DisplaceModifierData *dmd = (DisplaceModifierData *)md;
 
   walk(userData, ob, (ID **)&dmd->texture, IDWALK_CB_USER);
-  walk(userData, ob, (ID **)&dmd->function_tree, IDWALK_CB_USER);
 
   foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
 }
@@ -169,12 +148,6 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   if (dmd->texture != NULL) {
     DEG_add_generic_id_relation(ctx->node, &dmd->texture->id, "Displace Modifier");
   }
-
-  FnFunction fn = getCurrentFunction(dmd);
-  if (fn) {
-    FN_function_update_dependencies(fn, ctx->node);
-    FN_function_free(fn);
-  }
 }
 
 typedef struct DisplaceUserdata {
@@ -192,7 +165,6 @@ typedef struct DisplaceUserdata {
   float local_mat[4][4];
   MVert *mvert;
   float (*vert_clnors)[3];
-  FnFunction calc_weight_func;
 } DisplaceUserdata;
 
 static void displaceModifier_do_task(void *__restrict userdata,
@@ -201,7 +173,9 @@ static void displaceModifier_do_task(void *__restrict userdata,
 {
   DisplaceUserdata *data = (DisplaceUserdata *)userdata;
   DisplaceModifierData *dmd = data->dmd;
+  MDeformVert *dvert = data->dvert;
   float weight = data->weight;
+  int defgrp_index = data->defgrp_index;
   int direction = data->direction;
   bool use_global_direction = data->use_global_direction;
   float(*tex_co)[3] = data->tex_co;
@@ -217,36 +191,12 @@ static void displaceModifier_do_task(void *__restrict userdata,
   float delta;
   float local_vec[3];
 
-  if (data->calc_weight_func) {
-    FnTupleCallBody body = FN_tuple_call_get(data->calc_weight_func);
-    BLI_assert(body);
-
-    FN_TUPLE_CALL_PREPARE_STACK(body, fn_in, fn_out);
-
-    FN_tuple_set_float3(fn_in, 0, vertexCos[iter]);
-    FN_tuple_set_int32(fn_in, 1, iter);
-
-    FN_tuple_call_invoke(body, fn_in, fn_out, __func__);
-
-    weight = FN_tuple_get_float(fn_out, 0);
-
-    FN_TUPLE_CALL_DESTRUCT_STACK(body, fn_in, fn_out);
+  if (dvert) {
+    weight = defvert_find_weight(dvert + iter, defgrp_index);
+    if (weight == 0.0f) {
+      return;
+    }
   }
-
-  if (weight == 0.0f) {
-    return;
-  }
-
-  // MDeformVert *dvert = data->dvert;
-  // int defgrp_index = data->defgrp_index;
-  // if (dvert) {
-  //  weight = defvert_find_weight(dvert + iter, defgrp_index);
-  //  if (weight == 0.0f) {
-  //      return;
-  //  }
-  // }
-
-  strength *= weight;
 
   if (data->tex_target) {
     texres.nor = NULL;
@@ -256,6 +206,10 @@ static void displaceModifier_do_task(void *__restrict userdata,
   }
   else {
     delta = delta_fixed; /* (1.0f - dmd->midlevel) */ /* never changes */
+  }
+
+  if (dvert) {
+    strength *= weight;
   }
 
   delta *= strength;
@@ -394,23 +348,13 @@ static void displaceModifier_do(DisplaceModifierData *dmd,
     data.pool = BKE_image_pool_new();
     BKE_texture_fetch_images_for_pool(tex_target, data.pool);
   }
-  data.calc_weight_func = getCurrentFunction(dmd);
-
-  TIMEIT_START(displace_timer);
-
   ParallelRangeSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
   settings.use_threading = (numVerts > 512);
   BLI_task_parallel_range(0, numVerts, &data, displaceModifier_do_task, &settings);
 
-  TIMEIT_END(displace_timer);
-
   if (data.pool != NULL) {
     BKE_image_pool_free(data.pool);
-  }
-
-  if (data.calc_weight_func != NULL) {
-    FN_function_free(data.calc_weight_func);
   }
 
   if (tex_co) {

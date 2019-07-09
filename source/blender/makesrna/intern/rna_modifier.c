@@ -2683,11 +2683,6 @@ static void rna_def_modifier_displace(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Space", "");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
-  prop = RNA_def_property(srna, "function_tree", PROP_POINTER, PROP_NONE);
-  RNA_def_property_flag(prop, PROP_EDITABLE);
-  RNA_def_property_ui_text(prop, "Function Tree", "Function node tree");
-  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
-
   rna_def_modifier_generic_map_info(srna);
 }
 
