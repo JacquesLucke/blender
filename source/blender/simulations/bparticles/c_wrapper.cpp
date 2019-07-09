@@ -6,6 +6,7 @@
 #include "events.hpp"
 #include "actions.hpp"
 #include "simulate.hpp"
+#include "world_state.hpp"
 
 #include "BLI_timeit.hpp"
 #include "BLI_listbase.h"
@@ -62,11 +63,6 @@ void BParticles_state_free(BParticlesState state_c)
 {
   delete unwrap(state_c);
 }
-
-class WorldState {
- public:
-  SmallMap<std::string, float4x4> m_cached_matrices;
-};
 
 WRAPPERS(WorldState *, BParticlesWorldState);
 
@@ -399,12 +395,8 @@ static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
       continue;
     }
 
-    std::string tranformation_key = emitter_node->name;
-    float4x4 last_transformation = world_state.m_cached_matrices.lookup_default(tranformation_key,
-                                                                                object->obmat);
+    float4x4 last_transformation = world_state.update(emitter_node->name, object->obmat);
     float4x4 current_transformation = object->obmat;
-
-    world_state.m_cached_matrices.add_override(tranformation_key, current_transformation);
 
     Emitter *emitter = EMITTER_mesh_surface(
         type_node->name, (Mesh *)object->data, last_transformation, current_transformation, 1.0f);
