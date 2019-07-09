@@ -1,22 +1,12 @@
 #include "BParticles.h"
 #include "core.hpp"
-#include "particles_container.hpp"
-#include "emitters.hpp"
-#include "forces.hpp"
-#include "events.hpp"
-#include "actions.hpp"
 #include "simulate.hpp"
 #include "world_state.hpp"
-#include "step_description.hpp"
-#include "integrator.hpp"
 #include "inserters.hpp"
 
 #include "BLI_timeit.hpp"
-#include "BLI_listbase.h"
 #include "BLI_task.hpp"
 
-#include "BKE_curve.h"
-#include "BKE_bvhutils.h"
 #include "BKE_mesh.h"
 #include "BKE_customdata.h"
 #include "BKE_node_tree.hpp"
@@ -26,13 +16,6 @@
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
-#include "DNA_object_types.h"
-#include "DNA_curve_types.h"
-
-#include "RNA_access.h"
-
-#include "FN_tuple_call.hpp"
-#include "FN_data_flow_nodes.hpp"
 
 #define WRAPPERS(T1, T2) \
   inline T1 unwrap(T2 value) \
