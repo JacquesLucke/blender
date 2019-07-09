@@ -347,8 +347,8 @@ static void INSERT_FORCE_turbulence(bNode *force_node,
   }
 }
 
-ModifierStepDescription *step_description_from_node_tree(IndexedNodeTree &indexed_tree,
-                                                         WorldState &world_state)
+ModifierStepDescription *step_description_from_node_tree_impl(IndexedNodeTree &indexed_tree,
+                                                              WorldState &world_state)
 {
   SCOPED_TIMER(__func__);
 

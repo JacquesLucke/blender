@@ -2,7 +2,7 @@
 #include "core.hpp"
 #include "simulate.hpp"
 #include "world_state.hpp"
-#include "inserters.hpp"
+#include "node_frontend.hpp"
 
 #include "BLI_timeit.hpp"
 #include "BLI_task.hpp"
@@ -79,9 +79,7 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)npmd->bparticles_tree);
   IndexedNodeTree indexed_tree(btree);
 
-  ModifierStepDescription *step_description = step_description_from_node_tree(indexed_tree,
-                                                                              world_state);
-  step_description->m_duration = 1.0f / 24.0f;
+  auto step_description = step_description_from_node_tree(indexed_tree, world_state, 1.0f / 24.0f);
 
   ParticlesState &particles_state = *unwrap(particles_state_c);
   simulate_step(particles_state, *step_description);
@@ -92,8 +90,6 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
     std::cout << "  Particles: " << item.value->count_active() << "\n";
     std::cout << "  Blocks: " << item.value->active_blocks().size() << "\n";
   }
-
-  delete step_description;
 }
 
 uint BParticles_state_particle_count(BParticlesState state_c)

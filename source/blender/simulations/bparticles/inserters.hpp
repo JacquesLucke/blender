@@ -11,7 +11,7 @@ namespace BParticles {
 
 using BKE::IndexedNodeTree;
 
-ModifierStepDescription *step_description_from_node_tree(IndexedNodeTree &indexed_tree,
-                                                         WorldState &world_state);
+ModifierStepDescription *step_description_from_node_tree_impl(IndexedNodeTree &indexed_tree,
+                                                              WorldState &world_state);
 
 }  // namespace BParticles
