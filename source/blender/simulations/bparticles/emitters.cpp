@@ -1,5 +1,3 @@
-#include "emitters.hpp"
-
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_curve_types.h"
@@ -9,6 +7,8 @@
 #include "BKE_mesh_runtime.h"
 
 #include "BLI_math_geom.h"
+
+#include "emitters.hpp"
 
 namespace BParticles {
 
@@ -37,11 +37,15 @@ class SurfaceEmitter : public Emitter {
   std::string m_particle_type_name;
   SharedFunction m_compute_inputs_fn;
   TupleCallBody *m_compute_inputs_body;
+  WorldState &m_world_state;
 
  public:
-  SurfaceEmitter(StringRef particle_type_name, SharedFunction &compute_inputs)
+  SurfaceEmitter(StringRef particle_type_name,
+                 SharedFunction &compute_inputs,
+                 WorldState &world_state)
       : m_particle_type_name(particle_type_name.to_std_string()),
-        m_compute_inputs_fn(compute_inputs)
+        m_compute_inputs_fn(compute_inputs),
+        m_world_state(world_state)
   {
     m_compute_inputs_body = m_compute_inputs_fn->body<TupleCallBody>();
   }
@@ -71,7 +75,7 @@ class SurfaceEmitter : public Emitter {
     }
 
     Mesh *mesh = (Mesh *)object->data;
-    float4x4 transform_start = object->obmat;
+    float4x4 transform_start = m_world_state.update(object->id.name, object->obmat);
     float4x4 transform_end = object->obmat;
     float normal_factor = 1.0f;
 
@@ -140,9 +144,11 @@ Emitter *EMITTER_point(StringRef particle_type_name, float3 point)
   return new PointEmitter(particle_type_name, point);
 }
 
-Emitter *EMITTER_mesh_surface(StringRef particle_type_name, SharedFunction &compute_inputs_fn)
+Emitter *EMITTER_mesh_surface(StringRef particle_type_name,
+                              SharedFunction &compute_inputs_fn,
+                              WorldState &world_state)
 {
-  return new SurfaceEmitter(particle_type_name, compute_inputs_fn);
+  return new SurfaceEmitter(particle_type_name, compute_inputs_fn, world_state);
 }
 
 }  // namespace BParticles

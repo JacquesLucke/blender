@@ -220,7 +220,7 @@ static void INSERT_EMITTER_mesh_surface(ProcessNodeInterface &interface)
                                         interface.bnode()->name);
 
     bNode *type_node = linked.node;
-    Emitter *emitter = EMITTER_mesh_surface(type_node->name, fn);
+    Emitter *emitter = EMITTER_mesh_surface(type_node->name, fn, interface.world_state());
     interface.step_description().m_emitters.append(emitter);
   }
 }
