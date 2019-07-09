@@ -57,7 +57,7 @@ DataFlowGraph::BuildResult DataFlowGraph::FromBuilder(DataFlowGraphBuilder &buil
     }
   }
 
-  graph->m_source_info_pool = std::move(builder.m_source_info_pool);
+  graph->m_source_info_allocator = std::move(builder.m_source_info_allocator);
 
   return result;
 }

@@ -182,7 +182,7 @@ class DataFlowGraph : public RefCountedBase {
   SmallVector<InputSocket> m_inputs;
   SmallVector<OutputSocket> m_outputs;
   SmallVector<uint> m_targets;
-  std::unique_ptr<MonotonicAllocator<>> m_source_info_pool;
+  std::unique_ptr<MonotonicAllocator<>> m_source_info_allocator;
 
  public:
   DataFlowGraph() = default;

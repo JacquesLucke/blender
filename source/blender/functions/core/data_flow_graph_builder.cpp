@@ -24,13 +24,13 @@ const StringRefNull DFGB_Socket::name() const
 
 DataFlowGraphBuilder::DataFlowGraphBuilder()
 {
-  m_source_info_pool = std::unique_ptr<MonotonicAllocator<>>(new MonotonicAllocator<>());
+  m_source_info_allocator = std::unique_ptr<MonotonicAllocator<>>(new MonotonicAllocator<>());
 }
 
 DataFlowGraphBuilder::~DataFlowGraphBuilder()
 {
   /* Destruct source info if it is still owned. */
-  if (m_source_info_pool.get()) {
+  if (m_source_info_allocator.get()) {
     for (DFGB_Node *node : m_nodes) {
       if (node->source()) {
         node->source()->~SourceInfo();
@@ -45,7 +45,7 @@ DataFlowGraphBuilder::~DataFlowGraphBuilder()
 DFGB_Node *DataFlowGraphBuilder::insert_function(SharedFunction &fn, SourceInfo *source)
 {
   BLI_assert(this->is_mutable());
-  void *ptr = m_node_pool.allocate(sizeof(DFGB_Node));
+  void *ptr = m_node_allocator.allocate(sizeof(DFGB_Node));
   DFGB_Node *node = new (ptr) DFGB_Node(*this, fn, source);
   m_nodes.add_new(node);
   return node;

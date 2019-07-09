@@ -173,7 +173,7 @@ class DataFlowGraphBuilder {
   template<typename T, typename... Args> T *new_source_info(Args &&... args)
   {
     BLI_STATIC_ASSERT((std::is_base_of<SourceInfo, T>::value), "");
-    void *ptr = m_source_info_pool->allocate(sizeof(T));
+    void *ptr = m_source_info_allocator->allocate(sizeof(T));
     T *source = new (ptr) T(std::forward<Args>(args)...);
     return source;
   }
@@ -181,7 +181,7 @@ class DataFlowGraphBuilder {
   inline bool is_mutable() const
   {
     /* This pool is stolen as soon, as the actual graph is build. */
-    return m_source_info_pool.get() != nullptr;
+    return m_source_info_allocator.get() != nullptr;
   }
 
   std::string to_dot();
@@ -191,8 +191,8 @@ class DataFlowGraphBuilder {
   SmallSet<DFGB_Node *> m_nodes;
   SmallMap<DFGB_Socket, DFGB_Socket> m_input_origins;
   SmallMultiMap<DFGB_Socket, DFGB_Socket> m_output_targets;
-  MonotonicAllocator<sizeof(DFGB_Node) * 4> m_node_pool;
-  std::unique_ptr<MonotonicAllocator<>> m_source_info_pool;
+  MonotonicAllocator<sizeof(DFGB_Node) * 4> m_node_allocator;
+  std::unique_ptr<MonotonicAllocator<>> m_source_info_allocator;
 
   friend DFGB_Socket;
   friend DataFlowGraph;
