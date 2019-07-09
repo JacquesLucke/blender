@@ -76,10 +76,21 @@ class SurfaceEmitter : public Emitter {
       float3 normal;
       normal_tri_v3(normal, v1, v2, v3);
 
-      float4x4 transform = float4x4::interpolate(m_transform_start, m_transform_end, birth_moment);
+      float epsilon = 0.01f;
+      /* TODO: interpolate decomposed matrices */
+      float4x4 transform_at_birth = float4x4::interpolate(
+          m_transform_start, m_transform_end, birth_moment);
+      float4x4 transform_before_birth = float4x4::interpolate(
+          m_transform_start, m_transform_end, birth_moment - epsilon);
 
-      positions.append(transform.transform_position(pos));
-      velocities.append(transform.transform_direction(normal * m_normal_velocity));
+      float3 point_at_birth = transform_at_birth.transform_position(pos);
+      float3 point_before_birth = transform_before_birth.transform_position(pos);
+
+      float3 normal_velocity = transform_at_birth.transform_direction(normal);
+      float3 emitter_velocity = (point_at_birth - point_before_birth) / epsilon;
+
+      positions.append(point_at_birth);
+      velocities.append(normal_velocity * m_normal_velocity + emitter_velocity * 0.3f);
       birth_moments.append(birth_moment);
     }
 
