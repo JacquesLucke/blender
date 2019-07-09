@@ -7,6 +7,7 @@
 #include "actions.hpp"
 #include "simulate.hpp"
 #include "world_state.hpp"
+#include "step_description.hpp"
 
 #include "BLI_timeit.hpp"
 #include "BLI_listbase.h"
@@ -141,75 +142,6 @@ class EulerIntegrator : public Integrator {
       r_position_offsets[pindex] = duration *
                                    (last_velocities[pindex] + r_velocity_offsets[pindex] * 0.5f);
     }
-  }
-};
-
-class ModifierParticleType : public ParticleType {
- public:
-  SmallVector<Event *> m_events;
-  EulerIntegrator *m_integrator;
-
-  ~ModifierParticleType()
-  {
-    delete m_integrator;
-
-    for (Event *event : m_events) {
-      delete event;
-    }
-  }
-
-  ArrayRef<Event *> events() override
-  {
-    return m_events;
-  }
-
-  Integrator &integrator() override
-  {
-    return *m_integrator;
-  }
-
-  void attributes(TypeAttributeInterface &interface) override
-  {
-    interface.use(AttributeType::Float3, "Position");
-    interface.use(AttributeType::Float3, "Velocity");
-  }
-};
-
-class ModifierStepDescription : public StepDescription {
- public:
-  float m_duration;
-  SmallMap<std::string, ModifierParticleType *> m_types;
-  SmallVector<Emitter *> m_emitters;
-  SmallVector<std::string> m_particle_type_names;
-
-  ~ModifierStepDescription()
-  {
-    for (auto *type : m_types.values()) {
-      delete type;
-    }
-    for (Emitter *emitter : m_emitters) {
-      delete emitter;
-    }
-  }
-
-  float step_duration() override
-  {
-    return m_duration;
-  }
-
-  ArrayRef<Emitter *> emitters() override
-  {
-    return m_emitters;
-  }
-
-  ArrayRef<std::string> particle_type_names() override
-  {
-    return m_particle_type_names;
-  }
-
-  ParticleType &particle_type(StringRef type_name) override
-  {
-    return *m_types.lookup(type_name.to_std_string());
   }
 };
 
@@ -509,7 +441,9 @@ static void INSERT_FORCE_gravity(bNode *force_node,
     Force *force = FORCE_gravity(fn);
 
     bNode *type_node = linked.node;
-    step_description.m_types.lookup_ref(type_node->name)->m_integrator->m_forces.append(force);
+    EulerIntegrator *integrator = reinterpret_cast<EulerIntegrator *>(
+        step_description.m_types.lookup_ref(type_node->name)->m_integrator);
+    integrator->m_forces.append(force);
   }
 }
 
@@ -534,7 +468,9 @@ static void INSERT_FORCE_turbulence(bNode *force_node,
     Force *force = FORCE_turbulence(fn);
 
     bNode *type_node = linked.node;
-    step_description.m_types.lookup_ref(type_node->name)->m_integrator->m_forces.append(force);
+    EulerIntegrator *integrator = reinterpret_cast<EulerIntegrator *>(
+        step_description.m_types.lookup_ref(type_node->name)->m_integrator);
+    integrator->m_forces.append(force);
   }
 }
 
