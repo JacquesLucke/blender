@@ -49,7 +49,8 @@
 #include "BParticles.h"
 
 typedef struct RuntimeData {
-  BParticlesState state;
+  BParticlesState particles_state;
+  BParticlesWorldState world_state;
   float last_simulated_frame;
 } RuntimeData;
 
@@ -57,7 +58,8 @@ static RuntimeData *get_runtime_struct(NodeParticlesModifierData *npmd)
 {
   if (npmd->modifier.runtime == NULL) {
     RuntimeData *runtime = MEM_callocN(sizeof(RuntimeData), __func__);
-    runtime->state = NULL;
+    runtime->particles_state = NULL;
+    runtime->world_state = NULL;
     runtime->last_simulated_frame = 0.0f;
     npmd->modifier.runtime = runtime;
   }
@@ -67,7 +69,8 @@ static RuntimeData *get_runtime_struct(NodeParticlesModifierData *npmd)
 
 static void free_runtime_data(RuntimeData *runtime)
 {
-  BParticles_state_free(runtime->state);
+  BParticles_state_free(runtime->particles_state);
+  BParticles_world_state_free(runtime->world_state);
   MEM_freeN(runtime);
 }
 
@@ -80,13 +83,13 @@ static void free_modifier_runtime_data(NodeParticlesModifierData *npmd)
   }
 }
 
-static Mesh *point_mesh_from_particle_state(BParticlesState state)
+static Mesh *point_mesh_from_particle_state(BParticlesState particles_state)
 {
-  uint point_amount = BParticles_state_particle_count(state);
+  uint point_amount = BParticles_state_particle_count(particles_state);
   Mesh *mesh = BKE_mesh_new_nomain(point_amount, 0, 0, 0, 0);
 
   float(*positions)[3] = MEM_malloc_arrayN(point_amount, sizeof(float[3]), __func__);
-  BParticles_state_get_positions(state, positions);
+  BParticles_state_get_positions(particles_state, positions);
 
   for (uint i = 0; i < point_amount; i++) {
     copy_v3_v3(mesh->mvert[i].co, positions[i]);
@@ -103,8 +106,9 @@ static Mesh *applyModifier(ModifierData *md,
   NodeParticlesModifierData *npmd = (NodeParticlesModifierData *)md;
   RuntimeData *runtime = get_runtime_struct(npmd);
 
-  if (runtime->state == NULL) {
-    runtime->state = BParticles_new_empty_state();
+  if (runtime->particles_state == NULL) {
+    runtime->particles_state = BParticles_new_empty_state();
+    runtime->world_state = BParticles_new_world_state();
   }
 
   Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
@@ -114,17 +118,19 @@ static Mesh *applyModifier(ModifierData *md,
     /* do nothing */
   }
   else if (current_frame == runtime->last_simulated_frame + 1.0f) {
-    BParticles_simulate_modifier(npmd, ctx->depsgraph, runtime->state);
+    BParticles_simulate_modifier(
+        npmd, ctx->depsgraph, runtime->particles_state, runtime->world_state);
     runtime->last_simulated_frame = current_frame;
   }
   else {
     free_modifier_runtime_data(npmd);
     runtime = get_runtime_struct(npmd);
-    runtime->state = BParticles_new_empty_state();
+    runtime->particles_state = BParticles_new_empty_state();
+    runtime->world_state = BParticles_new_world_state();
     runtime->last_simulated_frame = current_frame;
   }
 
-  return BParticles_test_mesh_from_state(runtime->state);
+  return BParticles_test_mesh_from_state(runtime->particles_state);
 }
 
 static void initData(ModifierData *UNUSED(md))

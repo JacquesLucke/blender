@@ -52,18 +52,33 @@ using BLI::StringRef;
 
 WRAPPERS(ParticlesState *, BParticlesState);
 
-/* New Functions
- *********************************************************/
-
 BParticlesState BParticles_new_empty_state()
 {
   ParticlesState *state = new ParticlesState();
   return wrap(state);
 }
 
-void BParticles_state_free(BParticlesState state)
+void BParticles_state_free(BParticlesState state_c)
 {
-  delete unwrap(state);
+  delete unwrap(state_c);
+}
+
+class WorldState {
+ public:
+  SmallMap<std::string, float4x4> m_cached_matrices;
+};
+
+WRAPPERS(WorldState *, BParticlesWorldState);
+
+BParticlesWorldState BParticles_new_world_state()
+{
+  WorldState *world_state = new WorldState();
+  return wrap(world_state);
+}
+
+void BParticles_world_state_free(BParticlesWorldState world_state_c)
+{
+  delete unwrap(world_state_c);
 }
 
 class EulerIntegrator : public Integrator {
@@ -205,7 +220,8 @@ class ModifierStepDescription : public StepDescription {
 using EmitterInserter = std::function<void(bNode *bnode,
                                            IndexedNodeTree &indexed_tree,
                                            FN::DataFlowNodes::GeneratedGraph &data_graph,
-                                           ModifierStepDescription &step_description)>;
+                                           ModifierStepDescription &step_description,
+                                           WorldState &world_state)>;
 using EventInserter = EmitterInserter;
 using ModifierInserter = EmitterInserter;
 
@@ -364,7 +380,8 @@ static std::unique_ptr<Action> build_action(SocketWithNode start,
 static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
                                         IndexedNodeTree &indexed_tree,
                                         FN::DataFlowNodes::GeneratedGraph &UNUSED(data_graph),
-                                        ModifierStepDescription &step_description)
+                                        ModifierStepDescription &step_description,
+                                        WorldState &world_state)
 {
   BLI_assert(STREQ(emitter_node->idname, "bp_MeshEmitterNode"));
   bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
@@ -382,8 +399,15 @@ static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
       continue;
     }
 
+    std::string tranformation_key = emitter_node->name;
+    float4x4 last_transformation = world_state.m_cached_matrices.lookup_default(tranformation_key,
+                                                                                object->obmat);
+    float4x4 current_transformation = object->obmat;
+
+    world_state.m_cached_matrices.add_override(tranformation_key, current_transformation);
+
     Emitter *emitter = EMITTER_mesh_surface(
-        type_node->name, (Mesh *)object->data, object->obmat, object->obmat, 1.0f);
+        type_node->name, (Mesh *)object->data, last_transformation, current_transformation, 1.0f);
     step_description.m_emitters.append(emitter);
   }
 }
@@ -391,7 +415,8 @@ static void INSERT_EMITTER_mesh_surface(bNode *emitter_node,
 static void INSERT_EMITTER_point(bNode *emitter_node,
                                  IndexedNodeTree &indexed_tree,
                                  FN::DataFlowNodes::GeneratedGraph &UNUSED(data_graph),
-                                 ModifierStepDescription &step_description)
+                                 ModifierStepDescription &step_description,
+                                 WorldState &UNUSED(world_state))
 {
   BLI_assert(STREQ(emitter_node->idname, "bp_PointEmitterNode"));
   bNodeSocket *emitter_output = (bNodeSocket *)emitter_node->outputs.first;
@@ -416,7 +441,8 @@ static void INSERT_EMITTER_point(bNode *emitter_node,
 static void INSERT_EVENT_age_reached(bNode *event_node,
                                      IndexedNodeTree &indexed_tree,
                                      FN::DataFlowNodes::GeneratedGraph &data_graph,
-                                     ModifierStepDescription &step_description)
+                                     ModifierStepDescription &step_description,
+                                     WorldState &UNUSED(world_state))
 {
   BLI_assert(STREQ(event_node->idname, "bp_AgeReachedEventNode"));
   bSocketList node_inputs(event_node->inputs);
@@ -442,7 +468,8 @@ static void INSERT_EVENT_age_reached(bNode *event_node,
 static void INSERT_EVENT_mesh_collision(bNode *event_node,
                                         IndexedNodeTree &indexed_tree,
                                         FN::DataFlowNodes::GeneratedGraph &data_graph,
-                                        ModifierStepDescription &step_description)
+                                        ModifierStepDescription &step_description,
+                                        WorldState &UNUSED(world_state))
 {
   BLI_assert(STREQ(event_node->idname, "bp_MeshCollisionEventNode"));
   bSocketList node_inputs(event_node->inputs);
@@ -472,7 +499,8 @@ static void INSERT_EVENT_mesh_collision(bNode *event_node,
 static void INSERT_FORCE_gravity(bNode *force_node,
                                  IndexedNodeTree &indexed_tree,
                                  FN::DataFlowNodes::GeneratedGraph &data_graph,
-                                 ModifierStepDescription &step_description)
+                                 ModifierStepDescription &step_description,
+                                 WorldState &UNUSED(world_state))
 {
   BLI_assert(STREQ(force_node->idname, "bp_GravityForceNode"));
   bSocketList node_inputs(force_node->inputs);
@@ -496,7 +524,8 @@ static void INSERT_FORCE_gravity(bNode *force_node,
 static void INSERT_FORCE_turbulence(bNode *force_node,
                                     IndexedNodeTree &indexed_tree,
                                     FN::DataFlowNodes::GeneratedGraph &data_graph,
-                                    ModifierStepDescription &step_description)
+                                    ModifierStepDescription &step_description,
+                                    WorldState &UNUSED(world_state))
 {
   BLI_assert(STREQ(force_node->idname, "bp_TurbulenceForceNode"));
   bSocketList node_inputs(force_node->inputs);
@@ -517,7 +546,8 @@ static void INSERT_FORCE_turbulence(bNode *force_node,
   }
 }
 
-static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree)
+static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree,
+                                                                WorldState &world_state)
 {
   SCOPED_TIMER(__func__);
 
@@ -550,19 +580,19 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
 
   for (auto item : emitter_inserters.items()) {
     for (bNode *emitter_node : indexed_tree.nodes_with_idname(item.key)) {
-      item.value(emitter_node, indexed_tree, generated_graph, *step_description);
+      item.value(emitter_node, indexed_tree, generated_graph, *step_description, world_state);
     }
   }
 
   for (auto item : event_inserters.items()) {
     for (bNode *event_node : indexed_tree.nodes_with_idname(item.key)) {
-      item.value(event_node, indexed_tree, generated_graph, *step_description);
+      item.value(event_node, indexed_tree, generated_graph, *step_description, world_state);
     }
   }
 
   for (auto item : modifier_inserters.items()) {
     for (bNode *modifier_node : indexed_tree.nodes_with_idname(item.key)) {
-      item.value(modifier_node, indexed_tree, generated_graph, *step_description);
+      item.value(modifier_node, indexed_tree, generated_graph, *step_description, world_state);
     }
   }
 
@@ -571,7 +601,8 @@ static ModifierStepDescription *step_description_from_node_tree(bNodeTree *btree
 
 void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
                                   Depsgraph *UNUSED(depsgraph),
-                                  BParticlesState state_c)
+                                  BParticlesState particles_state_c,
+                                  BParticlesWorldState world_state_c)
 {
   SCOPED_TIMER(__func__);
 
@@ -579,14 +610,16 @@ void BParticles_simulate_modifier(NodeParticlesModifierData *npmd,
     return;
   }
 
+  WorldState &world_state = *unwrap(world_state_c);
+
   ModifierStepDescription *step_description = step_description_from_node_tree(
-      (bNodeTree *)DEG_get_original_id((ID *)npmd->bparticles_tree));
+      (bNodeTree *)DEG_get_original_id((ID *)npmd->bparticles_tree), world_state);
   step_description->m_duration = 1.0f / 24.0f;
 
-  ParticlesState &state = *unwrap(state_c);
-  simulate_step(state, *step_description);
+  ParticlesState &particles_state = *unwrap(particles_state_c);
+  simulate_step(particles_state, *step_description);
 
-  auto &containers = state.particle_containers();
+  auto &containers = particles_state.particle_containers();
   for (auto item : containers.items()) {
     std::cout << "Particle Type: " << item.key << "\n";
     std::cout << "  Particles: " << item.value->count_active() << "\n";
