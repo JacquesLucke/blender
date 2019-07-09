@@ -5800,6 +5800,30 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
         }
       }
     }
+    else if (md->type == eModifierType_BParticles) {
+      BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
+      bpmd->cached_frames = newdataadr(fd, bpmd->cached_frames);
+
+      for (uint frame_index = 0; frame_index < bpmd->num_cached_frames; frame_index++) {
+        BParticlesFrameCache *cached_frame = &bpmd->cached_frames[frame_index];
+        cached_frame->particle_types = newdataadr(fd, cached_frame->particle_types);
+
+        for (uint type = 0; type < cached_frame->num_particle_types; type++) {
+          BParticlesTypeCache *cached_type = &cached_frame->particle_types[type];
+          cached_type->attributes_float3 = newdataadr(fd, cached_type->attributes_float3);
+
+          for (uint i = 0; i < cached_type->num_attributes_float3; i++) {
+            BParticlesAttributeCacheFloat3 *cached_attribute = &cached_type->attributes_float3[i];
+            cached_attribute->values = newdataadr(fd, cached_attribute->values);
+
+            if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
+              BLI_endian_switch_float_array(cached_attribute->values,
+                                            cached_type->particle_amount * 3);
+            }
+          }
+        }
+      }
+    }
   }
 }
 

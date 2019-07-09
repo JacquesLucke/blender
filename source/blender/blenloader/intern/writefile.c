@@ -1758,6 +1758,36 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
         }
       }
     }
+    else if (md->type == eModifierType_BParticles) {
+      BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
+      writestruct(wd, DATA, BParticlesFrameCache, bpmd->num_cached_frames, bpmd->cached_frames);
+
+      for (uint frame_index = 0; frame_index < bpmd->num_cached_frames; frame_index++) {
+        BParticlesFrameCache *cached_frame = &bpmd->cached_frames[frame_index];
+        writestruct(wd,
+                    DATA,
+                    BParticlesTypeCache,
+                    cached_frame->num_particle_types,
+                    cached_frame->particle_types);
+
+        for (uint type = 0; type < cached_frame->num_particle_types; type++) {
+          BParticlesTypeCache *cached_type = &cached_frame->particle_types[type];
+          writestruct(wd,
+                      DATA,
+                      BParticlesAttributeCacheFloat3,
+                      cached_type->num_attributes_float3,
+                      cached_type->attributes_float3);
+
+          for (uint i = 0; i < cached_type->num_attributes_float3; i++) {
+            BParticlesAttributeCacheFloat3 *attribute_cache = &cached_type->attributes_float3[i];
+            writedata(wd,
+                      DATA,
+                      sizeof(float) * 3 * cached_type->particle_amount,
+                      attribute_cache->values);
+          }
+        }
+      }
+    }
   }
 }
 

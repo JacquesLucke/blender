@@ -104,15 +104,23 @@ static Mesh *applyModifier(ModifierData *md,
                            Mesh *UNUSED(mesh))
 {
   BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
+  BParticlesModifierData *bpmd_orig = (BParticlesModifierData *)modifier_get_original(md);
+
+  Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
+  float current_frame = BKE_scene_frame_get(scene);
+
+  for (uint i = 0; i < bpmd_orig->num_cached_frames; i++) {
+    if (bpmd_orig->cached_frames[i].frame == current_frame) {
+      return BParticles_modifier_mesh_from_cache(&bpmd_orig->cached_frames[i]);
+    }
+  }
+
   RuntimeData *runtime = get_runtime_struct(bpmd);
 
   if (runtime->particles_state == NULL) {
     runtime->particles_state = BParticles_new_empty_state();
     runtime->world_state = BParticles_new_world_state();
   }
-
-  Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
-  float current_frame = BKE_scene_frame_get(scene);
 
   if (current_frame == runtime->last_simulated_frame) {
     /* do nothing */
@@ -128,9 +136,12 @@ static Mesh *applyModifier(ModifierData *md,
     runtime->particles_state = BParticles_new_empty_state();
     runtime->world_state = BParticles_new_world_state();
     runtime->last_simulated_frame = current_frame;
+    BParticles_modifier_free_cache(bpmd_orig);
   }
 
-  return BParticles_test_mesh_from_state(runtime->particles_state);
+  BParticles_modifier_cache_state(bpmd_orig, runtime->particles_state, current_frame);
+  return BParticles_modifier_mesh_from_cache(
+      &bpmd_orig->cached_frames[bpmd_orig->num_cached_frames - 1]);
 }
 
 static void initData(ModifierData *UNUSED(md))
@@ -141,6 +152,16 @@ static void freeData(ModifierData *md)
 {
   BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
   free_modifier_runtime_data(bpmd);
+  BParticles_modifier_free_cache(bpmd);
+}
+
+static void copyData(const ModifierData *md, ModifierData *target, const int flag)
+{
+  BParticlesModifierData *tbpmd = (BParticlesModifierData *)target;
+
+  modifier_copyData_generic(md, target, flag);
+  tbpmd->num_cached_frames = 0;
+  tbpmd->cached_frames = NULL;
 }
 
 static void freeRuntimeData(void *runtime_data_v)
@@ -183,7 +204,7 @@ ModifierTypeInfo modifierType_BParticles = {
     /* structSize */ sizeof(BParticlesModifierData),
     /* type */ eModifierTypeType_Constructive,
     /* flags */ eModifierTypeFlag_AcceptsMesh,
-    /* copyData */ modifier_copyData_generic,
+    /* copyData */ copyData,
 
     /* deformVerts */ NULL,
     /* deformMatrices */ NULL,

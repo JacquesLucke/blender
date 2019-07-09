@@ -243,6 +243,11 @@ template<typename T> class ArrayRef {
   }
 };
 
+template<typename T> ArrayRef<T> ref_c_array(T *array, uint size)
+{
+  return ArrayRef<T>(array, size);
+}
+
 template<typename ArrayT, typename ValueT, ValueT (*GetValue)(ArrayT &item)> class MappedArrayRef {
  private:
   ArrayT *m_start = nullptr;

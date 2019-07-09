@@ -1963,9 +1963,31 @@ typedef struct FunctionPointsModifierData {
   struct bNodeTree *function_tree;
 } FunctionPointsModifierData;
 
+typedef struct BParticlesAttributeCacheFloat3 {
+  char name[64];
+  float *values;
+} BParticlesAttributeCacheFloat3;
+
+typedef struct BParticlesTypeCache {
+  char name[64];
+  unsigned int num_attributes_float3;
+  unsigned int particle_amount;
+  BParticlesAttributeCacheFloat3 *attributes_float3;
+} BParticlesTypeCache;
+
+typedef struct BParticlesFrameCache {
+  unsigned int num_particle_types;
+  float frame;
+  BParticlesTypeCache *particle_types;
+} BParticlesFrameCache;
+
 typedef struct BParticlesModifierData {
   ModifierData modifier;
   struct bNodeTree *bparticles_tree;
+
+  unsigned int num_cached_frames;
+  char _pad[4];
+  BParticlesFrameCache *cached_frames;
 } BParticlesModifierData;
 
 #endif /* __DNA_MODIFIER_TYPES_H__ */

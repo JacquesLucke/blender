@@ -6,6 +6,7 @@
 
 #include "BLI_timeit.hpp"
 #include "BLI_task.hpp"
+#include "BLI_string.h"
 
 #include "BKE_mesh.h"
 #include "BKE_customdata.h"
@@ -176,20 +177,47 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers, float scale)
   return mesh;
 }
 
-Mesh *BParticles_test_mesh_from_state(BParticlesState state_c)
+void BParticles_modifier_free_cache(BParticlesModifierData *bpmd)
+{
+  if (bpmd->cached_frames == nullptr) {
+    BLI_assert(bpmd->num_cached_frames == 0);
+    return;
+  }
+
+  for (auto &cached_frame : BLI::ref_c_array(bpmd->cached_frames, bpmd->num_cached_frames)) {
+    for (auto &cached_type :
+         BLI::ref_c_array(cached_frame.particle_types, cached_frame.num_particle_types)) {
+      for (auto &cached_attribute :
+           BLI::ref_c_array(cached_type.attributes_float3, cached_type.num_attributes_float3)) {
+        if (cached_attribute.values != nullptr) {
+          MEM_freeN(cached_attribute.values);
+        }
+      }
+      if (cached_type.attributes_float3 != nullptr) {
+        MEM_freeN(cached_type.attributes_float3);
+      }
+    }
+    if (cached_frame.particle_types != nullptr) {
+      MEM_freeN(cached_frame.particle_types);
+    }
+  }
+  MEM_freeN(bpmd->cached_frames);
+  bpmd->cached_frames = nullptr;
+  bpmd->num_cached_frames = 0;
+}
+
+Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
 {
   SCOPED_TIMER(__func__);
 
-  ParticlesState &state = *unwrap(state_c);
-
-  SmallVector<ParticlesContainer *> containers = state.particle_containers().values();
-
   SmallVector<float3> positions;
   SmallVector<uint> particle_counts;
-  for (ParticlesContainer *container : containers) {
-    SmallVector<float3> positions_in_container = container->flatten_attribute_float3("Position");
-    particle_counts.append(positions_in_container.size());
-    positions.extend(positions_in_container);
+
+  for (uint i = 0; i < cached_frame->num_particle_types; i++) {
+    BParticlesTypeCache &type = cached_frame->particle_types[i];
+    particle_counts.append(type.particle_amount);
+    positions.extend(
+        ArrayRef<float3>((float3 *)type.attributes_float3[0].values, type.particle_amount));
   }
 
   Mesh *mesh = distribute_tetrahedons(positions, 0.025f);
@@ -205,7 +233,7 @@ Mesh *BParticles_test_mesh_from_state(BParticlesState state_c)
   MLoopCol *loop_colors = (MLoopCol *)CustomData_add_layer_named(
       &mesh->ldata, CD_MLOOPCOL, CD_DEFAULT, nullptr, mesh->totloop, "Color");
   uint loop_offset = 0;
-  for (uint i = 0; i < containers.size(); i++) {
+  for (uint i = 0; i < cached_frame->num_particle_types; i++) {
     uint loop_count = particle_counts[i] * loops_per_particle;
     MLoopCol color = colors_to_use[i];
     for (uint j = 0; j < loop_count; j++) {
@@ -215,4 +243,43 @@ Mesh *BParticles_test_mesh_from_state(BParticlesState state_c)
   }
 
   return mesh;
+}
+
+void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
+                                     BParticlesState particles_state_c,
+                                     float frame)
+{
+  ParticlesState &state = *unwrap(particles_state_c);
+
+  SmallVector<std::string> container_names = state.particle_containers().keys();
+  SmallVector<ParticlesContainer *> containers = state.particle_containers().values();
+
+  BParticlesFrameCache cached_frame = {0};
+  cached_frame.frame = frame;
+  cached_frame.num_particle_types = containers.size();
+  cached_frame.particle_types = (BParticlesTypeCache *)MEM_calloc_arrayN(
+      containers.size(), sizeof(BParticlesTypeCache), __func__);
+
+  for (uint i = 0; i < containers.size(); i++) {
+    ParticlesContainer &container = *containers[i];
+    BParticlesTypeCache &cached_type = cached_frame.particle_types[i];
+
+    strncpy(cached_type.name, container_names[i].data(), sizeof(cached_type.name));
+    cached_type.particle_amount = container.count_active();
+
+    cached_type.num_attributes_float3 = 1;
+    cached_type.attributes_float3 = (BParticlesAttributeCacheFloat3 *)MEM_calloc_arrayN(
+        cached_type.num_attributes_float3, sizeof(BParticlesAttributeCacheFloat3), __func__);
+
+    BParticlesAttributeCacheFloat3 &cached_attribute = cached_type.attributes_float3[0];
+    strncpy(cached_attribute.name, "Position", sizeof(cached_attribute.name));
+    cached_attribute.values = (float *)MEM_malloc_arrayN(
+        cached_type.particle_amount, sizeof(float3), __func__);
+    container.flatten_attribute_data("Position", cached_attribute.values);
+  }
+
+  bpmd->cached_frames = (BParticlesFrameCache *)MEM_reallocN(
+      bpmd->cached_frames, sizeof(BParticlesFrameCache) * (bpmd->num_cached_frames + 1));
+  bpmd->cached_frames[bpmd->num_cached_frames] = cached_frame;
+  bpmd->num_cached_frames++;
 }
