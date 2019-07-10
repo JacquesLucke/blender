@@ -89,11 +89,23 @@ AttributesInfo &BlockAllocator::attributes_info(StringRef particle_type_name)
   return m_state.particle_container(particle_type_name).attributes_info();
 }
 
+std::unique_ptr<EmitTargetBase> BlockAllocator::request(StringRef particle_type_name, uint size)
+{
+  SmallVector<ParticlesBlock *> blocks;
+  SmallVector<Range<uint>> ranges;
+  this->allocate_block_ranges(particle_type_name, size, blocks, ranges);
+
+  AttributesInfo &attributes_info = this->attributes_info(particle_type_name);
+
+  EmitTargetBase *target = new EmitTargetBase(particle_type_name, attributes_info, blocks, ranges);
+  return std::unique_ptr<EmitTargetBase>(target);
+}
+
 /* Emitter Interface
  ******************************************/
 
 EmitterInterface::EmitterInterface(BlockAllocator &block_allocator, TimeSpan time_span)
-    : m_emit_manager(block_allocator), m_time_span(time_span)
+    : m_block_allocator(block_allocator), m_time_span(time_span)
 {
 }
 
@@ -257,21 +269,6 @@ void EmitTargetBase::fill_float3(StringRef name, float3 value)
 {
   uint index = m_attributes_info.attribute_index(name);
   this->fill_float3(index, value);
-}
-
-/* EmitManager
- *****************************************/
-
-std::unique_ptr<EmitTargetBase> EmitManager::request(StringRef particle_type_name, uint size)
-{
-  SmallVector<ParticlesBlock *> blocks;
-  SmallVector<Range<uint>> ranges;
-  m_block_allocator.allocate_block_ranges(particle_type_name, size, blocks, ranges);
-
-  AttributesInfo &attributes_info = m_block_allocator.attributes_info(particle_type_name);
-
-  EmitTargetBase *target = new EmitTargetBase(particle_type_name, attributes_info, blocks, ranges);
-  return std::unique_ptr<EmitTargetBase>(target);
 }
 
 /* EventFilterInterface

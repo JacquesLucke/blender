@@ -209,46 +209,6 @@ class ParticlesState {
 };
 
 /**
- * This class allows allocating new blocks from different particle containers.
- * A single instance is not thread safe, but multiple allocator instances can
- * be used by multiple threads at the same time.
- * It might hand out the same block more than once until it is full.
- */
-class BlockAllocator {
- private:
-  ParticlesState &m_state;
-  SmallVector<ParticlesBlock *> m_non_full_cache;
-  SmallVector<ParticlesBlock *> m_allocated_blocks;
-
- public:
-  BlockAllocator(ParticlesState &state);
-  BlockAllocator(BlockAllocator &other) = delete;
-
-  /**
-   * Return a block that can hold new particles. It might create an entirely new one or use a
-   * cached block.
-   */
-  ParticlesBlock &get_non_full_block(StringRef particle_type_name);
-
-  /**
-   * Allocate space for a given number of new particles. The attribute buffers might be distributed
-   * over multiple blocks.
-   */
-  void allocate_block_ranges(StringRef particle_type_name,
-                             uint size,
-                             SmallVector<ParticlesBlock *> &r_blocks,
-                             SmallVector<Range<uint>> &r_ranges);
-
-  AttributesInfo &attributes_info(StringRef particle_type_name);
-  ParticlesState &particles_state();
-
-  /**
-   * Access all blocks that have been allocated by this allocator.
-   */
-  ArrayRef<ParticlesBlock *> allocated_blocks();
-};
-
-/**
  * Base class for different kinds of emitters. It's main purpose is to make it easy to initialize
  * particle attributes.
  */
@@ -330,16 +290,44 @@ class InstantEmitTarget : public EmitTargetBase {
                     ArrayRef<Range<uint>> ranges);
 };
 
-class EmitManager {
+/**
+ * This class allows allocating new blocks from different particle containers.
+ * A single instance is not thread safe, but multiple allocator instances can
+ * be used by multiple threads at the same time.
+ * It might hand out the same block more than once until it is full.
+ */
+class BlockAllocator {
  private:
-  BlockAllocator &m_block_allocator;
+  ParticlesState &m_state;
+  SmallVector<ParticlesBlock *> m_non_full_cache;
+  SmallVector<ParticlesBlock *> m_allocated_blocks;
 
  public:
-  EmitManager(BlockAllocator &block_allocator) : m_block_allocator(block_allocator)
-  {
-  }
-  EmitManager(EmitManager &other) = delete;
-  EmitManager(EmitManager &&other) = delete;
+  BlockAllocator(ParticlesState &state);
+  BlockAllocator(BlockAllocator &other) = delete;
+
+  /**
+   * Return a block that can hold new particles. It might create an entirely new one or use a
+   * cached block.
+   */
+  ParticlesBlock &get_non_full_block(StringRef particle_type_name);
+
+  /**
+   * Allocate space for a given number of new particles. The attribute buffers might be distributed
+   * over multiple blocks.
+   */
+  void allocate_block_ranges(StringRef particle_type_name,
+                             uint size,
+                             SmallVector<ParticlesBlock *> &r_blocks,
+                             SmallVector<Range<uint>> &r_ranges);
+
+  AttributesInfo &attributes_info(StringRef particle_type_name);
+  ParticlesState &particles_state();
+
+  /**
+   * Access all blocks that have been allocated by this allocator.
+   */
+  ArrayRef<ParticlesBlock *> allocated_blocks();
 
   std::unique_ptr<EmitTargetBase> request(StringRef particle_type_name, uint size);
 };
@@ -349,14 +337,14 @@ class EmitManager {
  */
 class EmitterInterface {
  private:
-  EmitManager m_emit_manager;
+  BlockAllocator &m_block_allocator;
   TimeSpan m_time_span;
 
  public:
   EmitterInterface(BlockAllocator &block_allocator, TimeSpan time_span);
   ~EmitterInterface() = default;
 
-  EmitManager &emit_manager();
+  BlockAllocator &block_allocator();
 
   /**
    * Time span that new particles should be emitted in.
@@ -736,9 +724,9 @@ inline StringRefNull EmitTargetBase::particle_type_name()
 /* EmitterInterface inline functions
  ***********************************************/
 
-inline EmitManager &EmitterInterface::emit_manager()
+inline BlockAllocator &EmitterInterface::block_allocator()
 {
-  return m_emit_manager;
+  return m_block_allocator;
 }
 
 inline TimeSpan EmitterInterface::time_span()
