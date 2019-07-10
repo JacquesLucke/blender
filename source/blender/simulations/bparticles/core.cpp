@@ -92,29 +92,9 @@ AttributesInfo &BlockAllocator::attributes_info(StringRef particle_type_name)
 /* Emitter Interface
  ******************************************/
 
-EmitterInterface::EmitterInterface(BlockAllocator &allocator, TimeSpan time_span)
-    : m_block_allocator(allocator), m_time_span(time_span)
+EmitterInterface::EmitterInterface(BlockAllocator &block_allocator, TimeSpan time_span)
+    : m_emit_manager(block_allocator), m_time_span(time_span)
 {
-}
-
-EmitterInterface::~EmitterInterface()
-{
-  for (TimeSpanEmitTarget *target : m_targets) {
-    delete target;
-  }
-}
-
-TimeSpanEmitTarget &EmitterInterface::request(StringRef particle_type_name, uint size)
-{
-  SmallVector<ParticlesBlock *> blocks;
-  SmallVector<Range<uint>> ranges;
-  m_block_allocator.allocate_block_ranges(particle_type_name, size, blocks, ranges);
-  AttributesInfo &attributes_info = m_block_allocator.attributes_info(particle_type_name);
-
-  auto *target = new TimeSpanEmitTarget(
-      particle_type_name, attributes_info, blocks, ranges, m_time_span);
-  m_targets.append(target);
-  return *target;
 }
 
 /* Action Interface
@@ -172,15 +152,6 @@ InstantEmitTarget::InstantEmitTarget(StringRef particle_type_name,
                                      ArrayRef<ParticlesBlock *> blocks,
                                      ArrayRef<Range<uint>> ranges)
     : EmitTargetBase(particle_type_name, attributes_info, blocks, ranges)
-{
-}
-
-TimeSpanEmitTarget::TimeSpanEmitTarget(StringRef particle_type_name,
-                                       AttributesInfo &attributes_info,
-                                       ArrayRef<ParticlesBlock *> blocks,
-                                       ArrayRef<Range<uint>> ranges,
-                                       TimeSpan time_span)
-    : EmitTargetBase(particle_type_name, attributes_info, blocks, ranges), m_time_span(time_span)
 {
 }
 
@@ -288,30 +259,19 @@ void EmitTargetBase::fill_float3(StringRef name, float3 value)
   this->fill_float3(index, value);
 }
 
-void TimeSpanEmitTarget::set_birth_moment(float time_factor)
-{
-  BLI_assert(time_factor >= 0.0 && time_factor <= 1.0f);
-  this->fill_float("Birth Time", m_time_span.interpolate(time_factor));
-}
+/* EmitManager
+ *****************************************/
 
-void TimeSpanEmitTarget::set_randomized_birth_moments()
+std::unique_ptr<EmitTargetBase> EmitManager::request(StringRef particle_type_name, uint size)
 {
-  SmallVector<float> birth_times(m_size);
-  for (uint i = 0; i < m_size; i++) {
-    float factor = (rand() % 10000) / 10000.0f;
-    birth_times[i] = m_time_span.interpolate(factor);
-  }
-  this->set_float("Birth Time", birth_times);
-}
+  SmallVector<ParticlesBlock *> blocks;
+  SmallVector<Range<uint>> ranges;
+  m_block_allocator.allocate_block_ranges(particle_type_name, size, blocks, ranges);
 
-void TimeSpanEmitTarget::set_birth_moments(ArrayRef<float> time_factors)
-{
-  BLI_assert(time_factors.size() == m_size);
-  SmallVector<float> birth_times(time_factors.size());
-  for (uint i = 0; i < m_size; i++) {
-    birth_times[i] = m_time_span.interpolate(time_factors[i]);
-  }
-  this->set_float("Birth Time", birth_times);
+  AttributesInfo &attributes_info = m_block_allocator.attributes_info(particle_type_name);
+
+  EmitTargetBase *target = new EmitTargetBase(particle_type_name, attributes_info, blocks, ranges);
+  return std::unique_ptr<EmitTargetBase>(target);
 }
 
 /* EventFilterInterface

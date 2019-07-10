@@ -330,34 +330,18 @@ class InstantEmitTarget : public EmitTargetBase {
                     ArrayRef<Range<uint>> ranges);
 };
 
-/**
- * A specialized emit target for the case when the emitter can create particles within a time span.
- */
-class TimeSpanEmitTarget : public EmitTargetBase {
+class EmitManager {
  private:
-  TimeSpan m_time_span;
+  BlockAllocator &m_block_allocator;
 
  public:
-  TimeSpanEmitTarget(StringRef particle_type_name,
-                     AttributesInfo &attributes_info,
-                     ArrayRef<ParticlesBlock *> blocks,
-                     ArrayRef<Range<uint>> ranges,
-                     TimeSpan time_span);
+  EmitManager(BlockAllocator &block_allocator) : m_block_allocator(block_allocator)
+  {
+  }
+  EmitManager(EmitManager &other) = delete;
+  EmitManager(EmitManager &&other) = delete;
 
-  /**
-   * Set a factor [0, 1] that determines when in the time span all particles are born.
-   */
-  void set_birth_moment(float time_factor);
-
-  /**
-   * Randomize the birth times within a time span.
-   */
-  void set_randomized_birth_moments();
-
-  /**
-   * Set custom bith moments. All values should be in [0, 1].
-   */
-  void set_birth_moments(ArrayRef<float> time_factors);
+  std::unique_ptr<EmitTargetBase> request(StringRef particle_type_name, uint size);
 };
 
 /**
@@ -365,23 +349,14 @@ class TimeSpanEmitTarget : public EmitTargetBase {
  */
 class EmitterInterface {
  private:
-  BlockAllocator &m_block_allocator;
-  SmallVector<TimeSpanEmitTarget *> m_targets;
+  EmitManager m_emit_manager;
   TimeSpan m_time_span;
 
  public:
-  EmitterInterface(BlockAllocator &allocator, TimeSpan time_span);
-  ~EmitterInterface();
+  EmitterInterface(BlockAllocator &block_allocator, TimeSpan time_span);
+  ~EmitterInterface() = default;
 
-  /**
-   * Access emit targets created by the emitter.
-   */
-  ArrayRef<TimeSpanEmitTarget *> targets();
-
-  /**
-   * Get a new emit target with the given size and particle type.
-   */
-  TimeSpanEmitTarget &request(StringRef particle_type_name, uint size);
+  EmitManager &emit_manager();
 
   /**
    * Time span that new particles should be emitted in.
@@ -761,9 +736,9 @@ inline StringRefNull EmitTargetBase::particle_type_name()
 /* EmitterInterface inline functions
  ***********************************************/
 
-inline ArrayRef<TimeSpanEmitTarget *> EmitterInterface::targets()
+inline EmitManager &EmitterInterface::emit_manager()
 {
-  return m_targets;
+  return m_emit_manager;
 }
 
 inline TimeSpan EmitterInterface::time_span()

@@ -30,10 +30,10 @@ class PointEmitter : public Emitter {
 
   void emit(EmitterInterface &interface) override
   {
-    auto &target = interface.request(m_particle_type_name, 1);
-    target.set_float3("Position", {m_point});
-    target.set_float3("Velocity", {float3{-1, -1, 0}});
-    target.set_birth_moment(1.0f);
+    auto target = interface.emit_manager().request(m_particle_type_name, 1);
+    target->set_float3("Position", {m_point});
+    target->set_float3("Velocity", {float3{-1, -1, 0}});
+    target->fill_float("Birth Time", interface.time_span().end());
   }
 };
 
@@ -95,7 +95,7 @@ class SurfaceEmitter : public Emitter {
     SmallVector<float3> positions;
     SmallVector<float3> velocities;
     SmallVector<float> sizes;
-    SmallVector<float> birth_moments;
+    SmallVector<float> birth_times;
 
     for (uint i = 0; i < particles_to_emit; i++) {
       MLoopTri triangle = triangles[rand() % triangle_amount];
@@ -125,15 +125,15 @@ class SurfaceEmitter : public Emitter {
       positions.append(point_at_birth);
       velocities.append(normal_velocity * normal_velocity_factor +
                         emitter_velocity * emitter_velocity_factor);
-      birth_moments.append(birth_moment);
+      birth_times.append(interface.time_span().interpolate(birth_moment));
       sizes.append(size);
     }
 
-    auto &target = interface.request(m_particle_type_name, positions.size());
-    target.set_float3("Position", positions);
-    target.set_float3("Velocity", velocities);
-    target.set_float("Size", sizes);
-    target.set_birth_moments(birth_moments);
+    auto target = interface.emit_manager().request(m_particle_type_name, positions.size());
+    target->set_float3("Position", positions);
+    target->set_float3("Velocity", velocities);
+    target->set_float("Size", sizes);
+    target->set_float("Birth Time", birth_times);
   }
 
   float3 random_point_in_triangle(float3 a, float3 b, float3 c)
