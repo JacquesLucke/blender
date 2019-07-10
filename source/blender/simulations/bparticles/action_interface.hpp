@@ -84,7 +84,7 @@ class ActionInterface {
 
   ParticleSet &particles();
   AttributeArrays attribute_offsets();
-  float remaining_time_in_step(uint index);
+  float remaining_time_in_step(uint pindex);
   ArrayRef<float> current_times();
   void kill(ArrayRef<uint> particle_indices);
   void execute_action_for_subset(ArrayRef<uint> indices, std::unique_ptr<Action> &action);
@@ -134,9 +134,9 @@ inline AttributeArrays ActionInterface::attribute_offsets()
   return m_attribute_offsets;
 }
 
-inline float ActionInterface::remaining_time_in_step(uint index)
+inline float ActionInterface::remaining_time_in_step(uint pindex)
 {
-  return m_remaining_times[index];
+  return m_remaining_times[pindex];
 }
 
 inline ArrayRef<float> ActionInterface::current_times()

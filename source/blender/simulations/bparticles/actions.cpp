@@ -42,7 +42,7 @@ class ChangeDirectionAction : public Action {
       float3 direction = fn_out.get<float3>(0);
 
       velocities[pindex] = direction;
-      position_offsets[pindex] = direction * interface.remaining_time_in_step(i);
+      position_offsets[pindex] = direction * interface.remaining_time_in_step(pindex);
       velocity_offsets[pindex] = float3(0);
     }
 

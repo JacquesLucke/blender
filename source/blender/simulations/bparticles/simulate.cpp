@@ -118,6 +118,18 @@ BLI_NOINLINE static void update_remaining_attribute_offsets(
   }
 }
 
+BLI_NOINLINE static void update_remaining_durations(ArrayRef<uint> indices_with_event,
+                                                    ArrayRef<uint> particle_indices_with_event,
+                                                    ArrayRef<float> time_factors_to_next_event,
+                                                    ArrayRef<float> remaining_durations)
+{
+  for (uint i = 0; i < indices_with_event.size(); i++) {
+    uint index = indices_with_event[i];
+    uint pindex = particle_indices_with_event[i];
+    remaining_durations[pindex] *= (1.0f - time_factors_to_next_event[index]);
+  }
+}
+
 BLI_NOINLINE static void find_particle_indices_per_event(
     ArrayRef<uint> indices_with_events,
     ArrayRef<uint> particle_indices_with_events,
@@ -136,19 +148,18 @@ BLI_NOINLINE static void find_particle_indices_per_event(
 
 BLI_NOINLINE static void compute_current_time_per_particle(
     ArrayRef<uint> indices_with_events,
-    ArrayRef<float> durations,
+    ArrayRef<uint> particle_indices_with_event,
+    ArrayRef<float> remaining_durations,
     float end_time,
     ArrayRef<int> next_event_indices,
-    ArrayRef<float> time_factors_to_next_event,
-    ArrayRef<SmallVector<float>> r_current_time_per_particle,
-    ArrayRef<SmallVector<float>> r_remaining_time_per_particle)
+    ArrayRef<SmallVector<float>> r_current_time_per_particle)
 {
-  for (uint i : indices_with_events) {
-    int event_index = next_event_indices[i];
+  for (uint i = 0; i < indices_with_events.size(); i++) {
+    uint index = indices_with_events[i];
+    uint pindex = particle_indices_with_event[i];
+    int event_index = next_event_indices[index];
     BLI_assert(event_index >= 0);
-    float remaining_duration = durations[i] * (1.0f - time_factors_to_next_event[i]);
-    r_current_time_per_particle[event_index].append(end_time - remaining_duration);
-    r_remaining_time_per_particle[event_index].append(remaining_duration);
+    r_current_time_per_particle[event_index].append(end_time - remaining_durations[pindex]);
   }
 }
 
@@ -156,10 +167,8 @@ BLI_NOINLINE static void find_unfinished_particles(
     ArrayRef<uint> indices_with_event,
     ArrayRef<uint> particle_indices,
     ArrayRef<float> time_factors_to_next_event,
-    ArrayRef<float> durations,
     ArrayRef<uint8_t> kill_states,
-    VectorAdaptor<uint> &r_unfinished_particle_indices,
-    VectorAdaptor<float> &r_remaining_durations)
+    VectorAdaptor<uint> &r_unfinished_particle_indices)
 {
 
   for (uint i : indices_with_event) {
@@ -168,9 +177,7 @@ BLI_NOINLINE static void find_unfinished_particles(
       float time_factor = time_factors_to_next_event[i];
 
       if (time_factor < 1.0f) {
-        float remaining_duration = durations[i] * (1.0f - time_factor);
         r_unfinished_particle_indices.append(pindex);
-        r_remaining_durations.append(remaining_duration);
       }
     }
   }
@@ -181,7 +188,7 @@ BLI_NOINLINE static void execute_events(ParticleAllocator &particle_allocator,
                                         ParticlesBlock &block,
                                         ArrayRef<SmallVector<uint>> particle_indices_per_event,
                                         ArrayRef<SmallVector<float>> current_time_per_particle,
-                                        ArrayRef<SmallVector<float>> remaining_time_per_particle,
+                                        ArrayRef<float> remaining_durations,
                                         ArrayRef<Event *> events,
                                         EventStorage &event_storage,
                                         AttributeArrays attribute_offsets)
@@ -200,7 +207,7 @@ BLI_NOINLINE static void execute_events(ParticleAllocator &particle_allocator,
                                     particle_allocator,
                                     array_allocator,
                                     current_time_per_particle[event_index],
-                                    remaining_time_per_particle[event_index],
+                                    remaining_durations,
                                     event_storage,
                                     attribute_offsets);
     event->execute(interface);
@@ -211,11 +218,10 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
                                                 ParticleAllocator &particle_allocator,
                                                 ParticleSet particles,
                                                 AttributeArrays attribute_offsets,
-                                                ArrayRef<float> durations,
+                                                ArrayRef<float> remaining_durations,
                                                 float end_time,
                                                 ArrayRef<Event *> events,
-                                                VectorAdaptor<uint> &r_unfinished_particle_indices,
-                                                VectorAdaptor<float> &r_remaining_durations)
+                                                VectorAdaptor<uint> &r_unfinished_particle_indices)
 {
   uint amount = particles.size();
   BLI_assert(array_allocator.array_size() >= amount);
@@ -231,7 +237,7 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
 
   find_next_event_per_particle(particles,
                                attribute_offsets,
-                               durations,
+                               remaining_durations,
                                end_time,
                                events,
                                event_storage,
@@ -247,26 +253,29 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
                                      time_factors_to_next_event,
                                      attribute_offsets);
 
+  update_remaining_durations(indices_with_event,
+                             particle_indices_with_event,
+                             time_factors_to_next_event,
+                             remaining_durations);
+
   SmallVector<SmallVector<uint>> particles_per_event(events.size());
   find_particle_indices_per_event(
       indices_with_event, particle_indices_with_event, next_event_indices, particles_per_event);
 
   SmallVector<SmallVector<float>> current_time_per_particle(events.size());
-  SmallVector<SmallVector<float>> remaining_time_per_particle(events.size());
   compute_current_time_per_particle(indices_with_event,
-                                    durations,
+                                    particle_indices_with_event,
+                                    remaining_durations,
                                     end_time,
                                     next_event_indices,
-                                    time_factors_to_next_event,
-                                    current_time_per_particle,
-                                    remaining_time_per_particle);
+                                    current_time_per_particle);
 
   execute_events(particle_allocator,
                  array_allocator,
                  particles.block(),
                  particles_per_event,
                  current_time_per_particle,
-                 remaining_time_per_particle,
+                 remaining_durations,
                  events,
                  event_storage,
                  attribute_offsets);
@@ -274,10 +283,8 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
   find_unfinished_particles(indices_with_event,
                             particles.indices(),
                             time_factors_to_next_event,
-                            durations,
                             particles.attributes().get_byte("Kill State"),
-                            r_unfinished_particle_indices,
-                            r_remaining_durations);
+                            r_unfinished_particle_indices);
 }
 
 BLI_NOINLINE static void simulate_with_max_n_events(
@@ -286,7 +293,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     ParticleAllocator &particle_allocator,
     ParticlesBlock &block,
     AttributeArrays attribute_offsets,
-    ArrayRef<float> durations,
+    ArrayRef<float> remaining_durations,
     float end_time,
     ArrayRef<Event *> events,
     VectorAdaptor<uint> &r_unfinished_particle_indices)
@@ -294,48 +301,37 @@ BLI_NOINLINE static void simulate_with_max_n_events(
   BLI_assert(array_allocator.array_size() >= block.active_amount());
   auto indices_A = array_allocator.allocate_scoped<uint>();
   auto indices_B = array_allocator.allocate_scoped<uint>();
-  auto durations_A = array_allocator.allocate_scoped<float>();
-  auto durations_B = array_allocator.allocate_scoped<float>();
 
   /* Handle first event separately to be able to use the static number range. */
   uint amount_left = block.active_amount();
 
   {
     VectorAdaptor<uint> indices_output(indices_A, amount_left);
-    VectorAdaptor<float> durations_output(durations_A, amount_left);
     simulate_to_next_event(array_allocator,
                            particle_allocator,
                            ParticleSet(block, Range<uint>(0, amount_left).as_array_ref()),
                            attribute_offsets,
-                           durations,
+                           remaining_durations,
                            end_time,
                            events,
-                           indices_output,
-                           durations_output);
-    BLI_assert(indices_output.size() == durations_output.size());
+                           indices_output);
     amount_left = indices_output.size();
   }
 
   for (uint iteration = 0; iteration < max_events - 1 && amount_left > 0; iteration++) {
     VectorAdaptor<uint> indices_input(indices_A, amount_left, amount_left);
     VectorAdaptor<uint> indices_output(indices_B, amount_left, 0);
-    VectorAdaptor<float> durations_input(durations_A, amount_left, amount_left);
-    VectorAdaptor<float> durations_output(durations_B, amount_left, 0);
 
     simulate_to_next_event(array_allocator,
                            particle_allocator,
                            ParticleSet(block, indices_input),
                            attribute_offsets,
-                           durations_input,
+                           remaining_durations,
                            end_time,
                            events,
-                           indices_output,
-                           durations_output);
-    BLI_assert(indices_output.size() == durations_output.size());
-
+                           indices_output);
     amount_left = indices_output.size();
     std::swap(indices_A, indices_B);
-    std::swap(durations_A, durations_B);
   }
 
   for (uint i = 0; i < amount_left; i++) {

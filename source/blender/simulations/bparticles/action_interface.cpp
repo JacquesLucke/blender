@@ -10,12 +10,10 @@ void ActionInterface::execute_action_for_subset(ArrayRef<uint> indices,
                                                 std::unique_ptr<Action> &action)
 {
   SmallVector<float> sub_current_times;
-  SmallVector<float> sub_remaining_times;
   SmallVector<uint> particle_indices;
   for (uint i : indices) {
     particle_indices.append(m_particles.get_particle_index(i));
     sub_current_times.append(m_current_times[i]);
-    sub_remaining_times.append(m_remaining_times[i]);
   }
 
   ParticleSet sub_particles(m_particles.block(), particle_indices);
@@ -24,7 +22,7 @@ void ActionInterface::execute_action_for_subset(ArrayRef<uint> indices,
                                 sub_particles,
                                 m_attribute_offsets,
                                 sub_current_times,
-                                sub_remaining_times,
+                                m_remaining_times,
                                 m_event_info);
   action->execute(sub_interface);
 }
