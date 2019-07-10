@@ -454,36 +454,24 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
 class ParticleAllocators {
  private:
   ParticlesState &m_state;
-  SmallVector<ParticleAllocator *> m_allocators;
+  SmallVector<std::unique_ptr<ParticleAllocator>> m_allocators;
 
  public:
   ParticleAllocators(ParticlesState &state) : m_state(state)
   {
   }
 
-  ~ParticleAllocators()
-  {
-    for (ParticleAllocator *allocator : m_allocators) {
-      delete allocator;
-    }
-  }
-
   ParticleAllocator &new_allocator()
   {
-    ParticleAllocator *new_allocator = new ParticleAllocator(m_state);
-    m_allocators.append(new_allocator);
-    return *new_allocator;
+    ParticleAllocator *allocator = new ParticleAllocator(m_state);
+    m_allocators.append(std::unique_ptr<ParticleAllocator>(allocator));
+    return *allocator;
   }
 
-  ArrayRef<ParticleAllocator *> allocators()
-  {
-    return m_allocators;
-  }
-
-  SmallVector<ParticlesBlock *> all_allocated_blocks()
+  SmallVector<ParticlesBlock *> gather_allocated_blocks()
   {
     SmallVector<ParticlesBlock *> blocks;
-    for (ParticleAllocator *allocator : m_allocators) {
+    for (auto &allocator : m_allocators) {
       blocks.extend(allocator->allocated_blocks());
     }
     return blocks;
@@ -727,14 +715,14 @@ BLI_NOINLINE static void emit_and_simulate_particles(ParticlesState &state,
     ParticleAllocators block_allocators(state);
     simulate_all_existing_blocks(state, step_description, block_allocators, time_span);
     create_particles_from_emitters(step_description, block_allocators, time_span);
-    newly_created_blocks = block_allocators.all_allocated_blocks();
+    newly_created_blocks = block_allocators.gather_allocated_blocks();
   }
 
   while (newly_created_blocks.size() > 0) {
     ParticleAllocators block_allocators(state);
     simulate_blocks_from_birth_to_current_time(
         block_allocators, newly_created_blocks, step_description, time_span.end());
-    newly_created_blocks = block_allocators.all_allocated_blocks();
+    newly_created_blocks = block_allocators.gather_allocated_blocks();
   }
 }
 
