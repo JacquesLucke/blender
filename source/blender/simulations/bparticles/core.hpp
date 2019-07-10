@@ -584,27 +584,6 @@ class TypeAttributeInterface {
   ArrayRef<AttributeType> types();
 };
 
-/* Utility to get ranges as arrays
- ********************************************/
-
-BLI_LAZY_INIT_STATIC(SmallVector<uint>, static_number_range_vector)
-{
-  return Range<uint>(0, 10000).to_small_vector();
-}
-
-inline ArrayRef<uint> static_number_range_ref(uint start, uint length)
-{
-  return ArrayRef<uint>(static_number_range_vector()).slice(start, length);
-}
-
-inline ArrayRef<uint> static_number_range_ref(Range<uint> range)
-{
-  if (range.size() == 0) {
-    return {};
-  }
-  return static_number_range_ref(range.first(), range.size());
-}
-
 /* Event inline functions
  ********************************************/
 

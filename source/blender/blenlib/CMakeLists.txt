@@ -249,6 +249,7 @@ set(SRC
   BLI_object_pool.hpp
   BLI_optional.hpp
   BLI_range.hpp
+  intern/BLI_range.cpp
   BLI_shared.hpp
   BLI_small_vector.hpp
   BLI_small_map.hpp

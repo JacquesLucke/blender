@@ -7,6 +7,8 @@
 #include "BLI_utildefines.h"
 #include "BLI_small_vector.hpp"
 
+#define RANGE_AS_ARRAY_REF_MAX_LEN 10000
+
 namespace BLI {
 
 template<typename T> class Range {
@@ -116,6 +118,8 @@ template<typename T> class Range {
     }
     return values;
   }
+
+  ArrayRef<T> as_array_ref() const;
 };
 
 template<typename T> class ChunkedRange {

@@ -2,6 +2,7 @@
 #include "BLI_range.hpp"
 #include "BLI_small_vector.hpp"
 
+using BLI::ArrayRef;
 using IntRange = BLI::Range<int>;
 using ChunkedIntRange = BLI::ChunkedRange<int>;
 using IntVector = BLI::SmallVector<int>;
@@ -112,6 +113,17 @@ TEST(range, OneAfterEnd)
 {
   IntRange range = IntRange(5, 8);
   EXPECT_EQ(range.one_after_last(), 8);
+}
+
+TEST(range, AsArrayRef)
+{
+  IntRange range = IntRange(4, 10);
+  ArrayRef<int> ref = range.as_array_ref();
+  EXPECT_EQ(ref.size(), 6);
+  EXPECT_EQ(ref[0], 4);
+  EXPECT_EQ(ref[1], 5);
+  EXPECT_EQ(ref[2], 6);
+  EXPECT_EQ(ref[3], 7);
 }
 
 TEST(chunked_range, ChunksExact)

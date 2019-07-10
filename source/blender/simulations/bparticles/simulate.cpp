@@ -298,7 +298,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     VectorAdaptor<float> durations_output(durations_A, amount_left);
     simulate_to_next_event(array_allocator,
                            particle_allocator,
-                           ParticleSet(block, static_number_range_ref(0, amount_left)),
+                           ParticleSet(block, Range<uint>(0, amount_left).as_array_ref()),
                            attribute_offsets,
                            durations,
                            end_time,
@@ -406,7 +406,7 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
   ArrayRef<Event *> events = particle_type.events();
 
   if (events.size() == 0) {
-    ParticleSet all_particles_in_block(block, static_number_range_ref(block.active_range()));
+    ParticleSet all_particles_in_block(block, block.active_range().as_array_ref());
     apply_remaining_offsets(all_particles_in_block, attribute_offsets);
   }
   else {
