@@ -267,16 +267,16 @@ EventExecuteInterface::EventExecuteInterface(ParticleSet particles,
                                              ParticleAllocator &particle_allocator,
                                              ArrayAllocator &array_allocator,
                                              ArrayRef<float> current_times,
+                                             ArrayRef<float> remaining_times,
                                              EventStorage &event_storage,
-                                             AttributeArrays attribute_offsets,
-                                             float step_end_time)
+                                             AttributeArrays attribute_offsets)
     : m_particles(particles),
       m_particle_allocator(particle_allocator),
       m_array_allocator(array_allocator),
       m_current_times(current_times),
+      m_remaining_times(remaining_times),
       m_event_storage(event_storage),
-      m_attribute_offsets(attribute_offsets),
-      m_step_end_time(step_end_time)
+      m_attribute_offsets(attribute_offsets)
 {
 }
 

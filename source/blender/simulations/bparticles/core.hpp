@@ -466,18 +466,18 @@ class EventExecuteInterface {
   ParticleAllocator &m_particle_allocator;
   ArrayAllocator &m_array_allocator;
   ArrayRef<float> m_current_times;
+  ArrayRef<float> m_remaining_times;
   EventStorage &m_event_storage;
   AttributeArrays m_attribute_offsets;
-  float m_step_end_time;
 
  public:
   EventExecuteInterface(ParticleSet particles,
                         ParticleAllocator &particle_allocator,
                         ArrayAllocator &array_allocator,
                         ArrayRef<float> current_times,
+                        ArrayRef<float> remaining_times,
                         EventStorage &event_storage,
-                        AttributeArrays attribute_offsets,
-                        float step_end_time);
+                        AttributeArrays attribute_offsets);
 
   ~EventExecuteInterface() = default;
 
@@ -491,10 +491,7 @@ class EventExecuteInterface {
    */
   ArrayRef<float> current_times();
 
-  /**
-   * Get the end time of the current step.
-   */
-  float step_end_time();
+  ArrayRef<float> remaining_times();
 
   /**
    * Get the data stored in the Event->filter() function for a particle index.
@@ -831,9 +828,9 @@ inline ArrayRef<float> EventExecuteInterface::current_times()
   return m_current_times;
 }
 
-inline float EventExecuteInterface::step_end_time()
+inline ArrayRef<float> EventExecuteInterface::remaining_times()
 {
-  return m_step_end_time;
+  return m_remaining_times;
 }
 
 template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)

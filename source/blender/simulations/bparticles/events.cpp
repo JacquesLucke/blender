@@ -92,7 +92,7 @@ class AgeReachedEvent : public Event {
                                      particles,
                                      interface.attribute_offsets(),
                                      interface.current_times(),
-                                     interface.step_end_time(),
+                                     interface.remaining_times(),
                                      event_info);
     m_action->execute(action_interface);
   }
@@ -224,7 +224,7 @@ class MeshCollisionEventFilter : public Event {
                                      particles,
                                      interface.attribute_offsets(),
                                      interface.current_times(),
-                                     interface.step_end_time(),
+                                     interface.remaining_times(),
                                      event_info);
     m_action->execute(action_interface);
   }

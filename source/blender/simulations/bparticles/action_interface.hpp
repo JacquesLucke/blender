@@ -67,9 +67,9 @@ class ActionInterface {
   ArrayAllocator &m_array_allocator;
   ParticleSet m_particles;
   AttributeArrays m_attribute_offsets;
-  EventInfo &m_event_info;
   ArrayRef<float> m_current_times;
-  float m_step_end_time;
+  ArrayRef<float> m_remaining_times;
+  EventInfo &m_event_info;
 
  public:
   ActionInterface(ParticleAllocator &particle_allocator,
@@ -77,7 +77,7 @@ class ActionInterface {
                   ParticleSet particles,
                   AttributeArrays attribute_offsets,
                   ArrayRef<float> current_times,
-                  float step_end_time,
+                  ArrayRef<float> remaining_times,
                   EventInfo &event_info);
 
   EventInfo &event_info();
@@ -107,14 +107,14 @@ inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
                                         ParticleSet particles,
                                         AttributeArrays attribute_offsets,
                                         ArrayRef<float> current_times,
-                                        float step_end_time,
+                                        ArrayRef<float> remaining_times,
                                         EventInfo &event_info)
     : m_particle_allocator(particle_allocator),
       m_array_allocator(array_allocator),
       m_particles(particles),
       m_attribute_offsets(attribute_offsets),
       m_current_times(current_times),
-      m_step_end_time(step_end_time),
+      m_remaining_times(remaining_times),
       m_event_info(event_info)
 {
 }
@@ -136,7 +136,7 @@ inline AttributeArrays ActionInterface::attribute_offsets()
 
 inline float ActionInterface::remaining_time_in_step(uint index)
 {
-  return m_step_end_time - m_current_times[index];
+  return m_remaining_times[index];
 }
 
 inline ArrayRef<float> ActionInterface::current_times()
