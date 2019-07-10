@@ -461,7 +461,6 @@ class EventExecuteInterface {
   ParticleSet m_particles;
   ParticleAllocator &m_particle_allocator;
   ArrayRef<float> m_current_times;
-  ArrayRef<uint8_t> m_kill_states;
   EventStorage &m_event_storage;
   AttributeArrays m_attribute_offsets;
   float m_step_end_time;
@@ -501,11 +500,6 @@ class EventExecuteInterface {
    * The event is allowed to modify the arrays.
    */
   AttributeArrays attribute_offsets();
-
-  /**
-   * Kill all particles with the given indices in the current block.
-   */
-  void kill(ArrayRef<uint> particle_indices);
 
   /**
    * Get a block allocator. Not that the request_emit_target should usually be used instead.
@@ -812,13 +806,6 @@ inline EventStorage &EventExecuteInterface::event_storage()
 inline ParticleSet &EventExecuteInterface::particles()
 {
   return m_particles;
-}
-
-inline void EventExecuteInterface::kill(ArrayRef<uint> particle_indices)
-{
-  for (uint pindex : particle_indices) {
-    m_kill_states[pindex] = 1;
-  }
 }
 
 inline ArrayRef<float> EventExecuteInterface::current_times()

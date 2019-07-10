@@ -9,26 +9,20 @@ Action::~Action()
 void ActionInterface::execute_action_for_subset(ArrayRef<uint> indices,
                                                 std::unique_ptr<Action> &action)
 {
-  EventExecuteInterface &interface = m_event_execute_interface;
-
-  ParticleSet &particles = interface.particles();
-  auto current_times = interface.current_times();
-
   SmallVector<float> sub_current_times;
   SmallVector<uint> particle_indices;
   for (uint i : indices) {
-    particle_indices.append(particles.get_particle_index(i));
-    sub_current_times.append(current_times[i]);
+    particle_indices.append(m_particles.get_particle_index(i));
+    sub_current_times.append(m_current_times[i]);
   }
 
-  ParticleSet sub_particles(particles.block(), particle_indices);
-  EventExecuteInterface sub_execute_interface(sub_particles,
-                                              interface.particle_allocator(),
-                                              sub_current_times,
-                                              interface.event_storage(),
-                                              interface.attribute_offsets(),
-                                              interface.step_end_time());
-  ActionInterface sub_interface(sub_execute_interface, m_event_info);
+  ParticleSet sub_particles(m_particles.block(), particle_indices);
+  ActionInterface sub_interface(m_particle_allocator,
+                                sub_particles,
+                                m_attribute_offsets,
+                                sub_current_times,
+                                m_step_end_time,
+                                m_event_info);
   action->execute(sub_interface);
 }
 

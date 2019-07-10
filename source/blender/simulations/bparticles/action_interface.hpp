@@ -63,11 +63,20 @@ class ParticleFunction {
 
 class ActionInterface {
  private:
-  EventExecuteInterface &m_event_execute_interface;
+  ParticleAllocator &m_particle_allocator;
+  ParticleSet m_particles;
+  AttributeArrays m_attribute_offsets;
   EventInfo &m_event_info;
+  ArrayRef<float> m_current_times;
+  float m_step_end_time;
 
  public:
-  ActionInterface(EventExecuteInterface &event_execute_interface, EventInfo &event_info);
+  ActionInterface(ParticleAllocator &particle_allocator,
+                  ParticleSet particles,
+                  AttributeArrays attribute_offsets,
+                  ArrayRef<float> current_times,
+                  float step_end_time,
+                  EventInfo &event_info);
 
   EventInfo &event_info();
 
@@ -90,9 +99,18 @@ class Action {
 /* ActionInterface inline functions
  *******************************************/
 
-inline ActionInterface::ActionInterface(EventExecuteInterface &event_execute_interface,
+inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
+                                        ParticleSet particles,
+                                        AttributeArrays attribute_offsets,
+                                        ArrayRef<float> current_times,
+                                        float step_end_time,
                                         EventInfo &event_info)
-    : m_event_execute_interface(event_execute_interface), m_event_info(event_info)
+    : m_particle_allocator(particle_allocator),
+      m_particles(particles),
+      m_attribute_offsets(attribute_offsets),
+      m_current_times(current_times),
+      m_step_end_time(step_end_time),
+      m_event_info(event_info)
 {
 }
 
@@ -103,33 +121,35 @@ inline EventInfo &ActionInterface::event_info()
 
 inline ParticleSet &ActionInterface::particles()
 {
-  return m_event_execute_interface.particles();
+  return m_particles;
 }
 
 inline AttributeArrays ActionInterface::attribute_offsets()
 {
-  return m_event_execute_interface.attribute_offsets();
+  return m_attribute_offsets;
 }
 
 inline float ActionInterface::remaining_time_in_step(uint index)
 {
-  return m_event_execute_interface.step_end_time() -
-         m_event_execute_interface.current_times()[index];
+  return m_step_end_time - m_current_times[index];
 }
 
 inline ArrayRef<float> ActionInterface::current_times()
 {
-  return m_event_execute_interface.current_times();
+  return m_current_times;
 }
 
 inline void ActionInterface::kill(ArrayRef<uint> particle_indices)
 {
-  m_event_execute_interface.kill(particle_indices);
+  auto kill_states = m_particles.attributes().get_byte("Kill State");
+  for (uint pindex : particle_indices) {
+    kill_states[pindex] = 1;
+  }
 }
 
 inline ParticleAllocator &ActionInterface::particle_allocator()
 {
-  return m_event_execute_interface.particle_allocator();
+  return m_particle_allocator;
 }
 
 }  // namespace BParticles
