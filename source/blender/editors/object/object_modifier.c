@@ -86,6 +86,8 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "BParticles.h"
+
 #include "object_intern.h"
 
 static void modifier_skin_customdata_delete(struct Object *ob);
@@ -2519,6 +2521,57 @@ void OBJECT_OT_surfacedeform_bind(wmOperatorType *ot)
   ot->poll = surfacedeform_bind_poll;
   ot->invoke = surfacedeform_bind_invoke;
   ot->exec = surfacedeform_bind_exec;
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_INTERNAL;
+  edit_modifier_properties(ot);
+}
+
+/************************ BParticles ***********************/
+
+static bool bparticles_clear_cache_poll(bContext *C)
+{
+  return edit_modifier_poll_generic(C, &RNA_BParticlesModifier, 0);
+}
+
+static int bparticles_clear_cache_exec(bContext *C, wmOperator *op)
+{
+  Object *ob = ED_object_active_context(C);
+  BParticlesModifierData *bpmd = (BParticlesModifierData *)edit_modifier_property_get(
+      op, ob, eModifierType_BParticles);
+
+  if (bpmd == NULL) {
+    return OPERATOR_CANCELLED;
+  }
+
+  BParticles_modifier_free_cache(bpmd);
+
+  DEG_id_tag_update(&ob->id, ID_RECALC_ALL);
+  WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
+  return OPERATOR_FINISHED;
+}
+
+static int bparticles_clear_cache_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+  if (edit_modifier_invoke_properties(C, op)) {
+    return bparticles_clear_cache_exec(C, op);
+  }
+  else {
+    return OPERATOR_CANCELLED;
+  }
+}
+
+void OBJECT_OT_bparticles_clear_cache(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Clear BParticles Cache";
+  ot->description = "Clear the cache for the modifier";
+  ot->idname = "OBJECT_OT_bparticles_clear_cache";
+
+  /* api callbacks */
+  ot->poll = bparticles_clear_cache_poll;
+  ot->invoke = bparticles_clear_cache_invoke;
+  ot->exec = bparticles_clear_cache_exec;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_INTERNAL;

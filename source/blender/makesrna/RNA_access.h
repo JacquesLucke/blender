@@ -89,6 +89,7 @@ extern StructRNA RNA_Bone;
 extern StructRNA RNA_BoneGroup;
 extern StructRNA RNA_BoolProperty;
 extern StructRNA RNA_BooleanModifier;
+extern StructRNA RNA_BParticlesModifier;
 extern StructRNA RNA_Brush;
 extern StructRNA RNA_BrushCapabilitiesImagePaint;
 extern StructRNA RNA_BrushCapabilitiesVertexPaint;

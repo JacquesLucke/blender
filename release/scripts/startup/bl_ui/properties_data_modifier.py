@@ -1663,6 +1663,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
     def BPARTICLES(self, layout, ob, md):
         layout.prop(md, "bparticles_tree")
+        layout.operator("object.bparticles_clear_cache", text="Clear Cache")
 
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):

@@ -31,6 +31,7 @@ set(INC
   ../../modifiers
   ../../python
   ../../shader_fx
+  ../../simulations
   ../../render/extern/include
   ../../windowmanager
   ../../../../intern/glew-mx
