@@ -86,7 +86,7 @@ class ActionInterface {
   AttributeArrays attribute_offsets();
   float remaining_time_in_step(uint pindex);
   ArrayRef<float> current_times();
-  void kill(ArrayRef<uint> particle_indices);
+  void kill(ArrayRef<uint> pindices);
   void execute_action_for_subset(ArrayRef<uint> indices, std::unique_ptr<Action> &action);
   ParticleAllocator &particle_allocator();
   ArrayAllocator &array_allocator();
@@ -144,10 +144,10 @@ inline ArrayRef<float> ActionInterface::current_times()
   return m_current_times;
 }
 
-inline void ActionInterface::kill(ArrayRef<uint> particle_indices)
+inline void ActionInterface::kill(ArrayRef<uint> pindices)
 {
   auto kill_states = m_particles.attributes().get_byte("Kill State");
-  for (uint pindex : particle_indices) {
+  for (uint pindex : pindices) {
     kill_states[pindex] = 1;
   }
 }

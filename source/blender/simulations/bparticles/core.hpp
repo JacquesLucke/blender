@@ -220,10 +220,10 @@ struct ParticleSet {
    * Invariants:
    *   - Every index must exist at most once.
    *   - The indices must be sorted. */
-  ArrayRef<uint> m_particle_indices;
+  ArrayRef<uint> m_pindices;
 
  public:
-  ParticleSet(ParticlesBlock &block, ArrayRef<uint> particle_indices);
+  ParticleSet(ParticlesBlock &block, ArrayRef<uint> pindices);
 
   /**
    * Return the block that contains the particles of this set.
@@ -402,7 +402,7 @@ class EventFilterInterface {
   ArrayRef<float> m_known_min_time_factors;
 
   EventStorage &m_event_storage;
-  SmallVector<uint> &m_filtered_particle_indices;
+  SmallVector<uint> &m_filtered_pindices;
   SmallVector<float> &m_filtered_time_factors;
 
   /* Size can be increased when necessary. */
@@ -415,7 +415,7 @@ class EventFilterInterface {
                        float end_time,
                        ArrayRef<float> known_min_time_factors,
                        EventStorage &r_event_storage,
-                       SmallVector<uint> &r_filtered_particle_indices,
+                       SmallVector<uint> &r_filtered_pindices,
                        SmallVector<float> &r_filtered_time_factors);
 
   /**
@@ -678,8 +678,8 @@ inline bool EmitterInterface::is_first_step()
 /* ParticleSet inline functions
  *******************************************/
 
-inline ParticleSet::ParticleSet(ParticlesBlock &block, ArrayRef<uint> particle_indices)
-    : m_block(&block), m_particle_indices(particle_indices)
+inline ParticleSet::ParticleSet(ParticlesBlock &block, ArrayRef<uint> pindices)
+    : m_block(&block), m_pindices(pindices)
 {
 }
 
@@ -695,33 +695,32 @@ inline AttributeArrays ParticleSet::attributes()
 
 inline ArrayRef<uint> ParticleSet::indices()
 {
-  return m_particle_indices;
+  return m_pindices;
 }
 
 inline uint ParticleSet::get_particle_index(uint i)
 {
-  return m_particle_indices[i];
+  return m_pindices[i];
 }
 
 inline Range<uint> ParticleSet::range()
 {
-  return Range<uint>(0, m_particle_indices.size());
+  return Range<uint>(0, m_pindices.size());
 }
 
 inline uint ParticleSet::size()
 {
-  return m_particle_indices.size();
+  return m_pindices.size();
 }
 
 inline bool ParticleSet::indices_are_trivial()
 {
-  if (m_particle_indices.size() == 0) {
+  if (m_pindices.size() == 0) {
     return true;
   }
   else {
     /* This works due to the invariants mentioned above. */
-    return m_particle_indices.first() == 0 &&
-           m_particle_indices.last() == m_particle_indices.size() - 1;
+    return m_pindices.first() == 0 && m_pindices.last() == m_pindices.size() - 1;
   }
 }
 
@@ -781,7 +780,7 @@ inline void EventFilterInterface::trigger_particle(uint pindex, float time_facto
   BLI_assert(0.0f <= time_factor && time_factor <= 1.0f);
 
   if (time_factor <= m_known_min_time_factors[pindex]) {
-    m_filtered_particle_indices.append(pindex);
+    m_filtered_pindices.append(pindex);
     m_filtered_time_factors.append(time_factor);
   }
 }

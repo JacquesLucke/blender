@@ -10,13 +10,13 @@ void ActionInterface::execute_action_for_subset(ArrayRef<uint> indices,
                                                 std::unique_ptr<Action> &action)
 {
   SmallVector<float> sub_current_times;
-  SmallVector<uint> particle_indices;
+  SmallVector<uint> pindices;
   for (uint i : indices) {
-    particle_indices.append(m_particles.get_particle_index(i));
+    pindices.append(m_particles.get_particle_index(i));
     sub_current_times.append(m_current_times[i]);
   }
 
-  ParticleSet sub_particles(m_particles.block(), particle_indices);
+  ParticleSet sub_particles(m_particles.block(), pindices);
   ActionInterface sub_interface(m_particle_allocator,
                                 m_array_allocator,
                                 sub_particles,
