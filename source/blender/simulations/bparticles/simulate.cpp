@@ -153,14 +153,12 @@ BLI_NOINLINE static void compute_current_time_per_particle(
 }
 
 BLI_NOINLINE static void find_unfinished_particles(
-    ArrayRef<uint> indices_with_event,
-    ArrayRef<uint> particle_indices,
+    ArrayRef<uint> particle_indices_with_event,
     ArrayRef<float> time_factors_to_next_event,
     ArrayRef<uint8_t> kill_states,
     VectorAdaptor<uint> &r_unfinished_particle_indices)
 {
-  for (uint i : indices_with_event) {
-    uint pindex = particle_indices[i];
+  for (uint pindex : particle_indices_with_event) {
     if (kill_states[pindex] == 0) {
       float time_factor = time_factors_to_next_event[pindex];
 
@@ -263,8 +261,7 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
                  event_storage,
                  attribute_offsets);
 
-  find_unfinished_particles(indices_with_event,
-                            particles.indices(),
+  find_unfinished_particles(particle_indices_with_event,
                             time_factors_to_next_event,
                             particles.attributes().get_byte("Kill State"),
                             r_unfinished_particle_indices);
