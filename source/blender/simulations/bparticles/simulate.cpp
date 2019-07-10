@@ -175,6 +175,7 @@ BLI_NOINLINE static void find_unfinished_particles(
 }
 
 BLI_NOINLINE static void execute_events(ParticleAllocator &particle_allocator,
+                                        ArrayAllocator &array_allocator,
                                         ParticlesBlock &block,
                                         ArrayRef<SmallVector<uint>> particle_indices_per_event,
                                         ArrayRef<SmallVector<float>> current_time_per_particle,
@@ -195,6 +196,7 @@ BLI_NOINLINE static void execute_events(ParticleAllocator &particle_allocator,
 
     EventExecuteInterface interface(particles,
                                     particle_allocator,
+                                    array_allocator,
                                     current_time_per_particle[event_index],
                                     event_storage,
                                     attribute_offsets,
@@ -256,6 +258,7 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
                                     current_time_per_particle);
 
   execute_events(particle_allocator,
+                 array_allocator,
                  particles.block(),
                  particles_per_event,
                  current_time_per_particle,
@@ -681,9 +684,10 @@ BLI_NOINLINE static void create_particles_from_emitters(StepDescription &step_de
                                                         ParticleAllocators &block_allocators,
                                                         TimeSpan time_span)
 {
+  ArrayAllocator array_allocator(BLOCK_SIZE);
   ParticleAllocator &emitter_allocator = block_allocators.new_allocator();
   for (Emitter *emitter : step_description.emitters()) {
-    EmitterInterface interface(emitter_allocator, time_span);
+    EmitterInterface interface(emitter_allocator, array_allocator, time_span);
     emitter->emit(interface);
   }
 }

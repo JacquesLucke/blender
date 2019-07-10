@@ -349,13 +349,17 @@ class ParticleAllocator {
 class EmitterInterface {
  private:
   ParticleAllocator &m_particle_allocator;
+  ArrayAllocator &m_array_allocator;
   TimeSpan m_time_span;
 
  public:
-  EmitterInterface(ParticleAllocator &particle_allocator, TimeSpan time_span);
+  EmitterInterface(ParticleAllocator &particle_allocator,
+                   ArrayAllocator &array_allocator,
+                   TimeSpan time_span);
   ~EmitterInterface() = default;
 
   ParticleAllocator &particle_allocator();
+  ArrayAllocator &array_allocator();
 
   /**
    * Time span that new particles should be emitted in.
@@ -460,6 +464,7 @@ class EventExecuteInterface {
  private:
   ParticleSet m_particles;
   ParticleAllocator &m_particle_allocator;
+  ArrayAllocator &m_array_allocator;
   ArrayRef<float> m_current_times;
   EventStorage &m_event_storage;
   AttributeArrays m_attribute_offsets;
@@ -468,6 +473,7 @@ class EventExecuteInterface {
  public:
   EventExecuteInterface(ParticleSet particles,
                         ParticleAllocator &particle_allocator,
+                        ArrayAllocator &array_allocator,
                         ArrayRef<float> current_times,
                         EventStorage &event_storage,
                         AttributeArrays attribute_offsets,
@@ -505,6 +511,8 @@ class EventExecuteInterface {
    * Get a block allocator. Not that the request_emit_target should usually be used instead.
    */
   ParticleAllocator &particle_allocator();
+
+  ArrayAllocator &array_allocator();
 
   /**
    * Get the entire event storage.
@@ -655,6 +663,11 @@ inline ParticleAllocator &EmitterInterface::particle_allocator()
   return m_particle_allocator;
 }
 
+inline ArrayAllocator &EmitterInterface::array_allocator()
+{
+  return m_array_allocator;
+}
+
 inline TimeSpan EmitterInterface::time_span()
 {
   return m_time_span;
@@ -796,6 +809,11 @@ inline T &EventFilterInterface::trigger_particle(uint index, float time_factor)
 inline ParticleAllocator &EventExecuteInterface::particle_allocator()
 {
   return m_particle_allocator;
+}
+
+inline ArrayAllocator &EventExecuteInterface::array_allocator()
+{
+  return m_array_allocator;
 }
 
 inline EventStorage &EventExecuteInterface::event_storage()

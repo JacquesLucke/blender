@@ -108,8 +108,12 @@ ParticleSets ParticleAllocator::request(StringRef particle_type_name, uint size)
 /* Emitter Interface
  ******************************************/
 
-EmitterInterface::EmitterInterface(ParticleAllocator &particle_allocator, TimeSpan time_span)
-    : m_particle_allocator(particle_allocator), m_time_span(time_span)
+EmitterInterface::EmitterInterface(ParticleAllocator &particle_allocator,
+                                   ArrayAllocator &array_allocator,
+                                   TimeSpan time_span)
+    : m_particle_allocator(particle_allocator),
+      m_array_allocator(array_allocator),
+      m_time_span(time_span)
 {
 }
 
@@ -261,12 +265,14 @@ EventFilterInterface::EventFilterInterface(ParticleSet particles,
 
 EventExecuteInterface::EventExecuteInterface(ParticleSet particles,
                                              ParticleAllocator &particle_allocator,
+                                             ArrayAllocator &array_allocator,
                                              ArrayRef<float> current_times,
                                              EventStorage &event_storage,
                                              AttributeArrays attribute_offsets,
                                              float step_end_time)
     : m_particles(particles),
       m_particle_allocator(particle_allocator),
+      m_array_allocator(array_allocator),
       m_current_times(current_times),
       m_event_storage(event_storage),
       m_attribute_offsets(attribute_offsets),

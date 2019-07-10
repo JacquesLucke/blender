@@ -64,6 +64,7 @@ class ParticleFunction {
 class ActionInterface {
  private:
   ParticleAllocator &m_particle_allocator;
+  ArrayAllocator &m_array_allocator;
   ParticleSet m_particles;
   AttributeArrays m_attribute_offsets;
   EventInfo &m_event_info;
@@ -72,6 +73,7 @@ class ActionInterface {
 
  public:
   ActionInterface(ParticleAllocator &particle_allocator,
+                  ArrayAllocator &array_allocator,
                   ParticleSet particles,
                   AttributeArrays attribute_offsets,
                   ArrayRef<float> current_times,
@@ -87,6 +89,7 @@ class ActionInterface {
   void kill(ArrayRef<uint> particle_indices);
   void execute_action_for_subset(ArrayRef<uint> indices, std::unique_ptr<Action> &action);
   ParticleAllocator &particle_allocator();
+  ArrayAllocator &array_allocator();
 };
 
 class Action {
@@ -100,12 +103,14 @@ class Action {
  *******************************************/
 
 inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
+                                        ArrayAllocator &array_allocator,
                                         ParticleSet particles,
                                         AttributeArrays attribute_offsets,
                                         ArrayRef<float> current_times,
                                         float step_end_time,
                                         EventInfo &event_info)
     : m_particle_allocator(particle_allocator),
+      m_array_allocator(array_allocator),
       m_particles(particles),
       m_attribute_offsets(attribute_offsets),
       m_current_times(current_times),
@@ -150,6 +155,11 @@ inline void ActionInterface::kill(ArrayRef<uint> particle_indices)
 inline ParticleAllocator &ActionInterface::particle_allocator()
 {
   return m_particle_allocator;
+}
+
+inline ArrayAllocator &ActionInterface::array_allocator()
+{
+  return m_array_allocator;
 }
 
 }  // namespace BParticles

@@ -18,6 +18,7 @@ void ActionInterface::execute_action_for_subset(ArrayRef<uint> indices,
 
   ParticleSet sub_particles(m_particles.block(), particle_indices);
   ActionInterface sub_interface(m_particle_allocator,
+                                m_array_allocator,
                                 sub_particles,
                                 m_attribute_offsets,
                                 sub_current_times,

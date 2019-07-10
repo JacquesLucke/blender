@@ -87,7 +87,13 @@ class AgeReachedEvent : public Event {
     }
 
     EmptyEventInfo event_info;
-    ActionInterface action_interface(interface, event_info);
+    ActionInterface action_interface(interface.particle_allocator(),
+                                     interface.array_allocator(),
+                                     particles,
+                                     interface.attribute_offsets(),
+                                     interface.current_times(),
+                                     interface.step_end_time(),
+                                     event_info);
     m_action->execute(action_interface);
   }
 };
@@ -213,7 +219,13 @@ class MeshCollisionEventFilter : public Event {
     }
 
     CollisionEventInfo event_info(normals);
-    ActionInterface action_interface(interface, event_info);
+    ActionInterface action_interface(interface.particle_allocator(),
+                                     interface.array_allocator(),
+                                     particles,
+                                     interface.attribute_offsets(),
+                                     interface.current_times(),
+                                     interface.step_end_time(),
+                                     event_info);
     m_action->execute(action_interface);
   }
 };
