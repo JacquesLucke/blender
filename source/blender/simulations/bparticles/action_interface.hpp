@@ -76,9 +76,8 @@ class ActionInterface {
   float remaining_time_in_step(uint index);
   ArrayRef<float> current_times();
   void kill(ArrayRef<uint> particle_indices);
-  InstantEmitTarget &request_emit_target(StringRef particle_type_name,
-                                         ArrayRef<uint> original_indices);
   void execute_action_for_subset(ArrayRef<uint> indices, std::unique_ptr<Action> &action);
+  ParticleAllocator &particle_allocator();
 };
 
 class Action {
@@ -128,10 +127,9 @@ inline void ActionInterface::kill(ArrayRef<uint> particle_indices)
   m_event_execute_interface.kill(particle_indices);
 }
 
-inline InstantEmitTarget &ActionInterface::request_emit_target(StringRef particle_type_name,
-                                                               ArrayRef<uint> original_indices)
+inline ParticleAllocator &ActionInterface::particle_allocator()
 {
-  return m_event_execute_interface.request_emit_target(particle_type_name, original_indices);
+  return m_event_execute_interface.particle_allocator();
 }
 
 }  // namespace BParticles

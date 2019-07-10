@@ -93,7 +93,7 @@ class ExplodeAction : public Action {
 
     SmallVector<float3> new_positions;
     SmallVector<float3> new_velocities;
-    SmallVector<uint> original_indices;
+    SmallVector<float> new_birth_times;
 
     auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
     FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
@@ -109,16 +109,19 @@ class ExplodeAction : public Action {
       float speed = fn_out.get<float>(1);
 
       new_positions.append_n_times(positions[pindex], parts_amount);
-      original_indices.append_n_times(i, parts_amount);
+      new_birth_times.append_n_times(interface.current_times()[i], parts_amount);
 
       for (uint j = 0; j < parts_amount; j++) {
         new_velocities.append(random_direction() * speed);
       }
     }
 
-    auto &target = interface.request_emit_target(m_new_particle_name, original_indices);
-    target.set_float3("Position", new_positions);
-    target.set_float3("Velocity", new_velocities);
+    auto target = interface.particle_allocator().request(m_new_particle_name,
+                                                         new_birth_times.size());
+    target->set_float3("Position", new_positions);
+    target->set_float3("Velocity", new_velocities);
+    target->fill_float("Size", 0.1f);
+    target->set_float("Birth Time", new_birth_times);
 
     m_post_action->execute(interface);
   }

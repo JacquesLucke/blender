@@ -305,7 +305,18 @@ class ParticleAllocator {
  public:
   ParticleAllocator(ParticlesState &state);
   ParticleAllocator(ParticleAllocator &other) = delete;
+  ParticleAllocator(ParticleAllocator &&other) = delete;
 
+  /**
+   * Access all blocks that have been allocated by this allocator.
+   */
+  ArrayRef<ParticlesBlock *> allocated_blocks();
+
+  std::unique_ptr<EmitTargetBase> request(StringRef particle_type_name, uint size);
+
+  ParticlesState &particles_state();
+
+ private:
   /**
    * Return a block that can hold new particles. It might create an entirely new one or use a
    * cached block.
@@ -322,14 +333,6 @@ class ParticleAllocator {
                              SmallVector<Range<uint>> &r_ranges);
 
   AttributesInfo &attributes_info(StringRef particle_type_name);
-  ParticlesState &particles_state();
-
-  /**
-   * Access all blocks that have been allocated by this allocator.
-   */
-  ArrayRef<ParticlesBlock *> allocated_blocks();
-
-  std::unique_ptr<EmitTargetBase> request(StringRef particle_type_name, uint size);
 };
 
 /**
@@ -503,7 +506,6 @@ class EventExecuteInterface {
  private:
   ParticleSet m_particles;
   ParticleAllocator &m_particle_allocator;
-  SmallVector<InstantEmitTarget *> m_emit_targets;
   ArrayRef<float> m_current_times;
   ArrayRef<uint8_t> m_kill_states;
   EventStorage &m_event_storage;
@@ -518,7 +520,7 @@ class EventExecuteInterface {
                         AttributeArrays attribute_offsets,
                         float step_end_time);
 
-  ~EventExecuteInterface();
+  ~EventExecuteInterface() = default;
 
   /**
    * Access the set of particles that should be modified by this event.
@@ -545,15 +547,6 @@ class EventExecuteInterface {
    * The event is allowed to modify the arrays.
    */
   AttributeArrays attribute_offsets();
-
-  /**
-   * Get a new emit target that allows creating new particles. Every new particle is mapped to some
-   * original particle. Multiple new particles can be mapped to the same original particle.
-   * This mapping is necessary to ensure that the new particles are create at the right moments in
-   * time.
-   */
-  InstantEmitTarget &request_emit_target(StringRef particle_type_name,
-                                         ArrayRef<uint> original_indices);
 
   /**
    * Kill all particles with the given indices in the current block.
