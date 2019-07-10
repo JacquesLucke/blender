@@ -486,24 +486,23 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(ParticleAllocators &block
     return;
   }
 
-  uint block_size = blocks[0]->container().block_size();
-  SmallVector<float> all_durations(block_size);
-  all_durations.fill(time_span.duration());
-
   BLI::Task::parallel_array_elements(
       blocks,
       /* Process individual element. */
-      [&step_description, &all_durations, time_span](ParticlesBlock *block,
-                                                     ThreadLocalData *local_data) {
+      [&step_description, time_span](ParticlesBlock *block, ThreadLocalData *local_data) {
         ParticlesState &state = local_data->particle_allocator.particles_state();
         StringRef particle_type_name = state.particle_container_id(block->container());
         ParticleType &particle_type = step_description.particle_type(particle_type_name);
+
+        ArrayAllocator &array_allocator = local_data->array_allocator;
+        ArrayAllocator::Array<float> remaining_durations(array_allocator, block->active_amount());
+        ArrayRef<float>(remaining_durations).fill(time_span.duration());
 
         simulate_block(local_data->array_allocator,
                        local_data->particle_allocator,
                        *block,
                        particle_type,
-                       ArrayRef<float>(all_durations).take_back(block->active_amount()),
+                       remaining_durations,
                        time_span.end());
       },
       /* Create thread-local data. */
