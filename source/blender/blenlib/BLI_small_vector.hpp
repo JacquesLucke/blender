@@ -261,6 +261,11 @@ template<typename T, uint N = 4> class SmallVector {
     this->extend(other.begin(), other.size());
   }
 
+  void extend(ArrayRef<T> array)
+  {
+    this->extend(array.begin(), array.size());
+  }
+
   void extend(const T *start, uint amount)
   {
     this->reserve(m_size + amount);

@@ -618,14 +618,14 @@ BLI_NOINLINE static void delete_tagged_particles(ParticlesState &state,
       USE_THREADING);
 }
 
-BLI_NOINLINE static void compress_all_blocks(ParticlesContainer &particles)
+BLI_NOINLINE static void compress_all_blocks(ParticlesContainer &container)
 {
-  SmallVector<ParticlesBlock *> blocks = particles.active_blocks().to_small_vector();
+  SmallVector<ParticlesBlock *> blocks = container.active_blocks();
   ParticlesBlock::Compress(blocks);
 
   for (ParticlesBlock *block : blocks) {
     if (block->is_empty()) {
-      particles.release_block(*block);
+      container.release_block(*block);
     }
   }
 }

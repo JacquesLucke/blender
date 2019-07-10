@@ -1,4 +1,8 @@
+#include "BLI_timeit.hpp"
+
 #include "particles_container.hpp"
+
+#define CACHED_BLOCKS_PER_CONTAINER 5
 
 namespace BParticles {
 
@@ -14,21 +18,28 @@ ParticlesContainer::ParticlesContainer(AttributesInfo attributes, uint block_siz
 
 ParticlesContainer::~ParticlesContainer()
 {
-  while (m_blocks.size() > 0) {
-    ParticlesBlock *block = m_blocks.any();
-    block->clear();
-    this->release_block(*block);
+  for (ParticlesBlock *block : m_active_blocks) {
+    this->free_block(block);
+  }
+  for (ParticlesBlock *block : m_cached_blocks) {
+    this->free_block(block);
   }
 }
 
 ParticlesBlock &ParticlesContainer::new_block()
 {
+  SCOPED_TIMER(__func__);
+
   std::lock_guard<std::mutex> lock(m_blocks_mutex);
 
-  AttributeArraysCore attributes_core = AttributeArraysCore::NewWithSeparateAllocations(
-      m_attributes_info, m_block_size);
-  ParticlesBlock *block = new ParticlesBlock(*this, attributes_core);
-  m_blocks.add_new(block);
+  if (!m_cached_blocks.empty()) {
+    ParticlesBlock *block = m_cached_blocks.pop();
+    m_active_blocks.add_new(block);
+    return *block;
+  }
+
+  ParticlesBlock *block = this->allocate_block();
+  m_active_blocks.add_new(block);
   return *block;
 }
 
@@ -37,12 +48,30 @@ void ParticlesContainer::release_block(ParticlesBlock &block)
   std::lock_guard<std::mutex> lock(m_blocks_mutex);
 
   BLI_assert(block.active_amount() == 0);
-  BLI_assert(m_blocks.contains(&block));
+  BLI_assert(m_active_blocks.contains(&block));
   BLI_assert(&block.container() == this);
 
-  block.attributes_core().free_buffers();
-  m_blocks.remove(&block);
-  delete &block;
+  m_active_blocks.remove(&block);
+  if (m_cached_blocks.size() < CACHED_BLOCKS_PER_CONTAINER) {
+    m_cached_blocks.push(&block);
+  }
+  else {
+    this->free_block(&block);
+  }
+}
+
+ParticlesBlock *ParticlesContainer::allocate_block()
+{
+  AttributeArraysCore attributes_core = AttributeArraysCore::NewWithSeparateAllocations(
+      m_attributes_info, m_block_size);
+  ParticlesBlock *block = new ParticlesBlock(*this, attributes_core);
+  return block;
+}
+
+void ParticlesContainer::free_block(ParticlesBlock *block)
+{
+  block->attributes_core().free_buffers();
+  delete block;
 }
 
 static SmallVector<int> map_attribute_indices(AttributesInfo &from_info, AttributesInfo &to_info)
@@ -93,7 +122,11 @@ void ParticlesContainer::update_attributes(AttributesInfo new_info)
 
   SmallVector<void *> arrays;
   arrays.reserve(new_info.amount());
-  for (ParticlesBlock *block : m_blocks) {
+
+  SmallVector<ParticlesBlock *> all_blocks;
+  all_blocks.extend(m_active_blocks);
+  all_blocks.extend(m_cached_blocks);
+  for (ParticlesBlock *block : all_blocks) {
     arrays.clear();
 
     for (uint new_index : new_info.attribute_indices()) {
@@ -127,7 +160,7 @@ void ParticlesContainer::flatten_attribute_data(StringRef attribute_name, void *
   uint element_size = size_of_attribute_type(m_attributes_info.type_of(attribute_index));
 
   uint offset = 0;
-  for (ParticlesBlock *block : m_blocks) {
+  for (ParticlesBlock *block : m_active_blocks) {
     uint amount = block->active_amount();
     void *src = block->attributes().get_ptr(attribute_index);
     memcpy(POINTER_OFFSET(dst, offset), src, amount * element_size);

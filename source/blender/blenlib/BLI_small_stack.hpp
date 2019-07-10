@@ -42,6 +42,11 @@ template<typename T, uint N = 4> class SmallStack {
   {
   }
 
+  operator ArrayRef<T>()
+  {
+    return m_elements;
+  }
+
   /**
    * Return the number of elements in the stack.
    */

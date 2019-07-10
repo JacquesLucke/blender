@@ -3,6 +3,7 @@
 #include <mutex>
 
 #include "BLI_small_map.hpp"
+#include "BLI_small_stack.hpp"
 
 #include "attributes.hpp"
 
@@ -10,6 +11,7 @@ namespace BParticles {
 
 using BLI::SmallMap;
 using BLI::SmallSet;
+using BLI::SmallStack;
 
 class ParticlesContainer;
 class ParticlesBlock;
@@ -25,7 +27,8 @@ class ParticlesBlock;
 class ParticlesContainer {
  private:
   AttributesInfo m_attributes_info;
-  SmallSet<ParticlesBlock *> m_blocks;
+  SmallSetVector<ParticlesBlock *> m_active_blocks;
+  SmallStack<ParticlesBlock *> m_cached_blocks;
   uint m_block_size;
   std::mutex m_blocks_mutex;
 
@@ -59,7 +62,7 @@ class ParticlesContainer {
   /**
    * Get a read-only buffer of all the blocks currently in use.
    */
-  const SmallSet<ParticlesBlock *> &active_blocks();
+  ArrayRef<ParticlesBlock *> active_blocks();
 
   /**
    * Create a new block in this container. It safe to call this function from separate threads at
@@ -85,6 +88,10 @@ class ParticlesContainer {
   SmallVector<float3> flatten_attribute_float3(StringRef attribute_name);
 
   friend bool operator==(const ParticlesContainer &a, const ParticlesContainer &b);
+
+ private:
+  ParticlesBlock *allocate_block();
+  void free_block(ParticlesBlock *block);
 };
 
 /**
@@ -201,7 +208,7 @@ inline uint ParticlesContainer::block_size() const
 inline uint ParticlesContainer::count_active() const
 {
   uint count = 0;
-  for (ParticlesBlock *block : m_blocks) {
+  for (ParticlesBlock *block : m_active_blocks) {
     count += block->active_amount();
   }
   return count;
@@ -212,9 +219,9 @@ inline AttributesInfo &ParticlesContainer::attributes_info()
   return m_attributes_info;
 }
 
-inline const SmallSet<ParticlesBlock *> &ParticlesContainer::active_blocks()
+inline ArrayRef<ParticlesBlock *> ParticlesContainer::active_blocks()
 {
-  return m_blocks;
+  return m_active_blocks;
 }
 
 inline bool operator==(const ParticlesContainer &a, const ParticlesContainer &b)
