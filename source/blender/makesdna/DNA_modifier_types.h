@@ -1963,25 +1963,18 @@ typedef struct FunctionPointsModifierData {
   struct bNodeTree *function_tree;
 } FunctionPointsModifierData;
 
-typedef struct BParticlesAttributeCacheFloat3 {
-  char name[64];
-  float *values;
-} BParticlesAttributeCacheFloat3;
-
 typedef struct BParticlesAttributeCacheFloat {
   char name[64];
+  unsigned int floats_per_particle;
+  char _pad[4];
   float *values;
 } BParticlesAttributeCacheFloat;
 
 typedef struct BParticlesTypeCache {
   char name[64];
   unsigned int particle_amount;
-  char _pad[4];
 
-  unsigned int num_attributes_float3;
   unsigned int num_attributes_float;
-
-  BParticlesAttributeCacheFloat3 *attributes_float3;
   BParticlesAttributeCacheFloat *attributes_float;
 } BParticlesTypeCache;
 

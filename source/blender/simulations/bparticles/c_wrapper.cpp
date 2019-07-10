@@ -189,15 +189,6 @@ void BParticles_modifier_free_cache(BParticlesModifierData *bpmd)
     for (auto &cached_type :
          BLI::ref_c_array(cached_frame.particle_types, cached_frame.num_particle_types)) {
       for (auto &cached_attribute :
-           BLI::ref_c_array(cached_type.attributes_float3, cached_type.num_attributes_float3)) {
-        if (cached_attribute.values != nullptr) {
-          MEM_freeN(cached_attribute.values);
-        }
-      }
-      if (cached_type.attributes_float3 != nullptr) {
-        MEM_freeN(cached_type.attributes_float3);
-      }
-      for (auto &cached_attribute :
            BLI::ref_c_array(cached_type.attributes_float, cached_type.num_attributes_float)) {
         if (cached_attribute.values != nullptr) {
           MEM_freeN(cached_attribute.values);
@@ -228,8 +219,8 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
     BParticlesTypeCache &type = cached_frame->particle_types[i];
     particle_counts.append(type.particle_amount);
     positions.extend(
-        ArrayRef<float3>((float3 *)type.attributes_float3[0].values, type.particle_amount));
-    sizes.extend(ArrayRef<float>(type.attributes_float[0].values, type.particle_amount));
+        ArrayRef<float3>((float3 *)type.attributes_float[0].values, type.particle_amount));
+    sizes.extend(ArrayRef<float>(type.attributes_float[1].values, type.particle_amount));
   }
 
   Mesh *mesh = distribute_tetrahedons(positions, sizes);
@@ -279,31 +270,23 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     strncpy(cached_type.name, container_names[i].data(), sizeof(cached_type.name));
     cached_type.particle_amount = container.count_active();
 
-    /* Cache Position */
-    {
-      cached_type.num_attributes_float3 = 1;
-      cached_type.attributes_float3 = (BParticlesAttributeCacheFloat3 *)MEM_calloc_arrayN(
-          cached_type.num_attributes_float3, sizeof(BParticlesAttributeCacheFloat3), __func__);
+    cached_type.num_attributes_float = 2;
+    cached_type.attributes_float = (BParticlesAttributeCacheFloat *)MEM_calloc_arrayN(
+        cached_type.num_attributes_float, sizeof(BParticlesAttributeCacheFloat), __func__);
 
-      BParticlesAttributeCacheFloat3 &cached_attribute = cached_type.attributes_float3[0];
-      strncpy(cached_attribute.name, "Position", sizeof(cached_attribute.name));
-      cached_attribute.values = (float *)MEM_malloc_arrayN(
-          cached_type.particle_amount, sizeof(float3), __func__);
-      container.flatten_attribute_data("Position", cached_attribute.values);
-    }
+    BParticlesAttributeCacheFloat &position_attribute = cached_type.attributes_float[0];
+    position_attribute.floats_per_particle = 3;
+    strncpy(position_attribute.name, "Position", sizeof(position_attribute.name));
+    position_attribute.values = (float *)MEM_malloc_arrayN(
+        cached_type.particle_amount, sizeof(float3), __func__);
+    container.flatten_attribute_data("Position", position_attribute.values);
 
-    /* Cache Size */
-    {
-      cached_type.num_attributes_float = 1;
-      cached_type.attributes_float = (BParticlesAttributeCacheFloat *)MEM_calloc_arrayN(
-          cached_type.num_attributes_float, sizeof(BParticlesAttributeCacheFloat), __func__);
-
-      BParticlesAttributeCacheFloat &cached_attribute = cached_type.attributes_float[0];
-      strncpy(cached_attribute.name, "Size", sizeof(cached_attribute.name));
-      cached_attribute.values = (float *)MEM_malloc_arrayN(
-          cached_type.particle_amount, sizeof(float), __func__);
-      container.flatten_attribute_data("Size", cached_attribute.values);
-    }
+    BParticlesAttributeCacheFloat &size_attribute = cached_type.attributes_float[1];
+    size_attribute.floats_per_particle = 1;
+    strncpy(size_attribute.name, "Size", sizeof(size_attribute.name));
+    size_attribute.values = (float *)MEM_malloc_arrayN(
+        cached_type.particle_amount, sizeof(float), __func__);
+    container.flatten_attribute_data("Size", size_attribute.values);
   }
 
   bpmd->cached_frames = (BParticlesFrameCache *)MEM_reallocN(

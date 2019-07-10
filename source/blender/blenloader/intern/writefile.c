@@ -1774,22 +1774,17 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
           BParticlesTypeCache *cached_type = &cached_frame->particle_types[type];
           writestruct(wd,
                       DATA,
-                      BParticlesAttributeCacheFloat3,
-                      cached_type->num_attributes_float3,
-                      cached_type->attributes_float3);
-
-          for (uint i = 0; i < cached_type->num_attributes_float3; i++) {
-            BParticlesAttributeCacheFloat3 *attribute_cache = &cached_type->attributes_float3[i];
-            writedata(wd,
-                      DATA,
-                      sizeof(float) * 3 * cached_type->particle_amount,
-                      attribute_cache->values);
-          }
+                      BParticlesAttributeCacheFloat,
+                      cached_type->num_attributes_float,
+                      cached_type->attributes_float);
 
           for (uint i = 0; i < cached_type->num_attributes_float; i++) {
             BParticlesAttributeCacheFloat *attribute_cache = &cached_type->attributes_float[i];
-            writedata(
-                wd, DATA, sizeof(float) * cached_type->particle_amount, attribute_cache->values);
+            writedata(wd,
+                      DATA,
+                      sizeof(float) * attribute_cache->floats_per_particle *
+                          cached_type->particle_amount,
+                      attribute_cache->values);
           }
         }
       }
