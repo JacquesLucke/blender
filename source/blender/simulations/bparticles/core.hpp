@@ -402,7 +402,7 @@ class EventFilterInterface {
   ArrayRef<float> m_known_min_time_factors;
 
   EventStorage &m_event_storage;
-  SmallVector<uint> &m_filtered_indices;
+  SmallVector<uint> &m_filtered_particle_indices;
   SmallVector<float> &m_filtered_time_factors;
 
   /* Size can be increased when necessary. */
@@ -415,7 +415,7 @@ class EventFilterInterface {
                        float end_time,
                        ArrayRef<float> known_min_time_factors,
                        EventStorage &r_event_storage,
-                       SmallVector<uint> &r_filtered_indices,
+                       SmallVector<uint> &r_filtered_particle_indices,
                        SmallVector<float> &r_filtered_time_factors);
 
   /**
@@ -447,14 +447,14 @@ class EventFilterInterface {
    * Mark a particle as triggered by the event at a specific point in time.
    * Note: The index must increase between consecutive calls to this function.
    */
-  void trigger_particle(uint index, float time_factor);
+  void trigger_particle(uint pindex, float time_factor);
 
   /**
    * Same as above but returns a reference to a struct that can be used to pass data to the execute
    * function. The reference might point to a dummy buffer when the time_factor is after a known
    * other event.
    */
-  template<typename T> T &trigger_particle(uint index, float time_factor);
+  template<typename T> T &trigger_particle(uint pindex, float time_factor);
 };
 
 /**
@@ -776,28 +776,26 @@ inline float EventFilterInterface::end_time()
   return m_end_time;
 }
 
-inline void EventFilterInterface::trigger_particle(uint index, float time_factor)
+inline void EventFilterInterface::trigger_particle(uint pindex, float time_factor)
 {
   BLI_assert(0.0f <= time_factor && time_factor <= 1.0f);
 
-  uint pindex = m_particles.get_particle_index(index);
   if (time_factor <= m_known_min_time_factors[pindex]) {
-    m_filtered_indices.append(index);
+    m_filtered_particle_indices.append(pindex);
     m_filtered_time_factors.append(time_factor);
   }
 }
 
 template<typename T>
-inline T &EventFilterInterface::trigger_particle(uint index, float time_factor)
+inline T &EventFilterInterface::trigger_particle(uint pindex, float time_factor)
 {
   BLI_STATIC_ASSERT(std::is_trivial<T>::value, "");
   BLI_assert(sizeof(T) <= m_event_storage.max_element_size());
   BLI_assert(sizeof(m_dummy_event_storage) >= m_event_storage.max_element_size());
 
-  uint pindex = m_particles.get_particle_index(index);
   if (time_factor <= m_known_min_time_factors[pindex]) {
-    this->trigger_particle(index, time_factor);
-    return m_event_storage.get<T>(m_particles.get_particle_index(index));
+    this->trigger_particle(pindex, time_factor);
+    return m_event_storage.get<T>(pindex);
   }
   else {
     return *(T *)m_dummy_event_storage;

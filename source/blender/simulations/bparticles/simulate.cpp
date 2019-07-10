@@ -40,7 +40,7 @@ BLI_NOINLINE static void find_next_event_per_particle(
   }
 
   for (uint event_index = 0; event_index < events.size(); event_index++) {
-    SmallVector<uint> triggered_indices;
+    SmallVector<uint> triggered_particle_indices;
     SmallVector<float> triggered_time_factors;
 
     Event *event = events[event_index];
@@ -50,13 +50,12 @@ BLI_NOINLINE static void find_next_event_per_particle(
                                    end_time,
                                    r_time_factors_to_next_event,
                                    r_event_storage,
-                                   triggered_indices,
+                                   triggered_particle_indices,
                                    triggered_time_factors);
     event->filter(interface);
 
-    for (uint i = 0; i < triggered_indices.size(); i++) {
-      uint index = triggered_indices[i];
-      uint pindex = particles.get_particle_index(index);
+    for (uint i = 0; i < triggered_particle_indices.size(); i++) {
+      uint pindex = triggered_particle_indices[i];
       float time_factor = triggered_time_factors[i];
       BLI_assert(time_factor <= r_time_factors_to_next_event[pindex]);
 

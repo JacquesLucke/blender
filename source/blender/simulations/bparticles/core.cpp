@@ -247,7 +247,7 @@ EventFilterInterface::EventFilterInterface(ParticleSet particles,
                                            float end_time,
                                            ArrayRef<float> known_min_time_factors,
                                            EventStorage &r_event_storage,
-                                           SmallVector<uint> &r_filtered_indices,
+                                           SmallVector<uint> &r_filtered_particle_indices,
                                            SmallVector<float> &r_filtered_time_factors)
     : m_particles(particles),
       m_attribute_offsets(attribute_offsets),
@@ -255,7 +255,7 @@ EventFilterInterface::EventFilterInterface(ParticleSet particles,
       m_end_time(end_time),
       m_known_min_time_factors(known_min_time_factors),
       m_event_storage(r_event_storage),
-      m_filtered_indices(r_filtered_indices),
+      m_filtered_particle_indices(r_filtered_particle_indices),
       m_filtered_time_factors(r_filtered_time_factors)
 {
 }

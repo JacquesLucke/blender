@@ -66,12 +66,12 @@ class AgeReachedEvent : public Event {
 
         float age_at_start = age_at_end - time_span.duration();
         if (trigger_age < age_at_start) {
-          interface.trigger_particle(i, 0.0f);
+          interface.trigger_particle(pindex, 0.0f);
         }
         else {
           float time_factor = time_span.get_factor_safe(birth_time + trigger_age);
           CLAMP(time_factor, 0.0f, 1.0f);
-          interface.trigger_particle(i, time_factor);
+          interface.trigger_particle(pindex, time_factor);
         }
       }
     }
@@ -180,7 +180,7 @@ class MeshCollisionEventFilter : public Event {
         if (std::abs(last_collision_times[pindex] - time) < 0.0001f) {
           continue;
         }
-        auto &storage = interface.trigger_particle<EventStorage>(i, time_factor);
+        auto &storage = interface.trigger_particle<EventStorage>(pindex, time_factor);
         if (float3::dot(result.normal, ray_direction) > 0) {
           result.normal = -result.normal;
         }
