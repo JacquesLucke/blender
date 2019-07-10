@@ -87,7 +87,7 @@ class ActionInterface {
   float remaining_time_in_step(uint pindex);
   ArrayRef<float> current_times();
   void kill(ArrayRef<uint> pindices);
-  void execute_action_for_subset(ArrayRef<uint> indices, std::unique_ptr<Action> &action);
+  void execute_action_for_subset(ArrayRef<uint> pindices, std::unique_ptr<Action> &action);
   ParticleAllocator &particle_allocator();
   ArrayAllocator &array_allocator();
 };

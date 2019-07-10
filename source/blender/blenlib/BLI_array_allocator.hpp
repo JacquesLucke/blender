@@ -193,6 +193,11 @@ class ArrayAllocator {
     {
       return ArrayRef<T>(m_ptr, m_size);
     }
+
+    T &operator[](uint index)
+    {
+      return ((T *)m_ptr)[index];
+    }
   };
 
  private:

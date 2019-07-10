@@ -35,9 +35,7 @@ class ChangeDirectionAction : public Action {
     FN::ExecutionStack stack;
     FN::ExecutionContext execution_context(stack);
 
-    for (uint i : particles.range()) {
-      uint pindex = particles.get_particle_index(i);
-
+    for (uint pindex : particles.indices()) {
       caller.call(fn_in, fn_out, execution_context, pindex);
       float3 direction = fn_out.get<float3>(0);
 
@@ -101,15 +99,13 @@ class ExplodeAction : public Action {
     FN::ExecutionStack stack;
     FN::ExecutionContext execution_context(stack);
 
-    for (uint i : particles.range()) {
-      uint pindex = particles.get_particle_index(i);
-
+    for (uint pindex : particles.indices()) {
       caller.call(fn_in, fn_out, execution_context, pindex);
       uint parts_amount = std::max(0, fn_out.get<int>(0));
       float speed = fn_out.get<float>(1);
 
       new_positions.append_n_times(positions[pindex], parts_amount);
-      new_birth_times.append_n_times(interface.current_times()[i], parts_amount);
+      new_birth_times.append_n_times(interface.current_times()[pindex], parts_amount);
 
       for (uint j = 0; j < parts_amount; j++) {
         new_velocities.append(random_direction() * speed);
@@ -145,38 +141,36 @@ class ConditionAction : public Action {
   void execute(ActionInterface &interface) override
   {
     ParticleSet particles = interface.particles();
-    SmallVector<bool> conditions(particles.size());
+    ArrayAllocator::Array<bool> conditions(interface.array_allocator());
     this->compute_conditions(interface, conditions);
 
-    SmallVector<uint> true_indices, false_indices;
-    for (uint i : particles.range()) {
-      if (conditions[i]) {
-        true_indices.append(i);
+    SmallVector<uint> true_pindices, false_pindices;
+    for (uint pindex : particles.indices()) {
+      if (conditions[pindex]) {
+        true_pindices.append(pindex);
       }
       else {
-        false_indices.append(i);
+        false_pindices.append(pindex);
       }
     }
 
-    interface.execute_action_for_subset(true_indices, m_true_action);
-    interface.execute_action_for_subset(false_indices, m_false_action);
+    interface.execute_action_for_subset(true_pindices, m_true_action);
+    interface.execute_action_for_subset(false_pindices, m_false_action);
   }
 
   void compute_conditions(ActionInterface &interface, ArrayRef<bool> r_conditions)
   {
     ParticleSet particles = interface.particles();
-    BLI_assert(particles.size() == r_conditions.size());
 
     auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
     FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
 
     FN::ExecutionStack stack;
     FN::ExecutionContext execution_context(stack);
-    for (uint i : particles.range()) {
-      uint pindex = particles.get_particle_index(i);
+    for (uint pindex : particles.indices()) {
       caller.call(fn_in, fn_out, execution_context, pindex);
       bool condition = fn_out.get<bool>(0);
-      r_conditions[i] = condition;
+      r_conditions[pindex] = condition;
     }
   }
 };

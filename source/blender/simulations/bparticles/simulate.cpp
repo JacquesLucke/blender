@@ -133,17 +133,13 @@ BLI_NOINLINE static void find_pindices_per_event(ArrayRef<uint> pindices_with_ev
   }
 }
 
-BLI_NOINLINE static void compute_current_time_per_particle(
-    ArrayRef<uint> pindices_with_event,
-    ArrayRef<float> remaining_durations,
-    float end_time,
-    ArrayRef<int> next_event_indices,
-    ArrayRef<SmallVector<float>> r_current_time_per_particle)
+BLI_NOINLINE static void compute_current_time_per_particle(ArrayRef<uint> pindices_with_event,
+                                                           ArrayRef<float> remaining_durations,
+                                                           float end_time,
+                                                           ArrayRef<float> r_current_times)
 {
   for (uint pindex : pindices_with_event) {
-    int event_index = next_event_indices[pindex];
-    BLI_assert(event_index >= 0);
-    r_current_time_per_particle[event_index].append(end_time - remaining_durations[pindex]);
+    r_current_times[pindex] = end_time - remaining_durations[pindex];
   }
 }
 
@@ -167,14 +163,13 @@ BLI_NOINLINE static void execute_events(ParticleAllocator &particle_allocator,
                                         ArrayAllocator &array_allocator,
                                         ParticlesBlock &block,
                                         ArrayRef<SmallVector<uint>> pindices_per_event,
-                                        ArrayRef<SmallVector<float>> current_time_per_particle,
+                                        ArrayRef<float> current_times,
                                         ArrayRef<float> remaining_durations,
                                         ArrayRef<Event *> events,
                                         EventStorage &event_storage,
                                         AttributeArrays attribute_offsets)
 {
   BLI_assert(events.size() == pindices_per_event.size());
-  BLI_assert(events.size() == current_time_per_particle.size());
 
   for (uint event_index = 0; event_index < events.size(); event_index++) {
     Event *event = events[event_index];
@@ -186,7 +181,7 @@ BLI_NOINLINE static void execute_events(ParticleAllocator &particle_allocator,
     EventExecuteInterface interface(particles,
                                     particle_allocator,
                                     array_allocator,
-                                    current_time_per_particle[event_index],
+                                    current_times,
                                     remaining_durations,
                                     event_storage,
                                     attribute_offsets);
@@ -234,18 +229,15 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
   SmallVector<SmallVector<uint>> particles_per_event(events.size());
   find_pindices_per_event(pindices_with_event, next_event_indices, particles_per_event);
 
-  SmallVector<SmallVector<float>> current_time_per_particle(events.size());
-  compute_current_time_per_particle(pindices_with_event,
-                                    remaining_durations,
-                                    end_time,
-                                    next_event_indices,
-                                    current_time_per_particle);
+  ArrayAllocator::Array<float> current_times(array_allocator);
+  compute_current_time_per_particle(
+      pindices_with_event, remaining_durations, end_time, current_times);
 
   execute_events(particle_allocator,
                  array_allocator,
                  particles.block(),
                  particles_per_event,
-                 current_time_per_particle,
+                 current_times,
                  remaining_durations,
                  events,
                  event_storage,
