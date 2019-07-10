@@ -12,6 +12,11 @@
 
 namespace BParticles {
 
+static float random_float()
+{
+  return (rand() % 4096) / 4096.0f;
+}
+
 class PointEmitter : public Emitter {
  private:
   std::string m_particle_type_name;
@@ -88,11 +93,12 @@ class SurfaceEmitter : public Emitter {
 
     SmallVector<float3> positions;
     SmallVector<float3> velocities;
+    SmallVector<float> sizes;
     SmallVector<float> birth_moments;
 
     for (uint i = 0; i < particles_to_emit; i++) {
       MLoopTri triangle = triangles[rand() % triangle_amount];
-      float birth_moment = (rand() % 1000) / 1000.0f;
+      float birth_moment = random_float();
 
       float3 v1 = verts[loops[triangle.tri[0]].v].co;
       float3 v2 = verts[loops[triangle.tri[1]].v].co;
@@ -119,11 +125,13 @@ class SurfaceEmitter : public Emitter {
       velocities.append(normal_velocity * normal_velocity_factor +
                         emitter_velocity * emitter_velocity_factor);
       birth_moments.append(birth_moment);
+      sizes.append(random_float());
     }
 
     auto &target = interface.request(m_particle_type_name, positions.size());
     target.set_float3("Position", positions);
     target.set_float3("Velocity", velocities);
+    target.set_float("Size", sizes);
     target.set_birth_moments(birth_moments);
   }
 
@@ -134,8 +142,8 @@ class SurfaceEmitter : public Emitter {
     float rand1, rand2;
 
     do {
-      rand1 = (rand() % 1000) / 1000.0f;
-      rand2 = (rand() % 1000) / 1000.0f;
+      rand1 = random_float();
+      rand2 = random_float();
     } while (rand1 + rand2 > 1.0f);
 
     return a + dir1 * rand1 + dir2 * rand2;

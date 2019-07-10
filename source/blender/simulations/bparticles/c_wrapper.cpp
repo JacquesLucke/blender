@@ -131,7 +131,7 @@ static uint tetrahedon_edges[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2
 static void distribute_tetrahedons_range(Mesh *mesh,
                                          Range<uint> range,
                                          ArrayRef<float3> centers,
-                                         float scale)
+                                         ArrayRef<float> scales)
 {
   for (uint instance : range) {
     uint vertex_offset = instance * ARRAY_SIZE(tetrahedon_vertices);
@@ -141,7 +141,8 @@ static void distribute_tetrahedons_range(Mesh *mesh,
 
     float3 center = centers[instance];
     for (uint i = 0; i < ARRAY_SIZE(tetrahedon_vertices); i++) {
-      copy_v3_v3(mesh->mvert[vertex_offset + i].co, center + tetrahedon_vertices[i] * scale);
+      copy_v3_v3(mesh->mvert[vertex_offset + i].co,
+                 center + tetrahedon_vertices[i] * scales[instance]);
     }
 
     for (uint i = 0; i < ARRAY_SIZE(tetrahedon_loop_starts); i++) {
@@ -160,7 +161,7 @@ static void distribute_tetrahedons_range(Mesh *mesh,
   }
 }
 
-static Mesh *distribute_tetrahedons(ArrayRef<float3> centers, float scale)
+static Mesh *distribute_tetrahedons(ArrayRef<float3> centers, ArrayRef<float> scales)
 {
   uint amount = centers.size();
   Mesh *mesh = BKE_mesh_new_nomain(amount * ARRAY_SIZE(tetrahedon_vertices),
@@ -170,8 +171,8 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers, float scale)
                                    amount * ARRAY_SIZE(tetrahedon_loop_starts));
 
   BLI::Task::parallel_range(
-      Range<uint>(0, amount), 1000, [mesh, centers, scale](Range<uint> range) {
-        distribute_tetrahedons_range(mesh, range, centers, scale);
+      Range<uint>(0, amount), 1000, [mesh, centers, scales](Range<uint> range) {
+        distribute_tetrahedons_range(mesh, range, centers, scales);
       });
 
   return mesh;
@@ -196,6 +197,15 @@ void BParticles_modifier_free_cache(BParticlesModifierData *bpmd)
       if (cached_type.attributes_float3 != nullptr) {
         MEM_freeN(cached_type.attributes_float3);
       }
+      for (auto &cached_attribute :
+           BLI::ref_c_array(cached_type.attributes_float, cached_type.num_attributes_float)) {
+        if (cached_attribute.values != nullptr) {
+          MEM_freeN(cached_attribute.values);
+        }
+      }
+      if (cached_type.attributes_float != nullptr) {
+        MEM_freeN(cached_type.attributes_float);
+      }
     }
     if (cached_frame.particle_types != nullptr) {
       MEM_freeN(cached_frame.particle_types);
@@ -211,6 +221,7 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
   SCOPED_TIMER(__func__);
 
   SmallVector<float3> positions;
+  SmallVector<float> sizes;
   SmallVector<uint> particle_counts;
 
   for (uint i = 0; i < cached_frame->num_particle_types; i++) {
@@ -218,9 +229,10 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
     particle_counts.append(type.particle_amount);
     positions.extend(
         ArrayRef<float3>((float3 *)type.attributes_float3[0].values, type.particle_amount));
+    sizes.extend(ArrayRef<float>(type.attributes_float[0].values, type.particle_amount));
   }
 
-  Mesh *mesh = distribute_tetrahedons(positions, 0.025f);
+  Mesh *mesh = distribute_tetrahedons(positions, sizes);
   if (positions.size() == 0) {
     return mesh;
   }
@@ -267,15 +279,31 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     strncpy(cached_type.name, container_names[i].data(), sizeof(cached_type.name));
     cached_type.particle_amount = container.count_active();
 
-    cached_type.num_attributes_float3 = 1;
-    cached_type.attributes_float3 = (BParticlesAttributeCacheFloat3 *)MEM_calloc_arrayN(
-        cached_type.num_attributes_float3, sizeof(BParticlesAttributeCacheFloat3), __func__);
+    /* Cache Position */
+    {
+      cached_type.num_attributes_float3 = 1;
+      cached_type.attributes_float3 = (BParticlesAttributeCacheFloat3 *)MEM_calloc_arrayN(
+          cached_type.num_attributes_float3, sizeof(BParticlesAttributeCacheFloat3), __func__);
 
-    BParticlesAttributeCacheFloat3 &cached_attribute = cached_type.attributes_float3[0];
-    strncpy(cached_attribute.name, "Position", sizeof(cached_attribute.name));
-    cached_attribute.values = (float *)MEM_malloc_arrayN(
-        cached_type.particle_amount, sizeof(float3), __func__);
-    container.flatten_attribute_data("Position", cached_attribute.values);
+      BParticlesAttributeCacheFloat3 &cached_attribute = cached_type.attributes_float3[0];
+      strncpy(cached_attribute.name, "Position", sizeof(cached_attribute.name));
+      cached_attribute.values = (float *)MEM_malloc_arrayN(
+          cached_type.particle_amount, sizeof(float3), __func__);
+      container.flatten_attribute_data("Position", cached_attribute.values);
+    }
+
+    /* Cache Size */
+    {
+      cached_type.num_attributes_float = 1;
+      cached_type.attributes_float = (BParticlesAttributeCacheFloat *)MEM_calloc_arrayN(
+          cached_type.num_attributes_float, sizeof(BParticlesAttributeCacheFloat), __func__);
+
+      BParticlesAttributeCacheFloat &cached_attribute = cached_type.attributes_float[0];
+      strncpy(cached_attribute.name, "Size", sizeof(cached_attribute.name));
+      cached_attribute.values = (float *)MEM_malloc_arrayN(
+          cached_type.particle_amount, sizeof(float), __func__);
+      container.flatten_attribute_data("Size", cached_attribute.values);
+    }
   }
 
   bpmd->cached_frames = (BParticlesFrameCache *)MEM_reallocN(

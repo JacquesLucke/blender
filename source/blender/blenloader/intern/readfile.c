@@ -5821,6 +5821,16 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
                                             cached_type->particle_amount * 3);
             }
           }
+
+          for (uint i = 0; i < cached_type->num_attributes_float; i++) {
+            BParticlesAttributeCacheFloat *cached_attribute = &cached_type->attributes_float[i];
+            cached_attribute->values = newdataadr(fd, cached_attribute->values);
+
+            if (fd->flags & FD_FLAGS_SWITCH_ENDIAN) {
+              BLI_endian_switch_float_array(cached_attribute->values,
+                                            cached_type->particle_amount);
+            }
+          }
         }
       }
     }

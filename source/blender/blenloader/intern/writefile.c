@@ -1785,6 +1785,12 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
                       sizeof(float) * 3 * cached_type->particle_amount,
                       attribute_cache->values);
           }
+
+          for (uint i = 0; i < cached_type->num_attributes_float; i++) {
+            BParticlesAttributeCacheFloat *attribute_cache = &cached_type->attributes_float[i];
+            writedata(
+                wd, DATA, sizeof(float) * cached_type->particle_amount, attribute_cache->values);
+          }
         }
       }
     }

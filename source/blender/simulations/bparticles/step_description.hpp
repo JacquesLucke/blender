@@ -32,6 +32,7 @@ class ModifierParticleType : public ParticleType {
   {
     interface.use(AttributeType::Float3, "Position");
     interface.use(AttributeType::Float3, "Velocity");
+    interface.use(AttributeType::Float, "Size");
   }
 };
 
