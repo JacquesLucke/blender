@@ -32,7 +32,6 @@ BLI_NOINLINE static void find_next_event_per_particle(
     EventStorage &r_event_storage,
     ArrayRef<int> r_next_event_indices,
     ArrayRef<float> r_time_factors_to_next_event,
-    VectorAdaptor<uint> &r_indices_with_event,
     VectorAdaptor<uint> &r_particle_indices_with_event)
 {
   for (uint pindex : particles.indices()) {
@@ -69,7 +68,6 @@ BLI_NOINLINE static void find_next_event_per_particle(
   for (uint index : particles.range()) {
     uint pindex = particles.get_particle_index(index);
     if (r_next_event_indices[pindex] != -1) {
-      r_indices_with_event.append(index);
       r_particle_indices_with_event.append(pindex);
     }
   }
@@ -214,7 +212,6 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
 
   ArrayAllocator::Array<int> next_event_indices(array_allocator);
   ArrayAllocator::Array<float> time_factors_to_next_event(array_allocator);
-  ArrayAllocator::Vector<uint> indices_with_event(array_allocator);
   ArrayAllocator::Vector<uint> particle_indices_with_event(array_allocator);
 
   uint max_event_storage_size = std::max(get_max_event_storage_size(events), 1u);
@@ -229,7 +226,6 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
                                event_storage,
                                next_event_indices,
                                time_factors_to_next_event,
-                               indices_with_event,
                                particle_indices_with_event);
 
   forward_particles_to_next_event_or_end(particles, attribute_offsets, time_factors_to_next_event);
