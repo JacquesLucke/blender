@@ -395,11 +395,11 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
                                         ParticleAllocator &particle_allocator,
                                         ParticlesBlock &block,
                                         ParticleType &particle_type,
-                                        ArrayRef<float> durations,
+                                        ArrayRef<float> remaining_durations,
                                         float end_time)
 {
   uint amount = block.active_amount();
-  BLI_assert(amount == durations.size());
+  BLI_assert(amount == remaining_durations.size());
 
   Integrator &integrator = particle_type.integrator();
   AttributesInfo &offsets_info = integrator.offset_attributes_info();
@@ -407,7 +407,7 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
       offsets_info, array_allocator);
   AttributeArrays attribute_offsets = attribute_offsets_core.slice_all().slice(0, amount);
 
-  IntegratorInterface interface(block, durations, array_allocator, attribute_offsets);
+  IntegratorInterface interface(block, remaining_durations, array_allocator, attribute_offsets);
   integrator.integrate(interface);
 
   ArrayRef<Event *> events = particle_type.events();
@@ -425,7 +425,7 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
                                particle_allocator,
                                block,
                                attribute_offsets,
-                               durations,
+                               remaining_durations,
                                end_time,
                                events,
                                unfinished_particle_indices);
