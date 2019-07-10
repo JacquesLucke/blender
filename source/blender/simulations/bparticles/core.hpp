@@ -436,7 +436,7 @@ class EventFilterInterface {
   /**
    * Get the time span that should be checked for a specific particle.
    */
-  TimeSpan time_span(uint index);
+  TimeSpan time_span(uint pindex);
 
   /**
    * Get the end time of the current time step.
@@ -759,9 +759,9 @@ inline ArrayRef<float> EventFilterInterface::durations()
   return m_durations;
 }
 
-inline TimeSpan EventFilterInterface::time_span(uint index)
+inline TimeSpan EventFilterInterface::time_span(uint pindex)
 {
-  float duration = m_durations[index];
+  float duration = m_durations[pindex];
   return TimeSpan(m_end_time - duration, duration);
 }
 

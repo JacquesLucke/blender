@@ -62,7 +62,7 @@ class AgeReachedEvent : public Event {
       float age_at_end = end_time - birth_time;
 
       if (age_at_end >= trigger_age) {
-        TimeSpan time_span = interface.time_span(i);
+        TimeSpan time_span = interface.time_span(pindex);
 
         float age_at_start = age_at_end - time_span.duration();
         if (trigger_age < age_at_start) {
@@ -170,13 +170,13 @@ class MeshCollisionEventFilter : public Event {
       uint pindex = particles.get_particle_index(i);
 
       float3 ray_start = m_world_to_local.transform_position(positions[pindex]);
-      float3 ray_direction = m_world_to_local.transform_direction(position_offsets[i]);
+      float3 ray_direction = m_world_to_local.transform_direction(position_offsets[pindex]);
       float length = ray_direction.normalize_and_get_length();
 
       auto result = this->ray_cast(ray_start, ray_direction, length);
       if (result.success) {
         float time_factor = result.distance / length;
-        float time = interface.time_span(i).interpolate(time_factor);
+        float time = interface.time_span(pindex).interpolate(time_factor);
         if (std::abs(last_collision_times[pindex] - time) < 0.0001f) {
           continue;
         }
