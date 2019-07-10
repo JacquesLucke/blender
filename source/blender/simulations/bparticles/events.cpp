@@ -52,8 +52,7 @@ class AgeReachedEvent : public Event {
     m_compute_age_body->call(fn_in, fn_out, execution_context);
     float trigger_age = fn_out.get<float>(0);
 
-    for (uint i : particles.range()) {
-      uint pindex = particles.get_particle_index(i);
+    for (uint pindex : particles.pindices()) {
       if (was_activated_before[pindex]) {
         continue;
       }
@@ -82,7 +81,7 @@ class AgeReachedEvent : public Event {
     ParticleSet particles = interface.particles();
 
     auto was_activated_before = particles.attributes().get_byte(m_identifier);
-    for (uint pindex : particles.indices()) {
+    for (uint pindex : particles.pindices()) {
       was_activated_before[pindex] = true;
     }
 
@@ -166,9 +165,7 @@ class MeshCollisionEventFilter : public Event {
     auto last_collision_times = particles.attributes().get_float(m_identifier);
     auto position_offsets = interface.attribute_offsets().get_float3("Position");
 
-    for (uint i : particles.range()) {
-      uint pindex = particles.get_particle_index(i);
-
+    for (uint pindex : particles.pindices()) {
       float3 ray_start = m_world_to_local.transform_position(positions[pindex]);
       float3 ray_direction = m_world_to_local.transform_direction(position_offsets[pindex]);
       float length = ray_direction.normalize_and_get_length();
@@ -211,11 +208,10 @@ class MeshCollisionEventFilter : public Event {
     SmallVector<float3> normals(particles.block().active_amount());
     auto last_collision_times = particles.attributes().get_float(m_identifier);
 
-    for (uint i : particles.range()) {
-      uint pindex = particles.get_particle_index(i);
+    for (uint pindex : particles.pindices()) {
       auto storage = interface.get_storage<EventStorage>(pindex);
       normals[pindex] = storage.normal;
-      last_collision_times[pindex] = interface.current_times()[i];
+      last_collision_times[pindex] = interface.current_times()[pindex];
     }
 
     CollisionEventInfo event_info(normals);

@@ -35,7 +35,7 @@ class ChangeDirectionAction : public Action {
     FN::ExecutionStack stack;
     FN::ExecutionContext execution_context(stack);
 
-    for (uint pindex : particles.indices()) {
+    for (uint pindex : particles.pindices()) {
       caller.call(fn_in, fn_out, execution_context, pindex);
       float3 direction = fn_out.get<float3>(0);
 
@@ -51,7 +51,7 @@ class ChangeDirectionAction : public Action {
 class KillAction : public Action {
   void execute(ActionInterface &interface) override
   {
-    interface.kill(interface.particles().indices());
+    interface.kill(interface.particles().pindices());
   }
 };
 
@@ -99,7 +99,7 @@ class ExplodeAction : public Action {
     FN::ExecutionStack stack;
     FN::ExecutionContext execution_context(stack);
 
-    for (uint pindex : particles.indices()) {
+    for (uint pindex : particles.pindices()) {
       caller.call(fn_in, fn_out, execution_context, pindex);
       uint parts_amount = std::max(0, fn_out.get<int>(0));
       float speed = fn_out.get<float>(1);
@@ -145,7 +145,7 @@ class ConditionAction : public Action {
     this->compute_conditions(interface, conditions);
 
     SmallVector<uint> true_pindices, false_pindices;
-    for (uint pindex : particles.indices()) {
+    for (uint pindex : particles.pindices()) {
       if (conditions[pindex]) {
         true_pindices.append(pindex);
       }
@@ -167,7 +167,7 @@ class ConditionAction : public Action {
 
     FN::ExecutionStack stack;
     FN::ExecutionContext execution_context(stack);
-    for (uint pindex : particles.indices()) {
+    for (uint pindex : particles.pindices()) {
       caller.call(fn_in, fn_out, execution_context, pindex);
       bool condition = fn_out.get<bool>(0);
       r_conditions[pindex] = condition;

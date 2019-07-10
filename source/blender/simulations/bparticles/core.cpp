@@ -144,8 +144,8 @@ void ParticleSets::set_elements(uint index, void *data)
     AttributeArrays attributes = particles.attributes();
     void *dst = attributes.get_ptr(index);
 
-    for (uint i : particles.range()) {
-      uint pindex = particles.get_particle_index(i);
+    for (uint i = 0; i < particles.size(); i++) {
+      uint pindex = particles.pindices()[i];
       memcpy(POINTER_OFFSET(dst, element_size * pindex),
              POINTER_OFFSET(remaining_data, element_size * i),
              element_size);
@@ -164,7 +164,7 @@ void ParticleSets::fill_elements(uint index, void *value)
     AttributeArrays attributes = particles.attributes();
     void *dst = attributes.get_ptr(index);
 
-    for (uint pindex : particles.indices()) {
+    for (uint pindex : particles.pindices()) {
       memcpy(POINTER_OFFSET(dst, element_size * pindex), value, element_size);
     }
   }

@@ -33,7 +33,7 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
                                                       ArrayRef<float> r_time_factors_to_next_event,
                                                       VectorAdaptor<uint> &r_pindices_with_event)
 {
-  for (uint pindex : particles.indices()) {
+  for (uint pindex : particles.pindices()) {
     r_next_event_indices[pindex] = -1;
     r_time_factors_to_next_event[pindex] = 1.0f;
   }
@@ -63,8 +63,7 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
     }
   }
 
-  for (uint index : particles.range()) {
-    uint pindex = particles.get_particle_index(index);
+  for (uint pindex : particles.pindices()) {
     if (r_next_event_indices[pindex] != -1) {
       r_pindices_with_event.append(pindex);
     }
@@ -83,14 +82,13 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     auto offsets = attribute_offsets.get_float3(attribute_index);
 
     if (particles.indices_are_trivial()) {
-      for (uint pindex : particles.range()) {
+      for (uint pindex = 0; pindex < particles.size(); pindex++) {
         float time_factor = time_factors_to_next_event[pindex];
         values[pindex] += time_factor * offsets[pindex];
       }
     }
     else {
-      for (uint i : particles.range()) {
-        uint pindex = particles.get_particle_index(i);
+      for (uint pindex : particles.pindices()) {
         float time_factor = time_factors_to_next_event[pindex];
         values[pindex] += time_factor * offsets[pindex];
       }
@@ -341,7 +339,7 @@ BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
       add_float3_arrays(values.take_front(particles.size()), offsets.take_front(particles.size()));
     }
     else {
-      for (uint pindex : particles.indices()) {
+      for (uint pindex : particles.pindices()) {
         values[pindex] += offsets[pindex];
       }
     }

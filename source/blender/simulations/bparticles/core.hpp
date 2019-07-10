@@ -239,18 +239,7 @@ struct ParticleSet {
    * Access particle indices in the block that are part of the set.
    * Every value in this array is an index into the attribute arrays.
    */
-  ArrayRef<uint> indices();
-
-  /**
-   * Get the particle index of an index in this set. E.g. the 4th element in this set could be the
-   * 350th element in the block.
-   */
-  uint get_particle_index(uint i);
-
-  /**
-   * Utility to get [0, 1, ..., size() - 1].
-   */
-  Range<uint> range();
+  ArrayRef<uint> pindices();
 
   /**
    * Number of particles in this set.
@@ -258,7 +247,7 @@ struct ParticleSet {
   uint size();
 
   /**
-   * Returns true when get_particle_index(i) == i for all i, otherwise false.
+   * Returns true when pindices()[i] == i for all i, otherwise false.
    */
   bool indices_are_trivial();
 };
@@ -693,19 +682,9 @@ inline AttributeArrays ParticleSet::attributes()
   return m_block->attributes();
 }
 
-inline ArrayRef<uint> ParticleSet::indices()
+inline ArrayRef<uint> ParticleSet::pindices()
 {
   return m_pindices;
-}
-
-inline uint ParticleSet::get_particle_index(uint i)
-{
-  return m_pindices[i];
-}
-
-inline Range<uint> ParticleSet::range()
-{
-  return Range<uint>(0, m_pindices.size());
 }
 
 inline uint ParticleSet::size()
