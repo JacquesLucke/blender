@@ -32,11 +32,11 @@ ParticlesState::~ParticlesState()
 /* Block Allocator
  ******************************************/
 
-BlockAllocator::BlockAllocator(ParticlesState &state) : m_state(state)
+ParticleAllocator::ParticleAllocator(ParticlesState &state) : m_state(state)
 {
 }
 
-ParticlesBlock &BlockAllocator::get_non_full_block(StringRef particle_type_name)
+ParticlesBlock &ParticleAllocator::get_non_full_block(StringRef particle_type_name)
 {
   ParticlesContainer &container = m_state.particle_container(particle_type_name);
 
@@ -59,10 +59,10 @@ ParticlesBlock &BlockAllocator::get_non_full_block(StringRef particle_type_name)
   return block;
 }
 
-void BlockAllocator::allocate_block_ranges(StringRef particle_type_name,
-                                           uint size,
-                                           SmallVector<ParticlesBlock *> &r_blocks,
-                                           SmallVector<Range<uint>> &r_ranges)
+void ParticleAllocator::allocate_block_ranges(StringRef particle_type_name,
+                                              uint size,
+                                              SmallVector<ParticlesBlock *> &r_blocks,
+                                              SmallVector<Range<uint>> &r_ranges)
 {
   uint remaining_size = size;
   while (remaining_size > 0) {
@@ -84,12 +84,12 @@ void BlockAllocator::allocate_block_ranges(StringRef particle_type_name,
   }
 }
 
-AttributesInfo &BlockAllocator::attributes_info(StringRef particle_type_name)
+AttributesInfo &ParticleAllocator::attributes_info(StringRef particle_type_name)
 {
   return m_state.particle_container(particle_type_name).attributes_info();
 }
 
-std::unique_ptr<EmitTargetBase> BlockAllocator::request(StringRef particle_type_name, uint size)
+std::unique_ptr<EmitTargetBase> ParticleAllocator::request(StringRef particle_type_name, uint size)
 {
   SmallVector<ParticlesBlock *> blocks;
   SmallVector<Range<uint>> ranges;
@@ -104,8 +104,8 @@ std::unique_ptr<EmitTargetBase> BlockAllocator::request(StringRef particle_type_
 /* Emitter Interface
  ******************************************/
 
-EmitterInterface::EmitterInterface(BlockAllocator &block_allocator, TimeSpan time_span)
-    : m_block_allocator(block_allocator), m_time_span(time_span)
+EmitterInterface::EmitterInterface(ParticleAllocator &particle_allocator, TimeSpan time_span)
+    : m_particle_allocator(particle_allocator), m_time_span(time_span)
 {
 }
 
@@ -126,8 +126,8 @@ InstantEmitTarget &EventExecuteInterface::request_emit_target(StringRef particle
 
   SmallVector<ParticlesBlock *> blocks;
   SmallVector<Range<uint>> ranges;
-  m_block_allocator.allocate_block_ranges(particle_type_name, size, blocks, ranges);
-  AttributesInfo &attributes_info = m_block_allocator.attributes_info(particle_type_name);
+  m_particle_allocator.allocate_block_ranges(particle_type_name, size, blocks, ranges);
+  AttributesInfo &attributes_info = m_particle_allocator.attributes_info(particle_type_name);
 
   auto *target = new InstantEmitTarget(particle_type_name, attributes_info, blocks, ranges);
   m_emit_targets.append(target);
@@ -297,13 +297,13 @@ EventFilterInterface::EventFilterInterface(ParticleSet particles,
  *************************************************/
 
 EventExecuteInterface::EventExecuteInterface(ParticleSet particles,
-                                             BlockAllocator &block_allocator,
+                                             ParticleAllocator &particle_allocator,
                                              ArrayRef<float> current_times,
                                              EventStorage &event_storage,
                                              AttributeArrays attribute_offsets,
                                              float step_end_time)
     : m_particles(particles),
-      m_block_allocator(block_allocator),
+      m_particle_allocator(particle_allocator),
       m_current_times(current_times),
       m_kill_states(m_particles.attributes().get_byte("Kill State")),
       m_event_storage(event_storage),

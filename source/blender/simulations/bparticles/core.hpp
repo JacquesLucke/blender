@@ -296,15 +296,15 @@ class InstantEmitTarget : public EmitTargetBase {
  * be used by multiple threads at the same time.
  * It might hand out the same block more than once until it is full.
  */
-class BlockAllocator {
+class ParticleAllocator {
  private:
   ParticlesState &m_state;
   SmallVector<ParticlesBlock *> m_non_full_cache;
   SmallVector<ParticlesBlock *> m_allocated_blocks;
 
  public:
-  BlockAllocator(ParticlesState &state);
-  BlockAllocator(BlockAllocator &other) = delete;
+  ParticleAllocator(ParticlesState &state);
+  ParticleAllocator(ParticleAllocator &other) = delete;
 
   /**
    * Return a block that can hold new particles. It might create an entirely new one or use a
@@ -337,14 +337,14 @@ class BlockAllocator {
  */
 class EmitterInterface {
  private:
-  BlockAllocator &m_block_allocator;
+  ParticleAllocator &m_particle_allocator;
   TimeSpan m_time_span;
 
  public:
-  EmitterInterface(BlockAllocator &block_allocator, TimeSpan time_span);
+  EmitterInterface(ParticleAllocator &particle_allocator, TimeSpan time_span);
   ~EmitterInterface() = default;
 
-  BlockAllocator &block_allocator();
+  ParticleAllocator &particle_allocator();
 
   /**
    * Time span that new particles should be emitted in.
@@ -502,7 +502,7 @@ class EventFilterInterface {
 class EventExecuteInterface {
  private:
   ParticleSet m_particles;
-  BlockAllocator &m_block_allocator;
+  ParticleAllocator &m_particle_allocator;
   SmallVector<InstantEmitTarget *> m_emit_targets;
   ArrayRef<float> m_current_times;
   ArrayRef<uint8_t> m_kill_states;
@@ -512,7 +512,7 @@ class EventExecuteInterface {
 
  public:
   EventExecuteInterface(ParticleSet particles,
-                        BlockAllocator &block_allocator,
+                        ParticleAllocator &particle_allocator,
                         ArrayRef<float> current_times,
                         EventStorage &event_storage,
                         AttributeArrays attribute_offsets,
@@ -563,7 +563,7 @@ class EventExecuteInterface {
   /**
    * Get a block allocator. Not that the request_emit_target should usually be used instead.
    */
-  BlockAllocator &block_allocator();
+  ParticleAllocator &particle_allocator();
 
   /**
    * Get the entire event storage.
@@ -680,15 +680,15 @@ inline float &ParticlesState::current_time()
   return m_current_time;
 }
 
-/* BlockAllocator inline functions
+/* ParticleAllocator inline functions
  ********************************************/
 
-inline ParticlesState &BlockAllocator::particles_state()
+inline ParticlesState &ParticleAllocator::particles_state()
 {
   return m_state;
 }
 
-inline ArrayRef<ParticlesBlock *> BlockAllocator::allocated_blocks()
+inline ArrayRef<ParticlesBlock *> ParticleAllocator::allocated_blocks()
 {
   return m_allocated_blocks;
 }
@@ -724,9 +724,9 @@ inline StringRefNull EmitTargetBase::particle_type_name()
 /* EmitterInterface inline functions
  ***********************************************/
 
-inline BlockAllocator &EmitterInterface::block_allocator()
+inline ParticleAllocator &EmitterInterface::particle_allocator()
 {
-  return m_block_allocator;
+  return m_particle_allocator;
 }
 
 inline TimeSpan EmitterInterface::time_span()
@@ -867,9 +867,9 @@ inline T &EventFilterInterface::trigger_particle(uint index, float time_factor)
 /* EventExecuteInterface inline functions
  **********************************************/
 
-inline BlockAllocator &EventExecuteInterface::block_allocator()
+inline ParticleAllocator &EventExecuteInterface::particle_allocator()
 {
-  return m_block_allocator;
+  return m_particle_allocator;
 }
 
 inline EventStorage &EventExecuteInterface::event_storage()

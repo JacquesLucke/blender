@@ -192,7 +192,7 @@ BLI_NOINLINE static void find_unfinished_particles(
   }
 }
 
-BLI_NOINLINE static void execute_events(BlockAllocator &block_allocator,
+BLI_NOINLINE static void execute_events(ParticleAllocator &particle_allocator,
                                         ParticlesBlock &block,
                                         ArrayRef<SmallVector<uint>> particle_indices_per_event,
                                         ArrayRef<SmallVector<float>> current_time_per_particle,
@@ -212,7 +212,7 @@ BLI_NOINLINE static void execute_events(BlockAllocator &block_allocator,
     }
 
     EventExecuteInterface interface(particles,
-                                    block_allocator,
+                                    particle_allocator,
                                     current_time_per_particle[event_index],
                                     event_storage,
                                     attribute_offsets,
@@ -222,7 +222,7 @@ BLI_NOINLINE static void execute_events(BlockAllocator &block_allocator,
 }
 
 BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
-                                                BlockAllocator &block_allocator,
+                                                ParticleAllocator &particle_allocator,
                                                 ParticleSet particles,
                                                 AttributeArrays attribute_offsets,
                                                 ArrayRef<float> durations,
@@ -273,7 +273,7 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
                                     time_factors_to_next_event,
                                     current_time_per_particle);
 
-  execute_events(block_allocator,
+  execute_events(particle_allocator,
                  particles.block(),
                  particles_per_event,
                  current_time_per_particle,
@@ -294,7 +294,7 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
 BLI_NOINLINE static void simulate_with_max_n_events(
     uint max_events,
     ArrayAllocator &array_allocator,
-    BlockAllocator &block_allocator,
+    ParticleAllocator &particle_allocator,
     ParticlesBlock &block,
     AttributeArrays attribute_offsets,
     ArrayRef<float> durations,
@@ -315,7 +315,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     VectorAdaptor<uint> indices_output(indices_A, amount_left);
     VectorAdaptor<float> durations_output(durations_A, amount_left);
     simulate_to_next_event(array_allocator,
-                           block_allocator,
+                           particle_allocator,
                            ParticleSet(block, static_number_range_ref(0, amount_left)),
                            attribute_offsets,
                            durations,
@@ -334,7 +334,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(
     VectorAdaptor<float> durations_output(durations_B, amount_left, 0);
 
     simulate_to_next_event(array_allocator,
-                           block_allocator,
+                           particle_allocator,
                            ParticleSet(block, indices_input),
                            attribute_offsets,
                            durations_input,
@@ -403,7 +403,7 @@ BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
 }
 
 BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
-                                        BlockAllocator &block_allocator,
+                                        ParticleAllocator &particle_allocator,
                                         ParticlesBlock &block,
                                         ParticleType &particle_type,
                                         ArrayRef<float> durations,
@@ -433,7 +433,7 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
 
     simulate_with_max_n_events(10,
                                array_allocator,
-                               block_allocator,
+                               particle_allocator,
                                block,
                                attribute_offsets,
                                durations,
@@ -451,31 +451,31 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
   attribute_offsets_core.deallocate_in_array_allocator(array_allocator);
 }
 
-class BlockAllocators {
+class ParticleAllocators {
  private:
   ParticlesState &m_state;
-  SmallVector<BlockAllocator *> m_allocators;
+  SmallVector<ParticleAllocator *> m_allocators;
 
  public:
-  BlockAllocators(ParticlesState &state) : m_state(state)
+  ParticleAllocators(ParticlesState &state) : m_state(state)
   {
   }
 
-  ~BlockAllocators()
+  ~ParticleAllocators()
   {
-    for (BlockAllocator *allocator : m_allocators) {
+    for (ParticleAllocator *allocator : m_allocators) {
       delete allocator;
     }
   }
 
-  BlockAllocator &new_allocator()
+  ParticleAllocator &new_allocator()
   {
-    BlockAllocator *new_allocator = new BlockAllocator(m_state);
+    ParticleAllocator *new_allocator = new ParticleAllocator(m_state);
     m_allocators.append(new_allocator);
     return *new_allocator;
   }
 
-  ArrayRef<BlockAllocator *> allocators()
+  ArrayRef<ParticleAllocator *> allocators()
   {
     return m_allocators;
   }
@@ -483,7 +483,7 @@ class BlockAllocators {
   SmallVector<ParticlesBlock *> all_allocated_blocks()
   {
     SmallVector<ParticlesBlock *> blocks;
-    for (BlockAllocator *allocator : m_allocators) {
+    for (ParticleAllocator *allocator : m_allocators) {
       blocks.extend(allocator->allocated_blocks());
     }
     return blocks;
@@ -492,15 +492,15 @@ class BlockAllocators {
 
 struct ThreadLocalData {
   ArrayAllocator array_allocator;
-  BlockAllocator &block_allocator;
+  ParticleAllocator &particle_allocator;
 
-  ThreadLocalData(uint block_size, BlockAllocator &block_allocator)
-      : array_allocator(block_size), block_allocator(block_allocator)
+  ThreadLocalData(uint block_size, ParticleAllocator &particle_allocator)
+      : array_allocator(block_size), particle_allocator(particle_allocator)
   {
   }
 };
 
-BLI_NOINLINE static void simulate_blocks_for_time_span(BlockAllocators &block_allocators,
+BLI_NOINLINE static void simulate_blocks_for_time_span(ParticleAllocators &block_allocators,
                                                        ArrayRef<ParticlesBlock *> blocks,
                                                        StepDescription &step_description,
                                                        TimeSpan time_span)
@@ -518,12 +518,12 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(BlockAllocators &block_al
       /* Process individual element. */
       [&step_description, &all_durations, time_span](ParticlesBlock *block,
                                                      ThreadLocalData *local_data) {
-        ParticlesState &state = local_data->block_allocator.particles_state();
+        ParticlesState &state = local_data->particle_allocator.particles_state();
         StringRef particle_type_name = state.particle_container_id(block->container());
         ParticleType &particle_type = step_description.particle_type(particle_type_name);
 
         simulate_block(local_data->array_allocator,
-                       local_data->block_allocator,
+                       local_data->particle_allocator,
                        *block,
                        particle_type,
                        ArrayRef<float>(all_durations).take_back(block->active_amount()),
@@ -539,7 +539,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(BlockAllocators &block_al
 }
 
 BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
-    BlockAllocators &block_allocators,
+    ParticleAllocators &block_allocators,
     ArrayRef<ParticlesBlock *> blocks,
     StepDescription &step_description,
     float end_time)
@@ -552,7 +552,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
       blocks,
       /* Process individual element. */
       [&step_description, end_time](ParticlesBlock *block, ThreadLocalData *local_data) {
-        ParticlesState &state = local_data->block_allocator.particles_state();
+        ParticlesState &state = local_data->particle_allocator.particles_state();
         StringRef particle_type_id = state.particle_container_id(block->container());
         ParticleType &particle_type = step_description.particle_type(particle_type_id);
 
@@ -563,7 +563,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
           durations[i] = end_time - birth_times[i];
         }
         simulate_block(local_data->array_allocator,
-                       local_data->block_allocator,
+                       local_data->particle_allocator,
                        *block,
                        particle_type,
                        durations,
@@ -699,7 +699,7 @@ BLI_NOINLINE static void ensure_required_attributes_exist(ParticlesState &state,
 
 BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,
                                                       StepDescription &step_description,
-                                                      BlockAllocators &block_allocators,
+                                                      ParticleAllocators &block_allocators,
                                                       TimeSpan time_span)
 {
   SmallVector<ParticlesBlock *> blocks = get_all_blocks(state,
@@ -708,10 +708,10 @@ BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,
 }
 
 BLI_NOINLINE static void create_particles_from_emitters(StepDescription &step_description,
-                                                        BlockAllocators &block_allocators,
+                                                        ParticleAllocators &block_allocators,
                                                         TimeSpan time_span)
 {
-  BlockAllocator &emitter_allocator = block_allocators.new_allocator();
+  ParticleAllocator &emitter_allocator = block_allocators.new_allocator();
   for (Emitter *emitter : step_description.emitters()) {
     EmitterInterface interface(emitter_allocator, time_span);
     emitter->emit(interface);
@@ -724,14 +724,14 @@ BLI_NOINLINE static void emit_and_simulate_particles(ParticlesState &state,
 {
   SmallVector<ParticlesBlock *> newly_created_blocks;
   {
-    BlockAllocators block_allocators(state);
+    ParticleAllocators block_allocators(state);
     simulate_all_existing_blocks(state, step_description, block_allocators, time_span);
     create_particles_from_emitters(step_description, block_allocators, time_span);
     newly_created_blocks = block_allocators.all_allocated_blocks();
   }
 
   while (newly_created_blocks.size() > 0) {
-    BlockAllocators block_allocators(state);
+    ParticleAllocators block_allocators(state);
     simulate_blocks_from_birth_to_current_time(
         block_allocators, newly_created_blocks, step_description, time_span.end());
     newly_created_blocks = block_allocators.all_allocated_blocks();

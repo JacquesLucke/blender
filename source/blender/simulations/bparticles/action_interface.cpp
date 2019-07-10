@@ -23,7 +23,7 @@ void ActionInterface::execute_action_for_subset(ArrayRef<uint> indices,
 
   ParticleSet sub_particles(particles.block(), particle_indices);
   EventExecuteInterface sub_execute_interface(sub_particles,
-                                              interface.block_allocator(),
+                                              interface.particle_allocator(),
                                               sub_current_times,
                                               interface.event_storage(),
                                               interface.attribute_offsets(),
