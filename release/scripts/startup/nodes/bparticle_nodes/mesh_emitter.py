@@ -12,4 +12,5 @@ class MeshEmitterNode(bpy.types.Node, BParticlesNode):
         builder.fixed_input("rate", "Rate", "Float", default=10)
         builder.fixed_input("normal_velocity", "Normal Velocity", "Float", default=1)
         builder.fixed_input("emitter_velocity", "Emitter Velocity", "Float", default=0)
+        builder.fixed_input("size", "Size", "Float", default=0.05)
         builder.emitter_output("emitter", "Emitter")

@@ -67,6 +67,7 @@ class SurfaceEmitter : public Emitter {
     float rate = fn_out.get<float>(1);
     float normal_velocity_factor = fn_out.get<float>(2);
     float emitter_velocity_factor = fn_out.get<float>(3);
+    float size = fn_out.get<float>(4);
 
     float particles_to_emit_f = rate * interface.time_span().duration();
     float fraction = particles_to_emit_f - std::floor(particles_to_emit_f);
@@ -125,7 +126,7 @@ class SurfaceEmitter : public Emitter {
       velocities.append(normal_velocity * normal_velocity_factor +
                         emitter_velocity * emitter_velocity_factor);
       birth_moments.append(birth_moment);
-      sizes.append(random_float());
+      sizes.append(size);
     }
 
     auto &target = interface.request(m_particle_type_name, positions.size());

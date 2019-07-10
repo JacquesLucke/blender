@@ -217,7 +217,7 @@ static void INSERT_EMITTER_mesh_surface(ProcessNodeInterface &interface)
     SharedFunction fn = create_function(
         interface.indexed_tree(),
         interface.data_graph(),
-        {inputs.get(0), inputs.get(1), inputs.get(2), inputs.get(3)},
+        {inputs.get(0), inputs.get(1), inputs.get(2), inputs.get(3), inputs.get(4)},
         interface.bnode()->name);
 
     bNode *type_node = linked.node;
