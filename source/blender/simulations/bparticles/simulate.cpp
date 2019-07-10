@@ -35,7 +35,9 @@ BLI_NOINLINE static void find_next_event_per_particle(
     VectorAdaptor<uint> &r_indices_with_event,
     VectorAdaptor<uint> &r_particle_indices_with_event)
 {
-  r_next_event_indices.fill(-1);
+  for (uint pindex : particles.indices()) {
+    r_next_event_indices[pindex] = -1;
+  }
   r_time_factors_to_next_event.fill(1.0f);
 
   for (uint event_index = 0; event_index < events.size(); event_index++) {
@@ -55,18 +57,20 @@ BLI_NOINLINE static void find_next_event_per_particle(
 
     for (uint i = 0; i < triggered_indices.size(); i++) {
       uint index = triggered_indices[i];
+      uint pindex = particles.get_particle_index(index);
       float time_factor = triggered_time_factors[i];
       BLI_assert(time_factor <= r_time_factors_to_next_event[index]);
 
-      r_next_event_indices[index] = event_index;
+      r_next_event_indices[pindex] = event_index;
       r_time_factors_to_next_event[index] = time_factor;
     }
   }
 
-  for (uint i = 0; i < r_next_event_indices.size(); i++) {
-    if (r_next_event_indices[i] != -1) {
-      r_indices_with_event.append(i);
-      r_particle_indices_with_event.append(particles.get_particle_index(i));
+  for (uint index : particles.range()) {
+    uint pindex = particles.get_particle_index(index);
+    if (r_next_event_indices[pindex] != -1) {
+      r_indices_with_event.append(index);
+      r_particle_indices_with_event.append(pindex);
     }
   }
 }
@@ -131,33 +135,26 @@ BLI_NOINLINE static void update_remaining_durations(ArrayRef<uint> indices_with_
 }
 
 BLI_NOINLINE static void find_particle_indices_per_event(
-    ArrayRef<uint> indices_with_events,
     ArrayRef<uint> particle_indices_with_events,
     ArrayRef<int> next_event_indices,
     ArrayRef<SmallVector<uint>> r_particles_per_event)
 {
-  BLI_assert(indices_with_events.size() == particle_indices_with_events.size());
-  for (uint i = 0; i < indices_with_events.size(); i++) {
-    uint index = indices_with_events[i];
-    uint pindex = particle_indices_with_events[i];
-    int event_index = next_event_indices[index];
+  for (uint pindex : particle_indices_with_events) {
+    int event_index = next_event_indices[pindex];
     BLI_assert(event_index >= 0);
     r_particles_per_event[event_index].append(pindex);
   }
 }
 
 BLI_NOINLINE static void compute_current_time_per_particle(
-    ArrayRef<uint> indices_with_events,
     ArrayRef<uint> particle_indices_with_event,
     ArrayRef<float> remaining_durations,
     float end_time,
     ArrayRef<int> next_event_indices,
     ArrayRef<SmallVector<float>> r_current_time_per_particle)
 {
-  for (uint i = 0; i < indices_with_events.size(); i++) {
-    uint index = indices_with_events[i];
-    uint pindex = particle_indices_with_event[i];
-    int event_index = next_event_indices[index];
+  for (uint pindex : particle_indices_with_event) {
+    int event_index = next_event_indices[pindex];
     BLI_assert(event_index >= 0);
     r_current_time_per_particle[event_index].append(end_time - remaining_durations[pindex]);
   }
@@ -226,7 +223,7 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
   uint amount = particles.size();
   BLI_assert(array_allocator.array_size() >= amount);
 
-  ArrayAllocator::Array<int> next_event_indices(array_allocator, amount);
+  ArrayAllocator::Array<int> next_event_indices(array_allocator);
   ArrayAllocator::Array<float> time_factors_to_next_event(array_allocator, amount);
   ArrayAllocator::Vector<uint> indices_with_event(array_allocator);
   ArrayAllocator::Vector<uint> particle_indices_with_event(array_allocator);
@@ -260,11 +257,10 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
 
   SmallVector<SmallVector<uint>> particles_per_event(events.size());
   find_particle_indices_per_event(
-      indices_with_event, particle_indices_with_event, next_event_indices, particles_per_event);
+      particle_indices_with_event, next_event_indices, particles_per_event);
 
   SmallVector<SmallVector<float>> current_time_per_particle(events.size());
-  compute_current_time_per_particle(indices_with_event,
-                                    particle_indices_with_event,
+  compute_current_time_per_particle(particle_indices_with_event,
                                     remaining_durations,
                                     end_time,
                                     next_event_indices,
