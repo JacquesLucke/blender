@@ -10,6 +10,7 @@
 #include "BLI_string_ref.hpp"
 #include "BLI_small_map.hpp"
 #include "BLI_vector_adaptor.hpp"
+#include "BLI_lazy_init.hpp"
 
 #include "attributes.hpp"
 #include "particles_container.hpp"
@@ -209,158 +210,6 @@ class ParticlesState {
 };
 
 /**
- * Base class for different kinds of emitters. It's main purpose is to make it easy to initialize
- * particle attributes.
- */
-class EmitTargetBase {
- protected:
-  std::string m_particle_type_name;
-  AttributesInfo &m_attributes_info;
-  SmallVector<ParticlesBlock *> m_blocks;
-  SmallVector<Range<uint>> m_ranges;
-
-  uint m_size = 0;
-
- public:
-  EmitTargetBase(StringRef particle_type_name,
-                 AttributesInfo &attributes_info,
-                 ArrayRef<ParticlesBlock *> blocks,
-                 ArrayRef<Range<uint>> ranges);
-
-  EmitTargetBase(EmitTargetBase &other) = delete;
-
-  /**
-   * Copy attributes from an array into the particle block ranges referenced by this target.
-   */
-  void set_byte(uint index, ArrayRef<uint8_t> data);
-  void set_byte(StringRef name, ArrayRef<uint8_t> data);
-  void set_float(uint index, ArrayRef<float> data);
-  void set_float(StringRef name, ArrayRef<float> data);
-  void set_float3(uint index, ArrayRef<float3> data);
-  void set_float3(StringRef name, ArrayRef<float3> data);
-
-  /**
-   * Set an attribute type to a constant for all referenced particle block ranges.
-   */
-  void fill_byte(uint index, uint8_t value);
-  void fill_byte(StringRef name, uint8_t value);
-  void fill_float(uint index, float value);
-  void fill_float(StringRef name, float value);
-  void fill_float3(uint index, float3 value);
-  void fill_float3(StringRef name, float3 value);
-
-  /**
-   * Access the particle blocks referenced by this emit target.
-   */
-  ArrayRef<ParticlesBlock *> blocks();
-
-  /**
-   * Access the referenced ranges in the blocks.
-   */
-  ArrayRef<Range<uint>> ranges();
-
-  /**
-   * Return the amount of different parts this emit target is made up of.
-   */
-  uint part_amount();
-
-  /**
-   * Get the attribute arrays for a specific part.
-   */
-  AttributeArrays attributes(uint part);
-
-  /**
-   * Get the particle type id in the context of the current simulation step.
-   */
-  StringRefNull particle_type_name();
-
- private:
-  void set_elements(uint index, void *data);
-  void fill_elements(uint index, void *value);
-};
-
-/**
- * A specialized emit target for the case when the birth time of all particles is known beforehand.
- */
-class InstantEmitTarget : public EmitTargetBase {
- public:
-  InstantEmitTarget(StringRef particle_type_name,
-                    AttributesInfo &attributes_info,
-                    ArrayRef<ParticlesBlock *> blocks,
-                    ArrayRef<Range<uint>> ranges);
-};
-
-/**
- * This class allows allocating new blocks from different particle containers.
- * A single instance is not thread safe, but multiple allocator instances can
- * be used by multiple threads at the same time.
- * It might hand out the same block more than once until it is full.
- */
-class ParticleAllocator {
- private:
-  ParticlesState &m_state;
-  SmallVector<ParticlesBlock *> m_non_full_cache;
-  SmallVector<ParticlesBlock *> m_allocated_blocks;
-
- public:
-  ParticleAllocator(ParticlesState &state);
-  ParticleAllocator(ParticleAllocator &other) = delete;
-  ParticleAllocator(ParticleAllocator &&other) = delete;
-
-  /**
-   * Access all blocks that have been allocated by this allocator.
-   */
-  ArrayRef<ParticlesBlock *> allocated_blocks();
-
-  std::unique_ptr<EmitTargetBase> request(StringRef particle_type_name, uint size);
-
-  ParticlesState &particles_state();
-
- private:
-  /**
-   * Return a block that can hold new particles. It might create an entirely new one or use a
-   * cached block.
-   */
-  ParticlesBlock &get_non_full_block(StringRef particle_type_name);
-
-  /**
-   * Allocate space for a given number of new particles. The attribute buffers might be distributed
-   * over multiple blocks.
-   */
-  void allocate_block_ranges(StringRef particle_type_name,
-                             uint size,
-                             SmallVector<ParticlesBlock *> &r_blocks,
-                             SmallVector<Range<uint>> &r_ranges);
-
-  AttributesInfo &attributes_info(StringRef particle_type_name);
-};
-
-/**
- * The interface between the simulation core and individual emitters.
- */
-class EmitterInterface {
- private:
-  ParticleAllocator &m_particle_allocator;
-  TimeSpan m_time_span;
-
- public:
-  EmitterInterface(ParticleAllocator &particle_allocator, TimeSpan time_span);
-  ~EmitterInterface() = default;
-
-  ParticleAllocator &particle_allocator();
-
-  /**
-   * Time span that new particles should be emitted in.
-   */
-  TimeSpan time_span();
-
-  /**
-   * True when this is the first time step in a simulation, otherwise false.
-   */
-  bool is_first_step();
-};
-
-/**
  * A set of particles all of which are in the same block.
  */
 struct ParticleSet {
@@ -412,6 +261,111 @@ struct ParticleSet {
    * Returns true when get_particle_index(i) == i for all i, otherwise false.
    */
   bool indices_are_trivial();
+};
+
+class ParticleSets {
+ private:
+  std::string m_particle_type_name;
+  AttributesInfo &m_attributes_info;
+  SmallVector<ParticleSet> m_sets;
+  uint m_size;
+
+ public:
+  ParticleSets(StringRef particle_type_name,
+               AttributesInfo &attributes_info,
+               ArrayRef<ParticleSet> sets);
+
+  operator ArrayRef<ParticleSet>();
+
+  void set_byte(uint index, ArrayRef<uint8_t> data);
+  void set_byte(StringRef name, ArrayRef<uint8_t> data);
+  void set_float(uint index, ArrayRef<float> data);
+  void set_float(StringRef name, ArrayRef<float> data);
+  void set_float3(uint index, ArrayRef<float3> data);
+  void set_float3(StringRef name, ArrayRef<float3> data);
+
+  void fill_byte(uint index, uint8_t value);
+  void fill_byte(StringRef name, uint8_t value);
+  void fill_float(uint index, float value);
+  void fill_float(StringRef name, float value);
+  void fill_float3(uint index, float3 value);
+  void fill_float3(StringRef name, float3 value);
+
+  StringRefNull particle_type_name();
+
+ private:
+  void set_elements(uint index, void *data);
+  void fill_elements(uint index, void *value);
+};
+
+/**
+ * This class allows allocating new blocks from different particle containers.
+ * A single instance is not thread safe, but multiple allocator instances can
+ * be used by multiple threads at the same time.
+ * It might hand out the same block more than once until it is full.
+ */
+class ParticleAllocator {
+ private:
+  ParticlesState &m_state;
+  SmallVector<ParticlesBlock *> m_non_full_cache;
+  SmallVector<ParticlesBlock *> m_allocated_blocks;
+
+ public:
+  ParticleAllocator(ParticlesState &state);
+  ParticleAllocator(ParticleAllocator &other) = delete;
+  ParticleAllocator(ParticleAllocator &&other) = delete;
+
+  /**
+   * Access all blocks that have been allocated by this allocator.
+   */
+  ArrayRef<ParticlesBlock *> allocated_blocks();
+
+  ParticleSets request(StringRef particle_type_name, uint size);
+
+  ParticlesState &particles_state();
+
+ private:
+  /**
+   * Return a block that can hold new particles. It might create an entirely new one or use a
+   * cached block.
+   */
+  ParticlesBlock &get_non_full_block(StringRef particle_type_name);
+
+  /**
+   * Allocate space for a given number of new particles. The attribute buffers might be distributed
+   * over multiple blocks.
+   */
+  void allocate_block_ranges(StringRef particle_type_name,
+                             uint size,
+                             SmallVector<ParticlesBlock *> &r_blocks,
+                             SmallVector<Range<uint>> &r_ranges);
+
+  AttributesInfo &attributes_info(StringRef particle_type_name);
+};
+
+/**
+ * The interface between the simulation core and individual emitters.
+ */
+class EmitterInterface {
+ private:
+  ParticleAllocator &m_particle_allocator;
+  TimeSpan m_time_span;
+
+ public:
+  EmitterInterface(ParticleAllocator &particle_allocator, TimeSpan time_span);
+  ~EmitterInterface() = default;
+
+  ParticleAllocator &particle_allocator();
+
+  /**
+   * Time span that new particles should be emitted in.
+   */
+  TimeSpan time_span();
+
+  /**
+   * True when this is the first time step in a simulation, otherwise false.
+   */
+  bool is_first_step();
 };
 
 /**
@@ -630,6 +584,27 @@ class TypeAttributeInterface {
   ArrayRef<AttributeType> types();
 };
 
+/* Utility to get ranges as arrays
+ ********************************************/
+
+BLI_LAZY_INIT_STATIC(SmallVector<uint>, static_number_range_vector)
+{
+  return Range<uint>(0, 10000).to_small_vector();
+}
+
+inline ArrayRef<uint> static_number_range_ref(uint start, uint length)
+{
+  return ArrayRef<uint>(static_number_range_vector()).slice(start, length);
+}
+
+inline ArrayRef<uint> static_number_range_ref(Range<uint> range)
+{
+  if (range.size() == 0) {
+    return {};
+  }
+  return static_number_range_ref(range.first(), range.size());
+}
+
 /* Event inline functions
  ********************************************/
 
@@ -686,30 +661,15 @@ inline ArrayRef<ParticlesBlock *> ParticleAllocator::allocated_blocks()
   return m_allocated_blocks;
 }
 
-/* EmitTargetBase inline functions
+/* ParticleSets inline functions
  ********************************************/
 
-inline ArrayRef<ParticlesBlock *> EmitTargetBase::blocks()
+inline ParticleSets::operator ArrayRef<ParticleSet>()
 {
-  return m_blocks;
+  return m_sets;
 }
 
-inline ArrayRef<Range<uint>> EmitTargetBase::ranges()
-{
-  return m_ranges;
-}
-
-inline uint EmitTargetBase::part_amount()
-{
-  return m_ranges.size();
-}
-
-inline AttributeArrays EmitTargetBase::attributes(uint part)
-{
-  return m_blocks[part]->attributes_slice(m_ranges[part]);
-}
-
-inline StringRefNull EmitTargetBase::particle_type_name()
+inline StringRefNull ParticleSets::particle_type_name()
 {
   return m_particle_type_name;
 }

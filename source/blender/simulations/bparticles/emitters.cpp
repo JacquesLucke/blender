@@ -31,9 +31,9 @@ class PointEmitter : public Emitter {
   void emit(EmitterInterface &interface) override
   {
     auto target = interface.particle_allocator().request(m_particle_type_name, 1);
-    target->set_float3("Position", {m_point});
-    target->set_float3("Velocity", {float3{-1, -1, 0}});
-    target->fill_float("Birth Time", interface.time_span().end());
+    target.set_float3("Position", {m_point});
+    target.set_float3("Velocity", {float3{-1, -1, 0}});
+    target.fill_float("Birth Time", interface.time_span().end());
   }
 };
 
@@ -130,10 +130,10 @@ class SurfaceEmitter : public Emitter {
     }
 
     auto target = interface.particle_allocator().request(m_particle_type_name, positions.size());
-    target->set_float3("Position", positions);
-    target->set_float3("Velocity", velocities);
-    target->set_float("Size", sizes);
-    target->set_float("Birth Time", birth_times);
+    target.set_float3("Position", positions);
+    target.set_float3("Velocity", velocities);
+    target.set_float("Size", sizes);
+    target.set_float("Birth Time", birth_times);
   }
 
   float3 random_point_in_triangle(float3 a, float3 b, float3 c)

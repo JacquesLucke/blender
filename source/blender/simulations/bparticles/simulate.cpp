@@ -14,24 +14,6 @@ namespace BParticles {
 
 using BLI::VectorAdaptor;
 
-BLI_LAZY_INIT_STATIC(SmallVector<uint>, static_number_range_vector)
-{
-  return Range<uint>(0, 10000).to_small_vector();
-}
-
-static ArrayRef<uint> static_number_range_ref(uint start, uint length)
-{
-  return ArrayRef<uint>(static_number_range_vector()).slice(start, length);
-}
-
-static ArrayRef<uint> static_number_range_ref(Range<uint> range)
-{
-  if (range.size() == 0) {
-    return {};
-  }
-  return static_number_range_ref(range.first(), range.size());
-}
-
 static uint get_max_event_storage_size(ArrayRef<Event *> events)
 {
   uint max_size = 0;

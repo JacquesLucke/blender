@@ -118,10 +118,10 @@ class ExplodeAction : public Action {
 
     auto target = interface.particle_allocator().request(m_new_particle_name,
                                                          new_birth_times.size());
-    target->set_float3("Position", new_positions);
-    target->set_float3("Velocity", new_velocities);
-    target->fill_float("Size", 0.1f);
-    target->set_float("Birth Time", new_birth_times);
+    target.set_float3("Position", new_positions);
+    target.set_float3("Velocity", new_velocities);
+    target.fill_float("Size", 0.1f);
+    target.set_float("Birth Time", new_birth_times);
 
     m_post_action->execute(interface);
   }
