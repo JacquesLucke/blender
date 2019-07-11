@@ -33,6 +33,7 @@ class PointEmitter : public Emitter {
     auto target = interface.particle_allocator().request(m_particle_type_name, 1);
     target.set_float3("Position", {m_point});
     target.set_float3("Velocity", {float3{-1, -1, 0}});
+    target.fill_float("Size", 0.01f);
     target.fill_float("Birth Time", interface.time_span().end());
   }
 };

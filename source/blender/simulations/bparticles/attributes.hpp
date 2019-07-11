@@ -9,12 +9,14 @@
 #include "BLI_range.hpp"
 #include "BLI_small_set_vector.hpp"
 #include "BLI_array_allocator.hpp"
+#include "BLI_optional.hpp"
 
 namespace BParticles {
 
 using BLI::ArrayAllocator;
 using BLI::ArrayRef;
 using BLI::float3;
+using BLI::Optional;
 using BLI::Range;
 using BLI::SmallSetVector;
 using BLI::SmallVector;
@@ -128,6 +130,24 @@ class AttributesInfo {
   int attribute_index_try(StringRef name) const
   {
     return m_indices.index(name.to_std_string());
+  }
+
+  /**
+   * Get the index corresponding to an attribute with the given name and type.
+   * Returns -1 when the attribute does not exist.
+   */
+  bool attribute_index_try(StringRef name, AttributeType type) const
+  {
+    int index = this->attribute_index_try(name);
+    if (index == -1) {
+      return -1;
+    }
+    else if (this->type_of((uint)index) == type) {
+      return index;
+    }
+    else {
+      return -1;
+    }
   }
 
   /**
@@ -323,7 +343,8 @@ class AttributeArrays {
   void init_default(StringRef name);
 
   /**
-   * Get access do the underlying attribute arrays.
+   * Get access to the underlying attribute arrays.
+   * Asserts when the attribute does not exists.
    */
   ArrayRef<uint8_t> get_byte(uint index) const;
   ArrayRef<uint8_t> get_byte(StringRef name);
@@ -331,6 +352,14 @@ class AttributeArrays {
   ArrayRef<float> get_float(StringRef name);
   ArrayRef<float3> get_float3(uint index) const;
   ArrayRef<float3> get_float3(StringRef name);
+
+  /**
+   * Get access to the arrays.
+   * Does not assert when the attribute does not exist.
+   */
+  Optional<ArrayRef<uint8_t>> try_get_byte(StringRef name);
+  Optional<ArrayRef<float>> try_get_float(StringRef name);
+  Optional<ArrayRef<float3>> try_get_float3(StringRef name);
 
   /**
    * Get a continuous slice of the attribute arrays.
@@ -461,6 +490,39 @@ inline ArrayRef<float3> AttributeArrays::get_float3(uint index) const
 inline ArrayRef<float3> AttributeArrays::get_float3(StringRef name)
 {
   return this->get_float3(this->attribute_index(name));
+}
+
+inline Optional<ArrayRef<uint8_t>> AttributeArrays::try_get_byte(StringRef name)
+{
+  int index = this->info().attribute_index_try(name, AttributeType::Byte);
+  if (index == -1) {
+    return {};
+  }
+  else {
+    return this->get_byte((uint)index);
+  }
+}
+
+inline Optional<ArrayRef<float>> AttributeArrays::try_get_float(StringRef name)
+{
+  int index = this->info().attribute_index_try(name, AttributeType::Float);
+  if (index == -1) {
+    return {};
+  }
+  else {
+    return this->get_float((uint)index);
+  }
+}
+
+inline Optional<ArrayRef<float3>> AttributeArrays::try_get_float3(StringRef name)
+{
+  int index = this->info().attribute_index_try(name, AttributeType::Float3);
+  if (index == -1) {
+    return {};
+  }
+  else {
+    return this->get_float3((uint)index);
+  }
 }
 
 inline AttributeArrays AttributeArrays::slice(uint start, uint size) const

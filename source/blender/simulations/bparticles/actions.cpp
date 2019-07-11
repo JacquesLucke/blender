@@ -25,8 +25,8 @@ class ChangeDirectionAction : public Action {
   {
     ParticleSet particles = interface.particles();
     auto velocities = particles.attributes().get_float3("Velocity");
-    auto position_offsets = interface.attribute_offsets().get_float3("Position");
-    auto velocity_offsets = interface.attribute_offsets().get_float3("Velocity");
+    auto position_offsets = interface.attribute_offsets().try_get_float3("Position");
+    auto velocity_offsets = interface.attribute_offsets().try_get_float3("Velocity");
 
     auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
 
@@ -40,8 +40,13 @@ class ChangeDirectionAction : public Action {
       float3 direction = fn_out.get<float3>(0);
 
       velocities[pindex] = direction;
-      position_offsets[pindex] = direction * interface.remaining_time_in_step(pindex);
-      velocity_offsets[pindex] = float3(0);
+
+      if (position_offsets.has_value()) {
+        position_offsets.value()[pindex] = direction * interface.remaining_time_in_step(pindex);
+      }
+      if (velocity_offsets.has_value()) {
+        velocity_offsets.value()[pindex] = float3(0);
+      }
     }
 
     m_post_action->execute(interface);
