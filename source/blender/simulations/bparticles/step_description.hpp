@@ -28,11 +28,11 @@ class ModifierParticleType : public ParticleType {
     return *m_integrator;
   }
 
-  void attributes(TypeAttributeInterface &interface) override
+  void attributes(AttributesInfoBuilder &builder) override
   {
-    interface.use(AttributeType::Float3, "Position");
-    interface.use(AttributeType::Float3, "Velocity");
-    interface.use(AttributeType::Float, "Size");
+    builder.use_float3("Position", {0, 0, 0});
+    builder.use_float3("Velocity", {0, 0, 0});
+    builder.use_float("Size", 0.01f);
   }
 };
 

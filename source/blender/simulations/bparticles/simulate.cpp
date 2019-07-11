@@ -582,33 +582,17 @@ BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
 BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &type,
                                                                  AttributesInfo &UNUSED(last_info))
 {
-  TypeAttributeInterface interface;
-  type.attributes(interface);
+  AttributesInfoBuilder builder;
+  type.attributes(builder);
 
   for (Event *event : type.events()) {
-    event->attributes(interface);
+    event->attributes(builder);
   }
 
-  SmallSetVector<std::string> byte_attributes = {"Kill State"};
-  SmallSetVector<std::string> float_attributes = {"Birth Time"};
-  SmallSetVector<std::string> float3_attributes = {};
+  builder.use_byte("Kill State", 0);
+  builder.use_float("Birth Time", 0);
 
-  for (uint i = 0; i < interface.names().size(); i++) {
-    std::string &name = interface.names()[i];
-    switch (interface.types()[i]) {
-      case AttributeType::Byte:
-        byte_attributes.add(name);
-        break;
-      case AttributeType::Float:
-        float_attributes.add(name);
-        break;
-      case AttributeType::Float3:
-        float3_attributes.add(name);
-        break;
-    }
-  }
-
-  return AttributesInfo(byte_attributes, float_attributes, float3_attributes);
+  return AttributesInfo(builder);
 }
 
 BLI_NOINLINE static void ensure_required_attributes_exist(ParticlesState &state,

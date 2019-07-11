@@ -33,9 +33,9 @@ class AgeReachedEvent : public Event {
     m_compute_age_body = compute_age_fn->body<TupleCallBody>();
   }
 
-  void attributes(TypeAttributeInterface &interface) override
+  void attributes(AttributesInfoBuilder &builder) override
   {
-    interface.use(AttributeType::Byte, m_identifier);
+    builder.use_byte(m_identifier, 0);
   }
 
   void filter(EventFilterInterface &interface) override
@@ -148,9 +148,9 @@ class MeshCollisionEventFilter : public Event {
     free_bvhtree_from_mesh(&m_bvhtree_data);
   }
 
-  void attributes(TypeAttributeInterface &interface) override
+  void attributes(AttributesInfoBuilder &builder) override
   {
-    interface.use(AttributeType::Float, m_identifier);
+    builder.use_float(m_identifier, 0.0f);
   }
 
   uint storage_size() override

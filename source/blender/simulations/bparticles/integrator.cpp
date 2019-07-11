@@ -2,8 +2,12 @@
 
 namespace BParticles {
 
-EulerIntegrator::EulerIntegrator() : m_offset_attributes_info({}, {}, {"Position", "Velocity"})
+EulerIntegrator::EulerIntegrator()
 {
+  AttributesInfoBuilder builder;
+  builder.use_float3("Position", {0, 0, 0});
+  builder.use_float3("Velocity", {0, 0, 0});
+  m_offset_attributes_info = AttributesInfo(builder);
 }
 
 EulerIntegrator::~EulerIntegrator()

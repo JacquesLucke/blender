@@ -22,7 +22,6 @@ class EventFilterInterface;
 class EventExecuteInterface;
 class EmitterInterface;
 class IntegratorInterface;
-class TypeAttributeInterface;
 
 /* Main API for the particle simulation. These classes have to be subclassed to define how the
  * particles should behave.
@@ -69,7 +68,7 @@ class Event {
   /**
    * Allows to define which attributes are required by the event.
    */
-  virtual void attributes(TypeAttributeInterface &interface);
+  virtual void attributes(AttributesInfoBuilder &interface);
 };
 
 /**
@@ -136,7 +135,7 @@ class ParticleType {
   /**
    * Allows to define which attributes should exist for the type.
    */
-  virtual void attributes(TypeAttributeInterface &interface);
+  virtual void attributes(AttributesInfoBuilder &interface);
 };
 
 /**
@@ -548,41 +547,17 @@ class IntegratorInterface {
   AttributeArrays offset_targets();
 };
 
-/**
- * Interface between the ParticleType->attributes() function and the core simulation code.
- */
-class TypeAttributeInterface {
-  SmallVector<std::string> m_names;
-  SmallVector<AttributeType> m_types;
-
- public:
-  /**
-   * Specify that a specific attribute is required to exist for the simulation.
-   */
-  void use(AttributeType type, StringRef attribute_name);
-
-  /**
-   * Access all attribute names.
-   */
-  ArrayRef<std::string> names();
-
-  /**
-   * Access all attribute types. This array has the same length as the names array.
-   */
-  ArrayRef<AttributeType> types();
-};
-
 /* Event inline functions
  ********************************************/
 
-inline void Event::attributes(TypeAttributeInterface &UNUSED(interface))
+inline void Event::attributes(AttributesInfoBuilder &UNUSED(builder))
 {
 }
 
 /* ParticleType inline functions
  ********************************************/
 
-inline void ParticleType::attributes(TypeAttributeInterface &UNUSED(interface))
+inline void ParticleType::attributes(AttributesInfoBuilder &UNUSED(builder))
 {
 }
 
@@ -841,25 +816,6 @@ inline ArrayRef<float> IntegratorInterface::durations()
 inline AttributeArrays IntegratorInterface::offset_targets()
 {
   return m_offsets;
-}
-
-/* TypeAttributeInterface
- ********************************************/
-
-inline void TypeAttributeInterface::use(AttributeType type, StringRef attribute_name)
-{
-  m_types.append(type);
-  m_names.append(attribute_name.to_std_string());
-}
-
-inline ArrayRef<std::string> TypeAttributeInterface::names()
-{
-  return m_names;
-}
-
-inline ArrayRef<AttributeType> TypeAttributeInterface::types()
-{
-  return m_types;
 }
 
 }  // namespace BParticles

@@ -53,6 +53,27 @@ inline uint size_of_attribute_type(AttributeType type)
   };
 }
 
+class AttributesInfo;
+
+class AttributesInfoBuilder {
+ private:
+  SmallSetVector<std::string> m_byte_names;
+  SmallSetVector<std::string> m_float_names;
+  SmallSetVector<std::string> m_float3_names;
+  SmallVector<uint8_t> m_byte_defaults;
+  SmallVector<float> m_float_defaults;
+  SmallVector<float3> m_float3_defaults;
+
+  friend AttributesInfo;
+
+ public:
+  AttributesInfoBuilder() = default;
+
+  void use_byte(StringRef name, uint8_t default_value);
+  void use_float(StringRef name, float default_value);
+  void use_float3(StringRef name, float3 default_value);
+};
+
 /**
  * Contains information about a set of attributes. Every attribute is identified by a unique name
  * and a unique index. So two attributes of different types have to have different names.
@@ -75,9 +96,13 @@ class AttributesInfo {
 
  public:
   AttributesInfo() = default;
+  AttributesInfo(AttributesInfoBuilder &builder);
   AttributesInfo(ArrayRef<std::string> byte_names,
                  ArrayRef<std::string> float_names,
-                 ArrayRef<std::string> float3_names);
+                 ArrayRef<std::string> float3_names,
+                 ArrayRef<uint8_t> byte_defaults,
+                 ArrayRef<float> float_defaults,
+                 ArrayRef<float3> float3_defaults);
 
   /**
    * Get the number of different attributes.
@@ -371,6 +396,30 @@ class AttributeArrays {
    */
   AttributeArrays take_front(uint n) const;
 };
+
+/* Attribute Info Builder
+ *****************************************/
+
+inline void AttributesInfoBuilder::use_byte(StringRef name, uint8_t default_value)
+{
+  if (m_byte_names.add(name.to_std_string())) {
+    m_byte_defaults.append(default_value);
+  }
+}
+
+inline void AttributesInfoBuilder::use_float(StringRef name, float default_value)
+{
+  if (m_float_names.add(name.to_std_string())) {
+    m_float_defaults.append(default_value);
+  }
+}
+
+inline void AttributesInfoBuilder::use_float3(StringRef name, float3 default_value)
+{
+  if (m_float3_names.add(name.to_std_string())) {
+    m_float3_defaults.append(default_value);
+  }
+}
 
 /* Attribute Arrays Core
  *****************************************/

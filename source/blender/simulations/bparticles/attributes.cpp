@@ -2,10 +2,27 @@
 
 namespace BParticles {
 
+AttributesInfo::AttributesInfo(AttributesInfoBuilder &builder)
+    : AttributesInfo(builder.m_byte_names,
+                     builder.m_float_names,
+                     builder.m_float3_names,
+                     builder.m_byte_defaults,
+                     builder.m_float_defaults,
+                     builder.m_float3_defaults)
+{
+}
+
 AttributesInfo::AttributesInfo(ArrayRef<std::string> byte_names,
                                ArrayRef<std::string> float_names,
-                               ArrayRef<std::string> float3_names)
+                               ArrayRef<std::string> float3_names,
+                               ArrayRef<uint8_t> byte_defaults,
+                               ArrayRef<float> float_defaults,
+                               ArrayRef<float3> float3_defaults)
 {
+  BLI_assert(byte_names.size() == byte_defaults.size());
+  BLI_assert(float_names.size() == float_defaults.size());
+  BLI_assert(float3_names.size() == float3_defaults.size());
+
   m_indices = {};
   m_indices.add_multiple_new(byte_names);
   m_indices.add_multiple_new(float_names);
@@ -21,9 +38,9 @@ AttributesInfo::AttributesInfo(ArrayRef<std::string> byte_names,
   m_types.append_n_times(AttributeType::Float, m_float_attributes.size());
   m_types.append_n_times(AttributeType::Float3, m_float3_attributes.size());
 
-  m_byte_defaults.append_n_times(0, m_byte_attributes.size());
-  m_float_defaults.append_n_times(0, m_float_attributes.size());
-  m_float3_defaults.append_n_times({0, 0, 0}, m_float3_attributes.size());
+  m_byte_defaults = byte_defaults;
+  m_float_defaults = float_defaults;
+  m_float3_defaults = float3_defaults;
 }
 
 AttributeArraysCore::AttributeArraysCore(AttributesInfo &info, ArrayRef<void *> arrays, uint size)
