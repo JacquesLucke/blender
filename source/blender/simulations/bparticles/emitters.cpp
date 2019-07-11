@@ -59,13 +59,6 @@ class SurfaceEmitter : public Emitter {
     m_compute_inputs_body = m_compute_inputs_fn->body<TupleCallBody>();
   }
 
-  class EmitSurfaceEventInfo : public EventInfo {
-    void *get_info_array(StringRef name)
-    {
-      return nullptr;
-    }
-  };
-
   void emit(EmitterInterface &interface) override
   {
     FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_inputs_body, fn_in, fn_out);
@@ -146,24 +139,7 @@ class SurfaceEmitter : public Emitter {
     target.set_float("Size", sizes);
     target.set_float("Birth Time", birth_times);
 
-    AttributesInfo info;
-    AttributeArraysCore offsets_core(info, {}, 0);
-    AttributeArrays offsets = offsets_core.slice_all();
-
-    EmitSurfaceEventInfo event_info;
-
-    for (ParticleSet particles : target.sets()) {
-      ArrayAllocator::Array<float> durations(interface.array_allocator());
-      ArrayRef<float>(durations).fill_indices(particles.pindices(), 0);
-      ActionInterface action_interface(interface.particle_allocator(),
-                                       interface.array_allocator(),
-                                       particles,
-                                       offsets,
-                                       particles.attributes().get_float("Birth Time"),
-                                       durations,
-                                       event_info);
-      m_action->execute(action_interface);
-    }
+    ActionInterface::RunFromEmitter(m_action, target, interface);
   }
 
   float3 random_point_in_triangle(float3 a, float3 b, float3 c)

@@ -80,6 +80,11 @@ class ActionInterface {
                   ArrayRef<float> remaining_times,
                   EventInfo &event_info);
 
+  static void RunFromEmitter(std::unique_ptr<Action> &action,
+                             ParticleSets &particle_sets,
+                             EmitterInterface &emitter_interface,
+                             EventInfo *event_info = nullptr);
+
   EventInfo &event_info();
 
   ParticleSet &particles();
@@ -117,6 +122,39 @@ inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
       m_remaining_times(remaining_times),
       m_event_info(event_info)
 {
+}
+
+class EmptyEventinfo : public EventInfo {
+  void *get_info_array(StringRef UNUSED(name))
+  {
+    return nullptr;
+  }
+};
+
+inline void ActionInterface::RunFromEmitter(std::unique_ptr<Action> &action,
+                                            ParticleSets &particle_sets,
+                                            EmitterInterface &emitter_interface,
+                                            EventInfo *event_info)
+{
+  AttributesInfo info;
+  AttributeArraysCore offsets_core(info, {}, 0);
+  AttributeArrays offsets = offsets_core.slice_all();
+
+  EmptyEventinfo empty_event_info;
+  EventInfo &used_event_info = (event_info == nullptr) ? empty_event_info : *event_info;
+
+  for (ParticleSet particles : particle_sets.sets()) {
+    ArrayAllocator::Array<float> durations(emitter_interface.array_allocator());
+    ArrayRef<float>(durations).fill_indices(particles.pindices(), 0);
+    ActionInterface action_interface(emitter_interface.particle_allocator(),
+                                     emitter_interface.array_allocator(),
+                                     particles,
+                                     offsets,
+                                     particles.attributes().get_float("Birth Time"),
+                                     durations,
+                                     used_event_info);
+    action->execute(action_interface);
+  }
 }
 
 inline EventInfo &ActionInterface::event_info()
