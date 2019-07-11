@@ -159,8 +159,8 @@ class ConditionAction : public Action {
       }
     }
 
-    interface.execute_action_for_subset(true_pindices, m_true_action);
-    interface.execute_action_for_subset(false_pindices, m_false_action);
+    ActionInterface::RunForSubset(m_true_action, true_pindices, interface);
+    ActionInterface::RunForSubset(m_false_action, false_pindices, interface);
   }
 
   void compute_conditions(ActionInterface &interface, ArrayRef<bool> r_conditions)

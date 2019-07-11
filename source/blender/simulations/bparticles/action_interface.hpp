@@ -87,6 +87,9 @@ class ActionInterface {
   static void RunFromEvent(std::unique_ptr<Action> &action,
                            EventExecuteInterface &event_interface,
                            EventInfo *event_info = nullptr);
+  static void RunForSubset(std::unique_ptr<Action> &action,
+                           ArrayRef<uint> pindices,
+                           ActionInterface &action_interface);
 
   EventInfo &event_info();
 
@@ -95,7 +98,6 @@ class ActionInterface {
   float remaining_time_in_step(uint pindex);
   ArrayRef<float> current_times();
   void kill(ArrayRef<uint> pindices);
-  void execute_action_for_subset(ArrayRef<uint> pindices, std::unique_ptr<Action> &action);
   ParticleAllocator &particle_allocator();
   ArrayAllocator &array_allocator();
 };
@@ -175,6 +177,20 @@ inline void ActionInterface::RunFromEvent(std::unique_ptr<Action> &action,
                                    event_interface.remaining_times(),
                                    used_event_info);
   action->execute(action_interface);
+}
+
+inline void ActionInterface::RunForSubset(std::unique_ptr<Action> &action,
+                                          ArrayRef<uint> pindices,
+                                          ActionInterface &action_interface)
+{
+  ActionInterface sub_interface(action_interface.m_particle_allocator,
+                                action_interface.m_array_allocator,
+                                ParticleSet(action_interface.m_particles.block(), pindices),
+                                action_interface.m_attribute_offsets,
+                                action_interface.m_current_times,
+                                action_interface.m_remaining_times,
+                                action_interface.m_event_info);
+  action->execute(sub_interface);
 }
 
 inline EventInfo &ActionInterface::event_info()
