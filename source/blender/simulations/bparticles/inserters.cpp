@@ -102,51 +102,38 @@ static SharedFunction create_function_for_data_inputs(bNode *bnode,
   return create_function(indexed_tree, data_graph, bsockets_to_compute, bnode->name);
 }
 
-static std::unique_ptr<Action> build_action(SocketWithNode start,
-                                            IndexedNodeTree &indexed_tree,
-                                            BTreeDataGraph &data_graph,
-                                            ModifierStepDescription &step_description);
+static std::unique_ptr<Action> build_action(BuildContext &ctx, SocketWithNode start);
 
 static std::unique_ptr<Action> BUILD_ACTION_kill()
 {
   return ACTION_kill();
 }
 
-static std::unique_ptr<Action> BUILD_ACTION_change_direction(
-    IndexedNodeTree &indexed_tree,
-    BTreeDataGraph &data_graph,
-    bNode *bnode,
-    ModifierStepDescription &step_description)
+static std::unique_ptr<Action> BUILD_ACTION_change_direction(BuildContext &ctx, bNode *bnode)
 {
   bSocketList node_inputs(bnode->inputs);
   bSocketList node_outputs(bnode->outputs);
 
-  SharedFunction fn = create_function_for_data_inputs(bnode, indexed_tree, data_graph);
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
   ParticleFunction particle_fn(fn);
-  return ACTION_change_direction(
-      particle_fn,
-      build_action({node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description));
+  return ACTION_change_direction(particle_fn, build_action(ctx, {node_outputs.get(0), bnode}));
 }
 
-static std::unique_ptr<Action> BUILD_ACTION_explode(IndexedNodeTree &indexed_tree,
-                                                    BTreeDataGraph &data_graph,
-                                                    bNode *bnode,
-                                                    ModifierStepDescription &step_description)
+static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx, bNode *bnode)
 {
   bSocketList node_inputs(bnode->inputs);
   bSocketList node_outputs(bnode->outputs);
 
-  SharedFunction fn = create_function_for_data_inputs(bnode, indexed_tree, data_graph);
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
   ParticleFunction particle_fn(fn);
 
-  PointerRNA rna = indexed_tree.get_rna(bnode);
+  PointerRNA rna = ctx.indexed_tree.get_rna(bnode);
   char name[65];
   RNA_string_get(&rna, "particle_type_name", name);
 
-  auto post_action = build_action(
-      {node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description);
+  auto post_action = build_action(ctx, {node_outputs.get(0), bnode});
 
-  if (step_description.m_types.contains(name)) {
+  if (ctx.step_description.m_types.contains(name)) {
     return ACTION_explode(name, particle_fn, std::move(post_action));
   }
   else {
@@ -154,37 +141,29 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(IndexedNodeTree &indexed_tre
   }
 }
 
-static std::unique_ptr<Action> BUILD_ACTION_condition(IndexedNodeTree &indexed_tree,
-                                                      BTreeDataGraph &data_graph,
-                                                      bNode *bnode,
-                                                      ModifierStepDescription &step_description)
+static std::unique_ptr<Action> BUILD_ACTION_condition(BuildContext &ctx, bNode *bnode)
 {
   bSocketList node_inputs(bnode->inputs);
   bSocketList node_outputs(bnode->outputs);
 
-  SharedFunction fn = create_function_for_data_inputs(bnode, indexed_tree, data_graph);
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
   ParticleFunction particle_fn(fn);
 
-  auto true_action = build_action(
-      {node_outputs.get(0), bnode}, indexed_tree, data_graph, step_description);
-  auto false_action = build_action(
-      {node_outputs.get(1), bnode}, indexed_tree, data_graph, step_description);
+  auto true_action = build_action(ctx, {node_outputs.get(0), bnode});
+  auto false_action = build_action(ctx, {node_outputs.get(1), bnode});
 
   return ACTION_condition(particle_fn, std::move(true_action), std::move(false_action));
 }
 
-static std::unique_ptr<Action> build_action(SocketWithNode start,
-                                            IndexedNodeTree &indexed_tree,
-                                            BTreeDataGraph &data_graph,
-                                            ModifierStepDescription &step_description)
+static std::unique_ptr<Action> build_action(BuildContext &ctx, SocketWithNode start)
 {
   if (start.socket->in_out == SOCK_OUT) {
-    auto linked = indexed_tree.linked(start.socket);
+    auto linked = ctx.indexed_tree.linked(start.socket);
     if (linked.size() == 0) {
       return ACTION_none();
     }
     else if (linked.size() == 1) {
-      return build_action(linked[0], indexed_tree, data_graph, step_description);
+      return build_action(ctx, linked[0]);
     }
     else {
       return nullptr;
@@ -198,13 +177,13 @@ static std::unique_ptr<Action> build_action(SocketWithNode start,
     return BUILD_ACTION_kill();
   }
   else if (STREQ(bnode->idname, "bp_ChangeParticleDirectionNode")) {
-    return BUILD_ACTION_change_direction(indexed_tree, data_graph, bnode, step_description);
+    return BUILD_ACTION_change_direction(ctx, bnode);
   }
   else if (STREQ(bnode->idname, "bp_ExplodeParticleNode")) {
-    return BUILD_ACTION_explode(indexed_tree, data_graph, bnode, step_description);
+    return BUILD_ACTION_explode(ctx, bnode);
   }
   else if (STREQ(bnode->idname, "bp_ParticleConditionNode")) {
-    return BUILD_ACTION_condition(indexed_tree, data_graph, bnode, step_description);
+    return BUILD_ACTION_condition(ctx, bnode);
   }
   else {
     return nullptr;
@@ -231,21 +210,14 @@ static std::unique_ptr<Event> Build_EVENT_mesh_collision(BuildContext &ctx, bNod
     return {};
   }
 
-  auto action = build_action({bSocketList(bnode->outputs).get(0), bnode},
-                             ctx.indexed_tree,
-                             ctx.data_graph,
-                             ctx.step_description);
+  auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
   return EVENT_mesh_collision(bnode->name, object, std::move(action));
 }
 
 static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx, bNode *bnode)
 {
   FN::SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
-
-  auto action = build_action({bSocketList(bnode->outputs).get(0), bnode},
-                             ctx.indexed_tree,
-                             ctx.data_graph,
-                             ctx.step_description);
+  auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
   return EVENT_age_reached(bnode->name, fn, std::move(action));
 }
 
@@ -265,12 +237,7 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
                                                            StringRef particle_type_name)
 {
   SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
-
-  auto action = build_action({bSocketList(bnode->outputs).get(0), bnode},
-                             ctx.indexed_tree,
-                             ctx.data_graph,
-                             ctx.step_description);
-
+  auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
   return EMITTER_mesh_surface(particle_type_name, fn, ctx.world_state, std::move(action));
 }
 
