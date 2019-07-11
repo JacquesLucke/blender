@@ -39,7 +39,7 @@ class ModifierParticleType : public ParticleType {
 class ModifierStepDescription : public StepDescription {
  public:
   float m_duration;
-  SmallMap<std::string, ModifierParticleType *> m_types;
+  StringMap<ModifierParticleType *> m_types;
   SmallVector<Emitter *> m_emitters;
   SmallVector<std::string> m_particle_type_names;
 

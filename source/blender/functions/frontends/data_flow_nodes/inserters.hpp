@@ -3,6 +3,7 @@
 #include "builder.hpp"
 #include <functional>
 #include "BLI_optional.hpp"
+#include "BLI_string_map.hpp"
 #include "FN_tuple_call.hpp"
 
 struct PointerRNA;
@@ -22,8 +23,8 @@ typedef std::function<SharedFunction()> FunctionGetter;
 
 class GraphInserters {
  private:
-  SmallMap<std::string, NodeInserter> m_node_inserters;
-  SmallMap<std::string, SocketLoader> m_socket_loaders;
+  StringMap<NodeInserter> m_node_inserters;
+  StringMap<SocketLoader> m_socket_loaders;
   SmallMap<std::pair<std::string, std::string>, ConversionInserter> m_conversion_inserters;
 
  public:

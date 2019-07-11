@@ -10,6 +10,7 @@
 #include "BLI_string_ref.hpp"
 #include "BLI_small_map.hpp"
 #include "BLI_vector_adaptor.hpp"
+#include "BLI_string_map.hpp"
 #include "BLI_lazy_init.hpp"
 
 #include "attributes.hpp"
@@ -17,6 +18,8 @@
 #include "time_span.hpp"
 
 namespace BParticles {
+
+using BLI::StringMap;
 
 class EventFilterInterface;
 class EventExecuteInterface;
@@ -178,7 +181,7 @@ class StepDescription {
  */
 class ParticlesState {
  private:
-  SmallMap<std::string, ParticlesContainer *> m_container_by_id;
+  StringMap<ParticlesContainer *> m_container_by_id;
   float m_current_time = 0.0f;
 
  public:
@@ -194,7 +197,7 @@ class ParticlesState {
   /**
    * Access the mapping from particle type names to their corresponding containers.
    */
-  SmallMap<std::string, ParticlesContainer *> &particle_containers();
+  StringMap<ParticlesContainer *> &particle_containers();
 
   /**
    * Get the container corresponding to a particle type name.
@@ -564,7 +567,7 @@ inline void ParticleType::attributes(AttributesInfoBuilder &UNUSED(builder))
 /* ParticlesState inline functions
  ********************************************/
 
-inline SmallMap<std::string, ParticlesContainer *> &ParticlesState::particle_containers()
+inline StringMap<ParticlesContainer *> &ParticlesState::particle_containers()
 {
   return m_container_by_id;
 }

@@ -105,7 +105,6 @@ static SharedFunction create_function_for_data_inputs(bNode *bnode,
 static std::unique_ptr<Action> build_action(BuildContext &ctx, SocketWithNode start);
 using ActionFromNodeCallback =
     std::function<std::unique_ptr<Action>(BuildContext &ctx, bNode *bnode)>;
-using ActionFromNodeCallbackMap = SmallMap<std::string, ActionFromNodeCallback>;
 
 static std::unique_ptr<Action> BUILD_ACTION_kill(BuildContext &UNUSED(ctx), bNode *UNUSED(bnode))
 {
@@ -158,9 +157,9 @@ static std::unique_ptr<Action> BUILD_ACTION_condition(BuildContext &ctx, bNode *
   return ACTION_condition(particle_fn, std::move(true_action), std::move(false_action));
 }
 
-BLI_LAZY_INIT_STATIC(ActionFromNodeCallbackMap, get_action_builders)
+BLI_LAZY_INIT_STATIC(StringMap<ActionFromNodeCallback>, get_action_builders)
 {
-  ActionFromNodeCallbackMap map;
+  StringMap<ActionFromNodeCallback> map;
   map.add_new("bp_KillParticleNode", BUILD_ACTION_kill);
   map.add_new("bp_ChangeParticleDirectionNode", BUILD_ACTION_change_direction);
   map.add_new("bp_ExplodeParticleNode", BUILD_ACTION_explode);

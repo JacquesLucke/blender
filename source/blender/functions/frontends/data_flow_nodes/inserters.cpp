@@ -27,8 +27,7 @@ BLI_LAZY_INIT(GraphInserters, get_standard_inserters)
 
 void GraphInserters::reg_node_inserter(std::string idname, NodeInserter inserter)
 {
-  BLI_assert(!m_node_inserters.contains(idname));
-  m_node_inserters.add(idname, inserter);
+  m_node_inserters.add_new(idname, inserter);
 }
 
 void GraphInserters::reg_node_function(std::string idname, FunctionGetter getter)
@@ -43,8 +42,7 @@ void GraphInserters::reg_node_function(std::string idname, FunctionGetter getter
 
 void GraphInserters::reg_socket_loader(std::string idname, SocketLoader loader)
 {
-  BLI_assert(!m_socket_loaders.contains(idname));
-  m_socket_loaders.add(idname, loader);
+  m_socket_loaders.add_new(idname, loader);
 }
 
 void GraphInserters::reg_conversion_inserter(std::string from_type,
