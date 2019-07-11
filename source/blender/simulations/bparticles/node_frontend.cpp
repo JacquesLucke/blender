@@ -36,16 +36,33 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
   }
 
   BuildContext ctx = {indexed_tree, data_graph, *step_description};
+
   for (auto item : get_force_builders().items()) {
     for (bNode *bnode : indexed_tree.nodes_with_idname(item.key)) {
       bNodeSocket *force_output = bSocketList(bnode->outputs).get(0);
       for (SocketWithNode linked : indexed_tree.linked(force_output)) {
         if (is_particle_type_node(linked.node)) {
           auto force = item.value(ctx, bnode);
+          if (force) {
+            EulerIntegrator *integrator = reinterpret_cast<EulerIntegrator *>(
+                step_description->m_types.lookup_ref(linked.node->name)->m_integrator);
+            integrator->add_force(std::move(force));
+          }
+        }
+      }
+    }
+  }
 
-          EulerIntegrator *integrator = reinterpret_cast<EulerIntegrator *>(
-              step_description->m_types.lookup_ref(linked.node->name)->m_integrator);
-          integrator->add_force(std::move(force));
+  for (auto item : get_event_builders().items()) {
+    for (bNode *bnode : indexed_tree.nodes_with_idname(item.key)) {
+      bNodeSocket *event_input = bSocketList(bnode->inputs).get(0);
+      for (SocketWithNode linked : indexed_tree.linked(event_input)) {
+        if (is_particle_type_node(linked.node)) {
+          auto event = item.value(ctx, bnode);
+          if (event) {
+            step_description->m_types.lookup_ref(linked.node->name)
+                ->m_events.append(event.release());
+          }
         }
       }
     }

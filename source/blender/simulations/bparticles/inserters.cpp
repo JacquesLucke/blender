@@ -256,62 +256,11 @@ static void INSERT_EMITTER_point(ProcessNodeInterface &interface)
   }
 }
 
-static void INSERT_EVENT_age_reached(ProcessNodeInterface &interface)
-{
-  FN::SharedFunction fn = create_function_for_data_inputs(
-      interface.bnode(), interface.indexed_tree(), interface.data_graph());
-
-  for (SocketWithNode linked : interface.linked_with_input(0)) {
-    if (!is_particle_type_node(linked.node)) {
-      continue;
-    }
-
-    auto action = build_action({interface.outputs().get(0), interface.bnode()},
-                               interface.indexed_tree(),
-                               interface.data_graph(),
-                               interface.step_description());
-    auto event = EVENT_age_reached(interface.bnode()->name, fn, std::move(action));
-
-    bNode *type_node = linked.node;
-    interface.step_description()
-        .m_types.lookup_ref(type_node->name)
-        ->m_events.append(event.release());
-  }
-}
-
-static void INSERT_EVENT_mesh_collision(ProcessNodeInterface &interface)
-{
-  for (SocketWithNode linked : interface.linked_with_input(0)) {
-    if (!is_particle_type_node(linked.node)) {
-      continue;
-    }
-
-    PointerRNA rna = interface.node_rna();
-    Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
-    if (object == nullptr || object->type != OB_MESH) {
-      continue;
-    }
-
-    auto action = build_action({interface.outputs().get(0), interface.bnode()},
-                               interface.indexed_tree(),
-                               interface.data_graph(),
-                               interface.step_description());
-    auto event = EVENT_mesh_collision(interface.bnode()->name, object, std::move(action));
-
-    bNode *type_node = linked.node;
-    interface.step_description()
-        .m_types.lookup_ref(type_node->name)
-        ->m_events.append(event.release());
-  }
-}
-
 BLI_LAZY_INIT(ProcessFunctionsMap, get_node_processors)
 {
   ProcessFunctionsMap processors;
   processors.add_new("bp_MeshEmitterNode", INSERT_EMITTER_mesh_surface);
   processors.add_new("bp_PointEmitterNode", INSERT_EMITTER_point);
-  processors.add_new("bp_AgeReachedEventNode", INSERT_EVENT_age_reached);
-  processors.add_new("bp_MeshCollisionEventNode", INSERT_EVENT_mesh_collision);
   return processors;
 }
 
@@ -332,6 +281,40 @@ BLI_LAZY_INIT(ForceFromNodeCallbackMap, get_force_builders)
   ForceFromNodeCallbackMap map;
   map.add_new("bp_GravityForceNode", BUILD_FORCE_gravity);
   map.add_new("bp_TurbulenceForceNode", BUILD_FORCE_turbulence);
+  return map;
+}
+
+static std::unique_ptr<Event> Build_EVENT_mesh_collision(BuildContext &ctx, bNode *bnode)
+{
+  PointerRNA rna = ctx.indexed_tree.get_rna(bnode);
+  Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
+  if (object == nullptr || object->type != OB_MESH) {
+    return {};
+  }
+
+  auto action = build_action({bSocketList(bnode->outputs).get(0), bnode},
+                             ctx.indexed_tree,
+                             ctx.data_graph,
+                             ctx.step_description);
+  return EVENT_mesh_collision(bnode->name, object, std::move(action));
+}
+
+static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx, bNode *bnode)
+{
+  FN::SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+
+  auto action = build_action({bSocketList(bnode->outputs).get(0), bnode},
+                             ctx.indexed_tree,
+                             ctx.data_graph,
+                             ctx.step_description);
+  return EVENT_age_reached(bnode->name, fn, std::move(action));
+}
+
+BLI_LAZY_INIT(EventFromNodeCallbackMap, get_event_builders)
+{
+  EventFromNodeCallbackMap map;
+  map.add_new("bp_MeshCollisionEventNode", Build_EVENT_mesh_collision);
+  map.add_new("bp_AgeReachedEventNode", BUILD_EVENT_age_reached);
   return map;
 }
 

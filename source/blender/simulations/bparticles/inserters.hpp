@@ -108,4 +108,10 @@ using ForceFromNodeCallbackMap = SmallMap<std::string, ForceFromNodeCallback>;
 
 ForceFromNodeCallbackMap &get_force_builders();
 
+using EventFromNodeCallback =
+    std::function<std::unique_ptr<Event>(BuildContext &ctx, bNode *bnode)>;
+using EventFromNodeCallbackMap = SmallMap<std::string, EventFromNodeCallback>;
+
+EventFromNodeCallbackMap &get_event_builders();
+
 }  // namespace BParticles
