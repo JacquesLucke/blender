@@ -69,14 +69,16 @@ class TurbulenceForce : public Force {
   }
 };
 
-Force *FORCE_gravity(SharedFunction &compute_acceleration_fn)
+std::unique_ptr<Force> FORCE_gravity(SharedFunction &compute_acceleration_fn)
 {
-  return new GravityForce(compute_acceleration_fn);
+  Force *force = new GravityForce(compute_acceleration_fn);
+  return std::unique_ptr<Force>(force);
 }
 
-Force *FORCE_turbulence(SharedFunction &compute_strength_fn)
+std::unique_ptr<Force> FORCE_turbulence(SharedFunction &compute_strength_fn)
 {
-  return new TurbulenceForce(compute_strength_fn);
+  Force *force = new TurbulenceForce(compute_strength_fn);
+  return std::unique_ptr<Force>(force);
 }
 
 }  // namespace BParticles

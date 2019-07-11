@@ -305,44 +305,6 @@ static void INSERT_EVENT_mesh_collision(ProcessNodeInterface &interface)
   }
 }
 
-static void INSERT_FORCE_gravity(ProcessNodeInterface &interface)
-{
-  for (SocketWithNode linked : interface.linked_with_output(0)) {
-    if (!is_particle_type_node(linked.node)) {
-      continue;
-    }
-
-    SharedFunction fn = create_function_for_data_inputs(
-        interface.bnode(), interface.indexed_tree(), interface.data_graph());
-
-    Force *force = FORCE_gravity(fn);
-
-    bNode *type_node = linked.node;
-    EulerIntegrator *integrator = reinterpret_cast<EulerIntegrator *>(
-        interface.step_description().m_types.lookup_ref(type_node->name)->m_integrator);
-    integrator->add_force(std::unique_ptr<Force>(force));
-  }
-}
-
-static void INSERT_FORCE_turbulence(ProcessNodeInterface &interface)
-{
-  for (SocketWithNode linked : interface.linked_with_output(0)) {
-    if (!is_particle_type_node(linked.node)) {
-      continue;
-    }
-
-    SharedFunction fn = create_function_for_data_inputs(
-        interface.bnode(), interface.indexed_tree(), interface.data_graph());
-
-    Force *force = FORCE_turbulence(fn);
-
-    bNode *type_node = linked.node;
-    EulerIntegrator *integrator = reinterpret_cast<EulerIntegrator *>(
-        interface.step_description().m_types.lookup_ref(type_node->name)->m_integrator);
-    integrator->add_force(std::unique_ptr<Force>(force));
-  }
-}
-
 BLI_LAZY_INIT(ProcessFunctionsMap, get_node_processors)
 {
   ProcessFunctionsMap processors;
@@ -350,9 +312,27 @@ BLI_LAZY_INIT(ProcessFunctionsMap, get_node_processors)
   processors.add_new("bp_PointEmitterNode", INSERT_EMITTER_point);
   processors.add_new("bp_AgeReachedEventNode", INSERT_EVENT_age_reached);
   processors.add_new("bp_MeshCollisionEventNode", INSERT_EVENT_mesh_collision);
-  processors.add_new("bp_GravityForceNode", INSERT_FORCE_gravity);
-  processors.add_new("bp_TurbulenceForceNode", INSERT_FORCE_turbulence);
   return processors;
+}
+
+static std::unique_ptr<Force> BUILD_FORCE_gravity(BuildContext &ctx, bNode *bnode)
+{
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+  return FORCE_gravity(fn);
+}
+
+static std::unique_ptr<Force> BUILD_FORCE_turbulence(BuildContext &ctx, bNode *bnode)
+{
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+  return FORCE_turbulence(fn);
+}
+
+BLI_LAZY_INIT(ForceFromNodeCallbackMap, get_force_builders)
+{
+  ForceFromNodeCallbackMap map;
+  map.add_new("bp_GravityForceNode", BUILD_FORCE_gravity);
+  map.add_new("bp_TurbulenceForceNode", BUILD_FORCE_turbulence);
+  return map;
 }
 
 }  // namespace BParticles

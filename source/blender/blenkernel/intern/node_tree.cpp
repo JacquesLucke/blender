@@ -48,7 +48,8 @@ void IndexedNodeTree::find_connected_sockets_left(bNodeSocket *bsocket,
                                                   SmallVector<SocketWithNode> &r_sockets) const
 {
   BLI_assert(bsocket->in_out == SOCK_IN);
-  for (SocketWithNode linked : m_direct_links.lookup_default(bsocket)) {
+  auto from_sockets = m_direct_links.lookup_default(bsocket);
+  for (SocketWithNode linked : from_sockets) {
     if (this->is_reroute(linked.node)) {
       this->find_connected_sockets_left((bNodeSocket *)linked.node->inputs.first, r_sockets);
     }
@@ -61,7 +62,8 @@ void IndexedNodeTree::find_connected_sockets_right(bNodeSocket *bsocket,
                                                    SmallVector<SocketWithNode> &r_sockets) const
 {
   BLI_assert(bsocket->in_out == SOCK_OUT);
-  for (SocketWithNode other : m_direct_links.lookup_default(bsocket)) {
+  auto to_sockets = m_direct_links.lookup_default(bsocket);
+  for (SocketWithNode other : to_sockets) {
     if (this->is_reroute(other.node)) {
       this->find_connected_sockets_right((bNodeSocket *)other.node->outputs.first, r_sockets);
     }

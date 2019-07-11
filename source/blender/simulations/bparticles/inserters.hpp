@@ -7,6 +7,7 @@
 
 #include "world_state.hpp"
 #include "step_description.hpp"
+#include "forces.hpp"
 
 namespace BParticles {
 
@@ -94,5 +95,17 @@ using ProcessNodeFunction = std::function<void(ProcessNodeInterface &interface)>
 using ProcessFunctionsMap = SmallMap<std::string, ProcessNodeFunction>;
 
 ProcessFunctionsMap &get_node_processors();
+
+struct BuildContext {
+  IndexedNodeTree &indexed_tree;
+  BTreeDataGraph &data_graph;
+  ModifierStepDescription &step_description;
+};
+
+using ForceFromNodeCallback =
+    std::function<std::unique_ptr<Force>(BuildContext &ctx, bNode *bnode)>;
+using ForceFromNodeCallbackMap = SmallMap<std::string, ForceFromNodeCallback>;
+
+ForceFromNodeCallbackMap &get_force_builders();
 
 }  // namespace BParticles
