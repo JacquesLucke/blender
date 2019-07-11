@@ -223,14 +223,6 @@ static std::unique_ptr<Force> BUILD_FORCE_turbulence(BuildContext &ctx, bNode *b
   return FORCE_turbulence(fn);
 }
 
-BLI_LAZY_INIT(ForceFromNodeCallbackMap, get_force_builders)
-{
-  ForceFromNodeCallbackMap map;
-  map.add_new("bp_GravityForceNode", BUILD_FORCE_gravity);
-  map.add_new("bp_TurbulenceForceNode", BUILD_FORCE_turbulence);
-  return map;
-}
-
 static std::unique_ptr<Event> Build_EVENT_mesh_collision(BuildContext &ctx, bNode *bnode)
 {
   PointerRNA rna = ctx.indexed_tree.get_rna(bnode);
@@ -257,14 +249,6 @@ static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx, bNode *
   return EVENT_age_reached(bnode->name, fn, std::move(action));
 }
 
-BLI_LAZY_INIT(EventFromNodeCallbackMap, get_event_builders)
-{
-  EventFromNodeCallbackMap map;
-  map.add_new("bp_MeshCollisionEventNode", Build_EVENT_mesh_collision);
-  map.add_new("bp_AgeReachedEventNode", BUILD_EVENT_age_reached);
-  return map;
-}
-
 static std::unique_ptr<Emitter> BUILD_EMITTER_point(BuildContext &ctx,
                                                     bNode *bnode,
                                                     StringRef particle_type_name)
@@ -288,6 +272,22 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
                              ctx.step_description);
 
   return EMITTER_mesh_surface(particle_type_name, fn, ctx.world_state, std::move(action));
+}
+
+BLI_LAZY_INIT(ForceFromNodeCallbackMap, get_force_builders)
+{
+  ForceFromNodeCallbackMap map;
+  map.add_new("bp_GravityForceNode", BUILD_FORCE_gravity);
+  map.add_new("bp_TurbulenceForceNode", BUILD_FORCE_turbulence);
+  return map;
+}
+
+BLI_LAZY_INIT(EventFromNodeCallbackMap, get_event_builders)
+{
+  EventFromNodeCallbackMap map;
+  map.add_new("bp_MeshCollisionEventNode", Build_EVENT_mesh_collision);
+  map.add_new("bp_AgeReachedEventNode", BUILD_EVENT_age_reached);
+  return map;
 }
 
 BLI_LAZY_INIT(EmitterFromNodeCallbackMap, get_emitter_builders)
