@@ -264,7 +264,7 @@ class ParticleSets {
                AttributesInfo &attributes_info,
                ArrayRef<ParticleSet> sets);
 
-  operator ArrayRef<ParticleSet>();
+  ArrayRef<ParticleSet> sets();
 
   void set_byte(uint index, ArrayRef<uint8_t> data);
   void set_byte(StringRef name, ArrayRef<uint8_t> data);
@@ -631,7 +631,7 @@ inline ArrayRef<ParticlesBlock *> ParticleAllocator::allocated_blocks()
 /* ParticleSets inline functions
  ********************************************/
 
-inline ParticleSets::operator ArrayRef<ParticleSet>()
+inline ArrayRef<ParticleSet> ParticleSets::sets()
 {
   return m_sets;
 }

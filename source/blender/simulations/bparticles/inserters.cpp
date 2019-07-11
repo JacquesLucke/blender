@@ -208,7 +208,7 @@ static std::unique_ptr<Action> build_action(SocketWithNode start,
 
 static void INSERT_EMITTER_mesh_surface(ProcessNodeInterface &interface)
 {
-  for (SocketWithNode linked : interface.linked_with_output(0)) {
+  for (SocketWithNode linked : interface.linked_with_output(1)) {
     if (!is_particle_type_node(linked.node)) {
       continue;
     }
@@ -220,8 +220,14 @@ static void INSERT_EMITTER_mesh_surface(ProcessNodeInterface &interface)
         {inputs.get(0), inputs.get(1), inputs.get(2), inputs.get(3), inputs.get(4)},
         interface.bnode()->name);
 
+    auto action = build_action({interface.outputs().get(0), interface.bnode()},
+                               interface.indexed_tree(),
+                               interface.data_graph(),
+                               interface.step_description());
+
     bNode *type_node = linked.node;
-    Emitter *emitter = EMITTER_mesh_surface(type_node->name, fn, interface.world_state());
+    Emitter *emitter = EMITTER_mesh_surface(
+        type_node->name, fn, interface.world_state(), std::move(action));
     interface.step_description().m_emitters.append(emitter);
   }
 }

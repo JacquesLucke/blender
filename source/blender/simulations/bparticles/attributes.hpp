@@ -136,7 +136,7 @@ class AttributesInfo {
    * Get the index corresponding to an attribute with the given name and type.
    * Returns -1 when the attribute does not exist.
    */
-  bool attribute_index_try(StringRef name, AttributeType type) const
+  int attribute_index_try(StringRef name, AttributeType type) const
   {
     int index = this->attribute_index_try(name);
     if (index == -1) {
