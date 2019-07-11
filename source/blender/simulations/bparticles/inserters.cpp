@@ -103,8 +103,11 @@ static SharedFunction create_function_for_data_inputs(bNode *bnode,
 }
 
 static std::unique_ptr<Action> build_action(BuildContext &ctx, SocketWithNode start);
+using ActionFromNodeCallback =
+    std::function<std::unique_ptr<Action>(BuildContext &ctx, bNode *bnode)>;
+using ActionFromNodeCallbackMap = SmallMap<std::string, ActionFromNodeCallback>;
 
-static std::unique_ptr<Action> BUILD_ACTION_kill()
+static std::unique_ptr<Action> BUILD_ACTION_kill(BuildContext &UNUSED(ctx), bNode *UNUSED(bnode))
 {
   return ACTION_kill();
 }
@@ -155,6 +158,16 @@ static std::unique_ptr<Action> BUILD_ACTION_condition(BuildContext &ctx, bNode *
   return ACTION_condition(particle_fn, std::move(true_action), std::move(false_action));
 }
 
+BLI_LAZY_INIT_STATIC(ActionFromNodeCallbackMap, get_action_builders)
+{
+  ActionFromNodeCallbackMap map;
+  map.add_new("bp_KillParticleNode", BUILD_ACTION_kill);
+  map.add_new("bp_ChangeParticleDirectionNode", BUILD_ACTION_change_direction);
+  map.add_new("bp_ExplodeParticleNode", BUILD_ACTION_explode);
+  map.add_new("bp_ParticleConditionNode", BUILD_ACTION_condition);
+  return map;
+}
+
 static std::unique_ptr<Action> build_action(BuildContext &ctx, SocketWithNode start)
 {
   if (start.socket->in_out == SOCK_OUT) {
@@ -173,21 +186,8 @@ static std::unique_ptr<Action> build_action(BuildContext &ctx, SocketWithNode st
   BLI_assert(start.socket->in_out == SOCK_IN);
   bNode *bnode = start.node;
 
-  if (STREQ(bnode->idname, "bp_KillParticleNode")) {
-    return BUILD_ACTION_kill();
-  }
-  else if (STREQ(bnode->idname, "bp_ChangeParticleDirectionNode")) {
-    return BUILD_ACTION_change_direction(ctx, bnode);
-  }
-  else if (STREQ(bnode->idname, "bp_ExplodeParticleNode")) {
-    return BUILD_ACTION_explode(ctx, bnode);
-  }
-  else if (STREQ(bnode->idname, "bp_ParticleConditionNode")) {
-    return BUILD_ACTION_condition(ctx, bnode);
-  }
-  else {
-    return nullptr;
-  }
+  auto builders = get_action_builders();
+  return builders.lookup(bnode->idname)(ctx, bnode);
 }
 
 static std::unique_ptr<Force> BUILD_FORCE_gravity(BuildContext &ctx, bNode *bnode)
