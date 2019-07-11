@@ -84,6 +84,9 @@ class ActionInterface {
                              ParticleSets &particle_sets,
                              EmitterInterface &emitter_interface,
                              EventInfo *event_info = nullptr);
+  static void RunFromEvent(std::unique_ptr<Action> &action,
+                           EventExecuteInterface &event_interface,
+                           EventInfo *event_info = nullptr);
 
   EventInfo &event_info();
 
@@ -124,7 +127,7 @@ inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
 {
 }
 
-class EmptyEventinfo : public EventInfo {
+class EmptyEventInfo : public EventInfo {
   void *get_info_array(StringRef UNUSED(name))
   {
     return nullptr;
@@ -140,7 +143,7 @@ inline void ActionInterface::RunFromEmitter(std::unique_ptr<Action> &action,
   AttributeArraysCore offsets_core(info, {}, 0);
   AttributeArrays offsets = offsets_core.slice_all();
 
-  EmptyEventinfo empty_event_info;
+  EmptyEventInfo empty_event_info;
   EventInfo &used_event_info = (event_info == nullptr) ? empty_event_info : *event_info;
 
   for (ParticleSet particles : particle_sets.sets()) {
@@ -155,6 +158,23 @@ inline void ActionInterface::RunFromEmitter(std::unique_ptr<Action> &action,
                                      used_event_info);
     action->execute(action_interface);
   }
+}
+
+inline void ActionInterface::RunFromEvent(std::unique_ptr<Action> &action,
+                                          EventExecuteInterface &event_interface,
+                                          EventInfo *event_info)
+{
+  EmptyEventInfo empty_event_info;
+  EventInfo &used_event_info = (event_info == nullptr) ? empty_event_info : *event_info;
+
+  ActionInterface action_interface(event_interface.particle_allocator(),
+                                   event_interface.array_allocator(),
+                                   event_interface.particles(),
+                                   event_interface.attribute_offsets(),
+                                   event_interface.current_times(),
+                                   event_interface.remaining_times(),
+                                   used_event_info);
+  action->execute(action_interface);
 }
 
 inline EventInfo &ActionInterface::event_info()

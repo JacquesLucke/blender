@@ -8,13 +8,6 @@
 
 namespace BParticles {
 
-class EmptyEventInfo : public EventInfo {
-  void *get_info_array(StringRef UNUSED(name)) override
-  {
-    return nullptr;
-  }
-};
-
 class AgeReachedEvent : public Event {
  private:
   std::string m_identifier;
@@ -85,15 +78,7 @@ class AgeReachedEvent : public Event {
       was_activated_before[pindex] = true;
     }
 
-    EmptyEventInfo event_info;
-    ActionInterface action_interface(interface.particle_allocator(),
-                                     interface.array_allocator(),
-                                     particles,
-                                     interface.attribute_offsets(),
-                                     interface.current_times(),
-                                     interface.remaining_times(),
-                                     event_info);
-    m_action->execute(action_interface);
+    ActionInterface::RunFromEvent(m_action, interface);
   }
 };
 
@@ -215,14 +200,7 @@ class MeshCollisionEventFilter : public Event {
     }
 
     CollisionEventInfo event_info(normals);
-    ActionInterface action_interface(interface.particle_allocator(),
-                                     interface.array_allocator(),
-                                     particles,
-                                     interface.attribute_offsets(),
-                                     interface.current_times(),
-                                     interface.remaining_times(),
-                                     event_info);
-    m_action->execute(action_interface);
+    ActionInterface::RunFromEvent(m_action, interface, &event_info);
   }
 };
 
