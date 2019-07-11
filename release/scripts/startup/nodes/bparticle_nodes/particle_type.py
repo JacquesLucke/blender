@@ -8,5 +8,5 @@ class ParticleTypeNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder : SocketBuilder):
         builder.emitter_input("emitters", "Emitters")
-        builder.particle_modifier_input("modifiers", "Modifiers")
+        builder.particle_modifier_input("effectors", "Effectors")
         builder.event_output("events", "Events")
