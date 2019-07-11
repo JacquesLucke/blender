@@ -33,10 +33,8 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
                                                       ArrayRef<float> r_time_factors_to_next_event,
                                                       VectorAdaptor<uint> &r_pindices_with_event)
 {
-  for (uint pindex : particles.pindices()) {
-    r_next_event_indices[pindex] = -1;
-    r_time_factors_to_next_event[pindex] = 1.0f;
-  }
+  r_next_event_indices.fill_indices(particles.pindices(), -1);
+  r_time_factors_to_next_event.fill_indices(particles.pindices(), 1.0f);
 
   for (uint event_index = 0; event_index < events.size(); event_index++) {
     SmallVector<uint> triggered_pindices;

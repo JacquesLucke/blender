@@ -129,6 +129,16 @@ template<typename T> class ArrayRef {
   }
 
   /**
+   * Replace a subset of all elements with the given value.
+   */
+  void fill_indices(ArrayRef<uint> indices, const T &element)
+  {
+    for (uint i : indices) {
+      m_start[i] = element;
+    }
+  }
+
+  /**
    * Copy the values from another array into the references array.
    */
   void copy_from(const T *ptr)

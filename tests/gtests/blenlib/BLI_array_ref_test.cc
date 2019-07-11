@@ -179,6 +179,18 @@ TEST(array_ref, Fill)
   EXPECT_EQ(a[4], 1);
 }
 
+TEST(array_ref, FillIndices)
+{
+  std::array<int, 5> a = {0, 0, 0, 0, 0};
+  IntArrayRef a_ref(a);
+  a_ref.fill_indices({0, 2, 3}, 1);
+  EXPECT_EQ(a[0], 1);
+  EXPECT_EQ(a[1], 0);
+  EXPECT_EQ(a[2], 1);
+  EXPECT_EQ(a[3], 1);
+  EXPECT_EQ(a[4], 0);
+}
+
 TEST(array_ref, CopyFrom)
 {
   std::array<int, 3> a = {3, 4, 5};
