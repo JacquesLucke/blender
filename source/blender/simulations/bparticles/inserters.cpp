@@ -30,7 +30,7 @@ static bool is_particle_data_input(bNode *bnode)
 
 static SmallVector<FN::DFGraphSocket> insert_inputs(FN::FunctionBuilder &fn_builder,
                                                     IndexedNodeTree &indexed_tree,
-                                                    FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                                    BTreeDataGraph &data_graph,
                                                     ArrayRef<bNodeSocket *> output_sockets)
 {
   SmallSet<bNodeSocket *> to_be_checked = output_sockets;
@@ -74,7 +74,7 @@ static SmallVector<FN::DFGraphSocket> insert_inputs(FN::FunctionBuilder &fn_buil
 }
 
 static SharedFunction create_function(IndexedNodeTree &indexed_tree,
-                                      FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                      BTreeDataGraph &data_graph,
                                       ArrayRef<bNodeSocket *> output_bsockets,
                                       StringRef name)
 {
@@ -96,7 +96,7 @@ static SharedFunction create_function(IndexedNodeTree &indexed_tree,
 
 static std::unique_ptr<Action> build_action(SocketWithNode start,
                                             IndexedNodeTree &indexed_tree,
-                                            FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                            BTreeDataGraph &data_graph,
                                             ModifierStepDescription &step_description);
 
 static std::unique_ptr<Action> BUILD_ACTION_kill()
@@ -106,7 +106,7 @@ static std::unique_ptr<Action> BUILD_ACTION_kill()
 
 static std::unique_ptr<Action> BUILD_ACTION_change_direction(
     IndexedNodeTree &indexed_tree,
-    FN::DataFlowNodes::GeneratedGraph &data_graph,
+    BTreeDataGraph &data_graph,
     bNode *bnode,
     ModifierStepDescription &step_description)
 {
@@ -122,7 +122,7 @@ static std::unique_ptr<Action> BUILD_ACTION_change_direction(
 }
 
 static std::unique_ptr<Action> BUILD_ACTION_explode(IndexedNodeTree &indexed_tree,
-                                                    FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                                    BTreeDataGraph &data_graph,
                                                     bNode *bnode,
                                                     ModifierStepDescription &step_description)
 {
@@ -148,11 +148,10 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(IndexedNodeTree &indexed_tre
   }
 }
 
-static std::unique_ptr<Action> BUILD_ACTION_condition(
-    IndexedNodeTree &indexed_tree,
-    FN::DataFlowNodes::GeneratedGraph &data_graph,
-    bNode *bnode,
-    ModifierStepDescription &step_description)
+static std::unique_ptr<Action> BUILD_ACTION_condition(IndexedNodeTree &indexed_tree,
+                                                      BTreeDataGraph &data_graph,
+                                                      bNode *bnode,
+                                                      ModifierStepDescription &step_description)
 {
   bSocketList node_inputs(bnode->inputs);
   bSocketList node_outputs(bnode->outputs);
@@ -170,7 +169,7 @@ static std::unique_ptr<Action> BUILD_ACTION_condition(
 
 static std::unique_ptr<Action> build_action(SocketWithNode start,
                                             IndexedNodeTree &indexed_tree,
-                                            FN::DataFlowNodes::GeneratedGraph &data_graph,
+                                            BTreeDataGraph &data_graph,
                                             ModifierStepDescription &step_description)
 {
   if (start.socket->in_out == SOCK_OUT) {

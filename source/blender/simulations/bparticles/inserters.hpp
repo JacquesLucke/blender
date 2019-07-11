@@ -13,19 +13,20 @@ namespace BParticles {
 using BKE::bSocketList;
 using BKE::IndexedNodeTree;
 using BKE::SocketWithNode;
+using FN::DataFlowNodes::BTreeDataGraph;
 
 class ProcessNodeInterface {
  private:
   bNode *m_bnode;
   IndexedNodeTree &m_indexed_tree;
-  FN::DataFlowNodes::GeneratedGraph &m_data_graph;
+  BTreeDataGraph &m_data_graph;
   WorldState &m_world_state;
   ModifierStepDescription &m_step_description;
 
  public:
   ProcessNodeInterface(bNode *bnode,
                        IndexedNodeTree &indexed_tree,
-                       FN::DataFlowNodes::GeneratedGraph &data_graph,
+                       BTreeDataGraph &data_graph,
                        WorldState &world_state,
                        ModifierStepDescription &step_description)
       : m_bnode(bnode),
@@ -46,7 +47,7 @@ class ProcessNodeInterface {
     return m_indexed_tree;
   }
 
-  FN::DataFlowNodes::GeneratedGraph &data_graph()
+  FN::DataFlowNodes::BTreeDataGraph &data_graph()
   {
     return m_data_graph;
   }

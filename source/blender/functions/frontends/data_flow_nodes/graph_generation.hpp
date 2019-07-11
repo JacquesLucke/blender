@@ -19,13 +19,13 @@ class UnlinkedInputsHandler {
                       DFGB_SocketVector &r_inserted_data_origins) = 0;
 };
 
-class GeneratedGraph {
+class BTreeDataGraph {
  private:
   SharedDataFlowGraph m_graph;
   SmallMap<bNodeSocket *, DFGraphSocket> m_mapping;
 
  public:
-  GeneratedGraph(SharedDataFlowGraph graph, SmallMap<bNodeSocket *, DFGraphSocket> mapping)
+  BTreeDataGraph(SharedDataFlowGraph graph, SmallMap<bNodeSocket *, DFGraphSocket> mapping)
       : m_graph(std::move(graph)), m_mapping(std::move(mapping))
   {
   }
@@ -41,7 +41,7 @@ class GeneratedGraph {
   }
 };
 
-Optional<GeneratedGraph> generate_graph(IndexedNodeTree &indexed_btree);
+Optional<BTreeDataGraph> generate_graph(IndexedNodeTree &indexed_btree);
 
 Optional<FunctionGraph> generate_function_graph(IndexedNodeTree &indexed_btree);
 

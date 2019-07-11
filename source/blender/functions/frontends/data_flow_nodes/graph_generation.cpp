@@ -89,7 +89,7 @@ static void insert_unlinked_inputs(BTreeGraphBuilder &builder,
 }
 
 static void find_interface_sockets(IndexedNodeTree &indexed_btree,
-                                   GeneratedGraph &graph,
+                                   BTreeDataGraph &graph,
                                    DFGraphSocketSetVector &r_inputs,
                                    DFGraphSocketSetVector &r_outputs)
 {
@@ -143,7 +143,7 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
   }
 };
 
-Optional<GeneratedGraph> generate_graph(IndexedNodeTree &indexed_btree)
+Optional<BTreeDataGraph> generate_graph(IndexedNodeTree &indexed_btree)
 {
   DataFlowGraphBuilder graph_builder;
   SmallMap<bNodeSocket *, DFGB_Socket> socket_map;
@@ -164,24 +164,24 @@ Optional<GeneratedGraph> generate_graph(IndexedNodeTree &indexed_btree)
   insert_unlinked_inputs(builder, unlinked_inputs_handler);
 
   auto build_result = DataFlowGraph::FromBuilder(graph_builder);
-  return GeneratedGraph(std::move(build_result.graph),
+  return BTreeDataGraph(std::move(build_result.graph),
                         build_mapping_for_original_sockets(socket_map, build_result.mapping));
 }
 
 Optional<FunctionGraph> generate_function_graph(IndexedNodeTree &indexed_btree)
 {
-  Optional<GeneratedGraph> generated_graph_ = generate_graph(indexed_btree);
-  if (!generated_graph_.has_value()) {
+  Optional<BTreeDataGraph> data_graph_ = generate_graph(indexed_btree);
+  if (!data_graph_.has_value()) {
     return {};
   }
 
-  GeneratedGraph &generated_graph = generated_graph_.value();
+  BTreeDataGraph &data_graph = data_graph_.value();
 
   DFGraphSocketSetVector input_sockets;
   DFGraphSocketSetVector output_sockets;
-  find_interface_sockets(indexed_btree, generated_graph, input_sockets, output_sockets);
+  find_interface_sockets(indexed_btree, data_graph, input_sockets, output_sockets);
 
-  return FunctionGraph(generated_graph.graph(), input_sockets, output_sockets);
+  return FunctionGraph(data_graph.graph(), input_sockets, output_sockets);
 }
 
 }  // namespace DataFlowNodes
