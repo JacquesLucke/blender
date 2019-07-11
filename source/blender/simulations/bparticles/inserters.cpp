@@ -94,6 +94,19 @@ static SharedFunction create_function(IndexedNodeTree &indexed_tree,
   return fn;
 }
 
+static SharedFunction create_function_for_data_inputs(bNode *bnode,
+                                                      IndexedNodeTree &indexed_tree,
+                                                      BTreeDataGraph &data_graph)
+{
+  SmallVector<bNodeSocket *> bsockets_to_compute;
+  for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
+    if (data_graph.uses_socket(bsocket)) {
+      bsockets_to_compute.append(bsocket);
+    }
+  }
+  return create_function(indexed_tree, data_graph, bsockets_to_compute, bnode->name);
+}
+
 static std::unique_ptr<Action> build_action(SocketWithNode start,
                                             IndexedNodeTree &indexed_tree,
                                             BTreeDataGraph &data_graph,
@@ -113,8 +126,7 @@ static std::unique_ptr<Action> BUILD_ACTION_change_direction(
   bSocketList node_inputs(bnode->inputs);
   bSocketList node_outputs(bnode->outputs);
 
-  SharedFunction fn = create_function(
-      indexed_tree, data_graph, {node_inputs.get(1)}, "Compute Direction");
+  SharedFunction fn = create_function_for_data_inputs(bnode, indexed_tree, data_graph);
   ParticleFunction particle_fn(fn);
   return ACTION_change_direction(
       particle_fn,
@@ -129,8 +141,7 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(IndexedNodeTree &indexed_tre
   bSocketList node_inputs(bnode->inputs);
   bSocketList node_outputs(bnode->outputs);
 
-  SharedFunction fn = create_function(
-      indexed_tree, data_graph, {node_inputs.get(1), node_inputs.get(2)}, bnode->name);
+  SharedFunction fn = create_function_for_data_inputs(bnode, indexed_tree, data_graph);
   ParticleFunction particle_fn(fn);
 
   PointerRNA rna = indexed_tree.get_rna(bnode);
@@ -156,7 +167,7 @@ static std::unique_ptr<Action> BUILD_ACTION_condition(IndexedNodeTree &indexed_t
   bSocketList node_inputs(bnode->inputs);
   bSocketList node_outputs(bnode->outputs);
 
-  SharedFunction fn = create_function(indexed_tree, data_graph, {node_inputs.get(1)}, bnode->name);
+  SharedFunction fn = create_function_for_data_inputs(bnode, indexed_tree, data_graph);
   ParticleFunction particle_fn(fn);
 
   auto true_action = build_action(
@@ -212,12 +223,8 @@ static void INSERT_EMITTER_mesh_surface(ProcessNodeInterface &interface)
       continue;
     }
 
-    bSocketList inputs = interface.inputs();
-    SharedFunction fn = create_function(
-        interface.indexed_tree(),
-        interface.data_graph(),
-        {inputs.get(0), inputs.get(1), inputs.get(2), inputs.get(3), inputs.get(4)},
-        interface.bnode()->name);
+    SharedFunction fn = create_function_for_data_inputs(
+        interface.bnode(), interface.indexed_tree(), interface.data_graph());
 
     auto action = build_action({interface.outputs().get(0), interface.bnode()},
                                interface.indexed_tree(),
@@ -251,10 +258,8 @@ static void INSERT_EMITTER_point(ProcessNodeInterface &interface)
 
 static void INSERT_EVENT_age_reached(ProcessNodeInterface &interface)
 {
-  FN::SharedFunction fn = create_function(interface.indexed_tree(),
-                                          interface.data_graph(),
-                                          {interface.inputs().get(1)},
-                                          interface.bnode()->name);
+  FN::SharedFunction fn = create_function_for_data_inputs(
+      interface.bnode(), interface.indexed_tree(), interface.data_graph());
 
   for (SocketWithNode linked : interface.linked_with_input(0)) {
     if (!is_particle_type_node(linked.node)) {
@@ -307,10 +312,8 @@ static void INSERT_FORCE_gravity(ProcessNodeInterface &interface)
       continue;
     }
 
-    SharedFunction fn = create_function(interface.indexed_tree(),
-                                        interface.data_graph(),
-                                        {interface.inputs().get(0)},
-                                        interface.bnode()->name);
+    SharedFunction fn = create_function_for_data_inputs(
+        interface.bnode(), interface.indexed_tree(), interface.data_graph());
 
     Force *force = FORCE_gravity(fn);
 
@@ -328,10 +331,8 @@ static void INSERT_FORCE_turbulence(ProcessNodeInterface &interface)
       continue;
     }
 
-    SharedFunction fn = create_function(interface.indexed_tree(),
-                                        interface.data_graph(),
-                                        {interface.inputs().get(0)},
-                                        interface.bnode()->name);
+    SharedFunction fn = create_function_for_data_inputs(
+        interface.bnode(), interface.indexed_tree(), interface.data_graph());
 
     Force *force = FORCE_turbulence(fn);
 

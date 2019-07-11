@@ -39,6 +39,11 @@ class BTreeDataGraph {
   {
     return m_mapping.lookup(bsocket);
   }
+
+  bool uses_socket(bNodeSocket *bsocket)
+  {
+    return m_mapping.contains(bsocket);
+  }
 };
 
 Optional<BTreeDataGraph> generate_graph(IndexedNodeTree &indexed_btree);
