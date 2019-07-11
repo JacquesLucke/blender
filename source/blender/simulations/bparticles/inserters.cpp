@@ -241,25 +241,25 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
   return EMITTER_mesh_surface(particle_type_name, fn, ctx.world_state, std::move(action));
 }
 
-BLI_LAZY_INIT(ForceFromNodeCallbackMap, get_force_builders)
+BLI_LAZY_INIT(StringMap<ForceFromNodeCallback>, get_force_builders)
 {
-  ForceFromNodeCallbackMap map;
+  StringMap<ForceFromNodeCallback> map;
   map.add_new("bp_GravityForceNode", BUILD_FORCE_gravity);
   map.add_new("bp_TurbulenceForceNode", BUILD_FORCE_turbulence);
   return map;
 }
 
-BLI_LAZY_INIT(EventFromNodeCallbackMap, get_event_builders)
+BLI_LAZY_INIT(StringMap<EventFromNodeCallback>, get_event_builders)
 {
-  EventFromNodeCallbackMap map;
+  StringMap<EventFromNodeCallback> map;
   map.add_new("bp_MeshCollisionEventNode", Build_EVENT_mesh_collision);
   map.add_new("bp_AgeReachedEventNode", BUILD_EVENT_age_reached);
   return map;
 }
 
-BLI_LAZY_INIT(EmitterFromNodeCallbackMap, get_emitter_builders)
+BLI_LAZY_INIT(StringMap<EmitterFromNodeCallback>, get_emitter_builders)
 {
-  EmitterFromNodeCallbackMap map;
+  StringMap<EmitterFromNodeCallback> map;
   map.add_new("bp_PointEmitterNode", BUILD_EMITTER_point);
   map.add_new("bp_MeshEmitterNode", BUILD_EMITTER_mesh_surface);
   return map;

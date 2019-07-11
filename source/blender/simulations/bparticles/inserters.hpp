@@ -4,6 +4,7 @@
 
 #include "BKE_node_tree.hpp"
 #include "FN_data_flow_nodes.hpp"
+#include "BLI_string_map.hpp"
 
 #include "world_state.hpp"
 #include "step_description.hpp"
@@ -14,6 +15,7 @@ namespace BParticles {
 using BKE::bSocketList;
 using BKE::IndexedNodeTree;
 using BKE::SocketWithNode;
+using BLI::StringMap;
 using FN::DataFlowNodes::BTreeDataGraph;
 
 struct BuildContext {
@@ -25,20 +27,17 @@ struct BuildContext {
 
 using ForceFromNodeCallback =
     std::function<std::unique_ptr<Force>(BuildContext &ctx, bNode *bnode)>;
-using ForceFromNodeCallbackMap = SmallMap<std::string, ForceFromNodeCallback>;
 
-ForceFromNodeCallbackMap &get_force_builders();
+StringMap<ForceFromNodeCallback> &get_force_builders();
 
 using EventFromNodeCallback =
     std::function<std::unique_ptr<Event>(BuildContext &ctx, bNode *bnode)>;
-using EventFromNodeCallbackMap = SmallMap<std::string, EventFromNodeCallback>;
 
-EventFromNodeCallbackMap &get_event_builders();
+StringMap<EventFromNodeCallback> &get_event_builders();
 
 using EmitterFromNodeCallback = std::function<std::unique_ptr<Emitter>(
     BuildContext &ctx, bNode *bnode, StringRef particle_type_name)>;
-using EmitterFromNodeCallbackMap = SmallMap<std::string, EmitterFromNodeCallback>;
 
-EmitterFromNodeCallbackMap &get_emitter_builders();
+StringMap<EmitterFromNodeCallback> &get_emitter_builders();
 
 }  // namespace BParticles

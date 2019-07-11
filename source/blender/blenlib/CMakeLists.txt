@@ -257,6 +257,7 @@ set(SRC
   BLI_small_set.hpp
   BLI_small_set_vector.hpp
   BLI_small_stack.hpp
+  BLI_string_map.hpp
   BLI_string_ref.hpp
   BLI_timeit.hpp
   BLI_vector_adaptor.hpp
