@@ -156,17 +156,20 @@ class SurfaceEmitter : public Emitter {
   }
 };
 
-Emitter *EMITTER_point(StringRef particle_type_name, float3 point)
+std::unique_ptr<Emitter> EMITTER_point(StringRef particle_type_name, float3 point)
 {
-  return new PointEmitter(particle_type_name, point);
+  Emitter *emitter = new PointEmitter(particle_type_name, point);
+  return std::unique_ptr<Emitter>(emitter);
 }
 
-Emitter *EMITTER_mesh_surface(StringRef particle_type_name,
-                              SharedFunction &compute_inputs_fn,
-                              WorldState &world_state,
-                              std::unique_ptr<Action> action)
+std::unique_ptr<Emitter> EMITTER_mesh_surface(StringRef particle_type_name,
+                                              SharedFunction &compute_inputs_fn,
+                                              WorldState &world_state,
+                                              std::unique_ptr<Action> action)
 {
-  return new SurfaceEmitter(particle_type_name, compute_inputs_fn, world_state, std::move(action));
+  Emitter *emitter = new SurfaceEmitter(
+      particle_type_name, compute_inputs_fn, world_state, std::move(action));
+  return std::unique_ptr<Emitter>(emitter);
 }
 
 }  // namespace BParticles

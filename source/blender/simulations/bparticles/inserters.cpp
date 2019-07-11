@@ -17,11 +17,6 @@ namespace BParticles {
 
 using FN::SharedFunction;
 
-static bool is_particle_type_node(bNode *bnode)
-{
-  return STREQ(bnode->idname, "bp_ParticleTypeNode");
-}
-
 static bool is_particle_data_input(bNode *bnode)
 {
   return STREQ(bnode->idname, "bp_ParticleInfoNode") ||
@@ -216,54 +211,6 @@ static std::unique_ptr<Action> build_action(SocketWithNode start,
   }
 }
 
-static void INSERT_EMITTER_mesh_surface(ProcessNodeInterface &interface)
-{
-  for (SocketWithNode linked : interface.linked_with_output(1)) {
-    if (!is_particle_type_node(linked.node)) {
-      continue;
-    }
-
-    SharedFunction fn = create_function_for_data_inputs(
-        interface.bnode(), interface.indexed_tree(), interface.data_graph());
-
-    auto action = build_action({interface.outputs().get(0), interface.bnode()},
-                               interface.indexed_tree(),
-                               interface.data_graph(),
-                               interface.step_description());
-
-    bNode *type_node = linked.node;
-    Emitter *emitter = EMITTER_mesh_surface(
-        type_node->name, fn, interface.world_state(), std::move(action));
-    interface.step_description().m_emitters.append(emitter);
-  }
-}
-
-static void INSERT_EMITTER_point(ProcessNodeInterface &interface)
-{
-  for (SocketWithNode linked : interface.linked_with_output(0)) {
-    if (!is_particle_type_node(linked.node)) {
-      continue;
-    }
-
-    float3 position;
-    PointerRNA rna = interface.node_rna();
-    RNA_float_get_array(&rna, "position", position);
-
-    bNode *type_node = linked.node;
-    Emitter *emitter = EMITTER_point(type_node->name, position);
-
-    interface.step_description().m_emitters.append(emitter);
-  }
-}
-
-BLI_LAZY_INIT(ProcessFunctionsMap, get_node_processors)
-{
-  ProcessFunctionsMap processors;
-  processors.add_new("bp_MeshEmitterNode", INSERT_EMITTER_mesh_surface);
-  processors.add_new("bp_PointEmitterNode", INSERT_EMITTER_point);
-  return processors;
-}
-
 static std::unique_ptr<Force> BUILD_FORCE_gravity(BuildContext &ctx, bNode *bnode)
 {
   SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
@@ -315,6 +262,39 @@ BLI_LAZY_INIT(EventFromNodeCallbackMap, get_event_builders)
   EventFromNodeCallbackMap map;
   map.add_new("bp_MeshCollisionEventNode", Build_EVENT_mesh_collision);
   map.add_new("bp_AgeReachedEventNode", BUILD_EVENT_age_reached);
+  return map;
+}
+
+static std::unique_ptr<Emitter> BUILD_EMITTER_point(BuildContext &ctx,
+                                                    bNode *bnode,
+                                                    StringRef particle_type_name)
+{
+  float3 position;
+  PointerRNA rna = ctx.indexed_tree.get_rna(bnode);
+  RNA_float_get_array(&rna, "position", position);
+
+  return EMITTER_point(particle_type_name, position);
+}
+
+static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
+                                                           bNode *bnode,
+                                                           StringRef particle_type_name)
+{
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+
+  auto action = build_action({bSocketList(bnode->outputs).get(0), bnode},
+                             ctx.indexed_tree,
+                             ctx.data_graph,
+                             ctx.step_description);
+
+  return EMITTER_mesh_surface(particle_type_name, fn, ctx.world_state, std::move(action));
+}
+
+BLI_LAZY_INIT(EmitterFromNodeCallbackMap, get_emitter_builders)
+{
+  EmitterFromNodeCallbackMap map;
+  map.add_new("bp_PointEmitterNode", BUILD_EMITTER_point);
+  map.add_new("bp_MeshEmitterNode", BUILD_EMITTER_mesh_surface);
   return map;
 }
 

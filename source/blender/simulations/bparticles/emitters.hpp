@@ -11,11 +11,11 @@ namespace BParticles {
 using FN::SharedFunction;
 using FN::TupleCallBody;
 
-Emitter *EMITTER_point(StringRef particle_type_name, float3 point);
+std::unique_ptr<Emitter> EMITTER_point(StringRef particle_type_name, float3 point);
 
-Emitter *EMITTER_mesh_surface(StringRef particle_type_name,
-                              SharedFunction &compute_inputs_fn,
-                              WorldState &world_state,
-                              std::unique_ptr<Action> action);
+std::unique_ptr<Emitter> EMITTER_mesh_surface(StringRef particle_type_name,
+                                              SharedFunction &compute_inputs_fn,
+                                              WorldState &world_state,
+                                              std::unique_ptr<Action> action);
 
 }  // namespace BParticles

@@ -9,6 +9,22 @@ static bool is_particle_type_node(bNode *bnode)
   return STREQ(bnode->idname, "bp_ParticleTypeNode");
 }
 
+static bool is_emitter_socket(bNodeSocket *bsocket)
+{
+  return STREQ(bsocket->idname, "bp_EmitterSocket");
+}
+
+static bNodeSocket *find_emitter_output(bNode *bnode)
+{
+  for (bNodeSocket *bsocket : bSocketList(bnode->outputs)) {
+    if (is_emitter_socket(bsocket)) {
+      return bsocket;
+    }
+  }
+  BLI_assert(false);
+  return nullptr;
+}
+
 std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree &indexed_tree,
                                                                  WorldState &world_state,
                                                                  float time_step)
@@ -26,16 +42,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
 
   auto data_graph = FN::DataFlowNodes::generate_graph(indexed_tree).value();
 
-  auto node_processors = get_node_processors();
-  for (auto item : node_processors.items()) {
-    for (bNode *bnode : indexed_tree.nodes_with_idname(item.key)) {
-      ProcessNodeInterface interface(
-          bnode, indexed_tree, data_graph, world_state, *step_description);
-      item.value(interface);
-    }
-  }
-
-  BuildContext ctx = {indexed_tree, data_graph, *step_description};
+  BuildContext ctx = {indexed_tree, data_graph, *step_description, world_state};
 
   for (auto item : get_force_builders().items()) {
     for (bNode *bnode : indexed_tree.nodes_with_idname(item.key)) {
@@ -62,6 +69,20 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
           if (event) {
             step_description->m_types.lookup_ref(linked.node->name)
                 ->m_events.append(event.release());
+          }
+        }
+      }
+    }
+  }
+
+  for (auto item : get_emitter_builders().items()) {
+    for (bNode *bnode : indexed_tree.nodes_with_idname(item.key)) {
+      bNodeSocket *emitter_output = find_emitter_output(bnode);
+      for (SocketWithNode linked : indexed_tree.linked(emitter_output)) {
+        if (is_particle_type_node(linked.node)) {
+          auto emitter = item.value(ctx, bnode, linked.node->name);
+          if (emitter) {
+            step_description->m_emitters.append(emitter.release());
           }
         }
       }
