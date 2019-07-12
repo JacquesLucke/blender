@@ -244,6 +244,16 @@ class DataFlowGraph : public RefCountedBase {
     return m_nodes[node_id].outputs_start + output_index;
   }
 
+  DFGraphSocket socket_of_node_input(uint node_id, uint input_index)
+  {
+    return DFGraphSocket(false, this->id_of_node_input(node_id, input_index));
+  }
+
+  DFGraphSocket socket_of_node_output(uint node_id, uint output_index)
+  {
+    return DFGraphSocket(true, this->id_of_node_output(node_id, output_index));
+  }
+
   Range<uint> input_ids_of_node(uint node_id) const
   {
     MyNode &node = m_nodes[node_id];
