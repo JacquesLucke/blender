@@ -1,6 +1,7 @@
 #include "lists.hpp"
 #include "FN_types.hpp"
 #include "FN_tuple_call.hpp"
+#include "FN_dependencies.hpp"
 
 #include "BLI_lazy_init.hpp"
 
@@ -39,6 +40,14 @@ template<typename T> class CreateSingleElementList : public TupleCallBody {
   }
 };
 
+class CreateSingleElementListDependencies : public DependenciesBody {
+  void dependencies(ExternalDependenciesBuilder &deps) const
+  {
+    auto objects = deps.get_input_objects(0);
+    deps.set_output_objects(0, objects);
+  }
+};
+
 template<typename T>
 SharedFunction build_create_single_element_list_function(SharedType &base_type,
                                                          SharedType &list_type)
@@ -50,6 +59,9 @@ SharedFunction build_create_single_element_list_function(SharedType &base_type,
   std::string name = "Create " + base_type->name() + " List from Value";
   auto fn = builder.build(name);
   fn->add_body<CreateSingleElementList<T>>();
+  if (base_type == GET_TYPE_object()) {
+    fn->add_body<CreateSingleElementListDependencies>();
+  }
   return fn;
 }
 
@@ -66,6 +78,14 @@ template<typename T> class AppendToList : public TupleCallBody {
   }
 };
 
+class AppendToListDependencies : public DependenciesBody {
+  void dependencies(ExternalDependenciesBuilder &deps) const
+  {
+    deps.set_output_objects(0, deps.get_input_objects(0));
+    deps.set_output_objects(0, deps.get_input_objects(1));
+  }
+};
+
 template<typename T>
 SharedFunction build_append_function(SharedType &base_type, SharedType &list_type)
 {
@@ -77,6 +97,9 @@ SharedFunction build_append_function(SharedType &base_type, SharedType &list_typ
   std::string name = "Append " + base_type->name();
   auto fn = builder.build(name);
   fn->add_body<AppendToList<T>>();
+  if (base_type == GET_TYPE_object()) {
+    fn->add_body<AppendToListDependencies>();
+  }
   return fn;
 }
 
@@ -98,6 +121,14 @@ template<typename T> class GetListElement : public TupleCallBody {
   }
 };
 
+class GetListElementDependencies : public DependenciesBody {
+  void dependencies(ExternalDependenciesBuilder &deps) const
+  {
+    deps.set_output_objects(0, deps.get_input_objects(0));
+    deps.set_output_objects(0, deps.get_input_objects(2));
+  }
+};
+
 template<typename T>
 SharedFunction build_get_element_function(SharedType &base_type, SharedType &list_type)
 {
@@ -110,6 +141,9 @@ SharedFunction build_get_element_function(SharedType &base_type, SharedType &lis
   std::string name = "Get " + base_type->name() + " List Element";
   auto fn = builder.build(name);
   fn->add_body<GetListElement<T>>();
+  if (base_type == GET_TYPE_object()) {
+    fn->add_body<GetListElementDependencies>();
+  }
   return fn;
 }
 
@@ -126,6 +160,14 @@ template<typename T> class CombineLists : public TupleCallBody {
   }
 };
 
+class CombineListsDependencies : public DependenciesBody {
+  void dependencies(ExternalDependenciesBuilder &deps) const
+  {
+    deps.set_output_objects(0, deps.get_input_objects(0));
+    deps.set_output_objects(0, deps.get_input_objects(1));
+  }
+};
+
 template<typename T>
 SharedFunction build_combine_lists_function(SharedType &base_type, SharedType &list_type)
 {
@@ -137,6 +179,9 @@ SharedFunction build_combine_lists_function(SharedType &base_type, SharedType &l
   std::string name = "Combine " + base_type->name() + " Lists";
   auto fn = builder.build(name);
   fn->add_body<CombineLists<T>>();
+  if (base_type == GET_TYPE_object()) {
+    fn->add_body<CombineListsDependencies>();
+  }
   return fn;
 }
 
@@ -227,6 +272,7 @@ BLI_LAZY_INIT_STATIC(ListFunctions, get_list_functions)
   insert_list_functions_for_type<float3>(functions, GET_TYPE_float3(), GET_TYPE_float3_list());
   insert_list_functions_for_type<int32_t>(functions, GET_TYPE_int32(), GET_TYPE_int32_list());
   insert_list_functions_for_type<bool>(functions, GET_TYPE_bool(), GET_TYPE_bool_list());
+  insert_list_functions_for_type<Object *>(functions, GET_TYPE_object(), GET_TYPE_object_list());
   return functions;
 }
 

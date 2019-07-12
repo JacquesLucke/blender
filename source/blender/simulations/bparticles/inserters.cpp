@@ -1,6 +1,7 @@
 
 #include "FN_data_flow_nodes.hpp"
 #include "FN_tuple_call.hpp"
+#include "FN_dependencies.hpp"
 
 #include "BLI_timeit.hpp"
 #include "BLI_lazy_init.hpp"
@@ -15,6 +16,7 @@
 
 namespace BParticles {
 
+using FN::DependenciesBody;
 using FN::SharedFunction;
 
 static bool is_particle_data_input(bNode *bnode)
@@ -85,6 +87,7 @@ static SharedFunction create_function(IndexedNodeTree &indexed_tree,
 
   FN::FunctionGraph function_graph(data_graph.graph(), inputs, outputs);
   SharedFunction fn = fn_builder.build(name);
+  FN::fgraph_add_DependenciesBody(fn, function_graph);
   FN::fgraph_add_TupleCallBody(fn, function_graph);
   return fn;
 }
@@ -236,6 +239,15 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
                                                            StringRef particle_type_name)
 {
   SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+
+  DependenciesBody *body = fn->body<DependenciesBody>();
+  BLI_assert(body);
+  FN::ExternalDependenciesBuilder deps_builder({});
+  body->dependencies(deps_builder);
+  ArrayRef<Object *> objects = deps_builder.get_output_objects(0);
+  objects.print_as_lines("Possible Objects",
+                         [](const Object *object) { std::cout << object->id.name; });
+
   auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
   return EMITTER_mesh_surface(particle_type_name, fn, ctx.world_state, std::move(action));
 }

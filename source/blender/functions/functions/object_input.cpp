@@ -25,6 +25,14 @@ class ObjectLocation : public TupleCallBody {
   }
 };
 
+class ObjectLocationDeps : public DependenciesBody {
+  void dependencies(ExternalDependenciesBuilder &deps) const
+  {
+    auto objects = deps.get_input_objects(0);
+    deps.depends_on_transforms_of(objects);
+  }
+};
+
 BLI_LAZY_INIT(SharedFunction, GET_FN_object_location)
 {
   FunctionBuilder builder;
@@ -32,6 +40,7 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_object_location)
   builder.add_output("Location", GET_TYPE_float3());
   auto fn = builder.build("Object Location");
   fn->add_body<ObjectLocation>();
+  fn->add_body<ObjectLocationDeps>();
   return fn;
 }
 

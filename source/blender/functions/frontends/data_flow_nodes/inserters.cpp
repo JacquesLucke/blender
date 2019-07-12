@@ -1,7 +1,10 @@
 #include "inserters.hpp"
 #include "registry.hpp"
 
+#include "FN_dependencies.hpp"
+
 #include "BLI_lazy_init.hpp"
+
 #include "DNA_node_types.h"
 
 #include "RNA_access.h"
@@ -115,6 +118,36 @@ class SocketLoaderBody : public TupleCallBody {
   }
 };
 
+class SocketLoaderDependencies : public DependenciesBody {
+ private:
+  bNodeTree *m_btree;
+  SmallVector<bNodeSocket *> m_bsockets;
+
+ public:
+  SocketLoaderDependencies(bNodeTree *btree, ArrayRef<bNodeSocket *> bsockets)
+      : m_btree(btree), m_bsockets(bsockets)
+  {
+  }
+
+  void dependencies(ExternalDependenciesBuilder &deps) const
+  {
+    for (uint i = 0; i < m_bsockets.size(); i++) {
+      bNodeSocket *bsocket = m_bsockets[i];
+      if (STREQ(bsocket->idname, "fn_ObjectSocket")) {
+        PointerRNA rna;
+        RNA_pointer_create(&m_btree->id, &RNA_NodeSocket, bsocket, &rna);
+        Object *value = (Object *)RNA_pointer_get(&rna, "value").id.data;
+        if (value != nullptr) {
+          deps.set_output_objects(i, {value});
+        }
+      }
+    }
+
+    auto objects = deps.get_input_objects(0);
+    deps.depends_on_transforms_of(objects);
+  }
+};
+
 DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder,
                                                  ArrayRef<bNodeSocket *> bsockets)
 {
@@ -136,6 +169,7 @@ DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder,
 
   auto fn = fn_builder.build("Input Sockets");
   fn->add_body<SocketLoaderBody>(builder.btree(), bsockets, loaders);
+  fn->add_body<SocketLoaderDependencies>(builder.btree(), bsockets);
   DFGB_Node *node = builder.insert_function(fn);
 
   DFGB_SocketVector sockets;
