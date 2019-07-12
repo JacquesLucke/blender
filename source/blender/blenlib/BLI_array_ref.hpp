@@ -30,8 +30,10 @@
 #include <vector>
 #include <array>
 #include <algorithm>
+#include <iostream>
 
 #include "BLI_utildefines.h"
+#include "BLI_string_ref.hpp"
 
 namespace BLI {
 
@@ -250,6 +252,16 @@ template<typename T> class ArrayRef {
       return m_start[index];
     }
     return fallback;
+  }
+
+  template<typename PrintLineF> void print_as_lines(StringRef name, PrintLineF print_line) const
+  {
+    std::cout << "ArrayRef: " << name << " \tSize:" << m_size << '\n';
+    for (const T &value : *this) {
+      std::cout << "  ";
+      print_line(value);
+      std::cout << '\n';
+    }
   }
 };
 
