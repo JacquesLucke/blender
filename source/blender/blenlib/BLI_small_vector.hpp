@@ -231,13 +231,25 @@ template<typename T, uint N = 4> class SmallVector {
   void append(const T &value)
   {
     this->ensure_space_for_one();
-    std::uninitialized_copy_n(&value, 1, this->end());
-    m_size++;
+    this->append_unchecked(value);
   }
 
   void append(T &&value)
   {
     this->ensure_space_for_one();
+    this->append_unchecked(std::move(value));
+  }
+
+  void append_unchecked(const T &value)
+  {
+    BLI_assert(m_size < m_capacity);
+    std::uninitialized_copy_n(&value, 1, this->end());
+    m_size++;
+  }
+
+  void append_unchecked(T &&value)
+  {
+    BLI_assert(m_size < m_capacity);
     std::uninitialized_copy_n(std::make_move_iterator(&value), 1, this->end());
     m_size++;
   }
@@ -250,6 +262,12 @@ template<typename T, uint N = 4> class SmallVector {
   {
     this->reserve(m_size + n);
     std::uninitialized_fill_n(this->end(), n, value);
+    m_size += n;
+  }
+
+  void increase_size_unchecked(uint n)
+  {
+    BLI_assert(m_size + n <= m_capacity);
     m_size += n;
   }
 
@@ -269,6 +287,17 @@ template<typename T, uint N = 4> class SmallVector {
   void extend(const T *start, uint amount)
   {
     this->reserve(m_size + amount);
+    this->extend_unchecked(start, amount);
+  }
+
+  void extend_unchecked(ArrayRef<T> array)
+  {
+    this->extend_unchecked(array.begin(), array.size());
+  }
+
+  void extend_unchecked(const T *start, uint amount)
+  {
+    BLI_assert(m_size + amount <= m_capacity);
     std::uninitialized_copy_n(start, amount, this->end());
     m_size += amount;
   }
