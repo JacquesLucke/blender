@@ -142,9 +142,6 @@ class SocketLoaderDependencies : public DependenciesBody {
         }
       }
     }
-
-    auto objects = deps.get_input_objects(0);
-    deps.depends_on_transforms_of(objects);
   }
 };
 

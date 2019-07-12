@@ -247,6 +247,8 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
   ArrayRef<Object *> objects = deps_builder.get_output_objects(0);
   objects.print_as_lines("Possible Objects",
                          [](const Object *object) { std::cout << object->id.name; });
+  deps_builder.get_transform_dependencies().print_as_lines(
+      "Transformation Dependencies", [](const Object *object) { std::cout << object->id.name; });
 
   auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
   return EMITTER_mesh_surface(particle_type_name, fn, ctx.world_state, std::move(action));

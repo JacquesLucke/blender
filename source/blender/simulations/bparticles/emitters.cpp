@@ -67,7 +67,7 @@ class SurfaceEmitter : public Emitter {
 
     m_compute_inputs_body->call(fn_in, fn_out, execution_context);
     Object *object = fn_out.get<Object *>(0);
-    float rate = fn_out.get<float>(1);
+    float rate = std::max(0.0f, fn_out.get<float>(1));
     float normal_velocity_factor = fn_out.get<float>(2);
     float emitter_velocity_factor = fn_out.get<float>(3);
     float size = fn_out.get<float>(4);
