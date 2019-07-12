@@ -34,6 +34,11 @@ class ExternalDependenciesBuilder {
   {
   }
 
+  void pass_through(uint from_index, uint to_index)
+  {
+    this->set_output_objects(to_index, this->get_input_objects(from_index));
+  }
+
   void set_output_objects(uint index, ArrayRef<Object *> objects)
   {
     m_output_objects.add_multiple(index, objects);

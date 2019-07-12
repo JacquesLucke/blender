@@ -43,8 +43,7 @@ template<typename T> class CreateSingleElementList : public TupleCallBody {
 class CreateSingleElementListDependencies : public DependenciesBody {
   void dependencies(ExternalDependenciesBuilder &deps) const
   {
-    auto objects = deps.get_input_objects(0);
-    deps.set_output_objects(0, objects);
+    deps.pass_through(0, 0);
   }
 };
 
@@ -81,8 +80,8 @@ template<typename T> class AppendToList : public TupleCallBody {
 class AppendToListDependencies : public DependenciesBody {
   void dependencies(ExternalDependenciesBuilder &deps) const
   {
-    deps.set_output_objects(0, deps.get_input_objects(0));
-    deps.set_output_objects(0, deps.get_input_objects(1));
+    deps.pass_through(0, 0);
+    deps.pass_through(1, 0);
   }
 };
 
@@ -124,8 +123,8 @@ template<typename T> class GetListElement : public TupleCallBody {
 class GetListElementDependencies : public DependenciesBody {
   void dependencies(ExternalDependenciesBuilder &deps) const
   {
-    deps.set_output_objects(0, deps.get_input_objects(0));
-    deps.set_output_objects(0, deps.get_input_objects(2));
+    deps.pass_through(0, 0);
+    deps.pass_through(2, 0);
   }
 };
 
@@ -163,8 +162,8 @@ template<typename T> class CombineLists : public TupleCallBody {
 class CombineListsDependencies : public DependenciesBody {
   void dependencies(ExternalDependenciesBuilder &deps) const
   {
-    deps.set_output_objects(0, deps.get_input_objects(0));
-    deps.set_output_objects(0, deps.get_input_objects(1));
+    deps.pass_through(0, 0);
+    deps.pass_through(1, 0);
   }
 };
 
