@@ -94,6 +94,9 @@ class SurfaceEmitter : public Emitter {
     MVert *verts = mesh->mvert;
     const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
     int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
+    if (triangle_amount == 0) {
+      return;
+    }
 
     SmallVector<float3> positions;
     SmallVector<float3> velocities;
