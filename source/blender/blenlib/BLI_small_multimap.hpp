@@ -69,6 +69,13 @@ template<typename K, typename V, uint N = 4> class SmallMultiMap {
     return newly_inserted;
   }
 
+  void add_multiple(const K &key, ArrayRef<V> values)
+  {
+    for (const V &value : values) {
+      this->add(key, value);
+    }
+  }
+
   void add_new(const K &key, const V &value)
   {
     BLI_assert(!m_map.contains(key));

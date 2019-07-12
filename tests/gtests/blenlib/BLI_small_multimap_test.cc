@@ -50,6 +50,22 @@ TEST(multimap, AddMany)
   EXPECT_EQ(map.lookup(7).size(), 10);
 }
 
+TEST(multimap, AddMultiple)
+{
+  IntMultiMap map;
+  map.add_multiple(2, {6, 7, 8});
+  map.add_multiple(3, {1, 2});
+  map.add_multiple(2, {9, 1});
+  EXPECT_EQ(map.key_amount(), 2);
+  EXPECT_EQ(map.lookup_default(2).size(), 5);
+  EXPECT_EQ(map.lookup_default(3).size(), 2);
+  EXPECT_EQ(map.lookup_default(2)[0], 6);
+  EXPECT_EQ(map.lookup_default(2)[1], 7);
+  EXPECT_EQ(map.lookup_default(2)[2], 8);
+  EXPECT_EQ(map.lookup_default(2)[3], 9);
+  EXPECT_EQ(map.lookup_default(2)[4], 1);
+}
+
 TEST(multimap, AddMultipleNew)
 {
   IntMultiMap map;
