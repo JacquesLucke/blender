@@ -227,11 +227,8 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_point(BuildContext &ctx,
                                                     bNode *bnode,
                                                     StringRef particle_type_name)
 {
-  float3 position;
-  PointerRNA rna = ctx.indexed_tree.get_rna(bnode);
-  RNA_float_get_array(&rna, "position", position);
-
-  return EMITTER_point(particle_type_name, position);
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+  return EMITTER_point(particle_type_name, fn);
 }
 
 static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,

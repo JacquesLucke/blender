@@ -20,18 +20,28 @@ static float random_float()
 class PointEmitter : public Emitter {
  private:
   std::string m_particle_type_name;
-  float3 m_point;
+  SharedFunction m_compute_inputs_fn;
+  TupleCallBody *m_compute_inputs_body;
 
  public:
-  PointEmitter(StringRef particle_type_name, float3 point)
-      : m_particle_type_name(particle_type_name.to_std_string()), m_point(point)
+  PointEmitter(StringRef particle_type_name, SharedFunction &compute_inputs_fn)
+      : m_particle_type_name(particle_type_name.to_std_string()),
+        m_compute_inputs_fn(compute_inputs_fn)
   {
+    m_compute_inputs_body = m_compute_inputs_fn->body<TupleCallBody>();
   }
 
   void emit(EmitterInterface &interface) override
   {
+    FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_inputs_body, fn_in, fn_out);
+
+    FN::ExecutionStack stack;
+    FN::ExecutionContext execution_context(stack);
+    m_compute_inputs_body->call(fn_in, fn_out, execution_context);
+    float3 point = fn_out.get<float3>(0);
+
     auto target = interface.particle_allocator().request(m_particle_type_name, 1);
-    target.set_float3("Position", {m_point});
+    target.set_float3("Position", {point});
     target.set_float3("Velocity", {float3{-1, -1, 0}});
     target.fill_float("Birth Time", interface.time_span().end());
   }
@@ -159,9 +169,10 @@ class SurfaceEmitter : public Emitter {
   }
 };
 
-std::unique_ptr<Emitter> EMITTER_point(StringRef particle_type_name, float3 point)
+std::unique_ptr<Emitter> EMITTER_point(StringRef particle_type_name,
+                                       SharedFunction &compute_inputs)
 {
-  Emitter *emitter = new PointEmitter(particle_type_name, point);
+  Emitter *emitter = new PointEmitter(particle_type_name, compute_inputs);
   return std::unique_ptr<Emitter>(emitter);
 }
 
