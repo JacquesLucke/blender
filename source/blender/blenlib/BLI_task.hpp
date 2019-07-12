@@ -70,7 +70,8 @@ static void parallel_array_elements(ArrayRef<T> array,
 
   ParallelRangeSettings settings = {0};
   BLI_parallel_range_settings_defaults(&settings);
-  settings.scheduling_mode = TASK_SCHEDULING_DYNAMIC;
+  settings.scheduling_mode = TASK_SCHEDULING_STATIC;
+  settings.min_iter_per_thread = 1;
 
   struct ParallelData {
     ArrayRef<T> array;
