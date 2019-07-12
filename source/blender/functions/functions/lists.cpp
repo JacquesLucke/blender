@@ -40,10 +40,10 @@ template<typename T> class CreateSingleElementList : public TupleCallBody {
   }
 };
 
-class CreateSingleElementListDependencies : public DependenciesBody {
-  void dependencies(ExternalDependenciesBuilder &deps) const
+class CreateSingleElementListDependencies : public DepsBody {
+  void build_deps(FunctionDepsBuilder &builder) const
   {
-    deps.pass_through(0, 0);
+    builder.pass_ids_through(0, 0);
   }
 };
 
@@ -77,11 +77,11 @@ template<typename T> class AppendToList : public TupleCallBody {
   }
 };
 
-class AppendToListDependencies : public DependenciesBody {
-  void dependencies(ExternalDependenciesBuilder &deps) const
+class AppendToListDependencies : public DepsBody {
+  void build_deps(FunctionDepsBuilder &builder) const
   {
-    deps.pass_through(0, 0);
-    deps.pass_through(1, 0);
+    builder.pass_ids_through(0, 0);
+    builder.pass_ids_through(1, 0);
   }
 };
 
@@ -120,11 +120,11 @@ template<typename T> class GetListElement : public TupleCallBody {
   }
 };
 
-class GetListElementDependencies : public DependenciesBody {
-  void dependencies(ExternalDependenciesBuilder &deps) const
+class GetListElementDependencies : public DepsBody {
+  void build_deps(FunctionDepsBuilder &builder) const
   {
-    deps.pass_through(0, 0);
-    deps.pass_through(2, 0);
+    builder.pass_ids_through(0, 0);
+    builder.pass_ids_through(2, 0);
   }
 };
 
@@ -159,11 +159,11 @@ template<typename T> class CombineLists : public TupleCallBody {
   }
 };
 
-class CombineListsDependencies : public DependenciesBody {
-  void dependencies(ExternalDependenciesBuilder &deps) const
+class CombineListsDependencies : public DepsBody {
+  void build_deps(FunctionDepsBuilder &builder) const
   {
-    deps.pass_through(0, 0);
-    deps.pass_through(1, 0);
+    builder.pass_ids_through(0, 0);
+    builder.pass_ids_through(1, 0);
   }
 };
 

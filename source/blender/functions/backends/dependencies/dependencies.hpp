@@ -2,60 +2,66 @@
 
 #include "FN_core.hpp"
 
+struct ID;
 struct Object;
 
 namespace FN {
 
-class ExternalDependenciesBuilder {
+class FunctionDepsBuilder {
  private:
-  SmallMultiMap<uint, Object *> m_input_objects;
-  SmallMultiMap<uint, Object *> m_output_objects;
-  SmallVector<Object *> m_transform_dependencies;
+  const SmallMultiMap<uint, ID *> &m_input_ids;
+  SmallMultiMap<uint, ID *> &m_output_ids;
+  SmallSetVector<Object *> &m_transform_dependencies;
 
  public:
-  ExternalDependenciesBuilder(SmallMultiMap<uint, Object *> inputs) : m_input_objects(inputs)
+  FunctionDepsBuilder(const SmallMultiMap<uint, ID *> &input_ids,
+                      SmallMultiMap<uint, ID *> &output_ids,
+                      SmallSetVector<Object *> &transform_dependencies)
+      : m_input_ids(input_ids),
+        m_output_ids(output_ids),
+        m_transform_dependencies(transform_dependencies)
   {
   }
 
-  void pass_through(uint from_index, uint to_index)
+  void pass_ids_through(uint input_index, uint output_index)
   {
-    this->set_output_objects(to_index, this->get_input_objects(from_index));
+    this->add_output_ids(output_index, this->get_input_ids(input_index));
   }
 
-  void set_output_objects(uint index, ArrayRef<Object *> objects)
+  void add_output_ids(uint output_index, ArrayRef<ID *> ids)
   {
-    m_output_objects.add_multiple(index, objects);
+    m_output_ids.add_multiple(output_index, ids);
   }
 
-  ArrayRef<Object *> get_input_objects(uint index)
+  void add_output_objects(uint output_index, ArrayRef<Object *> objects)
   {
-    return m_input_objects.lookup_default(index);
+    this->add_output_ids(output_index, objects.cast<ID *>());
   }
 
-  ArrayRef<Object *> get_output_objects(uint index)
+  ArrayRef<ID *> get_input_ids(uint input_index)
   {
-    return m_output_objects.lookup_default(index);
+    return m_input_ids.lookup_default(input_index);
   }
 
-  void depends_on_transforms_of(ArrayRef<Object *> objects)
+  ArrayRef<Object *> get_input_objects(uint input_index)
   {
-    m_transform_dependencies.extend(objects);
+    return this->get_input_ids(input_index).cast<Object *>();
   }
 
-  ArrayRef<Object *> get_transform_dependencies()
+  void add_transform_dependency(ArrayRef<Object *> objects)
   {
-    return m_transform_dependencies;
+    m_transform_dependencies.add_multiple(objects);
   }
 };
 
-class DependenciesBody : public FunctionBody {
+class DepsBody : public FunctionBody {
  public:
-  BLI_COMPOSITION_DECLARATION(DependenciesBody);
+  BLI_COMPOSITION_DECLARATION(DepsBody);
 
-  virtual ~DependenciesBody()
+  virtual ~DepsBody()
   {
   }
-  virtual void dependencies(ExternalDependenciesBuilder &deps) const = 0;
+  virtual void build_deps(FunctionDepsBuilder &deps) const = 0;
 };
 
 } /* namespace FN */

@@ -16,7 +16,7 @@
 
 namespace BParticles {
 
-using FN::DependenciesBody;
+using FN::DepsBody;
 using FN::SharedFunction;
 
 static bool is_particle_data_input(bNode *bnode)
@@ -240,15 +240,16 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
 {
   SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
 
-  DependenciesBody *body = fn->body<DependenciesBody>();
-  BLI_assert(body);
-  FN::ExternalDependenciesBuilder deps_builder({});
-  body->dependencies(deps_builder);
-  ArrayRef<Object *> objects = deps_builder.get_output_objects(0);
-  objects.print_as_lines("Possible Objects",
-                         [](const Object *object) { std::cout << object->id.name; });
-  deps_builder.get_transform_dependencies().print_as_lines(
-      "Transformation Dependencies", [](const Object *object) { std::cout << object->id.name; });
+  // DependenciesBody *body = fn->body<DependenciesBody>();
+  // BLI_assert(body);
+  // FN::FunctionDepsBuilder deps_builder({});
+  // body->dependencies(deps_builder);
+  // ArrayRef<Object *> objects = deps_builder.get_output_objects(0);
+  // objects.print_as_lines("Possible Objects",
+  //                        [](const Object *object) { std::cout << object->id.name; });
+  // deps_builder.get_transform_dependencies().print_as_lines(
+  //     "Transformation Dependencies", [](const Object *object) { std::cout << object->id.name;
+  //     });
 
   auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
   return EMITTER_mesh_surface(particle_type_name, fn, ctx.world_state, std::move(action));

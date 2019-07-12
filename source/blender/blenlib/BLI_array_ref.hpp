@@ -254,6 +254,12 @@ template<typename T> class ArrayRef {
     return fallback;
   }
 
+  template<typename NewT> ArrayRef<NewT> cast() const
+  {
+    BLI_STATIC_ASSERT(sizeof(T) == sizeof(NewT), "");
+    return ArrayRef<NewT>((NewT *)m_start, m_size);
+  }
+
   template<typename PrintLineF> void print_as_lines(StringRef name, PrintLineF print_line) const
   {
     std::cout << "ArrayRef: " << name << " \tSize:" << m_size << '\n';

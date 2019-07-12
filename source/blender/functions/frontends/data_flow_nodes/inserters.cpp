@@ -118,7 +118,7 @@ class SocketLoaderBody : public TupleCallBody {
   }
 };
 
-class SocketLoaderDependencies : public DependenciesBody {
+class SocketLoaderDependencies : public DepsBody {
  private:
   bNodeTree *m_btree;
   SmallVector<bNodeSocket *> m_bsockets;
@@ -129,7 +129,7 @@ class SocketLoaderDependencies : public DependenciesBody {
   {
   }
 
-  void dependencies(ExternalDependenciesBuilder &deps) const
+  void build_deps(FunctionDepsBuilder &builder) const
   {
     for (uint i = 0; i < m_bsockets.size(); i++) {
       bNodeSocket *bsocket = m_bsockets[i];
@@ -138,7 +138,7 @@ class SocketLoaderDependencies : public DependenciesBody {
         RNA_pointer_create(&m_btree->id, &RNA_NodeSocket, bsocket, &rna);
         Object *value = (Object *)RNA_pointer_get(&rna, "value").id.data;
         if (value != nullptr) {
-          deps.set_output_objects(i, {value});
+          builder.add_output_objects(i, {value});
         }
       }
     }

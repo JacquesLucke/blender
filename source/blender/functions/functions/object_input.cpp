@@ -25,11 +25,11 @@ class ObjectLocation : public TupleCallBody {
   }
 };
 
-class ObjectLocationDeps : public DependenciesBody {
-  void dependencies(ExternalDependenciesBuilder &deps) const
+class ObjectLocationDeps : public DepsBody {
+  void build_deps(FunctionDepsBuilder &builder) const
   {
-    auto objects = deps.get_input_objects(0);
-    deps.depends_on_transforms_of(objects);
+    auto objects = builder.get_input_objects(0);
+    builder.add_transform_dependency(objects);
   }
 };
 

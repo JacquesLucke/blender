@@ -2,6 +2,6 @@
 
 namespace FN {
 
-BLI_COMPOSITION_IMPLEMENTATION(DependenciesBody);
+BLI_COMPOSITION_IMPLEMENTATION(DepsBody);
 
 } /* namespace FN */

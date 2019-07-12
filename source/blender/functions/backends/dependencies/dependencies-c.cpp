@@ -14,10 +14,14 @@ static void update_depsgraph(DepsNodeHandle *deps_node, ArrayRef<Object *> trans
 void FN_function_update_dependencies(FnFunction fn_c, struct DepsNodeHandle *deps_node)
 {
   Function *fn = unwrap(fn_c);
-  DependenciesBody *body = fn->body<DependenciesBody>();
+  DepsBody *body = fn->body<DepsBody>();
   if (body) {
-    ExternalDependenciesBuilder builder({});
-    body->dependencies(builder);
-    update_depsgraph(deps_node, builder.get_transform_dependencies());
+    SmallMultiMap<uint, ID *> input_ids;
+    SmallMultiMap<uint, ID *> output_ids;
+    SmallSetVector<Object *> transform_dependencies;
+
+    FunctionDepsBuilder builder(input_ids, output_ids, transform_dependencies);
+    body->build_deps(builder);
+    update_depsgraph(deps_node, transform_dependencies);
   }
 }
