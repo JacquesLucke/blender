@@ -18,20 +18,23 @@ class FGraphDependencies : public DependenciesBody {
     SmallSetVector<Object *> transform_dependencies;
     for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
       DFGraphSocket socket = m_fgraph.outputs()[i];
-      SmallVector<Object *> outputs = this->find_deps_and_outputs(socket, transform_dependencies);
+      SmallVector<Object *> outputs = this->find_deps_and_outputs(
+          socket, transform_dependencies, deps);
       deps.set_output_objects(i, outputs);
     }
     deps.depends_on_transforms_of(transform_dependencies);
   }
 
-  SmallVector<Object *> find_deps_and_outputs(
-      DFGraphSocket socket, SmallSetVector<Object *> &transform_dependencies) const
+  SmallVector<Object *> find_deps_and_outputs(DFGraphSocket socket,
+                                              SmallSetVector<Object *> &transform_dependencies,
+                                              ExternalDependenciesBuilder &deps) const
   {
     if (m_fgraph.inputs().contains(socket)) {
-      return {};
+      return deps.get_input_objects(m_fgraph.inputs().index(socket));
     }
     else if (socket.is_input()) {
-      return this->find_deps_and_outputs(m_graph->origin_of_input(socket), transform_dependencies);
+      return this->find_deps_and_outputs(
+          m_graph->origin_of_input(socket), transform_dependencies, deps);
     }
     else {
       uint node_id = m_graph->node_id_of_output(socket);
@@ -39,7 +42,7 @@ class FGraphDependencies : public DependenciesBody {
       DependenciesBody *body = fn->body<DependenciesBody>();
       if (body == nullptr) {
         for (auto input_socket : m_graph->inputs_of_node(node_id)) {
-          this->find_deps_and_outputs(input_socket, transform_dependencies);
+          this->find_deps_and_outputs(input_socket, transform_dependencies, deps);
         }
         return {};
       }
@@ -48,8 +51,8 @@ class FGraphDependencies : public DependenciesBody {
         for (uint i = 0; i < fn->input_amount(); i++) {
           inputs.add_multiple_new(
               i,
-              this->find_deps_and_outputs(m_graph->socket_of_node_input(node_id, i),
-                                          transform_dependencies));
+              this->find_deps_and_outputs(
+                  m_graph->socket_of_node_input(node_id, i), transform_dependencies, deps));
         }
         ExternalDependenciesBuilder builder(inputs);
         body->dependencies(builder);
