@@ -194,9 +194,6 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
                                                 ArrayRef<Event *> events,
                                                 VectorAdaptor<uint> &r_unfinished_pindices)
 {
-  uint amount = particles.size();
-  BLI_assert(array_allocator.array_size() >= amount);
-
   ArrayAllocator::Array<int> next_event_indices(array_allocator);
   ArrayAllocator::Array<float> time_factors_to_next_event(array_allocator);
   ArrayAllocator::Vector<uint> pindices_with_event(array_allocator);
