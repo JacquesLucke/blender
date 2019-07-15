@@ -4,11 +4,9 @@
 
 namespace BParticles {
 
-class NoneAction : public Action {
-  void execute(ActionInterface &UNUSED(interface)) override
-  {
-  }
-};
+void NoneAction::execute(ActionInterface &UNUSED(interface))
+{
+}
 
 void ChangeDirectionAction::execute(ActionInterface &interface)
 {
@@ -41,12 +39,10 @@ void ChangeDirectionAction::execute(ActionInterface &interface)
   m_post_action->execute(interface);
 }
 
-class KillAction : public Action {
-  void execute(ActionInterface &interface) override
-  {
-    interface.kill(interface.particles().pindices());
-  }
-};
+void KillAction::execute(ActionInterface &interface)
+{
+  interface.kill(interface.particles().pindices());
+}
 
 static float random_number()
 {
@@ -167,18 +163,6 @@ class ConditionAction : public Action {
     }
   }
 };
-
-std::unique_ptr<Action> ACTION_none()
-{
-  Action *action = new NoneAction();
-  return std::unique_ptr<Action>(action);
-}
-
-std::unique_ptr<Action> ACTION_kill()
-{
-  Action *action = new KillAction();
-  return std::unique_ptr<Action>(action);
-}
 
 std::unique_ptr<Action> ACTION_explode(StringRef new_particle_name,
                                        ParticleFunction &compute_inputs,

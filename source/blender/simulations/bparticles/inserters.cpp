@@ -110,7 +110,7 @@ using ActionFromNodeCallback =
 
 static std::unique_ptr<Action> BUILD_ACTION_kill(BuildContext &UNUSED(ctx), bNode *UNUSED(bnode))
 {
-  return ACTION_kill();
+  return std::unique_ptr<Action>(new KillAction());
 }
 
 static std::unique_ptr<Action> BUILD_ACTION_change_direction(BuildContext &ctx, bNode *bnode)
@@ -177,7 +177,7 @@ static std::unique_ptr<Action> build_action(BuildContext &ctx, SocketWithNode st
   if (start.socket->in_out == SOCK_OUT) {
     auto linked = ctx.indexed_tree.linked(start.socket);
     if (linked.size() == 0) {
-      return ACTION_none();
+      return std::unique_ptr<Action>(new NoneAction());
     }
     else if (linked.size() == 1) {
       return build_action(ctx, linked[0]);

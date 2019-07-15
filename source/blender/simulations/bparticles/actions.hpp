@@ -4,6 +4,14 @@
 
 namespace BParticles {
 
+class NoneAction : public Action {
+  void execute(ActionInterface &UNUSED(interface)) override;
+};
+
+class KillAction : public Action {
+  void execute(ActionInterface &interface) override;
+};
+
 class ChangeDirectionAction : public Action {
  private:
   ParticleFunction m_compute_inputs;
@@ -18,8 +26,6 @@ class ChangeDirectionAction : public Action {
   void execute(ActionInterface &interface) override;
 };
 
-std::unique_ptr<Action> ACTION_none();
-std::unique_ptr<Action> ACTION_kill();
 std::unique_ptr<Action> ACTION_explode(StringRef new_particle_name,
                                        ParticleFunction &compute_inputs,
                                        std::unique_ptr<Action> post_action);
