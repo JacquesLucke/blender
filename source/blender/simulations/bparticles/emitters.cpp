@@ -23,7 +23,7 @@ void PointEmitter::emit(EmitterInterface &interface)
 
   for (uint i = 0; i < m_amount; i++) {
     float t = i / (float)m_amount;
-    float3 point = float3::interpolate(m_start, m_end, t);
+    float3 point = m_point.interpolate(t);
     new_positions[i] = point;
   }
 
@@ -89,11 +89,8 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     normal_tri_v3(normal, v1, v2, v3);
 
     float epsilon = 0.01f;
-    /* TODO: interpolate decomposed matrices */
-    float4x4 transform_at_birth = float4x4::interpolate(
-        m_transform_start, m_transform_end, birth_moment);
-    float4x4 transform_before_birth = float4x4::interpolate(
-        m_transform_start, m_transform_end, birth_moment - epsilon);
+    float4x4 transform_at_birth = m_transform.interpolate(birth_moment);
+    float4x4 transform_before_birth = m_transform.interpolate(birth_moment - epsilon);
 
     float3 point_at_birth = transform_at_birth.transform_position(pos);
     float3 point_before_birth = transform_before_birth.transform_position(pos);

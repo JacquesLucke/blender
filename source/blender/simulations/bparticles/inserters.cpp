@@ -243,9 +243,8 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
   emitter->m_emitter_velocity = fn_out.get<float>(3);
   emitter->m_size = fn_out.get<float>(4);
 
-  emitter->m_transform_end = emitter->m_object->obmat;
-  emitter->m_transform_start = ctx.world_state.get_last_and_store_current(
-      bnode->name, emitter->m_transform_end);
+  emitter->m_transform = ctx.world_state.get_interpolated_value(bnode->name,
+                                                                emitter->m_object->obmat);
 
   return emitter;
 }
@@ -263,8 +262,7 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
 
   auto emitter = std::unique_ptr<PointEmitter>(new PointEmitter());
   emitter->m_particle_type_name = particle_type_name.to_std_string();
-  emitter->m_end = fn_out.get<float3>(0);
-  emitter->m_start = ctx.world_state.get_last_and_store_current(bnode->name, emitter->m_end);
+  emitter->m_point = ctx.world_state.get_interpolated_value(bnode->name, fn_out.get<float3>(0));
   emitter->m_amount = 10;
   return emitter;
 }

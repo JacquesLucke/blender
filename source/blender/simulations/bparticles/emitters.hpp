@@ -16,7 +16,7 @@ struct SurfaceEmitter : public Emitter {
   std::unique_ptr<Action> m_action;
 
   Object *m_object;
-  float4x4 m_transform_start, m_transform_end;
+  InterpolatedFloat4x4 m_transform;
   float m_rate;
   float m_normal_velocity;
   float m_emitter_velocity;
@@ -27,7 +27,7 @@ struct SurfaceEmitter : public Emitter {
 
 struct PointEmitter : public Emitter {
   std::string m_particle_type_name;
-  float3 m_start, m_end;
+  InterpolatedFloat3 m_point;
   uint m_amount;
 
   void emit(EmitterInterface &interface) override;
