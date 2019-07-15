@@ -81,12 +81,12 @@ template<typename T> class List : public BLI::SharedImmutable {
   SharedList<T> get_mutable()
   {
     if (this->is_mutable()) {
-      return SharedList<T>::FromPointer(this);
+      return SharedList<T>(this);
     }
     else {
       List *new_list = this->copy();
       BLI_assert(new_list->is_mutable());
-      return SharedList<T>::FromPointer(new_list);
+      return SharedList<T>(new_list);
     }
   }
 

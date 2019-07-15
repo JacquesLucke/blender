@@ -58,33 +58,32 @@ template<typename T> class AutoRefCount {
  private:
   T *m_object;
 
-  AutoRefCount(T *object) : m_object(object)
-  {
-  }
-
   inline void incref()
   {
-    m_object->incref();
+    if (m_object) {
+      m_object->incref();
+    }
   }
 
   inline void decref()
   {
-    m_object->decref();
+    if (m_object) {
+      m_object->decref();
+    }
   }
 
  public:
-  AutoRefCount() : AutoRefCount(new T())
+  AutoRefCount() : m_object(nullptr)
+  {
+  }
+
+  AutoRefCount(T *object) : m_object(object)
   {
   }
 
   template<typename... Args> static AutoRefCount<T> New(Args &&... args)
   {
     T *object = new T(std::forward<Args>(args)...);
-    return AutoRefCount<T>(object);
-  }
-
-  static AutoRefCount<T> FromPointer(T *object)
-  {
     return AutoRefCount<T>(object);
   }
 
@@ -148,6 +147,7 @@ template<typename T> class AutoRefCount {
 
   T &ref() const
   {
+    BLI_assert(m_object);
     return *m_object;
   }
 
@@ -165,6 +165,8 @@ template<typename T> class AutoRefCount {
 
   friend bool operator==(const AutoRefCount &a, const AutoRefCount &b)
   {
+    BLI_assert(a.ptr());
+    BLI_assert(b.ptr());
     return *a.ptr() == *b.ptr();
   }
 

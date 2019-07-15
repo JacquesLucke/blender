@@ -127,3 +127,9 @@ TEST(shared, DecRefToZero)
   ptr->decref();
   ASSERT_FALSE(alive);
 }
+
+TEST(shared, Empty)
+{
+  SharedClass obj;
+  ASSERT_EQ(obj.ptr(), nullptr);
+}
