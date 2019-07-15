@@ -239,18 +239,19 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
 
   auto on_birth_action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
 
-  Object *object = fn_out.get<Object *>(0);
+  Object *object = body->get_output<Object *>(fn_out, 0, "Object");
   InterpolatedFloat4x4 transform = ctx.world_state.get_interpolated_value(bnode->name,
                                                                           object->obmat);
 
-  return std::unique_ptr<SurfaceEmitter>(new SurfaceEmitter(particle_type_name,
-                                                            std::move(on_birth_action),
-                                                            object,
-                                                            transform,
-                                                            fn_out.get<float>(1),
-                                                            fn_out.get<float>(2),
-                                                            fn_out.get<float>(3),
-                                                            fn_out.get<float>(4)));
+  return std::unique_ptr<SurfaceEmitter>(
+      new SurfaceEmitter(particle_type_name,
+                         std::move(on_birth_action),
+                         object,
+                         transform,
+                         body->get_output<float>(fn_out, 1, "Rate"),
+                         body->get_output<float>(fn_out, 2, "Normal Velocity"),
+                         body->get_output<float>(fn_out, 3, "Emitter Velocity"),
+                         body->get_output<float>(fn_out, 4, "Size")));
 }
 
 static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
@@ -264,7 +265,8 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body->call__setup_execution_context(fn_in, fn_out);
 
-  auto point = ctx.world_state.get_interpolated_value(bnode->name, fn_out.get<float3>(0));
+  auto point = ctx.world_state.get_interpolated_value(
+      bnode->name, body->get_output<float3>(fn_out, 0, "Position"));
   return std::unique_ptr<PointEmitter>(new PointEmitter(particle_type_name, point, 10));
 }
 

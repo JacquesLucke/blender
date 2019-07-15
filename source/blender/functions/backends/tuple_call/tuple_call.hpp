@@ -39,6 +39,19 @@ class TupleCallBodyBase : public FunctionBody {
   {
     return m_meta_out;
   }
+
+  /**
+   * Same as tuple.get<T>(index), but checks if the name is correct in debug builds.
+   */
+  template<typename T> T get_output(Tuple &tuple, uint index, StringRef expected_name)
+  {
+#ifdef DEBUG
+    StringRef real_name = this->owner()->output_name(index);
+    BLI_assert(real_name == expected_name);
+#endif
+    UNUSED_VARS_NDEBUG(expected_name);
+    return tuple.get<T>(index);
+  }
 };
 
 class TupleCallBody : public TupleCallBodyBase {
