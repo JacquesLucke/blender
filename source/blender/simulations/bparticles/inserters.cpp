@@ -216,14 +216,14 @@ static std::unique_ptr<Event> Build_EVENT_mesh_collision(BuildContext &ctx, bNod
   }
 
   auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
-  return EVENT_mesh_collision(bnode->name, object, std::move(action));
+  return std::unique_ptr<Event>(new MeshCollisionEvent(bnode->name, object, std::move(action)));
 }
 
 static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx, bNode *bnode)
 {
   FN::SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
   auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
-  return EVENT_age_reached(bnode->name, fn, std::move(action));
+  return std::unique_ptr<Event>(new AgeReachedEvent(bnode->name, fn, std::move(action)));
 }
 
 static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,

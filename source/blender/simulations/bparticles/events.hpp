@@ -3,17 +3,99 @@
 #include "core.hpp"
 #include "actions.hpp"
 
+#include "BKE_bvhutils.h"
+
+#include "BLI_kdopbvh.h"
+
+#include "DNA_object_types.h"
+
 struct Object;
 
 namespace BParticles {
 
 using BLI::float4x4;
 
-std::unique_ptr<Event> EVENT_mesh_collision(StringRef identifier,
-                                            Object *object,
-                                            std::unique_ptr<Action> action);
-std::unique_ptr<Event> EVENT_age_reached(StringRef identifier,
-                                         SharedFunction &compute_age_fn,
-                                         std::unique_ptr<Action> action);
+class AgeReachedEvent : public Event {
+ private:
+  std::string m_identifier;
+  SharedFunction m_compute_age_fn;
+  TupleCallBody *m_compute_age_body;
+  std::unique_ptr<Action> m_action;
+
+ public:
+  AgeReachedEvent(StringRef identifier,
+                  SharedFunction &compute_age_fn,
+                  std::unique_ptr<Action> action)
+      : m_identifier(identifier.to_std_string()),
+        m_compute_age_fn(compute_age_fn),
+        m_action(std::move(action))
+  {
+    m_compute_age_body = compute_age_fn->body<TupleCallBody>();
+  }
+
+  void attributes(AttributesInfoBuilder &builder) override;
+  void filter(EventFilterInterface &interface) override;
+  void execute(EventExecuteInterface &interface) override;
+};
+
+class CollisionEventInfo : public EventInfo {
+ private:
+  ArrayRef<float3> m_normals;
+
+ public:
+  CollisionEventInfo(ArrayRef<float3> normals) : m_normals(normals)
+  {
+  }
+
+  void *get_info_array(StringRef UNUSED(name)) override
+  {
+    return (void *)m_normals.begin();
+  }
+};
+
+class MeshCollisionEvent : public Event {
+ private:
+  std::string m_identifier;
+  Object *m_object;
+  BVHTreeFromMesh m_bvhtree_data;
+  float4x4 m_local_to_world;
+  float4x4 m_world_to_local;
+  std::unique_ptr<Action> m_action;
+
+  struct RayCastResult {
+    bool success;
+    int index;
+    float3 normal;
+    float distance;
+  };
+
+  struct EventStorage {
+    float3 normal;
+  };
+
+ public:
+  MeshCollisionEvent(StringRef identifier, Object *object, std::unique_ptr<Action> action)
+      : m_identifier(identifier.to_std_string()), m_object(object), m_action(std::move(action))
+  {
+    BLI_assert(object->type == OB_MESH);
+    m_local_to_world = m_object->obmat;
+    m_world_to_local = m_local_to_world.inverted__LocRotScale();
+
+    BKE_bvhtree_from_mesh_get(&m_bvhtree_data, (Mesh *)object->data, BVHTREE_FROM_LOOPTRI, 2);
+  }
+
+  ~MeshCollisionEvent()
+  {
+    free_bvhtree_from_mesh(&m_bvhtree_data);
+  }
+
+  void attributes(AttributesInfoBuilder &builder) override;
+  uint storage_size() override;
+  void filter(EventFilterInterface &interface) override;
+  void execute(EventExecuteInterface &interface) override;
+
+ private:
+  RayCastResult ray_cast(float3 start, float3 normalized_direction, float max_distance);
+};
 
 }  // namespace BParticles
