@@ -141,7 +141,7 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx, bNode *bn
   auto post_action = build_action(ctx, {node_outputs.get(0), bnode});
 
   if (ctx.step_description.m_types.contains(name)) {
-    return ACTION_explode(name, particle_fn, std::move(post_action));
+    return std::unique_ptr<Action>(new ExplodeAction(name, particle_fn, std::move(post_action)));
   }
   else {
     return post_action;
@@ -159,7 +159,8 @@ static std::unique_ptr<Action> BUILD_ACTION_condition(BuildContext &ctx, bNode *
   auto true_action = build_action(ctx, {node_outputs.get(0), bnode});
   auto false_action = build_action(ctx, {node_outputs.get(1), bnode});
 
-  return ACTION_condition(particle_fn, std::move(true_action), std::move(false_action));
+  return std::unique_ptr<Action>(
+      new ConditionAction(particle_fn, std::move(true_action), std::move(false_action)));
 }
 
 BLI_LAZY_INIT_STATIC(StringMap<ActionFromNodeCallback>, get_action_builders)

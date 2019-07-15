@@ -56,129 +56,79 @@ static float3 random_direction()
   return float3(random_number(), random_number(), random_number());
 }
 
-class ExplodeAction : public Action {
- private:
-  std::string m_new_particle_name;
-  ParticleFunction m_compute_inputs;
-  std::unique_ptr<Action> m_post_action;
-
- public:
-  ExplodeAction(StringRef new_particle_name,
-                ParticleFunction &compute_inputs,
-                std::unique_ptr<Action> post_action)
-      : m_new_particle_name(new_particle_name.to_std_string()),
-        m_compute_inputs(compute_inputs),
-        m_post_action(std::move(post_action))
-  {
-  }
-
-  void execute(ActionInterface &interface) override
-  {
-    ParticleSet &particles = interface.particles();
-
-    auto positions = particles.attributes().get_float3("Position");
-
-    SmallVector<float3> new_positions;
-    SmallVector<float3> new_velocities;
-    SmallVector<float> new_birth_times;
-
-    auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
-    FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
-
-    FN::ExecutionStack stack;
-    FN::ExecutionContext execution_context(stack);
-
-    for (uint pindex : particles.pindices()) {
-      caller.call(fn_in, fn_out, execution_context, pindex);
-      uint parts_amount = std::max(0, fn_out.get<int>(0));
-      float speed = fn_out.get<float>(1);
-
-      new_positions.append_n_times(positions[pindex], parts_amount);
-      new_birth_times.append_n_times(interface.current_times()[pindex], parts_amount);
-
-      for (uint j = 0; j < parts_amount; j++) {
-        new_velocities.append(random_direction() * speed);
-      }
-    }
-
-    auto target = interface.particle_allocator().request(m_new_particle_name,
-                                                         new_birth_times.size());
-    target.set_float3("Position", new_positions);
-    target.set_float3("Velocity", new_velocities);
-    target.fill_float("Size", 0.1f);
-    target.set_float("Birth Time", new_birth_times);
-
-    m_post_action->execute(interface);
-  }
-};
-
-class ConditionAction : public Action {
- private:
-  ParticleFunction m_compute_inputs;
-  std::unique_ptr<Action> m_true_action, m_false_action;
-
- public:
-  ConditionAction(ParticleFunction &compute_inputs,
-                  std::unique_ptr<Action> true_action,
-                  std::unique_ptr<Action> false_action)
-      : m_compute_inputs(compute_inputs),
-        m_true_action(std::move(true_action)),
-        m_false_action(std::move(false_action))
-  {
-  }
-
-  void execute(ActionInterface &interface) override
-  {
-    ParticleSet particles = interface.particles();
-    ArrayAllocator::Array<bool> conditions(interface.array_allocator());
-    this->compute_conditions(interface, conditions);
-
-    SmallVector<uint> true_pindices, false_pindices;
-    for (uint pindex : particles.pindices()) {
-      if (conditions[pindex]) {
-        true_pindices.append(pindex);
-      }
-      else {
-        false_pindices.append(pindex);
-      }
-    }
-
-    ActionInterface::RunForSubset(m_true_action, true_pindices, interface);
-    ActionInterface::RunForSubset(m_false_action, false_pindices, interface);
-  }
-
-  void compute_conditions(ActionInterface &interface, ArrayRef<bool> r_conditions)
-  {
-    ParticleSet particles = interface.particles();
-
-    auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
-    FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
-
-    FN::ExecutionStack stack;
-    FN::ExecutionContext execution_context(stack);
-    for (uint pindex : particles.pindices()) {
-      caller.call(fn_in, fn_out, execution_context, pindex);
-      bool condition = fn_out.get<bool>(0);
-      r_conditions[pindex] = condition;
-    }
-  }
-};
-
-std::unique_ptr<Action> ACTION_explode(StringRef new_particle_name,
-                                       ParticleFunction &compute_inputs,
-                                       std::unique_ptr<Action> post_action)
+void ExplodeAction::execute(ActionInterface &interface)
 {
-  Action *action = new ExplodeAction(new_particle_name, compute_inputs, std::move(post_action));
-  return std::unique_ptr<Action>(action);
+  ParticleSet &particles = interface.particles();
+
+  auto positions = particles.attributes().get_float3("Position");
+
+  SmallVector<float3> new_positions;
+  SmallVector<float3> new_velocities;
+  SmallVector<float> new_birth_times;
+
+  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
+  FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
+
+  FN::ExecutionStack stack;
+  FN::ExecutionContext execution_context(stack);
+
+  for (uint pindex : particles.pindices()) {
+    caller.call(fn_in, fn_out, execution_context, pindex);
+    uint parts_amount = std::max(0, fn_out.get<int>(0));
+    float speed = fn_out.get<float>(1);
+
+    new_positions.append_n_times(positions[pindex], parts_amount);
+    new_birth_times.append_n_times(interface.current_times()[pindex], parts_amount);
+
+    for (uint j = 0; j < parts_amount; j++) {
+      new_velocities.append(random_direction() * speed);
+    }
+  }
+
+  auto target = interface.particle_allocator().request(m_new_particle_name,
+                                                       new_birth_times.size());
+  target.set_float3("Position", new_positions);
+  target.set_float3("Velocity", new_velocities);
+  target.fill_float("Size", 0.1f);
+  target.set_float("Birth Time", new_birth_times);
+
+  m_post_action->execute(interface);
 }
 
-std::unique_ptr<Action> ACTION_condition(ParticleFunction &compute_inputs,
-                                         std::unique_ptr<Action> true_action,
-                                         std::unique_ptr<Action> false_action)
+void ConditionAction::execute(ActionInterface &interface)
 {
-  Action *action = new ConditionAction(
-      compute_inputs, std::move(true_action), std::move(false_action));
-  return std::unique_ptr<Action>(action);
+  ParticleSet particles = interface.particles();
+  ArrayAllocator::Array<bool> conditions(interface.array_allocator());
+  this->compute_conditions(interface, conditions);
+
+  SmallVector<uint> true_pindices, false_pindices;
+  for (uint pindex : particles.pindices()) {
+    if (conditions[pindex]) {
+      true_pindices.append(pindex);
+    }
+    else {
+      false_pindices.append(pindex);
+    }
+  }
+
+  ActionInterface::RunForSubset(m_true_action, true_pindices, interface);
+  ActionInterface::RunForSubset(m_false_action, false_pindices, interface);
+}
+
+void ConditionAction::compute_conditions(ActionInterface &interface, ArrayRef<bool> r_conditions)
+{
+  ParticleSet particles = interface.particles();
+
+  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
+  FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
+
+  FN::ExecutionStack stack;
+  FN::ExecutionContext execution_context(stack);
+  for (uint pindex : particles.pindices()) {
+    caller.call(fn_in, fn_out, execution_context, pindex);
+    bool condition = fn_out.get<bool>(0);
+    r_conditions[pindex] = condition;
+  }
 }
 
 }  // namespace BParticles
