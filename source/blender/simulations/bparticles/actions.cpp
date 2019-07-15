@@ -10,48 +10,36 @@ class NoneAction : public Action {
   }
 };
 
-class ChangeDirectionAction : public Action {
- private:
-  ParticleFunction m_compute_inputs;
-  std::unique_ptr<Action> m_post_action;
+void ChangeDirectionAction::execute(ActionInterface &interface)
+{
+  ParticleSet particles = interface.particles();
+  auto velocities = particles.attributes().get_float3("Velocity");
+  auto position_offsets = interface.attribute_offsets().try_get_float3("Position");
+  auto velocity_offsets = interface.attribute_offsets().try_get_float3("Velocity");
 
- public:
-  ChangeDirectionAction(ParticleFunction &compute_inputs, std::unique_ptr<Action> post_action)
-      : m_compute_inputs(compute_inputs), m_post_action(std::move(post_action))
-  {
-  }
+  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
 
-  void execute(ActionInterface &interface) override
-  {
-    ParticleSet particles = interface.particles();
-    auto velocities = particles.attributes().get_float3("Velocity");
-    auto position_offsets = interface.attribute_offsets().try_get_float3("Position");
-    auto velocity_offsets = interface.attribute_offsets().try_get_float3("Velocity");
+  FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
 
-    auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
+  FN::ExecutionStack stack;
+  FN::ExecutionContext execution_context(stack);
 
-    FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
+  for (uint pindex : particles.pindices()) {
+    caller.call(fn_in, fn_out, execution_context, pindex);
+    float3 direction = fn_out.get<float3>(0);
 
-    FN::ExecutionStack stack;
-    FN::ExecutionContext execution_context(stack);
+    velocities[pindex] = direction;
 
-    for (uint pindex : particles.pindices()) {
-      caller.call(fn_in, fn_out, execution_context, pindex);
-      float3 direction = fn_out.get<float3>(0);
-
-      velocities[pindex] = direction;
-
-      if (position_offsets.has_value()) {
-        position_offsets.value()[pindex] = direction * interface.remaining_time_in_step(pindex);
-      }
-      if (velocity_offsets.has_value()) {
-        velocity_offsets.value()[pindex] = float3(0);
-      }
+    if (position_offsets.has_value()) {
+      position_offsets.value()[pindex] = direction * interface.remaining_time_in_step(pindex);
     }
-
-    m_post_action->execute(interface);
+    if (velocity_offsets.has_value()) {
+      velocity_offsets.value()[pindex] = float3(0);
+    }
   }
-};
+
+  m_post_action->execute(interface);
+}
 
 class KillAction : public Action {
   void execute(ActionInterface &interface) override
@@ -183,13 +171,6 @@ class ConditionAction : public Action {
 std::unique_ptr<Action> ACTION_none()
 {
   Action *action = new NoneAction();
-  return std::unique_ptr<Action>(action);
-}
-
-std::unique_ptr<Action> ACTION_change_direction(ParticleFunction &compute_inputs,
-                                                std::unique_ptr<Action> post_action)
-{
-  Action *action = new ChangeDirectionAction(compute_inputs, std::move(post_action));
   return std::unique_ptr<Action>(action);
 }
 

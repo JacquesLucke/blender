@@ -120,7 +120,10 @@ static std::unique_ptr<Action> BUILD_ACTION_change_direction(BuildContext &ctx, 
 
   SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
   ParticleFunction particle_fn(fn);
-  return ACTION_change_direction(particle_fn, build_action(ctx, {node_outputs.get(0), bnode}));
+  auto post_action = build_action(ctx, {node_outputs.get(0), bnode});
+
+  return std::unique_ptr<ChangeDirectionAction>(
+      new ChangeDirectionAction(particle_fn, std::move(post_action)));
 }
 
 static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx, bNode *bnode)
