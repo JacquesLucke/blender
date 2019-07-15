@@ -227,9 +227,21 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
                                                            StringRef particle_type_name)
 {
   SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+  BLI_assert(fn->input_amount() == 0);
 
-  auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
-  return EMITTER_mesh_surface(particle_type_name, fn, ctx.world_state, std::move(action));
+  auto body = fn->body<TupleCallBody>();
+  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+  body->call__setup_execution_context(fn_in, fn_out);
+
+  auto emitter = std::unique_ptr<SurfaceEmitter>(new SurfaceEmitter());
+  emitter->m_action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
+  emitter->m_particle_type_name = particle_type_name.to_std_string();
+  emitter->m_object = fn_out.get<Object *>(0);
+  emitter->m_rate = fn_out.get<float>(1);
+  emitter->m_transform_end = emitter->m_object->obmat;
+  emitter->m_transform_start = ctx.world_state.get_last_and_store_current(
+      bnode->name, emitter->m_transform_end);
+  return emitter;
 }
 
 static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
