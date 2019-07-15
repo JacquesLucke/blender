@@ -255,9 +255,12 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body->call__setup_execution_context(fn_in, fn_out);
 
-  float3 current_point = fn_out.get<float3>(0);
-  float3 last_point = ctx.world_state.get_last_and_store_current(bnode->name, current_point);
-  return EMITTER_moving_point(particle_type_name, last_point, current_point);
+  auto emitter = std::unique_ptr<PointEmitter>(new PointEmitter());
+  emitter->m_particle_type_name = particle_type_name.to_std_string();
+  emitter->m_end = fn_out.get<float3>(0);
+  emitter->m_start = ctx.world_state.get_last_and_store_current(bnode->name, emitter->m_end);
+  emitter->m_amount = 10;
+  return emitter;
 }
 
 BLI_LAZY_INIT(StringMap<ForceFromNodeCallback>, get_force_builders)

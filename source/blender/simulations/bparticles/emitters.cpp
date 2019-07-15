@@ -17,36 +17,19 @@ static float random_float()
   return (rand() % 4096) / 4096.0f;
 }
 
-class MovingPointEmitter : public Emitter {
- private:
-  std::string m_particle_type_name;
-  float3 m_start, m_end;
-  uint m_amount;
+void PointEmitter::emit(EmitterInterface &interface)
+{
+  SmallVector<float3> new_positions(m_amount);
 
- public:
-  MovingPointEmitter(StringRef particle_type_name, float3 start, float3 end, uint amount)
-      : m_particle_type_name(particle_type_name.to_std_string()),
-        m_start(start),
-        m_end(end),
-        m_amount(amount)
-  {
+  for (uint i = 0; i < m_amount; i++) {
+    float t = i / (float)m_amount;
+    float3 point = float3::interpolate(m_start, m_end, t);
+    new_positions[i] = point;
   }
 
-  void emit(EmitterInterface &interface) override
-  {
-    SmallVector<float3> new_positions(m_amount);
-
-    for (uint i = 0; i < m_amount; i++) {
-      float t = i / (float)m_amount;
-      float3 point = float3::interpolate(m_start, m_end, t);
-      new_positions[i] = point;
-    }
-
-    auto target = interface.particle_allocator().request(m_particle_type_name,
-                                                         new_positions.size());
-    target.set_float3("Position", new_positions);
-  }
-};
+  auto target = interface.particle_allocator().request(m_particle_type_name, new_positions.size());
+  target.set_float3("Position", new_positions);
+}
 
 static float3 random_point_in_triangle(float3 a, float3 b, float3 c)
 {
@@ -131,14 +114,6 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   target.set_float("Birth Time", birth_times);
 
   ActionInterface::RunFromEmitter(m_action, target, interface);
-}
-
-std::unique_ptr<Emitter> EMITTER_moving_point(StringRef particle_type_name,
-                                              float3 start,
-                                              float3 end)
-{
-  Emitter *emitter = new MovingPointEmitter(particle_type_name, start, end, 10);
-  return std::unique_ptr<Emitter>(emitter);
 }
 
 }  // namespace BParticles

@@ -21,13 +21,12 @@ struct SurfaceEmitter : public Emitter {
   void emit(EmitterInterface &interface) override;
 };
 
-std::unique_ptr<Emitter> EMITTER_mesh_surface(StringRef particle_type_name,
-                                              SharedFunction &compute_inputs_fn,
-                                              WorldState &world_state,
-                                              std::unique_ptr<Action> action);
+struct PointEmitter : public Emitter {
+  std::string m_particle_type_name;
+  float3 m_start, m_end;
+  uint m_amount;
 
-std::unique_ptr<Emitter> EMITTER_moving_point(StringRef particle_type_name,
-                                              float3 start,
-                                              float3 end);
+  void emit(EmitterInterface &interface) override;
+};
 
 }  // namespace BParticles
