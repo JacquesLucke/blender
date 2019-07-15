@@ -8,77 +8,40 @@ Force::~Force()
 {
 }
 
-class GravityForce : public Force {
- private:
-  SharedFunction m_compute_acceleration_fn;
-  TupleCallBody *m_compute_acceleration_body;
+void GravityForce::add_force(ParticlesBlock &block, ArrayRef<float3> r_force)
+{
+  FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_acceleration_body, fn_in, fn_out);
 
- public:
-  GravityForce(SharedFunction &compute_acceleration_fn)
-      : m_compute_acceleration_fn(compute_acceleration_fn)
-  {
-    m_compute_acceleration_body = m_compute_acceleration_fn->body<TupleCallBody>();
-  }
+  FN::ExecutionStack stack;
+  FN::ExecutionContext execution_context(stack);
 
-  void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) override
-  {
-    FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_acceleration_body, fn_in, fn_out);
+  m_compute_acceleration_body->call(fn_in, fn_out, execution_context);
 
-    FN::ExecutionStack stack;
-    FN::ExecutionContext execution_context(stack);
+  float3 acceleration = fn_out.get<float3>(0);
 
-    m_compute_acceleration_body->call(fn_in, fn_out, execution_context);
-
-    float3 acceleration = fn_out.get<float3>(0);
-
-    for (uint i = 0; i < block.active_amount(); i++) {
-      r_force[i] += acceleration;
-    }
-  };
-};
-
-class TurbulenceForce : public Force {
- private:
-  SharedFunction m_compute_strength_fn;
-  TupleCallBody *m_compute_strength_body;
-
- public:
-  TurbulenceForce(SharedFunction &compute_strength_fn) : m_compute_strength_fn(compute_strength_fn)
-  {
-    m_compute_strength_body = m_compute_strength_fn->body<TupleCallBody>();
-  }
-
-  void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) override
-  {
-    auto positions = block.attributes().get_float3("Position");
-
-    FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_strength_body, fn_in, fn_out);
-    FN::ExecutionStack stack;
-    FN::ExecutionContext execution_context(stack);
-    m_compute_strength_body->call(fn_in, fn_out, execution_context);
-
-    float3 strength = fn_out.get<float3>(0);
-
-    for (uint pindex = 0; pindex < block.active_amount(); pindex++) {
-      float3 pos = positions[pindex];
-      float x = (BLI_gNoise(0.5f, pos.x, pos.y, pos.z + 1000.0f, false, 1) - 0.5f) * strength.x;
-      float y = (BLI_gNoise(0.5f, pos.x, pos.y + 1000.0f, pos.z, false, 1) - 0.5f) * strength.y;
-      float z = (BLI_gNoise(0.5f, pos.x + 1000.0f, pos.y, pos.z, false, 1) - 0.5f) * strength.z;
-      r_force[pindex] += {x, y, z};
-    }
+  for (uint i = 0; i < block.active_amount(); i++) {
+    r_force[i] += acceleration;
   }
 };
 
-std::unique_ptr<Force> FORCE_gravity(SharedFunction &compute_acceleration_fn)
+void TurbulenceForce::add_force(ParticlesBlock &block, ArrayRef<float3> r_force)
 {
-  Force *force = new GravityForce(compute_acceleration_fn);
-  return std::unique_ptr<Force>(force);
-}
+  auto positions = block.attributes().get_float3("Position");
 
-std::unique_ptr<Force> FORCE_turbulence(SharedFunction &compute_strength_fn)
-{
-  Force *force = new TurbulenceForce(compute_strength_fn);
-  return std::unique_ptr<Force>(force);
+  FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_strength_body, fn_in, fn_out);
+  FN::ExecutionStack stack;
+  FN::ExecutionContext execution_context(stack);
+  m_compute_strength_body->call(fn_in, fn_out, execution_context);
+
+  float3 strength = fn_out.get<float3>(0);
+
+  for (uint pindex = 0; pindex < block.active_amount(); pindex++) {
+    float3 pos = positions[pindex];
+    float x = (BLI_gNoise(0.5f, pos.x, pos.y, pos.z + 1000.0f, false, 1) - 0.5f) * strength.x;
+    float y = (BLI_gNoise(0.5f, pos.x, pos.y + 1000.0f, pos.z, false, 1) - 0.5f) * strength.y;
+    float z = (BLI_gNoise(0.5f, pos.x + 1000.0f, pos.y, pos.z, false, 1) - 0.5f) * strength.z;
+    r_force[pindex] += {x, y, z};
+  }
 }
 
 }  // namespace BParticles

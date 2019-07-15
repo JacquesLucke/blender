@@ -198,13 +198,13 @@ static std::unique_ptr<Action> build_action(BuildContext &ctx, SocketWithNode st
 static std::unique_ptr<Force> BUILD_FORCE_gravity(BuildContext &ctx, bNode *bnode)
 {
   SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
-  return FORCE_gravity(fn);
+  return std::unique_ptr<Force>(new GravityForce(fn));
 }
 
 static std::unique_ptr<Force> BUILD_FORCE_turbulence(BuildContext &ctx, bNode *bnode)
 {
   SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
-  return FORCE_turbulence(fn);
+  return std::unique_ptr<Force>(new TurbulenceForce(fn));
 }
 
 static std::unique_ptr<Event> Build_EVENT_mesh_collision(BuildContext &ctx, bNode *bnode)
