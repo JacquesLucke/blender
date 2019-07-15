@@ -390,6 +390,22 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
   attribute_offsets_core.deallocate_in_array_allocator(array_allocator);
 }
 
+BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &block)
+{
+  auto kill_states = block.attributes().get_byte("Kill State");
+
+  uint index = 0;
+  while (index < block.active_amount()) {
+    if (kill_states[index] == 1) {
+      block.move(block.active_amount() - 1, index);
+      block.active_amount() -= 1;
+    }
+    else {
+      index++;
+    }
+  }
+}
+
 class ParticleAllocators {
  private:
   ParticlesState &m_state;
@@ -454,6 +470,8 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(ParticleAllocators &block
                        particle_type,
                        remaining_durations,
                        time_span.end());
+
+        delete_tagged_particles_and_reorder(*block);
       },
       /* Create thread-local data. */
       [&block_allocators]() {
@@ -494,6 +512,8 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
                        particle_type,
                        durations,
                        end_time);
+
+        delete_tagged_particles_and_reorder(*block);
       },
       /* Create thread-local data. */
       [&block_allocators]() {
@@ -515,33 +535,6 @@ BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(
     }
   }
   return blocks;
-}
-
-BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &block)
-{
-  auto kill_states = block.attributes().get_byte("Kill State");
-
-  uint index = 0;
-  while (index < block.active_amount()) {
-    if (kill_states[index] == 1) {
-      block.move(block.active_amount() - 1, index);
-      block.active_amount() -= 1;
-    }
-    else {
-      index++;
-    }
-  }
-}
-
-BLI_NOINLINE static void delete_tagged_particles(ParticlesState &state,
-                                                 ArrayRef<std::string> particle_type_names)
-{
-  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state, particle_type_names);
-
-  BLI::Task::parallel_array_elements(
-      ArrayRef<ParticlesBlock *>(blocks),
-      [](ParticlesBlock *block) { delete_tagged_particles_and_reorder(*block); },
-      USE_THREADING);
 }
 
 BLI_NOINLINE static void compress_all_blocks(ParticlesContainer &container)
@@ -659,7 +652,6 @@ void simulate_step(ParticlesState &state, StepDescription &step_description)
 
   emit_and_simulate_particles(state, step_description, time_span);
 
-  delete_tagged_particles(state, step_description.particle_type_names());
   compress_all_containers(state);
 }
 
