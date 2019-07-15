@@ -156,6 +156,11 @@ struct float3 {
   {
     return (a - b).length();
   }
+
+  static float3 interpolate(float3 a, float3 b, float t)
+  {
+    return a * (1 - t) + b * t;
+  }
 };
 
 struct float4x4 {
