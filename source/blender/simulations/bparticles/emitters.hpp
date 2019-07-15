@@ -14,9 +14,13 @@ using FN::TupleCallBody;
 struct SurfaceEmitter : public Emitter {
   std::string m_particle_type_name;
   std::unique_ptr<Action> m_action;
+
   Object *m_object;
   float4x4 m_transform_start, m_transform_end;
   float m_rate;
+  float m_normal_velocity;
+  float m_emitter_velocity;
+  float m_size;
 
   void emit(EmitterInterface &interface) override;
 };

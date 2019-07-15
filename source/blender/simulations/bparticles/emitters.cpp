@@ -102,9 +102,9 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     float3 emitter_velocity = (point_at_birth - point_before_birth) / epsilon;
 
     positions.append(point_at_birth);
-    velocities.append(normal_velocity + emitter_velocity);
+    velocities.append(normal_velocity * m_normal_velocity + emitter_velocity * m_emitter_velocity);
     birth_times.append(interface.time_span().interpolate(birth_moment));
-    sizes.append(0.1f);
+    sizes.append(m_size);
   }
 
   auto target = interface.particle_allocator().request(m_particle_type_name, positions.size());

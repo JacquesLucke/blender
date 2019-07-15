@@ -236,11 +236,17 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
   auto emitter = std::unique_ptr<SurfaceEmitter>(new SurfaceEmitter());
   emitter->m_action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
   emitter->m_particle_type_name = particle_type_name.to_std_string();
+
   emitter->m_object = fn_out.get<Object *>(0);
   emitter->m_rate = fn_out.get<float>(1);
+  emitter->m_normal_velocity = fn_out.get<float>(2);
+  emitter->m_emitter_velocity = fn_out.get<float>(3);
+  emitter->m_size = fn_out.get<float>(4);
+
   emitter->m_transform_end = emitter->m_object->obmat;
   emitter->m_transform_start = ctx.world_state.get_last_and_store_current(
       bnode->name, emitter->m_transform_end);
+
   return emitter;
 }
 
