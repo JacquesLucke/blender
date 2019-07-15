@@ -237,20 +237,20 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body->call__setup_execution_context(fn_in, fn_out);
 
-  auto emitter = std::unique_ptr<SurfaceEmitter>(new SurfaceEmitter());
-  emitter->m_action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
-  emitter->m_particle_type_name = particle_type_name.to_std_string();
+  auto on_birth_action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
 
-  emitter->m_object = fn_out.get<Object *>(0);
-  emitter->m_rate = fn_out.get<float>(1);
-  emitter->m_normal_velocity = fn_out.get<float>(2);
-  emitter->m_emitter_velocity = fn_out.get<float>(3);
-  emitter->m_size = fn_out.get<float>(4);
+  Object *object = fn_out.get<Object *>(0);
+  InterpolatedFloat4x4 transform = ctx.world_state.get_interpolated_value(bnode->name,
+                                                                          object->obmat);
 
-  emitter->m_transform = ctx.world_state.get_interpolated_value(bnode->name,
-                                                                emitter->m_object->obmat);
-
-  return emitter;
+  return std::unique_ptr<SurfaceEmitter>(new SurfaceEmitter(particle_type_name,
+                                                            std::move(on_birth_action),
+                                                            object,
+                                                            transform,
+                                                            fn_out.get<float>(1),
+                                                            fn_out.get<float>(2),
+                                                            fn_out.get<float>(3),
+                                                            fn_out.get<float>(4)));
 }
 
 static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
@@ -264,11 +264,8 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body->call__setup_execution_context(fn_in, fn_out);
 
-  auto emitter = std::unique_ptr<PointEmitter>(new PointEmitter());
-  emitter->m_particle_type_name = particle_type_name.to_std_string();
-  emitter->m_point = ctx.world_state.get_interpolated_value(bnode->name, fn_out.get<float3>(0));
-  emitter->m_amount = 10;
-  return emitter;
+  auto point = ctx.world_state.get_interpolated_value(bnode->name, fn_out.get<float3>(0));
+  return std::unique_ptr<PointEmitter>(new PointEmitter(particle_type_name, point, 10));
 }
 
 BLI_LAZY_INIT(StringMap<ForceFromNodeCallback>, get_force_builders)
