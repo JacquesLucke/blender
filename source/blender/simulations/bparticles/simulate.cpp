@@ -8,7 +8,6 @@
 #include "xmmintrin.h"
 
 #define USE_THREADING true
-#define BLOCK_SIZE 1000
 
 namespace BParticles {
 
@@ -446,7 +445,8 @@ struct ThreadLocalData {
 BLI_NOINLINE static void simulate_blocks_for_time_span(ParticleAllocators &block_allocators,
                                                        ArrayRef<ParticlesBlock *> blocks,
                                                        StepDescription &step_description,
-                                                       TimeSpan time_span)
+                                                       TimeSpan time_span,
+                                                       uint max_block_size)
 {
   if (blocks.size() == 0) {
     return;
@@ -474,8 +474,8 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(ParticleAllocators &block
         delete_tagged_particles_and_reorder(*block);
       },
       /* Create thread-local data. */
-      [&block_allocators]() {
-        return new ThreadLocalData(BLOCK_SIZE, block_allocators.new_allocator());
+      [&block_allocators, max_block_size]() {
+        return new ThreadLocalData(max_block_size, block_allocators.new_allocator());
       },
       /* Free thread-local data. */
       [](ThreadLocalData *local_data) { delete local_data; },
@@ -486,7 +486,8 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
     ParticleAllocators &block_allocators,
     ArrayRef<ParticlesBlock *> blocks,
     StepDescription &step_description,
-    float end_time)
+    float end_time,
+    uint max_block_size)
 {
   if (blocks.size() == 0) {
     return;
@@ -516,8 +517,8 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
         delete_tagged_particles_and_reorder(*block);
       },
       /* Create thread-local data. */
-      [&block_allocators]() {
-        return new ThreadLocalData(BLOCK_SIZE, block_allocators.new_allocator());
+      [&block_allocators, max_block_size]() {
+        return new ThreadLocalData(max_block_size, block_allocators.new_allocator());
       },
       /* Free thread-local data. */
       [](ThreadLocalData *local_data) { delete local_data; },
@@ -563,7 +564,7 @@ BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
 
   for (std::string &type_name : description.particle_type_names()) {
     if (!containers.contains(type_name)) {
-      ParticlesContainer *container = new ParticlesContainer({}, BLOCK_SIZE);
+      ParticlesContainer *container = new ParticlesContainer({}, 100);
       containers.add_new(type_name, container);
     }
   }
@@ -603,18 +604,21 @@ BLI_NOINLINE static void ensure_required_attributes_exist(ParticlesState &state,
 BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,
                                                       StepDescription &step_description,
                                                       ParticleAllocators &block_allocators,
-                                                      TimeSpan time_span)
+                                                      TimeSpan time_span,
+                                                      uint max_block_size)
 {
   SmallVector<ParticlesBlock *> blocks = get_all_blocks(state,
                                                         step_description.particle_type_names());
-  simulate_blocks_for_time_span(block_allocators, blocks, step_description, time_span);
+  simulate_blocks_for_time_span(
+      block_allocators, blocks, step_description, time_span, max_block_size);
 }
 
 BLI_NOINLINE static void create_particles_from_emitters(StepDescription &step_description,
                                                         ParticleAllocators &block_allocators,
-                                                        TimeSpan time_span)
+                                                        TimeSpan time_span,
+                                                        uint max_block_size)
 {
-  ArrayAllocator array_allocator(BLOCK_SIZE);
+  ArrayAllocator array_allocator(max_block_size);
   ParticleAllocator &emitter_allocator = block_allocators.new_allocator();
   for (Emitter *emitter : step_description.emitters()) {
     EmitterInterface interface(emitter_allocator, array_allocator, time_span);
@@ -622,22 +626,34 @@ BLI_NOINLINE static void create_particles_from_emitters(StepDescription &step_de
   }
 }
 
+BLI_NOINLINE static uint get_max_block_size(ParticlesState &state)
+{
+  uint max_size = 0;
+  for (auto *container : state.particle_containers().values()) {
+    max_size = std::max(max_size, container->block_size());
+  }
+  return max_size;
+}
+
 BLI_NOINLINE static void emit_and_simulate_particles(ParticlesState &state,
                                                      StepDescription &step_description,
                                                      TimeSpan time_span)
 {
+  uint max_block_size = get_max_block_size(state);
+
   SmallVector<ParticlesBlock *> newly_created_blocks;
   {
     ParticleAllocators block_allocators(state);
-    simulate_all_existing_blocks(state, step_description, block_allocators, time_span);
-    create_particles_from_emitters(step_description, block_allocators, time_span);
+    simulate_all_existing_blocks(
+        state, step_description, block_allocators, time_span, max_block_size);
+    create_particles_from_emitters(step_description, block_allocators, time_span, max_block_size);
     newly_created_blocks = block_allocators.gather_allocated_blocks();
   }
 
   while (newly_created_blocks.size() > 0) {
     ParticleAllocators block_allocators(state);
     simulate_blocks_from_birth_to_current_time(
-        block_allocators, newly_created_blocks, step_description, time_span.end());
+        block_allocators, newly_created_blocks, step_description, time_span.end(), max_block_size);
     newly_created_blocks = block_allocators.gather_allocated_blocks();
   }
 }
