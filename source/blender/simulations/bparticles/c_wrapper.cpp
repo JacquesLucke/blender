@@ -84,6 +84,7 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
 
   ParticlesState &particles_state = *unwrap(particles_state_c);
   simulate_step(particles_state, *step_description);
+  world_state.current_step_is_over();
 
   auto &containers = particles_state.particle_containers();
   for (auto item : containers.items()) {

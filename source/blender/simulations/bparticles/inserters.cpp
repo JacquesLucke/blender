@@ -222,14 +222,6 @@ static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx, bNode *
   return EVENT_age_reached(bnode->name, fn, std::move(action));
 }
 
-static std::unique_ptr<Emitter> BUILD_EMITTER_point(BuildContext &ctx,
-                                                    bNode *bnode,
-                                                    StringRef particle_type_name)
-{
-  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
-  return EMITTER_point(particle_type_name, fn);
-}
-
 static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
                                                            bNode *bnode,
                                                            StringRef particle_type_name)
@@ -238,6 +230,22 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
 
   auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
   return EMITTER_mesh_surface(particle_type_name, fn, ctx.world_state, std::move(action));
+}
+
+static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
+                                                           bNode *bnode,
+                                                           StringRef particle_type_name)
+{
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+  BLI_assert(fn->input_amount() == 0);
+
+  auto body = fn->body<TupleCallBody>();
+  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+  body->call__setup_execution_context(fn_in, fn_out);
+
+  float3 current_point = fn_out.get<float3>(0);
+  float3 last_point = ctx.world_state.get_last_and_store_current(bnode->name, current_point);
+  return EMITTER_moving_point(particle_type_name, last_point, current_point);
 }
 
 BLI_LAZY_INIT(StringMap<ForceFromNodeCallback>, get_force_builders)
@@ -259,7 +267,7 @@ BLI_LAZY_INIT(StringMap<EventFromNodeCallback>, get_event_builders)
 BLI_LAZY_INIT(StringMap<EmitterFromNodeCallback>, get_emitter_builders)
 {
   StringMap<EmitterFromNodeCallback> map;
-  map.add_new("bp_PointEmitterNode", BUILD_EMITTER_point);
+  map.add_new("bp_PointEmitterNode", BUILD_EMITTER_moving_point);
   map.add_new("bp_MeshEmitterNode", BUILD_EMITTER_mesh_surface);
   return map;
 }

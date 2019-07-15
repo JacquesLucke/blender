@@ -17,33 +17,34 @@ static float random_float()
   return (rand() % 4096) / 4096.0f;
 }
 
-class PointEmitter : public Emitter {
+class MovingPointEmitter : public Emitter {
  private:
   std::string m_particle_type_name;
-  SharedFunction m_compute_inputs_fn;
-  TupleCallBody *m_compute_inputs_body;
+  float3 m_start, m_end;
+  uint m_amount;
 
  public:
-  PointEmitter(StringRef particle_type_name, SharedFunction &compute_inputs_fn)
+  MovingPointEmitter(StringRef particle_type_name, float3 start, float3 end, uint amount)
       : m_particle_type_name(particle_type_name.to_std_string()),
-        m_compute_inputs_fn(compute_inputs_fn)
+        m_start(start),
+        m_end(end),
+        m_amount(amount)
   {
-    m_compute_inputs_body = m_compute_inputs_fn->body<TupleCallBody>();
   }
 
   void emit(EmitterInterface &interface) override
   {
-    FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_inputs_body, fn_in, fn_out);
+    SmallVector<float3> new_positions(m_amount);
 
-    FN::ExecutionStack stack;
-    FN::ExecutionContext execution_context(stack);
-    m_compute_inputs_body->call(fn_in, fn_out, execution_context);
-    float3 point = fn_out.get<float3>(0);
+    for (uint i = 0; i < m_amount; i++) {
+      float t = i / (float)m_amount;
+      float3 point = float3::interpolate(m_start, m_end, t);
+      new_positions[i] = point;
+    }
 
-    auto target = interface.particle_allocator().request(m_particle_type_name, 1);
-    target.set_float3("Position", {point});
-    target.set_float3("Velocity", {float3{-1, -1, 0}});
-    target.fill_float("Birth Time", interface.time_span().end());
+    auto target = interface.particle_allocator().request(m_particle_type_name,
+                                                         new_positions.size());
+    target.set_float3("Position", new_positions);
   }
 };
 
@@ -169,13 +170,6 @@ class SurfaceEmitter : public Emitter {
   }
 };
 
-std::unique_ptr<Emitter> EMITTER_point(StringRef particle_type_name,
-                                       SharedFunction &compute_inputs)
-{
-  Emitter *emitter = new PointEmitter(particle_type_name, compute_inputs);
-  return std::unique_ptr<Emitter>(emitter);
-}
-
 std::unique_ptr<Emitter> EMITTER_mesh_surface(StringRef particle_type_name,
                                               SharedFunction &compute_inputs_fn,
                                               WorldState &world_state,
@@ -183,6 +177,14 @@ std::unique_ptr<Emitter> EMITTER_mesh_surface(StringRef particle_type_name,
 {
   Emitter *emitter = new SurfaceEmitter(
       particle_type_name, compute_inputs_fn, world_state, std::move(action));
+  return std::unique_ptr<Emitter>(emitter);
+}
+
+std::unique_ptr<Emitter> EMITTER_moving_point(StringRef particle_type_name,
+                                              float3 start,
+                                              float3 end)
+{
+  Emitter *emitter = new MovingPointEmitter(particle_type_name, start, end, 10);
   return std::unique_ptr<Emitter>(emitter);
 }
 
