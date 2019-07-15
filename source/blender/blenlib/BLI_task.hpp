@@ -103,8 +103,8 @@ static void parallel_array_elements(ArrayRef<T> array,
       },
       &settings);
 
-  for (LocalData data : data.thread_locals.values()) {
-    free_thread_local(data);
+  for (LocalData local_data : data.thread_locals.values()) {
+    free_thread_local(local_data);
   }
 }
 
