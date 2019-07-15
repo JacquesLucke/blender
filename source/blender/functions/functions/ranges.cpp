@@ -13,9 +13,9 @@ using namespace Types;
 class FloatRange : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    int amount = fn_in.get<int>(0);
-    float start = fn_in.get<float>(1);
-    float step = fn_in.get<float>(2);
+    int amount = this->get_input<int>(fn_in, 0, "Amount");
+    float start = this->get_input<float>(fn_in, 1, "Start");
+    float step = this->get_input<float>(fn_in, 2, "Step");
 
     if (amount < 0) {
       amount = 0;
