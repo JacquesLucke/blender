@@ -207,7 +207,7 @@ static std::unique_ptr<Force> BUILD_FORCE_turbulence(BuildContext &ctx, bNode *b
   return std::unique_ptr<Force>(new TurbulenceForce(fn));
 }
 
-static std::unique_ptr<Event> Build_EVENT_mesh_collision(BuildContext &ctx, bNode *bnode)
+static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(BuildContext &ctx, bNode *bnode)
 {
   PointerRNA rna = ctx.indexed_tree.get_rna(bnode);
   Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
@@ -270,6 +270,24 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
   return std::unique_ptr<PointEmitter>(new PointEmitter(particle_type_name, point, 10));
 }
 
+static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,
+                                                              bNode *bnode,
+                                                              StringRef particle_type_name)
+{
+  PointerRNA rna = ctx.indexed_tree.get_rna(bnode);
+  bNodeTree *btree = (bNodeTree *)RNA_pointer_get(&rna, "function_tree").id.data;
+  if (btree == nullptr) {
+    return {};
+  }
+
+  Optional<SharedFunction> fn = FN::DataFlowNodes::generate_function(btree);
+  if (!fn.has_value()) {
+    return {};
+  }
+
+  return std::unique_ptr<Emitter>(new CustomFunctionEmitter(particle_type_name, fn.value()));
+}
+
 BLI_LAZY_INIT(StringMap<ForceFromNodeCallback>, get_force_builders)
 {
   StringMap<ForceFromNodeCallback> map;
@@ -281,7 +299,7 @@ BLI_LAZY_INIT(StringMap<ForceFromNodeCallback>, get_force_builders)
 BLI_LAZY_INIT(StringMap<EventFromNodeCallback>, get_event_builders)
 {
   StringMap<EventFromNodeCallback> map;
-  map.add_new("bp_MeshCollisionEventNode", Build_EVENT_mesh_collision);
+  map.add_new("bp_MeshCollisionEventNode", BUILD_EVENT_mesh_collision);
   map.add_new("bp_AgeReachedEventNode", BUILD_EVENT_age_reached);
   return map;
 }
@@ -291,6 +309,7 @@ BLI_LAZY_INIT(StringMap<EmitterFromNodeCallback>, get_emitter_builders)
   StringMap<EmitterFromNodeCallback> map;
   map.add_new("bp_PointEmitterNode", BUILD_EMITTER_moving_point);
   map.add_new("bp_MeshEmitterNode", BUILD_EMITTER_mesh_surface);
+  map.add_new("bp_CustomEmitterNode", BUILD_EMITTER_custom_function);
   return map;
 }
 

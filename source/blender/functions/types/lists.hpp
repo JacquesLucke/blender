@@ -35,6 +35,11 @@ template<typename T> class List : public BLI::SharedImmutable {
     m_data = SmallVector<T>(size);
   }
 
+  operator ArrayRef<T>() const
+  {
+    return m_data;
+  }
+
   void append(T value)
   {
     this->assert_mutable();

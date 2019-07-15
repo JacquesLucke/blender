@@ -46,7 +46,7 @@ class SurfaceEmitter : public Emitter {
   void emit(EmitterInterface &interface) override;
 };
 
-struct PointEmitter : public Emitter {
+class PointEmitter : public Emitter {
  private:
   std::string m_particle_type_name;
   InterpolatedFloat3 m_point;
@@ -55,6 +55,20 @@ struct PointEmitter : public Emitter {
  public:
   PointEmitter(StringRef particle_type_name, InterpolatedFloat3 point, uint amount)
       : m_particle_type_name(particle_type_name.to_std_string()), m_point(point), m_amount(amount)
+  {
+  }
+
+  void emit(EmitterInterface &interface) override;
+};
+
+class CustomFunctionEmitter : public Emitter {
+ private:
+  std::string m_particle_type_name;
+  SharedFunction m_function;
+
+ public:
+  CustomFunctionEmitter(StringRef particle_type_name, SharedFunction &function)
+      : m_particle_type_name(particle_type_name.to_std_string()), m_function(function)
   {
   }
 

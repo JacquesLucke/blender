@@ -8,6 +8,8 @@
 
 #include "BLI_math_geom.h"
 
+#include "FN_types.hpp"
+
 #include "emitters.hpp"
 
 namespace BParticles {
@@ -116,6 +118,26 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   target.set_float("Birth Time", birth_times);
 
   ActionInterface::RunFromEmitter(m_action, target, interface);
+}
+
+void CustomFunctionEmitter::emit(EmitterInterface &interface)
+{
+  TupleCallBody *body = m_function->body<TupleCallBody>();
+  BLI_assert(body);
+
+  if (m_function->input_amount() > 0) {
+    return;
+  }
+
+  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+  body->call__setup_execution_context(fn_in, fn_out);
+
+  auto new_positions = fn_out.relocate_out<FN::Types::SharedFloat3List>(0);
+
+  auto target = interface.particle_allocator().request(m_particle_type_name,
+                                                       new_positions->size());
+  target.set_float3("Position", *new_positions.ptr());
+  target.fill_float("Birth Time", interface.time_span().end());
 }
 
 }  // namespace BParticles
