@@ -43,7 +43,16 @@ class TupleCallBodyBase : public FunctionBody {
   /**
    * Same as tuple.get<T>(index), but checks if the name is correct in debug builds.
    */
-  template<typename T> T get_output(Tuple &tuple, uint index, StringRef expected_name)
+  template<typename T> T get_input(Tuple &tuple, uint index, StringRef expected_name) const
+  {
+#ifdef DEBUG
+    StringRef real_name = this->owner()->input_name(index);
+    BLI_assert(real_name == expected_name);
+#endif
+    UNUSED_VARS_NDEBUG(expected_name);
+    return tuple.get<T>(index);
+  }
+  template<typename T> T get_output(Tuple &tuple, uint index, StringRef expected_name) const
   {
 #ifdef DEBUG
     StringRef real_name = this->owner()->output_name(index);
@@ -51,6 +60,16 @@ class TupleCallBodyBase : public FunctionBody {
 #endif
     UNUSED_VARS_NDEBUG(expected_name);
     return tuple.get<T>(index);
+  }
+  template<typename T>
+  void set_output(Tuple &tuple, uint index, StringRef expected_name, const T &value) const
+  {
+#ifdef DEBUG
+    StringRef real_name = this->owner()->output_name(index);
+    BLI_assert(real_name == expected_name);
+#endif
+    UNUSED_VARS_NDEBUG(expected_name);
+    tuple.set<T>(index, value);
   }
 };
 
