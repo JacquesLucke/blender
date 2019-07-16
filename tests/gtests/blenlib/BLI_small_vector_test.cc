@@ -1,6 +1,7 @@
 #include "testing/testing.h"
 #include "BLI_small_vector.hpp"
 #include "BLI_small_map.hpp"
+#include <forward_list>
 
 using BLI::SmallMap;
 using BLI::SmallVector;
@@ -96,6 +97,20 @@ TEST(small_vector, IntrusiveListBaseConstructor)
   delete vec[0];
   delete vec[1];
   delete vec[2];
+}
+
+TEST(small_vector, ContainerConstructor)
+{
+  std::forward_list<int> list;
+  list.push_front(3);
+  list.push_front(1);
+  list.push_front(5);
+
+  IntVector vec = IntVector::FromContainer(list);
+  EXPECT_EQ(vec.size(), 3);
+  EXPECT_EQ(vec[0], 5);
+  EXPECT_EQ(vec[1], 1);
+  EXPECT_EQ(vec[2], 3);
 }
 
 TEST(small_vector, CopyConstructor)

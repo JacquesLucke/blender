@@ -109,6 +109,19 @@ template<typename T, uint N = 4> class SmallVector {
   }
 
   /**
+   * Create a vector from any container. It must be possible to use the container in a range-for
+   * loop.
+   */
+  template<typename ContainerT> static SmallVector FromContainer(const ContainerT &container)
+  {
+    SmallVector vector;
+    for (const auto &value : container) {
+      vector.append(value);
+    }
+    return vector;
+  }
+
+  /**
    * Create a vector from a mapped array ref. This can e.g. be used to create vectors from
    * map.keys() for map.values().
    */
