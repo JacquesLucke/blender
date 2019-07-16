@@ -105,6 +105,10 @@ class BaseNode:
     def draw_advanced(self, layout):
         pass
 
+    def iter_dependency_trees(self):
+        return
+        yield
+
     def invoke_function(self,
             layout, function_name, text,
             *, icon="NONE", settings=tuple()):

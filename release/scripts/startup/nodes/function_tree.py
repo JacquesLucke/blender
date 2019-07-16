@@ -11,10 +11,10 @@ FunctionOutput = namedtuple("FunctionOutput",
 
 class TreeWithFunctionNodes:
     def iter_dependency_trees(self):
+        trees = set()
         for node in self.nodes:
-            if node.bl_idname == "fn_CallNode":
-                if node.function_tree is not None:
-                    yield node.function_tree
+            trees.update(node.iter_dependency_trees())
+        yield from trees
 
 class FunctionTree(bpy.types.NodeTree, BaseTree, TreeWithFunctionNodes):
     bl_idname = "FunctionTree"

@@ -20,3 +20,7 @@ class CallNode(bpy.types.Node, FunctionNode):
 
     def draw(self, layout):
         layout.prop(self, "function_tree", text="")
+
+    def iter_dependency_trees(self):
+        if self.function_tree is not None:
+            yield self.function_tree

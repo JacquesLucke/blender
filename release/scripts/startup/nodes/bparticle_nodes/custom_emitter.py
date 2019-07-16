@@ -14,7 +14,14 @@ class CustomEmitterNode(bpy.types.Node, FunctionNode):
     )
 
     def declaration(self, builder: SocketBuilder):
+        if self.function_tree:
+            builder.tree_interface_input("inputs", self.function_tree, 'IN')
+
         builder.emitter_output("emitter", "Emitter")
 
     def draw(self, layout):
         layout.prop(self, "function_tree", text="")
+
+    def iter_dependency_trees(self):
+        if self.function_tree is not None:
+            yield self.function_tree
