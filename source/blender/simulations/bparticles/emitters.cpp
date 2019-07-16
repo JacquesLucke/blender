@@ -14,6 +14,9 @@
 
 namespace BParticles {
 
+using FN::Types::SharedFloat3List;
+using FN::Types::SharedFloatList;
+
 static float random_float()
 {
   return (rand() % 4096) / 4096.0f;
@@ -132,13 +135,52 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body->call__setup_execution_context(fn_in, fn_out);
 
-  auto new_positions = fn_out.relocate_out<FN::Types::SharedFloat3List>(0);
+  auto &float_list_type = FN::Types::GET_TYPE_float_list();
+  auto &float3_list_type = FN::Types::GET_TYPE_float3_list();
+  auto &float_type = FN::Types::GET_TYPE_float();
+  auto &float3_type = FN::Types::GET_TYPE_float3();
 
-  auto target = interface.particle_allocator().request(m_particle_type_name,
-                                                       new_positions->size());
-  target.set_float3("Position", *new_positions.ptr());
+  uint new_particle_amount = 0;
+  for (uint i = 0; i < m_function->output_amount(); i++) {
+    auto &type = m_function->output_type(i);
+    uint length = 0;
+    if (type == float_list_type) {
+      length = fn_out.get_ref<SharedFloatList>(i)->size();
+    }
+    else if (type == float3_list_type) {
+      auto &list = fn_out.get_ref<SharedFloat3List>(i);
+      length = list->size();
+    }
+    new_particle_amount = std::max(new_particle_amount, length);
+  }
+
+  auto target = interface.particle_allocator().request(m_particle_type_name, new_particle_amount);
   target.fill_float("Birth Time", interface.time_span().end());
-  target.set_repeated_float("Size", {0.05f, 0.05f, 0.1f});
+
+  for (uint i = 0; i < m_function->output_amount(); i++) {
+    auto &type = m_function->output_type(i);
+    StringRef attribute_name = m_function->output_name(i);
+    int attribute_index = target.attributes_info().attribute_index_try(attribute_name);
+
+    if (attribute_index == -1) {
+      continue;
+    }
+
+    if (type == float_list_type) {
+      auto list = fn_out.relocate_out<SharedFloatList>(i);
+      target.set_repeated_float(attribute_index, *list.ptr());
+    }
+    else if (type == float3_list_type) {
+      auto list = fn_out.relocate_out<SharedFloat3List>(i);
+      target.set_repeated_float3(attribute_index, *list.ptr());
+    }
+    else if (type == float_type) {
+      target.fill_float(attribute_index, fn_out.get<float>(i));
+    }
+    else if (type == float3_type) {
+      target.fill_float3(attribute_index, fn_out.get<float3>(i));
+    }
+  }
 }
 
 }  // namespace BParticles

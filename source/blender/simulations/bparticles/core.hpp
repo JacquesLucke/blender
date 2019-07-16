@@ -291,6 +291,8 @@ class ParticleSets {
 
   StringRefNull particle_type_name();
 
+  AttributesInfo &attributes_info();
+
  private:
   void set_elements(uint index, void *data);
   void set_repeated_elements(uint index,
@@ -628,6 +630,11 @@ inline ArrayRef<ParticleSet> ParticleSets::sets()
 inline StringRefNull ParticleSets::particle_type_name()
 {
   return m_particle_type_name;
+}
+
+inline AttributesInfo &ParticleSets::attributes_info()
+{
+  return m_attributes_info;
 }
 
 /* EmitterInterface inline functions
