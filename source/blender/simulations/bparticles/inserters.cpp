@@ -271,6 +271,40 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
   return std::unique_ptr<PointEmitter>(new PointEmitter(particle_type_name, point, 10));
 }
 
+static FN::FunctionGraph link_inputs_to_function(SharedFunction &main_fn,
+                                                 SharedFunction &inputs_fn,
+                                                 SharedFunction &reserved_fn)
+{
+  FN::DataFlowGraphBuilder builder;
+  auto *main_node = builder.insert_function(main_fn);
+  auto *inputs_node = builder.insert_function(inputs_fn);
+  auto *reserved_node = builder.insert_function(reserved_fn);
+
+  uint offset = 0;
+  for (uint i = 0; i < main_fn->input_amount(); i++) {
+    StringRef input_name = main_fn->input_name(i);
+    FN::SharedType &input_type = main_fn->input_type(i);
+
+    bool is_reserved_input = false;
+    for (uint j = 0; j < reserved_fn->output_amount(); j++) {
+      if (reserved_fn->output_name(j) == input_name && reserved_fn->output_type(j) == input_type) {
+        builder.insert_link(reserved_node->output(j), main_node->input(i));
+        is_reserved_input = true;
+      }
+    }
+
+    if (!is_reserved_input) {
+      builder.insert_link(inputs_node->output(offset), main_node->input(i));
+      offset++;
+    }
+  }
+
+  auto build_result = FN::DataFlowGraph::FromBuilder(builder);
+  auto final_inputs = build_result.mapping.map_sockets(reserved_node->outputs());
+  auto final_outputs = build_result.mapping.map_sockets(main_node->outputs());
+  return FN::FunctionGraph(build_result.graph, final_inputs, final_outputs);
+}
+
 static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,
                                                               bNode *bnode,
                                                               StringRef particle_type_name)
@@ -295,38 +329,11 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,
   fn_builder.add_output("Time Step", FN::Types::GET_TYPE_float());
   SharedFunction fn_reserved_inputs = fn_builder.build("Reserved Inputs");
 
-  FN::DataFlowGraphBuilder builder;
-  FN::DFGB_Node *inputs_node = builder.insert_function(fn_inputs);
-  FN::DFGB_Node *emitter_node = builder.insert_function(fn_emitter);
-  FN::DFGB_Node *reserved_inputs_node = builder.insert_function(fn_reserved_inputs);
-
-  uint offset = 0;
-  for (uint i = 0; i < fn_emitter->input_amount(); i++) {
-    StringRef input_name = fn_emitter->input_name(i);
-    FN::SharedType &input_type = fn_emitter->input_type(i);
-
-    bool is_reserved_input = false;
-    for (uint j = 0; j < fn_reserved_inputs->output_amount(); j++) {
-      if (fn_reserved_inputs->output_name(j) == input_name &&
-          fn_reserved_inputs->output_type(j) == input_type) {
-        builder.insert_link(reserved_inputs_node->output(j), emitter_node->input(i));
-        is_reserved_input = true;
-      }
-    }
-
-    if (!is_reserved_input) {
-      builder.insert_link(inputs_node->output(offset), emitter_node->input(i));
-      offset++;
-    }
-  }
-
-  auto build_result = FN::DataFlowGraph::FromBuilder(builder);
-  FN::FunctionGraph fgraph(build_result.graph,
-                           build_result.mapping.map_sockets(reserved_inputs_node->outputs()),
-                           build_result.mapping.map_sockets(emitter_node->outputs()));
+  FN::FunctionGraph fgraph = link_inputs_to_function(fn_emitter, fn_inputs, fn_reserved_inputs);
   auto fn = fgraph.new_function("Emitter");
   FN::fgraph_add_DependenciesBody(fn, fgraph);
   FN::fgraph_add_TupleCallBody(fn, fgraph);
+
   return std::unique_ptr<Emitter>(new CustomFunctionEmitter(particle_type_name, fn));
 }
 
