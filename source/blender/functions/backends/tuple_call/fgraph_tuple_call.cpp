@@ -517,7 +517,7 @@ class ExecuteFGraph : public TupleCallBody {
 
     uint target_id = target_ids[0];
     void *value_dst = storage.input_value_ptr(target_id);
-    type_info->copy_to_uninitialized(value_src, value_dst);
+    type_info->relocate_to_uninitialized(value_src, value_dst);
     storage.set_output_initialized(output_id, false);
     storage.set_input_initialized(target_id, true);
   }
