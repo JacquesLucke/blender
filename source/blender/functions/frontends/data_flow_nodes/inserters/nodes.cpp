@@ -23,7 +23,13 @@ static SharedFunction get_vectorized_function(SharedFunction &original_fn,
                                               ArrayRef<AutoVectorizedInput> auto_vectorized_inputs,
                                               bool use_cache = true)
 {
+#if DEBUG
   BLI_assert(original_fn->input_amount() == auto_vectorized_inputs.size());
+  for (uint i = 0; i < original_fn->input_amount(); i++) {
+    BLI_assert(original_fn->input_type(i) ==
+               auto_vectorized_inputs[i].default_value_builder->output_type(0));
+  }
+#endif
 
   SmallVector<bool> vectorized_inputs;
   SmallVector<SharedFunction> used_default_value_builders;
@@ -123,8 +129,8 @@ static void INSERT_vector_math(BTreeGraphBuilder &builder, bNode *bnode)
   SharedFunction fn = get_vectorized_function(
       get_vector_math_function(operation),
       rna,
-      {{"use_list__a", Functions::GET_FN_output_float_0()},
-       {"use_list__b", Functions::GET_FN_output_float_0()}});
+      {{"use_list__a", Functions::GET_FN_output_float3_0()},
+       {"use_list__b", Functions::GET_FN_output_float3_0()}});
   builder.insert_matching_function(fn, bnode);
 }
 
