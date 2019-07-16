@@ -49,12 +49,22 @@ class SurfaceEmitter : public Emitter {
 class PointEmitter : public Emitter {
  private:
   std::string m_particle_type_name;
-  InterpolatedFloat3 m_point;
   uint m_amount;
+  InterpolatedFloat3 m_point;
+  InterpolatedFloat3 m_velocity;
+  InterpolatedFloat m_size;
 
  public:
-  PointEmitter(StringRef particle_type_name, InterpolatedFloat3 point, uint amount)
-      : m_particle_type_name(particle_type_name.to_std_string()), m_point(point), m_amount(amount)
+  PointEmitter(StringRef particle_type_name,
+               uint amount,
+               InterpolatedFloat3 point,
+               InterpolatedFloat3 velocity,
+               InterpolatedFloat size)
+      : m_particle_type_name(particle_type_name.to_std_string()),
+        m_amount(amount),
+        m_point(point),
+        m_velocity(velocity),
+        m_size(size)
   {
   }
 

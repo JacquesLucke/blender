@@ -267,8 +267,13 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
   body->call__setup_execution_context(fn_in, fn_out);
 
   auto point = ctx.world_state.get_interpolated_value(
-      bnode->name, body->get_output<float3>(fn_out, 0, "Position"));
-  return std::unique_ptr<PointEmitter>(new PointEmitter(particle_type_name, point, 10));
+      bnode->name + StringRef("Position"), body->get_output<float3>(fn_out, 0, "Position"));
+  auto velocity = ctx.world_state.get_interpolated_value(
+      bnode->name + StringRef("Velocity"), body->get_output<float3>(fn_out, 1, "Velocity"));
+  auto size = ctx.world_state.get_interpolated_value(bnode->name + StringRef("Size"),
+                                                     body->get_output<float>(fn_out, 2, "Size"));
+  return std::unique_ptr<PointEmitter>(
+      new PointEmitter(particle_type_name, 10, point, velocity, size));
 }
 
 static void match_inputs_to_node_outputs(FN::DataFlowGraphBuilder &builder,

@@ -72,7 +72,7 @@ class NewBParticlesTree(bpy.types.Operator, ModifierOperator):
         type_node = tree.nodes.new("bp_ParticleTypeNode")
 
         emitter_node = tree.nodes.new("bp_PointEmitterNode")
-        emitter_node.location = (-250, 100)
+        emitter_node.location = (-250, 200)
 
         gravity_node = tree.nodes.new("bp_GravityForceNode")
         gravity_node.location = (-250, -100)

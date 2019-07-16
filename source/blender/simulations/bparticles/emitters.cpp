@@ -25,18 +25,21 @@ static float random_float()
 void PointEmitter::emit(EmitterInterface &interface)
 {
   SmallVector<float3> new_positions(m_amount);
-  SmallVector<float> new_sizes(m_amount, 0.1f);
+  SmallVector<float3> new_velocities(m_amount);
+  SmallVector<float> new_sizes(m_amount);
   SmallVector<float> birth_times(m_amount);
 
   for (uint i = 0; i < m_amount; i++) {
     float t = i / (float)m_amount;
-    float3 point = m_point.interpolate(t);
-    new_positions[i] = point;
+    new_positions[i] = m_point.interpolate(t);
+    new_velocities[i] = m_velocity.interpolate(t);
+    new_sizes[i] = m_size.interpolate(t);
     birth_times[i] = interface.time_span().interpolate(t);
   }
 
   auto target = interface.particle_allocator().request(m_particle_type_name, new_positions.size());
   target.set_float3("Position", new_positions);
+  target.set_float3("Velocity", new_velocities);
   target.set_float("Size", new_sizes);
   target.set_float("Birth Time", birth_times);
 }
