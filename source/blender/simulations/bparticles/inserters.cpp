@@ -271,6 +271,34 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
   return std::unique_ptr<PointEmitter>(new PointEmitter(particle_type_name, point, 10));
 }
 
+static void match_inputs_to_node_outputs(FN::DataFlowGraphBuilder &builder,
+                                         FN::DFGB_Node *target_node,
+                                         FN::DFGB_Node *origin_node_1,
+                                         FN::DFGB_Node *origin_node_2)
+{
+  SharedFunction &target_fn = target_node->function();
+  SharedFunction &origin_fn_1 = origin_node_1->function();
+
+  uint offset = 0;
+  for (uint i = 0; i < target_fn->input_amount(); i++) {
+    StringRef input_name = target_fn->input_name(i);
+    FN::SharedType &input_type = target_fn->input_type(i);
+
+    bool is_reserved_input = false;
+    for (uint j = 0; j < origin_fn_1->output_amount(); j++) {
+      if (origin_fn_1->output_name(j) == input_name && origin_fn_1->output_type(j) == input_type) {
+        builder.insert_link(origin_node_1->output(j), target_node->input(i));
+        is_reserved_input = true;
+      }
+    }
+
+    if (!is_reserved_input) {
+      builder.insert_link(origin_node_2->output(offset), target_node->input(i));
+      offset++;
+    }
+  }
+}
+
 static FN::FunctionGraph link_inputs_to_function(SharedFunction &main_fn,
                                                  SharedFunction &inputs_fn,
                                                  SharedFunction &reserved_fn)
@@ -280,24 +308,7 @@ static FN::FunctionGraph link_inputs_to_function(SharedFunction &main_fn,
   auto *inputs_node = builder.insert_function(inputs_fn);
   auto *reserved_node = builder.insert_function(reserved_fn);
 
-  uint offset = 0;
-  for (uint i = 0; i < main_fn->input_amount(); i++) {
-    StringRef input_name = main_fn->input_name(i);
-    FN::SharedType &input_type = main_fn->input_type(i);
-
-    bool is_reserved_input = false;
-    for (uint j = 0; j < reserved_fn->output_amount(); j++) {
-      if (reserved_fn->output_name(j) == input_name && reserved_fn->output_type(j) == input_type) {
-        builder.insert_link(reserved_node->output(j), main_node->input(i));
-        is_reserved_input = true;
-      }
-    }
-
-    if (!is_reserved_input) {
-      builder.insert_link(inputs_node->output(offset), main_node->input(i));
-      offset++;
-    }
-  }
+  match_inputs_to_node_outputs(builder, main_node, reserved_node, inputs_node);
 
   auto build_result = FN::DataFlowGraph::FromBuilder(builder);
   auto final_inputs = build_result.mapping.map_sockets(reserved_node->outputs());
