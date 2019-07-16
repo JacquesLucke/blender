@@ -129,9 +129,11 @@ static uint tetrahedon_loop_vertices[12] = {0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 2, 3};
 static uint tetrahedon_edges[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
 
 static void distribute_tetrahedons_range(Mesh *mesh,
+                                         ArrayRef<MLoopCol> loop_colors,
                                          Range<uint> range,
                                          ArrayRef<float3> centers,
-                                         ArrayRef<float> scales)
+                                         ArrayRef<float> scales,
+                                         ArrayRef<float3> colors)
 {
   for (uint instance : range) {
     uint vertex_offset = instance * ARRAY_SIZE(tetrahedon_vertices);
@@ -150,8 +152,12 @@ static void distribute_tetrahedons_range(Mesh *mesh,
       mesh->mpoly[face_offset + i].totloop = tetrahedon_loop_lengths[i];
     }
 
+    float3 color_f = colors[instance];
+    MLoopCol color_b = {
+        (uchar)(color_f.x * 255.0f), (uchar)(color_f.y * 255.0f), (uchar)(color_f.z * 255.0f)};
     for (uint i = 0; i < ARRAY_SIZE(tetrahedon_loop_vertices); i++) {
       mesh->mloop[loop_offset + i].v = vertex_offset + tetrahedon_loop_vertices[i];
+      loop_colors[loop_offset + i] = color_b;
     }
 
     for (uint i = 0; i < ARRAY_SIZE(tetrahedon_edges); i++) {
@@ -161,7 +167,9 @@ static void distribute_tetrahedons_range(Mesh *mesh,
   }
 }
 
-static Mesh *distribute_tetrahedons(ArrayRef<float3> centers, ArrayRef<float> scales)
+static Mesh *distribute_tetrahedons(ArrayRef<float3> centers,
+                                    ArrayRef<float> scales,
+                                    ArrayRef<float3> colors)
 {
   uint amount = centers.size();
   Mesh *mesh = BKE_mesh_new_nomain(amount * ARRAY_SIZE(tetrahedon_vertices),
@@ -170,10 +178,17 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers, ArrayRef<float> sc
                                    amount * ARRAY_SIZE(tetrahedon_loop_vertices),
                                    amount * ARRAY_SIZE(tetrahedon_loop_starts));
 
-  BLI::Task::parallel_range(
-      Range<uint>(0, amount), 1000, [mesh, centers, scales](Range<uint> range) {
-        distribute_tetrahedons_range(mesh, range, centers, scales);
-      });
+  auto loop_colors = ArrayRef<MLoopCol>(
+      (MLoopCol *)CustomData_add_layer_named(
+          &mesh->ldata, CD_MLOOPCOL, CD_DEFAULT, nullptr, mesh->totloop, "Color"),
+      mesh->totloop);
+
+  BLI::Task::parallel_range(Range<uint>(0, amount),
+                            1000,
+                            [mesh, centers, scales, colors, loop_colors](Range<uint> range) {
+                              distribute_tetrahedons_range(
+                                  mesh, loop_colors, range, centers, scales, colors);
+                            });
 
   return mesh;
 }
@@ -213,6 +228,7 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
 
   SmallVector<float3> positions;
   SmallVector<float> sizes;
+  SmallVector<float3> colors;
   SmallVector<uint> particle_counts;
 
   for (uint i = 0; i < cached_frame->num_particle_types; i++) {
@@ -221,30 +237,11 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
     positions.extend(
         ArrayRef<float3>((float3 *)type.attributes_float[0].values, type.particle_amount));
     sizes.extend(ArrayRef<float>(type.attributes_float[1].values, type.particle_amount));
+    colors.extend(
+        ArrayRef<float3>((float3 *)type.attributes_float[2].values, type.particle_amount));
   }
 
-  Mesh *mesh = distribute_tetrahedons(positions, sizes);
-  if (positions.size() == 0) {
-    return mesh;
-  }
-
-  uint loops_per_particle = mesh->totloop / positions.size();
-
-  SmallVector<MLoopCol> colors_to_use = {
-      {230, 30, 30, 255}, {30, 230, 30, 255}, {30, 30, 230, 255}};
-
-  MLoopCol *loop_colors = (MLoopCol *)CustomData_add_layer_named(
-      &mesh->ldata, CD_MLOOPCOL, CD_DEFAULT, nullptr, mesh->totloop, "Color");
-  uint loop_offset = 0;
-  for (uint i = 0; i < cached_frame->num_particle_types; i++) {
-    uint loop_count = particle_counts[i] * loops_per_particle;
-    MLoopCol color = colors_to_use[i];
-    for (uint j = 0; j < loop_count; j++) {
-      loop_colors[loop_offset + j] = color;
-    }
-    loop_offset += loop_count;
-  }
-
+  Mesh *mesh = distribute_tetrahedons(positions, sizes, colors);
   return mesh;
 }
 
@@ -270,7 +267,7 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     strncpy(cached_type.name, container_names[i].data(), sizeof(cached_type.name));
     cached_type.particle_amount = container.count_active();
 
-    cached_type.num_attributes_float = 2;
+    cached_type.num_attributes_float = 3;
     cached_type.attributes_float = (BParticlesAttributeCacheFloat *)MEM_calloc_arrayN(
         cached_type.num_attributes_float, sizeof(BParticlesAttributeCacheFloat), __func__);
 
@@ -287,6 +284,13 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     size_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(float), __func__);
     container.flatten_attribute_data("Size", size_attribute.values);
+
+    BParticlesAttributeCacheFloat &color_attribute = cached_type.attributes_float[2];
+    color_attribute.floats_per_particle = 3;
+    strncpy(color_attribute.name, "Color", sizeof(color_attribute.name));
+    color_attribute.values = (float *)MEM_malloc_arrayN(
+        cached_type.particle_amount, sizeof(float3), __func__);
+    container.flatten_attribute_data("Color", color_attribute.values);
   }
 
   bpmd->cached_frames = (BParticlesFrameCache *)MEM_reallocN(

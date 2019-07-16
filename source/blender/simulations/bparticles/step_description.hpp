@@ -33,6 +33,7 @@ class ModifierParticleType : public ParticleType {
     builder.use_float3("Position", {0, 0, 0});
     builder.use_float3("Velocity", {0, 0, 0});
     builder.use_float("Size", 0.01f);
+    builder.use_float3("Color", {1.0f, 1.0f, 1.0f});
   }
 };
 
