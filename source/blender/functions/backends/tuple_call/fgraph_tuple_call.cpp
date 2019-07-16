@@ -87,7 +87,7 @@ class ExecuteFGraph : public TupleCallBody {
           CPPTypeInfo *type_info = type->extension<CPPTypeInfo>();
           BLI_assert(type_info);
           uint type_size = type_info->size_of_type();
-          m_input_info.append(SocketInfo(type_info, m_inputs_init_buffer_size, false));
+          m_input_info.append(SocketInfo(type_info, m_inputs_buffer_size, false));
           m_inputs_buffer_size += type_size;
         }
 
@@ -541,13 +541,15 @@ class ExecuteFGraph : public TupleCallBody {
     for (uint input_id = 0; input_id < m_inputs_init_buffer_size; input_id++) {
       if (storage.is_input_initialized(input_id)) {
         SocketInfo &socket_info = m_input_info[input_id];
-        socket_info.type->destruct_type(storage.input_value_ptr(input_id));
+        void *value_ptr = storage.input_value_ptr(input_id);
+        socket_info.type->destruct_type(value_ptr);
       }
     }
     for (uint output_id = 0; output_id < m_outputs_init_buffer_size; output_id++) {
       if (storage.is_output_initialized(output_id)) {
         SocketInfo &socket_info = m_output_info[output_id];
-        socket_info.type->destruct_type(storage.output_value_ptr(output_id));
+        void *value_ptr = storage.output_value_ptr(output_id);
+        socket_info.type->destruct_type(value_ptr);
       }
     }
   }
