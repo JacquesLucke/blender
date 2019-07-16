@@ -7,19 +7,24 @@ struct Object;
 
 namespace FN {
 
+struct DependencyComponents {
+  SmallSetVector<Object *> transform_dependencies;
+  SmallSetVector<Object *> geometry_dependencies;
+};
+
 class FunctionDepsBuilder {
  private:
   const SmallMultiMap<uint, ID *> &m_input_ids;
   SmallMultiMap<uint, ID *> &m_output_ids;
-  SmallSetVector<Object *> &m_transform_dependencies;
+  DependencyComponents &m_dependency_components;
 
  public:
   FunctionDepsBuilder(const SmallMultiMap<uint, ID *> &input_ids,
                       SmallMultiMap<uint, ID *> &output_ids,
-                      SmallSetVector<Object *> &transform_dependencies)
+                      DependencyComponents &dependency_components)
       : m_input_ids(input_ids),
         m_output_ids(output_ids),
-        m_transform_dependencies(transform_dependencies)
+        m_dependency_components(dependency_components)
   {
   }
 
@@ -50,7 +55,17 @@ class FunctionDepsBuilder {
 
   void add_transform_dependency(ArrayRef<Object *> objects)
   {
-    m_transform_dependencies.add_multiple(objects);
+    m_dependency_components.transform_dependencies.add_multiple(objects);
+  }
+
+  void add_geometry_dependency(ArrayRef<Object *> objects)
+  {
+    m_dependency_components.geometry_dependencies.add_multiple(objects);
+  }
+
+  DependencyComponents &dependency_components()
+  {
+    return m_dependency_components;
   }
 };
 

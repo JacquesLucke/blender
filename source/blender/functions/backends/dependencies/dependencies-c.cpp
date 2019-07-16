@@ -4,10 +4,13 @@
 
 using namespace FN;
 
-static void update_depsgraph(DepsNodeHandle *deps_node, ArrayRef<Object *> transform_dependencies)
+static void update_depsgraph(DepsNodeHandle *deps_node, DependencyComponents &dependencies)
 {
-  for (struct Object *ob : transform_dependencies) {
+  for (struct Object *ob : dependencies.transform_dependencies) {
     DEG_add_object_relation(deps_node, ob, DEG_OB_COMP_TRANSFORM, __func__);
+  }
+  for (struct Object *ob : dependencies.geometry_dependencies) {
+    DEG_add_object_relation(deps_node, ob, DEG_OB_COMP_GEOMETRY, __func__);
   }
 }
 
@@ -18,10 +21,10 @@ void FN_function_update_dependencies(FnFunction fn_c, struct DepsNodeHandle *dep
   if (body) {
     SmallMultiMap<uint, ID *> input_ids;
     SmallMultiMap<uint, ID *> output_ids;
-    SmallSetVector<Object *> transform_dependencies;
+    DependencyComponents components;
 
-    FunctionDepsBuilder builder(input_ids, output_ids, transform_dependencies);
+    FunctionDepsBuilder builder(input_ids, output_ids, components);
     body->build_deps(builder);
-    update_depsgraph(deps_node, transform_dependencies);
+    update_depsgraph(deps_node, components);
   }
 }
