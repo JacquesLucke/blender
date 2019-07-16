@@ -101,10 +101,7 @@ template<typename T> class AutoRefCount {
 
   ~AutoRefCount()
   {
-    /* Can be nullptr when previously moved. */
-    if (m_object != nullptr) {
-      this->decref();
-    }
+    this->decref();
   }
 
   AutoRefCount &operator=(const AutoRefCount &other)
