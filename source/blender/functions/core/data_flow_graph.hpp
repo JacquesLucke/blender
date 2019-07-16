@@ -203,6 +203,15 @@ class DataFlowGraph : public RefCountedBase {
         return DFGraphSocket(true, output_socket_indices.lookup(dfgb_socket));
       }
     }
+
+    SmallVector<DFGraphSocket> map_sockets(ArrayRef<DFGB_Socket> dfgb_sockets)
+    {
+      SmallVector<DFGraphSocket> sockets;
+      for (auto socket : dfgb_sockets) {
+        sockets.append(this->map_socket(socket));
+      }
+      return sockets;
+    }
   };
 
   struct BuildResult {
