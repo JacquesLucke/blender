@@ -55,8 +55,6 @@
 
 static FnFunction get_current_function(FunctionPointsModifierData *fpmd)
 {
-  bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fpmd->function_tree);
-
   FnType float_ty = FN_type_borrow_float();
   FnType int32_ty = FN_type_borrow_int32();
   FnType float3_list_ty = FN_type_borrow_float3_list();
@@ -64,7 +62,7 @@ static FnFunction get_current_function(FunctionPointsModifierData *fpmd)
   FnType inputs[] = {float_ty, int32_ty, NULL};
   FnType outputs[] = {float3_list_ty, NULL};
 
-  return FN_function_get_with_signature(tree, inputs, outputs);
+  return FN_function_get_with_signature(fpmd->function_tree, inputs, outputs);
 }
 
 static Mesh *build_point_mesh(FunctionPointsModifierData *fpmd)
