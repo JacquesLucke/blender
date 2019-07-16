@@ -138,6 +138,7 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
                                                        new_positions->size());
   target.set_float3("Position", *new_positions.ptr());
   target.fill_float("Birth Time", interface.time_span().end());
+  target.set_repeated_float("Size", {0.05f, 0.05f, 0.1f});
 }
 
 }  // namespace BParticles
