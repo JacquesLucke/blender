@@ -1,7 +1,11 @@
 #include "FN_llvm.hpp"
 #include "FN_tuple_call.hpp"
 
+#include "BLI_vector_adaptor.hpp"
+
 namespace FN {
+
+using BLI::VectorAdaptor;
 
 static void try_ensure_tuple_call_bodies(SharedDataFlowGraph &graph)
 {
@@ -441,43 +445,39 @@ class ExecuteFGraph : public TupleCallBody {
     SocketInfo &output_info = m_output_info[output_id];
     CPPTypeInfo *type_info = output_info.type;
 
-    uint *target_ids = (uint *)BLI_array_alloca(target_ids, possible_target_ids.size());
-    uint target_amount = this->filter_uninitialized_targets(
-        possible_target_ids, storage, target_ids);
+    uint *target_ids_array = (uint *)alloca(possible_target_ids.size() * sizeof(uint));
+    VectorAdaptor<uint> target_ids(target_ids_array, possible_target_ids.size());
 
-    this->forward_output_to_targets(output_id, target_ids, target_amount, type_info, storage);
-    this->copy_targets_to_final_output_if_necessary(target_ids, target_amount, storage, fn_out);
+    this->filter_uninitialized_targets(possible_target_ids, storage, target_ids);
+
+    this->forward_output_to_targets(output_id, target_ids, type_info, storage);
+    this->copy_targets_to_final_output_if_necessary(target_ids, storage, fn_out);
   }
 
-  uint filter_uninitialized_targets(ArrayRef<uint> &possible_target_ids,
+  void filter_uninitialized_targets(ArrayRef<uint> possible_target_ids,
                                     SocketValueStorage &storage,
-                                    uint *r_target_ids) const
+                                    VectorAdaptor<uint> &r_target_ids) const
   {
-    uint target_amount = 0;
     for (uint possible_target_id : possible_target_ids) {
       if (!storage.is_input_initialized(possible_target_id)) {
-        r_target_ids[target_amount] = possible_target_id;
-        target_amount++;
+        r_target_ids.append(possible_target_id);
       }
     }
-    return target_amount;
   }
 
   void forward_output_to_targets(uint output_id,
-                                 uint *target_ids,
-                                 uint target_amount,
+                                 ArrayRef<uint> target_ids,
                                  CPPTypeInfo *type_info,
                                  SocketValueStorage &storage) const
   {
-    if (target_amount == 0) {
+    if (target_ids.size() == 0) {
       this->destruct_output(output_id, type_info, storage);
     }
-    else if (target_amount == 1) {
+    else if (target_ids.size() == 1) {
       this->relocate_output_to_input(output_id, target_ids[0], type_info, storage);
     }
     else {
-      this->forward_output_to_multiple_inputs(
-          output_id, target_ids, target_amount, type_info, storage);
+      this->forward_output_to_multiple_inputs(output_id, target_ids, type_info, storage);
     }
   }
 
@@ -501,34 +501,30 @@ class ExecuteFGraph : public TupleCallBody {
   }
 
   void forward_output_to_multiple_inputs(uint output_id,
-                                         uint *target_ids,
-                                         uint target_amount,
+                                         ArrayRef<uint> target_ids,
                                          CPPTypeInfo *type_info,
                                          SocketValueStorage &storage) const
   {
     void *value_src = storage.output_value_ptr(output_id);
 
-    for (uint i = 1; i < target_amount; i++) {
-      uint target_id = target_ids[i];
+    for (uint target_id : target_ids.drop_front()) {
       void *value_dst = storage.input_value_ptr(target_id);
       type_info->copy_to_uninitialized(value_src, value_dst);
       storage.set_input_initialized(target_id, true);
     }
 
-    uint target_id = target_ids[0];
+    uint target_id = target_ids.first();
     void *value_dst = storage.input_value_ptr(target_id);
     type_info->relocate_to_uninitialized(value_src, value_dst);
     storage.set_output_initialized(output_id, false);
     storage.set_input_initialized(target_id, true);
   }
 
-  void copy_targets_to_final_output_if_necessary(uint *target_ids,
-                                                 uint target_amount,
+  void copy_targets_to_final_output_if_necessary(ArrayRef<uint> target_ids,
                                                  SocketValueStorage &storage,
                                                  Tuple &fn_out) const
   {
-    for (uint i = 0; i < target_amount; i++) {
-      uint target_id = target_ids[i];
+    for (uint target_id : target_ids) {
       SocketInfo &socket_info = m_input_info[target_id];
       if (socket_info.is_fn_output) {
         uint index = m_fgraph.outputs().index(DFGraphSocket::FromInput(target_id));
