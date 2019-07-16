@@ -23,7 +23,7 @@ static SharedFunction get_vectorized_function(SharedFunction &original_fn,
                                               ArrayRef<AutoVectorizedInput> auto_vectorized_inputs,
                                               bool use_cache = true)
 {
-#if DEBUG
+#ifdef DEBUG
   BLI_assert(original_fn->input_amount() == auto_vectorized_inputs.size());
   for (uint i = 0; i < original_fn->input_amount(); i++) {
     BLI_assert(original_fn->input_type(i) ==
