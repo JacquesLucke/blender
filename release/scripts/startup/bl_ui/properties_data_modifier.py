@@ -1662,7 +1662,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         props.modifier_name = md.name
 
     def BPARTICLES(self, layout, ob, md):
-        layout.prop(md, "bparticles_tree")
+        row = layout.row(align=True)
+        row.prop(md, "bparticles_tree")
+        props = row.operator("bp.new_bparticles_tree", text="", icon="ADD")
+        props.object_name = ob.name
+        props.modifier_name = md.name
+
         layout.operator("object.bparticles_clear_cache", text="Clear Cache")
 
 

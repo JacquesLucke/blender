@@ -58,7 +58,33 @@ class NewPointGeneratorFunction(bpy.types.Operator, ModifierOperator):
         mod.function_tree = tree
         return {'FINISHED'}
 
+class NewBParticlesTree(bpy.types.Operator, ModifierOperator):
+    bl_idname = "bp.new_bparticles_tree"
+    bl_label = "New BParticles Tree"
+
+    def execute(self, context):
+        mod = self.get_modifier()
+        if mod is None:
+            return {'CANCELLED'}
+
+        tree = bpy.data.node_groups.new("Particle System", "BParticlesTree")
+
+        type_node = tree.nodes.new("bp_ParticleTypeNode")
+
+        emitter_node = tree.nodes.new("bp_PointEmitterNode")
+        emitter_node.location = (-250, 100)
+
+        gravity_node = tree.nodes.new("bp_GravityForceNode")
+        gravity_node.location = (-250, -100)
+
+        tree.links.new(emitter_node.outputs[0], type_node.inputs[0])
+        tree.links.new(gravity_node.outputs[0], type_node.inputs[1])
+
+        mod.bparticles_tree = tree
+        return {'FINISHED'}
+
 classes = (
     NewDeformationFunction,
     NewPointGeneratorFunction,
+    NewBParticlesTree,
 )
