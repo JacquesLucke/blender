@@ -282,6 +282,7 @@ void register_node_inserters(GraphInserters &inserters)
   inserters.reg_node_function("fn_RandomNumberNode", Functions::GET_FN_random_number);
   inserters.reg_node_function("fn_MapRangeNode", Functions::GET_FN_map_range);
   inserters.reg_node_function("fn_FloatRangeNode", Functions::GET_FN_float_range);
+  inserters.reg_node_function("fn_ObjectMeshNode", Functions::GET_FN_object_mesh_vertices);
 
   inserters.reg_node_inserter("fn_SeparateVectorNode", INSERT_separate_vector);
   inserters.reg_node_inserter("fn_CombineVectorNode", INSERT_combine_vector);

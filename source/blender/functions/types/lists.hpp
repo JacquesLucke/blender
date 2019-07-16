@@ -40,6 +40,11 @@ template<typename T> class List : public BLI::SharedImmutable {
     return m_data;
   }
 
+  ArrayRef<T> as_array_ref() const
+  {
+    return m_data;
+  }
+
   void append(T value)
   {
     this->assert_mutable();
@@ -72,12 +77,12 @@ template<typename T> class List : public BLI::SharedImmutable {
     return m_data.size();
   }
 
-  T operator[](int index) const
+  T operator[](uint index) const
   {
     return m_data[index];
   }
 
-  T &operator[](int index)
+  T &operator[](uint index)
   {
     this->assert_mutable();
     return m_data[index];
