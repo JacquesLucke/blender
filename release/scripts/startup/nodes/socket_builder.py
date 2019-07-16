@@ -148,8 +148,8 @@ class SocketBuilder:
     # Tree Interface
     ##################################
 
-    def tree_interface_input(self, identifier, tree, in_or_out):
-        decl = TreeInterfaceDecl(self.node, identifier, tree, in_or_out)
+    def tree_interface_input(self, identifier, tree, in_or_out, *, ignored=set()):
+        decl = TreeInterfaceDecl(self.node, identifier, tree, in_or_out, ignored)
         self._add_input(decl)
 
     def tree_interface_output(self, identifier, tree, in_or_out):

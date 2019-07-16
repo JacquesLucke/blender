@@ -62,6 +62,16 @@ class TupleCallBodyBase : public FunctionBody {
     return tuple.get<T>(index);
   }
   template<typename T>
+  void set_input(Tuple &tuple, uint index, StringRef expected_name, const T &value) const
+  {
+#ifdef DEBUG
+    StringRef real_name = this->owner()->input_name(index);
+    BLI_assert(real_name == expected_name);
+#endif
+    UNUSED_VARS_NDEBUG(expected_name);
+    tuple.set<T>(index, value);
+  }
+  template<typename T>
   void set_output(Tuple &tuple, uint index, StringRef expected_name, const T &value) const
   {
 #ifdef DEBUG

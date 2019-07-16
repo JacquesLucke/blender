@@ -2,6 +2,7 @@
 #include "FN_data_flow_nodes.hpp"
 #include "FN_tuple_call.hpp"
 #include "FN_dependencies.hpp"
+#include "FN_types.hpp"
 
 #include "BLI_timeit.hpp"
 #include "BLI_lazy_init.hpp"
@@ -280,12 +281,53 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,
     return {};
   }
 
-  Optional<SharedFunction> fn = FN::DataFlowNodes::generate_function(btree);
-  if (!fn.has_value()) {
+  Optional<SharedFunction> fn_emitter_ = FN::DataFlowNodes::generate_function(btree);
+  if (!fn_emitter_.has_value()) {
     return {};
   }
+  SharedFunction fn_emitter = fn_emitter_.value();
 
-  return std::unique_ptr<Emitter>(new CustomFunctionEmitter(particle_type_name, fn.value()));
+  SharedFunction fn_inputs = create_function_for_data_inputs(
+      bnode, ctx.indexed_tree, ctx.data_graph);
+
+  FN::FunctionBuilder fn_builder;
+  fn_builder.add_output("Start Time", FN::Types::GET_TYPE_float());
+  fn_builder.add_output("Time Step", FN::Types::GET_TYPE_float());
+  SharedFunction fn_reserved_inputs = fn_builder.build("Reserved Inputs");
+
+  FN::DataFlowGraphBuilder builder;
+  FN::DFGB_Node *inputs_node = builder.insert_function(fn_inputs);
+  FN::DFGB_Node *emitter_node = builder.insert_function(fn_emitter);
+  FN::DFGB_Node *reserved_inputs_node = builder.insert_function(fn_reserved_inputs);
+
+  uint offset = 0;
+  for (uint i = 0; i < fn_emitter->input_amount(); i++) {
+    StringRef input_name = fn_emitter->input_name(i);
+    FN::SharedType &input_type = fn_emitter->input_type(i);
+
+    bool is_reserved_input = false;
+    for (uint j = 0; j < fn_reserved_inputs->output_amount(); j++) {
+      if (fn_reserved_inputs->output_name(j) == input_name &&
+          fn_reserved_inputs->output_type(j) == input_type) {
+        builder.insert_link(reserved_inputs_node->output(j), emitter_node->input(i));
+        is_reserved_input = true;
+      }
+    }
+
+    if (!is_reserved_input) {
+      builder.insert_link(inputs_node->output(offset), emitter_node->input(i));
+      offset++;
+    }
+  }
+
+  auto build_result = FN::DataFlowGraph::FromBuilder(builder);
+  FN::FunctionGraph fgraph(build_result.graph,
+                           build_result.mapping.map_sockets(reserved_inputs_node->outputs()),
+                           build_result.mapping.map_sockets(emitter_node->outputs()));
+  auto fn = fgraph.new_function("Emitter");
+  FN::fgraph_add_DependenciesBody(fn, fgraph);
+  FN::fgraph_add_TupleCallBody(fn, fgraph);
+  return std::unique_ptr<Emitter>(new CustomFunctionEmitter(particle_type_name, fn));
 }
 
 BLI_LAZY_INIT(StringMap<ForceFromNodeCallback>, get_force_builders)

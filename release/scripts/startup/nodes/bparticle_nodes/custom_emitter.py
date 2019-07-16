@@ -15,7 +15,8 @@ class CustomEmitterNode(bpy.types.Node, FunctionNode):
 
     def declaration(self, builder: SocketBuilder):
         if self.function_tree:
-            builder.tree_interface_input("inputs", self.function_tree, 'IN')
+            builder.tree_interface_input("inputs", self.function_tree, 'IN',
+                ignored={("Float", "Time Step"), ("Float", "Start Time")})
 
         builder.emitter_output("emitter", "Emitter")
 

@@ -192,6 +192,8 @@ class ExecuteFGraph : public TupleCallBody {
 
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
   {
+    BLI_assert(fn_in.all_initialized());
+
     SocketValueStorage storage(*this);
     storage.m_input_values = alloca(m_inputs_buffer_size);
     storage.m_output_values = alloca(m_outputs_buffer_size);

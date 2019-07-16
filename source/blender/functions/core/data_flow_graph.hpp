@@ -204,10 +204,11 @@ class DataFlowGraph : public RefCountedBase {
       }
     }
 
-    SmallVector<DFGraphSocket> map_sockets(ArrayRef<DFGB_Socket> dfgb_sockets)
+    template<typename ContainerT>
+    SmallVector<DFGraphSocket> map_sockets(const ContainerT &dfgb_sockets)
     {
       SmallVector<DFGraphSocket> sockets;
-      for (auto socket : dfgb_sockets) {
+      for (DFGB_Socket socket : dfgb_sockets) {
         sockets.append(this->map_socket(socket));
       }
       return sockets;
