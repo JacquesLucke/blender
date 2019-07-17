@@ -378,6 +378,25 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,
   return std::unique_ptr<Emitter>(new CustomFunctionEmitter(particle_type_name, fn));
 }
 
+static std::unique_ptr<Emitter> BUILD_EMITTER_initial_grid(BuildContext &ctx,
+                                                           bNode *bnode,
+                                                           StringRef particle_type_name)
+{
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+
+  TupleCallBody *body = fn->body<TupleCallBody>();
+  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+  body->call__setup_execution_context(fn_in, fn_out);
+
+  return std::unique_ptr<Emitter>(
+      new InitialGridEmitter(particle_type_name,
+                             body->get_output<uint>(fn_out, 0, "Amount X"),
+                             body->get_output<uint>(fn_out, 1, "Amount Y"),
+                             body->get_output<float>(fn_out, 2, "Step X"),
+                             body->get_output<float>(fn_out, 3, "Step Y"),
+                             body->get_output<float>(fn_out, 4, "Size")));
+}
+
 BLI_LAZY_INIT(StringMap<ForceFromNodeCallback>, get_force_builders)
 {
   StringMap<ForceFromNodeCallback> map;
@@ -401,6 +420,7 @@ BLI_LAZY_INIT(StringMap<EmitterFromNodeCallback>, get_emitter_builders)
   map.add_new("bp_PointEmitterNode", BUILD_EMITTER_moving_point);
   map.add_new("bp_MeshEmitterNode", BUILD_EMITTER_mesh_surface);
   map.add_new("bp_CustomEmitterNode", BUILD_EMITTER_custom_function);
+  map.add_new("bp_InitialGridEmitterNode", BUILD_EMITTER_initial_grid);
   return map;
 }
 

@@ -85,4 +85,32 @@ class CustomFunctionEmitter : public Emitter {
   void emit(EmitterInterface &interface) override;
 };
 
+class InitialGridEmitter : public Emitter {
+ private:
+  std::string m_particle_type_name;
+  uint m_amount_x;
+  uint m_amount_y;
+  float m_step_x;
+  float m_step_y;
+  float m_size;
+
+ public:
+  InitialGridEmitter(StringRef particle_type_name,
+                     uint amount_x,
+                     uint amount_y,
+                     float step_x,
+                     float step_y,
+                     float size)
+      : m_particle_type_name(particle_type_name.to_std_string()),
+        m_amount_x(amount_x),
+        m_amount_y(amount_y),
+        m_step_x(step_x),
+        m_step_y(step_y),
+        m_size(size)
+  {
+  }
+
+  void emit(EmitterInterface &interface) override;
+};
+
 }  // namespace BParticles

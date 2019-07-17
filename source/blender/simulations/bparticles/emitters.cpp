@@ -185,4 +185,27 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
   }
 }
 
+void InitialGridEmitter::emit(EmitterInterface &interface)
+{
+  if (!interface.is_first_step()) {
+    return;
+  }
+
+  SmallVector<float3> new_positions;
+
+  float offset_x = -(m_amount_x * m_step_x / 2.0f);
+  float offset_y = -(m_amount_y * m_step_y / 2.0f);
+
+  for (uint x = 0; x < m_amount_x; x++) {
+    for (uint y = 0; y < m_amount_y; y++) {
+      new_positions.append(float3(x * m_step_x + offset_x, y * m_step_y + offset_y, 0.0f));
+    }
+  }
+
+  auto target = interface.particle_allocator().request(m_particle_type_name, new_positions.size());
+  target.set_float3("Position", new_positions);
+  target.fill_float("Birth Time", interface.time_span().start());
+  target.fill_float("Size", m_size);
+}
+
 }  // namespace BParticles
