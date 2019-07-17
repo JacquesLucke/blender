@@ -38,6 +38,11 @@ template<typename V> class StringMap {
  public:
   StringMap() = default;
 
+  uint size() const
+  {
+    return m_map.size();
+  }
+
   void add_new(StringRef key, const V &value)
   {
     m_map.add_new(key.to_std_string(), value);
