@@ -67,7 +67,8 @@ void BParticles_world_state_free(BParticlesWorldState world_state_c)
 void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
                                   Depsgraph *UNUSED(depsgraph),
                                   BParticlesState particles_state_c,
-                                  BParticlesWorldState world_state_c)
+                                  BParticlesWorldState world_state_c,
+                                  float time_step)
 {
   SCOPED_TIMER(__func__);
 
@@ -80,7 +81,7 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)bpmd->bparticles_tree);
   IndexedNodeTree indexed_tree(btree);
 
-  auto step_description = step_description_from_node_tree(indexed_tree, world_state, 1.0f / 24.0f);
+  auto step_description = step_description_from_node_tree(indexed_tree, world_state, time_step);
 
   ParticlesState &particles_state = *unwrap(particles_state_c);
   simulate_step(particles_state, *step_description);

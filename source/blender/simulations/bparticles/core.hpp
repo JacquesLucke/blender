@@ -183,6 +183,7 @@ class ParticlesState {
  private:
   StringMap<ParticlesContainer *> m_container_by_id;
   float m_current_time = 0.0f;
+  uint m_current_step = 0;
 
  public:
   ParticlesState() = default;
@@ -192,7 +193,17 @@ class ParticlesState {
   /**
    * Access the time since the simulation started.
    */
-  float &current_time();
+  float current_time() const;
+
+  /**
+   * Move current time forward.
+   */
+  void increase_time(float time_step);
+
+  /**
+   * Get the current simulation step.
+   */
+  uint current_step() const;
 
   /**
    * Access the mapping from particle type names to their corresponding containers.
@@ -601,9 +612,21 @@ inline StringRefNull ParticlesState::particle_container_id(ParticlesContainer &c
   return *(StringRefNull *)nullptr;
 }
 
-inline float &ParticlesState::current_time()
+inline float ParticlesState::current_time() const
 {
   return m_current_time;
+}
+
+inline void ParticlesState::increase_time(float time_step)
+{
+  BLI_assert(time_step >= 0.0f);
+  m_current_time += time_step;
+  m_current_step++;
+}
+
+inline uint ParticlesState::current_step() const
+{
+  return m_current_step;
 }
 
 /* ParticleAllocator inline functions
@@ -657,7 +680,7 @@ inline TimeSpan EmitterInterface::time_span()
 
 inline bool EmitterInterface::is_first_step()
 {
-  return m_time_span.start() < 0.00001f;
+  return m_particle_allocator.particles_state().current_step() == 1;
 }
 
 /* ParticleSet inline functions

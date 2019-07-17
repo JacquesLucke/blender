@@ -25,7 +25,8 @@ void BParticles_world_state_free(BParticlesWorldState world_state);
 void BParticles_simulate_modifier(struct BParticlesModifierData *bpmd,
                                   Depsgraph *depsgraph,
                                   BParticlesState particles_state,
-                                  BParticlesWorldState world_state);
+                                  BParticlesWorldState world_state,
+                                  float time_step);
 
 uint BParticles_state_particle_count(BParticlesState particles_state);
 void BParticles_state_get_positions(BParticlesState particles_state, float (*dst)[3]);

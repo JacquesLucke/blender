@@ -127,7 +127,7 @@ static Mesh *applyModifier(ModifierData *md,
   }
   else if (current_frame == runtime->last_simulated_frame + 1.0f) {
     BParticles_simulate_modifier(
-        bpmd, ctx->depsgraph, runtime->particles_state, runtime->world_state);
+        bpmd, ctx->depsgraph, runtime->particles_state, runtime->world_state, 1.0f / FPS);
     runtime->last_simulated_frame = current_frame;
   }
   else {
@@ -137,6 +137,10 @@ static Mesh *applyModifier(ModifierData *md,
     runtime->world_state = BParticles_new_world_state();
     runtime->last_simulated_frame = current_frame;
     BParticles_modifier_free_cache(bpmd_orig);
+
+    BParticles_simulate_modifier(
+        bpmd, ctx->depsgraph, runtime->particles_state, runtime->world_state, 0.0f);
+    runtime->last_simulated_frame = current_frame;
   }
 
   BParticles_modifier_cache_state(bpmd_orig, runtime->particles_state, current_frame);
