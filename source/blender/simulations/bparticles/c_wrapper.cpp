@@ -77,7 +77,8 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
 
   WorldState &world_state = *unwrap(world_state_c);
 
-  IndexedNodeTree indexed_tree(bpmd->bparticles_tree);
+  bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)bpmd->bparticles_tree);
+  IndexedNodeTree indexed_tree(btree);
 
   auto step_description = step_description_from_node_tree(indexed_tree, world_state, 1.0f / 24.0f);
 

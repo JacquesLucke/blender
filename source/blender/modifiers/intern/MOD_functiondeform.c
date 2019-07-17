@@ -55,6 +55,8 @@
 
 static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
 {
+  bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
+
   FnType float_ty = FN_type_borrow_float();
   FnType int32_ty = FN_type_borrow_int32();
   FnType float3_ty = FN_type_borrow_float3();
@@ -62,7 +64,7 @@ static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
   FnType inputs[] = {float3_ty, int32_ty, float_ty, NULL};
   FnType outputs[] = {float3_ty, NULL};
 
-  return FN_function_get_with_signature(fdmd->function_tree, inputs, outputs);
+  return FN_function_get_with_signature(tree, inputs, outputs);
 }
 
 static void do_deformation(FunctionDeformModifierData *fdmd, float (*vertexCos)[3], int numVerts)
