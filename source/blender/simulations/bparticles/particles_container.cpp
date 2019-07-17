@@ -168,6 +168,14 @@ void ParticlesContainer::flatten_attribute_data(StringRef attribute_name, void *
   }
 }
 
+SmallVector<float> ParticlesContainer::flatten_attribute_float(StringRef attribute_name)
+{
+  BLI_assert(m_attributes_info.type_of(attribute_name) == AttributeType::Float);
+  SmallVector<float> result(this->count_active());
+  this->flatten_attribute_data(attribute_name, (void *)result.begin());
+  return result;
+}
+
 SmallVector<float3> ParticlesContainer::flatten_attribute_float3(StringRef attribute_name)
 {
   BLI_assert(m_attributes_info.type_of(attribute_name) == AttributeType::Float3);

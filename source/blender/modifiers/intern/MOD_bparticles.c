@@ -109,12 +109,6 @@ static Mesh *applyModifier(ModifierData *md,
   Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
   float current_frame = BKE_scene_frame_get(scene);
 
-  for (uint i = 0; i < bpmd_orig->num_cached_frames; i++) {
-    if (bpmd_orig->cached_frames[i].frame == current_frame) {
-      return BParticles_modifier_mesh_from_cache(&bpmd_orig->cached_frames[i]);
-    }
-  }
-
   RuntimeData *runtime = get_runtime_struct(bpmd);
 
   if (runtime->particles_state == NULL) {
@@ -143,9 +137,7 @@ static Mesh *applyModifier(ModifierData *md,
     runtime->last_simulated_frame = current_frame;
   }
 
-  BParticles_modifier_cache_state(bpmd_orig, runtime->particles_state, current_frame);
-  return BParticles_modifier_mesh_from_cache(
-      &bpmd_orig->cached_frames[bpmd_orig->num_cached_frames - 1]);
+  return BParticles_modifier_mesh_from_state(runtime->particles_state);
 }
 
 static void initData(ModifierData *UNUSED(md))

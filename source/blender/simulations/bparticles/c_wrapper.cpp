@@ -173,6 +173,8 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers,
                                     ArrayRef<float> scales,
                                     ArrayRef<float3> colors)
 {
+  SCOPED_TIMER(__func__);
+
   uint amount = centers.size();
   Mesh *mesh = BKE_mesh_new_nomain(amount * ARRAY_SIZE(tetrahedon_vertices),
                                    amount * ARRAY_SIZE(tetrahedon_edges),
@@ -224,6 +226,26 @@ void BParticles_modifier_free_cache(BParticlesModifierData *bpmd)
   bpmd->num_cached_frames = 0;
 }
 
+Mesh *BParticles_modifier_mesh_from_state(BParticlesState state_c)
+{
+  SCOPED_TIMER(__func__);
+
+  ParticlesState &state = *unwrap(state_c);
+
+  SmallVector<float3> positions;
+  SmallVector<float> sizes;
+  SmallVector<float3> colors;
+
+  for (ParticlesContainer *container : state.particle_containers().values()) {
+    positions.extend(container->flatten_attribute_float3("Position"));
+    colors.extend(container->flatten_attribute_float3("Color"));
+    sizes.extend(container->flatten_attribute_float("Size"));
+  }
+
+  Mesh *mesh = distribute_tetrahedons(positions, sizes, colors);
+  return mesh;
+}
+
 Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
 {
   SCOPED_TIMER(__func__);
@@ -231,11 +253,9 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
   SmallVector<float3> positions;
   SmallVector<float> sizes;
   SmallVector<float3> colors;
-  SmallVector<uint> particle_counts;
 
   for (uint i = 0; i < cached_frame->num_particle_types; i++) {
     BParticlesTypeCache &type = cached_frame->particle_types[i];
-    particle_counts.append(type.particle_amount);
     positions.extend(
         ArrayRef<float3>((float3 *)type.attributes_float[0].values, type.particle_amount));
     sizes.extend(ArrayRef<float>(type.attributes_float[1].values, type.particle_amount));
