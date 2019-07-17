@@ -222,9 +222,31 @@ static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(BuildContext &ctx, bNod
 
 static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx, bNode *bnode)
 {
-  FN::SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
   auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
   return std::unique_ptr<Event>(new AgeReachedEvent(bnode->name, fn, std::move(action)));
+}
+
+static std::unique_ptr<Event> BUILD_EVENT_close_by_points(BuildContext &ctx, bNode *bnode)
+{
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+  auto action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
+
+  TupleCallBody *body = fn->body<TupleCallBody>();
+  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+  body->call__setup_execution_context(fn_in, fn_out);
+
+  auto vectors = fn_out.relocate_out<FN::Types::SharedFloat3List>(0);
+  float distance = body->get_output<float>(fn_out, 1, "Distance");
+
+  KDTree_3d *kdtree = BLI_kdtree_3d_new(vectors->size());
+  for (float3 vector : *vectors.ptr()) {
+    BLI_kdtree_3d_insert(kdtree, 0, vector);
+  }
+  BLI_kdtree_3d_balance(kdtree);
+
+  return std::unique_ptr<Event>(
+      new CloseByPointsEvent(bnode->name, kdtree, distance, std::move(action)));
 }
 
 static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
@@ -241,6 +263,9 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
   auto on_birth_action = build_action(ctx, {bSocketList(bnode->outputs).get(0), bnode});
 
   Object *object = body->get_output<Object *>(fn_out, 0, "Object");
+  if (object == nullptr) {
+    return {};
+  }
   InterpolatedFloat4x4 transform = ctx.world_state.get_interpolated_value(bnode->name,
                                                                           object->obmat);
 
@@ -366,6 +391,7 @@ BLI_LAZY_INIT(StringMap<EventFromNodeCallback>, get_event_builders)
   StringMap<EventFromNodeCallback> map;
   map.add_new("bp_MeshCollisionEventNode", BUILD_EVENT_mesh_collision);
   map.add_new("bp_AgeReachedEventNode", BUILD_EVENT_age_reached);
+  map.add_new("bp_CloseByPointsEventNode", BUILD_EVENT_close_by_points);
   return map;
 }
 
