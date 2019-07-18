@@ -937,7 +937,7 @@ inline ArrayRef<float> OffsetHandlerInterface::durations()
 
 inline TimeSpan OffsetHandlerInterface::time_span(uint pindex)
 {
-  float duration = m_step_data.remaining_durations[pindex];
+  float duration = m_step_data.remaining_durations[pindex] * m_time_factors[pindex];
   return TimeSpan(m_step_data.step_end_time - duration, duration);
 }
 

@@ -59,11 +59,14 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
   SmallVector<float3> new_positions;
   SmallVector<float> new_birth_times;
   for (uint pindex : particles.pindices()) {
+    float time_factor = interface.time_factors()[pindex];
     TimeSpan time_span = interface.time_span(pindex);
     float current_time = frequency * (std::floor(time_span.start() / frequency) + 1.0f);
+
+    float3 total_offset = position_offsets[pindex] * time_factor;
     while (current_time < time_span.end()) {
       float factor = time_span.get_factor_safe(current_time);
-      new_positions.append(positions[pindex] + position_offsets[pindex] * factor);
+      new_positions.append(positions[pindex] + total_offset * factor);
       new_birth_times.append(current_time);
       current_time += frequency;
     }

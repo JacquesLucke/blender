@@ -539,7 +539,7 @@ BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
 
   for (std::string type_name : description.particle_types().keys()) {
     if (!containers.contains(type_name)) {
-      ParticlesContainer *container = new ParticlesContainer({}, 100);
+      ParticlesContainer *container = new ParticlesContainer({}, 1000);
       containers.add_new(type_name, container);
     }
   }
