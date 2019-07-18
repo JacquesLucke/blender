@@ -46,14 +46,27 @@ void TurbulenceForce::add_force(ParticlesBlock &block, ArrayRef<float3> r_force)
 
 void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
 {
+  if (m_rate <= 0.0f) {
+    return;
+  }
+
   ParticleSet particles = interface.particles();
   auto positions = particles.attributes().get_float3("Position");
+  auto position_offsets = interface.offsets().get_float3("Position");
+
+  float frequency = 1.0f / m_rate;
 
   SmallVector<float3> new_positions;
   SmallVector<float> new_birth_times;
   for (uint pindex : particles.pindices()) {
-    new_positions.append(positions[pindex]);
-    new_birth_times.append(interface.time_span(pindex).start());
+    TimeSpan time_span = interface.time_span(pindex);
+    float current_time = frequency * (std::floor(time_span.start() / frequency) + 1.0f);
+    while (current_time < time_span.end()) {
+      float factor = time_span.get_factor_safe(current_time);
+      new_positions.append(positions[pindex] + position_offsets[pindex] * factor);
+      new_birth_times.append(current_time);
+      current_time += frequency;
+    }
   }
 
   auto new_particles = interface.particle_allocator().request(m_particle_type_name,

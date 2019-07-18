@@ -403,8 +403,15 @@ static std::unique_ptr<OffsetHandler> BUILD_OFFSET_HANDLER_trails(BuildContext &
   char name[65];
   RNA_string_get(&rna, "particle_type_name", name);
 
+  SharedFunction fn = create_function_for_data_inputs(bnode, ctx.indexed_tree, ctx.data_graph);
+  TupleCallBody *body = fn->body<TupleCallBody>();
+  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+  body->call__setup_execution_context(fn_in, fn_out);
+  float rate = body->get_output<float>(fn_out, 0, "Rate");
+  rate = std::max(rate, 0.0f);
+
   if (ctx.step_builder.has_type(name)) {
-    return std::unique_ptr<OffsetHandler>(new CreateTrailHandler(name));
+    return std::unique_ptr<OffsetHandler>(new CreateTrailHandler(name, rate));
   }
   else {
     return {};
