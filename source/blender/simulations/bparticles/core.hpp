@@ -131,24 +131,32 @@ class OffsetHandler {
  */
 class ParticleType {
  public:
-  virtual ~ParticleType();
+  SmallVector<Event *> m_events;
+  SmallVector<OffsetHandler *> m_offset_handlers;
+  Integrator *m_integrator;
+  AttributesDeclaration m_attributes;
 
-  /**
-   * Return the integrator to be used with particles of this type.
-   */
-  virtual Integrator &integrator() = 0;
+  ~ParticleType();
 
-  virtual ArrayRef<OffsetHandler *> offset_handlers();
+  Integrator &integrator()
+  {
+    return *m_integrator;
+  }
 
-  /**
-   * Return the events that particles of this type can trigger.
-   */
-  virtual ArrayRef<Event *> events();
+  ArrayRef<OffsetHandler *> offset_handlers()
+  {
+    return m_offset_handlers;
+  }
 
-  /**
-   * Allows to define which attributes should exist for the type.
-   */
-  virtual AttributesDeclaration &attributes() = 0;
+  ArrayRef<Event *> events()
+  {
+    return m_events;
+  }
+
+  AttributesDeclaration &attributes()
+  {
+    return m_attributes;
+  }
 };
 
 /**

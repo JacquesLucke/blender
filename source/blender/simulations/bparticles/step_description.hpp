@@ -4,43 +4,6 @@
 
 namespace BParticles {
 
-class ModifierParticleType : public ParticleType {
- public:
-  SmallVector<Event *> m_events;
-  SmallVector<OffsetHandler *> m_offset_handlers;
-  Integrator *m_integrator;
-  AttributesDeclaration m_attributes;
-
-  ~ModifierParticleType()
-  {
-    delete m_integrator;
-
-    for (Event *event : m_events) {
-      delete event;
-    }
-  }
-
-  ArrayRef<Event *> events() override
-  {
-    return m_events;
-  }
-
-  ArrayRef<OffsetHandler *> offset_handlers() override
-  {
-    return m_offset_handlers;
-  }
-
-  Integrator &integrator() override
-  {
-    return *m_integrator;
-  }
-
-  AttributesDeclaration &attributes() override
-  {
-    return m_attributes;
-  }
-};
-
 class ModifierStepDescription : public StepDescription {
  public:
   float m_duration;
@@ -106,7 +69,7 @@ class ParticleTypeBuilder {
   ParticleType *build()
   {
     BLI_assert(m_integrator);
-    ModifierParticleType *type = new ModifierParticleType();
+    ParticleType *type = new ParticleType();
     type->m_integrator = m_integrator;
     type->m_events = m_events;
     type->m_offset_handlers = m_offset_handlers;

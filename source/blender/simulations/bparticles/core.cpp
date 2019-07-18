@@ -24,16 +24,14 @@ OffsetHandler::~OffsetHandler()
 
 ParticleType::~ParticleType()
 {
-}
+  delete m_integrator;
 
-ArrayRef<OffsetHandler *> ParticleType::offset_handlers()
-{
-  return {};
-}
-
-ArrayRef<Event *> ParticleType::events()
-{
-  return {};
+  for (Event *event : m_events) {
+    delete event;
+  }
+  for (OffsetHandler *handler : m_offset_handlers) {
+    delete handler;
+  }
 }
 
 StepDescription::~StepDescription()
