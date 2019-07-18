@@ -4,38 +4,6 @@
 
 namespace BParticles {
 
-class ModifierStepDescription : public StepDescription {
- public:
-  float m_duration;
-  StringMap<ParticleType *> m_types;
-  SmallVector<Emitter *> m_emitters;
-
-  ~ModifierStepDescription()
-  {
-    for (auto *type : m_types.values()) {
-      delete type;
-    }
-    for (Emitter *emitter : m_emitters) {
-      delete emitter;
-    }
-  }
-
-  float step_duration() override
-  {
-    return m_duration;
-  }
-
-  ArrayRef<Emitter *> emitters() override
-  {
-    return m_emitters;
-  }
-
-  StringMap<ParticleType *> &particle_types() override
-  {
-    return m_types;
-  }
-};
-
 class ParticleTypeBuilder {
  private:
   Integrator *m_integrator;
@@ -110,7 +78,7 @@ class StepDescriptionBuilder {
 
   std::unique_ptr<StepDescription> build(float duration)
   {
-    ModifierStepDescription *step_description = new ModifierStepDescription();
+    StepDescription *step_description = new StepDescription();
     step_description->m_duration = duration;
     step_description->m_emitters = m_emitters;
     for (auto item : m_type_builders.items()) {

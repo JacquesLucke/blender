@@ -164,19 +164,26 @@ class ParticleType {
  */
 class StepDescription {
  public:
-  virtual ~StepDescription();
+  float m_duration;
+  StringMap<ParticleType *> m_types;
+  SmallVector<Emitter *> m_emitters;
 
-  /**
-   * Return how many seconds the this time step takes.
-   */
-  virtual float step_duration() = 0;
+  ~StepDescription();
 
-  /**
-   * Return the emitters that might emit particles in this time step.
-   */
-  virtual ArrayRef<Emitter *> emitters() = 0;
+  float step_duration()
+  {
+    return m_duration;
+  }
 
-  virtual StringMap<ParticleType *> &particle_types() = 0;
+  ArrayRef<Emitter *> emitters()
+  {
+    return m_emitters;
+  }
+
+  StringMap<ParticleType *> &particle_types()
+  {
+    return m_types;
+  }
 };
 
 /* Classes used by the interface

@@ -36,6 +36,12 @@ ParticleType::~ParticleType()
 
 StepDescription::~StepDescription()
 {
+  for (auto *type : m_types.values()) {
+    delete type;
+  }
+  for (Emitter *emitter : m_emitters) {
+    delete emitter;
+  }
 }
 
 ParticlesState::~ParticlesState()
