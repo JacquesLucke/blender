@@ -318,18 +318,14 @@ void ParticleSets::fill_float3(StringRef name, float3 value)
 /* EventFilterInterface
  *****************************************/
 
-EventFilterInterface::EventFilterInterface(ParticleSet particles,
-                                           AttributeArrays &attribute_offsets,
-                                           ArrayRef<float> durations,
-                                           float end_time,
+EventFilterInterface::EventFilterInterface(BlockStepData &step_data,
+                                           ParticleSet particles,
                                            ArrayRef<float> known_min_time_factors,
                                            EventStorage &r_event_storage,
                                            SmallVector<uint> &r_filtered_pindices,
                                            SmallVector<float> &r_filtered_time_factors)
-    : m_particles(particles),
-      m_attribute_offsets(attribute_offsets),
-      m_durations(durations),
-      m_end_time(end_time),
+    : m_step_data(step_data),
+      m_particles(particles),
       m_known_min_time_factors(known_min_time_factors),
       m_event_storage(r_event_storage),
       m_filtered_pindices(r_filtered_pindices),
@@ -340,20 +336,14 @@ EventFilterInterface::EventFilterInterface(ParticleSet particles,
 /* EventExecuteInterface
  *************************************************/
 
-EventExecuteInterface::EventExecuteInterface(ParticleSet particles,
-                                             ParticleAllocator &particle_allocator,
-                                             ArrayAllocator &array_allocator,
+EventExecuteInterface::EventExecuteInterface(BlockStepData &step_data,
+                                             ParticleSet particles,
                                              ArrayRef<float> current_times,
-                                             ArrayRef<float> remaining_times,
-                                             EventStorage &event_storage,
-                                             AttributeArrays attribute_offsets)
-    : m_particles(particles),
-      m_particle_allocator(particle_allocator),
-      m_array_allocator(array_allocator),
+                                             EventStorage &event_storage)
+    : m_step_data(step_data),
+      m_particles(particles),
       m_current_times(current_times),
-      m_remaining_times(remaining_times),
-      m_event_storage(event_storage),
-      m_attribute_offsets(attribute_offsets)
+      m_event_storage(event_storage)
 {
 }
 
@@ -374,18 +364,10 @@ IntegratorInterface::IntegratorInterface(ParticlesBlock &block,
 /* ForwardingListenerInterface
  ****************************************************/
 
-ForwardingListenerInterface::ForwardingListenerInterface(ParticleSet &particles,
-                                                         ParticleAllocator &particle_allocator,
-                                                         AttributeArrays offsets,
-                                                         float step_end_time,
-                                                         ArrayRef<float> durations,
+ForwardingListenerInterface::ForwardingListenerInterface(BlockStepData &step_data,
+                                                         ParticleSet &particles,
                                                          ArrayRef<float> time_factors)
-    : m_particles(particles),
-      m_particle_allocator(particle_allocator),
-      m_offsets(offsets),
-      m_step_end_time(step_end_time),
-      m_durations(durations),
-      m_time_factors(time_factors)
+    : m_step_data(step_data), m_particles(particles), m_time_factors(time_factors)
 {
 }
 

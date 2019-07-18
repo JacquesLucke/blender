@@ -13,16 +13,6 @@ namespace BParticles {
 
 using BLI::VectorAdaptor;
 
-struct BlockStepData {
-  ArrayAllocator &array_allocator;
-  ParticleAllocator &particle_allocator;
-  ParticlesBlock &block;
-  ParticleType &particle_type;
-  AttributeArrays attribute_offsets;
-  ArrayRef<float> remaining_durations;
-  float step_end_time;
-};
-
 static uint get_max_event_storage_size(ArrayRef<Event *> events)
 {
   uint max_size = 0;
@@ -49,10 +39,8 @@ BLI_NOINLINE static void find_next_event_per_particle(BlockStepData &step_data,
     SmallVector<float> triggered_time_factors;
 
     Event *event = events[event_index];
-    EventFilterInterface interface(particles,
-                                   step_data.attribute_offsets,
-                                   step_data.remaining_durations,
-                                   step_data.step_end_time,
+    EventFilterInterface interface(step_data,
+                                   particles,
                                    r_time_factors_to_next_event,
                                    r_event_storage,
                                    triggered_pindices,
@@ -79,18 +67,12 @@ BLI_NOINLINE static void find_next_event_per_particle(BlockStepData &step_data,
 BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     BlockStepData &step_data, ParticleSet particles, ArrayRef<float> time_factors_to_next_event)
 {
-  auto attribute_offsets = step_data.attribute_offsets;
-
-  ForwardingListenerInterface interface(particles,
-                                        step_data.particle_allocator,
-                                        attribute_offsets,
-                                        step_data.step_end_time,
-                                        step_data.remaining_durations,
-                                        time_factors_to_next_event);
+  ForwardingListenerInterface interface(step_data, particles, time_factors_to_next_event);
   for (ForwardingListener *listener : step_data.particle_type.forwarding_listeners()) {
     listener->listen(interface);
   }
 
+  auto attribute_offsets = step_data.attribute_offsets;
   for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
@@ -189,13 +171,7 @@ BLI_NOINLINE static void execute_events(BlockStepData &step_data,
       continue;
     }
 
-    EventExecuteInterface interface(particles,
-                                    step_data.particle_allocator,
-                                    step_data.array_allocator,
-                                    current_times,
-                                    step_data.remaining_durations,
-                                    event_storage,
-                                    step_data.attribute_offsets);
+    EventExecuteInterface interface(step_data, particles, current_times, event_storage);
     event->execute(interface);
   }
 }
@@ -315,12 +291,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Parti
       time_factors[pindex] = 1.0f;
     }
 
-    ForwardingListenerInterface interface(particles,
-                                          step_data.particle_allocator,
-                                          step_data.attribute_offsets,
-                                          step_data.step_end_time,
-                                          step_data.remaining_durations,
-                                          time_factors);
+    ForwardingListenerInterface interface(step_data, particles, time_factors);
     for (ForwardingListener *listener : step_data.particle_type.forwarding_listeners()) {
       listener->listen(interface);
     }

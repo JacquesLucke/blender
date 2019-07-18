@@ -397,6 +397,16 @@ class EmitterInterface {
   bool is_first_step();
 };
 
+struct BlockStepData {
+  ArrayAllocator &array_allocator;
+  ParticleAllocator &particle_allocator;
+  ParticlesBlock &block;
+  ParticleType &particle_type;
+  AttributeArrays attribute_offsets;
+  ArrayRef<float> remaining_durations;
+  float step_end_time;
+};
+
 /**
  * Utility array wrapper that can hold different kinds of plain-old-data values.
  */
@@ -420,10 +430,8 @@ class EventStorage {
  */
 class EventFilterInterface {
  private:
+  BlockStepData &m_step_data;
   ParticleSet m_particles;
-  AttributeArrays &m_attribute_offsets;
-  ArrayRef<float> m_durations;
-  float m_end_time;
   ArrayRef<float> m_known_min_time_factors;
 
   EventStorage &m_event_storage;
@@ -434,10 +442,8 @@ class EventFilterInterface {
   char m_dummy_event_storage[64];
 
  public:
-  EventFilterInterface(ParticleSet particles,
-                       AttributeArrays &attribute_offsets,
-                       ArrayRef<float> durations,
-                       float end_time,
+  EventFilterInterface(BlockStepData &step_data,
+                       ParticleSet particles,
                        ArrayRef<float> known_min_time_factors,
                        EventStorage &r_event_storage,
                        SmallVector<uint> &r_filtered_pindices,
@@ -487,22 +493,16 @@ class EventFilterInterface {
  */
 class EventExecuteInterface {
  private:
+  BlockStepData &m_step_data;
   ParticleSet m_particles;
-  ParticleAllocator &m_particle_allocator;
-  ArrayAllocator &m_array_allocator;
   ArrayRef<float> m_current_times;
-  ArrayRef<float> m_remaining_times;
   EventStorage &m_event_storage;
-  AttributeArrays m_attribute_offsets;
 
  public:
-  EventExecuteInterface(ParticleSet particles,
-                        ParticleAllocator &particle_allocator,
-                        ArrayAllocator &array_allocator,
+  EventExecuteInterface(BlockStepData &step_data,
+                        ParticleSet particles,
                         ArrayRef<float> current_times,
-                        ArrayRef<float> remaining_times,
-                        EventStorage &event_storage,
-                        AttributeArrays attribute_offsets);
+                        EventStorage &event_storage);
 
   ~EventExecuteInterface() = default;
 
@@ -516,7 +516,7 @@ class EventExecuteInterface {
    */
   ArrayRef<float> current_times();
 
-  ArrayRef<float> remaining_times();
+  ArrayRef<float> remaining_durations();
 
   /**
    * Get the data stored in the Event->filter() function for a particle index.
@@ -586,19 +586,13 @@ class IntegratorInterface {
 
 class ForwardingListenerInterface {
  private:
+  BlockStepData &m_step_data;
   ParticleSet m_particles;
-  ParticleAllocator &m_particle_allocator;
-  AttributeArrays m_offsets;
-  float m_step_end_time;
-  ArrayRef<float> m_durations;
   ArrayRef<float> m_time_factors;
 
  public:
-  ForwardingListenerInterface(ParticleSet &particles,
-                              ParticleAllocator &particle_allocator,
-                              AttributeArrays offsets,
-                              float step_end_time,
-                              ArrayRef<float> durations,
+  ForwardingListenerInterface(BlockStepData &step_data,
+                              ParticleSet &particles,
                               ArrayRef<float> time_factors);
 
   ParticleSet &particles();
@@ -790,23 +784,23 @@ inline ParticleSet &EventFilterInterface::particles()
 
 inline ArrayRef<float> EventFilterInterface::durations()
 {
-  return m_durations;
+  return m_step_data.remaining_durations;
 }
 
 inline TimeSpan EventFilterInterface::time_span(uint pindex)
 {
-  float duration = m_durations[pindex];
-  return TimeSpan(m_end_time - duration, duration);
+  float duration = m_step_data.remaining_durations[pindex];
+  return TimeSpan(m_step_data.step_end_time - duration, duration);
 }
 
 inline AttributeArrays EventFilterInterface::attribute_offsets()
 {
-  return m_attribute_offsets;
+  return m_step_data.attribute_offsets;
 }
 
 inline float EventFilterInterface::end_time()
 {
-  return m_end_time;
+  return m_step_data.step_end_time;
 }
 
 inline void EventFilterInterface::trigger_particle(uint pindex, float time_factor)
@@ -840,12 +834,12 @@ inline T &EventFilterInterface::trigger_particle(uint pindex, float time_factor)
 
 inline ParticleAllocator &EventExecuteInterface::particle_allocator()
 {
-  return m_particle_allocator;
+  return m_step_data.particle_allocator;
 }
 
 inline ArrayAllocator &EventExecuteInterface::array_allocator()
 {
-  return m_array_allocator;
+  return m_step_data.array_allocator;
 }
 
 inline EventStorage &EventExecuteInterface::event_storage()
@@ -863,9 +857,9 @@ inline ArrayRef<float> EventExecuteInterface::current_times()
   return m_current_times;
 }
 
-inline ArrayRef<float> EventExecuteInterface::remaining_times()
+inline ArrayRef<float> EventExecuteInterface::remaining_durations()
 {
-  return m_remaining_times;
+  return m_step_data.remaining_durations;
 }
 
 template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)
@@ -877,7 +871,7 @@ template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)
 
 inline AttributeArrays EventExecuteInterface::attribute_offsets()
 {
-  return m_attribute_offsets;
+  return m_step_data.attribute_offsets;
 }
 
 /* IntegratorInterface inline functions
@@ -908,12 +902,12 @@ inline ParticleSet &ForwardingListenerInterface::particles()
 
 inline ParticleAllocator &ForwardingListenerInterface::particle_allocator()
 {
-  return m_particle_allocator;
+  return m_step_data.particle_allocator;
 }
 
 inline AttributeArrays &ForwardingListenerInterface::offsets()
 {
-  return m_offsets;
+  return m_step_data.attribute_offsets;
 }
 
 inline ArrayRef<float> ForwardingListenerInterface::time_factors()
@@ -923,18 +917,18 @@ inline ArrayRef<float> ForwardingListenerInterface::time_factors()
 
 inline float ForwardingListenerInterface::step_end_time()
 {
-  return m_step_end_time;
+  return m_step_data.step_end_time;
 }
 
 inline ArrayRef<float> ForwardingListenerInterface::durations()
 {
-  return m_durations;
+  return m_step_data.remaining_durations;
 }
 
 inline TimeSpan ForwardingListenerInterface::time_span(uint pindex)
 {
-  float duration = m_durations[pindex];
-  return TimeSpan(m_step_end_time - duration, duration);
+  float duration = m_step_data.remaining_durations[pindex];
+  return TimeSpan(m_step_data.step_end_time - duration, duration);
 }
 
 }  // namespace BParticles
