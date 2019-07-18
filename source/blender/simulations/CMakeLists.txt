@@ -43,6 +43,8 @@ set(SRC
   bparticles/inserters.cpp
   bparticles/node_frontend.hpp
   bparticles/node_frontend.cpp
+  bparticles/particle_set.hpp
+  bparticles/particle_set.cpp
 )
 
 set(LIB
