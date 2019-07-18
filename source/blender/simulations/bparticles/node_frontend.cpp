@@ -29,19 +29,19 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
                                                                  WorldState &world_state,
                                                                  float time_step)
 {
-  ModifierStepDescription *step_description = new ModifierStepDescription();
+  StepDescriptionBuilder step_builder;
+  StringMap<EulerIntegrator *> euler_integrators;
 
   for (bNode *particle_type_node : indexed_tree.nodes_with_idname("bp_ParticleTypeNode")) {
-    ModifierParticleType *type = new ModifierParticleType();
-    type->m_integrator = new EulerIntegrator();
-
-    std::string type_name = particle_type_node->name;
-    step_description->m_types.add_new(type_name, type);
+    auto &type_builder = step_builder.add_type(particle_type_node->name);
+    EulerIntegrator *integrator = new EulerIntegrator();
+    euler_integrators.add_new(particle_type_node->name, integrator);
+    type_builder.set_integrator(integrator);
   }
 
   auto data_graph = FN::DataFlowNodes::generate_graph(indexed_tree).value();
 
-  BuildContext ctx = {indexed_tree, data_graph, *step_description, world_state};
+  BuildContext ctx = {indexed_tree, data_graph, step_builder, world_state};
 
   for (auto item : get_force_builders().items()) {
     for (bNode *bnode : indexed_tree.nodes_with_idname(item.key)) {
@@ -50,9 +50,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
         if (is_particle_type_node(linked.node)) {
           auto force = item.value(ctx, bnode);
           if (force) {
-            EulerIntegrator &integrator = reinterpret_cast<EulerIntegrator &>(
-                step_description->m_types.lookup_ref(linked.node->name)->integrator());
-            integrator.add_force(std::move(force));
+            euler_integrators.lookup(linked.node->name)->add_force(std::move(force));
           }
         }
       }
@@ -66,9 +64,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
         if (is_particle_type_node(linked.node)) {
           auto listener = item.value(ctx, bnode);
           if (listener) {
-            ModifierParticleType &particle_type =
-                *(ModifierParticleType *)step_description->m_types.lookup(linked.node->name);
-            particle_type.m_offset_handlers.append(listener.release());
+            step_builder.get_type(linked.node->name).add_offset_handler(std::move(listener));
           }
         }
       }
@@ -82,9 +78,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
         if (is_particle_type_node(linked.node)) {
           auto event = item.value(ctx, bnode);
           if (event) {
-            ModifierParticleType &particle_type =
-                *(ModifierParticleType *)step_description->m_types.lookup(linked.node->name);
-            particle_type.m_events.append(event.release());
+            step_builder.get_type(linked.node->name).add_event(std::move(event));
           }
         }
       }
@@ -98,15 +92,14 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
         if (is_particle_type_node(linked.node)) {
           auto emitter = item.value(ctx, bnode, linked.node->name);
           if (emitter) {
-            step_description->m_emitters.append(emitter.release());
+            step_builder.add_emitter(std::move(emitter));
           }
         }
       }
     }
   }
 
-  step_description->m_duration = time_step;
-  return std::unique_ptr<StepDescription>(step_description);
+  return step_builder.build(time_step);
 }
 
 }  // namespace BParticles

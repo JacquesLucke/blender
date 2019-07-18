@@ -141,7 +141,7 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx, bNode *bn
 
   auto post_action = build_action(ctx, {node_outputs.get(0), bnode});
 
-  if (ctx.step_description.m_types.contains(name)) {
+  if (ctx.step_builder.has_type(name)) {
     return std::unique_ptr<Action>(new ExplodeAction(name, particle_fn, std::move(post_action)));
   }
   else {
@@ -403,7 +403,7 @@ static std::unique_ptr<OffsetHandler> BUILD_OFFSET_HANDLER_trails(BuildContext &
   char name[65];
   RNA_string_get(&rna, "particle_type_name", name);
 
-  if (ctx.step_description.m_types.contains(name)) {
+  if (ctx.step_builder.has_type(name)) {
     return std::unique_ptr<OffsetHandler>(new CreateTrailHandler(name));
   }
   else {

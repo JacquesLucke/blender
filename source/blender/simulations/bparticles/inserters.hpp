@@ -21,7 +21,7 @@ using FN::DataFlowNodes::BTreeDataGraph;
 struct BuildContext {
   IndexedNodeTree &indexed_tree;
   BTreeDataGraph &data_graph;
-  ModifierStepDescription &step_description;
+  StepDescriptionBuilder &step_builder;
   WorldState &world_state;
 };
 
