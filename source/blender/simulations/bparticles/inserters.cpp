@@ -14,6 +14,7 @@
 #include "events.hpp"
 #include "forces.hpp"
 #include "integrator.hpp"
+#include "offset_handlers.hpp"
 
 namespace BParticles {
 
