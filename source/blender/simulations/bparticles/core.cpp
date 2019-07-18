@@ -337,11 +337,11 @@ EventFilterInterface::EventFilterInterface(BlockStepData &step_data,
  *************************************************/
 
 EventExecuteInterface::EventExecuteInterface(BlockStepData &step_data,
-                                             ParticleSet particles,
+                                             ArrayRef<uint> pindices,
                                              ArrayRef<float> current_times,
                                              EventStorage &event_storage)
     : m_step_data(step_data),
-      m_particles(particles),
+      m_pindices(pindices),
       m_current_times(current_times),
       m_event_storage(event_storage)
 {

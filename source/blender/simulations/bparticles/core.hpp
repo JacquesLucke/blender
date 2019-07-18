@@ -494,13 +494,13 @@ class EventFilterInterface {
 class EventExecuteInterface {
  private:
   BlockStepData &m_step_data;
-  ParticleSet m_particles;
+  ArrayRef<uint> m_pindices;
   ArrayRef<float> m_current_times;
   EventStorage &m_event_storage;
 
  public:
   EventExecuteInterface(BlockStepData &step_data,
-                        ParticleSet particles,
+                        ArrayRef<uint> pindices,
                         ArrayRef<float> current_times,
                         EventStorage &event_storage);
 
@@ -509,7 +509,7 @@ class EventExecuteInterface {
   /**
    * Access the set of particles that should be modified by this event.
    */
-  ParticleSet &particles();
+  ParticleSet particles();
 
   /**
    * Get the time at which every particle is modified by this event.
@@ -847,9 +847,9 @@ inline EventStorage &EventExecuteInterface::event_storage()
   return m_event_storage;
 }
 
-inline ParticleSet &EventExecuteInterface::particles()
+inline ParticleSet EventExecuteInterface::particles()
 {
-  return m_particles;
+  return ParticleSet(m_step_data.block, m_pindices);
 }
 
 inline ArrayRef<float> EventExecuteInterface::current_times()

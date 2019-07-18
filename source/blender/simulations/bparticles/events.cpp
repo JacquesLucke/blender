@@ -115,7 +115,7 @@ MeshCollisionEvent::RayCastResult MeshCollisionEvent::ray_cast(float3 start,
 
 void MeshCollisionEvent::execute(EventExecuteInterface &interface)
 {
-  ParticleSet &particles = interface.particles();
+  ParticleSet particles = interface.particles();
   SmallVector<float3> normals(particles.block().active_amount());
   auto last_collision_times = particles.attributes().get_float(m_identifier);
 

@@ -168,12 +168,13 @@ BLI_NOINLINE static void execute_events(BlockStepData &step_data,
 
   for (uint event_index = 0; event_index < events.size(); event_index++) {
     Event *event = events[event_index];
-    ParticleSet particles(step_data.block, pindices_per_event[event_index]);
-    if (particles.size() == 0) {
+    ArrayRef<uint> pindices = pindices_per_event[event_index];
+
+    if (pindices.size() == 0) {
       continue;
     }
 
-    EventExecuteInterface interface(step_data, particles, current_times, event_storage);
+    EventExecuteInterface interface(step_data, pindices, current_times, event_storage);
     event->execute(interface);
   }
 }
