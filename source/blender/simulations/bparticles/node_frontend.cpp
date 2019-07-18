@@ -1,3 +1,5 @@
+#include "BLI_timeit.hpp"
+
 #include "node_frontend.hpp"
 #include "inserters.hpp"
 #include "integrator.hpp"
@@ -29,6 +31,8 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
                                                                  WorldState &world_state,
                                                                  float time_step)
 {
+  SCOPED_TIMER(__func__);
+
   StepDescriptionBuilder step_builder;
   StringMap<EulerIntegrator *> euler_integrators;
 
