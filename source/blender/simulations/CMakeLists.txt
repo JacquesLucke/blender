@@ -16,8 +16,6 @@ set(INC_SYS
 set(SRC
   BParticles.h
 
-  bparticles/core.hpp
-  bparticles/core.cpp
   bparticles/particles_container.hpp
   bparticles/particles_container.cpp
   bparticles/simulate.hpp
@@ -36,6 +34,9 @@ set(SRC
   bparticles/attributes.cpp
   bparticles/c_wrapper.cpp
   bparticles/step_description.hpp
+  bparticles/step_description.cpp
+  bparticles/step_description_interfaces.hpp
+  bparticles/step_description_interfaces.cpp
   bparticles/world_state.hpp
   bparticles/integrator.hpp
   bparticles/integrator.cpp

@@ -1,51 +1,6 @@
-#include "core.hpp"
+#include "step_description_interfaces.hpp"
 
 namespace BParticles {
-
-Emitter::~Emitter()
-{
-}
-
-Integrator::~Integrator()
-{
-}
-
-Event::~Event()
-{
-}
-
-void Event::attributes(AttributesDeclaration &UNUSED(interface))
-{
-}
-
-OffsetHandler::~OffsetHandler()
-{
-}
-
-ParticleType::~ParticleType()
-{
-  delete m_integrator;
-
-  for (Event *event : m_events) {
-    delete event;
-  }
-  for (OffsetHandler *handler : m_offset_handlers) {
-    delete handler;
-  }
-}
-
-StepDescription::~StepDescription()
-{
-  for (auto *type : m_types.values()) {
-    delete type;
-  }
-  for (Emitter *emitter : m_emitters) {
-    delete emitter;
-  }
-}
-
-/* Emitter Interface
- ******************************************/
 
 EmitterInterface::EmitterInterface(ParticleAllocator &particle_allocator,
                                    ArrayAllocator &array_allocator,
@@ -55,9 +10,6 @@ EmitterInterface::EmitterInterface(ParticleAllocator &particle_allocator,
       m_time_span(time_span)
 {
 }
-
-/* EventFilterInterface
- *****************************************/
 
 EventFilterInterface::EventFilterInterface(BlockStepData &step_data,
                                            ArrayRef<uint> pindices,
@@ -74,9 +26,6 @@ EventFilterInterface::EventFilterInterface(BlockStepData &step_data,
 {
 }
 
-/* EventExecuteInterface
- *************************************************/
-
 EventExecuteInterface::EventExecuteInterface(BlockStepData &step_data,
                                              ArrayRef<uint> pindices,
                                              ArrayRef<float> current_times,
@@ -88,9 +37,6 @@ EventExecuteInterface::EventExecuteInterface(BlockStepData &step_data,
 {
 }
 
-/* IntegratorInterface
- ***************************************************/
-
 IntegratorInterface::IntegratorInterface(ParticlesBlock &block,
                                          ArrayRef<float> durations,
                                          ArrayAllocator &array_allocator,
@@ -101,9 +47,6 @@ IntegratorInterface::IntegratorInterface(ParticlesBlock &block,
       m_offsets(r_offsets)
 {
 }
-
-/* OffsetHandlerInterface
- ****************************************************/
 
 OffsetHandlerInterface::OffsetHandlerInterface(BlockStepData &step_data,
                                                ArrayRef<uint> pindices,

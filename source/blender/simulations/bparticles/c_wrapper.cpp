@@ -1,5 +1,5 @@
 #include "BParticles.h"
-#include "core.hpp"
+#include "step_description.hpp"
 #include "simulate.hpp"
 #include "world_state.hpp"
 #include "node_frontend.hpp"

@@ -8,7 +8,7 @@
 #include "BLI_lazy_init.hpp"
 
 #include "inserters.hpp"
-#include "core.hpp"
+#include "step_description.hpp"
 #include "actions.hpp"
 #include "emitters.hpp"
 #include "events.hpp"

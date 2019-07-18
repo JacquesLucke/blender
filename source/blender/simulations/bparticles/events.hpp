@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.hpp"
+#include "step_description.hpp"
 #include "actions.hpp"
 
 #include "BKE_bvhutils.h"

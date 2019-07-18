@@ -1,211 +1,21 @@
 #pragma once
 
-#include <memory>
-#include <functional>
-
-#include "BLI_array_ref.hpp"
-#include "BLI_small_set_vector.hpp"
-#include "BLI_math.hpp"
-#include "BLI_utildefines.h"
-#include "BLI_string_ref.hpp"
-#include "BLI_small_map.hpp"
-#include "BLI_vector_adaptor.hpp"
-#include "BLI_string_map.hpp"
-#include "BLI_lazy_init.hpp"
-
-#include "attributes.hpp"
-#include "particles_container.hpp"
-#include "particle_set.hpp"
-#include "time_span.hpp"
 #include "particle_allocator.hpp"
-#include "particles_state.hpp"
+#include "time_span.hpp"
 
 namespace BParticles {
 
-class EventFilterInterface;
-class EventExecuteInterface;
-class EmitterInterface;
-class IntegratorInterface;
-class OffsetHandlerInterface;
+class ParticleType;
 
-/* Main API for the particle simulation. These classes have to be subclassed to define how the
- * particles should behave.
- ******************************************/
-
-/**
- * An event consists of two parts.
- *   1. Filter the particles that trigger the event within a specific time span.
- *   2. Modify the particles that were triggered.
- *
- * In some cases it is necessary to pass data from the filter to the execute function (e.g. the
- * normal of the surface at a collision point). So that is supported as well. Currently, only POD
- * (plain-old-data / simple C structs) can be used.
- */
-class Event {
- public:
-  virtual ~Event();
-
-  /**
-   * Return how many bytes this event wants to pass between the filter and execute function.
-   */
-  virtual uint storage_size()
-  {
-    return 0;
-  }
-
-  /**
-   * Gets a set of particles and checks which of those trigger the event.
-   */
-  virtual void filter(EventFilterInterface &interface) = 0;
-
-  /**
-   * Gets a set of particles that trigger this event and can do the following operations:
-   *   - Change any attribute of the particles.
-   *   - Change the remaining integrated attribute offsets of the particles.
-   *   - Kill the particles.
-   *   - Spawn new particles of any type.
-   *
-   * Currently, it is not supported to change the attributes of other particles, that exist
-   * already. However, the attributes of new particles can be changed.
-   */
-  virtual void execute(EventExecuteInterface &interface) = 0;
-
-  /**
-   * Allows to define which attributes are required by the event.
-   */
-  virtual void attributes(AttributesDeclaration &interface);
+struct BlockStepData {
+  ArrayAllocator &array_allocator;
+  ParticleAllocator &particle_allocator;
+  ParticlesBlock &block;
+  ParticleType &particle_type;
+  AttributeArrays attribute_offsets;
+  ArrayRef<float> remaining_durations;
+  float step_end_time;
 };
-
-/**
- * An emitter creates new particles of possibly different types within a certain time span.
- */
-class Emitter {
- public:
-  virtual ~Emitter();
-
-  /**
-   * Create new particles within a time span.
-   *
-   * In general it works like so:
-   *   1. Prepare vectors with attribute values for e.g. position and velocity of the new
-   *      particles.
-   *   2. Request an emit target that can contain a given amount of particles of a specific type.
-   *   3. Copy the prepared attribute arrays into the target. Other attributes are initialized with
-   *      some default value.
-   *   4. Specify the exact birth times of every particle within the time span. This will allow the
-   *      framework to simulate the new particles for partial time steps to avoid stepping.
-   *
-   * To create particles of different types, multiple emit targets have to be requested.
-   */
-  virtual void emit(EmitterInterface &interface) = 0;
-};
-
-/**
- * The integrator is the core of the particle system. It's main task is to determine how the
- * simulation would go if there were no events.
- */
-class Integrator {
- public:
-  virtual ~Integrator();
-
-  /**
-   * Specify which attributes are integrated (usually Position and Velocity).
-   */
-  virtual AttributesInfo &offset_attributes_info() = 0;
-
-  /**
-   * Compute the offsets for all integrated attributes. Those are not applied immediately, because
-   * there might be events that modify the attributes within a time step.
-   */
-  virtual void integrate(IntegratorInterface &interface) = 0;
-};
-
-class OffsetHandler {
- public:
-  virtual ~OffsetHandler();
-
-  virtual void execute(OffsetHandlerInterface &interface) = 0;
-};
-
-/**
- * Describes how one type of particle behaves and which attributes it has.
- */
-class ParticleType {
- private:
-  AttributesDeclaration m_attributes;
-  Integrator *m_integrator;
-  SmallVector<Event *> m_events;
-  SmallVector<OffsetHandler *> m_offset_handlers;
-
- public:
-  ParticleType(AttributesDeclaration &attributes,
-               Integrator *integrator,
-               ArrayRef<Event *> events,
-               ArrayRef<OffsetHandler *> offset_handlers)
-      : m_attributes(attributes),
-        m_integrator(integrator),
-        m_events(events),
-        m_offset_handlers(offset_handlers)
-  {
-  }
-
-  ~ParticleType();
-
-  Integrator &integrator()
-  {
-    return *m_integrator;
-  }
-
-  ArrayRef<OffsetHandler *> offset_handlers()
-  {
-    return m_offset_handlers;
-  }
-
-  ArrayRef<Event *> events()
-  {
-    return m_events;
-  }
-
-  AttributesDeclaration &attributes()
-  {
-    return m_attributes;
-  }
-};
-
-/**
- * Describes how the current state of a particle system transitions to the next state.
- */
-class StepDescription {
-  float m_duration;
-  StringMap<ParticleType *> m_types;
-  SmallVector<Emitter *> m_emitters;
-
- public:
-  StepDescription(float duration, StringMap<ParticleType *> types, ArrayRef<Emitter *> emitters)
-      : m_duration(duration), m_types(types), m_emitters(emitters)
-  {
-  }
-
-  ~StepDescription();
-
-  float step_duration()
-  {
-    return m_duration;
-  }
-
-  ArrayRef<Emitter *> emitters()
-  {
-    return m_emitters;
-  }
-
-  StringMap<ParticleType *> &particle_types()
-  {
-    return m_types;
-  }
-};
-
-/* Classes used by the interface
- ***********************************************/
 
 /**
  * The interface between the simulation core and individual emitters.
@@ -234,16 +44,6 @@ class EmitterInterface {
    * True when this is the first time step in a simulation, otherwise false.
    */
   bool is_first_step();
-};
-
-struct BlockStepData {
-  ArrayAllocator &array_allocator;
-  ParticleAllocator &particle_allocator;
-  ParticlesBlock &block;
-  ParticleType &particle_type;
-  AttributeArrays attribute_offsets;
-  ArrayRef<float> remaining_durations;
-  float step_end_time;
 };
 
 /**
@@ -645,4 +445,4 @@ inline TimeSpan OffsetHandlerInterface::time_span(uint pindex)
   return TimeSpan(m_step_data.step_end_time - duration, duration);
 }
 
-}  // namespace BParticles
+};  // namespace BParticles

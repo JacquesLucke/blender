@@ -1,7 +1,7 @@
 #pragma once
 
 #include "forces.hpp"
-#include "core.hpp"
+#include "step_description.hpp"
 
 namespace BParticles {
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.hpp"
+#include "step_description.hpp"
 
 namespace BParticles {
 void simulate_step(ParticlesState &state, StepDescription &description);
