@@ -37,11 +37,8 @@ class ParticleTypeBuilder {
   ParticleType *build()
   {
     BLI_assert(m_integrator);
-    ParticleType *type = new ParticleType();
-    type->m_integrator = m_integrator;
-    type->m_events = m_events;
-    type->m_offset_handlers = m_offset_handlers;
-    type->m_attributes = m_attributes;
+    ParticleType *type = new ParticleType(m_attributes, m_integrator, m_events, m_offset_handlers);
+    m_integrator = nullptr;
     m_events.clear();
     m_offset_handlers.clear();
     return type;
@@ -78,12 +75,12 @@ class StepDescriptionBuilder {
 
   std::unique_ptr<StepDescription> build(float duration)
   {
-    StepDescription *step_description = new StepDescription();
-    step_description->m_duration = duration;
-    step_description->m_emitters = m_emitters;
+    StringMap<ParticleType *> types;
     for (auto item : m_type_builders.items()) {
-      step_description->m_types.add_new(item.key, item.value->build());
+      types.add_new(item.key, item.value->build());
     }
+
+    StepDescription *step_description = new StepDescription(duration, types, m_emitters);
     return std::unique_ptr<StepDescription>(step_description);
   }
 };

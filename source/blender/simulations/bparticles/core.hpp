@@ -130,11 +130,23 @@ class OffsetHandler {
  * Describes how one type of particle behaves and which attributes it has.
  */
 class ParticleType {
- public:
+ private:
+  AttributesDeclaration m_attributes;
+  Integrator *m_integrator;
   SmallVector<Event *> m_events;
   SmallVector<OffsetHandler *> m_offset_handlers;
-  Integrator *m_integrator;
-  AttributesDeclaration m_attributes;
+
+ public:
+  ParticleType(AttributesDeclaration &attributes,
+               Integrator *integrator,
+               ArrayRef<Event *> events,
+               ArrayRef<OffsetHandler *> offset_handlers)
+      : m_attributes(attributes),
+        m_integrator(integrator),
+        m_events(events),
+        m_offset_handlers(offset_handlers)
+  {
+  }
 
   ~ParticleType();
 
@@ -163,10 +175,15 @@ class ParticleType {
  * Describes how the current state of a particle system transitions to the next state.
  */
 class StepDescription {
- public:
   float m_duration;
   StringMap<ParticleType *> m_types;
   SmallVector<Emitter *> m_emitters;
+
+ public:
+  StepDescription(float duration, StringMap<ParticleType *> types, ArrayRef<Emitter *> emitters)
+      : m_duration(duration), m_types(types), m_emitters(emitters)
+  {
+  }
 
   ~StepDescription();
 
