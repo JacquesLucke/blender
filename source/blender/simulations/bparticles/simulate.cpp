@@ -179,7 +179,7 @@ BLI_NOINLINE static void execute_events(BlockStepData &step_data,
 }
 
 BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
-                                                ParticleSet particles,
+                                                ArrayRef<uint> pindices,
                                                 VectorAdaptor<uint> &r_unfinished_pindices)
 {
   ArrayRef<Event *> events = step_data.particle_type.events();
@@ -193,14 +193,13 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   EventStorage event_storage(event_storage_array, max_event_storage_size);
 
   find_next_event_per_particle(step_data,
-                               particles.pindices(),
+                               pindices,
                                event_storage,
                                next_event_indices,
                                time_factors_to_next_event,
                                pindices_with_event);
 
-  forward_particles_to_next_event_or_end(
-      step_data, particles.pindices(), time_factors_to_next_event);
+  forward_particles_to_next_event_or_end(step_data, pindices, time_factors_to_next_event);
 
   update_remaining_attribute_offsets(
       pindices_with_event, time_factors_to_next_event, step_data.attribute_offsets);
@@ -219,7 +218,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 
   find_unfinished_particles(pindices_with_event,
                             time_factors_to_next_event,
-                            particles.attributes().get_byte("Kill State"),
+                            step_data.block.attributes().get_byte("Kill State"),
                             r_unfinished_pindices);
 }
 
@@ -228,32 +227,29 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
                                                     VectorAdaptor<uint> &r_unfinished_pindices)
 {
   BLI_assert(step_data.array_allocator.array_size() >= step_data.block.active_amount());
-  auto indices_A = step_data.array_allocator.allocate_scoped<uint>();
-  auto indices_B = step_data.array_allocator.allocate_scoped<uint>();
+  auto pindices_A = step_data.array_allocator.allocate_scoped<uint>();
+  auto pindices_B = step_data.array_allocator.allocate_scoped<uint>();
 
-  /* Handle first event separately to be able to use the static number range. */
   uint amount_left = step_data.block.active_amount();
 
   {
-    VectorAdaptor<uint> indices_output(indices_A, amount_left);
-    simulate_to_next_event(
-        step_data,
-        ParticleSet(step_data.block, Range<uint>(0, amount_left).as_array_ref()),
-        indices_output);
-    amount_left = indices_output.size();
+    /* Handle first event separately to be able to use the static number range. */
+    VectorAdaptor<uint> pindices_output(pindices_A, amount_left);
+    simulate_to_next_event(step_data, Range<uint>(0, amount_left).as_array_ref(), pindices_output);
+    amount_left = pindices_output.size();
   }
 
   for (uint iteration = 0; iteration < max_events - 1 && amount_left > 0; iteration++) {
-    VectorAdaptor<uint> indices_input(indices_A, amount_left, amount_left);
-    VectorAdaptor<uint> indices_output(indices_B, amount_left, 0);
+    VectorAdaptor<uint> pindices_input(pindices_A, amount_left, amount_left);
+    VectorAdaptor<uint> pindices_output(pindices_B, amount_left, 0);
 
-    simulate_to_next_event(step_data, ParticleSet(step_data.block, indices_input), indices_output);
-    amount_left = indices_output.size();
-    std::swap(indices_A, indices_B);
+    simulate_to_next_event(step_data, pindices_input, pindices_output);
+    amount_left = pindices_output.size();
+    std::swap(pindices_A, pindices_B);
   }
 
   for (uint i = 0; i < amount_left; i++) {
-    r_unfinished_pindices.append(indices_A[i]);
+    r_unfinished_pindices.append(pindices_A[i]);
   }
 }
 
