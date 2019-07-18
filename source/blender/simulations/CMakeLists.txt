@@ -45,6 +45,10 @@ set(SRC
   bparticles/node_frontend.cpp
   bparticles/particle_set.hpp
   bparticles/particle_set.cpp
+  bparticles/particles_state.hpp
+  bparticles/particles_state.cpp
+  bparticles/particle_allocator.hpp
+  bparticles/particle_allocator.cpp
 )
 
 set(LIB
