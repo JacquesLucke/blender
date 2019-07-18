@@ -37,11 +37,12 @@ void PointEmitter::emit(EmitterInterface &interface)
     birth_times[i] = interface.time_span().interpolate(t);
   }
 
-  auto target = interface.particle_allocator().request(m_particle_type_name, new_positions.size());
-  target.set_float3("Position", new_positions);
-  target.set_float3("Velocity", new_velocities);
-  target.set_float("Size", new_sizes);
-  target.set_float("Birth Time", birth_times);
+  auto new_particles = interface.particle_allocator().request(m_particle_type_name,
+                                                              new_positions.size());
+  new_particles.set_float3("Position", new_positions);
+  new_particles.set_float3("Velocity", new_velocities);
+  new_particles.set_float("Size", new_sizes);
+  new_particles.set_float("Birth Time", birth_times);
 }
 
 static float3 random_point_in_triangle(float3 a, float3 b, float3 c)
@@ -117,13 +118,14 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     sizes.append(m_size);
   }
 
-  auto target = interface.particle_allocator().request(m_particle_type_name, positions.size());
-  target.set_float3("Position", positions);
-  target.set_float3("Velocity", velocities);
-  target.set_float("Size", sizes);
-  target.set_float("Birth Time", birth_times);
+  auto new_particles = interface.particle_allocator().request(m_particle_type_name,
+                                                              positions.size());
+  new_particles.set_float3("Position", positions);
+  new_particles.set_float3("Velocity", velocities);
+  new_particles.set_float("Size", sizes);
+  new_particles.set_float("Birth Time", birth_times);
 
-  ActionInterface::RunFromEmitter(m_action, target, interface);
+  ActionInterface::RunFromEmitter(m_action, new_particles, interface);
 }
 
 void CustomFunctionEmitter::emit(EmitterInterface &interface)
@@ -156,13 +158,14 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
     new_particle_amount = std::max(new_particle_amount, length);
   }
 
-  auto target = interface.particle_allocator().request(m_particle_type_name, new_particle_amount);
-  target.fill_float("Birth Time", interface.time_span().end());
+  auto new_particles = interface.particle_allocator().request(m_particle_type_name,
+                                                              new_particle_amount);
+  new_particles.fill_float("Birth Time", interface.time_span().end());
 
   for (uint i = 0; i < m_function->output_amount(); i++) {
     auto &type = m_function->output_type(i);
     StringRef attribute_name = m_function->output_name(i);
-    int attribute_index = target.attributes_info().attribute_index_try(attribute_name);
+    int attribute_index = new_particles.attributes_info().attribute_index_try(attribute_name);
 
     if (attribute_index == -1) {
       continue;
@@ -170,17 +173,17 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
 
     if (type == float_list_type) {
       auto list = fn_out.relocate_out<SharedFloatList>(i);
-      target.set_repeated_float(attribute_index, *list.ptr());
+      new_particles.set_repeated_float(attribute_index, *list.ptr());
     }
     else if (type == float3_list_type) {
       auto list = fn_out.relocate_out<SharedFloat3List>(i);
-      target.set_repeated_float3(attribute_index, *list.ptr());
+      new_particles.set_repeated_float3(attribute_index, *list.ptr());
     }
     else if (type == float_type) {
-      target.fill_float(attribute_index, fn_out.get<float>(i));
+      new_particles.fill_float(attribute_index, fn_out.get<float>(i));
     }
     else if (type == float3_type) {
-      target.fill_float3(attribute_index, fn_out.get<float3>(i));
+      new_particles.fill_float3(attribute_index, fn_out.get<float3>(i));
     }
   }
 }
@@ -202,10 +205,11 @@ void InitialGridEmitter::emit(EmitterInterface &interface)
     }
   }
 
-  auto target = interface.particle_allocator().request(m_particle_type_name, new_positions.size());
-  target.set_float3("Position", new_positions);
-  target.fill_float("Birth Time", interface.time_span().start());
-  target.fill_float("Size", m_size);
+  auto new_particles = interface.particle_allocator().request(m_particle_type_name,
+                                                              new_positions.size());
+  new_particles.set_float3("Position", new_positions);
+  new_particles.fill_float("Birth Time", interface.time_span().start());
+  new_particles.fill_float("Size", m_size);
 }
 
 }  // namespace BParticles
