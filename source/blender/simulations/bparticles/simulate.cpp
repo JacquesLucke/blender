@@ -65,12 +65,14 @@ BLI_NOINLINE static void find_next_event_per_particle(BlockStepData &step_data,
 }
 
 BLI_NOINLINE static void forward_particles_to_next_event_or_end(
-    BlockStepData &step_data, ParticleSet particles, ArrayRef<float> time_factors_to_next_event)
+    BlockStepData &step_data, ArrayRef<uint> pindices, ArrayRef<float> time_factors_to_next_event)
 {
-  ForwardingListenerInterface interface(step_data, particles, time_factors_to_next_event);
+  ForwardingListenerInterface interface(step_data, pindices, time_factors_to_next_event);
   for (ForwardingListener *listener : step_data.particle_type.forwarding_listeners()) {
     listener->listen(interface);
   }
+
+  ParticleSet particles(step_data.block, pindices);
 
   auto attribute_offsets = step_data.attribute_offsets;
   for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
@@ -197,7 +199,8 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
                                time_factors_to_next_event,
                                pindices_with_event);
 
-  forward_particles_to_next_event_or_end(step_data, particles, time_factors_to_next_event);
+  forward_particles_to_next_event_or_end(
+      step_data, particles.pindices(), time_factors_to_next_event);
 
   update_remaining_attribute_offsets(
       pindices_with_event, time_factors_to_next_event, step_data.attribute_offsets);
@@ -291,7 +294,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Parti
       time_factors[pindex] = 1.0f;
     }
 
-    ForwardingListenerInterface interface(step_data, particles, time_factors);
+    ForwardingListenerInterface interface(step_data, particles.pindices(), time_factors);
     for (ForwardingListener *listener : step_data.particle_type.forwarding_listeners()) {
       listener->listen(interface);
     }

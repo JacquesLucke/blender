@@ -365,9 +365,9 @@ IntegratorInterface::IntegratorInterface(ParticlesBlock &block,
  ****************************************************/
 
 ForwardingListenerInterface::ForwardingListenerInterface(BlockStepData &step_data,
-                                                         ParticleSet &particles,
+                                                         ArrayRef<uint> pindices,
                                                          ArrayRef<float> time_factors)
-    : m_step_data(step_data), m_particles(particles), m_time_factors(time_factors)
+    : m_step_data(step_data), m_pindices(pindices), m_time_factors(time_factors)
 {
 }
 

@@ -587,15 +587,15 @@ class IntegratorInterface {
 class ForwardingListenerInterface {
  private:
   BlockStepData &m_step_data;
-  ParticleSet m_particles;
+  ArrayRef<uint> m_pindices;
   ArrayRef<float> m_time_factors;
 
  public:
   ForwardingListenerInterface(BlockStepData &step_data,
-                              ParticleSet &particles,
+                              ArrayRef<uint> pindices,
                               ArrayRef<float> time_factors);
 
-  ParticleSet &particles();
+  ParticleSet particles();
   ParticleAllocator &particle_allocator();
   AttributeArrays &offsets();
   ArrayRef<float> time_factors();
@@ -895,9 +895,9 @@ inline AttributeArrays IntegratorInterface::offset_targets()
 /* ForwardingListenerInterface inline functions
  **********************************************/
 
-inline ParticleSet &ForwardingListenerInterface::particles()
+inline ParticleSet ForwardingListenerInterface::particles()
 {
-  return m_particles;
+  return ParticleSet(m_step_data.block, m_pindices);
 }
 
 inline ParticleAllocator &ForwardingListenerInterface::particle_allocator()
