@@ -208,64 +208,60 @@ BLI_NOINLINE static void execute_events(ParticleAllocator &particle_allocator,
   }
 }
 
-BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
-                                                ParticleAllocator &particle_allocator,
+BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
                                                 ParticleSet particles,
-                                                ParticleType &particle_type,
-                                                AttributeArrays attribute_offsets,
-                                                ArrayRef<float> remaining_durations,
-                                                float end_time,
                                                 VectorAdaptor<uint> &r_unfinished_pindices)
 {
-  ArrayRef<Event *> events = particle_type.events();
+  ArrayRef<Event *> events = step_data.particle_type.events();
 
-  ArrayAllocator::Array<int> next_event_indices(array_allocator);
-  ArrayAllocator::Array<float> time_factors_to_next_event(array_allocator);
-  ArrayAllocator::Vector<uint> pindices_with_event(array_allocator);
+  ArrayAllocator::Array<int> next_event_indices(step_data.array_allocator);
+  ArrayAllocator::Array<float> time_factors_to_next_event(step_data.array_allocator);
+  ArrayAllocator::Vector<uint> pindices_with_event(step_data.array_allocator);
 
   uint max_event_storage_size = std::max(get_max_event_storage_size(events), 1u);
-  auto event_storage_array = array_allocator.allocate_scoped(max_event_storage_size);
+  auto event_storage_array = step_data.array_allocator.allocate_scoped(max_event_storage_size);
   EventStorage event_storage(event_storage_array, max_event_storage_size);
 
   find_next_event_per_particle(particles,
-                               attribute_offsets,
-                               remaining_durations,
-                               end_time,
+                               step_data.attribute_offsets,
+                               step_data.remaining_durations,
+                               step_data.step_end_time,
                                events,
                                event_storage,
                                next_event_indices,
                                time_factors_to_next_event,
                                pindices_with_event);
 
-  forward_particles_to_next_event_or_end(particle_type,
-                                         particle_allocator,
+  forward_particles_to_next_event_or_end(step_data.particle_type,
+                                         step_data.particle_allocator,
                                          particles,
-                                         attribute_offsets,
-                                         end_time,
-                                         remaining_durations,
+                                         step_data.attribute_offsets,
+                                         step_data.step_end_time,
+                                         step_data.remaining_durations,
                                          time_factors_to_next_event);
 
   update_remaining_attribute_offsets(
-      pindices_with_event, time_factors_to_next_event, attribute_offsets);
+      pindices_with_event, time_factors_to_next_event, step_data.attribute_offsets);
 
-  update_remaining_durations(pindices_with_event, time_factors_to_next_event, remaining_durations);
+  update_remaining_durations(
+      pindices_with_event, time_factors_to_next_event, step_data.remaining_durations);
 
   SmallVector<SmallVector<uint>> particles_per_event(events.size());
   find_pindices_per_event(pindices_with_event, next_event_indices, particles_per_event);
 
-  ArrayAllocator::Array<float> current_times(array_allocator);
+  ArrayAllocator::Array<float> current_times(step_data.array_allocator);
   compute_current_time_per_particle(
-      pindices_with_event, remaining_durations, end_time, current_times);
+      pindices_with_event, step_data.remaining_durations, step_data.step_end_time, current_times);
 
-  execute_events(particle_allocator,
-                 array_allocator,
+  execute_events(step_data.particle_allocator,
+                 step_data.array_allocator,
                  particles.block(),
                  particles_per_event,
                  current_times,
-                 remaining_durations,
+                 step_data.remaining_durations,
                  events,
                  event_storage,
-                 attribute_offsets);
+                 step_data.attribute_offsets);
 
   find_unfinished_particles(pindices_with_event,
                             time_factors_to_next_event,
@@ -273,33 +269,23 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
                             r_unfinished_pindices);
 }
 
-BLI_NOINLINE static void simulate_with_max_n_events(uint max_events,
-                                                    ArrayAllocator &array_allocator,
-                                                    ParticleAllocator &particle_allocator,
-                                                    ParticlesBlock &block,
-                                                    ParticleType &particle_type,
-                                                    AttributeArrays attribute_offsets,
-                                                    ArrayRef<float> remaining_durations,
-                                                    float end_time,
+BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
+                                                    uint max_events,
                                                     VectorAdaptor<uint> &r_unfinished_pindices)
 {
-  BLI_assert(array_allocator.array_size() >= block.active_amount());
-  auto indices_A = array_allocator.allocate_scoped<uint>();
-  auto indices_B = array_allocator.allocate_scoped<uint>();
+  BLI_assert(step_data.array_allocator.array_size() >= step_data.block.active_amount());
+  auto indices_A = step_data.array_allocator.allocate_scoped<uint>();
+  auto indices_B = step_data.array_allocator.allocate_scoped<uint>();
 
   /* Handle first event separately to be able to use the static number range. */
-  uint amount_left = block.active_amount();
+  uint amount_left = step_data.block.active_amount();
 
   {
     VectorAdaptor<uint> indices_output(indices_A, amount_left);
-    simulate_to_next_event(array_allocator,
-                           particle_allocator,
-                           ParticleSet(block, Range<uint>(0, amount_left).as_array_ref()),
-                           particle_type,
-                           attribute_offsets,
-                           remaining_durations,
-                           end_time,
-                           indices_output);
+    simulate_to_next_event(
+        step_data,
+        ParticleSet(step_data.block, Range<uint>(0, amount_left).as_array_ref()),
+        indices_output);
     amount_left = indices_output.size();
   }
 
@@ -307,14 +293,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(uint max_events,
     VectorAdaptor<uint> indices_input(indices_A, amount_left, amount_left);
     VectorAdaptor<uint> indices_output(indices_B, amount_left, 0);
 
-    simulate_to_next_event(array_allocator,
-                           particle_allocator,
-                           ParticleSet(block, indices_input),
-                           particle_type,
-                           attribute_offsets,
-                           remaining_durations,
-                           end_time,
-                           indices_output);
+    simulate_to_next_event(step_data, ParticleSet(step_data.block, indices_input), indices_output);
     amount_left = indices_output.size();
     std::swap(indices_A, indices_B);
   }
@@ -426,15 +405,7 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
     auto indices_array = array_allocator.allocate_scoped<uint>();
     VectorAdaptor<uint> unfinished_pindices(indices_array, amount);
 
-    simulate_with_max_n_events(10,
-                               array_allocator,
-                               particle_allocator,
-                               block,
-                               particle_type,
-                               attribute_offsets,
-                               remaining_durations,
-                               end_time,
-                               unfinished_pindices);
+    simulate_with_max_n_events(step_data, 10, unfinished_pindices);
 
     /* Not sure yet, if this really should be done. */
     if (unfinished_pindices.size() > 0) {
