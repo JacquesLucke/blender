@@ -397,15 +397,14 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_initial_grid(BuildContext &ctx,
                              body->get_output<float>(fn_out, 4, "Size")));
 }
 
-static std::unique_ptr<ForwardingListener> BUILD_FORWARDING_LISTENER_trails(BuildContext &ctx,
-                                                                            bNode *bnode)
+static std::unique_ptr<OffsetHandler> BUILD_OFFSET_HANDLER_trails(BuildContext &ctx, bNode *bnode)
 {
   PointerRNA rna = ctx.indexed_tree.get_rna(bnode);
   char name[65];
   RNA_string_get(&rna, "particle_type_name", name);
 
   if (ctx.step_description.m_types.contains(name)) {
-    return std::unique_ptr<ForwardingListener>(new TrailListener(name));
+    return std::unique_ptr<OffsetHandler>(new CreateTrailHandler(name));
   }
   else {
     return {};
@@ -439,10 +438,10 @@ BLI_LAZY_INIT(StringMap<EmitterFromNodeCallback>, get_emitter_builders)
   return map;
 }
 
-BLI_LAZY_INIT(StringMap<ForwardingListenerFromNodeCallback>, get_forwarding_listener_builders)
+BLI_LAZY_INIT(StringMap<OffsetHandlerFromNodeCallback>, get_offset_handler_builders)
 {
-  StringMap<ForwardingListenerFromNodeCallback> map;
-  map.add_new("bp_ParticleTrailsNode", BUILD_FORWARDING_LISTENER_trails);
+  StringMap<OffsetHandlerFromNodeCallback> map;
+  map.add_new("bp_ParticleTrailsNode", BUILD_OFFSET_HANDLER_trails);
   return map;
 }
 

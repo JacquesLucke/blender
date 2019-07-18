@@ -25,7 +25,7 @@ class EventFilterInterface;
 class EventExecuteInterface;
 class EmitterInterface;
 class IntegratorInterface;
-class ForwardingListenerInterface;
+class OffsetHandlerInterface;
 
 /* Main API for the particle simulation. These classes have to be subclassed to define how the
  * particles should behave.
@@ -119,11 +119,11 @@ class Integrator {
   virtual void integrate(IntegratorInterface &interface) = 0;
 };
 
-class ForwardingListener {
+class OffsetHandler {
  public:
-  virtual ~ForwardingListener();
+  virtual ~OffsetHandler();
 
-  virtual void listen(ForwardingListenerInterface &interface) = 0;
+  virtual void execute(OffsetHandlerInterface &interface) = 0;
 };
 
 /**
@@ -138,7 +138,7 @@ class ParticleType {
    */
   virtual Integrator &integrator() = 0;
 
-  virtual ArrayRef<ForwardingListener *> forwarding_listeners();
+  virtual ArrayRef<OffsetHandler *> offset_handlers();
 
   /**
    * Return the events that particles of this type can trigger.
@@ -584,16 +584,16 @@ class IntegratorInterface {
   AttributeArrays offset_targets();
 };
 
-class ForwardingListenerInterface {
+class OffsetHandlerInterface {
  private:
   BlockStepData &m_step_data;
   ArrayRef<uint> m_pindices;
   ArrayRef<float> m_time_factors;
 
  public:
-  ForwardingListenerInterface(BlockStepData &step_data,
-                              ArrayRef<uint> pindices,
-                              ArrayRef<float> time_factors);
+  OffsetHandlerInterface(BlockStepData &step_data,
+                         ArrayRef<uint> pindices,
+                         ArrayRef<float> time_factors);
 
   ParticleSet particles();
   ParticleAllocator &particle_allocator();
@@ -892,40 +892,40 @@ inline AttributeArrays IntegratorInterface::offset_targets()
   return m_offsets;
 }
 
-/* ForwardingListenerInterface inline functions
+/* OffsetHandlerInterface inline functions
  **********************************************/
 
-inline ParticleSet ForwardingListenerInterface::particles()
+inline ParticleSet OffsetHandlerInterface::particles()
 {
   return ParticleSet(m_step_data.block, m_pindices);
 }
 
-inline ParticleAllocator &ForwardingListenerInterface::particle_allocator()
+inline ParticleAllocator &OffsetHandlerInterface::particle_allocator()
 {
   return m_step_data.particle_allocator;
 }
 
-inline AttributeArrays &ForwardingListenerInterface::offsets()
+inline AttributeArrays &OffsetHandlerInterface::offsets()
 {
   return m_step_data.attribute_offsets;
 }
 
-inline ArrayRef<float> ForwardingListenerInterface::time_factors()
+inline ArrayRef<float> OffsetHandlerInterface::time_factors()
 {
   return m_time_factors;
 }
 
-inline float ForwardingListenerInterface::step_end_time()
+inline float OffsetHandlerInterface::step_end_time()
 {
   return m_step_data.step_end_time;
 }
 
-inline ArrayRef<float> ForwardingListenerInterface::durations()
+inline ArrayRef<float> OffsetHandlerInterface::durations()
 {
   return m_step_data.remaining_durations;
 }
 
-inline TimeSpan ForwardingListenerInterface::time_span(uint pindex)
+inline TimeSpan OffsetHandlerInterface::time_span(uint pindex)
 {
   float duration = m_step_data.remaining_durations[pindex];
   return TimeSpan(m_step_data.step_end_time - duration, duration);

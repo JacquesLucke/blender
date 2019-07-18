@@ -7,7 +7,7 @@ namespace BParticles {
 class ModifierParticleType : public ParticleType {
  public:
   SmallVector<Event *> m_events;
-  SmallVector<ForwardingListener *> m_forwarding_listeners;
+  SmallVector<OffsetHandler *> m_offset_handlers;
   Integrator *m_integrator;
 
   ~ModifierParticleType()
@@ -24,9 +24,9 @@ class ModifierParticleType : public ParticleType {
     return m_events;
   }
 
-  ArrayRef<ForwardingListener *> forwarding_listeners() override
+  ArrayRef<OffsetHandler *> offset_handlers() override
   {
-    return m_forwarding_listeners;
+    return m_offset_handlers;
   }
 
   Integrator &integrator() override

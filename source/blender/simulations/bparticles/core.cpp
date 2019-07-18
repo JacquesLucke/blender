@@ -14,7 +14,7 @@ Event::~Event()
 {
 }
 
-ForwardingListener::~ForwardingListener()
+OffsetHandler::~OffsetHandler()
 {
 }
 
@@ -22,7 +22,7 @@ ParticleType::~ParticleType()
 {
 }
 
-ArrayRef<ForwardingListener *> ParticleType::forwarding_listeners()
+ArrayRef<OffsetHandler *> ParticleType::offset_handlers()
 {
   return {};
 }
@@ -361,12 +361,12 @@ IntegratorInterface::IntegratorInterface(ParticlesBlock &block,
 {
 }
 
-/* ForwardingListenerInterface
+/* OffsetHandlerInterface
  ****************************************************/
 
-ForwardingListenerInterface::ForwardingListenerInterface(BlockStepData &step_data,
-                                                         ArrayRef<uint> pindices,
-                                                         ArrayRef<float> time_factors)
+OffsetHandlerInterface::OffsetHandlerInterface(BlockStepData &step_data,
+                                               ArrayRef<uint> pindices,
+                                               ArrayRef<float> time_factors)
     : m_step_data(step_data), m_pindices(pindices), m_time_factors(time_factors)
 {
 }

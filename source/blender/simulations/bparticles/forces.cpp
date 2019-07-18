@@ -44,7 +44,7 @@ void TurbulenceForce::add_force(ParticlesBlock &block, ArrayRef<float3> r_force)
   }
 }
 
-void TrailListener::listen(ForwardingListenerInterface &interface)
+void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
 {
   ParticleSet particles = interface.particles();
   auto positions = particles.attributes().get_float3("Position");

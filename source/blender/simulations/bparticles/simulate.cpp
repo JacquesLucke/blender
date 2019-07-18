@@ -67,9 +67,9 @@ BLI_NOINLINE static void find_next_event_per_particle(BlockStepData &step_data,
 BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     BlockStepData &step_data, ArrayRef<uint> pindices, ArrayRef<float> time_factors_to_next_event)
 {
-  ForwardingListenerInterface interface(step_data, pindices, time_factors_to_next_event);
-  for (ForwardingListener *listener : step_data.particle_type.forwarding_listeners()) {
-    listener->listen(interface);
+  OffsetHandlerInterface interface(step_data, pindices, time_factors_to_next_event);
+  for (OffsetHandler *handler : step_data.particle_type.offset_handlers()) {
+    handler->execute(interface);
   }
 
   ParticleSet particles(step_data.block, pindices);
@@ -284,16 +284,16 @@ BLI_NOINLINE static void add_float3_arrays(ArrayRef<float3> base, ArrayRef<float
 
 BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, ArrayRef<uint> pindices)
 {
-  auto listeners = step_data.particle_type.forwarding_listeners();
-  if (listeners.size() > 0) {
+  auto handlers = step_data.particle_type.offset_handlers();
+  if (handlers.size() > 0) {
     ArrayAllocator::Array<float> time_factors(step_data.array_allocator);
     for (uint pindex : pindices) {
       time_factors[pindex] = 1.0f;
     }
 
-    ForwardingListenerInterface interface(step_data, pindices, time_factors);
-    for (ForwardingListener *listener : step_data.particle_type.forwarding_listeners()) {
-      listener->listen(interface);
+    OffsetHandlerInterface interface(step_data, pindices, time_factors);
+    for (OffsetHandler *handler : handlers) {
+      handler->execute(interface);
     }
   }
 
