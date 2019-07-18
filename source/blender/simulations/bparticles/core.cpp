@@ -319,13 +319,13 @@ void ParticleSets::fill_float3(StringRef name, float3 value)
  *****************************************/
 
 EventFilterInterface::EventFilterInterface(BlockStepData &step_data,
-                                           ParticleSet particles,
+                                           ArrayRef<uint> pindices,
                                            ArrayRef<float> known_min_time_factors,
                                            EventStorage &r_event_storage,
                                            SmallVector<uint> &r_filtered_pindices,
                                            SmallVector<float> &r_filtered_time_factors)
     : m_step_data(step_data),
-      m_particles(particles),
+      m_pindices(pindices),
       m_known_min_time_factors(known_min_time_factors),
       m_event_storage(r_event_storage),
       m_filtered_pindices(r_filtered_pindices),

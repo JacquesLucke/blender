@@ -431,7 +431,7 @@ class EventStorage {
 class EventFilterInterface {
  private:
   BlockStepData &m_step_data;
-  ParticleSet m_particles;
+  ArrayRef<uint> m_pindices;
   ArrayRef<float> m_known_min_time_factors;
 
   EventStorage &m_event_storage;
@@ -443,7 +443,7 @@ class EventFilterInterface {
 
  public:
   EventFilterInterface(BlockStepData &step_data,
-                       ParticleSet particles,
+                       ArrayRef<uint> pindices,
                        ArrayRef<float> known_min_time_factors,
                        EventStorage &r_event_storage,
                        SmallVector<uint> &r_filtered_pindices,
@@ -452,7 +452,7 @@ class EventFilterInterface {
   /**
    * Return the particle set that should be checked.
    */
-  ParticleSet &particles();
+  ParticleSet particles();
 
   /**
    * Return the durations that should be checked for every particle.
@@ -777,9 +777,9 @@ inline uint EventStorage::max_element_size() const
 /* EventFilterInterface inline functions
  **********************************************/
 
-inline ParticleSet &EventFilterInterface::particles()
+inline ParticleSet EventFilterInterface::particles()
 {
-  return m_particles;
+  return ParticleSet(m_step_data.block, m_pindices);
 }
 
 inline ArrayRef<float> EventFilterInterface::durations()

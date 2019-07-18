@@ -69,7 +69,7 @@ uint MeshCollisionEvent::storage_size()
 
 void MeshCollisionEvent::filter(EventFilterInterface &interface)
 {
-  ParticleSet &particles = interface.particles();
+  ParticleSet particles = interface.particles();
   auto positions = particles.attributes().get_float3("Position");
   auto last_collision_times = particles.attributes().get_float(m_identifier);
   auto position_offsets = interface.attribute_offsets().get_float3("Position");
@@ -131,7 +131,7 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
 
 void CloseByPointsEvent::filter(EventFilterInterface &interface)
 {
-  ParticleSet &particles = interface.particles();
+  ParticleSet particles = interface.particles();
   auto positions = particles.attributes().get_float3("Position");
 
   for (uint pindex : particles.pindices()) {

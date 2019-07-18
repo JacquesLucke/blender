@@ -23,14 +23,14 @@ static uint get_max_event_storage_size(ArrayRef<Event *> events)
 }
 
 BLI_NOINLINE static void find_next_event_per_particle(BlockStepData &step_data,
-                                                      ParticleSet particles,
+                                                      ArrayRef<uint> pindices,
                                                       EventStorage &r_event_storage,
                                                       ArrayRef<int> r_next_event_indices,
                                                       ArrayRef<float> r_time_factors_to_next_event,
                                                       VectorAdaptor<uint> &r_pindices_with_event)
 {
-  r_next_event_indices.fill_indices(particles.pindices(), -1);
-  r_time_factors_to_next_event.fill_indices(particles.pindices(), 1.0f);
+  r_next_event_indices.fill_indices(pindices, -1);
+  r_time_factors_to_next_event.fill_indices(pindices, 1.0f);
 
   ArrayRef<Event *> events = step_data.particle_type.events();
 
@@ -40,7 +40,7 @@ BLI_NOINLINE static void find_next_event_per_particle(BlockStepData &step_data,
 
     Event *event = events[event_index];
     EventFilterInterface interface(step_data,
-                                   particles,
+                                   pindices,
                                    r_time_factors_to_next_event,
                                    r_event_storage,
                                    triggered_pindices,
@@ -57,7 +57,7 @@ BLI_NOINLINE static void find_next_event_per_particle(BlockStepData &step_data,
     }
   }
 
-  for (uint pindex : particles.pindices()) {
+  for (uint pindex : pindices) {
     if (r_next_event_indices[pindex] != -1) {
       r_pindices_with_event.append(pindex);
     }
@@ -191,7 +191,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   EventStorage event_storage(event_storage_array, max_event_storage_size);
 
   find_next_event_per_particle(step_data,
-                               particles,
+                               particles.pindices(),
                                event_storage,
                                next_event_indices,
                                time_factors_to_next_event,
