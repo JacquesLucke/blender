@@ -37,7 +37,6 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
 
     std::string type_name = particle_type_node->name;
     step_description->m_types.add_new(type_name, type);
-    step_description->m_particle_type_names.append(type_name);
   }
 
   auto data_graph = FN::DataFlowNodes::generate_graph(indexed_tree).value();
@@ -51,9 +50,9 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
         if (is_particle_type_node(linked.node)) {
           auto force = item.value(ctx, bnode);
           if (force) {
-            EulerIntegrator *integrator = reinterpret_cast<EulerIntegrator *>(
-                step_description->m_types.lookup_ref(linked.node->name)->m_integrator);
-            integrator->add_force(std::move(force));
+            EulerIntegrator &integrator = reinterpret_cast<EulerIntegrator &>(
+                step_description->m_types.lookup_ref(linked.node->name)->integrator());
+            integrator.add_force(std::move(force));
           }
         }
       }
@@ -67,8 +66,9 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
         if (is_particle_type_node(linked.node)) {
           auto listener = item.value(ctx, bnode);
           if (listener) {
-            step_description->m_types.lookup_ref(linked.node->name)
-                ->m_offset_handlers.append(listener.release());
+            ModifierParticleType &particle_type =
+                *(ModifierParticleType *)step_description->m_types.lookup(linked.node->name);
+            particle_type.m_offset_handlers.append(listener.release());
           }
         }
       }
@@ -82,8 +82,9 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
         if (is_particle_type_node(linked.node)) {
           auto event = item.value(ctx, bnode);
           if (event) {
-            step_description->m_types.lookup_ref(linked.node->name)
-                ->m_events.append(event.release());
+            ModifierParticleType &particle_type =
+                *(ModifierParticleType *)step_description->m_types.lookup(linked.node->name);
+            particle_type.m_events.append(event.release());
           }
         }
       }

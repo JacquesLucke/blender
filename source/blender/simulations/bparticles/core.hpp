@@ -168,15 +168,7 @@ class StepDescription {
    */
   virtual ArrayRef<Emitter *> emitters() = 0;
 
-  /**
-   * Return the particle type ids that will be modified in this step.
-   */
-  virtual ArrayRef<std::string> particle_type_names() = 0;
-
-  /**
-   * Return the description of a particle type based on its id.
-   */
-  virtual ParticleType &particle_type(StringRef name) = 0;
+  virtual StringMap<ParticleType *> &particle_types() = 0;
 };
 
 /* Classes used by the interface
@@ -229,7 +221,7 @@ class ParticlesState {
   /**
    * Get the name of a container in the context of this particle state.
    */
-  StringRefNull particle_container_id(ParticlesContainer &container);
+  StringRefNull particle_container_name(ParticlesContainer &container);
 };
 
 /**
@@ -631,7 +623,7 @@ inline ParticlesContainer &ParticlesState::particle_container(StringRef name)
   return *m_container_by_id.lookup(name.to_std_string());
 }
 
-inline StringRefNull ParticlesState::particle_container_id(ParticlesContainer &container)
+inline StringRefNull ParticlesState::particle_container_name(ParticlesContainer &container)
 {
   for (auto item : m_container_by_id.items()) {
     if (item.value == &container) {

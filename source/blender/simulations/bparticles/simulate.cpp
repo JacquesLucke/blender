@@ -430,8 +430,9 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(ParticleAllocators &block
       /* Process individual element. */
       [&step_description, time_span](ParticlesBlock *block, ThreadLocalData *local_data) {
         ParticlesState &state = local_data->particle_allocator.particles_state();
-        StringRef particle_type_name = state.particle_container_id(block->container());
-        ParticleType &particle_type = step_description.particle_type(particle_type_name);
+        StringRef particle_type_name = state.particle_container_name(block->container());
+        ParticleType &particle_type = *step_description.particle_types().lookup(
+            particle_type_name);
 
         ArrayAllocator &array_allocator = local_data->array_allocator;
         ArrayAllocator::Array<float> remaining_durations(array_allocator, block->active_amount());
@@ -471,8 +472,9 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
       /* Process individual element. */
       [&step_description, end_time](ParticlesBlock *block, ThreadLocalData *local_data) {
         ParticlesState &state = local_data->particle_allocator.particles_state();
-        StringRef particle_type_id = state.particle_container_id(block->container());
-        ParticleType &particle_type = step_description.particle_type(particle_type_id);
+        StringRef particle_type_name = state.particle_container_name(block->container());
+        ParticleType &particle_type = *step_description.particle_types().lookup(
+            particle_type_name);
 
         uint active_amount = block->active_amount();
         SmallVector<float> durations(active_amount);
@@ -498,11 +500,11 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
       USE_THREADING);
 }
 
-BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(
-    ParticlesState &state, ArrayRef<std::string> particle_type_names)
+BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(ParticlesState &state,
+                                                                 StepDescription &step_description)
 {
   SmallVector<ParticlesBlock *> blocks;
-  for (StringRef particle_type_name : particle_type_names) {
+  for (auto particle_type_name : step_description.particle_types().keys()) {
     ParticlesContainer &container = state.particle_container(particle_type_name);
     for (ParticlesBlock *block : container.active_blocks()) {
       blocks.append(block);
@@ -535,7 +537,7 @@ BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
 {
   auto &containers = state.particle_containers();
 
-  for (std::string &type_name : description.particle_type_names()) {
+  for (std::string type_name : description.particle_types().keys()) {
     if (!containers.contains(type_name)) {
       ParticlesContainer *container = new ParticlesContainer({}, 100);
       containers.add_new(type_name, container);
@@ -564,12 +566,11 @@ BLI_NOINLINE static void ensure_required_attributes_exist(ParticlesState &state,
 {
   auto &containers = state.particle_containers();
 
-  for (std::string &type_name : description.particle_type_names()) {
-    ParticleType &type = description.particle_type(type_name);
-    ParticlesContainer &container = *containers.lookup(type_name);
+  for (auto item : description.particle_types().items()) {
+    ParticlesContainer &container = *containers.lookup(item.key);
 
     AttributesInfo new_attributes_info = build_attribute_info_for_type(
-        type, container.attributes_info());
+        *item.value, container.attributes_info());
     container.update_attributes(new_attributes_info);
   }
 }
@@ -580,8 +581,7 @@ BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,
                                                       TimeSpan time_span,
                                                       uint max_block_size)
 {
-  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state,
-                                                        step_description.particle_type_names());
+  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state, step_description);
   simulate_blocks_for_time_span(
       block_allocators, blocks, step_description, time_span, max_block_size);
 }

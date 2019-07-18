@@ -46,9 +46,8 @@ class ModifierParticleType : public ParticleType {
 class ModifierStepDescription : public StepDescription {
  public:
   float m_duration;
-  StringMap<ModifierParticleType *> m_types;
+  StringMap<ParticleType *> m_types;
   SmallVector<Emitter *> m_emitters;
-  SmallVector<std::string> m_particle_type_names;
 
   ~ModifierStepDescription()
   {
@@ -70,14 +69,9 @@ class ModifierStepDescription : public StepDescription {
     return m_emitters;
   }
 
-  ArrayRef<std::string> particle_type_names() override
+  StringMap<ParticleType *> &particle_types() override
   {
-    return m_particle_type_names;
-  }
-
-  ParticleType &particle_type(StringRef type_name) override
-  {
-    return *m_types.lookup(type_name.to_std_string());
+    return m_types;
   }
 };
 
