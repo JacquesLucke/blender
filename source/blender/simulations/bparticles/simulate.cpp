@@ -281,28 +281,29 @@ BLI_NOINLINE static void add_float3_arrays(ArrayRef<float3> base, ArrayRef<float
   }
 }
 
-BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, ParticleSet particles)
+BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, ArrayRef<uint> pindices)
 {
   auto listeners = step_data.particle_type.forwarding_listeners();
   if (listeners.size() > 0) {
     ArrayAllocator::Array<float> time_factors(step_data.array_allocator);
-    for (uint pindex : particles.pindices()) {
+    for (uint pindex : pindices) {
       time_factors[pindex] = 1.0f;
     }
 
-    ForwardingListenerInterface interface(step_data, particles.pindices(), time_factors);
+    ForwardingListenerInterface interface(step_data, pindices, time_factors);
     for (ForwardingListener *listener : step_data.particle_type.forwarding_listeners()) {
       listener->listen(interface);
     }
   }
 
-  auto atribute_offsets = step_data.attribute_offsets;
+  auto attribute_offsets = step_data.attribute_offsets;
+  ParticleSet particles(step_data.block, pindices);
 
-  for (uint attribute_index : atribute_offsets.info().float3_attributes()) {
-    StringRef name = atribute_offsets.info().name_of(attribute_index);
+  for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
+    StringRef name = attribute_offsets.info().name_of(attribute_index);
 
     auto values = particles.attributes().get_float3(name);
-    auto offsets = atribute_offsets.get_float3(attribute_index);
+    auto offsets = attribute_offsets.get_float3(attribute_index);
 
     if (particles.indices_are_trivial()) {
       add_float3_arrays(values.take_front(particles.size()), offsets.take_front(particles.size()));
@@ -343,8 +344,7 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
                              end_time};
 
   if (particle_type.events().size() == 0) {
-    ParticleSet all_particles_in_block(block, block.active_range().as_array_ref());
-    apply_remaining_offsets(step_data, all_particles_in_block);
+    apply_remaining_offsets(step_data, block.active_range().as_array_ref());
   }
   else {
     auto indices_array = array_allocator.allocate_scoped<uint>();
@@ -354,8 +354,7 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
 
     /* Not sure yet, if this really should be done. */
     if (unfinished_pindices.size() > 0) {
-      ParticleSet remaining_particles(block, unfinished_pindices);
-      apply_remaining_offsets(step_data, remaining_particles);
+      apply_remaining_offsets(step_data, unfinished_pindices);
     }
   }
 
