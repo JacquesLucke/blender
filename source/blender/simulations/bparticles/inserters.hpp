@@ -40,4 +40,9 @@ using EmitterFromNodeCallback = std::function<std::unique_ptr<Emitter>(
 
 StringMap<EmitterFromNodeCallback> &get_emitter_builders();
 
+using ForwardingListenerFromNodeCallback =
+    std::function<std::unique_ptr<ForwardingListener>(BuildContext &ctx, bNode *bnode)>;
+
+StringMap<ForwardingListenerFromNodeCallback> &get_forwarding_listener_builders();
+
 }  // namespace BParticles

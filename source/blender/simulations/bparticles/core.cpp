@@ -14,8 +14,22 @@ Event::~Event()
 {
 }
 
+ForwardingListener::~ForwardingListener()
+{
+}
+
 ParticleType::~ParticleType()
 {
+}
+
+ArrayRef<ForwardingListener *> ParticleType::forwarding_listeners()
+{
+  return {};
+}
+
+ArrayRef<Event *> ParticleType::events()
+{
+  return {};
 }
 
 StepDescription::~StepDescription()
@@ -354,6 +368,24 @@ IntegratorInterface::IntegratorInterface(ParticlesBlock &block,
       m_durations(durations),
       m_array_allocator(array_allocator),
       m_offsets(r_offsets)
+{
+}
+
+/* ForwardingListenerInterface
+ ****************************************************/
+
+ForwardingListenerInterface::ForwardingListenerInterface(ParticleSet &particles,
+                                                         ParticleAllocator &particle_allocator,
+                                                         AttributeArrays offsets,
+                                                         float step_end_time,
+                                                         ArrayRef<float> durations,
+                                                         ArrayRef<float> time_factors)
+    : m_particles(particles),
+      m_particle_allocator(particle_allocator),
+      m_offsets(offsets),
+      m_step_end_time(step_end_time),
+      m_durations(durations),
+      m_time_factors(time_factors)
 {
 }
 

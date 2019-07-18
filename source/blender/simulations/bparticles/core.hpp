@@ -25,6 +25,7 @@ class EventFilterInterface;
 class EventExecuteInterface;
 class EmitterInterface;
 class IntegratorInterface;
+class ForwardingListenerInterface;
 
 /* Main API for the particle simulation. These classes have to be subclassed to define how the
  * particles should behave.
@@ -118,6 +119,13 @@ class Integrator {
   virtual void integrate(IntegratorInterface &interface) = 0;
 };
 
+class ForwardingListener {
+ public:
+  virtual ~ForwardingListener();
+
+  virtual void listen(ForwardingListenerInterface &interface) = 0;
+};
+
 /**
  * Describes how one type of particle behaves and which attributes it has.
  */
@@ -130,10 +138,12 @@ class ParticleType {
    */
   virtual Integrator &integrator() = 0;
 
+  virtual ArrayRef<ForwardingListener *> forwarding_listeners();
+
   /**
    * Return the events that particles of this type can trigger.
    */
-  virtual ArrayRef<Event *> events() = 0;
+  virtual ArrayRef<Event *> events();
 
   /**
    * Allows to define which attributes should exist for the type.
@@ -574,6 +584,32 @@ class IntegratorInterface {
   AttributeArrays offset_targets();
 };
 
+class ForwardingListenerInterface {
+ private:
+  ParticleSet m_particles;
+  ParticleAllocator &m_particle_allocator;
+  AttributeArrays m_offsets;
+  float m_step_end_time;
+  ArrayRef<float> m_durations;
+  ArrayRef<float> m_time_factors;
+
+ public:
+  ForwardingListenerInterface(ParticleSet &particles,
+                              ParticleAllocator &particle_allocator,
+                              AttributeArrays offsets,
+                              float step_end_time,
+                              ArrayRef<float> durations,
+                              ArrayRef<float> time_factors);
+
+  ParticleSet &particles();
+  ParticleAllocator &particle_allocator();
+  AttributeArrays &offsets();
+  ArrayRef<float> time_factors();
+  float step_end_time();
+  ArrayRef<float> durations();
+  TimeSpan time_span(uint pindex);
+};
+
 /* Event inline functions
  ********************************************/
 
@@ -860,6 +896,45 @@ inline ArrayRef<float> IntegratorInterface::durations()
 inline AttributeArrays IntegratorInterface::offset_targets()
 {
   return m_offsets;
+}
+
+/* ForwardingListenerInterface inline functions
+ **********************************************/
+
+inline ParticleSet &ForwardingListenerInterface::particles()
+{
+  return m_particles;
+}
+
+inline ParticleAllocator &ForwardingListenerInterface::particle_allocator()
+{
+  return m_particle_allocator;
+}
+
+inline AttributeArrays &ForwardingListenerInterface::offsets()
+{
+  return m_offsets;
+}
+
+inline ArrayRef<float> ForwardingListenerInterface::time_factors()
+{
+  return m_time_factors;
+}
+
+inline float ForwardingListenerInterface::step_end_time()
+{
+  return m_step_end_time;
+}
+
+inline ArrayRef<float> ForwardingListenerInterface::durations()
+{
+  return m_durations;
+}
+
+inline TimeSpan ForwardingListenerInterface::time_span(uint pindex)
+{
+  float duration = m_durations[pindex];
+  return TimeSpan(m_step_end_time - duration, duration);
 }
 
 }  // namespace BParticles

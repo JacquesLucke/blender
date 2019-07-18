@@ -68,10 +68,24 @@ BLI_NOINLINE static void find_next_event_per_particle(ParticleSet particles,
 }
 
 BLI_NOINLINE static void forward_particles_to_next_event_or_end(
+    ParticleType &particle_type,
+    ParticleAllocator &particle_allocator,
     ParticleSet particles,
     AttributeArrays attribute_offsets,
+    float step_end_time,
+    ArrayRef<float> remaining_durations,
     ArrayRef<float> time_factors_to_next_event)
 {
+  ForwardingListenerInterface interface(particles,
+                                        particle_allocator,
+                                        attribute_offsets,
+                                        step_end_time,
+                                        remaining_durations,
+                                        time_factors_to_next_event);
+  for (ForwardingListener *listener : particle_type.forwarding_listeners()) {
+    listener->listen(interface);
+  }
+
   for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
@@ -187,12 +201,14 @@ BLI_NOINLINE static void execute_events(ParticleAllocator &particle_allocator,
 BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
                                                 ParticleAllocator &particle_allocator,
                                                 ParticleSet particles,
+                                                ParticleType &particle_type,
                                                 AttributeArrays attribute_offsets,
                                                 ArrayRef<float> remaining_durations,
                                                 float end_time,
-                                                ArrayRef<Event *> events,
                                                 VectorAdaptor<uint> &r_unfinished_pindices)
 {
+  ArrayRef<Event *> events = particle_type.events();
+
   ArrayAllocator::Array<int> next_event_indices(array_allocator);
   ArrayAllocator::Array<float> time_factors_to_next_event(array_allocator);
   ArrayAllocator::Vector<uint> pindices_with_event(array_allocator);
@@ -211,7 +227,13 @@ BLI_NOINLINE static void simulate_to_next_event(ArrayAllocator &array_allocator,
                                time_factors_to_next_event,
                                pindices_with_event);
 
-  forward_particles_to_next_event_or_end(particles, attribute_offsets, time_factors_to_next_event);
+  forward_particles_to_next_event_or_end(particle_type,
+                                         particle_allocator,
+                                         particles,
+                                         attribute_offsets,
+                                         end_time,
+                                         remaining_durations,
+                                         time_factors_to_next_event);
 
   update_remaining_attribute_offsets(
       pindices_with_event, time_factors_to_next_event, attribute_offsets);
@@ -245,10 +267,10 @@ BLI_NOINLINE static void simulate_with_max_n_events(uint max_events,
                                                     ArrayAllocator &array_allocator,
                                                     ParticleAllocator &particle_allocator,
                                                     ParticlesBlock &block,
+                                                    ParticleType &particle_type,
                                                     AttributeArrays attribute_offsets,
                                                     ArrayRef<float> remaining_durations,
                                                     float end_time,
-                                                    ArrayRef<Event *> events,
                                                     VectorAdaptor<uint> &r_unfinished_pindices)
 {
   BLI_assert(array_allocator.array_size() >= block.active_amount());
@@ -263,10 +285,10 @@ BLI_NOINLINE static void simulate_with_max_n_events(uint max_events,
     simulate_to_next_event(array_allocator,
                            particle_allocator,
                            ParticleSet(block, Range<uint>(0, amount_left).as_array_ref()),
+                           particle_type,
                            attribute_offsets,
                            remaining_durations,
                            end_time,
-                           events,
                            indices_output);
     amount_left = indices_output.size();
   }
@@ -278,10 +300,10 @@ BLI_NOINLINE static void simulate_with_max_n_events(uint max_events,
     simulate_to_next_event(array_allocator,
                            particle_allocator,
                            ParticleSet(block, indices_input),
+                           particle_type,
                            attribute_offsets,
                            remaining_durations,
                            end_time,
-                           events,
                            indices_output);
     amount_left = indices_output.size();
     std::swap(indices_A, indices_B);
@@ -320,9 +342,28 @@ BLI_NOINLINE static void add_float3_arrays(ArrayRef<float3> base, ArrayRef<float
   }
 }
 
-BLI_NOINLINE static void apply_remaining_offsets(ParticleSet particles,
-                                                 AttributeArrays attribute_offsets)
+BLI_NOINLINE static void apply_remaining_offsets(ParticleType &particle_type,
+                                                 ArrayAllocator &array_allocator,
+                                                 ParticleAllocator &particle_allocator,
+                                                 ParticleSet particles,
+                                                 AttributeArrays attribute_offsets,
+                                                 ArrayRef<float> durations,
+                                                 float step_end_time)
 {
+  auto listeners = particle_type.forwarding_listeners();
+  if (listeners.size() > 0) {
+    ArrayAllocator::Array<float> time_factors(array_allocator);
+    for (uint pindex : particles.pindices()) {
+      time_factors[pindex] = 1.0f;
+    }
+
+    ForwardingListenerInterface interface(
+        particles, particle_allocator, attribute_offsets, step_end_time, durations, time_factors);
+    for (ForwardingListener *listener : particle_type.forwarding_listeners()) {
+      listener->listen(interface);
+    }
+  }
+
   for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
@@ -359,11 +400,15 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
   IntegratorInterface interface(block, remaining_durations, array_allocator, attribute_offsets);
   integrator.integrate(interface);
 
-  ArrayRef<Event *> events = particle_type.events();
-
-  if (events.size() == 0) {
+  if (particle_type.events().size() == 0) {
     ParticleSet all_particles_in_block(block, block.active_range().as_array_ref());
-    apply_remaining_offsets(all_particles_in_block, attribute_offsets);
+    apply_remaining_offsets(particle_type,
+                            array_allocator,
+                            particle_allocator,
+                            all_particles_in_block,
+                            attribute_offsets,
+                            remaining_durations,
+                            end_time);
   }
   else {
     auto indices_array = array_allocator.allocate_scoped<uint>();
@@ -373,16 +418,22 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
                                array_allocator,
                                particle_allocator,
                                block,
+                               particle_type,
                                attribute_offsets,
                                remaining_durations,
                                end_time,
-                               events,
                                unfinished_pindices);
 
     /* Not sure yet, if this really should be done. */
     if (unfinished_pindices.size() > 0) {
       ParticleSet remaining_particles(block, unfinished_pindices);
-      apply_remaining_offsets(remaining_particles, attribute_offsets);
+      apply_remaining_offsets(particle_type,
+                              array_allocator,
+                              particle_allocator,
+                              remaining_particles,
+                              attribute_offsets,
+                              remaining_durations,
+                              end_time);
     }
   }
 

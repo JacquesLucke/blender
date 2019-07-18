@@ -44,4 +44,22 @@ void TurbulenceForce::add_force(ParticlesBlock &block, ArrayRef<float3> r_force)
   }
 }
 
+void TrailListener::listen(ForwardingListenerInterface &interface)
+{
+  ParticleSet particles = interface.particles();
+  auto positions = particles.attributes().get_float3("Position");
+
+  SmallVector<float3> new_positions;
+  SmallVector<float> new_birth_times;
+  for (uint pindex : particles.pindices()) {
+    new_positions.append(positions[pindex]);
+    new_birth_times.append(interface.time_span(pindex).start());
+  }
+
+  auto new_particles = interface.particle_allocator().request(m_particle_type_name,
+                                                              new_positions.size());
+  new_particles.set_float3("Position", new_positions);
+  new_particles.set_float("Birth Time", new_birth_times);
+}
+
 }  // namespace BParticles

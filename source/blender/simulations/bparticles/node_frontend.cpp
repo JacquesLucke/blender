@@ -60,6 +60,21 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
     }
   }
 
+  for (auto item : get_forwarding_listener_builders().items()) {
+    for (bNode *bnode : indexed_tree.nodes_with_idname(item.key)) {
+      bNodeSocket *listener_output = bSocketList(bnode->outputs).get(0);
+      for (SocketWithNode linked : indexed_tree.linked(listener_output)) {
+        if (is_particle_type_node(linked.node)) {
+          auto listener = item.value(ctx, bnode);
+          if (listener) {
+            step_description->m_types.lookup_ref(linked.node->name)
+                ->m_forwarding_listeners.append(listener.release());
+          }
+        }
+      }
+    }
+  }
+
   for (auto item : get_event_builders().items()) {
     for (bNode *bnode : indexed_tree.nodes_with_idname(item.key)) {
       bNodeSocket *event_input = bSocketList(bnode->inputs).get(0);

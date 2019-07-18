@@ -397,6 +397,21 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_initial_grid(BuildContext &ctx,
                              body->get_output<float>(fn_out, 4, "Size")));
 }
 
+static std::unique_ptr<ForwardingListener> BUILD_FORWARDING_LISTENER_trails(BuildContext &ctx,
+                                                                            bNode *bnode)
+{
+  PointerRNA rna = ctx.indexed_tree.get_rna(bnode);
+  char name[65];
+  RNA_string_get(&rna, "particle_type_name", name);
+
+  if (ctx.step_description.m_types.contains(name)) {
+    return std::unique_ptr<ForwardingListener>(new TrailListener(name));
+  }
+  else {
+    return {};
+  }
+}
+
 BLI_LAZY_INIT(StringMap<ForceFromNodeCallback>, get_force_builders)
 {
   StringMap<ForceFromNodeCallback> map;
@@ -421,6 +436,13 @@ BLI_LAZY_INIT(StringMap<EmitterFromNodeCallback>, get_emitter_builders)
   map.add_new("bp_MeshEmitterNode", BUILD_EMITTER_mesh_surface);
   map.add_new("bp_CustomEmitterNode", BUILD_EMITTER_custom_function);
   map.add_new("bp_InitialGridEmitterNode", BUILD_EMITTER_initial_grid);
+  return map;
+}
+
+BLI_LAZY_INIT(StringMap<ForwardingListenerFromNodeCallback>, get_forwarding_listener_builders)
+{
+  StringMap<ForwardingListenerFromNodeCallback> map;
+  map.add_new("bp_ParticleTrailsNode", BUILD_FORWARDING_LISTENER_trails);
   return map;
 }
 

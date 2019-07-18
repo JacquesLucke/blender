@@ -40,4 +40,17 @@ class TurbulenceForce : public Force {
   void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) override;
 };
 
+class TrailListener : public ForwardingListener {
+ private:
+  std::string m_particle_type_name;
+
+ public:
+  TrailListener(StringRef particle_type_name)
+      : m_particle_type_name(particle_type_name.to_std_string())
+  {
+  }
+
+  void listen(ForwardingListenerInterface &interface) override;
+};
+
 }  // namespace BParticles
