@@ -148,7 +148,7 @@ class ParticleType {
   /**
    * Allows to define which attributes should exist for the type.
    */
-  virtual void attributes(AttributesDeclaration &interface);
+  virtual AttributesDeclaration &attributes() = 0;
 };
 
 /**
@@ -595,20 +595,6 @@ class OffsetHandlerInterface {
   ArrayRef<float> durations();
   TimeSpan time_span(uint pindex);
 };
-
-/* Event inline functions
- ********************************************/
-
-inline void Event::attributes(AttributesDeclaration &UNUSED(builder))
-{
-}
-
-/* ParticleType inline functions
- ********************************************/
-
-inline void ParticleType::attributes(AttributesDeclaration &UNUSED(builder))
-{
-}
 
 /* ParticlesState inline functions
  ********************************************/

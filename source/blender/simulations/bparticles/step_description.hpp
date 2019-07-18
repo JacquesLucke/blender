@@ -9,6 +9,7 @@ class ModifierParticleType : public ParticleType {
   SmallVector<Event *> m_events;
   SmallVector<OffsetHandler *> m_offset_handlers;
   Integrator *m_integrator;
+  AttributesDeclaration m_attributes;
 
   ~ModifierParticleType()
   {
@@ -34,12 +35,9 @@ class ModifierParticleType : public ParticleType {
     return *m_integrator;
   }
 
-  void attributes(AttributesDeclaration &builder) override
+  AttributesDeclaration &attributes() override
   {
-    builder.add_float3("Position", {0, 0, 0});
-    builder.add_float3("Velocity", {0, 0, 0});
-    builder.add_float("Size", 0.01f);
-    builder.add_float3("Color", {1.0f, 1.0f, 1.0f});
+    return m_attributes;
   }
 };
 
@@ -80,6 +78,7 @@ class ParticleTypeBuilder {
   Integrator *m_integrator;
   SmallVector<Event *> m_events;
   SmallVector<OffsetHandler *> m_offset_handlers;
+  AttributesDeclaration m_attributes;
 
  public:
   ParticleTypeBuilder() = default;
@@ -99,6 +98,11 @@ class ParticleTypeBuilder {
     m_offset_handlers.append(offset_handler.release());
   }
 
+  AttributesDeclaration &attributes()
+  {
+    return m_attributes;
+  }
+
   ParticleType *build()
   {
     BLI_assert(m_integrator);
@@ -106,6 +110,7 @@ class ParticleTypeBuilder {
     type->m_integrator = m_integrator;
     type->m_events = m_events;
     type->m_offset_handlers = m_offset_handlers;
+    type->m_attributes = m_attributes;
     m_events.clear();
     m_offset_handlers.clear();
     return type;

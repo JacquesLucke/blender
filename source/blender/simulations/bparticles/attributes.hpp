@@ -72,6 +72,9 @@ class AttributesDeclaration {
   void add_byte(StringRef name, uint8_t default_value);
   void add_float(StringRef name, float default_value);
   void add_float3(StringRef name, float3 default_value);
+
+  void join(AttributesDeclaration &other);
+  void join(AttributesInfo &other);
 };
 
 /**

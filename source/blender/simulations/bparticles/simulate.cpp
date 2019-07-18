@@ -546,10 +546,11 @@ BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
 }
 
 BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &type,
-                                                                 AttributesInfo &UNUSED(last_info))
+                                                                 AttributesInfo &last_info)
 {
   AttributesDeclaration builder;
-  type.attributes(builder);
+  builder.join(last_info);
+  builder.join(type.attributes());
 
   for (Event *event : type.events()) {
     event->attributes(builder);

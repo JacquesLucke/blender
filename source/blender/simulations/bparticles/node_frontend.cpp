@@ -37,6 +37,11 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
     EulerIntegrator *integrator = new EulerIntegrator();
     euler_integrators.add_new(particle_type_node->name, integrator);
     type_builder.set_integrator(integrator);
+    auto &attributes = type_builder.attributes();
+    attributes.add_float3("Position", {0, 0, 0});
+    attributes.add_float3("Velocity", {0, 0, 0});
+    attributes.add_float("Size", 0.01f);
+    attributes.add_float3("Color", {1.0f, 1.0f, 1.0f});
   }
 
   auto data_graph = FN::DataFlowNodes::generate_graph(indexed_tree).value();

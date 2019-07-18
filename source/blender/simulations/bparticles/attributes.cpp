@@ -2,6 +2,44 @@
 
 namespace BParticles {
 
+void AttributesDeclaration::join(AttributesDeclaration &other)
+{
+  for (uint i = 0; i < other.m_byte_names.size(); i++) {
+    if (m_byte_names.add(other.m_byte_names[i])) {
+      m_byte_defaults.append(other.m_byte_defaults[i]);
+    }
+  }
+  for (uint i = 0; i < other.m_float_names.size(); i++) {
+    if (m_float_names.add(other.m_float_names[i])) {
+      m_float_defaults.append(other.m_float_defaults[i]);
+    }
+  }
+  for (uint i = 0; i < other.m_float3_names.size(); i++) {
+    if (m_float3_names.add(other.m_float3_names[i])) {
+      m_float3_defaults.append(other.m_float3_defaults[i]);
+    }
+  }
+}
+
+void AttributesDeclaration::join(AttributesInfo &other)
+{
+  for (uint i : other.byte_attributes()) {
+    if (m_byte_names.add(other.name_of(i).to_std_string())) {
+      m_byte_defaults.append(*(uint8_t *)other.default_value_ptr(i));
+    }
+  }
+  for (uint i : other.float_attributes()) {
+    if (m_float_names.add(other.name_of(i).to_std_string())) {
+      m_float_defaults.append(*(float *)other.default_value_ptr(i));
+    }
+  }
+  for (uint i : other.float3_attributes()) {
+    if (m_float3_names.add(other.name_of(i).to_std_string())) {
+      m_float3_defaults.append(*(float3 *)other.default_value_ptr(i));
+    }
+  }
+}
+
 AttributesInfo::AttributesInfo(AttributesDeclaration &builder)
     : AttributesInfo(builder.m_byte_names,
                      builder.m_float_names,

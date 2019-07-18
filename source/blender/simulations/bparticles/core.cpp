@@ -14,6 +14,10 @@ Event::~Event()
 {
 }
 
+void Event::attributes(AttributesDeclaration &UNUSED(interface))
+{
+}
+
 OffsetHandler::~OffsetHandler()
 {
 }
