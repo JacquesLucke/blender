@@ -287,9 +287,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Array
   auto handlers = step_data.particle_type.offset_handlers();
   if (handlers.size() > 0) {
     ArrayAllocator::Array<float> time_factors(step_data.array_allocator);
-    for (uint pindex : pindices) {
-      time_factors[pindex] = 1.0f;
-    }
+    ArrayRef<float>(time_factors).fill_indices(pindices, 1.0f);
 
     OffsetHandlerInterface interface(step_data, pindices, time_factors);
     for (OffsetHandler *handler : handlers) {
