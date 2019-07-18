@@ -34,12 +34,12 @@ class ModifierParticleType : public ParticleType {
     return *m_integrator;
   }
 
-  void attributes(AttributesInfoBuilder &builder) override
+  void attributes(AttributesDeclaration &builder) override
   {
-    builder.use_float3("Position", {0, 0, 0});
-    builder.use_float3("Velocity", {0, 0, 0});
-    builder.use_float("Size", 0.01f);
-    builder.use_float3("Color", {1.0f, 1.0f, 1.0f});
+    builder.add_float3("Position", {0, 0, 0});
+    builder.add_float3("Velocity", {0, 0, 0});
+    builder.add_float("Size", 0.01f);
+    builder.add_float3("Color", {1.0f, 1.0f, 1.0f});
   }
 };
 

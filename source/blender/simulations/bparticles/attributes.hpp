@@ -55,7 +55,7 @@ inline uint size_of_attribute_type(AttributeType type)
 
 class AttributesInfo;
 
-class AttributesInfoBuilder {
+class AttributesDeclaration {
  private:
   SmallSetVector<std::string> m_byte_names;
   SmallSetVector<std::string> m_float_names;
@@ -67,11 +67,11 @@ class AttributesInfoBuilder {
   friend AttributesInfo;
 
  public:
-  AttributesInfoBuilder() = default;
+  AttributesDeclaration() = default;
 
-  void use_byte(StringRef name, uint8_t default_value);
-  void use_float(StringRef name, float default_value);
-  void use_float3(StringRef name, float3 default_value);
+  void add_byte(StringRef name, uint8_t default_value);
+  void add_float(StringRef name, float default_value);
+  void add_float3(StringRef name, float3 default_value);
 };
 
 /**
@@ -96,7 +96,7 @@ class AttributesInfo {
 
  public:
   AttributesInfo() = default;
-  AttributesInfo(AttributesInfoBuilder &builder);
+  AttributesInfo(AttributesDeclaration &builder);
   AttributesInfo(ArrayRef<std::string> byte_names,
                  ArrayRef<std::string> float_names,
                  ArrayRef<std::string> float3_names,
@@ -400,21 +400,21 @@ class AttributeArrays {
 /* Attribute Info Builder
  *****************************************/
 
-inline void AttributesInfoBuilder::use_byte(StringRef name, uint8_t default_value)
+inline void AttributesDeclaration::add_byte(StringRef name, uint8_t default_value)
 {
   if (m_byte_names.add(name.to_std_string())) {
     m_byte_defaults.append(default_value);
   }
 }
 
-inline void AttributesInfoBuilder::use_float(StringRef name, float default_value)
+inline void AttributesDeclaration::add_float(StringRef name, float default_value)
 {
   if (m_float_names.add(name.to_std_string())) {
     m_float_defaults.append(default_value);
   }
 }
 
-inline void AttributesInfoBuilder::use_float3(StringRef name, float3 default_value)
+inline void AttributesDeclaration::add_float3(StringRef name, float3 default_value)
 {
   if (m_float3_names.add(name.to_std_string())) {
     m_float3_defaults.append(default_value);

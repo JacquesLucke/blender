@@ -4,9 +4,9 @@ namespace BParticles {
 
 EulerIntegrator::EulerIntegrator()
 {
-  AttributesInfoBuilder builder;
-  builder.use_float3("Position", {0, 0, 0});
-  builder.use_float3("Velocity", {0, 0, 0});
+  AttributesDeclaration builder;
+  builder.add_float3("Position", {0, 0, 0});
+  builder.add_float3("Velocity", {0, 0, 0});
   m_offset_attributes_info = AttributesInfo(builder);
 }
 

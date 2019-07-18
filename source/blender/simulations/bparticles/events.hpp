@@ -34,7 +34,7 @@ class AgeReachedEvent : public Event {
     m_compute_age_body = compute_age_fn->body<TupleCallBody>();
   }
 
-  void attributes(AttributesInfoBuilder &builder) override;
+  void attributes(AttributesDeclaration &builder) override;
   void filter(EventFilterInterface &interface) override;
   void execute(EventExecuteInterface &interface) override;
 };
@@ -90,7 +90,7 @@ class MeshCollisionEvent : public Event {
     free_bvhtree_from_mesh(&m_bvhtree_data);
   }
 
-  void attributes(AttributesInfoBuilder &builder) override;
+  void attributes(AttributesDeclaration &builder) override;
   uint storage_size() override;
   void filter(EventFilterInterface &interface) override;
   void execute(EventExecuteInterface &interface) override;

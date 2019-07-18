@@ -72,7 +72,7 @@ class Event {
   /**
    * Allows to define which attributes are required by the event.
    */
-  virtual void attributes(AttributesInfoBuilder &interface);
+  virtual void attributes(AttributesDeclaration &interface);
 };
 
 /**
@@ -148,7 +148,7 @@ class ParticleType {
   /**
    * Allows to define which attributes should exist for the type.
    */
-  virtual void attributes(AttributesInfoBuilder &interface);
+  virtual void attributes(AttributesDeclaration &interface);
 };
 
 /**
@@ -599,14 +599,14 @@ class OffsetHandlerInterface {
 /* Event inline functions
  ********************************************/
 
-inline void Event::attributes(AttributesInfoBuilder &UNUSED(builder))
+inline void Event::attributes(AttributesDeclaration &UNUSED(builder))
 {
 }
 
 /* ParticleType inline functions
  ********************************************/
 
-inline void ParticleType::attributes(AttributesInfoBuilder &UNUSED(builder))
+inline void ParticleType::attributes(AttributesDeclaration &UNUSED(builder))
 {
 }
 

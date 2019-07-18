@@ -2,7 +2,7 @@
 
 namespace BParticles {
 
-AttributesInfo::AttributesInfo(AttributesInfoBuilder &builder)
+AttributesInfo::AttributesInfo(AttributesDeclaration &builder)
     : AttributesInfo(builder.m_byte_names,
                      builder.m_float_names,
                      builder.m_float3_names,

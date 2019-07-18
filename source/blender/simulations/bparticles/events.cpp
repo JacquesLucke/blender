@@ -2,9 +2,9 @@
 
 namespace BParticles {
 
-void AgeReachedEvent::attributes(AttributesInfoBuilder &builder)
+void AgeReachedEvent::attributes(AttributesDeclaration &builder)
 {
-  builder.use_byte(m_identifier, 0);
+  builder.add_byte(m_identifier, 0);
 }
 
 void AgeReachedEvent::filter(EventFilterInterface &interface)
@@ -57,9 +57,9 @@ void AgeReachedEvent::execute(EventExecuteInterface &interface)
   ActionInterface::RunFromEvent(m_action, interface);
 }
 
-void MeshCollisionEvent::attributes(AttributesInfoBuilder &builder)
+void MeshCollisionEvent::attributes(AttributesDeclaration &builder)
 {
-  builder.use_float(m_identifier, 0.0f);
+  builder.add_float(m_identifier, 0.0f);
 }
 
 uint MeshCollisionEvent::storage_size()

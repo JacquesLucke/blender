@@ -548,15 +548,15 @@ BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
 BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &type,
                                                                  AttributesInfo &UNUSED(last_info))
 {
-  AttributesInfoBuilder builder;
+  AttributesDeclaration builder;
   type.attributes(builder);
 
   for (Event *event : type.events()) {
     event->attributes(builder);
   }
 
-  builder.use_byte("Kill State", 0);
-  builder.use_float("Birth Time", 0);
+  builder.add_byte("Kill State", 0);
+  builder.add_float("Birth Time", 0);
 
   return AttributesInfo(builder);
 }
