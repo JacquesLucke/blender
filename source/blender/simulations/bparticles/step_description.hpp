@@ -51,6 +51,13 @@ class StepDescriptionBuilder {
   SmallVector<Emitter *> m_emitters;
 
  public:
+  ~StepDescriptionBuilder()
+  {
+    for (auto type : m_type_builders.values()) {
+      delete type;
+    }
+  }
+
   void add_emitter(std::unique_ptr<Emitter> emitter)
   {
     m_emitters.append(emitter.release());
