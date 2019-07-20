@@ -25,7 +25,7 @@ AttributesInfo &EulerIntegrator::offset_attributes_info()
 void EulerIntegrator::integrate(IntegratorInterface &interface)
 {
   ParticlesBlock &block = interface.block();
-  AttributeArrays r_offsets = interface.offset_targets();
+  AttributeArrays r_offsets = interface.offsets();
   ArrayRef<float> durations = interface.durations();
 
   ArrayAllocator::Array<float3> combined_force(interface.array_allocator());

@@ -220,7 +220,7 @@ class IntegratorInterface {
   /**
    * Get the arrays that the offsets should be written into.
    */
-  AttributeArrays offset_targets();
+  AttributeArrays offsets();
 };
 
 class OffsetHandlerInterface {
@@ -401,7 +401,7 @@ inline ArrayRef<float> IntegratorInterface::durations()
   return m_durations;
 }
 
-inline AttributeArrays IntegratorInterface::offset_targets()
+inline AttributeArrays IntegratorInterface::offsets()
 {
   return m_offsets;
 }
