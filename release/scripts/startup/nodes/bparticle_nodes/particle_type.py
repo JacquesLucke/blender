@@ -10,3 +10,6 @@ class ParticleTypeNode(bpy.types.Node, BParticlesNode):
         builder.emitter_input("emitters", "Emitters")
         builder.particle_modifier_input("effectors", "Effectors")
         builder.event_output("events", "Events")
+
+    def draw(self, layout):
+        layout.prop(self, "name", text="", icon="MOD_PARTICLES")

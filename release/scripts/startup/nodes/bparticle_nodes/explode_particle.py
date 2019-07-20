@@ -16,4 +16,4 @@ class ExplodeParticleNode(bpy.types.Node, BParticlesNode):
         builder.control_flow_output("control_out", "(Out)")
 
     def draw(self, layout):
-        layout.prop(self, "particle_type_name", text="Type")
+        layout.prop(self, "particle_type_name", text="", icon="MOD_PARTICLES")

@@ -14,4 +14,4 @@ class ParticleTrailsNode(bpy.types.Node, BParticlesNode):
         builder.particle_modifier_output("effect", "Effect")
 
     def draw(self, layout):
-        layout.prop(self, "particle_type_name", text="")
+        layout.prop(self, "particle_type_name", text="", icon="MOD_PARTICLES")
