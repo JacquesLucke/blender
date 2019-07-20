@@ -1984,12 +1984,17 @@ typedef struct BParticlesFrameCache {
   BParticlesTypeCache *particle_types;
 } BParticlesFrameCache;
 
+typedef enum eBParticlesOutputType {
+  MOD_BPARTICLES_OUTPUT_POINTS,
+  MOD_BPARTICLES_OUTPUT_TETRAHEDONS,
+} eBParticlesOutputType;
+
 typedef struct BParticlesModifierData {
   ModifierData modifier;
   struct bNodeTree *bparticles_tree;
+  unsigned int output_type;
 
   unsigned int num_cached_frames;
-  char _pad[4];
   BParticlesFrameCache *cached_frames;
 } BParticlesModifierData;
 

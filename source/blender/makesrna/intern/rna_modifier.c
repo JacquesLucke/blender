@@ -5982,6 +5982,26 @@ static void rna_def_modifier_bparticles(BlenderRNA *brna)
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "BParticles Tree", "BParticles node tree");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
+
+  const static EnumPropertyItem output_types[] = {
+      {MOD_BPARTICLES_OUTPUT_POINTS,
+       "POINTS",
+       0,
+       "Points",
+       "Create a mesh containing only vertices"},
+      {MOD_BPARTICLES_OUTPUT_TETRAHEDONS,
+       "TETRAHEDONS",
+       0,
+       "Tetrahedons",
+       "Create a mesh that has a tetrahedon at every vertex position"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  prop = RNA_def_property(srna, "output_type", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, output_types);
+  RNA_def_property_ui_text(
+      prop, "Output Type", "Method for creating the output mesh from the particle data");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)

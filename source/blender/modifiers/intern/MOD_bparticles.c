@@ -83,22 +83,6 @@ static void free_modifier_runtime_data(BParticlesModifierData *bpmd)
   }
 }
 
-static Mesh *point_mesh_from_particle_state(BParticlesState particles_state)
-{
-  uint point_amount = BParticles_state_particle_count(particles_state);
-  Mesh *mesh = BKE_mesh_new_nomain(point_amount, 0, 0, 0, 0);
-
-  float(*positions)[3] = MEM_malloc_arrayN(point_amount, sizeof(float[3]), __func__);
-  BParticles_state_get_positions(particles_state, positions);
-
-  for (uint i = 0; i < point_amount; i++) {
-    copy_v3_v3(mesh->mvert[i].co, positions[i]);
-  }
-
-  MEM_freeN(positions);
-  return mesh;
-}
-
 static Mesh *applyModifier(ModifierData *md,
                            const struct ModifierEvalContext *ctx,
                            Mesh *UNUSED(mesh))
@@ -137,7 +121,12 @@ static Mesh *applyModifier(ModifierData *md,
     runtime->last_simulated_frame = current_frame;
   }
 
-  return BParticles_modifier_mesh_from_state(runtime->particles_state);
+  if (bpmd->output_type == MOD_BPARTICLES_OUTPUT_POINTS) {
+    return BParticles_modifier_point_mesh_from_state(runtime->particles_state);
+  }
+  else {
+    return BParticles_modifier_mesh_from_state(runtime->particles_state);
+  }
 }
 
 static void initData(ModifierData *UNUSED(md))

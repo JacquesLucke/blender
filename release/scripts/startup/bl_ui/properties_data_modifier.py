@@ -1670,6 +1670,8 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         layout.operator("object.bparticles_clear_cache", text="Clear Cache")
 
+        layout.prop(md, "output_type")
+
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
     bl_label = "Modifiers"

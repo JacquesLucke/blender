@@ -226,6 +226,26 @@ void BParticles_modifier_free_cache(BParticlesModifierData *bpmd)
   bpmd->num_cached_frames = 0;
 }
 
+Mesh *BParticles_modifier_point_mesh_from_state(BParticlesState state_c)
+{
+  SCOPED_TIMER(__func__);
+
+  ParticlesState &state = *unwrap(state_c);
+
+  SmallVector<float3> positions;
+  for (ParticlesContainer *container : state.particle_containers().values()) {
+    positions.extend(container->flatten_attribute_float3("Position"));
+  }
+
+  Mesh *mesh = BKE_mesh_new_nomain(positions.size(), 0, 0, 0, 0);
+
+  for (uint i = 0; i < mesh->totvert; i++) {
+    copy_v3_v3(mesh->mvert[i].co, positions[i]);
+  }
+
+  return mesh;
+}
+
 Mesh *BParticles_modifier_mesh_from_state(BParticlesState state_c)
 {
   SCOPED_TIMER(__func__);

@@ -31,6 +31,7 @@ void BParticles_simulate_modifier(struct BParticlesModifierData *bpmd,
 uint BParticles_state_particle_count(BParticlesState particles_state);
 void BParticles_state_get_positions(BParticlesState particles_state, float (*dst)[3]);
 
+Mesh *BParticles_modifier_point_mesh_from_state(BParticlesState state);
 Mesh *BParticles_modifier_mesh_from_state(BParticlesState particles_state);
 void BParticles_modifier_free_cache(struct BParticlesModifierData *bpmd);
 struct Mesh *BParticles_modifier_mesh_from_cache(struct BParticlesFrameCache *cached_frame);
