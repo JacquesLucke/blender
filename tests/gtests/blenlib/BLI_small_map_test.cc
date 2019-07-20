@@ -211,3 +211,43 @@ TEST(small_map, AddOverride)
   EXPECT_FALSE(map.add(3, 8.0f));
   EXPECT_EQ(map.lookup(3), 7.0f);
 }
+
+TEST(small_map, MoveConstructorSmall)
+{
+  IntFloatMap map1;
+  map1.add(1, 2.0f);
+  map1.add(4, 1.0f);
+  IntFloatMap map2(std::move(map1));
+  EXPECT_EQ(map2.size(), 2);
+  EXPECT_EQ(map2.lookup(1), 2.0f);
+  EXPECT_EQ(map2.lookup(4), 1.0f);
+  EXPECT_EQ(map1.size(), 0);
+  EXPECT_EQ(map1.lookup_ptr(4), nullptr);
+}
+
+TEST(small_map, MoveConstructorLarge)
+{
+  IntFloatMap map1;
+  for (uint i = 0; i < 100; i++) {
+    map1.add_new(i, i);
+  }
+  IntFloatMap map2(std::move(map1));
+  EXPECT_EQ(map2.size(), 100);
+  EXPECT_EQ(map2.lookup(1), 1.0f);
+  EXPECT_EQ(map2.lookup(4), 4.0f);
+  EXPECT_EQ(map1.size(), 0);
+  EXPECT_EQ(map1.lookup_ptr(4), nullptr);
+}
+
+TEST(small_map, MoveAssignment)
+{
+  IntFloatMap map1;
+  map1.add(1, 2.0f);
+  map1.add(4, 1.0f);
+  IntFloatMap map2 = std::move(map1);
+  EXPECT_EQ(map2.size(), 2);
+  EXPECT_EQ(map2.lookup(1), 2.0f);
+  EXPECT_EQ(map2.lookup(4), 1.0f);
+  EXPECT_EQ(map1.size(), 0);
+  EXPECT_EQ(map1.lookup_ptr(4), nullptr);
+}

@@ -76,6 +76,32 @@ class ArrayLookup {
     m_length = 0;
   }
 
+  ArrayLookup(const ArrayLookup &other) = default;
+  ArrayLookup(ArrayLookup &&other)
+      : m_map(std::move(other.m_map)),
+        m_length(other.m_length),
+        m_dummy_amount(other.m_dummy_amount),
+        m_max_used_slots(other.m_max_used_slots),
+        m_slot_mask(other.m_slot_mask)
+  {
+    other.~ArrayLookup();
+    new (&other) ArrayLookup();
+  }
+
+  ArrayLookup &operator=(const ArrayLookup &other) = default;
+
+  ArrayLookup &operator=(ArrayLookup &&other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    this->~ArrayLookup();
+    new (this) ArrayLookup(std::move(other));
+
+    return *this;
+  }
+
   bool contains(Item *array, const Key &key) const
   {
     ITER_SLOTS (key, slot, state) {
