@@ -1,10 +1,13 @@
 #include "BLI_timeit.hpp"
+#include "BLI_small_multimap.hpp"
 
 #include "node_frontend.hpp"
 #include "inserters.hpp"
 #include "integrator.hpp"
 
 namespace BParticles {
+
+using BLI::SmallMultiMap;
 
 static bool is_particle_type_node(bNode *bnode)
 {
@@ -27,6 +30,11 @@ static bNodeSocket *find_emitter_output(bNode *bnode)
   return nullptr;
 }
 
+static ArrayRef<bNode *> get_type_nodes(IndexedNodeTree &indexed_tree)
+{
+  return indexed_tree.nodes_with_idname("bp_ParticleTypeNode");
+}
+
 std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree &indexed_tree,
                                                                  WorldState &world_state,
                                                                  float time_step)
@@ -34,13 +42,9 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
   SCOPED_TIMER(__func__);
 
   StepDescriptionBuilder step_builder;
-  StringMap<EulerIntegrator *> euler_integrators;
 
-  for (bNode *particle_type_node : indexed_tree.nodes_with_idname("bp_ParticleTypeNode")) {
+  for (bNode *particle_type_node : get_type_nodes(indexed_tree)) {
     auto &type_builder = step_builder.add_type(particle_type_node->name);
-    EulerIntegrator *integrator = new EulerIntegrator();
-    euler_integrators.add_new(particle_type_node->name, integrator);
-    type_builder.set_integrator(integrator);
     auto &attributes = type_builder.attributes();
     attributes.add_float3("Position", {0, 0, 0});
     attributes.add_float3("Velocity", {0, 0, 0});
@@ -52,6 +56,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
 
   BuildContext ctx = {indexed_tree, data_graph, step_builder, world_state};
 
+  SmallMultiMap<std::string, Force *> forces;
   for (auto item : get_force_builders().items()) {
     for (bNode *bnode : indexed_tree.nodes_with_idname(item.key)) {
       bNodeSocket *force_output = bSocketList(bnode->outputs).get(0);
@@ -59,7 +64,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
         if (is_particle_type_node(linked.node)) {
           auto force = item.value(ctx, bnode);
           if (force) {
-            euler_integrators.lookup(linked.node->name)->add_force(std::move(force));
+            forces.add(linked.node->name, force.release());
           }
         }
       }
@@ -105,6 +110,18 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
           }
         }
       }
+    }
+  }
+
+  for (bNode *bnode : get_type_nodes(indexed_tree)) {
+    std::string name = bnode->name;
+    ParticleTypeBuilder &type_builder = step_builder.get_type(name);
+    ArrayRef<Force *> forces_on_type = forces.lookup_default(name);
+    if (forces_on_type.size() == 0) {
+      type_builder.set_integrator(new ConstantVelocityIntegrator());
+    }
+    else {
+      type_builder.set_integrator(new EulerIntegrator(forces_on_type));
     }
   }
 

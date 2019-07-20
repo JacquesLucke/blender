@@ -5,22 +5,27 @@
 
 namespace BParticles {
 
+class ConstantVelocityIntegrator : public Integrator {
+  AttributesInfo m_offset_attributes_info;
+
+ public:
+  ConstantVelocityIntegrator();
+
+  AttributesInfo &offset_attributes_info() override;
+  void integrate(IntegratorInterface &interface) override;
+};
+
 class EulerIntegrator : public Integrator {
  private:
   AttributesInfo m_offset_attributes_info;
   SmallVector<Force *> m_forces;
 
  public:
-  EulerIntegrator();
+  EulerIntegrator(ArrayRef<Force *> forces);
   ~EulerIntegrator();
 
   AttributesInfo &offset_attributes_info() override;
   void integrate(IntegratorInterface &interface) override;
-
-  void add_force(std::unique_ptr<Force> force)
-  {
-    m_forces.append(force.release());
-  }
 
  private:
   void compute_combined_force(ParticlesBlock &block, ArrayRef<float3> r_force);

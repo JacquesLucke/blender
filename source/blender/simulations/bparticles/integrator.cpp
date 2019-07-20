@@ -2,7 +2,31 @@
 
 namespace BParticles {
 
-EulerIntegrator::EulerIntegrator()
+ConstantVelocityIntegrator::ConstantVelocityIntegrator()
+{
+  AttributesDeclaration builder;
+  builder.add_float3("Position", {0, 0, 0});
+  m_offset_attributes_info = AttributesInfo(builder);
+}
+
+AttributesInfo &ConstantVelocityIntegrator::offset_attributes_info()
+{
+  return m_offset_attributes_info;
+}
+
+void ConstantVelocityIntegrator::integrate(IntegratorInterface &interface)
+{
+  ParticlesBlock &block = interface.block();
+  auto velocities = block.attributes().get_float3("Velocity");
+  auto position_offsets = interface.offsets().get_float3("Position");
+  auto durations = interface.durations();
+
+  for (uint pindex = 0; pindex < block.active_amount(); pindex++) {
+    position_offsets[pindex] = velocities[pindex] * durations[pindex];
+  }
+}
+
+EulerIntegrator::EulerIntegrator(ArrayRef<Force *> forces) : m_forces(forces)
 {
   AttributesDeclaration builder;
   builder.add_float3("Position", {0, 0, 0});
