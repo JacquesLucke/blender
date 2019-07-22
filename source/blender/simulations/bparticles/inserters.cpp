@@ -101,7 +101,7 @@ static SharedFunction create_function_for_data_inputs(VirtualNode *vnode,
       bsockets_to_compute.append(&vsocket);
     }
   }
-  return create_function(data_graph, bsockets_to_compute, vnode->bnode()->name);
+  return create_function(data_graph, bsockets_to_compute, vnode->name());
 }
 
 static std::unique_ptr<Action> build_action(BuildContext &ctx, VirtualSocket *start);
@@ -209,15 +209,14 @@ static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(BuildContext &ctx, Virt
   }
 
   auto action = build_action(ctx, vnode->output(0));
-  return std::unique_ptr<Event>(
-      new MeshCollisionEvent(vnode->bnode()->name, object, std::move(action)));
+  return std::unique_ptr<Event>(new MeshCollisionEvent(vnode->name(), object, std::move(action)));
 }
 
 static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx, VirtualNode *vnode)
 {
   SharedFunction fn = create_function_for_data_inputs(vnode, ctx.data_graph);
   auto action = build_action(ctx, vnode->output(0));
-  return std::unique_ptr<Event>(new AgeReachedEvent(vnode->bnode()->name, fn, std::move(action)));
+  return std::unique_ptr<Event>(new AgeReachedEvent(vnode->name(), fn, std::move(action)));
 }
 
 static std::unique_ptr<Event> BUILD_EVENT_close_by_points(BuildContext &ctx, VirtualNode *vnode)
@@ -239,7 +238,7 @@ static std::unique_ptr<Event> BUILD_EVENT_close_by_points(BuildContext &ctx, Vir
   BLI_kdtree_3d_balance(kdtree);
 
   return std::unique_ptr<Event>(
-      new CloseByPointsEvent(vnode->bnode()->name, kdtree, distance, std::move(action)));
+      new CloseByPointsEvent(vnode->name(), kdtree, distance, std::move(action)));
 }
 
 static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
@@ -259,7 +258,7 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
   if (object == nullptr) {
     return {};
   }
-  InterpolatedFloat4x4 transform = ctx.world_state.get_interpolated_value(vnode->bnode()->name,
+  InterpolatedFloat4x4 transform = ctx.world_state.get_interpolated_value(vnode->name(),
                                                                           object->obmat);
 
   return std::unique_ptr<SurfaceEmitter>(
@@ -284,7 +283,7 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body->call__setup_execution_context(fn_in, fn_out);
 
-  StringRef bnode_name = vnode->bnode()->name;
+  StringRef bnode_name = vnode->name();
 
   auto point = ctx.world_state.get_interpolated_value(
       bnode_name + StringRef("Position"), body->get_output<float3>(fn_out, 0, "Position"));

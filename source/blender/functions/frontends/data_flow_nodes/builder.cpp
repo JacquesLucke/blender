@@ -173,7 +173,7 @@ bool BTreeGraphBuilder::check_if_sockets_are_mapped(VirtualNode *vnode,
       if (!m_socket_map.contains(&vsocket)) {
         std::cout << "Data DFGB_Socket not mapped: " << std::endl;
         std::cout << "    Tree: " << vnode->btree_id()->name << std::endl;
-        std::cout << "    DFGB_Node: " << vnode->bnode()->name << std::endl;
+        std::cout << "    DFGB_Node: " << vnode->name() << std::endl;
         if (vsocket.is_input()) {
           std::cout << "    Input";
         }

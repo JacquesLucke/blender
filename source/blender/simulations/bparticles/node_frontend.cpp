@@ -44,7 +44,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
   StepDescriptionBuilder step_builder;
 
   for (VirtualNode *particle_type_node : get_type_nodes(vtree)) {
-    auto &type_builder = step_builder.add_type(particle_type_node->bnode()->name);
+    auto &type_builder = step_builder.add_type(particle_type_node->name());
     auto &attributes = type_builder.attributes();
     attributes.add_float3("Position", {0, 0, 0});
     attributes.add_float3("Velocity", {0, 0, 0});
@@ -63,7 +63,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
         if (is_particle_type_node(linked->vnode())) {
           auto force = item.value(ctx, vnode);
           if (force) {
-            forces.add(linked->vnode()->bnode()->name, force.release());
+            forces.add(linked->vnode()->name().to_std_string(), force.release());
           }
         }
       }
@@ -76,8 +76,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
         if (is_particle_type_node(linked->vnode())) {
           auto listener = item.value(ctx, vnode);
           if (listener) {
-            step_builder.get_type(linked->vnode()->bnode()->name)
-                .add_offset_handler(std::move(listener));
+            step_builder.get_type(linked->vnode()->name()).add_offset_handler(std::move(listener));
           }
         }
       }
@@ -90,7 +89,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
         if (is_particle_type_node(linked->vnode())) {
           auto event = item.value(ctx, vnode);
           if (event) {
-            step_builder.get_type(linked->vnode()->bnode()->name).add_event(std::move(event));
+            step_builder.get_type(linked->vnode()->name()).add_event(std::move(event));
           }
         }
       }
@@ -102,7 +101,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
       VirtualSocket *emitter_output = find_emitter_output(vnode);
       for (VirtualSocket *linked : emitter_output->links()) {
         if (is_particle_type_node(linked->vnode())) {
-          auto emitter = item.value(ctx, vnode, linked->vnode()->bnode()->name);
+          auto emitter = item.value(ctx, vnode, linked->vnode()->name());
           if (emitter) {
             step_builder.add_emitter(std::move(emitter));
           }
@@ -112,7 +111,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
   }
 
   for (VirtualNode *vnode : get_type_nodes(vtree)) {
-    std::string name = vnode->bnode()->name;
+    std::string name = vnode->name().to_std_string();
     ParticleTypeBuilder &type_builder = step_builder.get_type(name);
     ArrayRef<Force *> forces_on_type = forces.lookup_default(name);
     if (forces_on_type.size() == 0) {

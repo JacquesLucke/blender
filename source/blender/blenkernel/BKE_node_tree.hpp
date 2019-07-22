@@ -21,6 +21,7 @@ using BLI::SmallMap;
 using BLI::SmallMultiMap;
 using BLI::SmallVector;
 using BLI::StringRef;
+using BLI::StringRefNull;
 
 using bNodeList = ListBaseWrapper<struct bNode *, true>;
 using bLinkList = ListBaseWrapper<struct bNodeLink *, true>;
@@ -226,6 +227,11 @@ class VirtualNode {
     PointerRNA rna;
     RNA_pointer_create(&m_btree->id, &RNA_Node, m_bnode, &rna);
     return rna;
+  }
+
+  StringRefNull name()
+  {
+    return m_bnode->name;
   }
 };
 
