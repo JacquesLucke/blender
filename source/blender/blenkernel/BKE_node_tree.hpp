@@ -8,6 +8,7 @@
 #include "BLI_small_vector.hpp"
 #include "BLI_listbase_wrapper.hpp"
 #include "BLI_small_multimap.hpp"
+#include "BLI_monotonic_allocator.hpp"
 
 #include "RNA_access.h"
 
@@ -15,6 +16,7 @@ namespace BKE {
 
 using BLI::ArrayRef;
 using BLI::ListBaseWrapper;
+using BLI::MonotonicAllocator;
 using BLI::SmallMap;
 using BLI::SmallMultiMap;
 using BLI::SmallVector;
@@ -117,6 +119,139 @@ class IndexedNodeTree {
   SmallMultiMap<bNodeSocket *, SocketWithNode> m_links;
   SmallMultiMap<std::string, bNode *> m_nodes_by_idname;
   SmallVector<SingleOriginLink> m_single_origin_links;
+};
+
+class VirtualNode;
+class VirtualSocket;
+class VirtualLink;
+
+class VirtualNodeTree {
+ private:
+  bool m_frozen = false;
+  MonotonicAllocator<> m_allocator;
+  SmallVector<VirtualNode *> m_nodes;
+  SmallVector<VirtualLink *> m_links;
+
+ public:
+  VirtualNode *add_bnode(bNodeTree *btree, bNode *bnode);
+  void add_link(VirtualSocket *a, VirtualSocket *b);
+
+  void freeze_and_index();
+
+  ArrayRef<VirtualNode *> nodes()
+  {
+    return m_nodes;
+  }
+
+  ArrayRef<VirtualLink *> links()
+  {
+    return m_links;
+  }
+
+  bool is_frozen()
+  {
+    return m_frozen;
+  }
+
+ private:
+  void initialize_direct_links();
+  void initialize_links();
+};
+
+class VirtualNode {
+ private:
+  friend VirtualNodeTree;
+  friend VirtualSocket;
+
+  VirtualNodeTree *m_backlink;
+  bNodeTree *m_btree;
+  bNode *m_bnode;
+  ArrayRef<VirtualSocket> m_inputs;
+  ArrayRef<VirtualSocket> m_outputs;
+
+ public:
+  ArrayRef<VirtualSocket> inputs()
+  {
+    return m_inputs;
+  }
+
+  ArrayRef<VirtualSocket> outputs()
+  {
+    return m_outputs;
+  }
+
+  VirtualSocket *input(uint index)
+  {
+    return &m_inputs[index];
+  }
+
+  VirtualSocket *output(uint index)
+  {
+    return &m_outputs[index];
+  }
+
+  bNode *bnode()
+  {
+    return m_bnode;
+  }
+};
+
+class VirtualSocket {
+ private:
+  friend VirtualNodeTree;
+
+  VirtualNode *m_vnode;
+  bNodeTree *m_btree;
+  bNodeSocket *m_bsocket;
+
+  ArrayRef<VirtualSocket *> m_direct_links;
+  ArrayRef<VirtualSocket *> m_links;
+
+ public:
+  bool is_input() const
+  {
+    return m_vnode->m_inputs.contains_ptr(this);
+  }
+
+  bool is_output() const
+  {
+    return m_vnode->m_outputs.contains_ptr(this);
+  }
+
+  bNodeSocket *bsocket()
+  {
+    return m_bsocket;
+  }
+
+  bNodeTree *btree()
+  {
+    return m_btree;
+  }
+
+  VirtualNode *vnode()
+  {
+    return m_vnode;
+  }
+
+  ArrayRef<VirtualSocket *> direct_links()
+  {
+    BLI_assert(m_vnode->m_backlink->is_frozen());
+    return m_direct_links;
+  }
+
+  ArrayRef<VirtualSocket *> links()
+  {
+    BLI_assert(m_vnode->m_backlink->is_frozen());
+    return m_links;
+  }
+};
+
+class VirtualLink {
+ private:
+  friend VirtualNodeTree;
+
+  VirtualSocket *m_from;
+  VirtualSocket *m_to;
 };
 
 }  // namespace BKE

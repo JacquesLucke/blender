@@ -145,6 +145,32 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
 
 Optional<BTreeDataGraph> generate_graph(IndexedNodeTree &indexed_btree)
 {
+  bNodeTree *btree = indexed_btree.btree();
+
+  VirtualNodeTree vtree;
+  SmallMap<bNode *, VirtualNode *> node_mapping;
+  for (bNode *bnode : BKE::bNodeList(btree->nodes)) {
+    VirtualNode *vnode = vtree.add_bnode(btree, bnode);
+    node_mapping.add_new(bnode, vnode);
+  }
+  for (bNodeLink *blink : BKE::bLinkList(btree->links)) {
+    VirtualNode *from_node = node_mapping.lookup(blink->fromnode);
+    VirtualNode *to_node = node_mapping.lookup(blink->tonode);
+    VirtualSocket *from_socket = nullptr;
+    VirtualSocket *to_socket = nullptr;
+    for (VirtualSocket &output : from_node->outputs()) {
+      if (output.bsocket() == blink->fromsock) {
+        from_socket = &output;
+      }
+    }
+    for (VirtualSocket &input : to_node->inputs()) {
+      if (input.bsocket() == blink->tosock) {
+        to_socket = &input;
+      }
+    }
+    vtree.add_link(from_socket, to_socket);
+  }
+
   DataFlowGraphBuilder graph_builder;
   SmallMap<bNodeSocket *, DFGB_Socket> socket_map;
 

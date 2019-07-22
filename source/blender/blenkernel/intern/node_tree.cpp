@@ -101,4 +101,137 @@ ArrayRef<SingleOriginLink> IndexedNodeTree::single_origin_links() const
   return m_single_origin_links;
 }
 
+/* Virtual Node Tree
+ *****************************************/
+
+VirtualNode *VirtualNodeTree::add_bnode(bNodeTree *btree, bNode *bnode)
+{
+  BLI_assert(!m_frozen);
+
+  VirtualNode *vnode = m_allocator.allocate<VirtualNode>();
+  vnode->m_backlink = this;
+  vnode->m_bnode = bnode;
+  vnode->m_btree = btree;
+
+  SmallVector<bNodeSocket *, 10> original_inputs(bnode->inputs, true);
+  SmallVector<bNodeSocket *, 10> original_outputs(bnode->inputs, true);
+
+  vnode->m_inputs = m_allocator.allocate_array<VirtualSocket>(original_inputs.size());
+  vnode->m_outputs = m_allocator.allocate_array<VirtualSocket>(original_outputs.size());
+
+  for (uint i = 0; i < original_inputs.size(); i++) {
+    VirtualSocket &vsocket = vnode->m_inputs[i];
+    new (&vsocket) VirtualSocket();
+    vsocket.m_vnode = vnode;
+    vsocket.m_btree = btree;
+    vsocket.m_bsocket = original_inputs[i];
+  }
+  for (uint i = 0; i < original_outputs.size(); i++) {
+    VirtualSocket &vsocket = vnode->m_outputs[i];
+    new (&vsocket) VirtualSocket();
+    vsocket.m_vnode = vnode;
+    vsocket.m_btree = btree;
+    vsocket.m_bsocket = original_outputs[i];
+  }
+
+  m_nodes.append(vnode);
+  return vnode;
+}
+
+void VirtualNodeTree::add_link(VirtualSocket *a, VirtualSocket *b)
+{
+  BLI_assert(!m_frozen);
+
+  VirtualLink *vlink = m_allocator.allocate<VirtualLink>();
+  if (a->is_input()) {
+    BLI_assert(b->is_output());
+    vlink->m_from = a;
+    vlink->m_to = b;
+  }
+  else {
+    BLI_assert(b->is_input());
+    vlink->m_from = b;
+    vlink->m_to = a;
+  }
+
+  m_links.append(vlink);
+}
+
+void VirtualNodeTree::freeze_and_index()
+{
+  m_frozen = true;
+  this->initialize_direct_links();
+  this->initialize_links();
+}
+
+BLI_NOINLINE void VirtualNodeTree::initialize_direct_links()
+{
+  /* TODO(jacques): reserve */
+  SmallMultiMap<VirtualSocket *, VirtualSocket *> connections;
+  for (VirtualLink *link : m_links) {
+    connections.add(link->m_from, link->m_to);
+    connections.add(link->m_to, link->m_from);
+  }
+
+  /* TODO(jacques): items iterator */
+  for (VirtualSocket *vsocket : connections.keys()) {
+    auto others = connections.lookup(vsocket);
+    vsocket->m_direct_links = m_allocator.allocate_array<VirtualSocket *>(others.size());
+    vsocket->m_direct_links.copy_from(others);
+  }
+}
+
+static bool is_reroute(VirtualNode *vnode)
+{
+  return STREQ(vnode->bnode()->idname, "NodeReroute");
+}
+
+static void find_connected_sockets_left(VirtualSocket *vsocket,
+                                        SmallVector<VirtualSocket *> &r_found)
+{
+  BLI_assert(vsocket->is_input());
+  for (VirtualSocket *other : vsocket->direct_links()) {
+    if (is_reroute(other->vnode())) {
+      find_connected_sockets_left(other->vnode()->input(0), r_found);
+    }
+    else {
+      r_found.append(other);
+    }
+  }
+}
+
+static void find_connected_sockets_right(VirtualSocket *vsocket,
+                                         SmallVector<VirtualSocket *> &r_found)
+{
+  BLI_assert(vsocket->is_output());
+  for (VirtualSocket *other : vsocket->direct_links()) {
+    if (is_reroute(other->vnode())) {
+      find_connected_sockets_right(other->vnode()->output(0), r_found);
+    }
+    else {
+      r_found.append(other);
+    }
+  }
+}
+
+BLI_NOINLINE void VirtualNodeTree::initialize_links()
+{
+  for (VirtualLink *vlink : m_links) {
+    if (vlink->m_from->m_links.size() == 0) {
+      VirtualSocket *vsocket = vlink->m_from;
+      SmallVector<VirtualSocket *> found;
+      find_connected_sockets_right(vsocket, found);
+      vsocket->m_links = m_allocator.allocate_array<VirtualSocket *>(found.size());
+      vsocket->m_links.copy_from(found);
+    }
+    if (vlink->m_to->m_links.size() == 0) {
+      VirtualSocket *vsocket = vlink->m_to;
+      SmallVector<VirtualSocket *> found;
+      find_connected_sockets_left(vsocket, found);
+      vsocket->m_links = m_allocator.allocate_array<VirtualSocket *>(found.size());
+      vsocket->m_links.copy_from(found);
+    }
+  }
+}
+
 }  // namespace BKE

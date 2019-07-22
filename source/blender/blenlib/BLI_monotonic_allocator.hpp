@@ -61,6 +61,16 @@ template<uint N = 0> class MonotonicAllocator {
       return ptr;
     }
   }
+
+  template<typename T> T *allocate()
+  {
+    return (T *)this->allocate(sizeof(T));
+  }
+
+  template<typename T> ArrayRef<T> allocate_array(uint length)
+  {
+    return ArrayRef<T>((T *)this->allocate(sizeof(T) * length), length);
+  }
 };
 
 }  // namespace BLI
