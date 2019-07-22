@@ -3,19 +3,19 @@
 
 using IntSet = BLI::Set<int>;
 
-TEST(small_set, Defaultconstructor)
+TEST(set, Defaultconstructor)
 {
   IntSet set;
   EXPECT_EQ(set.size(), 0);
 }
 
-TEST(small_set, ContainsNotExistant)
+TEST(set, ContainsNotExistant)
 {
   IntSet set;
   EXPECT_FALSE(set.contains(3));
 }
 
-TEST(small_set, ContainsExistant)
+TEST(set, ContainsExistant)
 {
   IntSet set;
   EXPECT_FALSE(set.contains(5));
@@ -23,7 +23,7 @@ TEST(small_set, ContainsExistant)
   EXPECT_TRUE(set.contains(5));
 }
 
-TEST(small_set, AddMany)
+TEST(set, AddMany)
 {
   IntSet set;
   for (int i = 0; i < 100; i++) {
@@ -38,7 +38,7 @@ TEST(small_set, AddMany)
   }
 }
 
-TEST(small_set, InitializerListConstructor)
+TEST(set, InitializerListConstructor)
 {
   IntSet set = {4, 5, 6};
   EXPECT_EQ(set.size(), 3);
@@ -49,7 +49,7 @@ TEST(small_set, InitializerListConstructor)
   EXPECT_FALSE(set.contains(3));
 }
 
-TEST(small_set, CopyConstructor)
+TEST(set, CopyConstructor)
 {
   IntSet set = {3};
   EXPECT_TRUE(set.contains(3));
@@ -63,7 +63,7 @@ TEST(small_set, CopyConstructor)
   EXPECT_FALSE(set.contains(4));
 }
 
-TEST(small_set, MoveConstructor)
+TEST(set, MoveConstructor)
 {
   IntSet set = {1, 2, 3};
   EXPECT_EQ(set.size(), 3);
@@ -72,7 +72,7 @@ TEST(small_set, MoveConstructor)
   EXPECT_EQ(set2.size(), 3);
 }
 
-TEST(small_set, Pop)
+TEST(set, Pop)
 {
   IntSet set = {4};
   EXPECT_EQ(set.size(), 1);
@@ -80,7 +80,7 @@ TEST(small_set, Pop)
   EXPECT_EQ(set.size(), 0);
 }
 
-TEST(small_set, Remove)
+TEST(set, Remove)
 {
   IntSet set = {3, 4, 5};
   EXPECT_TRUE(set.contains(3));
@@ -100,7 +100,7 @@ TEST(small_set, Remove)
   EXPECT_FALSE(set.contains(5));
 }
 
-TEST(small_set, RemoveMany)
+TEST(set, RemoveMany)
 {
   IntSet set;
   for (uint i = 0; i < 1000; i++) {
@@ -123,7 +123,7 @@ TEST(small_set, RemoveMany)
   }
 }
 
-TEST(small_set, Intersects)
+TEST(set, Intersects)
 {
   IntSet a = {3, 4, 5, 6};
   IntSet b = {1, 2, 5};
@@ -131,7 +131,7 @@ TEST(small_set, Intersects)
   EXPECT_FALSE(IntSet::Disjoint(a, b));
 }
 
-TEST(small_set, Disjoint)
+TEST(set, Disjoint)
 {
   IntSet a = {5, 6, 7, 8};
   IntSet b = {2, 3, 4, 9};
@@ -139,7 +139,7 @@ TEST(small_set, Disjoint)
   EXPECT_TRUE(IntSet::Disjoint(a, b));
 }
 
-TEST(small_set, AddMultiple)
+TEST(set, AddMultiple)
 {
   IntSet a;
   a.add_multiple({5, 7});
@@ -152,7 +152,7 @@ TEST(small_set, AddMultiple)
   EXPECT_EQ(a.size(), 4);
 }
 
-TEST(small_set, AddMultipleNew)
+TEST(set, AddMultipleNew)
 {
   IntSet a;
   a.add_multiple_new({5, 6});
@@ -160,7 +160,7 @@ TEST(small_set, AddMultipleNew)
   EXPECT_TRUE(a.contains(6));
 }
 
-TEST(small_set, ToSmallVector)
+TEST(set, ToSmallVector)
 {
   IntSet a = {5, 2, 8};
   BLI::Vector<int> vec = a.to_small_vector();

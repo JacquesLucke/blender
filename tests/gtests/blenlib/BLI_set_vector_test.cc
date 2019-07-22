@@ -3,13 +3,13 @@
 
 using IntSetVector = BLI::SetVector<int>;
 
-TEST(small_set_vector, DefaultConstructor)
+TEST(set_vector, DefaultConstructor)
 {
   IntSetVector set;
   EXPECT_EQ(set.size(), 0);
 }
 
-TEST(small_set_vector, InitializerListConstructor_WithoutDuplicates)
+TEST(set_vector, InitializerListConstructor_WithoutDuplicates)
 {
   IntSetVector set = {1, 4, 5};
   EXPECT_EQ(set.size(), 3);
@@ -18,7 +18,7 @@ TEST(small_set_vector, InitializerListConstructor_WithoutDuplicates)
   EXPECT_EQ(set[2], 5);
 }
 
-TEST(small_set_vector, InitializerListConstructor_WithDuplicates)
+TEST(set_vector, InitializerListConstructor_WithDuplicates)
 {
   IntSetVector set = {1, 3, 3, 2, 1, 5};
   EXPECT_EQ(set.size(), 4);
@@ -28,7 +28,7 @@ TEST(small_set_vector, InitializerListConstructor_WithDuplicates)
   EXPECT_EQ(set[3], 5);
 }
 
-TEST(small_set_vector, AddNewIncreasesSize)
+TEST(set_vector, AddNewIncreasesSize)
 {
   IntSetVector set;
   EXPECT_EQ(set.size(), 0);
@@ -36,7 +36,7 @@ TEST(small_set_vector, AddNewIncreasesSize)
   EXPECT_EQ(set.size(), 1);
 }
 
-TEST(small_set_vector, AddExistingDoesNotIncreaseSize)
+TEST(set_vector, AddExistingDoesNotIncreaseSize)
 {
   IntSetVector set;
   EXPECT_EQ(set.size(), 0);
@@ -46,7 +46,7 @@ TEST(small_set_vector, AddExistingDoesNotIncreaseSize)
   EXPECT_EQ(set.size(), 1);
 }
 
-TEST(small_set_vector, IndexOfExisting)
+TEST(set_vector, IndexOfExisting)
 {
   IntSetVector set = {3, 6, 4};
   EXPECT_EQ(set.index(6), 1);
@@ -54,7 +54,7 @@ TEST(small_set_vector, IndexOfExisting)
   EXPECT_EQ(set.index(4), 2);
 }
 
-TEST(small_set_vector, IndexOfNotExisting)
+TEST(set_vector, IndexOfNotExisting)
 {
   IntSetVector set = {3, 6, 4};
   EXPECT_EQ(set.index(5), -1);

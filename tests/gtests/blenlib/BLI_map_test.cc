@@ -4,13 +4,13 @@
 
 using IntFloatMap = BLI::Map<int, float>;
 
-TEST(small_map, DefaultConstructor)
+TEST(map, DefaultConstructor)
 {
   IntFloatMap map;
   EXPECT_EQ(map.size(), 0);
 }
 
-TEST(small_map, AddIncreasesSize)
+TEST(map, AddIncreasesSize)
 {
   IntFloatMap map;
   EXPECT_EQ(map.size(), 0);
@@ -20,7 +20,7 @@ TEST(small_map, AddIncreasesSize)
   EXPECT_EQ(map.size(), 2);
 }
 
-TEST(small_map, Contains)
+TEST(map, Contains)
 {
   IntFloatMap map;
   EXPECT_FALSE(map.contains(4));
@@ -30,7 +30,7 @@ TEST(small_map, Contains)
   EXPECT_TRUE(map.contains(4));
 }
 
-TEST(small_map, LookupExisting)
+TEST(map, LookupExisting)
 {
   IntFloatMap map;
   map.add(2, 6.0f);
@@ -39,7 +39,7 @@ TEST(small_map, LookupExisting)
   EXPECT_EQ(map.lookup(4), 1.0f);
 }
 
-TEST(small_map, LookupNotExisting)
+TEST(map, LookupNotExisting)
 {
   IntFloatMap map;
   map.add(2, 4.0f);
@@ -48,7 +48,7 @@ TEST(small_map, LookupNotExisting)
   EXPECT_EQ(map.lookup_ptr(5), nullptr);
 }
 
-TEST(small_map, AddMany)
+TEST(map, AddMany)
 {
   IntFloatMap map;
   for (int i = 0; i < 100; i++) {
@@ -56,7 +56,7 @@ TEST(small_map, AddMany)
   }
 }
 
-TEST(small_map, PopItem)
+TEST(map, PopItem)
 {
   IntFloatMap map;
   map.add(2, 3.0f);
@@ -73,7 +73,7 @@ TEST(small_map, PopItem)
   EXPECT_FALSE(map.contains(1));
 }
 
-TEST(small_map, PopItemMany)
+TEST(map, PopItemMany)
 {
   IntFloatMap map;
   for (uint i = 0; i < 100; i++) {
@@ -87,7 +87,7 @@ TEST(small_map, PopItemMany)
   }
 }
 
-TEST(small_map, LookupRefOrInsert)
+TEST(map, LookupRefOrInsert)
 {
   IntFloatMap map;
   float &value = map.lookup_ref_or_insert(3, 5.0f);
@@ -97,7 +97,7 @@ TEST(small_map, LookupRefOrInsert)
   EXPECT_EQ(value, 6.0f);
 }
 
-TEST(small_map, ValueIterator)
+TEST(map, ValueIterator)
 {
   IntFloatMap map;
   map.add(3, 5.0f);
@@ -118,7 +118,7 @@ TEST(small_map, ValueIterator)
   EXPECT_TRUE(values.contains(2.0f));
 }
 
-TEST(small_map, KeyIterator)
+TEST(map, KeyIterator)
 {
   IntFloatMap map;
   map.add(6, 3.0f);
@@ -139,7 +139,7 @@ TEST(small_map, KeyIterator)
   EXPECT_TRUE(keys.contains(6));
 }
 
-TEST(small_map, ItemIterator)
+TEST(map, ItemIterator)
 {
   IntFloatMap map;
   map.add(5, 3.0f);
@@ -170,14 +170,14 @@ float return_42()
   return 42.0f;
 }
 
-TEST(small_map, LookupOrInsertFunc_SeparateFunction)
+TEST(map, LookupOrInsertFunc_SeparateFunction)
 {
   IntFloatMap map;
   EXPECT_EQ(map.lookup_ref_or_insert_func(0, return_42), 42.0f);
   EXPECT_EQ(map.lookup(0), 42);
 }
 
-TEST(small_map, LookupOrInsertFunc_Lambdas)
+TEST(map, LookupOrInsertFunc_Lambdas)
 {
   IntFloatMap map;
   auto lambda1 = []() { return 11.0f; };
@@ -189,7 +189,7 @@ TEST(small_map, LookupOrInsertFunc_Lambdas)
   EXPECT_EQ(map.lookup_ref_or_insert_func(1, lambda1), 20.0f);
 }
 
-TEST(small_map, InsertOrModify)
+TEST(map, InsertOrModify)
 {
   IntFloatMap map;
   auto create_func = []() { return 10.0f; };
@@ -200,7 +200,7 @@ TEST(small_map, InsertOrModify)
   EXPECT_EQ(map.lookup(1), 15.0f);
 }
 
-TEST(small_map, AddOverride)
+TEST(map, AddOverride)
 {
   IntFloatMap map;
   EXPECT_FALSE(map.contains(3));
@@ -212,7 +212,7 @@ TEST(small_map, AddOverride)
   EXPECT_EQ(map.lookup(3), 7.0f);
 }
 
-TEST(small_map, MoveConstructorSmall)
+TEST(map, MoveConstructorSmall)
 {
   IntFloatMap map1;
   map1.add(1, 2.0f);
@@ -225,7 +225,7 @@ TEST(small_map, MoveConstructorSmall)
   EXPECT_EQ(map1.lookup_ptr(4), nullptr);
 }
 
-TEST(small_map, MoveConstructorLarge)
+TEST(map, MoveConstructorLarge)
 {
   IntFloatMap map1;
   for (uint i = 0; i < 100; i++) {
@@ -239,7 +239,7 @@ TEST(small_map, MoveConstructorLarge)
   EXPECT_EQ(map1.lookup_ptr(4), nullptr);
 }
 
-TEST(small_map, MoveAssignment)
+TEST(map, MoveAssignment)
 {
   IntFloatMap map1;
   map1.add(1, 2.0f);

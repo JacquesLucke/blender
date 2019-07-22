@@ -7,13 +7,13 @@ using BLI::Map;
 using BLI::Vector;
 using IntVector = Vector<int>;
 
-TEST(small_vector, DefaultConstructor)
+TEST(vector, DefaultConstructor)
 {
   IntVector vec;
   EXPECT_EQ(vec.size(), 0);
 }
 
-TEST(small_vector, SizeConstructor)
+TEST(vector, SizeConstructor)
 {
   IntVector vec(3);
   EXPECT_EQ(vec.size(), 3);
@@ -22,7 +22,7 @@ TEST(small_vector, SizeConstructor)
   EXPECT_EQ(vec[2], 0);
 }
 
-TEST(small_vector, SizeValueConstructor)
+TEST(vector, SizeValueConstructor)
 {
   IntVector vec(4, 10);
   EXPECT_EQ(vec.size(), 4);
@@ -32,7 +32,7 @@ TEST(small_vector, SizeValueConstructor)
   EXPECT_EQ(vec[3], 10);
 }
 
-TEST(small_vector, InitializerListConstructor)
+TEST(vector, InitializerListConstructor)
 {
   IntVector vec = {1, 3, 4, 6};
   EXPECT_EQ(vec.size(), 4);
@@ -42,7 +42,7 @@ TEST(small_vector, InitializerListConstructor)
   EXPECT_EQ(vec[3], 6);
 }
 
-TEST(small_vector, MappedArrayRefConstructor)
+TEST(vector, MappedArrayRefConstructor)
 {
   Map<int, int> map;
   map.add(2, 5);
@@ -63,7 +63,7 @@ TEST(small_vector, MappedArrayRefConstructor)
   EXPECT_TRUE(values.contains(6));
 }
 
-TEST(small_vector, NonIntrusiveListBaseConstructor)
+TEST(vector, NonIntrusiveListBaseConstructor)
 {
   ListBase list = {0};
   BLI_addtail(&list, BLI_genericNodeN(POINTER_FROM_INT(42)));
@@ -82,7 +82,7 @@ struct TestListValue {
   int value;
 };
 
-TEST(small_vector, IntrusiveListBaseConstructor)
+TEST(vector, IntrusiveListBaseConstructor)
 {
   ListBase list = {0};
   BLI_addtail(&list, new TestListValue{0, 0, 4});
@@ -99,7 +99,7 @@ TEST(small_vector, IntrusiveListBaseConstructor)
   delete vec[2];
 }
 
-TEST(small_vector, ContainerConstructor)
+TEST(vector, ContainerConstructor)
 {
   std::forward_list<int> list;
   list.push_front(3);
@@ -113,7 +113,7 @@ TEST(small_vector, ContainerConstructor)
   EXPECT_EQ(vec[2], 3);
 }
 
-TEST(small_vector, CopyConstructor)
+TEST(vector, CopyConstructor)
 {
   IntVector vec1 = {1, 2, 3};
   IntVector vec2(vec1);
@@ -127,7 +127,7 @@ TEST(small_vector, CopyConstructor)
   EXPECT_EQ(vec2[1], 2);
 }
 
-TEST(small_vector, MoveAssignment)
+TEST(vector, MoveAssignment)
 {
   IntVector vec = {1, 2};
   EXPECT_EQ(vec.size(), 2);
@@ -139,7 +139,7 @@ TEST(small_vector, MoveAssignment)
   EXPECT_EQ(vec[0], 5);
 }
 
-TEST(small_vector, CopyAssignment)
+TEST(vector, CopyAssignment)
 {
   IntVector vec1 = {1, 2, 3};
   IntVector vec2 = {4, 5};
@@ -154,7 +154,7 @@ TEST(small_vector, CopyAssignment)
   EXPECT_EQ(vec2[0], 1);
 }
 
-TEST(small_vector, Append)
+TEST(vector, Append)
 {
   IntVector vec;
   vec.append(3);
@@ -166,7 +166,7 @@ TEST(small_vector, Append)
   EXPECT_EQ(vec[2], 7);
 }
 
-TEST(small_vector, Fill)
+TEST(vector, Fill)
 {
   IntVector vec(5);
   vec.fill(3);
@@ -178,7 +178,7 @@ TEST(small_vector, Fill)
   EXPECT_EQ(vec[4], 3);
 }
 
-TEST(small_vector, Iterator)
+TEST(vector, Iterator)
 {
   IntVector vec({1, 4, 9, 16});
   int i = 1;
@@ -188,7 +188,7 @@ TEST(small_vector, Iterator)
   }
 }
 
-TEST(small_vector, BecomeLarge)
+TEST(vector, BecomeLarge)
 {
   Vector<int, 4> vec;
   for (int i = 0; i < 100; i++) {
@@ -205,7 +205,7 @@ IntVector return_by_value_helper()
   return IntVector({3, 5, 1});
 }
 
-TEST(small_vector, ReturnByValue)
+TEST(vector, ReturnByValue)
 {
   IntVector vec = return_by_value_helper();
   EXPECT_EQ(vec.size(), 3);
@@ -214,7 +214,7 @@ TEST(small_vector, ReturnByValue)
   EXPECT_EQ(vec[2], 1);
 }
 
-TEST(small_vector, VectorOfVectors_Append)
+TEST(vector, VectorOfVectors_Append)
 {
   Vector<IntVector> vec;
   EXPECT_EQ(vec.size(), 0);
@@ -229,7 +229,7 @@ TEST(small_vector, VectorOfVectors_Append)
   EXPECT_EQ(vec[1][1], 8);
 }
 
-TEST(small_vector, VectorOfVectors_Fill)
+TEST(vector, VectorOfVectors_Fill)
 {
   Vector<IntVector> vec(3);
   vec.fill({4, 5});
@@ -242,7 +242,7 @@ TEST(small_vector, VectorOfVectors_Fill)
   EXPECT_EQ(vec[2][1], 5);
 }
 
-TEST(small_vector, RemoveLast)
+TEST(vector, RemoveLast)
 {
   IntVector vec = {5, 6};
   EXPECT_EQ(vec.size(), 2);
@@ -252,7 +252,7 @@ TEST(small_vector, RemoveLast)
   EXPECT_EQ(vec.size(), 0);
 }
 
-TEST(small_vector, Empty)
+TEST(vector, Empty)
 {
   IntVector vec;
   EXPECT_TRUE(vec.empty());
@@ -262,7 +262,7 @@ TEST(small_vector, Empty)
   EXPECT_TRUE(vec.empty());
 }
 
-TEST(small_vector, RemoveReorder)
+TEST(vector, RemoveReorder)
 {
   IntVector vec = {4, 5, 6, 7};
   vec.remove_and_reorder(1);
@@ -278,7 +278,7 @@ TEST(small_vector, RemoveReorder)
   EXPECT_TRUE(vec.empty());
 }
 
-TEST(small_vector, AllEqual_False)
+TEST(vector, AllEqual_False)
 {
   IntVector a = {1, 2, 3};
   IntVector b = {1, 2, 4};
@@ -286,7 +286,7 @@ TEST(small_vector, AllEqual_False)
   EXPECT_FALSE(result);
 }
 
-TEST(small_vector, AllEqual_True)
+TEST(vector, AllEqual_True)
 {
   IntVector a = {4, 5, 6};
   IntVector b = {4, 5, 6};
@@ -294,7 +294,7 @@ TEST(small_vector, AllEqual_True)
   EXPECT_TRUE(result);
 }
 
-TEST(small_vector, ExtendSmallVector)
+TEST(vector, ExtendSmallVector)
 {
   IntVector a = {2, 3, 4};
   IntVector b = {11, 12};
@@ -307,7 +307,7 @@ TEST(small_vector, ExtendSmallVector)
   EXPECT_EQ(b[4], 4);
 }
 
-TEST(small_vector, ExtendArray)
+TEST(vector, ExtendArray)
 {
   int array[] = {3, 4, 5, 6};
 
@@ -319,13 +319,13 @@ TEST(small_vector, ExtendArray)
   EXPECT_EQ(a[1], 4);
 }
 
-TEST(small_vector, Last)
+TEST(vector, Last)
 {
   IntVector a{3, 5, 7};
   EXPECT_EQ(a.last(), 7);
 }
 
-TEST(small_vector, AppendNTimes)
+TEST(vector, AppendNTimes)
 {
   IntVector a;
   a.append_n_times(5, 3);

@@ -3,14 +3,14 @@
 
 using IntStack = BLI::Stack<int>;
 
-TEST(small_stack, DefaultConstructor)
+TEST(stack, DefaultConstructor)
 {
   IntStack stack;
   EXPECT_EQ(stack.size(), 0);
   EXPECT_TRUE(stack.empty());
 }
 
-TEST(small_stack, ArrayRefConstructor)
+TEST(stack, ArrayRefConstructor)
 {
   std::array<int, 3> array = {4, 7, 2};
   IntStack stack(array);
@@ -21,7 +21,7 @@ TEST(small_stack, ArrayRefConstructor)
   EXPECT_TRUE(stack.empty());
 }
 
-TEST(small_stack, Push)
+TEST(stack, Push)
 {
   IntStack stack;
   EXPECT_EQ(stack.size(), 0);
@@ -31,7 +31,7 @@ TEST(small_stack, Push)
   EXPECT_EQ(stack.size(), 2);
 }
 
-TEST(small_stack, Pop)
+TEST(stack, Pop)
 {
   IntStack stack;
   stack.push(4);
@@ -40,7 +40,7 @@ TEST(small_stack, Pop)
   EXPECT_EQ(stack.pop(), 4);
 }
 
-TEST(small_stack, Peek)
+TEST(stack, Peek)
 {
   IntStack stack;
   stack.push(3);
