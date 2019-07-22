@@ -7,9 +7,9 @@
 
 namespace BParticles {
 
-using BKE::IndexedNodeTree;
+using BKE::VirtualNodeTree;
 
-std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree &indexed_tree,
+std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree &vtree,
                                                                  WorldState &world_state,
                                                                  float time_step);
 

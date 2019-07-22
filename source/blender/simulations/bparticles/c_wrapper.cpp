@@ -79,9 +79,12 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
   WorldState &world_state = *unwrap(world_state_c);
 
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)bpmd->bparticles_tree);
-  IndexedNodeTree indexed_tree(btree);
 
-  auto step_description = step_description_from_node_tree(indexed_tree, world_state, time_step);
+  VirtualNodeTree vtree;
+  vtree.add_all_of_tree(btree);
+  vtree.freeze_and_index();
+
+  auto step_description = step_description_from_node_tree(vtree, world_state, time_step);
 
   ParticlesState &particles_state = *unwrap(particles_state_c);
   simulate_step(particles_state, *step_description);

@@ -220,6 +220,13 @@ class VirtualNode {
   {
     return &m_btree->id;
   }
+
+  PointerRNA get_rna()
+  {
+    PointerRNA rna;
+    RNA_pointer_create(&m_btree->id, &RNA_Node, m_bnode, &rna);
+    return rna;
+  }
 };
 
 class VirtualSocket {
