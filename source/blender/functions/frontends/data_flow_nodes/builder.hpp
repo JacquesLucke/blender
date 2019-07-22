@@ -34,19 +34,18 @@ class BTreeGraphBuilder {
   DFGB_Node *insert_function(SharedFunction &fn);
   DFGB_Node *insert_matching_function(SharedFunction &fn, VirtualNode *vnode);
   DFGB_Node *insert_function(SharedFunction &fn, VirtualNode *vnode);
-  DFGB_Node *insert_function(SharedFunction &fn, struct bNodeLink *blink);
 
   /* Insert Link */
   void insert_link(DFGB_Socket a, DFGB_Socket b);
 
   /* Socket Mapping */
-  void map_socket(DFGB_Socket socket, struct VirtualSocket *vsocket);
+  void map_socket(DFGB_Socket socket, VirtualSocket *vsocket);
   void map_sockets(DFGB_Node *node, VirtualNode *vnode);
   void map_data_sockets(DFGB_Node *node, VirtualNode *vnode);
   void map_input(DFGB_Socket socket, VirtualNode *vnode, uint index);
   void map_output(DFGB_Socket socket, VirtualNode *vnode, uint index);
 
-  DFGB_Socket lookup_socket(struct VirtualSocket *vsocket);
+  DFGB_Socket lookup_socket(VirtualSocket *vsocket);
   bool verify_data_sockets_mapped(VirtualNode *vnode) const;
 
   /* Type Mapping */
