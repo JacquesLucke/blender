@@ -119,10 +119,6 @@ IntegerListSocket = create_simple_data_socket("fn_IntegerListSocket", (0.3, 0.7,
 BooleanListSocket = create_simple_data_socket("fn_BooleanListSocket", (0.3, 0.3, 0.3, 0.5))
 ObjectListSocket = create_simple_data_socket("fn_ObjectListSocket", (0, 0, 0, 0.5))
 
-class CustomColoredSocket(bpy.types.NodeSocket, DataSocket):
-    bl_idname = "fn_CustomColoredSocket"
-    bl_label = "Custom Colored Socket"
-
 class EmitterSocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "bp_EmitterSocket"
     bl_label = "Emitter Socket"
