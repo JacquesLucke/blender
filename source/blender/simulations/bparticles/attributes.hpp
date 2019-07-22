@@ -7,7 +7,7 @@
 #include "BLI_math.hpp"
 #include "BLI_string_ref.hpp"
 #include "BLI_range.hpp"
-#include "BLI_small_set_vector.hpp"
+#include "BLI_set_vector.hpp"
 #include "BLI_array_allocator.hpp"
 #include "BLI_optional.hpp"
 
@@ -18,7 +18,7 @@ using BLI::ArrayRef;
 using BLI::float3;
 using BLI::Optional;
 using BLI::Range;
-using BLI::SmallSetVector;
+using BLI::SetVector;
 using BLI::SmallVector;
 using BLI::StringRef;
 using BLI::StringRefNull;
@@ -57,9 +57,9 @@ class AttributesInfo;
 
 class AttributesDeclaration {
  private:
-  SmallSetVector<std::string> m_byte_names;
-  SmallSetVector<std::string> m_float_names;
-  SmallSetVector<std::string> m_float3_names;
+  SetVector<std::string> m_byte_names;
+  SetVector<std::string> m_float_names;
+  SetVector<std::string> m_float3_names;
   SmallVector<uint8_t> m_byte_defaults;
   SmallVector<float> m_float_defaults;
   SmallVector<float3> m_float3_defaults;
@@ -91,7 +91,7 @@ class AttributesInfo {
   Range<uint> m_float_attributes;
   Range<uint> m_float3_attributes;
   SmallVector<AttributeType> m_types;
-  SmallSetVector<std::string> m_indices;
+  SetVector<std::string> m_indices;
 
   SmallVector<uint8_t> m_byte_defaults;
   SmallVector<float> m_float_defaults;

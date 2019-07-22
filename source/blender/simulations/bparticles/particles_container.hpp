@@ -27,7 +27,7 @@ class ParticlesBlock;
 class ParticlesContainer {
  private:
   AttributesInfo m_attributes_info;
-  SmallSetVector<ParticlesBlock *> m_active_blocks;
+  SetVector<ParticlesBlock *> m_active_blocks;
   SmallStack<ParticlesBlock *> m_cached_blocks;
   uint m_block_size;
   std::mutex m_blocks_mutex;

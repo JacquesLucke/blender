@@ -1,7 +1,7 @@
 #include "testing/testing.h"
-#include "BLI_small_set_vector.hpp"
+#include "BLI_set_vector.hpp"
 
-using IntSetVector = BLI::SmallSetVector<int>;
+using IntSetVector = BLI::SetVector<int>;
 
 TEST(small_set_vector, DefaultConstructor)
 {

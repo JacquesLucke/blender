@@ -10,7 +10,7 @@
 
 namespace FN {
 
-using DFGraphSocketSetVector = SmallSetVector<DFGraphSocket>;
+using DFGraphSocketSetVector = SetVector<DFGraphSocket>;
 
 class FunctionGraph {
  private:

@@ -11,7 +11,7 @@
 #include "source_info.hpp"
 
 #include "BLI_optional.hpp"
-#include "BLI_small_set_vector.hpp"
+#include "BLI_set_vector.hpp"
 #include "BLI_monotonic_allocator.hpp"
 #include "BLI_small_multimap.hpp"
 
@@ -24,7 +24,7 @@ class DataFlowGraph;
 
 using DFGB_SocketSet = Set<DFGB_Socket>;
 using DFGB_SocketVector = SmallVector<DFGB_Socket>;
-using DFGB_SocketSetVector = SmallSetVector<DFGB_Socket>;
+using DFGB_SocketSetVector = SetVector<DFGB_Socket>;
 
 class DFGB_Socket {
  public:

@@ -8,8 +8,8 @@ struct Object;
 namespace FN {
 
 struct DependencyComponents {
-  SmallSetVector<Object *> transform_dependencies;
-  SmallSetVector<Object *> geometry_dependencies;
+  SetVector<Object *> transform_dependencies;
+  SetVector<Object *> geometry_dependencies;
 };
 
 class FunctionDepsBuilder {

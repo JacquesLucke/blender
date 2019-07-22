@@ -28,17 +28,17 @@
 
 namespace BLI {
 
-template<typename T> class SmallSetVector : public Set<T> {
+template<typename T> class SetVector : public Set<T> {
  public:
-  SmallSetVector() : Set<T>()
+  SetVector() : Set<T>()
   {
   }
 
-  SmallSetVector(const std::initializer_list<T> &values) : Set<T>(values)
+  SetVector(const std::initializer_list<T> &values) : Set<T>(values)
   {
   }
 
-  SmallSetVector(const SmallVector<T> &values) : Set<T>(values)
+  SetVector(const SmallVector<T> &values) : Set<T>(values)
   {
   }
 
