@@ -2,7 +2,7 @@ import bpy
 from bpy.props import *
 from .. base import FunctionNode
 from .. types import type_infos
-from .. socket_builder import SocketBuilder
+from .. node_builder import NodeBuilder
 
 class PackListNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_PackListNode"
@@ -12,7 +12,7 @@ class PackListNode(bpy.types.Node, FunctionNode):
         default="Float",
         update=FunctionNode.refresh)
 
-    variadic: SocketBuilder.PackListProperty()
+    variadic: NodeBuilder.PackListProperty()
 
     def declaration(self, builder):
         builder.pack_list_input("inputs", "variadic", self.active_type)

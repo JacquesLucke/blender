@@ -1,12 +1,12 @@
 import bpy
 from .. base import FunctionNode
-from .. socket_builder import SocketBuilder
+from .. node_builder import NodeBuilder
 
 class FloatRangeNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_FloatRangeNode"
     bl_label = "Float Range"
 
-    def declaration(self, builder: SocketBuilder):
+    def declaration(self, builder: NodeBuilder):
         builder.fixed_input("amount", "Amount", "Integer")
         builder.fixed_input("start", "Start", "Float")
         builder.fixed_input("step", "Step", "Float")

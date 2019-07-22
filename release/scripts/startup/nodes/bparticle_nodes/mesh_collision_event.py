@@ -1,7 +1,7 @@
 import bpy
 from bpy.props import *
 from .. base import BParticlesNode
-from .. socket_builder import SocketBuilder
+from .. node_builder import NodeBuilder
 
 class MeshCollisionEventNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_MeshCollisionEventNode"
@@ -12,7 +12,7 @@ class MeshCollisionEventNode(bpy.types.Node, BParticlesNode):
         type=bpy.types.Object,
     )
 
-    def declaration(self, builder : SocketBuilder):
+    def declaration(self, builder : NodeBuilder):
         builder.event_input("event", "Event")
         builder.control_flow_output("on_event", "On event")
         builder.fixed_output("normal", "Normal", "Vector")

@@ -1,7 +1,7 @@
 import bpy
 from bpy.props import *
 from .. base import FunctionNode
-from .. socket_builder import SocketBuilder
+from .. node_builder import NodeBuilder
 from .. node_operators import new_function_tree
 
 class CustomEmitterNode(bpy.types.Node, FunctionNode):
@@ -14,7 +14,7 @@ class CustomEmitterNode(bpy.types.Node, FunctionNode):
         update=FunctionNode.refresh,
     )
 
-    def declaration(self, builder: SocketBuilder):
+    def declaration(self, builder: NodeBuilder):
         if self.function_tree:
             builder.tree_interface_input("inputs", self.function_tree, 'IN',
                 ignored={("Float", "Time Step"), ("Float", "Start Time")})

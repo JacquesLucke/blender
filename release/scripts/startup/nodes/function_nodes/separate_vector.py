@@ -1,14 +1,14 @@
 import bpy
 from .. base import FunctionNode
-from .. socket_builder import SocketBuilder
+from .. node_builder import NodeBuilder
 
 class SeparateVectorNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_SeparateVectorNode"
     bl_label = "Separate Vector"
 
-    use_list__vector: SocketBuilder.VectorizedProperty()
+    use_list__vector: NodeBuilder.VectorizedProperty()
 
-    def declaration(self, builder: SocketBuilder):
+    def declaration(self, builder: NodeBuilder):
         builder.vectorized_input(
             "vector", "use_list__vector",
             "Vector", "Vectors", "Vector")

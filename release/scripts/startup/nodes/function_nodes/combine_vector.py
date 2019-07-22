@@ -1,14 +1,14 @@
 import bpy
 from .. base import FunctionNode
-from .. socket_builder import SocketBuilder
+from .. node_builder import NodeBuilder
 
 class CombineVectorNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_CombineVectorNode"
     bl_label = "Combine Vector"
 
-    use_list__x: SocketBuilder.VectorizedProperty()
-    use_list__y: SocketBuilder.VectorizedProperty()
-    use_list__z: SocketBuilder.VectorizedProperty()
+    use_list__x: NodeBuilder.VectorizedProperty()
+    use_list__y: NodeBuilder.VectorizedProperty()
+    use_list__z: NodeBuilder.VectorizedProperty()
 
     def declaration(self, builder):
         builder.vectorized_input(

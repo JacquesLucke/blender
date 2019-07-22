@@ -14,7 +14,7 @@ from . declaration import (
     NoDefaultValue,
 )
 
-class SocketBuilder:
+class NodeBuilder:
     def __init__(self, node):
         self.node = node
         self.input_declarations = []

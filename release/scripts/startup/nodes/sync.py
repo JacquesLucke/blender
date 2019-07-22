@@ -99,7 +99,7 @@ def iter_nodes_with_outdated_sockets(tree):
                 yield node
 
 def node_matches_current_declaration(node):
-    from . socket_builder import SocketBuilder
+    from . node_builder import NodeBuilder
     builder = node.get_socket_builder()
     return builder.matches_sockets()
 

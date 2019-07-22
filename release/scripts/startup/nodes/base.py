@@ -83,8 +83,8 @@ class BaseNode:
         return self.id_data
 
     def get_socket_builder(self):
-        from . socket_builder import SocketBuilder
-        builder = SocketBuilder(self)
+        from . node_builder import NodeBuilder
+        builder = NodeBuilder(self)
         self.declaration(builder)
         return builder
 

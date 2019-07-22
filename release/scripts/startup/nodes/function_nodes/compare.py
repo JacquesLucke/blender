@@ -1,7 +1,7 @@
 import bpy
 from bpy.props import *
 from .. base import FunctionNode
-from .. socket_builder import SocketBuilder
+from .. node_builder import NodeBuilder
 
 operation_items = [
     ("LESS_THAN", "Less Than", "A < B", "", 1),
@@ -21,10 +21,10 @@ class CompareNode(bpy.types.Node, FunctionNode):
         update=FunctionNode.refresh,
     )
 
-    use_list__a: SocketBuilder.VectorizedProperty()
-    use_list__b: SocketBuilder.VectorizedProperty()
+    use_list__a: NodeBuilder.VectorizedProperty()
+    use_list__b: NodeBuilder.VectorizedProperty()
 
-    def declaration(self, builder: SocketBuilder):
+    def declaration(self, builder: NodeBuilder):
         builder.vectorized_input(
             "a", "use_list__a",
             "A", "A", "Float")
