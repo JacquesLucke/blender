@@ -49,16 +49,16 @@ template<typename T> static void LOAD_empty_list(PointerRNA *UNUSED(rna), Tuple 
 
 void initialize_socket_inserters(GraphInserters &inserters)
 {
-  inserters.reg_socket_loader("Float", LOAD_float);
-  inserters.reg_socket_loader("Vector", LOAD_vector);
-  inserters.reg_socket_loader("Integer", LOAD_integer);
-  inserters.reg_socket_loader("Boolean", LOAD_boolean);
-  inserters.reg_socket_loader("Object", LOAD_object);
-  inserters.reg_socket_loader("Float List", LOAD_empty_list<float>);
-  inserters.reg_socket_loader("Vector List", LOAD_empty_list<float3>);
-  inserters.reg_socket_loader("Integer List", LOAD_empty_list<int32_t>);
-  inserters.reg_socket_loader("Boolean List", LOAD_empty_list<bool>);
-  inserters.reg_socket_loader("Object List", LOAD_empty_list<Object *>);
+  inserters.reg_socket_loader("fn_FloatSocket", LOAD_float);
+  inserters.reg_socket_loader("fn_VectorSocket", LOAD_vector);
+  inserters.reg_socket_loader("fn_IntegerSocket", LOAD_integer);
+  inserters.reg_socket_loader("fn_BooleanSocket", LOAD_boolean);
+  inserters.reg_socket_loader("fn_ObjectSocket", LOAD_object);
+  inserters.reg_socket_loader("fn_FloatListSocket", LOAD_empty_list<float>);
+  inserters.reg_socket_loader("fn_VectorListSocket", LOAD_empty_list<float3>);
+  inserters.reg_socket_loader("fn_IntegerListSocket", LOAD_empty_list<int32_t>);
+  inserters.reg_socket_loader("fn_BooleanListSocket", LOAD_empty_list<bool>);
+  inserters.reg_socket_loader("fn_ObjectListSocket", LOAD_empty_list<Object *>);
 }
 
 }  // namespace DataFlowNodes

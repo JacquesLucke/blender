@@ -12,7 +12,8 @@ class OperatorSocket(bpy.types.NodeSocket, BaseSocket):
 class FloatSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_FloatSocket"
     bl_label = "Float Socket"
-    socket_color = (0, 0.3, 0.5, 1)
+    data_type = "Float"
+    color = (0, 0.3, 0.5, 1)
 
     value: FloatProperty(
         name="Value",
@@ -31,7 +32,8 @@ class FloatSocket(bpy.types.NodeSocket, DataSocket):
 class IntegerSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_IntegerSocket"
     bl_label = "Integer Socket"
-    socket_color = (0.3, 0.7, 0.5, 1)
+    data_type = "Integer"
+    color = (0.3, 0.7, 0.5, 1)
 
     value: IntProperty(
         name="Value",
@@ -50,7 +52,8 @@ class IntegerSocket(bpy.types.NodeSocket, DataSocket):
 class VectorSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_VectorSocket"
     bl_label = "Vector Socket"
-    socket_color = (0, 0, 0.5, 1)
+    data_type = "Vector"
+    color = (0, 0, 0.5, 1)
 
     value: FloatVectorProperty(
         name="Value",
@@ -70,7 +73,8 @@ class VectorSocket(bpy.types.NodeSocket, DataSocket):
 class BooleanSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_BooleanSocket"
     bl_label = "Boolean Socket"
-    socket_color = (0.3, 0.3, 0.3, 1)
+    data_type = "Boolean"
+    color = (0.3, 0.3, 0.3, 1)
 
     value: BoolProperty(
         name="Value",
@@ -89,7 +93,8 @@ class BooleanSocket(bpy.types.NodeSocket, DataSocket):
 class ObjectSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_ObjectSocket"
     bl_label = "Object Socket"
-    socket_color = (0, 0, 0, 1)
+    data_type = "Object"
+    color = (0, 0, 0, 1)
 
     value: PointerProperty(
         name="Value",
@@ -105,19 +110,25 @@ class ObjectSocket(bpy.types.NodeSocket, DataSocket):
     def restore_state(self, state):
         self.value = state
 
-def create_simple_data_socket(idname, color):
+def create_simple_data_socket(idname, data_type, color):
     return type(idname, (bpy.types.NodeSocket, DataSocket),
         {
             "bl_idname" : idname,
             "bl_label" : idname,
-            "draw_color" : lambda self, context, node: color,
+            "data_type" : data_type,
+            "color" : color,
         })
 
-FloatListSocket = create_simple_data_socket("fn_FloatListSocket", (0, 0.3, 0.5, 0.5))
-VectorListSocket = create_simple_data_socket("fn_VectorListSocket", (0, 0, 0.5, 0.5))
-IntegerListSocket = create_simple_data_socket("fn_IntegerListSocket", (0.3, 0.7, 0.5, 0.5))
-BooleanListSocket = create_simple_data_socket("fn_BooleanListSocket", (0.3, 0.3, 0.3, 0.5))
-ObjectListSocket = create_simple_data_socket("fn_ObjectListSocket", (0, 0, 0, 0.5))
+FloatListSocket = create_simple_data_socket(
+    "fn_FloatListSocket", "Float List", (0, 0.3, 0.5, 0.5))
+VectorListSocket = create_simple_data_socket(
+    "fn_VectorListSocket", "Vector List", (0, 0, 0.5, 0.5))
+IntegerListSocket = create_simple_data_socket(
+    "fn_IntegerListSocket", "Integer List", (0.3, 0.7, 0.5, 0.5))
+BooleanListSocket = create_simple_data_socket(
+    "fn_BooleanListSocket", "Boolean List", (0.3, 0.3, 0.3, 0.5))
+ObjectListSocket = create_simple_data_socket(
+    "fn_ObjectListSocket", "Object List", (0, 0, 0, 0.5))
 
 class EmitterSocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "bp_EmitterSocket"

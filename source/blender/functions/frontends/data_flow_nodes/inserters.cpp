@@ -29,7 +29,9 @@ BLI_LAZY_INIT(GraphInserters, get_standard_inserters)
   return inserters;
 }
 
-GraphInserters::GraphInserters() : m_type_by_data_type(&get_type_by_data_type_map())
+GraphInserters::GraphInserters()
+    : m_type_by_data_type(&get_type_by_data_type_map()),
+      m_type_by_idname(&get_type_by_idname_map())
 {
 }
 
@@ -160,12 +162,7 @@ DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder,
   for (uint i = 0; i < bsockets.size(); i++) {
     bNodeSocket *bsocket = bsockets[i];
 
-    PointerRNA rna = builder.get_rna(bsocket);
-
-    char data_type[64];
-    RNA_string_get(&rna, "data_type", data_type);
-
-    SocketLoader loader = m_socket_loaders.lookup(data_type);
+    SocketLoader loader = m_socket_loaders.lookup(bsocket->idname);
     loaders.append(loader);
     fn_builder.add_output(builder.query_socket_name(bsocket), builder.query_socket_type(bsocket));
   }

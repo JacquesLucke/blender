@@ -27,6 +27,7 @@ class GraphInserters {
   StringMap<SocketLoader> m_socket_loaders;
   SmallMap<std::pair<SharedType, SharedType>, ConversionInserter> m_conversion_inserters;
   StringMap<SharedType> *m_type_by_data_type;
+  StringMap<SharedType> *m_type_by_idname;
 
  public:
   GraphInserters();

@@ -58,7 +58,6 @@ class BTreeGraphBuilder {
   bool is_data_socket(bNodeSocket *bsocket) const;
   std::string query_socket_name(bNodeSocket *bsocket) const;
   SharedType &query_socket_type(bNodeSocket *bsocket) const;
-  std::string query_socket_type_name(bNodeSocket *bsocket) const;
 
   /* Query Node Information */
   PointerRNA get_rna(bNode *bnode) const;

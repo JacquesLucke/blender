@@ -214,9 +214,6 @@ class BParticlesNode(BaseNode):
     pass
 
 class DataSocket(BaseSocket):
-    data_type: StringProperty(
-        maxlen=64)
-
     def draw_self(self, layout, node, text):
         if not (self.is_linked or self.is_output) and hasattr(self, "draw_property"):
             self.draw_property(layout, node, text)
@@ -228,11 +225,6 @@ class DataSocket(BaseSocket):
 
     def restore_state(self, state):
         pass
-
-    def draw_color(self, context, node):
-        from . types import type_infos
-        return type_infos.get_socket_color(self.data_type)
-
 
 class LinkageState:
     def __init__(self, node):

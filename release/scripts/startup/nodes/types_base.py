@@ -31,7 +31,7 @@ ImplicitConversion = namedtuple("ImplicitConversion", ("from_type", "to_type"))
 class DataTypesInfo:
     def __init__(self):
         self.data_types = set()
-        self.builder_by_data_type = dict()
+        self.cls_by_data_type = dict()
         self.list_by_base = dict()
         self.base_by_list = dict()
         self.unidirectional_conversions = set()
@@ -42,21 +42,19 @@ class DataTypesInfo:
     # Insert New Information
     #############################
 
-    def insert_data_type(self, base_type_name, base_builder, list_builder):
-        base_type = base_type_name
-        list_type = base_type_name + " List"
+    def insert_data_type(self, base_socket_cls, list_socket_cls):
+        base_type = base_socket_cls.data_type
+        list_type = list_socket_cls.data_type
 
         assert base_type not in self.data_types
         assert list_type not in self.data_types
-        assert isinstance(base_builder, DataSocketBuilder)
-        assert isinstance(list_builder, DataSocketBuilder)
 
         self.data_types.add(base_type)
         self.data_types.add(list_type)
         self.list_by_base[base_type] = list_type
         self.base_by_list[list_type] = base_type
-        self.builder_by_data_type[base_type] = base_builder
-        self.builder_by_data_type[list_type] = list_builder
+        self.cls_by_data_type[base_type] = base_socket_cls
+        self.cls_by_data_type[list_type] = list_socket_cls
 
         self.all_implicit_conversions.add(ImplicitConversion(base_type, list_type))
 
@@ -118,16 +116,6 @@ class DataTypesInfo:
         assert self.is_list(data_type)
         return self.base_by_list[data_type]
 
-    def to_builder(self, data_type):
-        assert self.is_data_type(data_type)
-        return self.builder_by_data_type[data_type]
-
-    def build(self, data_type, node_sockets, name, identifier):
-        builder = self.to_builder(data_type)
-        socket = builder.build(node_sockets, name, identifier)
-        socket.data_type = data_type
-        return socket
-
     def get_data_type_items(self):
         items = []
         for data_type in self.data_types:
@@ -167,26 +155,10 @@ class DataTypesInfo:
     def iter_base_types(self):
         yield from self.list_by_base.keys()
 
+    # Build
+    ##########################
 
-# Data Socket Builders
-##################################3
-
-class DataSocketBuilder:
-    def build(self, node_sockets, name):
-        raise NotImplementedError()
-
-    def get_color(self, socket):
-        raise NotImplementedError()
-
-class UniqueSocketBuilder(DataSocketBuilder):
-    def __init__(self, socket_cls):
-        self.socket_cls = socket_cls
-
-    def build(self, node_sockets, name, identifier):
-        return node_sockets.new(
-            self.socket_cls.bl_idname,
-            name,
-            identifier=identifier)
-
-    def get_color(self):
-        return self.socket_cls.socket_color
+    def build(self, data_type, node_sockets, name, identifier):
+        idname = self.cls_by_data_type[data_type].bl_idname
+        socket = node_sockets.new(idname, name, identifier=identifier)
+        return socket

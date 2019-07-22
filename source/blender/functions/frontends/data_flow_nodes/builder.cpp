@@ -283,15 +283,6 @@ SharedType &BTreeGraphBuilder::type_from_rna(PointerRNA &rna, StringRefNull prop
   return this->type_by_name(type_name);
 }
 
-std::string BTreeGraphBuilder::query_socket_type_name(bNodeSocket *bsocket) const
-{
-  BLI_assert(this->is_data_socket(bsocket));
-  PointerRNA rna = this->get_rna(bsocket);
-  char type_name[64];
-  RNA_string_get(&rna, "data_type", type_name);
-  return type_name;
-}
-
 bool BTreeGraphBuilder::has_data_socket(bNode *bnode) const
 {
   for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
