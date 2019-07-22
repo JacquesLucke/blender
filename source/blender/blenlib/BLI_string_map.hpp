@@ -26,14 +26,14 @@
 
 #pragma once
 
-#include "BLI_small_map.hpp"
+#include "BLI_map.hpp"
 #include "BLI_string_ref.hpp"
 
 namespace BLI {
 
 template<typename V> class StringMap {
  private:
-  SmallMap<std::string, V> m_map;
+  Map<std::string, V> m_map;
 
  public:
   StringMap() = default;

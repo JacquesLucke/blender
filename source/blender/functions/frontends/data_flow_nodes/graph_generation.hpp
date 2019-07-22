@@ -26,10 +26,10 @@ class UnlinkedInputsHandler {
 class BTreeDataGraph {
  private:
   SharedDataFlowGraph m_graph;
-  SmallMap<VirtualSocket *, DFGraphSocket> m_mapping;
+  Map<VirtualSocket *, DFGraphSocket> m_mapping;
 
  public:
-  BTreeDataGraph(SharedDataFlowGraph graph, SmallMap<VirtualSocket *, DFGraphSocket> mapping)
+  BTreeDataGraph(SharedDataFlowGraph graph, Map<VirtualSocket *, DFGraphSocket> mapping)
       : m_graph(std::move(graph)), m_mapping(std::move(mapping))
   {
   }

@@ -10,7 +10,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
   DataFlowGraph *m_graph;
   Set<DFGraphSocket> m_required_sockets;
 
-  using SocketValueMap = SmallMap<DFGraphSocket, llvm::Value *>;
+  using SocketValueMap = Map<DFGraphSocket, llvm::Value *>;
   using FunctionDFGB_SocketSet = Set<DFGraphSocket>;
 
  public:

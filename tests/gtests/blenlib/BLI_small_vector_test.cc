@@ -1,9 +1,9 @@
 #include "testing/testing.h"
 #include "BLI_small_vector.hpp"
-#include "BLI_small_map.hpp"
+#include "BLI_map.hpp"
 #include <forward_list>
 
-using BLI::SmallMap;
+using BLI::Map;
 using BLI::SmallVector;
 using IntVector = SmallVector<int>;
 
@@ -44,7 +44,7 @@ TEST(small_vector, InitializerListConstructor)
 
 TEST(small_vector, MappedArrayRefConstructor)
 {
-  SmallMap<int, int> map;
+  Map<int, int> map;
   map.add(2, 5);
   map.add(1, 6);
   map.add(3, 2);

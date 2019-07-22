@@ -230,7 +230,7 @@ template<typename T> void *new_list_with_prepared_memory(uint length)
 /* Build List Functions
  *************************************/
 
-using FunctionPerType = SmallMap<SharedType, SharedFunction>;
+using FunctionPerType = Map<SharedType, SharedFunction>;
 
 struct ListFunctions {
   FunctionPerType m_create_empty;
@@ -240,9 +240,9 @@ struct ListFunctions {
   FunctionPerType m_combine;
   FunctionPerType m_length;
 
-  SmallMap<SharedType, GetListLength> m_c_length;
-  SmallMap<SharedType, GetListDataPtr> m_c_data_ptr;
-  SmallMap<SharedType, NewListWithAllocatedBuffer> m_c_new_allocated;
+  Map<SharedType, GetListLength> m_c_length;
+  Map<SharedType, GetListDataPtr> m_c_data_ptr;
+  Map<SharedType, NewListWithAllocatedBuffer> m_c_new_allocated;
 };
 
 template<typename T>

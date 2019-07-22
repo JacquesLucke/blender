@@ -106,7 +106,7 @@ ArrayRef<SingleOriginLink> IndexedNodeTree::single_origin_links() const
 
 void VirtualNodeTree::add_all_of_tree(bNodeTree *btree)
 {
-  SmallMap<bNode *, VirtualNode *> node_mapping;
+  Map<bNode *, VirtualNode *> node_mapping;
   for (bNode *bnode : BKE::bNodeList(btree->nodes)) {
     VirtualNode *vnode = this->add_bnode(btree, bnode);
     node_mapping.add_new(bnode, vnode);

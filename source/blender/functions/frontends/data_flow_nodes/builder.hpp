@@ -21,14 +21,14 @@ class BTreeGraphBuilder {
  private:
   DataFlowGraphBuilder &m_graph;
   VirtualNodeTree &m_vtree;
-  SmallMap<VirtualSocket *, DFGB_Socket> &m_socket_map;
+  Map<VirtualSocket *, DFGB_Socket> &m_socket_map;
   StringMap<SharedType> &m_type_by_idname;
   StringMap<SharedType> &m_type_by_data_type;
 
  public:
   BTreeGraphBuilder(VirtualNodeTree &vtree,
                     DataFlowGraphBuilder &graph,
-                    SmallMap<VirtualSocket *, DFGB_Socket> &socket_map);
+                    Map<VirtualSocket *, DFGB_Socket> &socket_map);
 
   /* Insert Function */
   DFGB_Node *insert_function(SharedFunction &fn);

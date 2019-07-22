@@ -114,11 +114,11 @@ static void find_interface_sockets(VirtualNodeTree &vtree,
   }
 }
 
-static SmallMap<VirtualSocket *, DFGraphSocket> build_mapping_for_original_sockets(
-    SmallMap<VirtualSocket *, DFGB_Socket> &socket_map,
+static Map<VirtualSocket *, DFGraphSocket> build_mapping_for_original_sockets(
+    Map<VirtualSocket *, DFGB_Socket> &socket_map,
     DataFlowGraph::ToBuilderMapping &builder_mapping)
 {
-  SmallMap<VirtualSocket *, DFGraphSocket> original_socket_mapping;
+  Map<VirtualSocket *, DFGraphSocket> original_socket_mapping;
   for (auto item : socket_map.items()) {
     VirtualSocket *vsocket = item.key;
     DFGraphSocket socket = builder_mapping.map_socket(item.value);
@@ -147,7 +147,7 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
 Optional<BTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
 {
   DataFlowGraphBuilder graph_builder;
-  SmallMap<VirtualSocket *, DFGB_Socket> socket_map;
+  Map<VirtualSocket *, DFGB_Socket> socket_map;
 
   BTreeGraphBuilder builder(vtree, graph_builder, socket_map);
   GraphInserters &inserters = get_standard_inserters();

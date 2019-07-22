@@ -189,7 +189,7 @@ class DataFlowGraphBuilder {
 
  private:
   Set<DFGB_Node *> m_nodes;
-  SmallMap<DFGB_Socket, DFGB_Socket> m_input_origins;
+  Map<DFGB_Socket, DFGB_Socket> m_input_origins;
   MultiMap<DFGB_Socket, DFGB_Socket> m_output_targets;
   MonotonicAllocator<sizeof(DFGB_Node) * 4> m_node_allocator;
   std::unique_ptr<MonotonicAllocator<>> m_source_info_allocator;

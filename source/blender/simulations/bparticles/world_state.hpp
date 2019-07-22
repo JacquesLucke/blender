@@ -1,7 +1,7 @@
 #pragma once
 
 #include "BLI_math.hpp"
-#include "BLI_small_map.hpp"
+#include "BLI_map.hpp"
 #include "BLI_string_ref.hpp"
 #include "BLI_string_map.hpp"
 
@@ -9,7 +9,7 @@ namespace BParticles {
 
 using BLI::float3;
 using BLI::float4x4;
-using BLI::SmallMap;
+using BLI::Map;
 using BLI::StringMap;
 using BLI::StringRef;
 

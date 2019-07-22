@@ -30,7 +30,7 @@
 
 namespace BLI {
 
-template<typename K, typename V, uint N = 4> class SmallMap {
+template<typename K, typename V, uint N = 4> class Map {
  private:
   struct Entry {
     K key;
@@ -51,7 +51,7 @@ template<typename K, typename V, uint N = 4> class SmallMap {
   /**
    * Create an empty map.
    */
-  SmallMap() = default;
+  Map() = default;
 
   /**
    * Insert a key-value pair in the map, when the key does not exist.

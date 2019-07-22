@@ -190,9 +190,9 @@ class DataFlowGraph : public RefCountedBase {
   ~DataFlowGraph();
 
   struct ToBuilderMapping {
-    SmallMap<DFGB_Node *, uint> node_indices;
-    SmallMap<DFGB_Socket, uint> input_socket_indices;
-    SmallMap<DFGB_Socket, uint> output_socket_indices;
+    Map<DFGB_Node *, uint> node_indices;
+    Map<DFGB_Socket, uint> input_socket_indices;
+    Map<DFGB_Socket, uint> output_socket_indices;
 
     DFGraphSocket map_socket(DFGB_Socket dfgb_socket)
     {

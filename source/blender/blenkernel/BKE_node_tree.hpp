@@ -4,7 +4,7 @@
 
 #include "BLI_string_ref.hpp"
 #include "BLI_array_ref.hpp"
-#include "BLI_small_map.hpp"
+#include "BLI_map.hpp"
 #include "BLI_small_vector.hpp"
 #include "BLI_listbase_wrapper.hpp"
 #include "BLI_multimap.hpp"
@@ -16,9 +16,9 @@ namespace BKE {
 
 using BLI::ArrayRef;
 using BLI::ListBaseWrapper;
+using BLI::Map;
 using BLI::MonotonicAllocator;
 using BLI::MultiMap;
-using BLI::SmallMap;
 using BLI::SmallVector;
 using BLI::StringRef;
 using BLI::StringRefNull;
@@ -115,7 +115,7 @@ class IndexedNodeTree {
   SmallVector<bNode *> m_original_nodes;
   SmallVector<bNodeLink *> m_original_links;
   SmallVector<bNode *> m_actual_nodes;
-  SmallMap<bNodeSocket *, bNode *> m_node_by_socket;
+  Map<bNodeSocket *, bNode *> m_node_by_socket;
   MultiMap<bNodeSocket *, SocketWithNode> m_direct_links;
   MultiMap<bNodeSocket *, SocketWithNode> m_links;
   MultiMap<std::string, bNode *> m_nodes_by_idname;

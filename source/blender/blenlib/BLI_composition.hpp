@@ -8,7 +8,7 @@
  * over multiple inheritance.
  */
 
-#include "BLI_small_map.hpp"
+#include "BLI_map.hpp"
 
 namespace BLI {
 
@@ -66,7 +66,7 @@ class Composition {
     return T::free_self;
   }
 
-  BLI::SmallMap<uint64_t, Entry> m_elements;
+  BLI::Map<uint64_t, Entry> m_elements;
 };
 
 } /* namespace BLI */

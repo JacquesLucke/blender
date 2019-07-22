@@ -2,15 +2,15 @@
 
 #include <mutex>
 
-#include "BLI_small_map.hpp"
+#include "BLI_map.hpp"
 #include "BLI_stack.hpp"
 
 #include "attributes.hpp"
 
 namespace BParticles {
 
+using BLI::Map;
 using BLI::Set;
-using BLI::SmallMap;
 using BLI::Stack;
 
 class ParticlesContainer;

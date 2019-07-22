@@ -2,7 +2,7 @@
 
 /* A multimap is a map that allows storing multiple values per key. */
 
-#include "BLI_small_map.hpp"
+#include "BLI_map.hpp"
 #include "BLI_array_ref.hpp"
 
 namespace BLI {
@@ -20,7 +20,7 @@ template<typename K, typename V, uint N = 4> class MultiMap {
     }
   };
 
-  SmallMap<K, Entry, N> m_map;
+  Map<K, Entry, N> m_map;
   SmallVector<V, N> m_elements;
 
  public:
@@ -122,7 +122,7 @@ template<typename K, typename V, uint N = 4> class MultiMap {
     return m_map.contains(key);
   }
 
-  typename SmallMap<K, Entry>::KeysReturnT keys() const
+  typename Map<K, Entry>::KeysReturnT keys() const
   {
     return m_map.keys();
   }

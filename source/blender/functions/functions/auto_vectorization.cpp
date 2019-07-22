@@ -480,7 +480,7 @@ struct AutoVectorizationInput {
   }
 };
 
-using VectorizeCacheMap = SmallMap<AutoVectorizationInput, SharedFunction>;
+using VectorizeCacheMap = Map<AutoVectorizationInput, SharedFunction>;
 
 BLI_LAZY_INIT_STATIC(VectorizeCacheMap, get_vectorized_function_cache)
 {

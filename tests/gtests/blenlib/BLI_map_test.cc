@@ -1,8 +1,8 @@
 #include "testing/testing.h"
-#include "BLI_small_map.hpp"
+#include "BLI_map.hpp"
 #include "BLI_set.hpp"
 
-using IntFloatMap = BLI::SmallMap<int, float>;
+using IntFloatMap = BLI::Map<int, float>;
 
 TEST(small_map, DefaultConstructor)
 {

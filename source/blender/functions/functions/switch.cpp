@@ -72,7 +72,7 @@ static SharedFunction build_bool_switch_function(SharedType &data_type)
 
 SharedFunction &GET_FN_bool_switch(SharedType &data_type)
 {
-  static SmallMap<SharedType, SharedFunction> functions;
+  static Map<SharedType, SharedFunction> functions;
   if (!functions.contains(data_type)) {
     SharedFunction fn = build_bool_switch_function(data_type);
     functions.add(data_type, fn);

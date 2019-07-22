@@ -4,7 +4,7 @@
 
 #include "BLI_task.h"
 #include "BLI_array_ref.hpp"
-#include "BLI_small_map.hpp"
+#include "BLI_map.hpp"
 #include "BLI_range.hpp"
 
 namespace BLI {
@@ -77,7 +77,7 @@ static void parallel_array_elements(ArrayRef<T> array,
     ArrayRef<T> array;
     ProcessElement &process_element;
     CreateThreadLocal &create_thread_local;
-    SmallMap<int, LocalData> thread_locals;
+    Map<int, LocalData> thread_locals;
     std::mutex thread_locals_mutex;
   } data = {array, process_element, create_thread_local, {}, {}};
 

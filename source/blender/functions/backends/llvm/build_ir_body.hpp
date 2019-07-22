@@ -15,7 +15,7 @@ class BuildIRSettings {
   }
 };
 
-using FunctionIRCache = SmallMap<void *, llvm::Function *>;
+using FunctionIRCache = Map<void *, llvm::Function *>;
 
 class CodeInterface {
  private:

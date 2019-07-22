@@ -30,7 +30,7 @@ namespace DataFlowNodes {
 
 BTreeGraphBuilder::BTreeGraphBuilder(VirtualNodeTree &vtree,
                                      DataFlowGraphBuilder &graph,
-                                     SmallMap<VirtualSocket *, DFGB_Socket> &socket_map)
+                                     Map<VirtualSocket *, DFGB_Socket> &socket_map)
     : m_graph(graph),
       m_vtree(vtree),
       m_socket_map(socket_map),
