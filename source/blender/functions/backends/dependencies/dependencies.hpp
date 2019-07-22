@@ -14,13 +14,13 @@ struct DependencyComponents {
 
 class FunctionDepsBuilder {
  private:
-  const SmallMultiMap<uint, ID *> &m_input_ids;
-  SmallMultiMap<uint, ID *> &m_output_ids;
+  const MultiMap<uint, ID *> &m_input_ids;
+  MultiMap<uint, ID *> &m_output_ids;
   DependencyComponents &m_dependency_components;
 
  public:
-  FunctionDepsBuilder(const SmallMultiMap<uint, ID *> &input_ids,
-                      SmallMultiMap<uint, ID *> &output_ids,
+  FunctionDepsBuilder(const MultiMap<uint, ID *> &input_ids,
+                      MultiMap<uint, ID *> &output_ids,
                       DependencyComponents &dependency_components)
       : m_input_ids(input_ids),
         m_output_ids(output_ids),

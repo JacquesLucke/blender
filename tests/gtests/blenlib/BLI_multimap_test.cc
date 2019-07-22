@@ -1,9 +1,9 @@
 #include "testing/testing.h"
-#include "BLI_small_multimap.hpp"
+#include "BLI_multimap.hpp"
 
 using namespace BLI;
 
-using IntMultiMap = SmallMultiMap<int, int>;
+using IntMultiMap = MultiMap<int, int>;
 
 TEST(multimap, DefaultConstructor)
 {

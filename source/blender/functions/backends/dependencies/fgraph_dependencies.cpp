@@ -42,7 +42,7 @@ class FGraphDependencies : public DepsBody {
         return {};
       }
       else {
-        SmallMultiMap<uint, ID *> input_ids;
+        MultiMap<uint, ID *> input_ids;
 
         for (uint i = 0; i < fn->input_amount(); i++) {
           input_ids.add_multiple_new(
@@ -51,7 +51,7 @@ class FGraphDependencies : public DepsBody {
                                           parent_builder));
         }
 
-        SmallMultiMap<uint, ID *> output_ids;
+        MultiMap<uint, ID *> output_ids;
         FunctionDepsBuilder builder(input_ids, output_ids, parent_builder.dependency_components());
         body->build_deps(builder);
         return output_ids.lookup_default(m_graph->index_of_output(socket));

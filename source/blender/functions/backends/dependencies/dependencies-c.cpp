@@ -19,8 +19,8 @@ void FN_function_update_dependencies(FnFunction fn_c, struct DepsNodeHandle *dep
   Function *fn = unwrap(fn_c);
   DepsBody *body = fn->body<DepsBody>();
   if (body) {
-    SmallMultiMap<uint, ID *> input_ids;
-    SmallMultiMap<uint, ID *> output_ids;
+    MultiMap<uint, ID *> input_ids;
+    MultiMap<uint, ID *> output_ids;
     DependencyComponents components;
 
     FunctionDepsBuilder builder(input_ids, output_ids, components);

@@ -7,7 +7,7 @@
 
 namespace BLI {
 
-template<typename K, typename V, uint N = 4> class SmallMultiMap {
+template<typename K, typename V, uint N = 4> class MultiMap {
  private:
   struct Entry {
     uint offset;
@@ -24,7 +24,7 @@ template<typename K, typename V, uint N = 4> class SmallMultiMap {
   SmallVector<V, N> m_elements;
 
  public:
-  SmallMultiMap() = default;
+  MultiMap() = default;
 
   uint key_amount() const
   {

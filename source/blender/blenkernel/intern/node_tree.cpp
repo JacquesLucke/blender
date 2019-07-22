@@ -201,7 +201,7 @@ void VirtualNodeTree::freeze_and_index()
 BLI_NOINLINE void VirtualNodeTree::initialize_direct_links()
 {
   /* TODO(jacques): reserve */
-  SmallMultiMap<VirtualSocket *, VirtualSocket *> connections;
+  MultiMap<VirtualSocket *, VirtualSocket *> connections;
   for (VirtualLink *link : m_links) {
     connections.add(link->m_from, link->m_to);
     connections.add(link->m_to, link->m_from);

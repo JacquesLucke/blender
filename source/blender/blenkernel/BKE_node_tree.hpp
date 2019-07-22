@@ -7,7 +7,7 @@
 #include "BLI_small_map.hpp"
 #include "BLI_small_vector.hpp"
 #include "BLI_listbase_wrapper.hpp"
-#include "BLI_small_multimap.hpp"
+#include "BLI_multimap.hpp"
 #include "BLI_monotonic_allocator.hpp"
 
 #include "RNA_access.h"
@@ -17,8 +17,8 @@ namespace BKE {
 using BLI::ArrayRef;
 using BLI::ListBaseWrapper;
 using BLI::MonotonicAllocator;
+using BLI::MultiMap;
 using BLI::SmallMap;
-using BLI::SmallMultiMap;
 using BLI::SmallVector;
 using BLI::StringRef;
 using BLI::StringRefNull;
@@ -116,9 +116,9 @@ class IndexedNodeTree {
   SmallVector<bNodeLink *> m_original_links;
   SmallVector<bNode *> m_actual_nodes;
   SmallMap<bNodeSocket *, bNode *> m_node_by_socket;
-  SmallMultiMap<bNodeSocket *, SocketWithNode> m_direct_links;
-  SmallMultiMap<bNodeSocket *, SocketWithNode> m_links;
-  SmallMultiMap<std::string, bNode *> m_nodes_by_idname;
+  MultiMap<bNodeSocket *, SocketWithNode> m_direct_links;
+  MultiMap<bNodeSocket *, SocketWithNode> m_links;
+  MultiMap<std::string, bNode *> m_nodes_by_idname;
   SmallVector<SingleOriginLink> m_single_origin_links;
 };
 
@@ -133,7 +133,7 @@ class VirtualNodeTree {
   SmallVector<VirtualNode *> m_nodes;
   SmallVector<VirtualLink *> m_links;
   SmallVector<VirtualSocket *> m_inputs_with_links;
-  SmallMultiMap<std::string, VirtualNode *> m_nodes_by_idname;
+  MultiMap<std::string, VirtualNode *> m_nodes_by_idname;
 
  public:
   void add_all_of_tree(bNodeTree *btree);

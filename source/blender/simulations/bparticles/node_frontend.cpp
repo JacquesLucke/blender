@@ -1,5 +1,5 @@
 #include "BLI_timeit.hpp"
-#include "BLI_small_multimap.hpp"
+#include "BLI_multimap.hpp"
 
 #include "node_frontend.hpp"
 #include "inserters.hpp"
@@ -7,7 +7,7 @@
 
 namespace BParticles {
 
-using BLI::SmallMultiMap;
+using BLI::MultiMap;
 
 static bool is_particle_type_node(VirtualNode *vnode)
 {
@@ -56,7 +56,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
 
   BuildContext ctx = {data_graph, step_builder, world_state};
 
-  SmallMultiMap<std::string, Force *> forces;
+  MultiMap<std::string, Force *> forces;
   for (auto item : get_force_builders().items()) {
     for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
       for (VirtualSocket *linked : vnode->output(0)->links()) {
