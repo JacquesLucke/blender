@@ -24,10 +24,10 @@ static float random_float()
 
 void PointEmitter::emit(EmitterInterface &interface)
 {
-  SmallVector<float3> new_positions(m_amount);
-  SmallVector<float3> new_velocities(m_amount);
-  SmallVector<float> new_sizes(m_amount);
-  SmallVector<float> birth_times(m_amount);
+  Vector<float3> new_positions(m_amount);
+  Vector<float3> new_velocities(m_amount);
+  Vector<float> new_sizes(m_amount);
+  Vector<float> birth_times(m_amount);
 
   for (uint i = 0; i < m_amount; i++) {
     float t = i / (float)m_amount;
@@ -85,10 +85,10 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     return;
   }
 
-  SmallVector<float3> positions;
-  SmallVector<float3> velocities;
-  SmallVector<float> sizes;
-  SmallVector<float> birth_times;
+  Vector<float3> positions;
+  Vector<float3> velocities;
+  Vector<float> sizes;
+  Vector<float> birth_times;
 
   for (uint i = 0; i < particles_to_emit; i++) {
     MLoopTri triangle = triangles[rand() % triangle_amount];
@@ -194,7 +194,7 @@ void InitialGridEmitter::emit(EmitterInterface &interface)
     return;
   }
 
-  SmallVector<float3> new_positions;
+  Vector<float3> new_positions;
 
   float offset_x = -(m_amount_x * m_step_x / 2.0f);
   float offset_y = -(m_amount_y * m_step_y / 2.0f);

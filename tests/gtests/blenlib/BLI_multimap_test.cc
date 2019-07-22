@@ -100,7 +100,7 @@ TEST(multimap, Keys)
   map.add(4, 1);
   map.add(2, 1);
 
-  SmallVector<int> values;
+  Vector<int> values;
   for (auto value : map.keys()) {
     values.append(value);
   }

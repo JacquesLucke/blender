@@ -35,8 +35,8 @@ BLI_NOINLINE static void find_next_event_per_particle(BlockStepData &step_data,
   ArrayRef<Event *> events = step_data.particle_type.events();
 
   for (uint event_index = 0; event_index < events.size(); event_index++) {
-    SmallVector<uint> triggered_pindices;
-    SmallVector<float> triggered_time_factors;
+    Vector<uint> triggered_pindices;
+    Vector<float> triggered_time_factors;
 
     Event *event = events[event_index];
     EventFilterInterface interface(step_data,
@@ -122,7 +122,7 @@ BLI_NOINLINE static void update_remaining_durations(ArrayRef<uint> pindices_with
 
 BLI_NOINLINE static void find_pindices_per_event(ArrayRef<uint> pindices_with_events,
                                                  ArrayRef<int> next_event_indices,
-                                                 ArrayRef<SmallVector<uint>> r_particles_per_event)
+                                                 ArrayRef<Vector<uint>> r_particles_per_event)
 {
   for (uint pindex : pindices_with_events) {
     int event_index = next_event_indices[pindex];
@@ -158,7 +158,7 @@ BLI_NOINLINE static void find_unfinished_particles(ArrayRef<uint> pindices_with_
 }
 
 BLI_NOINLINE static void execute_events(BlockStepData &step_data,
-                                        ArrayRef<SmallVector<uint>> pindices_per_event,
+                                        ArrayRef<Vector<uint>> pindices_per_event,
                                         ArrayRef<float> current_times,
                                         EventStorage &event_storage)
 {
@@ -187,7 +187,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 
   ArrayAllocator::Array<int> next_event_indices(step_data.array_allocator);
   ArrayAllocator::Array<float> time_factors_to_next_event(step_data.array_allocator);
-  ArrayAllocator::Vector<uint> pindices_with_event(step_data.array_allocator);
+  ArrayAllocator::VectorAdapter<uint> pindices_with_event(step_data.array_allocator);
 
   uint max_event_storage_size = std::max(get_max_event_storage_size(events), 1u);
   auto event_storage_array = step_data.array_allocator.allocate_scoped(max_event_storage_size);
@@ -208,7 +208,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   update_remaining_durations(
       pindices_with_event, time_factors_to_next_event, step_data.remaining_durations);
 
-  SmallVector<SmallVector<uint>> particles_per_event(events.size());
+  Vector<Vector<uint>> particles_per_event(events.size());
   find_pindices_per_event(pindices_with_event, next_event_indices, particles_per_event);
 
   ArrayAllocator::Array<float> current_times(step_data.array_allocator);
@@ -379,7 +379,7 @@ BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &blo
 class ParticleAllocators {
  private:
   ParticlesState &m_state;
-  SmallVector<std::unique_ptr<ParticleAllocator>> m_allocators;
+  Vector<std::unique_ptr<ParticleAllocator>> m_allocators;
 
  public:
   ParticleAllocators(ParticlesState &state) : m_state(state)
@@ -393,9 +393,9 @@ class ParticleAllocators {
     return *allocator;
   }
 
-  SmallVector<ParticlesBlock *> gather_allocated_blocks()
+  Vector<ParticlesBlock *> gather_allocated_blocks()
   {
-    SmallVector<ParticlesBlock *> blocks;
+    Vector<ParticlesBlock *> blocks;
     for (auto &allocator : m_allocators) {
       blocks.extend(allocator->allocated_blocks());
     }
@@ -475,7 +475,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
             particle_type_name);
 
         uint active_amount = block->active_amount();
-        SmallVector<float> durations(active_amount);
+        Vector<float> durations(active_amount);
         auto birth_times = block->attributes().get_float("Birth Time");
         for (uint i = 0; i < active_amount; i++) {
           durations[i] = end_time - birth_times[i];
@@ -498,10 +498,10 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
       USE_THREADING);
 }
 
-BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(ParticlesState &state,
-                                                                 StepDescription &step_description)
+BLI_NOINLINE static Vector<ParticlesBlock *> get_all_blocks(ParticlesState &state,
+                                                            StepDescription &step_description)
 {
-  SmallVector<ParticlesBlock *> blocks;
+  Vector<ParticlesBlock *> blocks;
   for (auto particle_type_name : step_description.particle_types().keys()) {
     ParticlesContainer &container = state.particle_container(particle_type_name);
     for (ParticlesBlock *block : container.active_blocks()) {
@@ -513,7 +513,7 @@ BLI_NOINLINE static SmallVector<ParticlesBlock *> get_all_blocks(ParticlesState 
 
 BLI_NOINLINE static void compress_all_blocks(ParticlesContainer &container)
 {
-  SmallVector<ParticlesBlock *> blocks = container.active_blocks();
+  Vector<ParticlesBlock *> blocks = container.active_blocks();
   ParticlesBlock::Compress(blocks);
 
   for (ParticlesBlock *block : blocks) {
@@ -580,7 +580,7 @@ BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,
                                                       TimeSpan time_span,
                                                       uint max_block_size)
 {
-  SmallVector<ParticlesBlock *> blocks = get_all_blocks(state, step_description);
+  Vector<ParticlesBlock *> blocks = get_all_blocks(state, step_description);
   simulate_blocks_for_time_span(
       block_allocators, blocks, step_description, time_span, max_block_size);
 }
@@ -613,7 +613,7 @@ BLI_NOINLINE static void emit_and_simulate_particles(ParticlesState &state,
 {
   uint max_block_size = get_max_block_size(state);
 
-  SmallVector<ParticlesBlock *> newly_created_blocks;
+  Vector<ParticlesBlock *> newly_created_blocks;
   {
     ParticleAllocators block_allocators(state);
     simulate_all_existing_blocks(

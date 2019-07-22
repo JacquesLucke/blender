@@ -163,7 +163,7 @@ TEST(small_set, AddMultipleNew)
 TEST(small_set, ToSmallVector)
 {
   IntSet a = {5, 2, 8};
-  BLI::SmallVector<int> vec = a.to_small_vector();
+  BLI::Vector<int> vec = a.to_small_vector();
   EXPECT_EQ(vec.size(), 3);
   EXPECT_TRUE(vec.contains(5));
   EXPECT_TRUE(vec.contains(2));

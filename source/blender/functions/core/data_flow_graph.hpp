@@ -178,10 +178,10 @@ class DataFlowGraph : public RefCountedBase {
     }
   };
 
-  SmallVector<MyNode> m_nodes;
-  SmallVector<InputSocket> m_inputs;
-  SmallVector<OutputSocket> m_outputs;
-  SmallVector<uint> m_targets;
+  Vector<MyNode> m_nodes;
+  Vector<InputSocket> m_inputs;
+  Vector<OutputSocket> m_outputs;
+  Vector<uint> m_targets;
   std::unique_ptr<MonotonicAllocator<>> m_source_info_allocator;
 
  public:
@@ -205,9 +205,9 @@ class DataFlowGraph : public RefCountedBase {
     }
 
     template<typename ContainerT>
-    SmallVector<DFGraphSocket> map_sockets(const ContainerT &dfgb_sockets)
+    Vector<DFGraphSocket> map_sockets(const ContainerT &dfgb_sockets)
     {
-      SmallVector<DFGraphSocket> sockets;
+      Vector<DFGraphSocket> sockets;
       for (DFGB_Socket socket : dfgb_sockets) {
         sockets.append(this->map_socket(socket));
       }

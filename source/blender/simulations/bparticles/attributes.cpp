@@ -93,7 +93,7 @@ AttributeArraysCore::~AttributeArraysCore()
 AttributeArraysCore AttributeArraysCore::NewWithSeparateAllocations(AttributesInfo &info,
                                                                     uint size)
 {
-  SmallVector<void *> arrays;
+  Vector<void *> arrays;
   for (AttributeType type : info.types()) {
     uint bytes_size = size * size_of_attribute_type(type);
     void *ptr = MEM_mallocN_aligned(bytes_size, 64, __func__);
@@ -105,7 +105,7 @@ AttributeArraysCore AttributeArraysCore::NewWithSeparateAllocations(AttributesIn
 AttributeArraysCore AttributeArraysCore::NewWithArrayAllocator(AttributesInfo &info,
                                                                ArrayAllocator &allocator)
 {
-  SmallVector<void *> arrays;
+  Vector<void *> arrays;
   for (AttributeType type : info.types()) {
     uint element_size = size_of_attribute_type(type);
     void *ptr = allocator.allocate(element_size);

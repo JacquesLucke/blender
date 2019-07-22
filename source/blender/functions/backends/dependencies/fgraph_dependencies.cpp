@@ -17,12 +17,12 @@ class FGraphDependencies : public DepsBody {
   {
     for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
       DFGraphSocket socket = m_fgraph.outputs()[i];
-      SmallVector<ID *> outputs = this->find_deps_and_outputs(socket, builder);
+      Vector<ID *> outputs = this->find_deps_and_outputs(socket, builder);
       builder.add_output_ids(i, outputs);
     }
   }
 
-  SmallVector<ID *> find_deps_and_outputs(DFGraphSocket socket,
+  Vector<ID *> find_deps_and_outputs(DFGraphSocket socket,
                                           FunctionDepsBuilder &parent_builder) const
   {
     if (m_fgraph.inputs().contains(socket)) {

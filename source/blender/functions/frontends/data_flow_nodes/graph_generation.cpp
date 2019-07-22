@@ -65,8 +65,8 @@ static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
 static void insert_unlinked_inputs(BTreeGraphBuilder &builder,
                                    UnlinkedInputsHandler &unlinked_inputs_handler)
 {
-  SmallVector<VirtualSocket *> unlinked_inputs;
-  SmallVector<DFGB_Socket> sockets_in_builder;
+  Vector<VirtualSocket *> unlinked_inputs;
+  Vector<DFGB_Socket> sockets_in_builder;
 
   for (VirtualNode *vnode : builder.vtree().nodes()) {
     for (VirtualSocket &vsocket : vnode->inputs()) {

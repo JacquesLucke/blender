@@ -14,8 +14,8 @@ namespace BParticles {
 class ParticleAllocator {
  private:
   ParticlesState &m_state;
-  SmallVector<ParticlesBlock *> m_non_full_cache;
-  SmallVector<ParticlesBlock *> m_allocated_blocks;
+  Vector<ParticlesBlock *> m_non_full_cache;
+  Vector<ParticlesBlock *> m_allocated_blocks;
 
  public:
   ParticleAllocator(ParticlesState &state);
@@ -44,8 +44,8 @@ class ParticleAllocator {
    */
   void allocate_block_ranges(StringRef particle_type_name,
                              uint size,
-                             SmallVector<ParticlesBlock *> &r_blocks,
-                             SmallVector<Range<uint>> &r_ranges);
+                             Vector<ParticlesBlock *> &r_blocks,
+                             Vector<Range<uint>> &r_ranges);
 
   AttributesInfo &attributes_info(StringRef particle_type_name);
 };

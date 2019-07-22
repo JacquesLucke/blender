@@ -18,13 +18,13 @@
  * \ingroup bli
  *
  * An unordered map implementation with small object optimization.
- * Similar to Set, this builds on top of SmallVector
+ * Similar to Set, this builds on top of Vector
  * and ArrayLookup to reduce what this code has to deal with.
  */
 
 #pragma once
 
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 #include "BLI_array_lookup.hpp"
 #include "BLI_array_ref.hpp"
 
@@ -42,7 +42,7 @@ template<typename K, typename V, uint N = 4> class Map {
     return entry.key;
   }
 
-  SmallVector<Entry, N> m_entries;
+  Vector<Entry, N> m_entries;
   ArrayLookup<K, N, Entry, get_key_from_entry> m_lookup;
 
  public:

@@ -27,13 +27,13 @@ static bool is_particle_data_input(VirtualNode *vnode)
          STREQ(bnode->idname, "bp_MeshCollisionEventNode");
 }
 
-static SmallVector<FN::DFGraphSocket> insert_inputs(FN::FunctionBuilder &fn_builder,
+static Vector<FN::DFGraphSocket> insert_inputs(FN::FunctionBuilder &fn_builder,
                                                     BTreeDataGraph &data_graph,
                                                     ArrayRef<VirtualSocket *> output_vsockets)
 {
   Set<VirtualSocket *> to_be_checked = output_vsockets;
   Set<VirtualSocket *> found_inputs;
-  SmallVector<FN::DFGraphSocket> inputs;
+  Vector<FN::DFGraphSocket> inputs;
 
   while (to_be_checked.size() > 0) {
     VirtualSocket *vsocket = to_be_checked.pop();
@@ -78,7 +78,7 @@ static SharedFunction create_function(BTreeDataGraph &data_graph,
   FN::FunctionBuilder fn_builder;
   auto inputs = insert_inputs(fn_builder, data_graph, output_vsockets);
 
-  SmallVector<FN::DFGraphSocket> outputs;
+  Vector<FN::DFGraphSocket> outputs;
   for (VirtualSocket *vsocket : output_vsockets) {
     FN::DFGraphSocket socket = data_graph.lookup_socket(vsocket);
     fn_builder.add_output(vsocket->bsocket()->name, data_graph.graph()->type_of_socket(socket));
@@ -95,7 +95,7 @@ static SharedFunction create_function(BTreeDataGraph &data_graph,
 static SharedFunction create_function_for_data_inputs(VirtualNode *vnode,
                                                       BTreeDataGraph &data_graph)
 {
-  SmallVector<VirtualSocket *> bsockets_to_compute;
+  Vector<VirtualSocket *> bsockets_to_compute;
   for (VirtualSocket &vsocket : vnode->inputs()) {
     if (data_graph.uses_socket(&vsocket)) {
       bsockets_to_compute.append(&vsocket);

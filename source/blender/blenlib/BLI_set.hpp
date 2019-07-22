@@ -18,14 +18,14 @@
  * \ingroup bli
  *
  * A unordered set implementation that supports small object optimization.
- * It builds on top of SmallVector and ArrayLookup, so that
+ * It builds on top of Vector and ArrayLookup, so that
  * it does not have to deal with memory management and the
  * details of the hashing and probing algorithm.
  */
 
 #pragma once
 
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 #include "BLI_array_lookup.hpp"
 #include "BLI_array_ref.hpp"
 
@@ -33,7 +33,7 @@ namespace BLI {
 
 template<typename T, uint N = 4> class Set {
  protected:
-  SmallVector<T, N> m_elements;
+  Vector<T, N> m_elements;
   ArrayLookup<T, N> m_lookup;
 
  public:
@@ -51,7 +51,7 @@ template<typename T, uint N = 4> class Set {
     this->add_multiple(values);
   }
 
-  Set(const SmallVector<T> &values) : Set(ArrayRef<T>(values))
+  Set(const Vector<T> &values) : Set(ArrayRef<T>(values))
   {
   }
 
@@ -170,7 +170,7 @@ template<typename T, uint N = 4> class Set {
   /**
    * Convert all values in the set into a vector.
    */
-  SmallVector<T> to_small_vector() const
+  Vector<T> to_small_vector() const
   {
     return m_elements;
   }

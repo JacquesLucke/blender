@@ -1,11 +1,11 @@
 #include "testing/testing.h"
 #include "BLI_range.hpp"
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 
 using BLI::ArrayRef;
 using IntRange = BLI::Range<int>;
 using ChunkedIntRange = BLI::ChunkedRange<int>;
-using IntVector = BLI::SmallVector<int>;
+using IntVector = BLI::Vector<int>;
 
 TEST(range, DefaultConstructor)
 {

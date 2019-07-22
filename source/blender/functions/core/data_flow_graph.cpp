@@ -101,7 +101,7 @@ void DataFlowGraph::to_dot__clipboard()
 
 void DataFlowGraph::insert_in_builder(DataFlowGraphBuilder &builder)
 {
-  SmallVector<DFGB_Node *> dfgb_nodes;
+  Vector<DFGB_Node *> dfgb_nodes;
 
   for (auto &node : m_nodes) {
     DFGB_Node *dfgb_node = builder.insert_function(node.function);

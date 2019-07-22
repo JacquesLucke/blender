@@ -28,7 +28,7 @@ template<typename T> class ThreadSafeObjectPool {
 #ifdef DEBUG
   Set<T *> m_all_objects;
 #else
-  SmallVector<T *> m_all_objects;
+  Vector<T *> m_all_objects;
 #endif
 
  public:

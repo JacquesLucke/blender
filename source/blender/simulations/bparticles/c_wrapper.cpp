@@ -35,7 +35,7 @@ using BKE::IndexedNodeTree;
 using BKE::SocketWithNode;
 using BLI::ArrayRef;
 using BLI::float3;
-using BLI::SmallVector;
+using BLI::Vector;
 using BLI::StringRef;
 
 WRAPPERS(ParticlesState *, BParticlesState);
@@ -235,7 +235,7 @@ Mesh *BParticles_modifier_point_mesh_from_state(BParticlesState state_c)
 
   ParticlesState &state = *unwrap(state_c);
 
-  SmallVector<float3> positions;
+  Vector<float3> positions;
   for (ParticlesContainer *container : state.particle_containers().values()) {
     positions.extend(container->flatten_attribute_float3("Position"));
   }
@@ -255,9 +255,9 @@ Mesh *BParticles_modifier_mesh_from_state(BParticlesState state_c)
 
   ParticlesState &state = *unwrap(state_c);
 
-  SmallVector<float3> positions;
-  SmallVector<float> sizes;
-  SmallVector<float3> colors;
+  Vector<float3> positions;
+  Vector<float> sizes;
+  Vector<float3> colors;
 
   for (ParticlesContainer *container : state.particle_containers().values()) {
     positions.extend(container->flatten_attribute_float3("Position"));
@@ -273,9 +273,9 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
 {
   SCOPED_TIMER(__func__);
 
-  SmallVector<float3> positions;
-  SmallVector<float> sizes;
-  SmallVector<float3> colors;
+  Vector<float3> positions;
+  Vector<float> sizes;
+  Vector<float3> colors;
 
   for (uint i = 0; i < cached_frame->num_particle_types; i++) {
     BParticlesTypeCache &type = cached_frame->particle_types[i];
@@ -296,8 +296,8 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
 {
   ParticlesState &state = *unwrap(particles_state_c);
 
-  SmallVector<std::string> container_names = state.particle_containers().keys();
-  SmallVector<ParticlesContainer *> containers = state.particle_containers().values();
+  Vector<std::string> container_names = state.particle_containers().keys();
+  Vector<ParticlesContainer *> containers = state.particle_containers().values();
 
   BParticlesFrameCache cached_frame = {0};
   cached_frame.frame = frame;

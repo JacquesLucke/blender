@@ -85,8 +85,8 @@ class ParticlesContainer {
   /**
    * Get a vector containing an attribute value from every particle.
    */
-  SmallVector<float> flatten_attribute_float(StringRef attribute_name);
-  SmallVector<float3> flatten_attribute_float3(StringRef attribute_name);
+  Vector<float> flatten_attribute_float(StringRef attribute_name);
+  Vector<float3> flatten_attribute_float3(StringRef attribute_name);
 
   friend bool operator==(const ParticlesContainer &a, const ParticlesContainer &b);
 

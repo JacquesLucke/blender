@@ -151,7 +151,7 @@ inline llvm::Type *get_llvm_type(SharedType &type, llvm::LLVMContext &context)
   return get_type_info(type)->get_type(context);
 }
 
-LLVMTypes types_of_type_infos(const SmallVector<LLVMTypeInfo *> &type_infos,
+LLVMTypes types_of_type_infos(const Vector<LLVMTypeInfo *> &type_infos,
                               llvm::LLVMContext &context);
 
 } /* namespace FN */

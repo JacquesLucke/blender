@@ -42,7 +42,7 @@ class ExecuteFGraph : public TupleCallBody {
     }
   };
 
-  SmallVector<NodeInfo> m_node_info;
+  Vector<NodeInfo> m_node_info;
 
   struct SocketInfo {
     CPPTypeInfo *type;
@@ -55,8 +55,8 @@ class ExecuteFGraph : public TupleCallBody {
     }
   };
 
-  SmallVector<SocketInfo> m_input_info;
-  SmallVector<SocketInfo> m_output_info;
+  Vector<SocketInfo> m_input_info;
+  Vector<SocketInfo> m_output_info;
 
   uint m_inputs_buffer_size = 0;
   uint m_outputs_buffer_size = 0;

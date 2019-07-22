@@ -18,7 +18,7 @@ class ConstantVelocityIntegrator : public Integrator {
 class EulerIntegrator : public Integrator {
  private:
   AttributesInfo m_offset_attributes_info;
-  SmallVector<Force *> m_forces;
+  Vector<Force *> m_forces;
 
  public:
   EulerIntegrator(ArrayRef<Force *> forces);

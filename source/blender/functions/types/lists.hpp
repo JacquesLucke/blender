@@ -11,7 +11,7 @@ template<typename T> using SharedList = AutoRefCount<List<T>>;
 
 template<typename T> class List : public BLI::SharedImmutable {
  private:
-  SmallVector<T> m_data;
+  Vector<T> m_data;
 
   static constexpr bool DEBUG_ALLOCATIONS = false;
 
@@ -32,7 +32,7 @@ template<typename T> class List : public BLI::SharedImmutable {
 
   List(uint size) : List()
   {
-    m_data = SmallVector<T>(size);
+    m_data = Vector<T>(size);
   }
 
   operator ArrayRef<T>() const

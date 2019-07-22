@@ -251,7 +251,7 @@ set(SRC
   BLI_range.hpp
   intern/BLI_range.cpp
   BLI_shared.hpp
-  BLI_small_vector.hpp
+  BLI_vector.hpp
   BLI_map.hpp
   BLI_multimap.hpp
   BLI_set.hpp

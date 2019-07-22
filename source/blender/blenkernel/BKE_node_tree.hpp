@@ -5,7 +5,7 @@
 #include "BLI_string_ref.hpp"
 #include "BLI_array_ref.hpp"
 #include "BLI_map.hpp"
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 #include "BLI_listbase_wrapper.hpp"
 #include "BLI_multimap.hpp"
 #include "BLI_monotonic_allocator.hpp"
@@ -19,9 +19,9 @@ using BLI::ListBaseWrapper;
 using BLI::Map;
 using BLI::MonotonicAllocator;
 using BLI::MultiMap;
-using BLI::SmallVector;
 using BLI::StringRef;
 using BLI::StringRefNull;
+using BLI::Vector;
 
 using bNodeList = ListBaseWrapper<struct bNode *, true>;
 using bLinkList = ListBaseWrapper<struct bNodeLink *, true>;
@@ -106,20 +106,18 @@ class IndexedNodeTree {
   bool is_reroute(bNode *bnode) const;
   bool is_frame(bNode *bnode) const;
 
-  void find_connected_sockets_left(bNodeSocket *bsocket,
-                                   SmallVector<SocketWithNode> &r_sockets) const;
-  void find_connected_sockets_right(bNodeSocket *bsocket,
-                                    SmallVector<SocketWithNode> &r_sockets) const;
+  void find_connected_sockets_left(bNodeSocket *bsocket, Vector<SocketWithNode> &r_sockets) const;
+  void find_connected_sockets_right(bNodeSocket *bsocket, Vector<SocketWithNode> &r_sockets) const;
 
   bNodeTree *m_btree;
-  SmallVector<bNode *> m_original_nodes;
-  SmallVector<bNodeLink *> m_original_links;
-  SmallVector<bNode *> m_actual_nodes;
+  Vector<bNode *> m_original_nodes;
+  Vector<bNodeLink *> m_original_links;
+  Vector<bNode *> m_actual_nodes;
   Map<bNodeSocket *, bNode *> m_node_by_socket;
   MultiMap<bNodeSocket *, SocketWithNode> m_direct_links;
   MultiMap<bNodeSocket *, SocketWithNode> m_links;
   MultiMap<std::string, bNode *> m_nodes_by_idname;
-  SmallVector<SingleOriginLink> m_single_origin_links;
+  Vector<SingleOriginLink> m_single_origin_links;
 };
 
 class VirtualNode;
@@ -130,9 +128,9 @@ class VirtualNodeTree {
  private:
   bool m_frozen = false;
   MonotonicAllocator<> m_allocator;
-  SmallVector<VirtualNode *> m_nodes;
-  SmallVector<VirtualLink *> m_links;
-  SmallVector<VirtualSocket *> m_inputs_with_links;
+  Vector<VirtualNode *> m_nodes;
+  Vector<VirtualLink *> m_links;
+  Vector<VirtualSocket *> m_inputs_with_links;
   MultiMap<std::string, VirtualNode *> m_nodes_by_idname;
 
  public:

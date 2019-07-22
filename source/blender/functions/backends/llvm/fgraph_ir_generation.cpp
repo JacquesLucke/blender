@@ -111,7 +111,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
     LLVMTypeInfo *type_info = type->extension<LLVMTypeInfo>();
     BLI_assert(type_info);
 
-    SmallVector<DFGraphSocket> targets;
+    Vector<DFGraphSocket> targets;
     for (DFGraphSocket target : m_graph->targets_of_output(output)) {
       if (m_required_sockets.contains(target) && !values.contains(target)) {
         BLI_assert(type == m_graph->type_of_socket(target));

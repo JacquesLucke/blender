@@ -29,12 +29,12 @@ IndexedNodeTree::IndexedNodeTree(bNodeTree *btree)
 
   for (bNodeLink *blink : m_original_links) {
     if (!this->is_reroute(blink->fromnode) && !m_links.contains(blink->fromsock)) {
-      SmallVector<SocketWithNode> connected;
+      Vector<SocketWithNode> connected;
       this->find_connected_sockets_right(blink->fromsock, connected);
       m_links.add_multiple_new(blink->fromsock, connected);
     }
     if (!this->is_reroute(blink->tonode) && !m_links.contains(blink->tosock)) {
-      SmallVector<SocketWithNode> connected;
+      Vector<SocketWithNode> connected;
       this->find_connected_sockets_left(blink->tosock, connected);
       m_links.add_multiple_new(blink->tosock, connected);
       if (connected.size() == 1) {
@@ -45,7 +45,7 @@ IndexedNodeTree::IndexedNodeTree(bNodeTree *btree)
 }
 
 void IndexedNodeTree::find_connected_sockets_left(bNodeSocket *bsocket,
-                                                  SmallVector<SocketWithNode> &r_sockets) const
+                                                  Vector<SocketWithNode> &r_sockets) const
 {
   BLI_assert(bsocket->in_out == SOCK_IN);
   auto from_sockets = m_direct_links.lookup_default(bsocket);
@@ -59,7 +59,7 @@ void IndexedNodeTree::find_connected_sockets_left(bNodeSocket *bsocket,
   }
 }
 void IndexedNodeTree::find_connected_sockets_right(bNodeSocket *bsocket,
-                                                   SmallVector<SocketWithNode> &r_sockets) const
+                                                   Vector<SocketWithNode> &r_sockets) const
 {
   BLI_assert(bsocket->in_out == SOCK_OUT);
   auto to_sockets = m_direct_links.lookup_default(bsocket);
@@ -146,8 +146,8 @@ VirtualNode *VirtualNodeTree::add_bnode(bNodeTree *btree, bNode *bnode)
   vnode->m_bnode = bnode;
   vnode->m_btree = btree;
 
-  SmallVector<bNodeSocket *, 10> original_inputs(bnode->inputs, true);
-  SmallVector<bNodeSocket *, 10> original_outputs(bnode->outputs, true);
+  Vector<bNodeSocket *, 10> original_inputs(bnode->inputs, true);
+  Vector<bNodeSocket *, 10> original_outputs(bnode->outputs, true);
 
   vnode->m_inputs = m_allocator.allocate_array<VirtualSocket>(original_inputs.size());
   vnode->m_outputs = m_allocator.allocate_array<VirtualSocket>(original_outputs.size());
@@ -221,7 +221,7 @@ static bool is_reroute(VirtualNode *vnode)
 }
 
 static void find_connected_sockets_left(VirtualSocket *vsocket,
-                                        SmallVector<VirtualSocket *> &r_found)
+                                        Vector<VirtualSocket *> &r_found)
 {
   BLI_assert(vsocket->is_input());
   for (VirtualSocket *other : vsocket->direct_links()) {
@@ -235,7 +235,7 @@ static void find_connected_sockets_left(VirtualSocket *vsocket,
 }
 
 static void find_connected_sockets_right(VirtualSocket *vsocket,
-                                         SmallVector<VirtualSocket *> &r_found)
+                                         Vector<VirtualSocket *> &r_found)
 {
   BLI_assert(vsocket->is_output());
   for (VirtualSocket *other : vsocket->direct_links()) {
@@ -253,14 +253,14 @@ BLI_NOINLINE void VirtualNodeTree::initialize_links()
   for (VirtualLink *vlink : m_links) {
     if (vlink->m_from->m_links.size() == 0) {
       VirtualSocket *vsocket = vlink->m_from;
-      SmallVector<VirtualSocket *> found;
+      Vector<VirtualSocket *> found;
       find_connected_sockets_right(vsocket, found);
       vsocket->m_links = m_allocator.allocate_array<VirtualSocket *>(found.size());
       vsocket->m_links.copy_from(found);
     }
     if (vlink->m_to->m_links.size() == 0) {
       VirtualSocket *vsocket = vlink->m_to;
-      SmallVector<VirtualSocket *> found;
+      Vector<VirtualSocket *> found;
       find_connected_sockets_left(vsocket, found);
       vsocket->m_links = m_allocator.allocate_array<VirtualSocket *>(found.size());
       vsocket->m_links.copy_from(found);

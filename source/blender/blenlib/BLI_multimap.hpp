@@ -21,7 +21,7 @@ template<typename K, typename V, uint N = 4> class MultiMap {
   };
 
   Map<K, Entry, N> m_map;
-  SmallVector<V, N> m_elements;
+  Vector<V, N> m_elements;
 
  public:
   MultiMap() = default;

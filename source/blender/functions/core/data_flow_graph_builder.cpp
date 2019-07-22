@@ -71,18 +71,18 @@ void DataFlowGraphBuilder::insert_link(DFGB_Socket a, DFGB_Socket b)
   }
 }
 
-SmallVector<DFGB_Node *> DataFlowGraphBuilder::nodes()
+Vector<DFGB_Node *> DataFlowGraphBuilder::nodes()
 {
-  SmallVector<DFGB_Node *> nodes;
+  Vector<DFGB_Node *> nodes;
   for (DFGB_Node *node : m_nodes) {
     nodes.append(node);
   }
   return nodes;
 }
 
-SmallVector<DFGB_Link> DataFlowGraphBuilder::links()
+Vector<DFGB_Link> DataFlowGraphBuilder::links()
 {
-  SmallVector<DFGB_Link> links;
+  Vector<DFGB_Link> links;
   for (auto item : m_input_origins.items()) {
     links.append(DFGB_Link(item.value, item.key));
   }

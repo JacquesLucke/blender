@@ -31,8 +31,8 @@ static SharedFunction get_vectorized_function(SharedFunction &original_fn,
   }
 #endif
 
-  SmallVector<bool> vectorized_inputs;
-  SmallVector<SharedFunction> used_default_value_builders;
+  Vector<bool> vectorized_inputs;
+  Vector<SharedFunction> used_default_value_builders;
   for (auto &input : auto_vectorized_inputs) {
     char state[5];
     BLI_assert(RNA_string_length(&node_rna, input.prop_name) == strlen("BASE"));

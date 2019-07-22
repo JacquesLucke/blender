@@ -49,7 +49,7 @@ template<typename T> void uninitialized_relocate_n(T *src, uint n, T *dst)
   }
 }
 
-template<typename T, uint N = 4> class SmallVector {
+template<typename T, uint N = 4> class Vector {
  private:
   T *m_elements;
   uint m_size = 0;
@@ -61,7 +61,7 @@ template<typename T, uint N = 4> class SmallVector {
    * Create an empty vector.
    * This does not do any memory allocation.
    */
-  SmallVector()
+  Vector()
   {
     m_elements = this->small_buffer();
     m_capacity = N;
@@ -72,7 +72,7 @@ template<typename T, uint N = 4> class SmallVector {
    * Create a vector with a specific size.
    * The elements will be default initialized.
    */
-  SmallVector(uint size) : SmallVector()
+  Vector(uint size) : Vector()
   {
     this->reserve(size);
     for (uint i = 0; i < size; i++) {
@@ -84,7 +84,7 @@ template<typename T, uint N = 4> class SmallVector {
   /**
    * Create a vector filled with a specific value.
    */
-  SmallVector(uint size, const T &value) : SmallVector()
+  Vector(uint size, const T &value) : Vector()
   {
     this->reserve(size);
     std::fill_n(m_elements, size, value);
@@ -94,14 +94,14 @@ template<typename T, uint N = 4> class SmallVector {
   /**
    * Create a vector from an initializer list.
    */
-  SmallVector(std::initializer_list<T> values) : SmallVector(ArrayRef<T>(values))
+  Vector(std::initializer_list<T> values) : Vector(ArrayRef<T>(values))
   {
   }
 
   /**
    * Create a vector from an array ref.
    */
-  SmallVector(ArrayRef<T> values) : SmallVector()
+  Vector(ArrayRef<T> values) : Vector()
   {
     this->reserve(values.size());
     std::uninitialized_copy_n(values.begin(), values.size(), this->begin());
@@ -112,9 +112,9 @@ template<typename T, uint N = 4> class SmallVector {
    * Create a vector from any container. It must be possible to use the container in a range-for
    * loop.
    */
-  template<typename ContainerT> static SmallVector FromContainer(const ContainerT &container)
+  template<typename ContainerT> static Vector FromContainer(const ContainerT &container)
   {
-    SmallVector vector;
+    Vector vector;
     for (const auto &value : container) {
       vector.append(value);
     }
@@ -126,7 +126,7 @@ template<typename T, uint N = 4> class SmallVector {
    * map.keys() for map.values().
    */
   template<typename ArrayT, typename ValueT, ValueT (*GetValue)(ArrayT &item)>
-  SmallVector(MappedArrayRef<ArrayT, ValueT, GetValue> values) : SmallVector()
+  Vector(MappedArrayRef<ArrayT, ValueT, GetValue> values) : Vector()
   {
     this->reserve(values.size());
     for (uint i = 0; i < values.size(); i++) {
@@ -138,7 +138,7 @@ template<typename T, uint N = 4> class SmallVector {
   /**
    * Create a vector from a ListBase.
    */
-  SmallVector(ListBase &values, bool intrusive_next_and_prev_pointers) : SmallVector()
+  Vector(ListBase &values, bool intrusive_next_and_prev_pointers) : Vector()
   {
     if (intrusive_next_and_prev_pointers) {
       for (T value : ListBaseWrapper<T, true>(values)) {
@@ -157,7 +157,7 @@ template<typename T, uint N = 4> class SmallVector {
    * The other vector will not be changed.
    * If the other vector has less than N elements, no allocation will be made.
    */
-  SmallVector(const SmallVector &other)
+  Vector(const Vector &other)
   {
     this->copy_from_other(other);
   }
@@ -167,12 +167,12 @@ template<typename T, uint N = 4> class SmallVector {
    * This does not do an allocation.
    * The other vector will have zero elements afterwards.
    */
-  SmallVector(SmallVector &&other)
+  Vector(Vector &&other)
   {
     this->steal_from_other(other);
   }
 
-  ~SmallVector()
+  ~Vector()
   {
     this->destruct_elements_and_free_memory();
   }
@@ -182,7 +182,7 @@ template<typename T, uint N = 4> class SmallVector {
     return ArrayRef<T>(m_elements, m_size);
   }
 
-  SmallVector &operator=(const SmallVector &other)
+  Vector &operator=(const Vector &other)
   {
     if (this == &other) {
       return *this;
@@ -194,7 +194,7 @@ template<typename T, uint N = 4> class SmallVector {
     return *this;
   }
 
-  SmallVector &operator=(SmallVector &&other)
+  Vector &operator=(Vector &&other)
   {
     if (this == &other) {
       return *this;
@@ -287,7 +287,7 @@ template<typename T, uint N = 4> class SmallVector {
   /**
    * Copy the elements of another vector to the end of this vector.
    */
-  void extend(const SmallVector &other)
+  void extend(const Vector &other)
   {
     this->extend(other.begin(), other.size());
   }
@@ -418,7 +418,7 @@ template<typename T, uint N = 4> class SmallVector {
    * Return true when they have the same length and all elements
    * compare equal, otherwise false.
    */
-  static bool all_equal(const SmallVector &a, const SmallVector &b)
+  static bool all_equal(const Vector &a, const Vector &b)
   {
     if (a.size() != b.size()) {
       return false;
@@ -513,7 +513,7 @@ template<typename T, uint N = 4> class SmallVector {
     m_elements = new_array;
   }
 
-  void copy_from_other(const SmallVector &other)
+  void copy_from_other(const Vector &other)
   {
     if (other.is_small()) {
       m_elements = this->small_buffer();
@@ -527,7 +527,7 @@ template<typename T, uint N = 4> class SmallVector {
     m_size = other.m_size;
   }
 
-  void steal_from_other(SmallVector &other)
+  void steal_from_other(Vector &other)
   {
     if (other.is_small()) {
       uninitialized_relocate_n(other.begin(), other.size(), this->small_buffer());

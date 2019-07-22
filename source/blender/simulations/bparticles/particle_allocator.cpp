@@ -31,8 +31,8 @@ ParticlesBlock &ParticleAllocator::get_non_full_block(StringRef particle_type_na
 
 void ParticleAllocator::allocate_block_ranges(StringRef particle_type_name,
                                               uint size,
-                                              SmallVector<ParticlesBlock *> &r_blocks,
-                                              SmallVector<Range<uint>> &r_ranges)
+                                              Vector<ParticlesBlock *> &r_blocks,
+                                              Vector<Range<uint>> &r_ranges)
 {
   uint remaining_size = size;
   while (remaining_size > 0) {
@@ -61,13 +61,13 @@ AttributesInfo &ParticleAllocator::attributes_info(StringRef particle_type_name)
 
 ParticleSets ParticleAllocator::request(StringRef particle_type_name, uint size)
 {
-  SmallVector<ParticlesBlock *> blocks;
-  SmallVector<Range<uint>> ranges;
+  Vector<ParticlesBlock *> blocks;
+  Vector<Range<uint>> ranges;
   this->allocate_block_ranges(particle_type_name, size, blocks, ranges);
 
   AttributesInfo &attributes_info = this->attributes_info(particle_type_name);
 
-  SmallVector<ParticleSet> sets;
+  Vector<ParticleSet> sets;
   for (uint i = 0; i < blocks.size(); i++) {
     sets.append(ParticleSet(*blocks[i], ranges[i].as_array_ref()));
   }

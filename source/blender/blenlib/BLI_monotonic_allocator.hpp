@@ -9,13 +9,13 @@
  * allocated, no actual allocation will be performed.
  */
 
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 
 namespace BLI {
 
 template<uint N = 0> class MonotonicAllocator {
  private:
-  SmallVector<void *> m_pointers;
+  Vector<void *> m_pointers;
 
   void *m_current_buffer;
   uint m_remaining_capacity;

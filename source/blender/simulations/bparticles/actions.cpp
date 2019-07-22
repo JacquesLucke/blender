@@ -62,9 +62,9 @@ void ExplodeAction::execute(ActionInterface &interface)
 
   auto positions = particles.attributes().get_float3("Position");
 
-  SmallVector<float3> new_positions;
-  SmallVector<float3> new_velocities;
-  SmallVector<float> new_birth_times;
+  Vector<float3> new_positions;
+  Vector<float3> new_velocities;
+  Vector<float> new_birth_times;
 
   auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
   FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
@@ -101,7 +101,7 @@ void ConditionAction::execute(ActionInterface &interface)
   ArrayAllocator::Array<bool> conditions(interface.array_allocator());
   this->compute_conditions(interface, conditions);
 
-  SmallVector<uint> true_pindices, false_pindices;
+  Vector<uint> true_pindices, false_pindices;
   for (uint pindex : particles.pindices()) {
     if (conditions[pindex]) {
       true_pindices.append(pindex);

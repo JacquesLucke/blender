@@ -15,8 +15,8 @@ EventFilterInterface::EventFilterInterface(BlockStepData &step_data,
                                            ArrayRef<uint> pindices,
                                            ArrayRef<float> known_min_time_factors,
                                            EventStorage &r_event_storage,
-                                           SmallVector<uint> &r_filtered_pindices,
-                                           SmallVector<float> &r_filtered_time_factors)
+                                           Vector<uint> &r_filtered_pindices,
+                                           Vector<float> &r_filtered_time_factors)
     : m_step_data(step_data),
       m_pindices(pindices),
       m_known_min_time_factors(known_min_time_factors),

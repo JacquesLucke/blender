@@ -23,7 +23,7 @@ class DataFlowGraphBuilder;
 class DataFlowGraph;
 
 using DFGB_SocketSet = Set<DFGB_Socket>;
-using DFGB_SocketVector = SmallVector<DFGB_Socket>;
+using DFGB_SocketVector = Vector<DFGB_Socket>;
 using DFGB_SocketSetVector = SetVector<DFGB_Socket>;
 
 class DFGB_Socket {
@@ -167,8 +167,8 @@ class DataFlowGraphBuilder {
   DFGB_Node *insert_function(SharedFunction &fn, SourceInfo *source = nullptr);
   void insert_link(DFGB_Socket a, DFGB_Socket b);
 
-  SmallVector<DFGB_Link> links();
-  SmallVector<DFGB_Node *> nodes();
+  Vector<DFGB_Link> links();
+  Vector<DFGB_Node *> nodes();
 
   template<typename T, typename... Args> T *new_source_info(Args &&... args)
   {

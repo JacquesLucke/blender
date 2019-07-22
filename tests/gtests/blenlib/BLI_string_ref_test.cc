@@ -1,10 +1,10 @@
 #include "testing/testing.h"
 #include "BLI_string_ref.hpp"
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 
-using BLI::SmallVector;
 using BLI::StringRef;
 using BLI::StringRefNull;
+using BLI::Vector;
 
 TEST(string_ref_null, DefaultConstructor)
 {
@@ -165,7 +165,7 @@ TEST(string_ref, CompareEqualString2)
 TEST(string_ref, Iterate)
 {
   StringRef ref("test");
-  SmallVector<char> chars;
+  Vector<char> chars;
   for (char c : ref) {
     chars.append(c);
   }

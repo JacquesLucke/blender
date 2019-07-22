@@ -14,8 +14,8 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
 
   float frequency = 1.0f / m_rate;
 
-  SmallVector<float3> new_positions;
-  SmallVector<float> new_birth_times;
+  Vector<float3> new_positions;
+  Vector<float> new_birth_times;
   for (uint pindex : particles.pindices()) {
     float time_factor = interface.time_factors()[pindex];
     TimeSpan time_span = interface.time_span(pindex);

@@ -106,8 +106,8 @@ class ParticleType {
  private:
   AttributesDeclaration m_attributes;
   Integrator *m_integrator;
-  SmallVector<Event *> m_events;
-  SmallVector<OffsetHandler *> m_offset_handlers;
+  Vector<Event *> m_events;
+  Vector<OffsetHandler *> m_offset_handlers;
 
  public:
   ParticleType(AttributesDeclaration &attributes,
@@ -150,7 +150,7 @@ class ParticleType {
 class StepDescription {
   float m_duration;
   StringMap<ParticleType *> m_types;
-  SmallVector<Emitter *> m_emitters;
+  Vector<Emitter *> m_emitters;
 
  public:
   StepDescription(float duration, StringMap<ParticleType *> types, ArrayRef<Emitter *> emitters)
@@ -179,8 +179,8 @@ class StepDescription {
 class ParticleTypeBuilder {
  private:
   Integrator *m_integrator;
-  SmallVector<Event *> m_events;
-  SmallVector<OffsetHandler *> m_offset_handlers;
+  Vector<Event *> m_events;
+  Vector<OffsetHandler *> m_offset_handlers;
   AttributesDeclaration m_attributes;
 
  public:
@@ -220,7 +220,7 @@ class ParticleTypeBuilder {
 class StepDescriptionBuilder {
  private:
   StringMap<ParticleTypeBuilder *> m_type_builders;
-  SmallVector<Emitter *> m_emitters;
+  Vector<Emitter *> m_emitters;
 
  public:
   ~StepDescriptionBuilder()

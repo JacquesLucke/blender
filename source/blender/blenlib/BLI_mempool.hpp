@@ -27,7 +27,7 @@ namespace BLI {
 class MemPool {
  private:
   Stack<void *> m_free_stack;
-  SmallVector<void *> m_start_pointers;
+  Vector<void *> m_start_pointers;
   uint m_element_size;
 
 #ifdef DEBUG

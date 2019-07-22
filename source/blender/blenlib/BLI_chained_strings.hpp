@@ -7,7 +7,7 @@
  *   - All string lengths are known in the beginning. */
 
 #include "BLI_string_ref.hpp"
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 
 namespace BLI {
 
@@ -51,7 +51,7 @@ class ChainedStringsBuilder {
   }
 
  private:
-  SmallVector<char, 64> m_chars;
+  Vector<char, 64> m_chars;
 };
 
 };  // namespace BLI

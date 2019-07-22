@@ -92,14 +92,14 @@ bool GraphInserters::insert_node(BTreeGraphBuilder &builder, VirtualNode *vnode)
 
 class SocketLoaderBody : public TupleCallBody {
  private:
-  SmallVector<bNodeTree *> m_btrees;
-  SmallVector<bNodeSocket *> m_bsockets;
-  SmallVector<SocketLoader> m_loaders;
+  Vector<bNodeTree *> m_btrees;
+  Vector<bNodeSocket *> m_bsockets;
+  Vector<SocketLoader> m_loaders;
 
  public:
   SocketLoaderBody(ArrayRef<bNodeTree *> btrees,
                    ArrayRef<bNodeSocket *> bsockets,
-                   SmallVector<SocketLoader> &loaders)
+                   Vector<SocketLoader> &loaders)
       : m_btrees(btrees), m_bsockets(bsockets), m_loaders(loaders)
   {
   }
@@ -120,8 +120,8 @@ class SocketLoaderBody : public TupleCallBody {
 
 class SocketLoaderDependencies : public DepsBody {
  private:
-  SmallVector<bNodeTree *> m_btrees;
-  SmallVector<bNodeSocket *> m_bsockets;
+  Vector<bNodeTree *> m_btrees;
+  Vector<bNodeSocket *> m_bsockets;
 
  public:
   SocketLoaderDependencies(ArrayRef<bNodeTree *> btrees, ArrayRef<bNodeSocket *> bsockets)
@@ -149,9 +149,9 @@ class SocketLoaderDependencies : public DepsBody {
 DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder,
                                                  ArrayRef<VirtualSocket *> vsockets)
 {
-  SmallVector<SocketLoader> loaders;
-  SmallVector<bNodeSocket *> bsockets;
-  SmallVector<bNodeTree *> btrees;
+  Vector<SocketLoader> loaders;
+  Vector<bNodeSocket *> bsockets;
+  Vector<bNodeTree *> btrees;
 
   FunctionBuilder fn_builder;
   for (uint i = 0; i < vsockets.size(); i++) {

@@ -3,7 +3,7 @@
 #include <string>
 
 #include "BLI_array_ref.hpp"
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 #include "BLI_math.hpp"
 #include "BLI_string_ref.hpp"
 #include "BLI_range.hpp"
@@ -19,9 +19,9 @@ using BLI::float3;
 using BLI::Optional;
 using BLI::Range;
 using BLI::SetVector;
-using BLI::SmallVector;
 using BLI::StringRef;
 using BLI::StringRefNull;
+using BLI::Vector;
 
 /**
  * Possible types of attributes. All types are expected to be POD (plain old data).
@@ -60,9 +60,9 @@ class AttributesDeclaration {
   SetVector<std::string> m_byte_names;
   SetVector<std::string> m_float_names;
   SetVector<std::string> m_float3_names;
-  SmallVector<uint8_t> m_byte_defaults;
-  SmallVector<float> m_float_defaults;
-  SmallVector<float3> m_float3_defaults;
+  Vector<uint8_t> m_byte_defaults;
+  Vector<float> m_float_defaults;
+  Vector<float3> m_float3_defaults;
 
   friend AttributesInfo;
 
@@ -90,12 +90,12 @@ class AttributesInfo {
   Range<uint> m_byte_attributes;
   Range<uint> m_float_attributes;
   Range<uint> m_float3_attributes;
-  SmallVector<AttributeType> m_types;
+  Vector<AttributeType> m_types;
   SetVector<std::string> m_indices;
 
-  SmallVector<uint8_t> m_byte_defaults;
-  SmallVector<float> m_float_defaults;
-  SmallVector<float3> m_float3_defaults;
+  Vector<uint8_t> m_byte_defaults;
+  Vector<float> m_float_defaults;
+  Vector<float3> m_float3_defaults;
 
  public:
   AttributesInfo() = default;
@@ -267,7 +267,7 @@ class AttributeArrays;
 class AttributeArraysCore {
  private:
   AttributesInfo *m_info;
-  SmallVector<void *> m_arrays;
+  Vector<void *> m_arrays;
   uint m_size = 0;
 
  public:

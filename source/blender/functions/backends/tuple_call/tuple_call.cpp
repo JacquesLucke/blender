@@ -21,9 +21,9 @@ uint LazyInTupleCallBody::user_data_size() const
   return 0;
 }
 
-const SmallVector<uint> &LazyInTupleCallBody::always_required() const
+const Vector<uint> &LazyInTupleCallBody::always_required() const
 {
-  static SmallVector<uint> empty_list = {};
+  static Vector<uint> empty_list = {};
   return empty_list;
 }
 

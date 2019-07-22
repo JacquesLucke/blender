@@ -1,8 +1,8 @@
 #include "testing/testing.h"
 #include "BLI_array_ref.hpp"
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 
-using IntVector = BLI::SmallVector<int>;
+using IntVector = BLI::Vector<int>;
 using IntArrayRef = BLI::ArrayRef<int>;
 
 TEST(array_ref, FromSmallVector)

@@ -115,13 +115,13 @@ class Function final : public RefCountedBase {
    * Utility to get a specific type extension for all inputs.
    * Asserts, when at least one input does not have the extension.
    */
-  template<typename T> SmallVector<T *> input_extensions() const;
+  template<typename T> Vector<T *> input_extensions() const;
 
   /**
    * Utility to get a specific type extension for all outputs.
    * Asserts when at least one output does not have the extension.
    */
-  template<typename T> SmallVector<T *> output_extensions() const;
+  template<typename T> Vector<T *> output_extensions() const;
 
   /**
    * Get an array containing all input types.
@@ -143,10 +143,10 @@ class Function final : public RefCountedBase {
   Composition m_bodies;
   mutable std::mutex m_body_mutex;
 
-  SmallVector<ChainedStringRef> m_input_names;
-  SmallVector<SharedType> m_input_types;
-  SmallVector<ChainedStringRef> m_output_names;
-  SmallVector<SharedType> m_output_types;
+  Vector<ChainedStringRef> m_input_names;
+  Vector<SharedType> m_input_types;
+  Vector<ChainedStringRef> m_output_names;
+  Vector<SharedType> m_output_types;
 
   const char *m_strings;
 };
@@ -156,10 +156,10 @@ using SharedFunction = AutoRefCount<Function>;
 class FunctionBuilder {
  private:
   ChainedStringsBuilder m_strings_builder;
-  SmallVector<ChainedStringRef> m_input_names;
-  SmallVector<SharedType> m_input_types;
-  SmallVector<ChainedStringRef> m_output_names;
-  SmallVector<SharedType> m_output_types;
+  Vector<ChainedStringRef> m_input_names;
+  Vector<SharedType> m_input_types;
+  Vector<ChainedStringRef> m_output_names;
+  Vector<SharedType> m_output_types;
 
  public:
   FunctionBuilder();
@@ -253,9 +253,9 @@ inline StringRefNull Function::output_name(uint index)
   return m_output_names[index].to_string_ref(m_strings);
 }
 
-template<typename T> inline SmallVector<T *> Function::input_extensions() const
+template<typename T> inline Vector<T *> Function::input_extensions() const
 {
-  SmallVector<T *> extensions;
+  Vector<T *> extensions;
   for (auto &type : m_input_types) {
     T *ext = type->extension<T>();
     BLI_assert(ext);
@@ -264,9 +264,9 @@ template<typename T> inline SmallVector<T *> Function::input_extensions() const
   return extensions;
 }
 
-template<typename T> inline SmallVector<T *> Function::output_extensions() const
+template<typename T> inline Vector<T *> Function::output_extensions() const
 {
-  SmallVector<T *> extensions;
+  Vector<T *> extensions;
   for (auto &type : m_output_types) {
     T *ext = type->extension<T>();
     BLI_assert(ext);

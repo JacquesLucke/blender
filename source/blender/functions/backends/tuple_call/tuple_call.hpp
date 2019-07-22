@@ -145,7 +145,7 @@ class LazyState {
   uint m_entry_count = 0;
   bool m_is_done = false;
   void *m_user_data;
-  SmallVector<uint> m_requested_inputs;
+  Vector<uint> m_requested_inputs;
 
  public:
   LazyState(void *user_data) : m_user_data(user_data)
@@ -168,7 +168,7 @@ class LazyState {
     m_is_done = true;
   }
 
-  const SmallVector<uint> &requested_inputs() const
+  const Vector<uint> &requested_inputs() const
   {
     return m_requested_inputs;
   }
@@ -210,7 +210,7 @@ class LazyInTupleCallBody : public TupleCallBodyBase {
    * Indices of function inputs that are required in any case. Those elements can be expected to be
    * initialized when call is called for the first time.
    */
-  virtual const SmallVector<uint> &always_required() const;
+  virtual const Vector<uint> &always_required() const;
 
   /**
    * The ownership semantics are the same as in the normal tuple-call. The only difference is the

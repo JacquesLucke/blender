@@ -5,7 +5,7 @@
  */
 
 #include "BLI_utildefines.h"
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 
 #define RANGE_AS_ARRAY_REF_MAX_LEN 10000
 
@@ -109,9 +109,9 @@ template<typename T> class Range {
     return value >= m_start && value < m_one_after_last;
   }
 
-  BLI_NOINLINE SmallVector<T> to_small_vector() const
+  BLI_NOINLINE Vector<T> to_small_vector() const
   {
-    SmallVector<T> values;
+    Vector<T> values;
     values.reserve(this->size());
     for (T value : *this) {
       values.append(value);

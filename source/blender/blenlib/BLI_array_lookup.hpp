@@ -11,7 +11,7 @@
 #include <cmath>
 
 #include "BLI_utildefines.h"
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 #include "BLI_math_bits.h"
 #include "BLI_ghash.h"
 #include "BLI_hash.h"
@@ -61,7 +61,7 @@ class ArrayLookup {
   }
 
   static const uint N_EXP = calc_exp(N);
-  using Mapping = SmallVector<int, (1 << N_EXP)>;
+  using Mapping = Vector<int, (1 << N_EXP)>;
 
   Mapping m_map;
   uint m_length;
@@ -318,7 +318,7 @@ class ArrayLookup {
 
  private:
   struct LookupStats {
-    SmallVector<uint> collisions_amount_distribution;
+    Vector<uint> collisions_amount_distribution;
     uint max_collisions = 0;
     float average_collisions;
   };
@@ -353,7 +353,7 @@ class ArrayLookup {
   LookupStats create_lookup_stats(Item *array) const
   {
     LookupStats stats;
-    stats.collisions_amount_distribution = SmallVector<uint>(m_map.size());
+    stats.collisions_amount_distribution = Vector<uint>(m_map.size());
     stats.collisions_amount_distribution.fill(0);
 
     uint collisions_sum = 0;

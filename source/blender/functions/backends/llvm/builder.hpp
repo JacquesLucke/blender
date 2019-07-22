@@ -10,15 +10,15 @@
 
 namespace FN {
 
-using LLVMValues = SmallVector<llvm::Value *>;
-using LLVMTypes = BLI::SmallVector<llvm::Type *>;
+using LLVMValues = Vector<llvm::Value *>;
+using LLVMTypes = BLI::Vector<llvm::Type *>;
 
 class LLVMTypeInfo;
 class IRConstruct_ForLoop;
 class IRConstruct_IterationsLoop;
 class IRConstruct_IfThenElse;
 
-template<typename T> static llvm::ArrayRef<T> to_llvm_array_ref(const SmallVector<T> &vector)
+template<typename T> static llvm::ArrayRef<T> to_llvm_array_ref(const Vector<T> &vector)
 {
   return llvm::ArrayRef<T>(vector.begin(), vector.end());
 }

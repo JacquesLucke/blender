@@ -14,7 +14,7 @@ class LazyBoolSwitch : public LazyInTupleCallBody {
  private:
   SharedType m_type;
   uint m_type_size;
-  const SmallVector<uint> m_always_required = {0};
+  const Vector<uint> m_always_required = {0};
 
  public:
   LazyBoolSwitch(SharedType type)
@@ -22,7 +22,7 @@ class LazyBoolSwitch : public LazyInTupleCallBody {
   {
   }
 
-  const SmallVector<uint> &always_required() const override
+  const Vector<uint> &always_required() const override
   {
     return m_always_required;
   }

@@ -38,7 +38,7 @@ template<typename T> class SetVector : public Set<T> {
   {
   }
 
-  SetVector(const SmallVector<T> &values) : Set<T>(values)
+  SetVector(const Vector<T> &values) : Set<T>(values)
   {
   }
 

@@ -23,8 +23,8 @@ class IterationStackFrame : public StackFrame {
 class AutoVectorizationGen : public LLVMBuildIRBody {
  private:
   SharedFunction m_main;
-  SmallVector<bool> m_input_is_list;
-  SmallVector<SharedFunction> m_empty_list_value_builders;
+  Vector<bool> m_input_is_list;
+  Vector<SharedFunction> m_empty_list_value_builders;
 
   struct InputInfo {
     bool is_list;
@@ -42,8 +42,8 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     GetListDataPtr get_data_ptr_fn;
   };
 
-  SmallVector<InputInfo> m_input_info;
-  SmallVector<OutputInfo> m_output_info;
+  Vector<InputInfo> m_input_info;
+  Vector<OutputInfo> m_output_info;
 
  public:
   AutoVectorizationGen(SharedFunction main,
@@ -247,18 +247,18 @@ class AutoVectorization : public TupleCallBody {
   SharedFunction m_main;
   TupleCallBody *m_main_body;
 
-  const SmallVector<bool> m_input_is_list;
-  SmallVector<uint> m_list_inputs;
+  const Vector<bool> m_input_is_list;
+  Vector<uint> m_list_inputs;
 
-  SmallVector<TupleCallBody *> m_get_length_bodies;
+  Vector<TupleCallBody *> m_get_length_bodies;
   uint m_max_len_in_size, m_max_len_out_size;
 
-  SmallVector<TupleCallBody *> m_get_element_bodies;
-  SmallVector<TupleCallBody *> m_create_empty_bodies;
-  SmallVector<TupleCallBody *> m_append_bodies;
+  Vector<TupleCallBody *> m_get_element_bodies;
+  Vector<TupleCallBody *> m_create_empty_bodies;
+  Vector<TupleCallBody *> m_append_bodies;
 
  public:
-  AutoVectorization(SharedFunction main, const SmallVector<bool> &input_is_list)
+  AutoVectorization(SharedFunction main, const Vector<bool> &input_is_list)
       : m_main(main), m_main_body(main->body<TupleCallBody>()), m_input_is_list(input_is_list)
   {
     for (uint i = 0; i < input_is_list.size(); i++) {
@@ -459,8 +459,8 @@ SharedFunction to_vectorized_function(SharedFunction &original_fn,
 
 struct AutoVectorizationInput {
   SharedFunction m_original_fn;
-  SmallVector<bool> m_vectorized_inputs_mask;
-  SmallVector<SharedFunction> m_empty_list_value_builders;
+  Vector<bool> m_vectorized_inputs_mask;
+  Vector<SharedFunction> m_empty_list_value_builders;
 
   AutoVectorizationInput(SharedFunction &original_fn,
                          ArrayRef<bool> vectorized_inputs_mask,
@@ -474,8 +474,8 @@ struct AutoVectorizationInput {
   friend bool operator==(const AutoVectorizationInput &a, const AutoVectorizationInput &b)
   {
     return (a.m_original_fn == b.m_original_fn &&
-            SmallVector<bool>::all_equal(a.m_vectorized_inputs_mask, b.m_vectorized_inputs_mask) &&
-            SmallVector<SharedFunction>::all_equal(a.m_empty_list_value_builders,
+            Vector<bool>::all_equal(a.m_vectorized_inputs_mask, b.m_vectorized_inputs_mask) &&
+            Vector<SharedFunction>::all_equal(a.m_empty_list_value_builders,
                                                    b.m_empty_list_value_builders));
   }
 };

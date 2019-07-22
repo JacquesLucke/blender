@@ -1,11 +1,11 @@
 #include "testing/testing.h"
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 #include "BLI_map.hpp"
 #include <forward_list>
 
 using BLI::Map;
-using BLI::SmallVector;
-using IntVector = SmallVector<int>;
+using BLI::Vector;
+using IntVector = Vector<int>;
 
 TEST(small_vector, DefaultConstructor)
 {
@@ -69,7 +69,7 @@ TEST(small_vector, NonIntrusiveListBaseConstructor)
   BLI_addtail(&list, BLI_genericNodeN(POINTER_FROM_INT(42)));
   BLI_addtail(&list, BLI_genericNodeN(POINTER_FROM_INT(60)));
   BLI_addtail(&list, BLI_genericNodeN(POINTER_FROM_INT(90)));
-  BLI::SmallVector<void *> vec(list, false);
+  BLI::Vector<void *> vec(list, false);
   EXPECT_EQ(vec.size(), 3);
   EXPECT_EQ(POINTER_AS_INT(vec[0]), 42);
   EXPECT_EQ(POINTER_AS_INT(vec[1]), 60);
@@ -88,7 +88,7 @@ TEST(small_vector, IntrusiveListBaseConstructor)
   BLI_addtail(&list, new TestListValue{0, 0, 4});
   BLI_addtail(&list, new TestListValue{0, 0, 6});
   BLI_addtail(&list, new TestListValue{0, 0, 7});
-  SmallVector<TestListValue *> vec(list, true);
+  Vector<TestListValue *> vec(list, true);
   EXPECT_EQ(vec.size(), 3);
   EXPECT_EQ(vec[0]->value, 4);
   EXPECT_EQ(vec[1]->value, 6);
@@ -190,7 +190,7 @@ TEST(small_vector, Iterator)
 
 TEST(small_vector, BecomeLarge)
 {
-  SmallVector<int, 4> vec;
+  Vector<int, 4> vec;
   for (int i = 0; i < 100; i++) {
     vec.append(i * 5);
   }
@@ -216,7 +216,7 @@ TEST(small_vector, ReturnByValue)
 
 TEST(small_vector, VectorOfVectors_Append)
 {
-  SmallVector<IntVector> vec;
+  Vector<IntVector> vec;
   EXPECT_EQ(vec.size(), 0);
 
   IntVector v({1, 2});
@@ -231,7 +231,7 @@ TEST(small_vector, VectorOfVectors_Append)
 
 TEST(small_vector, VectorOfVectors_Fill)
 {
-  SmallVector<IntVector> vec(3);
+  Vector<IntVector> vec(3);
   vec.fill({4, 5});
 
   EXPECT_EQ(vec[0][0], 4);

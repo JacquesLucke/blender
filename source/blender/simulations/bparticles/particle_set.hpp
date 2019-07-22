@@ -51,7 +51,7 @@ class ParticleSets {
  private:
   std::string m_particle_type_name;
   AttributesInfo &m_attributes_info;
-  SmallVector<ParticleSet> m_sets;
+  Vector<ParticleSet> m_sets;
   uint m_size;
 
  public:

@@ -136,7 +136,7 @@ llvm::Value *PointerLLVMTypeInfo::build_load_ir__relocate(CodeBuilder &builder,
 /* Utilities
  ******************************************/
 
-LLVMTypes types_of_type_infos(const SmallVector<LLVMTypeInfo *> &type_infos,
+LLVMTypes types_of_type_infos(const Vector<LLVMTypeInfo *> &type_infos,
                               llvm::LLVMContext &context)
 {
   LLVMTypes types;

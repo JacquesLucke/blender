@@ -13,8 +13,8 @@ namespace BLI {
 
 class ArrayAllocator {
  private:
-  SmallVector<void *, 16> m_all_pointers;
-  SmallVector<Stack<void *>, 16> m_pointer_stacks;
+  Vector<void *, 16> m_all_pointers;
+  Vector<Stack<void *>, 16> m_pointer_stacks;
   uint m_array_length;
 
  public:
@@ -149,18 +149,18 @@ class ArrayAllocator {
     return ScopedAllocation<T>(*this, this->allocate<T>(), sizeof(T));
   }
 
-  template<typename T> class Vector {
+  template<typename T> class VectorAdapter {
    private:
     ScopedAllocation<T> m_ptr;
     VectorAdaptor<T> m_vector;
 
    public:
-    Vector(ArrayAllocator &allocator)
+    VectorAdapter(ArrayAllocator &allocator)
         : m_ptr(allocator.allocate_scoped<T>()), m_vector(m_ptr, allocator.array_size())
     {
     }
 
-    ~Vector() = default;
+    ~VectorAdapter() = default;
 
     operator VectorAdaptor<T> &()
     {

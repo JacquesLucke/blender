@@ -74,9 +74,9 @@ void ParticlesContainer::free_block(ParticlesBlock *block)
   delete block;
 }
 
-static SmallVector<int> map_attribute_indices(AttributesInfo &from_info, AttributesInfo &to_info)
+static Vector<int> map_attribute_indices(AttributesInfo &from_info, AttributesInfo &to_info)
 {
-  SmallVector<int> mapping;
+  Vector<int> mapping;
   mapping.reserve(from_info.amount());
 
   for (uint from_index : from_info.attribute_indices()) {
@@ -101,17 +101,17 @@ void ParticlesContainer::update_attributes(AttributesInfo new_info)
 
   AttributesInfo &old_info = m_attributes_info;
 
-  SmallVector<int> new_to_old_mapping = map_attribute_indices(new_info, old_info);
-  SmallVector<int> old_to_new_mapping = map_attribute_indices(old_info, new_info);
+  Vector<int> new_to_old_mapping = map_attribute_indices(new_info, old_info);
+  Vector<int> old_to_new_mapping = map_attribute_indices(old_info, new_info);
 
-  SmallVector<uint> unused_old_indices;
+  Vector<uint> unused_old_indices;
   for (uint i = 0; i < old_to_new_mapping.size(); i++) {
     if (old_to_new_mapping[i] == -1) {
       unused_old_indices.append(i);
     }
   }
 
-  SmallVector<uint> indices_to_allocate;
+  Vector<uint> indices_to_allocate;
   for (uint i = 0; i < new_to_old_mapping.size(); i++) {
     if (new_to_old_mapping[i] == -1) {
       indices_to_allocate.append(i);
@@ -120,10 +120,10 @@ void ParticlesContainer::update_attributes(AttributesInfo new_info)
 
   m_attributes_info = new_info;
 
-  SmallVector<void *> arrays;
+  Vector<void *> arrays;
   arrays.reserve(new_info.amount());
 
-  SmallVector<ParticlesBlock *> all_blocks;
+  Vector<ParticlesBlock *> all_blocks;
   all_blocks.extend(m_active_blocks);
   all_blocks.extend(m_cached_blocks);
   for (ParticlesBlock *block : all_blocks) {
@@ -168,18 +168,18 @@ void ParticlesContainer::flatten_attribute_data(StringRef attribute_name, void *
   }
 }
 
-SmallVector<float> ParticlesContainer::flatten_attribute_float(StringRef attribute_name)
+Vector<float> ParticlesContainer::flatten_attribute_float(StringRef attribute_name)
 {
   BLI_assert(m_attributes_info.type_of(attribute_name) == AttributeType::Float);
-  SmallVector<float> result(this->count_active());
+  Vector<float> result(this->count_active());
   this->flatten_attribute_data(attribute_name, (void *)result.begin());
   return result;
 }
 
-SmallVector<float3> ParticlesContainer::flatten_attribute_float3(StringRef attribute_name)
+Vector<float3> ParticlesContainer::flatten_attribute_float3(StringRef attribute_name)
 {
   BLI_assert(m_attributes_info.type_of(attribute_name) == AttributeType::Float3);
-  SmallVector<float3> result(this->count_active());
+  Vector<float3> result(this->count_active());
   this->flatten_attribute_data(attribute_name, (void *)result.begin());
   return result;
 }

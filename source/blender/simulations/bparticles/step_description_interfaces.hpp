@@ -74,8 +74,8 @@ class EventFilterInterface {
   ArrayRef<float> m_known_min_time_factors;
 
   EventStorage &m_event_storage;
-  SmallVector<uint> &m_filtered_pindices;
-  SmallVector<float> &m_filtered_time_factors;
+  Vector<uint> &m_filtered_pindices;
+  Vector<float> &m_filtered_time_factors;
 
   /* Size can be increased when necessary. */
   char m_dummy_event_storage[64];
@@ -85,8 +85,8 @@ class EventFilterInterface {
                        ArrayRef<uint> pindices,
                        ArrayRef<float> known_min_time_factors,
                        EventStorage &r_event_storage,
-                       SmallVector<uint> &r_filtered_pindices,
-                       SmallVector<float> &r_filtered_time_factors);
+                       Vector<uint> &r_filtered_pindices,
+                       Vector<float> &r_filtered_time_factors);
 
   /**
    * Return the particle set that should be checked.

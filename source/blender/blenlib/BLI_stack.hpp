@@ -23,13 +23,13 @@
 
 #pragma once
 
-#include "BLI_small_vector.hpp"
+#include "BLI_vector.hpp"
 
 namespace BLI {
 
 template<typename T, uint N = 4> class Stack {
  private:
-  SmallVector<T, N> m_elements;
+  Vector<T, N> m_elements;
 
  public:
   Stack() = default;

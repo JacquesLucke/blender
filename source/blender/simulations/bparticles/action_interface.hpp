@@ -22,8 +22,8 @@ class Action;
 class ParticleFunctionCaller {
  private:
   TupleCallBody *m_body;
-  SmallVector<void *> m_attribute_buffers;
-  SmallVector<uint> m_strides;
+  Vector<void *> m_attribute_buffers;
+  Vector<uint> m_strides;
 
   friend ParticleFunction;
 
