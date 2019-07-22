@@ -1,4 +1,5 @@
 #include "builder.hpp"
+#include "type_mappings.hpp"
 
 #include "DNA_node_types.h"
 #include "FN_types.hpp"
@@ -26,6 +27,17 @@ static PyObject *get_py_bnode(bNodeTree *btree, bNode *bnode)
 
 namespace FN {
 namespace DataFlowNodes {
+
+BTreeGraphBuilder::BTreeGraphBuilder(IndexedNodeTree &indexed_btree,
+                                     DataFlowGraphBuilder &graph,
+                                     SmallMap<struct bNodeSocket *, DFGB_Socket> &socket_map)
+    : m_graph(graph),
+      m_indexed_btree(indexed_btree),
+      m_socket_map(socket_map),
+      m_type_by_idname(get_type_by_idname_map()),
+      m_type_by_data_type(get_type_by_data_type_map())
+{
+}
 
 class NodeSource : public SourceInfo {
  private:
@@ -226,52 +238,17 @@ struct ID *BTreeGraphBuilder::btree_id() const
 
 bool BTreeGraphBuilder::is_data_socket(bNodeSocket *bsocket) const
 {
-  PointerRNA rna = this->get_rna(bsocket);
-  return RNA_struct_find_property(&rna, "data_type") != NULL;
+  return m_type_by_idname.contains(bsocket->idname);
 }
 
-SharedType &BTreeGraphBuilder::type_by_name(const char *data_type) const
+SharedType &BTreeGraphBuilder::type_by_name(StringRef data_type) const
 {
-  if (STREQ(data_type, "Float")) {
-    return Types::GET_TYPE_float();
-  }
-  else if (STREQ(data_type, "Integer")) {
-    return Types::GET_TYPE_int32();
-  }
-  else if (STREQ(data_type, "Vector")) {
-    return Types::GET_TYPE_float3();
-  }
-  else if (STREQ(data_type, "Boolean")) {
-    return Types::GET_TYPE_bool();
-  }
-  else if (STREQ(data_type, "Object")) {
-    return Types::GET_TYPE_object();
-  }
-  else if (STREQ(data_type, "Float List")) {
-    return Types::GET_TYPE_float_list();
-  }
-  else if (STREQ(data_type, "Vector List")) {
-    return Types::GET_TYPE_float3_list();
-  }
-  else if (STREQ(data_type, "Integer List")) {
-    return Types::GET_TYPE_int32_list();
-  }
-  else if (STREQ(data_type, "Boolean List")) {
-    return Types::GET_TYPE_bool_list();
-  }
-  else if (STREQ(data_type, "Object List")) {
-    return Types::GET_TYPE_object_list();
-  }
-  else {
-    BLI_assert(false);
-    return *(SharedType *)nullptr;
-  }
+  return m_type_by_data_type.lookup_ref(data_type);
 }
 
 SharedType &BTreeGraphBuilder::query_socket_type(bNodeSocket *bsocket) const
 {
-  std::string data_type = this->query_socket_type_name(bsocket);
-  return this->type_by_name(data_type.c_str());
+  return m_type_by_idname.lookup_ref(bsocket->idname);
 }
 
 std::string BTreeGraphBuilder::query_socket_name(bNodeSocket *bsocket) const
@@ -293,13 +270,13 @@ PointerRNA BTreeGraphBuilder::get_rna(bNodeSocket *bsocket) const
   return rna;
 }
 
-SharedType &BTreeGraphBuilder::query_type_property(bNode *bnode, const char *prop_name) const
+SharedType &BTreeGraphBuilder::query_type_property(bNode *bnode, StringRefNull prop_name) const
 {
   PointerRNA rna = this->get_rna(bnode);
   return this->type_from_rna(rna, prop_name);
 }
 
-SharedType &BTreeGraphBuilder::type_from_rna(PointerRNA &rna, const char *prop_name) const
+SharedType &BTreeGraphBuilder::type_from_rna(PointerRNA &rna, StringRefNull prop_name) const
 {
   char type_name[64];
   RNA_string_get(&rna, prop_name, type_name);

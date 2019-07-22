@@ -25,19 +25,22 @@ class GraphInserters {
  private:
   StringMap<NodeInserter> m_node_inserters;
   StringMap<SocketLoader> m_socket_loaders;
-  SmallMap<std::pair<std::string, std::string>, ConversionInserter> m_conversion_inserters;
+  SmallMap<std::pair<SharedType, SharedType>, ConversionInserter> m_conversion_inserters;
+  StringMap<SharedType> *m_type_by_data_type;
 
  public:
+  GraphInserters();
+
   void reg_node_inserter(std::string idname, NodeInserter inserter);
   void reg_node_function(std::string idname, FunctionGetter getter);
 
   void reg_socket_loader(std::string idname, SocketLoader loader);
 
-  void reg_conversion_inserter(std::string from_type,
-                               std::string to_type,
+  void reg_conversion_inserter(StringRef from_type,
+                               StringRef to_type,
                                ConversionInserter inserter);
 
-  void reg_conversion_function(std::string from_type, std::string to_type, FunctionGetter getter);
+  void reg_conversion_function(StringRef from_type, StringRef to_type, FunctionGetter getter);
 
   bool insert_node(BTreeGraphBuilder &builder, struct bNode *bnode);
 

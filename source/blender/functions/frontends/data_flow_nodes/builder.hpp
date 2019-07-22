@@ -2,6 +2,7 @@
 
 #include "FN_core.hpp"
 #include "BKE_node_tree.hpp"
+#include "BLI_string_map.hpp"
 
 struct ID;
 struct PointerRNA;
@@ -17,14 +18,13 @@ class BTreeGraphBuilder {
   DataFlowGraphBuilder &m_graph;
   IndexedNodeTree &m_indexed_btree;
   SmallMap<struct bNodeSocket *, DFGB_Socket> &m_socket_map;
+  StringMap<SharedType> &m_type_by_idname;
+  StringMap<SharedType> &m_type_by_data_type;
 
  public:
   BTreeGraphBuilder(IndexedNodeTree &indexed_btree,
                     DataFlowGraphBuilder &graph,
-                    SmallMap<struct bNodeSocket *, DFGB_Socket> &socket_map)
-      : m_graph(graph), m_indexed_btree(indexed_btree), m_socket_map(socket_map)
-  {
-  }
+                    SmallMap<struct bNodeSocket *, DFGB_Socket> &socket_map);
 
   /* Insert Function */
   DFGB_Node *insert_function(SharedFunction &fn);
@@ -46,7 +46,7 @@ class BTreeGraphBuilder {
   bool verify_data_sockets_mapped(struct bNode *bnode) const;
 
   /* Type Mapping */
-  SharedType &type_by_name(const char *data_type) const;
+  SharedType &type_by_name(StringRef data_type) const;
 
   /* Query Node Tree */
   IndexedNodeTree &indexed_btree() const;
@@ -62,11 +62,11 @@ class BTreeGraphBuilder {
 
   /* Query Node Information */
   PointerRNA get_rna(bNode *bnode) const;
-  SharedType &query_type_property(bNode *bnode, const char *prop_name) const;
+  SharedType &query_type_property(bNode *bnode, StringRefNull prop_name) const;
   bool has_data_socket(bNode *bnode) const;
 
   /* Query RNA */
-  SharedType &type_from_rna(PointerRNA &rna, const char *prop_name) const;
+  SharedType &type_from_rna(PointerRNA &rna, StringRefNull prop_name) const;
 
  private:
   bool check_if_sockets_are_mapped(struct bNode *bnode, bSocketList bsockets) const;

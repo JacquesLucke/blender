@@ -143,6 +143,8 @@ set(SRC
   frontends/data_flow_nodes/inserters/nodes.cpp
   frontends/data_flow_nodes/inserters/sockets.cpp
   frontends/data_flow_nodes/inserters/conversions.cpp
+  frontends/data_flow_nodes/type_mappings.hpp
+  frontends/data_flow_nodes/type_mappings.cpp
   frontends/data_flow_nodes/data_flow_nodes-c.h
   frontends/data_flow_nodes/data_flow_nodes-c.cpp
 )

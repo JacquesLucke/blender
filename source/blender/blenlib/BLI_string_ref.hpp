@@ -116,6 +116,11 @@ class StringRefNull : public StringRefBase {
   StringRefNull(const std::string &str) : StringRefNull(str.data())
   {
   }
+
+  operator const char *()
+  {
+    return m_data;
+  }
 };
 
 class StringRef : public StringRefBase {
@@ -164,6 +169,12 @@ class StringRef : public StringRefBase {
  ***************************************/
 
 inline std::ostream &operator<<(std::ostream &stream, StringRef ref)
+{
+  stream << ref.to_std_string();
+  return stream;
+}
+
+inline std::ostream &operator<<(std::ostream &stream, StringRefNull ref)
 {
   stream << ref.to_std_string();
   return stream;

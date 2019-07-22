@@ -1,5 +1,6 @@
 #include "inserters.hpp"
 #include "registry.hpp"
+#include "type_mappings.hpp"
 
 #include "FN_dependencies.hpp"
 
@@ -12,7 +13,7 @@
 namespace FN {
 namespace DataFlowNodes {
 
-using StringPair = std::pair<std::string, std::string>;
+using TypePair = std::pair<SharedType, SharedType>;
 
 static void initialize_standard_inserters(GraphInserters &inserters)
 {
@@ -26,6 +27,10 @@ BLI_LAZY_INIT(GraphInserters, get_standard_inserters)
   GraphInserters inserters;
   initialize_standard_inserters(inserters);
   return inserters;
+}
+
+GraphInserters::GraphInserters() : m_type_by_data_type(&get_type_by_data_type_map())
+{
 }
 
 void GraphInserters::reg_node_inserter(std::string idname, NodeInserter inserter)
@@ -48,17 +53,18 @@ void GraphInserters::reg_socket_loader(std::string idname, SocketLoader loader)
   m_socket_loaders.add_new(idname, loader);
 }
 
-void GraphInserters::reg_conversion_inserter(std::string from_type,
-                                             std::string to_type,
+void GraphInserters::reg_conversion_inserter(StringRef from_type,
+                                             StringRef to_type,
                                              ConversionInserter inserter)
 {
-  auto key = StringPair(from_type, to_type);
+  auto key = TypePair(m_type_by_data_type->lookup(from_type),
+                      m_type_by_data_type->lookup(to_type));
   BLI_assert(!m_conversion_inserters.contains(key));
   m_conversion_inserters.add(key, inserter);
 }
 
-void GraphInserters::reg_conversion_function(std::string from_type,
-                                             std::string to_type,
+void GraphInserters::reg_conversion_function(StringRef from_type,
+                                             StringRef to_type,
                                              FunctionGetter getter)
 {
   auto inserter = [getter](BTreeGraphBuilder &builder,
@@ -187,15 +193,15 @@ bool GraphInserters::insert_link(BTreeGraphBuilder &builder,
   DFGB_Socket from_socket = builder.lookup_socket(from_bsocket);
   DFGB_Socket to_socket = builder.lookup_socket(to_bsocket);
 
-  std::string from_type = builder.query_socket_type_name(from_bsocket);
-  std::string to_type = builder.query_socket_type_name(to_bsocket);
+  SharedType &from_type = builder.query_socket_type(from_bsocket);
+  SharedType &to_type = builder.query_socket_type(to_bsocket);
 
   if (from_type == to_type) {
     builder.insert_link(from_socket, to_socket);
     return true;
   }
 
-  auto key = StringPair(from_type, to_type);
+  auto key = TypePair(from_type, to_type);
   if (m_conversion_inserters.contains(key)) {
     auto inserter = m_conversion_inserters.lookup(key);
     inserter(builder, from_socket, to_socket, source_link);
@@ -209,14 +215,14 @@ bool GraphInserters::insert_link(BTreeGraphBuilder &builder,
 }  // namespace FN
 
 namespace std {
-template<> struct hash<FN::DataFlowNodes::StringPair> {
-  typedef FN::DataFlowNodes::StringPair argument_type;
+template<> struct hash<FN::DataFlowNodes::TypePair> {
+  typedef FN::DataFlowNodes::TypePair argument_type;
   typedef size_t result_type;
 
   result_type operator()(argument_type const &v) const noexcept
   {
-    size_t h1 = std::hash<std::string>{}(v.first);
-    size_t h2 = std::hash<std::string>{}(v.second);
+    size_t h1 = std::hash<FN::SharedType>{}(v.first);
+    size_t h2 = std::hash<FN::SharedType>{}(v.second);
     return h1 ^ h2;
   }
 };
