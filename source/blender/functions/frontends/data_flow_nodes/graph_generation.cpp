@@ -8,8 +8,6 @@
 namespace FN {
 namespace DataFlowNodes {
 
-using BKE::IndexedNodeTree;
-
 static void insert_placeholder_node(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
   FunctionBuilder fn_builder;

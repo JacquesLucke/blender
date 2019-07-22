@@ -10,9 +10,6 @@ struct PointerRNA;
 namespace FN {
 namespace DataFlowNodes {
 
-using BKE::bSocketList;
-using BKE::IndexedNodeTree;
-using BKE::VirtualLink;
 using BKE::VirtualNode;
 using BKE::VirtualNodeTree;
 using BKE::VirtualSocket;

@@ -9,9 +9,6 @@
 namespace FN {
 namespace DataFlowNodes {
 
-using BKE::IndexedNodeTree;
-using BKE::SocketWithNode;
-using BKE::VirtualLink;
 using BKE::VirtualNode;
 using BKE::VirtualNodeTree;
 using BKE::VirtualSocket;
