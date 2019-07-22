@@ -9,8 +9,8 @@
 
 namespace BParticles {
 
+using BLI::Set;
 using BLI::SmallMap;
-using BLI::SmallSet;
 using BLI::SmallStack;
 
 class ParticlesContainer;

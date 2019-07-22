@@ -1,7 +1,7 @@
 #include "testing/testing.h"
-#include "BLI_small_set.hpp"
+#include "BLI_set.hpp"
 
-using IntSet = BLI::SmallSet<int>;
+using IntSet = BLI::Set<int>;
 
 TEST(small_set, Defaultconstructor)
 {

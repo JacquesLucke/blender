@@ -8,10 +8,10 @@ class BuildGraphIR : public LLVMBuildIRBody {
  private:
   FunctionGraph m_fgraph;
   DataFlowGraph *m_graph;
-  SmallSet<DFGraphSocket> m_required_sockets;
+  Set<DFGraphSocket> m_required_sockets;
 
   using SocketValueMap = SmallMap<DFGraphSocket, llvm::Value *>;
-  using FunctionDFGB_SocketSet = SmallSet<DFGraphSocket>;
+  using FunctionDFGB_SocketSet = Set<DFGraphSocket>;
 
  public:
   BuildGraphIR(FunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph().ptr())

@@ -16,12 +16,12 @@ SharedFunction FunctionGraph::new_function(StringRef name) const
   return builder.build(name);
 }
 
-SmallSet<DFGraphSocket> FunctionGraph::find_used_sockets(bool include_inputs,
-                                                         bool include_outputs) const
+Set<DFGraphSocket> FunctionGraph::find_used_sockets(bool include_inputs,
+                                                    bool include_outputs) const
 {
-  SmallSet<DFGraphSocket> found;
+  Set<DFGraphSocket> found;
 
-  SmallSet<DFGraphSocket> to_be_checked;
+  Set<DFGraphSocket> to_be_checked;
   for (DFGraphSocket socket : m_outputs) {
     to_be_checked.add_new(socket);
   }

@@ -31,7 +31,7 @@
 
 namespace BLI {
 
-template<typename T, uint N = 4> class SmallSet {
+template<typename T, uint N = 4> class Set {
  protected:
   SmallVector<T, N> m_elements;
   ArrayLookup<T, N> m_lookup;
@@ -40,22 +40,22 @@ template<typename T, uint N = 4> class SmallSet {
   /**
    * Create an empty set.
    */
-  SmallSet() = default;
+  Set() = default;
 
   /**
    * Create a set that contains any of the given values at least once.
    * The size of the set might be small than the original array.
    */
-  SmallSet(ArrayRef<T> values)
+  Set(ArrayRef<T> values)
   {
     this->add_multiple(values);
   }
 
-  SmallSet(const SmallVector<T> &values) : SmallSet(ArrayRef<T>(values))
+  Set(const SmallVector<T> &values) : Set(ArrayRef<T>(values))
   {
   }
 
-  SmallSet(const std::initializer_list<T> &values) : SmallSet(ArrayRef<T>(values))
+  Set(const std::initializer_list<T> &values) : Set(ArrayRef<T>(values))
   {
   }
 
@@ -178,15 +178,15 @@ template<typename T, uint N = 4> class SmallSet {
   /**
    * Return true when there is no value that exists in both sets, otherwise false.
    */
-  static bool Disjoint(const SmallSet &a, const SmallSet &b)
+  static bool Disjoint(const Set &a, const Set &b)
   {
-    return !SmallSet::Intersects(a, b);
+    return !Set::Intersects(a, b);
   }
 
   /**
    * Return true when there is at least one value that exists in both sets, otherwise false.
    */
-  static bool Intersects(const SmallSet &a, const SmallSet &b)
+  static bool Intersects(const Set &a, const Set &b)
   {
     for (const T &value : a) {
       if (b.contains(value)) {

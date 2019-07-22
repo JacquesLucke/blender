@@ -56,7 +56,7 @@ class FunctionGraph {
    * Get a subset of all sockets in the graph that can influence the function execution (under the
    * assumption, that functions do not have side effects).
    */
-  SmallSet<DFGraphSocket> find_used_sockets(bool include_inputs, bool include_outputs) const;
+  Set<DFGraphSocket> find_used_sockets(bool include_inputs, bool include_outputs) const;
 };
 
 }  // namespace FN

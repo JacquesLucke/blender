@@ -18,27 +18,27 @@
  * \ingroup bli
  *
  * A set with small object optimization that keeps track
- * of insertion order. Internally, it is the same as SmallSet
+ * of insertion order. Internally, it is the same as Set
  * but that could potentially change in the future.
  */
 
 #pragma once
 
-#include "BLI_small_set.hpp"
+#include "BLI_set.hpp"
 
 namespace BLI {
 
-template<typename T> class SmallSetVector : public SmallSet<T> {
+template<typename T> class SmallSetVector : public Set<T> {
  public:
-  SmallSetVector() : SmallSet<T>()
+  SmallSetVector() : Set<T>()
   {
   }
 
-  SmallSetVector(const std::initializer_list<T> &values) : SmallSet<T>(values)
+  SmallSetVector(const std::initializer_list<T> &values) : Set<T>(values)
   {
   }
 
-  SmallSetVector(const SmallVector<T> &values) : SmallSet<T>(values)
+  SmallSetVector(const SmallVector<T> &values) : Set<T>(values)
   {
   }
 

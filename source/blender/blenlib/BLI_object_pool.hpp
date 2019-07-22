@@ -16,7 +16,7 @@
 #include <mutex>
 
 #include "BLI_small_stack.hpp"
-#include "BLI_small_set.hpp"
+#include "BLI_set.hpp"
 
 namespace BLI {
 
@@ -26,7 +26,7 @@ template<typename T> class ThreadSafeObjectPool {
   SmallStack<T *> m_free_objects;
 
 #ifdef DEBUG
-  SmallSet<T *> m_all_objects;
+  Set<T *> m_all_objects;
 #else
   SmallVector<T *> m_all_objects;
 #endif

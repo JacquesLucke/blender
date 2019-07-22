@@ -20,7 +20,7 @@
  */
 
 #include "BLI_small_stack.hpp"
-#include "BLI_small_set.hpp"
+#include "BLI_set.hpp"
 
 namespace BLI {
 
@@ -31,7 +31,7 @@ class MemPool {
   uint m_element_size;
 
 #ifdef DEBUG
-  SmallSet<void *> m_allocated_pointers;
+  Set<void *> m_allocated_pointers;
 #endif
 
  public:

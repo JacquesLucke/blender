@@ -18,7 +18,7 @@
  * \ingroup bli
  *
  * An unordered map implementation with small object optimization.
- * Similar to SmallSet, this builds on top of SmallVector
+ * Similar to Set, this builds on top of SmallVector
  * and ArrayLookup to reduce what this code has to deal with.
  */
 

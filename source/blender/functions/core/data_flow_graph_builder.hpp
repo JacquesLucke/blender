@@ -22,7 +22,7 @@ class DFGB_Node;
 class DataFlowGraphBuilder;
 class DataFlowGraph;
 
-using DFGB_SocketSet = SmallSet<DFGB_Socket>;
+using DFGB_SocketSet = Set<DFGB_Socket>;
 using DFGB_SocketVector = SmallVector<DFGB_Socket>;
 using DFGB_SocketSetVector = SmallSetVector<DFGB_Socket>;
 
@@ -188,7 +188,7 @@ class DataFlowGraphBuilder {
   void to_dot__clipboard();
 
  private:
-  SmallSet<DFGB_Node *> m_nodes;
+  Set<DFGB_Node *> m_nodes;
   SmallMap<DFGB_Socket, DFGB_Socket> m_input_origins;
   SmallMultiMap<DFGB_Socket, DFGB_Socket> m_output_targets;
   MonotonicAllocator<sizeof(DFGB_Node) * 4> m_node_allocator;

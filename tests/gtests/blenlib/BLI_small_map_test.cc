@@ -1,6 +1,6 @@
 #include "testing/testing.h"
 #include "BLI_small_map.hpp"
-#include "BLI_small_set.hpp"
+#include "BLI_set.hpp"
 
 using IntFloatMap = BLI::SmallMap<int, float>;
 
@@ -104,7 +104,7 @@ TEST(small_map, ValueIterator)
   map.add(1, 2.0f);
   map.add(7, -2.0f);
 
-  BLI::SmallSet<float> values;
+  BLI::Set<float> values;
 
   uint iterations = 0;
   for (float value : map.values()) {
@@ -125,7 +125,7 @@ TEST(small_map, KeyIterator)
   map.add(2, 4.0f);
   map.add(1, 3.0f);
 
-  BLI::SmallSet<int> keys;
+  BLI::Set<int> keys;
 
   uint iterations = 0;
   for (int key : map.keys()) {
@@ -146,8 +146,8 @@ TEST(small_map, ItemIterator)
   map.add(2, 9.0f);
   map.add(1, 0.0f);
 
-  BLI::SmallSet<int> keys;
-  BLI::SmallSet<float> values;
+  BLI::Set<int> keys;
+  BLI::Set<float> values;
 
   uint iterations = 0;
   for (auto item : map.items()) {

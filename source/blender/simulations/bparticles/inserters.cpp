@@ -31,8 +31,8 @@ static SmallVector<FN::DFGraphSocket> insert_inputs(FN::FunctionBuilder &fn_buil
                                                     BTreeDataGraph &data_graph,
                                                     ArrayRef<VirtualSocket *> output_vsockets)
 {
-  SmallSet<VirtualSocket *> to_be_checked = output_vsockets;
-  SmallSet<VirtualSocket *> found_inputs;
+  Set<VirtualSocket *> to_be_checked = output_vsockets;
+  Set<VirtualSocket *> found_inputs;
   SmallVector<FN::DFGraphSocket> inputs;
 
   while (to_be_checked.size() > 0) {
