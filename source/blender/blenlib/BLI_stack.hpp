@@ -27,18 +27,18 @@
 
 namespace BLI {
 
-template<typename T, uint N = 4> class SmallStack {
+template<typename T, uint N = 4> class Stack {
  private:
   SmallVector<T, N> m_elements;
 
  public:
-  SmallStack() = default;
+  Stack() = default;
 
   /**
    * Construct a stack from an array ref. The elements will be pushed in the same order they are in
    * the array.
    */
-  SmallStack(ArrayRef<T> values) : m_elements(values)
+  Stack(ArrayRef<T> values) : m_elements(values)
   {
   }
 

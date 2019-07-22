@@ -1,14 +1,14 @@
 #include <mutex>
 
 #include "BLI_lazy_init.hpp"
-#include "BLI_small_stack.hpp"
+#include "BLI_stack.hpp"
 
 struct FreeFunc {
   std::function<void()> func;
   const char *name;
 };
 
-BLI::SmallStack<FreeFunc> free_functions;
+BLI::Stack<FreeFunc> free_functions;
 std::mutex store_free_func_mutex;
 
 void BLI_lazy_init_free_all()

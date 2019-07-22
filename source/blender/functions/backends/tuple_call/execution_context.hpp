@@ -12,11 +12,11 @@
  */
 
 #include "FN_core.hpp"
-#include "BLI_small_stack.hpp"
+#include "BLI_stack.hpp"
 
 namespace FN {
 
-using BLI::SmallStack;
+using BLI::Stack;
 
 class StackFrame {
  public:
@@ -64,7 +64,7 @@ class TextStackFrame : public StackFrame {
 
 class ExecutionStack {
  private:
-  SmallStack<StackFrame *, 10> m_stack;
+  Stack<StackFrame *, 10> m_stack;
 
  public:
   ExecutionStack() = default;

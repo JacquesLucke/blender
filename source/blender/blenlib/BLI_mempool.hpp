@@ -19,14 +19,14 @@
  *
  */
 
-#include "BLI_small_stack.hpp"
+#include "BLI_stack.hpp"
 #include "BLI_set.hpp"
 
 namespace BLI {
 
 class MemPool {
  private:
-  SmallStack<void *> m_free_stack;
+  Stack<void *> m_free_stack;
   SmallVector<void *> m_start_pointers;
   uint m_element_size;
 

@@ -3,7 +3,7 @@
 #include <mutex>
 
 #include "BLI_small_map.hpp"
-#include "BLI_small_stack.hpp"
+#include "BLI_stack.hpp"
 
 #include "attributes.hpp"
 
@@ -11,7 +11,7 @@ namespace BParticles {
 
 using BLI::Set;
 using BLI::SmallMap;
-using BLI::SmallStack;
+using BLI::Stack;
 
 class ParticlesContainer;
 class ParticlesBlock;
@@ -28,7 +28,7 @@ class ParticlesContainer {
  private:
   AttributesInfo m_attributes_info;
   SetVector<ParticlesBlock *> m_active_blocks;
-  SmallStack<ParticlesBlock *> m_cached_blocks;
+  Stack<ParticlesBlock *> m_cached_blocks;
   uint m_block_size;
   std::mutex m_blocks_mutex;
 

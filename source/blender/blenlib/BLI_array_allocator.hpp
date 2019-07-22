@@ -6,7 +6,7 @@
  * size of a single element to identify the buffer length, which is a small number usually.
  */
 
-#include "BLI_small_stack.hpp"
+#include "BLI_stack.hpp"
 #include "BLI_vector_adaptor.hpp"
 
 namespace BLI {
@@ -14,7 +14,7 @@ namespace BLI {
 class ArrayAllocator {
  private:
   SmallVector<void *, 16> m_all_pointers;
-  SmallVector<SmallStack<void *>, 16> m_pointer_stacks;
+  SmallVector<Stack<void *>, 16> m_pointer_stacks;
   uint m_array_length;
 
  public:
@@ -48,7 +48,7 @@ class ArrayAllocator {
    */
   void *allocate(uint element_size)
   {
-    SmallStack<void *> &stack = this->stack_for_element_size(element_size);
+    Stack<void *> &stack = this->stack_for_element_size(element_size);
     if (stack.size() > 0) {
       return stack.pop();
     }
@@ -62,7 +62,7 @@ class ArrayAllocator {
    */
   void deallocate(void *ptr, uint element_size)
   {
-    SmallStack<void *> &stack = this->stack_for_element_size(element_size);
+    Stack<void *> &stack = this->stack_for_element_size(element_size);
     stack.push(ptr);
   }
 
@@ -201,7 +201,7 @@ class ArrayAllocator {
   };
 
  private:
-  SmallStack<void *> &stack_for_element_size(uint element_size)
+  Stack<void *> &stack_for_element_size(uint element_size)
   {
     BLI_assert(element_size > 0);
     uint index = element_size - 1;

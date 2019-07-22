@@ -1,7 +1,7 @@
 #include "testing/testing.h"
-#include "BLI_small_stack.hpp"
+#include "BLI_stack.hpp"
 
-using IntStack = BLI::SmallStack<int>;
+using IntStack = BLI::Stack<int>;
 
 TEST(small_stack, DefaultConstructor)
 {

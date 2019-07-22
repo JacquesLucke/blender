@@ -15,7 +15,7 @@
 
 #include <mutex>
 
-#include "BLI_small_stack.hpp"
+#include "BLI_stack.hpp"
 #include "BLI_set.hpp"
 
 namespace BLI {
@@ -23,7 +23,7 @@ namespace BLI {
 template<typename T> class ThreadSafeObjectPool {
  private:
   std::mutex m_mutex;
-  SmallStack<T *> m_free_objects;
+  Stack<T *> m_free_objects;
 
 #ifdef DEBUG
   Set<T *> m_all_objects;

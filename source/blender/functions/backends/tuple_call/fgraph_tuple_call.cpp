@@ -258,8 +258,8 @@ class ExecuteFGraph : public TupleCallBody {
                  true, \
                  false);
 
-  using SocketsToComputeStack = SmallStack<DFGraphSocket, 64>;
-  using LazyStatesStack = SmallStack<LazyStateOfNode>;
+  using SocketsToComputeStack = Stack<DFGraphSocket, 64>;
+  using LazyStatesStack = Stack<LazyStateOfNode>;
 
   void evaluate_graph_to_compute_outputs(SocketValueStorage &storage,
                                          Tuple &fn_out,
