@@ -250,3 +250,16 @@ TEST(array_ref, Get)
   EXPECT_EQ(a_ref.get(3, 42), 42);
   EXPECT_EQ(a_ref.get(4, 42), 42);
 }
+
+TEST(array_ref, ContainsPtr)
+{
+  std::array<int, 3> a = {5, 6, 7};
+  int other = 10;
+  IntArrayRef a_ref(a);
+  EXPECT_TRUE(a_ref.contains_ptr(&a[0] + 0));
+  EXPECT_TRUE(a_ref.contains_ptr(&a[0] + 1));
+  EXPECT_TRUE(a_ref.contains_ptr(&a[0] + 2));
+  EXPECT_FALSE(a_ref.contains_ptr(&a[0] + 3));
+  EXPECT_FALSE(a_ref.contains_ptr(&a[0] - 1));
+  EXPECT_FALSE(a_ref.contains_ptr(&other));
+}

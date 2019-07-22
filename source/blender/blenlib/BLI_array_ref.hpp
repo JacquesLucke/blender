@@ -209,6 +209,15 @@ template<typename T> class ArrayRef {
   }
 
   /**
+   * Does a constant time check to see if the pointer is within the referenced array.
+   * Return true if it is, otherwise false.
+   */
+  bool contains_ptr(const T *ptr)
+  {
+    return (this->begin() <= ptr) && (ptr < this->end());
+  }
+
+  /**
    * Does a linear search to count how often the value is in the array.
    * Returns the number of occurences.
    */
