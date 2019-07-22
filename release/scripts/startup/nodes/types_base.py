@@ -190,17 +190,3 @@ class UniqueSocketBuilder(DataSocketBuilder):
 
     def get_color(self):
         return self.socket_cls.socket_color
-
-class ColoredSocketBuilder(DataSocketBuilder):
-    def __init__(self, color):
-        self.color = color
-
-    def build(self, node_sockets, name, identifier):
-        socket = node_sockets.new(
-            "fn_CustomColoredSocket",
-            name,
-            identifier=identifier)
-        return socket
-
-    def get_color(self):
-        return self.color

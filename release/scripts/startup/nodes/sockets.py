@@ -105,6 +105,20 @@ class ObjectSocket(bpy.types.NodeSocket, DataSocket):
     def restore_state(self, state):
         self.value = state
 
+def create_simple_data_socket(idname, color):
+    return type(idname, (bpy.types.NodeSocket, DataSocket),
+        {
+            "bl_idname" : idname,
+            "bl_label" : idname,
+            "draw_color" : lambda self, context, node: color,
+        })
+
+FloatListSocket = create_simple_data_socket("fn_FloatListSocket", (0, 0.3, 0.5, 0.5))
+VectorListSocket = create_simple_data_socket("fn_VectorListSocket", (0, 0, 0.5, 0.5))
+IntegerListSocket = create_simple_data_socket("fn_IntegerListSocket", (0.3, 0.7, 0.5, 0.5))
+BooleanListSocket = create_simple_data_socket("fn_BooleanListSocket", (0.3, 0.3, 0.3, 0.5))
+ObjectListSocket = create_simple_data_socket("fn_ObjectListSocket", (0, 0, 0, 0.5))
+
 class CustomColoredSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_CustomColoredSocket"
     bl_label = "Custom Colored Socket"
