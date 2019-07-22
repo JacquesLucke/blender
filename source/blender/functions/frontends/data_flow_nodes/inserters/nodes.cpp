@@ -88,7 +88,7 @@ static SharedFunction &get_float_math_function(int operation)
 
 static void INSERT_float_math(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(vnode);
+  PointerRNA rna = vnode->rna();
   int operation = RNA_enum_get(&rna, "operation");
 
   SharedFunction &original_fn = get_float_math_function(operation);
@@ -123,7 +123,7 @@ static SharedFunction &get_vector_math_function(int operation)
 
 static void INSERT_vector_math(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(vnode);
+  PointerRNA rna = vnode->rna();
   int operation = RNA_enum_get(&rna, "operation");
 
   SharedFunction fn = get_vectorized_function(
@@ -172,7 +172,7 @@ static DFGB_Socket insert_pack_list_sockets(BTreeGraphBuilder &builder,
   auto &empty_fn = Functions::GET_FN_empty_list(base_type);
   DFGB_Node *node = builder.insert_function(empty_fn, vnode);
 
-  PointerRNA rna = builder.get_rna(vnode);
+  PointerRNA rna = vnode->rna();
 
   uint index = start_index;
   RNA_BEGIN (&rna, itemptr, prop_name) {
@@ -214,7 +214,7 @@ static void INSERT_pack_list(BTreeGraphBuilder &builder, VirtualNode *vnode)
 
 static void INSERT_call(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(vnode);
+  PointerRNA rna = vnode->rna();
 
   PointerRNA btree_ptr = RNA_pointer_get(&rna, "function_tree");
   bNodeTree *btree = (bNodeTree *)btree_ptr.id.data;
@@ -239,7 +239,7 @@ static void INSERT_switch(BTreeGraphBuilder &builder, VirtualNode *vnode)
 
 static void INSERT_combine_vector(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(vnode);
+  PointerRNA rna = vnode->rna();
   SharedFunction fn = get_vectorized_function(
       Functions::GET_FN_combine_vector(),
       rna,
@@ -251,7 +251,7 @@ static void INSERT_combine_vector(BTreeGraphBuilder &builder, VirtualNode *vnode
 
 static void INSERT_separate_vector(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(vnode);
+  PointerRNA rna = vnode->rna();
   SharedFunction fn = get_vectorized_function(
       Functions::GET_FN_separate_vector(),
       rna,
@@ -272,7 +272,7 @@ static SharedFunction &get_compare_function(int operation)
 
 static void INSERT_compare(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(vnode);
+  PointerRNA rna = vnode->rna();
   int operation = RNA_enum_get(&rna, "operation");
   SharedFunction fn = get_vectorized_function(
       get_compare_function(operation),

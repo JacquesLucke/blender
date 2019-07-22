@@ -129,7 +129,7 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx, VirtualNo
   SharedFunction fn = create_function_for_data_inputs(vnode, ctx.data_graph);
   ParticleFunction particle_fn(fn);
 
-  PointerRNA rna = vnode->get_rna();
+  PointerRNA rna = vnode->rna();
   char name[65];
   RNA_string_get(&rna, "particle_type_name", name);
 
@@ -202,7 +202,7 @@ static std::unique_ptr<Force> BUILD_FORCE_turbulence(BuildContext &ctx, VirtualN
 
 static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(BuildContext &ctx, VirtualNode *vnode)
 {
-  PointerRNA rna = vnode->get_rna();
+  PointerRNA rna = vnode->rna();
   Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
   if (object == nullptr || object->type != OB_MESH) {
     return {};
@@ -344,7 +344,7 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,
                                                               VirtualNode *vnode,
                                                               StringRef particle_type_name)
 {
-  PointerRNA rna = vnode->get_rna();
+  PointerRNA rna = vnode->rna();
   bNodeTree *btree = (bNodeTree *)RNA_pointer_get(&rna, "function_tree").id.data;
   if (btree == nullptr) {
     return {};
@@ -393,7 +393,7 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_initial_grid(BuildContext &ctx,
 static std::unique_ptr<OffsetHandler> BUILD_OFFSET_HANDLER_trails(BuildContext &ctx,
                                                                   VirtualNode *vnode)
 {
-  PointerRNA rna = vnode->get_rna();
+  PointerRNA rna = vnode->rna();
   char name[65];
   RNA_string_get(&rna, "particle_type_name", name);
 

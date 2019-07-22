@@ -56,13 +56,11 @@ class BTreeGraphBuilder {
   VirtualNodeTree &vtree() const;
 
   /* Query Socket Information */
-  PointerRNA get_rna(VirtualSocket *vsocket) const;
   bool is_data_socket(VirtualSocket *vsocket) const;
   std::string query_socket_name(VirtualSocket *vsocket) const;
   SharedType &query_socket_type(VirtualSocket *vsocket) const;
 
   /* Query Node Information */
-  PointerRNA get_rna(VirtualNode *vnode) const;
   SharedType &query_type_property(VirtualNode *vnode, StringRefNull prop_name) const;
   bool has_data_socket(VirtualNode *vnode) const;
 

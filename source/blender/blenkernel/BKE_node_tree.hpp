@@ -62,7 +62,7 @@ class IndexedNodeTree {
     return &m_btree->id;
   }
 
-  PointerRNA get_rna(bNode *bnode) const
+  PointerRNA rna(bNode *bnode) const
   {
     PointerRNA rna;
     RNA_pointer_create(this->btree_id(), &RNA_Node, bnode, &rna);
@@ -222,7 +222,7 @@ class VirtualNode {
     return &m_btree->id;
   }
 
-  PointerRNA get_rna()
+  PointerRNA rna()
   {
     PointerRNA rna;
     RNA_pointer_create(&m_btree->id, &RNA_Node, m_bnode, &rna);
@@ -287,6 +287,13 @@ class VirtualSocket {
   {
     BLI_assert(m_vnode->m_backlink->is_frozen());
     return m_links;
+  }
+
+  PointerRNA rna()
+  {
+    PointerRNA rna;
+    RNA_pointer_create(&m_btree->id, &RNA_NodeSocket, m_bsocket, &rna);
+    return rna;
   }
 };
 

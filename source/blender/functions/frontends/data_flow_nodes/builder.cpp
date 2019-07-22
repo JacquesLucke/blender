@@ -220,24 +220,10 @@ std::string BTreeGraphBuilder::query_socket_name(VirtualSocket *vsocket) const
   return vsocket->bsocket()->name;
 }
 
-PointerRNA BTreeGraphBuilder::get_rna(VirtualNode *vnode) const
-{
-  PointerRNA rna;
-  RNA_pointer_create(vnode->btree_id(), &RNA_Node, vnode->bnode(), &rna);
-  return rna;
-}
-
-PointerRNA BTreeGraphBuilder::get_rna(VirtualSocket *vsocket) const
-{
-  PointerRNA rna;
-  RNA_pointer_create(vsocket->btree_id(), &RNA_NodeSocket, vsocket->bsocket(), &rna);
-  return rna;
-}
-
 SharedType &BTreeGraphBuilder::query_type_property(VirtualNode *vnode,
                                                    StringRefNull prop_name) const
 {
-  PointerRNA rna = this->get_rna(vnode);
+  PointerRNA rna = vnode->rna();
   return this->type_from_rna(rna, prop_name);
 }
 
