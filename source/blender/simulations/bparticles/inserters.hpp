@@ -15,6 +15,10 @@ namespace BParticles {
 using BKE::bSocketList;
 using BKE::IndexedNodeTree;
 using BKE::SocketWithNode;
+using BKE::VirtualLink;
+using BKE::VirtualNode;
+using BKE::VirtualNodeTree;
+using BKE::VirtualSocket;
 using BLI::StringMap;
 using FN::DataFlowNodes::BTreeDataGraph;
 

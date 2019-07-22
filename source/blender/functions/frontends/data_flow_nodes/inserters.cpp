@@ -42,10 +42,10 @@ void GraphInserters::reg_node_inserter(std::string idname, NodeInserter inserter
 
 void GraphInserters::reg_node_function(std::string idname, FunctionGetter getter)
 {
-  auto inserter = [getter](BTreeGraphBuilder &builder, bNode *bnode) {
+  auto inserter = [getter](BTreeGraphBuilder &builder, VirtualNode *vnode) {
     SharedFunction fn = getter();
-    DFGB_Node *node = builder.insert_function(fn, bnode);
-    builder.map_sockets(node, bnode);
+    DFGB_Node *node = builder.insert_function(fn, vnode);
+    builder.map_sockets(node, vnode);
   };
   this->reg_node_inserter(idname, inserter);
 }
@@ -69,47 +69,38 @@ void GraphInserters::reg_conversion_function(StringRef from_type,
                                              StringRef to_type,
                                              FunctionGetter getter)
 {
-  auto inserter = [getter](BTreeGraphBuilder &builder,
-                           DFGB_Socket from,
-                           DFGB_Socket to,
-                           struct bNodeLink *source_link) {
+  auto inserter = [getter](BTreeGraphBuilder &builder, DFGB_Socket from, DFGB_Socket to) {
     auto fn = getter();
-    DFGB_Node *node;
-    if (source_link == NULL) {
-      node = builder.insert_function(fn);
-    }
-    else {
-      node = builder.insert_function(fn, source_link);
-    }
+    DFGB_Node *node = builder.insert_function(fn);
     builder.insert_link(from, node->input(0));
     builder.insert_link(node->output(0), to);
   };
   this->reg_conversion_inserter(from_type, to_type, inserter);
 }
 
-bool GraphInserters::insert_node(BTreeGraphBuilder &builder, bNode *bnode)
+bool GraphInserters::insert_node(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  NodeInserter *inserter = m_node_inserters.lookup_ptr(bnode->idname);
+  NodeInserter *inserter = m_node_inserters.lookup_ptr(vnode->bnode()->idname);
   if (inserter == nullptr) {
     return false;
   }
-  (*inserter)(builder, bnode);
+  (*inserter)(builder, vnode);
 
-  BLI_assert(builder.verify_data_sockets_mapped(bnode));
+  BLI_assert(builder.verify_data_sockets_mapped(vnode));
   return true;
 }
 
 class SocketLoaderBody : public TupleCallBody {
  private:
-  bNodeTree *m_btree;
+  SmallVector<bNodeTree *> m_btrees;
   SmallVector<bNodeSocket *> m_bsockets;
   SmallVector<SocketLoader> m_loaders;
 
  public:
-  SocketLoaderBody(bNodeTree *btree,
+  SocketLoaderBody(ArrayRef<bNodeTree *> btrees,
                    ArrayRef<bNodeSocket *> bsockets,
                    SmallVector<SocketLoader> &loaders)
-      : m_btree(btree), m_bsockets(bsockets), m_loaders(loaders)
+      : m_btrees(btrees), m_bsockets(bsockets), m_loaders(loaders)
   {
   }
 
@@ -119,8 +110,9 @@ class SocketLoaderBody : public TupleCallBody {
       PointerRNA rna;
       bNodeSocket *bsocket = m_bsockets[i];
       auto loader = m_loaders[i];
+      bNodeTree *btree = m_btrees[i];
 
-      RNA_pointer_create(&m_btree->id, &RNA_NodeSocket, bsocket, &rna);
+      RNA_pointer_create(&btree->id, &RNA_NodeSocket, bsocket, &rna);
       loader(&rna, fn_out, i);
     }
   }
@@ -128,12 +120,12 @@ class SocketLoaderBody : public TupleCallBody {
 
 class SocketLoaderDependencies : public DepsBody {
  private:
-  bNodeTree *m_btree;
+  SmallVector<bNodeTree *> m_btrees;
   SmallVector<bNodeSocket *> m_bsockets;
 
  public:
-  SocketLoaderDependencies(bNodeTree *btree, ArrayRef<bNodeSocket *> bsockets)
-      : m_btree(btree), m_bsockets(bsockets)
+  SocketLoaderDependencies(ArrayRef<bNodeTree *> btrees, ArrayRef<bNodeSocket *> bsockets)
+      : m_btrees(btrees), m_bsockets(bsockets)
   {
   }
 
@@ -141,9 +133,10 @@ class SocketLoaderDependencies : public DepsBody {
   {
     for (uint i = 0; i < m_bsockets.size(); i++) {
       bNodeSocket *bsocket = m_bsockets[i];
+      bNodeTree *btree = m_btrees[i];
       if (STREQ(bsocket->idname, "fn_ObjectSocket")) {
         PointerRNA rna;
-        RNA_pointer_create(&m_btree->id, &RNA_NodeSocket, bsocket, &rna);
+        RNA_pointer_create(&btree->id, &RNA_NodeSocket, bsocket, &rna);
         Object *value = (Object *)RNA_pointer_get(&rna, "value").id.data;
         if (value != nullptr) {
           builder.add_output_objects(i, {value});
@@ -154,22 +147,27 @@ class SocketLoaderDependencies : public DepsBody {
 };
 
 DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder,
-                                                 ArrayRef<bNodeSocket *> bsockets)
+                                                 ArrayRef<VirtualSocket *> vsockets)
 {
   SmallVector<SocketLoader> loaders;
+  SmallVector<bNodeSocket *> bsockets;
+  SmallVector<bNodeTree *> btrees;
 
   FunctionBuilder fn_builder;
-  for (uint i = 0; i < bsockets.size(); i++) {
-    bNodeSocket *bsocket = bsockets[i];
+  for (uint i = 0; i < vsockets.size(); i++) {
+    VirtualSocket *vsocket = vsockets[i];
 
-    SocketLoader loader = m_socket_loaders.lookup(bsocket->idname);
+    SocketLoader loader = m_socket_loaders.lookup(vsocket->bsocket()->idname);
     loaders.append(loader);
-    fn_builder.add_output(builder.query_socket_name(bsocket), builder.query_socket_type(bsocket));
+    fn_builder.add_output(builder.query_socket_name(vsocket), builder.query_socket_type(vsocket));
+
+    bsockets.append(vsocket->bsocket());
+    btrees.append(vsocket->btree());
   }
 
   auto fn = fn_builder.build("Input Sockets");
-  fn->add_body<SocketLoaderBody>(builder.btree(), bsockets, loaders);
-  fn->add_body<SocketLoaderDependencies>(builder.btree(), bsockets);
+  fn->add_body<SocketLoaderBody>(btrees, bsockets, loaders);
+  fn->add_body<SocketLoaderDependencies>(btrees, bsockets);
   DFGB_Node *node = builder.insert_function(fn);
 
   DFGB_SocketVector sockets;
@@ -180,18 +178,17 @@ DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder,
 }
 
 bool GraphInserters::insert_link(BTreeGraphBuilder &builder,
-                                 struct bNodeSocket *from_bsocket,
-                                 struct bNodeSocket *to_bsocket,
-                                 struct bNodeLink *source_link)
+                                 VirtualSocket *from_vsocket,
+                                 VirtualSocket *to_vsocket)
 {
-  BLI_assert(builder.is_data_socket(from_bsocket));
-  BLI_assert(builder.is_data_socket(to_bsocket));
+  BLI_assert(builder.is_data_socket(from_vsocket));
+  BLI_assert(builder.is_data_socket(to_vsocket));
 
-  DFGB_Socket from_socket = builder.lookup_socket(from_bsocket);
-  DFGB_Socket to_socket = builder.lookup_socket(to_bsocket);
+  DFGB_Socket from_socket = builder.lookup_socket(from_vsocket);
+  DFGB_Socket to_socket = builder.lookup_socket(to_vsocket);
 
-  SharedType &from_type = builder.query_socket_type(from_bsocket);
-  SharedType &to_type = builder.query_socket_type(to_bsocket);
+  SharedType &from_type = builder.query_socket_type(from_vsocket);
+  SharedType &to_type = builder.query_socket_type(to_vsocket);
 
   if (from_type == to_type) {
     builder.insert_link(from_socket, to_socket);
@@ -201,7 +198,7 @@ bool GraphInserters::insert_link(BTreeGraphBuilder &builder,
   auto key = TypePair(from_type, to_type);
   if (m_conversion_inserters.contains(key)) {
     auto inserter = m_conversion_inserters.lookup(key);
-    inserter(builder, from_socket, to_socket, source_link);
+    inserter(builder, from_socket, to_socket);
     return true;
   }
 

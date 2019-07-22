@@ -11,9 +11,11 @@ namespace DataFlowNodes {
 
 Optional<SharedFunction> generate_function(bNodeTree *btree)
 {
-  IndexedNodeTree indexed_btree(btree);
+  VirtualNodeTree vtree;
+  vtree.add_all_of_tree(btree);
+  vtree.freeze_and_index();
 
-  Optional<FunctionGraph> fgraph_ = generate_function_graph(indexed_btree);
+  Optional<FunctionGraph> fgraph_ = generate_function_graph(vtree);
   if (!fgraph_.has_value()) {
     return {};
   }

@@ -104,6 +104,39 @@ ArrayRef<SingleOriginLink> IndexedNodeTree::single_origin_links() const
 /* Virtual Node Tree
  *****************************************/
 
+void VirtualNodeTree::add_all_of_tree(bNodeTree *btree)
+{
+  SmallMap<bNode *, VirtualNode *> node_mapping;
+  for (bNode *bnode : BKE::bNodeList(btree->nodes)) {
+    VirtualNode *vnode = this->add_bnode(btree, bnode);
+    node_mapping.add_new(bnode, vnode);
+  }
+  for (bNodeLink *blink : BKE::bLinkList(btree->links)) {
+    VirtualNode *from_node = node_mapping.lookup(blink->fromnode);
+    VirtualNode *to_node = node_mapping.lookup(blink->tonode);
+    VirtualSocket *from_vsocket = nullptr;
+    VirtualSocket *to_vsocket = nullptr;
+
+    for (VirtualSocket &output : from_node->outputs()) {
+      if (output.bsocket() == blink->fromsock) {
+        from_vsocket = &output;
+        break;
+      }
+    }
+
+    for (VirtualSocket &input : to_node->inputs()) {
+      if (input.bsocket() == blink->tosock) {
+        to_vsocket = &input;
+        break;
+      }
+    }
+
+    BLI_assert(from_vsocket);
+    BLI_assert(to_vsocket);
+    this->add_link(from_vsocket, to_vsocket);
+  }
+}
+
 VirtualNode *VirtualNodeTree::add_bnode(bNodeTree *btree, bNode *bnode)
 {
   BLI_assert(!m_frozen);
@@ -114,7 +147,7 @@ VirtualNode *VirtualNodeTree::add_bnode(bNodeTree *btree, bNode *bnode)
   vnode->m_btree = btree;
 
   SmallVector<bNodeSocket *, 10> original_inputs(bnode->inputs, true);
-  SmallVector<bNodeSocket *, 10> original_outputs(bnode->inputs, true);
+  SmallVector<bNodeSocket *, 10> original_outputs(bnode->outputs, true);
 
   vnode->m_inputs = m_allocator.allocate_array<VirtualSocket>(original_inputs.size());
   vnode->m_outputs = m_allocator.allocate_array<VirtualSocket>(original_outputs.size());
@@ -145,13 +178,13 @@ void VirtualNodeTree::add_link(VirtualSocket *a, VirtualSocket *b)
   VirtualLink *vlink = m_allocator.allocate<VirtualLink>();
   if (a->is_input()) {
     BLI_assert(b->is_output());
-    vlink->m_from = a;
-    vlink->m_to = b;
+    vlink->m_from = b;
+    vlink->m_to = a;
   }
   else {
     BLI_assert(b->is_input());
-    vlink->m_from = b;
-    vlink->m_to = a;
+    vlink->m_from = a;
+    vlink->m_to = b;
   }
 
   m_links.append(vlink);
@@ -162,6 +195,7 @@ void VirtualNodeTree::freeze_and_index()
   m_frozen = true;
   this->initialize_direct_links();
   this->initialize_links();
+  this->initialize_nodes_by_idname();
 }
 
 BLI_NOINLINE void VirtualNodeTree::initialize_direct_links()
@@ -230,7 +264,19 @@ BLI_NOINLINE void VirtualNodeTree::initialize_links()
       find_connected_sockets_left(vsocket, found);
       vsocket->m_links = m_allocator.allocate_array<VirtualSocket *>(found.size());
       vsocket->m_links.copy_from(found);
+
+      if (vsocket->m_links.size() > 0) {
+        m_inputs_with_links.append(vlink->m_to);
+      }
     }
+  }
+}
+
+BLI_NOINLINE void VirtualNodeTree::initialize_nodes_by_idname()
+{
+  for (VirtualNode *vnode : m_nodes) {
+    bNode *bnode = vnode->bnode();
+    m_nodes_by_idname.add(bnode->idname, vnode);
   }
 }
 

@@ -28,11 +28,11 @@ static PyObject *get_py_bnode(bNodeTree *btree, bNode *bnode)
 namespace FN {
 namespace DataFlowNodes {
 
-BTreeGraphBuilder::BTreeGraphBuilder(IndexedNodeTree &indexed_btree,
+BTreeGraphBuilder::BTreeGraphBuilder(VirtualNodeTree &vtree,
                                      DataFlowGraphBuilder &graph,
-                                     SmallMap<struct bNodeSocket *, DFGB_Socket> &socket_map)
+                                     SmallMap<VirtualSocket *, DFGB_Socket> &socket_map)
     : m_graph(graph),
-      m_indexed_btree(indexed_btree),
+      m_vtree(vtree),
       m_socket_map(socket_map),
       m_type_by_idname(get_type_by_idname_map()),
       m_type_by_data_type(get_type_by_data_type_map())
@@ -45,7 +45,7 @@ class NodeSource : public SourceInfo {
   bNode *m_bnode;
 
  public:
-  NodeSource(bNodeTree *btree, bNode *bnode) : m_btree(btree), m_bnode(bnode)
+  NodeSource(bNodeTree *btree, bNode *vnode) : m_btree(btree), m_bnode(vnode)
   {
   }
 
@@ -76,48 +76,22 @@ class NodeSource : public SourceInfo {
   }
 };
 
-class LinkSource : public SourceInfo {
- private:
-  bNodeTree *m_btree;
-  bNodeLink *m_blink;
-
- public:
-  LinkSource(bNodeTree *btree, bNodeLink *blink) : m_btree(btree), m_blink(blink)
-  {
-  }
-
-  std::string to_string() const override
-  {
-    std::stringstream ss;
-    ss << "NodeTree \"" << m_btree->id.name + 2 << "\"";
-    ss << " - Link";
-    return ss.str();
-  }
-};
-
 DFGB_Node *BTreeGraphBuilder::insert_function(SharedFunction &fn)
 {
   return m_graph.insert_function(fn);
 }
 
-DFGB_Node *BTreeGraphBuilder::insert_matching_function(SharedFunction &fn, bNode *bnode)
+DFGB_Node *BTreeGraphBuilder::insert_matching_function(SharedFunction &fn, VirtualNode *vnode)
 {
-  DFGB_Node *node = this->insert_function(fn, bnode);
-  this->map_sockets(node, bnode);
+  DFGB_Node *node = this->insert_function(fn, vnode);
+  this->map_sockets(node, vnode);
   return node;
 }
 
-DFGB_Node *BTreeGraphBuilder::insert_function(SharedFunction &fn, bNode *bnode)
+DFGB_Node *BTreeGraphBuilder::insert_function(SharedFunction &fn, VirtualNode *vnode)
 {
-  BLI_assert(bnode != nullptr);
-  NodeSource *source = m_graph.new_source_info<NodeSource>(m_indexed_btree.btree(), bnode);
-  return m_graph.insert_function(fn, source);
-}
-
-DFGB_Node *BTreeGraphBuilder::insert_function(SharedFunction &fn, bNodeLink *blink)
-{
-  BLI_assert(blink != nullptr);
-  LinkSource *source = m_graph.new_source_info<LinkSource>(m_indexed_btree.btree(), blink);
+  BLI_assert(vnode != nullptr);
+  NodeSource *source = m_graph.new_source_info<NodeSource>(vnode->btree(), vnode->bnode());
   return m_graph.insert_function(fn, source);
 }
 
@@ -126,81 +100,81 @@ void BTreeGraphBuilder::insert_link(DFGB_Socket a, DFGB_Socket b)
   m_graph.insert_link(a, b);
 }
 
-void BTreeGraphBuilder::map_socket(DFGB_Socket socket, bNodeSocket *bsocket)
+void BTreeGraphBuilder::map_socket(DFGB_Socket socket, VirtualSocket *vsocket)
 {
-  BLI_assert(this->is_data_socket(bsocket) ? socket.type() == this->query_socket_type(bsocket) :
+  BLI_assert(this->is_data_socket(vsocket) ? socket.type() == this->query_socket_type(vsocket) :
                                              true);
-  m_socket_map.add(bsocket, socket);
+  m_socket_map.add(vsocket, socket);
 }
 
-void BTreeGraphBuilder::map_sockets(DFGB_Node *node, struct bNode *bnode)
+void BTreeGraphBuilder::map_sockets(DFGB_Node *node, VirtualNode *vnode)
 {
-  BLI_assert(BLI_listbase_count(&bnode->inputs) == node->input_amount());
-  BLI_assert(BLI_listbase_count(&bnode->outputs) == node->output_amount());
+  BLI_assert(vnode->inputs().size() == node->input_amount());
+  BLI_assert(vnode->outputs().size() == node->output_amount());
 
   uint input_index = 0;
-  for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
-    this->map_socket(node->input(input_index), bsocket);
+  for (VirtualSocket &vsocket : vnode->inputs()) {
+    this->map_socket(node->input(input_index), &vsocket);
     input_index++;
   }
 
   uint output_index = 0;
-  for (bNodeSocket *bsocket : bSocketList(bnode->outputs)) {
-    this->map_socket(node->output(output_index), bsocket);
+  for (VirtualSocket &vsocket : vnode->outputs()) {
+    this->map_socket(node->output(output_index), &vsocket);
     output_index++;
   }
 }
 
-void BTreeGraphBuilder::map_data_sockets(DFGB_Node *node, struct bNode *bnode)
+void BTreeGraphBuilder::map_data_sockets(DFGB_Node *node, VirtualNode *vnode)
 {
   uint input_index = 0;
-  for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
-    if (this->is_data_socket(bsocket)) {
-      this->map_socket(node->input(input_index), bsocket);
+  for (VirtualSocket &vsocket : vnode->inputs()) {
+    if (this->is_data_socket(&vsocket)) {
+      this->map_socket(node->input(input_index), &vsocket);
       input_index++;
     }
   }
 
   uint output_index = 0;
-  for (bNodeSocket *bsocket : bSocketList(bnode->outputs)) {
-    if (this->is_data_socket(bsocket)) {
-      this->map_socket(node->output(output_index), bsocket);
+  for (VirtualSocket &vsocket : vnode->outputs()) {
+    if (this->is_data_socket(&vsocket)) {
+      this->map_socket(node->output(output_index), &vsocket);
       output_index++;
     }
   }
 }
 
-void BTreeGraphBuilder::map_input(DFGB_Socket socket, struct bNode *bnode, uint index)
+void BTreeGraphBuilder::map_input(DFGB_Socket socket, VirtualNode *vnode, uint index)
 {
   BLI_assert(socket.is_input());
-  auto bsocket = (bNodeSocket *)BLI_findlink(&bnode->inputs, index);
-  this->map_socket(socket, bsocket);
+  VirtualSocket *vsocket = vnode->input(index);
+  this->map_socket(socket, vsocket);
 }
 
-void BTreeGraphBuilder::map_output(DFGB_Socket socket, struct bNode *bnode, uint index)
+void BTreeGraphBuilder::map_output(DFGB_Socket socket, VirtualNode *vnode, uint index)
 {
   BLI_assert(socket.is_output());
-  auto bsocket = (bNodeSocket *)BLI_findlink(&bnode->outputs, index);
-  this->map_socket(socket, bsocket);
+  VirtualSocket *vsocket = vnode->output(index);
+  this->map_socket(socket, vsocket);
 }
 
-DFGB_Socket BTreeGraphBuilder::lookup_socket(struct bNodeSocket *bsocket)
+DFGB_Socket BTreeGraphBuilder::lookup_socket(VirtualSocket *vsocket)
 {
-  BLI_assert(m_socket_map.contains(bsocket));
-  return m_socket_map.lookup(bsocket);
+  BLI_assert(m_socket_map.contains(vsocket));
+  return m_socket_map.lookup(vsocket);
 }
 
-bool BTreeGraphBuilder::check_if_sockets_are_mapped(struct bNode *bnode,
-                                                    bSocketList bsockets) const
+bool BTreeGraphBuilder::check_if_sockets_are_mapped(VirtualNode *vnode,
+                                                    ArrayRef<VirtualSocket> vsockets) const
 {
   int index = 0;
-  for (bNodeSocket *bsocket : bsockets) {
-    if (this->is_data_socket(bsocket)) {
-      if (!m_socket_map.contains(bsocket)) {
+  for (VirtualSocket &vsocket : vsockets) {
+    if (this->is_data_socket(&vsocket)) {
+      if (!m_socket_map.contains(&vsocket)) {
         std::cout << "Data DFGB_Socket not mapped: " << std::endl;
-        std::cout << "    Tree: " << m_indexed_btree.btree_id()->name << std::endl;
-        std::cout << "    DFGB_Node: " << bnode->name << std::endl;
-        if (bsocket->in_out == SOCK_IN) {
+        std::cout << "    Tree: " << vnode->btree_id()->name << std::endl;
+        std::cout << "    DFGB_Node: " << vnode->bnode()->name << std::endl;
+        if (vsocket.is_input()) {
           std::cout << "    Input";
         }
         else {
@@ -215,30 +189,20 @@ bool BTreeGraphBuilder::check_if_sockets_are_mapped(struct bNode *bnode,
   return true;
 }
 
-bool BTreeGraphBuilder::verify_data_sockets_mapped(struct bNode *bnode) const
+bool BTreeGraphBuilder::verify_data_sockets_mapped(VirtualNode *vnode) const
 {
-  return (this->check_if_sockets_are_mapped(bnode, bSocketList(bnode->inputs)) &&
-          this->check_if_sockets_are_mapped(bnode, bSocketList(bnode->outputs)));
+  return (this->check_if_sockets_are_mapped(vnode, vnode->inputs()) &&
+          this->check_if_sockets_are_mapped(vnode, vnode->outputs()));
 }
 
-IndexedNodeTree &BTreeGraphBuilder::indexed_btree() const
+VirtualNodeTree &BTreeGraphBuilder::vtree() const
 {
-  return m_indexed_btree;
+  return m_vtree;
 }
 
-struct bNodeTree *BTreeGraphBuilder::btree() const
+bool BTreeGraphBuilder::is_data_socket(VirtualSocket *vsocket) const
 {
-  return m_indexed_btree.btree();
-}
-
-struct ID *BTreeGraphBuilder::btree_id() const
-{
-  return m_indexed_btree.btree_id();
-}
-
-bool BTreeGraphBuilder::is_data_socket(bNodeSocket *bsocket) const
-{
-  return m_type_by_idname.contains(bsocket->idname);
+  return m_type_by_idname.contains(vsocket->bsocket()->idname);
 }
 
 SharedType &BTreeGraphBuilder::type_by_name(StringRef data_type) const
@@ -246,33 +210,34 @@ SharedType &BTreeGraphBuilder::type_by_name(StringRef data_type) const
   return m_type_by_data_type.lookup_ref(data_type);
 }
 
-SharedType &BTreeGraphBuilder::query_socket_type(bNodeSocket *bsocket) const
+SharedType &BTreeGraphBuilder::query_socket_type(VirtualSocket *vsocket) const
 {
-  return m_type_by_idname.lookup_ref(bsocket->idname);
+  return m_type_by_idname.lookup_ref(vsocket->bsocket()->idname);
 }
 
-std::string BTreeGraphBuilder::query_socket_name(bNodeSocket *bsocket) const
+std::string BTreeGraphBuilder::query_socket_name(VirtualSocket *vsocket) const
 {
-  return bsocket->name;
+  return vsocket->bsocket()->name;
 }
 
-PointerRNA BTreeGraphBuilder::get_rna(bNode *bnode) const
+PointerRNA BTreeGraphBuilder::get_rna(VirtualNode *vnode) const
 {
   PointerRNA rna;
-  RNA_pointer_create(this->btree_id(), &RNA_Node, bnode, &rna);
+  RNA_pointer_create(vnode->btree_id(), &RNA_Node, vnode->bnode(), &rna);
   return rna;
 }
 
-PointerRNA BTreeGraphBuilder::get_rna(bNodeSocket *bsocket) const
+PointerRNA BTreeGraphBuilder::get_rna(VirtualSocket *vsocket) const
 {
   PointerRNA rna;
-  RNA_pointer_create(this->btree_id(), &RNA_NodeSocket, bsocket, &rna);
+  RNA_pointer_create(vsocket->btree_id(), &RNA_NodeSocket, vsocket->bsocket(), &rna);
   return rna;
 }
 
-SharedType &BTreeGraphBuilder::query_type_property(bNode *bnode, StringRefNull prop_name) const
+SharedType &BTreeGraphBuilder::query_type_property(VirtualNode *vnode,
+                                                   StringRefNull prop_name) const
 {
-  PointerRNA rna = this->get_rna(bnode);
+  PointerRNA rna = this->get_rna(vnode);
   return this->type_from_rna(rna, prop_name);
 }
 
@@ -283,15 +248,15 @@ SharedType &BTreeGraphBuilder::type_from_rna(PointerRNA &rna, StringRefNull prop
   return this->type_by_name(type_name);
 }
 
-bool BTreeGraphBuilder::has_data_socket(bNode *bnode) const
+bool BTreeGraphBuilder::has_data_socket(VirtualNode *vnode) const
 {
-  for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
-    if (this->is_data_socket(bsocket)) {
+  for (VirtualSocket &vsocket : vnode->inputs()) {
+    if (this->is_data_socket(&vsocket)) {
       return true;
     }
   }
-  for (bNodeSocket *bsocket : bSocketList(bnode->outputs)) {
-    if (this->is_data_socket(bsocket)) {
+  for (VirtualSocket &vsocket : vnode->outputs()) {
+    if (this->is_data_socket(&vsocket)) {
       return true;
     }
   }

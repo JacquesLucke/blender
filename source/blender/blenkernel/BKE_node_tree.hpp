@@ -131,8 +131,11 @@ class VirtualNodeTree {
   MonotonicAllocator<> m_allocator;
   SmallVector<VirtualNode *> m_nodes;
   SmallVector<VirtualLink *> m_links;
+  SmallVector<VirtualSocket *> m_inputs_with_links;
+  SmallMultiMap<std::string, VirtualNode *> m_nodes_by_idname;
 
  public:
+  void add_all_of_tree(bNodeTree *btree);
   VirtualNode *add_bnode(bNodeTree *btree, bNode *bnode);
   void add_link(VirtualSocket *a, VirtualSocket *b);
 
@@ -148,6 +151,18 @@ class VirtualNodeTree {
     return m_links;
   }
 
+  ArrayRef<VirtualSocket *> inputs_with_links()
+  {
+    BLI_assert(m_frozen);
+    return m_inputs_with_links;
+  }
+
+  ArrayRef<VirtualNode *> nodes_with_idname(StringRef idname)
+  {
+    BLI_assert(m_frozen);
+    return m_nodes_by_idname.lookup_default(idname.to_std_string());
+  }
+
   bool is_frozen()
   {
     return m_frozen;
@@ -156,6 +171,7 @@ class VirtualNodeTree {
  private:
   void initialize_direct_links();
   void initialize_links();
+  void initialize_nodes_by_idname();
 };
 
 class VirtualNode {
@@ -194,6 +210,16 @@ class VirtualNode {
   {
     return m_bnode;
   }
+
+  bNodeTree *btree()
+  {
+    return m_btree;
+  }
+
+  ID *btree_id()
+  {
+    return &m_btree->id;
+  }
 };
 
 class VirtualSocket {
@@ -226,6 +252,11 @@ class VirtualSocket {
   bNodeTree *btree()
   {
     return m_btree;
+  }
+
+  ID *btree_id()
+  {
+    return &m_btree->id;
   }
 
   VirtualNode *vnode()

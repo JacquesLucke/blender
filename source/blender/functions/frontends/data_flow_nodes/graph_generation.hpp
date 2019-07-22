@@ -19,17 +19,17 @@ using BKE::VirtualSocket;
 class UnlinkedInputsHandler {
  public:
   virtual void insert(BTreeGraphBuilder &builder,
-                      ArrayRef<bNodeSocket *> unlinked_inputs,
+                      ArrayRef<VirtualSocket *> unlinked_inputs,
                       DFGB_SocketVector &r_inserted_data_origins) = 0;
 };
 
 class BTreeDataGraph {
  private:
   SharedDataFlowGraph m_graph;
-  SmallMap<bNodeSocket *, DFGraphSocket> m_mapping;
+  SmallMap<VirtualSocket *, DFGraphSocket> m_mapping;
 
  public:
-  BTreeDataGraph(SharedDataFlowGraph graph, SmallMap<bNodeSocket *, DFGraphSocket> mapping)
+  BTreeDataGraph(SharedDataFlowGraph graph, SmallMap<VirtualSocket *, DFGraphSocket> mapping)
       : m_graph(std::move(graph)), m_mapping(std::move(mapping))
   {
   }
@@ -39,20 +39,20 @@ class BTreeDataGraph {
     return m_graph;
   }
 
-  DFGraphSocket lookup_socket(bNodeSocket *bsocket)
+  DFGraphSocket lookup_socket(VirtualSocket *vsocket)
   {
-    return m_mapping.lookup(bsocket);
+    return m_mapping.lookup(vsocket);
   }
 
-  bool uses_socket(bNodeSocket *bsocket)
+  bool uses_socket(VirtualSocket *vsocket)
   {
-    return m_mapping.contains(bsocket);
+    return m_mapping.contains(vsocket);
   }
 };
 
-Optional<BTreeDataGraph> generate_graph(IndexedNodeTree &indexed_btree);
+Optional<BTreeDataGraph> generate_graph(VirtualNodeTree &vtree);
 
-Optional<FunctionGraph> generate_function_graph(IndexedNodeTree &indexed_btree);
+Optional<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree);
 
 }  // namespace DataFlowNodes
 }  // namespace FN

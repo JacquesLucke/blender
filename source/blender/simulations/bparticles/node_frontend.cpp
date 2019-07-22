@@ -52,7 +52,11 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(IndexedNodeTree
     attributes.add_float3("Color", {1.0f, 1.0f, 1.0f});
   }
 
-  auto data_graph = FN::DataFlowNodes::generate_graph(indexed_tree).value();
+  VirtualNodeTree vtree;
+  vtree.add_all_of_tree(indexed_tree.btree());
+  vtree.freeze_and_index();
+
+  auto data_graph = FN::DataFlowNodes::generate_graph(vtree).value();
 
   BuildContext ctx = {indexed_tree, data_graph, step_builder, world_state};
 

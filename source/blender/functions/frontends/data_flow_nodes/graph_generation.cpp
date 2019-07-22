@@ -10,36 +10,36 @@ namespace DataFlowNodes {
 
 using BKE::IndexedNodeTree;
 
-static void insert_placeholder_node(BTreeGraphBuilder &builder, bNode *bnode)
+static void insert_placeholder_node(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
   FunctionBuilder fn_builder;
-  for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
-    if (builder.is_data_socket(bsocket)) {
-      SharedType &type = builder.query_socket_type(bsocket);
-      fn_builder.add_input(builder.query_socket_name(bsocket), type);
+  for (VirtualSocket &vsocket : vnode->inputs()) {
+    if (builder.is_data_socket(&vsocket)) {
+      SharedType &type = builder.query_socket_type(&vsocket);
+      fn_builder.add_input(builder.query_socket_name(&vsocket), type);
     }
   }
-  for (bNodeSocket *bsocket : bSocketList(bnode->outputs)) {
-    if (builder.is_data_socket(bsocket)) {
-      SharedType &type = builder.query_socket_type(bsocket);
-      fn_builder.add_output(builder.query_socket_name(bsocket), type);
+  for (VirtualSocket &vsocket : vnode->outputs()) {
+    if (builder.is_data_socket(&vsocket)) {
+      SharedType &type = builder.query_socket_type(&vsocket);
+      fn_builder.add_output(builder.query_socket_name(&vsocket), type);
     }
   }
 
-  auto fn = fn_builder.build(bnode->name);
+  auto fn = fn_builder.build(vnode->bnode()->name);
   DFGB_Node *node = builder.insert_function(fn);
-  builder.map_data_sockets(node, bnode);
+  builder.map_data_sockets(node, vnode);
 }
 
 static bool insert_functions_for_bnodes(BTreeGraphBuilder &builder, GraphInserters &inserters)
 {
-  for (bNode *bnode : builder.indexed_btree().actual_nodes()) {
-    if (inserters.insert_node(builder, bnode)) {
+  for (VirtualNode *vnode : builder.vtree().nodes()) {
+    if (inserters.insert_node(builder, vnode)) {
       continue;
     }
 
-    if (builder.has_data_socket(bnode)) {
-      insert_placeholder_node(builder, bnode);
+    if (builder.has_data_socket(vnode)) {
+      insert_placeholder_node(builder, vnode);
     }
   }
   return true;
@@ -47,12 +47,15 @@ static bool insert_functions_for_bnodes(BTreeGraphBuilder &builder, GraphInserte
 
 static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
 {
-  IndexedNodeTree indexed_btree(builder.btree());
-  for (auto &link : indexed_btree.single_origin_links()) {
-    if (!builder.is_data_socket(link.to)) {
+  for (VirtualSocket *input : builder.vtree().inputs_with_links()) {
+    if (input->links().size() > 1) {
       continue;
     }
-    if (!inserters.insert_link(builder, link.from, link.to, link.source_link)) {
+    BLI_assert(input->links().size() == 1);
+    if (!builder.is_data_socket(input)) {
+      continue;
+    }
+    if (!inserters.insert_link(builder, input->links()[0], input)) {
       return false;
     }
   }
@@ -62,15 +65,15 @@ static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
 static void insert_unlinked_inputs(BTreeGraphBuilder &builder,
                                    UnlinkedInputsHandler &unlinked_inputs_handler)
 {
-  SmallVector<bNodeSocket *> unlinked_inputs;
+  SmallVector<VirtualSocket *> unlinked_inputs;
   SmallVector<DFGB_Socket> sockets_in_builder;
 
-  for (bNode *bnode : builder.indexed_btree().actual_nodes()) {
-    for (bNodeSocket *bsocket : bSocketList(bnode->inputs)) {
-      if (builder.is_data_socket(bsocket)) {
-        DFGB_Socket socket = builder.lookup_socket(bsocket);
+  for (VirtualNode *vnode : builder.vtree().nodes()) {
+    for (VirtualSocket &vsocket : vnode->inputs()) {
+      if (builder.is_data_socket(&vsocket)) {
+        DFGB_Socket socket = builder.lookup_socket(&vsocket);
         if (!socket.is_linked()) {
-          unlinked_inputs.append(bsocket);
+          unlinked_inputs.append(&vsocket);
           sockets_in_builder.append(socket);
         }
       }
@@ -88,40 +91,38 @@ static void insert_unlinked_inputs(BTreeGraphBuilder &builder,
   }
 }
 
-static void find_interface_sockets(IndexedNodeTree &indexed_btree,
+static void find_interface_sockets(VirtualNodeTree &vtree,
                                    BTreeDataGraph &graph,
                                    DFGraphSocketSetVector &r_inputs,
                                    DFGraphSocketSetVector &r_outputs)
 {
-  bNode *input_node = indexed_btree.nodes_with_idname("fn_FunctionInputNode").get(0, nullptr);
-  bNode *output_node = indexed_btree.nodes_with_idname("fn_FunctionOutputNode").get(0, nullptr);
+  VirtualNode *input_node = vtree.nodes_with_idname("fn_FunctionInputNode").get(0, nullptr);
+  VirtualNode *output_node = vtree.nodes_with_idname("fn_FunctionOutputNode").get(0, nullptr);
 
   if (input_node != nullptr) {
-    for (bNodeSocket *bsocket : bSocketList(input_node->outputs)) {
-      if (bsocket != (bNodeSocket *)input_node->outputs.last) {
-        r_inputs.add_new(graph.lookup_socket(bsocket));
-      }
+    for (uint i = 0; i < input_node->outputs().size() - 1; i++) {
+      VirtualSocket *vsocket = input_node->output(i);
+      r_inputs.add_new(graph.lookup_socket(vsocket));
     }
   }
 
   if (output_node != nullptr) {
-    for (bNodeSocket *bsocket : bSocketList(output_node->inputs)) {
-      if (bsocket != (bNodeSocket *)output_node->inputs.last) {
-        r_outputs.add_new(graph.lookup_socket(bsocket));
-      }
+    for (uint i = 0; i < output_node->inputs().size() - 1; i++) {
+      VirtualSocket *vsocket = output_node->input(i);
+      r_outputs.add_new(graph.lookup_socket(vsocket));
     }
   }
 }
 
-static SmallMap<bNodeSocket *, DFGraphSocket> build_mapping_for_original_sockets(
-    SmallMap<bNodeSocket *, DFGB_Socket> &socket_map,
+static SmallMap<VirtualSocket *, DFGraphSocket> build_mapping_for_original_sockets(
+    SmallMap<VirtualSocket *, DFGB_Socket> &socket_map,
     DataFlowGraph::ToBuilderMapping &builder_mapping)
 {
-  SmallMap<bNodeSocket *, DFGraphSocket> original_socket_mapping;
+  SmallMap<VirtualSocket *, DFGraphSocket> original_socket_mapping;
   for (auto item : socket_map.items()) {
-    bNodeSocket *bsocket = item.key;
+    VirtualSocket *vsocket = item.key;
     DFGraphSocket socket = builder_mapping.map_socket(item.value);
-    original_socket_mapping.add_new(bsocket, socket);
+    original_socket_mapping.add_new(vsocket, socket);
   }
   return original_socket_mapping;
 }
@@ -136,45 +137,19 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
   }
 
   void insert(BTreeGraphBuilder &builder,
-              ArrayRef<bNodeSocket *> unlinked_inputs,
+              ArrayRef<VirtualSocket *> unlinked_inputs,
               DFGB_SocketVector &r_inserted_data_origins) override
   {
     r_inserted_data_origins = std::move(m_inserters.insert_sockets(builder, unlinked_inputs));
   }
 };
 
-Optional<BTreeDataGraph> generate_graph(IndexedNodeTree &indexed_btree)
+Optional<BTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
 {
-  bNodeTree *btree = indexed_btree.btree();
-
-  VirtualNodeTree vtree;
-  SmallMap<bNode *, VirtualNode *> node_mapping;
-  for (bNode *bnode : BKE::bNodeList(btree->nodes)) {
-    VirtualNode *vnode = vtree.add_bnode(btree, bnode);
-    node_mapping.add_new(bnode, vnode);
-  }
-  for (bNodeLink *blink : BKE::bLinkList(btree->links)) {
-    VirtualNode *from_node = node_mapping.lookup(blink->fromnode);
-    VirtualNode *to_node = node_mapping.lookup(blink->tonode);
-    VirtualSocket *from_socket = nullptr;
-    VirtualSocket *to_socket = nullptr;
-    for (VirtualSocket &output : from_node->outputs()) {
-      if (output.bsocket() == blink->fromsock) {
-        from_socket = &output;
-      }
-    }
-    for (VirtualSocket &input : to_node->inputs()) {
-      if (input.bsocket() == blink->tosock) {
-        to_socket = &input;
-      }
-    }
-    vtree.add_link(from_socket, to_socket);
-  }
-
   DataFlowGraphBuilder graph_builder;
-  SmallMap<bNodeSocket *, DFGB_Socket> socket_map;
+  SmallMap<VirtualSocket *, DFGB_Socket> socket_map;
 
-  BTreeGraphBuilder builder(indexed_btree, graph_builder, socket_map);
+  BTreeGraphBuilder builder(vtree, graph_builder, socket_map);
   GraphInserters &inserters = get_standard_inserters();
 
   if (!insert_functions_for_bnodes(builder, inserters)) {
@@ -194,9 +169,9 @@ Optional<BTreeDataGraph> generate_graph(IndexedNodeTree &indexed_btree)
                         build_mapping_for_original_sockets(socket_map, build_result.mapping));
 }
 
-Optional<FunctionGraph> generate_function_graph(IndexedNodeTree &indexed_btree)
+Optional<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree)
 {
-  Optional<BTreeDataGraph> data_graph_ = generate_graph(indexed_btree);
+  Optional<BTreeDataGraph> data_graph_ = generate_graph(vtree);
   if (!data_graph_.has_value()) {
     return {};
   }
@@ -205,7 +180,7 @@ Optional<FunctionGraph> generate_function_graph(IndexedNodeTree &indexed_btree)
 
   DFGraphSocketSetVector input_sockets;
   DFGraphSocketSetVector output_sockets;
-  find_interface_sockets(indexed_btree, data_graph, input_sockets, output_sockets);
+  find_interface_sockets(vtree, data_graph, input_sockets, output_sockets);
 
   return FunctionGraph(data_graph.graph(), input_sockets, output_sockets);
 }

@@ -61,10 +61,10 @@ static SharedFunction get_vectorized_function(SharedFunction &original_fn,
   }
 }
 
-static void INSERT_object_transforms(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_object_transforms(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
   auto fn = Functions::GET_FN_object_location();
-  builder.insert_matching_function(fn, bnode);
+  builder.insert_matching_function(fn, vnode);
 }
 
 static SharedFunction &get_float_math_function(int operation)
@@ -86,9 +86,9 @@ static SharedFunction &get_float_math_function(int operation)
   }
 }
 
-static void INSERT_float_math(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_float_math(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(bnode);
+  PointerRNA rna = builder.get_rna(vnode);
   int operation = RNA_enum_get(&rna, "operation");
 
   SharedFunction &original_fn = get_float_math_function(operation);
@@ -97,7 +97,7 @@ static void INSERT_float_math(BTreeGraphBuilder &builder, bNode *bnode)
   if (input_amount == 1) {
     SharedFunction fn = get_vectorized_function(
         original_fn, rna, {{"use_list__a", Functions::GET_FN_output_float_0()}});
-    builder.insert_matching_function(fn, bnode);
+    builder.insert_matching_function(fn, vnode);
   }
   else {
     BLI_assert(input_amount == 2);
@@ -106,7 +106,7 @@ static void INSERT_float_math(BTreeGraphBuilder &builder, bNode *bnode)
         rna,
         {{"use_list__a", Functions::GET_FN_output_float_0()},
          {"use_list__b", Functions::GET_FN_output_float_0()}});
-    builder.insert_matching_function(fn, bnode);
+    builder.insert_matching_function(fn, vnode);
   }
 }
 
@@ -121,9 +121,9 @@ static SharedFunction &get_vector_math_function(int operation)
   }
 }
 
-static void INSERT_vector_math(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_vector_math(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(bnode);
+  PointerRNA rna = builder.get_rna(vnode);
   int operation = RNA_enum_get(&rna, "operation");
 
   SharedFunction fn = get_vectorized_function(
@@ -131,48 +131,48 @@ static void INSERT_vector_math(BTreeGraphBuilder &builder, bNode *bnode)
       rna,
       {{"use_list__a", Functions::GET_FN_output_float3_0()},
        {"use_list__b", Functions::GET_FN_output_float3_0()}});
-  builder.insert_matching_function(fn, bnode);
+  builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_clamp(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_clamp(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
   SharedFunction &max_fn = Functions::GET_FN_max_floats();
   SharedFunction &min_fn = Functions::GET_FN_min_floats();
 
-  DFGB_Node *max_node = builder.insert_function(max_fn, bnode);
-  DFGB_Node *min_node = builder.insert_function(min_fn, bnode);
+  DFGB_Node *max_node = builder.insert_function(max_fn, vnode);
+  DFGB_Node *min_node = builder.insert_function(min_fn, vnode);
 
   builder.insert_link(max_node->output(0), min_node->input(0));
-  builder.map_input(max_node->input(0), bnode, 0);
-  builder.map_input(max_node->input(1), bnode, 1);
-  builder.map_input(min_node->input(1), bnode, 2);
-  builder.map_output(min_node->output(0), bnode, 0);
+  builder.map_input(max_node->input(0), vnode, 0);
+  builder.map_input(max_node->input(1), vnode, 1);
+  builder.map_input(min_node->input(1), vnode, 2);
+  builder.map_output(min_node->output(0), vnode, 0);
 }
 
-static void INSERT_get_list_element(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_get_list_element(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  SharedType &base_type = builder.query_type_property(bnode, "active_type");
+  SharedType &base_type = builder.query_type_property(vnode, "active_type");
   SharedFunction &fn = Functions::GET_FN_get_list_element(base_type);
-  builder.insert_matching_function(fn, bnode);
+  builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_list_length(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_list_length(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  SharedType &base_type = builder.query_type_property(bnode, "active_type");
+  SharedType &base_type = builder.query_type_property(vnode, "active_type");
   SharedFunction &fn = Functions::GET_FN_list_length(base_type);
-  builder.insert_matching_function(fn, bnode);
+  builder.insert_matching_function(fn, vnode);
 }
 
 static DFGB_Socket insert_pack_list_sockets(BTreeGraphBuilder &builder,
-                                            bNode *bnode,
+                                            VirtualNode *vnode,
                                             SharedType &base_type,
                                             const char *prop_name,
                                             uint start_index)
 {
   auto &empty_fn = Functions::GET_FN_empty_list(base_type);
-  DFGB_Node *node = builder.insert_function(empty_fn, bnode);
+  DFGB_Node *node = builder.insert_function(empty_fn, vnode);
 
-  PointerRNA rna = builder.get_rna(bnode);
+  PointerRNA rna = builder.get_rna(vnode);
 
   uint index = start_index;
   RNA_BEGIN (&rna, itemptr, prop_name) {
@@ -181,16 +181,16 @@ static DFGB_Socket insert_pack_list_sockets(BTreeGraphBuilder &builder,
     if (state == 0) {
       /* single value case */
       auto &append_fn = Functions::GET_FN_append_to_list(base_type);
-      new_node = builder.insert_function(append_fn, bnode);
+      new_node = builder.insert_function(append_fn, vnode);
       builder.insert_link(node->output(0), new_node->input(0));
-      builder.map_input(new_node->input(1), bnode, index);
+      builder.map_input(new_node->input(1), vnode, index);
     }
     else if (state == 1) {
       /* list case */
       auto &combine_fn = Functions::GET_FN_combine_lists(base_type);
-      new_node = builder.insert_function(combine_fn, bnode);
+      new_node = builder.insert_function(combine_fn, vnode);
       builder.insert_link(node->output(0), new_node->input(0));
-      builder.map_input(new_node->input(1), bnode, index);
+      builder.map_input(new_node->input(1), vnode, index);
     }
     else {
       BLI_assert(false);
@@ -204,59 +204,59 @@ static DFGB_Socket insert_pack_list_sockets(BTreeGraphBuilder &builder,
   return node->output(0);
 }
 
-static void INSERT_pack_list(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_pack_list(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  SharedType &base_type = builder.query_type_property(bnode, "active_type");
+  SharedType &base_type = builder.query_type_property(vnode, "active_type");
   DFGB_Socket packed_list_socket = insert_pack_list_sockets(
-      builder, bnode, base_type, "variadic", 0);
-  builder.map_output(packed_list_socket, bnode, 0);
+      builder, vnode, base_type, "variadic", 0);
+  builder.map_output(packed_list_socket, vnode, 0);
 }
 
-static void INSERT_call(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_call(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(bnode);
+  PointerRNA rna = builder.get_rna(vnode);
 
   PointerRNA btree_ptr = RNA_pointer_get(&rna, "function_tree");
   bNodeTree *btree = (bNodeTree *)btree_ptr.id.data;
 
   if (btree == nullptr) {
-    BLI_assert(BLI_listbase_is_empty(&bnode->inputs));
-    BLI_assert(BLI_listbase_is_empty(&bnode->outputs));
+    BLI_assert(vnode->inputs().size() == 0);
+    BLI_assert(vnode->outputs().size() == 0);
     return;
   }
 
   Optional<SharedFunction> fn = generate_function(btree);
   BLI_assert(fn.has_value());
-  builder.insert_matching_function(fn.value(), bnode);
+  builder.insert_matching_function(fn.value(), vnode);
 }
 
-static void INSERT_switch(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_switch(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  SharedType &data_type = builder.query_type_property(bnode, "data_type");
+  SharedType &data_type = builder.query_type_property(vnode, "data_type");
   auto fn = Functions::GET_FN_bool_switch(data_type);
-  builder.insert_matching_function(fn, bnode);
+  builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_combine_vector(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_combine_vector(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(bnode);
+  PointerRNA rna = builder.get_rna(vnode);
   SharedFunction fn = get_vectorized_function(
       Functions::GET_FN_combine_vector(),
       rna,
       {{"use_list__x", Functions::GET_FN_output_float_0()},
        {"use_list__y", Functions::GET_FN_output_float_0()},
        {"use_list__z", Functions::GET_FN_output_float_0()}});
-  builder.insert_matching_function(fn, bnode);
+  builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_separate_vector(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_separate_vector(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(bnode);
+  PointerRNA rna = builder.get_rna(vnode);
   SharedFunction fn = get_vectorized_function(
       Functions::GET_FN_separate_vector(),
       rna,
       {{"use_list__vector", Functions::GET_FN_output_float_0()}});
-  builder.insert_matching_function(fn, bnode);
+  builder.insert_matching_function(fn, vnode);
 }
 
 static SharedFunction &get_compare_function(int operation)
@@ -270,16 +270,16 @@ static SharedFunction &get_compare_function(int operation)
   }
 }
 
-static void INSERT_compare(BTreeGraphBuilder &builder, bNode *bnode)
+static void INSERT_compare(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
-  PointerRNA rna = builder.get_rna(bnode);
+  PointerRNA rna = builder.get_rna(vnode);
   int operation = RNA_enum_get(&rna, "operation");
   SharedFunction fn = get_vectorized_function(
       get_compare_function(operation),
       rna,
       {{"use_list__a", Functions::GET_FN_output_float_0()},
        {"use_list__b", Functions::GET_FN_output_float_0()}});
-  builder.insert_matching_function(fn, bnode);
+  builder.insert_matching_function(fn, vnode);
 }
 
 void register_node_inserters(GraphInserters &inserters)

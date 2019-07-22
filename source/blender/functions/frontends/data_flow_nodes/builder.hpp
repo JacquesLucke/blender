@@ -12,63 +12,65 @@ namespace DataFlowNodes {
 
 using BKE::bSocketList;
 using BKE::IndexedNodeTree;
+using BKE::VirtualLink;
+using BKE::VirtualNode;
+using BKE::VirtualNodeTree;
+using BKE::VirtualSocket;
 
 class BTreeGraphBuilder {
  private:
   DataFlowGraphBuilder &m_graph;
-  IndexedNodeTree &m_indexed_btree;
-  SmallMap<struct bNodeSocket *, DFGB_Socket> &m_socket_map;
+  VirtualNodeTree &m_vtree;
+  SmallMap<VirtualSocket *, DFGB_Socket> &m_socket_map;
   StringMap<SharedType> &m_type_by_idname;
   StringMap<SharedType> &m_type_by_data_type;
 
  public:
-  BTreeGraphBuilder(IndexedNodeTree &indexed_btree,
+  BTreeGraphBuilder(VirtualNodeTree &vtree,
                     DataFlowGraphBuilder &graph,
-                    SmallMap<struct bNodeSocket *, DFGB_Socket> &socket_map);
+                    SmallMap<VirtualSocket *, DFGB_Socket> &socket_map);
 
   /* Insert Function */
   DFGB_Node *insert_function(SharedFunction &fn);
-  DFGB_Node *insert_matching_function(SharedFunction &fn, struct bNode *bnode);
-  DFGB_Node *insert_function(SharedFunction &fn, struct bNode *bnode);
+  DFGB_Node *insert_matching_function(SharedFunction &fn, VirtualNode *vnode);
+  DFGB_Node *insert_function(SharedFunction &fn, VirtualNode *vnode);
   DFGB_Node *insert_function(SharedFunction &fn, struct bNodeLink *blink);
 
   /* Insert Link */
   void insert_link(DFGB_Socket a, DFGB_Socket b);
 
   /* Socket Mapping */
-  void map_socket(DFGB_Socket socket, struct bNodeSocket *bsocket);
-  void map_sockets(DFGB_Node *node, struct bNode *bnode);
-  void map_data_sockets(DFGB_Node *node, struct bNode *bnode);
-  void map_input(DFGB_Socket socket, struct bNode *bnode, uint index);
-  void map_output(DFGB_Socket socket, struct bNode *bnode, uint index);
+  void map_socket(DFGB_Socket socket, struct VirtualSocket *vsocket);
+  void map_sockets(DFGB_Node *node, VirtualNode *vnode);
+  void map_data_sockets(DFGB_Node *node, VirtualNode *vnode);
+  void map_input(DFGB_Socket socket, VirtualNode *vnode, uint index);
+  void map_output(DFGB_Socket socket, VirtualNode *vnode, uint index);
 
-  DFGB_Socket lookup_socket(struct bNodeSocket *bsocket);
-  bool verify_data_sockets_mapped(struct bNode *bnode) const;
+  DFGB_Socket lookup_socket(struct VirtualSocket *vsocket);
+  bool verify_data_sockets_mapped(VirtualNode *vnode) const;
 
   /* Type Mapping */
   SharedType &type_by_name(StringRef data_type) const;
 
   /* Query Node Tree */
-  IndexedNodeTree &indexed_btree() const;
-  bNodeTree *btree() const;
-  ID *btree_id() const;
+  VirtualNodeTree &vtree() const;
 
   /* Query Socket Information */
-  PointerRNA get_rna(bNodeSocket *bsocket) const;
-  bool is_data_socket(bNodeSocket *bsocket) const;
-  std::string query_socket_name(bNodeSocket *bsocket) const;
-  SharedType &query_socket_type(bNodeSocket *bsocket) const;
+  PointerRNA get_rna(VirtualSocket *vsocket) const;
+  bool is_data_socket(VirtualSocket *vsocket) const;
+  std::string query_socket_name(VirtualSocket *vsocket) const;
+  SharedType &query_socket_type(VirtualSocket *vsocket) const;
 
   /* Query Node Information */
-  PointerRNA get_rna(bNode *bnode) const;
-  SharedType &query_type_property(bNode *bnode, StringRefNull prop_name) const;
-  bool has_data_socket(bNode *bnode) const;
+  PointerRNA get_rna(VirtualNode *vnode) const;
+  SharedType &query_type_property(VirtualNode *vnode, StringRefNull prop_name) const;
+  bool has_data_socket(VirtualNode *vnode) const;
 
   /* Query RNA */
   SharedType &type_from_rna(PointerRNA &rna, StringRefNull prop_name) const;
 
  private:
-  bool check_if_sockets_are_mapped(struct bNode *bnode, bSocketList bsockets) const;
+  bool check_if_sockets_are_mapped(VirtualNode *vnode, ArrayRef<VirtualSocket> vsockets) const;
 };
 
 }  // namespace DataFlowNodes
