@@ -28,8 +28,8 @@ static bool is_particle_data_input(VirtualNode *vnode)
 }
 
 static Vector<FN::DFGraphSocket> insert_inputs(FN::FunctionBuilder &fn_builder,
-                                                    BTreeDataGraph &data_graph,
-                                                    ArrayRef<VirtualSocket *> output_vsockets)
+                                               BTreeDataGraph &data_graph,
+                                               ArrayRef<VirtualSocket *> output_vsockets)
 {
   Set<VirtualSocket *> to_be_checked = output_vsockets;
   Set<VirtualSocket *> found_inputs;
@@ -135,7 +135,7 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx, VirtualNo
 
   auto post_action = build_action(ctx, vnode->output(0));
 
-  if (ctx.step_builder.has_type(name)) {
+  if (ctx.type_name_exists(name)) {
     return std::unique_ptr<Action>(new ExplodeAction(name, particle_fn, std::move(post_action)));
   }
   else {
@@ -404,7 +404,7 @@ static std::unique_ptr<OffsetHandler> BUILD_OFFSET_HANDLER_trails(BuildContext &
   float rate = body->get_output<float>(fn_out, 0, "Rate");
   rate = std::max(rate, 0.0f);
 
-  if (ctx.step_builder.has_type(name)) {
+  if (ctx.type_name_exists(name)) {
     return std::unique_ptr<OffsetHandler>(new CreateTrailHandler(name, rate));
   }
   else {

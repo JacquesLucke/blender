@@ -24,8 +24,13 @@ using FN::DataFlowNodes::BTreeDataGraph;
 
 struct BuildContext {
   BTreeDataGraph &data_graph;
-  StepDescriptionBuilder &step_builder;
+  Set<std::string> &particle_type_names;
   WorldState &world_state;
+
+  bool type_name_exists(StringRef name)
+  {
+    return this->particle_type_names.contains(name.to_std_string());
+  }
 };
 
 using ForceFromNodeCallback =

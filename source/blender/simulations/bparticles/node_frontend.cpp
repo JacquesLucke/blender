@@ -41,20 +41,22 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
 {
   SCOPED_TIMER(__func__);
 
-  StepDescriptionBuilder step_builder;
+  Set<std::string> particle_type_names;
+  StringMap<AttributesDeclaration> declarations;
 
   for (VirtualNode *particle_type_node : get_type_nodes(vtree)) {
-    auto &type_builder = step_builder.add_type(particle_type_node->name());
-    auto &attributes = type_builder.attributes();
+    AttributesDeclaration attributes;
     attributes.add_float3("Position", {0, 0, 0});
     attributes.add_float3("Velocity", {0, 0, 0});
     attributes.add_float("Size", 0.01f);
     attributes.add_float3("Color", {1.0f, 1.0f, 1.0f});
+    declarations.add_new(particle_type_node->name(), attributes);
+    particle_type_names.add_new(particle_type_node->name().to_std_string());
   }
 
   auto data_graph = FN::DataFlowNodes::generate_graph(vtree).value();
 
-  BuildContext ctx = {data_graph, step_builder, world_state};
+  BuildContext ctx = {data_graph, particle_type_names, world_state};
 
   MultiMap<std::string, Force *> forces;
   for (auto item : get_force_builders().items()) {
@@ -70,32 +72,35 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
     }
   }
 
+  MultiMap<std::string, OffsetHandler *> offset_handlers;
   for (auto item : get_offset_handler_builders().items()) {
     for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
       for (VirtualSocket *linked : vnode->output(0)->links()) {
         if (is_particle_type_node(linked->vnode())) {
           auto listener = item.value(ctx, vnode);
           if (listener) {
-            step_builder.get_type(linked->vnode()->name()).add_offset_handler(std::move(listener));
+            offset_handlers.add(linked->vnode()->name().to_std_string(), listener.release());
           }
         }
       }
     }
   }
 
+  MultiMap<std::string, Event *> events;
   for (auto item : get_event_builders().items()) {
     for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
       for (VirtualSocket *linked : vnode->input(0)->links()) {
         if (is_particle_type_node(linked->vnode())) {
           auto event = item.value(ctx, vnode);
           if (event) {
-            step_builder.get_type(linked->vnode()->name()).add_event(std::move(event));
+            events.add(linked->vnode()->name().to_std_string(), event.release());
           }
         }
       }
     }
   }
 
+  Vector<Emitter *> emitters;
   for (auto item : get_emitter_builders().items()) {
     for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
       VirtualSocket *emitter_output = find_emitter_output(vnode);
@@ -103,26 +108,35 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
         if (is_particle_type_node(linked->vnode())) {
           auto emitter = item.value(ctx, vnode, linked->vnode()->name());
           if (emitter) {
-            step_builder.add_emitter(std::move(emitter));
+            emitters.append(emitter.release());
           }
         }
       }
     }
   }
 
+  StringMap<ParticleType *> particle_types;
   for (VirtualNode *vnode : get_type_nodes(vtree)) {
     std::string name = vnode->name().to_std_string();
-    ParticleTypeBuilder &type_builder = step_builder.get_type(name);
     ArrayRef<Force *> forces_on_type = forces.lookup_default(name);
+
+    Integrator *integrator = nullptr;
     if (forces_on_type.size() == 0) {
-      type_builder.set_integrator(new ConstantVelocityIntegrator());
+      integrator = new ConstantVelocityIntegrator();
     }
     else {
-      type_builder.set_integrator(new EulerIntegrator(forces_on_type));
+      integrator = new EulerIntegrator(forces_on_type);
     }
+
+    ParticleType *particle_type = new ParticleType(declarations.lookup_ref(name),
+                                                   integrator,
+                                                   events.lookup_default(name),
+                                                   offset_handlers.lookup_default(name));
+    particle_types.add_new(name, particle_type);
   }
 
-  return step_builder.build(time_step);
+  StepDescription *step_description = new StepDescription(time_step, particle_types, emitters);
+  return std::unique_ptr<StepDescription>(step_description);
 }
 
 }  // namespace BParticles
