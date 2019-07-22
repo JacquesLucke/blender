@@ -10,9 +10,6 @@
 
 namespace FN {
 
-using LLVMValues = Vector<llvm::Value *>;
-using LLVMTypes = BLI::Vector<llvm::Type *>;
-
 class LLVMTypeInfo;
 class IRConstruct_ForLoop;
 class IRConstruct_IterationsLoop;
@@ -191,7 +188,7 @@ class CodeBuilder {
     m_builder.SetInsertPoint(block);
   }
 
-  LLVMTypes types_of_values(ArrayRef<llvm::Value *> values);
+  Vector<llvm::Type *> types_of_values(ArrayRef<llvm::Value *> values);
 
   /* Instruction Builders
    **************************************/
@@ -429,7 +426,7 @@ class CodeBuilder {
     uint length = vector_type->getVectorNumElements();
 
     llvm::Type *base_type = vector_type->getVectorElementType();
-    LLVMTypes types(length);
+    Vector<llvm::Type *> types(length);
     types.fill(base_type);
     llvm::Type *struct_type = this->getStructType(types);
 

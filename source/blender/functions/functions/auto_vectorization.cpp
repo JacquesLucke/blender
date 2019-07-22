@@ -80,20 +80,21 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
                 CodeInterface &interface,
                 const BuildIRSettings &settings) const override
   {
-    LLVMValues input_list_lengths = this->get_input_list_lengths(builder, interface);
+    Vector<llvm::Value *> input_list_lengths = this->get_input_list_lengths(builder, interface);
     llvm::Value *max_length = builder.CreateSIntMax(input_list_lengths);
 
-    LLVMValues input_data_pointers = this->get_input_data_pointers(builder, interface);
-    LLVMValues output_data_pointers = this->create_output_lists(builder, interface, max_length);
+    Vector<llvm::Value *> input_data_pointers = this->get_input_data_pointers(builder, interface);
+    Vector<llvm::Value *> output_data_pointers = this->create_output_lists(
+        builder, interface, max_length);
 
     auto loop = builder.CreateNIterationsLoop(max_length);
     CodeBuilder &body_builder = loop.body_builder();
     llvm::Value *iteration = loop.current_iteration();
 
-    LLVMValues main_inputs = this->prepare_main_function_inputs(
+    Vector<llvm::Value *> main_inputs = this->prepare_main_function_inputs(
         body_builder, interface, settings, input_data_pointers, input_list_lengths, iteration);
 
-    LLVMValues main_outputs(m_output_info.size());
+    Vector<llvm::Value *> main_outputs(m_output_info.size());
     CodeInterface main_interface(
         main_inputs, main_outputs, interface.context_ptr(), interface.function_ir_cache());
     auto *body = m_main->body<LLVMBuildIRBody>();
@@ -107,9 +108,10 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
   }
 
  private:
-  LLVMValues get_input_list_lengths(CodeBuilder &builder, CodeInterface &interface) const
+  Vector<llvm::Value *> get_input_list_lengths(CodeBuilder &builder,
+                                               CodeInterface &interface) const
   {
-    LLVMValues list_lengths;
+    Vector<llvm::Value *> list_lengths;
     for (uint i = 0; i < m_input_info.size(); i++) {
       if (m_input_info[i].is_list) {
         auto *length = builder.CreateCallPointer((void *)m_input_info[i].get_length_fn,
@@ -122,9 +124,10 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     return list_lengths;
   }
 
-  LLVMValues get_input_data_pointers(CodeBuilder &builder, CodeInterface &interface) const
+  Vector<llvm::Value *> get_input_data_pointers(CodeBuilder &builder,
+                                                CodeInterface &interface) const
   {
-    LLVMValues data_pointers;
+    Vector<llvm::Value *> data_pointers;
     for (uint i = 0; i < m_input_info.size(); i++) {
       if (m_input_info[i].is_list) {
         uint stride = m_input_info[i].base_cpp_type->size_of_type();
@@ -139,11 +142,11 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     return data_pointers;
   }
 
-  LLVMValues create_output_lists(CodeBuilder &builder,
-                                 CodeInterface &interface,
-                                 llvm::Value *length) const
+  Vector<llvm::Value *> create_output_lists(CodeBuilder &builder,
+                                            CodeInterface &interface,
+                                            llvm::Value *length) const
   {
-    LLVMValues data_pointers;
+    Vector<llvm::Value *> data_pointers;
     for (uint i = 0; i < m_output_info.size(); i++) {
       uint stride = m_output_info[i].base_cpp_type->size_of_type();
 
@@ -164,8 +167,8 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
   }
 
   void store_computed_values_in_output_lists(CodeBuilder &builder,
-                                             const LLVMValues &computed_values,
-                                             const LLVMValues &output_data_pointers,
+                                             const Vector<llvm::Value *> &computed_values,
+                                             const Vector<llvm::Value *> &output_data_pointers,
                                              llvm::Value *iteration) const
   {
     for (uint i = 0; i < m_output_info.size(); i++) {
@@ -175,14 +178,15 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     }
   }
 
-  LLVMValues prepare_main_function_inputs(CodeBuilder &builder,
-                                          CodeInterface &interface,
-                                          const BuildIRSettings &settings,
-                                          const LLVMValues &input_data_pointers,
-                                          const LLVMValues &input_list_lengths,
-                                          llvm::Value *iteration) const
+  Vector<llvm::Value *> prepare_main_function_inputs(
+      CodeBuilder &builder,
+      CodeInterface &interface,
+      const BuildIRSettings &settings,
+      const Vector<llvm::Value *> &input_data_pointers,
+      const Vector<llvm::Value *> &input_list_lengths,
+      llvm::Value *iteration) const
   {
-    LLVMValues main_inputs;
+    Vector<llvm::Value *> main_inputs;
 
     uint list_input_index = 0;
     for (uint i = 0; i < m_input_info.size(); i++) {
@@ -198,8 +202,8 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
         /* Use default value when list has no elements. */
         SharedFunction &default_builder = m_empty_list_value_builders[list_input_index];
         auto *default_builder_body = default_builder->body<LLVMBuildIRBody>();
-        LLVMValues default_builder_inputs(0);
-        LLVMValues default_builder_outputs(1);
+        Vector<llvm::Value *> default_builder_inputs(0);
+        Vector<llvm::Value *> default_builder_outputs(1);
         CodeInterface default_builder_interface(default_builder_inputs,
                                                 default_builder_outputs,
                                                 interface.context_ptr(),
@@ -476,7 +480,7 @@ struct AutoVectorizationInput {
     return (a.m_original_fn == b.m_original_fn &&
             Vector<bool>::all_equal(a.m_vectorized_inputs_mask, b.m_vectorized_inputs_mask) &&
             Vector<SharedFunction>::all_equal(a.m_empty_list_value_builders,
-                                                   b.m_empty_list_value_builders));
+                                              b.m_empty_list_value_builders));
   }
 };
 

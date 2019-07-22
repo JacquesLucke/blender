@@ -5,9 +5,9 @@
 
 namespace FN {
 
-LLVMTypes CodeBuilder::types_of_values(ArrayRef<llvm::Value *> values)
+Vector<llvm::Type *> CodeBuilder::types_of_values(ArrayRef<llvm::Value *> values)
 {
-  LLVMTypes types;
+  Vector<llvm::Type *> types;
   for (llvm::Value *value : values) {
     types.append(value->getType());
   }
@@ -25,7 +25,7 @@ static llvm::Function *create_wrapper_function(llvm::Module *module,
   llvm::BasicBlock *bb = llvm::BasicBlock::Create(module->getContext(), "entry", function);
   llvm::IRBuilder<> builder(bb);
 
-  LLVMValues args;
+  Vector<llvm::Value *> args;
   for (auto &arg : function->args()) {
     args.append(&arg);
   }
@@ -66,7 +66,7 @@ llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
                                             llvm::Type *return_type,
                                             const char *function_name)
 {
-  LLVMTypes arg_types = this->types_of_values(args);
+  Vector<llvm::Type *> arg_types = this->types_of_values(args);
   llvm::FunctionType *ftype = llvm::FunctionType::get(
       return_type, to_llvm_array_ref(arg_types), false);
   return this->CreateCallPointer(func_ptr, ftype, args, function_name);
@@ -106,7 +106,7 @@ void CodeBuilder::CreatePrintf(const char *format, ArrayRef<llvm::Value *> value
       this->getModule()->getOrInsertFunction("printf", printf_ftype));
   printf_func->addParamAttr(0, llvm::Attribute::NoAlias);
 
-  LLVMValues args;
+  Vector<llvm::Value *> args;
   args.append(this->getInt8Ptr(format));
   for (llvm::Value *arg : values) {
     llvm::Value *passed_arg = arg;

@@ -34,7 +34,7 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   llvm::Type *byte_ptr_ty = llvm::Type::getInt8PtrTy(context);
   llvm::Type *int_ptr_ty = llvm::Type::getInt32PtrTy(context);
 
-  LLVMTypes input_types = {
+  Vector<llvm::Type *> input_types = {
       byte_ptr_ty,
       int_ptr_ty,
       byte_ptr_ty,
@@ -62,7 +62,7 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   fn_out_offsets->setName("offsets_out");
   context_ptr->setName("context");
 
-  LLVMValues input_values;
+  Vector<llvm::Value *> input_values;
   for (uint i = 0; i < fn->input_amount(); i++) {
     llvm::Value *value_byte_addr = lookup_tuple_address(builder, fn_in_data, fn_in_offsets, i);
 
@@ -72,7 +72,7 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
     input_values.append(value);
   }
 
-  LLVMValues output_values(fn->output_amount());
+  Vector<llvm::Value *> output_values(fn->output_amount());
   BuildIRSettings settings;
   FunctionIRCache function_cache;
   CodeInterface interface(input_values, output_values, context_ptr, function_cache);

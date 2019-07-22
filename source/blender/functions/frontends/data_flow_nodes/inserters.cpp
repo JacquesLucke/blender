@@ -146,8 +146,8 @@ class SocketLoaderDependencies : public DepsBody {
   }
 };
 
-DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder,
-                                                 ArrayRef<VirtualSocket *> vsockets)
+Vector<DFGB_Socket> GraphInserters::insert_sockets(BTreeGraphBuilder &builder,
+                                                   ArrayRef<VirtualSocket *> vsockets)
 {
   Vector<SocketLoader> loaders;
   Vector<bNodeSocket *> bsockets;
@@ -170,7 +170,7 @@ DFGB_SocketVector GraphInserters::insert_sockets(BTreeGraphBuilder &builder,
   fn->add_body<SocketLoaderDependencies>(btrees, bsockets);
   DFGB_Node *node = builder.insert_function(fn);
 
-  DFGB_SocketVector sockets;
+  Vector<DFGB_Socket> sockets;
   for (DFGB_Socket output : node->outputs()) {
     sockets.append(output);
   }

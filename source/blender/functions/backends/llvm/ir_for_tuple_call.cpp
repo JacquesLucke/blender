@@ -66,7 +66,7 @@ class TupleCallLLVM : public LLVMBuildIRBody {
         builder, interface, settings, input_type_infos, output_type_infos);
 
     /* Call wrapper function. */
-    LLVMValues call_inputs = interface.inputs();
+    Vector<llvm::Value *> call_inputs = interface.inputs();
     if (settings.maintain_stack()) {
       call_inputs.append(interface.context_ptr());
     }
@@ -88,12 +88,12 @@ class TupleCallLLVM : public LLVMBuildIRBody {
   {
     Function *fn = m_tuple_call->owner();
 
-    LLVMTypes input_types = builder.types_of_values(interface.inputs());
+    Vector<llvm::Type *> input_types = builder.types_of_values(interface.inputs());
     if (settings.maintain_stack()) {
       input_types.append(builder.getVoidPtrTy());
     }
 
-    LLVMTypes output_types;
+    Vector<llvm::Type *> output_types;
     for (auto type_info : output_type_infos) {
       output_types.append(type_info->get_type(builder.getContext()));
     }

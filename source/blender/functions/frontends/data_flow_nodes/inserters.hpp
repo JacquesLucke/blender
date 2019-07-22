@@ -44,7 +44,8 @@ class GraphInserters {
 
   bool insert_node(BTreeGraphBuilder &builder, VirtualNode *vnode);
 
-  DFGB_SocketVector insert_sockets(BTreeGraphBuilder &builder, ArrayRef<VirtualSocket *> vsockets);
+  Vector<DFGB_Socket> insert_sockets(BTreeGraphBuilder &builder,
+                                     ArrayRef<VirtualSocket *> vsockets);
 
   bool insert_link(BTreeGraphBuilder &builder,
                    VirtualSocket *from_vsocket,

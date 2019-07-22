@@ -80,7 +80,7 @@ static void insert_unlinked_inputs(BTreeGraphBuilder &builder,
     }
   }
 
-  DFGB_SocketVector inserted_data_origins;
+  Vector<DFGB_Socket> inserted_data_origins;
   inserted_data_origins.reserve(unlinked_inputs.size());
   unlinked_inputs_handler.insert(builder, unlinked_inputs, inserted_data_origins);
 
@@ -138,7 +138,7 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
 
   void insert(BTreeGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
-              DFGB_SocketVector &r_inserted_data_origins) override
+              Vector<DFGB_Socket> &r_inserted_data_origins) override
   {
     r_inserted_data_origins = std::move(m_inserters.insert_sockets(builder, unlinked_inputs));
   }

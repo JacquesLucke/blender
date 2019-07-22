@@ -22,10 +22,6 @@ class DFGB_Node;
 class DataFlowGraphBuilder;
 class DataFlowGraph;
 
-using DFGB_SocketSet = Set<DFGB_Socket>;
-using DFGB_SocketVector = Vector<DFGB_Socket>;
-using DFGB_SocketSetVector = SetVector<DFGB_Socket>;
-
 class DFGB_Socket {
  public:
   DFGB_Socket(DFGB_Node *node, bool is_output, uint index)

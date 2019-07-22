@@ -10,9 +10,6 @@ class BuildGraphIR : public LLVMBuildIRBody {
   DataFlowGraph *m_graph;
   Set<DFGraphSocket> m_required_sockets;
 
-  using SocketValueMap = Map<DFGraphSocket, llvm::Value *>;
-  using FunctionDFGB_SocketSet = Set<DFGraphSocket>;
-
  public:
   BuildGraphIR(FunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph().ptr())
   {
@@ -38,12 +35,12 @@ class BuildGraphIR : public LLVMBuildIRBody {
                 CodeInterface &interface,
                 const BuildIRSettings &settings) const override
   {
-    SocketValueMap values;
+    Map<DFGraphSocket, llvm::Value *> values;
     for (uint i = 0; i < m_fgraph.inputs().size(); i++) {
       values.add(m_fgraph.inputs()[i], interface.get_input(i));
     }
 
-    FunctionDFGB_SocketSet forwarded_sockets;
+    Set<DFGraphSocket> forwarded_sockets;
     for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
       DFGraphSocket socket = m_fgraph.outputs()[i];
       this->generate_for_socket(builder, interface, settings, socket, values, forwarded_sockets);
@@ -57,8 +54,8 @@ class BuildGraphIR : public LLVMBuildIRBody {
                            CodeInterface &interface,
                            const BuildIRSettings &settings,
                            DFGraphSocket socket,
-                           SocketValueMap &values,
-                           FunctionDFGB_SocketSet &forwarded_sockets) const
+                           Map<DFGraphSocket, llvm::Value *> &values,
+                           Set<DFGraphSocket> &forwarded_sockets) const
   {
     if (values.contains(socket)) {
       /* do nothing */
@@ -70,14 +67,14 @@ class BuildGraphIR : public LLVMBuildIRBody {
     }
     else if (socket.is_output()) {
       uint node_id = m_graph->node_id_of_output(socket);
-      LLVMValues input_values;
+      Vector<llvm::Value *> input_values;
       for (DFGraphSocket input_socket : m_graph->inputs_of_node(node_id)) {
         this->generate_for_socket(
             builder, interface, settings, input_socket, values, forwarded_sockets);
         input_values.append(values.lookup(input_socket));
       }
 
-      LLVMValues output_values = this->build_node_ir(
+      Vector<llvm::Value *> output_values = this->build_node_ir(
           builder, interface, settings, node_id, input_values);
 
       uint index = 0;
@@ -94,8 +91,8 @@ class BuildGraphIR : public LLVMBuildIRBody {
 
   void forward_output_if_necessary(CodeBuilder &builder,
                                    DFGraphSocket output,
-                                   SocketValueMap &values,
-                                   FunctionDFGB_SocketSet &forwarded_sockets) const
+                                   Map<DFGraphSocket, llvm::Value *> &values,
+                                   Set<DFGraphSocket> &forwarded_sockets) const
   {
     BLI_assert(output.is_output());
     if (!forwarded_sockets.contains(output)) {
@@ -104,7 +101,9 @@ class BuildGraphIR : public LLVMBuildIRBody {
     }
   }
 
-  void forward_output(CodeBuilder &builder, DFGraphSocket output, SocketValueMap &values) const
+  void forward_output(CodeBuilder &builder,
+                      DFGraphSocket output,
+                      Map<DFGraphSocket, llvm::Value *> &values) const
   {
     llvm::Value *value_to_forward = values.lookup(output);
     SharedType &type = m_graph->type_of_socket(output);
@@ -135,18 +134,18 @@ class BuildGraphIR : public LLVMBuildIRBody {
     }
   }
 
-  LLVMValues build_node_ir(CodeBuilder &builder,
-                           CodeInterface &interface,
-                           const BuildIRSettings &settings,
-                           uint node_id,
-                           LLVMValues &input_values) const
+  Vector<llvm::Value *> build_node_ir(CodeBuilder &builder,
+                                      CodeInterface &interface,
+                                      const BuildIRSettings &settings,
+                                      uint node_id,
+                                      Vector<llvm::Value *> &input_values) const
   {
     if (settings.maintain_stack()) {
       this->push_stack_frames_for_node(builder, interface.context_ptr(), node_id);
     }
 
     SharedFunction &fn = m_graph->function_of_node(node_id);
-    LLVMValues output_values(m_graph->outputs_of_node(node_id).size());
+    Vector<llvm::Value *> output_values(m_graph->outputs_of_node(node_id).size());
     CodeInterface sub_interface(
         input_values, output_values, interface.context_ptr(), interface.function_ir_cache());
 

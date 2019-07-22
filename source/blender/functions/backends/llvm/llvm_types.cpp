@@ -136,10 +136,10 @@ llvm::Value *PointerLLVMTypeInfo::build_load_ir__relocate(CodeBuilder &builder,
 /* Utilities
  ******************************************/
 
-LLVMTypes types_of_type_infos(const Vector<LLVMTypeInfo *> &type_infos,
-                              llvm::LLVMContext &context)
+Vector<llvm::Type *> types_of_type_infos(const Vector<LLVMTypeInfo *> &type_infos,
+                                         llvm::LLVMContext &context)
 {
-  LLVMTypes types;
+  Vector<llvm::Type *> types;
   for (auto info : type_infos) {
     types.append(info->get_type(context));
   }
