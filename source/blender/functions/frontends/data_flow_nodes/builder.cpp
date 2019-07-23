@@ -113,14 +113,14 @@ void BTreeGraphBuilder::map_sockets(DFGB_Node *node, VirtualNode *vnode)
   BLI_assert(vnode->outputs().size() == node->output_amount());
 
   uint input_index = 0;
-  for (VirtualSocket &vsocket : vnode->inputs()) {
-    this->map_socket(node->input(input_index), &vsocket);
+  for (VirtualSocket *vsocket : vnode->inputs()) {
+    this->map_socket(node->input(input_index), vsocket);
     input_index++;
   }
 
   uint output_index = 0;
-  for (VirtualSocket &vsocket : vnode->outputs()) {
-    this->map_socket(node->output(output_index), &vsocket);
+  for (VirtualSocket *vsocket : vnode->outputs()) {
+    this->map_socket(node->output(output_index), vsocket);
     output_index++;
   }
 }
@@ -128,17 +128,17 @@ void BTreeGraphBuilder::map_sockets(DFGB_Node *node, VirtualNode *vnode)
 void BTreeGraphBuilder::map_data_sockets(DFGB_Node *node, VirtualNode *vnode)
 {
   uint input_index = 0;
-  for (VirtualSocket &vsocket : vnode->inputs()) {
-    if (this->is_data_socket(&vsocket)) {
-      this->map_socket(node->input(input_index), &vsocket);
+  for (VirtualSocket *vsocket : vnode->inputs()) {
+    if (this->is_data_socket(vsocket)) {
+      this->map_socket(node->input(input_index), vsocket);
       input_index++;
     }
   }
 
   uint output_index = 0;
-  for (VirtualSocket &vsocket : vnode->outputs()) {
-    if (this->is_data_socket(&vsocket)) {
-      this->map_socket(node->output(output_index), &vsocket);
+  for (VirtualSocket *vsocket : vnode->outputs()) {
+    if (this->is_data_socket(vsocket)) {
+      this->map_socket(node->output(output_index), vsocket);
       output_index++;
     }
   }
@@ -165,16 +165,16 @@ DFGB_Socket BTreeGraphBuilder::lookup_socket(VirtualSocket *vsocket)
 }
 
 bool BTreeGraphBuilder::check_if_sockets_are_mapped(VirtualNode *vnode,
-                                                    ArrayRef<VirtualSocket> vsockets) const
+                                                    ArrayRef<VirtualSocket *> vsockets) const
 {
   int index = 0;
-  for (VirtualSocket &vsocket : vsockets) {
-    if (this->is_data_socket(&vsocket)) {
-      if (!m_socket_map.contains(&vsocket)) {
+  for (VirtualSocket *vsocket : vsockets) {
+    if (this->is_data_socket(vsocket)) {
+      if (!m_socket_map.contains(vsocket)) {
         std::cout << "Data DFGB_Socket not mapped: " << std::endl;
         std::cout << "    Tree: " << vnode->btree_id()->name << std::endl;
         std::cout << "    DFGB_Node: " << vnode->name() << std::endl;
-        if (vsocket.is_input()) {
+        if (vsocket->is_input()) {
           std::cout << "    Input";
         }
         else {
@@ -236,13 +236,13 @@ SharedType &BTreeGraphBuilder::type_from_rna(PointerRNA &rna, StringRefNull prop
 
 bool BTreeGraphBuilder::has_data_socket(VirtualNode *vnode) const
 {
-  for (VirtualSocket &vsocket : vnode->inputs()) {
-    if (this->is_data_socket(&vsocket)) {
+  for (VirtualSocket *vsocket : vnode->inputs()) {
+    if (this->is_data_socket(vsocket)) {
       return true;
     }
   }
-  for (VirtualSocket &vsocket : vnode->outputs()) {
-    if (this->is_data_socket(&vsocket)) {
+  for (VirtualSocket *vsocket : vnode->outputs()) {
+    if (this->is_data_socket(vsocket)) {
       return true;
     }
   }

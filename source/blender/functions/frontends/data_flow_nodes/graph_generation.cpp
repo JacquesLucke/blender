@@ -11,16 +11,16 @@ namespace DataFlowNodes {
 static void insert_placeholder_node(BTreeGraphBuilder &builder, VirtualNode *vnode)
 {
   FunctionBuilder fn_builder;
-  for (VirtualSocket &vsocket : vnode->inputs()) {
-    if (builder.is_data_socket(&vsocket)) {
-      SharedType &type = builder.query_socket_type(&vsocket);
-      fn_builder.add_input(builder.query_socket_name(&vsocket), type);
+  for (VirtualSocket *vsocket : vnode->inputs()) {
+    if (builder.is_data_socket(vsocket)) {
+      SharedType &type = builder.query_socket_type(vsocket);
+      fn_builder.add_input(builder.query_socket_name(vsocket), type);
     }
   }
-  for (VirtualSocket &vsocket : vnode->outputs()) {
-    if (builder.is_data_socket(&vsocket)) {
-      SharedType &type = builder.query_socket_type(&vsocket);
-      fn_builder.add_output(builder.query_socket_name(&vsocket), type);
+  for (VirtualSocket *vsocket : vnode->outputs()) {
+    if (builder.is_data_socket(vsocket)) {
+      SharedType &type = builder.query_socket_type(vsocket);
+      fn_builder.add_output(builder.query_socket_name(vsocket), type);
     }
   }
 
@@ -67,11 +67,11 @@ static void insert_unlinked_inputs(BTreeGraphBuilder &builder,
   Vector<DFGB_Socket> sockets_in_builder;
 
   for (VirtualNode *vnode : builder.vtree().nodes()) {
-    for (VirtualSocket &vsocket : vnode->inputs()) {
-      if (builder.is_data_socket(&vsocket)) {
-        DFGB_Socket socket = builder.lookup_socket(&vsocket);
+    for (VirtualSocket *vsocket : vnode->inputs()) {
+      if (builder.is_data_socket(vsocket)) {
+        DFGB_Socket socket = builder.lookup_socket(vsocket);
         if (!socket.is_linked()) {
-          unlinked_inputs.append(&vsocket);
+          unlinked_inputs.append(vsocket);
           sockets_in_builder.append(socket);
         }
       }

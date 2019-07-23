@@ -117,16 +117,16 @@ void VirtualNodeTree::add_all_of_tree(bNodeTree *btree)
     VirtualSocket *from_vsocket = nullptr;
     VirtualSocket *to_vsocket = nullptr;
 
-    for (VirtualSocket &output : from_node->outputs()) {
-      if (output.bsocket() == blink->fromsock) {
-        from_vsocket = &output;
+    for (VirtualSocket *output : from_node->outputs()) {
+      if (output->bsocket() == blink->fromsock) {
+        from_vsocket = output;
         break;
       }
     }
 
-    for (VirtualSocket &input : to_node->inputs()) {
-      if (input.bsocket() == blink->tosock) {
-        to_vsocket = &input;
+    for (VirtualSocket *input : to_node->inputs()) {
+      if (input->bsocket() == blink->tosock) {
+        to_vsocket = input;
         break;
       }
     }
@@ -149,22 +149,27 @@ VirtualNode *VirtualNodeTree::add_bnode(bNodeTree *btree, bNode *bnode)
   Vector<bNodeSocket *, 10> original_inputs(bnode->inputs, true);
   Vector<bNodeSocket *, 10> original_outputs(bnode->outputs, true);
 
-  vnode->m_inputs = m_allocator.allocate_array<VirtualSocket>(original_inputs.size());
-  vnode->m_outputs = m_allocator.allocate_array<VirtualSocket>(original_outputs.size());
+  auto inputs = m_allocator.allocate_array<VirtualSocket>(original_inputs.size());
+  auto outputs = m_allocator.allocate_array<VirtualSocket>(original_outputs.size());
+
+  vnode->m_inputs = m_allocator.allocate_array<VirtualSocket *>(inputs.size());
+  vnode->m_outputs = m_allocator.allocate_array<VirtualSocket *>(outputs.size());
 
   for (uint i = 0; i < original_inputs.size(); i++) {
-    VirtualSocket &vsocket = vnode->m_inputs[i];
+    VirtualSocket &vsocket = inputs[i];
     new (&vsocket) VirtualSocket();
     vsocket.m_vnode = vnode;
     vsocket.m_btree = btree;
     vsocket.m_bsocket = original_inputs[i];
+    vnode->m_inputs[i] = &vsocket;
   }
   for (uint i = 0; i < original_outputs.size(); i++) {
-    VirtualSocket &vsocket = vnode->m_outputs[i];
+    VirtualSocket &vsocket = outputs[i];
     new (&vsocket) VirtualSocket();
     vsocket.m_vnode = vnode;
     vsocket.m_btree = btree;
     vsocket.m_bsocket = original_outputs[i];
+    vnode->m_outputs[i] = &vsocket;
   }
 
   m_nodes.append(vnode);
@@ -220,8 +225,7 @@ static bool is_reroute(VirtualNode *vnode)
   return STREQ(vnode->bnode()->idname, "NodeReroute");
 }
 
-static void find_connected_sockets_left(VirtualSocket *vsocket,
-                                        Vector<VirtualSocket *> &r_found)
+static void find_connected_sockets_left(VirtualSocket *vsocket, Vector<VirtualSocket *> &r_found)
 {
   BLI_assert(vsocket->is_input());
   for (VirtualSocket *other : vsocket->direct_links()) {
@@ -234,8 +238,7 @@ static void find_connected_sockets_left(VirtualSocket *vsocket,
   }
 }
 
-static void find_connected_sockets_right(VirtualSocket *vsocket,
-                                         Vector<VirtualSocket *> &r_found)
+static void find_connected_sockets_right(VirtualSocket *vsocket, Vector<VirtualSocket *> &r_found)
 {
   BLI_assert(vsocket->is_output());
   for (VirtualSocket *other : vsocket->direct_links()) {

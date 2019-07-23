@@ -181,28 +181,28 @@ class VirtualNode {
   VirtualNodeTree *m_backlink;
   bNodeTree *m_btree;
   bNode *m_bnode;
-  ArrayRef<VirtualSocket> m_inputs;
-  ArrayRef<VirtualSocket> m_outputs;
+  ArrayRef<VirtualSocket *> m_inputs;
+  ArrayRef<VirtualSocket *> m_outputs;
 
  public:
-  ArrayRef<VirtualSocket> inputs()
+  ArrayRef<VirtualSocket *> inputs()
   {
     return m_inputs;
   }
 
-  ArrayRef<VirtualSocket> outputs()
+  ArrayRef<VirtualSocket *> outputs()
   {
     return m_outputs;
   }
 
   VirtualSocket *input(uint index)
   {
-    return &m_inputs[index];
+    return m_inputs[index];
   }
 
   VirtualSocket *output(uint index)
   {
-    return &m_outputs[index];
+    return m_outputs[index];
   }
 
   bNode *bnode()
@@ -247,12 +247,12 @@ class VirtualSocket {
  public:
   bool is_input() const
   {
-    return m_vnode->m_inputs.contains_ptr(this);
+    return this->m_bsocket->in_out == SOCK_IN;
   }
 
   bool is_output() const
   {
-    return m_vnode->m_outputs.contains_ptr(this);
+    return this->m_bsocket->in_out == SOCK_OUT;
   }
 
   bNodeSocket *bsocket()

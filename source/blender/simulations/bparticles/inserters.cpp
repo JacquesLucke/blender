@@ -63,8 +63,8 @@ static Vector<FN::DFGraphSocket> insert_inputs(FN::FunctionBuilder &fn_builder,
     }
     else {
       VirtualNode *vnode = vsocket->vnode();
-      for (VirtualSocket &input : vnode->inputs()) {
-        to_be_checked.add(&input);
+      for (VirtualSocket *input : vnode->inputs()) {
+        to_be_checked.add(input);
       }
     }
   }
@@ -96,9 +96,9 @@ static SharedFunction create_function_for_data_inputs(VirtualNode *vnode,
                                                       BTreeDataGraph &data_graph)
 {
   Vector<VirtualSocket *> bsockets_to_compute;
-  for (VirtualSocket &vsocket : vnode->inputs()) {
-    if (data_graph.uses_socket(&vsocket)) {
-      bsockets_to_compute.append(&vsocket);
+  for (VirtualSocket *vsocket : vnode->inputs()) {
+    if (data_graph.uses_socket(vsocket)) {
+      bsockets_to_compute.append(vsocket);
     }
   }
   return create_function(data_graph, bsockets_to_compute, vnode->name());

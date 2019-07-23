@@ -64,7 +64,7 @@ class BTreeGraphBuilder {
   SharedType &type_from_rna(PointerRNA &rna, StringRefNull prop_name) const;
 
  private:
-  bool check_if_sockets_are_mapped(VirtualNode *vnode, ArrayRef<VirtualSocket> vsockets) const;
+  bool check_if_sockets_are_mapped(VirtualNode *vnode, ArrayRef<VirtualSocket *> vsockets) const;
 };
 
 }  // namespace DataFlowNodes

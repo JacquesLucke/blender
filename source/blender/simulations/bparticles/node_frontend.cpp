@@ -21,9 +21,9 @@ static bool is_emitter_socket(VirtualSocket *vsocket)
 
 static VirtualSocket *find_emitter_output(VirtualNode *vnode)
 {
-  for (VirtualSocket &vsocket : vnode->outputs()) {
-    if (is_emitter_socket(&vsocket)) {
-      return &vsocket;
+  for (VirtualSocket *vsocket : vnode->outputs()) {
+    if (is_emitter_socket(vsocket)) {
+      return vsocket;
     }
   }
   BLI_assert(false);
