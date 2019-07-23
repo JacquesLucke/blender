@@ -78,7 +78,7 @@ class Type final : public RefCountedBase {
  private:
   std::string m_name;
   std::mutex m_add_extension_mutex;
-  TypeExtension *m_extensions[TypeExtension::EXTENSION_TYPE_AMOUNT];
+  TypeExtension *m_extensions[TypeExtension::EXTENSION_TYPE_AMOUNT] = {0};
 };
 
 using SharedType = AutoRefCount<Type>;
