@@ -49,7 +49,5 @@ class BTreeDataGraph {
 
 Optional<BTreeDataGraph> generate_graph(VirtualNodeTree &vtree);
 
-Optional<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree);
-
 }  // namespace DataFlowNodes
 }  // namespace FN

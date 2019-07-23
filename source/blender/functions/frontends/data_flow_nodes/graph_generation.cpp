@@ -89,29 +89,6 @@ static void insert_unlinked_inputs(BTreeGraphBuilder &builder,
   }
 }
 
-static void find_interface_sockets(VirtualNodeTree &vtree,
-                                   BTreeDataGraph &graph,
-                                   DFGraphSocketSetVector &r_inputs,
-                                   DFGraphSocketSetVector &r_outputs)
-{
-  VirtualNode *input_node = vtree.nodes_with_idname("fn_FunctionInputNode").get(0, nullptr);
-  VirtualNode *output_node = vtree.nodes_with_idname("fn_FunctionOutputNode").get(0, nullptr);
-
-  if (input_node != nullptr) {
-    for (uint i = 0; i < input_node->outputs().size() - 1; i++) {
-      VirtualSocket *vsocket = input_node->output(i);
-      r_inputs.add_new(graph.lookup_socket(vsocket));
-    }
-  }
-
-  if (output_node != nullptr) {
-    for (uint i = 0; i < output_node->inputs().size() - 1; i++) {
-      VirtualSocket *vsocket = output_node->input(i);
-      r_outputs.add_new(graph.lookup_socket(vsocket));
-    }
-  }
-}
-
 static Map<VirtualSocket *, DFGraphSocket> build_mapping_for_original_sockets(
     Map<VirtualSocket *, DFGB_Socket> &socket_map,
     DataFlowGraph::ToBuilderMapping &builder_mapping)
@@ -165,22 +142,6 @@ Optional<BTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
   auto build_result = DataFlowGraph::FromBuilder(graph_builder);
   return BTreeDataGraph(std::move(build_result.graph),
                         build_mapping_for_original_sockets(socket_map, build_result.mapping));
-}
-
-Optional<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree)
-{
-  Optional<BTreeDataGraph> data_graph_ = generate_graph(vtree);
-  if (!data_graph_.has_value()) {
-    return {};
-  }
-
-  BTreeDataGraph &data_graph = data_graph_.value();
-
-  DFGraphSocketSetVector input_sockets;
-  DFGraphSocketSetVector output_sockets;
-  find_interface_sockets(vtree, data_graph, input_sockets, output_sockets);
-
-  return FunctionGraph(data_graph.graph(), input_sockets, output_sockets);
 }
 
 }  // namespace DataFlowNodes

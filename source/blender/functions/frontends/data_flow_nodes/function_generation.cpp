@@ -9,6 +9,45 @@
 namespace FN {
 namespace DataFlowNodes {
 
+static void find_interface_sockets(VirtualNodeTree &vtree,
+                                   BTreeDataGraph &graph,
+                                   DFGraphSocketSetVector &r_inputs,
+                                   DFGraphSocketSetVector &r_outputs)
+{
+  VirtualNode *input_node = vtree.nodes_with_idname("fn_FunctionInputNode").get(0, nullptr);
+  VirtualNode *output_node = vtree.nodes_with_idname("fn_FunctionOutputNode").get(0, nullptr);
+
+  if (input_node != nullptr) {
+    for (uint i = 0; i < input_node->outputs().size() - 1; i++) {
+      VirtualSocket *vsocket = input_node->output(i);
+      r_inputs.add_new(graph.lookup_socket(vsocket));
+    }
+  }
+
+  if (output_node != nullptr) {
+    for (uint i = 0; i < output_node->inputs().size() - 1; i++) {
+      VirtualSocket *vsocket = output_node->input(i);
+      r_outputs.add_new(graph.lookup_socket(vsocket));
+    }
+  }
+}
+
+static Optional<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree)
+{
+  Optional<BTreeDataGraph> data_graph_ = generate_graph(vtree);
+  if (!data_graph_.has_value()) {
+    return {};
+  }
+
+  BTreeDataGraph &data_graph = data_graph_.value();
+
+  DFGraphSocketSetVector input_sockets;
+  DFGraphSocketSetVector output_sockets;
+  find_interface_sockets(vtree, data_graph, input_sockets, output_sockets);
+
+  return FunctionGraph(data_graph.graph(), input_sockets, output_sockets);
+}
+
 Optional<SharedFunction> generate_function(bNodeTree *btree)
 {
   VirtualNodeTree vtree;
