@@ -23,7 +23,6 @@
 
 #include <string>
 #include <mutex>
-#include "BLI_composition.hpp"
 #include "BLI_shared.hpp"
 #include "BLI_string_ref.hpp"
 
@@ -44,12 +43,15 @@ class TypeExtension {
   virtual ~TypeExtension();
 
   Type *owner() const;
+
+  static const uint EXTENSION_TYPE_AMOUNT = 2;
 };
 
 class Type final : public RefCountedBase {
  public:
   Type() = delete;
   Type(StringRef name);
+  ~Type();
 
   /**
    * Get the name of the type.
@@ -75,8 +77,8 @@ class Type final : public RefCountedBase {
 
  private:
   std::string m_name;
-  Composition m_extensions;
-  mutable std::mutex m_extension_mutex;
+  std::mutex m_add_extension_mutex;
+  TypeExtension *m_extensions[TypeExtension::EXTENSION_TYPE_AMOUNT];
 };
 
 using SharedType = AutoRefCount<Type>;
@@ -93,36 +95,35 @@ inline const StringRefNull Type::name() const
   return m_name;
 }
 
+#define STATIC_ASSERT_EXTENSION_TYPE(T) \
+  BLI_STATIC_ASSERT((std::is_base_of<TypeExtension, T>::value), ""); \
+  BLI_STATIC_ASSERT(T::TYPE_EXTENSION_ID < TypeExtension::EXTENSION_TYPE_AMOUNT, "")
+
 template<typename T> inline bool Type::has_extension() const
 {
-  std::lock_guard<std::mutex> lock(m_extension_mutex);
-  BLI_STATIC_ASSERT((std::is_base_of<TypeExtension, T>::value), "");
-  return m_extensions.has<T>();
+  STATIC_ASSERT_EXTENSION_TYPE(T);
+  return m_extensions[T::TYPE_EXTENSION_ID] != nullptr;
 }
 
 template<typename T> inline T *Type::extension() const
 {
-  /* TODO: Check if we really need a lock here.
-   *   Since extensions can't be removed, it might be
-   *   to access existing extensions without a lock. */
-  std::lock_guard<std::mutex> lock(m_extension_mutex);
-  BLI_STATIC_ASSERT((std::is_base_of<TypeExtension, T>::value), "");
-  return m_extensions.get<T>();
+  STATIC_ASSERT_EXTENSION_TYPE(T);
+  return (T *)m_extensions[T::TYPE_EXTENSION_ID];
 }
 
 template<typename T, typename... Args> inline bool Type::add_extension(Args &&... args)
 {
-  std::lock_guard<std::mutex> lock(m_extension_mutex);
-  BLI_STATIC_ASSERT((std::is_base_of<TypeExtension, T>::value), "");
+  STATIC_ASSERT_EXTENSION_TYPE(T);
 
-  if (m_extensions.has<T>()) {
-    return false;
-  }
-  else {
+  std::lock_guard<std::mutex> lock(m_add_extension_mutex);
+  if (m_extensions[T::TYPE_EXTENSION_ID] == nullptr) {
     T *new_extension = new T(std::forward<Args>(args)...);
     new_extension->set_owner(this);
-    m_extensions.add(new_extension);
+    m_extensions[T::TYPE_EXTENSION_ID] = new_extension;
     return true;
+  }
+  else {
+    return false;
   }
 }
 

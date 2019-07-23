@@ -14,7 +14,7 @@ namespace FN {
  */
 class LLVMTypeInfo : public TypeExtension {
  public:
-  BLI_COMPOSITION_DECLARATION(LLVMTypeInfo);
+  static const uint TYPE_EXTENSION_ID = 1;
 
   virtual ~LLVMTypeInfo();
 

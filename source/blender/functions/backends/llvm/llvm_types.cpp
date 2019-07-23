@@ -4,8 +4,6 @@ namespace FN {
 
 /******************** LLVMTypeInfo ********************/
 
-BLI_COMPOSITION_IMPLEMENTATION(LLVMTypeInfo);
-
 LLVMTypeInfo::~LLVMTypeInfo()
 {
 }

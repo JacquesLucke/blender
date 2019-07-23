@@ -71,7 +71,7 @@ class FunctionDepsBuilder {
 
 class DepsBody : public FunctionBody {
  public:
-  BLI_COMPOSITION_DECLARATION(DepsBody);
+  static const uint FUNCTION_BODY_ID = 0;
 
   virtual ~DepsBody()
   {

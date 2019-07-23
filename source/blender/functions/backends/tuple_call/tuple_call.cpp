@@ -2,9 +2,6 @@
 
 namespace FN {
 
-BLI_COMPOSITION_IMPLEMENTATION(TupleCallBody);
-BLI_COMPOSITION_IMPLEMENTATION(LazyInTupleCallBody);
-
 void TupleCallBodyBase::init_defaults(Tuple &fn_in) const
 {
   fn_in.init_default_all();

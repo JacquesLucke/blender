@@ -41,6 +41,8 @@ class FunctionBody {
   virtual ~FunctionBody();
 
   Function *owner() const;
+
+  static const uint BODY_TYPE_AMOUNT = 4;
 };
 
 class Function final : public RefCountedBase {
@@ -140,8 +142,8 @@ class Function final : public RefCountedBase {
 
  private:
   ChainedStringRef m_name;
-  Composition m_bodies;
-  mutable std::mutex m_body_mutex;
+  std::mutex m_add_body_mutex;
+  FunctionBody *m_bodies[FunctionBody::BODY_TYPE_AMOUNT] = {0};
 
   Vector<ChainedStringRef> m_input_names;
   Vector<SharedType> m_input_types;
@@ -188,35 +190,39 @@ inline const StringRefNull Function::name() const
   return m_name.to_string_ref(m_strings);
 }
 
+#define STATIC_ASSERT_BODY_TYPE(T) \
+  BLI_STATIC_ASSERT((std::is_base_of<FunctionBody, T>::value), ""); \
+  BLI_STATIC_ASSERT(T::FUNCTION_BODY_ID < FunctionBody::BODY_TYPE_AMOUNT, "")
+
 template<typename T> inline bool Function::has_body() const
 {
-  std::lock_guard<std::mutex> lock(m_body_mutex);
-  BLI_STATIC_ASSERT((std::is_base_of<FunctionBody, T>::value), "");
-  return this->m_bodies.has<T>();
+  STATIC_ASSERT_BODY_TYPE(T);
+  return m_bodies[T::FUNCTION_BODY_ID] != nullptr;
 }
 
 template<typename T> inline T *Function::body() const
 {
-  std::lock_guard<std::mutex> lock(m_body_mutex);
-  BLI_STATIC_ASSERT((std::is_base_of<FunctionBody, T>::value), "");
-  return m_bodies.get<T>();
+  STATIC_ASSERT_BODY_TYPE(T);
+  return (T *)m_bodies[T::FUNCTION_BODY_ID];
 }
 
 template<typename T, typename... Args> inline bool Function::add_body(Args &&... args)
 {
-  std::lock_guard<std::mutex> lock(m_body_mutex);
-  BLI_STATIC_ASSERT((std::is_base_of<FunctionBody, T>::value), "");
+  STATIC_ASSERT_BODY_TYPE(T);
 
-  if (m_bodies.has<T>()) {
-    return false;
-  }
-  else {
+  std::lock_guard<std::mutex> lock(m_add_body_mutex);
+  if (m_bodies[T::FUNCTION_BODY_ID] == nullptr) {
     T *new_body = new T(std::forward<Args>(args)...);
     new_body->set_owner(this);
-    m_bodies.add(new_body);
+    m_bodies[T::FUNCTION_BODY_ID] = new_body;
     return true;
   }
+  else {
+    return false;
+  }
 }
+
+#undef STATIC_ASSERT_BODY_TYPE
 
 inline bool operator==(const Function &a, const Function &b)
 {

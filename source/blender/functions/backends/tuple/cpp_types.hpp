@@ -14,7 +14,7 @@ namespace FN {
 
 class CPPTypeInfo : public TypeExtension {
  public:
-  BLI_COMPOSITION_DECLARATION(CPPTypeInfo);
+  static const uint TYPE_EXTENSION_ID = 0;
 
   virtual ~CPPTypeInfo()
   {

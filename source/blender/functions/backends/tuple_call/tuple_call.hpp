@@ -85,7 +85,7 @@ class TupleCallBodyBase : public FunctionBody {
 
 class TupleCallBody : public TupleCallBodyBase {
  public:
-  BLI_COMPOSITION_DECLARATION(TupleCallBody);
+  static const uint FUNCTION_BODY_ID = 1;
 
   /**
    * Calls the function with additional stack frames.
@@ -199,7 +199,7 @@ class LazyState {
  */
 class LazyInTupleCallBody : public TupleCallBodyBase {
  public:
-  BLI_COMPOSITION_DECLARATION(LazyInTupleCallBody);
+  static const uint FUNCTION_BODY_ID = 2;
 
   /**
    * Required buffer size for temporary data.
