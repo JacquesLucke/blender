@@ -227,9 +227,14 @@ class VirtualNode {
     return rna;
   }
 
-  StringRefNull name()
+  const char *name()
   {
     return m_bnode->name;
+  }
+
+  const char *idname()
+  {
+    return m_bnode->idname;
   }
 };
 
@@ -292,6 +297,11 @@ class VirtualSocket {
     PointerRNA rna;
     RNA_pointer_create(&m_btree->id, &RNA_NodeSocket, m_bsocket, &rna);
     return rna;
+  }
+
+  const char *name()
+  {
+    return m_bsocket->name;
   }
 };
 

@@ -91,7 +91,7 @@ template<typename T, uint N = 4> class Set {
 
   /**
    * Insert the value in the set if it did not exist before.
-   * Return false, when it existed before, otherwise true.
+   * Return true when the value has been newly inserted, otherwise false.
    */
   bool add(const T &value)
   {

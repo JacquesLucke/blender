@@ -51,7 +51,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
     attributes.add_float("Size", 0.01f);
     attributes.add_float3("Color", {1.0f, 1.0f, 1.0f});
     declarations.add_new(particle_type_node->name(), attributes);
-    particle_type_names.add_new(particle_type_node->name().to_std_string());
+    particle_type_names.add_new(particle_type_node->name());
   }
 
   auto data_graph = FN::DataFlowNodes::generate_graph(vtree).value();
@@ -65,7 +65,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
         if (is_particle_type_node(linked->vnode())) {
           auto force = item.value(ctx, vnode);
           if (force) {
-            forces.add(linked->vnode()->name().to_std_string(), force.release());
+            forces.add(linked->vnode()->name(), force.release());
           }
         }
       }
@@ -79,7 +79,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
         if (is_particle_type_node(linked->vnode())) {
           auto listener = item.value(ctx, vnode);
           if (listener) {
-            offset_handlers.add(linked->vnode()->name().to_std_string(), listener.release());
+            offset_handlers.add(linked->vnode()->name(), listener.release());
           }
         }
       }
@@ -93,7 +93,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
         if (is_particle_type_node(linked->vnode())) {
           auto event = item.value(ctx, vnode);
           if (event) {
-            events.add(linked->vnode()->name().to_std_string(), event.release());
+            events.add(linked->vnode()->name(), event.release());
           }
         }
       }
@@ -117,7 +117,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
 
   StringMap<ParticleType *> particle_types;
   for (VirtualNode *vnode : get_type_nodes(vtree)) {
-    std::string name = vnode->name().to_std_string();
+    std::string name = vnode->name();
     ArrayRef<Force *> forces_on_type = forces.lookup_default(name);
 
     Integrator *integrator = nullptr;

@@ -204,8 +204,7 @@ class DataFlowGraph : public RefCountedBase {
       }
     }
 
-    template<typename ContainerT>
-    Vector<DFGraphSocket> map_sockets(const ContainerT &dfgb_sockets)
+    template<typename ContainerT> Vector<DFGraphSocket> map_sockets(const ContainerT &dfgb_sockets)
     {
       Vector<DFGraphSocket> sockets;
       for (DFGB_Socket socket : dfgb_sockets) {
@@ -414,6 +413,13 @@ class DataFlowGraph : public RefCountedBase {
     }
   }
 
+  template<typename T> T *function_body_of_output(DFGraphSocket socket)
+  {
+    BLI_assert(socket.is_output());
+    SharedFunction &fn = this->function_of_output(socket.id());
+    return fn->body<T>();
+  }
+
   const StringRefNull name_of_input(uint input_id)
   {
     return this->function_of_input(input_id)->input_name(this->index_of_input(input_id));
@@ -432,6 +438,18 @@ class DataFlowGraph : public RefCountedBase {
   SharedType &type_of_output(uint output_id)
   {
     return this->function_of_output(output_id)->output_type(this->index_of_output(output_id));
+  }
+
+  SharedType &type_of_input(DFGraphSocket input_socket)
+  {
+    BLI_assert(input_socket.is_input());
+    return this->type_of_input(input_socket.id());
+  }
+
+  SharedType &type_of_output(DFGraphSocket output_socket)
+  {
+    BLI_assert(output_socket.is_output());
+    return this->type_of_output(output_socket.id());
   }
 
   std::string to_dot();
