@@ -20,13 +20,13 @@ class UnlinkedInputsHandler {
                       Vector<DFGB_Socket> &r_inserted_data_origins) = 0;
 };
 
-class BTreeDataGraph {
+class VTreeDataGraph {
  private:
   SharedDataFlowGraph m_graph;
   Map<VirtualSocket *, DFGraphSocket> m_mapping;
 
  public:
-  BTreeDataGraph(SharedDataFlowGraph graph, Map<VirtualSocket *, DFGraphSocket> mapping)
+  VTreeDataGraph(SharedDataFlowGraph graph, Map<VirtualSocket *, DFGraphSocket> mapping)
       : m_graph(std::move(graph)), m_mapping(std::move(mapping))
   {
   }
@@ -47,7 +47,7 @@ class BTreeDataGraph {
   }
 };
 
-Optional<BTreeDataGraph> generate_graph(VirtualNodeTree &vtree);
+Optional<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree);
 
 }  // namespace DataFlowNodes
 }  // namespace FN

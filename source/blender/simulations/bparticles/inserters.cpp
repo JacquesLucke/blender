@@ -28,7 +28,7 @@ static bool is_particle_data_input(VirtualNode *vnode)
 }
 
 static Vector<FN::DFGraphSocket> insert_inputs(FN::FunctionBuilder &fn_builder,
-                                               BTreeDataGraph &data_graph,
+                                               VTreeDataGraph &data_graph,
                                                ArrayRef<VirtualSocket *> output_vsockets)
 {
   Set<VirtualSocket *> to_be_checked = output_vsockets;
@@ -71,7 +71,7 @@ static Vector<FN::DFGraphSocket> insert_inputs(FN::FunctionBuilder &fn_builder,
   return inputs;
 }
 
-static SharedFunction create_function(BTreeDataGraph &data_graph,
+static SharedFunction create_function(VTreeDataGraph &data_graph,
                                       ArrayRef<VirtualSocket *> output_vsockets,
                                       StringRef name)
 {
@@ -93,7 +93,7 @@ static SharedFunction create_function(BTreeDataGraph &data_graph,
 }
 
 static SharedFunction create_function_for_data_inputs(VirtualNode *vnode,
-                                                      BTreeDataGraph &data_graph)
+                                                      VTreeDataGraph &data_graph)
 {
   Vector<VirtualSocket *> bsockets_to_compute;
   for (VirtualSocket *vsocket : vnode->inputs()) {

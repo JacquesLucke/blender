@@ -119,7 +119,7 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
   }
 };
 
-Optional<BTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
+Optional<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
 {
   DataFlowGraphBuilder graph_builder;
   Map<VirtualSocket *, DFGB_Socket> socket_map;
@@ -140,7 +140,7 @@ Optional<BTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
   insert_unlinked_inputs(builder, unlinked_inputs_handler);
 
   auto build_result = DataFlowGraph::FromBuilder(graph_builder);
-  return BTreeDataGraph(std::move(build_result.graph),
+  return VTreeDataGraph(std::move(build_result.graph),
                         build_mapping_for_original_sockets(socket_map, build_result.mapping));
 }
 

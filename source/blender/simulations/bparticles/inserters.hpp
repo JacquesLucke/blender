@@ -20,10 +20,10 @@ using BKE::VirtualNode;
 using BKE::VirtualNodeTree;
 using BKE::VirtualSocket;
 using BLI::StringMap;
-using FN::DataFlowNodes::BTreeDataGraph;
+using FN::DataFlowNodes::VTreeDataGraph;
 
 struct BuildContext {
-  BTreeDataGraph &data_graph;
+  VTreeDataGraph &data_graph;
   Set<std::string> &particle_type_names;
   WorldState &world_state;
 

@@ -10,7 +10,7 @@ namespace FN {
 namespace DataFlowNodes {
 
 static void find_interface_sockets(VirtualNodeTree &vtree,
-                                   BTreeDataGraph &graph,
+                                   VTreeDataGraph &data_graph,
                                    DFGraphSocketSetVector &r_inputs,
                                    DFGraphSocketSetVector &r_outputs)
 {
@@ -20,26 +20,26 @@ static void find_interface_sockets(VirtualNodeTree &vtree,
   if (input_node != nullptr) {
     for (uint i = 0; i < input_node->outputs().size() - 1; i++) {
       VirtualSocket *vsocket = input_node->output(i);
-      r_inputs.add_new(graph.lookup_socket(vsocket));
+      r_inputs.add_new(data_graph.lookup_socket(vsocket));
     }
   }
 
   if (output_node != nullptr) {
     for (uint i = 0; i < output_node->inputs().size() - 1; i++) {
       VirtualSocket *vsocket = output_node->input(i);
-      r_outputs.add_new(graph.lookup_socket(vsocket));
+      r_outputs.add_new(data_graph.lookup_socket(vsocket));
     }
   }
 }
 
 static Optional<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree)
 {
-  Optional<BTreeDataGraph> data_graph_ = generate_graph(vtree);
+  Optional<VTreeDataGraph> data_graph_ = generate_graph(vtree);
   if (!data_graph_.has_value()) {
     return {};
   }
 
-  BTreeDataGraph &data_graph = data_graph_.value();
+  VTreeDataGraph &data_graph = data_graph_.value();
 
   DFGraphSocketSetVector input_sockets;
   DFGraphSocketSetVector output_sockets;
