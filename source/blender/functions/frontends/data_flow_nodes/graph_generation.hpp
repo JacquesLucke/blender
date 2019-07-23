@@ -47,6 +47,23 @@ class VTreeDataGraph {
   }
 };
 
+class VNodePlaceholderBody : public FunctionBody {
+ private:
+  VirtualNode *m_vnode;
+
+ public:
+  static const uint FUNCTION_BODY_ID = 4;
+
+  VNodePlaceholderBody(VirtualNode *vnode) : m_vnode(vnode)
+  {
+  }
+
+  VirtualNode *vnode()
+  {
+    return m_vnode;
+  }
+};
+
 Optional<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree);
 
 }  // namespace DataFlowNodes

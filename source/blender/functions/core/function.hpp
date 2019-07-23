@@ -42,7 +42,7 @@ class FunctionBody {
 
   Function *owner() const;
 
-  static const uint BODY_TYPE_AMOUNT = 4;
+  static const uint BODY_TYPE_AMOUNT = 5;
 };
 
 class Function final : public RefCountedBase {

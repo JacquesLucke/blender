@@ -25,6 +25,7 @@ static void insert_placeholder_node(BTreeGraphBuilder &builder, VirtualNode *vno
   }
 
   auto fn = fn_builder.build(vnode->name());
+  fn->add_body<VNodePlaceholderBody>(vnode);
   DFGB_Node *node = builder.insert_function(fn);
   builder.map_data_sockets(node, vnode);
 }
