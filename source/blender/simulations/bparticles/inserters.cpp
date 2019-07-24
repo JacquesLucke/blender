@@ -25,58 +25,6 @@ using FN::FunctionGraph;
 using FN::SharedFunction;
 using FN::SharedType;
 
-static Vector<DFGraphSocket> insert_function_inputs(FN::FunctionBuilder &fn_builder,
-                                                    VTreeDataGraph &data_graph,
-                                                    ArrayRef<VirtualSocket *> output_vsockets)
-{
-  auto dependencies = data_graph.find_placeholder_dependencies(output_vsockets);
-
-  auto &graph = data_graph.graph();
-
-  for (uint i = 0; i < dependencies.size(); i++) {
-    VirtualSocket *vsocket = dependencies.vsockets[i];
-    DFGraphSocket socket = dependencies.sockets[i];
-    VirtualNode *vnode = vsocket->vnode();
-    BLI_assert(vsocket->is_output());
-
-    SharedType &type = graph->type_of_output(socket);
-    std::string name_prefix;
-    if (STREQ(vnode->idname(), "bp_ParticleInfoNode")) {
-      name_prefix = "Attribute: ";
-    }
-    else if (STREQ(vnode->idname(), "bp_MeshCollisionEventNode")) {
-      name_prefix = "Event: ";
-    }
-    else {
-      BLI_assert(false);
-    }
-    fn_builder.add_input(name_prefix + vsocket->name(), type);
-  }
-
-  return dependencies.sockets;
-}
-
-static SharedFunction create_function(VTreeDataGraph &data_graph,
-                                      ArrayRef<VirtualSocket *> output_vsockets,
-                                      StringRef name)
-{
-  FN::FunctionBuilder fn_builder;
-  auto inputs = insert_function_inputs(fn_builder, data_graph, output_vsockets);
-
-  Vector<FN::DFGraphSocket> outputs;
-  for (VirtualSocket *vsocket : output_vsockets) {
-    FN::DFGraphSocket socket = data_graph.lookup_socket(vsocket);
-    fn_builder.add_output(vsocket->bsocket()->name, data_graph.graph()->type_of_socket(socket));
-    outputs.append(socket);
-  }
-
-  FN::FunctionGraph function_graph(data_graph.graph(), inputs, outputs);
-  SharedFunction fn = fn_builder.build(name);
-  FN::fgraph_add_DependenciesBody(fn, function_graph);
-  FN::fgraph_add_TupleCallBody(fn, function_graph);
-  return fn;
-}
-
 static Vector<DFGraphSocket> find_input_data_sockets(VirtualNode *vnode,
                                                      VTreeDataGraph &data_graph)
 {
@@ -88,18 +36,6 @@ static Vector<DFGraphSocket> find_input_data_sockets(VirtualNode *vnode,
     }
   }
   return inputs;
-}
-
-static SharedFunction create_function_for_data_inputs(VirtualNode *vnode,
-                                                      VTreeDataGraph &data_graph)
-{
-  Vector<VirtualSocket *> bsockets_to_compute;
-  for (VirtualSocket *vsocket : vnode->inputs()) {
-    if (data_graph.uses_socket(vsocket)) {
-      bsockets_to_compute.append(vsocket);
-    }
-  }
-  return create_function(data_graph, bsockets_to_compute, vnode->name());
 }
 
 static ValueOrError<SharedFunction> create_function__emitter_inputs(VirtualNode *emitter_vnode,
@@ -150,6 +86,58 @@ static ValueOrError<SharedFunction> create_function__event_inputs(VirtualNode *e
   return fn;
 }
 
+static ValueOrError<SharedFunction> create_function__offset_handler_inputs(
+    VirtualNode *offset_handler_vnode, VTreeDataGraph &data_graph)
+{
+  Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(offset_handler_vnode,
+                                                                     data_graph);
+  auto dependencies = data_graph.find_placeholder_dependencies(sockets_to_compute);
+
+  if (dependencies.size() > 0) {
+    return BLI_ERROR_CREATE("Offset handler inputs cannot have dependencies currently.");
+  }
+
+  FunctionGraph fgraph(data_graph.graph(), {}, sockets_to_compute);
+  SharedFunction fn = fgraph.new_function(offset_handler_vnode->name());
+  FN::fgraph_add_TupleCallBody(fn, fgraph);
+  return fn;
+}
+
+static ValueOrError<SharedFunction> create_function__action_inputs(VirtualNode *action_vnode,
+                                                                   VTreeDataGraph &data_graph)
+{
+  Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(action_vnode, data_graph);
+  auto dependencies = data_graph.find_placeholder_dependencies(sockets_to_compute);
+
+  FunctionBuilder fn_builder;
+  fn_builder.add_outputs(data_graph.graph(), sockets_to_compute);
+
+  for (uint i = 0; i < dependencies.size(); i++) {
+    VirtualSocket *vsocket = dependencies.vsockets[i];
+    DFGraphSocket socket = dependencies.sockets[i];
+    VirtualNode *vnode = vsocket->vnode();
+
+    SharedType &type = data_graph.graph()->type_of_output(socket);
+    std::string name_prefix;
+    if (STREQ(vnode->idname(), "bp_ParticleInfoNode")) {
+      name_prefix = "Attribute: ";
+    }
+    else if (STREQ(vnode->idname(), "bp_MeshCollisionEventNode")) {
+      name_prefix = "Event: ";
+    }
+    else {
+      BLI_assert(false);
+    }
+    fn_builder.add_input(name_prefix + vsocket->name(), type);
+  }
+
+  SharedFunction fn = fn_builder.build(action_vnode->name());
+
+  FunctionGraph fgraph(data_graph.graph(), dependencies.sockets, sockets_to_compute);
+  FN::fgraph_add_TupleCallBody(fn, fgraph);
+  return fn;
+}
+
 static std::unique_ptr<Action> build_action(BuildContext &ctx, VirtualSocket *start);
 using ActionFromNodeCallback =
     std::function<std::unique_ptr<Action>(BuildContext &ctx, VirtualNode *vnode)>;
@@ -162,7 +150,12 @@ static std::unique_ptr<Action> BUILD_ACTION_kill(BuildContext &UNUSED(ctx),
 
 static std::unique_ptr<Action> BUILD_ACTION_change_direction(BuildContext &ctx, VirtualNode *vnode)
 {
-  SharedFunction fn = create_function_for_data_inputs(vnode, ctx.data_graph);
+  auto fn_or_error = create_function__action_inputs(vnode, ctx.data_graph);
+  if (fn_or_error.is_error()) {
+    return {};
+  }
+
+  SharedFunction fn = fn_or_error.extract_value();
   ParticleFunction particle_fn(fn);
   auto post_action = build_action(ctx, vnode->output(0));
 
@@ -172,7 +165,12 @@ static std::unique_ptr<Action> BUILD_ACTION_change_direction(BuildContext &ctx, 
 
 static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx, VirtualNode *vnode)
 {
-  SharedFunction fn = create_function_for_data_inputs(vnode, ctx.data_graph);
+  auto fn_or_error = create_function__action_inputs(vnode, ctx.data_graph);
+  if (fn_or_error.is_error()) {
+    return {};
+  }
+
+  SharedFunction fn = fn_or_error.extract_value();
   ParticleFunction particle_fn(fn);
 
   PointerRNA rna = vnode->rna();
@@ -191,7 +189,12 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx, VirtualNo
 
 static std::unique_ptr<Action> BUILD_ACTION_condition(BuildContext &ctx, VirtualNode *vnode)
 {
-  SharedFunction fn = create_function_for_data_inputs(vnode, ctx.data_graph);
+  auto fn_or_error = create_function__action_inputs(vnode, ctx.data_graph);
+  if (fn_or_error.is_error()) {
+    return {};
+  }
+
+  SharedFunction fn = fn_or_error.extract_value();
   ParticleFunction particle_fn(fn);
 
   auto true_action = build_action(ctx, vnode->output(0));
@@ -450,8 +453,12 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_initial_grid(BuildContext &ctx,
                                                            VirtualNode *vnode,
                                                            StringRef particle_type_name)
 {
-  SharedFunction fn = create_function_for_data_inputs(vnode, ctx.data_graph);
+  auto fn_or_error = create_function__emitter_inputs(vnode, ctx.data_graph);
+  if (fn_or_error.is_error()) {
+    return {};
+  }
 
+  SharedFunction fn = fn_or_error.extract_value();
   TupleCallBody *body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body->call__setup_execution_context(fn_in, fn_out);
@@ -472,7 +479,12 @@ static std::unique_ptr<OffsetHandler> BUILD_OFFSET_HANDLER_trails(BuildContext &
   char name[65];
   RNA_string_get(&rna, "particle_type_name", name);
 
-  SharedFunction fn = create_function_for_data_inputs(vnode, ctx.data_graph);
+  auto fn_or_error = create_function__offset_handler_inputs(vnode, ctx.data_graph);
+  if (fn_or_error.is_error()) {
+    return {};
+  }
+
+  SharedFunction fn = fn_or_error.extract_value();
   TupleCallBody *body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body->call__setup_execution_context(fn_in, fn_out);
