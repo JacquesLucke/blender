@@ -18,16 +18,14 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 
   float end_time = interface.end_time();
 
-  FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_age_body, fn_in, fn_out);
-  FN::ExecutionStack stack;
-  FN::ExecutionContext execution_context(stack);
-  m_compute_age_body.call(fn_in, fn_out, execution_context);
-  float trigger_age = fn_out.get<float>(0);
+  auto inputs = m_compute_inputs.compute(interface);
 
   for (uint pindex : particles.pindices()) {
     if (was_activated_before[pindex]) {
       continue;
     }
+
+    float trigger_age = inputs->get<float>("Age", 0, pindex);
 
     float birth_time = birth_times[pindex];
     float age_at_end = end_time - birth_time;

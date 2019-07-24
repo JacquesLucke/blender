@@ -54,22 +54,6 @@ static ValueOrError<SharedFunction> create_function__emitter_inputs(VirtualNode 
   return fn;
 }
 
-static ValueOrError<SharedFunction> create_function__event_inputs(VirtualNode *event_vnode,
-                                                                  VTreeDataGraph &data_graph)
-{
-  Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(event_vnode, data_graph);
-  auto dependencies = data_graph.find_placeholder_dependencies(sockets_to_compute);
-
-  if (dependencies.size() > 0) {
-    return BLI_ERROR_CREATE("Event inputs cannot have dependencies currently.");
-  }
-
-  FunctionGraph fgraph(data_graph.graph(), {}, sockets_to_compute);
-  SharedFunction fn = fgraph.new_function(event_vnode->name());
-  FN::fgraph_add_TupleCallBody(fn, fgraph);
-  return fn;
-}
-
 static ValueOrError<SharedFunction> create_function__action_inputs(VirtualNode *action_vnode,
                                                                    VTreeDataGraph &data_graph)
 {
@@ -115,6 +99,12 @@ static ValueOrError<SharedFunction> create_function__force_inputs(VirtualNode *f
                                                                   VTreeDataGraph &data_graph)
 {
   return create_function__action_inputs(force_vnode, data_graph);
+}
+
+static ValueOrError<SharedFunction> create_function__event_inputs(VirtualNode *event_vnode,
+                                                                  VTreeDataGraph &data_graph)
+{
+  return create_function__action_inputs(event_vnode, data_graph);
 }
 
 static std::unique_ptr<Action> build_action(BuildContext &ctx,
@@ -277,7 +267,8 @@ static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx, Virtual
 
   SharedFunction fn = fn_or_error.extract_value();
   auto action = build_action_for_trigger(ctx, vnode->output(0));
-  return std::unique_ptr<Event>(new AgeReachedEvent(vnode->name(), fn, std::move(action)));
+  return std::unique_ptr<Event>(
+      new AgeReachedEvent(vnode->name(), ParticleFunction(fn), std::move(action)));
 }
 
 static std::unique_ptr<Event> BUILD_EVENT_close_by_points(BuildContext &ctx, VirtualNode *vnode)
