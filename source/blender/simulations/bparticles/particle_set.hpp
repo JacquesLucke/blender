@@ -44,7 +44,7 @@ struct ParticleSet {
   /**
    * Returns true when pindices()[i] == i for all i, otherwise false.
    */
-  bool indices_are_trivial();
+  bool pindices_are_trivial();
 };
 
 class ParticleSets {
@@ -123,7 +123,7 @@ inline uint ParticleSet::size()
   return m_pindices.size();
 }
 
-inline bool ParticleSet::indices_are_trivial()
+inline bool ParticleSet::pindices_are_trivial()
 {
   if (m_pindices.size() == 0) {
     return true;

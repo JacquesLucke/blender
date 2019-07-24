@@ -81,7 +81,7 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     auto values = particles.attributes().get_float3(name);
     auto offsets = attribute_offsets.get_float3(attribute_index);
 
-    if (particles.indices_are_trivial()) {
+    if (particles.pindices_are_trivial()) {
       for (uint pindex = 0; pindex < particles.size(); pindex++) {
         float time_factor = time_factors_to_next_event[pindex];
         values[pindex] += time_factor * offsets[pindex];
@@ -304,7 +304,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Array
     auto values = particles.attributes().get_float3(name);
     auto offsets = attribute_offsets.get_float3(attribute_index);
 
-    if (particles.indices_are_trivial()) {
+    if (particles.pindices_are_trivial()) {
       add_float3_arrays(values.take_front(particles.size()), offsets.take_front(particles.size()));
     }
     else {
