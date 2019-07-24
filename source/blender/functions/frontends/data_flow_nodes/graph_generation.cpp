@@ -145,18 +145,23 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
                         build_mapping_for_original_sockets(socket_map, build_result.mapping));
 }
 
-Vector<VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(
-    ArrayRef<VirtualSocket *> sockets)
+VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_dependencies(
+    ArrayRef<VirtualSocket *> vsockets)
 {
-  Stack<DFGraphSocket> to_be_checked;
-  Set<DFGraphSocket> found;
-  Vector<VirtualSocket *> dependencies;
-
-  for (VirtualSocket *vsocket : sockets) {
+  Vector<DFGraphSocket> sockets;
+  for (VirtualSocket *vsocket : vsockets) {
     DFGraphSocket socket = this->lookup_socket(vsocket);
-    to_be_checked.push(socket);
-    found.add_new(socket);
+    sockets.append(socket);
   }
+  return this->find_placeholder_dependencies(sockets);
+}
+
+VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_dependencies(
+    ArrayRef<DFGraphSocket> sockets)
+{
+  Stack<DFGraphSocket> to_be_checked = sockets;
+  Set<DFGraphSocket> found = sockets;
+  PlaceholderDependencies dependencies;
 
   while (!to_be_checked.empty()) {
     DFGraphSocket socket = to_be_checked.pop();
@@ -181,7 +186,8 @@ Vector<VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(
         VirtualNode *vnode = body->vnode();
         uint data_output_index = m_graph->index_of_output(socket);
         VirtualSocket *vsocket = this->find_data_output(vnode, data_output_index);
-        dependencies.append(vsocket);
+        dependencies.sockets.append(socket);
+        dependencies.vsockets.append(vsocket);
       }
     }
   }

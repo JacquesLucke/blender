@@ -20,6 +20,8 @@ namespace BParticles {
 
 using BLI::ValueOrError;
 using FN::DFGraphSocket;
+using FN::FunctionBuilder;
+using FN::FunctionGraph;
 using FN::SharedFunction;
 using FN::SharedType;
 
@@ -27,17 +29,15 @@ static Vector<DFGraphSocket> insert_function_inputs(FN::FunctionBuilder &fn_buil
                                                     VTreeDataGraph &data_graph,
                                                     ArrayRef<VirtualSocket *> output_vsockets)
 {
-  Vector<VirtualSocket *> placeholder_dependencies = data_graph.find_placeholder_dependencies(
-      output_vsockets);
-
-  Vector<DFGraphSocket> function_inputs;
+  auto dependencies = data_graph.find_placeholder_dependencies(output_vsockets);
 
   auto &graph = data_graph.graph();
 
-  for (VirtualSocket *vsocket : placeholder_dependencies) {
-    BLI_assert(vsocket->is_output());
+  for (uint i = 0; i < dependencies.size(); i++) {
+    VirtualSocket *vsocket = dependencies.vsockets[i];
+    DFGraphSocket socket = dependencies.sockets[i];
     VirtualNode *vnode = vsocket->vnode();
-    DFGraphSocket socket = data_graph.lookup_socket(vsocket);
+    BLI_assert(vsocket->is_output());
 
     SharedType &type = graph->type_of_output(socket);
     std::string name_prefix;
@@ -51,10 +51,9 @@ static Vector<DFGraphSocket> insert_function_inputs(FN::FunctionBuilder &fn_buil
       BLI_assert(false);
     }
     fn_builder.add_input(name_prefix + vsocket->name(), type);
-    function_inputs.append(socket);
   }
 
-  return function_inputs;
+  return dependencies.sockets;
 }
 
 static SharedFunction create_function(VTreeDataGraph &data_graph,
@@ -78,6 +77,19 @@ static SharedFunction create_function(VTreeDataGraph &data_graph,
   return fn;
 }
 
+static Vector<DFGraphSocket> find_input_data_sockets(VirtualNode *vnode,
+                                                     VTreeDataGraph &data_graph)
+{
+  Vector<DFGraphSocket> inputs;
+  for (VirtualSocket *vsocket : vnode->inputs()) {
+    DFGraphSocket *socket = data_graph.lookup_socket_ptr(vsocket);
+    if (socket != nullptr) {
+      inputs.append(*socket);
+    }
+  }
+  return inputs;
+}
+
 static SharedFunction create_function_for_data_inputs(VirtualNode *vnode,
                                                       VTreeDataGraph &data_graph)
 {
@@ -88,6 +100,22 @@ static SharedFunction create_function_for_data_inputs(VirtualNode *vnode,
     }
   }
   return create_function(data_graph, bsockets_to_compute, vnode->name());
+}
+
+static ValueOrError<SharedFunction> create_function__emitter_inputs(VirtualNode *emitter_vnode,
+                                                                    VTreeDataGraph &data_graph)
+{
+  Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(emitter_vnode, data_graph);
+  auto dependencies = data_graph.find_placeholder_dependencies(sockets_to_compute);
+
+  if (dependencies.size() > 0) {
+    return BLI_ERROR_CREATE("Emitter inputs cannot have dependencies currently.");
+  }
+
+  FunctionGraph fgraph(data_graph.graph(), {}, sockets_to_compute);
+  SharedFunction fn = fgraph.new_function(emitter_vnode->name());
+  FN::fgraph_add_TupleCallBody(fn, fgraph);
+  return fn;
 }
 
 static std::unique_ptr<Action> build_action(BuildContext &ctx, VirtualSocket *start);
@@ -262,8 +290,11 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
                                                            VirtualNode *vnode,
                                                            StringRef particle_type_name)
 {
-  SharedFunction fn = create_function_for_data_inputs(vnode, ctx.data_graph);
-  BLI_assert(fn->input_amount() == 0);
+  auto fn_or_error = create_function__emitter_inputs(vnode, ctx.data_graph);
+  if (fn_or_error.is_error()) {
+    return {};
+  }
+  SharedFunction fn = fn_or_error.extract_value();
 
   auto body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);

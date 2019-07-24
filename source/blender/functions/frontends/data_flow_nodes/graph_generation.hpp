@@ -37,6 +37,11 @@ class VTreeDataGraph {
     return m_graph;
   }
 
+  DFGraphSocket *lookup_socket_ptr(VirtualSocket *vsocket)
+  {
+    return m_mapping.lookup_ptr(vsocket);
+  }
+
   DFGraphSocket lookup_socket(VirtualSocket *vsocket)
   {
     return m_mapping.lookup(vsocket);
@@ -47,7 +52,19 @@ class VTreeDataGraph {
     return m_mapping.contains(vsocket);
   }
 
-  Vector<VirtualSocket *> find_placeholder_dependencies(ArrayRef<VirtualSocket *> sockets);
+  struct PlaceholderDependencies {
+    Vector<VirtualSocket *> vsockets;
+    Vector<DFGraphSocket> sockets;
+
+    uint size() const
+    {
+      BLI_assert(this->vsockets.size() == this->sockets.size());
+      return this->vsockets.size();
+    }
+  };
+
+  PlaceholderDependencies find_placeholder_dependencies(ArrayRef<VirtualSocket *> vsockets);
+  PlaceholderDependencies find_placeholder_dependencies(ArrayRef<DFGraphSocket> sockets);
 
  private:
   VirtualSocket *find_data_output(VirtualNode *vnode, uint index);
