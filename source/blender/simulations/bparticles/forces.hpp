@@ -2,13 +2,14 @@
 
 #include "step_description.hpp"
 #include "actions.hpp"
+#include "force_interface.hpp"
 
 namespace BParticles {
 
 class Force {
  public:
   virtual ~Force() = 0;
-  virtual void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) = 0;
+  virtual void add_force(ForceInterface &interface) = 0;
 };
 
 class GravityForce : public Force {
@@ -23,7 +24,7 @@ class GravityForce : public Force {
     m_compute_acceleration_body = m_compute_acceleration_fn->body<TupleCallBody>();
   }
 
-  void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) override;
+  void add_force(ForceInterface &interface) override;
 };
 
 class TurbulenceForce : public Force {
@@ -37,7 +38,7 @@ class TurbulenceForce : public Force {
     m_compute_strength_body = m_compute_strength_fn->body<TupleCallBody>();
   }
 
-  void add_force(ParticlesBlock &block, ArrayRef<float3> r_force) override;
+  void add_force(ForceInterface &interface) override;
 };
 
 }  // namespace BParticles

@@ -53,7 +53,7 @@ void EulerIntegrator::integrate(IntegratorInterface &interface)
   ArrayRef<float> durations = interface.durations();
 
   ArrayAllocator::Array<float3> combined_force(interface.array_allocator());
-  this->compute_combined_force(block, combined_force);
+  this->compute_combined_force(block, interface.array_allocator(), combined_force);
 
   auto last_velocities = block.attributes().get_float3("Velocity");
 
@@ -64,12 +64,15 @@ void EulerIntegrator::integrate(IntegratorInterface &interface)
 }
 
 BLI_NOINLINE void EulerIntegrator::compute_combined_force(ParticlesBlock &block,
+                                                          ArrayAllocator &array_allocator,
                                                           ArrayRef<float3> r_force)
 {
   r_force.fill({0, 0, 0});
 
+  ForceInterface interface(block, array_allocator, r_force);
+
   for (Force *force : m_forces) {
-    force->add_force(block, r_force);
+    force->add_force(interface);
   }
 }
 

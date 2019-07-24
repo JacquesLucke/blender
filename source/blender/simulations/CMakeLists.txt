@@ -54,6 +54,8 @@ set(SRC
   bparticles/offset_handlers.cpp
   bparticles/particle_function.hpp
   bparticles/particle_function.cpp
+  bparticles/force_interface.hpp
+  bparticles/force_interface.cpp
 )
 
 set(LIB
