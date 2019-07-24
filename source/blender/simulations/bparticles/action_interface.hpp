@@ -11,7 +11,7 @@ using FN::SharedFunction;
 using FN::Tuple;
 using FN::TupleCallBody;
 
-class EventInfo {
+class ActionContext {
  public:
   virtual void *get_info_array(StringRef name) = 0;
 };
@@ -58,7 +58,7 @@ class ParticleFunction {
     BLI_assert(m_tuple_call);
   }
 
-  ParticleFunctionCaller get_caller(AttributeArrays attributes, EventInfo &event_info);
+  ParticleFunctionCaller get_caller(AttributeArrays attributes, ActionContext &action_context);
 };
 
 class ActionInterface {
@@ -69,7 +69,7 @@ class ActionInterface {
   AttributeArrays m_attribute_offsets;
   ArrayRef<float> m_current_times;
   ArrayRef<float> m_remaining_durations;
-  EventInfo &m_event_info;
+  ActionContext &m_action_context;
 
  public:
   ActionInterface(ParticleAllocator &particle_allocator,
@@ -78,9 +78,9 @@ class ActionInterface {
                   AttributeArrays attribute_offsets,
                   ArrayRef<float> current_times,
                   ArrayRef<float> remaining_durations,
-                  EventInfo &event_info);
+                  ActionContext &action_context);
 
-  EventInfo &event_info();
+  ActionContext &context();
 
   ParticleSet &particles();
   AttributeArrays attribute_offsets();
@@ -100,8 +100,9 @@ class Action {
 
   void execute_from_emitter(ParticleSets &particle_sets,
                             EmitterInterface &emitter_interface,
-                            EventInfo *event_info = nullptr);
-  void execute_from_event(EventExecuteInterface &event_interface, EventInfo *event_info = nullptr);
+                            ActionContext *action_context = nullptr);
+  void execute_from_event(EventExecuteInterface &event_interface,
+                          ActionContext *action_context = nullptr);
   void execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface);
 };
 
@@ -114,18 +115,18 @@ inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
                                         AttributeArrays attribute_offsets,
                                         ArrayRef<float> current_times,
                                         ArrayRef<float> remaining_durations,
-                                        EventInfo &event_info)
+                                        ActionContext &action_context)
     : m_particle_allocator(particle_allocator),
       m_array_allocator(array_allocator),
       m_particles(particles),
       m_attribute_offsets(attribute_offsets),
       m_current_times(current_times),
       m_remaining_durations(remaining_durations),
-      m_event_info(event_info)
+      m_action_context(action_context)
 {
 }
 
-class EmptyEventInfo : public EventInfo {
+class EmptyEventInfo : public ActionContext {
   void *get_info_array(StringRef UNUSED(name))
   {
     return nullptr;
@@ -134,14 +135,15 @@ class EmptyEventInfo : public EventInfo {
 
 inline void Action::execute_from_emitter(ParticleSets &particle_sets,
                                          EmitterInterface &emitter_interface,
-                                         EventInfo *event_info)
+                                         ActionContext *action_context)
 {
   AttributesInfo info;
   AttributeArraysCore offsets_core(info, {}, 0);
   AttributeArrays offsets = offsets_core.slice_all();
 
-  EmptyEventInfo empty_event_info;
-  EventInfo &used_event_info = (event_info == nullptr) ? empty_event_info : *event_info;
+  EmptyEventInfo empty_action_context;
+  ActionContext &used_action_context = (action_context == nullptr) ? empty_action_context :
+                                                                     *action_context;
 
   for (ParticleSet particles : particle_sets.sets()) {
     ArrayAllocator::Array<float> durations(emitter_interface.array_allocator());
@@ -152,16 +154,17 @@ inline void Action::execute_from_emitter(ParticleSets &particle_sets,
                                      offsets,
                                      particles.attributes().get_float("Birth Time"),
                                      durations,
-                                     used_event_info);
+                                     used_action_context);
     this->execute(action_interface);
   }
 }
 
 inline void Action::execute_from_event(EventExecuteInterface &event_interface,
-                                       EventInfo *event_info)
+                                       ActionContext *action_context)
 {
-  EmptyEventInfo empty_event_info;
-  EventInfo &used_event_info = (event_info == nullptr) ? empty_event_info : *event_info;
+  EmptyEventInfo empty_action_context;
+  ActionContext &used_action_context = (action_context == nullptr) ? empty_action_context :
+                                                                     *action_context;
 
   ActionInterface action_interface(event_interface.particle_allocator(),
                                    event_interface.array_allocator(),
@@ -169,7 +172,7 @@ inline void Action::execute_from_event(EventExecuteInterface &event_interface,
                                    event_interface.attribute_offsets(),
                                    event_interface.current_times(),
                                    event_interface.remaining_durations(),
-                                   used_event_info);
+                                   used_action_context);
   this->execute(action_interface);
 }
 
@@ -181,13 +184,13 @@ inline void Action::execute_for_subset(ArrayRef<uint> pindices, ActionInterface 
                                 action_interface.attribute_offsets(),
                                 action_interface.current_times(),
                                 action_interface.remaining_durations(),
-                                action_interface.event_info());
+                                action_interface.context());
   this->execute(sub_interface);
 }
 
-inline EventInfo &ActionInterface::event_info()
+inline ActionContext &ActionInterface::context()
 {
-  return m_event_info;
+  return m_action_context;
 }
 
 inline ParticleSet &ActionInterface::particles()

@@ -131,8 +131,8 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
     last_collision_times[pindex] = interface.current_times()[pindex];
   }
 
-  CollisionEventInfo event_info(normals);
-  m_action->execute_from_event(interface, &event_info);
+  CollisionEventInfo action_context(normals);
+  m_action->execute_from_event(interface, &action_context);
 }
 
 void CloseByPointsEvent::filter(EventFilterInterface &interface)

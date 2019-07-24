@@ -15,7 +15,7 @@ void ChangeDirectionAction::execute(ActionInterface &interface)
   auto position_offsets = interface.attribute_offsets().try_get_float3("Position");
   auto velocity_offsets = interface.attribute_offsets().try_get_float3("Velocity");
 
-  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
+  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.context());
 
   FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
 
@@ -66,7 +66,7 @@ void ExplodeAction::execute(ActionInterface &interface)
   Vector<float3> new_velocities;
   Vector<float> new_birth_times;
 
-  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
+  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.context());
   FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
 
   FN::ExecutionStack stack;
@@ -119,7 +119,7 @@ void ConditionAction::compute_conditions(ActionInterface &interface, ArrayRef<bo
 {
   ParticleSet particles = interface.particles();
 
-  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.event_info());
+  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.context());
   FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
 
   FN::ExecutionStack stack;

@@ -7,7 +7,7 @@ Action::~Action()
 }
 
 ParticleFunctionCaller ParticleFunction::get_caller(AttributeArrays attributes,
-                                                    EventInfo &event_info)
+                                                    ActionContext &action_context)
 {
   ParticleFunctionCaller caller;
   caller.m_body = m_tuple_call;
@@ -18,7 +18,7 @@ ParticleFunctionCaller ParticleFunction::get_caller(AttributeArrays attributes,
     uint stride = 0;
     if (input_name.startswith("Event")) {
       StringRef event_attribute_name = input_name.drop_prefix("Event: ");
-      ptr = event_info.get_info_array(event_attribute_name);
+      ptr = action_context.get_info_array(event_attribute_name);
       stride = sizeof(float3); /* TODO make not hardcoded */
     }
     else if (input_name.startswith("Attribute")) {

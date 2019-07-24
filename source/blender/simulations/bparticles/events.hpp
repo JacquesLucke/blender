@@ -39,7 +39,7 @@ class AgeReachedEvent : public Event {
   void execute(EventExecuteInterface &interface) override;
 };
 
-class CollisionEventInfo : public EventInfo {
+class CollisionEventInfo : public ActionContext {
  private:
   ArrayRef<float3> m_normals;
 
