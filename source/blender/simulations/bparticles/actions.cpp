@@ -111,8 +111,8 @@ void ConditionAction::execute(ActionInterface &interface)
     }
   }
 
-  ActionInterface::RunForSubset(m_true_action, true_pindices, interface);
-  ActionInterface::RunForSubset(m_false_action, false_pindices, interface);
+  m_true_action->execute_for_subset(true_pindices, interface);
+  m_false_action->execute_for_subset(false_pindices, interface);
 }
 
 void ConditionAction::compute_conditions(ActionInterface &interface, ArrayRef<bool> r_conditions)

@@ -80,22 +80,12 @@ class ActionInterface {
                   ArrayRef<float> remaining_durations,
                   EventInfo &event_info);
 
-  static void RunFromEmitter(std::unique_ptr<Action> &action,
-                             ParticleSets &particle_sets,
-                             EmitterInterface &emitter_interface,
-                             EventInfo *event_info = nullptr);
-  static void RunFromEvent(std::unique_ptr<Action> &action,
-                           EventExecuteInterface &event_interface,
-                           EventInfo *event_info = nullptr);
-  static void RunForSubset(std::unique_ptr<Action> &action,
-                           ArrayRef<uint> pindices,
-                           ActionInterface &action_interface);
-
   EventInfo &event_info();
 
   ParticleSet &particles();
   AttributeArrays attribute_offsets();
   float remaining_time_in_step(uint pindex);
+  ArrayRef<float> remaining_durations();
   ArrayRef<float> current_times();
   void kill(ArrayRef<uint> pindices);
   ParticleAllocator &particle_allocator();
@@ -107,6 +97,12 @@ class Action {
   virtual ~Action() = 0;
 
   virtual void execute(ActionInterface &interface) = 0;
+
+  void execute_from_emitter(ParticleSets &particle_sets,
+                            EmitterInterface &emitter_interface,
+                            EventInfo *event_info = nullptr);
+  void execute_from_event(EventExecuteInterface &event_interface, EventInfo *event_info = nullptr);
+  void execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface);
 };
 
 /* ActionInterface inline functions
@@ -136,10 +132,9 @@ class EmptyEventInfo : public EventInfo {
   }
 };
 
-inline void ActionInterface::RunFromEmitter(std::unique_ptr<Action> &action,
-                                            ParticleSets &particle_sets,
-                                            EmitterInterface &emitter_interface,
-                                            EventInfo *event_info)
+inline void Action::execute_from_emitter(ParticleSets &particle_sets,
+                                         EmitterInterface &emitter_interface,
+                                         EventInfo *event_info)
 {
   AttributesInfo info;
   AttributeArraysCore offsets_core(info, {}, 0);
@@ -158,13 +153,12 @@ inline void ActionInterface::RunFromEmitter(std::unique_ptr<Action> &action,
                                      particles.attributes().get_float("Birth Time"),
                                      durations,
                                      used_event_info);
-    action->execute(action_interface);
+    this->execute(action_interface);
   }
 }
 
-inline void ActionInterface::RunFromEvent(std::unique_ptr<Action> &action,
-                                          EventExecuteInterface &event_interface,
-                                          EventInfo *event_info)
+inline void Action::execute_from_event(EventExecuteInterface &event_interface,
+                                       EventInfo *event_info)
 {
   EmptyEventInfo empty_event_info;
   EventInfo &used_event_info = (event_info == nullptr) ? empty_event_info : *event_info;
@@ -176,21 +170,19 @@ inline void ActionInterface::RunFromEvent(std::unique_ptr<Action> &action,
                                    event_interface.current_times(),
                                    event_interface.remaining_durations(),
                                    used_event_info);
-  action->execute(action_interface);
+  this->execute(action_interface);
 }
 
-inline void ActionInterface::RunForSubset(std::unique_ptr<Action> &action,
-                                          ArrayRef<uint> pindices,
-                                          ActionInterface &action_interface)
+inline void Action::execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface)
 {
-  ActionInterface sub_interface(action_interface.m_particle_allocator,
-                                action_interface.m_array_allocator,
-                                ParticleSet(action_interface.m_particles.block(), pindices),
-                                action_interface.m_attribute_offsets,
-                                action_interface.m_current_times,
-                                action_interface.m_remaining_durations,
-                                action_interface.m_event_info);
-  action->execute(sub_interface);
+  ActionInterface sub_interface(action_interface.particle_allocator(),
+                                action_interface.array_allocator(),
+                                ParticleSet(action_interface.particles().block(), pindices),
+                                action_interface.attribute_offsets(),
+                                action_interface.current_times(),
+                                action_interface.remaining_durations(),
+                                action_interface.event_info());
+  this->execute(sub_interface);
 }
 
 inline EventInfo &ActionInterface::event_info()
@@ -211,6 +203,11 @@ inline AttributeArrays ActionInterface::attribute_offsets()
 inline float ActionInterface::remaining_time_in_step(uint pindex)
 {
   return m_remaining_durations[pindex];
+}
+
+inline ArrayRef<float> ActionInterface::remaining_durations()
+{
+  return m_remaining_durations;
 }
 
 inline ArrayRef<float> ActionInterface::current_times()

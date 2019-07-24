@@ -125,7 +125,7 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   new_particles.set_float("Size", sizes);
   new_particles.set_float("Birth Time", birth_times);
 
-  ActionInterface::RunFromEmitter(m_action, new_particles, interface);
+  m_action->execute_from_emitter(new_particles, interface);
 }
 
 void CustomFunctionEmitter::emit(EmitterInterface &interface)

@@ -57,7 +57,7 @@ void AgeReachedEvent::execute(EventExecuteInterface &interface)
     was_activated_before[pindex] = true;
   }
 
-  ActionInterface::RunFromEvent(m_action, interface);
+  m_action->execute_from_event(interface);
 }
 
 /* Collision Event
@@ -132,7 +132,7 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
   }
 
   CollisionEventInfo event_info(normals);
-  ActionInterface::RunFromEvent(m_action, interface, &event_info);
+  m_action->execute_from_event(interface, &event_info);
 }
 
 void CloseByPointsEvent::filter(EventFilterInterface &interface)
@@ -152,7 +152,7 @@ void CloseByPointsEvent::filter(EventFilterInterface &interface)
 
 void CloseByPointsEvent::execute(EventExecuteInterface &interface)
 {
-  ActionInterface::RunFromEvent(m_action, interface);
+  m_action->execute_from_event(interface);
 }
 
 }  // namespace BParticles
