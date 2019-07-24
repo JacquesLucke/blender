@@ -86,23 +86,6 @@ static ValueOrError<SharedFunction> create_function__event_inputs(VirtualNode *e
   return fn;
 }
 
-static ValueOrError<SharedFunction> create_function__offset_handler_inputs(
-    VirtualNode *offset_handler_vnode, VTreeDataGraph &data_graph)
-{
-  Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(offset_handler_vnode,
-                                                                     data_graph);
-  auto dependencies = data_graph.find_placeholder_dependencies(sockets_to_compute);
-
-  if (dependencies.size() > 0) {
-    return BLI_ERROR_CREATE("Offset handler inputs cannot have dependencies currently.");
-  }
-
-  FunctionGraph fgraph(data_graph.graph(), {}, sockets_to_compute);
-  SharedFunction fn = fgraph.new_function(offset_handler_vnode->name());
-  FN::fgraph_add_TupleCallBody(fn, fgraph);
-  return fn;
-}
-
 static ValueOrError<SharedFunction> create_function__action_inputs(VirtualNode *action_vnode,
                                                                    VTreeDataGraph &data_graph)
 {
@@ -136,6 +119,12 @@ static ValueOrError<SharedFunction> create_function__action_inputs(VirtualNode *
   FunctionGraph fgraph(data_graph.graph(), dependencies.sockets, sockets_to_compute);
   FN::fgraph_add_TupleCallBody(fn, fgraph);
   return fn;
+}
+
+static ValueOrError<SharedFunction> create_function__offset_handler_inputs(
+    VirtualNode *offset_handler_vnode, VTreeDataGraph &data_graph)
+{
+  return create_function__action_inputs(offset_handler_vnode, data_graph);
 }
 
 static std::unique_ptr<Action> build_action(BuildContext &ctx,
@@ -503,14 +492,9 @@ static std::unique_ptr<OffsetHandler> BUILD_OFFSET_HANDLER_trails(BuildContext &
   }
 
   SharedFunction fn = fn_or_error.extract_value();
-  TupleCallBody *body = fn->body<TupleCallBody>();
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body->call__setup_execution_context(fn_in, fn_out);
-  float rate = body->get_output<float>(fn_out, 0, "Rate");
-  rate = std::max(rate, 0.0f);
 
   if (ctx.type_name_exists(name)) {
-    return std::unique_ptr<OffsetHandler>(new CreateTrailHandler(name, rate));
+    return std::unique_ptr<OffsetHandler>(new CreateTrailHandler(name, ParticleFunction(fn)));
   }
   else {
     return {};

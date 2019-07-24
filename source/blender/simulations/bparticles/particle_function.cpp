@@ -9,6 +9,14 @@ ParticleFunctionCaller ParticleFunction::get_caller(ActionInterface &action_inte
                           &action_interface.context());
 }
 
+ParticleFunctionCaller ParticleFunction::get_caller(
+    OffsetHandlerInterface &offset_handler_interface)
+{
+  return this->get_caller(offset_handler_interface.array_allocator(),
+                          offset_handler_interface.particles().attributes(),
+                          nullptr);
+}
+
 ParticleFunctionCaller ParticleFunction::get_caller(ArrayAllocator &array_allocator,
                                                     AttributeArrays attributes,
                                                     ActionContext *action_context)

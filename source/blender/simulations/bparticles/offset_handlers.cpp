@@ -4,19 +4,18 @@ namespace BParticles {
 
 void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
 {
-  if (m_rate <= 0.0f) {
-    return;
-  }
-
   ParticleSet particles = interface.particles();
   auto positions = particles.attributes().get_float3("Position");
   auto position_offsets = interface.offsets().get_float3("Position");
 
-  float frequency = 1.0f / m_rate;
+  auto caller = m_compute_inputs.get_caller(interface);
+  auto rates = caller.add_output<float>();
+  caller.call(particles.pindices());
 
   Vector<float3> new_positions;
   Vector<float> new_birth_times;
   for (uint pindex : particles.pindices()) {
+    float frequency = 1.0f / rates[pindex];
     float time_factor = interface.time_factors()[pindex];
     TimeSpan time_span = interface.time_span(pindex);
     float current_time = frequency * (std::floor(time_span.start() / frequency) + 1.0f);
