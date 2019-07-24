@@ -18,66 +18,34 @@ using FN::TupleCallBody;
 
 class ParticleFunction;
 
-class ParticleFunctionCaller {
+class ParticleFunctionResult {
  private:
-  TupleCallBody *m_body;
-  uint m_min_buffer_length;
-  Vector<void *> m_input_buffers;
-  Vector<void *> m_output_buffers;
-  Vector<uint> m_input_strides;
-  Vector<uint> m_output_strides;
+  Vector<void *> m_buffers;
+  Vector<uint> m_strides;
   ArrayAllocator *m_array_allocator;
+  FN::Function *m_fn;
 
   friend ParticleFunction;
 
  public:
-  template<typename T> void add_output(ArrayRef<T> array, StringRef expected_name)
+  ~ParticleFunctionResult()
+  {
+    for (uint i = 0; i < m_buffers.size(); i++) {
+      m_array_allocator->deallocate(m_buffers[i], m_strides[i]);
+    }
+  }
+
+  template<typename T> T get(StringRef expected_name, uint parameter_index, uint pindex)
   {
 #ifdef DEBUG
-    uint index = m_output_buffers.size();
-    SharedType &type = m_body->owner()->output_type(index);
-    uint expected_stride = type->extension<CPPTypeInfo>()->size_of_type();
-    uint given_stride = sizeof(T);
-    BLI_assert(expected_stride == given_stride);
-    BLI_assert(m_min_buffer_length <= array.size());
-    StringRef real_name = m_body->owner()->output_name(index);
-    BLI_assert(expected_name == real_name);
+    BLI_assert(sizeof(T) == m_strides[parameter_index]);
+    StringRefNull real_name = m_fn->output_name(parameter_index);
+    BLI_assert(real_name == expected_name);
 #endif
+    UNUSED_VARS_NDEBUG(expected_name);
 
-    m_output_buffers.append((void *)array.begin());
-    m_output_strides.append(sizeof(T));
-  }
-
-  template<typename T> ArrayAllocator::Array<T> add_output(StringRef expected_name)
-  {
-    ArrayAllocator::Array<T> array(*m_array_allocator);
-    this->add_output(array.as_array_ref(), expected_name);
-    return array;
-  }
-
-  void call(ArrayRef<uint> pindices)
-  {
-    BLI_assert(m_body->owner()->input_amount() == m_input_buffers.size());
-    BLI_assert(m_body->owner()->output_amount() == m_output_buffers.size());
-
-    ExecutionStack stack;
-    ExecutionContext execution_context(stack);
-
-    FN_TUPLE_CALL_ALLOC_TUPLES(m_body, fn_in, fn_out);
-
-    for (uint pindex : pindices) {
-      for (uint i = 0; i < m_input_buffers.size(); i++) {
-        void *ptr = POINTER_OFFSET(m_input_buffers[i], pindex * m_input_strides[i]);
-        fn_in.copy_in__dynamic(i, ptr);
-      }
-
-      m_body->call(fn_in, fn_out, execution_context);
-
-      for (uint i = 0; i < m_output_buffers.size(); i++) {
-        void *ptr = POINTER_OFFSET(m_output_buffers[i], pindex * m_output_strides[i]);
-        fn_out.relocate_out__dynamic(i, ptr);
-      }
-    }
+    T *buffer = (T *)m_buffers[parameter_index];
+    return buffer[pindex];
   }
 };
 
@@ -92,14 +60,15 @@ class ParticleFunction {
     BLI_assert(m_body != nullptr);
   }
 
-  ParticleFunctionCaller get_caller(ActionInterface &action_interface);
-  ParticleFunctionCaller get_caller(OffsetHandlerInterface &offset_handler_interface);
-  ParticleFunctionCaller get_caller(ForceInterface &force_interface);
+  ParticleFunctionResult compute(ActionInterface &action_interface);
+  ParticleFunctionResult compute(OffsetHandlerInterface &offset_handler_interface);
+  ParticleFunctionResult compute(ForceInterface &force_interface);
 
  private:
-  ParticleFunctionCaller get_caller(ArrayAllocator &array_allocator,
-                                    AttributeArrays attributes,
-                                    ActionContext *action_context);
+  ParticleFunctionResult compute(ArrayAllocator &array_allocator,
+                                 ArrayRef<uint> pindices,
+                                 AttributeArrays attributes,
+                                 ActionContext *action_context);
 };
 
 }  // namespace BParticles

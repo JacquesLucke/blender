@@ -8,14 +8,17 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
   auto positions = particles.attributes().get_float3("Position");
   auto position_offsets = interface.offsets().get_float3("Position");
 
-  auto caller = m_compute_inputs.get_caller(interface);
-  auto rates = caller.add_output<float>("Rate");
-  caller.call(particles.pindices());
+  auto inputs = m_compute_inputs.compute(interface);
 
   Vector<float3> new_positions;
   Vector<float> new_birth_times;
   for (uint pindex : particles.pindices()) {
-    float frequency = 1.0f / rates[pindex];
+    float rate = inputs.get<float>("Rate", 0, pindex);
+    if (rate <= 0.0f) {
+      continue;
+    }
+
+    float frequency = 1.0f / rate;
     float time_factor = interface.time_factors()[pindex];
     TimeSpan time_span = interface.time_span(pindex);
     float current_time = frequency * (std::floor(time_span.start() / frequency) + 1.0f);

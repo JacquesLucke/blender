@@ -15,12 +15,10 @@ void ChangeDirectionAction::execute(ActionInterface &interface)
   auto position_offsets = interface.attribute_offsets().try_get_float3("Position");
   auto velocity_offsets = interface.attribute_offsets().try_get_float3("Velocity");
 
-  auto caller = m_compute_inputs.get_caller(interface);
-  auto new_directions = caller.add_output<float3>("Direction");
-  caller.call(particles.pindices());
+  auto inputs = m_compute_inputs.compute(interface);
 
   for (uint pindex : particles.pindices()) {
-    float3 direction = new_directions[pindex];
+    float3 direction = inputs.get<float3>("Direction", 0, pindex);
 
     velocities[pindex] = direction;
 
@@ -62,14 +60,11 @@ void ExplodeAction::execute(ActionInterface &interface)
   Vector<float3> new_velocities;
   Vector<float> new_birth_times;
 
-  auto caller = m_compute_inputs.get_caller(interface);
-  auto parts_amounts = caller.add_output<int>("Amount");
-  auto speeds = caller.add_output<float>("Speed");
-  caller.call(particles.pindices());
+  auto inputs = m_compute_inputs.compute(interface);
 
   for (uint pindex : particles.pindices()) {
-    uint parts_amount = std::max(0, parts_amounts[pindex]);
-    float speed = speeds[pindex];
+    uint parts_amount = std::max(0, inputs.get<int>("Amount", 0, pindex));
+    float speed = inputs.get<float>("Speed", 1, pindex);
 
     new_positions.append_n_times(positions[pindex], parts_amount);
     new_birth_times.append_n_times(interface.current_times()[pindex], parts_amount);
@@ -93,13 +88,11 @@ void ConditionAction::execute(ActionInterface &interface)
 {
   ParticleSet particles = interface.particles();
 
-  auto caller = m_compute_inputs.get_caller(interface);
-  auto conditions = caller.add_output<bool>("Condition");
-  caller.call(particles.pindices());
+  auto inputs = m_compute_inputs.compute(interface);
 
   Vector<uint> true_pindices, false_pindices;
   for (uint pindex : particles.pindices()) {
-    if (conditions[pindex]) {
+    if (inputs.get<bool>("Condition", 0, pindex)) {
       true_pindices.append(pindex);
     }
     else {

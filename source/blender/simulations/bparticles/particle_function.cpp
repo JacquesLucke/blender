@@ -2,35 +2,38 @@
 
 namespace BParticles {
 
-ParticleFunctionCaller ParticleFunction::get_caller(ActionInterface &action_interface)
+ParticleFunctionResult ParticleFunction::compute(ActionInterface &action_interface)
 {
-  return this->get_caller(action_interface.array_allocator(),
-                          action_interface.particles().attributes(),
-                          &action_interface.context());
+  return this->compute(action_interface.array_allocator(),
+                       action_interface.particles().pindices(),
+                       action_interface.particles().attributes(),
+                       &action_interface.context());
 }
 
-ParticleFunctionCaller ParticleFunction::get_caller(
-    OffsetHandlerInterface &offset_handler_interface)
+ParticleFunctionResult ParticleFunction::compute(OffsetHandlerInterface &offset_handler_interface)
 {
-  return this->get_caller(offset_handler_interface.array_allocator(),
-                          offset_handler_interface.particles().attributes(),
-                          nullptr);
+  return this->compute(offset_handler_interface.array_allocator(),
+                       offset_handler_interface.particles().pindices(),
+                       offset_handler_interface.particles().attributes(),
+                       nullptr);
 }
 
-ParticleFunctionCaller ParticleFunction::get_caller(ForceInterface &force_interface)
+ParticleFunctionResult ParticleFunction::compute(ForceInterface &force_interface)
 {
-  return this->get_caller(
-      force_interface.array_allocator(), force_interface.block().attributes(), nullptr);
+  ParticlesBlock &block = force_interface.block();
+  return this->compute(force_interface.array_allocator(),
+                       block.active_range().as_array_ref(),
+                       block.attributes(),
+                       nullptr);
 }
 
-ParticleFunctionCaller ParticleFunction::get_caller(ArrayAllocator &array_allocator,
-                                                    AttributeArrays attributes,
-                                                    ActionContext *action_context)
+ParticleFunctionResult ParticleFunction::compute(ArrayAllocator &array_allocator,
+                                                 ArrayRef<uint> pindices,
+                                                 AttributeArrays attributes,
+                                                 ActionContext *action_context)
 {
-  ParticleFunctionCaller caller;
-  caller.m_body = m_body;
-  caller.m_min_buffer_length = attributes.size();
-  caller.m_array_allocator = &array_allocator;
+  Vector<void *> input_buffers;
+  Vector<uint> input_strides;
 
   for (uint i = 0; i < m_fn->input_amount(); i++) {
     StringRef input_name = m_fn->input_name(i);
@@ -53,11 +56,45 @@ ParticleFunctionCaller ParticleFunction::get_caller(ArrayAllocator &array_alloca
     }
     BLI_assert(input_buffer != nullptr);
 
-    caller.m_input_buffers.append(input_buffer);
-    caller.m_input_strides.append(input_stride);
+    input_buffers.append(input_buffer);
+    input_strides.append(input_stride);
   }
 
-  return caller;
+  ParticleFunctionResult result;
+  result.m_fn = m_fn.ptr();
+  result.m_array_allocator = &array_allocator;
+
+  for (uint i = 0; i < m_fn->output_amount(); i++) {
+    CPPTypeInfo *type_info = m_fn->output_type(i)->extension<CPPTypeInfo>();
+    BLI_assert(type_info != nullptr);
+
+    uint output_stride = type_info->size_of_type();
+    void *output_buffer = array_allocator.allocate(output_stride);
+
+    result.m_buffers.append(output_buffer);
+    result.m_strides.append(output_stride);
+  }
+
+  ExecutionStack stack;
+  ExecutionContext execution_context(stack);
+
+  FN_TUPLE_CALL_ALLOC_TUPLES(m_body, fn_in, fn_out);
+
+  for (uint pindex : pindices) {
+    for (uint i = 0; i < input_buffers.size(); i++) {
+      void *ptr = POINTER_OFFSET(input_buffers[i], pindex * input_strides[i]);
+      fn_in.copy_in__dynamic(i, ptr);
+    }
+
+    m_body->call(fn_in, fn_out, execution_context);
+
+    for (uint i = 0; i < result.m_buffers.size(); i++) {
+      void *ptr = POINTER_OFFSET(result.m_buffers[i], pindex * result.m_strides[i]);
+      fn_out.relocate_out__dynamic(i, ptr);
+    }
+  }
+
+  return result;
 }
 
 }  // namespace BParticles
