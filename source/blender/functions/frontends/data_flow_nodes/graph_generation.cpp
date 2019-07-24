@@ -120,7 +120,7 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
   }
 };
 
-Optional<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
+ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
 {
   DataFlowGraphBuilder graph_builder;
   Map<VirtualSocket *, DFGB_Socket> socket_map;
@@ -129,11 +129,11 @@ Optional<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
   GraphInserters &inserters = get_standard_inserters();
 
   if (!insert_functions_for_bnodes(builder, inserters)) {
-    return {};
+    return BLI_ERROR_CREATE("error inserting functions for nodes");
   }
 
   if (!insert_links(builder, inserters)) {
-    return {};
+    return BLI_ERROR_CREATE("error inserting links");
   }
 
   BasicUnlinkedInputsHandler unlinked_inputs_handler(inserters);

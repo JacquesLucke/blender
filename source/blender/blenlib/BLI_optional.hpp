@@ -134,6 +134,14 @@ template<typename T> class Optional {
     }
   }
 
+  T extract()
+  {
+    BLI_assert(m_set);
+    T value = std::move(this->value());
+    this->reset();
+    return value;
+  }
+
  private:
   T *value_ptr() const
   {

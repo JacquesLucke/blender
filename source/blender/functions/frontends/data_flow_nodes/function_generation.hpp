@@ -1,14 +1,16 @@
 #pragma once
 
 #include "FN_core.hpp"
-#include "BLI_optional.hpp"
+#include "BLI_value_or_error.hpp"
 
 struct bNodeTree;
 
 namespace FN {
 namespace DataFlowNodes {
 
-Optional<SharedFunction> generate_function(struct bNodeTree *btree);
+using BLI::ValueOrError;
+
+ValueOrError<SharedFunction> generate_function(struct bNodeTree *btree);
 
 }  // namespace DataFlowNodes
 }  // namespace FN

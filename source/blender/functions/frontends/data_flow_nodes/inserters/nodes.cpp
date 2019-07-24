@@ -225,9 +225,10 @@ static void INSERT_call(BTreeGraphBuilder &builder, VirtualNode *vnode)
     return;
   }
 
-  Optional<SharedFunction> fn = generate_function(btree);
-  BLI_assert(fn.has_value());
-  builder.insert_matching_function(fn.value(), vnode);
+  ValueOrError<SharedFunction> fn_or_error = generate_function(btree);
+  BLI_assert(!fn_or_error.is_error());
+  SharedFunction fn = fn_or_error.extract_value();
+  builder.insert_matching_function(fn, vnode);
 }
 
 static void INSERT_switch(BTreeGraphBuilder &builder, VirtualNode *vnode)

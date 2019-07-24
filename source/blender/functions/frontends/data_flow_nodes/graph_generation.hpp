@@ -1,7 +1,7 @@
 #pragma once
 
 #include "FN_core.hpp"
-#include "BLI_optional.hpp"
+#include "BLI_value_or_error.hpp"
 #include "BKE_node_tree.hpp"
 
 #include "builder.hpp"
@@ -12,6 +12,7 @@ namespace DataFlowNodes {
 using BKE::VirtualNode;
 using BKE::VirtualNodeTree;
 using BKE::VirtualSocket;
+using BLI::ValueOrError;
 
 class UnlinkedInputsHandler {
  public:
@@ -69,7 +70,7 @@ class VNodePlaceholderBody : public FunctionBody {
   }
 };
 
-Optional<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree);
+ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree);
 
 }  // namespace DataFlowNodes
 }  // namespace FN

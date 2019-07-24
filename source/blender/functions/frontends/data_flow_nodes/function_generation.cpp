@@ -32,14 +32,14 @@ static void find_interface_sockets(VirtualNodeTree &vtree,
   }
 }
 
-static Optional<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree)
+static ValueOrError<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree)
 {
-  Optional<VTreeDataGraph> data_graph_ = generate_graph(vtree);
-  if (!data_graph_.has_value()) {
-    return {};
+  ValueOrError<VTreeDataGraph> data_graph_or_error = generate_graph(vtree);
+  if (data_graph_or_error.is_error()) {
+    return data_graph_or_error.error();
   }
 
-  VTreeDataGraph &data_graph = data_graph_.value();
+  VTreeDataGraph data_graph = data_graph_or_error.extract_value();
 
   DFGraphSocketSetVector input_sockets;
   DFGraphSocketSetVector output_sockets;
@@ -48,18 +48,18 @@ static Optional<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree)
   return FunctionGraph(data_graph.graph(), input_sockets, output_sockets);
 }
 
-Optional<SharedFunction> generate_function(bNodeTree *btree)
+ValueOrError<SharedFunction> generate_function(bNodeTree *btree)
 {
   VirtualNodeTree vtree;
   vtree.add_all_of_tree(btree);
   vtree.freeze_and_index();
 
-  Optional<FunctionGraph> fgraph_ = generate_function_graph(vtree);
-  if (!fgraph_.has_value()) {
-    return {};
+  ValueOrError<FunctionGraph> fgraph_or_error = generate_function_graph(vtree);
+  if (fgraph_or_error.is_error()) {
+    return fgraph_or_error.error();
   }
 
-  FunctionGraph fgraph = fgraph_.value();
+  FunctionGraph fgraph = fgraph_or_error.extract_value();
   // fgraph.graph()->to_dot__clipboard();
 
   auto fn = fgraph.new_function(btree->id.name);

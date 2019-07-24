@@ -8,6 +8,7 @@
 namespace BParticles {
 
 using BLI::MultiMap;
+using BLI::ValueOrError;
 
 static bool is_particle_type_node(VirtualNode *vnode)
 {
@@ -54,7 +55,12 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
     particle_type_names.add_new(particle_type_node->name());
   }
 
-  auto data_graph = FN::DataFlowNodes::generate_graph(vtree).value();
+  ValueOrError<VTreeDataGraph> data_graph_or_error = FN::DataFlowNodes::generate_graph(vtree);
+  if (data_graph_or_error.is_error()) {
+    return {};
+  }
+
+  VTreeDataGraph data_graph = data_graph_or_error.extract_value();
 
   BuildContext ctx = {data_graph, particle_type_names, world_state};
 

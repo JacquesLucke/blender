@@ -18,6 +18,7 @@
 
 namespace BParticles {
 
+using BLI::ValueOrError;
 using FN::DFGraphSocket;
 using FN::SharedFunction;
 using FN::SharedType;
@@ -335,11 +336,11 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,
     return {};
   }
 
-  Optional<SharedFunction> fn_emitter_ = FN::DataFlowNodes::generate_function(btree);
-  if (!fn_emitter_.has_value()) {
+  ValueOrError<SharedFunction> fn_emitter_or_error = FN::DataFlowNodes::generate_function(btree);
+  if (fn_emitter_or_error.is_error()) {
     return {};
   }
-  SharedFunction fn_emitter = fn_emitter_.value();
+  SharedFunction fn_emitter = fn_emitter_or_error.extract_value();
 
   SharedFunction fn_inputs = create_function_for_data_inputs(vnode, ctx.data_graph);
 

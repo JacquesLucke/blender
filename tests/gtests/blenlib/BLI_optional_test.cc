@@ -49,3 +49,11 @@ TEST(optional, FromNonNullPointer)
   EXPECT_TRUE(a.has_value());
   EXPECT_EQ(a.value(), 42);
 }
+
+TEST(optional, Extract)
+{
+  Optional<int> a(32);
+  EXPECT_TRUE(a.has_value());
+  EXPECT_EQ(a.extract(), 32);
+  EXPECT_FALSE(a.has_value());
+}
