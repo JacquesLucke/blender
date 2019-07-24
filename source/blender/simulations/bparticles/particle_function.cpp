@@ -78,7 +78,7 @@ ParticleFunctionResult ParticleFunction::compute(ArrayAllocator &array_allocator
   ExecutionStack stack;
   ExecutionContext execution_context(stack);
 
-  FN_TUPLE_CALL_ALLOC_TUPLES(m_body, fn_in, fn_out);
+  FN_TUPLE_CALL_ALLOC_TUPLES(*m_body, fn_in, fn_out);
 
   for (uint pindex : pindices) {
     for (uint i = 0; i < input_buffers.size(); i++) {

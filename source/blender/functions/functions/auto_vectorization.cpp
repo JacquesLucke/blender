@@ -97,8 +97,8 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     Vector<llvm::Value *> main_outputs(m_output_info.size());
     CodeInterface main_interface(
         main_inputs, main_outputs, interface.context_ptr(), interface.function_ir_cache());
-    auto *body = m_main->body<LLVMBuildIRBody>();
-    body->build_ir(body_builder, main_interface, settings);
+    auto &body = m_main->body<LLVMBuildIRBody>();
+    body.build_ir(body_builder, main_interface, settings);
 
     this->store_computed_values_in_output_lists(
         body_builder, main_outputs, output_data_pointers, iteration);
@@ -201,14 +201,14 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
 
         /* Use default value when list has no elements. */
         SharedFunction &default_builder = m_empty_list_value_builders[list_input_index];
-        auto *default_builder_body = default_builder->body<LLVMBuildIRBody>();
+        auto &default_builder_body = default_builder->body<LLVMBuildIRBody>();
         Vector<llvm::Value *> default_builder_inputs(0);
         Vector<llvm::Value *> default_builder_outputs(1);
         CodeInterface default_builder_interface(default_builder_inputs,
                                                 default_builder_outputs,
                                                 interface.context_ptr(),
                                                 interface.function_ir_cache());
-        default_builder_body->build_ir(builder, default_builder_interface, settings);
+        default_builder_body.build_ir(builder, default_builder_interface, settings);
         llvm::Value *default_value = default_builder_outputs[0];
 
         /* Load value from list. */
@@ -249,7 +249,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
 class AutoVectorization : public TupleCallBody {
  private:
   SharedFunction m_main;
-  TupleCallBody *m_main_body;
+  TupleCallBody &m_main_body;
 
   const Vector<bool> m_input_is_list;
   Vector<uint> m_list_inputs;
@@ -272,8 +272,8 @@ class AutoVectorization : public TupleCallBody {
     }
     for (uint i : m_list_inputs) {
       SharedType &base_type = main->input_type(i);
-      m_get_length_bodies.append(GET_FN_list_length(base_type)->body<TupleCallBody>());
-      m_get_element_bodies.append(GET_FN_get_list_element(base_type)->body<TupleCallBody>());
+      m_get_length_bodies.append(&GET_FN_list_length(base_type)->body<TupleCallBody>());
+      m_get_element_bodies.append(&GET_FN_get_list_element(base_type)->body<TupleCallBody>());
     }
 
     m_max_len_in_size = 0;
@@ -284,8 +284,8 @@ class AutoVectorization : public TupleCallBody {
     }
 
     for (auto base_type : main->output_types()) {
-      m_create_empty_bodies.append(GET_FN_empty_list(base_type)->body<TupleCallBody>());
-      m_append_bodies.append(GET_FN_append_to_list(base_type)->body<TupleCallBody>());
+      m_create_empty_bodies.append(&GET_FN_empty_list(base_type)->body<TupleCallBody>());
+      m_append_bodies.append(&GET_FN_append_to_list(base_type)->body<TupleCallBody>());
     }
   }
 
@@ -318,7 +318,7 @@ class AutoVectorization : public TupleCallBody {
       }
 
       iteration_frame.m_iteration = iteration;
-      m_main_body->call(main_in, main_out, ctx);
+      m_main_body.call(main_in, main_out, ctx);
 
       for (uint i = 0; i < m_main->output_amount(); i++) {
         this->append_to_output(main_out, fn_out, i, ctx);
@@ -343,11 +343,11 @@ class AutoVectorization : public TupleCallBody {
                              uint list_index,
                              ExecutionContext &ctx) const
   {
-    TupleCallBody *body = m_get_length_bodies[list_index];
+    TupleCallBody &body = *m_get_length_bodies[list_index];
     FN_TUPLE_CALL_ALLOC_TUPLES(body, get_length_in, get_length_out);
 
     Tuple::copy_element(fn_in, index_in_tuple, get_length_in, 0);
-    body->call__setup_stack(get_length_in, get_length_out, ctx);
+    body.call__setup_stack(get_length_in, get_length_out, ctx);
     uint length = get_length_out.get<uint>(0);
     return length;
   }
@@ -366,13 +366,13 @@ class AutoVectorization : public TupleCallBody {
     }
     uint load_index = iteration % list_length;
 
-    TupleCallBody *body = m_get_element_bodies[list_index];
+    TupleCallBody &body = *m_get_element_bodies[list_index];
     FN_TUPLE_CALL_ALLOC_TUPLES(body, get_element_in, get_element_out);
 
     Tuple::copy_element(fn_in, index, get_element_in, 0);
     get_element_in.set<uint>(1, load_index);
     get_element_in.init_default(2);
-    body->call__setup_stack(get_element_in, get_element_out, ctx);
+    body.call__setup_stack(get_element_in, get_element_out, ctx);
     Tuple::relocate_element(get_element_out, 0, main_in, index);
   }
 
@@ -385,21 +385,21 @@ class AutoVectorization : public TupleCallBody {
 
   void initialize_empty_list(Tuple &fn_out, uint index, ExecutionContext &ctx) const
   {
-    TupleCallBody *body = m_create_empty_bodies[index];
+    TupleCallBody &body = *m_create_empty_bodies[index];
     FN_TUPLE_CALL_ALLOC_TUPLES(body, create_list_in, create_list_out);
 
-    body->call__setup_stack(create_list_in, create_list_out, ctx);
+    body.call__setup_stack(create_list_in, create_list_out, ctx);
     Tuple::relocate_element(create_list_out, 0, fn_out, index);
   }
 
   void append_to_output(Tuple &main_out, Tuple &fn_out, uint index, ExecutionContext &ctx) const
   {
-    TupleCallBody *body = m_append_bodies[index];
+    TupleCallBody &body = *m_append_bodies[index];
     FN_TUPLE_CALL_ALLOC_TUPLES(body, append_in, append_out);
 
     Tuple::relocate_element(fn_out, index, append_in, 0);
     Tuple::relocate_element(main_out, index, append_in, 1);
-    body->call__setup_stack(append_in, append_out, ctx);
+    body.call__setup_stack(append_in, append_out, ctx);
     Tuple::relocate_element(append_out, 0, fn_out, index);
   }
 };

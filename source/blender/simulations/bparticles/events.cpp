@@ -21,7 +21,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
   FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_age_body, fn_in, fn_out);
   FN::ExecutionStack stack;
   FN::ExecutionContext execution_context(stack);
-  m_compute_age_body->call(fn_in, fn_out, execution_context);
+  m_compute_age_body.call(fn_in, fn_out, execution_context);
   float trigger_age = fn_out.get<float>(0);
 
   for (uint pindex : particles.pindices()) {

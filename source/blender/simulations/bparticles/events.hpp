@@ -20,7 +20,7 @@ class AgeReachedEvent : public Event {
  private:
   std::string m_identifier;
   SharedFunction m_compute_age_fn;
-  TupleCallBody *m_compute_age_body;
+  TupleCallBody &m_compute_age_body;
   std::unique_ptr<Action> m_action;
 
  public:
@@ -29,9 +29,9 @@ class AgeReachedEvent : public Event {
                   std::unique_ptr<Action> action)
       : m_identifier(identifier.to_std_string()),
         m_compute_age_fn(compute_age_fn),
+        m_compute_age_body(m_compute_age_fn->body<TupleCallBody>()),
         m_action(std::move(action))
   {
-    m_compute_age_body = compute_age_fn->body<TupleCallBody>();
   }
 
   void attributes(AttributesDeclaration &builder) override;

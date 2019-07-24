@@ -149,9 +149,8 @@ class BuildGraphIR : public LLVMBuildIRBody {
     CodeInterface sub_interface(
         input_values, output_values, interface.context_ptr(), interface.function_ir_cache());
 
-    BLI_assert(fn->has_body<LLVMBuildIRBody>());
-    auto *body = fn->body<LLVMBuildIRBody>();
-    body->build_ir(builder, sub_interface, settings);
+    auto &body = fn->body<LLVMBuildIRBody>();
+    body.build_ir(builder, sub_interface, settings);
 
     if (settings.maintain_stack()) {
       this->pop_stack_frames_for_node(builder, interface.context_ptr());

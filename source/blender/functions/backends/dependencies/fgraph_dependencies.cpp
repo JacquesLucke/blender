@@ -23,7 +23,7 @@ class FGraphDependencies : public DepsBody {
   }
 
   Vector<ID *> find_deps_and_outputs(DFGraphSocket socket,
-                                          FunctionDepsBuilder &parent_builder) const
+                                     FunctionDepsBuilder &parent_builder) const
   {
     if (m_fgraph.inputs().contains(socket)) {
       return parent_builder.get_input_ids(m_fgraph.inputs().index(socket));
@@ -34,14 +34,7 @@ class FGraphDependencies : public DepsBody {
     else {
       uint node_id = m_graph->node_id_of_output(socket);
       SharedFunction &fn = m_graph->function_of_node(node_id);
-      DepsBody *body = fn->body<DepsBody>();
-      if (body == nullptr) {
-        for (auto input_socket : m_graph->inputs_of_node(node_id)) {
-          this->find_deps_and_outputs(input_socket, parent_builder);
-        }
-        return {};
-      }
-      else {
+      if (fn->has_body<DepsBody>()) {
         MultiMap<uint, ID *> input_ids;
 
         for (uint i = 0; i < fn->input_amount(); i++) {
@@ -53,8 +46,15 @@ class FGraphDependencies : public DepsBody {
 
         MultiMap<uint, ID *> output_ids;
         FunctionDepsBuilder builder(input_ids, output_ids, parent_builder.dependency_components());
-        body->build_deps(builder);
+        DepsBody &body = fn->body<DepsBody>();
+        body.build_deps(builder);
         return output_ids.lookup_default(m_graph->index_of_output(socket));
+      }
+      else {
+        for (auto input_socket : m_graph->inputs_of_node(node_id)) {
+          this->find_deps_and_outputs(input_socket, parent_builder);
+        }
+        return {};
       }
     }
   }

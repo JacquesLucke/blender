@@ -174,20 +174,20 @@ VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_depende
     else {
       uint node_id = m_graph->node_id_of_output(socket);
       SharedFunction &fn = m_graph->function_of_node(node_id);
-      auto *body = fn->body<VNodePlaceholderBody>();
-      if (body == nullptr) {
+      if (fn->has_body<VNodePlaceholderBody>()) {
+        auto &body = fn->body<VNodePlaceholderBody>();
+        VirtualNode *vnode = body.vnode();
+        uint data_output_index = m_graph->index_of_output(socket);
+        VirtualSocket *vsocket = this->find_data_output(vnode, data_output_index);
+        dependencies.sockets.append(socket);
+        dependencies.vsockets.append(vsocket);
+      }
+      else {
         for (DFGraphSocket input : m_graph->inputs_of_node(node_id)) {
           if (found.add(input)) {
             to_be_checked.push(input);
           }
         }
-      }
-      else {
-        VirtualNode *vnode = body->vnode();
-        uint data_output_index = m_graph->index_of_output(socket);
-        VirtualSocket *vsocket = this->find_data_output(vnode, data_output_index);
-        dependencies.sockets.append(socket);
-        dependencies.vsockets.append(vsocket);
       }
     }
   }

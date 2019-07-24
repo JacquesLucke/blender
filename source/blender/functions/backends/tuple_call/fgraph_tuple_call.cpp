@@ -69,14 +69,14 @@ class ExecuteFGraph : public TupleCallBody {
     for (uint node_id : m_graph->node_ids()) {
       SharedFunction &fn = m_graph->function_of_node(node_id);
 
-      TupleCallBodyBase *body;
-      bool is_lazy_body;
+      TupleCallBodyBase *body = nullptr;
+      bool is_lazy_body = false;
       if (fn->has_body<LazyInTupleCallBody>()) {
-        body = fn->body<LazyInTupleCallBody>();
+        body = &fn->body<LazyInTupleCallBody>();
         is_lazy_body = true;
       }
-      else {
-        body = fn->body<TupleCallBody>();
+      else if (fn->has_body<TupleCallBody>()) {
+        body = &fn->body<TupleCallBody>();
         is_lazy_body = false;
       }
 
@@ -586,7 +586,7 @@ class ExecuteFGraph_Simple : public TupleCallBody {
     else {
       uint node_id = m_graph->node_id_of_output(socket);
       SharedFunction &fn = m_graph->function_of_node(node_id);
-      TupleCallBody *body = fn->body<TupleCallBody>();
+      TupleCallBody &body = fn->body<TupleCallBody>();
 
       FN_TUPLE_CALL_ALLOC_TUPLES(body, tmp_in, tmp_out);
 
@@ -597,7 +597,7 @@ class ExecuteFGraph_Simple : public TupleCallBody {
       }
 
       SourceInfoStackFrame node_frame(m_graph->source_info_of_node(node_id));
-      body->call__setup_stack(tmp_in, tmp_out, ctx, node_frame);
+      body.call__setup_stack(tmp_in, tmp_out, ctx, node_frame);
 
       Tuple::copy_element(tmp_out, m_graph->index_of_output(socket.id()), out, out_index);
     }

@@ -413,13 +413,6 @@ class DataFlowGraph : public RefCountedBase {
     }
   }
 
-  template<typename T> T *function_body_of_output(DFGraphSocket socket)
-  {
-    BLI_assert(socket.is_output());
-    SharedFunction &fn = this->function_of_output(socket.id());
-    return fn->body<T>();
-  }
-
   const StringRefNull name_of_input(uint input_id)
   {
     return this->function_of_input(input_id)->input_name(this->index_of_input(input_id));

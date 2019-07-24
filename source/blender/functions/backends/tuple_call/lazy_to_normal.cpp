@@ -9,12 +9,12 @@ namespace FN {
  */
 class MakeEagerBody : public TupleCallBody {
  private:
-  LazyInTupleCallBody *m_lazy_body;
+  LazyInTupleCallBody &m_lazy_body;
   uint m_user_data_size;
 
  public:
-  MakeEagerBody(LazyInTupleCallBody *body)
-      : m_lazy_body(body), m_user_data_size(body->user_data_size())
+  MakeEagerBody(LazyInTupleCallBody &body)
+      : m_lazy_body(body), m_user_data_size(body.user_data_size())
   {
   }
 
@@ -24,7 +24,7 @@ class MakeEagerBody : public TupleCallBody {
     LazyState state(user_data);
     while (!state.is_done()) {
       state.start_next_entry();
-      m_lazy_body->call(fn_in, fn_out, ctx, state);
+      m_lazy_body.call(fn_in, fn_out, ctx, state);
     }
   }
 };

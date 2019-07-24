@@ -17,14 +17,17 @@ static void update_depsgraph(DepsNodeHandle *deps_node, DependencyComponents &de
 void FN_function_update_dependencies(FnFunction fn_c, struct DepsNodeHandle *deps_node)
 {
   Function *fn = unwrap(fn_c);
-  DepsBody *body = fn->body<DepsBody>();
-  if (body) {
-    MultiMap<uint, ID *> input_ids;
-    MultiMap<uint, ID *> output_ids;
-    DependencyComponents components;
-
-    FunctionDepsBuilder builder(input_ids, output_ids, components);
-    body->build_deps(builder);
-    update_depsgraph(deps_node, components);
+  if (!fn->has_body<DepsBody>()) {
+    return;
   }
+
+  DepsBody &body = fn->body<DepsBody>();
+
+  MultiMap<uint, ID *> input_ids;
+  MultiMap<uint, ID *> output_ids;
+  DependencyComponents components;
+
+  FunctionDepsBuilder builder(input_ids, output_ids, components);
+  body.build_deps(builder);
+  update_depsgraph(deps_node, components);
 }

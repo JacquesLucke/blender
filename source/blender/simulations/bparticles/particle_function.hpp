@@ -55,7 +55,7 @@ class ParticleFunction {
   TupleCallBody *m_body;
 
  public:
-  ParticleFunction(SharedFunction fn) : m_fn(std::move(fn)), m_body(m_fn->body<TupleCallBody>())
+  ParticleFunction(SharedFunction fn) : m_fn(std::move(fn)), m_body(&m_fn->body<TupleCallBody>())
   {
     BLI_assert(m_body != nullptr);
   }

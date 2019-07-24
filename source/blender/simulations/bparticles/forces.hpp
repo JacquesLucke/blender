@@ -15,13 +15,13 @@ class Force {
 class GravityForce : public Force {
  private:
   SharedFunction m_compute_acceleration_fn;
-  TupleCallBody *m_compute_acceleration_body;
+  TupleCallBody &m_compute_acceleration_body;
 
  public:
   GravityForce(SharedFunction &compute_acceleration_fn)
-      : m_compute_acceleration_fn(compute_acceleration_fn)
+      : m_compute_acceleration_fn(compute_acceleration_fn),
+        m_compute_acceleration_body(m_compute_acceleration_fn->body<TupleCallBody>())
   {
-    m_compute_acceleration_body = m_compute_acceleration_fn->body<TupleCallBody>();
   }
 
   void add_force(ForceInterface &interface) override;

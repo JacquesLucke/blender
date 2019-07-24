@@ -44,10 +44,10 @@ static llvm::Value *build__stack_allocate_ExecutionContext(CodeBuilder &builder)
 
 class TupleCallLLVM : public LLVMBuildIRBody {
  private:
-  TupleCallBody *m_tuple_call;
+  TupleCallBody &m_tuple_call;
 
  public:
-  TupleCallLLVM(TupleCallBody *tuple_call) : m_tuple_call(tuple_call)
+  TupleCallLLVM(TupleCallBody &tuple_call) : m_tuple_call(tuple_call)
   {
   }
 
@@ -55,7 +55,7 @@ class TupleCallLLVM : public LLVMBuildIRBody {
                 CodeInterface &interface,
                 const BuildIRSettings &settings) const override
   {
-    Function *fn = m_tuple_call->owner();
+    Function *fn = m_tuple_call.owner();
 
     /* Find relevant type information. */
     auto input_type_infos = fn->input_extensions<LLVMTypeInfo>();
@@ -86,7 +86,7 @@ class TupleCallLLVM : public LLVMBuildIRBody {
                                        ArrayRef<LLVMTypeInfo *> input_type_infos,
                                        ArrayRef<LLVMTypeInfo *> output_type_infos) const
   {
-    Function *fn = m_tuple_call->owner();
+    Function *fn = m_tuple_call.owner();
 
     Vector<llvm::Type *> input_types = builder.types_of_values(interface.inputs());
     if (settings.maintain_stack()) {
@@ -133,8 +133,8 @@ class TupleCallLLVM : public LLVMBuildIRBody {
     CodeBuilder builder(bb);
 
     /* Allocate temporary stack buffer for tuple input and output. */
-    auto &meta_in = m_tuple_call->meta_in();
-    auto &meta_out = m_tuple_call->meta_out();
+    auto &meta_in = m_tuple_call.meta_in();
+    auto &meta_out = m_tuple_call.meta_out();
     llvm::Value *tuple_in_data_ptr = builder.CreateAllocaBytes_BytePtr(meta_in->size_of_data());
     tuple_in_data_ptr->setName("tuple_in_data");
     llvm::Value *tuple_out_data_ptr = builder.CreateAllocaBytes_BytePtr(meta_out->size_of_data());
@@ -158,11 +158,13 @@ class TupleCallLLVM : public LLVMBuildIRBody {
     }
 
     /* Execute tuple call body. */
-    builder.CreateCallPointer(
-        (void *)run_TupleCallBody,
-        {builder.getVoidPtr(m_tuple_call), tuple_in_data_ptr, tuple_out_data_ptr, context_ptr},
-        builder.getVoidTy(),
-        "Run tuple call body");
+    builder.CreateCallPointer((void *)run_TupleCallBody,
+                              {builder.getVoidPtr((void *)&m_tuple_call),
+                               tuple_in_data_ptr,
+                               tuple_out_data_ptr,
+                               context_ptr},
+                              builder.getVoidTy(),
+                              "Run tuple call body");
 
     /* Read output values from buffer. */
     llvm::Value *output = llvm::UndefValue::get(output_type);

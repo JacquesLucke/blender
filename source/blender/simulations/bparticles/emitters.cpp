@@ -130,14 +130,13 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
 
 void CustomFunctionEmitter::emit(EmitterInterface &interface)
 {
-  TupleCallBody *body = m_function->body<TupleCallBody>();
-  BLI_assert(body);
+  TupleCallBody &body = m_function->body<TupleCallBody>();
 
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
 
-  body->set_input<float>(fn_in, 0, "Start Time", interface.time_span().start());
-  body->set_input<float>(fn_in, 1, "Time Step", interface.time_span().duration());
-  body->call__setup_execution_context(fn_in, fn_out);
+  body.set_input<float>(fn_in, 0, "Start Time", interface.time_span().start());
+  body.set_input<float>(fn_in, 1, "Time Step", interface.time_span().duration());
+  body.call__setup_execution_context(fn_in, fn_out);
 
   auto &float_list_type = FN::Types::GET_TYPE_float_list();
   auto &float3_list_type = FN::Types::GET_TYPE_float3_list();

@@ -7,7 +7,7 @@
 
 #include "xmmintrin.h"
 
-#define USE_THREADING true
+#define USE_THREADING false
 
 namespace BParticles {
 

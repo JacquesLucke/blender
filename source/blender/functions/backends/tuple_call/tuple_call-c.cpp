@@ -24,7 +24,7 @@ void FN_tuple_call_invoke(FnTupleCallBody body_c,
 
 FnTupleCallBody FN_tuple_call_get(FnFunction fn_c)
 {
-  return wrap(unwrap(fn_c)->body<TupleCallBody>());
+  return wrap(&unwrap(fn_c)->body<TupleCallBody>());
 }
 
 FnTuple FN_tuple_for_input(FnTupleCallBody body_c)

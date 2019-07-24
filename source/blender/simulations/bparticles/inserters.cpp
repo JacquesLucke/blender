@@ -290,12 +290,12 @@ static std::unique_ptr<Event> BUILD_EVENT_close_by_points(BuildContext &ctx, Vir
   SharedFunction fn = fn_or_error.extract_value();
   auto action = build_action_for_trigger(ctx, vnode->output(0));
 
-  TupleCallBody *body = fn->body<TupleCallBody>();
+  TupleCallBody &body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body->call__setup_execution_context(fn_in, fn_out);
+  body.call__setup_execution_context(fn_in, fn_out);
 
   auto vectors = fn_out.relocate_out<FN::Types::SharedFloat3List>(0);
-  float distance = body->get_output<float>(fn_out, 1, "Distance");
+  float distance = body.get_output<float>(fn_out, 1, "Distance");
 
   KDTree_3d *kdtree = BLI_kdtree_3d_new(vectors->size());
   for (float3 vector : *vectors.ptr()) {
@@ -317,13 +317,13 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
   }
   SharedFunction fn = fn_or_error.extract_value();
 
-  auto body = fn->body<TupleCallBody>();
+  auto &body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body->call__setup_execution_context(fn_in, fn_out);
+  body.call__setup_execution_context(fn_in, fn_out);
 
   auto on_birth_action = build_action_for_trigger(ctx, vnode->output(0));
 
-  Object *object = body->get_output<Object *>(fn_out, 0, "Object");
+  Object *object = body.get_output<Object *>(fn_out, 0, "Object");
   if (object == nullptr) {
     return {};
   }
@@ -335,10 +335,10 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
                          std::move(on_birth_action),
                          object,
                          transform,
-                         body->get_output<float>(fn_out, 1, "Rate"),
-                         body->get_output<float>(fn_out, 2, "Normal Velocity"),
-                         body->get_output<float>(fn_out, 3, "Emitter Velocity"),
-                         body->get_output<float>(fn_out, 4, "Size")));
+                         body.get_output<float>(fn_out, 1, "Rate"),
+                         body.get_output<float>(fn_out, 2, "Normal Velocity"),
+                         body.get_output<float>(fn_out, 3, "Emitter Velocity"),
+                         body.get_output<float>(fn_out, 4, "Size")));
 }
 
 static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
@@ -351,18 +351,18 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
   }
   SharedFunction fn = fn_or_error.extract_value();
 
-  auto body = fn->body<TupleCallBody>();
+  auto &body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body->call__setup_execution_context(fn_in, fn_out);
+  body.call__setup_execution_context(fn_in, fn_out);
 
   StringRef bnode_name = vnode->name();
 
   auto point = ctx.world_state.get_interpolated_value(
-      bnode_name + StringRef("Position"), body->get_output<float3>(fn_out, 0, "Position"));
+      bnode_name + StringRef("Position"), body.get_output<float3>(fn_out, 0, "Position"));
   auto velocity = ctx.world_state.get_interpolated_value(
-      bnode_name + StringRef("Velocity"), body->get_output<float3>(fn_out, 1, "Velocity"));
+      bnode_name + StringRef("Velocity"), body.get_output<float3>(fn_out, 1, "Velocity"));
   auto size = ctx.world_state.get_interpolated_value(bnode_name + StringRef("Size"),
-                                                     body->get_output<float>(fn_out, 2, "Size"));
+                                                     body.get_output<float>(fn_out, 2, "Size"));
   return std::unique_ptr<PointEmitter>(
       new PointEmitter(particle_type_name, 10, point, velocity, size));
 }
@@ -456,17 +456,17 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_initial_grid(BuildContext &ctx,
   }
 
   SharedFunction fn = fn_or_error.extract_value();
-  TupleCallBody *body = fn->body<TupleCallBody>();
+  TupleCallBody &body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body->call__setup_execution_context(fn_in, fn_out);
+  body.call__setup_execution_context(fn_in, fn_out);
 
   return std::unique_ptr<Emitter>(
       new InitialGridEmitter(particle_type_name,
-                             body->get_output<uint>(fn_out, 0, "Amount X"),
-                             body->get_output<uint>(fn_out, 1, "Amount Y"),
-                             body->get_output<float>(fn_out, 2, "Step X"),
-                             body->get_output<float>(fn_out, 3, "Step Y"),
-                             body->get_output<float>(fn_out, 4, "Size")));
+                             body.get_output<uint>(fn_out, 0, "Amount X"),
+                             body.get_output<uint>(fn_out, 1, "Amount Y"),
+                             body.get_output<float>(fn_out, 2, "Step X"),
+                             body.get_output<float>(fn_out, 3, "Step Y"),
+                             body.get_output<float>(fn_out, 4, "Size")));
 }
 
 static std::unique_ptr<OffsetHandler> BUILD_OFFSET_HANDLER_trails(BuildContext &ctx,

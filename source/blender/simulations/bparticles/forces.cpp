@@ -18,7 +18,7 @@ void GravityForce::add_force(ForceInterface &interface)
   FN::ExecutionStack stack;
   FN::ExecutionContext execution_context(stack);
 
-  m_compute_acceleration_body->call(fn_in, fn_out, execution_context);
+  m_compute_acceleration_body.call(fn_in, fn_out, execution_context);
 
   float3 acceleration = fn_out.get<float3>(0);
 

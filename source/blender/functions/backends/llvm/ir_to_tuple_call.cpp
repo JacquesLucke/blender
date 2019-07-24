@@ -27,7 +27,7 @@ static llvm::Value *lookup_tuple_address(CodeBuilder &builder,
 static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Module *module)
 {
   llvm::LLVMContext &context = module->getContext();
-  LLVMBuildIRBody *body = fn->body<LLVMBuildIRBody>();
+  LLVMBuildIRBody &body = fn->body<LLVMBuildIRBody>();
 
   llvm::Type *void_ty = llvm::Type::getVoidTy(context);
   llvm::Type *void_ptr_ty = void_ty->getPointerTo();
@@ -76,7 +76,7 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   BuildIRSettings settings;
   FunctionIRCache function_cache;
   CodeInterface interface(input_values, output_values, context_ptr, function_cache);
-  body->build_ir(builder, interface, settings);
+  body.build_ir(builder, interface, settings);
 
   for (uint i = 0; i < output_values.size(); i++) {
     llvm::Value *value_byte_addr = lookup_tuple_address(builder, fn_out_data, fn_out_offsets, i);

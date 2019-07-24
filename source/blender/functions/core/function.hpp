@@ -38,6 +38,10 @@ class FunctionBody {
   virtual void owner_init_post();
 
  public:
+  FunctionBody() = default;
+  FunctionBody(FunctionBody &other) = delete;
+  FunctionBody(FunctionBody &&other) = delete;
+
   virtual ~FunctionBody();
 
   Function *owner() const;
@@ -75,7 +79,7 @@ class Function final : public RefCountedBase {
   /**
    * Return a type extension of type T if it exists in the function. Otherwise nullptr.
    */
-  template<typename T> inline T *body() const;
+  template<typename T> inline T &body() const;
 
   /**
    * Add another implementation to the function. Every type of implementation can only be added
@@ -173,10 +177,11 @@ template<typename T> inline bool Function::has_body() const
   return m_bodies[T::FUNCTION_BODY_ID] != nullptr;
 }
 
-template<typename T> inline T *Function::body() const
+template<typename T> inline T &Function::body() const
 {
   STATIC_ASSERT_BODY_TYPE(T);
-  return (T *)m_bodies[T::FUNCTION_BODY_ID];
+  BLI_assert(this->has_body<T>());
+  return *(T *)m_bodies[T::FUNCTION_BODY_ID];
 }
 
 template<typename T, typename... Args> inline bool Function::add_body(Args &&... args)
