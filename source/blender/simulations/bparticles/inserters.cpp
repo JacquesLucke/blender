@@ -118,6 +118,22 @@ static ValueOrError<SharedFunction> create_function__emitter_inputs(VirtualNode 
   return fn;
 }
 
+static ValueOrError<SharedFunction> create_function__force_inputs(VirtualNode *force_vnode,
+                                                                  VTreeDataGraph &data_graph)
+{
+  Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(force_vnode, data_graph);
+  auto dependencies = data_graph.find_placeholder_dependencies(sockets_to_compute);
+
+  if (dependencies.size() > 0) {
+    return BLI_ERROR_CREATE("Force inputs cannot have dependencies currently.");
+  }
+
+  FunctionGraph fgraph(data_graph.graph(), {}, sockets_to_compute);
+  SharedFunction fn = fgraph.new_function(force_vnode->name());
+  FN::fgraph_add_TupleCallBody(fn, fgraph);
+  return fn;
+}
+
 static std::unique_ptr<Action> build_action(BuildContext &ctx, VirtualSocket *start);
 using ActionFromNodeCallback =
     std::function<std::unique_ptr<Action>(BuildContext &ctx, VirtualNode *vnode)>;
@@ -204,13 +220,23 @@ static std::unique_ptr<Action> build_action(BuildContext &ctx, VirtualSocket *st
 
 static std::unique_ptr<Force> BUILD_FORCE_gravity(BuildContext &ctx, VirtualNode *vnode)
 {
-  SharedFunction fn = create_function_for_data_inputs(vnode, ctx.data_graph);
+  auto fn_or_error = create_function__force_inputs(vnode, ctx.data_graph);
+  if (fn_or_error.is_error()) {
+    return {};
+  }
+
+  SharedFunction fn = fn_or_error.extract_value();
   return std::unique_ptr<Force>(new GravityForce(fn));
 }
 
 static std::unique_ptr<Force> BUILD_FORCE_turbulence(BuildContext &ctx, VirtualNode *vnode)
 {
-  SharedFunction fn = create_function_for_data_inputs(vnode, ctx.data_graph);
+  auto fn_or_error = create_function__force_inputs(vnode, ctx.data_graph);
+  if (fn_or_error.is_error()) {
+    return {};
+  }
+
+  SharedFunction fn = fn_or_error.extract_value();
   return std::unique_ptr<Force>(new TurbulenceForce(fn));
 }
 
