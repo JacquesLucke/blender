@@ -13,7 +13,7 @@ using FN::TupleCallBody;
 
 class ActionContext {
  public:
-  virtual void *get_info_array(StringRef name) = 0;
+  virtual void *get_context_array(StringRef name) = 0;
 };
 
 class ParticleFunction;
@@ -127,7 +127,7 @@ inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
 }
 
 class EmptyEventInfo : public ActionContext {
-  void *get_info_array(StringRef UNUSED(name))
+  void *get_context_array(StringRef UNUSED(name))
   {
     return nullptr;
   }
