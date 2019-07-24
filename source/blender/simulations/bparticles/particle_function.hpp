@@ -31,7 +31,7 @@ class ParticleFunctionCaller {
   friend ParticleFunction;
 
  public:
-  template<typename T> void add_output(ArrayRef<T> array)
+  template<typename T> void add_output(ArrayRef<T> array, StringRef expected_name)
   {
 #ifdef DEBUG
     uint index = m_output_buffers.size();
@@ -40,16 +40,18 @@ class ParticleFunctionCaller {
     uint given_stride = sizeof(T);
     BLI_assert(expected_stride == given_stride);
     BLI_assert(m_min_buffer_length <= array.size());
+    StringRef real_name = m_body->owner()->output_name(index);
+    BLI_assert(expected_name == real_name);
 #endif
 
     m_output_buffers.append((void *)array.begin());
     m_output_strides.append(sizeof(T));
   }
 
-  template<typename T> ArrayAllocator::Array<T> add_output()
+  template<typename T> ArrayAllocator::Array<T> add_output(StringRef expected_name)
   {
     ArrayAllocator::Array<T> array(*m_array_allocator);
-    this->add_output(array.as_array_ref());
+    this->add_output(array.as_array_ref(), expected_name);
     return array;
   }
 

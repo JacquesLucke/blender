@@ -9,7 +9,7 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
   auto position_offsets = interface.offsets().get_float3("Position");
 
   auto caller = m_compute_inputs.get_caller(interface);
-  auto rates = caller.add_output<float>();
+  auto rates = caller.add_output<float>("Rate");
   caller.call(particles.pindices());
 
   Vector<float3> new_positions;

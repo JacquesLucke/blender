@@ -35,7 +35,7 @@ void TurbulenceForce::add_force(ForceInterface &interface)
   auto positions = block.attributes().get_float3("Position");
 
   auto caller = m_compute_inputs.get_caller(interface);
-  auto strengths = caller.add_output<float3>();
+  auto strengths = caller.add_output<float3>("Strength");
   caller.call(block.active_range().as_array_ref());
 
   for (uint pindex = 0; pindex < block.active_amount(); pindex++) {
