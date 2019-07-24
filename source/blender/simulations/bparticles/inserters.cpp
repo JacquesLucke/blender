@@ -122,7 +122,7 @@ static ValueOrError<SharedFunction> create_function__action_inputs(VirtualNode *
     if (STREQ(vnode->idname(), "bp_ParticleInfoNode")) {
       name_prefix = "Attribute: ";
     }
-    else if (STREQ(vnode->idname(), "bp_MeshCollisionEventNode")) {
+    else if (STREQ(vnode->idname(), "bp_CollisionInfoNode")) {
       name_prefix = "Event: ";
     }
     else {

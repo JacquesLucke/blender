@@ -256,7 +256,7 @@ static void INSERT_separate_vector(BTreeGraphBuilder &builder, VirtualNode *vnod
   SharedFunction fn = get_vectorized_function(
       Functions::GET_FN_separate_vector(),
       rna,
-      {{"use_list__vector", Functions::GET_FN_output_float_0()}});
+      {{"use_list__vector", Functions::GET_FN_output_float3_0()}});
   builder.insert_matching_function(fn, vnode);
 }
 

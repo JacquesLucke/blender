@@ -2,6 +2,9 @@
 
 namespace BParticles {
 
+/* Age Reached Event
+ ******************************************/
+
 void AgeReachedEvent::attributes(AttributesDeclaration &builder)
 {
   builder.add_byte(m_identifier, 0);
@@ -56,6 +59,9 @@ void AgeReachedEvent::execute(EventExecuteInterface &interface)
 
   ActionInterface::RunFromEvent(m_action, interface);
 }
+
+/* Collision Event
+ ***********************************************/
 
 void MeshCollisionEvent::attributes(AttributesDeclaration &builder)
 {

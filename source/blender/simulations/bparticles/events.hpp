@@ -48,9 +48,12 @@ class CollisionEventInfo : public EventInfo {
   {
   }
 
-  void *get_info_array(StringRef UNUSED(name)) override
+  void *get_info_array(StringRef name) override
   {
-    return (void *)m_normals.begin();
+    if (name == "Normal") {
+      return (void *)m_normals.begin();
+    }
+    return nullptr;
   }
 };
 

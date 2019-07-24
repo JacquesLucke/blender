@@ -15,7 +15,6 @@ class MeshCollisionEventNode(bpy.types.Node, BParticlesNode):
     def declaration(self, builder : NodeBuilder):
         builder.event_input("event", "Event")
         builder.control_flow_output("on_event", "On event")
-        builder.fixed_output("normal", "Normal", "Vector")
 
     def draw(self, layout):
         layout.prop(self, "object", text="")
