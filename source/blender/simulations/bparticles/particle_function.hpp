@@ -22,12 +22,17 @@ class ParticleFunctionResult {
  private:
   Vector<void *> m_buffers;
   Vector<uint> m_strides;
+  Vector<bool> m_only_first;
   ArrayAllocator *m_array_allocator;
   FN::Function *m_fn;
 
   friend ParticleFunction;
 
  public:
+  ParticleFunctionResult() = default;
+  ParticleFunctionResult(ParticleFunctionResult &other) = delete;
+  ParticleFunctionResult(ParticleFunctionResult &&other) = delete;
+
   ~ParticleFunctionResult()
   {
     for (uint i = 0; i < m_buffers.size(); i++) {
@@ -45,7 +50,12 @@ class ParticleFunctionResult {
     UNUSED_VARS_NDEBUG(expected_name);
 
     T *buffer = (T *)m_buffers[parameter_index];
-    return buffer[pindex];
+    if (m_only_first[parameter_index]) {
+      return buffer[0];
+    }
+    else {
+      return buffer[pindex];
+    }
   }
 };
 
@@ -60,15 +70,16 @@ class ParticleFunction {
     BLI_assert(m_body != nullptr);
   }
 
-  ParticleFunctionResult compute(ActionInterface &action_interface);
-  ParticleFunctionResult compute(OffsetHandlerInterface &offset_handler_interface);
-  ParticleFunctionResult compute(ForceInterface &force_interface);
+  std::unique_ptr<ParticleFunctionResult> compute(ActionInterface &interface);
+  std::unique_ptr<ParticleFunctionResult> compute(OffsetHandlerInterface &interface);
+  std::unique_ptr<ParticleFunctionResult> compute(ForceInterface &interface);
+  std::unique_ptr<ParticleFunctionResult> compute(EventFilterInterface &interface);
 
  private:
-  ParticleFunctionResult compute(ArrayAllocator &array_allocator,
-                                 ArrayRef<uint> pindices,
-                                 AttributeArrays attributes,
-                                 ActionContext *action_context);
+  std::unique_ptr<ParticleFunctionResult> compute(ArrayAllocator &array_allocator,
+                                                  ArrayRef<uint> pindices,
+                                                  AttributeArrays attributes,
+                                                  ActionContext *action_context);
 };
 
 }  // namespace BParticles

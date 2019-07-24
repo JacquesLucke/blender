@@ -120,6 +120,14 @@ template<typename T, uint N = 4> class Stack {
   {
     m_elements.clear_and_make_small();
   }
+
+  /**
+   * Does a linear search to check if the value is in the stack.
+   */
+  bool contains(const T &value)
+  {
+    return m_elements.contains(value);
+  }
 };
 
 } /* namespace BLI */

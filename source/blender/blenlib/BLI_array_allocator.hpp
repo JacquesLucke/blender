@@ -63,6 +63,7 @@ class ArrayAllocator {
   void deallocate(void *ptr, uint element_size)
   {
     Stack<void *> &stack = this->stack_for_element_size(element_size);
+    BLI_assert(!stack.contains(ptr));
     stack.push(ptr);
   }
 

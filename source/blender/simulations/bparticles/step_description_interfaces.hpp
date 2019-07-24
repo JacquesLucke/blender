@@ -125,6 +125,8 @@ class EventFilterInterface {
    * other event.
    */
   template<typename T> T &trigger_particle(uint pindex, float time_factor);
+
+  ArrayAllocator &array_allocator();
 };
 
 /**
@@ -316,6 +318,11 @@ inline AttributeArrays EventFilterInterface::attribute_offsets()
 inline float EventFilterInterface::end_time()
 {
   return m_step_data.step_end_time;
+}
+
+inline ArrayAllocator &EventFilterInterface::array_allocator()
+{
+  return m_step_data.array_allocator;
 }
 
 inline void EventFilterInterface::trigger_particle(uint pindex, float time_factor)

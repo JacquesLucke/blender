@@ -13,7 +13,7 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
   Vector<float3> new_positions;
   Vector<float> new_birth_times;
   for (uint pindex : particles.pindices()) {
-    float rate = inputs.get<float>("Rate", 0, pindex);
+    float rate = inputs->get<float>("Rate", 0, pindex);
     if (rate <= 0.0f) {
       continue;
     }
