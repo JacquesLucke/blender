@@ -4,20 +4,19 @@ namespace BParticles {
 
 ParticleFunctionCaller ParticleFunction::get_caller(ActionInterface &action_interface)
 {
-  return this->get_caller(action_interface.particles().attributes(), &action_interface.context());
+  return this->get_caller(action_interface.array_allocator(),
+                          action_interface.particles().attributes(),
+                          &action_interface.context());
 }
 
-ParticleFunctionCaller ParticleFunction::get_caller(AttributeArrays attributes)
-{
-  return this->get_caller(attributes, nullptr);
-}
-
-ParticleFunctionCaller ParticleFunction::get_caller(AttributeArrays attributes,
+ParticleFunctionCaller ParticleFunction::get_caller(ArrayAllocator &array_allocator,
+                                                    AttributeArrays attributes,
                                                     ActionContext *action_context)
 {
   ParticleFunctionCaller caller;
   caller.m_body = m_body;
   caller.m_min_buffer_length = attributes.size();
+  caller.m_array_allocator = &array_allocator;
 
   for (uint i = 0; i < m_fn->input_amount(); i++) {
     StringRef input_name = m_fn->input_name(i);

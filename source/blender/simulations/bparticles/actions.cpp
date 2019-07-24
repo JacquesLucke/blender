@@ -16,7 +16,7 @@ void ChangeDirectionAction::execute(ActionInterface &interface)
   auto velocity_offsets = interface.attribute_offsets().try_get_float3("Velocity");
 
   auto caller = m_compute_inputs.get_caller(interface);
-  auto new_directions = caller.add_output<float3>(interface.array_allocator());
+  auto new_directions = caller.add_output<float3>();
   caller.call(particles.pindices());
 
   for (uint pindex : particles.pindices()) {
@@ -63,8 +63,8 @@ void ExplodeAction::execute(ActionInterface &interface)
   Vector<float> new_birth_times;
 
   auto caller = m_compute_inputs.get_caller(interface);
-  auto parts_amounts = caller.add_output<int>(interface.array_allocator());
-  auto speeds = caller.add_output<float>(interface.array_allocator());
+  auto parts_amounts = caller.add_output<int>();
+  auto speeds = caller.add_output<float>();
   caller.call(particles.pindices());
 
   for (uint pindex : particles.pindices()) {
@@ -94,7 +94,7 @@ void ConditionAction::execute(ActionInterface &interface)
   ParticleSet particles = interface.particles();
 
   auto caller = m_compute_inputs.get_caller(interface);
-  auto conditions = caller.add_output<bool>(interface.array_allocator());
+  auto conditions = caller.add_output<bool>();
   caller.call(particles.pindices());
 
   Vector<uint> true_pindices, false_pindices;

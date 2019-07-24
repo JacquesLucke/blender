@@ -25,6 +25,7 @@ class ParticleFunctionCaller {
   Vector<void *> m_output_buffers;
   Vector<uint> m_input_strides;
   Vector<uint> m_output_strides;
+  ArrayAllocator *m_array_allocator;
 
   friend ParticleFunction;
 
@@ -44,9 +45,9 @@ class ParticleFunctionCaller {
     m_output_strides.append(sizeof(T));
   }
 
-  template<typename T> ArrayAllocator::Array<T> add_output(ArrayAllocator &allocator)
+  template<typename T> ArrayAllocator::Array<T> add_output()
   {
-    ArrayAllocator::Array<T> array(allocator);
+    ArrayAllocator::Array<T> array(*m_array_allocator);
     this->add_output(array.as_array_ref());
     return array;
   }
@@ -90,10 +91,10 @@ class ParticleFunction {
 
   ParticleFunctionCaller get_caller(ActionInterface &action_interface);
 
-  ParticleFunctionCaller get_caller(AttributeArrays attributes);
-
  private:
-  ParticleFunctionCaller get_caller(AttributeArrays attributes, ActionContext *action_context);
+  ParticleFunctionCaller get_caller(ArrayAllocator &array_allocator,
+                                    AttributeArrays attributes,
+                                    ActionContext *action_context);
 };
 
 }  // namespace BParticles
