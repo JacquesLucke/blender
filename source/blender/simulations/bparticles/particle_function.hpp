@@ -2,6 +2,7 @@
 
 #include "FN_tuple_call.hpp"
 #include "attributes.hpp"
+#include "action_interface.hpp"
 
 namespace BParticles {
 
@@ -87,7 +88,12 @@ class ParticleFunction {
     BLI_assert(m_body != nullptr);
   }
 
+  ParticleFunctionCaller get_caller(ActionInterface &action_interface);
+
   ParticleFunctionCaller get_caller(AttributeArrays attributes);
+
+ private:
+  ParticleFunctionCaller get_caller(AttributeArrays attributes, ActionContext *action_context);
 };
 
 }  // namespace BParticles

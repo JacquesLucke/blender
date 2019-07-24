@@ -123,7 +123,7 @@ static ValueOrError<SharedFunction> create_function__action_inputs(VirtualNode *
       name_prefix = "Attribute: ";
     }
     else if (STREQ(vnode->idname(), "bp_CollisionInfoNode")) {
-      name_prefix = "Event: ";
+      name_prefix = "Action Context: ";
     }
     else {
       BLI_assert(false);

@@ -48,12 +48,12 @@ class CollisionEventInfo : public ActionContext {
   {
   }
 
-  void *get_context_array(StringRef name) override
+  ContextArray get_context_array(StringRef name) override
   {
     if (name == "Normal") {
-      return (void *)m_normals.begin();
+      return m_normals;
     }
-    return nullptr;
+    return {};
   }
 };
 

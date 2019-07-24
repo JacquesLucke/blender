@@ -2,7 +2,18 @@
 
 namespace BParticles {
 
+ParticleFunctionCaller ParticleFunction::get_caller(ActionInterface &action_interface)
+{
+  return this->get_caller(action_interface.particles().attributes(), &action_interface.context());
+}
+
 ParticleFunctionCaller ParticleFunction::get_caller(AttributeArrays attributes)
+{
+  return this->get_caller(attributes, nullptr);
+}
+
+ParticleFunctionCaller ParticleFunction::get_caller(AttributeArrays attributes,
+                                                    ActionContext *action_context)
 {
   ParticleFunctionCaller caller;
   caller.m_body = m_body;
@@ -17,6 +28,12 @@ ParticleFunctionCaller ParticleFunction::get_caller(AttributeArrays attributes)
       uint attribute_index = attributes.attribute_index(attribute_name);
       input_buffer = attributes.get_ptr(attribute_index);
       input_stride = attributes.attribute_stride(attribute_index);
+    }
+    else if (action_context != nullptr && input_name.startswith("Action Context")) {
+      StringRef context_name = input_name.drop_prefix("Action Context: ");
+      ActionContext::ContextArray array = action_context->get_context_array(context_name);
+      input_buffer = array.buffer;
+      input_stride = array.stride;
     }
     else {
       BLI_assert(false);
