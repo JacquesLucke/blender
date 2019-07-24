@@ -149,7 +149,7 @@ class ConstFloat3Gen : public LLVMBuildIRBody {
  public:
   ConstFloat3Gen(float3 vector) : m_vector(vector)
   {
-    m_type_info = GET_TYPE_float3()->extension<LLVMTypeInfo>();
+    m_type_info = &GET_TYPE_float3()->extension<LLVMTypeInfo>();
   }
 
   void build_ir(CodeBuilder &builder,

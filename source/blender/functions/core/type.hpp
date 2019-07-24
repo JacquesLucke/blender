@@ -40,6 +40,10 @@ class TypeExtension {
   void set_owner(Type *owner);
 
  public:
+  TypeExtension() = default;
+  TypeExtension(TypeExtension &other) = delete;
+  TypeExtension(TypeExtension &&other) = delete;
+
   virtual ~TypeExtension();
 
   Type *owner() const;
@@ -64,9 +68,10 @@ class Type final : public RefCountedBase {
   template<typename T> bool has_extension() const;
 
   /**
-   * Return the extension of type T or nullptr when the extension does not exist on this type.
+   * Return the extension of type T.
+   * Asserts when the extension does not exist.
    */
-  template<typename T> T *extension() const;
+  template<typename T> T &extension() const;
 
   /**
    * Add a new extension of type T to the type. It will be constructed using the args passed to
@@ -105,10 +110,11 @@ template<typename T> inline bool Type::has_extension() const
   return m_extensions[T::TYPE_EXTENSION_ID] != nullptr;
 }
 
-template<typename T> inline T *Type::extension() const
+template<typename T> inline T &Type::extension() const
 {
   STATIC_ASSERT_EXTENSION_TYPE(T);
-  return (T *)m_extensions[T::TYPE_EXTENSION_ID];
+  BLI_assert(this->has_extension<T>());
+  return *(T *)m_extensions[T::TYPE_EXTENSION_ID];
 }
 
 template<typename T, typename... Args> inline bool Type::add_extension(Args &&... args)

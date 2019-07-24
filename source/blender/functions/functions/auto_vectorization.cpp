@@ -59,17 +59,17 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
       SharedType &list_type = get_list_type(base_type);
       InputInfo info;
       info.is_list = input_is_list[i];
-      info.base_cpp_type = base_type->extension<CPPTypeInfo>();
-      info.base_llvm_type = base_type->extension<LLVMTypeInfo>();
-      info.list_llvm_type = list_type->extension<LLVMTypeInfo>();
+      info.base_cpp_type = &base_type->extension<CPPTypeInfo>();
+      info.base_llvm_type = &base_type->extension<LLVMTypeInfo>();
+      info.list_llvm_type = &list_type->extension<LLVMTypeInfo>();
       info.get_length_fn = GET_C_FN_list_length(base_type);
       info.get_data_ptr_fn = GET_C_FN_list_data_ptr(base_type);
       m_input_info.append(info);
     }
     for (auto &base_type : main->output_types()) {
       OutputInfo info;
-      info.base_cpp_type = base_type->extension<CPPTypeInfo>();
-      info.base_llvm_type = base_type->extension<LLVMTypeInfo>();
+      info.base_cpp_type = &base_type->extension<CPPTypeInfo>();
+      info.base_llvm_type = &base_type->extension<LLVMTypeInfo>();
       info.get_new_list_fn = GET_C_FN_new_list_with_allocated_buffer(base_type);
       info.get_data_ptr_fn = GET_C_FN_list_data_ptr(base_type);
       m_output_info.append(info);

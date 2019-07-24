@@ -65,10 +65,9 @@ ParticleFunctionResult ParticleFunction::compute(ArrayAllocator &array_allocator
   result.m_array_allocator = &array_allocator;
 
   for (uint i = 0; i < m_fn->output_amount(); i++) {
-    CPPTypeInfo *type_info = m_fn->output_type(i)->extension<CPPTypeInfo>();
-    BLI_assert(type_info != nullptr);
+    CPPTypeInfo &type_info = m_fn->output_type(i)->extension<CPPTypeInfo>();
 
-    uint output_stride = type_info->size_of_type();
+    uint output_stride = type_info.size_of_type();
     void *output_buffer = array_allocator.allocate(output_stride);
 
     result.m_buffers.append(output_buffer);

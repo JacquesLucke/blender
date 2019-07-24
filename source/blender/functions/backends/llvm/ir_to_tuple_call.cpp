@@ -66,8 +66,8 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   for (uint i = 0; i < fn->input_amount(); i++) {
     llvm::Value *value_byte_addr = lookup_tuple_address(builder, fn_in_data, fn_in_offsets, i);
 
-    LLVMTypeInfo *type_info = get_type_info(fn->input_type(i));
-    llvm::Value *value = type_info->build_load_ir__relocate(builder, value_byte_addr);
+    LLVMTypeInfo &type_info = fn->input_type(i)->extension<LLVMTypeInfo>();
+    llvm::Value *value = type_info.build_load_ir__relocate(builder, value_byte_addr);
 
     input_values.append(value);
   }
@@ -81,8 +81,8 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   for (uint i = 0; i < output_values.size(); i++) {
     llvm::Value *value_byte_addr = lookup_tuple_address(builder, fn_out_data, fn_out_offsets, i);
 
-    LLVMTypeInfo *type_info = get_type_info(fn->output_type(i));
-    type_info->build_store_ir__relocate(builder, output_values[i], value_byte_addr);
+    LLVMTypeInfo &type_info = fn->output_type(i)->extension<LLVMTypeInfo>();
+    type_info.build_store_ir__relocate(builder, output_values[i], value_byte_addr);
   }
 
   builder.CreateRetVoid();

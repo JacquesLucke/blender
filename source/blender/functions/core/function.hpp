@@ -77,7 +77,8 @@ class Function final : public RefCountedBase {
   template<typename T> inline bool has_body() const;
 
   /**
-   * Return a type extension of type T if it exists in the function. Otherwise nullptr.
+   * Return a function body of type T.
+   * Asserts when the body type does not exist in this function.
    */
   template<typename T> inline T &body() const;
 
@@ -241,9 +242,7 @@ template<typename T> inline Vector<T *> Function::input_extensions() const
 {
   Vector<T *> extensions;
   for (auto &type : m_input_types) {
-    T *ext = type->extension<T>();
-    BLI_assert(ext);
-    extensions.append(ext);
+    extensions.append(&type->extension<T>());
   }
   return extensions;
 }
@@ -252,9 +251,7 @@ template<typename T> inline Vector<T *> Function::output_extensions() const
 {
   Vector<T *> extensions;
   for (auto &type : m_output_types) {
-    T *ext = type->extension<T>();
-    BLI_assert(ext);
-    extensions.append(ext);
+    extensions.append(&type->extension<T>());
   }
   return extensions;
 }

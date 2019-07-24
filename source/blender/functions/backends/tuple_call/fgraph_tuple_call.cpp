@@ -49,8 +49,8 @@ class ExecuteFGraph : public TupleCallBody {
     uint offset;
     uint is_fn_output : 1;
 
-    SocketInfo(CPPTypeInfo *type, uint offset, bool is_fn_output)
-        : type(type), offset(offset), is_fn_output(is_fn_output)
+    SocketInfo(CPPTypeInfo &type, uint offset, bool is_fn_output)
+        : type(&type), offset(offset), is_fn_output(is_fn_output)
     {
     }
   };
@@ -88,17 +88,15 @@ class ExecuteFGraph : public TupleCallBody {
 
       if (body == nullptr) {
         for (auto type : fn->input_types()) {
-          CPPTypeInfo *type_info = type->extension<CPPTypeInfo>();
-          BLI_assert(type_info);
-          uint type_size = type_info->size_of_type();
+          CPPTypeInfo &type_info = type->extension<CPPTypeInfo>();
+          uint type_size = type_info.size_of_type();
           m_input_info.append(SocketInfo(type_info, m_inputs_buffer_size, false));
           m_inputs_buffer_size += type_size;
         }
 
         for (auto type : fn->output_types()) {
-          CPPTypeInfo *type_info = type->extension<CPPTypeInfo>();
-          BLI_assert(type_info);
-          uint type_size = type_info->size_of_type();
+          CPPTypeInfo &type_info = type->extension<CPPTypeInfo>();
+          uint type_size = type_info.size_of_type();
           m_output_info.append(SocketInfo(type_info, m_outputs_buffer_size, false));
           m_outputs_buffer_size += type_size;
         }
@@ -107,14 +105,14 @@ class ExecuteFGraph : public TupleCallBody {
         SharedTupleMeta &meta_in = body->meta_in();
         for (uint i = 0; i < fn->input_amount(); i++) {
           m_input_info.append(SocketInfo(
-              meta_in->type_infos()[i], m_inputs_buffer_size + meta_in->offsets()[i], false));
+              *meta_in->type_infos()[i], m_inputs_buffer_size + meta_in->offsets()[i], false));
         }
         m_inputs_buffer_size += meta_in->size_of_data();
 
         SharedTupleMeta &meta_out = body->meta_out();
         for (uint i = 0; i < fn->output_amount(); i++) {
           m_output_info.append(SocketInfo(
-              meta_out->type_infos()[i], m_outputs_buffer_size + meta_out->offsets()[i], false));
+              *meta_out->type_infos()[i], m_outputs_buffer_size + meta_out->offsets()[i], false));
         }
         m_outputs_buffer_size += meta_out->size_of_data();
       }

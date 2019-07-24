@@ -18,7 +18,7 @@ class LazyBoolSwitch : public LazyInTupleCallBody {
 
  public:
   LazyBoolSwitch(SharedType type)
-      : m_type(type), m_type_size(type->extension<CPPTypeInfo>()->size_of_type())
+      : m_type(type), m_type_size(type->extension<CPPTypeInfo>().size_of_type())
   {
   }
 

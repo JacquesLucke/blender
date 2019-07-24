@@ -107,8 +107,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
   {
     llvm::Value *value_to_forward = values.lookup(output);
     SharedType &type = m_graph->type_of_socket(output);
-    LLVMTypeInfo *type_info = type->extension<LLVMTypeInfo>();
-    BLI_assert(type_info);
+    LLVMTypeInfo &type_info = type->extension<LLVMTypeInfo>();
 
     Vector<DFGraphSocket> targets;
     for (DFGraphSocket target : m_graph->targets_of_output(output)) {
@@ -119,7 +118,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
     }
 
     if (targets.size() == 0) {
-      type_info->build_free_ir(builder, value_to_forward);
+      type_info.build_free_ir(builder, value_to_forward);
     }
     else if (targets.size() == 1) {
       values.add(targets[0], value_to_forward);
@@ -128,7 +127,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
       values.add(targets[0], value_to_forward);
       for (uint i = 1; i < targets.size(); i++) {
         DFGraphSocket target = targets[i];
-        llvm::Value *copied_value = type_info->build_copy_ir(builder, value_to_forward);
+        llvm::Value *copied_value = type_info.build_copy_ir(builder, value_to_forward);
         values.add(target, copied_value);
       }
     }

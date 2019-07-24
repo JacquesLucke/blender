@@ -139,16 +139,9 @@ class PointerLLVMTypeInfo : public LLVMTypeInfo {
   llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override;
 };
 
-inline LLVMTypeInfo *get_type_info(const SharedType &type)
-{
-  auto ext = type->extension<LLVMTypeInfo>();
-  BLI_assert(ext);
-  return ext;
-}
-
 inline llvm::Type *get_llvm_type(SharedType &type, llvm::LLVMContext &context)
 {
-  return get_type_info(type)->get_type(context);
+  return type->extension<LLVMTypeInfo>().get_type(context);
 }
 
 Vector<llvm::Type *> types_of_type_infos(const Vector<LLVMTypeInfo *> &type_infos,

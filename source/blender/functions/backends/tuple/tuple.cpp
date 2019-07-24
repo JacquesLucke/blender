@@ -7,11 +7,11 @@ TupleMeta::TupleMeta(ArrayRef<SharedType> types) : m_types(types)
   m_all_trivially_destructible = true;
   m_size__data = 0;
   for (const SharedType &type : types) {
-    CPPTypeInfo *info = type->extension<CPPTypeInfo>();
+    CPPTypeInfo &info = type->extension<CPPTypeInfo>();
     m_offsets.append(m_size__data);
-    m_type_info.append(info);
-    m_size__data += info->size_of_type();
-    if (!info->trivially_destructible()) {
+    m_type_info.append(&info);
+    m_size__data += info.size_of_type();
+    if (!info.trivially_destructible()) {
       m_all_trivially_destructible = false;
     }
   }
