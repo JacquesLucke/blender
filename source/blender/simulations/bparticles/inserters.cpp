@@ -259,8 +259,11 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
                                                            VirtualNode *vnode,
                                                            StringRef particle_type_name)
 {
-  SharedFunction fn = create_function_for_data_inputs(vnode, ctx.data_graph);
-  BLI_assert(fn->input_amount() == 0);
+  auto fn_or_error = create_function__emitter_inputs(vnode, ctx.data_graph);
+  if (fn_or_error.is_error()) {
+    return {};
+  }
+  SharedFunction fn = fn_or_error.extract_value();
 
   auto body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
@@ -367,13 +370,16 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,
     return {};
   }
 
-  ValueOrError<SharedFunction> fn_emitter_or_error = FN::DataFlowNodes::generate_function(btree);
+  auto fn_emitter_or_error = FN::DataFlowNodes::generate_function(btree);
+  auto fn_inputs_or_error = create_function__emitter_inputs(vnode, ctx.data_graph);
   if (fn_emitter_or_error.is_error()) {
     return {};
   }
+  if (fn_inputs_or_error.is_error()) {
+    return {};
+  }
   SharedFunction fn_emitter = fn_emitter_or_error.extract_value();
-
-  SharedFunction fn_inputs = create_function_for_data_inputs(vnode, ctx.data_graph);
+  SharedFunction fn_inputs = fn_inputs_or_error.extract_value();
 
   FN::FunctionBuilder fn_builder;
   fn_builder.add_output("Start Time", FN::Types::GET_TYPE_float());
