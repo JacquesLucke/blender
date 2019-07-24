@@ -70,14 +70,20 @@ static SharedFunction build_bool_switch_function(SharedType &data_type)
   return fn;
 }
 
+using CacheMap = Map<SharedType, SharedFunction>;
+BLI_LAZY_INIT_STATIC(CacheMap, get_cache)
+{
+  return {};
+}
+
 SharedFunction &GET_FN_bool_switch(SharedType &data_type)
 {
-  static Map<SharedType, SharedFunction> functions;
-  if (!functions.contains(data_type)) {
+  CacheMap &cache = get_cache();
+  if (!cache.contains(data_type)) {
     SharedFunction fn = build_bool_switch_function(data_type);
-    functions.add(data_type, fn);
+    cache.add(data_type, fn);
   }
-  return functions.lookup_ref(data_type);
+  return cache.lookup_ref(data_type);
 }
 
 }  // namespace Functions
