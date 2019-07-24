@@ -45,6 +45,11 @@ class VTreeDataGraph {
   {
     return m_mapping.contains(vsocket);
   }
+
+  Vector<VirtualSocket *> find_placeholder_dependencies(ArrayRef<VirtualSocket *> sockets);
+
+ private:
+  VirtualSocket *find_data_output(VirtualNode *vnode, uint index);
 };
 
 class VNodePlaceholderBody : public FunctionBody {

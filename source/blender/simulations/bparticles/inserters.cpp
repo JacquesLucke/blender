@@ -21,80 +21,22 @@ namespace BParticles {
 using FN::DFGraphSocket;
 using FN::SharedFunction;
 using FN::SharedType;
-using FN::DataFlowNodes::VNodePlaceholderBody;
 
-static Vector<DFGraphSocket> find_function_inputs(VTreeDataGraph &data_graph,
-                                                  ArrayRef<VirtualSocket *> output_vsockets)
+static Vector<DFGraphSocket> insert_function_inputs(FN::FunctionBuilder &fn_builder,
+                                                    VTreeDataGraph &data_graph,
+                                                    ArrayRef<VirtualSocket *> output_vsockets)
 {
-  Stack<DFGraphSocket> to_be_checked;
-  Set<DFGraphSocket> found;
-  Vector<DFGraphSocket> output;
+  Vector<VirtualSocket *> placeholder_dependencies = data_graph.find_placeholder_dependencies(
+      output_vsockets);
+
+  Vector<DFGraphSocket> function_inputs;
 
   auto &graph = data_graph.graph();
 
-  for (VirtualSocket *vsocket : output_vsockets) {
+  for (VirtualSocket *vsocket : placeholder_dependencies) {
+    BLI_assert(vsocket->is_output());
+    VirtualNode *vnode = vsocket->vnode();
     DFGraphSocket socket = data_graph.lookup_socket(vsocket);
-    to_be_checked.push(socket);
-    found.add_new(socket);
-  }
-
-  while (!to_be_checked.empty()) {
-    DFGraphSocket socket = to_be_checked.pop();
-    if (socket.is_input()) {
-      DFGraphSocket origin = graph->origin_of_input(socket);
-      if (found.add(origin)) {
-        to_be_checked.push(origin);
-      }
-    }
-    else {
-      uint node_id = graph->node_id_of_output(socket);
-      SharedFunction &fn = graph->function_of_node(node_id);
-      auto *body = fn->body<VNodePlaceholderBody>();
-      if (body == nullptr) {
-        for (DFGraphSocket input : graph->inputs_of_node(node_id)) {
-          if (found.add(input)) {
-            to_be_checked.push(input);
-          }
-        }
-      }
-      else {
-        output.append(socket);
-      }
-    }
-  }
-
-  return output;
-}
-
-static VirtualSocket *find_data_output(VTreeDataGraph &data_graph, VirtualNode *vnode, uint index)
-{
-  uint count = 0;
-  for (uint i = 0; i < vnode->outputs().size(); i++) {
-    VirtualSocket *vsocket = vnode->output(i);
-    if (data_graph.uses_socket(vsocket)) {
-      if (index == count) {
-        return vsocket;
-      }
-      count++;
-    }
-  }
-  BLI_assert(false);
-  return nullptr;
-}
-
-static Vector<FN::DFGraphSocket> insert_function_inputs(FN::FunctionBuilder &fn_builder,
-                                                        VTreeDataGraph &data_graph,
-                                                        ArrayRef<VirtualSocket *> output_vsockets)
-{
-  Vector<DFGraphSocket> inputs = find_function_inputs(data_graph, output_vsockets);
-
-  auto &graph = data_graph.graph();
-
-  for (DFGraphSocket socket : inputs) {
-    BLI_assert(socket.is_output());
-    uint index = graph->index_of_output(socket);
-    VirtualNode *vnode = graph->function_body_of_output<VNodePlaceholderBody>(socket)->vnode();
-    VirtualSocket *vsocket = find_data_output(data_graph, vnode, index);
 
     SharedType &type = graph->type_of_output(socket);
     std::string name_prefix;
@@ -104,10 +46,14 @@ static Vector<FN::DFGraphSocket> insert_function_inputs(FN::FunctionBuilder &fn_
     else if (STREQ(vnode->idname(), "bp_MeshCollisionEventNode")) {
       name_prefix = "Event: ";
     }
+    else {
+      BLI_assert(false);
+    }
     fn_builder.add_input(name_prefix + vsocket->name(), type);
+    function_inputs.append(socket);
   }
 
-  return inputs;
+  return function_inputs;
 }
 
 static SharedFunction create_function(VTreeDataGraph &data_graph,
