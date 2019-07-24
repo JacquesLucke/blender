@@ -138,18 +138,24 @@ static ValueOrError<SharedFunction> create_function__action_inputs(VirtualNode *
   return fn;
 }
 
-static std::unique_ptr<Action> build_action(BuildContext &ctx, VirtualSocket *start);
-using ActionFromNodeCallback =
-    std::function<std::unique_ptr<Action>(BuildContext &ctx, VirtualNode *vnode)>;
+static std::unique_ptr<Action> build_action(BuildContext &ctx,
+                                            VirtualSocket *start,
+                                            VirtualSocket *trigger);
+using ActionFromNodeCallback = std::function<std::unique_ptr<Action>(
+    BuildContext &ctx, VirtualSocket *start, VirtualSocket *trigger)>;
 
 static std::unique_ptr<Action> BUILD_ACTION_kill(BuildContext &UNUSED(ctx),
-                                                 VirtualNode *UNUSED(vnode))
+                                                 VirtualSocket *UNUSED(start),
+                                                 VirtualSocket *UNUSED(trigger))
 {
   return std::unique_ptr<Action>(new KillAction());
 }
 
-static std::unique_ptr<Action> BUILD_ACTION_change_direction(BuildContext &ctx, VirtualNode *vnode)
+static std::unique_ptr<Action> BUILD_ACTION_change_direction(BuildContext &ctx,
+                                                             VirtualSocket *start,
+                                                             VirtualSocket *trigger)
 {
+  VirtualNode *vnode = start->vnode();
   auto fn_or_error = create_function__action_inputs(vnode, ctx.data_graph);
   if (fn_or_error.is_error()) {
     return {};
@@ -157,14 +163,17 @@ static std::unique_ptr<Action> BUILD_ACTION_change_direction(BuildContext &ctx, 
 
   SharedFunction fn = fn_or_error.extract_value();
   ParticleFunction particle_fn(fn);
-  auto post_action = build_action(ctx, vnode->output(0));
+  auto post_action = build_action(ctx, vnode->output(0), trigger);
 
   return std::unique_ptr<ChangeDirectionAction>(
       new ChangeDirectionAction(particle_fn, std::move(post_action)));
 }
 
-static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx, VirtualNode *vnode)
+static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx,
+                                                    VirtualSocket *start,
+                                                    VirtualSocket *trigger)
 {
+  VirtualNode *vnode = start->vnode();
   auto fn_or_error = create_function__action_inputs(vnode, ctx.data_graph);
   if (fn_or_error.is_error()) {
     return {};
@@ -177,7 +186,7 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx, VirtualNo
   char name[65];
   RNA_string_get(&rna, "particle_type_name", name);
 
-  auto post_action = build_action(ctx, vnode->output(0));
+  auto post_action = build_action(ctx, vnode->output(0), trigger);
 
   if (ctx.type_name_exists(name)) {
     return std::unique_ptr<Action>(new ExplodeAction(name, particle_fn, std::move(post_action)));
@@ -187,8 +196,11 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx, VirtualNo
   }
 }
 
-static std::unique_ptr<Action> BUILD_ACTION_condition(BuildContext &ctx, VirtualNode *vnode)
+static std::unique_ptr<Action> BUILD_ACTION_condition(BuildContext &ctx,
+                                                      VirtualSocket *start,
+                                                      VirtualSocket *trigger)
 {
+  VirtualNode *vnode = start->vnode();
   auto fn_or_error = create_function__action_inputs(vnode, ctx.data_graph);
   if (fn_or_error.is_error()) {
     return {};
@@ -197,8 +209,8 @@ static std::unique_ptr<Action> BUILD_ACTION_condition(BuildContext &ctx, Virtual
   SharedFunction fn = fn_or_error.extract_value();
   ParticleFunction particle_fn(fn);
 
-  auto true_action = build_action(ctx, vnode->output(0));
-  auto false_action = build_action(ctx, vnode->output(1));
+  auto true_action = build_action(ctx, vnode->output(0), trigger);
+  auto false_action = build_action(ctx, vnode->output(1), trigger);
 
   return std::unique_ptr<Action>(
       new ConditionAction(particle_fn, std::move(true_action), std::move(false_action)));
@@ -214,7 +226,9 @@ BLI_LAZY_INIT_STATIC(StringMap<ActionFromNodeCallback>, get_action_builders)
   return map;
 }
 
-static std::unique_ptr<Action> build_action(BuildContext &ctx, VirtualSocket *start)
+static std::unique_ptr<Action> build_action(BuildContext &ctx,
+                                            VirtualSocket *start,
+                                            VirtualSocket *trigger)
 {
   if (start->is_output()) {
     ArrayRef<VirtualSocket *> linked = start->links();
@@ -222,7 +236,7 @@ static std::unique_ptr<Action> build_action(BuildContext &ctx, VirtualSocket *st
       return std::unique_ptr<Action>(new NoneAction());
     }
     else if (linked.size() == 1) {
-      return build_action(ctx, linked[0]);
+      return build_action(ctx, linked[0], trigger);
     }
     else {
       return nullptr;
@@ -230,11 +244,15 @@ static std::unique_ptr<Action> build_action(BuildContext &ctx, VirtualSocket *st
   }
 
   BLI_assert(start->is_input());
-  VirtualNode *vnode = start->vnode();
-  StringRef idname = vnode->bnode()->idname;
+  StringRef idname = start->vnode()->idname();
 
   auto builders = get_action_builders();
-  return builders.lookup(idname)(ctx, vnode);
+  return builders.lookup(idname)(ctx, start, trigger);
+}
+
+static std::unique_ptr<Action> build_action_for_trigger(BuildContext &ctx, VirtualSocket *start)
+{
+  return build_action(ctx, start, start);
 }
 
 static std::unique_ptr<Force> BUILD_FORCE_gravity(BuildContext &ctx, VirtualNode *vnode)
@@ -267,7 +285,7 @@ static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(BuildContext &ctx, Virt
     return {};
   }
 
-  auto action = build_action(ctx, vnode->output(0));
+  auto action = build_action_for_trigger(ctx, vnode->output(0));
   return std::unique_ptr<Event>(new MeshCollisionEvent(vnode->name(), object, std::move(action)));
 }
 
@@ -279,7 +297,7 @@ static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx, Virtual
   }
 
   SharedFunction fn = fn_or_error.extract_value();
-  auto action = build_action(ctx, vnode->output(0));
+  auto action = build_action_for_trigger(ctx, vnode->output(0));
   return std::unique_ptr<Event>(new AgeReachedEvent(vnode->name(), fn, std::move(action)));
 }
 
@@ -291,7 +309,7 @@ static std::unique_ptr<Event> BUILD_EVENT_close_by_points(BuildContext &ctx, Vir
   }
 
   SharedFunction fn = fn_or_error.extract_value();
-  auto action = build_action(ctx, vnode->output(0));
+  auto action = build_action_for_trigger(ctx, vnode->output(0));
 
   TupleCallBody *body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
@@ -324,7 +342,7 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_mesh_surface(BuildContext &ctx,
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body->call__setup_execution_context(fn_in, fn_out);
 
-  auto on_birth_action = build_action(ctx, vnode->output(0));
+  auto on_birth_action = build_action_for_trigger(ctx, vnode->output(0));
 
   Object *object = body->get_output<Object *>(fn_out, 0, "Object");
   if (object == nullptr) {
