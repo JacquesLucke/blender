@@ -52,6 +52,8 @@ set(SRC
   bparticles/particle_allocator.cpp
   bparticles/offset_handlers.hpp
   bparticles/offset_handlers.cpp
+  bparticles/particle_function.hpp
+  bparticles/particle_function.cpp
 )
 
 set(LIB

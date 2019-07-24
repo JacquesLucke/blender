@@ -1,6 +1,7 @@
 #pragma once
 
 #include "action_interface.hpp"
+#include "particle_function.hpp"
 
 namespace BParticles {
 
@@ -61,9 +62,6 @@ class ConditionAction : public Action {
   }
 
   void execute(ActionInterface &interface) override;
-
- private:
-  void compute_conditions(ActionInterface &interface, ArrayRef<bool> r_conditions);
 };
 
 }  // namespace BParticles

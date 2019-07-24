@@ -198,6 +198,11 @@ class ArrayAllocator {
     {
       return ((T *)m_ptr)[index];
     }
+
+    ArrayRef<T> as_array_ref()
+    {
+      return ArrayRef<T>(m_ptr, m_size);
+    }
   };
 
  private:

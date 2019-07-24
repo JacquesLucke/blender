@@ -15,16 +15,12 @@ void ChangeDirectionAction::execute(ActionInterface &interface)
   auto position_offsets = interface.attribute_offsets().try_get_float3("Position");
   auto velocity_offsets = interface.attribute_offsets().try_get_float3("Velocity");
 
-  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.context());
-
-  FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
-
-  FN::ExecutionStack stack;
-  FN::ExecutionContext execution_context(stack);
+  auto caller = m_compute_inputs.get_caller(particles.attributes());
+  auto new_directions = caller.add_output_buffer<float3>(interface.array_allocator());
+  caller.call(particles.pindices());
 
   for (uint pindex : particles.pindices()) {
-    caller.call(fn_in, fn_out, execution_context, pindex);
-    float3 direction = fn_out.get<float3>(0);
+    float3 direction = new_directions[pindex];
 
     velocities[pindex] = direction;
 
@@ -66,16 +62,14 @@ void ExplodeAction::execute(ActionInterface &interface)
   Vector<float3> new_velocities;
   Vector<float> new_birth_times;
 
-  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.context());
-  FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
-
-  FN::ExecutionStack stack;
-  FN::ExecutionContext execution_context(stack);
+  auto caller = m_compute_inputs.get_caller(particles.attributes());
+  auto parts_amounts = caller.add_output_buffer<int>(interface.array_allocator());
+  auto speeds = caller.add_output_buffer<float>(interface.array_allocator());
+  caller.call(particles.pindices());
 
   for (uint pindex : particles.pindices()) {
-    caller.call(fn_in, fn_out, execution_context, pindex);
-    uint parts_amount = std::max(0, fn_out.get<int>(0));
-    float speed = fn_out.get<float>(1);
+    uint parts_amount = std::max(0, parts_amounts[pindex]);
+    float speed = speeds[pindex];
 
     new_positions.append_n_times(positions[pindex], parts_amount);
     new_birth_times.append_n_times(interface.current_times()[pindex], parts_amount);
@@ -98,8 +92,10 @@ void ExplodeAction::execute(ActionInterface &interface)
 void ConditionAction::execute(ActionInterface &interface)
 {
   ParticleSet particles = interface.particles();
-  ArrayAllocator::Array<bool> conditions(interface.array_allocator());
-  this->compute_conditions(interface, conditions);
+
+  auto caller = m_compute_inputs.get_caller(particles.attributes());
+  auto conditions = caller.add_output_buffer<bool>(interface.array_allocator());
+  caller.call(particles.pindices());
 
   Vector<uint> true_pindices, false_pindices;
   for (uint pindex : particles.pindices()) {
@@ -113,22 +109,6 @@ void ConditionAction::execute(ActionInterface &interface)
 
   m_true_action->execute_for_subset(true_pindices, interface);
   m_false_action->execute_for_subset(false_pindices, interface);
-}
-
-void ConditionAction::compute_conditions(ActionInterface &interface, ArrayRef<bool> r_conditions)
-{
-  ParticleSet particles = interface.particles();
-
-  auto caller = m_compute_inputs.get_caller(particles.attributes(), interface.context());
-  FN_TUPLE_CALL_ALLOC_TUPLES(caller.body(), fn_in, fn_out);
-
-  FN::ExecutionStack stack;
-  FN::ExecutionContext execution_context(stack);
-  for (uint pindex : particles.pindices()) {
-    caller.call(fn_in, fn_out, execution_context, pindex);
-    bool condition = fn_out.get<bool>(0);
-    r_conditions[pindex] = condition;
-  }
 }
 
 }  // namespace BParticles

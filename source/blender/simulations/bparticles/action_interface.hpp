@@ -16,51 +16,6 @@ class ActionContext {
   virtual void *get_context_array(StringRef name) = 0;
 };
 
-class ParticleFunction;
-class Action;
-
-class ParticleFunctionCaller {
- private:
-  TupleCallBody *m_body;
-  Vector<void *> m_attribute_buffers;
-  Vector<uint> m_strides;
-
-  friend ParticleFunction;
-
- public:
-  void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx, uint pindex)
-  {
-    BLI_assert(fn_in.size() == m_attribute_buffers.size());
-
-    for (uint i = 0; i < fn_in.size(); i++) {
-      void *ptr = POINTER_OFFSET(m_attribute_buffers[i], pindex * m_strides[i]);
-      fn_in.copy_in__dynamic(i, ptr);
-    }
-
-    m_body->call(fn_in, fn_out, ctx);
-  }
-
-  TupleCallBody *body() const
-  {
-    return m_body;
-  }
-};
-
-class ParticleFunction {
- private:
-  SharedFunction m_function;
-  TupleCallBody *m_tuple_call;
-
- public:
-  ParticleFunction(SharedFunction &fn) : m_function(fn)
-  {
-    m_tuple_call = fn->body<TupleCallBody>();
-    BLI_assert(m_tuple_call);
-  }
-
-  ParticleFunctionCaller get_caller(AttributeArrays attributes, ActionContext &action_context);
-};
-
 class ActionInterface {
  private:
   ParticleAllocator &m_particle_allocator;
