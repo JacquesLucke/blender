@@ -34,15 +34,13 @@ void TurbulenceForce::add_force(ForceInterface &interface)
 
   auto positions = block.attributes().get_float3("Position");
 
-  FN_TUPLE_CALL_ALLOC_TUPLES(m_compute_strength_body, fn_in, fn_out);
-  FN::ExecutionStack stack;
-  FN::ExecutionContext execution_context(stack);
-  m_compute_strength_body->call(fn_in, fn_out, execution_context);
-
-  float3 strength = fn_out.get<float3>(0);
+  auto caller = m_compute_inputs.get_caller(interface);
+  auto strengths = caller.add_output<float3>();
+  caller.call(block.active_range().as_array_ref());
 
   for (uint pindex = 0; pindex < block.active_amount(); pindex++) {
     float3 pos = positions[pindex];
+    float3 strength = strengths[pindex];
     float x = (BLI_gNoise(0.5f, pos.x, pos.y, pos.z + 1000.0f, false, 1) - 0.5f) * strength.x;
     float y = (BLI_gNoise(0.5f, pos.x, pos.y + 1000.0f, pos.z, false, 1) - 0.5f) * strength.y;
     float z = (BLI_gNoise(0.5f, pos.x + 1000.0f, pos.y, pos.z, false, 1) - 0.5f) * strength.z;

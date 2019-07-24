@@ -17,6 +17,12 @@ ParticleFunctionCaller ParticleFunction::get_caller(
                           nullptr);
 }
 
+ParticleFunctionCaller ParticleFunction::get_caller(ForceInterface &force_interface)
+{
+  return this->get_caller(
+      force_interface.array_allocator(), force_interface.block().attributes(), nullptr);
+}
+
 ParticleFunctionCaller ParticleFunction::get_caller(ArrayAllocator &array_allocator,
                                                     AttributeArrays attributes,
                                                     ActionContext *action_context)

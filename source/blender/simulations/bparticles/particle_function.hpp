@@ -3,6 +3,7 @@
 #include "FN_tuple_call.hpp"
 #include "attributes.hpp"
 #include "action_interface.hpp"
+#include "force_interface.hpp"
 
 namespace BParticles {
 
@@ -91,6 +92,7 @@ class ParticleFunction {
 
   ParticleFunctionCaller get_caller(ActionInterface &action_interface);
   ParticleFunctionCaller get_caller(OffsetHandlerInterface &offset_handler_interface);
+  ParticleFunctionCaller get_caller(ForceInterface &force_interface);
 
  private:
   ParticleFunctionCaller get_caller(ArrayAllocator &array_allocator,

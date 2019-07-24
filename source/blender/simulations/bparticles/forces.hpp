@@ -29,13 +29,11 @@ class GravityForce : public Force {
 
 class TurbulenceForce : public Force {
  private:
-  SharedFunction m_compute_strength_fn;
-  TupleCallBody *m_compute_strength_body;
+  ParticleFunction m_compute_inputs;
 
  public:
-  TurbulenceForce(SharedFunction &compute_strength_fn) : m_compute_strength_fn(compute_strength_fn)
+  TurbulenceForce(ParticleFunction compute_inputs) : m_compute_inputs(std::move(compute_inputs))
   {
-    m_compute_strength_body = m_compute_strength_fn->body<TupleCallBody>();
   }
 
   void add_force(ForceInterface &interface) override;
