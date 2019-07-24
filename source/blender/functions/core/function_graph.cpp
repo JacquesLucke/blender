@@ -5,14 +5,8 @@ namespace FN {
 SharedFunction FunctionGraph::new_function(StringRef name) const
 {
   FunctionBuilder builder;
-
-  for (const DFGraphSocket &socket : m_inputs) {
-    builder.add_input(m_graph->name_of_socket(socket), m_graph->type_of_socket(socket));
-  }
-  for (const DFGraphSocket &socket : m_outputs) {
-    builder.add_output(m_graph->name_of_socket(socket), m_graph->type_of_socket(socket));
-  }
-
+  builder.add_inputs(m_graph, m_inputs);
+  builder.add_outputs(m_graph, m_outputs);
   return builder.build(name);
 }
 

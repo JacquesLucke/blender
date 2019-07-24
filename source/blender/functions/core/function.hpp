@@ -155,33 +155,6 @@ class Function final : public RefCountedBase {
 
 using SharedFunction = AutoRefCount<Function>;
 
-class FunctionBuilder {
- private:
-  ChainedStringsBuilder m_strings_builder;
-  Vector<ChainedStringRef> m_input_names;
-  Vector<SharedType> m_input_types;
-  Vector<ChainedStringRef> m_output_names;
-  Vector<SharedType> m_output_types;
-
- public:
-  FunctionBuilder();
-
-  /**
-   * Add an input to the function with the given name and type.
-   */
-  void add_input(StringRef input_name, SharedType &type);
-
-  /**
-   * Add an output to the function with the given name and type.
-   */
-  void add_output(StringRef output_name, SharedType &type);
-
-  /**
-   * Create a new function with the given name and all the inputs and outputs previously added.
-   */
-  SharedFunction build(StringRef function_name);
-};
-
 /* Function inline functions
  ***********************************************/
 
