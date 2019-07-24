@@ -59,7 +59,7 @@ template<typename T> class ValueOrError {
 
 #define BLI_ERROR_CREATE(MESSAGE) \
   { \
-    ErrorInfo \
+    BLI::ErrorInfo \
     { \
       __FILE__, __LINE__, __func__, MESSAGE \
     } \
