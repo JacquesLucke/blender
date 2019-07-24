@@ -28,7 +28,7 @@ class ParticleFunctionCaller {
   friend ParticleFunction;
 
  public:
-  template<typename T> void add_output_buffer(ArrayRef<T> array)
+  template<typename T> void add_output(ArrayRef<T> array)
   {
 #ifdef DEBUG
     uint index = m_output_buffers.size();
@@ -43,10 +43,10 @@ class ParticleFunctionCaller {
     m_output_strides.append(sizeof(T));
   }
 
-  template<typename T> ArrayAllocator::Array<T> add_output_buffer(ArrayAllocator &allocator)
+  template<typename T> ArrayAllocator::Array<T> add_output(ArrayAllocator &allocator)
   {
     ArrayAllocator::Array<T> array(allocator);
-    this->add_output_buffer(array.as_array_ref());
+    this->add_output(array.as_array_ref());
     return array;
   }
 
