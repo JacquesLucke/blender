@@ -101,8 +101,8 @@ ValueOrError<SharedFunction> create_function__force_inputs(VirtualNode *force_vn
   return create_function__action_inputs(force_vnode, data_graph);
 }
 
-static ValueOrError<SharedFunction> create_function__event_inputs(VirtualNode *event_vnode,
-                                                                  VTreeDataGraph &data_graph)
+ValueOrError<SharedFunction> create_function__event_inputs(VirtualNode *event_vnode,
+                                                           VTreeDataGraph &data_graph)
 {
   return create_function__action_inputs(event_vnode, data_graph);
 }
@@ -238,7 +238,8 @@ static std::unique_ptr<Force> BUILD_FORCE_turbulence(BuildContext &UNUSED(ctx),
   return std::unique_ptr<Force>(new TurbulenceForce(std::move(compute_inputs_fn)));
 }
 
-static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(BuildContext &ctx, VirtualNode *vnode)
+static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(
+    BuildContext &ctx, VirtualNode *vnode, ParticleFunction UNUSED(compute_inputs_fn))
 {
   PointerRNA rna = vnode->rna();
   Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
@@ -250,29 +251,27 @@ static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(BuildContext &ctx, Virt
   return std::unique_ptr<Event>(new MeshCollisionEvent(vnode->name(), object, std::move(action)));
 }
 
-static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx, VirtualNode *vnode)
+static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx,
+                                                      VirtualNode *vnode,
+                                                      ParticleFunction compute_inputs_fn)
 {
-  auto fn_or_error = create_function__event_inputs(vnode, ctx.data_graph);
-  if (fn_or_error.is_error()) {
-    return {};
-  }
-
-  SharedFunction fn = fn_or_error.extract_value();
   auto action = build_action_for_trigger(ctx, vnode->output(0));
   return std::unique_ptr<Event>(
-      new AgeReachedEvent(vnode->name(), ParticleFunction(fn), std::move(action)));
+      new AgeReachedEvent(vnode->name(), std::move(compute_inputs_fn), std::move(action)));
 }
 
-static std::unique_ptr<Event> BUILD_EVENT_close_by_points(BuildContext &ctx, VirtualNode *vnode)
+static std::unique_ptr<Event> BUILD_EVENT_close_by_points(BuildContext &ctx,
+                                                          VirtualNode *vnode,
+                                                          ParticleFunction compute_inputs)
 {
-  auto fn_or_error = create_function__event_inputs(vnode, ctx.data_graph);
-  if (fn_or_error.is_error()) {
+  if (compute_inputs.depends_on_particle()) {
     return {};
   }
 
-  SharedFunction fn = fn_or_error.extract_value();
   auto action = build_action_for_trigger(ctx, vnode->output(0));
 
+  SharedFunction &fn = compute_inputs.function();
+  BLI_assert(fn->input_amount() == 0);
   TupleCallBody &body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body.call__setup_execution_context(fn_in, fn_out);

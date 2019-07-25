@@ -70,6 +70,16 @@ class ParticleFunction {
     BLI_assert(m_body != nullptr);
   }
 
+  bool depends_on_particle()
+  {
+    return m_fn->input_amount() > 0;
+  }
+
+  SharedFunction &function()
+  {
+    return m_fn;
+  }
+
   std::unique_ptr<ParticleFunctionResult> compute(ActionInterface &interface);
   std::unique_ptr<ParticleFunctionResult> compute(OffsetHandlerInterface &interface);
   std::unique_ptr<ParticleFunctionResult> compute(ForceInterface &interface);
