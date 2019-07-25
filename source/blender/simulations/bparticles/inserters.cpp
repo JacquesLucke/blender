@@ -69,7 +69,7 @@ ValueOrError<ParticleFunction> create_particle_function(VirtualNode *main_vnode,
     VirtualNode *vnode = vsocket->vnode();
 
     SharedType &type = data_graph.graph()->type_of_output(socket);
-    std::string name_prefix;
+    StringRef name_prefix;
     if (STREQ(vnode->idname(), "bp_ParticleInfoNode")) {
       name_prefix = "Attribute: ";
     }
@@ -79,7 +79,8 @@ ValueOrError<ParticleFunction> create_particle_function(VirtualNode *main_vnode,
     else {
       BLI_assert(false);
     }
-    fn_builder.add_input(name_prefix + vsocket->name(), type);
+    BLI_STRINGREF_STACK_COMBINE(name, name_prefix, vsocket->name());
+    fn_builder.add_input(name, type);
   }
 
   SharedFunction fn = fn_builder.build(main_vnode->name());
