@@ -69,13 +69,12 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
     for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
       for (VirtualSocket *linked : vnode->output(0)->links()) {
         if (is_particle_type_node(linked->vnode())) {
-          auto fn_or_error = create_function__force_inputs(vnode, data_graph);
+          auto fn_or_error = create_particle_function(vnode, data_graph);
           if (fn_or_error.is_error()) {
             continue;
           }
 
-          ParticleFunction fn(fn_or_error.extract_value());
-          auto force = item.value(ctx, vnode, std::move(fn));
+          auto force = item.value(ctx, vnode, fn_or_error.extract_value());
           if (force) {
             forces.add(linked->vnode()->name(), force.release());
           }
@@ -89,14 +88,12 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
     for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
       for (VirtualSocket *linked : vnode->output(0)->links()) {
         if (is_particle_type_node(linked->vnode())) {
-          auto fn_or_error = create_function__offset_handler_inputs(vnode, data_graph);
+          auto fn_or_error = create_particle_function(vnode, data_graph);
           if (fn_or_error.is_error()) {
             continue;
           }
 
-          ParticleFunction fn(fn_or_error.extract_value());
-
-          auto listener = item.value(ctx, vnode, std::move(fn));
+          auto listener = item.value(ctx, vnode, fn_or_error.extract_value());
           if (listener) {
             offset_handlers.add(linked->vnode()->name(), listener.release());
           }
@@ -110,14 +107,12 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
     for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
       for (VirtualSocket *linked : vnode->input(0)->links()) {
         if (is_particle_type_node(linked->vnode())) {
-          auto fn_or_error = create_function__event_inputs(vnode, data_graph);
+          auto fn_or_error = create_particle_function(vnode, data_graph);
           if (fn_or_error.is_error()) {
             continue;
           }
 
-          ParticleFunction fn(fn_or_error.extract_value());
-
-          auto event = item.value(ctx, vnode, std::move(fn));
+          auto event = item.value(ctx, vnode, fn_or_error.extract_value());
           if (event) {
             events.add(linked->vnode()->name(), event.release());
           }

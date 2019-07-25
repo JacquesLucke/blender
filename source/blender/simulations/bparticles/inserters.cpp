@@ -54,10 +54,10 @@ static ValueOrError<SharedFunction> create_function__emitter_inputs(VirtualNode 
   return fn;
 }
 
-static ValueOrError<SharedFunction> create_function__action_inputs(VirtualNode *action_vnode,
-                                                                   VTreeDataGraph &data_graph)
+ValueOrError<ParticleFunction> create_particle_function(VirtualNode *main_vnode,
+                                                        VTreeDataGraph &data_graph)
 {
-  Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(action_vnode, data_graph);
+  Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(main_vnode, data_graph);
   auto dependencies = data_graph.find_placeholder_dependencies(sockets_to_compute);
 
   FunctionBuilder fn_builder;
@@ -82,29 +82,12 @@ static ValueOrError<SharedFunction> create_function__action_inputs(VirtualNode *
     fn_builder.add_input(name_prefix + vsocket->name(), type);
   }
 
-  SharedFunction fn = fn_builder.build(action_vnode->name());
-
+  SharedFunction fn = fn_builder.build(main_vnode->name());
   FunctionGraph fgraph(data_graph.graph(), dependencies.sockets, sockets_to_compute);
   FN::fgraph_add_TupleCallBody(fn, fgraph);
-  return fn;
-}
 
-ValueOrError<SharedFunction> create_function__offset_handler_inputs(
-    VirtualNode *offset_handler_vnode, VTreeDataGraph &data_graph)
-{
-  return create_function__action_inputs(offset_handler_vnode, data_graph);
-}
-
-ValueOrError<SharedFunction> create_function__force_inputs(VirtualNode *force_vnode,
-                                                           VTreeDataGraph &data_graph)
-{
-  return create_function__action_inputs(force_vnode, data_graph);
-}
-
-ValueOrError<SharedFunction> create_function__event_inputs(VirtualNode *event_vnode,
-                                                           VTreeDataGraph &data_graph)
-{
-  return create_function__action_inputs(event_vnode, data_graph);
+  ParticleFunction particle_function(fn);
+  return particle_function;
 }
 
 static std::unique_ptr<Action> build_action(BuildContext &ctx,
@@ -201,7 +184,7 @@ static std::unique_ptr<Action> build_action(BuildContext &ctx,
   BLI_assert(start->is_input());
   VirtualNode *vnode = start->vnode();
 
-  auto fn_or_error = create_function__action_inputs(vnode, ctx.data_graph);
+  auto fn_or_error = create_particle_function(vnode, ctx.data_graph);
   if (fn_or_error.is_error()) {
     return std::unique_ptr<Action>(new NoneAction());
   }

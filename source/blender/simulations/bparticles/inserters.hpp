@@ -36,14 +36,8 @@ struct BuildContext {
   }
 };
 
-ValueOrError<SharedFunction> create_function__offset_handler_inputs(
-    VirtualNode *offset_handler_vnode, VTreeDataGraph &data_graph);
-
-ValueOrError<SharedFunction> create_function__force_inputs(VirtualNode *force_vnode,
-                                                           VTreeDataGraph &data_graph);
-
-ValueOrError<SharedFunction> create_function__event_inputs(VirtualNode *event_vnode,
-                                                           VTreeDataGraph &data_graph);
+ValueOrError<ParticleFunction> create_particle_function(VirtualNode *main_vnode,
+                                                        VTreeDataGraph &data_graph);
 
 using ForceFromNodeCallback = std::function<std::unique_ptr<Force>(
     BuildContext &ctx, VirtualNode *vnode, ParticleFunction compute_inputs_fn)>;
