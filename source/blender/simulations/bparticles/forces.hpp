@@ -14,13 +14,10 @@ class Force {
 
 class GravityForce : public Force {
  private:
-  SharedFunction m_compute_acceleration_fn;
-  TupleCallBody &m_compute_acceleration_body;
+  ParticleFunction m_compute_inputs;
 
  public:
-  GravityForce(SharedFunction &compute_acceleration_fn)
-      : m_compute_acceleration_fn(compute_acceleration_fn),
-        m_compute_acceleration_body(m_compute_acceleration_fn->body<TupleCallBody>())
+  GravityForce(ParticleFunction compute_inputs) : m_compute_inputs(std::move(compute_inputs))
   {
   }
 

@@ -232,7 +232,7 @@ static std::unique_ptr<Force> BUILD_FORCE_gravity(BuildContext &ctx, VirtualNode
   }
 
   SharedFunction fn = fn_or_error.extract_value();
-  return std::unique_ptr<Force>(new GravityForce(fn));
+  return std::unique_ptr<Force>(new GravityForce(ParticleFunction(fn)));
 }
 
 static std::unique_ptr<Force> BUILD_FORCE_turbulence(BuildContext &ctx, VirtualNode *vnode)
