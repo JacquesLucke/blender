@@ -89,7 +89,7 @@ static ValueOrError<SharedFunction> create_function__action_inputs(VirtualNode *
   return fn;
 }
 
-static ValueOrError<SharedFunction> create_function__offset_handler_inputs(
+ValueOrError<SharedFunction> create_function__offset_handler_inputs(
     VirtualNode *offset_handler_vnode, VTreeDataGraph &data_graph)
 {
   return create_function__action_inputs(offset_handler_vnode, data_graph);
@@ -460,22 +460,16 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_initial_grid(BuildContext &ctx,
                              body.get_output<float>(fn_out, 4, "Size")));
 }
 
-static std::unique_ptr<OffsetHandler> BUILD_OFFSET_HANDLER_trails(BuildContext &ctx,
-                                                                  VirtualNode *vnode)
+static std::unique_ptr<OffsetHandler> BUILD_OFFSET_HANDLER_trails(
+    BuildContext &ctx, VirtualNode *vnode, ParticleFunction compute_inputs_fn)
 {
   PointerRNA rna = vnode->rna();
   char name[65];
   RNA_string_get(&rna, "particle_type_name", name);
 
-  auto fn_or_error = create_function__offset_handler_inputs(vnode, ctx.data_graph);
-  if (fn_or_error.is_error()) {
-    return {};
-  }
-
-  SharedFunction fn = fn_or_error.extract_value();
-
   if (ctx.type_name_exists(name)) {
-    return std::unique_ptr<OffsetHandler>(new CreateTrailHandler(name, ParticleFunction(fn)));
+    return std::unique_ptr<OffsetHandler>(
+        new CreateTrailHandler(name, std::move(compute_inputs_fn)));
   }
   else {
     return {};

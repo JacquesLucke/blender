@@ -83,7 +83,14 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
     for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
       for (VirtualSocket *linked : vnode->output(0)->links()) {
         if (is_particle_type_node(linked->vnode())) {
-          auto listener = item.value(ctx, vnode);
+          auto fn_or_error = create_function__offset_handler_inputs(vnode, data_graph);
+          if (fn_or_error.is_error()) {
+            continue;
+          }
+
+          ParticleFunction fn(fn_or_error.extract_value());
+
+          auto listener = item.value(ctx, vnode, std::move(fn));
           if (listener) {
             offset_handlers.add(linked->vnode()->name(), listener.release());
           }
