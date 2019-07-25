@@ -95,8 +95,8 @@ ValueOrError<SharedFunction> create_function__offset_handler_inputs(
   return create_function__action_inputs(offset_handler_vnode, data_graph);
 }
 
-static ValueOrError<SharedFunction> create_function__force_inputs(VirtualNode *force_vnode,
-                                                                  VTreeDataGraph &data_graph)
+ValueOrError<SharedFunction> create_function__force_inputs(VirtualNode *force_vnode,
+                                                           VTreeDataGraph &data_graph)
 {
   return create_function__action_inputs(force_vnode, data_graph);
 }
@@ -224,26 +224,18 @@ static std::unique_ptr<Action> build_action_for_trigger(BuildContext &ctx, Virtu
   return build_action(ctx, start, start);
 }
 
-static std::unique_ptr<Force> BUILD_FORCE_gravity(BuildContext &ctx, VirtualNode *vnode)
+static std::unique_ptr<Force> BUILD_FORCE_gravity(BuildContext &UNUSED(ctx),
+                                                  VirtualNode *UNUSED(vnode),
+                                                  ParticleFunction compute_inputs_fn)
 {
-  auto fn_or_error = create_function__force_inputs(vnode, ctx.data_graph);
-  if (fn_or_error.is_error()) {
-    return {};
-  }
-
-  SharedFunction fn = fn_or_error.extract_value();
-  return std::unique_ptr<Force>(new GravityForce(ParticleFunction(fn)));
+  return std::unique_ptr<Force>(new GravityForce(std::move(compute_inputs_fn)));
 }
 
-static std::unique_ptr<Force> BUILD_FORCE_turbulence(BuildContext &ctx, VirtualNode *vnode)
+static std::unique_ptr<Force> BUILD_FORCE_turbulence(BuildContext &UNUSED(ctx),
+                                                     VirtualNode *UNUSED(vnode),
+                                                     ParticleFunction compute_inputs_fn)
 {
-  auto fn_or_error = create_function__force_inputs(vnode, ctx.data_graph);
-  if (fn_or_error.is_error()) {
-    return {};
-  }
-
-  SharedFunction fn = fn_or_error.extract_value();
-  return std::unique_ptr<Force>(new TurbulenceForce(ParticleFunction(fn)));
+  return std::unique_ptr<Force>(new TurbulenceForce(std::move(compute_inputs_fn)));
 }
 
 static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(BuildContext &ctx, VirtualNode *vnode)
