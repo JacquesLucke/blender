@@ -127,12 +127,11 @@ class VirtualLink;
 class VirtualNodeTree {
  private:
   bool m_frozen = false;
-  MonotonicAllocator<> m_allocator;
   Vector<VirtualNode *> m_nodes;
   Vector<VirtualLink *> m_links;
   Vector<VirtualSocket *> m_inputs_with_links;
   MultiMap<std::string, VirtualNode *> m_nodes_by_idname;
-
+  MonotonicAllocator<> m_allocator;
  public:
   void add_all_of_tree(bNodeTree *btree);
   VirtualNode *add_bnode(bNodeTree *btree, bNode *bnode);

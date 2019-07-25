@@ -229,7 +229,7 @@ inline bool StringRefBase::endswith(StringRef suffix) const
     BLI::StringRef a_ref(a); \
     BLI::StringRef b_ref(b); \
     uint characters = a_ref.size() + b_ref.size(); \
-    char *result##_ptr = BLI_array_alloca(result##_ptr, characters + 1); \
+    char *result##_ptr = (char*) BLI_array_alloca(result##_ptr, characters + 1); \
     for (uint i = 0; i < a_ref.size(); i++) \
       result##_ptr[i] = a_ref[i]; \
     for (uint i = 0; i < b_ref.size(); i++) \
