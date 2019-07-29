@@ -48,6 +48,9 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayAllocator
   result->m_buffers.append_n_times(nullptr, parameter_amount);
   result->m_only_first.append_n_times(false, parameter_amount);
   result->m_strides.append_n_times(0, parameter_amount);
+  result->m_fn_no_deps = m_fn_no_deps.ptr();
+  result->m_fn_with_deps = m_fn_with_deps.ptr();
+  result->m_output_indices = m_output_indices;
 
   if (m_fn_no_deps->output_amount() > 0) {
     TupleCallBody &body = m_fn_no_deps->body<TupleCallBody>();

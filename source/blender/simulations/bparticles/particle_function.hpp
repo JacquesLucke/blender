@@ -24,6 +24,9 @@ class ParticleFunctionResult {
   Vector<uint> m_strides;
   Vector<bool> m_only_first;
   ArrayAllocator *m_array_allocator;
+  FN::Function *m_fn_no_deps;
+  FN::Function *m_fn_with_deps;
+  ArrayRef<uint> m_output_indices;
 
   friend ParticleFunction;
 
@@ -41,11 +44,18 @@ class ParticleFunctionResult {
 
   template<typename T> T get(StringRef expected_name, uint parameter_index, uint pindex)
   {
-    // #ifdef DEBUG
-    //     BLI_assert(sizeof(T) == m_strides[parameter_index]);
-    //     StringRefNull real_name = m_fn->output_name(parameter_index);
-    //     BLI_assert(real_name == expected_name);
-    // #endif
+#ifdef DEBUG
+    BLI_assert(sizeof(T) == m_strides[parameter_index]);
+    uint output_index = m_output_indices[parameter_index];
+    if (m_only_first[parameter_index]) {
+      StringRefNull real_name = m_fn_no_deps->output_name(output_index);
+      BLI_assert(real_name == expected_name);
+    }
+    else {
+      StringRefNull real_name = m_fn_with_deps->output_name(output_index);
+      BLI_assert(real_name == expected_name);
+    }
+#endif
     UNUSED_VARS_NDEBUG(expected_name);
 
     T *buffer = (T *)m_buffers[parameter_index];
