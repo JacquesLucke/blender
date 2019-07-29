@@ -42,41 +42,30 @@ ParticleFunction::~ParticleFunction()
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ActionInterface &interface)
 {
-  return this->compute(interface.array_allocator(),
-                       interface.particles().pindices(),
-                       interface.particles().attributes(),
-                       &interface.context());
+  return this->compute(interface.array_allocator(), interface.particles(), &interface.context());
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
     OffsetHandlerInterface &interface)
 {
-  return this->compute(interface.array_allocator(),
-                       interface.particles().pindices(),
-                       interface.particles().attributes(),
-                       nullptr);
+  return this->compute(interface.array_allocator(), interface.particles(), nullptr);
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ForceInterface &interface)
 {
   ParticlesBlock &block = interface.block();
   return this->compute(interface.array_allocator(),
-                       block.active_range().as_array_ref(),
-                       block.attributes(),
+                       ParticleSet(block, block.active_range().as_array_ref()),
                        nullptr);
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(EventFilterInterface &interface)
 {
-  return this->compute(interface.array_allocator(),
-                       interface.particles().pindices(),
-                       interface.particles().attributes(),
-                       nullptr);
+  return this->compute(interface.array_allocator(), interface.particles(), nullptr);
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayAllocator &array_allocator,
-                                                                  ArrayRef<uint> pindices,
-                                                                  AttributeArrays attributes,
+                                                                  ParticleSet particles,
                                                                   ActionContext *action_context)
 {
   uint parameter_amount = m_parameter_depends_on_particle.size();
@@ -91,7 +80,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayAllocator
   result->m_output_indices = m_output_indices;
 
   this->init_without_deps(result, array_allocator);
-  this->init_with_deps(result, array_allocator, pindices, attributes, action_context);
+  this->init_with_deps(result, array_allocator, particles, action_context);
 
   return std::unique_ptr<ParticleFunctionResult>(result);
 }
@@ -129,8 +118,7 @@ void ParticleFunction::init_without_deps(ParticleFunctionResult *result,
 
 void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
                                       ArrayAllocator &array_allocator,
-                                      ArrayRef<uint> pindices,
-                                      AttributeArrays attributes,
+                                      ParticleSet particles,
                                       ActionContext *action_context)
 {
   if (m_fn_with_deps->output_amount() == 0) {
@@ -146,7 +134,8 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
 
   for (uint i = 0; i < m_fn_with_deps->input_amount(); i++) {
     auto *provider = m_input_providers[i];
-    auto array = provider->get(attributes, action_context);
+    InputProviderInterface interface(array_allocator, particles, action_context);
+    auto array = provider->get(interface);
     BLI_assert(array.buffer != nullptr);
     BLI_assert(array.stride > 0);
 
@@ -184,7 +173,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
 
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
 
-  for (uint pindex : pindices) {
+  for (uint pindex : particles.pindices()) {
     for (uint i = 0; i < input_buffers.size(); i++) {
       void *ptr = POINTER_OFFSET(input_buffers[i], pindex * input_strides[i]);
       fn_in.copy_in__dynamic(i, ptr);

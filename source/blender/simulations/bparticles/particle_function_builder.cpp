@@ -58,9 +58,9 @@ class AttributeInputProvider : public ParticleFunctionInputProvider {
   {
   }
 
-  ParticleFunctionInputArray get(AttributeArrays attributes,
-                                 ActionContext *UNUSED(action_context)) override
+  ParticleFunctionInputArray get(InputProviderInterface &interface) override
   {
+    AttributeArrays attributes = interface.particles().attributes();
     uint attribute_index = attributes.attribute_index(m_name);
     uint stride = attributes.attribute_stride(attribute_index);
     void *buffer = attributes.get_ptr(attribute_index);
@@ -69,9 +69,9 @@ class AttributeInputProvider : public ParticleFunctionInputProvider {
 };
 
 class CollisionNormalInputProvider : public ParticleFunctionInputProvider {
-  ParticleFunctionInputArray get(AttributeArrays UNUSED(attributes),
-                                 ActionContext *action_context) override
+  ParticleFunctionInputArray get(InputProviderInterface &interface) override
   {
+    ActionContext *action_context = interface.action_context();
     BLI_assert(action_context != nullptr);
     CollisionEventInfo *collision_info = dynamic_cast<CollisionEventInfo *>(action_context);
     BLI_assert(collision_info != nullptr);

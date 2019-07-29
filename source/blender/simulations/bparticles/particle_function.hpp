@@ -85,12 +85,43 @@ struct ParticleFunctionInputArray {
   }
 };
 
+class InputProviderInterface {
+ private:
+  ArrayAllocator &m_array_allocator;
+  ParticleSet m_particles;
+  ActionContext *m_action_context;
+
+ public:
+  InputProviderInterface(ArrayAllocator &array_allocator,
+                         ParticleSet particles,
+                         ActionContext *action_context)
+      : m_array_allocator(array_allocator),
+        m_particles(particles),
+        m_action_context(action_context)
+  {
+  }
+
+  ArrayAllocator &array_allocator()
+  {
+    return m_array_allocator;
+  }
+
+  ParticleSet particles()
+  {
+    return m_particles;
+  }
+
+  ActionContext *action_context()
+  {
+    return m_action_context;
+  }
+};
+
 class ParticleFunctionInputProvider {
  public:
   virtual ~ParticleFunctionInputProvider();
 
-  virtual ParticleFunctionInputArray get(AttributeArrays attributes,
-                                         ActionContext *action_context) = 0;
+  virtual ParticleFunctionInputArray get(InputProviderInterface &interface) = 0;
 };
 
 class ParticleFunction {
@@ -139,16 +170,14 @@ class ParticleFunction {
 
  private:
   std::unique_ptr<ParticleFunctionResult> compute(ArrayAllocator &array_allocator,
-                                                  ArrayRef<uint> pindices,
-                                                  AttributeArrays attributes,
+                                                  ParticleSet particles,
                                                   ActionContext *action_context);
 
   void init_without_deps(ParticleFunctionResult *result, ArrayAllocator &array_allocator);
 
   void init_with_deps(ParticleFunctionResult *result,
                       ArrayAllocator &array_allocator,
-                      ArrayRef<uint> pindices,
-                      AttributeArrays attributes,
+                      ParticleSet particles,
                       ActionContext *action_context);
 };
 
