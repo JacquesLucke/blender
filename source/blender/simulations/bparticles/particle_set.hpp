@@ -89,14 +89,17 @@ class ParticleSets {
     this->set_repeated<T>(index, data);
   }
 
-  void fill_byte(uint index, uint8_t value);
-  void fill_byte(StringRef name, uint8_t value);
-  void fill_integer(uint index, int32_t value);
-  void fill_integer(StringRef name, int32_t value);
-  void fill_float(uint index, float value);
-  void fill_float(StringRef name, float value);
-  void fill_float3(uint index, float3 value);
-  void fill_float3(StringRef name, float3 value);
+  template<typename T> void fill(uint index, T value)
+  {
+    BLI_assert(m_attributes_info.type_of(index) == attribute_type_by_type<T>::value);
+    this->fill_elements(index, (void *)&value);
+  }
+
+  template<typename T> void fill(StringRef name, T value)
+  {
+    uint index = m_attributes_info.attribute_index(name);
+    this->fill<T>(index, value);
+  }
 
   StringRefNull particle_type_name();
 

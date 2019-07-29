@@ -162,7 +162,7 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
 
   auto new_particles = interface.particle_allocator().request(m_particle_type_name,
                                                               new_particle_amount);
-  new_particles.fill_float("Birth Time", interface.time_span().end());
+  new_particles.fill<float>("Birth Time", interface.time_span().end());
 
   for (uint i = 0; i < m_function->output_amount(); i++) {
     auto &type = m_function->output_type(i);
@@ -186,13 +186,13 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
       new_particles.set_repeated<int32_t>(attribute_index, *list.ptr());
     }
     else if (type == float_type) {
-      new_particles.fill_float(attribute_index, fn_out.get<float>(i));
+      new_particles.fill<float>(attribute_index, fn_out.get<float>(i));
     }
     else if (type == float3_type) {
-      new_particles.fill_float3(attribute_index, fn_out.get<float3>(i));
+      new_particles.fill<float3>(attribute_index, fn_out.get<float3>(i));
     }
     else if (type == int32_type) {
-      new_particles.fill_integer(attribute_index, fn_out.get<int32_t>(i));
+      new_particles.fill<int32_t>(attribute_index, fn_out.get<int32_t>(i));
     }
   }
 }
@@ -217,8 +217,8 @@ void InitialGridEmitter::emit(EmitterInterface &interface)
   auto new_particles = interface.particle_allocator().request(m_particle_type_name,
                                                               new_positions.size());
   new_particles.set<float3>("Position", new_positions);
-  new_particles.fill_float("Birth Time", interface.time_span().start());
-  new_particles.fill_float("Size", m_size);
+  new_particles.fill<float>("Birth Time", interface.time_span().start());
+  new_particles.fill<float>("Size", m_size);
 }
 
 }  // namespace BParticles

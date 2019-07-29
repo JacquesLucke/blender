@@ -80,48 +80,4 @@ void ParticleSets::fill_elements(uint index, void *value)
   }
 }
 
-void ParticleSets::fill_byte(uint index, uint8_t value)
-{
-  this->fill_elements(index, (void *)&value);
-}
-
-void ParticleSets::fill_byte(StringRef name, uint8_t value)
-{
-  uint index = m_attributes_info.attribute_index(name);
-  this->fill_byte(index, value);
-}
-
-void ParticleSets::fill_integer(uint index, int32_t value)
-{
-  this->fill_elements(index, (void *)&value);
-}
-
-void ParticleSets::fill_integer(StringRef name, int32_t value)
-{
-  uint index = m_attributes_info.attribute_index(name);
-  this->fill_integer(index, value);
-}
-
-void ParticleSets::fill_float(uint index, float value)
-{
-  this->fill_elements(index, (void *)&value);
-}
-
-void ParticleSets::fill_float(StringRef name, float value)
-{
-  uint index = m_attributes_info.attribute_index(name);
-  this->fill_float(index, value);
-}
-
-void ParticleSets::fill_float3(uint index, float3 value)
-{
-  this->fill_elements(index, (void *)&value);
-}
-
-void ParticleSets::fill_float3(StringRef name, float3 value)
-{
-  uint index = m_attributes_info.attribute_index(name);
-  this->fill_float3(index, value);
-}
-
 };  // namespace BParticles

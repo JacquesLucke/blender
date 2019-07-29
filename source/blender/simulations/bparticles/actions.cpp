@@ -78,7 +78,7 @@ void ExplodeAction::execute(ActionInterface &interface)
                                                               new_birth_times.size());
   new_particles.set<float3>("Position", new_positions);
   new_particles.set<float3>("Velocity", new_velocities);
-  new_particles.fill_float("Size", 0.1f);
+  new_particles.fill<float>("Size", 0.1f);
   new_particles.set<float>("Birth Time", new_birth_times);
 
   m_post_action->execute(interface);
