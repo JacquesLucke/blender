@@ -31,6 +31,7 @@ class ParticlesContainer {
   Stack<ParticlesBlock *> m_cached_blocks;
   uint m_block_size;
   std::mutex m_blocks_mutex;
+  uint m_next_block_id = 0;
 
  public:
   ParticlesContainer(AttributesInfo attributes, uint block_size);
@@ -103,11 +104,12 @@ class ParticlesBlock {
   ParticlesContainer &m_container;
   AttributeArraysCore m_attributes_core;
   uint m_active_amount = 0;
+  uint m_id;
 
   friend ParticlesContainer;
 
  public:
-  ParticlesBlock(ParticlesContainer &container, AttributeArraysCore &attributes_core);
+  ParticlesBlock(ParticlesContainer &container, AttributeArraysCore &attributes_core, uint id);
 
   /**
    * Get the range of attribute indices that contain active particles.

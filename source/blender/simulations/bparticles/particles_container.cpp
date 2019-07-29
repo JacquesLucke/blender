@@ -6,8 +6,10 @@
 
 namespace BParticles {
 
-ParticlesBlock::ParticlesBlock(ParticlesContainer &container, AttributeArraysCore &attributes_core)
-    : m_container(container), m_attributes_core(attributes_core)
+ParticlesBlock::ParticlesBlock(ParticlesContainer &container,
+                               AttributeArraysCore &attributes_core,
+                               uint id)
+    : m_container(container), m_attributes_core(attributes_core), m_id(id)
 {
 }
 
@@ -64,7 +66,7 @@ ParticlesBlock *ParticlesContainer::allocate_block()
 {
   AttributeArraysCore attributes_core = AttributeArraysCore::NewWithSeparateAllocations(
       m_attributes_info, m_block_size);
-  ParticlesBlock *block = new ParticlesBlock(*this, attributes_core);
+  ParticlesBlock *block = new ParticlesBlock(*this, attributes_core, m_next_block_id++);
   return block;
 }
 
