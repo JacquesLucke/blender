@@ -14,7 +14,7 @@ using FN::DataFlowNodes::VTreeDataGraph;
 
 Vector<DFGraphSocket> find_input_data_sockets(VirtualNode *vnode, VTreeDataGraph &data_graph);
 
-ValueOrError<ParticleFunction> create_particle_function(VirtualNode *main_vnode,
+ValueOrError<ParticleFunction> create_particle_function(VirtualNode *vnode,
                                                         VTreeDataGraph &data_graph);
 
 }  // namespace BParticles

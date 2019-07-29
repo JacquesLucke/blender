@@ -29,7 +29,7 @@ struct SocketDependencies {
 
 static SocketDependencies find_particle_dependencies(VTreeDataGraph &data_graph,
                                                      ArrayRef<DFGraphSocket> sockets,
-                                                     ArrayRef<bool> r_depends_on_particle)
+                                                     ArrayRef<bool> r_depends_on_particle_flags)
 {
   SocketDependencies combined_dependencies;
 
@@ -37,7 +37,7 @@ static SocketDependencies find_particle_dependencies(VTreeDataGraph &data_graph,
     DFGraphSocket socket = sockets[i];
     auto dependencies = data_graph.find_placeholder_dependencies(socket);
     bool has_dependency = dependencies.size() > 0;
-    r_depends_on_particle[i] = has_dependency;
+    r_depends_on_particle_flags[i] = has_dependency;
 
     combined_dependencies.sockets.add_multiple(dependencies.sockets);
     combined_dependencies.vsockets.add_multiple(dependencies.vsockets);
@@ -94,18 +94,17 @@ static SharedFunction create_function__without_deps(SharedDataFlowGraph &graph,
   return fn;
 }
 
-ValueOrError<ParticleFunction> create_particle_function(VirtualNode *main_vnode,
-                                                        VTreeDataGraph &data_graph)
+static ValueOrError<ParticleFunction> create_particle_function_from_sockets(
+    SharedDataFlowGraph &graph,
+    StringRef name,
+    ArrayRef<DFGraphSocket> sockets_to_compute,
+    ArrayRef<bool> depends_on_particle_flags,
+    SocketDependencies &dependencies)
 {
-  Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(main_vnode, data_graph);
-  Vector<bool> parameter_depends_on_particle(sockets_to_compute.size());
-  auto dependencies = find_particle_dependencies(
-      data_graph, sockets_to_compute, parameter_depends_on_particle);
-
   Vector<DFGraphSocket> sockets_with_deps;
   Vector<DFGraphSocket> sockets_without_deps;
   for (uint i = 0; i < sockets_to_compute.size(); i++) {
-    if (parameter_depends_on_particle[i]) {
+    if (depends_on_particle_flags[i]) {
       sockets_with_deps.append(sockets_to_compute[i]);
     }
     else {
@@ -114,12 +113,26 @@ ValueOrError<ParticleFunction> create_particle_function(VirtualNode *main_vnode,
   }
 
   SharedFunction fn_without_deps = create_function__without_deps(
-      data_graph.graph(), main_vnode->name(), sockets_without_deps);
+      graph, name, sockets_without_deps);
   SharedFunction fn_with_deps = create_function__with_deps(
-      data_graph.graph(), main_vnode->name(), sockets_with_deps, dependencies);
+      graph, name, sockets_with_deps, dependencies);
 
-  ParticleFunction particle_function(fn_without_deps, fn_with_deps, parameter_depends_on_particle);
-  return particle_function;
+  return ParticleFunction(fn_without_deps, fn_with_deps, depends_on_particle_flags);
+}
+
+ValueOrError<ParticleFunction> create_particle_function(VirtualNode *vnode,
+                                                        VTreeDataGraph &data_graph)
+{
+  Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(vnode, data_graph);
+  Vector<bool> depends_on_particle_flags(sockets_to_compute.size());
+  auto dependencies = find_particle_dependencies(
+      data_graph, sockets_to_compute, depends_on_particle_flags);
+
+  return create_particle_function_from_sockets(data_graph.graph(),
+                                               vnode->name(),
+                                               sockets_to_compute,
+                                               depends_on_particle_flags,
+                                               dependencies);
 }
 
 }  // namespace BParticles
