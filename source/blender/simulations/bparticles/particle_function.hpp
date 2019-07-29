@@ -78,28 +78,7 @@ class ParticleFunction {
  public:
   ParticleFunction(SharedFunction fn_no_deps,
                    SharedFunction fn_with_deps,
-                   Vector<bool> parameter_depends_on_particle)
-      : m_fn_no_deps(std::move(fn_no_deps)),
-        m_fn_with_deps(std::move(fn_with_deps)),
-        m_parameter_depends_on_particle(std::move(parameter_depends_on_particle))
-  {
-    BLI_assert(m_fn_no_deps->output_amount() + m_fn_with_deps->output_amount() ==
-               m_parameter_depends_on_particle.size());
-    BLI_assert(m_fn_no_deps->input_amount() == 0);
-
-    uint no_deps_index = 0;
-    uint with_deps_index = 0;
-    for (uint i = 0; i < m_parameter_depends_on_particle.size(); i++) {
-      if (m_parameter_depends_on_particle[i]) {
-        m_output_indices.append(with_deps_index);
-        with_deps_index++;
-      }
-      else {
-        m_output_indices.append(no_deps_index);
-        no_deps_index++;
-      }
-    }
-  }
+                   Vector<bool> parameter_depends_on_particle);
 
   SharedFunction &function_no_deps()
   {
@@ -134,6 +113,14 @@ class ParticleFunction {
                                                   ArrayRef<uint> pindices,
                                                   AttributeArrays attributes,
                                                   ActionContext *action_context);
+
+  void init_without_deps(ParticleFunctionResult *result, ArrayAllocator &array_allocator);
+
+  void init_with_deps(ParticleFunctionResult *result,
+                      ArrayAllocator &array_allocator,
+                      ArrayRef<uint> pindices,
+                      AttributeArrays attributes,
+                      ActionContext *action_context);
 };
 
 }  // namespace BParticles
