@@ -130,7 +130,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     Vector<llvm::Value *> data_pointers;
     for (uint i = 0; i < m_input_info.size(); i++) {
       if (m_input_info[i].is_list) {
-        uint stride = m_input_info[i].base_cpp_type->size_of_type();
+        uint stride = m_input_info[i].base_cpp_type->size();
         llvm::Value *data_ptr = builder.CreateCallPointer((void *)m_input_info[i].get_data_ptr_fn,
                                                           {interface.get_input(i)},
                                                           builder.getVoidPtrTy(),
@@ -148,7 +148,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
   {
     Vector<llvm::Value *> data_pointers;
     for (uint i = 0; i < m_output_info.size(); i++) {
-      uint stride = m_output_info[i].base_cpp_type->size_of_type();
+      uint stride = m_output_info[i].base_cpp_type->size();
 
       llvm::Value *output_list = builder.CreateCallPointer(
           (void *)m_output_info[i].get_new_list_fn,

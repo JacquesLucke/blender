@@ -119,7 +119,7 @@ void ParticleFunction::init_without_deps(ParticleFunctionResult *result,
     uint output_index = m_output_indices[parameter_index];
     CPPTypeInfo &type_info = m_fn_no_deps->output_type(output_index)->extension<CPPTypeInfo>();
 
-    uint output_stride = type_info.size_of_type();
+    uint output_stride = type_info.size();
     void *output_buffer = array_allocator.allocate(output_stride);
 
     result->m_buffers[parameter_index] = output_buffer;
@@ -172,7 +172,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
     uint output_index = m_output_indices[parameter_index];
     CPPTypeInfo &type_info = m_fn_with_deps->output_type(output_index)->extension<CPPTypeInfo>();
 
-    uint output_stride = type_info.size_of_type();
+    uint output_stride = type_info.size();
     void *output_buffer = array_allocator.allocate(output_stride);
 
     result->m_buffers[parameter_index] = output_buffer;

@@ -89,14 +89,14 @@ class ExecuteFGraph : public TupleCallBody {
       if (body == nullptr) {
         for (auto type : fn->input_types()) {
           CPPTypeInfo &type_info = type->extension<CPPTypeInfo>();
-          uint type_size = type_info.size_of_type();
+          uint type_size = type_info.size();
           m_input_info.append(SocketInfo(type_info, m_inputs_buffer_size, false));
           m_inputs_buffer_size += type_size;
         }
 
         for (auto type : fn->output_types()) {
           CPPTypeInfo &type_info = type->extension<CPPTypeInfo>();
-          uint type_size = type_info.size_of_type();
+          uint type_size = type_info.size();
           m_output_info.append(SocketInfo(type_info, m_outputs_buffer_size, false));
           m_outputs_buffer_size += type_size;
         }

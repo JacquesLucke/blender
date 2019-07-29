@@ -12,7 +12,7 @@ TupleMeta::TupleMeta(ArrayRef<SharedType> types) : m_types(types)
     m_size__data = pad_up(m_size__data, alignment);
     m_offsets.append(m_size__data);
     m_type_info.append(&info);
-    m_size__data += info.size_of_type();
+    m_size__data += info.size();
     if (!info.trivially_destructible()) {
       m_all_trivially_destructible = false;
     }

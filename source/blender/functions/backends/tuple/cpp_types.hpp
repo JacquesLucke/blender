@@ -23,7 +23,7 @@ class CPPTypeInfo : public TypeExtension {
   /**
    * Get the size of the type in bytes.
    */
-  virtual uint size_of_type() const = 0;
+  virtual uint size() const = 0;
 
   /**
    * Get the alignment requirements for this type.
@@ -72,7 +72,7 @@ class CPPTypeInfo : public TypeExtension {
 
 template<typename T> class CPPTypeInfoForType : public CPPTypeInfo {
  public:
-  uint size_of_type() const override
+  uint size() const override
   {
     return sizeof(T);
   }
