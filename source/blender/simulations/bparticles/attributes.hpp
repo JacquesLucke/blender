@@ -29,6 +29,7 @@ using BLI::Vector;
  */
 enum AttributeType {
   Byte,
+  Integer,
   Float,
   Float3,
 };
@@ -43,6 +44,8 @@ inline uint size_of_attribute_type(AttributeType type)
   switch (type) {
     case AttributeType::Byte:
       return sizeof(uint8_t);
+    case AttributeType::Integer:
+      return sizeof(int32_t);
     case AttributeType::Float:
       return sizeof(float);
     case AttributeType::Float3:
@@ -58,9 +61,11 @@ class AttributesInfo;
 class AttributesDeclaration {
  private:
   SetVector<std::string> m_byte_names;
+  SetVector<std::string> m_integer_names;
   SetVector<std::string> m_float_names;
   SetVector<std::string> m_float3_names;
   Vector<uint8_t> m_byte_defaults;
+  Vector<int32_t> m_integer_defaults;
   Vector<float> m_float_defaults;
   Vector<float3> m_float3_defaults;
 
@@ -70,6 +75,7 @@ class AttributesDeclaration {
   AttributesDeclaration() = default;
 
   void add_byte(StringRef name, uint8_t default_value);
+  void add_integer(StringRef name, int32_t default_value);
   void add_float(StringRef name, float default_value);
   void add_float3(StringRef name, float3 default_value);
 
@@ -88,12 +94,14 @@ class AttributesDeclaration {
 class AttributesInfo {
  private:
   Range<uint> m_byte_attributes;
+  Range<uint> m_integer_attributes;
   Range<uint> m_float_attributes;
   Range<uint> m_float3_attributes;
   Vector<AttributeType> m_types;
   SetVector<std::string> m_indices;
 
   Vector<uint8_t> m_byte_defaults;
+  Vector<int32_t> m_integer_defaults;
   Vector<float> m_float_defaults;
   Vector<float3> m_float3_defaults;
 
@@ -101,9 +109,11 @@ class AttributesInfo {
   AttributesInfo() = default;
   AttributesInfo(AttributesDeclaration &builder);
   AttributesInfo(ArrayRef<std::string> byte_names,
+                 ArrayRef<std::string> integer_names,
                  ArrayRef<std::string> float_names,
                  ArrayRef<std::string> float3_names,
                  ArrayRef<uint8_t> byte_defaults,
+                 ArrayRef<int32_t> integer_defaults,
                  ArrayRef<float> float_defaults,
                  ArrayRef<float3> float3_defaults);
 
@@ -207,6 +217,14 @@ class AttributesInfo {
   }
 
   /**
+   * Get a range with all integer attribute indices.
+   */
+  Range<uint> integer_attributes() const
+  {
+    return m_integer_attributes;
+  }
+
+  /**
    * Get a range with all float attribute indices.
    */
   Range<uint> float_attributes() const
@@ -232,6 +250,8 @@ class AttributesInfo {
     switch (type) {
       case AttributeType::Byte:
         return (void *)&m_byte_defaults[index - m_byte_attributes.first()];
+      case AttributeType::Integer:
+        return (void *)&m_integer_defaults[index - m_integer_attributes.first()];
       case AttributeType::Float:
         return (void *)&m_float_defaults[index - m_float_attributes.first()];
       case AttributeType::Float3:
@@ -376,6 +396,8 @@ class AttributeArrays {
    */
   ArrayRef<uint8_t> get_byte(uint index) const;
   ArrayRef<uint8_t> get_byte(StringRef name);
+  ArrayRef<int32_t> get_integer(uint index) const;
+  ArrayRef<int32_t> get_integer(StringRef name);
   ArrayRef<float> get_float(uint index) const;
   ArrayRef<float> get_float(StringRef name);
   ArrayRef<float3> get_float3(uint index) const;
@@ -386,6 +408,7 @@ class AttributeArrays {
    * Does not assert when the attribute does not exist.
    */
   Optional<ArrayRef<uint8_t>> try_get_byte(StringRef name);
+  Optional<ArrayRef<int32_t>> try_get_integer(StringRef name);
   Optional<ArrayRef<float>> try_get_float(StringRef name);
   Optional<ArrayRef<float3>> try_get_float3(StringRef name);
 
@@ -407,6 +430,13 @@ inline void AttributesDeclaration::add_byte(StringRef name, uint8_t default_valu
 {
   if (m_byte_names.add(name.to_std_string())) {
     m_byte_defaults.append(default_value);
+  }
+}
+
+inline void AttributesDeclaration::add_integer(StringRef name, int32_t default_value)
+{
+  if (m_integer_names.add(name.to_std_string())) {
+    m_integer_defaults.append(default_value);
   }
 }
 
@@ -522,6 +552,17 @@ inline ArrayRef<uint8_t> AttributeArrays::get_byte(StringRef name)
   return this->get_byte(this->attribute_index(name));
 }
 
+inline ArrayRef<int32_t> AttributeArrays::get_integer(uint index) const
+{
+  BLI_assert(m_core.get_type(index) == AttributeType::Byte);
+  return ArrayRef<int32_t>((int32_t *)m_core.get_ptr(index) + m_start, m_size);
+}
+
+inline ArrayRef<int32_t> AttributeArrays::get_integer(StringRef name)
+{
+  return this->get_integer(this->attribute_index(name));
+}
+
 inline ArrayRef<float> AttributeArrays::get_float(uint index) const
 {
   BLI_assert(m_core.get_type(index) == AttributeType::Float);
@@ -552,6 +593,17 @@ inline Optional<ArrayRef<uint8_t>> AttributeArrays::try_get_byte(StringRef name)
   }
   else {
     return this->get_byte((uint)index);
+  }
+}
+
+inline Optional<ArrayRef<int32_t>> AttributeArrays::try_get_integer(StringRef name)
+{
+  int index = this->info().attribute_index_try(name, AttributeType::Integer);
+  if (index == -1) {
+    return {};
+  }
+  else {
+    return this->get_integer((uint)index);
   }
 }
 

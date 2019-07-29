@@ -16,6 +16,7 @@ namespace BParticles {
 
 using FN::Types::SharedFloat3List;
 using FN::Types::SharedFloatList;
+using FN::Types::SharedInt32List;
 
 static float random_float()
 {
@@ -140,8 +141,10 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
 
   auto &float_list_type = FN::Types::GET_TYPE_float_list();
   auto &float3_list_type = FN::Types::GET_TYPE_float3_list();
+  auto &int32_list_type = FN::Types::GET_TYPE_int32_list();
   auto &float_type = FN::Types::GET_TYPE_float();
   auto &float3_type = FN::Types::GET_TYPE_float3();
+  auto &int32_type = FN::Types::GET_TYPE_int32();
 
   uint new_particle_amount = 0;
   for (uint i = 0; i < m_function->output_amount(); i++) {
@@ -178,11 +181,18 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
       auto list = fn_out.relocate_out<SharedFloat3List>(i);
       new_particles.set_repeated_float3(attribute_index, *list.ptr());
     }
+    else if (type == int32_list_type) {
+      auto list = fn_out.relocate_out<SharedInt32List>(i);
+      new_particles.set_repeated_integer(attribute_index, *list.ptr());
+    }
     else if (type == float_type) {
       new_particles.fill_float(attribute_index, fn_out.get<float>(i));
     }
     else if (type == float3_type) {
       new_particles.fill_float3(attribute_index, fn_out.get<float3>(i));
+    }
+    else if (type == int32_type) {
+      new_particles.fill_integer(attribute_index, fn_out.get<int32_t>(i));
     }
   }
 }

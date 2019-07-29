@@ -65,6 +65,8 @@ class ParticleSets {
 
   void set_byte(uint index, ArrayRef<uint8_t> data);
   void set_byte(StringRef name, ArrayRef<uint8_t> data);
+  void set_integer(uint index, ArrayRef<int32_t> data);
+  void set_integer(StringRef name, ArrayRef<int32_t> data);
   void set_float(uint index, ArrayRef<float> data);
   void set_float(StringRef name, ArrayRef<float> data);
   void set_float3(uint index, ArrayRef<float3> data);
@@ -72,6 +74,8 @@ class ParticleSets {
 
   void set_repeated_byte(uint index, ArrayRef<uint8_t> data);
   void set_repeated_byte(StringRef name, ArrayRef<uint8_t> data);
+  void set_repeated_integer(uint index, ArrayRef<int32_t> data);
+  void set_repeated_integer(StringRef name, ArrayRef<int32_t> data);
   void set_repeated_float(uint index, ArrayRef<float> data);
   void set_repeated_float(StringRef name, ArrayRef<float> data);
   void set_repeated_float3(uint index, ArrayRef<float3> data);
@@ -79,6 +83,8 @@ class ParticleSets {
 
   void fill_byte(uint index, uint8_t value);
   void fill_byte(StringRef name, uint8_t value);
+  void fill_integer(uint index, int32_t value);
+  void fill_integer(StringRef name, int32_t value);
   void fill_float(uint index, float value);
   void fill_float(StringRef name, float value);
   void fill_float3(uint index, float3 value);

@@ -309,23 +309,4 @@ inline AttributeArraysCore &ParticlesBlock::attributes_core()
   return m_attributes_core;
 }
 
-inline void ParticlesBlock::move(uint old_index, uint new_index)
-{
-  AttributesInfo &attributes = m_container.attributes_info();
-  AttributeArrays arrays = this->attributes_all();
-
-  for (uint i : attributes.byte_attributes()) {
-    auto buffer = arrays.get_byte(i);
-    buffer[new_index] = buffer[old_index];
-  }
-  for (uint i : attributes.float_attributes()) {
-    auto buffer = arrays.get_float(i);
-    buffer[new_index] = buffer[old_index];
-  }
-  for (uint i : attributes.float3_attributes()) {
-    auto buffer = arrays.get_float3(i);
-    buffer[new_index] = buffer[old_index];
-  }
-}
-
 }  // namespace BParticles

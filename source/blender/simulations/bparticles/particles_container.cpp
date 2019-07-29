@@ -236,4 +236,17 @@ void ParticlesBlock::Compress(ArrayRef<ParticlesBlock *> blocks)
   }
 }
 
+void ParticlesBlock::move(uint old_index, uint new_index)
+{
+  AttributeArrays attributes = this->attributes_all();
+
+  for (uint attribute_index : attributes.info().attribute_indices()) {
+    void *ptr = attributes.get_ptr(attribute_index);
+    uint size = attributes.attribute_stride(attribute_index);
+    void *src = POINTER_OFFSET(ptr, old_index * size);
+    void *dst = POINTER_OFFSET(ptr, new_index * size);
+    memcpy(dst, src, size);
+  }
+}
+
 }  // namespace BParticles

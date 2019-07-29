@@ -86,6 +86,12 @@ void ParticleSets::set_byte(uint index, ArrayRef<uint8_t> data)
   BLI_assert(m_attributes_info.type_of(index) == AttributeType::Byte);
   this->set_elements(index, (void *)data.begin());
 }
+void ParticleSets::set_integer(uint index, ArrayRef<int32_t> data)
+{
+  BLI_assert(data.size() == m_size);
+  BLI_assert(m_attributes_info.type_of(index) == AttributeType::Integer);
+  this->set_elements(index, (void *)data.begin());
+}
 void ParticleSets::set_float(uint index, ArrayRef<float> data)
 {
   BLI_assert(data.size() == m_size);
@@ -104,6 +110,11 @@ void ParticleSets::set_byte(StringRef name, ArrayRef<uint8_t> data)
   uint index = m_attributes_info.attribute_index(name);
   this->set_byte(index, data);
 }
+void ParticleSets::set_integer(StringRef name, ArrayRef<int32_t> data)
+{
+  uint index = m_attributes_info.attribute_index(name);
+  this->set_integer(index, data);
+}
 void ParticleSets::set_float(StringRef name, ArrayRef<float> data)
 {
   uint index = m_attributes_info.attribute_index(name);
@@ -118,6 +129,12 @@ void ParticleSets::set_float3(StringRef name, ArrayRef<float3> data)
 void ParticleSets::set_repeated_byte(uint index, ArrayRef<uint8_t> data)
 {
   BLI_assert(m_attributes_info.type_of(index) == AttributeType::Byte);
+  this->set_repeated_elements(
+      index, (void *)data.begin(), data.size(), m_attributes_info.default_value_ptr(index));
+}
+void ParticleSets::set_repeated_integer(uint index, ArrayRef<int32_t> data)
+{
+  BLI_assert(m_attributes_info.type_of(index) == AttributeType::Integer);
   this->set_repeated_elements(
       index, (void *)data.begin(), data.size(), m_attributes_info.default_value_ptr(index));
 }
@@ -139,6 +156,11 @@ void ParticleSets::set_repeated_byte(StringRef name, ArrayRef<uint8_t> data)
   uint index = m_attributes_info.attribute_index(name);
   this->set_repeated_byte(index, data);
 }
+void ParticleSets::set_repeated_integer(StringRef name, ArrayRef<int32_t> data)
+{
+  uint index = m_attributes_info.attribute_index(name);
+  this->set_repeated_integer(index, data);
+}
 void ParticleSets::set_repeated_float(StringRef name, ArrayRef<float> data)
 {
   uint index = m_attributes_info.attribute_index(name);
@@ -159,6 +181,17 @@ void ParticleSets::fill_byte(StringRef name, uint8_t value)
 {
   uint index = m_attributes_info.attribute_index(name);
   this->fill_byte(index, value);
+}
+
+void ParticleSets::fill_integer(uint index, int32_t value)
+{
+  this->fill_elements(index, (void *)&value);
+}
+
+void ParticleSets::fill_integer(StringRef name, int32_t value)
+{
+  uint index = m_attributes_info.attribute_index(name);
+  this->fill_integer(index, value);
 }
 
 void ParticleSets::fill_float(uint index, float value)
