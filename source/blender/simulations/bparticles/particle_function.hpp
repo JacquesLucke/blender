@@ -85,18 +85,80 @@ struct ParticleFunctionInputArray {
   }
 };
 
+struct ParticleTimes {
+ public:
+  enum Type {
+    Current,
+    DurationAndEnd,
+  };
+
+ private:
+  Type m_type;
+  ArrayRef<float> m_current_times;
+  ArrayRef<float> m_remaining_durations;
+  float m_end_time;
+
+  ParticleTimes(Type type,
+                ArrayRef<float> current_times,
+                ArrayRef<float> remaining_durations,
+                float end_time)
+      : m_type(type),
+        m_current_times(current_times),
+        m_remaining_durations(remaining_durations),
+        m_end_time(end_time)
+  {
+  }
+
+ public:
+  static ParticleTimes FromCurrentTimes(ArrayRef<float> current_times)
+  {
+    return ParticleTimes(Type::Current, current_times, {}, 0);
+  }
+
+  static ParticleTimes FromDurationsAndEnd(ArrayRef<float> remaining_durations, float end_time)
+  {
+    return ParticleTimes(Type::DurationAndEnd, {}, remaining_durations, end_time);
+  }
+
+  Type type()
+  {
+    return m_type;
+  }
+
+  ArrayRef<float> current_times()
+  {
+    BLI_assert(m_type == Type::Current);
+    return m_current_times;
+  }
+
+  ArrayRef<float> remaining_durations()
+  {
+    BLI_assert(m_type == Type::DurationAndEnd);
+    return m_remaining_durations;
+  }
+
+  float end_time()
+  {
+    BLI_assert(m_type == Type::DurationAndEnd);
+    return m_end_time;
+  }
+};
+
 class InputProviderInterface {
  private:
   ArrayAllocator &m_array_allocator;
   ParticleSet m_particles;
+  ParticleTimes m_particle_times;
   ActionContext *m_action_context;
 
  public:
   InputProviderInterface(ArrayAllocator &array_allocator,
                          ParticleSet particles,
+                         ParticleTimes particle_times,
                          ActionContext *action_context)
       : m_array_allocator(array_allocator),
         m_particles(particles),
+        m_particle_times(particle_times),
         m_action_context(action_context)
   {
   }
@@ -109,6 +171,11 @@ class InputProviderInterface {
   ParticleSet particles()
   {
     return m_particles;
+  }
+
+  ParticleTimes &particle_times()
+  {
+    return m_particle_times;
   }
 
   ActionContext *action_context()
@@ -171,6 +238,7 @@ class ParticleFunction {
  private:
   std::unique_ptr<ParticleFunctionResult> compute(ArrayAllocator &array_allocator,
                                                   ParticleSet particles,
+                                                  ParticleTimes particle_times,
                                                   ActionContext *action_context);
 
   void init_without_deps(ParticleFunctionResult *result, ArrayAllocator &array_allocator);
@@ -178,6 +246,7 @@ class ParticleFunction {
   void init_with_deps(ParticleFunctionResult *result,
                       ArrayAllocator &array_allocator,
                       ParticleSet particles,
+                      ParticleTimes particle_times,
                       ActionContext *action_context);
 };
 

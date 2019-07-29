@@ -19,7 +19,7 @@ void ConstantVelocityIntegrator::integrate(IntegratorInterface &interface)
   ParticlesBlock &block = interface.block();
   auto velocities = block.attributes().get_float3("Velocity");
   auto position_offsets = interface.offsets().get_float3("Position");
-  auto durations = interface.durations();
+  auto durations = interface.remaining_durations();
 
   for (uint pindex = 0; pindex < block.active_amount(); pindex++) {
     position_offsets[pindex] = velocities[pindex] * durations[pindex];
@@ -50,10 +50,14 @@ void EulerIntegrator::integrate(IntegratorInterface &interface)
 {
   ParticlesBlock &block = interface.block();
   AttributeArrays r_offsets = interface.offsets();
-  ArrayRef<float> durations = interface.durations();
+  ArrayRef<float> durations = interface.remaining_durations();
 
   ArrayAllocator::Array<float3> combined_force(interface.array_allocator());
-  this->compute_combined_force(block, interface.array_allocator(), combined_force);
+  this->compute_combined_force(block,
+                               interface.array_allocator(),
+                               interface.remaining_durations(),
+                               interface.step_end_time(),
+                               combined_force);
 
   auto last_velocities = block.attributes().get_float3("Velocity");
 
@@ -65,11 +69,13 @@ void EulerIntegrator::integrate(IntegratorInterface &interface)
 
 BLI_NOINLINE void EulerIntegrator::compute_combined_force(ParticlesBlock &block,
                                                           ArrayAllocator &array_allocator,
+                                                          ArrayRef<float> remaining_durations,
+                                                          float step_end_time,
                                                           ArrayRef<float3> r_force)
 {
   r_force.fill({0, 0, 0});
 
-  ForceInterface interface(block, array_allocator, r_force);
+  ForceInterface interface(block, array_allocator, remaining_durations, step_end_time, r_force);
 
   for (Force *force : m_forces) {
     force->add_force(interface);

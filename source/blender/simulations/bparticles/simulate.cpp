@@ -331,9 +331,6 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
       offsets_info, array_allocator);
   AttributeArrays attribute_offsets = attribute_offsets_core.slice_all().slice(0, amount);
 
-  IntegratorInterface interface(block, remaining_durations, array_allocator, attribute_offsets);
-  integrator.integrate(interface);
-
   BlockStepData step_data = {array_allocator,
                              particle_allocator,
                              block,
@@ -341,6 +338,9 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
                              attribute_offsets,
                              remaining_durations,
                              end_time};
+
+  IntegratorInterface interface(step_data);
+  integrator.integrate(interface);
 
   if (particle_type.events().size() == 0) {
     apply_remaining_offsets(step_data, block.active_range().as_array_ref());

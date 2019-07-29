@@ -79,11 +79,43 @@ class CollisionNormalInputProvider : public ParticleFunctionInputProvider {
   }
 };
 
+class AgeInputProvider : public ParticleFunctionInputProvider {
+  ParticleFunctionInputArray get(InputProviderInterface &interface) override
+  {
+    auto birth_times = interface.particles().attributes().get_float("Birth Time");
+    float *ages = interface.array_allocator().allocate<float>();
+
+    ParticleTimes &times = interface.particle_times();
+    if (times.type() == ParticleTimes::Type::Current) {
+      auto current_times = times.current_times();
+      for (uint pindex : interface.particles().pindices()) {
+        ages[pindex] = current_times[pindex] - birth_times[pindex];
+      }
+    }
+    else if (times.type() == ParticleTimes::Type::DurationAndEnd) {
+      auto remaining_durations = times.remaining_durations();
+      float end_time = times.end_time();
+      for (uint pindex : interface.particles().pindices()) {
+        ages[pindex] = end_time - remaining_durations[pindex] - birth_times[pindex];
+      }
+    }
+    else {
+      BLI_assert(false);
+    }
+    return {ArrayRef<float>(ages, interface.array_allocator().array_size()), true};
+  }
+};
+
 static ParticleFunctionInputProvider *create_input_provider(VirtualSocket *vsocket)
 {
   VirtualNode *vnode = vsocket->vnode();
   if (STREQ(vnode->idname(), "bp_ParticleInfoNode")) {
-    return new AttributeInputProvider(vsocket->name());
+    if (STREQ(vsocket->name(), "Age")) {
+      return new AgeInputProvider();
+    }
+    else {
+      return new AttributeInputProvider(vsocket->name());
+    }
   }
   else if (STREQ(vnode->idname(), "bp_CollisionInfoNode")) {
     return new CollisionNormalInputProvider();

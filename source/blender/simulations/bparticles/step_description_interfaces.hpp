@@ -188,17 +188,10 @@ class EventExecuteInterface {
  */
 class IntegratorInterface {
  private:
-  ParticlesBlock &m_block;
-  ArrayRef<float> m_durations;
-  ArrayAllocator &m_array_allocator;
-
-  AttributeArrays m_offsets;
+  BlockStepData &m_step_data;
 
  public:
-  IntegratorInterface(ParticlesBlock &block,
-                      ArrayRef<float> durations,
-                      ArrayAllocator &array_allocator,
-                      AttributeArrays r_offsets);
+  IntegratorInterface(BlockStepData &step_data);
 
   /**
    * Get the block for which the attribute offsets should be computed.
@@ -208,7 +201,9 @@ class IntegratorInterface {
   /**
    * Access durations for every particle that should be integrated.
    */
-  ArrayRef<float> durations();
+  ArrayRef<float> remaining_durations();
+
+  float step_end_time();
 
   /**
    * Get an array allocator that creates arrays with the number of elements being >= the number of
@@ -216,7 +211,7 @@ class IntegratorInterface {
    */
   ArrayAllocator &array_allocator()
   {
-    return m_array_allocator;
+    return m_step_data.array_allocator;
   }
 
   /**
@@ -401,17 +396,22 @@ inline AttributeArrays EventExecuteInterface::attribute_offsets()
 
 inline ParticlesBlock &IntegratorInterface::block()
 {
-  return m_block;
+  return m_step_data.block;
 }
 
-inline ArrayRef<float> IntegratorInterface::durations()
+inline ArrayRef<float> IntegratorInterface::remaining_durations()
 {
-  return m_durations;
+  return m_step_data.remaining_durations;
+}
+
+inline float IntegratorInterface::step_end_time()
+{
+  return m_step_data.step_end_time;
 }
 
 inline AttributeArrays IntegratorInterface::offsets()
 {
-  return m_offsets;
+  return m_step_data.attribute_offsets;
 }
 
 /* OffsetHandlerInterface inline functions

@@ -30,6 +30,8 @@ class EulerIntegrator : public Integrator {
  private:
   void compute_combined_force(ParticlesBlock &block,
                               ArrayAllocator &array_allocator,
+                              ArrayRef<float> remaining_durations,
+                              float step_end_time,
                               ArrayRef<float3> r_force);
 
   void compute_offsets(ArrayRef<float> durations,

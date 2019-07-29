@@ -37,14 +37,7 @@ EventExecuteInterface::EventExecuteInterface(BlockStepData &step_data,
 {
 }
 
-IntegratorInterface::IntegratorInterface(ParticlesBlock &block,
-                                         ArrayRef<float> durations,
-                                         ArrayAllocator &array_allocator,
-                                         AttributeArrays r_offsets)
-    : m_block(block),
-      m_durations(durations),
-      m_array_allocator(array_allocator),
-      m_offsets(r_offsets)
+IntegratorInterface::IntegratorInterface(BlockStepData &step_data) : m_step_data(step_data)
 {
 }
 

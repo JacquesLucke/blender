@@ -11,3 +11,4 @@ class ParticleInfoNode(bpy.types.Node, BParticlesNode):
         builder.fixed_output("position", "Position", "Vector")
         builder.fixed_output("velocity", "Velocity", "Vector")
         builder.fixed_output("birth_time", "Birth Time", "Float")
+        builder.fixed_output("age", "Age", "Float")
