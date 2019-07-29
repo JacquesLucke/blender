@@ -153,7 +153,7 @@ class NodeBuilder:
         self._add_input(decl)
 
     def tree_interface_output(self, identifier, tree, in_or_out):
-        decl = TreeInterfaceDecl(self.node, identifier, tree, in_or_out)
+        decl = TreeInterfaceDecl(self.node, identifier, tree, in_or_out, set())
         self._add_output(decl)
 
 
