@@ -94,6 +94,35 @@ class ScopedTimerStatistics {
   }
 };
 
+class ScopedTimerPerElement {
+ private:
+  TimePoint m_start;
+  const char *m_name;
+  uint m_element_amount;
+
+ public:
+  ScopedTimerPerElement(const char *name, uint element_amount)
+      : m_name(name), m_element_amount(element_amount)
+  {
+    m_start = Clock::now();
+  }
+
+  ~ScopedTimerPerElement()
+  {
+    TimePoint end = Clock::now();
+
+    if (m_element_amount == 0) {
+      return;
+    }
+
+    Nanoseconds duration = end - m_start;
+    Nanoseconds duration_per_element = duration / m_element_amount;
+    std::cout << "Timer '" << m_name << "' per element (" << m_element_amount << " elements): ";
+    print_duration(duration_per_element);
+    std::cout << '\n';
+  }
+};
+
 }  // namespace Timers
 
 };  // namespace BLI
@@ -105,3 +134,5 @@ class ScopedTimerStatistics {
   static BLI::Timers::Nanoseconds shortest_duration = std::chrono::seconds(100); \
   static BLI::Timers::Nanoseconds timings_sum(0); \
   BLI::Timers::ScopedTimerStatistics t(name, shortest_duration, timings_sum, timings_done);
+
+#define SCOPED_TIMER_ELEMENT(name, elements) BLI::Timers::ScopedTimerPerElement t(name, elements);
