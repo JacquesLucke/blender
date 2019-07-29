@@ -45,12 +45,24 @@ void ParticleAllocator::allocate_block_ranges(StringRef particle_type_name,
     r_blocks.append(&block);
     r_ranges.append(range);
 
-    AttributeArrays attributes = block.attributes_slice(range);
-    for (uint i : attributes.info().attribute_indices()) {
-      attributes.init_default(i);
-    }
+    this->initialize_new_particles(block, range);
 
     remaining_size -= size_to_use;
+  }
+}
+
+void ParticleAllocator::initialize_new_particles(ParticlesBlock &block, Range<uint> pindices)
+{
+  AttributeArrays attributes = block.attributes_slice(pindices);
+  for (uint i : attributes.info().attribute_indices()) {
+    attributes.init_default(i);
+  }
+
+  ArrayRef<int32_t> particle_ids = block.attributes_all().get_integer("ID");
+  Range<uint> new_ids = block.container().new_particle_ids(pindices.size());
+  for (uint i = 0; i < pindices.size(); i++) {
+    uint pindex = pindices[i];
+    particle_ids[pindex] = new_ids[i];
   }
 }
 

@@ -555,6 +555,7 @@ BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &t
   }
 
   builder.add_byte("Kill State", 0);
+  builder.add_integer("ID", 0);
   builder.add_float("Birth Time", 0);
 
   return AttributesInfo(builder);

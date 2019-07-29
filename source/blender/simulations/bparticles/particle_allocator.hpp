@@ -48,6 +48,8 @@ class ParticleAllocator {
                              Vector<Range<uint>> &r_ranges);
 
   AttributesInfo &attributes_info(StringRef particle_type_name);
+
+  void initialize_new_particles(ParticlesBlock &block, Range<uint> pindices);
 };
 
 /* ParticleAllocator inline functions

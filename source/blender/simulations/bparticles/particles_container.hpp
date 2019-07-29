@@ -1,6 +1,7 @@
 #pragma once
 
 #include <mutex>
+#include <atomic>
 
 #include "BLI_map.hpp"
 #include "BLI_stack.hpp"
@@ -31,7 +32,7 @@ class ParticlesContainer {
   Stack<ParticlesBlock *> m_cached_blocks;
   uint m_block_size;
   std::mutex m_blocks_mutex;
-  uint m_next_block_id = 0;
+  std::atomic<uint> m_next_particle_id;
 
  public:
   ParticlesContainer(AttributesInfo attributes, uint block_size);
@@ -59,6 +60,11 @@ class ParticlesContainer {
    * buffers.
    */
   void update_attributes(AttributesInfo new_info);
+
+  /**
+   * Request a range of unique particle ids. This method is thread-safe.
+   */
+  Range<uint> new_particle_ids(uint amount);
 
   /**
    * Get a read-only buffer of all the blocks currently in use.
@@ -104,12 +110,11 @@ class ParticlesBlock {
   ParticlesContainer &m_container;
   AttributeArraysCore m_attributes_core;
   uint m_active_amount = 0;
-  uint m_id;
 
   friend ParticlesContainer;
 
  public:
-  ParticlesBlock(ParticlesContainer &container, AttributeArraysCore &attributes_core, uint id);
+  ParticlesBlock(ParticlesContainer &container, AttributeArraysCore &attributes_core);
 
   /**
    * Get the range of attribute indices that contain active particles.
@@ -215,6 +220,12 @@ inline uint ParticlesContainer::count_active() const
     count += block->active_amount();
   }
   return count;
+}
+
+inline Range<uint> ParticlesContainer::new_particle_ids(uint amount)
+{
+  uint start = m_next_particle_id.fetch_add(amount);
+  return Range<uint>(start, start + amount);
 }
 
 inline AttributesInfo &ParticlesContainer::attributes_info()
