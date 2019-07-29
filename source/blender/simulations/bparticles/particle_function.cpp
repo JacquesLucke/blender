@@ -41,37 +41,46 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayAllocator
                                                                   AttributeArrays attributes,
                                                                   ActionContext *action_context)
 {
-  if (m_fn->input_amount() == 0) {
-    BLI_assert(array_allocator.array_size() >= 1);
+  uint parameter_amount = m_parameter_depends_on_particle.size();
 
-    ParticleFunctionResult *result = new ParticleFunctionResult();
-    result->m_fn = m_fn.ptr();
-    result->m_array_allocator = &array_allocator;
+  ParticleFunctionResult *result = new ParticleFunctionResult();
+  result->m_array_allocator = &array_allocator;
+  result->m_buffers.append_n_times(nullptr, parameter_amount);
+  result->m_only_first.append_n_times(false, parameter_amount);
+  result->m_strides.append_n_times(0, parameter_amount);
 
-    FN_TUPLE_CALL_ALLOC_TUPLES(*m_body, fn_in, fn_out);
-    m_body->call__setup_execution_context(fn_in, fn_out);
+  if (m_fn_no_deps->output_amount() > 0) {
+    TupleCallBody &body = m_fn_no_deps->body<TupleCallBody>();
 
-    for (uint i = 0; i < m_fn->output_amount(); i++) {
-      CPPTypeInfo &type_info = m_fn->output_type(i)->extension<CPPTypeInfo>();
+    FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+    body.call__setup_execution_context(fn_in, fn_out);
+
+    for (uint parameter_index = 0; parameter_index < parameter_amount; parameter_index++) {
+      if (m_parameter_depends_on_particle[parameter_index]) {
+        continue;
+      }
+      uint output_index = m_output_indices[parameter_index];
+      CPPTypeInfo &type_info = m_fn_no_deps->output_type(output_index)->extension<CPPTypeInfo>();
 
       uint output_stride = type_info.size_of_type();
       void *output_buffer = array_allocator.allocate(output_stride);
 
-      result->m_buffers.append(output_buffer);
-      result->m_strides.append(output_stride);
-      result->m_only_first.append(true);
+      result->m_buffers[parameter_index] = output_buffer;
+      result->m_strides[parameter_index] = output_stride;
+      result->m_only_first[parameter_index] = true;
 
-      fn_out.relocate_out__dynamic(i, output_buffer);
+      fn_out.relocate_out__dynamic(output_index, output_buffer);
     }
-
-    return std::unique_ptr<ParticleFunctionResult>(result);
   }
-  else {
+
+  if (m_fn_with_deps->output_amount() > 0) {
+    TupleCallBody &body = m_fn_with_deps->body<TupleCallBody>();
+
     Vector<void *> input_buffers;
     Vector<uint> input_strides;
 
-    for (uint i = 0; i < m_fn->input_amount(); i++) {
-      StringRef input_name = m_fn->input_name(i);
+    for (uint i = 0; i < m_fn_with_deps->input_amount(); i++) {
+      StringRef input_name = m_fn_with_deps->input_name(i);
       void *input_buffer = nullptr;
       uint input_stride = 0;
       if (input_name.startswith("Attribute")) {
@@ -95,25 +104,32 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayAllocator
       input_strides.append(input_stride);
     }
 
-    ParticleFunctionResult *result = new ParticleFunctionResult();
-    result->m_fn = m_fn.ptr();
-    result->m_array_allocator = &array_allocator;
+    Vector<void *> output_buffers;
+    Vector<uint> output_strides;
 
-    for (uint i = 0; i < m_fn->output_amount(); i++) {
-      CPPTypeInfo &type_info = m_fn->output_type(i)->extension<CPPTypeInfo>();
+    for (uint parameter_index = 0; parameter_index < parameter_amount; parameter_index++) {
+      if (!m_parameter_depends_on_particle[parameter_index]) {
+        continue;
+      }
+
+      uint output_index = m_output_indices[parameter_index];
+      CPPTypeInfo &type_info = m_fn_with_deps->output_type(output_index)->extension<CPPTypeInfo>();
 
       uint output_stride = type_info.size_of_type();
       void *output_buffer = array_allocator.allocate(output_stride);
 
-      result->m_buffers.append(output_buffer);
-      result->m_strides.append(output_stride);
-      result->m_only_first.append(false);
+      result->m_buffers[parameter_index] = output_buffer;
+      result->m_strides[parameter_index] = output_stride;
+      result->m_only_first[parameter_index] = false;
+
+      output_buffers.append(output_buffer);
+      output_strides.append(output_stride);
     }
 
     ExecutionStack stack;
     ExecutionContext execution_context(stack);
 
-    FN_TUPLE_CALL_ALLOC_TUPLES(*m_body, fn_in, fn_out);
+    FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
 
     for (uint pindex : pindices) {
       for (uint i = 0; i < input_buffers.size(); i++) {
@@ -121,16 +137,16 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayAllocator
         fn_in.copy_in__dynamic(i, ptr);
       }
 
-      m_body->call(fn_in, fn_out, execution_context);
+      body.call(fn_in, fn_out, execution_context);
 
-      for (uint i = 0; i < result->m_buffers.size(); i++) {
-        void *ptr = POINTER_OFFSET(result->m_buffers[i], pindex * result->m_strides[i]);
+      for (uint i = 0; i < output_buffers.size(); i++) {
+        void *ptr = POINTER_OFFSET(output_buffers[i], pindex * output_strides[i]);
         fn_out.relocate_out__dynamic(i, ptr);
       }
     }
-
-    return std::unique_ptr<ParticleFunctionResult>(result);
   }
+
+  return std::unique_ptr<ParticleFunctionResult>(result);
 }
 
 }  // namespace BParticles

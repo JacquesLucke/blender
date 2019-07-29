@@ -87,7 +87,12 @@ ValueOrError<ParticleFunction> create_particle_function(VirtualNode *main_vnode,
   FunctionGraph fgraph(data_graph.graph(), dependencies.sockets, sockets_to_compute);
   FN::fgraph_add_TupleCallBody(fn, fgraph);
 
-  ParticleFunction particle_function(fn);
+  FunctionBuilder empty_fn_builder;
+  SharedFunction empty_fn = empty_fn_builder.build("Empty");
+
+  Vector<bool> depends_on_particle(fn->output_amount(), true);
+
+  ParticleFunction particle_function(empty_fn, fn, depends_on_particle);
   return particle_function;
 }
 
@@ -241,13 +246,13 @@ static std::unique_ptr<Event> BUILD_EVENT_close_by_points(BuildContext &ctx,
                                                           VirtualNode *vnode,
                                                           ParticleFunction compute_inputs)
 {
-  if (compute_inputs.depends_on_particle()) {
+  if (compute_inputs.parameter_depends_on_particle("Points", 0)) {
     return {};
   }
 
   auto action = build_action_for_trigger(ctx, vnode->output(0));
 
-  SharedFunction &fn = compute_inputs.function();
+  SharedFunction &fn = compute_inputs.function_no_deps();
   BLI_assert(fn->input_amount() == 0);
   TupleCallBody &body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
