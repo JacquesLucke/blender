@@ -85,6 +85,7 @@ class ParticleFunction {
   {
     BLI_assert(m_fn_no_deps->output_amount() + m_fn_with_deps->output_amount() ==
                m_parameter_depends_on_particle.size());
+    BLI_assert(m_fn_no_deps->input_amount() == 0);
 
     uint no_deps_index = 0;
     uint with_deps_index = 0;

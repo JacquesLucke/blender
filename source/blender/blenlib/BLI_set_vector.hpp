@@ -42,6 +42,10 @@ template<typename T> class SetVector : public Set<T> {
   {
   }
 
+  SetVector(ArrayRef<T> values) : Set<T>(values)
+  {
+  }
+
   /**
    * Return the index of the value, or -1 when it does not exist.
    */
