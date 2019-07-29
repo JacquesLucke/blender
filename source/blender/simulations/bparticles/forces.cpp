@@ -26,7 +26,7 @@ void TurbulenceForce::add_force(ForceInterface &interface)
   ParticlesBlock &block = interface.block();
   ArrayRef<float3> destination = interface.combined_destination();
 
-  auto positions = block.attributes().get_float3("Position");
+  auto positions = block.attributes().get<float3>("Position");
 
   auto inputs = m_compute_inputs->compute(interface);
 

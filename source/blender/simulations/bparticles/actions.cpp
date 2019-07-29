@@ -11,7 +11,7 @@ void NoneAction::execute(ActionInterface &UNUSED(interface))
 void ChangeDirectionAction::execute(ActionInterface &interface)
 {
   ParticleSet particles = interface.particles();
-  auto velocities = particles.attributes().get_float3("Velocity");
+  auto velocities = particles.attributes().get<float3>("Velocity");
   auto position_offsets = interface.attribute_offsets().try_get_float3("Position");
   auto velocity_offsets = interface.attribute_offsets().try_get_float3("Velocity");
 
@@ -54,7 +54,7 @@ void ExplodeAction::execute(ActionInterface &interface)
 {
   ParticleSet &particles = interface.particles();
 
-  auto positions = particles.attributes().get_float3("Position");
+  auto positions = particles.attributes().get<float3>("Position");
 
   Vector<float3> new_positions;
   Vector<float3> new_velocities;

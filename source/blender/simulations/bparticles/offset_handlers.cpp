@@ -5,8 +5,8 @@ namespace BParticles {
 void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
 {
   ParticleSet particles = interface.particles();
-  auto positions = particles.attributes().get_float3("Position");
-  auto position_offsets = interface.attribute_offsets().get_float3("Position");
+  auto positions = particles.attributes().get<float3>("Position");
+  auto position_offsets = interface.attribute_offsets().get<float3>("Position");
 
   auto inputs = m_compute_inputs->compute(interface);
 

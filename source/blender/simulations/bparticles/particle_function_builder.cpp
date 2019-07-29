@@ -82,7 +82,7 @@ class CollisionNormalInputProvider : public ParticleFunctionInputProvider {
 class AgeInputProvider : public ParticleFunctionInputProvider {
   ParticleFunctionInputArray get(InputProviderInterface &interface) override
   {
-    auto birth_times = interface.particles().attributes().get_float("Birth Time");
+    auto birth_times = interface.particles().attributes().get<float>("Birth Time");
     float *ages = interface.array_allocator().allocate<float>();
 
     ParticleTimes &times = interface.particle_times();

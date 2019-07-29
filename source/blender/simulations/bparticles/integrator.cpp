@@ -17,8 +17,8 @@ AttributesInfo &ConstantVelocityIntegrator::offset_attributes_info()
 void ConstantVelocityIntegrator::integrate(IntegratorInterface &interface)
 {
   ParticlesBlock &block = interface.block();
-  auto velocities = block.attributes().get_float3("Velocity");
-  auto position_offsets = interface.attribute_offsets().get_float3("Position");
+  auto velocities = block.attributes().get<float3>("Velocity");
+  auto position_offsets = interface.attribute_offsets().get<float3>("Position");
   auto durations = interface.remaining_durations();
 
   for (uint pindex = 0; pindex < block.active_amount(); pindex++) {
@@ -54,10 +54,10 @@ void EulerIntegrator::integrate(IntegratorInterface &interface)
   ArrayAllocator::Array<float3> combined_force(interface.array_allocator());
   this->compute_combined_force(interface, combined_force);
 
-  auto last_velocities = interface.block().attributes().get_float3("Velocity");
+  auto last_velocities = interface.block().attributes().get<float3>("Velocity");
 
-  auto position_offsets = r_offsets.get_float3("Position");
-  auto velocity_offsets = r_offsets.get_float3("Velocity");
+  auto position_offsets = r_offsets.get<float3>("Position");
+  auto velocity_offsets = r_offsets.get<float3>("Velocity");
   this->compute_offsets(
       durations, last_velocities, combined_force, position_offsets, velocity_offsets);
 }

@@ -34,6 +34,21 @@ enum AttributeType {
   Float3,
 };
 
+template<typename T> struct attribute_type_by_type {
+};
+
+#define ATTRIBUTE_TYPE_BY_TYPE(CPP_TYPE, ATTRIBUTE_TYPE) \
+  template<> struct attribute_type_by_type<CPP_TYPE> { \
+    static const AttributeType value = AttributeType::ATTRIBUTE_TYPE; \
+  }
+
+ATTRIBUTE_TYPE_BY_TYPE(uint8_t, Byte);
+ATTRIBUTE_TYPE_BY_TYPE(int32_t, Integer);
+ATTRIBUTE_TYPE_BY_TYPE(float, Float);
+ATTRIBUTE_TYPE_BY_TYPE(float3, Float3);
+
+#undef ATTRIBUTE_TYPE_BY_TYPE
+
 /**
  * Get the size of an attribute type.
  *
@@ -394,14 +409,17 @@ class AttributeArrays {
    * Get access to the underlying attribute arrays.
    * Asserts when the attribute does not exists.
    */
-  ArrayRef<uint8_t> get_byte(uint index) const;
-  ArrayRef<uint8_t> get_byte(StringRef name);
-  ArrayRef<int32_t> get_integer(uint index) const;
-  ArrayRef<int32_t> get_integer(StringRef name);
-  ArrayRef<float> get_float(uint index) const;
-  ArrayRef<float> get_float(StringRef name);
-  ArrayRef<float3> get_float3(uint index) const;
-  ArrayRef<float3> get_float3(StringRef name);
+  template<typename T> ArrayRef<T> get(uint index) const
+  {
+    BLI_assert(attribute_type_by_type<T>::value == m_core.info().type_of(index));
+    void *ptr = this->get_ptr(index);
+    return ArrayRef<T>((T *)ptr, m_size);
+  }
+  template<typename T> ArrayRef<T> get(StringRef name)
+  {
+    uint index = this->attribute_index(name);
+    return this->get<T>(index);
+  }
 
   /**
    * Get access to the arrays.
@@ -541,50 +559,6 @@ inline void AttributeArrays::init_default(StringRef name)
   this->init_default(this->attribute_index(name));
 }
 
-inline ArrayRef<uint8_t> AttributeArrays::get_byte(uint index) const
-{
-  BLI_assert(m_core.get_type(index) == AttributeType::Byte);
-  return ArrayRef<uint8_t>((uint8_t *)m_core.get_ptr(index) + m_start, m_size);
-}
-
-inline ArrayRef<uint8_t> AttributeArrays::get_byte(StringRef name)
-{
-  return this->get_byte(this->attribute_index(name));
-}
-
-inline ArrayRef<int32_t> AttributeArrays::get_integer(uint index) const
-{
-  BLI_assert(m_core.get_type(index) == AttributeType::Integer);
-  return ArrayRef<int32_t>((int32_t *)m_core.get_ptr(index) + m_start, m_size);
-}
-
-inline ArrayRef<int32_t> AttributeArrays::get_integer(StringRef name)
-{
-  return this->get_integer(this->attribute_index(name));
-}
-
-inline ArrayRef<float> AttributeArrays::get_float(uint index) const
-{
-  BLI_assert(m_core.get_type(index) == AttributeType::Float);
-  return ArrayRef<float>((float *)m_core.get_ptr(index) + m_start, m_size);
-}
-
-inline ArrayRef<float> AttributeArrays::get_float(StringRef name)
-{
-  return this->get_float(this->attribute_index(name));
-}
-
-inline ArrayRef<float3> AttributeArrays::get_float3(uint index) const
-{
-  BLI_assert(m_core.get_type(index) == AttributeType::Float3);
-  return ArrayRef<float3>((float3 *)m_core.get_ptr(index) + m_start, m_size);
-}
-
-inline ArrayRef<float3> AttributeArrays::get_float3(StringRef name)
-{
-  return this->get_float3(this->attribute_index(name));
-}
-
 inline Optional<ArrayRef<uint8_t>> AttributeArrays::try_get_byte(StringRef name)
 {
   int index = this->info().attribute_index_try(name, AttributeType::Byte);
@@ -592,7 +566,7 @@ inline Optional<ArrayRef<uint8_t>> AttributeArrays::try_get_byte(StringRef name)
     return {};
   }
   else {
-    return this->get_byte((uint)index);
+    return this->get<uint8_t>((uint)index);
   }
 }
 
@@ -603,7 +577,7 @@ inline Optional<ArrayRef<int32_t>> AttributeArrays::try_get_integer(StringRef na
     return {};
   }
   else {
-    return this->get_integer((uint)index);
+    return this->get<int32_t>((uint)index);
   }
 }
 
@@ -614,7 +588,7 @@ inline Optional<ArrayRef<float>> AttributeArrays::try_get_float(StringRef name)
     return {};
   }
   else {
-    return this->get_float((uint)index);
+    return this->get<float>((uint)index);
   }
 }
 
@@ -625,7 +599,7 @@ inline Optional<ArrayRef<float3>> AttributeArrays::try_get_float3(StringRef name
     return {};
   }
   else {
-    return this->get_float3((uint)index);
+    return this->get<float3>((uint)index);
   }
 }
 

@@ -103,7 +103,7 @@ inline void Action::execute_from_emitter(ParticleSets &particle_sets,
                                      emitter_interface.array_allocator(),
                                      particles,
                                      offsets,
-                                     particles.attributes().get_float("Birth Time"),
+                                     particles.attributes().get<float>("Birth Time"),
                                      durations,
                                      used_action_context);
     this->execute(action_interface);
@@ -171,7 +171,7 @@ inline ArrayRef<float> ActionInterface::current_times()
 
 inline void ActionInterface::kill(ArrayRef<uint> pindices)
 {
-  auto kill_states = m_particles.attributes().get_byte("Kill State");
+  auto kill_states = m_particles.attributes().get<uint8_t>("Kill State");
   for (uint pindex : pindices) {
     kill_states[pindex] = 1;
   }

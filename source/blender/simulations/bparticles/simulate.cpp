@@ -78,8 +78,8 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
   for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
-    auto values = particles.attributes().get_float3(name);
-    auto offsets = attribute_offsets.get_float3(attribute_index);
+    auto values = particles.attributes().get<float3>(name);
+    auto offsets = attribute_offsets.get<float3>(attribute_index);
 
     if (particles.pindices_are_trivial()) {
       for (uint pindex : particles.trivial_pindices()) {
@@ -102,7 +102,7 @@ BLI_NOINLINE static void update_remaining_attribute_offsets(
     AttributeArrays attribute_offsets)
 {
   for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
-    auto offsets = attribute_offsets.get_float3(attribute_index);
+    auto offsets = attribute_offsets.get<float3>(attribute_index);
 
     for (uint pindex : pindices_with_event) {
       float factor = 1.0f - time_factors_to_next_event[pindex];
@@ -219,7 +219,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 
   find_unfinished_particles(pindices_with_event,
                             time_factors_to_next_event,
-                            step_data.block.attributes().get_byte("Kill State"),
+                            step_data.block.attributes().get<uint8_t>("Kill State"),
                             r_unfinished_pindices);
 }
 
@@ -301,8 +301,8 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Array
   for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
-    auto values = particles.attributes().get_float3(name);
-    auto offsets = attribute_offsets.get_float3(attribute_index);
+    auto values = particles.attributes().get<float3>(name);
+    auto offsets = attribute_offsets.get<float3>(attribute_index);
 
     if (particles.pindices_are_trivial()) {
       add_float3_arrays(values.take_front(particles.size()), offsets.take_front(particles.size()));
@@ -362,7 +362,7 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
 
 BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &block)
 {
-  auto kill_states = block.attributes().get_byte("Kill State");
+  auto kill_states = block.attributes().get<uint8_t>("Kill State");
 
   uint index = 0;
   while (index < block.active_amount()) {
@@ -476,7 +476,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
 
         uint active_amount = block->active_amount();
         Vector<float> durations(active_amount);
-        auto birth_times = block->attributes().get_float("Birth Time");
+        auto birth_times = block->attributes().get<float>("Birth Time");
         for (uint i = 0; i < active_amount; i++) {
           durations[i] = end_time - birth_times[i];
         }

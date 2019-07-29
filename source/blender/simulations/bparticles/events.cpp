@@ -13,8 +13,8 @@ void AgeReachedEvent::attributes(AttributesDeclaration &builder)
 void AgeReachedEvent::filter(EventFilterInterface &interface)
 {
   ParticleSet particles = interface.particles();
-  auto birth_times = particles.attributes().get_float("Birth Time");
-  auto was_activated_before = particles.attributes().get_byte(m_identifier);
+  auto birth_times = particles.attributes().get<float>("Birth Time");
+  auto was_activated_before = particles.attributes().get<uint8_t>(m_identifier);
 
   float end_time = interface.step_end_time();
 
@@ -50,7 +50,7 @@ void AgeReachedEvent::execute(EventExecuteInterface &interface)
 {
   ParticleSet particles = interface.particles();
 
-  auto was_activated_before = particles.attributes().get_byte(m_identifier);
+  auto was_activated_before = particles.attributes().get<uint8_t>(m_identifier);
   for (uint pindex : particles.pindices()) {
     was_activated_before[pindex] = true;
   }
@@ -74,9 +74,9 @@ uint MeshCollisionEvent::storage_size()
 void MeshCollisionEvent::filter(EventFilterInterface &interface)
 {
   ParticleSet particles = interface.particles();
-  auto positions = particles.attributes().get_float3("Position");
-  auto last_collision_times = particles.attributes().get_float(m_identifier);
-  auto position_offsets = interface.attribute_offsets().get_float3("Position");
+  auto positions = particles.attributes().get<float3>("Position");
+  auto last_collision_times = particles.attributes().get<float>(m_identifier);
+  auto position_offsets = interface.attribute_offsets().get<float3>("Position");
 
   for (uint pindex : particles.pindices()) {
     float3 ray_start = m_world_to_local.transform_position(positions[pindex]);
@@ -121,7 +121,7 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
 {
   ParticleSet particles = interface.particles();
   Vector<float3> normals(particles.block().active_amount());
-  auto last_collision_times = particles.attributes().get_float(m_identifier);
+  auto last_collision_times = particles.attributes().get<float>(m_identifier);
 
   for (uint pindex : particles.pindices()) {
     auto storage = interface.get_storage<EventStorage>(pindex);
@@ -136,7 +136,7 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
 void CloseByPointsEvent::filter(EventFilterInterface &interface)
 {
   ParticleSet particles = interface.particles();
-  auto positions = particles.attributes().get_float3("Position");
+  auto positions = particles.attributes().get<float3>("Position");
 
   for (uint pindex : particles.pindices()) {
     KDTreeNearest_3d nearest;
