@@ -36,9 +36,6 @@ struct BuildContext {
   }
 };
 
-ValueOrError<ParticleFunction> create_particle_function(VirtualNode *main_vnode,
-                                                        VTreeDataGraph &data_graph);
-
 using ForceFromNodeCallback = std::function<std::unique_ptr<Force>(
     BuildContext &ctx, VirtualNode *vnode, ParticleFunction compute_inputs_fn)>;
 

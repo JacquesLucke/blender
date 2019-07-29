@@ -4,6 +4,7 @@
 #include "node_frontend.hpp"
 #include "inserters.hpp"
 #include "integrator.hpp"
+#include "particle_function_builder.hpp"
 
 namespace BParticles {
 

@@ -56,6 +56,8 @@ set(SRC
   bparticles/particle_function.cpp
   bparticles/force_interface.hpp
   bparticles/force_interface.cpp
+  bparticles/particle_function_builder.hpp
+  bparticles/particle_function_builder.cpp
 )
 
 set(LIB
