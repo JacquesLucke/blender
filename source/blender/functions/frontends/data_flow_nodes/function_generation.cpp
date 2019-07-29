@@ -11,8 +11,8 @@ namespace DataFlowNodes {
 
 static void find_interface_sockets(VirtualNodeTree &vtree,
                                    VTreeDataGraph &data_graph,
-                                   DFGraphSocketSetVector &r_inputs,
-                                   DFGraphSocketSetVector &r_outputs)
+                                   SetVector<DFGraphSocket> &r_inputs,
+                                   SetVector<DFGraphSocket> &r_outputs)
 {
   VirtualNode *input_node = vtree.nodes_with_idname("fn_FunctionInputNode").get(0, nullptr);
   VirtualNode *output_node = vtree.nodes_with_idname("fn_FunctionOutputNode").get(0, nullptr);
@@ -41,8 +41,8 @@ static ValueOrError<FunctionGraph> generate_function_graph(VirtualNodeTree &vtre
 
   VTreeDataGraph data_graph = data_graph_or_error.extract_value();
 
-  DFGraphSocketSetVector input_sockets;
-  DFGraphSocketSetVector output_sockets;
+  SetVector<DFGraphSocket> input_sockets;
+  SetVector<DFGraphSocket> output_sockets;
   find_interface_sockets(vtree, data_graph, input_sockets, output_sockets);
 
   return FunctionGraph(data_graph.graph(), input_sockets, output_sockets);

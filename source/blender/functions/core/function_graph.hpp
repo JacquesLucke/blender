@@ -10,18 +10,16 @@
 
 namespace FN {
 
-using DFGraphSocketSetVector = SetVector<DFGraphSocket>;
-
 class FunctionGraph {
  private:
   SharedDataFlowGraph m_graph;
-  DFGraphSocketSetVector m_inputs;
-  DFGraphSocketSetVector m_outputs;
+  SetVector<DFGraphSocket> m_inputs;
+  SetVector<DFGraphSocket> m_outputs;
 
  public:
   FunctionGraph(SharedDataFlowGraph graph,
-                DFGraphSocketSetVector inputs,
-                DFGraphSocketSetVector outputs)
+                SetVector<DFGraphSocket> inputs,
+                SetVector<DFGraphSocket> outputs)
       : m_graph(std::move(graph)), m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
   {
   }
@@ -36,12 +34,12 @@ class FunctionGraph {
     return m_graph;
   }
 
-  const DFGraphSocketSetVector &inputs() const
+  const SetVector<DFGraphSocket> &inputs() const
   {
     return m_inputs;
   }
 
-  const DFGraphSocketSetVector &outputs() const
+  const SetVector<DFGraphSocket> &outputs() const
   {
     return m_outputs;
   }
