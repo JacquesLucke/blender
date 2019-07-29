@@ -34,8 +34,8 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
 
   auto new_particles = interface.particle_allocator().request(m_particle_type_name,
                                                               new_positions.size());
-  new_particles.set_float3("Position", new_positions);
-  new_particles.set_float("Birth Time", new_birth_times);
+  new_particles.set<float3>("Position", new_positions);
+  new_particles.set<float>("Birth Time", new_birth_times);
 }
 
 }  // namespace BParticles

@@ -40,10 +40,10 @@ void PointEmitter::emit(EmitterInterface &interface)
 
   auto new_particles = interface.particle_allocator().request(m_particle_type_name,
                                                               new_positions.size());
-  new_particles.set_float3("Position", new_positions);
-  new_particles.set_float3("Velocity", new_velocities);
-  new_particles.set_float("Size", new_sizes);
-  new_particles.set_float("Birth Time", birth_times);
+  new_particles.set<float3>("Position", new_positions);
+  new_particles.set<float3>("Velocity", new_velocities);
+  new_particles.set<float>("Size", new_sizes);
+  new_particles.set<float>("Birth Time", birth_times);
 }
 
 static float3 random_point_in_triangle(float3 a, float3 b, float3 c)
@@ -121,10 +121,10 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
 
   auto new_particles = interface.particle_allocator().request(m_particle_type_name,
                                                               positions.size());
-  new_particles.set_float3("Position", positions);
-  new_particles.set_float3("Velocity", velocities);
-  new_particles.set_float("Size", sizes);
-  new_particles.set_float("Birth Time", birth_times);
+  new_particles.set<float3>("Position", positions);
+  new_particles.set<float3>("Velocity", velocities);
+  new_particles.set<float>("Size", sizes);
+  new_particles.set<float>("Birth Time", birth_times);
 
   m_action->execute_from_emitter(new_particles, interface);
 }
@@ -216,7 +216,7 @@ void InitialGridEmitter::emit(EmitterInterface &interface)
 
   auto new_particles = interface.particle_allocator().request(m_particle_type_name,
                                                               new_positions.size());
-  new_particles.set_float3("Position", new_positions);
+  new_particles.set<float3>("Position", new_positions);
   new_particles.fill_float("Birth Time", interface.time_span().start());
   new_particles.fill_float("Size", m_size);
 }

@@ -63,14 +63,18 @@ class ParticleSets {
 
   ArrayRef<ParticleSet> sets();
 
-  void set_byte(uint index, ArrayRef<uint8_t> data);
-  void set_byte(StringRef name, ArrayRef<uint8_t> data);
-  void set_integer(uint index, ArrayRef<int32_t> data);
-  void set_integer(StringRef name, ArrayRef<int32_t> data);
-  void set_float(uint index, ArrayRef<float> data);
-  void set_float(StringRef name, ArrayRef<float> data);
-  void set_float3(uint index, ArrayRef<float3> data);
-  void set_float3(StringRef name, ArrayRef<float3> data);
+  template<typename T> void set(uint index, ArrayRef<T> data)
+  {
+    BLI_assert(data.size() == m_size);
+    BLI_assert(m_attributes_info.type_of(index) == attribute_type_by_type<T>::value);
+    this->set_elements(index, (void *)data.begin());
+  }
+
+  template<typename T> void set(StringRef name, ArrayRef<T> data)
+  {
+    uint index = m_attributes_info.attribute_index(name);
+    this->set<T>(index, data);
+  }
 
   void set_repeated_byte(uint index, ArrayRef<uint8_t> data);
   void set_repeated_byte(StringRef name, ArrayRef<uint8_t> data);

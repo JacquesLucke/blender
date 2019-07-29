@@ -76,10 +76,10 @@ void ExplodeAction::execute(ActionInterface &interface)
 
   auto new_particles = interface.particle_allocator().request(m_new_particle_name,
                                                               new_birth_times.size());
-  new_particles.set_float3("Position", new_positions);
-  new_particles.set_float3("Velocity", new_velocities);
+  new_particles.set<float3>("Position", new_positions);
+  new_particles.set<float3>("Velocity", new_velocities);
   new_particles.fill_float("Size", 0.1f);
-  new_particles.set_float("Birth Time", new_birth_times);
+  new_particles.set<float>("Birth Time", new_birth_times);
 
   m_post_action->execute(interface);
 }
