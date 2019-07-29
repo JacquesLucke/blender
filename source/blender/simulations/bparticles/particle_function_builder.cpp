@@ -1,5 +1,7 @@
 #include "particle_function_builder.hpp"
 
+#include "events.hpp"
+
 namespace BParticles {
 
 using BKE::VirtualSocket;
@@ -47,32 +49,63 @@ static SocketDependencies find_particle_dependencies(VTreeDataGraph &data_graph,
   return combined_dependencies;
 }
 
-static SharedFunction create_function__with_deps(SharedDataFlowGraph &graph,
-                                                 StringRef function_name,
-                                                 ArrayRef<DFGraphSocket> sockets_to_compute,
-                                                 SocketDependencies &dependencies)
+class AttributeInputProvider : public ParticleFunctionInputProvider {
+ private:
+  std::string m_name;
+
+ public:
+  AttributeInputProvider(StringRef name) : m_name(name.to_std_string())
+  {
+  }
+
+  ParticleFunctionInputArray get(AttributeArrays attributes,
+                                 ActionContext *UNUSED(action_context)) override
+  {
+    uint attribute_index = attributes.attribute_index(m_name);
+    uint stride = attributes.attribute_stride(attribute_index);
+    void *buffer = attributes.get_ptr(attribute_index);
+    return {buffer, stride};
+  }
+};
+
+class CollisionNormalInputProvider : public ParticleFunctionInputProvider {
+  ParticleFunctionInputArray get(AttributeArrays UNUSED(attributes),
+                                 ActionContext *action_context) override
+  {
+    BLI_assert(action_context != nullptr);
+    CollisionEventInfo *collision_info = dynamic_cast<CollisionEventInfo *>(action_context);
+    BLI_assert(collision_info != nullptr);
+    return collision_info->normals();
+  }
+};
+
+static SharedFunction create_function__with_deps(
+    SharedDataFlowGraph &graph,
+    StringRef function_name,
+    ArrayRef<DFGraphSocket> sockets_to_compute,
+    SocketDependencies &dependencies,
+    ArrayRef<ParticleFunctionInputProvider *> r_input_providers)
 {
+  uint input_amount = dependencies.sockets.size();
+  BLI_assert(input_amount == r_input_providers.size());
+
   FunctionBuilder fn_builder;
+  fn_builder.add_inputs(graph, dependencies.sockets);
   fn_builder.add_outputs(graph, sockets_to_compute);
 
-  for (uint i = 0; i < dependencies.sockets.size(); i++) {
+  for (uint i = 0; i < input_amount; i++) {
     VirtualSocket *vsocket = dependencies.vsockets[i];
-    DFGraphSocket socket = dependencies.sockets[i];
     VirtualNode *vnode = vsocket->vnode();
 
-    SharedType &type = graph->type_of_output(socket);
-    StringRef name_prefix;
     if (STREQ(vnode->idname(), "bp_ParticleInfoNode")) {
-      name_prefix = "Attribute: ";
+      r_input_providers[i] = new AttributeInputProvider(vsocket->name());
     }
     else if (STREQ(vnode->idname(), "bp_CollisionInfoNode")) {
-      name_prefix = "Action Context: ";
+      r_input_providers[i] = new CollisionNormalInputProvider();
     }
     else {
       BLI_assert(false);
     }
-    BLI_STRINGREF_STACK_COMBINE(name, name_prefix, vsocket->name());
-    fn_builder.add_input(name, type);
   }
 
   SharedFunction fn = fn_builder.build(function_name);
@@ -94,7 +127,7 @@ static SharedFunction create_function__without_deps(SharedDataFlowGraph &graph,
   return fn;
 }
 
-static ValueOrError<ParticleFunction> create_particle_function_from_sockets(
+static ValueOrError<std::unique_ptr<ParticleFunction>> create_particle_function_from_sockets(
     SharedDataFlowGraph &graph,
     StringRef name,
     ArrayRef<DFGraphSocket> sockets_to_compute,
@@ -112,16 +145,20 @@ static ValueOrError<ParticleFunction> create_particle_function_from_sockets(
     }
   }
 
+  Vector<ParticleFunctionInputProvider *> input_providers(dependencies.sockets.size(), nullptr);
+
   SharedFunction fn_without_deps = create_function__without_deps(
       graph, name, sockets_without_deps);
   SharedFunction fn_with_deps = create_function__with_deps(
-      graph, name, sockets_with_deps, dependencies);
+      graph, name, sockets_with_deps, dependencies, input_providers);
 
-  return ParticleFunction(fn_without_deps, fn_with_deps, depends_on_particle_flags);
+  ParticleFunction *particle_fn = new ParticleFunction(
+      fn_without_deps, fn_with_deps, input_providers, depends_on_particle_flags);
+  return std::unique_ptr<ParticleFunction>(particle_fn);
 }
 
-ValueOrError<ParticleFunction> create_particle_function(VirtualNode *vnode,
-                                                        VTreeDataGraph &data_graph)
+ValueOrError<std::unique_ptr<ParticleFunction>> create_particle_function(
+    VirtualNode *vnode, VTreeDataGraph &data_graph)
 {
   Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(vnode, data_graph);
   Vector<bool> depends_on_particle_flags(sockets_to_compute.size());

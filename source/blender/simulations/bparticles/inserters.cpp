@@ -50,20 +50,22 @@ using ActionFromNodeCallback =
     std::function<std::unique_ptr<Action>(BuildContext &ctx,
                                           VirtualSocket *start,
                                           VirtualSocket *trigger,
-                                          ParticleFunction compute_inputs_fn)>;
+                                          std::unique_ptr<ParticleFunction> compute_inputs_fn)>;
 
-static std::unique_ptr<Action> BUILD_ACTION_kill(BuildContext &UNUSED(ctx),
-                                                 VirtualSocket *UNUSED(start),
-                                                 VirtualSocket *UNUSED(trigger),
-                                                 ParticleFunction UNUSED(compute_inputs_fn))
+static std::unique_ptr<Action> BUILD_ACTION_kill(
+    BuildContext &UNUSED(ctx),
+    VirtualSocket *UNUSED(start),
+    VirtualSocket *UNUSED(trigger),
+    std::unique_ptr<ParticleFunction> UNUSED(compute_inputs_fn))
 {
   return std::unique_ptr<Action>(new KillAction());
 }
 
-static std::unique_ptr<Action> BUILD_ACTION_change_direction(BuildContext &ctx,
-                                                             VirtualSocket *start,
-                                                             VirtualSocket *trigger,
-                                                             ParticleFunction compute_inputs_fn)
+static std::unique_ptr<Action> BUILD_ACTION_change_direction(
+    BuildContext &ctx,
+    VirtualSocket *start,
+    VirtualSocket *trigger,
+    std::unique_ptr<ParticleFunction> compute_inputs_fn)
 {
   VirtualNode *vnode = start->vnode();
   auto post_action = build_action(ctx, vnode->output(0), trigger);
@@ -72,10 +74,11 @@ static std::unique_ptr<Action> BUILD_ACTION_change_direction(BuildContext &ctx,
       new ChangeDirectionAction(std::move(compute_inputs_fn), std::move(post_action)));
 }
 
-static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx,
-                                                    VirtualSocket *start,
-                                                    VirtualSocket *trigger,
-                                                    ParticleFunction compute_inputs_fn)
+static std::unique_ptr<Action> BUILD_ACTION_explode(
+    BuildContext &ctx,
+    VirtualSocket *start,
+    VirtualSocket *trigger,
+    std::unique_ptr<ParticleFunction> compute_inputs_fn)
 {
   VirtualNode *vnode = start->vnode();
 
@@ -94,10 +97,11 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(BuildContext &ctx,
   }
 }
 
-static std::unique_ptr<Action> BUILD_ACTION_condition(BuildContext &ctx,
-                                                      VirtualSocket *start,
-                                                      VirtualSocket *trigger,
-                                                      ParticleFunction compute_inputs_fn)
+static std::unique_ptr<Action> BUILD_ACTION_condition(
+    BuildContext &ctx,
+    VirtualSocket *start,
+    VirtualSocket *trigger,
+    std::unique_ptr<ParticleFunction> compute_inputs_fn)
 {
   VirtualNode *vnode = start->vnode();
   auto true_action = build_action(ctx, vnode->output(0), trigger);
@@ -144,8 +148,7 @@ static std::unique_ptr<Action> build_action(BuildContext &ctx,
 
   StringRef idname = start->vnode()->idname();
   auto builders = get_action_builders();
-  return builders.lookup(idname)(
-      ctx, start, trigger, ParticleFunction(fn_or_error.extract_value()));
+  return builders.lookup(idname)(ctx, start, trigger, fn_or_error.extract_value());
 }
 
 static std::unique_ptr<Action> build_action_for_trigger(BuildContext &ctx, VirtualSocket *start)
@@ -153,22 +156,26 @@ static std::unique_ptr<Action> build_action_for_trigger(BuildContext &ctx, Virtu
   return build_action(ctx, start, start);
 }
 
-static std::unique_ptr<Force> BUILD_FORCE_gravity(BuildContext &UNUSED(ctx),
-                                                  VirtualNode *UNUSED(vnode),
-                                                  ParticleFunction compute_inputs_fn)
+static std::unique_ptr<Force> BUILD_FORCE_gravity(
+    BuildContext &UNUSED(ctx),
+    VirtualNode *UNUSED(vnode),
+    std::unique_ptr<ParticleFunction> compute_inputs_fn)
 {
   return std::unique_ptr<Force>(new GravityForce(std::move(compute_inputs_fn)));
 }
 
-static std::unique_ptr<Force> BUILD_FORCE_turbulence(BuildContext &UNUSED(ctx),
-                                                     VirtualNode *UNUSED(vnode),
-                                                     ParticleFunction compute_inputs_fn)
+static std::unique_ptr<Force> BUILD_FORCE_turbulence(
+    BuildContext &UNUSED(ctx),
+    VirtualNode *UNUSED(vnode),
+    std::unique_ptr<ParticleFunction> compute_inputs_fn)
 {
   return std::unique_ptr<Force>(new TurbulenceForce(std::move(compute_inputs_fn)));
 }
 
 static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(
-    BuildContext &ctx, VirtualNode *vnode, ParticleFunction UNUSED(compute_inputs_fn))
+    BuildContext &ctx,
+    VirtualNode *vnode,
+    std::unique_ptr<ParticleFunction> UNUSED(compute_inputs_fn))
 {
   PointerRNA rna = vnode->rna();
   Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
@@ -180,26 +187,24 @@ static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(
   return std::unique_ptr<Event>(new MeshCollisionEvent(vnode->name(), object, std::move(action)));
 }
 
-static std::unique_ptr<Event> BUILD_EVENT_age_reached(BuildContext &ctx,
-                                                      VirtualNode *vnode,
-                                                      ParticleFunction compute_inputs_fn)
+static std::unique_ptr<Event> BUILD_EVENT_age_reached(
+    BuildContext &ctx, VirtualNode *vnode, std::unique_ptr<ParticleFunction> compute_inputs_fn)
 {
   auto action = build_action_for_trigger(ctx, vnode->output(0));
   return std::unique_ptr<Event>(
       new AgeReachedEvent(vnode->name(), std::move(compute_inputs_fn), std::move(action)));
 }
 
-static std::unique_ptr<Event> BUILD_EVENT_close_by_points(BuildContext &ctx,
-                                                          VirtualNode *vnode,
-                                                          ParticleFunction compute_inputs)
+static std::unique_ptr<Event> BUILD_EVENT_close_by_points(
+    BuildContext &ctx, VirtualNode *vnode, std::unique_ptr<ParticleFunction> compute_inputs)
 {
-  if (compute_inputs.parameter_depends_on_particle("Points", 0)) {
+  if (compute_inputs->parameter_depends_on_particle("Points", 0)) {
     return {};
   }
 
   auto action = build_action_for_trigger(ctx, vnode->output(0));
 
-  SharedFunction &fn = compute_inputs.function_no_deps();
+  SharedFunction &fn = compute_inputs->function_no_deps();
   BLI_assert(fn->input_amount() == 0);
   TupleCallBody &body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
@@ -381,7 +386,7 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_initial_grid(BuildContext &ctx,
 }
 
 static std::unique_ptr<OffsetHandler> BUILD_OFFSET_HANDLER_trails(
-    BuildContext &ctx, VirtualNode *vnode, ParticleFunction compute_inputs_fn)
+    BuildContext &ctx, VirtualNode *vnode, std::unique_ptr<ParticleFunction> compute_inputs_fn)
 {
   PointerRNA rna = vnode->rna();
   char name[65];

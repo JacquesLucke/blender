@@ -13,7 +13,7 @@ void GravityForce::add_force(ForceInterface &interface)
   ParticlesBlock &block = interface.block();
   ArrayRef<float3> destination = interface.combined_destination();
 
-  auto inputs = m_compute_inputs.compute(interface);
+  auto inputs = m_compute_inputs->compute(interface);
 
   for (uint pindex = 0; pindex < block.active_amount(); pindex++) {
     float3 acceleration = inputs->get<float3>("Direction", 0, pindex);
@@ -28,7 +28,7 @@ void TurbulenceForce::add_force(ForceInterface &interface)
 
   auto positions = block.attributes().get_float3("Position");
 
-  auto inputs = m_compute_inputs.compute(interface);
+  auto inputs = m_compute_inputs->compute(interface);
 
   for (uint pindex = 0; pindex < block.active_amount(); pindex++) {
     float3 pos = positions[pindex];

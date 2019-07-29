@@ -15,11 +15,12 @@ class KillAction : public Action {
 
 class ChangeDirectionAction : public Action {
  private:
-  ParticleFunction m_compute_inputs;
+  std::unique_ptr<ParticleFunction> m_compute_inputs;
   std::unique_ptr<Action> m_post_action;
 
  public:
-  ChangeDirectionAction(ParticleFunction compute_inputs, std::unique_ptr<Action> post_action)
+  ChangeDirectionAction(std::unique_ptr<ParticleFunction> compute_inputs,
+                        std::unique_ptr<Action> post_action)
       : m_compute_inputs(std::move(compute_inputs)), m_post_action(std::move(post_action))
   {
   }
@@ -30,12 +31,12 @@ class ChangeDirectionAction : public Action {
 class ExplodeAction : public Action {
  private:
   std::string m_new_particle_name;
-  ParticleFunction m_compute_inputs;
+  std::unique_ptr<ParticleFunction> m_compute_inputs;
   std::unique_ptr<Action> m_post_action;
 
  public:
   ExplodeAction(StringRef new_particle_name,
-                ParticleFunction compute_inputs,
+                std::unique_ptr<ParticleFunction> compute_inputs,
                 std::unique_ptr<Action> post_action)
       : m_new_particle_name(new_particle_name.to_std_string()),
         m_compute_inputs(std::move(compute_inputs)),
@@ -48,11 +49,11 @@ class ExplodeAction : public Action {
 
 class ConditionAction : public Action {
  private:
-  ParticleFunction m_compute_inputs;
+  std::unique_ptr<ParticleFunction> m_compute_inputs;
   std::unique_ptr<Action> m_true_action, m_false_action;
 
  public:
-  ConditionAction(ParticleFunction compute_inputs,
+  ConditionAction(std::unique_ptr<ParticleFunction> compute_inputs,
                   std::unique_ptr<Action> true_action,
                   std::unique_ptr<Action> false_action)
       : m_compute_inputs(std::move(compute_inputs)),

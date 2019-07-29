@@ -18,7 +18,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 
   float end_time = interface.end_time();
 
-  auto inputs = m_compute_inputs.compute(interface);
+  auto inputs = m_compute_inputs->compute(interface);
 
   for (uint pindex : particles.pindices()) {
     if (was_activated_before[pindex]) {

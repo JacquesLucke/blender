@@ -37,16 +37,16 @@ struct BuildContext {
 };
 
 using ForceFromNodeCallback = std::function<std::unique_ptr<Force>(
-    BuildContext &ctx, VirtualNode *vnode, ParticleFunction compute_inputs_fn)>;
+    BuildContext &ctx, VirtualNode *vnode, std::unique_ptr<ParticleFunction> compute_inputs_fn)>;
 
 using EventFromNodeCallback = std::function<std::unique_ptr<Event>(
-    BuildContext &ctx, VirtualNode *vnode, ParticleFunction compute_inputs_fn)>;
+    BuildContext &ctx, VirtualNode *vnode, std::unique_ptr<ParticleFunction> compute_inputs_fn)>;
 
 using EmitterFromNodeCallback = std::function<std::unique_ptr<Emitter>(
     BuildContext &ctx, VirtualNode *vnode, StringRef particle_type_name)>;
 
 using OffsetHandlerFromNodeCallback = std::function<std::unique_ptr<OffsetHandler>(
-    BuildContext &ctx, VirtualNode *vnode, ParticleFunction compute_inputs_fn)>;
+    BuildContext &ctx, VirtualNode *vnode, std::unique_ptr<ParticleFunction> compute_inputs_fn)>;
 
 StringMap<ForceFromNodeCallback> &get_force_builders();
 StringMap<EventFromNodeCallback> &get_event_builders();

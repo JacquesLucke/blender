@@ -2,6 +2,10 @@
 
 namespace BParticles {
 
+ActionContext::~ActionContext()
+{
+}
+
 Action::~Action()
 {
 }

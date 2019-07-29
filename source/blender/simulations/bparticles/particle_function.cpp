@@ -2,11 +2,17 @@
 
 namespace BParticles {
 
+ParticleFunctionInputProvider::~ParticleFunctionInputProvider()
+{
+}
+
 ParticleFunction::ParticleFunction(SharedFunction fn_no_deps,
                                    SharedFunction fn_with_deps,
+                                   Vector<ParticleFunctionInputProvider *> input_providers,
                                    Vector<bool> parameter_depends_on_particle)
     : m_fn_no_deps(std::move(fn_no_deps)),
       m_fn_with_deps(std::move(fn_with_deps)),
+      m_input_providers(std::move(input_providers)),
       m_parameter_depends_on_particle(std::move(parameter_depends_on_particle))
 {
   BLI_assert(m_fn_no_deps->output_amount() + m_fn_with_deps->output_amount() ==
@@ -24,6 +30,13 @@ ParticleFunction::ParticleFunction(SharedFunction fn_no_deps,
       m_output_indices.append(no_deps_index);
       no_deps_index++;
     }
+  }
+}
+
+ParticleFunction::~ParticleFunction()
+{
+  for (auto *provider : m_input_providers) {
+    delete provider;
   }
 }
 
@@ -131,28 +144,13 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
   Vector<uint> input_strides;
 
   for (uint i = 0; i < m_fn_with_deps->input_amount(); i++) {
-    StringRef input_name = m_fn_with_deps->input_name(i);
-    void *input_buffer = nullptr;
-    uint input_stride = 0;
-    if (input_name.startswith("Attribute")) {
-      StringRef attribute_name = input_name.drop_prefix("Attribute: ");
-      uint attribute_index = attributes.attribute_index(attribute_name);
-      input_buffer = attributes.get_ptr(attribute_index);
-      input_stride = attributes.attribute_stride(attribute_index);
-    }
-    else if (action_context != nullptr && input_name.startswith("Action Context")) {
-      StringRef context_name = input_name.drop_prefix("Action Context: ");
-      ActionContext::ContextArray array = action_context->get_context_array(context_name);
-      input_buffer = array.buffer;
-      input_stride = array.stride;
-    }
-    else {
-      BLI_assert(false);
-    }
-    BLI_assert(input_buffer != nullptr);
+    auto *provider = m_input_providers[i];
+    auto array = provider->get(attributes, action_context);
+    BLI_assert(array.buffer != nullptr);
+    BLI_assert(array.stride > 0);
 
-    input_buffers.append(input_buffer);
-    input_strides.append(input_stride);
+    input_buffers.append(array.buffer);
+    input_strides.append(array.stride);
   }
 
   Vector<void *> output_buffers;

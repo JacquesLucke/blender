@@ -15,7 +15,7 @@ void ChangeDirectionAction::execute(ActionInterface &interface)
   auto position_offsets = interface.attribute_offsets().try_get_float3("Position");
   auto velocity_offsets = interface.attribute_offsets().try_get_float3("Velocity");
 
-  auto inputs = m_compute_inputs.compute(interface);
+  auto inputs = m_compute_inputs->compute(interface);
 
   for (uint pindex : particles.pindices()) {
     float3 direction = inputs->get<float3>("Direction", 0, pindex);
@@ -60,7 +60,7 @@ void ExplodeAction::execute(ActionInterface &interface)
   Vector<float3> new_velocities;
   Vector<float> new_birth_times;
 
-  auto inputs = m_compute_inputs.compute(interface);
+  auto inputs = m_compute_inputs->compute(interface);
 
   for (uint pindex : particles.pindices()) {
     uint parts_amount = std::max(0, inputs->get<int>("Amount", 0, pindex));
@@ -88,7 +88,7 @@ void ConditionAction::execute(ActionInterface &interface)
 {
   ParticleSet particles = interface.particles();
 
-  auto inputs = m_compute_inputs.compute(interface);
+  auto inputs = m_compute_inputs->compute(interface);
 
   Vector<uint> true_pindices, false_pindices;
   for (uint pindex : particles.pindices()) {

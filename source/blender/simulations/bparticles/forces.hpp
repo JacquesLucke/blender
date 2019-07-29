@@ -14,10 +14,11 @@ class Force {
 
 class GravityForce : public Force {
  private:
-  ParticleFunction m_compute_inputs;
+  std::unique_ptr<ParticleFunction> m_compute_inputs;
 
  public:
-  GravityForce(ParticleFunction compute_inputs) : m_compute_inputs(std::move(compute_inputs))
+  GravityForce(std::unique_ptr<ParticleFunction> compute_inputs)
+      : m_compute_inputs(std::move(compute_inputs))
   {
   }
 
@@ -26,10 +27,11 @@ class GravityForce : public Force {
 
 class TurbulenceForce : public Force {
  private:
-  ParticleFunction m_compute_inputs;
+  std::unique_ptr<ParticleFunction> m_compute_inputs;
 
  public:
-  TurbulenceForce(ParticleFunction compute_inputs) : m_compute_inputs(std::move(compute_inputs))
+  TurbulenceForce(std::unique_ptr<ParticleFunction> compute_inputs)
+      : m_compute_inputs(std::move(compute_inputs))
   {
   }
 

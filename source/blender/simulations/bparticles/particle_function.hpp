@@ -68,17 +68,43 @@ class ParticleFunctionResult {
   }
 };
 
+struct ParticleFunctionInputArray {
+  void *buffer = nullptr;
+  uint stride = 0;
+
+  ParticleFunctionInputArray(void *buffer, uint stride) : buffer(buffer), stride(stride)
+  {
+  }
+
+  template<typename T>
+  ParticleFunctionInputArray(ArrayRef<T> array) : buffer((void *)array.begin()), stride(sizeof(T))
+  {
+  }
+};
+
+class ParticleFunctionInputProvider {
+ public:
+  virtual ~ParticleFunctionInputProvider();
+
+  virtual ParticleFunctionInputArray get(AttributeArrays attributes,
+                                         ActionContext *action_context) = 0;
+};
+
 class ParticleFunction {
  private:
   SharedFunction m_fn_no_deps;
   SharedFunction m_fn_with_deps;
+  Vector<ParticleFunctionInputProvider *> m_input_providers;
   Vector<bool> m_parameter_depends_on_particle;
   Vector<uint> m_output_indices;
 
  public:
   ParticleFunction(SharedFunction fn_no_deps,
                    SharedFunction fn_with_deps,
+                   Vector<ParticleFunctionInputProvider *> input_providers,
                    Vector<bool> parameter_depends_on_particle);
+
+  ~ParticleFunction();
 
   SharedFunction &function_no_deps()
   {

@@ -19,12 +19,12 @@ using BLI::float4x4;
 class AgeReachedEvent : public Event {
  private:
   std::string m_identifier;
-  ParticleFunction m_compute_inputs;
+  std::unique_ptr<ParticleFunction> m_compute_inputs;
   std::unique_ptr<Action> m_action;
 
  public:
   AgeReachedEvent(StringRef identifier,
-                  ParticleFunction compute_inputs,
+                  std::unique_ptr<ParticleFunction> compute_inputs,
                   std::unique_ptr<Action> action)
       : m_identifier(identifier.to_std_string()),
         m_compute_inputs(std::move(compute_inputs)),
@@ -46,12 +46,9 @@ class CollisionEventInfo : public ActionContext {
   {
   }
 
-  ContextArray get_context_array(StringRef name) override
+  ArrayRef<float3> normals()
   {
-    if (name == "Normal") {
-      return m_normals;
-    }
-    return {};
+    return m_normals;
   }
 };
 

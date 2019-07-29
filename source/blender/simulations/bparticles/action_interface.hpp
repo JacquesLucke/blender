@@ -13,18 +13,7 @@ using FN::TupleCallBody;
 
 class ActionContext {
  public:
-  struct ContextArray {
-    void *buffer = nullptr;
-    uint stride = 0;
-
-    ContextArray() = default;
-    template<typename T>
-    ContextArray(ArrayRef<T> array) : buffer((void *)array.begin()), stride(sizeof(T))
-    {
-    }
-  };
-
-  virtual ContextArray get_context_array(StringRef name) = 0;
+  virtual ~ActionContext();
 };
 
 class ActionInterface {
@@ -93,10 +82,6 @@ inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
 }
 
 class EmptyEventInfo : public ActionContext {
-  ContextArray get_context_array(StringRef UNUSED(name))
-  {
-    return {};
-  }
 };
 
 inline void Action::execute_from_emitter(ParticleSets &particle_sets,

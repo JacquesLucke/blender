@@ -8,7 +8,7 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
   auto positions = particles.attributes().get_float3("Position");
   auto position_offsets = interface.offsets().get_float3("Position");
 
-  auto inputs = m_compute_inputs.compute(interface);
+  auto inputs = m_compute_inputs->compute(interface);
 
   Vector<float3> new_positions;
   Vector<float> new_birth_times;
