@@ -2538,7 +2538,7 @@ void OBJECT_OT_surfacedeform_bind(wmOperatorType *ot)
 
 static bool bparticles_clear_cache_poll(bContext *C)
 {
-  return edit_modifier_poll_generic(C, &RNA_BParticlesModifier, 0);
+  return edit_modifier_poll_generic(C, &RNA_BParticlesModifier, 0, true);
 }
 
 static int bparticles_clear_cache_exec(bContext *C, wmOperator *op)
