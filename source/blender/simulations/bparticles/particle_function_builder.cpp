@@ -79,6 +79,21 @@ class CollisionNormalInputProvider : public ParticleFunctionInputProvider {
   }
 };
 
+static ParticleFunctionInputProvider *create_input_provider(VirtualSocket *vsocket)
+{
+  VirtualNode *vnode = vsocket->vnode();
+  if (STREQ(vnode->idname(), "bp_ParticleInfoNode")) {
+    return new AttributeInputProvider(vsocket->name());
+  }
+  else if (STREQ(vnode->idname(), "bp_CollisionInfoNode")) {
+    return new CollisionNormalInputProvider();
+  }
+  else {
+    BLI_assert(false);
+    return nullptr;
+  }
+}
+
 static SharedFunction create_function__with_deps(
     SharedDataFlowGraph &graph,
     StringRef function_name,
@@ -95,17 +110,7 @@ static SharedFunction create_function__with_deps(
 
   for (uint i = 0; i < input_amount; i++) {
     VirtualSocket *vsocket = dependencies.vsockets[i];
-    VirtualNode *vnode = vsocket->vnode();
-
-    if (STREQ(vnode->idname(), "bp_ParticleInfoNode")) {
-      r_input_providers[i] = new AttributeInputProvider(vsocket->name());
-    }
-    else if (STREQ(vnode->idname(), "bp_CollisionInfoNode")) {
-      r_input_providers[i] = new CollisionNormalInputProvider();
-    }
-    else {
-      BLI_assert(false);
-    }
+    r_input_providers[i] = create_input_provider(vsocket);
   }
 
   SharedFunction fn = fn_builder.build(function_name);
