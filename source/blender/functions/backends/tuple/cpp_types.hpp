@@ -26,6 +26,11 @@ class CPPTypeInfo : public TypeExtension {
   virtual uint size_of_type() const = 0;
 
   /**
+   * Get the alignment requirements for this type.
+   */
+  virtual uint alignment() const = 0;
+
+  /**
    * Construct a default version of that type at the given pointer.
    */
   virtual void construct_default(void *ptr) const = 0;
@@ -70,6 +75,11 @@ template<typename T> class CPPTypeInfoForType : public CPPTypeInfo {
   uint size_of_type() const override
   {
     return sizeof(T);
+  }
+
+  uint alignment() const override
+  {
+    return std::alignment_of<T>::value;
   }
 
   void construct_default(void *ptr) const override

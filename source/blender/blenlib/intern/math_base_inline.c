@@ -225,6 +225,12 @@ MINLINE unsigned power_of_2_min_u(unsigned x)
   return x - (x >> 1);
 }
 
+MINLINE unsigned int pad_up(unsigned int x, unsigned int alignment)
+{
+  BLI_assert(is_power_of_2_i((int)alignment));
+  return (x + alignment - 1) & ~(alignment - 1);
+}
+
 /* rounding and clamping */
 
 #define _round_clamp_fl_impl(arg, ty, min, max) \
