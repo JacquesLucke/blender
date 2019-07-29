@@ -142,6 +142,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
 
   Vector<void *> input_buffers;
   Vector<uint> input_strides;
+  Vector<uint> inputs_to_free;
 
   for (uint i = 0; i < m_fn_with_deps->input_amount(); i++) {
     auto *provider = m_input_providers[i];
@@ -151,6 +152,9 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
 
     input_buffers.append(array.buffer);
     input_strides.append(array.stride);
+    if (array.is_newly_allocated) {
+      inputs_to_free.append(i);
+    }
   }
 
   Vector<void *> output_buffers;
@@ -192,6 +196,12 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
       void *ptr = POINTER_OFFSET(output_buffers[i], pindex * output_strides[i]);
       fn_out.relocate_out__dynamic(i, ptr);
     }
+  }
+
+  for (uint i : inputs_to_free) {
+    void *buffer = input_buffers[i];
+    uint stride = input_strides[i];
+    array_allocator.deallocate(buffer, stride);
   }
 }
 

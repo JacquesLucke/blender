@@ -71,13 +71,16 @@ class ParticleFunctionResult {
 struct ParticleFunctionInputArray {
   void *buffer = nullptr;
   uint stride = 0;
+  bool is_newly_allocated = false;
 
-  ParticleFunctionInputArray(void *buffer, uint stride) : buffer(buffer), stride(stride)
+  ParticleFunctionInputArray(void *buffer, uint stride, bool is_newly_allocated)
+      : buffer(buffer), stride(stride), is_newly_allocated(is_newly_allocated)
   {
   }
 
   template<typename T>
-  ParticleFunctionInputArray(ArrayRef<T> array) : buffer((void *)array.begin()), stride(sizeof(T))
+  ParticleFunctionInputArray(ArrayRef<T> array, bool is_newly_allocated)
+      : ParticleFunctionInputArray((void *)array.begin(), sizeof(T), is_newly_allocated)
   {
   }
 };

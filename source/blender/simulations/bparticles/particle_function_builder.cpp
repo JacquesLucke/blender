@@ -64,7 +64,7 @@ class AttributeInputProvider : public ParticleFunctionInputProvider {
     uint attribute_index = attributes.attribute_index(m_name);
     uint stride = attributes.attribute_stride(attribute_index);
     void *buffer = attributes.get_ptr(attribute_index);
-    return {buffer, stride};
+    return {buffer, stride, false};
   }
 };
 
@@ -75,7 +75,7 @@ class CollisionNormalInputProvider : public ParticleFunctionInputProvider {
     BLI_assert(action_context != nullptr);
     CollisionEventInfo *collision_info = dynamic_cast<CollisionEventInfo *>(action_context);
     BLI_assert(collision_info != nullptr);
-    return collision_info->normals();
+    return {collision_info->normals(), false};
   }
 };
 
