@@ -554,7 +554,7 @@ inline ArrayRef<uint8_t> AttributeArrays::get_byte(StringRef name)
 
 inline ArrayRef<int32_t> AttributeArrays::get_integer(uint index) const
 {
-  BLI_assert(m_core.get_type(index) == AttributeType::Byte);
+  BLI_assert(m_core.get_type(index) == AttributeType::Integer);
   return ArrayRef<int32_t>((int32_t *)m_core.get_ptr(index) + m_start, m_size);
 }
 
