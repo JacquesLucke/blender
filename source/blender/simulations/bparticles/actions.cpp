@@ -12,8 +12,8 @@ void ChangeDirectionAction::execute(ActionInterface &interface)
 {
   ParticleSet particles = interface.particles();
   auto velocities = particles.attributes().get<float3>("Velocity");
-  auto position_offsets = interface.attribute_offsets().try_get_float3("Position");
-  auto velocity_offsets = interface.attribute_offsets().try_get_float3("Velocity");
+  auto position_offsets = interface.attribute_offsets().try_get<float3>("Position");
+  auto velocity_offsets = interface.attribute_offsets().try_get<float3>("Velocity");
 
   auto inputs = m_compute_inputs->compute(interface);
 

@@ -425,10 +425,16 @@ class AttributeArrays {
    * Get access to the arrays.
    * Does not assert when the attribute does not exist.
    */
-  Optional<ArrayRef<uint8_t>> try_get_byte(StringRef name);
-  Optional<ArrayRef<int32_t>> try_get_integer(StringRef name);
-  Optional<ArrayRef<float>> try_get_float(StringRef name);
-  Optional<ArrayRef<float3>> try_get_float3(StringRef name);
+  template<typename T> Optional<ArrayRef<T>> try_get(StringRef name)
+  {
+    int index = this->info().attribute_index_try(name, attribute_type_by_type<T>::value);
+    if (index == -1) {
+      return {};
+    }
+    else {
+      return this->get<T>((uint)index);
+    }
+  }
 
   /**
    * Get a continuous slice of the attribute arrays.
@@ -557,50 +563,6 @@ inline void AttributeArrays::init_default(uint index)
 inline void AttributeArrays::init_default(StringRef name)
 {
   this->init_default(this->attribute_index(name));
-}
-
-inline Optional<ArrayRef<uint8_t>> AttributeArrays::try_get_byte(StringRef name)
-{
-  int index = this->info().attribute_index_try(name, AttributeType::Byte);
-  if (index == -1) {
-    return {};
-  }
-  else {
-    return this->get<uint8_t>((uint)index);
-  }
-}
-
-inline Optional<ArrayRef<int32_t>> AttributeArrays::try_get_integer(StringRef name)
-{
-  int index = this->info().attribute_index_try(name, AttributeType::Integer);
-  if (index == -1) {
-    return {};
-  }
-  else {
-    return this->get<int32_t>((uint)index);
-  }
-}
-
-inline Optional<ArrayRef<float>> AttributeArrays::try_get_float(StringRef name)
-{
-  int index = this->info().attribute_index_try(name, AttributeType::Float);
-  if (index == -1) {
-    return {};
-  }
-  else {
-    return this->get<float>((uint)index);
-  }
-}
-
-inline Optional<ArrayRef<float3>> AttributeArrays::try_get_float3(StringRef name)
-{
-  int index = this->info().attribute_index_try(name, AttributeType::Float3);
-  if (index == -1) {
-    return {};
-  }
-  else {
-    return this->get<float3>((uint)index);
-  }
 }
 
 inline AttributeArrays AttributeArrays::slice(uint start, uint size) const
