@@ -82,7 +82,7 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     auto offsets = attribute_offsets.get_float3(attribute_index);
 
     if (particles.pindices_are_trivial()) {
-      for (uint pindex = 0; pindex < particles.size(); pindex++) {
+      for (uint pindex : particles.trivial_pindices()) {
         float time_factor = time_factors_to_next_event[pindex];
         values[pindex] += time_factor * offsets[pindex];
       }

@@ -45,6 +45,8 @@ struct ParticleSet {
    * Returns true when pindices()[i] == i for all i, otherwise false.
    */
   bool pindices_are_trivial();
+
+  Range<uint> trivial_pindices();
 };
 
 class ParticleSets {
@@ -131,6 +133,17 @@ inline bool ParticleSet::pindices_are_trivial()
   else {
     /* This works due to the invariants mentioned above. */
     return m_pindices.first() == 0 && m_pindices.last() == m_pindices.size() - 1;
+  }
+}
+
+inline Range<uint> ParticleSet::trivial_pindices()
+{
+  BLI_assert(this->pindices_are_trivial());
+  if (m_pindices.size() == 0) {
+    return Range<uint>(0, 0);
+  }
+  else {
+    return Range<uint>(m_pindices.first(), m_pindices.last() + 1);
   }
 }
 
