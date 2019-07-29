@@ -80,52 +80,6 @@ void ParticleSets::fill_elements(uint index, void *value)
   }
 }
 
-void ParticleSets::set_repeated_byte(uint index, ArrayRef<uint8_t> data)
-{
-  BLI_assert(m_attributes_info.type_of(index) == AttributeType::Byte);
-  this->set_repeated_elements(
-      index, (void *)data.begin(), data.size(), m_attributes_info.default_value_ptr(index));
-}
-void ParticleSets::set_repeated_integer(uint index, ArrayRef<int32_t> data)
-{
-  BLI_assert(m_attributes_info.type_of(index) == AttributeType::Integer);
-  this->set_repeated_elements(
-      index, (void *)data.begin(), data.size(), m_attributes_info.default_value_ptr(index));
-}
-void ParticleSets::set_repeated_float(uint index, ArrayRef<float> data)
-{
-  BLI_assert(m_attributes_info.type_of(index) == AttributeType::Float);
-  this->set_repeated_elements(
-      index, (void *)data.begin(), data.size(), m_attributes_info.default_value_ptr(index));
-}
-void ParticleSets::set_repeated_float3(uint index, ArrayRef<float3> data)
-{
-  BLI_assert(m_attributes_info.type_of(index) == AttributeType::Float3);
-  this->set_repeated_elements(
-      index, (void *)data.begin(), data.size(), m_attributes_info.default_value_ptr(index));
-}
-
-void ParticleSets::set_repeated_byte(StringRef name, ArrayRef<uint8_t> data)
-{
-  uint index = m_attributes_info.attribute_index(name);
-  this->set_repeated_byte(index, data);
-}
-void ParticleSets::set_repeated_integer(StringRef name, ArrayRef<int32_t> data)
-{
-  uint index = m_attributes_info.attribute_index(name);
-  this->set_repeated_integer(index, data);
-}
-void ParticleSets::set_repeated_float(StringRef name, ArrayRef<float> data)
-{
-  uint index = m_attributes_info.attribute_index(name);
-  this->set_repeated_float(index, data);
-}
-void ParticleSets::set_repeated_float3(StringRef name, ArrayRef<float3> data)
-{
-  uint index = m_attributes_info.attribute_index(name);
-  this->set_repeated_float3(index, data);
-}
-
 void ParticleSets::fill_byte(uint index, uint8_t value)
 {
   this->fill_elements(index, (void *)&value);

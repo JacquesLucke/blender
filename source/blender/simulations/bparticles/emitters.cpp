@@ -175,15 +175,15 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
 
     if (type == float_list_type) {
       auto list = fn_out.relocate_out<SharedFloatList>(i);
-      new_particles.set_repeated_float(attribute_index, *list.ptr());
+      new_particles.set_repeated<float>(attribute_index, *list.ptr());
     }
     else if (type == float3_list_type) {
       auto list = fn_out.relocate_out<SharedFloat3List>(i);
-      new_particles.set_repeated_float3(attribute_index, *list.ptr());
+      new_particles.set_repeated<float3>(attribute_index, *list.ptr());
     }
     else if (type == int32_list_type) {
       auto list = fn_out.relocate_out<SharedInt32List>(i);
-      new_particles.set_repeated_integer(attribute_index, *list.ptr());
+      new_particles.set_repeated<int32_t>(attribute_index, *list.ptr());
     }
     else if (type == float_type) {
       new_particles.fill_float(attribute_index, fn_out.get<float>(i));
