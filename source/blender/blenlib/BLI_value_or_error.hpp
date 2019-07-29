@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include "BLI_optional.hpp"
 
 namespace BLI {
