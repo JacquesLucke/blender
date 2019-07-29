@@ -17,7 +17,7 @@ EventFilterInterface::EventFilterInterface(BlockStepData &step_data,
                                            EventStorage &r_event_storage,
                                            Vector<uint> &r_filtered_pindices,
                                            Vector<float> &r_filtered_time_factors)
-    : m_step_data(step_data),
+    : BlockStepDataAccess(step_data),
       m_pindices(pindices),
       m_known_min_time_factors(known_min_time_factors),
       m_event_storage(r_event_storage),
@@ -30,21 +30,21 @@ EventExecuteInterface::EventExecuteInterface(BlockStepData &step_data,
                                              ArrayRef<uint> pindices,
                                              ArrayRef<float> current_times,
                                              EventStorage &event_storage)
-    : m_step_data(step_data),
+    : BlockStepDataAccess(step_data),
       m_pindices(pindices),
       m_current_times(current_times),
       m_event_storage(event_storage)
 {
 }
 
-IntegratorInterface::IntegratorInterface(BlockStepData &step_data) : m_step_data(step_data)
+IntegratorInterface::IntegratorInterface(BlockStepData &step_data) : BlockStepDataAccess(step_data)
 {
 }
 
 OffsetHandlerInterface::OffsetHandlerInterface(BlockStepData &step_data,
                                                ArrayRef<uint> pindices,
                                                ArrayRef<float> time_factors)
-    : m_step_data(step_data), m_pindices(pindices), m_time_factors(time_factors)
+    : BlockStepDataAccess(step_data), m_pindices(pindices), m_time_factors(time_factors)
 {
 }
 

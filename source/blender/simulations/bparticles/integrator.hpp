@@ -28,11 +28,7 @@ class EulerIntegrator : public Integrator {
   void integrate(IntegratorInterface &interface) override;
 
  private:
-  void compute_combined_force(ParticlesBlock &block,
-                              ArrayAllocator &array_allocator,
-                              ArrayRef<float> remaining_durations,
-                              float step_end_time,
-                              ArrayRef<float3> r_force);
+  void compute_combined_force(IntegratorInterface &interface, ArrayRef<float3> r_force);
 
   void compute_offsets(ArrayRef<float> durations,
                        ArrayRef<float3> last_velocities,

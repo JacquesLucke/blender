@@ -17,6 +17,62 @@ struct BlockStepData {
   float step_end_time;
 };
 
+class BlockStepDataAccess {
+ protected:
+  BlockStepData &m_step_data;
+
+ public:
+  BlockStepDataAccess(BlockStepData &step_data) : m_step_data(step_data)
+  {
+  }
+
+  BlockStepData &step_data()
+  {
+    return m_step_data;
+  }
+
+  ArrayAllocator &array_allocator()
+  {
+    return m_step_data.array_allocator;
+  }
+
+  ParticleAllocator &particle_allocator()
+  {
+    return m_step_data.particle_allocator;
+  }
+
+  ParticlesBlock &block()
+  {
+    return m_step_data.block;
+  }
+
+  ParticleType &particle_type()
+  {
+    return m_step_data.particle_type;
+  }
+
+  AttributeArrays attribute_offsets()
+  {
+    return m_step_data.attribute_offsets;
+  }
+
+  ArrayRef<float> remaining_durations()
+  {
+    return m_step_data.remaining_durations;
+  }
+
+  float step_end_time()
+  {
+    return m_step_data.step_end_time;
+  }
+
+  TimeSpan time_span(uint pindex)
+  {
+    float duration = m_step_data.remaining_durations[pindex];
+    return TimeSpan(m_step_data.step_end_time - duration, duration);
+  }
+};
+
 /**
  * The interface between the simulation core and individual emitters.
  */
@@ -67,9 +123,8 @@ class EventStorage {
 /**
  * Interface between the Event->filter() function and the core simulation code.
  */
-class EventFilterInterface {
+class EventFilterInterface : public BlockStepDataAccess {
  private:
-  BlockStepData &m_step_data;
   ArrayRef<uint> m_pindices;
   ArrayRef<float> m_known_min_time_factors;
 
@@ -94,26 +149,6 @@ class EventFilterInterface {
   ParticleSet particles();
 
   /**
-   * Return the durations that should be checked for every particle.
-   */
-  ArrayRef<float> durations();
-
-  /**
-   * Return the offsets that every particle will experience when no event is triggered.
-   */
-  AttributeArrays attribute_offsets();
-
-  /**
-   * Get the time span that should be checked for a specific particle.
-   */
-  TimeSpan time_span(uint pindex);
-
-  /**
-   * Get the end time of the current time step.
-   */
-  float end_time();
-
-  /**
    * Mark a particle as triggered by the event at a specific point in time.
    * Note: The index must increase between consecutive calls to this function.
    */
@@ -125,16 +160,13 @@ class EventFilterInterface {
    * other event.
    */
   template<typename T> T &trigger_particle(uint pindex, float time_factor);
-
-  ArrayAllocator &array_allocator();
 };
 
 /**
  * Interface between the Event->execute() function and the core simulation code.
  */
-class EventExecuteInterface {
+class EventExecuteInterface : public BlockStepDataAccess {
  private:
-  BlockStepData &m_step_data;
   ArrayRef<uint> m_pindices;
   ArrayRef<float> m_current_times;
   EventStorage &m_event_storage;
@@ -157,25 +189,10 @@ class EventExecuteInterface {
    */
   ArrayRef<float> current_times();
 
-  ArrayRef<float> remaining_durations();
-
   /**
    * Get the data stored in the Event->filter() function for a particle index.
    */
   template<typename T> T &get_storage(uint pindex);
-
-  /**
-   * Access the offsets that are applied to every particle in the remaining time step.
-   * The event is allowed to modify the arrays.
-   */
-  AttributeArrays attribute_offsets();
-
-  /**
-   * Get a block allocator. Not that the request_emit_target should usually be used instead.
-   */
-  ParticleAllocator &particle_allocator();
-
-  ArrayAllocator &array_allocator();
 
   /**
    * Get the entire event storage.
@@ -186,43 +203,13 @@ class EventExecuteInterface {
 /**
  * Interface between the Integrator->integrate() function and the core simulation code.
  */
-class IntegratorInterface {
- private:
-  BlockStepData &m_step_data;
-
+class IntegratorInterface : public BlockStepDataAccess {
  public:
   IntegratorInterface(BlockStepData &step_data);
-
-  /**
-   * Get the block for which the attribute offsets should be computed.
-   */
-  ParticlesBlock &block();
-
-  /**
-   * Access durations for every particle that should be integrated.
-   */
-  ArrayRef<float> remaining_durations();
-
-  float step_end_time();
-
-  /**
-   * Get an array allocator that creates arrays with the number of elements being >= the number of
-   * particles in the block.
-   */
-  ArrayAllocator &array_allocator()
-  {
-    return m_step_data.array_allocator;
-  }
-
-  /**
-   * Get the arrays that the offsets should be written into.
-   */
-  AttributeArrays offsets();
 };
 
-class OffsetHandlerInterface {
+class OffsetHandlerInterface : public BlockStepDataAccess {
  private:
-  BlockStepData &m_step_data;
   ArrayRef<uint> m_pindices;
   ArrayRef<float> m_time_factors;
 
@@ -232,13 +219,7 @@ class OffsetHandlerInterface {
                          ArrayRef<float> time_factors);
 
   ParticleSet particles();
-  ParticleAllocator &particle_allocator();
-  AttributeArrays &offsets();
   ArrayRef<float> time_factors();
-  float step_end_time();
-  ArrayRef<float> durations();
-  TimeSpan time_span(uint pindex);
-  ArrayAllocator &array_allocator();
 };
 
 /* EmitterInterface inline functions
@@ -294,32 +275,6 @@ inline ParticleSet EventFilterInterface::particles()
   return ParticleSet(m_step_data.block, m_pindices);
 }
 
-inline ArrayRef<float> EventFilterInterface::durations()
-{
-  return m_step_data.remaining_durations;
-}
-
-inline TimeSpan EventFilterInterface::time_span(uint pindex)
-{
-  float duration = m_step_data.remaining_durations[pindex];
-  return TimeSpan(m_step_data.step_end_time - duration, duration);
-}
-
-inline AttributeArrays EventFilterInterface::attribute_offsets()
-{
-  return m_step_data.attribute_offsets;
-}
-
-inline float EventFilterInterface::end_time()
-{
-  return m_step_data.step_end_time;
-}
-
-inline ArrayAllocator &EventFilterInterface::array_allocator()
-{
-  return m_step_data.array_allocator;
-}
-
 inline void EventFilterInterface::trigger_particle(uint pindex, float time_factor)
 {
   BLI_assert(0.0f <= time_factor && time_factor <= 1.0f);
@@ -349,16 +304,6 @@ inline T &EventFilterInterface::trigger_particle(uint pindex, float time_factor)
 /* EventExecuteInterface inline functions
  **********************************************/
 
-inline ParticleAllocator &EventExecuteInterface::particle_allocator()
-{
-  return m_step_data.particle_allocator;
-}
-
-inline ArrayAllocator &EventExecuteInterface::array_allocator()
-{
-  return m_step_data.array_allocator;
-}
-
 inline EventStorage &EventExecuteInterface::event_storage()
 {
   return m_event_storage;
@@ -374,44 +319,11 @@ inline ArrayRef<float> EventExecuteInterface::current_times()
   return m_current_times;
 }
 
-inline ArrayRef<float> EventExecuteInterface::remaining_durations()
-{
-  return m_step_data.remaining_durations;
-}
-
 template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)
 {
   BLI_STATIC_ASSERT(std::is_trivial<T>::value, "");
   BLI_assert(sizeof(T) <= m_event_storage.max_element_size());
   return m_event_storage.get<T>(pindex);
-}
-
-inline AttributeArrays EventExecuteInterface::attribute_offsets()
-{
-  return m_step_data.attribute_offsets;
-}
-
-/* IntegratorInterface inline functions
- *********************************************/
-
-inline ParticlesBlock &IntegratorInterface::block()
-{
-  return m_step_data.block;
-}
-
-inline ArrayRef<float> IntegratorInterface::remaining_durations()
-{
-  return m_step_data.remaining_durations;
-}
-
-inline float IntegratorInterface::step_end_time()
-{
-  return m_step_data.step_end_time;
-}
-
-inline AttributeArrays IntegratorInterface::offsets()
-{
-  return m_step_data.attribute_offsets;
 }
 
 /* OffsetHandlerInterface inline functions
@@ -422,40 +334,9 @@ inline ParticleSet OffsetHandlerInterface::particles()
   return ParticleSet(m_step_data.block, m_pindices);
 }
 
-inline ParticleAllocator &OffsetHandlerInterface::particle_allocator()
-{
-  return m_step_data.particle_allocator;
-}
-
-inline AttributeArrays &OffsetHandlerInterface::offsets()
-{
-  return m_step_data.attribute_offsets;
-}
-
 inline ArrayRef<float> OffsetHandlerInterface::time_factors()
 {
   return m_time_factors;
-}
-
-inline float OffsetHandlerInterface::step_end_time()
-{
-  return m_step_data.step_end_time;
-}
-
-inline ArrayRef<float> OffsetHandlerInterface::durations()
-{
-  return m_step_data.remaining_durations;
-}
-
-inline TimeSpan OffsetHandlerInterface::time_span(uint pindex)
-{
-  float duration = m_step_data.remaining_durations[pindex] * m_time_factors[pindex];
-  return TimeSpan(m_step_data.step_end_time - duration, duration);
-}
-
-inline ArrayAllocator &OffsetHandlerInterface::array_allocator()
-{
-  return m_step_data.array_allocator;
 }
 
 };  // namespace BParticles

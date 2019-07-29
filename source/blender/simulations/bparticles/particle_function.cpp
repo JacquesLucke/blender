@@ -51,11 +51,11 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ActionInterfac
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
     OffsetHandlerInterface &interface)
 {
-  return this->compute(
-      interface.array_allocator(),
-      interface.particles(),
-      ParticleTimes::FromDurationsAndEnd(interface.durations(), interface.step_end_time()),
-      nullptr);
+  return this->compute(interface.array_allocator(),
+                       interface.particles(),
+                       ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
+                                                          interface.step_end_time()),
+                       nullptr);
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ForceInterface &interface)
@@ -70,11 +70,11 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ForceInterface
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(EventFilterInterface &interface)
 {
-  return this->compute(
-      interface.array_allocator(),
-      interface.particles(),
-      ParticleTimes::FromDurationsAndEnd(interface.durations(), interface.end_time()),
-      nullptr);
+  return this->compute(interface.array_allocator(),
+                       interface.particles(),
+                       ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
+                                                          interface.step_end_time()),
+                       nullptr);
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayAllocator &array_allocator,

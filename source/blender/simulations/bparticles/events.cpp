@@ -16,7 +16,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
   auto birth_times = particles.attributes().get_float("Birth Time");
   auto was_activated_before = particles.attributes().get_byte(m_identifier);
 
-  float end_time = interface.end_time();
+  float end_time = interface.step_end_time();
 
   auto inputs = m_compute_inputs->compute(interface);
 
