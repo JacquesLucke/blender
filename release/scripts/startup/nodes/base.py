@@ -211,7 +211,23 @@ class FunctionNode(BaseNode):
     pass
 
 class BParticlesNode(BaseNode):
-    pass
+    def invoke_particle_type_creation(self, layout, function_name, text, *, icon='NONE'):
+        self.invoke_function(layout, "create_particle_type", text, icon=icon, settings=(function_name,))
+
+    def create_particle_type(self, function_name):
+        for node in self.tree.nodes:
+            node.select = False
+
+        new_node = self.tree.nodes.new("bp_ParticleTypeNode")
+        new_node.select = True
+        self.tree.nodes.active = new_node
+        new_node.location = self.location
+        new_node.location.x += 10
+        new_node.location.y += 10
+
+        callback = getattr(self, function_name)
+        callback(new_node)
+        bpy.ops.node.translate_attach('INVOKE_DEFAULT')
 
 class DataSocket(BaseSocket):
     def draw_self(self, layout, node, text):
