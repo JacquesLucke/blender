@@ -173,12 +173,18 @@ static std::unique_ptr<Force> BUILD_FORCE_turbulence(
 }
 
 static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(
-    BuildContext &ctx,
-    VirtualNode *vnode,
-    std::unique_ptr<ParticleFunction> UNUSED(compute_inputs_fn))
+    BuildContext &ctx, VirtualNode *vnode, std::unique_ptr<ParticleFunction> compute_inputs_fn)
 {
-  PointerRNA rna = vnode->rna();
-  Object *object = (Object *)RNA_pointer_get(&rna, "object").id.data;
+  if (compute_inputs_fn->parameter_depends_on_particle("Object", 0)) {
+    return {};
+  }
+
+  SharedFunction &fn = compute_inputs_fn->function_no_deps();
+  TupleCallBody &body = fn->body<TupleCallBody>();
+  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+  body.call__setup_execution_context(fn_in, fn_out);
+
+  Object *object = body.get_output<Object *>(fn_out, 0, "Object");
   if (object == nullptr || object->type != OB_MESH) {
     return {};
   }
