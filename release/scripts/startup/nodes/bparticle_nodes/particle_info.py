@@ -7,7 +7,7 @@ class ParticleInfoNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_ParticleInfoNode"
     bl_label = "Particle Info"
 
-    def declaration(self, builder : NodeBuilder):
+    def declaration(self, builder: NodeBuilder):
         builder.fixed_output("id", "ID", "Integer")
         builder.fixed_output("position", "Position", "Vector")
         builder.fixed_output("velocity", "Velocity", "Vector")

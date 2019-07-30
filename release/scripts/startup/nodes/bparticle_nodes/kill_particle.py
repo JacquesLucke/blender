@@ -7,5 +7,5 @@ class KillParticleNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_KillParticleNode"
     bl_label = "Kill Particle"
 
-    def declaration(self, builder : NodeBuilder):
+    def declaration(self, builder: NodeBuilder):
         builder.control_flow_input("control_in", "(In)")

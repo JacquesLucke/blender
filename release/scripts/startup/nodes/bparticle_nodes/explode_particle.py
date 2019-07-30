@@ -9,7 +9,7 @@ class ExplodeParticleNode(bpy.types.Node, BParticlesNode):
 
     particle_type_name: StringProperty(maxlen=64)
 
-    def declaration(self, builder : NodeBuilder):
+    def declaration(self, builder: NodeBuilder):
         builder.control_flow_input("control_in", "(In)")
         builder.fixed_input("amount", "Amount", "Integer", default=10)
         builder.fixed_input("speed", "Speed", "Float", default=2)

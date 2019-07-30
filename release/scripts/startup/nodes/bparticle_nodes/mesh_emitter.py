@@ -7,7 +7,7 @@ class MeshEmitterNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_MeshEmitterNode"
     bl_label = "Mesh Emitter"
 
-    def declaration(self, builder : NodeBuilder):
+    def declaration(self, builder: NodeBuilder):
         builder.fixed_input("object", "Object", "Object")
         builder.fixed_input("rate", "Rate", "Float", default=10)
         builder.fixed_input("normal_velocity", "Normal Velocity", "Float", default=1)

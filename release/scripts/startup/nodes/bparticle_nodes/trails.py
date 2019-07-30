@@ -9,7 +9,7 @@ class ParticleTrailsNode(bpy.types.Node, BParticlesNode):
 
     particle_type_name: StringProperty()
 
-    def declaration(self, builder : NodeBuilder):
+    def declaration(self, builder: NodeBuilder):
         builder.fixed_input("rate", "Rate", "Float", default=10)
         builder.particle_modifier_output("effect", "Effect")
 

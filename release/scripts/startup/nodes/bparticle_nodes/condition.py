@@ -7,7 +7,7 @@ class ParticleConditionNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_ParticleConditionNode"
     bl_label = "Particle Condition"
 
-    def declaration(self, builder : NodeBuilder):
+    def declaration(self, builder: NodeBuilder):
         builder.control_flow_input("control_in", "(In)")
         builder.fixed_input("condition", "Condition", "Boolean")
         builder.control_flow_output("if_true", "If True")
