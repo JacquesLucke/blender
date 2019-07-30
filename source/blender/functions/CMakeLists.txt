@@ -132,6 +132,10 @@ set(SRC
   functions/ranges.cpp
   functions/comparisons.hpp
   functions/comparisons.cpp
+  functions/constants.hpp
+  functions/constants.cpp
+  functions/color.hpp
+  functions/color.cpp
 
   frontends/data_flow_nodes/builder.hpp
   frontends/data_flow_nodes/builder.cpp

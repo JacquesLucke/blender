@@ -10,3 +10,5 @@
 #include "functions/auto_vectorization.hpp"
 #include "functions/ranges.hpp"
 #include "functions/comparisons.hpp"
+#include "functions/constants.hpp"
+#include "functions/color.hpp"

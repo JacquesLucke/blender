@@ -260,6 +260,16 @@ static void INSERT_separate_vector(BTreeGraphBuilder &builder, VirtualNode *vnod
   builder.insert_matching_function(fn, vnode);
 }
 
+static void INSERT_separate_color(BTreeGraphBuilder &builder, VirtualNode *vnode)
+{
+  PointerRNA rna = vnode->rna();
+  SharedFunction fn = get_vectorized_function(
+      Functions::GET_FN_separate_color(),
+      rna,
+      {{"use_list__color", Functions::GET_FN_output_magenta()}});
+  builder.insert_matching_function(fn, vnode);
+}
+
 static SharedFunction &get_compare_function(int operation)
 {
   switch (operation) {
@@ -303,6 +313,7 @@ void register_node_inserters(GraphInserters &inserters)
   inserters.reg_node_inserter("fn_SwitchNode", INSERT_switch);
   inserters.reg_node_inserter("fn_ListLengthNode", INSERT_list_length);
   inserters.reg_node_inserter("fn_CompareNode", INSERT_compare);
+  inserters.reg_node_inserter("fn_SeparateColorNode", INSERT_separate_color);
 }
 
 }  // namespace DataFlowNodes
