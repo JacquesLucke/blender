@@ -4,101 +4,27 @@ namespace BParticles {
 
 void AttributesDeclaration::join(AttributesDeclaration &other)
 {
-  for (uint i = 0; i < other.m_byte_names.size(); i++) {
-    if (m_byte_names.add(other.m_byte_names[i])) {
-      m_byte_defaults.append(other.m_byte_defaults[i]);
-    }
-  }
-  for (uint i = 0; i < other.m_integer_names.size(); i++) {
-    if (m_integer_names.add(other.m_integer_names[i])) {
-      m_integer_defaults.append(other.m_integer_defaults[i]);
-    }
-  }
-  for (uint i = 0; i < other.m_float_names.size(); i++) {
-    if (m_float_names.add(other.m_float_names[i])) {
-      m_float_defaults.append(other.m_float_defaults[i]);
-    }
-  }
-  for (uint i = 0; i < other.m_float3_names.size(); i++) {
-    if (m_float3_names.add(other.m_float3_names[i])) {
-      m_float3_defaults.append(other.m_float3_defaults[i]);
+  for (uint i = 0; i < other.size(); i++) {
+    if (m_names.add(other.m_names[i])) {
+      m_types.append(other.m_types[i]);
+      m_defaults.append(other.m_defaults[i]);
     }
   }
 }
 
 void AttributesDeclaration::join(AttributesInfo &other)
 {
-  for (uint i : other.byte_attributes()) {
-    if (m_byte_names.add(other.name_of(i).to_std_string())) {
-      m_byte_defaults.append(*(uint8_t *)other.default_value_ptr(i));
-    }
-  }
-  for (uint i : other.integer_attributes()) {
-    if (m_integer_names.add(other.name_of(i).to_std_string())) {
-      m_integer_defaults.append(*(uint8_t *)other.default_value_ptr(i));
-    }
-  }
-  for (uint i : other.float_attributes()) {
-    if (m_float_names.add(other.name_of(i).to_std_string())) {
-      m_float_defaults.append(*(float *)other.default_value_ptr(i));
-    }
-  }
-  for (uint i : other.float3_attributes()) {
-    if (m_float3_names.add(other.name_of(i).to_std_string())) {
-      m_float3_defaults.append(*(float3 *)other.default_value_ptr(i));
+  for (uint i = 0; i < other.size(); i++) {
+    if (m_names.add(other.m_names[i])) {
+      m_types.append(other.m_types[i]);
+      m_defaults.append(other.m_defaults[i]);
     }
   }
 }
 
 AttributesInfo::AttributesInfo(AttributesDeclaration &builder)
-    : AttributesInfo(builder.m_byte_names,
-                     builder.m_integer_names,
-                     builder.m_float_names,
-                     builder.m_float3_names,
-                     builder.m_byte_defaults,
-                     builder.m_integer_defaults,
-                     builder.m_float_defaults,
-                     builder.m_float3_defaults)
+    : m_names(builder.m_names), m_types(builder.m_types), m_defaults(builder.m_defaults)
 {
-}
-
-AttributesInfo::AttributesInfo(ArrayRef<std::string> byte_names,
-                               ArrayRef<std::string> integer_names,
-                               ArrayRef<std::string> float_names,
-                               ArrayRef<std::string> float3_names,
-                               ArrayRef<uint8_t> byte_defaults,
-                               ArrayRef<int32_t> integer_defaults,
-                               ArrayRef<float> float_defaults,
-                               ArrayRef<float3> float3_defaults)
-{
-  BLI_assert(byte_names.size() == byte_defaults.size());
-  BLI_assert(integer_names.size() == integer_defaults.size());
-  BLI_assert(float_names.size() == float_defaults.size());
-  BLI_assert(float3_names.size() == float3_defaults.size());
-
-  m_indices = {};
-  m_indices.add_multiple_new(byte_names);
-  m_indices.add_multiple_new(integer_names);
-  m_indices.add_multiple_new(float_names);
-  m_indices.add_multiple_new(float3_names);
-  BLI_assert(m_indices.size() ==
-             byte_names.size() + integer_names.size() + float_names.size() + float3_names.size());
-
-  m_byte_attributes = Range<uint>(0, byte_names.size());
-  m_integer_attributes = m_byte_attributes.after(integer_names.size());
-  m_float_attributes = m_integer_attributes.after(float_names.size());
-  m_float3_attributes = m_float_attributes.after(float3_names.size());
-
-  m_types = {};
-  m_types.append_n_times(AttributeType::Byte, m_byte_attributes.size());
-  m_types.append_n_times(AttributeType::Integer, m_integer_attributes.size());
-  m_types.append_n_times(AttributeType::Float, m_float_attributes.size());
-  m_types.append_n_times(AttributeType::Float3, m_float3_attributes.size());
-
-  m_byte_defaults = byte_defaults;
-  m_integer_defaults = integer_defaults;
-  m_float_defaults = float_defaults;
-  m_float3_defaults = float3_defaults;
 }
 
 AttributeArraysCore::AttributeArraysCore(AttributesInfo &info, ArrayRef<void *> arrays, uint size)

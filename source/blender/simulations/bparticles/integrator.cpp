@@ -5,7 +5,7 @@ namespace BParticles {
 ConstantVelocityIntegrator::ConstantVelocityIntegrator()
 {
   AttributesDeclaration builder;
-  builder.add_float3("Position", {0, 0, 0});
+  builder.add<float3>("Position", {0, 0, 0});
   m_offset_attributes_info = AttributesInfo(builder);
 }
 
@@ -29,8 +29,8 @@ void ConstantVelocityIntegrator::integrate(IntegratorInterface &interface)
 EulerIntegrator::EulerIntegrator(ArrayRef<Force *> forces) : m_forces(forces)
 {
   AttributesDeclaration builder;
-  builder.add_float3("Position", {0, 0, 0});
-  builder.add_float3("Velocity", {0, 0, 0});
+  builder.add<float3>("Position", {0, 0, 0});
+  builder.add<float3>("Velocity", {0, 0, 0});
   m_offset_attributes_info = AttributesInfo(builder);
 }
 

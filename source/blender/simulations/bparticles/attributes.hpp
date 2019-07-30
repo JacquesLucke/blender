@@ -71,28 +71,47 @@ inline uint size_of_attribute_type(AttributeType type)
   };
 }
 
+#define MAX_ATTRIBUTE_SIZE sizeof(float3)
+
+struct AnyAttributeValue {
+  char storage[MAX_ATTRIBUTE_SIZE];
+
+  template<typename T> static AnyAttributeValue FromValue(T value)
+  {
+    BLI_STATIC_ASSERT(attribute_type_by_type<T>::value >= 0, "");
+    BLI_STATIC_ASSERT(sizeof(T) <= MAX_ATTRIBUTE_SIZE, "");
+    AnyAttributeValue attribute;
+    memcpy(attribute.storage, &value, sizeof(T));
+    return attribute;
+  }
+};
+
 class AttributesInfo;
 
 class AttributesDeclaration {
  private:
-  SetVector<std::string> m_byte_names;
-  SetVector<std::string> m_integer_names;
-  SetVector<std::string> m_float_names;
-  SetVector<std::string> m_float3_names;
-  Vector<uint8_t> m_byte_defaults;
-  Vector<int32_t> m_integer_defaults;
-  Vector<float> m_float_defaults;
-  Vector<float3> m_float3_defaults;
+  SetVector<std::string> m_names;
+  Vector<AttributeType> m_types;
+  Vector<AnyAttributeValue> m_defaults;
 
   friend AttributesInfo;
 
  public:
   AttributesDeclaration() = default;
 
-  void add_byte(StringRef name, uint8_t default_value);
-  void add_integer(StringRef name, int32_t default_value);
-  void add_float(StringRef name, float default_value);
-  void add_float3(StringRef name, float3 default_value);
+  template<typename T> void add(StringRef name, T default_value)
+  {
+    if (m_names.add(name.to_std_string())) {
+      AttributeType type = attribute_type_by_type<T>::value;
+      m_types.append(type);
+      m_defaults.append(AnyAttributeValue::FromValue(default_value));
+    }
+  }
+
+  uint size() const
+  {
+    return m_names.size();
+  }
 
   void join(AttributesDeclaration &other);
   void join(AttributesInfo &other);
@@ -102,42 +121,26 @@ class AttributesDeclaration {
  * Contains information about a set of attributes. Every attribute is identified by a unique name
  * and a unique index. So two attributes of different types have to have different names.
  *
- * The attributes are sorted such that attributes with the same type have consecutive indices.
- *
  * Furthermore, every attribute has a default value.
  */
 class AttributesInfo {
  private:
-  Range<uint> m_byte_attributes;
-  Range<uint> m_integer_attributes;
-  Range<uint> m_float_attributes;
-  Range<uint> m_float3_attributes;
+  SetVector<std::string> m_names;
   Vector<AttributeType> m_types;
-  SetVector<std::string> m_indices;
+  Vector<AnyAttributeValue> m_defaults;
 
-  Vector<uint8_t> m_byte_defaults;
-  Vector<int32_t> m_integer_defaults;
-  Vector<float> m_float_defaults;
-  Vector<float3> m_float3_defaults;
+  friend AttributesDeclaration;
 
  public:
   AttributesInfo() = default;
   AttributesInfo(AttributesDeclaration &builder);
-  AttributesInfo(ArrayRef<std::string> byte_names,
-                 ArrayRef<std::string> integer_names,
-                 ArrayRef<std::string> float_names,
-                 ArrayRef<std::string> float3_names,
-                 ArrayRef<uint8_t> byte_defaults,
-                 ArrayRef<int32_t> integer_defaults,
-                 ArrayRef<float> float_defaults,
-                 ArrayRef<float3> float3_defaults);
 
   /**
    * Get the number of different attributes.
    */
-  uint amount() const
+  uint size() const
   {
-    return m_indices.size();
+    return m_names.size();
   }
 
   /**
@@ -146,7 +149,7 @@ class AttributesInfo {
    */
   StringRefNull name_of(uint index) const
   {
-    return m_indices[index];
+    return m_names[index];
   }
 
   /**
@@ -182,7 +185,7 @@ class AttributesInfo {
    */
   int attribute_index_try(StringRef name) const
   {
-    return m_indices.index(name.to_std_string());
+    return m_names.index(name.to_std_string());
   }
 
   /**
@@ -220,39 +223,7 @@ class AttributesInfo {
    */
   Range<uint> attribute_indices() const
   {
-    return Range<uint>(0, m_indices.size());
-  }
-
-  /**
-   * Get a range with all byte attribute indices.
-   */
-  Range<uint> byte_attributes() const
-  {
-    return m_byte_attributes;
-  }
-
-  /**
-   * Get a range with all integer attribute indices.
-   */
-  Range<uint> integer_attributes() const
-  {
-    return m_integer_attributes;
-  }
-
-  /**
-   * Get a range with all float attribute indices.
-   */
-  Range<uint> float_attributes() const
-  {
-    return m_float_attributes;
-  }
-
-  /**
-   * Get a range with all float3 attribute indices.
-   */
-  Range<uint> float3_attributes() const
-  {
-    return m_float3_attributes;
+    return Range<uint>(0, this->size());
   }
 
   /**
@@ -260,20 +231,8 @@ class AttributesInfo {
    */
   void *default_value_ptr(uint index) const
   {
-    BLI_assert(index < m_indices.size());
-    AttributeType type = this->type_of(index);
-    switch (type) {
-      case AttributeType::Byte:
-        return (void *)&m_byte_defaults[index - m_byte_attributes.first()];
-      case AttributeType::Integer:
-        return (void *)&m_integer_defaults[index - m_integer_attributes.first()];
-      case AttributeType::Float:
-        return (void *)&m_float_defaults[index - m_float_attributes.first()];
-      case AttributeType::Float3:
-        return (void *)&m_float3_defaults[index - m_float3_attributes.first()];
-    }
-    BLI_assert(false);
-    return nullptr;
+    BLI_assert(index < this->size());
+    return (void *)m_defaults[index].storage;
   }
 
   /**
@@ -446,37 +405,6 @@ class AttributeArrays {
    */
   AttributeArrays take_front(uint n) const;
 };
-
-/* Attribute Info Builder
- *****************************************/
-
-inline void AttributesDeclaration::add_byte(StringRef name, uint8_t default_value)
-{
-  if (m_byte_names.add(name.to_std_string())) {
-    m_byte_defaults.append(default_value);
-  }
-}
-
-inline void AttributesDeclaration::add_integer(StringRef name, int32_t default_value)
-{
-  if (m_integer_names.add(name.to_std_string())) {
-    m_integer_defaults.append(default_value);
-  }
-}
-
-inline void AttributesDeclaration::add_float(StringRef name, float default_value)
-{
-  if (m_float_names.add(name.to_std_string())) {
-    m_float_defaults.append(default_value);
-  }
-}
-
-inline void AttributesDeclaration::add_float3(StringRef name, float3 default_value)
-{
-  if (m_float3_names.add(name.to_std_string())) {
-    m_float3_defaults.append(default_value);
-  }
-}
 
 /* Attribute Arrays Core
  *****************************************/

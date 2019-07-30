@@ -77,7 +77,7 @@ void ParticlesContainer::free_block(ParticlesBlock *block)
 static Vector<int> map_attribute_indices(AttributesInfo &from_info, AttributesInfo &to_info)
 {
   Vector<int> mapping;
-  mapping.reserve(from_info.amount());
+  mapping.reserve(from_info.size());
 
   for (uint from_index : from_info.attribute_indices()) {
     StringRef name = from_info.name_of(from_index);
@@ -121,7 +121,7 @@ void ParticlesContainer::update_attributes(AttributesInfo new_info)
   m_attributes_info = new_info;
 
   Vector<void *> arrays;
-  arrays.reserve(new_info.amount());
+  arrays.reserve(new_info.size());
 
   Vector<ParticlesBlock *> all_blocks;
   all_blocks.extend(m_active_blocks);
@@ -196,7 +196,7 @@ void ParticlesBlock::MoveUntilFull(ParticlesBlock &from, ParticlesBlock &to)
   uint src_start = from.active_amount() - move_amount;
   uint dst_start = to.first_unused_index();
 
-  uint attribute_amount = from.container().attributes_info().amount();
+  uint attribute_amount = from.container().attributes_info().size();
   for (uint i = 0; i < attribute_amount; i++) {
     void *from_buffer = from.attributes_core().get_ptr(i);
     void *to_buffer = to.attributes_core().get_ptr(i);

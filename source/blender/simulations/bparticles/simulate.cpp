@@ -75,9 +75,10 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
   ParticleSet particles(step_data.block, pindices);
 
   auto attribute_offsets = step_data.attribute_offsets;
-  for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
+  for (uint attribute_index : attribute_offsets.info().attribute_indices()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
+    /* Only vectors can be integrated for now. */
     auto values = particles.attributes().get<float3>(name);
     auto offsets = attribute_offsets.get<float3>(attribute_index);
 
@@ -101,7 +102,8 @@ BLI_NOINLINE static void update_remaining_attribute_offsets(
     ArrayRef<float> time_factors_to_next_event,
     AttributeArrays attribute_offsets)
 {
-  for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
+  for (uint attribute_index : attribute_offsets.info().attribute_indices()) {
+    /* Only vectors can be integrated for now. */
     auto offsets = attribute_offsets.get<float3>(attribute_index);
 
     for (uint pindex : pindices_with_event) {
@@ -298,9 +300,10 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Array
   auto attribute_offsets = step_data.attribute_offsets;
   ParticleSet particles(step_data.block, pindices);
 
-  for (uint attribute_index : attribute_offsets.info().float3_attributes()) {
+  for (uint attribute_index : attribute_offsets.info().attribute_indices()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
+    /* Only vectors can be integrated for now. */
     auto values = particles.attributes().get<float3>(name);
     auto offsets = attribute_offsets.get<float3>(attribute_index);
 
@@ -554,9 +557,9 @@ BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &t
     event->attributes(builder);
   }
 
-  builder.add_byte("Kill State", 0);
-  builder.add_integer("ID", 0);
-  builder.add_float("Birth Time", 0);
+  builder.add<uint8_t>("Kill State", 0);
+  builder.add<int32_t>("ID", 0);
+  builder.add<float>("Birth Time", 0);
 
   return AttributesInfo(builder);
 }

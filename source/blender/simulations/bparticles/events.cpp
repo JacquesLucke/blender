@@ -7,7 +7,7 @@ namespace BParticles {
 
 void AgeReachedEvent::attributes(AttributesDeclaration &builder)
 {
-  builder.add_byte(m_identifier, 0);
+  builder.add<uint8_t>(m_identifier, 0);
 }
 
 void AgeReachedEvent::filter(EventFilterInterface &interface)
@@ -63,7 +63,7 @@ void AgeReachedEvent::execute(EventExecuteInterface &interface)
 
 void MeshCollisionEvent::attributes(AttributesDeclaration &builder)
 {
-  builder.add_float(m_identifier, 0.0f);
+  builder.add<float>(m_identifier, 0.0f);
 }
 
 uint MeshCollisionEvent::storage_size()
