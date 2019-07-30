@@ -8,8 +8,10 @@ def draw_menu(self, context):
         return
 
     layout = self.layout
-    self.operator_context = "INVOKE_DEFAULT"
+    layout.operator_context = 'INVOKE_DEFAULT'
 
+    layout.operator("fn.node_search", text="Search", icon='VIEWZOOM')
+    layout.separator()
     insert_node(layout, "fn_FunctionInputNode", "Function Input")
     insert_node(layout, "fn_FunctionOutputNode", "Function Output")
     layout.separator()
