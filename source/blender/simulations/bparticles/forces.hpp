@@ -39,10 +39,10 @@ class TurbulenceForce : public Force {
 };
 
 class PointForce : public Force {
- private: 
+ private:
   std::unique_ptr<ParticleFunction> m_compute_inputs;
 
- public: 
+ public:
   PointForce(std::unique_ptr<ParticleFunction> compute_inputs)
       : m_compute_inputs(std::move(compute_inputs))
   {

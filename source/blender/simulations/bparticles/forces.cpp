@@ -56,12 +56,12 @@ void PointForce::add_force(ForceInterface &interface)
 
     if (gravitation) {
       if (distance < FLT_EPSILON) {
-		strength = 0.0f;
-	  }
+        strength = 0.0f;
+      }
       else {
         strength *= powf(distance, -2.0f);
-	  }
-	}
+      }
+    }
 
     direction *= (strength * falloff);
 
