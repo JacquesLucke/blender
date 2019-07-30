@@ -44,7 +44,7 @@ class BaseNode:
     def init(self, context):
         from . sync import skip_syncing
         with skip_syncing():
-            builder = self.get_socket_builder()
+            builder = self.get_node_builder()
             builder.initialize_decls()
             builder.build()
             builder.init_defaults()
@@ -74,7 +74,7 @@ class BaseNode:
     def rebuild_fast(self):
         from . sync import skip_syncing
         with skip_syncing():
-            builder = self.get_socket_builder()
+            builder = self.get_node_builder()
             builder.build()
             _decl_map_per_node[self] = builder.get_sockets_decl_map()
 
@@ -82,7 +82,7 @@ class BaseNode:
     def tree(self):
         return self.id_data
 
-    def get_socket_builder(self):
+    def get_node_builder(self):
         from . node_builder import NodeBuilder
         builder = NodeBuilder(self)
         self.declaration(builder)
@@ -164,7 +164,7 @@ class BaseNode:
     @property
     def decl_map(self):
         if self not in _decl_map_per_node:
-            builder = self.get_socket_builder()
+            builder = self.get_node_builder()
             _decl_map_per_node[self] = builder.get_sockets_decl_map()
         return _decl_map_per_node[self]
 
