@@ -29,6 +29,8 @@ BLI_LAZY_INIT_STATIC(StringTypeMappings, get_type_by_name_mappings)
   ADD_TYPE("fn_BooleanListSocket", "Boolean List", bool_list);
   ADD_TYPE("fn_ObjectSocket", "Object", object);
   ADD_TYPE("fn_ObjectListSocket", "Object List", object_list);
+  ADD_TYPE("fn_ColorSocket", "Color", rgba_f);
+  ADD_TYPE("fn_ColorListSocket", "Color List", rgba_f_list);
   return maps;
 
 #undef ADD_TYPE

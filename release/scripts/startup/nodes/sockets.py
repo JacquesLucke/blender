@@ -105,6 +105,30 @@ class ObjectSocket(bpy.types.NodeSocket, DataSocket):
         layout.prop(self, "value", text=text)
 
     def get_state(self):
+        return tuple(self.value)
+
+    def restore_state(self, state):
+        self.value = state
+
+class ColorSocket(bpy.types.NodeSocket, DataSocket):
+    bl_idname = "fn_ColorSocket"
+    bl_label = "Color Socket"
+    data_type = "Color"
+    color = (0.8, 0.8, 0.2, 1)
+
+    value: FloatVectorProperty(
+        name="Value",
+        size=4,
+        default=(0.8, 0.8, 0.8, 1.0),
+        subtype='COLOR',
+        soft_min=0.0,
+        soft_max=0.0,
+    )
+
+    def draw_property(self, layout, node, text):
+        layout.prop(self, "value", text=text)
+
+    def get_state(self):
         return self.value
 
     def restore_state(self, state):
@@ -129,6 +153,8 @@ BooleanListSocket = create_simple_data_socket(
     "fn_BooleanListSocket", "Boolean List", (0.3, 0.3, 0.3, 0.5))
 ObjectListSocket = create_simple_data_socket(
     "fn_ObjectListSocket", "Object List", (0, 0, 0, 0.5))
+ColorListSocket = create_simple_data_socket(
+    "fn_ColorListSocket", "Color List", (0.8, 0.8, 0.2, 0.5))
 
 class EmitterSocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "bp_EmitterSocket"

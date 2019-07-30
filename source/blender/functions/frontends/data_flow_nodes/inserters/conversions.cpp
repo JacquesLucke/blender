@@ -41,6 +41,7 @@ void register_conversion_inserters(GraphInserters &inserters)
   inserters.reg_conversion_inserter("Integer", "Integer List", INSERT_base_to_list);
   inserters.reg_conversion_inserter("Boolean", "Boolean List", INSERT_base_to_list);
   inserters.reg_conversion_inserter("Object", "Object List", INSERT_base_to_list);
+  inserters.reg_conversion_inserter("Color", "Color List", INSERT_base_to_list);
 }
 
 }  // namespace DataFlowNodes

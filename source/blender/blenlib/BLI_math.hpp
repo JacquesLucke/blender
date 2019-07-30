@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include "BLI_math_vector.h"
 #include "BLI_math_matrix.h"
 
@@ -34,6 +36,11 @@ struct float3 {
   operator float *()
   {
     return (float *)this;
+  }
+
+  operator std::array<float, 3>()
+  {
+    return {x, y, z};
   }
 
   float normalize_and_get_length()
@@ -211,6 +218,26 @@ struct float4x4 {
     float result[4][4];
     interp_m4_m4m4(result, a.values, b.values, t);
     return result;
+  }
+};
+
+struct rgba_f {
+  float r, g, b, a;
+
+  rgba_f() = default;
+
+  rgba_f(float r, float g, float b, float a) : r(r), g(g), b(b), a(a)
+  {
+  }
+
+  operator float *()
+  {
+    return &r;
+  }
+
+  operator std::array<float, 4>()
+  {
+    return {r, g, b, a};
   }
 };
 

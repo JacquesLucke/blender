@@ -61,5 +61,10 @@ BLI_LAZY_INIT(SharedType, GET_TYPE_object_list)
   return create_list_type<Object *>("Object List");
 }
 
+BLI_LAZY_INIT(SharedType, GET_TYPE_rgba_f_list)
+{
+  return create_list_type<rgba_f>("RGBA Float List");
+}
+
 }  // namespace Types
 }  // namespace FN

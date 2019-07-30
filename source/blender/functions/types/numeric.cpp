@@ -72,5 +72,13 @@ BLI_LAZY_INIT(SharedType, GET_TYPE_float3)
   return type;
 }
 
+BLI_LAZY_INIT(SharedType, GET_TYPE_rgba_f)
+{
+  SharedType type = SharedType::New("RGBA Float");
+  type->add_extension<CPPTypeInfoForType<rgba_f>>();
+  type->add_extension<FloatVectorType>(4);
+  return type;
+}
+
 }  // namespace Types
 }  // namespace FN

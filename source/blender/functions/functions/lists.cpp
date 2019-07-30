@@ -272,6 +272,7 @@ BLI_LAZY_INIT_STATIC(ListFunctions, get_list_functions)
   insert_list_functions_for_type<int32_t>(functions, GET_TYPE_int32(), GET_TYPE_int32_list());
   insert_list_functions_for_type<bool>(functions, GET_TYPE_bool(), GET_TYPE_bool_list());
   insert_list_functions_for_type<Object *>(functions, GET_TYPE_object(), GET_TYPE_object_list());
+  insert_list_functions_for_type<rgba_f>(functions, GET_TYPE_rgba_f(), GET_TYPE_rgba_f_list());
   return functions;
 }
 
