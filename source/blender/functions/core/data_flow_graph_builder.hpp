@@ -24,6 +24,8 @@ class DataFlowGraph;
 
 class DFGB_Socket {
  public:
+  DFGB_Socket() = default;
+
   DFGB_Socket(DFGB_Node *node, bool is_output, uint index)
       : m_node(node), m_is_output(is_output), m_index(index)
   {

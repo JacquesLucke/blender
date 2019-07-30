@@ -64,29 +64,26 @@ static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
 static void insert_unlinked_inputs(BTreeGraphBuilder &builder,
                                    UnlinkedInputsHandler &unlinked_inputs_handler)
 {
-  Vector<VirtualSocket *> unlinked_inputs;
-  Vector<DFGB_Socket> sockets_in_builder;
 
   for (VirtualNode *vnode : builder.vtree().nodes()) {
+    Vector<VirtualSocket *> vsockets;
+    Vector<DFGB_Socket> sockets;
+
     for (VirtualSocket *vsocket : vnode->inputs()) {
       if (builder.is_data_socket(vsocket)) {
         DFGB_Socket socket = builder.lookup_socket(vsocket);
         if (!socket.is_linked()) {
-          unlinked_inputs.append(vsocket);
-          sockets_in_builder.append(socket);
+          vsockets.append(vsocket);
+          sockets.append(socket);
         }
       }
     }
+
+    if (vsockets.size() > 0) {
+      Vector<DFGB_Socket> new_origins(vsockets.size());
+      unlinked_inputs_handler.insert(builder, vsockets, new_origins);
+      builder.insert_links(new_origins, sockets);
   }
-
-  Vector<DFGB_Socket> inserted_data_origins;
-  inserted_data_origins.reserve(unlinked_inputs.size());
-  unlinked_inputs_handler.insert(builder, unlinked_inputs, inserted_data_origins);
-
-  BLI_assert(unlinked_inputs.size() == inserted_data_origins.size());
-
-  for (uint i = 0; i < unlinked_inputs.size(); i++) {
-    builder.insert_link(inserted_data_origins[i], sockets_in_builder[i]);
   }
 }
 
@@ -114,9 +111,9 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
 
   void insert(BTreeGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
-              Vector<DFGB_Socket> &r_inserted_data_origins) override
+              ArrayRef<DFGB_Socket> r_new_origins) override
   {
-    r_inserted_data_origins = std::move(m_inserters.insert_sockets(builder, unlinked_inputs));
+    m_inserters.insert_sockets(builder, unlinked_inputs, r_new_origins);
   }
 };
 

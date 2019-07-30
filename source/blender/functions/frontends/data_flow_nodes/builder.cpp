@@ -100,6 +100,14 @@ void BTreeGraphBuilder::insert_link(DFGB_Socket a, DFGB_Socket b)
   m_graph.insert_link(a, b);
 }
 
+void BTreeGraphBuilder::insert_links(ArrayRef<DFGB_Socket> a, ArrayRef<DFGB_Socket> b)
+{
+  BLI_assert(a.size() == b.size());
+  for (uint i = 0; i < a.size(); i++) {
+    this->insert_link(a[i], b[i]);
+  }
+}
+
 void BTreeGraphBuilder::map_socket(DFGB_Socket socket, VirtualSocket *vsocket)
 {
   BLI_assert(this->is_data_socket(vsocket) ? socket.type() == this->query_socket_type(vsocket) :

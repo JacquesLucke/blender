@@ -18,7 +18,7 @@ class UnlinkedInputsHandler {
  public:
   virtual void insert(BTreeGraphBuilder &builder,
                       ArrayRef<VirtualSocket *> unlinked_inputs,
-                      Vector<DFGB_Socket> &r_inserted_data_origins) = 0;
+                      ArrayRef<DFGB_Socket> r_new_origins) = 0;
 };
 
 class VTreeDataGraph {

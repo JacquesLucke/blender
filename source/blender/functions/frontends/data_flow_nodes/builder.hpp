@@ -34,6 +34,7 @@ class BTreeGraphBuilder {
 
   /* Insert Link */
   void insert_link(DFGB_Socket a, DFGB_Socket b);
+  void insert_links(ArrayRef<DFGB_Socket> a, ArrayRef<DFGB_Socket> b);
 
   /* Socket Mapping */
   void map_socket(DFGB_Socket socket, VirtualSocket *vsocket);
