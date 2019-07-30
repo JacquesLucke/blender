@@ -186,6 +186,14 @@ static std::unique_ptr<Force> BUILD_FORCE_turbulence(
   return std::unique_ptr<Force>(new TurbulenceForce(std::move(compute_inputs_fn)));
 }
 
+static std::unique_ptr<Force> BUILD_FORCE_point(
+    BuildContext &UNUSED(ctx),
+    VirtualNode *UNUSED(vnode),
+    std::unique_ptr<ParticleFunction> compute_inputs_fn)
+{
+  return std::unique_ptr<Force>(new PointForce(std::move(compute_inputs_fn)));
+}
+
 static std::unique_ptr<Event> BUILD_EVENT_mesh_collision(
     BuildContext &ctx, VirtualNode *vnode, std::unique_ptr<ParticleFunction> compute_inputs_fn)
 {
@@ -426,6 +434,7 @@ BLI_LAZY_INIT(StringMap<ForceFromNodeCallback>, get_force_builders)
   StringMap<ForceFromNodeCallback> map;
   map.add_new("bp_GravityForceNode", BUILD_FORCE_gravity);
   map.add_new("bp_TurbulenceForceNode", BUILD_FORCE_turbulence);
+  map.add_new("bp_PointForceNode", BUILD_FORCE_point);
   return map;
 }
 
