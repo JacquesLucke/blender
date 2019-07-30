@@ -11,7 +11,7 @@ class ParticleTrailsNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("rate", "Rate", "Float", default=10)
-        builder.particle_modifier_output("effect", "Effect")
+        builder.particle_effector_output("effect", "Effect")
 
     def draw(self, layout):
         layout.prop(self, "particle_type_name", text="", icon="MOD_PARTICLES")

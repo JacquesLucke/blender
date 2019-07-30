@@ -9,4 +9,4 @@ class TurbulenceForceNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("strength", "Strength", "Vector", default=(1, 1, 1))
-        builder.particle_modifier_output("force", "Force")
+        builder.particle_effector_output("force", "Force")

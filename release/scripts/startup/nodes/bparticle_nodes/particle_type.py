@@ -8,7 +8,7 @@ class ParticleTypeNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.emitter_input("emitters", "Emitters")
-        builder.particle_modifier_input("effectors", "Effectors")
+        builder.particle_effector_input("effectors", "Effectors")
         builder.event_output("events", "Events")
 
     def draw(self, layout):

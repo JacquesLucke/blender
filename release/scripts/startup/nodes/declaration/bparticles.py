@@ -86,14 +86,14 @@ class ControlFlowSocketDecl(SocketDeclBase):
     def amount(self):
         return 1
 
-class ParticleModifierSocketDecl(SocketDeclBase):
+class ParticleEffectorSocketDecl(SocketDeclBase):
     def __init__(self, node, identifier: str, display_name: str):
         self.node = node
         self.identifier = identifier
         self.display_name = display_name
 
     def build(self, node_sockets):
-        socket = node_sockets.new("bp_ParticleModifierSocket", self.display_name, identifier=self.identifier)
+        socket = node_sockets.new("bp_ParticleEffectorSocket", self.display_name, identifier=self.identifier)
         socket.link_limit = MAX_LINK_LIMIT
         return [socket]
 
@@ -101,7 +101,7 @@ class ParticleModifierSocketDecl(SocketDeclBase):
         if len(sockets) != 1:
             return False
         socket = sockets[0]
-        if socket.bl_idname != "bp_ParticleModifierSocket":
+        if socket.bl_idname != "bp_ParticleEffectorSocket":
             return False
         if socket.name != self.display_name:
             return False

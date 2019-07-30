@@ -9,5 +9,5 @@ from . bparticles import (
     EmitterSocketDecl,
     EventSocketDecl,
     ControlFlowSocketDecl,
-    ParticleModifierSocketDecl,
+    ParticleEffectorSocketDecl,
 )
