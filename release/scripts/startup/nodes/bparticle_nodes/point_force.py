@@ -13,4 +13,4 @@ class PointForceNode(bpy.types.Node, BParticlesNode):
         builder.fixed_input("falloff", "Falloff", "Float", default = 1.0)
         builder.fixed_input("distance", "Distance", "Float", default = 1.0)
         builder.fixed_input("gravitation", "Gravitation", "Boolean", default=False)
-        builder.particle_modifier_output("force", "Force")
+        builder.particle_effector_output("force", "Force")
