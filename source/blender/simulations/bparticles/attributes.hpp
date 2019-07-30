@@ -18,6 +18,7 @@ using BLI::ArrayRef;
 using BLI::float3;
 using BLI::Optional;
 using BLI::Range;
+using BLI::rgba_f;
 using BLI::SetVector;
 using BLI::StringRef;
 using BLI::StringRefNull;
@@ -32,6 +33,7 @@ enum AttributeType {
   Integer,
   Float,
   Float3,
+  RGBA_f,
 };
 
 template<typename T> struct attribute_type_by_type {
@@ -46,6 +48,7 @@ ATTRIBUTE_TYPE_BY_TYPE(uint8_t, Byte);
 ATTRIBUTE_TYPE_BY_TYPE(int32_t, Integer);
 ATTRIBUTE_TYPE_BY_TYPE(float, Float);
 ATTRIBUTE_TYPE_BY_TYPE(float3, Float3);
+ATTRIBUTE_TYPE_BY_TYPE(rgba_f, RGBA_f);
 
 #undef ATTRIBUTE_TYPE_BY_TYPE
 
@@ -65,13 +68,15 @@ inline uint size_of_attribute_type(AttributeType type)
       return sizeof(float);
     case AttributeType::Float3:
       return sizeof(float3);
+    case AttributeType::RGBA_f:
+      return sizeof(rgba_f);
     default:
       BLI_assert(false);
       return 0;
   };
 }
 
-#define MAX_ATTRIBUTE_SIZE sizeof(float3)
+#define MAX_ATTRIBUTE_SIZE sizeof(rgba_f)
 
 struct AnyAttributeValue {
   char storage[MAX_ATTRIBUTE_SIZE];

@@ -51,7 +51,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
     attributes.add<float3>("Position", {0, 0, 0});
     attributes.add<float3>("Velocity", {0, 0, 0});
     attributes.add<float>("Size", 0.01f);
-    attributes.add<float3>("Color", {1.0f, 1.0f, 1.0f});
+    attributes.add<rgba_f>("Color", {1.0f, 1.0f, 1.0f, 1.0f});
     declarations.add_new(particle_type_node->name(), attributes);
     particle_type_names.add_new(particle_type_node->name());
   }

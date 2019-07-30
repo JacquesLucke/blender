@@ -35,8 +35,8 @@ using BKE::IndexedNodeTree;
 using BKE::SocketWithNode;
 using BLI::ArrayRef;
 using BLI::float3;
-using BLI::Vector;
 using BLI::StringRef;
+using BLI::Vector;
 
 WRAPPERS(ParticlesState *, BParticlesState);
 
@@ -138,7 +138,7 @@ static void distribute_tetrahedons_range(Mesh *mesh,
                                          Range<uint> range,
                                          ArrayRef<float3> centers,
                                          ArrayRef<float> scales,
-                                         ArrayRef<float3> colors)
+                                         ArrayRef<rgba_f> colors)
 {
   for (uint instance : range) {
     uint vertex_offset = instance * ARRAY_SIZE(tetrahedon_vertices);
@@ -157,9 +157,9 @@ static void distribute_tetrahedons_range(Mesh *mesh,
       mesh->mpoly[face_offset + i].totloop = tetrahedon_loop_lengths[i];
     }
 
-    float3 color_f = colors[instance];
+    rgba_f color_f = colors[instance];
     MLoopCol color_b = {
-        (uchar)(color_f.x * 255.0f), (uchar)(color_f.y * 255.0f), (uchar)(color_f.z * 255.0f)};
+        (uchar)(color_f.r * 255.0f), (uchar)(color_f.g * 255.0f), (uchar)(color_f.b * 255.0f)};
     for (uint i = 0; i < ARRAY_SIZE(tetrahedon_loop_vertices); i++) {
       mesh->mloop[loop_offset + i].v = vertex_offset + tetrahedon_loop_vertices[i];
       loop_colors[loop_offset + i] = color_b;
@@ -174,7 +174,7 @@ static void distribute_tetrahedons_range(Mesh *mesh,
 
 static Mesh *distribute_tetrahedons(ArrayRef<float3> centers,
                                     ArrayRef<float> scales,
-                                    ArrayRef<float3> colors)
+                                    ArrayRef<rgba_f> colors)
 {
   SCOPED_TIMER(__func__);
 
@@ -237,7 +237,7 @@ Mesh *BParticles_modifier_point_mesh_from_state(BParticlesState state_c)
 
   Vector<float3> positions;
   for (ParticlesContainer *container : state.particle_containers().values()) {
-    positions.extend(container->flatten_attribute_float3("Position"));
+    positions.extend(container->flatten_attribute<float3>("Position"));
   }
 
   Mesh *mesh = BKE_mesh_new_nomain(positions.size(), 0, 0, 0, 0);
@@ -257,12 +257,12 @@ Mesh *BParticles_modifier_mesh_from_state(BParticlesState state_c)
 
   Vector<float3> positions;
   Vector<float> sizes;
-  Vector<float3> colors;
+  Vector<rgba_f> colors;
 
   for (ParticlesContainer *container : state.particle_containers().values()) {
-    positions.extend(container->flatten_attribute_float3("Position"));
-    colors.extend(container->flatten_attribute_float3("Color"));
-    sizes.extend(container->flatten_attribute_float("Size"));
+    positions.extend(container->flatten_attribute<float3>("Position"));
+    colors.extend(container->flatten_attribute<rgba_f>("Color"));
+    sizes.extend(container->flatten_attribute<float>("Size"));
   }
 
   Mesh *mesh = distribute_tetrahedons(positions, sizes, colors);
@@ -275,7 +275,7 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
 
   Vector<float3> positions;
   Vector<float> sizes;
-  Vector<float3> colors;
+  Vector<rgba_f> colors;
 
   for (uint i = 0; i < cached_frame->num_particle_types; i++) {
     BParticlesTypeCache &type = cached_frame->particle_types[i];
@@ -283,7 +283,7 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
         ArrayRef<float3>((float3 *)type.attributes_float[0].values, type.particle_amount));
     sizes.extend(ArrayRef<float>(type.attributes_float[1].values, type.particle_amount));
     colors.extend(
-        ArrayRef<float3>((float3 *)type.attributes_float[2].values, type.particle_amount));
+        ArrayRef<rgba_f>((rgba_f *)type.attributes_float[2].values, type.particle_amount));
   }
 
   Mesh *mesh = distribute_tetrahedons(positions, sizes, colors);
@@ -331,10 +331,10 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     container.flatten_attribute_data("Size", size_attribute.values);
 
     BParticlesAttributeCacheFloat &color_attribute = cached_type.attributes_float[2];
-    color_attribute.floats_per_particle = 3;
+    color_attribute.floats_per_particle = 4;
     strncpy(color_attribute.name, "Color", sizeof(color_attribute.name));
     color_attribute.values = (float *)MEM_malloc_arrayN(
-        cached_type.particle_amount, sizeof(float3), __func__);
+        cached_type.particle_amount, sizeof(rgba_f), __func__);
     container.flatten_attribute_data("Color", color_attribute.values);
   }
 

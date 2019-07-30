@@ -38,14 +38,12 @@ void ChangeDirectionAction::execute(ActionInterface &interface)
 void ChangeColorAction::execute(ActionInterface &interface)
 {
   ParticleSet particles = interface.particles();
-  auto colors = particles.attributes().get<float3>("Color");
+  auto colors = particles.attributes().get<rgba_f>("Color");
 
   auto inputs = m_compute_inputs->compute(interface);
   for (uint pindex : particles.pindices()) {
     rgba_f color = inputs->get<rgba_f>("Color", 0, pindex);
-    colors[pindex].x = color.r;
-    colors[pindex].y = color.g;
-    colors[pindex].z = color.b;
+    colors[pindex] = color;
   }
 
   m_post_action->execute(interface);

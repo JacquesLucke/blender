@@ -92,8 +92,7 @@ class ParticlesContainer {
   /**
    * Get a vector containing an attribute value from every particle.
    */
-  Vector<float> flatten_attribute_float(StringRef attribute_name);
-  Vector<float3> flatten_attribute_float3(StringRef attribute_name);
+  template<typename T> Vector<T> flatten_attribute(StringRef attribute_name);
 
   friend bool operator==(const ParticlesContainer &a, const ParticlesContainer &b);
 
@@ -241,6 +240,14 @@ inline ArrayRef<ParticlesBlock *> ParticlesContainer::active_blocks()
 inline bool operator==(const ParticlesContainer &a, const ParticlesContainer &b)
 {
   return &a == &b;
+}
+
+template<typename T> Vector<T> ParticlesContainer::flatten_attribute(StringRef attribute_name)
+{
+  BLI_assert(m_attributes_info.type_of(attribute_name) == attribute_type_by_type<T>::value);
+  Vector<T> result(this->count_active());
+  this->flatten_attribute_data(attribute_name, (void *)result.begin());
+  return result;
 }
 
 /* Particles Block
