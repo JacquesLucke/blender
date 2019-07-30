@@ -74,6 +74,19 @@ static std::unique_ptr<Action> BUILD_ACTION_change_direction(
       new ChangeDirectionAction(std::move(compute_inputs_fn), std::move(post_action)));
 }
 
+static std::unique_ptr<Action> BUILD_ACTION_change_color(
+    BuildContext &ctx,
+    VirtualSocket *start,
+    VirtualSocket *trigger,
+    std::unique_ptr<ParticleFunction> compute_inputs_fn)
+{
+  VirtualNode *vnode = start->vnode();
+  auto post_action = build_action(ctx, vnode->output(0), trigger);
+
+  return std::unique_ptr<ChangeColorAction>(
+      new ChangeColorAction(std::move(compute_inputs_fn), std::move(post_action)));
+}
+
 static std::unique_ptr<Action> BUILD_ACTION_explode(
     BuildContext &ctx,
     VirtualSocket *start,
@@ -118,6 +131,7 @@ BLI_LAZY_INIT_STATIC(StringMap<ActionFromNodeCallback>, get_action_builders)
   map.add_new("bp_ChangeParticleDirectionNode", BUILD_ACTION_change_direction);
   map.add_new("bp_ExplodeParticleNode", BUILD_ACTION_explode);
   map.add_new("bp_ParticleConditionNode", BUILD_ACTION_condition);
+  map.add_new("bp_ChangeParticleColorNode", BUILD_ACTION_change_color);
   return map;
 }
 

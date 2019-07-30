@@ -4,6 +4,8 @@
 
 namespace BParticles {
 
+using BLI::rgba_f;
+
 void NoneAction::execute(ActionInterface &UNUSED(interface))
 {
 }
@@ -28,6 +30,22 @@ void ChangeDirectionAction::execute(ActionInterface &interface)
     if (velocity_offsets.has_value()) {
       velocity_offsets.value()[pindex] = float3(0);
     }
+  }
+
+  m_post_action->execute(interface);
+}
+
+void ChangeColorAction::execute(ActionInterface &interface)
+{
+  ParticleSet particles = interface.particles();
+  auto colors = particles.attributes().get<float3>("Color");
+
+  auto inputs = m_compute_inputs->compute(interface);
+  for (uint pindex : particles.pindices()) {
+    rgba_f color = inputs->get<rgba_f>("Color", 0, pindex);
+    colors[pindex].x = color.r;
+    colors[pindex].y = color.g;
+    colors[pindex].z = color.b;
   }
 
   m_post_action->execute(interface);

@@ -28,6 +28,21 @@ class ChangeDirectionAction : public Action {
   void execute(ActionInterface &interface) override;
 };
 
+class ChangeColorAction : public Action {
+ private:
+  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  std::unique_ptr<Action> m_post_action;
+
+ public:
+  ChangeColorAction(std::unique_ptr<ParticleFunction> compute_inputs,
+                    std::unique_ptr<Action> post_action)
+      : m_compute_inputs(std::move(compute_inputs)), m_post_action(std::move(post_action))
+  {
+  }
+
+  void execute(ActionInterface &interface) override;
+};
+
 class ExplodeAction : public Action {
  private:
   std::string m_new_particle_name;
