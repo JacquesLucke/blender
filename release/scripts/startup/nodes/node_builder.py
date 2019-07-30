@@ -19,6 +19,7 @@ class NodeBuilder:
         self.node = node
         self.input_declarations = []
         self.output_declarations = []
+        self._background_color = None
 
     def _add_input(self, decl):
         self.input_declarations.append(decl)
@@ -46,6 +47,10 @@ class NodeBuilder:
             for decl in self.output_declarations:
                 sockets = decl.build(self.node.outputs)
                 assert len(sockets) == decl.amount()
+
+            if self._background_color is not None:
+                self.node.use_custom_color = True
+                self.node.color = self._background_color
 
     def init_defaults(self):
         for decl, sockets in self.get_sockets_decl_map().iter_decl_with_sockets():
@@ -76,8 +81,15 @@ class NodeBuilder:
             return False
         return True
 
+    # General Node Properties
+    ###################################
 
-    # Fixed
+    def background_color(self, color):
+        assert len(color) == 3
+        self._background_color = color
+
+
+    # Fixed Data Types
     ###################################
 
     def fixed_input(self, identifier, name, data_type, *, default=NoDefaultValue):
