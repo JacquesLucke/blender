@@ -40,6 +40,7 @@ class TupleMeta : public RefCountedBase {
   Vector<SharedType> m_types;
   Vector<CPPTypeInfo *> m_type_info;
   Vector<uint> m_offsets;
+  Vector<uint> m_sizes;
   uint m_size__data;
   uint m_size__data_and_init;
   bool m_all_trivially_destructible;
@@ -110,7 +111,7 @@ class TupleMeta : public RefCountedBase {
    */
   uint element_size(uint index) const
   {
-    return m_offsets[index + 1] - m_offsets[index];
+    return m_sizes[index];
   }
 
   /**

@@ -8,16 +8,19 @@ TupleMeta::TupleMeta(ArrayRef<SharedType> types) : m_types(types)
   m_size__data = 0;
   for (const SharedType &type : types) {
     CPPTypeInfo &info = type->extension<CPPTypeInfo>();
+    uint size = info.size();
     uint alignment = info.alignment();
+
     m_size__data = pad_up(m_size__data, alignment);
     m_offsets.append(m_size__data);
     m_type_info.append(&info);
-    m_size__data += info.size();
+    m_sizes.append(size);
+    m_size__data += size;
+
     if (!info.trivially_destructible()) {
       m_all_trivially_destructible = false;
     }
   }
-  m_offsets.append(m_size__data);
 
   m_size__data_and_init = m_size__data + this->element_amount();
 }
