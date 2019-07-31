@@ -75,9 +75,7 @@ static bool insert_links(VTreeDataGraphBuilder &builder)
       continue;
     }
 
-    StringRef from_data_type = builder.query_socket_data_type(from_vsocket);
-    StringRef to_data_type = builder.query_socket_data_type(to_vsocket);
-    StringPair key(from_data_type.to_std_string(), to_data_type.to_std_string());
+    StringPair key(from_vsocket->idname(), to_vsocket->idname());
     ConversionInserter *inserter = map.lookup_ptr(key);
     if (inserter != nullptr) {
       (*inserter)(builder, from_socket, to_socket);
