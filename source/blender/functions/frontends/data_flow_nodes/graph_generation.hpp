@@ -24,11 +24,11 @@ class UnlinkedInputsHandler {
 class VTreeDataGraph {
  private:
   SharedDataFlowGraph m_graph;
-  Map<VirtualSocket *, DFGraphSocket> m_mapping;
+  Map<VirtualSocket *, DFGraphSocket> m_socket_map;
 
  public:
   VTreeDataGraph(SharedDataFlowGraph graph, Map<VirtualSocket *, DFGraphSocket> mapping)
-      : m_graph(std::move(graph)), m_mapping(std::move(mapping))
+      : m_graph(std::move(graph)), m_socket_map(std::move(mapping))
   {
   }
 
@@ -39,17 +39,17 @@ class VTreeDataGraph {
 
   DFGraphSocket *lookup_socket_ptr(VirtualSocket *vsocket)
   {
-    return m_mapping.lookup_ptr(vsocket);
+    return m_socket_map.lookup_ptr(vsocket);
   }
 
   DFGraphSocket lookup_socket(VirtualSocket *vsocket)
   {
-    return m_mapping.lookup(vsocket);
+    return m_socket_map.lookup(vsocket);
   }
 
   bool uses_socket(VirtualSocket *vsocket)
   {
-    return m_mapping.contains(vsocket);
+    return m_socket_map.contains(vsocket);
   }
 
   struct PlaceholderDependencies {

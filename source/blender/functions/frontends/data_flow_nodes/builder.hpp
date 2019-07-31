@@ -16,16 +16,21 @@ using BKE::VirtualSocket;
 
 class VTreeDataGraphBuilder {
  private:
-  DataFlowGraphBuilder &m_graph;
   VirtualNodeTree &m_vtree;
-  Map<VirtualSocket *, DFGB_Socket> &m_socket_map;
+  DataFlowGraphBuilder m_graph_builder;
+  Map<VirtualSocket *, DFGB_Socket> m_socket_map;
   StringMap<SharedType> &m_type_by_idname;
   StringMap<SharedType> &m_type_by_data_type;
 
  public:
-  VTreeDataGraphBuilder(VirtualNodeTree &vtree,
-                        DataFlowGraphBuilder &graph,
-                        Map<VirtualSocket *, DFGB_Socket> &socket_map);
+  VTreeDataGraphBuilder(VirtualNodeTree &vtree);
+
+  DataFlowGraph::BuildResult build();
+
+  Map<VirtualSocket *, DFGB_Socket> &socket_map()
+  {
+    return m_socket_map;
+  }
 
   /* Insert Function */
   DFGB_Node *insert_function(SharedFunction &fn);

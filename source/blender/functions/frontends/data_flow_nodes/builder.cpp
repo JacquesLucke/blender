@@ -28,15 +28,16 @@ static PyObject *get_py_bnode(bNodeTree *btree, bNode *bnode)
 namespace FN {
 namespace DataFlowNodes {
 
-VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree,
-                                             DataFlowGraphBuilder &graph,
-                                             Map<VirtualSocket *, DFGB_Socket> &socket_map)
-    : m_graph(graph),
-      m_vtree(vtree),
-      m_socket_map(socket_map),
+VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree)
+    : m_vtree(vtree),
       m_type_by_idname(get_type_by_idname_map()),
       m_type_by_data_type(get_type_by_data_type_map())
 {
+}
+
+DataFlowGraph::BuildResult VTreeDataGraphBuilder::build()
+{
+  return DataFlowGraph::FromBuilder(m_graph_builder);
 }
 
 class NodeSource : public SourceInfo {
@@ -78,7 +79,7 @@ class NodeSource : public SourceInfo {
 
 DFGB_Node *VTreeDataGraphBuilder::insert_function(SharedFunction &fn)
 {
-  return m_graph.insert_function(fn);
+  return m_graph_builder.insert_function(fn);
 }
 
 DFGB_Node *VTreeDataGraphBuilder::insert_matching_function(SharedFunction &fn, VirtualNode *vnode)
@@ -91,13 +92,13 @@ DFGB_Node *VTreeDataGraphBuilder::insert_matching_function(SharedFunction &fn, V
 DFGB_Node *VTreeDataGraphBuilder::insert_function(SharedFunction &fn, VirtualNode *vnode)
 {
   BLI_assert(vnode != nullptr);
-  NodeSource *source = m_graph.new_source_info<NodeSource>(vnode->btree(), vnode->bnode());
-  return m_graph.insert_function(fn, source);
+  NodeSource *source = m_graph_builder.new_source_info<NodeSource>(vnode->btree(), vnode->bnode());
+  return m_graph_builder.insert_function(fn, source);
 }
 
 void VTreeDataGraphBuilder::insert_link(DFGB_Socket a, DFGB_Socket b)
 {
-  m_graph.insert_link(a, b);
+  m_graph_builder.insert_link(a, b);
 }
 
 void VTreeDataGraphBuilder::insert_links(ArrayRef<DFGB_Socket> a, ArrayRef<DFGB_Socket> b)

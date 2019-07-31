@@ -119,10 +119,7 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
 
 ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
 {
-  DataFlowGraphBuilder graph_builder;
-  Map<VirtualSocket *, DFGB_Socket> socket_map;
-
-  VTreeDataGraphBuilder builder(vtree, graph_builder, socket_map);
+  VTreeDataGraphBuilder builder(vtree);
   GraphInserters &inserters = get_standard_inserters();
 
   if (!insert_functions_for_bnodes(builder, inserters)) {
@@ -137,9 +134,10 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
 
   insert_unlinked_inputs(builder, unlinked_inputs_handler);
 
-  auto build_result = DataFlowGraph::FromBuilder(graph_builder);
-  return VTreeDataGraph(std::move(build_result.graph),
-                        build_mapping_for_original_sockets(socket_map, build_result.mapping));
+  auto build_result = builder.build();
+  return VTreeDataGraph(
+      std::move(build_result.graph),
+      build_mapping_for_original_sockets(builder.socket_map(), build_result.mapping));
 }
 
 VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_dependencies(
