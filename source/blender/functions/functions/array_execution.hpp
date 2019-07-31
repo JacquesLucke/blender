@@ -23,32 +23,8 @@ class ArrayExecution {
                     ExecutionContext &execution_context) = 0;
 };
 
-class TupleCallArrayExecution : public ArrayExecution {
- public:
-  TupleCallArrayExecution(SharedFunction function);
-
-  void call(ArrayRef<uint> indices,
-            ArrayRef<void *> input_buffers,
-            ArrayRef<void *> output_buffers,
-            ExecutionContext &execution_context) override;
-};
-
-class LLVMArrayExecution : public ArrayExecution {
- private:
-  std::unique_ptr<CompiledLLVM> m_compiled_function;
-
- public:
-  LLVMArrayExecution(SharedFunction function);
-
-  void call(ArrayRef<uint> indices,
-            ArrayRef<void *> input_buffers,
-            ArrayRef<void *> output_buffers,
-            ExecutionContext &execution_context) override;
-
- private:
-  void compile();
-  llvm::Function *build_function_ir(llvm::Module *module);
-};
+std::unique_ptr<ArrayExecution> get_tuple_call_array_execution(SharedFunction function);
+std::unique_ptr<ArrayExecution> get_precompiled_array_execution(SharedFunction function);
 
 }  // namespace Functions
 }  // namespace FN

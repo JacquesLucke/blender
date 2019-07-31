@@ -34,8 +34,7 @@ ParticleFunction::ParticleFunction(SharedFunction fn_no_deps,
     }
   }
 
-  m_array_execution = std::unique_ptr<FN::Functions::ArrayExecution>(
-      new FN::Functions::LLVMArrayExecution(m_fn_with_deps));
+  m_array_execution = FN::Functions::get_precompiled_array_execution(m_fn_with_deps);
 }
 
 ParticleFunction::~ParticleFunction()
