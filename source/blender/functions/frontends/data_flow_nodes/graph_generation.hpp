@@ -16,7 +16,7 @@ using BLI::ValueOrError;
 
 class UnlinkedInputsHandler {
  public:
-  virtual void insert(BTreeGraphBuilder &builder,
+  virtual void insert(VTreeDataGraphBuilder &builder,
                       ArrayRef<VirtualSocket *> unlinked_inputs,
                       ArrayRef<DFGB_Socket> r_new_origins) = 0;
 };

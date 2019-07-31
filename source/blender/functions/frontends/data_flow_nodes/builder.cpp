@@ -28,9 +28,9 @@ static PyObject *get_py_bnode(bNodeTree *btree, bNode *bnode)
 namespace FN {
 namespace DataFlowNodes {
 
-BTreeGraphBuilder::BTreeGraphBuilder(VirtualNodeTree &vtree,
-                                     DataFlowGraphBuilder &graph,
-                                     Map<VirtualSocket *, DFGB_Socket> &socket_map)
+VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree,
+                                             DataFlowGraphBuilder &graph,
+                                             Map<VirtualSocket *, DFGB_Socket> &socket_map)
     : m_graph(graph),
       m_vtree(vtree),
       m_socket_map(socket_map),
@@ -76,31 +76,31 @@ class NodeSource : public SourceInfo {
   }
 };
 
-DFGB_Node *BTreeGraphBuilder::insert_function(SharedFunction &fn)
+DFGB_Node *VTreeDataGraphBuilder::insert_function(SharedFunction &fn)
 {
   return m_graph.insert_function(fn);
 }
 
-DFGB_Node *BTreeGraphBuilder::insert_matching_function(SharedFunction &fn, VirtualNode *vnode)
+DFGB_Node *VTreeDataGraphBuilder::insert_matching_function(SharedFunction &fn, VirtualNode *vnode)
 {
   DFGB_Node *node = this->insert_function(fn, vnode);
   this->map_sockets(node, vnode);
   return node;
 }
 
-DFGB_Node *BTreeGraphBuilder::insert_function(SharedFunction &fn, VirtualNode *vnode)
+DFGB_Node *VTreeDataGraphBuilder::insert_function(SharedFunction &fn, VirtualNode *vnode)
 {
   BLI_assert(vnode != nullptr);
   NodeSource *source = m_graph.new_source_info<NodeSource>(vnode->btree(), vnode->bnode());
   return m_graph.insert_function(fn, source);
 }
 
-void BTreeGraphBuilder::insert_link(DFGB_Socket a, DFGB_Socket b)
+void VTreeDataGraphBuilder::insert_link(DFGB_Socket a, DFGB_Socket b)
 {
   m_graph.insert_link(a, b);
 }
 
-void BTreeGraphBuilder::insert_links(ArrayRef<DFGB_Socket> a, ArrayRef<DFGB_Socket> b)
+void VTreeDataGraphBuilder::insert_links(ArrayRef<DFGB_Socket> a, ArrayRef<DFGB_Socket> b)
 {
   BLI_assert(a.size() == b.size());
   for (uint i = 0; i < a.size(); i++) {
@@ -108,14 +108,14 @@ void BTreeGraphBuilder::insert_links(ArrayRef<DFGB_Socket> a, ArrayRef<DFGB_Sock
   }
 }
 
-void BTreeGraphBuilder::map_socket(DFGB_Socket socket, VirtualSocket *vsocket)
+void VTreeDataGraphBuilder::map_socket(DFGB_Socket socket, VirtualSocket *vsocket)
 {
   BLI_assert(this->is_data_socket(vsocket) ? socket.type() == this->query_socket_type(vsocket) :
                                              true);
   m_socket_map.add(vsocket, socket);
 }
 
-void BTreeGraphBuilder::map_sockets(DFGB_Node *node, VirtualNode *vnode)
+void VTreeDataGraphBuilder::map_sockets(DFGB_Node *node, VirtualNode *vnode)
 {
   BLI_assert(vnode->inputs().size() == node->input_amount());
   BLI_assert(vnode->outputs().size() == node->output_amount());
@@ -133,7 +133,7 @@ void BTreeGraphBuilder::map_sockets(DFGB_Node *node, VirtualNode *vnode)
   }
 }
 
-void BTreeGraphBuilder::map_data_sockets(DFGB_Node *node, VirtualNode *vnode)
+void VTreeDataGraphBuilder::map_data_sockets(DFGB_Node *node, VirtualNode *vnode)
 {
   uint input_index = 0;
   for (VirtualSocket *vsocket : vnode->inputs()) {
@@ -152,28 +152,28 @@ void BTreeGraphBuilder::map_data_sockets(DFGB_Node *node, VirtualNode *vnode)
   }
 }
 
-void BTreeGraphBuilder::map_input(DFGB_Socket socket, VirtualNode *vnode, uint index)
+void VTreeDataGraphBuilder::map_input(DFGB_Socket socket, VirtualNode *vnode, uint index)
 {
   BLI_assert(socket.is_input());
   VirtualSocket *vsocket = vnode->input(index);
   this->map_socket(socket, vsocket);
 }
 
-void BTreeGraphBuilder::map_output(DFGB_Socket socket, VirtualNode *vnode, uint index)
+void VTreeDataGraphBuilder::map_output(DFGB_Socket socket, VirtualNode *vnode, uint index)
 {
   BLI_assert(socket.is_output());
   VirtualSocket *vsocket = vnode->output(index);
   this->map_socket(socket, vsocket);
 }
 
-DFGB_Socket BTreeGraphBuilder::lookup_socket(VirtualSocket *vsocket)
+DFGB_Socket VTreeDataGraphBuilder::lookup_socket(VirtualSocket *vsocket)
 {
   BLI_assert(m_socket_map.contains(vsocket));
   return m_socket_map.lookup(vsocket);
 }
 
-bool BTreeGraphBuilder::check_if_sockets_are_mapped(VirtualNode *vnode,
-                                                    ArrayRef<VirtualSocket *> vsockets) const
+bool VTreeDataGraphBuilder::check_if_sockets_are_mapped(VirtualNode *vnode,
+                                                        ArrayRef<VirtualSocket *> vsockets) const
 {
   int index = 0;
   for (VirtualSocket *vsocket : vsockets) {
@@ -197,52 +197,52 @@ bool BTreeGraphBuilder::check_if_sockets_are_mapped(VirtualNode *vnode,
   return true;
 }
 
-bool BTreeGraphBuilder::verify_data_sockets_mapped(VirtualNode *vnode) const
+bool VTreeDataGraphBuilder::verify_data_sockets_mapped(VirtualNode *vnode) const
 {
   return (this->check_if_sockets_are_mapped(vnode, vnode->inputs()) &&
           this->check_if_sockets_are_mapped(vnode, vnode->outputs()));
 }
 
-VirtualNodeTree &BTreeGraphBuilder::vtree() const
+VirtualNodeTree &VTreeDataGraphBuilder::vtree() const
 {
   return m_vtree;
 }
 
-bool BTreeGraphBuilder::is_data_socket(VirtualSocket *vsocket) const
+bool VTreeDataGraphBuilder::is_data_socket(VirtualSocket *vsocket) const
 {
   return m_type_by_idname.contains(vsocket->bsocket()->idname);
 }
 
-SharedType &BTreeGraphBuilder::type_by_name(StringRef data_type) const
+SharedType &VTreeDataGraphBuilder::type_by_name(StringRef data_type) const
 {
   return m_type_by_data_type.lookup_ref(data_type);
 }
 
-SharedType &BTreeGraphBuilder::query_socket_type(VirtualSocket *vsocket) const
+SharedType &VTreeDataGraphBuilder::query_socket_type(VirtualSocket *vsocket) const
 {
   return m_type_by_idname.lookup_ref(vsocket->bsocket()->idname);
 }
 
-std::string BTreeGraphBuilder::query_socket_name(VirtualSocket *vsocket) const
+std::string VTreeDataGraphBuilder::query_socket_name(VirtualSocket *vsocket) const
 {
   return vsocket->bsocket()->name;
 }
 
-SharedType &BTreeGraphBuilder::query_type_property(VirtualNode *vnode,
-                                                   StringRefNull prop_name) const
+SharedType &VTreeDataGraphBuilder::query_type_property(VirtualNode *vnode,
+                                                       StringRefNull prop_name) const
 {
   PointerRNA rna = vnode->rna();
   return this->type_from_rna(rna, prop_name);
 }
 
-SharedType &BTreeGraphBuilder::type_from_rna(PointerRNA &rna, StringRefNull prop_name) const
+SharedType &VTreeDataGraphBuilder::type_from_rna(PointerRNA &rna, StringRefNull prop_name) const
 {
   char type_name[64];
   RNA_string_get(&rna, prop_name, type_name);
   return this->type_by_name(type_name);
 }
 
-bool BTreeGraphBuilder::has_data_socket(VirtualNode *vnode) const
+bool VTreeDataGraphBuilder::has_data_socket(VirtualNode *vnode) const
 {
   for (VirtualSocket *vsocket : vnode->inputs()) {
     if (this->is_data_socket(vsocket)) {

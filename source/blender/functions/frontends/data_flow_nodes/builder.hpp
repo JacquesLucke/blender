@@ -14,7 +14,7 @@ using BKE::VirtualNode;
 using BKE::VirtualNodeTree;
 using BKE::VirtualSocket;
 
-class BTreeGraphBuilder {
+class VTreeDataGraphBuilder {
  private:
   DataFlowGraphBuilder &m_graph;
   VirtualNodeTree &m_vtree;
@@ -23,9 +23,9 @@ class BTreeGraphBuilder {
   StringMap<SharedType> &m_type_by_data_type;
 
  public:
-  BTreeGraphBuilder(VirtualNodeTree &vtree,
-                    DataFlowGraphBuilder &graph,
-                    Map<VirtualSocket *, DFGB_Socket> &socket_map);
+  VTreeDataGraphBuilder(VirtualNodeTree &vtree,
+                        DataFlowGraphBuilder &graph,
+                        Map<VirtualSocket *, DFGB_Socket> &socket_map);
 
   /* Insert Function */
   DFGB_Node *insert_function(SharedFunction &fn);

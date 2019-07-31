@@ -42,7 +42,7 @@ void GraphInserters::reg_node_inserter(std::string idname, NodeInserter inserter
 
 void GraphInserters::reg_node_function(std::string idname, FunctionGetter getter)
 {
-  auto inserter = [getter](BTreeGraphBuilder &builder, VirtualNode *vnode) {
+  auto inserter = [getter](VTreeDataGraphBuilder &builder, VirtualNode *vnode) {
     SharedFunction fn = getter();
     DFGB_Node *node = builder.insert_function(fn, vnode);
     builder.map_sockets(node, vnode);
@@ -69,7 +69,7 @@ void GraphInserters::reg_conversion_function(StringRef from_type,
                                              StringRef to_type,
                                              FunctionGetter getter)
 {
-  auto inserter = [getter](BTreeGraphBuilder &builder, DFGB_Socket from, DFGB_Socket to) {
+  auto inserter = [getter](VTreeDataGraphBuilder &builder, DFGB_Socket from, DFGB_Socket to) {
     auto fn = getter();
     DFGB_Node *node = builder.insert_function(fn);
     builder.insert_link(from, node->input(0));
@@ -78,7 +78,7 @@ void GraphInserters::reg_conversion_function(StringRef from_type,
   this->reg_conversion_inserter(from_type, to_type, inserter);
 }
 
-bool GraphInserters::insert_node(BTreeGraphBuilder &builder, VirtualNode *vnode)
+bool GraphInserters::insert_node(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   NodeInserter *inserter = m_node_inserters.lookup_ptr(vnode->bnode()->idname);
   if (inserter == nullptr) {
@@ -146,7 +146,7 @@ class SocketLoaderDependencies : public DepsBody {
   }
 };
 
-void GraphInserters::insert_sockets(BTreeGraphBuilder &builder,
+void GraphInserters::insert_sockets(VTreeDataGraphBuilder &builder,
                                     ArrayRef<VirtualSocket *> vsockets,
                                     ArrayRef<DFGB_Socket> r_new_origins)
 {
@@ -176,7 +176,7 @@ void GraphInserters::insert_sockets(BTreeGraphBuilder &builder,
   }
 }
 
-bool GraphInserters::insert_link(BTreeGraphBuilder &builder,
+bool GraphInserters::insert_link(VTreeDataGraphBuilder &builder,
                                  VirtualSocket *from_vsocket,
                                  VirtualSocket *to_vsocket)
 {

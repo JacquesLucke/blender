@@ -61,7 +61,7 @@ static SharedFunction get_vectorized_function(SharedFunction &original_fn,
   }
 }
 
-static void INSERT_object_transforms(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_object_transforms(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   auto fn = Functions::GET_FN_object_location();
   builder.insert_matching_function(fn, vnode);
@@ -86,7 +86,7 @@ static SharedFunction &get_float_math_function(int operation)
   }
 }
 
-static void INSERT_float_math(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_float_math(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   PointerRNA rna = vnode->rna();
   int operation = RNA_enum_get(&rna, "operation");
@@ -121,7 +121,7 @@ static SharedFunction &get_vector_math_function(int operation)
   }
 }
 
-static void INSERT_vector_math(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_vector_math(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   PointerRNA rna = vnode->rna();
   int operation = RNA_enum_get(&rna, "operation");
@@ -134,7 +134,7 @@ static void INSERT_vector_math(BTreeGraphBuilder &builder, VirtualNode *vnode)
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_clamp(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_clamp(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   SharedFunction &max_fn = Functions::GET_FN_max_floats();
   SharedFunction &min_fn = Functions::GET_FN_min_floats();
@@ -149,21 +149,21 @@ static void INSERT_clamp(BTreeGraphBuilder &builder, VirtualNode *vnode)
   builder.map_output(min_node->output(0), vnode, 0);
 }
 
-static void INSERT_get_list_element(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_get_list_element(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   SharedType &base_type = builder.query_type_property(vnode, "active_type");
   SharedFunction &fn = Functions::GET_FN_get_list_element(base_type);
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_list_length(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_list_length(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   SharedType &base_type = builder.query_type_property(vnode, "active_type");
   SharedFunction &fn = Functions::GET_FN_list_length(base_type);
   builder.insert_matching_function(fn, vnode);
 }
 
-static DFGB_Socket insert_pack_list_sockets(BTreeGraphBuilder &builder,
+static DFGB_Socket insert_pack_list_sockets(VTreeDataGraphBuilder &builder,
                                             VirtualNode *vnode,
                                             SharedType &base_type,
                                             const char *prop_name,
@@ -204,7 +204,7 @@ static DFGB_Socket insert_pack_list_sockets(BTreeGraphBuilder &builder,
   return node->output(0);
 }
 
-static void INSERT_pack_list(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_pack_list(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   SharedType &base_type = builder.query_type_property(vnode, "active_type");
   DFGB_Socket packed_list_socket = insert_pack_list_sockets(
@@ -212,7 +212,7 @@ static void INSERT_pack_list(BTreeGraphBuilder &builder, VirtualNode *vnode)
   builder.map_output(packed_list_socket, vnode, 0);
 }
 
-static void INSERT_call(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_call(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   PointerRNA rna = vnode->rna();
 
@@ -231,14 +231,14 @@ static void INSERT_call(BTreeGraphBuilder &builder, VirtualNode *vnode)
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_switch(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_switch(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   SharedType &data_type = builder.query_type_property(vnode, "data_type");
   auto fn = Functions::GET_FN_bool_switch(data_type);
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_combine_vector(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_combine_vector(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   PointerRNA rna = vnode->rna();
   SharedFunction fn = get_vectorized_function(
@@ -250,7 +250,7 @@ static void INSERT_combine_vector(BTreeGraphBuilder &builder, VirtualNode *vnode
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_separate_vector(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_separate_vector(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   PointerRNA rna = vnode->rna();
   SharedFunction fn = get_vectorized_function(
@@ -260,7 +260,7 @@ static void INSERT_separate_vector(BTreeGraphBuilder &builder, VirtualNode *vnod
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_separate_color(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_separate_color(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   PointerRNA rna = vnode->rna();
   SharedFunction fn = get_vectorized_function(
@@ -270,7 +270,7 @@ static void INSERT_separate_color(BTreeGraphBuilder &builder, VirtualNode *vnode
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_combine_color(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_combine_color(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   PointerRNA rna = vnode->rna();
   SharedFunction fn = get_vectorized_function(
@@ -294,7 +294,7 @@ static SharedFunction &get_compare_function(int operation)
   }
 }
 
-static void INSERT_compare(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_compare(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   PointerRNA rna = vnode->rna();
   int operation = RNA_enum_get(&rna, "operation");

@@ -8,7 +8,7 @@
 namespace FN {
 namespace DataFlowNodes {
 
-static void insert_placeholder_node(BTreeGraphBuilder &builder, VirtualNode *vnode)
+static void insert_placeholder_node(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   FunctionBuilder fn_builder;
   for (VirtualSocket *vsocket : vnode->inputs()) {
@@ -30,7 +30,7 @@ static void insert_placeholder_node(BTreeGraphBuilder &builder, VirtualNode *vno
   builder.map_data_sockets(node, vnode);
 }
 
-static bool insert_functions_for_bnodes(BTreeGraphBuilder &builder, GraphInserters &inserters)
+static bool insert_functions_for_bnodes(VTreeDataGraphBuilder &builder, GraphInserters &inserters)
 {
   for (VirtualNode *vnode : builder.vtree().nodes()) {
     if (inserters.insert_node(builder, vnode)) {
@@ -44,7 +44,7 @@ static bool insert_functions_for_bnodes(BTreeGraphBuilder &builder, GraphInserte
   return true;
 }
 
-static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
+static bool insert_links(VTreeDataGraphBuilder &builder, GraphInserters &inserters)
 {
   for (VirtualSocket *input : builder.vtree().inputs_with_links()) {
     if (input->links().size() > 1) {
@@ -61,7 +61,7 @@ static bool insert_links(BTreeGraphBuilder &builder, GraphInserters &inserters)
   return true;
 }
 
-static void insert_unlinked_inputs(BTreeGraphBuilder &builder,
+static void insert_unlinked_inputs(VTreeDataGraphBuilder &builder,
                                    UnlinkedInputsHandler &unlinked_inputs_handler)
 {
 
@@ -83,7 +83,7 @@ static void insert_unlinked_inputs(BTreeGraphBuilder &builder,
       Vector<DFGB_Socket> new_origins(vsockets.size());
       unlinked_inputs_handler.insert(builder, vsockets, new_origins);
       builder.insert_links(new_origins, sockets);
-  }
+    }
   }
 }
 
@@ -109,7 +109,7 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
   {
   }
 
-  void insert(BTreeGraphBuilder &builder,
+  void insert(VTreeDataGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
               ArrayRef<DFGB_Socket> r_new_origins) override
   {
@@ -122,7 +122,7 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
   DataFlowGraphBuilder graph_builder;
   Map<VirtualSocket *, DFGB_Socket> socket_map;
 
-  BTreeGraphBuilder builder(vtree, graph_builder, socket_map);
+  VTreeDataGraphBuilder builder(vtree, graph_builder, socket_map);
   GraphInserters &inserters = get_standard_inserters();
 
   if (!insert_functions_for_bnodes(builder, inserters)) {
