@@ -5,8 +5,6 @@
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 
-#include "context_pool.hpp"
-
 namespace FN {
 
 typedef std::function<void(
@@ -43,7 +41,7 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   };
 
   llvm::FunctionType *function_type = llvm::FunctionType::get(
-      void_ty, to_llvm_array_ref(input_types), false);
+      void_ty, to_llvm(input_types), false);
 
   llvm::Function *function = llvm::Function::Create(
       function_type, llvm::GlobalValue::LinkageTypes::ExternalLinkage, fn->name().data(), module);

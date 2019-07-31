@@ -19,14 +19,14 @@ using FunctionIRCache = Map<void *, llvm::Function *>;
 
 class CodeInterface {
  private:
-  Vector<llvm::Value *> &m_inputs;
-  Vector<llvm::Value *> &m_outputs;
+  ArrayRef<llvm::Value *> m_inputs;
+  ArrayRef<llvm::Value *> m_outputs;
   llvm::Value *m_context_ptr;
   FunctionIRCache &m_function_ir_cache;
 
  public:
-  CodeInterface(Vector<llvm::Value *> &inputs,
-                Vector<llvm::Value *> &outputs,
+  CodeInterface(ArrayRef<llvm::Value *> inputs,
+                ArrayRef<llvm::Value *> outputs,
                 llvm::Value *context_ptr,
                 FunctionIRCache &function_ir_cache)
       : m_inputs(inputs),

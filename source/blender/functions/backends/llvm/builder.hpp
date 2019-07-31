@@ -15,14 +15,19 @@ class IRConstruct_ForLoop;
 class IRConstruct_IterationsLoop;
 class IRConstruct_IfThenElse;
 
-template<typename T> static llvm::ArrayRef<T> to_llvm_array_ref(const Vector<T> &vector)
+template<typename T> static llvm::ArrayRef<T> to_llvm(const Vector<T> &vector)
 {
   return llvm::ArrayRef<T>(vector.begin(), vector.end());
 }
 
-template<typename T> static llvm::ArrayRef<T> to_llvm_array_ref(ArrayRef<T> array_ref)
+template<typename T> static llvm::ArrayRef<T> to_llvm(ArrayRef<T> array_ref)
 {
   return llvm::ArrayRef<T>(array_ref.begin(), array_ref.end());
+}
+
+inline llvm::StringRef to_llvm(StringRef string)
+{
+  return llvm::StringRef(string.begin(), string.size());
 }
 
 class CodeBuilder {
@@ -107,12 +112,12 @@ class CodeBuilder {
 
   llvm::Type *getStructType(ArrayRef<llvm::Type *> types)
   {
-    return llvm::StructType::get(this->getContext(), to_llvm_array_ref(types));
+    return llvm::StructType::get(this->getContext(), to_llvm(types));
   }
 
   llvm::FunctionType *getFunctionType(llvm::Type *ret_type, ArrayRef<llvm::Type *> arg_types)
   {
-    return llvm::FunctionType::get(ret_type, to_llvm_array_ref(arg_types), false);
+    return llvm::FunctionType::get(ret_type, to_llvm(arg_types), false);
   }
 
   /* Value Builders
@@ -188,6 +193,13 @@ class CodeBuilder {
   }
 
   Vector<llvm::Type *> types_of_values(ArrayRef<llvm::Value *> values);
+
+  llvm::Value *take_function_input(uint index, StringRef name)
+  {
+    llvm::Value *value = this->GetFunction()->arg_begin() + index;
+    value->setName(to_llvm(name));
+    return value;
+  }
 
   /* Instruction Builders
    **************************************/
@@ -319,6 +331,20 @@ class CodeBuilder {
     return m_builder.CreateLoad(addr);
   }
 
+  llvm::Value *CreateLoadAtIndex(llvm::Value *array_start_addr, uint index)
+  {
+    llvm::Value *addr = this->CreateConstGEP1_32(array_start_addr, index);
+    llvm::Value *value = this->CreateLoad(addr);
+    return value;
+  }
+
+  llvm::Value *CreateLoadAtIndex(llvm::Value *array_start_addr, llvm::Value *index)
+  {
+    llvm::Value *addr = this->CreateGEP(array_start_addr, index);
+    llvm::Value *value = this->CreateLoad(addr);
+    return value;
+  }
+
   void CreateStore(llvm::Value *value, llvm::Value *addr)
   {
     m_builder.CreateStore(value, addr, false);
@@ -359,7 +385,7 @@ class CodeBuilder {
 
   llvm::Value *CreateCall(llvm::Function *function, ArrayRef<llvm::Value *> args)
   {
-    return m_builder.CreateCall(function, to_llvm_array_ref(args));
+    return m_builder.CreateCall(function, to_llvm(args));
   }
 
   llvm::Value *CreateConstGEP1_32(llvm::Value *addr, uint index)

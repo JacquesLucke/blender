@@ -32,7 +32,7 @@ static llvm::Function *create_wrapper_function(llvm::Module *module,
 
   llvm::Value *address_int = builder.getInt64((size_t)func_ptr);
   llvm::Value *address = builder.CreateIntToPtr(address_int, ftype->getPointerTo());
-  llvm::Value *result = builder.CreateCall(address, to_llvm_array_ref(args));
+  llvm::Value *result = builder.CreateCall(address, to_llvm(args));
 
   if (ftype->getReturnType() == builder.getVoidTy()) {
     builder.CreateRetVoid();
@@ -58,7 +58,7 @@ llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
     wrapper_function = create_wrapper_function(module, ftype, func_ptr, name);
   }
 
-  return m_builder.CreateCall(wrapper_function, to_llvm_array_ref(args));
+  return m_builder.CreateCall(wrapper_function, to_llvm(args));
 }
 
 llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
@@ -67,8 +67,7 @@ llvm::Value *CodeBuilder::CreateCallPointer(void *func_ptr,
                                             const char *function_name)
 {
   Vector<llvm::Type *> arg_types = this->types_of_values(args);
-  llvm::FunctionType *ftype = llvm::FunctionType::get(
-      return_type, to_llvm_array_ref(arg_types), false);
+  llvm::FunctionType *ftype = llvm::FunctionType::get(return_type, to_llvm(arg_types), false);
   return this->CreateCallPointer(func_ptr, ftype, args, function_name);
 }
 
@@ -115,7 +114,7 @@ void CodeBuilder::CreatePrintf(const char *format, ArrayRef<llvm::Value *> value
     }
     args.append(passed_arg);
   }
-  m_builder.CreateCall(printf_func, to_llvm_array_ref(args));
+  m_builder.CreateCall(printf_func, to_llvm(args));
 }
 
 static void print_stacktrace(ExecutionContext *context)

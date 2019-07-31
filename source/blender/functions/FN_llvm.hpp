@@ -8,3 +8,4 @@
 #include "backends/llvm/fgraph_ir_generation.hpp"
 #include "backends/llvm/builder.hpp"
 #include "backends/llvm/compile.hpp"
+#include "backends/llvm/context_pool.hpp"
