@@ -34,5 +34,31 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_separate_color)
   return fn;
 }
 
+class CombineColor : public TupleCallBody {
+  void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+  {
+    rgba_f color;
+    color.r = this->get_input<float>(fn_in, 0, "Red");
+    color.g = this->get_input<float>(fn_in, 1, "Green");
+    color.b = this->get_input<float>(fn_in, 2, "Blue");
+    color.a = this->get_input<float>(fn_in, 3, "Alpha");
+    this->set_output<rgba_f>(fn_out, 0, "Color", color);
+  }
+};
+
+BLI_LAZY_INIT(SharedFunction, GET_FN_combine_color)
+{
+  FunctionBuilder fn_builder;
+  fn_builder.add_input("Red", GET_TYPE_float());
+  fn_builder.add_input("Green", GET_TYPE_float());
+  fn_builder.add_input("Blue", GET_TYPE_float());
+  fn_builder.add_input("Alpha", GET_TYPE_float());
+  fn_builder.add_output("Color", GET_TYPE_rgba_f());
+
+  auto fn = fn_builder.build("Combine Color");
+  fn->add_body<CombineColor>();
+  return fn;
+}
+
 }  // namespace Functions
 }  // namespace FN
