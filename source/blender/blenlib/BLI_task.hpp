@@ -28,7 +28,7 @@ static void parallel_array_elements(ArrayRef<T> array,
     return;
   }
 
-  ParallelRangeSettings settings = {0};
+  TaskParallelSettings settings = {0};
   BLI_parallel_range_settings_defaults(&settings);
   settings.scheduling_mode = TASK_SCHEDULING_DYNAMIC;
 
@@ -42,7 +42,7 @@ static void parallel_array_elements(ArrayRef<T> array,
                           (void *)&data,
                           [](void *__restrict userdata,
                              const int index,
-                             const ParallelRangeTLS *__restrict UNUSED(tls)) {
+                             const TaskParallelTLS *__restrict UNUSED(tls)) {
                             ParallelData &data = *(ParallelData *)userdata;
                             T &element = data.array[index];
                             data.process_element(element);
@@ -68,7 +68,7 @@ static void parallel_array_elements(ArrayRef<T> array,
     return;
   }
 
-  ParallelRangeSettings settings = {0};
+  TaskParallelSettings settings = {0};
   BLI_parallel_range_settings_defaults(&settings);
   settings.scheduling_mode = TASK_SCHEDULING_STATIC;
   settings.min_iter_per_thread = 1;
@@ -85,7 +85,7 @@ static void parallel_array_elements(ArrayRef<T> array,
       0,
       array.size(),
       (void *)&data,
-      [](void *__restrict userdata, const int index, const ParallelRangeTLS *__restrict tls) {
+      [](void *__restrict userdata, const int index, const TaskParallelTLS *__restrict tls) {
         ParallelData &data = *(ParallelData *)userdata;
         int thread_id = tls->thread_id;
 
@@ -119,7 +119,7 @@ static void parallel_range(Range<uint> total_range,
     return;
   }
 
-  ParallelRangeSettings settings = {0};
+  TaskParallelSettings settings = {0};
   BLI_parallel_range_settings_defaults(&settings);
 
   struct ParallelData {
@@ -132,7 +132,7 @@ static void parallel_range(Range<uint> total_range,
                           (void *)&data,
                           [](void *__restrict userdata,
                              const int index,
-                             const ParallelRangeTLS *__restrict UNUSED(tls)) {
+                             const TaskParallelTLS *__restrict UNUSED(tls)) {
                             ParallelData &data = *(ParallelData *)userdata;
                             Range<uint> range = data.chunks.chunk_range(index);
                             data.process_range(range);
