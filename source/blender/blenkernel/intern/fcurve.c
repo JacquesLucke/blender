@@ -1781,7 +1781,7 @@ void *get_driver_variable_function(DriverVar *dvar)
 
 /* ......... */
 
-/* Table of Driver Varaiable Type Info Data */
+/* Table of Driver Variable Type Info Data */
 static DriverVarTypeInfo dvar_types[MAX_DVAR_TYPES] = {
     BEGIN_DVAR_TYPEDEF(DVAR_TYPE_SINGLE_PROP) dvar_eval_singleProp, /* eval callback */
     1,                                                              /* number of targets used */

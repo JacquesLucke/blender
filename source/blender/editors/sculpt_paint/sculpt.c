@@ -1262,7 +1262,6 @@ float tex_strength(SculptSession *ss,
 
   /* Falloff curve */
   avg *= BKE_brush_curve_strength(br, len, cache->radius);
-
   avg *= frontface(br, cache->view_normal, vno, fno);
 
   /* Paint mask */
@@ -6153,16 +6152,6 @@ void ED_object_sculptmode_enter_ex(Main *bmain,
   DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);
 }
 
-void ED_object_sculptmode_enter(struct bContext *C, ReportList *reports)
-{
-  Main *bmain = CTX_data_main(C);
-  Scene *scene = CTX_data_scene(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *ob = OBACT(view_layer);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
-  ED_object_sculptmode_enter_ex(bmain, depsgraph, scene, ob, false, reports);
-}
-
 void ED_object_sculptmode_exit_ex(Main *bmain, Depsgraph *depsgraph, Scene *scene, Object *ob)
 {
   const int mode_flag = OB_MODE_SCULPT;
@@ -6207,16 +6196,6 @@ void ED_object_sculptmode_exit_ex(Main *bmain, Depsgraph *depsgraph, Scene *scen
 
   /* Flush object mode. */
   DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);
-}
-
-void ED_object_sculptmode_exit(bContext *C)
-{
-  Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
-  Scene *scene = CTX_data_scene(C);
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *ob = OBACT(view_layer);
-  ED_object_sculptmode_exit_ex(bmain, depsgraph, scene, ob);
 }
 
 static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
