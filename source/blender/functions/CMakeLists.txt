@@ -139,8 +139,8 @@ set(SRC
   functions/color.hpp
   functions/color.cpp
 
-  frontends/data_flow_nodes/builder.hpp
-  frontends/data_flow_nodes/builder.cpp
+  frontends/data_flow_nodes/vtree_data_graph_builder.hpp
+  frontends/data_flow_nodes/vtree_data_graph_builder.cpp
   frontends/data_flow_nodes/function_generation.hpp
   frontends/data_flow_nodes/function_generation.cpp
   frontends/data_flow_nodes/graph_generation.hpp

@@ -4,8 +4,8 @@
 #include "BLI_value_or_error.hpp"
 #include "BKE_node_tree.hpp"
 
-#include "builder.hpp"
 #include "vtree_data_graph.hpp"
+#include "vtree_data_graph_builder.hpp"
 
 namespace FN {
 namespace DataFlowNodes {

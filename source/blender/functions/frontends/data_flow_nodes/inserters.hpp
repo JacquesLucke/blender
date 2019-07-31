@@ -1,10 +1,12 @@
 #pragma once
 
-#include "builder.hpp"
 #include <functional>
+
 #include "BLI_optional.hpp"
 #include "BLI_string_map.hpp"
 #include "FN_tuple_call.hpp"
+
+#include "vtree_data_graph_builder.hpp"
 
 struct PointerRNA;
 
