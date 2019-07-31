@@ -308,6 +308,11 @@ class VirtualSocket {
   {
     return m_bsocket->idname;
   }
+
+  const char *identifier()
+  {
+    return m_bsocket->identifier;
+  }
 };
 
 class VirtualLink {
