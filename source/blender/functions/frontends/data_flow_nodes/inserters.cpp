@@ -17,7 +17,6 @@ using TypePair = std::pair<SharedType, SharedType>;
 
 static void initialize_standard_inserters(GraphInserters &inserters)
 {
-  initialize_socket_inserters(inserters);
   register_conversion_inserters(inserters);
 }
 
@@ -26,6 +25,14 @@ BLI_LAZY_INIT(StringMap<NodeInserter>, get_node_inserters_map)
   StringMap<NodeInserter> map;
   NodeInserterRegistry registry(map);
   register_node_inserters(registry);
+  return map;
+}
+
+BLI_LAZY_INIT(StringMap<SocketLoader>, get_socket_loader_map)
+{
+  StringMap<SocketLoader> map;
+  SocketLoaderRegistry registry(map);
+  register_socket_loaders(registry);
   return map;
 }
 
@@ -40,11 +47,6 @@ GraphInserters::GraphInserters()
     : m_type_by_data_type(&get_type_by_data_type_map()),
       m_type_by_idname(&get_type_by_idname_map())
 {
-}
-
-void GraphInserters::reg_socket_loader(std::string idname, SocketLoader loader)
-{
-  m_socket_loaders.add_new(idname, loader);
 }
 
 void GraphInserters::reg_conversion_inserter(StringRef from_type,
@@ -68,92 +70,6 @@ void GraphInserters::reg_conversion_function(StringRef from_type,
     builder.insert_link(node->output(0), to);
   };
   this->reg_conversion_inserter(from_type, to_type, inserter);
-}
-
-class SocketLoaderBody : public TupleCallBody {
- private:
-  Vector<bNodeTree *> m_btrees;
-  Vector<bNodeSocket *> m_bsockets;
-  Vector<SocketLoader> m_loaders;
-
- public:
-  SocketLoaderBody(ArrayRef<bNodeTree *> btrees,
-                   ArrayRef<bNodeSocket *> bsockets,
-                   Vector<SocketLoader> &loaders)
-      : m_btrees(btrees), m_bsockets(bsockets), m_loaders(loaders)
-  {
-  }
-
-  void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
-  {
-    for (uint i = 0; i < m_bsockets.size(); i++) {
-      PointerRNA rna;
-      bNodeSocket *bsocket = m_bsockets[i];
-      auto loader = m_loaders[i];
-      bNodeTree *btree = m_btrees[i];
-
-      RNA_pointer_create(&btree->id, &RNA_NodeSocket, bsocket, &rna);
-      loader(&rna, fn_out, i);
-    }
-  }
-};
-
-class SocketLoaderDependencies : public DepsBody {
- private:
-  Vector<bNodeTree *> m_btrees;
-  Vector<bNodeSocket *> m_bsockets;
-
- public:
-  SocketLoaderDependencies(ArrayRef<bNodeTree *> btrees, ArrayRef<bNodeSocket *> bsockets)
-      : m_btrees(btrees), m_bsockets(bsockets)
-  {
-  }
-
-  void build_deps(FunctionDepsBuilder &builder) const
-  {
-    for (uint i = 0; i < m_bsockets.size(); i++) {
-      bNodeSocket *bsocket = m_bsockets[i];
-      bNodeTree *btree = m_btrees[i];
-      if (STREQ(bsocket->idname, "fn_ObjectSocket")) {
-        PointerRNA rna;
-        RNA_pointer_create(&btree->id, &RNA_NodeSocket, bsocket, &rna);
-        Object *value = (Object *)RNA_pointer_get(&rna, "value").id.data;
-        if (value != nullptr) {
-          builder.add_output_objects(i, {value});
-        }
-      }
-    }
-  }
-};
-
-void GraphInserters::insert_sockets(VTreeDataGraphBuilder &builder,
-                                    ArrayRef<VirtualSocket *> vsockets,
-                                    ArrayRef<DFGB_Socket> r_new_origins)
-{
-  Vector<SocketLoader> loaders;
-  Vector<bNodeSocket *> bsockets;
-  Vector<bNodeTree *> btrees;
-
-  FunctionBuilder fn_builder;
-  for (uint i = 0; i < vsockets.size(); i++) {
-    VirtualSocket *vsocket = vsockets[i];
-
-    SocketLoader loader = m_socket_loaders.lookup(vsocket->bsocket()->idname);
-    loaders.append(loader);
-    fn_builder.add_output(builder.query_socket_name(vsocket), builder.query_socket_type(vsocket));
-
-    bsockets.append(vsocket->bsocket());
-    btrees.append(vsocket->btree());
-  }
-
-  auto fn = fn_builder.build("Input Sockets");
-  fn->add_body<SocketLoaderBody>(btrees, bsockets, loaders);
-  fn->add_body<SocketLoaderDependencies>(btrees, bsockets);
-  DFGB_Node *node = builder.insert_function(fn);
-
-  for (uint i = 0; i < node->output_amount(); i++) {
-    r_new_origins[i] = node->output(i);
-  }
 }
 
 bool GraphInserters::insert_link(VTreeDataGraphBuilder &builder,
