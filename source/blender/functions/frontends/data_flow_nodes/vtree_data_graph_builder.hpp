@@ -4,6 +4,8 @@
 #include "BKE_node_tree.hpp"
 #include "BLI_string_map.hpp"
 
+#include "vtree_data_graph.hpp"
+
 struct ID;
 struct PointerRNA;
 
@@ -25,7 +27,7 @@ class VTreeDataGraphBuilder {
  public:
   VTreeDataGraphBuilder(VirtualNodeTree &vtree);
 
-  DataFlowGraph::BuildResult build();
+  VTreeDataGraph build();
 
   Map<VirtualSocket *, DFGB_Socket> &socket_map()
   {

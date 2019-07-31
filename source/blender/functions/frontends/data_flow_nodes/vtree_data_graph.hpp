@@ -2,6 +2,7 @@
 
 #include "FN_core.hpp"
 #include "BKE_node_tree.hpp"
+#include "BLI_value_or_error.hpp"
 
 namespace FN {
 namespace DataFlowNodes {
@@ -58,6 +59,23 @@ class VTreeDataGraph {
 
  private:
   VirtualSocket *find_data_output(VirtualNode *vnode, uint index);
+};
+
+class VNodePlaceholderBody : public FunctionBody {
+ private:
+  VirtualNode *m_vnode;
+
+ public:
+  static const uint FUNCTION_BODY_ID = 4;
+
+  VNodePlaceholderBody(VirtualNode *vnode) : m_vnode(vnode)
+  {
+  }
+
+  VirtualNode *vnode()
+  {
+    return m_vnode;
+  }
 };
 
 }  // namespace DataFlowNodes

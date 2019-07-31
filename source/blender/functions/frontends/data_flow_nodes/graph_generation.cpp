@@ -87,19 +87,6 @@ static void insert_unlinked_inputs(VTreeDataGraphBuilder &builder,
   }
 }
 
-static Map<VirtualSocket *, DFGraphSocket> build_mapping_for_original_sockets(
-    Map<VirtualSocket *, DFGB_Socket> &socket_map,
-    DataFlowGraph::ToBuilderMapping &builder_mapping)
-{
-  Map<VirtualSocket *, DFGraphSocket> original_socket_mapping;
-  for (auto item : socket_map.items()) {
-    VirtualSocket *vsocket = item.key;
-    DFGraphSocket socket = builder_mapping.map_socket(item.value);
-    original_socket_mapping.add_new(vsocket, socket);
-  }
-  return original_socket_mapping;
-}
-
 class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
  private:
   GraphInserters &m_inserters;
@@ -131,13 +118,9 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
   }
 
   BasicUnlinkedInputsHandler unlinked_inputs_handler(inserters);
-
   insert_unlinked_inputs(builder, unlinked_inputs_handler);
 
-  auto build_result = builder.build();
-  return VTreeDataGraph(
-      std::move(build_result.graph),
-      build_mapping_for_original_sockets(builder.socket_map(), build_result.mapping));
+  return builder.build();
 }
 
 }  // namespace DataFlowNodes
