@@ -22,9 +22,34 @@ typedef std::function<void(VTreeDataGraphBuilder &builder, DFGB_Socket from, DFG
 
 typedef std::function<SharedFunction()> FunctionGetter;
 
+StringMap<NodeInserter> &get_node_inserters_map();
+
+class NodeInserterRegistry {
+ private:
+  StringMap<NodeInserter> &m_map;
+
+ public:
+  NodeInserterRegistry(StringMap<NodeInserter> &map) : m_map(map)
+  {
+  }
+
+  void inserter(StringRef idname, NodeInserter inserter)
+  {
+    m_map.add_new(idname, inserter);
+  }
+  void function(StringRef idname, FunctionGetter getter)
+  {
+    auto inserter = [getter](VTreeDataGraphBuilder &builder, VirtualNode *vnode) {
+      SharedFunction fn = getter();
+      DFGB_Node *node = builder.insert_function(fn, vnode);
+      builder.map_sockets(node, vnode);
+    };
+    this->inserter(idname, inserter);
+  }
+};
+
 class GraphInserters {
  private:
-  StringMap<NodeInserter> m_node_inserters;
   StringMap<SocketLoader> m_socket_loaders;
   Map<std::pair<SharedType, SharedType>, ConversionInserter> m_conversion_inserters;
   StringMap<SharedType> *m_type_by_data_type;
@@ -33,9 +58,6 @@ class GraphInserters {
  public:
   GraphInserters();
 
-  void reg_node_inserter(std::string idname, NodeInserter inserter);
-  void reg_node_function(std::string idname, FunctionGetter getter);
-
   void reg_socket_loader(std::string idname, SocketLoader loader);
 
   void reg_conversion_inserter(StringRef from_type,
@@ -43,8 +65,6 @@ class GraphInserters {
                                ConversionInserter inserter);
 
   void reg_conversion_function(StringRef from_type, StringRef to_type, FunctionGetter getter);
-
-  bool insert_node(VTreeDataGraphBuilder &builder, VirtualNode *vnode);
 
   void insert_sockets(VTreeDataGraphBuilder &builder,
                       ArrayRef<VirtualSocket *> vsockets,

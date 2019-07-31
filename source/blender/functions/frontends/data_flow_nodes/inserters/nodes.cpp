@@ -306,28 +306,28 @@ static void INSERT_compare(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
   builder.insert_matching_function(fn, vnode);
 }
 
-void register_node_inserters(GraphInserters &inserters)
+void register_node_inserters(NodeInserterRegistry &registry)
 {
-  inserters.reg_node_function("fn_VectorDistanceNode", Functions::GET_FN_vector_distance);
-  inserters.reg_node_function("fn_RandomNumberNode", Functions::GET_FN_random_number);
-  inserters.reg_node_function("fn_MapRangeNode", Functions::GET_FN_map_range);
-  inserters.reg_node_function("fn_FloatRangeNode", Functions::GET_FN_float_range);
-  inserters.reg_node_function("fn_ObjectMeshNode", Functions::GET_FN_object_mesh_vertices);
+  registry.function("fn_VectorDistanceNode", Functions::GET_FN_vector_distance);
+  registry.function("fn_RandomNumberNode", Functions::GET_FN_random_number);
+  registry.function("fn_MapRangeNode", Functions::GET_FN_map_range);
+  registry.function("fn_FloatRangeNode", Functions::GET_FN_float_range);
+  registry.function("fn_ObjectMeshNode", Functions::GET_FN_object_mesh_vertices);
 
-  inserters.reg_node_inserter("fn_SeparateVectorNode", INSERT_separate_vector);
-  inserters.reg_node_inserter("fn_CombineVectorNode", INSERT_combine_vector);
-  inserters.reg_node_inserter("fn_ObjectTransformsNode", INSERT_object_transforms);
-  inserters.reg_node_inserter("fn_FloatMathNode", INSERT_float_math);
-  inserters.reg_node_inserter("fn_VectorMathNode", INSERT_vector_math);
-  inserters.reg_node_inserter("fn_ClampNode", INSERT_clamp);
-  inserters.reg_node_inserter("fn_GetListElementNode", INSERT_get_list_element);
-  inserters.reg_node_inserter("fn_PackListNode", INSERT_pack_list);
-  inserters.reg_node_inserter("fn_CallNode", INSERT_call);
-  inserters.reg_node_inserter("fn_SwitchNode", INSERT_switch);
-  inserters.reg_node_inserter("fn_ListLengthNode", INSERT_list_length);
-  inserters.reg_node_inserter("fn_CompareNode", INSERT_compare);
-  inserters.reg_node_inserter("fn_SeparateColorNode", INSERT_separate_color);
-  inserters.reg_node_inserter("fn_CombineColorNode", INSERT_combine_color);
+  registry.inserter("fn_SeparateVectorNode", INSERT_separate_vector);
+  registry.inserter("fn_CombineVectorNode", INSERT_combine_vector);
+  registry.inserter("fn_ObjectTransformsNode", INSERT_object_transforms);
+  registry.inserter("fn_FloatMathNode", INSERT_float_math);
+  registry.inserter("fn_VectorMathNode", INSERT_vector_math);
+  registry.inserter("fn_ClampNode", INSERT_clamp);
+  registry.inserter("fn_GetListElementNode", INSERT_get_list_element);
+  registry.inserter("fn_PackListNode", INSERT_pack_list);
+  registry.inserter("fn_CallNode", INSERT_call);
+  registry.inserter("fn_SwitchNode", INSERT_switch);
+  registry.inserter("fn_ListLengthNode", INSERT_list_length);
+  registry.inserter("fn_CompareNode", INSERT_compare);
+  registry.inserter("fn_SeparateColorNode", INSERT_separate_color);
+  registry.inserter("fn_CombineColorNode", INSERT_combine_color);
 }
 
 }  // namespace DataFlowNodes

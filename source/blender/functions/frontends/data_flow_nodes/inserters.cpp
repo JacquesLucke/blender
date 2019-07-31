@@ -17,9 +17,16 @@ using TypePair = std::pair<SharedType, SharedType>;
 
 static void initialize_standard_inserters(GraphInserters &inserters)
 {
-  register_node_inserters(inserters);
   initialize_socket_inserters(inserters);
   register_conversion_inserters(inserters);
+}
+
+BLI_LAZY_INIT(StringMap<NodeInserter>, get_node_inserters_map)
+{
+  StringMap<NodeInserter> map;
+  NodeInserterRegistry registry(map);
+  register_node_inserters(registry);
+  return map;
 }
 
 BLI_LAZY_INIT(GraphInserters, get_standard_inserters)
@@ -33,21 +40,6 @@ GraphInserters::GraphInserters()
     : m_type_by_data_type(&get_type_by_data_type_map()),
       m_type_by_idname(&get_type_by_idname_map())
 {
-}
-
-void GraphInserters::reg_node_inserter(std::string idname, NodeInserter inserter)
-{
-  m_node_inserters.add_new(idname, inserter);
-}
-
-void GraphInserters::reg_node_function(std::string idname, FunctionGetter getter)
-{
-  auto inserter = [getter](VTreeDataGraphBuilder &builder, VirtualNode *vnode) {
-    SharedFunction fn = getter();
-    DFGB_Node *node = builder.insert_function(fn, vnode);
-    builder.map_sockets(node, vnode);
-  };
-  this->reg_node_inserter(idname, inserter);
 }
 
 void GraphInserters::reg_socket_loader(std::string idname, SocketLoader loader)
@@ -76,18 +68,6 @@ void GraphInserters::reg_conversion_function(StringRef from_type,
     builder.insert_link(node->output(0), to);
   };
   this->reg_conversion_inserter(from_type, to_type, inserter);
-}
-
-bool GraphInserters::insert_node(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
-{
-  NodeInserter *inserter = m_node_inserters.lookup_ptr(vnode->bnode()->idname);
-  if (inserter == nullptr) {
-    return false;
-  }
-  (*inserter)(builder, vnode);
-
-  BLI_assert(builder.verify_data_sockets_mapped(vnode));
-  return true;
 }
 
 class SocketLoaderBody : public TupleCallBody {

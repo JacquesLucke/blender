@@ -30,10 +30,15 @@ static void insert_placeholder_node(VTreeDataGraphBuilder &builder, VirtualNode 
   builder.map_data_sockets(node, vnode);
 }
 
-static bool insert_functions_for_bnodes(VTreeDataGraphBuilder &builder, GraphInserters &inserters)
+static bool insert_functions_for_bnodes(VTreeDataGraphBuilder &builder)
 {
+  auto inserters = get_node_inserters_map();
+
   for (VirtualNode *vnode : builder.vtree().nodes()) {
-    if (inserters.insert_node(builder, vnode)) {
+    NodeInserter *inserter = inserters.lookup_ptr(vnode->idname());
+    if (inserter) {
+      (*inserter)(builder, vnode);
+      BLI_assert(builder.verify_data_sockets_mapped(vnode));
       continue;
     }
 
@@ -109,7 +114,7 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
   VTreeDataGraphBuilder builder(vtree);
   GraphInserters &inserters = get_standard_inserters();
 
-  if (!insert_functions_for_bnodes(builder, inserters)) {
+  if (!insert_functions_for_bnodes(builder)) {
     return BLI_ERROR_CREATE("error inserting functions for nodes");
   }
 
