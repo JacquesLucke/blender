@@ -7,7 +7,7 @@ namespace DataFlowNodes {
 
 void register_socket_loaders(SocketLoaderRegistry &registry);
 void register_node_inserters(NodeInserterRegistry &registry);
-void register_conversion_inserters(GraphInserters &inserters);
+void register_conversion_inserters(ConversionInserterRegistry &registry);
 
 }  // namespace DataFlowNodes
 }  // namespace FN

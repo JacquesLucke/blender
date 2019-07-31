@@ -15,13 +15,13 @@ static void insert_placeholder_node(VTreeDataGraphBuilder &builder, VirtualNode 
   for (VirtualSocket *vsocket : vnode->inputs()) {
     if (builder.is_data_socket(vsocket)) {
       SharedType &type = builder.query_socket_type(vsocket);
-      fn_builder.add_input(builder.query_socket_name(vsocket), type);
+      fn_builder.add_input(vsocket->name(), type);
     }
   }
   for (VirtualSocket *vsocket : vnode->outputs()) {
     if (builder.is_data_socket(vsocket)) {
       SharedType &type = builder.query_socket_type(vsocket);
-      fn_builder.add_output(builder.query_socket_name(vsocket), type);
+      fn_builder.add_output(vsocket->name(), type);
     }
   }
 
@@ -50,17 +50,39 @@ static bool insert_functions_for_bnodes(VTreeDataGraphBuilder &builder)
   return true;
 }
 
-static bool insert_links(VTreeDataGraphBuilder &builder, GraphInserters &inserters)
+static bool insert_links(VTreeDataGraphBuilder &builder)
 {
-  for (VirtualSocket *input : builder.vtree().inputs_with_links()) {
-    if (input->links().size() > 1) {
+  Map<StringPair, ConversionInserter> &map = get_conversion_inserter_map();
+
+  for (VirtualSocket *to_vsocket : builder.vtree().inputs_with_links()) {
+    if (to_vsocket->links().size() > 1) {
       continue;
     }
-    BLI_assert(input->links().size() == 1);
-    if (!builder.is_data_socket(input)) {
+    BLI_assert(to_vsocket->links().size() == 1);
+    if (!builder.is_data_socket(to_vsocket)) {
       continue;
     }
-    if (!inserters.insert_link(builder, input->links()[0], input)) {
+    VirtualSocket *from_vsocket = to_vsocket->links()[0];
+    if (!builder.is_data_socket(from_vsocket)) {
+      return false;
+    }
+
+    DFGB_Socket from_socket = builder.lookup_socket(from_vsocket);
+    DFGB_Socket to_socket = builder.lookup_socket(to_vsocket);
+
+    if (STREQ(from_vsocket->idname(), to_vsocket->idname())) {
+      builder.insert_link(from_socket, to_socket);
+      continue;
+    }
+
+    StringRef from_data_type = builder.query_socket_data_type(from_vsocket);
+    StringRef to_data_type = builder.query_socket_data_type(to_vsocket);
+    StringPair key(from_data_type.to_std_string(), to_data_type.to_std_string());
+    ConversionInserter *inserter = map.lookup_ptr(key);
+    if (inserter != nullptr) {
+      (*inserter)(builder, from_socket, to_socket);
+    }
+    else {
       return false;
     }
   }
@@ -150,13 +172,8 @@ class SocketLoaderDependencies : public DepsBody {
 };
 
 class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
- private:
-  GraphInserters &m_inserters;
-
  public:
-  BasicUnlinkedInputsHandler(GraphInserters &inserters) : m_inserters(inserters)
-  {
-  }
+  BasicUnlinkedInputsHandler() = default;
 
   void insert(VTreeDataGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
@@ -174,8 +191,7 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
 
       SocketLoader loader = socket_loader_map.lookup(vsocket->bsocket()->idname);
       loaders.append(loader);
-      fn_builder.add_output(builder.query_socket_name(vsocket),
-                            builder.query_socket_type(vsocket));
+      fn_builder.add_output(vsocket->name(), builder.query_socket_type(vsocket));
 
       bsockets.append(vsocket->bsocket());
       btrees.append(vsocket->btree());
@@ -195,17 +211,16 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
 ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
 {
   VTreeDataGraphBuilder builder(vtree);
-  GraphInserters &inserters = get_standard_inserters();
 
   if (!insert_functions_for_bnodes(builder)) {
     return BLI_ERROR_CREATE("error inserting functions for nodes");
   }
 
-  if (!insert_links(builder, inserters)) {
+  if (!insert_links(builder)) {
     return BLI_ERROR_CREATE("error inserting links");
   }
 
-  BasicUnlinkedInputsHandler unlinked_inputs_handler(inserters);
+  BasicUnlinkedInputsHandler unlinked_inputs_handler;
   insert_unlinked_inputs(builder, unlinked_inputs_handler);
 
   return builder.build();

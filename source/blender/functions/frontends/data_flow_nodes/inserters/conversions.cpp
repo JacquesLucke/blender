@@ -14,34 +14,28 @@ static void INSERT_base_to_list(VTreeDataGraphBuilder &builder, DFGB_Socket from
   builder.insert_link(node->output(0), to);
 }
 
-void register_conversion_inserters(GraphInserters &inserters)
+void register_conversion_inserters(ConversionInserterRegistry &registry)
 {
-  inserters.reg_conversion_function("Boolean", "Integer", Functions::GET_FN_bool_to_int32);
-  inserters.reg_conversion_function("Boolean", "Float", Functions::GET_FN_bool_to_float);
-  inserters.reg_conversion_function("Integer", "Boolean", Functions::GET_FN_int32_to_bool);
-  inserters.reg_conversion_function("Integer", "Float", Functions::GET_FN_int32_to_float);
-  inserters.reg_conversion_function("Float", "Boolean", Functions::GET_FN_float_to_bool);
-  inserters.reg_conversion_function("Float", "Integer", Functions::GET_FN_float_to_int32);
+  registry.function("Boolean", "Integer", Functions::GET_FN_bool_to_int32);
+  registry.function("Boolean", "Float", Functions::GET_FN_bool_to_float);
+  registry.function("Integer", "Boolean", Functions::GET_FN_int32_to_bool);
+  registry.function("Integer", "Float", Functions::GET_FN_int32_to_float);
+  registry.function("Float", "Boolean", Functions::GET_FN_float_to_bool);
+  registry.function("Float", "Integer", Functions::GET_FN_float_to_int32);
 
-  inserters.reg_conversion_function(
-      "Boolean List", "Integer List", Functions::GET_FN_bool_list_to_int32_list);
-  inserters.reg_conversion_function(
-      "Boolean List", "Float List", Functions::GET_FN_bool_list_to_float_list);
-  inserters.reg_conversion_function(
-      "Integer List", "Boolean List", Functions::GET_FN_int32_list_to_bool_list);
-  inserters.reg_conversion_function(
-      "Integer List", "Float List", Functions::GET_FN_int32_list_to_float_list);
-  inserters.reg_conversion_function(
-      "Float List", "Boolean List", Functions::GET_FN_float_list_to_bool_list);
-  inserters.reg_conversion_function(
-      "Float List", "Integer List", Functions::GET_FN_float_list_to_int32_list);
+  registry.function("Boolean List", "Integer List", Functions::GET_FN_bool_list_to_int32_list);
+  registry.function("Boolean List", "Float List", Functions::GET_FN_bool_list_to_float_list);
+  registry.function("Integer List", "Boolean List", Functions::GET_FN_int32_list_to_bool_list);
+  registry.function("Integer List", "Float List", Functions::GET_FN_int32_list_to_float_list);
+  registry.function("Float List", "Boolean List", Functions::GET_FN_float_list_to_bool_list);
+  registry.function("Float List", "Integer List", Functions::GET_FN_float_list_to_int32_list);
 
-  inserters.reg_conversion_inserter("Float", "Float List", INSERT_base_to_list);
-  inserters.reg_conversion_inserter("Vector", "Vector List", INSERT_base_to_list);
-  inserters.reg_conversion_inserter("Integer", "Integer List", INSERT_base_to_list);
-  inserters.reg_conversion_inserter("Boolean", "Boolean List", INSERT_base_to_list);
-  inserters.reg_conversion_inserter("Object", "Object List", INSERT_base_to_list);
-  inserters.reg_conversion_inserter("Color", "Color List", INSERT_base_to_list);
+  registry.inserter("Float", "Float List", INSERT_base_to_list);
+  registry.inserter("Vector", "Vector List", INSERT_base_to_list);
+  registry.inserter("Integer", "Integer List", INSERT_base_to_list);
+  registry.inserter("Boolean", "Boolean List", INSERT_base_to_list);
+  registry.inserter("Object", "Object List", INSERT_base_to_list);
+  registry.inserter("Color", "Color List", INSERT_base_to_list);
 }
 
 }  // namespace DataFlowNodes

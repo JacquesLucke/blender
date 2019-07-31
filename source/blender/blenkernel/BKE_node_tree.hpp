@@ -132,6 +132,7 @@ class VirtualNodeTree {
   Vector<VirtualSocket *> m_inputs_with_links;
   MultiMap<std::string, VirtualNode *> m_nodes_by_idname;
   MonotonicAllocator<> m_allocator;
+
  public:
   void add_all_of_tree(bNodeTree *btree);
   VirtualNode *add_bnode(bNodeTree *btree, bNode *bnode);
@@ -301,6 +302,11 @@ class VirtualSocket {
   const char *name()
   {
     return m_bsocket->name;
+  }
+
+  const char *idname()
+  {
+    return m_bsocket->idname;
   }
 };
 

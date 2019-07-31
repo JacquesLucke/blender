@@ -30,7 +30,8 @@ namespace DataFlowNodes {
 VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree)
     : m_vtree(vtree),
       m_type_by_idname(get_type_by_idname_map()),
-      m_type_by_data_type(get_type_by_data_type_map())
+      m_type_by_data_type(get_type_by_data_type_map()),
+      m_data_type_by_idname(get_data_type_by_idname_map())
 {
 }
 
@@ -49,6 +50,7 @@ static Map<VirtualSocket *, DFGraphSocket> build_mapping_for_original_sockets(
 
 VTreeDataGraph VTreeDataGraphBuilder::build()
 {
+  m_graph_builder.to_dot__clipboard();
   auto build_result = DataFlowGraph::FromBuilder(m_graph_builder);
   return VTreeDataGraph(std::move(build_result.graph),
                         build_mapping_for_original_sockets(m_socket_map, build_result.mapping));
@@ -238,9 +240,9 @@ SharedType &VTreeDataGraphBuilder::query_socket_type(VirtualSocket *vsocket) con
   return m_type_by_idname.lookup_ref(vsocket->bsocket()->idname);
 }
 
-std::string VTreeDataGraphBuilder::query_socket_name(VirtualSocket *vsocket) const
+StringRef VTreeDataGraphBuilder::query_socket_data_type(VirtualSocket *vsocket) const
 {
-  return vsocket->bsocket()->name;
+  return m_data_type_by_idname.lookup_ref(vsocket->bsocket()->idname);
 }
 
 SharedType &VTreeDataGraphBuilder::query_type_property(VirtualNode *vnode,
