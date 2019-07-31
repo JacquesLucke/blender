@@ -1,3 +1,5 @@
+#include "FN_llvm.hpp"
+
 #include "particle_function_builder.hpp"
 
 #include "events.hpp"
@@ -148,7 +150,7 @@ static SharedFunction create_function__with_deps(
   SharedFunction fn = fn_builder.build(function_name);
   FunctionGraph fgraph(graph, dependencies.sockets, sockets_to_compute);
   FN::fgraph_add_TupleCallBody(fn, fgraph);
-
+  FN::fgraph_add_LLVMBuildIRBody(fn, fgraph);
   return fn;
 }
 
@@ -202,11 +204,9 @@ ValueOrError<std::unique_ptr<ParticleFunction>> create_particle_function(
   auto dependencies = find_particle_dependencies(
       data_graph, sockets_to_compute, depends_on_particle_flags);
 
-  return create_particle_function_from_sockets(data_graph.graph(),
-                                               vnode->name(),
-                                               sockets_to_compute,
-                                               depends_on_particle_flags,
-                                               dependencies);
+  std::string name = vnode->name() + StringRef(" Inputs");
+  return create_particle_function_from_sockets(
+      data_graph.graph(), name, sockets_to_compute, depends_on_particle_flags, dependencies);
 }
 
 }  // namespace BParticles

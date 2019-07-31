@@ -71,6 +71,11 @@ class LLVMBuildIRBody : public FunctionBody {
   virtual void build_ir(CodeBuilder &builder,
                         CodeInterface &interface,
                         const BuildIRSettings &settings) const = 0;
+
+  llvm::Function *build_function(llvm::Module *module,
+                                 StringRef name,
+                                 BuildIRSettings &settings,
+                                 FunctionIRCache &function_cache);
 };
 
 }  // namespace FN

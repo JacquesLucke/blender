@@ -1,6 +1,8 @@
 #pragma once
 
 #include "FN_tuple_call.hpp"
+#include "FN_functions.hpp"
+
 #include "attributes.hpp"
 #include "action_interface.hpp"
 #include "force_interface.hpp"
@@ -198,6 +200,7 @@ class ParticleFunction {
   Vector<ParticleFunctionInputProvider *> m_input_providers;
   Vector<bool> m_parameter_depends_on_particle;
   Vector<uint> m_output_indices;
+  std::unique_ptr<FN::Functions::ArrayExecution> m_array_execution;
 
  public:
   ParticleFunction(SharedFunction fn_no_deps,

@@ -1,3 +1,5 @@
+#include <llvm/IR/TypeBuilder.h>
+
 #include "FN_tuple_call.hpp"
 
 #include "array_execution.hpp"
@@ -5,16 +7,27 @@
 namespace FN {
 namespace Functions {
 
-TupleCallArrayExecution::TupleCallArrayExecution(SharedFunction function)
-    : m_function(std::move(function))
+ArrayExecution::~ArrayExecution()
 {
-  BLI_assert(m_function->has_body<TupleCallBody>());
+}
+
+ArrayExecution::ArrayExecution(SharedFunction function) : m_function(std::move(function))
+{
   for (SharedType &type : m_function->input_types()) {
     m_input_sizes.append(type->extension<CPPTypeInfo>().size());
   }
   for (SharedType &type : m_function->output_types()) {
     m_output_sizes.append(type->extension<CPPTypeInfo>().size());
   }
+}
+
+/* Tuple Call Array Execution
+ **********************************************/
+
+TupleCallArrayExecution::TupleCallArrayExecution(SharedFunction function)
+    : ArrayExecution(std::move(function))
+{
+  BLI_assert(m_function->has_body<TupleCallBody>());
 }
 
 void TupleCallArrayExecution::call(ArrayRef<uint> indices,
@@ -44,6 +57,115 @@ void TupleCallArrayExecution::call(ArrayRef<uint> indices,
       fn_out.relocate_out__dynamic(i, ptr);
     }
   }
+}
+
+/* LLVM Array Execution
+ ********************************************/
+
+LLVMArrayExecution::LLVMArrayExecution(SharedFunction function)
+    : ArrayExecution(std::move(function))
+{
+  BLI_assert(m_function->has_body<LLVMBuildIRBody>());
+  this->compile();
+}
+
+void LLVMArrayExecution::compile()
+{
+  llvm::LLVMContext *context = aquire_llvm_context();
+  llvm::Module *module = new llvm::Module(m_function->name() + " (Array Execution)", *context);
+  llvm::Function *function = this->build_function_ir(module);
+  m_compiled_function = CompiledLLVM::FromIR(module, function);
+  release_llvm_context(context);
+}
+
+typedef void(CompiledFunctionSignature)(
+    uint size, uint *indices, void **input_buffers, void **output_buffers, void *context_ptr);
+
+llvm::Function *LLVMArrayExecution::build_function_ir(llvm::Module *module)
+{
+  Vector<LLVMTypeInfo *> input_type_infos = m_function->input_extensions<LLVMTypeInfo>();
+  Vector<LLVMTypeInfo *> output_type_infos = m_function->output_extensions<LLVMTypeInfo>();
+
+  llvm::LLVMContext &context = module->getContext();
+  LLVMBuildIRBody &body = m_function->body<LLVMBuildIRBody>();
+  llvm::FunctionType *ftype = llvm::TypeBuilder<CompiledFunctionSignature, false>::get(context);
+
+  llvm::Function *function = llvm::Function::Create(
+      ftype, llvm::GlobalValue::LinkageTypes::ExternalLinkage, module->getName(), module);
+
+  llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", function);
+  CodeBuilder builder(bb);
+
+  llvm::Value *size = builder.take_function_input(0, "indices_amount");
+  llvm::Value *indices = builder.take_function_input(1, "indices");
+  llvm::Value *input_buffers_arg = builder.take_function_input(2, "input_buffers");
+  llvm::Value *output_buffers_arg = builder.take_function_input(3, "output_buffers");
+  llvm::Value *context_ptr = builder.take_function_input(4, "context_ptr");
+
+  Vector<llvm::Value *> input_buffers;
+  for (uint i = 0; i < m_function->input_amount(); i++) {
+    uint element_size = m_input_sizes[i];
+    llvm::Value *input_buffer = builder.CreateLoadAtIndex(input_buffers_arg, i);
+    llvm::Value *typed_input_buffer = builder.CastToPointerWithStride(input_buffer, element_size);
+    typed_input_buffer->setName(to_llvm(m_function->input_name(i) + " Array"));
+    input_buffers.append(typed_input_buffer);
+  }
+  Vector<llvm::Value *> output_buffers;
+  for (uint i = 0; i < m_function->output_amount(); i++) {
+    uint element_size = m_output_sizes[i];
+    llvm::Value *output_buffer = builder.CreateLoadAtIndex(output_buffers_arg, i);
+    llvm::Value *typed_output_buffer = builder.CastToPointerWithStride(output_buffer,
+                                                                       element_size);
+    output_buffers.append(typed_output_buffer);
+  }
+
+  IRConstruct_IterationsLoop loop = builder.CreateNIterationsLoop(size, "Loop");
+  CodeBuilder body_builder = loop.body_builder();
+  llvm::Value *iteration = loop.current_iteration();
+  llvm::Value *index_to_process = body_builder.CreateLoadAtIndex(indices, iteration);
+  Vector<llvm::Value *> input_values;
+  for (uint i = 0; i < m_function->input_amount(); i++) {
+    llvm::Value *addr = body_builder.CreateGEP(input_buffers[i], index_to_process);
+    llvm::Value *value = input_type_infos[i]->build_load_ir__copy(body_builder, addr);
+    value->setName(to_llvm(m_function->input_name(i)));
+    input_values.append(value);
+  }
+  input_values.append(context_ptr);
+
+  FunctionIRCache function_cache;
+  BuildIRSettings settings;
+  llvm::Function *actual_function = body.build_function(
+      module, m_function->name(), settings, function_cache);
+
+  llvm::Value *result = body_builder.CreateCall(actual_function, input_values);
+
+  for (uint i = 0; i < m_function->output_amount(); i++) {
+    llvm::Value *addr = body_builder.CreateGEP(output_buffers[i], index_to_process);
+    llvm::Value *value = body_builder.CreateExtractValue(result, i);
+    value->setName(to_llvm(m_function->output_name(i)));
+    output_type_infos[i]->build_store_ir__relocate(body_builder, value, addr);
+  }
+
+  /* TODO(jacques): check if input values have to be freed. */
+
+  loop.finalize(builder);
+  builder.CreateRetVoid();
+
+  return function;
+}
+
+void LLVMArrayExecution::call(ArrayRef<uint> indices,
+                              ArrayRef<void *> input_buffers,
+                              ArrayRef<void *> output_buffers,
+                              ExecutionContext &execution_context)
+{
+  CompiledFunctionSignature *function = (CompiledFunctionSignature *)
+                                            m_compiled_function->function_ptr();
+  function(indices.size(),
+           indices.begin(),
+           input_buffers.begin(),
+           output_buffers.begin(),
+           (void *)&execution_context);
 }
 
 }  // namespace Functions

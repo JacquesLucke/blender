@@ -33,6 +33,9 @@ ParticleFunction::ParticleFunction(SharedFunction fn_no_deps,
       no_deps_index++;
     }
   }
+
+  m_array_execution = std::unique_ptr<FN::Functions::ArrayExecution>(
+      new FN::Functions::LLVMArrayExecution(m_fn_with_deps));
 }
 
 ParticleFunction::~ParticleFunction()
@@ -186,9 +189,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
 
   ExecutionStack stack;
   ExecutionContext execution_context(stack);
-
-  FN::Functions::TupleCallArrayExecution array_execution(m_fn_with_deps);
-  array_execution.call(particles.pindices(), input_buffers, output_buffers, execution_context);
+  m_array_execution->call(particles.pindices(), input_buffers, output_buffers, execution_context);
 
   for (uint i : inputs_to_free) {
     void *buffer = input_buffers[i];
