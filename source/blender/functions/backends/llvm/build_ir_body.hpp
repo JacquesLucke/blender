@@ -72,6 +72,11 @@ class LLVMBuildIRBody : public FunctionBody {
                         CodeInterface &interface,
                         const BuildIRSettings &settings) const = 0;
 
+  virtual bool prepare_execution_context() const
+  {
+    return false;
+  }
+
   llvm::Function *build_function(llvm::Module *module,
                                  StringRef name,
                                  BuildIRSettings &settings,

@@ -139,19 +139,21 @@ class BuildGraphIR : public LLVMBuildIRBody {
                                       uint node_id,
                                       Vector<llvm::Value *> &input_values) const
   {
-    if (settings.maintain_stack()) {
+    SharedFunction &fn = m_graph->function_of_node(node_id);
+    auto &body = fn->body<LLVMBuildIRBody>();
+    bool setup_stack = settings.maintain_stack() && body.prepare_execution_context();
+
+    if (setup_stack) {
       this->push_stack_frames_for_node(builder, interface.context_ptr(), node_id);
     }
 
-    SharedFunction &fn = m_graph->function_of_node(node_id);
     Vector<llvm::Value *> output_values(m_graph->outputs_of_node(node_id).size());
     CodeInterface sub_interface(
         input_values, output_values, interface.context_ptr(), interface.function_ir_cache());
 
-    auto &body = fn->body<LLVMBuildIRBody>();
     body.build_ir(builder, sub_interface, settings);
 
-    if (settings.maintain_stack()) {
+    if (setup_stack) {
       this->pop_stack_frames_for_node(builder, interface.context_ptr());
     }
 

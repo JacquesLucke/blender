@@ -51,6 +51,11 @@ class TupleCallLLVM : public LLVMBuildIRBody {
   {
   }
 
+  bool prepare_execution_context() const override
+  {
+    return true;
+  }
+
   void build_ir(CodeBuilder &builder,
                 CodeInterface &interface,
                 const BuildIRSettings &settings) const override
