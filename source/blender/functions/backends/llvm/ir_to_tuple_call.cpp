@@ -30,7 +30,7 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   LLVMBuildIRBody &body = fn->body<LLVMBuildIRBody>();
 
   llvm::Type *void_ty = llvm::Type::getVoidTy(context);
-  llvm::Type *void_ptr_ty = void_ty->getPointerTo();
+  llvm::Type *any_ptr_ty = llvm::Type::getInt8PtrTy(context);
   llvm::Type *byte_ptr_ty = llvm::Type::getInt8PtrTy(context);
   llvm::Type *int_ptr_ty = llvm::Type::getInt32PtrTy(context);
 
@@ -39,7 +39,7 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
       int_ptr_ty,
       byte_ptr_ty,
       int_ptr_ty,
-      void_ptr_ty,
+      any_ptr_ty,
   };
 
   llvm::FunctionType *function_type = llvm::FunctionType::get(

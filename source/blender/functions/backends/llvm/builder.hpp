@@ -76,14 +76,13 @@ class CodeBuilder {
     return m_builder.getVoidTy();
   }
 
-  llvm::Type *getVoidPtrTy()
+  /**
+   * LLVM does not permit void*, so use int8* instead.
+   * https://llvm.org/docs/LangRef.html#pointer-type
+   */
+  llvm::Type *getAnyPtrTy()
   {
-    return this->getVoidTy()->getPointerTo();
-  }
-
-  llvm::Type *getVoidPtrPtrTy()
-  {
-    return this->getVoidPtrTy()->getPointerTo();
+    return this->getInt8PtrTy();
   }
 
   llvm::Type *getInt8Ty()
@@ -124,9 +123,9 @@ class CodeBuilder {
     return llvm::UndefValue::get(type);
   }
 
-  llvm::Value *getVoidPtr(void *ptr)
+  template<typename T> llvm::Value *getAnyPtr(T *ptr)
   {
-    return this->getPtr(ptr, this->getVoidPtrTy());
+    return this->getPtr((void *)ptr, this->getAnyPtrTy());
   }
 
   llvm::Value *getPtr(void *ptr, llvm::Type *ptr_type)
@@ -270,11 +269,11 @@ class CodeBuilder {
     return m_builder.CreateURem(a, b);
   }
 
-  llvm::Value *CreateAllocaBytes_VoidPtr(uint amount)
+  llvm::Value *CreateAllocaBytes_AnyPtr(uint amount)
   {
     llvm::Type *size_type = this->getFixedSizeType(amount);
     llvm::Value *addr = m_builder.CreateAlloca(size_type);
-    return this->CastToVoidPtr(addr);
+    return this->CastToAnyPtr(addr);
   }
 
   llvm::Value *CreateAllocaBytes_BytePtr(uint amount)
@@ -300,9 +299,9 @@ class CodeBuilder {
     return this->CastToPointerOf(addr, stride_type);
   }
 
-  llvm::Value *CastToVoidPtr(llvm::Value *addr)
+  llvm::Value *CastToAnyPtr(llvm::Value *addr)
   {
-    return m_builder.CreatePointerCast(addr, this->getVoidPtrTy());
+    return m_builder.CreatePointerCast(addr, this->getAnyPtrTy());
   }
 
   llvm::Value *CastToBytePtr(llvm::Value *addr)

@@ -63,7 +63,7 @@ llvm::Value *PackedLLVMTypeInfo::build_load_ir__copy(CodeBuilder &builder,
 
 llvm::Type *PointerLLVMTypeInfo::get_type(llvm::LLVMContext &context) const
 {
-  return llvm::Type::getVoidTy(context)->getPointerTo();
+  return llvm::Type::getInt8PtrTy(context);
 }
 
 void *PointerLLVMTypeInfo::copy_value(PointerLLVMTypeInfo *info, void *value)
@@ -83,19 +83,19 @@ void *PointerLLVMTypeInfo::default_value(PointerLLVMTypeInfo *info)
 
 llvm::Value *PointerLLVMTypeInfo::build_copy_ir(CodeBuilder &builder, llvm::Value *value) const
 {
-  auto *void_ptr_ty = builder.getVoidPtrTy();
-  auto *copy_ftype = llvm::FunctionType::get(void_ptr_ty, {void_ptr_ty, void_ptr_ty}, false);
+  auto *any_ptr_ty = builder.getAnyPtrTy();
+  auto *copy_ftype = llvm::FunctionType::get(any_ptr_ty, {any_ptr_ty, any_ptr_ty}, false);
 
   return builder.CreateCallPointer((void *)PointerLLVMTypeInfo::copy_value,
                                    copy_ftype,
-                                   {builder.getVoidPtr((void *)this), value},
+                                   {builder.getAnyPtr(this), value},
                                    "Copy value");
 }
 
 void PointerLLVMTypeInfo::build_free_ir(CodeBuilder &builder, llvm::Value *value) const
 {
   builder.CreateCallPointer((void *)PointerLLVMTypeInfo::free_value,
-                            {builder.getVoidPtr((void *)this), value},
+                            {builder.getAnyPtr(this), value},
                             builder.getVoidTy(),
                             "Free value");
 }
@@ -112,7 +112,7 @@ void PointerLLVMTypeInfo::build_store_ir__relocate(CodeBuilder &builder,
                                                    llvm::Value *value,
                                                    llvm::Value *address) const
 {
-  auto *addr = builder.CastToPointerOf(address, builder.getVoidPtrTy());
+  auto *addr = builder.CastToPointerOf(address, builder.getAnyPtrTy());
   builder.CreateStore(value, addr);
 }
 
@@ -127,7 +127,7 @@ llvm::Value *PointerLLVMTypeInfo::build_load_ir__copy(CodeBuilder &builder,
 llvm::Value *PointerLLVMTypeInfo::build_load_ir__relocate(CodeBuilder &builder,
                                                           llvm::Value *address) const
 {
-  auto *addr = builder.CastToPointerOf(address, builder.getVoidPtrTy());
+  auto *addr = builder.CastToPointerOf(address, builder.getAnyPtrTy());
   return builder.CreateLoad(addr);
 }
 

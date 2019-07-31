@@ -165,20 +165,19 @@ class BuildGraphIR : public LLVMBuildIRBody {
     BLI_assert(context_ptr);
     SourceInfo *source_info = m_graph->source_info_of_node(node_id);
 
-    llvm::Value *node_info_frame_buf = builder.CreateAllocaBytes_VoidPtr(
+    llvm::Value *node_info_frame_buf = builder.CreateAllocaBytes_AnyPtr(
         sizeof(SourceInfoStackFrame));
-    builder.CreateCallPointer(
-        (void *)BuildGraphIR::push_source_frame_on_stack,
-        {context_ptr, node_info_frame_buf, builder.getVoidPtr((void *)source_info)},
-        builder.getVoidTy(),
-        "Push source info on stack");
+    builder.CreateCallPointer((void *)BuildGraphIR::push_source_frame_on_stack,
+                              {context_ptr, node_info_frame_buf, builder.getAnyPtr(source_info)},
+                              builder.getVoidTy(),
+                              "Push source info on stack");
 
-    llvm::Value *function_info_frame_buf = builder.CreateAllocaBytes_VoidPtr(
+    llvm::Value *function_info_frame_buf = builder.CreateAllocaBytes_AnyPtr(
         sizeof(TextStackFrame));
     builder.CreateCallPointer((void *)BuildGraphIR::push_text_frame_on_stack,
                               {context_ptr,
                                function_info_frame_buf,
-                               builder.getVoidPtr((void *)m_graph->name_ptr_of_node(node_id))},
+                               builder.getAnyPtr(m_graph->name_ptr_of_node(node_id))},
                               builder.getVoidTy(),
                               "Push function name on stack");
   }
