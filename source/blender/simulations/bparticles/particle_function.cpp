@@ -1,3 +1,5 @@
+#include "FN_functions.hpp"
+
 #include "particle_function.hpp"
 
 namespace BParticles {
@@ -141,10 +143,9 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
   }
 
   uint parameter_amount = m_parameter_depends_on_particle.size();
-  TupleCallBody &body = m_fn_with_deps->body<TupleCallBody>();
 
   Vector<void *> input_buffers;
-  Vector<uint> input_strides;
+  Vector<uint> input_sizes;
   Vector<uint> inputs_to_free;
 
   for (uint i = 0; i < m_fn_with_deps->input_amount(); i++) {
@@ -155,14 +156,14 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
     BLI_assert(array.stride > 0);
 
     input_buffers.append(array.buffer);
-    input_strides.append(array.stride);
+    input_sizes.append(array.stride);
     if (array.is_newly_allocated) {
       inputs_to_free.append(i);
     }
   }
 
   Vector<void *> output_buffers;
-  Vector<uint> output_strides;
+  Vector<uint> output_sizes;
 
   for (uint parameter_index = 0; parameter_index < parameter_amount; parameter_index++) {
     if (!m_parameter_depends_on_particle[parameter_index]) {
@@ -180,31 +181,18 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
     result->m_only_first[parameter_index] = false;
 
     output_buffers.append(output_buffer);
-    output_strides.append(output_stride);
+    output_sizes.append(output_stride);
   }
 
   ExecutionStack stack;
   ExecutionContext execution_context(stack);
 
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-
-  for (uint pindex : particles.pindices()) {
-    for (uint i = 0; i < input_buffers.size(); i++) {
-      void *ptr = POINTER_OFFSET(input_buffers[i], pindex * input_strides[i]);
-      fn_in.copy_in__dynamic(i, ptr);
-    }
-
-    body.call(fn_in, fn_out, execution_context);
-
-    for (uint i = 0; i < output_buffers.size(); i++) {
-      void *ptr = POINTER_OFFSET(output_buffers[i], pindex * output_strides[i]);
-      fn_out.relocate_out__dynamic(i, ptr);
-    }
-  }
+  FN::Functions::TupleCallArrayExecution array_execution(m_fn_with_deps);
+  array_execution.call(particles.pindices(), input_buffers, output_buffers, execution_context);
 
   for (uint i : inputs_to_free) {
     void *buffer = input_buffers[i];
-    uint stride = input_strides[i];
+    uint stride = input_sizes[i];
     array_allocator.deallocate(buffer, stride);
   }
 }

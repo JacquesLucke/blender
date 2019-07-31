@@ -128,6 +128,8 @@ set(SRC
   functions/switch.cpp
   functions/auto_vectorization.hpp
   functions/auto_vectorization.cpp
+  functions/array_execution.hpp
+  functions/array_execution.cpp
   functions/ranges.hpp
   functions/ranges.cpp
   functions/comparisons.hpp

@@ -12,3 +12,4 @@
 #include "functions/comparisons.hpp"
 #include "functions/constants.hpp"
 #include "functions/color.hpp"
+#include "functions/array_execution.hpp"
