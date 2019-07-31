@@ -1,6 +1,8 @@
 import bpy
+from bpy.props import *
 from .. base import FunctionNode
 from .. node_builder import NodeBuilder
+
 
 class SeparateColorNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_SeparateColorNode"
