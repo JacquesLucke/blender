@@ -167,49 +167,43 @@ class BuildGraphIR : public LLVMBuildIRBody {
 
     llvm::Value *node_info_frame_buf = builder.CreateAllocaBytes_AnyPtr(
         sizeof(SourceInfoStackFrame));
-    builder.CreateCallPointer((void *)BuildGraphIR::push_source_frame_on_stack,
-                              {context_ptr, node_info_frame_buf, builder.getAnyPtr(source_info)},
-                              builder.getVoidTy(),
-                              "Push source info on stack");
-
     llvm::Value *function_info_frame_buf = builder.CreateAllocaBytes_AnyPtr(
         sizeof(TextStackFrame));
-    builder.CreateCallPointer((void *)BuildGraphIR::push_text_frame_on_stack,
+
+    builder.CreateCallPointer((void *)BuildGraphIR::push_frames_on_stack,
                               {context_ptr,
+                               node_info_frame_buf,
+                               builder.getAnyPtr(source_info),
                                function_info_frame_buf,
                                builder.getAnyPtr(m_graph->name_ptr_of_node(node_id))},
                               builder.getVoidTy(),
-                              "Push function name on stack");
+                              "Push stack frames");
   }
 
   void pop_stack_frames_for_node(CodeBuilder &builder, llvm::Value *context_ptr) const
   {
     BLI_assert(context_ptr);
-
-    for (uint i = 0; i < 2; i++) {
-      builder.CreateCallPointer((void *)BuildGraphIR::pop_frame_from_stack,
-                                {context_ptr},
-                                builder.getVoidTy(),
-                                "Pop stack frame");
-    }
+    builder.CreateCallPointer((void *)BuildGraphIR::pop_frames_from_stack,
+                              {context_ptr},
+                              builder.getVoidTy(),
+                              "Pop stack frames");
   }
 
-  static void push_source_frame_on_stack(ExecutionContext *ctx,
-                                         void *frame_buf,
-                                         SourceInfo *source_info)
+  static void push_frames_on_stack(ExecutionContext *ctx,
+                                   void *source_frame_buf,
+                                   SourceInfo *source_info,
+                                   void *text_frame_buf,
+                                   const char *text)
   {
-    StackFrame *frame = new (frame_buf) SourceInfoStackFrame(source_info);
-    ctx->stack().push(frame);
+    StackFrame *frame1 = new (source_frame_buf) SourceInfoStackFrame(source_info);
+    StackFrame *frame2 = new (text_frame_buf) TextStackFrame(text);
+    ctx->stack().push(frame1);
+    ctx->stack().push(frame2);
   }
 
-  static void push_text_frame_on_stack(ExecutionContext *ctx, void *frame_buf, const char *text)
+  static void pop_frames_from_stack(ExecutionContext *ctx)
   {
-    StackFrame *frame = new (frame_buf) TextStackFrame(text);
-    ctx->stack().push(frame);
-  }
-
-  static void pop_frame_from_stack(ExecutionContext *ctx)
-  {
+    ctx->stack().pop();
     ctx->stack().pop();
   }
 };

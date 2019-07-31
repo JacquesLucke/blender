@@ -189,7 +189,10 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
 
   ExecutionStack stack;
   ExecutionContext execution_context(stack);
+  FN::TextStackFrame stack_frame("Particle Function");
+  stack.push(&stack_frame);
   m_array_execution->call(particles.pindices(), input_buffers, output_buffers, execution_context);
+  stack.pop();
 
   for (uint i : inputs_to_free) {
     void *buffer = input_buffers[i];
