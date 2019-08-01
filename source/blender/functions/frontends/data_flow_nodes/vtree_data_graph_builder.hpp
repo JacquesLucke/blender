@@ -19,12 +19,12 @@ using BKE::VirtualSocket;
 class VTreeDataGraphBuilder {
  private:
   VirtualNodeTree &m_vtree;
-  DataGraphBuilder m_graph_builder;
   Vector<BuilderSocket *> m_socket_map;
   Vector<SharedType> m_type_by_vsocket;
   StringMap<SharedType> &m_type_by_idname;
   StringMap<SharedType> &m_type_by_data_type;
   StringMap<std::string> &m_data_type_by_idname;
+  DataGraphBuilder m_graph_builder;
 
  public:
   VTreeDataGraphBuilder(VirtualNodeTree &vtree);

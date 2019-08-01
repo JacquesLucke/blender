@@ -140,13 +140,13 @@ class BuilderNode {
 
 class DataGraphBuilder {
  private:
-  MonotonicAllocator<> m_allocator;
-  std::unique_ptr<MonotonicAllocator<>> m_source_info_allocator;
   Vector<BuilderNode *> m_nodes;
   uint m_link_counter = 0;
   uint m_input_socket_counter = 0;
   uint m_output_socket_counter = 0;
-
+  std::unique_ptr<MonotonicAllocator<>> m_source_info_allocator;
+  MonotonicAllocator<> m_allocator;
+  
  public:
   DataGraphBuilder();
   DataGraphBuilder(DataGraphBuilder &other) = delete;
