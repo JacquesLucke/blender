@@ -169,9 +169,9 @@ class SocketLoaderDependencies : public DepsBody {
   }
 };
 
-class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
+class DynamicSocketLoader : public UnlinkedInputsHandler {
  public:
-  BasicUnlinkedInputsHandler() = default;
+  DynamicSocketLoader() = default;
 
   void insert(VTreeDataGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
@@ -187,7 +187,7 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
     for (uint i = 0; i < unlinked_inputs.size(); i++) {
       VirtualSocket *vsocket = unlinked_inputs[i];
 
-      SocketLoader loader = socket_loader_map.lookup(vsocket->bsocket()->idname);
+      SocketLoader loader = socket_loader_map.lookup(vsocket->idname());
       loaders.append(loader);
       fn_builder.add_output(vsocket->name(), builder.query_socket_type(vsocket));
 
@@ -200,9 +200,62 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
     fn->add_body<SocketLoaderDependencies>(btrees, bsockets);
     BuilderNode *node = builder.insert_function(fn);
 
-    for (uint i = 0; i < node->outputs().size(); i++) {
-      r_new_origins[i] = node->output(i);
+    r_new_origins.copy_from(node->outputs());
+  }
+};
+
+class ConstantTupleOutput : public TupleCallBody {
+ private:
+  std::unique_ptr<Tuple> m_tuple;
+
+ public:
+  ConstantTupleOutput()
+  {
+  }
+
+  void set_tuple(std::unique_ptr<Tuple> tuple)
+  {
+    m_tuple = std::move(tuple);
+  }
+
+  void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+  {
+    BLI_assert(m_tuple->size() == fn_out.size());
+    uint size = m_tuple->size();
+    for (uint i = 0; i < size; i++) {
+      Tuple::copy_element(*m_tuple, i, fn_out, i);
     }
+  }
+};
+
+class ConstantInputsHandler : public UnlinkedInputsHandler {
+  void insert(VTreeDataGraphBuilder &builder,
+              ArrayRef<VirtualSocket *> unlinked_inputs,
+              ArrayRef<BuilderOutputSocket *> r_new_origins) override
+  {
+    auto &socket_loader_map = get_socket_loader_map();
+
+    FunctionBuilder fn_builder;
+    for (VirtualSocket *vsocket : unlinked_inputs) {
+      fn_builder.add_output(vsocket->name(), builder.query_socket_type(vsocket));
+    }
+    SharedFunction fn = fn_builder.build("Unlinked Inputs");
+    fn->add_body<ConstantTupleOutput>();
+    ConstantTupleOutput &body = fn->body<ConstantTupleOutput>();
+
+    Tuple *tuple = new Tuple(*body.meta_out().ptr());
+
+    for (uint i = 0; i < unlinked_inputs.size(); i++) {
+      VirtualSocket *vsocket = unlinked_inputs[i];
+      SocketLoader loader = socket_loader_map.lookup(vsocket->idname());
+      PointerRNA rna = vsocket->rna();
+      loader(&rna, *tuple, i);
+    }
+
+    body.set_tuple(std::unique_ptr<Tuple>(tuple));
+
+    BuilderNode *node = builder.insert_function(fn);
+    r_new_origins.copy_from(node->outputs());
   }
 };
 
@@ -218,7 +271,7 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
     return BLI_ERROR_CREATE("error inserting links");
   }
 
-  BasicUnlinkedInputsHandler unlinked_inputs_handler;
+  ConstantInputsHandler unlinked_inputs_handler;
   insert_unlinked_inputs(builder, unlinked_inputs_handler);
 
   return builder.build();

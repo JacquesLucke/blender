@@ -526,6 +526,11 @@ class Tuple {
     return m_meta->element_amount();
   }
 
+  TupleMeta &meta() const
+  {
+    return *m_meta;
+  }
+
   void print_initialized(std::string name = "");
 
  private:
