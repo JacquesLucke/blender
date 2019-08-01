@@ -37,13 +37,17 @@ class FloatMathNode(bpy.types.Node, FunctionNode):
         builder.vectorized_input(
             "a", "use_list__a",
             "A", "A", "Float")
+        prop_names = ["use_list__a"]
+
         if self.operation not in single_value_operations:
             builder.vectorized_input(
                 "b", "use_list__b",
                 "B", "B", "Float")
+            prop_names.append("use_list__b")
+
 
         builder.vectorized_output(
-            "result", ["use_list__a", "use_list__b"],
+            "result", prop_names,
             "Result", "Result", "Float")
 
     def draw(self, layout):
