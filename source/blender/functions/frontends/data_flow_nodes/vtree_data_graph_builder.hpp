@@ -21,6 +21,7 @@ class VTreeDataGraphBuilder {
   VirtualNodeTree &m_vtree;
   DataGraphBuilder m_graph_builder;
   Vector<BuilderSocket *> m_socket_map;
+  Vector<SharedType> m_type_by_vsocket;
   StringMap<SharedType> &m_type_by_idname;
   StringMap<SharedType> &m_type_by_data_type;
   StringMap<std::string> &m_data_type_by_idname;
@@ -62,7 +63,6 @@ class VTreeDataGraphBuilder {
 
   /* Query Socket Information */
   bool is_data_socket(VirtualSocket *vsocket) const;
-  StringRef query_socket_data_type(VirtualSocket *vsocket) const;
   SharedType &query_socket_type(VirtualSocket *vsocket) const;
 
   /* Query Node Information */
@@ -73,6 +73,7 @@ class VTreeDataGraphBuilder {
   SharedType &type_from_rna(PointerRNA &rna, StringRefNull prop_name) const;
 
  private:
+  void initialize_type_by_vsocket_map();
   bool check_if_sockets_are_mapped(VirtualNode *vnode, ArrayRef<VirtualSocket *> vsockets) const;
 };
 

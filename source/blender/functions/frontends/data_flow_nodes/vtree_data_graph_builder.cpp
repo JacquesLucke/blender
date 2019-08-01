@@ -34,6 +34,20 @@ VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree)
       m_type_by_data_type(get_type_by_data_type_map()),
       m_data_type_by_idname(get_data_type_by_idname_map())
 {
+  this->initialize_type_by_vsocket_map();
+}
+
+BLI_NOINLINE void VTreeDataGraphBuilder::initialize_type_by_vsocket_map()
+{
+  m_type_by_vsocket = Vector<SharedType>(m_vtree.socket_count(), SharedType());
+  for (VirtualNode *vnode : m_vtree.nodes()) {
+    for (VirtualSocket *vsocket : vnode->inputs()) {
+      m_type_by_vsocket[vsocket->id()] = m_type_by_idname.lookup_default(vsocket->idname(), {});
+    }
+    for (VirtualSocket *vsocket : vnode->outputs()) {
+      m_type_by_vsocket[vsocket->id()] = m_type_by_idname.lookup_default(vsocket->idname(), {});
+    }
+  }
 }
 
 VTreeDataGraph VTreeDataGraphBuilder::build()
@@ -240,7 +254,7 @@ VirtualNodeTree &VTreeDataGraphBuilder::vtree() const
 
 bool VTreeDataGraphBuilder::is_data_socket(VirtualSocket *vsocket) const
 {
-  return m_type_by_idname.contains(vsocket->bsocket()->idname);
+  return m_type_by_vsocket[vsocket->id()].ptr() != nullptr;
 }
 
 SharedType &VTreeDataGraphBuilder::type_by_name(StringRef data_type) const
@@ -250,12 +264,8 @@ SharedType &VTreeDataGraphBuilder::type_by_name(StringRef data_type) const
 
 SharedType &VTreeDataGraphBuilder::query_socket_type(VirtualSocket *vsocket) const
 {
-  return m_type_by_idname.lookup_ref(vsocket->bsocket()->idname);
-}
-
-StringRef VTreeDataGraphBuilder::query_socket_data_type(VirtualSocket *vsocket) const
-{
-  return m_data_type_by_idname.lookup_ref(vsocket->bsocket()->idname);
+  BLI_assert(this->is_data_socket(vsocket));
+  return m_type_by_vsocket[vsocket->id()];
 }
 
 SharedType &VTreeDataGraphBuilder::query_type_property(VirtualNode *vnode,
