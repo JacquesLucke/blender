@@ -20,7 +20,7 @@ class VTreeDataGraphBuilder {
  private:
   VirtualNodeTree &m_vtree;
   DataFlowGraphBuilder m_graph_builder;
-  Map<VirtualSocket *, DFGB_Socket> m_socket_map;
+  Vector<DFGB_Socket> m_socket_map;
   StringMap<SharedType> &m_type_by_idname;
   StringMap<SharedType> &m_type_by_data_type;
   StringMap<std::string> &m_data_type_by_idname;
@@ -30,7 +30,7 @@ class VTreeDataGraphBuilder {
 
   VTreeDataGraph build();
 
-  Map<VirtualSocket *, DFGB_Socket> &socket_map()
+  Vector<DFGB_Socket> &socket_map()
   {
     return m_socket_map;
   }

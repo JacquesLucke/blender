@@ -31,6 +31,16 @@ class DFGB_Socket {
   {
   }
 
+  static DFGB_Socket None()
+  {
+    return DFGB_Socket(nullptr, false, (uint)-1);
+  }
+
+  bool is_none()
+  {
+    return m_index == (uint)-1;
+  }
+
   inline DFGB_Node *node() const;
   inline bool is_input() const;
   inline bool is_output() const;

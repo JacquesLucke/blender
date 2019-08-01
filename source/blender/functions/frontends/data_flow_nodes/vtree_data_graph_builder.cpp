@@ -29,6 +29,7 @@ namespace DataFlowNodes {
 
 VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree)
     : m_vtree(vtree),
+      m_socket_map(vtree.socket_count(), DFGB_Socket::None()),
       m_type_by_idname(get_type_by_idname_map()),
       m_type_by_data_type(get_type_by_data_type_map()),
       m_data_type_by_idname(get_data_type_by_idname_map())
@@ -37,14 +38,16 @@ VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree)
 
 static Vector<DFGraphSocket> build_mapping_for_original_sockets(
     VirtualNodeTree &vtree,
-    Map<VirtualSocket *, DFGB_Socket> &socket_map,
+    Vector<DFGB_Socket> &socket_map,
     DataFlowGraph::ToBuilderMapping &builder_mapping)
 {
   Vector<DFGraphSocket> original_socket_mapping(vtree.socket_count(), DFGraphSocket::None());
-  for (auto item : socket_map.items()) {
-    VirtualSocket *vsocket = item.key;
-    DFGraphSocket socket = builder_mapping.map_socket(item.value);
-    original_socket_mapping[vsocket->id()] = socket;
+  for (uint vsocket_id = 0; vsocket_id < socket_map.size(); vsocket_id++) {
+    DFGB_Socket socket = socket_map[vsocket_id];
+    if (socket.is_none()) {
+      continue;
+    }
+    original_socket_mapping[vsocket_id] = builder_mapping.map_socket(socket);
   }
   return original_socket_mapping;
 }
@@ -131,7 +134,7 @@ void VTreeDataGraphBuilder::map_socket(DFGB_Socket socket, VirtualSocket *vsocke
 {
   BLI_assert(this->is_data_socket(vsocket) ? socket.type() == this->query_socket_type(vsocket) :
                                              true);
-  m_socket_map.add(vsocket, socket);
+  m_socket_map[vsocket->id()] = socket;
 }
 
 void VTreeDataGraphBuilder::map_sockets(DFGB_Node *node, VirtualNode *vnode)
@@ -187,8 +190,8 @@ void VTreeDataGraphBuilder::map_output(DFGB_Socket socket, VirtualNode *vnode, u
 
 DFGB_Socket VTreeDataGraphBuilder::lookup_socket(VirtualSocket *vsocket)
 {
-  BLI_assert(m_socket_map.contains(vsocket));
-  return m_socket_map.lookup(vsocket);
+  BLI_assert(!m_socket_map[vsocket->id()].is_none());
+  return m_socket_map[vsocket->id()];
 }
 
 bool VTreeDataGraphBuilder::check_if_sockets_are_mapped(VirtualNode *vnode,
@@ -197,7 +200,7 @@ bool VTreeDataGraphBuilder::check_if_sockets_are_mapped(VirtualNode *vnode,
   int index = 0;
   for (VirtualSocket *vsocket : vsockets) {
     if (this->is_data_socket(vsocket)) {
-      if (!m_socket_map.contains(vsocket)) {
+      if (m_socket_map[vsocket->id()].is_none()) {
         std::cout << "Data DFGB_Socket not mapped: " << std::endl;
         std::cout << "    Tree: " << vnode->btree_id()->name << std::endl;
         std::cout << "    DFGB_Node: " << vnode->name() << std::endl;
