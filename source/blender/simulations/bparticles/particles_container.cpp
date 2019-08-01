@@ -28,8 +28,6 @@ ParticlesContainer::~ParticlesContainer()
 
 ParticlesBlock &ParticlesContainer::new_block()
 {
-  SCOPED_TIMER(__func__);
-
   std::lock_guard<std::mutex> lock(m_blocks_mutex);
 
   if (!m_cached_blocks.empty()) {
