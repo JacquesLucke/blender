@@ -129,7 +129,7 @@ class ColorSocket(bpy.types.NodeSocket, DataSocket):
         layout.prop(self, "value", text=text)
 
     def get_state(self):
-        return self.value
+        return tuple(self.value)
 
     def restore_state(self, state):
         self.value = state
