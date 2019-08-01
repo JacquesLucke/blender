@@ -1,6 +1,7 @@
 import bpy
 from bpy.props import *
 from . base import BaseNode
+from . utils.enum_items_cache import cache_enum_items
 
 class NodeSearch(bpy.types.Operator):
     bl_idname = "fn.node_search"
@@ -16,7 +17,7 @@ class NodeSearch(bpy.types.Operator):
                 items.append(item)
         return items
 
-    item: EnumProperty(items=get_search_items)
+    item: EnumProperty(items=cache_enum_items(get_search_items))
 
     @classmethod
     def poll(cls, context):

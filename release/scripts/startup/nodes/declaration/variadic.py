@@ -5,6 +5,7 @@ from . base import SocketDeclBase
 from .. types import type_infos
 from .. base import DataSocket
 from .. sockets import OperatorSocket
+from .. utils.enum_items_cache import cache_enum_items
 
 class AnyVariadicDecl(SocketDeclBase):
     def __init__(self, node, identifier: str, prop_name: str, message: str):
@@ -94,12 +95,9 @@ class AnyVariadicDecl(SocketDeclBase):
 class DataTypeGroup(bpy.types.PropertyGroup):
     bl_idname = "fn_DataTypeGroup"
 
-    def tree_update(self, context):
-        self.id_data.update()
-
-    data_type: StringProperty(update=tree_update)
-    display_name: StringProperty(update=tree_update)
-    identifier_prefix: StringProperty(update=tree_update)
+    data_type: StringProperty()
+    display_name: StringProperty()
+    identifier_prefix: StringProperty()
 
 class AppendAnyVariadicOperator(bpy.types.Operator):
     bl_idname = "fn.append_any_variadic"
@@ -111,7 +109,7 @@ class AppendAnyVariadicOperator(bpy.types.Operator):
     node_name: StringProperty()
     prop_name: StringProperty()
 
-    item: EnumProperty(items=type_infos.get_data_type_items_cb())
+    item: EnumProperty(items=cache_enum_items(type_infos.get_data_type_items_cb()))
 
     def invoke(self, context, event):
         context.window_manager.invoke_search_popup(self)
