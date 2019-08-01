@@ -1132,7 +1132,7 @@ void OBJECT_OT_modifier_move_down(wmOperatorType *ot)
 static int modifier_apply_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   Object *ob = ED_object_active_context(C);
   ModifierData *md = edit_modifier_property_get(op, ob, 0);
@@ -1196,7 +1196,7 @@ void OBJECT_OT_modifier_apply(wmOperatorType *ot)
 static int modifier_convert_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Object *ob = ED_object_active_context(C);
@@ -1393,7 +1393,7 @@ void OBJECT_OT_multires_subdivide(wmOperatorType *ot)
 
 static int multires_reshape_exec(bContext *C, wmOperator *op)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Object *ob = ED_object_active_context(C), *secondob = NULL;
   MultiresModifierData *mmd = (MultiresModifierData *)edit_modifier_property_get(
       op, ob, eModifierType_Multires);
@@ -1936,7 +1936,7 @@ static Object *modifier_skin_armature_create(Depsgraph *depsgraph,
 static int skin_armature_create_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   Object *ob = CTX_data_active_object(C), *arm_ob;
   Mesh *me = ob->data;
@@ -2001,7 +2001,7 @@ static bool correctivesmooth_poll(bContext *C)
 
 static int correctivesmooth_bind_exec(bContext *C, wmOperator *op)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   Object *ob = ED_object_active_context(C);
   CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)edit_modifier_property_get(
@@ -2079,7 +2079,7 @@ static bool meshdeform_poll(bContext *C)
 
 static int meshdeform_bind_exec(bContext *C, wmOperator *op)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Object *ob = ED_object_active_context(C);
   MeshDeformModifierData *mmd = (MeshDeformModifierData *)edit_modifier_property_get(
       op, ob, eModifierType_MeshDeform);
@@ -2405,7 +2405,7 @@ static bool laplaciandeform_poll(bContext *C)
 static int laplaciandeform_bind_exec(bContext *C, wmOperator *op)
 {
   Object *ob = ED_object_active_context(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   LaplacianDeformModifierData *lmd = (LaplacianDeformModifierData *)edit_modifier_property_get(
       op, ob, eModifierType_LaplacianDeform);
 
@@ -2480,7 +2480,7 @@ static bool surfacedeform_bind_poll(bContext *C)
 static int surfacedeform_bind_exec(bContext *C, wmOperator *op)
 {
   Object *ob = ED_object_active_context(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   SurfaceDeformModifierData *smd = (SurfaceDeformModifierData *)edit_modifier_property_get(
       op, ob, eModifierType_SurfaceDeform);
 

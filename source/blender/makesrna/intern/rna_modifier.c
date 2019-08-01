@@ -1123,8 +1123,6 @@ static const EnumPropertyItem *rna_DataTransferModifier_layers_select_src_itemf(
     return rna_enum_dt_layers_select_src_items;
   }
 
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
-
   /* No active here! */
   RNA_enum_items_add_value(
       &item, &totitem, rna_enum_dt_layers_select_src_items, DT_LAYERS_ALL_SRC);
@@ -1164,6 +1162,7 @@ static const EnumPropertyItem *rna_DataTransferModifier_layers_select_src_itemf(
       Mesh *me_eval;
       int num_data, i;
 
+      Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
       Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
       Object *ob_src_eval = DEG_get_evaluated_object(depsgraph, ob_src);
 
@@ -1189,6 +1188,7 @@ static const EnumPropertyItem *rna_DataTransferModifier_layers_select_src_itemf(
       Mesh *me_eval;
       int num_data, i;
 
+      Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
       Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
       Object *ob_src_eval = DEG_get_evaluated_object(depsgraph, ob_src);
 
