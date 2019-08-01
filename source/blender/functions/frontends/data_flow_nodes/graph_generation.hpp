@@ -9,7 +9,7 @@ class UnlinkedInputsHandler {
  public:
   virtual void insert(VTreeDataGraphBuilder &builder,
                       ArrayRef<VirtualSocket *> unlinked_inputs,
-                      ArrayRef<DFGB_Socket> r_new_origins) = 0;
+                      ArrayRef<BuilderOutputSocket *> r_new_origins) = 0;
 };
 
 ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree);

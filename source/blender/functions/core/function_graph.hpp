@@ -6,9 +6,13 @@
  * graph.
  */
 
+#include "BLI_set_vector.hpp"
+
 #include "data_flow_graph.hpp"
 
 namespace FN {
+
+using BLI::SetVector;
 
 class FunctionGraph {
  private:

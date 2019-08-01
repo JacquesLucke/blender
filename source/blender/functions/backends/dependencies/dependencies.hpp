@@ -2,10 +2,14 @@
 
 #include "FN_core.hpp"
 
+#include "BLI_multimap.hpp"
+
 struct ID;
 struct Object;
 
 namespace FN {
+
+using BLI::MultiMap;
 
 struct DependencyComponents {
   SetVector<Object *> transform_dependencies;

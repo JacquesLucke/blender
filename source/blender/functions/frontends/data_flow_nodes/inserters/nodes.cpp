@@ -139,14 +139,14 @@ static void INSERT_clamp(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
   SharedFunction &max_fn = Functions::GET_FN_max_floats();
   SharedFunction &min_fn = Functions::GET_FN_min_floats();
 
-  DFGB_Node *max_node = builder.insert_function(max_fn, vnode);
-  DFGB_Node *min_node = builder.insert_function(min_fn, vnode);
+  BuilderNode *max_node = builder.insert_function(max_fn, vnode);
+  BuilderNode *min_node = builder.insert_function(min_fn, vnode);
 
   builder.insert_link(max_node->output(0), min_node->input(0));
-  builder.map_input(max_node->input(0), vnode, 0);
-  builder.map_input(max_node->input(1), vnode, 1);
-  builder.map_input(min_node->input(1), vnode, 2);
-  builder.map_output(min_node->output(0), vnode, 0);
+  builder.map_input_socket(max_node->input(0), vnode->input(0));
+  builder.map_input_socket(max_node->input(1), vnode->input(1));
+  builder.map_input_socket(min_node->input(1), vnode->input(2));
+  builder.map_output_socket(min_node->output(0), vnode->output(0));
 }
 
 static void INSERT_get_list_element(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
@@ -163,34 +163,34 @@ static void INSERT_list_length(VTreeDataGraphBuilder &builder, VirtualNode *vnod
   builder.insert_matching_function(fn, vnode);
 }
 
-static DFGB_Socket insert_pack_list_sockets(VTreeDataGraphBuilder &builder,
-                                            VirtualNode *vnode,
-                                            SharedType &base_type,
-                                            const char *prop_name,
-                                            uint start_index)
+static BuilderOutputSocket *insert_pack_list_sockets(VTreeDataGraphBuilder &builder,
+                                                     VirtualNode *vnode,
+                                                     SharedType &base_type,
+                                                     const char *prop_name,
+                                                     uint start_index)
 {
   auto &empty_fn = Functions::GET_FN_empty_list(base_type);
-  DFGB_Node *node = builder.insert_function(empty_fn, vnode);
+  BuilderNode *node = builder.insert_function(empty_fn, vnode);
 
   PointerRNA rna = vnode->rna();
 
   uint index = start_index;
   RNA_BEGIN (&rna, itemptr, prop_name) {
-    DFGB_Node *new_node;
+    BuilderNode *new_node;
     int state = RNA_enum_get(&itemptr, "state");
     if (state == 0) {
       /* single value case */
       auto &append_fn = Functions::GET_FN_append_to_list(base_type);
       new_node = builder.insert_function(append_fn, vnode);
       builder.insert_link(node->output(0), new_node->input(0));
-      builder.map_input(new_node->input(1), vnode, index);
+      builder.map_input_socket(new_node->input(1), vnode->input(index));
     }
     else if (state == 1) {
       /* list case */
       auto &combine_fn = Functions::GET_FN_combine_lists(base_type);
       new_node = builder.insert_function(combine_fn, vnode);
       builder.insert_link(node->output(0), new_node->input(0));
-      builder.map_input(new_node->input(1), vnode, index);
+      builder.map_input_socket(new_node->input(1), vnode->input(index));
     }
     else {
       BLI_assert(false);
@@ -207,9 +207,9 @@ static DFGB_Socket insert_pack_list_sockets(VTreeDataGraphBuilder &builder,
 static void INSERT_pack_list(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   SharedType &base_type = builder.query_type_property(vnode, "active_type");
-  DFGB_Socket packed_list_socket = insert_pack_list_sockets(
+  BuilderOutputSocket *packed_list_socket = insert_pack_list_sockets(
       builder, vnode, base_type, "variadic", 0);
-  builder.map_output(packed_list_socket, vnode, 0);
+  builder.map_output_socket(packed_list_socket, vnode->output(0));
 }
 
 static void INSERT_call(VTreeDataGraphBuilder &builder, VirtualNode *vnode)

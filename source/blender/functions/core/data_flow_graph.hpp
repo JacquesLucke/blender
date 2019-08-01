@@ -23,11 +23,19 @@
  * an output or output has to be stored.
  */
 
-#include "function.hpp"
-#include "data_flow_graph_builder.hpp"
 #include "BLI_range.hpp"
+#include "BLI_map.hpp"
+#include "BLI_monotonic_allocator.hpp"
+
+#include "function.hpp"
+#include "source_info.hpp"
 
 namespace FN {
+
+using BLI::Map;
+using BLI::MonotonicAllocator;
+
+class DataGraphBuilder;
 
 /**
  * Represents any socket in the graph by storing its ID and whether it is an input or output.
@@ -150,8 +158,8 @@ class DataFlowGraph;
 using SharedDataFlowGraph = AutoRefCount<DataFlowGraph>;
 
 class DataFlowGraph : public RefCountedBase {
- private:
-  struct MyNode {
+ public:
+  struct Node {
     SharedFunction function;
     SourceInfo *source_info;
     /* Index into m_origins. */
@@ -159,7 +167,7 @@ class DataFlowGraph : public RefCountedBase {
     /* Index into m_targets_info. */
     uint outputs_start;
 
-    MyNode(SharedFunction fn, SourceInfo *source_info, uint inputs_start, uint outputs_start)
+    Node(SharedFunction fn, SourceInfo *source_info, uint inputs_start, uint outputs_start)
         : function(std::move(fn)),
           source_info(source_info),
           inputs_start(inputs_start),
@@ -188,48 +196,22 @@ class DataFlowGraph : public RefCountedBase {
     }
   };
 
-  Vector<MyNode> m_nodes;
+ private:
+  Vector<Node> m_nodes;
   Vector<InputSocket> m_inputs;
   Vector<OutputSocket> m_outputs;
   Vector<uint> m_targets;
   std::unique_ptr<MonotonicAllocator<>> m_source_info_allocator;
 
  public:
-  DataFlowGraph() = default;
+  DataFlowGraph(Vector<Node> nodes,
+                Vector<InputSocket> inputs,
+                Vector<OutputSocket> outputs,
+                Vector<uint> targets,
+                std::unique_ptr<MonotonicAllocator<>> source_info_allocator);
+
   DataFlowGraph(DataFlowGraph &other) = delete;
   ~DataFlowGraph();
-
-  struct ToBuilderMapping {
-    Map<DFGB_Node *, uint> node_indices;
-    Map<DFGB_Socket, uint> input_socket_indices;
-    Map<DFGB_Socket, uint> output_socket_indices;
-
-    DFGraphSocket map_socket(DFGB_Socket dfgb_socket)
-    {
-      if (dfgb_socket.is_input()) {
-        return DFGraphSocket(false, input_socket_indices.lookup(dfgb_socket));
-      }
-      else {
-        return DFGraphSocket(true, output_socket_indices.lookup(dfgb_socket));
-      }
-    }
-
-    template<typename ContainerT> Vector<DFGraphSocket> map_sockets(const ContainerT &dfgb_sockets)
-    {
-      Vector<DFGraphSocket> sockets;
-      for (DFGB_Socket socket : dfgb_sockets) {
-        sockets.append(this->map_socket(socket));
-      }
-      return sockets;
-    }
-  };
-
-  struct BuildResult {
-    SharedDataFlowGraph graph;
-    ToBuilderMapping mapping;
-  };
-
-  static BuildResult FromBuilder(DataFlowGraphBuilder &builder);
 
   Range<uint> node_ids() const
   {
@@ -275,7 +257,7 @@ class DataFlowGraph : public RefCountedBase {
 
   Range<uint> input_ids_of_node(uint node_id) const
   {
-    MyNode &node = m_nodes[node_id];
+    Node &node = m_nodes[node_id];
     return Range<uint>(node.inputs_start, node.inputs_start + node.function->input_amount());
   }
 
@@ -286,7 +268,7 @@ class DataFlowGraph : public RefCountedBase {
 
   Range<uint> output_ids_of_node(uint node_id) const
   {
-    MyNode &node = m_nodes[node_id];
+    Node &node = m_nodes[node_id];
     return Range<uint>(node.outputs_start, node.outputs_start + node.function->output_amount());
   }
 
@@ -461,7 +443,7 @@ class DataFlowGraph : public RefCountedBase {
   void print_socket(DFGraphSocket socket) const;
 
  private:
-  void insert_in_builder(DataFlowGraphBuilder &builder);
+  void insert_in_builder(DataGraphBuilder &builder);
 };
 
 }  // namespace FN

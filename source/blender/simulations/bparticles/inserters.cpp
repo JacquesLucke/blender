@@ -311,10 +311,10 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_moving_point(BuildContext &ctx,
       new PointEmitter(particle_type_name, 10, point, velocity, size));
 }
 
-static void match_inputs_to_node_outputs(FN::DataFlowGraphBuilder &builder,
-                                         FN::DFGB_Node *target_node,
-                                         FN::DFGB_Node *origin_node_1,
-                                         FN::DFGB_Node *origin_node_2)
+static void match_inputs_to_node_outputs(FN::DataGraphBuilder &builder,
+                                         FN::BuilderNode *target_node,
+                                         FN::BuilderNode *origin_node_1,
+                                         FN::BuilderNode *origin_node_2)
 {
   SharedFunction &target_fn = target_node->function();
   SharedFunction &origin_fn_1 = origin_node_1->function();
@@ -343,17 +343,25 @@ static FN::FunctionGraph link_inputs_to_function(SharedFunction &main_fn,
                                                  SharedFunction &inputs_fn,
                                                  SharedFunction &reserved_fn)
 {
-  FN::DataFlowGraphBuilder builder;
-  auto *main_node = builder.insert_function(main_fn);
-  auto *inputs_node = builder.insert_function(inputs_fn);
-  auto *reserved_node = builder.insert_function(reserved_fn);
+  FN::DataGraphBuilder builder;
+  FN::BuilderNode *main_node = builder.insert_function(main_fn);
+  FN::BuilderNode *inputs_node = builder.insert_function(inputs_fn);
+  FN::BuilderNode *reserved_node = builder.insert_function(reserved_fn);
 
   match_inputs_to_node_outputs(builder, main_node, reserved_node, inputs_node);
 
-  auto build_result = FN::DataFlowGraph::FromBuilder(builder);
-  auto final_inputs = build_result.mapping.map_sockets(reserved_node->outputs());
-  auto final_outputs = build_result.mapping.map_sockets(main_node->outputs());
-  return FN::FunctionGraph(build_result.graph, final_inputs, final_outputs);
+  SharedDataFlowGraph data_flow_graph = builder.build();
+
+  SetVector<DFGraphSocket> final_inputs;
+  for (FN::BuilderOutputSocket *socket : reserved_node->outputs()) {
+    final_inputs.add_new(DFGraphSocket::FromOutput(socket->output_id()));
+  }
+  SetVector<DFGraphSocket> final_outputs;
+  for (FN::BuilderOutputSocket *socket : main_node->outputs()) {
+    final_outputs.add_new(DFGraphSocket::FromOutput(socket->output_id()));
+  }
+
+  return FN::FunctionGraph(data_flow_graph, final_inputs, final_outputs);
 }
 
 static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,

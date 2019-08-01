@@ -48,13 +48,6 @@ template<typename T> class VectorAdaptor {
   }
 
   /**
-   * Disable creating copies of the vector, because it would not be
-   * clear, where the new adaptor should take the memory from.
-   */
-  VectorAdaptor(VectorAdaptor &other) = delete;
-  VectorAdaptor(VectorAdaptor &&other) = delete;
-
-  /**
    * Construct using any pointer and a capacity.
    * The initial size is set to zero.
    */
@@ -128,6 +121,11 @@ template<typename T> class VectorAdaptor {
   uint size() const
   {
     return m_end - m_start;
+  }
+
+  bool is_full() const
+  {
+    return m_capacity == this->size();
   }
 
   operator ArrayRef<T>() const

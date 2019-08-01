@@ -5,11 +5,13 @@
 namespace FN {
 namespace DataFlowNodes {
 
-static void INSERT_base_to_list(VTreeDataGraphBuilder &builder, DFGB_Socket from, DFGB_Socket to)
+static void INSERT_base_to_list(VTreeDataGraphBuilder &builder,
+                                BuilderOutputSocket *from,
+                                BuilderInputSocket *to)
 {
-  SharedType &base_type = from.type();
+  SharedType &base_type = from->type();
   auto fn = Functions::GET_FN_list_from_element(base_type);
-  DFGB_Node *node = builder.insert_function(fn);
+  BuilderNode *node = builder.insert_function(fn);
   builder.insert_link(from, node->input(0));
   builder.insert_link(node->output(0), to);
 }

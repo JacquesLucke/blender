@@ -19,7 +19,8 @@ typedef std::function<void(VTreeDataGraphBuilder &builder, VirtualNode *vnode)> 
 
 typedef std::function<void(PointerRNA *socket_rna_ptr, Tuple &dst, uint index)> SocketLoader;
 
-typedef std::function<void(VTreeDataGraphBuilder &builder, DFGB_Socket from, DFGB_Socket to)>
+typedef std::function<void(
+    VTreeDataGraphBuilder &builder, BuilderOutputSocket *from, BuilderInputSocket *to)>
     ConversionInserter;
 
 typedef std::function<SharedFunction()> FunctionGetter;
@@ -45,7 +46,7 @@ class NodeInserterRegistry {
   {
     auto inserter = [getter](VTreeDataGraphBuilder &builder, VirtualNode *vnode) {
       SharedFunction fn = getter();
-      DFGB_Node *node = builder.insert_function(fn, vnode);
+      BuilderNode *node = builder.insert_function(fn, vnode);
       builder.map_sockets(node, vnode);
     };
     this->inserter(idname, inserter);
@@ -82,9 +83,11 @@ class ConversionInserterRegistry {
   }
   void function(StringRef from_type, StringRef to_type, FunctionGetter getter)
   {
-    auto inserter = [getter](VTreeDataGraphBuilder &builder, DFGB_Socket from, DFGB_Socket to) {
+    auto inserter = [getter](VTreeDataGraphBuilder &builder,
+                             BuilderOutputSocket *from,
+                             BuilderInputSocket *to) {
       auto fn = getter();
-      DFGB_Node *node = builder.insert_function(fn);
+      BuilderNode *node = builder.insert_function(fn);
       builder.insert_link(from, node->input(0));
       builder.insert_link(node->output(0), to);
     };

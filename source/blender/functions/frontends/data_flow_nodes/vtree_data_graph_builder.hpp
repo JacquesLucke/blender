@@ -19,8 +19,8 @@ using BKE::VirtualSocket;
 class VTreeDataGraphBuilder {
  private:
   VirtualNodeTree &m_vtree;
-  DataFlowGraphBuilder m_graph_builder;
-  Vector<DFGB_Socket> m_socket_map;
+  DataGraphBuilder m_graph_builder;
+  Vector<BuilderSocket *> m_socket_map;
   StringMap<SharedType> &m_type_by_idname;
   StringMap<SharedType> &m_type_by_data_type;
   StringMap<std::string> &m_data_type_by_idname;
@@ -30,28 +30,28 @@ class VTreeDataGraphBuilder {
 
   VTreeDataGraph build();
 
-  Vector<DFGB_Socket> &socket_map()
+  Vector<BuilderSocket *> &socket_map()
   {
     return m_socket_map;
   }
 
   /* Insert Function */
-  DFGB_Node *insert_function(SharedFunction &fn);
-  DFGB_Node *insert_matching_function(SharedFunction &fn, VirtualNode *vnode);
-  DFGB_Node *insert_function(SharedFunction &fn, VirtualNode *vnode);
+  BuilderNode *insert_function(SharedFunction &fn);
+  BuilderNode *insert_matching_function(SharedFunction &fn, VirtualNode *vnode);
+  BuilderNode *insert_function(SharedFunction &fn, VirtualNode *vnode);
 
   /* Insert Link */
-  void insert_link(DFGB_Socket a, DFGB_Socket b);
-  void insert_links(ArrayRef<DFGB_Socket> a, ArrayRef<DFGB_Socket> b);
+  void insert_link(BuilderOutputSocket *from, BuilderInputSocket *to);
+  void insert_links(ArrayRef<BuilderOutputSocket *> from, ArrayRef<BuilderInputSocket *> to);
 
   /* Socket Mapping */
-  void map_socket(DFGB_Socket socket, VirtualSocket *vsocket);
-  void map_sockets(DFGB_Node *node, VirtualNode *vnode);
-  void map_data_sockets(DFGB_Node *node, VirtualNode *vnode);
-  void map_input(DFGB_Socket socket, VirtualNode *vnode, uint index);
-  void map_output(DFGB_Socket socket, VirtualNode *vnode, uint index);
+  void map_input_socket(BuilderInputSocket *socket, VirtualSocket *vsocket);
+  void map_output_socket(BuilderOutputSocket *socket, VirtualSocket *vsocket);
+  void map_sockets(BuilderNode *node, VirtualNode *vnode);
+  void map_data_sockets(BuilderNode *node, VirtualNode *vnode);
 
-  DFGB_Socket lookup_socket(VirtualSocket *vsocket);
+  BuilderInputSocket *lookup_input_socket(VirtualSocket *vsocket);
+  BuilderOutputSocket *lookup_output_socket(VirtualSocket *vsocket);
   bool verify_data_sockets_mapped(VirtualNode *vnode) const;
 
   /* Type Mapping */

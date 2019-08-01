@@ -7,4 +7,4 @@
 #include "core/source_info.hpp"
 #include "core/function_graph.hpp"
 #include "core/data_flow_graph.hpp"
-#include "core/data_flow_graph_builder.hpp"
+#include "core/data_graph_builder.hpp"

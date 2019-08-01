@@ -27,7 +27,7 @@ static void insert_placeholder_node(VTreeDataGraphBuilder &builder, VirtualNode 
 
   auto fn = fn_builder.build(vnode->name());
   fn->add_body<VNodePlaceholderBody>(vnode);
-  DFGB_Node *node = builder.insert_function(fn);
+  BuilderNode *node = builder.insert_function(fn);
   builder.map_data_sockets(node, vnode);
 }
 
@@ -67,8 +67,8 @@ static bool insert_links(VTreeDataGraphBuilder &builder)
       return false;
     }
 
-    DFGB_Socket from_socket = builder.lookup_socket(from_vsocket);
-    DFGB_Socket to_socket = builder.lookup_socket(to_vsocket);
+    BuilderOutputSocket *from_socket = builder.lookup_output_socket(from_vsocket);
+    BuilderInputSocket *to_socket = builder.lookup_input_socket(to_vsocket);
 
     if (STREQ(from_vsocket->idname(), to_vsocket->idname())) {
       builder.insert_link(from_socket, to_socket);
@@ -93,12 +93,12 @@ static void insert_unlinked_inputs(VTreeDataGraphBuilder &builder,
 
   for (VirtualNode *vnode : builder.vtree().nodes()) {
     Vector<VirtualSocket *> vsockets;
-    Vector<DFGB_Socket> sockets;
+    Vector<BuilderInputSocket *> sockets;
 
     for (VirtualSocket *vsocket : vnode->inputs()) {
       if (builder.is_data_socket(vsocket)) {
-        DFGB_Socket socket = builder.lookup_socket(vsocket);
-        if (!socket.is_linked()) {
+        BuilderInputSocket *socket = builder.lookup_input_socket(vsocket);
+        if (socket->origin() == nullptr) {
           vsockets.append(vsocket);
           sockets.append(socket);
         }
@@ -106,7 +106,7 @@ static void insert_unlinked_inputs(VTreeDataGraphBuilder &builder,
     }
 
     if (vsockets.size() > 0) {
-      Vector<DFGB_Socket> new_origins(vsockets.size());
+      Vector<BuilderOutputSocket *> new_origins(vsockets.size());
       unlinked_inputs_handler.insert(builder, vsockets, new_origins);
       builder.insert_links(new_origins, sockets);
     }
@@ -175,7 +175,7 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
 
   void insert(VTreeDataGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
-              ArrayRef<DFGB_Socket> r_new_origins) override
+              ArrayRef<BuilderOutputSocket *> r_new_origins) override
   {
     auto &socket_loader_map = get_socket_loader_map();
 
@@ -198,9 +198,9 @@ class BasicUnlinkedInputsHandler : public UnlinkedInputsHandler {
     auto fn = fn_builder.build("Input Sockets");
     fn->add_body<SocketLoaderBody>(btrees, bsockets, loaders);
     fn->add_body<SocketLoaderDependencies>(btrees, bsockets);
-    DFGB_Node *node = builder.insert_function(fn);
+    BuilderNode *node = builder.insert_function(fn);
 
-    for (uint i = 0; i < node->output_amount(); i++) {
+    for (uint i = 0; i < node->outputs().size(); i++) {
       r_new_origins[i] = node->output(i);
     }
   }
