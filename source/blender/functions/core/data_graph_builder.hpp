@@ -102,6 +102,26 @@ class BuilderNode {
     return m_outputs;
   }
 
+  Vector<DataSocket> built_inputs()
+  {
+    Vector<DataSocket> sockets;
+    sockets.reserve(m_inputs.size());
+    for (BuilderInputSocket *socket : m_inputs) {
+      sockets.append_unchecked(DataSocket::FromInput(socket->input_id()));
+    }
+    return sockets;
+  }
+
+  Vector<DataSocket> built_outputs()
+  {
+    Vector<DataSocket> sockets;
+    sockets.reserve(m_outputs.size());
+    for (BuilderOutputSocket *socket : m_outputs) {
+      sockets.append_unchecked(DataSocket::FromOutput(socket->output_id()));
+    }
+    return sockets;
+  }
+
   BuilderInputSocket *input(uint index)
   {
     return m_inputs[index];

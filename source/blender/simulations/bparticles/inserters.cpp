@@ -352,15 +352,8 @@ static FN::FunctionGraph link_inputs_to_function(SharedFunction &main_fn,
 
   SharedDataGraph data_graph = builder.build();
 
-  SetVector<DataSocket> final_inputs;
-  for (FN::BuilderOutputSocket *socket : reserved_node->outputs()) {
-    final_inputs.add_new(DataSocket::FromOutput(socket->output_id()));
-  }
-  SetVector<DataSocket> final_outputs;
-  for (FN::BuilderOutputSocket *socket : main_node->outputs()) {
-    final_outputs.add_new(DataSocket::FromOutput(socket->output_id()));
-  }
-
+  auto final_inputs = reserved_node->built_outputs();
+  auto final_outputs = main_node->built_outputs();
   return FN::FunctionGraph(data_graph, final_inputs, final_outputs);
 }
 
