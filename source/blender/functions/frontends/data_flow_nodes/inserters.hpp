@@ -57,14 +57,17 @@ class NodeInserterRegistry {
 class SocketLoaderRegistry {
  private:
   StringMap<SocketLoader> &m_map;
+  StringMap<std::string> &m_idname_by_data_type;
 
  public:
-  SocketLoaderRegistry(StringMap<SocketLoader> &map) : m_map(map)
+  SocketLoaderRegistry(StringMap<SocketLoader> &map)
+      : m_map(map), m_idname_by_data_type(get_idname_by_data_type_map())
   {
   }
 
-  void loader(StringRef idname, SocketLoader loader)
+  void loader(StringRef data_type, SocketLoader loader)
   {
+    std::string &idname = m_idname_by_data_type.lookup_ref(data_type);
     m_map.add_new(idname, loader);
   }
 };

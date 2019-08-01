@@ -57,18 +57,18 @@ template<typename T> static void LOAD_empty_list(PointerRNA *UNUSED(rna), Tuple 
 
 void register_socket_loaders(SocketLoaderRegistry &registry)
 {
-  registry.loader("fn_FloatSocket", LOAD_float);
-  registry.loader("fn_VectorSocket", LOAD_vector);
-  registry.loader("fn_IntegerSocket", LOAD_integer);
-  registry.loader("fn_BooleanSocket", LOAD_boolean);
-  registry.loader("fn_ObjectSocket", LOAD_object);
-  registry.loader("fn_ColorSocket", LOAD_color);
-  registry.loader("fn_FloatListSocket", LOAD_empty_list<float>);
-  registry.loader("fn_VectorListSocket", LOAD_empty_list<float3>);
-  registry.loader("fn_IntegerListSocket", LOAD_empty_list<int32_t>);
-  registry.loader("fn_BooleanListSocket", LOAD_empty_list<bool>);
-  registry.loader("fn_ObjectListSocket", LOAD_empty_list<Object *>);
-  registry.loader("fn_ColorListSocket", LOAD_empty_list<rgba_f>);
+  registry.loader("Float", LOAD_float);
+  registry.loader("Vector", LOAD_vector);
+  registry.loader("Integer", LOAD_integer);
+  registry.loader("Boolean", LOAD_boolean);
+  registry.loader("Object", LOAD_object);
+  registry.loader("Color", LOAD_color);
+  registry.loader("Float List", LOAD_empty_list<float>);
+  registry.loader("Vector List", LOAD_empty_list<float3>);
+  registry.loader("Integer List", LOAD_empty_list<int32_t>);
+  registry.loader("Boolean List", LOAD_empty_list<bool>);
+  registry.loader("Object List", LOAD_empty_list<Object *>);
+  registry.loader("Color List", LOAD_empty_list<rgba_f>);
 }
 
 }  // namespace DataFlowNodes
