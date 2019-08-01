@@ -30,9 +30,6 @@
 
 using namespace BParticles;
 
-using BKE::bSocketList;
-using BKE::IndexedNodeTree;
-using BKE::SocketWithNode;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::StringRef;
