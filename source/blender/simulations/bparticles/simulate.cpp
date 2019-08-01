@@ -636,6 +636,8 @@ BLI_NOINLINE static void emit_and_simulate_particles(ParticlesState &state,
 
 void simulate_step(ParticlesState &state, StepDescription &step_description)
 {
+  SCOPED_TIMER(__func__);
+
   float start_time = state.current_time();
   state.increase_time(step_description.step_duration());
   TimeSpan time_span(start_time, step_description.step_duration());

@@ -52,7 +52,6 @@ BLI_NOINLINE void VTreeDataGraphBuilder::initialize_type_by_vsocket_map()
 
 VTreeDataGraph VTreeDataGraphBuilder::build()
 {
-  m_graph_builder.to_dot__clipboard();
   auto data_graph = m_graph_builder.build();
 
   Vector<DataSocket> r_socket_map(m_vtree.socket_count(), DataSocket::None());
