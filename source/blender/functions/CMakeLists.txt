@@ -155,6 +155,8 @@ set(SRC
   frontends/data_flow_nodes/type_mappings.cpp
   frontends/data_flow_nodes/vtree_data_graph.hpp
   frontends/data_flow_nodes/vtree_data_graph.cpp
+  frontends/data_flow_nodes/input_handlers.hpp
+  frontends/data_flow_nodes/input_handlers.cpp
   frontends/data_flow_nodes/data_flow_nodes-c.h
   frontends/data_flow_nodes/data_flow_nodes-c.cpp
 )
