@@ -18,32 +18,26 @@ static void INSERT_base_to_list(VTreeDataGraphBuilder &builder,
 
 void register_conversion_inserters(ConversionInserterRegistry &registry)
 {
-  registry.function("fn_BooleanSocket", "fn_IntegerSocket", Functions::GET_FN_bool_to_int32);
-  registry.function("fn_BooleanSocket", "fn_FloatSocket", Functions::GET_FN_bool_to_float);
-  registry.function("fn_IntegerSocket", "fn_BooleanSocket", Functions::GET_FN_int32_to_bool);
-  registry.function("fn_IntegerSocket", "fn_FloatSocket", Functions::GET_FN_int32_to_float);
-  registry.function("fn_FloatSocket", "fn_BooleanSocket", Functions::GET_FN_float_to_bool);
-  registry.function("fn_FloatSocket", "fn_IntegerSocket", Functions::GET_FN_float_to_int32);
+  registry.function("Boolean", "Integer", Functions::GET_FN_bool_to_int32);
+  registry.function("Boolean", "Float", Functions::GET_FN_bool_to_float);
+  registry.function("Integer", "Boolean", Functions::GET_FN_int32_to_bool);
+  registry.function("Integer", "Float", Functions::GET_FN_int32_to_float);
+  registry.function("Float", "Boolean", Functions::GET_FN_float_to_bool);
+  registry.function("Float", "Integer", Functions::GET_FN_float_to_int32);
 
-  registry.function(
-      "fn_BooleanListSocket", "fn_IntegerListSocket", Functions::GET_FN_bool_list_to_int32_list);
-  registry.function(
-      "fn_BooleanListSocket", "fn_FloatListSocket", Functions::GET_FN_bool_list_to_float_list);
-  registry.function(
-      "fn_IntegerListSocket", "fn_BooleanListSocket", Functions::GET_FN_int32_list_to_bool_list);
-  registry.function(
-      "fn_IntegerListSocket", "fn_FloatListSocket", Functions::GET_FN_int32_list_to_float_list);
-  registry.function(
-      "fn_FloatListSocket", "fn_BooleanListSocket", Functions::GET_FN_float_list_to_bool_list);
-  registry.function(
-      "fn_FloatListSocket", "fn_IntegerListSocket", Functions::GET_FN_float_list_to_int32_list);
+  registry.function("Boolean List", "Integer List", Functions::GET_FN_bool_list_to_int32_list);
+  registry.function("Boolean List", "Float List", Functions::GET_FN_bool_list_to_float_list);
+  registry.function("Integer List", "Boolean List", Functions::GET_FN_int32_list_to_bool_list);
+  registry.function("Integer List", "Float List", Functions::GET_FN_int32_list_to_float_list);
+  registry.function("Float List", "Boolean List", Functions::GET_FN_float_list_to_bool_list);
+  registry.function("Float List", "Integer List", Functions::GET_FN_float_list_to_int32_list);
 
-  registry.inserter("fn_FloatSocket", "fn_FloatListSocket", INSERT_base_to_list);
-  registry.inserter("fn_VectorSocket", "fn_VectorListSocket", INSERT_base_to_list);
-  registry.inserter("fn_IntegerSocket", "fn_IntegerListSocket", INSERT_base_to_list);
-  registry.inserter("fn_BooleanSocket", "fn_BooleanListSocket", INSERT_base_to_list);
-  registry.inserter("fn_ObjectSocket", "fn_ObjectListSocket", INSERT_base_to_list);
-  registry.inserter("fn_ColorSocket", "fn_ColorListSocket", INSERT_base_to_list);
+  registry.inserter("Float", "Float List", INSERT_base_to_list);
+  registry.inserter("Vector", "Vector List", INSERT_base_to_list);
+  registry.inserter("Integer", "Integer List", INSERT_base_to_list);
+  registry.inserter("Boolean", "Boolean List", INSERT_base_to_list);
+  registry.inserter("Object", "Object List", INSERT_base_to_list);
+  registry.inserter("Color", "Color List", INSERT_base_to_list);
 }
 
 }  // namespace DataFlowNodes

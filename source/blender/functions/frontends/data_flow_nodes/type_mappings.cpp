@@ -8,17 +8,19 @@ namespace FN {
 namespace DataFlowNodes {
 
 struct StringTypeMappings {
-  StringMap<SharedType> by_idname;
-  StringMap<SharedType> by_type_name;
+  StringMap<SharedType> type_by_idname;
+  StringMap<SharedType> type_by_type_name;
   StringMap<std::string> data_type_by_idname;
+  StringMap<std::string> idname_by_data_type;
 };
 
-BLI_LAZY_INIT_STATIC(StringTypeMappings, get_type_by_name_mappings)
+BLI_LAZY_INIT_STATIC(StringTypeMappings, get_type_mappings)
 {
 #define ADD_TYPE(idname, data_type, func_suffix) \
-  maps.by_idname.add_new(idname, Types::GET_TYPE_##func_suffix()); \
-  maps.by_type_name.add_new(data_type, Types::GET_TYPE_##func_suffix()); \
-  maps.data_type_by_idname.add_new(idname, data_type)
+  maps.type_by_idname.add_new(idname, Types::GET_TYPE_##func_suffix()); \
+  maps.type_by_type_name.add_new(data_type, Types::GET_TYPE_##func_suffix()); \
+  maps.data_type_by_idname.add_new(idname, data_type); \
+  maps.idname_by_data_type.add_new(data_type, idname)
 
   StringTypeMappings maps;
   ADD_TYPE("fn_FloatSocket", "Float", float);
@@ -40,17 +42,22 @@ BLI_LAZY_INIT_STATIC(StringTypeMappings, get_type_by_name_mappings)
 
 StringMap<SharedType> &get_type_by_idname_map()
 {
-  return get_type_by_name_mappings().by_idname;
+  return get_type_mappings().type_by_idname;
 }
 
 StringMap<SharedType> &get_type_by_data_type_map()
 {
-  return get_type_by_name_mappings().by_type_name;
+  return get_type_mappings().type_by_type_name;
 }
 
 StringMap<std::string> &get_data_type_by_idname_map()
 {
-  return get_type_by_name_mappings().data_type_by_idname;
+  return get_type_mappings().data_type_by_idname;
+}
+
+StringMap<std::string> &get_idname_by_data_type_map()
+{
+  return get_type_mappings().idname_by_data_type;
 }
 
 }  // namespace DataFlowNodes

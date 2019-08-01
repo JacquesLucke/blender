@@ -9,6 +9,7 @@ namespace DataFlowNodes {
 StringMap<SharedType> &get_type_by_idname_map();
 StringMap<SharedType> &get_type_by_data_type_map();
 StringMap<std::string> &get_data_type_by_idname_map();
+StringMap<std::string> &get_idname_by_data_type_map();
 
 }  // namespace DataFlowNodes
 }  // namespace FN

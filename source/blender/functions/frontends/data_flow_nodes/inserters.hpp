@@ -7,6 +7,7 @@
 #include "FN_tuple_call.hpp"
 
 #include "vtree_data_graph_builder.hpp"
+#include "type_mappings.hpp"
 
 struct PointerRNA;
 
@@ -71,15 +72,19 @@ class SocketLoaderRegistry {
 class ConversionInserterRegistry {
  private:
   Map<StringPair, ConversionInserter> &m_map;
+  StringMap<std::string> &m_idname_by_data_type;
 
  public:
-  ConversionInserterRegistry(Map<StringPair, ConversionInserter> &map) : m_map(map)
+  ConversionInserterRegistry(Map<StringPair, ConversionInserter> &map)
+      : m_map(map), m_idname_by_data_type(get_idname_by_data_type_map())
   {
   }
 
   void inserter(StringRef from_type, StringRef to_type, ConversionInserter inserter)
   {
-    m_map.add_new(StringPair(from_type.to_std_string(), to_type.to_std_string()), inserter);
+    std::string &from_idname = m_idname_by_data_type.lookup_ref(from_type);
+    std::string &to_idname = m_idname_by_data_type.lookup_ref(to_type);
+    m_map.add_new(StringPair(from_idname, to_idname), inserter);
   }
   void function(StringRef from_type, StringRef to_type, FunctionGetter getter)
   {
