@@ -132,8 +132,7 @@ class NewPackListInputOperator(bpy.types.Operator):
         item.state = "BASE"
         item.identifier_prefix = str(uuid.uuid4())
 
-        node.refresh()
-
+        tree.sync()
         return {'FINISHED'}
 
 class RemovePackListInputOperator(bpy.types.Operator):
@@ -151,5 +150,5 @@ class RemovePackListInputOperator(bpy.types.Operator):
         node = tree.nodes[self.node_name]
         collection = getattr(node, self.prop_name)
         collection.remove(self.index)
-        node.refresh()
+        tree.sync()
         return {'FINISHED'}

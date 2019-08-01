@@ -12,6 +12,9 @@ class BaseTree:
             self.links.new(b, a)
 
     def update(self):
+        self.sync()
+
+    def sync(self):
         from . sync import sync_trees_and_dependent_trees
         sync_trees_and_dependent_trees({self})
 
@@ -55,10 +58,8 @@ class BaseNode:
             yield (cls.bl_label, dict())
         yield from cls.search_terms
 
-    def refresh(self, context=None):
-        from . sync import sync_trees_and_dependent_trees
-        sync_trees_and_dependent_trees({self.tree})
-        pass
+    def sync_tree(self, context=None):
+        self.tree.sync()
 
     def rebuild(self):
         from . sync import skip_syncing

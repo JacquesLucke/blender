@@ -9,7 +9,7 @@ class CallNode(bpy.types.Node, FunctionNode):
     function_tree: PointerProperty(
         name="Function Tree",
         type=bpy.types.NodeTree,
-        update=FunctionNode.refresh,
+        update=FunctionNode.sync_tree,
     )
 
     def declaration(self, builder):

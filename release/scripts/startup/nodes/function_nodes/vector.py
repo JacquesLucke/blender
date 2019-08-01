@@ -15,7 +15,7 @@ class VectorMathNode(bpy.types.Node, FunctionNode):
     operation: EnumProperty(
         name="Operation",
         items=operation_items,
-        update=FunctionNode.refresh,
+        update=FunctionNode.sync_tree,
     )
 
     use_list__a: NodeBuilder.VectorizedProperty()

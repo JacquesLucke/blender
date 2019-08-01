@@ -91,7 +91,6 @@ def new_function_tree(name, inputs, outputs):
         variadic = input_node.outputs[0].get_decl(input_node)
         for data_type, name in inputs:
             variadic.add_item(data_type, name)
-        input_node.refresh()
         return input_node
 
     def create_output(tree):
@@ -99,7 +98,6 @@ def new_function_tree(name, inputs, outputs):
         variadic = output_node.inputs[0].get_decl(output_node)
         for data_type, name in outputs:
             variadic.add_item(data_type, name)
-        output_node.refresh()
         return output_node
 
     tree = bpy.data.node_groups.new(name, "FunctionTree")
@@ -107,4 +105,5 @@ def new_function_tree(name, inputs, outputs):
     output_node = create_output(tree)
     input_node.location.x = -200 - input_node.width
     output_node.location.x = 200
+    tree.sync()
     return tree

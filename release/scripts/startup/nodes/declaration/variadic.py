@@ -85,7 +85,7 @@ class AnyVariadicDecl(SocketDeclBase):
         item.data_type = data_type
         item.display_name = display_name
         item.identifier_prefix = str(uuid.uuid4())
-        self.node.refresh()
+        self.node.sync_tree()
         return item
 
     @classmethod
@@ -127,7 +127,7 @@ class AppendAnyVariadicOperator(bpy.types.Operator):
         item.display_name = data_type
         item.identifier_prefix = str(uuid.uuid4())
 
-        node.refresh()
+        tree.sync()
         return {'FINISHED'}
 
 class RemoveAnyVariadicOperator(bpy.types.Operator):
@@ -145,5 +145,5 @@ class RemoveAnyVariadicOperator(bpy.types.Operator):
         node = tree.nodes[self.node_name]
         collection = getattr(node, self.prop_name)
         collection.remove(self.index)
-        node.refresh()
+        tree.sync()
         return {'FINISHED'}

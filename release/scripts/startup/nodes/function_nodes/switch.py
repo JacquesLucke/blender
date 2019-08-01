@@ -8,7 +8,7 @@ class SwitchNode(bpy.types.Node, FunctionNode):
 
     data_type: StringProperty(
         default="Float",
-        update=FunctionNode.refresh
+        update=FunctionNode.sync_tree
     )
 
     def declaration(self, builder):

@@ -35,7 +35,7 @@ class PackListNode(bpy.types.Node, FunctionNode):
 
     active_type: StringProperty(
         default="Float",
-        update=FunctionNode.refresh)
+        update=FunctionNode.sync_tree)
 
     variadic: NodeBuilder.PackListProperty()
 
