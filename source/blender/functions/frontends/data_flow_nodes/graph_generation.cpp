@@ -3,6 +3,7 @@
 #include "FN_types.hpp"
 #include "FN_dependencies.hpp"
 #include "FN_data_flow_nodes.hpp"
+#include "FN_llvm.hpp"
 
 #include "inserters.hpp"
 
@@ -204,15 +205,11 @@ class DynamicSocketLoader : public UnlinkedInputsHandler {
   }
 };
 
-class ConstantTupleOutput : public TupleCallBody {
+class ConstantOutput : public TupleCallBody {
  private:
   std::unique_ptr<Tuple> m_tuple;
 
  public:
-  ConstantTupleOutput()
-  {
-  }
-
   void set_tuple(std::unique_ptr<Tuple> tuple)
   {
     m_tuple = std::move(tuple);
@@ -228,6 +225,48 @@ class ConstantTupleOutput : public TupleCallBody {
   }
 };
 
+class ConstantOutputGen : public LLVMBuildIRBody {
+ private:
+  std::unique_ptr<Tuple> m_tuple;
+
+ public:
+  void set_tuple(std::unique_ptr<Tuple> tuple)
+  {
+    m_tuple = std::move(tuple);
+  }
+
+  void build_ir(CodeBuilder &builder,
+                CodeInterface &interface,
+                const BuildIRSettings &UNUSED(settings)) const override
+  {
+    TupleMeta &meta = m_tuple->meta();
+    SharedType &float_type = Types::GET_TYPE_float();
+    SharedType &int32_type = Types::GET_TYPE_int32();
+    SharedType &float3_type = Types::GET_TYPE_float3();
+
+    for (uint i = 0; i < m_tuple->size(); i++) {
+      SharedType &type = meta.types()[i];
+      llvm::Value *value = nullptr;
+      if (type == float_type) {
+        value = builder.getFloat(m_tuple->get<float>(i));
+      }
+      else if (type == int32_type) {
+        value = builder.getInt32(m_tuple->get<int32_t>(i));
+      }
+      else if (type == float3_type) {
+        value = builder.getFloat3(m_tuple->get<float3>(i));
+      }
+      else {
+        void *ptr = m_tuple->element_ptr(i);
+        LLVMTypeInfo &type_info = type->extension<LLVMTypeInfo>();
+        value = type_info.build_load_ir__copy(builder, builder.getAnyPtr(ptr));
+      }
+      BLI_assert(value != nullptr);
+      interface.set_output(i, value);
+    }
+  }
+};
+
 class ConstantInputsHandler : public UnlinkedInputsHandler {
   void insert(VTreeDataGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
@@ -237,22 +276,26 @@ class ConstantInputsHandler : public UnlinkedInputsHandler {
 
     FunctionBuilder fn_builder;
     for (VirtualSocket *vsocket : unlinked_inputs) {
-      fn_builder.add_output(vsocket->name(), builder.query_socket_type(vsocket));
+      SharedType &type = builder.query_socket_type(vsocket);
+      fn_builder.add_output(vsocket->name(), type);
     }
     SharedFunction fn = fn_builder.build("Unlinked Inputs");
-    fn->add_body<ConstantTupleOutput>();
-    ConstantTupleOutput &body = fn->body<ConstantTupleOutput>();
+    ConstantOutput &tuple_call_body = *fn->add_body<ConstantOutput>();
+    ConstantOutputGen &build_ir_body = *fn->add_body<ConstantOutputGen>();
 
-    Tuple *tuple = new Tuple(*body.meta_out().ptr());
+    Tuple *tuple1 = new Tuple(tuple_call_body.meta_out());
+    Tuple *tuple2 = new Tuple(tuple_call_body.meta_out());
 
     for (uint i = 0; i < unlinked_inputs.size(); i++) {
       VirtualSocket *vsocket = unlinked_inputs[i];
       SocketLoader loader = socket_loader_map.lookup(vsocket->idname());
       PointerRNA rna = vsocket->rna();
-      loader(&rna, *tuple, i);
+      loader(&rna, *tuple1, i);
+      Tuple::copy_element(*tuple1, i, *tuple2, i);
     }
 
-    body.set_tuple(std::unique_ptr<Tuple>(tuple));
+    tuple_call_body.set_tuple(std::unique_ptr<Tuple>(tuple1));
+    build_ir_body.set_tuple(std::unique_ptr<Tuple>(tuple2));
 
     BuilderNode *node = builder.insert_function(fn);
     r_new_origins.copy_from(node->outputs());

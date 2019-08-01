@@ -6,9 +6,13 @@
  */
 
 #include "FN_core.hpp"
+#include "BLI_math.hpp"
+
 #include <llvm/IR/IRBuilder.h>
 
 namespace FN {
+
+using BLI::float3;
 
 class LLVMTypeInfo;
 class IRConstruct_ForLoop;
@@ -162,6 +166,12 @@ class CodeBuilder {
   llvm::Constant *getFloat(float value)
   {
     return llvm::ConstantFP::get(this->getFloatTy(), value);
+  }
+
+  llvm::Constant *getFloat3(float3 value)
+  {
+    return llvm::ConstantVector::get(
+        {this->getFloat(value.x), this->getFloat(value.y), this->getFloat(value.z)});
   }
 
   llvm::Constant *getDouble(double value)
