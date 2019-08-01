@@ -87,7 +87,7 @@ template<typename T, uint N = 4> class Vector {
   Vector(uint size, const T &value) : Vector()
   {
     this->reserve(size);
-    std::fill_n(m_elements, size, value);
+    std::uninitialized_fill_n(m_elements, size, value);
     m_size = size;
   }
 
