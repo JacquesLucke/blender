@@ -42,6 +42,16 @@ struct DFGraphSocket {
   {
   }
 
+  static DFGraphSocket None()
+  {
+    return DFGraphSocket(false, (uint)-1);
+  }
+
+  bool is_none() const
+  {
+    return m_id == (uint)-1;
+  }
+
   static DFGraphSocket FromInput(uint id)
   {
     return DFGraphSocket(false, id);

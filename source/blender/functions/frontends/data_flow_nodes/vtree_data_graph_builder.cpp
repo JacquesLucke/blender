@@ -35,15 +35,16 @@ VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree)
 {
 }
 
-static Map<VirtualSocket *, DFGraphSocket> build_mapping_for_original_sockets(
+static Vector<DFGraphSocket> build_mapping_for_original_sockets(
+    VirtualNodeTree &vtree,
     Map<VirtualSocket *, DFGB_Socket> &socket_map,
     DataFlowGraph::ToBuilderMapping &builder_mapping)
 {
-  Map<VirtualSocket *, DFGraphSocket> original_socket_mapping;
+  Vector<DFGraphSocket> original_socket_mapping(vtree.socket_count(), DFGraphSocket::None());
   for (auto item : socket_map.items()) {
     VirtualSocket *vsocket = item.key;
     DFGraphSocket socket = builder_mapping.map_socket(item.value);
-    original_socket_mapping.add_new(vsocket, socket);
+    original_socket_mapping[vsocket->id()] = socket;
   }
   return original_socket_mapping;
 }
@@ -52,8 +53,9 @@ VTreeDataGraph VTreeDataGraphBuilder::build()
 {
   m_graph_builder.to_dot__clipboard();
   auto build_result = DataFlowGraph::FromBuilder(m_graph_builder);
-  return VTreeDataGraph(std::move(build_result.graph),
-                        build_mapping_for_original_sockets(m_socket_map, build_result.mapping));
+  return VTreeDataGraph(
+      std::move(build_result.graph),
+      build_mapping_for_original_sockets(m_vtree, m_socket_map, build_result.mapping));
 }
 
 class NodeSource : public SourceInfo {

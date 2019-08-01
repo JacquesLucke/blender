@@ -15,10 +15,10 @@ using BLI::ValueOrError;
 class VTreeDataGraph {
  private:
   SharedDataFlowGraph m_graph;
-  Map<VirtualSocket *, DFGraphSocket> m_socket_map;
+  Vector<DFGraphSocket> m_socket_map;
 
  public:
-  VTreeDataGraph(SharedDataFlowGraph graph, Map<VirtualSocket *, DFGraphSocket> mapping)
+  VTreeDataGraph(SharedDataFlowGraph graph, Vector<DFGraphSocket> mapping)
       : m_graph(std::move(graph)), m_socket_map(std::move(mapping))
   {
   }
@@ -30,17 +30,21 @@ class VTreeDataGraph {
 
   DFGraphSocket *lookup_socket_ptr(VirtualSocket *vsocket)
   {
-    return m_socket_map.lookup_ptr(vsocket);
+    DFGraphSocket *socket = &m_socket_map[vsocket->id()];
+    if (socket->is_none()) {
+      return nullptr;
+    }
+    return socket;
   }
 
   DFGraphSocket lookup_socket(VirtualSocket *vsocket)
   {
-    return m_socket_map.lookup(vsocket);
+    return m_socket_map[vsocket->id()];
   }
 
   bool uses_socket(VirtualSocket *vsocket)
   {
-    return m_socket_map.contains(vsocket);
+    return !m_socket_map[vsocket->id()].is_none();
   }
 
   struct PlaceholderDependencies {
