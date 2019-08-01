@@ -50,7 +50,8 @@ class CombineColorNode(bpy.types.Node, FunctionNode):
             "Blue", "Blue", "Float")
         builder.vectorized_input(
             "alpha", "use_list__alpha",
-            "Alpha", "Alpha", "Float")
+            "Alpha", "Alpha", "Float",
+            default=1.0)
 
         builder.vectorized_output(
             "color", ["use_list__red", "use_list__green", "use_list__blue", "use_list__alpha"],

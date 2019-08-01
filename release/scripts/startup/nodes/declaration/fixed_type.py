@@ -1,7 +1,5 @@
-from . base import SocketDeclBase
+from . base import SocketDeclBase, NoDefaultValue
 from .. types import type_infos
-
-NoDefaultValue = object()
 
 class FixedSocketDecl(SocketDeclBase):
     def __init__(self, node, identifier: str, display_name: str, data_type: str, default):

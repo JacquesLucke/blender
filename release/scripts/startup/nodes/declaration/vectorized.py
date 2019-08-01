@@ -1,6 +1,6 @@
 import bpy
 from bpy.props import *
-from . base import SocketDeclBase
+from . base import SocketDeclBase, NoDefaultValue
 from .. types import type_infos
 
 class VectorizedDeclBase:
@@ -33,7 +33,7 @@ class VectorizedInputDecl(VectorizedDeclBase, SocketDeclBase):
     def __init__(self,
             node, identifier, prop_name,
             base_name, list_name,
-            base_type):
+            base_type, default):
         self.node = node
         self.identifier = identifier
         self.prop_name = prop_name
@@ -41,6 +41,12 @@ class VectorizedInputDecl(VectorizedDeclBase, SocketDeclBase):
         self.list_name = list_name
         self.base_type = base_type
         self.list_type = type_infos.to_list(base_type)
+        self.default = default
+
+    def init_default(self, node_sockets):
+        if self.default is not NoDefaultValue:
+            socket = node_sockets[0]
+            socket.restore_state(self.default)
 
     def is_vectorized(self):
         stored = getattr(self.node, self.prop_name)

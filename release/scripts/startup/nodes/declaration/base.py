@@ -1,3 +1,5 @@
+NoDefaultValue = object()
+
 class SocketDeclBase:
     def init(self):
         pass

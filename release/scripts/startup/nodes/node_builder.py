@@ -176,10 +176,11 @@ class NodeBuilder:
     def VectorizedProperty():
         return VectorizedInputDecl.Property()
 
-    def vectorized_input(self, identifier, prop_name, base_name, list_name, base_type):
+    def vectorized_input(self, identifier, prop_name, base_name, list_name, base_type, *, default=NoDefaultValue):
         decl = VectorizedInputDecl(
             self.node, identifier, prop_name,
-            base_name, list_name, base_type)
+            base_name, list_name, base_type,
+            default)
         self._add_input(decl)
 
     def vectorized_output(self, identifier, input_prop_names, base_name, list_name, base_type):
