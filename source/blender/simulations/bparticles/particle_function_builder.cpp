@@ -10,7 +10,7 @@ using BKE::VirtualSocket;
 using FN::DFGraphSocket;
 using FN::FunctionBuilder;
 using FN::FunctionGraph;
-using FN::SharedDataFlowGraph;
+using FN::SharedDataGraph;
 using FN::SharedFunction;
 using FN::SharedType;
 
@@ -129,7 +129,7 @@ static ParticleFunctionInputProvider *create_input_provider(VirtualSocket *vsock
 }
 
 static SharedFunction create_function__with_deps(
-    SharedDataFlowGraph &graph,
+    SharedDataGraph &graph,
     StringRef function_name,
     ArrayRef<DFGraphSocket> sockets_to_compute,
     SocketDependencies &dependencies,
@@ -154,7 +154,7 @@ static SharedFunction create_function__with_deps(
   return fn;
 }
 
-static SharedFunction create_function__without_deps(SharedDataFlowGraph &graph,
+static SharedFunction create_function__without_deps(SharedDataGraph &graph,
                                                     StringRef function_name,
                                                     ArrayRef<DFGraphSocket> sockets_to_compute)
 {
@@ -167,7 +167,7 @@ static SharedFunction create_function__without_deps(SharedDataFlowGraph &graph,
 }
 
 static ValueOrError<std::unique_ptr<ParticleFunction>> create_particle_function_from_sockets(
-    SharedDataFlowGraph &graph,
+    SharedDataGraph &graph,
     StringRef name,
     ArrayRef<DFGraphSocket> sockets_to_compute,
     ArrayRef<bool> depends_on_particle_flags,

@@ -7,7 +7,7 @@ namespace FN {
 
 using BLI::VectorAdaptor;
 
-static void try_ensure_tuple_call_bodies(SharedDataFlowGraph &graph)
+static void try_ensure_tuple_call_bodies(SharedDataGraph &graph)
 {
   for (uint node_id : graph->node_ids()) {
     SharedFunction &fn = graph->function_of_node(node_id);
@@ -28,7 +28,7 @@ static void try_ensure_tuple_call_bodies(SharedDataFlowGraph &graph)
 class ExecuteFGraph : public TupleCallBody {
  private:
   FunctionGraph m_fgraph;
-  DataFlowGraph *m_graph;
+  DataGraph *m_graph;
 
   struct NodeInfo {
     TupleCallBodyBase *body;
@@ -555,7 +555,7 @@ class ExecuteFGraph_Simple : public TupleCallBody {
  private:
   FunctionGraph m_fgraph;
   /* Just for easy access. */
-  DataFlowGraph *m_graph;
+  DataGraph *m_graph;
 
  public:
   ExecuteFGraph_Simple(FunctionGraph &function_graph)

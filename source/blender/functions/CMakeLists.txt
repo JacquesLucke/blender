@@ -42,8 +42,8 @@ set(SRC
   core/function.cpp
   core/function_builder.hpp
   core/function_builder.cpp
-  core/data_flow_graph.hpp
-  core/data_flow_graph.cpp
+  core/data_graph.hpp
+  core/data_graph.cpp
   core/data_graph_builder.hpp
   core/data_graph_builder.cpp
   core/function_graph.hpp

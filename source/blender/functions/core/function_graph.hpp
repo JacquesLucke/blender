@@ -8,7 +8,7 @@
 
 #include "BLI_set_vector.hpp"
 
-#include "data_flow_graph.hpp"
+#include "data_graph.hpp"
 
 namespace FN {
 
@@ -16,24 +16,24 @@ using BLI::SetVector;
 
 class FunctionGraph {
  private:
-  SharedDataFlowGraph m_graph;
+  SharedDataGraph m_graph;
   SetVector<DFGraphSocket> m_inputs;
   SetVector<DFGraphSocket> m_outputs;
 
  public:
-  FunctionGraph(SharedDataFlowGraph graph,
+  FunctionGraph(SharedDataGraph graph,
                 SetVector<DFGraphSocket> inputs,
                 SetVector<DFGraphSocket> outputs)
       : m_graph(std::move(graph)), m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
   {
   }
 
-  const SharedDataFlowGraph &graph() const
+  const SharedDataGraph &graph() const
   {
     return m_graph;
   }
 
-  SharedDataFlowGraph &graph()
+  SharedDataGraph &graph()
   {
     return m_graph;
   }

@@ -20,7 +20,7 @@ void FunctionBuilder::add_output(StringRef name, SharedType &type)
   m_output_types.append(type);
 }
 
-void FunctionBuilder::add_inputs(const SharedDataFlowGraph &graph, ArrayRef<DFGraphSocket> sockets)
+void FunctionBuilder::add_inputs(const SharedDataGraph &graph, ArrayRef<DFGraphSocket> sockets)
 {
   for (DFGraphSocket socket : sockets) {
     StringRef name = graph->name_of_socket(socket);
@@ -29,8 +29,7 @@ void FunctionBuilder::add_inputs(const SharedDataFlowGraph &graph, ArrayRef<DFGr
   }
 }
 
-void FunctionBuilder::add_outputs(const SharedDataFlowGraph &graph,
-                                  ArrayRef<DFGraphSocket> sockets)
+void FunctionBuilder::add_outputs(const SharedDataGraph &graph, ArrayRef<DFGraphSocket> sockets)
 {
   for (DFGraphSocket socket : sockets) {
     StringRef name = graph->name_of_socket(socket);

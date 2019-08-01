@@ -7,7 +7,7 @@ namespace FN {
 class BuildGraphIR : public LLVMBuildIRBody {
  private:
   FunctionGraph m_fgraph;
-  DataFlowGraph *m_graph;
+  DataGraph *m_graph;
   Set<DFGraphSocket> m_required_sockets;
 
  public:

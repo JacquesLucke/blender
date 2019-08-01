@@ -4,7 +4,7 @@
 
 #include "function.hpp"
 #include "source_info.hpp"
-#include "data_flow_graph.hpp"
+#include "data_graph.hpp"
 
 namespace FN {
 
@@ -132,7 +132,7 @@ class DataGraphBuilder {
   DataGraphBuilder(DataGraphBuilder &other) = delete;
   ~DataGraphBuilder();
 
-  SharedDataFlowGraph build();
+  SharedDataGraph build();
 
   BuilderNode *insert_function(SharedFunction function, SourceInfo *source_info = nullptr);
   void insert_link(BuilderOutputSocket *from, BuilderInputSocket *to);

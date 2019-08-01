@@ -154,10 +154,10 @@ template<typename SequenceT> class DFGraphSocketSequence {
   }
 };
 
-class DataFlowGraph;
-using SharedDataFlowGraph = AutoRefCount<DataFlowGraph>;
+class DataGraph;
+using SharedDataGraph = AutoRefCount<DataGraph>;
 
-class DataFlowGraph : public RefCountedBase {
+class DataGraph : public RefCountedBase {
  public:
   struct Node {
     SharedFunction function;
@@ -204,14 +204,14 @@ class DataFlowGraph : public RefCountedBase {
   std::unique_ptr<MonotonicAllocator<>> m_source_info_allocator;
 
  public:
-  DataFlowGraph(Vector<Node> nodes,
-                Vector<InputSocket> inputs,
-                Vector<OutputSocket> outputs,
-                Vector<uint> targets,
-                std::unique_ptr<MonotonicAllocator<>> source_info_allocator);
+  DataGraph(Vector<Node> nodes,
+            Vector<InputSocket> inputs,
+            Vector<OutputSocket> outputs,
+            Vector<uint> targets,
+            std::unique_ptr<MonotonicAllocator<>> source_info_allocator);
 
-  DataFlowGraph(DataFlowGraph &other) = delete;
-  ~DataFlowGraph();
+  DataGraph(DataGraph &other) = delete;
+  ~DataGraph();
 
   Range<uint> node_ids() const
   {

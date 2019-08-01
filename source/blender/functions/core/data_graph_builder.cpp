@@ -88,36 +88,36 @@ void DataGraphBuilder::insert_link(BuilderOutputSocket *from, BuilderInputSocket
   m_link_counter++;
 }
 
-SharedDataFlowGraph DataGraphBuilder::build()
+SharedDataGraph DataGraphBuilder::build()
 {
   /* Every input socket should be linked to exactly one output. */
   BLI_assert(m_link_counter == m_input_socket_counter);
 
-  Vector<DataFlowGraph::Node> r_nodes;
+  Vector<DataGraph::Node> r_nodes;
   r_nodes.reserve(m_nodes.size());
-  Vector<DataFlowGraph::InputSocket> r_inputs;
+  Vector<DataGraph::InputSocket> r_inputs;
   r_inputs.reserve(m_input_socket_counter);
-  Vector<DataFlowGraph::OutputSocket> r_outputs;
+  Vector<DataGraph::OutputSocket> r_outputs;
   r_outputs.reserve(m_output_socket_counter);
   Vector<uint> r_targets;
   r_targets.reserve(m_link_counter);
 
   for (BuilderNode *builder_node : m_nodes) {
     uint node_id = builder_node->id();
-    r_nodes.append(DataFlowGraph::Node(std::move(builder_node->function()),
-                                       builder_node->source_info(),
-                                       r_inputs.size(),
-                                       r_outputs.size()));
+    r_nodes.append(DataGraph::Node(std::move(builder_node->function()),
+                                   builder_node->source_info(),
+                                   r_inputs.size(),
+                                   r_outputs.size()));
 
     for (BuilderInputSocket *builder_socket : builder_node->inputs()) {
       BLI_assert(builder_socket->origin() != nullptr);
       uint origin_id = builder_socket->origin()->output_id();
-      r_inputs.append(DataFlowGraph::InputSocket(node_id, origin_id));
+      r_inputs.append(DataGraph::InputSocket(node_id, origin_id));
     }
 
     for (BuilderOutputSocket *builder_socket : builder_node->outputs()) {
       auto targets = builder_socket->targets();
-      r_outputs.append(DataFlowGraph::OutputSocket(node_id, r_targets.size(), targets.size()));
+      r_outputs.append(DataGraph::OutputSocket(node_id, r_targets.size(), targets.size()));
 
       for (BuilderInputSocket *target : targets) {
         r_targets.append(target->input_id());
@@ -125,11 +125,11 @@ SharedDataFlowGraph DataGraphBuilder::build()
     }
   }
 
-  return SharedDataFlowGraph::New(std::move(r_nodes),
-                                  std::move(r_inputs),
-                                  std::move(r_outputs),
-                                  std::move(r_targets),
-                                  std::move(m_source_info_allocator));
+  return SharedDataGraph::New(std::move(r_nodes),
+                              std::move(r_inputs),
+                              std::move(r_outputs),
+                              std::move(r_targets),
+                              std::move(m_source_info_allocator));
 }
 
 }  // namespace FN

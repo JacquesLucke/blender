@@ -2,11 +2,11 @@
 
 namespace FN {
 
-DataFlowGraph::DataFlowGraph(Vector<Node> nodes,
-                             Vector<InputSocket> inputs,
-                             Vector<OutputSocket> outputs,
-                             Vector<uint> targets,
-                             std::unique_ptr<MonotonicAllocator<>> source_info_allocator)
+DataGraph::DataGraph(Vector<Node> nodes,
+                     Vector<InputSocket> inputs,
+                     Vector<OutputSocket> outputs,
+                     Vector<uint> targets,
+                     std::unique_ptr<MonotonicAllocator<>> source_info_allocator)
     : m_nodes(std::move(nodes)),
       m_inputs(std::move(inputs)),
       m_outputs(std::move(outputs)),
@@ -15,7 +15,7 @@ DataFlowGraph::DataFlowGraph(Vector<Node> nodes,
 {
 }
 
-DataFlowGraph::~DataFlowGraph()
+DataGraph::~DataGraph()
 {
   for (Node node : m_nodes) {
     if (node.source_info != nullptr) {
@@ -24,7 +24,7 @@ DataFlowGraph::~DataFlowGraph()
   }
 }
 
-void DataFlowGraph::print_socket(DFGraphSocket socket) const
+void DataGraph::print_socket(DFGraphSocket socket) const
 {
   uint node_id = this->node_id_of_socket(socket);
   auto &node = m_nodes[node_id];
@@ -38,21 +38,21 @@ void DataFlowGraph::print_socket(DFGraphSocket socket) const
   std::cout << ":" << this->index_of_socket(socket) << ">";
 }
 
-std::string DataFlowGraph::to_dot()
+std::string DataGraph::to_dot()
 {
   DataGraphBuilder builder;
   this->insert_in_builder(builder);
   return builder.to_dot();
 }
 
-void DataFlowGraph::to_dot__clipboard()
+void DataGraph::to_dot__clipboard()
 {
   DataGraphBuilder builder;
   this->insert_in_builder(builder);
   builder.to_dot__clipboard();
 }
 
-void DataFlowGraph::insert_in_builder(DataGraphBuilder &builder)
+void DataGraph::insert_in_builder(DataGraphBuilder &builder)
 {
   Vector<BuilderNode *> builder_nodes;
 

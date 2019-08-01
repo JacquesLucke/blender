@@ -23,7 +23,7 @@ using BLI::ValueOrError;
 using FN::DFGraphSocket;
 using FN::FunctionBuilder;
 using FN::FunctionGraph;
-using FN::SharedDataFlowGraph;
+using FN::SharedDataGraph;
 using FN::SharedFunction;
 using FN::SharedType;
 
@@ -350,7 +350,7 @@ static FN::FunctionGraph link_inputs_to_function(SharedFunction &main_fn,
 
   match_inputs_to_node_outputs(builder, main_node, reserved_node, inputs_node);
 
-  SharedDataFlowGraph data_flow_graph = builder.build();
+  SharedDataGraph data_graph = builder.build();
 
   SetVector<DFGraphSocket> final_inputs;
   for (FN::BuilderOutputSocket *socket : reserved_node->outputs()) {
@@ -361,7 +361,7 @@ static FN::FunctionGraph link_inputs_to_function(SharedFunction &main_fn,
     final_outputs.add_new(DFGraphSocket::FromOutput(socket->output_id()));
   }
 
-  return FN::FunctionGraph(data_flow_graph, final_inputs, final_outputs);
+  return FN::FunctionGraph(data_graph, final_inputs, final_outputs);
 }
 
 static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,

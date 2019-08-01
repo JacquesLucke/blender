@@ -5,7 +5,7 @@ namespace FN {
 class FGraphDependencies : public DepsBody {
  private:
   FunctionGraph m_fgraph;
-  SharedDataFlowGraph m_graph;
+  SharedDataGraph m_graph;
 
  public:
   FGraphDependencies(FunctionGraph &function_graph)

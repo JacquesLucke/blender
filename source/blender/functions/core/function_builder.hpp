@@ -1,7 +1,7 @@
 #pragma once
 
 #include "function.hpp"
-#include "data_flow_graph.hpp"
+#include "data_graph.hpp"
 
 namespace FN {
 
@@ -29,12 +29,12 @@ class FunctionBuilder {
   /**
    * Add multiple inputs. The names and types are taken from the sockets.
    */
-  void add_inputs(const SharedDataFlowGraph &graph, ArrayRef<DFGraphSocket> sockets);
+  void add_inputs(const SharedDataGraph &graph, ArrayRef<DFGraphSocket> sockets);
 
   /**
    * Add multiple outputs. The names and types are taken from the sockets.
    */
-  void add_outputs(const SharedDataFlowGraph &graph, ArrayRef<DFGraphSocket> sockets);
+  void add_outputs(const SharedDataGraph &graph, ArrayRef<DFGraphSocket> sockets);
 
   /**
    * Create a new function with the given name and all the inputs and outputs previously added.

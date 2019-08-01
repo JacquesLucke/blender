@@ -14,16 +14,16 @@ using BLI::ValueOrError;
 
 class VTreeDataGraph {
  private:
-  SharedDataFlowGraph m_graph;
+  SharedDataGraph m_graph;
   Vector<DFGraphSocket> m_socket_map;
 
  public:
-  VTreeDataGraph(SharedDataFlowGraph graph, Vector<DFGraphSocket> mapping)
+  VTreeDataGraph(SharedDataGraph graph, Vector<DFGraphSocket> mapping)
       : m_graph(std::move(graph)), m_socket_map(std::move(mapping))
   {
   }
 
-  SharedDataFlowGraph &graph()
+  SharedDataGraph &graph()
   {
     return m_graph;
   }
