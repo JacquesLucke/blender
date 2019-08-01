@@ -16,6 +16,7 @@ namespace BParticles {
 
 using FN::Types::SharedFloat3List;
 using FN::Types::SharedFloatList;
+using FN::Types::SharedFloatRGBAList;
 using FN::Types::SharedInt32List;
 
 static float random_float()
@@ -142,9 +143,11 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
   auto &float_list_type = FN::Types::GET_TYPE_float_list();
   auto &float3_list_type = FN::Types::GET_TYPE_float3_list();
   auto &int32_list_type = FN::Types::GET_TYPE_int32_list();
+  auto &rgba_f_list_type = FN::Types::GET_TYPE_rgba_f_list();
   auto &float_type = FN::Types::GET_TYPE_float();
   auto &float3_type = FN::Types::GET_TYPE_float3();
   auto &int32_type = FN::Types::GET_TYPE_int32();
+  auto &rgba_f_type = FN::Types::GET_TYPE_rgba_f();
 
   uint new_particle_amount = 0;
   for (uint i = 0; i < m_function->output_amount(); i++) {
@@ -185,6 +188,10 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
       auto list = fn_out.relocate_out<SharedInt32List>(i);
       new_particles.set_repeated<int32_t>(attribute_index, *list.ptr());
     }
+    else if (type == rgba_f_list_type) {
+      auto list = fn_out.relocate_out<SharedFloatRGBAList>(i);
+      new_particles.set_repeated<rgba_f>(attribute_index, *list.ptr());
+    }
     else if (type == float_type) {
       new_particles.fill<float>(attribute_index, fn_out.get<float>(i));
     }
@@ -193,6 +200,9 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
     }
     else if (type == int32_type) {
       new_particles.fill<int32_t>(attribute_index, fn_out.get<int32_t>(i));
+    }
+    else if (type == rgba_f_type) {
+      new_particles.fill<rgba_f>(attribute_index, fn_out.get<rgba_f>(i));
     }
   }
 }
