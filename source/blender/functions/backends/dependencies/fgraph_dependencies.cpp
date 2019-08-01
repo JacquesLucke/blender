@@ -16,14 +16,13 @@ class FGraphDependencies : public DepsBody {
   void build_deps(FunctionDepsBuilder &builder) const override
   {
     for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
-      DFGraphSocket socket = m_fgraph.outputs()[i];
+      DataSocket socket = m_fgraph.outputs()[i];
       Vector<ID *> outputs = this->find_deps_and_outputs(socket, builder);
       builder.add_output_ids(i, outputs);
     }
   }
 
-  Vector<ID *> find_deps_and_outputs(DFGraphSocket socket,
-                                     FunctionDepsBuilder &parent_builder) const
+  Vector<ID *> find_deps_and_outputs(DataSocket socket, FunctionDepsBuilder &parent_builder) const
   {
     if (m_fgraph.inputs().contains(socket)) {
       return parent_builder.get_input_ids(m_fgraph.inputs().index(socket));

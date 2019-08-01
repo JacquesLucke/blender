@@ -40,19 +40,19 @@ class DataGraphBuilder;
 /**
  * Represents any socket in the graph by storing its ID and whether it is an input or output.
  */
-struct DFGraphSocket {
+struct DataSocket {
  private:
   bool m_is_output;
   uint m_id;
 
  public:
-  DFGraphSocket(bool is_output, uint id) : m_is_output(is_output), m_id(id)
+  DataSocket(bool is_output, uint id) : m_is_output(is_output), m_id(id)
   {
   }
 
-  static DFGraphSocket None()
+  static DataSocket None()
   {
-    return DFGraphSocket(false, (uint)-1);
+    return DataSocket(false, (uint)-1);
   }
 
   bool is_none() const
@@ -60,14 +60,14 @@ struct DFGraphSocket {
     return m_id == (uint)-1;
   }
 
-  static DFGraphSocket FromInput(uint id)
+  static DataSocket FromInput(uint id)
   {
-    return DFGraphSocket(false, id);
+    return DataSocket(false, id);
   }
 
-  static DFGraphSocket FromOutput(uint id)
+  static DataSocket FromOutput(uint id)
   {
-    return DFGraphSocket(true, id);
+    return DataSocket(true, id);
   }
 
   bool is_input() const
@@ -85,7 +85,7 @@ struct DFGraphSocket {
     return m_id;
   }
 
-  friend inline bool operator==(const DFGraphSocket &a, const DFGraphSocket &b)
+  friend inline bool operator==(const DataSocket &a, const DataSocket &b)
   {
     return a.m_id == b.m_id && a.m_is_output == b.m_is_output;
   }
@@ -95,30 +95,30 @@ struct DFGraphSocket {
  * An iterator over sockets. This type should never appear in user code. Instead it is either used
  * directly in a range-for loop or it should be used with the auto keyword.
  */
-template<typename IdIteratorT> class DFGraphSocketIterator {
+template<typename IdIteratorT> class DataSocketIterator {
  private:
   bool m_is_output;
   IdIteratorT m_it;
 
  public:
-  DFGraphSocketIterator(bool is_output, IdIteratorT it) : m_is_output(is_output), m_it(it)
+  DataSocketIterator(bool is_output, IdIteratorT it) : m_is_output(is_output), m_it(it)
   {
   }
 
-  DFGraphSocketIterator &operator++()
+  DataSocketIterator &operator++()
   {
     ++m_it;
     return *this;
   }
 
-  bool operator!=(const DFGraphSocketIterator &other)
+  bool operator!=(const DataSocketIterator &other)
   {
     return m_it != other.m_it;
   }
 
-  DFGraphSocket operator*() const
+  DataSocket operator*() const
   {
-    return DFGraphSocket(m_is_output, *m_it);
+    return DataSocket(m_is_output, *m_it);
   }
 };
 
@@ -126,26 +126,26 @@ template<typename IdIteratorT> class DFGraphSocketIterator {
  * An iterator over sockets. This type should never appear in user code. Instead it is either used
  * directly in a range-for loop or it should be used with the auto keyword.
  */
-template<typename SequenceT> class DFGraphSocketSequence {
+template<typename SequenceT> class DataSocketSequence {
  private:
   bool m_is_output;
   SequenceT m_sequence;
   using IdIteratorT = decltype(m_sequence.begin());
 
  public:
-  DFGraphSocketSequence(bool is_output, SequenceT sequence)
+  DataSocketSequence(bool is_output, SequenceT sequence)
       : m_is_output(is_output), m_sequence(sequence)
   {
   }
 
-  DFGraphSocketIterator<IdIteratorT> begin()
+  DataSocketIterator<IdIteratorT> begin()
   {
-    return DFGraphSocketIterator<IdIteratorT>(m_is_output, m_sequence.begin());
+    return DataSocketIterator<IdIteratorT>(m_is_output, m_sequence.begin());
   }
 
-  DFGraphSocketIterator<IdIteratorT> end()
+  DataSocketIterator<IdIteratorT> end()
   {
-    return DFGraphSocketIterator<IdIteratorT>(m_is_output, m_sequence.end());
+    return DataSocketIterator<IdIteratorT>(m_is_output, m_sequence.end());
   }
 
   uint size() const
@@ -245,14 +245,14 @@ class DataGraph : public RefCountedBase {
     return m_nodes[node_id].outputs_start + output_index;
   }
 
-  DFGraphSocket socket_of_node_input(uint node_id, uint input_index)
+  DataSocket socket_of_node_input(uint node_id, uint input_index)
   {
-    return DFGraphSocket(false, this->id_of_node_input(node_id, input_index));
+    return DataSocket(false, this->id_of_node_input(node_id, input_index));
   }
 
-  DFGraphSocket socket_of_node_output(uint node_id, uint output_index)
+  DataSocket socket_of_node_output(uint node_id, uint output_index)
   {
-    return DFGraphSocket(true, this->id_of_node_output(node_id, output_index));
+    return DataSocket(true, this->id_of_node_output(node_id, output_index));
   }
 
   Range<uint> input_ids_of_node(uint node_id) const
@@ -261,9 +261,9 @@ class DataGraph : public RefCountedBase {
     return Range<uint>(node.inputs_start, node.inputs_start + node.function->input_amount());
   }
 
-  DFGraphSocketSequence<Range<uint>> inputs_of_node(uint node_id) const
+  DataSocketSequence<Range<uint>> inputs_of_node(uint node_id) const
   {
-    return DFGraphSocketSequence<Range<uint>>(false, this->input_ids_of_node(node_id));
+    return DataSocketSequence<Range<uint>>(false, this->input_ids_of_node(node_id));
   }
 
   Range<uint> output_ids_of_node(uint node_id) const
@@ -272,9 +272,9 @@ class DataGraph : public RefCountedBase {
     return Range<uint>(node.outputs_start, node.outputs_start + node.function->output_amount());
   }
 
-  DFGraphSocketSequence<Range<uint>> outputs_of_node(uint node_id) const
+  DataSocketSequence<Range<uint>> outputs_of_node(uint node_id) const
   {
-    return DFGraphSocketSequence<Range<uint>>(true, this->output_ids_of_node(node_id));
+    return DataSocketSequence<Range<uint>>(true, this->output_ids_of_node(node_id));
   }
 
   uint first_input_id_of_node(uint node_id) const
@@ -302,10 +302,10 @@ class DataGraph : public RefCountedBase {
     return m_inputs[input_id].origin;
   }
 
-  DFGraphSocket origin_of_input(DFGraphSocket input_socket) const
+  DataSocket origin_of_input(DataSocket input_socket) const
   {
     BLI_assert(input_socket.is_input());
-    return DFGraphSocket::FromOutput(this->origin_of_input(input_socket.id()));
+    return DataSocket::FromOutput(this->origin_of_input(input_socket.id()));
   }
 
   ArrayRef<uint> targets_of_output(uint output_id) const
@@ -314,14 +314,13 @@ class DataGraph : public RefCountedBase {
     return ArrayRef<uint>(&m_targets[data.targets_start], data.targets_amount);
   }
 
-  DFGraphSocketSequence<ArrayRef<uint>> targets_of_output(DFGraphSocket output_socket) const
+  DataSocketSequence<ArrayRef<uint>> targets_of_output(DataSocket output_socket) const
   {
     BLI_assert(output_socket.is_output());
-    return DFGraphSocketSequence<ArrayRef<uint>>(false,
-                                                 this->targets_of_output(output_socket.id()));
+    return DataSocketSequence<ArrayRef<uint>>(false, this->targets_of_output(output_socket.id()));
   }
 
-  uint node_id_of_socket(DFGraphSocket socket) const
+  uint node_id_of_socket(DataSocket socket) const
   {
     if (socket.is_input()) {
       return this->node_id_of_input(socket);
@@ -336,7 +335,7 @@ class DataGraph : public RefCountedBase {
     return m_inputs[input_id].node;
   }
 
-  uint node_id_of_input(DFGraphSocket input_socket) const
+  uint node_id_of_input(DataSocket input_socket) const
   {
     BLI_assert(input_socket.is_input());
     return this->node_id_of_input(input_socket.id());
@@ -347,13 +346,13 @@ class DataGraph : public RefCountedBase {
     return m_outputs[output_id].node;
   }
 
-  uint node_id_of_output(DFGraphSocket output_socket) const
+  uint node_id_of_output(DataSocket output_socket) const
   {
     BLI_assert(output_socket.is_output());
     return this->node_id_of_output(output_socket.id());
   }
 
-  uint index_of_socket(DFGraphSocket socket) const
+  uint index_of_socket(DataSocket socket) const
   {
     if (socket.is_input()) {
       return this->index_of_input(socket);
@@ -368,7 +367,7 @@ class DataGraph : public RefCountedBase {
     return input_id - m_nodes[m_inputs[input_id].node].inputs_start;
   }
 
-  uint index_of_input(DFGraphSocket input_socket) const
+  uint index_of_input(DataSocket input_socket) const
   {
     BLI_assert(input_socket.is_input());
     return this->index_of_input(input_socket.id());
@@ -379,13 +378,13 @@ class DataGraph : public RefCountedBase {
     return output_id - m_nodes[m_outputs[output_id].node].outputs_start;
   }
 
-  uint index_of_output(DFGraphSocket output_socket) const
+  uint index_of_output(DataSocket output_socket) const
   {
     BLI_assert(output_socket.is_output());
     return this->index_of_output(output_socket.id());
   }
 
-  const StringRefNull name_of_socket(DFGraphSocket socket)
+  const StringRefNull name_of_socket(DataSocket socket)
   {
     if (socket.is_input()) {
       return this->name_of_input(socket.id());
@@ -395,7 +394,7 @@ class DataGraph : public RefCountedBase {
     }
   }
 
-  SharedType &type_of_socket(DFGraphSocket socket)
+  SharedType &type_of_socket(DataSocket socket)
   {
     if (socket.is_input()) {
       return this->type_of_input(socket.id());
@@ -425,13 +424,13 @@ class DataGraph : public RefCountedBase {
     return this->function_of_output(output_id)->output_type(this->index_of_output(output_id));
   }
 
-  SharedType &type_of_input(DFGraphSocket input_socket)
+  SharedType &type_of_input(DataSocket input_socket)
   {
     BLI_assert(input_socket.is_input());
     return this->type_of_input(input_socket.id());
   }
 
-  SharedType &type_of_output(DFGraphSocket output_socket)
+  SharedType &type_of_output(DataSocket output_socket)
   {
     BLI_assert(output_socket.is_output());
     return this->type_of_output(output_socket.id());
@@ -440,7 +439,7 @@ class DataGraph : public RefCountedBase {
   std::string to_dot();
   void to_dot__clipboard();
 
-  void print_socket(DFGraphSocket socket) const;
+  void print_socket(DataSocket socket) const;
 
  private:
   void insert_in_builder(DataGraphBuilder &builder);
@@ -449,8 +448,8 @@ class DataGraph : public RefCountedBase {
 }  // namespace FN
 
 namespace std {
-template<> struct hash<FN::DFGraphSocket> {
-  typedef FN::DFGraphSocket argument_type;
+template<> struct hash<FN::DataSocket> {
+  typedef FN::DataSocket argument_type;
   typedef size_t result_type;
 
   result_type operator()(argument_type const &v) const noexcept

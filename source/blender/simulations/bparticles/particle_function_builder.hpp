@@ -9,10 +9,10 @@ namespace BParticles {
 
 using BKE::VirtualNode;
 using BLI::ValueOrError;
-using FN::DFGraphSocket;
+using FN::DataSocket;
 using FN::DataFlowNodes::VTreeDataGraph;
 
-Vector<DFGraphSocket> find_input_data_sockets(VirtualNode *vnode, VTreeDataGraph &data_graph);
+Vector<DataSocket> find_input_data_sockets(VirtualNode *vnode, VTreeDataGraph &data_graph);
 
 ValueOrError<std::unique_ptr<ParticleFunction>> create_particle_function(
     VirtualNode *vnode, VTreeDataGraph &data_graph);

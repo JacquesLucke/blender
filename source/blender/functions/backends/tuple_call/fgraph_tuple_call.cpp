@@ -213,7 +213,7 @@ class ExecuteFGraph : public TupleCallBody {
   void copy_inputs_to_storage(Tuple &fn_in, Tuple &fn_out, SocketValueStorage &storage) const
   {
     for (uint i = 0; i < m_fgraph.inputs().size(); i++) {
-      DFGraphSocket socket = m_fgraph.inputs()[i];
+      DataSocket socket = m_fgraph.inputs()[i];
       if (socket.is_input()) {
         fn_in.relocate_out__dynamic(i, storage.input_value_ptr(socket.id()));
         storage.set_input_initialized(socket.id(), true);
@@ -256,7 +256,7 @@ class ExecuteFGraph : public TupleCallBody {
                  true, \
                  false);
 
-  using SocketsToComputeStack = Stack<DFGraphSocket, 64>;
+  using SocketsToComputeStack = Stack<DataSocket, 64>;
   using LazyStatesStack = Stack<LazyStateOfNode>;
 
   void evaluate_graph_to_compute_outputs(SocketValueStorage &storage,
@@ -271,14 +271,14 @@ class ExecuteFGraph : public TupleCallBody {
     }
 
     while (!sockets_to_compute.empty()) {
-      DFGraphSocket socket = sockets_to_compute.peek();
+      DataSocket socket = sockets_to_compute.peek();
 
       if (socket.is_input()) {
         if (storage.is_input_initialized(socket.id())) {
           sockets_to_compute.pop();
         }
         else {
-          DFGraphSocket origin = m_graph->origin_of_input(socket);
+          DataSocket origin = m_graph->origin_of_input(socket);
           if (storage.is_output_initialized(origin.id())) {
             this->forward_output(origin.id(), storage, fn_out);
             sockets_to_compute.pop();
@@ -378,7 +378,7 @@ class ExecuteFGraph : public TupleCallBody {
     for (uint input_index : body->always_required()) {
       uint input_id = m_graph->id_of_node_input(node_id, input_index);
       if (!storage.is_input_initialized(input_id)) {
-        sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
+        sockets_to_compute.push(DataSocket::FromInput(input_id));
         required_inputs_computed = false;
       }
     }
@@ -393,7 +393,7 @@ class ExecuteFGraph : public TupleCallBody {
     for (uint requested_input_index : state.requested_inputs()) {
       uint input_id = m_graph->id_of_node_input(node_id, requested_input_index);
       if (!storage.is_input_initialized(input_id)) {
-        sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
+        sockets_to_compute.push(DataSocket::FromInput(input_id));
       }
     }
   }
@@ -405,7 +405,7 @@ class ExecuteFGraph : public TupleCallBody {
     bool all_inputs_computed = true;
     for (uint input_id : m_graph->input_ids_of_node(node_id)) {
       if (!storage.is_input_initialized(input_id)) {
-        sockets_to_compute.push(DFGraphSocket::FromInput(input_id));
+        sockets_to_compute.push(DataSocket::FromInput(input_id));
         all_inputs_computed = false;
       }
     }
@@ -418,7 +418,7 @@ class ExecuteFGraph : public TupleCallBody {
   {
     for (uint output_id : m_graph->output_ids_of_node(node_id)) {
       if (m_output_info[output_id].is_fn_output) {
-        uint index = m_fgraph.outputs().index(DFGraphSocket::FromOutput(output_id));
+        uint index = m_fgraph.outputs().index(DataSocket::FromOutput(output_id));
         fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
       }
     }
@@ -525,7 +525,7 @@ class ExecuteFGraph : public TupleCallBody {
     for (uint target_id : target_ids) {
       SocketInfo &socket_info = m_input_info[target_id];
       if (socket_info.is_fn_output) {
-        uint index = m_fgraph.outputs().index(DFGraphSocket::FromInput(target_id));
+        uint index = m_fgraph.outputs().index(DataSocket::FromInput(target_id));
         void *value_ptr = storage.input_value_ptr(target_id);
         fn_out.copy_in__dynamic(index, value_ptr);
       }
@@ -566,13 +566,13 @@ class ExecuteFGraph_Simple : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const override
   {
     for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
-      DFGraphSocket socket = m_fgraph.outputs()[i];
+      DataSocket socket = m_fgraph.outputs()[i];
       this->compute_socket(fn_in, fn_out, i, socket, ctx);
     }
   }
 
   void compute_socket(
-      Tuple &fn_in, Tuple &out, uint out_index, DFGraphSocket socket, ExecutionContext &ctx) const
+      Tuple &fn_in, Tuple &out, uint out_index, DataSocket socket, ExecutionContext &ctx) const
   {
     if (m_fgraph.inputs().contains(socket)) {
       uint index = m_fgraph.inputs().index(socket);
@@ -589,7 +589,7 @@ class ExecuteFGraph_Simple : public TupleCallBody {
       FN_TUPLE_CALL_ALLOC_TUPLES(body, tmp_in, tmp_out);
 
       uint index = 0;
-      for (DFGraphSocket input_socket : m_graph->inputs_of_node(node_id)) {
+      for (DataSocket input_socket : m_graph->inputs_of_node(node_id)) {
         this->compute_socket(fn_in, tmp_in, index, input_socket, ctx);
         index++;
       }

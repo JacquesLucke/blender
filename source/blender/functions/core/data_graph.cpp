@@ -24,7 +24,7 @@ DataGraph::~DataGraph()
   }
 }
 
-void DataGraph::print_socket(DFGraphSocket socket) const
+void DataGraph::print_socket(DataSocket socket) const
 {
   uint node_id = this->node_id_of_socket(socket);
   auto &node = m_nodes[node_id];

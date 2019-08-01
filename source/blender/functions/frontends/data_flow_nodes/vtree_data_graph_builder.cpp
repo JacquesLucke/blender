@@ -41,18 +41,17 @@ VTreeDataGraph VTreeDataGraphBuilder::build()
   m_graph_builder.to_dot__clipboard();
   auto data_graph = m_graph_builder.build();
 
-  Vector<DFGraphSocket> r_socket_map(m_vtree.socket_count(), DFGraphSocket::None());
+  Vector<DataSocket> r_socket_map(m_vtree.socket_count(), DataSocket::None());
   for (uint vsocket_id = 0; vsocket_id < m_vtree.socket_count(); vsocket_id++) {
     BuilderSocket *socket = m_socket_map[vsocket_id];
     if (socket == nullptr) {
-      r_socket_map[vsocket_id] = DFGraphSocket::None();
+      r_socket_map[vsocket_id] = DataSocket::None();
     }
     else if (socket->is_input()) {
-      r_socket_map[vsocket_id] = DFGraphSocket::FromInput(
-          ((BuilderInputSocket *)socket)->input_id());
+      r_socket_map[vsocket_id] = DataSocket::FromInput(((BuilderInputSocket *)socket)->input_id());
     }
     else {
-      r_socket_map[vsocket_id] = DFGraphSocket::FromOutput(
+      r_socket_map[vsocket_id] = DataSocket::FromOutput(
           ((BuilderOutputSocket *)socket)->output_id());
     }
   }

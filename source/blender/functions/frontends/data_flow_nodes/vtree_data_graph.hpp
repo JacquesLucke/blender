@@ -15,10 +15,10 @@ using BLI::ValueOrError;
 class VTreeDataGraph {
  private:
   SharedDataGraph m_graph;
-  Vector<DFGraphSocket> m_socket_map;
+  Vector<DataSocket> m_socket_map;
 
  public:
-  VTreeDataGraph(SharedDataGraph graph, Vector<DFGraphSocket> mapping)
+  VTreeDataGraph(SharedDataGraph graph, Vector<DataSocket> mapping)
       : m_graph(std::move(graph)), m_socket_map(std::move(mapping))
   {
   }
@@ -28,16 +28,16 @@ class VTreeDataGraph {
     return m_graph;
   }
 
-  DFGraphSocket *lookup_socket_ptr(VirtualSocket *vsocket)
+  DataSocket *lookup_socket_ptr(VirtualSocket *vsocket)
   {
-    DFGraphSocket *socket = &m_socket_map[vsocket->id()];
+    DataSocket *socket = &m_socket_map[vsocket->id()];
     if (socket->is_none()) {
       return nullptr;
     }
     return socket;
   }
 
-  DFGraphSocket lookup_socket(VirtualSocket *vsocket)
+  DataSocket lookup_socket(VirtualSocket *vsocket)
   {
     return m_socket_map[vsocket->id()];
   }
@@ -49,7 +49,7 @@ class VTreeDataGraph {
 
   struct PlaceholderDependencies {
     Vector<VirtualSocket *> vsockets;
-    Vector<DFGraphSocket> sockets;
+    Vector<DataSocket> sockets;
 
     uint size() const
     {
@@ -59,7 +59,7 @@ class VTreeDataGraph {
   };
 
   PlaceholderDependencies find_placeholder_dependencies(ArrayRef<VirtualSocket *> vsockets);
-  PlaceholderDependencies find_placeholder_dependencies(ArrayRef<DFGraphSocket> sockets);
+  PlaceholderDependencies find_placeholder_dependencies(ArrayRef<DataSocket> sockets);
 
  private:
   VirtualSocket *find_data_output(VirtualNode *vnode, uint index);

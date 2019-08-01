@@ -20,7 +20,7 @@
 namespace BParticles {
 
 using BLI::ValueOrError;
-using FN::DFGraphSocket;
+using FN::DataSocket;
 using FN::FunctionBuilder;
 using FN::FunctionGraph;
 using FN::SharedDataGraph;
@@ -30,7 +30,7 @@ using FN::SharedType;
 static ValueOrError<SharedFunction> create_function__emitter_inputs(VirtualNode *emitter_vnode,
                                                                     VTreeDataGraph &data_graph)
 {
-  Vector<DFGraphSocket> sockets_to_compute = find_input_data_sockets(emitter_vnode, data_graph);
+  Vector<DataSocket> sockets_to_compute = find_input_data_sockets(emitter_vnode, data_graph);
   auto dependencies = data_graph.find_placeholder_dependencies(sockets_to_compute);
 
   if (dependencies.size() > 0) {
@@ -352,13 +352,13 @@ static FN::FunctionGraph link_inputs_to_function(SharedFunction &main_fn,
 
   SharedDataGraph data_graph = builder.build();
 
-  SetVector<DFGraphSocket> final_inputs;
+  SetVector<DataSocket> final_inputs;
   for (FN::BuilderOutputSocket *socket : reserved_node->outputs()) {
-    final_inputs.add_new(DFGraphSocket::FromOutput(socket->output_id()));
+    final_inputs.add_new(DataSocket::FromOutput(socket->output_id()));
   }
-  SetVector<DFGraphSocket> final_outputs;
+  SetVector<DataSocket> final_outputs;
   for (FN::BuilderOutputSocket *socket : main_node->outputs()) {
-    final_outputs.add_new(DFGraphSocket::FromOutput(socket->output_id()));
+    final_outputs.add_new(DataSocket::FromOutput(socket->output_id()));
   }
 
   return FN::FunctionGraph(data_graph, final_inputs, final_outputs);

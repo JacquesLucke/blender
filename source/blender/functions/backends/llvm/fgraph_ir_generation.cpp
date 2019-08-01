@@ -8,7 +8,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
  private:
   FunctionGraph m_fgraph;
   DataGraph *m_graph;
-  Set<DFGraphSocket> m_required_sockets;
+  Set<DataSocket> m_required_sockets;
 
  public:
   BuildGraphIR(FunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph().ptr())
@@ -35,14 +35,14 @@ class BuildGraphIR : public LLVMBuildIRBody {
                 CodeInterface &interface,
                 const BuildIRSettings &settings) const override
   {
-    Map<DFGraphSocket, llvm::Value *> values;
+    Map<DataSocket, llvm::Value *> values;
     for (uint i = 0; i < m_fgraph.inputs().size(); i++) {
       values.add(m_fgraph.inputs()[i], interface.get_input(i));
     }
 
-    Set<DFGraphSocket> forwarded_sockets;
+    Set<DataSocket> forwarded_sockets;
     for (uint i = 0; i < m_fgraph.outputs().size(); i++) {
-      DFGraphSocket socket = m_fgraph.outputs()[i];
+      DataSocket socket = m_fgraph.outputs()[i];
       this->generate_for_socket(builder, interface, settings, socket, values, forwarded_sockets);
 
       interface.set_output(i, values.lookup(socket));
@@ -53,22 +53,22 @@ class BuildGraphIR : public LLVMBuildIRBody {
   void generate_for_socket(CodeBuilder &builder,
                            CodeInterface &interface,
                            const BuildIRSettings &settings,
-                           DFGraphSocket socket,
-                           Map<DFGraphSocket, llvm::Value *> &values,
-                           Set<DFGraphSocket> &forwarded_sockets) const
+                           DataSocket socket,
+                           Map<DataSocket, llvm::Value *> &values,
+                           Set<DataSocket> &forwarded_sockets) const
   {
     if (values.contains(socket)) {
       /* do nothing */
     }
     else if (socket.is_input()) {
-      DFGraphSocket origin = m_graph->origin_of_input(socket);
+      DataSocket origin = m_graph->origin_of_input(socket);
       this->generate_for_socket(builder, interface, settings, origin, values, forwarded_sockets);
       this->forward_output_if_necessary(builder, origin, values, forwarded_sockets);
     }
     else if (socket.is_output()) {
       uint node_id = m_graph->node_id_of_output(socket);
       Vector<llvm::Value *> input_values;
-      for (DFGraphSocket input_socket : m_graph->inputs_of_node(node_id)) {
+      for (DataSocket input_socket : m_graph->inputs_of_node(node_id)) {
         this->generate_for_socket(
             builder, interface, settings, input_socket, values, forwarded_sockets);
         input_values.append(values.lookup(input_socket));
@@ -78,7 +78,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
           builder, interface, settings, node_id, input_values);
 
       uint index = 0;
-      for (DFGraphSocket output_socket : m_graph->outputs_of_node(node_id)) {
+      for (DataSocket output_socket : m_graph->outputs_of_node(node_id)) {
         values.add(output_socket, output_values[index]);
         this->forward_output_if_necessary(builder, output_socket, values, forwarded_sockets);
         index++;
@@ -90,9 +90,9 @@ class BuildGraphIR : public LLVMBuildIRBody {
   }
 
   void forward_output_if_necessary(CodeBuilder &builder,
-                                   DFGraphSocket output,
-                                   Map<DFGraphSocket, llvm::Value *> &values,
-                                   Set<DFGraphSocket> &forwarded_sockets) const
+                                   DataSocket output,
+                                   Map<DataSocket, llvm::Value *> &values,
+                                   Set<DataSocket> &forwarded_sockets) const
   {
     BLI_assert(output.is_output());
     if (!forwarded_sockets.contains(output)) {
@@ -102,15 +102,15 @@ class BuildGraphIR : public LLVMBuildIRBody {
   }
 
   void forward_output(CodeBuilder &builder,
-                      DFGraphSocket output,
-                      Map<DFGraphSocket, llvm::Value *> &values) const
+                      DataSocket output,
+                      Map<DataSocket, llvm::Value *> &values) const
   {
     llvm::Value *value_to_forward = values.lookup(output);
     SharedType &type = m_graph->type_of_socket(output);
     LLVMTypeInfo &type_info = type->extension<LLVMTypeInfo>();
 
-    Vector<DFGraphSocket> targets;
-    for (DFGraphSocket target : m_graph->targets_of_output(output)) {
+    Vector<DataSocket> targets;
+    for (DataSocket target : m_graph->targets_of_output(output)) {
       if (m_required_sockets.contains(target) && !values.contains(target)) {
         BLI_assert(type == m_graph->type_of_socket(target));
         targets.append(target);
@@ -126,7 +126,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
     else {
       values.add(targets[0], value_to_forward);
       for (uint i = 1; i < targets.size(); i++) {
-        DFGraphSocket target = targets[i];
+        DataSocket target = targets[i];
         llvm::Value *copied_value = type_info.build_copy_ir(builder, value_to_forward);
         values.add(target, copied_value);
       }

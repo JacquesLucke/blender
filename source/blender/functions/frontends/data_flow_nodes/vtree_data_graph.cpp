@@ -10,25 +10,25 @@ using BLI::Stack;
 VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_dependencies(
     ArrayRef<VirtualSocket *> vsockets)
 {
-  Vector<DFGraphSocket> sockets;
+  Vector<DataSocket> sockets;
   for (VirtualSocket *vsocket : vsockets) {
-    DFGraphSocket socket = this->lookup_socket(vsocket);
+    DataSocket socket = this->lookup_socket(vsocket);
     sockets.append(socket);
   }
   return this->find_placeholder_dependencies(sockets);
 }
 
 VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_dependencies(
-    ArrayRef<DFGraphSocket> sockets)
+    ArrayRef<DataSocket> sockets)
 {
-  Stack<DFGraphSocket> to_be_checked = sockets;
-  Set<DFGraphSocket> found = sockets;
+  Stack<DataSocket> to_be_checked = sockets;
+  Set<DataSocket> found = sockets;
   PlaceholderDependencies dependencies;
 
   while (!to_be_checked.empty()) {
-    DFGraphSocket socket = to_be_checked.pop();
+    DataSocket socket = to_be_checked.pop();
     if (socket.is_input()) {
-      DFGraphSocket origin = m_graph->origin_of_input(socket);
+      DataSocket origin = m_graph->origin_of_input(socket);
       if (found.add(origin)) {
         to_be_checked.push(origin);
       }
@@ -45,7 +45,7 @@ VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_depende
         dependencies.vsockets.append(vsocket);
       }
       else {
-        for (DFGraphSocket input : m_graph->inputs_of_node(node_id)) {
+        for (DataSocket input : m_graph->inputs_of_node(node_id)) {
           if (found.add(input)) {
             to_be_checked.push(input);
           }

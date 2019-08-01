@@ -10,18 +10,17 @@ SharedFunction FunctionGraph::new_function(StringRef name) const
   return builder.build(name);
 }
 
-Set<DFGraphSocket> FunctionGraph::find_used_sockets(bool include_inputs,
-                                                    bool include_outputs) const
+Set<DataSocket> FunctionGraph::find_used_sockets(bool include_inputs, bool include_outputs) const
 {
-  Set<DFGraphSocket> found;
+  Set<DataSocket> found;
 
-  Set<DFGraphSocket> to_be_checked;
-  for (DFGraphSocket socket : m_outputs) {
+  Set<DataSocket> to_be_checked;
+  for (DataSocket socket : m_outputs) {
     to_be_checked.add_new(socket);
   }
 
   while (to_be_checked.size() > 0) {
-    DFGraphSocket socket = to_be_checked.pop();
+    DataSocket socket = to_be_checked.pop();
 
     if (!include_inputs && m_inputs.contains(socket)) {
       continue;
@@ -34,14 +33,14 @@ Set<DFGraphSocket> FunctionGraph::find_used_sockets(bool include_inputs,
     }
     else {
       uint node_id = m_graph->node_id_of_output(socket.id());
-      for (DFGraphSocket input_socket : this->graph()->inputs_of_node(node_id)) {
+      for (DataSocket input_socket : this->graph()->inputs_of_node(node_id)) {
         to_be_checked.add_new(input_socket);
       }
     }
   }
 
   if (!include_outputs) {
-    for (DFGraphSocket socket : m_outputs) {
+    for (DataSocket socket : m_outputs) {
       found.remove(socket);
     }
   }

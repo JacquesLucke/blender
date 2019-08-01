@@ -17,13 +17,11 @@ using BLI::SetVector;
 class FunctionGraph {
  private:
   SharedDataGraph m_graph;
-  SetVector<DFGraphSocket> m_inputs;
-  SetVector<DFGraphSocket> m_outputs;
+  SetVector<DataSocket> m_inputs;
+  SetVector<DataSocket> m_outputs;
 
  public:
-  FunctionGraph(SharedDataGraph graph,
-                SetVector<DFGraphSocket> inputs,
-                SetVector<DFGraphSocket> outputs)
+  FunctionGraph(SharedDataGraph graph, SetVector<DataSocket> inputs, SetVector<DataSocket> outputs)
       : m_graph(std::move(graph)), m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
   {
   }
@@ -38,12 +36,12 @@ class FunctionGraph {
     return m_graph;
   }
 
-  const SetVector<DFGraphSocket> &inputs() const
+  const SetVector<DataSocket> &inputs() const
   {
     return m_inputs;
   }
 
-  const SetVector<DFGraphSocket> &outputs() const
+  const SetVector<DataSocket> &outputs() const
   {
     return m_outputs;
   }
@@ -58,7 +56,7 @@ class FunctionGraph {
    * Get a subset of all sockets in the graph that can influence the function execution (under the
    * assumption, that functions do not have side effects).
    */
-  Set<DFGraphSocket> find_used_sockets(bool include_inputs, bool include_outputs) const;
+  Set<DataSocket> find_used_sockets(bool include_inputs, bool include_outputs) const;
 };
 
 }  // namespace FN
