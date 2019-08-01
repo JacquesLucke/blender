@@ -85,8 +85,9 @@ class Function final : public RefCountedBase {
   /**
    * Add another implementation to the function. Every type of implementation can only be added
    * once. Future calls with the same type are ignored.
+   * Returns the pointer to the body when it was newly created, nullptr otherwise.
    */
-  template<typename T, typename... Args> bool add_body(Args &&... args);
+  template<typename T, typename... Args> T *add_body(Args &&... args);
 
   /**
    * Get the number of inputs.
@@ -185,7 +186,7 @@ template<typename T> inline T &Function::body() const
   return *(T *)m_bodies[T::FUNCTION_BODY_ID];
 }
 
-template<typename T, typename... Args> inline bool Function::add_body(Args &&... args)
+template<typename T, typename... Args> inline T *Function::add_body(Args &&... args)
 {
   STATIC_ASSERT_BODY_TYPE(T);
 
@@ -194,10 +195,10 @@ template<typename T, typename... Args> inline bool Function::add_body(Args &&...
     T *new_body = new T(std::forward<Args>(args)...);
     new_body->set_owner(this);
     m_bodies[T::FUNCTION_BODY_ID] = new_body;
-    return true;
+    return new_body;
   }
   else {
-    return false;
+    return nullptr;
   }
 }
 
