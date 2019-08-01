@@ -133,7 +133,14 @@ class Tuple {
     m_initialized = (bool *)MEM_calloc_arrayN(m_meta->element_amount(), sizeof(bool), __func__);
     m_data = MEM_mallocN(m_meta->size_of_data(), __func__);
     m_owns_mem = true;
+    m_owns_meta = false;
     m_run_destructors = true;
+  }
+
+  Tuple(SharedTupleMeta meta) : Tuple(*meta.ptr())
+  {
+    meta->incref();
+    m_owns_meta = true;
   }
 
   Tuple(TupleMeta &meta,
@@ -148,6 +155,7 @@ class Tuple {
     m_data = data;
     m_initialized = initialized;
     m_owns_mem = false;
+    m_owns_meta = false;
     m_run_destructors = run_destructors;
     if (!was_initialized) {
       this->set_all_uninitialized();
@@ -179,6 +187,9 @@ class Tuple {
     if (m_owns_mem) {
       MEM_freeN(m_data);
       MEM_freeN(m_initialized);
+    }
+    if (m_owns_meta) {
+      m_meta->decref();
     }
   }
 
@@ -531,14 +542,14 @@ class Tuple {
     return *m_meta;
   }
 
-  void print_initialized(std::string name = "");
-
- private:
   inline void *element_ptr(uint index) const
   {
     return (void *)((char *)m_data + m_meta->offsets()[index]);
   }
 
+  void print_initialized(std::string name = "");
+
+ private:
   template<typename T> inline T &element_ref(uint index) const
   {
     return *(T *)this->element_ptr(index);
@@ -546,8 +557,9 @@ class Tuple {
 
   void *m_data;
   bool *m_initialized;
-  bool m_owns_mem;
-  bool m_run_destructors;
+  uint8_t m_owns_mem : 1;
+  uint8_t m_owns_meta : 1;
+  uint8_t m_run_destructors : 1;
   TupleMeta *m_meta;
 };
 
