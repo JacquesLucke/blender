@@ -39,6 +39,7 @@ class VirtualNodeTree {
   Vector<VirtualSocket *> m_inputs_with_links;
   MultiMap<std::string, VirtualNode *> m_nodes_by_idname;
   MonotonicAllocator<> m_allocator;
+  uint m_socket_counter = 0;
 
  public:
   void add_all_of_tree(bNodeTree *btree);
@@ -72,6 +73,11 @@ class VirtualNodeTree {
   bool is_frozen()
   {
     return m_frozen;
+  }
+
+  uint socket_count()
+  {
+    return m_socket_counter;
   }
 
  private:
@@ -152,6 +158,7 @@ class VirtualSocket {
   VirtualNode *m_vnode;
   bNodeTree *m_btree;
   bNodeSocket *m_bsocket;
+  uint m_id;
 
   ArrayRef<VirtualSocket *> m_direct_links;
   ArrayRef<VirtualSocket *> m_links;
@@ -175,6 +182,11 @@ class VirtualSocket {
   bNodeTree *btree()
   {
     return m_btree;
+  }
+
+  uint id()
+  {
+    return m_id;
   }
 
   ID *btree_id()

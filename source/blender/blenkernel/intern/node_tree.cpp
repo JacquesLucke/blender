@@ -11,19 +11,19 @@ void VirtualNodeTree::add_all_of_tree(bNodeTree *btree)
     node_mapping.add_new(bnode, vnode);
   }
   for (bNodeLink *blink : BKE::bLinkList(btree->links)) {
-    VirtualNode *from_node = node_mapping.lookup(blink->fromnode);
-    VirtualNode *to_node = node_mapping.lookup(blink->tonode);
+    VirtualNode *from_vnode = node_mapping.lookup(blink->fromnode);
+    VirtualNode *to_vnode = node_mapping.lookup(blink->tonode);
     VirtualSocket *from_vsocket = nullptr;
     VirtualSocket *to_vsocket = nullptr;
 
-    for (VirtualSocket *output : from_node->outputs()) {
+    for (VirtualSocket *output : from_vnode->outputs()) {
       if (output->bsocket() == blink->fromsock) {
         from_vsocket = output;
         break;
       }
     }
 
-    for (VirtualSocket *input : to_node->inputs()) {
+    for (VirtualSocket *input : to_vnode->inputs()) {
       if (input->bsocket() == blink->tosock) {
         to_vsocket = input;
         break;
@@ -60,6 +60,7 @@ VirtualNode *VirtualNodeTree::add_bnode(bNodeTree *btree, bNode *bnode)
     vsocket.m_vnode = vnode;
     vsocket.m_btree = btree;
     vsocket.m_bsocket = original_inputs[i];
+    vsocket.m_id = m_socket_counter++;
     vnode->m_inputs[i] = &vsocket;
   }
   for (uint i = 0; i < original_outputs.size(); i++) {
@@ -68,6 +69,7 @@ VirtualNode *VirtualNodeTree::add_bnode(bNodeTree *btree, bNode *bnode)
     vsocket.m_vnode = vnode;
     vsocket.m_btree = btree;
     vsocket.m_bsocket = original_outputs[i];
+    vsocket.m_id = m_socket_counter++;
     vnode->m_outputs[i] = &vsocket;
   }
 
