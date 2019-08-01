@@ -175,6 +175,10 @@ class BaseNode:
             _socket_value_states_per_node[self] = SocketValueStates(self)
         return _socket_value_states_per_node[self]
 
+    def free(self):
+        if self in _decl_map_per_node:
+            del _decl_map_per_node[self]
+
 
 
 class BaseSocket:
