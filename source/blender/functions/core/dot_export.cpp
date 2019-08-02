@@ -24,7 +24,7 @@ static std::string get_id(BuilderSocket *socket)
 
 static std::string port_id(BuilderSocket *socket)
 {
-  return get_id(socket);
+  return get_id(socket->node()) + ":" + get_id(socket);
 }
 
 static void insert_node_table(std::stringstream &ss, BuilderNode *node)
