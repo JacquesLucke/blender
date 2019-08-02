@@ -70,8 +70,7 @@ static bool insert_links(VTreeDataGraphBuilder &builder)
   return true;
 }
 
-static void insert_unlinked_inputs(VTreeDataGraphBuilder &builder,
-                                   UnlinkedInputsHandler &unlinked_inputs_handler)
+static void insert_unlinked_inputs(VTreeDataGraphBuilder &builder, InputInserter &input_inserter)
 {
 
   for (VirtualNode *vnode : builder.vtree().nodes()) {
@@ -90,7 +89,7 @@ static void insert_unlinked_inputs(VTreeDataGraphBuilder &builder,
 
     if (vsockets.size() > 0) {
       Vector<BuilderOutputSocket *> new_origins(vsockets.size());
-      unlinked_inputs_handler.insert(builder, vsockets, new_origins);
+      input_inserter.insert(builder, vsockets, new_origins);
       builder.insert_links(new_origins, sockets);
     }
   }
@@ -108,8 +107,8 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
     return BLI_ERROR_CREATE("error inserting links");
   }
 
-  ConstantInputsHandler unlinked_inputs_handler;
-  insert_unlinked_inputs(builder, unlinked_inputs_handler);
+  ConstantInputsHandler input_inserter;
+  insert_unlinked_inputs(builder, input_inserter);
 
   return builder.build();
 }

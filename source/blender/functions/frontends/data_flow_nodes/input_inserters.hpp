@@ -5,13 +5,13 @@
 namespace FN {
 namespace DataFlowNodes {
 
-class DynamicSocketLoader : public UnlinkedInputsHandler {
+class DynamicSocketLoader : public InputInserter {
   void insert(VTreeDataGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
               ArrayRef<BuilderOutputSocket *> r_new_origins) override;
 };
 
-class ConstantInputsHandler : public UnlinkedInputsHandler {
+class ConstantInputsHandler : public InputInserter {
   void insert(VTreeDataGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
               ArrayRef<BuilderOutputSocket *> r_new_origins) override;

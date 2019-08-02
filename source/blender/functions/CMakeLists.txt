@@ -145,6 +145,10 @@ set(SRC
   frontends/data_flow_nodes/function_generation.cpp
   frontends/data_flow_nodes/graph_generation.hpp
   frontends/data_flow_nodes/graph_generation.cpp
+  frontends/data_flow_nodes/vtree_data_graph.hpp
+  frontends/data_flow_nodes/vtree_data_graph.cpp
+  frontends/data_flow_nodes/input_inserters.hpp
+  frontends/data_flow_nodes/input_inserters.cpp
   frontends/data_flow_nodes/mappings.hpp
   frontends/data_flow_nodes/mappings.cpp
   frontends/data_flow_nodes/mappings/registry.hpp
@@ -152,10 +156,6 @@ set(SRC
   frontends/data_flow_nodes/mappings/socket_loaders.cpp
   frontends/data_flow_nodes/mappings/conversion_inserters.cpp
   frontends/data_flow_nodes/mappings/type_mappings.cpp
-  frontends/data_flow_nodes/vtree_data_graph.hpp
-  frontends/data_flow_nodes/vtree_data_graph.cpp
-  frontends/data_flow_nodes/input_handlers.hpp
-  frontends/data_flow_nodes/input_handlers.cpp
   frontends/data_flow_nodes/data_flow_nodes-c.h
   frontends/data_flow_nodes/data_flow_nodes-c.cpp
 )

@@ -5,7 +5,7 @@
 namespace FN {
 namespace DataFlowNodes {
 
-class UnlinkedInputsHandler {
+class InputInserter {
  public:
   virtual void insert(VTreeDataGraphBuilder &builder,
                       ArrayRef<VirtualSocket *> unlinked_inputs,
