@@ -3,6 +3,7 @@ from bpy.props import *
 from .. base import BParticlesNode
 from .. node_builder import NodeBuilder
 
+
 class ParticleInfoNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_ParticleInfoNode"
     bl_label = "Particle Info"
@@ -13,3 +14,11 @@ class ParticleInfoNode(bpy.types.Node, BParticlesNode):
         builder.fixed_output("velocity", "Velocity", "Vector")
         builder.fixed_output("birth_time", "Birth Time", "Float")
         builder.fixed_output("age", "Age", "Float")
+
+
+class CollisionInfoNode(bpy.types.Node, BParticlesNode):
+    bl_idname = "bp_CollisionInfoNode"
+    bl_label = "Collision Info"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_output("normal", "Normal", "Vector")
