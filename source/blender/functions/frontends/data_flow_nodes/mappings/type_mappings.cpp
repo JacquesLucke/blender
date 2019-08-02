@@ -1,8 +1,7 @@
 #include "BLI_lazy_init.hpp"
-
 #include "FN_types.hpp"
 
-#include "type_mappings.hpp"
+#include "registry.hpp"
 
 namespace FN {
 namespace DataFlowNodes {

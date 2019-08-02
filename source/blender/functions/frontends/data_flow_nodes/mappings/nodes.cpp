@@ -1,5 +1,3 @@
-#include "../registry.hpp"
-
 #include "FN_functions.hpp"
 #include "FN_types.hpp"
 #include "FN_data_flow_nodes.hpp"
@@ -7,6 +5,8 @@
 #include "RNA_access.h"
 
 #include "DNA_node_types.h"
+
+#include "registry.hpp"
 
 namespace FN {
 namespace DataFlowNodes {

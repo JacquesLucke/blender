@@ -5,7 +5,7 @@
 #include "FN_types.hpp"
 
 #include "vtree_data_graph_builder.hpp"
-#include "type_mappings.hpp"
+#include "mappings/mappings.hpp"
 
 #ifdef WITH_PYTHON
 #  include <Python.h>

@@ -2,7 +2,7 @@
 
 #include "FN_data_flow_nodes.hpp"
 
-#include "inserters.hpp"
+#include "mappings/mappings.hpp"
 
 namespace FN {
 namespace DataFlowNodes {

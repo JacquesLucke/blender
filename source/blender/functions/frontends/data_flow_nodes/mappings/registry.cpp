@@ -1,14 +1,6 @@
-#include "inserters.hpp"
-#include "registry.hpp"
-#include "type_mappings.hpp"
-
-#include "FN_dependencies.hpp"
-
 #include "BLI_lazy_init.hpp"
 
-#include "DNA_node_types.h"
-
-#include "RNA_access.h"
+#include "registry.hpp"
 
 namespace FN {
 namespace DataFlowNodes {

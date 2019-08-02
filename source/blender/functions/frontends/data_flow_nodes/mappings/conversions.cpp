@@ -1,4 +1,4 @@
-#include "../registry.hpp"
+#include "registry.hpp"
 
 #include "FN_functions.hpp"
 
