@@ -1,9 +1,9 @@
-#include "registry.hpp"
-
 #include "FN_types.hpp"
 #include "FN_functions.hpp"
 
 #include "RNA_access.h"
+
+#include "registry.hpp"
 
 namespace FN {
 namespace DataFlowNodes {
@@ -55,20 +55,20 @@ template<typename T> static void LOAD_empty_list(PointerRNA *UNUSED(rna), Tuple 
   tuple.move_in(index, list);
 }
 
-void REGISTER_socket_loaders(SocketLoaderRegistry &registry)
+void REGISTER_socket_loaders(std::unique_ptr<SocketLoaders> &loaders)
 {
-  registry.loader("Float", LOAD_float);
-  registry.loader("Vector", LOAD_vector);
-  registry.loader("Integer", LOAD_integer);
-  registry.loader("Boolean", LOAD_boolean);
-  registry.loader("Object", LOAD_object);
-  registry.loader("Color", LOAD_color);
-  registry.loader("Float List", LOAD_empty_list<float>);
-  registry.loader("Vector List", LOAD_empty_list<float3>);
-  registry.loader("Integer List", LOAD_empty_list<int32_t>);
-  registry.loader("Boolean List", LOAD_empty_list<bool>);
-  registry.loader("Object List", LOAD_empty_list<Object *>);
-  registry.loader("Color List", LOAD_empty_list<rgba_f>);
+  loaders->register_loader("Boolean List", LOAD_empty_list<bool>);
+  loaders->register_loader("Boolean", LOAD_boolean);
+  loaders->register_loader("Color List", LOAD_empty_list<rgba_f>);
+  loaders->register_loader("Color", LOAD_color);
+  loaders->register_loader("Float List", LOAD_empty_list<float>);
+  loaders->register_loader("Float", LOAD_float);
+  loaders->register_loader("Integer List", LOAD_empty_list<int32_t>);
+  loaders->register_loader("Integer", LOAD_integer);
+  loaders->register_loader("Object List", LOAD_empty_list<Object *>);
+  loaders->register_loader("Object", LOAD_object);
+  loaders->register_loader("Vector List", LOAD_empty_list<float3>);
+  loaders->register_loader("Vector", LOAD_vector);
 }
 
 }  // namespace DataFlowNodes

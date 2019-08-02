@@ -5,7 +5,6 @@
 #include "FN_types.hpp"
 
 #include "vtree_data_graph_builder.hpp"
-#include "mappings/mappings.hpp"
 
 #ifdef WITH_PYTHON
 #  include <Python.h>
@@ -28,11 +27,7 @@ namespace FN {
 namespace DataFlowNodes {
 
 VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree)
-    : m_vtree(vtree),
-      m_socket_map(vtree.socket_count(), nullptr),
-      m_type_by_idname(MAPPING_type_by_idname()),
-      m_type_by_data_type(MAPPING_type_by_name()),
-      m_data_type_by_idname(MAPPING_type_name_by_idname())
+    : m_vtree(vtree), m_socket_map(vtree.socket_count(), nullptr), m_type_mappings(MAPPING_types())
 {
   this->initialize_type_by_vsocket_map();
 }
@@ -42,10 +37,12 @@ BLI_NOINLINE void VTreeDataGraphBuilder::initialize_type_by_vsocket_map()
   m_type_by_vsocket = Vector<SharedType>(m_vtree.socket_count(), SharedType());
   for (VirtualNode *vnode : m_vtree.nodes()) {
     for (VirtualSocket *vsocket : vnode->inputs()) {
-      m_type_by_vsocket[vsocket->id()] = m_type_by_idname.lookup_default(vsocket->idname(), {});
+      m_type_by_vsocket[vsocket->id()] = m_type_mappings->type_by_idname_or_empty(
+          vsocket->idname());
     }
     for (VirtualSocket *vsocket : vnode->outputs()) {
-      m_type_by_vsocket[vsocket->id()] = m_type_by_idname.lookup_default(vsocket->idname(), {});
+      m_type_by_vsocket[vsocket->id()] = m_type_mappings->type_by_idname_or_empty(
+          vsocket->idname());
     }
   }
 }
@@ -258,7 +255,7 @@ bool VTreeDataGraphBuilder::is_data_socket(VirtualSocket *vsocket) const
 
 SharedType &VTreeDataGraphBuilder::type_by_name(StringRef data_type) const
 {
-  return m_type_by_data_type.lookup_ref(data_type);
+  return m_type_mappings->type_by_name(data_type);
 }
 
 SharedType &VTreeDataGraphBuilder::query_socket_type(VirtualSocket *vsocket) const

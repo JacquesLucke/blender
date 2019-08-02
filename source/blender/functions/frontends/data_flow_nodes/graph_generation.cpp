@@ -2,7 +2,7 @@
 
 #include "FN_data_flow_nodes.hpp"
 
-#include "mappings/mappings.hpp"
+#include "mappings.hpp"
 
 namespace FN {
 namespace DataFlowNodes {
@@ -31,12 +31,10 @@ static void insert_placeholder_node(VTreeDataGraphBuilder &builder, VirtualNode 
 
 static bool insert_functions_for_bnodes(VTreeDataGraphBuilder &builder)
 {
-  auto inserters = MAPPING_node_inserters();
+  auto &inserters = MAPPING_node_inserters();
 
   for (VirtualNode *vnode : builder.vtree().nodes()) {
-    NodeInserter *inserter = inserters.lookup_ptr(vnode->idname());
-    if (inserter) {
-      (*inserter)(builder, vnode);
+    if (inserters->insert(builder, vnode)) {
       BLI_assert(builder.verify_data_sockets_mapped(vnode));
       continue;
     }
@@ -50,7 +48,7 @@ static bool insert_functions_for_bnodes(VTreeDataGraphBuilder &builder)
 
 static bool insert_links(VTreeDataGraphBuilder &builder)
 {
-  Map<StringPair, ConversionInserter> &map = MAPPING_conversion_inserters();
+  std::unique_ptr<LinkInserters> &inserters = MAPPING_link_inserters();
 
   for (VirtualSocket *to_vsocket : builder.vtree().inputs_with_links()) {
     if (to_vsocket->links().size() > 1) {
@@ -65,20 +63,7 @@ static bool insert_links(VTreeDataGraphBuilder &builder)
       return false;
     }
 
-    BuilderOutputSocket *from_socket = builder.lookup_output_socket(from_vsocket);
-    BuilderInputSocket *to_socket = builder.lookup_input_socket(to_vsocket);
-
-    if (STREQ(from_vsocket->idname(), to_vsocket->idname())) {
-      builder.insert_link(from_socket, to_socket);
-      continue;
-    }
-
-    StringPair key(from_vsocket->idname(), to_vsocket->idname());
-    ConversionInserter *inserter = map.lookup_ptr(key);
-    if (inserter != nullptr) {
-      (*inserter)(builder, from_socket, to_socket);
-    }
-    else {
+    if (!inserters->insert(builder, from_vsocket, to_vsocket)) {
       return false;
     }
   }

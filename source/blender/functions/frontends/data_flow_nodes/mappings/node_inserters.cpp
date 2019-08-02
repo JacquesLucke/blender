@@ -306,28 +306,34 @@ static void INSERT_compare(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
   builder.insert_matching_function(fn, vnode);
 }
 
-void REGISTER_node_inserters(NodeInserterRegistry &registry)
+void REGISTER_node_inserters(std::unique_ptr<NodeInserters> &inserters)
 {
-  registry.function("fn_VectorDistanceNode", Functions::GET_FN_vector_distance);
-  registry.function("fn_RandomNumberNode", Functions::GET_FN_random_number);
-  registry.function("fn_MapRangeNode", Functions::GET_FN_map_range);
-  registry.function("fn_FloatRangeNode", Functions::GET_FN_float_range);
-  registry.function("fn_ObjectMeshNode", Functions::GET_FN_object_mesh_vertices);
+#define REGISTER_FUNCTION(idname, fn) inserters->register_function(idname, Functions::GET_FN_##fn)
+#define REGISTER_INSERTER(idname, fn) inserters->register_inserter(idname, fn)
 
-  registry.inserter("fn_SeparateVectorNode", INSERT_separate_vector);
-  registry.inserter("fn_CombineVectorNode", INSERT_combine_vector);
-  registry.inserter("fn_ObjectTransformsNode", INSERT_object_transforms);
-  registry.inserter("fn_FloatMathNode", INSERT_float_math);
-  registry.inserter("fn_VectorMathNode", INSERT_vector_math);
-  registry.inserter("fn_ClampNode", INSERT_clamp);
-  registry.inserter("fn_GetListElementNode", INSERT_get_list_element);
-  registry.inserter("fn_PackListNode", INSERT_pack_list);
-  registry.inserter("fn_CallNode", INSERT_call);
-  registry.inserter("fn_SwitchNode", INSERT_switch);
-  registry.inserter("fn_ListLengthNode", INSERT_list_length);
-  registry.inserter("fn_CompareNode", INSERT_compare);
-  registry.inserter("fn_SeparateColorNode", INSERT_separate_color);
-  registry.inserter("fn_CombineColorNode", INSERT_combine_color);
+  REGISTER_FUNCTION("fn_FloatRangeNode", float_range);
+  REGISTER_FUNCTION("fn_MapRangeNode", map_range);
+  REGISTER_FUNCTION("fn_ObjectMeshNode", object_mesh_vertices);
+  REGISTER_FUNCTION("fn_RandomNumberNode", random_number);
+  REGISTER_FUNCTION("fn_VectorDistanceNode", vector_distance);
+
+  REGISTER_INSERTER("fn_CallNode", INSERT_call);
+  REGISTER_INSERTER("fn_ClampNode", INSERT_clamp);
+  REGISTER_INSERTER("fn_CombineColorNode", INSERT_combine_color);
+  REGISTER_INSERTER("fn_CombineVectorNode", INSERT_combine_vector);
+  REGISTER_INSERTER("fn_CompareNode", INSERT_compare);
+  REGISTER_INSERTER("fn_FloatMathNode", INSERT_float_math);
+  REGISTER_INSERTER("fn_GetListElementNode", INSERT_get_list_element);
+  REGISTER_INSERTER("fn_ListLengthNode", INSERT_list_length);
+  REGISTER_INSERTER("fn_ObjectTransformsNode", INSERT_object_transforms);
+  REGISTER_INSERTER("fn_PackListNode", INSERT_pack_list);
+  REGISTER_INSERTER("fn_SeparateColorNode", INSERT_separate_color);
+  REGISTER_INSERTER("fn_SeparateVectorNode", INSERT_separate_vector);
+  REGISTER_INSERTER("fn_SwitchNode", INSERT_switch);
+  REGISTER_INSERTER("fn_VectorMathNode", INSERT_vector_math);
+
+#undef REGISTER_INSERTER
+#undef REGISTER_FUNCTION
 }
 
 }  // namespace DataFlowNodes

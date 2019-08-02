@@ -145,9 +145,9 @@ set(SRC
   frontends/data_flow_nodes/function_generation.cpp
   frontends/data_flow_nodes/graph_generation.hpp
   frontends/data_flow_nodes/graph_generation.cpp
-  frontends/data_flow_nodes/mappings/mappings.hpp
+  frontends/data_flow_nodes/mappings.hpp
+  frontends/data_flow_nodes/mappings.cpp
   frontends/data_flow_nodes/mappings/registry.hpp
-  frontends/data_flow_nodes/mappings/registry.cpp
   frontends/data_flow_nodes/mappings/node_inserters.cpp
   frontends/data_flow_nodes/mappings/socket_loaders.cpp
   frontends/data_flow_nodes/mappings/conversion_inserters.cpp

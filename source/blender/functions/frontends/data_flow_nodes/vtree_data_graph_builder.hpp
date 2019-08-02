@@ -5,6 +5,7 @@
 #include "BLI_string_map.hpp"
 
 #include "vtree_data_graph.hpp"
+#include "mappings.hpp"
 
 struct ID;
 struct PointerRNA;
@@ -21,9 +22,7 @@ class VTreeDataGraphBuilder {
   VirtualNodeTree &m_vtree;
   Vector<BuilderSocket *> m_socket_map;
   Vector<SharedType> m_type_by_vsocket;
-  StringMap<SharedType> &m_type_by_idname;
-  StringMap<SharedType> &m_type_by_data_type;
-  StringMap<std::string> &m_data_type_by_idname;
+  std::unique_ptr<TypeMappings> &m_type_mappings;
   DataGraphBuilder m_graph_builder;
 
  public:

@@ -3,7 +3,7 @@
 #include "FN_dependencies.hpp"
 #include "FN_data_flow_nodes.hpp"
 
-#include "mappings/mappings.hpp"
+#include "mappings.hpp"
 
 namespace FN {
 namespace DataFlowNodes {
@@ -68,7 +68,7 @@ void DynamicSocketLoader::insert(VTreeDataGraphBuilder &builder,
                                  ArrayRef<VirtualSocket *> unlinked_inputs,
                                  ArrayRef<BuilderOutputSocket *> r_new_origins)
 {
-  auto &socket_loader_map = MAPPING_socket_loaders();
+  auto &socket_loaders = MAPPING_socket_loaders();
 
   Vector<SocketLoader> loaders;
   Vector<bNodeSocket *> bsockets;
@@ -78,7 +78,7 @@ void DynamicSocketLoader::insert(VTreeDataGraphBuilder &builder,
   for (uint i = 0; i < unlinked_inputs.size(); i++) {
     VirtualSocket *vsocket = unlinked_inputs[i];
 
-    SocketLoader loader = socket_loader_map.lookup(vsocket->idname());
+    SocketLoader loader = socket_loaders->get_loader(vsocket->idname());
     loaders.append(loader);
     fn_builder.add_output(vsocket->name(), builder.query_socket_type(vsocket));
 
@@ -160,7 +160,7 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
                                    ArrayRef<VirtualSocket *> unlinked_inputs,
                                    ArrayRef<BuilderOutputSocket *> r_new_origins)
 {
-  auto &socket_loader_map = MAPPING_socket_loaders();
+  auto &socket_loaders = MAPPING_socket_loaders();
 
   FunctionBuilder fn_builder;
   for (VirtualSocket *vsocket : unlinked_inputs) {
@@ -176,9 +176,7 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
 
   for (uint i = 0; i < unlinked_inputs.size(); i++) {
     VirtualSocket *vsocket = unlinked_inputs[i];
-    SocketLoader loader = socket_loader_map.lookup(vsocket->idname());
-    PointerRNA rna = vsocket->rna();
-    loader(&rna, *tuple1, i);
+    socket_loaders->load(vsocket, *tuple1, i);
     Tuple::copy_element(*tuple1, i, *tuple2, i);
   }
 
