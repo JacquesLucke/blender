@@ -39,11 +39,24 @@ class AgeReachedEvent : public Event {
 
 class CollisionEventInfo : public ActionContext {
  private:
+  Object *m_object;
+  ArrayRef<uint> m_loop_tri_indices;
   ArrayRef<float3> m_normals;
 
  public:
-  CollisionEventInfo(ArrayRef<float3> normals) : m_normals(normals)
+  CollisionEventInfo(Object *object, ArrayRef<uint> loop_tri_indices, ArrayRef<float3> normals)
+      : m_object(object), m_loop_tri_indices(loop_tri_indices), m_normals(normals)
   {
+  }
+
+  Object *object()
+  {
+    return m_object;
+  }
+
+  ArrayRef<uint> loop_tri_indices()
+  {
+    return m_loop_tri_indices;
   }
 
   ArrayRef<float3> normals()
@@ -69,6 +82,7 @@ class MeshCollisionEvent : public Event {
   };
 
   struct EventStorage {
+    uint looptri_index;
     float3 normal;
   };
 

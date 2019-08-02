@@ -1,4 +1,11 @@
 #include "FN_llvm.hpp"
+#include "BKE_image.h"
+#include "DNA_mesh_types.h"
+#include "DNA_meshdata_types.h"
+#include "IMB_imbuf_types.h"
+#include "DNA_customdata_types.h"
+#include "BKE_customdata.h"
+#include "BKE_mesh_runtime.h"
 
 #include "particle_function_builder.hpp"
 
@@ -7,6 +14,8 @@
 namespace BParticles {
 
 using BKE::VirtualSocket;
+using BLI::float2;
+using BLI::rgba_b;
 using FN::DataSocket;
 using FN::FunctionBuilder;
 using FN::FunctionGraph;
@@ -102,6 +111,81 @@ class AgeInputProvider : public ParticleFunctionInputProvider {
   }
 };
 
+class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
+ private:
+  Image *m_image;
+  ImageUser m_image_user = {0};
+  ImBuf *m_ibuf;
+
+ public:
+  SurfaceImageInputProvider(Image *image) : m_image(image)
+  {
+    m_image_user.ok = true;
+    m_ibuf = BKE_image_acquire_ibuf(image, &m_image_user, NULL);
+    BLI_assert(m_ibuf);
+  }
+
+  ~SurfaceImageInputProvider()
+  {
+    BKE_image_release_ibuf(m_image, m_ibuf, NULL);
+  }
+
+  ParticleFunctionInputArray get(InputProviderInterface &interface) override
+  {
+    ActionContext *action_context = interface.action_context();
+    BLI_assert(action_context != nullptr);
+    CollisionEventInfo *collision_info = dynamic_cast<CollisionEventInfo *>(action_context);
+    BLI_assert(collision_info != nullptr);
+
+    Object *object = collision_info->object();
+    float4x4 ob_inverse = (float4x4)object->imat;
+    Mesh *mesh = (Mesh *)object->data;
+
+    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+
+    int uv_layer_index = CustomData_get_active_layer(&mesh->ldata, CD_MLOOPUV);
+    BLI_assert(uv_layer_index >= 0);
+    MLoopUV *uv_layer = (MLoopUV *)CustomData_get(&mesh->ldata, uv_layer_index, CD_MLOOPUV);
+    BLI_assert(uv_layer != nullptr);
+
+    ArrayRef<float3> positions = interface.particles().attributes().get<float3>("Position");
+
+    rgba_b *pixel_buffer = (rgba_b *)m_ibuf->rect;
+
+    rgba_f *colors = interface.array_allocator().allocate<rgba_f>();
+    for (uint pindex : interface.particles().pindices()) {
+      float3 position_world = positions[pindex];
+      float3 position_local = ob_inverse.transform_position(position_world);
+
+      uint triangle_index = collision_info->loop_tri_indices()[pindex];
+      const MLoopTri &triangle = triangles[triangle_index];
+
+      uint loop1 = triangle.tri[0];
+      uint loop2 = triangle.tri[1];
+      uint loop3 = triangle.tri[2];
+
+      float3 v1 = mesh->mvert[mesh->mloop[loop1].v].co;
+      float3 v2 = mesh->mvert[mesh->mloop[loop2].v].co;
+      float3 v3 = mesh->mvert[mesh->mloop[loop3].v].co;
+
+      float2 uv1 = uv_layer[loop1].uv;
+      float2 uv2 = uv_layer[loop2].uv;
+      float2 uv3 = uv_layer[loop3].uv;
+
+      float3 vertex_weights;
+      interp_weights_tri_v3(vertex_weights, v1, v2, v3, position_local);
+
+      float2 uv;
+      interp_v2_v2v2v2(uv, uv1, uv2, uv3, vertex_weights);
+      uv = uv.clamped_01();
+      uint x = uv.x * (m_ibuf->x - 1);
+      uint y = uv.y * (m_ibuf->y - 1);
+      colors[pindex] = pixel_buffer[y * m_ibuf->x + x];
+    }
+    return {ArrayRef<rgba_f>(colors, interface.array_allocator().array_size()), true};
+  }
+};
+
 static ParticleFunctionInputProvider *create_input_provider(VirtualSocket *vsocket)
 {
   VirtualNode *vnode = vsocket->vnode();
@@ -115,6 +199,12 @@ static ParticleFunctionInputProvider *create_input_provider(VirtualSocket *vsock
   }
   else if (STREQ(vnode->idname(), "bp_CollisionInfoNode")) {
     return new CollisionNormalInputProvider();
+  }
+  else if (STREQ(vnode->idname(), "bp_SurfaceImageNode")) {
+    PointerRNA rna = vnode->rna();
+    Image *image = (Image *)RNA_pointer_get(&rna, "image").id.data;
+    BLI_assert(image != nullptr);
+    return new SurfaceImageInputProvider(image);
   }
   else {
     BLI_assert(false);

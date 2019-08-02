@@ -22,3 +22,16 @@ class CollisionInfoNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_output("normal", "Normal", "Vector")
+
+
+class SurfaceImageNode(bpy.types.Node, BParticlesNode):
+    bl_idname = "bp_SurfaceImageNode"
+    bl_label = "Surface Image"
+
+    image: PointerProperty(type=bpy.types.Image)
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_output("color", "Color", "Color")
+
+    def draw(self, layout):
+        layout.prop(self, "image", text="")

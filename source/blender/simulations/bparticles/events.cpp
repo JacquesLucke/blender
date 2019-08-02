@@ -95,6 +95,7 @@ void MeshCollisionEvent::filter(EventFilterInterface &interface)
         result.normal = -result.normal;
       }
       storage.normal = m_local_to_world.transform_direction(result.normal).normalized();
+      storage.looptri_index = result.index;
     }
   }
 }
@@ -120,16 +121,18 @@ MeshCollisionEvent::RayCastResult MeshCollisionEvent::ray_cast(float3 start,
 void MeshCollisionEvent::execute(EventExecuteInterface &interface)
 {
   ParticleSet particles = interface.particles();
-  Vector<float3> normals(particles.block().active_amount());
+  ArrayAllocator::Array<float3> normals(interface.array_allocator());
+  ArrayAllocator::Array<uint> looptri_indices(interface.array_allocator());
   auto last_collision_times = particles.attributes().get<float>(m_identifier);
 
   for (uint pindex : particles.pindices()) {
     auto storage = interface.get_storage<EventStorage>(pindex);
+    looptri_indices[pindex] = storage.looptri_index;
     normals[pindex] = storage.normal;
     last_collision_times[pindex] = interface.current_times()[pindex];
   }
 
-  CollisionEventInfo action_context(normals);
+  CollisionEventInfo action_context(m_object, looptri_indices, normals);
   m_action->execute_from_event(interface, &action_context);
 }
 
