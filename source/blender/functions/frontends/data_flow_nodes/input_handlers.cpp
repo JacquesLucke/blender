@@ -68,7 +68,7 @@ void DynamicSocketLoader::insert(VTreeDataGraphBuilder &builder,
                                  ArrayRef<VirtualSocket *> unlinked_inputs,
                                  ArrayRef<BuilderOutputSocket *> r_new_origins)
 {
-  auto &socket_loader_map = get_socket_loader_map();
+  auto &socket_loader_map = MAPPING_socket_loaders();
 
   Vector<SocketLoader> loaders;
   Vector<bNodeSocket *> bsockets;
@@ -160,7 +160,7 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
                                    ArrayRef<VirtualSocket *> unlinked_inputs,
                                    ArrayRef<BuilderOutputSocket *> r_new_origins)
 {
-  auto &socket_loader_map = get_socket_loader_map();
+  auto &socket_loader_map = MAPPING_socket_loaders();
 
   FunctionBuilder fn_builder;
   for (VirtualSocket *vsocket : unlinked_inputs) {

@@ -21,14 +21,14 @@ typedef std::function<void(
     VTreeDataGraphBuilder &builder, BuilderOutputSocket *from, BuilderInputSocket *to)>
     ConversionInserter;
 
-StringMap<SharedType> &get_type_by_idname_map();
-StringMap<SharedType> &get_type_by_data_type_map();
-StringMap<std::string> &get_data_type_by_idname_map();
-StringMap<std::string> &get_idname_by_data_type_map();
+StringMap<SharedType> &MAPPING_type_by_idname();
+StringMap<SharedType> &MAPPING_type_by_name();
+StringMap<std::string> &MAPPING_type_name_by_idname();
+StringMap<std::string> &MAPPING_type_idname_by_name();
 
-StringMap<NodeInserter> &get_node_inserters_map();
-StringMap<SocketLoader> &get_socket_loader_map();
-Map<StringPair, ConversionInserter> &get_conversion_inserter_map();
+StringMap<NodeInserter> &MAPPING_node_inserters();
+StringMap<SocketLoader> &MAPPING_socket_loaders();
+Map<StringPair, ConversionInserter> &MAPPING_conversion_inserters();
 
 }  // namespace DataFlowNodes
 }  // namespace FN

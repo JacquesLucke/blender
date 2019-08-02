@@ -31,7 +31,7 @@ static void insert_placeholder_node(VTreeDataGraphBuilder &builder, VirtualNode 
 
 static bool insert_functions_for_bnodes(VTreeDataGraphBuilder &builder)
 {
-  auto inserters = get_node_inserters_map();
+  auto inserters = MAPPING_node_inserters();
 
   for (VirtualNode *vnode : builder.vtree().nodes()) {
     NodeInserter *inserter = inserters.lookup_ptr(vnode->idname());
@@ -50,7 +50,7 @@ static bool insert_functions_for_bnodes(VTreeDataGraphBuilder &builder)
 
 static bool insert_links(VTreeDataGraphBuilder &builder)
 {
-  Map<StringPair, ConversionInserter> &map = get_conversion_inserter_map();
+  Map<StringPair, ConversionInserter> &map = MAPPING_conversion_inserters();
 
   for (VirtualSocket *to_vsocket : builder.vtree().inputs_with_links()) {
     if (to_vsocket->links().size() > 1) {

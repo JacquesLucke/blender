@@ -39,22 +39,22 @@ BLI_LAZY_INIT_STATIC(StringTypeMappings, get_type_mappings)
 #undef ADD_TYPE
 }
 
-StringMap<SharedType> &get_type_by_idname_map()
+StringMap<SharedType> &MAPPING_type_by_idname()
 {
   return get_type_mappings().type_by_idname;
 }
 
-StringMap<SharedType> &get_type_by_data_type_map()
+StringMap<SharedType> &MAPPING_type_by_name()
 {
   return get_type_mappings().type_by_type_name;
 }
 
-StringMap<std::string> &get_data_type_by_idname_map()
+StringMap<std::string> &MAPPING_type_name_by_idname()
 {
   return get_type_mappings().data_type_by_idname;
 }
 
-StringMap<std::string> &get_idname_by_data_type_map()
+StringMap<std::string> &MAPPING_type_idname_by_name()
 {
   return get_type_mappings().idname_by_data_type;
 }

@@ -5,7 +5,7 @@
 namespace FN {
 namespace DataFlowNodes {
 
-BLI_LAZY_INIT(StringMap<NodeInserter>, get_node_inserters_map)
+BLI_LAZY_INIT(StringMap<NodeInserter>, MAPPING_node_inserters)
 {
   StringMap<NodeInserter> map;
   NodeInserterRegistry registry(map);
@@ -13,7 +13,7 @@ BLI_LAZY_INIT(StringMap<NodeInserter>, get_node_inserters_map)
   return map;
 }
 
-BLI_LAZY_INIT(StringMap<SocketLoader>, get_socket_loader_map)
+BLI_LAZY_INIT(StringMap<SocketLoader>, MAPPING_socket_loaders)
 {
   StringMap<SocketLoader> map;
   SocketLoaderRegistry registry(map);
@@ -22,7 +22,7 @@ BLI_LAZY_INIT(StringMap<SocketLoader>, get_socket_loader_map)
 }
 
 using ConversionInserterMap = Map<StringPair, ConversionInserter>;
-BLI_LAZY_INIT(ConversionInserterMap, get_conversion_inserter_map)
+BLI_LAZY_INIT(ConversionInserterMap, MAPPING_conversion_inserters)
 {
   Map<StringPair, ConversionInserter> map;
   ConversionInserterRegistry registry(map);

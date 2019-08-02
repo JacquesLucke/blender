@@ -30,9 +30,9 @@ namespace DataFlowNodes {
 VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree)
     : m_vtree(vtree),
       m_socket_map(vtree.socket_count(), nullptr),
-      m_type_by_idname(get_type_by_idname_map()),
-      m_type_by_data_type(get_type_by_data_type_map()),
-      m_data_type_by_idname(get_data_type_by_idname_map())
+      m_type_by_idname(MAPPING_type_by_idname()),
+      m_type_by_data_type(MAPPING_type_by_name()),
+      m_data_type_by_idname(MAPPING_type_name_by_idname())
 {
   this->initialize_type_by_vsocket_map();
 }

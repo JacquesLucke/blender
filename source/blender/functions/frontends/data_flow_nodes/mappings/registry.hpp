@@ -40,7 +40,7 @@ class SocketLoaderRegistry {
 
  public:
   SocketLoaderRegistry(StringMap<SocketLoader> &map)
-      : m_map(map), m_idname_by_data_type(get_idname_by_data_type_map())
+      : m_map(map), m_idname_by_data_type(MAPPING_type_idname_by_name())
   {
   }
 
@@ -58,7 +58,7 @@ class ConversionInserterRegistry {
 
  public:
   ConversionInserterRegistry(Map<StringPair, ConversionInserter> &map)
-      : m_map(map), m_idname_by_data_type(get_idname_by_data_type_map())
+      : m_map(map), m_idname_by_data_type(MAPPING_type_idname_by_name())
   {
   }
 
