@@ -37,6 +37,16 @@ class VTreeDataGraph {
     return socket;
   }
 
+  Vector<DataSocket> lookup_sockets(ArrayRef<VirtualSocket *> vsockets)
+  {
+    Vector<DataSocket> sockets;
+    sockets.reserve(vsockets.size());
+    for (VirtualSocket *vsocket : vsockets) {
+      sockets.append(this->lookup_socket(vsocket));
+    }
+    return sockets;
+  }
+
   DataSocket lookup_socket(VirtualSocket *vsocket)
   {
     return m_socket_map[vsocket->id()];
@@ -47,19 +57,8 @@ class VTreeDataGraph {
     return !m_socket_map[vsocket->id()].is_none();
   }
 
-  struct PlaceholderDependencies {
-    Vector<VirtualSocket *> vsockets;
-    Vector<DataSocket> sockets;
-
-    uint size() const
-    {
-      BLI_assert(this->vsockets.size() == this->sockets.size());
-      return this->vsockets.size();
-    }
-  };
-
-  PlaceholderDependencies find_placeholder_dependencies(ArrayRef<VirtualSocket *> vsockets);
-  PlaceholderDependencies find_placeholder_dependencies(ArrayRef<DataSocket> sockets);
+  Vector<VirtualSocket *> find_placeholder_dependencies(ArrayRef<VirtualSocket *> vsockets);
+  Vector<VirtualSocket *> find_placeholder_dependencies(ArrayRef<DataSocket> sockets);
 
  private:
   VirtualSocket *find_data_output(VirtualNode *vnode, uint index);

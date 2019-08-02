@@ -7,7 +7,7 @@ namespace DataFlowNodes {
 
 using BLI::Stack;
 
-VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_dependencies(
+Vector<VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(
     ArrayRef<VirtualSocket *> vsockets)
 {
   Vector<DataSocket> sockets;
@@ -18,12 +18,11 @@ VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_depende
   return this->find_placeholder_dependencies(sockets);
 }
 
-VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_dependencies(
-    ArrayRef<DataSocket> sockets)
+Vector<VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(ArrayRef<DataSocket> sockets)
 {
   Stack<DataSocket> to_be_checked = sockets;
   Set<DataSocket> found = sockets;
-  PlaceholderDependencies dependencies;
+  Vector<VirtualSocket *> vsocket_dependencies;
 
   while (!to_be_checked.empty()) {
     DataSocket socket = to_be_checked.pop();
@@ -41,8 +40,7 @@ VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_depende
         VirtualNode *vnode = body.vnode();
         uint data_output_index = m_graph->index_of_output(socket);
         VirtualSocket *vsocket = this->find_data_output(vnode, data_output_index);
-        dependencies.sockets.append(socket);
-        dependencies.vsockets.append(vsocket);
+        vsocket_dependencies.append(vsocket);
       }
       else {
         for (DataSocket input : m_graph->inputs_of_node(node_id)) {
@@ -54,7 +52,7 @@ VTreeDataGraph::PlaceholderDependencies VTreeDataGraph::find_placeholder_depende
     }
   }
 
-  return dependencies;
+  return vsocket_dependencies;
 }
 
 VirtualSocket *VTreeDataGraph::find_data_output(VirtualNode *vnode, uint index)

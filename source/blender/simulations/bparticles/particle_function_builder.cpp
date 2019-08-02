@@ -26,16 +26,12 @@ Vector<DataSocket> find_input_data_sockets(VirtualNode *vnode, VTreeDataGraph &d
   return inputs;
 }
 
-struct SocketDependencies {
-  SetVector<DataSocket> sockets;
-  SetVector<VirtualSocket *> vsockets;
-};
-
-static SocketDependencies find_particle_dependencies(VTreeDataGraph &data_graph,
-                                                     ArrayRef<DataSocket> sockets,
-                                                     ArrayRef<bool> r_depends_on_particle_flags)
+static SetVector<VirtualSocket *> find_particle_dependencies(
+    VTreeDataGraph &data_graph,
+    ArrayRef<DataSocket> sockets,
+    ArrayRef<bool> r_depends_on_particle_flags)
 {
-  SocketDependencies combined_dependencies;
+  SetVector<VirtualSocket *> combined_dependencies;
 
   for (uint i = 0; i < sockets.size(); i++) {
     DataSocket socket = sockets[i];
@@ -43,9 +39,7 @@ static SocketDependencies find_particle_dependencies(VTreeDataGraph &data_graph,
     bool has_dependency = dependencies.size() > 0;
     r_depends_on_particle_flags[i] = has_dependency;
 
-    combined_dependencies.sockets.add_multiple(dependencies.sockets);
-    combined_dependencies.vsockets.add_multiple(dependencies.vsockets);
-    BLI_assert(combined_dependencies.sockets.size() == combined_dependencies.vsockets.size());
+    combined_dependencies.add_multiple(dependencies);
   }
 
   return combined_dependencies;
@@ -129,26 +123,27 @@ static ParticleFunctionInputProvider *create_input_provider(VirtualSocket *vsock
 }
 
 static SharedFunction create_function__with_deps(
-    SharedDataGraph &graph,
+    VTreeDataGraph &data_graph,
     StringRef function_name,
     ArrayRef<DataSocket> sockets_to_compute,
-    SocketDependencies &dependencies,
+    ArrayRef<VirtualSocket *> input_vsockets,
     ArrayRef<ParticleFunctionInputProvider *> r_input_providers)
 {
-  uint input_amount = dependencies.sockets.size();
+  uint input_amount = input_vsockets.size();
   BLI_assert(input_amount == r_input_providers.size());
 
+  Vector<DataSocket> input_sockets = data_graph.lookup_sockets(input_vsockets);
+
   FunctionBuilder fn_builder;
-  fn_builder.add_inputs(graph, dependencies.sockets);
-  fn_builder.add_outputs(graph, sockets_to_compute);
+  fn_builder.add_inputs(data_graph.graph(), input_sockets);
+  fn_builder.add_outputs(data_graph.graph(), sockets_to_compute);
 
   for (uint i = 0; i < input_amount; i++) {
-    VirtualSocket *vsocket = dependencies.vsockets[i];
-    r_input_providers[i] = create_input_provider(vsocket);
+    r_input_providers[i] = create_input_provider(input_vsockets[i]);
   }
 
   SharedFunction fn = fn_builder.build(function_name);
-  FunctionGraph fgraph(graph, dependencies.sockets, sockets_to_compute);
+  FunctionGraph fgraph(data_graph.graph(), input_sockets, sockets_to_compute);
   FN::fgraph_add_TupleCallBody(fn, fgraph);
   FN::fgraph_add_LLVMBuildIRBody(fn, fgraph);
   return fn;
@@ -167,11 +162,11 @@ static SharedFunction create_function__without_deps(SharedDataGraph &graph,
 }
 
 static ValueOrError<std::unique_ptr<ParticleFunction>> create_particle_function_from_sockets(
-    SharedDataGraph &graph,
+    VTreeDataGraph &data_graph,
     StringRef name,
     ArrayRef<DataSocket> sockets_to_compute,
     ArrayRef<bool> depends_on_particle_flags,
-    SocketDependencies &dependencies)
+    ArrayRef<VirtualSocket *> dependencies)
 {
   Vector<DataSocket> sockets_with_deps;
   Vector<DataSocket> sockets_without_deps;
@@ -184,12 +179,12 @@ static ValueOrError<std::unique_ptr<ParticleFunction>> create_particle_function_
     }
   }
 
-  Vector<ParticleFunctionInputProvider *> input_providers(dependencies.sockets.size(), nullptr);
+  Vector<ParticleFunctionInputProvider *> input_providers(dependencies.size(), nullptr);
 
   SharedFunction fn_without_deps = create_function__without_deps(
-      graph, name, sockets_without_deps);
+      data_graph.graph(), name, sockets_without_deps);
   SharedFunction fn_with_deps = create_function__with_deps(
-      graph, name, sockets_with_deps, dependencies, input_providers);
+      data_graph, name, sockets_with_deps, dependencies, input_providers);
 
   ParticleFunction *particle_fn = new ParticleFunction(
       fn_without_deps, fn_with_deps, input_providers, depends_on_particle_flags);
@@ -206,7 +201,7 @@ ValueOrError<std::unique_ptr<ParticleFunction>> create_particle_function(
 
   std::string name = vnode->name() + StringRef(" Inputs");
   return create_particle_function_from_sockets(
-      data_graph.graph(), name, sockets_to_compute, depends_on_particle_flags, dependencies);
+      data_graph, name, sockets_to_compute, depends_on_particle_flags, dependencies);
 }
 
 }  // namespace BParticles
