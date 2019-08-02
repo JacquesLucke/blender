@@ -7,7 +7,7 @@
 namespace FN {
 namespace DataFlowNodes {
 
-static bool insert_functions_for_bnodes(VTreeDataGraphBuilder &builder)
+static bool insert_nodes(VTreeDataGraphBuilder &builder)
 {
   auto &inserters = MAPPING_node_inserters();
 
@@ -52,7 +52,7 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
 {
   VTreeDataGraphBuilder builder(vtree);
 
-  if (!insert_functions_for_bnodes(builder)) {
+  if (!insert_nodes(builder)) {
     return BLI_ERROR_CREATE("error inserting functions for nodes");
   }
 
