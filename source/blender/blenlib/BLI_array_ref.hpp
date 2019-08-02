@@ -49,13 +49,6 @@ template<typename T> class ArrayRef {
    */
   ArrayRef() = default;
 
-  /**
-   * Reference a single element as if it were an array with one element.
-   */
-  ArrayRef(T &value) : m_start(&value), m_size(1)
-  {
-  }
-
   ArrayRef(T *start, uint size) : m_start(start), m_size(size)
   {
   }

@@ -137,16 +137,6 @@ TEST(array_ref, FromInitializerList)
   test_ref_from_initializer_list({3, 6, 8, 9});
 }
 
-TEST(array_ref, FromSingleValue)
-{
-  int a = 4;
-  IntArrayRef a_ref(a);
-  EXPECT_EQ(a_ref.size(), 1);
-  EXPECT_EQ(a_ref[0], 4);
-  a = 10;
-  EXPECT_EQ(a_ref[0], 10);
-}
-
 TEST(array_ref, FromVector)
 {
   std::vector<int> a = {1, 2, 3, 4};
@@ -235,7 +225,7 @@ TEST(array_ref, FirstLast)
 TEST(array_ref, FirstLast_OneElement)
 {
   int a = 3;
-  IntArrayRef a_ref(a);
+  IntArrayRef a_ref(&a, 1);
   EXPECT_EQ(a_ref.first(), 3);
   EXPECT_EQ(a_ref.last(), 3);
 }

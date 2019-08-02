@@ -44,7 +44,7 @@ static SetVector<VirtualSocket *> find_particle_dependencies(
 
   for (uint i = 0; i < sockets.size(); i++) {
     DataSocket socket = sockets[i];
-    auto dependencies = data_graph.find_placeholder_dependencies(socket);
+    auto dependencies = data_graph.find_placeholder_dependencies({socket});
     bool has_dependency = dependencies.size() > 0;
     r_depends_on_particle_flags[i] = has_dependency;
 
