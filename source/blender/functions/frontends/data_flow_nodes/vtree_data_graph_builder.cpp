@@ -126,6 +126,39 @@ BuilderNode *VTreeDataGraphBuilder::insert_function(SharedFunction &fn, VirtualN
   return m_graph_builder.insert_function(fn, source);
 }
 
+BuilderNode *VTreeDataGraphBuilder::insert_placeholder(VirtualNode *vnode)
+{
+  FunctionBuilder fn_builder;
+
+  Vector<VirtualSocket *> vsocket_inputs;
+  for (VirtualSocket *vsocket : vnode->inputs()) {
+    if (this->is_data_socket(vsocket)) {
+      vsocket_inputs.append(vsocket);
+      SharedType &type = this->query_socket_type(vsocket);
+      fn_builder.add_input(vsocket->name(), type);
+    }
+  }
+
+  for (VirtualSocket *vsocket : vnode->outputs()) {
+    if (this->is_data_socket(vsocket)) {
+      SharedType &type = this->query_socket_type(vsocket);
+      fn_builder.add_output(vsocket->name(), type);
+    }
+  }
+
+  auto fn = fn_builder.build(vnode->name());
+  fn->add_body<VNodePlaceholderBody>(vnode, std::move(vsocket_inputs));
+  BuilderNode *node = this->insert_function(fn);
+  this->map_data_sockets(node, vnode);
+  m_placeholder_nodes.append(node);
+  return node;
+}
+
+ArrayRef<BuilderNode *> VTreeDataGraphBuilder::placeholder_nodes()
+{
+  return m_placeholder_nodes;
+}
+
 void VTreeDataGraphBuilder::insert_link(BuilderOutputSocket *from, BuilderInputSocket *to)
 {
   m_graph_builder.insert_link(from, to);

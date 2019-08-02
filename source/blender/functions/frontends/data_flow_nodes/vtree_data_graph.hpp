@@ -67,17 +67,24 @@ class VTreeDataGraph {
 class VNodePlaceholderBody : public FunctionBody {
  private:
   VirtualNode *m_vnode;
+  Vector<VirtualSocket *> m_vsocket_inputs;
 
  public:
   static const uint FUNCTION_BODY_ID = 4;
 
-  VNodePlaceholderBody(VirtualNode *vnode) : m_vnode(vnode)
+  VNodePlaceholderBody(VirtualNode *vnode, Vector<VirtualSocket *> vsocket_inputs)
+      : m_vnode(vnode), m_vsocket_inputs(std::move(vsocket_inputs))
   {
   }
 
   VirtualNode *vnode()
   {
     return m_vnode;
+  }
+
+  ArrayRef<VirtualSocket *> inputs()
+  {
+    return m_vsocket_inputs;
   }
 };
 

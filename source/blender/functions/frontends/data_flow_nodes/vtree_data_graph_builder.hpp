@@ -23,6 +23,7 @@ class VTreeDataGraphBuilder {
   Vector<BuilderSocket *> m_socket_map;
   Vector<SharedType> m_type_by_vsocket;
   std::unique_ptr<TypeMappings> &m_type_mappings;
+  Vector<BuilderNode *> m_placeholder_nodes;
   DataGraphBuilder m_graph_builder;
 
  public:
@@ -35,16 +36,14 @@ class VTreeDataGraphBuilder {
     return m_socket_map;
   }
 
-  /* Insert Function */
   BuilderNode *insert_function(SharedFunction &fn);
   BuilderNode *insert_matching_function(SharedFunction &fn, VirtualNode *vnode);
   BuilderNode *insert_function(SharedFunction &fn, VirtualNode *vnode);
+  BuilderNode *insert_placeholder(VirtualNode *vnode);
 
-  /* Insert Link */
   void insert_link(BuilderOutputSocket *from, BuilderInputSocket *to);
   void insert_links(ArrayRef<BuilderOutputSocket *> from, ArrayRef<BuilderInputSocket *> to);
 
-  /* Socket Mapping */
   void map_input_socket(BuilderInputSocket *socket, VirtualSocket *vsocket);
   void map_output_socket(BuilderOutputSocket *socket, VirtualSocket *vsocket);
   void map_sockets(BuilderNode *node, VirtualNode *vnode);
@@ -54,22 +53,14 @@ class VTreeDataGraphBuilder {
   BuilderOutputSocket *lookup_output_socket(VirtualSocket *vsocket);
   bool verify_data_sockets_mapped(VirtualNode *vnode) const;
 
-  /* Type Mapping */
   SharedType &type_by_name(StringRef data_type) const;
-
-  /* Query Node Tree */
   VirtualNodeTree &vtree() const;
-
-  /* Query Socket Information */
   bool is_data_socket(VirtualSocket *vsocket) const;
   SharedType &query_socket_type(VirtualSocket *vsocket) const;
-
-  /* Query Node Information */
   SharedType &query_type_property(VirtualNode *vnode, StringRefNull prop_name) const;
   bool has_data_socket(VirtualNode *vnode) const;
-
-  /* Query RNA */
   SharedType &type_from_rna(PointerRNA &rna, StringRefNull prop_name) const;
+  ArrayRef<BuilderNode *> placeholder_nodes();
 
   std::string to_dot();
   void to_dot__clipboard();

@@ -7,28 +7,6 @@
 namespace FN {
 namespace DataFlowNodes {
 
-static void insert_placeholder_node(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
-{
-  FunctionBuilder fn_builder;
-  for (VirtualSocket *vsocket : vnode->inputs()) {
-    if (builder.is_data_socket(vsocket)) {
-      SharedType &type = builder.query_socket_type(vsocket);
-      fn_builder.add_input(vsocket->name(), type);
-    }
-  }
-  for (VirtualSocket *vsocket : vnode->outputs()) {
-    if (builder.is_data_socket(vsocket)) {
-      SharedType &type = builder.query_socket_type(vsocket);
-      fn_builder.add_output(vsocket->name(), type);
-    }
-  }
-
-  auto fn = fn_builder.build(vnode->name());
-  fn->add_body<VNodePlaceholderBody>(vnode);
-  BuilderNode *node = builder.insert_function(fn);
-  builder.map_data_sockets(node, vnode);
-}
-
 static bool insert_functions_for_bnodes(VTreeDataGraphBuilder &builder)
 {
   auto &inserters = MAPPING_node_inserters();
@@ -40,7 +18,7 @@ static bool insert_functions_for_bnodes(VTreeDataGraphBuilder &builder)
     }
 
     if (builder.has_data_socket(vnode)) {
-      insert_placeholder_node(builder, vnode);
+      builder.insert_placeholder(vnode);
     }
   }
   return true;
@@ -70,9 +48,10 @@ static bool insert_links(VTreeDataGraphBuilder &builder)
   return true;
 }
 
-static void insert_unlinked_inputs(VTreeDataGraphBuilder &builder, InputInserter &input_inserter)
+class SeparateNodeInputs : public UnlinkedInputsHandler {
+ public:
+  void handle(VTreeDataGraphBuilder &builder, InputInserter &inserter) override
 {
-
   for (VirtualNode *vnode : builder.vtree().nodes()) {
     Vector<VirtualSocket *> vsockets;
     Vector<BuilderInputSocket *> sockets;
@@ -89,7 +68,7 @@ static void insert_unlinked_inputs(VTreeDataGraphBuilder &builder, InputInserter
 
     if (vsockets.size() > 0) {
       Vector<BuilderOutputSocket *> new_origins(vsockets.size());
-      input_inserter.insert(builder, vsockets, new_origins);
+        inserter.insert(builder, vsockets, new_origins);
       builder.insert_links(new_origins, sockets);
     }
   }
