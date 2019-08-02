@@ -14,6 +14,7 @@ class ExplodeParticleNode(bpy.types.Node, BParticlesNode):
         builder.fixed_input("amount", "Amount", "Integer", default=10)
         builder.fixed_input("speed", "Speed", "Float", default=2)
         builder.control_flow_output("control_out", "(Out)")
+        builder.control_flow_output("new_control_out", "On Birth")
 
     def draw(self, layout):
         row = layout.row(align=True)

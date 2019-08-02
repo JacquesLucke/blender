@@ -100,10 +100,13 @@ static std::unique_ptr<Action> BUILD_ACTION_explode(
   RNA_string_get(&rna, "particle_type_name", name);
 
   auto post_action = build_action(ctx, vnode->output(0), trigger);
+  auto new_particles_action = build_action(ctx, vnode->output(1), trigger);
 
   if (ctx.type_name_exists(name)) {
-    return std::unique_ptr<Action>(
-        new ExplodeAction(name, std::move(compute_inputs_fn), std::move(post_action)));
+    return std::unique_ptr<Action>(new ExplodeAction(name,
+                                                     std::move(compute_inputs_fn),
+                                                     std::move(post_action),
+                                                     std::move(new_particles_action)));
   }
   else {
     return post_action;

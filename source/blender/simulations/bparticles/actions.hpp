@@ -48,14 +48,17 @@ class ExplodeAction : public Action {
   std::string m_new_particle_name;
   std::unique_ptr<ParticleFunction> m_compute_inputs;
   std::unique_ptr<Action> m_post_action;
+  std::unique_ptr<Action> m_new_particle_action;
 
  public:
   ExplodeAction(StringRef new_particle_name,
                 std::unique_ptr<ParticleFunction> compute_inputs,
-                std::unique_ptr<Action> post_action)
+                std::unique_ptr<Action> post_action,
+                std::unique_ptr<Action> new_particle_action)
       : m_new_particle_name(new_particle_name.to_std_string()),
         m_compute_inputs(std::move(compute_inputs)),
-        m_post_action(std::move(post_action))
+        m_post_action(std::move(post_action)),
+        m_new_particle_action(std::move(new_particle_action))
   {
   }
 

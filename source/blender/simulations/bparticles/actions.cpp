@@ -98,6 +98,7 @@ void ExplodeAction::execute(ActionInterface &interface)
   new_particles.set<float>("Birth Time", new_birth_times);
 
   m_post_action->execute(interface);
+  m_new_particle_action->execute_for_new_particles(new_particles, interface);
 }
 
 void ConditionAction::execute(ActionInterface &interface)
