@@ -5,3 +5,4 @@
 #include "frontends/data_flow_nodes/graph_generation.hpp"
 #include "frontends/data_flow_nodes/vtree_data_graph.hpp"
 #include "frontends/data_flow_nodes/input_inserters.hpp"
+#include "frontends/data_flow_nodes/unlinked_input_groupers.hpp"

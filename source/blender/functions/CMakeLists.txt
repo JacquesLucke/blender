@@ -149,6 +149,8 @@ set(SRC
   frontends/data_flow_nodes/vtree_data_graph.cpp
   frontends/data_flow_nodes/input_inserters.hpp
   frontends/data_flow_nodes/input_inserters.cpp
+  frontends/data_flow_nodes/unlinked_input_groupers.hpp
+  frontends/data_flow_nodes/unlinked_input_groupers.cpp
   frontends/data_flow_nodes/mappings.hpp
   frontends/data_flow_nodes/mappings.cpp
   frontends/data_flow_nodes/mappings/registry.hpp

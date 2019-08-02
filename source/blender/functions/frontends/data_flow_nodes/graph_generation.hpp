@@ -12,6 +12,11 @@ class InputInserter {
                       ArrayRef<BuilderOutputSocket *> r_new_origins) = 0;
 };
 
+class UnlinkedInputGrouper {
+ public:
+  virtual void handle(VTreeDataGraphBuilder &builder, InputInserter &inserter) = 0;
+};
+
 ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree);
 
 }  // namespace DataFlowNodes

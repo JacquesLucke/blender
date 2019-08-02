@@ -48,32 +48,6 @@ static bool insert_links(VTreeDataGraphBuilder &builder)
   return true;
 }
 
-class SeparateNodeInputs : public UnlinkedInputsHandler {
- public:
-  void handle(VTreeDataGraphBuilder &builder, InputInserter &inserter) override
-{
-  for (VirtualNode *vnode : builder.vtree().nodes()) {
-    Vector<VirtualSocket *> vsockets;
-    Vector<BuilderInputSocket *> sockets;
-
-    for (VirtualSocket *vsocket : vnode->inputs()) {
-      if (builder.is_data_socket(vsocket)) {
-        BuilderInputSocket *socket = builder.lookup_input_socket(vsocket);
-        if (socket->origin() == nullptr) {
-          vsockets.append(vsocket);
-          sockets.append(socket);
-        }
-      }
-    }
-
-    if (vsockets.size() > 0) {
-      Vector<BuilderOutputSocket *> new_origins(vsockets.size());
-        inserter.insert(builder, vsockets, new_origins);
-      builder.insert_links(new_origins, sockets);
-    }
-  }
-}
-
 ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
 {
   VTreeDataGraphBuilder builder(vtree);
@@ -87,7 +61,8 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
   }
 
   ConstantInputsHandler input_inserter;
-  insert_unlinked_inputs(builder, input_inserter);
+  GroupByNodeUsage unlinked_input_handler;
+  unlinked_input_handler.handle(builder, input_inserter);
 
   return builder.build();
 }
