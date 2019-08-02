@@ -71,6 +71,9 @@ class VTreeDataGraphBuilder {
   /* Query RNA */
   SharedType &type_from_rna(PointerRNA &rna, StringRefNull prop_name) const;
 
+  std::string to_dot();
+  void to_dot__clipboard();
+
  private:
   void initialize_type_by_vsocket_map();
   bool check_if_sockets_are_mapped(VirtualNode *vnode, ArrayRef<VirtualSocket *> vsockets) const;

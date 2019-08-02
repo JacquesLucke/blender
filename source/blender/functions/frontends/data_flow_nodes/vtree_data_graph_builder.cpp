@@ -293,5 +293,15 @@ bool VTreeDataGraphBuilder::has_data_socket(VirtualNode *vnode) const
   return false;
 }
 
+std::string VTreeDataGraphBuilder::to_dot()
+{
+  return m_graph_builder.to_dot();
+}
+
+void VTreeDataGraphBuilder::to_dot__clipboard()
+{
+  m_graph_builder.to_dot__clipboard();
+}
+
 }  // namespace DataFlowNodes
 }  // namespace FN
