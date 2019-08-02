@@ -335,6 +335,11 @@ template<typename T, uint N = 4> class Vector {
     }
   }
 
+  void fill_indices(ArrayRef<uint> indices, const T &value)
+  {
+    ArrayRef<T>(*this).fill_indices(indices, value);
+  }
+
   /**
    * Return how many values are currently stored in the vector.
    */

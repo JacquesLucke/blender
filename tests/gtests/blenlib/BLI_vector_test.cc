@@ -178,6 +178,17 @@ TEST(vector, Fill)
   EXPECT_EQ(vec[4], 3);
 }
 
+TEST(vector, FillIndices)
+{
+  IntVector vec(5, 0);
+  vec.fill_indices({1, 2}, 4);
+  EXPECT_EQ(vec[0], 0);
+  EXPECT_EQ(vec[1], 4);
+  EXPECT_EQ(vec[2], 4);
+  EXPECT_EQ(vec[3], 0);
+  EXPECT_EQ(vec[4], 0);
+}
+
 TEST(vector, Iterator)
 {
   IntVector vec({1, 4, 9, 16});
