@@ -306,7 +306,7 @@ static void INSERT_compare(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
   builder.insert_matching_function(fn, vnode);
 }
 
-void register_node_inserters(NodeInserterRegistry &registry)
+void REGISTER_node_inserters(NodeInserterRegistry &registry)
 {
   registry.function("fn_VectorDistanceNode", Functions::GET_FN_vector_distance);
   registry.function("fn_RandomNumberNode", Functions::GET_FN_random_number);

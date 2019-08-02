@@ -55,7 +55,7 @@ template<typename T> static void LOAD_empty_list(PointerRNA *UNUSED(rna), Tuple 
   tuple.move_in(index, list);
 }
 
-void register_socket_loaders(SocketLoaderRegistry &registry)
+void REGISTER_socket_loaders(SocketLoaderRegistry &registry)
 {
   registry.loader("Float", LOAD_float);
   registry.loader("Vector", LOAD_vector);

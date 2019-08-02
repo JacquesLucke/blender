@@ -148,9 +148,9 @@ set(SRC
   frontends/data_flow_nodes/mappings/mappings.hpp
   frontends/data_flow_nodes/mappings/registry.hpp
   frontends/data_flow_nodes/mappings/registry.cpp
-  frontends/data_flow_nodes/mappings/nodes.cpp
-  frontends/data_flow_nodes/mappings/sockets.cpp
-  frontends/data_flow_nodes/mappings/conversions.cpp
+  frontends/data_flow_nodes/mappings/node_inserters.cpp
+  frontends/data_flow_nodes/mappings/socket_loaders.cpp
+  frontends/data_flow_nodes/mappings/conversion_inserters.cpp
   frontends/data_flow_nodes/mappings/type_mappings.cpp
   frontends/data_flow_nodes/vtree_data_graph.hpp
   frontends/data_flow_nodes/vtree_data_graph.cpp

@@ -16,7 +16,7 @@ static void INSERT_base_to_list(VTreeDataGraphBuilder &builder,
   builder.insert_link(node->output(0), to);
 }
 
-void register_conversion_inserters(ConversionInserterRegistry &registry)
+void REGISTER_conversion_inserters(ConversionInserterRegistry &registry)
 {
   registry.function("Boolean", "Integer", Functions::GET_FN_bool_to_int32);
   registry.function("Boolean", "Float", Functions::GET_FN_bool_to_float);
