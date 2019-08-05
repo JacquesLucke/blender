@@ -48,18 +48,18 @@ static bool insert_links(VTreeDataGraphBuilder &builder)
   return true;
 }
 
-static bool insert_unlinked_inputs(VTreeDataGraphBuilder &builder)
+static bool insert_unlinked_inputs(VTreeDataGraphBuilder &builder,
+                                   UnlinkedInputsGrouper &inputs_grouper,
+                                   UnlinkedInputsInserter &inputs_inserter)
 {
-  GroupByNodeUsage grouper;
   MultiVector<VirtualSocket *> groups;
-  grouper.group(builder, groups);
+  inputs_grouper.group(builder, groups);
 
-  ConstantInputsHandler input_inserter;
   for (uint i = 0; i < groups.size(); i++) {
     ArrayRef<VirtualSocket *> unlinked_inputs = groups[i];
     Vector<BuilderOutputSocket *> new_origins(unlinked_inputs.size());
 
-    input_inserter.insert(builder, unlinked_inputs, new_origins);
+    inputs_inserter.insert(builder, unlinked_inputs, new_origins);
 
     for (uint i = 0; i < unlinked_inputs.size(); i++) {
       builder.insert_link(new_origins[i], builder.lookup_input_socket(unlinked_inputs[i]));
@@ -71,6 +71,15 @@ static bool insert_unlinked_inputs(VTreeDataGraphBuilder &builder)
 
 ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
 {
+  GroupByNodeUsage inputs_grouper;
+  ConstantInputsHandler inputs_inserter;
+  return generate_graph(vtree, inputs_grouper, inputs_inserter);
+}
+
+ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree,
+                                            UnlinkedInputsGrouper &inputs_grouper,
+                                            UnlinkedInputsInserter &inputs_inserter)
+{
   VTreeDataGraphBuilder builder(vtree);
 
   if (!insert_nodes(builder)) {
@@ -81,7 +90,7 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
     return BLI_ERROR_CREATE("error inserting links");
   }
 
-  if (!insert_unlinked_inputs(builder)) {
+  if (!insert_unlinked_inputs(builder, inputs_grouper, inputs_inserter)) {
     return BLI_ERROR_CREATE("error inserting unlinked inputs");
   }
 

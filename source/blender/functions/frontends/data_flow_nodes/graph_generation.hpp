@@ -9,6 +9,11 @@ namespace DataFlowNodes {
 
 using BLI::MultiVector;
 
+class UnlinkedInputsGrouper {
+ public:
+  virtual void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) = 0;
+};
+
 class UnlinkedInputsInserter {
  public:
   virtual void insert(VTreeDataGraphBuilder &builder,
@@ -16,12 +21,11 @@ class UnlinkedInputsInserter {
                       ArrayRef<BuilderOutputSocket *> r_new_origins) = 0;
 };
 
-class UnlinkedInputsGrouper {
- public:
-  virtual void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) = 0;
-};
-
 ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree);
+
+ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree,
+                                            UnlinkedInputsGrouper &inputs_grouper,
+                                            UnlinkedInputsInserter &inputs_inserter);
 
 }  // namespace DataFlowNodes
 }  // namespace FN
