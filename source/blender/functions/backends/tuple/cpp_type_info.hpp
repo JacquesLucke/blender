@@ -97,7 +97,7 @@ class CPPTypeInfo : public TypeExtension {
   virtual void relocate_to_uninitialized_n(void *src, void *dst, uint n) const = 0;
 };
 
-template<typename T> class CPPTypeInfoForType final : public CPPTypeInfo {
+template<typename T> class CPPTypeInfoForType : public CPPTypeInfo {
  public:
   CPPTypeInfoForType()
       : CPPTypeInfo(
