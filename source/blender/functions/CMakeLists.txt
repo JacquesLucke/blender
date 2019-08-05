@@ -58,7 +58,7 @@ set(SRC
   backends/tuple/cpp_type_info.cpp
   backends/tuple/tuple.hpp
   backends/tuple/tuple.cpp
-  backends/tuple/list.hpp
+  backends/tuple/generic_list.hpp
   backends/tuple/tuple-c.h
   backends/tuple/tuple-c.cpp
 
