@@ -1,4 +1,4 @@
-#include "llvm_types.hpp"
+#include "llvm_type_info.hpp"
 
 namespace FN {
 

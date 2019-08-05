@@ -54,8 +54,8 @@ set(SRC
   core/core-c.h
   core/core-c.cpp
 
-  backends/tuple/cpp_types.hpp
-  backends/tuple/cpp_types.cpp
+  backends/tuple/cpp_type_info.hpp
+  backends/tuple/cpp_type_info.cpp
   backends/tuple/tuple.hpp
   backends/tuple/tuple.cpp
   backends/tuple/tuple-c.h
@@ -81,8 +81,8 @@ set(SRC
 
   backends/llvm/initialize.hpp
   backends/llvm/initialize.cpp
-  backends/llvm/llvm_types.hpp
-  backends/llvm/llvm_types.cpp
+  backends/llvm/llvm_type_info.hpp
+  backends/llvm/llvm_type_info.cpp
   backends/llvm/build_ir_body.hpp
   backends/llvm/build_ir_body.cpp
   backends/llvm/ir_to_tuple_call.hpp

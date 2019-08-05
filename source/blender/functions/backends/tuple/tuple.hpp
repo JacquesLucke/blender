@@ -31,7 +31,7 @@
  *       that case, this information can be used to increase performance and to get a nicer API.
  */
 
-#include "cpp_types.hpp"
+#include "cpp_type_info.hpp"
 
 namespace FN {
 
