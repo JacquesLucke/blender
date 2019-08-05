@@ -151,13 +151,6 @@ struct float3 {
     return is_zero_v3(*this);
   }
 
-  void zero_small_values(float eps = 0.000001f)
-  {
-    x = (std::abs(x) < eps) ? 0.0f : x;
-    y = (std::abs(y) < eps) ? 0.0f : y;
-    z = (std::abs(z) < eps) ? 0.0f : z;
-  }
-
   friend float3 operator+(float3 a, float3 b)
   {
     return {a.x + b.x, a.y + b.y, a.z + b.z};
