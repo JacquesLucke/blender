@@ -1,19 +1,14 @@
 #pragma once
 
-/* Objects with shared ownership require a reference
- * counter, so that it can be freed when it is not
- * referenced anymore.
+/* Objects with shared ownership require a reference counter, so that they can be freed when they
+ * are not referenced anymore.
  *
- * Classes can subclass RefCounter to be extended
- * with an intrusive reference count (the counter is
- * stored directly in the object). This is necessary,
- * because the object might have to be used by different
- * languages (C, C++, Python).
+ * Classes can subclass RefCounter to be extended with an intrusive reference count (the counter is
+ * stored directly in the object). This is necessary, because the object might have to be used by
+ * different languages (C, C++, Python).
  *
- * To avoid error-prone manual reference counting,
- * there is an AutoRefCount class that works similar
- * to std::shared, but deals with objects of type
- * RefCounter.
+ * To avoid error-prone manual reference counting, there is an AutoRefCount class that works
+ * similar to std::shared, but deals with objects of type RefCounter.
  */
 
 #include <atomic>

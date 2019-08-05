@@ -1,11 +1,11 @@
 #pragma once
 
 #include "tuple.hpp"
-#include "BLI_shared_immutable.hpp"
+#include "BLI_refcount.hpp"
 
 namespace FN {
 
-class GenericList {
+class GenericList : public RefCounter {
  private:
   SharedType m_type;
   CPPTypeInfo *m_type_info;
