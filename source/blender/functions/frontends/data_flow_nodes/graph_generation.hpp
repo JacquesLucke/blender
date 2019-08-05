@@ -9,14 +9,14 @@ namespace DataFlowNodes {
 
 using BLI::MultiVector;
 
-class InputInserter {
+class UnlinkedInputsInserter {
  public:
   virtual void insert(VTreeDataGraphBuilder &builder,
                       ArrayRef<VirtualSocket *> unlinked_inputs,
                       ArrayRef<BuilderOutputSocket *> r_new_origins) = 0;
 };
 
-class UnlinkedInputGrouper {
+class UnlinkedInputsGrouper {
  public:
   virtual void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) = 0;
 };

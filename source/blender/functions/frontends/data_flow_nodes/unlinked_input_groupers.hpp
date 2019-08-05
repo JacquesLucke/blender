@@ -5,27 +5,27 @@
 namespace FN {
 namespace DataFlowNodes {
 
-class SeparateNodeInputs : public UnlinkedInputGrouper {
+class SeparateNodeInputs : public UnlinkedInputsGrouper {
  public:
   void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) override;
 };
 
-class SeparateSocketInputs : public UnlinkedInputGrouper {
+class SeparateSocketInputs : public UnlinkedInputsGrouper {
  public:
   void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) override;
 };
 
-class AllInOneSocketInputs : public UnlinkedInputGrouper {
+class AllInOneSocketInputs : public UnlinkedInputsGrouper {
  public:
   void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) override;
 };
 
-class GroupByNodeUsage : public UnlinkedInputGrouper {
+class GroupByNodeUsage : public UnlinkedInputsGrouper {
  public:
   void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) override;
 };
 
-class GroupBySocketUsage : public UnlinkedInputGrouper {
+class GroupBySocketUsage : public UnlinkedInputsGrouper {
  public:
   void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) override;
 };
