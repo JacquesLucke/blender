@@ -126,9 +126,11 @@ template<typename K, typename V, uint N = 4> class Map {
    * Return the value corresponding to the key.
    * This will assert when the key does not exist.
    */
-  V lookup(const K &key) const
+  V &lookup(const K &key) const
   {
-    return this->lookup_ref(key);
+    V *ptr = this->lookup_ptr(key);
+    BLI_assert(ptr);
+    return *ptr;
   }
 
   /**
@@ -144,17 +146,6 @@ template<typename K, typename V, uint N = 4> class Map {
     else {
       return default_value;
     }
-  }
-
-  /**
-   * Return a reference to the value corresponding to a key.
-   * This will assert when the key does not exist.
-   */
-  V &lookup_ref(const K &key) const
-  {
-    V *ptr = this->lookup_ptr(key);
-    BLI_assert(ptr);
-    return *ptr;
   }
 
   /**

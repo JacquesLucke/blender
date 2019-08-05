@@ -42,22 +42,22 @@ class TypeMappings {
 
   SharedType &type_by_idname(StringRef idname)
   {
-    return m_type_by_idname.lookup_ref(idname);
+    return m_type_by_idname.lookup(idname);
   }
 
   SharedType &type_by_name(StringRef name)
   {
-    return m_type_by_name.lookup_ref(name);
+    return m_type_by_name.lookup(name);
   }
 
   StringRefNull name_by_idname(StringRef idname)
   {
-    return m_name_by_idname.lookup_ref(idname);
+    return m_name_by_idname.lookup(idname);
   }
 
   StringRefNull idname_by_name(StringRef name)
   {
-    return m_idname_by_name.lookup_ref(name);
+    return m_idname_by_name.lookup(name);
   }
 };
 

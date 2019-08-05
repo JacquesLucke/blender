@@ -83,7 +83,7 @@ SharedFunction &GET_FN_bool_switch(SharedType &data_type)
     SharedFunction fn = build_bool_switch_function(data_type);
     cache.add(data_type, fn);
   }
-  return cache.lookup_ref(data_type);
+  return cache.lookup(data_type);
 }
 
 }  // namespace Functions

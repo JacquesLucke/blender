@@ -150,7 +150,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
       integrator = new EulerIntegrator(forces_on_type);
     }
 
-    ParticleType *particle_type = new ParticleType(declarations.lookup_ref(name),
+    ParticleType *particle_type = new ParticleType(declarations.lookup(name),
                                                    integrator,
                                                    events.lookup_default(name),
                                                    offset_handlers.lookup_default(name));

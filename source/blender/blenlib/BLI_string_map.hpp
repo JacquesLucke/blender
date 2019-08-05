@@ -53,7 +53,7 @@ template<typename V> class StringMap {
     m_map.add_override(key.to_std_string(), value);
   }
 
-  V lookup(StringRef key) const
+  V &lookup(StringRef key) const
   {
     return m_map.lookup(key.to_std_string());
   }
@@ -66,11 +66,6 @@ template<typename V> class StringMap {
   V lookup_default(StringRef key, const V &default_value) const
   {
     return m_map.lookup_default(key.to_std_string(), default_value);
-  }
-
-  V &lookup_ref(StringRef key) const
-  {
-    return m_map.lookup_ref(key.to_std_string());
   }
 
   bool contains(StringRef key) const

@@ -283,42 +283,42 @@ SharedFunction &GET_FN_empty_list(SharedType &base_type)
 {
   FunctionPerType &functions = get_list_functions().m_create_empty;
   BLI_assert(functions.contains(base_type));
-  return functions.lookup_ref(base_type);
+  return functions.lookup(base_type);
 }
 
 SharedFunction &GET_FN_list_from_element(SharedType &base_type)
 {
   FunctionPerType &functions = get_list_functions().m_from_element;
   BLI_assert(functions.contains(base_type));
-  return functions.lookup_ref(base_type);
+  return functions.lookup(base_type);
 }
 
 SharedFunction &GET_FN_append_to_list(SharedType &base_type)
 {
   FunctionPerType &functions = get_list_functions().m_append;
   BLI_assert(functions.contains(base_type));
-  return functions.lookup_ref(base_type);
+  return functions.lookup(base_type);
 }
 
 SharedFunction &GET_FN_get_list_element(SharedType &base_type)
 {
   FunctionPerType &functions = get_list_functions().m_get_element;
   BLI_assert(functions.contains(base_type));
-  return functions.lookup_ref(base_type);
+  return functions.lookup(base_type);
 }
 
 SharedFunction &GET_FN_combine_lists(SharedType &base_type)
 {
   FunctionPerType &functions = get_list_functions().m_combine;
   BLI_assert(functions.contains(base_type));
-  return functions.lookup_ref(base_type);
+  return functions.lookup(base_type);
 }
 
 SharedFunction &GET_FN_list_length(SharedType &base_type)
 {
   FunctionPerType &functions = get_list_functions().m_length;
   BLI_assert(functions.contains(base_type));
-  return functions.lookup_ref(base_type);
+  return functions.lookup(base_type);
 }
 
 SharedType &get_list_type(SharedType &base_type)

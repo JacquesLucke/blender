@@ -79,7 +79,7 @@ void SocketLoaders::register_loader(StringRef type_name, SocketLoader loader)
 
 void SocketLoaders::load(VirtualSocket *vsocket, Tuple &dst, uint index)
 {
-  SocketLoader &loader = m_loader_by_idname.lookup_ref(vsocket->idname());
+  SocketLoader &loader = m_loader_by_idname.lookup(vsocket->idname());
   PointerRNA rna = vsocket->rna();
   loader(&rna, dst, index);
 }
