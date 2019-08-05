@@ -43,6 +43,7 @@ template<typename K, typename V, uint N = 4> class MultiMap {
         key,
         /* Insert new key with value. */
         [this, &key, &value]() -> Entry {
+          UNUSED_VARS(key);
           uint offset = m_elements.size();
           m_elements.append(value);
           return {offset, 1, 1};

@@ -4,6 +4,8 @@
  * actually allocating an array.
  */
 
+#include <cmath>
+
 #include "BLI_utildefines.h"
 #include "BLI_vector.hpp"
 
