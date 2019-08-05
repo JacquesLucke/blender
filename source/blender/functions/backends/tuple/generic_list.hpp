@@ -5,6 +5,9 @@
 
 namespace FN {
 
+class GenericList;
+using SharedGenericList = AutoRefCount<GenericList>;
+
 class GenericList : public RefCounter {
  private:
   SharedType m_type;
@@ -23,25 +26,10 @@ class GenericList : public RefCounter {
     m_capacity = 0;
   }
 
-  GenericList(const GenericList &other) : m_type(other.m_type), m_type_info(other.m_type_info)
-  {
-    m_size = other.m_size;
-    m_capacity = m_size;
-    m_storage = MEM_malloc_arrayN(m_size, m_type_info->size(), __func__);
-    m_type_info->copy_to_uninitialized_n(other.m_storage, m_storage, m_size);
-  }
-
-  GenericList(GenericList &&other)
-      : m_type(std::move(other.m_type)),
-        m_type_info(other.m_type_info),
-        m_storage(other.m_storage),
-        m_size(other.m_size),
-        m_capacity(other.m_capacity)
-  {
-    other.m_storage = nullptr;
-    other.m_size = 0;
-    other.m_capacity = 0;
-  }
+  GenericList(GenericList &other) = delete;
+  GenericList(GenericList &&other) = delete;
+  GenericList &operator=(GenericList &other) = delete;
+  GenericList &operator=(GenericList &&other) = delete;
 
   ~GenericList()
   {
@@ -51,32 +39,31 @@ class GenericList : public RefCounter {
     }
   }
 
-  GenericList &operator=(const GenericList &other)
+  bool is_mutable()
   {
-    if (this == &other) {
-      return *this;
-    }
-
-    delete this;
-    new (this) GenericList(other);
-
-    return *this;
+    return this->refcount() == 1;
   }
 
-  GenericList &operator=(GenericList &&other)
+  SharedGenericList get_mutable()
   {
-    if (this == &other) {
-      return *this;
+    if (this->is_mutable()) {
+      return SharedGenericList(this);
     }
+    else {
+      return this->real_copy();
+    }
+  }
 
-    delete this;
-    new (this) GenericList(std::move(other));
-
-    return *this;
+  SharedGenericList real_copy()
+  {
+    GenericList *list = new GenericList(m_type);
+    list->extend__dynamic_copy(*this);
+    return SharedGenericList(list);
   }
 
   void append__dynamic_relocate_from_tuple(Tuple &tuple, uint index)
   {
+    BLI_assert(this->is_mutable());
     BLI_assert(&tuple.meta().type_info(index) == m_type_info);
     this->ensure_space_for_one();
     void *dst = POINTER_OFFSET(m_storage, m_size * m_type_info->size());
@@ -86,19 +73,22 @@ class GenericList : public RefCounter {
 
   void get__dynamic_copy_to_tuple(uint element_index, Tuple &tuple, uint tuple_index)
   {
+    BLI_assert(this->is_mutable());
     BLI_assert(&tuple.meta().type_info(tuple_index) == m_type_info);
     BLI_assert(element_index < m_size);
     void *src = POINTER_OFFSET(m_storage, element_index * m_type_info->size());
     tuple.copy_in__dynamic(tuple_index, src);
   }
 
-  void extend__dynamic_copy(const GenericList &other)
+  void extend__dynamic_copy(const SharedGenericList &other)
   {
-    BLI_assert(m_type == other.m_type);
-    this->reserve(m_size + other.size());
-    void *src = other.m_storage;
+    BLI_assert(this->is_mutable());
+    BLI_assert(m_type == other->m_type);
+    GenericList &other_ = other.ref();
+    this->reserve(m_size + other_.size());
+    void *src = other_.m_storage;
     void *dst = POINTER_OFFSET(m_storage, m_size * m_type_info->size());
-    m_type_info->copy_to_uninitialized_n(src, dst, other.size());
+    m_type_info->copy_to_uninitialized_n(src, dst, other_.size());
   }
 
   void *storage() const
@@ -118,6 +108,7 @@ class GenericList : public RefCounter {
 
   void reserve(uint size)
   {
+    BLI_assert(this->is_mutable());
     if (size > m_capacity) {
       this->grow(size);
     }
