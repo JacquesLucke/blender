@@ -7,27 +7,27 @@ namespace DataFlowNodes {
 
 class SeparateNodeInputs : public UnlinkedInputGrouper {
  public:
-  void handle(VTreeDataGraphBuilder &builder, InputInserter &inserter) override;
+  void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) override;
 };
 
 class SeparateSocketInputs : public UnlinkedInputGrouper {
  public:
-  void handle(VTreeDataGraphBuilder &builder, InputInserter &inserter) override;
+  void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) override;
 };
 
 class AllInOneSocketInputs : public UnlinkedInputGrouper {
  public:
-  void handle(VTreeDataGraphBuilder &builder, InputInserter &inserter) override;
+  void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) override;
 };
 
 class GroupByNodeUsage : public UnlinkedInputGrouper {
  public:
-  void handle(VTreeDataGraphBuilder &builder, InputInserter &inserter) override;
+  void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) override;
 };
 
 class GroupBySocketUsage : public UnlinkedInputGrouper {
  public:
-  void handle(VTreeDataGraphBuilder &builder, InputInserter &inserter) override;
+  void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) override;
 };
 
 }  // namespace DataFlowNodes

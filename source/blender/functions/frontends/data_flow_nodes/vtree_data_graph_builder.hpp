@@ -51,6 +51,7 @@ class VTreeDataGraphBuilder {
 
   BuilderInputSocket *lookup_input_socket(VirtualSocket *vsocket);
   BuilderOutputSocket *lookup_output_socket(VirtualSocket *vsocket);
+  bool is_input_unlinked(VirtualSocket *vsocket);
   bool verify_data_sockets_mapped(VirtualNode *vnode) const;
 
   SharedType &type_by_name(StringRef data_type) const;

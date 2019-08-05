@@ -3,66 +3,49 @@
 namespace FN {
 namespace DataFlowNodes {
 
-void SeparateNodeInputs::handle(VTreeDataGraphBuilder &builder, InputInserter &inserter)
+void SeparateNodeInputs::group(VTreeDataGraphBuilder &builder,
+                               MultiVector<VirtualSocket *> &r_groups)
 {
+  Vector<VirtualSocket *> vsockets;
   for (VirtualNode *vnode : builder.vtree().nodes()) {
-    Vector<VirtualSocket *> vsockets;
-    Vector<BuilderInputSocket *> sockets;
-
     for (VirtualSocket *vsocket : vnode->inputs()) {
-      if (builder.is_data_socket(vsocket)) {
-        BuilderInputSocket *socket = builder.lookup_input_socket(vsocket);
-        if (socket->origin() == nullptr) {
-          vsockets.append(vsocket);
-          sockets.append(socket);
-        }
+      if (builder.is_input_unlinked(vsocket)) {
+        vsockets.append(vsocket);
       }
     }
 
     if (vsockets.size() > 0) {
-      Vector<BuilderOutputSocket *> new_origins(vsockets.size());
-      inserter.insert(builder, vsockets, new_origins);
-      builder.insert_links(new_origins, sockets);
+      r_groups.append(vsockets);
+      vsockets.clear();
     }
   }
 }
 
-void SeparateSocketInputs::handle(VTreeDataGraphBuilder &builder, InputInserter &inserter)
+void SeparateSocketInputs::group(VTreeDataGraphBuilder &builder,
+                                 MultiVector<VirtualSocket *> &r_groups)
 {
   for (VirtualNode *vnode : builder.vtree().nodes()) {
     for (VirtualSocket *vsocket : vnode->inputs()) {
-      if (builder.is_data_socket(vsocket)) {
-        BuilderInputSocket *socket = builder.lookup_input_socket(vsocket);
-        if (socket->origin() == nullptr) {
-          std::array<BuilderOutputSocket *, 1> new_origin;
-          inserter.insert(builder, {vsocket}, new_origin);
-          BLI_assert(new_origin[0]);
-          builder.insert_link(new_origin[0], socket);
-        }
+      if (builder.is_input_unlinked(vsocket)) {
+        r_groups.append({vsocket});
       }
     }
   }
 }
 
-void AllInOneSocketInputs::handle(VTreeDataGraphBuilder &builder, InputInserter &inserter)
+void AllInOneSocketInputs::group(VTreeDataGraphBuilder &builder,
+                                 MultiVector<VirtualSocket *> &r_groups)
 {
   Vector<VirtualSocket *> unlinked_input_vsockets;
-  Vector<BuilderInputSocket *> unlinked_input_sockets;
   for (VirtualNode *vnode : builder.vtree().nodes()) {
     for (VirtualSocket *vsocket : vnode->inputs()) {
-      if (builder.is_data_socket(vsocket)) {
-        BuilderInputSocket *socket = builder.lookup_input_socket(vsocket);
-        if (socket->origin() == nullptr) {
-          unlinked_input_vsockets.append(vsocket);
-          unlinked_input_sockets.append(socket);
-        }
+      if (builder.is_input_unlinked(vsocket)) {
+        unlinked_input_vsockets.append(vsocket);
       }
     }
   }
 
-  Vector<BuilderOutputSocket *> new_origins(unlinked_input_vsockets.size());
-  inserter.insert(builder, unlinked_input_vsockets, new_origins);
-  builder.insert_links(new_origins, unlinked_input_sockets);
+  r_groups.append(unlinked_input_vsockets);
 }
 
 static void update_hash_of_used_vsockets(VTreeDataGraphBuilder &builder,
@@ -94,9 +77,9 @@ static void update_hash_of_used_vsockets(VTreeDataGraphBuilder &builder,
   }
 }
 
-static void insert_input_node_for_sockets_with_same_hash(VTreeDataGraphBuilder &builder,
-                                                         ArrayRef<uint> hash_per_vsocket,
-                                                         InputInserter &inserter)
+static void group_with_same_hash(VTreeDataGraphBuilder &builder,
+                                 ArrayRef<uint> hash_per_vsocket,
+                                 MultiVector<VirtualSocket *> &r_groups)
 {
   MultiMap<uint, VirtualSocket *> unlinked_inputs_by_hash;
   for (VirtualNode *vnode : builder.vtree().nodes()) {
@@ -114,16 +97,12 @@ static void insert_input_node_for_sockets_with_same_hash(VTreeDataGraphBuilder &
   for (uint key : unlinked_inputs_by_hash.keys()) {
     ArrayRef<VirtualSocket *> unlinked_vsockets = unlinked_inputs_by_hash.lookup(key);
     BLI_assert(unlinked_vsockets.size() > 0);
-    Vector<BuilderOutputSocket *> new_origins(unlinked_vsockets.size());
-    inserter.insert(builder, unlinked_vsockets, new_origins);
-
-    for (uint i = 0; i < unlinked_vsockets.size(); i++) {
-      builder.insert_link(new_origins[i], builder.lookup_input_socket(unlinked_vsockets[i]));
-    }
+    r_groups.append(unlinked_vsockets);
   }
 }
 
-void GroupByNodeUsage::handle(VTreeDataGraphBuilder &builder, InputInserter &inserter)
+void GroupByNodeUsage::group(VTreeDataGraphBuilder &builder,
+                             MultiVector<VirtualSocket *> &r_groups)
 {
   uint socket_count = builder.vtree().socket_count();
 
@@ -142,10 +121,11 @@ void GroupByNodeUsage::handle(VTreeDataGraphBuilder &builder, InputInserter &ins
     updated_vsockets.clear();
   }
 
-  insert_input_node_for_sockets_with_same_hash(builder, hash_per_vsocket, inserter);
+  group_with_same_hash(builder, hash_per_vsocket, r_groups);
 }
 
-void GroupBySocketUsage::handle(VTreeDataGraphBuilder &builder, InputInserter &inserter)
+void GroupBySocketUsage::group(VTreeDataGraphBuilder &builder,
+                               MultiVector<VirtualSocket *> &r_groups)
 {
   uint socket_count = builder.vtree().socket_count();
 
@@ -163,7 +143,7 @@ void GroupBySocketUsage::handle(VTreeDataGraphBuilder &builder, InputInserter &i
     }
   }
 
-  insert_input_node_for_sockets_with_same_hash(builder, hash_per_vsocket, inserter);
+  group_with_same_hash(builder, hash_per_vsocket, r_groups);
 }
 
 }  // namespace DataFlowNodes

@@ -1,9 +1,13 @@
 #pragma once
 
+#include "BLI_multi_vector.hpp"
+
 #include "vtree_data_graph_builder.hpp"
 
 namespace FN {
 namespace DataFlowNodes {
+
+using BLI::MultiVector;
 
 class InputInserter {
  public:
@@ -14,7 +18,7 @@ class InputInserter {
 
 class UnlinkedInputGrouper {
  public:
-  virtual void handle(VTreeDataGraphBuilder &builder, InputInserter &inserter) = 0;
+  virtual void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) = 0;
 };
 
 ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree);

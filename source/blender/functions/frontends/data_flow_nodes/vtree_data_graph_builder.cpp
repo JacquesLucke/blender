@@ -245,6 +245,18 @@ BuilderOutputSocket *VTreeDataGraphBuilder::lookup_output_socket(VirtualSocket *
   return (BuilderOutputSocket *)socket;
 }
 
+bool VTreeDataGraphBuilder::is_input_unlinked(VirtualSocket *vsocket)
+{
+  BLI_assert(vsocket->is_input());
+  if (this->is_data_socket(vsocket)) {
+    BuilderInputSocket *socket = this->lookup_input_socket(vsocket);
+    return socket->origin() == nullptr;
+  }
+  else {
+    return false;
+  }
+}
+
 bool VTreeDataGraphBuilder::check_if_sockets_are_mapped(VirtualNode *vnode,
                                                         ArrayRef<VirtualSocket *> vsockets) const
 {

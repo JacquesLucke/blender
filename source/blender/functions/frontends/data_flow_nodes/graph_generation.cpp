@@ -48,6 +48,27 @@ static bool insert_links(VTreeDataGraphBuilder &builder)
   return true;
 }
 
+static bool insert_unlinked_inputs(VTreeDataGraphBuilder &builder)
+{
+  GroupByNodeUsage grouper;
+  MultiVector<VirtualSocket *> groups;
+  grouper.group(builder, groups);
+
+  ConstantInputsHandler input_inserter;
+  for (uint i = 0; i < groups.size(); i++) {
+    ArrayRef<VirtualSocket *> unlinked_inputs = groups[i];
+    Vector<BuilderOutputSocket *> new_origins(unlinked_inputs.size());
+
+    input_inserter.insert(builder, unlinked_inputs, new_origins);
+
+    for (uint i = 0; i < unlinked_inputs.size(); i++) {
+      builder.insert_link(new_origins[i], builder.lookup_input_socket(unlinked_inputs[i]));
+    }
+  }
+
+  return true;
+}
+
 ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
 {
   VTreeDataGraphBuilder builder(vtree);
@@ -60,9 +81,11 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
     return BLI_ERROR_CREATE("error inserting links");
   }
 
-  ConstantInputsHandler input_inserter;
-  GroupByNodeUsage unlinked_input_handler;
-  unlinked_input_handler.handle(builder, input_inserter);
+  if (!insert_unlinked_inputs(builder)) {
+    return BLI_ERROR_CREATE("error inserting unlinked inputs");
+  }
+
+  builder.to_dot__clipboard();
 
   return builder.build();
 }
