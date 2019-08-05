@@ -252,7 +252,7 @@ set(SRC
   BLI_shared.hpp
   BLI_vector.hpp
   BLI_map.hpp
-  BLI_multimap.hpp
+  BLI_multi_map.hpp
   BLI_set.hpp
   BLI_set_vector.hpp
   BLI_stack.hpp

@@ -1,17 +1,17 @@
 #include "testing/testing.h"
-#include "BLI_multimap.hpp"
+#include "BLI_multi_map.hpp"
 
 using namespace BLI;
 
 using IntMultiMap = MultiMap<int, int>;
 
-TEST(multimap, DefaultConstructor)
+TEST(multi_map, DefaultConstructor)
 {
   IntMultiMap map;
   EXPECT_EQ(map.key_amount(), 0);
 }
 
-TEST(multimap, AddNewSingle)
+TEST(multi_map, AddNewSingle)
 {
   IntMultiMap map;
   map.add_new(2, 5);
@@ -21,7 +21,7 @@ TEST(multimap, AddNewSingle)
   EXPECT_EQ(map.lookup(2)[0], 5);
 }
 
-TEST(multimap, AddMultipleforSameKey)
+TEST(multi_map, AddMultipleforSameKey)
 {
   IntMultiMap map;
   map.add(3, 5);
@@ -34,7 +34,7 @@ TEST(multimap, AddMultipleforSameKey)
   EXPECT_EQ(map.lookup(3)[2], 7);
 }
 
-TEST(multimap, AddMany)
+TEST(multi_map, AddMany)
 {
   IntMultiMap map;
   for (uint i = 0; i < 100; i++) {
@@ -50,7 +50,7 @@ TEST(multimap, AddMany)
   EXPECT_EQ(map.lookup(7).size(), 10);
 }
 
-TEST(multimap, AddMultiple)
+TEST(multi_map, AddMultiple)
 {
   IntMultiMap map;
   map.add_multiple(2, {6, 7, 8});
@@ -66,7 +66,7 @@ TEST(multimap, AddMultiple)
   EXPECT_EQ(map.lookup_default(2)[4], 1);
 }
 
-TEST(multimap, AddMultipleNew)
+TEST(multi_map, AddMultipleNew)
 {
   IntMultiMap map;
   map.add_multiple_new(3, {6, 7, 8});
@@ -79,7 +79,7 @@ TEST(multimap, AddMultipleNew)
   EXPECT_FALSE(map.lookup(2).contains(3));
 }
 
-TEST(multimap, ValuesForKey)
+TEST(multi_map, ValuesForKey)
 {
   IntMultiMap map;
   map.add(3, 5);
@@ -91,7 +91,7 @@ TEST(multimap, ValuesForKey)
   EXPECT_EQ(map.value_amount(4), 2);
 }
 
-TEST(multimap, Keys)
+TEST(multi_map, Keys)
 {
   IntMultiMap map;
   map.add(3, 6);
