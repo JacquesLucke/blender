@@ -100,8 +100,7 @@ set(SRC
   backends/llvm/context_pool.cpp
 
   types/lists.hpp
-  types/numeric_lists.hpp
-  types/numeric_lists.cpp
+  types/lists.cpp
   types/numeric.hpp
   types/numeric.cpp
   types/boolean.hpp
