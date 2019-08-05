@@ -10,6 +10,9 @@ class VectorMathNode(bpy.types.Node, FunctionNode):
 
     operation_items = [
         ("ADD", "Add", "", "", 1),
+        ("SUB", "Subtract", "", "", 2),
+        ("CROSS", "Cross Product", "", "", 3),
+        ("REFLECT", "Reflect", "", "", 4),
     ]
 
     operation: EnumProperty(

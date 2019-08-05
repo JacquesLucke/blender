@@ -9,6 +9,9 @@ SharedFunction &GET_FN_combine_vector();
 SharedFunction &GET_FN_separate_vector();
 SharedFunction &GET_FN_vector_distance();
 SharedFunction &GET_FN_add_vectors();
+SharedFunction &GET_FN_sub_vectors();
+SharedFunction &GET_FN_cross_vectors();
+SharedFunction &GET_FN_reflect_vectors();
 
 }  // namespace Functions
 }  // namespace FN

@@ -115,6 +115,12 @@ static SharedFunction &get_vector_math_function(int operation)
   switch (operation) {
     case 1:
       return Functions::GET_FN_add_vectors();
+    case 2:
+      return Functions::GET_FN_sub_vectors();
+    case 3:
+      return Functions::GET_FN_cross_vectors();
+    case 4:
+      return Functions::GET_FN_reflect_vectors();
     default:
       BLI_assert(false);
       return *(SharedFunction *)nullptr;

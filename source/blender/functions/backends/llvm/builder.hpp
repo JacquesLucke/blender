@@ -281,6 +281,11 @@ class CodeBuilder {
     return m_builder.CreateFAdd(a, b);
   }
 
+  llvm::Value *CreateFSub(llvm::Value *a, llvm::Value *b)
+  {
+    return m_builder.CreateFSub(a, b);
+  }
+
   llvm::Value *CreateFMul(llvm::Value *a, llvm::Value *b)
   {
     return m_builder.CreateFMul(a, b);
