@@ -1,10 +1,11 @@
 #pragma once
 
 #include "tuple.hpp"
+#include "BLI_shared_immutable.hpp"
 
 namespace FN {
 
-class List {
+class GenericList {
  private:
   SharedType m_type;
   CPPTypeInfo *m_type_info;
@@ -13,8 +14,8 @@ class List {
   uint m_capacity;
 
  public:
-  List() = delete;
-  List(SharedType type) : m_type(std::move(type))
+  GenericList() = delete;
+  GenericList(SharedType type) : m_type(std::move(type))
   {
     m_type_info = &m_type->extension<CPPTypeInfo>();
     m_storage = nullptr;
@@ -22,7 +23,7 @@ class List {
     m_capacity = 0;
   }
 
-  List(const List &other) : m_type(other.m_type), m_type_info(other.m_type_info)
+  GenericList(const GenericList &other) : m_type(other.m_type), m_type_info(other.m_type_info)
   {
     m_size = other.m_size;
     m_capacity = m_size;
@@ -30,7 +31,7 @@ class List {
     m_type_info->copy_to_uninitialized_n(other.m_storage, m_storage, m_size);
   }
 
-  List(List &&other)
+  GenericList(GenericList &&other)
       : m_type(std::move(other.m_type)),
         m_type_info(other.m_type_info),
         m_storage(other.m_storage),
@@ -42,7 +43,7 @@ class List {
     other.m_capacity = 0;
   }
 
-  ~List()
+  ~GenericList()
   {
     if (m_storage != nullptr) {
       m_type_info->destruct_n(m_storage, m_size);
@@ -50,26 +51,26 @@ class List {
     }
   }
 
-  List &operator=(const List &other)
+  GenericList &operator=(const GenericList &other)
   {
     if (this == &other) {
       return *this;
     }
 
     delete this;
-    new (this) List(other);
+    new (this) GenericList(other);
 
     return *this;
   }
 
-  List &operator=(List &&other)
+  GenericList &operator=(GenericList &&other)
   {
     if (this == &other) {
       return *this;
     }
 
     delete this;
-    new (this) List(std::move(other));
+    new (this) GenericList(std::move(other));
 
     return *this;
   }
@@ -91,7 +92,7 @@ class List {
     tuple.copy_in__dynamic(tuple_index, src);
   }
 
-  void extend__dynamic_copy(const List &other)
+  void extend__dynamic_copy(const GenericList &other)
   {
     BLI_assert(m_type == other.m_type);
     this->reserve(m_size + other.size());
