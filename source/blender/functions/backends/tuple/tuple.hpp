@@ -35,7 +35,7 @@
 
 namespace FN {
 
-class TupleMeta : public RefCountedBase {
+class TupleMeta : public RefCounter {
  private:
   Vector<SharedType> m_types;
   Vector<CPPTypeInfo *> m_type_info;

@@ -4,7 +4,7 @@
  * counter, so that it can be freed when it is not
  * referenced anymore.
  *
- * Classes can subclass RefCountedBase to be extended
+ * Classes can subclass RefCounter to be extended
  * with an intrusive reference count (the counter is
  * stored directly in the object). This is necessary,
  * because the object might have to be used by different
@@ -13,7 +13,7 @@
  * To avoid error-prone manual reference counting,
  * there is an AutoRefCount class that works similar
  * to std::shared, but deals with objects of type
- * RefCountedBase.
+ * RefCounter.
  */
 
 #include <atomic>
@@ -22,14 +22,14 @@
 
 namespace BLI {
 
-class RefCountedBase {
+class RefCounter {
  private:
   std::atomic<int> m_refcount;
 
  protected:
-  virtual ~RefCountedBase(){};
+  virtual ~RefCounter(){};
 
-  RefCountedBase() : m_refcount(1)
+  RefCounter() : m_refcount(1)
   {
   }
 

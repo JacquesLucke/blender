@@ -157,7 +157,7 @@ template<typename SequenceT> class DataSocketSequence {
 class DataGraph;
 using SharedDataGraph = AutoRefCount<DataGraph>;
 
-class DataGraph : public RefCountedBase {
+class DataGraph : public RefCounter {
  public:
   struct Node {
     SharedFunction function;

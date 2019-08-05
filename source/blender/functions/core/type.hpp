@@ -23,7 +23,7 @@
 
 #include <string>
 #include <mutex>
-#include "BLI_shared.hpp"
+#include "BLI_refcount.hpp"
 #include "BLI_string_ref.hpp"
 
 namespace FN {
@@ -51,7 +51,7 @@ class TypeExtension {
   static const uint EXTENSION_TYPE_AMOUNT = 2;
 };
 
-class Type final : public RefCountedBase {
+class Type final : public RefCounter {
  public:
   Type() = delete;
   Type(StringRef name);
