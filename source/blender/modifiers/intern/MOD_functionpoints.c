@@ -81,19 +81,19 @@ static Mesh *build_point_mesh(FunctionPointsModifierData *fpmd)
   FN_tuple_set_float(fn_in, 0, fpmd->control1);
   FN_tuple_set_int32(fn_in, 1, fpmd->control2);
   FN_tuple_call_invoke(body, fn_in, fn_out, __func__);
-  FnFloat3List list = FN_tuple_relocate_out_float3_list(fn_out, 0);
+  FnGenericList list = FN_tuple_relocate_out_generic_list(fn_out, 0);
 
   FN_TUPLE_CALL_DESTRUCT_STACK(body, fn_in, fn_out);
   FN_function_free(fn);
 
-  uint amount = FN_list_size_float3(list);
-  float *ptr = FN_list_data_float3(list);
+  uint amount = FN_generic_list_size(list);
+  float *ptr = (float *)FN_generic_list_storage(list);
 
   Mesh *mesh = BKE_mesh_new_nomain(amount, 0, 0, 0, 0);
   for (uint i = 0; i < amount; i++) {
     copy_v3_v3(mesh->mvert[i].co, ptr + (3 * i));
   }
-  FN_list_free_float3(list);
+  FN_generic_list_free(list);
 
   return mesh;
 }

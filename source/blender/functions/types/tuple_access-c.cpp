@@ -33,14 +33,8 @@ void FN_tuple_get_float3(FnTuple tuple_c, uint index, float dst[3])
   *(float3 *)dst = unwrap(tuple_c)->get<float3>(index);
 }
 
-FnFloatList FN_tuple_relocate_out_float_list(FnTuple tuple_c, uint index)
+FnGenericList FN_tuple_relocate_out_generic_list(FnTuple tuple_c, uint index)
 {
-  auto list = unwrap(tuple_c)->relocate_out<SharedFloatList>(index);
-  return wrap(list.extract_ptr());
-}
-
-FnFloat3List FN_tuple_relocate_out_float3_list(FnTuple tuple_c, uint index)
-{
-  auto list = unwrap(tuple_c)->relocate_out<SharedFloat3List>(index);
+  auto list = unwrap(tuple_c)->relocate_out<SharedGenericList>(index);
   return wrap(list.extract_ptr());
 }

@@ -35,19 +35,20 @@ SIMPLE_TYPE_GETTER(float3);
 SIMPLE_TYPE_GETTER(float_list);
 SIMPLE_TYPE_GETTER(float3_list);
 
-#define LIST_WRAPPER(name, ptr_type, list_type) \
-  uint FN_list_size_##name(list_type list) \
-  { \
-    return unwrap(list)->size(); \
-  } \
-  ptr_type FN_list_data_##name(list_type list) \
-  { \
-    return (ptr_type)unwrap(list)->data_ptr(); \
-  } \
-  void FN_list_free_##name(list_type list) \
-  { \
-    unwrap(list)->remove_user(); \
-  }
+uint FN_generic_list_size(FnGenericList list_c)
+{
+  GenericList *list = unwrap(list_c);
+  return list->size();
+}
 
-LIST_WRAPPER(float, float *, FnFloatList);
-LIST_WRAPPER(float3, float *, FnFloat3List);
+void *FN_generic_list_storage(FnGenericList list_c)
+{
+  GenericList *list = unwrap(list_c);
+  return list->storage();
+}
+
+void FN_generic_list_free(FnGenericList list_c)
+{
+  GenericList *list = unwrap(list_c);
+  list->decref();
+}

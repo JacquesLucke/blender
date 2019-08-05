@@ -7,7 +7,7 @@
 namespace FN {
 namespace Types {
 
-class ListTypeInfo : CPPTypeInfoForType<GenericList> {
+class ListTypeInfo : public CPPTypeInfoForType<SharedGenericList> {
  private:
   SharedType m_base_type;
 
@@ -18,13 +18,13 @@ class ListTypeInfo : CPPTypeInfoForType<GenericList> {
 
   void construct_default(void *ptr) const override
   {
-    new (ptr) GenericList(m_base_type);
+    new (ptr) SharedGenericList(new GenericList(m_base_type));
   }
 
   void construct_default_n(void *ptr, uint n) const override
   {
     for (uint i = 0; i < n; i++) {
-      new ((GenericList *)ptr + i) GenericList(m_base_type);
+      new ((SharedGenericList *)ptr + i) SharedGenericList(new GenericList(m_base_type));
     }
   }
 };
@@ -32,7 +32,7 @@ class ListTypeInfo : CPPTypeInfoForType<GenericList> {
 SharedType new_list_type(SharedType &base_type)
 {
   SharedType type = SharedType::New(base_type->name() + " List");
-  type->add_extension<CPPTypeInfoForType<GenericList>>();
+  type->add_extension<ListTypeInfo>(base_type);
   type->add_extension<PointerLLVMTypeInfo>(
       /* Copy list by incrementing the reference counter. */
       [](void *list) -> void * {

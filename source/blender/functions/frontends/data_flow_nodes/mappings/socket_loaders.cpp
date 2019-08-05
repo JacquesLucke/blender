@@ -10,6 +10,7 @@ namespace DataFlowNodes {
 
 using BLI::float3;
 using BLI::rgba_f;
+using namespace FN::Types;
 
 static void LOAD_float(PointerRNA *rna, Tuple &tuple, uint index)
 {
@@ -49,25 +50,27 @@ static void LOAD_color(PointerRNA *rna, Tuple &tuple, uint index)
   tuple.set<rgba_f>(index, color);
 }
 
-template<typename T> static void LOAD_empty_list(PointerRNA *UNUSED(rna), Tuple &tuple, uint index)
+static SocketLoader GET_empty_list_loader(SharedType &type)
 {
-  auto list = Types::SharedList<T>::New();
-  tuple.move_in(index, list);
+  return [&type](PointerRNA *UNUSED(rna), Tuple &tuple, uint index) {
+    auto list = SharedGenericList::New(type);
+    tuple.move_in(index, list);
+  };
 }
 
 void REGISTER_socket_loaders(std::unique_ptr<SocketLoaders> &loaders)
 {
-  loaders->register_loader("Boolean List", LOAD_empty_list<bool>);
+  loaders->register_loader("Boolean List", GET_empty_list_loader(GET_TYPE_bool()));
   loaders->register_loader("Boolean", LOAD_boolean);
-  loaders->register_loader("Color List", LOAD_empty_list<rgba_f>);
+  loaders->register_loader("Color List", GET_empty_list_loader(GET_TYPE_rgba_f()));
   loaders->register_loader("Color", LOAD_color);
-  loaders->register_loader("Float List", LOAD_empty_list<float>);
+  loaders->register_loader("Float List", GET_empty_list_loader(GET_TYPE_float()));
   loaders->register_loader("Float", LOAD_float);
-  loaders->register_loader("Integer List", LOAD_empty_list<int32_t>);
+  loaders->register_loader("Integer List", GET_empty_list_loader(GET_TYPE_int32()));
   loaders->register_loader("Integer", LOAD_integer);
-  loaders->register_loader("Object List", LOAD_empty_list<Object *>);
+  loaders->register_loader("Object List", GET_empty_list_loader(GET_TYPE_object()));
   loaders->register_loader("Object", LOAD_object);
-  loaders->register_loader("Vector List", LOAD_empty_list<float3>);
+  loaders->register_loader("Vector List", GET_empty_list_loader(GET_TYPE_float3()));
   loaders->register_loader("Vector", LOAD_vector);
 }
 

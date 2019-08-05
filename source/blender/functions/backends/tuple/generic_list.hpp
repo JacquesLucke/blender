@@ -57,7 +57,9 @@ class GenericList : public RefCounter {
   SharedGenericList real_copy()
   {
     GenericList *list = new GenericList(m_type);
-    list->extend__dynamic_copy(*this);
+    SharedGenericList this_list(this);
+    list->extend__dynamic_copy(this_list);
+    this_list.extract_ptr();
     return SharedGenericList(list);
   }
 
@@ -89,11 +91,29 @@ class GenericList : public RefCounter {
     void *src = other_.m_storage;
     void *dst = POINTER_OFFSET(m_storage, m_size * m_type_info->size());
     m_type_info->copy_to_uninitialized_n(src, dst, other_.size());
+    m_size += other_.size();
   }
 
   void *storage() const
   {
     return m_storage;
+  }
+
+  template<typename T> T *storage() const
+  {
+    BLI_assert(this->can_be_type<T>());
+    return static_cast<T *>(m_storage);
+  }
+
+  template<typename T> ArrayRef<T> as_array_ref() const
+  {
+    BLI_assert(this->can_be_type<T>());
+    return ArrayRef<T>(this->storage<T>(), m_size);
+  }
+
+  template<typename T> bool can_be_type() const
+  {
+    return sizeof(T) == m_type_info->size();
   }
 
   uint size() const
@@ -104,6 +124,12 @@ class GenericList : public RefCounter {
   SharedType &type()
   {
     return m_type;
+  }
+
+  void reserve_and_set_size(uint size)
+  {
+    this->reserve(size);
+    m_size = size;
   }
 
   void reserve(uint size)

@@ -7,8 +7,7 @@
 extern "C" {
 #endif
 
-typedef struct OpaqueFnFloatList *FnFloatList;
-typedef struct OpaqueFnFloat3List *FnFloat3List;
+typedef struct OpaqueFnGenericList *FnGenericList;
 
 const char *FN_type_name(FnType type);
 void FN_type_free(FnType type);
@@ -24,14 +23,9 @@ TYPE_GET_AND_BORROW(float_list);
 TYPE_GET_AND_BORROW(float3_list);
 #undef TYPE_GET_AND_BORROW
 
-#define LIST_TYPE(name, ptr_type, list_type) \
-  uint FN_list_size_##name(list_type list); \
-  ptr_type FN_list_data_##name(list_type list); \
-  void FN_list_free_##name(list_type list);
-
-LIST_TYPE(float, float *, FnFloatList);
-LIST_TYPE(float3, float *, FnFloat3List);
-#undef LIST_TYPE
+uint FN_generic_list_size(FnGenericList list);
+void *FN_generic_list_storage(FnGenericList list);
+void FN_generic_list_free(FnGenericList list);
 
 #ifdef __cplusplus
 }
@@ -39,8 +33,7 @@ LIST_TYPE(float3, float *, FnFloat3List);
 #  include "lists.hpp"
 #  include "numeric.hpp"
 
-WRAPPERS(FN::Types::List<float> *, FnFloatList);
-WRAPPERS(FN::Types::List<BLI::float3> *, FnFloat3List);
+WRAPPERS(FN::GenericList *, FnGenericList);
 
 #endif /* __cplusplus */
 

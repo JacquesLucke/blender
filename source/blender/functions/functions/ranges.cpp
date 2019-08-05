@@ -21,10 +21,13 @@ class FloatRange : public TupleCallBody {
       amount = 0;
     }
 
-    auto list = SharedFloatList::New();
+    auto list = SharedGenericList::New(GET_TYPE_float());
+    list->reserve_and_set_size(amount);
+    auto list_ref = list->as_array_ref<float>();
+
     float value = start;
     for (uint i = 0; i < amount; i++) {
-      list->append(value);
+      list_ref[i] = value;
       value += step;
     }
 
