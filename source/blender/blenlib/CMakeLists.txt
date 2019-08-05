@@ -260,6 +260,7 @@ set(SRC
   BLI_string_ref.hpp
   BLI_timeit.hpp
   BLI_vector_adaptor.hpp
+  BLI_multi_vector.hpp
 )
 
 set(LIB
