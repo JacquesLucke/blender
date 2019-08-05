@@ -2862,7 +2862,6 @@ class VIEW3D_MT_sculpt(Menu):
         layout.prop(sculpt, "show_low_resolution")
         layout.prop(sculpt, "show_brush")
         layout.prop(sculpt, "use_deform_only")
-        layout.prop(sculpt, "show_diffuse_color")
         layout.prop(sculpt, "show_mask")
 
 
@@ -5760,8 +5759,6 @@ class VIEW3D_PT_overlay_sculpt(Panel):
         view = context.space_data
         overlay = view.overlay
 
-        layout.prop(sculpt, "show_diffuse_color")
-
         row = layout.row(align=True)
         row.prop(sculpt, "show_mask", text="")
         sub = row.row()
@@ -6292,7 +6289,7 @@ class VIEW3D_MT_gpencil_edit_context_menu(Menu):
 
         layout.operator("gpencil.stroke_join", text="Join").type = 'JOIN'
         layout.operator("gpencil.stroke_join", text="Join & Copy").type = 'JOINCOPY'
-        layout.menu("GPENCIL_MT_separate", text="Separate")
+        layout.operator_menu_enum("gpencil.stroke_separate", "mode")
         layout.operator("gpencil.stroke_split", text="Split")
         op = layout.operator("gpencil.stroke_cyclical_set", text="Close")
         op.type = 'CLOSE'

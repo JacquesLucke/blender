@@ -877,7 +877,7 @@ static float rna_Scene_frame_current_final_get(PointerRNA *ptr)
 {
   Scene *scene = (Scene *)ptr->data;
 
-  return BKE_scene_frame_get_from_ctime(scene, (float)scene->r.cfra);
+  return BKE_scene_frame_to_ctime(scene, (float)scene->r.cfra);
 }
 
 static void rna_Scene_start_frame_set(PointerRNA *ptr, int value)
@@ -6276,7 +6276,7 @@ static void rna_def_scene_objects(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_property_srna(cprop, "SceneObjects");
   srna = RNA_def_struct(brna, "SceneObjects", NULL);
   RNA_def_struct_sdna(srna, "Scene");
-  RNA_def_struct_ui_text(srna, "Scene Objects", "All the of scene objects");
+  RNA_def_struct_ui_text(srna, "Scene Objects", "All of the scene objects");
 }
 
 /* scene.timeline_markers */

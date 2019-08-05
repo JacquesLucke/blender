@@ -2189,7 +2189,7 @@ def km_text(params):
          {"properties": [("direction", 'DOWN')]}),
         ("text.indent", {"type": 'TAB', "value": 'PRESS'}, None),
         ("text.unindent", {"type": 'TAB', "value": 'PRESS', "shift": True}, None),
-        ("text.toggle_comment", {"type": 'SLASH', "value": 'PRESS', "ctrl": True}, None),
+        ("text.comment_toggle", {"type": 'SLASH', "value": 'PRESS', "ctrl": True}, None),
         ("text.move", {"type": 'HOME', "value": 'PRESS'},
          {"properties": [("type", 'LINE_BEGIN')]}),
         ("text.move", {"type": 'END', "value": 'PRESS'},
@@ -3016,7 +3016,7 @@ def km_grease_pencil_stroke_edit_mode(params):
         # Context menu
         op_menu("VIEW3D_MT_gpencil_edit_context_menu", params.context_menu_event),
         # Separate
-        op_menu("GPENCIL_MT_separate", {"type": 'P', "value": 'PRESS'}),
+        ("gpencil.stroke_separate", {"type": 'P', "value": 'PRESS'}, None),
         # Split and joint strokes
         ("gpencil.stroke_split", {"type": 'V', "value": 'PRESS'}, None),
         ("gpencil.stroke_join", {"type": 'J', "value": 'PRESS', "ctrl": True}, None),
