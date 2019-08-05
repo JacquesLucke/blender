@@ -429,7 +429,7 @@ class ExecuteFGraph : public TupleCallBody {
     for (uint input_id : m_graph->input_ids_of_node(node_id)) {
       if (storage.is_input_initialized(input_id)) {
         CPPTypeInfo *type_info = m_input_info[input_id].type;
-        type_info->destruct_type(storage.input_value_ptr(input_id));
+        type_info->destruct(storage.input_value_ptr(input_id));
         storage.set_input_initialized(input_id, false);
       }
     }
@@ -482,7 +482,7 @@ class ExecuteFGraph : public TupleCallBody {
   void destruct_output(uint output_id, CPPTypeInfo *type_info, SocketValueStorage &storage) const
   {
     void *value_ptr = storage.output_value_ptr(output_id);
-    type_info->destruct_type(value_ptr);
+    type_info->destruct(value_ptr);
     storage.set_output_initialized(output_id, false);
   }
 
@@ -538,14 +538,14 @@ class ExecuteFGraph : public TupleCallBody {
       if (storage.is_input_initialized(input_id)) {
         SocketInfo &socket_info = m_input_info[input_id];
         void *value_ptr = storage.input_value_ptr(input_id);
-        socket_info.type->destruct_type(value_ptr);
+        socket_info.type->destruct(value_ptr);
       }
     }
     for (uint output_id = 0; output_id < m_outputs_init_buffer_size; output_id++) {
       if (storage.is_output_initialized(output_id)) {
         SocketInfo &socket_info = m_output_info[output_id];
         void *value_ptr = storage.output_value_ptr(output_id);
-        socket_info.type->destruct_type(value_ptr);
+        socket_info.type->destruct(value_ptr);
       }
     }
   }

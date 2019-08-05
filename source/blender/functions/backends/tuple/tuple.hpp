@@ -51,7 +51,7 @@ class TupleMeta : public RefCountedBase {
   /**
    * Get an array containing the types of tuples using the meta object.
    */
-  const ArrayRef<SharedType> types() const
+  ArrayRef<SharedType> types() const
   {
     return m_types;
   }
@@ -59,15 +59,20 @@ class TupleMeta : public RefCountedBase {
   /**
    * Get an array containing the CPPTypeInfo instances of all types.
    */
-  const ArrayRef<CPPTypeInfo *> type_infos() const
+  ArrayRef<CPPTypeInfo *> type_infos() const
   {
     return m_type_info;
+  }
+
+  CPPTypeInfo &type_info(uint index) const
+  {
+    return *m_type_info[index];
   }
 
   /**
    * Get an array containing the byte offsets of every element in the array.
    */
-  const ArrayRef<uint> offsets() const
+  ArrayRef<uint> offsets() const
   {
     return m_offsets;
   }
@@ -228,13 +233,13 @@ class Tuple {
     BLI_assert(src != nullptr);
 
     void *dst = this->element_ptr(index);
-    auto *type_info = m_meta->type_infos()[index];
+    auto &type_info = m_meta->type_info(index);
 
     if (m_initialized[index]) {
-      type_info->copy_to_initialized(src, dst);
+      type_info.copy_to_initialized(src, dst);
     }
     else {
-      type_info->copy_to_uninitialized(src, dst);
+      type_info.copy_to_uninitialized(src, dst);
       m_initialized[index] = true;
     }
   }
@@ -269,13 +274,13 @@ class Tuple {
     BLI_assert(src != nullptr);
 
     void *dst = this->element_ptr(index);
-    auto *type_info = m_meta->type_infos()[index];
+    auto &type_info = m_meta->type_info(index);
 
     if (m_initialized[index]) {
-      type_info->relocate_to_initialized(src, dst);
+      type_info.relocate_to_initialized(src, dst);
     }
     else {
-      type_info->relocate_to_uninitialized(src, dst);
+      type_info.relocate_to_uninitialized(src, dst);
       m_initialized[index] = true;
     }
   }
@@ -335,9 +340,9 @@ class Tuple {
     BLI_assert(dst != nullptr);
 
     void *src = this->element_ptr(index);
-    auto *type_info = m_meta->type_infos()[index];
+    auto &type_info = m_meta->type_info(index);
 
-    type_info->relocate_to_uninitialized(src, dst);
+    type_info.relocate_to_uninitialized(src, dst);
 
     m_initialized[index] = false;
   }
@@ -385,13 +390,13 @@ class Tuple {
 
     void *src = from.element_ptr(from_index);
     void *dst = to.element_ptr(to_index);
-    CPPTypeInfo *type_info = from.m_meta->type_infos()[from_index];
+    CPPTypeInfo &type_info = from.m_meta->type_info(from_index);
 
     if (to.m_initialized[to_index]) {
-      type_info->copy_to_initialized(src, dst);
+      type_info.copy_to_initialized(src, dst);
     }
     else {
-      type_info->copy_to_uninitialized(src, dst);
+      type_info.copy_to_uninitialized(src, dst);
       to.m_initialized[to_index] = true;
     }
   }
@@ -408,13 +413,13 @@ class Tuple {
 
     void *src = from.element_ptr(from_index);
     void *dst = to.element_ptr(to_index);
-    CPPTypeInfo *type_info = from.m_meta->type_infos()[from_index];
+    CPPTypeInfo &type_info = from.m_meta->type_info(from_index);
 
     if (to.m_initialized[to_index]) {
-      type_info->relocate_to_initialized(src, dst);
+      type_info.relocate_to_initialized(src, dst);
     }
     else {
-      type_info->relocate_to_uninitialized(src, dst);
+      type_info.relocate_to_uninitialized(src, dst);
       to.m_initialized[to_index] = true;
     }
 
@@ -426,14 +431,14 @@ class Tuple {
    */
   inline void init_default(uint index) const
   {
-    CPPTypeInfo *type_info = m_meta->type_infos()[index];
+    CPPTypeInfo &type_info = m_meta->type_info(index);
     void *ptr = this->element_ptr(index);
 
     if (m_initialized[index]) {
-      type_info->destruct_type(ptr);
+      type_info.destruct(ptr);
     }
 
-    type_info->construct_default(ptr);
+    type_info.construct_default(ptr);
     m_initialized[index] = true;
   }
 
@@ -511,6 +516,11 @@ class Tuple {
     }
   }
 
+  void set_uninitialized(uint index)
+  {
+    m_initialized[index] = false;
+  }
+
   /**
    * Destroy all initialized values in the tuple.
    */
@@ -522,7 +532,7 @@ class Tuple {
     else {
       for (uint i = 0; i < m_meta->element_amount(); i++) {
         if (m_initialized[i]) {
-          m_meta->type_infos()[i]->destruct_type(this->element_ptr(i));
+          m_meta->type_info(i).destruct(this->element_ptr(i));
           m_initialized[i] = false;
         }
       }
