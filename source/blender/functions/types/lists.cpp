@@ -33,6 +33,23 @@ SharedType new_list_type(SharedType &base_type)
 {
   SharedType type = SharedType::New(base_type->name() + " List");
   type->add_extension<CPPTypeInfoForType<GenericList>>();
+  type->add_extension<PointerLLVMTypeInfo>(
+      /* Copy list by incrementing the reference counter. */
+      [](void *list) -> void * {
+        GenericList *list_ = static_cast<GenericList *>(list);
+        list_->incref();
+        return static_cast<void *>(list);
+      },
+      /* Free list by decrementing the reference counter. */
+      [](void *list) {
+        GenericList *list_ = static_cast<GenericList *>(list);
+        list_->decref();
+      },
+      /* Create a new empty list. */
+      [base_type]() -> void * {
+        GenericList *list = new GenericList(base_type);
+        return static_cast<void *>(list);
+      });
   return type;
 }
 
