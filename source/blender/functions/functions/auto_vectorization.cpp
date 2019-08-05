@@ -53,6 +53,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
         m_input_is_list(input_is_list),
         m_empty_list_value_builders(empty_list_value_builders)
   {
+    BLI_assert(main->has_body<LLVMBuildIRBody>());
     BLI_assert(input_is_list.contains(true));
     for (uint i = 0; i < main->input_amount(); i++) {
       SharedType &base_type = main->input_type(i);
@@ -415,15 +416,7 @@ static SharedFunction to_vectorized_function_internal(
   BLI_assert(vectorized_inputs_mask.size() == input_amount);
   BLI_assert(vectorized_inputs_mask.contains(true));
   BLI_assert(empty_list_value_builders.size() == vectorized_inputs_mask.count(true));
-
-  if (!original_fn->has_body<TupleCallBody>()) {
-    if (original_fn->has_body<LLVMBuildIRBody>()) {
-      derive_TupleCallBody_from_LLVMBuildIRBody(original_fn);
-    }
-    else {
-      BLI_assert(false);
-    }
-  }
+  BLI_assert(original_fn->has_body<TupleCallBody>() || original_fn->has_body<LLVMBuildIRBody>());
 
   FunctionBuilder builder;
   for (uint i = 0; i < input_amount; i++) {
@@ -447,9 +440,13 @@ static SharedFunction to_vectorized_function_internal(
 
   std::string name = original_fn->name() + " (Vectorized)";
   auto fn = builder.build(name);
-  // fn->add_body<AutoVectorization>(original_fn, vectorized_inputs_mask);
-  fn->add_body<AutoVectorizationGen>(
-      original_fn, vectorized_inputs_mask, empty_list_value_builders);
+  if (original_fn->has_body<LLVMBuildIRBody>()) {
+    fn->add_body<AutoVectorizationGen>(
+        original_fn, vectorized_inputs_mask, empty_list_value_builders);
+  }
+  else {
+    fn->add_body<AutoVectorization>(original_fn, vectorized_inputs_mask);
+  }
   return fn;
 }
 
