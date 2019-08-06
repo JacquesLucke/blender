@@ -156,22 +156,7 @@ ObjectListSocket = create_simple_data_socket(
 ColorListSocket = create_simple_data_socket(
     "fn_ColorListSocket", "Color List", (0.8, 0.8, 0.2, 0.5))
 
-class EmitterSocket(bpy.types.NodeSocket, BaseSocket):
-    bl_idname = "bp_EmitterSocket"
-    bl_label = "Emitter Socket"
-    color = (1, 1, 1, 1)
-
-class EventSocket(bpy.types.NodeSocket, BaseSocket):
-    bl_idname = "bp_EventSocket"
-    bl_label = "Event Socket"
-    color = (0.2, 0.8, 0.2, 1)
-
 class ControlFlowSocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "bp_ControlFlowSocket"
     bl_label = "Control Flow Socket"
     color = (0.8, 0.2, 0.2, 1)
-
-class ParticleEffectorSocket(bpy.types.NodeSocket, BaseSocket):
-    bl_idname = "bp_ParticleEffectorSocket"
-    bl_label = "Particle Modifier Socket"
-    color = (0.8, 0.8, 0.2, 1)

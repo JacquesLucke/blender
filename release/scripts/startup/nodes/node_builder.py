@@ -6,10 +6,7 @@ from . declaration import (
     TreeInterfaceDecl,
     VectorizedInputDecl,
     VectorizedOutputDecl,
-    EmitterSocketDecl,
-    EventSocketDecl,
     ControlFlowSocketDecl,
-    ParticleEffectorSocketDecl,
 
     NoDefaultValue,
 )
