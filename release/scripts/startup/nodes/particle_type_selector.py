@@ -1,6 +1,5 @@
 import bpy
 from bpy.props import *
-from . base import BaseNode
 from . utils.enum_items_cache import cache_enum_items
 
 class ParticleTypeSearch(bpy.types.Operator):
