@@ -234,6 +234,9 @@ class BParticlesNode(BaseNode):
         callback(new_node)
         bpy.ops.node.translate_attach('INVOKE_DEFAULT')
 
+    def get_used_particle_type_names(self):
+        return []
+
 class DataSocket(BaseSocket):
     def draw_self(self, layout, node, text):
         if not (self.is_linked or self.is_output) and hasattr(self, "draw_property"):

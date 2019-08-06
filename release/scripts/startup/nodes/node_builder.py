@@ -14,6 +14,8 @@ from . declaration import (
     NoDefaultValue,
 )
 
+from bpy.props import *
+
 class NodeBuilder:
     def __init__(self, node):
         self.node = node
@@ -193,21 +195,23 @@ class NodeBuilder:
     # BParticles
     ###################################
 
-    def emitter_input(self, identifier, name):
-        decl = EmitterSocketDecl(self.node, identifier, name)
-        self._add_input(decl)
+    @staticmethod
+    def get_particle_type_items(self, context):
+        items = []
+        for node in self.id_data.nodes:
+            if node.bl_idname == "bp_ParticleTypeNode":
+                items.append((node.name, node.name, ""))
+        items.append(("NONE", "None", ""))
+        return items
 
-    def emitter_output(self, identifier, name):
-        decl = EmitterSocketDecl(self.node, identifier, name)
-        self._add_output(decl)
+    @classmethod
+    def ParticleTypeProperty(cls):
+        from . utils.enum_items_cache import cache_enum_items
+        return EnumProperty(items=cache_enum_items(cls.get_particle_type_items))
 
-    def event_input(self, identifier, name):
-        decl = EventSocketDecl(self.node, identifier, name)
-        self._add_input(decl)
-
-    def event_output(self, identifier, name):
-        decl = EventSocketDecl(self.node, identifier, name)
-        self._add_output(decl)
+    @staticmethod
+    def draw_particle_type_prop(layout, node, identifier, *, text=""):
+        layout.prop(node, identifier, text=text, icon='MOD_PARTICLES')
 
     def control_flow_input(self, identifier, name):
         decl = ControlFlowSocketDecl(self.node, identifier, name)
@@ -215,14 +219,6 @@ class NodeBuilder:
 
     def control_flow_output(self, identifier, name):
         decl = ControlFlowSocketDecl(self.node, identifier, name)
-        self._add_output(decl)
-
-    def particle_effector_input(self, identifier, name):
-        decl = ParticleEffectorSocketDecl(self.node, identifier, name)
-        self._add_input(decl)
-
-    def particle_effector_output(self, identifier, name):
-        decl = ParticleEffectorSocketDecl(self.node, identifier, name)
         self._add_output(decl)
 
 

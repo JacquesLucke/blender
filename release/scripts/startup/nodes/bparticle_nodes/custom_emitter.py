@@ -14,6 +14,8 @@ class CustomEmitterNode(bpy.types.Node, FunctionNode):
         update=FunctionNode.sync_tree,
     )
 
+    particle_type: NodeBuilder.ParticleTypeProperty()
+
     def declaration(self, builder: NodeBuilder):
         if self.function_tree:
             builder.tree_interface_input("inputs", self.function_tree, 'IN',
@@ -22,6 +24,8 @@ class CustomEmitterNode(bpy.types.Node, FunctionNode):
         builder.emitter_output("emitter", "Emitter")
 
     def draw(self, layout):
+        NodeBuilder.draw_particle_type_prop(layout, self, "particle_type")
+
         row = layout.row(align=True)
         row.prop(self, "function_tree", text="")
         if self.function_tree is None:
@@ -40,3 +44,6 @@ class CustomEmitterNode(bpy.types.Node, FunctionNode):
     def iter_dependency_trees(self):
         if self.function_tree is not None:
             yield self.function_tree
+
+    def get_used_particle_type_names(self):
+        return [self.particle_type]
