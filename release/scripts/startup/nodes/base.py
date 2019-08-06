@@ -251,16 +251,21 @@ class BParticlesNode(BaseNode):
 
     def draw_particle_type_selector(self, layout, prop_name, *, text=""):
         identifier = getattr(self, prop_name)
-        type_node = None
+        type_name = "<Select Type>"
         for node in self.id_data.nodes:
             if node.node_identifier == identifier:
-                type_node = node
+                type_name = node.name
                 break
 
-        if type_node is None:
-            layout.label(text="<None>", icon='MOD_PARTICLES')
+        if text == "":
+            button_text = type_name
         else:
-            layout.label(text=type_node.name, icon='MOD_PARTICLES')
+            button_text = text + ": " + type_name
+
+        props = layout.operator("bp.particle_type_search", text=button_text, icon='MOD_PARTICLES')
+        props.tree_name = self.tree.name
+        props.node_name = self.name
+        props.prop_name = prop_name
 
 class DataSocket(BaseSocket):
     def draw_self(self, layout, node, text):
