@@ -192,24 +192,6 @@ class NodeBuilder:
     # BParticles
     ###################################
 
-    @staticmethod
-    def get_particle_type_items(self, context):
-        items = []
-        for node in self.id_data.nodes:
-            if node.bl_idname == "bp_ParticleTypeNode":
-                items.append((node.name, node.name, ""))
-        items.append(("NONE", "None", ""))
-        return items
-
-    @classmethod
-    def ParticleTypeProperty(cls):
-        from . utils.enum_items_cache import cache_enum_items
-        return EnumProperty(items=cache_enum_items(cls.get_particle_type_items))
-
-    @staticmethod
-    def draw_particle_type_prop(layout, node, identifier, *, text=""):
-        layout.prop(node, identifier, text=text, icon='MOD_PARTICLES')
-
     def control_flow_input(self, identifier, name):
         decl = ControlFlowSocketDecl(self.node, identifier, name)
         self._add_input(decl)

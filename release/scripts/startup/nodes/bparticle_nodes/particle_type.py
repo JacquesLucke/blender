@@ -15,7 +15,7 @@ class ParticleTypeNode(bpy.types.Node, BParticlesNode):
         components = []
         for node in self.tree.nodes:
             if isinstance(node, BParticlesNode):
-                if self.name in node.get_used_particle_type_names():
+                if self.name in node.get_used_particle_types():
                     components.append(node)
 
         for node in components:

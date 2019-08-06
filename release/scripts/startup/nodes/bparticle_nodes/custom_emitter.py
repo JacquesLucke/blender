@@ -1,20 +1,20 @@
 import bpy
 from bpy.props import *
-from .. base import FunctionNode
+from .. base import BParticlesNode
 from .. node_builder import NodeBuilder
 from .. node_operators import new_function_tree
 
-class CustomEmitterNode(bpy.types.Node, FunctionNode):
+class CustomEmitterNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_CustomEmitterNode"
     bl_label = "Custom Emitter"
 
     function_tree: PointerProperty(
         name="Function Tree",
         type=bpy.types.NodeTree,
-        update=FunctionNode.sync_tree,
+        update=BParticlesNode.sync_tree,
     )
 
-    particle_type: NodeBuilder.ParticleTypeProperty()
+    particle_type: BParticlesNode.TypeProperty()
 
     def declaration(self, builder: NodeBuilder):
         if self.function_tree:
@@ -24,7 +24,7 @@ class CustomEmitterNode(bpy.types.Node, FunctionNode):
         builder.emitter_output("emitter", "Emitter")
 
     def draw(self, layout):
-        NodeBuilder.draw_particle_type_prop(layout, self, "particle_type")
+        self.draw_particle_type_selector(layout, "particle_type")
 
         row = layout.row(align=True)
         row.prop(self, "function_tree", text="")
@@ -45,5 +45,5 @@ class CustomEmitterNode(bpy.types.Node, FunctionNode):
         if self.function_tree is not None:
             yield self.function_tree
 
-    def get_used_particle_type_names(self):
+    def get_used_particle_types(self):
         return [self.particle_type]

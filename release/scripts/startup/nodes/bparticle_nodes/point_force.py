@@ -7,7 +7,7 @@ class PointForceNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_PointForceNode"
     bl_label = "Point Force"
 
-    particle_type: NodeBuilder.ParticleTypeProperty()
+    particle_type: BParticlesNode.TypeProperty()
 
     def declaration(self, builder : NodeBuilder):
         builder.fixed_input("direction", "Direction", "Vector", default=(0, 0, -1))
@@ -17,7 +17,7 @@ class PointForceNode(bpy.types.Node, BParticlesNode):
         builder.fixed_input("gravitation", "Gravitation", "Boolean", default=False)
 
     def draw(self, layout):
-        NodeBuilder.draw_particle_type_prop(layout, self, "particle_type")
+        self.draw_particle_type_selector(layout, "particle_type")
 
-    def get_used_particle_type_names(self):
+    def get_used_particle_types(self):
         return [self.particle_type]

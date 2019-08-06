@@ -39,12 +39,18 @@ class SocketValueStates:
             if storage_id in self.input_value_storage:
                 socket.restore_state(self.input_value_storage[storage_id])
 
+def get_random_identifier():
+    import random
+    return random.randint(1, 100000000)
 
 class BaseNode:
     search_terms = tuple()
     search_terms_only = False
 
+    node_identifier: IntProperty()
+
     def init(self, context):
+        self.node_identifier = get_random_identifier()
         from . sync import skip_syncing
         with skip_syncing():
             builder = self.get_node_builder()
@@ -179,6 +185,8 @@ class BaseNode:
         if self in _decl_map_per_node:
             del _decl_map_per_node[self]
 
+    def copy(self, other):
+        self.node_identifier = get_random_identifier()
 
 
 class BaseSocket:
@@ -234,8 +242,25 @@ class BParticlesNode(BaseNode):
         callback(new_node)
         bpy.ops.node.translate_attach('INVOKE_DEFAULT')
 
-    def get_used_particle_type_names(self):
+    def get_used_particle_types(self):
         return []
+
+    @classmethod
+    def TypeProperty(cls, name="Particle Type", description=""):
+        return IntProperty(name=name, description=description, default=0)
+
+    def draw_particle_type_selector(self, layout, prop_name, *, text=""):
+        identifier = getattr(self, prop_name)
+        type_node = None
+        for node in self.id_data.nodes:
+            if node.node_identifier == identifier:
+                type_node = node
+                break
+
+        if type_node is None:
+            layout.label(text="<None>", icon='MOD_PARTICLES')
+        else:
+            layout.label(text=type_node.name, icon='MOD_PARTICLES')
 
 class DataSocket(BaseSocket):
     def draw_self(self, layout, node, text):

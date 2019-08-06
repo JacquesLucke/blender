@@ -7,14 +7,14 @@ class AgeReachedEventNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_AgeReachedEventNode"
     bl_label = "Age Reached Event"
 
-    particle_type: NodeBuilder.ParticleTypeProperty()
+    particle_type: BParticlesNode.TypeProperty()
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("age", "Age", "Float", default=3)
         builder.control_flow_output("on_event", "On Event")
 
     def draw(self, layout):
-        NodeBuilder.draw_particle_type_prop(layout, self, "particle_type")
+        self.draw_particle_type_selector(layout, "particle_type")
 
-    def get_used_particle_type_names(self):
+    def get_used_particle_types(self):
         return [self.particle_type]

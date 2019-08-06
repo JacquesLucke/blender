@@ -7,15 +7,15 @@ class ParticleTrailsNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_ParticleTrailsNode"
     bl_label = "Particle Trails"
 
-    source_particle_type: NodeBuilder.ParticleTypeProperty()
-    trail_particle_type: NodeBuilder.ParticleTypeProperty()
+    source_particle_type: BParticlesNode.TypeProperty()
+    trail_particle_type: BParticlesNode.TypeProperty()
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("rate", "Rate", "Float", default=20)
 
     def draw(self, layout):
-        NodeBuilder.draw_particle_type_prop(layout, self, "source_particle_type", text="Source")
-        NodeBuilder.draw_particle_type_prop(layout, self, "trail_particle_type", text="Trail")
+        self.draw_particle_type_selector(layout, "source_particle_type", text="Source")
+        self.draw_particle_type_selector(layout, "trail_particle_type", text="Trail")
 
-    def get_used_particle_type_names(self):
+    def get_used_particle_types(self):
         return [self.source_particle_type, self.trail_particle_type]

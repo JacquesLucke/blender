@@ -7,7 +7,7 @@ class InitialGridEmitterNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_InitialGridEmitterNode"
     bl_label = "Initial Grid Emitter"
 
-    particle_type: NodeBuilder.ParticleTypeProperty()
+    particle_type: BParticlesNode.TypeProperty()
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("amount_x", "Amount X", "Integer", default=10)
@@ -17,7 +17,7 @@ class InitialGridEmitterNode(bpy.types.Node, BParticlesNode):
         builder.fixed_input("size", "Size", "Float", default=0.01)
 
     def draw(self, layout):
-        NodeBuilder.draw_particle_type_prop(layout, self, "particle_type")
+        self.draw_particle_type_selector(layout, "particle_type")
 
-    def get_used_particle_type_names(self):
+    def get_used_particle_types(self):
         return [self.particle_type]
