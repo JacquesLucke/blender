@@ -2,14 +2,11 @@
 #include "FN_tuple_call.hpp"
 
 #include <llvm/IR/Verifier.h>
+#include <llvm/IR/TypeBuilder.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 
 namespace FN {
-
-typedef std::function<void(
-    CodeBuilder &builder, CodeInterface &interface, const BuildIRSettings &settings)>
-    BuildIRFunction;
 
 static llvm::Value *lookup_tuple_address(CodeBuilder &builder,
                                          llvm::Value *data_addr,
@@ -22,27 +19,18 @@ static llvm::Value *lookup_tuple_address(CodeBuilder &builder,
   return value_byte_addr;
 }
 
+typedef void(TupleCallFunction)(uint8_t *data_in,
+                                uint32_t *offsets_in,
+                                uint8_t *data_out,
+                                uint32_t *offsets_out,
+                                uint8_t *execution_context);
+
 static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Module *module)
 {
   llvm::LLVMContext &context = module->getContext();
   LLVMBuildIRBody &body = fn->body<LLVMBuildIRBody>();
 
-  llvm::Type *void_ty = llvm::Type::getVoidTy(context);
-  llvm::Type *any_ptr_ty = llvm::Type::getInt8PtrTy(context);
-  llvm::Type *byte_ptr_ty = llvm::Type::getInt8PtrTy(context);
-  llvm::Type *int_ptr_ty = llvm::Type::getInt32PtrTy(context);
-
-  Vector<llvm::Type *> input_types = {
-      byte_ptr_ty,
-      int_ptr_ty,
-      byte_ptr_ty,
-      int_ptr_ty,
-      any_ptr_ty,
-  };
-
-  llvm::FunctionType *function_type = llvm::FunctionType::get(
-      void_ty, to_llvm(input_types), false);
-
+  llvm::FunctionType *function_type = llvm::TypeBuilder<TupleCallFunction, false>::get(context);
   llvm::Function *function = llvm::Function::Create(
       function_type, llvm::GlobalValue::LinkageTypes::ExternalLinkage, fn->name().data(), module);
 
