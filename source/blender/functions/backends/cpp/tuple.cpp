@@ -22,13 +22,13 @@ TupleMeta::TupleMeta(ArrayRef<SharedType> types) : m_types(types)
     }
   }
 
-  m_size__data_and_init = m_size__data + this->element_amount();
+  m_size__data_and_init = m_size__data + this->size();
 }
 
 void Tuple::print_initialized(std::string name)
 {
   std::cout << "Tuple: " << name << std::endl;
-  for (uint i = 0; i < m_meta->element_amount(); i++) {
+  for (uint i = 0; i < m_meta->size(); i++) {
     std::cout << "  Initialized " << i << ": " << m_initialized[i] << std::endl;
   }
 }

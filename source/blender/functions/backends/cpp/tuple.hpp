@@ -106,7 +106,7 @@ class TupleMeta : public RefCounter {
    */
   inline uint size_of_full_tuple() const;
 
-  uint element_amount() const
+  uint size() const
   {
     return m_types.size();
   }
@@ -135,7 +135,7 @@ class Tuple {
  public:
   Tuple(TupleMeta &meta) : m_meta(&meta)
   {
-    m_initialized = (bool *)MEM_calloc_arrayN(m_meta->element_amount(), sizeof(bool), __func__);
+    m_initialized = (bool *)MEM_calloc_arrayN(m_meta->size(), sizeof(bool), __func__);
     m_data = MEM_mallocN(m_meta->size_of_data(), __func__);
     m_owns_mem = true;
     m_owns_meta = false;
@@ -204,7 +204,7 @@ class Tuple {
    */
   template<typename T> inline void copy_in(uint index, const T &value)
   {
-    BLI_assert(index < m_meta->element_amount());
+    BLI_assert(index < m_meta->size());
     BLI_assert(sizeof(T) == m_meta->element_size(index));
 
     T *dst = (T *)this->element_ptr(index);
@@ -229,7 +229,7 @@ class Tuple {
    */
   inline void copy_in__dynamic(uint index, void *src)
   {
-    BLI_assert(index < m_meta->element_amount());
+    BLI_assert(index < m_meta->size());
     BLI_assert(src != nullptr);
 
     void *dst = this->element_ptr(index);
@@ -251,7 +251,7 @@ class Tuple {
    */
   template<typename T> inline void move_in(uint index, T &value)
   {
-    BLI_assert(index < m_meta->element_amount());
+    BLI_assert(index < m_meta->size());
     BLI_assert(sizeof(T) == m_meta->element_size(index));
 
     T *dst = (T *)this->element_ptr(index);
@@ -270,7 +270,7 @@ class Tuple {
    */
   inline void relocate_in__dynamic(uint index, void *src)
   {
-    BLI_assert(index < m_meta->element_amount());
+    BLI_assert(index < m_meta->size());
     BLI_assert(src != nullptr);
 
     void *dst = this->element_ptr(index);
@@ -302,7 +302,7 @@ class Tuple {
    */
   template<typename T> inline T copy_out(uint index) const
   {
-    BLI_assert(index < m_meta->element_amount());
+    BLI_assert(index < m_meta->size());
     BLI_assert(sizeof(T) == m_meta->element_size(index));
     BLI_assert(m_initialized[index]);
 
@@ -317,7 +317,7 @@ class Tuple {
    */
   template<typename T> inline T relocate_out(uint index) const
   {
-    BLI_assert(index < m_meta->element_amount());
+    BLI_assert(index < m_meta->size());
     BLI_assert(sizeof(T) == m_meta->element_size(index));
     BLI_assert(m_initialized[index]);
 
@@ -335,7 +335,7 @@ class Tuple {
    */
   inline void relocate_out__dynamic(uint index, void *dst) const
   {
-    BLI_assert(index < m_meta->element_amount());
+    BLI_assert(index < m_meta->size());
     BLI_assert(m_initialized[index]);
     BLI_assert(dst != nullptr);
 
@@ -365,7 +365,7 @@ class Tuple {
    */
   template<typename T> inline T &get_ref(uint index) const
   {
-    BLI_assert(index < m_meta->element_amount());
+    BLI_assert(index < m_meta->size());
     BLI_assert(m_initialized[index]);
     return this->element_ref<T>(index);
   }
@@ -375,7 +375,7 @@ class Tuple {
    */
   inline bool is_initialized(uint index) const
   {
-    BLI_assert(index < m_meta->element_amount());
+    BLI_assert(index < m_meta->size());
     return m_initialized[index];
   }
 
@@ -447,7 +447,7 @@ class Tuple {
    */
   inline void init_default_all() const
   {
-    for (uint i = 0; i < m_meta->element_amount(); i++) {
+    for (uint i = 0; i < m_meta->size(); i++) {
       this->init_default(i);
     }
   }
@@ -473,7 +473,7 @@ class Tuple {
    */
   bool all_initialized() const
   {
-    for (uint i = 0; i < m_meta->element_amount(); i++) {
+    for (uint i = 0; i < m_meta->size(); i++) {
       if (!m_initialized[i]) {
         return false;
       }
@@ -486,7 +486,7 @@ class Tuple {
    */
   bool all_uninitialized() const
   {
-    for (uint i = 0; i < m_meta->element_amount(); i++) {
+    for (uint i = 0; i < m_meta->size(); i++) {
       if (m_initialized[i]) {
         return false;
       }
@@ -500,7 +500,7 @@ class Tuple {
    */
   void set_all_initialized()
   {
-    for (uint i = 0; i < m_meta->element_amount(); i++) {
+    for (uint i = 0; i < m_meta->size(); i++) {
       m_initialized[i] = true;
     }
   }
@@ -511,7 +511,7 @@ class Tuple {
    */
   void set_all_uninitialized()
   {
-    for (uint i = 0; i < m_meta->element_amount(); i++) {
+    for (uint i = 0; i < m_meta->size(); i++) {
       m_initialized[i] = false;
     }
   }
@@ -530,7 +530,7 @@ class Tuple {
       this->set_all_uninitialized();
     }
     else {
-      for (uint i = 0; i < m_meta->element_amount(); i++) {
+      for (uint i = 0; i < m_meta->size(); i++) {
         if (m_initialized[i]) {
           m_meta->type_info(i).destruct(this->element_ptr(i));
           m_initialized[i] = false;
@@ -544,7 +544,7 @@ class Tuple {
    */
   uint size() const
   {
-    return m_meta->element_amount();
+    return m_meta->size();
   }
 
   TupleMeta &meta() const
