@@ -10,32 +10,47 @@ namespace Functions {
 
 using namespace Types;
 
-template<typename T> class CreateEmptyList : public TupleCallBody {
+class CreateEmptyList : public TupleCallBody {
+ private:
+  SharedType m_base_type;
+
+ public:
+  CreateEmptyList(SharedType base_type) : m_base_type(std::move(base_type))
+  {
+  }
+
   void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    auto list = SharedList<T>::New();
+    auto list = SharedList::New(m_base_type);
     fn_out.move_in(0, list);
   }
 };
 
-template<typename T>
-SharedFunction build_create_empty_list_function(SharedType &base_type, SharedType &list_type)
+static SharedFunction build_create_empty_list_function(SharedType &base_type,
+                                                       SharedType &list_type)
 {
   FunctionBuilder builder;
   builder.add_output("List", list_type);
 
   std::string name = "Create Empty " + base_type->name() + " List";
   auto fn = builder.build(name);
-  fn->add_body<CreateEmptyList<T>>();
+  fn->add_body<CreateEmptyList>(base_type);
   return fn;
 }
 
-template<typename T> class CreateSingleElementList : public TupleCallBody {
+class CreateSingleElementList : public TupleCallBody {
+ private:
+  SharedType m_base_type;
+
+ public:
+  CreateSingleElementList(SharedType base_type) : m_base_type(std::move(base_type))
+  {
+  }
+
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    auto list = SharedList<T>::New();
-    T value = fn_in.relocate_out<T>(0);
-    list->append(value);
+    auto list = SharedList::New(m_base_type);
+    list->append__dynamic_relocate_from_tuple(fn_in, 0);
     fn_out.move_in(0, list);
   }
 };
@@ -47,9 +62,8 @@ class CreateSingleElementListDependencies : public DepsBody {
   }
 };
 
-template<typename T>
-SharedFunction build_create_single_element_list_function(SharedType &base_type,
-                                                         SharedType &list_type)
+static SharedFunction build_create_single_element_list_function(SharedType &base_type,
+                                                                SharedType &list_type)
 {
   FunctionBuilder builder;
   builder.add_input("Value", base_type);
@@ -57,22 +71,27 @@ SharedFunction build_create_single_element_list_function(SharedType &base_type,
 
   std::string name = "Create " + base_type->name() + " List from Value";
   auto fn = builder.build(name);
-  fn->add_body<CreateSingleElementList<T>>();
+  fn->add_body<CreateSingleElementList>(base_type);
   if (base_type == GET_TYPE_object()) {
     fn->add_body<CreateSingleElementListDependencies>();
   }
   return fn;
 }
 
-template<typename T> class AppendToList : public TupleCallBody {
+class AppendToList : public TupleCallBody {
+ private:
+  SharedType m_base_type;
+
+ public:
+  AppendToList(SharedType base_type) : m_base_type(std::move(base_type))
+  {
+  }
+
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    auto list = fn_in.relocate_out<SharedList<T>>(0);
-    T value = fn_in.relocate_out<T>(1);
-
+    auto list = fn_in.relocate_out<SharedList>(0);
     list = list->get_mutable();
-    list->append(value);
-
+    list->append__dynamic_relocate_from_tuple(fn_in, 1);
     fn_out.move_in(0, list);
   }
 };
@@ -85,8 +104,7 @@ class AppendToListDependencies : public DepsBody {
   }
 };
 
-template<typename T>
-SharedFunction build_append_function(SharedType &base_type, SharedType &list_type)
+static SharedFunction build_append_function(SharedType &base_type, SharedType &list_type)
 {
   FunctionBuilder builder;
   builder.add_input("List", list_type);
@@ -95,27 +113,32 @@ SharedFunction build_append_function(SharedType &base_type, SharedType &list_typ
 
   std::string name = "Append " + base_type->name();
   auto fn = builder.build(name);
-  fn->add_body<AppendToList<T>>();
+  fn->add_body<AppendToList>(base_type);
   if (base_type == GET_TYPE_object()) {
     fn->add_body<AppendToListDependencies>();
   }
   return fn;
 }
 
-template<typename T> class GetListElement : public TupleCallBody {
+class GetListElement : public TupleCallBody {
+ private:
+  SharedType m_base_type;
+
+ public:
+  GetListElement(SharedType base_type) : m_base_type(std::move(base_type))
+  {
+  }
+
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    auto list = fn_in.get_ref<SharedList<T>>(0);
+    auto &list = fn_in.get_ref<SharedList>(0);
     int32_t index = fn_in.get<int32_t>(1);
 
     if (index >= 0 && index < list->size()) {
-      const List<T> *list_ = list.ptr();
-      T value = (*list_)[index];
-      fn_out.move_in(0, value);
+      list->get__dynamic_copy_to_tuple(index, fn_out, 0);
     }
     else {
-      T fallback = fn_in.relocate_out<T>(2);
-      fn_out.move_in(0, fallback);
+      Tuple::relocate_element(fn_in, 2, fn_out, 0);
     }
   }
 };
@@ -128,8 +151,7 @@ class GetListElementDependencies : public DepsBody {
   }
 };
 
-template<typename T>
-SharedFunction build_get_element_function(SharedType &base_type, SharedType &list_type)
+static SharedFunction build_get_element_function(SharedType &base_type, SharedType &list_type)
 {
   FunctionBuilder builder;
   builder.add_input("List", list_type);
@@ -139,21 +161,29 @@ SharedFunction build_get_element_function(SharedType &base_type, SharedType &lis
 
   std::string name = "Get " + base_type->name() + " List Element";
   auto fn = builder.build(name);
-  fn->add_body<GetListElement<T>>();
+  fn->add_body<GetListElement>(base_type);
   if (base_type == GET_TYPE_object()) {
     fn->add_body<GetListElementDependencies>();
   }
   return fn;
 }
 
-template<typename T> class CombineLists : public TupleCallBody {
+class CombineLists : public TupleCallBody {
+ private:
+  SharedType m_base_type;
+
+ public:
+  CombineLists(SharedType base_type) : m_base_type(std::move(base_type))
+  {
+  }
+
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    auto list1 = fn_in.relocate_out<SharedList<T>>(0);
-    auto list2 = fn_in.relocate_out<SharedList<T>>(1);
+    auto list1 = fn_in.relocate_out<SharedList>(0);
+    auto list2 = fn_in.relocate_out<SharedList>(1);
 
     list1 = list1->get_mutable();
-    list1->extend(list2.ptr());
+    list1->extend__dynamic_copy(list2);
 
     fn_out.move_in(0, list1);
   }
@@ -167,8 +197,7 @@ class CombineListsDependencies : public DepsBody {
   }
 };
 
-template<typename T>
-SharedFunction build_combine_lists_function(SharedType &base_type, SharedType &list_type)
+static SharedFunction build_combine_lists_function(SharedType &base_type, SharedType &list_type)
 {
   FunctionBuilder builder;
   builder.add_input("List 1", list_type);
@@ -177,24 +206,23 @@ SharedFunction build_combine_lists_function(SharedType &base_type, SharedType &l
 
   std::string name = "Combine " + base_type->name() + " Lists";
   auto fn = builder.build(name);
-  fn->add_body<CombineLists<T>>();
+  fn->add_body<CombineLists>(base_type);
   if (base_type == GET_TYPE_object()) {
     fn->add_body<CombineListsDependencies>();
   }
   return fn;
 }
 
-template<typename T> class ListLength : public TupleCallBody {
+class ListLength : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    auto list = fn_in.relocate_out<SharedList<T>>(0);
+    auto list = fn_in.relocate_out<SharedList>(0);
     uint length = list->size();
     fn_out.set<uint>(0, length);
   }
 };
 
-template<typename T>
-SharedFunction build_list_length_function(SharedType &base_type, SharedType &list_type)
+static SharedFunction build_list_length_function(SharedType &base_type, SharedType &list_type)
 {
   FunctionBuilder builder;
   builder.add_input("List", list_type);
@@ -202,29 +230,8 @@ SharedFunction build_list_length_function(SharedType &base_type, SharedType &lis
 
   std::string name = base_type->name() + " List Length";
   auto fn = builder.build(name);
-  fn->add_body<ListLength<T>>();
+  fn->add_body<ListLength>();
   return fn;
-}
-
-/* C Functions for List access
- **************************************/
-
-template<typename T> uint get_list_length(void *list)
-{
-  const List<T> *list_ = (Types::List<T> *)list;
-  return list_->size();
-}
-
-template<typename T> void *get_value_ptr(void *list)
-{
-  const List<T> *list_ = (Types::List<T> *)list;
-  return (void *)list_->data_ptr();
-}
-
-template<typename T> void *new_list_with_prepared_memory(uint length)
-{
-  auto *list = new Types::List<T>(length);
-  return (void *)list;
 }
 
 /* Build List Functions
@@ -239,40 +246,30 @@ struct ListFunctions {
   FunctionPerType m_get_element;
   FunctionPerType m_combine;
   FunctionPerType m_length;
-
-  Map<SharedType, GetListLength> m_c_length;
-  Map<SharedType, GetListDataPtr> m_c_data_ptr;
-  Map<SharedType, NewListWithAllocatedBuffer> m_c_new_allocated;
 };
 
-template<typename T>
-void insert_list_functions_for_type(ListFunctions &functions,
-                                    SharedType &base_type,
-                                    SharedType &list_type)
+static void insert_list_functions_for_type(ListFunctions &functions,
+                                           SharedType &base_type,
+                                           SharedType &list_type)
 {
-  functions.m_create_empty.add(base_type,
-                               build_create_empty_list_function<T>(base_type, list_type));
+  functions.m_create_empty.add(base_type, build_create_empty_list_function(base_type, list_type));
   functions.m_from_element.add(base_type,
-                               build_create_single_element_list_function<T>(base_type, list_type));
-  functions.m_append.add(base_type, build_append_function<T>(base_type, list_type));
-  functions.m_get_element.add(base_type, build_get_element_function<T>(base_type, list_type));
-  functions.m_combine.add(base_type, build_combine_lists_function<T>(base_type, list_type));
-  functions.m_length.add(base_type, build_list_length_function<T>(base_type, list_type));
-
-  functions.m_c_length.add(base_type, get_list_length<T>);
-  functions.m_c_data_ptr.add(base_type, get_value_ptr<T>);
-  functions.m_c_new_allocated.add(base_type, new_list_with_prepared_memory<T>);
+                               build_create_single_element_list_function(base_type, list_type));
+  functions.m_append.add(base_type, build_append_function(base_type, list_type));
+  functions.m_get_element.add(base_type, build_get_element_function(base_type, list_type));
+  functions.m_combine.add(base_type, build_combine_lists_function(base_type, list_type));
+  functions.m_length.add(base_type, build_list_length_function(base_type, list_type));
 }
 
 BLI_LAZY_INIT_STATIC(ListFunctions, get_list_functions)
 {
   ListFunctions functions;
-  insert_list_functions_for_type<float>(functions, GET_TYPE_float(), GET_TYPE_float_list());
-  insert_list_functions_for_type<float3>(functions, GET_TYPE_float3(), GET_TYPE_float3_list());
-  insert_list_functions_for_type<int32_t>(functions, GET_TYPE_int32(), GET_TYPE_int32_list());
-  insert_list_functions_for_type<bool>(functions, GET_TYPE_bool(), GET_TYPE_bool_list());
-  insert_list_functions_for_type<Object *>(functions, GET_TYPE_object(), GET_TYPE_object_list());
-  insert_list_functions_for_type<rgba_f>(functions, GET_TYPE_rgba_f(), GET_TYPE_rgba_f_list());
+  insert_list_functions_for_type(functions, GET_TYPE_float(), GET_TYPE_float_list());
+  insert_list_functions_for_type(functions, GET_TYPE_float3(), GET_TYPE_float3_list());
+  insert_list_functions_for_type(functions, GET_TYPE_int32(), GET_TYPE_int32_list());
+  insert_list_functions_for_type(functions, GET_TYPE_bool(), GET_TYPE_bool_list());
+  insert_list_functions_for_type(functions, GET_TYPE_object(), GET_TYPE_object_list());
+  insert_list_functions_for_type(functions, GET_TYPE_rgba_f(), GET_TYPE_rgba_f_list());
   return functions;
 }
 
@@ -325,19 +322,6 @@ SharedType &get_list_type(SharedType &base_type)
 {
   SharedFunction &fn = GET_FN_append_to_list(base_type);
   return fn->input_type(0);
-}
-
-GetListLength GET_C_FN_list_length(SharedType &base_type)
-{
-  return get_list_functions().m_c_length.lookup(base_type);
-}
-GetListDataPtr GET_C_FN_list_data_ptr(SharedType &base_type)
-{
-  return get_list_functions().m_c_data_ptr.lookup(base_type);
-}
-NewListWithAllocatedBuffer GET_C_FN_new_list_with_allocated_buffer(SharedType &base_type)
-{
-  return get_list_functions().m_c_new_allocated.lookup(base_type);
 }
 
 }  // namespace Functions

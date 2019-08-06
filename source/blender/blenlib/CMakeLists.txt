@@ -249,7 +249,7 @@ set(SRC
   BLI_optional.hpp
   BLI_range.hpp
   intern/BLI_range.cpp
-  BLI_shared.hpp
+  BLI_refcount.hpp
   BLI_vector.hpp
   BLI_map.hpp
   BLI_multi_map.hpp

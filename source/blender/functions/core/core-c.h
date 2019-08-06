@@ -20,6 +20,9 @@ bool FN_output_has_type(FnFunction fn, uint index, FnType type);
 
 void FN_function_print(FnFunction fn);
 
+const char *FN_type_name(FnType type);
+void FN_type_free(FnType type);
+
 #ifdef __cplusplus
 }
 

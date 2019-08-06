@@ -49,7 +49,7 @@ class FunctionBody {
   static const uint BODY_TYPE_AMOUNT = 5;
 };
 
-class Function final : public RefCountedBase {
+class Function final : public RefCounter {
  public:
   Function(Function &fn) = delete;
 

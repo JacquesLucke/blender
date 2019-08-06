@@ -1,11 +1,11 @@
 #include "testing/testing.h"
-#include "BLI_shared.hpp"
+#include "BLI_refcount.hpp"
 
 #include <iostream>
 
 #define DEFAULT_VALUE 42
 
-class MyTestClass : public BLI::RefCountedBase {
+class MyTestClass : public BLI::RefCounter {
  public:
   int m_value;
   bool *m_alive = nullptr;

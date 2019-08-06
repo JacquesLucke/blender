@@ -31,15 +31,11 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     CPPTypeInfo *base_cpp_type;
     LLVMTypeInfo *base_llvm_type;
     LLVMTypeInfo *list_llvm_type;
-    GetListLength get_length_fn;
-    GetListDataPtr get_data_ptr_fn;
   };
 
   struct OutputInfo {
     CPPTypeInfo *base_cpp_type;
     LLVMTypeInfo *base_llvm_type;
-    NewListWithAllocatedBuffer get_new_list_fn;
-    GetListDataPtr get_data_ptr_fn;
   };
 
   Vector<InputInfo> m_input_info;
@@ -63,16 +59,12 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
       info.base_cpp_type = &base_type->extension<CPPTypeInfo>();
       info.base_llvm_type = &base_type->extension<LLVMTypeInfo>();
       info.list_llvm_type = &list_type->extension<LLVMTypeInfo>();
-      info.get_length_fn = GET_C_FN_list_length(base_type);
-      info.get_data_ptr_fn = GET_C_FN_list_data_ptr(base_type);
       m_input_info.append(info);
     }
     for (auto &base_type : main->output_types()) {
       OutputInfo info;
       info.base_cpp_type = &base_type->extension<CPPTypeInfo>();
       info.base_llvm_type = &base_type->extension<LLVMTypeInfo>();
-      info.get_new_list_fn = GET_C_FN_new_list_with_allocated_buffer(base_type);
-      info.get_data_ptr_fn = GET_C_FN_list_data_ptr(base_type);
       m_output_info.append(info);
     }
   }
@@ -109,13 +101,30 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
   }
 
  private:
+  static uint32_t callback__get_list_length(List *list)
+  {
+    return list->size();
+  }
+
+  static void *callback__get_storage(List *list)
+  {
+    return list->storage();
+  }
+
+  static void *callback__new_list(SharedType *base_type, uint size)
+  {
+    List *list = new List(*base_type);
+    list->reserve_and_set_size(size);
+    return static_cast<void *>(list);
+  }
+
   Vector<llvm::Value *> get_input_list_lengths(CodeBuilder &builder,
                                                CodeInterface &interface) const
   {
     Vector<llvm::Value *> list_lengths;
     for (uint i = 0; i < m_input_info.size(); i++) {
       if (m_input_info[i].is_list) {
-        auto *length = builder.CreateCallPointer((void *)m_input_info[i].get_length_fn,
+        auto *length = builder.CreateCallPointer((void *)callback__get_list_length,
                                                  {interface.get_input(i)},
                                                  builder.getInt32Ty(),
                                                  "Get list length");
@@ -132,7 +141,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     for (uint i = 0; i < m_input_info.size(); i++) {
       if (m_input_info[i].is_list) {
         uint stride = m_input_info[i].base_cpp_type->size();
-        llvm::Value *data_ptr = builder.CreateCallPointer((void *)m_input_info[i].get_data_ptr_fn,
+        llvm::Value *data_ptr = builder.CreateCallPointer((void *)callback__get_storage,
                                                           {interface.get_input(i)},
                                                           builder.getAnyPtrTy(),
                                                           "Get list data pointer");
@@ -150,13 +159,14 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     Vector<llvm::Value *> data_pointers;
     for (uint i = 0; i < m_output_info.size(); i++) {
       uint stride = m_output_info[i].base_cpp_type->size();
+      SharedType *output_type_ptr = &m_main->output_type(i);
 
       llvm::Value *output_list = builder.CreateCallPointer(
-          (void *)m_output_info[i].get_new_list_fn,
-          {length},
+          (void *)callback__new_list,
+          {builder.getAnyPtr(output_type_ptr), length},
           builder.getAnyPtrTy(),
           "Create new list with length");
-      llvm::Value *data_ptr = builder.CreateCallPointer((void *)m_output_info[i].get_data_ptr_fn,
+      llvm::Value *data_ptr = builder.CreateCallPointer((void *)callback__get_storage,
                                                         {output_list},
                                                         builder.getAnyPtrTy(),
                                                         "Get list data pointer");

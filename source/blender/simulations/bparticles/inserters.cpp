@@ -241,11 +241,11 @@ static std::unique_ptr<Event> BUILD_EVENT_close_by_points(
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body.call__setup_execution_context(fn_in, fn_out);
 
-  auto vectors = fn_out.relocate_out<FN::Types::SharedFloat3List>(0);
+  auto vectors = fn_out.relocate_out<FN::SharedList>(0);
   float distance = body.get_output<float>(fn_out, 1, "Distance");
 
   KDTree_3d *kdtree = BLI_kdtree_3d_new(vectors->size());
-  for (float3 vector : *vectors.ptr()) {
+  for (float3 vector : vectors->as_array_ref<float3>()) {
     BLI_kdtree_3d_insert(kdtree, 0, vector);
   }
   BLI_kdtree_3d_balance(kdtree);

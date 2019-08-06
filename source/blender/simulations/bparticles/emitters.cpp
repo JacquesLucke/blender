@@ -14,10 +14,7 @@
 
 namespace BParticles {
 
-using FN::Types::SharedFloat3List;
-using FN::Types::SharedFloatList;
-using FN::Types::SharedFloatRGBAList;
-using FN::Types::SharedInt32List;
+using FN::SharedList;
 
 static float random_float()
 {
@@ -152,15 +149,10 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
   uint new_particle_amount = 0;
   for (uint i = 0; i < m_function->output_amount(); i++) {
     auto &type = m_function->output_type(i);
-    uint length = 0;
-    if (type == float_list_type) {
-      length = fn_out.get_ref<SharedFloatList>(i)->size();
+    if (ELEM(type, float_list_type, float3_list_type, int32_list_type, rgba_f_list_type)) {
+      uint length = fn_out.get_ref<SharedList>(i)->size();
+      new_particle_amount = std::max(new_particle_amount, length);
     }
-    else if (type == float3_list_type) {
-      auto &list = fn_out.get_ref<SharedFloat3List>(i);
-      length = list->size();
-    }
-    new_particle_amount = std::max(new_particle_amount, length);
   }
 
   auto new_particles = interface.particle_allocator().request(m_particle_type_name,
@@ -177,20 +169,20 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
     }
 
     if (type == float_list_type) {
-      auto list = fn_out.relocate_out<SharedFloatList>(i);
-      new_particles.set_repeated<float>(attribute_index, *list.ptr());
+      auto list = fn_out.relocate_out<SharedList>(i);
+      new_particles.set_repeated<float>(attribute_index, list->as_array_ref<float>());
     }
     else if (type == float3_list_type) {
-      auto list = fn_out.relocate_out<SharedFloat3List>(i);
-      new_particles.set_repeated<float3>(attribute_index, *list.ptr());
+      auto list = fn_out.relocate_out<SharedList>(i);
+      new_particles.set_repeated<float3>(attribute_index, list->as_array_ref<float3>());
     }
     else if (type == int32_list_type) {
-      auto list = fn_out.relocate_out<SharedInt32List>(i);
-      new_particles.set_repeated<int32_t>(attribute_index, *list.ptr());
+      auto list = fn_out.relocate_out<SharedList>(i);
+      new_particles.set_repeated<int32_t>(attribute_index, list->as_array_ref<int32_t>());
     }
     else if (type == rgba_f_list_type) {
-      auto list = fn_out.relocate_out<SharedFloatRGBAList>(i);
-      new_particles.set_repeated<rgba_f>(attribute_index, *list.ptr());
+      auto list = fn_out.relocate_out<SharedList>(i);
+      new_particles.set_repeated<rgba_f>(attribute_index, list->as_array_ref<rgba_f>());
     }
     else if (type == float_type) {
       new_particles.fill<float>(attribute_index, fn_out.get<float>(i));

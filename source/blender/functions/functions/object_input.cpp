@@ -51,15 +51,17 @@ class ObjectMeshVertices : public TupleCallBody {
   {
     Object *object = fn_in.get<Object *>(0);
     if (object == nullptr || object->type != OB_MESH) {
-      auto empty_list = SharedFloat3List::New();
+      auto empty_list = SharedList::New(GET_TYPE_float());
       fn_out.move_in(0, empty_list);
       return;
     }
 
     Mesh *mesh = (Mesh *)object->data;
 
-    auto vertices = SharedFloat3List::New(mesh->totvert);
-    ArrayRef<float3> vertices_ref = vertices->as_array_ref();
+    auto vertices = SharedList::New(GET_TYPE_float3());
+    vertices->reserve_and_set_size(mesh->totvert);
+
+    ArrayRef<float3> vertices_ref = vertices->as_array_ref<float3>();
 
     float4x4 transform = object->obmat;
 

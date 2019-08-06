@@ -61,3 +61,13 @@ void FN_function_print(FnFunction fn_c)
   Function *fn = unwrap(fn_c);
   fn->print();
 }
+
+const char *FN_type_name(FnType type)
+{
+  return unwrap(type)->name().data();
+}
+
+void FN_type_free(FnType type)
+{
+  unwrap(type)->decref();
+}

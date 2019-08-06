@@ -58,6 +58,8 @@ set(SRC
   backends/tuple/cpp_type_info.cpp
   backends/tuple/tuple.hpp
   backends/tuple/tuple.cpp
+  backends/tuple/list.hpp
+  backends/tuple/list.cpp
   backends/tuple/tuple-c.h
   backends/tuple/tuple-c.cpp
 
@@ -99,8 +101,7 @@ set(SRC
   backends/llvm/context_pool.cpp
 
   types/lists.hpp
-  types/numeric_lists.hpp
-  types/numeric_lists.cpp
+  types/lists.cpp
   types/numeric.hpp
   types/numeric.cpp
   types/boolean.hpp
