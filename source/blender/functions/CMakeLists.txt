@@ -54,14 +54,14 @@ set(SRC
   core/core-c.h
   core/core-c.cpp
 
-  backends/tuple/cpp_type_info.hpp
-  backends/tuple/cpp_type_info.cpp
-  backends/tuple/tuple.hpp
-  backends/tuple/tuple.cpp
-  backends/tuple/list.hpp
-  backends/tuple/list.cpp
-  backends/tuple/tuple-c.h
-  backends/tuple/tuple-c.cpp
+  backends/cpp/cpp_type_info.hpp
+  backends/cpp/cpp_type_info.cpp
+  backends/cpp/tuple.hpp
+  backends/cpp/tuple.cpp
+  backends/cpp/list.hpp
+  backends/cpp/list.cpp
+  backends/cpp/cpp-c.h
+  backends/cpp/cpp-c.cpp
 
   backends/tuple_call/tuple_call.hpp
   backends/tuple_call/tuple_call.cpp
