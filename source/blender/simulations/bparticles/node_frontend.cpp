@@ -11,27 +11,6 @@ namespace BParticles {
 using BLI::MultiMap;
 using BLI::ValueOrError;
 
-static bool is_particle_type_node(VirtualNode *vnode)
-{
-  return STREQ(vnode->bnode()->idname, "bp_ParticleTypeNode");
-}
-
-static bool is_emitter_socket(VirtualSocket *vsocket)
-{
-  return STREQ(vsocket->bsocket()->idname, "bp_EmitterSocket");
-}
-
-static VirtualSocket *find_emitter_output(VirtualNode *vnode)
-{
-  for (VirtualSocket *vsocket : vnode->outputs()) {
-    if (is_emitter_socket(vsocket)) {
-      return vsocket;
-    }
-  }
-  BLI_assert(false);
-  return nullptr;
-}
-
 static ArrayRef<VirtualNode *> get_type_nodes(VirtualNodeTree &vtree)
 {
   return vtree.nodes_with_idname("bp_ParticleTypeNode");
@@ -65,82 +44,17 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
 
   BuildContext ctx = {data_graph, particle_type_names, world_state};
 
-  MultiMap<std::string, Force *> forces;
-  for (auto item : get_force_builders().items()) {
+  Components components;
+  for (auto item : get_component_loaders().items()) {
     for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
-      for (VirtualSocket *linked : vnode->output(0)->links()) {
-        if (is_particle_type_node(linked->vnode())) {
-          auto fn_or_error = create_particle_function(vnode, data_graph);
-          if (fn_or_error.is_error()) {
-            continue;
-          }
-
-          auto force = item.value(ctx, vnode, fn_or_error.extract_value());
-          if (force) {
-            forces.add(linked->vnode()->name(), force.release());
-          }
-        }
-      }
-    }
-  }
-
-  MultiMap<std::string, OffsetHandler *> offset_handlers;
-  for (auto item : get_offset_handler_builders().items()) {
-    for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
-      for (VirtualSocket *linked : vnode->output(0)->links()) {
-        if (is_particle_type_node(linked->vnode())) {
-          auto fn_or_error = create_particle_function(vnode, data_graph);
-          if (fn_or_error.is_error()) {
-            continue;
-          }
-
-          auto listener = item.value(ctx, vnode, fn_or_error.extract_value());
-          if (listener) {
-            offset_handlers.add(linked->vnode()->name(), listener.release());
-          }
-        }
-      }
-    }
-  }
-
-  MultiMap<std::string, Event *> events;
-  for (auto item : get_event_builders().items()) {
-    for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
-      for (VirtualSocket *linked : vnode->input(0)->links()) {
-        if (is_particle_type_node(linked->vnode())) {
-          auto fn_or_error = create_particle_function(vnode, data_graph);
-          if (fn_or_error.is_error()) {
-            continue;
-          }
-
-          auto event = item.value(ctx, vnode, fn_or_error.extract_value());
-          if (event) {
-            events.add(linked->vnode()->name(), event.release());
-          }
-        }
-      }
-    }
-  }
-
-  Vector<Emitter *> emitters;
-  for (auto item : get_emitter_builders().items()) {
-    for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
-      VirtualSocket *emitter_output = find_emitter_output(vnode);
-      for (VirtualSocket *linked : emitter_output->links()) {
-        if (is_particle_type_node(linked->vnode())) {
-          auto emitter = item.value(ctx, vnode, linked->vnode()->name());
-          if (emitter) {
-            emitters.append(emitter.release());
-          }
-        }
-      }
+      item.value(ctx, components, vnode);
     }
   }
 
   StringMap<ParticleType *> particle_types;
   for (VirtualNode *vnode : get_type_nodes(vtree)) {
     std::string name = vnode->name();
-    ArrayRef<Force *> forces_on_type = forces.lookup_default(name);
+    ArrayRef<Force *> forces_on_type = components.m_forces.lookup_default(name);
 
     Integrator *integrator = nullptr;
     if (forces_on_type.size() == 0) {
@@ -150,14 +64,16 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
       integrator = new EulerIntegrator(forces_on_type);
     }
 
-    ParticleType *particle_type = new ParticleType(declarations.lookup(name),
-                                                   integrator,
-                                                   events.lookup_default(name),
-                                                   offset_handlers.lookup_default(name));
+    ParticleType *particle_type = new ParticleType(
+        declarations.lookup(name),
+        integrator,
+        components.m_events.lookup_default(name),
+        components.m_offset_handlers.lookup_default(name));
     particle_types.add_new(name, particle_type);
   }
 
-  StepDescription *step_description = new StepDescription(time_step, particle_types, emitters);
+  StepDescription *step_description = new StepDescription(
+      time_step, particle_types, components.m_emitters);
   return std::unique_ptr<StepDescription>(step_description);
 }
 

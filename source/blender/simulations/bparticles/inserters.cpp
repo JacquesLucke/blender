@@ -468,4 +468,10 @@ BLI_LAZY_INIT(StringMap<OffsetHandlerFromNodeCallback>, get_offset_handler_build
   return map;
 }
 
+BLI_LAZY_INIT(StringMap<ComponentLoader>, get_component_loaders)
+{
+  StringMap<ComponentLoader> map;
+  return map;
+}
+
 }  // namespace BParticles
