@@ -6,11 +6,11 @@ namespace BKE {
 void VirtualNodeTree::add_all_of_tree(bNodeTree *btree)
 {
   Map<bNode *, VirtualNode *> node_mapping;
-  for (bNode *bnode : BKE::bNodeList(btree->nodes)) {
+  for (bNode *bnode : bNodeList(btree->nodes)) {
     VirtualNode *vnode = this->add_bnode(btree, bnode);
     node_mapping.add_new(bnode, vnode);
   }
-  for (bNodeLink *blink : BKE::bLinkList(btree->links)) {
+  for (bNodeLink *blink : bLinkList(btree->links)) {
     VirtualNode *from_vnode = node_mapping.lookup(blink->fromnode);
     VirtualNode *to_vnode = node_mapping.lookup(blink->tonode);
     VirtualSocket *from_vsocket = nullptr;

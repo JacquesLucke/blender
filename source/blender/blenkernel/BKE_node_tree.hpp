@@ -15,7 +15,7 @@
 namespace BKE {
 
 using BLI::ArrayRef;
-using BLI::ListBaseWrapper;
+using BLI::IntrusiveListBaseWrapper;
 using BLI::Map;
 using BLI::MonotonicAllocator;
 using BLI::MultiMap;
@@ -23,9 +23,9 @@ using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
 
-using bNodeList = ListBaseWrapper<struct bNode *, true>;
-using bLinkList = ListBaseWrapper<struct bNodeLink *, true>;
-using bSocketList = ListBaseWrapper<struct bNodeSocket *, true>;
+using bNodeList = IntrusiveListBaseWrapper<struct bNode>;
+using bLinkList = IntrusiveListBaseWrapper<struct bNodeLink>;
+using bSocketList = IntrusiveListBaseWrapper<struct bNodeSocket>;
 
 class VirtualNode;
 class VirtualSocket;

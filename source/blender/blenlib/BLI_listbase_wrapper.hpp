@@ -10,27 +10,27 @@
 
 namespace BLI {
 
-template<typename T, bool intrusive> class ListBaseWrapper {
+template<typename T> class IntrusiveListBaseWrapper {
  private:
   ListBase *m_listbase;
 
  public:
-  ListBaseWrapper(ListBase *listbase) : m_listbase(listbase)
+  IntrusiveListBaseWrapper(ListBase *listbase) : m_listbase(listbase)
   {
     BLI_assert(listbase);
   }
 
-  ListBaseWrapper(ListBase &listbase) : m_listbase(&listbase)
+  IntrusiveListBaseWrapper(ListBase &listbase) : IntrusiveListBaseWrapper(&listbase)
   {
   }
 
   class Iterator {
    private:
     ListBase *m_listbase;
-    Link *m_current;
+    T *m_current;
 
    public:
-    Iterator(ListBase *listbase, Link *current) : m_listbase(listbase), m_current(current)
+    Iterator(ListBase *listbase, T *current) : m_listbase(listbase), m_current(current)
     {
     }
 
@@ -52,20 +52,15 @@ template<typename T, bool intrusive> class ListBaseWrapper {
       return m_current != iterator.m_current;
     }
 
-    T operator*() const
+    T *operator*() const
     {
-      if (intrusive) {
-        return (T)m_current;
-      }
-      else {
-        return (T)((LinkData *)m_current)->data;
-      }
+      return m_current;
     }
   };
 
   Iterator begin() const
   {
-    return Iterator(m_listbase, (Link *)m_listbase->first);
+    return Iterator(m_listbase, (T *)m_listbase->first);
   }
 
   Iterator end() const
@@ -77,13 +72,7 @@ template<typename T, bool intrusive> class ListBaseWrapper {
   {
     void *ptr = BLI_findlink(m_listbase, index);
     BLI_assert(ptr);
-
-    if (intrusive) {
-      return (T)ptr;
-    }
-    else {
-      return (T)((LinkData *)ptr)->data;
-    }
+    return (T *)ptr;
   }
 };
 

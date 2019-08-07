@@ -63,40 +63,31 @@ TEST(vector, MappedArrayRefConstructor)
   EXPECT_TRUE(values.contains(6));
 }
 
-TEST(vector, NonIntrusiveListBaseConstructor)
-{
-  ListBase list = {0};
-  BLI_addtail(&list, BLI_genericNodeN(POINTER_FROM_INT(42)));
-  BLI_addtail(&list, BLI_genericNodeN(POINTER_FROM_INT(60)));
-  BLI_addtail(&list, BLI_genericNodeN(POINTER_FROM_INT(90)));
-  BLI::Vector<void *> vec(list, false);
-  EXPECT_EQ(vec.size(), 3);
-  EXPECT_EQ(POINTER_AS_INT(vec[0]), 42);
-  EXPECT_EQ(POINTER_AS_INT(vec[1]), 60);
-  EXPECT_EQ(POINTER_AS_INT(vec[2]), 90);
-  BLI_freelistN(&list);
-}
-
 struct TestListValue {
-  TestListValue *prev, *next;
+  TestListValue *next, *prev;
   int value;
 };
 
 TEST(vector, IntrusiveListBaseConstructor)
 {
+  TestListValue *value1 = new TestListValue{0, 0, 4};
+  TestListValue *value2 = new TestListValue{0, 0, 5};
+  TestListValue *value3 = new TestListValue{0, 0, 6};
+
   ListBase list = {0};
-  BLI_addtail(&list, new TestListValue{0, 0, 4});
-  BLI_addtail(&list, new TestListValue{0, 0, 6});
-  BLI_addtail(&list, new TestListValue{0, 0, 7});
+  BLI_addtail(&list, value1);
+  BLI_addtail(&list, value2);
+  BLI_addtail(&list, value3);
   Vector<TestListValue *> vec(list, true);
+
   EXPECT_EQ(vec.size(), 3);
   EXPECT_EQ(vec[0]->value, 4);
-  EXPECT_EQ(vec[1]->value, 6);
-  EXPECT_EQ(vec[2]->value, 7);
+  EXPECT_EQ(vec[1]->value, 5);
+  EXPECT_EQ(vec[2]->value, 6);
 
-  delete vec[0];
-  delete vec[1];
-  delete vec[2];
+  delete value1;
+  delete value2;
+  delete value3;
 }
 
 TEST(vector, ContainerConstructor)

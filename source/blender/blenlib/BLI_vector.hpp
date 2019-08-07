@@ -140,13 +140,9 @@ template<typename T, uint N = 4> class Vector {
    */
   Vector(ListBase &values, bool intrusive_next_and_prev_pointers) : Vector()
   {
+    BLI_assert(intrusive_next_and_prev_pointers);
     if (intrusive_next_and_prev_pointers) {
-      for (T value : ListBaseWrapper<T, true>(values)) {
-        this->append(value);
-      }
-    }
-    else {
-      for (T value : ListBaseWrapper<T, false>(values)) {
+      for (T value : IntrusiveListBaseWrapper<typename std::remove_pointer<T>::type>(values)) {
         this->append(value);
       }
     }
