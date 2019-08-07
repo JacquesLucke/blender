@@ -150,6 +150,10 @@ class ArrayAllocator {
     return ScopedAllocation<T>(*this, this->allocate<T>(), sizeof(T));
   }
 
+  /**
+   * This is a simple vector that has been allocated using an array allocator. The maximum size of
+   * the vector is determined by the allocator.
+   */
   template<typename T> class VectorAdapter {
    private:
     ScopedAllocation<T> m_ptr;
@@ -174,6 +178,9 @@ class ArrayAllocator {
     }
   };
 
+  /**
+   * This is a simple fixed size array that has been allocated using an array allocator.
+   */
   template<typename T> class Array {
    private:
     ScopedAllocation<T> m_ptr;

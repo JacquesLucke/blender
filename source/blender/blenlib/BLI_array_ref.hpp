@@ -256,12 +256,21 @@ template<typename T> class ArrayRef {
     return fallback;
   }
 
+  /**
+   * Get a new array ref to the same underlying memory buffer. No conversions are done.
+   * Asserts when the sizes of the types don't match.
+   */
   template<typename NewT> ArrayRef<NewT> cast() const
   {
+    /* Can be adjusted to allow different type sizes when necessary. */
     BLI_STATIC_ASSERT(sizeof(T) == sizeof(NewT), "");
     return ArrayRef<NewT>((NewT *)m_start, m_size);
   }
 
+  /**
+   * A debug utility to print the content of the array ref. Every element will be printed on a
+   * separate line using the given callback.
+   */
   template<typename PrintLineF> void print_as_lines(StringRef name, PrintLineF print_line) const
   {
     std::cout << "ArrayRef: " << name << " \tSize:" << m_size << '\n';
@@ -273,6 +282,9 @@ template<typename T> class ArrayRef {
   }
 };
 
+/**
+ * Shorthand to make use of automatic template parameter deduction.
+ */
 template<typename T> ArrayRef<T> ref_c_array(T *array, uint size)
 {
   return ArrayRef<T>(array, size);
