@@ -64,6 +64,17 @@ class MonotonicAllocator {
   {
     return ArrayRef<T>((T *)this->allocate(sizeof(T) * length), length);
   }
+
+  void *allocate_aligned(uint size, uint alignment)
+  {
+    BLI_assert(is_power_of_2_i(alignment));
+    uint64_t space = size + alignment - 1;
+    void *ptr = this->allocate(space);
+    void *aligned_ptr = std::align(alignment, size, ptr, space);
+    BLI_assert(aligned_ptr != nullptr);
+    BLI_assert((POINTER_AS_UINT(aligned_ptr) & (alignment - 1)) == 0);
+    return aligned_ptr;
+  }
 };
 
 }  // namespace BLI
