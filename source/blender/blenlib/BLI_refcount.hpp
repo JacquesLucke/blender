@@ -29,11 +29,18 @@ class RefCounter {
   }
 
  public:
+  /**
+   * Increment the reference counter atomically.
+   */
   void incref()
   {
     m_refcount.fetch_add(1);
   }
 
+  /**
+   * Decrement the reference counter atomically. Deletes the instance if the reference counter
+   * becomes zero.
+   */
   void decref()
   {
     int new_value = m_refcount.fetch_sub(1) - 1;
@@ -43,6 +50,9 @@ class RefCounter {
     }
   }
 
+  /**
+   * Get the current reference count.
+   */
   int refcount() const
   {
     return m_refcount;
@@ -76,6 +86,9 @@ template<typename T> class AutoRefCount {
   {
   }
 
+  /**
+   * Similar to std::make_shared.
+   */
   template<typename... Args> static AutoRefCount<T> New(Args &&... args)
   {
     T *object = new T(std::forward<Args>(args)...);
@@ -132,17 +145,28 @@ template<typename T> class AutoRefCount {
     }
   }
 
+  /**
+   * Get the pointer that is currently wrapped. This pointer can be null.
+   */
   T *ptr() const
   {
     return m_object;
   }
 
+  /**
+   * Get a reference to the object that is currently wrapped.
+   * Asserts when no object is wrapped.
+   */
   T &ref() const
   {
     BLI_assert(m_object);
     return *m_object;
   }
 
+  /**
+   * Get the pointer that is currently wrapped and remove it from this automatic reference counter,
+   * effectively taking over the ownership. Note that this can return null.
+   */
   T *extract_ptr()
   {
     T *value = m_object;
@@ -155,6 +179,10 @@ template<typename T> class AutoRefCount {
     return this->ptr();
   }
 
+  /**
+   * They compare equal, when the wrapped objects compare equal.
+   * Asserts when one of the two does not wrap an object currently.
+   */
   friend bool operator==(const AutoRefCount &a, const AutoRefCount &b)
   {
     BLI_assert(a.ptr());

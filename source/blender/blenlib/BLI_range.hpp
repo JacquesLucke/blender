@@ -1,13 +1,13 @@
 #pragma once
 
 /* Allows passing iterators over ranges of integers without
- * actually allocating an array.
+ * actually allocating an array or passing separate values.
  */
 
 #include <cmath>
 
 #include "BLI_utildefines.h"
-#include "BLI_vector.hpp"
+#include "BLI_array_ref.hpp"
 
 #define RANGE_AS_ARRAY_REF_MAX_LEN 10000
 
@@ -21,28 +21,32 @@ template<typename T> class Range {
  public:
   Range() = default;
 
+  /**
+   * Construct a new range.
+   * Asserts when start is larger than one_after_last.
+   */
   Range(T start, T one_after_last) : m_start(start), m_one_after_last(one_after_last)
   {
     BLI_assert(start <= one_after_last);
   }
 
-  class RangeIterator {
+  class Iterator {
    private:
     const Range &m_range;
     T m_current;
 
    public:
-    RangeIterator(const Range &range, T current) : m_range(range), m_current(current)
+    Iterator(const Range &range, T current) : m_range(range), m_current(current)
     {
     }
 
-    RangeIterator &operator++()
+    Iterator &operator++()
     {
       m_current++;
       return *this;
     }
 
-    bool operator!=(const RangeIterator &iterator) const
+    bool operator!=(const Iterator &iterator) const
     {
       return m_current != iterator.m_current;
     }
@@ -53,74 +57,97 @@ template<typename T> class Range {
     }
   };
 
-  RangeIterator begin() const
+  Iterator begin() const
   {
-    return RangeIterator(*this, m_start);
+    return Iterator(*this, m_start);
   }
 
-  RangeIterator end() const
+  Iterator end() const
   {
-    return RangeIterator(*this, m_one_after_last);
+    return Iterator(*this, m_one_after_last);
   }
 
+  /**
+   * Access an element in the range.
+   */
   T operator[](uint index) const
   {
     BLI_assert(index < this->size());
     return m_start + index;
   }
 
+  /**
+   * Two ranges compare equal when they contain the same numbers.
+   */
   friend bool operator==(Range<T> a, Range<T> b)
   {
     return a.m_start == b.m_start && a.m_one_after_last == b.m_one_after_last;
   }
 
+  /**
+   * Get the number of numbers in the range.
+   */
   uint size() const
   {
     return m_one_after_last - m_start;
   }
 
+  /**
+   * Create a new range starting at the end of the current one.
+   */
   Range after(uint n) const
   {
     return Range(m_one_after_last, m_one_after_last + n);
   }
 
+  /**
+   * Create a new range that ends at the start of the current one.
+   */
   Range before(uint n) const
   {
     return Range(m_start - n, m_start);
   }
 
+  /**
+   * Get the first element in the range.
+   * Asserts when the range is empty.
+   */
   T first() const
   {
     BLI_assert(this->size() > 0);
     return m_start;
   }
 
+  /**
+   * Get the last element in the range.
+   * Asserts when the range is empty.
+   */
   T last() const
   {
     BLI_assert(this->size() > 0);
     return m_one_after_last - 1;
   }
 
+  /**
+   * Get the element one after the end. Do not depend this value when the range is empty.
+   */
   T one_after_last() const
   {
     return m_one_after_last;
   }
 
+  /**
+   * Returns true when the range contains a certain number, otherwise false.
+   */
   bool contains(T value) const
   {
     return value >= m_start && value < m_one_after_last;
   }
 
-  BLI_NOINLINE Vector<T> to_small_vector() const
-  {
-    Vector<T> values;
-    values.reserve(this->size());
-    for (T value : *this) {
-      values.append(value);
-    }
-    return values;
-  }
-
+  /**
+   * Get read-only access to a memory buffer that contains the range as actual numbers. This only
+   * works for some ranges. The range must be within [0, RANGE_AS_ARRAY_REF_MAX_LEN].
+   */
   ArrayRef<T> as_array_ref() const;
 };
 
