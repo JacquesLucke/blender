@@ -201,14 +201,14 @@ class DataGraph : public RefCounter {
   Vector<InputSocket> m_inputs;
   Vector<OutputSocket> m_outputs;
   Vector<uint> m_targets;
-  std::unique_ptr<MonotonicAllocator<>> m_source_info_allocator;
+  std::unique_ptr<MonotonicAllocator> m_source_info_allocator;
 
  public:
   DataGraph(Vector<Node> nodes,
             Vector<InputSocket> inputs,
             Vector<OutputSocket> outputs,
             Vector<uint> targets,
-            std::unique_ptr<MonotonicAllocator<>> source_info_allocator);
+            std::unique_ptr<MonotonicAllocator> source_info_allocator);
 
   DataGraph(DataGraph &other) = delete;
   ~DataGraph();

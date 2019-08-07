@@ -6,7 +6,7 @@ DataGraph::DataGraph(Vector<Node> nodes,
                      Vector<InputSocket> inputs,
                      Vector<OutputSocket> outputs,
                      Vector<uint> targets,
-                     std::unique_ptr<MonotonicAllocator<>> source_info_allocator)
+                     std::unique_ptr<MonotonicAllocator> source_info_allocator)
     : m_nodes(std::move(nodes)),
       m_inputs(std::move(inputs)),
       m_outputs(std::move(outputs)),
