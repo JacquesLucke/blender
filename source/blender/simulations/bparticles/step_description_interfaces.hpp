@@ -8,7 +8,6 @@ namespace BParticles {
 class ParticleType;
 
 struct BlockStepData {
-  ArrayAllocator &array_allocator;
   ParticleAllocator &particle_allocator;
   ParticlesBlock &block;
   ParticleType &particle_type;
@@ -16,9 +15,9 @@ struct BlockStepData {
   ArrayRef<float> remaining_durations;
   float step_end_time;
 
-  uint particle_amount()
+  uint array_size()
   {
-    return this->remaining_durations.size();
+    return this->block.capacity();
   }
 };
 
@@ -31,14 +30,14 @@ class BlockStepDataAccess {
   {
   }
 
+  uint array_size() const
+  {
+    return m_step_data.block.capacity();
+  }
+
   BlockStepData &step_data()
   {
     return m_step_data;
-  }
-
-  ArrayAllocator &array_allocator()
-  {
-    return m_step_data.array_allocator;
   }
 
   ParticleAllocator &particle_allocator()
@@ -84,17 +83,13 @@ class BlockStepDataAccess {
 class EmitterInterface {
  private:
   ParticleAllocator &m_particle_allocator;
-  ArrayAllocator &m_array_allocator;
   TimeSpan m_time_span;
 
  public:
-  EmitterInterface(ParticleAllocator &particle_allocator,
-                   ArrayAllocator &array_allocator,
-                   TimeSpan time_span);
+  EmitterInterface(ParticleAllocator &particle_allocator, TimeSpan time_span);
   ~EmitterInterface() = default;
 
   ParticleAllocator &particle_allocator();
-  ArrayAllocator &array_allocator();
 
   /**
    * Time span that new particles should be emitted in.
@@ -233,11 +228,6 @@ class OffsetHandlerInterface : public BlockStepDataAccess {
 inline ParticleAllocator &EmitterInterface::particle_allocator()
 {
   return m_particle_allocator;
-}
-
-inline ArrayAllocator &EmitterInterface::array_allocator()
-{
-  return m_array_allocator;
 }
 
 inline TimeSpan EmitterInterface::time_span()

@@ -8,12 +8,10 @@
 #include "BLI_string_ref.hpp"
 #include "BLI_range.hpp"
 #include "BLI_set_vector.hpp"
-#include "BLI_array_allocator.hpp"
 #include "BLI_optional.hpp"
 
 namespace BParticles {
 
-using BLI::ArrayAllocator;
 using BLI::ArrayRef;
 using BLI::float2;
 using BLI::float3;
