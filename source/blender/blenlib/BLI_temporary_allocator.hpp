@@ -97,7 +97,7 @@ template<typename T> class TemporaryArray {
   ArrayRef<T> m_array;
 
  public:
-  TemporaryArray(uint size) : m_buffer(size * sizeof(T)), m_array((T *)m_buffer, size)
+  TemporaryArray(uint size) : m_buffer(size * sizeof(T)), m_array((T *)m_buffer.ptr(), size)
   {
   }
 
@@ -109,6 +109,11 @@ template<typename T> class TemporaryArray {
   ArrayRef<T> *operator->()
   {
     return &m_array;
+  }
+
+  T *ptr()
+  {
+    return (T *)m_buffer.ptr();
   }
 };
 

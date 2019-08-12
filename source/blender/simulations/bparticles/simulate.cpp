@@ -4,6 +4,7 @@
 #include "BLI_lazy_init.hpp"
 #include "BLI_task.hpp"
 #include "BLI_timeit.hpp"
+#include "BLI_temporary_allocator.hpp"
 
 #include "xmmintrin.h"
 
@@ -11,6 +12,8 @@
 
 namespace BParticles {
 
+using BLI::TemporaryArray;
+using BLI::TemporaryVector;
 using BLI::VectorAdaptor;
 
 static uint get_max_event_storage_size(ArrayRef<Event *> events)
@@ -187,13 +190,14 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 {
   ArrayRef<Event *> events = step_data.particle_type.events();
 
-  ArrayAllocator::Array<int> next_event_indices(step_data.array_allocator);
-  ArrayAllocator::Array<float> time_factors_to_next_event(step_data.array_allocator);
-  ArrayAllocator::VectorAdapter<uint> pindices_with_event(step_data.array_allocator);
+  uint amount = step_data.block.active_amount();
+  TemporaryArray<int> next_event_indices(amount);
+  TemporaryArray<float> time_factors_to_next_event(amount);
+  TemporaryVector<uint> pindices_with_event(amount);
 
   uint max_event_storage_size = std::max(get_max_event_storage_size(events), 1u);
-  auto event_storage_array = step_data.array_allocator.allocate_scoped(max_event_storage_size);
-  EventStorage event_storage(event_storage_array, max_event_storage_size);
+  TemporaryArray<uint8_t> event_storage_array(max_event_storage_size * amount);
+  EventStorage event_storage((void *)event_storage_array.ptr(), max_event_storage_size);
 
   find_next_event_per_particle(step_data,
                                pindices,
@@ -213,7 +217,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   Vector<Vector<uint>> particles_per_event(events.size());
   find_pindices_per_event(pindices_with_event, next_event_indices, particles_per_event);
 
-  ArrayAllocator::Array<float> current_times(step_data.array_allocator);
+  TemporaryArray<float> current_times(amount);
   compute_current_time_per_particle(
       pindices_with_event, step_data.remaining_durations, step_data.step_end_time, current_times);
 
