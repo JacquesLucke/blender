@@ -425,6 +425,13 @@ class CodeBuilder {
     return m_builder.CreateCall(function, value);
   }
 
+  llvm::Value *CreateCos(llvm::Value *value)
+  {
+    auto *function = llvm::Intrinsic::getDeclaration(
+        this->getModule(), llvm::Intrinsic::cos, value->getType());
+    return m_builder.CreateCall(function, value);
+  }
+
   llvm::Value *CreateSIntMax(llvm::Value *a, llvm::Value *b)
   {
     llvm::Value *a_is_larger = m_builder.CreateICmpSGE(a, b);

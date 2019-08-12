@@ -73,13 +73,49 @@ static SharedFunction &get_float_math_function(int operation)
     case 1:
       return Functions::GET_FN_add_floats();
     case 2:
-      return Functions::GET_FN_multiply_floats();
+      return Functions::GET_FN_sub_floats();
     case 3:
-      return Functions::GET_FN_min_floats();
+      return Functions::GET_FN_multiply_floats();
     case 4:
-      return Functions::GET_FN_max_floats();
+      return Functions::GET_FN_divide_floats();
     case 5:
+      return Functions::GET_FN_power_floats();
+    case 6:
+      return Functions::GET_FN_log_floats();
+    case 7:
+      return Functions::GET_FN_sqrt_float();
+    case 8:
+      return Functions::GET_FN_abs_float();
+    case 9:
+      return Functions::GET_FN_min_floats();
+    case 10:
+      return Functions::GET_FN_max_floats();
+    case 11:
       return Functions::GET_FN_sin_float();
+    case 12:
+      return Functions::GET_FN_cos_float();
+    case 13:
+      return Functions::GET_FN_tan_float();
+    case 14:
+      return Functions::GET_FN_asin_float();
+    case 15:
+      return Functions::GET_FN_acos_float();
+    case 16:
+      return Functions::GET_FN_atan_float();
+    case 17:
+      return Functions::GET_FN_atan2_floats();
+    case 18:
+      return Functions::GET_FN_mod_floats();
+    case 19:
+      return Functions::GET_FN_fract_float();
+    case 20:
+      return Functions::GET_FN_ceil_float();
+    case 21:
+      return Functions::GET_FN_floor_float();
+    case 22:
+      return Functions::GET_FN_round_float();
+    case 23:
+      return Functions::GET_FN_snap_floats();
     default:
       BLI_assert(false);
       return *(SharedFunction *)nullptr;
