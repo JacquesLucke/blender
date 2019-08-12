@@ -107,13 +107,13 @@ class ParticlesContainer {
  */
 class ParticlesBlock {
   ParticlesContainer &m_container;
-  AttributeArraysCore m_attributes_core;
+  Vector<void *> m_attribute_buffers;
   uint m_active_amount = 0;
 
   friend ParticlesContainer;
 
  public:
-  ParticlesBlock(ParticlesContainer &container, AttributeArraysCore &attributes_core);
+  ParticlesBlock(ParticlesContainer &container, Vector<void *> attribute_buffers);
 
   /**
    * Get the range of attribute indices that contain active particles.
@@ -179,11 +179,6 @@ class ParticlesBlock {
    */
   AttributeArrays attributes_slice(uint start, uint length);
   AttributeArrays attributes_slice(Range<uint> range);
-
-  /**
-   * Get the attributes core owned by this block.
-   */
-  AttributeArraysCore &attributes_core();
 
   /**
    * Copy the attributes of one particle to another index in the same block.
@@ -309,22 +304,18 @@ inline AttributeArrays ParticlesBlock::attributes_slice(Range<uint> range)
 
 inline AttributeArrays ParticlesBlock::attributes_slice(uint start, uint length)
 {
-  return m_attributes_core.slice_all().slice(start, length);
+  return AttributeArrays(m_container.attributes_info(), m_attribute_buffers, start, length);
 }
 
 inline AttributeArrays ParticlesBlock::attributes_all()
 {
-  return m_attributes_core.slice_all();
+  return AttributeArrays(
+      m_container.attributes_info(), m_attribute_buffers, 0, m_container.block_size());
 }
 
 inline AttributeArrays ParticlesBlock::attributes()
 {
   return this->attributes_slice(0, m_active_amount);
-}
-
-inline AttributeArraysCore &ParticlesBlock::attributes_core()
-{
-  return m_attributes_core;
 }
 
 }  // namespace BParticles

@@ -330,9 +330,12 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
 
   Integrator &integrator = particle_type.integrator();
   AttributesInfo &offsets_info = integrator.offset_attributes_info();
-  AttributeArraysCore attribute_offsets_core = AttributeArraysCore::NewWithArrayAllocator(
-      offsets_info, array_allocator);
-  AttributeArrays attribute_offsets = attribute_offsets_core.slice_all().slice(0, amount);
+  Vector<void *> offset_buffers;
+  for (AttributeType type : offsets_info.types()) {
+    void *ptr = array_allocator.allocate(size_of_attribute_type(type));
+    offset_buffers.append(ptr);
+  }
+  AttributeArrays attribute_offsets(offsets_info, offset_buffers, 0, amount);
 
   BlockStepData step_data = {array_allocator,
                              particle_allocator,
@@ -360,7 +363,10 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
     }
   }
 
-  attribute_offsets_core.deallocate_in_array_allocator(array_allocator);
+  for (uint i = 0; i < offset_buffers.size(); i++) {
+    uint size = size_of_attribute_type(offsets_info.type_of(i));
+    array_allocator.deallocate(offset_buffers[i], size);
+  }
 }
 
 BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &block)

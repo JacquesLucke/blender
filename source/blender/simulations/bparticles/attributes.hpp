@@ -261,91 +261,17 @@ class AttributesInfo {
 class AttributeArrays;
 
 /**
- * Contains a memory buffer for every attribute in an AttributesInfo object.
- * All buffers have equal element-length but not necessarily equal byte-length.
- *
- * The pointers are not owned by this structure. They are passed on creation and have to be freed
- * manually. This is necessary because in different contexts, it makes sense to allocate the
- * buffers in different ways. Nevertheless, there are some utilities to simplify allocation and
- * deallocation in common cases.
- *
- * Most code does not use this class directly. Instead it uses AttributeArrays, which is just a
- * slice of this.
- */
-class AttributeArraysCore {
- private:
-  AttributesInfo *m_info;
-  Vector<void *> m_arrays;
-  uint m_size = 0;
-
- public:
-  AttributeArraysCore(AttributesInfo &info, ArrayRef<void *> arrays, uint size);
-  ~AttributeArraysCore();
-
-  /**
-   * Create a new instance in which the pointers are all separately allocated using MEM_mallocN.
-   */
-  static AttributeArraysCore NewWithSeparateAllocations(AttributesInfo &info, uint size);
-  /**
-   * Free all buffers separately using MEM_freeN.
-   */
-  void free_buffers();
-
-  /**
-   * Create a new instance in which all pointers are separately allocated from a
-   * fixed-array-allocator. No separate length has to be provided, since the allocator only
-   * allocates arrays of one specific length.
-   */
-  static AttributeArraysCore NewWithArrayAllocator(AttributesInfo &info,
-                                                   ArrayAllocator &allocator);
-
-  /**
-   * Deallocate pointers in the given fixed-array-allocator.
-   */
-  void deallocate_in_array_allocator(ArrayAllocator &allocator);
-
-  /**
-   * Get information about the stored attributes.
-   */
-  AttributesInfo &info();
-
-  /**
-   * Get the raw pointer to the beginning of an attribute array identified by an index.
-   */
-  void *get_ptr(uint index);
-
-  /**
-   * Get the type of an attribute identified by an index.
-   */
-  AttributeType get_type(uint index);
-
-  /**
-   * Get a slice containing everything for further processing.
-   */
-  AttributeArrays slice_all();
-
-  /**
-   * Get the number of elements stored per attribute.
-   */
-  uint size() const;
-
-  /**
-   * Get all raw pointers.
-   */
-  ArrayRef<void *> pointers();
-};
-
-/**
- * The main class used to interact with attributes. It represents a continuous slice of an
- * AttributeArraysCore instance. So, it is very light weight and can be passed by value.
+ * The main class used to interact with attributes. It only references a set of arrays, so it can
+ * be passed by value.
  */
 class AttributeArrays {
  private:
-  AttributeArraysCore &m_core;
+  AttributesInfo *m_info;
   uint m_start, m_size;
+  ArrayRef<void *> m_buffers;
 
  public:
-  AttributeArrays(AttributeArraysCore &core, uint start, uint size);
+  AttributeArrays(AttributesInfo &info, ArrayRef<void *> buffers, uint start, uint size);
 
   /**
    * Get the number of referenced elements.
@@ -384,7 +310,7 @@ class AttributeArrays {
    */
   template<typename T> ArrayRef<T> get(uint index) const
   {
-    BLI_assert(attribute_type_by_type<T>::value == m_core.info().type_of(index));
+    BLI_assert(attribute_type_by_type<T>::value == m_info->type_of(index));
     void *ptr = this->get_ptr(index);
     return ArrayRef<T>((T *)ptr, m_size);
   }
@@ -420,46 +346,15 @@ class AttributeArrays {
   AttributeArrays take_front(uint n) const;
 };
 
-/* Attribute Arrays Core
- *****************************************/
-
-inline AttributesInfo &AttributeArraysCore::info()
-{
-  return *m_info;
-}
-
-inline void *AttributeArraysCore::get_ptr(uint index)
-{
-  return m_arrays[index];
-}
-
-inline AttributeType AttributeArraysCore::get_type(uint index)
-{
-  return m_info->type_of(index);
-}
-
-inline AttributeArrays AttributeArraysCore::slice_all()
-{
-  return AttributeArrays(*this, 0, m_size);
-}
-
-inline uint AttributeArraysCore::size() const
-{
-  return m_size;
-}
-
-inline ArrayRef<void *> AttributeArraysCore::pointers()
-{
-  return m_arrays;
-}
-
 /* Attribute Arrays
  ******************************************/
 
-inline AttributeArrays::AttributeArrays(AttributeArraysCore &core, uint start, uint size)
-    : m_core(core), m_start(start), m_size(size)
+inline AttributeArrays::AttributeArrays(AttributesInfo &info,
+                                        ArrayRef<void *> buffers,
+                                        uint start,
+                                        uint size)
+    : m_info(&info), m_start(start), m_size(size), m_buffers(buffers)
 {
-  BLI_assert(m_start + m_size <= m_core.size());
 }
 
 inline uint AttributeArrays::size() const
@@ -469,7 +364,7 @@ inline uint AttributeArrays::size() const
 
 inline AttributesInfo &AttributeArrays::info()
 {
-  return m_core.info();
+  return *m_info;
 }
 
 inline uint AttributeArrays::attribute_index(StringRef name)
@@ -484,17 +379,17 @@ inline uint AttributeArrays::attribute_stride(uint index)
 
 inline void *AttributeArrays::get_ptr(uint index) const
 {
-  void *ptr = m_core.get_ptr(index);
-  AttributeType type = m_core.get_type(index);
+  void *ptr = m_buffers[index];
+  AttributeType type = m_info->type_of(index);
   uint size = size_of_attribute_type(type);
   return POINTER_OFFSET(ptr, m_start * size);
 }
 
 inline void AttributeArrays::init_default(uint index)
 {
-  void *default_value = m_core.info().default_value_ptr(index);
+  void *default_value = m_info->default_value_ptr(index);
   void *dst = this->get_ptr(index);
-  AttributeType type = m_core.get_type(index);
+  AttributeType type = m_info->type_of(index);
   uint element_size = size_of_attribute_type(type);
 
   for (uint i = 0; i < m_size; i++) {
@@ -509,13 +404,15 @@ inline void AttributeArrays::init_default(StringRef name)
 
 inline AttributeArrays AttributeArrays::slice(uint start, uint size) const
 {
-  return AttributeArrays(m_core, m_start + start, size);
+  BLI_assert(start >= m_start);
+  BLI_assert(start + size <= m_size);
+  return AttributeArrays(*m_info, m_buffers, m_start + start, size);
 }
 
 inline AttributeArrays AttributeArrays::take_front(uint n) const
 {
   BLI_assert(n <= m_size);
-  return AttributeArrays(m_core, m_start, n);
+  return AttributeArrays(*m_info, m_buffers, m_start, n);
 }
 
 }  // namespace BParticles

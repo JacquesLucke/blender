@@ -6,8 +6,8 @@
 
 namespace BParticles {
 
-ParticlesBlock::ParticlesBlock(ParticlesContainer &container, AttributeArraysCore &attributes_core)
-    : m_container(container), m_attributes_core(attributes_core)
+ParticlesBlock::ParticlesBlock(ParticlesContainer &container, Vector<void *> buffers)
+    : m_container(container), m_attribute_buffers(std::move(buffers))
 {
 }
 
@@ -60,15 +60,22 @@ void ParticlesContainer::release_block(ParticlesBlock &block)
 
 ParticlesBlock *ParticlesContainer::allocate_block()
 {
-  AttributeArraysCore attributes_core = AttributeArraysCore::NewWithSeparateAllocations(
-      m_attributes_info, m_block_size);
-  ParticlesBlock *block = new ParticlesBlock(*this, attributes_core);
+  Vector<void *> attribute_buffers;
+  attribute_buffers.reserve(m_attributes_info.size());
+  for (AttributeType type : m_attributes_info.types()) {
+    uint byte_size = m_block_size * size_of_attribute_type(type);
+    void *ptr = MEM_mallocN_aligned(byte_size, 64, __func__);
+    attribute_buffers.append(ptr);
+  }
+  ParticlesBlock *block = new ParticlesBlock(*this, std::move(attribute_buffers));
   return block;
 }
 
 void ParticlesContainer::free_block(ParticlesBlock *block)
 {
-  block->attributes_core().free_buffers();
+  for (void *buffer : block->m_attribute_buffers) {
+    MEM_freeN(buffer);
+  }
   delete block;
 }
 
@@ -135,19 +142,19 @@ void ParticlesContainer::update_attributes(AttributesInfo new_info)
         arrays.append(MEM_malloc_arrayN(m_block_size, size_of_attribute_type(type), __func__));
       }
       else {
-        arrays.append(block->attributes_core().get_ptr((uint)old_index));
+        arrays.append(block->m_attribute_buffers[(uint)old_index]);
       }
     }
 
     for (uint old_index : unused_old_indices) {
-      void *ptr = block->attributes_core().get_ptr(old_index);
+      void *ptr = block->m_attribute_buffers[old_index];
       MEM_freeN(ptr);
     }
 
-    block->m_attributes_core = AttributeArraysCore(m_attributes_info, arrays, m_block_size);
+    block->m_attribute_buffers = arrays;
 
     for (uint new_index : indices_to_allocate) {
-      block->m_attributes_core.slice_all().init_default(new_index);
+      block->attributes().init_default(new_index);
     }
   }
 }
@@ -178,11 +185,13 @@ void ParticlesBlock::MoveUntilFull(ParticlesBlock &from, ParticlesBlock &to)
   uint src_start = from.active_amount() - move_amount;
   uint dst_start = to.first_unused_index();
 
-  uint attribute_amount = from.container().attributes_info().size();
-  for (uint i = 0; i < attribute_amount; i++) {
-    void *from_buffer = from.attributes_core().get_ptr(i);
-    void *to_buffer = to.attributes_core().get_ptr(i);
-    AttributeType type = from.attributes_core().get_type(i);
+  AttributesInfo &info = from.container().attributes_info();
+  BLI_assert(info == to.container().attributes_info());
+
+  for (uint i = 0; i < info.size(); i++) {
+    void *from_buffer = from.m_attribute_buffers[i];
+    void *to_buffer = to.m_attribute_buffers[i];
+    AttributeType type = info.type_of(i);
     uint size = size_of_attribute_type(type);
     memcpy((char *)to_buffer + size * dst_start,
            (char *)from_buffer + size * src_start,

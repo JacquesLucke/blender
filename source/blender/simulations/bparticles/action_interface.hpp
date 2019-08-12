@@ -90,14 +90,14 @@ inline void Action::execute_from_emitter(ParticleSets &particle_sets,
                                          ActionContext *action_context)
 {
   AttributesInfo info;
-  AttributeArraysCore offsets_core(info, {}, 0);
-  AttributeArrays offsets = offsets_core.slice_all();
+  std::array<void *, 0> buffers;
 
   EmptyEventInfo empty_action_context;
   ActionContext &used_action_context = (action_context == nullptr) ? empty_action_context :
                                                                      *action_context;
 
   for (ParticleSet particles : particle_sets.sets()) {
+    AttributeArrays offsets(info, buffers, 0, particles.size());
     ArrayAllocator::Array<float> durations(emitter_interface.array_allocator());
     ArrayRef<float>(durations).fill_indices(particles.pindices(), 0);
     ActionInterface action_interface(emitter_interface.particle_allocator(),
@@ -144,13 +144,13 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
                                               ActionInterface &action_interface)
 {
   AttributesInfo info;
-  AttributeArraysCore offsets_core(info, {}, 0);
-  AttributeArrays offsets = offsets_core.slice_all();
+  std::array<void *, 0> buffers;
 
   /* Use empty action context, until there a better solution is implemented. */
   EmptyEventInfo empty_context;
 
   for (ParticleSet particles : particle_sets.sets()) {
+    AttributeArrays offsets(info, buffers, 0, particles.size());
     ArrayAllocator::Array<float> durations(action_interface.array_allocator());
     ArrayRef<float>(durations).fill_indices(particles.pindices(), 0);
     ActionInterface new_interface(action_interface.particle_allocator(),
