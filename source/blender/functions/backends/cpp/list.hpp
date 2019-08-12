@@ -75,7 +75,6 @@ class List : public RefCounter {
 
   void get__dynamic_copy_to_tuple(uint element_index, Tuple &tuple, uint tuple_index)
   {
-    BLI_assert(this->is_mutable());
     BLI_assert(&tuple.meta().type_info(tuple_index) == m_type_info);
     BLI_assert(element_index < m_size);
     void *src = POINTER_OFFSET(m_storage, element_index * m_type_info->size());

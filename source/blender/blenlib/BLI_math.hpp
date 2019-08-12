@@ -139,6 +139,15 @@ struct float3 {
     return result;
   }
 
+  static float3 safe_divide(const float3 a, const float3 b)
+  {
+    float3 result;
+    result.x = (b.x == 0.0f) ? 0.0f : a.x / b.x;
+    result.y = (b.y == 0.0f) ? 0.0f : a.y / b.y;
+    result.z = (b.z == 0.0f) ? 0.0f : a.z / b.z;
+    return result;
+  }
+
   void invert()
   {
     x = -x;
@@ -200,6 +209,12 @@ struct float3 {
   friend float3 operator*(float a, float3 b)
   {
     return b * a;
+  }
+
+  friend float3 operator/(float3 a, float3 b)
+  {
+    BLI_assert(!b.is_zero());
+    return {a.x / b.x, a.y / b.y, a.z / b.z};
   }
 
   friend float3 operator/(float3 a, float b)

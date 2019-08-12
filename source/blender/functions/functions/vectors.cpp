@@ -151,7 +151,50 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_sub_vectors)
   fn->add_body<SubVectorsGen>();
   return fn;
 }
+class MultiplyVectors : public TupleCallBody {
+  void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+  {
+    float3 a = fn_in.get<float3>(0);
+    float3 b = fn_in.get<float3>(1);
+    fn_out.set<float3>(0, a * b);
+  }
+};
 
+class MultiplyVectorsGen : public LLVMBuildIRBody {
+  void build_ir(CodeBuilder &builder,
+                CodeInterface &interface,
+                const BuildIRSettings &UNUSED(settings)) const override
+  {
+    llvm::Value *a = interface.get_input(0);
+    llvm::Value *b = interface.get_input(1);
+    llvm::Value *result = builder.CreateFMul(a, b);
+    interface.set_output(0, result);
+  }
+};
+
+BLI_LAZY_INIT(SharedFunction, GET_FN_mul_vectors)
+{
+  auto fn = get_math_function__two_inputs("Multiply Vectors");
+  fn->add_body<MultiplyVectors>();
+  fn->add_body<MultiplyVectorsGen>();
+  return fn;
+}
+
+class DivideVectors : public TupleCallBody {
+  void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+  {
+    float3 a = fn_in.get<float3>(0);
+    float3 b = fn_in.get<float3>(1);
+    fn_out.set<float3>(0, float3::safe_divide(a, b));
+  }
+};
+
+BLI_LAZY_INIT(SharedFunction, GET_FN_div_vectors)
+{
+  auto fn = get_math_function__two_inputs("Divide Vectors");
+  fn->add_body<DivideVectors>();
+  return fn;
+}
 class CrossProductVectors : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {

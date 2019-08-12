@@ -291,6 +291,11 @@ class CodeBuilder {
     return m_builder.CreateFMul(a, b);
   }
 
+  llvm::Value *CreateFDiv(llvm::Value *a, llvm::Value *b)
+  {
+    return m_builder.CreateFDiv(a, b);
+  }
+
   llvm::Value *CreateURem(llvm::Value *a, llvm::Value *b)
   {
     return m_builder.CreateURem(a, b);

@@ -118,8 +118,12 @@ static SharedFunction &get_vector_math_function(int operation)
     case 2:
       return Functions::GET_FN_sub_vectors();
     case 3:
-      return Functions::GET_FN_cross_vectors();
+      return Functions::GET_FN_mul_vectors();
     case 4:
+      return Functions::GET_FN_div_vectors();
+    case 5:
+      return Functions::GET_FN_cross_vectors();
+    case 6:
       return Functions::GET_FN_reflect_vectors();
     default:
       BLI_assert(false);
