@@ -236,7 +236,6 @@ set(SRC
   PIL_time.h
   PIL_time_utildefines.h
 
-  BLI_array_allocator.hpp
   BLI_array_lookup.hpp
   BLI_array_ref.hpp
   BLI_chained_strings.hpp
