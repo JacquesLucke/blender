@@ -15,6 +15,11 @@ struct BlockStepData {
   AttributeArrays attribute_offsets;
   ArrayRef<float> remaining_durations;
   float step_end_time;
+
+  uint particle_amount()
+  {
+    return this->remaining_durations.size();
+  }
 };
 
 class BlockStepDataAccess {

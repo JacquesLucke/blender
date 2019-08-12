@@ -190,7 +190,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 {
   ArrayRef<Event *> events = step_data.particle_type.events();
 
-  uint amount = step_data.block.active_amount();
+  uint amount = step_data.particle_amount();
   TemporaryArray<int> next_event_indices(amount);
   TemporaryArray<float> time_factors_to_next_event(amount);
   TemporaryVector<uint> pindices_with_event(amount);
@@ -292,7 +292,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Array
 {
   auto handlers = step_data.particle_type.offset_handlers();
   if (handlers.size() > 0) {
-    ArrayAllocator::Array<float> time_factors(step_data.array_allocator);
+    TemporaryArray<float> time_factors(step_data.particle_amount());
     ArrayRef<float>(time_factors).fill_indices(pindices, 1.0f);
 
     OffsetHandlerInterface interface(step_data, pindices, time_factors);
@@ -322,8 +322,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Array
   }
 }
 
-BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
-                                        ParticleAllocator &particle_allocator,
+BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
                                         ParticlesBlock &block,
                                         ParticleType &particle_type,
                                         ArrayRef<float> remaining_durations,
@@ -336,11 +335,12 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
   AttributesInfo &offsets_info = integrator.offset_attributes_info();
   Vector<void *> offset_buffers;
   for (AttributeType type : offsets_info.types()) {
-    void *ptr = array_allocator.allocate(size_of_attribute_type(type));
+    void *ptr = BLI::allocate_temp_buffer(size_of_attribute_type(type) * amount);
     offset_buffers.append(ptr);
   }
   AttributeArrays attribute_offsets(offsets_info, offset_buffers, 0, amount);
 
+  ArrayAllocator array_allocator(amount);
   BlockStepData step_data = {array_allocator,
                              particle_allocator,
                              block,
@@ -356,20 +356,17 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
     apply_remaining_offsets(step_data, block.active_range().as_array_ref());
   }
   else {
-    auto indices_array = array_allocator.allocate_scoped<uint>();
-    VectorAdaptor<uint> unfinished_pindices(indices_array, amount);
-
+    TemporaryVector<uint> unfinished_pindices(amount);
     simulate_with_max_n_events(step_data, 10, unfinished_pindices);
 
     /* Not sure yet, if this really should be done. */
-    if (unfinished_pindices.size() > 0) {
+    if (unfinished_pindices->size() > 0) {
       apply_remaining_offsets(step_data, unfinished_pindices);
     }
   }
 
   for (uint i = 0; i < offset_buffers.size(); i++) {
-    uint size = size_of_attribute_type(offsets_info.type_of(i));
-    array_allocator.deallocate(offset_buffers[i], size);
+    BLI::free_temp_buffer(offset_buffers[i]);
   }
 }
 
@@ -445,12 +442,10 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(ParticleAllocators &block
         ParticleType &particle_type = *step_description.particle_types().lookup(
             particle_type_name);
 
-        ArrayAllocator &array_allocator = local_data->array_allocator;
-        ArrayAllocator::Array<float> remaining_durations(array_allocator, block->active_amount());
-        ArrayRef<float>(remaining_durations).fill(time_span.duration());
+        TemporaryArray<float> remaining_durations(block->active_amount());
+        remaining_durations->fill(time_span.duration());
 
-        simulate_block(local_data->array_allocator,
-                       local_data->particle_allocator,
+        simulate_block(local_data->particle_allocator,
                        *block,
                        particle_type,
                        remaining_durations,
@@ -493,12 +488,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
         for (uint i = 0; i < active_amount; i++) {
           durations[i] = end_time - birth_times[i];
         }
-        simulate_block(local_data->array_allocator,
-                       local_data->particle_allocator,
-                       *block,
-                       particle_type,
-                       durations,
-                       end_time);
+        simulate_block(local_data->particle_allocator, *block, particle_type, durations, end_time);
 
         delete_tagged_particles_and_reorder(*block);
       },
