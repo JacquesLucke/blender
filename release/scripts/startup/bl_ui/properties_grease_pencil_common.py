@@ -606,7 +606,8 @@ class GPENCIL_MT_cleanup(Menu):
 
     def draw(self, _context):
         layout = self.layout
-        layout.operator("gpencil.frame_clean_loose", text="Loose Points")
+        layout.operator("gpencil.frame_clean_loose", text="Delete Loose Points")
+        layout.operator("gpencil.stroke_merge_by_distance", text="Merge by Distance")
         layout.separator()
 
         layout.operator("gpencil.frame_clean_fill", text="Boundary Strokes").mode = 'ACTIVE'
