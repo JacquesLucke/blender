@@ -1,3 +1,4 @@
+#include "BLI_temporary_allocator.h"
 #include "BLI_temporary_allocator.hpp"
 #include "BLI_stack.hpp"
 
@@ -39,3 +40,8 @@ void free_temp_buffer(void *buffer)
 }
 
 }  // namespace BLI
+
+void BLI_temporary_buffers_free_all(void)
+{
+  BLI::local_buffers = {};
+}
