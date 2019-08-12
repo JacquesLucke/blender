@@ -2,6 +2,7 @@
 
 #include "FN_tuple_call.hpp"
 #include "FN_functions.hpp"
+#include "BLI_temporary_allocator.hpp"
 
 #include "attributes.hpp"
 #include "action_interface.hpp"
@@ -10,6 +11,8 @@
 namespace BParticles {
 
 using BLI::ArrayRef;
+using BLI::TemporaryArray;
+using BLI::TemporaryVector;
 using BLI::Vector;
 using FN::CPPTypeInfo;
 using FN::ExecutionContext;
@@ -25,7 +28,6 @@ class ParticleFunctionResult {
   Vector<void *> m_buffers;
   Vector<uint> m_strides;
   Vector<bool> m_only_first;
-  ArrayAllocator *m_array_allocator;
   FN::Function *m_fn_no_deps;
   FN::Function *m_fn_with_deps;
   ArrayRef<uint> m_output_indices;
@@ -40,7 +42,7 @@ class ParticleFunctionResult {
   ~ParticleFunctionResult()
   {
     for (uint i = 0; i < m_buffers.size(); i++) {
-      m_array_allocator->deallocate(m_buffers[i], m_strides[i]);
+      BLI::free_temp_buffer(m_buffers[i]);
     }
   }
 
@@ -148,26 +150,16 @@ struct ParticleTimes {
 
 class InputProviderInterface {
  private:
-  ArrayAllocator &m_array_allocator;
   ParticleSet m_particles;
   ParticleTimes m_particle_times;
   ActionContext *m_action_context;
 
  public:
-  InputProviderInterface(ArrayAllocator &array_allocator,
-                         ParticleSet particles,
+  InputProviderInterface(ParticleSet particles,
                          ParticleTimes particle_times,
                          ActionContext *action_context)
-      : m_array_allocator(array_allocator),
-        m_particles(particles),
-        m_particle_times(particle_times),
-        m_action_context(action_context)
+      : m_particles(particles), m_particle_times(particle_times), m_action_context(action_context)
   {
-  }
-
-  ArrayAllocator &array_allocator()
-  {
-    return m_array_allocator;
   }
 
   ParticleSet particles()
@@ -239,15 +231,13 @@ class ParticleFunction {
   std::unique_ptr<ParticleFunctionResult> compute(EventFilterInterface &interface);
 
  private:
-  std::unique_ptr<ParticleFunctionResult> compute(ArrayAllocator &array_allocator,
-                                                  ParticleSet particles,
+  std::unique_ptr<ParticleFunctionResult> compute(ParticleSet particles,
                                                   ParticleTimes particle_times,
                                                   ActionContext *action_context);
 
-  void init_without_deps(ParticleFunctionResult *result, ArrayAllocator &array_allocator);
+  void init_without_deps(ParticleFunctionResult *result);
 
   void init_with_deps(ParticleFunctionResult *result,
-                      ArrayAllocator &array_allocator,
                       ParticleSet particles,
                       ParticleTimes particle_times,
                       ActionContext *action_context);

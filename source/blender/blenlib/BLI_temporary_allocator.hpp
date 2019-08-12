@@ -8,10 +8,15 @@ namespace BLI {
 void *allocate_temp_buffer(uint size);
 void free_temp_buffer(void *buffer);
 
+template<typename T> T *allocate_temp_array(uint size)
+{
+  return (T *)allocate_temp_buffer(sizeof(T) * size);
+}
+
 class TemporaryBuffer {
  private:
   void *m_ptr;
-  uint m_size;
+  uint m_size = 0;
 
  public:
   TemporaryBuffer(uint size) : m_ptr(allocate_temp_buffer(size)), m_size(size)
@@ -51,6 +56,17 @@ class TemporaryBuffer {
   void *ptr() const
   {
     return m_ptr;
+  }
+
+  /**
+   * Take ownership over the pointer.
+   */
+  void *extract_ptr()
+  {
+    void *ptr = m_ptr;
+    m_ptr = nullptr;
+    m_size = 0;
+    return ptr;
   }
 };
 
@@ -111,9 +127,25 @@ template<typename T> class TemporaryArray {
     return &m_array;
   }
 
+  T &operator[](uint index)
+  {
+    return m_array[index];
+  }
+
   T *ptr()
   {
     return (T *)m_buffer.ptr();
+  }
+
+  /**
+   * Get the array ref and take ownership of the data.
+   */
+  ArrayRef<T> extract()
+  {
+    ArrayRef<T> array_ref = m_array;
+    m_array = {};
+    m_buffer.extract_ptr();
+    return array_ref;
   }
 };
 
