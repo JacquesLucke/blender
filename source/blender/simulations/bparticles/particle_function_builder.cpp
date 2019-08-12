@@ -88,7 +88,7 @@ class AgeInputProvider : public ParticleFunctionInputProvider {
   ParticleFunctionInputArray get(InputProviderInterface &interface) override
   {
     auto birth_times = interface.particles().attributes().get<float>("Birth Time");
-    float *ages = interface.array_allocator().allocate<float>();
+    TemporaryArray<float> ages(birth_times.size());
 
     ParticleTimes &times = interface.particle_times();
     if (times.type() == ParticleTimes::Type::Current) {
@@ -107,7 +107,7 @@ class AgeInputProvider : public ParticleFunctionInputProvider {
     else {
       BLI_assert(false);
     }
-    return {ArrayRef<float>(ages, interface.array_allocator().array_size()), true};
+    return {ages.extract(), true};
   }
 };
 
@@ -152,7 +152,7 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
 
     rgba_b *pixel_buffer = (rgba_b *)m_ibuf->rect;
 
-    rgba_f *colors = interface.array_allocator().allocate<rgba_f>();
+    TemporaryArray<rgba_f> colors(positions.size());
     for (uint pindex : interface.particles().pindices()) {
       float3 position_world = positions[pindex];
       float3 position_local = ob_inverse.transform_position(position_world);
@@ -182,7 +182,7 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
       uint y = uv.y * (m_ibuf->y - 1);
       colors[pindex] = pixel_buffer[y * m_ibuf->x + x];
     }
-    return {ArrayRef<rgba_f>(colors, interface.array_allocator().array_size()), true};
+    return {colors.extract(), true};
   }
 };
 

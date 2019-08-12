@@ -121,8 +121,8 @@ MeshCollisionEvent::RayCastResult MeshCollisionEvent::ray_cast(float3 start,
 void MeshCollisionEvent::execute(EventExecuteInterface &interface)
 {
   ParticleSet particles = interface.particles();
-  ArrayAllocator::Array<float3> normals(interface.array_allocator());
-  ArrayAllocator::Array<uint> looptri_indices(interface.array_allocator());
+  TemporaryArray<float3> normals(interface.array_size());
+  TemporaryArray<uint> looptri_indices(interface.array_size());
   auto last_collision_times = particles.attributes().get<float>(m_identifier);
 
   for (uint pindex : particles.pindices()) {

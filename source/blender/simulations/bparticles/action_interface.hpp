@@ -1,11 +1,14 @@
 #pragma once
 
 #include "FN_tuple_call.hpp"
+#include "BLI_temporary_allocator.hpp"
 
 #include "step_description.hpp"
 
 namespace BParticles {
 
+using BLI::TemporaryArray;
+using BLI::TemporaryVector;
 using FN::ExecutionContext;
 using FN::SharedFunction;
 using FN::Tuple;
@@ -19,7 +22,6 @@ class ActionContext {
 class ActionInterface {
  private:
   ParticleAllocator &m_particle_allocator;
-  ArrayAllocator &m_array_allocator;
   ParticleSet m_particles;
   AttributeArrays m_attribute_offsets;
   ArrayRef<float> m_current_times;
@@ -28,7 +30,6 @@ class ActionInterface {
 
  public:
   ActionInterface(ParticleAllocator &particle_allocator,
-                  ArrayAllocator &array_allocator,
                   ParticleSet particles,
                   AttributeArrays attribute_offsets,
                   ArrayRef<float> current_times,
@@ -44,7 +45,6 @@ class ActionInterface {
   ArrayRef<float> current_times();
   void kill(ArrayRef<uint> pindices);
   ParticleAllocator &particle_allocator();
-  ArrayAllocator &array_allocator();
 };
 
 class Action {
@@ -66,14 +66,12 @@ class Action {
  *******************************************/
 
 inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
-                                        ArrayAllocator &array_allocator,
                                         ParticleSet particles,
                                         AttributeArrays attribute_offsets,
                                         ArrayRef<float> current_times,
                                         ArrayRef<float> remaining_durations,
                                         ActionContext &action_context)
     : m_particle_allocator(particle_allocator),
-      m_array_allocator(array_allocator),
       m_particles(particles),
       m_attribute_offsets(attribute_offsets),
       m_current_times(current_times),
@@ -97,11 +95,11 @@ inline void Action::execute_from_emitter(ParticleSets &particle_sets,
                                                                      *action_context;
 
   for (ParticleSet particles : particle_sets.sets()) {
-    AttributeArrays offsets(info, buffers, 0, particles.size());
-    ArrayAllocator::Array<float> durations(emitter_interface.array_allocator());
-    ArrayRef<float>(durations).fill_indices(particles.pindices(), 0);
+    uint min_array_size = particles.block().capacity();
+    AttributeArrays offsets(info, buffers, 0, min_array_size);
+    TemporaryArray<float> durations(min_array_size);
+    durations->fill_indices(particles.pindices(), 0);
     ActionInterface action_interface(emitter_interface.particle_allocator(),
-                                     emitter_interface.array_allocator(),
                                      particles,
                                      offsets,
                                      particles.attributes().get<float>("Birth Time"),
@@ -119,7 +117,6 @@ inline void Action::execute_from_event(EventExecuteInterface &event_interface,
                                                                      *action_context;
 
   ActionInterface action_interface(event_interface.particle_allocator(),
-                                   event_interface.array_allocator(),
                                    event_interface.particles(),
                                    event_interface.attribute_offsets(),
                                    event_interface.current_times(),
@@ -131,7 +128,6 @@ inline void Action::execute_from_event(EventExecuteInterface &event_interface,
 inline void Action::execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface)
 {
   ActionInterface sub_interface(action_interface.particle_allocator(),
-                                action_interface.array_allocator(),
                                 ParticleSet(action_interface.particles().block(), pindices),
                                 action_interface.attribute_offsets(),
                                 action_interface.current_times(),
@@ -150,11 +146,11 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
   EmptyEventInfo empty_context;
 
   for (ParticleSet particles : particle_sets.sets()) {
-    AttributeArrays offsets(info, buffers, 0, particles.size());
-    ArrayAllocator::Array<float> durations(action_interface.array_allocator());
-    ArrayRef<float>(durations).fill_indices(particles.pindices(), 0);
+    uint min_array_size = particles.block().capacity();
+    AttributeArrays offsets(info, buffers, 0, min_array_size);
+    TemporaryArray<float> durations(min_array_size);
+    durations->fill_indices(particles.pindices(), 0);
     ActionInterface new_interface(action_interface.particle_allocator(),
-                                  action_interface.array_allocator(),
                                   particles,
                                   offsets,
                                   particles.attributes().get<float>("Birth Time"),
@@ -205,11 +201,6 @@ inline void ActionInterface::kill(ArrayRef<uint> pindices)
 inline ParticleAllocator &ActionInterface::particle_allocator()
 {
   return m_particle_allocator;
-}
-
-inline ArrayAllocator &ActionInterface::array_allocator()
-{
-  return m_array_allocator;
 }
 
 }  // namespace BParticles

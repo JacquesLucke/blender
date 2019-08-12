@@ -4,6 +4,7 @@
 #include "BLI_lazy_init.hpp"
 #include "BLI_task.hpp"
 #include "BLI_timeit.hpp"
+#include "BLI_temporary_allocator.hpp"
 
 #include "xmmintrin.h"
 
@@ -11,6 +12,8 @@
 
 namespace BParticles {
 
+using BLI::TemporaryArray;
+using BLI::TemporaryVector;
 using BLI::VectorAdaptor;
 
 static uint get_max_event_storage_size(ArrayRef<Event *> events)
@@ -187,13 +190,14 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 {
   ArrayRef<Event *> events = step_data.particle_type.events();
 
-  ArrayAllocator::Array<int> next_event_indices(step_data.array_allocator);
-  ArrayAllocator::Array<float> time_factors_to_next_event(step_data.array_allocator);
-  ArrayAllocator::VectorAdapter<uint> pindices_with_event(step_data.array_allocator);
+  uint amount = step_data.array_size();
+  TemporaryArray<int> next_event_indices(amount);
+  TemporaryArray<float> time_factors_to_next_event(amount);
+  TemporaryVector<uint> pindices_with_event(amount);
 
   uint max_event_storage_size = std::max(get_max_event_storage_size(events), 1u);
-  auto event_storage_array = step_data.array_allocator.allocate_scoped(max_event_storage_size);
-  EventStorage event_storage(event_storage_array, max_event_storage_size);
+  TemporaryArray<uint8_t> event_storage_array(max_event_storage_size * amount);
+  EventStorage event_storage((void *)event_storage_array.ptr(), max_event_storage_size);
 
   find_next_event_per_particle(step_data,
                                pindices,
@@ -213,7 +217,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   Vector<Vector<uint>> particles_per_event(events.size());
   find_pindices_per_event(pindices_with_event, next_event_indices, particles_per_event);
 
-  ArrayAllocator::Array<float> current_times(step_data.array_allocator);
+  TemporaryArray<float> current_times(amount);
   compute_current_time_per_particle(
       pindices_with_event, step_data.remaining_durations, step_data.step_end_time, current_times);
 
@@ -229,22 +233,21 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
                                                     uint max_events,
                                                     VectorAdaptor<uint> &r_unfinished_pindices)
 {
-  BLI_assert(step_data.array_allocator.array_size() >= step_data.block.active_amount());
-  auto pindices_A = step_data.array_allocator.allocate_scoped<uint>();
-  auto pindices_B = step_data.array_allocator.allocate_scoped<uint>();
+  TemporaryArray<uint> pindices_A(step_data.array_size());
+  TemporaryArray<uint> pindices_B(step_data.array_size());
 
   uint amount_left = step_data.block.active_amount();
 
   {
     /* Handle first event separately to be able to use the static number range. */
-    VectorAdaptor<uint> pindices_output(pindices_A, amount_left);
+    VectorAdaptor<uint> pindices_output(pindices_A.ptr(), amount_left);
     simulate_to_next_event(step_data, Range<uint>(0, amount_left).as_array_ref(), pindices_output);
     amount_left = pindices_output.size();
   }
 
   for (uint iteration = 0; iteration < max_events - 1 && amount_left > 0; iteration++) {
-    VectorAdaptor<uint> pindices_input(pindices_A, amount_left, amount_left);
-    VectorAdaptor<uint> pindices_output(pindices_B, amount_left, 0);
+    VectorAdaptor<uint> pindices_input(pindices_A.ptr(), amount_left, amount_left);
+    VectorAdaptor<uint> pindices_output(pindices_B.ptr(), amount_left, 0);
 
     simulate_to_next_event(step_data, pindices_input, pindices_output);
     amount_left = pindices_output.size();
@@ -288,7 +291,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Array
 {
   auto handlers = step_data.particle_type.offset_handlers();
   if (handlers.size() > 0) {
-    ArrayAllocator::Array<float> time_factors(step_data.array_allocator);
+    TemporaryArray<float> time_factors(step_data.array_size());
     ArrayRef<float>(time_factors).fill_indices(pindices, 1.0f);
 
     OffsetHandlerInterface interface(step_data, pindices, time_factors);
@@ -318,8 +321,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Array
   }
 }
 
-BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
-                                        ParticleAllocator &particle_allocator,
+BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
                                         ParticlesBlock &block,
                                         ParticleType &particle_type,
                                         ArrayRef<float> remaining_durations,
@@ -332,18 +334,13 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
   AttributesInfo &offsets_info = integrator.offset_attributes_info();
   Vector<void *> offset_buffers;
   for (AttributeType type : offsets_info.types()) {
-    void *ptr = array_allocator.allocate(size_of_attribute_type(type));
+    void *ptr = BLI::allocate_temp_buffer(size_of_attribute_type(type) * amount);
     offset_buffers.append(ptr);
   }
   AttributeArrays attribute_offsets(offsets_info, offset_buffers, 0, amount);
 
-  BlockStepData step_data = {array_allocator,
-                             particle_allocator,
-                             block,
-                             particle_type,
-                             attribute_offsets,
-                             remaining_durations,
-                             end_time};
+  BlockStepData step_data = {
+      particle_allocator, block, particle_type, attribute_offsets, remaining_durations, end_time};
 
   IntegratorInterface interface(step_data);
   integrator.integrate(interface);
@@ -352,20 +349,17 @@ BLI_NOINLINE static void simulate_block(ArrayAllocator &array_allocator,
     apply_remaining_offsets(step_data, block.active_range().as_array_ref());
   }
   else {
-    auto indices_array = array_allocator.allocate_scoped<uint>();
-    VectorAdaptor<uint> unfinished_pindices(indices_array, amount);
-
+    TemporaryVector<uint> unfinished_pindices(amount);
     simulate_with_max_n_events(step_data, 10, unfinished_pindices);
 
     /* Not sure yet, if this really should be done. */
-    if (unfinished_pindices.size() > 0) {
+    if (unfinished_pindices->size() > 0) {
       apply_remaining_offsets(step_data, unfinished_pindices);
     }
   }
 
   for (uint i = 0; i < offset_buffers.size(); i++) {
-    uint size = size_of_attribute_type(offsets_info.type_of(i));
-    array_allocator.deallocate(offset_buffers[i], size);
+    BLI::free_temp_buffer(offset_buffers[i]);
   }
 }
 
@@ -413,11 +407,9 @@ class ParticleAllocators {
 };
 
 struct ThreadLocalData {
-  ArrayAllocator array_allocator;
   ParticleAllocator &particle_allocator;
 
-  ThreadLocalData(uint block_size, ParticleAllocator &particle_allocator)
-      : array_allocator(block_size), particle_allocator(particle_allocator)
+  ThreadLocalData(ParticleAllocator &particle_allocator) : particle_allocator(particle_allocator)
   {
   }
 };
@@ -425,8 +417,7 @@ struct ThreadLocalData {
 BLI_NOINLINE static void simulate_blocks_for_time_span(ParticleAllocators &block_allocators,
                                                        ArrayRef<ParticlesBlock *> blocks,
                                                        StepDescription &step_description,
-                                                       TimeSpan time_span,
-                                                       uint max_block_size)
+                                                       TimeSpan time_span)
 {
   if (blocks.size() == 0) {
     return;
@@ -441,12 +432,10 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(ParticleAllocators &block
         ParticleType &particle_type = *step_description.particle_types().lookup(
             particle_type_name);
 
-        ArrayAllocator &array_allocator = local_data->array_allocator;
-        ArrayAllocator::Array<float> remaining_durations(array_allocator, block->active_amount());
-        ArrayRef<float>(remaining_durations).fill(time_span.duration());
+        TemporaryArray<float> remaining_durations(block->active_amount());
+        remaining_durations->fill(time_span.duration());
 
-        simulate_block(local_data->array_allocator,
-                       local_data->particle_allocator,
+        simulate_block(local_data->particle_allocator,
                        *block,
                        particle_type,
                        remaining_durations,
@@ -455,9 +444,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(ParticleAllocators &block
         delete_tagged_particles_and_reorder(*block);
       },
       /* Create thread-local data. */
-      [&block_allocators, max_block_size]() {
-        return new ThreadLocalData(max_block_size, block_allocators.new_allocator());
-      },
+      [&block_allocators]() { return new ThreadLocalData(block_allocators.new_allocator()); },
       /* Free thread-local data. */
       [](ThreadLocalData *local_data) { delete local_data; },
       USE_THREADING);
@@ -467,8 +454,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
     ParticleAllocators &block_allocators,
     ArrayRef<ParticlesBlock *> blocks,
     StepDescription &step_description,
-    float end_time,
-    uint max_block_size)
+    float end_time)
 {
   if (blocks.size() == 0) {
     return;
@@ -489,19 +475,12 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
         for (uint i = 0; i < active_amount; i++) {
           durations[i] = end_time - birth_times[i];
         }
-        simulate_block(local_data->array_allocator,
-                       local_data->particle_allocator,
-                       *block,
-                       particle_type,
-                       durations,
-                       end_time);
+        simulate_block(local_data->particle_allocator, *block, particle_type, durations, end_time);
 
         delete_tagged_particles_and_reorder(*block);
       },
       /* Create thread-local data. */
-      [&block_allocators, max_block_size]() {
-        return new ThreadLocalData(max_block_size, block_allocators.new_allocator());
-      },
+      [&block_allocators]() { return new ThreadLocalData(block_allocators.new_allocator()); },
       /* Free thread-local data. */
       [](ThreadLocalData *local_data) { delete local_data; },
       USE_THREADING);
@@ -587,55 +566,40 @@ BLI_NOINLINE static void ensure_required_attributes_exist(ParticlesState &state,
 BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,
                                                       StepDescription &step_description,
                                                       ParticleAllocators &block_allocators,
-                                                      TimeSpan time_span,
-                                                      uint max_block_size)
+                                                      TimeSpan time_span)
 {
   Vector<ParticlesBlock *> blocks = get_all_blocks(state, step_description);
-  simulate_blocks_for_time_span(
-      block_allocators, blocks, step_description, time_span, max_block_size);
+  simulate_blocks_for_time_span(block_allocators, blocks, step_description, time_span);
 }
 
 BLI_NOINLINE static void create_particles_from_emitters(StepDescription &step_description,
                                                         ParticleAllocators &block_allocators,
-                                                        TimeSpan time_span,
-                                                        uint max_block_size)
+                                                        TimeSpan time_span)
 {
-  ArrayAllocator array_allocator(max_block_size);
   ParticleAllocator &emitter_allocator = block_allocators.new_allocator();
   for (Emitter *emitter : step_description.emitters()) {
-    EmitterInterface interface(emitter_allocator, array_allocator, time_span);
+    EmitterInterface interface(emitter_allocator, time_span);
     emitter->emit(interface);
   }
-}
-
-BLI_NOINLINE static uint get_max_block_size(ParticlesState &state)
-{
-  uint max_size = 0;
-  for (auto *container : state.particle_containers().values()) {
-    max_size = std::max(max_size, container->block_size());
-  }
-  return max_size;
 }
 
 BLI_NOINLINE static void emit_and_simulate_particles(ParticlesState &state,
                                                      StepDescription &step_description,
                                                      TimeSpan time_span)
 {
-  uint max_block_size = get_max_block_size(state);
 
   Vector<ParticlesBlock *> newly_created_blocks;
   {
     ParticleAllocators block_allocators(state);
-    simulate_all_existing_blocks(
-        state, step_description, block_allocators, time_span, max_block_size);
-    create_particles_from_emitters(step_description, block_allocators, time_span, max_block_size);
+    simulate_all_existing_blocks(state, step_description, block_allocators, time_span);
+    create_particles_from_emitters(step_description, block_allocators, time_span);
     newly_created_blocks = block_allocators.gather_allocated_blocks();
   }
 
   while (newly_created_blocks.size() > 0) {
     ParticleAllocators block_allocators(state);
     simulate_blocks_from_birth_to_current_time(
-        block_allocators, newly_created_blocks, step_description, time_span.end(), max_block_size);
+        block_allocators, newly_created_blocks, step_description, time_span.end());
     newly_created_blocks = block_allocators.gather_allocated_blocks();
   }
 }

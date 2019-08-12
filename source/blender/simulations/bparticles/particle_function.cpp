@@ -1,4 +1,5 @@
 #include "FN_functions.hpp"
+#include "BLI_temporary_allocator.hpp"
 
 #include "particle_function.hpp"
 
@@ -48,8 +49,7 @@ ParticleFunction::~ParticleFunction()
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ActionInterface &interface)
 {
-  return this->compute(interface.array_allocator(),
-                       interface.particles(),
+  return this->compute(interface.particles(),
                        ParticleTimes::FromCurrentTimes(interface.current_times()),
                        &interface.context());
 }
@@ -57,8 +57,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ActionInterfac
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
     OffsetHandlerInterface &interface)
 {
-  return this->compute(interface.array_allocator(),
-                       interface.particles(),
+  return this->compute(interface.particles(),
                        ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
                                                           interface.step_end_time()),
                        nullptr);
@@ -67,8 +66,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ForceInterface &interface)
 {
   ParticlesBlock &block = interface.block();
-  return this->compute(interface.array_allocator(),
-                       ParticleSet(block, block.active_range().as_array_ref()),
+  return this->compute(ParticleSet(block, block.active_range().as_array_ref()),
                        ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
                                                           interface.step_end_time()),
                        nullptr);
@@ -76,22 +74,19 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ForceInterface
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(EventFilterInterface &interface)
 {
-  return this->compute(interface.array_allocator(),
-                       interface.particles(),
+  return this->compute(interface.particles(),
                        ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
                                                           interface.step_end_time()),
                        nullptr);
 }
 
-std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayAllocator &array_allocator,
-                                                                  ParticleSet particles,
+std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ParticleSet particles,
                                                                   ParticleTimes particle_times,
                                                                   ActionContext *action_context)
 {
   uint parameter_amount = m_parameter_depends_on_particle.size();
 
   ParticleFunctionResult *result = new ParticleFunctionResult();
-  result->m_array_allocator = &array_allocator;
   result->m_buffers.append_n_times(nullptr, parameter_amount);
   result->m_only_first.append_n_times(false, parameter_amount);
   result->m_strides.append_n_times(0, parameter_amount);
@@ -99,14 +94,13 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayAllocator
   result->m_fn_with_deps = m_fn_with_deps.ptr();
   result->m_output_indices = m_output_indices;
 
-  this->init_without_deps(result, array_allocator);
-  this->init_with_deps(result, array_allocator, particles, particle_times, action_context);
+  this->init_without_deps(result);
+  this->init_with_deps(result, particles, particle_times, action_context);
 
   return std::unique_ptr<ParticleFunctionResult>(result);
 }
 
-void ParticleFunction::init_without_deps(ParticleFunctionResult *result,
-                                         ArrayAllocator &array_allocator)
+void ParticleFunction::init_without_deps(ParticleFunctionResult *result)
 {
   if (m_fn_no_deps->output_amount() == 0) {
     return;
@@ -126,7 +120,7 @@ void ParticleFunction::init_without_deps(ParticleFunctionResult *result,
     CPPTypeInfo &type_info = m_fn_no_deps->output_type(output_index)->extension<CPPTypeInfo>();
 
     uint output_stride = type_info.size();
-    void *output_buffer = array_allocator.allocate(output_stride);
+    void *output_buffer = BLI::allocate_temp_buffer(output_stride);
 
     result->m_buffers[parameter_index] = output_buffer;
     result->m_strides[parameter_index] = output_stride;
@@ -137,7 +131,6 @@ void ParticleFunction::init_without_deps(ParticleFunctionResult *result,
 }
 
 void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
-                                      ArrayAllocator &array_allocator,
                                       ParticleSet particles,
                                       ParticleTimes particle_times,
                                       ActionContext *action_context)
@@ -154,7 +147,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
 
   for (uint i = 0; i < m_fn_with_deps->input_amount(); i++) {
     auto *provider = m_input_providers[i];
-    InputProviderInterface interface(array_allocator, particles, particle_times, action_context);
+    InputProviderInterface interface(particles, particle_times, action_context);
     auto array = provider->get(interface);
     BLI_assert(array.buffer != nullptr);
     BLI_assert(array.stride > 0);
@@ -178,7 +171,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
     CPPTypeInfo &type_info = m_fn_with_deps->output_type(output_index)->extension<CPPTypeInfo>();
 
     uint output_stride = type_info.size();
-    void *output_buffer = array_allocator.allocate(output_stride);
+    void *output_buffer = BLI::allocate_temp_buffer(output_stride * particles.size());
 
     result->m_buffers[parameter_index] = output_buffer;
     result->m_strides[parameter_index] = output_stride;
@@ -197,8 +190,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
 
   for (uint i : inputs_to_free) {
     void *buffer = input_buffers[i];
-    uint stride = input_sizes[i];
-    array_allocator.deallocate(buffer, stride);
+    BLI::free_temp_buffer(buffer);
   }
 }
 
