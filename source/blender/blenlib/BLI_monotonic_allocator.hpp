@@ -68,7 +68,7 @@ class MonotonicAllocator {
   void *allocate_aligned(uint size, uint alignment)
   {
     BLI_assert(is_power_of_2_i(alignment));
-    uint64_t space = size + alignment - 1;
+    size_t space = size + alignment - 1;
     void *ptr = this->allocate(space);
     void *aligned_ptr = std::align(alignment, size, ptr, space);
     BLI_assert(aligned_ptr != nullptr);
