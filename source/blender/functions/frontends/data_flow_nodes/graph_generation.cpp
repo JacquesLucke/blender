@@ -94,8 +94,6 @@ ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree,
     return BLI_ERROR_CREATE("error inserting unlinked inputs");
   }
 
-  builder.to_dot__clipboard();
-
   return builder.build();
 }
 
