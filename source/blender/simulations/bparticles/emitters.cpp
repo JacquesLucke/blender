@@ -15,6 +15,7 @@
 namespace BParticles {
 
 using FN::SharedList;
+using namespace FN::Types;
 
 static float random_float()
 {
@@ -137,19 +138,10 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
   body.set_input<float>(fn_in, 1, "Time Step", interface.time_span().duration());
   body.call__setup_execution_context(fn_in, fn_out);
 
-  FN::Type *float_list_type = FN::Types::TYPE_float_list;
-  FN::Type *float3_list_type = FN::Types::TYPE_float3_list;
-  FN::Type *int32_list_type = FN::Types::TYPE_int32_list;
-  FN::Type *rgba_f_list_type = FN::Types::TYPE_rgba_f_list;
-  FN::Type *float_type = FN::Types::TYPE_float;
-  FN::Type *float3_type = FN::Types::TYPE_float3;
-  FN::Type *int32_type = FN::Types::TYPE_int32;
-  FN::Type *rgba_f_type = FN::Types::TYPE_rgba_f;
-
   uint new_particle_amount = 0;
   for (uint i = 0; i < m_function->output_amount(); i++) {
     FN::Type *type = m_function->output_type(i);
-    if (ELEM(type, float_list_type, float3_list_type, int32_list_type, rgba_f_list_type)) {
+    if (ELEM(type, TYPE_float_list, TYPE_float3_list, TYPE_int32_list, TYPE_rgba_f_list)) {
       uint length = fn_out.get_ref<SharedList>(i)->size();
       new_particle_amount = std::max(new_particle_amount, length);
     }
@@ -168,32 +160,32 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
       continue;
     }
 
-    if (type == float_list_type) {
+    if (type == TYPE_float_list) {
       auto list = fn_out.relocate_out<SharedList>(i);
       new_particles.set_repeated<float>(attribute_index, list->as_array_ref<float>());
     }
-    else if (type == float3_list_type) {
+    else if (type == TYPE_float3_list) {
       auto list = fn_out.relocate_out<SharedList>(i);
       new_particles.set_repeated<float3>(attribute_index, list->as_array_ref<float3>());
     }
-    else if (type == int32_list_type) {
+    else if (type == TYPE_int32_list) {
       auto list = fn_out.relocate_out<SharedList>(i);
       new_particles.set_repeated<int32_t>(attribute_index, list->as_array_ref<int32_t>());
     }
-    else if (type == rgba_f_list_type) {
+    else if (type == TYPE_rgba_f_list) {
       auto list = fn_out.relocate_out<SharedList>(i);
       new_particles.set_repeated<rgba_f>(attribute_index, list->as_array_ref<rgba_f>());
     }
-    else if (type == float_type) {
+    else if (type == TYPE_float) {
       new_particles.fill<float>(attribute_index, fn_out.get<float>(i));
     }
-    else if (type == float3_type) {
+    else if (type == TYPE_float3) {
       new_particles.fill<float3>(attribute_index, fn_out.get<float3>(i));
     }
-    else if (type == int32_type) {
+    else if (type == TYPE_int32) {
       new_particles.fill<int32_t>(attribute_index, fn_out.get<int32_t>(i));
     }
-    else if (type == rgba_f_type) {
+    else if (type == TYPE_rgba_f) {
       new_particles.fill<rgba_f>(attribute_index, fn_out.get<rgba_f>(i));
     }
   }
