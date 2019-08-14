@@ -17,8 +17,13 @@
 /** \file
  * \ingroup bli
  *
- * Two types of string references. One that guarantees null termination
- * and one that does not. */
+ * A StringRef is a pointer to a string somewhere in memory. It should not be used to transfer
+ * ownership of that string. When a function gets a StringRef as input, it cannot expect, that that
+ * the string will still exist after the function ends.
+ *
+ * There are two types of string references: One that guarantees null termination and one that does
+ * not.
+ */
 
 #pragma once
 

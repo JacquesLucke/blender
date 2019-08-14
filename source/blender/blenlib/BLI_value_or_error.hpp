@@ -1,3 +1,29 @@
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
+
+/** \file
+ * \ingroup bli
+ *
+ * This class can be used as return value of functions that might have an error. This forces the
+ * caller to check if there was an error or not.
+ *
+ * The benefit over just using BLI::optional is that this can also store more information about the
+ * error.
+ */
+
 #pragma once
 
 #include <string>
@@ -12,11 +38,6 @@ struct ErrorInfo {
   std::string message;
 };
 
-/**
- * This class can be used as return value of functions that might have an error.
- * The main reason it exists, is that I'm not sure whether we should use exceptions or not. That
- * needs to be discussed at some point.
- */
 template<typename T> class ValueOrError {
  private:
   Optional<T> m_value;

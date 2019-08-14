@@ -16,7 +16,7 @@ TEST(temporary_vector, Append)
   vec->append(3);
   vec->append(6);
   EXPECT_EQ(vec->size(), 2);
-  EXPECT_EQ(vec->capacity(), 5);
+  EXPECT_EQ(vec->capacity(), 4);
   EXPECT_EQ(vec[0], 3);
   EXPECT_EQ(vec[1], 6);
 }

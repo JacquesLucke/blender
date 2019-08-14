@@ -17,8 +17,7 @@
 /** \file
  * \ingroup bli
  *
- * Basic stack implementation with support for
- * small object optimization.
+ * Basic stack implementation with support for small object optimization.
  */
 
 #pragma once
