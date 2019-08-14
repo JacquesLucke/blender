@@ -382,8 +382,8 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,
   SharedFunction fn_inputs = fn_inputs_or_error.extract_value();
 
   FN::FunctionBuilder fn_builder;
-  fn_builder.add_output("Start Time", FN::Types::GET_TYPE_float());
-  fn_builder.add_output("Time Step", FN::Types::GET_TYPE_float());
+  fn_builder.add_output("Start Time", FN::Types::TYPE_float);
+  fn_builder.add_output("Time Step", FN::Types::TYPE_float);
   SharedFunction fn_reserved_inputs = fn_builder.build("Reserved Inputs");
 
   FN::FunctionGraph fgraph = link_inputs_to_function(fn_emitter, fn_inputs, fn_reserved_inputs);

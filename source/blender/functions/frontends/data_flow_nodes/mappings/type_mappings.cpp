@@ -8,8 +8,8 @@ namespace DataFlowNodes {
 
 void REGISTER_type_mappings(std::unique_ptr<TypeMappings> &type_mappings)
 {
-#define ADD_TYPE(idname, name, func_suffix) \
-  type_mappings->register_type(idname, name, Types::GET_TYPE_##func_suffix())
+#define ADD_TYPE(idname, name, cpp_name) \
+  type_mappings->register_type(idname, name, Types::TYPE_##cpp_name)
 
   ADD_TYPE("fn_BooleanListSocket", "Boolean List", bool_list);
   ADD_TYPE("fn_BooleanSocket", "Boolean", bool);

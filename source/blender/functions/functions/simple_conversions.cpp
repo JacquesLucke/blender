@@ -39,32 +39,32 @@ static SharedFunction get_implicit_conversion_function(Type *from_type, Type *to
 
 BLI_LAZY_INIT(SharedFunction, GET_FN_bool_to_int32)
 {
-  return get_implicit_conversion_function<bool, int32_t>(GET_TYPE_bool(), GET_TYPE_int32());
+  return get_implicit_conversion_function<bool, int32_t>(TYPE_bool, TYPE_int32);
 }
 
 BLI_LAZY_INIT(SharedFunction, GET_FN_bool_to_float)
 {
-  return get_implicit_conversion_function<bool, float>(GET_TYPE_bool(), GET_TYPE_float());
+  return get_implicit_conversion_function<bool, float>(TYPE_bool, TYPE_float);
 }
 
 BLI_LAZY_INIT(SharedFunction, GET_FN_int32_to_float)
 {
-  return get_implicit_conversion_function<int32_t, float>(GET_TYPE_int32(), GET_TYPE_float());
+  return get_implicit_conversion_function<int32_t, float>(TYPE_int32, TYPE_float);
 }
 
 BLI_LAZY_INIT(SharedFunction, GET_FN_int32_to_bool)
 {
-  return get_implicit_conversion_function<int32_t, bool>(GET_TYPE_int32(), GET_TYPE_bool());
+  return get_implicit_conversion_function<int32_t, bool>(TYPE_int32, TYPE_bool);
 }
 
 BLI_LAZY_INIT(SharedFunction, GET_FN_float_to_int32)
 {
-  return get_implicit_conversion_function<float, int32_t>(GET_TYPE_float(), GET_TYPE_int32());
+  return get_implicit_conversion_function<float, int32_t>(TYPE_float, TYPE_int32);
 }
 
 BLI_LAZY_INIT(SharedFunction, GET_FN_float_to_bool)
 {
-  return get_implicit_conversion_function<float, bool>(GET_TYPE_float(), GET_TYPE_bool());
+  return get_implicit_conversion_function<float, bool>(TYPE_float, TYPE_bool);
 }
 
 /* List Conversions */

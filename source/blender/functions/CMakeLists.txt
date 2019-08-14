@@ -100,6 +100,8 @@ set(SRC
   backends/llvm/context_pool.hpp
   backends/llvm/context_pool.cpp
 
+  types/initialization.hpp
+  types/initialization.cpp
   types/lists.hpp
   types/lists.cpp
   types/numeric.hpp

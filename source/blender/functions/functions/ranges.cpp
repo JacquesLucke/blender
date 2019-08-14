@@ -21,7 +21,7 @@ class FloatRange : public TupleCallBody {
       amount = 0;
     }
 
-    auto list = SharedList::New(GET_TYPE_float());
+    auto list = SharedList::New(TYPE_float);
     list->reserve_and_set_size(amount);
     auto list_ref = list->as_array_ref<float>();
 
@@ -38,10 +38,10 @@ class FloatRange : public TupleCallBody {
 BLI_LAZY_INIT(SharedFunction, GET_FN_float_range)
 {
   FunctionBuilder builder;
-  builder.add_input("Amount", GET_TYPE_int32());
-  builder.add_input("Start", GET_TYPE_float());
-  builder.add_input("Step", GET_TYPE_float());
-  builder.add_output("List", GET_TYPE_float_list());
+  builder.add_input("Amount", TYPE_int32);
+  builder.add_input("Start", TYPE_float);
+  builder.add_input("Step", TYPE_float);
+  builder.add_output("List", TYPE_float_list);
 
   auto fn = builder.build("Float Range");
   fn->add_body<FloatRange>();

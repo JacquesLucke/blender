@@ -1,7 +1,6 @@
-#include "boolean.hpp"
-
 #include "BLI_lazy_init.hpp"
 
+#include "FN_types.hpp"
 #include "FN_cpp.hpp"
 #include "FN_llvm.hpp"
 
@@ -31,12 +30,16 @@ class LLVMBool : public TrivialLLVMTypeInfo {
   }
 };
 
-BLI_LAZY_INIT(Type *, GET_TYPE_bool)
+Type *TYPE_bool = nullptr;
+Type *TYPE_bool_list = nullptr;
+
+void INIT_bool()
 {
-  Type *type = new Type("Bool");
-  type->add_extension<CPPTypeInfoForType<bool>>();
-  type->add_extension<LLVMBool>();
-  return type;
+  TYPE_bool = new Type("Bool");
+  TYPE_bool->add_extension<CPPTypeInfoForType<bool>>();
+  TYPE_bool->add_extension<LLVMBool>();
+
+  TYPE_bool_list = new_list_type(TYPE_bool);
 }
 
 }  // namespace Types

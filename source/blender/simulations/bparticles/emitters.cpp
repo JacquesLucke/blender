@@ -137,14 +137,14 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
   body.set_input<float>(fn_in, 1, "Time Step", interface.time_span().duration());
   body.call__setup_execution_context(fn_in, fn_out);
 
-  FN::Type *float_list_type = FN::Types::GET_TYPE_float_list();
-  FN::Type *float3_list_type = FN::Types::GET_TYPE_float3_list();
-  FN::Type *int32_list_type = FN::Types::GET_TYPE_int32_list();
-  FN::Type *rgba_f_list_type = FN::Types::GET_TYPE_rgba_f_list();
-  FN::Type *float_type = FN::Types::GET_TYPE_float();
-  FN::Type *float3_type = FN::Types::GET_TYPE_float3();
-  FN::Type *int32_type = FN::Types::GET_TYPE_int32();
-  FN::Type *rgba_f_type = FN::Types::GET_TYPE_rgba_f();
+  FN::Type *float_list_type = FN::Types::TYPE_float_list;
+  FN::Type *float3_list_type = FN::Types::TYPE_float3_list;
+  FN::Type *int32_list_type = FN::Types::TYPE_int32_list;
+  FN::Type *rgba_f_list_type = FN::Types::TYPE_rgba_f_list;
+  FN::Type *float_type = FN::Types::TYPE_float;
+  FN::Type *float3_type = FN::Types::TYPE_float3;
+  FN::Type *int32_type = FN::Types::TYPE_int32;
+  FN::Type *rgba_f_type = FN::Types::TYPE_rgba_f;
 
   uint new_particle_amount = 0;
   for (uint i = 0; i < m_function->output_amount(); i++) {

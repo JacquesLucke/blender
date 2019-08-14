@@ -82,7 +82,7 @@ class ConstBoolGen : public LLVMBuildIRBody {
 static SharedFunction get_output_int32_function(int32_t value)
 {
   FunctionBuilder builder;
-  builder.add_output("Value", GET_TYPE_int32());
+  builder.add_output("Value", TYPE_int32);
   auto fn = builder.build("Build Value: " + std::to_string(value));
   fn->add_body<ConstValue<int32_t>>(value);
   fn->add_body<ConstInt32Gen>(value);
@@ -102,7 +102,7 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_output_int32_1)
 static SharedFunction get_output_float_function(float value)
 {
   FunctionBuilder builder;
-  builder.add_output("Value", GET_TYPE_float());
+  builder.add_output("Value", TYPE_float);
   auto fn = builder.build("Build Value: " + std::to_string(value));
   fn->add_body<ConstValue<float>>(value);
   fn->add_body<ConstFloatGen>(value);
@@ -122,7 +122,7 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_output_float_1)
 static SharedFunction get_output_bool_function(bool value)
 {
   FunctionBuilder builder;
-  builder.add_output("Value", GET_TYPE_bool());
+  builder.add_output("Value", TYPE_bool);
   auto fn = builder.build("Build Value");
   fn->add_body<ConstValue<bool>>(value);
   fn->add_body<ConstBoolGen>(value);
@@ -165,7 +165,7 @@ template<uint N> class ConstFloatArrayGen : public LLVMBuildIRBody {
 static SharedFunction get_output_float3_function(float3 vector)
 {
   FunctionBuilder builder;
-  auto &float3_type = GET_TYPE_float3();
+  auto &float3_type = TYPE_float3;
   builder.add_output("Vector", float3_type);
   auto fn = builder.build("Build Vector");
   fn->add_body<ConstValue<float3>>(vector);
@@ -186,7 +186,7 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_output_float3_1)
 static SharedFunction get_output_rgba_f_function(rgba_f color)
 {
   FunctionBuilder builder;
-  auto &rgba_f_type = GET_TYPE_rgba_f();
+  auto &rgba_f_type = TYPE_rgba_f;
   builder.add_output("RGBA Float", rgba_f_type);
   auto fn = builder.build("Build Color");
   fn->add_body<ConstValue<rgba_f>>(color);

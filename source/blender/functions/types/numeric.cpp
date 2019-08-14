@@ -1,29 +1,11 @@
-#include "numeric.hpp"
 #include "BLI_lazy_init.hpp"
 
+#include "FN_types.hpp"
 #include "FN_cpp.hpp"
 #include "FN_llvm.hpp"
 
 namespace FN {
 namespace Types {
-
-BLI_LAZY_INIT(Type *, GET_TYPE_float)
-{
-  Type *type = new Type("Float");
-  type->add_extension<CPPTypeInfoForType<float>>();
-  type->add_extension<PackedLLVMTypeInfo>(
-      [](llvm::LLVMContext &context) { return llvm::Type::getFloatTy(context); });
-  return type;
-}
-
-BLI_LAZY_INIT(Type *, GET_TYPE_int32)
-{
-  Type *type = new Type("Int32");
-  type->add_extension<CPPTypeInfoForType<int32_t>>();
-  type->add_extension<PackedLLVMTypeInfo>(
-      [](llvm::LLVMContext &context) { return llvm::Type::getIntNTy(context, 32); });
-  return type;
-}
 
 class FloatVectorType : public TrivialLLVMTypeInfo {
  private:
@@ -64,20 +46,40 @@ class FloatVectorType : public TrivialLLVMTypeInfo {
   }
 };
 
-BLI_LAZY_INIT(Type *, GET_TYPE_float3)
-{
-  Type *type = new Type("Float3");
-  type->add_extension<CPPTypeInfoForType<float3>>();
-  type->add_extension<FloatVectorType>(3);
-  return type;
-}
+Type *TYPE_float = nullptr;
+Type *TYPE_int32 = nullptr;
+Type *TYPE_float3 = nullptr;
+Type *TYPE_rgba_f = nullptr;
 
-BLI_LAZY_INIT(Type *, GET_TYPE_rgba_f)
+Type *TYPE_float_list = nullptr;
+Type *TYPE_int32_list = nullptr;
+Type *TYPE_float3_list = nullptr;
+Type *TYPE_rgba_f_list = nullptr;
+
+void INIT_numeric()
 {
-  Type *type = new Type("RGBA Float");
-  type->add_extension<CPPTypeInfoForType<rgba_f>>();
-  type->add_extension<FloatVectorType>(4);
-  return type;
+  TYPE_float = new Type("Float");
+  TYPE_float->add_extension<CPPTypeInfoForType<float>>();
+  TYPE_float->add_extension<PackedLLVMTypeInfo>(
+      [](llvm::LLVMContext &context) { return llvm::Type::getFloatTy(context); });
+
+  TYPE_int32 = new Type("Int32");
+  TYPE_int32->add_extension<CPPTypeInfoForType<int32_t>>();
+  TYPE_int32->add_extension<PackedLLVMTypeInfo>(
+      [](llvm::LLVMContext &context) { return llvm::Type::getIntNTy(context, 32); });
+
+  TYPE_float3 = new Type("Float3");
+  TYPE_float3->add_extension<CPPTypeInfoForType<float3>>();
+  TYPE_float3->add_extension<FloatVectorType>(3);
+
+  TYPE_rgba_f = new Type("RGBA Float");
+  TYPE_rgba_f->add_extension<CPPTypeInfoForType<rgba_f>>();
+  TYPE_rgba_f->add_extension<FloatVectorType>(4);
+
+  TYPE_float_list = new_list_type(TYPE_float);
+  TYPE_int32_list = new_list_type(TYPE_int32);
+  TYPE_float3_list = new_list_type(TYPE_float3);
+  TYPE_rgba_f_list = new_list_type(TYPE_rgba_f);
 }
 
 }  // namespace Types

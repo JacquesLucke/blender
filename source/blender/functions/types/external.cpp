@@ -1,6 +1,6 @@
-#include "external.hpp"
 #include "BLI_lazy_init.hpp"
 
+#include "FN_types.hpp"
 #include "FN_cpp.hpp"
 #include "FN_llvm.hpp"
 #include "DNA_object_types.h"
@@ -8,13 +8,17 @@
 namespace FN {
 namespace Types {
 
-BLI_LAZY_INIT(Type *, GET_TYPE_object)
+Type *TYPE_object = nullptr;
+Type *TYPE_object_list = nullptr;
+
+void INIT_external()
 {
-  Type *type = new Type("Object");
-  type->add_extension<CPPTypeInfoForType<Object *>>();
-  type->add_extension<PointerLLVMTypeInfo>(
+  TYPE_object = new Type("Object");
+  TYPE_object->add_extension<CPPTypeInfoForType<Object *>>();
+  TYPE_object->add_extension<PointerLLVMTypeInfo>(
       [](void *value) { return value; }, [](void *UNUSED(value)) {}, []() { return nullptr; });
-  return type;
+
+  TYPE_object_list = new_list_type(TYPE_object);
 }
 
 }  // namespace Types

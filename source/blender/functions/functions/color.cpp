@@ -23,11 +23,11 @@ class SeparateColor : public TupleCallBody {
 BLI_LAZY_INIT(SharedFunction, GET_FN_separate_color)
 {
   FunctionBuilder fn_builder;
-  fn_builder.add_input("Color", GET_TYPE_rgba_f());
-  fn_builder.add_output("Red", GET_TYPE_float());
-  fn_builder.add_output("Green", GET_TYPE_float());
-  fn_builder.add_output("Blue", GET_TYPE_float());
-  fn_builder.add_output("Alpha", GET_TYPE_float());
+  fn_builder.add_input("Color", TYPE_rgba_f);
+  fn_builder.add_output("Red", TYPE_float);
+  fn_builder.add_output("Green", TYPE_float);
+  fn_builder.add_output("Blue", TYPE_float);
+  fn_builder.add_output("Alpha", TYPE_float);
 
   auto fn = fn_builder.build("Separate Color");
   fn->add_body<SeparateColor>();
@@ -49,11 +49,11 @@ class CombineColor : public TupleCallBody {
 BLI_LAZY_INIT(SharedFunction, GET_FN_combine_color)
 {
   FunctionBuilder fn_builder;
-  fn_builder.add_input("Red", GET_TYPE_float());
-  fn_builder.add_input("Green", GET_TYPE_float());
-  fn_builder.add_input("Blue", GET_TYPE_float());
-  fn_builder.add_input("Alpha", GET_TYPE_float());
-  fn_builder.add_output("Color", GET_TYPE_rgba_f());
+  fn_builder.add_input("Red", TYPE_float);
+  fn_builder.add_input("Green", TYPE_float);
+  fn_builder.add_input("Blue", TYPE_float);
+  fn_builder.add_input("Alpha", TYPE_float);
+  fn_builder.add_output("Color", TYPE_rgba_f);
 
   auto fn = fn_builder.build("Combine Color");
   fn->add_body<CombineColor>();

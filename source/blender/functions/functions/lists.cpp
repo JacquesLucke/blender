@@ -70,7 +70,7 @@ static SharedFunction build_create_single_element_list_function(Type *base_type,
   std::string name = "Create " + base_type->name() + " List from Value";
   auto fn = builder.build(name);
   fn->add_body<CreateSingleElementList>(base_type);
-  if (base_type == GET_TYPE_object()) {
+  if (base_type == TYPE_object) {
     fn->add_body<CreateSingleElementListDependencies>();
   }
   return fn;
@@ -112,7 +112,7 @@ static SharedFunction build_append_function(Type *base_type, Type *list_type)
   std::string name = "Append " + base_type->name();
   auto fn = builder.build(name);
   fn->add_body<AppendToList>(base_type);
-  if (base_type == GET_TYPE_object()) {
+  if (base_type == TYPE_object) {
     fn->add_body<AppendToListDependencies>();
   }
   return fn;
@@ -153,14 +153,14 @@ static SharedFunction build_get_element_function(Type *base_type, Type *list_typ
 {
   FunctionBuilder builder;
   builder.add_input("List", list_type);
-  builder.add_input("Index", GET_TYPE_int32());
+  builder.add_input("Index", TYPE_int32);
   builder.add_input("Fallback", base_type);
   builder.add_output("Element", base_type);
 
   std::string name = "Get " + base_type->name() + " List Element";
   auto fn = builder.build(name);
   fn->add_body<GetListElement>(base_type);
-  if (base_type == GET_TYPE_object()) {
+  if (base_type == TYPE_object) {
     fn->add_body<GetListElementDependencies>();
   }
   return fn;
@@ -205,7 +205,7 @@ static SharedFunction build_combine_lists_function(Type *base_type, Type *list_t
   std::string name = "Combine " + base_type->name() + " Lists";
   auto fn = builder.build(name);
   fn->add_body<CombineLists>(base_type);
-  if (base_type == GET_TYPE_object()) {
+  if (base_type == TYPE_object) {
     fn->add_body<CombineListsDependencies>();
   }
   return fn;
@@ -224,7 +224,7 @@ static SharedFunction build_list_length_function(Type *base_type, Type *list_typ
 {
   FunctionBuilder builder;
   builder.add_input("List", list_type);
-  builder.add_output("Length", GET_TYPE_int32());
+  builder.add_output("Length", TYPE_int32);
 
   std::string name = base_type->name() + " List Length";
   auto fn = builder.build(name);
@@ -262,12 +262,12 @@ static void insert_list_functions_for_type(ListFunctions &functions,
 BLI_LAZY_INIT_STATIC(ListFunctions, get_list_functions)
 {
   ListFunctions functions;
-  insert_list_functions_for_type(functions, GET_TYPE_float(), GET_TYPE_float_list());
-  insert_list_functions_for_type(functions, GET_TYPE_float3(), GET_TYPE_float3_list());
-  insert_list_functions_for_type(functions, GET_TYPE_int32(), GET_TYPE_int32_list());
-  insert_list_functions_for_type(functions, GET_TYPE_bool(), GET_TYPE_bool_list());
-  insert_list_functions_for_type(functions, GET_TYPE_object(), GET_TYPE_object_list());
-  insert_list_functions_for_type(functions, GET_TYPE_rgba_f(), GET_TYPE_rgba_f_list());
+  insert_list_functions_for_type(functions, TYPE_float, TYPE_float_list);
+  insert_list_functions_for_type(functions, TYPE_float3, TYPE_float3_list);
+  insert_list_functions_for_type(functions, TYPE_int32, TYPE_int32_list);
+  insert_list_functions_for_type(functions, TYPE_bool, TYPE_bool_list);
+  insert_list_functions_for_type(functions, TYPE_object, TYPE_object_list);
+  insert_list_functions_for_type(functions, TYPE_rgba_f, TYPE_rgba_f_list);
   return functions;
 }
 

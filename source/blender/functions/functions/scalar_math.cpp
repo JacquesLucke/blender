@@ -15,17 +15,17 @@ using namespace Types;
 static SharedFunction get_math_function__one_input(std::string name)
 {
   FunctionBuilder builder;
-  builder.add_input("Value", GET_TYPE_float());
-  builder.add_output("Result", GET_TYPE_float());
+  builder.add_input("Value", TYPE_float);
+  builder.add_output("Result", TYPE_float);
   return builder.build(name);
 }
 
 static SharedFunction get_math_function__two_inputs(std::string name)
 {
   FunctionBuilder builder;
-  builder.add_input("A", GET_TYPE_float());
-  builder.add_input("B", GET_TYPE_float());
-  builder.add_output("Result", GET_TYPE_float());
+  builder.add_input("A", TYPE_float);
+  builder.add_input("B", TYPE_float);
+  builder.add_output("Result", TYPE_float);
   return builder.build(name);
 }
 
@@ -500,12 +500,12 @@ class MapRange : public TupleCallBody {
 BLI_LAZY_INIT(SharedFunction, GET_FN_map_range)
 {
   FunctionBuilder builder;
-  builder.add_input("Value", GET_TYPE_float());
-  builder.add_input("From Min", GET_TYPE_float());
-  builder.add_input("From Max", GET_TYPE_float());
-  builder.add_input("To Min", GET_TYPE_float());
-  builder.add_input("To Max", GET_TYPE_float());
-  builder.add_output("Value", GET_TYPE_float());
+  builder.add_input("Value", TYPE_float);
+  builder.add_input("From Min", TYPE_float);
+  builder.add_input("From Max", TYPE_float);
+  builder.add_input("To Min", TYPE_float);
+  builder.add_input("To Max", TYPE_float);
+  builder.add_output("Value", TYPE_float);
 
   auto fn = builder.build("Map Range");
   fn->add_body<MapRange>();

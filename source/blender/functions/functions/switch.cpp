@@ -58,7 +58,7 @@ class LazyBoolSwitch : public LazyInTupleCallBody {
 static SharedFunction build_bool_switch_function(Type *data_type)
 {
   FunctionBuilder builder;
-  builder.add_input("Condition", GET_TYPE_bool());
+  builder.add_input("Condition", TYPE_bool);
   builder.add_input("True", data_type);
   builder.add_input("False", data_type);
   builder.add_output("Result", data_type);

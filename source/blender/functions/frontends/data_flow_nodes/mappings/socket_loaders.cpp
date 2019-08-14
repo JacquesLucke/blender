@@ -52,7 +52,7 @@ static void LOAD_color(PointerRNA *rna, Tuple &tuple, uint index)
 
 static SocketLoader GET_empty_list_loader(Type *type)
 {
-  return [&type](PointerRNA *UNUSED(rna), Tuple &tuple, uint index) {
+  return [type](PointerRNA *UNUSED(rna), Tuple &tuple, uint index) {
     auto list = SharedList::New(type);
     tuple.move_in(index, list);
   };
@@ -60,17 +60,17 @@ static SocketLoader GET_empty_list_loader(Type *type)
 
 void REGISTER_socket_loaders(std::unique_ptr<SocketLoaders> &loaders)
 {
-  loaders->register_loader("Boolean List", GET_empty_list_loader(GET_TYPE_bool()));
+  loaders->register_loader("Boolean List", GET_empty_list_loader(TYPE_bool));
   loaders->register_loader("Boolean", LOAD_boolean);
-  loaders->register_loader("Color List", GET_empty_list_loader(GET_TYPE_rgba_f()));
+  loaders->register_loader("Color List", GET_empty_list_loader(TYPE_rgba_f));
   loaders->register_loader("Color", LOAD_color);
-  loaders->register_loader("Float List", GET_empty_list_loader(GET_TYPE_float()));
+  loaders->register_loader("Float List", GET_empty_list_loader(TYPE_float));
   loaders->register_loader("Float", LOAD_float);
-  loaders->register_loader("Integer List", GET_empty_list_loader(GET_TYPE_int32()));
+  loaders->register_loader("Integer List", GET_empty_list_loader(TYPE_int32));
   loaders->register_loader("Integer", LOAD_integer);
-  loaders->register_loader("Object List", GET_empty_list_loader(GET_TYPE_object()));
+  loaders->register_loader("Object List", GET_empty_list_loader(TYPE_object));
   loaders->register_loader("Object", LOAD_object);
-  loaders->register_loader("Vector List", GET_empty_list_loader(GET_TYPE_float3()));
+  loaders->register_loader("Vector List", GET_empty_list_loader(TYPE_float3));
   loaders->register_loader("Vector", LOAD_vector);
 }
 

@@ -38,8 +38,8 @@ class ObjectLocationDeps : public DepsBody {
 BLI_LAZY_INIT(SharedFunction, GET_FN_object_location)
 {
   FunctionBuilder builder;
-  builder.add_input("Object", GET_TYPE_object());
-  builder.add_output("Location", GET_TYPE_float3());
+  builder.add_input("Object", TYPE_object);
+  builder.add_output("Location", TYPE_float3);
   auto fn = builder.build("Object Location");
   fn->add_body<ObjectLocation>();
   fn->add_body<ObjectLocationDeps>();
@@ -51,14 +51,14 @@ class ObjectMeshVertices : public TupleCallBody {
   {
     Object *object = fn_in.get<Object *>(0);
     if (object == nullptr || object->type != OB_MESH) {
-      auto empty_list = SharedList::New(GET_TYPE_float());
+      auto empty_list = SharedList::New(TYPE_float);
       fn_out.move_in(0, empty_list);
       return;
     }
 
     Mesh *mesh = (Mesh *)object->data;
 
-    auto vertices = SharedList::New(GET_TYPE_float3());
+    auto vertices = SharedList::New(TYPE_float3);
     vertices->reserve_and_set_size(mesh->totvert);
 
     ArrayRef<float3> vertices_ref = vertices->as_array_ref<float3>();
@@ -84,8 +84,8 @@ class ObjectMeshDeps : public DepsBody {
 BLI_LAZY_INIT(SharedFunction, GET_FN_object_mesh_vertices)
 {
   FunctionBuilder builder;
-  builder.add_input("Object", GET_TYPE_object());
-  builder.add_output("Vertex Locations", GET_TYPE_float3_list());
+  builder.add_input("Object", TYPE_object);
+  builder.add_output("Vertex Locations", TYPE_float3_list);
   auto fn = builder.build("Object Mesh Vertices");
   fn->add_body<ObjectMeshVertices>();
   fn->add_body<ObjectMeshDeps>();

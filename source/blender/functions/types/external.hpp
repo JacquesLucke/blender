@@ -5,6 +5,9 @@
 namespace FN {
 namespace Types {
 
-Type *&GET_TYPE_object();
-}
+void INIT_external();
+extern Type *TYPE_object;
+extern Type *TYPE_object_list;
+
+}  // namespace Types
 }  // namespace FN

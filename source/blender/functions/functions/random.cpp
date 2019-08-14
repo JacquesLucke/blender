@@ -35,10 +35,10 @@ class RandomNumber : public TupleCallBody {
 BLI_LAZY_INIT(SharedFunction, GET_FN_random_number)
 {
   FunctionBuilder builder;
-  builder.add_input("Seed", GET_TYPE_float());
-  builder.add_input("Min", GET_TYPE_float());
-  builder.add_input("Max", GET_TYPE_float());
-  builder.add_output("Value", GET_TYPE_float());
+  builder.add_input("Seed", TYPE_float);
+  builder.add_input("Min", TYPE_float);
+  builder.add_input("Max", TYPE_float);
+  builder.add_output("Value", TYPE_float);
 
   auto fn = builder.build("Random Number");
   fn->add_body<RandomNumber>();

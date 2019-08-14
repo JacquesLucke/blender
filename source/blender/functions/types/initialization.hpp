@@ -1,11 +1,10 @@
 #pragma once
 
-#include "FN_cpp.hpp"
-
 namespace FN {
 namespace Types {
 
-Type *new_list_type(Type *base_type);
+void initialize_types(void);
+void free_types(void);
 
 }  // namespace Types
 }  // namespace FN

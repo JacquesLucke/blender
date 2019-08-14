@@ -5,6 +5,10 @@
 namespace FN {
 namespace Types {
 
-Type *&GET_TYPE_bool();
-}
+void INIT_bool();
+
+extern Type *TYPE_bool;
+extern Type *TYPE_bool_list;
+
+}  // namespace Types
 }  // namespace FN

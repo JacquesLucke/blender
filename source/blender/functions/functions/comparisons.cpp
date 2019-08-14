@@ -22,9 +22,9 @@ template<typename T> class LessThan : public TupleCallBody {
 BLI_LAZY_INIT(SharedFunction, GET_FN_less_than_float)
 {
   FunctionBuilder builder;
-  builder.add_input("A", GET_TYPE_float());
-  builder.add_input("B", GET_TYPE_float());
-  builder.add_output("A < B", GET_TYPE_bool());
+  builder.add_input("A", TYPE_float);
+  builder.add_input("B", TYPE_float);
+  builder.add_output("A < B", TYPE_bool);
 
   auto fn = builder.build("Less Than (float)");
   fn->add_body<LessThan<float>>();
@@ -34,9 +34,9 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_less_than_float)
 BLI_LAZY_INIT(SharedFunction, GET_FN_less_than_int32)
 {
   FunctionBuilder builder;
-  builder.add_input("A", GET_TYPE_int32());
-  builder.add_input("B", GET_TYPE_int32());
-  builder.add_output("A < B", GET_TYPE_bool());
+  builder.add_input("A", TYPE_int32);
+  builder.add_input("B", TYPE_int32);
+  builder.add_output("A < B", TYPE_bool);
 
   auto fn = builder.build("Less Than (int32)");
   fn->add_body<LessThan<int32_t>>();

@@ -129,9 +129,9 @@ class ConstantOutputGen : public LLVMBuildIRBody {
                 const BuildIRSettings &UNUSED(settings)) const override
   {
     TupleMeta &meta = m_tuple->meta();
-    Type *float_type = Types::GET_TYPE_float();
-    Type *int32_type = Types::GET_TYPE_int32();
-    Type *float3_type = Types::GET_TYPE_float3();
+    Type *float_type = Types::TYPE_float;
+    Type *int32_type = Types::TYPE_int32;
+    Type *float3_type = Types::TYPE_float3;
 
     for (uint i = 0; i < m_tuple->size(); i++) {
       Type *type = meta.types()[i];
