@@ -59,9 +59,9 @@ class Function final : public RefCounter {
    */
   Function(ChainedStringRef name,
            ArrayRef<ChainedStringRef> input_names,
-           ArrayRef<SharedType> input_types,
+           ArrayRef<Type *> input_types,
            ArrayRef<ChainedStringRef> output_names,
-           ArrayRef<SharedType> output_types,
+           ArrayRef<Type *> output_types,
            const char *strings);
 
   ~Function();
@@ -102,12 +102,12 @@ class Function final : public RefCounter {
   /**
    * Get the type of the input at the given index.
    */
-  SharedType &input_type(uint index);
+  Type *input_type(uint index);
 
   /**
    * Get the type of the output at the given index.
    */
-  SharedType &output_type(uint index);
+  Type *output_type(uint index);
 
   /**
    * Get the name of the input at the given index.
@@ -134,12 +134,12 @@ class Function final : public RefCounter {
   /**
    * Get an array containing all input types.
    */
-  ArrayRef<SharedType> input_types() const;
+  ArrayRef<Type *> input_types() const;
 
   /**
    * Get an array containing all output types.
    */
-  ArrayRef<SharedType> output_types() const;
+  ArrayRef<Type *> output_types() const;
 
   /**
    * Print some debug information for the function.
@@ -152,9 +152,9 @@ class Function final : public RefCounter {
   FunctionBody *m_bodies[FunctionBody::BODY_TYPE_AMOUNT] = {0};
 
   Vector<ChainedStringRef> m_input_names;
-  Vector<SharedType> m_input_types;
+  Vector<Type *> m_input_types;
   Vector<ChainedStringRef> m_output_names;
-  Vector<SharedType> m_output_types;
+  Vector<Type *> m_output_types;
 
   const char *m_strings;
 };
@@ -219,12 +219,12 @@ inline uint Function::output_amount() const
   return m_output_names.size();
 }
 
-inline SharedType &Function::input_type(uint index)
+inline Type *Function::input_type(uint index)
 {
   return m_input_types[index];
 }
 
-inline SharedType &Function::output_type(uint index)
+inline Type *Function::output_type(uint index)
 {
   return m_output_types[index];
 }
@@ -257,12 +257,12 @@ template<typename T> inline Vector<T *> Function::output_extensions() const
   return extensions;
 }
 
-inline ArrayRef<SharedType> Function::input_types() const
+inline ArrayRef<Type *> Function::input_types() const
 {
   return m_input_types;
 }
 
-inline ArrayRef<SharedType> Function::output_types() const
+inline ArrayRef<Type *> Function::output_types() const
 {
   return m_output_types;
 }

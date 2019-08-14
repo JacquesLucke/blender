@@ -129,12 +129,12 @@ class ConstantOutputGen : public LLVMBuildIRBody {
                 const BuildIRSettings &UNUSED(settings)) const override
   {
     TupleMeta &meta = m_tuple->meta();
-    SharedType &float_type = Types::GET_TYPE_float();
-    SharedType &int32_type = Types::GET_TYPE_int32();
-    SharedType &float3_type = Types::GET_TYPE_float3();
+    Type *float_type = Types::GET_TYPE_float();
+    Type *int32_type = Types::GET_TYPE_int32();
+    Type *float3_type = Types::GET_TYPE_float3();
 
     for (uint i = 0; i < m_tuple->size(); i++) {
-      SharedType &type = meta.types()[i];
+      Type *type = meta.types()[i];
       llvm::Value *value = nullptr;
       if (type == float_type) {
         value = builder.getFloat(m_tuple->get<float>(i));
@@ -164,7 +164,7 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
 
   FunctionBuilder fn_builder;
   for (VirtualSocket *vsocket : unlinked_inputs) {
-    SharedType &type = builder.query_socket_type(vsocket);
+    Type *type = builder.query_socket_type(vsocket);
     fn_builder.add_output(vsocket->name(), type);
   }
   SharedFunction fn = fn_builder.build("Unlinked Inputs");
@@ -230,7 +230,7 @@ void ReloadableInputs::insert(VTreeDataGraphBuilder &builder,
 
   FunctionBuilder fn_builder;
   for (VirtualSocket *vsocket : unlinked_inputs) {
-    SharedType &type = builder.query_socket_type(vsocket);
+    Type *type = builder.query_socket_type(vsocket);
     CPPTypeInfo &type_info = type->extension<CPPTypeInfo>();
     fn_builder.add_output(vsocket->name(), type);
 

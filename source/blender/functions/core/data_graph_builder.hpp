@@ -45,7 +45,7 @@ class BuilderInputSocket : public BuilderSocket {
   uint input_id();
   BuilderOutputSocket *origin();
   StringRef name();
-  SharedType &type();
+  Type *type();
 };
 
 class BuilderOutputSocket : public BuilderSocket {
@@ -60,7 +60,7 @@ class BuilderOutputSocket : public BuilderSocket {
   uint output_id();
   ArrayRef<BuilderInputSocket *> targets();
   StringRef name();
-  SharedType &type();
+  Type *type();
 };
 
 class BuilderNode {
@@ -207,7 +207,7 @@ inline StringRef BuilderInputSocket::name()
   return m_node->function()->input_name(this->index());
 }
 
-inline SharedType &BuilderInputSocket::type()
+inline Type *BuilderInputSocket::type()
 {
   return m_node->function()->input_type(this->index());
 }
@@ -227,7 +227,7 @@ inline StringRef BuilderOutputSocket::name()
   return m_node->function()->output_name(this->index());
 }
 
-inline SharedType &BuilderOutputSocket::type()
+inline Type *BuilderOutputSocket::type()
 {
   return m_node->function()->output_type(this->index());
 }

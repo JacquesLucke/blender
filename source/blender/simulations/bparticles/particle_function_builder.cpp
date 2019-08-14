@@ -21,7 +21,7 @@ using FN::FunctionBuilder;
 using FN::FunctionGraph;
 using FN::SharedDataGraph;
 using FN::SharedFunction;
-using FN::SharedType;
+using FN::Type;
 
 Vector<DataSocket> find_input_data_sockets(VirtualNode *vnode, VTreeDataGraph &data_graph)
 {

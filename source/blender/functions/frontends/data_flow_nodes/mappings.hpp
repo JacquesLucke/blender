@@ -27,25 +27,25 @@ typedef std::function<SharedFunction()> FunctionGetter;
 
 class TypeMappings {
  private:
-  StringMap<SharedType> m_type_by_idname;
-  StringMap<SharedType> m_type_by_name;
+  StringMap<Type *> m_type_by_idname;
+  StringMap<Type *> m_type_by_name;
   StringMap<std::string> m_name_by_idname;
   StringMap<std::string> m_idname_by_name;
 
  public:
-  void register_type(StringRef idname, StringRef name, SharedType type);
+  void register_type(StringRef idname, StringRef name, Type *type);
 
-  SharedType type_by_idname_or_empty(StringRef idname)
+  Type *type_by_idname_or_empty(StringRef idname)
   {
     return m_type_by_idname.lookup_default(idname, {});
   }
 
-  SharedType &type_by_idname(StringRef idname)
+  Type *type_by_idname(StringRef idname)
   {
     return m_type_by_idname.lookup(idname);
   }
 
-  SharedType &type_by_name(StringRef name)
+  Type *type_by_name(StringRef name)
   {
     return m_type_by_name.lookup(name);
   }

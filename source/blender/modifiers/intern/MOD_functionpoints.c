@@ -57,9 +57,9 @@ static FnFunction get_current_function(FunctionPointsModifierData *fpmd)
 {
   bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fpmd->function_tree);
 
-  FnType float_ty = FN_type_borrow_float();
-  FnType int32_ty = FN_type_borrow_int32();
-  FnType float3_list_ty = FN_type_borrow_float3_list();
+  FnType float_ty = FN_type_get_float();
+  FnType int32_ty = FN_type_get_int32();
+  FnType float3_list_ty = FN_type_get_float3_list();
 
   FnType inputs[] = {float_ty, int32_ty, NULL};
   FnType outputs[] = {float3_list_ty, NULL};

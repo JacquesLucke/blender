@@ -25,7 +25,7 @@ using FN::FunctionBuilder;
 using FN::FunctionGraph;
 using FN::SharedDataGraph;
 using FN::SharedFunction;
-using FN::SharedType;
+using FN::Type;
 
 static ValueOrError<SharedFunction> create_function__emitter_inputs(VirtualNode *emitter_vnode,
                                                                     VTreeDataGraph &data_graph)
@@ -325,7 +325,7 @@ static void match_inputs_to_node_outputs(FN::DataGraphBuilder &builder,
   uint offset = 0;
   for (uint i = 0; i < target_fn->input_amount(); i++) {
     StringRef input_name = target_fn->input_name(i);
-    FN::SharedType &input_type = target_fn->input_type(i);
+    FN::Type *input_type = target_fn->input_type(i);
 
     bool is_reserved_input = false;
     for (uint j = 0; j < origin_fn_1->output_amount(); j++) {

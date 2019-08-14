@@ -37,7 +37,7 @@ namespace FN {
 
 class TupleMeta : public RefCounter {
  private:
-  Vector<SharedType> m_types;
+  Vector<Type *> m_types;
   Vector<CPPTypeInfo *> m_type_info;
   Vector<uint> m_offsets;
   Vector<uint> m_sizes;
@@ -46,12 +46,12 @@ class TupleMeta : public RefCounter {
   bool m_all_trivially_destructible;
 
  public:
-  TupleMeta(ArrayRef<SharedType> types = {});
+  TupleMeta(ArrayRef<Type *> types = {});
 
   /**
    * Get an array containing the types of tuples using the meta object.
    */
-  ArrayRef<SharedType> types() const
+  ArrayRef<Type *> types() const
   {
     return m_types;
   }

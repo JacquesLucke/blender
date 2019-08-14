@@ -8,9 +8,9 @@
 namespace FN {
 namespace Types {
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_object)
+BLI_LAZY_INIT(Type *, GET_TYPE_object)
 {
-  SharedType type = SharedType::New("Object");
+  Type *type = new Type("Object");
   type->add_extension<CPPTypeInfoForType<Object *>>();
   type->add_extension<PointerLLVMTypeInfo>(
       [](void *value) { return value; }, [](void *UNUSED(value)) {}, []() { return nullptr; });

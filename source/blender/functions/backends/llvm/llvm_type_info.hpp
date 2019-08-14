@@ -139,7 +139,7 @@ class PointerLLVMTypeInfo : public LLVMTypeInfo {
   llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override;
 };
 
-inline llvm::Type *get_llvm_type(SharedType &type, llvm::LLVMContext &context)
+inline llvm::Type *get_llvm_type(Type *type, llvm::LLVMContext &context)
 {
   return type->extension<LLVMTypeInfo>().get_type(context);
 }

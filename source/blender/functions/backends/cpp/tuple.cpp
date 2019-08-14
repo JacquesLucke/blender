@@ -2,11 +2,11 @@
 
 namespace FN {
 
-TupleMeta::TupleMeta(ArrayRef<SharedType> types) : m_types(types)
+TupleMeta::TupleMeta(ArrayRef<Type *> types) : m_types(types)
 {
   m_all_trivially_destructible = true;
   m_size__data = 0;
-  for (const SharedType &type : types) {
+  for (const Type *type : types) {
     CPPTypeInfo &info = type->extension<CPPTypeInfo>();
     uint size = info.size();
     uint alignment = info.alignment();

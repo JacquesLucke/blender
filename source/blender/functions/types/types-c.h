@@ -7,16 +7,15 @@
 extern "C" {
 #endif
 
-#define TYPE_GET_AND_BORROW(name) \
-  FnType FN_type_get_##name(void); \
-  FnType FN_type_borrow_##name(void);
+#define TYPE_GET(name) FnType FN_type_get_##name(void);
 
-TYPE_GET_AND_BORROW(float);
-TYPE_GET_AND_BORROW(int32);
-TYPE_GET_AND_BORROW(float3);
-TYPE_GET_AND_BORROW(float_list);
-TYPE_GET_AND_BORROW(float3_list);
-#undef TYPE_GET_AND_BORROW
+TYPE_GET(float);
+TYPE_GET(int32);
+TYPE_GET(float3);
+TYPE_GET(float_list);
+TYPE_GET(float3_list);
+
+#undef TYPE_GET
 
 #ifdef __cplusplus
 }

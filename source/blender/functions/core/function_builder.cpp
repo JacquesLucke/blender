@@ -6,15 +6,17 @@ FunctionBuilder::FunctionBuilder()
 {
 }
 
-void FunctionBuilder::add_input(StringRef name, SharedType &type)
+void FunctionBuilder::add_input(StringRef name, Type *type)
 {
+  BLI_assert(type != nullptr);
   auto ref = m_strings_builder.add(name);
   m_input_names.append(ref);
   m_input_types.append(type);
 }
 
-void FunctionBuilder::add_output(StringRef name, SharedType &type)
+void FunctionBuilder::add_output(StringRef name, Type *type)
 {
+  BLI_assert(type != nullptr);
   auto ref = m_strings_builder.add(name);
   m_output_names.append(ref);
   m_output_types.append(type);
@@ -24,7 +26,7 @@ void FunctionBuilder::add_inputs(const SharedDataGraph &graph, ArrayRef<DataSock
 {
   for (DataSocket socket : sockets) {
     StringRef name = graph->name_of_socket(socket);
-    SharedType &type = graph->type_of_socket(socket);
+    Type *type = graph->type_of_socket(socket);
     this->add_input(name, type);
   }
 }
@@ -33,7 +35,7 @@ void FunctionBuilder::add_outputs(const SharedDataGraph &graph, ArrayRef<DataSoc
 {
   for (DataSocket socket : sockets) {
     StringRef name = graph->name_of_socket(socket);
-    SharedType &type = graph->type_of_socket(socket);
+    Type *type = graph->type_of_socket(socket);
     this->add_output(name, type);
   }
 }

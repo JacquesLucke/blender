@@ -31,9 +31,9 @@ class LLVMBool : public TrivialLLVMTypeInfo {
   }
 };
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_bool)
+BLI_LAZY_INIT(Type *, GET_TYPE_bool)
 {
-  SharedType type = SharedType::New("Bool");
+  Type *type = new Type("Bool");
   type->add_extension<CPPTypeInfoForType<bool>>();
   type->add_extension<LLVMBool>();
   return type;

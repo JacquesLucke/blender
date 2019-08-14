@@ -12,13 +12,12 @@ using namespace Types;
 
 class LazyBoolSwitch : public LazyInTupleCallBody {
  private:
-  SharedType m_type;
+  Type *m_type;
   uint m_type_size;
   const Vector<uint> m_always_required = {0};
 
  public:
-  LazyBoolSwitch(SharedType type)
-      : m_type(type), m_type_size(type->extension<CPPTypeInfo>().size())
+  LazyBoolSwitch(Type *type) : m_type(type), m_type_size(type->extension<CPPTypeInfo>().size())
   {
   }
 
@@ -56,7 +55,7 @@ class LazyBoolSwitch : public LazyInTupleCallBody {
   }
 };
 
-static SharedFunction build_bool_switch_function(SharedType &data_type)
+static SharedFunction build_bool_switch_function(Type *data_type)
 {
   FunctionBuilder builder;
   builder.add_input("Condition", GET_TYPE_bool());
@@ -70,13 +69,13 @@ static SharedFunction build_bool_switch_function(SharedType &data_type)
   return fn;
 }
 
-using CacheMap = Map<SharedType, SharedFunction>;
+using CacheMap = Map<Type *, SharedFunction>;
 BLI_LAZY_INIT_STATIC(CacheMap, get_cache)
 {
   return {};
 }
 
-SharedFunction &GET_FN_bool_switch(SharedType &data_type)
+SharedFunction &GET_FN_bool_switch(Type *data_type)
 {
   CacheMap &cache = get_cache();
   if (!cache.contains(data_type)) {

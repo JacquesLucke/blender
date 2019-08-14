@@ -7,18 +7,18 @@
 namespace FN {
 namespace Types {
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_float)
+BLI_LAZY_INIT(Type *, GET_TYPE_float)
 {
-  SharedType type = SharedType::New("Float");
+  Type *type = new Type("Float");
   type->add_extension<CPPTypeInfoForType<float>>();
   type->add_extension<PackedLLVMTypeInfo>(
       [](llvm::LLVMContext &context) { return llvm::Type::getFloatTy(context); });
   return type;
 }
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_int32)
+BLI_LAZY_INIT(Type *, GET_TYPE_int32)
 {
-  SharedType type = SharedType::New("Int32");
+  Type *type = new Type("Int32");
   type->add_extension<CPPTypeInfoForType<int32_t>>();
   type->add_extension<PackedLLVMTypeInfo>(
       [](llvm::LLVMContext &context) { return llvm::Type::getIntNTy(context, 32); });
@@ -64,17 +64,17 @@ class FloatVectorType : public TrivialLLVMTypeInfo {
   }
 };
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_float3)
+BLI_LAZY_INIT(Type *, GET_TYPE_float3)
 {
-  SharedType type = SharedType::New("Float3");
+  Type *type = new Type("Float3");
   type->add_extension<CPPTypeInfoForType<float3>>();
   type->add_extension<FloatVectorType>(3);
   return type;
 }
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_rgba_f)
+BLI_LAZY_INIT(Type *, GET_TYPE_rgba_f)
 {
-  SharedType type = SharedType::New("RGBA Float");
+  Type *type = new Type("RGBA Float");
   type->add_extension<CPPTypeInfoForType<rgba_f>>();
   type->add_extension<FloatVectorType>(4);
   return type;

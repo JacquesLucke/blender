@@ -13,10 +13,10 @@ ArrayExecution::~ArrayExecution()
 
 ArrayExecution::ArrayExecution(SharedFunction function) : m_function(std::move(function))
 {
-  for (SharedType &type : m_function->input_types()) {
+  for (Type *type : m_function->input_types()) {
     m_input_sizes.append(type->extension<CPPTypeInfo>().size());
   }
-  for (SharedType &type : m_function->output_types()) {
+  for (Type *type : m_function->output_types()) {
     m_output_sizes.append(type->extension<CPPTypeInfo>().size());
   }
 }

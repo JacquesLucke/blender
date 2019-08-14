@@ -394,7 +394,7 @@ class DataGraph : public RefCounter {
     }
   }
 
-  SharedType &type_of_socket(DataSocket socket)
+  Type *type_of_socket(DataSocket socket)
   {
     if (socket.is_input()) {
       return this->type_of_input(socket.id());
@@ -414,23 +414,23 @@ class DataGraph : public RefCounter {
     return this->function_of_output(output_id)->output_name(this->index_of_output(output_id));
   }
 
-  SharedType &type_of_input(uint input_id)
+  Type *type_of_input(uint input_id)
   {
     return this->function_of_input(input_id)->input_type(this->index_of_input(input_id));
   }
 
-  SharedType &type_of_output(uint output_id)
+  Type *type_of_output(uint output_id)
   {
     return this->function_of_output(output_id)->output_type(this->index_of_output(output_id));
   }
 
-  SharedType &type_of_input(DataSocket input_socket)
+  Type *type_of_input(DataSocket input_socket)
   {
     BLI_assert(input_socket.is_input());
     return this->type_of_input(input_socket.id());
   }
 
-  SharedType &type_of_output(DataSocket output_socket)
+  Type *type_of_output(DataSocket output_socket)
   {
     BLI_assert(output_socket.is_output());
     return this->type_of_output(output_socket.id());

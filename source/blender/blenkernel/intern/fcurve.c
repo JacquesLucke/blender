@@ -1770,8 +1770,8 @@ static float dvar_eval_function(ChannelDriver *UNUSED(driver), DriverVar *dvar)
 struct bNodeTree;
 void *get_driver_variable_function(DriverVar *dvar)
 {
-  FnType float_ty = FN_type_borrow_float();
-  FnType int32_ty = FN_type_borrow_int32();
+  FnType float_ty = FN_type_get_float();
+  FnType int32_ty = FN_type_get_int32();
   FnType inputs[] = {int32_ty, NULL};
   FnType outputs[] = {float_ty, NULL};
 

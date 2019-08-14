@@ -197,21 +197,21 @@ static void INSERT_clamp(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 
 static void INSERT_get_list_element(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
-  SharedType &base_type = builder.query_type_property(vnode, "active_type");
+  Type *base_type = builder.query_type_property(vnode, "active_type");
   SharedFunction &fn = Functions::GET_FN_get_list_element(base_type);
   builder.insert_matching_function(fn, vnode);
 }
 
 static void INSERT_list_length(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
-  SharedType &base_type = builder.query_type_property(vnode, "active_type");
+  Type *base_type = builder.query_type_property(vnode, "active_type");
   SharedFunction &fn = Functions::GET_FN_list_length(base_type);
   builder.insert_matching_function(fn, vnode);
 }
 
 static BuilderOutputSocket *insert_pack_list_sockets(VTreeDataGraphBuilder &builder,
                                                      VirtualNode *vnode,
-                                                     SharedType &base_type,
+                                                     Type *base_type,
                                                      const char *prop_name,
                                                      uint start_index)
 {
@@ -252,7 +252,7 @@ static BuilderOutputSocket *insert_pack_list_sockets(VTreeDataGraphBuilder &buil
 
 static void INSERT_pack_list(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
-  SharedType &base_type = builder.query_type_property(vnode, "active_type");
+  Type *base_type = builder.query_type_property(vnode, "active_type");
   BuilderOutputSocket *packed_list_socket = insert_pack_list_sockets(
       builder, vnode, base_type, "variadic", 0);
   builder.map_output_socket(packed_list_socket, vnode->output(0));
@@ -279,7 +279,7 @@ static void INSERT_call(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 
 static void INSERT_switch(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
-  SharedType &data_type = builder.query_type_property(vnode, "data_type");
+  Type *data_type = builder.query_type_property(vnode, "data_type");
   auto fn = Functions::GET_FN_bool_switch(data_type);
   builder.insert_matching_function(fn, vnode);
 }

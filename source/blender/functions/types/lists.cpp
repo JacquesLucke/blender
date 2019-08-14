@@ -9,10 +9,10 @@ namespace Types {
 
 class ListTypeInfo : public CPPTypeInfoForType<SharedList> {
  private:
-  SharedType m_base_type;
+  Type *m_base_type;
 
  public:
-  ListTypeInfo(SharedType base_type) : m_base_type(std::move(base_type))
+  ListTypeInfo(Type *base_type) : m_base_type(std::move(base_type))
   {
   }
 
@@ -30,9 +30,9 @@ class ListTypeInfo : public CPPTypeInfoForType<SharedList> {
   }
 };
 
-SharedType new_list_type(SharedType &base_type)
+Type *new_list_type(Type *base_type)
 {
-  SharedType type = SharedType::New(base_type->name() + " List");
+  Type *type = new Type(base_type->name() + " List");
   type->add_extension<ListTypeInfo>(base_type);
   type->add_extension<PointerLLVMTypeInfo>(
       /* Copy list by incrementing the reference counter. */
@@ -54,32 +54,32 @@ SharedType new_list_type(SharedType &base_type)
   return type;
 }
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_float_list)
+BLI_LAZY_INIT(Type *, GET_TYPE_float_list)
 {
   return new_list_type(GET_TYPE_float());
 }
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_float3_list)
+BLI_LAZY_INIT(Type *, GET_TYPE_float3_list)
 {
   return new_list_type(GET_TYPE_float3());
 }
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_int32_list)
+BLI_LAZY_INIT(Type *, GET_TYPE_int32_list)
 {
   return new_list_type(GET_TYPE_int32());
 }
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_bool_list)
+BLI_LAZY_INIT(Type *, GET_TYPE_bool_list)
 {
   return new_list_type(GET_TYPE_bool());
 }
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_object_list)
+BLI_LAZY_INIT(Type *, GET_TYPE_object_list)
 {
   return new_list_type(GET_TYPE_object());
 }
 
-BLI_LAZY_INIT(SharedType, GET_TYPE_rgba_f_list)
+BLI_LAZY_INIT(Type *, GET_TYPE_rgba_f_list)
 {
   return new_list_type(GET_TYPE_rgba_f());
 }

@@ -15,8 +15,6 @@
  *
  * A type owns its extensions. They can be dynamically added, but not removed. The extensions are
  * freed whenever the type is freed.
- *
- * Types are reference counted. They will be freed automatically, when nobody uses them anymore.
  */
 
 #pragma once
@@ -51,7 +49,7 @@ class TypeExtension {
   static const uint EXTENSION_TYPE_AMOUNT = 2;
 };
 
-class Type final : public RefCounter {
+class Type final {
  public:
   Type() = delete;
   Type(StringRef name);
@@ -85,8 +83,6 @@ class Type final : public RefCounter {
   std::mutex m_add_extension_mutex;
   TypeExtension *m_extensions[TypeExtension::EXTENSION_TYPE_AMOUNT] = {0};
 };
-
-using SharedType = AutoRefCount<Type>;
 
 /* Type inline functions
  ****************************************/

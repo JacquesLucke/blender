@@ -106,7 +106,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
                       Map<DataSocket, llvm::Value *> &values) const
   {
     llvm::Value *value_to_forward = values.lookup(output);
-    SharedType &type = m_graph->type_of_socket(output);
+    Type *type = m_graph->type_of_socket(output);
     LLVMTypeInfo &type_info = type->extension<LLVMTypeInfo>();
 
     Vector<DataSocket> targets;

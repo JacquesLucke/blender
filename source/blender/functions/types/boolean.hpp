@@ -5,6 +5,6 @@
 namespace FN {
 namespace Types {
 
-SharedType &GET_TYPE_bool();
+Type *&GET_TYPE_bool();
 }
 }  // namespace FN

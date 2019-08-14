@@ -52,8 +52,8 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     BLI_assert(main->has_body<LLVMBuildIRBody>());
     BLI_assert(input_is_list.contains(true));
     for (uint i = 0; i < main->input_amount(); i++) {
-      SharedType &base_type = main->input_type(i);
-      SharedType &list_type = get_list_type(base_type);
+      Type *base_type = main->input_type(i);
+      Type *list_type = get_list_type(base_type);
       InputInfo info;
       info.is_list = input_is_list[i];
       info.base_cpp_type = &base_type->extension<CPPTypeInfo>();
@@ -111,9 +111,9 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     return list->storage();
   }
 
-  static void *callback__new_list(SharedType *base_type, uint size)
+  static void *callback__new_list(Type *base_type, uint size)
   {
-    List *list = new List(*base_type);
+    List *list = new List(base_type);
     list->reserve_and_set_size(size);
     return static_cast<void *>(list);
   }
@@ -159,11 +159,11 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     Vector<llvm::Value *> data_pointers;
     for (uint i = 0; i < m_output_info.size(); i++) {
       uint stride = m_output_info[i].base_cpp_type->size();
-      SharedType *output_type_ptr = &m_main->output_type(i);
+      Type *output_type = m_main->output_type(i);
 
       llvm::Value *output_list = builder.CreateCallPointer(
           (void *)callback__new_list,
-          {builder.getAnyPtr(output_type_ptr), length},
+          {builder.getAnyPtr(output_type), length},
           builder.getAnyPtrTy(),
           "Create new list with length");
       llvm::Value *data_ptr = builder.CreateCallPointer((void *)callback__get_storage,
@@ -282,7 +282,7 @@ class AutoVectorization : public TupleCallBody {
       }
     }
     for (uint i : m_list_inputs) {
-      SharedType &base_type = main->input_type(i);
+      Type *base_type = main->input_type(i);
       m_get_length_bodies.append(&GET_FN_list_length(base_type)->body<TupleCallBody>());
       m_get_element_bodies.append(&GET_FN_get_list_element(base_type)->body<TupleCallBody>());
     }
@@ -431,9 +431,9 @@ static SharedFunction to_vectorized_function_internal(
   FunctionBuilder builder;
   for (uint i = 0; i < input_amount; i++) {
     StringRef original_name = original_fn->input_name(i);
-    SharedType &original_type = original_fn->input_type(i);
+    Type *original_type = original_fn->input_type(i);
     if (vectorized_inputs_mask[i]) {
-      SharedType &list_type = get_list_type(original_type);
+      Type *list_type = get_list_type(original_type);
       builder.add_input(original_name + " (List)", list_type);
     }
     else {
@@ -443,8 +443,8 @@ static SharedFunction to_vectorized_function_internal(
 
   for (uint i = 0; i < output_amount; i++) {
     StringRef original_name = original_fn->output_name(i);
-    SharedType &original_type = original_fn->output_type(i);
-    SharedType &list_type = get_list_type(original_type);
+    Type *original_type = original_fn->output_type(i);
+    Type *list_type = get_list_type(original_type);
     builder.add_output(original_name + " (List)", list_type);
   }
 

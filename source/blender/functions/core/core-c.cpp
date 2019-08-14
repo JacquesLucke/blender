@@ -44,14 +44,14 @@ uint FN_output_amount(FnFunction fn_c)
 
 bool FN_input_has_type(FnFunction fn_c, uint index, FnType type_c)
 {
-  Type *type1 = unwrap(fn_c)->input_type(index).ptr();
+  Type *type1 = unwrap(fn_c)->input_type(index);
   Type *type2 = unwrap(type_c);
   return type1 == type2;
 }
 
 bool FN_output_has_type(FnFunction fn_c, uint index, FnType type_c)
 {
-  Type *type1 = unwrap(fn_c)->output_type(index).ptr();
+  Type *type1 = unwrap(fn_c)->output_type(index);
   Type *type2 = unwrap(type_c);
   return type1 == type2;
 }
@@ -65,9 +65,4 @@ void FN_function_print(FnFunction fn_c)
 const char *FN_type_name(FnType type)
 {
   return unwrap(type)->name().data();
-}
-
-void FN_type_free(FnType type)
-{
-  unwrap(type)->decref();
 }

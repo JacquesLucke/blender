@@ -21,7 +21,7 @@ class VTreeDataGraphBuilder {
  private:
   VirtualNodeTree &m_vtree;
   Vector<BuilderSocket *> m_socket_map;
-  Vector<SharedType> m_type_by_vsocket;
+  Vector<Type *> m_type_by_vsocket;
   std::unique_ptr<TypeMappings> &m_type_mappings;
   Vector<BuilderNode *> m_placeholder_nodes;
   DataGraphBuilder m_graph_builder;
@@ -54,13 +54,13 @@ class VTreeDataGraphBuilder {
   bool is_input_unlinked(VirtualSocket *vsocket);
   bool verify_data_sockets_mapped(VirtualNode *vnode) const;
 
-  SharedType &type_by_name(StringRef data_type) const;
+  Type *type_by_name(StringRef data_type) const;
   VirtualNodeTree &vtree() const;
   bool is_data_socket(VirtualSocket *vsocket) const;
-  SharedType &query_socket_type(VirtualSocket *vsocket) const;
-  SharedType &query_type_property(VirtualNode *vnode, StringRefNull prop_name) const;
+  Type *query_socket_type(VirtualSocket *vsocket) const;
+  Type *query_type_property(VirtualNode *vnode, StringRefNull prop_name) const;
   bool has_data_socket(VirtualNode *vnode) const;
-  SharedType &type_from_rna(PointerRNA &rna, StringRefNull prop_name) const;
+  Type *type_from_rna(PointerRNA &rna, StringRefNull prop_name) const;
   ArrayRef<BuilderNode *> placeholder_nodes();
 
   std::string to_dot();

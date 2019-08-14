@@ -34,7 +34,7 @@ VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree)
 
 BLI_NOINLINE void VTreeDataGraphBuilder::initialize_type_by_vsocket_map()
 {
-  m_type_by_vsocket = Vector<SharedType>(m_vtree.socket_count(), SharedType());
+  m_type_by_vsocket = Vector<Type *>(m_vtree.socket_count(), nullptr);
   for (VirtualNode *vnode : m_vtree.nodes()) {
     for (VirtualSocket *vsocket : vnode->inputs()) {
       m_type_by_vsocket[vsocket->id()] = m_type_mappings->type_by_idname_or_empty(
@@ -134,14 +134,14 @@ BuilderNode *VTreeDataGraphBuilder::insert_placeholder(VirtualNode *vnode)
   for (VirtualSocket *vsocket : vnode->inputs()) {
     if (this->is_data_socket(vsocket)) {
       vsocket_inputs.append(vsocket);
-      SharedType &type = this->query_socket_type(vsocket);
+      Type *type = this->query_socket_type(vsocket);
       fn_builder.add_input(vsocket->name(), type);
     }
   }
 
   for (VirtualSocket *vsocket : vnode->outputs()) {
     if (this->is_data_socket(vsocket)) {
-      SharedType &type = this->query_socket_type(vsocket);
+      Type *type = this->query_socket_type(vsocket);
       fn_builder.add_output(vsocket->name(), type);
     }
   }
@@ -295,28 +295,27 @@ VirtualNodeTree &VTreeDataGraphBuilder::vtree() const
 
 bool VTreeDataGraphBuilder::is_data_socket(VirtualSocket *vsocket) const
 {
-  return m_type_by_vsocket[vsocket->id()].ptr() != nullptr;
+  return m_type_by_vsocket[vsocket->id()] != nullptr;
 }
 
-SharedType &VTreeDataGraphBuilder::type_by_name(StringRef data_type) const
+Type *VTreeDataGraphBuilder::type_by_name(StringRef data_type) const
 {
   return m_type_mappings->type_by_name(data_type);
 }
 
-SharedType &VTreeDataGraphBuilder::query_socket_type(VirtualSocket *vsocket) const
+Type *VTreeDataGraphBuilder::query_socket_type(VirtualSocket *vsocket) const
 {
   BLI_assert(this->is_data_socket(vsocket));
   return m_type_by_vsocket[vsocket->id()];
 }
 
-SharedType &VTreeDataGraphBuilder::query_type_property(VirtualNode *vnode,
-                                                       StringRefNull prop_name) const
+Type *VTreeDataGraphBuilder::query_type_property(VirtualNode *vnode, StringRefNull prop_name) const
 {
   PointerRNA rna = vnode->rna();
   return this->type_from_rna(rna, prop_name);
 }
 
-SharedType &VTreeDataGraphBuilder::type_from_rna(PointerRNA &rna, StringRefNull prop_name) const
+Type *VTreeDataGraphBuilder::type_from_rna(PointerRNA &rna, StringRefNull prop_name) const
 {
   char type_name[64];
   RNA_string_get(&rna, prop_name, type_name);

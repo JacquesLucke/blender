@@ -50,7 +50,7 @@ static void LOAD_color(PointerRNA *rna, Tuple &tuple, uint index)
   tuple.set<rgba_f>(index, color);
 }
 
-static SocketLoader GET_empty_list_loader(SharedType &type)
+static SocketLoader GET_empty_list_loader(Type *type)
 {
   return [&type](PointerRNA *UNUSED(rna), Tuple &tuple, uint index) {
     auto list = SharedList::New(type);

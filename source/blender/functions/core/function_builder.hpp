@@ -9,9 +9,9 @@ class FunctionBuilder {
  private:
   ChainedStringsBuilder m_strings_builder;
   Vector<ChainedStringRef> m_input_names;
-  Vector<SharedType> m_input_types;
+  Vector<Type *> m_input_types;
   Vector<ChainedStringRef> m_output_names;
-  Vector<SharedType> m_output_types;
+  Vector<Type *> m_output_types;
 
  public:
   FunctionBuilder();
@@ -19,12 +19,12 @@ class FunctionBuilder {
   /**
    * Add an input to the function with the given name and type.
    */
-  void add_input(StringRef input_name, SharedType &type);
+  void add_input(StringRef input_name, Type *type);
 
   /**
    * Add an output to the function with the given name and type.
    */
-  void add_output(StringRef output_name, SharedType &type);
+  void add_output(StringRef output_name, Type *type);
 
   /**
    * Add multiple inputs. The names and types are taken from the sockets.

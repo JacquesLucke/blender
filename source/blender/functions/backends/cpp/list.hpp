@@ -10,7 +10,7 @@ using SharedList = AutoRefCount<List>;
 
 class List : public RefCounter {
  private:
-  SharedType m_type;
+  Type *m_type;
   CPPTypeInfo *m_type_info;
   void *m_storage;
   uint m_size;
@@ -18,7 +18,7 @@ class List : public RefCounter {
 
  public:
   List() = delete;
-  List(SharedType type) : m_type(std::move(type))
+  List(Type *type) : m_type(std::move(type))
   {
     m_type_info = &m_type->extension<CPPTypeInfo>();
     m_storage = nullptr;
@@ -120,7 +120,7 @@ class List : public RefCounter {
     return m_size;
   }
 
-  SharedType &type()
+  Type *type()
   {
     return m_type;
   }

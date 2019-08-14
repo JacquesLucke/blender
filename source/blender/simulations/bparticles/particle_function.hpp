@@ -18,8 +18,8 @@ using FN::CPPTypeInfo;
 using FN::ExecutionContext;
 using FN::ExecutionStack;
 using FN::SharedFunction;
-using FN::SharedType;
 using FN::TupleCallBody;
+using FN::Type;
 
 class ParticleFunction;
 

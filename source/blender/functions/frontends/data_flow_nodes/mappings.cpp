@@ -34,7 +34,7 @@ BLI_LAZY_INIT(std::unique_ptr<LinkInserters>, MAPPING_link_inserters)
   return inserters;
 }
 
-void TypeMappings::register_type(StringRef idname, StringRef name, SharedType type)
+void TypeMappings::register_type(StringRef idname, StringRef name, Type *type)
 {
   m_type_by_idname.add_new(idname, type);
   m_type_by_name.add_new(name, type);

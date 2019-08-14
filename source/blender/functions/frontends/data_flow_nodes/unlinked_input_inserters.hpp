@@ -24,7 +24,7 @@ class ReloadableInputs : public UnlinkedInputsInserter {
   MonotonicAllocator m_allocator;
   Vector<void *> m_addresses;
   Vector<SocketLoader> m_loaders;
-  Vector<SharedType> m_types;
+  Vector<Type *> m_types;
   Vector<bNodeTree *> m_btrees;
   Vector<bNodeSocket *> m_bsockets;
   std::unique_ptr<Tuple> m_tuple;

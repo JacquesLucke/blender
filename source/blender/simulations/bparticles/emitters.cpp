@@ -137,18 +137,18 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
   body.set_input<float>(fn_in, 1, "Time Step", interface.time_span().duration());
   body.call__setup_execution_context(fn_in, fn_out);
 
-  auto &float_list_type = FN::Types::GET_TYPE_float_list();
-  auto &float3_list_type = FN::Types::GET_TYPE_float3_list();
-  auto &int32_list_type = FN::Types::GET_TYPE_int32_list();
-  auto &rgba_f_list_type = FN::Types::GET_TYPE_rgba_f_list();
-  auto &float_type = FN::Types::GET_TYPE_float();
-  auto &float3_type = FN::Types::GET_TYPE_float3();
-  auto &int32_type = FN::Types::GET_TYPE_int32();
-  auto &rgba_f_type = FN::Types::GET_TYPE_rgba_f();
+  FN::Type *float_list_type = FN::Types::GET_TYPE_float_list();
+  FN::Type *float3_list_type = FN::Types::GET_TYPE_float3_list();
+  FN::Type *int32_list_type = FN::Types::GET_TYPE_int32_list();
+  FN::Type *rgba_f_list_type = FN::Types::GET_TYPE_rgba_f_list();
+  FN::Type *float_type = FN::Types::GET_TYPE_float();
+  FN::Type *float3_type = FN::Types::GET_TYPE_float3();
+  FN::Type *int32_type = FN::Types::GET_TYPE_int32();
+  FN::Type *rgba_f_type = FN::Types::GET_TYPE_rgba_f();
 
   uint new_particle_amount = 0;
   for (uint i = 0; i < m_function->output_amount(); i++) {
-    auto &type = m_function->output_type(i);
+    FN::Type *type = m_function->output_type(i);
     if (ELEM(type, float_list_type, float3_list_type, int32_list_type, rgba_f_list_type)) {
       uint length = fn_out.get_ref<SharedList>(i)->size();
       new_particle_amount = std::max(new_particle_amount, length);
@@ -160,7 +160,7 @@ void CustomFunctionEmitter::emit(EmitterInterface &interface)
   new_particles.fill<float>("Birth Time", interface.time_span().end());
 
   for (uint i = 0; i < m_function->output_amount(); i++) {
-    auto &type = m_function->output_type(i);
+    FN::Type *type = m_function->output_type(i);
     StringRef attribute_name = m_function->output_name(i);
     int attribute_index = new_particles.attributes_info().attribute_index_try(attribute_name);
 

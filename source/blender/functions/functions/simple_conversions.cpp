@@ -18,7 +18,7 @@ template<typename From, typename To> class ImplicitConversion : public TupleCall
   }
 };
 
-static SharedFunction get_simple_conversion_function(SharedType &from_type, SharedType &to_type)
+static SharedFunction get_simple_conversion_function(Type *from_type, Type *to_type)
 {
   FunctionBuilder builder;
   builder.add_input("In", from_type);
@@ -28,7 +28,7 @@ static SharedFunction get_simple_conversion_function(SharedType &from_type, Shar
 }
 
 template<typename From, typename To>
-static SharedFunction get_implicit_conversion_function(SharedType &from_type, SharedType &to_type)
+static SharedFunction get_implicit_conversion_function(Type *from_type, Type *to_type)
 {
   auto fn = get_simple_conversion_function(from_type, to_type);
   fn->add_body<ImplicitConversion<From, To>>();

@@ -7,9 +7,9 @@ namespace FN {
 
 Function::Function(ChainedStringRef name,
                    ArrayRef<ChainedStringRef> input_names,
-                   ArrayRef<SharedType> input_types,
+                   ArrayRef<Type *> input_types,
                    ArrayRef<ChainedStringRef> output_names,
-                   ArrayRef<SharedType> output_types,
+                   ArrayRef<Type *> output_types,
                    const char *strings)
     : m_name(name),
       m_input_names(input_names),

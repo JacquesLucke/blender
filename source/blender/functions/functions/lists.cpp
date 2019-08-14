@@ -12,10 +12,10 @@ using namespace Types;
 
 class CreateEmptyList : public TupleCallBody {
  private:
-  SharedType m_base_type;
+  Type *m_base_type;
 
  public:
-  CreateEmptyList(SharedType base_type) : m_base_type(std::move(base_type))
+  CreateEmptyList(Type *base_type) : m_base_type(std::move(base_type))
   {
   }
 
@@ -26,8 +26,7 @@ class CreateEmptyList : public TupleCallBody {
   }
 };
 
-static SharedFunction build_create_empty_list_function(SharedType &base_type,
-                                                       SharedType &list_type)
+static SharedFunction build_create_empty_list_function(Type *base_type, Type *list_type)
 {
   FunctionBuilder builder;
   builder.add_output("List", list_type);
@@ -40,10 +39,10 @@ static SharedFunction build_create_empty_list_function(SharedType &base_type,
 
 class CreateSingleElementList : public TupleCallBody {
  private:
-  SharedType m_base_type;
+  Type *m_base_type;
 
  public:
-  CreateSingleElementList(SharedType base_type) : m_base_type(std::move(base_type))
+  CreateSingleElementList(Type *base_type) : m_base_type(std::move(base_type))
   {
   }
 
@@ -62,8 +61,7 @@ class CreateSingleElementListDependencies : public DepsBody {
   }
 };
 
-static SharedFunction build_create_single_element_list_function(SharedType &base_type,
-                                                                SharedType &list_type)
+static SharedFunction build_create_single_element_list_function(Type *base_type, Type *list_type)
 {
   FunctionBuilder builder;
   builder.add_input("Value", base_type);
@@ -80,10 +78,10 @@ static SharedFunction build_create_single_element_list_function(SharedType &base
 
 class AppendToList : public TupleCallBody {
  private:
-  SharedType m_base_type;
+  Type *m_base_type;
 
  public:
-  AppendToList(SharedType base_type) : m_base_type(std::move(base_type))
+  AppendToList(Type *base_type) : m_base_type(std::move(base_type))
   {
   }
 
@@ -104,7 +102,7 @@ class AppendToListDependencies : public DepsBody {
   }
 };
 
-static SharedFunction build_append_function(SharedType &base_type, SharedType &list_type)
+static SharedFunction build_append_function(Type *base_type, Type *list_type)
 {
   FunctionBuilder builder;
   builder.add_input("List", list_type);
@@ -122,10 +120,10 @@ static SharedFunction build_append_function(SharedType &base_type, SharedType &l
 
 class GetListElement : public TupleCallBody {
  private:
-  SharedType m_base_type;
+  Type *m_base_type;
 
  public:
-  GetListElement(SharedType base_type) : m_base_type(std::move(base_type))
+  GetListElement(Type *base_type) : m_base_type(std::move(base_type))
   {
   }
 
@@ -151,7 +149,7 @@ class GetListElementDependencies : public DepsBody {
   }
 };
 
-static SharedFunction build_get_element_function(SharedType &base_type, SharedType &list_type)
+static SharedFunction build_get_element_function(Type *base_type, Type *list_type)
 {
   FunctionBuilder builder;
   builder.add_input("List", list_type);
@@ -170,10 +168,10 @@ static SharedFunction build_get_element_function(SharedType &base_type, SharedTy
 
 class CombineLists : public TupleCallBody {
  private:
-  SharedType m_base_type;
+  Type *m_base_type;
 
  public:
-  CombineLists(SharedType base_type) : m_base_type(std::move(base_type))
+  CombineLists(Type *base_type) : m_base_type(std::move(base_type))
   {
   }
 
@@ -197,7 +195,7 @@ class CombineListsDependencies : public DepsBody {
   }
 };
 
-static SharedFunction build_combine_lists_function(SharedType &base_type, SharedType &list_type)
+static SharedFunction build_combine_lists_function(Type *base_type, Type *list_type)
 {
   FunctionBuilder builder;
   builder.add_input("List 1", list_type);
@@ -222,7 +220,7 @@ class ListLength : public TupleCallBody {
   }
 };
 
-static SharedFunction build_list_length_function(SharedType &base_type, SharedType &list_type)
+static SharedFunction build_list_length_function(Type *base_type, Type *list_type)
 {
   FunctionBuilder builder;
   builder.add_input("List", list_type);
@@ -237,7 +235,7 @@ static SharedFunction build_list_length_function(SharedType &base_type, SharedTy
 /* Build List Functions
  *************************************/
 
-using FunctionPerType = Map<SharedType, SharedFunction>;
+using FunctionPerType = Map<Type *, SharedFunction>;
 
 struct ListFunctions {
   FunctionPerType m_create_empty;
@@ -249,8 +247,8 @@ struct ListFunctions {
 };
 
 static void insert_list_functions_for_type(ListFunctions &functions,
-                                           SharedType &base_type,
-                                           SharedType &list_type)
+                                           Type *base_type,
+                                           Type *list_type)
 {
   functions.m_create_empty.add(base_type, build_create_empty_list_function(base_type, list_type));
   functions.m_from_element.add(base_type,
@@ -276,49 +274,49 @@ BLI_LAZY_INIT_STATIC(ListFunctions, get_list_functions)
 /* Access List Functions
  *************************************/
 
-SharedFunction &GET_FN_empty_list(SharedType &base_type)
+SharedFunction &GET_FN_empty_list(Type *base_type)
 {
   FunctionPerType &functions = get_list_functions().m_create_empty;
   BLI_assert(functions.contains(base_type));
   return functions.lookup(base_type);
 }
 
-SharedFunction &GET_FN_list_from_element(SharedType &base_type)
+SharedFunction &GET_FN_list_from_element(Type *base_type)
 {
   FunctionPerType &functions = get_list_functions().m_from_element;
   BLI_assert(functions.contains(base_type));
   return functions.lookup(base_type);
 }
 
-SharedFunction &GET_FN_append_to_list(SharedType &base_type)
+SharedFunction &GET_FN_append_to_list(Type *base_type)
 {
   FunctionPerType &functions = get_list_functions().m_append;
   BLI_assert(functions.contains(base_type));
   return functions.lookup(base_type);
 }
 
-SharedFunction &GET_FN_get_list_element(SharedType &base_type)
+SharedFunction &GET_FN_get_list_element(Type *base_type)
 {
   FunctionPerType &functions = get_list_functions().m_get_element;
   BLI_assert(functions.contains(base_type));
   return functions.lookup(base_type);
 }
 
-SharedFunction &GET_FN_combine_lists(SharedType &base_type)
+SharedFunction &GET_FN_combine_lists(Type *base_type)
 {
   FunctionPerType &functions = get_list_functions().m_combine;
   BLI_assert(functions.contains(base_type));
   return functions.lookup(base_type);
 }
 
-SharedFunction &GET_FN_list_length(SharedType &base_type)
+SharedFunction &GET_FN_list_length(Type *base_type)
 {
   FunctionPerType &functions = get_list_functions().m_length;
   BLI_assert(functions.contains(base_type));
   return functions.lookup(base_type);
 }
 
-SharedType &get_list_type(SharedType &base_type)
+Type *get_list_type(Type *base_type)
 {
   SharedFunction &fn = GET_FN_append_to_list(base_type);
   return fn->input_type(0);
