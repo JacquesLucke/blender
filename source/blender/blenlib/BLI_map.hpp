@@ -167,7 +167,7 @@ template<typename K, typename V, uint N = 4> class Map {
    * Return a reference to the value corresponding to the key.
    * If the key does not exist yet, insert the given key-value-pair first.
    */
-  V &lookup_ref_or_insert(const K &key, V initial_value)
+  V &lookup_or_add(const K &key, V initial_value)
   {
     V *ptr = this->lookup_ptr(key);
     if (ptr != nullptr) {
@@ -183,7 +183,7 @@ template<typename K, typename V, uint N = 4> class Map {
    * key-value pair.
    */
   template<typename CreateValueFunc>
-  V &lookup_ref_or_insert_func(const K &key, const CreateValueFunc &create_value)
+  V &lookup_or_add_func(const K &key, const CreateValueFunc &create_value)
   {
     V *ptr = this->lookup_ptr(key);
     if (ptr != nullptr) {

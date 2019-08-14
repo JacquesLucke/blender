@@ -506,7 +506,7 @@ SharedFunction to_vectorized_function__with_cache(
   static VectorizeCacheMap &cache = get_vectorized_function_cache();
 
   AutoVectorizationInput cache_key(original_fn, vectorized_inputs_mask, empty_list_value_builders);
-  return cache.lookup_ref_or_insert_func(cache_key, [&]() {
+  return cache.lookup_or_add_func(cache_key, [&]() {
     return to_vectorized_function_internal(
         original_fn, vectorized_inputs_mask, empty_list_value_builders);
   });
