@@ -23,6 +23,7 @@
 #include <mutex>
 #include "BLI_refcount.hpp"
 #include "BLI_string_ref.hpp"
+#include "MEM_guardedalloc.h"
 
 namespace FN {
 
@@ -54,6 +55,10 @@ class Type final {
   Type() = delete;
   Type(StringRef name);
   ~Type();
+
+#ifdef WITH_CXX_GUARDEDALLOC
+  MEM_CXX_CLASS_ALLOC_FUNCS("FN:Types")
+#endif
 
   /**
    * Get the name of the type.

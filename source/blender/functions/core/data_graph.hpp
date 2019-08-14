@@ -213,6 +213,10 @@ class DataGraph : public RefCounter {
   DataGraph(DataGraph &other) = delete;
   ~DataGraph();
 
+#ifdef WITH_CXX_GUARDEDALLOC
+  MEM_CXX_CLASS_ALLOC_FUNCS("FN:DataGraph")
+#endif
+
   Range<uint> node_ids() const
   {
     return Range<uint>(0, m_nodes.size());

@@ -66,6 +66,10 @@ class Function final : public RefCounter {
 
   ~Function();
 
+#ifdef WITH_CXX_GUARDEDALLOC
+  MEM_CXX_CLASS_ALLOC_FUNCS("FN:Function")
+#endif
+
   /**
    * Get the name of the function.
    */
