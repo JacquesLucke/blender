@@ -429,6 +429,17 @@ void squeeze(float val, float width, float center, out float outval)
   outval = 1.0 / (1.0 + pow(2.71828183, -((val - center) * width)));
 }
 
+void map_range(
+    float value, float fromMin, float fromMax, float toMin, float toMax, out float result)
+{
+  if (fromMax != fromMin) {
+    result = toMin + ((value - fromMin) / (fromMax - fromMin)) * (toMax - toMin);
+  }
+  else {
+    result = 0.0;
+  }
+}
+
 void vec_math_add(vec3 v1, vec3 v2, out vec3 outvec, out float outval)
 {
   outvec = v1 + v2;
@@ -960,9 +971,9 @@ void clamp_vec3(vec3 vec, vec3 min, vec3 max, out vec3 out_vec)
   out_vec = clamp(vec, min, max);
 }
 
-void clamp_val(float value, float min, float max, out float out_value)
+void clamp_value(float value, float min, float max, out float result)
 {
-  out_value = clamp(value, min, max);
+  result = clamp(value, min, max);
 }
 
 void hue_sat(float hue, float sat, float value, float fac, vec4 col, out vec4 outcol)
