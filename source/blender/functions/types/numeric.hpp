@@ -9,7 +9,7 @@ namespace Types {
 using BLI::float3;
 using BLI::rgba_f;
 
-void INIT_numeric();
+void INIT_numeric(Vector<Type *> &types_to_free);
 
 extern Type *TYPE_float;
 extern Type *TYPE_int32;

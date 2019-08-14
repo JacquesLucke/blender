@@ -11,7 +11,7 @@ namespace Types {
 Type *TYPE_object = nullptr;
 Type *TYPE_object_list = nullptr;
 
-void INIT_external()
+void INIT_external(Vector<Type *> &types_to_free)
 {
   TYPE_object = new Type("Object");
   TYPE_object->add_extension<CPPTypeInfoForType<Object *>>();
@@ -19,6 +19,8 @@ void INIT_external()
       [](void *value) { return value; }, [](void *UNUSED(value)) {}, []() { return nullptr; });
 
   TYPE_object_list = new_list_type(TYPE_object);
+
+  types_to_free.extend({TYPE_object, TYPE_object_list});
 }
 
 }  // namespace Types

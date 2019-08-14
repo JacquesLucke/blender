@@ -133,6 +133,8 @@
 
 #include "DRW_engine.h"
 
+#include "FN_all-c.h"
+
 #ifdef WITH_OPENSUBDIV
 #  include "BKE_subsurf.h"
 #endif
@@ -649,6 +651,8 @@ void WM_exit_ex(bContext *C, const bool do_python)
   CLG_exit();
 
   BKE_blender_atexit();
+
+  FN_exit();
   BLI_temporary_buffers_free_all();
 
   if (MEM_get_memory_blocks_in_use() != 0) {

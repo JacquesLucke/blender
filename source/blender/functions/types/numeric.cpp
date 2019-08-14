@@ -56,7 +56,7 @@ Type *TYPE_int32_list = nullptr;
 Type *TYPE_float3_list = nullptr;
 Type *TYPE_rgba_f_list = nullptr;
 
-void INIT_numeric()
+void INIT_numeric(Vector<Type *> &types_to_free)
 {
   TYPE_float = new Type("Float");
   TYPE_float->add_extension<CPPTypeInfoForType<float>>();
@@ -80,6 +80,17 @@ void INIT_numeric()
   TYPE_int32_list = new_list_type(TYPE_int32);
   TYPE_float3_list = new_list_type(TYPE_float3);
   TYPE_rgba_f_list = new_list_type(TYPE_rgba_f);
+
+  types_to_free.extend({
+      TYPE_float,
+      TYPE_int32,
+      TYPE_float3,
+      TYPE_rgba_f,
+      TYPE_float_list,
+      TYPE_int32_list,
+      TYPE_float3_list,
+      TYPE_rgba_f_list,
+  });
 }
 
 }  // namespace Types

@@ -33,13 +33,15 @@ class LLVMBool : public TrivialLLVMTypeInfo {
 Type *TYPE_bool = nullptr;
 Type *TYPE_bool_list = nullptr;
 
-void INIT_bool()
+void INIT_bool(Vector<Type *> &types_to_free)
 {
   TYPE_bool = new Type("Bool");
   TYPE_bool->add_extension<CPPTypeInfoForType<bool>>();
   TYPE_bool->add_extension<LLVMBool>();
 
   TYPE_bool_list = new_list_type(TYPE_bool);
+
+  types_to_free.extend({TYPE_bool, TYPE_bool_list});
 }
 
 }  // namespace Types

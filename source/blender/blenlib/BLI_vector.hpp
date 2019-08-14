@@ -281,13 +281,8 @@ template<typename T, uint N = 4> class Vector {
   }
 
   /**
-   * Copy the elements of another vector to the end of this vector.
+   * Copy the elements of another array to the end of this vector.
    */
-  void extend(const Vector &other)
-  {
-    this->extend(other.begin(), other.size());
-  }
-
   void extend(ArrayRef<T> array)
   {
     this->extend(array.begin(), array.size());

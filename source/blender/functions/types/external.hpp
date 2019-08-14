@@ -5,7 +5,8 @@
 namespace FN {
 namespace Types {
 
-void INIT_external();
+void INIT_external(Vector<Type *> &types_to_free);
+
 extern Type *TYPE_object;
 extern Type *TYPE_object_list;
 
