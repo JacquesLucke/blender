@@ -14,4 +14,4 @@ class CloseByPointsEventNode(bpy.types.Node, BParticlesNode):
         builder.fixed_input("distance", "Distance", "Float", default=1)
         builder.execute_input("execute_on_event", "Execute on Event", "execute_on_event__prop")
 
-        builder.event_output("event", "Event")
+        builder.particle_effector_output("event", "Event")

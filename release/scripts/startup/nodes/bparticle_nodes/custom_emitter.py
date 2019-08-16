@@ -19,7 +19,7 @@ class CustomEmitterNode(bpy.types.Node, FunctionNode):
             builder.tree_interface_input("inputs", self.function_tree, 'IN',
                 ignored={("Float", "Time Step"), ("Float", "Start Time")})
 
-        builder.emitter_output("emitter", "Emitter")
+        builder.particle_effector_output("emitter", "Emitter")
 
     def draw(self, layout):
         row = layout.row(align=True)

@@ -5,81 +5,6 @@ from .. sockets import OperatorSocket
 
 MAX_LINK_LIMIT = 4095
 
-class EmitterSocketDecl(SocketDeclBase):
-    def __init__(self, node, identifier: str, display_name: str):
-        self.node = node
-        self.identifier = identifier
-        self.display_name = display_name
-
-    def build(self, node_sockets):
-        socket = node_sockets.new("bp_EmitterSocket", self.display_name, identifier=self.identifier)
-        socket.link_limit = MAX_LINK_LIMIT
-        return [socket]
-
-    def validate(self, sockets):
-        if len(sockets) != 1:
-            return False
-        socket = sockets[0]
-        if socket.bl_idname != "bp_EmitterSocket":
-            return False
-        if socket.name != self.display_name:
-            return False
-        if socket.link_limit != MAX_LINK_LIMIT:
-            return False
-        return True
-
-    def amount(self):
-        return 1
-
-class EventSocketDecl(SocketDeclBase):
-    def __init__(self, node, identifier: str, display_name: str):
-        self.node = node
-        self.identifier = identifier
-        self.display_name = display_name
-
-    def build(self, node_sockets):
-        socket = node_sockets.new("bp_EventSocket", self.display_name, identifier=self.identifier)
-        socket.link_limit = MAX_LINK_LIMIT
-        return [socket]
-
-    def validate(self, sockets):
-        if len(sockets) != 1:
-            return False
-        socket = sockets[0]
-        if socket.bl_idname != "bp_EventSocket":
-            return False
-        if socket.name != self.display_name:
-            return False
-        if socket.link_limit != MAX_LINK_LIMIT:
-            return False
-        return True
-
-    def amount(self):
-        return 1
-
-class ControlFlowSocketDecl(SocketDeclBase):
-    def __init__(self, node, identifier: str, display_name: str):
-        self.node = node
-        self.identifier = identifier
-        self.display_name = display_name
-
-    def build(self, node_sockets):
-        socket = node_sockets.new("bp_ControlFlowSocket", self.display_name, identifier=self.identifier)
-        return [socket]
-
-    def validate(self, sockets):
-        if len(sockets) != 1:
-            return False
-        socket = sockets[0]
-        if socket.bl_idname != "bp_ControlFlowSocket":
-            return False
-        if socket.name != self.display_name:
-            return False
-        return True
-
-    def amount(self):
-        return 1
-
 class ParticleEffectorSocketDecl(SocketDeclBase):
     def __init__(self, node, identifier: str, display_name: str):
         self.node = node
@@ -106,6 +31,28 @@ class ParticleEffectorSocketDecl(SocketDeclBase):
     def amount(self):
         return 1
 
+class ExecuteOutputDecl(SocketDeclBase):
+    def __init__(self, node, identifier: str, display_name: str):
+        self.node = node
+        self.identifier = identifier
+        self.display_name = display_name
+
+    def build(self, node_sockets):
+        return [node_sockets.new("bp_ExecuteSocket", self.display_name, identifier=self.identifier)]
+
+    def amount(self):
+        return 1
+
+    def validate(self, sockets):
+        if len(sockets) != 1:
+            return False
+        socket = sockets[0]
+        if socket.name != self.display_name:
+            return False
+        elif socket.identifier != self.identifier:
+            return False
+        return True
+
 class ExecuteInputListDecl(SocketDeclBase):
     def __init__(self, node, identifier: str, prop_name: str, display_name: str):
         self.node = node
@@ -119,7 +66,7 @@ class ExecuteInputListDecl(SocketDeclBase):
     def _build(self, node_sockets):
         for i in range(self.get_execute_amount()):
             yield node_sockets.new(
-                "bp_ControlFlowSocket",
+                "bp_ExecuteSocket",
                 self.display_name,
                 identifier=self.identifier_prefix + str(i))
         yield node_sockets.new("fn_OperatorSocket", "Operator")
@@ -138,7 +85,7 @@ class ExecuteInputListDecl(SocketDeclBase):
             expected_identifier = self.identifier_prefix + str(i)
             if socket.identifier != expected_identifier:
                 return False
-            elif socket.bl_idname != "bp_ControlFlowSocket":
+            elif socket.bl_idname != "bp_ExecuteSocket":
                 return False
 
         if not isinstance(sockets[-1], OperatorSocket):
