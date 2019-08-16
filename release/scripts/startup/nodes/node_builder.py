@@ -10,6 +10,7 @@ from . declaration import (
     EventSocketDecl,
     ControlFlowSocketDecl,
     ParticleEffectorSocketDecl,
+    ExecuteInputListDecl,
 
     NoDefaultValue,
 )
@@ -193,6 +194,10 @@ class NodeBuilder:
     # BParticles
     ###################################
 
+    @staticmethod
+    def ExecuteInputProperty():
+        return ExecuteInputListDecl.Property()
+
     def emitter_input(self, identifier, name):
         decl = EmitterSocketDecl(self.node, identifier, name)
         self._add_input(decl)
@@ -209,14 +214,6 @@ class NodeBuilder:
         decl = EventSocketDecl(self.node, identifier, name)
         self._add_output(decl)
 
-    def control_flow_input(self, identifier, name):
-        decl = ControlFlowSocketDecl(self.node, identifier, name)
-        self._add_input(decl)
-
-    def control_flow_output(self, identifier, name):
-        decl = ControlFlowSocketDecl(self.node, identifier, name)
-        self._add_output(decl)
-
     def particle_effector_input(self, identifier, name):
         decl = ParticleEffectorSocketDecl(self.node, identifier, name)
         self._add_input(decl)
@@ -224,6 +221,15 @@ class NodeBuilder:
     def particle_effector_output(self, identifier, name):
         decl = ParticleEffectorSocketDecl(self.node, identifier, name)
         self._add_output(decl)
+
+    def execute_input(self, identifier, display_name, prop_name):
+        decl = ExecuteInputListDecl(self.node, identifier, prop_name, display_name)
+        self._add_input(decl)
+
+    def execute_output(self, identifier, name):
+        decl = ControlFlowSocketDecl(self.node, identifier, name)
+        self._add_output(decl)
+
 
 
 class SocketDeclMap:

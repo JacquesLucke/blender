@@ -105,7 +105,7 @@ class ObjectSocket(bpy.types.NodeSocket, DataSocket):
         layout.prop(self, "value", text=text)
 
     def get_state(self):
-        return tuple(self.value)
+        return self.value
 
     def restore_state(self, state):
         self.value = state

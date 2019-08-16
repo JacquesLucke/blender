@@ -9,4 +9,4 @@ class ChangeParticleColorNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("color", "Color", "Color")
-        builder.control_flow_output("control_out", "Execute")
+        builder.execute_output("execute", "Execute")

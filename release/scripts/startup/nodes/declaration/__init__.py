@@ -11,4 +11,5 @@ from . bparticles import (
     EventSocketDecl,
     ControlFlowSocketDecl,
     ParticleEffectorSocketDecl,
+    ExecuteInputListDecl,
 )
