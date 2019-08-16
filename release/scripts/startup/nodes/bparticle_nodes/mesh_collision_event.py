@@ -8,6 +8,7 @@ class MeshCollisionEventNode(bpy.types.Node, BParticlesNode):
     bl_label = "Mesh Collision Event"
 
     def declaration(self, builder: NodeBuilder):
-        builder.event_input("event", "Event")
         builder.fixed_input("object", "Object", "Object")
-        builder.control_flow_output("on_event", "On event")
+        builder.control_flow_input("execute", "Execute on Event")
+
+        builder.event_output("event", "Event")

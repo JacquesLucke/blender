@@ -8,7 +8,8 @@ class CloseByPointsEventNode(bpy.types.Node, BParticlesNode):
     bl_label = "Close By Points Event"
 
     def declaration(self, builder: NodeBuilder):
-        builder.event_input("event", "Event")
         builder.fixed_input("points", "Points", "Vector List")
         builder.fixed_input("distance", "Distance", "Float", default=1)
-        builder.control_flow_output("on_event", "On Event")
+        builder.control_flow_input("execute", "Execute on Event")
+
+        builder.event_output("event", "Event")

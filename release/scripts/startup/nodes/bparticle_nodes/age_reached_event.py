@@ -8,6 +8,7 @@ class AgeReachedEventNode(bpy.types.Node, BParticlesNode):
     bl_label = "Age Reached Event"
 
     def declaration(self, builder: NodeBuilder):
-        builder.event_input("event", "Event")
         builder.fixed_input("age", "Age", "Float", default=3)
-        builder.control_flow_output("on_event", "On Event")
+        builder.control_flow_input("on_event", "Execute on Event")
+
+        builder.particle_effector_output("event", "Event")
