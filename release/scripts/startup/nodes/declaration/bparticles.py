@@ -95,10 +95,7 @@ class ExecuteInputListDecl(SocketDeclBase):
 
     def draw_socket(self, layout, socket, index):
         if isinstance(socket, OperatorSocket):
-            props = layout.operator("bp.append_execute_socket", text=self.display_name, emboss=False)
-            props.tree_name = self.node.tree.name
-            props.node_name = self.node.name
-            props.prop_name = self.prop_name
+            layout.label(text=self.display_name)
         else:
             layout.label(text=f"{self.display_name} ({index + 1})")
 
@@ -116,23 +113,3 @@ class ExecuteInputListDecl(SocketDeclBase):
     @classmethod
     def Property(cls):
         return IntProperty(default=0)
-
-class AppendAnyVariadicOperator(bpy.types.Operator):
-    bl_idname = "bp.append_execute_socket"
-    bl_label = "Append Execute Socket"
-    bl_options = {'INTERNAL'}
-
-    tree_name: StringProperty()
-    node_name: StringProperty()
-    prop_name: StringProperty()
-
-    def execute(self, context):
-        tree = bpy.data.node_groups[self.tree_name]
-        node = tree.nodes[self.node_name]
-
-        old_amount = getattr(node, self.prop_name)
-        new_amount = old_amount + 1
-        setattr(node, self.prop_name, new_amount)
-
-        tree.sync()
-        return {'FINISHED'}
