@@ -1067,10 +1067,10 @@ void IESLightNode::get_slot()
 
   if (slot == -1) {
     if (ies.empty()) {
-      slot = light_manager->add_ies_from_file(filename);
+      slot = light_manager->add_ies_from_file(filename.string());
     }
     else {
-      slot = light_manager->add_ies(ies);
+      slot = light_manager->add_ies(ies.string());
     }
   }
 }
@@ -5278,6 +5278,21 @@ NODE_DEFINE(MapRangeNode)
 
 MapRangeNode::MapRangeNode() : ShaderNode(node_type)
 {
+}
+
+void MapRangeNode::expand(ShaderGraph *graph)
+{
+  if (clamp) {
+    ShaderOutput *result_out = output("Result");
+    if (!result_out->links.empty()) {
+      ClampNode *clamp_node = new ClampNode();
+      clamp_node->min = to_min;
+      clamp_node->max = to_max;
+      graph->add(clamp_node);
+      graph->relink(result_out, clamp_node->output("Result"));
+      graph->connect(result_out, clamp_node->input("Value"));
+    }
+  }
 }
 
 void MapRangeNode::constant_fold(const ConstantFolder &folder)
