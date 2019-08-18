@@ -34,6 +34,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_string_ref.hpp"
+#include "BLI_memory.hpp"
 
 namespace BLI {
 
@@ -138,7 +139,7 @@ template<typename T> class ArrayRef {
    */
   void copy_from(const T *ptr)
   {
-    std::copy_n(ptr, m_size, m_start);
+    BLI::copy_n(ptr, m_size, m_start);
   }
 
   void copy_from(ArrayRef<T> other)
@@ -152,7 +153,7 @@ template<typename T> class ArrayRef {
    */
   void copy_to(T *ptr)
   {
-    std::copy_n(m_start, m_size, ptr);
+    BLI::copy_n(m_start, m_size, ptr);
   }
 
   T *begin() const

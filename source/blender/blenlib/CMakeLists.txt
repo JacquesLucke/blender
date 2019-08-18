@@ -253,6 +253,7 @@ set(SRC
   BLI_refcount.hpp
   BLI_vector.hpp
   BLI_map.hpp
+  BLI_memory.hpp
   BLI_multi_map.hpp
   BLI_set.hpp
   BLI_set_vector.hpp

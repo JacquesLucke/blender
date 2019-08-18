@@ -33,6 +33,7 @@
 #include <memory>
 
 #include "BLI_utildefines.h"
+#include "BLI_memory.hpp"
 #include "BLI_array_ref.hpp"
 #include "BLI_listbase_wrapper.hpp"
 #include "BLI_math_base.h"
@@ -40,14 +41,6 @@
 #include "MEM_guardedalloc.h"
 
 namespace BLI {
-
-template<typename T> void uninitialized_relocate_n(T *src, uint n, T *dst)
-{
-  std::uninitialized_copy_n(std::make_move_iterator(src), n, dst);
-  for (uint i = 0; i < n; i++) {
-    src[i].~T();
-  }
-}
 
 template<typename T, uint N = 4> class Vector {
  private:
@@ -87,7 +80,7 @@ template<typename T, uint N = 4> class Vector {
   Vector(uint size, const T &value) : Vector()
   {
     this->reserve(size);
-    std::uninitialized_fill_n(m_elements, size, value);
+    BLI::uninitialized_fill_n(m_elements, size, value);
     m_size = size;
   }
 
@@ -104,7 +97,7 @@ template<typename T, uint N = 4> class Vector {
   Vector(ArrayRef<T> values) : Vector()
   {
     this->reserve(values.size());
-    std::uninitialized_copy_n(values.begin(), values.size(), this->begin());
+    BLI::uninitialized_copy_n(values.begin(), values.size(), this->begin());
     m_size = values.size();
   }
 
@@ -130,7 +123,7 @@ template<typename T, uint N = 4> class Vector {
   {
     this->reserve(values.size());
     for (uint i = 0; i < values.size(); i++) {
-      std::uninitialized_copy_n(&values[i], 1, m_elements + i);
+      new (m_elements + i) T(values[i]);
     }
     m_size = values.size();
   }
@@ -252,14 +245,14 @@ template<typename T, uint N = 4> class Vector {
   void append_unchecked(const T &value)
   {
     BLI_assert(m_size < m_capacity);
-    std::uninitialized_copy_n(&value, 1, this->end());
+    new (this->end()) T(value);
     m_size++;
   }
 
   void append_unchecked(T &&value)
   {
     BLI_assert(m_size < m_capacity);
-    std::uninitialized_copy_n(std::make_move_iterator(&value), 1, this->end());
+    new (this->end()) T(std::move(value));
     m_size++;
   }
 
@@ -270,7 +263,7 @@ template<typename T, uint N = 4> class Vector {
   void append_n_times(const T &value, uint n)
   {
     this->reserve(m_size + n);
-    std::uninitialized_fill_n(this->end(), n, value);
+    BLI::uninitialized_fill_n(this->end(), n, value);
     m_size += n;
   }
 
@@ -302,7 +295,7 @@ template<typename T, uint N = 4> class Vector {
   void extend_unchecked(const T *start, uint amount)
   {
     BLI_assert(m_size + amount <= m_capacity);
-    std::uninitialized_copy_n(start, amount, this->end());
+    BLI::uninitialized_copy_n(start, amount, this->end());
     m_size += amount;
   }
 
@@ -376,13 +369,11 @@ template<typename T, uint N = 4> class Vector {
   void remove_and_reorder(uint index)
   {
     BLI_assert(this->is_index_in_range(index));
-    if (index < m_size - 1) {
-      /* Move last element to index. */
-      std::copy(std::make_move_iterator(this->end() - 1),
-                std::make_move_iterator(this->end()),
-                this->element_ptr(index));
+    uint last_index = m_size - 1;
+    if (index < last_index) {
+      m_elements[index] = std::move(m_elements[last_index]);
     }
-    this->destruct_element(m_size - 1);
+    this->destruct_element(last_index);
     m_size--;
   }
 
@@ -518,7 +509,7 @@ template<typename T, uint N = 4> class Vector {
       m_elements = (T *)MEM_malloc_arrayN(other.m_capacity, sizeof(T), __func__);
     }
 
-    std::uninitialized_copy(other.begin(), other.end(), m_elements);
+    BLI::uninitialized_copy(other.begin(), other.end(), m_elements);
     m_capacity = other.m_capacity;
     m_size = other.m_size;
   }
@@ -558,7 +549,7 @@ template<typename T, uint N = 4> class Vector {
 
   void destruct_element(uint index)
   {
-    this->element_ptr(index)->~T();
+    destruct(this->element_ptr(index));
   }
 };
 

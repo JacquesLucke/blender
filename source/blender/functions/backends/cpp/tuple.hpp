@@ -214,10 +214,10 @@ class Tuple {
     else {
 
       if (m_initialized[index]) {
-        std::copy_n(&value, 1, dst);
+        *dst = value;
       }
       else {
-        std::uninitialized_copy_n(&value, 1, dst);
+        new (dst) T(value);
       }
     }
 
@@ -257,10 +257,10 @@ class Tuple {
     T *dst = (T *)this->element_ptr(index);
 
     if (m_initialized[index]) {
-      std::copy_n(std::make_move_iterator(&value), 1, dst);
+      *dst = std::move(value);
     }
     else {
-      std::uninitialized_copy_n(std::make_move_iterator(&value), 1, dst);
+      new (dst) T(std::move(value));
       m_initialized[index] = true;
     }
   }

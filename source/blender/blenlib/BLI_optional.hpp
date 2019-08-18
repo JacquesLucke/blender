@@ -111,7 +111,7 @@ template<typename T> class Optional {
     return m_set;
   }
 
-  T &value() const
+  const T &value() const
   {
     if (m_set) {
       return *this->value_ptr();
@@ -122,13 +122,24 @@ template<typename T> class Optional {
     }
   }
 
-  void set(T &value)
+  T &value()
   {
     if (m_set) {
-      std::copy_n(&value, 1, this->value_ptr());
+      return *this->value_ptr();
     }
     else {
-      std::uninitialized_copy_n(&value, 1, this->value_ptr());
+      BLI_assert(false);
+      return *(T *)nullptr;
+    }
+  }
+
+  void set(const T &value)
+  {
+    if (m_set) {
+      this->value() = value;
+    }
+    else {
+      new (this->value_ptr()) T(value);
       m_set = true;
     }
   }
@@ -136,10 +147,10 @@ template<typename T> class Optional {
   void set(T &&value)
   {
     if (m_set) {
-      std::copy_n(std::make_move_iterator(&value), 1, this->value_ptr());
+      this->value() = std::move(value);
     }
     else {
-      std::uninitialized_copy_n(std::make_move_iterator(&value), 1, this->value_ptr());
+      new (this->value_ptr()) T(std::move(value));
       m_set = true;
     }
   }

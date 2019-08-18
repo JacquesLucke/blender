@@ -120,80 +120,55 @@ template<typename T> class CPPTypeInfoForType : public CPPTypeInfo {
 
   void destruct(void *ptr) const override
   {
-    T *ptr_ = (T *)ptr;
-    ptr_->~T();
+    BLI::destruct((T *)ptr);
   }
 
   void destruct_n(void *ptr, uint n) const override
   {
-    T *ptr_ = (T *)ptr;
-    for (uint i = 0; i < n; i++) {
-      ptr_[i].~T();
-    }
+    BLI::descruct_n((T *)ptr, n);
   }
 
   void copy_to_initialized(void *src, void *dst) const override
   {
     T *src_ = (T *)src;
     T *dst_ = (T *)dst;
-    std::copy_n(src_, 1, dst_);
+    *dst_ = *src_;
   }
 
   void copy_to_initialized_n(void *src, void *dst, uint n) const override
   {
-    T *src_ = (T *)src;
-    T *dst_ = (T *)dst;
-    std::copy_n(src_, n, dst_);
+    BLI::copy_n((T *)src, n, (T *)dst);
   }
 
   void copy_to_uninitialized(void *src, void *dst) const override
   {
-    T *src_ = (T *)src;
-    T *dst_ = (T *)dst;
-    std::uninitialized_copy_n(src_, 1, dst_);
+    T &src_ = *(T *)src;
+    new (dst) T(src_);
   }
 
   void copy_to_uninitialized_n(void *src, void *dst, uint n) const override
   {
-    T *src_ = (T *)src;
-    T *dst_ = (T *)dst;
-    std::uninitialized_copy_n(src_, n, dst_);
+    BLI::uninitialized_copy_n((T *)src, n, (T *)dst);
   }
 
   void relocate_to_initialized(void *src, void *dst) const override
   {
-    T *src_ = (T *)src;
-    T *dst_ = (T *)dst;
-    *dst_ = std::move(*src_);
-    src_->~T();
+    BLI::relocate((T *)src, (T *)dst);
   }
 
   void relocate_to_initialized_n(void *src, void *dst, uint n) const override
   {
-    T *src_ = (T *)src;
-    T *dst_ = (T *)dst;
-    std::copy_n(std::make_move_iterator(src_), n, dst_);
-    for (uint i = 0; i < n; i++) {
-      src_[i].~T();
-    }
+    BLI::relocate_n((T *)src, n, (T *)dst);
   }
 
   void relocate_to_uninitialized(void *src, void *dst) const override
   {
-    T *src_ = (T *)src;
-    T *dst_ = (T *)dst;
-    std::uninitialized_copy_n(std::make_move_iterator(src_), 1, dst_);
-    src_->~T();
+    BLI::uninitialized_relocate((T *)src, (T *)dst);
   }
 
   virtual void relocate_to_uninitialized_n(void *src, void *dst, uint n) const override
   {
-    T *src_ = (T *)src;
-    T *dst_ = (T *)dst;
-    std::uninitialized_copy_n(std::make_move_iterator(src_), n, dst_);
-    for (uint i = 0; i < n; i++) {
-      src_[i].~T();
-    }
+    BLI::uninitialized_relocate_n((T *)src, n, (T *)dst);
   }
 };
 

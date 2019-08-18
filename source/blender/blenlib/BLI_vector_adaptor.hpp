@@ -85,14 +85,14 @@ template<typename T> class VectorAdaptor {
   void append(const T &value)
   {
     BLI_assert(this->size() < m_capacity);
-    std::uninitialized_copy_n(&value, 1, m_end);
+    new (m_end) T(value);
     m_end += 1;
   }
 
   void append(T &&value)
   {
     BLI_assert(this->size() < m_capacity);
-    std::uninitialized_copy_n(std::make_move_iterator(&value), 1, m_end);
+    new (m_end) T(std::move(value));
     m_end += 1;
   }
 
