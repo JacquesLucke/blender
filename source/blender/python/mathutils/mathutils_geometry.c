@@ -1213,7 +1213,7 @@ static PyObject *M_Geometry_tessellate_polygon(PyObject *UNUSED(self), PyObject 
   PyObject *polyLine, *polyVec;
   int i, len_polylines, len_polypoints, ls_error = 0;
 
-  /* display listbase */
+  /* Display #ListBase. */
   ListBase dispbase = {NULL, NULL};
   DispList *dl;
   float *fp; /*pointer to the array of malloced dl->verts to set the points from the vectors */
@@ -1299,7 +1299,7 @@ static PyObject *M_Geometry_tessellate_polygon(PyObject *UNUSED(self), PyObject 
     BKE_displist_fill(&dispbase, &dispbase, NULL, false);
 
     /* The faces are stored in a new DisplayList
-     * that's added to the head of the listbase */
+     * that's added to the head of the #ListBase. */
     dl = dispbase.first;
 
     tri_list = PyList_New(dl->parts);
@@ -1510,7 +1510,7 @@ static PyObject *M_Geometry_convex_hull_2d(PyObject *UNUSED(self), PyObject *poi
 
 /* Return a PyObject that is a list of lists, using the flattened list array
  * to fill values, with start_table and len_table giving the start index
- * and length of the toplevel_len sublists
+ * and length of the toplevel_len sub-lists.
  */
 static PyObject *list_of_lists_from_arrays(int *array,
                                            int *start_table,
