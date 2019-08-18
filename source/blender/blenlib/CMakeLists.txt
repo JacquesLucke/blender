@@ -236,7 +236,6 @@ set(SRC
   PIL_time.h
   PIL_time_utildefines.h
 
-  BLI_array_lookup.hpp
   BLI_array_ref.hpp
   BLI_chained_strings.hpp
   BLI_lazy_init.h
@@ -266,6 +265,8 @@ set(SRC
   BLI_timeit.hpp
   BLI_vector_adaptor.hpp
   BLI_multi_vector.hpp
+  BLI_open_addressing.hpp
+  BLI_hash.hpp
 )
 
 set(LIB

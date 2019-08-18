@@ -115,20 +115,6 @@ template<typename T, uint N = 4> class Vector {
   }
 
   /**
-   * Create a vector from a mapped array ref. This can e.g. be used to create vectors from
-   * map.keys() for map.values().
-   */
-  template<typename ArrayT, typename ValueT, ValueT (*GetValue)(ArrayT &item)>
-  Vector(MappedArrayRef<ArrayT, ValueT, GetValue> values) : Vector()
-  {
-    this->reserve(values.size());
-    for (uint i = 0; i < values.size(); i++) {
-      new (m_elements + i) T(values[i]);
-    }
-    m_size = values.size();
-  }
-
-  /**
    * Create a vector from a ListBase.
    */
   Vector(ListBase &values, bool intrusive_next_and_prev_pointers) : Vector()

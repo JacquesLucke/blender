@@ -7,6 +7,7 @@
  */
 
 #include "BLI_set_vector.hpp"
+#include "BLI_set.hpp"
 
 #include "data_graph.hpp"
 

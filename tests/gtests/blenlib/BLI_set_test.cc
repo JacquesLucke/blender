@@ -72,14 +72,6 @@ TEST(set, MoveConstructor)
   EXPECT_EQ(set2.size(), 3);
 }
 
-TEST(set, Pop)
-{
-  IntSet set = {4};
-  EXPECT_EQ(set.size(), 1);
-  EXPECT_EQ(set.pop(), 4);
-  EXPECT_EQ(set.size(), 0);
-}
-
 TEST(set, Remove)
 {
   IntSet set = {3, 4, 5};
@@ -168,4 +160,19 @@ TEST(set, ToSmallVector)
   EXPECT_TRUE(vec.contains(5));
   EXPECT_TRUE(vec.contains(2));
   EXPECT_TRUE(vec.contains(8));
+}
+
+TEST(set, Iterator)
+{
+  IntSet set = {1, 3, 2, 5, 4};
+  BLI::Vector<int> vec;
+  for (int value : set) {
+    vec.append(value);
+  }
+  EXPECT_EQ(vec.size(), 5);
+  EXPECT_TRUE(vec.contains(1));
+  EXPECT_TRUE(vec.contains(3));
+  EXPECT_TRUE(vec.contains(2));
+  EXPECT_TRUE(vec.contains(5));
+  EXPECT_TRUE(vec.contains(4));
 }

@@ -87,16 +87,6 @@ TEST(map, PopItemMany)
   }
 }
 
-TEST(map, LookupOrAdd)
-{
-  IntFloatMap map;
-  float &value = map.lookup_or_add(3, 5.0f);
-  EXPECT_EQ(value, 5.0f);
-  value += 1;
-  value = map.lookup_or_add(3, 5.0f);
-  EXPECT_EQ(value, 6.0f);
-}
-
 TEST(map, ValueIterator)
 {
   IntFloatMap map;
@@ -170,23 +160,23 @@ float return_42()
   return 42.0f;
 }
 
-TEST(map, LookupOrAddFunc_SeparateFunction)
+TEST(map, LookupOrAdd_SeparateFunction)
 {
   IntFloatMap map;
-  EXPECT_EQ(map.lookup_or_add_func(0, return_42), 42.0f);
+  EXPECT_EQ(map.lookup_or_add(0, return_42), 42.0f);
   EXPECT_EQ(map.lookup(0), 42);
 }
 
-TEST(map, LookupOrAddFunc_Lambdas)
+TEST(map, LookupOrAdd_Lambdas)
 {
   IntFloatMap map;
   auto lambda1 = []() { return 11.0f; };
-  EXPECT_EQ(map.lookup_or_add_func(0, lambda1), 11.0f);
+  EXPECT_EQ(map.lookup_or_add(0, lambda1), 11.0f);
   auto lambda2 = []() { return 20.0f; };
-  EXPECT_EQ(map.lookup_or_add_func(1, lambda2), 20.0f);
+  EXPECT_EQ(map.lookup_or_add(1, lambda2), 20.0f);
 
-  EXPECT_EQ(map.lookup_or_add_func(0, lambda2), 11.0f);
-  EXPECT_EQ(map.lookup_or_add_func(1, lambda1), 20.0f);
+  EXPECT_EQ(map.lookup_or_add(0, lambda2), 11.0f);
+  EXPECT_EQ(map.lookup_or_add(1, lambda1), 20.0f);
 }
 
 TEST(map, InsertOrModify)

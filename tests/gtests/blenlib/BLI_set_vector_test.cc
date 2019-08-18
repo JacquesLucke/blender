@@ -28,6 +28,24 @@ TEST(set_vector, InitializerListConstructor_WithDuplicates)
   EXPECT_EQ(set[3], 5);
 }
 
+TEST(set_vector, Copy)
+{
+  IntSetVector set1 = {1, 2, 3};
+  IntSetVector set2 = set1;
+  EXPECT_EQ(set1.size(), 3);
+  EXPECT_EQ(set2.size(), 3);
+  EXPECT_EQ(set1.index(2), 1);
+  EXPECT_EQ(set2.index(2), 1);
+}
+
+TEST(set_vector, Move)
+{
+  IntSetVector set1 = {1, 2, 3};
+  IntSetVector set2 = std::move(set1);
+  EXPECT_EQ(set1.size(), 0);
+  EXPECT_EQ(set2.size(), 3);
+}
+
 TEST(set_vector, AddNewIncreasesSize)
 {
   IntSetVector set;
@@ -46,7 +64,7 @@ TEST(set_vector, AddExistingDoesNotIncreaseSize)
   EXPECT_EQ(set.size(), 1);
 }
 
-TEST(set_vector, IndexOfExisting)
+TEST(set_vector, Index)
 {
   IntSetVector set = {3, 6, 4};
   EXPECT_EQ(set.index(6), 1);
@@ -54,8 +72,11 @@ TEST(set_vector, IndexOfExisting)
   EXPECT_EQ(set.index(4), 2);
 }
 
-TEST(set_vector, IndexOfNotExisting)
+TEST(set_vector, IndexTry)
 {
   IntSetVector set = {3, 6, 4};
-  EXPECT_EQ(set.index(5), -1);
+  EXPECT_EQ(set.index_try(5), -1);
+  EXPECT_EQ(set.index_try(3), 0);
+  EXPECT_EQ(set.index_try(6), 1);
+  EXPECT_EQ(set.index_try(2), -1);
 }

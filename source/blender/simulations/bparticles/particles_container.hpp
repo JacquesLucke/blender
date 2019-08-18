@@ -126,6 +126,7 @@ class ParticlesBlock {
    * This is also a reference, so it allows changing the number of active particles.
    */
   uint &active_amount();
+  uint active_amount() const;
 
   /**
    * Get the number of inactive attribute "slots" in this block.
@@ -210,7 +211,7 @@ inline uint ParticlesContainer::block_size() const
 inline uint ParticlesContainer::count_active() const
 {
   uint count = 0;
-  for (ParticlesBlock *block : m_active_blocks) {
+  for (const ParticlesBlock *block : m_active_blocks) {
     count += block->active_amount();
   }
   return count;
@@ -254,6 +255,11 @@ inline Range<uint> ParticlesBlock::active_range()
 }
 
 inline uint &ParticlesBlock::active_amount()
+{
+  return m_active_amount;
+}
+
+inline uint ParticlesBlock::active_amount() const
 {
   return m_active_amount;
 }

@@ -14,7 +14,7 @@ Set<DataSocket> FunctionGraph::find_used_sockets(bool include_inputs, bool inclu
 {
   Set<DataSocket> found;
 
-  Set<DataSocket> to_be_checked;
+  SetVector<DataSocket> to_be_checked;
   for (DataSocket socket : m_outputs) {
     to_be_checked.add_new(socket);
   }

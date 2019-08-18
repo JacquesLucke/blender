@@ -24,122 +24,271 @@
 
 #pragma once
 
-#include "BLI_vector.hpp"
-#include "BLI_array_lookup.hpp"
+#include "BLI_hash.hpp"
 #include "BLI_array_ref.hpp"
+#include "BLI_open_addressing.hpp"
 
 namespace BLI {
 
-template<typename K, typename V, uint N = 4> class Map {
+template<typename KeyT, typename ValueT> class Map {
  private:
-  struct Entry {
-    K key;
-    V value;
+  static constexpr uint32_t OFFSET_MASK = 3;
+  static constexpr uint8_t IS_EMPTY = 0;
+  static constexpr uint8_t IS_SET = 1;
+  static constexpr uint8_t IS_DUMMY = 2;
+
+  class Item {
+   private:
+    uint8_t m_status[4];
+    char m_keys[4 * sizeof(KeyT)];
+    char m_values[4 * sizeof(ValueT)];
+
+   public:
+    static constexpr uint32_t slots_per_item = 4;
+
+    Item()
+    {
+      m_status[0] = IS_EMPTY;
+      m_status[1] = IS_EMPTY;
+      m_status[2] = IS_EMPTY;
+      m_status[3] = IS_EMPTY;
+    }
+
+    ~Item()
+    {
+      for (uint32_t offset = 0; offset < 4; offset++) {
+        if (m_status[offset] == IS_SET) {
+          this->key(offset)->~KeyT();
+          this->value(offset)->~ValueT();
+        }
+      }
+    }
+
+    Item(const Item &other)
+    {
+      for (uint32_t offset = 0; offset < 4; offset++) {
+        uint8_t status = other.m_status[offset];
+        m_status[offset] = status;
+        if (status == IS_SET) {
+          new (this->key(offset)) KeyT(*other.key(offset));
+          new (this->value(offset)) ValueT(*other.value(offset));
+        }
+      }
+    }
+
+    Item(Item &&other)
+    {
+      for (uint32_t offset = 0; offset < 4; offset++) {
+        uint8_t status = other.m_status[offset];
+        m_status[offset] = status;
+        if (status == IS_SET) {
+          new (this->key(offset)) KeyT(std::move(*other.key(offset)));
+          new (this->value(offset)) ValueT(std::move(*other.value(offset)));
+        }
+      }
+    }
+
+    bool has_key(uint32_t offset, const KeyT &key) const
+    {
+      return m_status[offset] == IS_SET && key == *this->key(offset);
+    }
+
+    bool is_set(uint32_t offset) const
+    {
+      return m_status[offset] == IS_SET;
+    }
+
+    bool is_empty(uint32_t offset) const
+    {
+      return m_status[offset] == IS_EMPTY;
+    }
+
+    KeyT *key(uint32_t offset) const
+    {
+      return (KeyT *)(m_keys + offset * sizeof(KeyT));
+    }
+
+    ValueT *value(uint32_t offset) const
+    {
+      return (ValueT *)(m_values + offset * sizeof(ValueT));
+    }
+
+    uint8_t status(uint32_t offset) const
+    {
+      return m_status[offset];
+    }
+
+    void copy_in(uint32_t offset, const KeyT &key, const ValueT &value)
+    {
+      BLI_assert(m_status[offset] != IS_SET);
+      m_status[offset] = IS_SET;
+      new (this->key(offset)) KeyT(key);
+      new (this->value(offset)) ValueT(value);
+    }
+
+    void move_in(uint32_t offset, KeyT &key, ValueT &value)
+    {
+      BLI_assert(m_status[offset] != IS_SET);
+      m_status[offset] = IS_SET;
+      new (this->key(offset)) KeyT(std::move(key));
+      new (this->value(offset)) ValueT(std::move(value));
+    }
+
+    void set_dummy(uint32_t offset)
+    {
+      BLI_assert(m_status[offset] == IS_SET);
+      m_status[offset] = IS_DUMMY;
+      destruct(this->key(offset));
+      destruct(this->value(offset));
+    }
   };
 
-  static const K &get_key_from_entry(const Entry &entry)
-  {
-    return entry.key;
-  }
-
-  Vector<Entry, N> m_entries;
-  ArrayLookup<K, N, Entry, get_key_from_entry> m_lookup;
+  OpenAddressingArray<Item> m_array;
 
  public:
-  class ValueIterator;
-
-  /**
-   * Create an empty map.
-   */
   Map() = default;
 
-  /**
-   * Insert a key-value pair in the map, when the key does not exist.
-   * Return true when the pair has been newly inserted, otherwise false.
-   */
-  bool add(const K &key, const V &value)
-  {
-    uint desired_new_index = m_entries.size();
-    uint value_index = m_lookup.add(m_entries.begin(), key, desired_new_index);
-    bool newly_inserted = value_index == desired_new_index;
-    if (newly_inserted) {
-      m_entries.append({key, value});
-    }
-    return newly_inserted;
-  }
+  // clang-format off
 
-  /**
-   * Insert a new key-value pair in the map.
-   * This will assert when the key exists already.
-   */
-  void add_new(const K &key, const V &value)
+#define ITER_SLOTS_BEGIN(KEY, ARRAY, OPTIONAL_CONST, R_ITEM, R_OFFSET) \
+  uint32_t hash = MyHash<KeyT>{}(KEY); \
+  uint32_t perturb = hash; \
+  while (true) { \
+    uint32_t item_index = (hash & ARRAY.slot_mask()) >> 2; \
+    uint8_t R_OFFSET = hash & OFFSET_MASK; \
+    uint8_t initial_offset = R_OFFSET; \
+    OPTIONAL_CONST Item &R_ITEM = ARRAY.item(item_index); \
+    do {
+
+#define ITER_SLOTS_END(R_OFFSET) \
+      R_OFFSET = (R_OFFSET + 1) & OFFSET_MASK; \
+    } while (R_OFFSET != initial_offset); \
+    perturb >>= 5; \
+    hash = hash * 5 + 1 + perturb; \
+  } ((void)0)
+
+  // clang-format on
+
+  void add_new(const KeyT &key, const ValueT &value)
   {
     BLI_assert(!this->contains(key));
-    uint index = m_entries.size();
-    m_entries.append({key, value});
-    m_lookup.add_new(m_entries.begin(), index);
+    this->ensure_can_add();
+
+    ITER_SLOTS_BEGIN (key, m_array, , item, offset) {
+      if (item.status(offset) == IS_EMPTY) {
+        item.copy_in(offset, key, value);
+        m_array.update__empty_to_set();
+        return;
+      }
+    }
+    ITER_SLOTS_END(offset);
   }
 
-  /**
-   * Insert a new key-value pair in the map. If the key exists already, the value will be
-   * overriden.
-   * Returns when the value was newly inserted, otherwise false.
-   */
-  bool add_override(const K &key, const V &value)
+  bool add(const KeyT &key, const ValueT &value)
   {
-    return this->add_or_modify(
-        key, [value]() { return value; }, [value](V &old_value) { old_value = value; });
+    this->ensure_can_add();
+
+    ITER_SLOTS_BEGIN (key, m_array, , item, offset) {
+      if (item.status(offset) == IS_EMPTY) {
+        item.copy_in(offset, key, value);
+        m_array.update__empty_to_set();
+        return true;
+      }
+      else if (item.has_key(offset, key)) {
+        return false;
+      }
+    }
+    ITER_SLOTS_END(offset);
   }
 
-  /**
-   * Return true when the key exists in the map, otherwise false.
-   */
-  bool contains(const K &key) const
-  {
-    return m_lookup.contains(m_entries.begin(), key);
-  }
-
-  /**
-   * Remove the key-value pair identified by the key from the map.
-   * Returns the corresponding value.
-   * This will assert when the key does not exist.
-   */
-  V pop(const K &key)
+  void remove(const KeyT &key)
   {
     BLI_assert(this->contains(key));
-    uint index = m_lookup.remove(m_entries.begin(), key);
-    V value = std::move(m_entries[index].value);
-
-    uint last_index = m_entries.size() - 1;
-    if (index == last_index) {
-      m_entries.remove_last();
+    ITER_SLOTS_BEGIN (key, m_array, , item, offset) {
+      if (item.has_key(offset, key)) {
+        item.set_dummy(offset);
+        m_array.update__set_to_dummy();
+        return;
+      }
     }
-    else {
-      m_entries.remove_and_reorder(index);
-      K &moved_key = m_entries[index].key;
-      m_lookup.update_index(moved_key, last_index, index);
-    }
-    return value;
+    ITER_SLOTS_END(offset);
   }
 
-  /**
-   * Return the value corresponding to the key.
-   * This will assert when the key does not exist.
-   */
-  V &lookup(const K &key) const
+  ValueT pop(const KeyT &key)
   {
-    V *ptr = this->lookup_ptr(key);
-    BLI_assert(ptr);
-    return *ptr;
+    BLI_assert(this->contains(key));
+    ITER_SLOTS_BEGIN (key, m_array, , item, offset) {
+      if (item.has_key(offset, key)) {
+        ValueT value = std::move(*item.value(offset));
+        item.set_dummy(offset);
+        m_array.update__set_to_dummy();
+        return value;
+      }
+    }
+    ITER_SLOTS_END(offset);
   }
 
-  /**
-   * Return the value corresponding to the key.
-   * If the key does not exist, return the given default value.
-   */
-  V lookup_default(const K &key, V default_value) const
+  bool contains(const KeyT &key) const
   {
-    V *ptr = this->lookup_ptr(key);
+    ITER_SLOTS_BEGIN (key, m_array, const, item, offset) {
+      if (item.status(offset) == IS_EMPTY) {
+        return false;
+      }
+      else if (item.has_key(offset, key)) {
+        return true;
+      }
+    }
+    ITER_SLOTS_END(offset);
+  }
+
+  template<typename CreateValueF, typename ModifyValueF>
+  bool add_or_modify(const KeyT &key,
+                     const CreateValueF &create_value,
+                     const ModifyValueF &modify_value)
+  {
+    this->ensure_can_add();
+
+    ITER_SLOTS_BEGIN (key, m_array, , item, offset) {
+      if (item.is_empty(offset)) {
+        item.copy_in(offset, key, create_value());
+        m_array.update__empty_to_set();
+        return true;
+      }
+      else if (item.has_key(offset, key)) {
+        modify_value(*item.value(offset));
+        return false;
+      }
+    }
+    ITER_SLOTS_END(offset);
+  }
+
+  bool add_override(const KeyT &key, const ValueT &value)
+  {
+    return this->add_or_modify(
+        key, [&value]() { return value; }, [&value](ValueT &old_value) { old_value = value; });
+  }
+
+  ValueT *lookup_ptr(const KeyT &key) const
+  {
+    ITER_SLOTS_BEGIN (key, m_array, const, item, offset) {
+      if (item.is_empty(offset)) {
+        return nullptr;
+      }
+      else if (item.has_key(offset, key)) {
+        return item.value(offset);
+      }
+    }
+    ITER_SLOTS_END(offset);
+  }
+
+  ValueT &lookup(const KeyT &key) const
+  {
+    return *this->lookup_ptr(key);
+  }
+
+  ValueT lookup_default(const KeyT &key, ValueT default_value) const
+  {
+    ValueT *ptr = this->lookup_ptr(key);
     if (ptr != nullptr) {
       return *ptr;
     }
@@ -148,125 +297,230 @@ template<typename K, typename V, uint N = 4> class Map {
     }
   }
 
-  /**
-   * Return a pointer to the value corresponding to the key.
-   * Returns nullptr when the key does not exist.
-   */
-  V *lookup_ptr(const K &key) const
+  template<typename CreateValueF>
+  ValueT &lookup_or_add(const KeyT &key, const CreateValueF &create_value)
   {
-    int index = m_lookup.find(m_entries.begin(), key);
-    if (index >= 0) {
-      return &m_entries[index].value;
+    this->ensure_can_add();
+
+    ITER_SLOTS_BEGIN (key, m_array, , item, offset) {
+      if (item.is_empty(offset)) {
+        item.copy_in(offset, key, create_value());
+        m_array.update__empty_to_set();
+        return *item.value(offset);
+      }
+      else if (item.has_key(offset, key)) {
+        return *item.value(offset);
+      }
     }
-    else {
-      return nullptr;
-    }
+    ITER_SLOTS_END(offset);
   }
 
-  /**
-   * Return a reference to the value corresponding to the key.
-   * If the key does not exist yet, insert the given key-value-pair first.
-   */
-  V &lookup_or_add(const K &key, V initial_value)
+  uint32_t size() const
   {
-    V *ptr = this->lookup_ptr(key);
-    if (ptr != nullptr) {
-      return *ptr;
-    }
-    this->add_new(key, initial_value);
-    return m_entries[m_entries.size() - 1].value;
+    return m_array.slots_set();
   }
 
-  /**
-   * Return a reference to the value corresponding to the key.
-   * If the key does not exist yet, create the value by calling the function, and insert the
-   * key-value pair.
-   */
-  template<typename CreateValueFunc>
-  V &lookup_or_add_func(const K &key, const CreateValueFunc &create_value)
+  void print_table() const
   {
-    V *ptr = this->lookup_ptr(key);
-    if (ptr != nullptr) {
-      return *ptr;
-    }
-
-    this->add_new(key, create_value());
-    return m_entries[m_entries.size() - 1].value;
-  }
-
-  /**
-   * Insert a new value for the given key or modify the existing one.
-   * Return true when a new value was inserted, false otherwise.
-   */
-  template<typename CreateValueFunc, typename ModifyValueFunc>
-  bool add_or_modify(const K &key,
-                     const CreateValueFunc &create_value,
-                     const ModifyValueFunc &modify_value)
-  {
-    uint desired_new_index = m_entries.size();
-    uint value_index = m_lookup.add(m_entries.begin(), key, desired_new_index);
-    if (value_index == desired_new_index) {
-      m_entries.append({key, create_value()});
-      return true;
-    }
-    else {
-      modify_value(m_entries[value_index].value);
-      return false;
+    std::cout << "Hash Table:\n";
+    std::cout << "  Size: " << m_array.slots_set() << '\n';
+    std::cout << "  Capacity: " << m_array.slots_total() << '\n';
+    uint32_t item_index = 0;
+    for (const Item &item : m_array) {
+      std::cout << "   Item: " << item_index++ << '\n';
+      for (uint32_t offset = 0; offset < 4; offset++) {
+        std::cout << "    " << offset << " \t";
+        uint8_t status = item.status(offset);
+        if (status == IS_EMPTY) {
+          std::cout << "    <empty>\n";
+        }
+        else if (status == IS_SET) {
+          const KeyT &key = *item.key(offset);
+          const ValueT &value = *item.value(offset);
+          uint32_t collisions = this->count_collisions(value);
+          std::cout << "    " << key << " -> " << value << "  \t Collisions: " << collisions
+                    << '\n';
+        }
+        else if (status == IS_DUMMY) {
+          std::cout << "    <dummy>\n";
+        }
+      }
     }
   }
 
-  /**
-   * Return the number of key-value pairs in the map.
-   */
-  uint size() const
-  {
-    return m_entries.size();
-  }
+  template<typename SubIterator> class BaseIterator {
+   protected:
+    const Map *m_map;
+    uint32_t m_slot;
 
-  void print_lookup_stats() const
-  {
-    m_lookup.print_lookup_stats(m_entries.begin());
-  }
+   public:
+    BaseIterator(const Map *map, uint32_t slot) : m_map(map), m_slot(slot)
+    {
+    }
 
-  /* Iterators
-   **************************************************/
+    BaseIterator &operator++()
+    {
+      m_slot = m_map->next_slot(m_slot + 1);
+      return *this;
+    }
 
-  static V &get_value_from_entry(Entry &entry)
-  {
-    return entry.value;
-  }
+    friend bool operator==(const BaseIterator &a, const BaseIterator &b)
+    {
+      BLI_assert(a.m_map == b.m_map);
+      return a.m_slot == b.m_slot;
+    }
 
-  MappedArrayRef<Entry, V &, get_value_from_entry> values() const
-  {
-    return MappedArrayRef<Entry, V &, get_value_from_entry>(m_entries.begin(), m_entries.size());
-  }
+    friend bool operator!=(const BaseIterator &a, const BaseIterator &b)
+    {
+      return !(a == b);
+    }
 
-  static const K &get_key_from_entry(Entry &entry)
-  {
-    return entry.key;
-  }
+    SubIterator begin() const
+    {
+      return SubIterator(m_map, m_map->next_slot(0));
+    }
 
-  using KeysReturnT = MappedArrayRef<Entry, const K &, get_key_from_entry>;
-  KeysReturnT keys() const
-  {
-    return MappedArrayRef<Entry, const K &, get_key_from_entry>(m_entries.begin(),
-                                                                m_entries.size());
-  }
-
-  struct KeyValuePair {
-    const K &key;
-    V &value;
+    SubIterator end() const
+    {
+      return SubIterator(m_map, m_map->m_array.slots_total());
+    }
   };
 
-  static KeyValuePair get_key_value_pair_from_entry(Entry &entry)
+  class KeyIterator final : public BaseIterator<KeyIterator> {
+   public:
+    KeyIterator(const Map *map, uint32_t slot) : BaseIterator<KeyIterator>(map, slot)
+    {
+    }
+
+    const KeyT &operator*() const
+    {
+      uint32_t item_index = this->m_slot >> 2;
+      uint32_t offset = this->m_slot & OFFSET_MASK;
+      const Item &item = this->m_map->m_array.item(item_index);
+      BLI_assert(item.is_set(offset));
+      return *item.key(offset);
+    }
+  };
+
+  class ValueIterator final : public BaseIterator<ValueIterator> {
+   public:
+    ValueIterator(const Map *map, uint32_t slot) : BaseIterator<ValueIterator>(map, slot)
+    {
+    }
+
+    ValueT &operator*() const
+    {
+      uint32_t item_index = this->m_slot >> 2;
+      uint32_t offset = this->m_slot & OFFSET_MASK;
+      const Item &item = this->m_map->m_array.item(item_index);
+      BLI_assert(item.is_set(offset));
+      return *item.value(offset);
+    }
+  };
+
+  class ItemIterator final : public BaseIterator<ItemIterator> {
+   public:
+    ItemIterator(const Map *map, uint32_t slot) : BaseIterator<ItemIterator>(map, slot)
+    {
+    }
+
+    struct UserItem {
+      const KeyT &key;
+      ValueT &value;
+
+      friend std::ostream &operator<<(std::ostream &stream, const Item &item)
+      {
+        stream << item.key << " -> " << item.value;
+        return stream;
+      }
+    };
+
+    UserItem operator*() const
+    {
+      uint32_t item_index = this->m_slot >> 2;
+      uint32_t offset = this->m_slot & OFFSET_MASK;
+      const Item &item = this->m_map->m_array.item(item_index);
+      BLI_assert(item.is_set(offset));
+      return {*item.key(offset), *item.value(offset)};
+    }
+  };
+
+  template<typename SubIterator> friend class BaseIterator;
+
+  KeyIterator keys() const
   {
-    return {entry.key, entry.value};
+    return KeyIterator(this, 0);
   }
 
-  MappedArrayRef<Entry, KeyValuePair, get_key_value_pair_from_entry> items() const
+  ValueIterator values() const
   {
-    return MappedArrayRef<Entry, KeyValuePair, get_key_value_pair_from_entry>(m_entries.begin(),
-                                                                              m_entries.size());
+    return ValueIterator(this, 0);
   }
+
+  ItemIterator items() const
+  {
+    return ItemIterator(this, 0);
+  }
+
+ private:
+  uint32_t next_slot(uint32_t slot) const
+  {
+    for (; slot < m_array.slots_total(); slot++) {
+      uint32_t item_index = slot >> 2;
+      uint32_t offset = slot & OFFSET_MASK;
+      const Item &item = m_array.item(item_index);
+      if (item.is_set(offset)) {
+        return slot;
+      }
+    }
+    return slot;
+  }
+
+  uint32_t count_collisions(const KeyT &key) const
+  {
+    uint32_t collisions = 0;
+    ITER_SLOTS_BEGIN (key, m_array, const, item, offset) {
+      if (item.status(offset) == IS_EMPTY || item.has_key(offset, key)) {
+        return collisions;
+      }
+      collisions++;
+    }
+    ITER_SLOTS_END(offset);
+  }
+
+  void ensure_can_add()
+  {
+    if (m_array.should_grow()) {
+      this->grow(this->size() + 1);
+    }
+  }
+
+  void grow(uint32_t min_usable_slots)
+  {
+    OpenAddressingArray<Item> new_array = m_array.init_reserved(min_usable_slots);
+    for (Item &old_item : m_array) {
+      for (uint32_t offset = 0; offset < 4; offset++) {
+        if (old_item.status(offset) == IS_SET) {
+          this->add_after_grow(*old_item.key(offset), *old_item.value(offset), new_array);
+        }
+      }
+    }
+    m_array = std::move(new_array);
+  }
+
+  void add_after_grow(KeyT &key, ValueT &value, OpenAddressingArray<Item> &new_array)
+  {
+    ITER_SLOTS_BEGIN (key, new_array, , item, offset) {
+      if (item.status(offset) == IS_EMPTY) {
+        item.move_in(offset, key, value);
+        return;
+      }
+    }
+    ITER_SLOTS_END(offset);
+  }
+
+#undef ITER_SLOTS_BEGIN
+#undef ITER_SLOTS_END
 };
+
 };  // namespace BLI

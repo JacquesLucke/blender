@@ -295,8 +295,9 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
 {
   ParticlesState &state = *unwrap(particles_state_c);
 
-  Vector<std::string> container_names = state.particle_containers().keys();
-  Vector<ParticlesContainer *> containers = state.particle_containers().values();
+  auto container_names = Vector<std::string>::FromContainer(state.particle_containers().keys());
+  auto containers = Vector<ParticlesContainer *>::FromContainer(
+      state.particle_containers().values());
 
   BParticlesFrameCache cached_frame = {0};
   cached_frame.frame = frame;

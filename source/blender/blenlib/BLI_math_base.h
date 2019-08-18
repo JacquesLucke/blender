@@ -154,6 +154,8 @@ MINLINE int power_of_2_min_i(int n);
 
 MINLINE unsigned int power_of_2_max_u(unsigned int x);
 MINLINE unsigned int power_of_2_min_u(unsigned int x);
+MINLINE unsigned int log2_floor_u(unsigned int x);
+MINLINE unsigned int log2_ceil_u(unsigned int x);
 
 MINLINE unsigned int pad_up(unsigned int x, unsigned int alignment);
 
