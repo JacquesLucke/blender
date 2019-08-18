@@ -128,6 +128,7 @@ static float3 tetrahedon_vertices[4] = {
 static uint tetrahedon_loop_starts[4] = {0, 3, 6, 9};
 static uint tetrahedon_loop_lengths[4] = {3, 3, 3, 3};
 static uint tetrahedon_loop_vertices[12] = {0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 2, 3};
+static uint tetrahedon_loop_edges[12] = {0, 3, 1, 2, 4, 0, 1, 5, 2, 3, 5, 4};
 static uint tetrahedon_edges[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
 
 static void distribute_tetrahedons_range(Mesh *mesh,
@@ -159,6 +160,7 @@ static void distribute_tetrahedons_range(Mesh *mesh,
         (uchar)(color_f.r * 255.0f), (uchar)(color_f.g * 255.0f), (uchar)(color_f.b * 255.0f)};
     for (uint i = 0; i < ARRAY_SIZE(tetrahedon_loop_vertices); i++) {
       mesh->mloop[loop_offset + i].v = vertex_offset + tetrahedon_loop_vertices[i];
+      mesh->mloop[loop_offset + i].e = edge_offset + tetrahedon_loop_edges[i];
       loop_colors[loop_offset + i] = color_b;
     }
 
