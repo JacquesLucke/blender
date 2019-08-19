@@ -4,7 +4,8 @@
 #include "BLI_lazy_init.hpp"
 #include "BLI_task.hpp"
 #include "BLI_timeit.hpp"
-#include "BLI_temporary_allocator.hpp"
+#include "BLI_array.hpp"
+#include "BLI_vector_adaptor.hpp"
 
 #include "xmmintrin.h"
 
@@ -30,7 +31,7 @@ BLI_NOINLINE static void find_next_event_per_particle(BlockStepData &step_data,
                                                       EventStorage &r_event_storage,
                                                       ArrayRef<int> r_next_event_indices,
                                                       ArrayRef<float> r_time_factors_to_next_event,
-                                                      VectorAdaptor<uint> &r_pindices_with_event)
+                                                      TemporaryVector<uint> &r_pindices_with_event)
 {
   r_next_event_indices.fill_indices(pindices, -1);
   r_time_factors_to_next_event.fill_indices(pindices, 1.0f);
@@ -193,11 +194,11 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   uint amount = step_data.array_size();
   TemporaryArray<int> next_event_indices(amount);
   TemporaryArray<float> time_factors_to_next_event(amount);
-  TemporaryVector<uint> pindices_with_event(amount);
+  TemporaryVector<uint> pindices_with_event;
 
   uint max_event_storage_size = std::max(get_max_event_storage_size(events), 1u);
   TemporaryArray<uint8_t> event_storage_array(max_event_storage_size * amount);
-  EventStorage event_storage((void *)event_storage_array.ptr(), max_event_storage_size);
+  EventStorage event_storage((void *)event_storage_array.begin(), max_event_storage_size);
 
   find_next_event_per_particle(step_data,
                                pindices,
@@ -231,7 +232,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 
 BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
                                                     uint max_events,
-                                                    VectorAdaptor<uint> &r_unfinished_pindices)
+                                                    TemporaryVector<uint> &r_unfinished_pindices)
 {
   TemporaryArray<uint> pindices_A(step_data.array_size());
   TemporaryArray<uint> pindices_B(step_data.array_size());
@@ -240,14 +241,14 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
 
   {
     /* Handle first event separately to be able to use the static number range. */
-    VectorAdaptor<uint> pindices_output(pindices_A.ptr(), amount_left);
+    VectorAdaptor<uint> pindices_output(pindices_A.begin(), amount_left);
     simulate_to_next_event(step_data, Range<uint>(0, amount_left).as_array_ref(), pindices_output);
     amount_left = pindices_output.size();
   }
 
   for (uint iteration = 0; iteration < max_events - 1 && amount_left > 0; iteration++) {
-    VectorAdaptor<uint> pindices_input(pindices_A.ptr(), amount_left, amount_left);
-    VectorAdaptor<uint> pindices_output(pindices_B.ptr(), amount_left, 0);
+    VectorAdaptor<uint> pindices_input(pindices_A.begin(), amount_left, amount_left);
+    VectorAdaptor<uint> pindices_output(pindices_B.begin(), amount_left, 0);
 
     simulate_to_next_event(step_data, pindices_input, pindices_output);
     amount_left = pindices_output.size();
@@ -334,7 +335,7 @@ BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
   AttributesInfo &offsets_info = integrator.offset_attributes_info();
   Vector<void *> offset_buffers;
   for (AttributeType type : offsets_info.types()) {
-    void *ptr = BLI::allocate_temp_buffer(size_of_attribute_type(type) * amount);
+    void *ptr = BLI_temporary_allocate(size_of_attribute_type(type) * amount);
     offset_buffers.append(ptr);
   }
   AttributeArrays attribute_offsets(offsets_info, offset_buffers, 0, amount);
@@ -349,17 +350,17 @@ BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
     apply_remaining_offsets(step_data, block.active_range().as_array_ref());
   }
   else {
-    TemporaryVector<uint> unfinished_pindices(amount);
+    TemporaryVector<uint> unfinished_pindices;
     simulate_with_max_n_events(step_data, 10, unfinished_pindices);
 
     /* Not sure yet, if this really should be done. */
-    if (unfinished_pindices->size() > 0) {
+    if (unfinished_pindices.size() > 0) {
       apply_remaining_offsets(step_data, unfinished_pindices);
     }
   }
 
   for (uint i = 0; i < offset_buffers.size(); i++) {
-    BLI::free_temp_buffer(offset_buffers[i]);
+    BLI_temporary_deallocate(offset_buffers[i]);
   }
 }
 
@@ -433,7 +434,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(ParticleAllocators &block
             particle_type_name);
 
         TemporaryArray<float> remaining_durations(block->active_amount());
-        remaining_durations->fill(time_span.duration());
+        remaining_durations.fill(time_span.duration());
 
         simulate_block(local_data->particle_allocator,
                        *block,

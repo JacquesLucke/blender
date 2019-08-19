@@ -17,7 +17,7 @@ template<typename T> void destruct(T *ptr)
   ptr->~T();
 }
 
-template<typename T> void descruct_n(T *ptr, uint n)
+template<typename T> void destruct_n(T *ptr, uint n)
 {
   for (uint i = 0; i < n; i++) {
     ptr[i].~T();
@@ -43,7 +43,7 @@ template<typename T> void uninitialized_relocate(T *src, T *dst)
 template<typename T> void uninitialized_relocate_n(T *src, uint n, T *dst)
 {
   uninitialized_move_n(src, n, dst);
-  descruct_n(src, n);
+  destruct_n(src, n);
 }
 
 template<typename T> void relocate(T *src, T *dst)
@@ -55,7 +55,7 @@ template<typename T> void relocate(T *src, T *dst)
 template<typename T> void relocate_n(T *src, uint n, T *dst)
 {
   move_n(src, n, dst);
-  descruct_n(src, n);
+  destruct_n(src, n);
 }
 
 }  // namespace BLI

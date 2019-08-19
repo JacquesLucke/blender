@@ -26,7 +26,7 @@
 
 namespace BLI {
 
-template<typename T> class SetVector {
+template<typename T, typename Allocator = GuardedAllocator> class SetVector {
  private:
   static constexpr int32_t IS_EMPTY = -1;
   static constexpr int32_t IS_DUMMY = -2;
@@ -82,8 +82,9 @@ template<typename T> class SetVector {
     }
   };
 
-  OpenAddressingArray<Slot> m_array;
-  Vector<T> m_elements;
+  using ArrayType = OpenAddressingArray<Slot, 4, Allocator>;
+  ArrayType m_array;
+  Vector<T, 4, Allocator> m_elements;
 
  public:
   SetVector() = default;
@@ -274,7 +275,7 @@ template<typename T> class SetVector {
 
   void grow(uint min_usable_slots)
   {
-    OpenAddressingArray<Slot> new_array = m_array.init_reserved(min_usable_slots);
+    ArrayType new_array = m_array.init_reserved(min_usable_slots);
 
     for (uint i = 0; i < m_elements.size(); i++) {
       this->add_after_grow(i, new_array);
@@ -283,7 +284,7 @@ template<typename T> class SetVector {
     m_array = std::move(new_array);
   }
 
-  void add_after_grow(uint index, OpenAddressingArray<Slot> &new_array)
+  void add_after_grow(uint index, ArrayType &new_array)
   {
     const T &value = m_elements[index];
     ITER_SLOTS_BEGIN (value, new_array, , slot) {

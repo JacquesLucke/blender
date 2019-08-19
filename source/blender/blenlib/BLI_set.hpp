@@ -6,7 +6,7 @@
 
 namespace BLI {
 
-template<typename T> class Set {
+template<typename T, typename Allocator = GuardedAllocator> class Set {
  private:
   static constexpr uint32_t OFFSET_MASK = 3;
   static constexpr uint8_t IS_EMPTY = 0;
@@ -111,7 +111,8 @@ template<typename T> class Set {
     }
   };
 
-  OpenAddressingArray<Item> m_array = OpenAddressingArray<Item>();
+  using ArrayType = OpenAddressingArray<Item, 1, Allocator>;
+  ArrayType m_array = OpenAddressingArray<Item>();
 
  public:
   Set() = default;
@@ -362,7 +363,7 @@ template<typename T> class Set {
   void grow(uint32_t min_usable_slots)
   {
     // std::cout << "Grow at " << m_array.slots_set() << '/' << m_array.slots_total() << '\n';
-    OpenAddressingArray<Item> new_array = m_array.init_reserved(min_usable_slots);
+    ArrayType new_array = m_array.init_reserved(min_usable_slots);
 
     for (Item &old_item : m_array) {
       for (uint8_t offset = 0; offset < 4; offset++) {
@@ -375,7 +376,7 @@ template<typename T> class Set {
     m_array = std::move(new_array);
   }
 
-  void add_after_grow(T &old_value, OpenAddressingArray<Item> &new_array)
+  void add_after_grow(T &old_value, ArrayType &new_array)
   {
     ITER_SLOTS_BEGIN (old_value, new_array, , item, offset) {
       if (item.status(offset) == IS_EMPTY) {

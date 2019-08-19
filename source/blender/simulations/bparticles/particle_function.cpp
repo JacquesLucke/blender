@@ -1,5 +1,5 @@
 #include "FN_functions.hpp"
-#include "BLI_temporary_allocator.hpp"
+#include "BLI_temporary_allocator.h"
 
 #include "particle_function.hpp"
 
@@ -120,7 +120,7 @@ void ParticleFunction::init_without_deps(ParticleFunctionResult *result)
     CPPTypeInfo &type_info = m_fn_no_deps->output_type(output_index)->extension<CPPTypeInfo>();
 
     uint output_stride = type_info.size();
-    void *output_buffer = BLI::allocate_temp_buffer(output_stride);
+    void *output_buffer = BLI_temporary_allocate(output_stride);
 
     result->m_buffers[parameter_index] = output_buffer;
     result->m_strides[parameter_index] = output_stride;
@@ -171,7 +171,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
     CPPTypeInfo &type_info = m_fn_with_deps->output_type(output_index)->extension<CPPTypeInfo>();
 
     uint output_stride = type_info.size();
-    void *output_buffer = BLI::allocate_temp_buffer(output_stride * particles.size());
+    void *output_buffer = BLI_temporary_allocate(output_stride * particles.size());
 
     result->m_buffers[parameter_index] = output_buffer;
     result->m_strides[parameter_index] = output_stride;
@@ -190,7 +190,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
 
   for (uint i : inputs_to_free) {
     void *buffer = input_buffers[i];
-    BLI::free_temp_buffer(buffer);
+    BLI_temporary_deallocate(buffer);
   }
 }
 

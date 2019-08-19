@@ -3,11 +3,12 @@
 #include "BLI_utildefines.h"
 #include "BLI_memory.hpp"
 #include "BLI_math_base.h"
-#include "MEM_guardedalloc.h"
+#include "BLI_allocator.hpp"
 
 namespace BLI {
 
-template<typename Item, uint32_t ItemsInSmallStorage = 1> class OpenAddressingArray {
+template<typename Item, uint32_t ItemsInSmallStorage = 1, typename Allocator = GuardedAllocator>
+class OpenAddressingArray {
  private:
   static constexpr auto slots_per_item = Item::slots_per_item;
 
@@ -18,6 +19,7 @@ template<typename Item, uint32_t ItemsInSmallStorage = 1> class OpenAddressingAr
   uint32_t m_slots_set_or_dummy;
   uint32_t m_slots_dummy;
   uint32_t m_slot_mask;
+  Allocator m_allocator;
   char m_local_storage[sizeof(Item) * ItemsInSmallStorage];
 
  public:
@@ -34,7 +36,8 @@ template<typename Item, uint32_t ItemsInSmallStorage = 1> class OpenAddressingAr
       m_items = this->small_storage();
     }
     else {
-      m_items = reinterpret_cast<Item *>(MEM_malloc_arrayN(m_item_amount, sizeof(Item), __func__));
+      m_items = (Item *)m_allocator.allocate_aligned(
+          sizeof(Item) * m_item_amount, std::alignment_of<Item>::value, __func__);
     }
 
     for (uint32_t i = 0; i < m_item_amount; i++) {
@@ -49,7 +52,7 @@ template<typename Item, uint32_t ItemsInSmallStorage = 1> class OpenAddressingAr
         m_items[i].~Item();
       }
       if (!this->is_in_small_storage()) {
-        MEM_freeN(static_cast<void *>(m_items));
+        m_allocator.deallocate((void *)m_items);
       }
     }
   }
@@ -67,7 +70,8 @@ template<typename Item, uint32_t ItemsInSmallStorage = 1> class OpenAddressingAr
       m_items = this->small_storage();
     }
     else {
-      m_items = static_cast<Item *>(MEM_malloc_arrayN(m_item_amount, sizeof(Item), __func__));
+      m_items = (Item *)m_allocator.allocate_aligned(
+          sizeof(Item) * m_item_amount, std::alignment_of<Item>::value, __func__);
     }
 
     uninitialized_copy_n(other.m_items, m_item_amount, m_items);

@@ -2,7 +2,7 @@
 
 #include "FN_tuple_call.hpp"
 #include "FN_functions.hpp"
-#include "BLI_temporary_allocator.hpp"
+#include "BLI_array.hpp"
 
 #include "attributes.hpp"
 #include "action_interface.hpp"
@@ -42,7 +42,7 @@ class ParticleFunctionResult {
   ~ParticleFunctionResult()
   {
     for (uint i = 0; i < m_buffers.size(); i++) {
-      BLI::free_temp_buffer(m_buffers[i]);
+      BLI_temporary_deallocate(m_buffers[i]);
     }
   }
 

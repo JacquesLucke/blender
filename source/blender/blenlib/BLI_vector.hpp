@@ -37,16 +37,18 @@
 #include "BLI_array_ref.hpp"
 #include "BLI_listbase_wrapper.hpp"
 #include "BLI_math_base.h"
+#include "BLI_allocator.hpp"
 
 #include "MEM_guardedalloc.h"
 
 namespace BLI {
 
-template<typename T, uint N = 4> class Vector {
+template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Vector {
  private:
   T *m_elements;
   uint m_size = 0;
   uint m_capacity = N;
+  Allocator m_allocator;
   char m_small_buffer[sizeof(T) * N];
 
  public:
@@ -65,7 +67,7 @@ template<typename T, uint N = 4> class Vector {
    * Create a vector with a specific size.
    * The elements will be default initialized.
    */
-  Vector(uint size) : Vector()
+  explicit Vector(uint size) : Vector()
   {
     this->reserve(size);
     for (uint i = 0; i < size; i++) {
@@ -197,7 +199,7 @@ template<typename T, uint N = 4> class Vector {
    */
   void clear()
   {
-    this->destruct_elements_but_keep_memory();
+    destruct_n(m_elements, m_size);
     m_size = 0;
   }
 
@@ -474,15 +476,15 @@ template<typename T, uint N = 4> class Vector {
      * reallocation every time even though the min_capacity only increments. */
     min_capacity = power_of_2_max_u(min_capacity);
 
-    m_capacity = min_capacity;
-
-    T *new_array = (T *)MEM_malloc_arrayN(m_capacity, sizeof(T), __func__);
+    T *new_array = (T *)m_allocator.allocate_aligned(
+        min_capacity * sizeof(T), std::alignment_of<T>::value, __func__);
     uninitialized_relocate_n(m_elements, m_size, new_array);
 
     if (!this->is_small()) {
-      MEM_freeN(m_elements);
+      m_allocator.deallocate(m_elements);
     }
 
+    m_capacity = min_capacity;
     m_elements = new_array;
   }
 
@@ -492,11 +494,12 @@ template<typename T, uint N = 4> class Vector {
       m_elements = this->small_buffer();
     }
     else {
-      m_elements = (T *)MEM_malloc_arrayN(other.m_capacity, sizeof(T), __func__);
+      m_elements = (T *)m_allocator.allocate_aligned(
+          sizeof(T) * other.m_size, std::alignment_of<T>::value, __func__);
     }
 
     BLI::uninitialized_copy(other.begin(), other.end(), m_elements);
-    m_capacity = other.m_capacity;
+    m_capacity = other.m_size;
     m_size = other.m_size;
   }
 
@@ -520,16 +523,9 @@ template<typename T, uint N = 4> class Vector {
 
   void destruct_elements_and_free_memory()
   {
-    this->destruct_elements_but_keep_memory();
+    destruct_n(m_elements, m_size);
     if (!this->is_small()) {
-      MEM_freeN(m_elements);
-    }
-  }
-
-  void destruct_elements_but_keep_memory()
-  {
-    for (uint i = 0; i < m_size; i++) {
-      this->destruct_element(i);
+      m_allocator.deallocate(m_elements);
     }
   }
 
@@ -538,5 +534,7 @@ template<typename T, uint N = 4> class Vector {
     destruct(this->element_ptr(index));
   }
 };
+
+template<typename T, uint N = 4> using TemporaryVector = Vector<T, N, TemporaryAllocator>;
 
 } /* namespace BLI */

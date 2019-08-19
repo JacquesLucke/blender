@@ -125,7 +125,7 @@ template<typename T> class CPPTypeInfoForType : public CPPTypeInfo {
 
   void destruct_n(void *ptr, uint n) const override
   {
-    BLI::descruct_n((T *)ptr, n);
+    BLI::destruct_n((T *)ptr, n);
   }
 
   void copy_to_initialized(void *src, void *dst) const override

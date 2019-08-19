@@ -30,7 +30,7 @@
 
 namespace BLI {
 
-template<typename KeyT, typename ValueT> class Map {
+template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> class Map {
  private:
   static constexpr uint32_t OFFSET_MASK = 3;
   static constexpr uint8_t IS_EMPTY = 0;
@@ -143,7 +143,8 @@ template<typename KeyT, typename ValueT> class Map {
     }
   };
 
-  OpenAddressingArray<Item> m_array;
+  using ArrayType = OpenAddressingArray<Item, 1, Allocator>;
+  ArrayType m_array;
 
  public:
   Map() = default;
@@ -497,7 +498,7 @@ template<typename KeyT, typename ValueT> class Map {
 
   void grow(uint32_t min_usable_slots)
   {
-    OpenAddressingArray<Item> new_array = m_array.init_reserved(min_usable_slots);
+    ArrayType new_array = m_array.init_reserved(min_usable_slots);
     for (Item &old_item : m_array) {
       for (uint32_t offset = 0; offset < 4; offset++) {
         if (old_item.status(offset) == IS_SET) {
@@ -508,7 +509,7 @@ template<typename KeyT, typename ValueT> class Map {
     m_array = std::move(new_array);
   }
 
-  void add_after_grow(KeyT &key, ValueT &value, OpenAddressingArray<Item> &new_array)
+  void add_after_grow(KeyT &key, ValueT &value, ArrayType &new_array)
   {
     ITER_SLOTS_BEGIN (key, new_array, , item, offset) {
       if (item.status(offset) == IS_EMPTY) {

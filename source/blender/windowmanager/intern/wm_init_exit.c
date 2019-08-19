@@ -49,7 +49,6 @@
 #include "BLI_utildefines.h"
 #include "BLI_timer.h"
 #include "BLI_lazy_init.h"
-#include "BLI_temporary_allocator.h"
 
 #include "BLO_writefile.h"
 #include "BLO_undofile.h"
@@ -653,7 +652,6 @@ void WM_exit_ex(bContext *C, const bool do_python)
   BKE_blender_atexit();
 
   FN_exit();
-  BLI_temporary_buffers_free_all();
 
   if (MEM_get_memory_blocks_in_use() != 0) {
     size_t mem_in_use = MEM_get_memory_in_use() + MEM_get_memory_in_use();

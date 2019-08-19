@@ -15,34 +15,36 @@
  */
 
 #include <mutex>
+#include <stack>
 
 #include "BLI_temporary_allocator.h"
-#include "BLI_temporary_allocator.hpp"
 #include "BLI_stack.hpp"
 
-namespace BLI {
+using namespace BLI;
 
 constexpr uint SMALL_BUFFER_SIZE = 64 * 1024;
 
 struct ThreadLocalBuffers {
-  Stack<void *, 32> buffers;
+  Stack<void *, 32, RawAllocator> buffers;
+
+  ~ThreadLocalBuffers()
+  {
+    for (void *ptr : buffers) {
+      RawAllocator().deallocate(ptr);
+    }
+  }
 };
 
-static Vector<void *> all_buffers;
-static std::mutex all_buffers_mutex;
+thread_local ThreadLocalBuffers local_storage;
 
-thread_local ThreadLocalBuffers local_buffers;
-
-void *allocate_temp_buffer(uint size)
+void *BLI_temporary_allocate(uint size)
 {
   BLI_assert(size <= SMALL_BUFFER_SIZE);
   UNUSED_VARS_NDEBUG(size);
 
-  auto &buffers = local_buffers.buffers;
+  auto &buffers = local_storage.buffers;
   if (buffers.empty()) {
-    void *ptr = MEM_mallocN_aligned(SMALL_BUFFER_SIZE, 64, __func__);
-    std::lock_guard<std::mutex> lock(all_buffers_mutex);
-    all_buffers.append(ptr);
+    void *ptr = RawAllocator().allocate_aligned(SMALL_BUFFER_SIZE, 64, __func__);
     return ptr;
   }
   else {
@@ -50,18 +52,8 @@ void *allocate_temp_buffer(uint size)
   }
 }
 
-void free_temp_buffer(void *buffer)
+void BLI_temporary_deallocate(void *buffer)
 {
-  auto &buffers = local_buffers.buffers;
+  auto &buffers = local_storage.buffers;
   buffers.push(buffer);
-}
-
-}  // namespace BLI
-
-void BLI_temporary_buffers_free_all(void)
-{
-  for (void *ptr : BLI::all_buffers) {
-    MEM_freeN(ptr);
-  }
-  BLI::all_buffers.clear_and_make_small();
 }

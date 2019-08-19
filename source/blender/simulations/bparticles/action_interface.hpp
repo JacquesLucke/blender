@@ -1,7 +1,7 @@
 #pragma once
 
 #include "FN_tuple_call.hpp"
-#include "BLI_temporary_allocator.hpp"
+#include "BLI_array.hpp"
 
 #include "step_description.hpp"
 
@@ -98,7 +98,7 @@ inline void Action::execute_from_emitter(ParticleSets &particle_sets,
     uint min_array_size = particles.block().capacity();
     AttributeArrays offsets(info, buffers, 0, min_array_size);
     TemporaryArray<float> durations(min_array_size);
-    durations->fill_indices(particles.pindices(), 0);
+    durations.fill_indices(particles.pindices(), 0);
     ActionInterface action_interface(emitter_interface.particle_allocator(),
                                      particles,
                                      offsets,
@@ -149,7 +149,7 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
     uint min_array_size = particles.block().capacity();
     AttributeArrays offsets(info, buffers, 0, min_array_size);
     TemporaryArray<float> durations(min_array_size);
-    durations->fill_indices(particles.pindices(), 0);
+    durations.fill_indices(particles.pindices(), 0);
     ActionInterface new_interface(action_interface.particle_allocator(),
                                   particles,
                                   offsets,
