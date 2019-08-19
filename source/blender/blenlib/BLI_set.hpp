@@ -30,12 +30,13 @@ namespace BLI {
 template<typename T, typename Allocator = GuardedAllocator> class Set {
  private:
   static constexpr uint32_t OFFSET_MASK = 3;
-  static constexpr uint8_t IS_EMPTY = 0;
-  static constexpr uint8_t IS_SET = 1;
-  static constexpr uint8_t IS_DUMMY = 2;
 
   class Item {
    private:
+    static constexpr uint8_t IS_EMPTY = 0;
+    static constexpr uint8_t IS_SET = 1;
+    static constexpr uint8_t IS_DUMMY = 2;
+
     uint8_t m_status[4];
     char m_values[4 * sizeof(T)];
 
@@ -88,16 +89,6 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     Item &operator=(const Item &other) = delete;
     Item &operator=(Item &&other) = delete;
 
-    const uint8_t &status(uint32_t offset) const
-    {
-      return m_status[offset];
-    }
-
-    uint8_t &status(uint32_t offset)
-    {
-      return m_status[offset];
-    }
-
     T *value(uint32_t offset) const
     {
       return (T *)(m_values + offset * sizeof(T));
@@ -124,6 +115,21 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
       BLI_assert(m_status[offset] == IS_SET);
       m_status[offset] = IS_DUMMY;
       destruct(this->value(offset));
+    }
+
+    bool is_empty(uint32_t offset) const
+    {
+      return m_status[offset] == IS_EMPTY;
+    }
+
+    bool is_set(uint32_t offset) const
+    {
+      return m_status[offset] == IS_SET;
+    }
+
+    bool is_dummy(uint32_t offset) const
+    {
+      return m_status[offset] == IS_DUMMY;
     }
 
     bool has_value(uint32_t offset, const T &value) const
@@ -160,7 +166,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     this->ensure_can_add();
 
     ITER_SLOTS_BEGIN (value, m_array, , item, offset) {
-      if (item.status(offset) == IS_EMPTY) {
+      if (item.is_empty(offset)) {
         item.copy_in(offset, value);
         m_array.update__empty_to_set();
         return;
@@ -174,8 +180,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     this->ensure_can_add();
 
     ITER_SLOTS_BEGIN (value, m_array, , item, offset) {
-      uint8_t status = item.status(offset);
-      if (status == IS_EMPTY) {
+      if (item.is_empty(offset)) {
         item.copy_in(offset, value);
         m_array.update__empty_to_set();
         return true;
@@ -204,8 +209,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
   bool contains(const T &value) const
   {
     ITER_SLOTS_BEGIN (value, m_array, const, item, offset) {
-      uint8_t status = item.status(offset);
-      if (status == IS_EMPTY) {
+      if (item.is_empty(offset)) {
         return false;
       }
       else if (item.has_value(offset, value)) {
@@ -273,17 +277,15 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
       std::cout << "   Item: " << item_index++ << '\n';
       for (uint32_t offset = 0; offset < 4; offset++) {
         std::cout << "    " << offset << " \t";
-        uint8_t status = item.status(offset);
-        if (status == IS_EMPTY) {
+        if (item.is_empty(offset)) {
           std::cout << "    <empty>\n";
         }
-        else if (status == IS_SET) {
+        else if (item.is_set(offset)) {
           const T &value = *item.value(offset);
           uint32_t collisions = this->count_collisions(value);
           std::cout << "    " << value << "  \t Collisions: " << collisions << '\n';
         }
-
-        else if (status == IS_DUMMY) {
+        else if (item.is_dummy(offset)) {
           std::cout << "    <dummy>\n";
         }
       }
@@ -346,7 +348,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
       uint32_t item_index = slot >> 2;
       uint32_t offset = slot & OFFSET_MASK;
       const Item &item = m_array.item(item_index);
-      if (item.status(offset) == IS_SET) {
+      if (item.is_set(offset)) {
         return slot;
       }
     }
@@ -367,7 +369,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
 
     for (Item &old_item : m_array) {
       for (uint8_t offset = 0; offset < 4; offset++) {
-        if (old_item.status(offset) == IS_SET) {
+        if (old_item.is_set(offset)) {
           this->add_after_grow(*old_item.value(offset), new_array);
         }
       }
@@ -379,7 +381,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
   void add_after_grow(T &old_value, ArrayType &new_array)
   {
     ITER_SLOTS_BEGIN (old_value, new_array, , item, offset) {
-      if (item.status(offset) == IS_EMPTY) {
+      if (item.is_empty(offset)) {
         item.move_in(offset, old_value);
         return;
       }
@@ -391,7 +393,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
   {
     uint32_t collisions = 0;
     ITER_SLOTS_BEGIN (value, m_array, const, item, offset) {
-      if (item.status(offset) == IS_EMPTY || item.has_value(offset, value)) {
+      if (item.is_empty(offset) || item.has_value(offset, value)) {
         return collisions;
       }
       collisions++;
