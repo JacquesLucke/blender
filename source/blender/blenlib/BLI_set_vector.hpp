@@ -26,6 +26,24 @@
 
 namespace BLI {
 
+// clang-format off
+
+#define ITER_SLOTS_BEGIN(VALUE, ARRAY, OPTIONAL_CONST, R_SLOT) \
+  uint32_t hash = MyHash<T>{}(VALUE); \
+  uint32_t perturb = hash; \
+  while (true) { \
+    for (uint i = 0; i < 4; i++) {\
+      uint32_t slot_index = (hash + i) & ARRAY.slot_mask(); \
+      OPTIONAL_CONST Slot &R_SLOT = ARRAY.item(slot_index);
+
+#define ITER_SLOTS_END \
+    } \
+    perturb >>= 5; \
+    hash = hash * 5 + 1 + perturb; \
+  } ((void)0)
+
+// clang-format on
+
 template<typename T, typename Allocator = GuardedAllocator> class SetVector {
  private:
   static constexpr int32_t IS_EMPTY = -1;
@@ -103,24 +121,6 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
   {
     this->add_multiple(values);
   }
-
-  // clang-format off
-
-#define ITER_SLOTS_BEGIN(VALUE, ARRAY, OPTIONAL_CONST, R_SLOT) \
-  uint32_t hash = MyHash<T>{}(VALUE); \
-  uint32_t perturb = hash; \
-  while (true) { \
-    for (uint i = 0; i < 4; i++) {\
-      uint32_t slot_index = (hash + i) & ARRAY.slot_mask(); \
-      OPTIONAL_CONST Slot &R_SLOT = ARRAY.item(slot_index);
-
-#define ITER_SLOTS_END \
-    } \
-    perturb >>= 5; \
-    hash = hash * 5 + 1 + perturb; \
-  } ((void)0)
-
-  // clang-format on
 
   void add_new(const T &value)
   {
@@ -295,9 +295,9 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     }
     ITER_SLOTS_END;
   }
+};
 
 #undef ITER_SLOTS_BEGIN
 #undef ITER_SLOTS_END
-};
 
 }  // namespace BLI

@@ -30,6 +30,27 @@
 
 namespace BLI {
 
+// clang-format off
+
+#define ITER_SLOTS_BEGIN(KEY, ARRAY, OPTIONAL_CONST, R_ITEM, R_OFFSET) \
+  uint32_t hash = MyHash<KeyT>{}(KEY); \
+  uint32_t perturb = hash; \
+  while (true) { \
+    uint32_t item_index = (hash & ARRAY.slot_mask()) >> 2; \
+    uint8_t R_OFFSET = hash & OFFSET_MASK; \
+    uint8_t initial_offset = R_OFFSET; \
+    OPTIONAL_CONST Item &R_ITEM = ARRAY.item(item_index); \
+    do {
+
+#define ITER_SLOTS_END(R_OFFSET) \
+      R_OFFSET = (R_OFFSET + 1) & OFFSET_MASK; \
+    } while (R_OFFSET != initial_offset); \
+    perturb >>= 5; \
+    hash = hash * 5 + 1 + perturb; \
+  } ((void)0)
+
+// clang-format on
+
 template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> class Map {
  private:
   static constexpr uint32_t OFFSET_MASK = 3;
@@ -148,27 +169,6 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
 
  public:
   Map() = default;
-
-  // clang-format off
-
-#define ITER_SLOTS_BEGIN(KEY, ARRAY, OPTIONAL_CONST, R_ITEM, R_OFFSET) \
-  uint32_t hash = MyHash<KeyT>{}(KEY); \
-  uint32_t perturb = hash; \
-  while (true) { \
-    uint32_t item_index = (hash & ARRAY.slot_mask()) >> 2; \
-    uint8_t R_OFFSET = hash & OFFSET_MASK; \
-    uint8_t initial_offset = R_OFFSET; \
-    OPTIONAL_CONST Item &R_ITEM = ARRAY.item(item_index); \
-    do {
-
-#define ITER_SLOTS_END(R_OFFSET) \
-      R_OFFSET = (R_OFFSET + 1) & OFFSET_MASK; \
-    } while (R_OFFSET != initial_offset); \
-    perturb >>= 5; \
-    hash = hash * 5 + 1 + perturb; \
-  } ((void)0)
-
-  // clang-format on
 
   void add_new(const KeyT &key, const ValueT &value)
   {
@@ -519,9 +519,9 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     }
     ITER_SLOTS_END(offset);
   }
+};
 
 #undef ITER_SLOTS_BEGIN
 #undef ITER_SLOTS_END
-};
 
 };  // namespace BLI
