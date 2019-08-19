@@ -54,12 +54,13 @@ namespace BLI {
 template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> class Map {
  private:
   static constexpr uint32_t OFFSET_MASK = 3;
-  static constexpr uint8_t IS_EMPTY = 0;
-  static constexpr uint8_t IS_SET = 1;
-  static constexpr uint8_t IS_DUMMY = 2;
 
   class Item {
    private:
+    static constexpr uint8_t IS_EMPTY = 0;
+    static constexpr uint8_t IS_SET = 1;
+    static constexpr uint8_t IS_DUMMY = 2;
+
     uint8_t m_status[4];
     char m_keys[4 * sizeof(KeyT)];
     char m_values[4 * sizeof(ValueT)];
@@ -134,11 +135,6 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
       return (ValueT *)(m_values + offset * sizeof(ValueT));
     }
 
-    uint8_t status(uint32_t offset) const
-    {
-      return m_status[offset];
-    }
-
     void copy_in(uint32_t offset, const KeyT &key, const ValueT &value)
     {
       BLI_assert(m_status[offset] != IS_SET);
@@ -176,7 +172,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     this->ensure_can_add();
 
     ITER_SLOTS_BEGIN (key, m_array, , item, offset) {
-      if (item.status(offset) == IS_EMPTY) {
+      if (item.is_empty(offset)) {
         item.copy_in(offset, key, value);
         m_array.update__empty_to_set();
         return;
@@ -190,7 +186,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     this->ensure_can_add();
 
     ITER_SLOTS_BEGIN (key, m_array, , item, offset) {
-      if (item.status(offset) == IS_EMPTY) {
+      if (item.is_empty(offset)) {
         item.copy_in(offset, key, value);
         m_array.update__empty_to_set();
         return true;
@@ -232,7 +228,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
   bool contains(const KeyT &key) const
   {
     ITER_SLOTS_BEGIN (key, m_array, const, item, offset) {
-      if (item.status(offset) == IS_EMPTY) {
+      if (item.is_empty(offset)) {
         return false;
       }
       else if (item.has_key(offset, key)) {
@@ -331,18 +327,17 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
       std::cout << "   Item: " << item_index++ << '\n';
       for (uint32_t offset = 0; offset < 4; offset++) {
         std::cout << "    " << offset << " \t";
-        uint8_t status = item.status(offset);
-        if (status == IS_EMPTY) {
+        if (item.is_empty(offset)) {
           std::cout << "    <empty>\n";
         }
-        else if (status == IS_SET) {
+        else if (item.is_set(offset)) {
           const KeyT &key = *item.key(offset);
           const ValueT &value = *item.value(offset);
           uint32_t collisions = this->count_collisions(value);
           std::cout << "    " << key << " -> " << value << "  \t Collisions: " << collisions
                     << '\n';
         }
-        else if (status == IS_DUMMY) {
+        else if (item.is_dummy(offset)) {
           std::cout << "    <dummy>\n";
         }
       }
@@ -481,7 +476,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
   {
     uint32_t collisions = 0;
     ITER_SLOTS_BEGIN (key, m_array, const, item, offset) {
-      if (item.status(offset) == IS_EMPTY || item.has_key(offset, key)) {
+      if (item.is_empty(offset) || item.has_key(offset, key)) {
         return collisions;
       }
       collisions++;
@@ -501,7 +496,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ArrayType new_array = m_array.init_reserved(min_usable_slots);
     for (Item &old_item : m_array) {
       for (uint32_t offset = 0; offset < 4; offset++) {
-        if (old_item.status(offset) == IS_SET) {
+        if (old_item.is_set(offset)) {
           this->add_after_grow(*old_item.key(offset), *old_item.value(offset), new_array);
         }
       }
@@ -512,7 +507,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
   void add_after_grow(KeyT &key, ValueT &value, ArrayType &new_array)
   {
     ITER_SLOTS_BEGIN (key, new_array, , item, offset) {
-      if (item.status(offset) == IS_EMPTY) {
+      if (item.is_empty(offset)) {
         item.move_in(offset, key, value);
         return;
       }

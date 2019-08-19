@@ -313,7 +313,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
       uint32_t item_index = m_slot >> 2;
       uint32_t offset = m_slot & OFFSET_MASK;
       const Item &item = m_set->m_array.item(item_index);
-      BLI_assert(item.status(offset) == IS_SET);
+      BLI_assert(item.is_set(offset));
       return *item.value(offset);
     }
 
