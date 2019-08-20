@@ -80,3 +80,23 @@ TEST(set_vector, IndexTry)
   EXPECT_EQ(set.index_try(6), 1);
   EXPECT_EQ(set.index_try(2), -1);
 }
+
+TEST(set_vector, Remove)
+{
+  IntSetVector set = {4, 5, 6, 7};
+  EXPECT_EQ(set.size(), 4);
+  set.remove(5);
+  EXPECT_EQ(set.size(), 3);
+  EXPECT_EQ(set[0], 4);
+  EXPECT_EQ(set[1], 7);
+  EXPECT_EQ(set[2], 6);
+  set.remove(6);
+  EXPECT_EQ(set.size(), 2);
+  EXPECT_EQ(set[0], 4);
+  EXPECT_EQ(set[1], 7);
+  set.remove(4);
+  EXPECT_EQ(set.size(), 1);
+  EXPECT_EQ(set[0], 7);
+  set.remove(7);
+  EXPECT_EQ(set.size(), 0);
+}

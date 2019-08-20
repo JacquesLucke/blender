@@ -87,6 +87,11 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
       return m_value;
     }
 
+    int32_t &index_ref()
+    {
+      return m_value;
+    }
+
     void set_index(uint index)
     {
       BLI_assert(!this->is_set());
@@ -175,8 +180,18 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     BLI_assert(this->contains(value));
     ITER_SLOTS_BEGIN (value, m_array, , slot) {
       if (slot.has_value(value, m_elements)) {
+        uint old_index = m_elements.size() - 1;
+        uint new_index = slot.index();
+
+        m_elements.remove_and_reorder(new_index);
         slot.set_dummy();
         m_array.update__set_to_dummy();
+
+        if (old_index != new_index) {
+          T &moved_value = m_elements[new_index];
+          this->update_slot_index(moved_value, old_index, new_index);
+        }
+        return;
       }
     }
     ITER_SLOTS_END;
@@ -258,6 +273,18 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
   }
 
  private:
+  void update_slot_index(T &value, uint old_index, uint new_index)
+  {
+    ITER_SLOTS_BEGIN (value, m_array, , slot) {
+      int32_t &stored_index = slot.index_ref();
+      if (stored_index == old_index) {
+        stored_index = new_index;
+        return;
+      }
+    }
+    ITER_SLOTS_END;
+  }
+
   void add_new_in_slot(Slot &slot, const T &value)
   {
     uint index = m_elements.size();
