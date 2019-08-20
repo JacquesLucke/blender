@@ -36,9 +36,8 @@ ParticleType::~ParticleType()
 
 StepDescription::~StepDescription()
 {
-  for (auto *type : m_types.values()) {
-    delete type;
-  }
+  m_types.foreach_value([](ParticleType *type) { delete type; });
+
   for (Emitter *emitter : m_emitters) {
     delete emitter;
   }

@@ -491,12 +491,11 @@ BLI_NOINLINE static Vector<ParticlesBlock *> get_all_blocks(ParticlesState &stat
                                                             StepDescription &step_description)
 {
   Vector<ParticlesBlock *> blocks;
-  for (auto particle_type_name : step_description.particle_types().keys()) {
-    ParticlesContainer &container = state.particle_container(particle_type_name);
-    for (ParticlesBlock *block : container.active_blocks()) {
-      blocks.append(block);
-    }
-  }
+  step_description.particle_types().foreach_key(
+      [&state, &blocks](StringRefNull particle_type_name) {
+        ParticlesContainer &container = state.particle_container(particle_type_name);
+        blocks.extend(container.active_blocks());
+      });
   return blocks;
 }
 
@@ -514,9 +513,8 @@ BLI_NOINLINE static void compress_all_blocks(ParticlesContainer &container)
 
 BLI_NOINLINE static void compress_all_containers(ParticlesState &state)
 {
-  for (ParticlesContainer *container : state.particle_containers().values()) {
-    compress_all_blocks(*container);
-  }
+  state.particle_containers().foreach_value(
+      [](ParticlesContainer *container) { compress_all_blocks(*container); });
 }
 
 BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
@@ -524,12 +522,12 @@ BLI_NOINLINE static void ensure_required_containers_exist(ParticlesState &state,
 {
   auto &containers = state.particle_containers();
 
-  for (std::string type_name : description.particle_types().keys()) {
+  description.particle_types().foreach_key([&containers](StringRefNull type_name) {
     if (!containers.contains(type_name)) {
       ParticlesContainer *container = new ParticlesContainer({}, 1000);
       containers.add_new(type_name, container);
     }
-  }
+  });
 }
 
 BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleType &type,
@@ -555,13 +553,14 @@ BLI_NOINLINE static void ensure_required_attributes_exist(ParticlesState &state,
 {
   auto &containers = state.particle_containers();
 
-  for (auto item : description.particle_types().items()) {
-    ParticlesContainer &container = *containers.lookup(item.key);
+  description.particle_types().foreach_key_value_pair(
+      [&containers](StringRefNull type_name, ParticleType *type) {
+        ParticlesContainer &container = *containers.lookup(type_name);
 
-    AttributesInfo new_attributes_info = build_attribute_info_for_type(
-        *item.value, container.attributes_info());
-    container.update_attributes(new_attributes_info);
-  }
+        AttributesInfo new_attributes_info = build_attribute_info_for_type(
+            *type, container.attributes_info());
+        container.update_attributes(new_attributes_info);
+      });
 }
 
 BLI_NOINLINE static void simulate_all_existing_blocks(ParticlesState &state,

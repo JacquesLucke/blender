@@ -66,76 +66,83 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
   BuildContext ctx = {data_graph, particle_type_names, world_state};
 
   MultiMap<std::string, Force *> forces;
-  for (auto item : get_force_builders().items()) {
-    for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
-      for (VirtualSocket *linked : vnode->output(0)->links()) {
-        if (is_particle_type_node(linked->vnode())) {
-          auto fn_or_error = create_particle_function(vnode, data_graph);
-          if (fn_or_error.is_error()) {
-            continue;
-          }
+  get_force_builders().foreach_key_value_pair(
+      [&vtree, &data_graph, &ctx, &forces](StringRefNull idname,
+                                           const ForceFromNodeCallback &callback) {
+        for (VirtualNode *vnode : vtree.nodes_with_idname(idname)) {
+          for (VirtualSocket *linked : vnode->output(0)->links()) {
+            if (is_particle_type_node(linked->vnode())) {
+              auto fn_or_error = create_particle_function(vnode, data_graph);
+              if (fn_or_error.is_error()) {
+                continue;
+              }
 
-          auto force = item.value(ctx, vnode, fn_or_error.extract_value());
-          if (force) {
-            forces.add(linked->vnode()->name(), force.release());
+              auto force = callback(ctx, vnode, fn_or_error.extract_value());
+              if (force) {
+                forces.add(linked->vnode()->name(), force.release());
+              }
+            }
           }
         }
-      }
-    }
-  }
+      });
 
   MultiMap<std::string, OffsetHandler *> offset_handlers;
-  for (auto item : get_offset_handler_builders().items()) {
-    for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
-      for (VirtualSocket *linked : vnode->output(0)->links()) {
-        if (is_particle_type_node(linked->vnode())) {
-          auto fn_or_error = create_particle_function(vnode, data_graph);
-          if (fn_or_error.is_error()) {
-            continue;
-          }
+  get_offset_handler_builders().foreach_key_value_pair(
+      [&vtree, &data_graph, &ctx, &offset_handlers](
+          StringRefNull idname, const OffsetHandlerFromNodeCallback &callback) {
+        for (VirtualNode *vnode : vtree.nodes_with_idname(idname)) {
+          for (VirtualSocket *linked : vnode->output(0)->links()) {
+            if (is_particle_type_node(linked->vnode())) {
+              auto fn_or_error = create_particle_function(vnode, data_graph);
+              if (fn_or_error.is_error()) {
+                continue;
+              }
 
-          auto listener = item.value(ctx, vnode, fn_or_error.extract_value());
-          if (listener) {
-            offset_handlers.add(linked->vnode()->name(), listener.release());
+              auto listener = callback(ctx, vnode, fn_or_error.extract_value());
+              if (listener) {
+                offset_handlers.add(linked->vnode()->name(), listener.release());
+              }
+            }
           }
         }
-      }
-    }
-  }
+      });
 
   MultiMap<std::string, Event *> events;
-  for (auto item : get_event_builders().items()) {
-    for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
-      for (VirtualSocket *linked : vnode->input(0)->links()) {
-        if (is_particle_type_node(linked->vnode())) {
-          auto fn_or_error = create_particle_function(vnode, data_graph);
-          if (fn_or_error.is_error()) {
-            continue;
-          }
+  get_event_builders().foreach_key_value_pair(
+      [&vtree, &data_graph, &ctx, &events](StringRefNull idname,
+                                           const EventFromNodeCallback &callback) {
+        for (VirtualNode *vnode : vtree.nodes_with_idname(idname)) {
+          for (VirtualSocket *linked : vnode->input(0)->links()) {
+            if (is_particle_type_node(linked->vnode())) {
+              auto fn_or_error = create_particle_function(vnode, data_graph);
+              if (fn_or_error.is_error()) {
+                continue;
+              }
 
-          auto event = item.value(ctx, vnode, fn_or_error.extract_value());
-          if (event) {
-            events.add(linked->vnode()->name(), event.release());
+              auto event = callback(ctx, vnode, fn_or_error.extract_value());
+              if (event) {
+                events.add(linked->vnode()->name(), event.release());
+              }
+            }
           }
         }
-      }
-    }
-  }
+      });
 
   Vector<Emitter *> emitters;
-  for (auto item : get_emitter_builders().items()) {
-    for (VirtualNode *vnode : vtree.nodes_with_idname(item.key)) {
-      VirtualSocket *emitter_output = find_emitter_output(vnode);
-      for (VirtualSocket *linked : emitter_output->links()) {
-        if (is_particle_type_node(linked->vnode())) {
-          auto emitter = item.value(ctx, vnode, linked->vnode()->name());
-          if (emitter) {
-            emitters.append(emitter.release());
+  get_emitter_builders().foreach_key_value_pair(
+      [&vtree, &ctx, &emitters](StringRefNull idname, const EmitterFromNodeCallback &callback) {
+        for (VirtualNode *vnode : vtree.nodes_with_idname(idname)) {
+          VirtualSocket *emitter_output = find_emitter_output(vnode);
+          for (VirtualSocket *linked : emitter_output->links()) {
+            if (is_particle_type_node(linked->vnode())) {
+              auto emitter = callback(ctx, vnode, linked->vnode()->name());
+              if (emitter) {
+                emitters.append(emitter.release());
+              }
+            }
           }
         }
-      }
-    }
-  }
+      });
 
   StringMap<ParticleType *> particle_types;
   for (VirtualNode *vnode : get_type_nodes(vtree)) {

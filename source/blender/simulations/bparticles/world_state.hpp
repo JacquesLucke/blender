@@ -111,15 +111,9 @@ class WorldState {
 
   void current_step_is_over()
   {
-    for (auto &item : m_float.values()) {
-      item.old_value = item.new_value;
-    }
-    for (auto &item : m_float3.values()) {
-      item.old_value = item.new_value;
-    }
-    for (auto &item : m_float4x4.values()) {
-      item.old_value = item.new_value;
-    }
+    m_float.foreach_value([](OldAndNew<float> &item) { item.old_value = item.new_value; });
+    m_float3.foreach_value([](OldAndNew<float3> &item) { item.old_value = item.new_value; });
+    m_float4x4.foreach_value([](OldAndNew<float4x4> &item) { item.old_value = item.new_value; });
   }
 };
 

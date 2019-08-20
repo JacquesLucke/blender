@@ -4,9 +4,7 @@ namespace BParticles {
 
 ParticlesState::~ParticlesState()
 {
-  for (ParticlesContainer *container : m_container_by_id.values()) {
-    delete container;
-  }
+  m_container_by_id.foreach_value([](ParticlesContainer *container) { delete container; });
 }
 
 }  // namespace BParticles

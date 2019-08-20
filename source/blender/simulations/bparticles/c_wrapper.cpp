@@ -88,11 +88,11 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
   world_state.current_step_is_over();
 
   auto &containers = particles_state.particle_containers();
-  for (auto item : containers.items()) {
-    std::cout << "Particle Type: " << item.key << "\n";
-    std::cout << "  Particles: " << item.value->count_active() << "\n";
-    std::cout << "  Blocks: " << item.value->active_blocks().size() << "\n";
-  }
+  containers.foreach_key_value_pair([](StringRefNull type_name, ParticlesContainer *container) {
+    std::cout << "Particle Type: " << type_name << "\n";
+    std::cout << "  Particles: " << container->count_active() << "\n";
+    std::cout << "  Blocks: " << container->active_blocks().size() << "\n";
+  });
 }
 
 uint BParticles_state_particle_count(BParticlesState state_c)
@@ -100,9 +100,8 @@ uint BParticles_state_particle_count(BParticlesState state_c)
   ParticlesState &state = *unwrap(state_c);
 
   uint count = 0;
-  for (ParticlesContainer *container : state.particle_containers().values()) {
-    count += container->count_active();
-  }
+  state.particle_containers().foreach_value(
+      [&count](ParticlesContainer *container) { count += container->count_active(); });
   return count;
 }
 
@@ -112,10 +111,10 @@ void BParticles_state_get_positions(BParticlesState state_c, float (*dst_c)[3])
   ParticlesState &state = *unwrap(state_c);
 
   uint index = 0;
-  for (ParticlesContainer *container : state.particle_containers().values()) {
+  state.particle_containers().foreach_value([dst_c, &index](ParticlesContainer *container) {
     container->flatten_attribute_data("Position", dst_c + index);
     index += container->count_active();
-  }
+  });
 }
 
 static float3 tetrahedon_vertices[4] = {
@@ -235,9 +234,9 @@ Mesh *BParticles_modifier_point_mesh_from_state(BParticlesState state_c)
   ParticlesState &state = *unwrap(state_c);
 
   Vector<float3> positions;
-  for (ParticlesContainer *container : state.particle_containers().values()) {
+  state.particle_containers().foreach_value([&positions](ParticlesContainer *container) {
     positions.extend(container->flatten_attribute<float3>("Position"));
-  }
+  });
 
   Mesh *mesh = BKE_mesh_new_nomain(positions.size(), 0, 0, 0, 0);
 
@@ -258,11 +257,12 @@ Mesh *BParticles_modifier_mesh_from_state(BParticlesState state_c)
   Vector<float> sizes;
   Vector<rgba_f> colors;
 
-  for (ParticlesContainer *container : state.particle_containers().values()) {
-    positions.extend(container->flatten_attribute<float3>("Position"));
-    colors.extend(container->flatten_attribute<rgba_f>("Color"));
-    sizes.extend(container->flatten_attribute<float>("Size"));
-  }
+  state.particle_containers().foreach_value(
+      [&positions, &colors, &sizes](ParticlesContainer *container) {
+        positions.extend(container->flatten_attribute<float3>("Position"));
+        colors.extend(container->flatten_attribute<rgba_f>("Color"));
+        sizes.extend(container->flatten_attribute<float>("Size"));
+      });
 
   Mesh *mesh = distribute_tetrahedons(positions, sizes, colors);
   return mesh;
@@ -295,9 +295,14 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
 {
   ParticlesState &state = *unwrap(particles_state_c);
 
-  auto container_names = Vector<std::string>::FromContainer(state.particle_containers().keys());
-  auto containers = Vector<ParticlesContainer *>::FromContainer(
-      state.particle_containers().values());
+  Vector<std::string> container_names;
+  Vector<ParticlesContainer *> containers;
+
+  state.particle_containers().foreach_key_value_pair(
+      [&container_names, &containers](StringRefNull name, ParticlesContainer *container) {
+        container_names.append(name.to_std_string());
+        containers.append(container);
+      });
 
   BParticlesFrameCache cached_frame = {0};
   cached_frame.frame = frame;

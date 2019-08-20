@@ -72,13 +72,8 @@ inline ParticlesContainer &ParticlesState::particle_container(StringRef name)
 
 inline StringRefNull ParticlesState::particle_container_name(ParticlesContainer &container)
 {
-  for (auto item : m_container_by_id.items()) {
-    if (item.value == &container) {
-      return item.key;
-    }
-  }
-  BLI_assert(false);
-  return *(StringRefNull *)nullptr;
+  StringRefNull result = m_container_by_id.find_key_for_value(&container);
+  return result;
 }
 
 inline float ParticlesState::current_time() const
