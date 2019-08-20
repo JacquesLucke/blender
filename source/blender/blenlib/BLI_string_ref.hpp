@@ -33,6 +33,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_alloca.h"
+#include "BLI_array_ref.hpp"
 
 namespace BLI {
 
@@ -71,6 +72,11 @@ class StringRefBase {
   {
     BLI_assert(index <= m_size);
     return m_data[index];
+  }
+
+  operator ArrayRef<char>() const
+  {
+    return ArrayRef<char>(m_data, m_size);
   }
 
   const char *begin() const

@@ -31,9 +31,9 @@
 #include <array>
 #include <algorithm>
 #include <iostream>
+#include <string>
 
 #include "BLI_utildefines.h"
-#include "BLI_string_ref.hpp"
 #include "BLI_memory.hpp"
 
 namespace BLI {
@@ -272,7 +272,7 @@ template<typename T> class ArrayRef {
    * A debug utility to print the content of the array ref. Every element will be printed on a
    * separate line using the given callback.
    */
-  template<typename PrintLineF> void print_as_lines(StringRef name, PrintLineF print_line) const
+  template<typename PrintLineF> void print_as_lines(std::string name, PrintLineF print_line) const
   {
     std::cout << "ArrayRef: " << name << " \tSize:" << m_size << '\n';
     for (const T &value : *this) {
