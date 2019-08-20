@@ -34,13 +34,13 @@ using namespace BLI;
 
 using SharedClass = AutoRefCount<MyTestClass>;
 
-TEST(shared, OneReferenceAfterConstruction)
+TEST(ref_count, OneReferenceAfterConstruction)
 {
   SharedClass obj = SharedClass::New();
   ASSERT_EQ(obj->refcount(), 1);
 }
 
-TEST(shared, CopyConstructorIncreasesRefCount)
+TEST(ref_count, CopyConstructorIncreasesRefCount)
 {
   SharedClass obj1 = SharedClass::New();
   ASSERT_EQ(obj1->refcount(), 1);
@@ -49,13 +49,13 @@ TEST(shared, CopyConstructorIncreasesRefCount)
   ASSERT_EQ(obj2->refcount(), 2);
 }
 
-TEST(shared, MoveConstructorKeepsRefCount)
+TEST(ref_count, MoveConstructorKeepsRefCount)
 {
   SharedClass obj(SharedClass::New());
   ASSERT_EQ(obj->refcount(), 1);
 }
 
-TEST(shared, DecreasedWhenScopeEnds)
+TEST(ref_count, DecreasedWhenScopeEnds)
 {
   SharedClass obj1 = SharedClass::New();
   ASSERT_EQ(obj1->refcount(), 1);
@@ -67,19 +67,19 @@ TEST(shared, DecreasedWhenScopeEnds)
   ASSERT_EQ(obj1->refcount(), 1);
 }
 
-TEST(shared, DefaultConstructorCalled)
+TEST(ref_count, DefaultConstructorCalled)
 {
   SharedClass obj = SharedClass::New();
   ASSERT_EQ(obj->m_value, DEFAULT_VALUE);
 }
 
-TEST(shared, OtherConstructorCalled)
+TEST(ref_count, OtherConstructorCalled)
 {
   SharedClass obj = SharedClass::New(123);
   ASSERT_EQ(obj->m_value, 123);
 }
 
-TEST(shared, DestructorCalled)
+TEST(ref_count, DestructorCalled)
 {
   bool alive = false;
   {
@@ -89,7 +89,7 @@ TEST(shared, DestructorCalled)
   ASSERT_FALSE(alive);
 }
 
-TEST(shared, CustomIncRef)
+TEST(ref_count, CustomIncRef)
 {
   auto *ptr = new MyTestClass();
   ASSERT_EQ(ptr->refcount(), 1);
@@ -99,7 +99,7 @@ TEST(shared, CustomIncRef)
   ptr->decref();
 }
 
-TEST(shared, CustomDecRef)
+TEST(ref_count, CustomDecRef)
 {
   auto *ptr = new MyTestClass();
   ptr->incref();
@@ -109,7 +109,7 @@ TEST(shared, CustomDecRef)
   ptr->decref();
 }
 
-TEST(shared, ExtractRefCounted)
+TEST(ref_count, ExtractRefCounted)
 {
   SharedClass obj = SharedClass::New();
   MyTestClass *ptr = obj.ptr();
@@ -119,7 +119,7 @@ TEST(shared, ExtractRefCounted)
   ptr->decref();
 }
 
-TEST(shared, DecRefToZero)
+TEST(ref_count, DecRefToZero)
 {
   bool alive = false;
   auto *ptr = new MyTestClass(&alive);
@@ -128,7 +128,7 @@ TEST(shared, DecRefToZero)
   ASSERT_FALSE(alive);
 }
 
-TEST(shared, Empty)
+TEST(ref_count, Empty)
 {
   SharedClass obj;
   ASSERT_EQ(obj.ptr(), nullptr);

@@ -10,6 +10,39 @@ TEST(string_map, DefaultConstructor)
   EXPECT_EQ(map.size(), 0);
 }
 
+TEST(string_map, CopyConstructor)
+{
+  StringMap<Vector<int, 4>> map1;
+  map1.add_new("A", {1, 2, 3});
+  map1.add_new("B", {1, 2, 3, 4, 5, 6});
+
+  StringMap<Vector<int>> map2(map1);
+
+  EXPECT_EQ(map1.size(), 2);
+  EXPECT_EQ(map2.size(), 2);
+  EXPECT_EQ(map1.lookup("A")[1], 2);
+  EXPECT_EQ(map2.lookup("A")[1], 2);
+  EXPECT_EQ(map1.lookup("B")[5], 6);
+  EXPECT_EQ(map2.lookup("B")[5], 6);
+}
+
+TEST(string_map, MoveConstructor)
+{
+  StringMap<Vector<int, 4>> map1;
+  map1.add_new("A", {1, 2, 3});
+  map1.add_new("B", {1, 2, 3, 4, 5, 6});
+
+  StringMap<Vector<int>> map2(std::move(map1));
+
+  EXPECT_EQ(map1.size(), 0);
+  EXPECT_FALSE(map1.contains("A"));
+  EXPECT_FALSE(map1.contains("B"));
+
+  EXPECT_EQ(map2.size(), 2);
+  EXPECT_EQ(map2.lookup("A")[1], 2);
+  EXPECT_EQ(map2.lookup("B")[5], 6);
+}
+
 TEST(string_map, AddNew)
 {
   StringMap<int> map;
@@ -155,4 +188,14 @@ TEST(string_map, ForeachKeyValuePair)
   EXPECT_EQ(values[keys.index("A")], 4);
   EXPECT_EQ(values[keys.index("B")], 5);
   EXPECT_EQ(values[keys.index("C")], 1);
+}
+
+TEST(string_map, WithVectors)
+{
+  StringMap<Vector<int>> map;
+  map.add_new("A", {1, 2, 3});
+  map.add_new("B", {1, 2, 3, 4, 5, 6, 7});
+  EXPECT_EQ(map.size(), 2);
+  EXPECT_EQ(map.lookup("A").size(), 3);
+  EXPECT_EQ(map.lookup("B").size(), 7);
 }
