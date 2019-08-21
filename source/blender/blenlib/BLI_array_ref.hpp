@@ -17,12 +17,19 @@
 /** \file
  * \ingroup bli
  *
- * An ArrayRef references some memory buffer owned
- * by someone else. If possible, functions should take
- * an ArrayRef as input. This allows passing on different
- * kinds of class types without doing unnecessary conversions.
+ * This classes offer a convenient way to work with continuous chunks of memory of a certain type.
+ * We differentiate ArrayRef and MutableArrayRef. The elements in the former are const while the
+ * elements in the other are not.
  *
- * ArrayRef instances should be passed by value.
+ * Passing array references as parameters has multiple benefits:
+ *   - Less templates are used since the function does not have to work with different
+ *     container types.
+ *   - It encourages an Struct-of-Arrays data layout which is often benefitial when
+ *     writing high performance code. Also it makes it easier to reuse code.
+ *   - Array references offer convenient ways of slicing and other operations.
+ *
+ * The instrances of ArrayRef and MutableArrayRef are very small and should be passed by value.
+ * Since array references do not own any memory, it is generally not save to store them.
  */
 
 #pragma once
@@ -38,6 +45,9 @@
 
 namespace BLI {
 
+/**
+ * References an array of data. The elements in the array should not be changed.
+ */
 template<typename T> class ArrayRef {
  private:
   const T *m_start = nullptr;
@@ -134,11 +144,6 @@ template<typename T> class ArrayRef {
   {
     BLI_assert(index < m_size);
     return m_start[index];
-  }
-
-  const T *data() const
-  {
-    return m_start;
   }
 
   /**
@@ -252,6 +257,9 @@ template<typename T> class ArrayRef {
   }
 };
 
+/**
+ * Mostly the same as ArrayRef, except that one can change the array elements via this reference.
+ */
 template<typename T> class MutableArrayRef {
  private:
   T *m_start;
@@ -279,14 +287,12 @@ template<typename T> class MutableArrayRef {
 
   operator ArrayRef<T>()
   {
-    return ArrayRef<T>(this->data(), this->size());
+    return ArrayRef<T>(m_start, m_size);
   }
 
-  T *data() const
-  {
-    return m_start;
-  }
-
+  /**
+   * Get the number of elements in the array.
+   */
   uint size() const
   {
     return m_size;
