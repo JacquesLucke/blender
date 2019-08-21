@@ -1,3 +1,33 @@
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
+
+/** \file
+ * \ingroup bli
+ *
+ * This class offers a useful abstraction for other containers that implement hash tables using
+ * open addressing. It handles the following aspects:
+ *   - Allocation and deallocation of the open addressing array.
+ *   - Optional small object optimization.
+ *   - Keeps track of how many elements and dummies are in the table.
+ *
+ * The nice thing about this abstraction is that it does not get in the way of any performance
+ * optimizations. The data that is actually stored in the table is still fully defined by the
+ * actual hash table implementation.
+ */
+
 #pragma once
 
 #include "BLI_utildefines.h"

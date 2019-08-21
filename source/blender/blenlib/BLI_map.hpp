@@ -17,9 +17,10 @@
 /** \file
  * \ingroup bli
  *
- * An unordered map implementation with small object optimization.
- * Similar to Set, this builds on top of Vector
- * and ArrayLookup to reduce what this code has to deal with.
+ * This file provides a map implementation that uses open addressing with probing.
+ *
+ * The key and value objects are stored directly in the hash table to avoid indirect memory
+ * lookups. Keys and values are stored in groups of four to avoid wasting memory due to padding.
  */
 
 #pragma once
@@ -166,6 +167,10 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
  public:
   Map() = default;
 
+  /**
+   * Insert a new key-value-pair in the map.
+   * Asserts when the key existed before.
+   */
   void add_new(const KeyT &key, const ValueT &value)
   {
     BLI_assert(!this->contains(key));
@@ -181,6 +186,10 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Insert a new key-value-pair in the map if the key does not exist yet.
+   * Returns true when the pair was newly inserted, otherwise false.
+   */
   bool add(const KeyT &key, const ValueT &value)
   {
     this->ensure_can_add();
@@ -198,6 +207,10 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Remove the key from the map.
+   * Asserts when the key does not exist in the map.
+   */
   void remove(const KeyT &key)
   {
     BLI_assert(this->contains(key));
@@ -211,6 +224,10 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Get the value for the given key and remove it from the map.
+   * Asserts when the key does not exist in the map.
+   */
   ValueT pop(const KeyT &key)
   {
     BLI_assert(this->contains(key));
@@ -225,6 +242,9 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Returns true when the key exists in the map, otherwise false.
+   */
   bool contains(const KeyT &key) const
   {
     ITER_SLOTS_BEGIN (key, m_array, const, item, offset) {
@@ -238,6 +258,12 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Check if the key exists in the map.
+   * If it does exist, call the modify function with a reference to the corresponding value.
+   * If it does not exist, call the create function and insert a new key-value-pair.
+   * Returns true when a new pair was inserted, otherwise false.
+   */
   template<typename CreateValueF, typename ModifyValueF>
   bool add_or_modify(const KeyT &key,
                      const CreateValueF &create_value,
@@ -259,12 +285,20 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Similar to add, but overrides the value for the key when it exists already.
+   */
   bool add_override(const KeyT &key, const ValueT &value)
   {
     return this->add_or_modify(
         key, [&value]() { return value; }, [&value](ValueT &old_value) { old_value = value; });
   }
 
+  /**
+   * Check if the key exists in the map.
+   * Return a pointer to the value, when it exists.
+   * Otherwise return nullptr.
+   */
   const ValueT *lookup_ptr(const KeyT &key) const
   {
     ITER_SLOTS_BEGIN (key, m_array, const, item, offset) {
@@ -278,9 +312,15 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Lookup the value that corresponds to the key.
+   * Asserts when the key does not exist.
+   */
   const ValueT &lookup(const KeyT &key) const
   {
-    return *this->lookup_ptr(key);
+    const ValueT *ptr = this->lookup_ptr(key);
+    BLI_assert(ptr != nullptr);
+    return *ptr;
   }
 
   ValueT *lookup_ptr(const KeyT &key)
@@ -295,6 +335,11 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     return const_cast<ValueT &>(const_this->lookup(key));
   }
 
+  /**
+   * Check if the key exists in the map.
+   * If it does, return a copy of the value.
+   * Otherwise, return the default value.
+   */
   ValueT lookup_default(const KeyT &key, ValueT default_value) const
   {
     ValueT *ptr = this->lookup_ptr(key);
@@ -306,6 +351,10 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     }
   }
 
+  /**
+   * Return the value that corresponds to the given key.
+   * If it does not exist yet, create and insert it first.
+   */
   template<typename CreateValueF>
   ValueT &lookup_or_add(const KeyT &key, const CreateValueF &create_value)
   {
@@ -324,6 +373,9 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Get the number of elements in the map.
+   */
   uint32_t size() const
   {
     return m_array.slots_set();
@@ -455,16 +507,26 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
 
   template<typename SubIterator> friend class BaseIterator;
 
+  /**
+   * Iterate over all keys in the map.
+   */
   KeyIterator keys() const
   {
     return KeyIterator(this, 0);
   }
 
+  /**
+   * Iterate over all values in the map.
+   */
   ValueIterator values() const
   {
     return ValueIterator(this, 0);
   }
 
+  /**
+   * Iterate over all key-value-pairs in the map.
+   * They can be accessed with item.key and item.value.
+   */
   ItemIterator items() const
   {
     return ItemIterator(this, 0);
