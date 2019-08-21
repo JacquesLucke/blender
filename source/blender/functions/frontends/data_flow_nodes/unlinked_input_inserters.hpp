@@ -9,14 +9,14 @@ class DynamicSocketLoader : public UnlinkedInputsInserter {
  public:
   void insert(VTreeDataGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
-              ArrayRef<BuilderOutputSocket *> r_new_origins) override;
+              MutableArrayRef<BuilderOutputSocket *> r_new_origins) override;
 };
 
 class ConstantInputsHandler : public UnlinkedInputsInserter {
  public:
   void insert(VTreeDataGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
-              ArrayRef<BuilderOutputSocket *> r_new_origins) override;
+              MutableArrayRef<BuilderOutputSocket *> r_new_origins) override;
 };
 
 class ReloadableInputs : public UnlinkedInputsInserter {
@@ -36,7 +36,7 @@ class ReloadableInputs : public UnlinkedInputsInserter {
 
   void insert(VTreeDataGraphBuilder &builder,
               ArrayRef<VirtualSocket *> unlinked_inputs,
-              ArrayRef<BuilderOutputSocket *> r_new_origins) override;
+              MutableArrayRef<BuilderOutputSocket *> r_new_origins) override;
 
   void load();
 };

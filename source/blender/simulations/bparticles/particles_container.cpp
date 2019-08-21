@@ -202,7 +202,7 @@ void ParticlesBlock::MoveUntilFull(ParticlesBlock &from, ParticlesBlock &to)
   to.active_amount() += move_amount;
 }
 
-void ParticlesBlock::Compress(ArrayRef<ParticlesBlock *> blocks)
+void ParticlesBlock::Compress(MutableArrayRef<ParticlesBlock *> blocks)
 {
   std::sort(blocks.begin(), blocks.end(), [](ParticlesBlock *a, ParticlesBlock *b) {
     return a->active_amount() < b->active_amount();

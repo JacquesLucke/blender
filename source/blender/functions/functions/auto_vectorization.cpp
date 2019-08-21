@@ -212,7 +212,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
         CodeBuilder &else_builder = ifthenelse.else_builder();
 
         /* Use default value when list has no elements. */
-        SharedFunction &default_builder = m_empty_list_value_builders[list_input_index];
+        const SharedFunction &default_builder = m_empty_list_value_builders[list_input_index];
         auto &default_builder_body = default_builder->body<LLVMBuildIRBody>();
         Vector<llvm::Value *> default_builder_inputs(0);
         Vector<llvm::Value *> default_builder_outputs(1);

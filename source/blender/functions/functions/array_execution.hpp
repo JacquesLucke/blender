@@ -19,7 +19,7 @@ class ArrayExecution {
 
   virtual void call(ArrayRef<uint> indices,
                     ArrayRef<void *> input_buffers,
-                    ArrayRef<void *> output_buffers,
+                    MutableArrayRef<void *> output_buffers,
                     ExecutionContext &execution_context) = 0;
 };
 

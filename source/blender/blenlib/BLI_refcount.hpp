@@ -167,7 +167,12 @@ template<typename T> class AutoRefCount {
   /**
    * Get the pointer that is currently wrapped. This pointer can be null.
    */
-  T *ptr() const
+  const T *ptr() const
+  {
+    return m_object;
+  }
+
+  T *ptr()
   {
     return m_object;
   }
@@ -176,7 +181,13 @@ template<typename T> class AutoRefCount {
    * Get a reference to the object that is currently wrapped.
    * Asserts when no object is wrapped.
    */
-  T &ref() const
+  const T &ref() const
+  {
+    BLI_assert(m_object);
+    return *m_object;
+  }
+
+  T &ref()
   {
     BLI_assert(m_object);
     return *m_object;
@@ -193,7 +204,12 @@ template<typename T> class AutoRefCount {
     return value;
   }
 
-  T *operator->() const
+  const T *operator->() const
+  {
+    return this->ptr();
+  }
+
+  T *operator->()
   {
     return this->ptr();
   }

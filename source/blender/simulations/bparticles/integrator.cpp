@@ -63,7 +63,7 @@ void EulerIntegrator::integrate(IntegratorInterface &interface)
 }
 
 BLI_NOINLINE void EulerIntegrator::compute_combined_force(IntegratorInterface &interface,
-                                                          ArrayRef<float3> r_force)
+                                                          MutableArrayRef<float3> r_force)
 {
   r_force.fill({0, 0, 0});
 
@@ -77,8 +77,8 @@ BLI_NOINLINE void EulerIntegrator::compute_combined_force(IntegratorInterface &i
 BLI_NOINLINE void EulerIntegrator::compute_offsets(ArrayRef<float> durations,
                                                    ArrayRef<float3> last_velocities,
                                                    ArrayRef<float3> combined_force,
-                                                   ArrayRef<float3> r_position_offsets,
-                                                   ArrayRef<float3> r_velocity_offsets)
+                                                   MutableArrayRef<float3> r_position_offsets,
+                                                   MutableArrayRef<float3> r_velocity_offsets)
 {
   uint amount = durations.size();
   for (uint pindex = 0; pindex < amount; pindex++) {

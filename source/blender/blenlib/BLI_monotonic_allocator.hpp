@@ -78,9 +78,9 @@ class MonotonicAllocator {
     return (T *)this->allocate(sizeof(T));
   }
 
-  template<typename T> ArrayRef<T> allocate_array(uint length)
+  template<typename T> MutableArrayRef<T> allocate_array(uint length)
   {
-    return ArrayRef<T>((T *)this->allocate(sizeof(T) * length), length);
+    return MutableArrayRef<T>((T *)this->allocate(sizeof(T) * length), length);
   }
 
   void *allocate_aligned(uint size, uint alignment)

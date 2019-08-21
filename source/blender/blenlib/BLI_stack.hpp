@@ -94,12 +94,22 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class St
     return m_elements[this->size() - 1];
   }
 
-  T *begin() const
+  T *begin()
   {
     return m_elements.begin();
   }
 
-  T *end() const
+  T *end()
+  {
+    return m_elements.end();
+  }
+
+  const T *begin() const
+  {
+    return m_elements.begin();
+  }
+
+  const T *end() const
   {
     return m_elements.end();
   }

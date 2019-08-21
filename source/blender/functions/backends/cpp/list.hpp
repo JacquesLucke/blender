@@ -85,7 +85,7 @@ class List : public RefCounter {
   {
     BLI_assert(this->is_mutable());
     BLI_assert(m_type == other->m_type);
-    List &other_ = other.ref();
+    const List &other_ = other.ref();
     this->reserve(m_size + other_.size());
     void *src = other_.m_storage;
     void *dst = POINTER_OFFSET(m_storage, m_size * m_type_info->size());
@@ -104,10 +104,10 @@ class List : public RefCounter {
     return static_cast<T *>(m_storage);
   }
 
-  template<typename T> ArrayRef<T> as_array_ref() const
+  template<typename T> MutableArrayRef<T> as_array_ref()
   {
     BLI_assert(this->can_be_type<T>());
-    return ArrayRef<T>(this->storage<T>(), m_size);
+    return MutableArrayRef<T>(this->storage<T>(), m_size);
   }
 
   template<typename T> bool can_be_type() const

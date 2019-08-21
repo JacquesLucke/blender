@@ -106,22 +106,22 @@ class Function final : public RefCounter {
   /**
    * Get the type of the input at the given index.
    */
-  Type *input_type(uint index);
+  Type *input_type(uint index) const;
 
   /**
    * Get the type of the output at the given index.
    */
-  Type *output_type(uint index);
+  Type *output_type(uint index) const;
 
   /**
    * Get the name of the input at the given index.
    */
-  StringRefNull input_name(uint index);
+  StringRefNull input_name(uint index) const;
 
   /**
    * Get the name of the output at the given index.
    */
-  StringRefNull output_name(uint index);
+  StringRefNull output_name(uint index) const;
 
   /**
    * Utility to get a specific type extension for all inputs.
@@ -223,22 +223,22 @@ inline uint Function::output_amount() const
   return m_output_names.size();
 }
 
-inline Type *Function::input_type(uint index)
+inline Type *Function::input_type(uint index) const
 {
   return m_input_types[index];
 }
 
-inline Type *Function::output_type(uint index)
+inline Type *Function::output_type(uint index) const
 {
   return m_output_types[index];
 }
 
-inline StringRefNull Function::input_name(uint index)
+inline StringRefNull Function::input_name(uint index) const
 {
   return m_input_names[index].to_string_ref(m_strings);
 }
 
-inline StringRefNull Function::output_name(uint index)
+inline StringRefNull Function::output_name(uint index) const
 {
   return m_output_names[index].to_string_ref(m_strings);
 }

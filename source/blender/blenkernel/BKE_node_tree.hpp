@@ -19,6 +19,7 @@ using BLI::IntrusiveListBaseWrapper;
 using BLI::Map;
 using BLI::MonotonicAllocator;
 using BLI::MultiMap;
+using BLI::MutableArrayRef;
 using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
@@ -94,8 +95,8 @@ class VirtualNode {
   VirtualNodeTree *m_backlink;
   bNodeTree *m_btree;
   bNode *m_bnode;
-  ArrayRef<VirtualSocket *> m_inputs;
-  ArrayRef<VirtualSocket *> m_outputs;
+  MutableArrayRef<VirtualSocket *> m_inputs;
+  MutableArrayRef<VirtualSocket *> m_outputs;
 
  public:
   ArrayRef<VirtualSocket *> inputs()
@@ -160,8 +161,8 @@ class VirtualSocket {
   bNodeSocket *m_bsocket;
   uint m_id;
 
-  ArrayRef<VirtualSocket *> m_direct_links;
-  ArrayRef<VirtualSocket *> m_links;
+  MutableArrayRef<VirtualSocket *> m_direct_links;
+  MutableArrayRef<VirtualSocket *> m_links;
 
  public:
   bool is_input() const

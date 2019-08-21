@@ -440,7 +440,7 @@ class ExecuteFGraph : public TupleCallBody {
     BLI_assert(storage.is_output_initialized(output_id));
     auto possible_target_ids = m_graph->targets_of_output(output_id);
 
-    SocketInfo &output_info = m_output_info[output_id];
+    const SocketInfo &output_info = m_output_info[output_id];
     CPPTypeInfo *type_info = output_info.type;
 
     uint *target_ids_array = (uint *)alloca(possible_target_ids.size() * sizeof(uint));
@@ -523,7 +523,7 @@ class ExecuteFGraph : public TupleCallBody {
                                                  Tuple &fn_out) const
   {
     for (uint target_id : target_ids) {
-      SocketInfo &socket_info = m_input_info[target_id];
+      const SocketInfo &socket_info = m_input_info[target_id];
       if (socket_info.is_fn_output) {
         uint index = m_fgraph.outputs().index(DataSocket::FromInput(target_id));
         void *value_ptr = storage.input_value_ptr(target_id);
@@ -536,14 +536,14 @@ class ExecuteFGraph : public TupleCallBody {
   {
     for (uint input_id = 0; input_id < m_inputs_init_buffer_size; input_id++) {
       if (storage.is_input_initialized(input_id)) {
-        SocketInfo &socket_info = m_input_info[input_id];
+        const SocketInfo &socket_info = m_input_info[input_id];
         void *value_ptr = storage.input_value_ptr(input_id);
         socket_info.type->destruct(value_ptr);
       }
     }
     for (uint output_id = 0; output_id < m_outputs_init_buffer_size; output_id++) {
       if (storage.is_output_initialized(output_id)) {
-        SocketInfo &socket_info = m_output_info[output_id];
+        const SocketInfo &socket_info = m_output_info[output_id];
         void *value_ptr = storage.output_value_ptr(output_id);
         socket_info.type->destruct(value_ptr);
       }

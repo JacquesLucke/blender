@@ -159,6 +159,11 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     return ArrayRef<T>(m_elements, m_size);
   }
 
+  operator MutableArrayRef<T>()
+  {
+    return MutableArrayRef<T>(m_elements, m_size);
+  }
+
   Vector &operator=(const Vector &other)
   {
     if (this == &other) {
@@ -291,7 +296,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    * Return a reference to the last element in the vector.
    * This will assert when the vector is empty.
    */
-  T &last() const
+  const T &last() const
   {
     BLI_assert(m_size > 0);
     return m_elements[m_size - 1];
@@ -309,7 +314,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 
   void fill_indices(ArrayRef<uint> indices, const T &value)
   {
-    ArrayRef<T>(*this).fill_indices(indices, value);
+    MutableArrayRef<T>(*this).fill_indices(indices, value);
   }
 
   /**
@@ -406,28 +411,34 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     return true;
   }
 
-  T &operator[](const int index) const
+  const T &operator[](uint index) const
   {
     BLI_assert(this->is_index_in_range(index));
     return m_elements[index];
   }
 
-  T *begin() const
+  T &operator[](uint index)
+  {
+    BLI_assert(this->is_index_in_range(index));
+    return m_elements[index];
+  }
+
+  T *begin()
   {
     return m_elements;
   }
-  T *end() const
+  T *end()
   {
-    return this->begin() + this->size();
+    return m_elements + m_size;
   }
 
-  const T *cbegin() const
+  const T *begin() const
   {
-    return this->begin();
+    return m_elements;
   }
-  const T *cend() const
+  const T *end() const
   {
-    return this->end();
+    return m_elements + m_size;
   }
 
   void print_stats() const

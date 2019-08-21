@@ -26,12 +26,13 @@ static uint get_max_event_storage_size(ArrayRef<Event *> events)
   return max_size;
 }
 
-BLI_NOINLINE static void find_next_event_per_particle(BlockStepData &step_data,
-                                                      ArrayRef<uint> pindices,
-                                                      EventStorage &r_event_storage,
-                                                      ArrayRef<int> r_next_event_indices,
-                                                      ArrayRef<float> r_time_factors_to_next_event,
-                                                      TemporaryVector<uint> &r_pindices_with_event)
+BLI_NOINLINE static void find_next_event_per_particle(
+    BlockStepData &step_data,
+    ArrayRef<uint> pindices,
+    EventStorage &r_event_storage,
+    MutableArrayRef<int> r_next_event_indices,
+    MutableArrayRef<float> r_time_factors_to_next_event,
+    TemporaryVector<uint> &r_pindices_with_event)
 {
   r_next_event_indices.fill_indices(pindices, -1);
   r_time_factors_to_next_event.fill_indices(pindices, 1.0f);
@@ -119,16 +120,17 @@ BLI_NOINLINE static void update_remaining_attribute_offsets(
 
 BLI_NOINLINE static void update_remaining_durations(ArrayRef<uint> pindices_with_event,
                                                     ArrayRef<float> time_factors_to_next_event,
-                                                    ArrayRef<float> remaining_durations)
+                                                    MutableArrayRef<float> remaining_durations)
 {
   for (uint pindex : pindices_with_event) {
     remaining_durations[pindex] *= (1.0f - time_factors_to_next_event[pindex]);
   }
 }
 
-BLI_NOINLINE static void find_pindices_per_event(ArrayRef<uint> pindices_with_events,
-                                                 ArrayRef<int> next_event_indices,
-                                                 ArrayRef<Vector<uint>> r_particles_per_event)
+BLI_NOINLINE static void find_pindices_per_event(
+    ArrayRef<uint> pindices_with_events,
+    ArrayRef<int> next_event_indices,
+    MutableArrayRef<Vector<uint>> r_particles_per_event)
 {
   for (uint pindex : pindices_with_events) {
     int event_index = next_event_indices[pindex];
@@ -140,7 +142,7 @@ BLI_NOINLINE static void find_pindices_per_event(ArrayRef<uint> pindices_with_ev
 BLI_NOINLINE static void compute_current_time_per_particle(ArrayRef<uint> pindices_with_event,
                                                            ArrayRef<float> remaining_durations,
                                                            float end_time,
-                                                           ArrayRef<float> r_current_times)
+                                                           MutableArrayRef<float> r_current_times)
 {
   for (uint pindex : pindices_with_event) {
     r_current_times[pindex] = end_time - remaining_durations[pindex];
@@ -293,7 +295,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Array
   auto handlers = step_data.particle_type.offset_handlers();
   if (handlers.size() > 0) {
     TemporaryArray<float> time_factors(step_data.array_size());
-    ArrayRef<float>(time_factors).fill_indices(pindices, 1.0f);
+    time_factors.fill_indices(pindices, 1.0f);
 
     OffsetHandlerInterface interface(step_data, pindices, time_factors);
     for (OffsetHandler *handler : handlers) {
@@ -325,7 +327,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data, Array
 BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
                                         ParticlesBlock &block,
                                         ParticleType &particle_type,
-                                        ArrayRef<float> remaining_durations,
+                                        MutableArrayRef<float> remaining_durations,
                                         float end_time)
 {
   uint amount = block.active_amount();

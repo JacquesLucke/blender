@@ -83,7 +83,7 @@ static void parallel_array_elements(ArrayRef<T> array,
 
   if (!use_threading) {
     LocalData local_data = create_thread_local();
-    for (T &element : array) {
+    for (const T &element : array) {
       process_element(element, local_data);
     }
     free_thread_local(local_data);
@@ -120,7 +120,7 @@ static void parallel_array_elements(ArrayRef<T> array,
         }
         data.thread_locals_mutex.unlock();
 
-        T &element = data.array[index];
+        const T &element = data.array[index];
         data.process_element(element, local_data);
       },
       &settings);

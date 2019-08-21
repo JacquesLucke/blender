@@ -39,7 +39,7 @@ struct ParticleSet {
   /**
    * Number of particles in this set.
    */
-  uint size();
+  uint size() const;
 
   /**
    * Returns true when pindices()[i] == i for all i, otherwise false.
@@ -137,7 +137,7 @@ inline ArrayRef<uint> ParticleSet::pindices()
   return m_pindices;
 }
 
-inline uint ParticleSet::size()
+inline uint ParticleSet::size() const
 {
   return m_pindices.size();
 }

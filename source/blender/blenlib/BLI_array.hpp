@@ -90,6 +90,11 @@ template<typename T, typename Allocator = GuardedAllocator> class Array {
     return ArrayRef<T>(m_data, m_size);
   }
 
+  operator MutableArrayRef<T>()
+  {
+    return MutableArrayRef<T>(m_data, m_size);
+  }
+
   T &operator[](uint index)
   {
     BLI_assert(index < m_size);
@@ -103,12 +108,12 @@ template<typename T, typename Allocator = GuardedAllocator> class Array {
 
   void fill(const T &value)
   {
-    ArrayRef<T>(*this).fill(value);
+    MutableArrayRef<T>(*this).fill(value);
   }
 
   void fill_indices(ArrayRef<uint> indices, const T &value)
   {
-    ArrayRef<T>(*this).fill_indices(indices, value);
+    MutableArrayRef<T>(*this).fill_indices(indices, value);
   }
 
   T *begin()

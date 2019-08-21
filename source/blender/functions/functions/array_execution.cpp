@@ -33,7 +33,7 @@ class TupleCallArrayExecution : public ArrayExecution {
 
   void call(ArrayRef<uint> indices,
             ArrayRef<void *> input_buffers,
-            ArrayRef<void *> output_buffers,
+            MutableArrayRef<void *> output_buffers,
             ExecutionContext &execution_context) override
   {
     uint input_amount = m_function->input_amount();
@@ -69,8 +69,11 @@ std::unique_ptr<ArrayExecution> get_tuple_call_array_execution(SharedFunction fu
 /* LLVM Array Execution
  ********************************************/
 
-typedef void(CompiledFunctionSignature)(
-    uint size, uint *indices, void **input_buffers, void **output_buffers, void *context_ptr);
+typedef void(CompiledFunctionSignature)(uint size,
+                                        const uint *indices,
+                                        void *const *input_buffers,
+                                        void **output_buffers,
+                                        void *context_ptr);
 
 class LLVMArrayExecution : public ArrayExecution {
  private:
@@ -89,7 +92,7 @@ class LLVMArrayExecution : public ArrayExecution {
 
   void call(ArrayRef<uint> indices,
             ArrayRef<void *> input_buffers,
-            ArrayRef<void *> output_buffers,
+            MutableArrayRef<void *> output_buffers,
             ExecutionContext &execution_context) override
   {
     CompiledFunctionSignature *function = (CompiledFunctionSignature *)

@@ -58,7 +58,7 @@ void ParticleAllocator::initialize_new_particles(ParticlesBlock &block, Range<ui
     attributes.init_default(i);
   }
 
-  ArrayRef<int32_t> particle_ids = block.attributes_all().get<int32_t>("ID");
+  MutableArrayRef<int32_t> particle_ids = block.attributes_all().get<int32_t>("ID");
   Range<uint> new_ids = block.container().new_particle_ids(pindices.size());
   for (uint i = 0; i < pindices.size(); i++) {
     uint pindex = pindices[i];

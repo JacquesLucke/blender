@@ -35,7 +35,7 @@ template<typename K, typename V, uint N = 4> class MultiMap {
     uint length;
     uint capacity;
 
-    ArrayRef<V> get_slice(ArrayRef<V> array)
+    ArrayRef<V> get_slice(ArrayRef<V> array) const
     {
       return array.slice(offset, length);
     }
@@ -130,7 +130,7 @@ template<typename K, typename V, uint N = 4> class MultiMap {
 
   ArrayRef<V> lookup_default(const K &key, ArrayRef<V> default_array = ArrayRef<V>()) const
   {
-    Entry *entry = m_map.lookup_ptr(key);
+    const Entry *entry = m_map.lookup_ptr(key);
     if (entry == nullptr) {
       return default_array;
     }

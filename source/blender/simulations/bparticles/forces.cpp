@@ -11,7 +11,7 @@ Force::~Force()
 void GravityForce::add_force(ForceInterface &interface)
 {
   ParticlesBlock &block = interface.block();
-  ArrayRef<float3> destination = interface.combined_destination();
+  MutableArrayRef<float3> destination = interface.combined_destination();
 
   auto inputs = m_compute_inputs->compute(interface);
 
@@ -24,7 +24,7 @@ void GravityForce::add_force(ForceInterface &interface)
 void TurbulenceForce::add_force(ForceInterface &interface)
 {
   ParticlesBlock &block = interface.block();
-  ArrayRef<float3> destination = interface.combined_destination();
+  MutableArrayRef<float3> destination = interface.combined_destination();
 
   auto positions = block.attributes().get<float3>("Position");
 
@@ -43,7 +43,7 @@ void TurbulenceForce::add_force(ForceInterface &interface)
 void PointForce::add_force(ForceInterface &interface)
 {
   ParticlesBlock &block = interface.block();
-  ArrayRef<float3> destination = interface.combined_destination();
+  MutableArrayRef<float3> destination = interface.combined_destination();
 
   auto inputs = m_compute_inputs->compute(interface);
 

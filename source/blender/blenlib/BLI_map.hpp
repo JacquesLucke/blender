@@ -265,7 +265,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
         key, [&value]() { return value; }, [&value](ValueT &old_value) { old_value = value; });
   }
 
-  ValueT *lookup_ptr(const KeyT &key) const
+  const ValueT *lookup_ptr(const KeyT &key) const
   {
     ITER_SLOTS_BEGIN (key, m_array, const, item, offset) {
       if (item.is_empty(offset)) {
@@ -278,9 +278,21 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ITER_SLOTS_END(offset);
   }
 
-  ValueT &lookup(const KeyT &key) const
+  const ValueT &lookup(const KeyT &key) const
   {
     return *this->lookup_ptr(key);
+  }
+
+  ValueT *lookup_ptr(const KeyT &key)
+  {
+    const Map *const_this = this;
+    return const_cast<ValueT *>(const_this->lookup_ptr(key));
+  }
+
+  ValueT &lookup(const KeyT &key)
+  {
+    const Map *const_this = this;
+    return const_cast<ValueT &>(const_this->lookup(key));
   }
 
   ValueT lookup_default(const KeyT &key, ValueT default_value) const

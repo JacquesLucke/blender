@@ -4,6 +4,7 @@
 
 using IntVector = BLI::Vector<int>;
 using IntArrayRef = BLI::ArrayRef<int>;
+using MutableIntArrayRef = BLI::MutableArrayRef<int>;
 
 TEST(array_ref, FromSmallVector)
 {
@@ -18,7 +19,7 @@ TEST(array_ref, FromSmallVector)
 TEST(array_ref, IsReferencing)
 {
   int array[] = {3, 5, 8};
-  IntArrayRef ref(array, ARRAY_SIZE(array));
+  MutableIntArrayRef ref(array, ARRAY_SIZE(array));
   EXPECT_EQ(ref.size(), 3);
   EXPECT_EQ(ref[1], 5);
   array[1] = 10;
@@ -160,7 +161,7 @@ TEST(array_ref, FromArray)
 TEST(array_ref, Fill)
 {
   std::array<int, 5> a = {4, 5, 6, 7, 8};
-  IntArrayRef a_ref(a);
+  MutableIntArrayRef a_ref(a);
   a_ref.fill(1);
   EXPECT_EQ(a[0], 1);
   EXPECT_EQ(a[1], 1);
@@ -172,7 +173,7 @@ TEST(array_ref, Fill)
 TEST(array_ref, FillIndices)
 {
   std::array<int, 5> a = {0, 0, 0, 0, 0};
-  IntArrayRef a_ref(a);
+  MutableIntArrayRef a_ref(a);
   a_ref.fill_indices({0, 2, 3}, 1);
   EXPECT_EQ(a[0], 1);
   EXPECT_EQ(a[1], 0);
@@ -184,7 +185,7 @@ TEST(array_ref, FillIndices)
 TEST(array_ref, CopyFrom)
 {
   std::array<int, 3> a = {3, 4, 5};
-  IntArrayRef a_ref(a);
+  MutableIntArrayRef a_ref(a);
   EXPECT_EQ(a[0], 3);
   EXPECT_EQ(a[1], 4);
   EXPECT_EQ(a[2], 5);

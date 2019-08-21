@@ -61,7 +61,7 @@ class ObjectMeshVertices : public TupleCallBody {
     auto vertices = SharedList::New(TYPE_float3);
     vertices->reserve_and_set_size(mesh->totvert);
 
-    ArrayRef<float3> vertices_ref = vertices->as_array_ref<float3>();
+    MutableArrayRef<float3> vertices_ref = vertices->as_array_ref<float3>();
 
     float4x4 transform = object->obmat;
 

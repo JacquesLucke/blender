@@ -197,7 +197,7 @@ class ParticlesBlock {
    * Afterwards there will be at most on block the is not full and not empty. Empty blocks are not
    * freed by this function.
    */
-  static void Compress(ArrayRef<ParticlesBlock *> blocks);
+  static void Compress(MutableArrayRef<ParticlesBlock *> blocks);
 };
 
 /* Particles Container

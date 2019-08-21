@@ -28,13 +28,13 @@ class EulerIntegrator : public Integrator {
   void integrate(IntegratorInterface &interface) override;
 
  private:
-  void compute_combined_force(IntegratorInterface &interface, ArrayRef<float3> r_force);
+  void compute_combined_force(IntegratorInterface &interface, MutableArrayRef<float3> r_force);
 
   void compute_offsets(ArrayRef<float> durations,
                        ArrayRef<float3> last_velocities,
                        ArrayRef<float3> combined_force,
-                       ArrayRef<float3> r_position_offsets,
-                       ArrayRef<float3> r_velocity_offsets);
+                       MutableArrayRef<float3> r_position_offsets,
+                       MutableArrayRef<float3> r_velocity_offsets);
 };
 
 }  // namespace BParticles

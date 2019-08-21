@@ -12,7 +12,7 @@ struct BlockStepData {
   ParticlesBlock &block;
   ParticleType &particle_type;
   AttributeArrays attribute_offsets;
-  ArrayRef<float> remaining_durations;
+  MutableArrayRef<float> remaining_durations;
   float step_end_time;
 
   uint array_size()
@@ -60,7 +60,7 @@ class BlockStepDataAccess {
     return m_step_data.attribute_offsets;
   }
 
-  ArrayRef<float> remaining_durations()
+  MutableArrayRef<float> remaining_durations()
   {
     return m_step_data.remaining_durations;
   }

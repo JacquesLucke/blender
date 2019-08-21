@@ -40,7 +40,7 @@ namespace BLI {
 
 template<typename T> class ArrayRef {
  private:
-  T *m_start = nullptr;
+  const T *m_start = nullptr;
   uint m_size = 0;
 
  public:
@@ -50,15 +50,11 @@ template<typename T> class ArrayRef {
    */
   ArrayRef() = default;
 
-  ArrayRef(T *start, uint size) : m_start(start), m_size(size)
+  ArrayRef(const T *start, uint size) : m_start(start), m_size(size)
   {
   }
 
-  ArrayRef(const T *start, uint size) : m_start((T *)start), m_size(size)
-  {
-  }
-
-  ArrayRef(const std::initializer_list<T> &list) : ArrayRef((T *)list.begin(), list.size())
+  ArrayRef(const std::initializer_list<T> &list) : ArrayRef(list.begin(), list.size())
   {
   }
 
@@ -117,59 +113,32 @@ template<typename T> class ArrayRef {
   }
 
   /**
-   * Replace all elements in the referenced array with the given value.
-   */
-  void fill(const T &element)
-  {
-    std::fill_n(m_start, m_size, element);
-  }
-
-  /**
-   * Replace a subset of all elements with the given value.
-   */
-  void fill_indices(ArrayRef<uint> indices, const T &element)
-  {
-    for (uint i : indices) {
-      m_start[i] = element;
-    }
-  }
-
-  /**
-   * Copy the values from another array into the references array.
-   */
-  void copy_from(const T *ptr)
-  {
-    BLI::copy_n(ptr, m_size, m_start);
-  }
-
-  void copy_from(ArrayRef<T> other)
-  {
-    BLI_assert(this->size() == other.size());
-    this->copy_from(other.begin());
-  }
-
-  /**
    * Copy the values in this array to another array.
    */
-  void copy_to(T *ptr)
+  void copy_to(T *ptr) const
   {
     BLI::copy_n(m_start, m_size, ptr);
   }
 
-  T *begin() const
+  const T *begin() const
   {
     return m_start;
   }
 
-  T *end() const
+  const T *end() const
   {
     return m_start + m_size;
   }
 
-  T &operator[](uint index) const
+  const T &operator[](uint index) const
   {
     BLI_assert(index < m_size);
     return m_start[index];
+  }
+
+  const T *data() const
+  {
+    return m_start;
   }
 
   /**
@@ -192,9 +161,9 @@ template<typename T> class ArrayRef {
    * Does a linear search to see of the value is in the array.
    * Return true if it is, otherwise false.
    */
-  bool contains(const T &value)
+  bool contains(const T &value) const
   {
-    for (T &element : *this) {
+    for (const T &element : *this) {
       if (element == value) {
         return true;
       }
@@ -206,7 +175,7 @@ template<typename T> class ArrayRef {
    * Does a constant time check to see if the pointer is within the referenced array.
    * Return true if it is, otherwise false.
    */
-  bool contains_ptr(const T *ptr)
+  bool contains_ptr(const T *ptr) const
   {
     return (this->begin() <= ptr) && (ptr < this->end());
   }
@@ -215,10 +184,10 @@ template<typename T> class ArrayRef {
    * Does a linear search to count how often the value is in the array.
    * Returns the number of occurences.
    */
-  uint count(const T &value)
+  uint count(const T &value) const
   {
     uint counter = 0;
-    for (T &element : *this) {
+    for (const T &element : *this) {
       if (element == value) {
         counter++;
       }
@@ -230,7 +199,7 @@ template<typename T> class ArrayRef {
    * Return a reference to the first element in the array.
    * Asserts when the array is empty.
    */
-  T &first()
+  const T &first() const
   {
     BLI_assert(m_size > 0);
     return m_start[0];
@@ -240,7 +209,7 @@ template<typename T> class ArrayRef {
    * Return a reference to the last elemeent in the array.
    * Asserts when the array is empty.
    */
-  T &last()
+  const T &last() const
   {
     BLI_assert(m_size > 0);
     return m_start[m_size - 1];
@@ -280,6 +249,141 @@ template<typename T> class ArrayRef {
       print_line(value);
       std::cout << '\n';
     }
+  }
+};
+
+template<typename T> class MutableArrayRef {
+ private:
+  T *m_start;
+  uint m_size;
+
+ public:
+  MutableArrayRef() = default;
+
+  MutableArrayRef(T *start, uint size) : m_start(start), m_size(size)
+  {
+  }
+
+  MutableArrayRef(std::initializer_list<T> &list) : MutableArrayRef(list.begin(), list.size())
+  {
+  }
+
+  MutableArrayRef(std::vector<T> &vector) : MutableArrayRef(vector.data(), vector.size())
+  {
+  }
+
+  template<std::size_t N>
+  MutableArrayRef(std::array<T, N> &array) : MutableArrayRef(array.data(), N)
+  {
+  }
+
+  operator ArrayRef<T>()
+  {
+    return ArrayRef<T>(this->data(), this->size());
+  }
+
+  T *data() const
+  {
+    return m_start;
+  }
+
+  uint size() const
+  {
+    return m_size;
+  }
+
+  /**
+   * Replace all elements in the referenced array with the given value.
+   */
+  void fill(const T &element)
+  {
+    std::fill_n(m_start, m_size, element);
+  }
+
+  /**
+   * Replace a subset of all elements with the given value.
+   */
+  void fill_indices(ArrayRef<uint> indices, const T &element)
+  {
+    for (uint i : indices) {
+      m_start[i] = element;
+    }
+  }
+
+  /**
+   * Copy the values from another array into the references array.
+   */
+  void copy_from(const T *ptr)
+  {
+    BLI::copy_n(ptr, m_size, m_start);
+  }
+
+  void copy_from(ArrayRef<T> other)
+  {
+    BLI_assert(this->size() == other.size());
+    this->copy_from(other.begin());
+  }
+
+  T *begin() const
+  {
+    return m_start;
+  }
+
+  T *end() const
+  {
+    return m_start + m_size;
+  }
+
+  T &operator[](uint index) const
+  {
+    BLI_assert(index < this->size());
+    return m_start[index];
+  }
+
+  /**
+   * Return a continuous part of the array.
+   * This will assert when the slice is out of bounds.
+   */
+  MutableArrayRef slice(uint start, uint length) const
+  {
+    BLI_assert(start + length <= this->size());
+    return MutableArrayRef(m_start + start, length);
+  }
+
+  /**
+   * Return a new MutableArrayRef with n elements removed from the beginning.
+   */
+  MutableArrayRef drop_front(uint n = 1) const
+  {
+    BLI_assert(n <= this->size());
+    return this->slice(n, this->size() - n);
+  }
+
+  /**
+   * Return a new MutableArrayRef with n elements removed from the beginning.
+   */
+  MutableArrayRef drop_back(uint n = 1) const
+  {
+    BLI_assert(n <= this->size());
+    return this->slice(0, this->size() - n);
+  }
+
+  /**
+   * Return a new MutableArrayRef that only contains the first n elements.
+   */
+  MutableArrayRef take_front(uint n) const
+  {
+    BLI_assert(n <= this->size());
+    return this->slice(0, n);
+  }
+
+  /**
+   * Return a new MutableArrayRef that only contains the last n elements.
+   */
+  MutableArrayRef take_back(uint n) const
+  {
+    BLI_assert(n <= this->size());
+    return this->slice(this->size() - n, n);
   }
 };
 

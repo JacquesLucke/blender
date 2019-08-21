@@ -38,7 +38,7 @@ Vector<DataSocket> find_input_data_sockets(VirtualNode *vnode, VTreeDataGraph &d
 static SetVector<VirtualSocket *> find_particle_dependencies(
     VTreeDataGraph &data_graph,
     ArrayRef<DataSocket> sockets,
-    ArrayRef<bool> r_depends_on_particle_flags)
+    MutableArrayRef<bool> r_depends_on_particle_flags)
 {
   SetVector<VirtualSocket *> combined_dependencies;
 
@@ -89,7 +89,7 @@ class AgeInputProvider : public ParticleFunctionInputProvider {
   {
     auto birth_times = interface.particles().attributes().get<float>("Birth Time");
     float *ages_buffer = (float *)BLI_temporary_allocate(sizeof(float) * birth_times.size());
-    ArrayRef<float> ages(ages_buffer, birth_times.size());
+    MutableArrayRef<float> ages(ages_buffer, birth_times.size());
 
     ParticleTimes &times = interface.particle_times();
     if (times.type() == ParticleTimes::Type::Current) {
@@ -108,7 +108,7 @@ class AgeInputProvider : public ParticleFunctionInputProvider {
     else {
       BLI_assert(false);
     }
-    return {ages, true};
+    return {ArrayRef<float>(ages), true};
   }
 };
 
@@ -154,7 +154,7 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
     rgba_b *pixel_buffer = (rgba_b *)m_ibuf->rect;
 
     rgba_f *colors_buffer = (rgba_f *)BLI_temporary_allocate(sizeof(rgba_f) * positions.size());
-    ArrayRef<rgba_f> colors{colors_buffer, positions.size()};
+    MutableArrayRef<rgba_f> colors{colors_buffer, positions.size()};
 
     for (uint pindex : interface.particles().pindices()) {
       float3 position_world = positions[pindex];
@@ -185,7 +185,7 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
       uint y = uv.y * (m_ibuf->y - 1);
       colors[pindex] = pixel_buffer[y * m_ibuf->x + x];
     }
-    return {colors, true};
+    return {ArrayRef<rgba_f>(colors), true};
   }
 };
 
@@ -220,7 +220,7 @@ static SharedFunction create_function__with_deps(
     StringRef function_name,
     ArrayRef<DataSocket> sockets_to_compute,
     ArrayRef<VirtualSocket *> input_vsockets,
-    ArrayRef<ParticleFunctionInputProvider *> r_input_providers)
+    MutableArrayRef<ParticleFunctionInputProvider *> r_input_providers)
 {
   uint input_amount = input_vsockets.size();
   BLI_assert(input_amount == r_input_providers.size());

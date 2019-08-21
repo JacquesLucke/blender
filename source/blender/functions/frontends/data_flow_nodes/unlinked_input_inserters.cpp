@@ -66,7 +66,7 @@ class SocketLoaderDependencies : public DepsBody {
 
 void DynamicSocketLoader::insert(VTreeDataGraphBuilder &builder,
                                  ArrayRef<VirtualSocket *> unlinked_inputs,
-                                 ArrayRef<BuilderOutputSocket *> r_new_origins)
+                                 MutableArrayRef<BuilderOutputSocket *> r_new_origins)
 {
   auto &socket_loaders = MAPPING_socket_loaders();
 
@@ -155,7 +155,7 @@ class ConstantOutputGen : public LLVMBuildIRBody {
 
 void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
                                    ArrayRef<VirtualSocket *> unlinked_inputs,
-                                   ArrayRef<BuilderOutputSocket *> r_new_origins)
+                                   MutableArrayRef<BuilderOutputSocket *> r_new_origins)
 {
   auto &socket_loaders = MAPPING_socket_loaders();
 
@@ -219,7 +219,7 @@ ReloadableInputs::~ReloadableInputs()
 
 void ReloadableInputs::insert(VTreeDataGraphBuilder &builder,
                               ArrayRef<VirtualSocket *> unlinked_inputs,
-                              ArrayRef<BuilderOutputSocket *> r_new_origins)
+                              MutableArrayRef<BuilderOutputSocket *> r_new_origins)
 {
   BLI_assert(m_tuple.get() == nullptr);
 

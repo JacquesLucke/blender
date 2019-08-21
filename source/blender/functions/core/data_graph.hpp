@@ -222,46 +222,48 @@ class DataGraph : public RefCounter {
     return Range<uint>(0, m_nodes.size());
   }
 
-  SharedFunction &function_of_node(uint node_id)
+  SharedFunction &function_of_node(uint node_id) const
   {
-    return m_nodes[node_id].function;
+    /* A function is mostly immutable anyway. */
+    const SharedFunction &fn = m_nodes[node_id].function;
+    return const_cast<SharedFunction &>(fn);
   }
 
-  SharedFunction &function_of_input(uint input_id)
+  SharedFunction &function_of_input(uint input_id) const
   {
     return this->function_of_node(m_inputs[input_id].node);
   }
 
-  SharedFunction &function_of_output(uint output_id)
+  SharedFunction &function_of_output(uint output_id) const
   {
     return this->function_of_node(m_outputs[output_id].node);
   }
 
-  uint id_of_node_input(uint node_id, uint input_index)
+  uint id_of_node_input(uint node_id, uint input_index) const
   {
     BLI_assert(input_index < this->input_ids_of_node(node_id).size());
     return m_nodes[node_id].inputs_start + input_index;
   }
 
-  uint id_of_node_output(uint node_id, uint output_index)
+  uint id_of_node_output(uint node_id, uint output_index) const
   {
     BLI_assert(output_index < this->output_ids_of_node(node_id).size());
     return m_nodes[node_id].outputs_start + output_index;
   }
 
-  DataSocket socket_of_node_input(uint node_id, uint input_index)
+  DataSocket socket_of_node_input(uint node_id, uint input_index) const
   {
     return DataSocket(false, this->id_of_node_input(node_id, input_index));
   }
 
-  DataSocket socket_of_node_output(uint node_id, uint output_index)
+  DataSocket socket_of_node_output(uint node_id, uint output_index) const
   {
     return DataSocket(true, this->id_of_node_output(node_id, output_index));
   }
 
   Range<uint> input_ids_of_node(uint node_id) const
   {
-    Node &node = m_nodes[node_id];
+    const Node &node = m_nodes[node_id];
     return Range<uint>(node.inputs_start, node.inputs_start + node.function->input_amount());
   }
 
@@ -272,7 +274,7 @@ class DataGraph : public RefCounter {
 
   Range<uint> output_ids_of_node(uint node_id) const
   {
-    Node &node = m_nodes[node_id];
+    const Node &node = m_nodes[node_id];
     return Range<uint>(node.outputs_start, node.outputs_start + node.function->output_amount());
   }
 
@@ -314,7 +316,7 @@ class DataGraph : public RefCounter {
 
   ArrayRef<uint> targets_of_output(uint output_id) const
   {
-    OutputSocket &data = m_outputs[output_id];
+    const OutputSocket &data = m_outputs[output_id];
     return ArrayRef<uint>(&m_targets[data.targets_start], data.targets_amount);
   }
 
@@ -388,7 +390,7 @@ class DataGraph : public RefCounter {
     return this->index_of_output(output_socket.id());
   }
 
-  const StringRefNull name_of_socket(DataSocket socket)
+  StringRefNull name_of_socket(DataSocket socket) const
   {
     if (socket.is_input()) {
       return this->name_of_input(socket.id());
@@ -398,7 +400,7 @@ class DataGraph : public RefCounter {
     }
   }
 
-  Type *type_of_socket(DataSocket socket)
+  Type *type_of_socket(DataSocket socket) const
   {
     if (socket.is_input()) {
       return this->type_of_input(socket.id());
@@ -408,33 +410,33 @@ class DataGraph : public RefCounter {
     }
   }
 
-  const StringRefNull name_of_input(uint input_id)
+  StringRefNull name_of_input(uint input_id) const
   {
     return this->function_of_input(input_id)->input_name(this->index_of_input(input_id));
   }
 
-  const StringRefNull name_of_output(uint output_id)
+  StringRefNull name_of_output(uint output_id) const
   {
     return this->function_of_output(output_id)->output_name(this->index_of_output(output_id));
   }
 
-  Type *type_of_input(uint input_id)
+  Type *type_of_input(uint input_id) const
   {
     return this->function_of_input(input_id)->input_type(this->index_of_input(input_id));
   }
 
-  Type *type_of_output(uint output_id)
+  Type *type_of_output(uint output_id) const
   {
     return this->function_of_output(output_id)->output_type(this->index_of_output(output_id));
   }
 
-  Type *type_of_input(DataSocket input_socket)
+  Type *type_of_input(DataSocket input_socket) const
   {
     BLI_assert(input_socket.is_input());
     return this->type_of_input(input_socket.id());
   }
 
-  Type *type_of_output(DataSocket output_socket)
+  Type *type_of_output(DataSocket output_socket) const
   {
     BLI_assert(output_socket.is_output());
     return this->type_of_output(output_socket.id());

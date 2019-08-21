@@ -131,7 +131,7 @@ static uint tetrahedon_loop_edges[12] = {0, 3, 1, 2, 4, 0, 1, 5, 2, 3, 5, 4};
 static uint tetrahedon_edges[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2, 3}};
 
 static void distribute_tetrahedons_range(Mesh *mesh,
-                                         ArrayRef<MLoopCol> loop_colors,
+                                         MutableArrayRef<MLoopCol> loop_colors,
                                          Range<uint> range,
                                          ArrayRef<float3> centers,
                                          ArrayRef<float> scales,
@@ -183,7 +183,7 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers,
                                    amount * ARRAY_SIZE(tetrahedon_loop_vertices),
                                    amount * ARRAY_SIZE(tetrahedon_loop_starts));
 
-  auto loop_colors = ArrayRef<MLoopCol>(
+  auto loop_colors = MutableArrayRef<MLoopCol>(
       (MLoopCol *)CustomData_add_layer_named(
           &mesh->ldata, CD_MLOOPCOL, CD_DEFAULT, nullptr, mesh->totloop, "Color"),
       mesh->totloop);

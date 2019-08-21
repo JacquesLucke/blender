@@ -51,8 +51,8 @@ void AllInOneSocketInputs::group(VTreeDataGraphBuilder &builder,
 static void update_hash_of_used_vsockets(VTreeDataGraphBuilder &builder,
                                          VirtualSocket *vsocket,
                                          uint random,
-                                         ArrayRef<uint> hash_per_vsocket,
-                                         ArrayRef<bool> was_updated_per_vsocket,
+                                         MutableArrayRef<uint> hash_per_vsocket,
+                                         MutableArrayRef<bool> was_updated_per_vsocket,
                                          Vector<uint> &updated_vsockets)
 {
   hash_per_vsocket[vsocket->id()] ^= random;

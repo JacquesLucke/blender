@@ -16,6 +16,7 @@ namespace BParticles {
 using BLI::ArrayRef;
 using BLI::float2;
 using BLI::float3;
+using BLI::MutableArrayRef;
 using BLI::Optional;
 using BLI::Range;
 using BLI::rgba_b;
@@ -307,13 +308,13 @@ class AttributeArrays {
    * Get access to the underlying attribute arrays.
    * Asserts when the attribute does not exists.
    */
-  template<typename T> ArrayRef<T> get(uint index) const
+  template<typename T> MutableArrayRef<T> get(uint index) const
   {
     BLI_assert(attribute_type_by_type<T>::value == m_info->type_of(index));
     void *ptr = this->get_ptr(index);
-    return ArrayRef<T>((T *)ptr, m_size);
+    return MutableArrayRef<T>((T *)ptr, m_size);
   }
-  template<typename T> ArrayRef<T> get(StringRef name)
+  template<typename T> MutableArrayRef<T> get(StringRef name)
   {
     uint index = this->attribute_index(name);
     return this->get<T>(index);
@@ -323,7 +324,7 @@ class AttributeArrays {
    * Get access to the arrays.
    * Does not assert when the attribute does not exist.
    */
-  template<typename T> Optional<ArrayRef<T>> try_get(StringRef name)
+  template<typename T> Optional<MutableArrayRef<T>> try_get(StringRef name)
   {
     int index = this->info().attribute_index_try(name, attribute_type_by_type<T>::value);
     if (index == -1) {

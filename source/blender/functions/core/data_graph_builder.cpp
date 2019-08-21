@@ -26,14 +26,14 @@ BuilderNode *DataGraphBuilder::insert_function(SharedFunction function, SourceIn
   /* Allocate memory for node, input sockets and output sockets. */
   BuilderNode *node = m_allocator.allocate<BuilderNode>();
 
-  ArrayRef<BuilderInputSocket> input_sockets = m_allocator.allocate_array<BuilderInputSocket>(
-      function->input_amount());
-  ArrayRef<BuilderInputSocket *> input_socket_pointers =
+  MutableArrayRef<BuilderInputSocket> input_sockets =
+      m_allocator.allocate_array<BuilderInputSocket>(function->input_amount());
+  MutableArrayRef<BuilderInputSocket *> input_socket_pointers =
       m_allocator.allocate_array<BuilderInputSocket *>(function->input_amount());
 
-  ArrayRef<BuilderOutputSocket> output_sockets = m_allocator.allocate_array<BuilderOutputSocket>(
-      function->output_amount());
-  ArrayRef<BuilderOutputSocket *> output_socket_pointers =
+  MutableArrayRef<BuilderOutputSocket> output_sockets =
+      m_allocator.allocate_array<BuilderOutputSocket>(function->output_amount());
+  MutableArrayRef<BuilderOutputSocket *> output_socket_pointers =
       m_allocator.allocate_array<BuilderOutputSocket *>(function->output_amount());
 
   /* Initialize input sockets. */
@@ -78,8 +78,8 @@ void DataGraphBuilder::insert_link(BuilderOutputSocket *from, BuilderInputSocket
   if (from->m_targets.is_full()) {
     uint old_capacity = from->m_targets.capacity();
     uint new_capacity = (old_capacity == 0) ? 1 : old_capacity * 2;
-    ArrayRef<BuilderInputSocket *> new_targets = m_allocator.allocate_array<BuilderInputSocket *>(
-        new_capacity);
+    MutableArrayRef<BuilderInputSocket *> new_targets =
+        m_allocator.allocate_array<BuilderInputSocket *>(new_capacity);
     new_targets.take_front(old_capacity).copy_from(from->m_targets);
     from->m_targets = VectorAdaptor<BuilderInputSocket *>(
         new_targets.begin(), new_capacity, old_capacity);

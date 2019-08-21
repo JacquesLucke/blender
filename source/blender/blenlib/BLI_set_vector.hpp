@@ -272,6 +272,11 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     return m_elements;
   }
 
+  operator MutableArrayRef<T>()
+  {
+    return m_elements;
+  }
+
  private:
   void update_slot_index(T &value, uint old_index, uint new_index)
   {
