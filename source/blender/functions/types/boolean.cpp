@@ -16,15 +16,17 @@ class LLVMBool : public TrivialLLVMTypeInfo {
 
   void build_store_ir__copy(CodeBuilder &builder,
                             llvm::Value *value,
-                            llvm::Value *byte_addr) const override
+                            llvm::Value *address) const override
   {
+    llvm::Value *byte_address = builder.CastToPointerOf(address, builder.getInt8Ty());
     llvm::Value *byte_value = builder.CreateCastIntTo8(value, false);
-    builder.CreateStore(byte_value, byte_addr);
+    builder.CreateStore(byte_value, byte_address);
   }
 
-  llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *byte_addr) const override
+  llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const override
   {
-    llvm::Value *byte_value = builder.CreateLoad(byte_addr);
+    llvm::Value *byte_address = builder.CastToPointerOf(address, builder.getInt8Ty());
+    llvm::Value *byte_value = builder.CreateLoad(byte_address);
     llvm::Value *value = builder.CreateCastIntTo1(byte_value);
     return value;
   }
