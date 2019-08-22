@@ -14,6 +14,7 @@ class ParticleEffectorSocketDecl(SocketDeclBase):
     def build(self, node_sockets):
         socket = node_sockets.new("bp_ParticleEffectorSocket", self.display_name, identifier=self.identifier)
         socket.link_limit = MAX_LINK_LIMIT
+        socket.display_shape = 'DIAMOND'
         return [socket]
 
     def validate(self, sockets):
@@ -38,7 +39,9 @@ class ExecuteOutputDecl(SocketDeclBase):
         self.display_name = display_name
 
     def build(self, node_sockets):
-        return [node_sockets.new("bp_ExecuteSocket", self.display_name, identifier=self.identifier)]
+        socket = node_sockets.new("bp_ExecuteSocket", self.display_name, identifier=self.identifier)
+        socket.display_shape = 'SQUARE'
+        return [socket]
 
     def amount(self):
         return 1
@@ -65,11 +68,15 @@ class ExecuteInputListDecl(SocketDeclBase):
 
     def _build(self, node_sockets):
         for i in range(self.get_execute_amount()):
-            yield node_sockets.new(
+            socket = node_sockets.new(
                 "bp_ExecuteSocket",
                 self.display_name,
                 identifier=self.identifier_prefix + str(i))
-        yield node_sockets.new("fn_OperatorSocket", "Operator")
+            socket.display_shape = 'SQUARE'
+            yield socket
+        socket = node_sockets.new("fn_OperatorSocket", "Operator")
+        socket.display_shape = 'SQUARE'
+        yield socket
 
     def amount(self):
         return self.get_execute_amount() + 1
