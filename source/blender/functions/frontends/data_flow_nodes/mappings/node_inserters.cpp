@@ -351,7 +351,42 @@ static void INSERT_compare(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
        {"use_list__b", Functions::GET_FN_output_float_0()}});
   builder.insert_matching_function(fn, vnode);
 }
+static SharedFunction &get_boolean_function(int operation)
+{
+  switch (operation) {
+    case 1:
+      return Functions::GET_FN_and();
+    case 2:
+      return Functions::GET_FN_or();
+    case 3:
+      return Functions::GET_FN_not();
+    default:
+      BLI_assert(false);
+      return *(SharedFunction *)nullptr;
+  }
+}
 
+static void INSERT_boolean(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
+{
+  PointerRNA rna = vnode->rna();
+  int operation = RNA_enum_get(&rna, "operation");
+  SharedFunction &original_fn = get_boolean_function(operation);
+  uint input_amount = original_fn->input_amount();
+  if (input_amount == 1) {
+    SharedFunction fn = get_vectorized_function(
+        original_fn, rna, {{"use_list__a", Functions::GET_FN_output_false()}});
+    builder.insert_matching_function(fn, vnode);
+  }
+  else {
+    BLI_assert(input_amount == 2);
+    SharedFunction fn = get_vectorized_function(
+        original_fn,
+        rna,
+        {{"use_list__a", Functions::GET_FN_output_false()},
+         {"use_list__b", Functions::GET_FN_output_true()}});
+    builder.insert_matching_function(fn, vnode);
+  }
+}
 void REGISTER_node_inserters(std::unique_ptr<NodeInserters> &inserters)
 {
 #define REGISTER_FUNCTION(idname, fn) inserters->register_function(idname, Functions::GET_FN_##fn)
@@ -377,6 +412,7 @@ void REGISTER_node_inserters(std::unique_ptr<NodeInserters> &inserters)
   REGISTER_INSERTER("fn_SeparateVectorNode", INSERT_separate_vector);
   REGISTER_INSERTER("fn_SwitchNode", INSERT_switch);
   REGISTER_INSERTER("fn_VectorMathNode", INSERT_vector_math);
+  REGISTER_INSERTER("fn_BooleanMathNode", INSERT_boolean);
 
 #undef REGISTER_INSERTER
 #undef REGISTER_FUNCTION

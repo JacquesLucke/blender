@@ -141,6 +141,8 @@ set(SRC
   functions/constants.cpp
   functions/color.hpp
   functions/color.cpp
+  functions/boolean.hpp
+  functions/boolean.cpp
 
   frontends/data_flow_nodes/vtree_data_graph_builder.hpp
   frontends/data_flow_nodes/vtree_data_graph_builder.cpp

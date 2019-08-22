@@ -13,3 +13,4 @@
 #include "functions/constants.hpp"
 #include "functions/color.hpp"
 #include "functions/array_execution.hpp"
+#include "functions/boolean.hpp"
