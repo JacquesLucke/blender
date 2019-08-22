@@ -311,7 +311,7 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
   }
 
  private:
-  constexpr uint32_t compute_string_hash(StringRef key) const
+  uint32_t compute_string_hash(StringRef key) const
   {
     /* TODO: check if this can be optimized more because we know the key length already. */
     uint32_t hash = 5381;
