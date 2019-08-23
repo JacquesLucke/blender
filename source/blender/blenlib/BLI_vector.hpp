@@ -45,9 +45,9 @@ namespace BLI {
 
 template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Vector {
  private:
-  T *m_elements;
-  uint m_size = 0;
-  uint m_capacity = N;
+  T *m_begin;
+  T *m_end;
+  T *m_capacity_end;
   Allocator m_allocator;
   char m_small_buffer[sizeof(T) * N];
 
@@ -58,9 +58,9 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    */
   Vector()
   {
-    m_elements = this->small_buffer();
-    m_capacity = N;
-    m_size = 0;
+    m_begin = this->small_buffer();
+    m_end = m_begin;
+    m_capacity_end = m_begin + N;
   }
 
   /**
@@ -70,10 +70,10 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   explicit Vector(uint size) : Vector()
   {
     this->reserve(size);
-    for (uint i = 0; i < size; i++) {
-      new (this->element_ptr(i)) T();
+    this->increase_size_unchecked(size);
+    for (T *current = m_begin; current != m_end; current++) {
+      new (current) T();
     }
-    m_size = size;
   }
 
   /**
@@ -82,8 +82,8 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   Vector(uint size, const T &value) : Vector()
   {
     this->reserve(size);
-    BLI::uninitialized_fill_n(m_elements, size, value);
-    m_size = size;
+    this->increase_size_unchecked(size);
+    BLI::uninitialized_fill_n(m_begin, size, value);
   }
 
   /**
@@ -99,8 +99,8 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   Vector(ArrayRef<T> values) : Vector()
   {
     this->reserve(values.size());
+    this->increase_size_unchecked(values.size());
     BLI::uninitialized_copy_n(values.begin(), values.size(), this->begin());
-    m_size = values.size();
   }
 
   /**
@@ -156,12 +156,12 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 
   operator ArrayRef<T>() const
   {
-    return ArrayRef<T>(m_elements, m_size);
+    return ArrayRef<T>(m_begin, this->size());
   }
 
   operator MutableArrayRef<T>()
   {
-    return MutableArrayRef<T>(m_elements, m_size);
+    return MutableArrayRef<T>(m_begin, this->size());
   }
 
   Vector &operator=(const Vector &other)
@@ -204,8 +204,8 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    */
   void clear()
   {
-    destruct_n(m_elements, m_size);
-    m_size = 0;
+    destruct_n(m_begin, this->size());
+    m_end = m_begin;
   }
 
   /**
@@ -215,8 +215,9 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   void clear_and_make_small()
   {
     this->destruct_elements_and_free_memory();
-    m_size = 0;
-    m_elements = this->small_buffer();
+    m_begin = this->small_buffer();
+    m_end = m_begin;
+    m_capacity_end = m_begin + N;
   }
 
   /**
@@ -237,16 +238,16 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 
   void append_unchecked(const T &value)
   {
-    BLI_assert(m_size < m_capacity);
-    new (this->end()) T(value);
-    m_size++;
+    BLI_assert(m_end < m_capacity_end);
+    new (m_end) T(value);
+    m_end++;
   }
 
   void append_unchecked(T &&value)
   {
-    BLI_assert(m_size < m_capacity);
-    new (this->end()) T(std::move(value));
-    m_size++;
+    BLI_assert(m_end < m_capacity_end);
+    new (m_end) T(std::move(value));
+    m_end++;
   }
 
   /**
@@ -255,15 +256,15 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    */
   void append_n_times(const T &value, uint n)
   {
-    this->reserve(m_size + n);
-    BLI::uninitialized_fill_n(this->end(), n, value);
-    m_size += n;
+    this->reserve(this->size() + n);
+    BLI::uninitialized_fill_n(m_end, n, value);
+    this->increase_size_unchecked(n);
   }
 
   void increase_size_unchecked(uint n)
   {
-    BLI_assert(m_size + n <= m_capacity);
-    m_size += n;
+    BLI_assert(m_end + n <= m_capacity_end);
+    m_end += n;
   }
 
   /**
@@ -276,7 +277,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 
   void extend(const T *start, uint amount)
   {
-    this->reserve(m_size + amount);
+    this->reserve(this->size() + amount);
     this->extend_unchecked(start, amount);
   }
 
@@ -287,9 +288,9 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 
   void extend_unchecked(const T *start, uint amount)
   {
-    BLI_assert(m_size + amount <= m_capacity);
-    BLI::uninitialized_copy_n(start, amount, this->end());
-    m_size += amount;
+    BLI_assert(m_begin + amount <= m_capacity_end);
+    BLI::uninitialized_copy_n(start, amount, m_end);
+    m_end += amount;
   }
 
   /**
@@ -298,8 +299,8 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    */
   const T &last() const
   {
-    BLI_assert(m_size > 0);
-    return m_elements[m_size - 1];
+    BLI_assert(this->size() > 0);
+    return *(m_end - 1);
   }
 
   /**
@@ -307,9 +308,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    */
   void fill(const T &value)
   {
-    for (uint i = 0; i < m_size; i++) {
-      m_elements[i] = value;
-    }
+    std::fill(m_begin, m_end, value);
   }
 
   void fill_indices(ArrayRef<uint> indices, const T &value)
@@ -322,7 +321,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    */
   uint size() const
   {
-    return m_size;
+    return m_end - m_begin;
   }
 
   /**
@@ -330,7 +329,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    */
   bool empty() const
   {
-    return this->size() == 0;
+    return m_begin == m_end;
   }
 
   /**
@@ -340,8 +339,8 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   void remove_last()
   {
     BLI_assert(!this->empty());
-    this->destruct_element(m_size - 1);
-    m_size--;
+    m_end--;
+    destruct(m_end);
   }
 
   /**
@@ -350,8 +349,9 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   T pop_last()
   {
     BLI_assert(!this->empty());
-    T value = m_elements[this->size() - 1];
-    this->remove_last();
+    m_end--;
+    T value = *m_end;
+    destruct(m_end);
     return value;
   }
 
@@ -361,13 +361,13 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    */
   void remove_and_reorder(uint index)
   {
-    BLI_assert(this->is_index_in_range(index));
-    uint last_index = m_size - 1;
-    if (index < last_index) {
-      m_elements[index] = std::move(m_elements[last_index]);
+    BLI_assert(index < this->size());
+    T *element_to_remove = m_begin + index;
+    m_end--;
+    if (element_to_remove < m_end) {
+      *element_to_remove = *m_end;
     }
-    this->destruct_element(last_index);
-    m_size--;
+    destruct(m_end);
   }
 
   /**
@@ -376,9 +376,9 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    */
   int index(const T &value) const
   {
-    for (uint i = 0; i < m_size; i++) {
-      if (m_elements[i] == value) {
-        return i;
+    for (T *current = m_begin; current != m_end; current++) {
+      if (*current == value) {
+        return current - m_begin;
       }
     }
     return -1;
@@ -413,39 +413,39 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 
   const T &operator[](uint index) const
   {
-    BLI_assert(this->is_index_in_range(index));
-    return m_elements[index];
+    BLI_assert(index < this->size());
+    return m_begin[index];
   }
 
   T &operator[](uint index)
   {
-    BLI_assert(this->is_index_in_range(index));
-    return m_elements[index];
+    BLI_assert(index < this->size());
+    return m_begin[index];
   }
 
   T *begin()
   {
-    return m_elements;
+    return m_begin;
   }
   T *end()
   {
-    return m_elements + m_size;
+    return m_end;
   }
 
   const T *begin() const
   {
-    return m_elements;
+    return m_begin;
   }
   const T *end() const
   {
-    return m_elements + m_size;
+    return m_end;
   }
 
   void print_stats() const
   {
     std::cout << "Small Vector at " << (void *)this << ":" << std::endl;
     std::cout << "  Elements: " << this->size() << std::endl;
-    std::cout << "  Capacity: " << this->m_capacity << std::endl;
+    std::cout << "  Capacity: " << (m_capacity_end - m_begin) << std::endl;
     std::cout << "  Small Elements: " << N << "  Size on Stack: " << sizeof(*this) << std::endl;
   }
 
@@ -457,92 +457,85 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 
   bool is_small() const
   {
-    return m_elements == this->small_buffer();
-  }
-
-  bool is_index_in_range(uint index) const
-  {
-    return index < this->size();
-  }
-
-  T *element_ptr(uint index) const
-  {
-    return m_elements + index;
+    return m_begin == this->small_buffer();
   }
 
   inline void ensure_space_for_one()
   {
-    if (UNLIKELY(m_size >= m_capacity)) {
-      this->grow(std::max(m_capacity * 2, (uint)1));
+    if (UNLIKELY(m_end >= m_capacity_end)) {
+      this->grow(std::max(this->size() * 2, (uint)1));
     }
+  }
+
+  uint capacity() const
+  {
+    return m_capacity_end - m_begin;
   }
 
   BLI_NOINLINE void grow(uint min_capacity)
   {
-    if (m_capacity >= min_capacity) {
+    if (this->capacity() >= min_capacity) {
       return;
     }
 
     /* Round up to the next power of two. Otherwise consecutive calls to grow can cause a
      * reallocation every time even though the min_capacity only increments. */
     min_capacity = power_of_2_max_u(min_capacity);
+    uint size = this->size();
 
     T *new_array = (T *)m_allocator.allocate_aligned(
         min_capacity * sizeof(T), std::alignment_of<T>::value, __func__);
-    uninitialized_relocate_n(m_elements, m_size, new_array);
+    uninitialized_relocate_n(m_begin, size, new_array);
 
     if (!this->is_small()) {
-      m_allocator.deallocate(m_elements);
+      m_allocator.deallocate(m_begin);
     }
 
-    m_capacity = min_capacity;
-    m_elements = new_array;
+    m_begin = new_array;
+    m_end = m_begin + size;
+    m_capacity_end = m_begin + min_capacity;
   }
 
   void copy_from_other(const Vector &other)
   {
+    uint size = other.size();
     if (other.is_small()) {
-      m_elements = this->small_buffer();
+      m_begin = this->small_buffer();
     }
     else {
-      m_elements = (T *)m_allocator.allocate_aligned(
-          sizeof(T) * other.m_size, std::alignment_of<T>::value, __func__);
+      m_begin = (T *)m_allocator.allocate_aligned(
+          sizeof(T) * size, std::alignment_of<T>::value, __func__);
     }
 
-    BLI::uninitialized_copy(other.begin(), other.end(), m_elements);
-    m_capacity = other.m_size;
-    m_size = other.m_size;
+    BLI::uninitialized_copy(other.begin(), other.end(), m_begin);
+    m_end = m_begin + size;
+    m_capacity_end = m_end;
   }
 
   void steal_from_other(Vector &other)
   {
     if (other.is_small()) {
       uninitialized_relocate_n(other.begin(), other.size(), this->small_buffer());
-      m_elements = this->small_buffer();
+      m_begin = this->small_buffer();
     }
     else {
-      m_elements = other.m_elements;
+      m_begin = other.m_begin;
     }
 
-    m_capacity = other.m_capacity;
-    m_size = other.m_size;
+    m_end = m_begin + other.size();
+    m_capacity_end = m_begin + other.capacity();
 
-    other.m_size = 0;
-    other.m_capacity = N;
-    other.m_elements = other.small_buffer();
+    other.m_begin = other.small_buffer();
+    other.m_end = other.m_begin;
+    other.m_capacity_end = other.m_begin + N;
   }
 
   void destruct_elements_and_free_memory()
   {
-    destruct_n(m_elements, m_size);
+    destruct_n(m_begin, this->size());
     if (!this->is_small()) {
-      m_allocator.deallocate(m_elements);
+      m_allocator.deallocate(m_begin);
     }
-  }
-
-  void destruct_element(uint index)
-  {
-    destruct(this->element_ptr(index));
   }
 };
 
