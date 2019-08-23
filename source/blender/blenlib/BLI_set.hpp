@@ -167,17 +167,27 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
  public:
   Set() = default;
 
+  /**
+   * Create a new set that contains the given elements.
+   */
   Set(ArrayRef<T> values)
   {
+    this->reserve(values.size());
     for (const T &value : values) {
       this->add(value);
     }
   }
 
+  /**
+   * Create a new set from an initializer list.
+   */
   Set(std::initializer_list<T> values) : Set(ArrayRef<T>(values))
   {
   }
 
+  /**
+   * Make the set large enough to hold the given amount of elements.
+   */
   void reserve(uint32_t min_usable_slots)
   {
     if (m_array.slots_usable() < min_usable_slots) {
@@ -185,6 +195,10 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     }
   }
 
+  /**
+   * Add a new element to the set.
+   * Asserts that the element did not exist in the set before.
+   */
   void add_new(const T &value)
   {
     BLI_assert(!this->contains(value));
@@ -200,6 +214,9 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Add a new value to the set if it does not exist yet.
+   */
   bool add(const T &value)
   {
     this->ensure_can_add();
@@ -217,6 +234,9 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Add multiple elements to the set.
+   */
   void add_multiple(ArrayRef<T> values)
   {
     for (const T &value : values) {
@@ -224,6 +244,10 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     }
   }
 
+  /**
+   * Add multiple new elements to the set.
+   * Asserts that none of the elements existed in the set before.
+   */
   void add_multiple_new(ArrayRef<T> values)
   {
     for (const T &value : values) {
@@ -231,6 +255,9 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     }
   }
 
+  /**
+   * Returns true when the value is in the set, otherwise false.
+   */
   bool contains(const T &value) const
   {
     ITER_SLOTS_BEGIN (value, m_array, const, item, offset) {
@@ -244,6 +271,10 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Remove the value from the set.
+   * Asserts that the value exists in the set currently.
+   */
   void remove(const T &value)
   {
     BLI_assert(this->contains(value));
@@ -272,6 +303,10 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     return m_array.slots_set();
   }
 
+  /**
+   * Returns true when there is at least one element that is in both sets.
+   * Otherwise false.
+   */
   static bool Intersects(const Set &a, const Set &b)
   {
     /* Make sure we iterate over the shorter set. */
@@ -287,6 +322,10 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     return false;
   }
 
+  /**
+   * Returns true when there is no value that is in both sets.
+   * Otherwise false.
+   */
   static bool Disjoint(const Set &a, const Set &b)
   {
     return !Intersects(a, b);
