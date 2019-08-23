@@ -472,12 +472,12 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 
   inline void ensure_space_for_one()
   {
-    if (m_size >= m_capacity) {
+    if (UNLIKELY(m_size >= m_capacity)) {
       this->grow(std::max(m_capacity * 2, (uint)1));
     }
   }
 
-  void grow(uint min_capacity)
+  BLI_NOINLINE void grow(uint min_capacity)
   {
     if (m_capacity >= min_capacity) {
       return;
