@@ -1474,7 +1474,8 @@ static short snap_mesh_edge_verts_mixed(SnapObjectContext *sctx,
       if (IN_RANGE(lambda, 0.0f, 1.0f)) {
         interp_v3_v3v3(v_near, va_g, vb_g, lambda);
 
-        if (test_projected_vert_dist(&neasrest_precalc,
+        if ((len_squared_v3v3(prev_co, v_near) > FLT_EPSILON) &&
+            test_projected_vert_dist(&neasrest_precalc,
                                      NULL,
                                      0,
                                      nearest2d.is_persp,
@@ -2912,8 +2913,7 @@ short ED_transform_snap_object_project_view3d_ex(SnapObjectContext *sctx,
                                                  float r_obmat[4][4])
 {
   return transform_snap_context_project_view3d_mixed_impl(
-             sctx, snap_to, params, mval, prev_co, dist_px, r_loc, r_no, r_index, r_ob, r_obmat) !=
-         0;
+      sctx, snap_to, params, mval, prev_co, dist_px, r_loc, r_no, r_index, r_ob, r_obmat);
 }
 
 /**
