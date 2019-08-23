@@ -39,7 +39,7 @@ static void LOAD_boolean(PointerRNA *rna, Tuple &tuple, uint index)
 
 static void LOAD_object(PointerRNA *rna, Tuple &tuple, uint index)
 {
-  Object *value = (Object *)RNA_pointer_get(rna, "value").id.data;
+  Object *value = (Object *)RNA_pointer_get(rna, "value").data;
   tuple.set<Object *>(index, value);
 }
 

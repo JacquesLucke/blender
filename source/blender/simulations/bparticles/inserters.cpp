@@ -365,7 +365,7 @@ static std::unique_ptr<Emitter> BUILD_EMITTER_custom_function(BuildContext &ctx,
                                                               StringRef particle_type_name)
 {
   PointerRNA rna = vnode->rna();
-  bNodeTree *btree = (bNodeTree *)RNA_pointer_get(&rna, "function_tree").id.data;
+  bNodeTree *btree = (bNodeTree *)RNA_pointer_get(&rna, "function_tree").data;
   if (btree == nullptr) {
     return {};
   }

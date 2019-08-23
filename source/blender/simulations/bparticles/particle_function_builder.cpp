@@ -205,7 +205,7 @@ static ParticleFunctionInputProvider *create_input_provider(VirtualSocket *vsock
   }
   else if (STREQ(vnode->idname(), "bp_SurfaceImageNode")) {
     PointerRNA rna = vnode->rna();
-    Image *image = (Image *)RNA_pointer_get(&rna, "image").id.data;
+    Image *image = (Image *)RNA_pointer_get(&rna, "image").data;
     BLI_assert(image != nullptr);
     return new SurfaceImageInputProvider(image);
   }

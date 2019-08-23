@@ -263,7 +263,7 @@ static void INSERT_call(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
   PointerRNA rna = vnode->rna();
 
   PointerRNA btree_ptr = RNA_pointer_get(&rna, "function_tree");
-  bNodeTree *btree = (bNodeTree *)btree_ptr.id.data;
+  bNodeTree *btree = (bNodeTree *)btree_ptr.owner_id;
 
   if (btree == nullptr) {
     BLI_assert(vnode->inputs().size() == 0);

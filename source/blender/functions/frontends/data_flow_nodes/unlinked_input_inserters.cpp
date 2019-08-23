@@ -55,7 +55,7 @@ class SocketLoaderDependencies : public DepsBody {
       if (STREQ(bsocket->idname, "fn_ObjectSocket")) {
         PointerRNA rna;
         RNA_pointer_create(&btree->id, &RNA_NodeSocket, bsocket, &rna);
-        Object *value = (Object *)RNA_pointer_get(&rna, "value").id.data;
+        Object *value = (Object *)RNA_pointer_get(&rna, "value").data;
         if (value != nullptr) {
           builder.add_output_objects(i, {value});
         }
