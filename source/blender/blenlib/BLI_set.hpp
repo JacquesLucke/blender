@@ -12,7 +12,7 @@ namespace BLI {
   uint32_t hash = MyHash<T>{}(VALUE); \
   uint32_t perturb = hash; \
   while (true) { \
-    uint32_t item_index = (hash & ARRAY.slot_mask()) >> 2; \
+    uint32_t item_index = (hash & ARRAY.slot_mask()) >> OFFSET_SHIFT; \
     uint8_t R_OFFSET = hash & OFFSET_MASK; \
     uint8_t initial_offset = R_OFFSET; \
     OPTIONAL_CONST Item &R_ITEM = ARRAY.item(item_index); \
@@ -30,6 +30,7 @@ namespace BLI {
 template<typename T, typename Allocator = GuardedAllocator> class Set {
  private:
   static constexpr uint32_t OFFSET_MASK = 3;
+  static constexpr uint32_t OFFSET_SHIFT = 2;
 
   class Item {
    private:
@@ -310,7 +311,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
 
     const T &operator*() const
     {
-      uint32_t item_index = m_slot >> 2;
+      uint32_t item_index = m_slot >> OFFSET_SHIFT;
       uint32_t offset = m_slot & OFFSET_MASK;
       const Item &item = m_set->m_array.item(item_index);
       BLI_assert(item.is_set(offset));
@@ -345,7 +346,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
   uint32_t next_slot(uint32_t slot) const
   {
     for (; slot < m_array.slots_total(); slot++) {
-      uint32_t item_index = slot >> 2;
+      uint32_t item_index = slot >> OFFSET_SHIFT;
       uint32_t offset = slot & OFFSET_MASK;
       const Item &item = m_array.item(item_index);
       if (item.is_set(offset)) {

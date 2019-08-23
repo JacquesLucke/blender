@@ -38,7 +38,7 @@ namespace BLI {
   uint32_t hash_copy = HASH; \
   uint32_t perturb = HASH; \
   while (true) { \
-    uint32_t item_index = (hash_copy & ARRAY.slot_mask()) >> 2; \
+    uint32_t item_index = (hash_copy & ARRAY.slot_mask()) >> OFFSET_SHIFT; \
     uint8_t R_OFFSET = hash_copy & OFFSET_MASK; \
     uint8_t initial_offset = R_OFFSET; \
     OPTIONAL_CONST Item &R_ITEM = ARRAY.item(item_index); \
@@ -56,6 +56,7 @@ namespace BLI {
 template<typename T, typename Allocator = GuardedAllocator> class StringMap {
  private:
   static constexpr uint32_t OFFSET_MASK = 3;
+  static constexpr uint32_t OFFSET_SHIFT = 2;
 
   class Item {
    private:

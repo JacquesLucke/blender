@@ -37,7 +37,7 @@ namespace BLI {
   uint32_t hash = MyHash<KeyT>{}(KEY); \
   uint32_t perturb = hash; \
   while (true) { \
-    uint32_t item_index = (hash & ARRAY.slot_mask()) >> 2; \
+    uint32_t item_index = (hash & ARRAY.slot_mask()) >> OFFSET_SHIFT; \
     uint8_t R_OFFSET = hash & OFFSET_MASK; \
     uint8_t initial_offset = R_OFFSET; \
     OPTIONAL_CONST Item &R_ITEM = ARRAY.item(item_index); \
@@ -55,6 +55,7 @@ namespace BLI {
 template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> class Map {
  private:
   static constexpr uint32_t OFFSET_MASK = 3;
+  static constexpr uint32_t OFFSET_SHIFT = 2;
 
   class Item {
    private:
@@ -454,7 +455,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
 
     const KeyT &operator*() const
     {
-      uint32_t item_index = this->m_slot >> 2;
+      uint32_t item_index = this->m_slot >> OFFSET_SHIFT;
       uint32_t offset = this->m_slot & OFFSET_MASK;
       const Item &item = this->m_map->m_array.item(item_index);
       BLI_assert(item.is_set(offset));
@@ -470,7 +471,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
 
     ValueT &operator*() const
     {
-      uint32_t item_index = this->m_slot >> 2;
+      uint32_t item_index = this->m_slot >> OFFSET_SHIFT;
       uint32_t offset = this->m_slot & OFFSET_MASK;
       const Item &item = this->m_map->m_array.item(item_index);
       BLI_assert(item.is_set(offset));
@@ -497,7 +498,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
 
     UserItem operator*() const
     {
-      uint32_t item_index = this->m_slot >> 2;
+      uint32_t item_index = this->m_slot >> OFFSET_SHIFT;
       uint32_t offset = this->m_slot & OFFSET_MASK;
       const Item &item = this->m_map->m_array.item(item_index);
       BLI_assert(item.is_set(offset));
@@ -536,7 +537,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
   uint32_t next_slot(uint32_t slot) const
   {
     for (; slot < m_array.slots_total(); slot++) {
-      uint32_t item_index = slot >> 2;
+      uint32_t item_index = slot >> OFFSET_SHIFT;
       uint32_t offset = slot & OFFSET_MASK;
       const Item &item = m_array.item(item_index);
       if (item.is_set(offset)) {
