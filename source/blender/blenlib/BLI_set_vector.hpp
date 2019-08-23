@@ -300,12 +300,12 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
 
   void ensure_can_add()
   {
-    if (m_array.should_grow()) {
+    if (UNLIKELY(m_array.should_grow())) {
       this->grow(this->size() + 1);
     }
   }
 
-  void grow(uint min_usable_slots)
+  BLI_NOINLINE void grow(uint min_usable_slots)
   {
     ArrayType new_array = m_array.init_reserved(min_usable_slots);
 

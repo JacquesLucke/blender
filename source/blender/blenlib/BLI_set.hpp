@@ -421,12 +421,12 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
 
   void ensure_can_add()
   {
-    if (m_array.should_grow()) {
+    if (UNLIKELY(m_array.should_grow())) {
       this->grow(this->size() + 1);
     }
   }
 
-  void grow(uint32_t min_usable_slots)
+  BLI_NOINLINE void grow(uint32_t min_usable_slots)
   {
     // std::cout << "Grow at " << m_array.slots_set() << '/' << m_array.slots_total() << '\n';
     ArrayType new_array = m_array.init_reserved(min_usable_slots);
