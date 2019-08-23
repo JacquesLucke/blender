@@ -119,6 +119,9 @@ class VirtualNode {
     return m_outputs[index];
   }
 
+  VirtualSocket *input(uint index, StringRef expected_name);
+  VirtualSocket *output(uint index, StringRef expected_name);
+
   bNode *bnode()
   {
     return m_bnode;
@@ -242,5 +245,27 @@ class VirtualLink {
   VirtualSocket *m_from;
   VirtualSocket *m_to;
 };
+
+inline VirtualSocket *VirtualNode::input(uint index, StringRef expected_name)
+{
+  VirtualSocket *vsocket = m_inputs[index];
+#ifdef DEBUG
+  StringRef actual_name = vsocket->name();
+  BLI_assert(actual_name == expected_name);
+#endif
+  UNUSED_VARS_NDEBUG(expected_name);
+  return vsocket;
+}
+
+inline VirtualSocket *VirtualNode::output(uint index, StringRef expected_name)
+{
+  VirtualSocket *vsocket = m_outputs[index];
+#ifdef DEBUG
+  StringRef actual_name = vsocket->name();
+  BLI_assert(actual_name == expected_name);
+#endif
+  UNUSED_VARS_NDEBUG(expected_name);
+  return vsocket;
+}
 
 }  // namespace BKE

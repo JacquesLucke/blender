@@ -8,6 +8,5 @@ class ChangeParticleColorNode(bpy.types.Node, BParticlesNode):
     bl_label = "Change Particle Color"
 
     def declaration(self, builder: NodeBuilder):
-        builder.control_flow_input("control_in", "(In)")
         builder.fixed_input("color", "Color", "Color")
-        builder.control_flow_output("control_out", "(Out)")
+        builder.execute_output("execute", "Execute")

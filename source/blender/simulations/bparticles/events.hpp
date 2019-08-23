@@ -111,32 +111,4 @@ class MeshCollisionEvent : public Event {
   RayCastResult ray_cast(float3 start, float3 normalized_direction, float max_distance);
 };
 
-class CloseByPointsEvent : public Event {
- private:
-  std::string m_identifier;
-  KDTree_3d *m_kdtree;
-  float m_distance;
-  std::unique_ptr<Action> m_action;
-
- public:
-  CloseByPointsEvent(StringRef identifier,
-                     KDTree_3d *kdtree,
-                     float distance,
-                     std::unique_ptr<Action> action)
-      : m_identifier(identifier.to_std_string()),
-        m_kdtree(kdtree),
-        m_distance(distance),
-        m_action(std::move(action))
-  {
-  }
-
-  ~CloseByPointsEvent()
-  {
-    BLI_kdtree_3d_free(m_kdtree);
-  }
-
-  void filter(EventFilterInterface &interface) override;
-  void execute(EventExecuteInterface &interface) override;
-};
-
 }  // namespace BParticles

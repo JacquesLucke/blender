@@ -37,12 +37,13 @@ void PointEmitter::emit(EmitterInterface &interface)
     birth_times[i] = interface.time_span().interpolate(t);
   }
 
-  auto new_particles = interface.particle_allocator().request(m_particle_type_name,
-                                                              new_positions.size());
-  new_particles.set<float3>("Position", new_positions);
-  new_particles.set<float3>("Velocity", new_velocities);
-  new_particles.set<float>("Size", new_sizes);
-  new_particles.set<float>("Birth Time", birth_times);
+  for (StringRef type : m_types_to_emit) {
+    auto new_particles = interface.particle_allocator().request(type, new_positions.size());
+    new_particles.set<float3>("Position", new_positions);
+    new_particles.set<float3>("Velocity", new_velocities);
+    new_particles.set<float>("Size", new_sizes);
+    new_particles.set<float>("Birth Time", birth_times);
+  }
 }
 
 static float3 random_point_in_triangle(float3 a, float3 b, float3 c)
@@ -118,76 +119,14 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     sizes.append(m_size);
   }
 
-  auto new_particles = interface.particle_allocator().request(m_particle_type_name,
-                                                              positions.size());
-  new_particles.set<float3>("Position", positions);
-  new_particles.set<float3>("Velocity", velocities);
-  new_particles.set<float>("Size", sizes);
-  new_particles.set<float>("Birth Time", birth_times);
+  for (StringRef type_name : m_types_to_emit) {
+    auto new_particles = interface.particle_allocator().request(type_name, positions.size());
+    new_particles.set<float3>("Position", positions);
+    new_particles.set<float3>("Velocity", velocities);
+    new_particles.set<float>("Size", sizes);
+    new_particles.set<float>("Birth Time", birth_times);
 
-  m_action->execute_from_emitter(new_particles, interface);
-}
-
-void CustomFunctionEmitter::emit(EmitterInterface &interface)
-{
-  TupleCallBody &body = m_function->body<TupleCallBody>();
-
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-
-  body.set_input<float>(fn_in, 0, "Start Time", interface.time_span().start());
-  body.set_input<float>(fn_in, 1, "Time Step", interface.time_span().duration());
-  body.call__setup_execution_context(fn_in, fn_out);
-
-  uint new_particle_amount = 0;
-  for (uint i = 0; i < m_function->output_amount(); i++) {
-    FN::Type *type = m_function->output_type(i);
-    if (ELEM(type, TYPE_float_list, TYPE_float3_list, TYPE_int32_list, TYPE_rgba_f_list)) {
-      uint length = fn_out.get_ref<SharedList>(i)->size();
-      new_particle_amount = std::max(new_particle_amount, length);
-    }
-  }
-
-  auto new_particles = interface.particle_allocator().request(m_particle_type_name,
-                                                              new_particle_amount);
-  new_particles.fill<float>("Birth Time", interface.time_span().end());
-
-  for (uint i = 0; i < m_function->output_amount(); i++) {
-    FN::Type *type = m_function->output_type(i);
-    StringRef attribute_name = m_function->output_name(i);
-    int attribute_index = new_particles.attributes_info().attribute_index_try(attribute_name);
-
-    if (attribute_index == -1) {
-      continue;
-    }
-
-    if (type == TYPE_float_list) {
-      auto list = fn_out.relocate_out<SharedList>(i);
-      new_particles.set_repeated<float>(attribute_index, list->as_array_ref<float>());
-    }
-    else if (type == TYPE_float3_list) {
-      auto list = fn_out.relocate_out<SharedList>(i);
-      new_particles.set_repeated<float3>(attribute_index, list->as_array_ref<float3>());
-    }
-    else if (type == TYPE_int32_list) {
-      auto list = fn_out.relocate_out<SharedList>(i);
-      new_particles.set_repeated<int32_t>(attribute_index, list->as_array_ref<int32_t>());
-    }
-    else if (type == TYPE_rgba_f_list) {
-      auto list = fn_out.relocate_out<SharedList>(i);
-      new_particles.set_repeated<rgba_f>(attribute_index, list->as_array_ref<rgba_f>());
-    }
-    else if (type == TYPE_float) {
-      new_particles.fill<float>(attribute_index, fn_out.get<float>(i));
-    }
-    else if (type == TYPE_float3) {
-      new_particles.fill<float3>(attribute_index, fn_out.get<float3>(i));
-    }
-    else if (type == TYPE_int32) {
-      new_particles.fill<int32_t>(attribute_index, fn_out.get<int32_t>(i));
-    }
-    else if (type == TYPE_rgba_f) {
-      new_particles.fill<rgba_f>(attribute_index, fn_out.get<rgba_f>(i));
-    }
+    m_on_birth_action->execute_from_emitter(new_particles, interface);
   }
 }
 
@@ -208,11 +147,12 @@ void InitialGridEmitter::emit(EmitterInterface &interface)
     }
   }
 
-  auto new_particles = interface.particle_allocator().request(m_particle_type_name,
-                                                              new_positions.size());
-  new_particles.set<float3>("Position", new_positions);
-  new_particles.fill<float>("Birth Time", interface.time_span().start());
-  new_particles.fill<float>("Size", m_size);
+  for (StringRef type_name : m_types_to_emit) {
+    auto new_particles = interface.particle_allocator().request(type_name, new_positions.size());
+    new_particles.set<float3>("Position", new_positions);
+    new_particles.fill<float>("Birth Time", interface.time_span().start());
+    new_particles.fill<float>("Size", m_size);
+  }
 }
 
 }  // namespace BParticles

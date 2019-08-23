@@ -9,9 +9,7 @@ class ParticleTypeNode(bpy.types.Node, BParticlesNode):
     def declaration(self, builder: NodeBuilder):
         builder.background_color((0.8, 0.5, 0.4))
 
-        builder.emitter_input("emitters", "Emitters")
-        builder.particle_effector_input("effectors", "Effectors")
-        builder.event_output("events", "Events")
+        builder.particle_effector_input("type", "Type")
 
     def draw(self, layout):
         layout.prop(self, "name", text="", icon="MOD_PARTICLES")

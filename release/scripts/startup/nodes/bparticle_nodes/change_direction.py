@@ -8,6 +8,5 @@ class ChangeParticleDirectionNode(bpy.types.Node, BParticlesNode):
     bl_label = "Change Particle Direction"
 
     def declaration(self, builder: NodeBuilder):
-        builder.control_flow_input("control_in", "(In)")
         builder.fixed_input("direction", "Direction", "Vector")
-        builder.control_flow_output("control_out", "(Out)")
+        builder.execute_output("execute", "Execute")

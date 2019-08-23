@@ -42,8 +42,6 @@ set(SRC
   bparticles/world_state.hpp
   bparticles/integrator.hpp
   bparticles/integrator.cpp
-  bparticles/inserters.hpp
-  bparticles/inserters.cpp
   bparticles/node_frontend.hpp
   bparticles/node_frontend.cpp
   bparticles/particle_set.hpp

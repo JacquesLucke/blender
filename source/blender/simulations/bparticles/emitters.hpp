@@ -13,8 +13,8 @@ using FN::TupleCallBody;
 
 class SurfaceEmitter : public Emitter {
  private:
-  std::string m_particle_type_name;
-  std::unique_ptr<Action> m_action;
+  Vector<std::string> m_types_to_emit;
+  std::unique_ptr<Action> m_on_birth_action;
 
   Object *m_object;
   InterpolatedFloat4x4 m_transform;
@@ -24,16 +24,16 @@ class SurfaceEmitter : public Emitter {
   float m_size;
 
  public:
-  SurfaceEmitter(StringRef particle_type_name,
-                 std::unique_ptr<Action> action,
+  SurfaceEmitter(Vector<std::string> types_to_emit,
+                 std::unique_ptr<Action> on_birth_action,
                  Object *object,
                  InterpolatedFloat4x4 transform,
                  float rate,
                  float normal_velocity,
                  float emitter_velocity,
                  float size)
-      : m_particle_type_name(particle_type_name.to_std_string()),
-        m_action(std::move(action)),
+      : m_types_to_emit(std::move(types_to_emit)),
+        m_on_birth_action(std::move(on_birth_action)),
         m_object(object),
         m_transform(transform),
         m_rate(rate),
@@ -48,19 +48,19 @@ class SurfaceEmitter : public Emitter {
 
 class PointEmitter : public Emitter {
  private:
-  std::string m_particle_type_name;
+  Vector<std::string> m_types_to_emit;
   uint m_amount;
   InterpolatedFloat3 m_point;
   InterpolatedFloat3 m_velocity;
   InterpolatedFloat m_size;
 
  public:
-  PointEmitter(StringRef particle_type_name,
+  PointEmitter(Vector<std::string> types_to_emit,
                uint amount,
                InterpolatedFloat3 point,
                InterpolatedFloat3 velocity,
                InterpolatedFloat size)
-      : m_particle_type_name(particle_type_name.to_std_string()),
+      : m_types_to_emit(std::move(types_to_emit)),
         m_amount(amount),
         m_point(point),
         m_velocity(velocity),
@@ -71,23 +71,9 @@ class PointEmitter : public Emitter {
   void emit(EmitterInterface &interface) override;
 };
 
-class CustomFunctionEmitter : public Emitter {
- private:
-  std::string m_particle_type_name;
-  SharedFunction m_function;
-
- public:
-  CustomFunctionEmitter(StringRef particle_type_name, SharedFunction &function)
-      : m_particle_type_name(particle_type_name.to_std_string()), m_function(function)
-  {
-  }
-
-  void emit(EmitterInterface &interface) override;
-};
-
 class InitialGridEmitter : public Emitter {
  private:
-  std::string m_particle_type_name;
+  Vector<std::string> m_types_to_emit;
   uint m_amount_x;
   uint m_amount_y;
   float m_step_x;
@@ -95,13 +81,13 @@ class InitialGridEmitter : public Emitter {
   float m_size;
 
  public:
-  InitialGridEmitter(StringRef particle_type_name,
+  InitialGridEmitter(Vector<std::string> types_to_emit,
                      uint amount_x,
                      uint amount_y,
                      float step_x,
                      float step_y,
                      float size)
-      : m_particle_type_name(particle_type_name.to_std_string()),
+      : m_types_to_emit(std::move(types_to_emit)),
         m_amount_x(amount_x),
         m_amount_y(amount_y),
         m_step_x(step_x),

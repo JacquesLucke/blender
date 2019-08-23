@@ -10,6 +10,13 @@ void NoneAction::execute(ActionInterface &UNUSED(interface))
 {
 }
 
+void ActionSequence::execute(ActionInterface &interface)
+{
+  for (auto &action : m_actions) {
+    action->execute(interface);
+  }
+}
+
 void ChangeDirectionAction::execute(ActionInterface &interface)
 {
   ParticleSet particles = interface.particles();
@@ -31,8 +38,6 @@ void ChangeDirectionAction::execute(ActionInterface &interface)
       velocity_offsets.value()[pindex] = float3(0);
     }
   }
-
-  m_post_action->execute(interface);
 }
 
 void ChangeColorAction::execute(ActionInterface &interface)
@@ -45,8 +50,6 @@ void ChangeColorAction::execute(ActionInterface &interface)
     rgba_f color = inputs->get<rgba_f>("Color", 0, pindex);
     colors[pindex] = color;
   }
-
-  m_post_action->execute(interface);
 }
 
 void KillAction::execute(ActionInterface &interface)
@@ -90,15 +93,15 @@ void ExplodeAction::execute(ActionInterface &interface)
     }
   }
 
-  auto new_particles = interface.particle_allocator().request(m_new_particle_name,
-                                                              new_birth_times.size());
-  new_particles.set<float3>("Position", new_positions);
-  new_particles.set<float3>("Velocity", new_velocities);
-  new_particles.fill<float>("Size", 0.1f);
-  new_particles.set<float>("Birth Time", new_birth_times);
+  for (StringRef type_name : m_types_to_emit) {
+    auto new_particles = interface.particle_allocator().request(type_name, new_birth_times.size());
+    new_particles.set<float3>("Position", new_positions);
+    new_particles.set<float3>("Velocity", new_velocities);
+    new_particles.fill<float>("Size", 0.1f);
+    new_particles.set<float>("Birth Time", new_birth_times);
 
-  m_post_action->execute(interface);
-  m_new_particle_action->execute_for_new_particles(new_particles, interface);
+    m_on_birth_action->execute_for_new_particles(new_particles, interface);
+  }
 }
 
 void ConditionAction::execute(ActionInterface &interface)

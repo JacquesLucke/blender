@@ -136,24 +136,4 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
   m_action->execute_from_event(interface, &action_context);
 }
 
-void CloseByPointsEvent::filter(EventFilterInterface &interface)
-{
-  ParticleSet particles = interface.particles();
-  auto positions = particles.attributes().get<float3>("Position");
-
-  for (uint pindex : particles.pindices()) {
-    KDTreeNearest_3d nearest;
-    if (BLI_kdtree_3d_find_nearest(m_kdtree, positions[pindex], &nearest) != -1) {
-      if (float3::distance(positions[pindex], nearest.co) < m_distance) {
-        interface.trigger_particle(pindex, 0.5f);
-      }
-    }
-  }
-}
-
-void CloseByPointsEvent::execute(EventExecuteInterface &interface)
-{
-  m_action->execute_from_event(interface);
-}
-
 }  // namespace BParticles

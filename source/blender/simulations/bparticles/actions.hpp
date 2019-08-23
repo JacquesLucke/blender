@@ -9,6 +9,18 @@ class NoneAction : public Action {
   void execute(ActionInterface &UNUSED(interface)) override;
 };
 
+class ActionSequence : public Action {
+ private:
+  Vector<std::unique_ptr<Action>> m_actions;
+
+ public:
+  ActionSequence(Vector<std::unique_ptr<Action>> actions) : m_actions(std::move(actions))
+  {
+  }
+
+  void execute(ActionInterface &interface) override;
+};
+
 class KillAction : public Action {
   void execute(ActionInterface &interface) override;
 };
@@ -16,12 +28,10 @@ class KillAction : public Action {
 class ChangeDirectionAction : public Action {
  private:
   std::unique_ptr<ParticleFunction> m_compute_inputs;
-  std::unique_ptr<Action> m_post_action;
 
  public:
-  ChangeDirectionAction(std::unique_ptr<ParticleFunction> compute_inputs,
-                        std::unique_ptr<Action> post_action)
-      : m_compute_inputs(std::move(compute_inputs)), m_post_action(std::move(post_action))
+  ChangeDirectionAction(std::unique_ptr<ParticleFunction> compute_inputs)
+      : m_compute_inputs(std::move(compute_inputs))
   {
   }
 
@@ -31,12 +41,10 @@ class ChangeDirectionAction : public Action {
 class ChangeColorAction : public Action {
  private:
   std::unique_ptr<ParticleFunction> m_compute_inputs;
-  std::unique_ptr<Action> m_post_action;
 
  public:
-  ChangeColorAction(std::unique_ptr<ParticleFunction> compute_inputs,
-                    std::unique_ptr<Action> post_action)
-      : m_compute_inputs(std::move(compute_inputs)), m_post_action(std::move(post_action))
+  ChangeColorAction(std::unique_ptr<ParticleFunction> compute_inputs)
+      : m_compute_inputs(std::move(compute_inputs))
   {
   }
 
@@ -45,20 +53,17 @@ class ChangeColorAction : public Action {
 
 class ExplodeAction : public Action {
  private:
-  std::string m_new_particle_name;
+  Vector<std::string> m_types_to_emit;
   std::unique_ptr<ParticleFunction> m_compute_inputs;
-  std::unique_ptr<Action> m_post_action;
-  std::unique_ptr<Action> m_new_particle_action;
+  std::unique_ptr<Action> m_on_birth_action;
 
  public:
-  ExplodeAction(StringRef new_particle_name,
+  ExplodeAction(Vector<std::string> types_to_emit,
                 std::unique_ptr<ParticleFunction> compute_inputs,
-                std::unique_ptr<Action> post_action,
-                std::unique_ptr<Action> new_particle_action)
-      : m_new_particle_name(new_particle_name.to_std_string()),
+                std::unique_ptr<Action> on_birth_action)
+      : m_types_to_emit(std::move(types_to_emit)),
         m_compute_inputs(std::move(compute_inputs)),
-        m_post_action(std::move(post_action)),
-        m_new_particle_action(std::move(new_particle_action))
+        m_on_birth_action(std::move(on_birth_action))
   {
   }
 

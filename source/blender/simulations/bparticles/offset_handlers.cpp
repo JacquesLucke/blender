@@ -32,10 +32,13 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
     }
   }
 
-  auto new_particles = interface.particle_allocator().request(m_particle_type_name,
-                                                              new_positions.size());
-  new_particles.set<float3>("Position", new_positions);
-  new_particles.set<float>("Birth Time", new_birth_times);
+  for (std::string &type_name : m_types_to_emit) {
+    auto new_particles = interface.particle_allocator().request(type_name, new_positions.size());
+    new_particles.set<float3>("Position", new_positions);
+    new_particles.set<float>("Birth Time", new_birth_times);
+
+    m_on_birth_action->execute_for_new_particles(new_particles, interface);
+  }
 }
 
 }  // namespace BParticles

@@ -60,6 +60,8 @@ class Action {
                           ActionContext *action_context = nullptr);
   void execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface);
   void execute_for_new_particles(ParticleSets &particle_sets, ActionInterface &action_interface);
+  void execute_for_new_particles(ParticleSets &particle_sets,
+                                 OffsetHandlerInterface &offset_handler_interface);
 };
 
 /* ActionInterface inline functions
@@ -151,6 +153,29 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
     TemporaryArray<float> durations(min_array_size);
     durations.fill_indices(particles.pindices(), 0);
     ActionInterface new_interface(action_interface.particle_allocator(),
+                                  particles,
+                                  offsets,
+                                  particles.attributes().get<float>("Birth Time"),
+                                  durations,
+                                  empty_context);
+    this->execute(new_interface);
+  }
+}
+
+inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
+                                              OffsetHandlerInterface &offset_handler_interface)
+{
+  AttributesInfo info;
+  std::array<void *, 0> buffers;
+
+  EmptyEventInfo empty_context;
+
+  for (ParticleSet particles : particle_sets.sets()) {
+    uint min_array_size = particles.block().capacity();
+    AttributeArrays offsets(info, buffers, 0, min_array_size);
+    TemporaryArray<float> durations(min_array_size);
+    durations.fill_indices(particles.pindices(), 0);
+    ActionInterface new_interface(offset_handler_interface.particle_allocator(),
                                   particles,
                                   offsets,
                                   particles.attributes().get<float>("Birth Time"),

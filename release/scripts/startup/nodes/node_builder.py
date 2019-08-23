@@ -6,10 +6,9 @@ from . declaration import (
     TreeInterfaceDecl,
     VectorizedInputDecl,
     VectorizedOutputDecl,
-    EmitterSocketDecl,
-    EventSocketDecl,
-    ControlFlowSocketDecl,
     ParticleEffectorSocketDecl,
+    ExecuteOutputDecl,
+    ExecuteInputListDecl,
 
     NoDefaultValue,
 )
@@ -193,30 +192,6 @@ class NodeBuilder:
     # BParticles
     ###################################
 
-    def emitter_input(self, identifier, name):
-        decl = EmitterSocketDecl(self.node, identifier, name)
-        self._add_input(decl)
-
-    def emitter_output(self, identifier, name):
-        decl = EmitterSocketDecl(self.node, identifier, name)
-        self._add_output(decl)
-
-    def event_input(self, identifier, name):
-        decl = EventSocketDecl(self.node, identifier, name)
-        self._add_input(decl)
-
-    def event_output(self, identifier, name):
-        decl = EventSocketDecl(self.node, identifier, name)
-        self._add_output(decl)
-
-    def control_flow_input(self, identifier, name):
-        decl = ControlFlowSocketDecl(self.node, identifier, name)
-        self._add_input(decl)
-
-    def control_flow_output(self, identifier, name):
-        decl = ControlFlowSocketDecl(self.node, identifier, name)
-        self._add_output(decl)
-
     def particle_effector_input(self, identifier, name):
         decl = ParticleEffectorSocketDecl(self.node, identifier, name)
         self._add_input(decl)
@@ -224,6 +199,19 @@ class NodeBuilder:
     def particle_effector_output(self, identifier, name):
         decl = ParticleEffectorSocketDecl(self.node, identifier, name)
         self._add_output(decl)
+
+    @staticmethod
+    def ExecuteInputProperty():
+        return ExecuteInputListDecl.Property()
+
+    def execute_input(self, identifier, display_name, prop_name):
+        decl = ExecuteInputListDecl(self.node, identifier, prop_name, display_name)
+        self._add_input(decl)
+
+    def execute_output(self, identifier, name):
+        decl = ExecuteOutputDecl(self.node, identifier, name)
+        self._add_output(decl)
+
 
 
 class SocketDeclMap:

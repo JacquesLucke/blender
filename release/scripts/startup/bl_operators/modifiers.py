@@ -78,7 +78,7 @@ class NewBParticlesTree(bpy.types.Operator, ModifierOperator):
         gravity_node.location = (-250, -100)
 
         tree.links.new(emitter_node.outputs[0], type_node.inputs[0])
-        tree.links.new(gravity_node.outputs[0], type_node.inputs[1])
+        tree.links.new(gravity_node.outputs[0], type_node.inputs[0])
 
         mod.bparticles_tree = tree
         return {'FINISHED'}
