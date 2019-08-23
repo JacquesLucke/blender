@@ -180,7 +180,9 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
 
   void reserve(uint32_t min_usable_slots)
   {
-    this->grow(min_usable_slots);
+    if (m_array.slots_usable() < min_usable_slots) {
+      this->grow(min_usable_slots);
+    }
   }
 
   void add_new(const T &value)

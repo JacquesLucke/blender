@@ -41,6 +41,7 @@ template<typename Item, uint32_t ItemsInSmallStorage = 1, typename Allocator = G
 class OpenAddressingArray {
  private:
   static constexpr auto slots_per_item = Item::slots_per_item;
+  static constexpr float max_load_factor = 0.5f;
 
   Item *m_items;
   uint32_t m_item_amount;
@@ -48,6 +49,7 @@ class OpenAddressingArray {
   uint32_t m_slots_total;
   uint32_t m_slots_set_or_dummy;
   uint32_t m_slots_dummy;
+  uint32_t m_slots_usable;
   uint32_t m_slot_mask;
   Allocator m_allocator;
   char m_local_storage[sizeof(Item) * ItemsInSmallStorage];
@@ -58,6 +60,7 @@ class OpenAddressingArray {
     m_slots_total = (1 << item_exponent) * slots_per_item;
     m_slots_set_or_dummy = 0;
     m_slots_dummy = 0;
+    m_slots_usable = m_slots_total * max_load_factor;
     m_slot_mask = m_slots_total - 1;
     m_item_amount = m_slots_total / slots_per_item;
     m_item_exponent = item_exponent;
@@ -92,6 +95,7 @@ class OpenAddressingArray {
     m_slots_total = other.m_slots_total;
     m_slots_set_or_dummy = other.m_slots_set_or_dummy;
     m_slots_dummy = other.m_slots_dummy;
+    m_slots_usable = other.m_slots_usable;
     m_slot_mask = other.m_slot_mask;
     m_item_amount = other.m_item_amount;
     m_item_exponent = other.m_item_exponent;
@@ -112,6 +116,7 @@ class OpenAddressingArray {
     m_slots_total = other.m_slots_total;
     m_slots_set_or_dummy = other.m_slots_set_or_dummy;
     m_slots_dummy = other.m_slots_dummy;
+    m_slots_usable = other.m_slots_usable;
     m_slot_mask = other.m_slot_mask;
     m_item_amount = other.m_item_amount;
     m_item_exponent = other.m_item_exponent;
@@ -150,7 +155,9 @@ class OpenAddressingArray {
 
   OpenAddressingArray init_reserved(uint32_t min_usable_slots) const
   {
-    uint8_t item_exponent = log2_ceil_u(min_usable_slots / slots_per_item + 1) + 1;
+    float min_total_slots = (float)min_usable_slots / max_load_factor;
+    uint32_t min_total_items = (uint32_t)std::ceil(min_total_slots / (float)slots_per_item);
+    uint8_t item_exponent = log2_ceil_u(min_total_items);
     OpenAddressingArray grown(item_exponent);
     grown.m_slots_set_or_dummy = this->slots_set();
     return grown;
@@ -164,6 +171,11 @@ class OpenAddressingArray {
   uint32_t slots_set() const
   {
     return m_slots_set_or_dummy - m_slots_dummy;
+  }
+
+  uint32_t slots_usable() const
+  {
+    return m_slots_usable;
   }
 
   void update__empty_to_set()
@@ -208,7 +220,7 @@ class OpenAddressingArray {
 
   bool should_grow() const
   {
-    return m_slots_set_or_dummy >= m_slots_total / 2;
+    return m_slots_set_or_dummy >= m_slots_usable;
   }
 
   Item *begin()
