@@ -83,6 +83,6 @@ template<typename T> class ValueOrError {
   { \
     BLI::ErrorInfo \
     { \
-      __FILE__, __LINE__, __func__, MESSAGE \
+      __FILE__, (uint)__LINE__, __func__, MESSAGE \
     } \
   }
