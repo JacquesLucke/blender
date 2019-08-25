@@ -31,7 +31,7 @@ namespace BLI {
 // clang-format off
 
 #define ITER_SLOTS_BEGIN(VALUE, ARRAY, OPTIONAL_CONST, R_ITEM, R_OFFSET) \
-  uint32_t hash = MyHash<T>{}(VALUE); \
+  uint32_t hash = DefaultHash<T>{}(VALUE); \
   uint32_t perturb = hash; \
   while (true) { \
     uint32_t item_index = (hash & ARRAY.slot_mask()) >> OFFSET_SHIFT; \

@@ -154,17 +154,12 @@ inline Type *TypeExtension::owner() const
 
 } /* namespace FN */
 
-/* Make Type hashable using std::hash.
- ****************************************/
-
-namespace std {
-template<> struct hash<FN::Type> {
-  typedef FN::Type argument_type;
-  typedef size_t result_type;
-
-  result_type operator()(argument_type const &v) const noexcept
+namespace BLI {
+template<> struct DefaultHash<FN::Type> {
+  uint32_t operator()(const FN::Type &value) const noexcept
   {
-    return std::hash<void *>{}((void *)&v);
+    void *ptr = (void *)&value;
+    return DefaultHash<void *>{}(ptr);
   }
 };
-}  // namespace std
+}  // namespace BLI

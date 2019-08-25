@@ -112,17 +112,3 @@ std::unique_ptr<LinkInserters> &MAPPING_link_inserters(void);
 
 }  // namespace DataFlowNodes
 }  // namespace FN
-
-namespace std {
-template<> struct hash<FN::DataFlowNodes::StringPair> {
-  typedef FN::DataFlowNodes::StringPair argument_type;
-  typedef size_t result_type;
-
-  result_type operator()(argument_type const &v) const noexcept
-  {
-    size_t h1 = std::hash<std::string>{}(v.first);
-    size_t h2 = std::hash<std::string>{}(v.second);
-    return h1 ^ h2;
-  }
-};
-}  // namespace std

@@ -516,15 +516,13 @@ SharedFunction to_vectorized_function__with_cache(
 }  // namespace Functions
 }  // namespace FN
 
-namespace std {
-template<> struct hash<FN::Functions::AutoVectorizationInput> {
-  typedef FN::Functions::AutoVectorizationInput argument_type;
-  typedef size_t result_type;
-
-  result_type operator()(argument_type const &v) const noexcept
+namespace BLI {
+template<> struct DefaultHash<FN::Functions::AutoVectorizationInput> {
+  uint32_t operator()(const FN::Functions::AutoVectorizationInput &value) const
   {
     /* TODO: take other struct fields into account. */
-    return BLI_ghashutil_ptrhash(v.m_original_fn.ptr());
+    void *ptr = (void *)value.m_original_fn.ptr();
+    return DefaultHash<void *>{}(ptr);
   }
 };
-}  // namespace std
+}  // namespace BLI

@@ -29,7 +29,7 @@ namespace BLI {
 // clang-format off
 
 #define ITER_SLOTS_BEGIN(VALUE, ARRAY, OPTIONAL_CONST, R_SLOT) \
-  uint32_t hash = MyHash<T>{}(VALUE); \
+  uint32_t hash = DefaultHash<T>{}(VALUE); \
   uint32_t perturb = hash; \
   while (true) { \
     for (uint i = 0; i < 4; i++) {\

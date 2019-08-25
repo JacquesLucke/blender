@@ -33,6 +33,7 @@
 #include <atomic>
 #include <utility>
 #include "BLI_utildefines.h"
+#include "BLI_hash.hpp"
 
 namespace BLI {
 
@@ -231,16 +232,11 @@ template<typename T> class AutoRefCount {
   }
 };
 
-} /* namespace BLI */
-
-namespace std {
-template<typename T> struct hash<BLI::AutoRefCount<T>> {
-  typedef BLI::AutoRefCount<T> argument_type;
-  typedef size_t result_type;
-
-  result_type operator()(argument_type const &v) const noexcept
+template<typename T> struct DefaultHash<AutoRefCount<T>> {
+  uint32_t operator()(const AutoRefCount<T> &value) const
   {
-    return std::hash<T>{}(*v.ptr());
+    return DefaultHash<T>{}(value.ref());
   }
 };
-}  // namespace std
+
+} /* namespace BLI */

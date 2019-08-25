@@ -453,14 +453,11 @@ class DataGraph : public RefCounter {
 
 }  // namespace FN
 
-namespace std {
-template<> struct hash<FN::DataSocket> {
-  typedef FN::DataSocket argument_type;
-  typedef size_t result_type;
-
-  result_type operator()(argument_type const &v) const noexcept
+namespace BLI {
+template<> struct DefaultHash<FN::DataSocket> {
+  uint32_t operator()(FN::DataSocket value) const
   {
-    return v.id() + (int)v.is_input() * 12345;
+    return value.id() + (int)value.is_input() * 12345;
   }
 };
-}  // namespace std
+}  // namespace BLI
