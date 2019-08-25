@@ -28,6 +28,13 @@ TRIVIAL_DEFAULT_INT_HASH(int32_t);
 TRIVIAL_DEFAULT_INT_HASH(uint32_t);
 TRIVIAL_DEFAULT_INT_HASH(int64_t);
 
+template<> struct DefaultHash<float> {
+  uint32_t operator()(float value) const
+  {
+    return *(uint32_t *)&value;
+  }
+};
+
 template<> struct DefaultHash<std::string> {
   uint32_t operator()(const std::string &value) const
   {
