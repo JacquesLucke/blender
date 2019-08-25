@@ -176,3 +176,14 @@ TEST(set, Iterator)
   EXPECT_TRUE(vec.contains(5));
   EXPECT_TRUE(vec.contains(4));
 }
+
+TEST(set, OftenAddRemove)
+{
+  IntSet set;
+  for (int i = 0; i < 100; i++) {
+    set.add(42);
+    EXPECT_EQ(set.size(), 1);
+    set.remove(42);
+    EXPECT_EQ(set.size(), 0);
+  }
+}
