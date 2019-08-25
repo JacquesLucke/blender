@@ -244,7 +244,6 @@ set(SRC
   intern/BLI_lazy_init.cpp
   BLI_listbase_wrapper.hpp
   BLI_math.hpp
-  BLI_mempool.hpp
   BLI_monotonic_allocator.hpp
   BLI_object_pool.hpp
   BLI_optional.hpp
