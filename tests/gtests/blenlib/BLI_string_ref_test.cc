@@ -218,23 +218,3 @@ TEST(string_ref, DropPrefix)
   EXPECT_EQ(ref2.size(), 1);
   EXPECT_EQ(ref2, "t");
 }
-
-TEST(string_ref, CombineOnStack1)
-{
-  StringRef ref1("hello ");
-  StringRef ref2("world");
-  BLI_STRINGREF_STACK_COMBINE(ref_combined, ref1, ref2);
-  EXPECT_EQ(ref_combined.size(), 11);
-  EXPECT_EQ(ref_combined, "hello world");
-}
-
-TEST(string_ref, CombineOnStack2)
-{
-  StringRef ref1("");
-  StringRef ref2("");
-  void *before = alloca(1);
-  BLI_STRINGREF_STACK_COMBINE(ref_combined, ref1, ref2);
-  void *after = alloca(1);
-
-  EXPECT_TRUE(IN_RANGE_INCL((void *)ref_combined.begin(), before, after));
-}
