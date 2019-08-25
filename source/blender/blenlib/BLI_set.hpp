@@ -51,8 +51,8 @@ namespace BLI {
 
 template<typename T, typename Allocator = GuardedAllocator> class Set {
  private:
-  static constexpr uint32_t OFFSET_MASK = 3;
-  static constexpr uint32_t OFFSET_SHIFT = 2;
+  static constexpr uint OFFSET_MASK = 3;
+  static constexpr uint OFFSET_SHIFT = 2;
 
   class Item {
    private:
@@ -64,19 +64,18 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     char m_values[4 * sizeof(T)];
 
    public:
-    static constexpr uint32_t slots_per_item = 4;
+    static constexpr uint slots_per_item = 4;
 
     Item()
     {
-      m_status[0] = IS_EMPTY;
-      m_status[1] = IS_EMPTY;
-      m_status[2] = IS_EMPTY;
-      m_status[3] = IS_EMPTY;
+      for (uint offset = 0; offset < 4; offset++) {
+        m_status[offset] = IS_EMPTY;
+      }
     }
 
     ~Item()
     {
-      for (uint32_t offset = 0; offset < 4; offset++) {
+      for (uint offset = 0; offset < 4; offset++) {
         if (m_status[offset] == IS_SET) {
           destruct(this->value(offset));
         }
@@ -85,7 +84,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
 
     Item(const Item &other)
     {
-      for (uint32_t offset = 0; offset < 4; offset++) {
+      for (uint offset = 0; offset < 4; offset++) {
         uint8_t status = other.m_status[offset];
         m_status[offset] = status;
         if (status == IS_SET) {
@@ -98,7 +97,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
 
     Item(Item &&other)
     {
-      for (uint32_t offset = 0; offset < 4; offset++) {
+      for (uint offset = 0; offset < 4; offset++) {
         uint8_t status = other.m_status[offset];
         m_status[offset] = status;
         if (status == IS_SET) {
@@ -112,12 +111,12 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     Item &operator=(const Item &other) = delete;
     Item &operator=(Item &&other) = delete;
 
-    T *value(uint32_t offset) const
+    T *value(uint offset) const
     {
       return (T *)(m_values + offset * sizeof(T));
     }
 
-    void copy_in(uint32_t offset, const T &value)
+    void copy_in(uint offset, const T &value)
     {
       BLI_assert(m_status[offset] != IS_SET);
       m_status[offset] = IS_SET;
@@ -125,7 +124,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
       new (dst) T(value);
     }
 
-    void move_in(uint32_t offset, T &value)
+    void move_in(uint offset, T &value)
     {
       BLI_assert(m_status[offset] != IS_SET);
       m_status[offset] = IS_SET;
@@ -133,29 +132,29 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
       new (dst) T(std::move(value));
     }
 
-    void set_dummy(uint32_t offset)
+    void set_dummy(uint offset)
     {
       BLI_assert(m_status[offset] == IS_SET);
       m_status[offset] = IS_DUMMY;
       destruct(this->value(offset));
     }
 
-    bool is_empty(uint32_t offset) const
+    bool is_empty(uint offset) const
     {
       return m_status[offset] == IS_EMPTY;
     }
 
-    bool is_set(uint32_t offset) const
+    bool is_set(uint offset) const
     {
       return m_status[offset] == IS_SET;
     }
 
-    bool is_dummy(uint32_t offset) const
+    bool is_dummy(uint offset) const
     {
       return m_status[offset] == IS_DUMMY;
     }
 
-    bool has_value(uint32_t offset, const T &value) const
+    bool has_value(uint offset, const T &value) const
     {
       return m_status[offset] == IS_SET && *this->value(offset) == value;
     }
@@ -339,7 +338,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     uint32_t item_index = 0;
     for (const Item &item : m_array) {
       std::cout << "   Item: " << item_index++ << '\n';
-      for (uint32_t offset = 0; offset < 4; offset++) {
+      for (uint offset = 0; offset < 4; offset++) {
         std::cout << "    " << offset << " \t";
         if (item.is_empty(offset)) {
           std::cout << "    <empty>\n";
@@ -375,7 +374,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
     const T &operator*() const
     {
       uint32_t item_index = m_slot >> OFFSET_SHIFT;
-      uint32_t offset = m_slot & OFFSET_MASK;
+      uint offset = m_slot & OFFSET_MASK;
       const Item &item = m_set->m_array.item(item_index);
       BLI_assert(item.is_set(offset));
       return *item.value(offset);
@@ -410,7 +409,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
   {
     for (; slot < m_array.slots_total(); slot++) {
       uint32_t item_index = slot >> OFFSET_SHIFT;
-      uint32_t offset = slot & OFFSET_MASK;
+      uint offset = slot & OFFSET_MASK;
       const Item &item = m_array.item(item_index);
       if (item.is_set(offset)) {
         return slot;

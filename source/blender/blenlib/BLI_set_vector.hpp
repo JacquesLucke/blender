@@ -54,7 +54,7 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     int32_t m_value = IS_EMPTY;
 
    public:
-    static constexpr uint32_t slots_per_item = 1;
+    static constexpr uint slots_per_item = 1;
 
     bool is_set() const
     {

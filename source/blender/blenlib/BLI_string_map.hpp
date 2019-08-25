@@ -60,7 +60,7 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
 
   class Item {
    private:
-    static constexpr int32_t EMPTY = -1;
+    static constexpr int32_t IS_EMPTY = -1;
 
     uint32_t m_hashes[4];
     int32_t m_indices[4];
@@ -71,10 +71,9 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
 
     Item()
     {
-      m_indices[0] = EMPTY;
-      m_indices[1] = EMPTY;
-      m_indices[2] = EMPTY;
-      m_indices[3] = EMPTY;
+      for (uint offset = 0; offset < 4; offset++) {
+        m_indices[offset] = IS_EMPTY;
+      }
     }
 
     ~Item()
@@ -88,7 +87,7 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
 
     Item(const Item &other)
     {
-      for (uint32_t offset = 0; offset < 4; offset++) {
+      for (uint offset = 0; offset < 4; offset++) {
         m_indices[offset] = other.m_indices[offset];
         if (other.is_set(offset)) {
           m_hashes[offset] = other.m_hashes[offset];
@@ -99,7 +98,7 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
 
     Item(Item &&other)
     {
-      for (uint32_t offset = 0; offset < 4; offset++) {
+      for (uint offset = 0; offset < 4; offset++) {
         m_indices[offset] = other.m_indices[offset];
         if (other.is_set(offset)) {
           m_hashes[offset] = other.m_hashes[offset];
@@ -130,7 +129,7 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
 
     bool is_empty(uint offset) const
     {
-      return m_indices[offset] == EMPTY;
+      return m_indices[offset] == IS_EMPTY;
     }
 
     bool has_hash(uint offset, uint32_t hash) const

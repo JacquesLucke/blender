@@ -54,8 +54,8 @@ namespace BLI {
 
 template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> class Map {
  private:
-  static constexpr uint32_t OFFSET_MASK = 3;
-  static constexpr uint32_t OFFSET_SHIFT = 2;
+  static constexpr uint OFFSET_MASK = 3;
+  static constexpr uint OFFSET_SHIFT = 2;
 
   class Item {
    private:
@@ -68,19 +68,18 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     char m_values[4 * sizeof(ValueT)];
 
    public:
-    static constexpr uint32_t slots_per_item = 4;
+    static constexpr uint slots_per_item = 4;
 
     Item()
     {
-      m_status[0] = IS_EMPTY;
-      m_status[1] = IS_EMPTY;
-      m_status[2] = IS_EMPTY;
-      m_status[3] = IS_EMPTY;
+      for (uint offset = 0; offset < 4; offset++) {
+        m_status[offset] = IS_EMPTY;
+      }
     }
 
     ~Item()
     {
-      for (uint32_t offset = 0; offset < 4; offset++) {
+      for (uint offset = 0; offset < 4; offset++) {
         if (m_status[offset] == IS_SET) {
           this->key(offset)->~KeyT();
           this->value(offset)->~ValueT();
@@ -90,7 +89,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
 
     Item(const Item &other)
     {
-      for (uint32_t offset = 0; offset < 4; offset++) {
+      for (uint offset = 0; offset < 4; offset++) {
         uint8_t status = other.m_status[offset];
         m_status[offset] = status;
         if (status == IS_SET) {
@@ -102,7 +101,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
 
     Item(Item &&other)
     {
-      for (uint32_t offset = 0; offset < 4; offset++) {
+      for (uint offset = 0; offset < 4; offset++) {
         uint8_t status = other.m_status[offset];
         m_status[offset] = status;
         if (status == IS_SET) {
@@ -112,32 +111,32 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
       }
     }
 
-    bool has_key(uint32_t offset, const KeyT &key) const
+    bool has_key(uint offset, const KeyT &key) const
     {
       return m_status[offset] == IS_SET && key == *this->key(offset);
     }
 
-    bool is_set(uint32_t offset) const
+    bool is_set(uint offset) const
     {
       return m_status[offset] == IS_SET;
     }
 
-    bool is_empty(uint32_t offset) const
+    bool is_empty(uint offset) const
     {
       return m_status[offset] == IS_EMPTY;
     }
 
-    KeyT *key(uint32_t offset) const
+    KeyT *key(uint offset) const
     {
       return (KeyT *)(m_keys + offset * sizeof(KeyT));
     }
 
-    ValueT *value(uint32_t offset) const
+    ValueT *value(uint offset) const
     {
       return (ValueT *)(m_values + offset * sizeof(ValueT));
     }
 
-    void copy_in(uint32_t offset, const KeyT &key, const ValueT &value)
+    void copy_in(uint offset, const KeyT &key, const ValueT &value)
     {
       BLI_assert(m_status[offset] != IS_SET);
       m_status[offset] = IS_SET;
@@ -145,7 +144,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
       new (this->value(offset)) ValueT(value);
     }
 
-    void move_in(uint32_t offset, KeyT &key, ValueT &value)
+    void move_in(uint offset, KeyT &key, ValueT &value)
     {
       BLI_assert(m_status[offset] != IS_SET);
       m_status[offset] = IS_SET;
@@ -153,7 +152,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
       new (this->value(offset)) ValueT(std::move(value));
     }
 
-    void set_dummy(uint32_t offset)
+    void set_dummy(uint offset)
     {
       BLI_assert(m_status[offset] == IS_SET);
       m_status[offset] = IS_DUMMY;
@@ -390,7 +389,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     uint32_t item_index = 0;
     for (const Item &item : m_array) {
       std::cout << "   Item: " << item_index++ << '\n';
-      for (uint32_t offset = 0; offset < 4; offset++) {
+      for (uint offset = 0; offset < 4; offset++) {
         std::cout << "    " << offset << " \t";
         if (item.is_empty(offset)) {
           std::cout << "    <empty>\n";
@@ -456,7 +455,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     const KeyT &operator*() const
     {
       uint32_t item_index = this->m_slot >> OFFSET_SHIFT;
-      uint32_t offset = this->m_slot & OFFSET_MASK;
+      uint offset = this->m_slot & OFFSET_MASK;
       const Item &item = this->m_map->m_array.item(item_index);
       BLI_assert(item.is_set(offset));
       return *item.key(offset);
@@ -472,7 +471,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     ValueT &operator*() const
     {
       uint32_t item_index = this->m_slot >> OFFSET_SHIFT;
-      uint32_t offset = this->m_slot & OFFSET_MASK;
+      uint offset = this->m_slot & OFFSET_MASK;
       const Item &item = this->m_map->m_array.item(item_index);
       BLI_assert(item.is_set(offset));
       return *item.value(offset);
@@ -499,7 +498,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
     UserItem operator*() const
     {
       uint32_t item_index = this->m_slot >> OFFSET_SHIFT;
-      uint32_t offset = this->m_slot & OFFSET_MASK;
+      uint offset = this->m_slot & OFFSET_MASK;
       const Item &item = this->m_map->m_array.item(item_index);
       BLI_assert(item.is_set(offset));
       return {*item.key(offset), *item.value(offset)};
@@ -538,7 +537,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
   {
     for (; slot < m_array.slots_total(); slot++) {
       uint32_t item_index = slot >> OFFSET_SHIFT;
-      uint32_t offset = slot & OFFSET_MASK;
+      uint offset = slot & OFFSET_MASK;
       const Item &item = m_array.item(item_index);
       if (item.is_set(offset)) {
         return slot;
@@ -570,7 +569,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
   {
     ArrayType new_array = m_array.init_reserved(min_usable_slots);
     for (Item &old_item : m_array) {
-      for (uint32_t offset = 0; offset < 4; offset++) {
+      for (uint offset = 0; offset < 4; offset++) {
         if (old_item.is_set(offset)) {
           this->add_after_grow(*old_item.key(offset), *old_item.value(offset), new_array);
         }
