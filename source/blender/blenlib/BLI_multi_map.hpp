@@ -148,6 +148,15 @@ template<typename K, typename V, uint N = 4> class MultiMap {
   {
     return m_map.keys();
   }
+
+  template<typename FuncT> void foreach_value(const FuncT &func)
+  {
+    for (Entry &entry : m_map.values()) {
+      for (const V &value : entry.get_slice(m_elements)) {
+        func(value);
+      }
+    }
+  }
 };
 
 } /* namespace BLI */

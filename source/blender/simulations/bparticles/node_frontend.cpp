@@ -26,10 +26,10 @@ using FN::DataFlowNodes::VTreeDataGraph;
 
 class BehaviorCollector {
  public:
-  Vector<Emitter *> m_emitters;
-  MultiMap<std::string, Force *> m_forces;
-  MultiMap<std::string, Event *> m_events;
-  MultiMap<std::string, OffsetHandler *> m_offset_handlers;
+  Vector<Emitter *> &m_emitters;
+  MultiMap<std::string, Force *> &m_forces;
+  MultiMap<std::string, Event *> &m_events;
+  MultiMap<std::string, OffsetHandler *> &m_offset_handlers;
 };
 
 static bool is_particle_type_node(VirtualNode *vnode)
@@ -435,21 +435,33 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   return map;
 }
 
-static std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree &vtree,
-                                                                        WorldState &world_state,
-                                                                        float time_step)
+static void collect_particle_behaviors(
+    VirtualNodeTree &vtree,
+    WorldState &world_state,
+    Vector<std::string> &r_type_names,
+    Vector<Emitter *> &r_emitters,
+    MultiMap<std::string, Event *> &r_events_per_type,
+    MultiMap<std::string, OffsetHandler *> &r_offset_handler_per_type,
+    StringMap<AttributesDeclaration> &r_attributes_per_type,
+    StringMap<Integrator *> &r_integrators)
 {
   SCOPED_TIMER(__func__);
 
   auto data_graph_or_error = FN::DataFlowNodes::generate_graph(vtree);
   if (data_graph_or_error.is_error()) {
-    return {};
+    return;
   }
   VTreeDataGraph vtree_data_graph = data_graph_or_error.extract_value();
 
-  BehaviorCollector collector;
-
   StringMap<ParseNodeCallback> &parsers = get_node_parsers();
+
+  MultiMap<std::string, Force *> forces;
+  BehaviorCollector collector = {
+      r_emitters,
+      forces,
+      r_events_per_type,
+      r_offset_handler_per_type,
+  };
 
   for (VirtualNode *vnode : vtree.nodes()) {
     StringRef idname = vnode->idname();
@@ -459,15 +471,12 @@ static std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualN
     }
   }
 
-  StringMap<ParticleType *> types;
-
-  Vector<std::string> type_names;
   for (VirtualNode *vnode : vtree.nodes_with_idname("bp_ParticleTypeNode")) {
     StringRef name = vnode->name();
-    type_names.append(name);
+    r_type_names.append(name);
   }
 
-  for (std::string &type_name : type_names) {
+  for (std::string &type_name : r_type_names) {
     AttributesDeclaration attributes;
     attributes.add<float3>("Position", float3(0, 0, 0));
     attributes.add<float3>("Velocity", float3(0, 0, 0));
@@ -477,16 +486,9 @@ static std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualN
     ArrayRef<Force *> forces = collector.m_forces.lookup_default(type_name);
     EulerIntegrator *integrator = new EulerIntegrator(forces);
 
-    ArrayRef<Event *> events = collector.m_events.lookup_default(type_name);
-    ArrayRef<OffsetHandler *> offset_handlers = collector.m_offset_handlers.lookup_default(
-        type_name);
-
-    ParticleType *type = new ParticleType(attributes, integrator, events, offset_handlers);
-    types.add_new(type_name, type);
+    r_attributes_per_type.add_new(type_name, attributes);
+    r_integrators.add_new(type_name, integrator);
   }
-
-  StepDescription *step_description = new StepDescription(time_step, types, collector.m_emitters);
-  return std::unique_ptr<StepDescription>(step_description);
 }
 
 class NodeTreeStepSimulator : public StepSimulator {
@@ -504,24 +506,42 @@ class NodeTreeStepSimulator : public StepSimulator {
     vtree.add_all_of_tree(m_btree);
     vtree.freeze_and_index();
 
-    auto step_description = step_description_from_node_tree(
-        vtree, simulation_state.world(), time_step);
+    Vector<std::string> type_names;
+    Vector<Emitter *> emitters;
+    MultiMap<std::string, Event *> events;
+    MultiMap<std::string, OffsetHandler *> offset_handlers;
+    StringMap<AttributesDeclaration> attributes;
+    StringMap<Integrator *> integrators;
+
+    collect_particle_behaviors(vtree,
+                               simulation_state.world(),
+                               type_names,
+                               emitters,
+                               events,
+                               offset_handlers,
+                               attributes,
+                               integrators);
 
     StringMap<ParticleTypeInfo> types_to_simulate;
-    step_description->particle_types().foreach_key_value_pair(
-        [&types_to_simulate](StringRefNull name, ParticleType *type) {
-          ParticleTypeInfo type_info = {
-              &type->attributes(),
-              &type->integrator(),
-              type->events(),
-              type->offset_handlers(),
-          };
-          types_to_simulate.add_new(name, type_info);
-        });
+    for (std::string name : type_names) {
+      ParticleTypeInfo type_info = {
+          &attributes.lookup(name),
+          integrators.lookup(name),
+          events.lookup_default(name),
+          offset_handlers.lookup_default(name),
+      };
+      types_to_simulate.add_new(name, type_info);
+    }
 
-    simulate_particles(
-        simulation_state.particles(), time_step, step_description->emitters(), types_to_simulate);
+    simulate_particles(simulation_state.particles(), time_step, emitters, types_to_simulate);
     simulation_state.world().current_step_is_over();
+
+    for (Emitter *emitter : emitters) {
+      delete emitter;
+    }
+    events.foreach_value([](Event *event) { delete event; });
+    offset_handlers.foreach_value([](OffsetHandler *handler) { delete handler; });
+    integrators.foreach_value([](Integrator *integrator) { delete integrator; });
   }
 };
 

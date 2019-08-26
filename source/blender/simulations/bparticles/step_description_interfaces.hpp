@@ -5,8 +5,6 @@
 
 namespace BParticles {
 
-class ParticleType;
-
 struct BlockStepData {
   ParticleAllocator &particle_allocator;
   ParticlesBlock &block;
