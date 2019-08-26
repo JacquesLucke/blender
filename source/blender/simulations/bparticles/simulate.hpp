@@ -5,8 +5,16 @@
 
 namespace BParticles {
 
+struct ParticleTypeInfo {
+  AttributesDeclaration *attributes_declaration;
+
+  Integrator *integrator;
+  ArrayRef<Event *> events;
+  ArrayRef<OffsetHandler *> offset_handlers;
+};
+
 void simulate_particles(ParticlesState &state,
                         float time_step,
                         ArrayRef<Emitter *> emitters,
-                        StringMap<ParticleType *> &types_to_simulate);
-};
+                        StringMap<ParticleTypeInfo> &types_to_simulate);
+};  // namespace BParticles

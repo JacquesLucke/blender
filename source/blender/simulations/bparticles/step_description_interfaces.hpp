@@ -10,7 +10,6 @@ class ParticleType;
 struct BlockStepData {
   ParticleAllocator &particle_allocator;
   ParticlesBlock &block;
-  ParticleType &particle_type;
   AttributeArrays attribute_offsets;
   MutableArrayRef<float> remaining_durations;
   float step_end_time;
@@ -48,11 +47,6 @@ class BlockStepDataAccess {
   ParticlesBlock &block()
   {
     return m_step_data.block;
-  }
-
-  ParticleType &particle_type()
-  {
-    return m_step_data.particle_type;
   }
 
   AttributeArrays attribute_offsets()

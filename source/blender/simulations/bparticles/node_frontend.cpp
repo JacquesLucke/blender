@@ -507,10 +507,20 @@ class NodeTreeStepSimulator : public StepSimulator {
     auto step_description = step_description_from_node_tree(
         vtree, simulation_state.world(), time_step);
 
-    simulate_particles(simulation_state.particles(),
-                       time_step,
-                       step_description->emitters(),
-                       step_description->particle_types());
+    StringMap<ParticleTypeInfo> types_to_simulate;
+    step_description->particle_types().foreach_key_value_pair(
+        [&types_to_simulate](StringRefNull name, ParticleType *type) {
+          ParticleTypeInfo type_info = {
+              &type->attributes(),
+              &type->integrator(),
+              type->events(),
+              type->offset_handlers(),
+          };
+          types_to_simulate.add_new(name, type_info);
+        });
+
+    simulate_particles(
+        simulation_state.particles(), time_step, step_description->emitters(), types_to_simulate);
     simulation_state.world().current_step_is_over();
   }
 };
