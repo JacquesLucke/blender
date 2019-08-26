@@ -223,7 +223,7 @@ template<typename T> class ArrayRef {
   /**
    * Get element at the given index. If the index is out of range, return the fallback value.
    */
-  T get(uint index, const T &fallback)
+  T get(uint index, const T &fallback) const
   {
     if (index < m_size) {
       return m_start[index];
