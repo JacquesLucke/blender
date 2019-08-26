@@ -63,19 +63,11 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
   SimulationState &simulation_state = *unwrap(state_c);
 
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)bpmd->bparticles_tree);
+  auto simulator = simulator_from_node_tree(btree);
 
-  VirtualNodeTree vtree;
-  vtree.add_all_of_tree(btree);
-  vtree.freeze_and_index();
+  simulator->simulate(simulation_state, time_step);
 
-  auto step_description = step_description_from_node_tree(
-      vtree, simulation_state.world(), time_step);
-
-  ParticlesState &particles_state = simulation_state.particles();
-  simulate_step(particles_state, *step_description);
-  simulation_state.world().current_step_is_over();
-
-  auto &containers = particles_state.particle_containers();
+  auto &containers = simulation_state.particles().particle_containers();
   containers.foreach_key_value_pair([](StringRefNull type_name, ParticlesContainer *container) {
     std::cout << "Particle Type: " << type_name << "\n";
     std::cout << "  Particles: " << container->count_active() << "\n";

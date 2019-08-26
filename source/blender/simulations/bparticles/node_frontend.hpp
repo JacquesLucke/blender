@@ -4,13 +4,12 @@
 
 #include "world_state.hpp"
 #include "step_description.hpp"
+#include "step_simulator.hpp"
 
 namespace BParticles {
 
 using BKE::VirtualNodeTree;
 
-std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree &vtree,
-                                                                 WorldState &world_state,
-                                                                 float time_step);
+std::unique_ptr<StepSimulator> simulator_from_node_tree(bNodeTree *btree);
 
 }  // namespace BParticles

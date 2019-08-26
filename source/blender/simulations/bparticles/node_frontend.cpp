@@ -10,6 +10,7 @@
 #include "emitters.hpp"
 #include "events.hpp"
 #include "offset_handlers.hpp"
+#include "simulate.hpp"
 
 namespace BParticles {
 
@@ -434,9 +435,9 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   return map;
 }
 
-std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree &vtree,
-                                                                 WorldState &world_state,
-                                                                 float time_step)
+static std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree &vtree,
+                                                                        WorldState &world_state,
+                                                                        float time_step)
 {
   SCOPED_TIMER(__func__);
 
@@ -486,6 +487,35 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
 
   StepDescription *step_description = new StepDescription(time_step, types, collector.m_emitters);
   return std::unique_ptr<StepDescription>(step_description);
+}
+
+class NodeTreeStepSimulator : public StepSimulator {
+ private:
+  bNodeTree *m_btree;
+
+ public:
+  NodeTreeStepSimulator(bNodeTree *btree) : m_btree(btree)
+  {
+  }
+
+  void simulate(SimulationState &simulation_state, float time_step) const override
+  {
+    VirtualNodeTree vtree;
+    vtree.add_all_of_tree(m_btree);
+    vtree.freeze_and_index();
+
+    auto step_description = step_description_from_node_tree(
+        vtree, simulation_state.world(), time_step);
+
+    ParticlesState &particles_state = simulation_state.particles();
+    simulate_step(particles_state, *step_description);
+    simulation_state.world().current_step_is_over();
+  }
+};
+
+std::unique_ptr<StepSimulator> simulator_from_node_tree(bNodeTree *btree)
+{
+  return std::unique_ptr<StepSimulator>(new NodeTreeStepSimulator(btree));
 }
 
 }  // namespace BParticles
