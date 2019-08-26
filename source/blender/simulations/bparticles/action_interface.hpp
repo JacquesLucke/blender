@@ -97,7 +97,7 @@ inline void Action::execute_from_emitter(ParticleSets &particle_sets,
                                                                      *action_context;
 
   for (ParticleSet particles : particle_sets.sets()) {
-    uint min_array_size = particles.block().capacity();
+    uint min_array_size = particles.attributes().size();
     AttributeArrays offsets(info, buffers, 0, min_array_size);
     TemporaryArray<float> durations(min_array_size);
     durations.fill_indices(particles.pindices(), 0);
@@ -130,7 +130,7 @@ inline void Action::execute_from_event(EventExecuteInterface &event_interface,
 inline void Action::execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface)
 {
   ActionInterface sub_interface(action_interface.particle_allocator(),
-                                ParticleSet(action_interface.particles().block(), pindices),
+                                ParticleSet(action_interface.particles().attributes(), pindices),
                                 action_interface.attribute_offsets(),
                                 action_interface.current_times(),
                                 action_interface.remaining_durations(),
@@ -148,7 +148,7 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
   EmptyEventInfo empty_context;
 
   for (ParticleSet particles : particle_sets.sets()) {
-    uint min_array_size = particles.block().capacity();
+    uint min_array_size = particles.attributes().size();
     AttributeArrays offsets(info, buffers, 0, min_array_size);
     TemporaryArray<float> durations(min_array_size);
     durations.fill_indices(particles.pindices(), 0);
@@ -171,7 +171,7 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
   EmptyEventInfo empty_context;
 
   for (ParticleSet particles : particle_sets.sets()) {
-    uint min_array_size = particles.block().capacity();
+    uint min_array_size = particles.attributes().size();
     AttributeArrays offsets(info, buffers, 0, min_array_size);
     TemporaryArray<float> durations(min_array_size);
     durations.fill_indices(particles.pindices(), 0);

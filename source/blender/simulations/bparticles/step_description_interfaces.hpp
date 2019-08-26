@@ -7,14 +7,14 @@ namespace BParticles {
 
 struct BlockStepData {
   ParticleAllocator &particle_allocator;
-  ParticlesBlock &block;
+  AttributeArrays attributes;
   AttributeArrays attribute_offsets;
   MutableArrayRef<float> remaining_durations;
   float step_end_time;
 
   uint array_size()
   {
-    return this->block.capacity();
+    return this->remaining_durations.size();
   }
 };
 
@@ -29,7 +29,7 @@ class BlockStepDataAccess {
 
   uint array_size() const
   {
-    return m_step_data.block.capacity();
+    return m_step_data.array_size();
   }
 
   BlockStepData &step_data()
@@ -42,9 +42,9 @@ class BlockStepDataAccess {
     return m_step_data.particle_allocator;
   }
 
-  ParticlesBlock &block()
+  AttributeArrays attributes()
   {
-    return m_step_data.block;
+    return m_step_data.attributes;
   }
 
   AttributeArrays attribute_offsets()
@@ -196,8 +196,13 @@ class EventExecuteInterface : public BlockStepDataAccess {
  * Interface between the Integrator->integrate() function and the core simulation code.
  */
 class IntegratorInterface : public BlockStepDataAccess {
+ private:
+  ArrayRef<uint> m_pindices;
+
  public:
-  IntegratorInterface(BlockStepData &step_data);
+  IntegratorInterface(BlockStepData &step_data, ArrayRef<uint> pindices);
+
+  ParticleSet particles();
 };
 
 class OffsetHandlerInterface : public BlockStepDataAccess {
@@ -259,7 +264,7 @@ inline uint EventStorage::max_element_size() const
 
 inline ParticleSet EventFilterInterface::particles()
 {
-  return ParticleSet(m_step_data.block, m_pindices);
+  return ParticleSet(m_step_data.attributes, m_pindices);
 }
 
 inline void EventFilterInterface::trigger_particle(uint pindex, float time_factor)
@@ -298,7 +303,7 @@ inline EventStorage &EventExecuteInterface::event_storage()
 
 inline ParticleSet EventExecuteInterface::particles()
 {
-  return ParticleSet(m_step_data.block, m_pindices);
+  return ParticleSet(m_step_data.attributes, m_pindices);
 }
 
 inline ArrayRef<float> EventExecuteInterface::current_times()
@@ -318,12 +323,20 @@ template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)
 
 inline ParticleSet OffsetHandlerInterface::particles()
 {
-  return ParticleSet(m_step_data.block, m_pindices);
+  return ParticleSet(m_step_data.attributes, m_pindices);
 }
 
 inline ArrayRef<float> OffsetHandlerInterface::time_factors()
 {
   return m_time_factors;
+}
+
+/* IntegratorInterface inline functions
+ **********************************************/
+
+inline ParticleSet IntegratorInterface::particles()
+{
+  return ParticleSet(m_step_data.attributes, m_pindices);
 }
 
 };  // namespace BParticles

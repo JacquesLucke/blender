@@ -79,7 +79,7 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     handler->execute(interface);
   }
 
-  ParticleSet particles(step_data.block, pindices);
+  ParticleSet particles(step_data.attributes, pindices);
 
   auto attribute_offsets = step_data.attribute_offsets;
   for (uint attribute_index : attribute_offsets.info().attribute_indices()) {
@@ -230,7 +230,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 
   find_unfinished_particles(pindices_with_event,
                             time_factors_to_next_event,
-                            step_data.block.attributes().get<uint8_t>("Kill State"),
+                            step_data.attributes.get<uint8_t>("Kill State"),
                             r_unfinished_pindices);
 }
 
@@ -242,7 +242,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
   TemporaryArray<uint> pindices_A(step_data.array_size());
   TemporaryArray<uint> pindices_B(step_data.array_size());
 
-  uint amount_left = step_data.block.active_amount();
+  uint amount_left = step_data.attributes.size();
 
   {
     /* Handle first event separately to be able to use the static number range. */
@@ -309,7 +309,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
   }
 
   auto attribute_offsets = step_data.attribute_offsets;
-  ParticleSet particles(step_data.block, pindices);
+  ParticleSet particles(step_data.attributes, pindices);
 
   for (uint attribute_index : attribute_offsets.info().attribute_indices()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
@@ -348,9 +348,9 @@ BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
   AttributeArrays attribute_offsets(offsets_info, offset_buffers, 0, amount);
 
   BlockStepData step_data = {
-      particle_allocator, block, attribute_offsets, remaining_durations, end_time};
+      particle_allocator, block.attributes(), attribute_offsets, remaining_durations, end_time};
 
-  IntegratorInterface interface(step_data);
+  IntegratorInterface interface(step_data, block.active_range().as_array_ref());
   integrator.integrate(interface);
 
   if (type_info.events.size() == 0) {

@@ -9,7 +9,7 @@ namespace BParticles {
  */
 struct ParticleSet {
  private:
-  ParticlesBlock *m_block;
+  AttributeArrays m_attributes;
 
   /* Indices into the attribute arrays.
    * Invariants:
@@ -18,12 +18,7 @@ struct ParticleSet {
   ArrayRef<uint> m_pindices;
 
  public:
-  ParticleSet(ParticlesBlock &block, ArrayRef<uint> pindices);
-
-  /**
-   * Return the block that contains the particles of this set.
-   */
-  ParticlesBlock &block();
+  ParticleSet(AttributeArrays attributes, ArrayRef<uint> pindices);
 
   /**
    * Access the attributes of particles in the block on this set.
@@ -117,19 +112,14 @@ class ParticleSets {
 /* ParticleSet inline functions
  *******************************************/
 
-inline ParticleSet::ParticleSet(ParticlesBlock &block, ArrayRef<uint> pindices)
-    : m_block(&block), m_pindices(pindices)
+inline ParticleSet::ParticleSet(AttributeArrays attributes, ArrayRef<uint> pindices)
+    : m_attributes(attributes), m_pindices(pindices)
 {
-}
-
-inline ParticlesBlock &ParticleSet::block()
-{
-  return *m_block;
 }
 
 inline AttributeArrays ParticleSet::attributes()
 {
-  return m_block->attributes();
+  return m_attributes;
 }
 
 inline ArrayRef<uint> ParticleSet::pindices()

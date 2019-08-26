@@ -81,7 +81,7 @@ ParticleSets ParticleAllocator::request(StringRef particle_type_name, uint size)
 
   Vector<ParticleSet> sets;
   for (uint i = 0; i < blocks.size(); i++) {
-    sets.append(ParticleSet(*blocks[i], ranges[i].as_array_ref()));
+    sets.append(ParticleSet(blocks[i]->attributes(), ranges[i].as_array_ref()));
   }
 
   return ParticleSets(particle_type_name, attributes_info, sets);

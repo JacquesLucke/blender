@@ -33,7 +33,8 @@ EventExecuteInterface::EventExecuteInterface(BlockStepData &step_data,
 {
 }
 
-IntegratorInterface::IntegratorInterface(BlockStepData &step_data) : BlockStepDataAccess(step_data)
+IntegratorInterface::IntegratorInterface(BlockStepData &step_data, ArrayRef<uint> pindices)
+    : BlockStepDataAccess(step_data), m_pindices(pindices)
 {
 }
 

@@ -65,8 +65,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ForceInterface &interface)
 {
-  ParticlesBlock &block = interface.block();
-  return this->compute(ParticleSet(block, block.active_range().as_array_ref()),
+  return this->compute(interface.particles(),
                        ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
                                                           interface.step_end_time()),
                        nullptr);
