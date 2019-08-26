@@ -79,12 +79,10 @@ struct CustomData_MeshMasks;
 struct Depsgraph;
 struct MEdge;
 struct MFace;
-struct MLoopNorSpaceArray;
 struct MVert;
 struct Mesh;
 struct ModifierData;
 struct Object;
-struct PBVH;
 struct Scene;
 
 /*
@@ -302,14 +300,6 @@ void DM_from_template(DerivedMesh *dm,
  * returns 1 if DerivedMesh has to be released by the backend, 0 otherwise
  */
 int DM_release(DerivedMesh *dm);
-
-/** utility function to convert a DerivedMesh to a Mesh
- */
-void DM_to_mesh(DerivedMesh *dm,
-                struct Mesh *me,
-                struct Object *ob,
-                const struct CustomData_MeshMasks *mask,
-                bool take_ownership);
 
 void DM_set_only_copy(DerivedMesh *dm, const struct CustomData_MeshMasks *mask);
 

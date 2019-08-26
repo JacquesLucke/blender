@@ -63,7 +63,6 @@ struct RenderData;
 struct Scene;
 struct SpaceNode;
 struct Tex;
-struct ViewRender;
 struct bContext;
 struct bNode;
 struct bNodeExecContext;

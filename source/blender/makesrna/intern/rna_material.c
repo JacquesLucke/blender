@@ -37,7 +37,7 @@ const EnumPropertyItem rna_enum_ramp_blend_items[] = {
     {0, "", ICON_NONE, NULL, NULL},
     {MA_RAMP_DARK, "DARKEN", 0, "Darken", ""},
     {MA_RAMP_MULT, "MULTIPLY", 0, "Multiply", ""},
-    {MA_RAMP_BURN, "BURN", 0, "Burn", ""},
+    {MA_RAMP_BURN, "BURN", 0, "Color Burn", ""},
     {0, "", ICON_NONE, NULL, NULL},
     {MA_RAMP_LIGHT, "LIGHTEN", 0, "Lighten", ""},
     {MA_RAMP_SCREEN, "SCREEN", 0, "Screen", ""},
@@ -357,12 +357,14 @@ static void rna_def_material_display(StructRNA *srna)
   prop = RNA_def_property(srna, "diffuse_color", PROP_FLOAT, PROP_COLOR);
   RNA_def_property_float_sdna(prop, NULL, "r");
   RNA_def_property_array(prop, 4);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(prop, "Diffuse Color", "Diffuse color of the material");
   RNA_def_property_update(prop, 0, "rna_Material_draw_update");
 
   prop = RNA_def_property(srna, "specular_color", PROP_FLOAT, PROP_COLOR);
   RNA_def_property_float_sdna(prop, NULL, "specr");
   RNA_def_property_array(prop, 3);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(prop, "Specular Color", "Specular color of the material");
   RNA_def_property_update(prop, 0, "rna_Material_draw_update");
 
@@ -370,6 +372,7 @@ static void rna_def_material_display(StructRNA *srna)
   RNA_def_property_float_sdna(prop, NULL, "roughness");
   RNA_def_property_float_default(prop, 0.25f);
   RNA_def_property_range(prop, 0, 1);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(prop, "Roughness", "Roughness of the material");
   RNA_def_property_update(prop, 0, "rna_Material_draw_update");
 
@@ -377,12 +380,14 @@ static void rna_def_material_display(StructRNA *srna)
   RNA_def_property_float_sdna(prop, NULL, "spec");
   RNA_def_property_float_default(prop, 0.5f);
   RNA_def_property_range(prop, 0, 1);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(prop, "Specular", "How intense (bright) the specular reflection is");
   RNA_def_property_update(prop, 0, "rna_Material_draw_update");
 
   prop = RNA_def_property(srna, "metallic", PROP_FLOAT, PROP_FACTOR);
   RNA_def_property_float_sdna(prop, NULL, "metallic");
   RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(prop, "Metallic", "Amount of mirror reflection for raytrace");
   RNA_def_property_update(prop, 0, "rna_Material_update");
 
