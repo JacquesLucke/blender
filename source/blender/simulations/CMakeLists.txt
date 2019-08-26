@@ -39,6 +39,7 @@ set(SRC
   bparticles/step_description.cpp
   bparticles/step_description_interfaces.hpp
   bparticles/step_description_interfaces.cpp
+  bparticles/simulation_state.hpp
   bparticles/world_state.hpp
   bparticles/integrator.hpp
   bparticles/integrator.cpp
