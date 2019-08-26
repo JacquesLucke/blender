@@ -17,18 +17,18 @@
 /** \file
  * \ingroup bli
  *
- * This classes offer a convenient way to work with continuous chunks of memory of a certain type.
+ * These classes offer a convenient way to work with continuous chunks of memory of a certain type.
  * We differentiate ArrayRef and MutableArrayRef. The elements in the former are const while the
  * elements in the other are not.
  *
  * Passing array references as parameters has multiple benefits:
- *   - Less templates are used since the function does not have to work with different
+ *   - Less templates are used because the function does not have to work with different
  *     container types.
  *   - It encourages an Struct-of-Arrays data layout which is often benefitial when
  *     writing high performance code. Also it makes it easier to reuse code.
  *   - Array references offer convenient ways of slicing and other operations.
  *
- * The instrances of ArrayRef and MutableArrayRef are very small and should be passed by value.
+ * The instances of ArrayRef and MutableArrayRef are very small and should be passed by value.
  * Since array references do not own any memory, it is generally not save to store them.
  */
 
@@ -78,7 +78,7 @@ template<typename T> class ArrayRef {
 
   /**
    * Return a continuous part of the array.
-   * This will assert when the slice is out of bounds.
+   * Asserts that the slice stays within the array.
    */
   ArrayRef slice(uint start, uint length) const
   {
@@ -88,6 +88,7 @@ template<typename T> class ArrayRef {
 
   /**
    * Return a new ArrayRef with n elements removed from the beginning.
+   * Asserts that the array contains enough elements.
    */
   ArrayRef drop_front(uint n = 1) const
   {
@@ -97,6 +98,7 @@ template<typename T> class ArrayRef {
 
   /**
    * Return a new ArrayRef with n elements removed from the beginning.
+   * Asserts that the array contains enough elements.
    */
   ArrayRef drop_back(uint n = 1) const
   {
@@ -106,6 +108,7 @@ template<typename T> class ArrayRef {
 
   /**
    * Return a new ArrayRef that only contains the first n elements.
+   * Asserts that the array contains enough elements.
    */
   ArrayRef take_front(uint n) const
   {
@@ -115,6 +118,7 @@ template<typename T> class ArrayRef {
 
   /**
    * Return a new ArrayRef that only contains the last n elements.
+   * Asserts that the array contains enough elements.
    */
   ArrayRef take_back(uint n) const
   {
@@ -140,6 +144,10 @@ template<typename T> class ArrayRef {
     return m_start + m_size;
   }
 
+  /**
+   * Access an element in the array.
+   * Asserts that the index is in the bounds of the array.
+   */
   const T &operator[](uint index) const
   {
     BLI_assert(index < m_size);
@@ -202,7 +210,7 @@ template<typename T> class ArrayRef {
 
   /**
    * Return a reference to the first element in the array.
-   * Asserts when the array is empty.
+   * Asserts that the array is not empty.
    */
   const T &first() const
   {
@@ -212,7 +220,7 @@ template<typename T> class ArrayRef {
 
   /**
    * Return a reference to the last elemeent in the array.
-   * Asserts when the array is empty.
+   * Asserts that the array is not empty.
    */
   const T &last() const
   {
@@ -348,7 +356,7 @@ template<typename T> class MutableArrayRef {
 
   /**
    * Return a continuous part of the array.
-   * This will assert when the slice is out of bounds.
+   * Aserts that the slice stays in the array bounds.
    */
   MutableArrayRef slice(uint start, uint length) const
   {

@@ -318,7 +318,7 @@ Type *VTreeDataGraphBuilder::query_type_property(VirtualNode *vnode, StringRefNu
 Type *VTreeDataGraphBuilder::type_from_rna(PointerRNA &rna, StringRefNull prop_name) const
 {
   char type_name[64];
-  RNA_string_get(&rna, prop_name, type_name);
+  RNA_string_get(&rna, prop_name.data(), type_name);
   return this->type_by_name(type_name);
 }
 

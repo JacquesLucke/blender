@@ -126,11 +126,6 @@ class StringRefNull : public StringRefBase {
   StringRefNull(const std::string &str) : StringRefNull(str.data())
   {
   }
-
-  operator const char *() const
-  {
-    return m_data;
-  }
 };
 
 class StringRef : public StringRefBase {
@@ -166,7 +161,7 @@ class StringRef : public StringRefBase {
 
   /**
    * Return a new StringRef that with the given prefix being skipped.
-   * Asserts when the string does not begin with the prefix.
+   * Asserts that the string begins with the given prefix.
    */
   StringRef drop_prefix(StringRef prefix) const
   {
