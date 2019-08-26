@@ -463,7 +463,7 @@ std::unique_ptr<StepDescription> step_description_from_node_tree(VirtualNodeTree
   Vector<std::string> type_names;
   for (VirtualNode *vnode : vtree.nodes_with_idname("bp_ParticleTypeNode")) {
     StringRef name = vnode->name();
-    type_names.append(name.to_std_string());
+    type_names.append(name);
   }
 
   for (std::string &type_name : type_names) {

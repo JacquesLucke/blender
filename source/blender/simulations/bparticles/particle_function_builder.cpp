@@ -59,7 +59,7 @@ class AttributeInputProvider : public ParticleFunctionInputProvider {
   std::string m_name;
 
  public:
-  AttributeInputProvider(StringRef name) : m_name(name.to_std_string())
+  AttributeInputProvider(StringRef name) : m_name(name)
   {
   }
 

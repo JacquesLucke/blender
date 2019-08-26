@@ -73,7 +73,7 @@ TEST(string_ref, SubscriptOperator)
 TEST(string_ref, ToStdString)
 {
   StringRef ref("test");
-  std::string str = ref.to_std_string();
+  std::string str = ref;
   EXPECT_EQ(str.size(), 4);
   EXPECT_EQ(str, "test");
 }

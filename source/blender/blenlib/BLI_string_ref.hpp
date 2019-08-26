@@ -79,6 +79,11 @@ class StringRefBase {
     return ArrayRef<char>(m_data, m_size);
   }
 
+  operator std::string() const
+  {
+    return std::string(m_data, m_size);
+  }
+
   const char *begin() const
   {
     return m_data;
@@ -98,14 +103,6 @@ class StringRefBase {
    * Returns true when the string ends with the given suffix. Otherwise false.
    */
   bool endswith(StringRef suffix) const;
-
-  /**
-   * Convert the referenced string into a std::string object.
-   */
-  std::string to_std_string() const
-  {
-    return std::string(m_data, m_size);
-  }
 };
 
 class StringRefNull : public StringRefBase {
@@ -183,19 +180,19 @@ class StringRef : public StringRefBase {
 
 inline std::ostream &operator<<(std::ostream &stream, StringRef ref)
 {
-  stream << ref.to_std_string();
+  stream << std::string(ref);
   return stream;
 }
 
 inline std::ostream &operator<<(std::ostream &stream, StringRefNull ref)
 {
-  stream << ref.to_std_string();
+  stream << std::string(ref.data(), ref.size());
   return stream;
 }
 
 inline std::string operator+(StringRef a, StringRef b)
 {
-  return a.to_std_string() + b.to_std_string();
+  return std::string(a) + std::string(b);
 }
 
 inline bool operator==(StringRef a, StringRef b)

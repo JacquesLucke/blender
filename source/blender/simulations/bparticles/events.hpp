@@ -26,7 +26,7 @@ class AgeReachedEvent : public Event {
   AgeReachedEvent(StringRef identifier,
                   std::unique_ptr<ParticleFunction> compute_inputs,
                   std::unique_ptr<Action> action)
-      : m_identifier(identifier.to_std_string()),
+      : m_identifier(identifier),
         m_compute_inputs(std::move(compute_inputs)),
         m_action(std::move(action))
   {
@@ -88,7 +88,7 @@ class MeshCollisionEvent : public Event {
 
  public:
   MeshCollisionEvent(StringRef identifier, Object *object, std::unique_ptr<Action> action)
-      : m_identifier(identifier.to_std_string()), m_object(object), m_action(std::move(action))
+      : m_identifier(identifier), m_object(object), m_action(std::move(action))
   {
     BLI_assert(object->type == OB_MESH);
     m_local_to_world = m_object->obmat;

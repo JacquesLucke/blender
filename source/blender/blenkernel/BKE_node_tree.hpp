@@ -68,7 +68,7 @@ class VirtualNodeTree {
   ArrayRef<VirtualNode *> nodes_with_idname(StringRef idname)
   {
     BLI_assert(m_frozen);
-    return m_nodes_by_idname.lookup_default(idname.to_std_string());
+    return m_nodes_by_idname.lookup_default(idname);
   }
 
   bool is_frozen()

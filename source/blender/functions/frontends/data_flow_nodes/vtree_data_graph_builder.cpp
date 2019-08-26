@@ -98,7 +98,7 @@ class NodeSource : public SourceInfo {
     PyObject *function = PyDict_GetItemString(globals, "report_warning");
 
     PyObject *py_bnode = get_py_bnode(m_btree, m_bnode);
-    PyObject *ret = PyObject_CallFunction(function, "Os", py_bnode, msg.to_std_string().c_str());
+    PyObject *ret = PyObject_CallFunction(function, "Os", py_bnode, std::string(msg).c_str());
     Py_DECREF(ret);
 
     PyGILState_Release(gilstate);

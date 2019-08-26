@@ -162,7 +162,7 @@ TEST(string_map, ForeachKey)
   map.add_new("C", 1);
 
   Vector<std::string> keys;
-  map.foreach_key([&keys](StringRefNull key) { keys.append(key.to_std_string()); });
+  map.foreach_key([&keys](StringRefNull key) { keys.append(key); });
   EXPECT_EQ(keys.size(), 3);
   EXPECT_TRUE(keys.contains("A"));
   EXPECT_TRUE(keys.contains("B"));
@@ -180,7 +180,7 @@ TEST(string_map, ForeachKeyValuePair)
   Vector<int> values;
 
   map.foreach_key_value_pair([&keys, &values](StringRefNull key, int value) {
-    keys.append(key.to_std_string());
+    keys.append(key);
     values.append(value);
   });
 

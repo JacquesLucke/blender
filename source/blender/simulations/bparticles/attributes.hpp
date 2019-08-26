@@ -115,7 +115,7 @@ class AttributesDeclaration {
 
   template<typename T> void add(StringRef name, T default_value)
   {
-    if (m_names.add(name.to_std_string())) {
+    if (m_names.add(name)) {
       AttributeType type = attribute_type_by_type<T>::value;
       m_types.append(type);
       m_defaults.append(AnyAttributeValue::FromValue(default_value));
@@ -199,7 +199,7 @@ class AttributesInfo {
    */
   int attribute_index_try(StringRef name) const
   {
-    return m_names.index_try(name.to_std_string());
+    return m_names.index_try(name);
   }
 
   /**

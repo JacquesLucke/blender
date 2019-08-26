@@ -67,7 +67,7 @@ inline StringMap<ParticlesContainer *> &ParticlesState::particle_containers()
 
 inline ParticlesContainer &ParticlesState::particle_container(StringRef name)
 {
-  return *m_container_by_id.lookup(name.to_std_string());
+  return *m_container_by_id.lookup(name);
 }
 
 inline StringRefNull ParticlesState::particle_container_name(ParticlesContainer &container)

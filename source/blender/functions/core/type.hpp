@@ -92,7 +92,7 @@ class Type final {
 /* Type inline functions
  ****************************************/
 
-inline Type::Type(StringRef name) : m_name(name.to_std_string())
+inline Type::Type(StringRef name) : m_name(name)
 {
 }
 

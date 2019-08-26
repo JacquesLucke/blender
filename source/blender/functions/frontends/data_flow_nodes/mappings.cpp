@@ -38,8 +38,8 @@ void TypeMappings::register_type(StringRef idname, StringRef name, Type *type)
 {
   m_type_by_idname.add_new(idname, type);
   m_type_by_name.add_new(name, type);
-  m_name_by_idname.add_new(idname, name.to_std_string());
-  m_idname_by_name.add_new(name, idname.to_std_string());
+  m_name_by_idname.add_new(idname, name);
+  m_idname_by_name.add_new(name, idname);
 }
 
 void NodeInserters::register_inserter(StringRef idname, NodeInserter inserter)
@@ -94,8 +94,7 @@ void LinkInserters::register_conversion_inserter(StringRef from_type,
 {
   StringRef from_idname = m_type_mappings->idname_by_name(from_type);
   StringRef to_idname = m_type_mappings->idname_by_name(to_type);
-  m_conversion_inserters.add_new(
-      StringPair(from_idname.to_std_string(), to_idname.to_std_string()), inserter);
+  m_conversion_inserters.add_new(StringPair(from_idname, to_idname), inserter);
 }
 
 void LinkInserters::register_conversion_function(StringRef from_type,

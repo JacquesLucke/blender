@@ -300,7 +300,7 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
 
   state.particle_containers().foreach_key_value_pair(
       [&container_names, &containers](StringRefNull name, ParticlesContainer *container) {
-        container_names.append(name.to_std_string());
+        container_names.append(name);
         containers.append(container);
       });
 
