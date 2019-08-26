@@ -507,8 +507,10 @@ class NodeTreeStepSimulator : public StepSimulator {
     auto step_description = step_description_from_node_tree(
         vtree, simulation_state.world(), time_step);
 
-    ParticlesState &particles_state = simulation_state.particles();
-    simulate_step(particles_state, *step_description);
+    simulate_particles(simulation_state.particles(),
+                       time_step,
+                       step_description->emitters(),
+                       step_description->particle_types());
     simulation_state.world().current_step_is_over();
   }
 };
