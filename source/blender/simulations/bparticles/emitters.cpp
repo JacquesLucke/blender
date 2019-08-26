@@ -24,14 +24,15 @@ static float random_float()
 
 void PointEmitter::emit(EmitterInterface &interface)
 {
-  Vector<float3> new_positions(m_amount);
-  Vector<float3> new_velocities(m_amount);
-  Vector<float> new_sizes(m_amount);
-  Vector<float> birth_times(m_amount);
+  uint amount = 10;
+  Vector<float3> new_positions(amount);
+  Vector<float3> new_velocities(amount);
+  Vector<float> new_sizes(amount);
+  Vector<float> birth_times(amount);
 
-  for (uint i = 0; i < m_amount; i++) {
-    float t = i / (float)m_amount;
-    new_positions[i] = m_point.interpolate(t);
+  for (uint i = 0; i < amount; i++) {
+    float t = i / (float)amount;
+    new_positions[i] = m_position.interpolate(t);
     new_velocities[i] = m_velocity.interpolate(t);
     new_sizes[i] = m_size.interpolate(t);
     birth_times[i] = interface.time_span().interpolate(t);

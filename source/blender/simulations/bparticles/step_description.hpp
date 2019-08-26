@@ -1,6 +1,7 @@
 #pragma once
 
 #include "step_description_interfaces.hpp"
+#include "world_state.hpp"
 
 namespace BParticles {
 

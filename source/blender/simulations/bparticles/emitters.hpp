@@ -17,7 +17,7 @@ class SurfaceEmitter : public Emitter {
   std::unique_ptr<Action> m_on_birth_action;
 
   Object *m_object;
-  InterpolatedFloat4x4 m_transform;
+  VaryingFloat4x4 m_transform;
   float m_rate;
   float m_normal_velocity;
   float m_emitter_velocity;
@@ -27,7 +27,7 @@ class SurfaceEmitter : public Emitter {
   SurfaceEmitter(Vector<std::string> types_to_emit,
                  std::unique_ptr<Action> on_birth_action,
                  Object *object,
-                 InterpolatedFloat4x4 transform,
+                 VaryingFloat4x4 transform,
                  float rate,
                  float normal_velocity,
                  float emitter_velocity,
@@ -49,20 +49,17 @@ class SurfaceEmitter : public Emitter {
 class PointEmitter : public Emitter {
  private:
   Vector<std::string> m_types_to_emit;
-  uint m_amount;
-  InterpolatedFloat3 m_point;
-  InterpolatedFloat3 m_velocity;
-  InterpolatedFloat m_size;
+  VaryingFloat3 m_position;
+  VaryingFloat3 m_velocity;
+  VaryingFloat m_size;
 
  public:
   PointEmitter(Vector<std::string> types_to_emit,
-               uint amount,
-               InterpolatedFloat3 point,
-               InterpolatedFloat3 velocity,
-               InterpolatedFloat size)
+               VaryingFloat3 position,
+               VaryingFloat3 velocity,
+               VaryingFloat size)
       : m_types_to_emit(std::move(types_to_emit)),
-        m_amount(amount),
-        m_point(point),
+        m_position(position),
         m_velocity(velocity),
         m_size(size)
   {

@@ -13,7 +13,7 @@ using BLI::Map;
 using BLI::StringMap;
 using BLI::StringRef;
 
-struct InterpolatedFloat {
+struct VaryingFloat {
   float start, end;
 
   float interpolate(float t)
@@ -22,7 +22,7 @@ struct InterpolatedFloat {
   }
 };
 
-struct InterpolatedFloat3 {
+struct VaryingFloat3 {
   float3 start, end;
 
   float3 interpolate(float t)
@@ -31,7 +31,7 @@ struct InterpolatedFloat3 {
   }
 };
 
-struct InterpolatedFloat4x4 {
+struct VaryingFloat4x4 {
   /* TODO: store decomposed matrices */
   float4x4 start, end;
 
@@ -41,79 +41,52 @@ struct InterpolatedFloat4x4 {
   }
 };
 
+class WorldTransition;
+
 class WorldState {
  private:
-  template<typename T> struct OldAndNew {
-    T old_value, new_value;
-  };
+  StringMap<float> m_states_float;
+  StringMap<float3> m_states_float3;
 
-  StringMap<OldAndNew<float>> m_float;
-  StringMap<OldAndNew<float3>> m_float3;
-  StringMap<OldAndNew<float4x4>> m_float4x4;
+  friend WorldTransition;
 
  public:
-  float get_last_and_store_current(StringRef id, float current)
+  void store_state(StringRef main_id, StringRef sub_id, float value)
   {
-    auto *item = m_float.lookup_ptr(id);
-    if (item != nullptr) {
-      item->new_value = current;
-      return item->old_value;
-    }
-    else {
-      m_float.add_new(id, {current, current});
-      return current;
-    }
+    m_states_float.add_new(main_id + sub_id, value);
   }
 
-  float3 get_last_and_store_current(StringRef id, float3 current)
+  void store_state(StringRef main_id, StringRef sub_id, float3 value)
   {
-    auto *item = m_float3.lookup_ptr(id);
-    if (item != nullptr) {
-      item->new_value = current;
-      return item->old_value;
-    }
-    else {
-      m_float3.add_new(id, {current, current});
-      return current;
-    }
+    m_states_float3.add_new(main_id + sub_id, value);
+  }
+};
+
+class WorldTransition {
+ private:
+  WorldState &m_old_state;
+  WorldState &m_new_state;
+
+ public:
+  WorldTransition(WorldState &old_state, WorldState &new_state)
+      : m_old_state(old_state), m_new_state(new_state)
+  {
   }
 
-  float4x4 get_last_and_store_current(StringRef id, float4x4 current)
+  VaryingFloat update_float(StringRef main_id, StringRef sub_id, float current)
   {
-    auto *item = m_float4x4.lookup_ptr(id);
-    if (item != nullptr) {
-      item->new_value = current;
-      return item->old_value;
-    }
-    else {
-      m_float4x4.add_new(id, {current, current});
-      return current;
-    }
+    std::string id = main_id + sub_id;
+    m_new_state.store_state(main_id, sub_id, current);
+    float old_value = m_old_state.m_states_float.lookup_default(id, current);
+    return {old_value, current};
   }
 
-  InterpolatedFloat get_interpolated_value(StringRef id, float current)
+  VaryingFloat3 update_float3(StringRef main_id, StringRef sub_id, float3 current)
   {
-    float last = this->get_last_and_store_current(id, current);
-    return {last, current};
-  }
-
-  InterpolatedFloat3 get_interpolated_value(StringRef id, float3 current)
-  {
-    float3 last = this->get_last_and_store_current(id, current);
-    return {last, current};
-  }
-
-  InterpolatedFloat4x4 get_interpolated_value(StringRef id, float4x4 current)
-  {
-    float4x4 last = this->get_last_and_store_current(id, current);
-    return {last, current};
-  }
-
-  void current_step_is_over()
-  {
-    m_float.foreach_value([](OldAndNew<float> &item) { item.old_value = item.new_value; });
-    m_float3.foreach_value([](OldAndNew<float3> &item) { item.old_value = item.new_value; });
-    m_float4x4.foreach_value([](OldAndNew<float4x4> &item) { item.old_value = item.new_value; });
+    std::string id = main_id + sub_id;
+    m_new_state.store_state(main_id, sub_id, current);
+    float3 old_value = m_old_state.m_states_float3.lookup_default(id, current);
+    return {old_value, current};
   }
 };
 

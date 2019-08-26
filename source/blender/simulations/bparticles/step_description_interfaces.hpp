@@ -2,6 +2,7 @@
 
 #include "particle_allocator.hpp"
 #include "time_span.hpp"
+#include "world_state.hpp"
 
 namespace BParticles {
 
@@ -76,9 +77,12 @@ class EmitterInterface {
  private:
   ParticleAllocator &m_particle_allocator;
   TimeSpan m_time_span;
+  WorldTransition &m_world_transition;
 
  public:
-  EmitterInterface(ParticleAllocator &particle_allocator, TimeSpan time_span);
+  EmitterInterface(ParticleAllocator &particle_allocator,
+                   TimeSpan time_span,
+                   WorldTransition &world_transition);
   ~EmitterInterface() = default;
 
   ParticleAllocator &particle_allocator();
@@ -92,6 +96,8 @@ class EmitterInterface {
    * True when this is the first time step in a simulation, otherwise false.
    */
   bool is_first_step();
+
+  WorldTransition &world_transition();
 };
 
 /**
@@ -235,6 +241,11 @@ inline TimeSpan EmitterInterface::time_span()
 inline bool EmitterInterface::is_first_step()
 {
   return m_particle_allocator.particles_state().current_step() == 1;
+}
+
+inline WorldTransition &EmitterInterface::world_transition()
+{
+  return m_world_transition;
 }
 
 /* EventStorage inline functions

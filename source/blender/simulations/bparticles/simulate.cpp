@@ -581,11 +581,12 @@ BLI_NOINLINE static void simulate_all_existing_blocks(
 
 BLI_NOINLINE static void create_particles_from_emitters(ParticleAllocators &block_allocators,
                                                         ArrayRef<Emitter *> emitters,
-                                                        TimeSpan time_span)
+                                                        TimeSpan time_span,
+                                                        WorldTransition &world_transition)
 {
   ParticleAllocator &emitter_allocator = block_allocators.new_allocator();
   for (Emitter *emitter : emitters) {
-    EmitterInterface interface(emitter_allocator, time_span);
+    EmitterInterface interface(emitter_allocator, time_span, world_transition);
     emitter->emit(interface);
   }
 }
@@ -594,14 +595,15 @@ BLI_NOINLINE static void emit_and_simulate_particles(
     ParticlesState &state,
     TimeSpan time_span,
     ArrayRef<Emitter *> emitters,
-    StringMap<ParticleTypeInfo> &types_to_simulate)
+    StringMap<ParticleTypeInfo> &types_to_simulate,
+    WorldTransition &world_transition)
 {
 
   Vector<ParticlesBlock *> newly_created_blocks;
   {
     ParticleAllocators block_allocators(state);
     simulate_all_existing_blocks(state, types_to_simulate, block_allocators, time_span);
-    create_particles_from_emitters(block_allocators, emitters, time_span);
+    create_particles_from_emitters(block_allocators, emitters, time_span, world_transition);
     newly_created_blocks = block_allocators.gather_allocated_blocks();
   }
 
@@ -614,6 +616,7 @@ BLI_NOINLINE static void emit_and_simulate_particles(
 }
 
 void simulate_particles(ParticlesState &state,
+                        WorldTransition &world_transition,
                         float time_step,
                         ArrayRef<Emitter *> emitters,
                         StringMap<ParticleTypeInfo> &types_to_simulate)
@@ -627,7 +630,7 @@ void simulate_particles(ParticlesState &state,
   ensure_required_containers_exist(state, types_to_simulate);
   ensure_required_attributes_exist(state, types_to_simulate);
 
-  emit_and_simulate_particles(state, time_span, emitters, types_to_simulate);
+  emit_and_simulate_particles(state, time_span, emitters, types_to_simulate, world_transition);
 
   compress_all_containers(state);
 }

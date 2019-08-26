@@ -14,7 +14,9 @@ struct ParticleTypeInfo {
 };
 
 void simulate_particles(ParticlesState &state,
+                        WorldTransition &world_transition,
                         float time_step,
                         ArrayRef<Emitter *> emitters,
                         StringMap<ParticleTypeInfo> &types_to_simulate);
+
 };  // namespace BParticles
