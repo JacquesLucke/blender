@@ -49,8 +49,7 @@
 #include "BParticles.h"
 
 typedef struct RuntimeData {
-  BParticlesState particles_state;
-  BParticlesWorldState world_state;
+  BParticlesSimulationState simulation_state;
   float last_simulated_frame;
 } RuntimeData;
 
@@ -58,8 +57,7 @@ static RuntimeData *get_runtime_struct(BParticlesModifierData *bpmd)
 {
   if (bpmd->modifier.runtime == NULL) {
     RuntimeData *runtime = MEM_callocN(sizeof(RuntimeData), __func__);
-    runtime->particles_state = NULL;
-    runtime->world_state = NULL;
+    runtime->simulation_state = NULL;
     runtime->last_simulated_frame = 0.0f;
     bpmd->modifier.runtime = runtime;
   }
@@ -69,8 +67,7 @@ static RuntimeData *get_runtime_struct(BParticlesModifierData *bpmd)
 
 static void free_runtime_data(RuntimeData *runtime)
 {
-  BParticles_state_free(runtime->particles_state);
-  BParticles_world_state_free(runtime->world_state);
+  BParticles_simulation_free(runtime->simulation_state);
   MEM_freeN(runtime);
 }
 
@@ -95,37 +92,33 @@ static Mesh *applyModifier(ModifierData *md,
 
   RuntimeData *runtime = get_runtime_struct(bpmd);
 
-  if (runtime->particles_state == NULL) {
-    runtime->particles_state = BParticles_new_empty_state();
-    runtime->world_state = BParticles_new_world_state();
+  if (runtime->simulation_state == NULL) {
+    runtime->simulation_state = BParticles_new_simulation();
   }
 
   if (current_frame == runtime->last_simulated_frame) {
     /* do nothing */
   }
   else if (current_frame == runtime->last_simulated_frame + 1.0f) {
-    BParticles_simulate_modifier(
-        bpmd, ctx->depsgraph, runtime->particles_state, runtime->world_state, 1.0f / FPS);
+    BParticles_simulate_modifier(bpmd, ctx->depsgraph, runtime->simulation_state, 1.0f / FPS);
     runtime->last_simulated_frame = current_frame;
   }
   else {
     free_modifier_runtime_data(bpmd);
     runtime = get_runtime_struct(bpmd);
-    runtime->particles_state = BParticles_new_empty_state();
-    runtime->world_state = BParticles_new_world_state();
+    runtime->simulation_state = BParticles_new_simulation();
     runtime->last_simulated_frame = current_frame;
     BParticles_modifier_free_cache(bpmd_orig);
 
-    BParticles_simulate_modifier(
-        bpmd, ctx->depsgraph, runtime->particles_state, runtime->world_state, 0.0f);
+    BParticles_simulate_modifier(bpmd, ctx->depsgraph, runtime->simulation_state, 0.0f);
     runtime->last_simulated_frame = current_frame;
   }
 
   if (bpmd->output_type == MOD_BPARTICLES_OUTPUT_POINTS) {
-    return BParticles_modifier_point_mesh_from_state(runtime->particles_state);
+    return BParticles_modifier_point_mesh_from_state(runtime->simulation_state);
   }
   else {
-    return BParticles_modifier_mesh_from_state(runtime->particles_state);
+    return BParticles_modifier_mesh_from_state(runtime->simulation_state);
   }
 }
 

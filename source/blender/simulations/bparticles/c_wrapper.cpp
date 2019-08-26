@@ -35,36 +35,29 @@ using BLI::float3;
 using BLI::StringRef;
 using BLI::Vector;
 
-WRAPPERS(ParticlesState *, BParticlesState);
+struct SimulationState {
+  std::unique_ptr<ParticlesState> particles_state;
+  std::unique_ptr<WorldState> world_state;
+};
 
-BParticlesState BParticles_new_empty_state()
+WRAPPERS(SimulationState *, BParticlesSimulationState);
+
+BParticlesSimulationState BParticles_new_simulation()
 {
-  ParticlesState *state = new ParticlesState();
+  SimulationState *state = new SimulationState();
+  state->particles_state = std::unique_ptr<ParticlesState>(new ParticlesState());
+  state->world_state = std::unique_ptr<WorldState>(new WorldState());
   return wrap(state);
 }
 
-void BParticles_state_free(BParticlesState state_c)
+void BParticles_simulation_free(BParticlesSimulationState state_c)
 {
   delete unwrap(state_c);
 }
 
-WRAPPERS(WorldState *, BParticlesWorldState);
-
-BParticlesWorldState BParticles_new_world_state()
-{
-  WorldState *world_state = new WorldState();
-  return wrap(world_state);
-}
-
-void BParticles_world_state_free(BParticlesWorldState world_state_c)
-{
-  delete unwrap(world_state_c);
-}
-
 void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
                                   Depsgraph *UNUSED(depsgraph),
-                                  BParticlesState particles_state_c,
-                                  BParticlesWorldState world_state_c,
+                                  BParticlesSimulationState state_c,
                                   float time_step)
 {
   SCOPED_TIMER(__func__);
@@ -73,7 +66,8 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
     return;
   }
 
-  WorldState &world_state = *unwrap(world_state_c);
+  SimulationState &simulation_state = *unwrap(state_c);
+  WorldState &world_state = *simulation_state.world_state;
 
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)bpmd->bparticles_tree);
 
@@ -83,7 +77,7 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
 
   auto step_description = step_description_from_node_tree(vtree, world_state, time_step);
 
-  ParticlesState &particles_state = *unwrap(particles_state_c);
+  ParticlesState &particles_state = *simulation_state.particles_state;
   simulate_step(particles_state, *step_description);
   world_state.current_step_is_over();
 
@@ -92,28 +86,6 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
     std::cout << "Particle Type: " << type_name << "\n";
     std::cout << "  Particles: " << container->count_active() << "\n";
     std::cout << "  Blocks: " << container->active_blocks().size() << "\n";
-  });
-}
-
-uint BParticles_state_particle_count(BParticlesState state_c)
-{
-  ParticlesState &state = *unwrap(state_c);
-
-  uint count = 0;
-  state.particle_containers().foreach_value(
-      [&count](ParticlesContainer *container) { count += container->count_active(); });
-  return count;
-}
-
-void BParticles_state_get_positions(BParticlesState state_c, float (*dst_c)[3])
-{
-  SCOPED_TIMER(__func__);
-  ParticlesState &state = *unwrap(state_c);
-
-  uint index = 0;
-  state.particle_containers().foreach_value([dst_c, &index](ParticlesContainer *container) {
-    container->flatten_attribute_data("Position", dst_c + index);
-    index += container->count_active();
   });
 }
 
@@ -227,16 +199,17 @@ void BParticles_modifier_free_cache(BParticlesModifierData *bpmd)
   bpmd->num_cached_frames = 0;
 }
 
-Mesh *BParticles_modifier_point_mesh_from_state(BParticlesState state_c)
+Mesh *BParticles_modifier_point_mesh_from_state(BParticlesSimulationState state_c)
 {
   SCOPED_TIMER(__func__);
 
-  ParticlesState &state = *unwrap(state_c);
+  SimulationState &state = *unwrap(state_c);
 
   Vector<float3> positions;
-  state.particle_containers().foreach_value([&positions](ParticlesContainer *container) {
-    positions.extend(container->flatten_attribute<float3>("Position"));
-  });
+  state.particles_state->particle_containers().foreach_value(
+      [&positions](ParticlesContainer *container) {
+        positions.extend(container->flatten_attribute<float3>("Position"));
+      });
 
   Mesh *mesh = BKE_mesh_new_nomain(positions.size(), 0, 0, 0, 0);
 
@@ -247,17 +220,17 @@ Mesh *BParticles_modifier_point_mesh_from_state(BParticlesState state_c)
   return mesh;
 }
 
-Mesh *BParticles_modifier_mesh_from_state(BParticlesState state_c)
+Mesh *BParticles_modifier_mesh_from_state(BParticlesSimulationState state_c)
 {
   SCOPED_TIMER(__func__);
 
-  ParticlesState &state = *unwrap(state_c);
+  SimulationState &state = *unwrap(state_c);
 
   Vector<float3> positions;
   Vector<float> sizes;
   Vector<rgba_f> colors;
 
-  state.particle_containers().foreach_value(
+  state.particles_state->particle_containers().foreach_value(
       [&positions, &colors, &sizes](ParticlesContainer *container) {
         positions.extend(container->flatten_attribute<float3>("Position"));
         colors.extend(container->flatten_attribute<rgba_f>("Color"));
@@ -290,15 +263,15 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
 }
 
 void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
-                                     BParticlesState particles_state_c,
+                                     BParticlesSimulationState state_c,
                                      float frame)
 {
-  ParticlesState &state = *unwrap(particles_state_c);
+  SimulationState &state = *unwrap(state_c);
 
   Vector<std::string> container_names;
   Vector<ParticlesContainer *> containers;
 
-  state.particle_containers().foreach_key_value_pair(
+  state.particles_state->particle_containers().foreach_key_value_pair(
       [&container_names, &containers](StringRefNull name, ParticlesContainer *container) {
         container_names.append(name);
         containers.append(container);
