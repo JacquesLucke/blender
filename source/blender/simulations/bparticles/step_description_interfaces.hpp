@@ -240,7 +240,7 @@ inline TimeSpan EmitterInterface::time_span()
 
 inline bool EmitterInterface::is_first_step()
 {
-  return m_particle_allocator.particles_state().current_step() == 1;
+  return m_time_span.start() == 0.0f;
 }
 
 inline WorldTransition &EmitterInterface::world_transition()

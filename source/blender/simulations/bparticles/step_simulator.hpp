@@ -10,7 +10,7 @@ class StepSimulator {
   {
   }
 
-  virtual void simulate(SimulationState &simulation_state, float time_step) = 0;
+  virtual void simulate(SimulationState &simulation_state) = 0;
 };
 
 }  // namespace BParticles

@@ -13,9 +13,8 @@ struct ParticleTypeInfo {
   ArrayRef<OffsetHandler *> offset_handlers;
 };
 
-void simulate_particles(ParticlesState &state,
+void simulate_particles(SimulationState &state,
                         WorldTransition &world_transition,
-                        float time_step,
                         ArrayRef<Emitter *> emitters,
                         StringMap<ParticleTypeInfo> &types_to_simulate);
 

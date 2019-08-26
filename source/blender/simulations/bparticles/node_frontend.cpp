@@ -495,7 +495,7 @@ class NodeTreeStepSimulator : public StepSimulator {
     m_vtree.freeze_and_index();
   }
 
-  void simulate(SimulationState &simulation_state, float time_step) override
+  void simulate(SimulationState &simulation_state) override
   {
     WorldState &old_world_state = simulation_state.world();
     WorldState new_world_state;
@@ -534,8 +534,7 @@ class NodeTreeStepSimulator : public StepSimulator {
       types_to_simulate.add_new(name, type_info);
     }
 
-    simulate_particles(
-        simulation_state.particles(), world_transition, time_step, emitters, types_to_simulate);
+    simulate_particles(simulation_state, world_transition, emitters, types_to_simulate);
 
     for (Emitter *emitter : emitters) {
       delete emitter;

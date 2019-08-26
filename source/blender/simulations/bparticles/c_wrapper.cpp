@@ -61,11 +61,14 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
   }
 
   SimulationState &simulation_state = *unwrap(state_c);
+  simulation_state.time().start_update(time_step);
 
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)bpmd->bparticles_tree);
   auto simulator = simulator_from_node_tree(btree);
 
-  simulator->simulate(simulation_state, time_step);
+  simulator->simulate(simulation_state);
+
+  simulation_state.time().end_update();
 
   auto &containers = simulation_state.particles().particle_containers();
   containers.foreach_key_value_pair([](StringRefNull type_name, ParticlesContainer *container) {

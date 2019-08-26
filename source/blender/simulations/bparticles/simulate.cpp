@@ -615,24 +615,25 @@ BLI_NOINLINE static void emit_and_simulate_particles(
   }
 }
 
-void simulate_particles(ParticlesState &state,
+void simulate_particles(SimulationState &state,
                         WorldTransition &world_transition,
-                        float time_step,
                         ArrayRef<Emitter *> emitters,
                         StringMap<ParticleTypeInfo> &types_to_simulate)
 {
   SCOPED_TIMER(__func__);
 
-  float start_time = state.current_time();
-  state.increase_time(time_step);
-  TimeSpan time_span(start_time, time_step);
+  ParticlesState &particles_state = state.particles();
 
-  ensure_required_containers_exist(state, types_to_simulate);
-  ensure_required_attributes_exist(state, types_to_simulate);
+  ensure_required_containers_exist(particles_state, types_to_simulate);
+  ensure_required_attributes_exist(particles_state, types_to_simulate);
 
-  emit_and_simulate_particles(state, time_span, emitters, types_to_simulate, world_transition);
+  emit_and_simulate_particles(particles_state,
+                              state.time().current_update_time(),
+                              emitters,
+                              types_to_simulate,
+                              world_transition);
 
-  compress_all_containers(state);
+  compress_all_containers(particles_state);
 }
 
 }  // namespace BParticles
