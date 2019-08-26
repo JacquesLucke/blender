@@ -494,17 +494,17 @@ static void collect_particle_behaviors(
 class NodeTreeStepSimulator : public StepSimulator {
  private:
   bNodeTree *m_btree;
+  VirtualNodeTree m_vtree;
 
  public:
   NodeTreeStepSimulator(bNodeTree *btree) : m_btree(btree)
   {
+    m_vtree.add_all_of_tree(m_btree);
+    m_vtree.freeze_and_index();
   }
 
-  void simulate(SimulationState &simulation_state, float time_step) const override
+  void simulate(SimulationState &simulation_state, float time_step) override
   {
-    VirtualNodeTree vtree;
-    vtree.add_all_of_tree(m_btree);
-    vtree.freeze_and_index();
 
     Vector<std::string> type_names;
     Vector<Emitter *> emitters;
@@ -513,7 +513,7 @@ class NodeTreeStepSimulator : public StepSimulator {
     StringMap<AttributesDeclaration> attributes;
     StringMap<Integrator *> integrators;
 
-    collect_particle_behaviors(vtree,
+    collect_particle_behaviors(m_vtree,
                                simulation_state.world(),
                                type_names,
                                emitters,

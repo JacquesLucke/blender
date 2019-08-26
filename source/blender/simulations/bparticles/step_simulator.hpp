@@ -6,7 +6,11 @@ namespace BParticles {
 
 class StepSimulator {
  public:
-  virtual void simulate(SimulationState &simulation_state, float time_step) const = 0;
+  virtual ~StepSimulator()
+  {
+  }
+
+  virtual void simulate(SimulationState &simulation_state, float time_step) = 0;
 };
 
 }  // namespace BParticles
