@@ -253,7 +253,7 @@ static void PARSE_point_emitter(BehaviorCollector &collector,
 
 static void PARSE_mesh_emitter(BehaviorCollector &collector,
                                VTreeDataGraph &vtree_data_graph,
-                               WorldTransition &UNUSED(world_transition),
+                               WorldTransition &world_transition,
                                VirtualNode *vnode)
 {
   SharedFunction compute_inputs_fn = get_compute_data_inputs_function(vtree_data_graph, vnode);
@@ -270,7 +270,8 @@ static void PARSE_mesh_emitter(BehaviorCollector &collector,
     return;
   }
 
-  VaryingFloat4x4 transform = {object->obmat, object->obmat};
+  VaryingFloat4x4 transform = world_transition.update_float4x4(
+      vnode->name(), "Transform", object->obmat);
   Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Emitter"));
   Emitter *emitter = new SurfaceEmitter(std::move(type_names),
                                         std::move(on_birth_action),

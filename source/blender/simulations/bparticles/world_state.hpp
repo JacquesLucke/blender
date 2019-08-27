@@ -47,6 +47,7 @@ class WorldState {
  private:
   StringMap<float> m_states_float;
   StringMap<float3> m_states_float3;
+  StringMap<float4x4> m_states_float4x4;
 
   friend WorldTransition;
 
@@ -59,6 +60,11 @@ class WorldState {
   void store_state(StringRef main_id, StringRef sub_id, float3 value)
   {
     m_states_float3.add_new(main_id + sub_id, value);
+  }
+
+  void store_state(StringRef main_id, StringRef sub_id, float4x4 value)
+  {
+    m_states_float4x4.add_new(main_id + sub_id, value);
   }
 };
 
@@ -86,6 +92,14 @@ class WorldTransition {
     std::string id = main_id + sub_id;
     m_new_state.store_state(main_id, sub_id, current);
     float3 old_value = m_old_state.m_states_float3.lookup_default(id, current);
+    return {old_value, current};
+  }
+
+  VaryingFloat4x4 update_float4x4(StringRef main_id, StringRef sub_id, float4x4 current)
+  {
+    std::string id = main_id + sub_id;
+    m_new_state.store_state(main_id, sub_id, current);
+    float4x4 old_value = m_old_state.m_states_float4x4.lookup_default(id, current);
     return {old_value, current};
   }
 };
