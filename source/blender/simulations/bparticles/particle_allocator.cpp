@@ -84,7 +84,7 @@ ParticleSets ParticleAllocator::request(StringRef particle_type_name, uint size)
     sets.append(ParticleSet(blocks[i]->attributes(), ranges[i].as_array_ref()));
   }
 
-  return ParticleSets(particle_type_name, attributes_info, sets);
+  return ParticleSets(attributes_info, sets);
 }
 
 }  // namespace BParticles

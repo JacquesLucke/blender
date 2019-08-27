@@ -2,10 +2,8 @@
 
 namespace BParticles {
 
-ParticleSets::ParticleSets(StringRef particle_type_name,
-                           AttributesInfo &attributes_info,
-                           ArrayRef<ParticleSet> sets)
-    : m_particle_type_name(particle_type_name), m_attributes_info(attributes_info), m_sets(sets)
+ParticleSets::ParticleSets(AttributesInfo &attributes_info, ArrayRef<ParticleSet> sets)
+    : m_attributes_info(attributes_info), m_sets(sets)
 {
   m_size = 0;
   for (auto &set : sets) {

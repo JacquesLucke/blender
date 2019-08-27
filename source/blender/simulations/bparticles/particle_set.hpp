@@ -46,15 +46,12 @@ struct ParticleSet {
 
 class ParticleSets {
  private:
-  std::string m_particle_type_name;
   AttributesInfo &m_attributes_info;
   Vector<ParticleSet> m_sets;
   uint m_size;
 
  public:
-  ParticleSets(StringRef particle_type_name,
-               AttributesInfo &attributes_info,
-               ArrayRef<ParticleSet> sets);
+  ParticleSets(AttributesInfo &attributes_info, ArrayRef<ParticleSet> sets);
 
   ArrayRef<ParticleSet> sets();
 
@@ -95,8 +92,6 @@ class ParticleSets {
     uint index = m_attributes_info.attribute_index(name);
     this->fill<T>(index, value);
   }
-
-  StringRefNull particle_type_name();
 
   AttributesInfo &attributes_info();
 
@@ -160,11 +155,6 @@ inline Range<uint> ParticleSet::trivial_pindices()
 inline ArrayRef<ParticleSet> ParticleSets::sets()
 {
   return m_sets;
-}
-
-inline StringRefNull ParticleSets::particle_type_name()
-{
-  return m_particle_type_name;
 }
 
 inline AttributesInfo &ParticleSets::attributes_info()
