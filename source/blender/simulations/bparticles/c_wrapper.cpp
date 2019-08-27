@@ -116,8 +116,10 @@ static void distribute_tetrahedons_range(Mesh *mesh,
     }
 
     rgba_f color_f = colors[instance];
-    MLoopCol color_b = {
-        (uchar)(color_f.r * 255.0f), (uchar)(color_f.g * 255.0f), (uchar)(color_f.b * 255.0f)};
+    MLoopCol color_b = {(uchar)(color_f.r * 255.0f),
+                        (uchar)(color_f.g * 255.0f),
+                        (uchar)(color_f.b * 255.0f),
+                        255};
     for (uint i = 0; i < ARRAY_SIZE(tetrahedon_loop_vertices); i++) {
       mesh->mloop[loop_offset + i].v = vertex_offset + tetrahedon_loop_vertices[i];
       mesh->mloop[loop_offset + i].e = edge_offset + tetrahedon_loop_edges[i];
@@ -266,7 +268,8 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
         containers.append(container);
       });
 
-  BParticlesFrameCache cached_frame = {0};
+  BParticlesFrameCache cached_frame;
+  memset(&cached_frame, 0, sizeof(BParticlesFrameCache));
   cached_frame.frame = frame;
   cached_frame.num_particle_types = containers.size();
   cached_frame.particle_types = (BParticlesTypeCache *)MEM_calloc_arrayN(

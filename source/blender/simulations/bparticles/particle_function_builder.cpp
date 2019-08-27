@@ -115,12 +115,13 @@ class AgeInputProvider : public ParticleFunctionInputProvider {
 class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
  private:
   Image *m_image;
-  ImageUser m_image_user = {0};
+  ImageUser m_image_user;
   ImBuf *m_ibuf;
 
  public:
   SurfaceImageInputProvider(Image *image) : m_image(image)
   {
+    memset(&m_image_user, 0, sizeof(ImageUser));
     m_image_user.ok = true;
     m_ibuf = BKE_image_acquire_ibuf(image, &m_image_user, NULL);
     BLI_assert(m_ibuf);

@@ -53,7 +53,7 @@ TEST(vector, IntrusiveListBaseConstructor)
   TestListValue *value2 = new TestListValue{0, 0, 5};
   TestListValue *value3 = new TestListValue{0, 0, 6};
 
-  ListBase list = {0};
+  ListBase list = {NULL, NULL};
   BLI_addtail(&list, value1);
   BLI_addtail(&list, value2);
   BLI_addtail(&list, value3);

@@ -90,7 +90,7 @@ static void parallel_array_elements(ArrayRef<T> array,
     return;
   }
 
-  TaskParallelSettings settings = {0};
+  TaskParallelSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
   settings.scheduling_mode = TASK_SCHEDULING_STATIC;
   settings.min_iter_per_thread = 1;
@@ -141,7 +141,7 @@ static void parallel_range(Range<uint> total_range,
     return;
   }
 
-  TaskParallelSettings settings = {0};
+  TaskParallelSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
 
   struct ParallelData {
