@@ -94,6 +94,12 @@ class StringRefBase {
     return m_data + m_size;
   }
 
+  void copy_to__with_null(char *dst) const
+  {
+    memcpy(dst, m_data, m_size);
+    dst[m_size] = '\0';
+  }
+
   /**
    * Returns true when the string begins with the given prefix. Otherwise false.
    */

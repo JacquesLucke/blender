@@ -134,6 +134,26 @@ class ColorSocket(bpy.types.NodeSocket, DataSocket):
     def restore_state(self, state):
         self.value = state
 
+class TextSocket(bpy.types.NodeSocket, DataSocket):
+    bl_idname = "fn_TextSocket"
+    bl_label = "Text Socket"
+    data_type = "Text"
+    color = (0.8, 0.8, 0.8, 1)
+
+    value: StringProperty(
+        name="Value",
+        default="",
+    )
+
+    def draw_property(self, layout, node, text):
+        layout.prop(self, "value", text=text)
+
+    def get_state(self):
+        return self.value
+
+    def restore_state(self, state):
+        self.value = state
+
 def create_simple_data_socket(idname, data_type, color):
     return type(idname, (bpy.types.NodeSocket, DataSocket),
         {
@@ -155,6 +175,8 @@ ObjectListSocket = create_simple_data_socket(
     "fn_ObjectListSocket", "Object List", (0, 0, 0, 0.5))
 ColorListSocket = create_simple_data_socket(
     "fn_ColorListSocket", "Color List", (0.8, 0.8, 0.2, 0.5))
+TextListSocket = create_simple_data_socket(
+    "fn_TextListSocket", "Text List", (0.8, 0.8, 0.8, 0.5))
 
 class ExecuteSocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "bp_ExecuteSocket"

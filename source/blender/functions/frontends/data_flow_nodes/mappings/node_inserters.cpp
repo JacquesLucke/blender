@@ -397,6 +397,7 @@ void REGISTER_node_inserters(std::unique_ptr<NodeInserters> &inserters)
   REGISTER_FUNCTION("fn_ObjectMeshNode", object_mesh_vertices);
   REGISTER_FUNCTION("fn_RandomNumberNode", random_number);
   REGISTER_FUNCTION("fn_VectorDistanceNode", vector_distance);
+  REGISTER_FUNCTION("fn_TextLengthNode", string_length);
 
   REGISTER_INSERTER("fn_CallNode", INSERT_call);
   REGISTER_INSERTER("fn_ClampNode", INSERT_clamp);

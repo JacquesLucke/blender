@@ -50,6 +50,15 @@ static void LOAD_color(PointerRNA *rna, Tuple &tuple, uint index)
   tuple.set<rgba_f>(index, color);
 }
 
+static void LOAD_text(PointerRNA *rna, Tuple &tuple, uint index)
+{
+  int length = RNA_string_length(rna, "value");
+  char *stack_str = (char *)alloca(length + 1);
+  RNA_string_get(rna, "value", stack_str);
+  MyString str(stack_str);
+  tuple.move_in(index, str);
+}
+
 static SocketLoader GET_empty_list_loader(Type *type)
 {
   return [type](PointerRNA *UNUSED(rna), Tuple &tuple, uint index) {
@@ -70,6 +79,8 @@ void REGISTER_socket_loaders(std::unique_ptr<SocketLoaders> &loaders)
   loaders->register_loader("Integer", LOAD_integer);
   loaders->register_loader("Object List", GET_empty_list_loader(TYPE_object));
   loaders->register_loader("Object", LOAD_object);
+  loaders->register_loader("Text List", GET_empty_list_loader(TYPE_string));
+  loaders->register_loader("Text", LOAD_text);
   loaders->register_loader("Vector List", GET_empty_list_loader(TYPE_float3));
   loaders->register_loader("Vector", LOAD_vector);
 }

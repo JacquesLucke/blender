@@ -110,6 +110,8 @@ set(SRC
   types/boolean.cpp
   types/external.hpp
   types/external.cpp
+  types/string_type.hpp
+  types/string_type.cpp
   types/types-c.h
   types/types-c.cpp
   types/tuple_access-c.h
@@ -127,6 +129,8 @@ set(SRC
   functions/lists.cpp
   functions/simple_conversions.hpp
   functions/simple_conversions.cpp
+  functions/string.hpp
+  functions/string.cpp
   functions/switch.hpp
   functions/switch.cpp
   functions/auto_vectorization.hpp

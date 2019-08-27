@@ -21,6 +21,8 @@ void REGISTER_type_mappings(std::unique_ptr<TypeMappings> &type_mappings)
   ADD_TYPE("fn_IntegerSocket", "Integer", int32);
   ADD_TYPE("fn_ObjectListSocket", "Object List", object_list);
   ADD_TYPE("fn_ObjectSocket", "Object", object);
+  ADD_TYPE("fn_TextListSocket", "Text List", string_list);
+  ADD_TYPE("fn_TextSocket", "Text", string);
   ADD_TYPE("fn_VectorListSocket", "Vector List", float3_list);
   ADD_TYPE("fn_VectorSocket", "Vector", float3);
 

@@ -10,6 +10,7 @@ void initialize_types(void)
   INIT_bool(types_to_free);
   INIT_external(types_to_free);
   INIT_numeric(types_to_free);
+  INIT_string(types_to_free);
 }
 
 void uninitialize_types(void)
