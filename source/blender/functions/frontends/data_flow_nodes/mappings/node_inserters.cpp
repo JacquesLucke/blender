@@ -118,7 +118,7 @@ static SharedFunction &get_float_math_function(int operation)
       return Functions::GET_FN_snap_floats();
     default:
       BLI_assert(false);
-      return *(SharedFunction *)nullptr;
+      return Functions::GET_FN_none();
   }
 }
 
@@ -163,7 +163,7 @@ static SharedFunction &get_vector_math_function(int operation)
       return Functions::GET_FN_reflect_vectors();
     default:
       BLI_assert(false);
-      return *(SharedFunction *)nullptr;
+      return Functions::GET_FN_none();
   }
 }
 
@@ -336,7 +336,7 @@ static SharedFunction &get_compare_function(int operation)
       return Functions::GET_FN_less_than_float();
     default:
       BLI_assert(false);
-      return *(SharedFunction *)nullptr;
+      return Functions::GET_FN_none();
   }
 }
 
@@ -362,7 +362,7 @@ static SharedFunction &get_boolean_function(int operation)
       return Functions::GET_FN_not();
     default:
       BLI_assert(false);
-      return *(SharedFunction *)nullptr;
+      return Functions::GET_FN_none();
   }
 }
 

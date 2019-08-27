@@ -199,5 +199,12 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_output_magenta)
   return get_output_rgba_f_function(rgba_f(1, 0, 1, 1));
 }
 
+BLI_LAZY_INIT(SharedFunction, GET_FN_none)
+{
+  FunctionBuilder builder;
+  auto fn = builder.build("None");
+  return fn;
+}
+
 }  // namespace Functions
 }  // namespace FN

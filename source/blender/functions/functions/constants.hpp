@@ -19,5 +19,7 @@ SharedFunction &GET_FN_output_float3_1();
 
 SharedFunction &GET_FN_output_magenta();
 
+SharedFunction &GET_FN_none();
+
 }  // namespace Functions
 }  // namespace FN
