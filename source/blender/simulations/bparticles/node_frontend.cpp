@@ -24,12 +24,9 @@ using FN::FunctionGraph;
 using FN::SharedDataGraph;
 using FN::DataFlowNodes::VTreeDataGraph;
 
-using EmitterBuilder = std::function<Emitter *(WorldTransition &world_transition)>;
-
 class BehaviorCollector {
  public:
   Vector<Emitter *> &m_emitters;
-  Vector<EmitterBuilder> &m_emitter_builders;
   MultiMap<std::string, Force *> &m_forces;
   MultiMap<std::string, Event *> &m_events;
   MultiMap<std::string, OffsetHandler *> &m_offset_handlers;
@@ -205,8 +202,10 @@ static std::unique_ptr<Action> build_action_list(VTreeDataGraph &vtree_data_grap
   return std::unique_ptr<Action>(sequence);
 }
 
-using ParseNodeCallback = std::function<void(
-    BehaviorCollector &collector, VTreeDataGraph &vtree_data_graph, VirtualNode *vnode)>;
+using ParseNodeCallback = std::function<void(BehaviorCollector &collector,
+                                             VTreeDataGraph &vtree_data_graph,
+                                             WorldTransition &world_transition,
+                                             VirtualNode *vnode)>;
 
 static SharedFunction get_compute_data_inputs_function(VTreeDataGraph &vtree_data_graph,
                                                        VirtualNode *vnode)
@@ -230,31 +229,31 @@ static SharedFunction get_compute_data_inputs_function(VTreeDataGraph &vtree_dat
 
 static void PARSE_point_emitter(BehaviorCollector &collector,
                                 VTreeDataGraph &vtree_data_graph,
+                                WorldTransition &world_transition,
                                 VirtualNode *vnode)
 {
   SharedFunction inputs_fn = get_compute_data_inputs_function(vtree_data_graph, vnode);
   Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Emitter"));
   std::string name = vnode->name();
 
-  collector.m_emitter_builders.append(
-      [inputs_fn, type_names, name](WorldTransition &world_transition) {
-        TupleCallBody &body = inputs_fn->body<TupleCallBody>();
-        FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-        body.call__setup_execution_context(fn_in, fn_out);
+  TupleCallBody &body = inputs_fn->body<TupleCallBody>();
+  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+  body.call__setup_execution_context(fn_in, fn_out);
 
-        VaryingFloat3 position = world_transition.update_float3(
-            name, "Position", body.get_output<float3>(fn_out, 0, "Position"));
-        VaryingFloat3 velocity = world_transition.update_float3(
-            name, "Velocity", body.get_output<float3>(fn_out, 1, "Velocity"));
-        VaryingFloat size = world_transition.update_float(
-            name, "Size", body.get_output<float>(fn_out, 2, "Size"));
+  VaryingFloat3 position = world_transition.update_float3(
+      name, "Position", body.get_output<float3>(fn_out, 0, "Position"));
+  VaryingFloat3 velocity = world_transition.update_float3(
+      name, "Velocity", body.get_output<float3>(fn_out, 1, "Velocity"));
+  VaryingFloat size = world_transition.update_float(
+      name, "Size", body.get_output<float>(fn_out, 2, "Size"));
 
-        return new PointEmitter(std::move(type_names), position, velocity, size);
-      });
+  Emitter *emitter = new PointEmitter(std::move(type_names), position, velocity, size);
+  collector.m_emitters.append(emitter);
 }
 
 static void PARSE_mesh_emitter(BehaviorCollector &collector,
                                VTreeDataGraph &vtree_data_graph,
+                               WorldTransition &UNUSED(world_transition),
                                VirtualNode *vnode)
 {
   SharedFunction compute_inputs_fn = get_compute_data_inputs_function(vtree_data_graph, vnode);
@@ -286,6 +285,7 @@ static void PARSE_mesh_emitter(BehaviorCollector &collector,
 
 static void PARSE_gravity_force(BehaviorCollector &collector,
                                 VTreeDataGraph &vtree_data_graph,
+                                WorldTransition &UNUSED(world_transition),
                                 VirtualNode *vnode)
 {
   Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Force"));
@@ -303,6 +303,7 @@ static void PARSE_gravity_force(BehaviorCollector &collector,
 
 static void PARSE_age_reached_event(BehaviorCollector &collector,
                                     VTreeDataGraph &vtree_data_graph,
+                                    WorldTransition &UNUSED(world_transition),
                                     VirtualNode *vnode)
 {
   Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Event"));
@@ -322,6 +323,7 @@ static void PARSE_age_reached_event(BehaviorCollector &collector,
 
 static void PARSE_trails(BehaviorCollector &collector,
                          VTreeDataGraph &vtree_data_graph,
+                         WorldTransition &UNUSED(world_transition),
                          VirtualNode *vnode)
 {
   Vector<std::string> main_type_names = find_connected_particle_type_names(
@@ -345,6 +347,7 @@ static void PARSE_trails(BehaviorCollector &collector,
 
 static void PARSE_initial_grid_emitter(BehaviorCollector &collector,
                                        VTreeDataGraph &vtree_data_graph,
+                                       WorldTransition &UNUSED(world_transition),
                                        VirtualNode *vnode)
 {
   SharedFunction compute_inputs_fn = get_compute_data_inputs_function(vtree_data_graph, vnode);
@@ -365,6 +368,7 @@ static void PARSE_initial_grid_emitter(BehaviorCollector &collector,
 
 static void PARSE_turbulence_force(BehaviorCollector &collector,
                                    VTreeDataGraph &vtree_data_graph,
+                                   WorldTransition &UNUSED(world_transition),
                                    VirtualNode *vnode)
 {
   Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Force"));
@@ -382,6 +386,7 @@ static void PARSE_turbulence_force(BehaviorCollector &collector,
 
 static void PARSE_mesh_collision(BehaviorCollector &collector,
                                  VTreeDataGraph &vtree_data_graph,
+                                 WorldTransition &UNUSED(world_transition),
                                  VirtualNode *vnode)
 {
   Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Event"));
@@ -428,9 +433,9 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
 
 static void collect_particle_behaviors(
     VirtualNodeTree &vtree,
+    WorldTransition &world_transition,
     Vector<std::string> &r_type_names,
     Vector<Emitter *> &r_emitters,
-    Vector<EmitterBuilder> &r_emitter_builders,
     MultiMap<std::string, Event *> &r_events_per_type,
     MultiMap<std::string, OffsetHandler *> &r_offset_handler_per_type,
     StringMap<AttributesDeclaration> &r_attributes_per_type,
@@ -449,7 +454,6 @@ static void collect_particle_behaviors(
   MultiMap<std::string, Force *> forces;
   BehaviorCollector collector = {
       r_emitters,
-      r_emitter_builders,
       forces,
       r_events_per_type,
       r_offset_handler_per_type,
@@ -459,7 +463,7 @@ static void collect_particle_behaviors(
     StringRef idname = vnode->idname();
     ParseNodeCallback *callback = parsers.lookup_ptr(idname);
     if (callback != nullptr) {
-      (*callback)(collector, vtree_data_graph, vnode);
+      (*callback)(collector, vtree_data_graph, world_transition, vnode);
     }
   }
 
@@ -499,29 +503,23 @@ class NodeTreeStepSimulator : public StepSimulator {
   {
     WorldState &old_world_state = simulation_state.world();
     WorldState new_world_state;
+    WorldTransition world_transition = {old_world_state, new_world_state};
 
     Vector<std::string> type_names;
     Vector<Emitter *> emitters;
-    Vector<EmitterBuilder> emitter_builders;
     MultiMap<std::string, Event *> events;
     MultiMap<std::string, OffsetHandler *> offset_handlers;
     StringMap<AttributesDeclaration> attributes;
     StringMap<Integrator *> integrators;
 
     collect_particle_behaviors(m_vtree,
+                               world_transition,
                                type_names,
                                emitters,
-                               emitter_builders,
                                events,
                                offset_handlers,
                                attributes,
                                integrators);
-
-    WorldTransition world_transition = {old_world_state, new_world_state};
-    for (EmitterBuilder &builder : emitter_builders) {
-      Emitter *emitter = builder(world_transition);
-      emitters.append(emitter);
-    }
 
     StringMap<ParticleTypeInfo> types_to_simulate;
     for (std::string name : type_names) {
