@@ -113,24 +113,14 @@ template<typename T> class Optional {
 
   const T &value() const
   {
-    if (m_set) {
-      return *this->value_ptr();
-    }
-    else {
-      BLI_assert(false);
-      return *(T *)nullptr;
-    }
+    BLI_assert(m_set);
+    return *this->value_ptr();
   }
 
   T &value()
   {
-    if (m_set) {
-      return *this->value_ptr();
-    }
-    else {
-      BLI_assert(false);
-      return *(T *)nullptr;
-    }
+    BLI_assert(m_set);
+    return *this->value_ptr();
   }
 
   void set(const T &value)
