@@ -18,4 +18,4 @@ void simulate_particles(SimulationState &state,
                         ArrayRef<Emitter *> emitters,
                         StringMap<ParticleTypeInfo> &types_to_simulate);
 
-};  // namespace BParticles
+}  // namespace BParticles

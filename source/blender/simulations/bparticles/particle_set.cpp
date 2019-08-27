@@ -78,4 +78,4 @@ void ParticleSets::fill_elements(uint index, void *value)
   }
 }
 
-};  // namespace BParticles
+}  // namespace BParticles

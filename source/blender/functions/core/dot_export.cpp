@@ -112,4 +112,5 @@ void DataGraphBuilder::to_dot__clipboard()
   std::string dot = this->to_dot();
   WM_clipboard_text_set(dot.c_str(), false);
 }
-};  // namespace FN
+
+}  // namespace FN

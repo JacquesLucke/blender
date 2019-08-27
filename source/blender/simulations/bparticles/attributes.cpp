@@ -27,4 +27,4 @@ AttributesInfo::AttributesInfo(AttributesDeclaration &builder)
 {
 }
 
-};  // namespace BParticles
+}  // namespace BParticles

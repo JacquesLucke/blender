@@ -60,4 +60,4 @@ template<typename T, uint N = 4> class MultiVector {
   }
 };
 
-};  // namespace BLI
+}  // namespace BLI

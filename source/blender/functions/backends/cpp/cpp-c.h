@@ -25,8 +25,8 @@ FnList FN_tuple_relocate_out_list(FnTuple tuple, uint index);
 #  include "tuple.hpp"
 #  include "list.hpp"
 
-WRAPPERS(FN::Tuple *, FnTuple);
-WRAPPERS(FN::List *, FnList);
+WRAPPERS(FN::Tuple *, FnTuple)
+WRAPPERS(FN::List *, FnList)
 
 #endif /* __cplusplus */
 

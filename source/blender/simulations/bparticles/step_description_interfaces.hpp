@@ -350,4 +350,4 @@ inline ParticleSet IntegratorInterface::particles()
   return ParticleSet(m_step_data.attributes, m_pindices);
 }
 
-};  // namespace BParticles
+}  // namespace BParticles

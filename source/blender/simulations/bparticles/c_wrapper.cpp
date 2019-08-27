@@ -36,7 +36,7 @@ using BLI::float3;
 using BLI::StringRef;
 using BLI::Vector;
 
-WRAPPERS(SimulationState *, BParticlesSimulationState);
+WRAPPERS(SimulationState *, BParticlesSimulationState)
 
 BParticlesSimulationState BParticles_new_simulation()
 {

@@ -9,4 +9,4 @@ SharedFunction &GET_FN_separate_color();
 SharedFunction &GET_FN_combine_color();
 
 }  // namespace Functions
-};  // namespace FN
+}  // namespace FN

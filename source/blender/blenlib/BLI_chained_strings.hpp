@@ -73,4 +73,4 @@ class ChainedStringsBuilder {
   Vector<char, 64> m_chars;
 };
 
-};  // namespace BLI
+}  // namespace BLI

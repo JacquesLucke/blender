@@ -44,7 +44,7 @@ void fn_tuple_prepare_stack(FnTupleCallBody body, void *buffer, FnTuple *fn_in, 
 
 #  include "tuple_call.hpp"
 
-WRAPPERS(FN::TupleCallBody *, FnTupleCallBody);
+WRAPPERS(FN::TupleCallBody *, FnTupleCallBody)
 
 #endif /* __cplusplus */
 

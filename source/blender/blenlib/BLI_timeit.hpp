@@ -125,8 +125,7 @@ class ScopedTimerPerElement {
 };
 
 }  // namespace Timers
-
-};  // namespace BLI
+}  // namespace BLI
 
 #define SCOPED_TIMER(name) BLI::Timers::ScopedTimer t(name);
 

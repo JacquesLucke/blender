@@ -15,4 +15,4 @@ void release_llvm_context(llvm::LLVMContext *context)
   contexts.release(context);
 }
 
-};  // namespace FN
+}  // namespace FN

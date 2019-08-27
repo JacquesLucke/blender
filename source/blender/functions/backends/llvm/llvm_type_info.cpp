@@ -144,4 +144,4 @@ Vector<llvm::Type *> types_of_type_infos(const Vector<LLVMTypeInfo *> &type_info
   return types;
 }
 
-};  // namespace FN
+}  // namespace FN

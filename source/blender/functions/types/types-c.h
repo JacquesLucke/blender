@@ -9,7 +9,7 @@ extern "C" {
 
 #define TYPE_GETTERS(name) \
   FnType FN_type_get_##name(void); \
-  FnType FN_type_get_##name##_list(void);
+  FnType FN_type_get_##name##_list(void)
 
 TYPE_GETTERS(float);
 TYPE_GETTERS(int32);

@@ -38,8 +38,8 @@ const char *FN_type_name(FnType type);
       return (T2)value; \
     }
 
-WRAPPERS(FN::Function *, FnFunction);
-WRAPPERS(FN::Type *, FnType);
+WRAPPERS(FN::Function *, FnFunction)
+WRAPPERS(FN::Type *, FnType)
 
 #endif /* __cplusplus */
 

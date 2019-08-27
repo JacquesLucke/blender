@@ -90,4 +90,4 @@ class WorldTransition {
   }
 };
 
-};  // namespace BParticles
+}  // namespace BParticles

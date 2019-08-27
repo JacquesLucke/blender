@@ -593,4 +593,4 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
 #undef ITER_SLOTS_BEGIN
 #undef ITER_SLOTS_END
 
-};  // namespace BLI
+}  // namespace BLI
