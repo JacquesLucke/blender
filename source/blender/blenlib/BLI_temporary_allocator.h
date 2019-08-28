@@ -17,19 +17,30 @@
 /** \file
  * \ingroup bli
  *
- * This allocation method should be used when a chunk of memory is only used for a short amount
- * of time. This makes it possible to cache potentially large buffers for reuse, without the fear
- * of running out of memory because too many large buffers are allocated.
+ * This allocation method assumes
+ *   1. The allocations are short-lived.
+ *   2. The total number of allocations is bound by a constant per thread.
+ *
+ * These two assumptions make it possible to cache and reuse relatively large buffers. They allow
+ * to hand out buffers that are much larger than the requested size, without the fear of running
+ * out of memory.
+ *
+ * The assumptions might feel a bit limiting at first, but hold true in many cases. For example,
+ * many algorithms need to store temporary data. With this allocator, the allocation can become
+ * very cheap for common cases.
  *
  * Many cpu-bound algorithms can benefit from being split up into several stages, whereby the
- * output of one stage is written into an array that is read by the next stage. This improves
- * debugability as well as profilability. Often a reason this is not done is that the memory
+ * output of one stage is written into an array that is read by the next stage. This makes them
+ * easier to debug, profile and optimize. Often a reason this is not done is that the memory
  * allocation might be expensive. The goal of this allocator is to make this a non-issue, by
  * reusing the same long buffers over and over again.
  *
- * The number of allocated buffers should stay in O(number of threads * max depth of stack trace).
- * Since these numbers are pretty much constant in Blender, the number of chunks allocated should
- * not increase over time.
+ * All allocated buffers are 64 byte aligned, to make them as reusable as possible.
+ * If the requested size is too large, there is a fallback to normal allocation. The allocation
+ * overhead is probably very small in these cases anyway.
+ *
+ * The best way to use this allocator is to use one of the prepared containers like TemporaryVector
+ * and TemporaryArray.
  */
 
 #ifndef __BLI_TEMPORARY_ALLOCATOR_H__
@@ -40,6 +51,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define BLI_TEMPORARY_BUFFER_ALIGNMENT 64
 
 void *BLI_temporary_allocate(uint size);
 void BLI_temporary_deallocate(void *buffer);

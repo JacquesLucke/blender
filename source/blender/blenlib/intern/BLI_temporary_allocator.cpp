@@ -22,7 +22,9 @@
 
 using namespace BLI;
 
+constexpr uint ALIGNMENT = BLI_TEMPORARY_BUFFER_ALIGNMENT;
 constexpr uint SMALL_BUFFER_SIZE = 64 * 1024;
+constexpr uintptr_t ALIGNMENT_MASK = ~(uintptr_t)(ALIGNMENT - 1);
 
 struct ThreadLocalBuffers {
   Stack<void *, 32, RawAllocator> buffers;
@@ -37,23 +39,71 @@ struct ThreadLocalBuffers {
 
 thread_local ThreadLocalBuffers local_storage;
 
+enum TemporaryBufferType {
+  Small,
+  Large,
+};
+
+struct MemHead {
+  void *raw_ptr;
+  TemporaryBufferType type;
+};
+
+static MemHead &get_memhead(void *aligned_ptr)
+{
+  return *((MemHead *)aligned_ptr - 1);
+}
+
+static void *raw_allocate(uint size)
+{
+  uint total_allocation_size = size + ALIGNMENT + sizeof(MemHead);
+
+  uintptr_t raw_ptr = (uintptr_t)malloc(total_allocation_size);
+  uintptr_t aligned_ptr = (raw_ptr + ALIGNMENT + sizeof(MemHead)) & ALIGNMENT_MASK;
+
+  MemHead &memhead = get_memhead((void *)aligned_ptr);
+  memhead.raw_ptr = (void *)raw_ptr;
+  return (void *)aligned_ptr;
+}
+
+static void raw_deallocate(void *ptr)
+{
+  BLI_assert(((uintptr_t)ptr & ~ALIGNMENT_MASK) == 0);
+  MemHead &memhead = get_memhead(ptr);
+  void *raw_ptr = memhead.raw_ptr;
+  free(raw_ptr);
+}
+
 void *BLI_temporary_allocate(uint size)
 {
-  BLI_assert(size <= SMALL_BUFFER_SIZE);
-  UNUSED_VARS_NDEBUG(size);
-
-  auto &buffers = local_storage.buffers;
-  if (buffers.empty()) {
-    void *ptr = RawAllocator().allocate_aligned(SMALL_BUFFER_SIZE, 64, __func__);
-    return ptr;
+  if (size <= SMALL_BUFFER_SIZE) {
+    auto &buffers = local_storage.buffers;
+    if (buffers.empty()) {
+      void *ptr = raw_allocate(SMALL_BUFFER_SIZE);
+      MemHead &memhead = get_memhead(ptr);
+      memhead.type = TemporaryBufferType::Small;
+      return ptr;
+    }
+    else {
+      return buffers.pop();
+    }
   }
   else {
-    return buffers.pop();
+    void *ptr = raw_allocate(size);
+    MemHead &memhead = get_memhead(ptr);
+    memhead.type = TemporaryBufferType::Large;
+    return ptr;
   }
 }
 
 void BLI_temporary_deallocate(void *buffer)
 {
-  auto &buffers = local_storage.buffers;
-  buffers.push(buffer);
+  MemHead &memhead = get_memhead(buffer);
+  if (memhead.type == TemporaryBufferType::Small) {
+    auto &buffers = local_storage.buffers;
+    buffers.push(buffer);
+  }
+  else {
+    raw_deallocate(buffer);
+  }
 }
