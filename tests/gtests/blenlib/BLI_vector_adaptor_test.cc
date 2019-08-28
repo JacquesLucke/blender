@@ -85,3 +85,17 @@ TEST(vector_adaptor, Extend)
   EXPECT_EQ(vec[2], 2);
   EXPECT_EQ(vec[3], 5);
 }
+
+TEST(vector_adaptor, AppendNTimes)
+{
+  int array[6];
+  IntVectorAdaptor vec(array);
+  vec.append_n_times(10, 2);
+  vec.append_n_times(5, 3);
+  EXPECT_EQ(vec.size(), 5);
+  EXPECT_EQ(vec[0], 10);
+  EXPECT_EQ(vec[1], 10);
+  EXPECT_EQ(vec[2], 5);
+  EXPECT_EQ(vec[3], 5);
+  EXPECT_EQ(vec[4], 5);
+}

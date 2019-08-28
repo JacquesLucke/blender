@@ -96,6 +96,13 @@ template<typename T> class VectorAdaptor {
     m_end += 1;
   }
 
+  void append_n_times(const T &value, uint n)
+  {
+    BLI_assert(this->size() + n <= m_capacity);
+    uninitialized_fill_n(m_end, n, value);
+    m_end += n;
+  }
+
   /**
    * Insert multiple elements at the end of the vector.
    * Asserts, when the capacity is exceeded.
