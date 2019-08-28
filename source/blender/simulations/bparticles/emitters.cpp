@@ -107,7 +107,7 @@ static BLI_NOINLINE void compute_cumulative_distribution(
 {
   BLI_assert(weights.size() + 1 == r_cumulative_weights.size());
 
-  r_cumulative_weights[0] = weights[0];
+  r_cumulative_weights[0] = 0;
   for (uint i = 0; i < weights.size(); i++) {
     r_cumulative_weights[i + 1] = r_cumulative_weights[i] + weights[i];
   }
