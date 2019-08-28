@@ -280,7 +280,8 @@ static void PARSE_mesh_emitter(BehaviorCollector &collector,
                                         body.get_output<float>(fn_out, 1, "Rate"),
                                         body.get_output<float>(fn_out, 2, "Normal Velocity"),
                                         body.get_output<float>(fn_out, 3, "Emitter Velocity"),
-                                        body.get_output<float>(fn_out, 4, "Size"));
+                                        body.get_output<float>(fn_out, 4, "Size"),
+                                        StringRef(fn_out.relocate_out<FN::Types::MyString>(5)));
   collector.m_emitters.append(emitter);
 }
 

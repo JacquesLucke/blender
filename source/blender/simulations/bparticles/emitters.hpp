@@ -22,6 +22,7 @@ class SurfaceEmitter : public Emitter {
   float m_normal_velocity;
   float m_emitter_velocity;
   float m_size;
+  std::string m_density_group;
 
  public:
   SurfaceEmitter(Vector<std::string> types_to_emit,
@@ -31,7 +32,8 @@ class SurfaceEmitter : public Emitter {
                  float rate,
                  float normal_velocity,
                  float emitter_velocity,
-                 float size)
+                 float size,
+                 StringRef density_group)
       : m_types_to_emit(std::move(types_to_emit)),
         m_on_birth_action(std::move(on_birth_action)),
         m_object(object),
@@ -39,7 +41,8 @@ class SurfaceEmitter : public Emitter {
         m_rate(rate),
         m_normal_velocity(normal_velocity),
         m_emitter_velocity(emitter_velocity),
-        m_size(size)
+        m_size(size),
+        m_density_group(density_group)
   {
   }
 

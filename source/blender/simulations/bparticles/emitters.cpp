@@ -5,8 +5,10 @@
 
 #include "BKE_curve.h"
 #include "BKE_mesh_runtime.h"
+#include "BKE_deform.h"
 
 #include "BLI_math_geom.h"
+#include "BLI_vector_adaptor.hpp"
 
 #include "FN_types.hpp"
 
@@ -14,6 +16,7 @@
 
 namespace BParticles {
 
+using BLI::VectorAdaptor;
 using FN::SharedList;
 using namespace FN::Types;
 
@@ -61,6 +64,75 @@ static float3 random_point_in_triangle(float3 a, float3 b, float3 c)
   return a + dir1 * rand1 + dir2 * rand2;
 }
 
+static BLI_NOINLINE void get_all_vertex_weights(Object *ob,
+                                                Mesh *mesh,
+                                                StringRefNull group_name,
+                                                MutableArrayRef<float> r_vertex_weights)
+{
+  int group_index = defgroup_name_index(ob, group_name.data());
+  if (group_index == -1) {
+    r_vertex_weights.fill(0);
+    return;
+  }
+
+  MDeformVert *vertices = mesh->dvert;
+  for (uint i = 0; i < mesh->totvert; i++) {
+    r_vertex_weights[i] = defvert_find_weight(vertices + i, group_index);
+  }
+}
+
+static BLI_NOINLINE float get_average_poly_weights(const Mesh *mesh,
+                                                   ArrayRef<float> vertex_weights,
+                                                   TemporaryVector<float> &r_poly_weights,
+                                                   TemporaryVector<uint> &r_polys_with_weight)
+{
+  float weight_sum = 0.0f;
+
+  for (uint poly_index = 0; poly_index < mesh->totpoly; poly_index++) {
+    const MPoly &poly = mesh->mpoly[poly_index];
+    float poly_weight = 0.0f;
+    for (const MLoop &loop : BLI::ref_c_array(mesh->mloop + poly.loopstart, poly.totloop)) {
+      poly_weight += vertex_weights[loop.v];
+    }
+    if (poly_weight > 0) {
+      poly_weight /= poly.totloop;
+      r_polys_with_weight.append(poly_index);
+      r_poly_weights.append(poly_weight);
+      weight_sum += poly_weight;
+    }
+  }
+
+  return weight_sum;
+}
+
+static BLI_NOINLINE void sample_weighted_slots(uint amount,
+                                               ArrayRef<float> weights,
+                                               float total_weight,
+                                               MutableArrayRef<uint> r_sampled_indices)
+{
+  BLI_assert(amount == r_sampled_indices.size());
+
+  float remaining_weight = total_weight;
+  uint remaining_amount = amount;
+  VectorAdaptor<uint> all_samples(r_sampled_indices.begin(), amount);
+
+  for (uint i = 0; i < weights.size(); i++) {
+    float weight = weights[i];
+    float factor = weight / remaining_weight;
+    float samples_of_index = factor * remaining_amount;
+    float frac = samples_of_index - floorf(samples_of_index);
+    if (random_float() < frac) {
+      samples_of_index += 1;
+    }
+    uint int_samples_of_index = (uint)samples_of_index;
+    all_samples.append_n_times(i, int_samples_of_index);
+
+    remaining_weight -= weight;
+    remaining_amount -= int_samples_of_index;
+  }
+  BLI_assert(all_samples.is_full());
+}
+
 void SurfaceEmitter::emit(EmitterInterface &interface)
 {
   if (m_object == nullptr) {
@@ -87,12 +159,27 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     return;
   }
 
+  // TemporaryArray<float> vertex_weights(mesh->totvert);
+  // TemporaryVector<float> poly_weights;
+  // TemporaryVector<uint> poly_indices_with_weight;
+  // get_all_vertex_weights(m_object, mesh, m_density_group, vertex_weights);
+  // float weight_sum = get_average_poly_weights(
+  //     mesh, vertex_weights, poly_weights, poly_indices_with_weight);
+
+  // TemporaryArray<uint> sampled_weighted_indices(particles_to_emit);
+  // sample_weighted_slots(particles_to_emit, poly_weights, weight_sum, sampled_weighted_indices);
+
   Vector<float3> positions;
   Vector<float3> velocities;
   Vector<float> sizes;
   Vector<float> birth_times;
 
   for (uint i = 0; i < particles_to_emit; i++) {
+    // uint poly_index = poly_indices_with_weight[sampled_weighted_indices[i]];
+    // MPoly &poly = mesh->mpoly[poly_index];
+    // uint triangle_start_index = poly_to_tri_count(poly_index, poly.loopstart);
+    // uint triangle_index = triangle_start_index + (rand() % (poly.totloop - 2));
+    // MLoopTri triangle = triangles[triangle_index];
     MLoopTri triangle = triangles[rand() % triangle_amount];
     float birth_moment = random_float();
 
