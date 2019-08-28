@@ -404,7 +404,7 @@ template<typename T> class MutableArrayRef {
 /**
  * Shorthand to make use of automatic template parameter deduction.
  */
-template<typename T> ArrayRef<T> ref_c_array(T *array, uint size)
+template<typename T> ArrayRef<T> ref_c_array(const T *array, uint size)
 {
   return ArrayRef<T>(array, size);
 }

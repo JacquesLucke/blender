@@ -69,68 +69,147 @@ static BLI_NOINLINE void get_all_vertex_weights(Object *ob,
                                                 StringRefNull group_name,
                                                 MutableArrayRef<float> r_vertex_weights)
 {
+  MDeformVert *vertices = mesh->dvert;
   int group_index = defgroup_name_index(ob, group_name.data());
-  if (group_index == -1) {
+  if (group_index == -1 || vertices == nullptr) {
     r_vertex_weights.fill(0);
     return;
   }
 
-  MDeformVert *vertices = mesh->dvert;
   for (uint i = 0; i < mesh->totvert; i++) {
     r_vertex_weights[i] = defvert_find_weight(vertices + i, group_index);
   }
 }
 
-static BLI_NOINLINE float get_average_poly_weights(const Mesh *mesh,
-                                                   ArrayRef<float> vertex_weights,
-                                                   TemporaryVector<float> &r_poly_weights,
-                                                   TemporaryVector<uint> &r_polys_with_weight)
+static BLI_NOINLINE void get_average_triangle_weights(const Mesh *mesh,
+                                                      ArrayRef<MLoopTri> looptris,
+                                                      ArrayRef<float> vertex_weights,
+                                                      TemporaryArray<float> &r_looptri_weights)
 {
-  float weight_sum = 0.0f;
+  for (uint triangle_index = 0; triangle_index < looptris.size(); triangle_index++) {
+    const MLoopTri &looptri = looptris[triangle_index];
+    float triangle_weight = 0.0f;
+    for (uint i = 0; i < 3; i++) {
+      uint vertex_index = mesh->mloop[looptri.tri[i]].v;
+      float weight = vertex_weights[vertex_index];
+      triangle_weight += weight;
+    }
 
-  for (uint poly_index = 0; poly_index < mesh->totpoly; poly_index++) {
-    const MPoly &poly = mesh->mpoly[poly_index];
-    float poly_weight = 0.0f;
-    for (const MLoop &loop : BLI::ref_c_array(mesh->mloop + poly.loopstart, poly.totloop)) {
-      poly_weight += vertex_weights[loop.v];
+    if (triangle_weight > 0) {
+      triangle_weight /= 3.0f;
     }
-    if (poly_weight > 0) {
-      poly_weight /= poly.totloop;
-      r_polys_with_weight.append(poly_index);
-      r_poly_weights.append(poly_weight);
-      weight_sum += poly_weight;
-    }
+    r_looptri_weights[triangle_index] = triangle_weight;
   }
-
-  return weight_sum;
 }
 
-static BLI_NOINLINE void sample_weighted_slots(uint amount,
-                                               ArrayRef<float> weights,
-                                               float total_weight,
-                                               MutableArrayRef<uint> r_sampled_indices)
+static BLI_NOINLINE void compute_cumulative_distribution(
+    ArrayRef<float> weights, MutableArrayRef<float> r_cumulative_weights)
+{
+  BLI_assert(weights.size() + 1 == r_cumulative_weights.size());
+
+  r_cumulative_weights[0] = weights[0];
+  for (uint i = 0; i < weights.size(); i++) {
+    r_cumulative_weights[i + 1] = r_cumulative_weights[i] + weights[i];
+  }
+}
+
+static void sample_cumulative_distribution__recursive(uint amount,
+                                                      uint start,
+                                                      uint one_after_end,
+                                                      ArrayRef<float> cumulative_weights,
+                                                      VectorAdaptor<uint> &sampled_indices)
+{
+  BLI_assert(start <= one_after_end);
+  uint size = one_after_end - start;
+  if (size == 0) {
+    BLI_assert(amount == 0);
+  }
+  else if (amount == 0) {
+    return;
+  }
+  else if (size == 1) {
+    sampled_indices.append_n_times(start, amount);
+  }
+  else {
+    uint middle = start + size / 2;
+    float left_weight = cumulative_weights[middle] - cumulative_weights[start];
+    float right_weight = cumulative_weights[one_after_end] - cumulative_weights[middle];
+    BLI_assert(left_weight >= 0.0f && right_weight >= 0.0f);
+    float weight_sum = left_weight + right_weight;
+    BLI_assert(weight_sum > 0.0f);
+
+    float left_factor = left_weight / weight_sum;
+    float right_factor = right_weight / weight_sum;
+
+    uint left_amount = amount * left_factor;
+    uint right_amount = amount * right_factor;
+
+    if (left_amount + right_amount < amount) {
+      BLI_assert(left_amount + right_amount + 1 == amount);
+      float weight_per_item = weight_sum / amount;
+      float total_remaining_weight = weight_sum - (left_amount + right_amount) * weight_per_item;
+      float left_remaining_weight = left_weight - left_amount * weight_per_item;
+      float left_remaining_factor = left_remaining_weight / total_remaining_weight;
+      if (random_float() < left_remaining_factor) {
+        left_amount++;
+      }
+      else {
+        right_amount++;
+      }
+    }
+
+    sample_cumulative_distribution__recursive(
+        left_amount, start, middle, cumulative_weights, sampled_indices);
+    sample_cumulative_distribution__recursive(
+        right_amount, middle, one_after_end, cumulative_weights, sampled_indices);
+  }
+}
+
+static BLI_NOINLINE void sample_cumulative_distribution(uint amount,
+                                                        ArrayRef<float> cumulative_weights,
+                                                        MutableArrayRef<uint> r_sampled_indices)
 {
   BLI_assert(amount == r_sampled_indices.size());
 
-  float remaining_weight = total_weight;
-  uint remaining_amount = amount;
-  VectorAdaptor<uint> all_samples(r_sampled_indices.begin(), amount);
+  VectorAdaptor<uint> sampled_indices(r_sampled_indices.begin(), amount);
+  sample_cumulative_distribution__recursive(
+      amount, 0, cumulative_weights.size() - 1, cumulative_weights, sampled_indices);
+  BLI_assert(sampled_indices.is_full());
+}
 
-  for (uint i = 0; i < weights.size(); i++) {
-    float weight = weights[i];
-    float factor = weight / remaining_weight;
-    float samples_of_index = factor * remaining_amount;
-    float frac = samples_of_index - floorf(samples_of_index);
-    if (random_float() < frac) {
-      samples_of_index += 1;
-    }
-    uint int_samples_of_index = (uint)samples_of_index;
-    all_samples.append_n_times(i, int_samples_of_index);
+static BLI_NOINLINE bool sample_with_vertex_weights(uint amount,
+                                                    Object *ob,
+                                                    Mesh *mesh,
+                                                    StringRefNull group_name,
+                                                    ArrayRef<MLoopTri> triangles,
+                                                    MutableArrayRef<uint> r_sampled_looptris)
+{
+  BLI_assert(amount == r_sampled_looptris.size());
 
-    remaining_weight -= weight;
-    remaining_amount -= int_samples_of_index;
+  TemporaryArray<float> vertex_weights(mesh->totvert);
+  get_all_vertex_weights(ob, mesh, group_name, vertex_weights);
+
+  TemporaryArray<float> looptri_weights(triangles.size());
+  get_average_triangle_weights(mesh, triangles, vertex_weights, looptri_weights);
+
+  TemporaryArray<float> cumulative_looptri_weights(looptri_weights.size() + 1);
+  compute_cumulative_distribution(looptri_weights, cumulative_looptri_weights);
+  if (ArrayRef<float>(cumulative_looptri_weights).last() == 0.0f) {
+    /* All weights are zero. */
+    return false;
   }
-  BLI_assert(all_samples.is_full());
+
+  sample_cumulative_distribution(amount, cumulative_looptri_weights, r_sampled_looptris);
+  return true;
+}
+
+static BLI_NOINLINE void sample_randomly(uint amount,
+                                         ArrayRef<MLoopTri> triangles,
+                                         MutableArrayRef<uint> r_sampled_looptris)
+{
+  for (uint i = 0; i < amount; i++) {
+    r_sampled_looptris[i] = rand() % triangles.size();
+  }
 }
 
 void SurfaceEmitter::emit(EmitterInterface &interface)
@@ -159,15 +238,21 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     return;
   }
 
-  // TemporaryArray<float> vertex_weights(mesh->totvert);
-  // TemporaryVector<float> poly_weights;
-  // TemporaryVector<uint> poly_indices_with_weight;
-  // get_all_vertex_weights(m_object, mesh, m_density_group, vertex_weights);
-  // float weight_sum = get_average_poly_weights(
-  //     mesh, vertex_weights, poly_weights, poly_indices_with_weight);
-
-  // TemporaryArray<uint> sampled_weighted_indices(particles_to_emit);
-  // sample_weighted_slots(particles_to_emit, poly_weights, weight_sum, sampled_weighted_indices);
+  TemporaryArray<uint> looptri_indices(particles_to_emit);
+  if (m_density_group.size() > 0) {
+    if (!sample_with_vertex_weights(particles_to_emit,
+                                    m_object,
+                                    mesh,
+                                    m_density_group,
+                                    BLI::ref_c_array(triangles, triangle_amount),
+                                    looptri_indices)) {
+      return;
+    }
+  }
+  else {
+    sample_randomly(
+        particles_to_emit, BLI::ref_c_array(triangles, triangle_amount), looptri_indices);
+  }
 
   Vector<float3> positions;
   Vector<float3> velocities;
@@ -175,12 +260,8 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   Vector<float> birth_times;
 
   for (uint i = 0; i < particles_to_emit; i++) {
-    // uint poly_index = poly_indices_with_weight[sampled_weighted_indices[i]];
-    // MPoly &poly = mesh->mpoly[poly_index];
-    // uint triangle_start_index = poly_to_tri_count(poly_index, poly.loopstart);
-    // uint triangle_index = triangle_start_index + (rand() % (poly.totloop - 2));
-    // MLoopTri triangle = triangles[triangle_index];
-    MLoopTri triangle = triangles[rand() % triangle_amount];
+    uint triangle_index = looptri_indices[i];
+    MLoopTri triangle = triangles[triangle_index];
     float birth_moment = random_float();
 
     float3 v1 = verts[loops[triangle.tri[0]].v].co;
