@@ -6,6 +6,7 @@
 #include "BLI_vector.hpp"
 #include "BLI_math.hpp"
 #include "BLI_string_ref.hpp"
+#include "BLI_string_map.hpp"
 #include "BLI_range.hpp"
 #include "BLI_set.hpp"
 #include "BLI_set_vector.hpp"
@@ -22,6 +23,7 @@ using BLI::Range;
 using BLI::rgba_b;
 using BLI::rgba_f;
 using BLI::SetVector;
+using BLI::StringMap;
 using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
@@ -139,9 +141,10 @@ class AttributesDeclaration {
  */
 class AttributesInfo {
  private:
-  SetVector<std::string> m_names;
-  Vector<AttributeType> m_types;
-  Vector<AnyAttributeValue> m_defaults;
+  StringMap<int> m_index_by_name;
+  Vector<std::string> m_name_by_index;
+  Vector<AttributeType> m_type_by_index;
+  Vector<AnyAttributeValue> m_default_by_index;
 
   friend AttributesDeclaration;
 
@@ -154,7 +157,7 @@ class AttributesInfo {
    */
   uint size() const
   {
-    return m_names.size();
+    return m_name_by_index.size();
   }
 
   /**
@@ -163,7 +166,7 @@ class AttributesInfo {
    */
   StringRefNull name_of(uint index) const
   {
-    return m_names[index];
+    return m_name_by_index[index];
   }
 
   /**
@@ -172,7 +175,7 @@ class AttributesInfo {
    */
   AttributeType type_of(uint index) const
   {
-    return m_types[index];
+    return m_type_by_index[index];
   }
 
   /**
@@ -190,7 +193,7 @@ class AttributesInfo {
    */
   ArrayRef<AttributeType> types() const
   {
-    return m_types;
+    return m_type_by_index;
   }
 
   /**
@@ -199,7 +202,7 @@ class AttributesInfo {
    */
   int attribute_index_try(StringRef name) const
   {
-    return m_names.index_try(name);
+    return m_index_by_name.lookup_default(name, -1);
   }
 
   /**
@@ -226,8 +229,7 @@ class AttributesInfo {
    */
   uint attribute_index(StringRef name) const
   {
-    int index = this->attribute_index_try(name);
-    BLI_assert(index >= 0);
+    int index = m_index_by_name.lookup(name);
     return (uint)index;
   }
 
@@ -246,7 +248,7 @@ class AttributesInfo {
   void *default_value_ptr(uint index) const
   {
     BLI_assert(index < this->size());
-    return (void *)m_defaults[index].storage;
+    return (void *)m_default_by_index[index].storage;
   }
 
   /**
