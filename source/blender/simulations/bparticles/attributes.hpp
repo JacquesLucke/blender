@@ -267,11 +267,12 @@ class AttributeArrays;
 class AttributeArrays {
  private:
   AttributesInfo *m_info;
-  uint m_start, m_size;
   ArrayRef<void *> m_buffers;
+  Range<uint> m_range;
 
  public:
-  AttributeArrays(AttributesInfo &info, ArrayRef<void *> buffers, uint start, uint size);
+  AttributeArrays(AttributesInfo &info, ArrayRef<void *> buffers, uint size);
+  AttributeArrays(AttributesInfo &info, ArrayRef<void *> buffers, Range<uint> range);
 
   /**
    * Get the number of referenced elements.
@@ -312,7 +313,7 @@ class AttributeArrays {
   {
     BLI_assert(attribute_type_by_type<T>::value == m_info->type_of(index));
     void *ptr = this->get_ptr(index);
-    return MutableArrayRef<T>((T *)ptr, m_size);
+    return MutableArrayRef<T>((T *)ptr, m_range.size());
   }
   template<typename T> MutableArrayRef<T> get(StringRef name)
   {
@@ -349,17 +350,21 @@ class AttributeArrays {
 /* Attribute Arrays
  ******************************************/
 
+inline AttributeArrays::AttributeArrays(AttributesInfo &info, ArrayRef<void *> buffers, uint size)
+    : AttributeArrays(info, buffers, Range<uint>(0, size))
+{
+}
+
 inline AttributeArrays::AttributeArrays(AttributesInfo &info,
                                         ArrayRef<void *> buffers,
-                                        uint start,
-                                        uint size)
-    : m_info(&info), m_start(start), m_size(size), m_buffers(buffers)
+                                        Range<uint> range)
+    : m_info(&info), m_buffers(buffers), m_range(range)
 {
 }
 
 inline uint AttributeArrays::size() const
 {
-  return m_size;
+  return m_range.size();
 }
 
 inline AttributesInfo &AttributeArrays::info()
@@ -382,7 +387,7 @@ inline void *AttributeArrays::get_ptr(uint index) const
   void *ptr = m_buffers[index];
   AttributeType type = m_info->type_of(index);
   uint size = size_of_attribute_type(type);
-  return POINTER_OFFSET(ptr, m_start * size);
+  return POINTER_OFFSET(ptr, m_range.start() * size);
 }
 
 inline void AttributeArrays::init_default(uint index)
@@ -392,7 +397,7 @@ inline void AttributeArrays::init_default(uint index)
   AttributeType type = m_info->type_of(index);
   uint element_size = size_of_attribute_type(type);
 
-  for (uint i = 0; i < m_size; i++) {
+  for (uint i : m_range) {
     memcpy(POINTER_OFFSET(dst, element_size * i), default_value, element_size);
   }
 }
@@ -404,15 +409,12 @@ inline void AttributeArrays::init_default(StringRef name)
 
 inline AttributeArrays AttributeArrays::slice(uint start, uint size) const
 {
-  BLI_assert(start >= m_start);
-  BLI_assert(start + size <= m_size);
-  return AttributeArrays(*m_info, m_buffers, m_start + start, size);
+  return AttributeArrays(*m_info, m_buffers, m_range.slice(start, size));
 }
 
 inline AttributeArrays AttributeArrays::take_front(uint n) const
 {
-  BLI_assert(n <= m_size);
-  return AttributeArrays(*m_info, m_buffers, m_start, n);
+  return AttributeArrays(*m_info, m_buffers, m_range.slice(0, n));
 }
 
 }  // namespace BParticles

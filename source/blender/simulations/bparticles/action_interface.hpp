@@ -98,7 +98,7 @@ inline void Action::execute_from_emitter(ParticleSets &particle_sets,
 
   for (ParticleSet particles : particle_sets.sets()) {
     uint min_array_size = particles.attributes().size();
-    AttributeArrays offsets(info, buffers, 0, min_array_size);
+    AttributeArrays offsets(info, buffers, min_array_size);
     TemporaryArray<float> durations(min_array_size);
     durations.fill_indices(particles.pindices(), 0);
     ActionInterface action_interface(emitter_interface.particle_allocator(),
@@ -149,7 +149,7 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
 
   for (ParticleSet particles : particle_sets.sets()) {
     uint min_array_size = particles.attributes().size();
-    AttributeArrays offsets(info, buffers, 0, min_array_size);
+    AttributeArrays offsets(info, buffers, min_array_size);
     TemporaryArray<float> durations(min_array_size);
     durations.fill_indices(particles.pindices(), 0);
     ActionInterface new_interface(action_interface.particle_allocator(),
@@ -172,7 +172,7 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
 
   for (ParticleSet particles : particle_sets.sets()) {
     uint min_array_size = particles.attributes().size();
-    AttributeArrays offsets(info, buffers, 0, min_array_size);
+    AttributeArrays offsets(info, buffers, min_array_size);
     TemporaryArray<float> durations(min_array_size);
     durations.fill_indices(particles.pindices(), 0);
     ActionInterface new_interface(offset_handler_interface.particle_allocator(),

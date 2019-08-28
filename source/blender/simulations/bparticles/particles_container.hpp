@@ -302,26 +302,22 @@ inline ParticlesContainer &ParticlesBlock::container()
 
 inline AttributeArrays ParticlesBlock::attributes_slice(Range<uint> range)
 {
-  if (range.size() == 0) {
-    return this->attributes_slice(0, 0);
-  }
-  return this->attributes_slice(range.first(), range.size());
+  return AttributeArrays(m_container.attributes_info(), m_attribute_buffers, range);
 }
 
 inline AttributeArrays ParticlesBlock::attributes_slice(uint start, uint length)
 {
-  return AttributeArrays(m_container.attributes_info(), m_attribute_buffers, start, length);
+  return this->attributes_slice(Range<uint>(start, start + length));
 }
 
 inline AttributeArrays ParticlesBlock::attributes_all()
 {
-  return AttributeArrays(
-      m_container.attributes_info(), m_attribute_buffers, 0, m_container.block_size());
+  return this->attributes_slice(Range<uint>(0, m_container.block_size()));
 }
 
 inline AttributeArrays ParticlesBlock::attributes()
 {
-  return this->attributes_slice(0, m_active_amount);
+  return this->attributes_slice(Range<uint>(0, m_active_amount));
 }
 
 }  // namespace BParticles

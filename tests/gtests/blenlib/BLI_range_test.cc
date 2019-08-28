@@ -105,6 +105,21 @@ TEST(range, OneAfterEnd)
   EXPECT_EQ(range.one_after_last(), 8);
 }
 
+TEST(range, Start)
+{
+  IntRange range = IntRange(6, 8);
+  EXPECT_EQ(range.start(), 6);
+}
+
+TEST(range, Slice)
+{
+  IntRange range = IntRange(5, 20);
+  IntRange slice = range.slice(2, 6);
+  EXPECT_EQ(slice.size(), 6);
+  EXPECT_EQ(slice.first(), 7);
+  EXPECT_EQ(slice.last(), 12);
+}
+
 TEST(range, AsArrayRef)
 {
   IntRange range = IntRange(4, 10);

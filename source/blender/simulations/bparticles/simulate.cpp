@@ -345,7 +345,7 @@ BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
     void *ptr = BLI_temporary_allocate(size_of_attribute_type(type) * amount);
     offset_buffers.append(ptr);
   }
-  AttributeArrays attribute_offsets(offsets_info, offset_buffers, 0, amount);
+  AttributeArrays attribute_offsets(offsets_info, offset_buffers, amount);
 
   BlockStepData step_data = {
       particle_allocator, block.attributes(), attribute_offsets, remaining_durations, end_time};

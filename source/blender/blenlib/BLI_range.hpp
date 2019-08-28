@@ -148,11 +148,19 @@ template<typename T> class Range {
   }
 
   /**
-   * Get the element one after the end. Do not depend this value when the range is empty.
+   * Get the element one after the end. The returned value is undefined when the range is empty.
    */
   T one_after_last() const
   {
     return m_one_after_last;
+  }
+
+  /**
+   * Get the first element in the range. The returned value is undefined when the range is empty.
+   */
+  T start() const
+  {
+    return m_start;
   }
 
   /**
@@ -161,6 +169,13 @@ template<typename T> class Range {
   bool contains(T value) const
   {
     return value >= m_start && value < m_one_after_last;
+  }
+
+  Range<T> slice(uint start, uint size) const
+  {
+    uint new_start = m_start + start;
+    BLI_assert(new_start + size <= m_one_after_last);
+    return Range<T>(new_start, new_start + size);
   }
 
   /**
