@@ -13,6 +13,7 @@
 #include "FN_types.hpp"
 
 #include "emitters.hpp"
+#include "action_contexts.hpp"
 
 namespace BParticles {
 
@@ -301,8 +302,8 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   TemporaryArray<float3> positions_before_birth(particles_to_emit);
   float4x4::transform_positions(transforms_before_birth, local_positions, positions_before_birth);
 
-  TemporaryArray<float3> normals(particles_to_emit);
-  float4x4::transform_directions(transforms_at_birth, local_normals, normals);
+  TemporaryArray<float3> world_normals(particles_to_emit);
+  float4x4::transform_directions(transforms_at_birth, local_normals, world_normals);
 
   TemporaryArray<float> sizes(particles_to_emit);
   sizes.fill(m_size);
@@ -316,7 +317,7 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     float3 point_at_birth = positions_at_birth[i];
     float3 point_before_birth = positions_before_birth[i];
 
-    float3 normal_velocity = normals[i];
+    float3 normal_velocity = world_normals[i];
     float3 emitter_velocity = (point_at_birth - point_before_birth) / epsilon;
 
     velocities[i] = normal_velocity * m_normal_velocity + emitter_velocity * m_emitter_velocity;
@@ -330,7 +331,14 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     new_particles.set<float>("Size", sizes);
     new_particles.set<float>("Birth Time", birth_times);
 
-    m_on_birth_action->execute_from_emitter(new_particles, interface);
+    MeshSurfaceActionContext action_context(m_object,
+                                            transforms_at_birth,
+                                            local_positions,
+                                            local_normals,
+                                            world_normals,
+                                            triangles_to_sample);
+
+    m_on_birth_action->execute_from_emitter(new_particles, interface, &action_context);
   }
 }
 
