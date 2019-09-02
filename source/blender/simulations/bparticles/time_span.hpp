@@ -47,6 +47,14 @@ struct TimeSpan {
     return m_start + t * m_duration;
   }
 
+  void interpolate(ArrayRef<float> times, MutableArrayRef<float> r_results)
+  {
+    BLI_assert(times.size() == r_results.size());
+    for (uint i = 0; i < times.size(); i++) {
+      r_results[i] = this->interpolate(times[i]);
+    }
+  }
+
   /**
    * The reverse of interpolate.
    * Asserts when the duration is 0.

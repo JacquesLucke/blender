@@ -7,9 +7,11 @@
 
 namespace BParticles {
 
+using BLI::ArrayRef;
 using BLI::float3;
 using BLI::float4x4;
 using BLI::Map;
+using BLI::MutableArrayRef;
 using BLI::StringMap;
 using BLI::StringRef;
 
@@ -38,6 +40,16 @@ struct VaryingFloat4x4 {
   float4x4 interpolate(float t) const
   {
     return float4x4::interpolate(start, end, t);
+  }
+
+  void interpolate(ArrayRef<float> times,
+                   float time_offset,
+                   MutableArrayRef<float4x4> r_results) const
+  {
+    BLI_assert(times.size() == r_results.size());
+    for (uint i = 0; i < times.size(); i++) {
+      r_results[i] = this->interpolate(times[i] + time_offset);
+    }
   }
 };
 

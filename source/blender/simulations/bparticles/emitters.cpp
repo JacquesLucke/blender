@@ -247,16 +247,6 @@ static BLI_NOINLINE void sample_looptris(Mesh *mesh,
   }
 }
 
-static BLI_NOINLINE void sample_varying_transform(const VaryingFloat4x4 &transform,
-                                                  ArrayRef<float> times,
-                                                  float time_offset,
-                                                  MutableArrayRef<float4x4> r_transforms)
-{
-  for (uint i = 0; i < times.size(); i++) {
-    r_transforms[i] = transform.interpolate(times[i] + time_offset);
-  }
-}
-
 void SurfaceEmitter::emit(EmitterInterface &interface)
 {
   if (m_object == nullptr) {
@@ -302,16 +292,19 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   float epsilon = 0.01f;
   TemporaryArray<float4x4> transforms_at_birth(particles_to_emit);
   TemporaryArray<float4x4> transforms_before_birth(particles_to_emit);
-  sample_varying_transform(m_transform, birth_moments, 0.0f, transforms_at_birth);
-  sample_varying_transform(m_transform, birth_moments, -epsilon, transforms_before_birth);
+  m_transform.interpolate(birth_moments, 0.0f, transforms_at_birth);
+  m_transform.interpolate(birth_moments, -epsilon, transforms_before_birth);
+
+  TemporaryArray<float> sizes(particles_to_emit);
+  sizes.fill(m_size);
+
+  TemporaryArray<float> birth_times(particles_to_emit);
+  interface.time_span().interpolate(birth_moments, birth_times);
 
   Vector<float3> positions;
   Vector<float3> velocities;
-  Vector<float> sizes;
-  Vector<float> birth_times;
 
   for (uint i = 0; i < particles_to_emit; i++) {
-    float birth_moment = birth_moments[i];
     float3 pos = local_positions[i];
     float3 normal = local_normals[i];
 
@@ -326,8 +319,6 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
 
     positions.append(point_at_birth);
     velocities.append(normal_velocity * m_normal_velocity + emitter_velocity * m_emitter_velocity);
-    birth_times.append(interface.time_span().interpolate(birth_moment));
-    sizes.append(m_size);
   }
 
   for (StringRef type_name : m_types_to_emit) {
