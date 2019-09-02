@@ -7,7 +7,7 @@ class ChangeParticleVelocityNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_ChangeParticleVelocityNode"
     bl_label = "Change Particle Velocity"
 
-    mode = EnumProperty(
+    mode: EnumProperty(
         name="Mode",
         items=[
             ('SET', "Set", "Set a specific velocity", 'NONE', 0),
