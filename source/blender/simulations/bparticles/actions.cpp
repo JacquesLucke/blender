@@ -17,27 +17,70 @@ void ActionSequence::execute(ActionInterface &interface)
   }
 }
 
-void ChangeDirectionAction::execute(ActionInterface &interface)
+static float random_number()
+{
+  static uint number = 0;
+  number++;
+  return BLI_hash_int_01(number) * 2.0f - 1.0f;
+}
+
+static float3 random_direction()
+{
+  return float3(random_number(), random_number(), random_number());
+}
+
+static void update_position_and_velocity_offsets(ActionInterface &interface)
 {
   ParticleSet particles = interface.particles();
+  AttributeArrays attribute_offsets = interface.attribute_offsets();
   auto velocities = particles.attributes().get<float3>("Velocity");
-  auto position_offsets = interface.attribute_offsets().try_get<float3>("Position");
-  auto velocity_offsets = interface.attribute_offsets().try_get<float3>("Velocity");
-
-  auto inputs = m_compute_inputs->compute(interface);
+  auto position_offsets = attribute_offsets.try_get<float3>("Position");
+  auto velocity_offsets = attribute_offsets.try_get<float3>("Velocity");
 
   for (uint pindex : particles.pindices()) {
-    float3 direction = inputs->get<float3>("Direction", 0, pindex);
-
-    velocities[pindex] = direction;
+    float3 velocity = velocities[pindex];
 
     if (position_offsets.has_value()) {
-      position_offsets.value()[pindex] = direction * interface.remaining_time_in_step(pindex);
+      position_offsets.value()[pindex] = velocity * interface.remaining_time_in_step(pindex);
     }
     if (velocity_offsets.has_value()) {
       velocity_offsets.value()[pindex] = float3(0);
     }
   }
+}
+
+void SetVelocityAction::execute(ActionInterface &interface)
+{
+  ParticleSet particles = interface.particles();
+  auto velocities = particles.attributes().get<float3>("Velocity");
+
+  auto inputs = m_compute_inputs->compute(interface);
+
+  for (uint pindex : particles.pindices()) {
+    float3 velocity = inputs->get<float3>("Velocity", 0, pindex);
+    velocities[pindex] = velocity;
+  }
+
+  update_position_and_velocity_offsets(interface);
+}
+
+void RandomizeVelocityAction::execute(ActionInterface &interface)
+{
+  ParticleSet particles = interface.particles();
+  auto velocities = particles.attributes().get<float3>("Velocity");
+
+  auto inputs = m_compute_inputs->compute(interface);
+
+  for (uint pindex : particles.pindices()) {
+    float randomness = inputs->get<float>("Randomness", 0, pindex);
+    float3 old_velocity = velocities[pindex];
+    float old_speed = old_velocity.length();
+
+    float3 velocity_offset = random_direction().normalized() * old_speed * randomness;
+    velocities[pindex] += velocity_offset;
+  }
+
+  update_position_and_velocity_offsets(interface);
 }
 
 void ChangeColorAction::execute(ActionInterface &interface)
@@ -55,18 +98,6 @@ void ChangeColorAction::execute(ActionInterface &interface)
 void KillAction::execute(ActionInterface &interface)
 {
   interface.kill(interface.particles().pindices());
-}
-
-static float random_number()
-{
-  static uint number = 0;
-  number++;
-  return BLI_hash_int_01(number) * 2.0f - 1.0f;
-}
-
-static float3 random_direction()
-{
-  return float3(random_number(), random_number(), random_number());
 }
 
 void ExplodeAction::execute(ActionInterface &interface)

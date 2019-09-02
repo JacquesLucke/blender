@@ -25,12 +25,25 @@ class KillAction : public Action {
   void execute(ActionInterface &interface) override;
 };
 
-class ChangeDirectionAction : public Action {
+class SetVelocityAction : public Action {
  private:
   std::unique_ptr<ParticleFunction> m_compute_inputs;
 
  public:
-  ChangeDirectionAction(std::unique_ptr<ParticleFunction> compute_inputs)
+  SetVelocityAction(std::unique_ptr<ParticleFunction> compute_inputs)
+      : m_compute_inputs(std::move(compute_inputs))
+  {
+  }
+
+  void execute(ActionInterface &interface) override;
+};
+
+class RandomizeVelocityAction : public Action {
+ private:
+  std::unique_ptr<ParticleFunction> m_compute_inputs;
+
+ public:
+  RandomizeVelocityAction(std::unique_ptr<ParticleFunction> compute_inputs)
       : m_compute_inputs(std::move(compute_inputs))
   {
   }

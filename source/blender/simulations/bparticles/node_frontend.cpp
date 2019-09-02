@@ -88,8 +88,8 @@ static std::unique_ptr<Action> ACTION_kill(VTreeDataGraph &UNUSED(vtree_data_gra
   return std::unique_ptr<Action>(new KillAction());
 }
 
-static std::unique_ptr<Action> ACTION_change_direction(VTreeDataGraph &vtree_data_graph,
-                                                       VirtualSocket *execute_vsocket)
+static std::unique_ptr<Action> ACTION_change_velocity(VTreeDataGraph &vtree_data_graph,
+                                                      VirtualSocket *execute_vsocket)
 {
   VirtualNode *vnode = execute_vsocket->vnode();
 
@@ -99,7 +99,17 @@ static std::unique_ptr<Action> ACTION_change_direction(VTreeDataGraph &vtree_dat
   }
   std::unique_ptr<ParticleFunction> compute_inputs_fn = fn_or_error.extract_value();
 
-  Action *action = new ChangeDirectionAction(std::move(compute_inputs_fn));
+  PointerRNA rna = vnode->rna();
+  int mode = RNA_enum_get(&rna, "mode");
+
+  Action *action = nullptr;
+  if (mode == 0) {
+    action = new SetVelocityAction(std::move(compute_inputs_fn));
+  }
+  else if (mode == 1) {
+    action = new RandomizeVelocityAction(std::move(compute_inputs_fn));
+  }
+
   return std::unique_ptr<Action>(action);
 }
 
@@ -161,7 +171,7 @@ BLI_LAZY_INIT_STATIC(StringMap<ActionParserCallback>, get_action_parsers)
 {
   StringMap<ActionParserCallback> map;
   map.add_new("bp_KillParticleNode", ACTION_kill);
-  map.add_new("bp_ChangeParticleDirectionNode", ACTION_change_direction);
+  map.add_new("bp_ChangeParticleVelocityNode", ACTION_change_velocity);
   map.add_new("bp_ExplodeParticleNode", ACTION_explode);
   map.add_new("bp_ParticleConditionNode", ACTION_condition);
   map.add_new("bp_ChangeParticleColorNode", ACTION_change_color);
