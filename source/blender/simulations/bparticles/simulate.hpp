@@ -14,7 +14,6 @@ struct ParticleTypeInfo {
 };
 
 void simulate_particles(SimulationState &state,
-                        WorldTransition &world_transition,
                         ArrayRef<Emitter *> emitters,
                         StringMap<ParticleTypeInfo> &types_to_simulate);
 

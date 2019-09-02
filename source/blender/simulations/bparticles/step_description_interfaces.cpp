@@ -2,12 +2,8 @@
 
 namespace BParticles {
 
-EmitterInterface::EmitterInterface(ParticleAllocator &particle_allocator,
-                                   TimeSpan time_span,
-                                   WorldTransition &world_transition)
-    : m_particle_allocator(particle_allocator),
-      m_time_span(time_span),
-      m_world_transition(world_transition)
+EmitterInterface::EmitterInterface(ParticleAllocator &particle_allocator, TimeSpan time_span)
+    : m_particle_allocator(particle_allocator), m_time_span(time_span)
 {
 }
 

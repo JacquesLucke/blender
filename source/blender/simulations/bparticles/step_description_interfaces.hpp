@@ -71,12 +71,9 @@ class EmitterInterface {
  private:
   ParticleAllocator &m_particle_allocator;
   TimeSpan m_time_span;
-  WorldTransition &m_world_transition;
 
  public:
-  EmitterInterface(ParticleAllocator &particle_allocator,
-                   TimeSpan time_span,
-                   WorldTransition &world_transition);
+  EmitterInterface(ParticleAllocator &particle_allocator, TimeSpan time_span);
   ~EmitterInterface() = default;
 
   ParticleAllocator &particle_allocator();
@@ -242,11 +239,6 @@ inline TimeSpan EmitterInterface::time_span()
 inline bool EmitterInterface::is_first_step()
 {
   return m_time_span.start() == 0.0f;
-}
-
-inline WorldTransition &EmitterInterface::world_transition()
-{
-  return m_world_transition;
 }
 
 /* EventStorage inline functions

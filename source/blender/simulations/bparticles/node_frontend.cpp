@@ -544,7 +544,7 @@ class NodeTreeStepSimulator : public StepSimulator {
       types_to_simulate.add_new(name, type_info);
     }
 
-    simulate_particles(simulation_state, world_transition, emitters, types_to_simulate);
+    simulate_particles(simulation_state, emitters, types_to_simulate);
 
     for (Emitter *emitter : emitters) {
       delete emitter;
