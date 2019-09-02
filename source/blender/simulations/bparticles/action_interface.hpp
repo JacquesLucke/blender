@@ -82,7 +82,7 @@ inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
 {
 }
 
-class EmptyEventInfo : public ActionContext {
+class EmptyActionContext : public ActionContext {
 };
 
 inline void Action::execute_from_emitter(ParticleSets &particle_sets,
@@ -92,7 +92,7 @@ inline void Action::execute_from_emitter(ParticleSets &particle_sets,
   AttributesInfo info;
   std::array<void *, 0> buffers;
 
-  EmptyEventInfo empty_action_context;
+  EmptyActionContext empty_action_context;
   ActionContext &used_action_context = (action_context == nullptr) ? empty_action_context :
                                                                      *action_context;
 
@@ -114,7 +114,7 @@ inline void Action::execute_from_emitter(ParticleSets &particle_sets,
 inline void Action::execute_from_event(EventExecuteInterface &event_interface,
                                        ActionContext *action_context)
 {
-  EmptyEventInfo empty_action_context;
+  EmptyActionContext empty_action_context;
   ActionContext &used_action_context = (action_context == nullptr) ? empty_action_context :
                                                                      *action_context;
 
@@ -145,7 +145,7 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
   std::array<void *, 0> buffers;
 
   /* Use empty action context, until there a better solution is implemented. */
-  EmptyEventInfo empty_context;
+  EmptyActionContext empty_context;
 
   for (ParticleSet particles : particle_sets.sets()) {
     uint min_array_size = particles.attributes().size();
@@ -168,7 +168,7 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
   AttributesInfo info;
   std::array<void *, 0> buffers;
 
-  EmptyEventInfo empty_context;
+  EmptyActionContext empty_context;
 
   for (ParticleSet particles : particle_sets.sets()) {
     uint min_array_size = particles.attributes().size();
