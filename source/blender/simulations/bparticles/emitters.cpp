@@ -212,6 +212,13 @@ static BLI_NOINLINE void sample_randomly(uint amount,
   }
 }
 
+static BLI_NOINLINE void compute_random_birth_moments(MutableArrayRef<float> r_birth_moments)
+{
+  for (float &birth_moment : r_birth_moments) {
+    birth_moment = random_float();
+  }
+}
+
 void SurfaceEmitter::emit(EmitterInterface &interface)
 {
   if (m_object == nullptr) {
@@ -254,15 +261,17 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
         particles_to_emit, BLI::ref_c_array(triangles, triangle_amount), looptri_indices);
   }
 
+  TemporaryArray<float> birth_moments(particles_to_emit);
+  compute_random_birth_moments(birth_moments);
+
   Vector<float3> positions;
   Vector<float3> velocities;
   Vector<float> sizes;
   Vector<float> birth_times;
 
   for (uint i = 0; i < particles_to_emit; i++) {
-    uint triangle_index = looptri_indices[i];
-    MLoopTri triangle = triangles[triangle_index];
-    float birth_moment = random_float();
+    MLoopTri triangle = triangles[looptri_indices[i]];
+    float birth_moment = birth_moments[i];
 
     float3 v1 = verts[loops[triangle.tri[0]].v].co;
     float3 v2 = verts[loops[triangle.tri[1]].v].co;
