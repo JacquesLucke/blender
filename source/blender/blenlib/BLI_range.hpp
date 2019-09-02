@@ -104,7 +104,7 @@ template<typename T> class Range {
   }
 
   /**
-   * Get the number of numbers in the range.
+   * Get the amount of numbers in the range.
    */
   uint size() const
   {

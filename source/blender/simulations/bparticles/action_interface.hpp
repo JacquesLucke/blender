@@ -19,6 +19,11 @@ class ActionContext {
   virtual ~ActionContext();
 };
 
+class EmitterActionContext {
+ public:
+  virtual void update(Range<uint> slice) = 0;
+};
+
 class ActionInterface {
  private:
   ParticleAllocator &m_particle_allocator;
@@ -55,7 +60,7 @@ class Action {
 
   void execute_from_emitter(ParticleSets &particle_sets,
                             EmitterInterface &emitter_interface,
-                            ActionContext *action_context = nullptr);
+                            EmitterActionContext *emitter_action_context = nullptr);
   void execute_from_event(EventExecuteInterface &event_interface,
                           ActionContext *action_context = nullptr);
   void execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface);
@@ -85,18 +90,29 @@ inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
 class EmptyActionContext : public ActionContext {
 };
 
+class EmptyEmitterActionContext : public EmitterActionContext {
+  void update(Range<uint> UNUSED(slice))
+  {
+  }
+};
+
 inline void Action::execute_from_emitter(ParticleSets &particle_sets,
                                          EmitterInterface &emitter_interface,
-                                         ActionContext *action_context)
+                                         EmitterActionContext *emitter_action_context)
 {
   AttributesInfo info;
   std::array<void *, 0> buffers;
 
-  EmptyActionContext empty_action_context;
-  ActionContext &used_action_context = (action_context == nullptr) ? empty_action_context :
-                                                                     *action_context;
+  EmptyEmitterActionContext empty_emitter_context;
+  EmitterActionContext &used_emitter_context = (emitter_action_context == nullptr) ?
+                                                   empty_emitter_context :
+                                                   *emitter_action_context;
 
+  uint offset = 0;
   for (ParticleSet particles : particle_sets.sets()) {
+    used_emitter_context.update(Range<uint>(offset, offset + particles.size()));
+    offset += particles.size();
+
     uint min_array_size = particles.attributes().size();
     AttributeArrays offsets(info, buffers, min_array_size);
     TemporaryArray<float> durations(min_array_size);
@@ -106,7 +122,7 @@ inline void Action::execute_from_emitter(ParticleSets &particle_sets,
                                      offsets,
                                      particles.attributes().get<float>("Birth Time"),
                                      durations,
-                                     used_action_context);
+                                     dynamic_cast<ActionContext &>(used_emitter_context));
     this->execute(action_interface);
   }
 }

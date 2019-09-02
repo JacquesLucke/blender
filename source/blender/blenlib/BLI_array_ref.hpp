@@ -82,7 +82,7 @@ template<typename T> class ArrayRef {
    */
   ArrayRef slice(uint start, uint length) const
   {
-    BLI_assert(start + length <= this->size());
+    BLI_assert(start + length <= this->size() || length == 0);
     return ArrayRef(m_start + start, length);
   }
 

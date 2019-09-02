@@ -331,14 +331,14 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     new_particles.set<float>("Size", sizes);
     new_particles.set<float>("Birth Time", birth_times);
 
-    // MeshSurfaceActionContext action_context(m_object,
-    //                                         transforms_at_birth,
-    //                                         local_positions,
-    //                                         local_normals,
-    //                                         world_normals,
-    //                                         triangles_to_sample);
+    MeshEmitterContext emitter_context(m_object,
+                                       transforms_at_birth,
+                                       local_positions,
+                                       local_normals,
+                                       world_normals,
+                                       triangles_to_sample);
 
-    m_on_birth_action->execute_from_emitter(new_particles, interface);
+    m_on_birth_action->execute_from_emitter(new_particles, interface, &emitter_context);
   }
 }
 
