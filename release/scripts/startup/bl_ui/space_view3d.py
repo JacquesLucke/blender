@@ -2099,6 +2099,9 @@ class VIEW3D_MT_object_relations(Menu):
         layout = self.layout
 
         layout.operator("object.proxy_make", text="Make Proxy...")
+        
+        if bpy.app.use_override_library:
+            layout.operator("object.make_override_library", text="Make Library Override...")
 
         layout.operator("object.make_dupli_face")
 
@@ -2330,6 +2333,7 @@ class VIEW3D_MT_object_context_menu(Menu):
             layout.separator()
 
             layout.operator("object.convert", text="Convert to Mesh").target = 'MESH'
+            layout.operator("object.convert", text="Convert to Grease Pencil").target = 'GPENCIL'
             layout.operator_menu_enum("object.origin_set", text="Set Origin", property="type")
 
             layout.separator()
@@ -3933,7 +3937,9 @@ class VIEW3D_MT_edit_gpencil_delete(Menu):
 
         layout.separator()
 
-        layout.operator("gpencil.active_frames_delete_all")
+        layout.operator("gpencil.delete", text="Delete Active Keyframe (Active Layer)").type = 'FRAME'
+        layout.operator("gpencil.active_frames_delete_all", text="Delete Active Keyframes (All Layers)")
+
 # Edit Curve
 # draw_curve is used by VIEW3D_MT_edit_curve and VIEW3D_MT_edit_surface
 
@@ -4492,13 +4498,13 @@ class VIEW3D_MT_edit_gpencil_stroke(Menu):
 
         layout.separator()
 
-        layout.operator_menu_enum("gpencil.stroke_join", "type", text="Join...")
+        layout.operator_menu_enum("gpencil.stroke_join", "type", text="Join")
 
         layout.separator()
 
-        layout.operator_menu_enum("gpencil.move_to_layer", "layer", text="Move to Layer")
+        layout.menu("GPENCIL_MT_move_to_layer")
         layout.menu("VIEW3D_MT_assign_material")
-        layout.operator_menu_enum("gpencil.stroke_arrange", "direction", text="Arrange Strokes...")
+        layout.operator_menu_enum("gpencil.stroke_arrange", "direction", text="Arrange Strokes")
 
         layout.separator()
 
@@ -4507,7 +4513,7 @@ class VIEW3D_MT_edit_gpencil_stroke(Menu):
         op.type = 'CLOSE'
         op.geometry = True
         layout.operator("gpencil.stroke_cyclical_set", text="Toggle Cyclic").type = 'TOGGLE'
-        layout.operator_menu_enum("gpencil.stroke_caps_set", text="Toggle Caps...", property="type")
+        layout.operator_menu_enum("gpencil.stroke_caps_set", text="Toggle Caps", property="type")
         layout.operator("gpencil.stroke_flip", text="Switch Direction")
 
 
@@ -4564,17 +4570,18 @@ class VIEW3D_MT_gpencil_animation(Menu):
     def draw(self, _context):
         layout = self.layout
 
-        layout.operator("gpencil.blank_frame_add")
+        layout.operator("gpencil.blank_frame_add", text="Insert Blank Keyframe (Active Layer)")
+        layout.operator("gpencil.blank_frame_add", text="Insert Blank Keyframe (All Layers)").all_layers = True
 
         layout.separator()
 
-        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame")
-        layout.operator("gpencil.frame_duplicate", text="Duplicate All Layers").mode = 'ALL'
+        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Keyframe (Active Layer)")
+        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Keyframe (All Layers)").mode = 'ALL'
 
         layout.separator()
 
-        layout.operator("gpencil.delete", text="Delete Active Frame").type = 'FRAME'
-        layout.operator("gpencil.active_frames_delete_all", text="Delete All Active Frames")
+        layout.operator("gpencil.delete", text="Delete Active Keyframe (Active Layer)").type = 'FRAME'
+        layout.operator("gpencil.active_frames_delete_all", text="Delete Active Keyframes (All Layers)")
 
 
 class VIEW3D_MT_edit_gpencil_transform(Menu):
@@ -4595,17 +4602,18 @@ class VIEW3D_MT_edit_gpencil_transform(Menu):
         layout.operator("transform.transform", text="Shrink Fatten").mode = 'GPENCIL_SHRINKFATTEN'
 
 
-        layout.operator("gpencil.interpolate", text="Interpolate")
-        layout.operator("gpencil.interpolate_sequence", text="Sequence")
-
 class VIEW3D_MT_edit_gpencil_showhide(Menu):
     bl_label = "Show/hide"
 
     def draw(self, _context):
         layout = self.layout
 
-        layout.operator("gpencil.hide", text="Hide Active Layer")
         layout.operator("gpencil.reveal", text="Show All Layers")
+
+        layout.separator()
+
+        layout.operator("gpencil.hide", text="Hide Active Layer").unselected = False
+        layout.operator("gpencil.hide", text="Hide Inactive Layers").unselected = True
 
 
 class VIEW3D_MT_edit_gpencil_interpolate(Menu):
@@ -5895,6 +5903,7 @@ class VIEW3D_PT_pivot_point(Panel):
             col.label(text="Affect Only")
             col.prop(tool_settings, "use_transform_data_origin", text="Origins")
             col.prop(tool_settings, "use_transform_pivot_point_align", text="Locations")
+            col.prop(tool_settings, "use_transform_skip_children", text="Parents (Skip Children)")
 
 
 class VIEW3D_PT_snapping(Panel):
@@ -6363,7 +6372,7 @@ class VIEW3D_MT_gpencil_edit_context_menu(Menu):
             col.separator()
 
             # Layer and Materials operators
-            col.operator_menu_enum("gpencil.move_to_layer", "layer", text="Move to Layer")
+            col.menu("GPENCIL_MT_move_to_layer")            
             col.menu("VIEW3D_MT_assign_material")
             col.operator_menu_enum("gpencil.stroke_arrange", "direction", text="Arrange Strokes")
 
@@ -6384,7 +6393,7 @@ class VIEW3D_MT_gpencil_edit_context_menu(Menu):
 
             # Removal Operators
             col.operator("gpencil.stroke_merge_by_distance").use_unselected = True
-            col.operator_menu_enum("gpencil.stroke_join", "type", text="Join...")
+            col.operator_menu_enum("gpencil.stroke_join", "type", text="Join")
             col.operator("gpencil.stroke_split", text="Split")
             col.operator("gpencil.stroke_separate", text="Separate").mode = 'STROKE'
 
@@ -6420,13 +6429,13 @@ class VIEW3D_PT_gpencil_sculpt_context_menu(Panel):
         layout.operator_context = 'INVOKE_REGION_WIN'
 
         layout.operator("gpencil.blank_frame_add", text="Insert Blank", icon='ADD')
-        layout.operator("gpencil.frame_duplicate", text="Duplicate Active", icon='DUPLICATE')
-        layout.operator("gpencil.frame_duplicate", text="Duplicate for All Layers", icon='DUPLICATE').mode = 'ALL'
+        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Layer", icon='DUPLICATE')
+        layout.operator("gpencil.frame_duplicate", text="Duplicate All Layers", icon='DUPLICATE').mode = 'ALL'
 
         layout.separator()
 
-        layout.operator("gpencil.delete", text="Delete Active", icon='REMOVE').type = 'FRAME'
-        layout.operator("gpencil.active_frames_delete_all", text="Delete All Active Layers", icon='REMOVE')
+        layout.operator("gpencil.delete", text="Delete Active Layer", icon='REMOVE').type = 'FRAME'
+        layout.operator("gpencil.active_frames_delete_all", text="Delete All Layers", icon='REMOVE')
 
 
 class VIEW3D_PT_gpencil_draw_context_menu(Panel):
@@ -6453,13 +6462,13 @@ class VIEW3D_PT_gpencil_draw_context_menu(Panel):
         layout.operator_context = 'INVOKE_REGION_WIN'
 
         layout.operator("gpencil.blank_frame_add", text="Insert Blank", icon='ADD')
-        layout.operator("gpencil.frame_duplicate", text="Duplicate Active", icon='DUPLICATE')
-        layout.operator("gpencil.frame_duplicate", text="Duplicate for All Layers", icon='DUPLICATE').mode = 'ALL'
+        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Layer", icon='DUPLICATE')
+        layout.operator("gpencil.frame_duplicate", text="Duplicate All Layers", icon='DUPLICATE').mode = 'ALL'
 
         layout.separator()
 
-        layout.operator("gpencil.delete", text="Delete Active", icon='REMOVE').type = 'FRAME'
-        layout.operator("gpencil.active_frames_delete_all", text="Delete All Active Layers", icon='REMOVE')
+        layout.operator("gpencil.delete", text="Delete Active Layer", icon='REMOVE').type = 'FRAME'
+        layout.operator("gpencil.active_frames_delete_all", text="Delete All Layers", icon='REMOVE')
 
 
 class VIEW3D_PT_paint_vertex_context_menu(Panel):
