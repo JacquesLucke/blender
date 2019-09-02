@@ -295,35 +295,37 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   m_transform.interpolate(birth_moments, 0.0f, transforms_at_birth);
   m_transform.interpolate(birth_moments, -epsilon, transforms_before_birth);
 
+  TemporaryArray<float3> positions_at_birth(particles_to_emit);
+  float4x4::transform_positions(transforms_at_birth, local_positions, positions_at_birth);
+
+  TemporaryArray<float3> positions_before_birth(particles_to_emit);
+  float4x4::transform_positions(transforms_before_birth, local_positions, positions_before_birth);
+
+  TemporaryArray<float3> normals(particles_to_emit);
+  float4x4::transform_directions(transforms_at_birth, local_normals, normals);
+
   TemporaryArray<float> sizes(particles_to_emit);
   sizes.fill(m_size);
 
   TemporaryArray<float> birth_times(particles_to_emit);
   interface.time_span().interpolate(birth_moments, birth_times);
 
-  Vector<float3> positions;
-  Vector<float3> velocities;
+  TemporaryArray<float3> velocities(particles_to_emit);
 
   for (uint i = 0; i < particles_to_emit; i++) {
-    float3 pos = local_positions[i];
-    float3 normal = local_normals[i];
+    float3 point_at_birth = positions_at_birth[i];
+    float3 point_before_birth = positions_before_birth[i];
 
-    float4x4 &transform_at_birth = transforms_at_birth[i];
-    float4x4 &transform_before_birth = transforms_before_birth[i];
-
-    float3 point_at_birth = transform_at_birth.transform_position(pos);
-    float3 point_before_birth = transform_before_birth.transform_position(pos);
-
-    float3 normal_velocity = transform_at_birth.transform_direction(normal);
+    float3 normal_velocity = normals[i];
     float3 emitter_velocity = (point_at_birth - point_before_birth) / epsilon;
 
-    positions.append(point_at_birth);
-    velocities.append(normal_velocity * m_normal_velocity + emitter_velocity * m_emitter_velocity);
+    velocities[i] = normal_velocity * m_normal_velocity + emitter_velocity * m_emitter_velocity;
   }
 
   for (StringRef type_name : m_types_to_emit) {
-    auto new_particles = interface.particle_allocator().request(type_name, positions.size());
-    new_particles.set<float3>("Position", positions);
+    auto new_particles = interface.particle_allocator().request(type_name,
+                                                                positions_at_birth.size());
+    new_particles.set<float3>("Position", positions_at_birth);
     new_particles.set<float3>("Velocity", velocities);
     new_particles.set<float>("Size", sizes);
     new_particles.set<float>("Birth Time", birth_times);
