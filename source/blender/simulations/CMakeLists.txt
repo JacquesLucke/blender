@@ -30,6 +30,7 @@ set(SRC
   bparticles/actions.cpp
   bparticles/action_interface.hpp
   bparticles/action_interface.cpp
+  bparticles/action_contexts.hpp
   bparticles/events.hpp
   bparticles/events.cpp
   bparticles/attributes.hpp

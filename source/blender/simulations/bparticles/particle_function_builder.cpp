@@ -10,6 +10,7 @@
 #include "particle_function_builder.hpp"
 
 #include "events.hpp"
+#include "action_contexts.hpp"
 
 namespace BParticles {
 
@@ -78,9 +79,9 @@ class CollisionNormalInputProvider : public ParticleFunctionInputProvider {
   {
     ActionContext *action_context = interface.action_context();
     BLI_assert(action_context != nullptr);
-    CollisionEventInfo *collision_info = dynamic_cast<CollisionEventInfo *>(action_context);
-    BLI_assert(collision_info != nullptr);
-    return {collision_info->normals(), false};
+    auto *surface_info = dynamic_cast<MeshSurfaceActionContext *>(action_context);
+    BLI_assert(surface_info != nullptr);
+    return {surface_info->world_normals(), false};
   }
 };
 
@@ -136,11 +137,10 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
   {
     ActionContext *action_context = interface.action_context();
     BLI_assert(action_context != nullptr);
-    CollisionEventInfo *collision_info = dynamic_cast<CollisionEventInfo *>(action_context);
-    BLI_assert(collision_info != nullptr);
+    auto *surface_info = dynamic_cast<MeshSurfaceActionContext *>(action_context);
+    BLI_assert(surface_info != nullptr);
 
-    Object *object = collision_info->object();
-    float4x4 ob_inverse = (float4x4)object->imat;
+    const Object *object = surface_info->object();
     Mesh *mesh = (Mesh *)object->data;
 
     const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
@@ -150,18 +150,18 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
     MLoopUV *uv_layer = (MLoopUV *)CustomData_get(&mesh->ldata, uv_layer_index, CD_MLOOPUV);
     BLI_assert(uv_layer != nullptr);
 
-    ArrayRef<float3> positions = interface.particles().attributes().get<float3>("Position");
+    ArrayRef<float3> local_positions = surface_info->local_positions();
 
     rgba_b *pixel_buffer = (rgba_b *)m_ibuf->rect;
 
-    rgba_f *colors_buffer = (rgba_f *)BLI_temporary_allocate(sizeof(rgba_f) * positions.size());
-    MutableArrayRef<rgba_f> colors{colors_buffer, positions.size()};
+    rgba_f *colors_buffer = (rgba_f *)BLI_temporary_allocate(sizeof(rgba_f) *
+                                                             local_positions.size());
+    MutableArrayRef<rgba_f> colors{colors_buffer, local_positions.size()};
 
     for (uint pindex : interface.particles().pindices()) {
-      float3 position_world = positions[pindex];
-      float3 position_local = ob_inverse.transform_position(position_world);
+      float3 local_position = local_positions[pindex];
 
-      uint triangle_index = collision_info->loop_tri_indices()[pindex];
+      uint triangle_index = surface_info->looptri_indices()[pindex];
       const MLoopTri &triangle = triangles[triangle_index];
 
       uint loop1 = triangle.tri[0];
@@ -177,7 +177,7 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
       float2 uv3 = uv_layer[loop3].uv;
 
       float3 vertex_weights;
-      interp_weights_tri_v3(vertex_weights, v1, v2, v3, position_local);
+      interp_weights_tri_v3(vertex_weights, v1, v2, v3, local_position);
 
       float2 uv;
       interp_v2_v2v2v2(uv, uv1, uv2, uv3, vertex_weights);

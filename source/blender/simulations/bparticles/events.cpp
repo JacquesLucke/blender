@@ -1,5 +1,7 @@
 #include "events.hpp"
 
+#include "action_contexts.hpp"
+
 namespace BParticles {
 
 /* Age Reached Event
@@ -94,7 +96,8 @@ void MeshCollisionEvent::filter(EventFilterInterface &interface)
       if (float3::dot(result.normal, ray_direction) > 0) {
         result.normal = -result.normal;
       }
-      storage.normal = m_local_to_world.transform_direction(result.normal).normalized();
+      storage.local_normal = result.normal;
+      storage.local_position = ray_start + ray_direction * result.distance;
       storage.looptri_index = result.index;
     }
   }
@@ -121,18 +124,31 @@ MeshCollisionEvent::RayCastResult MeshCollisionEvent::ray_cast(float3 start,
 void MeshCollisionEvent::execute(EventExecuteInterface &interface)
 {
   ParticleSet particles = interface.particles();
-  TemporaryArray<float3> normals(interface.array_size());
-  TemporaryArray<uint> looptri_indices(interface.array_size());
+
+  uint array_size = interface.array_size();
+  TemporaryArray<float3> local_positions(array_size);
+  TemporaryArray<float3> local_normals(array_size);
+  TemporaryArray<uint> looptri_indices(array_size);
+  TemporaryArray<float4x4> world_transforms(array_size);
+  TemporaryArray<float3> world_normals(array_size);
+
   auto last_collision_times = particles.attributes().get<float>(m_identifier);
 
   for (uint pindex : particles.pindices()) {
     auto storage = interface.get_storage<EventStorage>(pindex);
     looptri_indices[pindex] = storage.looptri_index;
-    normals[pindex] = storage.normal;
+    local_positions[pindex] = storage.local_position;
+    local_normals[pindex] = storage.local_normal;
+    world_transforms[pindex] = m_local_to_world;
+    world_normals[pindex] =
+        m_local_to_world.transform_direction(storage.local_normal).normalized();
+
     last_collision_times[pindex] = interface.current_times()[pindex];
   }
 
-  CollisionEventInfo action_context(m_object, looptri_indices, normals);
+  MeshSurfaceActionContext action_context(
+      m_object, world_transforms, local_positions, local_normals, world_normals, looptri_indices);
+
   m_action->execute_from_event(interface, &action_context);
 }
 

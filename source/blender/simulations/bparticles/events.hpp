@@ -37,34 +37,6 @@ class AgeReachedEvent : public Event {
   void execute(EventExecuteInterface &interface) override;
 };
 
-class CollisionEventInfo : public ActionContext {
- private:
-  Object *m_object;
-  ArrayRef<uint> m_loop_tri_indices;
-  ArrayRef<float3> m_normals;
-
- public:
-  CollisionEventInfo(Object *object, ArrayRef<uint> loop_tri_indices, ArrayRef<float3> normals)
-      : m_object(object), m_loop_tri_indices(loop_tri_indices), m_normals(normals)
-  {
-  }
-
-  Object *object()
-  {
-    return m_object;
-  }
-
-  ArrayRef<uint> loop_tri_indices()
-  {
-    return m_loop_tri_indices;
-  }
-
-  ArrayRef<float3> normals()
-  {
-    return m_normals;
-  }
-};
-
 class MeshCollisionEvent : public Event {
  private:
   std::string m_identifier;
@@ -83,7 +55,8 @@ class MeshCollisionEvent : public Event {
 
   struct EventStorage {
     uint looptri_index;
-    float3 normal;
+    float3 local_normal;
+    float3 local_position;
   };
 
  public:
