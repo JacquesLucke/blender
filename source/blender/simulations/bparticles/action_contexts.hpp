@@ -7,6 +7,16 @@ struct Object;
 namespace BParticles {
 
 class MeshSurfaceActionContext : public ActionContext {
+ public:
+  virtual const Object *object() const = 0;
+  virtual ArrayRef<float4x4> world_transforms() const = 0;
+  virtual ArrayRef<float3> local_positions() const = 0;
+  virtual ArrayRef<float3> local_normals() const = 0;
+  virtual ArrayRef<float3> world_normals() const = 0;
+  virtual ArrayRef<uint> looptri_indices() const = 0;
+};
+
+class MeshCollisionContext : public MeshSurfaceActionContext {
  private:
   Object *m_object;
   ArrayRef<float4x4> m_world_transforms;
@@ -16,12 +26,12 @@ class MeshSurfaceActionContext : public ActionContext {
   ArrayRef<uint> m_looptri_indices;
 
  public:
-  MeshSurfaceActionContext(Object *object,
-                           ArrayRef<float4x4> world_transforms,
-                           ArrayRef<float3> local_positions,
-                           ArrayRef<float3> local_normals,
-                           ArrayRef<float3> world_normals,
-                           ArrayRef<uint> looptri_indices)
+  MeshCollisionContext(Object *object,
+                       ArrayRef<float4x4> world_transforms,
+                       ArrayRef<float3> local_positions,
+                       ArrayRef<float3> local_normals,
+                       ArrayRef<float3> world_normals,
+                       ArrayRef<uint> looptri_indices)
       : m_object(object),
         m_world_transforms(world_transforms),
         m_local_positions(local_positions),
@@ -31,32 +41,32 @@ class MeshSurfaceActionContext : public ActionContext {
   {
   }
 
-  const Object *object() const
+  const Object *object() const override
   {
     return m_object;
   }
 
-  ArrayRef<float4x4> world_transforms() const
+  ArrayRef<float4x4> world_transforms() const override
   {
     return m_world_transforms;
   }
 
-  ArrayRef<float3> local_positions() const
+  ArrayRef<float3> local_positions() const override
   {
     return m_local_positions;
   }
 
-  ArrayRef<float3> local_normals() const
+  ArrayRef<float3> local_normals() const override
   {
     return m_local_normals;
   }
 
-  ArrayRef<float3> world_normals() const
+  ArrayRef<float3> world_normals() const override
   {
     return m_world_normals;
   }
 
-  ArrayRef<uint> looptri_indices() const
+  ArrayRef<uint> looptri_indices() const override
   {
     return m_looptri_indices;
   }

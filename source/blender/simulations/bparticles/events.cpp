@@ -146,7 +146,7 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
     last_collision_times[pindex] = interface.current_times()[pindex];
   }
 
-  MeshSurfaceActionContext action_context(
+  MeshCollisionContext action_context(
       m_object, world_transforms, local_positions, local_normals, world_normals, looptri_indices);
 
   m_action->execute_from_event(interface, &action_context);
