@@ -219,6 +219,34 @@ static BLI_NOINLINE void compute_random_birth_moments(MutableArrayRef<float> r_b
   }
 }
 
+static BLI_NOINLINE void sample_looptris(Mesh *mesh,
+                                         ArrayRef<MLoopTri> triangles,
+                                         ArrayRef<uint> triangles_to_sample,
+                                         MutableArrayRef<float3> r_sampled_positions,
+                                         MutableArrayRef<float3> r_sampled_normals)
+{
+  BLI_assert(triangles_to_sample.size() == r_sampled_positions.size());
+
+  MLoop *loops = mesh->mloop;
+  MVert *verts = mesh->mvert;
+
+  for (uint i = 0; i < triangles_to_sample.size(); i++) {
+    uint triangle_index = triangles_to_sample[i];
+    const MLoopTri &triangle = triangles[triangle_index];
+
+    float3 v1 = verts[loops[triangle.tri[0]].v].co;
+    float3 v2 = verts[loops[triangle.tri[1]].v].co;
+    float3 v3 = verts[loops[triangle.tri[2]].v].co;
+
+    float3 position = random_point_in_triangle(v1, v2, v3);
+    float3 normal;
+    normal_tri_v3(normal, v1, v2, v3);
+
+    r_sampled_positions[i] = position;
+    r_sampled_normals[i] = normal;
+  }
+}
+
 void SurfaceEmitter::emit(EmitterInterface &interface)
 {
   if (m_object == nullptr) {
@@ -237,32 +265,29 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
 
   Mesh *mesh = (Mesh *)m_object->data;
 
-  MLoop *loops = mesh->mloop;
-  MVert *verts = mesh->mvert;
-  const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-  int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
-  if (triangle_amount == 0) {
+  ArrayRef<MLoopTri> triangles(BKE_mesh_runtime_looptri_ensure(mesh),
+                               BKE_mesh_runtime_looptri_len(mesh));
+  if (triangles.size() == 0) {
     return;
   }
 
-  TemporaryArray<uint> looptri_indices(particles_to_emit);
+  TemporaryArray<uint> triangles_to_sample(particles_to_emit);
   if (m_density_group.size() > 0) {
-    if (!sample_with_vertex_weights(particles_to_emit,
-                                    m_object,
-                                    mesh,
-                                    m_density_group,
-                                    BLI::ref_c_array(triangles, triangle_amount),
-                                    looptri_indices)) {
+    if (!sample_with_vertex_weights(
+            particles_to_emit, m_object, mesh, m_density_group, triangles, triangles_to_sample)) {
       return;
     }
   }
   else {
-    sample_randomly(
-        particles_to_emit, BLI::ref_c_array(triangles, triangle_amount), looptri_indices);
+    sample_randomly(particles_to_emit, triangles, triangles_to_sample);
   }
 
   TemporaryArray<float> birth_moments(particles_to_emit);
   compute_random_birth_moments(birth_moments);
+
+  TemporaryArray<float3> local_positions(particles_to_emit);
+  TemporaryArray<float3> local_normals(particles_to_emit);
+  sample_looptris(mesh, triangles, triangles_to_sample, local_positions, local_normals);
 
   Vector<float3> positions;
   Vector<float3> velocities;
@@ -270,16 +295,9 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   Vector<float> birth_times;
 
   for (uint i = 0; i < particles_to_emit; i++) {
-    MLoopTri triangle = triangles[looptri_indices[i]];
     float birth_moment = birth_moments[i];
-
-    float3 v1 = verts[loops[triangle.tri[0]].v].co;
-    float3 v2 = verts[loops[triangle.tri[1]].v].co;
-    float3 v3 = verts[loops[triangle.tri[2]].v].co;
-    float3 pos = random_point_in_triangle(v1, v2, v3);
-
-    float3 normal;
-    normal_tri_v3(normal, v1, v2, v3);
+    float3 pos = local_positions[i];
+    float3 normal = local_normals[i];
 
     float epsilon = 0.01f;
     float4x4 transform_at_birth = m_transform.interpolate(birth_moment);
