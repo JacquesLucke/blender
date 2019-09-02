@@ -7,7 +7,6 @@
 
 #include "simulate.hpp"
 #include "time_span.hpp"
-#include "xmmintrin.h"
 
 #define USE_THREADING true
 

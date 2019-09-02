@@ -1,7 +1,10 @@
 #pragma once
 
 #include "simulation_state.hpp"
-#include "step_description.hpp"
+#include "integrator_interface.hpp"
+#include "event_interface.hpp"
+#include "offset_handler_interface.hpp"
+#include "emitter_interface.hpp"
 
 namespace BParticles {
 

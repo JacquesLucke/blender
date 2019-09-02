@@ -1,6 +1,5 @@
 #pragma once
 
-#include "step_description.hpp"
 #include "actions.hpp"
 #include "force_interface.hpp"
 

@@ -2,9 +2,9 @@
 
 #include "FN_tuple_call.hpp"
 
-#include "step_description.hpp"
 #include "world_state.hpp"
 #include "action_interface.hpp"
+#include "emitter_interface.hpp"
 
 namespace BParticles {
 

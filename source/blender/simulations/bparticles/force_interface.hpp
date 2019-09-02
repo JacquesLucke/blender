@@ -1,6 +1,6 @@
 #pragma once
 
-#include "step_description_interfaces.hpp"
+#include "block_step_data.hpp"
 
 namespace BParticles {
 

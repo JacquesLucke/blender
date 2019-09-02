@@ -1,7 +1,7 @@
 #pragma once
 
 #include "forces.hpp"
-#include "step_description.hpp"
+#include "integrator_interface.hpp"
 
 namespace BParticles {
 

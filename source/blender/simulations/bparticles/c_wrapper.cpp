@@ -1,5 +1,4 @@
 #include "BParticles.h"
-#include "step_description.hpp"
 #include "simulate.hpp"
 #include "world_state.hpp"
 #include "simulation_state.hpp"

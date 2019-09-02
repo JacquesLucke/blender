@@ -35,11 +35,12 @@ set(SRC
   bparticles/events.cpp
   bparticles/attributes.hpp
   bparticles/attributes.cpp
+  bparticles/emitter_interface.hpp
+  bparticles/block_step_data.hpp
+  bparticles/event_interface.hpp
+  bparticles/integrator_interface.hpp
+  bparticles/offset_handler_interface.hpp
   bparticles/c_wrapper.cpp
-  bparticles/step_description.hpp
-  bparticles/step_description.cpp
-  bparticles/step_description_interfaces.hpp
-  bparticles/step_description_interfaces.cpp
   bparticles/step_simulator.hpp
   bparticles/simulation_state.hpp
   bparticles/world_state.hpp
