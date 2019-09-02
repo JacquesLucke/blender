@@ -247,6 +247,16 @@ static BLI_NOINLINE void sample_looptris(Mesh *mesh,
   }
 }
 
+static BLI_NOINLINE void sample_varying_transform(const VaryingFloat4x4 &transform,
+                                                  ArrayRef<float> times,
+                                                  float time_offset,
+                                                  MutableArrayRef<float4x4> r_transforms)
+{
+  for (uint i = 0; i < times.size(); i++) {
+    r_transforms[i] = transform.interpolate(times[i] + time_offset);
+  }
+}
+
 void SurfaceEmitter::emit(EmitterInterface &interface)
 {
   if (m_object == nullptr) {
@@ -289,6 +299,12 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   TemporaryArray<float3> local_normals(particles_to_emit);
   sample_looptris(mesh, triangles, triangles_to_sample, local_positions, local_normals);
 
+  float epsilon = 0.01f;
+  TemporaryArray<float4x4> transforms_at_birth(particles_to_emit);
+  TemporaryArray<float4x4> transforms_before_birth(particles_to_emit);
+  sample_varying_transform(m_transform, birth_moments, 0.0f, transforms_at_birth);
+  sample_varying_transform(m_transform, birth_moments, -epsilon, transforms_before_birth);
+
   Vector<float3> positions;
   Vector<float3> velocities;
   Vector<float> sizes;
@@ -299,9 +315,8 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     float3 pos = local_positions[i];
     float3 normal = local_normals[i];
 
-    float epsilon = 0.01f;
-    float4x4 transform_at_birth = m_transform.interpolate(birth_moment);
-    float4x4 transform_before_birth = m_transform.interpolate(birth_moment - epsilon);
+    float4x4 &transform_at_birth = transforms_at_birth[i];
+    float4x4 &transform_before_birth = transforms_before_birth[i];
 
     float3 point_at_birth = transform_at_birth.transform_position(pos);
     float3 point_before_birth = transform_before_birth.transform_position(pos);

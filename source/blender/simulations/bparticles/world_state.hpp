@@ -16,7 +16,7 @@ using BLI::StringRef;
 struct VaryingFloat {
   float start, end;
 
-  float interpolate(float t)
+  float interpolate(float t) const
   {
     return start * (1.0f - t) + end * t;
   }
@@ -25,7 +25,7 @@ struct VaryingFloat {
 struct VaryingFloat3 {
   float3 start, end;
 
-  float3 interpolate(float t)
+  float3 interpolate(float t) const
   {
     return float3::interpolate(start, end, t);
   }
@@ -35,7 +35,7 @@ struct VaryingFloat4x4 {
   /* TODO: store decomposed matrices */
   float4x4 start, end;
 
-  float4x4 interpolate(float t)
+  float4x4 interpolate(float t) const
   {
     return float4x4::interpolate(start, end, t);
   }
