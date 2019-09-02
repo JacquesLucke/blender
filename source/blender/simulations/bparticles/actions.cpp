@@ -31,13 +31,14 @@ static float3 random_direction()
 
 static void update_position_and_velocity_offsets(ActionInterface &interface)
 {
-  ParticleSet particles = interface.particles();
+  AttributeArrays attributes = interface.attributes();
   AttributeArrays attribute_offsets = interface.attribute_offsets();
-  auto velocities = particles.attributes().get<float3>("Velocity");
+
+  auto velocities = attributes.get<float3>("Velocity");
   auto position_offsets = attribute_offsets.try_get<float3>("Position");
   auto velocity_offsets = attribute_offsets.try_get<float3>("Velocity");
 
-  for (uint pindex : particles.pindices()) {
+  for (uint pindex : interface.pindices()) {
     float3 velocity = velocities[pindex];
 
     if (position_offsets.has_value()) {
@@ -51,12 +52,11 @@ static void update_position_and_velocity_offsets(ActionInterface &interface)
 
 void SetVelocityAction::execute(ActionInterface &interface)
 {
-  ParticleSet particles = interface.particles();
-  auto velocities = particles.attributes().get<float3>("Velocity");
+  auto velocities = interface.attributes().get<float3>("Velocity");
 
   auto inputs = m_compute_inputs->compute(interface);
 
-  for (uint pindex : particles.pindices()) {
+  for (uint pindex : interface.pindices()) {
     float3 velocity = inputs->get<float3>("Velocity", 0, pindex);
     velocities[pindex] = velocity;
   }
@@ -66,12 +66,11 @@ void SetVelocityAction::execute(ActionInterface &interface)
 
 void RandomizeVelocityAction::execute(ActionInterface &interface)
 {
-  ParticleSet particles = interface.particles();
-  auto velocities = particles.attributes().get<float3>("Velocity");
+  auto velocities = interface.attributes().get<float3>("Velocity");
 
   auto inputs = m_compute_inputs->compute(interface);
 
-  for (uint pindex : particles.pindices()) {
+  for (uint pindex : interface.pindices()) {
     float randomness = inputs->get<float>("Randomness", 0, pindex);
     float3 old_velocity = velocities[pindex];
     float old_speed = old_velocity.length();
@@ -85,11 +84,10 @@ void RandomizeVelocityAction::execute(ActionInterface &interface)
 
 void ChangeColorAction::execute(ActionInterface &interface)
 {
-  ParticleSet particles = interface.particles();
-  auto colors = particles.attributes().get<rgba_f>("Color");
+  auto colors = interface.attributes().get<rgba_f>("Color");
 
   auto inputs = m_compute_inputs->compute(interface);
-  for (uint pindex : particles.pindices()) {
+  for (uint pindex : interface.pindices()) {
     rgba_f color = inputs->get<rgba_f>("Color", 0, pindex);
     colors[pindex] = color;
   }
@@ -97,14 +95,12 @@ void ChangeColorAction::execute(ActionInterface &interface)
 
 void KillAction::execute(ActionInterface &interface)
 {
-  interface.kill(interface.particles().pindices());
+  interface.kill(interface.pindices());
 }
 
 void ExplodeAction::execute(ActionInterface &interface)
 {
-  ParticleSet &particles = interface.particles();
-
-  auto positions = particles.attributes().get<float3>("Position");
+  auto positions = interface.attributes().get<float3>("Position");
 
   Vector<float3> new_positions;
   Vector<float3> new_velocities;
@@ -112,7 +108,7 @@ void ExplodeAction::execute(ActionInterface &interface)
 
   auto inputs = m_compute_inputs->compute(interface);
 
-  for (uint pindex : particles.pindices()) {
+  for (uint pindex : interface.pindices()) {
     uint parts_amount = std::max(0, inputs->get<int>("Amount", 0, pindex));
     float speed = inputs->get<float>("Speed", 1, pindex);
 
@@ -137,12 +133,10 @@ void ExplodeAction::execute(ActionInterface &interface)
 
 void ConditionAction::execute(ActionInterface &interface)
 {
-  ParticleSet particles = interface.particles();
-
   auto inputs = m_compute_inputs->compute(interface);
 
   Vector<uint> true_pindices, false_pindices;
-  for (uint pindex : particles.pindices()) {
+  for (uint pindex : interface.pindices()) {
     if (inputs->get<bool>("Condition", 0, pindex)) {
       true_pindices.append(pindex);
     }

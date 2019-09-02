@@ -27,7 +27,8 @@ class EmitterActionContext {
 class ActionInterface {
  private:
   ParticleAllocator &m_particle_allocator;
-  ParticleSet m_particles;
+  ArrayRef<uint> m_pindices;
+  AttributeArrays m_attributes;
   AttributeArrays m_attribute_offsets;
   ArrayRef<float> m_current_times;
   ArrayRef<float> m_remaining_durations;
@@ -35,7 +36,8 @@ class ActionInterface {
 
  public:
   ActionInterface(ParticleAllocator &particle_allocator,
-                  ParticleSet particles,
+                  ArrayRef<uint> pindices,
+                  AttributeArrays attributes,
                   AttributeArrays attribute_offsets,
                   ArrayRef<float> current_times,
                   ArrayRef<float> remaining_durations,
@@ -43,7 +45,8 @@ class ActionInterface {
 
   ActionContext &context();
 
-  ParticleSet &particles();
+  ArrayRef<uint> pindices();
+  AttributeArrays attributes();
   AttributeArrays attribute_offsets();
   float remaining_time_in_step(uint pindex);
   ArrayRef<float> remaining_durations();
@@ -58,14 +61,14 @@ class Action {
 
   virtual void execute(ActionInterface &interface) = 0;
 
-  void execute_from_emitter(ParticleSets &particle_sets,
+  void execute_from_emitter(NewParticles &new_particles,
                             EmitterInterface &emitter_interface,
                             EmitterActionContext *emitter_action_context = nullptr);
   void execute_from_event(EventExecuteInterface &event_interface,
                           ActionContext *action_context = nullptr);
   void execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface);
-  void execute_for_new_particles(ParticleSets &particle_sets, ActionInterface &action_interface);
-  void execute_for_new_particles(ParticleSets &particle_sets,
+  void execute_for_new_particles(NewParticles &new_particles, ActionInterface &action_interface);
+  void execute_for_new_particles(NewParticles &new_particles,
                                  OffsetHandlerInterface &offset_handler_interface);
 };
 
@@ -73,13 +76,15 @@ class Action {
  *******************************************/
 
 inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
-                                        ParticleSet particles,
+                                        ArrayRef<uint> pindices,
+                                        AttributeArrays attributes,
                                         AttributeArrays attribute_offsets,
                                         ArrayRef<float> current_times,
                                         ArrayRef<float> remaining_durations,
                                         ActionContext &action_context)
     : m_particle_allocator(particle_allocator),
-      m_particles(particles),
+      m_pindices(pindices),
+      m_attributes(attributes),
       m_attribute_offsets(attribute_offsets),
       m_current_times(current_times),
       m_remaining_durations(remaining_durations),
@@ -96,7 +101,7 @@ class EmptyEmitterActionContext : public EmitterActionContext {
   }
 };
 
-inline void Action::execute_from_emitter(ParticleSets &particle_sets,
+inline void Action::execute_from_emitter(NewParticles &new_particles,
                                          EmitterInterface &emitter_interface,
                                          EmitterActionContext *emitter_action_context)
 {
@@ -109,18 +114,22 @@ inline void Action::execute_from_emitter(ParticleSets &particle_sets,
                                                    *emitter_action_context;
 
   uint offset = 0;
-  for (ParticleSet particles : particle_sets.sets()) {
-    used_emitter_context.update(Range<uint>(offset, offset + particles.size()));
-    offset += particles.size();
+  for (uint i = 0; i < new_particles.range_amount(); i++) {
+    AttributeArrays attributes = new_particles.segment(i);
+    uint range_size = attributes.size();
 
-    uint min_array_size = particles.attributes().size();
-    AttributeArrays offsets(info, buffers, min_array_size);
-    TemporaryArray<float> durations(min_array_size);
-    durations.fill_indices(particles.pindices(), 0);
+    used_emitter_context.update(Range<uint>(offset, offset + range_size));
+    offset += range_size;
+
+    AttributeArrays offsets(info, buffers, range_size);
+    TemporaryArray<float> durations(range_size);
+    durations.fill(0);
+
     ActionInterface action_interface(emitter_interface.particle_allocator(),
-                                     particles,
+                                     Range<uint>(0, range_size).as_array_ref(),
+                                     attributes,
                                      offsets,
-                                     particles.attributes().get<float>("Birth Time"),
+                                     attributes.get<float>("Birth Time"),
                                      durations,
                                      dynamic_cast<ActionContext &>(used_emitter_context));
     this->execute(action_interface);
@@ -135,7 +144,8 @@ inline void Action::execute_from_event(EventExecuteInterface &event_interface,
                                                                      *action_context;
 
   ActionInterface action_interface(event_interface.particle_allocator(),
-                                   event_interface.particles(),
+                                   event_interface.pindices(),
+                                   event_interface.attributes(),
                                    event_interface.attribute_offsets(),
                                    event_interface.current_times(),
                                    event_interface.remaining_durations(),
@@ -146,7 +156,8 @@ inline void Action::execute_from_event(EventExecuteInterface &event_interface,
 inline void Action::execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface)
 {
   ActionInterface sub_interface(action_interface.particle_allocator(),
-                                ParticleSet(action_interface.particles().attributes(), pindices),
+                                pindices,
+                                action_interface.attributes(),
                                 action_interface.attribute_offsets(),
                                 action_interface.current_times(),
                                 action_interface.remaining_durations(),
@@ -154,7 +165,7 @@ inline void Action::execute_for_subset(ArrayRef<uint> pindices, ActionInterface 
   this->execute(sub_interface);
 }
 
-inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
+inline void Action::execute_for_new_particles(NewParticles &new_particles,
                                               ActionInterface &action_interface)
 {
   AttributesInfo info;
@@ -163,22 +174,26 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
   /* Use empty action context, until there a better solution is implemented. */
   EmptyActionContext empty_context;
 
-  for (ParticleSet particles : particle_sets.sets()) {
-    uint min_array_size = particles.attributes().size();
-    AttributeArrays offsets(info, buffers, min_array_size);
-    TemporaryArray<float> durations(min_array_size);
-    durations.fill_indices(particles.pindices(), 0);
+  for (uint i = 0; i < new_particles.range_amount(); i++) {
+    AttributeArrays attributes = new_particles.segment(i);
+    uint range_size = attributes.size();
+
+    AttributeArrays offsets(info, buffers, range_size);
+    TemporaryArray<float> durations(range_size);
+    durations.fill(0);
+
     ActionInterface new_interface(action_interface.particle_allocator(),
-                                  particles,
+                                  Range<uint>(0, range_size).as_array_ref(),
+                                  attributes,
                                   offsets,
-                                  particles.attributes().get<float>("Birth Time"),
+                                  attributes.get<float>("Birth Time"),
                                   durations,
                                   empty_context);
     this->execute(new_interface);
   }
 }
 
-inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
+inline void Action::execute_for_new_particles(NewParticles &new_particles,
                                               OffsetHandlerInterface &offset_handler_interface)
 {
   AttributesInfo info;
@@ -186,15 +201,19 @@ inline void Action::execute_for_new_particles(ParticleSets &particle_sets,
 
   EmptyActionContext empty_context;
 
-  for (ParticleSet particles : particle_sets.sets()) {
-    uint min_array_size = particles.attributes().size();
-    AttributeArrays offsets(info, buffers, min_array_size);
-    TemporaryArray<float> durations(min_array_size);
-    durations.fill_indices(particles.pindices(), 0);
+  for (uint i = 0; i < new_particles.range_amount(); i++) {
+    AttributeArrays attributes = new_particles.segment(i);
+    uint range_size = attributes.size();
+
+    AttributeArrays offsets(info, buffers, range_size);
+    TemporaryArray<float> durations(range_size);
+    durations.fill(0);
+
     ActionInterface new_interface(offset_handler_interface.particle_allocator(),
-                                  particles,
+                                  Range<uint>(0, range_size).as_array_ref(),
+                                  attributes,
                                   offsets,
-                                  particles.attributes().get<float>("Birth Time"),
+                                  attributes.get<float>("Birth Time"),
                                   durations,
                                   empty_context);
     this->execute(new_interface);
@@ -206,9 +225,14 @@ inline ActionContext &ActionInterface::context()
   return m_action_context;
 }
 
-inline ParticleSet &ActionInterface::particles()
+inline ArrayRef<uint> ActionInterface::pindices()
 {
-  return m_particles;
+  return m_pindices;
+}
+
+inline AttributeArrays ActionInterface::attributes()
+{
+  return m_attributes;
 }
 
 inline AttributeArrays ActionInterface::attribute_offsets()
@@ -233,7 +257,7 @@ inline ArrayRef<float> ActionInterface::current_times()
 
 inline void ActionInterface::kill(ArrayRef<uint> pindices)
 {
-  auto kill_states = m_particles.attributes().get<uint8_t>("Kill State");
+  auto kill_states = m_attributes.get<uint8_t>("Kill State");
   for (uint pindex : pindices) {
     kill_states[pindex] = 1;
   }

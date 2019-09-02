@@ -49,7 +49,8 @@ ParticleFunction::~ParticleFunction()
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ActionInterface &interface)
 {
-  return this->compute(interface.particles(),
+  return this->compute(interface.pindices(),
+                       interface.attributes(),
                        ParticleTimes::FromCurrentTimes(interface.current_times()),
                        &interface.context());
 }
@@ -57,7 +58,8 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ActionInterfac
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
     OffsetHandlerInterface &interface)
 {
-  return this->compute(interface.particles(),
+  return this->compute(interface.pindices(),
+                       interface.attributes(),
                        ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
                                                           interface.step_end_time()),
                        nullptr);
@@ -65,7 +67,8 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ForceInterface &interface)
 {
-  return this->compute(interface.particles(),
+  return this->compute(interface.pindices(),
+                       interface.attributes(),
                        ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
                                                           interface.step_end_time()),
                        nullptr);
@@ -73,13 +76,15 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ForceInterface
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(EventFilterInterface &interface)
 {
-  return this->compute(interface.particles(),
+  return this->compute(interface.pindices(),
+                       interface.attributes(),
                        ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
                                                           interface.step_end_time()),
                        nullptr);
 }
 
-std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ParticleSet particles,
+std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint> pindices,
+                                                                  AttributeArrays attributes,
                                                                   ParticleTimes particle_times,
                                                                   ActionContext *action_context)
 {
@@ -94,7 +99,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ParticleSet pa
   result->m_output_indices = m_output_indices;
 
   this->init_without_deps(result);
-  this->init_with_deps(result, particles, particle_times, action_context);
+  this->init_with_deps(result, pindices, attributes, particle_times, action_context);
 
   return std::unique_ptr<ParticleFunctionResult>(result);
 }
@@ -130,7 +135,8 @@ void ParticleFunction::init_without_deps(ParticleFunctionResult *result)
 }
 
 void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
-                                      ParticleSet particles,
+                                      ArrayRef<uint> pindices,
+                                      AttributeArrays attributes,
                                       ParticleTimes particle_times,
                                       ActionContext *action_context)
 {
@@ -146,7 +152,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
 
   for (uint i = 0; i < m_fn_with_deps->input_amount(); i++) {
     auto *provider = m_input_providers[i];
-    InputProviderInterface interface(particles, particle_times, action_context);
+    InputProviderInterface interface(pindices, attributes, particle_times, action_context);
     auto array = provider->get(interface);
     BLI_assert(array.buffer != nullptr);
     BLI_assert(array.stride > 0);
@@ -170,7 +176,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
     CPPTypeInfo &type_info = m_fn_with_deps->output_type(output_index)->extension<CPPTypeInfo>();
 
     uint output_stride = type_info.size();
-    void *output_buffer = BLI_temporary_allocate(output_stride * particles.size());
+    void *output_buffer = BLI_temporary_allocate(output_stride * attributes.size());
 
     result->m_buffers[parameter_index] = output_buffer;
     result->m_strides[parameter_index] = output_stride;
@@ -184,7 +190,7 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
   ExecutionContext execution_context(stack);
   FN::TextStackFrame stack_frame("Particle Function");
   stack.push(&stack_frame);
-  m_array_execution->call(particles.pindices(), input_buffers, output_buffers, execution_context);
+  m_array_execution->call(pindices, input_buffers, output_buffers, execution_context);
   stack.pop();
 
   for (uint i : inputs_to_free) {

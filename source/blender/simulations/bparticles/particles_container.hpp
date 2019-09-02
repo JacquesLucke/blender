@@ -181,6 +181,8 @@ class ParticlesBlock {
   AttributeArrays attributes_slice(uint start, uint length);
   AttributeArrays attributes_slice(Range<uint> range);
 
+  ArrayRef<void *> attribute_buffers();
+
   /**
    * Copy the attributes of one particle to another index in the same block.
    */
@@ -318,6 +320,11 @@ inline AttributeArrays ParticlesBlock::attributes_all()
 inline AttributeArrays ParticlesBlock::attributes()
 {
   return this->attributes_slice(Range<uint>(0, m_active_amount));
+}
+
+inline ArrayRef<void *> ParticlesBlock::attribute_buffers()
+{
+  return m_attribute_buffers;
 }
 
 }  // namespace BParticles

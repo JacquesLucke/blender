@@ -27,7 +27,7 @@ class ParticleAllocator {
    */
   ArrayRef<ParticlesBlock *> allocated_blocks();
 
-  ParticleSets request(StringRef particle_type_name, uint size);
+  NewParticles request(StringRef particle_type_name, uint size);
 
   ParticlesState &particles_state();
 

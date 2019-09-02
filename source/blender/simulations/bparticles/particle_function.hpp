@@ -150,21 +150,31 @@ struct ParticleTimes {
 
 class InputProviderInterface {
  private:
-  ParticleSet m_particles;
+  ArrayRef<uint> m_pindices;
+  AttributeArrays m_attributes;
   ParticleTimes m_particle_times;
   ActionContext *m_action_context;
 
  public:
-  InputProviderInterface(ParticleSet particles,
+  InputProviderInterface(ArrayRef<uint> pindices,
+                         AttributeArrays attributes,
                          ParticleTimes particle_times,
                          ActionContext *action_context)
-      : m_particles(particles), m_particle_times(particle_times), m_action_context(action_context)
+      : m_pindices(pindices),
+        m_attributes(attributes),
+        m_particle_times(particle_times),
+        m_action_context(action_context)
   {
   }
 
-  ParticleSet particles()
+  ArrayRef<uint> pindices()
   {
-    return m_particles;
+    return m_pindices;
+  }
+
+  AttributeArrays attributes()
+  {
+    return m_attributes;
   }
 
   ParticleTimes &particle_times()
@@ -231,14 +241,16 @@ class ParticleFunction {
   std::unique_ptr<ParticleFunctionResult> compute(EventFilterInterface &interface);
 
  private:
-  std::unique_ptr<ParticleFunctionResult> compute(ParticleSet particles,
+  std::unique_ptr<ParticleFunctionResult> compute(ArrayRef<uint> pindices,
+                                                  AttributeArrays attributes,
                                                   ParticleTimes particle_times,
                                                   ActionContext *action_context);
 
   void init_without_deps(ParticleFunctionResult *result);
 
   void init_with_deps(ParticleFunctionResult *result,
-                      ParticleSet particles,
+                      ArrayRef<uint> pindices,
+                      AttributeArrays attributes,
                       ParticleTimes particle_times,
                       ActionContext *action_context);
 };

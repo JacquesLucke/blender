@@ -79,27 +79,18 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     handler->execute(interface);
   }
 
-  ParticleSet particles(step_data.attributes, pindices);
-
+  auto attributes = step_data.attributes;
   auto attribute_offsets = step_data.attribute_offsets;
   for (uint attribute_index : attribute_offsets.info().attribute_indices()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
     /* Only vectors can be integrated for now. */
-    auto values = particles.attributes().get<float3>(name);
+    auto values = attributes.get<float3>(name);
     auto offsets = attribute_offsets.get<float3>(attribute_index);
 
-    if (particles.pindices_are_trivial()) {
-      for (uint pindex : particles.trivial_pindices()) {
-        float time_factor = time_factors_to_next_event[pindex];
-        values[pindex] += time_factor * offsets[pindex];
-      }
-    }
-    else {
-      for (uint pindex : particles.pindices()) {
-        float time_factor = time_factors_to_next_event[pindex];
-        values[pindex] += time_factor * offsets[pindex];
-      }
+    for (uint pindex : pindices) {
+      float time_factor = time_factors_to_next_event[pindex];
+      values[pindex] += time_factor * offsets[pindex];
     }
   }
 }
@@ -266,34 +257,6 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
   }
 }
 
-BLI_NOINLINE static void add_float3_arrays(ArrayRef<float3> base, ArrayRef<float3> values)
-{
-  /* I'm just testing the impact of vectorization here.
-   * This should eventually be moved to another place. */
-  BLI_assert(base.size() == values.size());
-  BLI_assert(POINTER_AS_UINT(base.begin()) % 16 == 0);
-  BLI_assert(POINTER_AS_UINT(values.begin()) % 16 == 0);
-
-  float *base_start = (float *)base.begin();
-  float *values_start = (float *)values.begin();
-  uint total_size = base.size() * 3;
-  uint overshoot = total_size % 4;
-  uint vectorized_size = total_size - overshoot;
-
-  /* Twice as fast in my test than the normal loop.
-   * The compiler did not vectorize it, maybe for compatibility? */
-  for (uint i = 0; i < vectorized_size; i += 4) {
-    __m128 a = _mm_load_ps(base_start + i);
-    __m128 b = _mm_load_ps(values_start + i);
-    __m128 result = _mm_add_ps(a, b);
-    _mm_store_ps(base_start + i, result);
-  }
-
-  for (uint i = vectorized_size; i < total_size; i++) {
-    base_start[i] += values_start[i];
-  }
-}
-
 BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
                                                  ArrayRef<OffsetHandler *> offset_handlers,
                                                  ArrayRef<uint> pindices)
@@ -308,23 +271,18 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
     }
   }
 
+  auto attributes = step_data.attributes;
   auto attribute_offsets = step_data.attribute_offsets;
-  ParticleSet particles(step_data.attributes, pindices);
 
   for (uint attribute_index : attribute_offsets.info().attribute_indices()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
     /* Only vectors can be integrated for now. */
-    auto values = particles.attributes().get<float3>(name);
+    auto values = attributes.get<float3>(name);
     auto offsets = attribute_offsets.get<float3>(attribute_index);
 
-    if (particles.pindices_are_trivial()) {
-      add_float3_arrays(values.take_front(particles.size()), offsets.take_front(particles.size()));
-    }
-    else {
-      for (uint pindex : particles.pindices()) {
-        values[pindex] += offsets[pindex];
-      }
+    for (uint pindex : pindices) {
+      values[pindex] += offsets[pindex];
     }
   }
 }

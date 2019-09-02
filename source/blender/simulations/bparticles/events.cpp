@@ -14,15 +14,15 @@ void AgeReachedEvent::attributes(AttributesDeclaration &builder)
 
 void AgeReachedEvent::filter(EventFilterInterface &interface)
 {
-  ParticleSet particles = interface.particles();
-  auto birth_times = particles.attributes().get<float>("Birth Time");
-  auto was_activated_before = particles.attributes().get<uint8_t>(m_identifier);
+  AttributeArrays attributes = interface.attributes();
+  auto birth_times = attributes.get<float>("Birth Time");
+  auto was_activated_before = attributes.get<uint8_t>(m_identifier);
 
   float end_time = interface.step_end_time();
 
   auto inputs = m_compute_inputs->compute(interface);
 
-  for (uint pindex : particles.pindices()) {
+  for (uint pindex : interface.pindices()) {
     if (was_activated_before[pindex]) {
       continue;
     }
@@ -50,10 +50,8 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 
 void AgeReachedEvent::execute(EventExecuteInterface &interface)
 {
-  ParticleSet particles = interface.particles();
-
-  auto was_activated_before = particles.attributes().get<uint8_t>(m_identifier);
-  for (uint pindex : particles.pindices()) {
+  auto was_activated_before = interface.attributes().get<uint8_t>(m_identifier);
+  for (uint pindex : interface.pindices()) {
     was_activated_before[pindex] = true;
   }
 
@@ -75,12 +73,12 @@ uint MeshCollisionEvent::storage_size()
 
 void MeshCollisionEvent::filter(EventFilterInterface &interface)
 {
-  ParticleSet particles = interface.particles();
-  auto positions = particles.attributes().get<float3>("Position");
-  auto last_collision_times = particles.attributes().get<float>(m_identifier);
+  AttributeArrays attributes = interface.attributes();
+  auto positions = attributes.get<float3>("Position");
+  auto last_collision_times = attributes.get<float>(m_identifier);
   auto position_offsets = interface.attribute_offsets().get<float3>("Position");
 
-  for (uint pindex : particles.pindices()) {
+  for (uint pindex : interface.pindices()) {
     float3 ray_start = m_world_to_local.transform_position(positions[pindex]);
     float3 ray_direction = m_world_to_local.transform_direction(position_offsets[pindex]);
     float length = ray_direction.normalize_and_get_length();
@@ -123,8 +121,6 @@ MeshCollisionEvent::RayCastResult MeshCollisionEvent::ray_cast(float3 start,
 
 void MeshCollisionEvent::execute(EventExecuteInterface &interface)
 {
-  ParticleSet particles = interface.particles();
-
   uint array_size = interface.array_size();
   TemporaryArray<float3> local_positions(array_size);
   TemporaryArray<float3> local_normals(array_size);
@@ -132,9 +128,9 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
   TemporaryArray<float4x4> world_transforms(array_size);
   TemporaryArray<float3> world_normals(array_size);
 
-  auto last_collision_times = particles.attributes().get<float>(m_identifier);
+  auto last_collision_times = interface.attributes().get<float>(m_identifier);
 
-  for (uint pindex : particles.pindices()) {
+  for (uint pindex : interface.pindices()) {
     auto storage = interface.get_storage<EventStorage>(pindex);
     looptri_indices[pindex] = storage.looptri_index;
     local_positions[pindex] = storage.local_position;

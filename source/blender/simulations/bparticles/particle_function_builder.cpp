@@ -66,7 +66,7 @@ class AttributeInputProvider : public ParticleFunctionInputProvider {
 
   ParticleFunctionInputArray get(InputProviderInterface &interface) override
   {
-    AttributeArrays attributes = interface.particles().attributes();
+    AttributeArrays attributes = interface.attributes();
     uint attribute_index = attributes.attribute_index(m_name);
     uint stride = attributes.attribute_stride(attribute_index);
     void *buffer = attributes.get_ptr(attribute_index);
@@ -88,21 +88,21 @@ class CollisionNormalInputProvider : public ParticleFunctionInputProvider {
 class AgeInputProvider : public ParticleFunctionInputProvider {
   ParticleFunctionInputArray get(InputProviderInterface &interface) override
   {
-    auto birth_times = interface.particles().attributes().get<float>("Birth Time");
+    auto birth_times = interface.attributes().get<float>("Birth Time");
     float *ages_buffer = (float *)BLI_temporary_allocate(sizeof(float) * birth_times.size());
     MutableArrayRef<float> ages(ages_buffer, birth_times.size());
 
     ParticleTimes &times = interface.particle_times();
     if (times.type() == ParticleTimes::Type::Current) {
       auto current_times = times.current_times();
-      for (uint pindex : interface.particles().pindices()) {
+      for (uint pindex : interface.pindices()) {
         ages[pindex] = current_times[pindex] - birth_times[pindex];
       }
     }
     else if (times.type() == ParticleTimes::Type::DurationAndEnd) {
       auto remaining_durations = times.remaining_durations();
       float end_time = times.end_time();
-      for (uint pindex : interface.particles().pindices()) {
+      for (uint pindex : interface.pindices()) {
         ages[pindex] = end_time - remaining_durations[pindex] - birth_times[pindex];
       }
     }
@@ -158,7 +158,7 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
                                                              local_positions.size());
     MutableArrayRef<rgba_f> colors{colors_buffer, local_positions.size()};
 
-    for (uint pindex : interface.particles().pindices()) {
+    for (uint pindex : interface.pindices()) {
       float3 local_position = local_positions[pindex];
 
       uint triangle_index = surface_info->looptri_indices()[pindex];

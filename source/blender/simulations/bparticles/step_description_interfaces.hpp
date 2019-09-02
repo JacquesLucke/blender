@@ -142,9 +142,9 @@ class EventFilterInterface : public BlockStepDataAccess {
                        Vector<float> &r_filtered_time_factors);
 
   /**
-   * Return the particle set that should be checked.
+   * Return the indices that should be checked.
    */
-  ParticleSet particles();
+  ArrayRef<uint> pindices();
 
   /**
    * Mark a particle as triggered by the event at a specific point in time.
@@ -178,9 +178,9 @@ class EventExecuteInterface : public BlockStepDataAccess {
   ~EventExecuteInterface() = default;
 
   /**
-   * Access the set of particles that should be modified by this event.
+   * Access the indices that should be modified by this event.
    */
-  ParticleSet particles();
+  ArrayRef<uint> pindices();
 
   /**
    * Get the time at which every particle is modified by this event.
@@ -208,7 +208,7 @@ class IntegratorInterface : public BlockStepDataAccess {
  public:
   IntegratorInterface(BlockStepData &step_data, ArrayRef<uint> pindices);
 
-  ParticleSet particles();
+  ArrayRef<uint> pindices();
 };
 
 class OffsetHandlerInterface : public BlockStepDataAccess {
@@ -221,7 +221,7 @@ class OffsetHandlerInterface : public BlockStepDataAccess {
                          ArrayRef<uint> pindices,
                          ArrayRef<float> time_factors);
 
-  ParticleSet particles();
+  ArrayRef<uint> pindices();
   ArrayRef<float> time_factors();
 };
 
@@ -273,9 +273,9 @@ inline uint EventStorage::max_element_size() const
 /* EventFilterInterface inline functions
  **********************************************/
 
-inline ParticleSet EventFilterInterface::particles()
+inline ArrayRef<uint> EventFilterInterface::pindices()
 {
-  return ParticleSet(m_step_data.attributes, m_pindices);
+  return m_pindices;
 }
 
 inline void EventFilterInterface::trigger_particle(uint pindex, float time_factor)
@@ -312,9 +312,9 @@ inline EventStorage &EventExecuteInterface::event_storage()
   return m_event_storage;
 }
 
-inline ParticleSet EventExecuteInterface::particles()
+inline ArrayRef<uint> EventExecuteInterface::pindices()
 {
-  return ParticleSet(m_step_data.attributes, m_pindices);
+  return m_pindices;
 }
 
 inline ArrayRef<float> EventExecuteInterface::current_times()
@@ -332,9 +332,9 @@ template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)
 /* OffsetHandlerInterface inline functions
  **********************************************/
 
-inline ParticleSet OffsetHandlerInterface::particles()
+inline ArrayRef<uint> OffsetHandlerInterface::pindices()
 {
-  return ParticleSet(m_step_data.attributes, m_pindices);
+  return m_pindices;
 }
 
 inline ArrayRef<float> OffsetHandlerInterface::time_factors()
@@ -345,9 +345,9 @@ inline ArrayRef<float> OffsetHandlerInterface::time_factors()
 /* IntegratorInterface inline functions
  **********************************************/
 
-inline ParticleSet IntegratorInterface::particles()
+inline ArrayRef<uint> IntegratorInterface::pindices()
 {
-  return ParticleSet(m_step_data.attributes, m_pindices);
+  return m_pindices;
 }
 
 }  // namespace BParticles

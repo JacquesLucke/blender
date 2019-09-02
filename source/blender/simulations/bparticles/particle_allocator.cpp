@@ -71,7 +71,7 @@ AttributesInfo &ParticleAllocator::attributes_info(StringRef particle_type_name)
   return m_state.particle_container(particle_type_name).attributes_info();
 }
 
-ParticleSets ParticleAllocator::request(StringRef particle_type_name, uint size)
+NewParticles ParticleAllocator::request(StringRef particle_type_name, uint size)
 {
   Vector<ParticlesBlock *> blocks;
   Vector<Range<uint>> ranges;
@@ -79,12 +79,12 @@ ParticleSets ParticleAllocator::request(StringRef particle_type_name, uint size)
 
   AttributesInfo &attributes_info = this->attributes_info(particle_type_name);
 
-  Vector<ParticleSet> sets;
+  Vector<ArrayRef<void *>> buffers;
   for (uint i = 0; i < blocks.size(); i++) {
-    sets.append(ParticleSet(blocks[i]->attributes(), ranges[i].as_array_ref()));
+    buffers.append(blocks[i]->attribute_buffers());
   }
 
-  return ParticleSets(attributes_info, sets);
+  return NewParticles(attributes_info, std::move(buffers), std::move(ranges));
 }
 
 }  // namespace BParticles

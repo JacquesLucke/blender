@@ -17,9 +17,9 @@ class ForceInterface : public BlockStepDataAccess {
   {
   }
 
-  ParticleSet particles()
+  ArrayRef<uint> pindices()
   {
-    return ParticleSet(this->attributes(), m_pindices);
+    return m_pindices;
   }
 
   MutableArrayRef<float3> combined_destination()
