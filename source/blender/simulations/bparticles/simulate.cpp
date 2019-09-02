@@ -70,11 +70,13 @@ BLI_NOINLINE static void find_next_event_per_particle(
 
 BLI_NOINLINE static void forward_particles_to_next_event_or_end(
     BlockStepData &step_data,
+    ParticleAllocator &particle_allocator,
     ArrayRef<uint> pindices,
     ArrayRef<float> time_factors_to_next_event,
     ArrayRef<OffsetHandler *> offset_handlers)
 {
-  OffsetHandlerInterface interface(step_data, pindices, time_factors_to_next_event);
+  OffsetHandlerInterface interface(
+      step_data, pindices, time_factors_to_next_event, particle_allocator);
   for (OffsetHandler *handler : offset_handlers) {
     handler->execute(interface);
   }
@@ -159,6 +161,7 @@ BLI_NOINLINE static void find_unfinished_particles(ArrayRef<uint> pindices_with_
 }
 
 BLI_NOINLINE static void execute_events(BlockStepData &step_data,
+                                        ParticleAllocator &particle_allocator,
                                         ArrayRef<Vector<uint>> pindices_per_event,
                                         ArrayRef<float> current_times,
                                         EventStorage &event_storage,
@@ -174,12 +177,14 @@ BLI_NOINLINE static void execute_events(BlockStepData &step_data,
       continue;
     }
 
-    EventExecuteInterface interface(step_data, pindices, current_times, event_storage);
+    EventExecuteInterface interface(
+        step_data, pindices, current_times, event_storage, particle_allocator);
     event->execute(interface);
   }
 }
 
 BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
+                                                ParticleAllocator &particle_allocator,
                                                 ArrayRef<uint> pindices,
                                                 ParticleTypeInfo &type_info,
                                                 VectorAdaptor<uint> &r_unfinished_pindices)
@@ -201,8 +206,11 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
                                time_factors_to_next_event,
                                pindices_with_event);
 
-  forward_particles_to_next_event_or_end(
-      step_data, pindices, time_factors_to_next_event, type_info.offset_handlers);
+  forward_particles_to_next_event_or_end(step_data,
+                                         particle_allocator,
+                                         pindices,
+                                         time_factors_to_next_event,
+                                         type_info.offset_handlers);
 
   update_remaining_attribute_offsets(
       pindices_with_event, time_factors_to_next_event, step_data.attribute_offsets);
@@ -217,7 +225,12 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   compute_current_time_per_particle(
       pindices_with_event, step_data.remaining_durations, step_data.step_end_time, current_times);
 
-  execute_events(step_data, particles_per_event, current_times, event_storage, type_info.events);
+  execute_events(step_data,
+                 particle_allocator,
+                 particles_per_event,
+                 current_times,
+                 event_storage,
+                 type_info.events);
 
   find_unfinished_particles(pindices_with_event,
                             time_factors_to_next_event,
@@ -226,6 +239,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 }
 
 BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
+                                                    ParticleAllocator &particle_allocator,
                                                     uint max_events,
                                                     ParticleTypeInfo &type_info,
                                                     TemporaryVector<uint> &r_unfinished_pindices)
@@ -238,8 +252,11 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
   {
     /* Handle first event separately to be able to use the static number range. */
     VectorAdaptor<uint> pindices_output(pindices_A.begin(), amount_left);
-    simulate_to_next_event(
-        step_data, Range<uint>(0, amount_left).as_array_ref(), type_info, pindices_output);
+    simulate_to_next_event(step_data,
+                           particle_allocator,
+                           Range<uint>(0, amount_left).as_array_ref(),
+                           type_info,
+                           pindices_output);
     amount_left = pindices_output.size();
   }
 
@@ -247,7 +264,8 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
     VectorAdaptor<uint> pindices_input(pindices_A.begin(), amount_left, amount_left);
     VectorAdaptor<uint> pindices_output(pindices_B.begin(), amount_left, 0);
 
-    simulate_to_next_event(step_data, pindices_input, type_info, pindices_output);
+    simulate_to_next_event(
+        step_data, particle_allocator, pindices_input, type_info, pindices_output);
     amount_left = pindices_output.size();
     std::swap(pindices_A, pindices_B);
   }
@@ -258,6 +276,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
 }
 
 BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
+                                                 ParticleAllocator &particle_allocator,
                                                  ArrayRef<OffsetHandler *> offset_handlers,
                                                  ArrayRef<uint> pindices)
 {
@@ -265,7 +284,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
     TemporaryArray<float> time_factors(step_data.array_size());
     time_factors.fill_indices(pindices, 1.0f);
 
-    OffsetHandlerInterface interface(step_data, pindices, time_factors);
+    OffsetHandlerInterface interface(step_data, pindices, time_factors, particle_allocator);
     for (OffsetHandler *handler : offset_handlers) {
       handler->execute(interface);
     }
@@ -305,23 +324,25 @@ BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
   }
   AttributeArrays attribute_offsets(offsets_info, offset_buffers, amount);
 
-  BlockStepData step_data = {
-      particle_allocator, block.attributes(), attribute_offsets, remaining_durations, end_time};
+  BlockStepData step_data = {block.attributes(), attribute_offsets, remaining_durations, end_time};
 
   IntegratorInterface interface(step_data, block.active_range().as_array_ref());
   integrator.integrate(interface);
 
   if (type_info.events.size() == 0) {
-    apply_remaining_offsets(
-        step_data, type_info.offset_handlers, block.active_range().as_array_ref());
+    apply_remaining_offsets(step_data,
+                            particle_allocator,
+                            type_info.offset_handlers,
+                            block.active_range().as_array_ref());
   }
   else {
     TemporaryVector<uint> unfinished_pindices;
-    simulate_with_max_n_events(step_data, 10, type_info, unfinished_pindices);
+    simulate_with_max_n_events(step_data, particle_allocator, 10, type_info, unfinished_pindices);
 
     /* Not sure yet, if this really should be done. */
     if (unfinished_pindices.size() > 0) {
-      apply_remaining_offsets(step_data, type_info.offset_handlers, unfinished_pindices);
+      apply_remaining_offsets(
+          step_data, particle_allocator, type_info.offset_handlers, unfinished_pindices);
     }
   }
 

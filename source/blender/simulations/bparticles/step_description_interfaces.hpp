@@ -7,7 +7,6 @@
 namespace BParticles {
 
 struct BlockStepData {
-  ParticleAllocator &particle_allocator;
   AttributeArrays attributes;
   AttributeArrays attribute_offsets;
   MutableArrayRef<float> remaining_durations;
@@ -36,11 +35,6 @@ class BlockStepDataAccess {
   BlockStepData &step_data()
   {
     return m_step_data;
-  }
-
-  ParticleAllocator &particle_allocator()
-  {
-    return m_step_data.particle_allocator;
   }
 
   AttributeArrays attributes()
@@ -168,12 +162,14 @@ class EventExecuteInterface : public BlockStepDataAccess {
   ArrayRef<uint> m_pindices;
   ArrayRef<float> m_current_times;
   EventStorage &m_event_storage;
+  ParticleAllocator &m_particle_allocator;
 
  public:
   EventExecuteInterface(BlockStepData &step_data,
                         ArrayRef<uint> pindices,
                         ArrayRef<float> current_times,
-                        EventStorage &event_storage);
+                        EventStorage &event_storage,
+                        ParticleAllocator &particle_allocator);
 
   ~EventExecuteInterface() = default;
 
@@ -196,6 +192,8 @@ class EventExecuteInterface : public BlockStepDataAccess {
    * Get the entire event storage.
    */
   EventStorage &event_storage();
+
+  ParticleAllocator &particle_allocator();
 };
 
 /**
@@ -215,14 +213,17 @@ class OffsetHandlerInterface : public BlockStepDataAccess {
  private:
   ArrayRef<uint> m_pindices;
   ArrayRef<float> m_time_factors;
+  ParticleAllocator &m_particle_allocator;
 
  public:
   OffsetHandlerInterface(BlockStepData &step_data,
                          ArrayRef<uint> pindices,
-                         ArrayRef<float> time_factors);
+                         ArrayRef<float> time_factors,
+                         ParticleAllocator &particle_allocator);
 
   ArrayRef<uint> pindices();
   ArrayRef<float> time_factors();
+  ParticleAllocator &particle_allocator();
 };
 
 /* EmitterInterface inline functions
@@ -329,6 +330,11 @@ template<typename T> inline T &EventExecuteInterface::get_storage(uint pindex)
   return m_event_storage.get<T>(pindex);
 }
 
+inline ParticleAllocator &EventExecuteInterface::particle_allocator()
+{
+  return m_particle_allocator;
+}
+
 /* OffsetHandlerInterface inline functions
  **********************************************/
 
@@ -340,6 +346,11 @@ inline ArrayRef<uint> OffsetHandlerInterface::pindices()
 inline ArrayRef<float> OffsetHandlerInterface::time_factors()
 {
   return m_time_factors;
+}
+
+inline ParticleAllocator &OffsetHandlerInterface::particle_allocator()
+{
+  return m_particle_allocator;
 }
 
 /* IntegratorInterface inline functions

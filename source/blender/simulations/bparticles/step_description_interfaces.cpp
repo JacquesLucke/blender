@@ -29,11 +29,13 @@ EventFilterInterface::EventFilterInterface(BlockStepData &step_data,
 EventExecuteInterface::EventExecuteInterface(BlockStepData &step_data,
                                              ArrayRef<uint> pindices,
                                              ArrayRef<float> current_times,
-                                             EventStorage &event_storage)
+                                             EventStorage &event_storage,
+                                             ParticleAllocator &particle_allocator)
     : BlockStepDataAccess(step_data),
       m_pindices(pindices),
       m_current_times(current_times),
-      m_event_storage(event_storage)
+      m_event_storage(event_storage),
+      m_particle_allocator(particle_allocator)
 {
 }
 
@@ -44,8 +46,12 @@ IntegratorInterface::IntegratorInterface(BlockStepData &step_data, ArrayRef<uint
 
 OffsetHandlerInterface::OffsetHandlerInterface(BlockStepData &step_data,
                                                ArrayRef<uint> pindices,
-                                               ArrayRef<float> time_factors)
-    : BlockStepDataAccess(step_data), m_pindices(pindices), m_time_factors(time_factors)
+                                               ArrayRef<float> time_factors,
+                                               ParticleAllocator &particle_allocator)
+    : BlockStepDataAccess(step_data),
+      m_pindices(pindices),
+      m_time_factors(time_factors),
+      m_particle_allocator(particle_allocator)
 {
 }
 
