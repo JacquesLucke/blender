@@ -26,19 +26,6 @@ constexpr uint ALIGNMENT = BLI_TEMPORARY_BUFFER_ALIGNMENT;
 constexpr uint SMALL_BUFFER_SIZE = 64 * 1024;
 constexpr uintptr_t ALIGNMENT_MASK = ~(uintptr_t)(ALIGNMENT - 1);
 
-struct ThreadLocalBuffers {
-  Stack<void *, 32, RawAllocator> buffers;
-
-  ~ThreadLocalBuffers()
-  {
-    for (void *ptr : buffers) {
-      RawAllocator().deallocate(ptr);
-    }
-  }
-};
-
-thread_local ThreadLocalBuffers local_storage;
-
 enum TemporaryBufferType {
   Small,
   Large,
@@ -73,6 +60,19 @@ static void raw_deallocate(void *ptr)
   void *raw_ptr = memhead.raw_ptr;
   free(raw_ptr);
 }
+
+struct ThreadLocalBuffers {
+  Stack<void *, 32, RawAllocator> buffers;
+
+  ~ThreadLocalBuffers()
+  {
+    for (void *ptr : buffers) {
+      raw_deallocate(ptr);
+    }
+  }
+};
+
+thread_local ThreadLocalBuffers local_storage;
 
 void *BLI_temporary_allocate(uint size)
 {
