@@ -135,6 +135,59 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
   return ParticleFunctionInputArray(ArrayRef<rgba_f>(colors), true);
 }
 
+static BLI_NOINLINE Optional<ParticleFunctionInputArray> compute_vertex_weights(
+    InputProviderInterface &interface,
+    StringRef group_name,
+    MeshSurfaceActionContext *surface_info,
+    ArrayRef<uint> surface_info_mapping)
+{
+  Object *object = surface_info->object();
+  Mesh *mesh = (Mesh *)object->data;
+  MDeformVert *vertex_weights = mesh->dvert;
+
+  int group_index = defgroup_name_index(object, group_name.data());
+  if (group_index == -1 || vertex_weights == nullptr) {
+    return {};
+  }
+
+  const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+
+  float *weight_buffer = (float *)BLI_temporary_allocate(sizeof(float) *
+                                                         interface.attributes().size());
+  MutableArrayRef<float> weights(weight_buffer, interface.attributes().size());
+
+  for (uint pindex : interface.pindices()) {
+    uint source_index = surface_info_mapping[pindex];
+    float3 local_position = surface_info->local_positions()[source_index];
+    uint triangle_index = surface_info->looptri_indices()[source_index];
+    const MLoopTri &triangle = triangles[triangle_index];
+
+    uint loop1 = triangle.tri[0];
+    uint loop2 = triangle.tri[1];
+    uint loop3 = triangle.tri[2];
+
+    uint vert1 = mesh->mloop[loop1].v;
+    uint vert2 = mesh->mloop[loop2].v;
+    uint vert3 = mesh->mloop[loop3].v;
+
+    float3 v1 = mesh->mvert[vert1].co;
+    float3 v2 = mesh->mvert[vert2].co;
+    float3 v3 = mesh->mvert[vert3].co;
+
+    float3 bary_weights;
+    interp_weights_tri_v3(bary_weights, v1, v2, v3, local_position);
+
+    float3 corner_weights{defvert_find_weight(vertex_weights + vert1, group_index),
+                          defvert_find_weight(vertex_weights + vert2, group_index),
+                          defvert_find_weight(vertex_weights + vert3, group_index)};
+
+    float weight = float3::dot(bary_weights, corner_weights);
+    weights[pindex] = weight;
+  }
+
+  return ParticleFunctionInputArray(ArrayRef<float>(weights), true);
+}
+
 Optional<ParticleFunctionInputArray> VertexWeightInputProvider::get(
     InputProviderInterface &interface)
 {
@@ -142,102 +195,16 @@ Optional<ParticleFunctionInputArray> VertexWeightInputProvider::get(
 
   if (dynamic_cast<MeshSurfaceActionContext *>(action_context)) {
     auto *surface_info = dynamic_cast<MeshSurfaceActionContext *>(action_context);
-
-    Object *object = surface_info->object();
-    Mesh *mesh = (Mesh *)object->data;
-
-    MDeformVert *vertex_weights = mesh->dvert;
-    int group_index = defgroup_name_index(object, m_group_name.data());
-    if (group_index == -1 || vertex_weights == nullptr) {
-      return {};
-    }
-
-    ArrayRef<float3> local_positions = surface_info->local_positions();
-    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-
-    float *weight_buffer = (float *)BLI_temporary_allocate(sizeof(float) *
-                                                           interface.attributes().size());
-    MutableArrayRef<float> weights(weight_buffer, interface.attributes().size());
-
-    for (uint pindex : interface.pindices()) {
-      float3 local_position = local_positions[pindex];
-      uint triangle_index = surface_info->looptri_indices()[pindex];
-      const MLoopTri &triangle = triangles[triangle_index];
-
-      uint loop1 = triangle.tri[0];
-      uint loop2 = triangle.tri[1];
-      uint loop3 = triangle.tri[2];
-
-      uint vert1 = mesh->mloop[loop1].v;
-      uint vert2 = mesh->mloop[loop2].v;
-      uint vert3 = mesh->mloop[loop3].v;
-
-      float3 v1 = mesh->mvert[vert1].co;
-      float3 v2 = mesh->mvert[vert2].co;
-      float3 v3 = mesh->mvert[vert3].co;
-
-      float3 bary_weights;
-      interp_weights_tri_v3(bary_weights, v1, v2, v3, local_position);
-
-      float3 corner_weights{defvert_find_weight(vertex_weights + vert1, group_index),
-                            defvert_find_weight(vertex_weights + vert2, group_index),
-                            defvert_find_weight(vertex_weights + vert3, group_index)};
-
-      float weight = float3::dot(bary_weights, corner_weights);
-      weights[pindex] = weight;
-    }
-
-    return ParticleFunctionInputArray(ArrayRef<float>(weights), true);
+    return compute_vertex_weights(interface,
+                                  m_group_name,
+                                  surface_info,
+                                  Range<uint>(0, interface.attributes().size()).as_array_ref());
   }
   else if (dynamic_cast<SourceParticleActionContext *>(action_context)) {
     auto *source_info = dynamic_cast<SourceParticleActionContext *>(action_context);
     auto *surface_info = dynamic_cast<MeshSurfaceActionContext *>(source_info->source_context());
-
-    Object *object = surface_info->object();
-    Mesh *mesh = (Mesh *)object->data;
-
-    MDeformVert *vertex_weights = mesh->dvert;
-    int group_index = defgroup_name_index(object, m_group_name.data());
-    if (group_index == -1 || vertex_weights == nullptr) {
-      return {};
-    }
-
-    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-
-    float *weight_buffer = (float *)BLI_temporary_allocate(sizeof(float) *
-                                                           interface.attributes().size());
-    MutableArrayRef<float> weights(weight_buffer, interface.attributes().size());
-
-    for (uint pindex : interface.pindices()) {
-      uint source_index = source_info->source_indices()[pindex];
-      float3 local_position = surface_info->local_positions()[source_index];
-      uint triangle_index = surface_info->looptri_indices()[source_index];
-      const MLoopTri &triangle = triangles[triangle_index];
-
-      uint loop1 = triangle.tri[0];
-      uint loop2 = triangle.tri[1];
-      uint loop3 = triangle.tri[2];
-
-      uint vert1 = mesh->mloop[loop1].v;
-      uint vert2 = mesh->mloop[loop2].v;
-      uint vert3 = mesh->mloop[loop3].v;
-
-      float3 v1 = mesh->mvert[vert1].co;
-      float3 v2 = mesh->mvert[vert2].co;
-      float3 v3 = mesh->mvert[vert3].co;
-
-      float3 bary_weights;
-      interp_weights_tri_v3(bary_weights, v1, v2, v3, local_position);
-
-      float3 corner_weights{defvert_find_weight(vertex_weights + vert1, group_index),
-                            defvert_find_weight(vertex_weights + vert2, group_index),
-                            defvert_find_weight(vertex_weights + vert3, group_index)};
-
-      float weight = float3::dot(bary_weights, corner_weights);
-      weights[pindex] = weight;
-    }
-
-    return ParticleFunctionInputArray(ArrayRef<float>(weights), true);
+    return compute_vertex_weights(
+        interface, m_group_name, surface_info, source_info->source_indices());
   }
   else {
     return {};
