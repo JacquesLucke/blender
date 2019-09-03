@@ -308,7 +308,7 @@ class AttributesRef {
   /**
    * Get the size of an element in one attribute.
    */
-  uint attribute_stride(uint index)
+  uint attribute_size(uint index)
   {
     return size_of_attribute_type(this->info().type_of(index));
   }

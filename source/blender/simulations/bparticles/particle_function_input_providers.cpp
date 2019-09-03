@@ -14,9 +14,9 @@ ParticleFunctionInputArray AttributeInputProvider::get(InputProviderInterface &i
 {
   AttributesRef attributes = interface.attributes();
   uint attribute_index = attributes.attribute_index(m_name);
-  uint stride = attributes.attribute_stride(attribute_index);
+  uint size = attributes.attribute_size(attribute_index);
   void *buffer = attributes.get_ptr(attribute_index);
-  return {buffer, stride, false};
+  return {buffer, size, false};
 }
 
 ParticleFunctionInputArray CollisionNormalInputProvider::get(InputProviderInterface &interface)
