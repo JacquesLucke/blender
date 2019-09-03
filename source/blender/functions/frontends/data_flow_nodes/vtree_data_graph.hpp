@@ -52,6 +52,12 @@ class VTreeDataGraph {
     return m_socket_map[vsocket->id()];
   }
 
+  Type *lookup_type(VirtualSocket *vsocket)
+  {
+    DataSocket socket = this->lookup_socket(vsocket);
+    return m_graph->type_of_socket(socket);
+  }
+
   bool uses_socket(VirtualSocket *vsocket)
   {
     return !m_socket_map[vsocket->id()].is_none();

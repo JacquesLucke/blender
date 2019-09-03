@@ -1,4 +1,5 @@
 #include "FN_llvm.hpp"
+#include "BLI_lazy_init.hpp"
 
 #include "particle_function_builder.hpp"
 #include "particle_function_input_providers.hpp"
@@ -66,33 +67,56 @@ static AttributeType attribute_type_from_socket_type(FN::Type *type)
   }
 }
 
-static ParticleFunctionInputProvider *create_input_provider(VirtualSocket *vsocket,
-                                                            SharedDataGraph &data_graph,
-                                                            DataSocket socket)
+using BuildInputProvider = std::function<ParticleFunctionInputProvider *(
+    VTreeDataGraph &vtree_data_graph, VirtualSocket *vsocket)>;
+
+static ParticleFunctionInputProvider *INPUT_particle_info(VTreeDataGraph &vtree_data_graph,
+                                                          VirtualSocket *vsocket)
 {
-  VirtualNode *vnode = vsocket->vnode();
-  if (STREQ(vnode->idname(), "bp_ParticleInfoNode")) {
-    if (STREQ(vsocket->name(), "Age")) {
-      return new AgeInputProvider();
-    }
-    else {
-      return new AttributeInputProvider(
-          attribute_type_from_socket_type(data_graph->type_of_socket(socket)), vsocket->name());
-    }
-  }
-  else if (STREQ(vnode->idname(), "bp_CollisionInfoNode")) {
-    return new CollisionNormalInputProvider();
-  }
-  else if (STREQ(vnode->idname(), "bp_SurfaceImageNode")) {
-    PointerRNA rna = vnode->rna();
-    Image *image = (Image *)RNA_pointer_get(&rna, "image").data;
-    BLI_assert(image != nullptr);
-    return new SurfaceImageInputProvider(image);
+  if (STREQ(vsocket->name(), "Age")) {
+    return new AgeInputProvider();
   }
   else {
-    BLI_assert(false);
-    return nullptr;
+    FN::Type *fn_type = vtree_data_graph.lookup_type(vsocket);
+    AttributeType attr_type = attribute_type_from_socket_type(fn_type);
+    return new AttributeInputProvider(attr_type, vsocket->name());
   }
+}
+
+static ParticleFunctionInputProvider *INPUT_collision_info(
+    VTreeDataGraph &UNUSED(vtree_data_graph), VirtualSocket *UNUSED(vsocket))
+{
+  return new CollisionNormalInputProvider();
+}
+
+static ParticleFunctionInputProvider *INPUT_surface_image(VTreeDataGraph &UNUSED(vtree_data_graph),
+                                                          VirtualSocket *vsocket)
+{
+  PointerRNA rna = vsocket->vnode()->rna();
+  Image *image = (Image *)RNA_pointer_get(&rna, "image").data;
+  BLI_assert(image != nullptr);
+  return new SurfaceImageInputProvider(image);
+}
+
+BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
+{
+  StringMap<BuildInputProvider> map;
+  map.add_new("bp_ParticleInfoNode", INPUT_particle_info);
+  map.add_new("bp_CollisionInfoNode", INPUT_collision_info);
+  map.add_new("bp_SurfaceImageNode", INPUT_surface_image);
+  return map;
+}
+
+static ParticleFunctionInputProvider *create_input_provider(VTreeDataGraph &vtree_data_graph,
+                                                            VirtualSocket *vsocket)
+{
+  VirtualNode *vnode = vsocket->vnode();
+
+  auto &map = get_input_providers_map();
+  auto &builder = map.lookup(vnode->idname());
+  ParticleFunctionInputProvider *provider = builder(vtree_data_graph, vsocket);
+  BLI_assert(provider != nullptr);
+  return provider;
 }
 
 static SharedFunction create_function__with_deps(
@@ -112,8 +136,7 @@ static SharedFunction create_function__with_deps(
   fn_builder.add_outputs(data_graph.graph(), sockets_to_compute);
 
   for (uint i = 0; i < input_amount; i++) {
-    r_input_providers[i] = create_input_provider(
-        input_vsockets[i], data_graph.graph(), input_sockets[i]);
+    r_input_providers[i] = create_input_provider(data_graph, input_vsockets[i]);
   }
 
   SharedFunction fn = fn_builder.build(function_name);
