@@ -4,6 +4,7 @@
 #include "DNA_customdata_types.h"
 #include "BKE_customdata.h"
 #include "BKE_mesh_runtime.h"
+#include "BKE_deform.h"
 
 #include "particle_function_input_providers.hpp"
 #include "action_contexts.hpp"
@@ -132,6 +133,61 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
     colors[pindex] = pixel_buffer[y * m_ibuf->x + x];
   }
   return ParticleFunctionInputArray(ArrayRef<rgba_f>(colors), true);
+}
+
+Optional<ParticleFunctionInputArray> VertexWeightInputProvider::get(
+    InputProviderInterface &interface)
+{
+  auto *surface_info = dynamic_cast<MeshSurfaceActionContext *>(interface.action_context());
+  if (surface_info == nullptr) {
+    return {};
+  }
+
+  Object *object = surface_info->object();
+  Mesh *mesh = (Mesh *)object->data;
+
+  MDeformVert *vertex_weights = mesh->dvert;
+  int group_index = defgroup_name_index(object, m_group_name.data());
+  if (group_index == -1 || vertex_weights == nullptr) {
+    return {};
+  }
+
+  ArrayRef<float3> local_positions = surface_info->local_positions();
+  const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+
+  float *weight_buffer = (float *)BLI_temporary_allocate(sizeof(float) *
+                                                         interface.attributes().size());
+  MutableArrayRef<float> weights(weight_buffer, interface.attributes().size());
+
+  for (uint pindex : interface.pindices()) {
+    float3 local_position = local_positions[pindex];
+    uint triangle_index = surface_info->looptri_indices()[pindex];
+    const MLoopTri &triangle = triangles[triangle_index];
+
+    uint loop1 = triangle.tri[0];
+    uint loop2 = triangle.tri[1];
+    uint loop3 = triangle.tri[2];
+
+    uint vert1 = mesh->mloop[loop1].v;
+    uint vert2 = mesh->mloop[loop2].v;
+    uint vert3 = mesh->mloop[loop3].v;
+
+    float3 v1 = mesh->mvert[vert1].co;
+    float3 v2 = mesh->mvert[vert2].co;
+    float3 v3 = mesh->mvert[vert3].co;
+
+    float3 bary_weights;
+    interp_weights_tri_v3(bary_weights, v1, v2, v3, local_position);
+
+    float3 corner_weights{defvert_find_weight(vertex_weights + vert1, group_index),
+                          defvert_find_weight(vertex_weights + vert2, group_index),
+                          defvert_find_weight(vertex_weights + vert3, group_index)};
+
+    float weight = float3::dot(bary_weights, corner_weights);
+    weights[pindex] = weight;
+  }
+
+  return ParticleFunctionInputArray(ArrayRef<float>(weights), true);
 }
 
 }  // namespace BParticles

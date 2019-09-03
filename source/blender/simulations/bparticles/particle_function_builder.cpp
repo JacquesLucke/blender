@@ -98,12 +98,22 @@ static ParticleFunctionInputProvider *INPUT_surface_image(VTreeDataGraph &UNUSED
   return new SurfaceImageInputProvider(image);
 }
 
+static ParticleFunctionInputProvider *INPUT_surface_weight(
+    VTreeDataGraph &UNUSED(vtree_data_graph), VirtualSocket *vsocket)
+{
+  PointerRNA rna = vsocket->vnode()->rna();
+  char group_name[65];
+  RNA_string_get(&rna, "group_name", group_name);
+  return new VertexWeightInputProvider(group_name);
+}
+
 BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
 {
   StringMap<BuildInputProvider> map;
   map.add_new("bp_ParticleInfoNode", INPUT_particle_info);
   map.add_new("bp_CollisionInfoNode", INPUT_collision_info);
   map.add_new("bp_SurfaceImageNode", INPUT_surface_image);
+  map.add_new("bp_SurfaceWeightNode", INPUT_surface_weight);
   return map;
 }
 

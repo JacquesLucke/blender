@@ -35,3 +35,16 @@ class SurfaceImageNode(bpy.types.Node, BParticlesNode):
 
     def draw(self, layout):
         layout.prop(self, "image", text="")
+
+
+class SurfaceWeightNode(bpy.types.Node, BParticlesNode):
+    bl_idname = "bp_SurfaceWeightNode"
+    bl_label = "Surface Weight"
+
+    group_name: StringProperty()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_output("weight", "Weight", "Float")
+
+    def draw(self, layout):
+        layout.prop(self, "group_name", text="")

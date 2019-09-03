@@ -10,7 +10,7 @@ using BLI::float4x4;
 
 class MeshSurfaceActionContext : public ActionContext {
  public:
-  virtual const Object *object() const = 0;
+  virtual Object *object() const = 0;
   virtual ArrayRef<float4x4> world_transforms() const = 0;
   virtual ArrayRef<float3> local_positions() const = 0;
   virtual ArrayRef<float3> local_normals() const = 0;
@@ -58,7 +58,7 @@ class MeshEmitterContext : public MeshSurfaceActionContext, public EmitterAction
     m_looptri_indices = m_all_looptri_indices.slice(slice.start(), slice.size());
   }
 
-  const Object *object() const override
+  Object *object() const override
   {
     return m_object;
   }
@@ -114,7 +114,7 @@ class MeshCollisionContext : public MeshSurfaceActionContext {
   {
   }
 
-  const Object *object() const override
+  Object *object() const override
   {
     return m_object;
   }

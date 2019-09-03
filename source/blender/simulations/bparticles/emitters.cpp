@@ -266,8 +266,8 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
 
   Mesh *mesh = (Mesh *)m_object->data;
 
-  ArrayRef<MLoopTri> triangles(BKE_mesh_runtime_looptri_ensure(mesh),
-                               BKE_mesh_runtime_looptri_len(mesh));
+  const MLoopTri *triangles_buffer = BKE_mesh_runtime_looptri_ensure(mesh);
+  ArrayRef<MLoopTri> triangles(triangles_buffer, BKE_mesh_runtime_looptri_len(mesh));
   if (triangles.size() == 0) {
     return;
   }

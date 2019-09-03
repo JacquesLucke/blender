@@ -41,4 +41,16 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
   Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
 };
 
+class VertexWeightInputProvider : public ParticleFunctionInputProvider {
+ private:
+  std::string m_group_name;
+
+ public:
+  VertexWeightInputProvider(StringRef group_name) : m_group_name(group_name)
+  {
+  }
+
+  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
+};
+
 }  // namespace BParticles
