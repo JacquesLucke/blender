@@ -79,6 +79,7 @@ static Vector<VirtualSocket *> find_execute_sockets(VirtualNode *vnode, StringRe
     }
   }
   BLI_assert(found_name);
+  UNUSED_VARS_NDEBUG(found_name);
   return execute_sockets;
 }
 
