@@ -53,18 +53,17 @@ void AttributesRefGroup::set_elements(uint index, void *data)
 
   void *remaining_data = data;
 
-  for (uint i = 0; i < this->range_amount(); i++) {
-    AttributesRef attributes = this->segment(i);
+  for (AttributesRef attributes : *this) {
     void *dst = attributes.get_ptr(index);
 
-    uint range_size = m_ranges[i].size();
-    for (uint pindex = 0; pindex < range_size; pindex++) {
+    uint size = attributes.size();
+    for (uint pindex = 0; pindex < size; pindex++) {
       memcpy(POINTER_OFFSET(dst, element_size * pindex),
              POINTER_OFFSET(remaining_data, element_size * pindex),
              element_size);
     }
 
-    remaining_data = POINTER_OFFSET(remaining_data, range_size * element_size);
+    remaining_data = POINTER_OFFSET(remaining_data, size * element_size);
   }
 }
 
@@ -82,12 +81,10 @@ void AttributesRefGroup::set_repeated_elements(uint index,
   uint element_size = size_of_attribute_type(type);
 
   uint offset = 0;
-  for (uint i = 0; i < this->range_amount(); i++) {
-    AttributesRef attributes = this->segment(i);
+  for (AttributesRef attributes : *this) {
     void *dst = attributes.get_ptr(index);
 
-    uint range_size = m_ranges[i].size();
-    for (uint pindex = 0; pindex < range_size; pindex++) {
+    for (uint pindex = 0; pindex < attributes.size(); pindex++) {
       memcpy(POINTER_OFFSET(dst, element_size * pindex),
              POINTER_OFFSET(data, element_size * offset),
              element_size);
@@ -104,12 +101,10 @@ void AttributesRefGroup::fill_elements(uint index, void *value)
   AttributeType type = m_attributes_info->type_of(index);
   uint element_size = size_of_attribute_type(type);
 
-  for (uint i = 0; i < this->range_amount(); i++) {
-    AttributesRef attributes = this->segment(i);
+  for (AttributesRef attributes : *this) {
     void *dst = attributes.get_ptr(index);
 
-    uint range_size = m_ranges[i].size();
-    for (uint pindex = 0; pindex < range_size; pindex++) {
+    for (uint pindex = 0; pindex < attributes.size(); pindex++) {
       memcpy(POINTER_OFFSET(dst, element_size * pindex), value, element_size);
     }
   }

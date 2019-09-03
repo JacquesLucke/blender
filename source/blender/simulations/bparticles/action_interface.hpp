@@ -118,8 +118,7 @@ inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
                                                    *emitter_action_context;
 
   uint offset = 0;
-  for (uint i = 0; i < new_particles.range_amount(); i++) {
-    AttributesRef attributes = new_particles.segment(i);
+  for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
 
     used_emitter_context.update(Range<uint>(offset, offset + range_size));
@@ -178,8 +177,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
   /* Use empty action context, until there a better solution is implemented. */
   EmptyActionContext empty_context;
 
-  for (uint i = 0; i < new_particles.range_amount(); i++) {
-    AttributesRef attributes = new_particles.segment(i);
+  for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
 
     AttributesRef offsets(info, buffers, range_size);
@@ -205,8 +203,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
 
   EmptyActionContext empty_context;
 
-  for (uint i = 0; i < new_particles.range_amount(); i++) {
-    AttributesRef attributes = new_particles.segment(i);
+  for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
 
     AttributesRef offsets(info, buffers, range_size);

@@ -62,6 +62,7 @@ static AttributeType attribute_type_from_socket_type(FN::Type *type)
   }
   else {
     BLI_assert(false);
+    return AttributeType::Byte;
   }
 }
 

@@ -443,24 +443,49 @@ class AttributesRefGroup {
     this->fill<T>(index, value);
   }
 
-  AttributesRef segment(uint i)
-  {
-    return AttributesRef(*m_attributes_info, m_buffers[i], m_ranges[i]);
-  }
-
   AttributesInfo &attributes_info()
   {
     return *m_attributes_info;
   }
 
-  uint range_amount() const
+  class Iterator {
+   private:
+    AttributesRefGroup *m_group;
+    uint m_current;
+
+   public:
+    Iterator(AttributesRefGroup *group, uint current) : m_group(group), m_current(current)
+    {
+    }
+
+    Iterator &operator++()
+    {
+      m_current++;
+      return *this;
+    }
+
+    AttributesRef operator*()
+    {
+      return AttributesRef(*m_group->m_attributes_info,
+                           m_group->m_buffers[m_current],
+                           m_group->m_ranges[m_current]);
+    }
+
+    friend bool operator!=(const Iterator &a, const Iterator &b)
+    {
+      BLI_assert(a.m_group == b.m_group);
+      return a.m_current != b.m_current;
+    }
+  };
+
+  Iterator begin()
   {
-    return m_buffers.size();
+    return Iterator(this, 0);
   }
 
-  Range<uint> range(uint i) const
+  Iterator end()
   {
-    return m_ranges[i];
+    return Iterator(this, m_buffers.size());
   }
 
  private:
