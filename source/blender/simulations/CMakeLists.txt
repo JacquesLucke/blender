@@ -60,6 +60,8 @@ set(SRC
   bparticles/force_interface.cpp
   bparticles/particle_function_builder.hpp
   bparticles/particle_function_builder.cpp
+  bparticles/particle_function_input_providers.hpp
+  bparticles/particle_function_input_providers.cpp
 )
 
 set(LIB

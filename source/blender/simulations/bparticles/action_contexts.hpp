@@ -6,6 +6,8 @@ struct Object;
 
 namespace BParticles {
 
+using BLI::float4x4;
+
 class MeshSurfaceActionContext : public ActionContext {
  public:
   virtual const Object *object() const = 0;
