@@ -1,11 +1,8 @@
 #pragma once
 
 #include "particles_container.hpp"
-#include "BLI_string_map.hpp"
 
 namespace BParticles {
-
-using BLI::StringMap;
 
 class ParticlesState {
  private:

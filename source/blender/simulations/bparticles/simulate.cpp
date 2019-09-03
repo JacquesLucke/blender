@@ -99,7 +99,7 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
 BLI_NOINLINE static void update_remaining_attribute_offsets(
     ArrayRef<uint> pindices_with_event,
     ArrayRef<float> time_factors_to_next_event,
-    AttributeArrays attribute_offsets)
+    AttributesRef attribute_offsets)
 {
   for (uint attribute_index : attribute_offsets.info().attribute_indices()) {
     /* Only vectors can be integrated for now. */
@@ -321,7 +321,7 @@ BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
     void *ptr = BLI_temporary_allocate(size_of_attribute_type(type) * amount);
     offset_buffers.append(ptr);
   }
-  AttributeArrays attribute_offsets(offsets_info, offset_buffers, amount);
+  AttributesRef attribute_offsets(offsets_info, offset_buffers, amount);
 
   BlockStepData step_data = {block.attributes(), attribute_offsets, remaining_durations, end_time};
 

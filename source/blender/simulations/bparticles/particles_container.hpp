@@ -167,19 +167,19 @@ class ParticlesBlock {
   /**
    * Get the attributes of all active particles.
    */
-  AttributeArrays attributes();
+  AttributesRef attributes();
 
   /**
    * Get the attribute arrays owned by this block. The arrays might be longer than there are active
    * particles currently.
    */
-  AttributeArrays attributes_all();
+  AttributesRef attributes_all();
 
   /**
    * Get a slice of the attribute arrays.
    */
-  AttributeArrays attributes_slice(uint start, uint length);
-  AttributeArrays attributes_slice(Range<uint> range);
+  AttributesRef attributes_slice(uint start, uint length);
+  AttributesRef attributes_slice(Range<uint> range);
 
   ArrayRef<void *> attribute_buffers();
 
@@ -302,22 +302,22 @@ inline ParticlesContainer &ParticlesBlock::container()
   return m_container;
 }
 
-inline AttributeArrays ParticlesBlock::attributes_slice(Range<uint> range)
+inline AttributesRef ParticlesBlock::attributes_slice(Range<uint> range)
 {
-  return AttributeArrays(m_container.attributes_info(), m_attribute_buffers, range);
+  return AttributesRef(m_container.attributes_info(), m_attribute_buffers, range);
 }
 
-inline AttributeArrays ParticlesBlock::attributes_slice(uint start, uint length)
+inline AttributesRef ParticlesBlock::attributes_slice(uint start, uint length)
 {
   return this->attributes_slice(Range<uint>(start, start + length));
 }
 
-inline AttributeArrays ParticlesBlock::attributes_all()
+inline AttributesRef ParticlesBlock::attributes_all()
 {
   return this->attributes_slice(Range<uint>(0, m_container.block_size()));
 }
 
-inline AttributeArrays ParticlesBlock::attributes()
+inline AttributesRef ParticlesBlock::attributes()
 {
   return this->attributes_slice(Range<uint>(0, m_active_amount));
 }

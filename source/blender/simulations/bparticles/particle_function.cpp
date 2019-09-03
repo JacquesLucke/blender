@@ -84,7 +84,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(EventFilterInt
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint> pindices,
-                                                                  AttributeArrays attributes,
+                                                                  AttributesRef attributes,
                                                                   ParticleTimes particle_times,
                                                                   ActionContext *action_context)
 {
@@ -136,7 +136,7 @@ void ParticleFunction::init_without_deps(ParticleFunctionResult *result)
 
 void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
                                       ArrayRef<uint> pindices,
-                                      AttributeArrays attributes,
+                                      AttributesRef attributes,
                                       ParticleTimes particle_times,
                                       ActionContext *action_context)
 {

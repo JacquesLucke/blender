@@ -260,52 +260,89 @@ class AttributesInfo {
   }
 };
 
-class AttributeArrays;
-
 /**
  * The main class used to interact with attributes. It only references a set of arrays, so it can
  * be passed by value.
  */
-class AttributeArrays {
+class AttributesRef {
  private:
   AttributesInfo *m_info;
   ArrayRef<void *> m_buffers;
   Range<uint> m_range;
 
  public:
-  AttributeArrays(AttributesInfo &info, ArrayRef<void *> buffers, uint size);
-  AttributeArrays(AttributesInfo &info, ArrayRef<void *> buffers, Range<uint> range);
+  AttributesRef(AttributesInfo &info, ArrayRef<void *> buffers, uint size)
+      : AttributesRef(info, buffers, Range<uint>(0, size))
+  {
+  }
+
+  AttributesRef(AttributesInfo &info, ArrayRef<void *> buffers, Range<uint> range)
+      : m_info(&info), m_buffers(buffers), m_range(range)
+  {
+  }
 
   /**
    * Get the number of referenced elements.
    */
-  uint size() const;
+  uint size() const
+  {
+    return m_range.size();
+  }
 
   /**
    * Get information about the referenced attributes.
    */
-  AttributesInfo &info();
+  AttributesInfo &info()
+  {
+    return *m_info;
+  }
 
   /**
    * Get the index of an attributed identified by a name.
    */
-  uint attribute_index(StringRef name);
+  uint attribute_index(StringRef name)
+  {
+    return this->info().attribute_index(name);
+  }
 
   /**
    * Get the size of an element in one attribute.
    */
-  uint attribute_stride(uint index);
+  uint attribute_stride(uint index)
+  {
+    return size_of_attribute_type(this->info().type_of(index));
+  }
 
   /**
    * Get the raw pointer to the buffer that contains attribute values.
    */
-  void *get_ptr(uint index) const;
+  void *get_ptr(uint index) const
+  {
+    void *ptr = m_buffers[index];
+    AttributeType type = m_info->type_of(index);
+    uint size = size_of_attribute_type(type);
+    return POINTER_OFFSET(ptr, m_range.start() * size);
+  }
 
   /**
    * Initialize an attribute array using its default value.
    */
-  void init_default(uint index);
-  void init_default(StringRef name);
+  void init_default(uint index)
+  {
+    void *default_value = m_info->default_value_ptr(index);
+    void *dst = this->get_ptr(index);
+    AttributeType type = m_info->type_of(index);
+    uint element_size = size_of_attribute_type(type);
+
+    for (uint i : m_range) {
+      memcpy(POINTER_OFFSET(dst, element_size * i), default_value, element_size);
+    }
+  }
+
+  void init_default(StringRef name)
+  {
+    this->init_default(this->attribute_index(name));
+  }
 
   /**
    * Get access to the underlying attribute arrays.
@@ -317,6 +354,7 @@ class AttributeArrays {
     void *ptr = this->get_ptr(index);
     return MutableArrayRef<T>((T *)ptr, m_range.size());
   }
+
   template<typename T> MutableArrayRef<T> get(StringRef name)
   {
     uint index = this->attribute_index(name);
@@ -341,82 +379,97 @@ class AttributeArrays {
   /**
    * Get a continuous slice of the attribute arrays.
    */
-  AttributeArrays slice(uint start, uint size) const;
+  AttributesRef slice(uint start, uint size) const
+  {
+    return AttributesRef(*m_info, m_buffers, m_range.slice(start, size));
+  }
 
   /**
    * Create a new slice containing only the first n elements.
    */
-  AttributeArrays take_front(uint n) const;
+  AttributesRef take_front(uint n) const
+  {
+    return AttributesRef(*m_info, m_buffers, m_range.slice(0, n));
+  }
 };
 
-/* Attribute Arrays
- ******************************************/
+class AttributesRefGroup {
+ private:
+  AttributesInfo *m_attributes_info;
+  Vector<ArrayRef<void *>> m_buffers;
+  Vector<Range<uint>> m_ranges;
+  uint m_size;
 
-inline AttributeArrays::AttributeArrays(AttributesInfo &info, ArrayRef<void *> buffers, uint size)
-    : AttributeArrays(info, buffers, Range<uint>(0, size))
-{
-}
+ public:
+  AttributesRefGroup(AttributesInfo &attributes_info,
+                     Vector<ArrayRef<void *>> buffers,
+                     Vector<Range<uint>> ranges);
 
-inline AttributeArrays::AttributeArrays(AttributesInfo &info,
-                                        ArrayRef<void *> buffers,
-                                        Range<uint> range)
-    : m_info(&info), m_buffers(buffers), m_range(range)
-{
-}
-
-inline uint AttributeArrays::size() const
-{
-  return m_range.size();
-}
-
-inline AttributesInfo &AttributeArrays::info()
-{
-  return *m_info;
-}
-
-inline uint AttributeArrays::attribute_index(StringRef name)
-{
-  return this->info().attribute_index(name);
-}
-
-inline uint AttributeArrays::attribute_stride(uint index)
-{
-  return size_of_attribute_type(this->info().type_of(index));
-}
-
-inline void *AttributeArrays::get_ptr(uint index) const
-{
-  void *ptr = m_buffers[index];
-  AttributeType type = m_info->type_of(index);
-  uint size = size_of_attribute_type(type);
-  return POINTER_OFFSET(ptr, m_range.start() * size);
-}
-
-inline void AttributeArrays::init_default(uint index)
-{
-  void *default_value = m_info->default_value_ptr(index);
-  void *dst = this->get_ptr(index);
-  AttributeType type = m_info->type_of(index);
-  uint element_size = size_of_attribute_type(type);
-
-  for (uint i : m_range) {
-    memcpy(POINTER_OFFSET(dst, element_size * i), default_value, element_size);
+  template<typename T> void set(uint index, ArrayRef<T> data)
+  {
+    BLI_assert(data.size() == m_size);
+    BLI_assert(m_attributes_info->type_of(index) == attribute_type_by_type<T>::value);
+    this->set_elements(index, (void *)data.begin());
   }
-}
 
-inline void AttributeArrays::init_default(StringRef name)
-{
-  this->init_default(this->attribute_index(name));
-}
+  template<typename T> void set(StringRef name, ArrayRef<T> data)
+  {
+    uint index = m_attributes_info->attribute_index(name);
+    this->set<T>(index, data);
+  }
 
-inline AttributeArrays AttributeArrays::slice(uint start, uint size) const
-{
-  return AttributeArrays(*m_info, m_buffers, m_range.slice(start, size));
-}
+  template<typename T> void set_repeated(uint index, ArrayRef<T> data)
+  {
+    BLI_assert(m_attributes_info->type_of(index) == attribute_type_by_type<T>::value);
+    this->set_repeated_elements(
+        index, (void *)data.begin(), data.size(), m_attributes_info->default_value_ptr(index));
+  }
 
-inline AttributeArrays AttributeArrays::take_front(uint n) const
-{
-  return AttributeArrays(*m_info, m_buffers, m_range.slice(0, n));
-}
+  template<typename T> void set_repeated(StringRef name, ArrayRef<T> data)
+  {
+    uint index = m_attributes_info->attribute_index(name);
+    this->set_repeated<T>(index, data);
+  }
+
+  template<typename T> void fill(uint index, T value)
+  {
+    BLI_assert(m_attributes_info->type_of(index) == attribute_type_by_type<T>::value);
+    this->fill_elements(index, (void *)&value);
+  }
+
+  template<typename T> void fill(StringRef name, T value)
+  {
+    uint index = m_attributes_info->attribute_index(name);
+    this->fill<T>(index, value);
+  }
+
+  AttributesRef segment(uint i)
+  {
+    return AttributesRef(*m_attributes_info, m_buffers[i], m_ranges[i]);
+  }
+
+  AttributesInfo &attributes_info()
+  {
+    return *m_attributes_info;
+  }
+
+  uint range_amount() const
+  {
+    return m_buffers.size();
+  }
+
+  Range<uint> range(uint i) const
+  {
+    return m_ranges[i];
+  }
+
+ private:
+  void set_elements(uint index, void *data);
+  void set_repeated_elements(uint index,
+                             void *data,
+                             uint data_element_amount,
+                             void *default_value);
+  void fill_elements(uint index, void *value);
+};
 
 }  // namespace BParticles

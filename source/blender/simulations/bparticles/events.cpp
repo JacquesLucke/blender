@@ -14,7 +14,7 @@ void AgeReachedEvent::attributes(AttributesDeclaration &builder)
 
 void AgeReachedEvent::filter(EventFilterInterface &interface)
 {
-  AttributeArrays attributes = interface.attributes();
+  AttributesRef attributes = interface.attributes();
   auto birth_times = attributes.get<float>("Birth Time");
   auto was_activated_before = attributes.get<uint8_t>(m_identifier);
 
@@ -73,7 +73,7 @@ uint MeshCollisionEvent::storage_size()
 
 void MeshCollisionEvent::filter(EventFilterInterface &interface)
 {
-  AttributeArrays attributes = interface.attributes();
+  AttributesRef attributes = interface.attributes();
   auto positions = attributes.get<float3>("Position");
   auto last_collision_times = attributes.get<float>(m_identifier);
   auto position_offsets = interface.attribute_offsets().get<float3>("Position");

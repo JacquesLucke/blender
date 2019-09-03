@@ -6,8 +6,8 @@
 namespace BParticles {
 
 struct BlockStepData {
-  AttributeArrays attributes;
-  AttributeArrays attribute_offsets;
+  AttributesRef attributes;
+  AttributesRef attribute_offsets;
   MutableArrayRef<float> remaining_durations;
   float step_end_time;
 
@@ -36,12 +36,12 @@ class BlockStepDataAccess {
     return m_step_data;
   }
 
-  AttributeArrays attributes()
+  AttributesRef attributes()
   {
     return m_step_data.attributes;
   }
 
-  AttributeArrays attribute_offsets()
+  AttributesRef attribute_offsets()
   {
     return m_step_data.attribute_offsets;
   }

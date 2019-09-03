@@ -1,6 +1,5 @@
 #pragma once
 
-#include "particle_set.hpp"
 #include "particles_state.hpp"
 
 namespace BParticles {
@@ -27,7 +26,7 @@ class ParticleAllocator {
    */
   ArrayRef<ParticlesBlock *> allocated_blocks();
 
-  NewParticles request(StringRef particle_type_name, uint size);
+  AttributesRefGroup request(StringRef particle_type_name, uint size);
 
   ParticlesState &particles_state();
 

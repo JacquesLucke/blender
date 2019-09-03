@@ -227,7 +227,7 @@ void ParticlesBlock::Compress(MutableArrayRef<ParticlesBlock *> blocks)
 
 void ParticlesBlock::move(uint old_index, uint new_index)
 {
-  AttributeArrays attributes = this->attributes_all();
+  AttributesRef attributes = this->attributes_all();
 
   for (uint attribute_index : attributes.info().attribute_indices()) {
     void *ptr = attributes.get_ptr(attribute_index);

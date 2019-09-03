@@ -31,8 +31,8 @@ static float3 random_direction()
 
 static void update_position_and_velocity_offsets(ActionInterface &interface)
 {
-  AttributeArrays attributes = interface.attributes();
-  AttributeArrays attribute_offsets = interface.attribute_offsets();
+  AttributesRef attributes = interface.attributes();
+  AttributesRef attribute_offsets = interface.attribute_offsets();
 
   auto velocities = attributes.get<float3>("Velocity");
   auto position_offsets = attribute_offsets.try_get<float3>("Position");

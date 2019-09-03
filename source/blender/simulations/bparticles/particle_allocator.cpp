@@ -53,7 +53,7 @@ void ParticleAllocator::allocate_block_ranges(StringRef particle_type_name,
 
 void ParticleAllocator::initialize_new_particles(ParticlesBlock &block, Range<uint> pindices)
 {
-  AttributeArrays attributes = block.attributes_slice(pindices);
+  AttributesRef attributes = block.attributes_slice(pindices);
   for (uint i : attributes.info().attribute_indices()) {
     attributes.init_default(i);
   }
@@ -71,7 +71,7 @@ AttributesInfo &ParticleAllocator::attributes_info(StringRef particle_type_name)
   return m_state.particle_container(particle_type_name).attributes_info();
 }
 
-NewParticles ParticleAllocator::request(StringRef particle_type_name, uint size)
+AttributesRefGroup ParticleAllocator::request(StringRef particle_type_name, uint size)
 {
   Vector<ParticlesBlock *> blocks;
   Vector<Range<uint>> ranges;
@@ -84,7 +84,7 @@ NewParticles ParticleAllocator::request(StringRef particle_type_name, uint size)
     buffers.append(blocks[i]->attribute_buffers());
   }
 
-  return NewParticles(attributes_info, std::move(buffers), std::move(ranges));
+  return AttributesRefGroup(attributes_info, std::move(buffers), std::move(ranges));
 }
 
 }  // namespace BParticles

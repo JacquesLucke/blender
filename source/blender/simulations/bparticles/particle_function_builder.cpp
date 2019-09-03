@@ -66,7 +66,7 @@ class AttributeInputProvider : public ParticleFunctionInputProvider {
 
   ParticleFunctionInputArray get(InputProviderInterface &interface) override
   {
-    AttributeArrays attributes = interface.attributes();
+    AttributesRef attributes = interface.attributes();
     uint attribute_index = attributes.attribute_index(m_name);
     uint stride = attributes.attribute_stride(attribute_index);
     void *buffer = attributes.get_ptr(attribute_index);

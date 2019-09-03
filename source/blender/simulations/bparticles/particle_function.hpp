@@ -151,13 +151,13 @@ struct ParticleTimes {
 class InputProviderInterface {
  private:
   ArrayRef<uint> m_pindices;
-  AttributeArrays m_attributes;
+  AttributesRef m_attributes;
   ParticleTimes m_particle_times;
   ActionContext *m_action_context;
 
  public:
   InputProviderInterface(ArrayRef<uint> pindices,
-                         AttributeArrays attributes,
+                         AttributesRef attributes,
                          ParticleTimes particle_times,
                          ActionContext *action_context)
       : m_pindices(pindices),
@@ -172,7 +172,7 @@ class InputProviderInterface {
     return m_pindices;
   }
 
-  AttributeArrays attributes()
+  AttributesRef attributes()
   {
     return m_attributes;
   }
@@ -242,7 +242,7 @@ class ParticleFunction {
 
  private:
   std::unique_ptr<ParticleFunctionResult> compute(ArrayRef<uint> pindices,
-                                                  AttributeArrays attributes,
+                                                  AttributesRef attributes,
                                                   ParticleTimes particle_times,
                                                   ActionContext *action_context);
 
@@ -250,7 +250,7 @@ class ParticleFunction {
 
   void init_with_deps(ParticleFunctionResult *result,
                       ArrayRef<uint> pindices,
-                      AttributeArrays attributes,
+                      AttributesRef attributes,
                       ParticleTimes particle_times,
                       ActionContext *action_context);
 };
