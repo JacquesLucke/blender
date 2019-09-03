@@ -1,4 +1,5 @@
 #include "actions.hpp"
+#include "action_contexts.hpp"
 
 #include "BLI_hash.h"
 
@@ -116,6 +117,7 @@ void ExplodeAction::execute(ActionInterface &interface)
   Vector<float3> new_positions;
   Vector<float3> new_velocities;
   Vector<float> new_birth_times;
+  Vector<uint> source_particles;
 
   auto inputs = m_compute_inputs->compute(interface);
 
@@ -123,6 +125,7 @@ void ExplodeAction::execute(ActionInterface &interface)
     uint parts_amount = std::max(0, inputs->get<int>("Amount", 0, pindex));
     float speed = inputs->get<float>("Speed", 1, pindex);
 
+    source_particles.append_n_times(pindex, parts_amount);
     new_positions.append_n_times(positions[pindex], parts_amount);
     new_birth_times.append_n_times(interface.current_times()[pindex], parts_amount);
 
@@ -138,7 +141,9 @@ void ExplodeAction::execute(ActionInterface &interface)
     new_particles.fill<float>("Size", 0.1f);
     new_particles.set<float>("Birth Time", new_birth_times);
 
-    m_on_birth_action->execute_for_new_particles(new_particles, interface);
+    SourceParticleActionContext source_context(source_particles, &interface.context());
+
+    m_on_birth_action->execute_for_new_particles(new_particles, interface, &source_context);
   }
 }
 

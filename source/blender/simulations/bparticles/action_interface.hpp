@@ -27,6 +27,34 @@ class EmitterActionContext {
   virtual void update(Range<uint> slice) = 0;
 };
 
+class SourceParticleActionContext : public ActionContext {
+ private:
+  ArrayRef<uint> m_all_source_indices;
+  ArrayRef<uint> m_current_source_indices;
+  ActionContext *m_source_context;
+
+ public:
+  SourceParticleActionContext(ArrayRef<uint> source_indices, ActionContext *source_context)
+      : m_all_source_indices(source_indices), m_source_context(source_context)
+  {
+  }
+
+  void update(Range<uint> slice)
+  {
+    m_current_source_indices = m_all_source_indices.slice(slice.start(), slice.size());
+  }
+
+  ArrayRef<uint> source_indices()
+  {
+    return m_current_source_indices;
+  }
+
+  ActionContext *source_context()
+  {
+    return m_source_context;
+  }
+};
+
 class ActionInterface {
  private:
   ParticleAllocator &m_particle_allocator;
@@ -71,7 +99,8 @@ class Action {
                           ActionContext *action_context = nullptr);
   void execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface);
   void execute_for_new_particles(AttributesRefGroup &new_particles,
-                                 ActionInterface &action_interface);
+                                 ActionInterface &action_interface,
+                                 SourceParticleActionContext *action_context);
   void execute_for_new_particles(AttributesRefGroup &new_particles,
                                  OffsetHandlerInterface &offset_handler_interface);
 };
@@ -169,16 +198,17 @@ inline void Action::execute_for_subset(ArrayRef<uint> pindices, ActionInterface 
 }
 
 inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
-                                              ActionInterface &action_interface)
+                                              ActionInterface &action_interface,
+                                              SourceParticleActionContext *action_context)
 {
   AttributesInfo info;
   std::array<void *, 0> buffers;
 
-  /* Use empty action context, until there a better solution is implemented. */
-  EmptyActionContext empty_context;
-
+  uint offset = 0;
   for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
+    action_context->update(Range<uint>(offset, offset + range_size));
+    offset += range_size;
 
     AttributesRef offsets(info, buffers, range_size);
     TemporaryArray<float> durations(range_size);
@@ -190,7 +220,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
                                   offsets,
                                   attributes.get<float>("Birth Time"),
                                   durations,
-                                  empty_context);
+                                  *action_context);
     this->execute(new_interface);
   }
 }
