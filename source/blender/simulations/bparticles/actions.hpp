@@ -64,6 +64,19 @@ class ChangeColorAction : public Action {
   void execute(ActionInterface &interface) override;
 };
 
+class ChangeSizeAction : public Action {
+ private:
+  std::unique_ptr<ParticleFunction> m_compute_inputs;
+
+ public:
+  ChangeSizeAction(std::unique_ptr<ParticleFunction> compute_inputs)
+      : m_compute_inputs(std::move(compute_inputs))
+  {
+  }
+
+  void execute(ActionInterface &interface) override;
+};
+
 class ExplodeAction : public Action {
  private:
   Vector<std::string> m_types_to_emit;

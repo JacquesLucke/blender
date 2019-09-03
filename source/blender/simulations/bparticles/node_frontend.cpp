@@ -167,6 +167,21 @@ static std::unique_ptr<Action> ACTION_change_color(VTreeDataGraph &vtree_data_gr
   return std::unique_ptr<Action>(action);
 }
 
+static std::unique_ptr<Action> ACTION_change_size(VTreeDataGraph &vtree_data_graph,
+                                                  VirtualSocket *execute_vsocket)
+{
+  VirtualNode *vnode = execute_vsocket->vnode();
+
+  auto fn_or_error = create_particle_function(vnode, vtree_data_graph);
+  if (fn_or_error.is_error()) {
+    return {};
+  }
+  std::unique_ptr<ParticleFunction> compute_inputs_fn = fn_or_error.extract_value();
+
+  Action *action = new ChangeSizeAction(std::move(compute_inputs_fn));
+  return std::unique_ptr<Action>(action);
+}
+
 BLI_LAZY_INIT_STATIC(StringMap<ActionParserCallback>, get_action_parsers)
 {
   StringMap<ActionParserCallback> map;
@@ -175,6 +190,7 @@ BLI_LAZY_INIT_STATIC(StringMap<ActionParserCallback>, get_action_parsers)
   map.add_new("bp_ExplodeParticleNode", ACTION_explode);
   map.add_new("bp_ParticleConditionNode", ACTION_condition);
   map.add_new("bp_ChangeParticleColorNode", ACTION_change_color);
+  map.add_new("bp_ChangeParticleSizeNode", ACTION_change_size);
   return map;
 }
 

@@ -93,6 +93,17 @@ void ChangeColorAction::execute(ActionInterface &interface)
   }
 }
 
+void ChangeSizeAction::execute(ActionInterface &interface)
+{
+  auto sizes = interface.attributes().get<float>("Size");
+
+  auto inputs = m_compute_inputs->compute(interface);
+  for (uint pindex : interface.pindices()) {
+    float size = inputs->get<float>("Size", 0, pindex);
+    sizes[pindex] = size;
+  }
+}
+
 void KillAction::execute(ActionInterface &interface)
 {
   interface.kill(interface.pindices());

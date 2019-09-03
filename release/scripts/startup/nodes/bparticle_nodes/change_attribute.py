@@ -36,3 +36,11 @@ class ChangeParticleVelocityNode(bpy.types.Node, BParticlesNode):
 
     def draw(self, layout):
         layout.prop(self, "mode", text="")
+
+class ChangeParticleSizeNode(bpy.types.Node, BParticlesNode):
+    bl_idname = "bp_ChangeParticleSizeNode"
+    bl_label = "Change Particle Size"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("size", "Size", "Float", default=0.01)
+        builder.execute_output("execute", "Execute")
