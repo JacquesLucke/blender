@@ -74,7 +74,10 @@ class ExecuteInputListDecl(SocketDeclBase):
                 identifier=self.identifier_prefix + str(i))
             socket.display_shape = 'SQUARE'
             yield socket
-        socket = node_sockets.new("fn_OperatorSocket", "Operator")
+        socket = node_sockets.new(
+            "fn_OperatorSocket",
+            self.display_name,
+            identifier=self.identifier_prefix + "(Operator)")
         socket.display_shape = 'SQUARE'
         yield socket
 
@@ -96,6 +99,10 @@ class ExecuteInputListDecl(SocketDeclBase):
                 return False
 
         if not isinstance(sockets[-1], OperatorSocket):
+            return False
+        if not sockets[-1].name == self.display_name:
+            return False
+        if not sockets[-1].identifier == self.identifier_prefix + "(Operator)":
             return False
 
         return True

@@ -65,10 +65,12 @@ static Vector<std::string> find_connected_particle_type_names(VirtualSocket *out
 
 static Vector<VirtualSocket *> find_execute_sockets(VirtualNode *vnode, StringRef name_prefix)
 {
+  bool found_name = false;
   Vector<VirtualSocket *> execute_sockets;
   for (VirtualSocket *vsocket : vnode->inputs()) {
     if (StringRef(vsocket->name()).startswith(name_prefix)) {
       if (STREQ(vsocket->idname(), "fn_OperatorSocket")) {
+        found_name = true;
         break;
       }
       else {
@@ -76,6 +78,7 @@ static Vector<VirtualSocket *> find_execute_sockets(VirtualNode *vnode, StringRe
       }
     }
   }
+  BLI_assert(found_name);
   return execute_sockets;
 }
 
@@ -125,7 +128,7 @@ static std::unique_ptr<Action> ACTION_explode(VTreeDataGraph &vtree_data_graph,
   std::unique_ptr<ParticleFunction> compute_inputs_fn = fn_or_error.extract_value();
 
   std::unique_ptr<Action> on_birth_action = build_action_list(
-      vtree_data_graph, vnode, "Execute on Event");
+      vtree_data_graph, vnode, "Execute on Birth");
   Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(1, "Type"));
 
   Action *action = new ExplodeAction(
