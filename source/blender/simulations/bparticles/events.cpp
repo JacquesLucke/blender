@@ -1,5 +1,7 @@
-#include "events.hpp"
+#include "BLI_utildefines.h"
+#include "BLI_hash.h"
 
+#include "events.hpp"
 #include "action_contexts.hpp"
 
 namespace BParticles {
@@ -16,6 +18,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
   auto birth_times = attributes.get<float>("Birth Time");
+  auto ids = attributes.get<int32_t>("ID");
   auto was_activated_before = attributes.get<uint8_t>(m_identifier);
 
   float end_time = interface.step_end_time();
@@ -28,6 +31,9 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
     }
 
     float trigger_age = inputs->get<float>("Age", 0, pindex);
+    float variation = inputs->get<float>("Variation", 1, pindex);
+    int32_t id = ids[pindex];
+    trigger_age += BLI_hash_int_01(id) * variation;
 
     float birth_time = birth_times[pindex];
     float age_at_end = end_time - birth_time;
