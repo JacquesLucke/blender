@@ -49,7 +49,25 @@ static SetVector<VirtualSocket *> find_particle_dependencies(
   return combined_dependencies;
 }
 
-static ParticleFunctionInputProvider *create_input_provider(VirtualSocket *vsocket)
+static AttributeType attribute_type_from_socket_type(FN::Type *type)
+{
+  if (type == FN::Types::TYPE_float3) {
+    return AttributeType::Float3;
+  }
+  else if (type == FN::Types::TYPE_float) {
+    return AttributeType::Float;
+  }
+  else if (type == FN::Types::TYPE_int32) {
+    return AttributeType::Integer;
+  }
+  else {
+    BLI_assert(false);
+  }
+}
+
+static ParticleFunctionInputProvider *create_input_provider(VirtualSocket *vsocket,
+                                                            SharedDataGraph &data_graph,
+                                                            DataSocket socket)
 {
   VirtualNode *vnode = vsocket->vnode();
   if (STREQ(vnode->idname(), "bp_ParticleInfoNode")) {
@@ -57,7 +75,8 @@ static ParticleFunctionInputProvider *create_input_provider(VirtualSocket *vsock
       return new AgeInputProvider();
     }
     else {
-      return new AttributeInputProvider(vsocket->name());
+      return new AttributeInputProvider(
+          attribute_type_from_socket_type(data_graph->type_of_socket(socket)), vsocket->name());
     }
   }
   else if (STREQ(vnode->idname(), "bp_CollisionInfoNode")) {
@@ -92,7 +111,8 @@ static SharedFunction create_function__with_deps(
   fn_builder.add_outputs(data_graph.graph(), sockets_to_compute);
 
   for (uint i = 0; i < input_amount; i++) {
-    r_input_providers[i] = create_input_provider(input_vsockets[i]);
+    r_input_providers[i] = create_input_provider(
+        input_vsockets[i], data_graph.graph(), input_sockets[i]);
   }
 
   SharedFunction fn = fn_builder.build(function_name);

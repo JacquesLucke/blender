@@ -9,22 +9,23 @@ namespace BParticles {
 
 class AttributeInputProvider : public ParticleFunctionInputProvider {
  private:
+  AttributeType m_type;
   std::string m_name;
 
  public:
-  AttributeInputProvider(StringRef name) : m_name(name)
+  AttributeInputProvider(AttributeType type, StringRef name) : m_type(type), m_name(name)
   {
   }
 
-  ParticleFunctionInputArray get(InputProviderInterface &interface) override;
+  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
 };
 
 class CollisionNormalInputProvider : public ParticleFunctionInputProvider {
-  ParticleFunctionInputArray get(InputProviderInterface &interface) override;
+  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
 };
 
 class AgeInputProvider : public ParticleFunctionInputProvider {
-  ParticleFunctionInputArray get(InputProviderInterface &interface) override;
+  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
 };
 
 class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
@@ -37,7 +38,7 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
   SurfaceImageInputProvider(Image *image);
   ~SurfaceImageInputProvider();
 
-  ParticleFunctionInputArray get(InputProviderInterface &interface) override;
+  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
 };
 
 }  // namespace BParticles

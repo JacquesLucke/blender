@@ -153,13 +153,26 @@ void ParticleFunction::init_with_deps(ParticleFunctionResult *result,
   for (uint i = 0; i < m_fn_with_deps->input_amount(); i++) {
     auto *provider = m_input_providers[i];
     InputProviderInterface interface(pindices, attributes, particle_times, action_context);
-    auto array = provider->get(interface);
-    BLI_assert(array.buffer != nullptr);
-    BLI_assert(array.stride > 0);
+    auto optional_array = provider->get(interface);
+    if (optional_array.has_value()) {
+      ParticleFunctionInputArray array = optional_array.extract();
+      BLI_assert(array.buffer != nullptr);
+      BLI_assert(array.stride > 0);
 
-    input_buffers.append(array.buffer);
-    input_sizes.append(array.stride);
-    if (array.is_newly_allocated) {
+      input_buffers.append(array.buffer);
+      input_sizes.append(array.stride);
+      if (array.is_newly_allocated) {
+        inputs_to_free.append(i);
+      }
+    }
+    else {
+      uint element_size = m_fn_with_deps->input_type(i)->extension<CPPTypeInfo>().size();
+      void *default_buffer = BLI_temporary_allocate(element_size * attributes.size());
+      for (uint pindex : pindices) {
+        memset(POINTER_OFFSET(default_buffer, pindex * element_size), 0, element_size);
+      }
+      input_buffers.append(default_buffer);
+      input_sizes.append(element_size);
       inputs_to_free.append(i);
     }
   }

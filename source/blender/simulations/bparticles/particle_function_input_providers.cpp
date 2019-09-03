@@ -10,25 +10,34 @@
 
 namespace BParticles {
 
-ParticleFunctionInputArray AttributeInputProvider::get(InputProviderInterface &interface)
+Optional<ParticleFunctionInputArray> AttributeInputProvider::get(InputProviderInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
-  uint attribute_index = attributes.attribute_index(m_name);
-  uint size = attributes.attribute_size(attribute_index);
-  void *buffer = attributes.get_ptr(attribute_index);
-  return {buffer, size, false};
+  uint element_size = size_of_attribute_type(m_type);
+  int attribute_index = attributes.info().attribute_index_try(m_name, m_type);
+
+  if (attribute_index == -1) {
+    return {};
+  }
+  else {
+    void *buffer = attributes.get_ptr(attribute_index);
+    return ParticleFunctionInputArray(buffer, element_size, false);
+  }
 }
 
-ParticleFunctionInputArray CollisionNormalInputProvider::get(InputProviderInterface &interface)
+Optional<ParticleFunctionInputArray> CollisionNormalInputProvider::get(
+    InputProviderInterface &interface)
 {
   ActionContext *action_context = interface.action_context();
-  BLI_assert(action_context != nullptr);
   auto *surface_info = dynamic_cast<MeshSurfaceActionContext *>(action_context);
-  BLI_assert(surface_info != nullptr);
-  return {surface_info->world_normals(), false};
+  if (surface_info == nullptr) {
+    return {};
+  }
+
+  return ParticleFunctionInputArray(surface_info->world_normals(), false);
 }
 
-ParticleFunctionInputArray AgeInputProvider::get(InputProviderInterface &interface)
+Optional<ParticleFunctionInputArray> AgeInputProvider::get(InputProviderInterface &interface)
 {
   auto birth_times = interface.attributes().get<float>("Birth Time");
   float *ages_buffer = (float *)BLI_temporary_allocate(sizeof(float) * birth_times.size());
@@ -51,7 +60,7 @@ ParticleFunctionInputArray AgeInputProvider::get(InputProviderInterface &interfa
   else {
     BLI_assert(false);
   }
-  return {ArrayRef<float>(ages), true};
+  return ParticleFunctionInputArray(ArrayRef<float>(ages), true);
 }
 
 SurfaceImageInputProvider::SurfaceImageInputProvider(Image *image) : m_image(image)
@@ -67,12 +76,14 @@ SurfaceImageInputProvider::~SurfaceImageInputProvider()
   BKE_image_release_ibuf(m_image, m_ibuf, NULL);
 }
 
-ParticleFunctionInputArray SurfaceImageInputProvider::get(InputProviderInterface &interface)
+Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
+    InputProviderInterface &interface)
 {
   ActionContext *action_context = interface.action_context();
-  BLI_assert(action_context != nullptr);
   auto *surface_info = dynamic_cast<MeshSurfaceActionContext *>(action_context);
-  BLI_assert(surface_info != nullptr);
+  if (surface_info == nullptr) {
+    return {};
+  }
 
   const Object *object = surface_info->object();
   Mesh *mesh = (Mesh *)object->data;
@@ -120,7 +131,7 @@ ParticleFunctionInputArray SurfaceImageInputProvider::get(InputProviderInterface
     uint y = uv.y * (m_ibuf->y - 1);
     colors[pindex] = pixel_buffer[y * m_ibuf->x + x];
   }
-  return {ArrayRef<rgba_f>(colors), true};
+  return ParticleFunctionInputArray(ArrayRef<rgba_f>(colors), true);
 }
 
 }  // namespace BParticles

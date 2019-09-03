@@ -192,7 +192,7 @@ class ParticleFunctionInputProvider {
  public:
   virtual ~ParticleFunctionInputProvider();
 
-  virtual ParticleFunctionInputArray get(InputProviderInterface &interface) = 0;
+  virtual Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) = 0;
 };
 
 class ParticleFunction {
