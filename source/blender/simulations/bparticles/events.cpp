@@ -136,8 +136,6 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
   TemporaryArray<float3> local_positions(array_size);
   TemporaryArray<float3> local_normals(array_size);
   TemporaryArray<uint> looptri_indices(array_size);
-  TemporaryArray<float4x4> world_transforms(array_size);
-  TemporaryArray<float3> world_normals(array_size);
 
   auto last_collision_times = interface.attributes().get<float>(m_identifier);
 
@@ -146,15 +144,15 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
     looptri_indices[pindex] = storage.looptri_index;
     local_positions[pindex] = storage.local_position;
     local_normals[pindex] = storage.local_normal;
-    world_transforms[pindex] = m_local_to_world;
-    world_normals[pindex] =
-        m_local_to_world.transform_direction(storage.local_normal).normalized();
-
     last_collision_times[pindex] = interface.current_times()[pindex];
   }
 
-  MeshSurfaceContext surface_context(
-      m_object, world_transforms, local_positions, local_normals, world_normals, looptri_indices);
+  MeshSurfaceContext surface_context(m_object,
+                                     m_local_to_world,
+                                     interface.pindices(),
+                                     local_positions,
+                                     local_normals,
+                                     looptri_indices);
 
   m_action->execute_from_event(interface, &surface_context);
 }

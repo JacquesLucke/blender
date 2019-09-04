@@ -87,7 +87,7 @@ class Action {
 
   virtual void execute(ActionInterface &interface) = 0;
 
-  template<typename BuildContextF>
+  template<typename ContextT, typename BuildContextF>
   void execute_from_emitter(AttributesRefGroup &new_particles,
                             EmitterInterface &emitter_interface,
                             const BuildContextF &build_context);
@@ -124,7 +124,7 @@ inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
 class EmptyActionContext : public ActionContext {
 };
 
-template<typename BuildContextF>
+template<typename ContextT, typename BuildContextF>
 inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
                                          EmitterInterface &emitter_interface,
                                          const BuildContextF &build_context)
@@ -132,13 +132,15 @@ inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
   AttributesInfo info;
   std::array<void *, 0> buffers;
 
+  ContextT *action_context = (ContextT *)alloca(sizeof(ContextT));
+
   uint offset = 0;
   for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
     Range<uint> range(offset, offset + range_size);
     offset += range_size;
 
-    auto action_context = build_context(range);
+    build_context(range, (void *)action_context);
 
     AttributesRef offsets(info, buffers, range_size);
     TemporaryArray<float> durations(range_size);
@@ -150,8 +152,10 @@ inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
                                      offsets,
                                      attributes.get<float>("Birth Time"),
                                      durations,
-                                     action_context);
+                                     *action_context);
     this->execute(action_interface);
+
+    action_context->~ContextT();
   }
 }
 
