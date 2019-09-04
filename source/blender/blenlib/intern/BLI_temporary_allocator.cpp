@@ -62,6 +62,7 @@ static void raw_deallocate(void *ptr)
 }
 
 struct ThreadLocalBuffers {
+  uint allocated_amount = 0;
   Stack<void *, 32, RawAllocator> buffers;
 
   ~ThreadLocalBuffers()
@@ -76,12 +77,17 @@ thread_local ThreadLocalBuffers local_storage;
 
 void *BLI_temporary_allocate(uint size)
 {
+  /* The total amount of allocated buffers using this allocator should be limited by a constant. If
+   * it grows unbounded, there is likely a memory leak somewhere. */
+  BLI_assert(local_storage.allocated_amount < 100);
+
   if (size <= SMALL_BUFFER_SIZE) {
     auto &buffers = local_storage.buffers;
     if (buffers.empty()) {
       void *ptr = raw_allocate(SMALL_BUFFER_SIZE);
       MemHead &memhead = get_memhead(ptr);
       memhead.type = TemporaryBufferType::Small;
+      local_storage.allocated_amount++;
       return ptr;
     }
     else {
