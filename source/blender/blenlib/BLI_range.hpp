@@ -24,13 +24,15 @@
 #pragma once
 
 #include <cmath>
+#include <algorithm>
 
 #include "BLI_utildefines.h"
-#include "BLI_array_ref.hpp"
 
 #define RANGE_AS_ARRAY_REF_MAX_LEN 10000
 
 namespace BLI {
+
+template<typename T> class ArrayRef;
 
 template<typename T> class Range {
  private:

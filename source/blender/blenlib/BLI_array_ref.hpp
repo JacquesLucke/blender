@@ -42,6 +42,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_memory.hpp"
+#include "BLI_range.hpp"
 
 namespace BLI {
 
@@ -84,6 +85,11 @@ template<typename T> class ArrayRef {
   {
     BLI_assert(start + length <= this->size() || length == 0);
     return ArrayRef(m_start + start, length);
+  }
+
+  ArrayRef slice(Range<uint> range) const
+  {
+    return this->slice(range.start(), range.size());
   }
 
   /**

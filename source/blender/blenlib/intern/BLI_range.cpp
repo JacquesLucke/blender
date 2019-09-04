@@ -15,6 +15,7 @@
  */
 
 #include "BLI_range.hpp"
+#include "BLI_array_ref.hpp"
 
 namespace BLI {
 

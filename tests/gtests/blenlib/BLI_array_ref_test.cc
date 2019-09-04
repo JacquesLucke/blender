@@ -2,6 +2,7 @@
 #include "BLI_array_ref.hpp"
 #include "BLI_vector.hpp"
 
+using BLI::Range;
 using IntVector = BLI::Vector<int>;
 using IntArrayRef = BLI::ArrayRef<int>;
 using MutableIntArrayRef = BLI::MutableArrayRef<int>;
@@ -91,6 +92,15 @@ TEST(array_ref, SliceEmpty)
   IntVector a = {4, 5, 6, 7};
   auto slice = IntArrayRef(a).slice(2, 0);
   EXPECT_EQ(slice.size(), 0);
+}
+
+TEST(array_ref, SliceRange)
+{
+  IntVector a = {1, 2, 3, 4, 5};
+  auto slice = IntArrayRef(a).slice(Range<uint>(2, 4));
+  EXPECT_EQ(slice.size(), 2);
+  EXPECT_EQ(slice[0], 3);
+  EXPECT_EQ(slice[1], 4);
 }
 
 TEST(array_ref, Contains)
