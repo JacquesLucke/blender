@@ -16,12 +16,13 @@ class ParticleInfoNode(bpy.types.Node, BParticlesNode):
         builder.fixed_output("age", "Age", "Float")
 
 
-class CollisionInfoNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_CollisionInfoNode"
-    bl_label = "Collision Info"
+class SurfaceInfoNode(bpy.types.Node, BParticlesNode):
+    bl_idname = "bp_SurfaceInfoNode"
+    bl_label = "Surface Info"
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_output("normal", "Normal", "Vector")
+        builder.fixed_output("velocity", "Velocity", "Vector")
 
 
 class SurfaceImageNode(bpy.types.Node, BParticlesNode):

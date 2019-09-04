@@ -303,7 +303,8 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   for (uint i = 0; i < particles_to_emit; i++) {
     float3 position_before_birth = transforms_before_birth[i].transform_position(
         local_positions[i]);
-    surface_velocities[i] = (positions_at_birth[i] - position_before_birth) / epsilon;
+    surface_velocities[i] = (positions_at_birth[i] - position_before_birth) / epsilon /
+                            interface.time_span().duration();
   }
 
   TemporaryArray<float3> world_normals(particles_to_emit);

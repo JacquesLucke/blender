@@ -83,10 +83,19 @@ static ParticleFunctionInputProvider *INPUT_particle_info(VTreeDataGraph &vtree_
   }
 }
 
-static ParticleFunctionInputProvider *INPUT_collision_info(
-    VTreeDataGraph &UNUSED(vtree_data_graph), VirtualSocket *UNUSED(vsocket))
+static ParticleFunctionInputProvider *INPUT_surface_info(VTreeDataGraph &UNUSED(vtree_data_graph),
+                                                         VirtualSocket *vsocket)
 {
-  return new CollisionNormalInputProvider();
+  if (STREQ(vsocket->name(), "Normal")) {
+    return new SurfaceNormalInputProvider();
+  }
+  else if (STREQ(vsocket->name(), "Velocity")) {
+    return new SurfaceVelocityInputProvider();
+  }
+  else {
+    BLI_assert(false);
+    return nullptr;
+  }
 }
 
 static ParticleFunctionInputProvider *INPUT_surface_image(VTreeDataGraph &UNUSED(vtree_data_graph),
@@ -111,7 +120,7 @@ BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
 {
   StringMap<BuildInputProvider> map;
   map.add_new("bp_ParticleInfoNode", INPUT_particle_info);
-  map.add_new("bp_CollisionInfoNode", INPUT_collision_info);
+  map.add_new("bp_SurfaceInfoNode", INPUT_surface_info);
   map.add_new("bp_SurfaceImageNode", INPUT_surface_image);
   map.add_new("bp_SurfaceWeightNode", INPUT_surface_weight);
   return map;

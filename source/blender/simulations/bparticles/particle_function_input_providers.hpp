@@ -20,7 +20,11 @@ class AttributeInputProvider : public ParticleFunctionInputProvider {
   Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
 };
 
-class CollisionNormalInputProvider : public ParticleFunctionInputProvider {
+class SurfaceNormalInputProvider : public ParticleFunctionInputProvider {
+  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
+};
+
+class SurfaceVelocityInputProvider : public ParticleFunctionInputProvider {
   Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
 };
 

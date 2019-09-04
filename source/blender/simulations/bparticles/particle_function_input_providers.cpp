@@ -30,7 +30,7 @@ Optional<ParticleFunctionInputArray> AttributeInputProvider::get(InputProviderIn
   }
 }
 
-Optional<ParticleFunctionInputArray> CollisionNormalInputProvider::get(
+Optional<ParticleFunctionInputArray> SurfaceNormalInputProvider::get(
     InputProviderInterface &interface)
 {
   ActionContext *action_context = interface.action_context();
@@ -40,6 +40,18 @@ Optional<ParticleFunctionInputArray> CollisionNormalInputProvider::get(
   }
 
   return ParticleFunctionInputArray(surface_info->world_normals(), false);
+}
+
+Optional<ParticleFunctionInputArray> SurfaceVelocityInputProvider::get(
+    InputProviderInterface &interface)
+{
+  ActionContext *action_context = interface.action_context();
+  auto *surface_info = dynamic_cast<MeshSurfaceContext *>(action_context);
+  if (surface_info == nullptr) {
+    return {};
+  }
+
+  return ParticleFunctionInputArray(surface_info->world_surface_velicities(), false);
 }
 
 Optional<ParticleFunctionInputArray> AgeInputProvider::get(InputProviderInterface &interface)
