@@ -85,7 +85,7 @@ static BLI_NOINLINE void get_all_vertex_weights(Object *ob,
 static BLI_NOINLINE void get_average_triangle_weights(const Mesh *mesh,
                                                       ArrayRef<MLoopTri> looptris,
                                                       ArrayRef<float> vertex_weights,
-                                                      TemporaryArray<float> &r_looptri_weights)
+                                                      MutableArrayRef<float> r_looptri_weights)
 {
   for (uint triangle_index = 0; triangle_index < looptris.size(); triangle_index++) {
     const MLoopTri &looptri = looptris[triangle_index];
@@ -178,39 +178,62 @@ static BLI_NOINLINE void sample_cumulative_distribution(uint amount,
   BLI_assert(sampled_indices.is_full());
 }
 
-static BLI_NOINLINE bool sample_with_vertex_weights(uint amount,
-                                                    Object *ob,
-                                                    Mesh *mesh,
-                                                    StringRefNull group_name,
-                                                    ArrayRef<MLoopTri> triangles,
-                                                    MutableArrayRef<uint> r_sampled_looptris)
+static BLI_NOINLINE void compute_triangle_areas(Mesh *mesh,
+                                                ArrayRef<MLoopTri> triangles,
+                                                MutableArrayRef<float> r_areas)
 {
-  BLI_assert(amount == r_sampled_looptris.size());
+  BLI_assert(triangles.size() == r_areas.size());
+
+  for (uint i = 0; i < triangles.size(); i++) {
+    const MLoopTri &triangle = triangles[i];
+
+    float3 v1 = mesh->mvert[mesh->mloop[triangle.tri[0]].v].co;
+    float3 v2 = mesh->mvert[mesh->mloop[triangle.tri[1]].v].co;
+    float3 v3 = mesh->mvert[mesh->mloop[triangle.tri[2]].v].co;
+
+    float area = area_tri_v3(v1, v2, v3);
+    r_areas[i] = area;
+  }
+}
+
+static BLI_NOINLINE void triangle_weights_from_vertex_weights(
+    Object *object,
+    StringRefNull group_name,
+    ArrayRef<MLoopTri> triangles,
+    MutableArrayRef<float> r_triangle_weights)
+{
+  BLI_assert(triangles.size() == r_triangle_weights.size());
+  BLI_assert(object->type == OB_MESH);
+
+  Mesh *mesh = (Mesh *)object->data;
 
   TemporaryArray<float> vertex_weights(mesh->totvert);
-  get_all_vertex_weights(ob, mesh, group_name, vertex_weights);
+  get_all_vertex_weights(object, mesh, group_name, vertex_weights);
 
-  TemporaryArray<float> looptri_weights(triangles.size());
-  get_average_triangle_weights(mesh, triangles, vertex_weights, looptri_weights);
+  get_average_triangle_weights(mesh, triangles, vertex_weights, r_triangle_weights);
+}
 
-  TemporaryArray<float> cumulative_looptri_weights(looptri_weights.size() + 1);
-  compute_cumulative_distribution(looptri_weights, cumulative_looptri_weights);
-  if (ArrayRef<float>(cumulative_looptri_weights).last() == 0.0f) {
+static BLI_NOINLINE void uniform_triangle_weights(MutableArrayRef<float> r_triangle_weights)
+{
+  r_triangle_weights.fill(1);
+}
+
+static BLI_NOINLINE bool sample_weighted_buckets(uint sample_amount,
+                                                 ArrayRef<float> weights,
+                                                 MutableArrayRef<uint> r_samples)
+{
+  BLI_assert(sample_amount == r_samples.size());
+
+  TemporaryArray<float> cumulative_weights(weights.size() + 1);
+  compute_cumulative_distribution(weights, cumulative_weights);
+
+  if (sample_amount > 0 && cumulative_weights.as_ref().last() == 0.0f) {
     /* All weights are zero. */
     return false;
   }
 
-  sample_cumulative_distribution(amount, cumulative_looptri_weights, r_sampled_looptris);
+  sample_cumulative_distribution(sample_amount, cumulative_weights, r_samples);
   return true;
-}
-
-static BLI_NOINLINE void sample_randomly(uint amount,
-                                         ArrayRef<MLoopTri> triangles,
-                                         MutableArrayRef<uint> r_sampled_looptris)
-{
-  for (uint i = 0; i < amount; i++) {
-    r_sampled_looptris[i] = rand() % triangles.size();
-  }
 }
 
 static BLI_NOINLINE void compute_random_birth_moments(MutableArrayRef<float> r_birth_moments)
@@ -272,15 +295,17 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     return;
   }
 
-  TemporaryArray<uint> triangles_to_sample(particles_to_emit);
+  TemporaryArray<float> triangle_weights(triangles.size());
   if (m_density_group.size() > 0) {
-    if (!sample_with_vertex_weights(
-            particles_to_emit, m_object, mesh, m_density_group, triangles, triangles_to_sample)) {
-      return;
-    }
+    triangle_weights_from_vertex_weights(m_object, m_density_group, triangles, triangle_weights);
   }
   else {
-    sample_randomly(particles_to_emit, triangles, triangles_to_sample);
+    uniform_triangle_weights(triangle_weights);
+  }
+
+  TemporaryArray<uint> triangles_to_sample(particles_to_emit);
+  if (!sample_weighted_buckets(particles_to_emit, triangle_weights, triangles_to_sample)) {
+    return;
   }
 
   TemporaryArray<float> birth_moments(particles_to_emit);
