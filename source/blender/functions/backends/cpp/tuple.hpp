@@ -127,6 +127,13 @@ class TupleMeta : public RefCounter {
   {
     return m_all_trivially_destructible;
   }
+
+#ifdef DEBUG
+  template<typename T> bool element_has_type(uint index) const
+  {
+    return m_type_info[index]->has_type_info(typeid(T));
+  }
+#endif
 };
 
 using SharedTupleMeta = AutoRefCount<TupleMeta>;
@@ -205,7 +212,7 @@ class Tuple {
   template<typename T> inline void copy_in(uint index, const T &value)
   {
     BLI_assert(index < m_meta->size());
-    BLI_assert(sizeof(T) == m_meta->element_size(index));
+    BLI_assert(m_meta->element_has_type<T>(index));
 
     T *dst = (T *)this->element_ptr(index);
     if (std::is_trivial<T>::value) {
@@ -252,7 +259,7 @@ class Tuple {
   template<typename T> inline void move_in(uint index, T &value)
   {
     BLI_assert(index < m_meta->size());
-    BLI_assert(sizeof(T) == m_meta->element_size(index));
+    BLI_assert(m_meta->element_has_type<T>(index));
 
     T *dst = (T *)this->element_ptr(index);
 
@@ -303,7 +310,7 @@ class Tuple {
   template<typename T> inline T copy_out(uint index) const
   {
     BLI_assert(index < m_meta->size());
-    BLI_assert(sizeof(T) == m_meta->element_size(index));
+    BLI_assert(m_meta->element_has_type<T>(index));
     BLI_assert(m_initialized[index]);
 
     return *(T *)this->element_ptr(index);
@@ -318,7 +325,7 @@ class Tuple {
   template<typename T> inline T relocate_out(uint index) const
   {
     BLI_assert(index < m_meta->size());
-    BLI_assert(sizeof(T) == m_meta->element_size(index));
+    BLI_assert(m_meta->element_has_type<T>(index));
     BLI_assert(m_initialized[index]);
 
     T &value = this->element_ref<T>(index);
@@ -366,6 +373,7 @@ class Tuple {
   template<typename T> inline T &get_ref(uint index) const
   {
     BLI_assert(index < m_meta->size());
+    BLI_assert(m_meta->element_has_type<T>(index));
     BLI_assert(m_initialized[index]);
     return this->element_ref<T>(index);
   }

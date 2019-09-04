@@ -389,12 +389,13 @@ static void PARSE_initial_grid_emitter(BehaviorCollector &collector,
   body.call__setup_execution_context(fn_in, fn_out);
 
   Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Emitter"));
-  Emitter *emitter = new InitialGridEmitter(std::move(type_names),
-                                            body.get_output<uint>(fn_out, 0, "Amount X"),
-                                            body.get_output<uint>(fn_out, 1, "Amount Y"),
-                                            body.get_output<float>(fn_out, 2, "Step X"),
-                                            body.get_output<float>(fn_out, 3, "Step Y"),
-                                            body.get_output<float>(fn_out, 4, "Size"));
+  Emitter *emitter = new InitialGridEmitter(
+      std::move(type_names),
+      std::max(0, body.get_output<int>(fn_out, 0, "Amount X")),
+      std::max(0, body.get_output<int>(fn_out, 1, "Amount Y")),
+      body.get_output<float>(fn_out, 2, "Step X"),
+      body.get_output<float>(fn_out, 3, "Step Y"),
+      body.get_output<float>(fn_out, 4, "Size"));
   collector.m_emitters.append(emitter);
 }
 

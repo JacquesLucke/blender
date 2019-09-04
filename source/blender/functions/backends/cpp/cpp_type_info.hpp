@@ -10,6 +10,10 @@
 
 #include "FN_core.hpp"
 
+#ifdef DEBUG
+#  include <typeinfo>
+#endif
+
 namespace FN {
 
 class CPPTypeInfo : public TypeExtension {
@@ -95,6 +99,10 @@ class CPPTypeInfo : public TypeExtension {
    */
   virtual void relocate_to_uninitialized(void *src, void *dst) const = 0;
   virtual void relocate_to_uninitialized_n(void *src, void *dst, uint n) const = 0;
+
+#ifdef DEBUG
+  virtual bool has_type_info(const std::type_info &type) const = 0;
+#endif
 };
 
 template<typename T> class CPPTypeInfoForType : public CPPTypeInfo {
@@ -166,10 +174,17 @@ template<typename T> class CPPTypeInfoForType : public CPPTypeInfo {
     BLI::uninitialized_relocate((T *)src, (T *)dst);
   }
 
-  virtual void relocate_to_uninitialized_n(void *src, void *dst, uint n) const override
+  void relocate_to_uninitialized_n(void *src, void *dst, uint n) const override
   {
     BLI::uninitialized_relocate_n((T *)src, n, (T *)dst);
   }
+
+#ifdef DEBUG
+  bool has_type_info(const std::type_info &type) const override
+  {
+    return type == typeid(T);
+  }
+#endif
 };
 
 } /* namespace FN */
