@@ -206,6 +206,7 @@ Mesh *BParticles_modifier_point_mesh_from_state(BParticlesSimulationState state_
 
   for (uint i = 0; i < mesh->totvert; i++) {
     copy_v3_v3(mesh->mvert[i].co, positions[i]);
+    mesh->mvert[i].no[2] = 32767;
   }
 
   return mesh;
