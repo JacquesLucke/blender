@@ -31,6 +31,7 @@ set(SRC
   bparticles/action_interface.hpp
   bparticles/action_interface.cpp
   bparticles/action_contexts.hpp
+  bparticles/action_contexts.cpp
   bparticles/events.hpp
   bparticles/events.cpp
   bparticles/emitter_interface.hpp

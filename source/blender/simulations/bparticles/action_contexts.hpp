@@ -19,6 +19,7 @@ class MeshSurfaceContext : public ActionContext {
   ArrayRef<float3> m_world_normals;
   ArrayRef<uint> m_looptri_indices;
   ArrayRef<float3> m_world_surface_velocities;
+  ArrayRef<float3> m_barycentric_coords;
 
  public:
   MeshSurfaceContext(Object *object,
@@ -36,6 +37,7 @@ class MeshSurfaceContext : public ActionContext {
         m_looptri_indices(looptri_indices),
         m_world_surface_velocities(world_surface_velocities)
   {
+    this->compute_barycentric_coords(Range<uint>(0, m_local_positions.size()).as_array_ref());
   }
 
   MeshSurfaceContext(Object *object,
@@ -67,6 +69,8 @@ class MeshSurfaceContext : public ActionContext {
 
     m_buffers_to_free.extend(
         {world_transforms_buffer, world_normals_buffer, surface_velocities_buffer});
+
+    this->compute_barycentric_coords(pindices);
   }
 
   ~MeshSurfaceContext()
@@ -113,6 +117,14 @@ class MeshSurfaceContext : public ActionContext {
   {
     return m_world_surface_velocities;
   }
+
+  ArrayRef<float3> barycentric_coords() const
+  {
+    return m_barycentric_coords;
+  }
+
+ private:
+  void compute_barycentric_coords(ArrayRef<uint> pindices);
 };
 
-};  // namespace BParticles
+}  // namespace BParticles

@@ -106,43 +106,31 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
   Mesh *mesh = (Mesh *)object->data;
 
   const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+  ArrayRef<float3> barycentric_coords = surface_info->barycentric_coords();
 
   int uv_layer_index = CustomData_get_active_layer(&mesh->ldata, CD_MLOOPUV);
   BLI_assert(uv_layer_index >= 0);
   MLoopUV *uv_layer = (MLoopUV *)CustomData_get(&mesh->ldata, uv_layer_index, CD_MLOOPUV);
   BLI_assert(uv_layer != nullptr);
 
-  ArrayRef<float3> local_positions = surface_info->local_positions();
-
   rgba_b *pixel_buffer = (rgba_b *)m_ibuf->rect;
 
-  rgba_f *colors_buffer = (rgba_f *)BLI_temporary_allocate(sizeof(rgba_f) *
-                                                           local_positions.size());
-  MutableArrayRef<rgba_f> colors{colors_buffer, local_positions.size()};
+  uint size = interface.attributes().size();
+  rgba_f *colors_buffer = (rgba_f *)BLI_temporary_allocate(sizeof(rgba_f) * size);
+  MutableArrayRef<rgba_f> colors{colors_buffer, size};
 
   for (uint pindex : interface.pindices()) {
-    float3 local_position = local_positions[pindex];
-
     uint triangle_index = surface_info->looptri_indices()[pindex];
     const MLoopTri &triangle = triangles[triangle_index];
 
-    uint loop1 = triangle.tri[0];
-    uint loop2 = triangle.tri[1];
-    uint loop3 = triangle.tri[2];
-
-    float3 v1 = mesh->mvert[mesh->mloop[loop1].v].co;
-    float3 v2 = mesh->mvert[mesh->mloop[loop2].v].co;
-    float3 v3 = mesh->mvert[mesh->mloop[loop3].v].co;
-
-    float2 uv1 = uv_layer[loop1].uv;
-    float2 uv2 = uv_layer[loop2].uv;
-    float2 uv3 = uv_layer[loop3].uv;
-
-    float3 vertex_weights;
-    interp_weights_tri_v3(vertex_weights, v1, v2, v3, local_position);
+    float2 uv1 = uv_layer[triangle.tri[0]].uv;
+    float2 uv2 = uv_layer[triangle.tri[1]].uv;
+    float2 uv3 = uv_layer[triangle.tri[2]].uv;
 
     float2 uv;
+    float3 vertex_weights = barycentric_coords[pindex];
     interp_v2_v2v2v2(uv, uv1, uv2, uv3, vertex_weights);
+
     uv = uv.clamped_01();
     uint x = uv.x * (m_ibuf->x - 1);
     uint y = uv.y * (m_ibuf->y - 1);
@@ -167,31 +155,22 @@ static BLI_NOINLINE Optional<ParticleFunctionInputArray> compute_vertex_weights(
   }
 
   const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+  ArrayRef<float3> barycentric_coords = surface_info->barycentric_coords();
 
-  float *weight_buffer = (float *)BLI_temporary_allocate(sizeof(float) *
-                                                         interface.attributes().size());
-  MutableArrayRef<float> weights(weight_buffer, interface.attributes().size());
+  uint size = interface.attributes().size();
+  float *weight_buffer = (float *)BLI_temporary_allocate(sizeof(float) * size);
+  MutableArrayRef<float> weights(weight_buffer, size);
 
   for (uint pindex : interface.pindices()) {
     uint source_index = surface_info_mapping[pindex];
-    float3 local_position = surface_info->local_positions()[source_index];
     uint triangle_index = surface_info->looptri_indices()[source_index];
+    float3 bary_weights = barycentric_coords[source_index];
+
     const MLoopTri &triangle = triangles[triangle_index];
 
-    uint loop1 = triangle.tri[0];
-    uint loop2 = triangle.tri[1];
-    uint loop3 = triangle.tri[2];
-
-    uint vert1 = mesh->mloop[loop1].v;
-    uint vert2 = mesh->mloop[loop2].v;
-    uint vert3 = mesh->mloop[loop3].v;
-
-    float3 v1 = mesh->mvert[vert1].co;
-    float3 v2 = mesh->mvert[vert2].co;
-    float3 v3 = mesh->mvert[vert3].co;
-
-    float3 bary_weights;
-    interp_weights_tri_v3(bary_weights, v1, v2, v3, local_position);
+    uint vert1 = mesh->mloop[triangle.tri[0]].v;
+    uint vert2 = mesh->mloop[triangle.tri[1]].v;
+    uint vert3 = mesh->mloop[triangle.tri[2]].v;
 
     float3 corner_weights{defvert_find_weight(vertex_weights + vert1, group_index),
                           defvert_find_weight(vertex_weights + vert2, group_index),
