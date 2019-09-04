@@ -290,11 +290,21 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   TemporaryArray<float3> local_normals(particles_to_emit);
   sample_looptris(mesh, triangles, triangles_to_sample, local_positions, local_normals);
 
+  float epsilon = 0.01f;
   TemporaryArray<float4x4> transforms_at_birth(particles_to_emit);
+  TemporaryArray<float4x4> transforms_before_birth(particles_to_emit);
   m_transform.interpolate(birth_moments, 0.0f, transforms_at_birth);
+  m_transform.interpolate(birth_moments, -epsilon, transforms_before_birth);
 
   TemporaryArray<float3> positions_at_birth(particles_to_emit);
   float4x4::transform_positions(transforms_at_birth, local_positions, positions_at_birth);
+
+  TemporaryArray<float3> surface_velocities(particles_to_emit);
+  for (uint i = 0; i < particles_to_emit; i++) {
+    float3 position_before_birth = transforms_before_birth[i].transform_position(
+        local_positions[i]);
+    surface_velocities[i] = (positions_at_birth[i] - position_before_birth) / epsilon;
+  }
 
   TemporaryArray<float3> world_normals(particles_to_emit);
   float4x4::transform_directions(transforms_at_birth, local_normals, world_normals);
@@ -315,7 +325,8 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
                                        local_positions.as_ref().slice(range),
                                        local_normals.as_ref().slice(range),
                                        world_normals.as_ref().slice(range),
-                                       triangles_to_sample.as_ref().slice(range));
+                                       triangles_to_sample.as_ref().slice(range),
+                                       surface_velocities.as_ref().slice(range));
         });
   }
 }
