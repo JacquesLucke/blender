@@ -34,7 +34,7 @@ Optional<ParticleFunctionInputArray> CollisionNormalInputProvider::get(
     InputProviderInterface &interface)
 {
   ActionContext *action_context = interface.action_context();
-  auto *surface_info = dynamic_cast<MeshSurfaceActionContext *>(action_context);
+  auto *surface_info = dynamic_cast<MeshSurfaceContext *>(action_context);
   if (surface_info == nullptr) {
     return {};
   }
@@ -85,7 +85,7 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
     InputProviderInterface &interface)
 {
   ActionContext *action_context = interface.action_context();
-  auto *surface_info = dynamic_cast<MeshSurfaceActionContext *>(action_context);
+  auto *surface_info = dynamic_cast<MeshSurfaceContext *>(action_context);
   if (surface_info == nullptr) {
     return {};
   }
@@ -142,7 +142,7 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
 static BLI_NOINLINE Optional<ParticleFunctionInputArray> compute_vertex_weights(
     InputProviderInterface &interface,
     StringRef group_name,
-    MeshSurfaceActionContext *surface_info,
+    MeshSurfaceContext *surface_info,
     ArrayRef<uint> surface_info_mapping)
 {
   Object *object = surface_info->object();
@@ -197,8 +197,8 @@ Optional<ParticleFunctionInputArray> VertexWeightInputProvider::get(
 {
   ActionContext *action_context = interface.action_context();
 
-  if (dynamic_cast<MeshSurfaceActionContext *>(action_context)) {
-    auto *surface_info = dynamic_cast<MeshSurfaceActionContext *>(action_context);
+  if (dynamic_cast<MeshSurfaceContext *>(action_context)) {
+    auto *surface_info = dynamic_cast<MeshSurfaceContext *>(action_context);
     return compute_vertex_weights(interface,
                                   m_group_name,
                                   surface_info,
@@ -206,7 +206,7 @@ Optional<ParticleFunctionInputArray> VertexWeightInputProvider::get(
   }
   else if (dynamic_cast<SourceParticleActionContext *>(action_context)) {
     auto *source_info = dynamic_cast<SourceParticleActionContext *>(action_context);
-    auto *surface_info = dynamic_cast<MeshSurfaceActionContext *>(source_info->source_context());
+    auto *surface_info = dynamic_cast<MeshSurfaceContext *>(source_info->source_context());
     return compute_vertex_weights(
         interface, m_group_name, surface_info, source_info->source_indices());
   }

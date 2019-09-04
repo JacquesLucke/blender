@@ -308,14 +308,15 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     new_particles.set<float3>("Position", positions_at_birth);
     new_particles.set<float>("Birth Time", birth_times);
 
-    MeshEmitterContext emitter_context(m_object,
-                                       transforms_at_birth,
-                                       local_positions,
-                                       local_normals,
-                                       world_normals,
-                                       triangles_to_sample);
-
-    m_on_birth_action->execute_from_emitter(new_particles, interface, &emitter_context);
+    m_on_birth_action->execute_from_emitter(
+        new_particles, interface, [&](Range<uint> range) -> MeshSurfaceContext {
+          return MeshSurfaceContext(m_object,
+                                    ArrayRef<float4x4>(transforms_at_birth).slice(range),
+                                    ArrayRef<float3>(local_positions).slice(range),
+                                    ArrayRef<float3>(local_normals).slice(range),
+                                    ArrayRef<float3>(world_normals).slice(range),
+                                    ArrayRef<uint>(triangles_to_sample).slice(range));
+        });
   }
 }
 

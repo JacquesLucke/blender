@@ -22,11 +22,6 @@ class ActionContext {
   virtual ~ActionContext();
 };
 
-class EmitterActionContext {
- public:
-  virtual void update(Range<uint> slice) = 0;
-};
-
 class SourceParticleActionContext : public ActionContext {
  private:
   ArrayRef<uint> m_all_source_indices;
@@ -92,9 +87,10 @@ class Action {
 
   virtual void execute(ActionInterface &interface) = 0;
 
+  template<typename BuildContextF>
   void execute_from_emitter(AttributesRefGroup &new_particles,
                             EmitterInterface &emitter_interface,
-                            EmitterActionContext *emitter_action_context = nullptr);
+                            const BuildContextF &build_context);
   void execute_from_event(EventExecuteInterface &event_interface,
                           ActionContext *action_context = nullptr);
   void execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface);
@@ -128,30 +124,21 @@ inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
 class EmptyActionContext : public ActionContext {
 };
 
-class EmptyEmitterActionContext : public EmitterActionContext {
-  void update(Range<uint> UNUSED(slice))
-  {
-  }
-};
-
+template<typename BuildContextF>
 inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
                                          EmitterInterface &emitter_interface,
-                                         EmitterActionContext *emitter_action_context)
+                                         const BuildContextF &build_context)
 {
   AttributesInfo info;
   std::array<void *, 0> buffers;
 
-  EmptyEmitterActionContext empty_emitter_context;
-  EmitterActionContext &used_emitter_context = (emitter_action_context == nullptr) ?
-                                                   empty_emitter_context :
-                                                   *emitter_action_context;
-
   uint offset = 0;
   for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
-
-    used_emitter_context.update(Range<uint>(offset, offset + range_size));
+    Range<uint> range(offset, offset + range_size);
     offset += range_size;
+
+    auto action_context = build_context(range);
 
     AttributesRef offsets(info, buffers, range_size);
     TemporaryArray<float> durations(range_size);
@@ -163,7 +150,7 @@ inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
                                      offsets,
                                      attributes.get<float>("Birth Time"),
                                      durations,
-                                     dynamic_cast<ActionContext &>(used_emitter_context));
+                                     action_context);
     this->execute(action_interface);
   }
 }
