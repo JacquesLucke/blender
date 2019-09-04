@@ -118,6 +118,11 @@ template<typename T, typename Allocator = GuardedAllocator> class Array {
     return MutableArrayRef<T>(m_data, m_size);
   }
 
+  ArrayRef<T> as_ref() const
+  {
+    return *this;
+  }
+
   T &operator[](uint index)
   {
     BLI_assert(index < m_size);

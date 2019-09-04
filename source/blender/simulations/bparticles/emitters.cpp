@@ -311,11 +311,11 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     m_on_birth_action->execute_from_emitter(
         new_particles, interface, [&](Range<uint> range) -> MeshSurfaceContext {
           return MeshSurfaceContext(m_object,
-                                    ArrayRef<float4x4>(transforms_at_birth).slice(range),
-                                    ArrayRef<float3>(local_positions).slice(range),
-                                    ArrayRef<float3>(local_normals).slice(range),
-                                    ArrayRef<float3>(world_normals).slice(range),
-                                    ArrayRef<uint>(triangles_to_sample).slice(range));
+                                    transforms_at_birth.as_ref().slice(range),
+                                    local_positions.as_ref().slice(range),
+                                    local_normals.as_ref().slice(range),
+                                    world_normals.as_ref().slice(range),
+                                    triangles_to_sample.as_ref().slice(range));
         });
   }
 }
