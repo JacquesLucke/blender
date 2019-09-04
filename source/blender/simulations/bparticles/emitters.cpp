@@ -213,11 +213,6 @@ static BLI_NOINLINE void triangle_weights_from_vertex_weights(
   get_average_triangle_weights(mesh, triangles, vertex_weights, r_triangle_weights);
 }
 
-static BLI_NOINLINE void uniform_triangle_weights(MutableArrayRef<float> r_triangle_weights)
-{
-  r_triangle_weights.fill(1);
-}
-
 static BLI_NOINLINE bool sample_weighted_buckets(uint sample_amount,
                                                  ArrayRef<float> weights,
                                                  MutableArrayRef<uint> r_samples)
@@ -300,7 +295,7 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     triangle_weights_from_vertex_weights(m_object, m_density_group, triangles, triangle_weights);
   }
   else {
-    uniform_triangle_weights(triangle_weights);
+    compute_triangle_areas(mesh, triangles, triangle_weights);
   }
 
   TemporaryArray<uint> triangles_to_sample(particles_to_emit);
