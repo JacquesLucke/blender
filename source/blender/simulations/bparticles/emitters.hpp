@@ -19,9 +19,6 @@ class SurfaceEmitter : public Emitter {
   Object *m_object;
   VaryingFloat4x4 m_transform;
   float m_rate;
-  float m_normal_velocity;
-  float m_emitter_velocity;
-  float m_size;
   std::string m_density_group;
 
  public:
@@ -30,18 +27,12 @@ class SurfaceEmitter : public Emitter {
                  Object *object,
                  VaryingFloat4x4 transform,
                  float rate,
-                 float normal_velocity,
-                 float emitter_velocity,
-                 float size,
                  StringRef density_group)
       : m_types_to_emit(std::move(types_to_emit)),
         m_on_birth_action(std::move(on_birth_action)),
         m_object(object),
         m_transform(transform),
         m_rate(rate),
-        m_normal_velocity(normal_velocity),
-        m_emitter_velocity(emitter_velocity),
-        m_size(size),
         m_density_group(density_group)
   {
   }
