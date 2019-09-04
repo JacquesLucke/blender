@@ -17,17 +17,16 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
       continue;
     }
 
-    float frequency = 1.0f / rate;
-    float time_factor = interface.time_factors()[pindex];
     TimeSpan time_span = interface.time_span(pindex);
-    float current_time = frequency * (std::floor(time_span.start() / frequency) + 1.0f);
 
-    float3 total_offset = position_offsets[pindex] * time_factor;
-    while (current_time < time_span.end()) {
-      float factor = time_span.get_factor_safe(current_time);
+    float factor_start, factor_step;
+    time_span.uniform_samples(rate, factor_start, factor_step);
+
+    float3 total_offset = position_offsets[pindex] * interface.time_factors()[pindex];
+    for (float factor = factor_start; factor < 1.0f; factor += factor_step) {
+      float time = time_span.interpolate(factor);
       new_positions.append(positions[pindex] + total_offset * factor);
-      new_birth_times.append(current_time);
-      current_time += frequency;
+      new_birth_times.append(time);
     }
   }
 

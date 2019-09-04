@@ -82,6 +82,13 @@ struct TimeSpan {
       return 0.0f;
     }
   }
+
+  void uniform_samples(float samples_per_time, float &r_factor_start, float &r_factor_step)
+  {
+    r_factor_step = 1 / (m_duration * samples_per_time);
+    float time_start = std::ceil(m_start * samples_per_time) / samples_per_time;
+    r_factor_start = this->get_factor_safe(time_start);
+  }
 };
 
 }  // namespace BParticles
