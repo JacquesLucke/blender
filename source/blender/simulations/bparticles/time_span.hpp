@@ -83,7 +83,9 @@ struct TimeSpan {
     }
   }
 
-  void uniform_samples(float samples_per_time, float &r_factor_start, float &r_factor_step)
+  void uniform_sample_range(float samples_per_time,
+                            float &r_factor_start,
+                            float &r_factor_step) const
   {
     r_factor_step = 1 / (m_duration * samples_per_time);
     float time_start = std::ceil(m_start * samples_per_time) / samples_per_time;

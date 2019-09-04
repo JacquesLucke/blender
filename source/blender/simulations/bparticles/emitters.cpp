@@ -231,13 +231,6 @@ static BLI_NOINLINE bool sample_weighted_buckets(uint sample_amount,
   return true;
 }
 
-static BLI_NOINLINE void compute_random_birth_moments(MutableArrayRef<float> r_birth_moments)
-{
-  for (float &birth_moment : r_birth_moments) {
-    birth_moment = random_float();
-  }
-}
-
 static BLI_NOINLINE void sample_looptris(Mesh *mesh,
                                          ArrayRef<MLoopTri> triangles,
                                          ArrayRef<uint> triangles_to_sample,
@@ -274,13 +267,18 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   if (m_object->type != OB_MESH) {
     return;
   }
-
-  float particles_to_emit_f = m_rate * interface.time_span().duration();
-  float fraction = particles_to_emit_f - std::floor(particles_to_emit_f);
-  if ((rand() % 1000) / 1000.0f < fraction) {
-    particles_to_emit_f = std::floor(particles_to_emit_f) + 1;
+  if (interface.time_span().duration() == 0.0f) {
+    return;
   }
-  uint particles_to_emit = particles_to_emit_f;
+
+  Vector<float> birth_moments;
+  float factor_start, factor_step;
+  interface.time_span().uniform_sample_range(m_rate, factor_start, factor_step);
+  for (float factor = factor_start; factor < 1.0f; factor += factor_step) {
+    birth_moments.append(factor);
+  }
+
+  uint particles_to_emit = birth_moments.size();
 
   Mesh *mesh = (Mesh *)m_object->data;
 
@@ -302,9 +300,6 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   if (!sample_weighted_buckets(particles_to_emit, triangle_weights, triangles_to_sample)) {
     return;
   }
-
-  TemporaryArray<float> birth_moments(particles_to_emit);
-  compute_random_birth_moments(birth_moments);
 
   TemporaryArray<float3> local_positions(particles_to_emit);
   TemporaryArray<float3> local_normals(particles_to_emit);

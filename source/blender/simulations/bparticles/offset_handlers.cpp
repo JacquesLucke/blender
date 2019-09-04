@@ -20,7 +20,7 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
     TimeSpan time_span = interface.time_span(pindex);
 
     float factor_start, factor_step;
-    time_span.uniform_samples(rate, factor_start, factor_step);
+    time_span.uniform_sample_range(rate, factor_start, factor_step);
 
     float3 total_offset = position_offsets[pindex] * interface.time_factors()[pindex];
     for (float factor = factor_start; factor < 1.0f; factor += factor_step) {
