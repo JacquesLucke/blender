@@ -87,6 +87,11 @@ struct TimeSpan {
                             float &r_factor_start,
                             float &r_factor_step) const
   {
+    if (m_duration == 0) {
+      /* Just needs to be greater than one. */
+      r_factor_start = 2.0f;
+      return;
+    }
     r_factor_step = 1 / (m_duration * samples_per_time);
     float time_start = std::ceil(m_start * samples_per_time) / samples_per_time;
     r_factor_start = this->get_factor_safe(time_start);

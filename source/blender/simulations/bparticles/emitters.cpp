@@ -267,9 +267,6 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   if (m_object->type != OB_MESH) {
     return;
   }
-  if (interface.time_span().duration() == 0.0f) {
-    return;
-  }
 
   Vector<float> birth_moments;
   float factor_start, factor_step;
