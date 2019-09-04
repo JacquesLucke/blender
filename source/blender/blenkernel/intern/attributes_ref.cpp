@@ -1,6 +1,6 @@
-#include "attributes.hpp"
+#include "BKE_attributes_ref.hpp"
 
-namespace BParticles {
+namespace BKE {
 
 void AttributesDeclaration::join(AttributesDeclaration &other)
 {
@@ -110,4 +110,4 @@ void AttributesRefGroup::fill_elements(uint index, void *value)
   }
 }
 
-}  // namespace BParticles
+}  // namespace BKE

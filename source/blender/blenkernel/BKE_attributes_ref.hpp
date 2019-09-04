@@ -3,16 +3,16 @@
 #include <string>
 
 #include "BLI_array_ref.hpp"
-#include "BLI_vector.hpp"
 #include "BLI_math.hpp"
-#include "BLI_string_ref.hpp"
-#include "BLI_string_map.hpp"
-#include "BLI_range.hpp"
-#include "BLI_set.hpp"
-#include "BLI_set_vector.hpp"
 #include "BLI_optional.hpp"
+#include "BLI_range.hpp"
+#include "BLI_set_vector.hpp"
+#include "BLI_set.hpp"
+#include "BLI_string_map.hpp"
+#include "BLI_string_ref.hpp"
+#include "BLI_vector.hpp"
 
-namespace BParticles {
+namespace BKE {
 
 using BLI::ArrayRef;
 using BLI::float2;
@@ -497,4 +497,4 @@ class AttributesRefGroup {
   void fill_elements(uint index, void *value);
 };
 
-}  // namespace BParticles
+}  // namespace BKE

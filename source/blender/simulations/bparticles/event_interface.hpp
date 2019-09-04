@@ -1,10 +1,11 @@
 #pragma once
 
-#include "attributes.hpp"
 #include "block_step_data.hpp"
 #include "particle_allocator.hpp"
 
 namespace BParticles {
+
+using BKE::AttributesDeclaration;
 
 /**
  * Utility array wrapper that can hold different kinds of plain-old-data values.

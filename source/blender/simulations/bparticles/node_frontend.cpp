@@ -17,6 +17,7 @@ namespace BParticles {
 using BKE::VirtualNode;
 using BKE::VirtualSocket;
 using BLI::MultiMap;
+using BLI::rgba_f;
 using BLI::ValueOrError;
 using FN::Function;
 using FN::FunctionBuilder;

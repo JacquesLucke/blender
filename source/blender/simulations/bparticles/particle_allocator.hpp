@@ -4,6 +4,8 @@
 
 namespace BParticles {
 
+using BKE::AttributesRefGroup;
+
 /**
  * This class allows allocating new blocks from different particle containers.
  * A single instance is not thread safe, but multiple allocator instances can

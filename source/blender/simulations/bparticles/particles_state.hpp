@@ -4,6 +4,8 @@
 
 namespace BParticles {
 
+using BLI::StringMap;
+
 class ParticlesState {
  private:
   StringMap<ParticlesContainer *> m_container_by_id;

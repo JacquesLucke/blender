@@ -4,13 +4,13 @@
 #include "FN_functions.hpp"
 #include "BLI_array.hpp"
 
-#include "attributes.hpp"
 #include "action_interface.hpp"
 #include "force_interface.hpp"
 
 namespace BParticles {
 
 using BLI::ArrayRef;
+using BLI::Optional;
 using BLI::TemporaryArray;
 using BLI::TemporaryVector;
 using BLI::Vector;

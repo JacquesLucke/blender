@@ -73,6 +73,7 @@ set(SRC
   intern/appdir.c
   intern/armature.c
   intern/armature_update.c
+  intern/attributes_ref.cpp
   intern/autoexec.c
   intern/blender.c
   intern/blender_copybuffer.c
@@ -233,6 +234,7 @@ set(SRC
   BKE_animsys.h
   BKE_appdir.h
   BKE_armature.h
+  BKE_attributes_ref.hpp
   BKE_autoexec.h
   BKE_blender.h
   BKE_blender_copybuffer.h

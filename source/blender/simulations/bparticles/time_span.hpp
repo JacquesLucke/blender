@@ -1,6 +1,11 @@
 #pragma once
 
+#include "BLI_array_ref.hpp"
+
 namespace BParticles {
+
+using BLI::ArrayRef;
+using BLI::MutableArrayRef;
 
 /**
  * Contains a time range defined by a start time and non-zero duration. The times are measured in

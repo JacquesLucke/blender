@@ -11,6 +11,10 @@
 
 namespace BParticles {
 
+using BLI::float2;
+using BLI::rgba_b;
+using BLI::rgba_f;
+
 Optional<ParticleFunctionInputArray> AttributeInputProvider::get(InputProviderInterface &interface)
 {
   AttributesRef attributes = interface.attributes();

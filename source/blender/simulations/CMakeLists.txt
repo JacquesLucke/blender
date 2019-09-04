@@ -33,8 +33,6 @@ set(SRC
   bparticles/action_contexts.hpp
   bparticles/events.hpp
   bparticles/events.cpp
-  bparticles/attributes.hpp
-  bparticles/attributes.cpp
   bparticles/emitter_interface.hpp
   bparticles/block_step_data.hpp
   bparticles/event_interface.hpp

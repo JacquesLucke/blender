@@ -6,13 +6,24 @@
 #include "BLI_map.hpp"
 #include "BLI_stack.hpp"
 
-#include "attributes.hpp"
+#include "BKE_attributes_ref.hpp"
 
 namespace BParticles {
 
+using BKE::attribute_type_by_type;
+using BKE::AttributesInfo;
+using BKE::AttributesRef;
+using BKE::AttributeType;
+using BLI::ArrayRef;
 using BLI::Map;
+using BLI::MutableArrayRef;
+using BLI::Range;
 using BLI::Set;
+using BLI::SetVector;
 using BLI::Stack;
+using BLI::StringRef;
+using BLI::StringRefNull;
+using BLI::Vector;
 
 class ParticlesContainer;
 class ParticlesBlock;

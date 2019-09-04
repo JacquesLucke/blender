@@ -32,6 +32,7 @@ using namespace BParticles;
 
 using BLI::ArrayRef;
 using BLI::float3;
+using BLI::rgba_f;
 using BLI::StringRef;
 using BLI::Vector;
 

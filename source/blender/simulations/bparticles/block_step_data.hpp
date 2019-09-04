@@ -1,9 +1,11 @@
 #pragma once
 
-#include "attributes.hpp"
+#include "BKE_attributes_ref.hpp"
 #include "time_span.hpp"
 
 namespace BParticles {
+
+using BKE::AttributesRef;
 
 struct BlockStepData {
   AttributesRef attributes;

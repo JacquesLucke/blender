@@ -2,6 +2,8 @@
 
 namespace BParticles {
 
+using BLI::float3;
+
 ConstantVelocityIntegrator::ConstantVelocityIntegrator()
 {
   AttributesDeclaration builder;

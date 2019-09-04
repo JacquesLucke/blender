@@ -4,6 +4,8 @@
 
 namespace BParticles {
 
+using BLI::float3;
+
 class ForceInterface : public BlockStepDataAccess {
  private:
   ArrayRef<uint> m_pindices;
