@@ -39,6 +39,9 @@ struct VaryingFloat4x4 {
 
   float4x4 interpolate(float t) const
   {
+    if (memcmp(&start, &end, sizeof(float4x4)) == 0) {
+      return start;
+    }
     return float4x4::interpolate(start, end, t);
   }
 
