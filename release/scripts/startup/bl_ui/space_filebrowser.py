@@ -33,6 +33,7 @@ class FILEBROWSER_HT_header(Header):
             layout.template_header()
 
         layout.menu("FILEBROWSER_MT_view")
+        layout.menu("FILEBROWSER_MT_select")
 
         # can be None when save/reload with a file selector open
 
@@ -414,46 +415,6 @@ class FILEBROWSER_PT_directory_path(Panel):
         )
 
 
-class FILEBROWSER_PT_file_operation(Panel):
-    bl_space_type = 'FILE_BROWSER'
-    bl_region_type = 'EXECUTE'
-    bl_label = "Execute File Operation"
-    bl_options = {'HIDE_HEADER'}
-
-    @classmethod
-    def poll(cls, context):
-        return context.space_data.active_operator
-
-    def draw(self, context):
-        import sys
-
-        layout = self.layout
-        space = context.space_data
-        params = space.params
-
-        layout.scale_x = 1.3
-        layout.scale_y = 1.3
-
-        row = layout.row()
-        sub = row.row()
-        sub.prop(params, "filename", text="")
-        sub = row.row()
-        sub.ui_units_x = 5
-
-        # subsub = sub.row(align=True)
-        # subsub.operator("file.filenum", text="", icon='ADD').increment = 1
-        # subsub.operator("file.filenum", text="", icon='REMOVE').increment = -1
-
-        # organize buttons according to the OS standard
-        if sys.platform[:3] != "win":
-            sub.operator("FILE_OT_cancel", text="Cancel")
-        subsub = sub.row()
-        subsub.active_default = True
-        subsub.operator("FILE_OT_execute", text=params.title)
-        if sys.platform[:3] == "win":
-            sub.operator("FILE_OT_cancel", text="Cancel")
-
-
 class FILEBROWSER_MT_view(Menu):
     bl_label = "View"
 
@@ -474,6 +435,22 @@ class FILEBROWSER_MT_view(Menu):
 
         layout.menu("INFO_MT_area")
 
+
+class FILEBROWSER_MT_select(Menu):
+    bl_label = "Select"
+
+    def draw(self, context):
+        layout = self.layout
+        st = context.space_data
+
+        layout.operator("file.select_all", text="All").action = 'SELECT'
+        layout.operator("file.select_all", text="None").action = 'DESELECT'
+        layout.operator("file.select_all", text="Inverse").action = 'INVERT'
+
+        layout.separator()
+
+        layout.operator("file.select_box")
+        
 
 class FILEBROWSER_MT_context_menu(Menu):
     bl_label = "Files Context Menu"
@@ -523,9 +500,9 @@ classes = (
     FILEBROWSER_PT_bookmarks_recents,
     FILEBROWSER_PT_advanced_filter,
     FILEBROWSER_PT_directory_path,
-    FILEBROWSER_PT_file_operation,
     FILEBROWSER_PT_options_toggle,
     FILEBROWSER_MT_view,
+    FILEBROWSER_MT_select,
     FILEBROWSER_MT_context_menu,
 )
 
