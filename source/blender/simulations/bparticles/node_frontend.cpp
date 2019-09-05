@@ -33,32 +33,39 @@ class BehaviorCollector {
   MultiMap<std::string, OffsetHandler *> &m_offset_handlers;
 };
 
-static bool is_particle_type_node(VirtualNode *vnode)
-{
-  return STREQ(vnode->bnode()->idname, "bp_ParticleTypeNode");
-}
+static StringRef particle_type_idname = "bp_ParticleTypeNode";
+static StringRef combine_behaviors_idname = "bp_CombineBehaviorsNode";
 
 static std::unique_ptr<Action> build_action_list(VTreeDataGraph &vtree_data_graph,
                                                  VirtualNode *start_vnode,
                                                  StringRef name);
 
-static Vector<VirtualNode *> find_connected_particle_type_nodes(VirtualSocket *output_socket)
+static void find_connected_particle_type_nodes__recursive(VirtualSocket *output_vsocket,
+                                                          SetVector<VirtualNode *> &r_nodes)
 {
-  BLI_assert(output_socket->is_output());
-  Vector<VirtualNode *> type_nodes;
-  for (VirtualSocket *connected : output_socket->links()) {
+  BLI_assert(output_vsocket->is_output());
+  for (VirtualSocket *connected : output_vsocket->links()) {
     VirtualNode *connected_vnode = connected->vnode();
-    if (is_particle_type_node(connected_vnode)) {
-      type_nodes.append(connected_vnode);
+    if (connected_vnode->idname() == particle_type_idname) {
+      r_nodes.add(connected_vnode);
+    }
+    else if (connected_vnode->idname() == combine_behaviors_idname) {
+      find_connected_particle_type_nodes__recursive(connected_vnode->output(0), r_nodes);
     }
   }
-  return type_nodes;
 }
 
-static Vector<std::string> find_connected_particle_type_names(VirtualSocket *output_socket)
+static Vector<VirtualNode *> find_connected_particle_type_nodes(VirtualSocket *output_vsocket)
+{
+  SetVector<VirtualNode *> type_nodes;
+  find_connected_particle_type_nodes__recursive(output_vsocket, type_nodes);
+  return Vector<VirtualNode *>(type_nodes);
+}
+
+static Vector<std::string> find_connected_particle_type_names(VirtualSocket *output_vsocket)
 {
   Vector<std::string> type_names;
-  for (VirtualNode *vnode : find_connected_particle_type_nodes(output_socket)) {
+  for (VirtualNode *vnode : find_connected_particle_type_nodes(output_vsocket)) {
     type_names.append(vnode->name());
   }
   return type_names;
