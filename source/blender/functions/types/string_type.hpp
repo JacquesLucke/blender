@@ -62,6 +62,11 @@ class MyString {
     return *this;
   }
 
+  const char *data() const
+  {
+    return m_string;
+  }
+
   operator StringRefNull() const
   {
     if (m_string == nullptr) {

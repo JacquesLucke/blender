@@ -78,7 +78,9 @@ Optional<ParticleFunctionInputArray> AgeInputProvider::get(InputProviderInterfac
   return ParticleFunctionInputArray(ages.as_ref(), true);
 }
 
-SurfaceImageInputProvider::SurfaceImageInputProvider(Image *image) : m_image(image)
+SurfaceImageInputProvider::SurfaceImageInputProvider(Image *image,
+                                                     Optional<std::string> uv_map_name)
+    : m_image(image), m_uv_map_name(std::move(uv_map_name))
 {
   memset(&m_image_user, 0, sizeof(ImageUser));
   m_image_user.ok = true;
@@ -110,6 +112,16 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
   return {};
 }
 
+static int find_uv_layer_index(Mesh *mesh, const Optional<std::string> &uv_map_name)
+{
+  if (uv_map_name.has_value()) {
+    return CustomData_get_named_layer_index(&mesh->ldata, CD_MLOOPUV, uv_map_name.value().data());
+  }
+  else {
+    return CustomData_get_active_layer(&mesh->ldata, CD_MLOOPUV);
+  }
+}
+
 Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::compute_colors(
     InputProviderInterface &interface,
     MeshSurfaceContext *surface_info,
@@ -121,12 +133,14 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::compute_colors(
   const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
   ArrayRef<float3> barycentric_coords = surface_info->barycentric_coords();
 
-  int uv_layer_index = CustomData_get_active_layer(&mesh->ldata, CD_MLOOPUV);
-  BLI_assert(uv_layer_index >= 0);
-  MLoopUV *uv_layer = (MLoopUV *)CustomData_get(&mesh->ldata, uv_layer_index, CD_MLOOPUV);
-  BLI_assert(uv_layer != nullptr);
+  int uv_layer_index = find_uv_layer_index(mesh, m_uv_map_name);
+  if (uv_layer_index < 0) {
+    return {};
+  }
+  ArrayRef<MLoopUV> uv_layer = BLI::ref_c_array(
+      (MLoopUV *)CustomData_get_layer_n(&mesh->ldata, CD_MLOOPUV, uv_layer_index), mesh->totloop);
 
-  rgba_b *pixel_buffer = (rgba_b *)m_ibuf->rect;
+  ArrayRef<rgba_b> pixel_buffer = BLI::ref_c_array((rgba_b *)m_ibuf->rect, m_ibuf->x * m_ibuf->y);
 
   uint size = interface.attributes().size();
   auto colors = BLI::temporary_allocate_array<rgba_f>(size);

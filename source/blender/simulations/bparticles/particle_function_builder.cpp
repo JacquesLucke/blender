@@ -98,13 +98,30 @@ static ParticleFunctionInputProvider *INPUT_surface_info(VTreeDataGraph &UNUSED(
   }
 }
 
-static ParticleFunctionInputProvider *INPUT_surface_image(VTreeDataGraph &UNUSED(vtree_data_graph),
+static ParticleFunctionInputProvider *INPUT_surface_image(VTreeDataGraph &vtree_data_graph,
                                                           VirtualSocket *vsocket)
 {
+  Optional<std::string> uv_map_name;
+
   PointerRNA rna = vsocket->vnode()->rna();
   Image *image = (Image *)RNA_pointer_get(&rna, "image").data;
   BLI_assert(image != nullptr);
-  return new SurfaceImageInputProvider(image);
+
+  int uv_mode = RNA_enum_get(&rna, "uv_mode");
+  if (uv_mode == 1) {
+    FunctionGraph fgraph(vtree_data_graph.graph(),
+                         {},
+                         {vtree_data_graph.lookup_socket(vsocket->vnode()->input(0))});
+    FN::SharedFunction fn = fgraph.new_function(vsocket->vnode()->name());
+    FN::fgraph_add_TupleCallBody(fn, fgraph);
+
+    FN::TupleCallBody &body = fn->body<TupleCallBody>();
+    FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+    body.call__setup_execution_context(fn_in, fn_out);
+    uv_map_name = std::string(fn_out.relocate_out<FN::Types::MyString>(0).data());
+  }
+
+  return new SurfaceImageInputProvider(image, uv_map_name);
 }
 
 static ParticleFunctionInputProvider *INPUT_surface_weight(

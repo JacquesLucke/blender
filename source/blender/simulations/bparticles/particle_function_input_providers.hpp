@@ -38,9 +38,10 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
   Image *m_image;
   ImageUser m_image_user;
   ImBuf *m_ibuf;
+  Optional<std::string> m_uv_map_name;
 
  public:
-  SurfaceImageInputProvider(Image *image);
+  SurfaceImageInputProvider(Image *image, Optional<std::string> uv_map_name);
   ~SurfaceImageInputProvider();
 
   Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;

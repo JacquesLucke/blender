@@ -29,13 +29,27 @@ class SurfaceImageNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_SurfaceImageNode"
     bl_label = "Surface Image"
 
+    uv_mode: EnumProperty(
+        name="UV Mode",
+        items=[
+            ('FIRST', "First", "Use first UV map", 'NONE', 0),
+            ('BY_NAME', "By Name", "Choose the UV map by name", 'NONE', 1),
+        ],
+        update=BParticlesNode.sync_tree,
+        default='FIRST',
+    )
+
     image: PointerProperty(type=bpy.types.Image)
 
     def declaration(self, builder: NodeBuilder):
+        if self.uv_mode == 'BY_NAME':
+            builder.fixed_input("uv_name", "Name", "Text")
         builder.fixed_output("color", "Color", "Color")
 
     def draw(self, layout):
-        layout.prop(self, "image", text="")
+        col = layout.column()
+        col.prop(self, "image", text="")
+        col.prop(self, "uv_mode", text="")
 
 
 class SurfaceWeightNode(bpy.types.Node, BParticlesNode):

@@ -383,7 +383,7 @@ struct rgba_b {
     rgba_float_to_uchar(*this, other);
   }
 
-  operator rgba_f()
+  operator rgba_f() const
   {
     rgba_f result;
     rgba_uchar_to_float(result, *this);
@@ -391,6 +391,11 @@ struct rgba_b {
   }
 
   operator uint8_t *()
+  {
+    return &r;
+  }
+
+  operator const uint8_t *() const
   {
     return &r;
   }
