@@ -204,6 +204,11 @@ inline bool operator==(StringRef a, StringRef b)
   return STREQLEN(a.data(), b.data(), a.size());
 }
 
+inline bool operator!=(StringRef a, StringRef b)
+{
+  return !(a == b);
+}
+
 inline bool StringRefBase::startswith(StringRef prefix) const
 {
   if (m_size < prefix.m_size) {

@@ -132,6 +132,8 @@ TEST(string_ref, CompareEqual)
   StringRef ref3("other");
   EXPECT_TRUE(ref1 == ref2);
   EXPECT_FALSE(ref1 == ref3);
+  EXPECT_TRUE(ref1 != ref3);
+  EXPECT_FALSE(ref1 != ref2);
 }
 
 TEST(string_ref, CompareEqualCharPtr1)
@@ -139,6 +141,8 @@ TEST(string_ref, CompareEqualCharPtr1)
   StringRef ref("test");
   EXPECT_TRUE(ref == "test");
   EXPECT_FALSE(ref == "other");
+  EXPECT_TRUE(ref != "other");
+  EXPECT_FALSE(ref != "test");
 }
 
 TEST(string_ref, CompareEqualCharPtr2)
@@ -146,6 +150,8 @@ TEST(string_ref, CompareEqualCharPtr2)
   StringRef ref("test");
   EXPECT_TRUE("test" == ref);
   EXPECT_FALSE("other" == ref);
+  EXPECT_TRUE(ref != "other");
+  EXPECT_FALSE(ref != "test");
 }
 
 TEST(string_ref, CompareEqualString1)
@@ -153,6 +159,8 @@ TEST(string_ref, CompareEqualString1)
   StringRef ref("test");
   EXPECT_TRUE(ref == std::string("test"));
   EXPECT_FALSE(ref == std::string("other"));
+  EXPECT_TRUE(ref != std::string("other"));
+  EXPECT_FALSE(ref != std::string("test"));
 }
 
 TEST(string_ref, CompareEqualString2)
@@ -160,6 +168,8 @@ TEST(string_ref, CompareEqualString2)
   StringRef ref("test");
   EXPECT_TRUE(std::string("test") == ref);
   EXPECT_FALSE(std::string("other") == ref);
+  EXPECT_TRUE(std::string("other") != ref);
+  EXPECT_FALSE(std::string("test") != ref);
 }
 
 TEST(string_ref, Iterate)
