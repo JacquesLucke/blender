@@ -6,7 +6,7 @@ from .. node_builder import NodeBuilder
 
 class ChangeParticleColorNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_ChangeParticleColorNode"
-    bl_label = "Change Particle Color"
+    bl_label = "Change Color"
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("color", "Color", "Color")
@@ -15,7 +15,7 @@ class ChangeParticleColorNode(bpy.types.Node, BParticlesNode):
 
 class ChangeParticleVelocityNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_ChangeParticleVelocityNode"
-    bl_label = "Change Particle Velocity"
+    bl_label = "Change Velocity"
 
     mode: EnumProperty(
         name="Mode",
@@ -39,7 +39,7 @@ class ChangeParticleVelocityNode(bpy.types.Node, BParticlesNode):
 
 class ChangeParticleSizeNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_ChangeParticleSizeNode"
-    bl_label = "Change Particle Size"
+    bl_label = "Change Size"
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("size", "Size", "Float", default=0.01)
