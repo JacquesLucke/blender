@@ -96,11 +96,26 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
     InputProviderInterface &interface)
 {
   ActionContext *action_context = interface.action_context();
-  auto *surface_info = dynamic_cast<MeshSurfaceContext *>(action_context);
-  if (surface_info == nullptr) {
-    return {};
+  if (dynamic_cast<MeshSurfaceContext *>(action_context)) {
+    auto *surface_info = dynamic_cast<MeshSurfaceContext *>(action_context);
+    return this->compute_colors(
+        interface, surface_info, Range<uint>(0, interface.attributes().size()).as_array_ref());
   }
+  else if (dynamic_cast<SourceParticleActionContext *>(action_context)) {
+    auto *source = dynamic_cast<SourceParticleActionContext *>(action_context);
+    auto *surface_info = dynamic_cast<MeshSurfaceContext *>(source->source_context());
+    if (surface_info != nullptr) {
+      return this->compute_colors(interface, surface_info, source->source_indices());
+    }
+  }
+  return {};
+}
 
+Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::compute_colors(
+    InputProviderInterface &interface,
+    MeshSurfaceContext *surface_info,
+    ArrayRef<uint> surface_info_mapping)
+{
   const Object *object = surface_info->object();
   Mesh *mesh = (Mesh *)object->data;
 
@@ -119,7 +134,8 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
   MutableArrayRef<rgba_f> colors{colors_buffer, size};
 
   for (uint pindex : interface.pindices()) {
-    uint triangle_index = surface_info->looptri_indices()[pindex];
+    uint source_index = surface_info_mapping[pindex];
+    uint triangle_index = surface_info->looptri_indices()[source_index];
     const MLoopTri &triangle = triangles[triangle_index];
 
     float2 uv1 = uv_layer[triangle.tri[0]].uv;
@@ -127,7 +143,7 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
     float2 uv3 = uv_layer[triangle.tri[2]].uv;
 
     float2 uv;
-    float3 vertex_weights = barycentric_coords[pindex];
+    float3 vertex_weights = barycentric_coords[source_index];
     interp_v2_v2v2v2(uv, uv1, uv2, uv3, vertex_weights);
 
     uv = uv.clamped_01();
@@ -151,14 +167,14 @@ Optional<ParticleFunctionInputArray> VertexWeightInputProvider::get(
   else if (dynamic_cast<SourceParticleActionContext *>(action_context)) {
     auto *source_info = dynamic_cast<SourceParticleActionContext *>(action_context);
     auto *surface_info = dynamic_cast<MeshSurfaceContext *>(source_info->source_context());
-    return this->compute_weights(interface, surface_info, source_info->source_indices());
+    if (surface_info != nullptr) {
+      return this->compute_weights(interface, surface_info, source_info->source_indices());
+    }
   }
-  else {
-    return {};
-  }
+  return {};
 }
 
-BLI_NOINLINE Optional<ParticleFunctionInputArray> VertexWeightInputProvider::compute_weights(
+Optional<ParticleFunctionInputArray> VertexWeightInputProvider::compute_weights(
     InputProviderInterface &interface,
     MeshSurfaceContext *surface_info,
     ArrayRef<uint> surface_info_mapping)

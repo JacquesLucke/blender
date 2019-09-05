@@ -44,6 +44,11 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
   ~SurfaceImageInputProvider();
 
   Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
+
+ private:
+  Optional<ParticleFunctionInputArray> compute_colors(InputProviderInterface &interface,
+                                                      MeshSurfaceContext *surface_info,
+                                                      ArrayRef<uint> surface_info_mapping);
 };
 
 class VertexWeightInputProvider : public ParticleFunctionInputProvider {
@@ -59,7 +64,7 @@ class VertexWeightInputProvider : public ParticleFunctionInputProvider {
 
  private:
   Optional<ParticleFunctionInputArray> compute_weights(InputProviderInterface &interface,
-                                                       MeshSurfaceContext *source_info,
+                                                       MeshSurfaceContext *surface_info,
                                                        ArrayRef<uint> surface_info_mapping);
 };
 
