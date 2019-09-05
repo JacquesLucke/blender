@@ -26,6 +26,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <iostream>
 
 #include "BLI_utildefines.h"
 
@@ -184,6 +185,12 @@ class IndexRange {
    * works for some ranges. The range must be within [0, RANGE_AS_ARRAY_REF_MAX_LEN].
    */
   ArrayRef<uint> as_array_ref() const;
+
+  friend std::ostream &operator<<(std::ostream &stream, IndexRange range)
+  {
+    stream << "[" << range.start() << ", " << range.one_after_last() << ")";
+    return stream;
+  }
 };
 
 }  // namespace BLI

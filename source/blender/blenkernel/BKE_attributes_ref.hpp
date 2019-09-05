@@ -361,7 +361,7 @@ class AttributesRef {
     AttributeType type = m_info->type_of(index);
     uint element_size = size_of_attribute_type(type);
 
-    for (uint i : m_range) {
+    for (uint i = 0; i < m_range.size(); i++) {
       memcpy(POINTER_OFFSET(dst, element_size * i), default_value, element_size);
     }
   }
