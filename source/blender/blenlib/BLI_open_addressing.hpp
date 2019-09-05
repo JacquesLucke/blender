@@ -45,13 +45,28 @@ class OpenAddressingArray {
   static constexpr auto slots_per_item = Item::slots_per_item;
   static constexpr float max_load_factor = 0.5f;
 
+  /* Invariants:
+   *   2^m_item_exponent = m_item_amount
+   *   m_item_amount * slots_per_item = m_slots_total
+   *   m_slot_mask = m_slots_total - 1
+   *   m_slots_set_or_dummy < m_slots_total
+   */
+
+  /* Array containing the actual hash table. Might be a pointer to the inlined storage. */
   Item *m_items;
+  /* Number of items in the hash table. Must be a power of two. */
   uint32_t m_item_amount;
+  /* Exponent of the current item amount. */
   uint8_t m_item_exponent;
+  /* Number of elements that could be stored in the table when the load factor is 1. */
   uint32_t m_slots_total;
+  /* Number of elements that are not empty. */
   uint32_t m_slots_set_or_dummy;
+  /* Number of dummy entries. */
   uint32_t m_slots_dummy;
+  /* Max number of slots that can be non-empty according to the load factor. */
   uint32_t m_slots_usable;
+  /* Can be used to map a hash value into the range of valid slot indices. */
   uint32_t m_slot_mask;
   Allocator m_allocator;
   char m_local_storage[sizeof(Item) * ItemsInSmallStorage];
@@ -155,6 +170,8 @@ class OpenAddressingArray {
     return *this;
   }
 
+  /* Prepare a new array that can hold a minimum of min_usable_slots elements. All entries are
+   * empty. */
   OpenAddressingArray init_reserved(uint32_t min_usable_slots) const
   {
     float min_total_slots = (float)min_usable_slots / max_load_factor;
@@ -165,41 +182,66 @@ class OpenAddressingArray {
     return grown;
   }
 
+  /**
+   * Amount of items in the array times the number of slots per item.
+   */
   uint32_t slots_total() const
   {
     return m_slots_total;
   }
 
+  /**
+   * Amount of slots that are initialized with some value that is not empty or dummy.
+   */
   uint32_t slots_set() const
   {
     return m_slots_set_or_dummy - m_slots_dummy;
   }
 
+  /**
+   * Amount of slots that can be used before the array should grow.
+   */
   uint32_t slots_usable() const
   {
     return m_slots_usable;
   }
 
+  /**
+   * Update the counters after one empty element is used for a newly added element.
+   */
   void update__empty_to_set()
   {
     m_slots_set_or_dummy++;
   }
 
+  /**
+   * Update the counters after one previously dummy element becomes set.
+   */
   void update__dummy_to_set()
   {
     m_slots_dummy--;
   }
 
+  /**
+   * Update the counters after one previously set element becomes a dummy.
+   */
   void update__set_to_dummy()
   {
     m_slots_dummy++;
   }
 
+  /**
+   * Access the current slot mask for this array.
+   */
   uint32_t slot_mask() const
   {
     return m_slot_mask;
   }
 
+  /**
+   * Access the item for a specific item index.
+   * Note: The item index is not necessarily the slot index.
+   */
   const Item &item(uint32_t item_index) const
   {
     return m_items[item_index];
