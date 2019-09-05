@@ -34,7 +34,7 @@ class SourceParticleActionContext : public ActionContext {
   {
   }
 
-  void update(Range<uint> slice)
+  void update(IndexRange slice)
   {
     m_current_source_indices = m_all_source_indices.slice(slice.start(), slice.size());
   }
@@ -137,7 +137,7 @@ inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
   uint offset = 0;
   for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
-    Range<uint> range(offset, offset + range_size);
+    IndexRange range(offset, offset + range_size);
     offset += range_size;
 
     build_context(range, (void *)action_context);
@@ -147,7 +147,7 @@ inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
     durations.fill(0);
 
     ActionInterface action_interface(emitter_interface.particle_allocator(),
-                                     Range<uint>(0, range_size).as_array_ref(),
+                                     IndexRange(0, range_size).as_array_ref(),
                                      attributes,
                                      offsets,
                                      attributes.get<float>("Birth Time"),
@@ -198,7 +198,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
   uint offset = 0;
   for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
-    action_context->update(Range<uint>(offset, offset + range_size));
+    action_context->update(IndexRange(offset, offset + range_size));
     offset += range_size;
 
     AttributesRef offsets(info, buffers, range_size);
@@ -206,7 +206,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
     durations.fill(0);
 
     ActionInterface new_interface(action_interface.particle_allocator(),
-                                  Range<uint>(0, range_size).as_array_ref(),
+                                  IndexRange(0, range_size).as_array_ref(),
                                   attributes,
                                   offsets,
                                   attributes.get<float>("Birth Time"),
@@ -232,7 +232,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
     durations.fill(0);
 
     ActionInterface new_interface(offset_handler_interface.particle_allocator(),
-                                  Range<uint>(0, range_size).as_array_ref(),
+                                  IndexRange(0, range_size).as_array_ref(),
                                   attributes,
                                   offsets,
                                   attributes.get<float>("Birth Time"),

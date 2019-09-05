@@ -15,9 +15,9 @@ using BKE::AttributesInfo;
 using BKE::AttributesRef;
 using BKE::AttributeType;
 using BLI::ArrayRef;
+using BLI::IndexRange;
 using BLI::Map;
 using BLI::MutableArrayRef;
-using BLI::Range;
 using BLI::Set;
 using BLI::SetVector;
 using BLI::Stack;
@@ -75,7 +75,7 @@ class ParticlesContainer {
   /**
    * Request a range of unique particle ids. This method is thread-safe.
    */
-  Range<uint> new_particle_ids(uint amount);
+  IndexRange new_particle_ids(uint amount);
 
   /**
    * Get a read-only buffer of all the blocks currently in use.
@@ -130,7 +130,7 @@ class ParticlesBlock {
    * Get the range of attribute indices that contain active particles.
    * This will always start at 0.
    */
-  Range<uint> active_range();
+  IndexRange active_range();
 
   /**
    * Get the number of active particles in this block.
@@ -190,7 +190,7 @@ class ParticlesBlock {
    * Get a slice of the attribute arrays.
    */
   AttributesRef attributes_slice(uint start, uint length);
-  AttributesRef attributes_slice(Range<uint> range);
+  AttributesRef attributes_slice(IndexRange range);
 
   ArrayRef<void *> attribute_buffers();
 
@@ -230,10 +230,10 @@ inline uint ParticlesContainer::count_active() const
   return count;
 }
 
-inline Range<uint> ParticlesContainer::new_particle_ids(uint amount)
+inline IndexRange ParticlesContainer::new_particle_ids(uint amount)
 {
   uint start = m_next_particle_id.fetch_add(amount);
-  return Range<uint>(start, start + amount);
+  return IndexRange(start, start + amount);
 }
 
 inline AttributesInfo &ParticlesContainer::attributes_info()
@@ -262,9 +262,9 @@ template<typename T> Vector<T> ParticlesContainer::flatten_attribute(StringRef a
 /* Particles Block
  ****************************************/
 
-inline Range<uint> ParticlesBlock::active_range()
+inline IndexRange ParticlesBlock::active_range()
 {
-  return Range<uint>(0, m_active_amount);
+  return IndexRange(0, m_active_amount);
 }
 
 inline uint &ParticlesBlock::active_amount()
@@ -313,24 +313,24 @@ inline ParticlesContainer &ParticlesBlock::container()
   return m_container;
 }
 
-inline AttributesRef ParticlesBlock::attributes_slice(Range<uint> range)
+inline AttributesRef ParticlesBlock::attributes_slice(IndexRange range)
 {
   return AttributesRef(m_container.attributes_info(), m_attribute_buffers, range);
 }
 
 inline AttributesRef ParticlesBlock::attributes_slice(uint start, uint length)
 {
-  return this->attributes_slice(Range<uint>(start, start + length));
+  return this->attributes_slice(IndexRange(start, start + length));
 }
 
 inline AttributesRef ParticlesBlock::attributes_all()
 {
-  return this->attributes_slice(Range<uint>(0, m_container.block_size()));
+  return this->attributes_slice(IndexRange(0, m_container.block_size()));
 }
 
 inline AttributesRef ParticlesBlock::attributes()
 {
-  return this->attributes_slice(Range<uint>(0, m_active_amount));
+  return this->attributes_slice(IndexRange(0, m_active_amount));
 }
 
 inline ArrayRef<void *> ParticlesBlock::attribute_buffers()

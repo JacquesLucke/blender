@@ -34,14 +34,14 @@ AttributesInfo::AttributesInfo(AttributesDeclaration &builder)
 
 AttributesRefGroup::AttributesRefGroup(AttributesInfo &attributes_info,
                                        Vector<ArrayRef<void *>> buffers,
-                                       Vector<Range<uint>> ranges)
+                                       Vector<IndexRange> ranges)
     : m_attributes_info(&attributes_info),
       m_buffers(std::move(buffers)),
       m_ranges(std::move(ranges))
 {
   BLI_assert(buffers.size() == ranges.size());
   m_size = 0;
-  for (Range<uint> range : m_ranges) {
+  for (IndexRange range : m_ranges) {
     m_size += range.size();
   }
 }

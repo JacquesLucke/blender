@@ -253,7 +253,7 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
     VectorAdaptor<uint> pindices_output(pindices_A.begin(), amount_left);
     simulate_to_next_event(step_data,
                            particle_allocator,
-                           Range<uint>(0, amount_left).as_array_ref(),
+                           IndexRange(0, amount_left).as_array_ref(),
                            type_info,
                            pindices_output);
     amount_left = pindices_output.size();

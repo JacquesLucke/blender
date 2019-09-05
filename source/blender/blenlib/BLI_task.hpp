@@ -131,7 +131,7 @@ static void parallel_array_elements(ArrayRef<T> array,
 }
 
 template<typename ProcessRange>
-static void parallel_range(Range<uint> total_range,
+static void parallel_range(IndexRange total_range,
                            uint chunk_size,
                            ProcessRange process_range,
                            bool use_threading = true)
@@ -145,9 +145,9 @@ static void parallel_range(Range<uint> total_range,
   BLI_parallel_range_settings_defaults(&settings);
 
   struct ParallelData {
-    ChunkedRange<uint> chunks;
+    ChunkedIndexRange chunks;
     ProcessRange &process_range;
-  } data = {ChunkedRange<uint>(total_range, chunk_size), process_range};
+  } data = {ChunkedIndexRange(total_range, chunk_size), process_range};
 
   BLI_task_parallel_range(0,
                           data.chunks.chunks(),
@@ -156,7 +156,7 @@ static void parallel_range(Range<uint> total_range,
                              const int index,
                              const TaskParallelTLS *__restrict UNUSED(tls)) {
                             ParallelData &data = *(ParallelData *)userdata;
-                            Range<uint> range = data.chunks.chunk_range(index);
+                            IndexRange range = data.chunks.chunk_range(index);
                             data.process_range(range);
                           },
                           &settings);

@@ -217,9 +217,9 @@ class DataGraph : public RefCounter {
   MEM_CXX_CLASS_ALLOC_FUNCS("FN:DataGraph")
 #endif
 
-  Range<uint> node_ids() const
+  IndexRange node_ids() const
   {
-    return Range<uint>(0, m_nodes.size());
+    return IndexRange(0, m_nodes.size());
   }
 
   SharedFunction &function_of_node(uint node_id) const
@@ -261,26 +261,26 @@ class DataGraph : public RefCounter {
     return DataSocket(true, this->id_of_node_output(node_id, output_index));
   }
 
-  Range<uint> input_ids_of_node(uint node_id) const
+  IndexRange input_ids_of_node(uint node_id) const
   {
     const Node &node = m_nodes[node_id];
-    return Range<uint>(node.inputs_start, node.inputs_start + node.function->input_amount());
+    return IndexRange(node.inputs_start, node.inputs_start + node.function->input_amount());
   }
 
-  DataSocketSequence<Range<uint>> inputs_of_node(uint node_id) const
+  DataSocketSequence<IndexRange> inputs_of_node(uint node_id) const
   {
-    return DataSocketSequence<Range<uint>>(false, this->input_ids_of_node(node_id));
+    return DataSocketSequence<IndexRange>(false, this->input_ids_of_node(node_id));
   }
 
-  Range<uint> output_ids_of_node(uint node_id) const
+  IndexRange output_ids_of_node(uint node_id) const
   {
     const Node &node = m_nodes[node_id];
-    return Range<uint>(node.outputs_start, node.outputs_start + node.function->output_amount());
+    return IndexRange(node.outputs_start, node.outputs_start + node.function->output_amount());
   }
 
-  DataSocketSequence<Range<uint>> outputs_of_node(uint node_id) const
+  DataSocketSequence<IndexRange> outputs_of_node(uint node_id) const
   {
-    return DataSocketSequence<Range<uint>>(true, this->output_ids_of_node(node_id));
+    return DataSocketSequence<IndexRange>(true, this->output_ids_of_node(node_id));
   }
 
   uint first_input_id_of_node(uint node_id) const

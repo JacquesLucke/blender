@@ -87,7 +87,7 @@ template<typename T> class ArrayRef {
     return ArrayRef(m_start + start, length);
   }
 
-  ArrayRef slice(Range<uint> range) const
+  ArrayRef slice(IndexRange range) const
   {
     return this->slice(range.start(), range.size());
   }

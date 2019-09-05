@@ -37,7 +37,7 @@ class MeshSurfaceContext : public ActionContext {
         m_looptri_indices(looptri_indices),
         m_world_surface_velocities(world_surface_velocities)
   {
-    this->compute_barycentric_coords(Range<uint>(0, m_local_positions.size()).as_array_ref());
+    this->compute_barycentric_coords(IndexRange(0, m_local_positions.size()).as_array_ref());
   }
 
   MeshSurfaceContext(Object *object,

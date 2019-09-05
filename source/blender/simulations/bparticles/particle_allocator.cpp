@@ -32,14 +32,14 @@ ParticlesBlock &ParticleAllocator::get_non_full_block(StringRef particle_type_na
 void ParticleAllocator::allocate_block_ranges(StringRef particle_type_name,
                                               uint size,
                                               Vector<ParticlesBlock *> &r_blocks,
-                                              Vector<Range<uint>> &r_ranges)
+                                              Vector<IndexRange> &r_ranges)
 {
   uint remaining_size = size;
   while (remaining_size > 0) {
     ParticlesBlock &block = this->get_non_full_block(particle_type_name);
 
     uint size_to_use = std::min(block.unused_amount(), remaining_size);
-    Range<uint> range(block.active_amount(), block.active_amount() + size_to_use);
+    IndexRange range(block.active_amount(), block.active_amount() + size_to_use);
     block.active_amount() += size_to_use;
 
     r_blocks.append(&block);
@@ -51,7 +51,7 @@ void ParticleAllocator::allocate_block_ranges(StringRef particle_type_name,
   }
 }
 
-void ParticleAllocator::initialize_new_particles(ParticlesBlock &block, Range<uint> pindices)
+void ParticleAllocator::initialize_new_particles(ParticlesBlock &block, IndexRange pindices)
 {
   AttributesRef attributes = block.attributes_slice(pindices);
   for (uint i : attributes.info().attribute_indices()) {
@@ -59,7 +59,7 @@ void ParticleAllocator::initialize_new_particles(ParticlesBlock &block, Range<ui
   }
 
   MutableArrayRef<int32_t> particle_ids = block.attributes_all().get<int32_t>("ID");
-  Range<uint> new_ids = block.container().new_particle_ids(pindices.size());
+  IndexRange new_ids = block.container().new_particle_ids(pindices.size());
   for (uint i = 0; i < pindices.size(); i++) {
     uint pindex = pindices[i];
     particle_ids[pindex] = new_ids[i];
@@ -74,7 +74,7 @@ AttributesInfo &ParticleAllocator::attributes_info(StringRef particle_type_name)
 AttributesRefGroup ParticleAllocator::request(StringRef particle_type_name, uint size)
 {
   Vector<ParticlesBlock *> blocks;
-  Vector<Range<uint>> ranges;
+  Vector<IndexRange> ranges;
   this->allocate_block_ranges(particle_type_name, size, blocks, ranges);
 
   AttributesInfo &attributes_info = this->attributes_info(particle_type_name);

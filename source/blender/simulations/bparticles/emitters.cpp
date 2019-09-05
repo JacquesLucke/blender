@@ -332,7 +332,7 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     new_particles.set<float>("Birth Time", birth_times);
 
     m_on_birth_action->execute_from_emitter<MeshSurfaceContext>(
-        new_particles, interface, [&](Range<uint> range, void *dst) {
+        new_particles, interface, [&](IndexRange range, void *dst) {
           new (dst) MeshSurfaceContext(m_object,
                                        transforms_at_birth.as_ref().slice(range),
                                        local_positions.as_ref().slice(range),

@@ -93,7 +93,7 @@ static uint tetrahedon_edges[6][2] = {{0, 1}, {0, 2}, {0, 3}, {1, 2}, {1, 3}, {2
 
 static void distribute_tetrahedons_range(Mesh *mesh,
                                          MutableArrayRef<MLoopCol> loop_colors,
-                                         Range<uint> range,
+                                         IndexRange range,
                                          ArrayRef<float3> centers,
                                          ArrayRef<float> scales,
                                          ArrayRef<rgba_f> colors)
@@ -151,12 +151,10 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers,
           &mesh->ldata, CD_MLOOPCOL, CD_DEFAULT, nullptr, mesh->totloop, "Color"),
       mesh->totloop);
 
-  BLI::Task::parallel_range(Range<uint>(0, amount),
-                            1000,
-                            [mesh, centers, scales, colors, loop_colors](Range<uint> range) {
-                              distribute_tetrahedons_range(
-                                  mesh, loop_colors, range, centers, scales, colors);
-                            });
+  BLI::Task::parallel_range(
+      IndexRange(0, amount), 1000, [mesh, centers, scales, colors, loop_colors](IndexRange range) {
+        distribute_tetrahedons_range(mesh, loop_colors, range, centers, scales, colors);
+      });
 
   return mesh;
 }

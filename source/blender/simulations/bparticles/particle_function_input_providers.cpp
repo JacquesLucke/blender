@@ -99,7 +99,7 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
   if (dynamic_cast<MeshSurfaceContext *>(action_context)) {
     auto *surface_info = dynamic_cast<MeshSurfaceContext *>(action_context);
     return this->compute_colors(
-        interface, surface_info, Range<uint>(0, interface.attributes().size()).as_array_ref());
+        interface, surface_info, IndexRange(0, interface.attributes().size()).as_array_ref());
   }
   else if (dynamic_cast<SourceParticleActionContext *>(action_context)) {
     auto *source = dynamic_cast<SourceParticleActionContext *>(action_context);
@@ -162,7 +162,7 @@ Optional<ParticleFunctionInputArray> VertexWeightInputProvider::get(
   if (dynamic_cast<MeshSurfaceContext *>(action_context)) {
     auto *surface_info = dynamic_cast<MeshSurfaceContext *>(action_context);
     return this->compute_weights(
-        interface, surface_info, Range<uint>(0, interface.attributes().size()).as_array_ref());
+        interface, surface_info, IndexRange(0, interface.attributes().size()).as_array_ref());
   }
   else if (dynamic_cast<SourceParticleActionContext *>(action_context)) {
     auto *source_info = dynamic_cast<SourceParticleActionContext *>(action_context);

@@ -19,7 +19,7 @@ using BLI::float2;
 using BLI::float3;
 using BLI::MutableArrayRef;
 using BLI::Optional;
-using BLI::Range;
+using BLI::IndexRange;
 using BLI::rgba_b;
 using BLI::rgba_f;
 using BLI::SetVector;
@@ -237,9 +237,9 @@ class AttributesInfo {
    * Get a range with all attribute indices.
    * The range will start at 0.
    */
-  Range<uint> attribute_indices() const
+  IndexRange attribute_indices() const
   {
-    return Range<uint>(0, this->size());
+    return IndexRange(0, this->size());
   }
 
   /**
@@ -268,15 +268,15 @@ class AttributesRef {
  private:
   AttributesInfo *m_info;
   ArrayRef<void *> m_buffers;
-  Range<uint> m_range;
+  IndexRange m_range;
 
  public:
   AttributesRef(AttributesInfo &info, ArrayRef<void *> buffers, uint size)
-      : AttributesRef(info, buffers, Range<uint>(0, size))
+      : AttributesRef(info, buffers, IndexRange(0, size))
   {
   }
 
-  AttributesRef(AttributesInfo &info, ArrayRef<void *> buffers, Range<uint> range)
+  AttributesRef(AttributesInfo &info, ArrayRef<void *> buffers, IndexRange range)
       : m_info(&info), m_buffers(buffers), m_range(range)
   {
   }
@@ -397,13 +397,13 @@ class AttributesRefGroup {
  private:
   AttributesInfo *m_attributes_info;
   Vector<ArrayRef<void *>> m_buffers;
-  Vector<Range<uint>> m_ranges;
+  Vector<IndexRange> m_ranges;
   uint m_size;
 
  public:
   AttributesRefGroup(AttributesInfo &attributes_info,
                      Vector<ArrayRef<void *>> buffers,
-                     Vector<Range<uint>> ranges);
+                     Vector<IndexRange> ranges);
 
   template<typename T> void set(uint index, ArrayRef<T> data)
   {

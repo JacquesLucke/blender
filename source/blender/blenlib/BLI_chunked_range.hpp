@@ -26,14 +26,14 @@
 
 namespace BLI {
 
-template<typename T> class ChunkedRange {
+class ChunkedIndexRange {
  private:
-  Range<T> m_total_range;
+  IndexRange m_total_range;
   uint m_chunk_size;
   uint m_chunk_amount;
 
  public:
-  ChunkedRange(Range<T> total_range, uint chunk_size)
+  ChunkedIndexRange(IndexRange total_range, uint chunk_size)
       : m_total_range(total_range),
         m_chunk_size(chunk_size),
         m_chunk_amount(std::ceil(m_total_range.size() / (float)m_chunk_size))
@@ -45,12 +45,12 @@ template<typename T> class ChunkedRange {
     return m_chunk_amount;
   }
 
-  Range<T> chunk_range(uint index) const
+  IndexRange chunk_range(uint index) const
   {
     BLI_assert(index < m_chunk_amount);
-    T start = m_total_range[index * m_chunk_size];
-    T one_after_last = std::min<T>(start + m_chunk_size, m_total_range.one_after_last());
-    return Range<T>(start, one_after_last);
+    uint start = m_total_range[index * m_chunk_size];
+    uint one_after_last = std::min<uint>(start + m_chunk_size, m_total_range.one_after_last());
+    return IndexRange(start, one_after_last);
   }
 };
 
