@@ -81,10 +81,10 @@ template<typename T> class ArrayRef {
    * Return a continuous part of the array.
    * Asserts that the slice stays within the array.
    */
-  ArrayRef slice(uint start, uint length) const
+  ArrayRef slice(uint start, uint size) const
   {
-    BLI_assert(start + length <= this->size() || length == 0);
-    return ArrayRef(m_start + start, length);
+    BLI_assert(start + size <= this->size() || size == 0);
+    return ArrayRef(m_start + start, size);
   }
 
   ArrayRef slice(IndexRange range) const

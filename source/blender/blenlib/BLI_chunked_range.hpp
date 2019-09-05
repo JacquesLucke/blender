@@ -49,8 +49,8 @@ class ChunkedIndexRange {
   {
     BLI_assert(index < m_chunk_amount);
     uint start = m_total_range[index * m_chunk_size];
-    uint one_after_last = std::min<uint>(start + m_chunk_size, m_total_range.one_after_last());
-    return IndexRange(start, one_after_last);
+    uint size = std::min<uint>(m_chunk_size, m_total_range.one_after_last() - start);
+    return IndexRange(start, size);
   }
 };
 

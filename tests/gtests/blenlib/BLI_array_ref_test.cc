@@ -97,7 +97,7 @@ TEST(array_ref, SliceEmpty)
 TEST(array_ref, SliceRange)
 {
   IntVector a = {1, 2, 3, 4, 5};
-  auto slice = IntArrayRef(a).slice(IndexRange(2, 4));
+  auto slice = IntArrayRef(a).slice(IndexRange(2, 2));
   EXPECT_EQ(slice.size(), 2);
   EXPECT_EQ(slice[0], 3);
   EXPECT_EQ(slice[1], 4);

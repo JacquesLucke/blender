@@ -233,7 +233,7 @@ inline uint ParticlesContainer::count_active() const
 inline IndexRange ParticlesContainer::new_particle_ids(uint amount)
 {
   uint start = m_next_particle_id.fetch_add(amount);
-  return IndexRange(start, start + amount);
+  return IndexRange(start, amount);
 }
 
 inline AttributesInfo &ParticlesContainer::attributes_info()
@@ -320,7 +320,7 @@ inline AttributesRef ParticlesBlock::attributes_slice(IndexRange range)
 
 inline AttributesRef ParticlesBlock::attributes_slice(uint start, uint length)
 {
-  return this->attributes_slice(IndexRange(start, start + length));
+  return this->attributes_slice(IndexRange(start, length));
 }
 
 inline AttributesRef ParticlesBlock::attributes_all()

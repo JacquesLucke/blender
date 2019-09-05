@@ -24,7 +24,7 @@ static uint array[RANGE_AS_ARRAY_REF_MAX_LEN];
 
 ArrayRef<uint> IndexRange::as_array_ref() const
 {
-  BLI_assert(m_one_after_last <= RANGE_AS_ARRAY_REF_MAX_LEN);
+  BLI_assert(m_size <= RANGE_AS_ARRAY_REF_MAX_LEN);
   if (!array_is_initialized) {
     for (uint i = 0; i < RANGE_AS_ARRAY_REF_MAX_LEN; i++) {
       array[i] = i;

@@ -39,7 +39,7 @@ void ParticleAllocator::allocate_block_ranges(StringRef particle_type_name,
     ParticlesBlock &block = this->get_non_full_block(particle_type_name);
 
     uint size_to_use = std::min(block.unused_amount(), remaining_size);
-    IndexRange range(block.active_amount(), block.active_amount() + size_to_use);
+    IndexRange range(block.active_amount(), size_to_use);
     block.active_amount() += size_to_use;
 
     r_blocks.append(&block);

@@ -38,22 +38,17 @@ template<typename T> class ArrayRef;
 class IndexRange {
  private:
   uint m_start = 0;
-  uint m_one_after_last = 0;
+  uint m_size = 0;
 
  public:
   IndexRange() = default;
 
-  explicit IndexRange(uint one_after_last) : m_start(0), m_one_after_last(one_after_last)
+  explicit IndexRange(uint size) : m_start(0), m_size(size)
   {
   }
 
-  /**
-   * Construct a new range.
-   * Asserts when start is larger than one_after_last.
-   */
-  IndexRange(uint start, uint one_after_last) : m_start(start), m_one_after_last(one_after_last)
+  IndexRange(uint start, uint size) : m_start(start), m_size(size)
   {
-    BLI_assert(start <= one_after_last);
   }
 
   class Iterator {
@@ -89,7 +84,7 @@ class IndexRange {
 
   Iterator end() const
   {
-    return Iterator(m_one_after_last);
+    return Iterator(m_start + m_size);
   }
 
   /**
@@ -106,8 +101,7 @@ class IndexRange {
    */
   friend bool operator==(IndexRange a, IndexRange b)
   {
-    return (a.m_start == b.m_start && a.m_one_after_last == b.m_one_after_last) ||
-           (a.size() == 0 && b.size() == 0);
+    return (a.m_size == b.m_size) && (a.m_start == b.m_start || a.m_size == 0);
   }
 
   /**
@@ -115,7 +109,7 @@ class IndexRange {
    */
   uint size() const
   {
-    return m_one_after_last - m_start;
+    return m_size;
   }
 
   /**
@@ -123,7 +117,7 @@ class IndexRange {
    */
   IndexRange after(uint n) const
   {
-    return IndexRange(m_one_after_last, m_one_after_last + n);
+    return IndexRange(m_start + m_size, n);
   }
 
   /**
@@ -131,7 +125,7 @@ class IndexRange {
    */
   IndexRange before(uint n) const
   {
-    return IndexRange(m_start - n, m_start);
+    return IndexRange(m_start - n, n);
   }
 
   /**
@@ -151,7 +145,7 @@ class IndexRange {
   uint last() const
   {
     BLI_assert(this->size() > 0);
-    return m_one_after_last - 1;
+    return m_start + m_size - 1;
   }
 
   /**
@@ -159,7 +153,7 @@ class IndexRange {
    */
   uint one_after_last() const
   {
-    return m_one_after_last;
+    return m_start + m_size;
   }
 
   /**
@@ -175,14 +169,14 @@ class IndexRange {
    */
   bool contains(uint value) const
   {
-    return value >= m_start && value < m_one_after_last;
+    return value >= m_start && value < m_start + m_size;
   }
 
   IndexRange slice(uint start, uint size) const
   {
     uint new_start = m_start + start;
-    BLI_assert(new_start + size <= m_one_after_last || size == 0);
-    return IndexRange(new_start, new_start + size);
+    BLI_assert(new_start + size <= m_start + m_size || size == 0);
+    return IndexRange(new_start, size);
   }
 
   /**

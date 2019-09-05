@@ -22,7 +22,7 @@ TEST(index_range, DefaultConstructor)
 
 TEST(index_range, SingleElementRange)
 {
-  IndexRange range(4, 5);
+  IndexRange range(4, 1);
   EXPECT_EQ(range.size(), 1);
   EXPECT_EQ(*range.begin(), 4);
 
@@ -37,7 +37,7 @@ TEST(index_range, SingleElementRange)
 
 TEST(index_range, MultipleElementRange)
 {
-  IndexRange range(6, 10);
+  IndexRange range(6, 4);
   EXPECT_EQ(range.size(), 4);
 
   IntVector vector;
@@ -53,7 +53,7 @@ TEST(index_range, MultipleElementRange)
 
 TEST(index_range, SubscriptOperator)
 {
-  IndexRange range(5, 10);
+  IndexRange range(5, 5);
   EXPECT_EQ(range[0], 5);
   EXPECT_EQ(range[1], 6);
   EXPECT_EQ(range[2], 7);
@@ -61,7 +61,7 @@ TEST(index_range, SubscriptOperator)
 
 TEST(index_range, Before)
 {
-  IndexRange range = IndexRange(5, 10).before(3);
+  IndexRange range = IndexRange(5, 5).before(3);
   EXPECT_EQ(range[0], 2);
   EXPECT_EQ(range[1], 3);
   EXPECT_EQ(range[2], 4);
@@ -70,7 +70,7 @@ TEST(index_range, Before)
 
 TEST(index_range, After)
 {
-  IndexRange range = IndexRange(5, 10).after(4);
+  IndexRange range = IndexRange(5, 5).after(4);
   EXPECT_EQ(range[0], 10);
   EXPECT_EQ(range[1], 11);
   EXPECT_EQ(range[2], 12);
@@ -80,7 +80,7 @@ TEST(index_range, After)
 
 TEST(index_range, Contains)
 {
-  IndexRange range = IndexRange(5, 8);
+  IndexRange range = IndexRange(5, 3);
   EXPECT_TRUE(range.contains(5));
   EXPECT_TRUE(range.contains(6));
   EXPECT_TRUE(range.contains(7));
@@ -90,31 +90,31 @@ TEST(index_range, Contains)
 
 TEST(index_range, First)
 {
-  IndexRange range = IndexRange(5, 8);
+  IndexRange range = IndexRange(5, 3);
   EXPECT_EQ(range.first(), 5);
 }
 
 TEST(index_range, Last)
 {
-  IndexRange range = IndexRange(5, 8);
+  IndexRange range = IndexRange(5, 3);
   EXPECT_EQ(range.last(), 7);
 }
 
 TEST(index_range, OneAfterEnd)
 {
-  IndexRange range = IndexRange(5, 8);
+  IndexRange range = IndexRange(5, 3);
   EXPECT_EQ(range.one_after_last(), 8);
 }
 
 TEST(index_range, Start)
 {
-  IndexRange range = IndexRange(6, 8);
+  IndexRange range = IndexRange(6, 2);
   EXPECT_EQ(range.start(), 6);
 }
 
 TEST(index_range, Slice)
 {
-  IndexRange range = IndexRange(5, 20);
+  IndexRange range = IndexRange(5, 15);
   IndexRange slice = range.slice(2, 6);
   EXPECT_EQ(slice.size(), 6);
   EXPECT_EQ(slice.first(), 7);
@@ -123,7 +123,7 @@ TEST(index_range, Slice)
 
 TEST(index_range, AsArrayRef)
 {
-  IndexRange range = IndexRange(4, 10);
+  IndexRange range = IndexRange(4, 6);
   ArrayRef<uint> ref = range.as_array_ref();
   EXPECT_EQ(ref.size(), 6);
   EXPECT_EQ(ref[0], 4);
@@ -134,29 +134,29 @@ TEST(index_range, AsArrayRef)
 
 TEST(chunked_range, ChunksExact)
 {
-  IndexRange range = IndexRange(10, 50);
+  IndexRange range = IndexRange(10, 40);
   ChunkedIndexRange chunked_range(range, 10);
   EXPECT_EQ(chunked_range.chunks(), 4);
 
-  EXPECT_EQ(chunked_range.chunk_range(0), IndexRange(10, 20));
-  EXPECT_EQ(chunked_range.chunk_range(1), IndexRange(20, 30));
-  EXPECT_EQ(chunked_range.chunk_range(2), IndexRange(30, 40));
-  EXPECT_EQ(chunked_range.chunk_range(3), IndexRange(40, 50));
+  EXPECT_EQ(chunked_range.chunk_range(0), IndexRange(10, 10));
+  EXPECT_EQ(chunked_range.chunk_range(1), IndexRange(20, 10));
+  EXPECT_EQ(chunked_range.chunk_range(2), IndexRange(30, 10));
+  EXPECT_EQ(chunked_range.chunk_range(3), IndexRange(40, 10));
 }
 
 TEST(chunked_range, ChunksMore)
 {
-  IndexRange range = IndexRange(25, 40);
+  IndexRange range = IndexRange(25, 15);
   ChunkedIndexRange chunked_range(range, 10);
   EXPECT_EQ(chunked_range.chunks(), 2);
 
-  EXPECT_EQ(chunked_range.chunk_range(0), IndexRange(25, 35));
-  EXPECT_EQ(chunked_range.chunk_range(1), IndexRange(35, 40));
+  EXPECT_EQ(chunked_range.chunk_range(0), IndexRange(25, 10));
+  EXPECT_EQ(chunked_range.chunk_range(1), IndexRange(35, 5));
 }
 
 TEST(chunked_range, ChunksZero)
 {
-  IndexRange range = IndexRange(20, 20);
+  IndexRange range = IndexRange(20, 0);
   ChunkedIndexRange chunked_range(range, 10);
   EXPECT_EQ(chunked_range.chunks(), 0);
 }

@@ -264,7 +264,7 @@ class DataGraph : public RefCounter {
   IndexRange input_ids_of_node(uint node_id) const
   {
     const Node &node = m_nodes[node_id];
-    return IndexRange(node.inputs_start, node.inputs_start + node.function->input_amount());
+    return IndexRange(node.inputs_start, node.function->input_amount());
   }
 
   DataSocketSequence<IndexRange> inputs_of_node(uint node_id) const
@@ -275,7 +275,7 @@ class DataGraph : public RefCounter {
   IndexRange output_ids_of_node(uint node_id) const
   {
     const Node &node = m_nodes[node_id];
-    return IndexRange(node.outputs_start, node.outputs_start + node.function->output_amount());
+    return IndexRange(node.outputs_start, node.function->output_amount());
   }
 
   DataSocketSequence<IndexRange> outputs_of_node(uint node_id) const

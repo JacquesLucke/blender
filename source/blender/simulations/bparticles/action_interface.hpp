@@ -137,7 +137,7 @@ inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
   uint offset = 0;
   for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
-    IndexRange range(offset, offset + range_size);
+    IndexRange range(offset, range_size);
     offset += range_size;
 
     build_context(range, (void *)action_context);
@@ -198,7 +198,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
   uint offset = 0;
   for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
-    action_context->update(IndexRange(offset, offset + range_size));
+    action_context->update(IndexRange(offset, range_size));
     offset += range_size;
 
     AttributesRef offsets(info, buffers, range_size);
