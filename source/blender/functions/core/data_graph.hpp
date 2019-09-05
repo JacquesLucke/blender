@@ -219,7 +219,7 @@ class DataGraph : public RefCounter {
 
   IndexRange node_ids() const
   {
-    return IndexRange(0, m_nodes.size());
+    return IndexRange(m_nodes.size());
   }
 
   SharedFunction &function_of_node(uint node_id) const

@@ -147,7 +147,7 @@ inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
     durations.fill(0);
 
     ActionInterface action_interface(emitter_interface.particle_allocator(),
-                                     IndexRange(0, range_size).as_array_ref(),
+                                     IndexRange(range_size).as_array_ref(),
                                      attributes,
                                      offsets,
                                      attributes.get<float>("Birth Time"),
@@ -206,7 +206,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
     durations.fill(0);
 
     ActionInterface new_interface(action_interface.particle_allocator(),
-                                  IndexRange(0, range_size).as_array_ref(),
+                                  IndexRange(range_size).as_array_ref(),
                                   attributes,
                                   offsets,
                                   attributes.get<float>("Birth Time"),
@@ -232,7 +232,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
     durations.fill(0);
 
     ActionInterface new_interface(offset_handler_interface.particle_allocator(),
-                                  IndexRange(0, range_size).as_array_ref(),
+                                  IndexRange(range_size).as_array_ref(),
                                   attributes,
                                   offsets,
                                   attributes.get<float>("Birth Time"),

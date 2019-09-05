@@ -264,7 +264,7 @@ template<typename T> Vector<T> ParticlesContainer::flatten_attribute(StringRef a
 
 inline IndexRange ParticlesBlock::active_range()
 {
-  return IndexRange(0, m_active_amount);
+  return IndexRange(m_active_amount);
 }
 
 inline uint &ParticlesBlock::active_amount()
@@ -325,12 +325,12 @@ inline AttributesRef ParticlesBlock::attributes_slice(uint start, uint length)
 
 inline AttributesRef ParticlesBlock::attributes_all()
 {
-  return this->attributes_slice(IndexRange(0, m_container.block_size()));
+  return this->attributes_slice(IndexRange(m_container.block_size()));
 }
 
 inline AttributesRef ParticlesBlock::attributes()
 {
-  return this->attributes_slice(IndexRange(0, m_active_amount));
+  return this->attributes_slice(IndexRange(m_active_amount));
 }
 
 inline ArrayRef<void *> ParticlesBlock::attribute_buffers()

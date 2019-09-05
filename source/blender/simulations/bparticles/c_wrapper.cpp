@@ -152,7 +152,7 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers,
       mesh->totloop);
 
   BLI::Task::parallel_range(
-      IndexRange(0, amount), 1000, [mesh, centers, scales, colors, loop_colors](IndexRange range) {
+      IndexRange(amount), 1000, [mesh, centers, scales, colors, loop_colors](IndexRange range) {
         distribute_tetrahedons_range(mesh, loop_colors, range, centers, scales, colors);
       });
 

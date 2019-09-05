@@ -43,6 +43,10 @@ class IndexRange {
  public:
   IndexRange() = default;
 
+  explicit IndexRange(uint one_after_last) : m_start(0), m_one_after_last(one_after_last)
+  {
+  }
+
   /**
    * Construct a new range.
    * Asserts when start is larger than one_after_last.

@@ -17,9 +17,9 @@ namespace BKE {
 using BLI::ArrayRef;
 using BLI::float2;
 using BLI::float3;
+using BLI::IndexRange;
 using BLI::MutableArrayRef;
 using BLI::Optional;
-using BLI::IndexRange;
 using BLI::rgba_b;
 using BLI::rgba_f;
 using BLI::SetVector;
@@ -239,7 +239,7 @@ class AttributesInfo {
    */
   IndexRange attribute_indices() const
   {
-    return IndexRange(0, this->size());
+    return IndexRange(this->size());
   }
 
   /**
@@ -272,7 +272,7 @@ class AttributesRef {
 
  public:
   AttributesRef(AttributesInfo &info, ArrayRef<void *> buffers, uint size)
-      : AttributesRef(info, buffers, IndexRange(0, size))
+      : AttributesRef(info, buffers, IndexRange(size))
   {
   }
 
