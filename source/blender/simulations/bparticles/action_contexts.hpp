@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BLI_temporary_allocator.hpp"
+
 #include "action_interface.hpp"
 
 struct Object;
@@ -52,23 +54,22 @@ class MeshSurfaceContext : public ActionContext {
         m_looptri_indices(looptri_indices)
   {
     uint size = local_positions.size();
-    float4x4 *world_transforms_buffer = (float4x4 *)BLI_temporary_allocate(sizeof(float4x4) *
-                                                                           size);
-    float3 *world_normals_buffer = (float3 *)BLI_temporary_allocate(sizeof(float3) * size);
-    float3 *surface_velocities_buffer = (float3 *)BLI_temporary_allocate(sizeof(float3) * size);
+    auto world_transforms = BLI::temporary_allocate_array<float4x4>(size);
+    auto world_normals = BLI::temporary_allocate_array<float3>(size);
+    auto surface_velocities = BLI::temporary_allocate_array<float3>(size);
 
     for (uint pindex : pindices) {
-      world_transforms_buffer[pindex] = world_transform;
-      world_normals_buffer[pindex] = local_normals[pindex];
-      surface_velocities_buffer[pindex] = float3(0, 0, 0);
+      world_transforms[pindex] = world_transform;
+      world_normals[pindex] = world_transform.transform_direction(local_normals[pindex]);
+      surface_velocities[pindex] = float3(0, 0, 0);
     }
 
-    m_world_transforms = ArrayRef<float4x4>(world_transforms_buffer, size);
-    m_world_normals = ArrayRef<float3>(world_normals_buffer, size);
-    m_world_surface_velocities = ArrayRef<float3>(surface_velocities_buffer, size);
+    m_world_transforms = world_transforms;
+    m_world_normals = world_normals;
+    m_world_surface_velocities = surface_velocities;
 
     m_buffers_to_free.extend(
-        {world_transforms_buffer, world_normals_buffer, surface_velocities_buffer});
+        {world_transforms.begin(), world_normals.begin(), surface_velocities.begin()});
 
     this->compute_barycentric_coords(pindices);
   }

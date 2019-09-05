@@ -405,6 +405,11 @@ template<typename T> class MutableArrayRef {
     BLI_assert(n <= this->size());
     return this->slice(this->size() - n, n);
   }
+
+  ArrayRef<T> as_ref() const
+  {
+    return ArrayRef<T>(m_start, m_size);
+  }
 };
 
 /**

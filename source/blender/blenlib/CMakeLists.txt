@@ -261,6 +261,7 @@ set(SRC
   BLI_string_map.hpp
   BLI_string_ref.hpp
   BLI_temporary_allocator.h
+  BLI_temporary_allocator.hpp
   intern/BLI_temporary_allocator.cpp
   BLI_timeit.hpp
   BLI_vector_adaptor.hpp

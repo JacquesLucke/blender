@@ -14,7 +14,7 @@ void MeshSurfaceContext::compute_barycentric_coords(ArrayRef<uint> pindices)
 {
   BLI_assert(m_object->type == OB_MESH);
   uint size = m_local_positions.size();
-  float3 *barycentric_coords_buffer = (float3 *)BLI_temporary_allocate(sizeof(float3) * size);
+  auto barycentric_coords = BLI::temporary_allocate_array<float3>(size);
 
   Mesh *mesh = (Mesh *)m_object->data;
   const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
@@ -31,11 +31,11 @@ void MeshSurfaceContext::compute_barycentric_coords(ArrayRef<uint> pindices)
     float3 weights;
     interp_weights_tri_v3(weights, v1, v2, v3, position);
 
-    barycentric_coords_buffer[pindex] = weights;
+    barycentric_coords[pindex] = weights;
   }
 
-  m_barycentric_coords = ArrayRef<float3>(barycentric_coords_buffer, size);
-  m_buffers_to_free.append(barycentric_coords_buffer);
+  m_barycentric_coords = barycentric_coords;
+  m_buffers_to_free.append(barycentric_coords.begin());
 }
 
 }  // namespace BParticles

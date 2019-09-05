@@ -56,8 +56,7 @@ Optional<ParticleFunctionInputArray> SurfaceVelocityInputProvider::get(
 Optional<ParticleFunctionInputArray> AgeInputProvider::get(InputProviderInterface &interface)
 {
   auto birth_times = interface.attributes().get<float>("Birth Time");
-  float *ages_buffer = (float *)BLI_temporary_allocate(sizeof(float) * birth_times.size());
-  MutableArrayRef<float> ages(ages_buffer, birth_times.size());
+  auto ages = BLI::temporary_allocate_array<float>(birth_times.size());
 
   ParticleTimes &times = interface.particle_times();
   if (times.type() == ParticleTimes::Type::Current) {
@@ -76,7 +75,7 @@ Optional<ParticleFunctionInputArray> AgeInputProvider::get(InputProviderInterfac
   else {
     BLI_assert(false);
   }
-  return ParticleFunctionInputArray(ArrayRef<float>(ages), true);
+  return ParticleFunctionInputArray(ages.as_ref(), true);
 }
 
 SurfaceImageInputProvider::SurfaceImageInputProvider(Image *image) : m_image(image)
@@ -130,8 +129,7 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::compute_colors(
   rgba_b *pixel_buffer = (rgba_b *)m_ibuf->rect;
 
   uint size = interface.attributes().size();
-  rgba_f *colors_buffer = (rgba_f *)BLI_temporary_allocate(sizeof(rgba_f) * size);
-  MutableArrayRef<rgba_f> colors{colors_buffer, size};
+  auto colors = BLI::temporary_allocate_array<rgba_f>(size);
 
   for (uint pindex : interface.pindices()) {
     uint source_index = surface_info_mapping[pindex];
@@ -151,7 +149,7 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::compute_colors(
     uint y = uv.y * (m_ibuf->y - 1);
     colors[pindex] = pixel_buffer[y * m_ibuf->x + x];
   }
-  return ParticleFunctionInputArray(ArrayRef<rgba_f>(colors), true);
+  return ParticleFunctionInputArray(colors.as_ref(), true);
 }
 
 Optional<ParticleFunctionInputArray> VertexWeightInputProvider::get(
@@ -192,8 +190,7 @@ Optional<ParticleFunctionInputArray> VertexWeightInputProvider::compute_weights(
   ArrayRef<float3> barycentric_coords = surface_info->barycentric_coords();
 
   uint size = interface.attributes().size();
-  float *weight_buffer = (float *)BLI_temporary_allocate(sizeof(float) * size);
-  MutableArrayRef<float> weights(weight_buffer, size);
+  auto weights = BLI::temporary_allocate_array<float>(size);
 
   for (uint pindex : interface.pindices()) {
     uint source_index = surface_info_mapping[pindex];
@@ -214,7 +211,7 @@ Optional<ParticleFunctionInputArray> VertexWeightInputProvider::compute_weights(
     weights[pindex] = weight;
   }
 
-  return ParticleFunctionInputArray(ArrayRef<float>(weights), true);
+  return ParticleFunctionInputArray(weights.as_ref(), true);
 }
 
 }  // namespace BParticles
