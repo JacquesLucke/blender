@@ -247,8 +247,8 @@ set(SRC
   BLI_monotonic_allocator.hpp
   BLI_object_pool.hpp
   BLI_optional.hpp
-  BLI_range.hpp
-  intern/BLI_range.cpp
+  BLI_index_range.hpp
+  intern/BLI_index_range.cpp
   BLI_refcount.hpp
   BLI_vector.hpp
   BLI_map.hpp

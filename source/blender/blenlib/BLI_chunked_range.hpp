@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "BLI_range.hpp"
+#include "BLI_index_range.hpp"
 
 namespace BLI {
 

@@ -14,7 +14,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "BLI_range.hpp"
+#include "BLI_index_range.hpp"
 #include "BLI_array_ref.hpp"
 
 namespace BLI {

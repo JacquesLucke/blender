@@ -42,7 +42,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_memory.hpp"
-#include "BLI_range.hpp"
+#include "BLI_index_range.hpp"
 
 namespace BLI {
 

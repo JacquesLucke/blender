@@ -23,7 +23,7 @@
  * an output or output has to be stored.
  */
 
-#include "BLI_range.hpp"
+#include "BLI_index_range.hpp"
 #include "BLI_map.hpp"
 #include "BLI_monotonic_allocator.hpp"
 
