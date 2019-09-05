@@ -17,13 +17,12 @@
 /** \file
  * \ingroup bli
  *
- * This vector wraps an externally provided memory buffer.
- * At allows using any buffer as if it were an array.
- * It does not grow the array dynamically. If the number of
- * elements is about to exceed the capacity, it asserts false.
+ * This vector wraps an externally provided memory buffer. At allows using any buffer as if it were
+ * a vector. It does not grow the array dynamically. It asserts that the amount of added elements
+ * does not exceed the capacity.
  *
- * This constraint allows a very efficient append operation,
- * since no boundary checks have to be performed in release builds.
+ * This constraint allows a very efficient append operation, because no boundary checks have to be
+ * performed in release builds.
  */
 
 #pragma once
@@ -35,15 +34,15 @@ namespace BLI {
 
 template<typename T> class VectorAdaptor {
  private:
-  T *m_start;
+  T *m_begin;
   T *m_end;
-  uint m_capacity;
+  T *m_capacity_end;
 
  public:
   /**
    * Construct an empty vector adaptor.
    */
-  VectorAdaptor() : m_start(nullptr), m_end(nullptr), m_capacity(0)
+  VectorAdaptor() : m_begin(nullptr), m_end(nullptr), m_capacity_end(nullptr)
   {
   }
 
@@ -52,7 +51,7 @@ template<typename T> class VectorAdaptor {
    * The initial size is set to zero.
    */
   VectorAdaptor(T *ptr, uint capacity, uint size = 0)
-      : m_start(ptr), m_end(ptr + size), m_capacity(capacity)
+      : m_begin(ptr), m_end(ptr + size), m_capacity_end(ptr + capacity)
   {
   }
 
@@ -61,7 +60,8 @@ template<typename T> class VectorAdaptor {
    * from the length of the array.
    * The initial size is set to zero.
    */
-  template<uint N> VectorAdaptor(T (&array)[N]) : m_start(array), m_end(array), m_capacity(N)
+  template<uint N>
+  VectorAdaptor(T (&array)[N]) : m_begin(array), m_end(array), m_capacity_end(array + N)
   {
   }
 
@@ -75,7 +75,7 @@ template<typename T> class VectorAdaptor {
     for (T &value : *this) {
       value.~T();
     }
-    m_end = m_start;
+    m_end = m_begin;
   }
 
   /**
@@ -84,21 +84,21 @@ template<typename T> class VectorAdaptor {
    */
   void append(const T &value)
   {
-    BLI_assert(this->size() < m_capacity);
+    BLI_assert(this->size() < this->capacity());
     new (m_end) T(value);
     m_end += 1;
   }
 
   void append(T &&value)
   {
-    BLI_assert(this->size() < m_capacity);
+    BLI_assert(this->size() < this->capacity());
     new (m_end) T(std::move(value));
     m_end += 1;
   }
 
   void append_n_times(const T &value, uint n)
   {
-    BLI_assert(this->size() + n <= m_capacity);
+    BLI_assert(this->size() < this->capacity());
     uninitialized_fill_n(m_end, n, value);
     m_end += n;
   }
@@ -109,7 +109,7 @@ template<typename T> class VectorAdaptor {
    */
   void extend(ArrayRef<T> values)
   {
-    BLI_assert(this->size() + values.size() < m_capacity);
+    BLI_assert(this->size() + values.size() < this->capacity());
     std::uninitialized_copy_n(values.begin(), values.size(), m_end);
     m_end += values.size();
   }
@@ -119,7 +119,7 @@ template<typename T> class VectorAdaptor {
    */
   uint capacity() const
   {
-    return m_capacity;
+    return m_capacity_end - m_begin;
   }
 
   /**
@@ -127,31 +127,47 @@ template<typename T> class VectorAdaptor {
    */
   uint size() const
   {
-    return m_end - m_start;
+    return m_end - m_begin;
   }
 
   bool is_full() const
   {
-    return m_capacity == this->size();
+    return m_end == m_capacity_end;
   }
 
   operator ArrayRef<T>() const
   {
-    return ArrayRef<T>(m_start, this->size());
+    return ArrayRef<T>(m_begin, this->size());
   }
 
   T &operator[](uint index)
   {
     BLI_assert(index < this->size());
-    return this->begin()[index];
+    return m_begin[index];
   }
 
-  T *begin() const
+  const T &operator[](uint index) const
   {
-    return m_start;
+    BLI_assert(index < this->size());
+    return m_begin[index];
   }
 
-  T *end() const
+  T *begin()
+  {
+    return m_begin;
+  }
+
+  T *end()
+  {
+    return m_end;
+  }
+
+  const T *begin() const
+  {
+    return m_begin;
+  }
+
+  const T *end() const
   {
     return m_end;
   }
