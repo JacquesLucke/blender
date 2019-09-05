@@ -18,7 +18,8 @@
  * \ingroup bli
  *
  * Allows passing iterators over ranges of integers without actually allocating an array or passing
- * separate values.
+ * separate values. A range always has a step of one. If other step sizes are required in some
+ * cases, a separate data structure should be used.
  */
 
 #pragma once
@@ -176,7 +177,7 @@ template<typename T> class Range {
   Range<T> slice(uint start, uint size) const
   {
     uint new_start = m_start + start;
-    BLI_assert(new_start + size <= m_one_after_last);
+    BLI_assert(new_start + size <= m_one_after_last || size == 0);
     return Range<T>(new_start, new_start + size);
   }
 
@@ -185,34 +186,6 @@ template<typename T> class Range {
    * works for some ranges. The range must be within [0, RANGE_AS_ARRAY_REF_MAX_LEN].
    */
   ArrayRef<T> as_array_ref() const;
-};
-
-template<typename T> class ChunkedRange {
- private:
-  Range<T> m_total_range;
-  uint m_chunk_size;
-  uint m_chunk_amount;
-
- public:
-  ChunkedRange(Range<T> total_range, uint chunk_size)
-      : m_total_range(total_range),
-        m_chunk_size(chunk_size),
-        m_chunk_amount(std::ceil(m_total_range.size() / (float)m_chunk_size))
-  {
-  }
-
-  uint chunks() const
-  {
-    return m_chunk_amount;
-  }
-
-  Range<T> chunk_range(uint index) const
-  {
-    BLI_assert(index < m_chunk_amount);
-    T start = m_total_range[index * m_chunk_size];
-    T one_after_last = std::min<T>(start + m_chunk_size, m_total_range.one_after_last());
-    return Range<T>(start, one_after_last);
-  }
 };
 
 }  // namespace BLI

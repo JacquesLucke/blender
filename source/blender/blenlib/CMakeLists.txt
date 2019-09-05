@@ -257,6 +257,7 @@ set(SRC
   BLI_set.hpp
   BLI_set_vector.hpp
   BLI_stack.hpp
+  BLI_chunked_range.hpp
   BLI_string_map.hpp
   BLI_string_ref.hpp
   BLI_temporary_allocator.h

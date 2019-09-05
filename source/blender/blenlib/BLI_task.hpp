@@ -27,7 +27,7 @@
 #include "BLI_task.h"
 #include "BLI_array_ref.hpp"
 #include "BLI_map.hpp"
-#include "BLI_range.hpp"
+#include "BLI_chunked_range.hpp"
 
 namespace BLI {
 namespace Task {
