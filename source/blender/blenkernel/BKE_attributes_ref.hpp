@@ -1,3 +1,29 @@
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
+ * All rights reserved.
+ */
+
+/** \file
+ * \ingroup bke
+ *
+ * This file provides classes that allow referencing multiple attribute arrays at the same time.
+ * Every attribute array has an element-type, name and default value.
+ */
+
 #pragma once
 
 #include <string>
@@ -62,8 +88,6 @@ ATTRIBUTE_TYPE_BY_TYPE(rgba_f, RGBA_f);
 
 /**
  * Get the size of an attribute type.
- *
- * TODO(jacques): Figure out how to make type.size() work nicely instead.
  */
 inline uint size_of_attribute_type(AttributeType type)
 {
@@ -89,6 +113,9 @@ inline uint size_of_attribute_type(AttributeType type)
 
 #define MAX_ATTRIBUTE_SIZE sizeof(rgba_f)
 
+/**
+ * Container that is large enough to hold one value of any attribute type.
+ */
 struct AnyAttributeValue {
   char storage[MAX_ATTRIBUTE_SIZE];
 
