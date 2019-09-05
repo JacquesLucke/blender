@@ -73,7 +73,7 @@ using BuildInputProvider = std::function<ParticleFunctionInputProvider *(
 static ParticleFunctionInputProvider *INPUT_particle_info(VTreeDataGraph &vtree_data_graph,
                                                           VirtualSocket *vsocket)
 {
-  if (STREQ(vsocket->name(), "Age")) {
+  if (vsocket->name() == "Age") {
     return new AgeInputProvider();
   }
   else {
@@ -86,10 +86,10 @@ static ParticleFunctionInputProvider *INPUT_particle_info(VTreeDataGraph &vtree_
 static ParticleFunctionInputProvider *INPUT_surface_info(VTreeDataGraph &UNUSED(vtree_data_graph),
                                                          VirtualSocket *vsocket)
 {
-  if (STREQ(vsocket->name(), "Normal")) {
+  if (vsocket->name() == "Normal") {
     return new SurfaceNormalInputProvider();
   }
-  else if (STREQ(vsocket->name(), "Velocity")) {
+  else if (vsocket->name() == "Velocity") {
     return new SurfaceVelocityInputProvider();
   }
   else {

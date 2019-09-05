@@ -121,7 +121,7 @@ bool LinkInserters::insert(VTreeDataGraphBuilder &builder, VirtualSocket *from, 
   BuilderOutputSocket *from_socket = builder.lookup_output_socket(from);
   BuilderInputSocket *to_socket = builder.lookup_input_socket(to);
 
-  if (STREQ(from->idname(), to->idname())) {
+  if (from->idname() == to->idname()) {
     builder.insert_link(from_socket, to_socket);
     return true;
   }

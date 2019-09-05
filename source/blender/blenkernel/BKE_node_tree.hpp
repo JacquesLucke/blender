@@ -144,12 +144,12 @@ class VirtualNode {
     return rna;
   }
 
-  const char *name()
+  StringRefNull name()
   {
     return m_bnode->name;
   }
 
-  const char *idname()
+  StringRefNull idname()
   {
     return m_bnode->idname;
   }
@@ -222,17 +222,17 @@ class VirtualSocket {
     return rna;
   }
 
-  const char *name()
+  StringRefNull name()
   {
     return m_bsocket->name;
   }
 
-  const char *idname()
+  StringRefNull idname()
   {
     return m_bsocket->idname;
   }
 
-  const char *identifier()
+  StringRefNull identifier()
   {
     return m_bsocket->identifier;
   }

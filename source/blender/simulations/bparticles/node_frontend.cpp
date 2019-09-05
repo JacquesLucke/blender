@@ -77,7 +77,7 @@ static Vector<VirtualSocket *> find_execute_sockets(VirtualNode *vnode, StringRe
   Vector<VirtualSocket *> execute_sockets;
   for (VirtualSocket *vsocket : vnode->inputs()) {
     if (StringRef(vsocket->name()).startswith(name_prefix)) {
-      if (STREQ(vsocket->idname(), "fn_OperatorSocket")) {
+      if (vsocket->idname() == "fn_OperatorSocket") {
         found_name = true;
         break;
       }
@@ -214,7 +214,7 @@ static std::unique_ptr<Action> build_action(VTreeDataGraph &vtree_data_graph, Vi
   }
 
   VirtualSocket *execute_socket = start->links()[0];
-  if (!STREQ(execute_socket->idname(), "bp_ExecuteSocket")) {
+  if (execute_socket->idname() != "bp_ExecuteSocket") {
     return std::unique_ptr<Action>(new NoneAction());
   }
 
