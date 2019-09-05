@@ -4,6 +4,7 @@
 #include "IMB_imbuf_types.h"
 
 #include "particle_function.hpp"
+#include "action_contexts.hpp"
 
 namespace BParticles {
 
@@ -55,6 +56,11 @@ class VertexWeightInputProvider : public ParticleFunctionInputProvider {
   }
 
   Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
+
+ private:
+  Optional<ParticleFunctionInputArray> compute_weights(InputProviderInterface &interface,
+                                                       MeshSurfaceContext *source_info,
+                                                       ArrayRef<uint> surface_info_mapping);
 };
 
 }  // namespace BParticles

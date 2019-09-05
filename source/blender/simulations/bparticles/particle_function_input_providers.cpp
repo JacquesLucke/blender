@@ -7,7 +7,6 @@
 #include "BKE_deform.h"
 
 #include "particle_function_input_providers.hpp"
-#include "action_contexts.hpp"
 
 namespace BParticles {
 
@@ -139,9 +138,28 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::get(
   return ParticleFunctionInputArray(ArrayRef<rgba_f>(colors), true);
 }
 
-static BLI_NOINLINE Optional<ParticleFunctionInputArray> compute_vertex_weights(
+Optional<ParticleFunctionInputArray> VertexWeightInputProvider::get(
+    InputProviderInterface &interface)
+{
+  ActionContext *action_context = interface.action_context();
+
+  if (dynamic_cast<MeshSurfaceContext *>(action_context)) {
+    auto *surface_info = dynamic_cast<MeshSurfaceContext *>(action_context);
+    return this->compute_weights(
+        interface, surface_info, Range<uint>(0, interface.attributes().size()).as_array_ref());
+  }
+  else if (dynamic_cast<SourceParticleActionContext *>(action_context)) {
+    auto *source_info = dynamic_cast<SourceParticleActionContext *>(action_context);
+    auto *surface_info = dynamic_cast<MeshSurfaceContext *>(source_info->source_context());
+    return this->compute_weights(interface, surface_info, source_info->source_indices());
+  }
+  else {
+    return {};
+  }
+}
+
+BLI_NOINLINE Optional<ParticleFunctionInputArray> VertexWeightInputProvider::compute_weights(
     InputProviderInterface &interface,
-    StringRef group_name,
     MeshSurfaceContext *surface_info,
     ArrayRef<uint> surface_info_mapping)
 {
@@ -149,7 +167,7 @@ static BLI_NOINLINE Optional<ParticleFunctionInputArray> compute_vertex_weights(
   Mesh *mesh = (Mesh *)object->data;
   MDeformVert *vertex_weights = mesh->dvert;
 
-  int group_index = defgroup_name_index(object, group_name.data());
+  int group_index = defgroup_name_index(object, m_group_name.data());
   if (group_index == -1 || vertex_weights == nullptr) {
     return {};
   }
@@ -181,29 +199,6 @@ static BLI_NOINLINE Optional<ParticleFunctionInputArray> compute_vertex_weights(
   }
 
   return ParticleFunctionInputArray(ArrayRef<float>(weights), true);
-}
-
-Optional<ParticleFunctionInputArray> VertexWeightInputProvider::get(
-    InputProviderInterface &interface)
-{
-  ActionContext *action_context = interface.action_context();
-
-  if (dynamic_cast<MeshSurfaceContext *>(action_context)) {
-    auto *surface_info = dynamic_cast<MeshSurfaceContext *>(action_context);
-    return compute_vertex_weights(interface,
-                                  m_group_name,
-                                  surface_info,
-                                  Range<uint>(0, interface.attributes().size()).as_array_ref());
-  }
-  else if (dynamic_cast<SourceParticleActionContext *>(action_context)) {
-    auto *source_info = dynamic_cast<SourceParticleActionContext *>(action_context);
-    auto *surface_info = dynamic_cast<MeshSurfaceContext *>(source_info->source_context());
-    return compute_vertex_weights(
-        interface, m_group_name, surface_info, source_info->source_indices());
-  }
-  else {
-    return {};
-  }
 }
 
 }  // namespace BParticles
