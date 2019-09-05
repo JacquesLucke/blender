@@ -39,4 +39,28 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
   }
 }
 
+void SizeOverTimeHandler::execute(OffsetHandlerInterface &interface)
+{
+  auto birth_times = interface.attributes().get<float>("Birth Time");
+  auto sizes = interface.attributes().get<float>("Size");
+
+  auto inputs = m_compute_inputs->compute(interface);
+
+  for (uint pindex : interface.pindices()) {
+    float final_size = inputs->get<float>("Final Size", 0, pindex);
+    float final_age = inputs->get<float>("Final Age", 1, pindex);
+
+    TimeSpan time_span = interface.time_span(pindex);
+    float age = time_span.start() - birth_times[pindex];
+    float time_until_end = final_age - age;
+    if (time_until_end <= 0.0f) {
+      continue;
+    }
+
+    float factor = std::min(time_span.duration() / time_until_end, 1.0f);
+    float new_size = final_size * factor + sizes[pindex] * (1.0f - factor);
+    sizes[pindex] = new_size;
+  }
+}
+
 }  // namespace BParticles
