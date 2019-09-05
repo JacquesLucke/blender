@@ -1,3 +1,26 @@
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ */
+
+/** \file
+ * \ingroup bli
+ *
+ * This file provides default hash functions for some primitive types. The hash functions can be
+ * used by containers such as Map and Set.
+ */
+
 #pragma once
 
 #include <functional>
@@ -20,6 +43,12 @@ template<typename T> struct DefaultHash {
     } \
   }
 
+/**
+ * Cannot make any assumptions about the distribution of keys, so use a trivial hash function by
+ * default. The hash table implementations are designed to take all bits of the hash into account
+ * to avoid really bad behavior when the lower bits are all zero. Special hash functions can be
+ * implemented when more knowledge about a specific key distribution is available.
+ */
 TRIVIAL_DEFAULT_INT_HASH(int8_t);
 TRIVIAL_DEFAULT_INT_HASH(uint8_t);
 TRIVIAL_DEFAULT_INT_HASH(int16_t);
@@ -46,6 +75,10 @@ template<> struct DefaultHash<std::string> {
   }
 };
 
+/**
+ * While we cannot guarantee that the lower 3 bits or a pointer are zero, it is safe to assume
+ * this in the general case. MEM_malloc only returns 8 byte aligned addresses on 64-bit systems.
+ */
 template<typename T> struct DefaultHash<T *> {
   uint32_t operator()(const T *value) const
   {
