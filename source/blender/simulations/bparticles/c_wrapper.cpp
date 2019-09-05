@@ -252,6 +252,24 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
   return mesh;
 }
 
+Mesh *BParticles_modifier_extract_mesh(BParticlesSimulationState simulation_state_c,
+                                       const char *particle_type)
+{
+  SimulationState &state = *unwrap(simulation_state_c);
+  ParticlesState &particles = state.particles();
+  ParticlesContainer **container_ptr = particles.particle_containers().lookup_ptr(particle_type);
+  if (container_ptr == nullptr) {
+    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+  }
+  ParticlesContainer &container = **container_ptr;
+
+  auto positions = container.flatten_attribute<float3>("Position");
+  auto sizes = container.flatten_attribute<float>("Size");
+  auto colors = container.flatten_attribute<rgba_f>("Color");
+
+  return distribute_tetrahedons(positions, sizes, colors);
+}
+
 void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
                                      BParticlesSimulationState state_c,
                                      float frame)

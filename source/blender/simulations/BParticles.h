@@ -25,6 +25,8 @@ void BParticles_simulate_modifier(struct BParticlesModifierData *bpmd,
 
 Mesh *BParticles_modifier_point_mesh_from_state(BParticlesSimulationState simulation_state);
 Mesh *BParticles_modifier_mesh_from_state(BParticlesSimulationState simulation_state);
+Mesh *BParticles_modifier_extract_mesh(BParticlesSimulationState simulation_state,
+                                       const char *particle_type);
 
 void BParticles_modifier_free_cache(struct BParticlesModifierData *bpmd);
 struct Mesh *BParticles_modifier_mesh_from_cache(struct BParticlesFrameCache *cached_frame);

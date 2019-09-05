@@ -6053,6 +6053,28 @@ static void rna_def_modifier_bparticles(BlenderRNA *brna)
   RNA_def_struct_sdna(srna, "BParticlesModifierData");
   RNA_def_struct_ui_icon(srna, ICON_NONE);
 
+  const static EnumPropertyItem mode_types[] = {
+      {MOD_BPARTICLES_MODE_SIMULATOR,
+       "SIMULATOR",
+       0,
+       "Simulator",
+       "Use this modifier as main simulator"},
+      {MOD_BPARTICLES_MODE_PASSIVE,
+       "PASSIVE",
+       0,
+       "Passive",
+       "This modifiers only copies particle data from another object"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, mode_types);
+  RNA_def_property_ui_text(
+      prop, "Mode", "Use the modifier as active simulator or only copy data from other modifier");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  /* Simulator Mode */
+
   prop = RNA_def_property(srna, "bparticles_tree", PROP_POINTER, PROP_NONE);
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "BParticles Tree", "BParticles node tree");
@@ -6069,6 +6091,7 @@ static void rna_def_modifier_bparticles(BlenderRNA *brna)
        0,
        "Tetrahedons",
        "Create a mesh that has a tetrahedon at every vertex position"},
+      {MOD_BPARTICLES_OUTPUT_NONE, "NONE", 0, "None", "Create no output mesh"},
       {0, NULL, 0, NULL, NULL},
   };
 
@@ -6076,6 +6099,18 @@ static void rna_def_modifier_bparticles(BlenderRNA *brna)
   RNA_def_property_enum_items(prop, output_types);
   RNA_def_property_ui_text(
       prop, "Output Type", "Method for creating the output mesh from the particle data");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  /* Passive Mode */
+
+  prop = RNA_def_property(srna, "source_object", PROP_POINTER, PROP_NONE);
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Source Object", "Object to copy a particle type from");
+  RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
+
+  prop = RNA_def_property(srna, "source_particle_type", PROP_STRING, PROP_NONE);
+  RNA_def_property_ui_text(
+      prop, "Particle Type", "Name of the particle type that should be copied");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 

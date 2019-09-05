@@ -1985,15 +1985,30 @@ typedef struct BParticlesFrameCache {
 typedef enum eBParticlesOutputType {
   MOD_BPARTICLES_OUTPUT_POINTS,
   MOD_BPARTICLES_OUTPUT_TETRAHEDONS,
+  MOD_BPARTICLES_OUTPUT_NONE,
 } eBParticlesOutputType;
+
+typedef enum eBParticlesModifierMode {
+  MOD_BPARTICLES_MODE_SIMULATOR,
+  MOD_BPARTICLES_MODE_PASSIVE,
+} eBParticlesModifierMode;
 
 typedef struct BParticlesModifierData {
   ModifierData modifier;
-  struct bNodeTree *bparticles_tree;
+  unsigned int mode;
+
+  /* Simulator Settings */
   unsigned int output_type;
+  struct bNodeTree *bparticles_tree;
 
   unsigned int num_cached_frames;
+  char _pad[4];
   BParticlesFrameCache *cached_frames;
+
+  /* Passive Settings */
+  struct Object *source_object;
+  char source_particle_type[64];
+
 } BParticlesModifierData;
 
 #endif /* __DNA_MODIFIER_TYPES_H__ */

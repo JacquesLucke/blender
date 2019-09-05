@@ -80,12 +80,12 @@ static void free_modifier_runtime_data(BParticlesModifierData *bpmd)
   }
 }
 
-static Mesh *applyModifier(ModifierData *md,
-                           const struct ModifierEvalContext *ctx,
-                           Mesh *UNUSED(mesh))
+static Mesh *apply_modifier__simulator(BParticlesModifierData *bpmd,
+                                       const struct ModifierEvalContext *ctx,
+                                       Mesh *UNUSED(mesh))
 {
-  BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
-  BParticlesModifierData *bpmd_orig = (BParticlesModifierData *)modifier_get_original(md);
+  BParticlesModifierData *bpmd_orig = (BParticlesModifierData *)modifier_get_original(
+      &bpmd->modifier);
 
   Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
   float current_frame = BKE_scene_frame_get(scene);
@@ -117,8 +117,46 @@ static Mesh *applyModifier(ModifierData *md,
   if (bpmd->output_type == MOD_BPARTICLES_OUTPUT_POINTS) {
     return BParticles_modifier_point_mesh_from_state(runtime->simulation_state);
   }
-  else {
+  else if (bpmd->output_type == MOD_BPARTICLES_OUTPUT_TETRAHEDONS) {
     return BParticles_modifier_mesh_from_state(runtime->simulation_state);
+  }
+  else {
+    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+  }
+}
+
+static Mesh *apply_modifier__passive(BParticlesModifierData *bpmd,
+                                     const struct ModifierEvalContext *UNUSED(ctx),
+                                     Mesh *UNUSED(mesh))
+{
+  if (bpmd->source_object == NULL) {
+    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+  }
+  BParticlesModifierData *source_bpmd = (BParticlesModifierData *)modifiers_findByType(
+      bpmd->source_object, eModifierType_BParticles);
+  if (source_bpmd == NULL) {
+    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+  }
+  RuntimeData *source_runtime_data = get_runtime_struct(source_bpmd);
+  if (source_runtime_data == NULL) {
+    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+  }
+  if (source_runtime_data->simulation_state == NULL) {
+    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+  }
+
+  return BParticles_modifier_extract_mesh(source_runtime_data->simulation_state,
+                                          bpmd->source_particle_type);
+}
+
+static Mesh *applyModifier(ModifierData *md, const struct ModifierEvalContext *ctx, Mesh *mesh)
+{
+  BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
+  if (bpmd->mode == MOD_BPARTICLES_MODE_SIMULATOR) {
+    return apply_modifier__simulator(bpmd, ctx, mesh);
+  }
+  else {
+    return apply_modifier__passive(bpmd, ctx, mesh);
   }
 }
 
@@ -156,16 +194,19 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
   return true;
 }
 
-static void updateDepsgraph(ModifierData *UNUSED(md),
-                            const ModifierUpdateDepsgraphContext *UNUSED(ctx))
+static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
 {
+  BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
+  if (bpmd->source_object) {
+    DEG_add_object_relation(
+        ctx->node, bpmd->source_object, DEG_OB_COMP_GEOMETRY, "Passive BParticles Modifier");
+  }
 }
 
-static void foreachObjectLink(ModifierData *UNUSED(md),
-                              Object *UNUSED(ob),
-                              ObjectWalkFunc UNUSED(walk),
-                              void *UNUSED(userData))
+static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk, void *userData)
 {
+  BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
+  walk(userData, ob, &bpmd->source_object, IDWALK_CB_NOP);
 }
 
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
