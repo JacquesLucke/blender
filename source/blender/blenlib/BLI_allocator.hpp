@@ -39,6 +39,10 @@
 
 namespace BLI {
 
+/**
+ * Use Blenders guarded allocator (aka MEM_malloc). This should always be used except there is a
+ * good reason not to use it.
+ */
 class GuardedAllocator {
  public:
   void *allocate(uint size, const char *name)
@@ -58,6 +62,10 @@ class GuardedAllocator {
   }
 };
 
+/**
+ * This is a simple wrapper around malloc/free. Only use this when the GuardedAllocator cannot be
+ * used. This can be the case when the allocated element might live longer than Blenders Allocator.
+ */
 class RawAllocator {
  private:
   struct MemHead {
@@ -93,6 +101,9 @@ class RawAllocator {
   }
 };
 
+/**
+ * Use this only under specific circumstances as described in BLI_temporary_allocator.h.
+ */
 class TemporaryAllocator {
  public:
   void *allocate(uint size, const char *UNUSED(name))
