@@ -1,9 +1,14 @@
 #pragma once
 
-#include "../FN_core.hpp"
+#include "FN_core.hpp"
+#include "FN_cpp.hpp"
+
+struct Object;
 
 namespace FN {
 namespace Types {
+
+using ObjectW = ReferencedPointerWrapper<Object>;
 
 void INIT_external(Vector<Type *> &types_to_free);
 

@@ -16,7 +16,7 @@ using namespace Types;
 class ObjectLocation : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    Object *object = fn_in.get<Object *>(0);
+    Object *object = fn_in.relocate_out<ObjectW>(0).ptr();
     if (object) {
       float3 position = object->loc;
       fn_out.set<float3>(0, position);
@@ -49,7 +49,7 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_object_location)
 class ObjectMeshVertices : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    Object *object = fn_in.get<Object *>(0);
+    Object *object = fn_in.relocate_out<ObjectW>(0).ptr();
     if (object == nullptr || object->type != OB_MESH) {
       auto empty_list = SharedList::New(TYPE_float);
       fn_out.move_in(0, empty_list);

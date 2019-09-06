@@ -24,6 +24,7 @@ using FN::FunctionBuilder;
 using FN::FunctionGraph;
 using FN::SharedDataGraph;
 using FN::DataFlowNodes::VTreeDataGraph;
+using FN::Types::ObjectW;
 
 class BehaviorCollector {
  public:
@@ -303,7 +304,7 @@ static void PARSE_mesh_emitter(BehaviorCollector &collector,
   std::unique_ptr<Action> on_birth_action = build_action_list(
       vtree_data_graph, vnode, "Execute on Birth");
 
-  Object *object = body.get_output<Object *>(fn_out, 0, "Object");
+  Object *object = fn_out.relocate_out<ObjectW>(0).ptr();
   if (object == nullptr) {
     return;
   }
@@ -455,7 +456,7 @@ static void PARSE_mesh_collision(BehaviorCollector &collector,
     FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
     body.call__setup_execution_context(fn_in, fn_out);
 
-    Object *object = body.get_output<Object *>(fn_out, 0, "Object");
+    Object *object = fn_out.relocate_out<ObjectW>(0).ptr();
     if (object == nullptr || object->type != OB_MESH) {
       return;
     }

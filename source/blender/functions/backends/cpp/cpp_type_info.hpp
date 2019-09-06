@@ -188,6 +188,39 @@ template<typename T> class CPPTypeInfoForType : public CPPTypeInfo {
 };
 
 /**
+ * Use this when the pointer is owned by someone else. The main purpose of this class is to have a
+ * pointer that is nullptr when default-initialized.
+ */
+template<typename T> class ReferencedPointerWrapper {
+ private:
+  T *m_ptr;
+
+ public:
+  ReferencedPointerWrapper() : m_ptr(nullptr)
+  {
+  }
+
+  ReferencedPointerWrapper(T *ptr) : m_ptr(ptr)
+  {
+  }
+
+  ReferencedPointerWrapper(const ReferencedPointerWrapper &other) = default;
+  ReferencedPointerWrapper(ReferencedPointerWrapper &&other) = default;
+  ReferencedPointerWrapper &operator=(const ReferencedPointerWrapper &other) = default;
+  ReferencedPointerWrapper &operator=(ReferencedPointerWrapper &&other) = default;
+
+  T *operator->()
+  {
+    return m_ptr;
+  }
+
+  T *ptr()
+  {
+    return m_ptr;
+  }
+};
+
+/**
  * The class has to have a clone() method.
  */
 template<typename T> class UniqueVirtualPointerWrapper {
