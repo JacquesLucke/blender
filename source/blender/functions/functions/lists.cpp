@@ -269,6 +269,7 @@ BLI_LAZY_INIT_STATIC(ListFunctions, get_list_functions)
   insert_list_functions_for_type(functions, TYPE_object, TYPE_object_list);
   insert_list_functions_for_type(functions, TYPE_rgba_f, TYPE_rgba_f_list);
   insert_list_functions_for_type(functions, TYPE_string, TYPE_string_list);
+  insert_list_functions_for_type(functions, TYPE_falloff, TYPE_falloff_list);
   return functions;
 }
 

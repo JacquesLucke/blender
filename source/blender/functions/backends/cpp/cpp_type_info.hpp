@@ -187,4 +187,75 @@ template<typename T> class CPPTypeInfoForType : public CPPTypeInfo {
 #endif
 };
 
+/**
+ * The class has to have a clone() method.
+ */
+template<typename T> class OwningPointerWrapper {
+ private:
+  T *m_ptr;
+
+ public:
+  OwningPointerWrapper() : m_ptr(nullptr)
+  {
+  }
+
+  OwningPointerWrapper(T *ptr) : m_ptr(ptr)
+  {
+  }
+
+  OwningPointerWrapper(const OwningPointerWrapper &other)
+  {
+    if (other.m_ptr == nullptr) {
+      m_ptr = nullptr;
+    }
+    else {
+      m_ptr = other.m_ptr->clone();
+    }
+  }
+
+  OwningPointerWrapper(OwningPointerWrapper &&other)
+  {
+    m_ptr = other.m_ptr;
+    other.m_ptr = nullptr;
+  }
+
+  OwningPointerWrapper &operator=(const OwningPointerWrapper &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    this->~OwningPointerWrapper();
+    new (this) OwningPointerWrapper(other);
+    return *this;
+  }
+
+  OwningPointerWrapper &operator=(OwningPointerWrapper &&other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    this->~OwningPointerWrapper();
+    new (this) OwningPointerWrapper(std::move(other));
+    return *this;
+  }
+
+  T *ptr()
+  {
+    return m_ptr;
+  }
+
+  T *operator->()
+  {
+    return m_ptr;
+  }
+
+  std::unique_ptr<T> get_unique_copy() const
+  {
+    T *value = m_ptr->clone();
+    return std::unique_ptr<T>(value);
+  }
+};
+
 } /* namespace FN */

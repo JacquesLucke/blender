@@ -9,4 +9,5 @@ class GravityForceNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("direction", "Direction", "Vector", default=(0, 0, -1))
+        builder.fixed_input("falloff", "Falloff", "Falloff")
         builder.particle_effector_output("force", "Force")

@@ -1,9 +1,13 @@
 #pragma once
 
+#include "BKE_falloff.hpp"
+
 #include "actions.hpp"
 #include "force_interface.hpp"
 
 namespace BParticles {
+
+using BKE::Falloff;
 
 class Force {
  public:
@@ -14,10 +18,11 @@ class Force {
 class GravityForce : public Force {
  private:
   std::unique_ptr<ParticleFunction> m_compute_inputs;
+  std::unique_ptr<Falloff> m_falloff;
 
  public:
-  GravityForce(std::unique_ptr<ParticleFunction> compute_inputs)
-      : m_compute_inputs(std::move(compute_inputs))
+  GravityForce(std::unique_ptr<ParticleFunction> compute_inputs, std::unique_ptr<Falloff> falloff)
+      : m_compute_inputs(std::move(compute_inputs)), m_falloff(std::move(falloff))
   {
   }
 

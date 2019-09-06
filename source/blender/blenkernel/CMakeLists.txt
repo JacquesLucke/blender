@@ -271,6 +271,7 @@ set(SRC
   BKE_editmesh_cache.h
   BKE_editmesh_tangent.h
   BKE_effect.h
+  BKE_falloff.hpp
   BKE_fcurve.h
   BKE_fluidsim.h
   BKE_font.h

@@ -14,9 +14,13 @@ void GravityForce::add_force(ForceInterface &interface)
 
   auto inputs = m_compute_inputs->compute(interface);
 
+  TemporaryArray<float> weights(destination.size());
+  m_falloff->compute(interface.attributes(), interface.pindices(), weights);
+
   for (uint pindex : interface.pindices()) {
     float3 acceleration = inputs->get<float3>("Direction", 0, pindex);
-    destination[pindex] += acceleration;
+    float weight = weights[pindex];
+    destination[pindex] += acceleration * weight;
   }
 };
 

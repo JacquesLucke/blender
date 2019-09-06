@@ -325,6 +325,17 @@ static void PARSE_gravity_force(BehaviorCollector &collector,
                                 WorldTransition &UNUSED(world_transition),
                                 VirtualNode *vnode)
 {
+  FunctionGraph fgraph(
+      vtree_data_graph.graph(), {}, {vtree_data_graph.lookup_socket(vnode->input(1, "Falloff"))});
+  auto fn = fgraph.new_function("Compute Falloff");
+  FN::fgraph_add_TupleCallBody(fn, fgraph);
+  FN::TupleCallBody &body = fn->body<TupleCallBody>();
+
+  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+  body.call__setup_execution_context(fn_in, fn_out);
+
+  auto falloff = fn_out.relocate_out<FN::Types::FalloffW>(0);
+
   Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Force"));
   for (std::string &type_name : type_names) {
     auto fn_or_error = create_particle_function(vnode, vtree_data_graph);
@@ -333,7 +344,7 @@ static void PARSE_gravity_force(BehaviorCollector &collector,
     }
     std::unique_ptr<ParticleFunction> compute_inputs = fn_or_error.extract_value();
 
-    GravityForce *force = new GravityForce(std::move(compute_inputs));
+    GravityForce *force = new GravityForce(std::move(compute_inputs), falloff.get_unique_copy());
     collector.m_forces.add(type_name, force);
   }
 }

@@ -1,6 +1,8 @@
 #include "FN_types.hpp"
 #include "FN_functions.hpp"
 
+#include "BKE_falloff.hpp"
+
 #include "RNA_access.h"
 
 #include "registry.hpp"
@@ -59,6 +61,13 @@ static void LOAD_text(PointerRNA *rna, Tuple &tuple, uint index)
   tuple.move_in(index, str);
 }
 
+static void LOAD_falloff(PointerRNA *rna, Tuple &tuple, uint index)
+{
+  float value = RNA_float_get(rna, "value");
+  FalloffW falloff = new BKE::ConstantFalloff(value);
+  tuple.move_in(index, falloff);
+}
+
 static SocketLoader GET_empty_list_loader(Type *type)
 {
   return [type](PointerRNA *UNUSED(rna), Tuple &tuple, uint index) {
@@ -73,6 +82,8 @@ void REGISTER_socket_loaders(std::unique_ptr<SocketLoaders> &loaders)
   loaders->register_loader("Boolean", LOAD_boolean);
   loaders->register_loader("Color List", GET_empty_list_loader(TYPE_rgba_f));
   loaders->register_loader("Color", LOAD_color);
+  loaders->register_loader("Falloff List", GET_empty_list_loader(TYPE_falloff));
+  loaders->register_loader("Falloff", LOAD_falloff);
   loaders->register_loader("Float List", GET_empty_list_loader(TYPE_float));
   loaders->register_loader("Float", LOAD_float);
   loaders->register_loader("Integer List", GET_empty_list_loader(TYPE_int32));

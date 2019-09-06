@@ -139,6 +139,79 @@ class PointerLLVMTypeInfo : public LLVMTypeInfo {
   llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override;
 };
 
+/**
+ * The type has to implement a clone() method.
+ */
+template<typename T> class OwningPointerLLVMTypeInfo : public LLVMTypeInfo {
+ private:
+  static T *copy_value(const T *value)
+  {
+    if (value == nullptr) {
+      return nullptr;
+    }
+    else {
+      return value->clone();
+    }
+  }
+
+  static void free_value(T *value)
+  {
+    if (value != nullptr) {
+      delete value;
+    }
+  }
+
+ public:
+  llvm::Type *get_type(llvm::LLVMContext &context) const override
+  {
+    return llvm::Type::getInt8PtrTy(context);
+  }
+
+  llvm::Value *build_copy_ir(CodeBuilder &builder, llvm::Value *value) const override
+  {
+    return builder.CreateCallPointer(
+        (void *)copy_value, {value}, builder.getAnyPtrTy(), "copy pointer");
+  }
+
+  void build_free_ir(CodeBuilder &builder, llvm::Value *value) const override
+  {
+    builder.CreateCallPointer((void *)free_value, {value}, builder.getVoidTy(), "free pointer");
+  }
+
+  void build_store_ir__copy(CodeBuilder &builder,
+                            llvm::Value *value,
+                            llvm::Value *address) const override
+  {
+    auto *copied_value = this->build_copy_ir(builder, value);
+    this->build_store_ir__relocate(builder, copied_value, address);
+  }
+
+  void build_store_ir__relocate(CodeBuilder &builder,
+                                llvm::Value *value,
+                                llvm::Value *address) const override
+  {
+    auto *addr = builder.CastToBytePtr(address);
+    builder.CreateStore(value, addr);
+  }
+
+  llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const override
+  {
+    auto *addr = builder.CastToBytePtr(address);
+    auto *value = builder.CreateLoad(addr);
+    auto *copied_value = this->build_copy_ir(builder, value);
+    return copied_value;
+  }
+
+  llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override
+  {
+    auto *addr = builder.CastToBytePtr(address);
+    auto *value = builder.CreateLoad(addr);
+    auto *nullptr_value = builder.getPtr(nullptr, builder.getAnyPtrTy());
+    builder.CreateStore(nullptr_value, addr);
+    return value;
+  }
+};
+
 inline llvm::Type *get_llvm_type(Type *type, llvm::LLVMContext &context)
 {
   return type->extension<LLVMTypeInfo>().get_type(context);

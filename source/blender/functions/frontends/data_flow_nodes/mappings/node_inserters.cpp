@@ -387,6 +387,7 @@ static void INSERT_boolean(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
     builder.insert_matching_function(fn, vnode);
   }
 }
+
 void REGISTER_node_inserters(std::unique_ptr<NodeInserters> &inserters)
 {
 #define REGISTER_FUNCTION(idname, fn) inserters->register_function(idname, Functions::GET_FN_##fn)
@@ -398,6 +399,7 @@ void REGISTER_node_inserters(std::unique_ptr<NodeInserters> &inserters)
   REGISTER_FUNCTION("fn_RandomNumberNode", random_number);
   REGISTER_FUNCTION("fn_VectorDistanceNode", vector_distance);
   REGISTER_FUNCTION("fn_TextLengthNode", string_length);
+  REGISTER_FUNCTION("fn_PointDistanceFalloffNode", point_distance_falloff);
 
   REGISTER_INSERTER("fn_CallNode", INSERT_call);
   REGISTER_INSERTER("fn_ClampNode", INSERT_clamp);

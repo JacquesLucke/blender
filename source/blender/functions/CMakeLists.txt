@@ -112,6 +112,8 @@ set(SRC
   types/external.cpp
   types/string_type.hpp
   types/string_type.cpp
+  types/falloff.hpp
+  types/falloff.cpp
   types/types-c.h
   types/types-c.cpp
   types/tuple_access-c.h
@@ -123,6 +125,8 @@ set(SRC
   functions/random.cpp
   functions/scalar_math.hpp
   functions/scalar_math.cpp
+  functions/falloffs.hpp
+  functions/falloffs.cpp
   functions/vectors.hpp
   functions/vectors.cpp
   functions/lists.hpp
