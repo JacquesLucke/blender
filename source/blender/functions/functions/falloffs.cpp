@@ -34,5 +34,26 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_point_distance_falloff)
   return fn;
 }
 
+class ConstantFalloff : public TupleCallBody {
+  void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+  {
+    float weight = this->get_input<float>(fn_in, 0, "Weight");
+
+    FalloffW falloff = new BKE::ConstantFalloff(weight);
+    fn_out.move_in(0, falloff);
+  }
+};
+
+BLI_LAZY_INIT(SharedFunction, GET_FN_constant_falloff)
+{
+  FunctionBuilder builder;
+  builder.add_input("Weight", TYPE_float);
+  builder.add_output("Falloff", TYPE_falloff);
+
+  auto fn = builder.build("Constant Falloff");
+  fn->add_body<ConstantFalloff>();
+  return fn;
+}
+
 }  // namespace Functions
 }  // namespace FN

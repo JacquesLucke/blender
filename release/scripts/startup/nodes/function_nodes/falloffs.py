@@ -2,6 +2,16 @@ import bpy
 from .. node_builder import NodeBuilder
 from .. base import FunctionNode
 
+
+class ConstantFalloffNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_ConstantFalloffNode"
+    bl_label = "Constant Falloff"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("weight", "Weight", "Float", default=1.0)
+        builder.fixed_output("falloff", "Falloff", "Falloff")
+
+
 class PointDistanceFalloffNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_PointDistanceFalloffNode"
     bl_label = "Point Distance Falloff"
