@@ -106,36 +106,6 @@ class PackedLLVMTypeInfo : public TrivialLLVMTypeInfo {
                             llvm::Value *address) const override;
 };
 
-class PointerLLVMTypeInfo : public LLVMTypeInfo {
- private:
-  typedef std::function<void *(void *)> CopyFunc;
-  typedef std::function<void(void *)> FreeFunc;
-
-  CopyFunc m_copy_func;
-  FreeFunc m_free_func;
-
-  static void *copy_value(PointerLLVMTypeInfo *info, void *value);
-  static void free_value(PointerLLVMTypeInfo *info, void *value);
-
- public:
-  PointerLLVMTypeInfo(CopyFunc copy_func, FreeFunc free_func)
-      : m_copy_func(copy_func), m_free_func(free_func)
-  {
-  }
-
-  llvm::Type *get_type(llvm::LLVMContext &context) const override;
-  llvm::Value *build_copy_ir(CodeBuilder &builder, llvm::Value *value) const override;
-  void build_free_ir(CodeBuilder &builder, llvm::Value *value) const override;
-  void build_store_ir__copy(CodeBuilder &builder,
-                            llvm::Value *value,
-                            llvm::Value *address) const override;
-  void build_store_ir__relocate(CodeBuilder &builder,
-                                llvm::Value *value,
-                                llvm::Value *address) const override;
-  llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const override;
-  llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override;
-};
-
 /**
  * Use this when the pointer is just referenced is owned by someone else.
  */
