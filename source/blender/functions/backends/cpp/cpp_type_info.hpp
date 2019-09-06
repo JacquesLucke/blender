@@ -105,6 +105,11 @@ class CPPTypeInfo : public TypeExtension {
 #endif
 };
 
+/**
+ * This implements all necessary functions based on the default-constructor, copy-constructor,
+ * move-constructor and destructor of the given class. To get appropriate
+ * construction/copy/relocate/free semantics for pointer types, use one of the wrappers below.
+ */
 template<typename T> class CPPTypeInfoForType : public CPPTypeInfo {
  public:
   CPPTypeInfoForType()
@@ -220,6 +225,85 @@ template<typename T> class ReferencedPointerWrapper {
   }
 };
 
+template<typename T> class UniquePointerWrapper {
+ private:
+  T *m_ptr;
+
+ public:
+  UniquePointerWrapper() : m_ptr(nullptr)
+  {
+  }
+
+  UniquePointerWrapper(T *ptr) : m_ptr(ptr)
+  {
+  }
+
+  UniquePointerWrapper(const UniquePointerWrapper &other)
+  {
+    m_ptr = new T(other.ref());
+  }
+
+  UniquePointerWrapper(UniquePointerWrapper &&other)
+  {
+    m_ptr = other.m_ptr;
+    other.m_ptr = nullptr;
+  }
+
+  ~UniquePointerWrapper()
+  {
+    if (m_ptr != nullptr) {
+      delete m_ptr;
+    }
+  }
+
+  UniquePointerWrapper &operator=(const UniquePointerWrapper &other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    this->~UniquePointerWrapper();
+    new (this) UniquePointerWrapper(other);
+    return *this;
+  }
+
+  UniquePointerWrapper &operator=(UniquePointerWrapper &&other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    this->~UniquePointerWrapper();
+    new (this) UniquePointerWrapper(std::move(other));
+    return *this;
+  }
+
+  const T *ptr() const
+  {
+    return m_ptr;
+  }
+
+  T *ptr()
+  {
+    return m_ptr;
+  }
+
+  const T &ref() const
+  {
+    return *m_ptr;
+  }
+
+  T &ref()
+  {
+    return *m_ptr;
+  }
+
+  T *operator->()
+  {
+    return m_ptr;
+  }
+};
+
 /**
  * The class has to have a clone() method.
  */
@@ -250,6 +334,13 @@ template<typename T> class UniqueVirtualPointerWrapper {
   {
     m_ptr = other.m_ptr;
     other.m_ptr = nullptr;
+  }
+
+  ~UniqueVirtualPointerWrapper()
+  {
+    if (m_ptr != nullptr) {
+      delete m_ptr;
+    }
   }
 
   UniqueVirtualPointerWrapper &operator=(const UniqueVirtualPointerWrapper &other)

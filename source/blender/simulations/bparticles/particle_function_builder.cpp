@@ -18,6 +18,7 @@ using FN::FunctionGraph;
 using FN::SharedDataGraph;
 using FN::SharedFunction;
 using FN::Type;
+using FN::Types::StringW;
 
 Vector<DataSocket> find_input_data_sockets(VirtualNode *vnode, VTreeDataGraph &data_graph)
 {
@@ -118,7 +119,7 @@ static ParticleFunctionInputProvider *INPUT_surface_image(VTreeDataGraph &vtree_
     FN::TupleCallBody &body = fn->body<TupleCallBody>();
     FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
     body.call__setup_execution_context(fn_in, fn_out);
-    uv_map_name = std::string(fn_out.relocate_out<FN::Types::MyString>(0).data());
+    uv_map_name = fn_out.relocate_out<StringW>(0).ref();
   }
 
   return new SurfaceImageInputProvider(image, uv_map_name);

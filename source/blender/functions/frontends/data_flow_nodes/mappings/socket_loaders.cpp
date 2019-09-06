@@ -57,7 +57,7 @@ static void LOAD_text(PointerRNA *rna, Tuple &tuple, uint index)
   int length = RNA_string_length(rna, "value");
   char *stack_str = (char *)alloca(length + 1);
   RNA_string_get(rna, "value", stack_str);
-  MyString str(stack_str);
+  StringW str(new std::string(stack_str));
   tuple.move_in(index, str);
 }
 

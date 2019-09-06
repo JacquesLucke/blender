@@ -25,6 +25,7 @@ using FN::FunctionGraph;
 using FN::SharedDataGraph;
 using FN::DataFlowNodes::VTreeDataGraph;
 using FN::Types::ObjectW;
+using FN::Types::StringW;
 
 class BehaviorCollector {
  public:
@@ -317,7 +318,7 @@ static void PARSE_mesh_emitter(BehaviorCollector &collector,
                                         object,
                                         transform,
                                         body.get_output<float>(fn_out, 1, "Rate"),
-                                        StringRef(fn_out.relocate_out<FN::Types::MyString>(2)));
+                                        StringRef(fn_out.relocate_out<StringW>(2).ref()));
   collector.m_emitters.append(emitter);
 }
 

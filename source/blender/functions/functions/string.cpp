@@ -13,8 +13,8 @@ using namespace Types;
 class StringLength : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    MyString str = fn_in.relocate_out<MyString>(0);
-    int length = str.size();
+    StringW str = fn_in.relocate_out<StringW>(0);
+    int length = str->size();
     fn_out.set<int32_t>(0, length);
   }
 };

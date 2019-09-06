@@ -255,6 +255,23 @@ class UniqueVirtualPointerLLVMTypeInfo
   }
 };
 
+template<typename T>
+class UniquePointerLLVMTypeInfo : public OwnedPointerLLVMTypeInfo<UniquePointerLLVMTypeInfo<T>> {
+ public:
+  static T *copy_value(const T *value)
+  {
+    T *ptr = new T(*value);
+    return ptr;
+  }
+
+  static void free_value(T *value)
+  {
+    if (value != nullptr) {
+      delete value;
+    }
+  }
+};
+
 inline llvm::Type *get_llvm_type(Type *type, llvm::LLVMContext &context)
 {
   return type->extension<LLVMTypeInfo>().get_type(context);
