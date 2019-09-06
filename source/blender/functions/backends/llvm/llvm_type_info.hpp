@@ -234,7 +234,7 @@ template<typename T> class SharedImmutablePointerLLVMTypeInfo : public LLVMTypeI
 /**
  * The type has to implement a clone() method.
  */
-template<typename T> class UniquePointerLLVMTypeInfo : public LLVMTypeInfo {
+template<typename T> class UniqueVirtualPointerLLVMTypeInfo : public LLVMTypeInfo {
  private:
   static T *copy_value(const T *value)
   {

@@ -10,7 +10,7 @@ class Falloff;
 namespace FN {
 namespace Types {
 
-using FalloffW = OwningPointerWrapper<BKE::Falloff>;
+using FalloffW = UniqueVirtualPointerWrapper<BKE::Falloff>;
 
 void INIT_falloff(Vector<Type *> &types_to_free);
 

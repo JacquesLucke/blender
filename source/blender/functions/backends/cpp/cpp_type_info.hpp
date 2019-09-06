@@ -190,20 +190,20 @@ template<typename T> class CPPTypeInfoForType : public CPPTypeInfo {
 /**
  * The class has to have a clone() method.
  */
-template<typename T> class OwningPointerWrapper {
+template<typename T> class UniqueVirtualPointerWrapper {
  private:
   T *m_ptr;
 
  public:
-  OwningPointerWrapper() : m_ptr(nullptr)
+  UniqueVirtualPointerWrapper() : m_ptr(nullptr)
   {
   }
 
-  OwningPointerWrapper(T *ptr) : m_ptr(ptr)
+  UniqueVirtualPointerWrapper(T *ptr) : m_ptr(ptr)
   {
   }
 
-  OwningPointerWrapper(const OwningPointerWrapper &other)
+  UniqueVirtualPointerWrapper(const UniqueVirtualPointerWrapper &other)
   {
     if (other.m_ptr == nullptr) {
       m_ptr = nullptr;
@@ -213,31 +213,31 @@ template<typename T> class OwningPointerWrapper {
     }
   }
 
-  OwningPointerWrapper(OwningPointerWrapper &&other)
+  UniqueVirtualPointerWrapper(UniqueVirtualPointerWrapper &&other)
   {
     m_ptr = other.m_ptr;
     other.m_ptr = nullptr;
   }
 
-  OwningPointerWrapper &operator=(const OwningPointerWrapper &other)
+  UniqueVirtualPointerWrapper &operator=(const UniqueVirtualPointerWrapper &other)
   {
     if (this == &other) {
       return *this;
     }
 
-    this->~OwningPointerWrapper();
-    new (this) OwningPointerWrapper(other);
+    this->~UniqueVirtualPointerWrapper();
+    new (this) UniqueVirtualPointerWrapper(other);
     return *this;
   }
 
-  OwningPointerWrapper &operator=(OwningPointerWrapper &&other)
+  UniqueVirtualPointerWrapper &operator=(UniqueVirtualPointerWrapper &&other)
   {
     if (this == &other) {
       return *this;
     }
 
-    this->~OwningPointerWrapper();
-    new (this) OwningPointerWrapper(std::move(other));
+    this->~UniqueVirtualPointerWrapper();
+    new (this) UniqueVirtualPointerWrapper(std::move(other));
     return *this;
   }
 

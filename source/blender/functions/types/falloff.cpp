@@ -14,7 +14,7 @@ void INIT_falloff(Vector<Type *> &types_to_free)
 {
   TYPE_falloff = new Type("Falloff");
   TYPE_falloff->add_extension<CPPTypeInfoForType<FalloffW>>();
-  TYPE_falloff->add_extension<UniquePointerLLVMTypeInfo<BKE::Falloff>>();
+  TYPE_falloff->add_extension<UniqueVirtualPointerLLVMTypeInfo<BKE::Falloff>>();
 
   TYPE_falloff_list = new_list_type(TYPE_falloff);
 
