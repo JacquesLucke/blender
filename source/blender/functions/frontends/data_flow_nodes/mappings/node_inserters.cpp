@@ -351,7 +351,8 @@ static void INSERT_compare(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
        {"use_list__b", Functions::GET_FN_output_float_0()}});
   builder.insert_matching_function(fn, vnode);
 }
-static SharedFunction &get_boolean_function(int operation)
+
+static SharedFunction &get_boolean_math_function(int operation)
 {
   switch (operation) {
     case 1:
@@ -366,11 +367,11 @@ static SharedFunction &get_boolean_function(int operation)
   }
 }
 
-static void INSERT_boolean(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
+static void INSERT_boolean_math(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
 {
   PointerRNA rna = vnode->rna();
   int operation = RNA_enum_get(&rna, "operation");
-  SharedFunction &original_fn = get_boolean_function(operation);
+  SharedFunction &original_fn = get_boolean_math_function(operation);
   uint input_amount = original_fn->input_amount();
   if (input_amount == 1) {
     SharedFunction fn = get_vectorized_function(
@@ -415,7 +416,7 @@ void REGISTER_node_inserters(std::unique_ptr<NodeInserters> &inserters)
   REGISTER_INSERTER("fn_SeparateVectorNode", INSERT_separate_vector);
   REGISTER_INSERTER("fn_SwitchNode", INSERT_switch);
   REGISTER_INSERTER("fn_VectorMathNode", INSERT_vector_math);
-  REGISTER_INSERTER("fn_BooleanMathNode", INSERT_boolean);
+  REGISTER_INSERTER("fn_BooleanMathNode", INSERT_boolean_math);
 
 #undef REGISTER_INSERTER
 #undef REGISTER_FUNCTION
