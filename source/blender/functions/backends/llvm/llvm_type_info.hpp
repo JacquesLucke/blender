@@ -107,9 +107,9 @@ class PackedLLVMTypeInfo : public TrivialLLVMTypeInfo {
 };
 
 /**
- * Use this when the pointer is just referenced is owned by someone else.
+ * Use this when the pointer is just referenced and is owned by someone else.
  */
-class PointerRefLLVMTypeInfo : public LLVMTypeInfo {
+class ReferencedPointerLLVMTypeInfo : public LLVMTypeInfo {
   llvm::Type *get_type(llvm::LLVMContext &context) const override
   {
     return llvm::Type::getInt8PtrTy(context);
@@ -234,7 +234,7 @@ template<typename T> class SharedImmutablePointerLLVMTypeInfo : public LLVMTypeI
 /**
  * The type has to implement a clone() method.
  */
-template<typename T> class OwningPointerLLVMTypeInfo : public LLVMTypeInfo {
+template<typename T> class UniquePointerLLVMTypeInfo : public LLVMTypeInfo {
  private:
   static T *copy_value(const T *value)
   {

@@ -15,7 +15,7 @@ void INIT_external(Vector<Type *> &types_to_free)
 {
   TYPE_object = new Type("Object");
   TYPE_object->add_extension<CPPTypeInfoForType<Object *>>();
-  TYPE_object->add_extension<PointerRefLLVMTypeInfo>();
+  TYPE_object->add_extension<ReferencedPointerLLVMTypeInfo>();
 
   TYPE_object_list = new_list_type(TYPE_object);
 
