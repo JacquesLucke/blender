@@ -45,11 +45,6 @@ Type *new_list_type(Type *base_type)
       [](void *list) {
         List *list_ = static_cast<List *>(list);
         list_->decref();
-      },
-      /* Create a new empty list. */
-      [base_type]() -> void * {
-        List *list = new List(base_type);
-        return static_cast<void *>(list);
       });
   return type;
 }

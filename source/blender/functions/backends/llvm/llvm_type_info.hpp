@@ -110,19 +110,16 @@ class PointerLLVMTypeInfo : public LLVMTypeInfo {
  private:
   typedef std::function<void *(void *)> CopyFunc;
   typedef std::function<void(void *)> FreeFunc;
-  typedef std::function<void *()> DefaultFunc;
 
   CopyFunc m_copy_func;
   FreeFunc m_free_func;
-  DefaultFunc m_default_func;
 
   static void *copy_value(PointerLLVMTypeInfo *info, void *value);
   static void free_value(PointerLLVMTypeInfo *info, void *value);
-  static void *default_value(PointerLLVMTypeInfo *info);
 
  public:
-  PointerLLVMTypeInfo(CopyFunc copy_func, FreeFunc free_func, DefaultFunc default_func)
-      : m_copy_func(copy_func), m_free_func(free_func), m_default_func(default_func)
+  PointerLLVMTypeInfo(CopyFunc copy_func, FreeFunc free_func)
+      : m_copy_func(copy_func), m_free_func(free_func)
   {
   }
 

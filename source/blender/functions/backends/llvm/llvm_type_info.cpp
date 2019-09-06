@@ -76,11 +76,6 @@ void PointerLLVMTypeInfo::free_value(PointerLLVMTypeInfo *info, void *value)
   info->m_free_func(value);
 }
 
-void *PointerLLVMTypeInfo::default_value(PointerLLVMTypeInfo *info)
-{
-  return info->m_default_func();
-}
-
 llvm::Value *PointerLLVMTypeInfo::build_copy_ir(CodeBuilder &builder, llvm::Value *value) const
 {
   auto *any_ptr_ty = builder.getAnyPtrTy();
