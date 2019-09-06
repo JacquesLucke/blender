@@ -2002,6 +2002,8 @@ typedef struct BParticlesOutputModifierData {
   ModifierData modifier;
   struct Object *source_object;
   char source_particle_type[64];
+  unsigned int output_type;
+  char _pad[4];
 } BParticlesOutputModifierData;
 
 #endif /* __DNA_MODIFIER_TYPES_H__ */

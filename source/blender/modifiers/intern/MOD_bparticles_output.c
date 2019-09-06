@@ -64,7 +64,16 @@ static Mesh *applyModifier(ModifierData *md,
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
   }
 
-  return BParticles_modifier_extract_mesh(simulation_state, bpmd->source_particle_type);
+  if (bpmd->output_type == MOD_BPARTICLES_OUTPUT_TETRAHEDONS) {
+    return BParticles_state_extract_type__tetrahedons(simulation_state,
+                                                      bpmd->source_particle_type);
+  }
+  else if (bpmd->output_type == MOD_BPARTICLES_OUTPUT_POINTS) {
+    return BParticles_state_extract_type__points(simulation_state, bpmd->source_particle_type);
+  }
+  else {
+    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+  }
 }
 
 static void initData(ModifierData *UNUSED(md))

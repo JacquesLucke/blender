@@ -6046,6 +6046,21 @@ static void rna_def_modifier_function_points(BlenderRNA *brna)
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 }
 
+const static EnumPropertyItem bparticles_output_type_items[] = {
+    {MOD_BPARTICLES_OUTPUT_POINTS,
+     "POINTS",
+     0,
+     "Points",
+     "Create a mesh containing only vertices"},
+    {MOD_BPARTICLES_OUTPUT_TETRAHEDONS,
+     "TETRAHEDONS",
+     0,
+     "Tetrahedons",
+     "Create a mesh that has a tetrahedon at every vertex position"},
+    {MOD_BPARTICLES_OUTPUT_NONE, "NONE", 0, "None", "Create no output mesh"},
+    {0, NULL, 0, NULL, NULL},
+};
+
 static void rna_def_modifier_bparticles(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -6061,23 +6076,8 @@ static void rna_def_modifier_bparticles(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "BParticles Tree", "BParticles node tree");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
-  const static EnumPropertyItem output_types[] = {
-      {MOD_BPARTICLES_OUTPUT_POINTS,
-       "POINTS",
-       0,
-       "Points",
-       "Create a mesh containing only vertices"},
-      {MOD_BPARTICLES_OUTPUT_TETRAHEDONS,
-       "TETRAHEDONS",
-       0,
-       "Tetrahedons",
-       "Create a mesh that has a tetrahedon at every vertex position"},
-      {MOD_BPARTICLES_OUTPUT_NONE, "NONE", 0, "None", "Create no output mesh"},
-      {0, NULL, 0, NULL, NULL},
-  };
-
   prop = RNA_def_property(srna, "output_type", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_items(prop, output_types);
+  RNA_def_property_enum_items(prop, bparticles_output_type_items);
   RNA_def_property_ui_text(
       prop, "Output Type", "Method for creating the output mesh from the particle data");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
@@ -6101,6 +6101,12 @@ static void rna_def_modifier_bparticles_output(BlenderRNA *brna)
   prop = RNA_def_property(srna, "source_particle_type", PROP_STRING, PROP_NONE);
   RNA_def_property_ui_text(
       prop, "Particle Type", "Name of the particle type that should be copied");
+  RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+  prop = RNA_def_property(srna, "output_type", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, bparticles_output_type_items);
+  RNA_def_property_ui_text(
+      prop, "Output Type", "Method for creating the output mesh from the particle data");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 

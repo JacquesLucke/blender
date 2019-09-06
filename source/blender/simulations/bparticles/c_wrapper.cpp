@@ -159,6 +159,18 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers,
   return mesh;
 }
 
+static Mesh *distribute_points(ArrayRef<float3> points)
+{
+  Mesh *mesh = BKE_mesh_new_nomain(points.size(), 0, 0, 0, 0);
+
+  for (uint i = 0; i < mesh->totvert; i++) {
+    copy_v3_v3(mesh->mvert[i].co, points[i]);
+    mesh->mvert[i].no[2] = 32767;
+  }
+
+  return mesh;
+}
+
 void BParticles_modifier_free_cache(BParticlesModifierData *bpmd)
 {
   if (bpmd->cached_frames == nullptr) {
@@ -200,14 +212,7 @@ Mesh *BParticles_modifier_point_mesh_from_state(BParticlesSimulationState state_
         positions.extend(container->flatten_attribute<float3>("Position"));
       });
 
-  Mesh *mesh = BKE_mesh_new_nomain(positions.size(), 0, 0, 0, 0);
-
-  for (uint i = 0; i < mesh->totvert; i++) {
-    copy_v3_v3(mesh->mvert[i].co, positions[i]);
-    mesh->mvert[i].no[2] = 32767;
-  }
-
-  return mesh;
+  return distribute_points(positions);
 }
 
 Mesh *BParticles_modifier_mesh_from_state(BParticlesSimulationState state_c)
@@ -252,8 +257,8 @@ Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
   return mesh;
 }
 
-Mesh *BParticles_modifier_extract_mesh(BParticlesSimulationState simulation_state_c,
-                                       const char *particle_type)
+Mesh *BParticles_state_extract_type__tetrahedons(BParticlesSimulationState simulation_state_c,
+                                                 const char *particle_type)
 {
   SimulationState &state = *unwrap(simulation_state_c);
   ParticlesState &particles = state.particles();
@@ -268,6 +273,21 @@ Mesh *BParticles_modifier_extract_mesh(BParticlesSimulationState simulation_stat
   auto colors = container.flatten_attribute<rgba_f>("Color");
 
   return distribute_tetrahedons(positions, sizes, colors);
+}
+
+Mesh *BParticles_state_extract_type__points(BParticlesSimulationState simulation_state_c,
+                                            const char *particle_type)
+{
+  SimulationState &state = *unwrap(simulation_state_c);
+  ParticlesState &particles = state.particles();
+  ParticlesContainer **container_ptr = particles.particle_containers().lookup_ptr(particle_type);
+  if (container_ptr == nullptr) {
+    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
+  }
+  ParticlesContainer &container = **container_ptr;
+
+  auto positions = container.flatten_attribute<float3>("Position");
+  return distribute_points(positions);
 }
 
 void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,

@@ -1675,6 +1675,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
     def BPARTICLES_OUTPUT(self, layout, ob, md):
         layout.prop(md, "source_object")
         layout.prop(md, "source_particle_type")
+        layout.prop(md, "output_type")
 
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
