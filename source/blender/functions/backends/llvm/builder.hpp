@@ -331,6 +331,11 @@ class CodeBuilder {
     return this->CastToPointerOf(addr, stride_type);
   }
 
+  llvm::Value *CastToAnyPtrPtr(llvm::Value *addr)
+  {
+    return this->CastToPointerOf(addr, this->getAnyPtrTy());
+  }
+
   llvm::Value *CastToAnyPtr(llvm::Value *addr)
   {
     return m_builder.CreatePointerCast(addr, this->getAnyPtrTy());

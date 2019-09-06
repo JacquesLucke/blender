@@ -32,20 +32,10 @@ class ListTypeInfo : public CPPTypeInfoForType<SharedList> {
 
 Type *new_list_type(Type *base_type)
 {
+  BLI_STATIC_ASSERT(sizeof(SharedList) == sizeof(List *), "");
   Type *type = new Type(base_type->name() + " List");
   type->add_extension<ListTypeInfo>(base_type);
-  type->add_extension<PointerLLVMTypeInfo>(
-      /* Copy list by incrementing the reference counter. */
-      [](void *list) -> void * {
-        List *list_ = static_cast<List *>(list);
-        list_->incref();
-        return static_cast<void *>(list);
-      },
-      /* Free list by decrementing the reference counter. */
-      [](void *list) {
-        List *list_ = static_cast<List *>(list);
-        list_->decref();
-      });
+  type->add_extension<SharedImmutablePointerLLVMTypeInfo<List>>();
   return type;
 }
 

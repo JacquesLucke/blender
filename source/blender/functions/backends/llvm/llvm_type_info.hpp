@@ -158,7 +158,7 @@ class PointerRefLLVMTypeInfo : public LLVMTypeInfo {
                             llvm::Value *value,
                             llvm::Value *address) const override
   {
-    auto *addr = builder.CastToBytePtr(address);
+    auto *addr = builder.CastToAnyPtrPtr(address);
     builder.CreateStore(value, addr);
   }
 
@@ -171,13 +171,93 @@ class PointerRefLLVMTypeInfo : public LLVMTypeInfo {
 
   llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const override
   {
-    auto *addr = builder.CastToBytePtr(address);
+    auto *addr = builder.CastToAnyPtrPtr(address);
     return builder.CreateLoad(addr);
   }
 
   llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override
   {
     return this->build_load_ir__copy(builder, address);
+  }
+};
+
+/**
+ * Use this when the type is reference counted. Furthermore, the type has to be immutable when
+ * object is owned by more than one.
+ */
+template<typename T> class SharedImmutablePointerLLVMTypeInfo : public LLVMTypeInfo {
+ private:
+  static T *copy_by_incrementing_refcount(T *value)
+  {
+    if (value == nullptr) {
+      return nullptr;
+    }
+    else {
+      value->incref();
+      return value;
+    }
+  }
+
+  static void free_by_decrementing_refcount(T *value)
+  {
+    if (value != nullptr) {
+      value->decref();
+    }
+  }
+
+ public:
+  llvm::Type *get_type(llvm::LLVMContext &context) const override
+  {
+    return llvm::Type::getInt8PtrTy(context);
+  }
+
+  llvm::Value *build_copy_ir(CodeBuilder &builder, llvm::Value *value) const override
+  {
+    return builder.CreateCallPointer((void *)copy_by_incrementing_refcount,
+                                     {value},
+                                     builder.getAnyPtrTy(),
+                                     "copy by incrementing refcount");
+  }
+
+  void build_free_ir(CodeBuilder &builder, llvm::Value *value) const override
+  {
+    builder.CreateCallPointer((void *)free_by_decrementing_refcount,
+                              {value},
+                              builder.getVoidTy(),
+                              "free by decrementing refcount");
+  }
+
+  void build_store_ir__copy(CodeBuilder &builder,
+                            llvm::Value *value,
+                            llvm::Value *address) const override
+  {
+    auto copied_value = this->build_copy_ir(builder, value);
+    this->build_store_ir__relocate(builder, copied_value, address);
+  }
+
+  void build_store_ir__relocate(CodeBuilder &builder,
+                                llvm::Value *value,
+                                llvm::Value *address) const override
+  {
+    auto *addr = builder.CastToAnyPtrPtr(address);
+    builder.CreateStore(value, addr);
+  }
+
+  llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const override
+  {
+    auto *addr = builder.CastToAnyPtrPtr(address);
+    auto *value = builder.CreateLoad(addr);
+    auto *copied_value = this->build_copy_ir(builder, value);
+    return copied_value;
+  }
+
+  llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override
+  {
+    auto *addr = builder.CastToAnyPtrPtr(address);
+    auto *value = builder.CreateLoad(addr);
+    auto *nullptr_value = builder.getAnyPtr((void *)nullptr);
+    builder.CreateStore(nullptr_value, addr);
+    return value;
   }
 };
 
@@ -232,13 +312,13 @@ template<typename T> class OwningPointerLLVMTypeInfo : public LLVMTypeInfo {
                                 llvm::Value *value,
                                 llvm::Value *address) const override
   {
-    auto *addr = builder.CastToBytePtr(address);
+    auto *addr = builder.CastToAnyPtrPtr(address);
     builder.CreateStore(value, addr);
   }
 
   llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const override
   {
-    auto *addr = builder.CastToBytePtr(address);
+    auto *addr = builder.CastToAnyPtrPtr(address);
     auto *value = builder.CreateLoad(addr);
     auto *copied_value = this->build_copy_ir(builder, value);
     return copied_value;
@@ -246,9 +326,9 @@ template<typename T> class OwningPointerLLVMTypeInfo : public LLVMTypeInfo {
 
   llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override
   {
-    auto *addr = builder.CastToBytePtr(address);
+    auto *addr = builder.CastToAnyPtrPtr(address);
     auto *value = builder.CreateLoad(addr);
-    auto *nullptr_value = builder.getPtr(nullptr, builder.getAnyPtrTy());
+    auto *nullptr_value = builder.getAnyPtr((void *)nullptr);
     builder.CreateStore(nullptr_value, addr);
     return value;
   }
