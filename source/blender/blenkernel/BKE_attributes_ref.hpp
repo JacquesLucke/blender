@@ -60,7 +60,8 @@ using BLI::Vector;
  */
 enum AttributeType {
   Byte,
-  Integer,
+  Int32,
+  UInt32,
   Float,
   Float2,
   Float3,
@@ -77,7 +78,8 @@ template<typename T> struct attribute_type_by_type {
   }
 
 ATTRIBUTE_TYPE_BY_TYPE(uint8_t, Byte);
-ATTRIBUTE_TYPE_BY_TYPE(int32_t, Integer);
+ATTRIBUTE_TYPE_BY_TYPE(int32_t, Int32);
+ATTRIBUTE_TYPE_BY_TYPE(uint32_t, UInt32);
 ATTRIBUTE_TYPE_BY_TYPE(float, Float);
 ATTRIBUTE_TYPE_BY_TYPE(float2, Float2);
 ATTRIBUTE_TYPE_BY_TYPE(float3, Float3);
@@ -94,8 +96,10 @@ inline uint size_of_attribute_type(AttributeType type)
   switch (type) {
     case AttributeType::Byte:
       return sizeof(uint8_t);
-    case AttributeType::Integer:
+    case AttributeType::Int32:
       return sizeof(int32_t);
+    case AttributeType::UInt32:
+      return sizeof(uint32_t);
     case AttributeType::Float:
       return sizeof(float);
     case AttributeType::Float2:

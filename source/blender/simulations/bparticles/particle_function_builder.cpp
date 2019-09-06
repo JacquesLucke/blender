@@ -60,7 +60,7 @@ static AttributeType attribute_type_from_socket_type(FN::Type *type)
     return AttributeType::Float;
   }
   else if (type == FN::Types::TYPE_int32) {
-    return AttributeType::Integer;
+    return AttributeType::Int32;
   }
   else {
     BLI_assert(false);
