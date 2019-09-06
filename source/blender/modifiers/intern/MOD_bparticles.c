@@ -41,19 +41,18 @@
 
 #include "BLI_math.h"
 
+#include "MOD_bparticles.h"
 #include "MOD_util.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
-
-#include "BParticles.h"
 
 typedef struct RuntimeData {
   BParticlesSimulationState simulation_state;
   float last_simulated_frame;
 } RuntimeData;
 
-static RuntimeData *get_runtime_struct(BParticlesModifierData *bpmd)
+static RuntimeData *get_or_create_runtime_struct(BParticlesModifierData *bpmd)
 {
   if (bpmd->modifier.runtime == NULL) {
     RuntimeData *runtime = MEM_callocN(sizeof(RuntimeData), __func__);
@@ -62,6 +61,11 @@ static RuntimeData *get_runtime_struct(BParticlesModifierData *bpmd)
     bpmd->modifier.runtime = runtime;
   }
 
+  return bpmd->modifier.runtime;
+}
+
+static RuntimeData *get_runtime_struct(BParticlesModifierData *bpmd)
+{
   return bpmd->modifier.runtime;
 }
 
@@ -80,17 +84,33 @@ static void free_modifier_runtime_data(BParticlesModifierData *bpmd)
   }
 }
 
-static Mesh *apply_modifier__simulator(BParticlesModifierData *bpmd,
-                                       const struct ModifierEvalContext *ctx,
-                                       Mesh *UNUSED(mesh))
+BParticlesSimulationState MOD_bparticles_find_simulation_state(Object *object)
 {
+  BLI_assert(object != NULL);
+  BParticlesModifierData *bpmd = (BParticlesModifierData *)modifiers_findByType(
+      object, eModifierType_BParticles);
+  if (bpmd == NULL) {
+    return NULL;
+  }
+  RuntimeData *runtime = get_runtime_struct(bpmd);
+  if (runtime == NULL) {
+    return NULL;
+  }
+  return runtime->simulation_state;
+}
+
+static Mesh *applyModifier(ModifierData *md,
+                           const struct ModifierEvalContext *ctx,
+                           Mesh *UNUSED(mesh))
+{
+  BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
   BParticlesModifierData *bpmd_orig = (BParticlesModifierData *)modifier_get_original(
       &bpmd->modifier);
 
   Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
   float current_frame = BKE_scene_frame_get(scene);
 
-  RuntimeData *runtime = get_runtime_struct(bpmd);
+  RuntimeData *runtime = get_or_create_runtime_struct(bpmd);
 
   if (runtime->simulation_state == NULL) {
     runtime->simulation_state = BParticles_new_simulation();
@@ -105,7 +125,7 @@ static Mesh *apply_modifier__simulator(BParticlesModifierData *bpmd,
   }
   else {
     free_modifier_runtime_data(bpmd);
-    runtime = get_runtime_struct(bpmd);
+    runtime = get_or_create_runtime_struct(bpmd);
     runtime->simulation_state = BParticles_new_simulation();
     runtime->last_simulated_frame = current_frame;
     BParticles_modifier_free_cache(bpmd_orig);
@@ -122,41 +142,6 @@ static Mesh *apply_modifier__simulator(BParticlesModifierData *bpmd,
   }
   else {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
-  }
-}
-
-static Mesh *apply_modifier__passive(BParticlesModifierData *bpmd,
-                                     const struct ModifierEvalContext *UNUSED(ctx),
-                                     Mesh *UNUSED(mesh))
-{
-  if (bpmd->source_object == NULL) {
-    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
-  }
-  BParticlesModifierData *source_bpmd = (BParticlesModifierData *)modifiers_findByType(
-      bpmd->source_object, eModifierType_BParticles);
-  if (source_bpmd == NULL) {
-    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
-  }
-  RuntimeData *source_runtime_data = get_runtime_struct(source_bpmd);
-  if (source_runtime_data == NULL) {
-    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
-  }
-  if (source_runtime_data->simulation_state == NULL) {
-    return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
-  }
-
-  return BParticles_modifier_extract_mesh(source_runtime_data->simulation_state,
-                                          bpmd->source_particle_type);
-}
-
-static Mesh *applyModifier(ModifierData *md, const struct ModifierEvalContext *ctx, Mesh *mesh)
-{
-  BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
-  if (bpmd->mode == MOD_BPARTICLES_MODE_SIMULATOR) {
-    return apply_modifier__simulator(bpmd, ctx, mesh);
-  }
-  else {
-    return apply_modifier__passive(bpmd, ctx, mesh);
   }
 }
 
@@ -194,19 +179,16 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
   return true;
 }
 
-static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
+static void updateDepsgraph(ModifierData *UNUSED(md),
+                            const ModifierUpdateDepsgraphContext *UNUSED(ctx))
 {
-  BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
-  if (bpmd->source_object) {
-    DEG_add_object_relation(
-        ctx->node, bpmd->source_object, DEG_OB_COMP_GEOMETRY, "Passive BParticles Modifier");
-  }
 }
 
-static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk, void *userData)
+static void foreachObjectLink(ModifierData *UNUSED(md),
+                              Object *UNUSED(ob),
+                              ObjectWalkFunc UNUSED(walk),
+                              void *UNUSED(userData))
 {
-  BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
-  walk(userData, ob, &bpmd->source_object, IDWALK_CB_NOP);
 }
 
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)

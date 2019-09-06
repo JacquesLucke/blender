@@ -2184,6 +2184,7 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
             case eModifierType_FunctionDeform:
             case eModifierType_FunctionPoints:
             case eModifierType_BParticles:
+            case eModifierType_BParticlesOutput:
 
             case NUM_MODIFIER_TYPES:
               data.icon = ICON_DOT;

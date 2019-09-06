@@ -1662,20 +1662,19 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         props.modifier_name = md.name
 
     def BPARTICLES(self, layout, ob, md):
-        layout.prop(md, "mode")
-        if md.mode == 'SIMULATOR':
-            row = layout.row(align=True)
-            row.prop(md, "bparticles_tree")
-            props = row.operator("bp.new_bparticles_tree", text="", icon="ADD")
-            props.object_name = ob.name
-            props.modifier_name = md.name
+        row = layout.row(align=True)
+        row.prop(md, "bparticles_tree")
+        props = row.operator("bp.new_bparticles_tree", text="", icon="ADD")
+        props.object_name = ob.name
+        props.modifier_name = md.name
 
-            layout.operator("object.bparticles_clear_cache", text="Clear Cache")
+        layout.operator("object.bparticles_clear_cache", text="Clear Cache")
 
-            layout.prop(md, "output_type")
-        elif md.mode == 'PASSIVE':
-            layout.prop(md, "source_object")
-            layout.prop(md, "source_particle_type")
+        layout.prop(md, "output_type")
+
+    def BPARTICLES_OUTPUT(self, layout, ob, md):
+        layout.prop(md, "source_object")
+        layout.prop(md, "source_particle_type")
 
 
 class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):

@@ -45,6 +45,8 @@ set(SRC
   intern/MOD_array.c
   intern/MOD_bevel.c
   intern/MOD_boolean.c
+  intern/MOD_bparticles.c
+  intern/MOD_bparticles_output.c
   intern/MOD_build.c
   intern/MOD_cast.c
   intern/MOD_cloth.c
@@ -74,7 +76,6 @@ set(SRC
   intern/MOD_meshsequencecache.c
   intern/MOD_mirror.c
   intern/MOD_multires.c
-  intern/MOD_bparticles.c
   intern/MOD_none.c
   intern/MOD_normal_edit.c
   intern/MOD_ocean.c

@@ -310,5 +310,6 @@ void modifier_type_init(ModifierTypeInfo *types[])
   INIT_TYPE(FunctionDeform);
   INIT_TYPE(FunctionPoints);
   INIT_TYPE(BParticles);
+  INIT_TYPE(BParticlesOutput);
 #undef INIT_TYPE
 }

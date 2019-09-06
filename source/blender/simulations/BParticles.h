@@ -12,6 +12,7 @@ struct Mesh;
 struct Depsgraph;
 struct BParticlesModifierData;
 struct BParticlesFrameCache;
+struct Depsgraph;
 
 typedef struct OpaqueBParticlesSimulationState *BParticlesSimulationState;
 
@@ -19,7 +20,7 @@ BParticlesSimulationState BParticles_new_simulation(void);
 void BParticles_simulation_free(BParticlesSimulationState simulation_state);
 
 void BParticles_simulate_modifier(struct BParticlesModifierData *bpmd,
-                                  Depsgraph *depsgraph,
+                                  struct Depsgraph *depsgraph,
                                   BParticlesSimulationState simulation_state,
                                   float time_step);
 

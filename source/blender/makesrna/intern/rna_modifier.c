@@ -148,6 +148,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
     {eModifierType_Softbody, "SOFT_BODY", ICON_MOD_SOFT, "Soft Body", ""},
     {eModifierType_Surface, "SURFACE", ICON_MODIFIER, "Surface", ""},
     {eModifierType_BParticles, "BPARTICLES", ICON_NONE, "BParticles", ""},
+    {eModifierType_BParticlesOutput, "BPARTICLES_OUTPUT", ICON_NONE, "BParticles Output", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -582,6 +583,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
       return &RNA_FunctionPointsModifier;
     case eModifierType_BParticles:
       return &RNA_BParticlesModifier;
+    case eModifierType_BParticlesOutput:
+      return &RNA_BParticlesOutputModifier;
     /* Default */
     case eModifierType_None:
     case eModifierType_ShapeKey:
@@ -6049,31 +6052,9 @@ static void rna_def_modifier_bparticles(BlenderRNA *brna)
   PropertyRNA *prop;
 
   srna = RNA_def_struct(brna, "BParticlesModifier", "Modifier");
-  RNA_def_struct_ui_text(srna, "Node Particles Modifier", "");
+  RNA_def_struct_ui_text(srna, "BParticles Modifier", "");
   RNA_def_struct_sdna(srna, "BParticlesModifierData");
   RNA_def_struct_ui_icon(srna, ICON_NONE);
-
-  const static EnumPropertyItem mode_types[] = {
-      {MOD_BPARTICLES_MODE_SIMULATOR,
-       "SIMULATOR",
-       0,
-       "Simulator",
-       "Use this modifier as main simulator"},
-      {MOD_BPARTICLES_MODE_PASSIVE,
-       "PASSIVE",
-       0,
-       "Passive",
-       "This modifiers only copies particle data from another object"},
-      {0, NULL, 0, NULL, NULL},
-  };
-
-  prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_items(prop, mode_types);
-  RNA_def_property_ui_text(
-      prop, "Mode", "Use the modifier as active simulator or only copy data from other modifier");
-  RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-  /* Simulator Mode */
 
   prop = RNA_def_property(srna, "bparticles_tree", PROP_POINTER, PROP_NONE);
   RNA_def_property_flag(prop, PROP_EDITABLE);
@@ -6100,8 +6081,17 @@ static void rna_def_modifier_bparticles(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Output Type", "Method for creating the output mesh from the particle data");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
 
-  /* Passive Mode */
+static void rna_def_modifier_bparticles_output(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "BParticlesOutputModifier", "Modifier");
+  RNA_def_struct_ui_text(srna, "BParticles Output Modifier", "");
+  RNA_def_struct_sdna(srna, "BParticlesOutputModifierData");
+  RNA_def_struct_ui_icon(srna, ICON_NONE);
 
   prop = RNA_def_property(srna, "source_object", PROP_POINTER, PROP_NONE);
   RNA_def_property_flag(prop, PROP_EDITABLE);
@@ -6242,6 +6232,7 @@ void RNA_def_modifier(BlenderRNA *brna)
   rna_def_modifier_function_deform(brna);
   rna_def_modifier_function_points(brna);
   rna_def_modifier_bparticles(brna);
+  rna_def_modifier_bparticles_output(brna);
 }
 
 #endif

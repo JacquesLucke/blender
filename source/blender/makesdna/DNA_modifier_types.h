@@ -89,6 +89,7 @@ typedef enum ModifierType {
   eModifierType_FunctionDeform = 55,
   eModifierType_FunctionPoints = 56,
   eModifierType_BParticles = 57,
+  eModifierType_BParticlesOutput = 58,
   NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1988,27 +1989,19 @@ typedef enum eBParticlesOutputType {
   MOD_BPARTICLES_OUTPUT_NONE,
 } eBParticlesOutputType;
 
-typedef enum eBParticlesModifierMode {
-  MOD_BPARTICLES_MODE_SIMULATOR,
-  MOD_BPARTICLES_MODE_PASSIVE,
-} eBParticlesModifierMode;
-
 typedef struct BParticlesModifierData {
   ModifierData modifier;
-  unsigned int mode;
 
-  /* Simulator Settings */
   unsigned int output_type;
-  struct bNodeTree *bparticles_tree;
-
   unsigned int num_cached_frames;
-  char _pad[4];
+  struct bNodeTree *bparticles_tree;
   BParticlesFrameCache *cached_frames;
+} BParticlesModifierData;
 
-  /* Passive Settings */
+typedef struct BParticlesOutputModifierData {
+  ModifierData modifier;
   struct Object *source_object;
   char source_particle_type[64];
-
-} BParticlesModifierData;
+} BParticlesOutputModifierData;
 
 #endif /* __DNA_MODIFIER_TYPES_H__ */
