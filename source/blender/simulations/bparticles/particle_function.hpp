@@ -31,6 +31,7 @@ class ParticleFunctionResult {
   FN::Function *m_fn_no_deps;
   FN::Function *m_fn_with_deps;
   ArrayRef<uint> m_output_indices;
+  ArrayRef<uint> m_pindices;
 
   friend ParticleFunction;
 
@@ -41,6 +42,26 @@ class ParticleFunctionResult {
 
   ~ParticleFunctionResult()
   {
+    /* Free elements in buffers. */
+    for (uint i = 0; i < m_only_first.size(); i++) {
+      uint output_index = m_output_indices[i];
+      if (m_only_first[i]) {
+        auto &type_info = m_fn_no_deps->output_type(output_index)->extension<CPPTypeInfo>();
+        void *ptr = m_buffers[i];
+        type_info.destruct(ptr);
+      }
+      else {
+        auto &type_info = m_fn_with_deps->output_type(output_index)->extension<CPPTypeInfo>();
+        if (!type_info.trivially_destructible()) {
+          void *ptr = m_buffers[i];
+          for (uint pindex : m_pindices) {
+            type_info.destruct(POINTER_OFFSET(ptr, type_info.size() * pindex));
+          }
+        }
+      }
+    }
+
+    /* Free buffers. */
     for (uint i = 0; i < m_buffers.size(); i++) {
       BLI_temporary_deallocate(m_buffers[i]);
     }

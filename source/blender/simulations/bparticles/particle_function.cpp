@@ -97,6 +97,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
   result->m_fn_no_deps = m_fn_no_deps.ptr();
   result->m_fn_with_deps = m_fn_with_deps.ptr();
   result->m_output_indices = m_output_indices;
+  result->m_pindices = pindices;
 
   this->init_without_deps(result);
   this->init_with_deps(result, pindices, attributes, particle_times, action_context);

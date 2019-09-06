@@ -6,6 +6,10 @@ namespace BKE {
 
 class Falloff {
  public:
+#ifdef WITH_CXX_GUARDEDALLOC
+  MEM_CXX_CLASS_ALLOC_FUNCS("BKE:Falloff")
+#endif
+
   virtual ~Falloff()
   {
   }
