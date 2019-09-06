@@ -110,6 +110,7 @@ set(SRC
   intern/editmesh_cache.c
   intern/editmesh_tangent.c
   intern/effect.c
+  intern/falloff.cpp
   intern/fcurve.c
   intern/fluidsim.c
   intern/fmodifier.c

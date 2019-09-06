@@ -10,9 +10,11 @@ class Falloff {
   MEM_CXX_CLASS_ALLOC_FUNCS("BKE:Falloff")
 #endif
 
-  virtual ~Falloff()
-  {
-  }
+  virtual ~Falloff();
+
+  /**
+   * Create an identical copy of this falloff.
+   */
   virtual Falloff *clone() const = 0;
 
   /**
@@ -20,7 +22,7 @@ class Falloff {
    */
   virtual void compute(AttributesRef attributes,
                        ArrayRef<uint> indices,
-                       MutableArrayRef<float> r_weights) = 0;
+                       MutableArrayRef<float> r_weights) const = 0;
 };
 
 class ConstantFalloff : public Falloff {
@@ -39,12 +41,7 @@ class ConstantFalloff : public Falloff {
 
   void compute(AttributesRef UNUSED(attributes),
                ArrayRef<uint> indices,
-               MutableArrayRef<float> r_weights)
-  {
-    for (uint index : indices) {
-      r_weights[index] = m_weight;
-    }
-  }
+               MutableArrayRef<float> r_weights) const override;
 };
 
 class PointDistanceFalloff : public Falloff {
@@ -59,28 +56,14 @@ class PointDistanceFalloff : public Falloff {
   {
   }
 
-  Falloff *clone() const
+  Falloff *clone() const override
   {
     return new PointDistanceFalloff(m_point, m_min_distance, m_max_distance);
   }
 
-  void compute(AttributesRef attributes, ArrayRef<uint> indices, MutableArrayRef<float> r_weights)
-  {
-    auto positions = attributes.get<float3>("Position");
-    float distance_diff = m_max_distance - m_min_distance;
-
-    for (uint index : indices) {
-      float3 position = positions[index];
-      float distance = float3::distance(position, m_point);
-
-      float weight = 0;
-      if (distance_diff > 0) {
-        weight = 1.0f - (distance - m_min_distance) / distance_diff;
-        CLAMP(weight, 0.0f, 1.0f);
-      }
-      r_weights[index] = weight;
-    }
-  }
+  void compute(AttributesRef attributes,
+               ArrayRef<uint> indices,
+               MutableArrayRef<float> r_weights) const override;
 };
 
 }  // namespace BKE
