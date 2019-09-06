@@ -137,6 +137,51 @@ class PointerLLVMTypeInfo : public LLVMTypeInfo {
 };
 
 /**
+ * Use this when the pointer is just referenced is owned by someone else.
+ */
+class PointerRefLLVMTypeInfo : public LLVMTypeInfo {
+  llvm::Type *get_type(llvm::LLVMContext &context) const override
+  {
+    return llvm::Type::getInt8PtrTy(context);
+  }
+
+  llvm::Value *build_copy_ir(CodeBuilder &UNUSED(builder), llvm::Value *value) const override
+  {
+    return value;
+  }
+
+  void build_free_ir(CodeBuilder &UNUSED(builder), llvm::Value *UNUSED(value)) const override
+  {
+  }
+
+  void build_store_ir__copy(CodeBuilder &builder,
+                            llvm::Value *value,
+                            llvm::Value *address) const override
+  {
+    auto *addr = builder.CastToBytePtr(address);
+    builder.CreateStore(value, addr);
+  }
+
+  void build_store_ir__relocate(CodeBuilder &builder,
+                                llvm::Value *value,
+                                llvm::Value *address) const override
+  {
+    this->build_store_ir__copy(builder, value, address);
+  }
+
+  llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const override
+  {
+    auto *addr = builder.CastToBytePtr(address);
+    return builder.CreateLoad(addr);
+  }
+
+  llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override
+  {
+    return this->build_load_ir__copy(builder, address);
+  }
+};
+
+/**
  * The type has to implement a clone() method.
  */
 template<typename T> class OwningPointerLLVMTypeInfo : public LLVMTypeInfo {
