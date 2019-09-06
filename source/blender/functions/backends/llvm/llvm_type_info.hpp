@@ -151,30 +151,7 @@ class ReferencedPointerLLVMTypeInfo : public LLVMTypeInfo {
   }
 };
 
-/**
- * Use this when the type is reference counted. Furthermore, the type has to be immutable when
- * object is owned by more than one.
- */
-template<typename T> class SharedImmutablePointerLLVMTypeInfo : public LLVMTypeInfo {
- private:
-  static T *copy_by_incrementing_refcount(T *value)
-  {
-    if (value == nullptr) {
-      return nullptr;
-    }
-    else {
-      value->incref();
-      return value;
-    }
-  }
-
-  static void free_by_decrementing_refcount(T *value)
-  {
-    if (value != nullptr) {
-      value->decref();
-    }
-  }
-
+template<typename T> class OwnedPointerLLVMTypeInfo : public LLVMTypeInfo {
  public:
   llvm::Type *get_type(llvm::LLVMContext &context) const override
   {
@@ -183,18 +160,13 @@ template<typename T> class SharedImmutablePointerLLVMTypeInfo : public LLVMTypeI
 
   llvm::Value *build_copy_ir(CodeBuilder &builder, llvm::Value *value) const override
   {
-    return builder.CreateCallPointer((void *)copy_by_incrementing_refcount,
-                                     {value},
-                                     builder.getAnyPtrTy(),
-                                     "copy by incrementing refcount");
+    return builder.CreateCallPointer(
+        (void *)T::copy_value, {value}, builder.getAnyPtrTy(), "copy value");
   }
 
   void build_free_ir(CodeBuilder &builder, llvm::Value *value) const override
   {
-    builder.CreateCallPointer((void *)free_by_decrementing_refcount,
-                              {value},
-                              builder.getVoidTy(),
-                              "free by decrementing refcount");
+    builder.CreateCallPointer((void *)T::free_value, {value}, builder.getVoidTy(), "free value");
   }
 
   void build_store_ir__copy(CodeBuilder &builder,
@@ -232,10 +204,39 @@ template<typename T> class SharedImmutablePointerLLVMTypeInfo : public LLVMTypeI
 };
 
 /**
+ * Use this when the type is reference counted. Furthermore, the type has to be immutable when
+ * object is owned by more than one.
+ */
+template<typename T>
+class SharedImmutablePointerLLVMTypeInfo
+    : public OwnedPointerLLVMTypeInfo<SharedImmutablePointerLLVMTypeInfo<T>> {
+ public:
+  static T *copy_value(T *value)
+  {
+    if (value == nullptr) {
+      return nullptr;
+    }
+    else {
+      value->incref();
+      return value;
+    }
+  }
+
+  static void free_value(T *value)
+  {
+    if (value != nullptr) {
+      value->decref();
+    }
+  }
+};
+
+/**
  * The type has to implement a clone() method.
  */
-template<typename T> class UniqueVirtualPointerLLVMTypeInfo : public LLVMTypeInfo {
- private:
+template<typename T>
+class UniqueVirtualPointerLLVMTypeInfo
+    : public OwnedPointerLLVMTypeInfo<UniqueVirtualPointerLLVMTypeInfo<T>> {
+ public:
   static T *copy_value(const T *value)
   {
     if (value == nullptr) {
@@ -251,56 +252,6 @@ template<typename T> class UniqueVirtualPointerLLVMTypeInfo : public LLVMTypeInf
     if (value != nullptr) {
       delete value;
     }
-  }
-
- public:
-  llvm::Type *get_type(llvm::LLVMContext &context) const override
-  {
-    return llvm::Type::getInt8PtrTy(context);
-  }
-
-  llvm::Value *build_copy_ir(CodeBuilder &builder, llvm::Value *value) const override
-  {
-    return builder.CreateCallPointer(
-        (void *)copy_value, {value}, builder.getAnyPtrTy(), "copy pointer");
-  }
-
-  void build_free_ir(CodeBuilder &builder, llvm::Value *value) const override
-  {
-    builder.CreateCallPointer((void *)free_value, {value}, builder.getVoidTy(), "free pointer");
-  }
-
-  void build_store_ir__copy(CodeBuilder &builder,
-                            llvm::Value *value,
-                            llvm::Value *address) const override
-  {
-    auto *copied_value = this->build_copy_ir(builder, value);
-    this->build_store_ir__relocate(builder, copied_value, address);
-  }
-
-  void build_store_ir__relocate(CodeBuilder &builder,
-                                llvm::Value *value,
-                                llvm::Value *address) const override
-  {
-    auto *addr = builder.CastToAnyPtrPtr(address);
-    builder.CreateStore(value, addr);
-  }
-
-  llvm::Value *build_load_ir__copy(CodeBuilder &builder, llvm::Value *address) const override
-  {
-    auto *addr = builder.CastToAnyPtrPtr(address);
-    auto *value = builder.CreateLoad(addr);
-    auto *copied_value = this->build_copy_ir(builder, value);
-    return copied_value;
-  }
-
-  llvm::Value *build_load_ir__relocate(CodeBuilder &builder, llvm::Value *address) const override
-  {
-    auto *addr = builder.CastToAnyPtrPtr(address);
-    auto *value = builder.CreateLoad(addr);
-    auto *nullptr_value = builder.getAnyPtr((void *)nullptr);
-    builder.CreateStore(nullptr_value, addr);
-    return value;
   }
 };
 
