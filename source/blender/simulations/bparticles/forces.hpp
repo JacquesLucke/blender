@@ -42,4 +42,17 @@ class TurbulenceForce : public Force {
   void add_force(ForceInterface &interface) override;
 };
 
+class DragForce : public Force {
+ private:
+  std::unique_ptr<ParticleFunction> m_compute_inputs;
+
+ public:
+  DragForce(std::unique_ptr<ParticleFunction> compute_inputs)
+      : m_compute_inputs(std::move(compute_inputs))
+  {
+  }
+
+  void add_force(ForceInterface &interface) override;
+};
+
 }  // namespace BParticles

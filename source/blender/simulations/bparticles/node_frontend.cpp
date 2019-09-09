@@ -435,6 +435,24 @@ static void PARSE_turbulence_force(BehaviorCollector &collector,
   }
 }
 
+static void PARSE_drag_force(BehaviorCollector &collector,
+                             VTreeDataGraph &vtree_data_graph,
+                             WorldTransition &UNUSED(world_transition),
+                             VirtualNode *vnode)
+{
+  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Force"));
+  for (std::string &type_name : type_names) {
+    auto fn_or_error = create_particle_function(vnode, vtree_data_graph);
+    if (fn_or_error.is_error()) {
+      continue;
+    }
+    std::unique_ptr<ParticleFunction> compute_inputs = fn_or_error.extract_value();
+
+    Force *force = new DragForce(std::move(compute_inputs));
+    collector.m_forces.add(type_name, force);
+  }
+}
+
 static void PARSE_mesh_collision(BehaviorCollector &collector,
                                  VTreeDataGraph &vtree_data_graph,
                                  WorldTransition &UNUSED(world_transition),
@@ -498,6 +516,7 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   map.add_new("bp_TurbulenceForceNode", PARSE_turbulence_force);
   map.add_new("bp_MeshCollisionEventNode", PARSE_mesh_collision);
   map.add_new("bp_SizeOverTimeNode", PARSE_size_over_time);
+  map.add_new("bp_DragForceNode", PARSE_drag_force);
   return map;
 }
 
