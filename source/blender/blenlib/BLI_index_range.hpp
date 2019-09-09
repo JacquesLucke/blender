@@ -30,8 +30,6 @@
 
 #include "BLI_utildefines.h"
 
-#define RANGE_AS_ARRAY_REF_MAX_LEN 10000
-
 namespace BLI {
 
 template<typename T> class ArrayRef;
@@ -181,8 +179,7 @@ class IndexRange {
   }
 
   /**
-   * Get read-only access to a memory buffer that contains the range as actual numbers. This only
-   * works for some ranges. The range must be within [0, RANGE_AS_ARRAY_REF_MAX_LEN].
+   * Get read-only access to a memory buffer that contains the range as actual numbers.
    */
   ArrayRef<uint> as_array_ref() const;
 

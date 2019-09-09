@@ -14,24 +14,46 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include <mutex>
+
 #include "BLI_index_range.hpp"
 #include "BLI_array_ref.hpp"
+#include "BLI_array.hpp"
+#include "BLI_vector.hpp"
 
 namespace BLI {
 
-static bool array_is_initialized = false;
-static uint array[RANGE_AS_ARRAY_REF_MAX_LEN];
+static Vector<Array<uint, RawAllocator>, 0, RawAllocator> arrays;
+static uint current_array_size = 0;
+static uint *current_array = nullptr;
+static std::mutex current_array_mutex;
 
 ArrayRef<uint> IndexRange::as_array_ref() const
 {
-  BLI_assert(m_size <= RANGE_AS_ARRAY_REF_MAX_LEN);
-  if (!array_is_initialized) {
-    for (uint i = 0; i < RANGE_AS_ARRAY_REF_MAX_LEN; i++) {
-      array[i] = i;
-    }
-    array_is_initialized = true;
+  uint min_required_size = m_start + m_size;
+
+  if (min_required_size <= current_array_size) {
+    return ArrayRef<uint>(current_array + m_start, m_size);
   }
-  return ArrayRef<uint>(array + m_start, this->size());
+
+  std::lock_guard<std::mutex> lock(current_array_mutex);
+
+  if (min_required_size <= current_array_size) {
+    return ArrayRef<uint>(current_array + m_start, m_size);
+  }
+
+  uint new_size = std::max<uint>(1000, power_of_2_max_u(min_required_size));
+  Array<uint, RawAllocator> new_array(new_size);
+  for (uint i = 0; i < new_size; i++) {
+    new_array[i] = i;
+  }
+  arrays.append(std::move(new_array));
+
+  current_array = arrays.last().begin();
+  std::atomic_thread_fence(std::memory_order_seq_cst);
+  current_array_size = new_size;
+
+  return ArrayRef<uint>(current_array + m_start, m_size);
 }
 
 }  // namespace BLI

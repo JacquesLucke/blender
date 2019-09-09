@@ -303,6 +303,12 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     return *(m_end - 1);
   }
 
+  T &last()
+  {
+    BLI_assert(this->size() > 0);
+    return *(m_end - 1);
+  }
+
   /**
    * Replace every element with a new value.
    */

@@ -330,10 +330,8 @@ static Vector<float> compute_emitter_vertex_weights(VirtualNode *vnode,
     float4x4 transform = object->obmat;
 
     TemporaryArray<float3> vertex_positions(mesh->totvert);
-    TemporaryVector<uint> indices(mesh->totvert);
     for (uint i = 0; i < mesh->totvert; i++) {
       vertex_positions[i] = transform.transform_position(mesh->mvert[i].co);
-      indices[i] = i;
     }
     AttributesDeclaration info_declaration;
     info_declaration.add<float3>("Position", {0, 0, 0});
@@ -341,7 +339,7 @@ static Vector<float> compute_emitter_vertex_weights(VirtualNode *vnode,
 
     std::array<void *, 1> buffers = {(void *)vertex_positions.begin()};
     AttributesRef attributes{info, buffers, (uint)mesh->totvert};
-    falloff->compute(attributes, indices, vertex_weights);
+    falloff->compute(attributes, IndexRange(mesh->totvert).as_array_ref(), vertex_weights);
   }
 
   return vertex_weights;
