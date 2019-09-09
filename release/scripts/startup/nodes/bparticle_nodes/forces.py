@@ -28,4 +28,5 @@ class DragForceNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("strength", "Strength", 'Float', default=1)
+        builder.fixed_input("falloff", "Falloff", "Falloff")
         builder.particle_effector_output("force", "Force")

@@ -48,10 +48,14 @@ void DragForce::add_force(ForceInterface &interface)
 
   auto inputs = m_compute_inputs->compute(interface);
 
+  TemporaryArray<float> weights(destination.size());
+  m_falloff->compute(interface.attributes(), interface.pindices(), weights);
+
   for (uint pindex : interface.pindices()) {
     float3 velocity = velocities[pindex];
     float strength = inputs->get<float>("Strength", 0, pindex);
-    destination[pindex] -= velocity * strength;
+    float weight = weights[pindex];
+    destination[pindex] -= velocity * strength * weight;
   }
 }
 

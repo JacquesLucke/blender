@@ -45,10 +45,11 @@ class TurbulenceForce : public Force {
 class DragForce : public Force {
  private:
   std::unique_ptr<ParticleFunction> m_compute_inputs;
+  std::unique_ptr<Falloff> m_falloff;
 
  public:
-  DragForce(std::unique_ptr<ParticleFunction> compute_inputs)
-      : m_compute_inputs(std::move(compute_inputs))
+  DragForce(std::unique_ptr<ParticleFunction> compute_inputs, std::unique_ptr<Falloff> falloff)
+      : m_compute_inputs(std::move(compute_inputs)), m_falloff(std::move(falloff))
   {
   }
 
