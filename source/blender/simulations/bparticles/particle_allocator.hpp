@@ -15,8 +15,8 @@ using BKE::AttributesRefGroup;
 class ParticleAllocator {
  private:
   ParticlesState &m_state;
-  Vector<ParticlesBlock *> m_non_full_cache;
-  Vector<ParticlesBlock *> m_allocated_blocks;
+  Map<AttributesBlockContainer *, AttributesBlock *> m_non_full_cache;
+  Vector<AttributesBlock *> m_allocated_blocks;
 
  public:
   ParticleAllocator(ParticlesState &state);
@@ -26,7 +26,7 @@ class ParticleAllocator {
   /**
    * Access all blocks that have been allocated by this allocator.
    */
-  ArrayRef<ParticlesBlock *> allocated_blocks();
+  ArrayRef<AttributesBlock *> allocated_blocks();
 
   AttributesRefGroup request(StringRef particle_type_name, uint size);
 
@@ -37,7 +37,7 @@ class ParticleAllocator {
    * Return a block that can hold new particles. It might create an entirely new one or use a
    * cached block.
    */
-  ParticlesBlock &get_non_full_block(StringRef particle_type_name);
+  AttributesBlock &get_non_full_block(AttributesBlockContainer &container);
 
   /**
    * Allocate space for a given number of new particles. The attribute buffers might be distributed
@@ -45,12 +45,14 @@ class ParticleAllocator {
    */
   void allocate_block_ranges(StringRef particle_type_name,
                              uint size,
-                             Vector<ParticlesBlock *> &r_blocks,
+                             Vector<AttributesBlock *> &r_blocks,
                              Vector<IndexRange> &r_ranges);
 
-  AttributesInfo &attributes_info(StringRef particle_type_name);
+  const AttributesInfo &attributes_info(StringRef particle_type_name);
 
-  void initialize_new_particles(ParticlesBlock &block, IndexRange pindices);
+  void initialize_new_particles(AttributesBlock &block,
+                                AttributesBlockContainer &container,
+                                IndexRange pindices);
 };
 
 /* ParticleAllocator inline functions
@@ -61,7 +63,7 @@ inline ParticlesState &ParticleAllocator::particles_state()
   return m_state;
 }
 
-inline ArrayRef<ParticlesBlock *> ParticleAllocator::allocated_blocks()
+inline ArrayRef<AttributesBlock *> ParticleAllocator::allocated_blocks()
 {
   return m_allocated_blocks;
 }

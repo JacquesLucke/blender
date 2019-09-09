@@ -160,8 +160,8 @@ class AttributesDeclaration {
     return m_names.size();
   }
 
-  void join(AttributesDeclaration &other);
-  void join(AttributesInfo &other);
+  void join(const AttributesDeclaration &other);
+  void join(const AttributesInfo &other);
 };
 
 /**
@@ -291,25 +291,45 @@ class AttributesInfo {
   }
 };
 
+class AttributesInfoDiff {
+ private:
+  const AttributesInfo *m_old_info;
+  const AttributesInfo *m_new_info;
+  Vector<int> m_old_to_new_mapping;
+  Vector<int> m_new_to_old_mapping;
+
+ public:
+  AttributesInfoDiff(const AttributesInfo &old_info, const AttributesInfo &new_info);
+
+  void update(uint capacity,
+              ArrayRef<void *> old_buffers,
+              MutableArrayRef<void *> new_buffers) const;
+};
+
 /**
  * The main class used to interact with attributes. It only references a set of arrays, so it can
  * be passed by value.
  */
 class AttributesRef {
  private:
-  AttributesInfo *m_info;
+  const AttributesInfo *m_info;
   ArrayRef<void *> m_buffers;
   IndexRange m_range;
 
  public:
-  AttributesRef(AttributesInfo &info, ArrayRef<void *> buffers, uint size)
+  AttributesRef(const AttributesInfo &info, ArrayRef<void *> buffers, uint size)
       : AttributesRef(info, buffers, IndexRange(size))
   {
   }
 
-  AttributesRef(AttributesInfo &info, ArrayRef<void *> buffers, IndexRange range)
+  AttributesRef(const AttributesInfo &info, ArrayRef<void *> buffers, IndexRange range)
       : m_info(&info), m_buffers(buffers), m_range(range)
   {
+  }
+
+  ArrayRef<void *> buffers()
+  {
+    return m_buffers;
   }
 
   /**
@@ -323,7 +343,7 @@ class AttributesRef {
   /**
    * Get information about the referenced attributes.
    */
-  AttributesInfo &info()
+  const AttributesInfo &info()
   {
     return *m_info;
   }
@@ -415,6 +435,11 @@ class AttributesRef {
     return AttributesRef(*m_info, m_buffers, m_range.slice(start, size));
   }
 
+  AttributesRef slice(IndexRange range) const
+  {
+    return AttributesRef(*m_info, m_buffers, m_range.slice(range.start(), range.size()));
+  }
+
   /**
    * Create a new slice containing only the first n elements.
    */
@@ -426,13 +451,13 @@ class AttributesRef {
 
 class AttributesRefGroup {
  private:
-  AttributesInfo *m_attributes_info;
+  const AttributesInfo *m_attributes_info;
   Vector<ArrayRef<void *>> m_buffers;
   Vector<IndexRange> m_ranges;
   uint m_size;
 
  public:
-  AttributesRefGroup(AttributesInfo &attributes_info,
+  AttributesRefGroup(const AttributesInfo &attributes_info,
                      Vector<ArrayRef<void *>> buffers,
                      Vector<IndexRange> ranges);
 
@@ -474,7 +499,7 @@ class AttributesRefGroup {
     this->fill<T>(index, value);
   }
 
-  AttributesInfo &attributes_info()
+  const AttributesInfo &attributes_info()
   {
     return *m_attributes_info;
   }

@@ -342,7 +342,7 @@ template<typename KeyT, typename ValueT, typename Allocator = GuardedAllocator> 
    */
   ValueT lookup_default(const KeyT &key, ValueT default_value) const
   {
-    ValueT *ptr = this->lookup_ptr(key);
+    const ValueT *ptr = this->lookup_ptr(key);
     if (ptr != nullptr) {
       return *ptr;
     }

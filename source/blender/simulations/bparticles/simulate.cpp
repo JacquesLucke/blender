@@ -306,12 +306,12 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
 }
 
 BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
-                                        ParticlesBlock &block,
+                                        AttributesBlock &block,
                                         ParticleTypeInfo &type_info,
                                         MutableArrayRef<float> remaining_durations,
                                         float end_time)
 {
-  uint amount = block.active_amount();
+  uint amount = block.size();
   BLI_assert(amount == remaining_durations.size());
 
   Integrator &integrator = *type_info.integrator;
@@ -323,7 +323,7 @@ BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
   }
   AttributesRef attribute_offsets(offsets_info, offset_buffers, amount);
 
-  BlockStepData step_data = {block.attributes(), attribute_offsets, remaining_durations, end_time};
+  BlockStepData step_data = {block.as_ref(), attribute_offsets, remaining_durations, end_time};
 
   IntegratorInterface interface(step_data, block.active_range().as_array_ref());
   integrator.integrate(interface);
@@ -350,15 +350,15 @@ BLI_NOINLINE static void simulate_block(ParticleAllocator &particle_allocator,
   }
 }
 
-BLI_NOINLINE static void delete_tagged_particles_and_reorder(ParticlesBlock &block)
+BLI_NOINLINE static void delete_tagged_particles_and_reorder(AttributesBlock &block)
 {
-  auto kill_states = block.attributes().get<uint8_t>("Kill State");
+  auto kill_states = block.as_ref().get<uint8_t>("Kill State");
 
   uint index = 0;
-  while (index < block.active_amount()) {
+  while (index < block.size()) {
     if (kill_states[index] == 1) {
-      block.move(block.active_amount() - 1, index);
-      block.active_amount() -= 1;
+      block.move(block.size() - 1, index);
+      block.set_size(block.size() - 1);
     }
     else {
       index++;
@@ -383,9 +383,9 @@ class ParticleAllocators {
     return *allocator;
   }
 
-  Vector<ParticlesBlock *> gather_allocated_blocks()
+  Vector<AttributesBlock *> gather_allocated_blocks()
   {
-    Vector<ParticlesBlock *> blocks;
+    Vector<AttributesBlock *> blocks;
     for (auto &allocator : m_allocators) {
       blocks.extend(allocator->allocated_blocks());
     }
@@ -403,7 +403,7 @@ struct ThreadLocalData {
 
 BLI_NOINLINE static void simulate_blocks_for_time_span(
     ParticleAllocators &block_allocators,
-    ArrayRef<ParticlesBlock *> blocks,
+    ArrayRef<AttributesBlock *> blocks,
     StringMap<ParticleTypeInfo> &types_to_simulate,
     TimeSpan time_span)
 {
@@ -414,12 +414,12 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
   BLI::Task::parallel_array_elements(
       blocks,
       /* Process individual element. */
-      [&types_to_simulate, time_span](ParticlesBlock *block, ThreadLocalData *local_data) {
+      [&](AttributesBlock *block, ThreadLocalData *local_data) {
         ParticlesState &state = local_data->particle_allocator.particles_state();
-        StringRef particle_type_name = state.particle_container_name(block->container());
+        StringRef particle_type_name = state.particle_container_name(block->owner());
         ParticleTypeInfo &type_info = types_to_simulate.lookup(particle_type_name);
 
-        TemporaryArray<float> remaining_durations(block->active_amount());
+        TemporaryArray<float> remaining_durations(block->size());
         remaining_durations.fill(time_span.duration());
 
         simulate_block(local_data->particle_allocator,
@@ -439,7 +439,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
 
 BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
     ParticleAllocators &block_allocators,
-    ArrayRef<ParticlesBlock *> blocks,
+    ArrayRef<AttributesBlock *> blocks,
     StringMap<ParticleTypeInfo> &types_to_simulate,
     float end_time)
 {
@@ -450,14 +450,14 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
   BLI::Task::parallel_array_elements(
       blocks,
       /* Process individual element. */
-      [&types_to_simulate, end_time](ParticlesBlock *block, ThreadLocalData *local_data) {
+      [&types_to_simulate, end_time](AttributesBlock *block, ThreadLocalData *local_data) {
         ParticlesState &state = local_data->particle_allocator.particles_state();
-        StringRef particle_type_name = state.particle_container_name(block->container());
+        StringRef particle_type_name = state.particle_container_name(block->owner());
         ParticleTypeInfo &type_info = types_to_simulate.lookup(particle_type_name);
 
-        uint active_amount = block->active_amount();
+        uint active_amount = block->size();
         Vector<float> durations(active_amount);
-        auto birth_times = block->attributes().get<float>("Birth Time");
+        auto birth_times = block->as_ref().get<float>("Birth Time");
         for (uint i = 0; i < active_amount; i++) {
           durations[i] = end_time - birth_times[i];
         }
@@ -472,25 +472,25 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
       USE_THREADING);
 }
 
-BLI_NOINLINE static Vector<ParticlesBlock *> get_all_blocks_to_simulate(
+BLI_NOINLINE static Vector<AttributesBlock *> get_all_blocks_to_simulate(
     ParticlesState &state, StringMap<ParticleTypeInfo> &types_to_simulate)
 {
-  Vector<ParticlesBlock *> blocks;
+  Vector<AttributesBlock *> blocks;
   types_to_simulate.foreach_key([&state, &blocks](StringRefNull particle_type_name) {
-    ParticlesContainer &container = state.particle_container(particle_type_name);
+    AttributesBlockContainer &container = state.particle_container(particle_type_name);
     blocks.extend(container.active_blocks());
   });
   return blocks;
 }
 
-BLI_NOINLINE static void compress_all_blocks(ParticlesContainer &container)
+BLI_NOINLINE static void compress_all_blocks(AttributesBlockContainer &container)
 {
-  Vector<ParticlesBlock *> blocks = container.active_blocks();
-  ParticlesBlock::Compress(blocks);
+  Vector<AttributesBlock *> blocks = container.active_blocks();
+  AttributesBlock::Compress(blocks);
 
-  for (ParticlesBlock *block : blocks) {
-    if (block->is_empty()) {
-      container.release_block(*block);
+  for (AttributesBlock *block : blocks) {
+    if (block->size() == 0) {
+      container.release_block(block);
     }
   }
 }
@@ -498,7 +498,7 @@ BLI_NOINLINE static void compress_all_blocks(ParticlesContainer &container)
 BLI_NOINLINE static void compress_all_containers(ParticlesState &state)
 {
   state.particle_containers().foreach_value(
-      [](ParticlesContainer *container) { compress_all_blocks(*container); });
+      [](AttributesBlockContainer *container) { compress_all_blocks(*container); });
 }
 
 BLI_NOINLINE static void ensure_required_containers_exist(
@@ -508,14 +508,15 @@ BLI_NOINLINE static void ensure_required_containers_exist(
 
   types_to_simulate.foreach_key([&containers](StringRefNull type_name) {
     if (!containers.contains(type_name)) {
-      ParticlesContainer *container = new ParticlesContainer({}, 1000);
+      AttributesBlockContainer *container = new AttributesBlockContainer(
+          std::unique_ptr<AttributesInfo>(new AttributesInfo()), 1000);
       containers.add_new(type_name, container);
     }
   });
 }
 
 BLI_NOINLINE static AttributesInfo build_attribute_info_for_type(ParticleTypeInfo &type_info,
-                                                                 AttributesInfo &last_info)
+                                                                 const AttributesInfo &last_info)
 {
   AttributesDeclaration builder;
   builder.join(last_info);
@@ -539,11 +540,12 @@ BLI_NOINLINE static void ensure_required_attributes_exist(
 
   types_to_simulate.foreach_key_value_pair(
       [&containers](StringRefNull type_name, ParticleTypeInfo &type_info) {
-        ParticlesContainer &container = *containers.lookup(type_name);
+        AttributesBlockContainer &container = *containers.lookup(type_name);
 
         AttributesInfo new_attributes_info = build_attribute_info_for_type(
             type_info, container.attributes_info());
-        container.update_attributes(new_attributes_info);
+        container.update_attributes(
+            std::unique_ptr<AttributesInfo>(new AttributesInfo(std::move(new_attributes_info))));
       });
 }
 
@@ -553,7 +555,7 @@ BLI_NOINLINE static void simulate_all_existing_blocks(
     ParticleAllocators &block_allocators,
     TimeSpan time_span)
 {
-  Vector<ParticlesBlock *> blocks = get_all_blocks_to_simulate(state, types_to_simulate);
+  Vector<AttributesBlock *> blocks = get_all_blocks_to_simulate(state, types_to_simulate);
   simulate_blocks_for_time_span(block_allocators, blocks, types_to_simulate, time_span);
 }
 
@@ -575,7 +577,7 @@ BLI_NOINLINE static void emit_and_simulate_particles(
     StringMap<ParticleTypeInfo> &types_to_simulate)
 {
 
-  Vector<ParticlesBlock *> newly_created_blocks;
+  Vector<AttributesBlock *> newly_created_blocks;
   {
     ParticleAllocators block_allocators(state);
     simulate_all_existing_blocks(state, types_to_simulate, block_allocators, time_span);

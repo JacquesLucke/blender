@@ -6,82 +6,80 @@ ParticleAllocator::ParticleAllocator(ParticlesState &state) : m_state(state)
 {
 }
 
-ParticlesBlock &ParticleAllocator::get_non_full_block(StringRef particle_type_name)
+AttributesBlock &ParticleAllocator::get_non_full_block(AttributesBlockContainer &container)
 {
-  ParticlesContainer &container = m_state.particle_container(particle_type_name);
-
-  uint index = 0;
-  while (index < m_non_full_cache.size()) {
-    if (m_non_full_cache[index]->unused_amount() == 0) {
-      m_non_full_cache.remove_and_reorder(index);
-      continue;
+  AttributesBlock *cached_block = m_non_full_cache.lookup_default(&container, nullptr);
+  if (cached_block != nullptr) {
+    if (cached_block->remaining_capacity() > 0) {
+      return *cached_block;
     }
 
-    if (m_non_full_cache[index]->container() == container) {
-      return *m_non_full_cache[index];
-    }
-    index++;
+    m_non_full_cache.remove(&container);
   }
 
-  ParticlesBlock &block = container.new_block();
-  m_non_full_cache.append(&block);
-  m_allocated_blocks.append(&block);
-  return block;
+  AttributesBlock *block = container.new_block();
+  m_non_full_cache.add_new(&container, block);
+  m_allocated_blocks.append(block);
+  return *block;
 }
 
 void ParticleAllocator::allocate_block_ranges(StringRef particle_type_name,
                                               uint size,
-                                              Vector<ParticlesBlock *> &r_blocks,
+                                              Vector<AttributesBlock *> &r_blocks,
                                               Vector<IndexRange> &r_ranges)
 {
+  AttributesBlockContainer &container = m_state.particle_container(particle_type_name);
+
   uint remaining_size = size;
   while (remaining_size > 0) {
-    ParticlesBlock &block = this->get_non_full_block(particle_type_name);
+    AttributesBlock &block = this->get_non_full_block(container);
 
-    uint size_to_use = std::min(block.unused_amount(), remaining_size);
-    IndexRange range(block.active_amount(), size_to_use);
-    block.active_amount() += size_to_use;
+    uint size_to_use = std::min(block.remaining_capacity(), remaining_size);
+    IndexRange range(block.size(), size_to_use);
+    block.set_size(block.size() + size_to_use);
 
     r_blocks.append(&block);
     r_ranges.append(range);
 
-    this->initialize_new_particles(block, range);
+    this->initialize_new_particles(block, container, range);
 
     remaining_size -= size_to_use;
   }
 }
 
-void ParticleAllocator::initialize_new_particles(ParticlesBlock &block, IndexRange pindices)
+void ParticleAllocator::initialize_new_particles(AttributesBlock &block,
+                                                 AttributesBlockContainer &container,
+                                                 IndexRange pindices)
 {
-  AttributesRef attributes = block.attributes_slice(pindices);
+  AttributesRef attributes = block.as_ref().slice(pindices);
   for (uint i : attributes.info().attribute_indices()) {
     attributes.init_default(i);
   }
 
-  MutableArrayRef<int32_t> particle_ids = block.attributes_all().get<int32_t>("ID");
-  IndexRange new_ids = block.container().new_particle_ids(pindices.size());
+  MutableArrayRef<int32_t> particle_ids = block.as_ref__all().get<int32_t>("ID");
+  IndexRange new_ids = container.new_ids(pindices.size());
   for (uint i = 0; i < pindices.size(); i++) {
     uint pindex = pindices[i];
     particle_ids[pindex] = new_ids[i];
   }
 }
 
-AttributesInfo &ParticleAllocator::attributes_info(StringRef particle_type_name)
+const AttributesInfo &ParticleAllocator::attributes_info(StringRef particle_type_name)
 {
   return m_state.particle_container(particle_type_name).attributes_info();
 }
 
 AttributesRefGroup ParticleAllocator::request(StringRef particle_type_name, uint size)
 {
-  Vector<ParticlesBlock *> blocks;
+  Vector<AttributesBlock *> blocks;
   Vector<IndexRange> ranges;
   this->allocate_block_ranges(particle_type_name, size, blocks, ranges);
 
-  AttributesInfo &attributes_info = this->attributes_info(particle_type_name);
+  const AttributesInfo &attributes_info = this->attributes_info(particle_type_name);
 
   Vector<ArrayRef<void *>> buffers;
   for (uint i = 0; i < blocks.size(); i++) {
-    buffers.append(blocks[i]->attribute_buffers());
+    buffers.append(blocks[i]->as_ref().buffers());
   }
 
   return AttributesRefGroup(attributes_info, std::move(buffers), std::move(ranges));

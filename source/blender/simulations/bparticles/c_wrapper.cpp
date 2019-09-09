@@ -71,11 +71,12 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
   simulation_state.time().end_update();
 
   auto &containers = simulation_state.particles().particle_containers();
-  containers.foreach_key_value_pair([](StringRefNull type_name, ParticlesContainer *container) {
-    std::cout << "Particle Type: " << type_name << "\n";
-    std::cout << "  Particles: " << container->count_active() << "\n";
-    std::cout << "  Blocks: " << container->active_blocks().size() << "\n";
-  });
+  containers.foreach_key_value_pair(
+      [](StringRefNull type_name, AttributesBlockContainer *container) {
+        std::cout << "Particle Type: " << type_name << "\n";
+        std::cout << "  Particles: " << container->count_active() << "\n";
+        std::cout << "  Blocks: " << container->active_blocks().size() << "\n";
+      });
 }
 
 static float3 tetrahedon_vertices[4] = {
@@ -208,7 +209,7 @@ Mesh *BParticles_modifier_point_mesh_from_state(BParticlesSimulationState state_
 
   Vector<float3> positions;
   state.particles().particle_containers().foreach_value(
-      [&positions](ParticlesContainer *container) {
+      [&positions](AttributesBlockContainer *container) {
         positions.extend(container->flatten_attribute<float3>("Position"));
       });
 
@@ -226,7 +227,7 @@ Mesh *BParticles_modifier_mesh_from_state(BParticlesSimulationState state_c)
   Vector<rgba_f> colors;
 
   state.particles().particle_containers().foreach_value(
-      [&positions, &colors, &sizes](ParticlesContainer *container) {
+      [&positions, &colors, &sizes](AttributesBlockContainer *container) {
         positions.extend(container->flatten_attribute<float3>("Position"));
         colors.extend(container->flatten_attribute<rgba_f>("Color"));
         sizes.extend(container->flatten_attribute<float>("Size"));
@@ -262,11 +263,12 @@ Mesh *BParticles_state_extract_type__tetrahedons(BParticlesSimulationState simul
 {
   SimulationState &state = *unwrap(simulation_state_c);
   ParticlesState &particles = state.particles();
-  ParticlesContainer **container_ptr = particles.particle_containers().lookup_ptr(particle_type);
+  AttributesBlockContainer **container_ptr = particles.particle_containers().lookup_ptr(
+      particle_type);
   if (container_ptr == nullptr) {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
   }
-  ParticlesContainer &container = **container_ptr;
+  AttributesBlockContainer &container = **container_ptr;
 
   auto positions = container.flatten_attribute<float3>("Position");
   auto sizes = container.flatten_attribute<float>("Size");
@@ -280,11 +282,12 @@ Mesh *BParticles_state_extract_type__points(BParticlesSimulationState simulation
 {
   SimulationState &state = *unwrap(simulation_state_c);
   ParticlesState &particles = state.particles();
-  ParticlesContainer **container_ptr = particles.particle_containers().lookup_ptr(particle_type);
+  AttributesBlockContainer **container_ptr = particles.particle_containers().lookup_ptr(
+      particle_type);
   if (container_ptr == nullptr) {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
   }
-  ParticlesContainer &container = **container_ptr;
+  AttributesBlockContainer &container = **container_ptr;
 
   auto positions = container.flatten_attribute<float3>("Position");
   return distribute_points(positions);
@@ -297,10 +300,10 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
   SimulationState &state = *unwrap(state_c);
 
   Vector<std::string> container_names;
-  Vector<ParticlesContainer *> containers;
+  Vector<AttributesBlockContainer *> containers;
 
   state.particles().particle_containers().foreach_key_value_pair(
-      [&container_names, &containers](StringRefNull name, ParticlesContainer *container) {
+      [&container_names, &containers](StringRefNull name, AttributesBlockContainer *container) {
         container_names.append(name);
         containers.append(container);
       });
@@ -313,7 +316,7 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
       containers.size(), sizeof(BParticlesTypeCache), __func__);
 
   for (uint i = 0; i < containers.size(); i++) {
-    ParticlesContainer &container = *containers[i];
+    AttributesBlockContainer &container = *containers[i];
     BParticlesTypeCache &cached_type = cached_frame.particle_types[i];
 
     strncpy(cached_type.name, container_names[i].data(), sizeof(cached_type.name));
@@ -328,21 +331,21 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     strncpy(position_attribute.name, "Position", sizeof(position_attribute.name));
     position_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(float3), __func__);
-    container.flatten_attribute_data("Position", position_attribute.values);
+    container.flatten_attribute("Position", position_attribute.values);
 
     BParticlesAttributeCacheFloat &size_attribute = cached_type.attributes_float[1];
     size_attribute.floats_per_particle = 1;
     strncpy(size_attribute.name, "Size", sizeof(size_attribute.name));
     size_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(float), __func__);
-    container.flatten_attribute_data("Size", size_attribute.values);
+    container.flatten_attribute("Size", size_attribute.values);
 
     BParticlesAttributeCacheFloat &color_attribute = cached_type.attributes_float[2];
     color_attribute.floats_per_particle = 4;
     strncpy(color_attribute.name, "Color", sizeof(color_attribute.name));
     color_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(rgba_f), __func__);
-    container.flatten_attribute_data("Color", color_attribute.values);
+    container.flatten_attribute("Color", color_attribute.values);
   }
 
   bpmd->cached_frames = (BParticlesFrameCache *)MEM_reallocN(

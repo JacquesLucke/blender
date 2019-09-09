@@ -18,8 +18,6 @@ set(INC_SYS
 set(SRC
   BParticles.h
 
-  bparticles/particles_container.hpp
-  bparticles/particles_container.cpp
   bparticles/simulate.hpp
   bparticles/simulate.cpp
   bparticles/emitters.hpp
