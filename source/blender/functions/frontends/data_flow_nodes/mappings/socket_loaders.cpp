@@ -7,6 +7,14 @@
 
 #include "registry.hpp"
 
+BKE::ConstantFalloff::~ConstantFalloff()
+{
+}
+
+BKE::PointDistanceFalloff::~PointDistanceFalloff()
+{
+}
+
 namespace FN {
 namespace DataFlowNodes {
 
