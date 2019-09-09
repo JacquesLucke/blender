@@ -34,8 +34,6 @@ class ConstantFalloff : public Falloff {
   {
   }
 
-  virtual ~ConstantFalloff();
-
   Falloff *clone() const
   {
     return new ConstantFalloff(m_weight);
@@ -57,8 +55,6 @@ class PointDistanceFalloff : public Falloff {
       : m_point(point), m_min_distance(min_distance), m_max_distance(max_distance)
   {
   }
-
-  virtual ~PointDistanceFalloff();
 
   Falloff *clone() const override
   {
