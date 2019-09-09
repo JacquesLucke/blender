@@ -19,7 +19,8 @@ class SurfaceEmitter : public Emitter {
   Object *m_object;
   VaryingFloat4x4 m_transform;
   float m_rate;
-  std::string m_density_group;
+
+  Vector<float> m_vertex_weights;
 
  public:
   SurfaceEmitter(Vector<std::string> types_to_emit,
@@ -27,13 +28,13 @@ class SurfaceEmitter : public Emitter {
                  Object *object,
                  VaryingFloat4x4 transform,
                  float rate,
-                 StringRef density_group)
+                 Vector<float> vertex_weights)
       : m_types_to_emit(std::move(types_to_emit)),
         m_on_birth_action(std::move(on_birth_action)),
         m_object(object),
         m_transform(transform),
         m_rate(rate),
-        m_density_group(density_group)
+        m_vertex_weights(std::move(vertex_weights))
   {
   }
 

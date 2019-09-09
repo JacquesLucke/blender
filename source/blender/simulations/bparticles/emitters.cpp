@@ -65,23 +65,6 @@ static float3 random_point_in_triangle(float3 a, float3 b, float3 c)
   return a + dir1 * rand1 + dir2 * rand2;
 }
 
-static BLI_NOINLINE void get_all_vertex_weights(Object *ob,
-                                                Mesh *mesh,
-                                                StringRefNull group_name,
-                                                MutableArrayRef<float> r_vertex_weights)
-{
-  MDeformVert *vertices = mesh->dvert;
-  int group_index = defgroup_name_index(ob, group_name.data());
-  if (group_index == -1 || vertices == nullptr) {
-    r_vertex_weights.fill(0);
-    return;
-  }
-
-  for (uint i = 0; i < mesh->totvert; i++) {
-    r_vertex_weights[i] = defvert_find_weight(vertices + i, group_index);
-  }
-}
-
 static BLI_NOINLINE void get_average_triangle_weights(const Mesh *mesh,
                                                       ArrayRef<MLoopTri> looptris,
                                                       ArrayRef<float> vertex_weights,
@@ -196,23 +179,6 @@ static BLI_NOINLINE void compute_triangle_areas(Mesh *mesh,
   }
 }
 
-static BLI_NOINLINE void triangle_weights_from_vertex_weights(
-    Object *object,
-    StringRefNull group_name,
-    ArrayRef<MLoopTri> triangles,
-    MutableArrayRef<float> r_triangle_weights)
-{
-  BLI_assert(triangles.size() == r_triangle_weights.size());
-  BLI_assert(object->type == OB_MESH);
-
-  Mesh *mesh = (Mesh *)object->data;
-
-  TemporaryArray<float> vertex_weights(mesh->totvert);
-  get_all_vertex_weights(object, mesh, group_name, vertex_weights);
-
-  get_average_triangle_weights(mesh, triangles, vertex_weights, r_triangle_weights);
-}
-
 static BLI_NOINLINE bool sample_weighted_buckets(uint sample_amount,
                                                  ArrayRef<float> weights,
                                                  MutableArrayRef<uint> r_samples)
@@ -286,11 +252,13 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   }
 
   TemporaryArray<float> triangle_weights(triangles.size());
-  if (m_density_group.size() > 0) {
-    triangle_weights_from_vertex_weights(m_object, m_density_group, triangles, triangle_weights);
-  }
-  else {
-    compute_triangle_areas(mesh, triangles, triangle_weights);
+  get_average_triangle_weights(mesh, triangles, m_vertex_weights, triangle_weights);
+
+  TemporaryArray<float> triangle_areas(triangles.size());
+  compute_triangle_areas(mesh, triangles, triangle_areas);
+
+  for (uint i = 0; i < triangles.size(); i++) {
+    triangle_weights[i] *= triangle_areas[i];
   }
 
   TemporaryArray<uint> triangles_to_sample(particles_to_emit);

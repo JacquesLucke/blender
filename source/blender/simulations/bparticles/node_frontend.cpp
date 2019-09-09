@@ -1,4 +1,7 @@
 #include "BKE_node_tree.hpp"
+#include "BKE_deform.h"
+#include "DNA_mesh_types.h"
+#include "DNA_meshdata_types.h"
 
 #include "BLI_timeit.hpp"
 #include "BLI_multi_map.hpp"
@@ -291,6 +294,59 @@ static void PARSE_point_emitter(BehaviorCollector &collector,
   collector.m_emitters.append(emitter);
 }
 
+static Vector<float> compute_emitter_vertex_weights(VirtualNode *vnode,
+                                                    Tuple &fn_out,
+                                                    Object *object)
+{
+  PointerRNA rna = vnode->rna();
+  uint density_mode = RNA_enum_get(&rna, "density_mode");
+
+  Mesh *mesh = (Mesh *)object->data;
+  Vector<float> vertex_weights(mesh->totvert);
+
+  if (density_mode == 0) {
+    /* Mode: 'UNIFORM' */
+    vertex_weights.fill(1.0f);
+  }
+  else if (density_mode == 1) {
+    /* Mode: 'VERTEX_WEIGHTS' */
+    auto group_name = fn_out.relocate_out<FN::Types::StringW>(2);
+
+    MDeformVert *vertices = mesh->dvert;
+    int group_index = defgroup_name_index(object, group_name->data());
+    if (group_index == -1 || vertices == nullptr) {
+      vertex_weights.fill(0);
+    }
+    else {
+      for (uint i = 0; i < mesh->totvert; i++) {
+        vertex_weights[i] = defvert_find_weight(vertices + i, group_index);
+      }
+    }
+  }
+  else if (density_mode == 2) {
+    /* Mode: 'FALLOFF' */
+    auto falloff = fn_out.relocate_out<FN::Types::FalloffW>(2);
+
+    float4x4 transform = object->obmat;
+
+    TemporaryArray<float3> vertex_positions(mesh->totvert);
+    TemporaryVector<uint> indices(mesh->totvert);
+    for (uint i = 0; i < mesh->totvert; i++) {
+      vertex_positions[i] = transform.transform_position(mesh->mvert[i].co);
+      indices[i] = i;
+    }
+    AttributesDeclaration info_declaration;
+    info_declaration.add<float3>("Position", {0, 0, 0});
+    AttributesInfo info(info_declaration);
+
+    std::array<void *, 1> buffers = {(void *)vertex_positions.begin()};
+    AttributesRef attributes{info, buffers, (uint)mesh->totvert};
+    falloff->compute(attributes, indices, vertex_weights);
+  }
+
+  return vertex_weights;
+}
+
 static void PARSE_mesh_emitter(BehaviorCollector &collector,
                                VTreeDataGraph &vtree_data_graph,
                                WorldTransition &world_transition,
@@ -306,9 +362,11 @@ static void PARSE_mesh_emitter(BehaviorCollector &collector,
       vtree_data_graph, vnode, "Execute on Birth");
 
   Object *object = fn_out.relocate_out<ObjectW>(0).ptr();
-  if (object == nullptr) {
+  if (object == nullptr || object->type != OB_MESH) {
     return;
   }
+
+  auto vertex_weights = compute_emitter_vertex_weights(vnode, fn_out, object);
 
   VaryingFloat4x4 transform = world_transition.update_float4x4(
       vnode->name(), "Transform", object->obmat);
@@ -318,7 +376,7 @@ static void PARSE_mesh_emitter(BehaviorCollector &collector,
                                         object,
                                         transform,
                                         body.get_output<float>(fn_out, 1, "Rate"),
-                                        StringRef(fn_out.relocate_out<StringW>(2).ref()));
+                                        std::move(vertex_weights));
   collector.m_emitters.append(emitter);
 }
 

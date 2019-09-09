@@ -9,9 +9,27 @@ class MeshEmitterNode(bpy.types.Node, BParticlesNode):
 
     execute_on_birth__prop: NodeBuilder.ExecuteInputProperty()
 
+    density_mode: EnumProperty(
+        name="Density Mode",
+        items=[
+            ('UNIFORM', "Uniform", "", 'NONE', 0),
+            ('VERTEX_WEIGHTS', "Vertex Weights", "", 'NONE', 1),
+            ('FALLOFF', "Falloff", "", 'NONE', 2),
+        ],
+        update=BParticlesNode.sync_tree,
+    )
+
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("object", "Object", "Object")
         builder.fixed_input("rate", "Rate", "Float", default=10)
-        builder.fixed_input("density_vertex_group", "Density Group", "Text")
+
+        if self.density_mode == 'VERTEX_WEIGHTS':
+            builder.fixed_input("density_vertex_group", "Density Group", "Text")
+        elif self.density_mode == 'FALLOFF':
+            builder.fixed_input("density_falloff", "Density Falloff", "Falloff")
+
         builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
         builder.particle_effector_output("emitter", "Emitter")
+
+    def draw(self, layout):
+        layout.prop(self, "density_mode")
