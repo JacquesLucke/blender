@@ -1804,8 +1804,11 @@ void wm_event_free_handler(wmEventHandler *handler)
 /* only set context when area/region is part of screen */
 static void wm_handler_op_context(bContext *C, wmEventHandler_Op *handler, const wmEvent *event)
 {
-  wmWindow *win = CTX_wm_window(C);
-  bScreen *screen = CTX_wm_screen(C);
+  wmWindow *win = handler->context.win ? handler->context.win : CTX_wm_window(C);
+  /* It's probably fine to always use WM_window_get_active_screen() to get the screen. But this
+   * code has been getting it through context since forever, so play safe and stick to that when
+   * possible. */
+  bScreen *screen = handler->context.win ? WM_window_get_active_screen(win) : CTX_wm_screen(C);
 
   if (screen && handler->op) {
     if (handler->context.area == NULL) {
@@ -2381,7 +2384,13 @@ static int wm_handler_fileselect_do(bContext *C,
       /* remlink now, for load file case before removing*/
       BLI_remlink(handlers, handler);
 
-      if (val != EVT_FILESELECT_EXTERNAL_CANCEL) {
+      if (val == EVT_FILESELECT_EXTERNAL_CANCEL) {
+        /* The window might have been freed already. */
+        if (BLI_findindex(&wm->windows, handler->context.win) == -1) {
+          handler->context.win = NULL;
+        }
+      }
+      else {
         for (wmWindow *win = wm->windows.first; win; win = win->next) {
           if (WM_window_is_temp_screen(win)) {
             bScreen *screen = WM_window_get_active_screen(win);
@@ -2397,10 +2406,13 @@ static int wm_handler_fileselect_do(bContext *C,
               CTX_wm_window_set(C, ctx_win);  // wm_window_close() NULLs.
               /* Some operators expect a drawable context (for EVT_FILESELECT_EXEC) */
               wm_window_make_drawable(wm, ctx_win);
-              /* Ensure correct cursor positon, otherwise, popups may close immediately after
+              /* Ensure correct cursor position, otherwise, popups may close immediately after
                * opening (UI_BLOCK_MOVEMOUSE_QUIT) */
               wm_get_cursor_position(ctx_win, &ctx_win->eventstate->x, &ctx_win->eventstate->y);
               wm->winactive = ctx_win; /* Reports use this... */
+              if (handler->context.win == win) {
+                handler->context.win = NULL;
+              }
             }
             else if (file_sa->full) {
               ED_screen_full_prevspace(C, file_sa);
@@ -3538,6 +3550,7 @@ void WM_event_add_fileselect(bContext *C, wmOperator *op)
 
   handler->is_fileselect = true;
   handler->op = op;
+  handler->context.win = CTX_wm_window(C);
   handler->context.area = CTX_wm_area(C);
   handler->context.region = CTX_wm_region(C);
 

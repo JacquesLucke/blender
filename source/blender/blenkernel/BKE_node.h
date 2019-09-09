@@ -34,13 +34,7 @@ extern "C" {
 #include "DNA_listBase.h"
 
 /* for FOREACH_NODETREE_BEGIN */
-#include "DNA_light_types.h"
-#include "DNA_material_types.h"
 #include "DNA_node_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_texture_types.h"
-#include "DNA_world_types.h"
-#include "DNA_linestyle_types.h"
 
 #include "RNA_types.h"
 
@@ -50,19 +44,23 @@ extern "C" {
 struct ARegion;
 struct ColorManagedDisplaySettings;
 struct ColorManagedViewSettings;
+struct FreestyleLineStyle;
 struct GPUMaterial;
 struct GPUNodeStack;
 struct ID;
 struct ImBuf;
 struct ImageFormatData;
+struct Light;
 struct ListBase;
 struct MTex;
 struct Main;
+struct Material;
 struct PointerRNA;
 struct RenderData;
 struct Scene;
 struct SpaceNode;
 struct Tex;
+struct World;
 struct bContext;
 struct bNode;
 struct bNodeExecContext;
@@ -836,11 +834,11 @@ void BKE_node_tree_unlink_id(ID *id, struct bNodeTree *ntree);
 struct NodeTreeIterStore {
   bNodeTree *ngroup;
   Scene *scene;
-  Material *mat;
+  struct Material *mat;
   Tex *tex;
-  Light *light;
-  World *world;
-  FreestyleLineStyle *linestyle;
+  struct Light *light;
+  struct World *world;
+  struct FreestyleLineStyle *linestyle;
 };
 
 void BKE_node_tree_iter_init(struct NodeTreeIterStore *ntreeiter, struct Main *bmain);
