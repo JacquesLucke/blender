@@ -6,6 +6,14 @@ Falloff::~Falloff()
 {
 }
 
+ConstantFalloff::~ConstantFalloff()
+{
+}
+
+PointDistanceFalloff::~PointDistanceFalloff()
+{
+}
+
 void ConstantFalloff::compute(AttributesRef UNUSED(attributes),
                               ArrayRef<uint> indices,
                               MutableArrayRef<float> r_weights) const
