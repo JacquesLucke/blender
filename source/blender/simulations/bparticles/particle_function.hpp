@@ -23,7 +23,7 @@ using FN::Type;
 
 class ParticleFunction;
 
-class ParticleFunctionResult {
+class ParticleFunctionResult : BLI::NonCopyable, BLI::NonMovable {
  private:
   Vector<void *> m_buffers;
   Vector<uint> m_strides;
@@ -37,8 +37,6 @@ class ParticleFunctionResult {
 
  public:
   ParticleFunctionResult() = default;
-  ParticleFunctionResult(ParticleFunctionResult &other) = delete;
-  ParticleFunctionResult(ParticleFunctionResult &&other) = delete;
 
   ~ParticleFunctionResult()
   {

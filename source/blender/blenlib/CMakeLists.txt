@@ -268,6 +268,7 @@ set(SRC
   BLI_multi_vector.hpp
   BLI_open_addressing.hpp
   BLI_hash.hpp
+  BLI_utility_mixins.hpp
 )
 
 set(LIB

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BLI_temporary_allocator.hpp"
+#include "BLI_utility_mixins.hpp"
 
 #include "action_interface.hpp"
 
@@ -11,7 +12,7 @@ namespace BParticles {
 using BLI::float3;
 using BLI::float4x4;
 
-class MeshSurfaceContext : public ActionContext {
+class MeshSurfaceContext : public ActionContext, BLI::NonCopyable, BLI::NonMovable {
  private:
   Vector<void *> m_buffers_to_free;
   Object *m_object;
@@ -80,9 +81,6 @@ class MeshSurfaceContext : public ActionContext {
       BLI_temporary_deallocate(buffer);
     }
   }
-
-  MeshSurfaceContext(const MeshSurfaceContext &other) = delete;
-  MeshSurfaceContext &operator=(const MeshSurfaceContext &other) = delete;
 
   Object *object() const
   {

@@ -2,13 +2,14 @@
 
 #include "tuple.hpp"
 #include "BLI_refcount.hpp"
+#include "BLI_utility_mixins.hpp"
 
 namespace FN {
 
 class List;
 using SharedList = AutoRefCount<List>;
 
-class List : public RefCounter {
+class List : public RefCounter, BLI::NonMovable, BLI::NonCopyable {
  private:
   Type *m_type;
   CPPTypeInfo *m_type_info;
@@ -18,6 +19,7 @@ class List : public RefCounter {
 
  public:
   List() = delete;
+
   List(Type *type) : m_type(std::move(type))
   {
     m_type_info = &m_type->extension<CPPTypeInfo>();
@@ -25,11 +27,6 @@ class List : public RefCounter {
     m_size = 0;
     m_capacity = 0;
   }
-
-  List(List &other) = delete;
-  List(List &&other) = delete;
-  List &operator=(List &other) = delete;
-  List &operator=(List &&other) = delete;
 
   ~List()
   {

@@ -24,6 +24,7 @@
 #include "BLI_refcount.hpp"
 #include "BLI_string_ref.hpp"
 #include "MEM_guardedalloc.h"
+#include "BLI_utility_mixins.hpp"
 
 namespace FN {
 
@@ -31,7 +32,7 @@ using namespace BLI;
 
 class Type;
 
-class TypeExtension {
+class TypeExtension : BLI::NonCopyable, BLI::NonMovable {
  private:
   Type *m_owner = nullptr;
   friend Type;
@@ -40,8 +41,6 @@ class TypeExtension {
 
  public:
   TypeExtension() = default;
-  TypeExtension(TypeExtension &other) = delete;
-  TypeExtension(TypeExtension &&other) = delete;
 
   virtual ~TypeExtension();
 

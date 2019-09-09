@@ -25,10 +25,11 @@
 #pragma once
 
 #include "BLI_vector.hpp"
+#include "BLI_utility_mixins.hpp"
 
 namespace BLI {
 
-class MonotonicAllocator {
+class MonotonicAllocator : NonCopyable, NonMovable {
  private:
   Vector<void *> m_pointers;
 
@@ -41,9 +42,6 @@ class MonotonicAllocator {
       : m_current_buffer(nullptr), m_remaining_capacity(0), m_next_min_alloc_size(16)
   {
   }
-
-  MonotonicAllocator(MonotonicAllocator &other) = delete;
-  MonotonicAllocator(MonotonicAllocator &&other) = delete;
 
   ~MonotonicAllocator()
   {

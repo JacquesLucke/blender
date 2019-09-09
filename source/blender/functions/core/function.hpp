@@ -21,12 +21,13 @@
 
 #include "type.hpp"
 #include "BLI_chained_strings.hpp"
+#include "BLI_utility_mixins.hpp"
 
 namespace FN {
 
 class Function;
 
-class FunctionBody {
+class FunctionBody : BLI::NonCopyable, BLI::NonMovable {
  private:
   Function *m_owner = nullptr;
 
@@ -39,8 +40,6 @@ class FunctionBody {
 
  public:
   FunctionBody() = default;
-  FunctionBody(FunctionBody &other) = delete;
-  FunctionBody(FunctionBody &&other) = delete;
 
   virtual ~FunctionBody();
 
