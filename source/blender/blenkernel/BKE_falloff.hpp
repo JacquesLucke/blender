@@ -1,8 +1,16 @@
 #pragma once
 
 #include "BKE_attributes_ref.hpp"
+#include "BKE_bvhutils.h"
+
+#include "BLI_kdopbvh.h"
+#include "BLI_kdtree.h"
+
+#include "DNA_object_types.h"
 
 namespace BKE {
+
+using BLI::float4x4;
 
 class Falloff {
  public:
@@ -34,7 +42,7 @@ class ConstantFalloff : public Falloff {
   {
   }
 
-  Falloff *clone() const
+  Falloff *clone() const override
   {
     return new ConstantFalloff(m_weight);
   }
@@ -59,6 +67,29 @@ class PointDistanceFalloff : public Falloff {
   Falloff *clone() const override
   {
     return new PointDistanceFalloff(m_point, m_min_distance, m_max_distance);
+  }
+
+  void compute(AttributesRef attributes,
+               ArrayRef<uint> indices,
+               MutableArrayRef<float> r_weights) const override;
+};
+
+class MeshDistanceFalloff : public Falloff {
+ private:
+  Object *m_object;
+  BVHTreeFromMesh m_bvhtree_data;
+  float4x4 m_local_to_world;
+  float4x4 m_world_to_local;
+  float m_inner_distance;
+  float m_outer_distance;
+
+ public:
+  MeshDistanceFalloff(Object *object, float inner_distance, float outer_distance);
+  ~MeshDistanceFalloff();
+
+  Falloff *clone() const override
+  {
+    return new MeshDistanceFalloff(m_object, m_inner_distance, m_outer_distance);
   }
 
   void compute(AttributesRef attributes,

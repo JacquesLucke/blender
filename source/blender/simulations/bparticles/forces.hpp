@@ -82,6 +82,11 @@ class MeshForce : public Force {
     BKE_bvhtree_from_mesh_get(&m_bvhtree_data, (Mesh *)object->data, BVHTREE_FROM_LOOPTRI, 2);
   }
 
+  ~MeshForce()
+  {
+    free_bvhtree_from_mesh(&m_bvhtree_data);
+  }
+
   void add_force(ForceInterface &interface) override;
 };
 
