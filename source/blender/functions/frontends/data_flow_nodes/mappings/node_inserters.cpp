@@ -160,7 +160,9 @@ static SharedFunction &get_vector_math_function(int operation)
     case 5:
       return Functions::GET_FN_cross_vectors();
     case 6:
-      return Functions::GET_FN_reflect_vectors();
+      return Functions::GET_FN_reflect_vector();
+    case 7:
+      return Functions::GET_FN_project_vector();
     default:
       BLI_assert(false);
       return Functions::GET_FN_none();

@@ -15,6 +15,7 @@ class VectorMathNode(bpy.types.Node, FunctionNode):
         ("DIV", "Divide", "", "", 4),
         ("CROSS", "Cross Product", "", "", 5),
         ("REFLECT", "Reflect", "", "", 6),
+        ("PROJECT", "Project", "", "", 7),
     ]
 
     operation: EnumProperty(

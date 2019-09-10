@@ -252,7 +252,7 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_cross_vectors)
   return fn;
 }
 
-class ReflectVectors : public TupleCallBody {
+class ReflectVector : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
     float3 a = fn_in.get<float3>(0);
@@ -261,10 +261,29 @@ class ReflectVectors : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_reflect_vectors)
+BLI_LAZY_INIT(SharedFunction, GET_FN_reflect_vector)
 {
-  auto fn = get_math_function__two_inputs("Reflect Vectors");
-  fn->add_body<ReflectVectors>();
+  auto fn = get_math_function__two_inputs("Reflect Vector");
+  fn->add_body<ReflectVector>();
+  return fn;
+}
+
+class ProjectVector : public TupleCallBody {
+  void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
+  {
+    float3 a = fn_in.get<float3>(0);
+    float3 b = fn_in.get<float3>(1);
+
+    float3 result;
+    project_v3_v3v3(result, a, b);
+    fn_out.set<float3>(0, result);
+  }
+};
+
+BLI_LAZY_INIT(SharedFunction, GET_FN_project_vector)
+{
+  auto fn = get_math_function__two_inputs("Project Vector");
+  fn->add_body<ProjectVector>();
   return fn;
 }
 
