@@ -2,7 +2,7 @@ import bpy
 
 def register():
     wm = bpy.context.window_manager
-    if wm.keyconfigs.addon.keymaps is None:
+    if wm.keyconfigs.addon is None:
         return
 
     km = wm.keyconfigs.addon.keymaps.new(
