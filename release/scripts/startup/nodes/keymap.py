@@ -2,6 +2,8 @@ import bpy
 
 def register():
     wm = bpy.context.window_manager
+    if wm.keyconfigs.addon.keymaps is None:
+        return
 
     km = wm.keyconfigs.addon.keymaps.new(
         name="Node Editor",
