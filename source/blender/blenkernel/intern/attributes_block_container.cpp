@@ -2,11 +2,9 @@
 
 namespace BKE {
 
-AttributesBlockContainer::AttributesBlockContainer(std::unique_ptr<AttributesInfo> attributes_info,
-                                                   uint block_size)
+AttributesBlockContainer::AttributesBlockContainer(AttributesInfo attributes_info, uint block_size)
     : m_attributes_info(std::move(attributes_info)), m_block_size(block_size)
 {
-  BLI_assert(m_attributes_info.get() != nullptr);
 }
 
 AttributesBlockContainer::~AttributesBlockContainer()
@@ -25,9 +23,9 @@ uint AttributesBlockContainer::count_active() const
   return amount;
 }
 
-void AttributesBlockContainer::update_attributes(std::unique_ptr<AttributesInfo> new_info)
+void AttributesBlockContainer::update_attributes(AttributesInfo new_info)
 {
-  AttributesInfoDiff info_diff(*m_attributes_info, *new_info);
+  AttributesInfoDiff info_diff(m_attributes_info, new_info);
   for (auto &block : m_active_blocks) {
     block->update_buffers(info_diff);
   }
@@ -57,8 +55,8 @@ void AttributesBlockContainer::release_block(AttributesBlock *block)
 
 void AttributesBlockContainer::flatten_attribute(StringRef attribute_name, void *dst) const
 {
-  uint attribute_index = m_attributes_info->attribute_index(attribute_name);
-  uint element_size = size_of_attribute_type(m_attributes_info->type_of(attribute_index));
+  uint attribute_index = m_attributes_info.attribute_index(attribute_name);
+  uint element_size = size_of_attribute_type(m_attributes_info.type_of(attribute_index));
 
   uint offset = 0;
   for (AttributesBlock *block : m_active_blocks) {

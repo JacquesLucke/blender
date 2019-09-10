@@ -13,24 +13,24 @@ class AttributesBlock;
 
 class AttributesBlockContainer : BLI::NonCopyable, BLI::NonMovable {
  private:
-  std::unique_ptr<AttributesInfo> m_attributes_info;
+  AttributesInfo m_attributes_info;
   uint m_block_size;
   SetVector<AttributesBlock *> m_active_blocks;
   std::mutex m_blocks_mutex;
   std::atomic<uint> m_next_id;
 
  public:
-  AttributesBlockContainer(std::unique_ptr<AttributesInfo> attributes_info, uint block_size);
+  AttributesBlockContainer(AttributesInfo attributes_info, uint block_size);
   ~AttributesBlockContainer();
 
   uint count_active() const;
 
   const AttributesInfo &attributes_info() const
   {
-    return *m_attributes_info;
+    return m_attributes_info;
   }
 
-  void update_attributes(std::unique_ptr<AttributesInfo> new_info);
+  void update_attributes(AttributesInfo new_info);
 
   AttributesBlock *new_block();
   void release_block(AttributesBlock *block);
@@ -39,7 +39,7 @@ class AttributesBlockContainer : BLI::NonCopyable, BLI::NonMovable {
 
   template<typename T> Vector<T> flatten_attribute(StringRef attribute_name)
   {
-    BLI_assert(m_attributes_info->type_of(attribute_name) == attribute_type_by_type<T>::value);
+    BLI_assert(m_attributes_info.type_of(attribute_name) == attribute_type_by_type<T>::value);
     Vector<T> result(this->count_active());
     this->flatten_attribute(attribute_name, (void *)result.begin());
     return result;

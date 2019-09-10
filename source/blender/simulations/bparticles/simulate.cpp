@@ -508,8 +508,7 @@ BLI_NOINLINE static void ensure_required_containers_exist(
 
   types_to_simulate.foreach_key([&containers](StringRefNull type_name) {
     if (!containers.contains(type_name)) {
-      AttributesBlockContainer *container = new AttributesBlockContainer(
-          std::unique_ptr<AttributesInfo>(new AttributesInfo()), 1000);
+      AttributesBlockContainer *container = new AttributesBlockContainer(AttributesInfo(), 1000);
       containers.add_new(type_name, container);
     }
   });
@@ -544,8 +543,7 @@ BLI_NOINLINE static void ensure_required_attributes_exist(
 
         AttributesInfo new_attributes_info = build_attribute_info_for_type(
             type_info, container.attributes_info());
-        container.update_attributes(
-            std::unique_ptr<AttributesInfo>(new AttributesInfo(std::move(new_attributes_info))));
+        container.update_attributes(new_attributes_info);
       });
 }
 
