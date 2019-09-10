@@ -83,14 +83,14 @@ template<typename T> class AutoRefCount {
  private:
   T *m_object;
 
-  inline void incref()
+  void incref()
   {
     if (m_object) {
       m_object->incref();
     }
   }
 
-  inline void decref()
+  void decref()
   {
     if (m_object) {
       m_object->decref();

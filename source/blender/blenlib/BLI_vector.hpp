@@ -511,7 +511,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     return m_begin == this->small_buffer();
   }
 
-  inline void ensure_space_for_one()
+  void ensure_space_for_one()
   {
     if (UNLIKELY(m_end >= m_capacity_end)) {
       this->grow(std::max(this->size() * 2, (uint)1));
