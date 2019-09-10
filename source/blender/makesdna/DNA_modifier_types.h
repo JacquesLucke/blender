@@ -1992,7 +1992,9 @@ typedef enum eBParticlesOutputType {
 typedef struct BParticlesModifierData {
   ModifierData modifier;
 
+  /* eBParticlesOutputType */
   unsigned int output_type;
+
   unsigned int num_cached_frames;
   struct bNodeTree *bparticles_tree;
   BParticlesFrameCache *cached_frames;
@@ -2002,6 +2004,8 @@ typedef struct BParticlesOutputModifierData {
   ModifierData modifier;
   struct Object *source_object;
   char source_particle_type[64];
+
+  /* eBParticlesOutputType */
   unsigned int output_type;
   char _pad[4];
 } BParticlesOutputModifierData;
