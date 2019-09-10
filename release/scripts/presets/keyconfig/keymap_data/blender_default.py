@@ -3166,7 +3166,7 @@ def km_grease_pencil_stroke_paint_draw_brush(params):
         ("gpencil.draw", {"type": 'LEFTMOUSE', "value": 'PRESS', "ctrl": True},
          {"properties": [("mode", 'ERASER'), ("wait_for_input", False)]}),
         # Constrain Guides Speedlines
-		# Freehand
+        # Freehand
         ("gpencil.draw", {"type": 'O', "value": 'PRESS'}, None),
         ("gpencil.draw", {"type": 'J', "value": 'PRESS'}, None),
         ("gpencil.draw", {"type": 'J', "value": 'PRESS', "alt": True}, None),
@@ -3178,11 +3178,11 @@ def km_grease_pencil_stroke_paint_draw_brush(params):
         ("gpencil.draw", {"type": 'L', "value": 'PRESS', "alt": True}, None),
         ("gpencil.draw", {"type": 'L', "value": 'PRESS', "ctrl": True}, None),
         ("gpencil.draw", {"type": 'V', "value": 'PRESS'}, None),
-		# Mirror or flip
+        # Mirror or flip
         ("gpencil.draw", {"type": 'M', "value": 'PRESS'}, None),
-		# Mode
+        # Mode
         ("gpencil.draw", {"type": 'C', "value": 'PRESS'}, None),
-		# Set reference point
+        # Set reference point
         ("gpencil.draw", {"type": 'C', "value": 'PRESS', "alt": True}, None),
         # Tablet Mappings for Drawing ------------------ */
         # For now, only support direct drawing using the eraser, as most users using a tablet
@@ -3900,6 +3900,7 @@ def km_sculpt(params):
          {"properties": [("data_path", 'tool_settings.sculpt.brush.use_smooth_stroke')]}),
         op_menu("VIEW3D_MT_angle_control", {"type": 'R', "value": 'PRESS'}),
         op_panel("VIEW3D_PT_sculpt_context_menu", params.context_menu_event),
+        op_menu_pie("VIEW3D_MT_sculpt_mask_edit_pie", {"type" : 'A', "value": 'PRESS'})
     ])
 
     if params.legacy:
@@ -5718,6 +5719,15 @@ def km_3d_view_tool_sculpt_lasso_mask(params):
         ]},
     )
 
+def km_3d_view_tool_sculpt_mesh_filter(params):
+    return (
+        "3D View Tool: Sculpt, Mesh Filter",
+        {"space_type": 'VIEW_3D', "region_type": 'WINDOW'},
+        {"items": [
+            ("sculpt.mesh_filter", {"type": params.tool_tweak, "value": 'ANY'},
+             None)
+        ]},
+    )
 
 def km_3d_view_tool_paint_weight_sample_weight(params):
     return (
@@ -6159,6 +6169,7 @@ def generate_keymaps(params=None):
         km_3d_view_tool_sculpt_box_hide(params),
         km_3d_view_tool_sculpt_box_mask(params),
         km_3d_view_tool_sculpt_lasso_mask(params),
+        km_3d_view_tool_sculpt_mesh_filter(params),
         km_3d_view_tool_paint_weight_sample_weight(params),
         km_3d_view_tool_paint_weight_sample_vertex_group(params),
         km_3d_view_tool_paint_weight_gradient(params),

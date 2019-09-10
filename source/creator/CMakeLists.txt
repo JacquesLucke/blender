@@ -586,6 +586,7 @@ if(UNIX AND NOT APPLE)
         PATTERN "test" EXCLUDE                      # ./test
         PATTERN "turtledemo" EXCLUDE                # ./turtledemo
         PATTERN "turtle.py" EXCLUDE                 # ./turtle.py
+        PATTERN "wininst*.exe" EXCLUDE              # from distutils, avoid malware false positive
       )
 
       # Needed for distutils/pip
@@ -864,6 +865,7 @@ elseif(APPLE)
       PATTERN "test" EXCLUDE                      # ./test
       PATTERN "turtledemo" EXCLUDE                # ./turtledemo
       PATTERN "turtle.py" EXCLUDE                 # ./turtle.py
+      PATTERN "wininst*.exe" EXCLUDE              # from distutils, avoid malware false positive
     )
   endmacro()
 
