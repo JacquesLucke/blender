@@ -97,6 +97,88 @@ TEST(vector, CopyConstructor)
   EXPECT_EQ(vec2[1], 2);
 }
 
+TEST(vector, CopyConstructor2)
+{
+  Vector<int, 2> vec1 = {1, 2, 3, 4};
+  Vector<int, 3> vec2(vec1);
+
+  EXPECT_EQ(vec1.size(), 4);
+  EXPECT_EQ(vec2.size(), 4);
+  EXPECT_NE(vec1.begin(), vec2.begin());
+  EXPECT_EQ(vec2[0], 1);
+  EXPECT_EQ(vec2[1], 2);
+  EXPECT_EQ(vec2[2], 3);
+  EXPECT_EQ(vec2[3], 4);
+}
+
+TEST(vector, CopyConstructor3)
+{
+  Vector<int, 20> vec1 = {1, 2, 3, 4};
+  Vector<int, 1> vec2(vec1);
+
+  EXPECT_EQ(vec1.size(), 4);
+  EXPECT_EQ(vec2.size(), 4);
+  EXPECT_NE(vec1.begin(), vec2.begin());
+  EXPECT_EQ(vec2[2], 3);
+}
+
+TEST(vector, CopyConstructor4)
+{
+  Vector<int, 5> vec1 = {1, 2, 3, 4};
+  Vector<int, 6> vec2(vec1);
+
+  EXPECT_EQ(vec1.size(), 4);
+  EXPECT_EQ(vec2.size(), 4);
+  EXPECT_NE(vec1.begin(), vec2.begin());
+  EXPECT_EQ(vec2[3], 4);
+}
+
+TEST(vector, MoveConstructor)
+{
+  IntVector vec1 = {1, 2, 3, 4};
+  IntVector vec2(std::move(vec1));
+
+  EXPECT_EQ(vec1.size(), 0);
+  EXPECT_EQ(vec2.size(), 4);
+  EXPECT_EQ(vec2[0], 1);
+  EXPECT_EQ(vec2[1], 2);
+  EXPECT_EQ(vec2[2], 3);
+  EXPECT_EQ(vec2[3], 4);
+}
+
+TEST(vector, MoveConstructor2)
+{
+  Vector<int, 2> vec1 = {1, 2, 3, 4};
+  Vector<int, 3> vec2(std::move(vec1));
+
+  EXPECT_EQ(vec1.size(), 0);
+  EXPECT_EQ(vec2.size(), 4);
+  EXPECT_EQ(vec2[0], 1);
+  EXPECT_EQ(vec2[1], 2);
+  EXPECT_EQ(vec2[2], 3);
+  EXPECT_EQ(vec2[3], 4);
+}
+
+TEST(vector, MoveConstructor3)
+{
+  Vector<int, 20> vec1 = {1, 2, 3, 4};
+  Vector<int, 1> vec2(std::move(vec1));
+
+  EXPECT_EQ(vec1.size(), 0);
+  EXPECT_EQ(vec2.size(), 4);
+  EXPECT_EQ(vec2[2], 3);
+}
+
+TEST(vector, MoveConstructor4)
+{
+  Vector<int, 5> vec1 = {1, 2, 3, 4};
+  Vector<int, 6> vec2(std::move(vec1));
+
+  EXPECT_EQ(vec1.size(), 0);
+  EXPECT_EQ(vec2.size(), 4);
+  EXPECT_EQ(vec2[3], 4);
+}
+
 TEST(vector, MoveAssignment)
 {
   IntVector vec = {1, 2};

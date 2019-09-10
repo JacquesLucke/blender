@@ -51,6 +51,8 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   Allocator m_allocator;
   char m_small_buffer[sizeof(T) * N];
 
+  template<typename OtherT, uint OtherN, typename OtherAllocator> friend class Vector;
+
  public:
   /**
    * Create an empty vector.
@@ -134,9 +136,15 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    * The other vector will not be changed.
    * If the other vector has less than N elements, no allocation will be made.
    */
-  Vector(const Vector &other)
+  Vector(const Vector &other) : m_allocator(other.m_allocator)
   {
-    this->copy_from_other(other);
+    this->init_copy_from_other_vector(other);
+  }
+
+  template<uint OtherN>
+  Vector(const Vector<T, OtherN, Allocator> &other) : m_allocator(other.m_allocator)
+  {
+    this->init_copy_from_other_vector(other);
   }
 
   /**
@@ -144,14 +152,47 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    * This does not do an allocation.
    * The other vector will have zero elements afterwards.
    */
-  Vector(Vector &&other)
+  template<uint OtherN>
+  Vector(Vector<T, OtherN, Allocator> &&other) : m_allocator(other.m_allocator)
   {
-    this->steal_from_other(other);
+    uint size = other.size();
+
+    if (other.is_small()) {
+      if (size <= N) {
+        /* Copy between inline buffers. */
+        m_begin = this->small_buffer();
+        m_end = m_begin + size;
+        m_capacity_end = m_begin + N;
+        uninitialized_relocate_n(other.m_begin, size, m_begin);
+      }
+      else {
+        /* Copy from inline buffer to newly allocated buffer. */
+        uint capacity = size;
+        m_begin = (T *)m_allocator.allocate_aligned(
+            sizeof(T) * capacity, std::alignment_of<T>::value, __func__);
+        m_end = m_begin + size;
+        m_capacity_end = m_begin + capacity;
+        uninitialized_relocate_n(other.m_begin, size, m_begin);
+      }
+    }
+    else {
+      /* Steal the pointer. */
+      m_begin = other.m_begin;
+      m_end = other.m_end;
+      m_capacity_end = other.m_capacity_end;
+    }
+
+    other.m_begin = other.small_buffer();
+    other.m_end = other.m_begin;
+    other.m_capacity_end = other.m_begin + OtherN;
   }
 
   ~Vector()
   {
-    this->destruct_elements_and_free_memory();
+    destruct_n(m_begin, this->size());
+    if (!this->is_small()) {
+      m_allocator.deallocate(m_begin);
+    }
   }
 
   operator ArrayRef<T>() const
@@ -170,8 +211,8 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
       return *this;
     }
 
-    this->destruct_elements_and_free_memory();
-    this->copy_from_other(other);
+    this->~Vector();
+    new (this) Vector(other);
 
     return *this;
   }
@@ -182,8 +223,8 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
       return *this;
     }
 
-    this->destruct_elements_and_free_memory();
-    this->steal_from_other(other);
+    this->~Vector();
+    new (this) Vector(std::move(other));
 
     return *this;
   }
@@ -214,7 +255,11 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    */
   void clear_and_make_small()
   {
-    this->destruct_elements_and_free_memory();
+    destruct_n(m_begin, this->size());
+    if (!this->is_small()) {
+      m_allocator.deallocate(m_begin);
+    }
+
     m_begin = this->small_buffer();
     m_end = m_begin;
     m_capacity_end = m_begin + N;
@@ -502,46 +547,30 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     m_capacity_end = m_begin + min_capacity;
   }
 
-  void copy_from_other(const Vector &other)
+  /**
+   * Initialize all properties, except for m_allocator, which has to be initialized beforehand.
+   */
+  template<uint OtherN> void init_copy_from_other_vector(const Vector<T, OtherN, Allocator> &other)
   {
+    m_allocator = other.m_allocator;
+
     uint size = other.size();
-    if (other.is_small()) {
+    uint capacity = size;
+
+    if (size <= N) {
       m_begin = this->small_buffer();
+      capacity = N;
     }
     else {
       m_begin = (T *)m_allocator.allocate_aligned(
           sizeof(T) * size, std::alignment_of<T>::value, __func__);
+      capacity = size;
     }
 
-    BLI::uninitialized_copy(other.begin(), other.end(), m_begin);
     m_end = m_begin + size;
-    m_capacity_end = m_end;
-  }
+    m_capacity_end = m_begin + capacity;
 
-  void steal_from_other(Vector &other)
-  {
-    if (other.is_small()) {
-      uninitialized_relocate_n(other.begin(), other.size(), this->small_buffer());
-      m_begin = this->small_buffer();
-    }
-    else {
-      m_begin = other.m_begin;
-    }
-
-    m_end = m_begin + other.size();
-    m_capacity_end = m_begin + other.capacity();
-
-    other.m_begin = other.small_buffer();
-    other.m_end = other.m_begin;
-    other.m_capacity_end = other.m_begin + N;
-  }
-
-  void destruct_elements_and_free_memory()
-  {
-    destruct_n(m_begin, this->size());
-    if (!this->is_small()) {
-      m_allocator.deallocate(m_begin);
-    }
+    uninitialized_copy(other.begin(), other.end(), m_begin);
   }
 };
 
