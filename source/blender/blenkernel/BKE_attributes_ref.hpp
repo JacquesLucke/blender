@@ -304,6 +304,11 @@ class AttributesInfoDiff {
   void update(uint capacity,
               ArrayRef<void *> old_buffers,
               MutableArrayRef<void *> new_buffers) const;
+
+  uint new_buffer_amount() const
+  {
+    return m_new_info->size();
+  }
 };
 
 /**
