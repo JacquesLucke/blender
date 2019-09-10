@@ -3,6 +3,7 @@ from bpy.props import *
 from .. base import BParticlesNode
 from .. node_builder import NodeBuilder
 
+
 class TurbulenceForceNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_TurbulenceForceNode"
     bl_label = "Turbulence Force"
@@ -27,6 +28,16 @@ class DragForceNode(bpy.types.Node, BParticlesNode):
     bl_label = "Drag Force"
 
     def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("strength", "Strength", 'Float', default=1)
+        builder.fixed_input("strength", "Strength", "Float", default=1)
         builder.fixed_input("falloff", "Falloff", "Falloff")
+        builder.particle_effector_output("force", "Force")
+
+
+class MeshForceNode(bpy.types.Node, BParticlesNode):
+    bl_idname = "bp_MeshForceNode"
+    bl_label = "Mesh Force"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("object", "Object", "Object")
+        builder.fixed_input("strength", "Strength", "Float", default=1)
         builder.particle_effector_output("force", "Force")

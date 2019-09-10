@@ -571,6 +571,39 @@ static void PARSE_size_over_time(BehaviorCollector &collector,
   }
 }
 
+static void PARSE_mesh_force(BehaviorCollector &collector,
+                             VTreeDataGraph &vtree_data_graph,
+                             WorldTransition &UNUSED(world_transition),
+                             VirtualNode *vnode)
+{
+
+  FunctionGraph fgraph(
+      vtree_data_graph.graph(), {}, {vtree_data_graph.lookup_socket(vnode->input(0, "Object"))});
+  auto fn = fgraph.new_function("Find Object");
+  FN::fgraph_add_TupleCallBody(fn, fgraph);
+  FN::TupleCallBody &body = fn->body<TupleCallBody>();
+
+  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+  body.call__setup_execution_context(fn_in, fn_out);
+
+  Object *object = fn_out.relocate_out<ObjectW>(0).ptr();
+  if (object == nullptr || object->type != OB_MESH) {
+    return;
+  }
+
+  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Force"));
+  for (std::string &type_name : type_names) {
+    auto fn_or_error = create_particle_function(vnode, vtree_data_graph);
+    if (fn_or_error.is_error()) {
+      continue;
+    }
+    std::unique_ptr<ParticleFunction> compute_inputs = fn_or_error.extract_value();
+
+    Force *force = new MeshForce(std::move(compute_inputs), object);
+    collector.m_forces.add(type_name, force);
+  }
+}
+
 BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
 {
   StringMap<ParseNodeCallback> map;
@@ -584,6 +617,7 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   map.add_new("bp_MeshCollisionEventNode", PARSE_mesh_collision);
   map.add_new("bp_SizeOverTimeNode", PARSE_size_over_time);
   map.add_new("bp_DragForceNode", PARSE_drag_force);
+  map.add_new("bp_MeshForceNode", PARSE_mesh_force);
   return map;
 }
 

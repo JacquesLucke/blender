@@ -150,6 +150,11 @@ struct float3 {
     return len_v3(*this);
   }
 
+  float length_squared() const
+  {
+    return len_squared_v3(*this);
+  }
+
   void reflect(float3 normal)
   {
     *this = this->reflected(normal);
