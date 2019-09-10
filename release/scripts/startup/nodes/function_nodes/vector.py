@@ -16,6 +16,7 @@ class VectorMathNode(bpy.types.Node, FunctionNode):
         ("CROSS", "Cross Product", "", "", 5),
         ("REFLECT", "Reflect", "", "", 6),
         ("PROJECT", "Project", "", "", 7),
+        ("DOT", "Dot", "", "", 8),
     ]
 
     operation: EnumProperty(
@@ -35,9 +36,14 @@ class VectorMathNode(bpy.types.Node, FunctionNode):
             "b", "use_list__b",
             "B", "B", "Vector")
 
-        builder.vectorized_output(
-            "result", ["use_list__a", "use_list__b"],
-            "Result", "Result", "Vector")
+        if self.operation == "DOT":
+            builder.vectorized_output(
+                "result", ["use_list__a", "use_list__b"],
+                "Result", "Result", "Float")
+        else:
+            builder.vectorized_output(
+                "result", ["use_list__a", "use_list__b"],
+                "Result", "Result", "Vector")
 
     def draw(self, layout):
         layout.prop(self, "operation", text="")

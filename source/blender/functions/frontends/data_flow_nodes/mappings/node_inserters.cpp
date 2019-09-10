@@ -163,6 +163,8 @@ static SharedFunction &get_vector_math_function(int operation)
       return Functions::GET_FN_reflect_vector();
     case 7:
       return Functions::GET_FN_project_vector();
+    case 8:
+      return Functions::GET_FN_dot_product();
     default:
       BLI_assert(false);
       return Functions::GET_FN_none();

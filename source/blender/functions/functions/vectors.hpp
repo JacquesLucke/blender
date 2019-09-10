@@ -15,6 +15,7 @@ SharedFunction &GET_FN_div_vectors();
 SharedFunction &GET_FN_cross_vectors();
 SharedFunction &GET_FN_reflect_vector();
 SharedFunction &GET_FN_project_vector();
+SharedFunction &GET_FN_dot_product();
 
 }  // namespace Functions
 }  // namespace FN
