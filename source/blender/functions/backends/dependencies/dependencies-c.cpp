@@ -6,15 +6,15 @@ using namespace FN;
 
 static void update_depsgraph(DepsNodeHandle *deps_node, DependencyComponents &dependencies)
 {
-  for (struct Object *ob : dependencies.transform_dependencies) {
+  for (Object *ob : dependencies.transform_dependencies) {
     DEG_add_object_relation(deps_node, ob, DEG_OB_COMP_TRANSFORM, __func__);
   }
-  for (struct Object *ob : dependencies.geometry_dependencies) {
+  for (Object *ob : dependencies.geometry_dependencies) {
     DEG_add_object_relation(deps_node, ob, DEG_OB_COMP_GEOMETRY, __func__);
   }
 }
 
-void FN_function_update_dependencies(FnFunction fn_c, struct DepsNodeHandle *deps_node)
+void FN_function_update_dependencies(FnFunction fn_c, DepsNodeHandle *deps_node)
 {
   Function *fn = unwrap(fn_c);
   if (!fn->has_body<DepsBody>()) {
