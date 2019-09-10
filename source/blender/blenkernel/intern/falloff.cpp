@@ -84,7 +84,7 @@ void MeshDistanceFalloff::compute(AttributesRef attributes,
     float3 nearest_position = m_local_to_world.transform_position(nearest.co);
     float distance = float3::distance(position, nearest_position);
 
-    float weight = (distance - m_inner_distance) / distance_diff;
+    float weight = 1.0f - (distance - m_inner_distance) / distance_diff;
     CLAMP(weight, 0.0f, 1.0f);
     r_weights[index] = weight;
   }
