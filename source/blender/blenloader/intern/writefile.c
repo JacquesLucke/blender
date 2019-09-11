@@ -2444,6 +2444,13 @@ static void write_view_settings(WriteData *wd, ColorManagedViewSettings *view_se
   }
 }
 
+static void write_view3dshading(WriteData *wd, View3DShading *shading)
+{
+  if (shading->prop) {
+    IDP_WriteProperty(shading->prop, wd);
+  }
+}
+
 static void write_paint(WriteData *wd, Paint *p)
 {
   if (p->cavity_curve) {
@@ -2715,6 +2722,8 @@ static void write_scene(WriteData *wd, Scene *sce)
     write_lightcache(wd, sce->eevee.light_cache);
   }
 
+  write_view3dshading(wd, &sce->display.shading);
+
   /* Freed on doversion. */
   BLI_assert(sce->layer_properties == NULL);
 }
@@ -2881,6 +2890,7 @@ static void write_area_regions(WriteData *wd, ScrArea *area)
       if (v3d->fx_settings.dof) {
         writestruct(wd, DATA, GPUDOFSettings, 1, v3d->fx_settings.dof);
       }
+      write_view3dshading(wd, &v3d->shading);
     }
     else if (sl->spacetype == SPACE_GRAPH) {
       SpaceGraph *sipo = (SpaceGraph *)sl;
