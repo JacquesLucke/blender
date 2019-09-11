@@ -29,3 +29,16 @@ class MeshCollisionEventNode(bpy.types.Node, BParticlesNode):
         builder.execute_input("execute_on_event", "Execute on Event", "execute_on_event__prop")
 
         builder.particle_effector_output("event", "Event")
+
+
+class CustomEventNode(bpy.types.Node, BParticlesNode):
+    bl_idname = "bp_CustomEventNode"
+    bl_label = "Custom Event"
+
+    execute_on_event__prop: NodeBuilder.ExecuteInputProperty()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("condition", "Condition", "Boolean")
+        builder.execute_input("execute_on_event", "Execute on Event", "execute_on_event__prop")
+
+        builder.particle_effector_output("event", "Event")

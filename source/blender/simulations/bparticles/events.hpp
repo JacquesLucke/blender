@@ -37,6 +37,27 @@ class AgeReachedEvent : public Event {
   void execute(EventExecuteInterface &interface) override;
 };
 
+class CustomEvent : public Event {
+ private:
+  std::string m_identifier;
+  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  std::unique_ptr<Action> m_action;
+
+ public:
+  CustomEvent(StringRef identifier,
+              std::unique_ptr<ParticleFunction> compute_inputs,
+              std::unique_ptr<Action> action)
+      : m_identifier(identifier),
+        m_compute_inputs(std::move(compute_inputs)),
+        m_action(std::move(action))
+  {
+  }
+
+  void attributes(AttributesDeclaration &builder) override;
+  void filter(EventFilterInterface &interface) override;
+  void execute(EventExecuteInterface &interface) override;
+};
+
 class MeshCollisionEvent : public Event {
  private:
   std::string m_identifier;

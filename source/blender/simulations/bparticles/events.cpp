@@ -69,6 +69,52 @@ void AgeReachedEvent::execute(EventExecuteInterface &interface)
   m_action->execute_from_event(interface);
 }
 
+/* Custom Event
+ ***********************************************/
+
+void CustomEvent::attributes(AttributesDeclaration &builder)
+{
+  builder.add<uint8_t>(m_identifier, 0);
+}
+
+void CustomEvent::filter(EventFilterInterface &interface)
+{
+  auto was_activated_before = interface.attributes().get<uint8_t>(m_identifier);
+
+  TemporaryVector<uint> pindices_to_check;
+  pindices_to_check.reserve(interface.pindices().size());
+
+  for (uint pindex : interface.pindices()) {
+    if (!was_activated_before[pindex]) {
+      pindices_to_check.append(pindex);
+    }
+  }
+
+  auto inputs = m_compute_inputs->compute(
+      pindices_to_check,
+      interface.attributes(),
+      ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
+                                         interface.step_end_time()),
+      nullptr);
+
+  for (uint pindex : pindices_to_check) {
+    bool condition = inputs->get<bool>("Condition", 0, pindex);
+    if (condition) {
+      interface.trigger_particle(pindex, 0.0f);
+    }
+  }
+}
+
+void CustomEvent::execute(EventExecuteInterface &interface)
+{
+  auto was_activated_before = interface.attributes().get<uint8_t>(m_identifier);
+  for (uint pindex : interface.pindices()) {
+    was_activated_before[pindex] = true;
+  }
+
+  m_action->execute_from_event(interface);
+}
+
 /* Collision Event
  ***********************************************/
 

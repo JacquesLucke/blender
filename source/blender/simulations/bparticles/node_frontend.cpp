@@ -604,6 +604,25 @@ static void PARSE_mesh_force(BehaviorCollector &collector,
   }
 }
 
+static void PARSE_custom_event(BehaviorCollector &collector,
+                               VTreeDataGraph &vtree_data_graph,
+                               WorldTransition &UNUSED(world_transition),
+                               VirtualNode *vnode)
+{
+  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Event"));
+  for (std::string &type_name : type_names) {
+    auto fn_or_error = create_particle_function(vnode, vtree_data_graph);
+    if (fn_or_error.is_error()) {
+      continue;
+    }
+    std::unique_ptr<ParticleFunction> compute_inputs = fn_or_error.extract_value();
+    auto action = build_action_list(vtree_data_graph, vnode, "Execute on Event");
+
+    Event *event = new CustomEvent(vnode->name(), std::move(compute_inputs), std::move(action));
+    collector.m_events.add(type_name, event);
+  }
+}
+
 BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
 {
   StringMap<ParseNodeCallback> map;
@@ -618,6 +637,7 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   map.add_new("bp_SizeOverTimeNode", PARSE_size_over_time);
   map.add_new("bp_DragForceNode", PARSE_drag_force);
   map.add_new("bp_MeshForceNode", PARSE_mesh_force);
+  map.add_new("bp_CustomEventNode", PARSE_custom_event);
   return map;
 }
 

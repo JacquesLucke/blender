@@ -259,12 +259,12 @@ class ParticleFunction {
   std::unique_ptr<ParticleFunctionResult> compute(ForceInterface &interface);
   std::unique_ptr<ParticleFunctionResult> compute(EventFilterInterface &interface);
 
- private:
   std::unique_ptr<ParticleFunctionResult> compute(ArrayRef<uint> pindices,
                                                   AttributesRef attributes,
                                                   ParticleTimes particle_times,
                                                   ActionContext *action_context);
 
+ private:
   void init_without_deps(ParticleFunctionResult *result);
 
   void init_with_deps(ParticleFunctionResult *result,
