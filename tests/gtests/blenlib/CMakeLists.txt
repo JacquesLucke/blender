@@ -38,6 +38,7 @@ else()
   set(BLI_path_util_extra_libs "bf_blenlib;extern_wcwidth;${ZLIB_LIBRARIES}")
 endif()
 
+BLENDER_TEST(BLI_array "bf_blenlib")
 BLENDER_TEST(BLI_array_store "bf_blenlib")
 BLENDER_TEST(BLI_array_utils "bf_blenlib")
 BLENDER_TEST(BLI_array_ref "bf_blenlib")

@@ -43,6 +43,17 @@ template<typename T, typename Allocator = GuardedAllocator> class Array {
     m_size = 0;
   }
 
+  Array(ArrayRef<T> values)
+  {
+    m_size = values.size();
+    m_data = this->allocate(m_size);
+    uninitialized_copy_n(values.begin(), m_size, m_data);
+  }
+
+  Array(const std::initializer_list<T> &values) : Array(ArrayRef<T>(values))
+  {
+  }
+
   explicit Array(uint size)
   {
     m_data = this->allocate(size);
@@ -53,9 +64,16 @@ template<typename T, typename Allocator = GuardedAllocator> class Array {
     }
   }
 
+  Array(uint size, const T &value)
+  {
+    m_data = this->allocate(size);
+    m_size = size;
+    uninitialized_fill_n(m_data, m_size, value);
+  }
+
   Array(const Array &other)
   {
-    m_size = 0;
+    m_size = other.size();
     m_allocator = other.m_allocator;
 
     if (m_size == 0) {
@@ -142,6 +160,16 @@ template<typename T, typename Allocator = GuardedAllocator> class Array {
   void fill_indices(ArrayRef<uint> indices, const T &value)
   {
     MutableArrayRef<T>(*this).fill_indices(indices, value);
+  }
+
+  const T *begin() const
+  {
+    return m_data;
+  }
+
+  const T *end() const
+  {
+    return m_data + m_size;
   }
 
   T *begin()
