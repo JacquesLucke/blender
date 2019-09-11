@@ -51,7 +51,7 @@ std::unique_ptr<VTreeDataGraph> VTreeDataGraphBuilder::build()
 {
   auto data_graph = m_graph_builder.build();
 
-  Vector<DataSocket> r_socket_map(m_vtree.socket_count(), DataSocket::None());
+  Array<DataSocket> r_socket_map(m_vtree.socket_count(), DataSocket::None());
   for (uint vsocket_id = 0; vsocket_id < m_vtree.socket_count(); vsocket_id++) {
     BuilderSocket *socket = m_socket_map[vsocket_id];
     if (socket == nullptr) {

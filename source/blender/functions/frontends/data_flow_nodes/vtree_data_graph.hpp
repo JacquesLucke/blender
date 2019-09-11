@@ -3,6 +3,7 @@
 #include "FN_core.hpp"
 #include "BKE_node_tree.hpp"
 #include "BLI_value_or_error.hpp"
+#include "BLI_array.hpp"
 
 namespace FN {
 namespace DataFlowNodes {
@@ -10,16 +11,17 @@ namespace DataFlowNodes {
 using BKE::VirtualNode;
 using BKE::VirtualNodeTree;
 using BKE::VirtualSocket;
+using BLI::Array;
 using BLI::ValueOrError;
 
 class VTreeDataGraph {
  private:
   VirtualNodeTree &m_vtree;
   SharedDataGraph m_graph;
-  Vector<DataSocket> m_socket_map;
+  Array<DataSocket> m_socket_map;
 
  public:
-  VTreeDataGraph(VirtualNodeTree &vtree, SharedDataGraph graph, Vector<DataSocket> mapping);
+  VTreeDataGraph(VirtualNodeTree &vtree, SharedDataGraph graph, Array<DataSocket> mapping);
 
   SharedDataGraph &graph()
   {

@@ -9,7 +9,7 @@ using BLI::Stack;
 
 VTreeDataGraph::VTreeDataGraph(VirtualNodeTree &vtree,
                                SharedDataGraph graph,
-                               Vector<DataSocket> mapping)
+                               Array<DataSocket> mapping)
     : m_vtree(vtree), m_graph(std::move(graph)), m_socket_map(std::move(mapping))
 {
 }
