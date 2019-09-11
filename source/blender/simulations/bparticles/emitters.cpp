@@ -240,6 +240,7 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   for (float factor = factor_start; factor < 1.0f; factor += factor_step) {
     birth_moments.append(factor);
   }
+  std::random_shuffle(birth_moments.begin(), birth_moments.end());
 
   uint particles_to_emit = birth_moments.size();
 
