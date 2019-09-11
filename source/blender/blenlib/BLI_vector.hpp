@@ -51,6 +51,14 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   Allocator m_allocator;
   char m_small_buffer[sizeof(T) * N];
 
+#ifdef DEBUG
+  /* Storing size in debug builds, because it makes debugging much easier sometimes. */
+  uint m_debug_size;
+#  define UPDATE_VECTOR_SIZE(ptr) (ptr)->m_debug_size = (ptr)->m_end - (ptr)->m_begin
+#else
+#  define UPDATE_VECTOR_SIZE(ptr) ((void)0)
+#endif
+
   template<typename OtherT, uint OtherN, typename OtherAllocator> friend class Vector;
 
  public:
@@ -63,6 +71,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     m_begin = this->small_buffer();
     m_end = m_begin;
     m_capacity_end = m_begin + N;
+    UPDATE_VECTOR_SIZE(this);
   }
 
   /**
@@ -185,6 +194,8 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     other.m_begin = other.small_buffer();
     other.m_end = other.m_begin;
     other.m_capacity_end = other.m_begin + OtherN;
+    UPDATE_VECTOR_SIZE(this);
+    UPDATE_VECTOR_SIZE(&other);
   }
 
   ~Vector()
@@ -247,6 +258,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   {
     destruct_n(m_begin, this->size());
     m_end = m_begin;
+    UPDATE_VECTOR_SIZE(this);
   }
 
   /**
@@ -263,6 +275,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     m_begin = this->small_buffer();
     m_end = m_begin;
     m_capacity_end = m_begin + N;
+    UPDATE_VECTOR_SIZE(this);
   }
 
   /**
@@ -286,6 +299,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     BLI_assert(m_end < m_capacity_end);
     new (m_end) T(value);
     m_end++;
+    UPDATE_VECTOR_SIZE(this);
   }
 
   void append_unchecked(T &&value)
@@ -293,6 +307,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     BLI_assert(m_end < m_capacity_end);
     new (m_end) T(std::move(value));
     m_end++;
+    UPDATE_VECTOR_SIZE(this);
   }
 
   /**
@@ -310,6 +325,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   {
     BLI_assert(m_end + n <= m_capacity_end);
     m_end += n;
+    UPDATE_VECTOR_SIZE(this);
   }
 
   /**
@@ -336,6 +352,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     BLI_assert(m_begin + amount <= m_capacity_end);
     BLI::uninitialized_copy_n(start, amount, m_end);
     m_end += amount;
+    UPDATE_VECTOR_SIZE(this);
   }
 
   /**
@@ -372,6 +389,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    */
   uint size() const
   {
+    BLI_assert(m_debug_size == m_end - m_begin);
     return m_end - m_begin;
   }
 
@@ -392,6 +410,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     BLI_assert(!this->empty());
     m_end--;
     destruct(m_end);
+    UPDATE_VECTOR_SIZE(this);
   }
 
   /**
@@ -403,6 +422,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     m_end--;
     T value = *m_end;
     destruct(m_end);
+    UPDATE_VECTOR_SIZE(this);
     return value;
   }
 
@@ -419,6 +439,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
       *element_to_remove = *m_end;
     }
     destruct(m_end);
+    UPDATE_VECTOR_SIZE(this);
   }
 
   /**
@@ -571,8 +592,11 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     m_capacity_end = m_begin + capacity;
 
     uninitialized_copy(other.begin(), other.end(), m_begin);
+    UPDATE_VECTOR_SIZE(this);
   }
 };
+
+#undef UPDATE_VECTOR_SIZE
 
 template<typename T, uint N = 4> using TemporaryVector = Vector<T, N, TemporaryAllocator>;
 
