@@ -21,11 +21,12 @@ class UnlinkedInputsInserter {
                       MutableArrayRef<BuilderOutputSocket *> r_new_origins) = 0;
 };
 
-ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree);
+ValueOrError<std::unique_ptr<VTreeDataGraph>> generate_graph(VirtualNodeTree &vtree);
 
-ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree,
-                                            UnlinkedInputsGrouper &inputs_grouper,
-                                            UnlinkedInputsInserter &inputs_inserter);
+ValueOrError<std::unique_ptr<VTreeDataGraph>> generate_graph(
+    VirtualNodeTree &vtree,
+    UnlinkedInputsGrouper &inputs_grouper,
+    UnlinkedInputsInserter &inputs_inserter);
 
 }  // namespace DataFlowNodes
 }  // namespace FN

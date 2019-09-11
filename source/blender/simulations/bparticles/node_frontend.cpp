@@ -637,7 +637,7 @@ static void collect_particle_behaviors(
   if (data_graph_or_error.is_error()) {
     return;
   }
-  VTreeDataGraph vtree_data_graph = data_graph_or_error.extract_value();
+  std::unique_ptr<VTreeDataGraph> vtree_data_graph = data_graph_or_error.extract_value();
 
   StringMap<ParseNodeCallback> &parsers = get_node_parsers();
 
@@ -653,7 +653,7 @@ static void collect_particle_behaviors(
     StringRef idname = vnode->idname();
     ParseNodeCallback *callback = parsers.lookup_ptr(idname);
     if (callback != nullptr) {
-      (*callback)(collector, vtree_data_graph, world_transition, vnode);
+      (*callback)(collector, *vtree_data_graph, world_transition, vnode);
     }
   }
 

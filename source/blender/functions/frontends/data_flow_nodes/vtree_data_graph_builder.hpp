@@ -29,7 +29,7 @@ class VTreeDataGraphBuilder {
  public:
   VTreeDataGraphBuilder(VirtualNodeTree &vtree);
 
-  VTreeDataGraph build();
+  std::unique_ptr<VTreeDataGraph> build();
 
   Vector<BuilderSocket *> &socket_map()
   {

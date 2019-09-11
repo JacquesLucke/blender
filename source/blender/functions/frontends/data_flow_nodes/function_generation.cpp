@@ -34,18 +34,18 @@ static void find_interface_sockets(VirtualNodeTree &vtree,
 
 static ValueOrError<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree)
 {
-  ValueOrError<VTreeDataGraph> data_graph_or_error = generate_graph(vtree);
+  auto data_graph_or_error = generate_graph(vtree);
   if (data_graph_or_error.is_error()) {
     return data_graph_or_error.error();
   }
 
-  VTreeDataGraph data_graph = data_graph_or_error.extract_value();
+  std::unique_ptr<VTreeDataGraph> data_graph = data_graph_or_error.extract_value();
 
   SetVector<DataSocket> input_sockets;
   SetVector<DataSocket> output_sockets;
-  find_interface_sockets(vtree, data_graph, input_sockets, output_sockets);
+  find_interface_sockets(vtree, *data_graph, input_sockets, output_sockets);
 
-  return FunctionGraph(data_graph.graph(), input_sockets, output_sockets);
+  return FunctionGraph(data_graph->graph(), input_sockets, output_sockets);
 }
 
 ValueOrError<SharedFunction> generate_function(bNodeTree *btree)

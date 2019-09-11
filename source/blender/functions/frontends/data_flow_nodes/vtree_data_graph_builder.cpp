@@ -47,7 +47,7 @@ BLI_NOINLINE void VTreeDataGraphBuilder::initialize_type_by_vsocket_map()
   }
 }
 
-VTreeDataGraph VTreeDataGraphBuilder::build()
+std::unique_ptr<VTreeDataGraph> VTreeDataGraphBuilder::build()
 {
   auto data_graph = m_graph_builder.build();
 
@@ -66,7 +66,8 @@ VTreeDataGraph VTreeDataGraphBuilder::build()
     }
   }
 
-  return VTreeDataGraph(std::move(data_graph), std::move(r_socket_map));
+  auto *vtree = new VTreeDataGraph(m_vtree, std::move(data_graph), std::move(r_socket_map));
+  return std::unique_ptr<VTreeDataGraph>(vtree);
 }
 
 class NodeSource : public SourceInfo {

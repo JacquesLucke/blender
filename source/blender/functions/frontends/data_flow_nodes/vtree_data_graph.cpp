@@ -7,6 +7,13 @@ namespace DataFlowNodes {
 
 using BLI::Stack;
 
+VTreeDataGraph::VTreeDataGraph(VirtualNodeTree &vtree,
+                               SharedDataGraph graph,
+                               Vector<DataSocket> mapping)
+    : m_vtree(vtree), m_graph(std::move(graph)), m_socket_map(std::move(mapping))
+{
+}
+
 Vector<VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(
     ArrayRef<VirtualSocket *> vsockets)
 {

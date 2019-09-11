@@ -69,16 +69,17 @@ static bool insert_unlinked_inputs(VTreeDataGraphBuilder &builder,
   return true;
 }
 
-ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree)
+ValueOrError<std::unique_ptr<VTreeDataGraph>> generate_graph(VirtualNodeTree &vtree)
 {
   GroupByNodeUsage inputs_grouper;
   ConstantInputsHandler inputs_inserter;
   return generate_graph(vtree, inputs_grouper, inputs_inserter);
 }
 
-ValueOrError<VTreeDataGraph> generate_graph(VirtualNodeTree &vtree,
-                                            UnlinkedInputsGrouper &inputs_grouper,
-                                            UnlinkedInputsInserter &inputs_inserter)
+ValueOrError<std::unique_ptr<VTreeDataGraph>> generate_graph(
+    VirtualNodeTree &vtree,
+    UnlinkedInputsGrouper &inputs_grouper,
+    UnlinkedInputsInserter &inputs_inserter)
 {
   VTreeDataGraphBuilder builder(vtree);
 
