@@ -63,4 +63,9 @@ void SizeOverTimeHandler::execute(OffsetHandlerInterface &interface)
   }
 }
 
+void AlwaysExecuteHandler::execute(OffsetHandlerInterface &interface)
+{
+  m_action->execute_from_offset_handler(interface);
+}
+
 }  // namespace BParticles

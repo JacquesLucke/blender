@@ -93,6 +93,8 @@ class Action {
                             const BuildContextF &build_context);
   void execute_from_event(EventExecuteInterface &event_interface,
                           ActionContext *action_context = nullptr);
+  void execute_from_offset_handler(OffsetHandlerInterface &offset_handler_interface,
+                                   ActionContext *action_context = nullptr);
   void execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface);
   void execute_for_new_particles(AttributesRefGroup &new_particles,
                                  ActionInterface &action_interface,
@@ -172,6 +174,28 @@ inline void Action::execute_from_event(EventExecuteInterface &event_interface,
                                    event_interface.attribute_offsets(),
                                    event_interface.current_times(),
                                    event_interface.remaining_durations(),
+                                   used_action_context);
+  this->execute(action_interface);
+}
+
+inline void Action::execute_from_offset_handler(OffsetHandlerInterface &offset_handler_interface,
+                                                ActionContext *action_context)
+{
+  EmptyActionContext empty_action_context;
+  ActionContext &used_action_context = (action_context == nullptr) ? empty_action_context :
+                                                                     *action_context;
+
+  TemporaryArray<float> current_times(offset_handler_interface.array_size());
+  for (uint pindex : offset_handler_interface.pindices()) {
+    current_times[pindex] = offset_handler_interface.time_span(pindex).start();
+  }
+
+  ActionInterface action_interface(offset_handler_interface.particle_allocator(),
+                                   offset_handler_interface.pindices(),
+                                   offset_handler_interface.attributes(),
+                                   offset_handler_interface.attribute_offsets(),
+                                   current_times,
+                                   offset_handler_interface.remaining_durations(),
                                    used_action_context);
   this->execute(action_interface);
 }

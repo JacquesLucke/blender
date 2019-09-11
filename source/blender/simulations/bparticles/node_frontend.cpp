@@ -650,6 +650,20 @@ static void PARSE_custom_event(BehaviorCollector &collector,
   }
 }
 
+static void PARSE_always_execute(BehaviorCollector &collector,
+                                 VTreeDataGraph &vtree_data_graph,
+                                 WorldTransition &UNUSED(world_transition),
+                                 VirtualNode *vnode)
+{
+  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Type"));
+  for (std::string &type_name : type_names) {
+    auto action = build_action_list(vtree_data_graph, vnode, "Execute");
+
+    OffsetHandler *handler = new AlwaysExecuteHandler(std::move(action));
+    collector.m_offset_handlers.add(type_name, handler);
+  }
+}
+
 BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
 {
   StringMap<ParseNodeCallback> map;
@@ -665,6 +679,7 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   map.add_new("bp_DragForceNode", PARSE_drag_force);
   map.add_new("bp_MeshForceNode", PARSE_mesh_force);
   map.add_new("bp_CustomEventNode", PARSE_custom_event);
+  map.add_new("bp_AlwaysExecuteNode", PARSE_always_execute);
   return map;
 }
 

@@ -37,4 +37,16 @@ class SizeOverTimeHandler : public OffsetHandler {
   void execute(OffsetHandlerInterface &interface) override;
 };
 
+class AlwaysExecuteHandler : public OffsetHandler {
+ private:
+  std::unique_ptr<Action> m_action;
+
+ public:
+  AlwaysExecuteHandler(std::unique_ptr<Action> action) : m_action(std::move(action))
+  {
+  }
+
+  void execute(OffsetHandlerInterface &interface) override;
+};
+
 }  // namespace BParticles
