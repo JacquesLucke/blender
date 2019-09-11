@@ -36,7 +36,8 @@ ParticleFunction::ParticleFunction(SharedFunction fn_no_deps,
   }
 
   if (m_fn_with_deps->output_amount() > 0) {
-    m_array_execution = FN::Functions::get_precompiled_array_execution(m_fn_with_deps);
+    // m_array_execution = FN::Functions::get_precompiled_array_execution(m_fn_with_deps);
+    m_array_execution = FN::Functions::get_tuple_call_array_execution(m_fn_with_deps);
   }
 }
 

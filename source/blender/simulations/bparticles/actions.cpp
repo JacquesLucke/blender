@@ -105,6 +105,17 @@ void ChangeSizeAction::execute(ActionInterface &interface)
   }
 }
 
+void ChangePositionAction::execute(ActionInterface &interface)
+{
+  auto positions = interface.attributes().get<float3>("Position");
+
+  auto inputs = m_compute_inputs->compute(interface);
+  for (uint pindex : interface.pindices()) {
+    float3 position = inputs->get<float3>("Position", 0, pindex);
+    positions[pindex] = position;
+  }
+}
+
 void KillAction::execute(ActionInterface &interface)
 {
   interface.kill(interface.pindices());
