@@ -385,6 +385,7 @@ static bool rna_BrushCapabilitiesSculpt_has_direction_get(PointerRNA *ptr)
   Brush *br = (Brush *)ptr->data;
   return !ELEM(br->sculpt_tool,
                SCULPT_TOOL_DRAW,
+               SCULPT_TOOL_DRAW_SHARP,
                SCULPT_TOOL_CLAY,
                SCULPT_TOOL_CLAY_STRIPS,
                SCULPT_TOOL_LAYER,
@@ -648,6 +649,7 @@ static const EnumPropertyItem *rna_Brush_direction_itemf(bContext *C,
     case PAINT_MODE_SCULPT:
       switch (me->sculpt_tool) {
         case SCULPT_TOOL_DRAW:
+        case SCULPT_TOOL_DRAW_SHARP:
         case SCULPT_TOOL_CREASE:
         case SCULPT_TOOL_BLOB:
         case SCULPT_TOOL_LAYER:
@@ -1982,6 +1984,14 @@ static void rna_def_brush(BlenderRNA *brna)
   RNA_def_property_enum_items(prop, brush_spacing_unit_items);
   RNA_def_property_ui_text(
       prop, "Spacing distance", "Calculate the brush spacing using view or scene distance");
+  RNA_def_property_update(prop, 0, "rna_Brush_update");
+
+  prop = RNA_def_property(srna, "use_grab_active_vertex", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", BRUSH_GRAB_ACTIVE_VERTEX);
+  RNA_def_property_ui_text(
+      prop,
+      "Grab Active Vertex",
+      "Apply the maximum grab strength to the active vertex instead of the cursor location");
   RNA_def_property_update(prop, 0, "rna_Brush_update");
 
   prop = RNA_def_property(srna, "use_pressure_strength", PROP_BOOLEAN, PROP_NONE);
