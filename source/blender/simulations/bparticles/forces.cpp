@@ -12,7 +12,7 @@ void GravityForce::add_force(ForceInterface &interface)
 {
   MutableArrayRef<float3> destination = interface.combined_destination();
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
 
   TemporaryArray<float> weights(destination.size());
   m_falloff->compute(interface.attributes(), interface.pindices(), weights);
@@ -29,7 +29,7 @@ void TurbulenceForce::add_force(ForceInterface &interface)
   MutableArrayRef<float3> destination = interface.combined_destination();
   auto positions = interface.attributes().get<float3>("Position");
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
 
   TemporaryArray<float> weights(destination.size());
   m_falloff->compute(interface.attributes(), interface.pindices(), weights);
@@ -50,7 +50,7 @@ void DragForce::add_force(ForceInterface &interface)
   MutableArrayRef<float3> destination = interface.combined_destination();
   auto velocities = interface.attributes().get<float3>("Velocity");
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
 
   TemporaryArray<float> weights(destination.size());
   m_falloff->compute(interface.attributes(), interface.pindices(), weights);
@@ -68,7 +68,7 @@ void MeshForce::add_force(ForceInterface &interface)
   MutableArrayRef<float3> destination = interface.combined_destination();
   auto positions = interface.attributes().get<float3>("Position");
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
 
   for (uint pindex : interface.pindices()) {
     float3 position = positions[pindex];

@@ -55,7 +55,7 @@ void SetVelocityAction::execute(ActionInterface &interface)
 {
   auto velocities = interface.attributes().get<float3>("Velocity");
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
 
   for (uint pindex : interface.pindices()) {
     float3 velocity = inputs->get<float3>("Velocity", 0, pindex);
@@ -69,7 +69,7 @@ void RandomizeVelocityAction::execute(ActionInterface &interface)
 {
   auto velocities = interface.attributes().get<float3>("Velocity");
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
 
   for (uint pindex : interface.pindices()) {
     float randomness = inputs->get<float>("Randomness", 0, pindex);
@@ -87,7 +87,7 @@ void ChangeColorAction::execute(ActionInterface &interface)
 {
   auto colors = interface.attributes().get<rgba_f>("Color");
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
   for (uint pindex : interface.pindices()) {
     rgba_f color = inputs->get<rgba_f>("Color", 0, pindex);
     colors[pindex] = color;
@@ -98,7 +98,7 @@ void ChangeSizeAction::execute(ActionInterface &interface)
 {
   auto sizes = interface.attributes().get<float>("Size");
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
   for (uint pindex : interface.pindices()) {
     float size = inputs->get<float>("Size", 0, pindex);
     sizes[pindex] = size;
@@ -109,7 +109,7 @@ void ChangePositionAction::execute(ActionInterface &interface)
 {
   auto positions = interface.attributes().get<float3>("Position");
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
   for (uint pindex : interface.pindices()) {
     float3 position = inputs->get<float3>("Position", 0, pindex);
     positions[pindex] = position;
@@ -130,7 +130,7 @@ void ExplodeAction::execute(ActionInterface &interface)
   Vector<float> new_birth_times;
   Vector<uint> source_particles;
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
 
   for (uint pindex : interface.pindices()) {
     uint parts_amount = std::max(0, inputs->get<int>("Amount", 0, pindex));
@@ -160,7 +160,7 @@ void ExplodeAction::execute(ActionInterface &interface)
 
 void ConditionAction::execute(ActionInterface &interface)
 {
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
 
   Vector<uint> true_pindices, false_pindices;
   for (uint pindex : interface.pindices()) {

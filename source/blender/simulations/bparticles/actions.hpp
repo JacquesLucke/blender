@@ -27,11 +27,10 @@ class KillAction : public Action {
 
 class SetVelocityAction : public Action {
  private:
-  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  ParticleFunction *m_inputs_fn;
 
  public:
-  SetVelocityAction(std::unique_ptr<ParticleFunction> compute_inputs)
-      : m_compute_inputs(std::move(compute_inputs))
+  SetVelocityAction(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
   {
   }
 
@@ -40,11 +39,10 @@ class SetVelocityAction : public Action {
 
 class RandomizeVelocityAction : public Action {
  private:
-  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  ParticleFunction *m_inputs_fn;
 
  public:
-  RandomizeVelocityAction(std::unique_ptr<ParticleFunction> compute_inputs)
-      : m_compute_inputs(std::move(compute_inputs))
+  RandomizeVelocityAction(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
   {
   }
 
@@ -53,11 +51,10 @@ class RandomizeVelocityAction : public Action {
 
 class ChangeColorAction : public Action {
  private:
-  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  ParticleFunction *m_inputs_fn;
 
  public:
-  ChangeColorAction(std::unique_ptr<ParticleFunction> compute_inputs)
-      : m_compute_inputs(std::move(compute_inputs))
+  ChangeColorAction(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
   {
   }
 
@@ -66,11 +63,10 @@ class ChangeColorAction : public Action {
 
 class ChangeSizeAction : public Action {
  private:
-  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  ParticleFunction *m_inputs_fn;
 
  public:
-  ChangeSizeAction(std::unique_ptr<ParticleFunction> compute_inputs)
-      : m_compute_inputs(std::move(compute_inputs))
+  ChangeSizeAction(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
   {
   }
 
@@ -79,11 +75,10 @@ class ChangeSizeAction : public Action {
 
 class ChangePositionAction : public Action {
  private:
-  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  ParticleFunction *m_inputs_fn;
 
  public:
-  ChangePositionAction(std::unique_ptr<ParticleFunction> compute_inputs)
-      : m_compute_inputs(std::move(compute_inputs))
+  ChangePositionAction(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
   {
   }
 
@@ -93,15 +88,15 @@ class ChangePositionAction : public Action {
 class ExplodeAction : public Action {
  private:
   Vector<std::string> m_types_to_emit;
-  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  ParticleFunction *m_inputs_fn;
   std::unique_ptr<Action> m_on_birth_action;
 
  public:
   ExplodeAction(Vector<std::string> types_to_emit,
-                std::unique_ptr<ParticleFunction> compute_inputs,
+                ParticleFunction *inputs_fn,
                 std::unique_ptr<Action> on_birth_action)
       : m_types_to_emit(std::move(types_to_emit)),
-        m_compute_inputs(std::move(compute_inputs)),
+        m_inputs_fn(inputs_fn),
         m_on_birth_action(std::move(on_birth_action))
   {
   }
@@ -111,14 +106,14 @@ class ExplodeAction : public Action {
 
 class ConditionAction : public Action {
  private:
-  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  ParticleFunction *m_inputs_fn;
   std::unique_ptr<Action> m_true_action, m_false_action;
 
  public:
-  ConditionAction(std::unique_ptr<ParticleFunction> compute_inputs,
+  ConditionAction(ParticleFunction *inputs_fn,
                   std::unique_ptr<Action> true_action,
                   std::unique_ptr<Action> false_action)
-      : m_compute_inputs(std::move(compute_inputs)),
+      : m_inputs_fn(inputs_fn),
         m_true_action(std::move(true_action)),
         m_false_action(std::move(false_action))
   {

@@ -7,7 +7,7 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
   auto positions = interface.attributes().get<float3>("Position");
   auto position_offsets = interface.attribute_offsets().get<float3>("Position");
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
 
   Vector<float3> new_positions;
   Vector<float> new_birth_times;
@@ -44,7 +44,7 @@ void SizeOverTimeHandler::execute(OffsetHandlerInterface &interface)
   auto birth_times = interface.attributes().get<float>("Birth Time");
   auto sizes = interface.attributes().get<float>("Size");
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
 
   for (uint pindex : interface.pindices()) {
     float final_size = inputs->get<float>("Final Size", 0, pindex);

@@ -23,6 +23,11 @@ class VTreeDataGraph {
  public:
   VTreeDataGraph(VirtualNodeTree &vtree, SharedDataGraph graph, Array<DataSocket> mapping);
 
+  VirtualNodeTree &vtree()
+  {
+    return m_vtree;
+  }
+
   SharedDataGraph &graph()
   {
     return m_graph;

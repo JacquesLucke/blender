@@ -24,12 +24,12 @@ class Force {
 
 class GravityForce : public Force {
  private:
-  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  ParticleFunction *m_inputs_fn;
   std::unique_ptr<Falloff> m_falloff;
 
  public:
-  GravityForce(std::unique_ptr<ParticleFunction> compute_inputs, std::unique_ptr<Falloff> falloff)
-      : m_compute_inputs(std::move(compute_inputs)), m_falloff(std::move(falloff))
+  GravityForce(ParticleFunction *inputs_fn, std::unique_ptr<Falloff> falloff)
+      : m_inputs_fn(inputs_fn), m_falloff(std::move(falloff))
   {
   }
 
@@ -38,13 +38,12 @@ class GravityForce : public Force {
 
 class TurbulenceForce : public Force {
  private:
-  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  ParticleFunction *m_inputs_fn;
   std::unique_ptr<Falloff> m_falloff;
 
  public:
-  TurbulenceForce(std::unique_ptr<ParticleFunction> compute_inputs,
-                  std::unique_ptr<Falloff> falloff)
-      : m_compute_inputs(std::move(compute_inputs)), m_falloff(std::move(falloff))
+  TurbulenceForce(ParticleFunction *inputs_fn, std::unique_ptr<Falloff> falloff)
+      : m_inputs_fn(inputs_fn), m_falloff(std::move(falloff))
   {
   }
 
@@ -53,12 +52,12 @@ class TurbulenceForce : public Force {
 
 class DragForce : public Force {
  private:
-  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  ParticleFunction *m_inputs_fn;
   std::unique_ptr<Falloff> m_falloff;
 
  public:
-  DragForce(std::unique_ptr<ParticleFunction> compute_inputs, std::unique_ptr<Falloff> falloff)
-      : m_compute_inputs(std::move(compute_inputs)), m_falloff(std::move(falloff))
+  DragForce(ParticleFunction *inputs_fn, std::unique_ptr<Falloff> falloff)
+      : m_inputs_fn(inputs_fn), m_falloff(std::move(falloff))
   {
   }
 
@@ -67,15 +66,14 @@ class DragForce : public Force {
 
 class MeshForce : public Force {
  private:
-  std::unique_ptr<ParticleFunction> m_compute_inputs;
+  ParticleFunction *m_inputs_fn;
   Object *m_object;
   BVHTreeFromMesh m_bvhtree_data;
   float4x4 m_local_to_world;
   float4x4 m_world_to_local;
 
  public:
-  MeshForce(std::unique_ptr<ParticleFunction> compute_inputs, Object *object)
-      : m_compute_inputs(std::move(compute_inputs)), m_object(object)
+  MeshForce(ParticleFunction *inputs_fn, Object *object) : m_inputs_fn(inputs_fn), m_object(object)
   {
     BLI_assert(object->type == OB_MESH);
     m_local_to_world = m_object->obmat;

@@ -19,7 +19,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
   AttributesRef attributes = interface.attributes();
   auto ids = attributes.get<int32_t>("ID");
 
-  auto inputs = m_compute_inputs->compute(interface);
+  auto inputs = m_inputs_fn->compute(interface);
 
   TemporaryArray<float> trigger_ages(attributes.size());
   for (uint pindex : interface.pindices()) {
@@ -90,7 +90,7 @@ void CustomEvent::filter(EventFilterInterface &interface)
     }
   }
 
-  auto inputs = m_compute_inputs->compute(
+  auto inputs = m_inputs_fn->compute(
       pindices_to_check,
       interface.attributes(),
       ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
