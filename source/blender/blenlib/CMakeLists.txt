@@ -239,14 +239,14 @@ set(SRC
   BLI_chained_strings.h
   BLI_lazy_init.h
   BLI_lazy_init_cxx.h
-  intern/BLI_lazy_init.cpp
+  intern/BLI_lazy_init.cc
   BLI_listbase_wrapper.h
   BLI_math_cxx.h
   BLI_monotonic_allocator.h
   BLI_object_pool.h
   BLI_optional.h
   BLI_index_range.h
-  intern/BLI_index_range.cpp
+  intern/BLI_index_range.cc
   BLI_refcount.h
   BLI_vector.h
   BLI_map.h
@@ -260,7 +260,7 @@ set(SRC
   BLI_string_ref.h
   BLI_temporary_allocator.h
   BLI_temporary_allocator_cxx.h
-  intern/BLI_temporary_allocator.cpp
+  intern/BLI_temporary_allocator.cc
   BLI_timeit.h
   BLI_vector_adaptor.h
   BLI_multi_vector.h
