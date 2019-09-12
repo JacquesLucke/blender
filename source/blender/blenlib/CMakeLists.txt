@@ -248,33 +248,22 @@ set(SRC
   PIL_time.h
   PIL_time_utildefines.h
 
-  BLI_array_cxx.h
-  BLI_array_ref.h
   BLI_chained_strings.h
   BLI_lazy_init.h
   BLI_lazy_init_cxx.h
   intern/BLI_lazy_init.cc
-  BLI_listbase_wrapper.h
   BLI_math_cxx.h
   BLI_monotonic_allocator.h
   BLI_object_pool.h
   BLI_optional.h
-  BLI_index_range.h
-  intern/BLI_index_range.cc
   BLI_refcount.h
-  BLI_vector.h
   BLI_map.h
-  BLI_memory_utils_cxx.h
   BLI_multi_map.h
   BLI_set.h
   BLI_set_vector.h
-  BLI_stack_cxx.h
   BLI_chunked_range.h
   BLI_string_map.h
   BLI_string_ref.h
-  BLI_temporary_allocator.h
-  BLI_temporary_allocator_cxx.h
-  intern/BLI_temporary_allocator.cc
   BLI_timeit.h
   BLI_vector_adaptor.h
   BLI_multi_vector.h
