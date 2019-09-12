@@ -1,5 +1,5 @@
 #include "testing/testing.h"
-#include "BLI_array_ref.hpp"
+#include "BLI_array_ref.h"
 #include "BLI_vector.h"
 
 using BLI::IndexRange;

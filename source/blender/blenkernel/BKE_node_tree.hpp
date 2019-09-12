@@ -2,13 +2,13 @@
 
 #include "DNA_node_types.h"
 
-#include "BLI_string_ref.hpp"
-#include "BLI_array_ref.hpp"
-#include "BLI_map.hpp"
+#include "BLI_string_ref.h"
+#include "BLI_array_ref.h"
+#include "BLI_map.h"
 #include "BLI_vector.h"
-#include "BLI_listbase_wrapper.hpp"
-#include "BLI_multi_map.hpp"
-#include "BLI_monotonic_allocator.hpp"
+#include "BLI_listbase_wrapper.h"
+#include "BLI_multi_map.h"
+#include "BLI_monotonic_allocator.h"
 
 #include "RNA_access.h"
 

@@ -2,7 +2,7 @@
 
 #include <functional>
 
-#include "BLI_string_map.hpp"
+#include "BLI_string_map.h"
 #include "FN_tuple_call.hpp"
 #include "BKE_node_tree.hpp"
 

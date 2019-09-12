@@ -1,6 +1,6 @@
 #include "BKE_falloff.hpp"
 
-#include "BLI_array.hpp"
+#include "BLI_array_cxx.h"
 
 namespace BKE {
 

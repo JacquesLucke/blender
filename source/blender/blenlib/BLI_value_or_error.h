@@ -27,7 +27,7 @@
 #pragma once
 
 #include <string>
-#include "BLI_optional.hpp"
+#include "BLI_optional.h"
 
 namespace BLI {
 

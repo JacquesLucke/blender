@@ -6,8 +6,8 @@
  * graph.
  */
 
-#include "BLI_set_vector.hpp"
-#include "BLI_set.hpp"
+#include "BLI_set_vector.h"
+#include "BLI_set.h"
 
 #include "data_graph.hpp"
 

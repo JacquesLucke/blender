@@ -25,9 +25,9 @@
 #include <mutex>
 
 #include "BLI_task.h"
-#include "BLI_array_ref.hpp"
-#include "BLI_map.hpp"
-#include "BLI_chunked_range.hpp"
+#include "BLI_array_ref.h"
+#include "BLI_map.h"
+#include "BLI_chunked_range.h"
 
 namespace BLI {
 namespace Task {

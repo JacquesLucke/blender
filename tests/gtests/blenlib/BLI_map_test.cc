@@ -1,6 +1,6 @@
 #include "testing/testing.h"
-#include "BLI_map.hpp"
-#include "BLI_set.hpp"
+#include "BLI_map.h"
+#include "BLI_set.h"
 
 using IntFloatMap = BLI::Map<int, float>;
 

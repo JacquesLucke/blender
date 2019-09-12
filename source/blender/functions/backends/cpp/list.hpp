@@ -1,8 +1,8 @@
 #pragma once
 
 #include "tuple.hpp"
-#include "BLI_refcount.hpp"
-#include "BLI_utility_mixins.hpp"
+#include "BLI_refcount.h"
+#include "BLI_utility_mixins.h"
 
 namespace FN {
 

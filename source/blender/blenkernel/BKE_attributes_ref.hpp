@@ -28,14 +28,14 @@
 
 #include <string>
 
-#include "BLI_array_ref.hpp"
-#include "BLI_math.hpp"
-#include "BLI_optional.hpp"
-#include "BLI_index_range.hpp"
-#include "BLI_set_vector.hpp"
-#include "BLI_set.hpp"
-#include "BLI_string_map.hpp"
-#include "BLI_string_ref.hpp"
+#include "BLI_array_ref.h"
+#include "BLI_math_cxx.h"
+#include "BLI_optional.h"
+#include "BLI_index_range.h"
+#include "BLI_set_vector.h"
+#include "BLI_set.h"
+#include "BLI_string_map.h"
+#include "BLI_string_ref.h"
 #include "BLI_vector.h"
 
 namespace BKE {

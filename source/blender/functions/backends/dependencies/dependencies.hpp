@@ -2,7 +2,7 @@
 
 #include "FN_core.hpp"
 
-#include "BLI_multi_map.hpp"
+#include "BLI_multi_map.h"
 
 struct ID;
 struct Object;

@@ -1,5 +1,5 @@
 #include "testing/testing.h"
-#include "BLI_lazy_init.hpp"
+#include "BLI_lazy_init_cxx.h"
 
 BLI_LAZY_INIT(void *, get_single_pointer)
 {

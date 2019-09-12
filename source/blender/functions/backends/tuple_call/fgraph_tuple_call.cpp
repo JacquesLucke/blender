@@ -1,7 +1,7 @@
 #include "FN_llvm.hpp"
 #include "FN_tuple_call.hpp"
 
-#include "BLI_vector_adaptor.hpp"
+#include "BLI_vector_adaptor.h"
 
 namespace FN {
 

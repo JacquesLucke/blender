@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include "BLI_map.hpp"
-#include "BLI_string_ref.hpp"
+#include "BLI_map.h"
+#include "BLI_string_ref.h"
 #include "BLI_vector.h"
 
 namespace BLI {

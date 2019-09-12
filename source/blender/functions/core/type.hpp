@@ -21,10 +21,10 @@
 
 #include <string>
 #include <mutex>
-#include "BLI_refcount.hpp"
-#include "BLI_string_ref.hpp"
+#include "BLI_refcount.h"
+#include "BLI_string_ref.h"
 #include "MEM_guardedalloc.h"
-#include "BLI_utility_mixins.hpp"
+#include "BLI_utility_mixins.h"
 
 namespace FN {
 

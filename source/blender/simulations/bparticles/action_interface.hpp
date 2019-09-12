@@ -1,7 +1,7 @@
 #pragma once
 
 #include "FN_tuple_call.hpp"
-#include "BLI_array.hpp"
+#include "BLI_array_cxx.h"
 
 #include "particle_allocator.hpp"
 #include "emitter_interface.hpp"

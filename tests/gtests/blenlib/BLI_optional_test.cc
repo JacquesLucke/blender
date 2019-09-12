@@ -1,5 +1,5 @@
 #include "testing/testing.h"
-#include "BLI_optional.hpp"
+#include "BLI_optional.h"
 #include <string>
 
 using namespace BLI;

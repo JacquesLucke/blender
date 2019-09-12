@@ -234,39 +234,39 @@ set(SRC
   PIL_time.h
   PIL_time_utildefines.h
 
-  BLI_array.hpp
-  BLI_array_ref.hpp
-  BLI_chained_strings.hpp
+  BLI_array_cxx.h
+  BLI_array_ref.h
+  BLI_chained_strings.h
   BLI_lazy_init.h
-  BLI_lazy_init.hpp
+  BLI_lazy_init_cxx.h
   intern/BLI_lazy_init.cpp
-  BLI_listbase_wrapper.hpp
-  BLI_math.hpp
-  BLI_monotonic_allocator.hpp
-  BLI_object_pool.hpp
-  BLI_optional.hpp
-  BLI_index_range.hpp
+  BLI_listbase_wrapper.h
+  BLI_math_cxx.h
+  BLI_monotonic_allocator.h
+  BLI_object_pool.h
+  BLI_optional.h
+  BLI_index_range.h
   intern/BLI_index_range.cpp
-  BLI_refcount.hpp
+  BLI_refcount.h
   BLI_vector.h
-  BLI_map.hpp
-  BLI_memory.hpp
-  BLI_multi_map.hpp
-  BLI_set.hpp
-  BLI_set_vector.hpp
-  BLI_stack.hpp
-  BLI_chunked_range.hpp
-  BLI_string_map.hpp
-  BLI_string_ref.hpp
+  BLI_map.h
+  BLI_memory.h
+  BLI_multi_map.h
+  BLI_set.h
+  BLI_set_vector.h
+  BLI_stack_cxx.h
+  BLI_chunked_range.h
+  BLI_string_map.h
+  BLI_string_ref.h
   BLI_temporary_allocator.h
-  BLI_temporary_allocator.hpp
+  BLI_temporary_allocator_cxx.h
   intern/BLI_temporary_allocator.cpp
-  BLI_timeit.hpp
-  BLI_vector_adaptor.hpp
-  BLI_multi_vector.hpp
-  BLI_open_addressing.hpp
+  BLI_timeit.h
+  BLI_vector_adaptor.h
+  BLI_multi_vector.h
+  BLI_open_addressing.h
   BLI_hash.hpp
-  BLI_utility_mixins.hpp
+  BLI_utility_mixins.h
 )
 
 set(LIB

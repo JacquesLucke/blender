@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BLI_vector_adaptor.hpp"
+#include "BLI_vector_adaptor.h"
 
 #include "function.hpp"
 #include "source_info.hpp"

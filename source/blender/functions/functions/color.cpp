@@ -1,6 +1,6 @@
 #include "FN_tuple_call.hpp"
 #include "FN_types.hpp"
-#include "BLI_lazy_init.hpp"
+#include "BLI_lazy_init_cxx.h"
 
 #include "color.hpp"
 

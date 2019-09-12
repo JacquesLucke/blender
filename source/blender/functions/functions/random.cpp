@@ -1,7 +1,7 @@
 #include "FN_types.hpp"
 #include "FN_tuple_call.hpp"
 
-#include "BLI_lazy_init.hpp"
+#include "BLI_lazy_init_cxx.h"
 #include "BLI_math_bits.h"
 
 #include "random.hpp"

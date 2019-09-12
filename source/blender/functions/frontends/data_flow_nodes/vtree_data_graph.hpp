@@ -2,8 +2,8 @@
 
 #include "FN_core.hpp"
 #include "BKE_node_tree.hpp"
-#include "BLI_value_or_error.hpp"
-#include "BLI_array.hpp"
+#include "BLI_value_or_error.h"
+#include "BLI_array_cxx.h"
 
 namespace FN {
 namespace DataFlowNodes {

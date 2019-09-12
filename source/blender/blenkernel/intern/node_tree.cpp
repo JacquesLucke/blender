@@ -1,5 +1,5 @@
 #include "BKE_node_tree.hpp"
-#include "BLI_timeit.hpp"
+#include "BLI_timeit.h"
 
 namespace BKE {
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BLI_value_or_error.hpp"
+#include "BLI_value_or_error.h"
 #include "FN_data_flow_nodes.hpp"
 
 #include "particle_function.hpp"

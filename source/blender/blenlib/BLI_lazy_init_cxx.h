@@ -33,7 +33,7 @@
 #pragma once
 
 #include <functional>
-#include <BLI_optional.hpp>
+#include <BLI_optional.h>
 
 #include "BLI_lazy_init.h"
 

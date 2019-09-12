@@ -23,9 +23,9 @@
  * an output or output has to be stored.
  */
 
-#include "BLI_index_range.hpp"
-#include "BLI_map.hpp"
-#include "BLI_monotonic_allocator.hpp"
+#include "BLI_index_range.h"
+#include "BLI_map.h"
+#include "BLI_monotonic_allocator.h"
 
 #include "function.hpp"
 #include "source_info.hpp"

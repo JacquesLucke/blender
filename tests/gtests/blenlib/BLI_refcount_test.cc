@@ -1,5 +1,5 @@
 #include "testing/testing.h"
-#include "BLI_refcount.hpp"
+#include "BLI_refcount.h"
 
 #include <iostream>
 

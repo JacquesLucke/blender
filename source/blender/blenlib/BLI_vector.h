@@ -31,11 +31,11 @@
 #include <memory>
 
 #include "BLI_utildefines.h"
-#include "BLI_memory.hpp"
-#include "BLI_array_ref.hpp"
-#include "BLI_listbase_wrapper.hpp"
+#include "BLI_memory.h"
+#include "BLI_array_ref.h"
+#include "BLI_listbase_wrapper.h"
 #include "BLI_math_base.h"
-#include "BLI_allocator.hpp"
+#include "BLI_allocator.h"
 
 #include "MEM_guardedalloc.h"
 

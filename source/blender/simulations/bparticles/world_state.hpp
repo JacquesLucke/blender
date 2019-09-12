@@ -1,9 +1,9 @@
 #pragma once
 
-#include "BLI_math.hpp"
-#include "BLI_map.hpp"
-#include "BLI_string_ref.hpp"
-#include "BLI_string_map.hpp"
+#include "BLI_math_cxx.h"
+#include "BLI_map.h"
+#include "BLI_string_ref.h"
+#include "BLI_string_map.h"
 
 namespace BParticles {
 

@@ -3,9 +3,9 @@
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 
-#include "BLI_timeit.hpp"
-#include "BLI_multi_map.hpp"
-#include "BLI_lazy_init.hpp"
+#include "BLI_timeit.h"
+#include "BLI_multi_map.h"
+#include "BLI_lazy_init_cxx.h"
 
 #include "node_frontend.hpp"
 #include "integrator.hpp"

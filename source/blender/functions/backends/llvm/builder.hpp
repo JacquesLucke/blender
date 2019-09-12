@@ -6,7 +6,7 @@
  */
 
 #include "FN_core.hpp"
-#include "BLI_math.hpp"
+#include "BLI_math_cxx.h"
 
 #include <llvm/IR/IRBuilder.h>
 

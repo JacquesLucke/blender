@@ -1,5 +1,5 @@
 #include "testing/testing.h"
-#include "BLI_set_vector.hpp"
+#include "BLI_set_vector.h"
 
 using IntSetVector = BLI::SetVector<int>;
 

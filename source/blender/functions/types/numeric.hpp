@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../FN_core.hpp"
-#include "BLI_math.hpp"
+#include "BLI_math_cxx.h"
 
 namespace FN {
 namespace Types {

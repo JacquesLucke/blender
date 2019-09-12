@@ -1,5 +1,5 @@
 #include "testing/testing.h"
-#include "BLI_chained_strings.hpp"
+#include "BLI_chained_strings.h"
 
 using BLI::ChainedStringRef;
 using BLI::ChainedStringsBuilder;

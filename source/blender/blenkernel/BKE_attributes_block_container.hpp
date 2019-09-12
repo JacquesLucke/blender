@@ -3,7 +3,7 @@
 #include <mutex>
 #include <atomic>
 
-#include "BLI_utility_mixins.hpp"
+#include "BLI_utility_mixins.h"
 
 #include "BKE_attributes_ref.hpp"
 

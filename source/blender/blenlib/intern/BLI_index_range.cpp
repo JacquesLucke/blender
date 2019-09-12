@@ -16,9 +16,9 @@
 
 #include <mutex>
 
-#include "BLI_index_range.hpp"
-#include "BLI_array_ref.hpp"
-#include "BLI_array.hpp"
+#include "BLI_index_range.h"
+#include "BLI_array_ref.h"
+#include "BLI_array_cxx.h"
 #include "BLI_vector.h"
 
 namespace BLI {

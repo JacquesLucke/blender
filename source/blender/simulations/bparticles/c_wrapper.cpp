@@ -4,8 +4,8 @@
 #include "simulation_state.hpp"
 #include "node_frontend.hpp"
 
-#include "BLI_timeit.hpp"
-#include "BLI_task.hpp"
+#include "BLI_timeit.h"
+#include "BLI_task_cxx.h"
 #include "BLI_string.h"
 
 #include "BKE_mesh.h"

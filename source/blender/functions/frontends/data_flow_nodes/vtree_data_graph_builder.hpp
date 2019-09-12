@@ -2,7 +2,7 @@
 
 #include "FN_core.hpp"
 #include "BKE_node_tree.hpp"
-#include "BLI_string_map.hpp"
+#include "BLI_string_map.h"
 
 #include "vtree_data_graph.hpp"
 #include "mappings.hpp"

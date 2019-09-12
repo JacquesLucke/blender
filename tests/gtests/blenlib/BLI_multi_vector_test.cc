@@ -1,5 +1,5 @@
 #include "testing/testing.h"
-#include "BLI_multi_vector.hpp"
+#include "BLI_multi_vector.h"
 
 using namespace BLI;
 

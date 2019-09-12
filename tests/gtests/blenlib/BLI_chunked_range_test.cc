@@ -1,6 +1,6 @@
 #include "testing/testing.h"
-#include "BLI_index_range.hpp"
-#include "BLI_chunked_range.hpp"
+#include "BLI_index_range.h"
+#include "BLI_chunked_range.h"
 #include "BLI_vector.h"
 
 using BLI::ChunkedIndexRange;

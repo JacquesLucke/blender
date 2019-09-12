@@ -33,7 +33,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_alloca.h"
-#include "BLI_array_ref.hpp"
+#include "BLI_array_ref.h"
 
 namespace BLI {
 

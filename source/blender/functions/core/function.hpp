@@ -20,8 +20,8 @@
  */
 
 #include "type.hpp"
-#include "BLI_chained_strings.hpp"
-#include "BLI_utility_mixins.hpp"
+#include "BLI_chained_strings.h"
+#include "BLI_utility_mixins.h"
 
 namespace FN {
 

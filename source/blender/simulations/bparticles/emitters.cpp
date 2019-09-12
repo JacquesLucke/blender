@@ -8,7 +8,7 @@
 #include "BKE_deform.h"
 
 #include "BLI_math_geom.h"
-#include "BLI_vector_adaptor.hpp"
+#include "BLI_vector_adaptor.h"
 
 #include "FN_types.hpp"
 

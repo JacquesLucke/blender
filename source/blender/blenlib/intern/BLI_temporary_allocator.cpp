@@ -18,7 +18,7 @@
 #include <stack>
 
 #include "BLI_temporary_allocator.h"
-#include "BLI_stack.hpp"
+#include "BLI_stack_cxx.h"
 
 using namespace BLI;
 

@@ -27,8 +27,8 @@
 
 #pragma once
 
-#include "BLI_array_ref.hpp"
-#include "BLI_vector_adaptor.hpp"
+#include "BLI_array_ref.h"
+#include "BLI_vector_adaptor.h"
 
 namespace BLI {
 

@@ -17,46 +17,40 @@
 /** \file
  * \ingroup bli
  *
- * A vector that can group consecutive elements. This is much more efficient than allocating many
- * vectors separately.
- *
- * Note: the number of elements per group cannot be changed cheaply afterwards.
+ * Utility class that represents a range that has been split up into chunks.
  */
 
 #pragma once
 
-#include "BLI_array_ref.hpp"
-#include "BLI_vector.h"
+#include "BLI_index_range.h"
 
 namespace BLI {
 
-template<typename T, uint N = 4> class MultiVector {
+class ChunkedIndexRange {
  private:
-  Vector<T, N> m_elements;
-  Vector<uint> m_starts;
+  IndexRange m_total_range;
+  uint m_chunk_size;
+  uint m_chunk_amount;
 
  public:
-  MultiVector() : m_starts({0})
+  ChunkedIndexRange(IndexRange total_range, uint chunk_size)
+      : m_total_range(total_range),
+        m_chunk_size(chunk_size),
+        m_chunk_amount(std::ceil(m_total_range.size() / (float)m_chunk_size))
   {
   }
 
-  void append(ArrayRef<T> values)
+  uint chunks() const
   {
-    m_elements.extend(values);
-    m_starts.append(m_elements.size());
+    return m_chunk_amount;
   }
 
-  uint size() const
+  IndexRange chunk_range(uint index) const
   {
-    return m_starts.size() - 1;
-  }
-
-  ArrayRef<T> operator[](uint index)
-  {
-    uint start = m_starts[index];
-    uint one_after_end = m_starts[index + 1];
-    uint size = one_after_end - start;
-    return ArrayRef<T>(m_elements.begin() + start, size);
+    BLI_assert(index < m_chunk_amount);
+    uint start = m_total_range[index * m_chunk_size];
+    uint size = std::min<uint>(m_chunk_size, m_total_range.one_after_last() - start);
+    return IndexRange(start, size);
   }
 };
 

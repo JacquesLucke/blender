@@ -34,8 +34,8 @@
 
 #include <mutex>
 
-#include "BLI_stack.hpp"
-#include "BLI_set.hpp"
+#include "BLI_stack_cxx.h"
+#include "BLI_set.h"
 
 namespace BLI {
 

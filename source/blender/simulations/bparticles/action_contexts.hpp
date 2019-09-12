@@ -1,7 +1,7 @@
 #pragma once
 
-#include "BLI_temporary_allocator.hpp"
-#include "BLI_utility_mixins.hpp"
+#include "BLI_temporary_allocator_cxx.h"
+#include "BLI_utility_mixins.h"
 
 #include "action_interface.hpp"
 

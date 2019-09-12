@@ -1,5 +1,5 @@
 #include "context_pool.hpp"
-#include "BLI_object_pool.hpp"
+#include "BLI_object_pool.h"
 
 namespace FN {
 

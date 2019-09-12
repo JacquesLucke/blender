@@ -1,4 +1,4 @@
-#include "BLI_lazy_init.hpp"
+#include "BLI_lazy_init_cxx.h"
 #include "FN_types.hpp"
 
 #include "registry.hpp"

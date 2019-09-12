@@ -1,5 +1,5 @@
 #include "testing/testing.h"
-#include "BLI_set.hpp"
+#include "BLI_set.h"
 
 using IntSet = BLI::Set<int>;
 

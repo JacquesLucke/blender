@@ -26,8 +26,8 @@
 #pragma once
 
 #include "BLI_hash.hpp"
-#include "BLI_array_ref.hpp"
-#include "BLI_open_addressing.hpp"
+#include "BLI_array_ref.h"
+#include "BLI_open_addressing.h"
 
 namespace BLI {
 

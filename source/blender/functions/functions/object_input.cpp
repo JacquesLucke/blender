@@ -3,7 +3,7 @@
 #include "FN_tuple_call.hpp"
 #include "FN_dependencies.hpp"
 
-#include "BLI_lazy_init.hpp"
+#include "BLI_lazy_init_cxx.h"
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"

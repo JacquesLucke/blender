@@ -1,9 +1,9 @@
 
-#include "BLI_lazy_init.hpp"
-#include "BLI_task.hpp"
-#include "BLI_timeit.hpp"
-#include "BLI_array.hpp"
-#include "BLI_vector_adaptor.hpp"
+#include "BLI_lazy_init_cxx.h"
+#include "BLI_task_cxx.h"
+#include "BLI_timeit.h"
+#include "BLI_array_cxx.h"
+#include "BLI_vector_adaptor.h"
 
 #include "simulate.hpp"
 #include "time_span.hpp"

@@ -5,7 +5,7 @@
 #include "FN_tuple_call.hpp"
 #include "FN_llvm.hpp"
 
-#include "BLI_lazy_init.hpp"
+#include "BLI_lazy_init_cxx.h"
 #include "BLI_ghash.h"
 
 namespace FN {

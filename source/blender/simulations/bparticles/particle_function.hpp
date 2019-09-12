@@ -2,7 +2,7 @@
 
 #include "FN_tuple_call.hpp"
 #include "FN_functions.hpp"
-#include "BLI_array.hpp"
+#include "BLI_array_cxx.h"
 
 #include "action_interface.hpp"
 #include "force_interface.hpp"

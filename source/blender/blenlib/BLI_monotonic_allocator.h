@@ -25,7 +25,7 @@
 #pragma once
 
 #include "BLI_vector.h"
-#include "BLI_utility_mixins.hpp"
+#include "BLI_utility_mixins.h"
 
 namespace BLI {
 

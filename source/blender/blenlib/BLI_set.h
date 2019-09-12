@@ -23,7 +23,7 @@
 #pragma once
 
 #include "BLI_hash.hpp"
-#include "BLI_open_addressing.hpp"
+#include "BLI_open_addressing.h"
 #include "BLI_vector.h"
 
 namespace BLI {

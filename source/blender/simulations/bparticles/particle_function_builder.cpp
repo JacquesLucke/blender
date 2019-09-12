@@ -1,5 +1,5 @@
 #include "FN_llvm.hpp"
-#include "BLI_lazy_init.hpp"
+#include "BLI_lazy_init_cxx.h"
 
 #include "particle_function_builder.hpp"
 #include "particle_function_input_providers.hpp"

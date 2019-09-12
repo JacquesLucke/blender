@@ -1,7 +1,7 @@
 #pragma once
 
 #include "FN_core.hpp"
-#include "BLI_value_or_error.hpp"
+#include "BLI_value_or_error.h"
 
 struct bNodeTree;
 

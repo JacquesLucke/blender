@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BLI_multi_vector.hpp"
+#include "BLI_multi_vector.h"
 
 #include "vtree_data_graph_builder.hpp"
 

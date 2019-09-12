@@ -12,7 +12,7 @@
  */
 
 #include "FN_core.hpp"
-#include "BLI_stack.hpp"
+#include "BLI_stack_cxx.h"
 
 namespace FN {
 

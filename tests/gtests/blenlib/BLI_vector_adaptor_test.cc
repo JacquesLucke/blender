@@ -1,5 +1,5 @@
 #include "testing/testing.h"
-#include "BLI_vector_adaptor.hpp"
+#include "BLI_vector_adaptor.h"
 #include <vector>
 
 using IntVectorAdaptor = BLI::VectorAdaptor<int>;
