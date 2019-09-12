@@ -1,6 +1,6 @@
 #include "testing/testing.h"
 #include "BLI_string_map.hpp"
-#include "BLI_vector.hpp"
+#include "BLI_vector.h"
 
 using namespace BLI;
 

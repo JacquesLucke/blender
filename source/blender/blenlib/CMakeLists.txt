@@ -248,7 +248,7 @@ set(SRC
   BLI_index_range.hpp
   intern/BLI_index_range.cpp
   BLI_refcount.hpp
-  BLI_vector.hpp
+  BLI_vector.h
   BLI_map.hpp
   BLI_memory.hpp
   BLI_multi_map.hpp

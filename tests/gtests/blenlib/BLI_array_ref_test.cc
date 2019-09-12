@@ -1,6 +1,6 @@
 #include "testing/testing.h"
 #include "BLI_array_ref.hpp"
-#include "BLI_vector.hpp"
+#include "BLI_vector.h"
 
 using BLI::IndexRange;
 using IntVector = BLI::Vector<int>;

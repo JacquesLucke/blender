@@ -22,7 +22,7 @@
 
 #include "BLI_hash.hpp"
 #include "BLI_open_addressing.hpp"
-#include "BLI_vector.hpp"
+#include "BLI_vector.h"
 
 namespace BLI {
 

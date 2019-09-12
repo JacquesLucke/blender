@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include "BLI_vector.hpp"
+#include "BLI_vector.h"
 
 namespace BLI {
 

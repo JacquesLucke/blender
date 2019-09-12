@@ -19,7 +19,7 @@
 #include "BLI_index_range.hpp"
 #include "BLI_array_ref.hpp"
 #include "BLI_array.hpp"
-#include "BLI_vector.hpp"
+#include "BLI_vector.h"
 
 namespace BLI {
 
