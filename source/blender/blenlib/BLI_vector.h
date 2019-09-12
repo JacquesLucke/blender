@@ -31,7 +31,7 @@
 #include <memory>
 
 #include "BLI_utildefines.h"
-#include "BLI_memory.h"
+#include "BLI_memory_utils_cxx.h"
 #include "BLI_array_ref.h"
 #include "BLI_listbase_wrapper.h"
 #include "BLI_math_base.h"

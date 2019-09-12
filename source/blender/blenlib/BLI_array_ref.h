@@ -41,7 +41,7 @@
 #include <string>
 
 #include "BLI_utildefines.h"
-#include "BLI_memory.h"
+#include "BLI_memory_utils_cxx.h"
 #include "BLI_index_range.h"
 
 namespace BLI {

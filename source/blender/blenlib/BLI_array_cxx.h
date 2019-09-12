@@ -26,7 +26,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_allocator.h"
 #include "BLI_array_ref.h"
-#include "BLI_memory.h"
+#include "BLI_memory_utils_cxx.h"
 
 namespace BLI {
 

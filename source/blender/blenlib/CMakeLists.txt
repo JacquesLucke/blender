@@ -250,7 +250,7 @@ set(SRC
   BLI_refcount.h
   BLI_vector.h
   BLI_map.h
-  BLI_memory.h
+  BLI_memory_utils_cxx.h
   BLI_multi_map.h
   BLI_set.h
   BLI_set_vector.h
