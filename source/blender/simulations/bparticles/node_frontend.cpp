@@ -43,6 +43,7 @@ class VTreeData {
   VTreeDataGraph &m_vtree_data_graph;
   Vector<std::unique_ptr<ParticleFunction>> m_particle_functions;
   Vector<SharedFunction> m_functions;
+  Vector<std::unique_ptr<Tuple>> m_tuples;
 
  public:
   VTreeData(VTreeDataGraph &vtree_data) : m_vtree_data_graph(vtree_data)
@@ -105,6 +106,18 @@ class VTreeData {
     FN::fgraph_add_TupleCallBody(fn, fgraph);
     m_functions.append(fn);
     return fn->body<TupleCallBody>();
+  }
+
+  FN::OutputTupleRef compute_all_inputs(VirtualNode *vnode)
+  {
+    TupleCallBody &body = this->function_body_for_all_inputs(vnode);
+    FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in().ref());
+    FN::Tuple *fn_out = new FN::Tuple(body.meta_out());
+
+    body.call__setup_execution_context(fn_in, *fn_out);
+
+    m_tuples.append(std::unique_ptr<FN::Tuple>(fn_out));
+    return FN::OutputTupleRef(fn_out, body.owner());
   }
 };
 
@@ -352,27 +365,22 @@ static void PARSE_point_emitter(BehaviorCollector &collector,
                                 WorldTransition &world_transition,
                                 VirtualNode *vnode)
 {
-  SharedFunction inputs_fn = get_compute_data_inputs_function(vtree_data, vnode);
+  FN::OutputTupleRef inputs = vtree_data.compute_all_inputs(vnode);
   Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Emitter"));
   std::string name = vnode->name();
 
-  TupleCallBody &body = inputs_fn->body<TupleCallBody>();
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body.call__setup_execution_context(fn_in, fn_out);
-
   VaryingFloat3 position = world_transition.update_float3(
-      name, "Position", body.get_output<float3>(fn_out, 0, "Position"));
+      name, "Position", inputs.get<float3>(0, "Position"));
   VaryingFloat3 velocity = world_transition.update_float3(
-      name, "Velocity", body.get_output<float3>(fn_out, 1, "Velocity"));
-  VaryingFloat size = world_transition.update_float(
-      name, "Size", body.get_output<float>(fn_out, 2, "Size"));
+      name, "Velocity", inputs.get<float3>(1, "Velocity"));
+  VaryingFloat size = world_transition.update_float(name, "Size", inputs.get<float>(2, "Size"));
 
   Emitter *emitter = new PointEmitter(std::move(type_names), position, velocity, size);
   collector.m_emitters.append(emitter);
 }
 
 static Vector<float> compute_emitter_vertex_weights(VirtualNode *vnode,
-                                                    Tuple &fn_out,
+                                                    FN::OutputTupleRef &inputs,
                                                     Object *object)
 {
   PointerRNA rna = vnode->rna();
@@ -387,7 +395,7 @@ static Vector<float> compute_emitter_vertex_weights(VirtualNode *vnode,
   }
   else if (density_mode == 1) {
     /* Mode: 'VERTEX_WEIGHTS' */
-    auto group_name = fn_out.relocate_out<FN::Types::StringW>(2);
+    auto group_name = inputs.relocate_out<FN::Types::StringW>(2, "Density Group");
 
     MDeformVert *vertices = mesh->dvert;
     int group_index = defgroup_name_index(object, group_name->data());
@@ -402,7 +410,7 @@ static Vector<float> compute_emitter_vertex_weights(VirtualNode *vnode,
   }
   else if (density_mode == 2) {
     /* Mode: 'FALLOFF' */
-    auto falloff = fn_out.relocate_out<FN::Types::FalloffW>(2);
+    auto falloff = inputs.relocate_out<FN::Types::FalloffW>(2, "Density Falloff");
 
     float4x4 transform = object->obmat;
 
@@ -427,21 +435,17 @@ static void PARSE_mesh_emitter(BehaviorCollector &collector,
                                WorldTransition &world_transition,
                                VirtualNode *vnode)
 {
-  SharedFunction inputs_fn = get_compute_data_inputs_function(vtree_data, vnode);
-  TupleCallBody &body = inputs_fn->body<TupleCallBody>();
-
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body.call__setup_execution_context(fn_in, fn_out);
+  FN::OutputTupleRef inputs = vtree_data.compute_all_inputs(vnode);
 
   std::unique_ptr<Action> on_birth_action = build_action_list(
       vtree_data, vnode, "Execute on Birth");
 
-  Object *object = fn_out.relocate_out<ObjectW>(0).ptr();
+  Object *object = inputs.relocate_out<ObjectW>(0, "Object").ptr();
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
 
-  auto vertex_weights = compute_emitter_vertex_weights(vnode, fn_out, object);
+  auto vertex_weights = compute_emitter_vertex_weights(vnode, inputs, object);
 
   VaryingFloat4x4 transform = world_transition.update_float4x4(
       vnode->name(), "Transform", object->obmat);
@@ -450,7 +454,7 @@ static void PARSE_mesh_emitter(BehaviorCollector &collector,
                                         std::move(on_birth_action),
                                         object,
                                         transform,
-                                        body.get_output<float>(fn_out, 1, "Rate"),
+                                        inputs.get<float>(1, "Rate"),
                                         std::move(vertex_weights));
   collector.m_emitters.append(emitter);
 }
@@ -526,18 +530,15 @@ static void PARSE_initial_grid_emitter(BehaviorCollector &collector,
                                        WorldTransition &UNUSED(world_transition),
                                        VirtualNode *vnode)
 {
-  TupleCallBody &body = vtree_data.function_body_for_all_inputs(vnode);
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body.call__setup_execution_context(fn_in, fn_out);
+  FN::OutputTupleRef inputs = vtree_data.compute_all_inputs(vnode);
 
   Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Emitter"));
-  Emitter *emitter = new InitialGridEmitter(
-      std::move(type_names),
-      std::max(0, body.get_output<int>(fn_out, 0, "Amount X")),
-      std::max(0, body.get_output<int>(fn_out, 1, "Amount Y")),
-      body.get_output<float>(fn_out, 2, "Step X"),
-      body.get_output<float>(fn_out, 3, "Step Y"),
-      body.get_output<float>(fn_out, 4, "Size"));
+  Emitter *emitter = new InitialGridEmitter(std::move(type_names),
+                                            std::max(0, inputs.get<int>(0, "Amount X")),
+                                            std::max(0, inputs.get<int>(1, "Amount Y")),
+                                            inputs.get<float>(2, "Step X"),
+                                            inputs.get<float>(3, "Step Y"),
+                                            inputs.get<float>(4, "Size"));
   collector.m_emitters.append(emitter);
 }
 

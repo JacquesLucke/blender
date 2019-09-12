@@ -255,6 +255,37 @@ class LazyInTupleCallBody : public TupleCallBodyBase {
   }
 };
 
+class OutputTupleRef {
+ private:
+  Tuple *m_tuple;
+  Function *m_function;
+
+ public:
+  OutputTupleRef(Tuple *tuple, Function *function) : m_tuple(tuple), m_function(function)
+  {
+  }
+
+  template<typename T> T relocate_out(uint index, StringRef expected_name)
+  {
+#ifdef DEBUG
+    StringRef real_name = m_function->output_name(index);
+    BLI_assert(real_name == expected_name);
+#endif
+    UNUSED_VARS_NDEBUG(expected_name);
+    return m_tuple->relocate_out<T>(index);
+  }
+
+  template<typename T> T get(uint index, StringRef expected_name)
+  {
+#ifdef DEBUG
+    StringRef real_name = m_function->output_name(index);
+    BLI_assert(real_name == expected_name);
+#endif
+    UNUSED_VARS_NDEBUG(expected_name);
+    return m_tuple->get<T>(index);
+  }
+};
+
 } /* namespace FN */
 
 /**
