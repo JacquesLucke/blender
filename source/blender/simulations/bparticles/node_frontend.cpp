@@ -341,25 +341,6 @@ using ParseNodeCallback = std::function<void(BehaviorCollector &collector,
                                              WorldTransition &world_transition,
                                              VirtualNode *vnode)>;
 
-static SharedFunction get_compute_data_inputs_function(VTreeData &vtree_data, VirtualNode *vnode)
-{
-  SharedDataGraph &data_graph = vtree_data.data_graph();
-
-  SetVector<DataSocket> function_outputs;
-  for (VirtualSocket *vsocket : vnode->inputs()) {
-    if (vtree_data.vtree_data_graph().uses_socket(vsocket)) {
-      DataSocket socket = vtree_data.vtree_data_graph().lookup_socket(vsocket);
-      function_outputs.add(socket);
-    }
-  }
-
-  FunctionGraph fgraph(data_graph, {}, function_outputs);
-  SharedFunction fn = fgraph.new_function(vnode->name());
-  FN::fgraph_add_TupleCallBody(fn, fgraph);
-  FN::fgraph_add_LLVMBuildIRBody(fn, fgraph);
-  return fn;
-}
-
 static void PARSE_point_emitter(BehaviorCollector &collector,
                                 VTreeData &vtree_data,
                                 WorldTransition &world_transition,
