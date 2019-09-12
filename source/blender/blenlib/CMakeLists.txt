@@ -268,7 +268,7 @@ set(SRC
   BLI_vector_adaptor.h
   BLI_multi_vector.h
   BLI_open_addressing.h
-  BLI_hash.hpp
+  BLI_hash_cxx.h
   BLI_utility_mixins.h
 )
 

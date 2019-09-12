@@ -33,7 +33,7 @@
 #include <atomic>
 #include <utility>
 #include "BLI_utildefines.h"
-#include "BLI_hash.hpp"
+#include "BLI_hash_cxx.h"
 
 namespace BLI {
 

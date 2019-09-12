@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include "BLI_hash.hpp"
+#include "BLI_hash_cxx.h"
 #include "BLI_open_addressing.h"
 #include "BLI_vector.h"
 
