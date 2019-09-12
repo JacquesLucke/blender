@@ -1,10 +1,8 @@
 #include "testing/testing.h"
 #include "BLI_index_range.h"
-#include "BLI_chunked_range.h"
 #include "BLI_vector.h"
 
 using BLI::ArrayRef;
-using BLI::ChunkedIndexRange;
 using BLI::IndexRange;
 using IntVector = BLI::Vector<int>;
 

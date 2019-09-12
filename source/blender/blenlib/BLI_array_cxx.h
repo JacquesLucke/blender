@@ -86,7 +86,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Array {
     }
   }
 
-  Array(Array &&other)
+  Array(Array &&other) noexcept
   {
     m_data = other.m_data;
     m_size = other.m_size;

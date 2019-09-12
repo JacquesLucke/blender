@@ -1,9 +1,7 @@
 #include "testing/testing.h"
 #include "BLI_vector.h"
-#include "BLI_map.h"
 #include <forward_list>
 
-using BLI::Map;
 using BLI::Vector;
 using IntVector = Vector<int>;
 

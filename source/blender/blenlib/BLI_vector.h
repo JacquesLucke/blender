@@ -160,7 +160,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
    * The other vector will have zero elements afterwards.
    */
   template<uint OtherN>
-  Vector(Vector<T, OtherN, Allocator> &&other) : m_allocator(other.m_allocator)
+  Vector(Vector<T, OtherN, Allocator> &&other) noexcept : m_allocator(other.m_allocator)
   {
     uint size = other.size();
 
