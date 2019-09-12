@@ -10,6 +10,7 @@ class TurbulenceForceNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("strength", "Strength", "Vector", default=(1, 1, 1))
+        builder.fixed_input("size", "Size", "Float", default=0.5)
         builder.fixed_input("falloff", "Falloff", "Falloff")
         builder.particle_effector_output("force", "Force")
 

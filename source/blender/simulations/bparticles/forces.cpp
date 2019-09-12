@@ -37,10 +37,11 @@ void TurbulenceForce::add_force(ForceInterface &interface)
   for (uint pindex : interface.pindices()) {
     float3 pos = positions[pindex];
     float3 strength = inputs->get<float3>("Strength", 0, pindex);
+    float size = inputs->get<float>("Size", 1, pindex);
     float weight = weights[pindex];
-    float x = (BLI_gNoise(0.5f, pos.x, pos.y, pos.z + 1000.0f, false, 1) - 0.5f) * strength.x;
-    float y = (BLI_gNoise(0.5f, pos.x, pos.y + 1000.0f, pos.z, false, 1) - 0.5f) * strength.y;
-    float z = (BLI_gNoise(0.5f, pos.x + 1000.0f, pos.y, pos.z, false, 1) - 0.5f) * strength.z;
+    float x = (BLI_gNoise(size, pos.x, pos.y, pos.z + 1000.0f, false, 1) - 0.5f) * strength.x;
+    float y = (BLI_gNoise(size, pos.x, pos.y + 1000.0f, pos.z, false, 1) - 0.5f) * strength.y;
+    float z = (BLI_gNoise(size, pos.x + 1000.0f, pos.y, pos.z, false, 1) - 0.5f) * strength.z;
     destination[pindex] += float3(x, y, z) * weight;
   }
 }

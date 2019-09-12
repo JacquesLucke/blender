@@ -546,7 +546,7 @@ static void PARSE_turbulence_force(BehaviorCollector &collector,
                                    WorldTransition &UNUSED(world_transition),
                                    VirtualNode *vnode)
 {
-  FN::TupleCallBody &body = vtree_data.function_body_for_inputs(vnode, {1});
+  FN::TupleCallBody &body = vtree_data.function_body_for_inputs(vnode, {2});
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
   body.call__setup_execution_context(fn_in, fn_out);
 
