@@ -6095,12 +6095,12 @@ static void rna_def_modifier_bparticles_output(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "source_object", PROP_POINTER, PROP_NONE);
   RNA_def_property_flag(prop, PROP_EDITABLE);
-  RNA_def_property_ui_text(prop, "Source Object", "Object to copy a particle type from");
+  RNA_def_property_ui_text(prop, "Source Object", "Object to copy a particle system from");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 
-  prop = RNA_def_property(srna, "source_particle_type", PROP_STRING, PROP_NONE);
+  prop = RNA_def_property(srna, "source_particle_system", PROP_STRING, PROP_NONE);
   RNA_def_property_ui_text(
-      prop, "Particle Type", "Name of the particle type that should be copied");
+      prop, "Particle System", "Name of the particle system that should be copied");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "output_type", PROP_ENUM, PROP_NONE);

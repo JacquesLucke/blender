@@ -66,10 +66,10 @@ static Mesh *applyModifier(ModifierData *md,
 
   if (bpmd->output_type == MOD_BPARTICLES_OUTPUT_TETRAHEDONS) {
     return BParticles_state_extract_type__tetrahedons(simulation_state,
-                                                      bpmd->source_particle_type);
+                                                      bpmd->source_particle_system);
   }
   else if (bpmd->output_type == MOD_BPARTICLES_OUTPUT_POINTS) {
-    return BParticles_state_extract_type__points(simulation_state, bpmd->source_particle_type);
+    return BParticles_state_extract_type__points(simulation_state, bpmd->source_particle_system);
   }
   else {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);

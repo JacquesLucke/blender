@@ -12,4 +12,4 @@ class AlwaysExecuteNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.execute_input("execute", "Execute", "execute__prop")
-        builder.particle_effector_output("type", "Type")
+        builder.particle_effector_output("influence", "Influence")

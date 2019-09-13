@@ -7,15 +7,15 @@ namespace BParticles {
 
 class CreateTrailHandler : public OffsetHandler {
  private:
-  Vector<std::string> m_types_to_emit;
+  Vector<std::string> m_systems_to_emit;
   ParticleFunction *m_inputs_fn;
   std::unique_ptr<Action> m_on_birth_action;
 
  public:
-  CreateTrailHandler(Vector<std::string> types_to_emit,
+  CreateTrailHandler(Vector<std::string> systems_to_emit,
                      ParticleFunction *inputs_fn,
                      std::unique_ptr<Action> on_birth_action)
-      : m_types_to_emit(std::move(types_to_emit)),
+      : m_systems_to_emit(std::move(systems_to_emit)),
         m_inputs_fn(inputs_fn),
         m_on_birth_action(std::move(on_birth_action))
   {

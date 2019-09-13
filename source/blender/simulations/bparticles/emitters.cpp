@@ -42,7 +42,7 @@ void PointEmitter::emit(EmitterInterface &interface)
     birth_times[i] = interface.time_span().interpolate(t);
   }
 
-  for (StringRef type : m_types_to_emit) {
+  for (StringRef type : m_systems_to_emit) {
     auto new_particles = interface.particle_allocator().request(type, new_positions.size());
     new_particles.set<float3>("Position", new_positions);
     new_particles.set<float3>("Velocity", new_velocities);
@@ -294,8 +294,8 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   TemporaryArray<float> birth_times(particles_to_emit);
   interface.time_span().interpolate(birth_moments, birth_times);
 
-  for (StringRef type_name : m_types_to_emit) {
-    auto new_particles = interface.particle_allocator().request(type_name,
+  for (StringRef system_name : m_systems_to_emit) {
+    auto new_particles = interface.particle_allocator().request(system_name,
                                                                 positions_at_birth.size());
     new_particles.set<float3>("Position", positions_at_birth);
     new_particles.set<float>("Birth Time", birth_times);
@@ -330,8 +330,8 @@ void InitialGridEmitter::emit(EmitterInterface &interface)
     }
   }
 
-  for (StringRef type_name : m_types_to_emit) {
-    auto new_particles = interface.particle_allocator().request(type_name, new_positions.size());
+  for (StringRef system_name : m_systems_to_emit) {
+    auto new_particles = interface.particle_allocator().request(system_name, new_positions.size());
     new_particles.set<float3>("Position", new_positions);
     new_particles.fill<float>("Birth Time", interface.time_span().start());
     new_particles.fill<float>("Size", m_size);

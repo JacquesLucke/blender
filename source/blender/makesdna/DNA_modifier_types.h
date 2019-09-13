@@ -2003,7 +2003,7 @@ typedef struct BParticlesModifierData {
 typedef struct BParticlesOutputModifierData {
   ModifierData modifier;
   struct Object *source_object;
-  char source_particle_type[64];
+  char source_particle_system[64];
 
   /* eBParticlesOutputType */
   unsigned int output_type;

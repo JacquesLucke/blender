@@ -30,7 +30,7 @@ using FN::DataFlowNodes::VTreeDataGraph;
 using FN::Types::ObjectW;
 using FN::Types::StringW;
 
-class BehaviorCollector {
+class InfluencesCollector {
  public:
   Vector<Emitter *> &m_emitters;
   MultiMap<std::string, Force *> &m_forces;
@@ -121,8 +121,8 @@ class VTreeData {
   }
 };
 
-static StringRef particle_type_idname = "bp_ParticleTypeNode";
-static StringRef combine_behaviors_idname = "bp_CombineBehaviorsNode";
+static StringRef particle_system_idname = "bp_ParticleSystemNode";
+static StringRef combine_influences_idname = "bp_CombineInfluencesNode";
 
 static std::unique_ptr<Action> build_action_list(VTreeData &vtree_data,
                                                  VirtualNode *start_vnode,
@@ -134,10 +134,10 @@ static void find_connected_particle_type_nodes__recursive(VirtualSocket *output_
   BLI_assert(output_vsocket->is_output());
   for (VirtualSocket *connected : output_vsocket->links()) {
     VirtualNode *connected_vnode = connected->vnode();
-    if (connected_vnode->idname() == particle_type_idname) {
+    if (connected_vnode->idname() == particle_system_idname) {
       r_nodes.add(connected_vnode);
     }
-    else if (connected_vnode->idname() == combine_behaviors_idname) {
+    else if (connected_vnode->idname() == combine_influences_idname) {
       find_connected_particle_type_nodes__recursive(connected_vnode->output(0), r_nodes);
     }
   }
@@ -150,13 +150,13 @@ static Vector<VirtualNode *> find_connected_particle_type_nodes(VirtualSocket *o
   return Vector<VirtualNode *>(type_nodes);
 }
 
-static Vector<std::string> find_connected_particle_type_names(VirtualSocket *output_vsocket)
+static Vector<std::string> find_connected_particle_system_names(VirtualSocket *output_vsocket)
 {
-  Vector<std::string> type_names;
+  Vector<std::string> system_names;
   for (VirtualNode *vnode : find_connected_particle_type_nodes(output_vsocket)) {
-    type_names.append(vnode->name());
+    system_names.append(vnode->name());
   }
-  return type_names;
+  return system_names;
 }
 
 static Vector<VirtualSocket *> find_execute_sockets(VirtualNode *vnode, StringRef name_prefix)
@@ -224,9 +224,10 @@ static std::unique_ptr<Action> ACTION_explode(VTreeData &vtree_data,
 
   std::unique_ptr<Action> on_birth_action = build_action_list(
       vtree_data, vnode, "Execute on Birth");
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(1, "Type"));
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(1, "Explode System"));
 
-  Action *action = new ExplodeAction(type_names, inputs_fn, std::move(on_birth_action));
+  Action *action = new ExplodeAction(system_names, inputs_fn, std::move(on_birth_action));
   return std::unique_ptr<Action>(action);
 }
 
@@ -336,18 +337,19 @@ static std::unique_ptr<Action> build_action_list(VTreeData &vtree_data,
   return std::unique_ptr<Action>(sequence);
 }
 
-using ParseNodeCallback = std::function<void(BehaviorCollector &collector,
+using ParseNodeCallback = std::function<void(InfluencesCollector &collector,
                                              VTreeData &vtree_data,
                                              WorldTransition &world_transition,
                                              VirtualNode *vnode)>;
 
-static void PARSE_point_emitter(BehaviorCollector &collector,
+static void PARSE_point_emitter(InfluencesCollector &collector,
                                 VTreeData &vtree_data,
                                 WorldTransition &world_transition,
                                 VirtualNode *vnode)
 {
   FN::OutputTupleRef inputs = vtree_data.compute_all_inputs(vnode);
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Emitter"));
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Emitter"));
   std::string name = vnode->name();
 
   VaryingFloat3 position = world_transition.update_float3(
@@ -356,7 +358,7 @@ static void PARSE_point_emitter(BehaviorCollector &collector,
       name, "Velocity", inputs.get<float3>(1, "Velocity"));
   VaryingFloat size = world_transition.update_float(name, "Size", inputs.get<float>(2, "Size"));
 
-  Emitter *emitter = new PointEmitter(std::move(type_names), position, velocity, size);
+  Emitter *emitter = new PointEmitter(std::move(system_names), position, velocity, size);
   collector.m_emitters.append(emitter);
 }
 
@@ -411,7 +413,7 @@ static Vector<float> compute_emitter_vertex_weights(VirtualNode *vnode,
   return vertex_weights;
 }
 
-static void PARSE_mesh_emitter(BehaviorCollector &collector,
+static void PARSE_mesh_emitter(InfluencesCollector &collector,
                                VTreeData &vtree_data,
                                WorldTransition &world_transition,
                                VirtualNode *vnode)
@@ -430,8 +432,9 @@ static void PARSE_mesh_emitter(BehaviorCollector &collector,
 
   VaryingFloat4x4 transform = world_transition.update_float4x4(
       vnode->name(), "Transform", object->obmat);
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Emitter"));
-  Emitter *emitter = new SurfaceEmitter(std::move(type_names),
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Emitter"));
+  Emitter *emitter = new SurfaceEmitter(std::move(system_names),
                                         std::move(on_birth_action),
                                         object,
                                         transform,
@@ -440,7 +443,7 @@ static void PARSE_mesh_emitter(BehaviorCollector &collector,
   collector.m_emitters.append(emitter);
 }
 
-static void PARSE_gravity_force(BehaviorCollector &collector,
+static void PARSE_gravity_force(InfluencesCollector &collector,
                                 VTreeData &vtree_data,
                                 WorldTransition &UNUSED(world_transition),
                                 VirtualNode *vnode)
@@ -456,14 +459,15 @@ static void PARSE_gravity_force(BehaviorCollector &collector,
     return;
   }
 
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Force"));
-  for (std::string &type_name : type_names) {
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Force"));
+  for (std::string &system_name : system_names) {
     GravityForce *force = new GravityForce(inputs_fn, falloff.get_unique_copy());
-    collector.m_forces.add(type_name, force);
+    collector.m_forces.add(system_name, force);
   }
 }
 
-static void PARSE_age_reached_event(BehaviorCollector &collector,
+static void PARSE_age_reached_event(InfluencesCollector &collector,
                                     VTreeData &vtree_data,
                                     WorldTransition &UNUSED(world_transition),
                                     VirtualNode *vnode)
@@ -473,48 +477,50 @@ static void PARSE_age_reached_event(BehaviorCollector &collector,
     return;
   }
 
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Event"));
-  for (std::string &type_name : type_names) {
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Event"));
+  for (std::string &system_name : system_names) {
     auto action = build_action_list(vtree_data, vnode, "Execute on Event");
 
     Event *event = new AgeReachedEvent(vnode->name(), inputs_fn, std::move(action));
-    collector.m_events.add(type_name, event);
+    collector.m_events.add(system_name, event);
   }
 }
 
-static void PARSE_trails(BehaviorCollector &collector,
+static void PARSE_trails(InfluencesCollector &collector,
                          VTreeData &vtree_data,
                          WorldTransition &UNUSED(world_transition),
                          VirtualNode *vnode)
 {
-  Vector<std::string> main_type_names = find_connected_particle_type_names(
-      vnode->output(0, "Main Type"));
-  Vector<std::string> trail_type_names = find_connected_particle_type_names(
-      vnode->output(1, "Trail Type"));
+  Vector<std::string> main_system_names = find_connected_particle_system_names(
+      vnode->output(0, "Main System"));
+  Vector<std::string> trail_system_names = find_connected_particle_system_names(
+      vnode->output(1, "Trail System"));
 
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
     return;
   }
 
-  for (std::string &main_type : main_type_names) {
+  for (std::string &main_type : main_system_names) {
     auto action = build_action_list(vtree_data, vnode, "Execute on Birth");
 
     OffsetHandler *offset_handler = new CreateTrailHandler(
-        trail_type_names, inputs_fn, std::move(action));
+        trail_system_names, inputs_fn, std::move(action));
     collector.m_offset_handlers.add(main_type, offset_handler);
   }
 }
 
-static void PARSE_initial_grid_emitter(BehaviorCollector &collector,
+static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
                                        VTreeData &vtree_data,
                                        WorldTransition &UNUSED(world_transition),
                                        VirtualNode *vnode)
 {
   FN::OutputTupleRef inputs = vtree_data.compute_all_inputs(vnode);
 
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Emitter"));
-  Emitter *emitter = new InitialGridEmitter(std::move(type_names),
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Emitter"));
+  Emitter *emitter = new InitialGridEmitter(std::move(system_names),
                                             std::max(0, inputs.get<int>(0, "Amount X")),
                                             std::max(0, inputs.get<int>(1, "Amount Y")),
                                             inputs.get<float>(2, "Step X"),
@@ -523,7 +529,7 @@ static void PARSE_initial_grid_emitter(BehaviorCollector &collector,
   collector.m_emitters.append(emitter);
 }
 
-static void PARSE_turbulence_force(BehaviorCollector &collector,
+static void PARSE_turbulence_force(InfluencesCollector &collector,
                                    VTreeData &vtree_data,
                                    WorldTransition &UNUSED(world_transition),
                                    VirtualNode *vnode)
@@ -539,15 +545,16 @@ static void PARSE_turbulence_force(BehaviorCollector &collector,
     return;
   }
 
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Force"));
-  for (std::string &type_name : type_names) {
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Force"));
+  for (std::string &system_name : system_names) {
 
     Force *force = new TurbulenceForce(inputs_fn, falloff.get_unique_copy());
-    collector.m_forces.add(type_name, force);
+    collector.m_forces.add(system_name, force);
   }
 }
 
-static void PARSE_drag_force(BehaviorCollector &collector,
+static void PARSE_drag_force(InfluencesCollector &collector,
                              VTreeData &vtree_data,
                              WorldTransition &UNUSED(world_transition),
                              VirtualNode *vnode)
@@ -563,15 +570,16 @@ static void PARSE_drag_force(BehaviorCollector &collector,
     return;
   }
 
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Force"));
-  for (std::string &type_name : type_names) {
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Force"));
+  for (std::string &system_name : system_names) {
 
     Force *force = new DragForce(inputs_fn, falloff.get_unique_copy());
-    collector.m_forces.add(type_name, force);
+    collector.m_forces.add(system_name, force);
   }
 }
 
-static void PARSE_mesh_collision(BehaviorCollector &collector,
+static void PARSE_mesh_collision(InfluencesCollector &collector,
                                  VTreeData &vtree_data,
                                  WorldTransition &UNUSED(world_transition),
                                  VirtualNode *vnode)
@@ -595,15 +603,16 @@ static void PARSE_mesh_collision(BehaviorCollector &collector,
     return;
   }
 
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Event"));
-  for (std::string &type_name : type_names) {
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Event"));
+  for (std::string &system_name : system_names) {
     auto action = build_action_list(vtree_data, vnode, "Execute on Event");
     Event *event = new MeshCollisionEvent(vnode->name(), object, std::move(action));
-    collector.m_events.add(type_name, event);
+    collector.m_events.add(system_name, event);
   }
 }
 
-static void PARSE_size_over_time(BehaviorCollector &collector,
+static void PARSE_size_over_time(InfluencesCollector &collector,
                                  VTreeData &vtree_data,
                                  WorldTransition &UNUSED(world_transition),
                                  VirtualNode *vnode)
@@ -613,14 +622,15 @@ static void PARSE_size_over_time(BehaviorCollector &collector,
     return;
   }
 
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Type"));
-  for (std::string &type_name : type_names) {
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Influence"));
+  for (std::string &system_name : system_names) {
     OffsetHandler *handler = new SizeOverTimeHandler(inputs_fn);
-    collector.m_offset_handlers.add(type_name, handler);
+    collector.m_offset_handlers.add(system_name, handler);
   }
 }
 
-static void PARSE_mesh_force(BehaviorCollector &collector,
+static void PARSE_mesh_force(InfluencesCollector &collector,
                              VTreeData &vtree_data,
                              WorldTransition &UNUSED(world_transition),
                              VirtualNode *vnode)
@@ -639,14 +649,15 @@ static void PARSE_mesh_force(BehaviorCollector &collector,
     return;
   }
 
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Force"));
-  for (std::string &type_name : type_names) {
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Force"));
+  for (std::string &system_name : system_names) {
     Force *force = new MeshForce(inputs_fn, object);
-    collector.m_forces.add(type_name, force);
+    collector.m_forces.add(system_name, force);
   }
 }
 
-static void PARSE_custom_event(BehaviorCollector &collector,
+static void PARSE_custom_event(InfluencesCollector &collector,
                                VTreeData &vtree_data,
                                WorldTransition &UNUSED(world_transition),
                                VirtualNode *vnode)
@@ -656,26 +667,28 @@ static void PARSE_custom_event(BehaviorCollector &collector,
     return;
   }
 
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Event"));
-  for (std::string &type_name : type_names) {
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Event"));
+  for (std::string &system_name : system_names) {
     auto action = build_action_list(vtree_data, vnode, "Execute on Event");
 
     Event *event = new CustomEvent(vnode->name(), inputs_fn, std::move(action));
-    collector.m_events.add(type_name, event);
+    collector.m_events.add(system_name, event);
   }
 }
 
-static void PARSE_always_execute(BehaviorCollector &collector,
+static void PARSE_always_execute(InfluencesCollector &collector,
                                  VTreeData &vtree_data,
                                  WorldTransition &UNUSED(world_transition),
                                  VirtualNode *vnode)
 {
-  Vector<std::string> type_names = find_connected_particle_type_names(vnode->output(0, "Type"));
-  for (std::string &type_name : type_names) {
+  Vector<std::string> system_names = find_connected_particle_system_names(
+      vnode->output(0, "Influence"));
+  for (std::string &system_name : system_names) {
     auto action = build_action_list(vtree_data, vnode, "Execute");
 
     OffsetHandler *handler = new AlwaysExecuteHandler(std::move(action));
-    collector.m_offset_handlers.add(type_name, handler);
+    collector.m_offset_handlers.add(system_name, handler);
   }
 }
 
@@ -698,22 +711,21 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   return map;
 }
 
-static void collect_particle_behaviors(
-    VTreeData &vtree_data,
-    WorldTransition &world_transition,
-    Vector<std::string> &r_type_names,
-    Vector<Emitter *> &r_emitters,
-    MultiMap<std::string, Event *> &r_events_per_type,
-    MultiMap<std::string, OffsetHandler *> &r_offset_handler_per_type,
-    StringMap<AttributesDeclaration> &r_attributes_per_type,
-    StringMap<Integrator *> &r_integrators)
+static void collect_influences(VTreeData &vtree_data,
+                               WorldTransition &world_transition,
+                               Vector<std::string> &r_system_names,
+                               Vector<Emitter *> &r_emitters,
+                               MultiMap<std::string, Event *> &r_events_per_type,
+                               MultiMap<std::string, OffsetHandler *> &r_offset_handler_per_type,
+                               StringMap<AttributesDeclaration> &r_attributes_per_type,
+                               StringMap<Integrator *> &r_integrators)
 {
   SCOPED_TIMER(__func__);
 
   StringMap<ParseNodeCallback> &parsers = get_node_parsers();
 
   MultiMap<std::string, Force *> forces;
-  BehaviorCollector collector = {
+  InfluencesCollector collector = {
       r_emitters,
       forces,
       r_events_per_type,
@@ -728,23 +740,23 @@ static void collect_particle_behaviors(
     }
   }
 
-  for (VirtualNode *vnode : vtree_data.vtree().nodes_with_idname("bp_ParticleTypeNode")) {
+  for (VirtualNode *vnode : vtree_data.vtree().nodes_with_idname(particle_system_idname)) {
     StringRef name = vnode->name();
-    r_type_names.append(name);
+    r_system_names.append(name);
   }
 
-  for (std::string &type_name : r_type_names) {
+  for (std::string &system_name : r_system_names) {
     AttributesDeclaration attributes;
     attributes.add<float3>("Position", float3(0, 0, 0));
     attributes.add<float3>("Velocity", float3(0, 0, 0));
     attributes.add<float>("Size", 0.05f);
     attributes.add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
 
-    ArrayRef<Force *> forces = collector.m_forces.lookup_default(type_name);
+    ArrayRef<Force *> forces = collector.m_forces.lookup_default(system_name);
     EulerIntegrator *integrator = new EulerIntegrator(forces);
 
-    r_attributes_per_type.add_new(type_name, attributes);
-    r_integrators.add_new(type_name, integrator);
+    r_attributes_per_type.add_new(system_name, attributes);
+    r_integrators.add_new(system_name, integrator);
   }
 }
 
@@ -766,7 +778,7 @@ class NodeTreeStepSimulator : public StepSimulator {
     WorldState new_world_state;
     WorldTransition world_transition = {old_world_state, new_world_state};
 
-    Vector<std::string> type_names;
+    Vector<std::string> system_names;
     Vector<Emitter *> emitters;
     MultiMap<std::string, Event *> events;
     MultiMap<std::string, OffsetHandler *> offset_handlers;
@@ -780,27 +792,27 @@ class NodeTreeStepSimulator : public StepSimulator {
     std::unique_ptr<VTreeDataGraph> vtree_data_graph = data_graph_or_error.extract_value();
     VTreeData vtree_data(*vtree_data_graph);
 
-    collect_particle_behaviors(vtree_data,
-                               world_transition,
-                               type_names,
-                               emitters,
-                               events,
-                               offset_handlers,
-                               attributes,
-                               integrators);
+    collect_influences(vtree_data,
+                       world_transition,
+                       system_names,
+                       emitters,
+                       events,
+                       offset_handlers,
+                       attributes,
+                       integrators);
 
-    StringMap<ParticleTypeInfo> types_to_simulate;
-    for (std::string name : type_names) {
-      ParticleTypeInfo type_info = {
+    StringMap<ParticleSystemInfo> systems_to_simulate;
+    for (std::string name : system_names) {
+      ParticleSystemInfo type_info = {
           &attributes.lookup(name),
           integrators.lookup(name),
           events.lookup_default(name),
           offset_handlers.lookup_default(name),
       };
-      types_to_simulate.add_new(name, type_info);
+      systems_to_simulate.add_new(name, type_info);
     }
 
-    simulate_particles(simulation_state, emitters, types_to_simulate);
+    simulate_particles(simulation_state, emitters, systems_to_simulate);
 
     for (Emitter *emitter : emitters) {
       delete emitter;

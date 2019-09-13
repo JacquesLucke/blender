@@ -8,7 +8,7 @@
 
 namespace BParticles {
 
-struct ParticleTypeInfo {
+struct ParticleSystemInfo {
   AttributesDeclaration *attributes_declaration;
 
   Integrator *integrator;
@@ -18,6 +18,6 @@ struct ParticleTypeInfo {
 
 void simulate_particles(SimulationState &state,
                         ArrayRef<Emitter *> emitters,
-                        StringMap<ParticleTypeInfo> &types_to_simulate);
+                        StringMap<ParticleSystemInfo> &systems_to_simulate);
 
 }  // namespace BParticles

@@ -223,7 +223,7 @@ class BParticlesNode(BaseNode):
         for node in self.tree.nodes:
             node.select = False
 
-        new_node = self.tree.nodes.new("bp_ParticleTypeNode")
+        new_node = self.tree.nodes.new("bp_ParticleSystemNode")
         new_node.select = True
         self.tree.nodes.active = new_node
         new_node.location = self.location

@@ -69,7 +69,7 @@ class NewBParticlesTree(bpy.types.Operator, ModifierOperator):
 
         tree = bpy.data.node_groups.new("Particle System", "BParticlesTree")
 
-        type_node = tree.nodes.new("bp_ParticleTypeNode")
+        type_node = tree.nodes.new("bp_ParticleSystemNode")
 
         emitter_node = tree.nodes.new("bp_PointEmitterNode")
         emitter_node.location = (-250, 200)

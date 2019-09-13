@@ -28,7 +28,7 @@ class ParticleAllocator {
    */
   ArrayRef<AttributesBlock *> allocated_blocks();
 
-  AttributesRefGroup request(StringRef particle_type_name, uint size);
+  AttributesRefGroup request(StringRef particle_system_name, uint size);
 
   ParticlesState &particles_state();
 
@@ -43,12 +43,12 @@ class ParticleAllocator {
    * Allocate space for a given number of new particles. The attribute buffers might be distributed
    * over multiple blocks.
    */
-  void allocate_block_ranges(StringRef particle_type_name,
+  void allocate_block_ranges(StringRef particle_system_name,
                              uint size,
                              Vector<AttributesBlock *> &r_blocks,
                              Vector<IndexRange> &r_ranges);
 
-  const AttributesInfo &attributes_info(StringRef particle_type_name);
+  const AttributesInfo &attributes_info(StringRef particle_system_name);
 
   void initialize_new_particles(AttributesBlock &block,
                                 AttributesBlockContainer &container,

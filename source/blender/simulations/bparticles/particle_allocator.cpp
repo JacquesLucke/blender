@@ -23,12 +23,12 @@ AttributesBlock &ParticleAllocator::get_non_full_block(AttributesBlockContainer 
   return *block;
 }
 
-void ParticleAllocator::allocate_block_ranges(StringRef particle_type_name,
+void ParticleAllocator::allocate_block_ranges(StringRef particle_system_name,
                                               uint size,
                                               Vector<AttributesBlock *> &r_blocks,
                                               Vector<IndexRange> &r_ranges)
 {
-  AttributesBlockContainer &container = m_state.particle_container(particle_type_name);
+  AttributesBlockContainer &container = m_state.particle_container(particle_system_name);
 
   uint remaining_size = size;
   while (remaining_size > 0) {
@@ -64,18 +64,18 @@ void ParticleAllocator::initialize_new_particles(AttributesBlock &block,
   }
 }
 
-const AttributesInfo &ParticleAllocator::attributes_info(StringRef particle_type_name)
+const AttributesInfo &ParticleAllocator::attributes_info(StringRef particle_system_name)
 {
-  return m_state.particle_container(particle_type_name).attributes_info();
+  return m_state.particle_container(particle_system_name).attributes_info();
 }
 
-AttributesRefGroup ParticleAllocator::request(StringRef particle_type_name, uint size)
+AttributesRefGroup ParticleAllocator::request(StringRef particle_system_name, uint size)
 {
   Vector<AttributesBlock *> blocks;
   Vector<IndexRange> ranges;
-  this->allocate_block_ranges(particle_type_name, size, blocks, ranges);
+  this->allocate_block_ranges(particle_system_name, size, blocks, ranges);
 
-  const AttributesInfo &attributes_info = this->attributes_info(particle_type_name);
+  const AttributesInfo &attributes_info = this->attributes_info(particle_system_name);
 
   Vector<ArrayRef<void *>> buffers;
   for (uint i = 0; i < blocks.size(); i++) {

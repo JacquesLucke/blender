@@ -31,12 +31,12 @@ class ParticlesState {
   ~ParticlesState();
 
   /**
-   * Access the mapping from particle type names to their corresponding containers.
+   * Access the mapping from particle system names to their corresponding containers.
    */
   StringMap<AttributesBlockContainer *> &particle_containers();
 
   /**
-   * Get the container corresponding to a particle type name.
+   * Get the container corresponding to a particle system name.
    * Asserts when the container does not exist.
    */
   AttributesBlockContainer &particle_container(StringRef name);

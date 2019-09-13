@@ -145,8 +145,9 @@ void ExplodeAction::execute(ActionInterface &interface)
     }
   }
 
-  for (StringRef type_name : m_types_to_emit) {
-    auto new_particles = interface.particle_allocator().request(type_name, new_birth_times.size());
+  for (StringRef system_name : m_systems_to_emit) {
+    auto new_particles = interface.particle_allocator().request(system_name,
+                                                                new_birth_times.size());
     new_particles.set<float3>("Position", new_positions);
     new_particles.set<float3>("Velocity", new_velocities);
     new_particles.fill<float>("Size", 0.1f);

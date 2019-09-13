@@ -72,8 +72,8 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
 
   auto &containers = simulation_state.particles().particle_containers();
   containers.foreach_key_value_pair(
-      [](StringRefNull type_name, AttributesBlockContainer *container) {
-        std::cout << "Particle Type: " << type_name << "\n";
+      [](StringRefNull system_name, AttributesBlockContainer *container) {
+        std::cout << "Particle System: " << system_name << "\n";
         std::cout << "  Particles: " << container->count_active() << "\n";
         std::cout << "  Blocks: " << container->active_blocks().size() << "\n";
       });
