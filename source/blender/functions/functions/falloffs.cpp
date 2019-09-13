@@ -12,12 +12,14 @@ using namespace Types;
 class PointDistanceFalloff : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    float3 point = this->get_input<float3>(fn_in, 0, "Point");
-    float min_distance = this->get_input<float>(fn_in, 1, "Min Distance");
-    float max_distance = this->get_input<float>(fn_in, 2, "Max Distance");
+    FN_TUPLE_CALL_NAMED_REF(this, fn_in, fn_out, inputs, outputs);
+
+    float3 point = inputs.get<float3>(0, "Point");
+    float min_distance = inputs.get<float>(1, "Min Distance");
+    float max_distance = inputs.get<float>(2, "Max Distance");
 
     FalloffW falloff = new BKE::PointDistanceFalloff(point, min_distance, max_distance);
-    fn_out.move_in(0, falloff);
+    outputs.move_in(0, "Falloff", falloff);
   }
 };
 
@@ -37,10 +39,12 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_point_distance_falloff)
 class ConstantFalloff : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    float weight = this->get_input<float>(fn_in, 0, "Weight");
+    FN_TUPLE_CALL_NAMED_REF(this, fn_in, fn_out, inputs, outputs);
+
+    float weight = inputs.get<float>(0, "Weight");
 
     FalloffW falloff = new BKE::ConstantFalloff(weight);
-    fn_out.move_in(0, falloff);
+    outputs.move_in(0, "Falloff", falloff);
   }
 };
 
@@ -58,15 +62,17 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_constant_falloff)
 class MeshDistanceFalloff : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    Object *object = fn_in.relocate_out<ObjectW>(0).ptr();
+    FN_TUPLE_CALL_NAMED_REF(this, fn_in, fn_out, inputs, outputs);
+
+    Object *object = inputs.relocate_out<ObjectW>(0, "Object").ptr();
     if (object == nullptr || object->type != OB_MESH) {
       FalloffW fallback = new BKE::ConstantFalloff(1.0f);
-      fn_out.move_in(0, fallback);
+      outputs.move_in(0, "Falloff", fallback);
       return;
     }
 
-    float inner_distance = fn_in.get<float>(1);
-    float outer_distance = fn_in.get<float>(2);
+    float inner_distance = inputs.get<float>(1, "Inner Distance");
+    float outer_distance = inputs.get<float>(2, "Outer Distance");
     FalloffW falloff = new BKE::MeshDistanceFalloff(object, inner_distance, outer_distance);
     fn_out.move_in(0, falloff);
   }

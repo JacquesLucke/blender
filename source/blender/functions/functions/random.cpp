@@ -26,11 +26,13 @@ static float random_float(uint32_t x)
 class RandomNumber : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    float seed = this->get_input<float>(fn_in, 0, "Seed");
-    float min = this->get_input<float>(fn_in, 1, "Min");
-    float max = this->get_input<float>(fn_in, 2, "Max");
+    FN_TUPLE_CALL_NAMED_REF(this, fn_in, fn_out, inputs, outputs);
+
+    float seed = inputs.get<float>(0, "Seed");
+    float min = inputs.get<float>(1, "Min");
+    float max = inputs.get<float>(2, "Max");
     float result = random_float(float_as_uint(seed)) * (max - min) + min;
-    this->set_output<float>(fn_out, 0, "Value", result);
+    outputs.set<float>(0, "Value", result);
   }
 };
 

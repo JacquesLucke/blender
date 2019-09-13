@@ -621,6 +621,20 @@ class NamedTupleRef {
     UNUSED_VARS_NDEBUG(expected_name);
     return m_tuple->get<T>(index);
   }
+
+  template<typename T> void move_in(uint index, StringRef expected_name, T &value)
+  {
+    BLI_assert(this->name_is_correct(index, expected_name));
+    UNUSED_VARS_NDEBUG(expected_name);
+    m_tuple->move_in(index, value);
+  }
+
+  template<typename T> void set(uint index, StringRef expected_name, T &value)
+  {
+    BLI_assert(this->name_is_correct(index, expected_name));
+    UNUSED_VARS_NDEBUG(expected_name);
+    m_tuple->set(index, value);
+  }
 };
 
 } /* namespace FN */

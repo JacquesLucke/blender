@@ -12,11 +12,13 @@ using namespace Types;
 class SeparateColor : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
-    rgba_f color = this->get_input<rgba_f>(fn_in, 0, "Color");
-    this->set_output<float>(fn_out, 0, "Red", color.r);
-    this->set_output<float>(fn_out, 1, "Green", color.g);
-    this->set_output<float>(fn_out, 2, "Blue", color.b);
-    this->set_output<float>(fn_out, 3, "Alpha", color.a);
+    FN_TUPLE_CALL_NAMED_REF(this, fn_in, fn_out, inputs, outputs);
+
+    rgba_f color = inputs.get<rgba_f>(0, "Color");
+    outputs.set<float>(0, "Red", color.r);
+    outputs.set<float>(1, "Green", color.g);
+    outputs.set<float>(2, "Blue", color.b);
+    outputs.set<float>(3, "Alpha", color.a);
   }
 };
 
@@ -37,12 +39,14 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_separate_color)
 class CombineColor : public TupleCallBody {
   void call(Tuple &fn_in, Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
   {
+    FN_TUPLE_CALL_NAMED_REF(this, fn_in, fn_out, inputs, outputs);
+
     rgba_f color;
-    color.r = this->get_input<float>(fn_in, 0, "Red");
-    color.g = this->get_input<float>(fn_in, 1, "Green");
-    color.b = this->get_input<float>(fn_in, 2, "Blue");
-    color.a = this->get_input<float>(fn_in, 3, "Alpha");
-    this->set_output<rgba_f>(fn_out, 0, "Color", color);
+    color.r = inputs.get<float>(0, "Red");
+    color.g = inputs.get<float>(1, "Green");
+    color.b = inputs.get<float>(2, "Blue");
+    color.a = inputs.get<float>(3, "Alpha");
+    outputs.set<rgba_f>(0, "Color", color);
   }
 };
 

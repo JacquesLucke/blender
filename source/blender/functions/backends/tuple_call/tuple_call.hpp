@@ -39,48 +39,6 @@ class TupleCallBodyBase : public FunctionBody {
   {
     return m_meta_out;
   }
-
-  /**
-   * Same as tuple.get<T>(index), but checks if the name is correct in debug builds.
-   */
-  template<typename T> T get_input(Tuple &tuple, uint index, StringRef expected_name) const
-  {
-#ifdef DEBUG
-    StringRef real_name = this->owner()->input_name(index);
-    BLI_assert(real_name == expected_name);
-#endif
-    UNUSED_VARS_NDEBUG(expected_name);
-    return tuple.get<T>(index);
-  }
-  template<typename T> T get_output(Tuple &tuple, uint index, StringRef expected_name) const
-  {
-#ifdef DEBUG
-    StringRef real_name = this->owner()->output_name(index);
-    BLI_assert(real_name == expected_name);
-#endif
-    UNUSED_VARS_NDEBUG(expected_name);
-    return tuple.get<T>(index);
-  }
-  template<typename T>
-  void set_input(Tuple &tuple, uint index, StringRef expected_name, const T &value) const
-  {
-#ifdef DEBUG
-    StringRef real_name = this->owner()->input_name(index);
-    BLI_assert(real_name == expected_name);
-#endif
-    UNUSED_VARS_NDEBUG(expected_name);
-    tuple.set<T>(index, value);
-  }
-  template<typename T>
-  void set_output(Tuple &tuple, uint index, StringRef expected_name, const T &value) const
-  {
-#ifdef DEBUG
-    StringRef real_name = this->owner()->output_name(index);
-    BLI_assert(real_name == expected_name);
-#endif
-    UNUSED_VARS_NDEBUG(expected_name);
-    tuple.set<T>(index, value);
-  }
 };
 
 class TupleCallBody : public TupleCallBodyBase {
@@ -293,3 +251,9 @@ class FunctionOutputNamesProvider final : public TupleElementNameProvider {
 #define FN_TUPLE_CALL_ALLOC_TUPLES(body, name_in, name_out) \
   FN_TUPLE_STACK_ALLOC(name_in, (body).meta_in().ref()); \
   FN_TUPLE_STACK_ALLOC(name_out, (body).meta_out().ref())
+
+#define FN_TUPLE_CALL_NAMED_REF(THIS, FN_IN, FN_OUT, R_INPUTS, R_OUTPUTS) \
+  FN::FunctionInputNamesProvider _input_names(THIS->owner()); \
+  FN::FunctionOutputNamesProvider _output_names(THIS->owner()); \
+  FN::NamedTupleRef R_INPUTS(&FN_IN, &_input_names); \
+  FN::NamedTupleRef R_OUTPUTS(&FN_OUT, &_output_names)
