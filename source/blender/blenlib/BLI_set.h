@@ -95,7 +95,7 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
       }
     }
 
-    Item(Item &&other)
+    Item(Item &&other) noexcept
     {
       for (uint offset = 0; offset < 4; offset++) {
         uint8_t status = other.m_status[offset];
@@ -427,7 +427,6 @@ template<typename T, typename Allocator = GuardedAllocator> class Set {
 
   BLI_NOINLINE void grow(uint32_t min_usable_slots)
   {
-    // std::cout << "Grow at " << m_array.slots_set() << '/' << m_array.slots_total() << '\n';
     ArrayType new_array = m_array.init_reserved(min_usable_slots);
 
     for (Item &old_item : m_array) {

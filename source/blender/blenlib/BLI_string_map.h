@@ -96,7 +96,7 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
       }
     }
 
-    Item(Item &&other)
+    Item(Item &&other) noexcept
     {
       for (uint offset = 0; offset < 4; offset++) {
         m_indices[offset] = other.m_indices[offset];
@@ -175,11 +175,17 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
  public:
   StringMap() = default;
 
+  /**
+   * Get the number of key-value pairs in the map.
+   */
   uint size() const
   {
     return m_array.slots_set();
   }
 
+  /**
+   * Add a new element to the map. It is assumed that the key did not exist before.
+   */
   void add_new(StringRef key, const T &value)
   {
     BLI_assert(!this->contains(key));
@@ -196,6 +202,9 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Return true when the key exists in the map, otherwise false.
+   */
   bool contains(StringRef key) const
   {
     uint32_t hash = this->compute_string_hash(key);
@@ -210,7 +219,10 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
     ITER_SLOTS_END(offset);
   }
 
-  T &lookup(StringRef key) const
+  /**
+   * Get a reference to the value corresponding to a key. It is assumed that the key does exist.
+   */
+  const T &lookup(StringRef key) const
   {
     BLI_assert(this->contains(key));
     T *found_value = nullptr;
@@ -236,7 +248,11 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
     ITER_SLOTS_END(offset);
   }
 
-  T *lookup_ptr(StringRef key) const
+  /**
+   * Get a pointer to the value corresponding to the key. Return nullptr, if the key does not
+   * exist.
+   */
+  const T *lookup_ptr(StringRef key) const
   {
     uint32_t hash = this->compute_string_hash(key);
     ITER_SLOTS_BEGIN (hash, m_array, const, item, offset) {
@@ -250,9 +266,13 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
     ITER_SLOTS_END(offset);
   }
 
+  /**
+   * Get a copy of the value corresponding to the key. If the key does not exist, return the
+   * default value.
+   */
   T lookup_default(StringRef key, const T &default_value) const
   {
-    T *ptr = this->lookup_ptr(key);
+    const T *ptr = this->lookup_ptr(key);
     if (ptr != nullptr) {
       return *ptr;
     }
@@ -261,6 +281,9 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
     }
   }
 
+  /**
+   * Do a linear search over all items to find a key for a value.
+   */
   StringRefNull find_key_for_value(const T &value) const
   {
     for (const Item &item : m_array) {
@@ -274,6 +297,9 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
     return {};
   }
 
+  /**
+   * Run a function for every value in the map.
+   */
   template<typename FuncT> void foreach_value(const FuncT &func)
   {
     for (Item &item : m_array) {
@@ -285,6 +311,9 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
     }
   }
 
+  /**
+   * Run a function for every key in the map.
+   */
   template<typename FuncT> void foreach_key(const FuncT &func)
   {
     for (Item &item : m_array) {
@@ -297,6 +326,9 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
     }
   }
 
+  /**
+   * Run a function for every key-value-pair in the map.
+   */
   template<typename FuncT> void foreach_key_value_pair(const FuncT &func)
   {
     for (Item &item : m_array) {

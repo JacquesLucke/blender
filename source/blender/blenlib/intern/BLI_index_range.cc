@@ -14,6 +14,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+#include <atomic>
 #include <mutex>
 
 #include "BLI_index_range.h"
@@ -23,7 +24,7 @@
 
 namespace BLI {
 
-static Vector<Array<uint, RawAllocator>, 0, RawAllocator> arrays;
+static Vector<Array<uint, RawAllocator>, 1, RawAllocator> arrays;
 static uint current_array_size = 0;
 static uint *current_array = nullptr;
 static std::mutex current_array_mutex;

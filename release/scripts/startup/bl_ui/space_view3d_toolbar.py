@@ -152,7 +152,7 @@ class VIEW3D_PT_tools_object_options_transform(View3DPanel, Panel):
         layout.label(text="Affect Only")
         layout.prop(tool_settings, "use_transform_data_origin", text="Origins")
         layout.prop(tool_settings, "use_transform_pivot_point_align", text="Locations")
-        layout.prop(tool_settings, "use_transform_skip_children", text="Parents (Skip Children)")
+        layout.prop(tool_settings, "use_transform_skip_children", text="Parents")
 
 
 # ********** default tools for editmode_mesh ****************
@@ -772,6 +772,7 @@ class VIEW3D_PT_stencil_projectpaint(View3DPanel, Panel):
     bl_context = ".imagepaint"  # dot on purpose (access from topbar)
     bl_label = "Mask"
     bl_options = {'DEFAULT_CLOSED'}
+    bl_ui_units_x = 14
 
     @classmethod
     def poll(cls, context):
@@ -796,20 +797,20 @@ class VIEW3D_PT_stencil_projectpaint(View3DPanel, Panel):
         col = layout.column()
         col.active = ipaint.use_stencil_layer
 
+        col.label(text="Stencil Image")
+        col.template_ID(ipaint, "stencil_image", new="image.new", open="image.open")
+
         stencil_text = mesh.uv_layer_stencil.name if mesh.uv_layer_stencil else ""
-        split = col.split(factor=0.5)
+
+        col.separator()
+
+        split = col.split()
         colsub = split.column()
         colsub.alignment = 'RIGHT'
         colsub.label(text="UV Layer")
         split.column().menu("VIEW3D_MT_tools_projectpaint_stencil", text=stencil_text, translate=False)
 
-        # todo this should be combined into a single row
-        split = col.split(factor=0.5)
-        colsub = split.column()
-        colsub.alignment = 'RIGHT'
-        colsub.label(text="Stencil Image")
-        colsub = split.column()
-        colsub.template_ID(ipaint, "stencil_image", new="image.new", open="image.open")
+        col.separator()
 
         row = col.row(align=True)
         row.prop(ipaint, "stencil_color", text="Display Color")

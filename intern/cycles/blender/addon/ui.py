@@ -22,6 +22,8 @@ from bl_ui.utils import PresetPanel
 
 from bpy.types import Panel
 
+from bl_ui.properties_grease_pencil_common import GreasePencilSimplifyPanel
+
 
 class CYCLES_PT_sampling_presets(PresetPanel, Panel):
     bl_label = "Sampling Presets"
@@ -86,10 +88,16 @@ def use_cuda(context):
     return (get_device_type(context) == 'CUDA' and cscene.device == 'GPU')
 
 
+def use_optix(context):
+    cscene = context.scene.cycles
+
+    return (get_device_type(context) == 'OPTIX' and cscene.device == 'GPU')
+
+
 def use_branched_path(context):
     cscene = context.scene.cycles
 
-    return (cscene.progressive == 'BRANCHED_PATH')
+    return (cscene.progressive == 'BRANCHED_PATH' and not use_optix(context))
 
 
 def use_sample_all_lights(context):
@@ -166,7 +174,8 @@ class CYCLES_RENDER_PT_sampling(CyclesButtonsPanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        layout.prop(cscene, "progressive")
+        if not use_optix(context):
+            layout.prop(cscene, "progressive")
 
         if cscene.progressive == 'PATH' or use_branched_path(context) is False:
             col = layout.column(align=True)
@@ -1761,6 +1770,10 @@ class CYCLES_RENDER_PT_bake(CyclesButtonsPanel, Panel):
     bl_options = {'DEFAULT_CLOSED'}
     COMPAT_ENGINES = {'CYCLES'}
 
+    @classmethod
+    def poll(cls, context):
+        return not use_optix(context)
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -1945,7 +1958,13 @@ class CYCLES_RENDER_PT_debug(CyclesButtonsPanel, Panel):
         col.separator()
 
         col = layout.column()
-        col.label(text='OpenCL Flags:')
+        col.label(text="OptiX Flags:")
+        col.prop(cscene, "debug_optix_cuda_streams")
+
+        col.separator()
+
+        col = layout.column()
+        col.label(text="OpenCL Flags:")
         col.prop(cscene, "debug_opencl_device_type", text="Device")
         col.prop(cscene, "debug_use_opencl_debug", text="Debug")
         col.prop(cscene, "debug_opencl_mem_limit")
@@ -2108,6 +2127,11 @@ class CYCLES_VIEW3D_PT_shading_lighting(Panel):
             col.prop(shading, "studiolight_intensity")
             col.prop(shading, "studiolight_background_alpha")
 
+class CYCLES_VIEW3D_PT_simplify_greasepencil(CyclesButtonsPanel, Panel, GreasePencilSimplifyPanel):
+    bl_label = "Grease Pencil"
+    bl_parent_id = "CYCLES_RENDER_PT_simplify"
+    COMPAT_ENGINES = {'CYCLES'}
+    bl_options = {'DEFAULT_CLOSED'}
 
 def draw_device(self, context):
     scene = context.scene
@@ -2190,6 +2214,7 @@ classes = (
     CYCLES_RENDER_PT_simplify_viewport,
     CYCLES_RENDER_PT_simplify_render,
     CYCLES_RENDER_PT_simplify_culling,
+    CYCLES_VIEW3D_PT_simplify_greasepencil,
     CYCLES_VIEW3D_PT_shading_lighting,
     CYCLES_VIEW3D_PT_shading_render_pass,
     CYCLES_RENDER_PT_motion_blur,

@@ -32,7 +32,6 @@
 #include <sstream>
 
 #include "BLI_utildefines.h"
-#include "BLI_alloca.h"
 #include "BLI_array_ref.h"
 
 namespace BLI {
@@ -111,6 +110,9 @@ class StringRefBase {
   bool endswith(StringRef suffix) const;
 };
 
+/**
+ * References a null-terminated char array.
+ */
 class StringRefNull : public StringRefBase {
 
  public:
@@ -134,6 +136,9 @@ class StringRefNull : public StringRefBase {
   }
 };
 
+/**
+ * References a char array. It might not be null terminated.
+ */
 class StringRef : public StringRefBase {
  public:
   StringRef() : StringRefBase(nullptr, 0)

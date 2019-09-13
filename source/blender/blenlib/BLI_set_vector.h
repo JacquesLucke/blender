@@ -16,6 +16,10 @@
 
 /** \file
  * \ingroup bli
+ *
+ * A SetVector is a combination of a set and a vector. The elements are stored in a continuous
+ * array, but every element exists at most once. The insertion order is maintained, as long as
+ * there are no deletes. The expected time to check if a value is in the SetVector is O(1).
  */
 
 #pragma once
@@ -84,7 +88,7 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     uint index() const
     {
       BLI_assert(this->is_set());
-      return m_value;
+      return (uint)m_value;
     }
 
     int32_t &index_ref()
@@ -95,7 +99,7 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     void set_index(uint index)
     {
       BLI_assert(!this->is_set());
-      m_value = index;
+      m_value = (int32_t)index;
     }
 
     void set_dummy()
@@ -127,6 +131,19 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     this->add_multiple(values);
   }
 
+  /**
+   * Allocate memory such that at least min_usable_slots can be added without having to grow again.
+   */
+  void reserve(uint min_usable_slots)
+  {
+    if (m_array.slots_usable() < min_usable_slots) {
+      this->grow(min_usable_slots);
+    }
+  }
+
+  /**
+   * Add a new element. The method assumes that the value did not exist before.
+   */
   void add_new(const T &value)
   {
     BLI_assert(!this->contains(value));
@@ -140,6 +157,9 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     ITER_SLOTS_END;
   }
 
+  /**
+   * Add a new element if it does not exist yet. Does not add the value again if it exists already.
+   */
   bool add(const T &value)
   {
     this->ensure_can_add();
@@ -155,6 +175,9 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     ITER_SLOTS_END;
   }
 
+  /**
+   * Add multiple values. Duplicates will not be inserted.
+   */
   void add_multiple(ArrayRef<T> values)
   {
     for (const T &value : values) {
@@ -162,6 +185,9 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     }
   }
 
+  /**
+   * Returns true when the value is in the set-vector, otherwise false.
+   */
   bool contains(const T &value) const
   {
     ITER_SLOTS_BEGIN (value, m_array, const, slot) {
@@ -175,6 +201,9 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     ITER_SLOTS_END;
   }
 
+  /**
+   * Remove a value from the set-vector. The method assumes that the value exists.
+   */
   void remove(const T &value)
   {
     BLI_assert(this->contains(value));
@@ -197,6 +226,9 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     ITER_SLOTS_END;
   }
 
+  /**
+   * Get and remove the last element of the vector.
+   */
   T pop()
   {
     BLI_assert(this->size() > 0);
@@ -213,6 +245,9 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     ITER_SLOTS_END;
   }
 
+  /**
+   * Get the index of the value in the vector. It is assumed that the value is in the vector.
+   */
   uint index(const T &value) const
   {
     BLI_assert(this->contains(value));
@@ -224,6 +259,9 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     ITER_SLOTS_END;
   }
 
+  /**
+   * Get the index of the value in the vector. If it does not exist return -1.
+   */
   int index_try(const T &value) const
   {
     ITER_SLOTS_BEGIN (value, m_array, const, slot) {
@@ -237,6 +275,9 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     ITER_SLOTS_END;
   }
 
+  /**
+   * Get the number of elements in the set-vector.
+   */
   uint size() const
   {
     return m_array.slots_set();
