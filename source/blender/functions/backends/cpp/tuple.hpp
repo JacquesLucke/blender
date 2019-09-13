@@ -586,6 +586,43 @@ inline uint TupleMeta::size_of_full_tuple() const
   return sizeof(Tuple) + this->size_of_data_and_init();
 }
 
+class TupleElementNameProvider {
+ public:
+  virtual StringRefNull get_element_name(uint index) const = 0;
+};
+
+class NamedTupleRef {
+ private:
+  Tuple *m_tuple;
+  TupleElementNameProvider *m_name_provider;
+
+ public:
+  NamedTupleRef(Tuple *tuple, TupleElementNameProvider *name_provider)
+      : m_tuple(tuple), m_name_provider(name_provider)
+  {
+  }
+
+  bool name_is_correct(uint index, StringRef name) const
+  {
+    StringRef real_name = m_name_provider->get_element_name(index);
+    return real_name == name;
+  }
+
+  template<typename T> T relocate_out(uint index, StringRef expected_name)
+  {
+    BLI_assert(this->name_is_correct(index, expected_name));
+    UNUSED_VARS_NDEBUG(expected_name);
+    return m_tuple->relocate_out<T>(index);
+  }
+
+  template<typename T> T get(uint index, StringRef expected_name)
+  {
+    BLI_assert(this->name_is_correct(index, expected_name));
+    UNUSED_VARS_NDEBUG(expected_name);
+    return m_tuple->get<T>(index);
+  }
+};
+
 } /* namespace FN */
 
 /**

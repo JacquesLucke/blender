@@ -25,8 +25,10 @@ using BLI::ValueOrError;
 using FN::Function;
 using FN::FunctionBuilder;
 using FN::FunctionGraph;
+using FN::NamedTupleRef;
 using FN::SharedDataGraph;
 using FN::DataFlowNodes::VTreeDataGraph;
+using FN::Types::FalloffW;
 using FN::Types::ObjectW;
 using FN::Types::StringW;
 
@@ -44,6 +46,7 @@ class VTreeData {
   Vector<std::unique_ptr<ParticleFunction>> m_particle_functions;
   Vector<SharedFunction> m_functions;
   Vector<std::unique_ptr<Tuple>> m_tuples;
+  Vector<std::unique_ptr<FN::FunctionOutputNamesProvider>> m_name_providers;
 
  public:
   VTreeData(VTreeDataGraph &vtree_data) : m_vtree_data_graph(vtree_data)
@@ -108,16 +111,19 @@ class VTreeData {
     return fn->body<TupleCallBody>();
   }
 
-  FN::OutputTupleRef compute_all_inputs(VirtualNode *vnode)
+  NamedTupleRef compute_all_inputs(VirtualNode *vnode)
   {
     TupleCallBody &body = this->function_body_for_all_inputs(vnode);
     FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in().ref());
     FN::Tuple *fn_out = new FN::Tuple(body.meta_out());
 
     body.call__setup_execution_context(fn_in, *fn_out);
+    auto *name_provider = new FN::FunctionOutputNamesProvider(body.owner());
 
     m_tuples.append(std::unique_ptr<FN::Tuple>(fn_out));
-    return FN::OutputTupleRef(fn_out, body.owner());
+    m_name_providers.append(std::unique_ptr<FN::FunctionOutputNamesProvider>(name_provider));
+
+    return NamedTupleRef(fn_out, name_provider);
   }
 };
 
@@ -347,7 +353,7 @@ static void PARSE_point_emitter(InfluencesCollector &collector,
                                 WorldTransition &world_transition,
                                 VirtualNode *vnode)
 {
-  FN::OutputTupleRef inputs = vtree_data.compute_all_inputs(vnode);
+  NamedTupleRef inputs = vtree_data.compute_all_inputs(vnode);
   Vector<std::string> system_names = find_connected_particle_system_names(
       vnode->output(0, "Emitter"));
   std::string name = vnode->name();
@@ -363,7 +369,7 @@ static void PARSE_point_emitter(InfluencesCollector &collector,
 }
 
 static Vector<float> compute_emitter_vertex_weights(VirtualNode *vnode,
-                                                    FN::OutputTupleRef &inputs,
+                                                    NamedTupleRef inputs,
                                                     Object *object)
 {
   PointerRNA rna = vnode->rna();
@@ -418,7 +424,7 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
                                WorldTransition &world_transition,
                                VirtualNode *vnode)
 {
-  FN::OutputTupleRef inputs = vtree_data.compute_all_inputs(vnode);
+  NamedTupleRef inputs = vtree_data.compute_all_inputs(vnode);
 
   std::unique_ptr<Action> on_birth_action = build_action_list(
       vtree_data, vnode, "Execute on Birth");
@@ -516,7 +522,7 @@ static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
                                        WorldTransition &UNUSED(world_transition),
                                        VirtualNode *vnode)
 {
-  FN::OutputTupleRef inputs = vtree_data.compute_all_inputs(vnode);
+  NamedTupleRef inputs = vtree_data.compute_all_inputs(vnode);
 
   Vector<std::string> system_names = find_connected_particle_system_names(
       vnode->output(0, "Emitter"));

@@ -255,34 +255,33 @@ class LazyInTupleCallBody : public TupleCallBodyBase {
   }
 };
 
-class OutputTupleRef {
+class FunctionInputNamesProvider final : public TupleElementNameProvider {
  private:
-  Tuple *m_tuple;
   Function *m_function;
 
  public:
-  OutputTupleRef(Tuple *tuple, Function *function) : m_tuple(tuple), m_function(function)
+  FunctionInputNamesProvider(Function *function) : m_function(function)
   {
   }
 
-  template<typename T> T relocate_out(uint index, StringRef expected_name)
+  StringRefNull get_element_name(uint index) const override
   {
-#ifdef DEBUG
-    StringRef real_name = m_function->output_name(index);
-    BLI_assert(real_name == expected_name);
-#endif
-    UNUSED_VARS_NDEBUG(expected_name);
-    return m_tuple->relocate_out<T>(index);
+    return m_function->input_name(index);
+  }
+};
+
+class FunctionOutputNamesProvider final : public TupleElementNameProvider {
+ private:
+  Function *m_function;
+
+ public:
+  FunctionOutputNamesProvider(Function *function) : m_function(function)
+  {
   }
 
-  template<typename T> T get(uint index, StringRef expected_name)
+  StringRefNull get_element_name(uint index) const override
   {
-#ifdef DEBUG
-    StringRef real_name = m_function->output_name(index);
-    BLI_assert(real_name == expected_name);
-#endif
-    UNUSED_VARS_NDEBUG(expected_name);
-    return m_tuple->get<T>(index);
+    return m_function->output_name(index);
   }
 };
 
