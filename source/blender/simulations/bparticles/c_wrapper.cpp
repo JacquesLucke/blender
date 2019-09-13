@@ -32,6 +32,7 @@ using namespace BParticles;
 
 using BLI::ArrayRef;
 using BLI::float3;
+using BLI::rgba_b;
 using BLI::rgba_f;
 using BLI::StringRef;
 using BLI::Vector;
@@ -117,14 +118,12 @@ static void distribute_tetrahedons_range(Mesh *mesh,
     }
 
     rgba_f color_f = colors[instance];
-    MLoopCol color_b = {(uchar)(color_f.r * 255.0f),
-                        (uchar)(color_f.g * 255.0f),
-                        (uchar)(color_f.b * 255.0f),
-                        255};
+    rgba_b color_b = color_f;
+    MLoopCol loop_col = {color_b.r, color_b.g, color_b.b, color_b.a};
     for (uint i = 0; i < ARRAY_SIZE(tetrahedon_loop_vertices); i++) {
       mesh->mloop[loop_offset + i].v = vertex_offset + tetrahedon_loop_vertices[i];
       mesh->mloop[loop_offset + i].e = edge_offset + tetrahedon_loop_edges[i];
-      loop_colors[loop_offset + i] = color_b;
+      loop_colors[loop_offset + i] = loop_col;
     }
 
     for (uint i = 0; i < ARRAY_SIZE(tetrahedon_edges); i++) {
