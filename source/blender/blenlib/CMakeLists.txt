@@ -264,18 +264,11 @@ set(SRC
   BLI_object_pool.h
   BLI_optional.h
   BLI_refcount.h
-  BLI_map.h
   BLI_multi_map.h
-  BLI_set.h
-  BLI_set_vector.h
   BLI_chunked_range.h
-  BLI_string_map.h
-  BLI_string_ref.h
   BLI_timeit.h
   BLI_vector_adaptor.h
   BLI_multi_vector.h
-  BLI_open_addressing.h
-  BLI_hash_cxx.h
   BLI_utility_mixins.h
 )
 
