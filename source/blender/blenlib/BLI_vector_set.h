@@ -14,15 +14,15 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef __BLI_SET_VECTOR_H__
-#define __BLI_SET_VECTOR_H__
+#ifndef __BLI_VECTOR_SET_H__
+#define __BLI_VECTOR_SET_H__
 
 /** \file
  * \ingroup bli
  *
- * A SetVector is a combination of a set and a vector. The elements are stored in a continuous
- * array, but every element exists at most once. The insertion order is maintained, as long as
- * there are no deletes. The expected time to check if a value is in the SetVector is O(1).
+ * A VectorSet is a set built on top of a vector. The elements are stored in a continuous array,
+ * but every element exists at most once. The insertion order is maintained, as long as there are
+ * no deletes. The expected time to check if a value is in the VectorSet is O(1).
  */
 
 #include "BLI_hash_cxx.h"
@@ -49,7 +49,7 @@ namespace BLI {
 
 // clang-format on
 
-template<typename T, typename Allocator = GuardedAllocator> class SetVector {
+template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
  private:
   static constexpr int32_t IS_EMPTY = -1;
   static constexpr int32_t IS_DUMMY = -2;
@@ -115,19 +115,19 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
   Vector<T, 4, Allocator> m_elements;
 
  public:
-  SetVector() = default;
+  VectorSet() = default;
 
-  SetVector(ArrayRef<T> values)
+  VectorSet(ArrayRef<T> values)
   {
     this->add_multiple(values);
   }
 
-  SetVector(const std::initializer_list<T> &values)
+  VectorSet(const std::initializer_list<T> &values)
   {
     this->add_multiple(values);
   }
 
-  SetVector(const Vector<T> &values)
+  VectorSet(const Vector<T> &values)
   {
     this->add_multiple(values);
   }
@@ -147,15 +147,11 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
    */
   void add_new(const T &value)
   {
-    BLI_assert(!this->contains(value));
-    this->ensure_can_add();
-    ITER_SLOTS_BEGIN (value, m_array, , slot) {
-      if (slot.is_empty()) {
-        this->add_new_in_slot(slot, value);
-        return;
-      }
-    }
-    ITER_SLOTS_END;
+    this->add_new__impl(value);
+  }
+  void add_new(T &&value)
+  {
+    this->add_new__impl(std::move(value));
   }
 
   /**
@@ -163,17 +159,11 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
    */
   bool add(const T &value)
   {
-    this->ensure_can_add();
-    ITER_SLOTS_BEGIN (value, m_array, , slot) {
-      if (slot.is_empty()) {
-        this->add_new_in_slot(slot, value);
-        return true;
-      }
-      else if (slot.has_value(value, m_elements)) {
-        return false;
-      }
-    }
-    ITER_SLOTS_END;
+    return this->add__impl(value);
+  }
+  bool add(T &&value)
+  {
+    return this->add__impl(std::move(value));
   }
 
   /**
@@ -332,11 +322,11 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     ITER_SLOTS_END;
   }
 
-  void add_new_in_slot(Slot &slot, const T &value)
+  template<typename ForwardT> void add_new_in_slot(Slot &slot, ForwardT &&value)
   {
     uint index = m_elements.size();
     slot.set_index(index);
-    m_elements.append(value);
+    m_elements.append(std::forward<ForwardT>(value));
     m_array.update__empty_to_set();
   }
 
@@ -369,6 +359,34 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
     }
     ITER_SLOTS_END;
   }
+
+  template<typename ForwardT> void add_new__impl(ForwardT &&value)
+  {
+    BLI_assert(!this->contains(value));
+    this->ensure_can_add();
+    ITER_SLOTS_BEGIN (value, m_array, , slot) {
+      if (slot.is_empty()) {
+        this->add_new_in_slot(slot, std::forward<ForwardT>(value));
+        return;
+      }
+    }
+    ITER_SLOTS_END;
+  }
+
+  template<typename ForwardT> bool add__impl(ForwardT &&value)
+  {
+    this->ensure_can_add();
+    ITER_SLOTS_BEGIN (value, m_array, , slot) {
+      if (slot.is_empty()) {
+        this->add_new_in_slot(slot, std::forward<ForwardT>(value));
+        return true;
+      }
+      else if (slot.has_value(value, m_elements)) {
+        return false;
+      }
+    }
+    ITER_SLOTS_END;
+  }
 };
 
 #undef ITER_SLOTS_BEGIN
@@ -376,4 +394,4 @@ template<typename T, typename Allocator = GuardedAllocator> class SetVector {
 
 }  // namespace BLI
 
-#endif /* __BLI_SET_VECTOR_H__ */
+#endif /* __BLI_VECTOR_SET_H__ */
