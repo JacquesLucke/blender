@@ -12,8 +12,8 @@ namespace FN {
 using BLI::MultiMap;
 
 struct DependencyComponents {
-  SetVector<Object *> transform_dependencies;
-  SetVector<Object *> geometry_dependencies;
+  VectorSet<Object *> transform_dependencies;
+  VectorSet<Object *> geometry_dependencies;
 };
 
 class FunctionDepsBuilder {

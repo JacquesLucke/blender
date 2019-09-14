@@ -15,11 +15,11 @@ using BLI::IndexRange;
 using BLI::Map;
 using BLI::MutableArrayRef;
 using BLI::Set;
-using BLI::SetVector;
 using BLI::StringMap;
 using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
+using BLI::VectorSet;
 
 class ParticlesState {
  private:

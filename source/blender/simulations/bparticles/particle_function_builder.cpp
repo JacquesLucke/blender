@@ -32,12 +32,12 @@ Vector<DataSocket> find_input_data_sockets(VirtualNode *vnode, VTreeDataGraph &d
   return inputs;
 }
 
-static SetVector<VirtualSocket *> find_particle_dependencies(
+static VectorSet<VirtualSocket *> find_particle_dependencies(
     VTreeDataGraph &data_graph,
     ArrayRef<DataSocket> sockets,
     MutableArrayRef<bool> r_depends_on_particle_flags)
 {
-  SetVector<VirtualSocket *> combined_dependencies;
+  VectorSet<VirtualSocket *> combined_dependencies;
 
   for (uint i = 0; i < sockets.size(); i++) {
     DataSocket socket = sockets[i];

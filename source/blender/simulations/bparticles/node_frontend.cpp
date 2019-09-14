@@ -83,7 +83,7 @@ class VTreeData {
 
   TupleCallBody &function_body_for_inputs(VirtualNode *vnode, ArrayRef<uint> input_indices)
   {
-    SetVector<DataSocket> sockets_to_compute;
+    VectorSet<DataSocket> sockets_to_compute;
     for (uint index : input_indices) {
       sockets_to_compute.add_new(m_vtree_data_graph.lookup_socket(vnode->input(index)));
     }
@@ -97,7 +97,7 @@ class VTreeData {
 
   TupleCallBody &function_body_for_all_inputs(VirtualNode *vnode)
   {
-    SetVector<DataSocket> sockets_to_compute;
+    VectorSet<DataSocket> sockets_to_compute;
     for (VirtualSocket *vsocket : vnode->inputs()) {
       if (m_vtree_data_graph.uses_socket(vsocket)) {
         sockets_to_compute.add_new(m_vtree_data_graph.lookup_socket(vsocket));
@@ -135,7 +135,7 @@ static std::unique_ptr<Action> build_action_list(VTreeData &vtree_data,
                                                  StringRef name);
 
 static void find_connected_particle_type_nodes__recursive(VirtualSocket *output_vsocket,
-                                                          SetVector<VirtualNode *> &r_nodes)
+                                                          VectorSet<VirtualNode *> &r_nodes)
 {
   BLI_assert(output_vsocket->is_output());
   for (VirtualSocket *connected : output_vsocket->links()) {
@@ -151,7 +151,7 @@ static void find_connected_particle_type_nodes__recursive(VirtualSocket *output_
 
 static Vector<VirtualNode *> find_connected_particle_type_nodes(VirtualSocket *output_vsocket)
 {
-  SetVector<VirtualNode *> type_nodes;
+  VectorSet<VirtualNode *> type_nodes;
   find_connected_particle_type_nodes__recursive(output_vsocket, type_nodes);
   return Vector<VirtualNode *>(type_nodes);
 }

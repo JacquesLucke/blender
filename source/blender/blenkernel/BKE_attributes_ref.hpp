@@ -32,7 +32,7 @@
 #include "BLI_math_cxx.h"
 #include "BLI_optional.h"
 #include "BLI_index_range.h"
-#include "BLI_set_vector.h"
+#include "BLI_vector_set.h"
 #include "BLI_set.h"
 #include "BLI_string_map.h"
 #include "BLI_string_ref.h"
@@ -48,11 +48,11 @@ using BLI::MutableArrayRef;
 using BLI::Optional;
 using BLI::rgba_b;
 using BLI::rgba_f;
-using BLI::SetVector;
 using BLI::StringMap;
 using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
+using BLI::VectorSet;
 
 /**
  * Possible types of attributes. All types are expected to be POD (plain old data).
@@ -137,7 +137,7 @@ class AttributesInfo;
 
 class AttributesDeclaration {
  private:
-  SetVector<std::string> m_names;
+  VectorSet<std::string> m_names;
   Vector<AttributeType> m_types;
   Vector<AnyAttributeValue> m_defaults;
 

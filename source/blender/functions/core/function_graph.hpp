@@ -6,23 +6,23 @@
  * graph.
  */
 
-#include "BLI_set_vector.h"
+#include "BLI_vector_set.h"
 #include "BLI_set.h"
 
 #include "data_graph.hpp"
 
 namespace FN {
 
-using BLI::SetVector;
+using BLI::VectorSet;
 
 class FunctionGraph {
  private:
   SharedDataGraph m_graph;
-  SetVector<DataSocket> m_inputs;
-  SetVector<DataSocket> m_outputs;
+  VectorSet<DataSocket> m_inputs;
+  VectorSet<DataSocket> m_outputs;
 
  public:
-  FunctionGraph(SharedDataGraph graph, SetVector<DataSocket> inputs, SetVector<DataSocket> outputs)
+  FunctionGraph(SharedDataGraph graph, VectorSet<DataSocket> inputs, VectorSet<DataSocket> outputs)
       : m_graph(std::move(graph)), m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
   {
   }
@@ -37,12 +37,12 @@ class FunctionGraph {
     return m_graph;
   }
 
-  const SetVector<DataSocket> &inputs() const
+  const VectorSet<DataSocket> &inputs() const
   {
     return m_inputs;
   }
 
-  const SetVector<DataSocket> &outputs() const
+  const VectorSet<DataSocket> &outputs() const
   {
     return m_outputs;
   }

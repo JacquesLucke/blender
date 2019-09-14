@@ -15,7 +15,7 @@ class AttributesBlockContainer : BLI::NonCopyable, BLI::NonMovable {
  private:
   AttributesInfo m_attributes_info;
   uint m_block_size;
-  SetVector<AttributesBlock *> m_active_blocks;
+  VectorSet<AttributesBlock *> m_active_blocks;
   std::mutex m_blocks_mutex;
   std::atomic<uint> m_next_id;
 
