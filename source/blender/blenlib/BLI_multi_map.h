@@ -63,38 +63,40 @@ template<typename K, typename V, uint N = 4> class MultiMap {
     bool newly_inserted = m_map.add_or_modify(
         key,
         /* Insert new key with value. */
-        [this, &key, &value]() -> Entry {
+        [&](Entry *r_entry) {
           UNUSED_VARS(key);
           uint offset = m_elements.size();
           m_elements.append(value);
-          return {offset, 1, 1};
+          *r_entry = {offset, 1, 1};
+          return true;
         },
         /* Append new value for existing key. */
-        [this, &value](Entry &entry) {
-          if (entry.length < entry.capacity) {
-            m_elements[entry.offset + entry.length] = value;
-            entry.length += 1;
+        [&](Entry *entry) {
+          if (entry->length < entry->capacity) {
+            m_elements[entry->offset + entry->length] = value;
+            entry->length += 1;
           }
           else {
             uint new_offset = m_elements.size();
-            uint new_capacity = entry.capacity * 2;
+            uint new_capacity = entry->capacity * 2;
 
             m_elements.reserve(m_elements.size() + new_capacity);
 
             /* Copy the existing elements to the end. */
-            ArrayRef<V> old_values = entry.get_slice(m_elements);
+            ArrayRef<V> old_values = entry->get_slice(m_elements);
             m_elements.extend_unchecked(old_values);
 
             /* Insert the new value. */
             m_elements.append_unchecked(value);
 
-            /* Reserve the remaining capacity for this entry. */
-            m_elements.increase_size_unchecked(entry.length - 1);
+            /* Reserve the remaining capacity for this entry-> */
+            m_elements.increase_size_unchecked(entry->length - 1);
 
-            entry.offset = new_offset;
-            entry.length += 1;
-            entry.capacity = new_capacity;
+            entry->offset = new_offset;
+            entry->length += 1;
+            entry->capacity = new_capacity;
           }
+          return false;
         });
     return newly_inserted;
   }
