@@ -115,19 +115,22 @@ template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
   Vector<T, 4, Allocator> m_elements;
 
  public:
-  VectorSet() = default;
+  VectorSet()
+  {
+    BLI_assert(m_array.slots_usable() <= m_elements.capacity());
+  }
 
-  VectorSet(ArrayRef<T> values)
+  VectorSet(ArrayRef<T> values) : VectorSet()
   {
     this->add_multiple(values);
   }
 
-  VectorSet(const std::initializer_list<T> &values)
+  VectorSet(const std::initializer_list<T> &values) : VectorSet()
   {
     this->add_multiple(values);
   }
 
-  VectorSet(const Vector<T> &values)
+  VectorSet(const Vector<T> &values) : VectorSet()
   {
     this->add_multiple(values);
   }
@@ -274,16 +277,6 @@ template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
     return m_array.slots_set();
   }
 
-  T *begin()
-  {
-    return m_elements.begin();
-  }
-
-  T *end()
-  {
-    return m_elements.end();
-  }
-
   const T *begin() const
   {
     return m_elements.begin();
@@ -309,6 +302,15 @@ template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
     return m_elements;
   }
 
+  void print_stats() const
+  {
+    std::cout << "VectorSet at " << (void *)this << ":\n";
+    std::cout << "  Size: " << this->size() << "\n";
+    std::cout << "  Usable Slots: " << m_array.slots_usable() << "\n";
+    std::cout << "  Total Slots: " << m_array.slots_total() << "\n";
+    std::cout << "  Average Collisions: " << this->compute_average_collisions() << "\n";
+  }
+
  private:
   void update_slot_index(T &value, uint old_index, uint new_index)
   {
@@ -326,7 +328,7 @@ template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
   {
     uint index = m_elements.size();
     slot.set_index(index);
-    m_elements.append(std::forward<ForwardT>(value));
+    m_elements.append_unchecked(std::forward<ForwardT>(value));
     m_array.update__empty_to_set();
   }
 
@@ -346,6 +348,7 @@ template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
     }
 
     m_array = std::move(new_array);
+    m_elements.reserve(m_array.slots_usable());
   }
 
   void add_after_grow(uint index, ArrayType &new_array)
@@ -356,6 +359,31 @@ template<typename T, typename Allocator = GuardedAllocator> class VectorSet {
         slot.set_index(index);
         return;
       }
+    }
+    ITER_SLOTS_END;
+  }
+
+  float compute_average_collisions() const
+  {
+    if (m_elements.size() == 0) {
+      return 0.0f;
+    }
+
+    uint collisions_sum = 0;
+    for (const T &value : m_elements) {
+      collisions_sum += this->count_collisions(value);
+    }
+    return (float)collisions_sum / (float)m_elements.size();
+  }
+
+  uint count_collisions(const T &value) const
+  {
+    uint collisions = 0;
+    ITER_SLOTS_BEGIN (value, m_array, const, slot) {
+      if (slot.is_empty() || slot.has_value(value, m_elements)) {
+        return collisions;
+      }
+      collisions++;
     }
     ITER_SLOTS_END;
   }

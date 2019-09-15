@@ -187,7 +187,7 @@ class SEQUENCER_MT_range(Menu):
 class SEQUENCER_MT_preview_zoom(Menu):
     bl_label = "Fractional Zoom"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_PREVIEW'
 
@@ -502,9 +502,12 @@ class SEQUENCER_MT_add(Menu):
         col.menu("SEQUENCER_MT_add_transitions", icon='ARROW_LEFTRIGHT')
         col.enabled = selected_sequences_len(context) >= 2
 
+        # Disable until D5166#133312 is resolved.
+        '''
         col = layout.column()
         col.operator_menu_enum("sequencer.fades_add", "type", text="Fade", icon="IPO_EASE_IN_OUT")
         col.enabled = selected_sequences_len(context) >= 1
+        '''
 
 
 class SEQUENCER_MT_add_empty(Menu):
@@ -761,7 +764,7 @@ class SEQUENCER_MT_context_menu(Menu):
             strip_type = strip.type
             selected_sequences_count = selected_sequences_len(context)
 
-            if strip_type != "SOUND":
+            if strip_type != 'SOUND':
                 layout.separator()
                 layout.operator_menu_enum("sequencer.strip_modifier_add", "type", text="Add Modifier")
                 layout.operator("sequencer.strip_modifier_copy", text="Copy Modifiers to Selection")
@@ -775,11 +778,13 @@ class SEQUENCER_MT_context_menu(Menu):
                 layout.separator()
                 layout.operator("sequencer.crossfade_sounds", text="Crossfade Sounds")
 
+            # Disable until D5166#133312 is resolved.
+            '''
             if selected_sequences_count >= 1:
                 col = layout.column()
                 col.operator_menu_enum("sequencer.fades_add", "type", text="Fade")
-                col.enabled = selected_sequences_len(context) >= 1
                 layout.operator("sequencer.fades_clear", text="Clear Fade")
+            '''
 
             if strip_type in {
                     'CROSS', 'ADD', 'SUBTRACT', 'ALPHA_OVER', 'ALPHA_UNDER',
