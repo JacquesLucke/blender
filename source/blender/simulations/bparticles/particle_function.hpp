@@ -231,29 +231,6 @@ class ParticleFunction {
 
   ~ParticleFunction();
 
-  SharedFunction &function_no_deps()
-  {
-    return m_fn_no_deps;
-  }
-
-  bool parameter_depends_on_particle(StringRef expected_name, uint parameter_index)
-  {
-    bool depends_on_particle = m_parameter_depends_on_particle[parameter_index];
-#ifdef DEBUG
-    uint output_index = m_output_indices[parameter_index];
-    if (depends_on_particle) {
-      StringRefNull real_name = m_fn_with_deps->output_name(output_index);
-      BLI_assert(expected_name == real_name);
-    }
-    else {
-      StringRefNull real_name = m_fn_no_deps->output_name(output_index);
-      BLI_assert(expected_name == real_name);
-    }
-#endif
-    UNUSED_VARS_NDEBUG(expected_name);
-    return depends_on_particle;
-  }
-
   std::unique_ptr<ParticleFunctionResult> compute(ActionInterface &interface);
   std::unique_ptr<ParticleFunctionResult> compute(OffsetHandlerInterface &interface);
   std::unique_ptr<ParticleFunctionResult> compute(ForceInterface &interface);

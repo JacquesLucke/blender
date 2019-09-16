@@ -619,10 +619,6 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
     return;
   }
 
-  if (inputs_fn->parameter_depends_on_particle("Object", 0)) {
-    return;
-  }
-
   Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {0});
   if (!inputs.has_value()) {
     return;
