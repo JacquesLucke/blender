@@ -7,5 +7,5 @@ class CombineInfluencesNode(bpy.types.Node, BParticlesNode):
     bl_label = "Combine Influences"
 
     def declaration(self, builder: NodeBuilder):
-        builder.particle_effector_input("influences", "Influences")
-        builder.particle_effector_output("influences", "Influences")
+        builder.influences_input("influences", "Influences")
+        builder.influences_output("influences", "Influences")

@@ -6,7 +6,7 @@ from . declaration import (
     TreeInterfaceDecl,
     VectorizedInputDecl,
     VectorizedOutputDecl,
-    ParticleEffectorSocketDecl,
+    InfluencesSocketDecl,
     ExecuteOutputDecl,
     ExecuteInputListDecl,
 
@@ -192,12 +192,12 @@ class NodeBuilder:
     # BParticles
     ###################################
 
-    def particle_effector_input(self, identifier, name):
-        decl = ParticleEffectorSocketDecl(self.node, identifier, name)
+    def influences_input(self, identifier, name):
+        decl = InfluencesSocketDecl(self.node, identifier, name)
         self._add_input(decl)
 
-    def particle_effector_output(self, identifier, name):
-        decl = ParticleEffectorSocketDecl(self.node, identifier, name)
+    def influences_output(self, identifier, name):
+        decl = InfluencesSocketDecl(self.node, identifier, name)
         self._add_output(decl)
 
     @staticmethod

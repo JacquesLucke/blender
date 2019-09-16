@@ -5,14 +5,14 @@ from .. sockets import OperatorSocket
 
 MAX_LINK_LIMIT = 4095
 
-class ParticleEffectorSocketDecl(SocketDeclBase):
+class InfluencesSocketDecl(SocketDeclBase):
     def __init__(self, node, identifier: str, display_name: str):
         self.node = node
         self.identifier = identifier
         self.display_name = display_name
 
     def build(self, node_sockets):
-        socket = node_sockets.new("bp_ParticleEffectorSocket", self.display_name, identifier=self.identifier)
+        socket = node_sockets.new("bp_InfluencesSocket", self.display_name, identifier=self.identifier)
         socket.link_limit = MAX_LINK_LIMIT
         socket.display_shape = 'DIAMOND'
         return [socket]
@@ -21,7 +21,7 @@ class ParticleEffectorSocketDecl(SocketDeclBase):
         if len(sockets) != 1:
             return False
         socket = sockets[0]
-        if socket.bl_idname != "bp_ParticleEffectorSocket":
+        if socket.bl_idname != "bp_InfluencesSocket":
             return False
         if socket.name != self.display_name:
             return False

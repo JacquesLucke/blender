@@ -15,4 +15,4 @@ class ExplodeParticleNode(bpy.types.Node, BParticlesNode):
         builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
 
         builder.execute_output("execute", "Execute")
-        builder.particle_effector_output("explode_system", "Explode System")
+        builder.influences_output("explode_system", "Explode System")

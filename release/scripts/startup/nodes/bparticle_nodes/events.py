@@ -15,7 +15,7 @@ class AgeReachedEventNode(bpy.types.Node, BParticlesNode):
         builder.fixed_input("variation", "Variation", "Float")
         builder.execute_input("execute_on_event", "Execute on Event", "execute_on_event__prop")
 
-        builder.particle_effector_output("event", "Event")
+        builder.influences_output("event", "Event")
 
 
 class MeshCollisionEventNode(bpy.types.Node, BParticlesNode):
@@ -28,7 +28,7 @@ class MeshCollisionEventNode(bpy.types.Node, BParticlesNode):
         builder.fixed_input("object", "Object", "Object")
         builder.execute_input("execute_on_event", "Execute on Event", "execute_on_event__prop")
 
-        builder.particle_effector_output("event", "Event")
+        builder.influences_output("event", "Event")
 
 
 class CustomEventNode(bpy.types.Node, BParticlesNode):
@@ -41,4 +41,4 @@ class CustomEventNode(bpy.types.Node, BParticlesNode):
         builder.fixed_input("condition", "Condition", "Boolean")
         builder.execute_input("execute_on_event", "Execute on Event", "execute_on_event__prop")
 
-        builder.particle_effector_output("event", "Event")
+        builder.influences_output("event", "Event")

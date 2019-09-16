@@ -7,7 +7,7 @@ from . variadic import AnyVariadicDecl
 from . vectorized import VectorizedInputDecl, VectorizedOutputDecl
 
 from . bparticles import (
-    ParticleEffectorSocketDecl,
+    InfluencesSocketDecl,
     ExecuteOutputDecl,
     ExecuteInputListDecl,
 )

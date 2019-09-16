@@ -10,4 +10,4 @@ class SizeOverTimeNode(bpy.types.Node, BParticlesNode):
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("final_size", "Final Size", "Float", default=0.0)
         builder.fixed_input("final_age", "Final Age", "Float", default=3)
-        builder.particle_effector_output("influence", "Influence")
+        builder.influences_output("influence", "Influence")

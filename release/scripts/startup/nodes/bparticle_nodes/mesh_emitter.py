@@ -29,7 +29,7 @@ class MeshEmitterNode(bpy.types.Node, BParticlesNode):
             builder.fixed_input("density_falloff", "Density Falloff", "Falloff")
 
         builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
-        builder.particle_effector_output("emitter", "Emitter")
+        builder.influences_output("emitter", "Emitter")
 
     def draw(self, layout):
         layout.prop(self, "density_mode")

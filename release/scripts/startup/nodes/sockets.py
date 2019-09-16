@@ -207,7 +207,7 @@ class ExecuteSocket(bpy.types.NodeSocket, BaseSocket):
     bl_label = "Control Flow Socket"
     color = (0.8, 0.2, 0.2, 1)
 
-class ParticleEffectorSocket(bpy.types.NodeSocket, BaseSocket):
-    bl_idname = "bp_ParticleEffectorSocket"
-    bl_label = "Particle Modifier Socket"
+class InfluencesSocket(bpy.types.NodeSocket, BaseSocket):
+    bl_idname = "bp_InfluencesSocket"
+    bl_label = "Influences Socket"
     color = (0.8, 0.8, 0.2, 1)

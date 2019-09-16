@@ -11,4 +11,4 @@ class PointEmitterNode(bpy.types.Node, BParticlesNode):
         builder.fixed_input("position", "Position", "Vector")
         builder.fixed_input("velocity", "Velocity", "Vector", default=(1, 0, 0))
         builder.fixed_input("size", "Size", "Float", default=0.01)
-        builder.particle_effector_output("emitter", "Emitter")
+        builder.influences_output("emitter", "Emitter")
