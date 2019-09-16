@@ -47,16 +47,19 @@ class PointEmitter : public Emitter {
   VaryingFloat3 m_position;
   VaryingFloat3 m_velocity;
   VaryingFloat m_size;
+  Action *m_action;
 
  public:
   PointEmitter(ArrayRef<std::string> systems_to_emit,
                VaryingFloat3 position,
                VaryingFloat3 velocity,
-               VaryingFloat size)
+               VaryingFloat size,
+               Action *action)
       : m_systems_to_emit(systems_to_emit),
         m_position(position),
         m_velocity(velocity),
-        m_size(size)
+        m_size(size),
+        m_action(action)
   {
   }
 

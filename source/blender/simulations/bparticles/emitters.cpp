@@ -48,6 +48,8 @@ void PointEmitter::emit(EmitterInterface &interface)
     new_particles.set<float3>("Velocity", new_velocities);
     new_particles.set<float>("Size", new_sizes);
     new_particles.set<float>("Birth Time", birth_times);
+
+    m_action->execute_from_emitter(new_particles, interface);
   }
 }
 

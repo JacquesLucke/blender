@@ -370,6 +370,8 @@ static void PARSE_point_emitter(InfluencesCollector &collector,
     return;
   }
 
+  Action *action = vtree_data.build_action_list(vnode, "Execute on Birth");
+
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Emitter"));
   std::string name = vnode->name();
@@ -380,7 +382,7 @@ static void PARSE_point_emitter(InfluencesCollector &collector,
       name, "Velocity", inputs->get<float3>(1, "Velocity"));
   VaryingFloat size = world_transition.update_float(name, "Size", inputs->get<float>(2, "Size"));
 
-  Emitter *emitter = new PointEmitter(std::move(system_names), position, velocity, size);
+  Emitter *emitter = new PointEmitter(std::move(system_names), position, velocity, size, action);
   collector.m_emitters.append(emitter);
 }
 
