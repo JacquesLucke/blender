@@ -546,6 +546,8 @@ static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
     return;
   }
 
+  Action *action = vtree_data.build_action_list(vnode, "Execute on Birth");
+
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Emitter"));
   Emitter *emitter = new InitialGridEmitter(std::move(system_names),
@@ -553,7 +555,8 @@ static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
                                             std::max(0, inputs->get<int>(1, "Amount Y")),
                                             inputs->get<float>(2, "Step X"),
                                             inputs->get<float>(3, "Step Y"),
-                                            inputs->get<float>(4, "Size"));
+                                            inputs->get<float>(4, "Size"),
+                                            action);
   collector.m_emitters.append(emitter);
 }
 

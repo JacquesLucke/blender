@@ -91,6 +91,8 @@ class Action {
   void execute_from_emitter(AttributesRefGroup &new_particles,
                             EmitterInterface &emitter_interface,
                             const BuildContextF &build_context);
+  void execute_from_emitter(AttributesRefGroup &new_particles,
+                            EmitterInterface &emitter_interface);
   void execute_from_event(EventExecuteInterface &event_interface,
                           ActionContext *action_context = nullptr);
   void execute_from_offset_handler(OffsetHandlerInterface &offset_handler_interface,
@@ -159,6 +161,15 @@ inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
 
     action_context->~ContextT();
   }
+}
+
+inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
+                                         EmitterInterface &emitter_interface)
+{
+  this->execute_from_emitter<EmptyActionContext>(
+      new_particles, emitter_interface, [](IndexRange UNUSED(range), void *dst) {
+        new (dst) EmptyActionContext();
+      });
 }
 
 inline void Action::execute_from_event(EventExecuteInterface &event_interface,

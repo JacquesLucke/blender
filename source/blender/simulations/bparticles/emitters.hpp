@@ -71,6 +71,7 @@ class InitialGridEmitter : public Emitter {
   float m_step_x;
   float m_step_y;
   float m_size;
+  Action *m_action;
 
  public:
   InitialGridEmitter(ArrayRef<std::string> systems_to_emit,
@@ -78,13 +79,15 @@ class InitialGridEmitter : public Emitter {
                      uint amount_y,
                      float step_x,
                      float step_y,
-                     float size)
+                     float size,
+                     Action *action)
       : m_systems_to_emit(systems_to_emit),
         m_amount_x(amount_x),
         m_amount_y(amount_y),
         m_step_x(step_x),
         m_step_y(step_y),
-        m_size(size)
+        m_size(size),
+        m_action(action)
   {
   }
 

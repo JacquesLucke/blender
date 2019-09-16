@@ -335,6 +335,8 @@ void InitialGridEmitter::emit(EmitterInterface &interface)
     new_particles.set<float3>("Position", new_positions);
     new_particles.fill<float>("Birth Time", interface.time_span().start());
     new_particles.fill<float>("Size", m_size);
+
+    m_action->execute_from_emitter(new_particles, interface);
   }
 }
 
