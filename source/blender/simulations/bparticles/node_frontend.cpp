@@ -115,7 +115,7 @@ class VTreeData {
     return fn->body<TupleCallBody>();
   }
 
-  NamedTupleRef compute_inputs(VirtualNode *vnode, ArrayRef<uint> input_indices)
+  Optional<NamedTupleRef> compute_inputs(VirtualNode *vnode, ArrayRef<uint> input_indices)
   {
     TupleCallBody &body = this->function_body_for_inputs(vnode, input_indices);
     FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in().ref());
@@ -130,7 +130,7 @@ class VTreeData {
     return NamedTupleRef(fn_out, name_provider);
   }
 
-  NamedTupleRef compute_all_inputs(VirtualNode *vnode)
+  Optional<NamedTupleRef> compute_all_inputs(VirtualNode *vnode)
   {
     TupleCallBody &body = this->function_body_for_all_inputs(vnode);
     FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in().ref());
@@ -371,16 +371,20 @@ static void PARSE_point_emitter(InfluencesCollector &collector,
                                 WorldTransition &world_transition,
                                 VirtualNode *vnode)
 {
-  NamedTupleRef inputs = vtree_data.compute_all_inputs(vnode);
+  Optional<NamedTupleRef> inputs = vtree_data.compute_all_inputs(vnode);
+  if (!inputs.has_value()) {
+    return;
+  }
+
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Emitter"));
   std::string name = vnode->name();
 
   VaryingFloat3 position = world_transition.update_float3(
-      name, "Position", inputs.get<float3>(0, "Position"));
+      name, "Position", inputs->get<float3>(0, "Position"));
   VaryingFloat3 velocity = world_transition.update_float3(
-      name, "Velocity", inputs.get<float3>(1, "Velocity"));
-  VaryingFloat size = world_transition.update_float(name, "Size", inputs.get<float>(2, "Size"));
+      name, "Velocity", inputs->get<float3>(1, "Velocity"));
+  VaryingFloat size = world_transition.update_float(name, "Size", inputs->get<float>(2, "Size"));
 
   Emitter *emitter = new PointEmitter(std::move(system_names), position, velocity, size);
   collector.m_emitters.append(emitter);
@@ -442,17 +446,20 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
                                WorldTransition &world_transition,
                                VirtualNode *vnode)
 {
-  NamedTupleRef inputs = vtree_data.compute_all_inputs(vnode);
+  Optional<NamedTupleRef> inputs = vtree_data.compute_all_inputs(vnode);
+  if (!inputs.has_value()) {
+    return;
+  }
 
   std::unique_ptr<Action> on_birth_action = build_action_list(
       vtree_data, vnode, "Execute on Birth");
 
-  Object *object = inputs.relocate_out<ObjectW>(0, "Object").ptr();
+  Object *object = inputs->relocate_out<ObjectW>(0, "Object").ptr();
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
 
-  auto vertex_weights = compute_emitter_vertex_weights(vnode, inputs, object);
+  auto vertex_weights = compute_emitter_vertex_weights(vnode, *inputs, object);
 
   VaryingFloat4x4 transform = world_transition.update_float4x4(
       vnode->name(), "Transform", object->obmat);
@@ -462,7 +469,7 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
                                         std::move(on_birth_action),
                                         object,
                                         transform,
-                                        inputs.get<float>(1, "Rate"),
+                                        inputs->get<float>(1, "Rate"),
                                         std::move(vertex_weights));
   collector.m_emitters.append(emitter);
 }
@@ -472,8 +479,12 @@ static void PARSE_gravity_force(InfluencesCollector &collector,
                                 WorldTransition &UNUSED(world_transition),
                                 VirtualNode *vnode)
 {
-  NamedTupleRef inputs = vtree_data.compute_inputs(vnode, {1});
-  auto falloff = inputs.relocate_out<FN::Types::FalloffW>(0, "Falloff");
+  Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {1});
+  if (!inputs.has_value()) {
+    return;
+  }
+
+  auto falloff = inputs->relocate_out<FN::Types::FalloffW>(0, "Falloff");
 
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -537,16 +548,19 @@ static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
                                        WorldTransition &UNUSED(world_transition),
                                        VirtualNode *vnode)
 {
-  NamedTupleRef inputs = vtree_data.compute_all_inputs(vnode);
+  Optional<NamedTupleRef> inputs = vtree_data.compute_all_inputs(vnode);
+  if (!inputs.has_value()) {
+    return;
+  }
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Emitter"));
   Emitter *emitter = new InitialGridEmitter(std::move(system_names),
-                                            std::max(0, inputs.get<int>(0, "Amount X")),
-                                            std::max(0, inputs.get<int>(1, "Amount Y")),
-                                            inputs.get<float>(2, "Step X"),
-                                            inputs.get<float>(3, "Step Y"),
-                                            inputs.get<float>(4, "Size"));
+                                            std::max(0, inputs->get<int>(0, "Amount X")),
+                                            std::max(0, inputs->get<int>(1, "Amount Y")),
+                                            inputs->get<float>(2, "Step X"),
+                                            inputs->get<float>(3, "Step Y"),
+                                            inputs->get<float>(4, "Size"));
   collector.m_emitters.append(emitter);
 }
 
@@ -555,8 +569,12 @@ static void PARSE_turbulence_force(InfluencesCollector &collector,
                                    WorldTransition &UNUSED(world_transition),
                                    VirtualNode *vnode)
 {
-  NamedTupleRef inputs = vtree_data.compute_inputs(vnode, {2});
-  auto falloff = inputs.relocate_out<FN::Types::FalloffW>(0, "Falloff");
+  Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {2});
+  if (!inputs.has_value()) {
+    return;
+  }
+
+  auto falloff = inputs->relocate_out<FN::Types::FalloffW>(0, "Falloff");
 
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -577,8 +595,12 @@ static void PARSE_drag_force(InfluencesCollector &collector,
                              WorldTransition &UNUSED(world_transition),
                              VirtualNode *vnode)
 {
-  NamedTupleRef inputs = vtree_data.compute_inputs(vnode, {1});
-  auto falloff = inputs.relocate_out<FN::Types::FalloffW>(0, "Falloff");
+  Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {1});
+  if (!inputs.has_value()) {
+    return;
+  }
+
+  auto falloff = inputs->relocate_out<FN::Types::FalloffW>(0, "Falloff");
 
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -608,9 +630,12 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
     return;
   }
 
-  NamedTupleRef inputs = vtree_data.compute_inputs(vnode, {0});
+  Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {0});
+  if (!inputs.has_value()) {
+    return;
+  }
 
-  Object *object = inputs.relocate_out<ObjectW>(0, "Object").ptr();
+  Object *object = inputs->relocate_out<ObjectW>(0, "Object").ptr();
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
@@ -647,9 +672,12 @@ static void PARSE_mesh_force(InfluencesCollector &collector,
                              WorldTransition &UNUSED(world_transition),
                              VirtualNode *vnode)
 {
-  NamedTupleRef inputs = vtree_data.compute_inputs(vnode, {0});
+  Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {0});
+  if (!inputs.has_value()) {
+    return;
+  }
 
-  Object *object = inputs.relocate_out<ObjectW>(0, "Object").ptr();
+  Object *object = inputs->relocate_out<ObjectW>(0, "Object").ptr();
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
