@@ -115,6 +115,21 @@ class VTreeData {
     return fn->body<TupleCallBody>();
   }
 
+  NamedTupleRef compute_inputs(VirtualNode *vnode, ArrayRef<uint> input_indices)
+  {
+    TupleCallBody &body = this->function_body_for_inputs(vnode, input_indices);
+    FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in().ref());
+    FN::Tuple *fn_out = new FN::Tuple(body.meta_out());
+
+    body.call__setup_execution_context(fn_in, *fn_out);
+    auto *name_provider = new FN::FunctionOutputNamesProvider(body.owner());
+
+    m_tuples.append(std::unique_ptr<FN::Tuple>(fn_out));
+    m_name_providers.append(std::unique_ptr<FN::FunctionOutputNamesProvider>(name_provider));
+
+    return NamedTupleRef(fn_out, name_provider);
+  }
+
   NamedTupleRef compute_all_inputs(VirtualNode *vnode)
   {
     TupleCallBody &body = this->function_body_for_all_inputs(vnode);
@@ -457,11 +472,8 @@ static void PARSE_gravity_force(InfluencesCollector &collector,
                                 WorldTransition &UNUSED(world_transition),
                                 VirtualNode *vnode)
 {
-  FN::TupleCallBody &body = vtree_data.function_body_for_inputs(vnode, {1});
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body.call__setup_execution_context(fn_in, fn_out);
-
-  auto falloff = fn_out.relocate_out<FN::Types::FalloffW>(0);
+  NamedTupleRef inputs = vtree_data.compute_inputs(vnode, {1});
+  auto falloff = inputs.relocate_out<FN::Types::FalloffW>(0, "Falloff");
 
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -543,11 +555,8 @@ static void PARSE_turbulence_force(InfluencesCollector &collector,
                                    WorldTransition &UNUSED(world_transition),
                                    VirtualNode *vnode)
 {
-  FN::TupleCallBody &body = vtree_data.function_body_for_inputs(vnode, {2});
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body.call__setup_execution_context(fn_in, fn_out);
-
-  auto falloff = fn_out.relocate_out<FN::Types::FalloffW>(0);
+  NamedTupleRef inputs = vtree_data.compute_inputs(vnode, {2});
+  auto falloff = inputs.relocate_out<FN::Types::FalloffW>(0, "Falloff");
 
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -568,11 +577,8 @@ static void PARSE_drag_force(InfluencesCollector &collector,
                              WorldTransition &UNUSED(world_transition),
                              VirtualNode *vnode)
 {
-  FN::TupleCallBody &body = vtree_data.function_body_for_inputs(vnode, {1});
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body.call__setup_execution_context(fn_in, fn_out);
-
-  auto falloff = fn_out.relocate_out<FN::Types::FalloffW>(0);
+  NamedTupleRef inputs = vtree_data.compute_inputs(vnode, {1});
+  auto falloff = inputs.relocate_out<FN::Types::FalloffW>(0, "Falloff");
 
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -581,8 +587,8 @@ static void PARSE_drag_force(InfluencesCollector &collector,
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Force"));
-  for (const std::string &system_name : system_names) {
 
+  for (const std::string &system_name : system_names) {
     Force *force = new DragForce(inputs_fn, falloff.get_unique_copy());
     collector.m_forces.add(system_name, force);
   }
@@ -602,12 +608,9 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
     return;
   }
 
-  SharedFunction &fn = inputs_fn->function_no_deps();
-  TupleCallBody &body = fn->body<TupleCallBody>();
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body.call__setup_execution_context(fn_in, fn_out);
+  NamedTupleRef inputs = vtree_data.compute_inputs(vnode, {0});
 
-  Object *object = fn_out.relocate_out<ObjectW>(0).ptr();
+  Object *object = inputs.relocate_out<ObjectW>(0, "Object").ptr();
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
@@ -644,11 +647,9 @@ static void PARSE_mesh_force(InfluencesCollector &collector,
                              WorldTransition &UNUSED(world_transition),
                              VirtualNode *vnode)
 {
-  FN::TupleCallBody &body = vtree_data.function_body_for_inputs(vnode, {0});
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body.call__setup_execution_context(fn_in, fn_out);
+  NamedTupleRef inputs = vtree_data.compute_inputs(vnode, {0});
 
-  Object *object = fn_out.relocate_out<ObjectW>(0).ptr();
+  Object *object = inputs.relocate_out<ObjectW>(0, "Object").ptr();
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
