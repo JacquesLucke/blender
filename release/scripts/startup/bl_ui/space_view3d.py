@@ -2053,6 +2053,10 @@ class VIEW3D_MT_add(Menu):
 
         layout.separator()
 
+        layout.operator("bp.new_particle_system", text="Particle System", icon='MOD_PARTICLES')
+
+        layout.separator()
+
         if VIEW3D_MT_camera_add.is_extended():
             layout.menu("VIEW3D_MT_camera_add", icon='OUTLINER_OB_CAMERA')
         else:
