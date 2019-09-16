@@ -30,7 +30,7 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
     }
   }
 
-  for (std::string &system_name : m_systems_to_emit) {
+  for (StringRef system_name : m_systems_to_emit) {
     auto new_particles = interface.particle_allocator().request(system_name, new_positions.size());
     new_particles.set<float3>("Position", new_positions);
     new_particles.set<float>("Birth Time", new_birth_times);

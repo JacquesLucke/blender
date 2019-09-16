@@ -14,7 +14,7 @@ using FN::TupleCallBody;
 class SurfaceEmitter : public Emitter {
  private:
   ArrayRef<std::string> m_systems_to_emit;
-  std::unique_ptr<Action> m_on_birth_action;
+  Action *m_on_birth_action;
 
   Object *m_object;
   VaryingFloat4x4 m_transform;
@@ -24,13 +24,13 @@ class SurfaceEmitter : public Emitter {
 
  public:
   SurfaceEmitter(ArrayRef<std::string> systems_to_emit,
-                 std::unique_ptr<Action> on_birth_action,
+                 Action *on_birth_action,
                  Object *object,
                  VaryingFloat4x4 transform,
                  float rate,
                  Vector<float> vertex_weights)
       : m_systems_to_emit(systems_to_emit),
-        m_on_birth_action(std::move(on_birth_action)),
+        m_on_birth_action(on_birth_action),
         m_object(object),
         m_transform(transform),
         m_rate(rate),

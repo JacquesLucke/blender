@@ -35,6 +35,11 @@ using FN::Types::StringW;
 static StringRef particle_system_idname = "bp_ParticleSystemNode";
 static StringRef combine_influences_idname = "bp_CombineInfluencesNode";
 
+class VTreeData;
+using ActionParserCallback =
+    std::function<std::unique_ptr<Action>(VTreeData &vtree_data, VirtualSocket *execute_vsocket)>;
+StringMap<ActionParserCallback> &get_action_parsers();
+
 class InfluencesCollector {
  public:
   Vector<Emitter *> &m_emitters;
@@ -51,6 +56,7 @@ class VTreeData {
   Vector<std::unique_ptr<Tuple>> m_tuples;
   Vector<std::unique_ptr<FN::FunctionOutputNamesProvider>> m_name_providers;
   Vector<std::unique_ptr<Vector<std::string>>> m_string_vectors;
+  Vector<std::unique_ptr<Action>> m_actions;
 
  public:
   VTreeData(VTreeDataGraph &vtree_data) : m_vtree_data_graph(vtree_data)
@@ -83,26 +89,6 @@ class VTreeData {
     BLI_assert(fn_ptr != nullptr);
     m_particle_functions.append(std::move(fn));
     return fn_ptr;
-  }
-
-  TupleCallBody *function_body_for_inputs(VirtualNode *vnode, ArrayRef<uint> input_indices)
-  {
-    VectorSet<DataSocket> sockets_to_compute;
-    for (uint index : input_indices) {
-      sockets_to_compute.add_new(m_vtree_data_graph.lookup_socket(vnode->input(index)));
-    }
-
-    Vector<VirtualSocket *> dependencies = m_vtree_data_graph.find_placeholder_dependencies(
-        sockets_to_compute);
-    if (dependencies.size() > 0) {
-      return nullptr;
-    }
-
-    FunctionGraph fgraph(m_vtree_data_graph.graph(), {}, sockets_to_compute);
-    auto fn = fgraph.new_function(vnode->name());
-    FN::fgraph_add_TupleCallBody(fn, fgraph);
-    m_functions.append(fn);
-    return &fn->body<TupleCallBody>();
   }
 
   Optional<NamedTupleRef> compute_inputs(VirtualNode *vnode, ArrayRef<uint> input_indices)
@@ -147,6 +133,44 @@ class VTreeData {
     return *system_names;
   }
 
+  Action *build_action(VirtualSocket *start)
+  {
+    BLI_assert(start->is_input());
+    if (start->links().size() != 1) {
+      return nullptr;
+    }
+
+    VirtualSocket *execute_socket = start->links()[0];
+    if (execute_socket->idname() != "bp_ExecuteSocket") {
+      return nullptr;
+    }
+
+    StringMap<ActionParserCallback> &parsers = get_action_parsers();
+    ActionParserCallback &parser = parsers.lookup(execute_socket->vnode()->idname());
+    std::unique_ptr<Action> action = parser(*this, execute_socket);
+    Action *action_ptr = action.get();
+    if (action_ptr == nullptr) {
+      return nullptr;
+    }
+    m_actions.append(std::move(action));
+    return action_ptr;
+  }
+
+  Action *build_action_list(VirtualNode *start_vnode, StringRef name)
+  {
+    Vector<VirtualSocket *> execute_sockets = this->find_execute_sockets(start_vnode, name);
+    Vector<Action *> actions;
+    for (VirtualSocket *socket : execute_sockets) {
+      Action *action = this->build_action(socket);
+      if (action != nullptr) {
+        actions.append(action);
+      }
+    }
+    Action *sequence = new ActionSequence(std::move(actions));
+    m_actions.append(std::unique_ptr<Action>(sequence));
+    return sequence;
+  }
+
  private:
   Vector<VirtualNode *> find_target_system_nodes(VirtualSocket *vsocket)
   {
@@ -169,34 +193,47 @@ class VTreeData {
       }
     }
   }
-};
 
-static std::unique_ptr<Action> build_action_list(VTreeData &vtree_data,
-                                                 VirtualNode *start_vnode,
-                                                 StringRef name);
+  TupleCallBody *function_body_for_inputs(VirtualNode *vnode, ArrayRef<uint> input_indices)
+  {
+    VectorSet<DataSocket> sockets_to_compute;
+    for (uint index : input_indices) {
+      sockets_to_compute.add_new(m_vtree_data_graph.lookup_socket(vnode->input(index)));
+    }
 
-static Vector<VirtualSocket *> find_execute_sockets(VirtualNode *vnode, StringRef name_prefix)
-{
-  bool found_name = false;
-  Vector<VirtualSocket *> execute_sockets;
-  for (VirtualSocket *vsocket : vnode->inputs()) {
-    if (StringRef(vsocket->name()).startswith(name_prefix)) {
-      if (vsocket->idname() == "fn_OperatorSocket") {
-        found_name = true;
-        break;
-      }
-      else {
-        execute_sockets.append(vsocket);
+    Vector<VirtualSocket *> dependencies = m_vtree_data_graph.find_placeholder_dependencies(
+        sockets_to_compute);
+    if (dependencies.size() > 0) {
+      return nullptr;
+    }
+
+    FunctionGraph fgraph(m_vtree_data_graph.graph(), {}, sockets_to_compute);
+    auto fn = fgraph.new_function(vnode->name());
+    FN::fgraph_add_TupleCallBody(fn, fgraph);
+    m_functions.append(fn);
+    return &fn->body<TupleCallBody>();
+  }
+
+  Vector<VirtualSocket *> find_execute_sockets(VirtualNode *vnode, StringRef name_prefix)
+  {
+    bool found_name = false;
+    Vector<VirtualSocket *> execute_sockets;
+    for (VirtualSocket *vsocket : vnode->inputs()) {
+      if (StringRef(vsocket->name()).startswith(name_prefix)) {
+        if (vsocket->idname() == "fn_OperatorSocket") {
+          found_name = true;
+          break;
+        }
+        else {
+          execute_sockets.append(vsocket);
+        }
       }
     }
+    BLI_assert(found_name);
+    UNUSED_VARS_NDEBUG(found_name);
+    return execute_sockets;
   }
-  BLI_assert(found_name);
-  UNUSED_VARS_NDEBUG(found_name);
-  return execute_sockets;
-}
-
-using ActionParserCallback =
-    std::function<std::unique_ptr<Action>(VTreeData &vtree_data, VirtualSocket *execute_vsocket)>;
+};
 
 static std::unique_ptr<Action> ACTION_kill(VTreeData &UNUSED(vtree_data),
                                            VirtualSocket *UNUSED(execute_vsocket))
@@ -238,12 +275,11 @@ static std::unique_ptr<Action> ACTION_explode(VTreeData &vtree_data,
     return {};
   }
 
-  std::unique_ptr<Action> on_birth_action = build_action_list(
-      vtree_data, vnode, "Execute on Birth");
+  Action *on_birth_action = vtree_data.build_action_list(vnode, "Execute on Birth");
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(1, "Explode System"));
 
-  Action *action = new ExplodeAction(system_names, inputs_fn, std::move(on_birth_action));
+  Action *action = new ExplodeAction(system_names, inputs_fn, on_birth_action);
   return std::unique_ptr<Action>(action);
 }
 
@@ -257,10 +293,10 @@ static std::unique_ptr<Action> ACTION_condition(VTreeData &vtree_data,
     return {};
   }
 
-  auto action_true = build_action_list(vtree_data, vnode, "Execute If True");
-  auto action_false = build_action_list(vtree_data, vnode, "Execute If False");
+  Action *action_true = vtree_data.build_action_list(vnode, "Execute If True");
+  Action *action_false = vtree_data.build_action_list(vnode, "Execute If False");
 
-  Action *action = new ConditionAction(inputs_fn, std::move(action_true), std::move(action_false));
+  Action *action = new ConditionAction(inputs_fn, action_true, action_false);
   return std::unique_ptr<Action>(action);
 }
 
@@ -306,7 +342,7 @@ static std::unique_ptr<Action> ACTION_change_position(VTreeData &vtree_data,
   return std::unique_ptr<Action>(action);
 }
 
-BLI_LAZY_INIT_STATIC(StringMap<ActionParserCallback>, get_action_parsers)
+BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
 {
   StringMap<ActionParserCallback> map;
   map.add_new("bp_KillParticleNode", ACTION_kill);
@@ -317,40 +353,6 @@ BLI_LAZY_INIT_STATIC(StringMap<ActionParserCallback>, get_action_parsers)
   map.add_new("bp_ChangeParticleSizeNode", ACTION_change_size);
   map.add_new("bp_ChangeParticlePositionNode", ACTION_change_position);
   return map;
-}
-
-static std::unique_ptr<Action> build_action(VTreeData &vtree_data, VirtualSocket *start)
-{
-  BLI_assert(start->is_input());
-  if (start->links().size() != 1) {
-    return std::unique_ptr<Action>(new NoneAction());
-  }
-
-  VirtualSocket *execute_socket = start->links()[0];
-  if (execute_socket->idname() != "bp_ExecuteSocket") {
-    return std::unique_ptr<Action>(new NoneAction());
-  }
-
-  StringMap<ActionParserCallback> &parsers = get_action_parsers();
-  ActionParserCallback &parser = parsers.lookup(execute_socket->vnode()->idname());
-  std::unique_ptr<Action> action = parser(vtree_data, execute_socket);
-  if (action.get() == nullptr) {
-    return std::unique_ptr<Action>(new NoneAction());
-  }
-  return action;
-}
-
-static std::unique_ptr<Action> build_action_list(VTreeData &vtree_data,
-                                                 VirtualNode *start_vnode,
-                                                 StringRef name)
-{
-  Vector<VirtualSocket *> execute_sockets = find_execute_sockets(start_vnode, name);
-  Vector<std::unique_ptr<Action>> actions;
-  for (VirtualSocket *socket : execute_sockets) {
-    actions.append(build_action(vtree_data, socket));
-  }
-  Action *sequence = new ActionSequence(std::move(actions));
-  return std::unique_ptr<Action>(sequence);
 }
 
 using ParseNodeCallback = std::function<void(InfluencesCollector &collector,
@@ -443,8 +445,7 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
     return;
   }
 
-  std::unique_ptr<Action> on_birth_action = build_action_list(
-      vtree_data, vnode, "Execute on Birth");
+  Action *on_birth_action = vtree_data.build_action_list(vnode, "Execute on Birth");
 
   Object *object = inputs->relocate_out<ObjectW>(0, "Object").ptr();
   if (object == nullptr || object->type != OB_MESH) {
@@ -457,8 +458,8 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
       vnode->name(), "Transform", object->obmat);
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Emitter"));
-  Emitter *emitter = new SurfaceEmitter(std::move(system_names),
-                                        std::move(on_birth_action),
+  Emitter *emitter = new SurfaceEmitter(system_names,
+                                        on_birth_action,
                                         object,
                                         transform,
                                         inputs->get<float>(1, "Rate"),
@@ -503,10 +504,10 @@ static void PARSE_age_reached_event(InfluencesCollector &collector,
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Event"));
-  for (const std::string &system_name : system_names) {
-    auto action = build_action_list(vtree_data, vnode, "Execute on Event");
+  Action *action = vtree_data.build_action_list(vnode, "Execute on Event");
 
-    Event *event = new AgeReachedEvent(vnode->name(), inputs_fn, std::move(action));
+  for (const std::string &system_name : system_names) {
+    Event *event = new AgeReachedEvent(vnode->name(), inputs_fn, action);
     collector.m_events.add(system_name, event);
   }
 }
@@ -526,8 +527,8 @@ static void PARSE_trails(InfluencesCollector &collector,
     return;
   }
 
+  Action *action = vtree_data.build_action_list(vnode, "Execute on Birth");
   for (const std::string &main_type : main_system_names) {
-    auto action = build_action_list(vtree_data, vnode, "Execute on Birth");
 
     OffsetHandler *offset_handler = new CreateTrailHandler(
         trail_system_names, inputs_fn, std::move(action));
@@ -634,9 +635,10 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Event"));
+  Action *action = vtree_data.build_action_list(vnode, "Execute on Event");
+
   for (const std::string &system_name : system_names) {
-    auto action = build_action_list(vtree_data, vnode, "Execute on Event");
-    Event *event = new MeshCollisionEvent(vnode->name(), object, std::move(action));
+    Event *event = new MeshCollisionEvent(vnode->name(), object, action);
     collector.m_events.add(system_name, event);
   }
 }
@@ -699,10 +701,10 @@ static void PARSE_custom_event(InfluencesCollector &collector,
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Event"));
-  for (const std::string &system_name : system_names) {
-    auto action = build_action_list(vtree_data, vnode, "Execute on Event");
+  Action *action = vtree_data.build_action_list(vnode, "Execute on Event");
 
-    Event *event = new CustomEvent(vnode->name(), inputs_fn, std::move(action));
+  for (const std::string &system_name : system_names) {
+    Event *event = new CustomEvent(vnode->name(), inputs_fn, action);
     collector.m_events.add(system_name, event);
   }
 }
@@ -714,10 +716,10 @@ static void PARSE_always_execute(InfluencesCollector &collector,
 {
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Influence"));
-  for (const std::string &system_name : system_names) {
-    auto action = build_action_list(vtree_data, vnode, "Execute");
+  Action *action = vtree_data.build_action_list(vnode, "Execute");
 
-    OffsetHandler *handler = new AlwaysExecuteHandler(std::move(action));
+  for (const std::string &system_name : system_names) {
+    OffsetHandler *handler = new AlwaysExecuteHandler(action);
     collector.m_offset_handlers.add(system_name, handler);
   }
 }
