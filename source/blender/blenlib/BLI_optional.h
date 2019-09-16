@@ -161,6 +161,16 @@ template<typename T> class Optional {
     return value;
   }
 
+  T *operator->()
+  {
+    return this->value_ptr();
+  }
+
+  T &operator*()
+  {
+    return *this->value_ptr();
+  }
+
  private:
   T *value_ptr() const
   {

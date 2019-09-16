@@ -57,3 +57,18 @@ TEST(optional, Extract)
   EXPECT_EQ(a.extract(), 32);
   EXPECT_FALSE(a.has_value());
 }
+
+TEST(optional, ArrowOperator)
+{
+  Optional<std::string> value = std::string("Hello");
+  EXPECT_TRUE(value.has_value());
+  EXPECT_EQ(value->size(), 5);
+}
+
+TEST(optional, StarOperator)
+{
+  Optional<std::string> value = std::string("Hello");
+  EXPECT_TRUE(value.has_value());
+  std::string &s = *value;
+  EXPECT_EQ(s.size(), 5);
+}
