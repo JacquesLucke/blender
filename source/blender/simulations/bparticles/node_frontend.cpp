@@ -85,39 +85,34 @@ class VTreeData {
     return fn_ptr;
   }
 
-  TupleCallBody &function_body_for_inputs(VirtualNode *vnode, ArrayRef<uint> input_indices)
+  TupleCallBody *function_body_for_inputs(VirtualNode *vnode, ArrayRef<uint> input_indices)
   {
     VectorSet<DataSocket> sockets_to_compute;
     for (uint index : input_indices) {
       sockets_to_compute.add_new(m_vtree_data_graph.lookup_socket(vnode->input(index)));
     }
 
-    FunctionGraph fgraph(m_vtree_data_graph.graph(), {}, sockets_to_compute);
-    auto fn = fgraph.new_function(vnode->name());
-    FN::fgraph_add_TupleCallBody(fn, fgraph);
-    m_functions.append(fn);
-    return fn->body<TupleCallBody>();
-  }
-
-  TupleCallBody &function_body_for_all_inputs(VirtualNode *vnode)
-  {
-    VectorSet<DataSocket> sockets_to_compute;
-    for (VirtualSocket *vsocket : vnode->inputs()) {
-      if (m_vtree_data_graph.uses_socket(vsocket)) {
-        sockets_to_compute.add_new(m_vtree_data_graph.lookup_socket(vsocket));
-      }
+    Vector<VirtualSocket *> dependencies = m_vtree_data_graph.find_placeholder_dependencies(
+        sockets_to_compute);
+    if (dependencies.size() > 0) {
+      return nullptr;
     }
 
     FunctionGraph fgraph(m_vtree_data_graph.graph(), {}, sockets_to_compute);
     auto fn = fgraph.new_function(vnode->name());
     FN::fgraph_add_TupleCallBody(fn, fgraph);
     m_functions.append(fn);
-    return fn->body<TupleCallBody>();
+    return &fn->body<TupleCallBody>();
   }
 
   Optional<NamedTupleRef> compute_inputs(VirtualNode *vnode, ArrayRef<uint> input_indices)
   {
-    TupleCallBody &body = this->function_body_for_inputs(vnode, input_indices);
+    TupleCallBody *body_ptr = this->function_body_for_inputs(vnode, input_indices);
+    if (body_ptr == nullptr) {
+      return {};
+    }
+    TupleCallBody &body = *body_ptr;
+
     FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in().ref());
     FN::Tuple *fn_out = new FN::Tuple(body.meta_out());
 
@@ -130,19 +125,16 @@ class VTreeData {
     return NamedTupleRef(fn_out, name_provider);
   }
 
-  Optional<NamedTupleRef> compute_all_inputs(VirtualNode *vnode)
+  Optional<NamedTupleRef> compute_all_data_inputs(VirtualNode *vnode)
   {
-    TupleCallBody &body = this->function_body_for_all_inputs(vnode);
-    FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in().ref());
-    FN::Tuple *fn_out = new FN::Tuple(body.meta_out());
+    Vector<uint> data_input_indices;
+    for (uint i = 0; i < vnode->inputs().size(); i++) {
+      if (m_vtree_data_graph.uses_socket(vnode->input(i))) {
+        data_input_indices.append(i);
+      }
+    }
 
-    body.call__setup_execution_context(fn_in, *fn_out);
-    auto *name_provider = new FN::FunctionOutputNamesProvider(body.owner());
-
-    m_tuples.append(std::unique_ptr<FN::Tuple>(fn_out));
-    m_name_providers.append(std::unique_ptr<FN::FunctionOutputNamesProvider>(name_provider));
-
-    return NamedTupleRef(fn_out, name_provider);
+    return this->compute_inputs(vnode, data_input_indices);
   }
 
   ArrayRef<std::string> find_target_system_names(VirtualSocket *output_vsocket)
@@ -371,7 +363,7 @@ static void PARSE_point_emitter(InfluencesCollector &collector,
                                 WorldTransition &world_transition,
                                 VirtualNode *vnode)
 {
-  Optional<NamedTupleRef> inputs = vtree_data.compute_all_inputs(vnode);
+  Optional<NamedTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
   if (!inputs.has_value()) {
     return;
   }
@@ -446,7 +438,7 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
                                WorldTransition &world_transition,
                                VirtualNode *vnode)
 {
-  Optional<NamedTupleRef> inputs = vtree_data.compute_all_inputs(vnode);
+  Optional<NamedTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
   if (!inputs.has_value()) {
     return;
   }
@@ -548,7 +540,7 @@ static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
                                        WorldTransition &UNUSED(world_transition),
                                        VirtualNode *vnode)
 {
-  Optional<NamedTupleRef> inputs = vtree_data.compute_all_inputs(vnode);
+  Optional<NamedTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
   if (!inputs.has_value()) {
     return;
   }
