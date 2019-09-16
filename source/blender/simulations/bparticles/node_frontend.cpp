@@ -50,6 +50,7 @@ class VTreeData {
   Vector<SharedFunction> m_functions;
   Vector<std::unique_ptr<Tuple>> m_tuples;
   Vector<std::unique_ptr<FN::FunctionOutputNamesProvider>> m_name_providers;
+  Vector<std::unique_ptr<Vector<std::string>>> m_string_vectors;
 
  public:
   VTreeData(VTreeDataGraph &vtree_data) : m_vtree_data_graph(vtree_data)
@@ -129,13 +130,14 @@ class VTreeData {
     return NamedTupleRef(fn_out, name_provider);
   }
 
-  Vector<std::string> find_target_system_names(VirtualSocket *output_vsocket)
+  ArrayRef<std::string> find_target_system_names(VirtualSocket *output_vsocket)
   {
-    Vector<std::string> system_names;
+    Vector<std::string> *system_names = new Vector<std::string>();
     for (VirtualNode *vnode : find_target_system_nodes(output_vsocket)) {
-      system_names.append(vnode->name());
+      system_names->append(vnode->name());
     }
-    return system_names;
+    m_string_vectors.append(std::unique_ptr<Vector<std::string>>(system_names));
+    return *system_names;
   }
 
  private:
@@ -231,7 +233,7 @@ static std::unique_ptr<Action> ACTION_explode(VTreeData &vtree_data,
 
   std::unique_ptr<Action> on_birth_action = build_action_list(
       vtree_data, vnode, "Execute on Birth");
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(1, "Explode System"));
 
   Action *action = new ExplodeAction(system_names, inputs_fn, std::move(on_birth_action));
@@ -355,7 +357,7 @@ static void PARSE_point_emitter(InfluencesCollector &collector,
                                 VirtualNode *vnode)
 {
   NamedTupleRef inputs = vtree_data.compute_all_inputs(vnode);
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Emitter"));
   std::string name = vnode->name();
 
@@ -439,7 +441,7 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
 
   VaryingFloat4x4 transform = world_transition.update_float4x4(
       vnode->name(), "Transform", object->obmat);
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Emitter"));
   Emitter *emitter = new SurfaceEmitter(std::move(system_names),
                                         std::move(on_birth_action),
@@ -466,9 +468,9 @@ static void PARSE_gravity_force(InfluencesCollector &collector,
     return;
   }
 
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Force"));
-  for (std::string &system_name : system_names) {
+  for (const std::string &system_name : system_names) {
     GravityForce *force = new GravityForce(inputs_fn, falloff.get_unique_copy());
     collector.m_forces.add(system_name, force);
   }
@@ -484,9 +486,9 @@ static void PARSE_age_reached_event(InfluencesCollector &collector,
     return;
   }
 
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Event"));
-  for (std::string &system_name : system_names) {
+  for (const std::string &system_name : system_names) {
     auto action = build_action_list(vtree_data, vnode, "Execute on Event");
 
     Event *event = new AgeReachedEvent(vnode->name(), inputs_fn, std::move(action));
@@ -499,9 +501,9 @@ static void PARSE_trails(InfluencesCollector &collector,
                          WorldTransition &UNUSED(world_transition),
                          VirtualNode *vnode)
 {
-  Vector<std::string> main_system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> main_system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Main System"));
-  Vector<std::string> trail_system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> trail_system_names = vtree_data.find_target_system_names(
       vnode->output(1, "Trail System"));
 
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
@@ -509,7 +511,7 @@ static void PARSE_trails(InfluencesCollector &collector,
     return;
   }
 
-  for (std::string &main_type : main_system_names) {
+  for (const std::string &main_type : main_system_names) {
     auto action = build_action_list(vtree_data, vnode, "Execute on Birth");
 
     OffsetHandler *offset_handler = new CreateTrailHandler(
@@ -525,7 +527,7 @@ static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
 {
   NamedTupleRef inputs = vtree_data.compute_all_inputs(vnode);
 
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Emitter"));
   Emitter *emitter = new InitialGridEmitter(std::move(system_names),
                                             std::max(0, inputs.get<int>(0, "Amount X")),
@@ -552,9 +554,9 @@ static void PARSE_turbulence_force(InfluencesCollector &collector,
     return;
   }
 
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Force"));
-  for (std::string &system_name : system_names) {
+  for (const std::string &system_name : system_names) {
 
     Force *force = new TurbulenceForce(inputs_fn, falloff.get_unique_copy());
     collector.m_forces.add(system_name, force);
@@ -577,9 +579,9 @@ static void PARSE_drag_force(InfluencesCollector &collector,
     return;
   }
 
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Force"));
-  for (std::string &system_name : system_names) {
+  for (const std::string &system_name : system_names) {
 
     Force *force = new DragForce(inputs_fn, falloff.get_unique_copy());
     collector.m_forces.add(system_name, force);
@@ -610,9 +612,9 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
     return;
   }
 
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Event"));
-  for (std::string &system_name : system_names) {
+  for (const std::string &system_name : system_names) {
     auto action = build_action_list(vtree_data, vnode, "Execute on Event");
     Event *event = new MeshCollisionEvent(vnode->name(), object, std::move(action));
     collector.m_events.add(system_name, event);
@@ -629,9 +631,9 @@ static void PARSE_size_over_time(InfluencesCollector &collector,
     return;
   }
 
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Influence"));
-  for (std::string &system_name : system_names) {
+  for (const std::string &system_name : system_names) {
     OffsetHandler *handler = new SizeOverTimeHandler(inputs_fn);
     collector.m_offset_handlers.add(system_name, handler);
   }
@@ -656,9 +658,9 @@ static void PARSE_mesh_force(InfluencesCollector &collector,
     return;
   }
 
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Force"));
-  for (std::string &system_name : system_names) {
+  for (const std::string &system_name : system_names) {
     Force *force = new MeshForce(inputs_fn, object);
     collector.m_forces.add(system_name, force);
   }
@@ -674,9 +676,9 @@ static void PARSE_custom_event(InfluencesCollector &collector,
     return;
   }
 
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Event"));
-  for (std::string &system_name : system_names) {
+  for (const std::string &system_name : system_names) {
     auto action = build_action_list(vtree_data, vnode, "Execute on Event");
 
     Event *event = new CustomEvent(vnode->name(), inputs_fn, std::move(action));
@@ -689,9 +691,9 @@ static void PARSE_always_execute(InfluencesCollector &collector,
                                  WorldTransition &UNUSED(world_transition),
                                  VirtualNode *vnode)
 {
-  Vector<std::string> system_names = vtree_data.find_target_system_names(
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Influence"));
-  for (std::string &system_name : system_names) {
+  for (const std::string &system_name : system_names) {
     auto action = build_action_list(vtree_data, vnode, "Execute");
 
     OffsetHandler *handler = new AlwaysExecuteHandler(std::move(action));
