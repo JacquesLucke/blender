@@ -11,7 +11,10 @@ class NodeSearch(bpy.types.Operator):
 
     def get_search_items(self, context):
         items = []
+        tree = context.space_data.edit_tree
         for node_cls in BaseNode.iter_final_subclasses():
+            if node_cls.bl_label.startswith("Mockup") and not tree.show_mockups:
+                continue
             for search_term, settings in node_cls.get_search_terms():
                 item = encode_search_item(node_cls.bl_idname, search_term, settings)
                 items.append(item)

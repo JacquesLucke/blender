@@ -5,6 +5,11 @@ import itertools
 from collections import defaultdict
 
 class BaseTree:
+    show_mockups: BoolProperty(
+        name="Show Mockups",
+        default=False,
+    )
+
     def new_link(self, a, b):
         if a.is_output:
             self.links.new(a, b)
