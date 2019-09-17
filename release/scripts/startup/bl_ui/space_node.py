@@ -206,6 +206,11 @@ class NODE_MT_add(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
 
+        from nodes.base import BaseTree
+        tree = context.space_data.node_tree
+        if isinstance(tree, BaseTree):
+            return
+
         layout.operator_context = 'INVOKE_DEFAULT'
         props = layout.operator("node.add_search", text="Search...", icon='VIEWZOOM')
         props.use_transform = True
