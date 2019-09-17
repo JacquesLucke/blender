@@ -2,14 +2,18 @@
 
 namespace BParticles {
 
+using BLI::rgba_f;
+
 void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
 {
   auto positions = interface.attributes().get<float3>("Position");
   auto position_offsets = interface.attribute_offsets().get<float3>("Position");
+  auto colors = interface.attributes().get<rgba_f>("Color");
 
   auto inputs = m_inputs_fn->compute(interface);
 
   Vector<float3> new_positions;
+  Vector<rgba_f> new_colors;
   Vector<float> new_birth_times;
   for (uint pindex : interface.pindices()) {
     float rate = inputs->get<float>("Rate", 0, pindex);
@@ -19,6 +23,8 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
 
     TimeSpan time_span = interface.time_span(pindex);
 
+    rgba_f color = colors[pindex];
+
     float factor_start, factor_step;
     time_span.uniform_sample_range(rate, factor_start, factor_step);
 
@@ -27,6 +33,7 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
       float time = time_span.interpolate(factor);
       new_positions.append(positions[pindex] + total_offset * factor);
       new_birth_times.append(time);
+      new_colors.append(color);
     }
   }
 
@@ -34,6 +41,7 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
     auto new_particles = interface.particle_allocator().request(system_name, new_positions.size());
     new_particles.set<float3>("Position", new_positions);
     new_particles.set<float>("Birth Time", new_birth_times);
+    new_particles.set<rgba_f>("Color", new_colors);
 
     m_on_birth_action.execute_for_new_particles(new_particles, interface);
   }
