@@ -156,7 +156,7 @@ class VTreeData {
     return action_ptr;
   }
 
-  Action *build_action_list(VirtualNode *start_vnode, StringRef name)
+  Action &build_action_list(VirtualNode *start_vnode, StringRef name)
   {
     Vector<VirtualSocket *> execute_sockets = this->find_execute_sockets(start_vnode, name);
     Vector<Action *> actions;
@@ -168,7 +168,7 @@ class VTreeData {
     }
     Action *sequence = new ActionSequence(std::move(actions));
     m_actions.append(std::unique_ptr<Action>(sequence));
-    return sequence;
+    return *sequence;
   }
 
  private:
@@ -275,7 +275,7 @@ static std::unique_ptr<Action> ACTION_explode(VTreeData &vtree_data,
     return {};
   }
 
-  Action *on_birth_action = vtree_data.build_action_list(vnode, "Execute on Birth");
+  Action &on_birth_action = vtree_data.build_action_list(vnode, "Execute on Birth");
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(1, "Explode System"));
 
@@ -293,8 +293,8 @@ static std::unique_ptr<Action> ACTION_condition(VTreeData &vtree_data,
     return {};
   }
 
-  Action *action_true = vtree_data.build_action_list(vnode, "Execute If True");
-  Action *action_false = vtree_data.build_action_list(vnode, "Execute If False");
+  Action &action_true = vtree_data.build_action_list(vnode, "Execute If True");
+  Action &action_false = vtree_data.build_action_list(vnode, "Execute If False");
 
   Action *action = new ConditionAction(inputs_fn, action_true, action_false);
   return std::unique_ptr<Action>(action);
@@ -370,7 +370,7 @@ static void PARSE_point_emitter(InfluencesCollector &collector,
     return;
   }
 
-  Action *action = vtree_data.build_action_list(vnode, "Execute on Birth");
+  Action &action = vtree_data.build_action_list(vnode, "Execute on Birth");
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Emitter"));
@@ -447,7 +447,7 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
     return;
   }
 
-  Action *on_birth_action = vtree_data.build_action_list(vnode, "Execute on Birth");
+  Action &on_birth_action = vtree_data.build_action_list(vnode, "Execute on Birth");
 
   Object *object = inputs->relocate_out<ObjectW>(0, "Object").ptr();
   if (object == nullptr || object->type != OB_MESH) {
@@ -506,7 +506,7 @@ static void PARSE_age_reached_event(InfluencesCollector &collector,
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Event"));
-  Action *action = vtree_data.build_action_list(vnode, "Execute on Event");
+  Action &action = vtree_data.build_action_list(vnode, "Execute on Event");
 
   for (const std::string &system_name : system_names) {
     Event *event = new AgeReachedEvent(vnode->name(), inputs_fn, action);
@@ -529,11 +529,10 @@ static void PARSE_trails(InfluencesCollector &collector,
     return;
   }
 
-  Action *action = vtree_data.build_action_list(vnode, "Execute on Birth");
+  Action &action = vtree_data.build_action_list(vnode, "Execute on Birth");
   for (const std::string &main_type : main_system_names) {
 
-    OffsetHandler *offset_handler = new CreateTrailHandler(
-        trail_system_names, inputs_fn, std::move(action));
+    OffsetHandler *offset_handler = new CreateTrailHandler(trail_system_names, inputs_fn, action);
     collector.m_offset_handlers.add(main_type, offset_handler);
   }
 }
@@ -548,7 +547,7 @@ static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
     return;
   }
 
-  Action *action = vtree_data.build_action_list(vnode, "Execute on Birth");
+  Action &action = vtree_data.build_action_list(vnode, "Execute on Birth");
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Emitter"));
@@ -636,7 +635,7 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Event"));
-  Action *action = vtree_data.build_action_list(vnode, "Execute on Event");
+  Action &action = vtree_data.build_action_list(vnode, "Execute on Event");
 
   for (const std::string &system_name : system_names) {
     Event *event = new MeshCollisionEvent(vnode->name(), object, action);
@@ -702,7 +701,7 @@ static void PARSE_custom_event(InfluencesCollector &collector,
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Event"));
-  Action *action = vtree_data.build_action_list(vnode, "Execute on Event");
+  Action &action = vtree_data.build_action_list(vnode, "Execute on Event");
 
   for (const std::string &system_name : system_names) {
     Event *event = new CustomEvent(vnode->name(), inputs_fn, action);
@@ -717,7 +716,7 @@ static void PARSE_always_execute(InfluencesCollector &collector,
 {
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Influence"));
-  Action *action = vtree_data.build_action_list(vnode, "Execute");
+  Action &action = vtree_data.build_action_list(vnode, "Execute");
 
   for (const std::string &system_name : system_names) {
     OffsetHandler *handler = new AlwaysExecuteHandler(action);

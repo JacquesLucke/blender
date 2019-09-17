@@ -20,10 +20,10 @@ class AgeReachedEvent : public Event {
  private:
   std::string m_identifier;
   ParticleFunction *m_inputs_fn;
-  Action *m_action;
+  Action &m_action;
 
  public:
-  AgeReachedEvent(StringRef identifier, ParticleFunction *inputs_fn, Action *action)
+  AgeReachedEvent(StringRef identifier, ParticleFunction *inputs_fn, Action &action)
       : m_identifier(identifier), m_inputs_fn(inputs_fn), m_action(action)
   {
   }
@@ -37,10 +37,10 @@ class CustomEvent : public Event {
  private:
   std::string m_identifier;
   ParticleFunction *m_inputs_fn;
-  Action *m_action;
+  Action &m_action;
 
  public:
-  CustomEvent(StringRef identifier, ParticleFunction *inputs_fn, Action *action)
+  CustomEvent(StringRef identifier, ParticleFunction *inputs_fn, Action &action)
       : m_identifier(identifier), m_inputs_fn(inputs_fn), m_action(action)
   {
   }
@@ -57,7 +57,7 @@ class MeshCollisionEvent : public Event {
   BVHTreeFromMesh m_bvhtree_data;
   float4x4 m_local_to_world;
   float4x4 m_world_to_local;
-  Action *m_action;
+  Action &m_action;
 
   struct RayCastResult {
     bool success;
@@ -73,7 +73,7 @@ class MeshCollisionEvent : public Event {
   };
 
  public:
-  MeshCollisionEvent(StringRef identifier, Object *object, Action *action)
+  MeshCollisionEvent(StringRef identifier, Object *object, Action &action)
       : m_identifier(identifier), m_object(object), m_action(action)
   {
     BLI_assert(object->type == OB_MESH);

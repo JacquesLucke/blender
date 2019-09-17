@@ -14,7 +14,7 @@ using FN::TupleCallBody;
 class SurfaceEmitter : public Emitter {
  private:
   ArrayRef<std::string> m_systems_to_emit;
-  Action *m_on_birth_action;
+  Action &m_on_birth_action;
 
   Object *m_object;
   VaryingFloat4x4 m_transform;
@@ -24,7 +24,7 @@ class SurfaceEmitter : public Emitter {
 
  public:
   SurfaceEmitter(ArrayRef<std::string> systems_to_emit,
-                 Action *on_birth_action,
+                 Action &on_birth_action,
                  Object *object,
                  VaryingFloat4x4 transform,
                  float rate,
@@ -47,14 +47,14 @@ class PointEmitter : public Emitter {
   VaryingFloat3 m_position;
   VaryingFloat3 m_velocity;
   VaryingFloat m_size;
-  Action *m_action;
+  Action &m_action;
 
  public:
   PointEmitter(ArrayRef<std::string> systems_to_emit,
                VaryingFloat3 position,
                VaryingFloat3 velocity,
                VaryingFloat size,
-               Action *action)
+               Action &action)
       : m_systems_to_emit(systems_to_emit),
         m_position(position),
         m_velocity(velocity),
@@ -74,7 +74,7 @@ class InitialGridEmitter : public Emitter {
   float m_step_x;
   float m_step_y;
   float m_size;
-  Action *m_action;
+  Action &m_action;
 
  public:
   InitialGridEmitter(ArrayRef<std::string> systems_to_emit,
@@ -83,7 +83,7 @@ class InitialGridEmitter : public Emitter {
                      float step_x,
                      float step_y,
                      float size,
-                     Action *action)
+                     Action &action)
       : m_systems_to_emit(systems_to_emit),
         m_amount_x(amount_x),
         m_amount_y(amount_y),

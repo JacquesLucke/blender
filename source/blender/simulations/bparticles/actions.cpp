@@ -155,7 +155,7 @@ void ExplodeAction::execute(ActionInterface &interface)
 
     SourceParticleActionContext source_context(source_particles, &interface.context());
 
-    m_on_birth_action->execute_for_new_particles(new_particles, interface, &source_context);
+    m_on_birth_action.execute_for_new_particles(new_particles, interface, &source_context);
   }
 }
 
@@ -173,8 +173,8 @@ void ConditionAction::execute(ActionInterface &interface)
     }
   }
 
-  m_true_action->execute_for_subset(true_pindices, interface);
-  m_false_action->execute_for_subset(false_pindices, interface);
+  m_true_action.execute_for_subset(true_pindices, interface);
+  m_false_action.execute_for_subset(false_pindices, interface);
 }
 
 }  // namespace BParticles

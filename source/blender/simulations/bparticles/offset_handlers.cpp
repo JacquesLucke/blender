@@ -35,7 +35,7 @@ void CreateTrailHandler::execute(OffsetHandlerInterface &interface)
     new_particles.set<float3>("Position", new_positions);
     new_particles.set<float>("Birth Time", new_birth_times);
 
-    m_on_birth_action->execute_for_new_particles(new_particles, interface);
+    m_on_birth_action.execute_for_new_particles(new_particles, interface);
   }
 }
 
@@ -65,7 +65,7 @@ void SizeOverTimeHandler::execute(OffsetHandlerInterface &interface)
 
 void AlwaysExecuteHandler::execute(OffsetHandlerInterface &interface)
 {
-  m_action->execute_from_offset_handler(interface);
+  m_action.execute_from_offset_handler(interface);
 }
 
 }  // namespace BParticles

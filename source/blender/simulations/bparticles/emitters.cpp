@@ -49,7 +49,7 @@ void PointEmitter::emit(EmitterInterface &interface)
     new_particles.set<float>("Size", new_sizes);
     new_particles.set<float>("Birth Time", birth_times);
 
-    m_action->execute_from_emitter(new_particles, interface);
+    m_action.execute_from_emitter(new_particles, interface);
   }
 }
 
@@ -302,7 +302,7 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     new_particles.set<float3>("Position", positions_at_birth);
     new_particles.set<float>("Birth Time", birth_times);
 
-    m_on_birth_action->execute_from_emitter<MeshSurfaceContext>(
+    m_on_birth_action.execute_from_emitter<MeshSurfaceContext>(
         new_particles, interface, [&](IndexRange range, void *dst) {
           new (dst) MeshSurfaceContext(m_object,
                                        transforms_at_birth.as_ref().slice(range),
@@ -338,7 +338,7 @@ void InitialGridEmitter::emit(EmitterInterface &interface)
     new_particles.fill<float>("Birth Time", interface.time_span().start());
     new_particles.fill<float>("Size", m_size);
 
-    m_action->execute_from_emitter(new_particles, interface);
+    m_action.execute_from_emitter(new_particles, interface);
   }
 }
 

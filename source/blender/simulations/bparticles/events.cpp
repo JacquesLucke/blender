@@ -66,7 +66,7 @@ void AgeReachedEvent::execute(EventExecuteInterface &interface)
     was_activated_before[pindex] = true;
   }
 
-  m_action->execute_from_event(interface);
+  m_action.execute_from_event(interface);
 }
 
 /* Custom Event
@@ -112,7 +112,7 @@ void CustomEvent::execute(EventExecuteInterface &interface)
     was_activated_before[pindex] = true;
   }
 
-  m_action->execute_from_event(interface);
+  m_action.execute_from_event(interface);
 }
 
 /* Collision Event
@@ -200,7 +200,7 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
                                      local_normals,
                                      looptri_indices);
 
-  m_action->execute_from_event(interface, &surface_context);
+  m_action.execute_from_event(interface, &surface_context);
 }
 
 }  // namespace BParticles
