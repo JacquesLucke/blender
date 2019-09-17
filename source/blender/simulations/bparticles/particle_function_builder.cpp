@@ -1,5 +1,6 @@
 #include "FN_llvm.hpp"
 #include "BLI_lazy_init_cxx.h"
+#include "BLI_hash.h"
 
 #include "particle_function_builder.hpp"
 #include "particle_function_input_providers.hpp"
@@ -134,6 +135,13 @@ static ParticleFunctionInputProvider *INPUT_surface_weight(
   return new VertexWeightInputProvider(group_name);
 }
 
+static ParticleFunctionInputProvider *INPUT_randomness_input(
+    VTreeDataGraph &UNUSED(vtree_data_graph), VirtualSocket *vsocket)
+{
+  uint seed = BLI_hash_string(vsocket->vnode()->name().data());
+  return new RandomFloatInputProvider(seed);
+}
+
 BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
 {
   StringMap<BuildInputProvider> map;
@@ -141,6 +149,7 @@ BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
   map.add_new("bp_SurfaceInfoNode", INPUT_surface_info);
   map.add_new("bp_SurfaceImageNode", INPUT_surface_image);
   map.add_new("bp_SurfaceWeightNode", INPUT_surface_weight);
+  map.add_new("bp_ParticleRandomnessInputNode", INPUT_randomness_input);
   return map;
 }
 

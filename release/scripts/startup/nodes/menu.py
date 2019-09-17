@@ -118,6 +118,7 @@ class InputNodesMenu(bpy.types.Menu):
         insert_node(layout, "bp_SurfaceInfoNode", "Surface Info")
         insert_node(layout, "bp_SurfaceImageNode", "Image Colors")
         insert_node(layout, "bp_SurfaceWeightNode", "Vertex Weights")
+        insert_node(layout, "bp_ParticleRandomnessInputNode", "Particle Randomness")
 
 
 def insert_node(layout, type, text, settings = {}, icon = "NONE"):

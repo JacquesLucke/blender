@@ -69,4 +69,16 @@ class VertexWeightInputProvider : public ParticleFunctionInputProvider {
                                                        ArrayRef<uint> surface_info_mapping);
 };
 
+class RandomFloatInputProvider : public ParticleFunctionInputProvider {
+ private:
+  uint m_seed;
+
+ public:
+  RandomFloatInputProvider(uint seed) : m_seed(seed)
+  {
+  }
+
+  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
+};
+
 }  // namespace BParticles

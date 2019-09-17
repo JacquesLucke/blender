@@ -63,3 +63,11 @@ class SurfaceWeightNode(bpy.types.Node, BParticlesNode):
 
     def draw(self, layout):
         layout.prop(self, "group_name", text="")
+
+
+class ParticleRandomnessInputNode(bpy.types.Node, BParticlesNode):
+    bl_idname = "bp_ParticleRandomnessInputNode"
+    bl_label = "Particle Randomness Input"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_output("float_value", "Value", "Float")

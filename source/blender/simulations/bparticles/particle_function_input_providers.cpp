@@ -5,6 +5,7 @@
 #include "BKE_customdata.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_deform.h"
+#include "BLI_hash.h"
 
 #include "particle_function_input_providers.hpp"
 
@@ -226,6 +227,22 @@ Optional<ParticleFunctionInputArray> VertexWeightInputProvider::compute_weights(
   }
 
   return ParticleFunctionInputArray(weights.as_ref(), true);
+}
+
+Optional<ParticleFunctionInputArray> RandomFloatInputProvider::get(
+    InputProviderInterface &interface)
+{
+  ArrayRef<int> ids = interface.attributes().get<int>("ID");
+
+  uint size = interface.attributes().size();
+  auto random_values = BLI::temporary_allocate_array<float>(size);
+
+  for (uint pindex : interface.pindices()) {
+    float value = BLI_hash_int_01(ids[pindex] + m_seed * 23467);
+    random_values[pindex] = value;
+  }
+
+  return ParticleFunctionInputArray(random_values.as_ref(), true);
 }
 
 }  // namespace BParticles
