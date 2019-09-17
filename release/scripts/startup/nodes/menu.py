@@ -70,21 +70,23 @@ class InfluencesNodesMenu(bpy.types.Menu):
         layout.operator_context = 'INVOKE_DEFAULT'
 
         insert_node(layout, "bp_CombineInfluencesNode", "Combine Influences")
-        insert_node(layout, "bp_AlwaysExecuteNode", "Always Execute")
+        layout.separator()
+        insert_node(layout, "bp_InitialGridEmitterNode", "Initial Grid Emitter")
+        insert_node(layout, "bp_MeshEmitterNode", "Mesh Emitter")
+        insert_node(layout, "bp_PointEmitterNode", "Point Emitter")
+        layout.separator()
         insert_node(layout, "bp_AgeReachedEventNode", "Age Reached Event")
         insert_node(layout, "bp_MeshCollisionEventNode", "Mesh Collision Event")
         insert_node(layout, "bp_CustomEventNode", "Custom Event")
-
+        layout.separator()
         insert_node(layout, "bp_TurbulenceForceNode", "Turbulence Force")
         insert_node(layout, "bp_GravityForceNode", "Gravity Force")
         insert_node(layout, "bp_DragForceNode", "Drag Force")
         insert_node(layout, "bp_MeshForceNode", "Mesh Force")
-
-        insert_node(layout, "bp_InitialGridEmitterNode", "Initial Grid Emitter")
-        insert_node(layout, "bp_MeshEmitterNode", "Mesh Emitter")
-        insert_node(layout, "bp_PointEmitterNode", "Point Emitter")
+        layout.separator()
         insert_node(layout, "bp_SizeOverTimeNode", "Size Over Time")
         insert_node(layout, "bp_ParticleTrailsNode", "Trails")
+        insert_node(layout, "bp_AlwaysExecuteNode", "Always Execute")
 
 
 class ActionNodesMenu(bpy.types.Menu):
@@ -99,10 +101,10 @@ class ActionNodesMenu(bpy.types.Menu):
         insert_node(layout, "bp_ChangeParticleVelocityNode", "Change Velocity")
         insert_node(layout, "bp_ChangeParticleSizeNode", "Change Size")
         insert_node(layout, "bp_ChangeParticlePositionNode", "Change Position")
-
-        insert_node(layout, "bp_ParticleConditionNode", "Condition")
+        layout.separator()
         insert_node(layout, "bp_ExplodeParticleNode", "Explode Particle")
         insert_node(layout, "bp_KillParticleNode", "Kill Particle")
+        insert_node(layout, "bp_ParticleConditionNode", "Condition")
 
 class InputNodesMenu(bpy.types.Menu):
     bl_idname = "BP_MT_input_nodes_menu"
