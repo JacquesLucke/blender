@@ -248,6 +248,9 @@ static void gpu_shader_standard_extensions(char defines[MAX_EXT_DEFINE_LENGTH])
     /* a #version 400 feature, but we use #version 330 maximum so use extension */
     strcat(defines, "#extension GL_ARB_texture_query_lod: enable\n");
   }
+  if (GLEW_ARB_shader_draw_parameters) {
+    strcat(defines, "#extension GL_ARB_shader_draw_parameters : enable\n");
+  }
 }
 
 static void gpu_shader_standard_defines(char defines[MAX_DEFINE_LENGTH])
