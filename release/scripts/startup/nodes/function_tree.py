@@ -1,7 +1,7 @@
 import bpy
 from collections import namedtuple
 
-from . base import BaseTree
+from . base import BaseTree, BaseNode
 
 FunctionInput = namedtuple("FunctionInput",
     ["data_type", "name", "identifier"])
@@ -13,7 +13,8 @@ class TreeWithFunctionNodes:
     def iter_dependency_trees(self):
         trees = set()
         for node in self.nodes:
-            trees.update(node.iter_dependency_trees())
+            if isinstance(node, BaseNode):
+                trees.update(node.iter_dependency_trees())
         yield from trees
 
 class FunctionTree(bpy.types.NodeTree, BaseTree, TreeWithFunctionNodes):
