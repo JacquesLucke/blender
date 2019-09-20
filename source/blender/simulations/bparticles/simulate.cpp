@@ -526,10 +526,6 @@ BLI_NOINLINE static AttributesInfo build_attribute_info_for_system(ParticleSyste
     event->attributes(builder);
   }
 
-  builder.add<uint8_t>("Kill State", 0);
-  builder.add<int32_t>("ID", 0);
-  builder.add<float>("Birth Time", 0);
-
   return AttributesInfo(builder);
 }
 

@@ -779,6 +779,9 @@ static void collect_influences(VTreeData &vtree_data,
 
   for (std::string &system_name : r_system_names) {
     AttributesDeclaration attributes;
+    attributes.add<uint8_t>("Kill State", 0);
+    attributes.add<int32_t>("ID", 0);
+    attributes.add<float>("Birth Time", 0);
     attributes.add<float3>("Position", float3(0, 0, 0));
     attributes.add<float3>("Velocity", float3(0, 0, 0));
     attributes.add<float>("Size", 0.05f);
