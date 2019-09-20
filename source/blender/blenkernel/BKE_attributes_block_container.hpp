@@ -17,7 +17,6 @@ class AttributesBlockContainer : BLI::NonCopyable, BLI::NonMovable {
   uint m_block_size;
   VectorSet<AttributesBlock *> m_active_blocks;
   std::mutex m_blocks_mutex;
-  std::atomic<uint> m_next_id;
 
  public:
   AttributesBlockContainer(AttributesInfo attributes_info, uint block_size);
@@ -48,12 +47,6 @@ class AttributesBlockContainer : BLI::NonCopyable, BLI::NonMovable {
   friend bool operator==(const AttributesBlockContainer &a, const AttributesBlockContainer &b)
   {
     return &a == &b;
-  }
-
-  IndexRange new_ids(uint amount)
-  {
-    uint start = m_next_id.fetch_add(amount);
-    return IndexRange(start, amount);
   }
 
   ArrayRef<AttributesBlock *> active_blocks()

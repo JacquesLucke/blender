@@ -42,8 +42,7 @@ class ParticleAllocator : BLI::NonCopyable, BLI::NonMovable {
                               Vector<ArrayRef<void *>> &r_buffers,
                               Vector<IndexRange> &r_ranges);
 
-  void initialize_new_particles(AttributesBlockContainer &container,
-                                AttributesRefGroup &attributes_group);
+  void initialize_new_particles(AttributesRefGroup &attributes_group);
 };
 
 /* ParticleAllocator inline functions

@@ -24,9 +24,12 @@ using BLI::VectorSet;
 class ParticlesState {
  private:
   StringMap<AttributesBlockContainer *> m_container_by_id;
+  std::atomic<uint> m_next_id;
 
  public:
-  ParticlesState() = default;
+  ParticlesState() : m_next_id(0)
+  {
+  }
   ParticlesState(ParticlesState &other) = delete;
   ~ParticlesState();
 
@@ -45,6 +48,15 @@ class ParticlesState {
    * Get the name of a container in the context of this particle state.
    */
   StringRefNull particle_container_name(AttributesBlockContainer &container);
+
+  /**
+   * Get range of unique particle ids.
+   */
+  IndexRange get_new_particle_ids(uint amount)
+  {
+    uint start = m_next_id.fetch_add(amount);
+    return IndexRange(start, amount);
+  }
 };
 
 /* ParticlesState inline functions
