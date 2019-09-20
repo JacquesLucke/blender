@@ -6,83 +6,71 @@ ParticleAllocator::ParticleAllocator(ParticlesState &state) : m_state(state)
 {
 }
 
-AttributesBlock &ParticleAllocator::get_non_full_block(AttributesBlockContainer &container)
+void ParticleAllocator::allocate_buffer_ranges(AttributesBlockContainer &container,
+                                               uint size,
+                                               Vector<ArrayRef<void *>> &r_buffers,
+                                               Vector<IndexRange> &r_ranges)
 {
-  AttributesBlock *cached_block = m_non_full_cache.lookup_default(&container, nullptr);
-  if (cached_block != nullptr) {
-    if (cached_block->remaining_capacity() > 0) {
-      return *cached_block;
-    }
-
-    m_non_full_cache.remove(&container);
-  }
-
-  AttributesBlock *block = container.new_block();
-  m_non_full_cache.add_new(&container, block);
-  m_allocated_blocks.append(block);
-  return *block;
-}
-
-void ParticleAllocator::allocate_block_ranges(StringRef particle_system_name,
-                                              uint size,
-                                              Vector<AttributesBlock *> &r_blocks,
-                                              Vector<IndexRange> &r_ranges)
-{
-  AttributesBlockContainer &container = m_state.particle_container(particle_system_name);
+  std::lock_guard<std::mutex> lock(m_request_mutex);
 
   uint remaining_size = size;
   while (remaining_size > 0) {
-    AttributesBlock &block = this->get_non_full_block(container);
+    AttributesBlock *cached_block = m_non_full_cache.lookup_default(&container, nullptr);
+    if (cached_block != nullptr) {
+      uint remaining_in_block = cached_block->remaining_capacity();
+      BLI_assert(remaining_in_block > 0);
+      uint size_to_use = std::min(remaining_size, remaining_in_block);
 
-    uint size_to_use = std::min(block.remaining_capacity(), remaining_size);
-    IndexRange range(block.size(), size_to_use);
-    block.set_size(block.size() + size_to_use);
+      IndexRange range(cached_block->size(), size_to_use);
+      r_buffers.append(cached_block->as_ref__all().buffers());
+      r_ranges.append(range);
+      remaining_size -= size_to_use;
 
-    r_blocks.append(&block);
-    r_ranges.append(range);
-
-    this->initialize_new_particles(block, container, range);
-
-    remaining_size -= size_to_use;
+      cached_block->set_size(range.one_after_last());
+      if (cached_block->remaining_capacity() == 0) {
+        m_non_full_cache.remove(&container);
+      }
+      continue;
+    }
+    else {
+      AttributesBlock *new_block = container.new_block();
+      m_non_full_cache.add_new(&container, new_block);
+      m_allocated_blocks.append(new_block);
+    }
   }
 }
 
-void ParticleAllocator::initialize_new_particles(AttributesBlock &block,
-                                                 AttributesBlockContainer &container,
-                                                 IndexRange pindices)
+void ParticleAllocator::initialize_new_particles(AttributesBlockContainer &container,
+                                                 AttributesRefGroup &attributes_group)
 {
-  AttributesRef attributes = block.as_ref().slice(pindices);
-  for (uint i : attributes.info().attribute_indices()) {
-    attributes.init_default(i);
-  }
+  for (AttributesRef attributes : attributes_group) {
+    for (uint i : attributes.info().attribute_indices()) {
+      attributes.init_default(i);
+    }
 
-  MutableArrayRef<int32_t> particle_ids = block.as_ref__all().get<int32_t>("ID");
-  IndexRange new_ids = container.new_ids(pindices.size());
-  for (uint i = 0; i < pindices.size(); i++) {
-    uint pindex = pindices[i];
-    particle_ids[pindex] = new_ids[i];
+    MutableArrayRef<int32_t> particle_ids = attributes.get<int32_t>("ID");
+    IndexRange new_ids = container.new_ids(attributes.size());
+    BLI_assert(particle_ids.size() == new_ids.size());
+    for (uint i = 0; i < new_ids.size(); i++) {
+      particle_ids[i] = new_ids[i];
+    }
   }
-}
-
-const AttributesInfo &ParticleAllocator::attributes_info(StringRef particle_system_name)
-{
-  return m_state.particle_container(particle_system_name).attributes_info();
 }
 
 AttributesRefGroup ParticleAllocator::request(StringRef particle_system_name, uint size)
 {
-  Vector<AttributesBlock *> blocks;
-  Vector<IndexRange> ranges;
-  this->allocate_block_ranges(particle_system_name, size, blocks, ranges);
-
-  const AttributesInfo &attributes_info = this->attributes_info(particle_system_name);
+  AttributesBlockContainer &container = m_state.particle_container(particle_system_name);
 
   Vector<ArrayRef<void *>> buffers;
-  for (uint i = 0; i < blocks.size(); i++) {
-    buffers.append(blocks[i]->as_ref().buffers());
-  }
+  Vector<IndexRange> ranges;
+  this->allocate_buffer_ranges(container, size, buffers, ranges);
 
-  return AttributesRefGroup(attributes_info, std::move(buffers), std::move(ranges));
+  const AttributesInfo &attributes_info = container.attributes_info();
+  AttributesRefGroup attributes_group(attributes_info, std::move(buffers), std::move(ranges));
+
+  this->initialize_new_particles(container, attributes_group);
+
+  return attributes_group;
 }
 
 }  // namespace BParticles

@@ -6,28 +6,24 @@ namespace BParticles {
 
 using BKE::AttributesRefGroup;
 
-/**
- * This class allows allocating new blocks from different particle containers.
- * A single instance is not thread safe, but multiple allocator instances can
- * be used by multiple threads at the same time.
- * It might hand out the same block more than once until it is full.
- */
-class ParticleAllocator {
+class ParticleAllocator : BLI::NonCopyable, BLI::NonMovable {
  private:
   ParticlesState &m_state;
   Map<AttributesBlockContainer *, AttributesBlock *> m_non_full_cache;
   Vector<AttributesBlock *> m_allocated_blocks;
+  std::mutex m_request_mutex;
 
  public:
   ParticleAllocator(ParticlesState &state);
-  ParticleAllocator(ParticleAllocator &other) = delete;
-  ParticleAllocator(ParticleAllocator &&other) = delete;
 
   /**
    * Access all blocks that have been allocated by this allocator.
    */
   ArrayRef<AttributesBlock *> allocated_blocks();
 
+  /**
+   * Get memory buffers for new particles.
+   */
   AttributesRefGroup request(StringRef particle_system_name, uint size);
 
  private:
@@ -38,19 +34,16 @@ class ParticleAllocator {
   AttributesBlock &get_non_full_block(AttributesBlockContainer &container);
 
   /**
-   * Allocate space for a given number of new particles. The attribute buffers might be distributed
-   * over multiple blocks.
+   * Allocate space for a given number of new particles. The attribute buffers might be
+   * distributed over multiple blocks.
    */
-  void allocate_block_ranges(StringRef particle_system_name,
-                             uint size,
-                             Vector<AttributesBlock *> &r_blocks,
-                             Vector<IndexRange> &r_ranges);
+  void allocate_buffer_ranges(AttributesBlockContainer &container,
+                              uint size,
+                              Vector<ArrayRef<void *>> &r_buffers,
+                              Vector<IndexRange> &r_ranges);
 
-  const AttributesInfo &attributes_info(StringRef particle_system_name);
-
-  void initialize_new_particles(AttributesBlock &block,
-                                AttributesBlockContainer &container,
-                                IndexRange pindices);
+  void initialize_new_particles(AttributesBlockContainer &container,
+                                AttributesRefGroup &attributes_group);
 };
 
 /* ParticleAllocator inline functions
