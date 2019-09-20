@@ -456,33 +456,6 @@ BLI_NOINLINE static void compress_all_containers(ParticlesState &state)
       [](AttributesBlockContainer *container) { compress_all_blocks(*container); });
 }
 
-BLI_NOINLINE static void ensure_required_containers_exist(
-    ParticlesState &state, StringMap<ParticleSystemInfo> &systems_to_simulate)
-{
-  auto &containers = state.particle_containers();
-
-  systems_to_simulate.foreach_key([&containers](StringRefNull system_name) {
-    if (!containers.contains(system_name)) {
-      AttributesBlockContainer *container = new AttributesBlockContainer(AttributesInfo(), 1000);
-      containers.add_new(system_name, container);
-    }
-  });
-}
-
-BLI_NOINLINE static void ensure_required_attributes_exist(
-    ParticlesState &state, StringMap<ParticleSystemInfo> systems_to_simulate)
-{
-  auto &containers = state.particle_containers();
-
-  systems_to_simulate.foreach_key_value_pair(
-      [&](StringRefNull system_name, ParticleSystemInfo &system_info) {
-        AttributesBlockContainer &container = *containers.lookup(system_name);
-
-        AttributesInfo new_attributes_info(*system_info.attributes_declaration);
-        container.update_attributes(std::move(new_attributes_info));
-      });
-}
-
 BLI_NOINLINE static void simulate_all_existing_blocks(
     ParticlesState &state,
     StringMap<ParticleSystemInfo> &systems_to_simulate,
@@ -533,9 +506,6 @@ void simulate_particles(SimulationState &state,
   SCOPED_TIMER(__func__);
 
   ParticlesState &particles_state = state.particles();
-
-  ensure_required_containers_exist(particles_state, systems_to_simulate);
-  ensure_required_attributes_exist(particles_state, systems_to_simulate);
 
   emit_and_simulate_particles(
       particles_state, state.time().current_update_time(), emitters, systems_to_simulate);

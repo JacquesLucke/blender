@@ -9,8 +9,6 @@
 namespace BParticles {
 
 struct ParticleSystemInfo {
-  AttributesDeclaration *attributes_declaration;
-
   Integrator *integrator;
   ArrayRef<Event *> events;
   ArrayRef<OffsetHandler *> offset_handlers;

@@ -854,8 +854,10 @@ class NodeTreeStepSimulator : public StepSimulator {
         system_attributes.join(container->attributes_info());
       }
 
+      this->ensure_particle_container_exist_and_has_attributes(
+          particles_state, name, AttributesInfo(system_attributes));
+
       ParticleSystemInfo type_info = {
-          &system_attributes,
           integrators.lookup(name),
           events.lookup_default(name),
           offset_handlers.lookup_default(name),
@@ -873,6 +875,23 @@ class NodeTreeStepSimulator : public StepSimulator {
     integrators.foreach_value([](Integrator *integrator) { delete integrator; });
 
     simulation_state.world() = std::move(new_world_state);
+  }
+
+ private:
+  void ensure_particle_container_exist_and_has_attributes(ParticlesState &particles_state,
+                                                          StringRef name,
+                                                          AttributesInfo attributes_info)
+  {
+    auto &containers = particles_state.particle_containers();
+    AttributesBlockContainer *container = containers.lookup_default(name, nullptr);
+    if (container == nullptr) {
+      AttributesBlockContainer *container = new AttributesBlockContainer(
+          std::move(attributes_info), 1000);
+      containers.add_new(name, container);
+    }
+    else {
+      container->update_attributes(std::move(attributes_info));
+    }
   }
 };
 
