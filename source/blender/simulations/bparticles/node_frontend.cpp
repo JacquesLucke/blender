@@ -787,6 +787,10 @@ static void collect_influences(VTreeData &vtree_data,
     attributes.add<float>("Size", 0.05f);
     attributes.add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
 
+    for (Event *event : r_events_per_type.lookup_default(system_name)) {
+      event->attributes(attributes);
+    }
+
     ArrayRef<Force *> forces = collector.m_forces.lookup_default(system_name);
     EulerIntegrator *integrator = new EulerIntegrator(forces);
 
@@ -813,6 +817,8 @@ class NodeTreeStepSimulator : public StepSimulator {
     WorldState new_world_state;
     WorldTransition world_transition = {old_world_state, new_world_state};
 
+    ParticlesState &particles_state = simulation_state.particles();
+
     Vector<std::string> system_names;
     Vector<Emitter *> emitters;
     MultiMap<std::string, Event *> events;
@@ -836,10 +842,20 @@ class NodeTreeStepSimulator : public StepSimulator {
                        attributes,
                        integrators);
 
+    auto &containers = particles_state.particle_containers();
+
     StringMap<ParticleSystemInfo> systems_to_simulate;
     for (std::string name : system_names) {
+      AttributesDeclaration &system_attributes = attributes.lookup(name);
+
+      /* Keep old attributes. */
+      AttributesBlockContainer *container = containers.lookup_default(name, nullptr);
+      if (container != nullptr) {
+        system_attributes.join(container->attributes_info());
+      }
+
       ParticleSystemInfo type_info = {
-          &attributes.lookup(name),
+          &system_attributes,
           integrators.lookup(name),
           events.lookup_default(name),
           offset_handlers.lookup_default(name),

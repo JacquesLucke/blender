@@ -469,32 +469,17 @@ BLI_NOINLINE static void ensure_required_containers_exist(
   });
 }
 
-BLI_NOINLINE static AttributesInfo build_attribute_info_for_system(ParticleSystemInfo &system_info,
-                                                                   const AttributesInfo &last_info)
-{
-  AttributesDeclaration builder;
-  builder.join(last_info);
-  builder.join(*system_info.attributes_declaration);
-
-  for (Event *event : system_info.events) {
-    event->attributes(builder);
-  }
-
-  return AttributesInfo(builder);
-}
-
 BLI_NOINLINE static void ensure_required_attributes_exist(
     ParticlesState &state, StringMap<ParticleSystemInfo> systems_to_simulate)
 {
   auto &containers = state.particle_containers();
 
   systems_to_simulate.foreach_key_value_pair(
-      [&containers](StringRefNull system_name, ParticleSystemInfo &system_info) {
+      [&](StringRefNull system_name, ParticleSystemInfo &system_info) {
         AttributesBlockContainer &container = *containers.lookup(system_name);
 
-        AttributesInfo new_attributes_info = build_attribute_info_for_system(
-            system_info, container.attributes_info());
-        container.update_attributes(new_attributes_info);
+        AttributesInfo new_attributes_info(*system_info.attributes_declaration);
+        container.update_attributes(std::move(new_attributes_info));
       });
 }
 
