@@ -406,7 +406,8 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
     ParticleAllocators &block_allocators,
     ArrayRef<AttributesBlock *> blocks,
     StringMap<ParticleSystemInfo> &systems_to_simulate,
-    TimeSpan time_span)
+    TimeSpan time_span,
+    ParticlesState &particles_state)
 {
   if (blocks.size() == 0) {
     return;
@@ -416,8 +417,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
       blocks,
       /* Process individual element. */
       [&](AttributesBlock *block, ThreadLocalData *local_data) {
-        ParticlesState &state = local_data->particle_allocator.particles_state();
-        StringRef particle_system_name = state.particle_container_name(block->owner());
+        StringRef particle_system_name = particles_state.particle_container_name(block->owner());
         ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
 
         TemporaryArray<float> remaining_durations(block->size());
@@ -442,7 +442,8 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
     ParticleAllocators &block_allocators,
     ArrayRef<AttributesBlock *> blocks,
     StringMap<ParticleSystemInfo> &systems_to_simulate,
-    float end_time)
+    float end_time,
+    ParticlesState &particles_state)
 {
   if (blocks.size() == 0) {
     return;
@@ -451,9 +452,8 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
   BLI::Task::parallel_array_elements(
       blocks,
       /* Process individual element. */
-      [&systems_to_simulate, end_time](AttributesBlock *block, ThreadLocalData *local_data) {
-        ParticlesState &state = local_data->particle_allocator.particles_state();
-        StringRef particle_system_name = state.particle_container_name(block->owner());
+      [&](AttributesBlock *block, ThreadLocalData *local_data) {
+        StringRef particle_system_name = particles_state.particle_container_name(block->owner());
         ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
 
         uint active_amount = block->size();
@@ -467,7 +467,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
         delete_tagged_particles_and_reorder(*block);
       },
       /* Create thread-local data. */
-      [&block_allocators]() { return new ThreadLocalData(block_allocators.new_allocator()); },
+      [&]() { return new ThreadLocalData(block_allocators.new_allocator()); },
       /* Free thread-local data. */
       [](ThreadLocalData *local_data) { delete local_data; },
       USE_THREADING);
@@ -551,7 +551,7 @@ BLI_NOINLINE static void simulate_all_existing_blocks(
     TimeSpan time_span)
 {
   Vector<AttributesBlock *> blocks = get_all_blocks_to_simulate(state, systems_to_simulate);
-  simulate_blocks_for_time_span(block_allocators, blocks, systems_to_simulate, time_span);
+  simulate_blocks_for_time_span(block_allocators, blocks, systems_to_simulate, time_span, state);
 }
 
 BLI_NOINLINE static void create_particles_from_emitters(ParticleAllocators &block_allocators,
@@ -583,7 +583,7 @@ BLI_NOINLINE static void emit_and_simulate_particles(
   while (newly_created_blocks.size() > 0) {
     ParticleAllocators block_allocators(state);
     simulate_blocks_from_birth_to_current_time(
-        block_allocators, newly_created_blocks, systems_to_simulate, time_span.end());
+        block_allocators, newly_created_blocks, systems_to_simulate, time_span.end(), state);
     newly_created_blocks = block_allocators.gather_allocated_blocks();
   }
 }

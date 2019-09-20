@@ -30,8 +30,6 @@ class ParticleAllocator {
 
   AttributesRefGroup request(StringRef particle_system_name, uint size);
 
-  ParticlesState &particles_state();
-
  private:
   /**
    * Return a block that can hold new particles. It might create an entirely new one or use a
@@ -57,11 +55,6 @@ class ParticleAllocator {
 
 /* ParticleAllocator inline functions
  ********************************************/
-
-inline ParticlesState &ParticleAllocator::particles_state()
-{
-  return m_state;
-}
 
 inline ArrayRef<AttributesBlock *> ParticleAllocator::allocated_blocks()
 {
