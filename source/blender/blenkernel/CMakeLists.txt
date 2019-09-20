@@ -210,6 +210,7 @@ set(SRC
   intern/subdiv_ccg_material.c
   intern/subdiv_converter.c
   intern/subdiv_converter_mesh.c
+  intern/subdiv_deform.c
   intern/subdiv_displacement.c
   intern/subdiv_displacement_multires.c
   intern/subdiv_eval.c
@@ -349,6 +350,7 @@ set(SRC
   BKE_studiolight.h
   BKE_subdiv.h
   BKE_subdiv_ccg.h
+  BKE_subdiv_deform.h
   BKE_subdiv_eval.h
   BKE_subdiv_foreach.h
   BKE_subdiv_mesh.h

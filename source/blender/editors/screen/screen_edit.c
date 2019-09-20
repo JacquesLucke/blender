@@ -44,6 +44,7 @@
 #include "BKE_node.h"
 #include "BKE_screen.h"
 #include "BKE_scene.h"
+#include "BKE_sound.h"
 #include "BKE_workspace.h"
 
 #include "WM_api.h"
@@ -518,6 +519,17 @@ void ED_screen_ensure_updated(wmWindowManager *wm, wmWindow *win, bScreen *scree
   }
 }
 
+/**
+ * Utility to exit and free an area-region. Screen level regions (menus/popups) need to be treated
+ * slightly differently, see #ui_region_temp_remove().
+ */
+void ED_region_remove(bContext *C, ScrArea *sa, ARegion *ar)
+{
+  ED_region_exit(C, ar);
+  BKE_area_region_free(sa->type, ar);
+  BLI_freelinkN(&sa->regionbase, ar);
+}
+
 /* *********** exit calls are for closing running stuff ******** */
 
 void ED_region_exit(bContext *C, ARegion *ar)
@@ -583,6 +595,11 @@ void ED_screen_exit(bContext *C, wmWindow *window, bScreen *screen)
 
   if (screen->animtimer) {
     WM_event_remove_timer(wm, window, screen->animtimer);
+
+    Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
+    Scene *scene = WM_window_get_active_scene(prevwin);
+    Scene *scene_eval = (Scene *)DEG_get_evaluated_id(depsgraph, &scene->id);
+    BKE_sound_stop_scene(scene_eval);
   }
   screen->animtimer = NULL;
   screen->scrubbing = false;
@@ -1371,9 +1388,23 @@ ScrArea *ED_screen_temp_space_open(bContext *C,
         sa = CTX_wm_area(C);
       }
       break;
-    case USER_TEMP_SPACE_DISPLAY_FULLSCREEN:
-      sa = ED_screen_full_newspace(C, CTX_wm_area(C), (int)space_type);
+    case USER_TEMP_SPACE_DISPLAY_FULLSCREEN: {
+      ScrArea *ctx_sa = CTX_wm_area(C);
+
+      if (ctx_sa->full) {
+        sa = ctx_sa;
+        ED_area_newspace(C, ctx_sa, space_type, true);
+        /* we already had a fullscreen here -> mark new space as a stacked fullscreen */
+        sa->flag |= (AREA_FLAG_STACKED_FULLSCREEN | AREA_FLAG_TEMP_TYPE);
+      }
+      else if (ctx_sa->spacetype == space_type) {
+        sa = ED_screen_state_toggle(C, CTX_wm_window(C), ctx_sa, SCREENMAXIMIZED);
+      }
+      else {
+        sa = ED_screen_full_newspace(C, ctx_sa, (int)space_type);
+      }
       break;
+    }
   }
 
   return sa;
