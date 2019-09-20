@@ -476,29 +476,6 @@ BLI_NOINLINE static void create_particles_from_emitters(ParticleAllocator &parti
   }
 }
 
-BLI_NOINLINE static void emit_and_simulate_particles(
-    ParticlesState &state,
-    TimeSpan time_span,
-    ArrayRef<Emitter *> emitters,
-    StringMap<ParticleSystemInfo> &systems_to_simulate)
-{
-
-  Vector<AttributesBlock *> newly_created_blocks;
-  {
-    ParticleAllocator particle_allocator(state);
-    simulate_all_existing_blocks(state, systems_to_simulate, particle_allocator, time_span);
-    create_particles_from_emitters(particle_allocator, emitters, time_span);
-    newly_created_blocks = particle_allocator.allocated_blocks();
-  }
-
-  while (newly_created_blocks.size() > 0) {
-    ParticleAllocator particle_allocator(state);
-    simulate_blocks_from_birth_to_current_time(
-        particle_allocator, newly_created_blocks, systems_to_simulate, time_span.end(), state);
-    newly_created_blocks = particle_allocator.allocated_blocks();
-  }
-}
-
 void simulate_particles(SimulationState &state,
                         ArrayRef<Emitter *> emitters,
                         StringMap<ParticleSystemInfo> &systems_to_simulate)
@@ -506,9 +483,26 @@ void simulate_particles(SimulationState &state,
   SCOPED_TIMER(__func__);
 
   ParticlesState &particles_state = state.particles();
+  TimeSpan simulation_time_span = state.time().current_update_time();
 
-  emit_and_simulate_particles(
-      particles_state, state.time().current_update_time(), emitters, systems_to_simulate);
+  Vector<AttributesBlock *> newly_created_blocks;
+  {
+    ParticleAllocator particle_allocator(particles_state);
+    simulate_all_existing_blocks(
+        particles_state, systems_to_simulate, particle_allocator, simulation_time_span);
+    create_particles_from_emitters(particle_allocator, emitters, simulation_time_span);
+    newly_created_blocks = particle_allocator.allocated_blocks();
+  }
+
+  while (newly_created_blocks.size() > 0) {
+    ParticleAllocator particle_allocator(particles_state);
+    simulate_blocks_from_birth_to_current_time(particle_allocator,
+                                               newly_created_blocks,
+                                               systems_to_simulate,
+                                               simulation_time_span.end(),
+                                               particles_state);
+    newly_created_blocks = particle_allocator.allocated_blocks();
+  }
 
   compress_all_containers(particles_state);
 }
