@@ -615,7 +615,7 @@ static void PARSE_drag_force(InfluencesCollector &collector,
 
 static void PARSE_mesh_collision(InfluencesCollector &collector,
                                  VTreeData &vtree_data,
-                                 WorldTransition &UNUSED(world_transition),
+                                 WorldTransition &world_transition,
                                  VirtualNode *vnode)
 {
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
@@ -637,8 +637,13 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
       vnode->output(0, "Event"));
   Action &action = vtree_data.build_action_list(vnode, "Execute on Event");
 
+  float4x4 local_to_world_end = object->obmat;
+  float4x4 local_to_world_begin =
+      world_transition.update_float4x4(object->id.name, "obmat", object->obmat).start;
+
   for (const std::string &system_name : system_names) {
-    Event *event = new MeshCollisionEvent(vnode->name(), object, action);
+    Event *event = new MeshCollisionEvent(
+        vnode->name(), object, action, local_to_world_begin, local_to_world_end);
     collector.m_events.add(system_name, event);
   }
 }

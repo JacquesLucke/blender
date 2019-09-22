@@ -136,23 +136,28 @@ void MeshCollisionEvent::filter(EventFilterInterface &interface)
   auto position_offsets = interface.attribute_offsets().get<float3>("Position");
 
   for (uint pindex : interface.pindices()) {
-    float3 ray_start = m_world_to_local.transform_position(positions[pindex]);
-    float3 ray_direction = m_world_to_local.transform_direction(position_offsets[pindex]);
-    float length = ray_direction.normalize_and_get_length();
+    float3 world_ray_start = positions[pindex];
+    float3 world_ray_direction = position_offsets[pindex];
+    float3 world_ray_end = world_ray_start + world_ray_direction;
 
-    auto result = this->ray_cast(ray_start, ray_direction, length);
+    float3 local_ray_start = m_world_to_local_begin.transform_position(world_ray_start);
+    float3 local_ray_end = m_world_to_local_end.transform_position(world_ray_end);
+    float3 local_ray_direction = local_ray_end - local_ray_start;
+    float local_ray_length = local_ray_direction.normalize_and_get_length();
+
+    auto result = this->ray_cast(local_ray_start, local_ray_direction, local_ray_length);
     if (result.success) {
-      float time_factor = result.distance / length;
+      float time_factor = result.distance / local_ray_length;
       float time = interface.time_span(pindex).interpolate(time_factor);
       if (std::abs(last_collision_times[pindex] - time) < 0.0001f) {
         continue;
       }
       auto &storage = interface.trigger_particle<EventStorage>(pindex, time_factor);
-      if (float3::dot(result.normal, ray_direction) > 0) {
+      if (float3::dot(result.normal, local_ray_direction) > 0) {
         result.normal = -result.normal;
       }
       storage.local_normal = result.normal;
-      storage.local_position = ray_start + ray_direction * result.distance;
+      storage.local_position = local_ray_start + local_ray_direction * result.distance;
       storage.looptri_index = result.index;
     }
   }
@@ -194,7 +199,7 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
   }
 
   MeshSurfaceContext surface_context(m_object,
-                                     m_local_to_world,
+                                     m_local_to_world_begin,
                                      interface.pindices(),
                                      local_positions,
                                      local_normals,

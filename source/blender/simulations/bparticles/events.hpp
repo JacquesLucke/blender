@@ -55,8 +55,10 @@ class MeshCollisionEvent : public Event {
   std::string m_identifier;
   Object *m_object;
   BVHTreeFromMesh m_bvhtree_data;
-  float4x4 m_local_to_world;
-  float4x4 m_world_to_local;
+  float4x4 m_local_to_world_begin;
+  float4x4 m_world_to_local_begin;
+  float4x4 m_local_to_world_end;
+  float4x4 m_world_to_local_end;
   Action &m_action;
 
   struct RayCastResult {
@@ -73,12 +75,18 @@ class MeshCollisionEvent : public Event {
   };
 
  public:
-  MeshCollisionEvent(StringRef identifier, Object *object, Action &action)
+  MeshCollisionEvent(StringRef identifier,
+                     Object *object,
+                     Action &action,
+                     float4x4 local_to_world_begin,
+                     float4x4 local_to_world_end)
       : m_identifier(identifier), m_object(object), m_action(action)
   {
     BLI_assert(object->type == OB_MESH);
-    m_local_to_world = m_object->obmat;
-    m_world_to_local = m_local_to_world.inverted__LocRotScale();
+    m_local_to_world_begin = local_to_world_begin;
+    m_local_to_world_end = local_to_world_end;
+    m_world_to_local_begin = m_local_to_world_begin.inverted__LocRotScale();
+    m_world_to_local_end = m_local_to_world_end.inverted__LocRotScale();
 
     BKE_bvhtree_from_mesh_get(&m_bvhtree_data, (Mesh *)object->data, BVHTREE_FROM_LOOPTRI, 2);
   }
