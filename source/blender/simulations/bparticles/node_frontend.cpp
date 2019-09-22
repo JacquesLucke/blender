@@ -46,6 +46,7 @@ class InfluencesCollector {
   MultiMap<std::string, Force *> &m_forces;
   MultiMap<std::string, Event *> &m_events;
   MultiMap<std::string, OffsetHandler *> &m_offset_handlers;
+  StringMap<AttributesDeclaration> &m_attributes;
 };
 
 class VTreeData {
@@ -508,8 +509,11 @@ static void PARSE_age_reached_event(InfluencesCollector &collector,
       vnode->output(0, "Event"));
   Action &action = vtree_data.build_action_list(vnode, "Execute on Event");
 
+  std::string is_triggered_attribute = vnode->name();
+
   for (const std::string &system_name : system_names) {
-    Event *event = new AgeReachedEvent(vnode->name(), inputs_fn, action);
+    collector.m_attributes.lookup(system_name).add<uint8_t>(is_triggered_attribute, 0);
+    Event *event = new AgeReachedEvent(is_triggered_attribute, inputs_fn, action);
     collector.m_events.add(system_name, event);
   }
 }
@@ -641,9 +645,12 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
   float4x4 local_to_world_begin =
       world_transition.update_float4x4(object->id.name, "obmat", object->obmat).start;
 
+  std::string last_collision_attribute = vnode->name();
+
   for (const std::string &system_name : system_names) {
     Event *event = new MeshCollisionEvent(
-        vnode->name(), object, action, local_to_world_begin, local_to_world_end);
+        last_collision_attribute, object, action, local_to_world_begin, local_to_world_end);
+    collector.m_attributes.lookup(system_name).add<int32_t>(last_collision_attribute, -1);
     collector.m_events.add(system_name, event);
   }
 }
@@ -708,8 +715,11 @@ static void PARSE_custom_event(InfluencesCollector &collector,
       vnode->output(0, "Event"));
   Action &action = vtree_data.build_action_list(vnode, "Execute on Event");
 
+  std::string is_triggered_attribute = vnode->name();
+
   for (const std::string &system_name : system_names) {
-    Event *event = new CustomEvent(vnode->name(), inputs_fn, action);
+    Event *event = new CustomEvent(is_triggered_attribute, inputs_fn, action);
+    collector.m_attributes.lookup(system_name).add<uint8_t>(system_name, 0);
     collector.m_events.add(system_name, event);
   }
 }
@@ -767,7 +777,14 @@ static void collect_influences(VTreeData &vtree_data,
       forces,
       r_events_per_type,
       r_offset_handler_per_type,
+      r_attributes_per_type,
   };
+
+  for (VirtualNode *vnode : vtree_data.vtree().nodes_with_idname(particle_system_idname)) {
+    StringRef name = vnode->name();
+    r_system_names.append(name);
+    r_attributes_per_type.add_new(name, AttributesDeclaration());
+  }
 
   for (VirtualNode *vnode : vtree_data.vtree().nodes()) {
     StringRef idname = vnode->idname();
@@ -777,13 +794,8 @@ static void collect_influences(VTreeData &vtree_data,
     }
   }
 
-  for (VirtualNode *vnode : vtree_data.vtree().nodes_with_idname(particle_system_idname)) {
-    StringRef name = vnode->name();
-    r_system_names.append(name);
-  }
-
   for (std::string &system_name : r_system_names) {
-    AttributesDeclaration attributes;
+    AttributesDeclaration &attributes = r_attributes_per_type.lookup(system_name);
     attributes.add<uint8_t>("Kill State", 0);
     attributes.add<int32_t>("ID", 0);
     attributes.add<float>("Birth Time", 0);
@@ -792,14 +804,9 @@ static void collect_influences(VTreeData &vtree_data,
     attributes.add<float>("Size", 0.05f);
     attributes.add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
 
-    for (Event *event : r_events_per_type.lookup_default(system_name)) {
-      event->attributes(attributes);
-    }
-
     ArrayRef<Force *> forces = collector.m_forces.lookup_default(system_name);
     EulerIntegrator *integrator = new EulerIntegrator(forces);
 
-    r_attributes_per_type.add_new(system_name, attributes);
     r_integrators.add_new(system_name, integrator);
   }
 }

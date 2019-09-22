@@ -9,11 +9,6 @@ namespace BParticles {
 /* Age Reached Event
  ******************************************/
 
-void AgeReachedEvent::attributes(AttributesDeclaration &builder)
-{
-  builder.add<uint8_t>(m_identifier, 0);
-}
-
 void AgeReachedEvent::filter(EventFilterInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
@@ -32,7 +27,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 
   float end_time = interface.step_end_time();
   auto birth_times = attributes.get<float>("Birth Time");
-  auto was_activated_before = attributes.get<uint8_t>(m_identifier);
+  auto was_activated_before = attributes.get<uint8_t>(m_is_triggered_attribute);
 
   for (uint pindex : interface.pindices()) {
     if (was_activated_before[pindex]) {
@@ -61,7 +56,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 
 void AgeReachedEvent::execute(EventExecuteInterface &interface)
 {
-  auto was_activated_before = interface.attributes().get<uint8_t>(m_identifier);
+  auto was_activated_before = interface.attributes().get<uint8_t>(m_is_triggered_attribute);
   for (uint pindex : interface.pindices()) {
     was_activated_before[pindex] = true;
   }
@@ -72,14 +67,9 @@ void AgeReachedEvent::execute(EventExecuteInterface &interface)
 /* Custom Event
  ***********************************************/
 
-void CustomEvent::attributes(AttributesDeclaration &builder)
-{
-  builder.add<uint8_t>(m_identifier, 0);
-}
-
 void CustomEvent::filter(EventFilterInterface &interface)
 {
-  auto was_activated_before = interface.attributes().get<uint8_t>(m_identifier);
+  auto was_activated_before = interface.attributes().get<uint8_t>(m_is_triggered_attribute);
 
   TemporaryVector<uint> pindices_to_check;
   pindices_to_check.reserve(interface.pindices().size());
@@ -107,7 +97,7 @@ void CustomEvent::filter(EventFilterInterface &interface)
 
 void CustomEvent::execute(EventExecuteInterface &interface)
 {
-  auto was_activated_before = interface.attributes().get<uint8_t>(m_identifier);
+  auto was_activated_before = interface.attributes().get<uint8_t>(m_is_triggered_attribute);
   for (uint pindex : interface.pindices()) {
     was_activated_before[pindex] = true;
   }
@@ -118,11 +108,6 @@ void CustomEvent::execute(EventExecuteInterface &interface)
 /* Collision Event
  ***********************************************/
 
-void MeshCollisionEvent::attributes(AttributesDeclaration &builder)
-{
-  builder.add<int32_t>(m_identifier, -1);
-}
-
 uint MeshCollisionEvent::storage_size()
 {
   return sizeof(EventStorage);
@@ -132,7 +117,7 @@ void MeshCollisionEvent::filter(EventFilterInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
   auto positions = attributes.get<float3>("Position");
-  auto last_collision_step = attributes.get<int32_t>(m_identifier);
+  auto last_collision_step = attributes.get<int32_t>(m_last_collision_attribute);
   auto position_offsets = interface.attribute_offsets().get<float3>("Position");
 
   uint current_update_index = interface.simulation_state().time().current_update_index();
@@ -190,7 +175,7 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
   TemporaryArray<float3> local_normals(array_size);
   TemporaryArray<uint> looptri_indices(array_size);
 
-  auto last_collision_step = interface.attributes().get<int32_t>(m_identifier);
+  auto last_collision_step = interface.attributes().get<int32_t>(m_last_collision_attribute);
   uint current_update_index = interface.simulation_state().time().current_update_index();
 
   for (uint pindex : interface.pindices()) {

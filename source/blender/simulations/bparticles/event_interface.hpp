@@ -217,13 +217,6 @@ class Event {
    * already. However, the attributes of new particles can be changed.
    */
   virtual void execute(EventExecuteInterface &interface) = 0;
-
-  /**
-   * Allows to define which attributes are required by the event.
-   */
-  virtual void attributes(AttributesDeclaration &UNUSED(interface))
-  {
-  }
 };
 
 }  // namespace BParticles

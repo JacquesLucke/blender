@@ -18,41 +18,39 @@ using BLI::float4x4;
 
 class AgeReachedEvent : public Event {
  private:
-  std::string m_identifier;
+  std::string m_is_triggered_attribute;
   ParticleFunction *m_inputs_fn;
   Action &m_action;
 
  public:
-  AgeReachedEvent(StringRef identifier, ParticleFunction *inputs_fn, Action &action)
-      : m_identifier(identifier), m_inputs_fn(inputs_fn), m_action(action)
+  AgeReachedEvent(StringRef is_triggered_attribute, ParticleFunction *inputs_fn, Action &action)
+      : m_is_triggered_attribute(is_triggered_attribute), m_inputs_fn(inputs_fn), m_action(action)
   {
   }
 
-  void attributes(AttributesDeclaration &builder) override;
   void filter(EventFilterInterface &interface) override;
   void execute(EventExecuteInterface &interface) override;
 };
 
 class CustomEvent : public Event {
  private:
-  std::string m_identifier;
+  std::string m_is_triggered_attribute;
   ParticleFunction *m_inputs_fn;
   Action &m_action;
 
  public:
-  CustomEvent(StringRef identifier, ParticleFunction *inputs_fn, Action &action)
-      : m_identifier(identifier), m_inputs_fn(inputs_fn), m_action(action)
+  CustomEvent(StringRef is_triggered_attribute, ParticleFunction *inputs_fn, Action &action)
+      : m_is_triggered_attribute(is_triggered_attribute), m_inputs_fn(inputs_fn), m_action(action)
   {
   }
 
-  void attributes(AttributesDeclaration &builder) override;
   void filter(EventFilterInterface &interface) override;
   void execute(EventExecuteInterface &interface) override;
 };
 
 class MeshCollisionEvent : public Event {
  private:
-  std::string m_identifier;
+  std::string m_last_collision_attribute;
   Object *m_object;
   BVHTreeFromMesh m_bvhtree_data;
   float4x4 m_local_to_world_begin;
@@ -75,12 +73,12 @@ class MeshCollisionEvent : public Event {
   };
 
  public:
-  MeshCollisionEvent(StringRef identifier,
+  MeshCollisionEvent(StringRef last_collision_attribute,
                      Object *object,
                      Action &action,
                      float4x4 local_to_world_begin,
                      float4x4 local_to_world_end)
-      : m_identifier(identifier), m_object(object), m_action(action)
+      : m_last_collision_attribute(last_collision_attribute), m_object(object), m_action(action)
   {
     BLI_assert(object->type == OB_MESH);
     m_local_to_world_begin = local_to_world_begin;
@@ -96,7 +94,6 @@ class MeshCollisionEvent : public Event {
     free_bvhtree_from_mesh(&m_bvhtree_data);
   }
 
-  void attributes(AttributesDeclaration &builder) override;
   uint storage_size() override;
   void filter(EventFilterInterface &interface) override;
   void execute(EventExecuteInterface &interface) override;
