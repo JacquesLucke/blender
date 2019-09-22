@@ -1,18 +1,24 @@
 #pragma once
 
 #include "particle_allocator.hpp"
+#include "simulation_state.hpp"
 #include "time_span.hpp"
 
 namespace BParticles {
 
 class EmitterInterface {
  private:
+  SimulationState &m_simulation_state;
   ParticleAllocator &m_particle_allocator;
   TimeSpan m_time_span;
 
  public:
-  EmitterInterface(ParticleAllocator &particle_allocator, TimeSpan time_span)
-      : m_particle_allocator(particle_allocator), m_time_span(time_span)
+  EmitterInterface(SimulationState &simulation_state,
+                   ParticleAllocator &particle_allocator,
+                   TimeSpan time_span)
+      : m_simulation_state(simulation_state),
+        m_particle_allocator(particle_allocator),
+        m_time_span(time_span)
   {
   }
 
@@ -36,7 +42,7 @@ class EmitterInterface {
    */
   bool is_first_step()
   {
-    return m_time_span.start() == 0.0f;
+    return m_simulation_state.time().current_update_index() == 1;
   }
 };
 

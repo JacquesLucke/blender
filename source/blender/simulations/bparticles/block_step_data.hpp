@@ -2,12 +2,14 @@
 
 #include "BKE_attributes_ref.hpp"
 #include "time_span.hpp"
+#include "simulation_state.hpp"
 
 namespace BParticles {
 
 using BKE::AttributesRef;
 
 struct BlockStepData {
+  SimulationState &simulation_state;
   AttributesRef attributes;
   AttributesRef attribute_offsets;
   MutableArrayRef<float> remaining_durations;
@@ -26,6 +28,11 @@ class BlockStepDataAccess {
  public:
   BlockStepDataAccess(BlockStepData &step_data) : m_step_data(step_data)
   {
+  }
+
+  SimulationState &simulation_state()
+  {
+    return m_step_data.simulation_state;
   }
 
   uint array_size() const
