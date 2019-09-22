@@ -1674,7 +1674,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
     def BPARTICLES_OUTPUT(self, layout, ob, md):
         layout.prop(md, "source_object")
-        layout.prop(md, "source_particle_system")
+        layout.prop(md, "source_particle_system", icon="PHYSICS")
         layout.prop(md, "output_type")
 
 

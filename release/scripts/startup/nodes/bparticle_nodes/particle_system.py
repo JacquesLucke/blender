@@ -12,4 +12,4 @@ class ParticleSystemNode(bpy.types.Node, BParticlesNode):
         builder.influences_input("influences", "Influences")
 
     def draw(self, layout):
-        layout.prop(self, "name", text="", icon="MOD_PARTICLES")
+        layout.prop(self, "name", text="", icon="PHYSICS")

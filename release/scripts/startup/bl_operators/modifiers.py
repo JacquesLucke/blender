@@ -67,7 +67,7 @@ class NewBParticlesTree(bpy.types.Operator, ModifierOperator):
         if mod is None:
             return {'CANCELLED'}
 
-        tree = bpy.data.node_groups.new("Particle System", "BParticlesTree")
+        tree = bpy.data.node_groups.new("Particle Simulation", "BParticlesTree")
 
         type_node = tree.nodes.new("bp_ParticleSystemNode")
 
