@@ -120,7 +120,7 @@ void CustomEvent::execute(EventExecuteInterface &interface)
 
 void MeshCollisionEvent::attributes(AttributesDeclaration &builder)
 {
-  builder.add<float>(m_identifier, 0.0f);
+  builder.add<int32_t>(m_identifier, -1);
 }
 
 uint MeshCollisionEvent::storage_size()
@@ -132,10 +132,16 @@ void MeshCollisionEvent::filter(EventFilterInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
   auto positions = attributes.get<float3>("Position");
-  auto last_collision_times = attributes.get<float>(m_identifier);
+  auto last_collision_step = attributes.get<int32_t>(m_identifier);
   auto position_offsets = interface.attribute_offsets().get<float3>("Position");
 
+  uint current_update_index = interface.simulation_state().time().current_update_index();
+
   for (uint pindex : interface.pindices()) {
+    if (last_collision_step[pindex] == current_update_index) {
+      continue;
+    }
+
     float3 world_ray_start = positions[pindex];
     float3 world_ray_direction = position_offsets[pindex];
     float3 world_ray_end = world_ray_start + world_ray_direction;
@@ -148,10 +154,6 @@ void MeshCollisionEvent::filter(EventFilterInterface &interface)
     auto result = this->ray_cast(local_ray_start, local_ray_direction, local_ray_length);
     if (result.success) {
       float time_factor = result.distance / local_ray_length;
-      float time = interface.time_span(pindex).interpolate(time_factor);
-      if (std::abs(last_collision_times[pindex] - time) < 0.0001f) {
-        continue;
-      }
       auto &storage = interface.trigger_particle<EventStorage>(pindex, time_factor);
       if (float3::dot(result.normal, local_ray_direction) > 0) {
         result.normal = -result.normal;
@@ -188,14 +190,15 @@ void MeshCollisionEvent::execute(EventExecuteInterface &interface)
   TemporaryArray<float3> local_normals(array_size);
   TemporaryArray<uint> looptri_indices(array_size);
 
-  auto last_collision_times = interface.attributes().get<float>(m_identifier);
+  auto last_collision_step = interface.attributes().get<int32_t>(m_identifier);
+  uint current_update_index = interface.simulation_state().time().current_update_index();
 
   for (uint pindex : interface.pindices()) {
     auto storage = interface.get_storage<EventStorage>(pindex);
     looptri_indices[pindex] = storage.looptri_index;
     local_positions[pindex] = storage.local_position;
     local_normals[pindex] = storage.local_normal;
-    last_collision_times[pindex] = interface.current_times()[pindex];
+    last_collision_step[pindex] = current_update_index;
   }
 
   MeshSurfaceContext surface_context(m_object,
