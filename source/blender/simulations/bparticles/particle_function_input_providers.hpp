@@ -81,4 +81,16 @@ class RandomFloatInputProvider : public ParticleFunctionInputProvider {
   Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
 };
 
+class IsInGroupInputProvider : public ParticleFunctionInputProvider {
+ private:
+  std::string m_group_name;
+
+ public:
+  IsInGroupInputProvider(std::string group_name) : m_group_name(std::move(group_name))
+  {
+  }
+
+  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
+};
+
 }  // namespace BParticles

@@ -300,7 +300,14 @@ template<typename T> class UniquePointerWrapper {
 
   T *operator->()
   {
+    BLI_assert(m_ptr != nullptr);
     return m_ptr;
+  }
+
+  T &operator*()
+  {
+    BLI_assert(m_ptr != nullptr);
+    return *m_ptr;
   }
 };
 

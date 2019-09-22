@@ -14,33 +14,6 @@ class ParticleMeshDistanceNode(bpy.types.Node, BParticlesNode):
         builder.fixed_output("is_inside", "Is Inside", "Boolean")
 
 
-class AddToGroupNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_AddToGroupNode"
-    bl_label = "Mockup - Add to Group"
-
-    def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("group_name", "Group", "Text")
-        builder.execute_output("execute", "Execute")
-
-
-class RemoveFromGroupNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_RemoveFromGroupNode"
-    bl_label = "Mockup - Remove from Group"
-
-    def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("group_name", "Group", "Text")
-        builder.execute_output("execute", "Execute")
-
-
-class IsInGroupNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_IsInGroupNode"
-    bl_label = "Mockup - Is in Group"
-
-    def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("group_name", "Group", "Text")
-        builder.fixed_output("is_in_group", "Is in Group", "Boolean")
-
-
 class DerivedAttributeNode(bpy.types.Node, BParticlesNode):
     bl_idname = "bp_DerivedAttributeNode"
     bl_label = "Mockup - Derived Attribute"

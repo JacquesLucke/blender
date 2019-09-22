@@ -142,6 +142,22 @@ static ParticleFunctionInputProvider *INPUT_randomness_input(
   return new RandomFloatInputProvider(seed);
 }
 
+static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeDataGraph &vtree_data_graph,
+                                                        VirtualSocket *vsocket)
+{
+  FunctionGraph fgraph(
+      vtree_data_graph.graph(), {}, {vtree_data_graph.lookup_socket(vsocket->vnode()->input(0))});
+  FN::SharedFunction fn = fgraph.new_function(vsocket->vnode()->name());
+  FN::fgraph_add_TupleCallBody(fn, fgraph);
+
+  FN::TupleCallBody &body = fn->body<TupleCallBody>();
+  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
+  body.call__setup_execution_context(fn_in, fn_out);
+  StringW group_name = fn_out.relocate_out<StringW>(0);
+
+  return new IsInGroupInputProvider(*group_name);
+}
+
 BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
 {
   StringMap<BuildInputProvider> map;
@@ -150,6 +166,7 @@ BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
   map.add_new("bp_SurfaceImageNode", INPUT_surface_image);
   map.add_new("bp_SurfaceWeightNode", INPUT_surface_weight);
   map.add_new("bp_ParticleRandomnessInputNode", INPUT_randomness_input);
+  map.add_new("bp_IsInGroupNode", INPUT_is_in_group);
   return map;
 }
 

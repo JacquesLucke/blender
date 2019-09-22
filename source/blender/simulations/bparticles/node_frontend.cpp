@@ -354,6 +354,41 @@ static std::unique_ptr<Action> ACTION_change_position(InfluencesCollector &UNUSE
   return std::unique_ptr<Action>(action);
 }
 
+static std::unique_ptr<Action> ACTION_add_to_group(InfluencesCollector &collector,
+                                                   VTreeData &vtree_data,
+                                                   VirtualSocket *execute_vsocket)
+{
+  VirtualNode *vnode = execute_vsocket->vnode();
+  auto inputs = vtree_data.compute_all_data_inputs(vnode);
+  if (!inputs.has_value()) {
+    return {};
+  }
+
+  StringW group_name = inputs->relocate_out<StringW>(0, "Group");
+
+  /* Add group to all particle systems for now. */
+  collector.m_attributes.foreach_value(
+      [&](AttributesDeclaration &attributes) { attributes.add<uint8_t>(*group_name, 0); });
+
+  Action *action = new AddToGroupAction(*group_name);
+  return std::unique_ptr<Action>(action);
+}
+
+static std::unique_ptr<Action> ACTION_remove_from_group(InfluencesCollector &UNUSED(collector),
+                                                        VTreeData &vtree_data,
+                                                        VirtualSocket *execute_vsocket)
+{
+  VirtualNode *vnode = execute_vsocket->vnode();
+  auto inputs = vtree_data.compute_all_data_inputs(vnode);
+  if (!inputs.has_value()) {
+    return {};
+  }
+
+  StringW group_name = inputs->relocate_out<StringW>(0, "Group");
+  Action *action = new RemoveFromGroupAction(*group_name);
+  return std::unique_ptr<Action>(action);
+}
+
 BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
 {
   StringMap<ActionParserCallback> map;
@@ -364,6 +399,8 @@ BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
   map.add_new("bp_ChangeParticleColorNode", ACTION_change_color);
   map.add_new("bp_ChangeParticleSizeNode", ACTION_change_size);
   map.add_new("bp_ChangeParticlePositionNode", ACTION_change_position);
+  map.add_new("bp_AddToGroupNode", ACTION_add_to_group);
+  map.add_new("bp_RemoveFromGroupNode", ACTION_remove_from_group);
   return map;
 }
 
