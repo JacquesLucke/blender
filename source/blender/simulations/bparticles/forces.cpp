@@ -14,12 +14,9 @@ void GravityForce::add_force(ForceInterface &interface)
 
   auto inputs = m_inputs_fn->compute(interface);
 
-  TemporaryArray<float> weights(destination.size());
-  m_falloff->compute(interface.attributes(), interface.pindices(), weights);
-
   for (uint pindex : interface.pindices()) {
     float3 acceleration = inputs->get<float3>("Direction", 0, pindex);
-    float weight = weights[pindex];
+    float weight = inputs->get<float>("Weight", 1, pindex);
     destination[pindex] += acceleration * weight;
   }
 };
@@ -31,14 +28,11 @@ void TurbulenceForce::add_force(ForceInterface &interface)
 
   auto inputs = m_inputs_fn->compute(interface);
 
-  TemporaryArray<float> weights(destination.size());
-  m_falloff->compute(interface.attributes(), interface.pindices(), weights);
-
   for (uint pindex : interface.pindices()) {
     float3 pos = positions[pindex];
     float3 strength = inputs->get<float3>("Strength", 0, pindex);
     float size = inputs->get<float>("Size", 1, pindex);
-    float weight = weights[pindex];
+    float weight = inputs->get<float>("Weight", 2, pindex);
     float x = (BLI_gNoise(size, pos.x, pos.y, pos.z + 1000.0f, false, 1) - 0.5f) * strength.x;
     float y = (BLI_gNoise(size, pos.x, pos.y + 1000.0f, pos.z, false, 1) - 0.5f) * strength.y;
     float z = (BLI_gNoise(size, pos.x + 1000.0f, pos.y, pos.z, false, 1) - 0.5f) * strength.z;
@@ -53,13 +47,10 @@ void DragForce::add_force(ForceInterface &interface)
 
   auto inputs = m_inputs_fn->compute(interface);
 
-  TemporaryArray<float> weights(destination.size());
-  m_falloff->compute(interface.attributes(), interface.pindices(), weights);
-
   for (uint pindex : interface.pindices()) {
     float3 velocity = velocities[pindex];
     float strength = inputs->get<float>("Strength", 0, pindex);
-    float weight = weights[pindex];
+    float weight = inputs->get<float>("Weight", 1, pindex);
     destination[pindex] -= velocity * strength * weight;
   }
 }

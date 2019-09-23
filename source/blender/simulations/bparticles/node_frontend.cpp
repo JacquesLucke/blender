@@ -546,13 +546,6 @@ static void PARSE_gravity_force(InfluencesCollector &collector,
                                 WorldTransition &UNUSED(world_transition),
                                 VirtualNode *vnode)
 {
-  Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {1});
-  if (!inputs.has_value()) {
-    return;
-  }
-
-  auto falloff = inputs->relocate_out<FN::Types::FalloffW>(0, "Falloff");
-
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
     return;
@@ -560,8 +553,9 @@ static void PARSE_gravity_force(InfluencesCollector &collector,
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Force"));
+
   for (const std::string &system_name : system_names) {
-    GravityForce *force = new GravityForce(inputs_fn, falloff.get_unique_copy());
+    GravityForce *force = new GravityForce(inputs_fn);
     collector.m_forces.add(system_name, force);
   }
 }
@@ -641,13 +635,6 @@ static void PARSE_turbulence_force(InfluencesCollector &collector,
                                    WorldTransition &UNUSED(world_transition),
                                    VirtualNode *vnode)
 {
-  Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {2});
-  if (!inputs.has_value()) {
-    return;
-  }
-
-  auto falloff = inputs->relocate_out<FN::Types::FalloffW>(0, "Falloff");
-
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
     return;
@@ -655,9 +642,9 @@ static void PARSE_turbulence_force(InfluencesCollector &collector,
 
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode->output(0, "Force"));
-  for (const std::string &system_name : system_names) {
 
-    Force *force = new TurbulenceForce(inputs_fn, falloff.get_unique_copy());
+  for (const std::string &system_name : system_names) {
+    Force *force = new TurbulenceForce(inputs_fn);
     collector.m_forces.add(system_name, force);
   }
 }
@@ -667,13 +654,6 @@ static void PARSE_drag_force(InfluencesCollector &collector,
                              WorldTransition &UNUSED(world_transition),
                              VirtualNode *vnode)
 {
-  Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {1});
-  if (!inputs.has_value()) {
-    return;
-  }
-
-  auto falloff = inputs->relocate_out<FN::Types::FalloffW>(0, "Falloff");
-
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
     return;
@@ -683,7 +663,7 @@ static void PARSE_drag_force(InfluencesCollector &collector,
       vnode->output(0, "Force"));
 
   for (const std::string &system_name : system_names) {
-    Force *force = new DragForce(inputs_fn, falloff.get_unique_copy());
+    Force *force = new DragForce(inputs_fn);
     collector.m_forces.add(system_name, force);
   }
 }

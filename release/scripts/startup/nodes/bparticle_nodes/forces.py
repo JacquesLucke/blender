@@ -11,7 +11,7 @@ class TurbulenceForceNode(bpy.types.Node, BParticlesNode):
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("strength", "Strength", "Vector", default=(1, 1, 1))
         builder.fixed_input("size", "Size", "Float", default=0.5)
-        builder.fixed_input("falloff", "Falloff", "Falloff")
+        builder.fixed_input("weight", "Weight", "Float", default=1)
         builder.influences_output("force", "Force")
 
 
@@ -20,8 +20,8 @@ class GravityForceNode(bpy.types.Node, BParticlesNode):
     bl_label = "Gravity Force"
 
     def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("direction", "Direction", "Vector", default=(0, 0, -1))
-        builder.fixed_input("falloff", "Falloff", "Falloff")
+        builder.fixed_input("acceleration", "Acceleration", "Vector", default=(0, 0, -1))
+        builder.fixed_input("weight", "Weight", "Float", default=1)
         builder.influences_output("force", "Force")
 
 
@@ -31,7 +31,7 @@ class DragForceNode(bpy.types.Node, BParticlesNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("strength", "Strength", "Float", default=1)
-        builder.fixed_input("falloff", "Falloff", "Falloff")
+        builder.fixed_input("weight", "Weight", "Float", default=1)
         builder.influences_output("force", "Force")
 
 

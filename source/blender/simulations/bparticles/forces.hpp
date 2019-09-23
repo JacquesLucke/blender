@@ -25,11 +25,9 @@ class Force {
 class GravityForce : public Force {
  private:
   ParticleFunction *m_inputs_fn;
-  std::unique_ptr<Falloff> m_falloff;
 
  public:
-  GravityForce(ParticleFunction *inputs_fn, std::unique_ptr<Falloff> falloff)
-      : m_inputs_fn(inputs_fn), m_falloff(std::move(falloff))
+  GravityForce(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
   {
   }
 
@@ -39,11 +37,9 @@ class GravityForce : public Force {
 class TurbulenceForce : public Force {
  private:
   ParticleFunction *m_inputs_fn;
-  std::unique_ptr<Falloff> m_falloff;
 
  public:
-  TurbulenceForce(ParticleFunction *inputs_fn, std::unique_ptr<Falloff> falloff)
-      : m_inputs_fn(inputs_fn), m_falloff(std::move(falloff))
+  TurbulenceForce(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
   {
   }
 
@@ -53,11 +49,9 @@ class TurbulenceForce : public Force {
 class DragForce : public Force {
  private:
   ParticleFunction *m_inputs_fn;
-  std::unique_ptr<Falloff> m_falloff;
 
  public:
-  DragForce(ParticleFunction *inputs_fn, std::unique_ptr<Falloff> falloff)
-      : m_inputs_fn(inputs_fn), m_falloff(std::move(falloff))
+  DragForce(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
   {
   }
 
