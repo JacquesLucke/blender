@@ -19,14 +19,17 @@ namespace BParticles {
 
 using BKE::VirtualNode;
 using BKE::VirtualSocket;
+using BLI::MonotonicAllocator;
 using BLI::MultiMap;
 using BLI::rgba_f;
 using BLI::ValueOrError;
 using FN::Function;
 using FN::FunctionBuilder;
 using FN::FunctionGraph;
+using FN::FunctionOutputNamesProvider;
 using FN::NamedTupleRef;
 using FN::SharedDataGraph;
+using FN::Tuple;
 using FN::DataFlowNodes::VTreeDataGraph;
 using FN::Types::FalloffW;
 using FN::Types::ObjectW;
@@ -51,14 +54,26 @@ class InfluencesCollector {
   StringMap<AttributesDeclaration> &m_attributes;
 };
 
+template<typename T> struct DestructFunc {
+  void operator()(T *ptr)
+  {
+    ptr->~T();
+  }
+};
+
 class VTreeData {
  private:
+  /* Keep this at the beginning, so that it is destructed last. */
+  MonotonicAllocator m_allocator;
+
+  template<typename T> using destruct_ptr = std::unique_ptr<T, DestructFunc<T>>;
+
   VTreeDataGraph &m_vtree_data_graph;
   Vector<std::unique_ptr<ParticleFunction>> m_particle_functions;
   Vector<SharedFunction> m_functions;
-  Vector<std::unique_ptr<Tuple>> m_tuples;
-  Vector<std::unique_ptr<FN::FunctionOutputNamesProvider>> m_name_providers;
-  Vector<std::unique_ptr<Vector<std::string>>> m_string_vectors;
+  Vector<destruct_ptr<Tuple>> m_tuples;
+  Vector<destruct_ptr<FunctionOutputNamesProvider>> m_name_providers;
+  Vector<destruct_ptr<Vector<std::string>>> m_string_vectors;
   Vector<std::unique_ptr<Action>> m_actions;
 
  public:
@@ -79,6 +94,13 @@ class VTreeData {
   VTreeDataGraph &vtree_data_graph()
   {
     return m_vtree_data_graph;
+  }
+
+  template<typename T, typename... Args> destruct_ptr<T> construct_new(Args &&... args)
+  {
+    void *buffer = m_allocator.allocate_aligned(sizeof(T), alignof(T));
+    T *value = new (buffer) T(std::forward<Args>(args)...);
+    return destruct_ptr<T>(value);
   }
 
   ParticleFunction *particle_function_for_all_inputs(VirtualNode *vnode)
@@ -103,15 +125,15 @@ class VTreeData {
     TupleCallBody &body = *body_ptr;
 
     FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in().ref());
-    FN::Tuple *fn_out = new FN::Tuple(body.meta_out());
+    auto fn_out = this->construct_new<Tuple>(body.meta_out());
 
     body.call__setup_execution_context(fn_in, *fn_out);
-    auto *name_provider = new FN::FunctionOutputNamesProvider(body.owner());
+    auto name_provider = this->construct_new<FunctionOutputNamesProvider>(body.owner());
 
-    m_tuples.append(std::unique_ptr<FN::Tuple>(fn_out));
-    m_name_providers.append(std::unique_ptr<FN::FunctionOutputNamesProvider>(name_provider));
+    m_tuples.append(std::move(fn_out));
+    m_name_providers.append(std::move(name_provider));
 
-    return NamedTupleRef(fn_out, name_provider);
+    return NamedTupleRef(m_tuples.last().get(), m_name_providers.last().get());
   }
 
   Optional<NamedTupleRef> compute_all_data_inputs(VirtualNode *vnode)
@@ -128,12 +150,13 @@ class VTreeData {
 
   ArrayRef<std::string> find_target_system_names(VirtualSocket *output_vsocket)
   {
-    Vector<std::string> *system_names = new Vector<std::string>();
+    auto system_names = this->construct_new<Vector<std::string>>();
     for (VirtualNode *vnode : find_target_system_nodes(output_vsocket)) {
       system_names->append(vnode->name());
     }
-    m_string_vectors.append(std::unique_ptr<Vector<std::string>>(system_names));
-    return *system_names;
+
+    m_string_vectors.append(std::move(system_names));
+    return *m_string_vectors.last();
   }
 
   Action *build_action(InfluencesCollector &collector, VirtualSocket *start)
