@@ -106,9 +106,11 @@ float *sculpt_vertex_co_get(SculptSession *ss, int index)
       return ss->mvert[index].co;
     case PBVH_BMESH:
       return BM_vert_at_index(BKE_pbvh_get_bmesh(ss->pbvh), index)->co;
-    default:
-      return NULL;
+    case PBVH_GRIDS:
+      BLI_assert(!"This fuction is not supposed to be used for PBVH_GRIDS");
+      break;
   }
+  return NULL;
 }
 
 static void sculpt_vertex_random_access_init(SculptSession *ss)
@@ -120,14 +122,17 @@ static void sculpt_vertex_random_access_init(SculptSession *ss)
 
 static int sculpt_active_vertex_get(SculptSession *ss)
 {
+  BLI_assert(BKE_pbvh_type(ss->pbvh) != PBVH_GRIDS);
   switch (BKE_pbvh_type(ss->pbvh)) {
     case PBVH_FACES:
       return ss->active_vertex_index;
     case PBVH_BMESH:
       return ss->active_vertex_index;
-    default:
-      return 0;
+    case PBVH_GRIDS:
+      BLI_assert(!"This fuction is not supposed to be used for PBVH_GRIDS");
+      break;
   }
+  return 0;
 }
 
 static int sculpt_vertex_count_get(SculptSession *ss)
@@ -1131,6 +1136,11 @@ static void sculpt_automasking_end(Object *ob)
 
 static bool sculpt_automasking_is_constrained_by_radius(Brush *br)
 {
+  /* 2D falloff is not constrained by radius */
+  if (br->falloff_shape & BRUSH_AIRBRUSH) {
+    return false;
+  }
+
   if (ELEM(br->sculpt_tool, SCULPT_TOOL_GRAB, SCULPT_TOOL_THUMB)) {
     return true;
   }
@@ -6328,9 +6338,9 @@ bool sculpt_cursor_geometry_info_update(bContext *C,
   ss = ob->sculpt;
 
   if (!ss->pbvh) {
-    copy_v3_fl(out->location, 0.0f);
-    copy_v3_fl(out->normal, 0.0f);
-    copy_v3_fl(out->active_vertex_co, 0.0f);
+    zero_v3(out->location);
+    zero_v3(out->normal);
+    zero_v3(out->active_vertex_co);
     return false;
   }
 
@@ -6352,16 +6362,22 @@ bool sculpt_cursor_geometry_info_update(bContext *C,
 
   /* Cursor is not over the mesh, return default values */
   if (!srd.hit) {
-    copy_v3_fl(out->location, 0.0f);
-    copy_v3_fl(out->normal, 0.0f);
-    copy_v3_fl(out->active_vertex_co, 0.0f);
+    zero_v3(out->location);
+    zero_v3(out->normal);
+    zero_v3(out->active_vertex_co);
     return false;
   }
 
   /* Update the active vertex of the SculptSession */
   ss->active_vertex_index = srd.active_vertex_index;
 
-  copy_v3_v3(out->active_vertex_co, sculpt_vertex_co_get(ss, srd.active_vertex_index));
+  if (!ss->multires) {
+    copy_v3_v3(out->active_vertex_co, sculpt_vertex_co_get(ss, srd.active_vertex_index));
+  }
+  else {
+    zero_v3(out->active_vertex_co);
+  }
+
   copy_v3_v3(out->location, ray_normal);
   mul_v3_fl(out->location, srd.depth);
   add_v3_v3(out->location, ray_start);
@@ -9116,9 +9132,11 @@ void sculpt_geometry_preview_lines_update(bContext *C, SculptSession *ss, float 
   char *visited_vertices = MEM_callocN(sculpt_vertex_count_get(ss) * sizeof(char),
                                        "visited vertices");
 
+  /* Assuming an average of 6 edges per vertex in a triangulated mesh */
+  const int max_preview_vertices = sculpt_vertex_count_get(ss) * 3 * 2;
+
   if (ss->preview_vert_index_list == NULL) {
-    ss->preview_vert_index_list = MEM_callocN(4 * sizeof(int) * sculpt_vertex_count_get(ss),
-                                              "preview lines");
+    ss->preview_vert_index_list = MEM_callocN(max_preview_vertices * sizeof(int), "preview lines");
   }
 
   BLI_Stack *not_visited_vertices = BLI_stack_new(sizeof(VertexTopologyIterator),
@@ -9133,17 +9151,20 @@ void sculpt_geometry_preview_lines_update(bContext *C, SculptSession *ss, float 
     SculptVertexNeighborIter ni;
     sculpt_vertex_neighbors_iter_begin(ss, c_mevit.v, ni)
     {
-      VertexTopologyIterator new_entry;
-      new_entry.v = ni.index;
-      new_entry.it = c_mevit.it + 1;
-      ss->preview_vert_index_list[totpoints] = c_mevit.v;
-      totpoints++;
-      ss->preview_vert_index_list[totpoints] = new_entry.v;
-      totpoints++;
-      if (visited_vertices[(int)ni.index] == 0) {
-        visited_vertices[(int)ni.index] = 1;
-        if (len_squared_v3v3(brush_co, sculpt_vertex_co_get(ss, new_entry.v)) < radius * radius) {
-          BLI_stack_push(not_visited_vertices, &new_entry);
+      if (totpoints + (ni.size * 2) < max_preview_vertices) {
+        VertexTopologyIterator new_entry;
+        new_entry.v = ni.index;
+        new_entry.it = c_mevit.it + 1;
+        ss->preview_vert_index_list[totpoints] = c_mevit.v;
+        totpoints++;
+        ss->preview_vert_index_list[totpoints] = new_entry.v;
+        totpoints++;
+        if (visited_vertices[(int)ni.index] == 0) {
+          visited_vertices[(int)ni.index] = 1;
+          if (len_squared_v3v3(brush_co, sculpt_vertex_co_get(ss, new_entry.v)) <
+              radius * radius) {
+            BLI_stack_push(not_visited_vertices, &new_entry);
+          }
         }
       }
     }
