@@ -41,6 +41,11 @@ class VTreeDataGraphBuilder {
   BuilderNode *insert_function(SharedFunction &fn, VirtualNode *vnode);
   BuilderNode *insert_placeholder(VirtualNode *vnode);
 
+  template<typename T> void add_resource(std::unique_ptr<T> resource, const char *name)
+  {
+    m_graph_builder.add_resource(std::move(resource), name);
+  }
+
   void insert_link(BuilderOutputSocket *from, BuilderInputSocket *to);
   void insert_links(ArrayRef<BuilderOutputSocket *> from, ArrayRef<BuilderInputSocket *> to);
 
