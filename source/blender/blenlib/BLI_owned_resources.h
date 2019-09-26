@@ -3,6 +3,7 @@
 
 #include "BLI_vector.h"
 #include "BLI_utility_mixins.h"
+#include "BLI_string_ref.h"
 
 namespace BLI {
 
@@ -43,6 +44,20 @@ class OwnedResources : NonCopyable {
       delete typed_data;
     };
     m_resources.append(data);
+  }
+
+  void print(StringRef name) const
+  {
+    if (m_resources.size() == 0) {
+      std::cout << "\"" << name << "\" has no resources.\n";
+      return;
+    }
+    else {
+      std::cout << "Resources for \"" << name << "\":\n";
+      for (const ResourceData &data : m_resources) {
+        std::cout << "  " << data.data << ": " << data.name << '\n';
+      }
+    }
   }
 };
 
