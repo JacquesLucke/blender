@@ -33,8 +33,9 @@
 #pragma once
 
 #include <functional>
-#include <BLI_optional.h>
+#include <memory>
 
+#include "BLI_optional.h"
 #include "BLI_lazy_init.h"
 
 namespace BLI {
@@ -61,3 +62,18 @@ void lazy_init_register(std::function<void()> free_func, const char *name);
 #define BLI_LAZY_INIT_STATIC(type, func_name) \
   static type &func_name(void); \
   BLI_LAZY_INIT(type, func_name)
+
+#define BLI_LAZY_INIT_REF(TYPE, NAME) \
+  static std::unique_ptr<TYPE> NAME##_impl(void); \
+  static TYPE *NAME##_builder(void) \
+  { \
+    static std::unique_ptr<TYPE> value = NAME##_impl(); \
+    BLI::lazy_init_register([]() { delete value.release(); }, #NAME); \
+    return value.get(); \
+  } \
+  TYPE &NAME(void) \
+  { \
+    static TYPE &value = *NAME##_builder(); \
+    return value; \
+  } \
+  std::unique_ptr<TYPE> NAME##_impl(void)
