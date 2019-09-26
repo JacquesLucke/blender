@@ -246,9 +246,8 @@ static Optional<std::unique_ptr<ParticleFunction>> create_particle_function_from
   SharedFunction fn_with_deps = create_function__with_deps(
       data_graph, name, sockets_with_deps, dependencies, input_providers);
 
-  ParticleFunction *particle_fn = new ParticleFunction(
+  return make_unique<ParticleFunction>(
       fn_without_deps, fn_with_deps, input_providers, depends_on_particle_flags);
-  return std::unique_ptr<ParticleFunction>(particle_fn);
 }
 
 Optional<std::unique_ptr<ParticleFunction>> create_particle_function(VirtualNode *vnode,

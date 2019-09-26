@@ -167,13 +167,11 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
 
   SharedFunction fn = fn_builder.build("Unlinked Inputs");
 
-  std::unique_ptr<TupleMeta> inputs_meta = std::unique_ptr<TupleMeta>(
-      new TupleMeta(fn->output_types()));
+  std::unique_ptr<TupleMeta> inputs_meta = make_unique<TupleMeta>(fn->output_types());
 
-  auto inputs_tuple_data_init = std::unique_ptr<Array<char>>(
-      new Array<char>(inputs_meta->size_of_data_and_init()));
-  std::unique_ptr<Tuple> inputs_tuple = std::unique_ptr<Tuple>(
-      new Tuple(*inputs_meta, (void *)inputs_tuple_data_init->begin()));
+  auto inputs_tuple_data_init = make_unique<Array<char>>(inputs_meta->size_of_data_and_init());
+  std::unique_ptr<Tuple> inputs_tuple = make_unique<Tuple>(
+      *inputs_meta, (void *)inputs_tuple_data_init->begin());
 
   ConstantOutput &tuple_call_body = *fn->add_body<ConstantOutput>();
   ConstantOutputGen &build_ir_body = *fn->add_body<ConstantOutputGen>();

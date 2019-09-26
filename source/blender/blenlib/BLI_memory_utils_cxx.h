@@ -79,6 +79,11 @@ template<typename T> void relocate_n(T *src, uint n, T *dst)
   destruct_n(src, n);
 }
 
+template<typename T, typename... Args> std::unique_ptr<T> make_unique(Args &&... args)
+{
+  return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
+
 }  // namespace BLI
 
 #endif /* __BLI_MEMORY_UTILS_CXX_H__ */

@@ -91,7 +91,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
 {
   uint parameter_amount = m_parameter_depends_on_particle.size();
 
-  ParticleFunctionResult *result = new ParticleFunctionResult();
+  auto result = make_unique<ParticleFunctionResult>();
   result->m_buffers.append_n_times(nullptr, parameter_amount);
   result->m_only_first.append_n_times(false, parameter_amount);
   result->m_strides.append_n_times(0, parameter_amount);
@@ -100,10 +100,10 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
   result->m_output_indices = m_output_indices;
   result->m_pindices = pindices;
 
-  this->init_without_deps(result);
-  this->init_with_deps(result, pindices, attributes, particle_times, action_context);
+  this->init_without_deps(result.get());
+  this->init_with_deps(result.get(), pindices, attributes, particle_times, action_context);
 
-  return std::unique_ptr<ParticleFunctionResult>(result);
+  return result;
 }
 
 void ParticleFunction::init_without_deps(ParticleFunctionResult *result)
