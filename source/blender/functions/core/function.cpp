@@ -30,11 +30,6 @@ Function::~Function()
     }
   }
 
-  for (int i = m_resources.size() - 1; i >= 0; i--) {
-    OwnedResource &resource = m_resources[i];
-    resource.free(resource.data);
-  }
-
   MEM_freeN((void *)m_strings);
 }
 

@@ -23,6 +23,7 @@
 
 #include "BLI_chained_strings.h"
 #include "BLI_utility_mixins.h"
+#include "BLI_owned_resources.h"
 
 #include "type.hpp"
 
@@ -167,15 +168,8 @@ class Function final : public RefCounter {
   Vector<StringRefNull> m_output_names;
   Vector<Type *> m_output_types;
 
-  struct OwnedResource {
-    void *data;
-    void (*free)(void *data);
-    const char *name;
-  };
-
-  Vector<OwnedResource, 1> m_resources;
   std::mutex m_modify_mutex;
-
+  OwnedResources m_resources;
   const char *m_strings;
 };
 
@@ -297,15 +291,7 @@ inline ArrayRef<Type *> Function::output_types() const
 template<typename T> void Function::add_resource(std::unique_ptr<T> resource, const char *name)
 {
   std::lock_guard<std::mutex> lock(m_modify_mutex);
-
-  OwnedResource owned_resource;
-  owned_resource.name = name;
-  owned_resource.data = static_cast<void *>(resource.release());
-  owned_resource.free = [](void *data) {
-    T *typed_data = static_cast<T *>(data);
-    delete typed_data;
-  };
-  m_resources.append(owned_resource);
+  m_resources.add(std::move(resource), name);
 }
 
 /* Function Body inline functions
