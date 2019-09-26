@@ -124,7 +124,10 @@ class VTreeData {
     TupleCallBody &body = *body_ptr;
 
     FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in());
-    auto fn_out = this->construct_new<Tuple>(body.meta_out());
+    FN::TupleMeta &meta_out = body.meta_out();
+    void *fn_out_data = m_allocator.allocate(meta_out.size_of_data());
+    bool *fn_out_init = (bool *)m_allocator.allocate(meta_out.size_of_init());
+    auto fn_out = this->construct_new<Tuple>(meta_out, fn_out_data, fn_out_init);
 
     body.call__setup_execution_context(fn_in, *fn_out);
     auto name_provider = this->construct_new<FunctionOutputNamesProvider>(body.owner());

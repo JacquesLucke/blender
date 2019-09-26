@@ -169,7 +169,11 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
 
   std::unique_ptr<TupleMeta> inputs_meta = std::unique_ptr<TupleMeta>(
       new TupleMeta(fn->output_types()));
-  std::unique_ptr<Tuple> inputs_tuple = std::unique_ptr<Tuple>(new Tuple(*inputs_meta));
+
+  auto inputs_tuple_data_init = std::unique_ptr<Array<char>>(
+      new Array<char>(inputs_meta->size_of_data_and_init()));
+  std::unique_ptr<Tuple> inputs_tuple = std::unique_ptr<Tuple>(
+      new Tuple(*inputs_meta, (void *)inputs_tuple_data_init->begin()));
 
   ConstantOutput &tuple_call_body = *fn->add_body<ConstantOutput>();
   ConstantOutputGen &build_ir_body = *fn->add_body<ConstantOutputGen>();
@@ -183,6 +187,7 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
   build_ir_body.set_tuple(inputs_tuple.get());
 
   fn->add_resource(std::move(inputs_meta), "Meta information for tuple");
+  fn->add_resource(std::move(inputs_tuple_data_init), "Buffer for tuple");
   fn->add_resource(std::move(inputs_tuple), "Tuple containing function inputs");
 
   BuilderNode *node = builder.insert_function(fn);

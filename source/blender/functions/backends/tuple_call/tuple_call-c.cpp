@@ -27,18 +27,6 @@ FnTupleCallBody FN_tuple_call_get(FnFunction fn_c)
   return wrap(&unwrap(fn_c)->body<TupleCallBody>());
 }
 
-FnTuple FN_tuple_for_input(FnTupleCallBody body_c)
-{
-  auto tuple = new Tuple(unwrap(body_c)->meta_in());
-  return wrap(tuple);
-}
-
-FnTuple FN_tuple_for_output(FnTupleCallBody body_c)
-{
-  auto tuple = new Tuple(unwrap(body_c)->meta_out());
-  return wrap(tuple);
-}
-
 uint fn_tuple_stack_prepare_size(FnTupleCallBody body_c)
 {
   TupleCallBody *body = unwrap(body_c);

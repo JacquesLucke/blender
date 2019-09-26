@@ -138,13 +138,6 @@ class TupleMeta {
 
 class Tuple {
  public:
-  Tuple(TupleMeta &meta) : m_meta(&meta)
-  {
-    m_initialized = (bool *)MEM_calloc_arrayN(m_meta->size(), sizeof(bool), __func__);
-    m_data = MEM_mallocN(m_meta->size_of_data(), __func__);
-    m_owns_mem = true;
-  }
-
   Tuple(TupleMeta &meta, void *data, bool *initialized, bool was_initialized = false)
       : m_meta(&meta)
   {
@@ -152,7 +145,6 @@ class Tuple {
     BLI_assert(initialized != nullptr);
     m_data = data;
     m_initialized = initialized;
-    m_owns_mem = false;
     if (!was_initialized) {
       this->set_all_uninitialized();
     }
@@ -178,10 +170,6 @@ class Tuple {
   ~Tuple()
   {
     this->destruct_all();
-    if (m_owns_mem) {
-      MEM_freeN(m_data);
-      MEM_freeN(m_initialized);
-    }
   }
 
   /**
@@ -554,7 +542,6 @@ class Tuple {
 
   void *m_data;
   bool *m_initialized;
-  uint8_t m_owns_mem : 1;
   TupleMeta *m_meta;
 };
 
