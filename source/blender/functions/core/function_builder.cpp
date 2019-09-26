@@ -44,8 +44,25 @@ SharedFunction FunctionBuilder::build(StringRef function_name)
 {
   auto name_ref = m_strings_builder.add(function_name);
   char *strings = m_strings_builder.build();
-  return SharedFunction::New(
-      name_ref, m_input_names, m_input_types, m_output_names, m_output_types, strings);
+
+  Vector<StringRefNull> input_names;
+  Vector<StringRefNull> output_names;
+  input_names.reserve(m_input_names.size());
+  output_names.reserve(m_output_names.size());
+
+  for (ChainedStringRef name : m_input_names) {
+    input_names.append(name.to_string_ref(strings));
+  }
+  for (ChainedStringRef name : m_output_names) {
+    output_names.append(name.to_string_ref(strings));
+  }
+
+  return SharedFunction::New(name_ref.to_string_ref(strings),
+                             input_names,
+                             m_input_types,
+                             output_names,
+                             m_output_types,
+                             strings);
 }
 
 }  // namespace FN

@@ -56,10 +56,10 @@ class Function final : public RefCounter {
    * Construct a new function. Instead of calling this directly, the FunctionBuilder should be
    * used.
    */
-  Function(ChainedStringRef name,
-           ArrayRef<ChainedStringRef> input_names,
+  Function(StringRefNull name,
+           ArrayRef<StringRefNull> input_names,
            ArrayRef<Type *> input_types,
-           ArrayRef<ChainedStringRef> output_names,
+           ArrayRef<StringRefNull> output_names,
            ArrayRef<Type *> output_types,
            const char *strings);
 
@@ -150,13 +150,13 @@ class Function final : public RefCounter {
   void print();
 
  private:
-  ChainedStringRef m_name;
+  StringRefNull m_name;
   std::mutex m_add_body_mutex;
   FunctionBody *m_bodies[FunctionBody::BODY_TYPE_AMOUNT] = {0};
 
-  Vector<ChainedStringRef> m_input_names;
+  Vector<StringRefNull> m_input_names;
   Vector<Type *> m_input_types;
-  Vector<ChainedStringRef> m_output_names;
+  Vector<StringRefNull> m_output_names;
   Vector<Type *> m_output_types;
 
   const char *m_strings;
@@ -169,7 +169,7 @@ using SharedFunction = AutoRefCount<Function>;
 
 inline const StringRefNull Function::name() const
 {
-  return m_name.to_string_ref(m_strings);
+  return m_name;
 }
 
 #define STATIC_ASSERT_BODY_TYPE(T) \
@@ -234,12 +234,12 @@ inline Type *Function::output_type(uint index) const
 
 inline StringRefNull Function::input_name(uint index) const
 {
-  return m_input_names[index].to_string_ref(m_strings);
+  return m_input_names[index];
 }
 
 inline StringRefNull Function::output_name(uint index) const
 {
-  return m_output_names[index].to_string_ref(m_strings);
+  return m_output_names[index];
 }
 
 template<typename T> inline Vector<T *> Function::input_extensions() const

@@ -5,10 +5,10 @@ namespace FN {
 /* Function
  **********************************************/
 
-Function::Function(ChainedStringRef name,
-                   ArrayRef<ChainedStringRef> input_names,
+Function::Function(StringRefNull name,
+                   ArrayRef<StringRefNull> input_names,
                    ArrayRef<Type *> input_types,
-                   ArrayRef<ChainedStringRef> output_names,
+                   ArrayRef<StringRefNull> output_names,
                    ArrayRef<Type *> output_types,
                    const char *strings)
     : m_name(name),
