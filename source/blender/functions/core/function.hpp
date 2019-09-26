@@ -169,7 +169,7 @@ class Function final : public RefCounter {
   Vector<Type *> m_output_types;
 
   std::mutex m_modify_mutex;
-  OwnedResources m_resources;
+  std::unique_ptr<OwnedResources> m_resources;
   const char *m_strings;
 };
 
@@ -291,7 +291,12 @@ inline ArrayRef<Type *> Function::output_types() const
 template<typename T> void Function::add_resource(std::unique_ptr<T> resource, const char *name)
 {
   std::lock_guard<std::mutex> lock(m_modify_mutex);
-  m_resources.add(std::move(resource), name);
+
+  if (m_resources.get() == nullptr) {
+    m_resources = make_unique<OwnedResources>();
+  }
+
+  m_resources->add(std::move(resource), name);
 }
 
 /* Function Body inline functions
