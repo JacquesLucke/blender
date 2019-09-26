@@ -22,7 +22,6 @@ using BKE::VirtualSocket;
 using BLI::MonotonicAllocator;
 using BLI::MultiMap;
 using BLI::rgba_f;
-using BLI::ValueOrError;
 using FN::Function;
 using FN::FunctionBuilder;
 using FN::FunctionGraph;
@@ -105,14 +104,14 @@ class VTreeData {
 
   ParticleFunction *particle_function_for_all_inputs(VirtualNode *vnode)
   {
-    auto fn_or_error = create_particle_function(vnode, m_vtree_data_graph);
-    if (fn_or_error.is_error()) {
-      return {};
+    Optional<std::unique_ptr<ParticleFunction>> fn = create_particle_function(vnode,
+                                                                              m_vtree_data_graph);
+    if (!fn.has_value()) {
+      return nullptr;
     }
-    std::unique_ptr<ParticleFunction> fn = fn_or_error.extract_value();
-    ParticleFunction *fn_ptr = fn.get();
+    ParticleFunction *fn_ptr = fn->get();
     BLI_assert(fn_ptr != nullptr);
-    m_particle_functions.append(std::move(fn));
+    m_particle_functions.append(fn.extract());
     return fn_ptr;
   }
 
@@ -889,12 +888,12 @@ class NodeTreeStepSimulator : public StepSimulator {
     StringMap<AttributesDeclaration> attributes;
     StringMap<Integrator *> integrators;
 
-    auto data_graph_or_error = FN::DataFlowNodes::generate_graph(m_vtree);
-    if (data_graph_or_error.is_error()) {
+    Optional<std::unique_ptr<VTreeDataGraph>> data_graph = FN::DataFlowNodes::generate_graph(
+        m_vtree);
+    if (!data_graph.has_value()) {
       return;
     }
-    std::unique_ptr<VTreeDataGraph> vtree_data_graph = data_graph_or_error.extract_value();
-    VTreeData vtree_data(*vtree_data_graph);
+    VTreeData vtree_data(*data_graph->get());
 
     collect_influences(vtree_data,
                        world_transition,

@@ -221,7 +221,7 @@ static SharedFunction create_function__without_deps(SharedDataGraph &graph,
   return fn;
 }
 
-static ValueOrError<std::unique_ptr<ParticleFunction>> create_particle_function_from_sockets(
+static Optional<std::unique_ptr<ParticleFunction>> create_particle_function_from_sockets(
     VTreeDataGraph &data_graph,
     StringRef name,
     ArrayRef<DataSocket> sockets_to_compute,
@@ -251,8 +251,8 @@ static ValueOrError<std::unique_ptr<ParticleFunction>> create_particle_function_
   return std::unique_ptr<ParticleFunction>(particle_fn);
 }
 
-ValueOrError<std::unique_ptr<ParticleFunction>> create_particle_function(
-    VirtualNode *vnode, VTreeDataGraph &data_graph)
+Optional<std::unique_ptr<ParticleFunction>> create_particle_function(VirtualNode *vnode,
+                                                                     VTreeDataGraph &data_graph)
 {
   Vector<DataSocket> sockets_to_compute = find_input_data_sockets(vnode, data_graph);
   Vector<bool> depends_on_particle_flags(sockets_to_compute.size());

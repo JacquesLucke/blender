@@ -2,7 +2,6 @@
 
 #include "FN_core.hpp"
 #include "BKE_node_tree.hpp"
-#include "BLI_value_or_error.h"
 #include "BLI_array_cxx.h"
 
 namespace FN {
@@ -12,7 +11,6 @@ using BKE::VirtualNode;
 using BKE::VirtualNodeTree;
 using BKE::VirtualSocket;
 using BLI::Array;
-using BLI::ValueOrError;
 
 class VTreeDataGraph {
  private:

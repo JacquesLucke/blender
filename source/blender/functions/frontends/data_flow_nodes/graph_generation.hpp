@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BLI_multi_vector.h"
+#include "BLI_optional.h"
 
 #include "vtree_data_graph_builder.hpp"
 
@@ -8,6 +9,7 @@ namespace FN {
 namespace DataFlowNodes {
 
 using BLI::MultiVector;
+using BLI::Optional;
 
 class UnlinkedInputsGrouper {
  public:
@@ -21,12 +23,11 @@ class UnlinkedInputsInserter {
                       MutableArrayRef<BuilderOutputSocket *> r_new_origins) = 0;
 };
 
-ValueOrError<std::unique_ptr<VTreeDataGraph>> generate_graph(VirtualNodeTree &vtree);
+Optional<std::unique_ptr<VTreeDataGraph>> generate_graph(VirtualNodeTree &vtree);
 
-ValueOrError<std::unique_ptr<VTreeDataGraph>> generate_graph(
-    VirtualNodeTree &vtree,
-    UnlinkedInputsGrouper &inputs_grouper,
-    UnlinkedInputsInserter &inputs_inserter);
+Optional<std::unique_ptr<VTreeDataGraph>> generate_graph(VirtualNodeTree &vtree,
+                                                         UnlinkedInputsGrouper &inputs_grouper,
+                                                         UnlinkedInputsInserter &inputs_inserter);
 
 }  // namespace DataFlowNodes
 }  // namespace FN

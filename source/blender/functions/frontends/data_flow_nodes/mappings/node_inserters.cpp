@@ -275,9 +275,9 @@ static void INSERT_call(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
     return;
   }
 
-  ValueOrError<SharedFunction> fn_or_error = generate_function(btree);
-  BLI_assert(!fn_or_error.is_error());
-  SharedFunction fn = fn_or_error.extract_value();
+  Optional<SharedFunction> optional_fn = generate_function(btree);
+  BLI_assert(optional_fn.has_value());
+  SharedFunction fn = optional_fn.extract();
   builder.insert_matching_function(fn, vnode);
 }
 

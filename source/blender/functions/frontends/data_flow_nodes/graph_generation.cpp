@@ -69,30 +69,29 @@ static bool insert_unlinked_inputs(VTreeDataGraphBuilder &builder,
   return true;
 }
 
-ValueOrError<std::unique_ptr<VTreeDataGraph>> generate_graph(VirtualNodeTree &vtree)
+Optional<std::unique_ptr<VTreeDataGraph>> generate_graph(VirtualNodeTree &vtree)
 {
   GroupByNodeUsage inputs_grouper;
   ConstantInputsHandler inputs_inserter;
   return generate_graph(vtree, inputs_grouper, inputs_inserter);
 }
 
-ValueOrError<std::unique_ptr<VTreeDataGraph>> generate_graph(
-    VirtualNodeTree &vtree,
-    UnlinkedInputsGrouper &inputs_grouper,
-    UnlinkedInputsInserter &inputs_inserter)
+Optional<std::unique_ptr<VTreeDataGraph>> generate_graph(VirtualNodeTree &vtree,
+                                                         UnlinkedInputsGrouper &inputs_grouper,
+                                                         UnlinkedInputsInserter &inputs_inserter)
 {
   VTreeDataGraphBuilder builder(vtree);
 
   if (!insert_nodes(builder)) {
-    return BLI_ERROR_CREATE("error inserting functions for nodes");
+    return {};
   }
 
   if (!insert_links(builder)) {
-    return BLI_ERROR_CREATE("error inserting links");
+    return {};
   }
 
   if (!insert_unlinked_inputs(builder, inputs_grouper, inputs_inserter)) {
-    return BLI_ERROR_CREATE("error inserting unlinked inputs");
+    return {};
   }
 
   return builder.build();

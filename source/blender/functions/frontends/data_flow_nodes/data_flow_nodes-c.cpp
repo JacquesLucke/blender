@@ -7,12 +7,12 @@ FnFunction FN_tree_to_function(bNodeTree *btree)
 {
   SCOPED_TIMER("Tree to function");
   BLI_assert(btree);
-  ValueOrError<SharedFunction> fn_or_error = DataFlowNodes::generate_function(btree);
-  if (fn_or_error.is_error()) {
+  Optional<SharedFunction> optional_fn = DataFlowNodes::generate_function(btree);
+  if (!optional_fn.has_value()) {
     return nullptr;
   }
 
-  SharedFunction fn = fn_or_error.extract_value();
+  SharedFunction fn = optional_fn.extract();
   Function *fn_ptr = fn.ptr();
   fn_ptr->incref();
   return wrap(fn_ptr);
