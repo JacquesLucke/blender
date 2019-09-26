@@ -184,9 +184,9 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
   tuple_call_body.set_tuple(inputs_tuple.get());
   build_ir_body.set_tuple(inputs_tuple.get());
 
-  fn->add_resource(std::move(inputs_meta), "Meta information for tuple");
-  fn->add_resource(std::move(inputs_tuple_data_init), "Buffer for tuple");
-  fn->add_resource(std::move(inputs_tuple), "Tuple containing function inputs");
+  builder.add_resource(std::move(inputs_meta), "Meta information for tuple");
+  builder.add_resource(std::move(inputs_tuple_data_init), "Buffer for tuple");
+  builder.add_resource(std::move(inputs_tuple), "Tuple containing function inputs");
 
   BuilderNode *node = builder.insert_function(fn);
   r_new_origins.copy_from(node->outputs());
