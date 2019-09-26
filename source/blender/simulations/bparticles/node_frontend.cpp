@@ -1,4 +1,4 @@
-#include "BKE_node_tree.hpp"
+#include "BKE_virtual_node_tree_cxx.h"
 #include "BKE_deform.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"

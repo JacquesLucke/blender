@@ -1,4 +1,4 @@
-#include "BKE_node_tree.hpp"
+#include "BKE_virtual_node_tree_cxx.h"
 #include "BLI_timeit.h"
 
 namespace BKE {

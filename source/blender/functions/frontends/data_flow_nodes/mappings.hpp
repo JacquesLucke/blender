@@ -4,7 +4,7 @@
 
 #include "BLI_string_map.h"
 #include "FN_tuple_call.hpp"
-#include "BKE_node_tree.hpp"
+#include "BKE_virtual_node_tree_cxx.h"
 
 namespace FN {
 namespace DataFlowNodes {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "BKE_node_tree.hpp"
+#include "BKE_virtual_node_tree_cxx.h"
 
 #include "world_state.hpp"
 #include "step_simulator.hpp"

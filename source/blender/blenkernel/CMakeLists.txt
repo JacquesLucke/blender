@@ -325,7 +325,7 @@ set(SRC
   BKE_multires.h
   BKE_nla.h
   BKE_node.h
-  BKE_node_tree.hpp
+  BKE_virtual_node_tree_cxx.h
   BKE_object.h
   BKE_object_deform.h
   BKE_object_facemap.h
