@@ -281,12 +281,12 @@ Mesh *BParticles_state_extract_type__points(BParticlesSimulationState simulation
 {
   SimulationState &state = *unwrap(simulation_state_c);
   ParticlesState &particles = state.particles();
-  AttributesBlockContainer **container_ptr = particles.particle_containers().lookup_ptr(
-      particle_type);
+  AttributesBlockContainer *container_ptr = particles.particle_containers().lookup_default(
+      particle_type, nullptr);
   if (container_ptr == nullptr) {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
   }
-  AttributesBlockContainer &container = **container_ptr;
+  AttributesBlockContainer &container = *container_ptr;
 
   auto positions = container.flatten_attribute<float3>("Position");
   return distribute_points(positions);
