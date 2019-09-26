@@ -96,12 +96,12 @@ void DynamicSocketLoader::insert(VTreeDataGraphBuilder &builder,
 
 class ConstantOutput : public TupleCallBody {
  private:
-  std::unique_ptr<Tuple> m_tuple;
+  Tuple *m_tuple;
 
  public:
-  void set_tuple(std::unique_ptr<Tuple> tuple)
+  void set_tuple(Tuple *tuple)
   {
-    m_tuple = std::move(tuple);
+    m_tuple = tuple;
   }
 
   void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
@@ -116,12 +116,12 @@ class ConstantOutput : public TupleCallBody {
 
 class ConstantOutputGen : public LLVMBuildIRBody {
  private:
-  std::unique_ptr<Tuple> m_tuple;
+  Tuple *m_tuple;
 
  public:
-  void set_tuple(std::unique_ptr<Tuple> tuple)
+  void set_tuple(Tuple *tuple)
   {
-    m_tuple = std::move(tuple);
+    m_tuple = tuple;
   }
 
   void build_ir(CodeBuilder &builder,
@@ -168,17 +168,18 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
   ConstantOutput &tuple_call_body = *fn->add_body<ConstantOutput>();
   ConstantOutputGen &build_ir_body = *fn->add_body<ConstantOutputGen>();
 
-  Tuple *tuple1 = new Tuple(tuple_call_body.meta_out());
-  Tuple *tuple2 = new Tuple(tuple_call_body.meta_out());
+  std::unique_ptr<Tuple> inputs_tuple = std::unique_ptr<Tuple>(
+      new Tuple(tuple_call_body.meta_out()));
 
   for (uint i = 0; i < unlinked_inputs.size(); i++) {
     VirtualSocket *vsocket = unlinked_inputs[i];
-    socket_loaders->load(vsocket, *tuple1, i);
-    Tuple::copy_element(*tuple1, i, *tuple2, i);
+    socket_loaders->load(vsocket, *inputs_tuple, i);
   }
 
-  tuple_call_body.set_tuple(std::unique_ptr<Tuple>(tuple1));
-  build_ir_body.set_tuple(std::unique_ptr<Tuple>(tuple2));
+  tuple_call_body.set_tuple(inputs_tuple.get());
+  build_ir_body.set_tuple(inputs_tuple.get());
+
+  fn->add_resource(std::move(inputs_tuple), "Tuple containing function inputs");
 
   BuilderNode *node = builder.insert_function(fn);
   r_new_origins.copy_from(node->outputs());
