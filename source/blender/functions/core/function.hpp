@@ -19,9 +19,12 @@
  * should be created using the corresponding builder class.
  */
 
-#include "type.hpp"
+#include <functional>
+
 #include "BLI_chained_strings.h"
 #include "BLI_utility_mixins.h"
+
+#include "type.hpp"
 
 namespace FN {
 
@@ -149,15 +152,29 @@ class Function final : public RefCounter {
    */
   void print();
 
+  /**
+   * Add a resource that is owned by the function. All resources will be freed in reverse order.
+   */
+  template<typename T> void add_resource(std::unique_ptr<T> resource, const char *name);
+
  private:
-  StringRefNull m_name;
-  std::mutex m_add_body_mutex;
   FunctionBody *m_bodies[FunctionBody::BODY_TYPE_AMOUNT] = {0};
+
+  StringRefNull m_name;
 
   Vector<StringRefNull> m_input_names;
   Vector<Type *> m_input_types;
   Vector<StringRefNull> m_output_names;
   Vector<Type *> m_output_types;
+
+  struct OwnedResource {
+    void *data;
+    void (*free)(void *data);
+    const char *name;
+  };
+
+  Vector<OwnedResource, 1> m_resources;
+  std::mutex m_modify_mutex;
 
   const char *m_strings;
 };
@@ -193,7 +210,7 @@ template<typename T, typename... Args> inline T *Function::add_body(Args &&... a
 {
   STATIC_ASSERT_BODY_TYPE(T);
 
-  std::lock_guard<std::mutex> lock(m_add_body_mutex);
+  std::lock_guard<std::mutex> lock(m_modify_mutex);
   if (m_bodies[T::FUNCTION_BODY_ID] == nullptr) {
     T *new_body = new T(std::forward<Args>(args)...);
     new_body->set_owner(this);
@@ -268,6 +285,20 @@ inline ArrayRef<Type *> Function::input_types() const
 inline ArrayRef<Type *> Function::output_types() const
 {
   return m_output_types;
+}
+
+template<typename T> void Function::add_resource(std::unique_ptr<T> resource, const char *name)
+{
+  std::lock_guard<std::mutex> lock(m_modify_mutex);
+
+  OwnedResource owned_resource;
+  owned_resource.name = name;
+  owned_resource.data = static_cast<void *>(resource.release());
+  owned_resource.free = [](void *data) {
+    T *typed_data = static_cast<T *>(data);
+    delete typed_data;
+  };
+  m_resources.append(owned_resource);
 }
 
 /* Function Body inline functions
