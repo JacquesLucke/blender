@@ -2,12 +2,14 @@
 
 namespace FN {
 
-DataGraph::DataGraph(Vector<Node> nodes,
+DataGraph::DataGraph(std::unique_ptr<OwnedResources> resources,
+                     Vector<Node> nodes,
                      Vector<InputSocket> inputs,
                      Vector<OutputSocket> outputs,
                      Vector<uint> targets,
                      std::unique_ptr<MonotonicAllocator> source_info_allocator)
-    : m_nodes(std::move(nodes)),
+    : m_resources(std::move(resources)),
+      m_nodes(std::move(nodes)),
       m_inputs(std::move(inputs)),
       m_outputs(std::move(outputs)),
       m_targets(std::move(targets)),

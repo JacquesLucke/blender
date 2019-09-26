@@ -125,7 +125,8 @@ std::unique_ptr<DataGraph> DataGraphBuilder::build()
     }
   }
 
-  DataGraph *data_graph = new DataGraph(std::move(r_nodes),
+  DataGraph *data_graph = new DataGraph(std::move(m_resources),
+                                        std::move(r_nodes),
                                         std::move(r_inputs),
                                         std::move(r_outputs),
                                         std::move(r_targets),

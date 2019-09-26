@@ -194,6 +194,7 @@ class DataGraph {
   };
 
  private:
+  std::unique_ptr<OwnedResources> m_resources;
   Vector<Node> m_nodes;
   Vector<InputSocket> m_inputs;
   Vector<OutputSocket> m_outputs;
@@ -201,7 +202,8 @@ class DataGraph {
   std::unique_ptr<MonotonicAllocator> m_source_info_allocator;
 
  public:
-  DataGraph(Vector<Node> nodes,
+  DataGraph(std::unique_ptr<OwnedResources> m_resources,
+            Vector<Node> nodes,
             Vector<InputSocket> inputs,
             Vector<OutputSocket> outputs,
             Vector<uint> targets,

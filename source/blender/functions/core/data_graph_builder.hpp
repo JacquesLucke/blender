@@ -140,6 +140,7 @@ class BuilderNode {
 
 class DataGraphBuilder {
  private:
+  std::unique_ptr<OwnedResources> m_resources;
   Vector<BuilderNode *> m_nodes;
   uint m_link_counter = 0;
   uint m_input_socket_counter = 0;
@@ -156,6 +157,14 @@ class DataGraphBuilder {
 
   BuilderNode *insert_function(SharedFunction function, SourceInfo *source_info = nullptr);
   void insert_link(BuilderOutputSocket *from, BuilderInputSocket *to);
+
+  template<typename T> void add_resource(std::unique_ptr<T> resource, const char *name)
+  {
+    if (m_resources.get() == nullptr) {
+      m_resources = make_unique<OwnedResources>();
+    }
+    m_resources->add(std::move(resource), name);
+  }
 
   template<typename T, typename... Args> T *new_source_info(Args &&... args)
   {
