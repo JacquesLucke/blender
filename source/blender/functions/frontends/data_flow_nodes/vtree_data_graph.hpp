@@ -80,6 +80,7 @@ class VNodePlaceholderBody : public FunctionBody {
 
  public:
   static const uint FUNCTION_BODY_ID = 4;
+  using FunctionBodyType = VNodePlaceholderBody;
 
   VNodePlaceholderBody(VirtualNode *vnode, Vector<VirtualSocket *> vsocket_inputs)
       : m_vnode(vnode), m_vsocket_inputs(std::move(vsocket_inputs))

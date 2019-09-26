@@ -65,6 +65,7 @@ class CodeInterface {
 class LLVMBuildIRBody : public FunctionBody {
  public:
   static const uint FUNCTION_BODY_ID = 3;
+  using FunctionBodyType = LLVMBuildIRBody;
 
   virtual ~LLVMBuildIRBody(){};
 

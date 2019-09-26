@@ -76,6 +76,7 @@ class FunctionDepsBuilder {
 class DepsBody : public FunctionBody {
  public:
   static const uint FUNCTION_BODY_ID = 0;
+  using FunctionBodyType = DepsBody;
 
   virtual ~DepsBody()
   {

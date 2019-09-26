@@ -196,25 +196,32 @@ inline const StringRefNull Function::name() const
 template<typename T> inline bool Function::has_body() const
 {
   STATIC_ASSERT_BODY_TYPE(T);
+  BLI_STATIC_ASSERT((std::is_same<T, typename T::FunctionBodyType>::value), "");
+
   return m_bodies[T::FUNCTION_BODY_ID] != nullptr;
 }
 
 template<typename T> inline T &Function::body() const
 {
   STATIC_ASSERT_BODY_TYPE(T);
+  BLI_STATIC_ASSERT((std::is_same<T, typename T::FunctionBodyType>::value), "");
   BLI_assert(this->has_body<T>());
-  return *(T *)m_bodies[T::FUNCTION_BODY_ID];
+
+  FunctionBody *body_ptr = m_bodies[T::FUNCTION_BODY_ID];
+  BLI_assert(dynamic_cast<T *>(body_ptr) == static_cast<T *>(body_ptr));
+  return *static_cast<T *>(body_ptr);
 }
 
 template<typename T, typename... Args> inline T *Function::add_body(Args &&... args)
 {
   STATIC_ASSERT_BODY_TYPE(T);
+  BLI_STATIC_ASSERT((std::is_base_of<FunctionBody, typename T::FunctionBodyType>::value), "")
 
   std::lock_guard<std::mutex> lock(m_modify_mutex);
   if (m_bodies[T::FUNCTION_BODY_ID] == nullptr) {
     T *new_body = new T(std::forward<Args>(args)...);
     new_body->set_owner(this);
-    m_bodies[T::FUNCTION_BODY_ID] = new_body;
+    m_bodies[T::FUNCTION_BODY_ID] = dynamic_cast<FunctionBody *>(new_body);
     return new_body;
   }
   else {

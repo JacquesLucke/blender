@@ -213,8 +213,9 @@ class LoadFromAddresses : public TupleCallBody {
 ReloadableInputs::~ReloadableInputs()
 {
   for (SharedFunction &fn : m_functions) {
-    LoadFromAddresses &body = fn->body<LoadFromAddresses>();
-    body.set_deallocated();
+    TupleCallBody &body = fn->body<TupleCallBody>();
+    LoadFromAddresses &typed_body = dynamic_cast<LoadFromAddresses &>(body);
+    typed_body.set_deallocated();
   }
 }
 

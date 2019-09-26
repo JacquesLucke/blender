@@ -44,6 +44,7 @@ class TupleCallBodyBase : public FunctionBody {
 class TupleCallBody : public TupleCallBodyBase {
  public:
   static const uint FUNCTION_BODY_ID = 1;
+  using FunctionBodyType = TupleCallBody;
 
   /**
    * Calls the function with additional stack frames.
@@ -158,6 +159,7 @@ class LazyState {
 class LazyInTupleCallBody : public TupleCallBodyBase {
  public:
   static const uint FUNCTION_BODY_ID = 2;
+  using FunctionBodyType = LazyInTupleCallBody;
 
   /**
    * Required buffer size for temporary data.
