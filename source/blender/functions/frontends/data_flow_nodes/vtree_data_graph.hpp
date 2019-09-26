@@ -15,20 +15,22 @@ using BLI::Array;
 class VTreeDataGraph {
  private:
   VirtualNodeTree &m_vtree;
-  SharedDataGraph m_graph;
+  std::unique_ptr<DataGraph> m_graph;
   Array<DataSocket> m_socket_map;
 
  public:
-  VTreeDataGraph(VirtualNodeTree &vtree, SharedDataGraph graph, Array<DataSocket> mapping);
+  VTreeDataGraph(VirtualNodeTree &vtree,
+                 std::unique_ptr<DataGraph> graph,
+                 Array<DataSocket> mapping);
 
   VirtualNodeTree &vtree()
   {
     return m_vtree;
   }
 
-  SharedDataGraph &graph()
+  DataGraph &graph()
   {
-    return m_graph;
+    return *m_graph;
   }
 
   DataSocket *lookup_socket_ptr(VirtualSocket *vsocket)

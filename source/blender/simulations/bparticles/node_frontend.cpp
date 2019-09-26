@@ -22,12 +22,12 @@ using BKE::VirtualSocket;
 using BLI::MonotonicAllocator;
 using BLI::MultiMap;
 using BLI::rgba_f;
+using FN::DataGraph;
 using FN::Function;
 using FN::FunctionBuilder;
 using FN::FunctionGraph;
 using FN::FunctionOutputNamesProvider;
 using FN::NamedTupleRef;
-using FN::SharedDataGraph;
 using FN::Tuple;
 using FN::DataFlowNodes::VTreeDataGraph;
 using FN::Types::FalloffW;
@@ -85,7 +85,7 @@ class VTreeData {
     return m_vtree_data_graph.vtree();
   }
 
-  SharedDataGraph &data_graph()
+  DataGraph &data_graph()
   {
     return m_vtree_data_graph.graph();
   }

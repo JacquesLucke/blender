@@ -152,7 +152,7 @@ class DataGraphBuilder {
   DataGraphBuilder(DataGraphBuilder &other) = delete;
   ~DataGraphBuilder();
 
-  SharedDataGraph build();
+  std::unique_ptr<DataGraph> build();
 
   BuilderNode *insert_function(SharedFunction function, SourceInfo *source_info = nullptr);
   void insert_link(BuilderOutputSocket *from, BuilderInputSocket *to);

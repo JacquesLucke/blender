@@ -7,10 +7,10 @@ namespace FN {
 
 using BLI::VectorAdaptor;
 
-static void try_ensure_tuple_call_bodies(SharedDataGraph &graph)
+static void try_ensure_tuple_call_bodies(DataGraph &graph)
 {
-  for (uint node_id : graph->node_ids()) {
-    SharedFunction &fn = graph->function_of_node(node_id);
+  for (uint node_id : graph.node_ids()) {
+    SharedFunction &fn = graph.function_of_node(node_id);
     if (fn->has_body<TupleCallBody>()) {
       continue;
     }
@@ -28,7 +28,7 @@ static void try_ensure_tuple_call_bodies(SharedDataGraph &graph)
 class ExecuteFGraph : public TupleCallBody {
  private:
   FunctionGraph m_fgraph;
-  DataGraph *m_graph;
+  DataGraph &m_graph;
 
   struct NodeInfo {
     TupleCallBodyBase *body;
@@ -64,10 +64,10 @@ class ExecuteFGraph : public TupleCallBody {
   uint m_outputs_init_buffer_size = 0;
 
  public:
-  ExecuteFGraph(FunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph().ptr())
+  ExecuteFGraph(FunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph())
   {
-    for (uint node_id : m_graph->node_ids()) {
-      SharedFunction &fn = m_graph->function_of_node(node_id);
+    for (uint node_id : m_graph.node_ids()) {
+      SharedFunction &fn = m_graph.function_of_node(node_id);
 
       TupleCallBodyBase *body = nullptr;
       bool is_lazy_body = false;
@@ -162,13 +162,13 @@ class ExecuteFGraph : public TupleCallBody {
     bool *node_input_inits_ptr(uint node_id)
     {
       return (bool *)POINTER_OFFSET(m_input_inits,
-                                    m_parent.m_graph->first_input_id_of_node(node_id));
+                                    m_parent.m_graph.first_input_id_of_node(node_id));
     }
 
     bool *node_output_inits_ptr(uint node_id)
     {
       return (bool *)POINTER_OFFSET(m_output_inits,
-                                    m_parent.m_graph->first_output_id_of_node(node_id));
+                                    m_parent.m_graph.first_output_id_of_node(node_id));
     }
 
     bool is_input_initialized(uint input_socket_id)
@@ -278,7 +278,7 @@ class ExecuteFGraph : public TupleCallBody {
           sockets_to_compute.pop();
         }
         else {
-          DataSocket origin = m_graph->origin_of_input(socket);
+          DataSocket origin = m_graph.origin_of_input(socket);
           if (storage.is_output_initialized(origin.id())) {
             this->forward_output(origin.id(), storage, fn_out);
             sockets_to_compute.pop();
@@ -293,7 +293,7 @@ class ExecuteFGraph : public TupleCallBody {
           sockets_to_compute.pop();
         }
         else {
-          uint node_id = m_graph->node_id_of_output(socket.id());
+          uint node_id = m_graph.node_id_of_output(socket.id());
 
           if (m_node_info[node_id].is_lazy) {
             LazyInTupleCallBody *body = (LazyInTupleCallBody *)m_node_info[node_id].body;
@@ -309,7 +309,7 @@ class ExecuteFGraph : public TupleCallBody {
 
                 SETUP_SUB_TUPLES(node_id, body, body_in, body_out);
 
-                SourceInfo *source_info = m_graph->source_info_of_node(node_id);
+                SourceInfo *source_info = m_graph.source_info_of_node(node_id);
                 body->call__setup_stack(body_in, body_out, ctx, state, source_info);
 
                 if (state.is_done()) {
@@ -330,7 +330,7 @@ class ExecuteFGraph : public TupleCallBody {
 
               SETUP_SUB_TUPLES(node_id, body, body_in, body_out);
 
-              SourceInfo *source_info = m_graph->source_info_of_node(node_id);
+              SourceInfo *source_info = m_graph.source_info_of_node(node_id);
               body->call__setup_stack(body_in, body_out, ctx, state, source_info);
 
               if (state.is_done()) {
@@ -355,7 +355,7 @@ class ExecuteFGraph : public TupleCallBody {
 
               SETUP_SUB_TUPLES(node_id, body, body_in, body_out);
 
-              SourceInfo *source_info = m_graph->source_info_of_node(node_id);
+              SourceInfo *source_info = m_graph.source_info_of_node(node_id);
               body->call__setup_stack(body_in, body_out, ctx, source_info);
               BLI_assert(body_out.all_initialized());
 
@@ -376,7 +376,7 @@ class ExecuteFGraph : public TupleCallBody {
   {
     bool required_inputs_computed = true;
     for (uint input_index : body->always_required()) {
-      uint input_id = m_graph->id_of_node_input(node_id, input_index);
+      uint input_id = m_graph.id_of_node_input(node_id, input_index);
       if (!storage.is_input_initialized(input_id)) {
         sockets_to_compute.push(DataSocket::FromInput(input_id));
         required_inputs_computed = false;
@@ -391,7 +391,7 @@ class ExecuteFGraph : public TupleCallBody {
                                       SocketsToComputeStack &sockets_to_compute) const
   {
     for (uint requested_input_index : state.requested_inputs()) {
-      uint input_id = m_graph->id_of_node_input(node_id, requested_input_index);
+      uint input_id = m_graph.id_of_node_input(node_id, requested_input_index);
       if (!storage.is_input_initialized(input_id)) {
         sockets_to_compute.push(DataSocket::FromInput(input_id));
       }
@@ -403,7 +403,7 @@ class ExecuteFGraph : public TupleCallBody {
                          SocketsToComputeStack &sockets_to_compute) const
   {
     bool all_inputs_computed = true;
-    for (uint input_id : m_graph->input_ids_of_node(node_id)) {
+    for (uint input_id : m_graph.input_ids_of_node(node_id)) {
       if (!storage.is_input_initialized(input_id)) {
         sockets_to_compute.push(DataSocket::FromInput(input_id));
         all_inputs_computed = false;
@@ -416,7 +416,7 @@ class ExecuteFGraph : public TupleCallBody {
                                                  SocketValueStorage &storage,
                                                  Tuple &fn_out) const
   {
-    for (uint output_id : m_graph->output_ids_of_node(node_id)) {
+    for (uint output_id : m_graph.output_ids_of_node(node_id)) {
       if (m_output_info[output_id].is_fn_output) {
         uint index = m_fgraph.outputs().index(DataSocket::FromOutput(output_id));
         fn_out.copy_in__dynamic(index, storage.output_value_ptr(output_id));
@@ -426,7 +426,7 @@ class ExecuteFGraph : public TupleCallBody {
 
   void destruct_remaining_node_inputs(uint node_id, SocketValueStorage &storage) const
   {
-    for (uint input_id : m_graph->input_ids_of_node(node_id)) {
+    for (uint input_id : m_graph.input_ids_of_node(node_id)) {
       if (storage.is_input_initialized(input_id)) {
         CPPTypeInfo *type_info = m_input_info[input_id].type;
         type_info->destruct(storage.input_value_ptr(input_id));
@@ -438,7 +438,7 @@ class ExecuteFGraph : public TupleCallBody {
   void forward_output(uint output_id, SocketValueStorage &storage, Tuple &fn_out) const
   {
     BLI_assert(storage.is_output_initialized(output_id));
-    auto possible_target_ids = m_graph->targets_of_output(output_id);
+    auto possible_target_ids = m_graph.targets_of_output(output_id);
 
     const SocketInfo &output_info = m_output_info[output_id];
     CPPTypeInfo *type_info = output_info.type;
@@ -555,11 +555,11 @@ class ExecuteFGraph_Simple : public TupleCallBody {
  private:
   FunctionGraph m_fgraph;
   /* Just for easy access. */
-  DataGraph *m_graph;
+  DataGraph &m_graph;
 
  public:
   ExecuteFGraph_Simple(FunctionGraph &function_graph)
-      : m_fgraph(function_graph), m_graph(function_graph.graph().ptr())
+      : m_fgraph(function_graph), m_graph(function_graph.graph())
   {
   }
 
@@ -579,25 +579,25 @@ class ExecuteFGraph_Simple : public TupleCallBody {
       Tuple::copy_element(fn_in, index, out, out_index);
     }
     else if (socket.is_input()) {
-      this->compute_socket(fn_in, out, out_index, m_graph->origin_of_input(socket), ctx);
+      this->compute_socket(fn_in, out, out_index, m_graph.origin_of_input(socket), ctx);
     }
     else {
-      uint node_id = m_graph->node_id_of_output(socket);
-      SharedFunction &fn = m_graph->function_of_node(node_id);
+      uint node_id = m_graph.node_id_of_output(socket);
+      SharedFunction &fn = m_graph.function_of_node(node_id);
       TupleCallBody &body = fn->body<TupleCallBody>();
 
       FN_TUPLE_CALL_ALLOC_TUPLES(body, tmp_in, tmp_out);
 
       uint index = 0;
-      for (DataSocket input_socket : m_graph->inputs_of_node(node_id)) {
+      for (DataSocket input_socket : m_graph.inputs_of_node(node_id)) {
         this->compute_socket(fn_in, tmp_in, index, input_socket, ctx);
         index++;
       }
 
-      SourceInfoStackFrame node_frame(m_graph->source_info_of_node(node_id));
+      SourceInfoStackFrame node_frame(m_graph.source_info_of_node(node_id));
       body.call__setup_stack(tmp_in, tmp_out, ctx, node_frame);
 
-      Tuple::copy_element(tmp_out, m_graph->index_of_output(socket.id()), out, out_index);
+      Tuple::copy_element(tmp_out, m_graph.index_of_output(socket.id()), out, out_index);
     }
   }
 };

@@ -88,7 +88,7 @@ void DataGraphBuilder::insert_link(BuilderOutputSocket *from, BuilderInputSocket
   m_link_counter++;
 }
 
-SharedDataGraph DataGraphBuilder::build()
+std::unique_ptr<DataGraph> DataGraphBuilder::build()
 {
   /* Every input socket should be linked to exactly one output. */
   BLI_assert(m_link_counter == m_input_socket_counter);
@@ -125,11 +125,12 @@ SharedDataGraph DataGraphBuilder::build()
     }
   }
 
-  return SharedDataGraph::New(std::move(r_nodes),
-                              std::move(r_inputs),
-                              std::move(r_outputs),
-                              std::move(r_targets),
-                              std::move(m_source_info_allocator));
+  DataGraph *data_graph = new DataGraph(std::move(r_nodes),
+                                        std::move(r_inputs),
+                                        std::move(r_outputs),
+                                        std::move(r_targets),
+                                        std::move(m_source_info_allocator));
+  return std::unique_ptr<DataGraph>(data_graph);
 }
 
 }  // namespace FN

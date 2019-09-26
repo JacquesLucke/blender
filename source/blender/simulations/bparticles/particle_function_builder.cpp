@@ -13,10 +13,10 @@ namespace BParticles {
 using BKE::VirtualSocket;
 using BLI::float2;
 using BLI::rgba_b;
+using FN::DataGraph;
 using FN::DataSocket;
 using FN::FunctionBuilder;
 using FN::FunctionGraph;
-using FN::SharedDataGraph;
 using FN::SharedFunction;
 using FN::Type;
 using FN::Types::StringW;
@@ -209,7 +209,7 @@ static SharedFunction create_function__with_deps(
   return fn;
 }
 
-static SharedFunction create_function__without_deps(SharedDataGraph &graph,
+static SharedFunction create_function__without_deps(DataGraph &graph,
                                                     StringRef function_name,
                                                     ArrayRef<DataSocket> sockets_to_compute)
 {

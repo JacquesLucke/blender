@@ -32,9 +32,13 @@ static void find_interface_sockets(VirtualNodeTree &vtree,
   }
 }
 
-static Optional<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree)
+Optional<SharedFunction> generate_function(bNodeTree *btree)
 {
-  auto optional_data_graph = generate_graph(vtree);
+  auto vtree = std::unique_ptr<VirtualNodeTree>(new VirtualNodeTree());
+  vtree->add_all_of_tree(btree);
+  vtree->freeze_and_index();
+
+  auto optional_data_graph = generate_graph(*vtree);
   if (!optional_data_graph.has_value()) {
     return {};
   }
@@ -43,24 +47,11 @@ static Optional<FunctionGraph> generate_function_graph(VirtualNodeTree &vtree)
 
   VectorSet<DataSocket> input_sockets;
   VectorSet<DataSocket> output_sockets;
-  find_interface_sockets(vtree, *data_graph, input_sockets, output_sockets);
+  find_interface_sockets(*vtree, *data_graph, input_sockets, output_sockets);
 
-  return FunctionGraph(data_graph->graph(), input_sockets, output_sockets);
-}
+  FunctionGraph fgraph(data_graph->graph(), input_sockets, output_sockets);
 
-Optional<SharedFunction> generate_function(bNodeTree *btree)
-{
-  VirtualNodeTree vtree;
-  vtree.add_all_of_tree(btree);
-  vtree.freeze_and_index();
-
-  Optional<FunctionGraph> optional_fgraph = generate_function_graph(vtree);
-  if (!optional_fgraph.has_value()) {
-    return {};
-  }
-
-  FunctionGraph fgraph = optional_fgraph.extract();
-  // fgraph.graph()->to_dot__clipboard();
+  // fgraph.graph().to_dot__clipboard();
 
   auto fn = fgraph.new_function(btree->id.name);
   fgraph_add_DependenciesBody(fn, fgraph);
@@ -68,6 +59,9 @@ Optional<SharedFunction> generate_function(bNodeTree *btree)
 
   fgraph_add_TupleCallBody(fn, fgraph);
   // derive_TupleCallBody_from_LLVMBuildIRBody(fn);
+
+  fn->add_resource(std::move(vtree), "Virtual Node Tree");
+  fn->add_resource(std::move(data_graph), "VTreeDataGraph");
   return fn;
 }
 

@@ -7,14 +7,14 @@ namespace FN {
 class BuildGraphIR : public LLVMBuildIRBody {
  private:
   FunctionGraph m_fgraph;
-  DataGraph *m_graph;
+  DataGraph &m_graph;
   Set<DataSocket> m_required_sockets;
 
  public:
-  BuildGraphIR(FunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph().ptr())
+  BuildGraphIR(FunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph())
   {
-    for (uint node_id : m_graph->node_ids()) {
-      SharedFunction &fn = m_fgraph.graph()->function_of_node(node_id);
+    for (uint node_id : m_graph.node_ids()) {
+      SharedFunction &fn = m_graph.function_of_node(node_id);
       if (fn->has_body<LLVMBuildIRBody>()) {
         continue;
       }
@@ -61,14 +61,14 @@ class BuildGraphIR : public LLVMBuildIRBody {
       /* do nothing */
     }
     else if (socket.is_input()) {
-      DataSocket origin = m_graph->origin_of_input(socket);
+      DataSocket origin = m_graph.origin_of_input(socket);
       this->generate_for_socket(builder, interface, settings, origin, values, forwarded_sockets);
       this->forward_output_if_necessary(builder, origin, values, forwarded_sockets);
     }
     else if (socket.is_output()) {
-      uint node_id = m_graph->node_id_of_output(socket);
+      uint node_id = m_graph.node_id_of_output(socket);
       Vector<llvm::Value *> input_values;
-      for (DataSocket input_socket : m_graph->inputs_of_node(node_id)) {
+      for (DataSocket input_socket : m_graph.inputs_of_node(node_id)) {
         this->generate_for_socket(
             builder, interface, settings, input_socket, values, forwarded_sockets);
         input_values.append(values.lookup(input_socket));
@@ -78,7 +78,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
           builder, interface, settings, node_id, input_values);
 
       uint index = 0;
-      for (DataSocket output_socket : m_graph->outputs_of_node(node_id)) {
+      for (DataSocket output_socket : m_graph.outputs_of_node(node_id)) {
         values.add(output_socket, output_values[index]);
         this->forward_output_if_necessary(builder, output_socket, values, forwarded_sockets);
         index++;
@@ -106,13 +106,13 @@ class BuildGraphIR : public LLVMBuildIRBody {
                       Map<DataSocket, llvm::Value *> &values) const
   {
     llvm::Value *value_to_forward = values.lookup(output);
-    Type *type = m_graph->type_of_socket(output);
+    Type *type = m_graph.type_of_socket(output);
     LLVMTypeInfo &type_info = type->extension<LLVMTypeInfo>();
 
     Vector<DataSocket> targets;
-    for (DataSocket target : m_graph->targets_of_output(output)) {
+    for (DataSocket target : m_graph.targets_of_output(output)) {
       if (m_required_sockets.contains(target) && !values.contains(target)) {
-        BLI_assert(type == m_graph->type_of_socket(target));
+        BLI_assert(type == m_graph.type_of_socket(target));
         targets.append(target);
       }
     }
@@ -139,7 +139,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
                                       uint node_id,
                                       Vector<llvm::Value *> &input_values) const
   {
-    SharedFunction &fn = m_graph->function_of_node(node_id);
+    SharedFunction &fn = m_graph.function_of_node(node_id);
     auto &body = fn->body<LLVMBuildIRBody>();
     bool setup_stack = settings.maintain_stack() && body.prepare_execution_context();
 
@@ -147,7 +147,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
       this->push_stack_frames_for_node(builder, interface.context_ptr(), node_id);
     }
 
-    Vector<llvm::Value *> output_values(m_graph->outputs_of_node(node_id).size());
+    Vector<llvm::Value *> output_values(m_graph.outputs_of_node(node_id).size());
     CodeInterface sub_interface(
         input_values, output_values, interface.context_ptr(), interface.function_ir_cache());
 
@@ -165,7 +165,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
                                   uint node_id) const
   {
     BLI_assert(context_ptr);
-    SourceInfo *source_info = m_graph->source_info_of_node(node_id);
+    SourceInfo *source_info = m_graph.source_info_of_node(node_id);
 
     llvm::Value *node_info_frame_buf = builder.CreateAllocaBytes_AnyPtr(
         sizeof(SourceInfoStackFrame));
@@ -177,7 +177,7 @@ class BuildGraphIR : public LLVMBuildIRBody {
                                node_info_frame_buf,
                                builder.getAnyPtr(source_info),
                                function_info_frame_buf,
-                               builder.getAnyPtr(m_graph->name_ptr_of_node(node_id))},
+                               builder.getAnyPtr(m_graph.name_ptr_of_node(node_id))},
                               builder.getVoidTy(),
                               "Push stack frames");
   }

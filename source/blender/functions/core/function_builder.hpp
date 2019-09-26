@@ -29,12 +29,12 @@ class FunctionBuilder {
   /**
    * Add multiple inputs. The names and types are taken from the sockets.
    */
-  void add_inputs(const SharedDataGraph &graph, ArrayRef<DataSocket> sockets);
+  void add_inputs(const DataGraph &data_graph, ArrayRef<DataSocket> sockets);
 
   /**
    * Add multiple outputs. The names and types are taken from the sockets.
    */
-  void add_outputs(const SharedDataGraph &graph, ArrayRef<DataSocket> sockets);
+  void add_outputs(const DataGraph &data_graph, ArrayRef<DataSocket> sockets);
 
   /**
    * Create a new function with the given name and all the inputs and outputs previously added.

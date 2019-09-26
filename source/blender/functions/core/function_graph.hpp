@@ -17,24 +17,24 @@ using BLI::VectorSet;
 
 class FunctionGraph {
  private:
-  SharedDataGraph m_graph;
+  DataGraph *m_graph;
   VectorSet<DataSocket> m_inputs;
   VectorSet<DataSocket> m_outputs;
 
  public:
-  FunctionGraph(SharedDataGraph graph, VectorSet<DataSocket> inputs, VectorSet<DataSocket> outputs)
-      : m_graph(std::move(graph)), m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
+  FunctionGraph(DataGraph &graph, VectorSet<DataSocket> inputs, VectorSet<DataSocket> outputs)
+      : m_graph(&graph), m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
   {
   }
 
-  const SharedDataGraph &graph() const
+  const DataGraph &graph() const
   {
-    return m_graph;
+    return *m_graph;
   }
 
-  SharedDataGraph &graph()
+  DataGraph &graph()
   {
-    return m_graph;
+    return *m_graph;
   }
 
   const VectorSet<DataSocket> &inputs() const

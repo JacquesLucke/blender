@@ -8,10 +8,11 @@ namespace DataFlowNodes {
 using BLI::Stack;
 
 VTreeDataGraph::VTreeDataGraph(VirtualNodeTree &vtree,
-                               SharedDataGraph graph,
+                               std::unique_ptr<DataGraph> data_graph,
                                Array<DataSocket> mapping)
-    : m_vtree(vtree), m_graph(std::move(graph)), m_socket_map(std::move(mapping))
+    : m_vtree(vtree), m_graph(std::move(data_graph)), m_socket_map(std::move(mapping))
 {
+  BLI_assert(m_graph.get() != nullptr);
 }
 
 Vector<VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(

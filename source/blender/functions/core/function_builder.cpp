@@ -22,20 +22,20 @@ void FunctionBuilder::add_output(StringRef name, Type *type)
   m_output_types.append(type);
 }
 
-void FunctionBuilder::add_inputs(const SharedDataGraph &graph, ArrayRef<DataSocket> sockets)
+void FunctionBuilder::add_inputs(const DataGraph &data_graph, ArrayRef<DataSocket> sockets)
 {
   for (DataSocket socket : sockets) {
-    StringRef name = graph->name_of_socket(socket);
-    Type *type = graph->type_of_socket(socket);
+    StringRef name = data_graph.name_of_socket(socket);
+    Type *type = data_graph.type_of_socket(socket);
     this->add_input(name, type);
   }
 }
 
-void FunctionBuilder::add_outputs(const SharedDataGraph &graph, ArrayRef<DataSocket> sockets)
+void FunctionBuilder::add_outputs(const DataGraph &data_graph, ArrayRef<DataSocket> sockets)
 {
   for (DataSocket socket : sockets) {
-    StringRef name = graph->name_of_socket(socket);
-    Type *type = graph->type_of_socket(socket);
+    StringRef name = data_graph.name_of_socket(socket);
+    Type *type = data_graph.type_of_socket(socket);
     this->add_output(name, type);
   }
 }
