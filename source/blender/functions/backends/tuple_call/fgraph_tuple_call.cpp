@@ -244,17 +244,18 @@ class ExecuteFGraph : public TupleCallBody {
     }
   };
 
+/* They are allocated like this to avoid that the destructor is called. */
 #define SETUP_SUB_TUPLES(node_id, body, body_in, body_out) \
-  Tuple body_in(body->meta_in(), \
-                storage.node_input_values_ptr(node_id), \
-                storage.node_input_inits_ptr(node_id), \
-                true, \
-                false); \
-  Tuple body_out(body->meta_out(), \
-                 storage.node_output_values_ptr(node_id), \
-                 storage.node_output_inits_ptr(node_id), \
-                 true, \
-                 false);
+  char body_in_##buffer[sizeof(Tuple)]; \
+  char body_out_##buffer[sizeof(Tuple)]; \
+  Tuple &body_in = *new (body_in_##buffer) Tuple(body->meta_in(), \
+                                                 storage.node_input_values_ptr(node_id), \
+                                                 storage.node_input_inits_ptr(node_id), \
+                                                 true); \
+  Tuple &body_out = *new (body_out_##buffer) Tuple(body->meta_out(), \
+                                                   storage.node_output_values_ptr(node_id), \
+                                                   storage.node_output_inits_ptr(node_id), \
+                                                   true);
 
   using SocketsToComputeStack = Stack<DataSocket, 64>;
   using LazyStatesStack = Stack<LazyStateOfNode>;
