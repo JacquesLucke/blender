@@ -102,19 +102,19 @@ class ExecuteFGraph : public TupleCallBody {
         }
       }
       else {
-        SharedTupleMeta &meta_in = body->meta_in();
+        TupleMeta &meta_in = body->meta_in();
         for (uint i = 0; i < fn->input_amount(); i++) {
           m_input_info.append(SocketInfo(
-              *meta_in->type_infos()[i], m_inputs_buffer_size + meta_in->offsets()[i], false));
+              *meta_in.type_infos()[i], m_inputs_buffer_size + meta_in.offsets()[i], false));
         }
-        m_inputs_buffer_size += meta_in->size_of_data();
+        m_inputs_buffer_size += meta_in.size_of_data();
 
-        SharedTupleMeta &meta_out = body->meta_out();
+        TupleMeta &meta_out = body->meta_out();
         for (uint i = 0; i < fn->output_amount(); i++) {
           m_output_info.append(SocketInfo(
-              *meta_out->type_infos()[i], m_outputs_buffer_size + meta_out->offsets()[i], false));
+              *meta_out.type_infos()[i], m_outputs_buffer_size + meta_out.offsets()[i], false));
         }
-        m_outputs_buffer_size += meta_out->size_of_data();
+        m_outputs_buffer_size += meta_out.size_of_data();
       }
     }
 
@@ -245,12 +245,12 @@ class ExecuteFGraph : public TupleCallBody {
   };
 
 #define SETUP_SUB_TUPLES(node_id, body, body_in, body_out) \
-  Tuple body_in(body->meta_in().ref(), \
+  Tuple body_in(body->meta_in(), \
                 storage.node_input_values_ptr(node_id), \
                 storage.node_input_inits_ptr(node_id), \
                 true, \
                 false); \
-  Tuple body_out(body->meta_out().ref(), \
+  Tuple body_out(body->meta_out(), \
                  storage.node_output_values_ptr(node_id), \
                  storage.node_output_inits_ptr(node_id), \
                  true, \

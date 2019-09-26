@@ -291,8 +291,8 @@ class AutoVectorization : public TupleCallBody {
     m_max_len_in_size = 0;
     m_max_len_out_size = 0;
     for (TupleCallBody *body : m_get_length_bodies) {
-      m_max_len_in_size = std::max(m_max_len_in_size, body->meta_in()->size_of_full_tuple());
-      m_max_len_out_size = std::max(m_max_len_out_size, body->meta_out()->size_of_full_tuple());
+      m_max_len_in_size = std::max(m_max_len_in_size, body->meta_in().size_of_full_tuple());
+      m_max_len_out_size = std::max(m_max_len_out_size, body->meta_out().size_of_full_tuple());
     }
 
     for (auto base_type : main->output_types()) {

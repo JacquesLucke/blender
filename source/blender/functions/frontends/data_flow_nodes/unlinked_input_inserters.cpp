@@ -164,12 +164,15 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
     Type *type = builder.query_socket_type(vsocket);
     fn_builder.add_output(vsocket->name(), type);
   }
+
   SharedFunction fn = fn_builder.build("Unlinked Inputs");
+
+  std::unique_ptr<TupleMeta> inputs_meta = std::unique_ptr<TupleMeta>(
+      new TupleMeta(fn->output_types()));
+  std::unique_ptr<Tuple> inputs_tuple = std::unique_ptr<Tuple>(new Tuple(*inputs_meta));
+
   ConstantOutput &tuple_call_body = *fn->add_body<ConstantOutput>();
   ConstantOutputGen &build_ir_body = *fn->add_body<ConstantOutputGen>();
-
-  std::unique_ptr<Tuple> inputs_tuple = std::unique_ptr<Tuple>(
-      new Tuple(tuple_call_body.meta_out()));
 
   for (uint i = 0; i < unlinked_inputs.size(); i++) {
     VirtualSocket *vsocket = unlinked_inputs[i];
@@ -179,98 +182,11 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
   tuple_call_body.set_tuple(inputs_tuple.get());
   build_ir_body.set_tuple(inputs_tuple.get());
 
+  fn->add_resource(std::move(inputs_meta), "Meta information for tuple");
   fn->add_resource(std::move(inputs_tuple), "Tuple containing function inputs");
 
   BuilderNode *node = builder.insert_function(fn);
   r_new_origins.copy_from(node->outputs());
-}
-
-class LoadFromAddresses : public TupleCallBody {
- private:
-  Vector<void *> m_addresses;
-  bool m_addresses_exist = true;
-
- public:
-  LoadFromAddresses(ArrayRef<void *> addresses) : m_addresses(addresses)
-  {
-  }
-
-  void set_deallocated()
-  {
-    m_addresses_exist = false;
-  }
-
-  void call(Tuple &UNUSED(fn_in), Tuple &fn_out, ExecutionContext &UNUSED(ctx)) const override
-  {
-    BLI_assert(m_addresses_exist);
-    uint amount = m_addresses.size();
-    for (uint i = 0; i < amount; i++) {
-      fn_out.copy_in__dynamic(i, m_addresses[i]);
-    }
-  }
-};
-
-ReloadableInputs::~ReloadableInputs()
-{
-  for (SharedFunction &fn : m_functions) {
-    TupleCallBody &body = fn->body<TupleCallBody>();
-    LoadFromAddresses &typed_body = dynamic_cast<LoadFromAddresses &>(body);
-    typed_body.set_deallocated();
-  }
-}
-
-void ReloadableInputs::insert(VTreeDataGraphBuilder &builder,
-                              ArrayRef<VirtualSocket *> unlinked_inputs,
-                              MutableArrayRef<BuilderOutputSocket *> r_new_origins)
-{
-  BLI_assert(m_tuple.get() == nullptr);
-
-  auto &socket_loaders = MAPPING_socket_loaders();
-
-  FunctionBuilder fn_builder;
-  for (VirtualSocket *vsocket : unlinked_inputs) {
-    Type *type = builder.query_socket_type(vsocket);
-    CPPTypeInfo &type_info = type->extension<CPPTypeInfo>();
-    fn_builder.add_output(vsocket->name(), type);
-
-    m_loaders.append(socket_loaders->get_loader(vsocket->idname()));
-    m_types.append(type);
-    m_addresses.append(m_allocator.allocate_aligned(type_info.size(), type_info.alignment()));
-    m_bsockets.append(vsocket->bsocket());
-    m_btrees.append(vsocket->btree());
-  }
-
-  ArrayRef<void *> new_addresses = ArrayRef<void *>(m_addresses).take_back(unlinked_inputs.size());
-
-  SharedFunction fn = fn_builder.build("Unlinked Inputs");
-  fn->add_body<LoadFromAddresses>(new_addresses);
-  m_functions.append(fn);
-
-  BuilderNode *node = builder.insert_function(fn);
-  r_new_origins.copy_from(node->outputs());
-}
-
-void ReloadableInputs::load()
-{
-  uint amount = m_types.size();
-  if (m_tuple.get() == nullptr) {
-    SharedTupleMeta meta = SharedTupleMeta::New(m_types);
-    Tuple *tuple = new Tuple(std::move(meta));
-    m_tuple = std::unique_ptr<Tuple>(tuple);
-  }
-  else {
-    for (uint i = 0; i < amount; i++) {
-      CPPTypeInfo &type_info = m_types[i]->extension<CPPTypeInfo>();
-      type_info.destruct(m_addresses[i]);
-    }
-  }
-
-  for (uint i = 0; i < amount; i++) {
-    PointerRNA rna;
-    RNA_pointer_create(&m_btrees[i]->id, &RNA_NodeSocket, m_bsockets[i], &rna);
-    m_loaders[i](&rna, *m_tuple, i);
-    m_tuple->relocate_out__dynamic(i, m_addresses[i]);
-  }
 }
 
 }  // namespace DataFlowNodes

@@ -35,7 +35,7 @@
 
 namespace FN {
 
-class TupleMeta : public RefCounter {
+class TupleMeta {
  private:
   Vector<Type *> m_types;
   Vector<CPPTypeInfo *> m_type_info;
@@ -136,8 +136,6 @@ class TupleMeta : public RefCounter {
 #endif
 };
 
-using SharedTupleMeta = AutoRefCount<TupleMeta>;
-
 class Tuple {
  public:
   Tuple(TupleMeta &meta) : m_meta(&meta)
@@ -145,14 +143,7 @@ class Tuple {
     m_initialized = (bool *)MEM_calloc_arrayN(m_meta->size(), sizeof(bool), __func__);
     m_data = MEM_mallocN(m_meta->size_of_data(), __func__);
     m_owns_mem = true;
-    m_owns_meta = false;
     m_run_destructors = true;
-  }
-
-  Tuple(SharedTupleMeta meta) : Tuple(*meta.ptr())
-  {
-    meta->incref();
-    m_owns_meta = true;
   }
 
   Tuple(TupleMeta &meta,
@@ -167,7 +158,6 @@ class Tuple {
     m_data = data;
     m_initialized = initialized;
     m_owns_mem = false;
-    m_owns_meta = false;
     m_run_destructors = run_destructors;
     if (!was_initialized) {
       this->set_all_uninitialized();
@@ -199,9 +189,6 @@ class Tuple {
     if (m_owns_mem) {
       MEM_freeN(m_data);
       MEM_freeN(m_initialized);
-    }
-    if (m_owns_meta) {
-      m_meta->decref();
     }
   }
 
@@ -576,7 +563,6 @@ class Tuple {
   void *m_data;
   bool *m_initialized;
   uint8_t m_owns_mem : 1;
-  uint8_t m_owns_meta : 1;
   uint8_t m_run_destructors : 1;
   TupleMeta *m_meta;
 };

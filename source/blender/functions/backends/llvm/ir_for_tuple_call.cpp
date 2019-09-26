@@ -8,11 +8,11 @@ static void run_TupleCallBody(TupleCallBody *body,
                               void *data_out,
                               ExecutionContext *ctx)
 {
-  bool *initialized_in = (bool *)alloca(body->meta_in()->size());
-  bool *initialized_out = (bool *)alloca(body->meta_out()->size());
+  bool *initialized_in = (bool *)alloca(body->meta_in().size());
+  bool *initialized_out = (bool *)alloca(body->meta_out().size());
 
-  Tuple fn_in(body->meta_in().ref(), data_in, initialized_in, false);
-  Tuple fn_out(body->meta_out().ref(), data_out, initialized_out, false);
+  Tuple fn_in(body->meta_in(), data_in, initialized_in, false);
+  Tuple fn_out(body->meta_out(), data_out, initialized_out, false);
 
   fn_in.set_all_initialized();
 
@@ -140,16 +140,16 @@ class TupleCallLLVM : public LLVMBuildIRBody {
     /* Allocate temporary stack buffer for tuple input and output. */
     auto &meta_in = m_tuple_call.meta_in();
     auto &meta_out = m_tuple_call.meta_out();
-    llvm::Value *tuple_in_data_ptr = builder.CreateAllocaBytes_BytePtr(meta_in->size_of_data());
+    llvm::Value *tuple_in_data_ptr = builder.CreateAllocaBytes_BytePtr(meta_in.size_of_data());
     tuple_in_data_ptr->setName("tuple_in_data");
-    llvm::Value *tuple_out_data_ptr = builder.CreateAllocaBytes_BytePtr(meta_out->size_of_data());
+    llvm::Value *tuple_out_data_ptr = builder.CreateAllocaBytes_BytePtr(meta_out.size_of_data());
     tuple_out_data_ptr->setName("tuple_out_data");
 
     /* Write input values into buffer. */
     for (uint i = 0; i < input_type_infos.size(); i++) {
       llvm::Value *arg = function->arg_begin() + i;
       llvm::Value *store_at_addr = builder.CreateConstGEP1_32(tuple_in_data_ptr,
-                                                              meta_in->offsets()[i]);
+                                                              meta_in.offsets()[i]);
       input_type_infos[i]->build_store_ir__relocate(builder, arg, store_at_addr);
     }
 
@@ -173,7 +173,7 @@ class TupleCallLLVM : public LLVMBuildIRBody {
     llvm::Value *output = llvm::UndefValue::get(output_type);
     for (uint i = 0; i < output_type_infos.size(); i++) {
       llvm::Value *load_from_addr = builder.CreateConstGEP1_32(tuple_out_data_ptr,
-                                                               meta_out->offsets()[i]);
+                                                               meta_out.offsets()[i]);
       llvm::Value *out = output_type_infos[i]->build_load_ir__relocate(builder, load_from_addr);
       output = builder.CreateInsertValue(output, out, i);
     }

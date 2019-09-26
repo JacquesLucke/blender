@@ -13,8 +13,8 @@ namespace FN {
 
 class TupleCallBodyBase : public FunctionBody {
  private:
-  SharedTupleMeta m_meta_in;
-  SharedTupleMeta m_meta_out;
+  TupleMeta m_meta_in;
+  TupleMeta m_meta_out;
 
  protected:
   void owner_init_post() override;
@@ -27,7 +27,7 @@ class TupleCallBodyBase : public FunctionBody {
   /**
    * Get the metadata for tuples that this function can take as input.
    */
-  SharedTupleMeta &meta_in()
+  TupleMeta &meta_in()
   {
     return m_meta_in;
   }
@@ -35,7 +35,7 @@ class TupleCallBodyBase : public FunctionBody {
   /**
    * Get the metadata for tuples that this function can output.
    */
-  SharedTupleMeta &meta_out()
+  TupleMeta &meta_out()
   {
     return m_meta_out;
   }
@@ -251,8 +251,8 @@ class FunctionOutputNamesProvider final : public TupleElementNameProvider {
  * Allocate input and output tuples for a particular tuple-call body.
  */
 #define FN_TUPLE_CALL_ALLOC_TUPLES(body, name_in, name_out) \
-  FN_TUPLE_STACK_ALLOC(name_in, (body).meta_in().ref()); \
-  FN_TUPLE_STACK_ALLOC(name_out, (body).meta_out().ref())
+  FN_TUPLE_STACK_ALLOC(name_in, (body).meta_in()); \
+  FN_TUPLE_STACK_ALLOC(name_out, (body).meta_out())
 
 #define FN_TUPLE_CALL_NAMED_REF(THIS, FN_IN, FN_OUT, R_INPUTS, R_OUTPUTS) \
   FN::FunctionInputNamesProvider _input_names(THIS->owner()); \

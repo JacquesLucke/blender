@@ -9,8 +9,8 @@ void TupleCallBodyBase::init_defaults(Tuple &fn_in) const
 
 void TupleCallBodyBase::owner_init_post()
 {
-  m_meta_in = SharedTupleMeta::New(this->owner()->input_types());
-  m_meta_out = SharedTupleMeta::New(this->owner()->output_types());
+  m_meta_in = TupleMeta(this->owner()->input_types());
+  m_meta_out = TupleMeta(this->owner()->output_types());
 }
 
 uint LazyInTupleCallBody::user_data_size() const

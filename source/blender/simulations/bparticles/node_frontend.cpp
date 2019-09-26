@@ -123,7 +123,7 @@ class VTreeData {
     }
     TupleCallBody &body = *body_ptr;
 
-    FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in().ref());
+    FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in());
     auto fn_out = this->construct_new<Tuple>(body.meta_out());
 
     body.call__setup_execution_context(fn_in, *fn_out);
