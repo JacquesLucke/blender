@@ -37,7 +37,7 @@ class FloatRange : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_float_range)
+BLI_LAZY_INIT_REF(Function, GET_FN_float_range)
 {
   FunctionBuilder builder;
   builder.add_input("Amount", TYPE_int32);

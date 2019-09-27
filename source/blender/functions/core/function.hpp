@@ -47,12 +47,12 @@ class FunctionBody : BLI::NonCopyable, BLI::NonMovable {
 
   virtual ~FunctionBody();
 
-  Function *owner() const;
+  Function &owner() const;
 
   static const uint BODY_TYPE_AMOUNT = 5;
 };
 
-class Function final : public RefCounter {
+class Function final {
  public:
   Function(Function &fn) = delete;
 
@@ -172,8 +172,6 @@ class Function final : public RefCounter {
   std::unique_ptr<OwnedResources> m_resources;
   const char *m_strings;
 };
-
-using SharedFunction = AutoRefCount<Function>;
 
 /* Function inline functions
  ***********************************************/
@@ -308,9 +306,9 @@ inline void FunctionBody::set_owner(Function *fn)
   this->owner_init_post();
 }
 
-inline Function *FunctionBody::owner() const
+inline Function &FunctionBody::owner() const
 {
-  return m_owner;
+  return *m_owner;
 }
 
 } /* namespace FN */

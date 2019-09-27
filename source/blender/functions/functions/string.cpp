@@ -19,7 +19,7 @@ class StringLength : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_string_length)
+BLI_LAZY_INIT_REF(Function, GET_FN_string_length)
 {
   FunctionBuilder builder;
   builder.add_input("String", TYPE_string);

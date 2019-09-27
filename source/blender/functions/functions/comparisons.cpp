@@ -19,7 +19,7 @@ template<typename T> class LessThan : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_less_than_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_less_than_float)
 {
   FunctionBuilder builder;
   builder.add_input("A", TYPE_float);
@@ -31,7 +31,7 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_less_than_float)
   return fn;
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_less_than_int32)
+BLI_LAZY_INIT_REF(Function, GET_FN_less_than_int32)
 {
   FunctionBuilder builder;
   builder.add_input("A", TYPE_int32);

@@ -8,6 +8,6 @@ class LLVMContext;
 
 namespace FN {
 
-void derive_LLVMBuildIRBody_from_TupleCallBody(SharedFunction &fn);
+void derive_LLVMBuildIRBody_from_TupleCallBody(Function &fn);
 
 } /* namespace FN */

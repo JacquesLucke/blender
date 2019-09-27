@@ -10,16 +10,16 @@ using BLI::VectorAdaptor;
 static void try_ensure_tuple_call_bodies(DataGraph &graph)
 {
   for (uint node_id : graph.node_ids()) {
-    SharedFunction &fn = graph.function_of_node(node_id);
-    if (fn->has_body<TupleCallBody>()) {
+    Function &fn = graph.function_of_node(node_id);
+    if (fn.has_body<TupleCallBody>()) {
       continue;
     }
 
-    if (fn->has_body<LazyInTupleCallBody>()) {
+    if (fn.has_body<LazyInTupleCallBody>()) {
       derive_TupleCallBody_from_LazyInTupleCallBody(fn);
     }
 
-    if (fn->has_body<LLVMBuildIRBody>()) {
+    if (fn.has_body<LLVMBuildIRBody>()) {
       derive_TupleCallBody_from_LLVMBuildIRBody(fn);
     }
   }
@@ -67,34 +67,34 @@ class ExecuteFGraph : public TupleCallBody {
   ExecuteFGraph(FunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph())
   {
     for (uint node_id : m_graph.node_ids()) {
-      SharedFunction &fn = m_graph.function_of_node(node_id);
+      Function &fn = m_graph.function_of_node(node_id);
 
       TupleCallBodyBase *body = nullptr;
       bool is_lazy_body = false;
-      if (fn->has_body<LazyInTupleCallBody>()) {
-        body = &fn->body<LazyInTupleCallBody>();
+      if (fn.has_body<LazyInTupleCallBody>()) {
+        body = &fn.body<LazyInTupleCallBody>();
         is_lazy_body = true;
       }
-      else if (fn->has_body<TupleCallBody>()) {
-        body = &fn->body<TupleCallBody>();
+      else if (fn.has_body<TupleCallBody>()) {
+        body = &fn.body<TupleCallBody>();
         is_lazy_body = false;
       }
 
       m_node_info.append(
           NodeInfo(body, is_lazy_body, m_inputs_buffer_size, m_outputs_buffer_size));
 
-      m_inputs_init_buffer_size += fn->input_amount();
-      m_outputs_init_buffer_size += fn->output_amount();
+      m_inputs_init_buffer_size += fn.input_amount();
+      m_outputs_init_buffer_size += fn.output_amount();
 
       if (body == nullptr) {
-        for (auto type : fn->input_types()) {
+        for (auto type : fn.input_types()) {
           CPPTypeInfo &type_info = type->extension<CPPTypeInfo>();
           uint type_size = type_info.size();
           m_input_info.append(SocketInfo(type_info, m_inputs_buffer_size, false));
           m_inputs_buffer_size += type_size;
         }
 
-        for (auto type : fn->output_types()) {
+        for (auto type : fn.output_types()) {
           CPPTypeInfo &type_info = type->extension<CPPTypeInfo>();
           uint type_size = type_info.size();
           m_output_info.append(SocketInfo(type_info, m_outputs_buffer_size, false));
@@ -103,14 +103,14 @@ class ExecuteFGraph : public TupleCallBody {
       }
       else {
         TupleMeta &meta_in = body->meta_in();
-        for (uint i = 0; i < fn->input_amount(); i++) {
+        for (uint i = 0; i < fn.input_amount(); i++) {
           m_input_info.append(SocketInfo(
               *meta_in.type_infos()[i], m_inputs_buffer_size + meta_in.offsets()[i], false));
         }
         m_inputs_buffer_size += meta_in.size_of_data();
 
         TupleMeta &meta_out = body->meta_out();
-        for (uint i = 0; i < fn->output_amount(); i++) {
+        for (uint i = 0; i < fn.output_amount(); i++) {
           m_output_info.append(SocketInfo(
               *meta_out.type_infos()[i], m_outputs_buffer_size + meta_out.offsets()[i], false));
         }
@@ -584,8 +584,8 @@ class ExecuteFGraph_Simple : public TupleCallBody {
     }
     else {
       uint node_id = m_graph.node_id_of_output(socket);
-      SharedFunction &fn = m_graph.function_of_node(node_id);
-      TupleCallBody &body = fn->body<TupleCallBody>();
+      Function &fn = m_graph.function_of_node(node_id);
+      TupleCallBody &body = fn.body<TupleCallBody>();
 
       FN_TUPLE_CALL_ALLOC_TUPLES(body, tmp_in, tmp_out);
 
@@ -603,10 +603,10 @@ class ExecuteFGraph_Simple : public TupleCallBody {
   }
 };
 
-void fgraph_add_TupleCallBody(SharedFunction &fn, FunctionGraph &fgraph)
+void fgraph_add_TupleCallBody(Function &fn, FunctionGraph &fgraph)
 {
   try_ensure_tuple_call_bodies(fgraph.graph());
-  fn->add_body<ExecuteFGraph>(fgraph);
+  fn.add_body<ExecuteFGraph>(fgraph);
 }
 
 } /* namespace FN */

@@ -157,15 +157,15 @@ template<typename SequenceT> class DataSocketSequence {
 class DataGraph {
  public:
   struct Node {
-    SharedFunction function;
+    Function &function;
     SourceInfo *source_info;
     /* Index into m_origins. */
     uint inputs_start;
     /* Index into m_targets_info. */
     uint outputs_start;
 
-    Node(SharedFunction fn, SourceInfo *source_info, uint inputs_start, uint outputs_start)
-        : function(std::move(fn)),
+    Node(Function &fn, SourceInfo *source_info, uint inputs_start, uint outputs_start)
+        : function(fn),
           source_info(source_info),
           inputs_start(inputs_start),
           outputs_start(outputs_start)
@@ -221,19 +221,19 @@ class DataGraph {
     return IndexRange(m_nodes.size());
   }
 
-  SharedFunction &function_of_node(uint node_id) const
+  Function &function_of_node(uint node_id) const
   {
     /* A function is mostly immutable anyway. */
-    const SharedFunction &fn = m_nodes[node_id].function;
-    return const_cast<SharedFunction &>(fn);
+    const Function &fn = m_nodes[node_id].function;
+    return const_cast<Function &>(fn);
   }
 
-  SharedFunction &function_of_input(uint input_id) const
+  Function &function_of_input(uint input_id) const
   {
     return this->function_of_node(m_inputs[input_id].node);
   }
 
-  SharedFunction &function_of_output(uint output_id) const
+  Function &function_of_output(uint output_id) const
   {
     return this->function_of_node(m_outputs[output_id].node);
   }
@@ -263,7 +263,7 @@ class DataGraph {
   IndexRange input_ids_of_node(uint node_id) const
   {
     const Node &node = m_nodes[node_id];
-    return IndexRange(node.inputs_start, node.function->input_amount());
+    return IndexRange(node.inputs_start, node.function.input_amount());
   }
 
   DataSocketSequence<IndexRange> inputs_of_node(uint node_id) const
@@ -274,7 +274,7 @@ class DataGraph {
   IndexRange output_ids_of_node(uint node_id) const
   {
     const Node &node = m_nodes[node_id];
-    return IndexRange(node.outputs_start, node.function->output_amount());
+    return IndexRange(node.outputs_start, node.function.output_amount());
   }
 
   DataSocketSequence<IndexRange> outputs_of_node(uint node_id) const
@@ -299,7 +299,7 @@ class DataGraph {
 
   const char *name_ptr_of_node(uint node_id) const
   {
-    return m_nodes[node_id].function->name().data();
+    return m_nodes[node_id].function.name().data();
   }
 
   uint origin_of_input(uint input_id) const
@@ -411,22 +411,22 @@ class DataGraph {
 
   StringRefNull name_of_input(uint input_id) const
   {
-    return this->function_of_input(input_id)->input_name(this->index_of_input(input_id));
+    return this->function_of_input(input_id).input_name(this->index_of_input(input_id));
   }
 
   StringRefNull name_of_output(uint output_id) const
   {
-    return this->function_of_output(output_id)->output_name(this->index_of_output(output_id));
+    return this->function_of_output(output_id).output_name(this->index_of_output(output_id));
   }
 
   Type *type_of_input(uint input_id) const
   {
-    return this->function_of_input(input_id)->input_type(this->index_of_input(input_id));
+    return this->function_of_input(input_id).input_type(this->index_of_input(input_id));
   }
 
   Type *type_of_output(uint output_id) const
   {
-    return this->function_of_output(output_id)->output_type(this->index_of_output(output_id));
+    return this->function_of_output(output_id).output_type(this->index_of_output(output_id));
   }
 
   Type *type_of_input(DataSocket input_socket) const

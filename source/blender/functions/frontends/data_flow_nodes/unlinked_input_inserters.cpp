@@ -86,11 +86,12 @@ void DynamicSocketLoader::insert(VTreeDataGraphBuilder &builder,
     btrees.append(vsocket->btree());
   }
 
-  auto fn = fn_builder.build("Input Sockets");
+  std::unique_ptr<Function> fn = fn_builder.build("Input Sockets");
   fn->add_body<SocketLoaderBody>(btrees, bsockets, loaders);
   fn->add_body<SocketLoaderDependencies>(btrees, bsockets);
 
-  BuilderNode *node = builder.insert_function(fn);
+  BuilderNode *node = builder.insert_function(*fn);
+  builder.add_resource(std::move(fn), "Owned dynamic socket loader function");
   r_new_origins.copy_from(node->outputs());
 }
 
@@ -165,7 +166,7 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
     fn_builder.add_output(vsocket->name(), type);
   }
 
-  SharedFunction fn = fn_builder.build("Unlinked Inputs");
+  std::unique_ptr<Function> fn = fn_builder.build("Unlinked Inputs");
 
   std::unique_ptr<TupleMeta> inputs_meta = make_unique<TupleMeta>(fn->output_types());
 
@@ -184,11 +185,13 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
   tuple_call_body.set_tuple(inputs_tuple.get());
   build_ir_body.set_tuple(inputs_tuple.get());
 
+  BuilderNode *node = builder.insert_function(*fn);
+
   builder.add_resource(std::move(inputs_meta), "Meta information for tuple");
   builder.add_resource(std::move(inputs_tuple_data_init), "Buffer for tuple");
   builder.add_resource(std::move(inputs_tuple), "Tuple containing function inputs");
+  builder.add_resource(std::move(fn), "Owned constant input function");
 
-  BuilderNode *node = builder.insert_function(fn);
   r_new_origins.copy_from(node->outputs());
 }
 

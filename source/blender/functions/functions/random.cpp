@@ -36,7 +36,7 @@ class RandomNumber : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_random_number)
+BLI_LAZY_INIT_REF(Function, GET_FN_random_number)
 {
   FunctionBuilder builder;
   builder.add_input("Seed", TYPE_float);

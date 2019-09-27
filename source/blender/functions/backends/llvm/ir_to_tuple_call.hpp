@@ -4,6 +4,6 @@
 
 namespace FN {
 
-void derive_TupleCallBody_from_LLVMBuildIRBody(SharedFunction &fn);
+void derive_TupleCallBody_from_LLVMBuildIRBody(Function &fn);
 
 } /* namespace FN */

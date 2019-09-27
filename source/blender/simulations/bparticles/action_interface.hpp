@@ -13,7 +13,7 @@ namespace BParticles {
 using BLI::TemporaryArray;
 using BLI::TemporaryVector;
 using FN::ExecutionContext;
-using FN::SharedFunction;
+using FN::Function;
 using FN::Tuple;
 using FN::TupleCallBody;
 

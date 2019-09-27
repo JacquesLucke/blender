@@ -29,12 +29,12 @@ class MakeEagerBody : public TupleCallBody {
   }
 };
 
-void derive_TupleCallBody_from_LazyInTupleCallBody(SharedFunction &fn)
+void derive_TupleCallBody_from_LazyInTupleCallBody(Function &fn)
 {
-  BLI_assert(fn->has_body<LazyInTupleCallBody>());
-  BLI_assert(!fn->has_body<TupleCallBody>());
+  BLI_assert(fn.has_body<LazyInTupleCallBody>());
+  BLI_assert(!fn.has_body<TupleCallBody>());
 
-  fn->add_body<MakeEagerBody>(fn->body<LazyInTupleCallBody>());
+  fn.add_body<MakeEagerBody>(fn.body<LazyInTupleCallBody>());
 }
 
 } /* namespace FN */

@@ -9,8 +9,8 @@ ParticleFunctionInputProvider::~ParticleFunctionInputProvider()
 {
 }
 
-ParticleFunction::ParticleFunction(SharedFunction fn_no_deps,
-                                   SharedFunction fn_with_deps,
+ParticleFunction::ParticleFunction(std::unique_ptr<Function> fn_no_deps,
+                                   std::unique_ptr<Function> fn_with_deps,
                                    Vector<ParticleFunctionInputProvider *> input_providers,
                                    Vector<bool> parameter_depends_on_particle)
     : m_fn_no_deps(std::move(fn_no_deps)),
@@ -37,7 +37,7 @@ ParticleFunction::ParticleFunction(SharedFunction fn_no_deps,
 
   if (m_fn_with_deps->output_amount() > 0) {
     // m_array_execution = FN::Functions::get_precompiled_array_execution(m_fn_with_deps);
-    m_array_execution = FN::Functions::get_tuple_call_array_execution(m_fn_with_deps);
+    m_array_execution = FN::Functions::get_tuple_call_array_execution(*m_fn_with_deps);
   }
 }
 
@@ -95,8 +95,8 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
   result->m_buffers.append_n_times(nullptr, parameter_amount);
   result->m_only_first.append_n_times(false, parameter_amount);
   result->m_strides.append_n_times(0, parameter_amount);
-  result->m_fn_no_deps = m_fn_no_deps.ptr();
-  result->m_fn_with_deps = m_fn_with_deps.ptr();
+  result->m_fn_no_deps = m_fn_no_deps.get();
+  result->m_fn_with_deps = m_fn_with_deps.get();
   result->m_output_indices = m_output_indices;
   result->m_pindices = pindices;
 

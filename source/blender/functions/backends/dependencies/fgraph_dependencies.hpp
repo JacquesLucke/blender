@@ -5,6 +5,6 @@
 
 namespace FN {
 
-void fgraph_add_DependenciesBody(SharedFunction &fn, FunctionGraph &fgraph);
+void fgraph_add_DependenciesBody(Function &fn, FunctionGraph &fgraph);
 
 } /* namespace FN */

@@ -42,9 +42,9 @@ Vector<VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(ArrayRef<D
     }
     else {
       uint node_id = m_graph->node_id_of_output(socket);
-      SharedFunction &fn = m_graph->function_of_node(node_id);
-      if (fn->has_body<VNodePlaceholderBody>()) {
-        auto &body = fn->body<VNodePlaceholderBody>();
+      Function &fn = m_graph->function_of_node(node_id);
+      if (fn.has_body<VNodePlaceholderBody>()) {
+        auto &body = fn.body<VNodePlaceholderBody>();
         VirtualNode *vnode = body.vnode();
         uint data_output_index = m_graph->index_of_output(socket);
         VirtualSocket *vsocket = this->find_data_output(vnode, data_output_index);

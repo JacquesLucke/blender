@@ -2,7 +2,7 @@
 
 namespace FN {
 
-SharedFunction FunctionGraph::new_function(StringRef name) const
+std::unique_ptr<Function> FunctionGraph::new_function(StringRef name) const
 {
   FunctionBuilder builder;
   builder.add_inputs(*m_graph, m_inputs);

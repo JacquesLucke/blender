@@ -8,7 +8,7 @@
 
 namespace BParticles {
 
-using FN::SharedFunction;
+using FN::Function;
 using FN::TupleCallBody;
 
 class SurfaceEmitter : public Emitter {

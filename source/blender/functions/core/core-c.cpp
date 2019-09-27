@@ -4,7 +4,7 @@ using namespace FN;
 
 void FN_function_free(FnFunction fn_c)
 {
-  unwrap(fn_c)->decref();
+  delete unwrap(fn_c);
 }
 
 bool FN_function_has_signature(FnFunction fn_c, FnType *inputs_c, FnType *outputs_c)

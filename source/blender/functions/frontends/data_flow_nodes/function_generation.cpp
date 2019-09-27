@@ -32,7 +32,7 @@ static void find_interface_sockets(VirtualNodeTree &vtree,
   }
 }
 
-Optional<SharedFunction> generate_function(bNodeTree *btree)
+Optional<std::unique_ptr<Function>> generate_function(bNodeTree *btree)
 {
   auto vtree = make_unique<VirtualNodeTree>();
   vtree->add_all_of_tree(btree);
@@ -53,11 +53,11 @@ Optional<SharedFunction> generate_function(bNodeTree *btree)
 
   // fgraph.graph().to_dot__clipboard();
 
-  auto fn = fgraph.new_function(btree->id.name);
-  fgraph_add_DependenciesBody(fn, fgraph);
-  fgraph_add_LLVMBuildIRBody(fn, fgraph);
+  std::unique_ptr<Function> fn = fgraph.new_function(btree->id.name);
+  fgraph_add_DependenciesBody(*fn, fgraph);
+  fgraph_add_LLVMBuildIRBody(*fn, fgraph);
 
-  fgraph_add_TupleCallBody(fn, fgraph);
+  fgraph_add_TupleCallBody(*fn, fgraph);
   // derive_TupleCallBody_from_LLVMBuildIRBody(fn);
 
   fn->add_resource(std::move(vtree), "Virtual Node Tree");

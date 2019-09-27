@@ -15,9 +15,9 @@ using BLI::float2;
 using BLI::rgba_b;
 using FN::DataGraph;
 using FN::DataSocket;
+using FN::Function;
 using FN::FunctionBuilder;
 using FN::FunctionGraph;
-using FN::SharedFunction;
 using FN::Type;
 using FN::Types::StringW;
 
@@ -114,8 +114,8 @@ static ParticleFunctionInputProvider *INPUT_surface_image(VTreeDataGraph &vtree_
     FunctionGraph fgraph(vtree_data_graph.graph(),
                          {},
                          {vtree_data_graph.lookup_socket(vsocket->vnode()->input(0))});
-    FN::SharedFunction fn = fgraph.new_function(vsocket->vnode()->name());
-    FN::fgraph_add_TupleCallBody(fn, fgraph);
+    std::unique_ptr<Function> fn = fgraph.new_function(vsocket->vnode()->name());
+    FN::fgraph_add_TupleCallBody(*fn, fgraph);
 
     FN::TupleCallBody &body = fn->body<TupleCallBody>();
     FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
@@ -147,8 +147,8 @@ static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeDataGraph &vtree_da
 {
   FunctionGraph fgraph(
       vtree_data_graph.graph(), {}, {vtree_data_graph.lookup_socket(vsocket->vnode()->input(0))});
-  FN::SharedFunction fn = fgraph.new_function(vsocket->vnode()->name());
-  FN::fgraph_add_TupleCallBody(fn, fgraph);
+  std::unique_ptr<Function> fn = fgraph.new_function(vsocket->vnode()->name());
+  FN::fgraph_add_TupleCallBody(*fn, fgraph);
 
   FN::TupleCallBody &body = fn->body<TupleCallBody>();
   FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
@@ -182,7 +182,7 @@ static ParticleFunctionInputProvider *create_input_provider(VTreeDataGraph &vtre
   return provider;
 }
 
-static SharedFunction create_function__with_deps(
+static std::unique_ptr<Function> create_function__with_deps(
     VTreeDataGraph &data_graph,
     StringRef function_name,
     ArrayRef<DataSocket> sockets_to_compute,
@@ -202,22 +202,21 @@ static SharedFunction create_function__with_deps(
     r_input_providers[i] = create_input_provider(data_graph, input_vsockets[i]);
   }
 
-  SharedFunction fn = fn_builder.build(function_name);
+  std::unique_ptr<Function> fn = fn_builder.build(function_name);
   FunctionGraph fgraph(data_graph.graph(), input_sockets, sockets_to_compute);
-  FN::fgraph_add_TupleCallBody(fn, fgraph);
-  FN::fgraph_add_LLVMBuildIRBody(fn, fgraph);
+  FN::fgraph_add_TupleCallBody(*fn, fgraph);
+  FN::fgraph_add_LLVMBuildIRBody(*fn, fgraph);
   return fn;
 }
 
-static SharedFunction create_function__without_deps(DataGraph &graph,
-                                                    StringRef function_name,
-                                                    ArrayRef<DataSocket> sockets_to_compute)
+static std::unique_ptr<Function> create_function__without_deps(
+    DataGraph &graph, StringRef function_name, ArrayRef<DataSocket> sockets_to_compute)
 {
   FunctionBuilder fn_builder;
   fn_builder.add_outputs(graph, sockets_to_compute);
-  SharedFunction fn = fn_builder.build(function_name);
+  std::unique_ptr<Function> fn = fn_builder.build(function_name);
   FunctionGraph fgraph(graph, {}, sockets_to_compute);
-  FN::fgraph_add_TupleCallBody(fn, fgraph);
+  FN::fgraph_add_TupleCallBody(*fn, fgraph);
   return fn;
 }
 
@@ -241,13 +240,15 @@ static Optional<std::unique_ptr<ParticleFunction>> create_particle_function_from
 
   Vector<ParticleFunctionInputProvider *> input_providers(dependencies.size(), nullptr);
 
-  SharedFunction fn_without_deps = create_function__without_deps(
+  std::unique_ptr<Function> fn_without_deps = create_function__without_deps(
       data_graph.graph(), name, sockets_without_deps);
-  SharedFunction fn_with_deps = create_function__with_deps(
+  std::unique_ptr<Function> fn_with_deps = create_function__with_deps(
       data_graph, name, sockets_with_deps, dependencies, input_providers);
 
-  return make_unique<ParticleFunction>(
-      fn_without_deps, fn_with_deps, input_providers, depends_on_particle_flags);
+  return make_unique<ParticleFunction>(std::move(fn_without_deps),
+                                       std::move(fn_with_deps),
+                                       input_providers,
+                                       depends_on_particle_flags);
 }
 
 Optional<std::unique_ptr<ParticleFunction>> create_particle_function(VirtualNode *vnode,

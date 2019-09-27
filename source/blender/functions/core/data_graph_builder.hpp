@@ -66,7 +66,7 @@ class BuilderOutputSocket : public BuilderSocket {
 class BuilderNode {
  private:
   DataGraphBuilder *m_builder;
-  SharedFunction m_function;
+  Function *m_function;
   SourceInfo *m_source_info;
   uint m_id;
 
@@ -82,9 +82,9 @@ class BuilderNode {
     return *m_builder;
   }
 
-  SharedFunction &function()
+  Function &function()
   {
-    return m_function;
+    return *m_function;
   }
 
   uint id()
@@ -155,7 +155,7 @@ class DataGraphBuilder {
 
   std::unique_ptr<DataGraph> build();
 
-  BuilderNode *insert_function(SharedFunction function, SourceInfo *source_info = nullptr);
+  BuilderNode *insert_function(Function &function, SourceInfo *source_info = nullptr);
   void insert_link(BuilderOutputSocket *from, BuilderInputSocket *to);
 
   template<typename T> void add_resource(std::unique_ptr<T> resource, const char *name)
@@ -213,12 +213,12 @@ inline BuilderOutputSocket *BuilderInputSocket::origin()
 
 inline StringRef BuilderInputSocket::name()
 {
-  return m_node->function()->input_name(this->index());
+  return m_node->function().input_name(this->index());
 }
 
 inline Type *BuilderInputSocket::type()
 {
-  return m_node->function()->input_type(this->index());
+  return m_node->function().input_type(this->index());
 }
 
 inline uint BuilderOutputSocket::output_id()
@@ -233,12 +233,12 @@ inline ArrayRef<BuilderInputSocket *> BuilderOutputSocket::targets()
 
 inline StringRef BuilderOutputSocket::name()
 {
-  return m_node->function()->output_name(this->index());
+  return m_node->function().output_name(this->index());
 }
 
 inline Type *BuilderOutputSocket::type()
 {
-  return m_node->function()->output_type(this->index());
+  return m_node->function().output_type(this->index());
 }
 
 }  // namespace FN

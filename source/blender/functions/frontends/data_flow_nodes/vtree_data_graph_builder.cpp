@@ -107,20 +107,19 @@ class NodeSource : public SourceInfo {
   }
 };
 
-BuilderNode *VTreeDataGraphBuilder::insert_function(SharedFunction &fn)
+BuilderNode *VTreeDataGraphBuilder::insert_function(Function &fn)
 {
   return m_graph_builder.insert_function(fn);
 }
 
-BuilderNode *VTreeDataGraphBuilder::insert_matching_function(SharedFunction &fn,
-                                                             VirtualNode *vnode)
+BuilderNode *VTreeDataGraphBuilder::insert_matching_function(Function &fn, VirtualNode *vnode)
 {
   BuilderNode *node = this->insert_function(fn, vnode);
   this->map_sockets(node, vnode);
   return node;
 }
 
-BuilderNode *VTreeDataGraphBuilder::insert_function(SharedFunction &fn, VirtualNode *vnode)
+BuilderNode *VTreeDataGraphBuilder::insert_function(Function &fn, VirtualNode *vnode)
 {
   BLI_assert(vnode != nullptr);
   NodeSource *source = m_graph_builder.new_source_info<NodeSource>(vnode->btree(), vnode->bnode());
@@ -147,9 +146,11 @@ BuilderNode *VTreeDataGraphBuilder::insert_placeholder(VirtualNode *vnode)
     }
   }
 
-  auto fn = fn_builder.build(vnode->name());
+  std::unique_ptr<Function> fn = fn_builder.build(vnode->name());
   fn->add_body<VNodePlaceholderBody>(vnode, std::move(vsocket_inputs));
-  BuilderNode *node = this->insert_function(fn);
+  BuilderNode *node = this->insert_function(*fn);
+  this->add_resource(std::move(fn), "placeholder function");
+
   this->map_data_sockets(node, vnode);
   m_placeholder_nodes.append(node);
   return node;

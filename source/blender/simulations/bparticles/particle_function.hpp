@@ -18,7 +18,7 @@ using BLI::Vector;
 using FN::CPPTypeInfo;
 using FN::ExecutionContext;
 using FN::ExecutionStack;
-using FN::SharedFunction;
+using FN::Function;
 using FN::TupleCallBody;
 using FN::Type;
 
@@ -217,16 +217,16 @@ class ParticleFunctionInputProvider {
 
 class ParticleFunction {
  private:
-  SharedFunction m_fn_no_deps;
-  SharedFunction m_fn_with_deps;
+  std::unique_ptr<Function> m_fn_no_deps;
+  std::unique_ptr<Function> m_fn_with_deps;
   Vector<ParticleFunctionInputProvider *> m_input_providers;
   Vector<bool> m_parameter_depends_on_particle;
   Vector<uint> m_output_indices;
   std::unique_ptr<FN::Functions::ArrayExecution> m_array_execution;
 
  public:
-  ParticleFunction(SharedFunction fn_no_deps,
-                   SharedFunction fn_with_deps,
+  ParticleFunction(std::unique_ptr<Function> fn_no_deps,
+                   std::unique_ptr<Function> fn_with_deps,
                    Vector<ParticleFunctionInputProvider *> input_providers,
                    Vector<bool> parameter_depends_on_particle);
 

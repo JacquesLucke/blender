@@ -40,7 +40,7 @@ void FunctionBuilder::add_outputs(const DataGraph &data_graph, ArrayRef<DataSock
   }
 }
 
-SharedFunction FunctionBuilder::build(StringRef function_name)
+std::unique_ptr<Function> FunctionBuilder::build(StringRef function_name)
 {
   auto name_ref = m_strings_builder.add(function_name);
   char *strings = m_strings_builder.build();
@@ -57,12 +57,12 @@ SharedFunction FunctionBuilder::build(StringRef function_name)
     output_names.append(name.to_string_ref(strings));
   }
 
-  return SharedFunction::New(name_ref.to_string_ref(strings),
-                             input_names,
-                             m_input_types,
-                             output_names,
-                             m_output_types,
-                             strings);
+  return make_unique<Function>(name_ref.to_string_ref(strings),
+                               input_names,
+                               m_input_types,
+                               output_names,
+                               m_output_types,
+                               strings);
 }
 
 }  // namespace FN

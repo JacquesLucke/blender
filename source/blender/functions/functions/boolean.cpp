@@ -10,7 +10,7 @@ namespace Functions {
 
 using namespace Types;
 
-static SharedFunction get_boolean_function__one_input(StringRef name)
+static std::unique_ptr<Function> get_boolean_function__one_input(StringRef name)
 {
   FunctionBuilder builder;
   builder.add_input("Value", TYPE_bool);
@@ -18,7 +18,7 @@ static SharedFunction get_boolean_function__one_input(StringRef name)
   return builder.build(name);
 }
 
-static SharedFunction get_boolean_function__two_inputs(StringRef name)
+static std::unique_ptr<Function> get_boolean_function__two_inputs(StringRef name)
 {
   FunctionBuilder builder;
   builder.add_input("A", TYPE_bool);
@@ -37,7 +37,7 @@ class AndBoolean : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_and)
+BLI_LAZY_INIT_REF(Function, GET_FN_and)
 {
   auto fn = get_boolean_function__two_inputs("And");
   fn->add_body<AndBoolean>();
@@ -54,7 +54,7 @@ class OrBoolean : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_or)
+BLI_LAZY_INIT_REF(Function, GET_FN_or)
 {
   auto fn = get_boolean_function__two_inputs("Or");
   fn->add_body<OrBoolean>();
@@ -70,7 +70,7 @@ class NotBoolean : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_not)
+BLI_LAZY_INIT_REF(Function, GET_FN_not)
 {
   auto fn = get_boolean_function__one_input("Not");
   fn->add_body<NotBoolean>();

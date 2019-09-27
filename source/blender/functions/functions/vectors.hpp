@@ -5,17 +5,17 @@
 namespace FN {
 namespace Functions {
 
-SharedFunction &GET_FN_combine_vector();
-SharedFunction &GET_FN_separate_vector();
-SharedFunction &GET_FN_vector_distance();
-SharedFunction &GET_FN_add_vectors();
-SharedFunction &GET_FN_sub_vectors();
-SharedFunction &GET_FN_mul_vectors();
-SharedFunction &GET_FN_div_vectors();
-SharedFunction &GET_FN_cross_vectors();
-SharedFunction &GET_FN_reflect_vector();
-SharedFunction &GET_FN_project_vector();
-SharedFunction &GET_FN_dot_product();
+Function &GET_FN_combine_vector();
+Function &GET_FN_separate_vector();
+Function &GET_FN_vector_distance();
+Function &GET_FN_add_vectors();
+Function &GET_FN_sub_vectors();
+Function &GET_FN_mul_vectors();
+Function &GET_FN_div_vectors();
+Function &GET_FN_cross_vectors();
+Function &GET_FN_reflect_vector();
+Function &GET_FN_project_vector();
+Function &GET_FN_dot_product();
 
 }  // namespace Functions
 }  // namespace FN

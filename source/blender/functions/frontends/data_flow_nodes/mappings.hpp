@@ -23,7 +23,7 @@ typedef std::function<void(
     VTreeDataGraphBuilder &builder, BuilderOutputSocket *from, BuilderInputSocket *to)>
     ConversionInserter;
 
-typedef std::function<SharedFunction()> FunctionGetter;
+typedef std::function<Function &()> FunctionGetter;
 
 class TypeMappings {
  private:

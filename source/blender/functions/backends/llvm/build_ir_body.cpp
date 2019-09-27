@@ -7,11 +7,11 @@ llvm::Function *LLVMBuildIRBody::build_function(llvm::Module *module,
                                                 BuildIRSettings &settings,
                                                 FunctionIRCache &function_cache)
 {
-  Function *owner_fn = this->owner();
+  Function &owner_fn = this->owner();
   llvm::LLVMContext &context = module->getContext();
 
-  uint input_amount = owner_fn->input_amount();
-  uint output_amount = owner_fn->output_amount();
+  uint input_amount = owner_fn.input_amount();
+  uint output_amount = owner_fn.output_amount();
 
   Vector<LLVMTypeInfo *> input_type_infos(input_amount);
   Vector<LLVMTypeInfo *> output_type_infos(output_amount);
@@ -19,13 +19,13 @@ llvm::Function *LLVMBuildIRBody::build_function(llvm::Module *module,
   Vector<llvm::Type *> output_types(output_amount);
 
   for (uint i = 0; i < input_amount; i++) {
-    LLVMTypeInfo &type_info = owner_fn->input_type(i)->extension<LLVMTypeInfo>();
+    LLVMTypeInfo &type_info = owner_fn.input_type(i)->extension<LLVMTypeInfo>();
     input_type_infos[i] = &type_info;
     input_types[i] = type_info.get_type(context);
   }
 
   for (uint i = 0; i < output_amount; i++) {
-    LLVMTypeInfo &type_info = owner_fn->output_type(i)->extension<LLVMTypeInfo>();
+    LLVMTypeInfo &type_info = owner_fn.output_type(i)->extension<LLVMTypeInfo>();
     output_type_infos[i] = &type_info;
     output_types[i] = type_info.get_type(context);
   }
@@ -42,7 +42,7 @@ llvm::Function *LLVMBuildIRBody::build_function(llvm::Module *module,
 
   Vector<llvm::Value *> input_values(input_amount);
   for (uint i = 0; i < input_amount; i++) {
-    input_values[i] = builder.take_function_input(i, owner_fn->input_name(i));
+    input_values[i] = builder.take_function_input(i, owner_fn.input_name(i));
   }
   llvm::Value *context_ptr = builder.take_function_input(input_amount, "context_ptr");
   Vector<llvm::Value *> output_values(output_amount);

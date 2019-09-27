@@ -32,11 +32,11 @@ class FGraphDependencies : public DepsBody {
     }
     else {
       uint node_id = m_graph.node_id_of_output(socket);
-      SharedFunction &fn = m_graph.function_of_node(node_id);
-      if (fn->has_body<DepsBody>()) {
+      Function &fn = m_graph.function_of_node(node_id);
+      if (fn.has_body<DepsBody>()) {
         MultiMap<uint, ID *> input_ids;
 
-        for (uint i = 0; i < fn->input_amount(); i++) {
+        for (uint i = 0; i < fn.input_amount(); i++) {
           input_ids.add_multiple_new(
               i,
               this->find_deps_and_outputs(m_graph.socket_of_node_input(node_id, i),
@@ -45,7 +45,7 @@ class FGraphDependencies : public DepsBody {
 
         MultiMap<uint, ID *> output_ids;
         FunctionDepsBuilder builder(input_ids, output_ids, parent_builder.dependency_components());
-        DepsBody &body = fn->body<DepsBody>();
+        DepsBody &body = fn.body<DepsBody>();
         body.build_deps(builder);
         return output_ids.lookup_default(m_graph.index_of_output(socket));
       }
@@ -59,9 +59,9 @@ class FGraphDependencies : public DepsBody {
   }
 };
 
-void fgraph_add_DependenciesBody(SharedFunction &fn, FunctionGraph &fgraph)
+void fgraph_add_DependenciesBody(Function &fn, FunctionGraph &fgraph)
 {
-  fn->add_body<FGraphDependencies>(fgraph);
+  fn.add_body<FGraphDependencies>(fgraph);
 }
 
 }  // namespace FN

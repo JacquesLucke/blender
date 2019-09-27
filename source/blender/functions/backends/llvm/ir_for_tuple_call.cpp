@@ -60,11 +60,11 @@ class TupleCallLLVM : public LLVMBuildIRBody {
                 CodeInterface &interface,
                 const BuildIRSettings &settings) const override
   {
-    Function *fn = m_tuple_call.owner();
+    Function &fn = m_tuple_call.owner();
 
     /* Find relevant type information. */
-    auto input_type_infos = fn->input_extensions<LLVMTypeInfo>();
-    auto output_type_infos = fn->output_extensions<LLVMTypeInfo>();
+    auto input_type_infos = fn.input_extensions<LLVMTypeInfo>();
+    auto output_type_infos = fn.output_extensions<LLVMTypeInfo>();
 
     /* Build wrapper function. */
     llvm::Function *wrapper_function = this->get_wrapper_function(
@@ -91,7 +91,7 @@ class TupleCallLLVM : public LLVMBuildIRBody {
                                        ArrayRef<LLVMTypeInfo *> input_type_infos,
                                        ArrayRef<LLVMTypeInfo *> output_type_infos) const
   {
-    Function *fn = m_tuple_call.owner();
+    Function &fn = m_tuple_call.owner();
 
     Vector<llvm::Type *> input_types = builder.types_of_values(interface.inputs());
     if (settings.maintain_stack()) {
@@ -116,7 +116,7 @@ class TupleCallLLVM : public LLVMBuildIRBody {
 
       wrapper_function = llvm::Function::Create(wrapper_function_type,
                                                 llvm::GlobalValue::LinkageTypes::InternalLinkage,
-                                                fn->name() + " Wrapper",
+                                                fn.name() + " Wrapper",
                                                 builder.getModule());
 
       this->build_wrapper_function(
@@ -182,12 +182,12 @@ class TupleCallLLVM : public LLVMBuildIRBody {
   }
 };
 
-void derive_LLVMBuildIRBody_from_TupleCallBody(SharedFunction &fn)
+void derive_LLVMBuildIRBody_from_TupleCallBody(Function &fn)
 {
-  BLI_assert(fn->has_body<TupleCallBody>());
-  BLI_assert(!fn->has_body<LLVMBuildIRBody>());
+  BLI_assert(fn.has_body<TupleCallBody>());
+  BLI_assert(!fn.has_body<LLVMBuildIRBody>());
 
-  fn->add_body<TupleCallLLVM>(fn->body<TupleCallBody>());
+  fn.add_body<TupleCallLLVM>(fn.body<TupleCallBody>());
 }
 
 } /* namespace FN */

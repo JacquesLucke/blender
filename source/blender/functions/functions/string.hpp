@@ -5,6 +5,6 @@
 namespace FN {
 namespace Functions {
 
-SharedFunction &GET_FN_string_length();
+Function &GET_FN_string_length();
 }
 }  // namespace FN

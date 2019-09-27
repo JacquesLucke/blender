@@ -5,6 +5,6 @@
 namespace FN {
 namespace Functions {
 
-SharedFunction &GET_FN_random_number();
+Function &GET_FN_random_number();
 }
 }  // namespace FN

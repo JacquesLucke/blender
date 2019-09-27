@@ -12,7 +12,7 @@ namespace Functions {
 
 using namespace Types;
 
-static SharedFunction get_math_function__one_input(std::string name)
+static std::unique_ptr<Function> get_math_function__one_input(std::string name)
 {
   FunctionBuilder builder;
   builder.add_input("Value", TYPE_float);
@@ -20,7 +20,7 @@ static SharedFunction get_math_function__one_input(std::string name)
   return builder.build(name);
 }
 
-static SharedFunction get_math_function__two_inputs(std::string name)
+static std::unique_ptr<Function> get_math_function__two_inputs(std::string name)
 {
   FunctionBuilder builder;
   builder.add_input("A", TYPE_float);
@@ -48,7 +48,7 @@ class AddFloatsGen : public LLVMBuildIRBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_add_floats)
+BLI_LAZY_INIT_REF(Function, GET_FN_add_floats)
 {
   auto fn = get_math_function__two_inputs("Add Floats");
   fn->add_body<AddFloats>();
@@ -75,7 +75,7 @@ class SubFloatsGen : public LLVMBuildIRBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_sub_floats)
+BLI_LAZY_INIT_REF(Function, GET_FN_sub_floats)
 {
   auto fn = get_math_function__two_inputs("Sub Floats");
   fn->add_body<SubFloats>();
@@ -102,7 +102,7 @@ class MultiplyFloatsGen : public LLVMBuildIRBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_multiply_floats)
+BLI_LAZY_INIT_REF(Function, GET_FN_multiply_floats)
 {
   auto fn = get_math_function__two_inputs("Multiply Floats");
   fn->add_body<MultiplyFloats>();
@@ -126,7 +126,7 @@ class DivideFloats : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_divide_floats)
+BLI_LAZY_INIT_REF(Function, GET_FN_divide_floats)
 {
   auto fn = get_math_function__two_inputs("Divide Floats");
   fn->add_body<DivideFloats>();
@@ -147,7 +147,7 @@ class PowerFloats : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_power_floats)
+BLI_LAZY_INIT_REF(Function, GET_FN_power_floats)
 {
   auto fn = get_math_function__two_inputs("Power Floats");
   fn->add_body<PowerFloats>();
@@ -167,7 +167,7 @@ class LogarithmFloats : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_log_floats)
+BLI_LAZY_INIT_REF(Function, GET_FN_log_floats)
 {
   auto fn = get_math_function__two_inputs("Logarithm");
   fn->add_body<LogarithmFloats>();
@@ -182,7 +182,7 @@ class SqrtFloat : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_sqrt_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_sqrt_float)
 {
   auto fn = get_math_function__one_input("Square Root");
   fn->add_body<SqrtFloat>();
@@ -197,7 +197,7 @@ class AbsFloat : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_abs_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_abs_float)
 {
   auto fn = get_math_function__one_input("Absolute Float");
   fn->add_body<AbsFloat>();
@@ -213,7 +213,7 @@ class MinFloats : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_min_floats)
+BLI_LAZY_INIT_REF(Function, GET_FN_min_floats)
 {
   auto fn = get_math_function__two_inputs("Minimum");
   fn->add_body<MinFloats>();
@@ -229,7 +229,7 @@ class MaxFloats : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_max_floats)
+BLI_LAZY_INIT_REF(Function, GET_FN_max_floats)
 {
   auto fn = get_math_function__two_inputs("Maximum");
   fn->add_body<MaxFloats>();
@@ -254,7 +254,7 @@ class SinFloatGen : public LLVMBuildIRBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_sin_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_sin_float)
 {
   auto fn = get_math_function__one_input("Sin");
   fn->add_body<SinFloat>();
@@ -280,7 +280,7 @@ class CosFloatGen : public LLVMBuildIRBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_cos_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_cos_float)
 {
   auto fn = get_math_function__one_input("Cos");
   fn->add_body<CosFloat>();
@@ -300,7 +300,7 @@ class TanFloat : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_tan_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_tan_float)
 {
   auto fn = get_math_function__one_input("Tan");
   fn->add_body<TanFloat>();
@@ -315,7 +315,7 @@ class ArcsineFloat : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_asin_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_asin_float)
 {
   auto fn = get_math_function__one_input("Arcsine");
   fn->add_body<ArcsineFloat>();
@@ -330,7 +330,7 @@ class ArccosineFloat : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_acos_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_acos_float)
 {
   auto fn = get_math_function__one_input("Arccosine");
   fn->add_body<ArccosineFloat>();
@@ -345,7 +345,7 @@ class ArctangentFloat : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_atan_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_atan_float)
 {
   auto fn = get_math_function__one_input("Arctangent");
   fn->add_body<ArctangentFloat>();
@@ -361,7 +361,7 @@ class Arctangent2Floats : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_atan2_floats)
+BLI_LAZY_INIT_REF(Function, GET_FN_atan2_floats)
 {
   auto fn = get_math_function__two_inputs("Arctangent2");
   fn->add_body<Arctangent2Floats>();
@@ -381,7 +381,7 @@ class ModuloFloats : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_mod_floats)
+BLI_LAZY_INIT_REF(Function, GET_FN_mod_floats)
 {
   auto fn = get_math_function__two_inputs("Modulo Floats");
   fn->add_body<ModuloFloats>();
@@ -397,7 +397,7 @@ class FractFloat : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_fract_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_fract_float)
 {
   auto fn = get_math_function__one_input("Fract Float");
   fn->add_body<FractFloat>();
@@ -412,7 +412,7 @@ class CeilFloat : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_ceil_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_ceil_float)
 {
   auto fn = get_math_function__one_input("Ceil Float");
   fn->add_body<CeilFloat>();
@@ -427,7 +427,7 @@ class FloorFloat : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_floor_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_floor_float)
 {
   auto fn = get_math_function__one_input("Floor Float");
   fn->add_body<FloorFloat>();
@@ -442,7 +442,7 @@ class RoundFloat : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_round_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_round_float)
 {
   auto fn = get_math_function__one_input("Round Float");
   fn->add_body<RoundFloat>();
@@ -464,7 +464,7 @@ class SnapFloats : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_snap_floats)
+BLI_LAZY_INIT_REF(Function, GET_FN_snap_floats)
 {
   auto fn = get_math_function__two_inputs("Snap Floats");
   fn->add_body<SnapFloats>();
@@ -497,7 +497,7 @@ class MapRange : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_map_range)
+BLI_LAZY_INIT_REF(Function, GET_FN_map_range)
 {
   FunctionBuilder builder;
   builder.add_input("Value", TYPE_float);

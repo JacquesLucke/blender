@@ -11,12 +11,12 @@ ArrayExecution::~ArrayExecution()
 {
 }
 
-ArrayExecution::ArrayExecution(SharedFunction function) : m_function(std::move(function))
+ArrayExecution::ArrayExecution(Function &function) : m_function(function)
 {
-  for (Type *type : m_function->input_types()) {
+  for (Type *type : m_function.input_types()) {
     m_input_sizes.append(type->extension<CPPTypeInfo>().size());
   }
-  for (Type *type : m_function->output_types()) {
+  for (Type *type : m_function.output_types()) {
     m_output_sizes.append(type->extension<CPPTypeInfo>().size());
   }
 }
@@ -26,9 +26,9 @@ ArrayExecution::ArrayExecution(SharedFunction function) : m_function(std::move(f
 
 class TupleCallArrayExecution : public ArrayExecution {
  public:
-  TupleCallArrayExecution(SharedFunction function) : ArrayExecution(std::move(function))
+  TupleCallArrayExecution(Function &function) : ArrayExecution(function)
   {
-    BLI_assert(m_function->has_body<TupleCallBody>());
+    BLI_assert(m_function.has_body<TupleCallBody>());
   }
 
   void call(ArrayRef<uint> indices,
@@ -36,13 +36,13 @@ class TupleCallArrayExecution : public ArrayExecution {
             MutableArrayRef<void *> output_buffers,
             ExecutionContext &execution_context) override
   {
-    uint input_amount = m_function->input_amount();
-    uint output_amount = m_function->output_amount();
+    uint input_amount = m_function.input_amount();
+    uint output_amount = m_function.output_amount();
 
     BLI_assert(input_amount == input_buffers.size());
     BLI_assert(output_amount == output_buffers.size());
 
-    TupleCallBody &body = m_function->body<TupleCallBody>();
+    TupleCallBody &body = m_function.body<TupleCallBody>();
     FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
 
     for (uint index : indices) {
@@ -61,9 +61,9 @@ class TupleCallArrayExecution : public ArrayExecution {
   }
 };
 
-std::unique_ptr<ArrayExecution> get_tuple_call_array_execution(SharedFunction function)
+std::unique_ptr<ArrayExecution> get_tuple_call_array_execution(Function &function)
 {
-  return std::unique_ptr<ArrayExecution>(new TupleCallArrayExecution(std::move(function)));
+  return std::unique_ptr<ArrayExecution>(new TupleCallArrayExecution(function));
 }
 
 /* LLVM Array Execution
@@ -82,11 +82,11 @@ class LLVMArrayExecution : public ArrayExecution {
   std::unique_ptr<CompiledLLVM> m_compiled_function;
 
  public:
-  LLVMArrayExecution(SharedFunction function) : ArrayExecution(std::move(function))
+  LLVMArrayExecution(Function &function) : ArrayExecution(function)
   {
-    BLI_assert(m_function->has_body<LLVMBuildIRBody>());
-    m_input_type_infos = m_function->input_extensions<LLVMTypeInfo>();
-    m_output_type_infos = m_function->output_extensions<LLVMTypeInfo>();
+    BLI_assert(m_function.has_body<LLVMBuildIRBody>());
+    m_input_type_infos = m_function.input_extensions<LLVMTypeInfo>();
+    m_output_type_infos = m_function.output_extensions<LLVMTypeInfo>();
     this->compile();
   }
 
@@ -108,7 +108,7 @@ class LLVMArrayExecution : public ArrayExecution {
   void compile()
   {
     llvm::LLVMContext *context = aquire_llvm_context();
-    llvm::Module *module = new llvm::Module(m_function->name() + " (Array Execution)", *context);
+    llvm::Module *module = new llvm::Module(m_function.name() + " (Array Execution)", *context);
     llvm::Function *function = this->build_function_ir(module);
     m_compiled_function = CompiledLLVM::FromIR(module, function);
     release_llvm_context(context);
@@ -116,7 +116,7 @@ class LLVMArrayExecution : public ArrayExecution {
   llvm::Function *build_function_ir(llvm::Module *module)
   {
     llvm::LLVMContext &context = module->getContext();
-    LLVMBuildIRBody &body = m_function->body<LLVMBuildIRBody>();
+    LLVMBuildIRBody &body = m_function.body<LLVMBuildIRBody>();
 
     /* Create the main function. */
     llvm::FunctionType *ftype = llvm::TypeBuilder<CompiledFunctionSignature, false>::get(context);
@@ -151,7 +151,7 @@ class LLVMArrayExecution : public ArrayExecution {
     FunctionIRCache function_cache;
     BuildIRSettings settings;
     llvm::Function *actual_function = body.build_function(
-        module, m_function->name(), settings, function_cache);
+        module, m_function.name(), settings, function_cache);
     llvm::Value *result = body_builder.CreateCall(actual_function, input_values);
 
     /* Store the computed results in the output buffers. */
@@ -168,12 +168,12 @@ class LLVMArrayExecution : public ArrayExecution {
   Vector<llvm::Value *> get_input_buffers(CodeBuilder &builder, llvm::Value *input_buffers_arg)
   {
     Vector<llvm::Value *> input_buffers;
-    for (uint i = 0; i < m_function->input_amount(); i++) {
+    for (uint i = 0; i < m_function.input_amount(); i++) {
       uint element_size = m_input_sizes[i];
       llvm::Value *input_buffer = builder.CreateLoadAtIndex(input_buffers_arg, i);
       llvm::Value *typed_input_buffer = builder.CastToPointerWithStride(input_buffer,
                                                                         element_size);
-      typed_input_buffer->setName(to_llvm(m_function->input_name(i) + " Array"));
+      typed_input_buffer->setName(to_llvm(m_function.input_name(i) + " Array"));
       input_buffers.append(typed_input_buffer);
     }
     return input_buffers;
@@ -182,7 +182,7 @@ class LLVMArrayExecution : public ArrayExecution {
   Vector<llvm::Value *> get_output_buffers(CodeBuilder &builder, llvm::Value *output_buffers_arg)
   {
     Vector<llvm::Value *> output_buffers;
-    for (uint i = 0; i < m_function->output_amount(); i++) {
+    for (uint i = 0; i < m_function.output_amount(); i++) {
       uint element_size = m_output_sizes[i];
       llvm::Value *output_buffer = builder.CreateLoadAtIndex(output_buffers_arg, i);
       llvm::Value *typed_output_buffer = builder.CastToPointerWithStride(output_buffer,
@@ -197,10 +197,10 @@ class LLVMArrayExecution : public ArrayExecution {
                                          llvm::Value *index_to_process)
   {
     Vector<llvm::Value *> input_values;
-    for (uint i = 0; i < m_function->input_amount(); i++) {
+    for (uint i = 0; i < m_function.input_amount(); i++) {
       llvm::Value *addr = builder.CreateGEP(input_buffers[i], index_to_process);
       llvm::Value *value = m_input_type_infos[i]->build_load_ir__copy(builder, addr);
-      value->setName(to_llvm(m_function->input_name(i)));
+      value->setName(to_llvm(m_function.input_name(i)));
       input_values.append(value);
     }
     return input_values;
@@ -211,18 +211,18 @@ class LLVMArrayExecution : public ArrayExecution {
                            llvm::Value *index_to_process,
                            llvm::Value *computed_results)
   {
-    for (uint i = 0; i < m_function->output_amount(); i++) {
+    for (uint i = 0; i < m_function.output_amount(); i++) {
       llvm::Value *addr = builder.CreateGEP(output_buffers[i], index_to_process);
       llvm::Value *value = builder.CreateExtractValue(computed_results, i);
-      value->setName(to_llvm(m_function->output_name(i)));
+      value->setName(to_llvm(m_function.output_name(i)));
       m_output_type_infos[i]->build_store_ir__relocate(builder, value, addr);
     }
   }
 };
 
-std::unique_ptr<ArrayExecution> get_precompiled_array_execution(SharedFunction function)
+std::unique_ptr<ArrayExecution> get_precompiled_array_execution(Function &function)
 {
-  return std::unique_ptr<ArrayExecution>(new LLVMArrayExecution(std::move(function)));
+  return std::unique_ptr<ArrayExecution>(new LLVMArrayExecution(function));
 }
 
 }  // namespace Functions

@@ -14,15 +14,15 @@ class BuildGraphIR : public LLVMBuildIRBody {
   BuildGraphIR(FunctionGraph &fgraph) : m_fgraph(fgraph), m_graph(fgraph.graph())
   {
     for (uint node_id : m_graph.node_ids()) {
-      SharedFunction &fn = m_graph.function_of_node(node_id);
-      if (fn->has_body<LLVMBuildIRBody>()) {
+      Function &fn = m_graph.function_of_node(node_id);
+      if (fn.has_body<LLVMBuildIRBody>()) {
         continue;
       }
-      if (fn->has_body<TupleCallBody>()) {
+      if (fn.has_body<TupleCallBody>()) {
         derive_LLVMBuildIRBody_from_TupleCallBody(fn);
         continue;
       }
-      if (fn->has_body<LazyInTupleCallBody>()) {
+      if (fn.has_body<LazyInTupleCallBody>()) {
         derive_TupleCallBody_from_LazyInTupleCallBody(fn);
         derive_LLVMBuildIRBody_from_TupleCallBody(fn);
         continue;
@@ -139,8 +139,8 @@ class BuildGraphIR : public LLVMBuildIRBody {
                                       uint node_id,
                                       Vector<llvm::Value *> &input_values) const
   {
-    SharedFunction &fn = m_graph.function_of_node(node_id);
-    auto &body = fn->body<LLVMBuildIRBody>();
+    Function &fn = m_graph.function_of_node(node_id);
+    auto &body = fn.body<LLVMBuildIRBody>();
     bool setup_stack = settings.maintain_stack() && body.prepare_execution_context();
 
     if (setup_stack) {
@@ -210,9 +210,9 @@ class BuildGraphIR : public LLVMBuildIRBody {
   }
 };
 
-void fgraph_add_LLVMBuildIRBody(SharedFunction &fn, FunctionGraph &fgraph)
+void fgraph_add_LLVMBuildIRBody(Function &fn, FunctionGraph &fgraph)
 {
-  fn->add_body<BuildGraphIR>(fgraph);
+  fn.add_body<BuildGraphIR>(fgraph);
 }
 
 } /* namespace FN */

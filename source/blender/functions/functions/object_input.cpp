@@ -35,7 +35,7 @@ class ObjectLocationDeps : public DepsBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_object_location)
+BLI_LAZY_INIT_REF(Function, GET_FN_object_location)
 {
   FunctionBuilder builder;
   builder.add_input("Object", TYPE_object);
@@ -81,7 +81,7 @@ class ObjectMeshDeps : public DepsBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_object_mesh_vertices)
+BLI_LAZY_INIT_REF(Function, GET_FN_object_mesh_vertices)
 {
   FunctionBuilder builder;
   builder.add_input("Object", TYPE_object);

@@ -26,7 +26,7 @@ class CombineVectorGen : public LLVMBuildIRBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_combine_vector)
+BLI_LAZY_INIT_REF(Function, GET_FN_combine_vector)
 {
   FunctionBuilder builder;
   builder.add_input("X", TYPE_float);
@@ -51,7 +51,7 @@ class SeparateVector : public LLVMBuildIRBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_separate_vector)
+BLI_LAZY_INIT_REF(Function, GET_FN_separate_vector)
 {
   FunctionBuilder builder;
   builder.add_input("Vector", TYPE_float3);
@@ -73,7 +73,7 @@ class VectorDistance : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_vector_distance)
+BLI_LAZY_INIT_REF(Function, GET_FN_vector_distance)
 {
   FunctionBuilder builder;
   builder.add_input("A", TYPE_float3);
@@ -85,7 +85,7 @@ BLI_LAZY_INIT(SharedFunction, GET_FN_vector_distance)
   return fn;
 }
 
-static SharedFunction get_math_function__two_inputs(std::string name)
+static std::unique_ptr<Function> get_math_function__two_inputs(std::string name)
 {
   FunctionBuilder builder;
   builder.add_input("A", TYPE_float3);
@@ -115,7 +115,7 @@ class AddVectorsGen : public LLVMBuildIRBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_add_vectors)
+BLI_LAZY_INIT_REF(Function, GET_FN_add_vectors)
 {
   auto fn = get_math_function__two_inputs("Add Vectors");
   fn->add_body<AddVectors>();
@@ -144,7 +144,7 @@ class SubVectorsGen : public LLVMBuildIRBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_sub_vectors)
+BLI_LAZY_INIT_REF(Function, GET_FN_sub_vectors)
 {
   auto fn = get_math_function__two_inputs("Subtract Vectors");
   fn->add_body<SubVectors>();
@@ -172,7 +172,7 @@ class MultiplyVectorsGen : public LLVMBuildIRBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_mul_vectors)
+BLI_LAZY_INIT_REF(Function, GET_FN_mul_vectors)
 {
   auto fn = get_math_function__two_inputs("Multiply Vectors");
   fn->add_body<MultiplyVectors>();
@@ -189,7 +189,7 @@ class DivideVectors : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_div_vectors)
+BLI_LAZY_INIT_REF(Function, GET_FN_div_vectors)
 {
   auto fn = get_math_function__two_inputs("Divide Vectors");
   fn->add_body<DivideVectors>();
@@ -244,7 +244,7 @@ class CrossProductVectorsGen : public LLVMBuildIRBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_cross_vectors)
+BLI_LAZY_INIT_REF(Function, GET_FN_cross_vectors)
 {
   auto fn = get_math_function__two_inputs("Cross Product");
   fn->add_body<CrossProductVectors>();
@@ -261,7 +261,7 @@ class ReflectVector : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_reflect_vector)
+BLI_LAZY_INIT_REF(Function, GET_FN_reflect_vector)
 {
   auto fn = get_math_function__two_inputs("Reflect Vector");
   fn->add_body<ReflectVector>();
@@ -280,7 +280,7 @@ class ProjectVector : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_project_vector)
+BLI_LAZY_INIT_REF(Function, GET_FN_project_vector)
 {
   auto fn = get_math_function__two_inputs("Project Vector");
   fn->add_body<ProjectVector>();
@@ -298,7 +298,7 @@ class VectorDotProduct : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_dot_product)
+BLI_LAZY_INIT_REF(Function, GET_FN_dot_product)
 {
   FunctionBuilder builder;
   builder.add_input("A", TYPE_float3);

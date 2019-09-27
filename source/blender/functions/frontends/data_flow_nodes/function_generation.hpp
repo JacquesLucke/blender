@@ -10,7 +10,7 @@ namespace DataFlowNodes {
 
 using BLI::Optional;
 
-Optional<SharedFunction> generate_function(struct bNodeTree *btree);
+Optional<std::unique_ptr<Function>> generate_function(struct bNodeTree *btree);
 
 }  // namespace DataFlowNodes
 }  // namespace FN

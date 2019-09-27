@@ -4,6 +4,6 @@
 
 namespace FN {
 
-void fgraph_add_LLVMBuildIRBody(SharedFunction &fn, FunctionGraph &fgraph);
+void fgraph_add_LLVMBuildIRBody(Function &fn, FunctionGraph &fgraph);
 
 } /* namespace FN */

@@ -39,7 +39,7 @@ class FunctionBuilder {
   /**
    * Create a new function with the given name and all the inputs and outputs previously added.
    */
-  SharedFunction build(StringRef function_name);
+  std::unique_ptr<Function> build(StringRef function_name);
 };
 
 }  // namespace FN

@@ -111,7 +111,7 @@ void GroupByNodeUsage::group(VTreeDataGraphBuilder &builder,
   Vector<uint> updated_vsockets;
 
   for (BuilderNode *node : builder.placeholder_nodes()) {
-    VNodePlaceholderBody &placeholder_info = node->function()->body<VNodePlaceholderBody>();
+    VNodePlaceholderBody &placeholder_info = node->function().body<VNodePlaceholderBody>();
     uint random = rand();
     for (VirtualSocket *vsocket : placeholder_info.inputs()) {
       update_hash_of_used_vsockets(
@@ -134,7 +134,7 @@ void GroupBySocketUsage::group(VTreeDataGraphBuilder &builder,
   Vector<uint> updated_vsockets;
 
   for (BuilderNode *node : builder.placeholder_nodes()) {
-    VNodePlaceholderBody &placeholder_info = node->function()->body<VNodePlaceholderBody>();
+    VNodePlaceholderBody &placeholder_info = node->function().body<VNodePlaceholderBody>();
     for (VirtualSocket *vsocket : placeholder_info.inputs()) {
       update_hash_of_used_vsockets(
           builder, vsocket, rand(), hash_per_vsocket, was_updated_per_vsocket, updated_vsockets);

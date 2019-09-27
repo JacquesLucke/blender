@@ -18,7 +18,7 @@ template<typename From, typename To> class ImplicitConversion : public TupleCall
   }
 };
 
-static SharedFunction get_simple_conversion_function(Type *from_type, Type *to_type)
+static std::unique_ptr<Function> get_simple_conversion_function(Type *from_type, Type *to_type)
 {
   FunctionBuilder builder;
   builder.add_input("In", from_type);
@@ -28,7 +28,7 @@ static SharedFunction get_simple_conversion_function(Type *from_type, Type *to_t
 }
 
 template<typename From, typename To>
-static SharedFunction get_implicit_conversion_function(Type *from_type, Type *to_type)
+static std::unique_ptr<Function> get_implicit_conversion_function(Type *from_type, Type *to_type)
 {
   auto fn = get_simple_conversion_function(from_type, to_type);
   fn->add_body<ImplicitConversion<From, To>>();
@@ -37,66 +37,72 @@ static SharedFunction get_implicit_conversion_function(Type *from_type, Type *to
 
 /* Individual Element Conversion */
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_bool_to_int32)
+BLI_LAZY_INIT_REF(Function, GET_FN_bool_to_int32)
 {
   return get_implicit_conversion_function<bool, int32_t>(TYPE_bool, TYPE_int32);
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_bool_to_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_bool_to_float)
 {
   return get_implicit_conversion_function<bool, float>(TYPE_bool, TYPE_float);
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_int32_to_float)
+BLI_LAZY_INIT_REF(Function, GET_FN_int32_to_float)
 {
   return get_implicit_conversion_function<int32_t, float>(TYPE_int32, TYPE_float);
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_int32_to_bool)
+BLI_LAZY_INIT_REF(Function, GET_FN_int32_to_bool)
 {
   return get_implicit_conversion_function<int32_t, bool>(TYPE_int32, TYPE_bool);
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_float_to_int32)
+BLI_LAZY_INIT_REF(Function, GET_FN_float_to_int32)
 {
   return get_implicit_conversion_function<float, int32_t>(TYPE_float, TYPE_int32);
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_float_to_bool)
+BLI_LAZY_INIT_REF(Function, GET_FN_float_to_bool)
 {
   return get_implicit_conversion_function<float, bool>(TYPE_float, TYPE_bool);
 }
 
 /* List Conversions */
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_bool_list_to_int32_list)
+BLI_LAZY_INIT_REF(Function, GET_FN_bool_list_to_int32_list)
 {
-  return to_vectorized_function(GET_FN_bool_to_int32(), {true}, {GET_FN_output_false()});
+  return to_vectorized_function__without_cache(
+      GET_FN_bool_to_int32(), {true}, {&GET_FN_output_false()});
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_bool_list_to_float_list)
+BLI_LAZY_INIT_REF(Function, GET_FN_bool_list_to_float_list)
 {
-  return to_vectorized_function(GET_FN_bool_to_float(), {true}, {GET_FN_output_false()});
+  return to_vectorized_function__without_cache(
+      GET_FN_bool_to_float(), {true}, {&GET_FN_output_false()});
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_int32_list_to_float_list)
+BLI_LAZY_INIT_REF(Function, GET_FN_int32_list_to_float_list)
 {
-  return to_vectorized_function(GET_FN_int32_to_float(), {true}, {GET_FN_output_int32_0()});
+  return to_vectorized_function__without_cache(
+      GET_FN_int32_to_float(), {true}, {&GET_FN_output_int32_0()});
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_int32_list_to_bool_list)
+BLI_LAZY_INIT_REF(Function, GET_FN_int32_list_to_bool_list)
 {
-  return to_vectorized_function(GET_FN_int32_to_bool(), {true}, {GET_FN_output_int32_0()});
+  return to_vectorized_function__without_cache(
+      GET_FN_int32_to_bool(), {true}, {&GET_FN_output_int32_0()});
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_float_list_to_int32_list)
+BLI_LAZY_INIT_REF(Function, GET_FN_float_list_to_int32_list)
 {
-  return to_vectorized_function(GET_FN_float_to_int32(), {true}, {GET_FN_output_float_0()});
+  return to_vectorized_function__without_cache(
+      GET_FN_float_to_int32(), {true}, {&GET_FN_output_float_0()});
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_float_list_to_bool_list)
+BLI_LAZY_INIT_REF(Function, GET_FN_float_list_to_bool_list)
 {
-  return to_vectorized_function(GET_FN_float_to_bool(), {true}, {GET_FN_output_float_0()});
+  return to_vectorized_function__without_cache(
+      GET_FN_float_to_bool(), {true}, {&GET_FN_output_float_0()});
 }
 
 }  // namespace Functions

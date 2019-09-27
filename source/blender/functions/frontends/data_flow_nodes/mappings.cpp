@@ -50,7 +50,7 @@ void NodeInserters::register_inserter(StringRef idname, NodeInserter inserter)
 void NodeInserters::register_function(StringRef idname, FunctionGetter getter)
 {
   auto inserter = [getter](VTreeDataGraphBuilder &builder, VirtualNode *vnode) {
-    SharedFunction fn = getter();
+    Function &fn = getter();
     BuilderNode *node = builder.insert_function(fn, vnode);
     builder.map_sockets(node, vnode);
   };
@@ -103,7 +103,7 @@ void LinkInserters::register_conversion_function(StringRef from_type,
 {
   auto inserter =
       [getter](VTreeDataGraphBuilder &builder, BuilderOutputSocket *from, BuilderInputSocket *to) {
-        auto fn = getter();
+        Function &fn = getter();
         BuilderNode *node = builder.insert_function(fn);
         builder.insert_link(from, node->input(0));
         builder.insert_link(node->output(0), to);

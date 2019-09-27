@@ -22,7 +22,7 @@ class SeparateColor : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_separate_color)
+BLI_LAZY_INIT_REF(Function, GET_FN_separate_color)
 {
   FunctionBuilder fn_builder;
   fn_builder.add_input("Color", TYPE_rgba_f);
@@ -50,7 +50,7 @@ class CombineColor : public TupleCallBody {
   }
 };
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_combine_color)
+BLI_LAZY_INIT_REF(Function, GET_FN_combine_color)
 {
   FunctionBuilder fn_builder;
   fn_builder.add_input("Red", TYPE_float);

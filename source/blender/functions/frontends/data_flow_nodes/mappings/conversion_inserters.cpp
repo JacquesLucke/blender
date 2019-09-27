@@ -10,7 +10,7 @@ static void INSERT_base_to_list(VTreeDataGraphBuilder &builder,
                                 BuilderInputSocket *to)
 {
   Type *base_type = from->type();
-  auto fn = Functions::GET_FN_list_from_element(base_type);
+  Function &fn = Functions::GET_FN_list_from_element(base_type);
   BuilderNode *node = builder.insert_function(fn);
   builder.insert_link(from, node->input(0));
   builder.insert_link(node->output(0), to);

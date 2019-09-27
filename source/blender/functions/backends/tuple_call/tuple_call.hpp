@@ -51,7 +51,7 @@ class TupleCallBody : public TupleCallBodyBase {
    */
   inline void call__setup_stack(Tuple &fn_in, Tuple &fn_out, ExecutionContext &ctx) const
   {
-    TextStackFrame frame(this->owner()->name().data());
+    TextStackFrame frame(this->owner().name().data());
     ctx.stack().push(&frame);
     this->call(fn_in, fn_out, ctx);
     ctx.stack().pop();
@@ -187,7 +187,7 @@ class LazyInTupleCallBody : public TupleCallBodyBase {
                                 ExecutionContext &ctx,
                                 LazyState &state) const
   {
-    TextStackFrame frame(this->owner()->name().data());
+    TextStackFrame frame(this->owner().name().data());
     ctx.stack().push(&frame);
     this->call(fn_in, fn_out, ctx, state);
     ctx.stack().pop();
@@ -217,31 +217,31 @@ class LazyInTupleCallBody : public TupleCallBodyBase {
 
 class FunctionInputNamesProvider final : public TupleElementNameProvider {
  private:
-  Function *m_function;
+  Function &m_function;
 
  public:
-  FunctionInputNamesProvider(Function *function) : m_function(function)
+  FunctionInputNamesProvider(Function &function) : m_function(function)
   {
   }
 
   StringRefNull get_element_name(uint index) const override
   {
-    return m_function->input_name(index);
+    return m_function.input_name(index);
   }
 };
 
 class FunctionOutputNamesProvider final : public TupleElementNameProvider {
  private:
-  Function *m_function;
+  Function &m_function;
 
  public:
-  FunctionOutputNamesProvider(Function *function) : m_function(function)
+  FunctionOutputNamesProvider(Function &function) : m_function(function)
   {
   }
 
   StringRefNull get_element_name(uint index) const override
   {
-    return m_function->output_name(index);
+    return m_function.output_name(index);
   }
 };
 

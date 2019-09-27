@@ -68,7 +68,7 @@ class VTreeData {
 
   VTreeDataGraph &m_vtree_data_graph;
   Vector<std::unique_ptr<ParticleFunction>> m_particle_functions;
-  Vector<SharedFunction> m_functions;
+  Vector<std::unique_ptr<Function>> m_functions;
   Vector<destruct_ptr<Tuple>> m_tuples;
   Vector<destruct_ptr<FunctionOutputNamesProvider>> m_name_providers;
   Vector<destruct_ptr<Vector<std::string>>> m_string_vectors;
@@ -238,9 +238,9 @@ class VTreeData {
 
     FunctionGraph fgraph(m_vtree_data_graph.graph(), {}, sockets_to_compute);
     auto fn = fgraph.new_function(vnode->name());
-    FN::fgraph_add_TupleCallBody(fn, fgraph);
-    m_functions.append(fn);
-    return &fn->body<TupleCallBody>();
+    FN::fgraph_add_TupleCallBody(*fn, fgraph);
+    m_functions.append(std::move(fn));
+    return &m_functions.last()->body<TupleCallBody>();
   }
 
   Vector<VirtualSocket *> find_execute_sockets(VirtualNode *vnode, StringRef name_prefix)

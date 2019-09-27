@@ -36,9 +36,9 @@ class VTreeDataGraphBuilder {
     return m_socket_map;
   }
 
-  BuilderNode *insert_function(SharedFunction &fn);
-  BuilderNode *insert_matching_function(SharedFunction &fn, VirtualNode *vnode);
-  BuilderNode *insert_function(SharedFunction &fn, VirtualNode *vnode);
+  BuilderNode *insert_function(Function &fn);
+  BuilderNode *insert_matching_function(Function &fn, VirtualNode *vnode);
+  BuilderNode *insert_function(Function &fn, VirtualNode *vnode);
   BuilderNode *insert_placeholder(VirtualNode *vnode);
 
   template<typename T> void add_resource(std::unique_ptr<T> resource, const char *name)

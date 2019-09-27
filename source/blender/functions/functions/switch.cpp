@@ -55,7 +55,7 @@ class LazyBoolSwitch : public LazyInTupleCallBody {
   }
 };
 
-static SharedFunction build_bool_switch_function(Type *data_type)
+static std::unique_ptr<Function> build_bool_switch_function(Type *data_type)
 {
   FunctionBuilder builder;
   builder.add_input("Condition", TYPE_bool);
@@ -69,20 +69,16 @@ static SharedFunction build_bool_switch_function(Type *data_type)
   return fn;
 }
 
-using CacheMap = Map<Type *, SharedFunction>;
+using CacheMap = Map<Type *, std::unique_ptr<Function>>;
 BLI_LAZY_INIT_STATIC(CacheMap, get_cache)
 {
   return {};
 }
 
-SharedFunction &GET_FN_bool_switch(Type *data_type)
+Function &GET_FN_bool_switch(Type *data_type)
 {
   CacheMap &cache = get_cache();
-  if (!cache.contains(data_type)) {
-    SharedFunction fn = build_bool_switch_function(data_type);
-    cache.add(data_type, fn);
-  }
-  return cache.lookup(data_type);
+  return *cache.lookup_or_add(data_type, [&]() { return build_bool_switch_function(data_type); });
 }
 
 }  // namespace Functions

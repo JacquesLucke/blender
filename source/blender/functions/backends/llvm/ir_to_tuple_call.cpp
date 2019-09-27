@@ -25,14 +25,14 @@ typedef void(TupleCallFunction)(uint8_t *data_in,
                                 uint32_t *offsets_out,
                                 uint8_t *execution_context);
 
-static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Module *module)
+static llvm::Function *insert_tuple_call_function(Function &fn, llvm::Module *module)
 {
   llvm::LLVMContext &context = module->getContext();
-  LLVMBuildIRBody &body = fn->body<LLVMBuildIRBody>();
+  LLVMBuildIRBody &body = fn.body<LLVMBuildIRBody>();
 
   llvm::FunctionType *function_type = llvm::TypeBuilder<TupleCallFunction, false>::get(context);
   llvm::Function *function = llvm::Function::Create(
-      function_type, llvm::GlobalValue::LinkageTypes::ExternalLinkage, fn->name().data(), module);
+      function_type, llvm::GlobalValue::LinkageTypes::ExternalLinkage, fn.name().data(), module);
 
   llvm::BasicBlock *bb = llvm::BasicBlock::Create(context, "entry", function);
   CodeBuilder builder(bb);
@@ -49,16 +49,16 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   context_ptr->setName("context");
 
   Vector<llvm::Value *> input_values;
-  for (uint i = 0; i < fn->input_amount(); i++) {
+  for (uint i = 0; i < fn.input_amount(); i++) {
     llvm::Value *value_byte_addr = lookup_tuple_address(builder, fn_in_data, fn_in_offsets, i);
 
-    LLVMTypeInfo &type_info = fn->input_type(i)->extension<LLVMTypeInfo>();
+    LLVMTypeInfo &type_info = fn.input_type(i)->extension<LLVMTypeInfo>();
     llvm::Value *value = type_info.build_load_ir__relocate(builder, value_byte_addr);
 
     input_values.append(value);
   }
 
-  Vector<llvm::Value *> output_values(fn->output_amount());
+  Vector<llvm::Value *> output_values(fn.output_amount());
   BuildIRSettings settings;
   FunctionIRCache function_cache;
   CodeInterface interface(input_values, output_values, context_ptr, function_cache);
@@ -67,7 +67,7 @@ static llvm::Function *insert_tuple_call_function(SharedFunction &fn, llvm::Modu
   for (uint i = 0; i < output_values.size(); i++) {
     llvm::Value *value_byte_addr = lookup_tuple_address(builder, fn_out_data, fn_out_offsets, i);
 
-    LLVMTypeInfo &type_info = fn->output_type(i)->extension<LLVMTypeInfo>();
+    LLVMTypeInfo &type_info = fn.output_type(i)->extension<LLVMTypeInfo>();
     type_info.build_store_ir__relocate(builder, output_values[i], value_byte_addr);
   }
 
@@ -106,23 +106,23 @@ class LLVMTupleCall : public TupleCallBody {
   }
 };
 
-static std::unique_ptr<CompiledLLVM> compile_ir_to_tuple_call(SharedFunction &fn,
+static std::unique_ptr<CompiledLLVM> compile_ir_to_tuple_call(Function &fn,
                                                               llvm::LLVMContext &context)
 {
-  llvm::Module *module = new llvm::Module(fn->name().data(), context);
+  llvm::Module *module = new llvm::Module(fn.name().data(), context);
   llvm::Function *function = insert_tuple_call_function(fn, module);
 
   auto compiled = CompiledLLVM::FromIR(module, function);
   return compiled;
 }
 
-void derive_TupleCallBody_from_LLVMBuildIRBody(SharedFunction &fn)
+void derive_TupleCallBody_from_LLVMBuildIRBody(Function &fn)
 {
-  BLI_assert(fn->has_body<LLVMBuildIRBody>());
-  BLI_assert(!fn->has_body<TupleCallBody>());
+  BLI_assert(fn.has_body<LLVMBuildIRBody>());
+  BLI_assert(!fn.has_body<TupleCallBody>());
 
   auto *context = aquire_llvm_context();
-  fn->add_body<LLVMTupleCall>(compile_ir_to_tuple_call(fn, *context));
+  fn.add_body<LLVMTupleCall>(compile_ir_to_tuple_call(fn, *context));
   release_llvm_context(context);
 }
 

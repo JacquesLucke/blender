@@ -23,9 +23,9 @@ class IterationStackFrame : public StackFrame {
 
 class AutoVectorizationGen : public LLVMBuildIRBody {
  private:
-  SharedFunction m_main;
+  Function &m_main;
   Vector<bool> m_input_is_list;
-  Vector<SharedFunction> m_empty_list_value_builders;
+  Vector<Function *> m_empty_list_value_builders;
 
   struct InputInfo {
     bool is_list;
@@ -43,17 +43,17 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
   Vector<OutputInfo> m_output_info;
 
  public:
-  AutoVectorizationGen(SharedFunction main,
+  AutoVectorizationGen(Function &main,
                        ArrayRef<bool> input_is_list,
-                       ArrayRef<SharedFunction> empty_list_value_builders)
+                       ArrayRef<Function *> empty_list_value_builders)
       : m_main(main),
         m_input_is_list(input_is_list),
         m_empty_list_value_builders(empty_list_value_builders)
   {
-    BLI_assert(main->has_body<LLVMBuildIRBody>());
+    BLI_assert(main.has_body<LLVMBuildIRBody>());
     BLI_assert(input_is_list.contains(true));
-    for (uint i = 0; i < main->input_amount(); i++) {
-      Type *base_type = main->input_type(i);
+    for (uint i = 0; i < main.input_amount(); i++) {
+      Type *base_type = main.input_type(i);
       Type *list_type = get_list_type(base_type);
       InputInfo info;
       info.is_list = input_is_list[i];
@@ -62,7 +62,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
       info.list_llvm_type = &list_type->extension<LLVMTypeInfo>();
       m_input_info.append(info);
     }
-    for (auto &base_type : main->output_types()) {
+    for (auto &base_type : main.output_types()) {
       OutputInfo info;
       info.base_cpp_type = &base_type->extension<CPPTypeInfo>();
       info.base_llvm_type = &base_type->extension<LLVMTypeInfo>();
@@ -91,7 +91,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     Vector<llvm::Value *> main_outputs(m_output_info.size());
     CodeInterface main_interface(
         main_inputs, main_outputs, interface.context_ptr(), interface.function_ir_cache());
-    auto &body = m_main->body<LLVMBuildIRBody>();
+    auto &body = m_main.body<LLVMBuildIRBody>();
     body.build_ir(body_builder, main_interface, settings);
 
     this->store_computed_values_in_output_lists(
@@ -160,7 +160,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
     Vector<llvm::Value *> data_pointers;
     for (uint i = 0; i < m_output_info.size(); i++) {
       uint stride = m_output_info[i].base_cpp_type->size();
-      Type *output_type = m_main->output_type(i);
+      Type *output_type = m_main.output_type(i);
 
       llvm::Value *output_list = builder.CreateCallPointer(
           (void *)callback__new_list,
@@ -212,8 +212,8 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
         CodeBuilder &else_builder = ifthenelse.else_builder();
 
         /* Use default value when list has no elements. */
-        const SharedFunction &default_builder = m_empty_list_value_builders[list_input_index];
-        auto &default_builder_body = default_builder->body<LLVMBuildIRBody>();
+        const Function &default_builder = *m_empty_list_value_builders[list_input_index];
+        auto &default_builder_body = default_builder.body<LLVMBuildIRBody>();
         Vector<llvm::Value *> default_builder_inputs(0);
         Vector<llvm::Value *> default_builder_outputs(1);
         CodeInterface default_builder_interface(default_builder_inputs,
@@ -260,7 +260,7 @@ class AutoVectorizationGen : public LLVMBuildIRBody {
 
 class AutoVectorization : public TupleCallBody {
  private:
-  SharedFunction m_main;
+  Function &m_main;
   TupleCallBody &m_main_body;
 
   const Vector<bool> m_input_is_list;
@@ -274,8 +274,8 @@ class AutoVectorization : public TupleCallBody {
   Vector<TupleCallBody *> m_append_bodies;
 
  public:
-  AutoVectorization(SharedFunction main, const Vector<bool> &input_is_list)
-      : m_main(main), m_main_body(main->body<TupleCallBody>()), m_input_is_list(input_is_list)
+  AutoVectorization(Function &main, const Vector<bool> &input_is_list)
+      : m_main(main), m_main_body(main.body<TupleCallBody>()), m_input_is_list(input_is_list)
   {
     for (uint i = 0; i < input_is_list.size(); i++) {
       if (input_is_list[i]) {
@@ -283,9 +283,9 @@ class AutoVectorization : public TupleCallBody {
       }
     }
     for (uint i : m_list_inputs) {
-      Type *base_type = main->input_type(i);
-      m_get_length_bodies.append(&GET_FN_list_length(base_type)->body<TupleCallBody>());
-      m_get_element_bodies.append(&GET_FN_get_list_element(base_type)->body<TupleCallBody>());
+      Type *base_type = main.input_type(i);
+      m_get_length_bodies.append(&GET_FN_list_length(base_type).body<TupleCallBody>());
+      m_get_element_bodies.append(&GET_FN_get_list_element(base_type).body<TupleCallBody>());
     }
 
     m_max_len_in_size = 0;
@@ -295,9 +295,9 @@ class AutoVectorization : public TupleCallBody {
       m_max_len_out_size = std::max(m_max_len_out_size, body->meta_out().size_of_full_tuple());
     }
 
-    for (auto base_type : main->output_types()) {
-      m_create_empty_bodies.append(&GET_FN_empty_list(base_type)->body<TupleCallBody>());
-      m_append_bodies.append(&GET_FN_append_to_list(base_type)->body<TupleCallBody>());
+    for (auto base_type : main.output_types()) {
+      m_create_empty_bodies.append(&GET_FN_empty_list(base_type).body<TupleCallBody>());
+      m_append_bodies.append(&GET_FN_append_to_list(base_type).body<TupleCallBody>());
     }
   }
 
@@ -312,7 +312,7 @@ class AutoVectorization : public TupleCallBody {
     FN_TUPLE_CALL_ALLOC_TUPLES(m_main_body, main_in, main_out);
 
     IterationStackFrame iteration_frame;
-    TextStackFrame function_name_frame(m_main->name().data());
+    TextStackFrame function_name_frame(m_main.name().data());
     ctx.stack().push(&iteration_frame);
     ctx.stack().push(&function_name_frame);
 
@@ -332,7 +332,7 @@ class AutoVectorization : public TupleCallBody {
       iteration_frame.m_iteration = iteration;
       m_main_body.call(main_in, main_out, ctx);
 
-      for (uint i = 0; i < m_main->output_amount(); i++) {
+      for (uint i = 0; i < m_main.output_amount(); i++) {
         this->append_to_output(main_out, fn_out, i, ctx);
       }
     }
@@ -390,7 +390,7 @@ class AutoVectorization : public TupleCallBody {
 
   void initialize_empty_lists(Tuple &fn_out, ExecutionContext &ctx) const
   {
-    for (uint i = 0; i < m_main->output_amount(); i++) {
+    for (uint i = 0; i < m_main.output_amount(); i++) {
       this->initialize_empty_list(fn_out, i, ctx);
     }
   }
@@ -416,23 +416,23 @@ class AutoVectorization : public TupleCallBody {
   }
 };
 
-static SharedFunction to_vectorized_function_internal(
-    SharedFunction &original_fn,
+static std::unique_ptr<Function> to_vectorized_function_internal(
+    Function &original_fn,
     ArrayRef<bool> &vectorized_inputs_mask,
-    ArrayRef<SharedFunction> &empty_list_value_builders)
+    ArrayRef<Function *> &empty_list_value_builders)
 {
-  uint input_amount = original_fn->input_amount();
-  uint output_amount = original_fn->output_amount();
+  uint input_amount = original_fn.input_amount();
+  uint output_amount = original_fn.output_amount();
 
   BLI_assert(vectorized_inputs_mask.size() == input_amount);
   BLI_assert(vectorized_inputs_mask.contains(true));
   BLI_assert(empty_list_value_builders.size() == vectorized_inputs_mask.count(true));
-  BLI_assert(original_fn->has_body<TupleCallBody>() || original_fn->has_body<LLVMBuildIRBody>());
+  BLI_assert(original_fn.has_body<TupleCallBody>() || original_fn.has_body<LLVMBuildIRBody>());
 
   FunctionBuilder builder;
   for (uint i = 0; i < input_amount; i++) {
-    StringRef original_name = original_fn->input_name(i);
-    Type *original_type = original_fn->input_type(i);
+    StringRef original_name = original_fn.input_name(i);
+    Type *original_type = original_fn.input_type(i);
     if (vectorized_inputs_mask[i]) {
       Type *list_type = get_list_type(original_type);
       builder.add_input(original_name + " (List)", list_type);
@@ -443,15 +443,15 @@ static SharedFunction to_vectorized_function_internal(
   }
 
   for (uint i = 0; i < output_amount; i++) {
-    StringRef original_name = original_fn->output_name(i);
-    Type *original_type = original_fn->output_type(i);
+    StringRef original_name = original_fn.output_name(i);
+    Type *original_type = original_fn.output_type(i);
     Type *list_type = get_list_type(original_type);
     builder.add_output(original_name + " (List)", list_type);
   }
 
-  std::string name = original_fn->name() + " (Vectorized)";
+  std::string name = original_fn.name() + " (Vectorized)";
   auto fn = builder.build(name);
-  if (original_fn->has_body<LLVMBuildIRBody>()) {
+  if (original_fn.has_body<LLVMBuildIRBody>()) {
     fn->add_body<AutoVectorizationGen>(
         original_fn, vectorized_inputs_mask, empty_list_value_builders);
   }
@@ -461,22 +461,14 @@ static SharedFunction to_vectorized_function_internal(
   return fn;
 }
 
-SharedFunction to_vectorized_function(SharedFunction &original_fn,
-                                      ArrayRef<bool> vectorized_inputs_mask,
-                                      ArrayRef<SharedFunction> empty_list_value_builders)
-{
-  return to_vectorized_function_internal(
-      original_fn, vectorized_inputs_mask, empty_list_value_builders);
-}
-
 struct AutoVectorizationInput {
-  SharedFunction m_original_fn;
+  Function &m_original_fn;
   Vector<bool> m_vectorized_inputs_mask;
-  Vector<SharedFunction> m_empty_list_value_builders;
+  Vector<Function *> m_empty_list_value_builders;
 
-  AutoVectorizationInput(SharedFunction &original_fn,
+  AutoVectorizationInput(Function &original_fn,
                          ArrayRef<bool> vectorized_inputs_mask,
-                         ArrayRef<SharedFunction> empty_list_value_builders)
+                         ArrayRef<Function *> empty_list_value_builders)
       : m_original_fn(original_fn),
         m_vectorized_inputs_mask(vectorized_inputs_mask),
         m_empty_list_value_builders(empty_list_value_builders)
@@ -487,30 +479,39 @@ struct AutoVectorizationInput {
   {
     return (a.m_original_fn == b.m_original_fn &&
             Vector<bool>::all_equal(a.m_vectorized_inputs_mask, b.m_vectorized_inputs_mask) &&
-            Vector<SharedFunction>::all_equal(a.m_empty_list_value_builders,
-                                              b.m_empty_list_value_builders));
+            Vector<Function *>::all_equal(a.m_empty_list_value_builders,
+                                          b.m_empty_list_value_builders));
   }
 };
 
-using VectorizeCacheMap = Map<AutoVectorizationInput, SharedFunction>;
+using VectorizeCacheMap = Map<AutoVectorizationInput, std::unique_ptr<Function>>;
 
 BLI_LAZY_INIT_STATIC(VectorizeCacheMap, get_vectorized_function_cache)
 {
   return VectorizeCacheMap{};
 }
 
-SharedFunction to_vectorized_function__with_cache(
-    SharedFunction &original_fn,
-    ArrayRef<bool> vectorized_inputs_mask,
-    ArrayRef<SharedFunction> empty_list_value_builders)
+Function &to_vectorized_function__with_cache(Function &original_fn,
+                                             ArrayRef<bool> vectorized_inputs_mask,
+                                             ArrayRef<Function *> empty_list_value_builders)
 {
   static VectorizeCacheMap &cache = get_vectorized_function_cache();
 
   AutoVectorizationInput cache_key(original_fn, vectorized_inputs_mask, empty_list_value_builders);
-  return cache.lookup_or_add(cache_key, [&]() {
+
+  std::unique_ptr<Function> &vectorized_function = cache.lookup_or_add(cache_key, [&]() {
     return to_vectorized_function_internal(
         original_fn, vectorized_inputs_mask, empty_list_value_builders);
   });
+  return *vectorized_function;
+}
+
+std::unique_ptr<Function> to_vectorized_function__without_cache(
+    Function &fn,
+    ArrayRef<bool> vectorized_inputs_mask,
+    ArrayRef<Function *> empty_list_value_builders)
+{
+  return to_vectorized_function_internal(fn, vectorized_inputs_mask, empty_list_value_builders);
 }
 
 }  // namespace Functions
@@ -521,7 +522,7 @@ template<> struct DefaultHash<FN::Functions::AutoVectorizationInput> {
   uint32_t operator()(const FN::Functions::AutoVectorizationInput &value) const
   {
     /* TODO: take other struct fields into account. */
-    void *ptr = (void *)value.m_original_fn.ptr();
+    void *ptr = (void *)&value.m_original_fn;
     return DefaultHash<void *>{}(ptr);
   }
 };

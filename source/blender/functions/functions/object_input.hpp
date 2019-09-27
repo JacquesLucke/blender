@@ -5,8 +5,8 @@
 namespace FN {
 namespace Functions {
 
-SharedFunction &GET_FN_object_location();
-SharedFunction &GET_FN_object_mesh_vertices();
+Function &GET_FN_object_location();
+Function &GET_FN_object_mesh_vertices();
 
 }  // namespace Functions
 }  // namespace FN

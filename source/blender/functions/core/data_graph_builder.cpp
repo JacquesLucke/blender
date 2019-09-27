@@ -21,20 +21,20 @@ DataGraphBuilder::~DataGraphBuilder()
   }
 }
 
-BuilderNode *DataGraphBuilder::insert_function(SharedFunction function, SourceInfo *source_info)
+BuilderNode *DataGraphBuilder::insert_function(Function &function, SourceInfo *source_info)
 {
   /* Allocate memory for node, input sockets and output sockets. */
   BuilderNode *node = m_allocator.allocate<BuilderNode>();
 
   MutableArrayRef<BuilderInputSocket> input_sockets =
-      m_allocator.allocate_array<BuilderInputSocket>(function->input_amount());
+      m_allocator.allocate_array<BuilderInputSocket>(function.input_amount());
   MutableArrayRef<BuilderInputSocket *> input_socket_pointers =
-      m_allocator.allocate_array<BuilderInputSocket *>(function->input_amount());
+      m_allocator.allocate_array<BuilderInputSocket *>(function.input_amount());
 
   MutableArrayRef<BuilderOutputSocket> output_sockets =
-      m_allocator.allocate_array<BuilderOutputSocket>(function->output_amount());
+      m_allocator.allocate_array<BuilderOutputSocket>(function.output_amount());
   MutableArrayRef<BuilderOutputSocket *> output_socket_pointers =
-      m_allocator.allocate_array<BuilderOutputSocket *>(function->output_amount());
+      m_allocator.allocate_array<BuilderOutputSocket *>(function.output_amount());
 
   /* Initialize input sockets. */
   for (uint i = 0; i < input_sockets.size(); i++) {
@@ -61,7 +61,7 @@ BuilderNode *DataGraphBuilder::insert_function(SharedFunction function, SourceIn
   /* Initialize node. */
   new (node) BuilderNode();
   node->m_id = m_nodes.size();
-  node->m_function = std::move(function);
+  node->m_function = &function;
   node->m_builder = this;
   node->m_source_info = source_info;
   node->m_inputs = input_socket_pointers;
@@ -104,10 +104,8 @@ std::unique_ptr<DataGraph> DataGraphBuilder::build()
 
   for (BuilderNode *builder_node : m_nodes) {
     uint node_id = builder_node->id();
-    r_nodes.append(DataGraph::Node(std::move(builder_node->function()),
-                                   builder_node->source_info(),
-                                   r_inputs.size(),
-                                   r_outputs.size()));
+    r_nodes.append(DataGraph::Node(
+        builder_node->function(), builder_node->source_info(), r_inputs.size(), r_outputs.size()));
 
     for (BuilderInputSocket *builder_socket : builder_node->inputs()) {
       BLI_assert(builder_socket->origin() != nullptr);

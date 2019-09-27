@@ -5,8 +5,8 @@
 namespace FN {
 namespace Functions {
 
-SharedFunction &GET_FN_less_than_float();
-SharedFunction &GET_FN_less_than_int32();
+Function &GET_FN_less_than_float();
+Function &GET_FN_less_than_int32();
 
 }  // namespace Functions
 }  // namespace FN

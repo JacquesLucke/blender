@@ -79,7 +79,7 @@ class ConstBoolGen : public LLVMBuildIRBody {
   }
 };
 
-static SharedFunction get_output_int32_function(int32_t value)
+static std::unique_ptr<Function> get_output_int32_function(int32_t value)
 {
   FunctionBuilder builder;
   builder.add_output("Value", TYPE_int32);
@@ -89,17 +89,17 @@ static SharedFunction get_output_int32_function(int32_t value)
   return fn;
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_output_int32_0)
+BLI_LAZY_INIT_REF(Function, GET_FN_output_int32_0)
 {
   return get_output_int32_function(0);
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_output_int32_1)
+BLI_LAZY_INIT_REF(Function, GET_FN_output_int32_1)
 {
   return get_output_int32_function(1);
 }
 
-static SharedFunction get_output_float_function(float value)
+static std::unique_ptr<Function> get_output_float_function(float value)
 {
   FunctionBuilder builder;
   builder.add_output("Value", TYPE_float);
@@ -109,17 +109,17 @@ static SharedFunction get_output_float_function(float value)
   return fn;
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_output_float_0)
+BLI_LAZY_INIT_REF(Function, GET_FN_output_float_0)
 {
   return get_output_float_function(0.0f);
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_output_float_1)
+BLI_LAZY_INIT_REF(Function, GET_FN_output_float_1)
 {
   return get_output_float_function(1.0f);
 }
 
-static SharedFunction get_output_bool_function(bool value)
+static std::unique_ptr<Function> get_output_bool_function(bool value)
 {
   FunctionBuilder builder;
   builder.add_output("Value", TYPE_bool);
@@ -129,12 +129,12 @@ static SharedFunction get_output_bool_function(bool value)
   return fn;
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_output_false)
+BLI_LAZY_INIT_REF(Function, GET_FN_output_false)
 {
   return get_output_bool_function(false);
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_output_true)
+BLI_LAZY_INIT_REF(Function, GET_FN_output_true)
 {
   return get_output_bool_function(true);
 }
@@ -162,7 +162,7 @@ template<uint N> class ConstFloatArrayGen : public LLVMBuildIRBody {
   }
 };
 
-static SharedFunction get_output_float3_function(float3 vector)
+static std::unique_ptr<Function> get_output_float3_function(float3 vector)
 {
   FunctionBuilder builder;
   auto &float3_type = TYPE_float3;
@@ -173,17 +173,17 @@ static SharedFunction get_output_float3_function(float3 vector)
   return fn;
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_output_float3_0)
+BLI_LAZY_INIT_REF(Function, GET_FN_output_float3_0)
 {
   return get_output_float3_function(float3(0, 0, 0));
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_output_float3_1)
+BLI_LAZY_INIT_REF(Function, GET_FN_output_float3_1)
 {
   return get_output_float3_function(float3(1, 1, 1));
 }
 
-static SharedFunction get_output_rgba_f_function(rgba_f color)
+static std::unique_ptr<Function> get_output_rgba_f_function(rgba_f color)
 {
   FunctionBuilder builder;
   auto &rgba_f_type = TYPE_rgba_f;
@@ -194,12 +194,12 @@ static SharedFunction get_output_rgba_f_function(rgba_f color)
   return fn;
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_output_magenta)
+BLI_LAZY_INIT_REF(Function, GET_FN_output_magenta)
 {
   return get_output_rgba_f_function(rgba_f(1, 0, 1, 1));
 }
 
-BLI_LAZY_INIT(SharedFunction, GET_FN_none)
+BLI_LAZY_INIT_REF(Function, GET_FN_none)
 {
   FunctionBuilder builder;
   auto fn = builder.build("None");

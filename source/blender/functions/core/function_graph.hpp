@@ -51,7 +51,7 @@ class FunctionGraph {
    * Create a new function with the given name. The inputs and outputs correspond to the sockets in
    * the graph. The returned function does not contain any bodies.
    */
-  SharedFunction new_function(StringRef name) const;
+  std::unique_ptr<Function> new_function(StringRef name) const;
 
   /**
    * Get a subset of all sockets in the graph that can influence the function execution (under the
