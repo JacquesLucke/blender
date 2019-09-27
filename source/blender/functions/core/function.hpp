@@ -52,10 +52,8 @@ class FunctionBody : BLI::NonCopyable, BLI::NonMovable {
   static const uint BODY_TYPE_AMOUNT = 5;
 };
 
-class Function final {
+class Function final : BLI::NonCopyable, BLI::NonMovable {
  public:
-  Function(Function &fn) = delete;
-
   /**
    * Construct a new function. Instead of calling this directly, the FunctionBuilder should be
    * used.
