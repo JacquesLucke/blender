@@ -5,10 +5,8 @@
  * values of C++ types that you don't know the exact type from.
  *
  * Every tuple links to a TupleMeta instance which contains meta-information about the tuple. Among
- * others it knows which types are stored in the tuple and at which offsets. Furthermore, it owns
- * references to the types. The assumption here is that tuples are much more often created than
- * meta objects. Doing reference counting every time a tuple is created would result in lot of
- * synchronization overhead.
+ * others it knows which types are stored in the tuple and at which offsets. The assumption here is
+ * that tuples are much more often created than meta objects.
  *
  * Currently, tuples only have normal pointers to their meta objects. So it can be invalidated when
  * it outlives the meta object. In the future it might be necessary to allow tuples to optionally
@@ -17,8 +15,6 @@
  * Tuples can be allocated entirely on the stack to avoid heap allocations. However, due to their
  * dynamic nature, the required memory can differ. There is a macro to simplify the process of
  * allocating a tuple on the stack.
- *
- * A tuple can own the array containing the objects or not, depending on the use case.
  *
  * Every element in the tuple is either initialized or uninitialized. It is explicitely tracked
  * what is the case.
@@ -77,6 +73,11 @@ class TupleMeta {
     return m_offsets;
   }
 
+  uint offset(uint index) const
+  {
+    return m_offsets[index];
+  }
+
   /**
    * Get the required byte size to store all values in the tuple.
    */
@@ -104,7 +105,7 @@ class TupleMeta {
   /**
    * Get the buffer size that is required to construct the entire tuple in.
    */
-  inline uint size_of_full_tuple() const;
+  uint size_of_full_tuple() const;
 
   uint size() const
   {
@@ -176,7 +177,7 @@ class Tuple {
    * Copy a value of type T to the given index. The caller is expected to know that T actually
    * belongs to this type.
    */
-  template<typename T> inline void copy_in(uint index, const T &value)
+  template<typename T> void copy_in(uint index, const T &value)
   {
     BLI_assert(index < m_meta->size());
     BLI_assert(m_meta->element_has_type<T>(index));
@@ -201,7 +202,7 @@ class Tuple {
   /**
    * Copy a value from src to the given index in the tuple.
    */
-  inline void copy_in__dynamic(uint index, void *src)
+  void copy_in__dynamic(uint index, void *src)
   {
     BLI_assert(index < m_meta->size());
     BLI_assert(src != nullptr);
@@ -223,7 +224,7 @@ class Tuple {
    * not be called, because this will usually be done automatically when it goes out of scope.
    * The caller is expected to know that the type T actually belongs to this index.
    */
-  template<typename T> inline void move_in(uint index, T &value)
+  template<typename T> void move_in(uint index, T &value)
   {
     BLI_assert(index < m_meta->size());
     BLI_assert(m_meta->element_has_type<T>(index));
@@ -242,7 +243,7 @@ class Tuple {
   /**
    * Copy the value from src into the tuple and destroy the original value at src.
    */
-  inline void relocate_in__dynamic(uint index, void *src)
+  void relocate_in__dynamic(uint index, void *src)
   {
     BLI_assert(index < m_meta->size());
     BLI_assert(src != nullptr);
@@ -262,7 +263,7 @@ class Tuple {
   /**
    * Copy the value to the given index. This method only works with trivial types.
    */
-  template<typename T> inline void set(uint index, const T &value)
+  template<typename T> void set(uint index, const T &value)
   {
     BLI_STATIC_ASSERT(std::is_trivial<T>::value,
                       "this method can be used with trivial types only");
@@ -274,7 +275,7 @@ class Tuple {
    * actually contains a value of type T.
    * Asserts when the value was not initialized.
    */
-  template<typename T> inline T copy_out(uint index) const
+  template<typename T> T copy_out(uint index) const
   {
     BLI_assert(index < m_meta->size());
     BLI_assert(m_meta->element_has_type<T>(index));
@@ -289,7 +290,7 @@ class Tuple {
    * for that index.
    * Asserts when the value was not initialized.
    */
-  template<typename T> inline T relocate_out(uint index) const
+  template<typename T> T relocate_out(uint index) const
   {
     BLI_assert(index < m_meta->size());
     BLI_assert(m_meta->element_has_type<T>(index));
@@ -307,7 +308,7 @@ class Tuple {
    * Copy the value from the tuple into the dst buffer.
    * Asserts when the value was not initialized.
    */
-  inline void relocate_out__dynamic(uint index, void *dst) const
+  void relocate_out__dynamic(uint index, void *dst) const
   {
     BLI_assert(index < m_meta->size());
     BLI_assert(m_initialized[index]);
@@ -326,7 +327,7 @@ class Tuple {
    * types.
    * Asserts when the value was not initialized.
    */
-  template<typename T> inline T get(uint index) const
+  template<typename T> T get(uint index) const
   {
     BLI_STATIC_ASSERT(std::is_trivial<T>::value,
                       "this method can be used with trivial types only");
@@ -337,7 +338,7 @@ class Tuple {
    * Return a reference to a value in the tuple.
    * Asserts when the value is not initialized.
    */
-  template<typename T> inline T &get_ref(uint index) const
+  template<typename T> T &get_ref(uint index) const
   {
     BLI_assert(index < m_meta->size());
     BLI_assert(m_meta->element_has_type<T>(index));
@@ -348,7 +349,7 @@ class Tuple {
   /**
    * Return true when the value at the given index is initialized, otherwise false.
    */
-  inline bool is_initialized(uint index) const
+  bool is_initialized(uint index) const
   {
     BLI_assert(index < m_meta->size());
     return m_initialized[index];
@@ -358,7 +359,7 @@ class Tuple {
    * Copy a value between two different location in different tuples.
    * Asserts when the source value is not initialized.
    */
-  static inline void copy_element(const Tuple &from, uint from_index, Tuple &to, uint to_index)
+  static void copy_element(const Tuple &from, uint from_index, Tuple &to, uint to_index)
   {
     BLI_assert(from.m_initialized[from_index]);
     BLI_assert(from.m_meta->types()[from_index] == to.m_meta->types()[to_index]);
@@ -381,7 +382,7 @@ class Tuple {
    * value.
    * Asserts when the source value is not initialized.
    */
-  static inline void relocate_element(Tuple &from, uint from_index, Tuple &to, uint to_index)
+  static void relocate_element(Tuple &from, uint from_index, Tuple &to, uint to_index)
   {
     BLI_assert(from.m_initialized[from_index]);
     BLI_assert(from.m_meta->types()[from_index] == to.m_meta->types()[to_index]);
@@ -404,7 +405,7 @@ class Tuple {
   /**
    * Initialize the value at the given index with a default value.
    */
-  inline void init_default(uint index) const
+  void init_default(uint index) const
   {
     CPPTypeInfo &type_info = m_meta->type_info(index);
     void *ptr = this->element_ptr(index);
@@ -420,7 +421,7 @@ class Tuple {
   /**
    * Initialize all values in the tuple with a default value.
    */
-  inline void init_default_all() const
+  void init_default_all() const
   {
     for (uint i = 0; i < m_meta->size(); i++) {
       this->init_default(i);
@@ -527,15 +528,15 @@ class Tuple {
     return *m_meta;
   }
 
-  inline void *element_ptr(uint index) const
+  void *element_ptr(uint index) const
   {
-    return (void *)((char *)m_data + m_meta->offsets()[index]);
+    return POINTER_OFFSET(m_data, m_meta->offset(index));
   }
 
   void print_initialized(std::string name = "");
 
  private:
-  template<typename T> inline T &element_ref(uint index) const
+  template<typename T> T &element_ref(uint index) const
   {
     return *(T *)this->element_ptr(index);
   }
