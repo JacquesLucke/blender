@@ -14,7 +14,6 @@ class MeshEmitterNode(bpy.types.Node, BParticlesNode):
         items=[
             ('UNIFORM', "Uniform", "", 'NONE', 0),
             ('VERTEX_WEIGHTS', "Vertex Weights", "", 'NONE', 1),
-            ('FALLOFF', "Falloff", "", 'NONE', 2),
         ],
         update=BParticlesNode.sync_tree,
     )
@@ -25,8 +24,6 @@ class MeshEmitterNode(bpy.types.Node, BParticlesNode):
 
         if self.density_mode == 'VERTEX_WEIGHTS':
             builder.fixed_input("density_vertex_group", "Density Group", "Text")
-        elif self.density_mode == 'FALLOFF':
-            builder.fixed_input("density_falloff", "Density Falloff", "Falloff")
 
         builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
         builder.influences_output("emitter", "Emitter")

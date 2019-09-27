@@ -154,28 +154,6 @@ class TextSocket(bpy.types.NodeSocket, DataSocket):
     def restore_state(self, state):
         self.value = state
 
-class FalloffSocket(bpy.types.NodeSocket, DataSocket):
-    bl_idname = "fn_FalloffSocket"
-    bl_label = "Falloff Socket"
-    data_type = "Falloff"
-    color = (0.2, 0.8, 0.2, 1)
-
-    value: FloatProperty(
-        name="Value",
-        default=1.0,
-        soft_min=0.0,
-        soft_max=1.0,
-    )
-
-    def draw_property(self, layout, node, text):
-        layout.prop(self, "value", text=text, slider=True)
-
-    def get_state(self):
-        return self.value
-
-    def restore_state(self, state):
-        self.value = state
-
 def create_simple_data_socket(idname, data_type, color):
     return type(idname, (bpy.types.NodeSocket, DataSocket),
         {
@@ -199,8 +177,6 @@ ColorListSocket = create_simple_data_socket(
     "fn_ColorListSocket", "Color List", (0.8, 0.8, 0.2, 0.5))
 TextListSocket = create_simple_data_socket(
     "fn_TextListSocket", "Text List", (0.8, 0.8, 0.8, 0.5))
-FalloffListSocket = create_simple_data_socket(
-    "fn_FalloffListSocket", "Falloff List", (0.2, 0.8, 0.2, 0.5))
 
 class ExecuteSocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "bp_ExecuteSocket"

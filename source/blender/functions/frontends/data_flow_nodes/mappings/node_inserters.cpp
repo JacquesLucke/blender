@@ -404,9 +404,6 @@ void REGISTER_node_inserters(std::unique_ptr<NodeInserters> &inserters)
   REGISTER_FUNCTION("fn_RandomNumberNode", random_number);
   REGISTER_FUNCTION("fn_VectorDistanceNode", vector_distance);
   REGISTER_FUNCTION("fn_TextLengthNode", string_length);
-  REGISTER_FUNCTION("fn_PointDistanceFalloffNode", point_distance_falloff);
-  REGISTER_FUNCTION("fn_ConstantFalloffNode", constant_falloff);
-  REGISTER_FUNCTION("fn_MeshDistanceFalloffNode", mesh_distance_falloff);
 
   REGISTER_INSERTER("fn_CallNode", INSERT_call);
   REGISTER_INSERTER("fn_ClampNode", INSERT_clamp);

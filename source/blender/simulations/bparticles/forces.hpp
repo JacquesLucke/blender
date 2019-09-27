@@ -1,10 +1,9 @@
 #pragma once
 
-#include "BKE_falloff.hpp"
-#include "BKE_bvhutils.h"
-
 #include "BLI_kdopbvh.h"
 #include "BLI_kdtree.h"
+
+#include "BKE_bvhutils.h"
 
 #include "DNA_object_types.h"
 
@@ -13,7 +12,6 @@
 
 namespace BParticles {
 
-using BKE::Falloff;
 using BLI::float4x4;
 
 class Force {

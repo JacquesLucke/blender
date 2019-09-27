@@ -15,8 +15,6 @@ void REGISTER_type_mappings(std::unique_ptr<TypeMappings> &type_mappings)
   ADD_TYPE("fn_BooleanSocket", "Boolean", bool);
   ADD_TYPE("fn_ColorListSocket", "Color List", rgba_f_list);
   ADD_TYPE("fn_ColorSocket", "Color", rgba_f);
-  ADD_TYPE("fn_FalloffListSocket", "Falloff List", falloff_list);
-  ADD_TYPE("fn_FalloffSocket", "Falloff", falloff);
   ADD_TYPE("fn_FloatListSocket", "Float List", float_list);
   ADD_TYPE("fn_FloatSocket", "Float", float);
   ADD_TYPE("fn_IntegerListSocket", "Integer List", int32_list);

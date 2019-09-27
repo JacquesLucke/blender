@@ -115,7 +115,6 @@ set(SRC
   intern/editmesh_cache.c
   intern/editmesh_tangent.c
   intern/effect.c
-  intern/falloff.cpp
   intern/fcurve.c
   intern/fluidsim.c
   intern/fmodifier.c
@@ -283,7 +282,6 @@ set(SRC
   BKE_editmesh_cache.h
   BKE_editmesh_tangent.h
   BKE_effect.h
-  BKE_falloff.hpp
   BKE_fcurve.h
   BKE_fluidsim.h
   BKE_font.h

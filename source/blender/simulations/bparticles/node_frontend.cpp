@@ -30,7 +30,6 @@ using FN::FunctionOutputNamesProvider;
 using FN::NamedTupleRef;
 using FN::Tuple;
 using FN::DataFlowNodes::VTreeDataGraph;
-using FN::Types::FalloffW;
 using FN::Types::ObjectW;
 using FN::Types::StringW;
 
@@ -488,24 +487,6 @@ static Vector<float> compute_emitter_vertex_weights(VirtualNode *vnode,
         vertex_weights[i] = defvert_find_weight(vertices + i, group_index);
       }
     }
-  }
-  else if (density_mode == 2) {
-    /* Mode: 'FALLOFF' */
-    auto falloff = inputs.relocate_out<FN::Types::FalloffW>(2, "Density Falloff");
-
-    float4x4 transform = object->obmat;
-
-    TemporaryArray<float3> vertex_positions(mesh->totvert);
-    for (uint i = 0; i < mesh->totvert; i++) {
-      vertex_positions[i] = transform.transform_position(mesh->mvert[i].co);
-    }
-    AttributesDeclaration info_declaration;
-    info_declaration.add<float3>("Position", {0, 0, 0});
-    AttributesInfo info(info_declaration);
-
-    std::array<void *, 1> buffers = {(void *)vertex_positions.begin()};
-    AttributesRef attributes{info, buffers, (uint)mesh->totvert};
-    falloff->compute(attributes, IndexRange(mesh->totvert).as_array_ref(), vertex_weights);
   }
 
   return vertex_weights;
