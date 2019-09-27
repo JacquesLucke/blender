@@ -99,9 +99,7 @@ BParticlesSimulationState MOD_bparticles_find_simulation_state(Object *object)
   return runtime->simulation_state;
 }
 
-static Mesh *applyModifier(ModifierData *md,
-                           const struct ModifierEvalContext *ctx,
-                           Mesh *UNUSED(mesh))
+static Mesh *applyModifier(ModifierData *md, const struct ModifierEvalContext *ctx, Mesh *mesh)
 {
   BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
   BParticlesModifierData *bpmd_orig = (BParticlesModifierData *)modifier_get_original(
@@ -138,7 +136,9 @@ static Mesh *applyModifier(ModifierData *md,
     return BParticles_modifier_point_mesh_from_state(runtime->simulation_state);
   }
   else if (bpmd->output_type == MOD_BPARTICLES_OUTPUT_TETRAHEDONS) {
-    return BParticles_modifier_mesh_from_state(runtime->simulation_state);
+    Mesh *new_mesh = BParticles_modifier_mesh_from_state(runtime->simulation_state);
+    BKE_mesh_copy_settings(new_mesh, mesh);
+    return new_mesh;
   }
   else {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
