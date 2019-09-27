@@ -291,7 +291,7 @@ template<typename T> void Function::add_resource(std::unique_ptr<T> resource, co
   std::lock_guard<std::mutex> lock(m_modify_mutex);
 
   if (m_resources.get() == nullptr) {
-    m_resources = make_unique<OwnedResources>();
+    m_resources = BLI::make_unique<OwnedResources>();
   }
 
   m_resources->add(std::move(resource), name);

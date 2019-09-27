@@ -8,28 +8,28 @@ namespace DataFlowNodes {
 
 BLI_LAZY_INIT(std::unique_ptr<TypeMappings>, MAPPING_types)
 {
-  auto mappings = make_unique<TypeMappings>();
+  auto mappings = BLI::make_unique<TypeMappings>();
   REGISTER_type_mappings(mappings);
   return mappings;
 }
 
 BLI_LAZY_INIT(std::unique_ptr<NodeInserters>, MAPPING_node_inserters)
 {
-  auto inserters = make_unique<NodeInserters>();
+  auto inserters = BLI::make_unique<NodeInserters>();
   REGISTER_node_inserters(inserters);
   return inserters;
 }
 
 BLI_LAZY_INIT(std::unique_ptr<SocketLoaders>, MAPPING_socket_loaders)
 {
-  auto loaders = make_unique<SocketLoaders>();
+  auto loaders = BLI::make_unique<SocketLoaders>();
   REGISTER_socket_loaders(loaders);
   return loaders;
 }
 
 BLI_LAZY_INIT(std::unique_ptr<LinkInserters>, MAPPING_link_inserters)
 {
-  auto inserters = make_unique<LinkInserters>();
+  auto inserters = BLI::make_unique<LinkInserters>();
   REGISTER_conversion_inserters(inserters);
   return inserters;
 }

@@ -57,7 +57,7 @@ std::unique_ptr<Function> FunctionBuilder::build(StringRef function_name)
     output_names.append(name.to_string_ref(strings));
   }
 
-  return make_unique<Function>(name_ref.to_string_ref(strings),
+  return BLI::make_unique<Function>(name_ref.to_string_ref(strings),
                                input_names,
                                m_input_types,
                                output_names,

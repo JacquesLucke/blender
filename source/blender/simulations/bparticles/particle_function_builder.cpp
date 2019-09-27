@@ -245,10 +245,10 @@ static Optional<std::unique_ptr<ParticleFunction>> create_particle_function_from
   std::unique_ptr<Function> fn_with_deps = create_function__with_deps(
       data_graph, name, sockets_with_deps, dependencies, input_providers);
 
-  return make_unique<ParticleFunction>(std::move(fn_without_deps),
-                                       std::move(fn_with_deps),
-                                       input_providers,
-                                       depends_on_particle_flags);
+  return BLI::make_unique<ParticleFunction>(std::move(fn_without_deps),
+                                            std::move(fn_with_deps),
+                                            input_providers,
+                                            depends_on_particle_flags);
 }
 
 Optional<std::unique_ptr<ParticleFunction>> create_particle_function(VirtualNode *vnode,

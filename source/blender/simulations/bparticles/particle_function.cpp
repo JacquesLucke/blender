@@ -91,7 +91,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
 {
   uint parameter_amount = m_parameter_depends_on_particle.size();
 
-  auto result = make_unique<ParticleFunctionResult>();
+  auto result = BLI::make_unique<ParticleFunctionResult>();
   result->m_buffers.append_n_times(nullptr, parameter_amount);
   result->m_only_first.append_n_times(false, parameter_amount);
   result->m_strides.append_n_times(0, parameter_amount);

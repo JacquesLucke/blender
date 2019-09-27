@@ -161,7 +161,7 @@ class DataGraphBuilder {
   template<typename T> void add_resource(std::unique_ptr<T> resource, const char *name)
   {
     if (m_resources.get() == nullptr) {
-      m_resources = make_unique<OwnedResources>();
+      m_resources = BLI::make_unique<OwnedResources>();
     }
     m_resources->add(std::move(resource), name);
   }

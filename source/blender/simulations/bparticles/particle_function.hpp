@@ -10,7 +10,6 @@
 namespace BParticles {
 
 using BLI::ArrayRef;
-using BLI::make_unique;
 using BLI::Optional;
 using BLI::TemporaryArray;
 using BLI::TemporaryVector;

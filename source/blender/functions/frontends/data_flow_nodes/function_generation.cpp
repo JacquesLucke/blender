@@ -34,7 +34,7 @@ static void find_interface_sockets(VirtualNodeTree &vtree,
 
 Optional<std::unique_ptr<Function>> generate_function(bNodeTree *btree)
 {
-  auto vtree = make_unique<VirtualNodeTree>();
+  auto vtree = BLI::make_unique<VirtualNodeTree>();
   vtree->add_all_of_tree(btree);
   vtree->freeze_and_index();
 
