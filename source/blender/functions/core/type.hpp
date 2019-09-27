@@ -28,7 +28,11 @@
 
 namespace FN {
 
-using namespace BLI;
+using BLI::ArrayRef;
+using BLI::make_unique;
+using BLI::MutableArrayRef;
+using BLI::StringRef;
+using BLI::StringRefNull;
 
 class Type;
 

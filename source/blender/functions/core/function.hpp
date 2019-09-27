@@ -21,13 +21,15 @@
 
 #include <functional>
 
-#include "BLI_chained_strings.h"
 #include "BLI_utility_mixins.h"
 #include "BLI_owned_resources.h"
 
 #include "type.hpp"
 
 namespace FN {
+
+using BLI::OwnedResources;
+using BLI::Vector;
 
 class Function;
 

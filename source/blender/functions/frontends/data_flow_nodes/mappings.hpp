@@ -11,6 +11,7 @@ namespace DataFlowNodes {
 
 using BKE::VirtualNode;
 using BKE::VirtualSocket;
+using BLI::StringMap;
 using StringPair = std::pair<std::string, std::string>;
 
 class VTreeDataGraphBuilder;

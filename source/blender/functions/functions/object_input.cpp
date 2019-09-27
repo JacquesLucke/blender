@@ -11,6 +11,8 @@
 namespace FN {
 namespace Functions {
 
+using BLI::float3;
+using BLI::float4x4;
 using namespace Types;
 
 class ObjectLocation : public TupleCallBody {

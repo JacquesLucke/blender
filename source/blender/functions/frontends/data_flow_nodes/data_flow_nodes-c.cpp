@@ -2,6 +2,7 @@
 #include "BLI_timeit.h"
 
 using namespace FN;
+using BLI::Optional;
 
 FnFunction FN_tree_to_function(bNodeTree *btree)
 {

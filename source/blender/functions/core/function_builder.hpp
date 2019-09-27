@@ -1,9 +1,14 @@
 #pragma once
 
+#include "BLI_chained_strings.h"
+
 #include "function.hpp"
 #include "data_graph.hpp"
 
 namespace FN {
+
+using BLI::ChainedStringRef;
+using BLI::ChainedStringsBuilder;
 
 class FunctionBuilder {
  private:

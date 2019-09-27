@@ -32,6 +32,7 @@
 
 namespace FN {
 
+using BLI::IndexRange;
 using BLI::Map;
 using BLI::MonotonicAllocator;
 

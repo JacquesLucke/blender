@@ -3,6 +3,8 @@
 namespace FN {
 namespace DataFlowNodes {
 
+using BLI::MultiMap;
+
 void SeparateNodeInputs::group(VTreeDataGraphBuilder &builder,
                                MultiVector<VirtualSocket *> &r_groups)
 {

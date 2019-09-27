@@ -13,6 +13,7 @@
 
 namespace FN {
 
+using BLI::Set;
 using BLI::VectorSet;
 
 class FunctionGraph {

@@ -6,6 +6,9 @@
 
 namespace FN {
 
+using BLI::AutoRefCount;
+using BLI::RefCounter;
+
 class List;
 using SharedList = AutoRefCount<List>;
 
