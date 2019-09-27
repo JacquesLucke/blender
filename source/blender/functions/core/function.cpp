@@ -30,10 +30,6 @@ Function::~Function()
     }
   }
 
-  if (m_resources) {
-    m_resources->print(m_name);
-  }
-
   MEM_freeN((void *)m_strings);
 }
 

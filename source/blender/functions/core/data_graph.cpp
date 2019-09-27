@@ -24,10 +24,6 @@ DataGraph::~DataGraph()
       node.source_info->~SourceInfo();
     }
   }
-
-  if (m_resources) {
-    m_resources->print("Data Graph");
-  }
 }
 
 void DataGraph::print_socket(DataSocket socket) const
