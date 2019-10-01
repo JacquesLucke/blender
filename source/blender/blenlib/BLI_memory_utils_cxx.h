@@ -33,6 +33,11 @@ using std::uninitialized_copy_n;
 using std::uninitialized_fill;
 using std::uninitialized_fill_n;
 
+template<typename T> void construct_default(T *ptr)
+{
+  new (ptr) T();
+}
+
 template<typename T> void destruct(T *ptr)
 {
   ptr->~T();
