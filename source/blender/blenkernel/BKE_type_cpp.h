@@ -40,6 +40,9 @@ class TypeCPP final {
         m_relocate_to_uninitialized(relocate_to_uninitialized),
         m_name(name)
   {
+    BLI_assert(is_power_of_2_i(m_alignment));
+
+    m_alignment_mask = m_alignment - 1;
   }
 
   StringRefNull name() const
@@ -47,39 +50,76 @@ class TypeCPP final {
     return m_name;
   }
 
+  uint size() const
+  {
+    return m_size;
+  }
+
+  uint alignment() const
+  {
+    return m_alignment;
+  }
+
+  bool trivially_destructible() const
+  {
+    return m_trivially_destructible;
+  }
+
+  bool pointer_has_valid_alignment(void *ptr) const
+  {
+    return (POINTER_AS_UINT(ptr) & m_alignment_mask) == 0;
+  }
+
   void construct_default(void *ptr) const
   {
+    BLI_assert(this->pointer_has_valid_alignment(ptr));
+
     m_construct_default(ptr);
   }
 
   void destruct(void *ptr) const
   {
+    BLI_assert(this->pointer_has_valid_alignment(ptr));
+
     m_destruct(ptr);
   }
 
   void copy_to_initialized(void *src, void *dst) const
   {
+    BLI_assert(this->pointer_has_valid_alignment(src));
+    BLI_assert(this->pointer_has_valid_alignment(dst));
+
     m_copy_to_initialized(src, dst);
   }
 
   void copy_to_uninitialized(void *src, void *dst) const
   {
+    BLI_assert(this->pointer_has_valid_alignment(src));
+    BLI_assert(this->pointer_has_valid_alignment(dst));
+
     m_copy_to_uninitialized(src, dst);
   }
 
   void relocate_to_initialized(void *src, void *dst) const
   {
+    BLI_assert(this->pointer_has_valid_alignment(src));
+    BLI_assert(this->pointer_has_valid_alignment(dst));
+
     m_relocate_to_initialized(src, dst);
   }
 
   void relocate_to_uninitialized(void *src, void *dst) const
   {
+    BLI_assert(this->pointer_has_valid_alignment(src));
+    BLI_assert(this->pointer_has_valid_alignment(dst));
+
     m_relocate_to_uninitialized(src, dst);
   }
 
  private:
   uint m_size;
   uint m_alignment;
+  uint m_alignment_mask;
   bool m_trivially_destructible;
   ConstructDefaultF m_construct_default;
   DestructF m_destruct;

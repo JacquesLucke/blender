@@ -223,6 +223,7 @@ set(SRC
   intern/suggestions.c
   intern/text.c
   intern/texture.c
+  intern/tuple.cc
   intern/tracking.c
   intern/tracking_auto.c
   intern/tracking_detect.c
