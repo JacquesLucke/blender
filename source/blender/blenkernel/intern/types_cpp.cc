@@ -3,8 +3,11 @@
 #include "DNA_object_types.h"
 
 #include "BLI_math_cxx.h"
+#include "BLI_vector.h"
 
 namespace BKE {
+
+using BLI::Vector;
 
 static Vector<TypeCPP *, 4, BLI::RawAllocator> allocated_types;
 
@@ -56,6 +59,9 @@ void init_data_types()
 
 #define CPP_TYPE_CONSTRUCTION(IDENTIFIER, TYPE_NAME) \
   TYPE_##IDENTIFIER = new TypeCPP(STRINGIFY(IDENTIFIER), \
+                                  sizeof(TYPE_NAME), \
+                                  alignof(TYPE_NAME), \
+                                  std::is_trivially_destructible<TYPE_NAME>::value, \
                                   ConstructDefault_CB<TYPE_NAME>, \
                                   Destruct_CB<TYPE_NAME>, \
                                   CopyToInitialized_CB<TYPE_NAME>, \

@@ -20,13 +20,19 @@ class TypeCPP final {
   using RelocateToUninitializedF = void (*)(void *src, void *dst);
 
   TypeCPP(std::string name,
+          uint size,
+          uint alignment,
+          bool trivially_destructible,
           ConstructDefaultF construct_default,
           DestructF destruct,
           CopyToInitializedF copy_to_initialized,
           CopyToUninitializedF copy_to_uninitialized,
           RelocateToInitializedF relocate_to_initialized,
           RelocateToUninitializedF relocate_to_uninitialized)
-      : m_construct_default(construct_default),
+      : m_size(size),
+        m_alignment(alignment),
+        m_trivially_destructible(trivially_destructible),
+        m_construct_default(construct_default),
         m_destruct(destruct),
         m_copy_to_initialized(copy_to_initialized),
         m_copy_to_uninitialized(copy_to_uninitialized),
@@ -72,6 +78,9 @@ class TypeCPP final {
   }
 
  private:
+  uint m_size;
+  uint m_alignment;
+  bool m_trivially_destructible;
   ConstructDefaultF m_construct_default;
   DestructF m_destruct;
   CopyToInitializedF m_copy_to_initialized;
