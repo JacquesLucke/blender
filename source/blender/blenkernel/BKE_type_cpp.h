@@ -10,9 +10,9 @@ namespace BKE {
 using BLI::StringRef;
 using BLI::StringRefNull;
 
-class TypeCPP final {
+class TypeCPP {
  public:
-  using ConstructDefaultF = void (*)(void *ptr);
+  using ConstructDefaultF = void (*)(const TypeCPP *self, void *ptr);
   using DestructF = void (*)(void *ptr);
   using CopyToInitializedF = void (*)(void *src, void *dst);
   using CopyToUninitializedF = void (*)(void *src, void *dst);
@@ -28,7 +28,8 @@ class TypeCPP final {
           CopyToInitializedF copy_to_initialized,
           CopyToUninitializedF copy_to_uninitialized,
           RelocateToInitializedF relocate_to_initialized,
-          RelocateToUninitializedF relocate_to_uninitialized)
+          RelocateToUninitializedF relocate_to_uninitialized,
+          TypeCPP *generalization)
       : m_size(size),
         m_alignment(alignment),
         m_trivially_destructible(trivially_destructible),
@@ -38,12 +39,32 @@ class TypeCPP final {
         m_copy_to_uninitialized(copy_to_uninitialized),
         m_relocate_to_initialized(relocate_to_initialized),
         m_relocate_to_uninitialized(relocate_to_uninitialized),
+        m_generalization(generalization),
         m_name(name)
   {
     BLI_assert(is_power_of_2_i(m_alignment));
+    BLI_assert(generalization == nullptr ||
+               (generalization->size() == size && generalization->alignment() <= alignment));
 
     m_alignment_mask = m_alignment - 1;
   }
+
+  TypeCPP(std::string name, TypeCPP &generalization, ConstructDefaultF construct_default)
+      : TypeCPP(std::move(name),
+                generalization.m_size,
+                generalization.m_alignment,
+                generalization.m_trivially_destructible,
+                construct_default,
+                generalization.m_destruct,
+                generalization.m_copy_to_initialized,
+                generalization.m_copy_to_uninitialized,
+                generalization.m_relocate_to_initialized,
+                generalization.m_relocate_to_uninitialized,
+                &generalization)
+  {
+  }
+
+  virtual ~TypeCPP();
 
   StringRefNull name() const
   {
@@ -60,6 +81,11 @@ class TypeCPP final {
     return m_alignment;
   }
 
+  TypeCPP *generalization() const
+  {
+    return m_generalization;
+  }
+
   bool trivially_destructible() const
   {
     return m_trivially_destructible;
@@ -74,7 +100,7 @@ class TypeCPP final {
   {
     BLI_assert(this->pointer_has_valid_alignment(ptr));
 
-    m_construct_default(ptr);
+    m_construct_default(this, ptr);
   }
 
   void destruct(void *ptr) const
@@ -116,6 +142,17 @@ class TypeCPP final {
     m_relocate_to_uninitialized(src, dst);
   }
 
+  bool is_same_or_generalization(const TypeCPP &other) const
+  {
+    if (&other == this) {
+      return true;
+    }
+    if (m_generalization == nullptr) {
+      return false;
+    }
+    return m_generalization->is_same_or_generalization(other);
+  }
+
  private:
   uint m_size;
   uint m_alignment;
@@ -127,6 +164,7 @@ class TypeCPP final {
   CopyToUninitializedF m_copy_to_uninitialized;
   RelocateToInitializedF m_relocate_to_initialized;
   RelocateToUninitializedF m_relocate_to_uninitialized;
+  TypeCPP *m_generalization;
   std::string m_name;
 };
 

@@ -120,6 +120,7 @@ set(SRC
   intern/fmodifier.c
   intern/font.c
   intern/freestyle.c
+  intern/generic_array_ref.cc
   intern/gpencil.c
   intern/gpencil_modifier.c
   intern/icons.c
@@ -232,6 +233,7 @@ set(SRC
   intern/tracking_solver.c
   intern/tracking_stabilize.c
   intern/tracking_util.c
+  intern/type_cpp.cc
   intern/types_cpp.cc
   intern/undo_system.c
   intern/unit.c
