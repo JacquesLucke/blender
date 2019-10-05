@@ -125,7 +125,7 @@ class TupleRef {
     BLI_assert(index < m_info->size());
     BLI_assert(m_info->element_has_type<T>(index));
 
-    T *dst = (T *)this->element_ptr<T>(index);
+    T *dst = (T *)this->element_ptr(index);
     if (std::is_trivially_copyable<T>::value) {
       std::memcpy(dst, &value, sizeof(T));
     }
@@ -243,6 +243,12 @@ class TupleRef {
 
     type.relocate_to_uninitialized(src, dst);
     m_init[index] = false;
+  }
+
+  template<typename T> T get(uint index) const
+  {
+    BLI_STATIC_ASSERT(std::is_trivial<T>::value, "can only be used with trivial types");
+    return this->copy_out<T>(index);
   }
 
   template<typename T> T get_type_cpp(uint index) const
