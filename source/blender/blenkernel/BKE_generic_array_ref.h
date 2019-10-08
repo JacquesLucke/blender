@@ -46,7 +46,7 @@ class ArrayRefCPPType : public CPPType {
   CPPType &m_base_type;
 
  public:
-  ArrayRefCPPType(CPPType &base_type, CPPType &generalization);
+  ArrayRefCPPType(CPPType &base_type);
 
   static void ConstructDefaultCB(const CPPType *self, void *ptr)
   {

@@ -24,16 +24,15 @@ ArrayRefCPPType &get_generic_array_ref_cpp_type(CPPType &base)
 
   TypeMapping &mapping = get_mapping();
   auto &type = mapping.lookup_or_add(&base, [&]() {
-    CPPType &generalization = get_cpp_type<GenericArrayRef>();
-    ArrayRefCPPType *new_type = new ArrayRefCPPType(base, generalization);
+    ArrayRefCPPType *new_type = new ArrayRefCPPType(base);
     return std::unique_ptr<ArrayRefCPPType>(new_type);
   });
   return *type;
 }
 
-ArrayRefCPPType::ArrayRefCPPType(CPPType &base_type, CPPType &generalization)
+ArrayRefCPPType::ArrayRefCPPType(CPPType &base_type)
     : CPPType("GenericArrayRef for " + base_type.name(),
-              generalization,
+              get_cpp_type<GenericArrayRef>(),
               ArrayRefCPPType::ConstructDefaultCB),
       m_base_type(base_type)
 {
