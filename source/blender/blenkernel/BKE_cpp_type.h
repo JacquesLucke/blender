@@ -10,16 +10,16 @@ namespace BKE {
 using BLI::StringRef;
 using BLI::StringRefNull;
 
-class TypeCPP {
+class CPPType {
  public:
-  using ConstructDefaultF = void (*)(const TypeCPP *self, void *ptr);
+  using ConstructDefaultF = void (*)(const CPPType *self, void *ptr);
   using DestructF = void (*)(void *ptr);
   using CopyToInitializedF = void (*)(void *src, void *dst);
   using CopyToUninitializedF = void (*)(void *src, void *dst);
   using RelocateToInitializedF = void (*)(void *src, void *dst);
   using RelocateToUninitializedF = void (*)(void *src, void *dst);
 
-  TypeCPP(std::string name,
+  CPPType(std::string name,
           uint size,
           uint alignment,
           bool trivially_destructible,
@@ -29,7 +29,7 @@ class TypeCPP {
           CopyToUninitializedF copy_to_uninitialized,
           RelocateToInitializedF relocate_to_initialized,
           RelocateToUninitializedF relocate_to_uninitialized,
-          TypeCPP *generalization)
+          CPPType *generalization)
       : m_size(size),
         m_alignment(alignment),
         m_trivially_destructible(trivially_destructible),
@@ -49,8 +49,8 @@ class TypeCPP {
     m_alignment_mask = m_alignment - 1;
   }
 
-  TypeCPP(std::string name, TypeCPP &generalization, ConstructDefaultF construct_default)
-      : TypeCPP(std::move(name),
+  CPPType(std::string name, CPPType &generalization, ConstructDefaultF construct_default)
+      : CPPType(std::move(name),
                 generalization.m_size,
                 generalization.m_alignment,
                 generalization.m_trivially_destructible,
@@ -64,7 +64,7 @@ class TypeCPP {
   {
   }
 
-  virtual ~TypeCPP();
+  virtual ~CPPType();
 
   StringRefNull name() const
   {
@@ -81,7 +81,7 @@ class TypeCPP {
     return m_alignment;
   }
 
-  TypeCPP *generalization() const
+  CPPType *generalization() const
   {
     return m_generalization;
   }
@@ -142,7 +142,7 @@ class TypeCPP {
     m_relocate_to_uninitialized(src, dst);
   }
 
-  bool is_same_or_generalization(const TypeCPP &other) const
+  bool is_same_or_generalization(const CPPType &other) const
   {
     if (&other == this) {
       return true;
@@ -164,7 +164,7 @@ class TypeCPP {
   CopyToUninitializedF m_copy_to_uninitialized;
   RelocateToInitializedF m_relocate_to_initialized;
   RelocateToUninitializedF m_relocate_to_uninitialized;
-  TypeCPP *m_generalization;
+  CPPType *m_generalization;
   std::string m_name;
 };
 

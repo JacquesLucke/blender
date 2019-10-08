@@ -1,7 +1,7 @@
 #ifndef __BKE_FUNCTION_CPP_H__
 #define __BKE_FUNCTION_CPP_H__
 
-#include "BKE_type_cpp.h"
+#include "BKE_cpp_type.h"
 #include "BKE_tuple.h"
 
 #include "BLI_vector.h"
@@ -17,8 +17,8 @@ class FunctionCPP;
 
 struct SignatureData {
   std::string name;
-  Vector<TypeCPP *> input_types;
-  Vector<TypeCPP *> output_types;
+  Vector<CPPType *> input_types;
+  Vector<CPPType *> output_types;
   Vector<std::string> input_names;
   Vector<std::string> output_names;
 };
@@ -35,13 +35,13 @@ class SignatureBuilderCPP {
     m_data.name = name;
   }
 
-  void add_input(StringRef name, TypeCPP &type)
+  void add_input(StringRef name, CPPType &type)
   {
     m_data.input_names.append(name);
     m_data.input_types.append(&type);
   }
 
-  void add_output(StringRef name, TypeCPP &type)
+  void add_output(StringRef name, CPPType &type)
   {
     m_data.output_names.append(name);
     m_data.input_types.append(&type);
@@ -62,12 +62,12 @@ class FunctionCPP {
     return m_signature.name;
   }
 
-  ArrayRef<TypeCPP *> input_types() const
+  ArrayRef<CPPType *> input_types() const
   {
     return m_signature.input_types;
   }
 
-  ArrayRef<TypeCPP *> output_types() const
+  ArrayRef<CPPType *> output_types() const
   {
     return m_signature.output_types;
   }

@@ -1,4 +1,4 @@
-#include "BKE_types_cpp.h"
+#include "BKE_cpp_types.h"
 #include "BKE_generic_array_ref.h"
 
 #include "DNA_object_types.h"
@@ -10,29 +10,29 @@ namespace BKE {
 
 using BLI::Vector;
 
-static Vector<TypeCPP *, 4, BLI::RawAllocator> allocated_types;
+static Vector<CPPType *, 4, BLI::RawAllocator> allocated_types;
 
 void free_data_types()
 {
-  for (TypeCPP *type : allocated_types) {
+  for (CPPType *type : allocated_types) {
     delete type;
   }
 }
 
-template<typename T> void ConstructDefault_CB(const TypeCPP *UNUSED(self), void *ptr)
+template<typename T> void ConstructDefault_CB(const CPPType *UNUSED(self), void *ptr)
 {
   BLI::construct_default((T *)ptr);
 }
 
 template<typename T, bool IsDefaultConstructible> struct DefaultConstructor;
 template<typename T> struct DefaultConstructor<T, true> {
-  static TypeCPP::ConstructDefaultF get_callback()
+  static CPPType::ConstructDefaultF get_callback()
   {
     return ConstructDefault_CB<T>;
   }
 };
 template<typename T> struct DefaultConstructor<T, false> {
-  static TypeCPP::ConstructDefaultF get_callback()
+  static CPPType::ConstructDefaultF get_callback()
   {
     return nullptr;
   }
@@ -59,7 +59,7 @@ template<typename T> void RelocateToUninitialized_CB(void *src, void *dst)
   BLI::uninitialized_relocate((T *)src, (T *)dst);
 }
 
-#define CPP_TYPE_DECLARE(IDENTIFIER) static TypeCPP *TYPE_##IDENTIFIER = nullptr
+#define CPP_TYPE_DECLARE(IDENTIFIER) static CPPType *TYPE_##IDENTIFIER = nullptr
 
 CPP_TYPE_DECLARE(float);
 CPP_TYPE_DECLARE(bool);
@@ -75,7 +75,7 @@ void init_data_types()
 {
 
 #define CPP_TYPE_CONSTRUCTION(IDENTIFIER, TYPE_NAME) \
-  TYPE_##IDENTIFIER = new TypeCPP( \
+  TYPE_##IDENTIFIER = new CPPType( \
       STRINGIFY(IDENTIFIER), \
       sizeof(TYPE_NAME), \
       alignof(TYPE_NAME), \
@@ -102,7 +102,7 @@ void init_data_types()
 }
 
 #define CPP_TYPE_GETTER(IDENTIFIER, TYPE_NAME) \
-  template<> TypeCPP &get_type_cpp<TYPE_NAME>() \
+  template<> CPPType &get_cpp_type<TYPE_NAME>() \
   { \
     return *TYPE_##IDENTIFIER; \
   }

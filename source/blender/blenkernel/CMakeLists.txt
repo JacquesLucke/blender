@@ -234,8 +234,8 @@ set(SRC
   intern/tracking_solver.c
   intern/tracking_stabilize.c
   intern/tracking_util.c
-  intern/type_cpp.cc
-  intern/types_cpp.cc
+  intern/cpp_type.cc
+  intern/cpp_types.cc
   intern/undo_system.c
   intern/unit.c
   intern/workspace.c

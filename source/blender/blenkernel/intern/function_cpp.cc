@@ -1,5 +1,5 @@
 #include "BKE_function_cpp.h"
-#include "BKE_types_cpp.h"
+#include "BKE_cpp_types.h"
 #include "BKE_generic_array_ref.h"
 
 namespace BKE {
@@ -18,9 +18,9 @@ FunctionCPP::~FunctionCPP()
 class AddFloatsFunction : public FunctionCPP {
   void signature(SignatureBuilderCPP &signature) override
   {
-    signature.add_input("A", get_type_cpp<float>());
-    signature.add_input("B", get_type_cpp<float>());
-    signature.add_output("Result", get_type_cpp<float>());
+    signature.add_input("A", get_cpp_type<float>());
+    signature.add_input("B", get_cpp_type<float>());
+    signature.add_output("Result", get_cpp_type<float>());
   }
 
   void call(TupleRef &fn_in, TupleRef &fn_out) const override
@@ -35,8 +35,8 @@ class AddFloatsFunction : public FunctionCPP {
 class AddFloatsArray : public FunctionCPP {
   void signature(SignatureBuilderCPP &signature) override
   {
-    signature.add_input("A", get_generic_array_ref_cpp_type(get_type_cpp<float>()));
-    signature.add_output("B", get_type_cpp<float>());
+    signature.add_input("A", get_generic_array_ref_cpp_type(get_cpp_type<float>()));
+    signature.add_output("B", get_cpp_type<float>());
   }
 
   void call(TupleRef &fn_in, TupleRef &fn_out) const override

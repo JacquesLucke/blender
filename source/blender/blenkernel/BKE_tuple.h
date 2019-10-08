@@ -3,8 +3,8 @@
 
 #include "BLI_vector.h"
 
-#include "BKE_type_cpp.h"
-#include "BKE_types_cpp.h"
+#include "BKE_cpp_type.h"
+#include "BKE_cpp_types.h"
 
 namespace BKE {
 
@@ -14,7 +14,7 @@ using BLI::Vector;
 class TupleInfo : BLI::NonCopyable, BLI::NonMovable {
  private:
   Vector<uint> m_offsets;
-  Vector<TypeCPP *> m_types;
+  Vector<CPPType *> m_types;
   uint m_alignment;
   uintptr_t m_do_align_mask;
   uint m_size__data;
@@ -23,14 +23,14 @@ class TupleInfo : BLI::NonCopyable, BLI::NonMovable {
   bool m_all_trivially_destructible;
 
  public:
-  TupleInfo(Vector<TypeCPP *> types);
+  TupleInfo(Vector<CPPType *> types);
 
-  ArrayRef<TypeCPP *> types() const
+  ArrayRef<CPPType *> types() const
   {
     return m_types;
   }
 
-  TypeCPP &type_at_index(uint index) const
+  CPPType &type_at_index(uint index) const
   {
     return *m_types[index];
   }
@@ -85,8 +85,8 @@ class TupleInfo : BLI::NonCopyable, BLI::NonMovable {
 
   template<typename T> bool element_has_type(uint index) const
   {
-    TypeCPP *expected_type = m_types[index];
-    TypeCPP *actual_type == get_type_cpp<T>();
+    CPPType *expected_type = m_types[index];
+    CPPType *actual_type == get_cpp_type<T>();
     return expected_type == actual_type;
   }
 };
@@ -145,7 +145,7 @@ class TupleRef {
     BLI_assert(src != nullptr);
 
     void *dst = this->element_ptr(index);
-    TypeCPP &type = m_info->type_at_index(index);
+    CPPType &type = m_info->type_at_index(index);
 
     if (m_init[index]) {
       type.copy_to_initialized(src, dst);
@@ -178,7 +178,7 @@ class TupleRef {
     BLI_assert(src != nullptr);
 
     void *dst = this->element_ptr(index);
-    TypeCPP &type = m_info->type_at_index(index);
+    CPPType &type = m_info->type_at_index(index);
 
     if (m_init[index]) {
       type.relocate_to_initialized(src, dst);
@@ -226,7 +226,7 @@ class TupleRef {
     BLI_assert(dst != nullptr);
 
     void *src = this->element_ptr(index);
-    TypeCPP &type = m_info->type_at_index(index);
+    CPPType &type = m_info->type_at_index(index);
 
     type.relocate_to_initialized(src, dst);
     m_init[index] = false;
@@ -239,7 +239,7 @@ class TupleRef {
     BLI_assert(dst != nullptr);
 
     void *src = this->element_ptr(index);
-    TypeCPP &type = m_info->type_at_index(index);
+    CPPType &type = m_info->type_at_index(index);
 
     type.relocate_to_uninitialized(src, dst);
     m_init[index] = false;
@@ -251,7 +251,7 @@ class TupleRef {
     return this->copy_out<T>(index);
   }
 
-  template<typename T> T get_type_cpp(uint index) const
+  template<typename T> T get_cpp_type(uint index) const
   {
     BLI_STATIC_ASSERT(std::is_trivial<T>::value, "can only be used with trivial types");
     return this->copy_out<T>(index);
@@ -264,7 +264,7 @@ class TupleRef {
 
     void *src = from.element_ptr(from_index);
     void *dst = to.element_ptr(to_index);
-    TypeCPP &type = from.m_info->type_at_index(from_index);
+    CPPType &type = from.m_info->type_at_index(from_index);
 
     if (to.m_init[to_index]) {
       type.copy_to_initialized(src, dst);
@@ -282,7 +282,7 @@ class TupleRef {
 
     void *src = from.element_ptr(from_index);
     void *dst = to.element_ptr(to_index);
-    TypeCPP &type = from.m_info->type_at_index(from_index);
+    CPPType &type = from.m_info->type_at_index(from_index);
 
     if (to.m_init[to_index]) {
       type.relocate_to_initialized(src, dst);

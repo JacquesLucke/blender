@@ -2211,7 +2211,7 @@ static void rna_def_property_funcs_header_cpp(FILE *f, StructRNA *srna, Property
   fprintf(f, "\n");
 }
 
-static const char *rna_parameter_type_cpp_name(PropertyRNA *prop)
+static const char *rna_parameter_cpp_type_name(PropertyRNA *prop)
 {
   if (prop->type == PROP_POINTER) {
     /* for cpp api we need to use RNA structures names for pointers */
@@ -2224,7 +2224,7 @@ static const char *rna_parameter_type_cpp_name(PropertyRNA *prop)
   }
 }
 
-static void rna_def_struct_function_prototype_cpp(FILE *f,
+static void rna_def_struct_function_protocpp_type(FILE *f,
                                                   StructRNA *UNUSED(srna),
                                                   FunctionDefRNA *dfunc,
                                                   const char *namespace,
@@ -2238,7 +2238,7 @@ static void rna_def_struct_function_prototype_cpp(FILE *f,
 
   if (func->c_ret) {
     dp = rna_find_parameter_def(func->c_ret);
-    retval_type = rna_parameter_type_cpp_name(dp->prop);
+    retval_type = rna_parameter_cpp_type_name(dp->prop);
   }
 
   if (namespace && namespace[0]) {
@@ -2295,14 +2295,14 @@ static void rna_def_struct_function_prototype_cpp(FILE *f,
     if (!(flag & PROP_DYNAMIC) && dp->prop->arraydimension) {
       fprintf(f,
               "%s %s[%u]",
-              rna_parameter_type_cpp_name(dp->prop),
+              rna_parameter_cpp_type_name(dp->prop),
               rna_safe_id(dp->prop->identifier),
               dp->prop->totarraylength);
     }
     else {
       fprintf(f,
               "%s%s%s%s",
-              rna_parameter_type_cpp_name(dp->prop),
+              rna_parameter_cpp_type_name(dp->prop),
               (dp->prop->type == PROP_POINTER && ptrstr[0] == '\0') ? "& " : " ",
               ptrstr,
               rna_safe_id(dp->prop->identifier));
@@ -2324,7 +2324,7 @@ static void rna_def_struct_function_header_cpp(FILE *f, StructRNA *srna, Functio
     fprintf(f, "\n\t/* %s */\n", func->description);
 #endif
 
-    rna_def_struct_function_prototype_cpp(f, srna, dfunc, NULL, 1);
+    rna_def_struct_function_protocpp_type(f, srna, dfunc, NULL, 1);
   }
 }
 
@@ -2571,7 +2571,7 @@ static void rna_def_struct_function_impl_cpp(FILE *f, StructRNA *srna, FunctionD
     return;
   }
 
-  rna_def_struct_function_prototype_cpp(f, srna, dfunc, srna->identifier, 0);
+  rna_def_struct_function_protocpp_type(f, srna, dfunc, srna->identifier, 0);
 
   fprintf(f, " {\n");
 

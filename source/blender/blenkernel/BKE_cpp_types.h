@@ -1,14 +1,14 @@
 #ifndef __BKE_DATA_TYPES_H__
 #define __BKE_DATA_TYPES_H__
 
-#include "BKE_type_cpp.h"
+#include "BKE_cpp_type.h"
 
 namespace BKE {
 
 void init_data_types();
 void free_data_types();
 
-template<typename T> TypeCPP &get_type_cpp();
+template<typename T> CPPType &get_cpp_type();
 
 }  // namespace BKE
 
