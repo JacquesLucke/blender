@@ -191,7 +191,8 @@ class TupleRef {
 
   template<typename T> void set(uint index, const T &value)
   {
-    BLI_STATIC_ASSERT(std::is_trivial<T>::value, "can only be used with trivial types");
+    BLI_STATIC_ASSERT(std::is_trivially_copyable<T>::value,
+                      "can only be used with trivially copyable types");
     this->copy_in<T>(index, value);
   }
 
@@ -247,7 +248,8 @@ class TupleRef {
 
   template<typename T> T get(uint index) const
   {
-    BLI_STATIC_ASSERT(std::is_trivial<T>::value, "can only be used with trivial types");
+    BLI_STATIC_ASSERT(std::is_trivially_copyable<T>::value,
+                      "can only be used with trivially copyable types");
     return this->copy_out<T>(index);
   }
 

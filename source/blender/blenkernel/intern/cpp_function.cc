@@ -35,7 +35,7 @@ class AddFloatsFunction : public CPPFunction {
 class AddFloatsArray : public CPPFunction {
   void signature(SignatureBuilderCPP &signature) override
   {
-    signature.add_input("A", GET_TYPE_generic_array_ref(GET_TYPE<float>()));
+    signature.add_input("A", GET_TYPE_array_ref(GET_TYPE<float>()));
     signature.add_output("B", GET_TYPE<float>());
   }
 

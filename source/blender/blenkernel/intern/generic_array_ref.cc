@@ -25,7 +25,7 @@ BLI_LAZY_INIT_STATIC(MutableArrayRefTypeMapping, get_mutable_type_mapping)
 static std::mutex map_mutex__immutable;
 static std::mutex map_mutex__mutable;
 
-ArrayRefCPPType &GET_TYPE_generic_array_ref(CPPType &base)
+ArrayRefCPPType &GET_TYPE_array_ref(CPPType &base)
 {
   std::lock_guard<std::mutex> lock(map_mutex__immutable);
 
@@ -38,7 +38,7 @@ ArrayRefCPPType &GET_TYPE_generic_array_ref(CPPType &base)
   return *type;
 }
 
-MutableArrayRefCPPType &GET_TYPE_generic_mutable_array_ref(CPPType &base)
+MutableArrayRefCPPType &GET_TYPE_mutable_array_ref(CPPType &base)
 {
   std::lock_guard<std::mutex> lock(map_mutex__mutable);
 

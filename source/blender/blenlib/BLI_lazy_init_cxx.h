@@ -77,3 +77,9 @@ void lazy_init_register(std::function<void()> free_func, const char *name);
     return value; \
   } \
   std::unique_ptr<TYPE> NAME##_impl(void)
+
+#define BLI_LAZY_INIT_STATIC_VAR(type, func_name) \
+  BLI_LAZY_INIT_STATIC(type, func_name) \
+  { \
+    return {}; \
+  }
