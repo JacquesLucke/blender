@@ -68,6 +68,7 @@ CPP_TYPE_DECLARE(int32);
 CPP_TYPE_DECLARE(rgba_f);
 CPP_TYPE_DECLARE(string);
 CPP_TYPE_DECLARE(GenericArrayRef);
+CPP_TYPE_DECLARE(GenericMutableArrayRef);
 
 #undef CPP_TYPE_DECLARE
 
@@ -97,6 +98,7 @@ void init_data_types()
   CPP_TYPE_CONSTRUCTION(rgba_f, BLI::rgba_f);
   CPP_TYPE_CONSTRUCTION(string, std::string);
   CPP_TYPE_CONSTRUCTION(GenericArrayRef, GenericArrayRef);
+  CPP_TYPE_CONSTRUCTION(GenericMutableArrayRef, GenericMutableArrayRef);
 
 #undef CPP_TYPE_CONSTRUCTION
 }
@@ -114,6 +116,7 @@ CPP_TYPE_GETTER(int32, int32_t)
 CPP_TYPE_GETTER(rgba_f, BLI::rgba_f)
 CPP_TYPE_GETTER(string, std::string)
 CPP_TYPE_GETTER(GenericArrayRef, GenericArrayRef);
+CPP_TYPE_GETTER(GenericMutableArrayRef, GenericMutableArrayRef);
 
 #undef CPP_TYPE_GETTER
 

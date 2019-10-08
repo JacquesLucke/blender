@@ -9,6 +9,7 @@
 namespace BKE {
 
 using BLI::ArrayRef;
+using BLI::MutableArrayRef;
 
 class GenericArrayRef {
  private:
@@ -41,7 +42,38 @@ class GenericArrayRef {
   }
 };
 
-class ArrayRefCPPType : public CPPType {
+class GenericMutableArrayRef {
+ private:
+  const CPPType *m_type;
+  void *m_buffer;
+  uint m_size;
+
+ public:
+  GenericMutableArrayRef(const CPPType *type) : GenericMutableArrayRef(type, nullptr, 0)
+  {
+  }
+
+  GenericMutableArrayRef(const CPPType *type, void *buffer, uint size)
+      : m_type(type), m_buffer(buffer), m_size(size)
+  {
+    BLI_assert(type != nullptr);
+    BLI_assert(buffer != nullptr || size == 0);
+    BLI_assert(type->pointer_has_valid_alignment(buffer));
+  }
+
+  uint size() const
+  {
+    return m_size;
+  }
+
+  template<typename T> MutableArrayRef<T> get_ref()
+  {
+    BLI_assert(get_cpp_type<T>().is_same_or_generalization(m_type));
+    return ArrayRef<T>((const T *)m_buffer, m_size);
+  }
+};
+
+class ArrayRefCPPType final : public CPPType {
  private:
   CPPType &m_base_type;
 
@@ -55,7 +87,22 @@ class ArrayRefCPPType : public CPPType {
   }
 };
 
+class MutableArrayRefCPPType final : public CPPType {
+ private:
+  CPPType &m_base_type;
+
+ public:
+  MutableArrayRefCPPType(CPPType &base_type);
+
+  static void ConstructDefaultCB(const CPPType *self, void *ptr)
+  {
+    const MutableArrayRefCPPType *self_ = dynamic_cast<const MutableArrayRefCPPType *>(self);
+    new (ptr) GenericMutableArrayRef(&self_->m_base_type);
+  }
+};
+
 ArrayRefCPPType &get_generic_array_ref_cpp_type(CPPType &base);
+MutableArrayRefCPPType &get_generic_mutable_array_ref_cpp_type(CPPType &base);
 
 }  // namespace BKE
 
