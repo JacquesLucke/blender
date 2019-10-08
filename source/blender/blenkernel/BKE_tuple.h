@@ -86,7 +86,7 @@ class TupleInfo : BLI::NonCopyable, BLI::NonMovable {
   template<typename T> bool element_has_type(uint index) const
   {
     CPPType *expected_type = m_types[index];
-    CPPType *actual_type == get_cpp_type<T>();
+    CPPType *actual_type == GET_TYPE<T>();
     return expected_type == actual_type;
   }
 };
@@ -251,7 +251,7 @@ class TupleRef {
     return this->copy_out<T>(index);
   }
 
-  template<typename T> T get_cpp_type(uint index) const
+  template<typename T> T GET_TYPE(uint index) const
   {
     BLI_STATIC_ASSERT(std::is_trivial<T>::value, "can only be used with trivial types");
     return this->copy_out<T>(index);

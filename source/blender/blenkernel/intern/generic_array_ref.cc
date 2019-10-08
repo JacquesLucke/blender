@@ -25,7 +25,7 @@ BLI_LAZY_INIT_STATIC(MutableArrayRefTypeMapping, get_mutable_type_mapping)
 static std::mutex map_mutex__immutable;
 static std::mutex map_mutex__mutable;
 
-ArrayRefCPPType &get_generic_array_ref_cpp_type(CPPType &base)
+ArrayRefCPPType &GET_TYPE_generic_array_ref(CPPType &base)
 {
   std::lock_guard<std::mutex> lock(map_mutex__immutable);
 
@@ -38,7 +38,7 @@ ArrayRefCPPType &get_generic_array_ref_cpp_type(CPPType &base)
   return *type;
 }
 
-MutableArrayRefCPPType &get_generic_mutable_array_ref_cpp_type(CPPType &base)
+MutableArrayRefCPPType &GET_TYPE_generic_mutable_array_ref(CPPType &base)
 {
   std::lock_guard<std::mutex> lock(map_mutex__mutable);
 
@@ -54,7 +54,7 @@ MutableArrayRefCPPType &get_generic_mutable_array_ref_cpp_type(CPPType &base)
 
 ArrayRefCPPType::ArrayRefCPPType(CPPType &base_type)
     : CPPType("GenericArrayRef for " + base_type.name(),
-              get_cpp_type<GenericArrayRef>(),
+              GET_TYPE<GenericArrayRef>(),
               ArrayRefCPPType::ConstructDefaultCB),
       m_base_type(base_type)
 {
@@ -62,7 +62,7 @@ ArrayRefCPPType::ArrayRefCPPType(CPPType &base_type)
 
 MutableArrayRefCPPType::MutableArrayRefCPPType(CPPType &base_type)
     : CPPType("GenericMutableArrayRef for " + base_type.name(),
-              get_cpp_type<GenericMutableArrayRef>(),
+              GET_TYPE<GenericMutableArrayRef>(),
               MutableArrayRefCPPType::ConstructDefaultCB),
       m_base_type(base_type)
 {

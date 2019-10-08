@@ -18,9 +18,9 @@ CPPFunction::~CPPFunction()
 class AddFloatsFunction : public CPPFunction {
   void signature(SignatureBuilderCPP &signature) override
   {
-    signature.add_input("A", get_cpp_type<float>());
-    signature.add_input("B", get_cpp_type<float>());
-    signature.add_output("Result", get_cpp_type<float>());
+    signature.add_input("A", GET_TYPE<float>());
+    signature.add_input("B", GET_TYPE<float>());
+    signature.add_output("Result", GET_TYPE<float>());
   }
 
   void call(TupleRef &fn_in, TupleRef &fn_out) const override
@@ -35,8 +35,8 @@ class AddFloatsFunction : public CPPFunction {
 class AddFloatsArray : public CPPFunction {
   void signature(SignatureBuilderCPP &signature) override
   {
-    signature.add_input("A", get_generic_array_ref_cpp_type(get_cpp_type<float>()));
-    signature.add_output("B", get_cpp_type<float>());
+    signature.add_input("A", GET_TYPE_generic_array_ref(GET_TYPE<float>()));
+    signature.add_output("B", GET_TYPE<float>());
   }
 
   void call(TupleRef &fn_in, TupleRef &fn_out) const override

@@ -37,7 +37,7 @@ class GenericArrayRef {
 
   template<typename T> ArrayRef<T> get_ref() const
   {
-    BLI_assert(get_cpp_type<T>().is_same_or_generalization(m_type));
+    BLI_assert(GET_TYPE<T>().is_same_or_generalization(m_type));
     return ArrayRef<T>((const T *)m_buffer, m_size);
   }
 };
@@ -68,7 +68,7 @@ class GenericMutableArrayRef {
 
   template<typename T> MutableArrayRef<T> get_ref()
   {
-    BLI_assert(get_cpp_type<T>().is_same_or_generalization(m_type));
+    BLI_assert(GET_TYPE<T>().is_same_or_generalization(m_type));
     return ArrayRef<T>((const T *)m_buffer, m_size);
   }
 };
@@ -101,8 +101,8 @@ class MutableArrayRefCPPType final : public CPPType {
   }
 };
 
-ArrayRefCPPType &get_generic_array_ref_cpp_type(CPPType &base);
-MutableArrayRefCPPType &get_generic_mutable_array_ref_cpp_type(CPPType &base);
+ArrayRefCPPType &GET_TYPE_generic_array_ref(CPPType &base);
+MutableArrayRefCPPType &GET_TYPE_generic_mutable_array_ref(CPPType &base);
 
 }  // namespace BKE
 
