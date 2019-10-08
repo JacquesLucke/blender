@@ -1,21 +1,21 @@
-#include "BKE_function_cpp.h"
+#include "BKE_cpp_function.h"
 #include "BKE_cpp_types.h"
 #include "BKE_generic_array_ref.h"
 
 namespace BKE {
 
-FunctionCPP::FunctionCPP()
+CPPFunction::CPPFunction()
 {
   SignatureBuilderCPP signature;
   this->signature(signature);
   m_signature = std::move(signature.m_data);
 }
 
-FunctionCPP::~FunctionCPP()
+CPPFunction::~CPPFunction()
 {
 }
 
-class AddFloatsFunction : public FunctionCPP {
+class AddFloatsFunction : public CPPFunction {
   void signature(SignatureBuilderCPP &signature) override
   {
     signature.add_input("A", get_cpp_type<float>());
@@ -32,7 +32,7 @@ class AddFloatsFunction : public FunctionCPP {
   }
 };
 
-class AddFloatsArray : public FunctionCPP {
+class AddFloatsArray : public CPPFunction {
   void signature(SignatureBuilderCPP &signature) override
   {
     signature.add_input("A", get_generic_array_ref_cpp_type(get_cpp_type<float>()));

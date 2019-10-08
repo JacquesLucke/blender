@@ -1,5 +1,5 @@
-#ifndef __BKE_DATA_TYPE_H__
-#define __BKE_DATA_TYPE_H__
+#ifndef __BKE_CPP_TYPE_H__
+#define __BKE_CPP_TYPE_H__
 
 #include "BLI_string_ref.h"
 #include "BLI_utility_mixins.h"
@@ -170,4 +170,4 @@ class CPPType {
 
 }  // namespace BKE
 
-#endif /* __BKE_DATA_TYPE_H__ */
+#endif /* __BKE_CPP_TYPE_H__ */

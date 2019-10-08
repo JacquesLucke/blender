@@ -1,5 +1,5 @@
-#ifndef __BKE_FUNCTION_CPP_H__
-#define __BKE_FUNCTION_CPP_H__
+#ifndef __BKE_CPP_FUNCTION_H__
+#define __BKE_CPP_FUNCTION_H__
 
 #include "BKE_cpp_type.h"
 #include "BKE_tuple.h"
@@ -13,7 +13,7 @@ using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
 
-class FunctionCPP;
+class CPPFunction;
 
 struct SignatureData {
   std::string name;
@@ -27,7 +27,7 @@ class SignatureBuilderCPP {
  private:
   SignatureData m_data;
 
-  friend FunctionCPP;
+  friend CPPFunction;
 
  public:
   void set_name(StringRef name)
@@ -48,14 +48,14 @@ class SignatureBuilderCPP {
   }
 };
 
-class FunctionCPP {
+class CPPFunction {
  private:
   SignatureData m_signature;
 
  public:
-  FunctionCPP();
+  CPPFunction();
 
-  virtual ~FunctionCPP();
+  virtual ~CPPFunction();
 
   StringRefNull name() const
   {
@@ -88,4 +88,4 @@ class FunctionCPP {
 
 }  // namespace BKE
 
-#endif /* __BKE_FUNCTION_CPP_H__ */
+#endif /* __BKE_CPP_FUNCTION_H__ */
