@@ -35,11 +35,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
   GenericVectorArray() = delete;
 
   GenericVectorArray(CPPType &type, uint array_size)
-      : m_slices_allocator({}),
-        m_elements_allocator({}),
-        m_type(type),
-        m_array_size(array_size),
-        m_element_size(type.size())
+      : m_type(type), m_array_size(array_size), m_element_size(type.size())
   {
     uint slices_size_in_bytes = sizeof(BufferSlice) * array_size;
     m_slices = (BufferSlice *)m_slices_allocator.allocate(slices_size_in_bytes, __func__);
