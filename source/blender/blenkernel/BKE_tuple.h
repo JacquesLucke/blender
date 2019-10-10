@@ -85,9 +85,7 @@ class TupleInfo : BLI::NonCopyable, BLI::NonMovable {
 
   template<typename T> bool element_has_type(uint index) const
   {
-    CPPType *expected_type = m_types[index];
-    CPPType *actual_type == GET_TYPE<T>();
-    return expected_type == actual_type;
+    return GET_TYPE<T>().is_same_or_generalization(*m_types[index]);
   }
 };
 
