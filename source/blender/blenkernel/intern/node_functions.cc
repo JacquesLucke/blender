@@ -41,10 +41,11 @@ class MultiFunction {
     GenericArrayOrSingleRef readonly_single_input(uint index, StringRef name);
 
     template<typename T> MutableArrayRef<T> single_output(uint index, StringRef name);
+    GenericMutableArrayRef single_output(uint index, StringRef name);
 
     template<typename T>
     const GenericVectorArray::TypedRef<T> readonly_vector_input(uint index, StringRef name);
-    const GenericVectorArray &readonly_vector_input(uint index, StringRef name);
+    GenericVectorArrayOrSingleRef readonly_vector_input(uint index, StringRef name);
 
     template<typename T>
     GenericVectorArray::MutableTypedRef<T> vector_output(uint index, StringRef name);
@@ -180,8 +181,23 @@ class MultiFunction_GetListElement : public MultiFunction {
 
   void call(ArrayRef<uint> mask_indices, Params &params) const override
   {
-    GenericVectorArray &lists = params.mutable_vector(0, "List");
-    ArrayOrSingleRef<int> input_indices = params.readonly_single_input<int>(1, "Index");
+    GenericVectorArrayOrSingleRef lists = params.readonly_vector_input(0, "List");
+    ArrayOrSingleRef<int> indices = params.readonly_single_input<int>(1, "Index");
+    GenericArrayOrSingleRef fallbacks = params.readonly_single_input(2, "Fallback");
+
+    GenericMutableArrayRef output_values = params.single_output(3, "Value");
+
+    for (uint i : mask_indices) {
+      int index = indices[i];
+      if (index >= 0) {
+        GenericArrayRef list = lists[i];
+        if (index < list.size()) {
+          m_base_type.copy_to_uninitialized(list[index], output_values[i]);
+          continue;
+        }
+      }
+      m_base_type.copy_to_uninitialized(fallbacks[i], output_values[i]);
+    }
   }
 };
 

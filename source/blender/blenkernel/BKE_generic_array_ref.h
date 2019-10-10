@@ -20,16 +20,16 @@ class GenericArrayRef {
   uint m_size;
 
  public:
-  GenericArrayRef(const CPPType *type) : GenericArrayRef(type, nullptr, 0)
+  GenericArrayRef(const CPPType &type) : GenericArrayRef(type, nullptr, 0)
   {
   }
 
-  GenericArrayRef(const CPPType *type, const void *buffer, uint size)
-      : m_type(type), m_buffer(buffer), m_size(size)
+  GenericArrayRef(const CPPType &type, const void *buffer, uint size)
+      : m_type(&type), m_buffer(buffer), m_size(size)
   {
-    BLI_assert(type != nullptr);
+    BLI_assert(&type != nullptr);
     BLI_assert(buffer != nullptr || size == 0);
-    BLI_assert(type->pointer_has_valid_alignment(buffer));
+    BLI_assert(type.pointer_has_valid_alignment(buffer));
   }
 
   uint size() const
@@ -50,7 +50,7 @@ class GenericArrayRef {
 
   template<typename T> ArrayRef<T> get_ref() const
   {
-    BLI_assert(GET_TYPE<T>().is_same_or_generalization(m_type));
+    BLI_assert(GET_TYPE<T>().is_same_or_generalization(*m_type));
     return ArrayRef<T>((const T *)m_buffer, m_size);
   }
 };
@@ -130,9 +130,15 @@ class GenericMutableArrayRef {
     return m_size;
   }
 
+  void *operator[](uint index)
+  {
+    BLI_assert(index < m_size);
+    return POINTER_OFFSET(m_buffer, m_type->size() * index);
+  }
+
   template<typename T> MutableArrayRef<T> get_ref()
   {
-    BLI_assert(GET_TYPE<T>().is_same_or_generalization(m_type));
+    BLI_assert(GET_TYPE<T>().is_same_or_generalization(*m_type));
     return MutableArrayRef<T>((T *)m_buffer, m_size);
   }
 };
@@ -147,7 +153,7 @@ class ArrayRefCPPType final : public CPPType {
   static void ConstructDefaultCB(const CPPType *self, void *ptr)
   {
     const ArrayRefCPPType *self_ = dynamic_cast<const ArrayRefCPPType *>(self);
-    new (ptr) GenericArrayRef(&self_->m_base_type);
+    new (ptr) GenericArrayRef(self_->m_base_type);
   }
 };
 

@@ -171,6 +171,18 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
   }
 };
 
+class GenericVectorArrayOrSingleRef {
+ private:
+  CPPType *m_type;
+
+ public:
+  GenericArrayRef operator[](uint index)
+  {
+    /* TODO */
+    return GenericArrayRef(*m_type);
+  }
+};
+
 };  // namespace BKE
 
 #endif /* __BKE_GENERIC_MULTI_VECTOR_H__ */
