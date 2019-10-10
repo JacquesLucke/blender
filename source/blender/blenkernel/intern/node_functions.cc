@@ -44,7 +44,8 @@ class MultiFunction {
     GenericMutableArrayRef single_output(uint index, StringRef name);
 
     template<typename T>
-    const GenericVectorArray::TypedRef<T> readonly_vector_input(uint index, StringRef name);
+    const GenericVectorArrayOrSingleRef::TypedRef<T> readonly_vector_input(uint index,
+                                                                           StringRef name);
     GenericVectorArrayOrSingleRef readonly_vector_input(uint index, StringRef name);
 
     template<typename T>

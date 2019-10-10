@@ -163,11 +163,26 @@ class GenericVectorArrayOrSingleRef {
   CPPType *m_type;
 
  public:
-  GenericArrayRef operator[](uint index)
+  GenericArrayRef operator[](uint index) const
   {
     /* TODO */
     return GenericArrayRef(*m_type);
   }
+
+  template<typename T> class TypedRef {
+   private:
+    const GenericVectorArrayOrSingleRef *m_data;
+
+   public:
+    TypedRef(const GenericVectorArrayOrSingleRef &data) : m_data(&data)
+    {
+    }
+
+    ArrayRef<T> operator[](uint index)
+    {
+      return (*m_data)[index].get_ref<T>();
+    }
+  };
 };
 
 };  // namespace BKE
