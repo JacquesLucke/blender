@@ -48,14 +48,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     m_slices_allocator.deallocate((void *)m_slices);
   }
 
-  template<typename T> ArrayRef<T> as_ref(uint index) const
-  {
-    BLI_assert(GET_TYPE<T>().is_same_or_generalization(m_type));
-    const BufferSlice &slice = this->slices()[index];
-    return ArrayRef<T>((const T *)slice.start, slice.length);
-  }
-
-  void append_single__copy(uint index, void *src)
+  void append_single__copy(uint index, const void *src)
   {
     MutableArrayRef<BufferSlice> slices = this->slices();
     BufferSlice &slice = slices[index];
@@ -86,6 +79,54 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
 
       src_buffer = POINTER_OFFSET(src_buffer, m_element_size);
     }
+  }
+
+  template<typename T> class TypedRef {
+   private:
+    const GenericVectorArray *m_data;
+
+   public:
+    TypedRef(const GenericVectorArray &data) : m_data(&data)
+    {
+    }
+
+    ArrayRef<T> operator[](uint index) const
+    {
+      const BufferSlice &slice = m_data->slices()[index];
+      return ArrayRef<T>((const T *)slice.start, slice.length);
+    }
+  };
+
+  template<typename T> class MutableTypedRef {
+   private:
+    GenericVectorArray *m_data;
+
+   public:
+    MutableTypedRef(GenericVectorArray &data) : m_data(&data)
+    {
+    }
+
+    operator TypedRef<T>() const
+    {
+      return TypedRef<T>(*m_data);
+    }
+
+    MutableArrayRef<T> operator[](uint index) const
+    {
+      const BufferSlice &slice = m_data->slices()[index];
+      return MutableArrayRef<T>((T *)slice.start, slice.length);
+    }
+
+    void append_single(uint index, const T &value)
+    {
+      m_data->append_single__copy(index, (void *)&value);
+    }
+  };
+
+  template<typename T> const TypedRef<T> as_typed_ref() const
+  {
+    BLI_assert(GET_TYPE<T>().is_same_or_generalization(m_type));
+    return TypedRef<T>(*this);
   }
 
  private:
