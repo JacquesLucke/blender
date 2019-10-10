@@ -14,8 +14,8 @@ class CPPType {
  public:
   using ConstructDefaultF = void (*)(const CPPType *self, void *ptr);
   using DestructF = void (*)(void *ptr);
-  using CopyToInitializedF = void (*)(void *src, void *dst);
-  using CopyToUninitializedF = void (*)(void *src, void *dst);
+  using CopyToInitializedF = void (*)(const void *src, void *dst);
+  using CopyToUninitializedF = void (*)(const void *src, void *dst);
   using RelocateToInitializedF = void (*)(void *src, void *dst);
   using RelocateToUninitializedF = void (*)(void *src, void *dst);
 
@@ -91,7 +91,7 @@ class CPPType {
     return m_trivially_destructible;
   }
 
-  bool pointer_has_valid_alignment(void *ptr) const
+  bool pointer_has_valid_alignment(const void *ptr) const
   {
     return (POINTER_AS_UINT(ptr) & m_alignment_mask) == 0;
   }
@@ -110,7 +110,7 @@ class CPPType {
     m_destruct(ptr);
   }
 
-  void copy_to_initialized(void *src, void *dst) const
+  void copy_to_initialized(const void *src, void *dst) const
   {
     BLI_assert(this->pointer_has_valid_alignment(src));
     BLI_assert(this->pointer_has_valid_alignment(dst));
@@ -118,7 +118,7 @@ class CPPType {
     m_copy_to_initialized(src, dst);
   }
 
-  void copy_to_uninitialized(void *src, void *dst) const
+  void copy_to_uninitialized(const void *src, void *dst) const
   {
     BLI_assert(this->pointer_has_valid_alignment(src));
     BLI_assert(this->pointer_has_valid_alignment(dst));

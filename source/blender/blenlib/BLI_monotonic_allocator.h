@@ -86,6 +86,7 @@ class MonotonicAllocator : NonCopyable, NonMovable {
 
   void *allocate_aligned(uint size, uint alignment)
   {
+    /* TODO: Don't overallocate when not necessary. */
     BLI_assert(is_power_of_2_i(alignment));
     size_t space = size + alignment - 1;
     void *ptr = this->allocate(space);

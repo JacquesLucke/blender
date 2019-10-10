@@ -14,7 +14,7 @@ using BLI::MutableArrayRef;
 class GenericArrayRef {
  private:
   const CPPType *m_type;
-  void *m_buffer;
+  const void *m_buffer;
   uint m_size;
 
  public:
@@ -22,7 +22,7 @@ class GenericArrayRef {
   {
   }
 
-  GenericArrayRef(const CPPType *type, void *buffer, uint size)
+  GenericArrayRef(const CPPType *type, const void *buffer, uint size)
       : m_type(type), m_buffer(buffer), m_size(size)
   {
     BLI_assert(type != nullptr);
@@ -33,6 +33,17 @@ class GenericArrayRef {
   uint size() const
   {
     return m_size;
+  }
+
+  const void *buffer() const
+  {
+    return m_buffer;
+  }
+
+  const void *operator[](uint index) const
+  {
+    BLI_assert(index < m_size);
+    return POINTER_OFFSET(m_buffer, m_type->size() * index);
   }
 
   template<typename T> ArrayRef<T> get_ref() const

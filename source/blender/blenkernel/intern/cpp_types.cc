@@ -42,11 +42,11 @@ template<typename T> void Destruct_CB(void *ptr)
 {
   BLI::destruct((T *)ptr);
 }
-template<typename T> void CopyToInitialized_CB(void *src, void *dst)
+template<typename T> void CopyToInitialized_CB(const void *src, void *dst)
 {
-  *(T *)src = *(T *)dst;
+  *(T *)dst = *(T *)src;
 }
-template<typename T> void CopyToUninitialized_CB(void *src, void *dst)
+template<typename T> void CopyToUninitialized_CB(const void *src, void *dst)
 {
   BLI::uninitialized_copy_n((T *)src, 1, (T *)dst);
 }
