@@ -62,7 +62,7 @@ template<typename T> struct DestructFunc {
 class VTreeData {
  private:
   /* Keep this at the beginning, so that it is destructed last. */
-  MonotonicAllocator m_allocator;
+  MonotonicAllocator<> m_allocator;
 
   template<typename T> using destruct_ptr = std::unique_ptr<T, DestructFunc<T>>;
 

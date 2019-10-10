@@ -60,6 +60,11 @@ class GuardedAllocator {
   {
     MEM_freeN(ptr);
   }
+
+  uint min_allocated_size() const
+  {
+    return 0;
+  }
 };
 
 /**
@@ -99,6 +104,11 @@ class RawAllocator {
     void *actual_pointer = POINTER_OFFSET(ptr, offset);
     free(actual_pointer);
   }
+
+  uint min_allocated_size() const
+  {
+    return 0;
+  }
 };
 
 /**
@@ -121,6 +131,11 @@ class TemporaryAllocator {
   void deallocate(void *ptr)
   {
     BLI_temporary_deallocate(ptr);
+  }
+
+  uint min_allocated_size() const
+  {
+    return BLI_TEMPORARY_MINIMUM_SIZE;
   }
 };
 

@@ -61,7 +61,7 @@ class VirtualNodeTree {
   Vector<VirtualSocket *> m_inputs_with_links;
   MultiMap<std::string, VirtualNode *> m_nodes_by_idname;
   uint m_socket_counter = 0;
-  MonotonicAllocator m_allocator;
+  MonotonicAllocator<> m_allocator;
 
  public:
   void add_all_of_tree(bNodeTree *btree);

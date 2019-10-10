@@ -53,6 +53,7 @@ extern "C" {
 #endif
 
 #define BLI_TEMPORARY_BUFFER_ALIGNMENT 64
+#define BLI_TEMPORARY_MINIMUM_SIZE (64 * 1024)
 
 void *BLI_temporary_allocate(uint size);
 void BLI_temporary_deallocate(void *buffer);

@@ -2,7 +2,7 @@
 
 namespace FN {
 
-DataGraphBuilder::DataGraphBuilder() : m_source_info_allocator(new MonotonicAllocator())
+DataGraphBuilder::DataGraphBuilder() : m_source_info_allocator(new MonotonicAllocator<>())
 {
 }
 

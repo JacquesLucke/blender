@@ -29,8 +29,10 @@
 
 namespace BLI {
 
+template<typename Allocator = GuardedAllocator>
 class MonotonicAllocator : NonCopyable, NonMovable {
  private:
+  Allocator m_allocator;
   Vector<void *> m_pointers;
 
   void *m_current_buffer;
@@ -46,7 +48,7 @@ class MonotonicAllocator : NonCopyable, NonMovable {
   ~MonotonicAllocator()
   {
     for (void *ptr : m_pointers) {
-      MEM_freeN(ptr);
+      m_allocator.deallocate(ptr);
     }
   }
 
@@ -59,8 +61,9 @@ class MonotonicAllocator : NonCopyable, NonMovable {
       return ptr;
     }
     else {
-      uint byte_size = std::max(m_next_min_alloc_size, size);
-      void *ptr = MEM_mallocN(byte_size, __func__);
+      uint byte_size = std::max({m_next_min_alloc_size, size, m_allocator.min_allocated_size()});
+
+      void *ptr = m_allocator.allocate(byte_size, __func__);
       m_pointers.append(ptr);
 
       m_current_buffer = POINTER_OFFSET(ptr, size);

@@ -555,6 +555,11 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     /* Round up to the next power of two. Otherwise consecutive calls to grow can cause a
      * reallocation every time even though the min_capacity only increments. */
     min_capacity = power_of_2_max_u(min_capacity);
+
+    /* Use a larger capacity if the allocator cannot allocate small buffers. */
+    uint min_allocation_capacity = m_allocator.min_allocated_size() / sizeof(T);
+    min_capacity = std::max(min_capacity, min_allocation_capacity);
+
     uint size = this->size();
 
     T *new_array = (T *)m_allocator.allocate_aligned(

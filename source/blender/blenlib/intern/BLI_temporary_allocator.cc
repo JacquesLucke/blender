@@ -23,7 +23,7 @@
 using namespace BLI;
 
 constexpr uint ALIGNMENT = BLI_TEMPORARY_BUFFER_ALIGNMENT;
-constexpr uint SMALL_BUFFER_SIZE = 64 * 1024;
+constexpr uint SMALL_BUFFER_SIZE = BLI_TEMPORARY_MINIMUM_SIZE;
 constexpr uintptr_t ALIGNMENT_MASK = ~(uintptr_t)(ALIGNMENT - 1);
 
 enum TemporaryBufferType {

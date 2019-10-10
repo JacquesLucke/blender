@@ -145,8 +145,8 @@ class DataGraphBuilder {
   uint m_link_counter = 0;
   uint m_input_socket_counter = 0;
   uint m_output_socket_counter = 0;
-  std::unique_ptr<MonotonicAllocator> m_source_info_allocator;
-  MonotonicAllocator m_allocator;
+  std::unique_ptr<MonotonicAllocator<>> m_source_info_allocator;
+  MonotonicAllocator<> m_allocator;
 
  public:
   DataGraphBuilder();
