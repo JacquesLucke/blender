@@ -38,7 +38,7 @@ class MultiFunction {
   class Params {
    public:
     template<typename T> ArrayOrSingleRef<T> readonly_single_input(uint index, StringRef name);
-    const GenericArrayRef &readonly_single_input(uint index, StringRef name);
+    GenericArrayOrSingleRef readonly_single_input(uint index, StringRef name);
 
     template<typename T> MutableArrayRef<T> single_output(uint index, StringRef name);
 
@@ -157,7 +157,7 @@ class MultiFunction_AppendToList : public MultiFunction {
   void call(ArrayRef<uint> mask_indices, Params &params) const override
   {
     GenericVectorArray &lists = params.mutable_vector(0, "List");
-    GenericArrayRef values = params.readonly_single_input(1, "Value");
+    GenericArrayOrSingleRef values = params.readonly_single_input(1, "Value");
 
     for (uint i : mask_indices) {
       lists.append_single__copy(i, values[i]);

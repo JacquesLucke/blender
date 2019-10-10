@@ -31,12 +31,12 @@ template<typename T> class ArrayOrSingleRef {
   uint m_array_size;
   bool m_is_single;
 
+ public:
   ArrayOrSingleRef(const T *buffer, uint array_size, bool is_single)
       : m_buffer(buffer), m_array_size(array_size), m_is_single(is_single)
   {
   }
 
- public:
   ArrayOrSingleRef() : ArrayOrSingleRef(nullptr, 0, false)
   {
   }
@@ -50,9 +50,9 @@ template<typename T> class ArrayOrSingleRef {
     return ArrayOrSingleRef(value, array_size, true);
   }
 
-  static ArrayOrSingleRef FromArray(const T *value, uint size)
+  static ArrayOrSingleRef FromArray(const T *value, uint array_size)
   {
-    return ArrayOrSingleRef(value, size, false);
+    return ArrayOrSingleRef(value, array_size, false);
   }
 
   const T &operator[](uint index) const

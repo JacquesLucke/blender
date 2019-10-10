@@ -5,9 +5,11 @@
 #include "BKE_cpp_types.h"
 
 #include "BLI_array_ref.h"
+#include "BLI_array_or_single_ref.h"
 
 namespace BKE {
 
+using BLI::ArrayOrSingleRef;
 using BLI::ArrayRef;
 using BLI::MutableArrayRef;
 
@@ -50,6 +52,57 @@ class GenericArrayRef {
   {
     BLI_assert(GET_TYPE<T>().is_same_or_generalization(m_type));
     return ArrayRef<T>((const T *)m_buffer, m_size);
+  }
+};
+
+class GenericArrayOrSingleRef {
+ private:
+  const CPPType *m_type;
+  const void *m_buffer;
+  uint m_array_size;
+  bool m_is_single;
+
+ public:
+  GenericArrayOrSingleRef() = delete;
+
+  GenericArrayOrSingleRef(const CPPType &type, const void *buffer, uint array_size, bool is_single)
+      : m_type(&type), m_buffer(buffer), m_array_size(array_size), m_is_single(is_single)
+  {
+  }
+
+  GenericArrayOrSingleRef(const CPPType &type) : GenericArrayOrSingleRef(type, nullptr, 0, false)
+  {
+  }
+
+  static GenericArrayOrSingleRef FromSingle(const CPPType &type,
+                                            const void *buffer,
+                                            uint array_size)
+  {
+    return GenericArrayOrSingleRef(type, buffer, array_size, true);
+  }
+
+  static GenericArrayOrSingleRef FromArray(const CPPType &type,
+                                           const void *buffer,
+                                           uint array_size)
+  {
+    return GenericArrayOrSingleRef(type, buffer, array_size, false);
+  }
+
+  template<typename T> ArrayOrSingleRef<T> as_typed_ref() const
+  {
+    BLI_assert(GET_TYPE<T>().is_same_or_generalization(*m_type));
+    return ArrayOrSingleRef<T>((const T *)m_buffer, m_array_size, m_is_single);
+  }
+
+  const void *operator[](uint index) const
+  {
+    BLI_assert(index < m_array_size);
+    if (m_is_single) {
+      return m_buffer;
+    }
+    else {
+      return POINTER_OFFSET(m_buffer, index * m_type->size());
+    }
   }
 };
 
