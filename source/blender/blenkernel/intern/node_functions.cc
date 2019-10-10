@@ -201,4 +201,26 @@ class MultiFunction_GetListElement : public MultiFunction {
   }
 };
 
+class MultiFunction_ListLength : public MultiFunction {
+ private:
+  CPPType &m_base_type;
+
+ public:
+  void signature(Signature &signature) const override
+  {
+    signature.readonly_vector_input("List", m_base_type);
+    signature.single_output<int>("Length");
+  }
+
+  void call(ArrayRef<uint> mask_indices, Params &params) const override
+  {
+    GenericVectorArrayOrSingleRef lists = params.readonly_vector_input(0, "List");
+    MutableArrayRef<int> lengths = params.single_output<int>(1, "Length");
+
+    for (uint i : mask_indices) {
+      lengths[i] = lists[i].size();
+    }
+  }
+};
+
 }  // namespace BKE
