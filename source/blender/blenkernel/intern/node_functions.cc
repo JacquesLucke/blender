@@ -4,31 +4,72 @@
 #include "BLI_math_cxx.h"
 #include "BLI_lazy_init_cxx.h"
 #include "BLI_string_map.h"
+#include "BLI_array_or_single_ref.h"
 
 namespace BKE {
 
+using BLI::ArrayOrSingleRef;
 using BLI::float3;
-using BLI::StringMap;
-using CreateFunctionCB = std::unique_ptr<CPPFunction> (*)(VirtualNode *vnode);
 
-BLI_LAZY_INIT_STATIC_VAR(StringMap<std::unique_ptr<CPPFunction>>, get_cached_functions)
-BLI_LAZY_INIT_STATIC_VAR(StringMap<CreateFunctionCB>, get_function_builders)
+class MultiFunction {
+ private:
+  Vector<CPPType *> m_single_input_types;
+  Vector<CPPType *> m_single_output_types;
+  Vector<std::string> m_single_input_names;
+  Vector<std::string> m_single_output_names;
 
-class ArrayRefFunction_AddFloats : public CPPFunction {
-  void signature(SignatureBuilderCPP &signature) override
+ public:
+  class Signature {
+   private:
+    MultiFunction &m_function;
+
+    Signature(MultiFunction &function) : m_function(function)
+    {
+    }
+
+    friend MultiFunction;
+
+   public:
+    template<typename T> void single_input(StringRef name)
+    {
+      m_function.m_single_input_names.append(name);
+      m_function.m_single_input_types.append(&GET_TYPE<T>());
+    }
+
+    template<typename T> void single_output(StringRef name)
+    {
+      m_function.m_single_output_names.append(name);
+      m_function.m_single_output_types.append(&GET_TYPE<T>());
+    }
+  };
+
+  class Inputs {
+   public:
+    template<typename T> ArrayOrSingleRef<T> get(uint index, StringRef name);
+  };
+
+  class Outputs {
+   public:
+    template<typename T> MutableArrayRef<T> get(uint index, StringRef name);
+  };
+
+  virtual void signature(Signature &signature) const = 0;
+  virtual void call(ArrayRef<uint> indices, Inputs &inputs, Outputs &outputs) const = 0;
+};
+
+class MultiFunction_AddFloats : public MultiFunction {
+  void signature(Signature &signature) const override
   {
-    signature.add_input("Indices", GET_TYPE_array_ref<uint>());
-    signature.add_input("A", GET_TYPE_array_ref<float>());
-    signature.add_input("B", GET_TYPE_array_ref<float>());
-    signature.add_input("Result", GET_TYPE_mutable_array_ref<float>());
+    signature.single_input<float>("A");
+    signature.single_input<float>("B");
+    signature.single_output<float>("Result");
   }
 
-  void call(TupleRef &fn_in, TupleRef &UNUSED(fn_out)) const override
+  void call(ArrayRef<uint> indices, Inputs &inputs, Outputs &outputs) const override
   {
-    auto indices = fn_in.get<GenericArrayRef>(0).get_ref<uint>();
-    auto a = fn_in.get<GenericArrayRef>(1).get_ref<float>();
-    auto b = fn_in.get<GenericArrayRef>(2).get_ref<float>();
-    auto result = fn_in.get<GenericMutableArrayRef>(3).get_ref<float>();
+    auto a = inputs.get<float>(0, "A");
+    auto b = inputs.get<float>(1, "B");
+    auto result = outputs.get<float>(0, "Result");
 
     for (uint i : indices) {
       result[i] = a[i] + b[i];
@@ -36,44 +77,24 @@ class ArrayRefFunction_AddFloats : public CPPFunction {
   }
 };
 
-class ArrayRefFunction_VectorDistance : public CPPFunction {
-  void signature(SignatureBuilderCPP &signature) override
+class MultiFunction_VectorDistance : public MultiFunction {
+  void signature(Signature &signature) const override
   {
-    signature.add_input("Indices", GET_TYPE_array_ref<uint>());
-    signature.add_input("A", GET_TYPE_array_ref<float3>());
-    signature.add_input("B", GET_TYPE_array_ref<float3>());
-    signature.add_input("Result", GET_TYPE_mutable_array_ref<float>());
+    signature.single_input<float3>("A");
+    signature.single_input<float3>("A");
+    signature.single_output<float>("Distances");
   }
 
-  void call(TupleRef &fn_in, TupleRef &UNUSED(fn_out)) const override
+  void call(ArrayRef<uint> indices, Inputs &inputs, Outputs &outputs) const override
   {
-    auto indices = fn_in.get<GenericArrayRef>(0).get_ref<uint>();
-    auto a = fn_in.get<GenericArrayRef>(1).get_ref<float3>();
-    auto b = fn_in.get<GenericArrayRef>(2).get_ref<float3>();
-    auto result = fn_in.get<GenericMutableArrayRef>(3).get_ref<float>();
+    auto a = inputs.get<float3>(0, "A");
+    auto b = inputs.get<float3>(1, "B");
+    auto distances = outputs.get<float>(0, "Distances");
 
     for (uint i : indices) {
-      result[i] = float3::distance(a[i], b[i]);
+      distances[i] = float3::distance(a[i], b[i]);
     }
   }
 };
-
-void init_vnode_array_functions()
-{
-  auto &cached_functions = get_cached_functions();
-  auto &callbacks = get_function_builders();
-}
-
-Optional<FunctionForNode> get_vnode_array_function(VirtualNode *vnode)
-{
-  {
-    auto &cached_functions = get_cached_functions();
-    std::unique_ptr<CPPFunction> *function = cached_functions.lookup_ptr(vnode->idname());
-    if (function != nullptr) {
-      return FunctionForNode{(*function).get(), false};
-    }
-  }
-  return {};
-}
 
 }  // namespace BKE
