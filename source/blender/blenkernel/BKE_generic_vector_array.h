@@ -61,23 +61,10 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     slice.length++;
   }
 
-  void append_all__copy(const GenericArrayRef &array)
+  void extend_single__copy(uint index, GenericArrayRef values)
   {
-    BLI_assert(m_array_size == array.size());
-
-    for (BufferSlice &slice : this->slices()) {
-      if (slice.length == slice.capacity) {
-        this->grow_single(slice, slice.length + 1);
-      }
-    }
-
-    const void *src_buffer = array.buffer();
-    for (BufferSlice &slice : this->slices()) {
-      void *dst = POINTER_OFFSET(slice.start, m_element_size * slice.length);
-      m_type.copy_to_uninitialized(src_buffer, dst);
-      slice.length++;
-
-      src_buffer = POINTER_OFFSET(src_buffer, m_element_size);
+    for (uint i = 0; i < values.size(); i++) {
+      this->append_single__copy(index, values[i]);
     }
   }
 

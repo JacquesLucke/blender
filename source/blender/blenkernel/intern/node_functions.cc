@@ -50,6 +50,7 @@ class MultiFunction {
     template<typename T>
     GenericVectorArray::MutableTypedRef<T> vector_output(uint index, StringRef name);
     GenericVectorArray &vector_output(uint index, StringRef name);
+
     GenericVectorArray &mutable_vector(uint index, StringRef name);
   };
 
@@ -57,7 +58,7 @@ class MultiFunction {
   virtual void call(ArrayRef<uint> mask_indices, Params &params) const = 0;
 };
 
-class MultiFunction_AddFloats : public MultiFunction {
+class MultiFunction_AddFloats final : public MultiFunction {
   void signature(Signature &signature) const override
   {
     signature.readonly_single_input<float>("A");
@@ -77,7 +78,7 @@ class MultiFunction_AddFloats : public MultiFunction {
   }
 };
 
-class MultiFunction_VectorDistance : public MultiFunction {
+class MultiFunction_VectorDistance final : public MultiFunction {
   void signature(Signature &signature) const override
   {
     signature.readonly_single_input<float3>("A");
@@ -97,7 +98,7 @@ class MultiFunction_VectorDistance : public MultiFunction {
   }
 };
 
-class MultiFunction_FloatArraySum : public MultiFunction {
+class MultiFunction_FloatArraySum final : public MultiFunction {
   void signature(Signature &signature) const override
   {
     signature.readonly_vector_input<float>("Array");
@@ -119,7 +120,7 @@ class MultiFunction_FloatArraySum : public MultiFunction {
   }
 };
 
-class MultiFunction_FloatRange : public MultiFunction {
+class MultiFunction_FloatRange final : public MultiFunction {
   void signature(Signature &signature) const override
   {
     signature.readonly_single_input<float>("Start");
@@ -144,7 +145,7 @@ class MultiFunction_FloatRange : public MultiFunction {
   }
 };
 
-class MultiFunction_AppendToList : public MultiFunction {
+class MultiFunction_AppendToList final : public MultiFunction {
  private:
   CPPType &m_base_type;
 
@@ -166,7 +167,7 @@ class MultiFunction_AppendToList : public MultiFunction {
   }
 };
 
-class MultiFunction_GetListElement : public MultiFunction {
+class MultiFunction_GetListElement final : public MultiFunction {
  private:
   CPPType &m_base_type;
 
@@ -201,7 +202,7 @@ class MultiFunction_GetListElement : public MultiFunction {
   }
 };
 
-class MultiFunction_ListLength : public MultiFunction {
+class MultiFunction_ListLength final : public MultiFunction {
  private:
   CPPType &m_base_type;
 
@@ -219,6 +220,28 @@ class MultiFunction_ListLength : public MultiFunction {
 
     for (uint i : mask_indices) {
       lengths[i] = lists[i].size();
+    }
+  }
+};
+
+class MultiFunction_CombineLists final : public MultiFunction {
+ private:
+  CPPType &m_base_type;
+
+ public:
+  void signature(Signature &signature) const override
+  {
+    signature.mutable_vector("List", m_base_type);
+    signature.readonly_vector_input("Other", m_base_type);
+  }
+
+  void call(ArrayRef<uint> mask_indices, Params &params) const override
+  {
+    GenericVectorArray &lists = params.mutable_vector(0, "List");
+    GenericVectorArrayOrSingleRef others = params.readonly_vector_input(1, "Other");
+
+    for (uint i : mask_indices) {
+      lists.extend_single__copy(i, others[i]);
     }
   }
 };
