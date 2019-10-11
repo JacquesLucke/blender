@@ -173,7 +173,7 @@ set(SRC
   intern/nla.c
   intern/node.c
   intern/node_tree.cpp
-  intern/node_functions.cc
+  intern/multi_functions.cc
   intern/object.c
   intern/object_deform.c
   intern/object_dupli.c

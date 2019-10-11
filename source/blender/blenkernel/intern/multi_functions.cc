@@ -1,7 +1,6 @@
-#include "BKE_node_functions.h"
 #include "BKE_generic_array_ref.h"
 #include "BKE_generic_vector_array.h"
-#include "BKE_multi_function.h"
+#include "BKE_multi_functions.h"
 
 #include "BLI_math_cxx.h"
 #include "BLI_lazy_init_cxx.h"
@@ -13,25 +12,23 @@ namespace BKE {
 using BLI::ArrayOrSingleRef;
 using BLI::float3;
 
-class MultiFunction_AddFloats final : public MultiFunction {
-  void signature(Signature &signature) const override
-  {
-    signature.readonly_single_input<float>("A");
-    signature.readonly_single_input<float>("B");
-    signature.single_output<float>("Result");
-  }
+void MultiFunction_AddFloats::signature(Signature &signature) const
+{
+  signature.readonly_single_input<float>("A");
+  signature.readonly_single_input<float>("B");
+  signature.single_output<float>("Result");
+}
 
-  void call(ArrayRef<uint> mask_indices, Params &params) const override
-  {
-    auto a = params.readonly_single_input<float>(0, "A");
-    auto b = params.readonly_single_input<float>(1, "B");
-    auto result = params.single_output<float>(2, "Result");
+void MultiFunction_AddFloats::call(ArrayRef<uint> mask_indices, Params &params) const
+{
+  auto a = params.readonly_single_input<float>(0, "A");
+  auto b = params.readonly_single_input<float>(1, "B");
+  auto result = params.single_output<float>(2, "Result");
 
-    for (uint i : mask_indices) {
-      result[i] = a[i] + b[i];
-    }
+  for (uint i : mask_indices) {
+    result[i] = a[i] + b[i];
   }
-};
+}
 
 class MultiFunction_VectorDistance final : public MultiFunction {
   void signature(Signature &signature) const override
