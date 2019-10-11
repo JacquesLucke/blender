@@ -39,7 +39,7 @@ else()
 endif()
 
 BLENDER_TEST(BLI_array "bf_blenlib")
-BLENDER_TEST(BLI_array_or_single "bf_blenlib")
+BLENDER_TEST(BLI_array_or_single_ref "bf_blenlib")
 BLENDER_TEST(BLI_array_ref "bf_blenlib")
 BLENDER_TEST(BLI_array_store "bf_blenlib")
 BLENDER_TEST(BLI_array_utils "bf_blenlib")
