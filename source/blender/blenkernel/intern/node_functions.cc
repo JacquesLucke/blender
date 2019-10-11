@@ -1,6 +1,7 @@
 #include "BKE_node_functions.h"
 #include "BKE_generic_array_ref.h"
 #include "BKE_generic_vector_array.h"
+#include "BKE_multi_function.h"
 
 #include "BLI_math_cxx.h"
 #include "BLI_lazy_init_cxx.h"
@@ -11,53 +12,6 @@ namespace BKE {
 
 using BLI::ArrayOrSingleRef;
 using BLI::float3;
-
-class MultiFunction {
- public:
-  class Signature {
-   private:
-    MultiFunction &m_function;
-
-    Signature(MultiFunction &function) : m_function(function)
-    {
-    }
-
-    friend MultiFunction;
-
-   public:
-    template<typename T> void readonly_single_input(StringRef name);
-    void readonly_single_input(StringRef name, CPPType &type);
-    template<typename T> void single_output(StringRef name);
-    void single_output(StringRef name, CPPType &base_type);
-    template<typename T> void readonly_vector_input(StringRef name);
-    void readonly_vector_input(StringRef name, CPPType &base_type);
-    template<typename T> void vector_output(StringRef name);
-    void mutable_vector(StringRef name, CPPType &base_type);
-  };
-
-  class Params {
-   public:
-    template<typename T> ArrayOrSingleRef<T> readonly_single_input(uint index, StringRef name);
-    GenericArrayOrSingleRef readonly_single_input(uint index, StringRef name);
-
-    template<typename T> MutableArrayRef<T> single_output(uint index, StringRef name);
-    GenericMutableArrayRef single_output(uint index, StringRef name);
-
-    template<typename T>
-    const GenericVectorArrayOrSingleRef::TypedRef<T> readonly_vector_input(uint index,
-                                                                           StringRef name);
-    GenericVectorArrayOrSingleRef readonly_vector_input(uint index, StringRef name);
-
-    template<typename T>
-    GenericVectorArray::MutableTypedRef<T> vector_output(uint index, StringRef name);
-    GenericVectorArray &vector_output(uint index, StringRef name);
-
-    GenericVectorArray &mutable_vector(uint index, StringRef name);
-  };
-
-  virtual void signature(Signature &signature) const = 0;
-  virtual void call(ArrayRef<uint> mask_indices, Params &params) const = 0;
-};
 
 class MultiFunction_AddFloats final : public MultiFunction {
   void signature(Signature &signature) const override
