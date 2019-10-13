@@ -27,7 +27,6 @@ class GenericArrayRef {
   GenericArrayRef(const CPPType &type, const void *buffer, uint size)
       : m_type(&type), m_buffer(buffer), m_size(size)
   {
-    BLI_assert(&type != nullptr);
     BLI_assert(buffer != nullptr || size == 0);
     BLI_assert(type.pointer_has_valid_alignment(buffer));
   }
@@ -88,6 +87,12 @@ class GenericArrayOrSingleRef {
     return GenericArrayOrSingleRef(type, buffer, array_size, false);
   }
 
+  template<typename T> static GenericArrayOrSingleRef FromArray(ArrayRef<T> array)
+  {
+    return GenericArrayOrSingleRef::FromArray(
+        GET_TYPE<T>(), (const void *)array.begin(), array.size());
+  }
+
   template<typename T> ArrayOrSingleRef<T> as_typed_ref() const
   {
     BLI_assert(GET_TYPE<T>().is_same_or_generalization(*m_type));
@@ -123,6 +128,12 @@ class GenericMutableArrayRef {
     BLI_assert(type != nullptr);
     BLI_assert(buffer != nullptr || size == 0);
     BLI_assert(type->pointer_has_valid_alignment(buffer));
+  }
+
+  template<typename T>
+  GenericMutableArrayRef(ArrayRef<T> array)
+      : GenericMutableArrayRef(&GET_TYPE<T>(), (void *)array.begin(), array.size())
+  {
   }
 
   uint size() const

@@ -169,7 +169,7 @@ class GenericVectorArrayOrSingleRef {
   CPPType *m_type;
 
  public:
-  GenericArrayRef operator[](uint index) const
+  GenericArrayRef operator[](uint UNUSED(index)) const
   {
     /* TODO */
     return GenericArrayRef(*m_type);

@@ -28,6 +28,8 @@ class MultiFunction {
     Vector<uint> m_corrected_indices;
 
    public:
+    Signature() = default;
+
     Signature(Vector<std::string> param_names,
               Vector<ParamCategory> param_categories,
               Vector<CPPType *> param_base_types)
@@ -39,8 +41,8 @@ class MultiFunction {
       uint mutable_array_refs = 0;
       uint vector_array_or_single_refs = 0;
       uint vector_arrays = 0;
-      for (ParamCategory category : param_categories) {
-        uint corrected_index;
+      for (ParamCategory category : m_param_categories) {
+        uint corrected_index = 0;
         switch (category) {
           case ParamCategory::SingleInput:
             corrected_index = array_or_single_refs++;
@@ -187,6 +189,19 @@ class MultiFunction {
 
   class Params {
    public:
+    Params(ArrayRef<GenericArrayOrSingleRef> array_or_single_refs,
+           ArrayRef<GenericMutableArrayRef> mutable_array_refs,
+           ArrayRef<GenericVectorArrayOrSingleRef> vector_array_or_single_refs,
+           ArrayRef<GenericVectorArray *> vector_arrays,
+           const Signature &signature)
+        : m_array_or_single_refs(array_or_single_refs),
+          m_mutable_array_refs(mutable_array_refs),
+          m_vector_array_or_single_refs(vector_array_or_single_refs),
+          m_vector_arrays(vector_arrays),
+          m_signature(signature)
+    {
+    }
+
     template<typename T> ArrayOrSingleRef<T> readonly_single_input(uint index, StringRef name)
     {
       BLI_assert(m_signature.is_readonly_single_input<T>(index, name));
@@ -194,6 +209,7 @@ class MultiFunction {
     }
     GenericArrayOrSingleRef readonly_single_input(uint index, StringRef name)
     {
+      UNUSED_VARS_NDEBUG(name);
       BLI_assert(m_signature.is_readonly_single_input(index, name));
       uint corrected_index = m_signature.get_corrected_index(index);
       return m_array_or_single_refs[corrected_index];
@@ -206,6 +222,7 @@ class MultiFunction {
     }
     GenericMutableArrayRef single_output(uint index, StringRef name)
     {
+      UNUSED_VARS_NDEBUG(name);
       BLI_assert(m_signature.is_single_output(index, name));
       uint corrected_index = m_signature.get_corrected_index(index);
       return m_mutable_array_refs[corrected_index];
@@ -220,6 +237,7 @@ class MultiFunction {
     }
     GenericVectorArrayOrSingleRef readonly_vector_input(uint index, StringRef name)
     {
+      UNUSED_VARS_NDEBUG(name);
       BLI_assert(m_signature.is_readonly_vector_input(index, name));
       uint corrected_index = m_signature.get_corrected_index(index);
       return m_vector_array_or_single_refs[corrected_index];
@@ -233,6 +251,7 @@ class MultiFunction {
     }
     GenericVectorArray &vector_output(uint index, StringRef name)
     {
+      UNUSED_VARS_NDEBUG(name);
       BLI_assert(m_signature.is_vector_output(index, name));
       uint corrected_index = m_signature.get_corrected_index(index);
       return *m_vector_arrays[corrected_index];
@@ -240,6 +259,7 @@ class MultiFunction {
 
     GenericVectorArray &mutable_vector(uint index, StringRef name)
     {
+      UNUSED_VARS_NDEBUG(name);
       BLI_assert(m_signature.is_mutable_vector(index, name));
       uint corrected_index = m_signature.get_corrected_index(index);
       return *m_vector_arrays[corrected_index];
@@ -250,11 +270,23 @@ class MultiFunction {
     ArrayRef<GenericMutableArrayRef> m_mutable_array_refs;
     ArrayRef<GenericVectorArrayOrSingleRef> m_vector_array_or_single_refs;
     ArrayRef<GenericVectorArray *> m_vector_arrays;
-    Signature &m_signature;
+    const Signature &m_signature;
   };
 
-  virtual void signature(SignatureBuilder &signature) const = 0;
   virtual void call(ArrayRef<uint> mask_indices, Params &params) const = 0;
+
+  void set_signature(SignatureBuilder &signature_builder)
+  {
+    m_signature = signature_builder.build();
+  }
+
+  const Signature &signature() const
+  {
+    return m_signature;
+  }
+
+ private:
+  Signature m_signature;
 };
 
 };  // namespace BKE

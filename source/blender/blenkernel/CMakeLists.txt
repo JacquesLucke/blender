@@ -121,7 +121,6 @@ set(SRC
   intern/font.c
   intern/freestyle.c
   intern/function_nodes_data_types.cc
-  intern/cpp_function.cc
   intern/generic_array_ref.cc
   intern/gpencil.c
   intern/gpencil_modifier.c
