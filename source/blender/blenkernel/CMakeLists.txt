@@ -133,6 +133,7 @@ set(SRC
   intern/image.c
   intern/image_gen.c
   intern/image_save.c
+  intern/init_stuff.cc
   intern/ipo.c
   intern/key.c
   intern/keyconfig.c
