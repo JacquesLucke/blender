@@ -25,6 +25,7 @@
 
 #include <array>
 
+#include "BLI_array_ref.h"
 #include "BLI_math_vector.h"
 #include "BLI_math_matrix.h"
 

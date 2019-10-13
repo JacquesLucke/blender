@@ -30,6 +30,7 @@
 #include "BLI_listbase_wrapper.h"
 #include "BLI_multi_map.h"
 #include "BLI_monotonic_allocator.h"
+#include "BLI_string_map.h"
 
 #include "RNA_access.h"
 
@@ -41,6 +42,7 @@ using BLI::Map;
 using BLI::MonotonicAllocator;
 using BLI::MultiMap;
 using BLI::MutableArrayRef;
+using BLI::StringMap;
 using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
@@ -97,9 +99,25 @@ class VirtualNodeTree {
     return m_frozen;
   }
 
-  uint socket_count()
+  uint socket_count() const
   {
     return m_socket_counter;
+  }
+
+  template<typename T>
+  void map_socket_idnames(const StringMap<T> &map,
+                          const T &default_value,
+                          MutableArrayRef<T> r_result) const
+  {
+    BLI_assert(r_result.size() == this->socket_count());
+    for (const VirtualNode *vnode : m_nodes) {
+      for (const VirtualSocket *vsocket : vnode->m_inputs) {
+        r_result[vsocket->m_id] = map.lookup_default(vsocket->idname(), default_value);
+      }
+      for (const VirtualSocket *vsocket : vnode->m_outputs) {
+        r_result[vsocket->m_id] = map.lookup_default(vsocket->idname(), default_value);
+      }
+    }
   }
 
  private:
@@ -170,7 +188,7 @@ class VirtualNode {
     return m_bnode->name;
   }
 
-  StringRefNull idname()
+  StringRefNull idname() const
   {
     return m_bnode->idname;
   }
@@ -243,17 +261,17 @@ class VirtualSocket {
     return rna;
   }
 
-  StringRefNull name()
+  StringRefNull name() const
   {
     return m_bsocket->name;
   }
 
-  StringRefNull idname()
+  StringRefNull idname() const
   {
     return m_bsocket->idname;
   }
 
-  StringRefNull identifier()
+  StringRefNull identifier() const
   {
     return m_bsocket->identifier;
   }
