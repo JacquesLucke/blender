@@ -51,55 +51,7 @@
 #include "DEG_depsgraph_query.h"
 #include "time.h"
 
-#include "FN_all-c.h"
-
-static FnFunction get_current_function(FunctionDeformModifierData *fdmd)
-{
-  bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
-
-  FnType float_ty = FN_type_get_float();
-  FnType int32_ty = FN_type_get_int32();
-  FnType float3_ty = FN_type_get_float3();
-
-  FnType inputs[] = {float3_ty, int32_ty, float_ty, NULL};
-  FnType outputs[] = {float3_ty, NULL};
-
-  return FN_function_get_with_signature(tree, inputs, outputs);
-}
-
-static void do_deformation(FunctionDeformModifierData *fdmd, float (*vertexCos)[3], int numVerts)
-{
-  FnFunction fn = get_current_function(fdmd);
-  if (fn == NULL) {
-    modifier_setError(&fdmd->modifier, "Invalid function");
-    return;
-  }
-
-  FnTupleCallBody body = FN_tuple_call_get(fn);
-  BLI_assert(body);
-
-  FN_TUPLE_CALL_PREPARE_STACK(body, fn_in, fn_out);
-
-  clock_t start = clock();
-
-  int seed = fdmd->control2 * 234132;
-
-  for (int i = 0; i < numVerts; i++) {
-    FN_tuple_set_float3(fn_in, 0, vertexCos[i]);
-    FN_tuple_set_int32(fn_in, 1, seed + i);
-    FN_tuple_set_float(fn_in, 2, fdmd->control1);
-
-    FN_tuple_call_invoke(body, fn_in, fn_out, __func__);
-
-    FN_tuple_get_float3(fn_out, 0, vertexCos[i]);
-  }
-
-  clock_t end = clock();
-  printf("Time taken: %f ms\n", (float)(end - start) / (float)CLOCKS_PER_SEC * 1000.0f);
-
-  FN_TUPLE_CALL_DESTRUCT_STACK(body, fn_in, fn_out);
-  FN_function_free(fn);
-}
+void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[3], int numVerts);
 
 static void deformVerts(ModifierData *md,
                         const ModifierEvalContext *UNUSED(ctx),
@@ -107,7 +59,7 @@ static void deformVerts(ModifierData *md,
                         float (*vertexCos)[3],
                         int numVerts)
 {
-  do_deformation((FunctionDeformModifierData *)md, vertexCos, numVerts);
+  MOD_functiondeform_do((FunctionDeformModifierData *)md, vertexCos, numVerts);
 }
 
 static void deformVertsEM(ModifierData *md,
@@ -117,7 +69,7 @@ static void deformVertsEM(ModifierData *md,
                           float (*vertexCos)[3],
                           int numVerts)
 {
-  do_deformation((FunctionDeformModifierData *)md, vertexCos, numVerts);
+  MOD_functiondeform_do((FunctionDeformModifierData *)md, vertexCos, numVerts);
 }
 
 static void initData(ModifierData *md)
@@ -132,15 +84,9 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
   return true;
 }
 
-static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
+static void updateDepsgraph(ModifierData *UNUSED(md),
+                            const ModifierUpdateDepsgraphContext *UNUSED(ctx))
 {
-  FunctionDeformModifierData *fdmd = (FunctionDeformModifierData *)md;
-
-  FnFunction fn = get_current_function(fdmd);
-  if (fn) {
-    FN_function_update_dependencies(fn, ctx->node);
-    FN_function_free(fn);
-  }
 }
 
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
