@@ -47,6 +47,7 @@
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_paint.h"
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
 
@@ -357,6 +358,12 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
       scene->audio.flag &= ~AUDIO_SYNC;
       scene->flag &= ~SCE_FRAME_DROP;
     }
+
+    /* Change default selection mode for Grease Pencil. */
+    if (app_template && STREQ(app_template, "2D_Animation")) {
+      ToolSettings *ts = scene->toolsettings;
+      ts->gpencil_selectmode_edit = GP_SELECTMODE_STROKE;
+    }
   }
 
   /* Objects */
@@ -412,7 +419,8 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
   {
     /* Enable for UV sculpt (other brush types will be created as needed),
      * without this the grab brush will be active but not selectable from the list. */
-    Brush *brush = BLI_findstring(&bmain->brushes, "Grab", offsetof(ID, name) + 2);
+    const char *brush_name = "Grab";
+    Brush *brush = BLI_findstring(&bmain->brushes, brush_name, offsetof(ID, name) + 2);
     if (brush) {
       brush->ob_mode |= OB_MODE_EDIT;
     }
@@ -420,48 +428,103 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
 
   for (Brush *brush = bmain->brushes.first; brush; brush = brush->id.next) {
     brush->blur_kernel_radius = 2;
+
+    /* Use full strength for all non-sculpt brushes,
+     * when painting we want to use full color/weight always.
+     *
+     * Note that sculpt is an exception,
+     * it's values are overwritten by #BKE_brush_sculpt_reset below. */
+    brush->alpha = 1.0;
   }
 
   {
     /* Change the spacing of the Smear brush to 3.0% */
-    Brush *brush = BLI_findstring(&bmain->brushes, "Smear", offsetof(ID, name) + 2);
+    const char *brush_name;
+    Brush *brush;
+
+    brush_name = "Smear";
+    brush = BLI_findstring(&bmain->brushes, brush_name, offsetof(ID, name) + 2);
     if (brush) {
       brush->spacing = 3.0;
     }
 
-    brush = BLI_findstring(&bmain->brushes, "Draw Sharp", offsetof(ID, name) + 2);
+    brush_name = "Draw Sharp";
+    brush = BLI_findstring(&bmain->brushes, brush_name, offsetof(ID, name) + 2);
     if (!brush) {
-      brush = BKE_brush_add(bmain, "Draw Sharp", OB_MODE_SCULPT);
+      brush = BKE_brush_add(bmain, brush_name, OB_MODE_SCULPT);
       id_us_min(&brush->id);
       brush->sculpt_tool = SCULPT_TOOL_DRAW_SHARP;
     }
 
-    brush = BLI_findstring(&bmain->brushes, "Elastic Deform", offsetof(ID, name) + 2);
+    brush_name = "Elastic Deform";
+    brush = BLI_findstring(&bmain->brushes, brush_name, offsetof(ID, name) + 2);
     if (!brush) {
-      brush = BKE_brush_add(bmain, "Elastic Defrom", OB_MODE_SCULPT);
+      brush = BKE_brush_add(bmain, brush_name, OB_MODE_SCULPT);
       id_us_min(&brush->id);
       brush->sculpt_tool = SCULPT_TOOL_ELASTIC_DEFORM;
     }
 
-    brush = BLI_findstring(&bmain->brushes, "Pose", offsetof(ID, name) + 2);
+    brush_name = "Pose";
+    brush = BLI_findstring(&bmain->brushes, brush_name, offsetof(ID, name) + 2);
     if (!brush) {
-      brush = BKE_brush_add(bmain, "Pose", OB_MODE_SCULPT);
+      brush = BKE_brush_add(bmain, brush_name, OB_MODE_SCULPT);
       id_us_min(&brush->id);
       brush->sculpt_tool = SCULPT_TOOL_POSE;
     }
 
-    brush = BLI_findstring(&bmain->brushes, "Simplify", offsetof(ID, name) + 2);
+    brush_name = "Simplify";
+    brush = BLI_findstring(&bmain->brushes, brush_name, offsetof(ID, name) + 2);
     if (!brush) {
-      brush = BKE_brush_add(bmain, "Simplify", OB_MODE_SCULPT);
+      brush = BKE_brush_add(bmain, brush_name, OB_MODE_SCULPT);
       id_us_min(&brush->id);
       brush->sculpt_tool = SCULPT_TOOL_SIMPLIFY;
     }
 
     /* Use the same tool icon color in the brush cursor */
     for (brush = bmain->brushes.first; brush; brush = brush->id.next) {
-      if (brush->sculpt_tool) {
+      if (brush->ob_mode & OB_MODE_SCULPT) {
+        BLI_assert(brush->sculpt_tool != 0);
         BKE_brush_sculpt_reset(brush);
       }
     }
+  }
+
+  if (app_template && STREQ(app_template, "2D_Animation")) {
+    /* Update Grease Pencil brushes. */
+    Brush *brush;
+
+    /* Pencil brush. */
+    rename_id_for_versioning(bmain, ID_BR, "Draw Pencil", "Pencil");
+
+    /* Pen brush. */
+    rename_id_for_versioning(bmain, ID_BR, "Draw Pen", "Pen");
+
+    /* Pen Soft brush. */
+    brush = (Brush *)rename_id_for_versioning(bmain, ID_BR, "Draw Soft", "Pencil Soft");
+    if (brush) {
+      brush->gpencil_settings->icon_id = GP_BRUSH_ICON_PEN;
+    }
+
+    /* Ink Pen brush. */
+    rename_id_for_versioning(bmain, ID_BR, "Draw Ink", "Ink Pen");
+
+    /* Ink Pen Rough brush. */
+    rename_id_for_versioning(bmain, ID_BR, "Draw Noise", "Ink Pen Rough");
+
+    /* Marker Bold brush. */
+    rename_id_for_versioning(bmain, ID_BR, "Draw Marker", "Marker Bold");
+
+    /* Marker Chisel brush. */
+    rename_id_for_versioning(bmain, ID_BR, "Draw Block", "Marker Chisel");
+
+    /* Remove useless Fill Area.001 brush. */
+    brush = BLI_findstring(&bmain->brushes, "Fill Area.001", offsetof(ID, name) + 2);
+    if (brush) {
+      BKE_id_delete(bmain, brush);
+    }
+
+    /* Reset all grease pencil brushes. */
+    Scene *scene = bmain->scenes.first;
+    BKE_brush_gpencil_presets(bmain, scene->toolsettings);
   }
 }

@@ -1597,7 +1597,7 @@ void PE_update_object(Depsgraph *depsgraph, Scene *scene, Object *ob, int usefla
 
   /* Only do this for emitter particles because drawing PE_FADE_TIME is not respected in 2.8 yet
    * and flagging with PEK_HIDE will prevent selection. This might get restored once this is
-   * supported in drawing (but doesnt make much sense for hair anyways). */
+   * supported in drawing (but doesn't make much sense for hair anyways). */
   if (edit->psys->part->type == PART_EMITTER) {
     PE_hide_keys_time(scene, edit, CFRA);
   }
@@ -3076,7 +3076,7 @@ static int remove_doubles_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  BKE_reportf(op->reports, RPT_INFO, "Removed %d double particles", totremoved);
+  BKE_reportf(op->reports, RPT_INFO, "Removed %d double particle(s)", totremoved);
 
   DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
   WM_event_add_notifier(C, NC_OBJECT | ND_PARTICLE | NA_EDITED, ob);

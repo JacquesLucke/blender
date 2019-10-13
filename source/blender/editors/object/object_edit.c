@@ -218,7 +218,7 @@ static int object_hide_view_set_exec(bContext *C, wmOperator *op)
 
   /* Hide selected or unselected objects. */
   for (Base *base = view_layer->object_bases.first; base; base = base->next) {
-    if (!(base->flag & BASE_VISIBLE)) {
+    if (!(base->flag & BASE_VISIBLE_DEPSGRAPH)) {
       continue;
     }
 
@@ -292,7 +292,7 @@ static int object_hide_collection_exec(bContext *C, wmOperator *op)
   DEG_id_tag_update(&scene->id, ID_RECALC_BASE_FLAGS);
 
   if (v3d->flag & V3D_LOCAL_COLLECTIONS) {
-    if ((lc->runtime_flag & LAYER_COLLECTION_VISIBLE) == 0) {
+    if (lc->runtime_flag & LAYER_COLLECTION_RESTRICT_VIEWPORT) {
       return OPERATOR_CANCELLED;
     }
     if (toggle) {
@@ -300,11 +300,11 @@ static int object_hide_collection_exec(bContext *C, wmOperator *op)
       BKE_layer_collection_local_sync(view_layer, v3d);
     }
     else {
-      BKE_layer_collection_local_isolate(view_layer, v3d, lc, extend);
+      BKE_layer_collection_isolate_local(view_layer, v3d, lc, extend);
     }
   }
   else {
-    BKE_layer_collection_isolate(scene, view_layer, lc, extend);
+    BKE_layer_collection_isolate_global(scene, view_layer, lc, extend);
   }
 
   WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
@@ -1547,7 +1547,7 @@ static int move_to_collection_exec(bContext *C, wmOperator *op)
   }
 
   int collection_index = RNA_property_int_get(op->ptr, prop);
-  collection = BKE_collection_from_index(CTX_data_scene(C), collection_index);
+  collection = BKE_collection_from_index(scene, collection_index);
   if (collection == NULL) {
     BKE_report(op->reports, RPT_ERROR, "Unexpected error, collection not found");
     return OPERATOR_CANCELLED;

@@ -41,7 +41,10 @@ struct Mesh *BKE_mesh_remesh_voxel_ovdb_volume_to_mesh_nomain(struct OpenVDBLeve
 #endif
 
 struct Mesh *BKE_mesh_remesh_voxel_fix_poles(struct Mesh *mesh);
-struct Mesh *BKE_mesh_remesh_voxel_to_mesh_nomain(struct Mesh *mesh, float voxel_size);
+struct Mesh *BKE_mesh_remesh_voxel_to_mesh_nomain(struct Mesh *mesh,
+                                                  float voxel_size,
+                                                  float adaptivity,
+                                                  float isovalue);
 struct Mesh *BKE_mesh_remesh_quadriflow_to_mesh_nomain(struct Mesh *mesh,
                                                        int target_faces,
                                                        int seed,

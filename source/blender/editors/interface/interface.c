@@ -786,6 +786,8 @@ static bool ui_but_update_from_old_block(const bContext *C,
     oldbut->flag = (oldbut->flag & ~flag_copy) | (but->flag & flag_copy);
     oldbut->drawflag = (oldbut->drawflag & ~drawflag_copy) | (but->drawflag & drawflag_copy);
 
+    SWAP(ListBase, but->extra_op_icons, oldbut->extra_op_icons);
+
     /* copy hardmin for list rows to prevent 'sticking' highlight to mouse position
      * when scrolling without moving mouse (see [#28432]) */
     if (ELEM(oldbut->type, UI_BTYPE_ROW, UI_BTYPE_LISTROW)) {
@@ -6688,4 +6690,9 @@ void UI_exit(void)
 {
   ui_resources_free();
   ui_but_clipboard_free();
+}
+
+void UI_interface_tag_script_reload(void)
+{
+  ui_interface_tag_script_reload_queries();
 }

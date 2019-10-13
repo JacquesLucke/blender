@@ -164,7 +164,7 @@ struct DRWTextStore *DRW_text_cache_ensure(void)
 
 bool DRW_object_is_renderable(const Object *ob)
 {
-  BLI_assert((ob->base_flag & BASE_VISIBLE) != 0);
+  BLI_assert((ob->base_flag & BASE_VISIBLE_DEPSGRAPH) != 0);
 
   if (ob->type == OB_MESH) {
     if ((ob == DST.draw_ctx.object_edit) || BKE_object_is_in_editmode(ob)) {
@@ -1171,7 +1171,7 @@ static void drw_engines_cache_finish(void)
   MEM_freeN(DST.vedata_array);
 }
 
-static void drw_engines_draw_background(void)
+static bool drw_engines_draw_background(void)
 {
   for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
     DrawEngineType *engine = link->data;
@@ -1185,10 +1185,20 @@ static void drw_engines_draw_background(void)
       DRW_stats_group_end();
 
       PROFILE_END_UPDATE(data->background_time, stime);
-      return;
+      return true;
     }
   }
 
+  /* No draw engines draw the background. We clear the background.
+   * We draw the background after drawing of the scene so the camera background
+   * images can be drawn using ALPHA Under. Otherwise the background always
+   * interfered with the alpha blending. */
+  DRW_clear_background();
+  return false;
+}
+
+static void drw_draw_background_alpha_under(void)
+{
   /* No draw_background found, doing default background */
   const bool do_alpha_checker = !DRW_state_draw_background();
   DRW_draw_background(do_alpha_checker);
@@ -1576,6 +1586,11 @@ static bool is_object_visible_in_viewport(View3D *v3d, Object *ob)
     return false;
   }
 
+  /* If not using local view or local collection the object may still be in a hidden collection. */
+  if (((v3d->localvd) == NULL) && ((v3d->flag & V3D_LOCAL_COLLECTIONS) == 0)) {
+    return (ob->base_flag & BASE_VISIBLE_VIEWLAYER) != 0;
+  }
+
   return true;
 }
 
@@ -1685,7 +1700,7 @@ void DRW_draw_render_loop_ex(struct Depsgraph *depsgraph,
 
   DRW_hair_update();
 
-  drw_engines_draw_background();
+  const bool background_drawn = drw_engines_draw_background();
 
   GPU_framebuffer_bind(DST.default_framebuffer);
 
@@ -1695,6 +1710,10 @@ void DRW_draw_render_loop_ex(struct Depsgraph *depsgraph,
   }
 
   drw_engines_draw_scene();
+
+  if (!background_drawn) {
+    drw_draw_background_alpha_under();
+  }
 
   /* Fix 3D view being "laggy" on macos and win+nvidia. (See T56996, T61474) */
   GPU_flush();
@@ -2630,7 +2649,13 @@ void DRW_draw_select_id(Depsgraph *depsgraph, ARegion *ar, View3D *v3d, const rc
 
     drw_engines_cache_finish();
 
+#if 0 /* This is a workaround to a nasty bug that seems to be a nasty driver bug. (See T69377) */
     DRW_render_instance_buffer_finish();
+#else
+    DST.buffer_finish_called = true;
+    // DRW_instance_buffer_finish(DST.idatalist);
+    drw_resource_buffer_finish(DST.vmempool);
+#endif
   }
 
   /* Start Drawing */

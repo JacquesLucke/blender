@@ -589,7 +589,7 @@ static void rna_Space_bool_from_region_flag_set_by_type(PointerRNA *ptr,
 {
   ScrArea *sa = rna_area_from_space(ptr);
   ARegion *ar = BKE_area_find_region_type(sa, region_type);
-  if (ar) {
+  if (ar && (ar->alignment != RGN_ALIGN_NONE)) {
     SET_FLAG_FROM_TEST(ar->flag, value, region_flag);
   }
   ED_region_tag_redraw(ar);
@@ -1105,7 +1105,7 @@ static const EnumPropertyItem *rna_View3DShading_color_type_itemf(bContext *UNUS
   }
   else {
     /* Solid mode, or lookdev mode for workbench engine. */
-    r_free = false;
+    *r_free = false;
     return rna_enum_shading_color_type_items;
   }
 }
