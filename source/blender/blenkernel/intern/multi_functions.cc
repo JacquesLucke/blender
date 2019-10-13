@@ -12,7 +12,7 @@ namespace BKE {
 using BLI::ArrayOrSingleRef;
 using BLI::float3;
 
-void MultiFunction_AddFloats::signature(Signature &signature) const
+void MultiFunction_AddFloats::signature(SignatureBuilder &signature) const
 {
   signature.readonly_single_input<float>("A");
   signature.readonly_single_input<float>("B");
@@ -30,7 +30,7 @@ void MultiFunction_AddFloats::call(ArrayRef<uint> mask_indices, Params &params) 
   }
 }
 
-void MultiFunction_VectorDistance::signature(Signature &signature) const
+void MultiFunction_VectorDistance::signature(SignatureBuilder &signature) const
 {
   signature.readonly_single_input<float3>("A");
   signature.readonly_single_input<float3>("A");
@@ -48,7 +48,7 @@ void MultiFunction_VectorDistance::call(ArrayRef<uint> mask_indices, Params &par
   }
 }
 
-void MultiFunction_FloatArraySum::signature(Signature &signature) const
+void MultiFunction_FloatArraySum::signature(SignatureBuilder &signature) const
 {
   signature.readonly_vector_input<float>("Array");
   signature.single_output<float>("Sum");
@@ -68,7 +68,7 @@ void MultiFunction_FloatArraySum::call(ArrayRef<uint> mask_indices, Params &para
   }
 }
 
-void MultiFunction_FloatRange::signature(Signature &signature) const
+void MultiFunction_FloatRange::signature(SignatureBuilder &signature) const
 {
   signature.readonly_single_input<float>("Start");
   signature.readonly_single_input<float>("Step");
@@ -91,7 +91,7 @@ void MultiFunction_FloatRange::call(ArrayRef<uint> mask_indices, Params &params)
   }
 }
 
-void MultiFunction_AppendToList::signature(Signature &signature) const
+void MultiFunction_AppendToList::signature(SignatureBuilder &signature) const
 {
   signature.mutable_vector("List", m_base_type);
   signature.readonly_single_input("Value", m_base_type);
@@ -107,7 +107,7 @@ void MultiFunction_AppendToList::call(ArrayRef<uint> mask_indices, Params &param
   }
 }
 
-void MultiFunction_GetListElement::signature(Signature &signature) const
+void MultiFunction_GetListElement::signature(SignatureBuilder &signature) const
 {
   signature.readonly_vector_input("List", m_base_type);
   signature.readonly_single_input<int>("Index");
@@ -136,7 +136,7 @@ void MultiFunction_GetListElement::call(ArrayRef<uint> mask_indices, Params &par
   }
 }
 
-void MultiFunction_ListLength::signature(Signature &signature) const
+void MultiFunction_ListLength::signature(SignatureBuilder &signature) const
 {
   signature.readonly_vector_input("List", m_base_type);
   signature.single_output<int>("Length");
@@ -152,7 +152,7 @@ void MultiFunction_ListLength::call(ArrayRef<uint> mask_indices, Params &params)
   }
 }
 
-void MultiFunction_CombineLists::signature(Signature &signature) const
+void MultiFunction_CombineLists::signature(SignatureBuilder &signature) const
 {
   signature.mutable_vector("List", m_base_type);
   signature.readonly_vector_input("Other", m_base_type);

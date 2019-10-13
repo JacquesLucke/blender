@@ -116,6 +116,12 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     return TypedRef<T>(*this);
   }
 
+  template<typename T> MutableTypedRef<T> as_mutable_typed_ref()
+  {
+    BLI_assert(GET_TYPE<T>().is_same_or_generalization(m_type));
+    return MutableTypedRef<T>(*this);
+  }
+
  private:
   void grow_single(BufferSlice &slice, uint min_capacity)
   {
@@ -183,6 +189,11 @@ class GenericVectorArrayOrSingleRef {
       return (*m_data)[index].get_ref<T>();
     }
   };
+
+  template<typename T> TypedRef<T> as_typed_ref() const
+  {
+    return TypedRef<T>(*this);
+  }
 };
 
 };  // namespace BKE
