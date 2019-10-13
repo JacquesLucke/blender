@@ -4,7 +4,11 @@
 #include "BKE_generic_array_ref.h"
 #include "BKE_generic_vector_array.h"
 
+#include "BLI_vector.h"
+
 namespace BKE {
+
+using BLI::Vector;
 
 class MultiFunction {
  public:
@@ -26,22 +30,79 @@ class MultiFunction {
   };
 
   class Signature {
+   private:
+    enum ParamCategory {
+      SingleInput,
+      SingleOutput,
+      VectorInput,
+      VectorOutput,
+      MutableVector,
+    };
+
+    Vector<uint> m_corrected_indices;
+    Vector<std::string> m_param_names;
+    Vector<ParamCategory> m_param_categories;
+    Vector<CPPType *> m_param_base_types;
+
    public:
-    uint get_corrected_index(uint index);
+    uint get_corrected_index(uint index) const
+    {
+      return m_corrected_indices[index];
+    }
 
-    template<typename T> bool is_readonly_single_input(uint index, StringRef name) const;
-    bool is_readonly_single_input(uint index, StringRef name) const;
+    template<typename T> bool is_readonly_single_input(uint index, StringRef name) const
+    {
+      return this->is_valid_param<T>(index, name, ParamCategory::SingleInput);
+    }
+    bool is_readonly_single_input(uint index, StringRef name) const
+    {
+      return this->is_valid_param(index, name, ParamCategory::SingleInput);
+    }
 
-    template<typename T> bool is_single_output(uint index, StringRef name) const;
-    bool is_single_output(uint index, StringRef name) const;
+    template<typename T> bool is_single_output(uint index, StringRef name) const
+    {
+      return this->is_valid_param<T>(index, name, ParamCategory::SingleOutput);
+    }
+    bool is_single_output(uint index, StringRef name) const
+    {
+      return this->is_valid_param(index, name, ParamCategory::SingleOutput);
+    }
 
-    template<typename T> bool is_readonly_vector_input(uint index, StringRef name) const;
-    bool is_readonly_vector_input(uint index, StringRef name) const;
+    template<typename T> bool is_readonly_vector_input(uint index, StringRef name) const
+    {
+      return this->is_valid_param<T>(index, name, ParamCategory::VectorInput);
+    }
+    bool is_readonly_vector_input(uint index, StringRef name) const
+    {
+      return this->is_valid_param(index, name, ParamCategory::VectorInput);
+    }
 
-    template<typename T> bool is_vector_output(uint index, StringRef name) const;
-    bool is_vector_output(uint index, StringRef name);
+    template<typename T> bool is_vector_output(uint index, StringRef name) const
+    {
+      return this->is_valid_param<T>(index, name, ParamCategory::VectorOutput);
+    }
+    bool is_vector_output(uint index, StringRef name) const
+    {
+      return this->is_valid_param(index, name, ParamCategory::VectorOutput);
+    }
 
-    bool is_mutable_vector(uint index, StringRef name) const;
+    bool is_mutable_vector(uint index, StringRef name) const
+    {
+      return this->is_valid_param(index, name, ParamCategory::MutableVector);
+    }
+
+   private:
+    template<typename T>
+    bool is_valid_param(uint index, StringRef name, ParamCategory category) const
+    {
+      return this->is_valid_param(index, name, category) &&
+             m_param_base_types[index] == &GET_TYPE<T>();
+    }
+
+    bool is_valid_param(uint index, StringRef name, ParamCategory category) const
+    {
+      return m_param_names[index] == name && m_param_categories[index] == category;
+    }
   };
 
   class Params {
