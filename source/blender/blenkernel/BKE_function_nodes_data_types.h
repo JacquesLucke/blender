@@ -1,5 +1,5 @@
-#ifndef __BKE_VIRTUAL_NODE_TREE_DATA_FLOW_H__
-#define __BKE_VIRTUAL_NODE_TREE_DATA_FLOW_H__
+#ifndef __BKE_FUNCTION_NODES_DATA_TYPES_H__
+#define __BKE_FUNCTION_NODES_DATA_TYPES_H__
 
 #include "BKE_cpp_types.h"
 
@@ -28,4 +28,4 @@ StringMap<SocketDataType> &get_function_nodes_data_types();
 
 };  // namespace BKE
 
-#endif /* __BKE_VIRTUAL_NODE_TREE_DATA_FLOW_H__ */
+#endif /* __BKE_FUNCTION_NODES_DATA_TYPES_H__ */
