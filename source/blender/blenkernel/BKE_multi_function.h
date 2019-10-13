@@ -12,39 +12,54 @@ using BLI::Vector;
 
 class MultiFunction {
  public:
-  class SignatureBuilder {
-   public:
-    template<typename T> void readonly_single_input(StringRef name);
-    void readonly_single_input(StringRef name, CPPType &type);
-
-    template<typename T> void single_output(StringRef name);
-    void single_output(StringRef name, CPPType &base_type);
-
-    template<typename T> void readonly_vector_input(StringRef name);
-    void readonly_vector_input(StringRef name, CPPType &base_type);
-
-    template<typename T> void vector_output(StringRef name);
-    void vector_output(StringRef name, CPPType &base_type);
-
-    void mutable_vector(StringRef name, CPPType &base_type);
+  enum ParamCategory {
+    SingleInput,
+    SingleOutput,
+    VectorInput,
+    VectorOutput,
+    MutableVector,
   };
 
   class Signature {
    private:
-    enum ParamCategory {
-      SingleInput,
-      SingleOutput,
-      VectorInput,
-      VectorOutput,
-      MutableVector,
-    };
-
-    Vector<uint> m_corrected_indices;
     Vector<std::string> m_param_names;
     Vector<ParamCategory> m_param_categories;
     Vector<CPPType *> m_param_base_types;
+    Vector<uint> m_corrected_indices;
 
    public:
+    Signature(Vector<std::string> param_names,
+              Vector<ParamCategory> param_categories,
+              Vector<CPPType *> param_base_types)
+        : m_param_names(std::move(param_names)),
+          m_param_categories(std::move(param_categories)),
+          m_param_base_types(std::move(param_base_types))
+    {
+      uint array_or_single_refs = 0;
+      uint mutable_array_refs = 0;
+      uint vector_array_or_single_refs = 0;
+      uint vector_arrays = 0;
+      for (ParamCategory category : param_categories) {
+        uint corrected_index;
+        switch (category) {
+          case ParamCategory::SingleInput:
+            corrected_index = array_or_single_refs++;
+            break;
+          case ParamCategory::SingleOutput:
+            corrected_index = mutable_array_refs++;
+            break;
+          case ParamCategory::VectorInput:
+            corrected_index = vector_array_or_single_refs++;
+            break;
+          case ParamCategory::VectorOutput:
+          case ParamCategory::MutableVector:
+            corrected_index = vector_arrays++;
+            break;
+        }
+        m_corrected_indices.append(corrected_index);
+      }
+    }
+
     uint get_corrected_index(uint index) const
     {
       return m_corrected_indices[index];
@@ -102,6 +117,71 @@ class MultiFunction {
     bool is_valid_param(uint index, StringRef name, ParamCategory category) const
     {
       return m_param_names[index] == name && m_param_categories[index] == category;
+    }
+  };
+
+  class SignatureBuilder {
+   private:
+    Vector<std::string> m_param_names;
+    Vector<ParamCategory> m_param_categories;
+    Vector<CPPType *> m_param_base_types;
+
+   public:
+    template<typename T> void readonly_single_input(StringRef name)
+    {
+      this->readonly_single_input(name, GET_TYPE<T>());
+    }
+    void readonly_single_input(StringRef name, CPPType &type)
+    {
+      m_param_names.append(name);
+      m_param_base_types.append(&type);
+      m_param_categories.append(ParamCategory::SingleInput);
+    }
+
+    template<typename T> void single_output(StringRef name)
+    {
+      this->single_output(name, GET_TYPE<T>());
+    }
+    void single_output(StringRef name, CPPType &type)
+    {
+      m_param_names.append(name);
+      m_param_base_types.append(&type);
+      m_param_categories.append(ParamCategory::SingleOutput);
+    }
+
+    template<typename T> void readonly_vector_input(StringRef name)
+    {
+      this->readonly_vector_input(name, GET_TYPE<T>());
+    }
+    void readonly_vector_input(StringRef name, CPPType &base_type)
+    {
+      m_param_names.append(name);
+      m_param_base_types.append(&base_type);
+      m_param_categories.append(ParamCategory::VectorInput);
+    }
+
+    template<typename T> void vector_output(StringRef name)
+    {
+      this->vector_output(name, GET_TYPE<T>());
+    }
+    void vector_output(StringRef name, CPPType &base_type)
+    {
+      m_param_names.append(name);
+      m_param_base_types.append(&base_type);
+      m_param_categories.append(ParamCategory::VectorOutput);
+    }
+
+    void mutable_vector(StringRef name, CPPType &base_type)
+    {
+      m_param_names.append(name);
+      m_param_base_types.append(&base_type);
+      m_param_categories.append(ParamCategory::MutableVector);
+    }
+
+    Signature build()
+    {
+      return Signature(
+          std::move(m_param_names), std::move(m_param_categories), std::move(m_param_base_types));
     }
   };
 
