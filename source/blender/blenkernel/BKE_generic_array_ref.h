@@ -31,6 +31,11 @@ class GenericArrayRef {
     BLI_assert(type.pointer_has_valid_alignment(buffer));
   }
 
+  const CPPType &type() const
+  {
+    return *m_type;
+  }
+
   uint size() const
   {
     return m_size;
@@ -136,9 +141,26 @@ class GenericMutableArrayRef {
   {
   }
 
+  const CPPType &type() const
+  {
+    return *m_type;
+  }
+
+  void *buffer()
+  {
+    return m_buffer;
+  }
+
   uint size() const
   {
     return m_size;
+  }
+
+  void copy_in__uninitialized(uint index, const void *src)
+  {
+    BLI_assert(index < m_size);
+    void *dst = POINTER_OFFSET(m_buffer, m_type->size() * index);
+    m_type->copy_to_uninitialized(src, dst);
   }
 
   void *operator[](uint index)

@@ -3,6 +3,7 @@
 
 #include "BKE_generic_array_ref.h"
 #include "BKE_generic_vector_array.h"
+#include "BKE_tuple.h"
 
 #include "BLI_vector.h"
 
@@ -312,10 +313,29 @@ class MultiFunction {
           GenericArrayOrSingleRef::FromSingle(GET_TYPE<T>(), (void *)value, m_min_array_size));
     }
 
+    void add_readonly_array_ref(GenericMutableArrayRef array)
+    {
+      BLI_assert(array.size() >= m_min_array_size);
+      m_array_or_single_refs.append(
+          GenericArrayOrSingleRef::FromArray(array.type(), array.buffer(), array.size()));
+    }
+
+    void add_readonly_single_ref(TupleRef tuple, uint index)
+    {
+      m_array_or_single_refs.append(GenericArrayOrSingleRef::FromSingle(
+          tuple.info().type_at_index(index), tuple.element_ptr(index), m_min_array_size));
+    }
+
     template<typename T> void add_mutable_array_ref(ArrayRef<T> array)
     {
       BLI_assert(array.size() >= m_min_array_size);
       m_mutable_array_refs.append(GenericMutableArrayRef(array));
+    }
+
+    void add_mutable_array_ref(GenericMutableArrayRef array)
+    {
+      BLI_assert(array.size() >= m_min_array_size);
+      m_mutable_array_refs.append(array);
     }
 
     Params &build()

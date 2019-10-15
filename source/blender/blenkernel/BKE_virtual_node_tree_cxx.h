@@ -254,6 +254,11 @@ class VirtualSocket {
     return m_links;
   }
 
+  bool is_linked() const
+  {
+    return m_links.size() > 0;
+  }
+
   PointerRNA rna()
   {
     PointerRNA rna;
