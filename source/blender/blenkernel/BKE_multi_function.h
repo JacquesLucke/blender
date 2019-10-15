@@ -282,15 +282,17 @@ class MultiFunction {
     Vector<GenericVectorArrayOrSingleRef> m_vector_array_or_single_refs;
     Vector<GenericVectorArray *> m_vector_arrays;
     const Signature *m_signature = nullptr;
+    uint m_min_array_size;
 
     Params m_params;
 
    public:
     ParamsBuilder() = default;
 
-    void start_new(const Signature &signature)
+    void start_new(const Signature &signature, uint min_array_size)
     {
       m_signature = &signature;
+      m_min_array_size = min_array_size;
 
       m_array_or_single_refs.clear();
       m_mutable_array_refs.clear();
@@ -300,11 +302,19 @@ class MultiFunction {
 
     template<typename T> void add_readonly_array_ref(ArrayRef<T> array)
     {
+      BLI_assert(array.size() >= m_min_array_size);
       m_array_or_single_refs.append(GenericArrayOrSingleRef::FromArray<T>(array));
+    }
+
+    template<typename T> void add_readonly_single_ref(const T *value)
+    {
+      m_array_or_single_refs.append(
+          GenericArrayOrSingleRef::FromSingle(GET_TYPE<T>(), (void *)value, m_min_array_size));
     }
 
     template<typename T> void add_mutable_array_ref(ArrayRef<T> array)
     {
+      BLI_assert(array.size() >= m_min_array_size);
       m_mutable_array_refs.append(GenericMutableArrayRef(array));
     }
 

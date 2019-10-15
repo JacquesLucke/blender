@@ -32,6 +32,26 @@ void MultiFunction_AddFloats::call(ArrayRef<uint> mask_indices, Params &params) 
   }
 }
 
+MultiFunction_AddFloat3s::MultiFunction_AddFloat3s()
+{
+  SignatureBuilder signature;
+  signature.readonly_single_input<float3>("A");
+  signature.readonly_single_input<float3>("B");
+  signature.single_output<float3>("Result");
+  this->set_signature(signature);
+}
+
+void MultiFunction_AddFloat3s::call(ArrayRef<uint> mask_indices, Params &params) const
+{
+  auto a = params.readonly_single_input<float3>(0, "A");
+  auto b = params.readonly_single_input<float3>(1, "B");
+  auto result = params.single_output<float3>(2, "Result");
+
+  for (uint i : mask_indices) {
+    result[i] = a[i] + b[i];
+  }
+}
+
 MultiFunction_VectorDistance::MultiFunction_VectorDistance()
 {
   SignatureBuilder signature;
