@@ -17,6 +17,12 @@ class MultiFunction_AddFloat3s final : public MultiFunction {
   void call(ArrayRef<uint> mask_indices, Params &params) const override;
 };
 
+class MultiFunction_CombineVector final : public MultiFunction {
+ public:
+  MultiFunction_CombineVector();
+  void call(ArrayRef<uint> mask_indices, Params &params) const override;
+};
+
 class MultiFunction_VectorDistance final : public MultiFunction {
  public:
   MultiFunction_VectorDistance();

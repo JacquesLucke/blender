@@ -25,8 +25,8 @@ class NewDeformationFunction(bpy.types.Operator, ModifierOperator):
         from nodes.node_operators import new_function_tree
         tree = new_function_tree("Deformation Function", [
             ("Vector", "Old Position"),
-            ("Integer", "Vertex Seed"),
-            ("Float", "Control")
+            ("Float", "Control 1"),
+            ("Integer", "Control 2")
         ], [
             ("Vector", "New Position"),
         ])

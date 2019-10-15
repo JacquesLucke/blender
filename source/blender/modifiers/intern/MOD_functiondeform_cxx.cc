@@ -47,6 +47,9 @@ static std::unique_ptr<BKE::MultiFunction> get_multi_function_by_node(VirtualNod
   if (idname == "fn_VectorMathNode") {
     return BLI::make_unique<BKE::MultiFunction_AddFloat3s>();
   }
+  else if (idname == "fn_CombineVectorNode") {
+    return BLI::make_unique<BKE::MultiFunction_CombineVector>();
+  }
   else {
     BLI_assert(false);
     return {};
