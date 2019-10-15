@@ -74,6 +74,31 @@ void MultiFunction_CombineVector::call(ArrayRef<uint> mask_indices, Params &para
   }
 }
 
+MultiFunction_SeparateVector::MultiFunction_SeparateVector()
+{
+  SignatureBuilder signature;
+  signature.readonly_single_input<float3>("Vector");
+  signature.single_output<float>("X");
+  signature.single_output<float>("Y");
+  signature.single_output<float>("Z");
+  this->set_signature(signature);
+}
+
+void MultiFunction_SeparateVector::call(ArrayRef<uint> mask_indices, Params &params) const
+{
+  auto vector = params.readonly_single_input<float3>(0, "Vector");
+  auto x = params.single_output<float>(1, "X");
+  auto y = params.single_output<float>(2, "Y");
+  auto z = params.single_output<float>(3, "Z");
+
+  for (uint i : mask_indices) {
+    float3 v = vector[i];
+    x[i] = v.x;
+    y[i] = v.y;
+    z[i] = v.z;
+  }
+}
+
 MultiFunction_VectorDistance::MultiFunction_VectorDistance()
 {
   SignatureBuilder signature;

@@ -6,6 +6,8 @@
 
 #include "BLI_math_cxx.h"
 
+#include "DEG_depsgraph_query.h"
+
 using BKE::CPPType;
 using BKE::TupleRef;
 using BKE::VirtualLink;
@@ -49,6 +51,9 @@ static std::unique_ptr<BKE::MultiFunction> get_multi_function_by_node(VirtualNod
   }
   else if (idname == "fn_CombineVectorNode") {
     return BLI::make_unique<BKE::MultiFunction_CombineVector>();
+  }
+  else if (idname == "fn_SeparateVectorNode") {
+    return BLI::make_unique<BKE::MultiFunction_SeparateVector>();
   }
   else {
     BLI_assert(false);
@@ -239,8 +244,9 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
     return;
   }
 
+  bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
   VirtualNodeTree vtree;
-  vtree.add_all_of_tree(fdmd->function_tree);
+  vtree.add_all_of_tree(tree);
   vtree.freeze_and_index();
 
   MultiFunction_FunctionTree function{*vtree.nodes_with_idname("fn_FunctionInputNode")[0],
