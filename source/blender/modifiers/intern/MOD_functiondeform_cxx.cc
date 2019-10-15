@@ -36,17 +36,13 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   std::array<float, 4> values_b = {2, 6, 34, 1};
   std::array<float, 4> result;
 
-  Vector<BKE::GenericArrayOrSingleRef> array_or_single_refs;
-  array_or_single_refs.append(BKE::GenericArrayOrSingleRef::FromArray(ArrayRef<float>(values_a)));
-  array_or_single_refs.append(BKE::GenericArrayOrSingleRef::FromArray(ArrayRef<float>(values_b)));
+  BKE::MultiFunction::ParamsBuilder params;
+  params.start_new(function.signature());
+  params.add_readonly_array_ref<float>(values_a);
+  params.add_readonly_array_ref<float>(values_b);
+  params.add_mutable_array_ref<float>(result);
 
-  Vector<BKE::GenericMutableArrayRef> mutable_array_refs;
-  mutable_array_refs.append(BKE::GenericMutableArrayRef(ArrayRef<float>(result)));
-
-  BKE::MultiFunction::Params params{
-      array_or_single_refs, mutable_array_refs, {}, {}, function.signature()};
-
-  function.call({0, 1, 2, 3}, params);
+  function.call({0, 1, 2, 3}, params.build());
 
   std::cout << result[0] << ", " << result[1] << ", " << result[2] << ", " << result[3] << "\n";
 }
