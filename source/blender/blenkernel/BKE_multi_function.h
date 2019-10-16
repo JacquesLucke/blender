@@ -90,13 +90,18 @@ class MultiFunction {
    private:
     Vector<std::string> m_param_names;
     Vector<ParamType> m_param_types;
+    Vector<uint> m_params_with_external_dependencies;
     Vector<uint> m_corrected_indices;
 
    public:
     Signature() = default;
 
-    Signature(Vector<std::string> param_names, Vector<ParamType> param_types)
-        : m_param_names(std::move(param_names)), m_param_types(std::move(param_types))
+    Signature(Vector<std::string> param_names,
+              Vector<ParamType> param_types,
+              Vector<uint> params_with_external_dependencies)
+        : m_param_names(std::move(param_names)),
+          m_param_types(std::move(param_types)),
+          m_params_with_external_dependencies(std::move(params_with_external_dependencies))
     {
       uint array_or_single_refs = 0;
       uint mutable_array_refs = 0;
@@ -204,6 +209,7 @@ class MultiFunction {
     Vector<std::string> m_param_names;
     Vector<ParamType> m_param_types;
     Vector<CPPType *> m_param_base_types;
+    Vector<uint> m_params_with_external_dependencies;
 
    public:
     template<typename T> void readonly_single_input(StringRef name)
@@ -216,12 +222,15 @@ class MultiFunction {
       m_param_types.append(ParamType(ParamType::SingleInput, &type));
     }
 
-    template<typename T> void single_output(StringRef name)
+    template<typename T> void single_output(StringRef name, bool has_external_dependencies = false)
     {
-      this->single_output(name, GET_TYPE<T>());
+      this->single_output(name, GET_TYPE<T>(), has_external_dependencies);
     }
-    void single_output(StringRef name, CPPType &type)
+    void single_output(StringRef name, CPPType &type, bool has_external_dependencies = false)
     {
+      if (has_external_dependencies) {
+        m_params_with_external_dependencies.append(m_param_names.size());
+      }
       m_param_names.append(name);
       m_param_types.append(ParamType(ParamType::SingleOutput, &type));
     }
@@ -236,25 +245,33 @@ class MultiFunction {
       m_param_types.append(ParamType(ParamType::VectorInput, &base_type));
     }
 
-    template<typename T> void vector_output(StringRef name)
+    template<typename T> void vector_output(StringRef name, bool has_external_dependencies = false)
     {
-      this->vector_output(name, GET_TYPE<T>());
+      this->vector_output(name, GET_TYPE<T>(), has_external_dependencies);
     }
-    void vector_output(StringRef name, CPPType &base_type)
+    void vector_output(StringRef name, CPPType &base_type, bool has_external_dependencies = false)
     {
+      if (has_external_dependencies) {
+        m_params_with_external_dependencies.append(m_param_names.size());
+      }
       m_param_names.append(name);
       m_param_types.append(ParamType(ParamType::VectorOutput, &base_type));
     }
 
-    void mutable_vector(StringRef name, CPPType &base_type)
+    void mutable_vector(StringRef name, CPPType &base_type, bool has_external_dependencies = false)
     {
+      if (has_external_dependencies) {
+        m_params_with_external_dependencies.append(m_param_names.size());
+      }
       m_param_names.append(name);
       m_param_types.append(ParamType(ParamType::MutableVector, &base_type));
     }
 
     Signature build()
     {
-      return Signature(std::move(m_param_names), std::move(m_param_types));
+      return Signature(std::move(m_param_names),
+                       std::move(m_param_types),
+                       std::move(m_params_with_external_dependencies));
     }
   };
 
