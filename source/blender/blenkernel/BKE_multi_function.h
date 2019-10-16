@@ -20,8 +20,6 @@ struct ParamType {
     VectorInput,
     VectorOutput,
     MutableVector,
-    ExternalDataCache,
-    Context,
   };
 
   ParamType(Category category, const CPPType *base_type = nullptr)
@@ -58,8 +56,6 @@ struct DataType {
     None,
     Single,
     Vector,
-    ExternalDataCache,
-    Context,
   };
 
   DataType(Category category, const CPPType &type) : m_category(category), m_base_type(&type)
@@ -110,8 +106,6 @@ class MultiFunction {
         uint corrected_index = 0;
         switch (param_type.category()) {
           case ParamType::None:
-          case ParamType::Context:
-          case ParamType::ExternalDataCache:
             BLI_assert(false);
             break;
           case ParamType::SingleInput:
