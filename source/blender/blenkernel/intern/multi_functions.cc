@@ -21,7 +21,9 @@ MultiFunction_AddFloats::MultiFunction_AddFloats()
   this->set_signature(signature);
 }
 
-void MultiFunction_AddFloats::call(ArrayRef<uint> mask_indices, Params &params) const
+void MultiFunction_AddFloats::call(ArrayRef<uint> mask_indices,
+                                   Params &params,
+                                   Context &UNUSED(context)) const
 {
   auto a = params.readonly_single_input<float>(0, "A");
   auto b = params.readonly_single_input<float>(1, "B");
@@ -41,7 +43,9 @@ MultiFunction_AddFloat3s::MultiFunction_AddFloat3s()
   this->set_signature(signature);
 }
 
-void MultiFunction_AddFloat3s::call(ArrayRef<uint> mask_indices, Params &params) const
+void MultiFunction_AddFloat3s::call(ArrayRef<uint> mask_indices,
+                                    Params &params,
+                                    Context &UNUSED(context)) const
 {
   auto a = params.readonly_single_input<float3>(0, "A");
   auto b = params.readonly_single_input<float3>(1, "B");
@@ -62,7 +66,9 @@ MultiFunction_CombineVector::MultiFunction_CombineVector()
   this->set_signature(signature);
 }
 
-void MultiFunction_CombineVector::call(ArrayRef<uint> mask_indices, Params &params) const
+void MultiFunction_CombineVector::call(ArrayRef<uint> mask_indices,
+                                       Params &params,
+                                       Context &UNUSED(context)) const
 {
   auto x = params.readonly_single_input<float>(0, "X");
   auto y = params.readonly_single_input<float>(1, "Y");
@@ -84,7 +90,9 @@ MultiFunction_SeparateVector::MultiFunction_SeparateVector()
   this->set_signature(signature);
 }
 
-void MultiFunction_SeparateVector::call(ArrayRef<uint> mask_indices, Params &params) const
+void MultiFunction_SeparateVector::call(ArrayRef<uint> mask_indices,
+                                        Params &params,
+                                        Context &UNUSED(context)) const
 {
   auto vector = params.readonly_single_input<float3>(0, "Vector");
   auto x = params.single_output<float>(1, "X");
@@ -108,7 +116,9 @@ MultiFunction_VectorDistance::MultiFunction_VectorDistance()
   this->set_signature(signature);
 }
 
-void MultiFunction_VectorDistance::call(ArrayRef<uint> mask_indices, Params &params) const
+void MultiFunction_VectorDistance::call(ArrayRef<uint> mask_indices,
+                                        Params &params,
+                                        Context &UNUSED(context)) const
 {
   auto a = params.readonly_single_input<float3>(0, "A");
   auto b = params.readonly_single_input<float3>(1, "B");
@@ -127,7 +137,9 @@ MultiFunction_FloatArraySum::MultiFunction_FloatArraySum()
   this->set_signature(signature);
 }
 
-void MultiFunction_FloatArraySum::call(ArrayRef<uint> mask_indices, Params &params) const
+void MultiFunction_FloatArraySum::call(ArrayRef<uint> mask_indices,
+                                       Params &params,
+                                       Context &UNUSED(context)) const
 {
   auto arrays = params.readonly_vector_input<float>(0, "Array");
   MutableArrayRef<float> sums = params.single_output<float>(1, "Sum");
@@ -151,7 +163,9 @@ MultiFunction_FloatRange::MultiFunction_FloatRange()
   this->set_signature(signature);
 }
 
-void MultiFunction_FloatRange::call(ArrayRef<uint> mask_indices, Params &params) const
+void MultiFunction_FloatRange::call(ArrayRef<uint> mask_indices,
+                                    Params &params,
+                                    Context &UNUSED(context)) const
 {
   auto starts = params.readonly_single_input<float>(0, "Start");
   auto steps = params.readonly_single_input<float>(1, "Step");
@@ -174,7 +188,9 @@ MultiFunction_AppendToList::MultiFunction_AppendToList(CPPType &base_type) : m_b
   this->set_signature(signature);
 }
 
-void MultiFunction_AppendToList::call(ArrayRef<uint> mask_indices, Params &params) const
+void MultiFunction_AppendToList::call(ArrayRef<uint> mask_indices,
+                                      Params &params,
+                                      Context &UNUSED(context)) const
 {
   GenericVectorArray &lists = params.mutable_vector(0, "List");
   GenericArrayOrSingleRef values = params.readonly_single_input(1, "Value");
@@ -195,7 +211,9 @@ MultiFunction_GetListElement::MultiFunction_GetListElement(CPPType &base_type)
   this->set_signature(signature);
 }
 
-void MultiFunction_GetListElement::call(ArrayRef<uint> mask_indices, Params &params) const
+void MultiFunction_GetListElement::call(ArrayRef<uint> mask_indices,
+                                        Params &params,
+                                        Context &UNUSED(context)) const
 {
   GenericVectorArrayOrSingleRef lists = params.readonly_vector_input(0, "List");
   ArrayOrSingleRef<int> indices = params.readonly_single_input<int>(1, "Index");
@@ -224,7 +242,9 @@ MultiFunction_ListLength::MultiFunction_ListLength(CPPType &base_type) : m_base_
   this->set_signature(signature);
 }
 
-void MultiFunction_ListLength::call(ArrayRef<uint> mask_indices, Params &params) const
+void MultiFunction_ListLength::call(ArrayRef<uint> mask_indices,
+                                    Params &params,
+                                    Context &UNUSED(context)) const
 {
   GenericVectorArrayOrSingleRef lists = params.readonly_vector_input(0, "List");
   MutableArrayRef<int> lengths = params.single_output<int>(1, "Length");
@@ -242,7 +262,9 @@ MultiFunction_CombineLists::MultiFunction_CombineLists(CPPType &base_type) : m_b
   this->set_signature(signature);
 }
 
-void MultiFunction_CombineLists::call(ArrayRef<uint> mask_indices, Params &params) const
+void MultiFunction_CombineLists::call(ArrayRef<uint> mask_indices,
+                                      Params &params,
+                                      Context &UNUSED(context)) const
 {
   GenericVectorArray &lists = params.mutable_vector(0, "List");
   GenericVectorArrayOrSingleRef others = params.readonly_vector_input(1, "Other");

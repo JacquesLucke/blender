@@ -105,7 +105,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
     this->set_signature(signature);
   }
 
-  void call(ArrayRef<uint> mask_indices, Params &params) const override
+  void call(ArrayRef<uint> mask_indices, Params &params, Context &context) const override
   {
     if (mask_indices.size() == 0) {
       return;
@@ -119,7 +119,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
                                                                       vsocket->name());
 
       if (vsocket->is_linked()) {
-        this->compute_output(mask_indices, params, vsocket->links()[0], output_array);
+        this->compute_output(mask_indices, params, context, vsocket->links()[0], output_array);
       }
       else {
         CPPType &type = get_type_by_socket(vsocket);
@@ -135,6 +135,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
 
   void compute_output(ArrayRef<uint> mask_indices,
                       Params &global_params,
+                      Context &context,
                       VirtualSocket *vsocket,
                       BKE::GenericMutableArrayRef result) const
   {
@@ -186,7 +187,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
           CPPType &type = get_type_by_socket(input_vsocket);
           BKE::GenericMutableArrayRef array_ref{&type, linked_buffers[linked_index], array_size};
           VirtualSocket *origin = input_vsocket->links()[0];
-          this->compute_output(mask_indices, global_params, origin, array_ref);
+          this->compute_output(mask_indices, global_params, context, origin, array_ref);
           params.add_readonly_array_ref(array_ref);
           linked_index++;
         }
@@ -214,7 +215,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
       }
     }
 
-    node_function->call(mask_indices, params.build());
+    node_function->call(mask_indices, params.build(), context);
 
     {
       uint linked_index = 0;
@@ -261,7 +262,8 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   TemporaryVector<float3> output_vectors(numVerts);
   params.add_mutable_array_ref<float3>(output_vectors);
 
-  function.call(IndexRange(numVerts).as_array_ref(), params.build());
+  BKE::MultiFunction::Context context;
+  function.call(IndexRange(numVerts).as_array_ref(), params.build(), context);
 
   memcpy(vertexCos, output_vectors.begin(), output_vectors.size() * sizeof(float3));
 }

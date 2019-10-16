@@ -86,6 +86,9 @@ struct DataType {
 
 class MultiFunction {
  public:
+  class Context {
+  };
+
   class Signature {
    private:
     Vector<std::string> m_param_names;
@@ -437,7 +440,7 @@ class MultiFunction {
     }
   };
 
-  virtual void call(ArrayRef<uint> mask_indices, Params &params) const = 0;
+  virtual void call(ArrayRef<uint> mask_indices, Params &params, Context &context) const = 0;
 
   void set_signature(SignatureBuilder &signature_builder)
   {
