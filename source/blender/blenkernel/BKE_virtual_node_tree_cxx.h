@@ -104,22 +104,6 @@ class VirtualNodeTree {
     return m_socket_counter;
   }
 
-  template<typename T>
-  void map_socket_idnames(const StringMap<T> &map,
-                          const T &default_value,
-                          MutableArrayRef<T> r_result) const
-  {
-    BLI_assert(r_result.size() == this->socket_count());
-    for (const VirtualNode *vnode : m_nodes) {
-      for (const VirtualSocket *vsocket : vnode->m_inputs) {
-        r_result[vsocket->m_id] = map.lookup_default(vsocket->idname(), default_value);
-      }
-      for (const VirtualSocket *vsocket : vnode->m_outputs) {
-        r_result[vsocket->m_id] = map.lookup_default(vsocket->idname(), default_value);
-      }
-    }
-  }
-
  private:
   void initialize_direct_links();
   void initialize_links();
