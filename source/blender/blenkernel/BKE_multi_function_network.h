@@ -4,9 +4,11 @@
 #include "BKE_multi_function.h"
 
 #include "BLI_optional.h"
+#include "BLI_array_cxx.h"
 
 namespace BKE {
 
+using BLI::Array;
 using BLI::Optional;
 
 namespace MultiFunctionNetwork {
@@ -59,6 +61,9 @@ class BuilderFunctionNode : public BuilderNode {
 
  public:
   MultiFunction &function();
+
+  ArrayRef<uint> input_param_indices();
+  ArrayRef<uint> output_param_indices();
 };
 
 class BuilderPlaceholderNode : public BuilderNode {
@@ -78,6 +83,7 @@ class BuilderSocket {
   BuilderNode &node();
   MultiFunctionDataType type();
 
+  uint index();
   uint id();
 
   bool is_input();
@@ -107,20 +113,55 @@ class BuilderOutputSocket : public BuilderSocket {
   ArrayRef<BuilderInputSocket *> targets();
 };
 
-class NetworkBuilder {
+class NetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
-  Vector<std::unique_ptr<BuilderFunctionNode>> m_function_nodes;
-  Vector<std::unique_ptr<BuilderPlaceholderNode>> m_placeholder_nodes;
-  Vector<std::unique_ptr<BuilderInputSocket>> m_input_sockets;
-  Vector<std::unique_ptr<BuilderOutputSocket>> m_output_sockets;
+  Vector<BuilderNode *> m_node_by_id;
+  Vector<BuilderSocket *> m_socket_by_id;
+
+  Vector<BuilderFunctionNode *> m_function_nodes;
+  Vector<BuilderPlaceholderNode *> m_placeholder_nodes;
+  Vector<BuilderInputSocket *> m_input_sockets;
+  Vector<BuilderOutputSocket *> m_output_sockets;
 
  public:
+  ~NetworkBuilder();
+
   BuilderFunctionNode &add_function(MultiFunction &function,
                                     ArrayRef<uint> input_param_indices,
                                     ArrayRef<uint> output_param_indices);
   BuilderPlaceholderNode &add_placeholder(ArrayRef<MultiFunctionDataType> input_types,
                                           ArrayRef<MultiFunctionDataType> output_types);
   void add_link(BuilderOutputSocket &from, BuilderInputSocket &to);
+
+  ArrayRef<BuilderNode *> nodes_by_id() const
+  {
+    return m_node_by_id;
+  }
+
+  ArrayRef<BuilderSocket *> sockets_by_id() const
+  {
+    return m_socket_by_id;
+  }
+
+  ArrayRef<BuilderFunctionNode *> function_nodes() const
+  {
+    return m_function_nodes;
+  }
+
+  ArrayRef<BuilderPlaceholderNode *> placeholder_nodes() const
+  {
+    return m_placeholder_nodes;
+  }
+
+  ArrayRef<BuilderInputSocket *> input_sockets() const
+  {
+    return m_input_sockets;
+  }
+
+  ArrayRef<BuilderOutputSocket *> output_sockets() const
+  {
+    return m_output_sockets;
+  }
 };
 
 /* Network
@@ -139,8 +180,8 @@ class Network;
 class Node {
  private:
   Network *m_network;
-  ArrayRef<InputSocket *> m_inputs;
-  ArrayRef<OutputSocket *> m_outputs;
+  Vector<InputSocket *> m_inputs;
+  Vector<OutputSocket *> m_outputs;
   bool m_is_placeholder;
   uint m_id;
 
@@ -164,8 +205,8 @@ class Node {
 class FunctionNode : public Node {
  private:
   MultiFunction *m_function;
-  ArrayRef<uint> m_input_param_indices;
-  ArrayRef<uint> m_output_param_indices;
+  Vector<uint> m_input_param_indices;
+  Vector<uint> m_output_param_indices;
 
   friend Network;
 
@@ -211,7 +252,7 @@ class InputSocket : public Socket {
 
 class OutputSocket : public Socket {
  private:
-  ArrayRef<InputSocket *> m_targets;
+  Vector<InputSocket *> m_targets;
 
   friend Network;
 
@@ -219,13 +260,19 @@ class OutputSocket : public Socket {
   ArrayRef<InputSocket *> targets();
 };
 
-class Network {
+class Network : BLI::NonCopyable, BLI::NonMovable {
  private:
-  BLI::MonotonicAllocator<> m_allocator;
-  Vector<Node *> m_nodes;
+  Array<Node *> m_node_by_id;
+  Array<Socket *> m_socket_by_id;
+
+  Vector<FunctionNode *> m_function_nodes;
+  Vector<PlaceholderNode *> m_placeholder_nodes;
+  Vector<InputSocket *> m_input_sockets;
+  Vector<OutputSocket *> m_output_sockets;
 
  public:
   Network(std::unique_ptr<NetworkBuilder> builder);
+  ~Network();
 };
 
 /* Builder Implementations
@@ -275,6 +322,16 @@ MultiFunction &BuilderFunctionNode::function()
   return *m_function;
 }
 
+ArrayRef<uint> BuilderFunctionNode::input_param_indices()
+{
+  return m_input_param_indices;
+}
+
+ArrayRef<uint> BuilderFunctionNode::output_param_indices()
+{
+  return m_output_param_indices;
+}
+
 BuilderNode &BuilderSocket::node()
 {
   return *m_node;
@@ -283,6 +340,11 @@ BuilderNode &BuilderSocket::node()
 MultiFunctionDataType BuilderSocket::type()
 {
   return m_type;
+}
+
+uint BuilderSocket::index()
+{
+  return m_index;
 }
 
 uint BuilderSocket::id()
