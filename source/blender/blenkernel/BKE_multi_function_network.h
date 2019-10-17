@@ -29,6 +29,7 @@ class BuilderNode {
   NetworkBuilder *m_network;
   Vector<BuilderInputSocket *> m_inputs;
   Vector<BuilderOutputSocket *> m_outputs;
+  uint m_id;
   bool m_is_placeholder;
 
   friend NetworkBuilder;
@@ -38,6 +39,8 @@ class BuilderNode {
 
   ArrayRef<BuilderInputSocket *> inputs();
   ArrayRef<BuilderOutputSocket *> outputs();
+
+  uint id();
 
   bool is_function();
   bool is_placeholder();
@@ -67,12 +70,15 @@ class BuilderSocket {
   bool m_is_output;
   uint m_index;
   MultiFunctionDataType m_type;
+  uint m_id;
 
   friend NetworkBuilder;
 
  public:
   BuilderNode &node();
   MultiFunctionDataType type();
+
+  uint id();
 
   bool is_input();
   bool is_output();
@@ -136,6 +142,7 @@ class Node {
   ArrayRef<InputSocket *> m_inputs;
   ArrayRef<OutputSocket *> m_outputs;
   bool m_is_placeholder;
+  uint m_id;
 
   friend Network;
 
@@ -144,6 +151,8 @@ class Node {
 
   ArrayRef<InputSocket *> inputs();
   ArrayRef<OutputSocket *> outputs();
+
+  uint id();
 
   bool is_function();
   bool is_placeholder();
@@ -173,12 +182,15 @@ class Socket {
   bool m_is_output;
   uint m_index;
   MultiFunctionDataType m_type;
+  uint m_id;
 
   friend Network;
 
  public:
   Node &node();
   MultiFunctionDataType type();
+
+  uint id();
 
   bool is_input();
   bool is_output();
@@ -208,6 +220,10 @@ class OutputSocket : public Socket {
 };
 
 class Network {
+ private:
+  BLI::MonotonicAllocator<> m_allocator;
+  Vector<Node *> m_nodes;
+
  public:
   Network(std::unique_ptr<NetworkBuilder> builder);
 };
@@ -227,6 +243,11 @@ ArrayRef<BuilderInputSocket *> BuilderNode::inputs()
 ArrayRef<BuilderOutputSocket *> BuilderNode::outputs()
 {
   return m_outputs;
+}
+
+uint BuilderNode::id()
+{
+  return m_id;
 }
 
 bool BuilderNode::is_function()
@@ -262,6 +283,11 @@ BuilderNode &BuilderSocket::node()
 MultiFunctionDataType BuilderSocket::type()
 {
   return m_type;
+}
+
+uint BuilderSocket::id()
+{
+  return m_id;
 }
 
 bool BuilderSocket::is_input()
@@ -311,6 +337,11 @@ ArrayRef<OutputSocket *> Node::outputs()
   return m_outputs;
 }
 
+uint Node::id()
+{
+  return m_id;
+}
+
 bool Node::is_function()
 {
   return !m_is_placeholder;
@@ -344,6 +375,11 @@ Node &Socket::node()
 MultiFunctionDataType Socket::type()
 {
   return m_type;
+}
+
+uint Socket::id()
+{
+  return m_id;
 }
 
 bool Socket::is_input()

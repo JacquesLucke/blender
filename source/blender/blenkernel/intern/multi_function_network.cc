@@ -25,6 +25,7 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
   node->m_function = &function;
   node->m_input_param_indices = input_param_indices;
   node->m_output_param_indices = output_param_indices;
+  node->m_id = m_function_nodes.size() + m_placeholder_nodes.size();
 
   for (uint i = 0; i < input_param_indices.size(); i++) {
     ParamType param = function.signature().param_types()[i];
@@ -35,6 +36,7 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
     input_socket->m_node = node.get();
     input_socket->m_index = i;
     input_socket->m_is_output = false;
+    input_socket->m_id = m_input_sockets.size() + m_output_sockets.size();
     node->m_inputs.append(input_socket.get());
     m_input_sockets.append(std::move(input_socket));
   }
@@ -48,6 +50,7 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
     output_socket->m_node = node.get();
     output_socket->m_index = i;
     output_socket->m_is_output = true;
+    output_socket->m_id = m_input_sockets.size() + m_output_sockets.size();
     node->m_outputs.append(output_socket.get());
     m_output_sockets.append(std::move(output_socket));
   }
@@ -64,6 +67,7 @@ BuilderPlaceholderNode &NetworkBuilder::add_placeholder(
 
   node->m_network = this;
   node->m_is_placeholder = true;
+  node->m_id = m_function_nodes.size() + m_placeholder_nodes.size();
 
   for (uint i = 0; i < input_types.size(); i++) {
     auto input_socket = BLI::make_unique<BuilderInputSocket>();
@@ -71,6 +75,7 @@ BuilderPlaceholderNode &NetworkBuilder::add_placeholder(
     input_socket->m_node = node.get();
     input_socket->m_index = i;
     input_socket->m_is_output = false;
+    input_socket->m_id = m_input_sockets.size() + m_output_sockets.size();
     node->m_inputs.append(input_socket.get());
     m_input_sockets.append(std::move(input_socket));
   }
@@ -80,6 +85,7 @@ BuilderPlaceholderNode &NetworkBuilder::add_placeholder(
     output_socket->m_node = node.get();
     output_socket->m_index = i;
     output_socket->m_is_output = true;
+    output_socket->m_id = m_input_sockets.size() + m_output_sockets.size();
     node->m_outputs.append(output_socket.get());
     m_output_sockets.append(std::move(output_socket));
   }
