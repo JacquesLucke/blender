@@ -247,6 +247,27 @@ template<typename T> class ArrayRef {
   }
 
   /**
+   * Check if the array contains duplicates. Does a linear search for every element. So the total
+   * running time is O(n^2). Only use this for small arrays.
+   */
+  bool has_duplicates__linear_search() const
+  {
+    /* The size should really be smaller than that. If it is not, the calling code should be
+     * changed. */
+    BLI_assert(m_size < 1000);
+
+    for (uint i = 0; i < m_size - 1; i++) {
+      const T &value = m_start[i];
+      for (uint j = i + 1; j < m_size; j++) {
+        if (value == m_start[j]) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * Get a new array ref to the same underlying memory buffer. No conversions are done.
    * Asserts when the sizes of the types don't match.
    */

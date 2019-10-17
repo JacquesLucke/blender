@@ -11,46 +11,7 @@ namespace BKE {
 
 using BLI::Vector;
 
-struct ParamType {
- public:
-  enum Category {
-    None,
-    SingleInput,
-    SingleOutput,
-    VectorInput,
-    VectorOutput,
-    MutableVector,
-  };
-
-  ParamType(Category category, const CPPType *base_type = nullptr)
-      : m_category(category), m_base_type(base_type)
-  {
-  }
-
-  Category category() const
-  {
-    return m_category;
-  }
-
-  const CPPType &type() const
-  {
-    BLI_assert(ELEM(m_category, Category::SingleInput, Category::SingleOutput));
-    return *m_base_type;
-  }
-
-  const CPPType &base_type() const
-  {
-    BLI_assert(
-        ELEM(m_category, Category::VectorInput, Category::VectorOutput, Category::MutableVector));
-    return *m_base_type;
-  }
-
- private:
-  Category m_category = Category::None;
-  const CPPType *m_base_type = nullptr;
-};
-
-struct DataType {
+struct MultiFunctionDataType {
  public:
   enum Category {
     None,
@@ -58,7 +19,10 @@ struct DataType {
     Vector,
   };
 
-  DataType(Category category, const CPPType &type) : m_category(category), m_base_type(&type)
+  MultiFunctionDataType() = default;
+
+  MultiFunctionDataType(Category category, const CPPType &type)
+      : m_category(category), m_base_type(&type)
   {
   }
 
@@ -76,6 +40,79 @@ struct DataType {
   const CPPType &base_type() const
   {
     BLI_assert(m_category == Category::Vector);
+    return *m_base_type;
+  }
+
+ private:
+  Category m_category = Category::None;
+  const CPPType *m_base_type = nullptr;
+};
+
+struct ParamType {
+ public:
+  enum Category {
+    None,
+    ReadonlySingleInput,
+    SingleOutput,
+    ReadonlyVectorInput,
+    VectorOutput,
+    MutableVector,
+  };
+
+  ParamType(Category category, const CPPType *base_type = nullptr)
+      : m_category(category), m_base_type(base_type)
+  {
+  }
+
+  bool is_none() const
+  {
+    return m_category == ParamType::None;
+  }
+
+  bool is_input() const
+  {
+    return ELEM(m_category, ReadonlySingleInput, ReadonlyVectorInput, MutableVector);
+  }
+
+  bool is_output() const
+  {
+    return ELEM(m_category, SingleOutput, VectorOutput, MutableVector);
+  }
+
+  MultiFunctionDataType as_data_type() const
+  {
+    switch (m_category) {
+      case None:
+        return {};
+      case ReadonlySingleInput:
+      case SingleOutput:
+        return {MultiFunctionDataType::Single, *m_base_type};
+      case ReadonlyVectorInput:
+      case VectorOutput:
+      case MutableVector:
+        return {MultiFunctionDataType::Vector, *m_base_type};
+    }
+    BLI_assert(false);
+    return {};
+  }
+
+  Category category() const
+  {
+    return m_category;
+  }
+
+  const CPPType &type() const
+  {
+    BLI_assert(ELEM(m_category, Category::ReadonlySingleInput, Category::SingleOutput));
+    return *m_base_type;
+  }
+
+  const CPPType &base_type() const
+  {
+    BLI_assert(ELEM(m_category,
+                    Category::ReadonlyVectorInput,
+                    Category::VectorOutput,
+                    Category::MutableVector));
     return *m_base_type;
   }
 
@@ -116,13 +153,13 @@ class MultiFunction {
           case ParamType::None:
             BLI_assert(false);
             break;
-          case ParamType::SingleInput:
+          case ParamType::ReadonlySingleInput:
             corrected_index = array_or_single_refs++;
             break;
           case ParamType::SingleOutput:
             corrected_index = mutable_array_refs++;
             break;
-          case ParamType::VectorInput:
+          case ParamType::ReadonlyVectorInput:
             corrected_index = vector_array_or_single_refs++;
             break;
           case ParamType::VectorOutput:
@@ -134,6 +171,11 @@ class MultiFunction {
       }
     }
 
+    ArrayRef<ParamType> param_types() const
+    {
+      return m_param_types;
+    }
+
     uint get_corrected_index(uint index) const
     {
       return m_corrected_indices[index];
@@ -141,11 +183,11 @@ class MultiFunction {
 
     template<typename T> bool is_readonly_single_input(uint index, StringRef name) const
     {
-      return this->is_valid_param<T>(index, name, ParamType::SingleInput);
+      return this->is_valid_param<T>(index, name, ParamType::ReadonlySingleInput);
     }
     bool is_readonly_single_input(uint index, StringRef name) const
     {
-      return this->is_valid_param(index, name, ParamType::SingleInput);
+      return this->is_valid_param(index, name, ParamType::ReadonlySingleInput);
     }
 
     template<typename T> bool is_single_output(uint index, StringRef name) const
@@ -159,11 +201,11 @@ class MultiFunction {
 
     template<typename T> bool is_readonly_vector_input(uint index, StringRef name) const
     {
-      return this->is_valid_param<T>(index, name, ParamType::VectorInput);
+      return this->is_valid_param<T>(index, name, ParamType::ReadonlyVectorInput);
     }
     bool is_readonly_vector_input(uint index, StringRef name) const
     {
-      return this->is_valid_param(index, name, ParamType::VectorInput);
+      return this->is_valid_param(index, name, ParamType::ReadonlyVectorInput);
     }
 
     template<typename T> bool is_vector_output(uint index, StringRef name) const
@@ -187,11 +229,11 @@ class MultiFunction {
       if (!this->is_valid_param(index, name, category)) {
         return false;
       }
-      else if (ELEM(category, ParamType::SingleInput, ParamType::SingleOutput)) {
+      else if (ELEM(category, ParamType::ReadonlySingleInput, ParamType::SingleOutput)) {
         return GET_TYPE<T>().is_same_or_generalization(m_param_types[index].type());
       }
       else if (ELEM(category,
-                    ParamType::VectorInput,
+                    ParamType::ReadonlyVectorInput,
                     ParamType::VectorOutput,
                     ParamType::MutableVector)) {
         return GET_TYPE<T>().is_same_or_generalization(m_param_types[index].base_type());
@@ -222,7 +264,7 @@ class MultiFunction {
     void readonly_single_input(StringRef name, CPPType &type)
     {
       m_param_names.append(name);
-      m_param_types.append(ParamType(ParamType::SingleInput, &type));
+      m_param_types.append(ParamType(ParamType::ReadonlySingleInput, &type));
     }
 
     template<typename T> void single_output(StringRef name, bool has_external_dependencies = false)
@@ -245,7 +287,7 @@ class MultiFunction {
     void readonly_vector_input(StringRef name, CPPType &base_type)
     {
       m_param_names.append(name);
-      m_param_types.append(ParamType(ParamType::VectorInput, &base_type));
+      m_param_types.append(ParamType(ParamType::ReadonlyVectorInput, &base_type));
     }
 
     template<typename T> void vector_output(StringRef name, bool has_external_dependencies = false)

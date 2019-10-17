@@ -167,13 +167,14 @@ set(SRC
   intern/mirror.c
   intern/modifier.c
   intern/movieclip.c
+  intern/multi_function_network.cc
+  intern/multi_functions.cc
   intern/multires.c
   intern/multires_reshape.c
   intern/multires_subdiv.c
   intern/nla.c
   intern/node.c
   intern/node_tree.cpp
-  intern/multi_functions.cc
   intern/object.c
   intern/object_deform.c
   intern/object_dupli.c
