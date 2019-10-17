@@ -14,7 +14,7 @@ using BLI::Vector;
 class TupleInfo : BLI::NonCopyable, BLI::NonMovable {
  private:
   Vector<uint> m_offsets;
-  Vector<CPPType *> m_types;
+  Vector<const CPPType *> m_types;
   uint m_alignment;
   uintptr_t m_do_align_mask;
   uint m_size__data;
@@ -23,14 +23,14 @@ class TupleInfo : BLI::NonCopyable, BLI::NonMovable {
   bool m_all_trivially_destructible;
 
  public:
-  TupleInfo(Vector<CPPType *> types);
+  TupleInfo(Vector<const CPPType *> types);
 
-  ArrayRef<CPPType *> types() const
+  ArrayRef<const CPPType *> types() const
   {
     return m_types;
   }
 
-  CPPType &type_at_index(uint index) const
+  const CPPType &type_at_index(uint index) const
   {
     return *m_types[index];
   }
@@ -143,7 +143,7 @@ class TupleRef {
     BLI_assert(src != nullptr);
 
     void *dst = this->element_ptr(index);
-    CPPType &type = m_info->type_at_index(index);
+    const CPPType &type = m_info->type_at_index(index);
 
     if (m_init[index]) {
       type.copy_to_initialized(src, dst);
@@ -176,7 +176,7 @@ class TupleRef {
     BLI_assert(src != nullptr);
 
     void *dst = this->element_ptr(index);
-    CPPType &type = m_info->type_at_index(index);
+    const CPPType &type = m_info->type_at_index(index);
 
     if (m_init[index]) {
       type.relocate_to_initialized(src, dst);
@@ -225,7 +225,7 @@ class TupleRef {
     BLI_assert(dst != nullptr);
 
     void *src = this->element_ptr(index);
-    CPPType &type = m_info->type_at_index(index);
+    const CPPType &type = m_info->type_at_index(index);
 
     type.relocate_to_initialized(src, dst);
     m_init[index] = false;
@@ -238,7 +238,7 @@ class TupleRef {
     BLI_assert(dst != nullptr);
 
     void *src = this->element_ptr(index);
-    CPPType &type = m_info->type_at_index(index);
+    const CPPType &type = m_info->type_at_index(index);
 
     type.relocate_to_uninitialized(src, dst);
     m_init[index] = false;
@@ -264,7 +264,7 @@ class TupleRef {
 
     void *src = from.element_ptr(from_index);
     void *dst = to.element_ptr(to_index);
-    CPPType &type = from.m_info->type_at_index(from_index);
+    const CPPType &type = from.m_info->type_at_index(from_index);
 
     if (to.m_init[to_index]) {
       type.copy_to_initialized(src, dst);
@@ -282,7 +282,7 @@ class TupleRef {
 
     void *src = from.element_ptr(from_index);
     void *dst = to.element_ptr(to_index);
-    CPPType &type = from.m_info->type_at_index(from_index);
+    const CPPType &type = from.m_info->type_at_index(from_index);
 
     if (to.m_init[to_index]) {
       type.relocate_to_initialized(src, dst);

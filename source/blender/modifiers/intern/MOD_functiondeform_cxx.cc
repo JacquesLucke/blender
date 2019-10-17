@@ -3,6 +3,7 @@
 #include "BKE_virtual_node_tree_cxx.h"
 #include "BKE_multi_functions.h"
 #include "BKE_tuple.h"
+#include "BKE_multi_function_network.h"
 
 #include "BLI_math_cxx.h"
 
@@ -86,21 +87,20 @@ static void load_socket_value(VirtualSocket *vsocket, TupleRef tuple, uint index
 
 class MultiFunction_FunctionTree : public BKE::MultiFunction {
  private:
-  VirtualNode &m_input_vnode;
-  VirtualNode &m_output_vnode;
+  Vector<BKE::MultiFunctionNetwork::OutputSocket *> m_inputs;
+  Vector<BKE::MultiFunctionNetwork::InputSocket *> m_outputs;
 
  public:
-  MultiFunction_FunctionTree(VirtualNode &input_vnode, VirtualNode &output_vnode)
-      : m_input_vnode(input_vnode), m_output_vnode(output_vnode)
+  MultiFunction_FunctionTree(Vector<BKE::MultiFunctionNetwork::OutputSocket *> inputs,
+                             Vector<BKE::MultiFunctionNetwork::InputSocket *> outputs)
+      : m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
   {
     SignatureBuilder signature;
-    for (VirtualSocket *vsocket : input_vnode.outputs().drop_back(1)) {
-      CPPType &type = get_type_by_socket(vsocket);
-      signature.readonly_single_input(vsocket->name(), type);
+    for (auto socket : m_inputs) {
+      signature.readonly_single_input("Input", socket->type().type());
     }
-    for (VirtualSocket *vsocket : output_vnode.inputs().drop_back(1)) {
-      CPPType &type = get_type_by_socket(vsocket);
-      signature.single_output(vsocket->name(), type);
+    for (auto socket : m_outputs) {
+      signature.single_output("Output", socket->type().type());
     }
     this->set_signature(signature);
   }
@@ -111,43 +111,27 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
       return;
     }
 
-    for (uint output_index = 0; output_index < m_output_vnode.inputs().size() - 1;
-         output_index++) {
-      uint param_index = output_index + m_input_vnode.outputs().size() - 1;
-      VirtualSocket *vsocket = m_output_vnode.input(output_index);
-      BKE::GenericMutableArrayRef output_array = params.single_output(param_index,
-                                                                      vsocket->name());
+    for (uint output_index = 0; output_index < m_outputs.size(); output_index++) {
+      uint output_param_index = output_index + m_inputs.size();
+      BKE::GenericMutableArrayRef output_array = params.single_output(output_param_index,
+                                                                      "Output");
 
-      if (vsocket->is_linked()) {
-        this->compute_output(mask_indices, params, context, vsocket->links()[0], output_array);
-      }
-      else {
-        CPPType &type = get_type_by_socket(vsocket);
-        BKE::TupleInfo value_info{{&type}};
-        BKE_TUPLE_STACK_ALLOC(value_tuple, value_info);
-        load_socket_value(vsocket, value_tuple, 0);
-        for (uint i : mask_indices) {
-          output_array.copy_in__uninitialized(i, value_tuple->element_ptr(0));
-        }
-      }
+      this->compute_output(
+          mask_indices, params, context, m_outputs[output_index]->origin(), output_array);
     }
   }
 
   void compute_output(ArrayRef<uint> mask_indices,
                       Params &global_params,
                       Context &context,
-                      VirtualSocket *vsocket,
+                      BKE::MultiFunctionNetwork::OutputSocket &socket_to_compute,
                       BKE::GenericMutableArrayRef result) const
   {
-    VirtualNode *vnode = vsocket->vnode();
+    auto &current_node = socket_to_compute.node().as_function();
+    uint output_index = socket_to_compute.index();
 
-    uint output_index = 0;
-    while (vnode->outputs()[output_index] != vsocket) {
-      output_index++;
-    }
-
-    if (vnode == &m_input_vnode) {
-      auto input_values = global_params.readonly_single_input(output_index, vsocket->name());
+    if (m_inputs.contains(&socket_to_compute)) {
+      auto input_values = global_params.readonly_single_input(output_index, "Input");
 
       for (uint i : mask_indices) {
         result.copy_in__uninitialized(i, input_values[i]);
@@ -156,57 +140,33 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
       return;
     }
 
-    auto node_function = get_multi_function_by_node(vnode);
+    auto &node_function = current_node.function();
 
     ParamsBuilder params;
     uint array_size = result.size();
-    params.start_new(node_function->signature(), array_size);
+    params.start_new(node_function.signature(), array_size);
 
-    Vector<void *> linked_buffers;
-    Vector<CPPType *> unlinked_types;
+    Vector<BKE::GenericMutableArrayRef> temporary_input_buffers;
 
-    for (VirtualSocket *input_vsocket : vnode->inputs()) {
-      CPPType &type = get_type_by_socket(input_vsocket);
-      if (input_vsocket->is_linked()) {
-        void *buffer = MEM_mallocN_aligned(array_size * type.size(), type.alignment(), __func__);
-        linked_buffers.append(buffer);
-      }
-      else {
-        unlinked_types.append(&type);
-      }
-    }
+    for (auto input_socket : current_node.inputs()) {
+      const CPPType &type = input_socket->type().type();
+      void *buffer = MEM_mallocN_aligned(array_size * type.size(), type.alignment(), __func__);
 
-    BKE::TupleInfo unlinked_info{unlinked_types};
-    BKE_TUPLE_STACK_ALLOC(unlinked_values, unlinked_info);
-
-    {
-      uint linked_index = 0;
-      uint unlinked_index = 0;
-      for (VirtualSocket *input_vsocket : vnode->inputs()) {
-        if (input_vsocket->is_linked()) {
-          CPPType &type = get_type_by_socket(input_vsocket);
-          BKE::GenericMutableArrayRef array_ref{&type, linked_buffers[linked_index], array_size};
-          VirtualSocket *origin = input_vsocket->links()[0];
-          this->compute_output(mask_indices, global_params, context, origin, array_ref);
-          params.add_readonly_array_ref(array_ref);
-          linked_index++;
-        }
-        else {
-          load_socket_value(input_vsocket, unlinked_values, unlinked_index);
-          params.add_readonly_single_ref(unlinked_values, unlinked_index);
-          unlinked_index++;
-        }
-      }
+      BKE::GenericMutableArrayRef array_ref{&type, buffer, array_size};
+      temporary_input_buffers.append(array_ref);
+      auto &origin = input_socket->origin();
+      this->compute_output(mask_indices, global_params, context, origin, array_ref);
+      params.add_readonly_array_ref(array_ref);
     }
 
     Vector<BKE::GenericMutableArrayRef> temporary_output_buffers;
     {
-      for (VirtualSocket *output_vsocket : vnode->outputs()) {
-        if (output_vsocket == vsocket) {
+      for (auto output_socket : current_node.outputs()) {
+        if (output_socket == &socket_to_compute) {
           params.add_mutable_array_ref(result);
         }
         else {
-          CPPType &type = get_type_by_socket(output_vsocket);
+          const CPPType &type = output_socket->type().type();
           void *buffer = MEM_mallocN_aligned(type.size() * array_size, type.alignment(), __func__);
           BKE::GenericMutableArrayRef array_ref{&type, buffer, array_size};
           params.add_mutable_array_ref(array_ref);
@@ -215,24 +175,15 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
       }
     }
 
-    node_function->call(mask_indices, params.build(), context);
+    node_function.call(mask_indices, params.build(), context);
 
     {
-      uint linked_index = 0;
-      for (VirtualSocket *input_vsocket : vnode->inputs()) {
-        if (input_vsocket->is_linked()) {
-          CPPType &type = get_type_by_socket(input_vsocket);
-          void *buffer = linked_buffers[linked_index];
-          for (uint i : mask_indices) {
-            type.destruct(POINTER_OFFSET(buffer, i * type.size()));
-          }
-          linked_index++;
-        }
-      }
-      for (void *buffer : linked_buffers) {
-        MEM_freeN(buffer);
+      for (auto array_ref : temporary_input_buffers) {
+        array_ref.destruct_all();
+        MEM_freeN(array_ref.buffer());
       }
       for (auto array_ref : temporary_output_buffers) {
+        array_ref.destruct_all();
         MEM_freeN(array_ref.buffer());
       }
     }
@@ -250,14 +201,37 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   vtree.add_all_of_tree(tree);
   vtree.freeze_and_index();
 
-  MultiFunction_FunctionTree function{*vtree.nodes_with_idname("fn_FunctionInputNode")[0],
-                                      *vtree.nodes_with_idname("fn_FunctionOutputNode")[0]};
+  auto network_builder = BLI::make_unique<BKE::MultiFunctionNetwork::NetworkBuilder>();
+  auto &input_node = network_builder->add_placeholder(
+      {},
+      {BKE::MultiFunctionDataType{BKE::MultiFunctionDataType::Single, BKE::GET_TYPE<float3>()},
+       BKE::MultiFunctionDataType{BKE::MultiFunctionDataType::Single, BKE::GET_TYPE<float>()}});
+
+  auto &output_node = network_builder->add_placeholder(
+      {BKE::MultiFunctionDataType{BKE::MultiFunctionDataType::Single, BKE::GET_TYPE<float3>()}},
+      {});
+
+  BKE::MultiFunction_AddFloat3s add_function;
+  auto &add_node = network_builder->add_function(add_function, {0, 1}, {2});
+
+  uint input_node_id = input_node.id();
+  uint output_node_id = output_node.id();
+
+  network_builder->add_link(*input_node.outputs()[0], *add_node.inputs()[0]);
+  network_builder->add_link(*input_node.outputs()[0], *add_node.inputs()[1]);
+  network_builder->add_link(*add_node.outputs()[0], *output_node.inputs()[0]);
+
+  BKE::MultiFunctionNetwork::Network network(std::move(network_builder));
+
+  auto &final_input_node = network.node_by_id(input_node_id);
+  auto &final_output_node = network.node_by_id(output_node_id);
+
+  MultiFunction_FunctionTree function{final_input_node.outputs(), final_output_node.inputs()};
 
   BKE::MultiFunction::ParamsBuilder params;
   params.start_new(function.signature(), numVerts);
   params.add_readonly_array_ref(ArrayRef<float3>((float3 *)vertexCos, numVerts));
   params.add_readonly_single_ref(&fdmd->control1);
-  params.add_readonly_single_ref(&fdmd->control2);
 
   TemporaryVector<float3> output_vectors(numVerts);
   params.add_mutable_array_ref<float3>(output_vectors);

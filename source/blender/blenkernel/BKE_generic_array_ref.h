@@ -141,6 +141,16 @@ class GenericMutableArrayRef {
   {
   }
 
+  void destruct_all()
+  {
+    if (m_type->trivially_destructible()) {
+      return;
+    }
+    for (uint i = 0; i < m_size; i++) {
+      m_type->destruct((*this)[i]);
+    }
+  }
+
   const CPPType &type() const
   {
     return *m_type;

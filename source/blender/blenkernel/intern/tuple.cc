@@ -2,12 +2,12 @@
 
 namespace BKE {
 
-TupleInfo::TupleInfo(Vector<CPPType *> types) : m_types(std::move(types))
+TupleInfo::TupleInfo(Vector<const CPPType *> types) : m_types(std::move(types))
 {
   m_all_trivially_destructible = true;
   m_size__data = 0;
   m_alignment = 1;
-  for (CPPType *type : m_types) {
+  for (const CPPType *type : m_types) {
     uint size = type->size();
     uint alignment = type->alignment();
 

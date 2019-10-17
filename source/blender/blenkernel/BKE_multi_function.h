@@ -253,7 +253,6 @@ class MultiFunction {
    private:
     Vector<std::string> m_param_names;
     Vector<ParamType> m_param_types;
-    Vector<CPPType *> m_param_base_types;
     Vector<uint> m_params_with_external_dependencies;
 
    public:
@@ -261,7 +260,7 @@ class MultiFunction {
     {
       this->readonly_single_input(name, GET_TYPE<T>());
     }
-    void readonly_single_input(StringRef name, CPPType &type)
+    void readonly_single_input(StringRef name, const CPPType &type)
     {
       m_param_names.append(name);
       m_param_types.append(ParamType(ParamType::ReadonlySingleInput, &type));
@@ -271,7 +270,7 @@ class MultiFunction {
     {
       this->single_output(name, GET_TYPE<T>(), has_external_dependencies);
     }
-    void single_output(StringRef name, CPPType &type, bool has_external_dependencies = false)
+    void single_output(StringRef name, const CPPType &type, bool has_external_dependencies = false)
     {
       if (has_external_dependencies) {
         m_params_with_external_dependencies.append(m_param_names.size());
@@ -284,7 +283,7 @@ class MultiFunction {
     {
       this->readonly_vector_input(name, GET_TYPE<T>());
     }
-    void readonly_vector_input(StringRef name, CPPType &base_type)
+    void readonly_vector_input(StringRef name, const CPPType &base_type)
     {
       m_param_names.append(name);
       m_param_types.append(ParamType(ParamType::ReadonlyVectorInput, &base_type));
@@ -294,7 +293,9 @@ class MultiFunction {
     {
       this->vector_output(name, GET_TYPE<T>(), has_external_dependencies);
     }
-    void vector_output(StringRef name, CPPType &base_type, bool has_external_dependencies = false)
+    void vector_output(StringRef name,
+                       const CPPType &base_type,
+                       bool has_external_dependencies = false)
     {
       if (has_external_dependencies) {
         m_params_with_external_dependencies.append(m_param_names.size());
@@ -303,7 +304,9 @@ class MultiFunction {
       m_param_types.append(ParamType(ParamType::VectorOutput, &base_type));
     }
 
-    void mutable_vector(StringRef name, CPPType &base_type, bool has_external_dependencies = false)
+    void mutable_vector(StringRef name,
+                        const CPPType &base_type,
+                        bool has_external_dependencies = false)
     {
       if (has_external_dependencies) {
         m_params_with_external_dependencies.append(m_param_names.size());

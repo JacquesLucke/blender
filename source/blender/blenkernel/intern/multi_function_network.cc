@@ -44,7 +44,8 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
   node->m_id = m_node_by_id.size();
 
   for (uint i = 0; i < input_param_indices.size(); i++) {
-    ParamType param = function.signature().param_types()[i];
+    uint param_index = input_param_indices[i];
+    ParamType param = function.signature().param_types()[param_index];
     BLI_assert(param.is_input());
 
     auto input_socket = new BuilderInputSocket();
@@ -59,7 +60,8 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
   }
 
   for (uint i = 0; i < output_param_indices.size(); i++) {
-    ParamType param = function.signature().param_types()[i];
+    uint param_index = output_param_indices[i];
+    ParamType param = function.signature().param_types()[param_index];
     BLI_assert(param.is_output());
 
     auto output_socket = new BuilderOutputSocket();
