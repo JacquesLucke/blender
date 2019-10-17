@@ -11,65 +11,7 @@ using BLI::Optional;
 
 namespace MultiFunctionNetwork {
 
-class Node;
-class FunctionNode;
-class PlaceholderNode;
-
-class Socket;
-class InputSocket;
-class OutputSocket;
-
-class Network;
-
-class Node {
- public:
-  Network &network();
-
-  ArrayRef<MultiFunctionDataType> input_types();
-  ArrayRef<MultiFunctionDataType> output_types();
-
-  bool is_function();
-  bool is_placeholder();
-
-  FunctionNode &as_function();
-  PlaceholderNode &as_placeholder();
-};
-
-class FunctionNode : public Node {
- public:
-  MultiFunction &function();
-};
-
-class PlaceholderNode : public Node {
-};
-
-class Socket {
- public:
-  Node &node();
-  MultiFunctionDataType &type();
-
-  bool is_input();
-  bool is_output();
-
-  InputSocket &as_input();
-  OutputSocket &as_output();
-};
-
-class InputSocket : public Socket {
- public:
-  OutputSocket &origin();
-};
-
-class OutputSocket : public Socket {
- public:
-  ArrayRef<InputSocket *> targets();
-};
-
-class Network {
- public:
-};
-
-/* Builder
+/* Network Builder
  ****************************************/
 
 class BuilderNode;
@@ -80,19 +22,19 @@ class BuilderSocket;
 class BuilderInputSocket;
 class BuilderOutputSocket;
 
-class BuilderNetwork;
+class NetworkBuilder;
 
 class BuilderNode {
  protected:
-  BuilderNetwork *m_network;
+  NetworkBuilder *m_network;
   Vector<BuilderInputSocket *> m_inputs;
   Vector<BuilderOutputSocket *> m_outputs;
   bool m_is_placeholder;
 
-  friend BuilderNetwork;
+  friend NetworkBuilder;
 
  public:
-  BuilderNetwork &network();
+  NetworkBuilder &network();
 
   ArrayRef<BuilderInputSocket *> inputs();
   ArrayRef<BuilderOutputSocket *> outputs();
@@ -110,7 +52,7 @@ class BuilderFunctionNode : public BuilderNode {
   Vector<uint> m_input_param_indices;
   Vector<uint> m_output_param_indices;
 
-  friend BuilderNetwork;
+  friend NetworkBuilder;
 
  public:
   MultiFunction &function();
@@ -126,7 +68,7 @@ class BuilderSocket {
   uint m_index;
   MultiFunctionDataType m_type;
 
-  friend BuilderNetwork;
+  friend NetworkBuilder;
 
  public:
   BuilderNode &node();
@@ -143,7 +85,7 @@ class BuilderInputSocket : public BuilderSocket {
  private:
   BuilderOutputSocket *m_origin;
 
-  friend BuilderNetwork;
+  friend NetworkBuilder;
 
  public:
   BuilderOutputSocket *origin();
@@ -153,13 +95,13 @@ class BuilderOutputSocket : public BuilderSocket {
  private:
   Vector<BuilderInputSocket *> m_targets;
 
-  friend BuilderNetwork;
+  friend NetworkBuilder;
 
  public:
   ArrayRef<BuilderInputSocket *> targets();
 };
 
-class BuilderNetwork {
+class NetworkBuilder {
  private:
   Vector<std::unique_ptr<BuilderFunctionNode>> m_function_nodes;
   Vector<std::unique_ptr<BuilderPlaceholderNode>> m_placeholder_nodes;
@@ -175,10 +117,105 @@ class BuilderNetwork {
   void add_link(BuilderOutputSocket &from, BuilderInputSocket &to);
 };
 
-/* BuilderNode Implementations
+/* Network
+ ******************************************/
+
+class Node;
+class FunctionNode;
+class PlaceholderNode;
+
+class Socket;
+class InputSocket;
+class OutputSocket;
+
+class Network;
+
+class Node {
+ private:
+  Network *m_network;
+  ArrayRef<InputSocket *> m_inputs;
+  ArrayRef<OutputSocket *> m_outputs;
+  bool m_is_placeholder;
+
+  friend Network;
+
+ public:
+  Network &network();
+
+  ArrayRef<InputSocket *> inputs();
+  ArrayRef<OutputSocket *> outputs();
+
+  bool is_function();
+  bool is_placeholder();
+
+  FunctionNode &as_function();
+  PlaceholderNode &as_placeholder();
+};
+
+class FunctionNode : public Node {
+ private:
+  MultiFunction *m_function;
+  ArrayRef<uint> m_input_param_indices;
+  ArrayRef<uint> m_output_param_indices;
+
+  friend Network;
+
+ public:
+  MultiFunction &function();
+};
+
+class PlaceholderNode : public Node {
+};
+
+class Socket {
+ private:
+  Node *m_node;
+  bool m_is_output;
+  uint m_index;
+  MultiFunctionDataType m_type;
+
+  friend Network;
+
+ public:
+  Node &node();
+  MultiFunctionDataType type();
+
+  bool is_input();
+  bool is_output();
+
+  InputSocket &as_input();
+  OutputSocket &as_output();
+};
+
+class InputSocket : public Socket {
+ private:
+  OutputSocket *m_origin;
+
+  friend Network;
+
+ public:
+  OutputSocket &origin();
+};
+
+class OutputSocket : public Socket {
+ private:
+  ArrayRef<InputSocket *> m_targets;
+
+  friend Network;
+
+ public:
+  ArrayRef<InputSocket *> targets();
+};
+
+class Network {
+ public:
+  Network(std::unique_ptr<NetworkBuilder> builder);
+};
+
+/* Builder Implementations
  *******************************************/
 
-BuilderNetwork &BuilderNode::network()
+NetworkBuilder &BuilderNode::network()
 {
   return *m_network;
 }
@@ -212,16 +249,10 @@ BuilderPlaceholderNode &BuilderNode::as_placeholder()
   return *(BuilderPlaceholderNode *)this;
 }
 
-/* BuilderFunctionNode Implementations
- *******************************************/
-
 MultiFunction &BuilderFunctionNode::function()
 {
   return *m_function;
 }
-
-/* BuilderSocket Implementations
- *******************************************/
 
 BuilderNode &BuilderSocket::node()
 {
@@ -253,18 +284,94 @@ BuilderOutputSocket &BuilderSocket::as_output()
   return *(BuilderOutputSocket *)this;
 }
 
-/* BuilderInputSocket Implementations
- *******************************************/
-
 BuilderOutputSocket *BuilderInputSocket::origin()
 {
   return m_origin;
 }
 
-/* BuilderOutputSocket Implementations
- *******************************************/
-
 ArrayRef<BuilderInputSocket *> BuilderOutputSocket::targets()
+{
+  return m_targets;
+}
+
+/* Network Implementations
+ **************************************/
+
+Network &Node::network()
+{
+  return *m_network;
+}
+
+ArrayRef<InputSocket *> Node::inputs()
+{
+  return m_inputs;
+}
+ArrayRef<OutputSocket *> Node::outputs()
+{
+  return m_outputs;
+}
+
+bool Node::is_function()
+{
+  return !m_is_placeholder;
+}
+bool Node::is_placeholder()
+{
+  return m_is_placeholder;
+}
+
+FunctionNode &Node::as_function()
+{
+  BLI_assert(this->is_function());
+  return *(FunctionNode *)this;
+}
+PlaceholderNode &Node::as_placeholder()
+{
+  BLI_assert(this->is_placeholder());
+  return *(PlaceholderNode *)this;
+}
+
+MultiFunction &FunctionNode::function()
+{
+  return *m_function;
+}
+
+Node &Socket::node()
+{
+  return *m_node;
+}
+
+MultiFunctionDataType Socket::type()
+{
+  return m_type;
+}
+
+bool Socket::is_input()
+{
+  return !m_is_output;
+}
+bool Socket::is_output()
+{
+  return m_is_output;
+}
+
+InputSocket &Socket::as_input()
+{
+  BLI_assert(this->is_input());
+  return *(InputSocket *)this;
+}
+OutputSocket &Socket::as_output()
+{
+  BLI_assert(this->is_output());
+  return *(OutputSocket *)this;
+}
+
+OutputSocket &InputSocket::origin()
+{
+  return *m_origin;
+}
+
+ArrayRef<InputSocket *> OutputSocket::targets()
 {
   return m_targets;
 }

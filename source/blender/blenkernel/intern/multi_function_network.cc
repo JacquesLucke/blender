@@ -3,15 +3,20 @@
 namespace BKE {
 namespace MultiFunctionNetwork {
 
-/* BuilderNetwork
+/* Network Builder
  **************************************/
 
-BuilderFunctionNode &BuilderNetwork::add_function(MultiFunction &function,
+BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
                                                   ArrayRef<uint> input_param_indices,
                                                   ArrayRef<uint> output_param_indices)
 {
+#ifdef DEBUG
   BLI_assert(!input_param_indices.has_duplicates__linear_search());
   BLI_assert(!output_param_indices.has_duplicates__linear_search());
+  for (uint i = 0; i < function.signature().param_types().size(); i++) {
+    BLI_assert(input_param_indices.contains(i) || output_param_indices.contains(i));
+  }
+#endif
 
   auto node = BLI::make_unique<BuilderFunctionNode>();
 
@@ -52,7 +57,7 @@ BuilderFunctionNode &BuilderNetwork::add_function(MultiFunction &function,
   return node_ref;
 }
 
-BuilderPlaceholderNode &BuilderNetwork::add_placeholder(
+BuilderPlaceholderNode &NetworkBuilder::add_placeholder(
     ArrayRef<MultiFunctionDataType> input_types, ArrayRef<MultiFunctionDataType> output_types)
 {
   auto node = BLI::make_unique<BuilderPlaceholderNode>();
@@ -84,12 +89,19 @@ BuilderPlaceholderNode &BuilderNetwork::add_placeholder(
   return node_ref;
 }
 
-void BuilderNetwork::add_link(BuilderOutputSocket &from, BuilderInputSocket &to)
+void NetworkBuilder::add_link(BuilderOutputSocket &from, BuilderInputSocket &to)
 {
   BLI_assert(to.origin() == nullptr);
   BLI_assert(from.m_node->m_network == to.m_node->m_network);
   from.m_targets.append(&to);
   to.m_origin = &from;
+}
+
+/* Network
+ ********************************************/
+
+Network::Network(std::unique_ptr<NetworkBuilder> builder)
+{
 }
 
 }  // namespace MultiFunctionNetwork

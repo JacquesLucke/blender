@@ -484,14 +484,15 @@ class MultiFunction {
 
   virtual void call(ArrayRef<uint> mask_indices, Params &params, Context &context) const = 0;
 
-  void set_signature(SignatureBuilder &signature_builder)
-  {
-    m_signature = signature_builder.build();
-  }
-
   const Signature &signature() const
   {
     return m_signature;
+  }
+
+ protected:
+  void set_signature(SignatureBuilder &signature_builder)
+  {
+    m_signature = signature_builder.build();
   }
 
  private:
