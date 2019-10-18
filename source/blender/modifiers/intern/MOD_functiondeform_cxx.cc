@@ -11,6 +11,7 @@
 
 using BKE::CPPType;
 using BKE::MFContext;
+using BKE::MFDataType;
 using BKE::MFNetwork;
 using BKE::MFParams;
 using BKE::MFParamsBuilder;
@@ -209,12 +210,9 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
 
   auto network_builder = BLI::make_unique<BKE::MFNetworkBuilder>();
   auto &input_node = network_builder->add_placeholder(
-      {},
-      {BKE::MFDataType{BKE::MFDataType::Single, BKE::GET_TYPE<float3>()},
-       BKE::MFDataType{BKE::MFDataType::Single, BKE::GET_TYPE<float>()}});
+      {}, {MFDataType::ForSingle<float3>(), MFDataType::ForSingle<float>()});
 
-  auto &output_node = network_builder->add_placeholder(
-      {BKE::MFDataType{BKE::MFDataType::Single, BKE::GET_TYPE<float3>()}}, {});
+  auto &output_node = network_builder->add_placeholder({MFDataType::ForSingle<float3>()}, {});
 
   BKE::MultiFunction_AddFloat3s add_function;
   auto &add_node = network_builder->add_function(add_function, {0, 1}, {2});

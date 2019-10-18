@@ -25,6 +25,11 @@ struct MFDataType {
   {
   }
 
+  template<typename T> static MFDataType ForSingle()
+  {
+    return MFDataType(Category::Single, GET_TYPE<T>());
+  }
+
   Category category() const
   {
     return m_category;
