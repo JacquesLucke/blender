@@ -35,14 +35,33 @@ class OwnedResources : NonCopyable {
   template<typename T> void add(std::unique_ptr<T> resource, const char *name)
   {
     BLI_assert(resource.get() != nullptr);
+    this->add(
+        resource.release(),
+        [](void *data) {
+          T *typed_data = static_cast<T *>(data);
+          delete typed_data;
+        },
+        name);
+  }
 
+  template<typename T> void add(destruct_ptr<T> resource, const char *name)
+  {
+    BLI_assert(resource.get() != nullptr);
+    this->add(
+        resource.release(),
+        [](void *data) {
+          T *typed_data = static_cast<T *>(data);
+          typed_data->~T();
+        },
+        name);
+  }
+
+  void add(void *userdata, void (*free)(void *), const char *name)
+  {
     ResourceData data;
     data.name = name;
-    data.data = static_cast<void *>(resource.release());
-    data.free = [](void *data) {
-      T *typed_data = static_cast<T *>(data);
-      delete typed_data;
-    };
+    data.data = userdata;
+    data.free = free;
     m_resources.append(data);
   }
 
