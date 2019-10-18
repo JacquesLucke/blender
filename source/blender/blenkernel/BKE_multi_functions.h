@@ -83,6 +83,28 @@ class MultiFunction_CombineLists final : public MultiFunction {
   void call(ArrayRef<uint> mask_indices, Params &params, Context &context) const override;
 };
 
+template<typename T> class MultiFunction_ConstantValue : public MultiFunction {
+ private:
+  T m_value;
+
+ public:
+  MultiFunction_ConstantValue(T value) : m_value(std::move(value))
+  {
+    SignatureBuilder signature;
+    signature.single_output<T>("Output");
+    this->set_signature(signature);
+  }
+
+  void call(ArrayRef<uint> mask_indices, Params &params, Context &UNUSED(context)) const override
+  {
+    MutableArrayRef<T> output = params.single_output<T>(0, "Output");
+
+    for (uint i : mask_indices) {
+      new (output.begin() + i) T(m_value);
+    }
+  }
+};
+
 };  // namespace BKE
 
 #endif /* __BKE_MULTI_FUNCTIONS_H__ */

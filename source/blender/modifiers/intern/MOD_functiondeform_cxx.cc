@@ -214,11 +214,15 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   BKE::MultiFunction_AddFloat3s add_function;
   auto &add_node = network_builder->add_function(add_function, {0, 1}, {2});
 
+  BKE::MultiFunction_ConstantValue<float3> vector_value{
+      {fdmd->control1, fdmd->control1, fdmd->control1}};
+  auto &value_node = network_builder->add_function(vector_value, {}, {0});
+
   uint input_node_id = input_node.id();
   uint output_node_id = output_node.id();
 
   network_builder->add_link(*input_node.outputs()[0], *add_node.inputs()[0]);
-  network_builder->add_link(*input_node.outputs()[0], *add_node.inputs()[1]);
+  network_builder->add_link(*value_node.outputs()[0], *add_node.inputs()[1]);
   network_builder->add_link(*add_node.outputs()[0], *output_node.inputs()[0]);
 
   BKE::MultiFunctionNetwork::Network network(std::move(network_builder));

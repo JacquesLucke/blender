@@ -256,7 +256,7 @@ template<typename T> class ArrayRef {
      * changed. */
     BLI_assert(m_size < 1000);
 
-    for (uint i = 0; i < m_size - 1; i++) {
+    for (uint i = 0; i < m_size; i++) {
       const T &value = m_start[i];
       for (uint j = i + 1; j < m_size; j++) {
         if (value == m_start[j]) {
