@@ -33,21 +33,21 @@ extern "C" {
 void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[3], int numVerts);
 }
 
-static CPPType &get_type_by_socket(VirtualSocket *vsocket)
+static MFDataType get_type_by_socket(VirtualSocket *vsocket)
 {
   StringRef idname = vsocket->idname();
 
   if (idname == "fn_FloatSocket") {
-    return BKE::GET_TYPE<float>();
+    return MFDataType::ForSingle<float>();
   }
   else if (idname == "fn_IntegerSocket") {
-    return BKE::GET_TYPE<int>();
+    return MFDataType::ForSingle<int>();
   }
   else if (idname == "fn_VectorSocket") {
-    return BKE::GET_TYPE<float3>();
+    return MFDataType::ForSingle<float3>();
   }
   BLI_assert(false);
-  return BKE::GET_TYPE<float>();
+  return MFDataType();
 }
 
 static std::unique_ptr<BKE::MultiFunction> get_multi_function_by_node(VirtualNode *vnode)
