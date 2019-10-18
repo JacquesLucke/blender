@@ -19,6 +19,7 @@ namespace BParticles {
 
 using BKE::VirtualNode;
 using BKE::VirtualSocket;
+using BLI::destruct_ptr;
 using BLI::MonotonicAllocator;
 using BLI::MultiMap;
 using BLI::rgba_f;
@@ -52,19 +53,10 @@ class InfluencesCollector {
   StringMap<AttributesDeclaration> &m_attributes;
 };
 
-template<typename T> struct DestructFunc {
-  void operator()(T *ptr)
-  {
-    ptr->~T();
-  }
-};
-
 class VTreeData {
  private:
   /* Keep this at the beginning, so that it is destructed last. */
   MonotonicAllocator<> m_allocator;
-
-  template<typename T> using destruct_ptr = std::unique_ptr<T, DestructFunc<T>>;
 
   VTreeDataGraph &m_vtree_data_graph;
   Vector<std::unique_ptr<ParticleFunction>> m_particle_functions;

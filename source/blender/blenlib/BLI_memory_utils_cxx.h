@@ -89,6 +89,15 @@ template<typename T, typename... Args> std::unique_ptr<T> make_unique(Args &&...
   return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
+template<typename T> struct DestructValueAtAddress {
+  void operator()(T *ptr)
+  {
+    ptr->~T();
+  }
+};
+
+template<typename T> using destruct_ptr = std::unique_ptr<T, DestructValueAtAddress<T>>;
+
 }  // namespace BLI
 
 #endif /* __BLI_MEMORY_UTILS_CXX_H__ */
