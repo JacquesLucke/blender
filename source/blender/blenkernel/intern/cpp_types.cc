@@ -106,7 +106,7 @@ void init_data_types()
 }
 
 #define CPP_TYPE_GETTER(IDENTIFIER, TYPE_NAME) \
-  template<> CPPType &GET_TYPE<TYPE_NAME>() \
+  template<> const CPPType &GET_TYPE<TYPE_NAME>() \
   { \
     return *TYPE_##IDENTIFIER; \
   }

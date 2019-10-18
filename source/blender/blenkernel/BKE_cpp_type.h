@@ -29,7 +29,7 @@ class CPPType {
           CopyToUninitializedF copy_to_uninitialized,
           RelocateToInitializedF relocate_to_initialized,
           RelocateToUninitializedF relocate_to_uninitialized,
-          CPPType *generalization)
+          const CPPType *generalization)
       : m_size(size),
         m_alignment(alignment),
         m_trivially_destructible(trivially_destructible),
@@ -49,21 +49,6 @@ class CPPType {
     m_alignment_mask = m_alignment - 1;
   }
 
-  CPPType(std::string name, CPPType &generalization, ConstructDefaultF construct_default)
-      : CPPType(std::move(name),
-                generalization.m_size,
-                generalization.m_alignment,
-                generalization.m_trivially_destructible,
-                construct_default,
-                generalization.m_destruct,
-                generalization.m_copy_to_initialized,
-                generalization.m_copy_to_uninitialized,
-                generalization.m_relocate_to_initialized,
-                generalization.m_relocate_to_uninitialized,
-                &generalization)
-  {
-  }
-
   virtual ~CPPType();
 
   StringRefNull name() const
@@ -81,7 +66,7 @@ class CPPType {
     return m_alignment;
   }
 
-  CPPType *generalization() const
+  const CPPType *generalization() const
   {
     return m_generalization;
   }
@@ -164,7 +149,7 @@ class CPPType {
   CopyToUninitializedF m_copy_to_uninitialized;
   RelocateToInitializedF m_relocate_to_initialized;
   RelocateToUninitializedF m_relocate_to_uninitialized;
-  CPPType *m_generalization;
+  const CPPType *m_generalization;
   std::string m_name;
 };
 

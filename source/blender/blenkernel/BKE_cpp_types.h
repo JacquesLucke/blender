@@ -8,7 +8,7 @@ namespace BKE {
 void init_data_types();
 void free_data_types();
 
-template<typename T> CPPType &GET_TYPE();
+template<typename T> const CPPType &GET_TYPE();
 
 }  // namespace BKE
 

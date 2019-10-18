@@ -180,7 +180,8 @@ void MultiFunction_FloatRange::call(ArrayRef<uint> mask_indices,
   }
 }
 
-MultiFunction_AppendToList::MultiFunction_AppendToList(CPPType &base_type) : m_base_type(base_type)
+MultiFunction_AppendToList::MultiFunction_AppendToList(const CPPType &base_type)
+    : m_base_type(base_type)
 {
   MFSignatureBuilder signature;
   signature.mutable_vector("List", m_base_type);
@@ -200,7 +201,7 @@ void MultiFunction_AppendToList::call(ArrayRef<uint> mask_indices,
   }
 }
 
-MultiFunction_GetListElement::MultiFunction_GetListElement(CPPType &base_type)
+MultiFunction_GetListElement::MultiFunction_GetListElement(const CPPType &base_type)
     : m_base_type(base_type)
 {
   MFSignatureBuilder signature;
@@ -234,7 +235,8 @@ void MultiFunction_GetListElement::call(ArrayRef<uint> mask_indices,
   }
 }
 
-MultiFunction_ListLength::MultiFunction_ListLength(CPPType &base_type) : m_base_type(base_type)
+MultiFunction_ListLength::MultiFunction_ListLength(const CPPType &base_type)
+    : m_base_type(base_type)
 {
   MFSignatureBuilder signature;
   signature.readonly_vector_input("List", m_base_type);
@@ -254,7 +256,8 @@ void MultiFunction_ListLength::call(ArrayRef<uint> mask_indices,
   }
 }
 
-MultiFunction_CombineLists::MultiFunction_CombineLists(CPPType &base_type) : m_base_type(base_type)
+MultiFunction_CombineLists::MultiFunction_CombineLists(const CPPType &base_type)
+    : m_base_type(base_type)
 {
   MFSignatureBuilder signature;
   signature.mutable_vector("List", m_base_type);
