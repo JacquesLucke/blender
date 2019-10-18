@@ -1,12 +1,11 @@
 #include "BKE_multi_function_network.h"
 
 namespace BKE {
-namespace MultiFunctionNetwork {
 
-/* Network Builder
+/* MFNetwork Builder
  **************************************/
 
-NetworkBuilder::~NetworkBuilder()
+MFNetworkBuilder::~MFNetworkBuilder()
 {
   for (auto node : m_function_nodes) {
     delete node;
@@ -22,9 +21,9 @@ NetworkBuilder::~NetworkBuilder()
   }
 }
 
-BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
-                                                  ArrayRef<uint> input_param_indices,
-                                                  ArrayRef<uint> output_param_indices)
+MFBuilderFunctionNode &MFNetworkBuilder::add_function(MultiFunction &function,
+                                                      ArrayRef<uint> input_param_indices,
+                                                      ArrayRef<uint> output_param_indices)
 {
 #ifdef DEBUG
   BLI_assert(!input_param_indices.has_duplicates__linear_search());
@@ -34,7 +33,7 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
   }
 #endif
 
-  auto node = new BuilderFunctionNode();
+  auto node = new MFBuilderFunctionNode();
 
   node->m_network = this;
   node->m_is_placeholder = false;
@@ -48,7 +47,7 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
     MFParamType param = function.signature().param_types()[param_index];
     BLI_assert(param.is_input());
 
-    auto input_socket = new BuilderInputSocket();
+    auto input_socket = new MFBuilderInputSocket();
     input_socket->m_type = param.as_data_type();
     input_socket->m_node = node;
     input_socket->m_index = i;
@@ -64,7 +63,7 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
     MFParamType param = function.signature().param_types()[param_index];
     BLI_assert(param.is_output());
 
-    auto output_socket = new BuilderOutputSocket();
+    auto output_socket = new MFBuilderOutputSocket();
     output_socket->m_type = param.as_data_type();
     output_socket->m_node = node;
     output_socket->m_index = i;
@@ -80,17 +79,17 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
   return *node;
 }
 
-BuilderPlaceholderNode &NetworkBuilder::add_placeholder(ArrayRef<MFDataType> input_types,
-                                                        ArrayRef<MFDataType> output_types)
+MFBuilderPlaceholderNode &MFNetworkBuilder::add_placeholder(ArrayRef<MFDataType> input_types,
+                                                            ArrayRef<MFDataType> output_types)
 {
-  auto node = new BuilderPlaceholderNode();
+  auto node = new MFBuilderPlaceholderNode();
 
   node->m_network = this;
   node->m_is_placeholder = true;
   node->m_id = m_node_by_id.size();
 
   for (uint i = 0; i < input_types.size(); i++) {
-    auto input_socket = new BuilderInputSocket();
+    auto input_socket = new MFBuilderInputSocket();
     input_socket->m_type = input_types[i];
     input_socket->m_node = node;
     input_socket->m_index = i;
@@ -101,7 +100,7 @@ BuilderPlaceholderNode &NetworkBuilder::add_placeholder(ArrayRef<MFDataType> inp
     m_input_sockets.append(input_socket);
   }
   for (uint i = 0; i < output_types.size(); i++) {
-    auto output_socket = new BuilderOutputSocket();
+    auto output_socket = new MFBuilderOutputSocket();
     output_socket->m_type = output_types[i];
     output_socket->m_node = node;
     output_socket->m_index = i;
@@ -117,7 +116,7 @@ BuilderPlaceholderNode &NetworkBuilder::add_placeholder(ArrayRef<MFDataType> inp
   return *node;
 }
 
-void NetworkBuilder::add_link(BuilderOutputSocket &from, BuilderInputSocket &to)
+void MFNetworkBuilder::add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)
 {
   BLI_assert(to.origin() == nullptr);
   BLI_assert(from.m_node->m_network == to.m_node->m_network);
@@ -128,13 +127,13 @@ void NetworkBuilder::add_link(BuilderOutputSocket &from, BuilderInputSocket &to)
 /* Network
  ********************************************/
 
-Network::Network(std::unique_ptr<NetworkBuilder> builder)
+MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
 {
-  m_node_by_id = Array<Node *>(builder->nodes_by_id().size());
-  m_socket_by_id = Array<Socket *>(builder->sockets_by_id().size());
+  m_node_by_id = Array<MFNode *>(builder->nodes_by_id().size());
+  m_socket_by_id = Array<MFSocket *>(builder->sockets_by_id().size());
 
-  for (BuilderFunctionNode *builder_node : builder->function_nodes()) {
-    FunctionNode *node = new FunctionNode();
+  for (MFBuilderFunctionNode *builder_node : builder->function_nodes()) {
+    MFFunctionNode *node = new MFFunctionNode();
 
     node->m_function = &builder_node->function();
     node->m_id = builder_node->id();
@@ -143,8 +142,8 @@ Network::Network(std::unique_ptr<NetworkBuilder> builder)
     node->m_network = this;
     node->m_is_placeholder = false;
 
-    for (BuilderInputSocket *builder_socket : builder_node->inputs()) {
-      InputSocket *socket = new InputSocket();
+    for (MFBuilderInputSocket *builder_socket : builder_node->inputs()) {
+      MFInputSocket *socket = new MFInputSocket();
       socket->m_id = builder_socket->id();
       socket->m_index = builder_socket->index();
       socket->m_is_output = false;
@@ -155,8 +154,8 @@ Network::Network(std::unique_ptr<NetworkBuilder> builder)
       m_input_sockets.append(socket);
       node->m_inputs.append(socket);
     }
-    for (BuilderOutputSocket *builder_socket : builder_node->outputs()) {
-      OutputSocket *socket = new OutputSocket();
+    for (MFBuilderOutputSocket *builder_socket : builder_node->outputs()) {
+      MFOutputSocket *socket = new MFOutputSocket();
       socket->m_id = builder_socket->id();
       socket->m_index = builder_socket->index();
       socket->m_is_output = true;
@@ -172,15 +171,15 @@ Network::Network(std::unique_ptr<NetworkBuilder> builder)
     m_node_by_id[node->id()] = node;
   }
 
-  for (BuilderPlaceholderNode *builder_node : builder->placeholder_nodes()) {
-    PlaceholderNode *node = new PlaceholderNode();
+  for (MFBuilderPlaceholderNode *builder_node : builder->placeholder_nodes()) {
+    MFPlaceholderNode *node = new MFPlaceholderNode();
 
     node->m_id = builder_node->id();
     node->m_network = this;
     node->m_is_placeholder = false;
 
-    for (BuilderInputSocket *builder_socket : builder_node->inputs()) {
-      InputSocket *socket = new InputSocket();
+    for (MFBuilderInputSocket *builder_socket : builder_node->inputs()) {
+      MFInputSocket *socket = new MFInputSocket();
       socket->m_id = builder_socket->id();
       socket->m_index = builder_socket->index();
       socket->m_is_output = false;
@@ -191,8 +190,8 @@ Network::Network(std::unique_ptr<NetworkBuilder> builder)
       m_input_sockets.append(socket);
       node->m_inputs.append(socket);
     }
-    for (BuilderOutputSocket *builder_socket : builder_node->outputs()) {
-      OutputSocket *socket = new OutputSocket();
+    for (MFBuilderOutputSocket *builder_socket : builder_node->outputs()) {
+      MFOutputSocket *socket = new MFOutputSocket();
       socket->m_id = builder_socket->id();
       socket->m_index = builder_socket->index();
       socket->m_is_output = true;
@@ -208,24 +207,24 @@ Network::Network(std::unique_ptr<NetworkBuilder> builder)
     m_node_by_id[node->id()] = node;
   }
 
-  for (BuilderInputSocket *builder_socket : builder->input_sockets()) {
-    InputSocket &socket = m_socket_by_id[builder_socket->id()]->as_input();
-    OutputSocket &origin = m_socket_by_id[builder_socket->origin()->id()]->as_output();
+  for (MFBuilderInputSocket *builder_socket : builder->input_sockets()) {
+    MFInputSocket &socket = m_socket_by_id[builder_socket->id()]->as_input();
+    MFOutputSocket &origin = m_socket_by_id[builder_socket->origin()->id()]->as_output();
 
     socket.m_origin = &origin;
   }
 
-  for (BuilderOutputSocket *builder_socket : builder->output_sockets()) {
-    OutputSocket &socket = m_socket_by_id[builder_socket->id()]->as_output();
+  for (MFBuilderOutputSocket *builder_socket : builder->output_sockets()) {
+    MFOutputSocket &socket = m_socket_by_id[builder_socket->id()]->as_output();
 
-    for (BuilderInputSocket *builder_target : builder_socket->targets()) {
-      InputSocket &target = m_socket_by_id[builder_target->id()]->as_input();
+    for (MFBuilderInputSocket *builder_target : builder_socket->targets()) {
+      MFInputSocket &target = m_socket_by_id[builder_target->id()]->as_input();
       socket.m_targets.append(&target);
     }
   }
 }
 
-Network::~Network()
+MFNetwork::~MFNetwork()
 {
   for (auto node : m_function_nodes) {
     delete node;
@@ -241,5 +240,4 @@ Network::~Network()
   }
 }
 
-}  // namespace MultiFunctionNetwork
 }  // namespace BKE

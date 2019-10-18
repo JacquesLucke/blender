@@ -11,6 +11,7 @@
 
 using BKE::CPPType;
 using BKE::MFContext;
+using BKE::MFNetwork;
 using BKE::MFParams;
 using BKE::MFParamsBuilder;
 using BKE::MFSignature;
@@ -92,12 +93,12 @@ static void load_socket_value(VirtualSocket *vsocket, TupleRef tuple, uint index
 
 class MultiFunction_FunctionTree : public BKE::MultiFunction {
  private:
-  Vector<BKE::MultiFunctionNetwork::OutputSocket *> m_inputs;
-  Vector<BKE::MultiFunctionNetwork::InputSocket *> m_outputs;
+  Vector<BKE::MFOutputSocket *> m_inputs;
+  Vector<BKE::MFInputSocket *> m_outputs;
 
  public:
-  MultiFunction_FunctionTree(Vector<BKE::MultiFunctionNetwork::OutputSocket *> inputs,
-                             Vector<BKE::MultiFunctionNetwork::InputSocket *> outputs)
+  MultiFunction_FunctionTree(Vector<BKE::MFOutputSocket *> inputs,
+                             Vector<BKE::MFInputSocket *> outputs)
       : m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
   {
     MFSignatureBuilder signature;
@@ -129,7 +130,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
   void compute_output(ArrayRef<uint> mask_indices,
                       MFParams &global_params,
                       MFContext &context,
-                      BKE::MultiFunctionNetwork::OutputSocket &socket_to_compute,
+                      BKE::MFOutputSocket &socket_to_compute,
                       BKE::GenericMutableArrayRef result) const
   {
     auto &current_node = socket_to_compute.node().as_function();
@@ -206,7 +207,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   vtree.add_all_of_tree(tree);
   vtree.freeze_and_index();
 
-  auto network_builder = BLI::make_unique<BKE::MultiFunctionNetwork::NetworkBuilder>();
+  auto network_builder = BLI::make_unique<BKE::MFNetworkBuilder>();
   auto &input_node = network_builder->add_placeholder(
       {},
       {BKE::MFDataType{BKE::MFDataType::Single, BKE::GET_TYPE<float3>()},
@@ -229,7 +230,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   network_builder->add_link(*value_node.outputs()[0], *add_node.inputs()[1]);
   network_builder->add_link(*add_node.outputs()[0], *output_node.inputs()[0]);
 
-  BKE::MultiFunctionNetwork::Network network(std::move(network_builder));
+  MFNetwork network(std::move(network_builder));
 
   auto &final_input_node = network.node_by_id(input_node_id);
   auto &final_output_node = network.node_by_id(output_node_id);

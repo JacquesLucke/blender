@@ -11,53 +11,51 @@ namespace BKE {
 using BLI::Array;
 using BLI::Optional;
 
-namespace MultiFunctionNetwork {
-
-/* Network Builder
+/* MFNetwork Builder
  ****************************************/
 
-class BuilderNode;
-class BuilderFunctionNode;
-class BuilderPlaceholderNode;
+class MFBuilderNode;
+class MFBuilderFunctionNode;
+class MFBuilderPlaceholderNode;
 
-class BuilderSocket;
-class BuilderInputSocket;
-class BuilderOutputSocket;
+class MFBuilderSocket;
+class MFBuilderInputSocket;
+class MFBuilderOutputSocket;
 
-class NetworkBuilder;
+class MFNetworkBuilder;
 
-class BuilderNode : BLI::NonCopyable, BLI::NonMovable {
+class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
  protected:
-  NetworkBuilder *m_network;
-  Vector<BuilderInputSocket *> m_inputs;
-  Vector<BuilderOutputSocket *> m_outputs;
+  MFNetworkBuilder *m_network;
+  Vector<MFBuilderInputSocket *> m_inputs;
+  Vector<MFBuilderOutputSocket *> m_outputs;
   uint m_id;
   bool m_is_placeholder;
 
-  friend NetworkBuilder;
+  friend MFNetworkBuilder;
 
  public:
-  NetworkBuilder &network();
+  MFNetworkBuilder &network();
 
-  ArrayRef<BuilderInputSocket *> inputs();
-  ArrayRef<BuilderOutputSocket *> outputs();
+  ArrayRef<MFBuilderInputSocket *> inputs();
+  ArrayRef<MFBuilderOutputSocket *> outputs();
 
   uint id();
 
   bool is_function();
   bool is_placeholder();
 
-  BuilderFunctionNode &as_function();
-  BuilderPlaceholderNode &as_placeholder();
+  MFBuilderFunctionNode &as_function();
+  MFBuilderPlaceholderNode &as_placeholder();
 };
 
-class BuilderFunctionNode : public BuilderNode {
+class MFBuilderFunctionNode : public MFBuilderNode {
  private:
   MultiFunction *m_function;
   Vector<uint> m_input_param_indices;
   Vector<uint> m_output_param_indices;
 
-  friend NetworkBuilder;
+  friend MFNetworkBuilder;
 
  public:
   MultiFunction &function();
@@ -66,21 +64,21 @@ class BuilderFunctionNode : public BuilderNode {
   ArrayRef<uint> output_param_indices();
 };
 
-class BuilderPlaceholderNode : public BuilderNode {
+class MFBuilderPlaceholderNode : public MFBuilderNode {
 };
 
-class BuilderSocket : BLI::NonCopyable, BLI::NonMovable {
+class MFBuilderSocket : BLI::NonCopyable, BLI::NonMovable {
  private:
-  BuilderNode *m_node;
+  MFBuilderNode *m_node;
   bool m_is_output;
   uint m_index;
   MFDataType m_type;
   uint m_id;
 
-  friend NetworkBuilder;
+  friend MFNetworkBuilder;
 
  public:
-  BuilderNode &node();
+  MFBuilderNode &node();
   MFDataType type();
 
   uint index();
@@ -89,76 +87,76 @@ class BuilderSocket : BLI::NonCopyable, BLI::NonMovable {
   bool is_input();
   bool is_output();
 
-  BuilderInputSocket &as_input();
-  BuilderOutputSocket &as_output();
+  MFBuilderInputSocket &as_input();
+  MFBuilderOutputSocket &as_output();
 };
 
-class BuilderInputSocket : public BuilderSocket {
+class MFBuilderInputSocket : public MFBuilderSocket {
  private:
-  BuilderOutputSocket *m_origin;
+  MFBuilderOutputSocket *m_origin;
 
-  friend NetworkBuilder;
+  friend MFNetworkBuilder;
 
  public:
-  BuilderOutputSocket *origin();
+  MFBuilderOutputSocket *origin();
 };
 
-class BuilderOutputSocket : public BuilderSocket {
+class MFBuilderOutputSocket : public MFBuilderSocket {
  private:
-  Vector<BuilderInputSocket *> m_targets;
+  Vector<MFBuilderInputSocket *> m_targets;
 
-  friend NetworkBuilder;
+  friend MFNetworkBuilder;
 
  public:
-  ArrayRef<BuilderInputSocket *> targets();
+  ArrayRef<MFBuilderInputSocket *> targets();
 };
 
-class NetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
+class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
-  Vector<BuilderNode *> m_node_by_id;
-  Vector<BuilderSocket *> m_socket_by_id;
+  Vector<MFBuilderNode *> m_node_by_id;
+  Vector<MFBuilderSocket *> m_socket_by_id;
 
-  Vector<BuilderFunctionNode *> m_function_nodes;
-  Vector<BuilderPlaceholderNode *> m_placeholder_nodes;
-  Vector<BuilderInputSocket *> m_input_sockets;
-  Vector<BuilderOutputSocket *> m_output_sockets;
+  Vector<MFBuilderFunctionNode *> m_function_nodes;
+  Vector<MFBuilderPlaceholderNode *> m_placeholder_nodes;
+  Vector<MFBuilderInputSocket *> m_input_sockets;
+  Vector<MFBuilderOutputSocket *> m_output_sockets;
 
  public:
-  ~NetworkBuilder();
+  ~MFNetworkBuilder();
 
-  BuilderFunctionNode &add_function(MultiFunction &function,
-                                    ArrayRef<uint> input_param_indices,
-                                    ArrayRef<uint> output_param_indices);
-  BuilderPlaceholderNode &add_placeholder(ArrayRef<MFDataType> input_types,
-                                          ArrayRef<MFDataType> output_types);
-  void add_link(BuilderOutputSocket &from, BuilderInputSocket &to);
+  MFBuilderFunctionNode &add_function(MultiFunction &function,
+                                      ArrayRef<uint> input_param_indices,
+                                      ArrayRef<uint> output_param_indices);
+  MFBuilderPlaceholderNode &add_placeholder(ArrayRef<MFDataType> input_types,
+                                            ArrayRef<MFDataType> output_types);
+  void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
 
-  ArrayRef<BuilderNode *> nodes_by_id() const
+  ArrayRef<MFBuilderNode *> nodes_by_id() const
   {
     return m_node_by_id;
   }
 
-  ArrayRef<BuilderSocket *> sockets_by_id() const
+  ArrayRef<MFBuilderSocket *> sockets_by_id() const
   {
     return m_socket_by_id;
   }
 
-  ArrayRef<BuilderFunctionNode *> function_nodes() const
+  ArrayRef<MFBuilderFunctionNode *> function_nodes() const
   {
     return m_function_nodes;
   }
 
-  ArrayRef<BuilderPlaceholderNode *> placeholder_nodes() const
+  ArrayRef<MFBuilderPlaceholderNode *> placeholder_nodes() const
   {
     return m_placeholder_nodes;
   }
 
-  ArrayRef<BuilderInputSocket *> input_sockets() const
+  ArrayRef<MFBuilderInputSocket *> input_sockets() const
   {
     return m_input_sockets;
   }
 
-  ArrayRef<BuilderOutputSocket *> output_sockets() const
+  ArrayRef<MFBuilderOutputSocket *> output_sockets() const
   {
     return m_output_sockets;
   }
@@ -167,68 +165,68 @@ class NetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 /* Network
  ******************************************/
 
-class Node;
-class FunctionNode;
-class PlaceholderNode;
+class MFNode;
+class MFFunctionNode;
+class MFPlaceholderNode;
 
-class Socket;
-class InputSocket;
-class OutputSocket;
+class MFSocket;
+class MFInputSocket;
+class MFOutputSocket;
 
-class Network;
+class MFNetwork;
 
-class Node : BLI::NonCopyable, BLI::NonMovable {
+class MFNode : BLI::NonCopyable, BLI::NonMovable {
  private:
-  Network *m_network;
-  Vector<InputSocket *> m_inputs;
-  Vector<OutputSocket *> m_outputs;
+  MFNetwork *m_network;
+  Vector<MFInputSocket *> m_inputs;
+  Vector<MFOutputSocket *> m_outputs;
   bool m_is_placeholder;
   uint m_id;
 
-  friend Network;
+  friend MFNetwork;
 
  public:
-  Network &network();
+  MFNetwork &network();
 
-  ArrayRef<InputSocket *> inputs();
-  ArrayRef<OutputSocket *> outputs();
+  ArrayRef<MFInputSocket *> inputs();
+  ArrayRef<MFOutputSocket *> outputs();
 
   uint id();
 
   bool is_function();
   bool is_placeholder();
 
-  FunctionNode &as_function();
-  PlaceholderNode &as_placeholder();
+  MFFunctionNode &as_function();
+  MFPlaceholderNode &as_placeholder();
 };
 
-class FunctionNode : public Node {
+class MFFunctionNode : public MFNode {
  private:
   MultiFunction *m_function;
   Vector<uint> m_input_param_indices;
   Vector<uint> m_output_param_indices;
 
-  friend Network;
+  friend MFNetwork;
 
  public:
   MultiFunction &function();
 };
 
-class PlaceholderNode : public Node {
+class MFPlaceholderNode : public MFNode {
 };
 
-class Socket : BLI::NonCopyable, BLI::NonMovable {
+class MFSocket : BLI::NonCopyable, BLI::NonMovable {
  private:
-  Node *m_node;
+  MFNode *m_node;
   bool m_is_output;
   uint m_index;
   MFDataType m_type;
   uint m_id;
 
-  friend Network;
+  friend MFNetwork;
 
  public:
-  Node &node();
+  MFNode &node();
   MFDataType type();
 
   uint index();
@@ -237,263 +235,261 @@ class Socket : BLI::NonCopyable, BLI::NonMovable {
   bool is_input();
   bool is_output();
 
-  InputSocket &as_input();
-  OutputSocket &as_output();
+  MFInputSocket &as_input();
+  MFOutputSocket &as_output();
 };
 
-class InputSocket : public Socket {
+class MFInputSocket : public MFSocket {
  private:
-  OutputSocket *m_origin;
+  MFOutputSocket *m_origin;
 
-  friend Network;
+  friend MFNetwork;
 
  public:
-  OutputSocket &origin();
+  MFOutputSocket &origin();
 };
 
-class OutputSocket : public Socket {
+class MFOutputSocket : public MFSocket {
  private:
-  Vector<InputSocket *> m_targets;
+  Vector<MFInputSocket *> m_targets;
 
-  friend Network;
+  friend MFNetwork;
 
  public:
-  ArrayRef<InputSocket *> targets();
+  ArrayRef<MFInputSocket *> targets();
 };
 
-class Network : BLI::NonCopyable, BLI::NonMovable {
+class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
  private:
-  Array<Node *> m_node_by_id;
-  Array<Socket *> m_socket_by_id;
+  Array<MFNode *> m_node_by_id;
+  Array<MFSocket *> m_socket_by_id;
 
-  Vector<FunctionNode *> m_function_nodes;
-  Vector<PlaceholderNode *> m_placeholder_nodes;
-  Vector<InputSocket *> m_input_sockets;
-  Vector<OutputSocket *> m_output_sockets;
+  Vector<MFFunctionNode *> m_function_nodes;
+  Vector<MFPlaceholderNode *> m_placeholder_nodes;
+  Vector<MFInputSocket *> m_input_sockets;
+  Vector<MFOutputSocket *> m_output_sockets;
 
  public:
-  Network(std::unique_ptr<NetworkBuilder> builder);
-  ~Network();
+  MFNetwork(std::unique_ptr<MFNetworkBuilder> builder);
+  ~MFNetwork();
 
-  Node &node_by_id(uint id);
+  MFNode &node_by_id(uint id);
 };
 
 /* Builder Implementations
  *******************************************/
 
-inline NetworkBuilder &BuilderNode::network()
+inline MFNetworkBuilder &MFBuilderNode::network()
 {
   return *m_network;
 }
 
-inline ArrayRef<BuilderInputSocket *> BuilderNode::inputs()
+inline ArrayRef<MFBuilderInputSocket *> MFBuilderNode::inputs()
 {
   return m_inputs;
 }
-inline ArrayRef<BuilderOutputSocket *> BuilderNode::outputs()
+inline ArrayRef<MFBuilderOutputSocket *> MFBuilderNode::outputs()
 {
   return m_outputs;
 }
 
-inline uint BuilderNode::id()
+inline uint MFBuilderNode::id()
 {
   return m_id;
 }
 
-inline bool BuilderNode::is_function()
+inline bool MFBuilderNode::is_function()
 {
   return !m_is_placeholder;
 }
-inline bool BuilderNode::is_placeholder()
+inline bool MFBuilderNode::is_placeholder()
 {
   return m_is_placeholder;
 }
 
-inline BuilderFunctionNode &BuilderNode::as_function()
+inline MFBuilderFunctionNode &MFBuilderNode::as_function()
 {
   BLI_assert(this->is_function());
-  return *(BuilderFunctionNode *)this;
+  return *(MFBuilderFunctionNode *)this;
 }
 
-inline BuilderPlaceholderNode &BuilderNode::as_placeholder()
+inline MFBuilderPlaceholderNode &MFBuilderNode::as_placeholder()
 {
   BLI_assert(this->is_placeholder());
-  return *(BuilderPlaceholderNode *)this;
+  return *(MFBuilderPlaceholderNode *)this;
 }
 
-inline MultiFunction &BuilderFunctionNode::function()
+inline MultiFunction &MFBuilderFunctionNode::function()
 {
   return *m_function;
 }
 
-inline ArrayRef<uint> BuilderFunctionNode::input_param_indices()
+inline ArrayRef<uint> MFBuilderFunctionNode::input_param_indices()
 {
   return m_input_param_indices;
 }
 
-inline ArrayRef<uint> BuilderFunctionNode::output_param_indices()
+inline ArrayRef<uint> MFBuilderFunctionNode::output_param_indices()
 {
   return m_output_param_indices;
 }
 
-inline BuilderNode &BuilderSocket::node()
+inline MFBuilderNode &MFBuilderSocket::node()
 {
   return *m_node;
 }
 
-inline MFDataType BuilderSocket::type()
+inline MFDataType MFBuilderSocket::type()
 {
   return m_type;
 }
 
-inline uint BuilderSocket::index()
+inline uint MFBuilderSocket::index()
 {
   return m_index;
 }
 
-inline uint BuilderSocket::id()
+inline uint MFBuilderSocket::id()
 {
   return m_id;
 }
 
-inline bool BuilderSocket::is_input()
+inline bool MFBuilderSocket::is_input()
 {
   return !m_is_output;
 }
-inline bool BuilderSocket::is_output()
+inline bool MFBuilderSocket::is_output()
 {
   return m_is_output;
 }
 
-inline BuilderInputSocket &BuilderSocket::as_input()
+inline MFBuilderInputSocket &MFBuilderSocket::as_input()
 {
   BLI_assert(this->is_input());
-  return *(BuilderInputSocket *)this;
+  return *(MFBuilderInputSocket *)this;
 }
-inline BuilderOutputSocket &BuilderSocket::as_output()
+inline MFBuilderOutputSocket &MFBuilderSocket::as_output()
 {
   BLI_assert(this->is_output());
-  return *(BuilderOutputSocket *)this;
+  return *(MFBuilderOutputSocket *)this;
 }
 
-inline BuilderOutputSocket *BuilderInputSocket::origin()
+inline MFBuilderOutputSocket *MFBuilderInputSocket::origin()
 {
   return m_origin;
 }
 
-inline ArrayRef<BuilderInputSocket *> BuilderOutputSocket::targets()
+inline ArrayRef<MFBuilderInputSocket *> MFBuilderOutputSocket::targets()
 {
   return m_targets;
 }
 
-/* Network Implementations
+/* MFNetwork Implementations
  **************************************/
 
-inline Network &Node::network()
+inline MFNetwork &MFNode::network()
 {
   return *m_network;
 }
 
-inline ArrayRef<InputSocket *> Node::inputs()
+inline ArrayRef<MFInputSocket *> MFNode::inputs()
 {
   return m_inputs;
 }
 
-inline ArrayRef<OutputSocket *> Node::outputs()
+inline ArrayRef<MFOutputSocket *> MFNode::outputs()
 {
   return m_outputs;
 }
 
-inline uint Node::id()
+inline uint MFNode::id()
 {
   return m_id;
 }
 
-inline bool Node::is_function()
+inline bool MFNode::is_function()
 {
   return !m_is_placeholder;
 }
 
-inline bool Node::is_placeholder()
+inline bool MFNode::is_placeholder()
 {
   return m_is_placeholder;
 }
 
-inline FunctionNode &Node::as_function()
+inline MFFunctionNode &MFNode::as_function()
 {
   BLI_assert(this->is_function());
-  return *(FunctionNode *)this;
+  return *(MFFunctionNode *)this;
 }
 
-inline PlaceholderNode &Node::as_placeholder()
+inline MFPlaceholderNode &MFNode::as_placeholder()
 {
   BLI_assert(this->is_placeholder());
-  return *(PlaceholderNode *)this;
+  return *(MFPlaceholderNode *)this;
 }
 
-inline MultiFunction &FunctionNode::function()
+inline MultiFunction &MFFunctionNode::function()
 {
   return *m_function;
 }
 
-inline Node &Socket::node()
+inline MFNode &MFSocket::node()
 {
   return *m_node;
 }
 
-inline MFDataType Socket::type()
+inline MFDataType MFSocket::type()
 {
   return m_type;
 }
 
-inline uint Socket::index()
+inline uint MFSocket::index()
 {
   return m_index;
 }
 
-inline uint Socket::id()
+inline uint MFSocket::id()
 {
   return m_id;
 }
 
-inline bool Socket::is_input()
+inline bool MFSocket::is_input()
 {
   return !m_is_output;
 }
 
-inline bool Socket::is_output()
+inline bool MFSocket::is_output()
 {
   return m_is_output;
 }
 
-inline InputSocket &Socket::as_input()
+inline MFInputSocket &MFSocket::as_input()
 {
   BLI_assert(this->is_input());
-  return *(InputSocket *)this;
+  return *(MFInputSocket *)this;
 }
 
-inline OutputSocket &Socket::as_output()
+inline MFOutputSocket &MFSocket::as_output()
 {
   BLI_assert(this->is_output());
-  return *(OutputSocket *)this;
+  return *(MFOutputSocket *)this;
 }
 
-inline OutputSocket &InputSocket::origin()
+inline MFOutputSocket &MFInputSocket::origin()
 {
   return *m_origin;
 }
 
-inline ArrayRef<InputSocket *> OutputSocket::targets()
+inline ArrayRef<MFInputSocket *> MFOutputSocket::targets()
 {
   return m_targets;
 }
 
-inline Node &Network::node_by_id(uint index)
+inline MFNode &MFNetwork::node_by_id(uint index)
 {
   return *m_node_by_id[index];
 }
-
-}  // namespace MultiFunctionNetwork
 
 }  // namespace BKE
 
