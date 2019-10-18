@@ -74,14 +74,14 @@ class BuilderSocket : BLI::NonCopyable, BLI::NonMovable {
   BuilderNode *m_node;
   bool m_is_output;
   uint m_index;
-  MultiFunctionDataType m_type;
+  MFDataType m_type;
   uint m_id;
 
   friend NetworkBuilder;
 
  public:
   BuilderNode &node();
-  MultiFunctionDataType type();
+  MFDataType type();
 
   uint index();
   uint id();
@@ -129,8 +129,8 @@ class NetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   BuilderFunctionNode &add_function(MultiFunction &function,
                                     ArrayRef<uint> input_param_indices,
                                     ArrayRef<uint> output_param_indices);
-  BuilderPlaceholderNode &add_placeholder(ArrayRef<MultiFunctionDataType> input_types,
-                                          ArrayRef<MultiFunctionDataType> output_types);
+  BuilderPlaceholderNode &add_placeholder(ArrayRef<MFDataType> input_types,
+                                          ArrayRef<MFDataType> output_types);
   void add_link(BuilderOutputSocket &from, BuilderInputSocket &to);
 
   ArrayRef<BuilderNode *> nodes_by_id() const
@@ -222,14 +222,14 @@ class Socket : BLI::NonCopyable, BLI::NonMovable {
   Node *m_node;
   bool m_is_output;
   uint m_index;
-  MultiFunctionDataType m_type;
+  MFDataType m_type;
   uint m_id;
 
   friend Network;
 
  public:
   Node &node();
-  MultiFunctionDataType type();
+  MFDataType type();
 
   uint index();
   uint id();
@@ -341,7 +341,7 @@ inline BuilderNode &BuilderSocket::node()
   return *m_node;
 }
 
-inline MultiFunctionDataType BuilderSocket::type()
+inline MFDataType BuilderSocket::type()
 {
   return m_type;
 }
@@ -441,7 +441,7 @@ inline Node &Socket::node()
   return *m_node;
 }
 
-inline MultiFunctionDataType Socket::type()
+inline MFDataType Socket::type()
 {
   return m_type;
 }

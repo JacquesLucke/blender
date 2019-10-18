@@ -10,6 +10,11 @@
 #include "DEG_depsgraph_query.h"
 
 using BKE::CPPType;
+using BKE::MFContext;
+using BKE::MFParams;
+using BKE::MFParamsBuilder;
+using BKE::MFSignature;
+using BKE::MFSignatureBuilder;
 using BKE::TupleRef;
 using BKE::VirtualLink;
 using BKE::VirtualNode;
@@ -95,7 +100,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
                              Vector<BKE::MultiFunctionNetwork::InputSocket *> outputs)
       : m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
   {
-    SignatureBuilder signature;
+    MFSignatureBuilder signature;
     for (auto socket : m_inputs) {
       signature.readonly_single_input("Input", socket->type().type());
     }
@@ -105,7 +110,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
     this->set_signature(signature);
   }
 
-  void call(ArrayRef<uint> mask_indices, Params &params, Context &context) const override
+  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override
   {
     if (mask_indices.size() == 0) {
       return;
@@ -122,8 +127,8 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
   }
 
   void compute_output(ArrayRef<uint> mask_indices,
-                      Params &global_params,
-                      Context &context,
+                      MFParams &global_params,
+                      MFContext &context,
                       BKE::MultiFunctionNetwork::OutputSocket &socket_to_compute,
                       BKE::GenericMutableArrayRef result) const
   {
@@ -142,7 +147,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
 
     auto &node_function = current_node.function();
 
-    ParamsBuilder params;
+    MFParamsBuilder params;
     uint array_size = result.size();
     params.start_new(node_function.signature(), array_size);
 
@@ -204,12 +209,11 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   auto network_builder = BLI::make_unique<BKE::MultiFunctionNetwork::NetworkBuilder>();
   auto &input_node = network_builder->add_placeholder(
       {},
-      {BKE::MultiFunctionDataType{BKE::MultiFunctionDataType::Single, BKE::GET_TYPE<float3>()},
-       BKE::MultiFunctionDataType{BKE::MultiFunctionDataType::Single, BKE::GET_TYPE<float>()}});
+      {BKE::MFDataType{BKE::MFDataType::Single, BKE::GET_TYPE<float3>()},
+       BKE::MFDataType{BKE::MFDataType::Single, BKE::GET_TYPE<float>()}});
 
   auto &output_node = network_builder->add_placeholder(
-      {BKE::MultiFunctionDataType{BKE::MultiFunctionDataType::Single, BKE::GET_TYPE<float3>()}},
-      {});
+      {BKE::MFDataType{BKE::MFDataType::Single, BKE::GET_TYPE<float3>()}}, {});
 
   BKE::MultiFunction_AddFloat3s add_function;
   auto &add_node = network_builder->add_function(add_function, {0, 1}, {2});
@@ -232,7 +236,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
 
   MultiFunction_FunctionTree function{final_input_node.outputs(), final_output_node.inputs()};
 
-  BKE::MultiFunction::ParamsBuilder params;
+  MFParamsBuilder params;
   params.start_new(function.signature(), numVerts);
   params.add_readonly_array_ref(ArrayRef<float3>((float3 *)vertexCos, numVerts));
   params.add_readonly_single_ref(&fdmd->control1);
@@ -240,7 +244,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   TemporaryVector<float3> output_vectors(numVerts);
   params.add_mutable_array_ref<float3>(output_vectors);
 
-  BKE::MultiFunction::Context context;
+  MFContext context;
   function.call(IndexRange(numVerts).as_array_ref(), params.build(), context);
 
   memcpy(vertexCos, output_vectors.begin(), output_vectors.size() * sizeof(float3));

@@ -45,7 +45,7 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
 
   for (uint i = 0; i < input_param_indices.size(); i++) {
     uint param_index = input_param_indices[i];
-    ParamType param = function.signature().param_types()[param_index];
+    MFParamType param = function.signature().param_types()[param_index];
     BLI_assert(param.is_input());
 
     auto input_socket = new BuilderInputSocket();
@@ -61,7 +61,7 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
 
   for (uint i = 0; i < output_param_indices.size(); i++) {
     uint param_index = output_param_indices[i];
-    ParamType param = function.signature().param_types()[param_index];
+    MFParamType param = function.signature().param_types()[param_index];
     BLI_assert(param.is_output());
 
     auto output_socket = new BuilderOutputSocket();
@@ -80,8 +80,8 @@ BuilderFunctionNode &NetworkBuilder::add_function(MultiFunction &function,
   return *node;
 }
 
-BuilderPlaceholderNode &NetworkBuilder::add_placeholder(
-    ArrayRef<MultiFunctionDataType> input_types, ArrayRef<MultiFunctionDataType> output_types)
+BuilderPlaceholderNode &NetworkBuilder::add_placeholder(ArrayRef<MFDataType> input_types,
+                                                        ArrayRef<MFDataType> output_types)
 {
   auto node = new BuilderPlaceholderNode();
 
