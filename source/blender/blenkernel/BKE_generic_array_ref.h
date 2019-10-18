@@ -186,47 +186,6 @@ class GenericMutableArrayRef {
   }
 };
 
-class ArrayRefCPPType final : public CPPType {
- private:
-  CPPType &m_base_type;
-
- public:
-  ArrayRefCPPType(CPPType &base_type);
-
-  static void ConstructDefaultCB(const CPPType *self, void *ptr)
-  {
-    const ArrayRefCPPType *self_ = dynamic_cast<const ArrayRefCPPType *>(self);
-    new (ptr) GenericArrayRef(self_->m_base_type);
-  }
-};
-
-class MutableArrayRefCPPType final : public CPPType {
- private:
-  CPPType &m_base_type;
-
- public:
-  MutableArrayRefCPPType(CPPType &base_type);
-
-  static void ConstructDefaultCB(const CPPType *self, void *ptr)
-  {
-    const MutableArrayRefCPPType *self_ = dynamic_cast<const MutableArrayRefCPPType *>(self);
-    new (ptr) GenericMutableArrayRef(&self_->m_base_type);
-  }
-};
-
-ArrayRefCPPType &GET_TYPE_array_ref(CPPType &base);
-MutableArrayRefCPPType &GET_TYPE_mutable_array_ref(CPPType &base);
-
-template<typename T> ArrayRefCPPType &GET_TYPE_array_ref()
-{
-  return GET_TYPE_array_ref(GET_TYPE<T>());
-}
-
-template<typename T> MutableArrayRefCPPType &GET_TYPE_mutable_array_ref()
-{
-  return GET_TYPE_mutable_array_ref(GET_TYPE<T>());
-}
-
 }  // namespace BKE
 
 #endif /* __BKE_GENERIC_ARRAY_REF_H__ */
