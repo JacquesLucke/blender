@@ -51,14 +51,14 @@ class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
 
 class MFBuilderFunctionNode : public MFBuilderNode {
  private:
-  MultiFunction *m_function;
+  const MultiFunction *m_function;
   Vector<uint> m_input_param_indices;
   Vector<uint> m_output_param_indices;
 
   friend MFNetworkBuilder;
 
  public:
-  MultiFunction &function();
+  const MultiFunction &function();
 
   ArrayRef<uint> input_param_indices();
   ArrayRef<uint> output_param_indices();
@@ -124,7 +124,7 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  public:
   ~MFNetworkBuilder();
 
-  MFBuilderFunctionNode &add_function(MultiFunction &function,
+  MFBuilderFunctionNode &add_function(const MultiFunction &function,
                                       ArrayRef<uint> input_param_indices,
                                       ArrayRef<uint> output_param_indices);
   MFBuilderPlaceholderNode &add_placeholder(ArrayRef<MFDataType> input_types,
@@ -202,14 +202,14 @@ class MFNode : BLI::NonCopyable, BLI::NonMovable {
 
 class MFFunctionNode : public MFNode {
  private:
-  MultiFunction *m_function;
+  const MultiFunction *m_function;
   Vector<uint> m_input_param_indices;
   Vector<uint> m_output_param_indices;
 
   friend MFNetwork;
 
  public:
-  MultiFunction &function();
+  const MultiFunction &function();
 };
 
 class MFPlaceholderNode : public MFNode {
@@ -319,7 +319,7 @@ inline MFBuilderPlaceholderNode &MFBuilderNode::as_placeholder()
   return *(MFBuilderPlaceholderNode *)this;
 }
 
-inline MultiFunction &MFBuilderFunctionNode::function()
+inline const MultiFunction &MFBuilderFunctionNode::function()
 {
   return *m_function;
 }
@@ -429,7 +429,7 @@ inline MFPlaceholderNode &MFNode::as_placeholder()
   return *(MFPlaceholderNode *)this;
 }
 
-inline MultiFunction &MFFunctionNode::function()
+inline const MultiFunction &MFFunctionNode::function()
 {
   return *m_function;
 }

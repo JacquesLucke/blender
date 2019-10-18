@@ -21,7 +21,7 @@ MFNetworkBuilder::~MFNetworkBuilder()
   }
 }
 
-MFBuilderFunctionNode &MFNetworkBuilder::add_function(MultiFunction &function,
+MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &function,
                                                       ArrayRef<uint> input_param_indices,
                                                       ArrayRef<uint> output_param_indices)
 {
