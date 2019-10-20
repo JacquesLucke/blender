@@ -37,10 +37,10 @@ template<typename T> class VirtualListRef {
     m_data.single.data = nullptr;
   }
 
-  static VirtualListRef FromSingle(const T *data, uint size)
+  static VirtualListRef FromSingle(const T *data, uint virtual_size)
   {
     VirtualListRef list;
-    list.m_virtual_size = size;
+    list.m_virtual_size = virtual_size;
     list.m_category = Single;
     list.m_data.single.data = data;
     return list;

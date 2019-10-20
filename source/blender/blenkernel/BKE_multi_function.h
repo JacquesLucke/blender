@@ -3,6 +3,7 @@
 
 #include "BKE_generic_array_ref.h"
 #include "BKE_generic_vector_array.h"
+#include "BKE_generic_virtual_list_ref.h"
 #include "BKE_tuple.h"
 
 #include "BLI_vector.h"
@@ -349,12 +350,12 @@ class MFParams {
  public:
   MFParams() = default;
 
-  MFParams(ArrayRef<GenericArrayOrSingleRef> array_or_single_refs,
+  MFParams(ArrayRef<GenericVirtualListRef> virtual_list_refs,
            ArrayRef<GenericMutableArrayRef> mutable_array_refs,
            ArrayRef<GenericVectorArrayOrSingleRef> vector_array_or_single_refs,
            ArrayRef<GenericVectorArray *> vector_arrays,
            const MFSignature &signature)
-      : m_array_or_single_refs(array_or_single_refs),
+      : m_virtual_list_refs(virtual_list_refs),
         m_mutable_array_refs(mutable_array_refs),
         m_vector_array_or_single_refs(vector_array_or_single_refs),
         m_vector_arrays(vector_arrays),
@@ -362,17 +363,17 @@ class MFParams {
   {
   }
 
-  template<typename T> ArrayOrSingleRef<T> readonly_single_input(uint index, StringRef name)
+  template<typename T> VirtualListRef<T> readonly_single_input(uint index, StringRef name)
   {
     BLI_assert(m_signature->is_readonly_single_input<T>(index, name));
     return this->readonly_single_input(index, name).as_typed_ref<T>();
   }
-  GenericArrayOrSingleRef readonly_single_input(uint index, StringRef name)
+  GenericVirtualListRef readonly_single_input(uint index, StringRef name)
   {
     UNUSED_VARS_NDEBUG(name);
     BLI_assert(m_signature->is_readonly_single_input(index, name));
     uint corrected_index = m_signature->get_corrected_index(index);
-    return m_array_or_single_refs[corrected_index];
+    return m_virtual_list_refs[corrected_index];
   }
 
   template<typename T> MutableArrayRef<T> single_output(uint index, StringRef name)
@@ -426,7 +427,7 @@ class MFParams {
   }
 
  private:
-  ArrayRef<GenericArrayOrSingleRef> m_array_or_single_refs;
+  ArrayRef<GenericVirtualListRef> m_virtual_list_refs;
   ArrayRef<GenericMutableArrayRef> m_mutable_array_refs;
   ArrayRef<GenericVectorArrayOrSingleRef> m_vector_array_or_single_refs;
   ArrayRef<GenericVectorArray *> m_vector_arrays;
@@ -435,7 +436,7 @@ class MFParams {
 
 class MFParamsBuilder {
  private:
-  Vector<GenericArrayOrSingleRef> m_array_or_single_refs;
+  Vector<GenericVirtualListRef> m_virtual_list_refs;
   Vector<GenericMutableArrayRef> m_mutable_array_refs;
   Vector<GenericVectorArrayOrSingleRef> m_vector_array_or_single_refs;
   Vector<GenericVectorArray *> m_vector_arrays;
@@ -452,7 +453,7 @@ class MFParamsBuilder {
     m_signature = &signature;
     m_min_array_size = min_array_size;
 
-    m_array_or_single_refs.clear();
+    m_virtual_list_refs.clear();
     m_mutable_array_refs.clear();
     m_vector_array_or_single_refs.clear();
     m_vector_arrays.clear();
@@ -461,25 +462,25 @@ class MFParamsBuilder {
   template<typename T> void add_readonly_array_ref(ArrayRef<T> array)
   {
     BLI_assert(array.size() >= m_min_array_size);
-    m_array_or_single_refs.append(GenericArrayOrSingleRef::FromArray<T>(array));
+    m_virtual_list_refs.append(GenericVirtualListRef::FromFullArray<T>(array));
   }
 
   template<typename T> void add_readonly_single_ref(const T *value)
   {
-    m_array_or_single_refs.append(
-        GenericArrayOrSingleRef::FromSingle(GET_TYPE<T>(), (void *)value, m_min_array_size));
+    m_virtual_list_refs.append(
+        GenericVirtualListRef::FromSingle(GET_TYPE<T>(), (void *)value, m_min_array_size));
   }
 
   void add_readonly_array_ref(GenericMutableArrayRef array)
   {
     BLI_assert(array.size() >= m_min_array_size);
-    m_array_or_single_refs.append(
-        GenericArrayOrSingleRef::FromArray(array.type(), array.buffer(), array.size()));
+    m_virtual_list_refs.append(
+        GenericVirtualListRef::FromFullArray(array.type(), array.buffer(), array.size()));
   }
 
   void add_readonly_single_ref(TupleRef tuple, uint index)
   {
-    m_array_or_single_refs.append(GenericArrayOrSingleRef::FromSingle(
+    m_virtual_list_refs.append(GenericVirtualListRef::FromSingle(
         tuple.info().type_at_index(index), tuple.element_ptr(index), m_min_array_size));
   }
 
@@ -498,7 +499,7 @@ class MFParamsBuilder {
   MFParams &build()
   {
     BLI_assert(m_signature != nullptr);
-    m_params = MFParams(m_array_or_single_refs,
+    m_params = MFParams(m_virtual_list_refs,
                         m_mutable_array_refs,
                         m_vector_array_or_single_refs,
                         m_vector_arrays,

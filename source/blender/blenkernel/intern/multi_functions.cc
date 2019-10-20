@@ -5,11 +5,9 @@
 #include "BLI_math_cxx.h"
 #include "BLI_lazy_init_cxx.h"
 #include "BLI_string_map.h"
-#include "BLI_array_or_single_ref.h"
 
 namespace BKE {
 
-using BLI::ArrayOrSingleRef;
 using BLI::float3;
 
 MultiFunction_AddFloats::MultiFunction_AddFloats()
@@ -194,7 +192,7 @@ void MultiFunction_AppendToList::call(ArrayRef<uint> mask_indices,
                                       MFContext &UNUSED(context)) const
 {
   GenericVectorArray &lists = params.mutable_vector(0, "List");
-  GenericArrayOrSingleRef values = params.readonly_single_input(1, "Value");
+  GenericVirtualListRef values = params.readonly_single_input(1, "Value");
 
   for (uint i : mask_indices) {
     lists.append_single__copy(i, values[i]);
@@ -217,8 +215,8 @@ void MultiFunction_GetListElement::call(ArrayRef<uint> mask_indices,
                                         MFContext &UNUSED(context)) const
 {
   GenericVectorArrayOrSingleRef lists = params.readonly_vector_input(0, "List");
-  ArrayOrSingleRef<int> indices = params.readonly_single_input<int>(1, "Index");
-  GenericArrayOrSingleRef fallbacks = params.readonly_single_input(2, "Fallback");
+  VirtualListRef<int> indices = params.readonly_single_input<int>(1, "Index");
+  GenericVirtualListRef fallbacks = params.readonly_single_input(2, "Fallback");
 
   GenericMutableArrayRef output_values = params.single_output(3, "Value");
 
