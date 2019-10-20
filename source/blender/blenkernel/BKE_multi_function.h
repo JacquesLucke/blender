@@ -78,14 +78,29 @@ struct MFParamType {
     return m_category == MFParamType::None;
   }
 
-  bool is_input() const
+  bool is_readonly_single_input() const
+  {
+    return m_category == ReadonlySingleInput;
+  }
+
+  bool is_single_output() const
+  {
+    return m_category == SingleOutput;
+  }
+
+  bool is_input_or_mutable() const
   {
     return ELEM(m_category, ReadonlySingleInput, ReadonlyVectorInput, MutableVector);
   }
 
-  bool is_output() const
+  bool is_output_or_mutable() const
   {
     return ELEM(m_category, SingleOutput, VectorOutput, MutableVector);
+  }
+
+  bool is_vector_output() const
+  {
+    return m_category == VectorOutput;
   }
 
   MFDataType as_data_type() const
