@@ -72,7 +72,7 @@ class VirtualNodeTree {
 
   void freeze_and_index();
 
-  ArrayRef<VirtualNode *> nodes()
+  ArrayRef<VirtualNode *> nodes() const
   {
     return m_nodes;
   }

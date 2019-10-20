@@ -10,18 +10,31 @@
 #include "DEG_depsgraph_query.h"
 
 using BKE::CPPType;
+using BKE::MFBuilderFunctionNode;
+using BKE::MFBuilderInputSocket;
+using BKE::MFBuilderNode;
+using BKE::MFBuilderOutputSocket;
+using BKE::MFBuilderPlaceholderNode;
+using BKE::MFBuilderSocket;
 using BKE::MFContext;
 using BKE::MFDataType;
+using BKE::MFInputSocket;
 using BKE::MFNetwork;
+using BKE::MFNetworkBuilder;
+using BKE::MFNode;
+using BKE::MFOutputSocket;
 using BKE::MFParams;
 using BKE::MFParamsBuilder;
 using BKE::MFSignature;
 using BKE::MFSignatureBuilder;
+using BKE::MFSocket;
+using BKE::MultiFunction;
 using BKE::TupleRef;
 using BKE::VirtualLink;
 using BKE::VirtualNode;
 using BKE::VirtualNodeTree;
 using BKE::VirtualSocket;
+using BLI::Array;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::IndexRange;
@@ -49,6 +62,178 @@ static MFDataType get_type_by_socket(VirtualSocket *vsocket)
   BLI_assert(false);
   return MFDataType();
 }
+
+class VTreeMFNetwork {
+ private:
+  const VirtualNodeTree &m_vtree;
+  std::unique_ptr<MFNetwork> m_network;
+  Array<const MFSocket *> m_socket_map;
+
+ public:
+  VTreeMFNetwork(const VirtualNodeTree &vtree,
+                 std::unique_ptr<MFNetwork> network,
+                 Array<const MFSocket *> socket_map)
+      : m_vtree(vtree), m_network(std::move(network)), m_socket_map(std::move(socket_map))
+  {
+  }
+
+  const VirtualNodeTree &vtree()
+  {
+    return m_vtree;
+  }
+
+  const MFNetwork &network()
+  {
+    return *m_network;
+  }
+
+  const MFSocket &lookup_socket(VirtualSocket &vsocket)
+  {
+    return *m_socket_map[vsocket.id()];
+  }
+};
+
+class VTreeMFNetworkBuilder {
+ private:
+  const VirtualNodeTree &m_vtree;
+  Vector<MFBuilderSocket *> m_socket_map;
+  Vector<MFDataType> m_type_by_vsocket;
+  std::unique_ptr<MFNetworkBuilder> m_builder;
+
+ public:
+  VTreeMFNetworkBuilder(const VirtualNodeTree &vtree)
+      : m_vtree(vtree),
+        m_socket_map(vtree.socket_count(), nullptr),
+        m_builder(BLI::make_unique<MFNetworkBuilder>())
+  {
+    m_type_by_vsocket = Vector<MFDataType>(m_vtree.socket_count());
+    for (VirtualNode *vnode : m_vtree.nodes()) {
+      for (VirtualSocket *vsocket : vnode->inputs()) {
+        MFDataType data_type = get_type_by_socket(vsocket);
+        m_type_by_vsocket[vsocket->id()] = data_type;
+      }
+      for (VirtualSocket *vsocket : vnode->outputs()) {
+        MFDataType data_type = get_type_by_socket(vsocket);
+        m_type_by_vsocket[vsocket->id()] = data_type;
+      }
+    }
+  }
+
+  MFBuilderFunctionNode &add_function(MultiFunction &function,
+                                      ArrayRef<uint> input_param_indices,
+                                      ArrayRef<uint> output_param_indices)
+  {
+    return m_builder->add_function(function, input_param_indices, output_param_indices);
+  }
+
+  MFBuilderFunctionNode &add_function(MultiFunction &function,
+                                      ArrayRef<uint> input_param_indices,
+                                      ArrayRef<uint> output_param_indices,
+                                      VirtualNode &vnode)
+  {
+    MFBuilderFunctionNode &node = m_builder->add_function(
+        function, input_param_indices, output_param_indices);
+    this->map_sockets_exactly(vnode, node);
+    return node;
+  }
+
+  MFBuilderPlaceholderNode &add_placeholder(VirtualNode &vnode)
+  {
+    Vector<MFDataType> input_types;
+    for (VirtualSocket *vsocket : vnode.inputs()) {
+      MFDataType data_type = this->try_get_data_type(*vsocket);
+      if (!data_type.is_none()) {
+        input_types.append(data_type);
+      }
+    }
+
+    Vector<MFDataType> output_types;
+    for (VirtualSocket *vsocket : vnode.outputs()) {
+      MFDataType data_type = this->try_get_data_type(*vsocket);
+      if (!data_type.is_none()) {
+        output_types.append(data_type);
+      }
+    }
+
+    MFBuilderPlaceholderNode &node = m_builder->add_placeholder(input_types, output_types);
+    this->map_data_sockets(vnode, node);
+    return node;
+  }
+
+  MFBuilderPlaceholderNode &add_placeholder(ArrayRef<MFDataType> input_types,
+                                            ArrayRef<MFDataType> output_types)
+  {
+    return m_builder->add_placeholder(input_types, output_types);
+  }
+
+  void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)
+  {
+    m_builder->add_link(from, to);
+  }
+
+  MFDataType try_get_data_type(VirtualSocket &vsocket) const
+  {
+    return m_type_by_vsocket[vsocket.id()];
+  }
+
+  bool is_data_socket(VirtualSocket &vsocket) const
+  {
+    return m_type_by_vsocket[vsocket.id()].is_none();
+  }
+
+  void map_sockets_exactly(VirtualNode &vnode, MFBuilderNode &node)
+  {
+    BLI_assert(vnode.inputs().size() == node.inputs().size());
+    BLI_assert(vnode.outputs().size() == node.outputs().size());
+
+    for (uint i = 0; i < vnode.inputs().size(); i++) {
+      m_socket_map[vnode.inputs()[i]->id()] = node.inputs()[i];
+    }
+    for (uint i = 0; i < vnode.outputs().size(); i++) {
+      m_socket_map[vnode.outputs()[i]->id()] = node.outputs()[i];
+    }
+  }
+
+  void map_data_sockets(VirtualNode &vnode, MFBuilderNode &node)
+  {
+    uint data_inputs = 0;
+    for (VirtualSocket *vsocket : vnode.inputs()) {
+      if (this->is_data_socket(*vsocket)) {
+        this->map_sockets(*vsocket, *node.inputs()[data_inputs]);
+        data_inputs++;
+      }
+    }
+
+    uint data_outputs = 0;
+    for (VirtualSocket *vsocket : vnode.outputs()) {
+      if (this->is_data_socket(*vsocket)) {
+        this->map_sockets(*vsocket, *node.outputs()[data_outputs]);
+        data_outputs++;
+      }
+    }
+  }
+
+  void map_sockets(VirtualSocket &vsocket, MFBuilderSocket &socket)
+  {
+    BLI_assert(m_socket_map[vsocket.id()] == nullptr);
+    m_socket_map[vsocket.id()] = &socket;
+  }
+
+  std::unique_ptr<VTreeMFNetwork> build()
+  {
+    auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
+
+    Array<const MFSocket *> socket_map(m_vtree.socket_count(), nullptr);
+    for (uint vsocket_id = 0; vsocket_id < m_vtree.socket_count(); vsocket_id++) {
+      MFBuilderSocket *builder_socket = m_socket_map[vsocket_id];
+      if (builder_socket != nullptr) {
+        socket_map[vsocket_id] = &network->socket_by_id(builder_socket->id());
+      }
+    }
+
+    return BLI::make_unique<VTreeMFNetwork>(m_vtree, std::move(network), std::move(socket_map));
+  }
+};
 
 static std::unique_ptr<BKE::MultiFunction> get_multi_function_by_node(VirtualNode *vnode)
 {
@@ -94,12 +279,12 @@ static void load_socket_value(VirtualSocket *vsocket, TupleRef tuple, uint index
 
 class MultiFunction_FunctionTree : public BKE::MultiFunction {
  private:
-  Vector<BKE::MFOutputSocket *> m_inputs;
-  Vector<BKE::MFInputSocket *> m_outputs;
+  Vector<const MFOutputSocket *> m_inputs;
+  Vector<const MFInputSocket *> m_outputs;
 
  public:
-  MultiFunction_FunctionTree(Vector<BKE::MFOutputSocket *> inputs,
-                             Vector<BKE::MFInputSocket *> outputs)
+  MultiFunction_FunctionTree(Vector<const MFOutputSocket *> inputs,
+                             Vector<const MFInputSocket *> outputs)
       : m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
   {
     MFSignatureBuilder signature;
@@ -131,7 +316,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
   void compute_output(ArrayRef<uint> mask_indices,
                       MFParams &global_params,
                       MFContext &context,
-                      BKE::MFOutputSocket &socket_to_compute,
+                      const BKE::MFOutputSocket &socket_to_compute,
                       BKE::GenericMutableArrayRef result) const
   {
     auto &current_node = socket_to_compute.node().as_function();
@@ -205,33 +390,34 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
 
   bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
   VirtualNodeTree vtree;
-  vtree.add_all_of_tree(tree);
+  // vtree.add_all_of_tree(tree);
   vtree.freeze_and_index();
 
-  auto network_builder = BLI::make_unique<BKE::MFNetworkBuilder>();
-  auto &input_node = network_builder->add_placeholder(
+  VTreeMFNetworkBuilder builder(vtree);
+
+  auto &input_node = builder.add_placeholder(
       {}, {MFDataType::ForSingle<float3>(), MFDataType::ForSingle<float>()});
 
-  auto &output_node = network_builder->add_placeholder({MFDataType::ForSingle<float3>()}, {});
+  auto &output_node = builder.add_placeholder({MFDataType::ForSingle<float3>()}, {});
 
   BKE::MultiFunction_AddFloat3s add_function;
-  auto &add_node = network_builder->add_function(add_function, {0, 1}, {2});
+  auto &add_node = builder.add_function(add_function, {0, 1}, {2});
 
   BKE::MultiFunction_ConstantValue<float3> vector_value{
       {fdmd->control1, fdmd->control1, fdmd->control1}};
-  auto &value_node = network_builder->add_function(vector_value, {}, {0});
+  auto &value_node = builder.add_function(vector_value, {}, {0});
 
   uint input_node_id = input_node.id();
   uint output_node_id = output_node.id();
 
-  network_builder->add_link(*input_node.outputs()[0], *add_node.inputs()[0]);
-  network_builder->add_link(*value_node.outputs()[0], *add_node.inputs()[1]);
-  network_builder->add_link(*add_node.outputs()[0], *output_node.inputs()[0]);
+  builder.add_link(*input_node.outputs()[0], *add_node.inputs()[0]);
+  builder.add_link(*value_node.outputs()[0], *add_node.inputs()[1]);
+  builder.add_link(*add_node.outputs()[0], *output_node.inputs()[0]);
 
-  MFNetwork network(std::move(network_builder));
+  auto vtree_network = builder.build();
 
-  auto &final_input_node = network.node_by_id(input_node_id);
-  auto &final_output_node = network.node_by_id(output_node_id);
+  auto &final_input_node = vtree_network->network().node_by_id(input_node_id);
+  auto &final_output_node = vtree_network->network().node_by_id(output_node_id);
 
   MultiFunction_FunctionTree function{final_input_node.outputs(), final_output_node.inputs()};
 

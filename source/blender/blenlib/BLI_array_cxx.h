@@ -147,6 +147,12 @@ template<typename T, typename Allocator = GuardedAllocator> class Array {
     return m_data[index];
   }
 
+  const T &operator[](uint index) const
+  {
+    BLI_assert(index < m_size);
+    return m_data[index];
+  }
+
   uint size() const
   {
     return m_size;

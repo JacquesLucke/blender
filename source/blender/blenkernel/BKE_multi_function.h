@@ -30,6 +30,11 @@ struct MFDataType {
     return MFDataType(Category::Single, GET_TYPE<T>());
   }
 
+  bool is_none() const
+  {
+    return m_category == Category::None;
+  }
+
   Category category() const
   {
     return m_category;
