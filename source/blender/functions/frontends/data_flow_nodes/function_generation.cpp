@@ -14,19 +14,20 @@ static void find_interface_sockets(VirtualNodeTree &vtree,
                                    VectorSet<DataSocket> &r_inputs,
                                    VectorSet<DataSocket> &r_outputs)
 {
-  VirtualNode *input_node = vtree.nodes_with_idname("fn_FunctionInputNode").get(0, nullptr);
-  VirtualNode *output_node = vtree.nodes_with_idname("fn_FunctionOutputNode").get(0, nullptr);
+  const VirtualNode *input_node = vtree.nodes_with_idname("fn_FunctionInputNode").get(0, nullptr);
+  const VirtualNode *output_node =
+      vtree.nodes_with_idname("fn_FunctionOutputNode").get(0, nullptr);
 
   if (input_node != nullptr) {
     for (uint i = 0; i < input_node->outputs().size() - 1; i++) {
-      VirtualSocket *vsocket = input_node->output(i);
+      const VirtualSocket &vsocket = input_node->output(i);
       r_inputs.add_new(data_graph.lookup_socket(vsocket));
     }
   }
 
   if (output_node != nullptr) {
     for (uint i = 0; i < output_node->inputs().size() - 1; i++) {
-      VirtualSocket *vsocket = output_node->input(i);
+      const VirtualSocket &vsocket = output_node->input(i);
       r_outputs.add_new(data_graph.lookup_socket(vsocket));
     }
   }

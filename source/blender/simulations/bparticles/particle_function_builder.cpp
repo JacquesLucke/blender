@@ -21,11 +21,11 @@ using FN::FunctionGraph;
 using FN::Type;
 using FN::Types::StringW;
 
-Vector<DataSocket> find_input_data_sockets(VirtualNode *vnode, VTreeDataGraph &data_graph)
+Vector<DataSocket> find_input_data_sockets(const VirtualNode &vnode, VTreeDataGraph &data_graph)
 {
   Vector<DataSocket> inputs;
-  for (VirtualSocket *vsocket : vnode->inputs()) {
-    DataSocket *socket = data_graph.lookup_socket_ptr(vsocket);
+  for (const VirtualSocket *vsocket : vnode.inputs()) {
+    DataSocket *socket = data_graph.lookup_socket_ptr(*vsocket);
     if (socket != nullptr) {
       inputs.append(*socket);
     }
@@ -33,12 +33,12 @@ Vector<DataSocket> find_input_data_sockets(VirtualNode *vnode, VTreeDataGraph &d
   return inputs;
 }
 
-static VectorSet<VirtualSocket *> find_particle_dependencies(
+static VectorSet<const VirtualSocket *> find_particle_dependencies(
     VTreeDataGraph &data_graph,
     ArrayRef<DataSocket> sockets,
     MutableArrayRef<bool> r_depends_on_particle_flags)
 {
-  VectorSet<VirtualSocket *> combined_dependencies;
+  VectorSet<const VirtualSocket *> combined_dependencies;
 
   for (uint i = 0; i < sockets.size(); i++) {
     DataSocket socket = sockets[i];
@@ -70,28 +70,28 @@ static AttributeType attribute_type_from_socket_type(FN::Type *type)
 }
 
 using BuildInputProvider = std::function<ParticleFunctionInputProvider *(
-    VTreeDataGraph &vtree_data_graph, VirtualSocket *vsocket)>;
+    VTreeDataGraph &vtree_data_graph, const VirtualSocket &vsocket)>;
 
 static ParticleFunctionInputProvider *INPUT_particle_info(VTreeDataGraph &vtree_data_graph,
-                                                          VirtualSocket *vsocket)
+                                                          const VirtualSocket &vsocket)
 {
-  if (vsocket->name() == "Age") {
+  if (vsocket.name() == "Age") {
     return new AgeInputProvider();
   }
   else {
     FN::Type *fn_type = vtree_data_graph.lookup_type(vsocket);
     AttributeType attr_type = attribute_type_from_socket_type(fn_type);
-    return new AttributeInputProvider(attr_type, vsocket->name());
+    return new AttributeInputProvider(attr_type, vsocket.name());
   }
 }
 
 static ParticleFunctionInputProvider *INPUT_surface_info(VTreeDataGraph &UNUSED(vtree_data_graph),
-                                                         VirtualSocket *vsocket)
+                                                         const VirtualSocket &vsocket)
 {
-  if (vsocket->name() == "Normal") {
+  if (vsocket.name() == "Normal") {
     return new SurfaceNormalInputProvider();
   }
-  else if (vsocket->name() == "Velocity") {
+  else if (vsocket.name() == "Velocity") {
     return new SurfaceVelocityInputProvider();
   }
   else {
@@ -101,20 +101,19 @@ static ParticleFunctionInputProvider *INPUT_surface_info(VTreeDataGraph &UNUSED(
 }
 
 static ParticleFunctionInputProvider *INPUT_surface_image(VTreeDataGraph &vtree_data_graph,
-                                                          VirtualSocket *vsocket)
+                                                          const VirtualSocket &vsocket)
 {
   Optional<std::string> uv_map_name;
 
-  PointerRNA rna = vsocket->vnode()->rna();
+  PointerRNA rna = vsocket.vnode().rna();
   Image *image = (Image *)RNA_pointer_get(&rna, "image").data;
   BLI_assert(image != nullptr);
 
   int uv_mode = RNA_enum_get(&rna, "uv_mode");
   if (uv_mode == 1) {
-    FunctionGraph fgraph(vtree_data_graph.graph(),
-                         {},
-                         {vtree_data_graph.lookup_socket(vsocket->vnode()->input(0))});
-    std::unique_ptr<Function> fn = fgraph.new_function(vsocket->vnode()->name());
+    FunctionGraph fgraph(
+        vtree_data_graph.graph(), {}, {vtree_data_graph.lookup_socket(vsocket.vnode().input(0))});
+    std::unique_ptr<Function> fn = fgraph.new_function(vsocket.vnode().name());
     FN::fgraph_add_TupleCallBody(*fn, fgraph);
 
     FN::TupleCallBody &body = fn->body<TupleCallBody>();
@@ -127,27 +126,27 @@ static ParticleFunctionInputProvider *INPUT_surface_image(VTreeDataGraph &vtree_
 }
 
 static ParticleFunctionInputProvider *INPUT_surface_weight(
-    VTreeDataGraph &UNUSED(vtree_data_graph), VirtualSocket *vsocket)
+    VTreeDataGraph &UNUSED(vtree_data_graph), const VirtualSocket &vsocket)
 {
-  PointerRNA rna = vsocket->vnode()->rna();
+  PointerRNA rna = vsocket.vnode().rna();
   char group_name[65];
   RNA_string_get(&rna, "group_name", group_name);
   return new VertexWeightInputProvider(group_name);
 }
 
 static ParticleFunctionInputProvider *INPUT_randomness_input(
-    VTreeDataGraph &UNUSED(vtree_data_graph), VirtualSocket *vsocket)
+    VTreeDataGraph &UNUSED(vtree_data_graph), const VirtualSocket &vsocket)
 {
-  uint seed = BLI_hash_string(vsocket->vnode()->name().data());
+  uint seed = BLI_hash_string(vsocket.vnode().name().data());
   return new RandomFloatInputProvider(seed);
 }
 
 static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeDataGraph &vtree_data_graph,
-                                                        VirtualSocket *vsocket)
+                                                        const VirtualSocket &vsocket)
 {
   FunctionGraph fgraph(
-      vtree_data_graph.graph(), {}, {vtree_data_graph.lookup_socket(vsocket->vnode()->input(0))});
-  std::unique_ptr<Function> fn = fgraph.new_function(vsocket->vnode()->name());
+      vtree_data_graph.graph(), {}, {vtree_data_graph.lookup_socket(vsocket.vnode().input(0))});
+  std::unique_ptr<Function> fn = fgraph.new_function(vsocket.vnode().name());
   FN::fgraph_add_TupleCallBody(*fn, fgraph);
 
   FN::TupleCallBody &body = fn->body<TupleCallBody>();
@@ -171,12 +170,12 @@ BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
 }
 
 static ParticleFunctionInputProvider *create_input_provider(VTreeDataGraph &vtree_data_graph,
-                                                            VirtualSocket *vsocket)
+                                                            const VirtualSocket &vsocket)
 {
-  VirtualNode *vnode = vsocket->vnode();
+  const VirtualNode &vnode = vsocket.vnode();
 
   auto &map = get_input_providers_map();
-  auto &builder = map.lookup(vnode->idname());
+  auto &builder = map.lookup(vnode.idname());
   ParticleFunctionInputProvider *provider = builder(vtree_data_graph, vsocket);
   BLI_assert(provider != nullptr);
   return provider;
@@ -186,7 +185,7 @@ static std::unique_ptr<Function> create_function__with_deps(
     VTreeDataGraph &data_graph,
     StringRef function_name,
     ArrayRef<DataSocket> sockets_to_compute,
-    ArrayRef<VirtualSocket *> input_vsockets,
+    ArrayRef<const VirtualSocket *> input_vsockets,
     MutableArrayRef<ParticleFunctionInputProvider *> r_input_providers)
 {
   uint input_amount = input_vsockets.size();
@@ -199,7 +198,7 @@ static std::unique_ptr<Function> create_function__with_deps(
   fn_builder.add_outputs(data_graph.graph(), sockets_to_compute);
 
   for (uint i = 0; i < input_amount; i++) {
-    r_input_providers[i] = create_input_provider(data_graph, input_vsockets[i]);
+    r_input_providers[i] = create_input_provider(data_graph, *input_vsockets[i]);
   }
 
   std::unique_ptr<Function> fn = fn_builder.build(function_name);
@@ -225,7 +224,7 @@ static Optional<std::unique_ptr<ParticleFunction>> create_particle_function_from
     StringRef name,
     ArrayRef<DataSocket> sockets_to_compute,
     ArrayRef<bool> depends_on_particle_flags,
-    ArrayRef<VirtualSocket *> dependencies)
+    ArrayRef<const VirtualSocket *> dependencies)
 {
   Vector<DataSocket> sockets_with_deps;
   Vector<DataSocket> sockets_without_deps;
@@ -251,7 +250,7 @@ static Optional<std::unique_ptr<ParticleFunction>> create_particle_function_from
                                             depends_on_particle_flags);
 }
 
-Optional<std::unique_ptr<ParticleFunction>> create_particle_function(VirtualNode *vnode,
+Optional<std::unique_ptr<ParticleFunction>> create_particle_function(const VirtualNode &vnode,
                                                                      VTreeDataGraph &data_graph)
 {
   Vector<DataSocket> sockets_to_compute = find_input_data_sockets(vnode, data_graph);
@@ -259,7 +258,7 @@ Optional<std::unique_ptr<ParticleFunction>> create_particle_function(VirtualNode
   auto dependencies = find_particle_dependencies(
       data_graph, sockets_to_compute, depends_on_particle_flags);
 
-  std::string name = vnode->name() + StringRef(" Inputs");
+  std::string name = vnode.name() + StringRef(" Inputs");
   return create_particle_function_from_sockets(
       data_graph, name, sockets_to_compute, depends_on_particle_flags, dependencies);
 }

@@ -49,7 +49,7 @@ void NodeInserters::register_inserter(StringRef idname, NodeInserter inserter)
 
 void NodeInserters::register_function(StringRef idname, FunctionGetter getter)
 {
-  auto inserter = [getter](VTreeDataGraphBuilder &builder, VirtualNode *vnode) {
+  auto inserter = [getter](VTreeDataGraphBuilder &builder, const VirtualNode &vnode) {
     Function &fn = getter();
     BuilderNode *node = builder.insert_function(fn, vnode);
     builder.map_sockets(node, vnode);
@@ -57,9 +57,9 @@ void NodeInserters::register_function(StringRef idname, FunctionGetter getter)
   this->register_inserter(idname, inserter);
 }
 
-bool NodeInserters::insert(VTreeDataGraphBuilder &builder, VirtualNode *vnode)
+bool NodeInserters::insert(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
 {
-  NodeInserter *inserter = m_inserter_by_idname.lookup_ptr(vnode->idname());
+  NodeInserter *inserter = m_inserter_by_idname.lookup_ptr(vnode.idname());
   if (inserter == nullptr) {
     return false;
   }
@@ -77,10 +77,10 @@ void SocketLoaders::register_loader(StringRef type_name, SocketLoader loader)
   m_loader_by_idname.add_new(idname, loader);
 }
 
-void SocketLoaders::load(VirtualSocket *vsocket, Tuple &dst, uint index)
+void SocketLoaders::load(const VirtualSocket &vsocket, Tuple &dst, uint index)
 {
-  SocketLoader &loader = m_loader_by_idname.lookup(vsocket->idname());
-  PointerRNA rna = vsocket->rna();
+  SocketLoader &loader = m_loader_by_idname.lookup(vsocket.idname());
+  PointerRNA rna = vsocket.rna();
   loader(&rna, dst, index);
 }
 
@@ -111,22 +111,24 @@ void LinkInserters::register_conversion_function(StringRef from_type,
   this->register_conversion_inserter(from_type, to_type, inserter);
 }
 
-bool LinkInserters::insert(VTreeDataGraphBuilder &builder, VirtualSocket *from, VirtualSocket *to)
+bool LinkInserters::insert(VTreeDataGraphBuilder &builder,
+                           const VirtualSocket &from,
+                           const VirtualSocket &to)
 {
-  BLI_assert(from->is_output());
-  BLI_assert(to->is_input());
+  BLI_assert(from.is_output());
+  BLI_assert(to.is_input());
   BLI_assert(builder.is_data_socket(from));
   BLI_assert(builder.is_data_socket(to));
 
   BuilderOutputSocket *from_socket = builder.lookup_output_socket(from);
   BuilderInputSocket *to_socket = builder.lookup_input_socket(to);
 
-  if (from->idname() == to->idname()) {
+  if (from.idname() == to.idname()) {
     builder.insert_link(from_socket, to_socket);
     return true;
   }
 
-  StringPair key(from->idname(), to->idname());
+  StringPair key(from.idname(), to.idname());
   ConversionInserter *inserter = m_conversion_inserters.lookup_ptr(key);
   if (inserter != nullptr) {
     (*inserter)(builder, from_socket, to_socket);

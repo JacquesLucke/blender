@@ -8,14 +8,14 @@ namespace DataFlowNodes {
 class DynamicSocketLoader : public UnlinkedInputsInserter {
  public:
   void insert(VTreeDataGraphBuilder &builder,
-              ArrayRef<VirtualSocket *> unlinked_inputs,
+              ArrayRef<const VirtualSocket *> unlinked_inputs,
               MutableArrayRef<BuilderOutputSocket *> r_new_origins) override;
 };
 
 class ConstantInputsHandler : public UnlinkedInputsInserter {
  public:
   void insert(VTreeDataGraphBuilder &builder,
-              ArrayRef<VirtualSocket *> unlinked_inputs,
+              ArrayRef<const VirtualSocket *> unlinked_inputs,
               MutableArrayRef<BuilderOutputSocket *> r_new_origins) override;
 };
 

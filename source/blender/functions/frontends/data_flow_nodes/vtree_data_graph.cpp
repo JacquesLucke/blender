@@ -15,22 +15,23 @@ VTreeDataGraph::VTreeDataGraph(VirtualNodeTree &vtree,
   BLI_assert(m_graph.get() != nullptr);
 }
 
-Vector<VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(
-    ArrayRef<VirtualSocket *> vsockets)
+Vector<const VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(
+    ArrayRef<const VirtualSocket *> vsockets)
 {
   Vector<DataSocket> sockets;
-  for (VirtualSocket *vsocket : vsockets) {
-    DataSocket socket = this->lookup_socket(vsocket);
+  for (const VirtualSocket *vsocket : vsockets) {
+    DataSocket socket = this->lookup_socket(*vsocket);
     sockets.append(socket);
   }
   return this->find_placeholder_dependencies(sockets);
 }
 
-Vector<VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(ArrayRef<DataSocket> sockets)
+Vector<const VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(
+    ArrayRef<DataSocket> sockets)
 {
   Stack<DataSocket> to_be_checked = sockets;
   Set<DataSocket> found = sockets;
-  Vector<VirtualSocket *> vsocket_dependencies;
+  Vector<const VirtualSocket *> vsocket_dependencies;
 
   while (!to_be_checked.empty()) {
     DataSocket socket = to_be_checked.pop();
@@ -45,10 +46,10 @@ Vector<VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(ArrayRef<D
       Function &fn = m_graph->function_of_node(node_id);
       if (fn.has_body<VNodePlaceholderBody>()) {
         auto &body = fn.body<VNodePlaceholderBody>();
-        VirtualNode *vnode = body.vnode();
+        const VirtualNode &vnode = body.vnode();
         uint data_output_index = m_graph->index_of_output(socket);
-        VirtualSocket *vsocket = this->find_data_output(vnode, data_output_index);
-        vsocket_dependencies.append(vsocket);
+        const VirtualSocket &vsocket = this->find_data_output(vnode, data_output_index);
+        vsocket_dependencies.append(&vsocket);
       }
       else {
         for (DataSocket input : m_graph->inputs_of_node(node_id)) {
@@ -63,11 +64,11 @@ Vector<VirtualSocket *> VTreeDataGraph::find_placeholder_dependencies(ArrayRef<D
   return vsocket_dependencies;
 }
 
-VirtualSocket *VTreeDataGraph::find_data_output(VirtualNode *vnode, uint index)
+const VirtualSocket &VTreeDataGraph::find_data_output(const VirtualNode &vnode, uint index)
 {
   uint count = 0;
-  for (uint i = 0; i < vnode->outputs().size(); i++) {
-    VirtualSocket *vsocket = vnode->output(i);
+  for (uint i = 0; i < vnode.outputs().size(); i++) {
+    const VirtualSocket &vsocket = vnode.output(i);
     if (this->uses_socket(vsocket)) {
       if (index == count) {
         return vsocket;
@@ -76,7 +77,7 @@ VirtualSocket *VTreeDataGraph::find_data_output(VirtualNode *vnode, uint index)
     }
   }
   BLI_assert(false);
-  return nullptr;
+  return *vnode.outputs()[0];
 }
 
 }  // namespace DataFlowNodes

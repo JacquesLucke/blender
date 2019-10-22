@@ -13,13 +13,14 @@ using BLI::Optional;
 
 class UnlinkedInputsGrouper {
  public:
-  virtual void group(VTreeDataGraphBuilder &builder, MultiVector<VirtualSocket *> &r_groups) = 0;
+  virtual void group(VTreeDataGraphBuilder &builder,
+                     MultiVector<const VirtualSocket *> &r_groups) = 0;
 };
 
 class UnlinkedInputsInserter {
  public:
   virtual void insert(VTreeDataGraphBuilder &builder,
-                      ArrayRef<VirtualSocket *> unlinked_inputs,
+                      ArrayRef<const VirtualSocket *> unlinked_inputs,
                       MutableArrayRef<BuilderOutputSocket *> r_new_origins) = 0;
 };
 

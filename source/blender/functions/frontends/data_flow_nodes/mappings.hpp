@@ -16,7 +16,7 @@ using StringPair = std::pair<std::string, std::string>;
 
 class VTreeDataGraphBuilder;
 
-typedef std::function<void(VTreeDataGraphBuilder &builder, VirtualNode *vnode)> NodeInserter;
+typedef std::function<void(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)> NodeInserter;
 
 typedef std::function<void(PointerRNA *socket_rna_ptr, Tuple &dst, uint index)> SocketLoader;
 
@@ -70,7 +70,7 @@ class NodeInserters {
   void register_inserter(StringRef idname, NodeInserter inserter);
   void register_function(StringRef idname, FunctionGetter getter);
 
-  bool insert(VTreeDataGraphBuilder &builder, VirtualNode *vnode);
+  bool insert(VTreeDataGraphBuilder &builder, const VirtualNode &vnode);
 };
 
 class LinkInserters {
@@ -86,7 +86,7 @@ class LinkInserters {
                                     ConversionInserter inserter);
   void register_conversion_function(StringRef from_type, StringRef to_type, FunctionGetter getter);
 
-  bool insert(VTreeDataGraphBuilder &builder, VirtualSocket *from, VirtualSocket *to);
+  bool insert(VTreeDataGraphBuilder &builder, const VirtualSocket &from, const VirtualSocket &to);
 };
 
 class SocketLoaders {
@@ -99,7 +99,7 @@ class SocketLoaders {
 
   void register_loader(StringRef type_name, SocketLoader loader);
 
-  void load(VirtualSocket *vsocket, Tuple &dst, uint index);
+  void load(const VirtualSocket &vsocket, Tuple &dst, uint index);
   SocketLoader get_loader(StringRef idname)
   {
     return m_loader_by_idname.lookup(idname);

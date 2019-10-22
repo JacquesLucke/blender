@@ -60,7 +60,7 @@ class VirtualNodeTree {
   bool m_frozen = false;
   Vector<VirtualNode *> m_nodes;
   Vector<VirtualLink *> m_links;
-  Vector<VirtualSocket *> m_inputs_with_links;
+  Vector<const VirtualSocket *> m_inputs_with_links;
   MultiMap<std::string, VirtualNode *> m_nodes_by_idname;
   uint m_socket_counter = 0;
   MonotonicAllocator<> m_allocator;
@@ -68,33 +68,33 @@ class VirtualNodeTree {
  public:
   void add_all_of_tree(bNodeTree *btree);
   VirtualNode *add_bnode(bNodeTree *btree, bNode *bnode);
-  void add_link(VirtualSocket *a, VirtualSocket *b);
+  void add_link(const VirtualSocket &a, const VirtualSocket &b);
 
   void freeze_and_index();
 
-  ArrayRef<VirtualNode *> nodes() const
+  ArrayRef<const VirtualNode *> nodes() const
   {
-    return m_nodes;
+    return ArrayRef<VirtualNode *>(m_nodes);
   }
 
-  ArrayRef<VirtualLink *> links()
+  ArrayRef<const VirtualLink *> links() const
   {
-    return m_links;
+    return ArrayRef<VirtualLink *>(m_links);
   }
 
-  ArrayRef<VirtualSocket *> inputs_with_links()
+  ArrayRef<const VirtualSocket *> inputs_with_links() const
   {
     BLI_assert(m_frozen);
-    return m_inputs_with_links;
+    return ArrayRef<const VirtualSocket *>(m_inputs_with_links);
   }
 
-  ArrayRef<VirtualNode *> nodes_with_idname(StringRef idname)
+  ArrayRef<const VirtualNode *> nodes_with_idname(StringRef idname) const
   {
     BLI_assert(m_frozen);
     return m_nodes_by_idname.lookup_default(idname);
   }
 
-  bool is_frozen()
+  bool is_frozen() const
   {
     return m_frozen;
   }
@@ -122,52 +122,52 @@ class VirtualNode {
   MutableArrayRef<VirtualSocket *> m_outputs;
 
  public:
-  ArrayRef<VirtualSocket *> inputs() const
+  ArrayRef<const VirtualSocket *> inputs() const
   {
-    return m_inputs;
+    return m_inputs.as_ref();
   }
 
-  ArrayRef<VirtualSocket *> outputs() const
+  ArrayRef<const VirtualSocket *> outputs() const
   {
-    return m_outputs;
+    return m_outputs.as_ref();
   }
 
-  VirtualSocket *input(uint index)
+  const VirtualSocket &input(uint index) const
   {
-    return m_inputs[index];
+    return *m_inputs[index];
   }
 
-  VirtualSocket *output(uint index)
+  const VirtualSocket &output(uint index) const
   {
-    return m_outputs[index];
+    return *m_outputs[index];
   }
 
-  VirtualSocket *input(uint index, StringRef expected_name);
-  VirtualSocket *output(uint index, StringRef expected_name);
+  const VirtualSocket &input(uint index, StringRef expected_name) const;
+  const VirtualSocket &output(uint index, StringRef expected_name) const;
 
-  bNode *bnode()
+  bNode *bnode() const
   {
     return m_bnode;
   }
 
-  bNodeTree *btree()
+  bNodeTree *btree() const
   {
     return m_btree;
   }
 
-  ID *btree_id()
+  ID *btree_id() const
   {
     return &m_btree->id;
   }
 
-  PointerRNA rna()
+  PointerRNA rna() const
   {
     PointerRNA rna;
     RNA_pointer_create(&m_btree->id, &RNA_Node, m_bnode, &rna);
     return rna;
   }
 
-  StringRefNull name()
+  StringRefNull name() const
   {
     return m_bnode->name;
   }
@@ -187,8 +187,8 @@ class VirtualSocket {
   bNodeSocket *m_bsocket;
   uint m_id;
 
-  MutableArrayRef<VirtualSocket *> m_direct_links;
-  MutableArrayRef<VirtualSocket *> m_links;
+  MutableArrayRef<const VirtualSocket *> m_direct_links;
+  MutableArrayRef<const VirtualSocket *> m_links;
 
  public:
   bool is_input() const
@@ -201,12 +201,12 @@ class VirtualSocket {
     return this->m_bsocket->in_out == SOCK_OUT;
   }
 
-  bNodeSocket *bsocket()
+  bNodeSocket *bsocket() const
   {
     return m_bsocket;
   }
 
-  bNodeTree *btree()
+  bNodeTree *btree() const
   {
     return m_btree;
   }
@@ -216,26 +216,26 @@ class VirtualSocket {
     return m_id;
   }
 
-  ID *btree_id()
+  ID *btree_id() const
   {
     return &m_btree->id;
   }
 
-  VirtualNode *vnode()
+  const VirtualNode &vnode() const
   {
-    return m_vnode;
+    return *m_vnode;
   }
 
-  ArrayRef<VirtualSocket *> direct_links()
+  ArrayRef<const VirtualSocket *> direct_links() const
   {
     BLI_assert(m_vnode->m_backlink->is_frozen());
-    return m_direct_links;
+    return m_direct_links.as_ref();
   }
 
-  ArrayRef<VirtualSocket *> links()
+  ArrayRef<const VirtualSocket *> links() const
   {
     BLI_assert(m_vnode->m_backlink->is_frozen());
-    return m_links;
+    return m_links.as_ref();
   }
 
   bool is_linked() const
@@ -243,7 +243,7 @@ class VirtualSocket {
     return m_links.size() > 0;
   }
 
-  PointerRNA rna()
+  PointerRNA rna() const
   {
     PointerRNA rna;
     RNA_pointer_create(&m_btree->id, &RNA_NodeSocket, m_bsocket, &rna);
@@ -270,11 +270,11 @@ class VirtualLink {
  private:
   friend VirtualNodeTree;
 
-  VirtualSocket *m_from;
-  VirtualSocket *m_to;
+  const VirtualSocket *m_from;
+  const VirtualSocket *m_to;
 };
 
-inline VirtualSocket *VirtualNode::input(uint index, StringRef expected_name)
+inline const VirtualSocket &VirtualNode::input(uint index, StringRef expected_name) const
 {
   VirtualSocket *vsocket = m_inputs[index];
 #ifdef DEBUG
@@ -282,10 +282,10 @@ inline VirtualSocket *VirtualNode::input(uint index, StringRef expected_name)
   BLI_assert(actual_name == expected_name);
 #endif
   UNUSED_VARS_NDEBUG(expected_name);
-  return vsocket;
+  return *vsocket;
 }
 
-inline VirtualSocket *VirtualNode::output(uint index, StringRef expected_name)
+inline const VirtualSocket &VirtualNode::output(uint index, StringRef expected_name) const
 {
   VirtualSocket *vsocket = m_outputs[index];
 #ifdef DEBUG
@@ -293,7 +293,7 @@ inline VirtualSocket *VirtualNode::output(uint index, StringRef expected_name)
   BLI_assert(actual_name == expected_name);
 #endif
   UNUSED_VARS_NDEBUG(expected_name);
-  return vsocket;
+  return *vsocket;
 }
 
 }  // namespace BKE

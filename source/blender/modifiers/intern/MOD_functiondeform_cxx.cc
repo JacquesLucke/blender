@@ -50,9 +50,9 @@ extern "C" {
 void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[3], int numVerts);
 }
 
-static MFDataType get_type_by_socket(VirtualSocket *vsocket)
+static MFDataType get_type_by_socket(const VirtualSocket &vsocket)
 {
-  StringRef idname = vsocket->idname();
+  StringRef idname = vsocket.idname();
 
   if (idname == "fn_FloatSocket") {
     return MFDataType::ForSingle<float>();
@@ -111,13 +111,13 @@ class VTreeMFNetworkBuilder {
         m_builder(BLI::make_unique<MFNetworkBuilder>())
   {
     m_type_by_vsocket = Vector<MFDataType>(m_vtree.socket_count());
-    for (VirtualNode *vnode : m_vtree.nodes()) {
-      for (VirtualSocket *vsocket : vnode->inputs()) {
-        MFDataType data_type = get_type_by_socket(vsocket);
+    for (const VirtualNode *vnode : m_vtree.nodes()) {
+      for (const VirtualSocket *vsocket : vnode->inputs()) {
+        MFDataType data_type = get_type_by_socket(*vsocket);
         m_type_by_vsocket[vsocket->id()] = data_type;
       }
-      for (VirtualSocket *vsocket : vnode->outputs()) {
-        MFDataType data_type = get_type_by_socket(vsocket);
+      for (const VirtualSocket *vsocket : vnode->outputs()) {
+        MFDataType data_type = get_type_by_socket(*vsocket);
         m_type_by_vsocket[vsocket->id()] = data_type;
       }
     }
@@ -149,7 +149,7 @@ class VTreeMFNetworkBuilder {
   MFBuilderPlaceholderNode &add_placeholder(const VirtualNode &vnode)
   {
     Vector<MFDataType> input_types;
-    for (VirtualSocket *vsocket : vnode.inputs()) {
+    for (const VirtualSocket *vsocket : vnode.inputs()) {
       MFDataType data_type = this->try_get_data_type(*vsocket);
       if (!data_type.is_none()) {
         input_types.append(data_type);
@@ -157,7 +157,7 @@ class VTreeMFNetworkBuilder {
     }
 
     Vector<MFDataType> output_types;
-    for (VirtualSocket *vsocket : vnode.outputs()) {
+    for (const VirtualSocket *vsocket : vnode.outputs()) {
       MFDataType data_type = this->try_get_data_type(*vsocket);
       if (!data_type.is_none()) {
         output_types.append(data_type);
@@ -206,7 +206,7 @@ class VTreeMFNetworkBuilder {
   void map_data_sockets(const VirtualNode &vnode, MFBuilderNode &node)
   {
     uint data_inputs = 0;
-    for (VirtualSocket *vsocket : vnode.inputs()) {
+    for (const VirtualSocket *vsocket : vnode.inputs()) {
       if (this->is_data_socket(*vsocket)) {
         this->map_sockets(*vsocket, *node.inputs()[data_inputs]);
         data_inputs++;
@@ -214,7 +214,7 @@ class VTreeMFNetworkBuilder {
     }
 
     uint data_outputs = 0;
-    for (VirtualSocket *vsocket : vnode.outputs()) {
+    for (const VirtualSocket *vsocket : vnode.outputs()) {
       if (this->is_data_socket(*vsocket)) {
         this->map_sockets(*vsocket, *node.outputs()[data_outputs]);
         data_outputs++;
@@ -222,7 +222,7 @@ class VTreeMFNetworkBuilder {
     }
   }
 
-  void map_sockets(VirtualSocket &vsocket, MFBuilderSocket &socket)
+  void map_sockets(const VirtualSocket &vsocket, MFBuilderSocket &socket)
   {
     BLI_assert(m_socket_map[vsocket.id()] == nullptr);
     m_socket_map[vsocket.id()] = &socket;

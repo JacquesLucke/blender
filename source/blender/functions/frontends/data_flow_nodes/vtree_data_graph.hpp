@@ -33,68 +33,69 @@ class VTreeDataGraph {
     return *m_graph;
   }
 
-  DataSocket *lookup_socket_ptr(VirtualSocket *vsocket)
+  DataSocket *lookup_socket_ptr(const VirtualSocket &vsocket)
   {
-    DataSocket *socket = &m_socket_map[vsocket->id()];
+    DataSocket *socket = &m_socket_map[vsocket.id()];
     if (socket->is_none()) {
       return nullptr;
     }
     return socket;
   }
 
-  Vector<DataSocket> lookup_sockets(ArrayRef<VirtualSocket *> vsockets)
+  Vector<DataSocket> lookup_sockets(ArrayRef<const VirtualSocket *> vsockets)
   {
     Vector<DataSocket> sockets;
     sockets.reserve(vsockets.size());
-    for (VirtualSocket *vsocket : vsockets) {
-      sockets.append(this->lookup_socket(vsocket));
+    for (const VirtualSocket *vsocket : vsockets) {
+      sockets.append(this->lookup_socket(*vsocket));
     }
     return sockets;
   }
 
-  DataSocket lookup_socket(VirtualSocket *vsocket)
+  DataSocket lookup_socket(const VirtualSocket &vsocket)
   {
-    return m_socket_map[vsocket->id()];
+    return m_socket_map[vsocket.id()];
   }
 
-  Type *lookup_type(VirtualSocket *vsocket)
+  Type *lookup_type(const VirtualSocket &vsocket)
   {
     DataSocket socket = this->lookup_socket(vsocket);
     return m_graph->type_of_socket(socket);
   }
 
-  bool uses_socket(VirtualSocket *vsocket)
+  bool uses_socket(const VirtualSocket &vsocket)
   {
-    return !m_socket_map[vsocket->id()].is_none();
+    return !m_socket_map[vsocket.id()].is_none();
   }
 
-  Vector<VirtualSocket *> find_placeholder_dependencies(ArrayRef<VirtualSocket *> vsockets);
-  Vector<VirtualSocket *> find_placeholder_dependencies(ArrayRef<DataSocket> sockets);
+  Vector<const VirtualSocket *> find_placeholder_dependencies(
+      ArrayRef<const VirtualSocket *> vsockets);
+  Vector<const VirtualSocket *> find_placeholder_dependencies(ArrayRef<DataSocket> sockets);
 
  private:
-  VirtualSocket *find_data_output(VirtualNode *vnode, uint index);
+  const VirtualSocket &find_data_output(const VirtualNode &vnode, uint index);
 };
 
 class VNodePlaceholderBody : public FunctionBody {
  private:
-  VirtualNode *m_vnode;
-  Vector<VirtualSocket *> m_vsocket_inputs;
+  const VirtualNode *m_vnode;
+  Vector<const VirtualSocket *> m_vsocket_inputs;
 
  public:
   static const uint FUNCTION_BODY_ID = 4;
   using FunctionBodyType = VNodePlaceholderBody;
 
-  VNodePlaceholderBody(VirtualNode *vnode, Vector<VirtualSocket *> vsocket_inputs)
-      : m_vnode(vnode), m_vsocket_inputs(std::move(vsocket_inputs))
+  VNodePlaceholderBody(const VirtualNode &vnode, Vector<const VirtualSocket *> vsocket_inputs)
+      : m_vnode(&vnode), m_vsocket_inputs(std::move(vsocket_inputs))
   {
   }
 
-  VirtualNode *vnode()
+  const VirtualNode &vnode()
   {
-    return m_vnode;
+    return *m_vnode;
   }
 
-  ArrayRef<VirtualSocket *> inputs()
+  ArrayRef<const VirtualSocket *> inputs()
   {
     return m_vsocket_inputs;
   }
