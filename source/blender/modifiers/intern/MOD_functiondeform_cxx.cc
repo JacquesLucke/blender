@@ -57,13 +57,9 @@ static MFDataType get_type_by_socket(const VirtualSocket &vsocket)
   if (idname == "fn_FloatSocket") {
     return MFDataType::ForSingle<float>();
   }
-  else if (idname == "fn_IntegerSocket") {
-    return MFDataType::ForSingle<int>();
-  }
   else if (idname == "fn_VectorSocket") {
     return MFDataType::ForSingle<float3>();
   }
-  BLI_assert(false);
   return MFDataType();
 }
 
@@ -91,7 +87,7 @@ class VTreeMFNetwork {
     return *m_network;
   }
 
-  const MFSocket &lookup_socket(VirtualSocket &vsocket)
+  const MFSocket &lookup_socket(const VirtualSocket &vsocket)
   {
     return *m_socket_map[vsocket.id()];
   }
@@ -128,14 +124,14 @@ class VTreeMFNetworkBuilder {
     return m_vtree;
   }
 
-  MFBuilderFunctionNode &add_function(MultiFunction &function,
+  MFBuilderFunctionNode &add_function(const MultiFunction &function,
                                       ArrayRef<uint> input_param_indices,
                                       ArrayRef<uint> output_param_indices)
   {
     return m_builder->add_function(function, input_param_indices, output_param_indices);
   }
 
-  MFBuilderFunctionNode &add_function(MultiFunction &function,
+  MFBuilderFunctionNode &add_function(const MultiFunction &function,
                                       ArrayRef<uint> input_param_indices,
                                       ArrayRef<uint> output_param_indices,
                                       const VirtualNode &vnode)
@@ -187,7 +183,7 @@ class VTreeMFNetworkBuilder {
 
   bool is_data_socket(const VirtualSocket &vsocket) const
   {
-    return m_type_by_vsocket[vsocket.id()].is_none();
+    return !m_type_by_vsocket[vsocket.id()].is_none();
   }
 
   void map_sockets_exactly(const VirtualNode &vnode, MFBuilderNode &node)
@@ -271,7 +267,13 @@ class VTreeMFNetworkBuilder {
     return false;
   }
 
-  MFBuilderOutputSocket &lookup_output_socket(const VirtualSocket &vsocket)
+  bool is_input_linked(const VirtualSocket &vsocket) const
+  {
+    auto &socket = this->lookup_input_socket(vsocket);
+    return socket.as_input().origin() != nullptr;
+  }
+
+  MFBuilderOutputSocket &lookup_output_socket(const VirtualSocket &vsocket) const
   {
     BLI_assert(vsocket.is_output());
     MFBuilderSocket *socket = m_socket_map[vsocket.id()];
@@ -279,7 +281,7 @@ class VTreeMFNetworkBuilder {
     return socket->as_output();
   }
 
-  MFBuilderInputSocket &lookup_input_socket(const VirtualSocket &vsocket)
+  MFBuilderInputSocket &lookup_input_socket(const VirtualSocket &vsocket) const
   {
     BLI_assert(vsocket.is_input());
     MFBuilderSocket *socket = m_socket_map[vsocket.id()];
@@ -289,13 +291,21 @@ class VTreeMFNetworkBuilder {
 
   std::unique_ptr<VTreeMFNetwork> build()
   {
+    Array<int> socket_ids(m_vtree.socket_count(), -1);
+    for (uint vsocket_id = 0; vsocket_id < m_vtree.socket_count(); vsocket_id++) {
+      MFBuilderSocket *builder_socket = m_socket_map[vsocket_id];
+      if (builder_socket != nullptr) {
+        socket_ids[vsocket_id] = builder_socket->id();
+      }
+    }
+
     auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 
     Array<const MFSocket *> socket_map(m_vtree.socket_count(), nullptr);
     for (uint vsocket_id = 0; vsocket_id < m_vtree.socket_count(); vsocket_id++) {
-      MFBuilderSocket *builder_socket = m_socket_map[vsocket_id];
-      if (builder_socket != nullptr) {
-        socket_map[vsocket_id] = &network->socket_by_id(builder_socket->id());
+      int id = socket_ids[vsocket_id];
+      if (id != -1) {
+        socket_map[vsocket_id] = &network->socket_by_id(socket_ids[vsocket_id]);
       }
     }
 
@@ -305,6 +315,8 @@ class VTreeMFNetworkBuilder {
 
 using InsertVNodeFunction = std::function<void(
     VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VirtualNode &vnode)>;
+using InsertUnlinkedInputFunction = std::function<MFBuilderOutputSocket &(
+    VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VirtualSocket &vsocket)>;
 
 static void INSERT_vector_math(VTreeMFNetworkBuilder &builder,
                                OwnedResources &resources,
@@ -342,7 +354,44 @@ static StringMap<InsertVNodeFunction> get_node_inserters()
   return inserters;
 }
 
-static void insert_nodes(VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+static MFBuilderOutputSocket &INSERT_vector_socket(VTreeMFNetworkBuilder &builder,
+                                                   OwnedResources &resources,
+                                                   const VirtualSocket &vsocket)
+{
+  PointerRNA rna = vsocket.rna();
+  float3 value;
+  RNA_float_get_array(&rna, "value", value);
+
+  auto function = BLI::make_unique<BKE::MultiFunction_ConstantValue<float3>>(value);
+  auto &node = builder.add_function(*function, {}, {0});
+
+  resources.add(std::move(function), "vector input");
+  return *node.outputs()[0];
+}
+
+static MFBuilderOutputSocket &INSERT_float_socket(VTreeMFNetworkBuilder &builder,
+                                                  OwnedResources &resources,
+                                                  const VirtualSocket &vsocket)
+{
+  PointerRNA rna = vsocket.rna();
+  float value = RNA_float_get(&rna, "value");
+
+  auto function = BLI::make_unique<BKE::MultiFunction_ConstantValue<float>>(value);
+  auto &node = builder.add_function(*function, {}, {0});
+
+  resources.add(std::move(function), "float input");
+  return *node.outputs()[0];
+}
+
+static StringMap<InsertUnlinkedInputFunction> get_unlinked_input_inserter()
+{
+  StringMap<InsertUnlinkedInputFunction> inserters;
+  inserters.add_new("fn_VectorSocket", INSERT_vector_socket);
+  inserters.add_new("fn_FloatSocket", INSERT_float_socket);
+  return inserters;
+}
+
+static bool insert_nodes(VTreeMFNetworkBuilder &builder, OwnedResources &resources)
 {
   const VirtualNodeTree &vtree = builder.vtree();
   auto inserters = get_node_inserters();
@@ -359,9 +408,11 @@ static void insert_nodes(VTreeMFNetworkBuilder &builder, OwnedResources &resourc
       builder.add_placeholder(*vnode);
     }
   }
+
+  return true;
 }
 
-static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &UNUSED(resources))
 {
   for (const VirtualSocket *to_vsocket : builder.vtree().inputs_with_links()) {
     if (to_vsocket->links().size() > 1) {
@@ -387,48 +438,37 @@ static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &resourc
 
     builder.add_link(from_socket, to_socket);
   }
+
+  return true;
 }
 
-static std::unique_ptr<BKE::MultiFunction> get_multi_function_by_node(VirtualNode *vnode)
+static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder, OwnedResources &resources)
 {
-  StringRef idname = vnode->idname();
+  Vector<const VirtualSocket *> unlinked_data_inputs;
+  for (const VirtualNode *vnode : builder.vtree().nodes()) {
+    for (const VirtualSocket *vsocket : vnode->inputs()) {
+      if (builder.is_data_socket(*vsocket)) {
+        if (!builder.is_input_linked(*vsocket)) {
+          unlinked_data_inputs.append(vsocket);
+        }
+      }
+    }
+  }
 
-  if (idname == "fn_VectorMathNode") {
-    return BLI::make_unique<BKE::MultiFunction_AddFloat3s>();
-  }
-  else if (idname == "fn_CombineVectorNode") {
-    return BLI::make_unique<BKE::MultiFunction_CombineVector>();
-  }
-  else if (idname == "fn_SeparateVectorNode") {
-    return BLI::make_unique<BKE::MultiFunction_SeparateVector>();
-  }
-  else {
-    BLI_assert(false);
-    return {};
-  }
-}
+  auto inserters = get_unlinked_input_inserter();
 
-static void load_socket_value(VirtualSocket *vsocket, TupleRef tuple, uint index)
-{
-  StringRef idname = vsocket->idname();
-  PointerRNA rna = vsocket->rna();
+  for (const VirtualSocket *vsocket : unlinked_data_inputs) {
+    InsertUnlinkedInputFunction *inserter = inserters.lookup_ptr(vsocket->idname());
 
-  if (idname == "fn_FloatSocket") {
-    float value = RNA_float_get(&rna, "value");
-    tuple.set<float>(index, value);
+    if (inserter == nullptr) {
+      return false;
+    }
+    MFBuilderOutputSocket &from_socket = (*inserter)(builder, resources, *vsocket);
+    MFBuilderInputSocket &to_socket = builder.lookup_input_socket(*vsocket);
+    builder.add_link(from_socket, to_socket);
   }
-  else if (idname == "fn_IntegerSocket") {
-    int value = RNA_int_get(&rna, "value");
-    tuple.set<int>(index, value);
-  }
-  else if (idname == "fn_VectorSocket") {
-    float3 value;
-    RNA_float_get_array(&rna, "value", value);
-    tuple.set<float3>(index, value);
-  }
-  else {
-    BLI_assert(false);
-  }
+
+  return true;
 }
 
 class MultiFunction_FunctionTree : public BKE::MultiFunction {
@@ -544,36 +584,34 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
 
   bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
   VirtualNodeTree vtree;
-  // vtree.add_all_of_tree(tree);
+  vtree.add_all_of_tree(tree);
   vtree.freeze_and_index();
 
+  const VirtualNode &input_vnode = *vtree.nodes_with_idname("fn_FunctionInputNode")[0];
+  const VirtualNode &output_vnode = *vtree.nodes_with_idname("fn_FunctionOutputNode")[0];
+
+  OwnedResources resources;
   VTreeMFNetworkBuilder builder(vtree);
-
-  auto &input_node = builder.add_placeholder(
-      {}, {MFDataType::ForSingle<float3>(), MFDataType::ForSingle<float>()});
-
-  auto &output_node = builder.add_placeholder({MFDataType::ForSingle<float3>()}, {});
-
-  BKE::MultiFunction_AddFloat3s add_function;
-  auto &add_node = builder.add_function(add_function, {0, 1}, {2});
-
-  BKE::MultiFunction_ConstantValue<float3> vector_value{
-      {fdmd->control1, fdmd->control1, fdmd->control1}};
-  auto &value_node = builder.add_function(vector_value, {}, {0});
-
-  uint input_node_id = input_node.id();
-  uint output_node_id = output_node.id();
-
-  builder.add_link(*input_node.outputs()[0], *add_node.inputs()[0]);
-  builder.add_link(*value_node.outputs()[0], *add_node.inputs()[1]);
-  builder.add_link(*add_node.outputs()[0], *output_node.inputs()[0]);
+  if (!insert_nodes(builder, resources)) {
+    BLI_assert(false);
+  }
+  if (!insert_links(builder, resources)) {
+    BLI_assert(false);
+  }
+  if (!insert_unlinked_inputs(builder, resources)) {
+    BLI_assert(false);
+  }
 
   auto vtree_network = builder.build();
 
-  auto &final_input_node = vtree_network->network().node_by_id(input_node_id);
-  auto &final_output_node = vtree_network->network().node_by_id(output_node_id);
+  Vector<const MFOutputSocket *> function_inputs = {
+      &vtree_network->lookup_socket(input_vnode.output(0)).as_output(),
+      &vtree_network->lookup_socket(input_vnode.output(1)).as_output()};
 
-  MultiFunction_FunctionTree function{final_input_node.outputs(), final_output_node.inputs()};
+  Vector<const MFInputSocket *> function_outputs = {
+      &vtree_network->lookup_socket(output_vnode.input(0)).as_input()};
+
+  MultiFunction_FunctionTree function{function_inputs, function_outputs};
 
   MFParamsBuilder params;
   params.start_new(function.signature(), numVerts);

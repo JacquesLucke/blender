@@ -520,6 +520,9 @@ class MFParamsBuilder {
 
 class MultiFunction {
  public:
+  virtual ~MultiFunction()
+  {
+  }
   virtual void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const = 0;
 
   const MFSignature &signature() const
