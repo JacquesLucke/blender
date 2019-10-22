@@ -122,12 +122,12 @@ class VirtualNode {
   MutableArrayRef<VirtualSocket *> m_outputs;
 
  public:
-  ArrayRef<VirtualSocket *> inputs()
+  ArrayRef<VirtualSocket *> inputs() const
   {
     return m_inputs;
   }
 
-  ArrayRef<VirtualSocket *> outputs()
+  ArrayRef<VirtualSocket *> outputs() const
   {
     return m_outputs;
   }
@@ -211,7 +211,7 @@ class VirtualSocket {
     return m_btree;
   }
 
-  uint id()
+  uint id() const
   {
     return m_id;
   }

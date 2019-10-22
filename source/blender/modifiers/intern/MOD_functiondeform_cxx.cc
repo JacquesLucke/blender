@@ -6,6 +6,8 @@
 #include "BKE_multi_function_network.h"
 
 #include "BLI_math_cxx.h"
+#include "BLI_string_map.h"
+#include "BLI_owned_resources.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -38,6 +40,8 @@ using BLI::Array;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::IndexRange;
+using BLI::OwnedResources;
+using BLI::StringMap;
 using BLI::StringRef;
 using BLI::TemporaryVector;
 using BLI::Vector;
@@ -119,6 +123,11 @@ class VTreeMFNetworkBuilder {
     }
   }
 
+  const VirtualNodeTree &vtree() const
+  {
+    return m_vtree;
+  }
+
   MFBuilderFunctionNode &add_function(MultiFunction &function,
                                       ArrayRef<uint> input_param_indices,
                                       ArrayRef<uint> output_param_indices)
@@ -129,7 +138,7 @@ class VTreeMFNetworkBuilder {
   MFBuilderFunctionNode &add_function(MultiFunction &function,
                                       ArrayRef<uint> input_param_indices,
                                       ArrayRef<uint> output_param_indices,
-                                      VirtualNode &vnode)
+                                      const VirtualNode &vnode)
   {
     MFBuilderFunctionNode &node = m_builder->add_function(
         function, input_param_indices, output_param_indices);
@@ -137,7 +146,7 @@ class VTreeMFNetworkBuilder {
     return node;
   }
 
-  MFBuilderPlaceholderNode &add_placeholder(VirtualNode &vnode)
+  MFBuilderPlaceholderNode &add_placeholder(const VirtualNode &vnode)
   {
     Vector<MFDataType> input_types;
     for (VirtualSocket *vsocket : vnode.inputs()) {
@@ -171,17 +180,17 @@ class VTreeMFNetworkBuilder {
     m_builder->add_link(from, to);
   }
 
-  MFDataType try_get_data_type(VirtualSocket &vsocket) const
+  MFDataType try_get_data_type(const VirtualSocket &vsocket) const
   {
     return m_type_by_vsocket[vsocket.id()];
   }
 
-  bool is_data_socket(VirtualSocket &vsocket) const
+  bool is_data_socket(const VirtualSocket &vsocket) const
   {
     return m_type_by_vsocket[vsocket.id()].is_none();
   }
 
-  void map_sockets_exactly(VirtualNode &vnode, MFBuilderNode &node)
+  void map_sockets_exactly(const VirtualNode &vnode, MFBuilderNode &node)
   {
     BLI_assert(vnode.inputs().size() == node.inputs().size());
     BLI_assert(vnode.outputs().size() == node.outputs().size());
@@ -194,7 +203,7 @@ class VTreeMFNetworkBuilder {
     }
   }
 
-  void map_data_sockets(VirtualNode &vnode, MFBuilderNode &node)
+  void map_data_sockets(const VirtualNode &vnode, MFBuilderNode &node)
   {
     uint data_inputs = 0;
     for (VirtualSocket *vsocket : vnode.inputs()) {
@@ -219,6 +228,49 @@ class VTreeMFNetworkBuilder {
     m_socket_map[vsocket.id()] = &socket;
   }
 
+  bool vsocket_is_mapped(const VirtualSocket &vsocket) const
+  {
+    return m_socket_map[vsocket.id()] != nullptr;
+  }
+
+  bool data_sockets_are_mapped(ArrayRef<const VirtualSocket *> vsockets) const
+  {
+    for (const VirtualSocket *vsocket : vsockets) {
+      if (this->is_data_socket(*vsocket)) {
+        if (!this->vsocket_is_mapped(*vsocket)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  bool data_sockets_of_vnode_are_mapped(const VirtualNode &vnode) const
+  {
+    if (!this->data_sockets_are_mapped(vnode.inputs())) {
+      return false;
+    }
+    if (!this->data_sockets_are_mapped(vnode.outputs())) {
+      return false;
+    }
+    return true;
+  }
+
+  bool has_data_sockets(const VirtualNode &vnode) const
+  {
+    for (const VirtualSocket *vsocket : vnode.inputs()) {
+      if (this->is_data_socket(*vsocket)) {
+        return true;
+      }
+    }
+    for (const VirtualSocket *vsocket : vnode.outputs()) {
+      if (this->is_data_socket(*vsocket)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   std::unique_ptr<VTreeMFNetwork> build()
   {
     auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
@@ -234,6 +286,64 @@ class VTreeMFNetworkBuilder {
     return BLI::make_unique<VTreeMFNetwork>(m_vtree, std::move(network), std::move(socket_map));
   }
 };
+
+using InsertVNodeFunction = std::function<void(
+    VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VirtualNode &vnode)>;
+
+static void INSERT_vector_math(VTreeMFNetworkBuilder &builder,
+                               OwnedResources &resources,
+                               const VirtualNode &vnode)
+{
+  auto function = BLI::make_unique<BKE::MultiFunction_AddFloat3s>();
+  builder.add_function(*function, {0, 1}, {2}, vnode);
+  resources.add(std::move(function), "vector math function");
+}
+
+static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder,
+                                  OwnedResources &resources,
+                                  const VirtualNode &vnode)
+{
+  auto function = BLI::make_unique<BKE::MultiFunction_CombineVector>();
+  builder.add_function(*function, {0, 1, 2}, {3}, vnode);
+  resources.add(std::move(function), "combine vector function");
+}
+
+static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder,
+                                   OwnedResources &resources,
+                                   const VirtualNode &vnode)
+{
+  auto function = BLI::make_unique<BKE::MultiFunction_SeparateVector>();
+  builder.add_function(*function, {0}, {1, 2, 3}, vnode);
+  resources.add(std::move(function), "separate vector function");
+}
+
+static StringMap<InsertVNodeFunction> get_node_inserters()
+{
+  StringMap<InsertVNodeFunction> inserters;
+  inserters.add_new("fn_VectorMathNode", INSERT_vector_math);
+  inserters.add_new("fn_CombineVectorNode", INSERT_combine_vector);
+  inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
+  return inserters;
+}
+
+static void insert_nodes(VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+{
+  const VirtualNodeTree &vtree = builder.vtree();
+  auto inserters = get_node_inserters();
+
+  for (const VirtualNode *vnode : vtree.nodes()) {
+    StringRef idname = vnode->idname();
+    InsertVNodeFunction *inserter = inserters.lookup_ptr(idname);
+
+    if (inserter != nullptr) {
+      (*inserter)(builder, resources, *vnode);
+      BLI_assert(builder.data_sockets_of_vnode_are_mapped(*vnode));
+    }
+    else if (builder.has_data_sockets(*vnode)) {
+      builder.add_placeholder(*vnode);
+    }
+  }
+}
 
 static std::unique_ptr<BKE::MultiFunction> get_multi_function_by_node(VirtualNode *vnode)
 {
