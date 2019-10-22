@@ -2,7 +2,8 @@
 #include "BLI_array_ref.h"
 #include "BLI_vector.h"
 
-using BLI::IndexRange;
+using namespace BLI;
+
 using IntVector = BLI::Vector<int>;
 using IntArrayRef = BLI::ArrayRef<int>;
 using MutableIntArrayRef = BLI::MutableArrayRef<int>;
@@ -15,6 +16,15 @@ TEST(array_ref, FromSmallVector)
   EXPECT_EQ(a_ref[0], 1);
   EXPECT_EQ(a_ref[1], 2);
   EXPECT_EQ(a_ref[2], 3);
+}
+
+TEST(array_ref, AddConstToPointer)
+{
+  int a = 0;
+  std::vector<int *> vec = {&a};
+  ArrayRef<int *> ref = vec;
+  ArrayRef<const int *> const_ref = ref;
+  EXPECT_EQ(const_ref.size(), 1);
 }
 
 TEST(array_ref, IsReferencing)

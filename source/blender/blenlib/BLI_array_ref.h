@@ -79,6 +79,17 @@ template<typename T> class ArrayRef {
   }
 
   /**
+   * Construct ArrayRef<const T *> from ArrayRef<T *>.
+   */
+  template<typename U>
+  ArrayRef(
+      ArrayRef<U *> array,
+      typename std::enable_if<std::is_convertible<U *const *, T const *>::value>::type * = nullptr)
+      : ArrayRef(array.begin(), array.size())
+  {
+  }
+
+  /**
    * Return a continuous part of the array.
    * Asserts that the slice stays within the array.
    */
@@ -321,7 +332,7 @@ template<typename T> class MutableArrayRef {
   {
   }
 
-  operator ArrayRef<T>()
+  operator ArrayRef<T>() const
   {
     return ArrayRef<T>(m_start, m_size);
   }
