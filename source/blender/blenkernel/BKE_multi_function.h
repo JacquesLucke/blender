@@ -53,6 +53,16 @@ struct MFDataType {
     return *m_base_type;
   }
 
+  friend bool operator==(MFDataType a, MFDataType b)
+  {
+    return a.m_category == b.m_category && a.m_base_type == b.m_base_type;
+  }
+
+  friend bool operator!=(MFDataType a, MFDataType b)
+  {
+    return !(a == b);
+  }
+
  private:
   Category m_category = Category::None;
   const CPPType *m_base_type = nullptr;

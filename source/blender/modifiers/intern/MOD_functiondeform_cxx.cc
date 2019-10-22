@@ -271,6 +271,22 @@ class VTreeMFNetworkBuilder {
     return false;
   }
 
+  MFBuilderOutputSocket &lookup_output_socket(const VirtualSocket &vsocket)
+  {
+    BLI_assert(vsocket.is_output());
+    MFBuilderSocket *socket = m_socket_map[vsocket.id()];
+    BLI_assert(socket != nullptr);
+    return socket->as_output();
+  }
+
+  MFBuilderInputSocket &lookup_input_socket(const VirtualSocket &vsocket)
+  {
+    BLI_assert(vsocket.is_input());
+    MFBuilderSocket *socket = m_socket_map[vsocket.id()];
+    BLI_assert(socket != nullptr);
+    return socket->as_input();
+  }
+
   std::unique_ptr<VTreeMFNetwork> build()
   {
     auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
@@ -342,6 +358,34 @@ static void insert_nodes(VTreeMFNetworkBuilder &builder, OwnedResources &resourc
     else if (builder.has_data_sockets(*vnode)) {
       builder.add_placeholder(*vnode);
     }
+  }
+}
+
+static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+{
+  for (const VirtualSocket *to_vsocket : builder.vtree().inputs_with_links()) {
+    if (to_vsocket->links().size() > 1) {
+      continue;
+    }
+    BLI_assert(to_vsocket->links().size() == 1);
+
+    if (!builder.is_data_socket(*to_vsocket)) {
+      continue;
+    }
+
+    const VirtualSocket *from_vsocket = to_vsocket->links()[0];
+    if (!builder.is_data_socket(*from_vsocket)) {
+      return false;
+    }
+
+    auto &from_socket = builder.lookup_output_socket(*from_vsocket);
+    auto &to_socket = builder.lookup_input_socket(*to_vsocket);
+
+    if (from_socket.type() != to_socket.type()) {
+      return false;
+    }
+
+    builder.add_link(from_socket, to_socket);
   }
 }
 
