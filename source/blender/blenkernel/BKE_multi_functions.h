@@ -107,6 +107,30 @@ template<typename T> class MultiFunction_ConstantValue : public MultiFunction {
   }
 };
 
+template<typename FromT, typename ToT> class MultiFunction_Convert : public MultiFunction {
+ public:
+  MultiFunction_Convert()
+  {
+    MFSignatureBuilder signature;
+    signature.readonly_single_input<FromT>("Input");
+    signature.single_output<ToT>("Output");
+    this->set_signature(signature);
+  }
+
+  void call(ArrayRef<uint> mask_indices,
+            MFParams &params,
+            MFContext &UNUSED(context)) const override
+  {
+    VirtualListRef<FromT> inputs = params.readonly_single_input<FromT>(0, "Input");
+    MutableArrayRef<ToT> outputs = params.single_output<ToT>(1, "Output");
+
+    for (uint i : mask_indices) {
+      const FromT &from_value = inputs[i];
+      new (outputs.begin() + i) ToT(from_value);
+    }
+  }
+};
+
 };  // namespace BKE
 
 #endif /* __BKE_MULTI_FUNCTIONS_H__ */

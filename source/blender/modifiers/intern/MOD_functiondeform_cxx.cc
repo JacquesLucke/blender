@@ -40,6 +40,7 @@ using BLI::Array;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::IndexRange;
+using BLI::Map;
 using BLI::OwnedResources;
 using BLI::StringMap;
 using BLI::StringRef;
@@ -59,6 +60,9 @@ static MFDataType get_type_by_socket(const VirtualSocket &vsocket)
   }
   else if (idname == "fn_VectorSocket") {
     return MFDataType::ForSingle<float3>();
+  }
+  else if (idname == "fn_IntegerSocket") {
+    return MFDataType::ForSingle<int32_t>();
   }
   return MFDataType();
 }
@@ -317,6 +321,9 @@ using InsertVNodeFunction = std::function<void(
     VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VirtualNode &vnode)>;
 using InsertUnlinkedInputFunction = std::function<MFBuilderOutputSocket &(
     VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VirtualSocket &vsocket)>;
+using InsertImplicitConversionFunction =
+    std::function<std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *>(
+        VTreeMFNetworkBuilder &builder, OwnedResources &resources)>;
 
 static void INSERT_vector_math(VTreeMFNetworkBuilder &builder,
                                OwnedResources &resources,
@@ -325,6 +332,15 @@ static void INSERT_vector_math(VTreeMFNetworkBuilder &builder,
   auto function = BLI::make_unique<BKE::MultiFunction_AddFloat3s>();
   builder.add_function(*function, {0, 1}, {2}, vnode);
   resources.add(std::move(function), "vector math function");
+}
+
+static void INSERT_float_math(VTreeMFNetworkBuilder &builder,
+                              OwnedResources &resources,
+                              const VirtualNode &vnode)
+{
+  auto function = BLI::make_unique<BKE::MultiFunction_AddFloats>();
+  builder.add_function(*function, {0, 1}, {2}, vnode);
+  resources.add(std::move(function), "float math function");
 }
 
 static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder,
@@ -348,6 +364,7 @@ static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder,
 static StringMap<InsertVNodeFunction> get_node_inserters()
 {
   StringMap<InsertVNodeFunction> inserters;
+  inserters.add_new("fn_FloatMathNode", INSERT_float_math);
   inserters.add_new("fn_VectorMathNode", INSERT_vector_math);
   inserters.add_new("fn_CombineVectorNode", INSERT_combine_vector);
   inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
@@ -383,11 +400,44 @@ static MFBuilderOutputSocket &INSERT_float_socket(VTreeMFNetworkBuilder &builder
   return *node.outputs()[0];
 }
 
+static MFBuilderOutputSocket &INSERT_int_socket(VTreeMFNetworkBuilder &builder,
+                                                OwnedResources &resources,
+                                                const VirtualSocket &vsocket)
+{
+  PointerRNA rna = vsocket.rna();
+  int value = RNA_int_get(&rna, "value");
+
+  auto function = BLI::make_unique<BKE::MultiFunction_ConstantValue<int>>(value);
+  auto &node = builder.add_function(*function, {}, {0});
+
+  resources.add(std::move(function), "int input");
+  return *node.outputs()[0];
+}
+
 static StringMap<InsertUnlinkedInputFunction> get_unlinked_input_inserter()
 {
   StringMap<InsertUnlinkedInputFunction> inserters;
   inserters.add_new("fn_VectorSocket", INSERT_vector_socket);
   inserters.add_new("fn_FloatSocket", INSERT_float_socket);
+  inserters.add_new("fn_IntegerSocket", INSERT_int_socket);
+  return inserters;
+}
+
+template<typename FromT, typename ToT>
+static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert(
+    VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+{
+  auto function = BLI::make_unique<BKE::MultiFunction_Convert<FromT, ToT>>();
+  auto &node = builder.add_function(*function, {0}, {1});
+  resources.add(std::move(function), "converter function");
+  return {node.inputs()[0], node.outputs()[0]};
+}
+
+static Map<std::pair<std::string, std::string>, InsertImplicitConversionFunction>
+get_conversion_inserters()
+{
+  Map<std::pair<std::string, std::string>, InsertImplicitConversionFunction> inserters;
+  inserters.add_new({"fn_IntegerSocket", "fn_FloatSocket"}, INSERT_convert<int, float>);
   return inserters;
 }
 
@@ -412,8 +462,10 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder, OwnedResources &resourc
   return true;
 }
 
-static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &UNUSED(resources))
+static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &resources)
 {
+  auto conversion_inserters = get_conversion_inserters();
+
   for (const VirtualSocket *to_vsocket : builder.vtree().inputs_with_links()) {
     if (to_vsocket->links().size() > 1) {
       continue;
@@ -432,11 +484,19 @@ static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &UNUSED(
     auto &from_socket = builder.lookup_output_socket(*from_vsocket);
     auto &to_socket = builder.lookup_input_socket(*to_vsocket);
 
-    if (from_socket.type() != to_socket.type()) {
-      return false;
+    if (from_socket.type() == to_socket.type()) {
+      builder.add_link(from_socket, to_socket);
     }
-
-    builder.add_link(from_socket, to_socket);
+    else {
+      InsertImplicitConversionFunction *inserter = conversion_inserters.lookup_ptr(
+          {from_vsocket->idname(), to_vsocket->idname()});
+      if (inserter == nullptr) {
+        return false;
+      }
+      auto new_sockets = (*inserter)(builder, resources);
+      builder.add_link(from_socket, *new_sockets.first);
+      builder.add_link(*new_sockets.second, to_socket);
+    }
   }
 
   return true;
@@ -606,7 +666,8 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
 
   Vector<const MFOutputSocket *> function_inputs = {
       &vtree_network->lookup_socket(input_vnode.output(0)).as_output(),
-      &vtree_network->lookup_socket(input_vnode.output(1)).as_output()};
+      &vtree_network->lookup_socket(input_vnode.output(1)).as_output(),
+      &vtree_network->lookup_socket(input_vnode.output(2)).as_output()};
 
   Vector<const MFInputSocket *> function_outputs = {
       &vtree_network->lookup_socket(output_vnode.input(0)).as_input()};
@@ -617,6 +678,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   params.start_new(function.signature(), numVerts);
   params.add_readonly_array_ref(ArrayRef<float3>((float3 *)vertexCos, numVerts));
   params.add_readonly_single_ref(&fdmd->control1);
+  params.add_readonly_single_ref(&fdmd->control2);
 
   TemporaryVector<float3> output_vectors(numVerts);
   params.add_mutable_array_ref<float3>(output_vectors);
