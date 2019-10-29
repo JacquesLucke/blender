@@ -278,6 +278,17 @@ template<typename T> class ArrayRef {
     return false;
   }
 
+  uint first_index(const T &search_value) const
+  {
+    for (uint i = 0; i < m_size; i++) {
+      if (m_start[i] == search_value) {
+        return i;
+      }
+    }
+    BLI_assert(false);
+    return 0;
+  }
+
   /**
    * Get a new array ref to the same underlying memory buffer. No conversions are done.
    * Asserts when the sizes of the types don't match.

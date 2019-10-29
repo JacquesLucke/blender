@@ -274,3 +274,13 @@ TEST(array_ref, ContainsPtr)
   EXPECT_FALSE(a_ref.contains_ptr(&a[0] - 1));
   EXPECT_FALSE(a_ref.contains_ptr(&other));
 }
+
+TEST(array_ref, FirstIndex)
+{
+  std::array<int, 5> a = {4, 5, 4, 2, 5};
+  IntArrayRef a_ref(a);
+
+  EXPECT_EQ(a_ref.first_index(4), 0);
+  EXPECT_EQ(a_ref.first_index(5), 1);
+  EXPECT_EQ(a_ref.first_index(2), 3);
+}
