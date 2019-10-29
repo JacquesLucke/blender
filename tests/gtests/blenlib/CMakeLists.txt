@@ -78,6 +78,7 @@ BLENDER_TEST(BLI_task "bf_blenlib;bf_intern_numaapi")
 BLENDER_TEST(BLI_vector "bf_blenlib")
 BLENDER_TEST(BLI_vector_adaptor "bf_blenlib")
 BLENDER_TEST(BLI_vector_set "bf_blenlib")
+BLENDER_TEST(BLI_virtual_list_list_ref "bf_blenlib")
 BLENDER_TEST(BLI_virtual_list_ref "bf_blenlib")
 
 BLENDER_TEST_PERFORMANCE(BLI_ghash_performance "bf_blenlib")
