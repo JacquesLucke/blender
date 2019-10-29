@@ -19,47 +19,71 @@ using BLI::MutableArrayRef;
 
 class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
  private:
-  struct BufferSlice {
-    void *start;
-    uint length;
-    uint capacity;
-  };
-
   BLI::GuardedAllocator m_slices_allocator;
   MonotonicAllocator<> m_elements_allocator;
-  CPPType &m_type;
-  BufferSlice *m_slices;
+  const CPPType &m_type;
+  void **m_starts;
+  uint *m_lengths;
+  uint *m_capacities;
   uint m_array_size;
   uint m_element_size;
 
  public:
   GenericVectorArray() = delete;
 
-  GenericVectorArray(CPPType &type, uint array_size)
+  GenericVectorArray(const CPPType &type, uint array_size)
       : m_type(type), m_array_size(array_size), m_element_size(type.size())
   {
-    uint slices_size_in_bytes = sizeof(BufferSlice) * array_size;
-    m_slices = (BufferSlice *)m_slices_allocator.allocate(slices_size_in_bytes, __func__);
-    memset((void *)m_slices, 0, slices_size_in_bytes);
+    uint byte_size__starts = sizeof(void *) * array_size;
+    m_starts = (void **)m_slices_allocator.allocate(byte_size__starts, __func__);
+    memset((void *)m_starts, 0, byte_size__starts);
+
+    uint byte_size__lengths = sizeof(uint) * array_size;
+    m_lengths = (uint *)m_slices_allocator.allocate(byte_size__lengths, __func__);
+    memset((void *)m_lengths, 0, byte_size__lengths);
+
+    uint byte_size__capacities = sizeof(uint) * array_size;
+    m_capacities = (uint *)m_slices_allocator.allocate(byte_size__capacities, __func__);
+    memset((void *)m_capacities, 0, byte_size__capacities);
   }
 
   ~GenericVectorArray()
   {
     this->destruct_all_elements();
-    m_slices_allocator.deallocate((void *)m_slices);
+    m_slices_allocator.deallocate((void *)m_starts);
+    m_slices_allocator.deallocate((void *)m_lengths);
+    m_slices_allocator.deallocate((void *)m_capacities);
+  }
+
+  uint size() const
+  {
+    return m_array_size;
+  }
+
+  const CPPType &type() const
+  {
+    return m_type;
+  }
+
+  const void *const *starts() const
+  {
+    return m_starts;
+  }
+
+  const uint *lengths() const
+  {
+    return m_lengths;
   }
 
   void append_single__copy(uint index, const void *src)
   {
-    MutableArrayRef<BufferSlice> slices = this->slices();
-    BufferSlice &slice = slices[index];
-    if (slice.length == slice.capacity) {
-      this->grow_single(slice, slice.length + 1);
+    if (m_lengths[index] == m_capacities[index]) {
+      this->grow_single(index, m_lengths[index] + 1);
     }
 
-    void *dst = POINTER_OFFSET(slice.start, m_element_size * slice.length);
+    void *dst = POINTER_OFFSET(m_starts[index], m_element_size * m_lengths[index]);
     m_type.copy_to_uninitialized(src, dst);
-    slice.length++;
+    m_lengths[index]++;
   }
 
   void extend_single__copy(uint index, const GenericVirtualListRef &values)
@@ -80,8 +104,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
 
     ArrayRef<T> operator[](uint index) const
     {
-      const BufferSlice &slice = m_data->slices()[index];
-      return ArrayRef<T>((const T *)slice.start, slice.length);
+      return ArrayRef<T>((const T *)m_data->m_starts[index], m_data->m_lengths[index]);
     }
   };
 
@@ -101,8 +124,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
 
     MutableArrayRef<T> operator[](uint index) const
     {
-      const BufferSlice &slice = m_data->slices()[index];
-      return MutableArrayRef<T>((T *)slice.start, slice.length);
+      return MutableArrayRef<T>((T *)m_data->m_starts[index], m_data->m_lengths[index]);
     }
 
     void append_single(uint index, const T &value)
@@ -124,20 +146,20 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
   }
 
  private:
-  void grow_single(BufferSlice &slice, uint min_capacity)
+  void grow_single(uint index, uint min_capacity)
   {
-    BLI_assert(slice.capacity < min_capacity);
+    BLI_assert(m_capacities[index] < min_capacity);
     min_capacity = power_of_2_max_u(min_capacity);
     void *new_buffer = m_elements_allocator.allocate_aligned(m_element_size * min_capacity,
                                                              m_type.alignment());
 
-    for (uint i = 0; i < slice.length; i++) {
-      void *src = POINTER_OFFSET(slice.start, m_element_size * i);
+    for (uint i = 0; i < m_lengths[index]; i++) {
+      void *src = POINTER_OFFSET(m_starts[index], m_element_size * i);
       void *dst = POINTER_OFFSET(new_buffer, m_element_size * i);
       m_type.relocate_to_uninitialized(src, dst);
     }
 
-    slice.start = new_buffer;
+    m_starts[index] = new_buffer;
   }
 
   void destruct_all_elements()
@@ -146,22 +168,12 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
       return;
     }
 
-    for (const BufferSlice &slice : this->slices()) {
-      for (uint i = 0; i < slice.length; i++) {
-        void *ptr = POINTER_OFFSET(slice.start, m_element_size * i);
+    for (uint index = 0; index < m_array_size; index++) {
+      for (uint i = 0; i < m_lengths[index]; i++) {
+        void *ptr = POINTER_OFFSET(m_starts[index], m_element_size * i);
         m_type.destruct(ptr);
       }
     }
-  }
-
-  ArrayRef<BufferSlice> slices() const
-  {
-    return ArrayRef<BufferSlice>(m_slices, m_array_size);
-  }
-
-  MutableArrayRef<BufferSlice> slices()
-  {
-    return MutableArrayRef<BufferSlice>(m_slices, m_array_size);
   }
 };
 

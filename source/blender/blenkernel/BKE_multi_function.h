@@ -105,6 +105,11 @@ struct MFParamType {
     return m_category == ReadonlySingleInput;
   }
 
+  bool is_readonly_vector_input() const
+  {
+    return m_category == ReadonlyVectorInput;
+  }
+
   bool is_single_output() const
   {
     return m_category == SingleOutput;
@@ -502,6 +507,17 @@ class MFParamsBuilder {
   {
     m_virtual_list_refs.append(GenericVirtualListRef::FromSingle(
         tuple.info().type_at_index(index), tuple.element_ptr(index), m_min_array_size));
+  }
+
+  void add_readonly_vector_array_ref(const GenericVectorArray &vector_array)
+  {
+    m_virtual_list_list_refs.append(GenericVirtualListListRef::FromFullArrayList(
+        vector_array.type(), vector_array.starts(), vector_array.lengths(), vector_array.size()));
+  }
+
+  void add_vector_array(GenericVectorArray &vector_array)
+  {
+    m_vector_arrays.append(&vector_array);
   }
 
   template<typename T> void add_mutable_array_ref(ArrayRef<T> array)
