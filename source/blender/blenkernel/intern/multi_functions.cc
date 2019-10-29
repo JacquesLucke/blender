@@ -144,8 +144,9 @@ void MultiFunction_FloatArraySum::call(ArrayRef<uint> mask_indices,
 
   for (uint i : mask_indices) {
     float sum = 0.0f;
-    for (float value : arrays[i]) {
-      sum += value;
+    VirtualListRef<float> array = arrays[i];
+    for (uint j = 0; j < array.size(); j++) {
+      sum += array[j];
     }
     sums[i] = sum;
   }
@@ -214,7 +215,7 @@ void MultiFunction_GetListElement::call(ArrayRef<uint> mask_indices,
                                         MFParams &params,
                                         MFContext &UNUSED(context)) const
 {
-  GenericVectorArrayOrSingleRef lists = params.readonly_vector_input(0, "List");
+  GenericVirtualListListRef lists = params.readonly_vector_input(0, "List");
   VirtualListRef<int> indices = params.readonly_single_input<int>(1, "Index");
   GenericVirtualListRef fallbacks = params.readonly_single_input(2, "Fallback");
 
@@ -223,7 +224,7 @@ void MultiFunction_GetListElement::call(ArrayRef<uint> mask_indices,
   for (uint i : mask_indices) {
     int index = indices[i];
     if (index >= 0) {
-      GenericArrayRef list = lists[i];
+      GenericVirtualListRef list = lists[i];
       if (index < list.size()) {
         m_base_type.copy_to_uninitialized(list[index], output_values[i]);
         continue;
@@ -246,7 +247,7 @@ void MultiFunction_ListLength::call(ArrayRef<uint> mask_indices,
                                     MFParams &params,
                                     MFContext &UNUSED(context)) const
 {
-  GenericVectorArrayOrSingleRef lists = params.readonly_vector_input(0, "List");
+  GenericVirtualListListRef lists = params.readonly_vector_input(0, "List");
   MutableArrayRef<int> lengths = params.single_output<int>(1, "Length");
 
   for (uint i : mask_indices) {
@@ -268,7 +269,7 @@ void MultiFunction_CombineLists::call(ArrayRef<uint> mask_indices,
                                       MFContext &UNUSED(context)) const
 {
   GenericVectorArray &lists = params.mutable_vector(0, "List");
-  GenericVectorArrayOrSingleRef others = params.readonly_vector_input(1, "Other");
+  GenericVirtualListListRef others = params.readonly_vector_input(1, "Other");
 
   for (uint i : mask_indices) {
     lists.extend_single__copy(i, others[i]);

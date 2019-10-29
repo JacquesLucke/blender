@@ -1,5 +1,5 @@
-#ifndef __BKE_GENERIC_VIRTUAL_LIST_REF_REF_H__
-#define __BKE_GENERIC_VIRTUAL_LIST_REF_REF_H__
+#ifndef __BKE_GENERIC_VIRTUAL_LIST_REF_H__
+#define __BKE_GENERIC_VIRTUAL_LIST_REF_H__
 
 #include "BKE_cpp_types.h"
 
@@ -38,6 +38,14 @@ class GenericVirtualListRef {
   GenericVirtualListRef() = default;
 
  public:
+  GenericVirtualListRef(const CPPType &type)
+  {
+    m_virtual_size = 0;
+    m_type = &type;
+    m_category = Category::FullArray;
+    m_data.full_array.data = nullptr;
+  }
+
   static GenericVirtualListRef FromSingle(const CPPType &type,
                                           const void *buffer,
                                           uint virtual_size)
@@ -121,4 +129,4 @@ class GenericVirtualListRef {
 
 }  // namespace BKE
 
-#endif /* __BKE_GENERIC_VIRTUAL_LIST_REF_REF_H__ */
+#endif /* __BKE_GENERIC_VIRTUAL_LIST_REF_H__ */

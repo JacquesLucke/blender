@@ -4,6 +4,7 @@
 #include "BKE_generic_array_ref.h"
 #include "BKE_generic_vector_array.h"
 #include "BKE_generic_virtual_list_ref.h"
+#include "BKE_generic_virtual_list_list_ref.h"
 #include "BKE_tuple.h"
 
 #include "BLI_vector.h"
@@ -34,6 +35,16 @@ struct MFDataType {
   bool is_none() const
   {
     return m_category == Category::None;
+  }
+
+  bool is_single() const
+  {
+    return m_category == Category::Single;
+  }
+
+  bool is_vector() const
+  {
+    return m_category == Category::Vector;
   }
 
   Category category() const
@@ -178,7 +189,7 @@ class MFSignature {
   {
     uint array_or_single_refs = 0;
     uint mutable_array_refs = 0;
-    uint vector_array_or_single_refs = 0;
+    uint virtual_list_list_refs = 0;
     uint vector_arrays = 0;
     for (MFParamType param_type : m_param_types) {
       uint corrected_index = 0;
@@ -193,7 +204,7 @@ class MFSignature {
           corrected_index = mutable_array_refs++;
           break;
         case MFParamType::ReadonlyVectorInput:
-          corrected_index = vector_array_or_single_refs++;
+          corrected_index = virtual_list_list_refs++;
           break;
         case MFParamType::VectorOutput:
         case MFParamType::MutableVector:
@@ -362,12 +373,12 @@ class MFParams {
 
   MFParams(ArrayRef<GenericVirtualListRef> virtual_list_refs,
            ArrayRef<GenericMutableArrayRef> mutable_array_refs,
-           ArrayRef<GenericVectorArrayOrSingleRef> vector_array_or_single_refs,
+           ArrayRef<GenericVirtualListListRef> virtual_list_list_refs,
            ArrayRef<GenericVectorArray *> vector_arrays,
            const MFSignature &signature)
       : m_virtual_list_refs(virtual_list_refs),
         m_mutable_array_refs(mutable_array_refs),
-        m_vector_array_or_single_refs(vector_array_or_single_refs),
+        m_virtual_list_list_refs(virtual_list_list_refs),
         m_vector_arrays(vector_arrays),
         m_signature(&signature)
   {
@@ -400,18 +411,17 @@ class MFParams {
   }
 
   template<typename T>
-  const GenericVectorArrayOrSingleRef::TypedRef<T> readonly_vector_input(uint index,
-                                                                         StringRef name)
+  const VirtualListListRef<T> readonly_vector_input(uint index, StringRef name)
   {
     BLI_assert(m_signature->is_readonly_vector_input<T>(index, name));
     return this->readonly_vector_input(index, name).as_typed_ref<T>();
   }
-  GenericVectorArrayOrSingleRef readonly_vector_input(uint index, StringRef name)
+  GenericVirtualListListRef readonly_vector_input(uint index, StringRef name)
   {
     UNUSED_VARS_NDEBUG(name);
     BLI_assert(m_signature->is_readonly_vector_input(index, name));
     uint corrected_index = m_signature->get_corrected_index(index);
-    return m_vector_array_or_single_refs[corrected_index];
+    return m_virtual_list_list_refs[corrected_index];
   }
 
   template<typename T>
@@ -439,7 +449,7 @@ class MFParams {
  private:
   ArrayRef<GenericVirtualListRef> m_virtual_list_refs;
   ArrayRef<GenericMutableArrayRef> m_mutable_array_refs;
-  ArrayRef<GenericVectorArrayOrSingleRef> m_vector_array_or_single_refs;
+  ArrayRef<GenericVirtualListListRef> m_virtual_list_list_refs;
   ArrayRef<GenericVectorArray *> m_vector_arrays;
   const MFSignature *m_signature = nullptr;
 };
@@ -448,7 +458,7 @@ class MFParamsBuilder {
  private:
   Vector<GenericVirtualListRef> m_virtual_list_refs;
   Vector<GenericMutableArrayRef> m_mutable_array_refs;
-  Vector<GenericVectorArrayOrSingleRef> m_vector_array_or_single_refs;
+  Vector<GenericVirtualListListRef> m_virtual_list_list_refs;
   Vector<GenericVectorArray *> m_vector_arrays;
   const MFSignature *m_signature = nullptr;
   uint m_min_array_size;
@@ -465,7 +475,7 @@ class MFParamsBuilder {
 
     m_virtual_list_refs.clear();
     m_mutable_array_refs.clear();
-    m_vector_array_or_single_refs.clear();
+    m_virtual_list_list_refs.clear();
     m_vector_arrays.clear();
   }
 
@@ -511,7 +521,7 @@ class MFParamsBuilder {
     BLI_assert(m_signature != nullptr);
     m_params = MFParams(m_virtual_list_refs,
                         m_mutable_array_refs,
-                        m_vector_array_or_single_refs,
+                        m_virtual_list_list_refs,
                         m_vector_arrays,
                         *m_signature);
     return m_params;

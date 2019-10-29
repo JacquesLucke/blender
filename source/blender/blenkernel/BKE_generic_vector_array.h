@@ -4,6 +4,7 @@
 #include "BKE_cpp_type.h"
 #include "BKE_cpp_types.h"
 #include "BKE_generic_array_ref.h"
+#include "BKE_generic_virtual_list_list_ref.h"
 
 #include "BLI_array_ref.h"
 #include "BLI_index_range.h"
@@ -61,7 +62,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     slice.length++;
   }
 
-  void extend_single__copy(uint index, GenericArrayRef values)
+  void extend_single__copy(uint index, const GenericVirtualListRef &values)
   {
     for (uint i = 0; i < values.size(); i++) {
       this->append_single__copy(index, values[i]);
@@ -161,38 +162,6 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
   MutableArrayRef<BufferSlice> slices()
   {
     return MutableArrayRef<BufferSlice>(m_slices, m_array_size);
-  }
-};
-
-class GenericVectorArrayOrSingleRef {
- private:
-  CPPType *m_type;
-
- public:
-  GenericArrayRef operator[](uint UNUSED(index)) const
-  {
-    /* TODO */
-    return GenericArrayRef(*m_type);
-  }
-
-  template<typename T> class TypedRef {
-   private:
-    const GenericVectorArrayOrSingleRef *m_data;
-
-   public:
-    TypedRef(const GenericVectorArrayOrSingleRef &data) : m_data(&data)
-    {
-    }
-
-    ArrayRef<T> operator[](uint index)
-    {
-      return (*m_data)[index].get_ref<T>();
-    }
-  };
-
-  template<typename T> TypedRef<T> as_typed_ref() const
-  {
-    return TypedRef<T>(*this);
   }
 };
 
