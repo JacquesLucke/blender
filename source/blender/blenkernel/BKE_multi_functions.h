@@ -83,6 +83,19 @@ class MultiFunction_CombineLists final : public MultiFunction {
   void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
 };
 
+class MultiFunction_PackList final : public MultiFunction {
+ private:
+  const CPPType &m_base_type;
+  Vector<bool> m_input_list_status;
+
+ public:
+  MultiFunction_PackList(const CPPType &base_type, ArrayRef<bool> input_list_status);
+  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+
+ private:
+  bool input_is_list(uint index) const;
+};
+
 template<typename T> class MultiFunction_ConstantValue : public MultiFunction {
  private:
   T m_value;

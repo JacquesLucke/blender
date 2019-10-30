@@ -424,6 +424,61 @@ static void INSERT_list_length(VTreeMFNetworkBuilder &builder,
   resources.add(std::move(function), "list length function");
 }
 
+static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builder,
+                                                   OwnedResources &resources,
+                                                   const VirtualNode &vnode,
+                                                   const CPPType &base_type,
+                                                   const char *prop_name,
+                                                   uint start_index)
+{
+  PointerRNA rna = vnode.rna();
+
+  Vector<bool> input_is_list;
+  RNA_BEGIN (&rna, itemptr, prop_name) {
+    int state = RNA_enum_get(&itemptr, "state");
+    if (state == 0) {
+      /* single value case */
+      input_is_list.append(false);
+    }
+    else if (state == 1) {
+      /* list case */
+      input_is_list.append(true);
+    }
+    else {
+      BLI_assert(false);
+    }
+  }
+  RNA_END;
+
+  uint input_amount = input_is_list.size();
+  uint output_param_index = (input_amount > 0 && input_is_list[0]) ? 0 : input_amount;
+
+  auto function = BLI::make_unique<BKE::MultiFunction_PackList>(base_type, input_is_list);
+  MFBuilderFunctionNode &node = builder.add_function(
+      *function, IndexRange(input_amount).as_array_ref(), {output_param_index});
+  resources.add(std::move(function), "pack list function");
+
+  for (uint i = 0; i < input_amount; i++) {
+    builder.map_sockets(vnode.input(start_index + i), *node.inputs()[i]);
+  }
+
+  return *node.outputs()[0];
+}
+
+static void INSERT_pack_list(VTreeMFNetworkBuilder &builder,
+                             OwnedResources &resources,
+                             const VirtualNode &vnode)
+{
+  PointerRNA rna = vnode.rna();
+  char *type_name = RNA_string_get_alloc(&rna, "active_type", nullptr, 0);
+  const CPPType &type = get_cpp_type_by_name(type_name);
+  MEM_freeN(type_name);
+
+  MFBuilderOutputSocket &packed_list_socket = build_pack_list_node(
+      builder, resources, vnode, type, "variadic", 0);
+  builder.map_sockets(vnode.output(0), packed_list_socket);
+}
+
 static StringMap<InsertVNodeFunction> get_node_inserters()
 {
   StringMap<InsertVNodeFunction> inserters;
@@ -433,6 +488,7 @@ static StringMap<InsertVNodeFunction> get_node_inserters()
   inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
   inserters.add_new("fn_AppendToListNode", INSERT_append_to_list);
   inserters.add_new("fn_ListLengthNode", INSERT_list_length);
+  inserters.add_new("fn_PackListNode", INSERT_pack_list);
   return inserters;
 }
 
@@ -820,11 +876,6 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
     }
 
     while (!sockets_to_compute.empty()) {
-      for (const MFSocket *socket : sockets_to_compute) {
-        std::cout << socket->id() << ", ";
-      }
-      std::cout << "\n";
-
       const MFSocket &socket = *sockets_to_compute.peek();
 
       if (socket.is_input()) {

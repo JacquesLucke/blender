@@ -200,6 +200,83 @@ void MultiFunction_AppendToList::call(ArrayRef<uint> mask_indices,
   }
 }
 
+MultiFunction_PackList::MultiFunction_PackList(const CPPType &base_type,
+                                               ArrayRef<bool> input_list_status)
+    : m_base_type(base_type), m_input_list_status(input_list_status)
+{
+  MFSignatureBuilder signature;
+  if (m_input_list_status.size() == 0) {
+    /* Output just an empty list. */
+    signature.vector_output("List", m_base_type);
+  }
+  else if (this->input_is_list(0)) {
+    /* Extend the first incoming list. */
+    signature.mutable_vector("List", m_base_type);
+    for (uint i = 1; i < m_input_list_status.size(); i++) {
+      if (this->input_is_list(i)) {
+        signature.readonly_vector_input("List", m_base_type);
+      }
+      else {
+        signature.readonly_single_input("Value", m_base_type);
+      }
+    }
+  }
+  else {
+    /* Create a new list and append everything. */
+    for (uint i = 0; i < m_input_list_status.size(); i++) {
+      if (this->input_is_list(i)) {
+        signature.readonly_vector_input("List", m_base_type);
+      }
+      else {
+        signature.readonly_single_input("Value", m_base_type);
+      }
+    }
+    signature.vector_output("List", m_base_type);
+  }
+  this->set_signature(signature);
+}
+
+void MultiFunction_PackList::call(ArrayRef<uint> mask_indices,
+                                  MFParams &params,
+                                  MFContext &UNUSED(context)) const
+{
+  GenericVectorArray *vector_array;
+  bool is_mutating_first_list;
+  if (m_input_list_status.size() == 0) {
+    vector_array = &params.vector_output(0, "List");
+    is_mutating_first_list = false;
+  }
+  else if (this->input_is_list(0)) {
+    vector_array = &params.mutable_vector(0, "List");
+    is_mutating_first_list = true;
+  }
+  else {
+    vector_array = &params.vector_output(m_input_list_status.size(), "List");
+    is_mutating_first_list = false;
+  }
+
+  uint first_index = is_mutating_first_list ? 1 : 0;
+  for (uint input_index = first_index; input_index < m_input_list_status.size(); input_index++) {
+    if (this->input_is_list(input_index)) {
+      GenericVirtualListListRef list = params.readonly_vector_input(input_index, "List");
+      for (uint i : mask_indices) {
+        vector_array->extend_single__copy(i, list[i]);
+      }
+    }
+    else {
+      GenericVirtualListRef list = params.readonly_single_input(input_index, "Value");
+      for (uint i : mask_indices) {
+        vector_array->append_single__copy(i, list[i]);
+      }
+    }
+  }
+}
+
+bool MultiFunction_PackList::input_is_list(uint index) const
+{
+  return m_input_list_status[index];
+}
+
 MultiFunction_GetListElement::MultiFunction_GetListElement(const CPPType &base_type)
     : m_base_type(base_type)
 {
