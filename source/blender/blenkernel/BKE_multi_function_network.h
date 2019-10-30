@@ -211,8 +211,8 @@ class MFFunctionNode : public MFNode {
  public:
   const MultiFunction &function() const;
 
-  uint input_param_index(uint input_socket_index) const;
-  uint output_param_index(uint output_socket_index) const;
+  ArrayRef<uint> input_param_indices() const;
+  ArrayRef<uint> output_param_indices() const;
 };
 
 class MFPlaceholderNode : public MFNode {
@@ -441,14 +441,14 @@ inline const MultiFunction &MFFunctionNode::function() const
   return *m_function;
 }
 
-inline uint MFFunctionNode::input_param_index(uint input_socket_index) const
+inline ArrayRef<uint> MFFunctionNode::input_param_indices() const
 {
-  return m_input_param_indices[input_socket_index];
+  return m_input_param_indices;
 }
 
-inline uint MFFunctionNode::output_param_index(uint output_socket_index) const
+inline ArrayRef<uint> MFFunctionNode::output_param_indices() const
 {
-  return m_output_param_indices[output_socket_index];
+  return m_output_param_indices;
 }
 
 inline const MFNode &MFSocket::node() const

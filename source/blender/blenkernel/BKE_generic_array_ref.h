@@ -64,22 +64,26 @@ class GenericMutableArrayRef {
   uint m_size;
 
  public:
-  GenericMutableArrayRef(const CPPType *type) : GenericMutableArrayRef(type, nullptr, 0)
+  GenericMutableArrayRef(const CPPType &type) : GenericMutableArrayRef(type, nullptr, 0)
   {
   }
 
-  GenericMutableArrayRef(const CPPType *type, void *buffer, uint size)
-      : m_type(type), m_buffer(buffer), m_size(size)
+  GenericMutableArrayRef(const CPPType &type, void *buffer, uint size)
+      : m_type(&type), m_buffer(buffer), m_size(size)
   {
-    BLI_assert(type != nullptr);
     BLI_assert(buffer != nullptr || size == 0);
-    BLI_assert(type->pointer_has_valid_alignment(buffer));
+    BLI_assert(type.pointer_has_valid_alignment(buffer));
   }
 
   template<typename T>
   GenericMutableArrayRef(ArrayRef<T> array)
-      : GenericMutableArrayRef(&GET_TYPE<T>(), (void *)array.begin(), array.size())
+      : GenericMutableArrayRef(GET_TYPE<T>(), (void *)array.begin(), array.size())
   {
+  }
+
+  operator GenericArrayRef() const
+  {
+    return GenericArrayRef(*m_type, m_buffer, m_size);
   }
 
   void destruct_all()

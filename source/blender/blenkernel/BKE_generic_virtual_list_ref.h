@@ -2,6 +2,7 @@
 #define __BKE_GENERIC_VIRTUAL_LIST_REF_H__
 
 #include "BKE_cpp_types.h"
+#include "BKE_generic_array_ref.h"
 
 #include "BLI_virtual_list_ref.h"
 
@@ -44,6 +45,19 @@ class GenericVirtualListRef {
     m_type = &type;
     m_category = Category::FullArray;
     m_data.full_array.data = nullptr;
+  }
+
+  GenericVirtualListRef(GenericArrayRef array)
+  {
+    m_virtual_size = array.size();
+    m_type = &array.type();
+    m_category = FullArray;
+    m_data.full_array.data = array.buffer();
+  }
+
+  GenericVirtualListRef(GenericMutableArrayRef array)
+      : GenericVirtualListRef(GenericArrayRef(array))
+  {
   }
 
   static GenericVirtualListRef FromSingle(const CPPType &type,

@@ -110,6 +110,11 @@ struct MFParamType {
     return m_category == ReadonlyVectorInput;
   }
 
+  bool is_mutable_vector() const
+  {
+    return m_category == MutableVector;
+  }
+
   bool is_single_output() const
   {
     return m_category == SingleOutput;
@@ -484,52 +489,52 @@ class MFParamsBuilder {
     m_vector_arrays.clear();
   }
 
-  template<typename T> void add_readonly_array_ref(ArrayRef<T> array)
+  template<typename T> void add_readonly_single_input(ArrayRef<T> array)
   {
     BLI_assert(array.size() >= m_min_array_size);
     m_virtual_list_refs.append(GenericVirtualListRef::FromFullArray<T>(array));
   }
 
-  template<typename T> void add_readonly_single_ref(const T *value)
+  template<typename T> void add_readonly_single_input(const T *value)
   {
     m_virtual_list_refs.append(
         GenericVirtualListRef::FromSingle(GET_TYPE<T>(), (void *)value, m_min_array_size));
   }
 
-  void add_readonly_array_ref(GenericMutableArrayRef array)
+  void add_readonly_single_input(GenericVirtualListRef list)
+  {
+    BLI_assert(list.size() >= m_min_array_size);
+    m_virtual_list_refs.append(list);
+  }
+
+  void add_readonly_vector_input(GenericVirtualListListRef list)
+  {
+    BLI_assert(list.size() >= m_min_array_size);
+    m_virtual_list_list_refs.append(list);
+  }
+
+  void add_single_output(GenericMutableArrayRef array)
   {
     BLI_assert(array.size() >= m_min_array_size);
-    m_virtual_list_refs.append(
-        GenericVirtualListRef::FromFullArray(array.type(), array.buffer(), array.size()));
+    m_mutable_array_refs.append(array);
   }
 
-  void add_readonly_single_ref(TupleRef tuple, uint index)
+  void add_vector_output(GenericVectorArray &vector_array)
   {
-    m_virtual_list_refs.append(GenericVirtualListRef::FromSingle(
-        tuple.info().type_at_index(index), tuple.element_ptr(index), m_min_array_size));
-  }
-
-  void add_readonly_vector_array_ref(const GenericVectorArray &vector_array)
-  {
-    m_virtual_list_list_refs.append(GenericVirtualListListRef::FromFullArrayList(
-        vector_array.type(), vector_array.starts(), vector_array.lengths(), vector_array.size()));
-  }
-
-  void add_vector_array(GenericVectorArray &vector_array)
-  {
+    BLI_assert(vector_array.size() >= m_min_array_size);
     m_vector_arrays.append(&vector_array);
   }
 
-  template<typename T> void add_mutable_array_ref(ArrayRef<T> array)
+  template<typename T> void add_single_output(ArrayRef<T> array)
   {
     BLI_assert(array.size() >= m_min_array_size);
     m_mutable_array_refs.append(GenericMutableArrayRef(array));
   }
 
-  void add_mutable_array_ref(GenericMutableArrayRef array)
+  void add_mutable_vector(GenericVectorArray &vector_array)
   {
-    BLI_assert(array.size() >= m_min_array_size);
-    m_mutable_array_refs.append(array);
+    BLI_assert(vector_array.size() >= m_min_array_size);
+    m_vector_arrays.append(&vector_array);
   }
 
   MFParams &build()

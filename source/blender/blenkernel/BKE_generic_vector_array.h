@@ -55,6 +55,11 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     m_slices_allocator.deallocate((void *)m_capacities);
   }
 
+  operator GenericVirtualListListRef() const
+  {
+    return GenericVirtualListListRef::FromFullArrayList(m_type, m_starts, m_lengths, m_array_size);
+  }
+
   uint size() const
   {
     return m_array_size;
@@ -91,6 +96,12 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     for (uint i = 0; i < values.size(); i++) {
       this->append_single__copy(index, values[i]);
     }
+  }
+
+  GenericArrayRef operator[](uint index) const
+  {
+    BLI_assert(index < m_array_size);
+    return GenericArrayRef(m_type, m_starts[index], m_lengths[index]);
   }
 
   template<typename T> class TypedRef {

@@ -71,6 +71,11 @@ class GenericVirtualListListRef {
         type, starts.begin(), array_sizes.begin(), starts.size());
   }
 
+  uint size() const
+  {
+    return m_virtual_list_size;
+  }
+
   GenericVirtualListRef operator[](uint index) const
   {
     BLI_assert(index < m_virtual_list_size);

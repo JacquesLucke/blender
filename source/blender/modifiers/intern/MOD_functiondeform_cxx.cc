@@ -8,10 +8,16 @@
 #include "BLI_math_cxx.h"
 #include "BLI_string_map.h"
 #include "BLI_owned_resources.h"
+#include "BLI_stack_cxx.h"
 
 #include "DEG_depsgraph_query.h"
 
 using BKE::CPPType;
+using BKE::GenericArrayRef;
+using BKE::GenericMutableArrayRef;
+using BKE::GenericVectorArray;
+using BKE::GenericVirtualListListRef;
+using BKE::GenericVirtualListRef;
 using BKE::MFBuilderFunctionNode;
 using BKE::MFBuilderInputSocket;
 using BKE::MFBuilderNode;
@@ -20,6 +26,7 @@ using BKE::MFBuilderPlaceholderNode;
 using BKE::MFBuilderSocket;
 using BKE::MFContext;
 using BKE::MFDataType;
+using BKE::MFFunctionNode;
 using BKE::MFInputSocket;
 using BKE::MFNetwork;
 using BKE::MFNetworkBuilder;
@@ -27,6 +34,8 @@ using BKE::MFNode;
 using BKE::MFOutputSocket;
 using BKE::MFParams;
 using BKE::MFParamsBuilder;
+using BKE::MFParamType;
+using BKE::MFPlaceholderNode;
 using BKE::MFSignature;
 using BKE::MFSignatureBuilder;
 using BKE::MFSocket;
@@ -42,6 +51,7 @@ using BLI::float3;
 using BLI::IndexRange;
 using BLI::Map;
 using BLI::OwnedResources;
+using BLI::Stack;
 using BLI::StringMap;
 using BLI::StringRef;
 using BLI::TemporaryVector;
@@ -543,13 +553,125 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
   {
     MFSignatureBuilder signature;
     for (auto socket : m_inputs) {
-      signature.readonly_single_input("Input", socket->type().type());
+      BLI_assert(socket->node().is_placeholder());
+
+      MFDataType type = socket->type();
+      switch (type.category()) {
+        case MFDataType::Single:
+          signature.readonly_single_input("Input", type.type());
+          break;
+        case MFDataType::Vector:
+          signature.readonly_vector_input("Input", type.base_type());
+          break;
+        case MFDataType::None:
+          BLI_assert(false);
+          break;
+      }
     }
     for (auto socket : m_outputs) {
-      signature.single_output("Output", socket->type().type());
+      BLI_assert(socket->node().is_placeholder());
+
+      MFDataType type = socket->type();
+      switch (type.category()) {
+        case MFDataType::Single:
+          signature.single_output("Output", type.type());
+          break;
+        case MFDataType::Vector:
+          signature.vector_output("Output", type.base_type());
+          break;
+        case MFDataType::None:
+          BLI_assert(false);
+          break;
+      }
     }
     this->set_signature(signature);
   }
+
+  class Storage {
+   private:
+    Vector<GenericVectorArray *> m_vector_arrays;
+    Vector<GenericMutableArrayRef> m_arrays;
+    Map<uint, GenericVectorArray *> m_vector_per_socket;
+    Map<uint, GenericVirtualListRef> m_virtual_list_for_inputs;
+    Map<uint, GenericVirtualListListRef> m_virtual_list_list_for_inputs;
+
+   public:
+    Storage() = default;
+
+    ~Storage()
+    {
+      for (GenericVectorArray *vector_array : m_vector_arrays) {
+        delete vector_array;
+      }
+      for (GenericMutableArrayRef array : m_arrays) {
+        MEM_freeN(array.buffer());
+      }
+    }
+
+    void take_array_ref_ownership(GenericMutableArrayRef array)
+    {
+      m_arrays.append(array);
+    }
+
+    void take_vector_array_ownership(GenericVectorArray *vector_array)
+    {
+      m_vector_arrays.append(vector_array);
+    }
+
+    void take_vector_array_ownership__not_twice(GenericVectorArray *vector_array)
+    {
+      if (!m_vector_arrays.contains(vector_array)) {
+        m_vector_arrays.append(vector_array);
+      }
+    }
+
+    void set_virtual_list_for_input__non_owning(const MFInputSocket &socket,
+                                                GenericVirtualListRef list)
+    {
+      m_virtual_list_for_inputs.add_new(socket.id(), list);
+    }
+
+    void set_virtual_list_list_for_input__non_owning(const MFInputSocket &socket,
+                                                     GenericVirtualListListRef list)
+    {
+      m_virtual_list_list_for_inputs.add_new(socket.id(), list);
+    }
+
+    void set_vector_array_for_input__non_owning(const MFInputSocket &socket,
+                                                GenericVectorArray *vector_array)
+    {
+      m_vector_per_socket.add_new(socket.id(), vector_array);
+    }
+
+    GenericVirtualListRef get_virtual_list_for_input(const MFInputSocket &socket) const
+    {
+      return m_virtual_list_for_inputs.lookup(socket.id());
+    }
+
+    GenericVirtualListListRef get_virtual_list_list_for_input(const MFInputSocket &socket) const
+    {
+      return m_virtual_list_list_for_inputs.lookup(socket.id());
+    }
+
+    GenericVectorArray &get_vector_array_for_input(const MFInputSocket &socket) const
+    {
+      return *m_vector_per_socket.lookup(socket.id());
+    }
+
+    bool input_is_computed(const MFInputSocket &socket) const
+    {
+      switch (socket.type().category()) {
+        case MFDataType::Single:
+          return m_virtual_list_for_inputs.contains(socket.id());
+        case MFDataType::Vector:
+          return m_virtual_list_list_for_inputs.contains(socket.id());
+        case MFDataType::None:
+          break;
+      }
+      BLI_assert(false);
+      return false;
+    }
+  };
 
   void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override
   {
@@ -557,82 +679,265 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
       return;
     }
 
-    for (uint output_index = 0; output_index < m_outputs.size(); output_index++) {
-      uint output_param_index = output_index + m_inputs.size();
-      BKE::GenericMutableArrayRef output_array = params.single_output(output_param_index,
-                                                                      "Output");
+    Storage storage;
+    this->copy_inputs_to_storage(params, storage);
+    this->evaluate_network_to_compute_outputs(mask_indices, context, storage);
+    this->copy_computed_values_to_outputs(mask_indices, params, storage);
+  }
 
-      this->compute_output(
-          mask_indices, params, context, m_outputs[output_index]->origin(), output_array);
+ private:
+  BLI_NOINLINE void copy_inputs_to_storage(MFParams &params, Storage &storage) const
+  {
+    for (uint i = 0; i < m_inputs.size(); i++) {
+      const MFOutputSocket &socket = *m_inputs[i];
+      switch (socket.type().category()) {
+        case MFDataType::Single: {
+          GenericVirtualListRef input_list = params.readonly_single_input(i, "Input");
+          for (const MFInputSocket *target : socket.targets()) {
+            storage.set_virtual_list_for_input__non_owning(*target, input_list);
+          }
+          break;
+        }
+        case MFDataType::Vector: {
+          GenericVirtualListListRef input_list_list = params.readonly_vector_input(i, "Input");
+          for (const MFInputSocket *target : socket.targets()) {
+            const MFNode &target_node = target->node();
+            if (target_node.is_function()) {
+              const MFFunctionNode &target_function_node = target_node.as_function();
+              uint param_index = target_function_node.input_param_indices()[target->index()];
+              MFParamType param_type =
+                  target_function_node.function().signature().param_types()[param_index];
+
+              if (param_type.is_readonly_vector_input()) {
+                storage.set_virtual_list_list_for_input__non_owning(*target, input_list_list);
+              }
+              else if (param_type.is_mutable_vector()) {
+                GenericVectorArray *vector_array = new GenericVectorArray(param_type.base_type(),
+                                                                          input_list_list.size());
+                for (uint i = 0; i < input_list_list.size(); i++) {
+                  vector_array->extend_single__copy(i, input_list_list[i]);
+                }
+                storage.set_vector_array_for_input__non_owning(*target, vector_array);
+                storage.take_vector_array_ownership(vector_array);
+              }
+              else {
+                BLI_assert(false);
+              }
+            }
+            else {
+              storage.set_virtual_list_list_for_input__non_owning(*target, input_list_list);
+            }
+          }
+          break;
+        }
+        case MFDataType::None: {
+          BLI_assert(false);
+          break;
+        }
+      }
     }
   }
 
-  void compute_output(ArrayRef<uint> mask_indices,
-                      MFParams &global_params,
-                      MFContext &context,
-                      const BKE::MFOutputSocket &socket_to_compute,
-                      BKE::GenericMutableArrayRef result) const
+  BLI_NOINLINE void evaluate_network_to_compute_outputs(ArrayRef<uint> mask_indices,
+                                                        MFContext &global_context,
+                                                        Storage &storage) const
   {
-    auto &current_node = socket_to_compute.node().as_function();
-    uint output_index = socket_to_compute.index();
+    Stack<const MFSocket *> sockets_to_compute;
 
-    if (m_inputs.contains(&socket_to_compute)) {
-      auto input_values = global_params.readonly_single_input(output_index, "Input");
-
-      for (uint i : mask_indices) {
-        result.copy_in__uninitialized(i, input_values[i]);
-      }
-
-      return;
+    for (const MFInputSocket *input_socket : m_outputs) {
+      sockets_to_compute.push(input_socket);
     }
 
-    auto &node_function = current_node.function();
+    while (!sockets_to_compute.empty()) {
+      const MFSocket &socket = *sockets_to_compute.peek();
 
-    MFParamsBuilder params;
-    uint array_size = result.size();
-    params.start_new(node_function.signature(), array_size);
-
-    Vector<BKE::GenericMutableArrayRef> temporary_input_buffers;
-
-    for (auto input_socket : current_node.inputs()) {
-      const CPPType &type = input_socket->type().type();
-      void *buffer = MEM_mallocN_aligned(array_size * type.size(), type.alignment(), __func__);
-
-      BKE::GenericMutableArrayRef array_ref{&type, buffer, array_size};
-      temporary_input_buffers.append(array_ref);
-      auto &origin = input_socket->origin();
-      this->compute_output(mask_indices, global_params, context, origin, array_ref);
-      params.add_readonly_array_ref(array_ref);
-    }
-
-    Vector<BKE::GenericMutableArrayRef> temporary_output_buffers;
-    {
-      for (auto output_socket : current_node.outputs()) {
-        if (output_socket == &socket_to_compute) {
-          params.add_mutable_array_ref(result);
+      if (socket.is_input()) {
+        const MFInputSocket &input_socket = socket.as_input();
+        if (storage.input_is_computed(input_socket)) {
+          sockets_to_compute.pop();
         }
         else {
-          const CPPType &type = output_socket->type().type();
-          void *buffer = MEM_mallocN_aligned(type.size() * array_size, type.alignment(), __func__);
-          BKE::GenericMutableArrayRef array_ref{&type, buffer, array_size};
-          params.add_mutable_array_ref(array_ref);
-          temporary_output_buffers.append(array_ref);
+          const MFOutputSocket &origin = input_socket.origin();
+          sockets_to_compute.push(&origin);
+        }
+      }
+      else {
+        const MFOutputSocket &output_socket = socket.as_output();
+        const MFFunctionNode &function_node = output_socket.node().as_function();
+
+        uint not_computed_inputs_amount = 0;
+        for (const MFInputSocket *input_socket : function_node.inputs()) {
+          if (!storage.input_is_computed(*input_socket)) {
+            not_computed_inputs_amount++;
+            sockets_to_compute.push(input_socket);
+          }
+        }
+
+        bool all_inputs_are_computed = not_computed_inputs_amount == 0;
+        if (all_inputs_are_computed) {
+          this->compute_and_forward_outputs(mask_indices, global_context, function_node, storage);
+          sockets_to_compute.pop();
+        }
+      }
+    }
+  }
+
+  BLI_NOINLINE void compute_and_forward_outputs(ArrayRef<uint> mask_indices,
+                                                MFContext &global_context,
+                                                const MFFunctionNode &function_node,
+                                                Storage &storage) const
+  {
+    uint array_size = mask_indices.last() + 1;
+
+    MFParamsBuilder params_builder;
+    params_builder.start_new(function_node.function().signature(), array_size);
+
+    Vector<std::pair<const MFOutputSocket *, GenericMutableArrayRef>> single_outputs_to_forward;
+    Vector<std::pair<const MFOutputSocket *, GenericVectorArray *>> vector_outputs_to_forward;
+
+    ArrayRef<MFParamType> param_types = function_node.function().signature().param_types();
+
+    for (uint param_index = 0; param_index < param_types.size(); param_index++) {
+      MFParamType param_type = param_types[param_index];
+      switch (param_type.category()) {
+        case MFParamType::None: {
+          BLI_assert(false);
+          break;
+        }
+        case MFParamType::ReadonlySingleInput: {
+          uint input_socket_index = function_node.input_param_indices().first_index(param_index);
+          const MFInputSocket &input_socket = *function_node.inputs()[input_socket_index];
+          GenericVirtualListRef values = storage.get_virtual_list_for_input(input_socket);
+          params_builder.add_readonly_single_input(values);
+          break;
+        }
+        case MFParamType::ReadonlyVectorInput: {
+          uint input_socket_index = function_node.input_param_indices().first_index(param_index);
+          const MFInputSocket &input_socket = *function_node.inputs()[input_socket_index];
+          GenericVirtualListListRef values = storage.get_virtual_list_list_for_input(input_socket);
+          params_builder.add_readonly_vector_input(values);
+          break;
+        }
+        case MFParamType::SingleOutput: {
+          uint output_socket_index = function_node.output_param_indices().first_index(param_index);
+          const MFOutputSocket &output_socket = *function_node.outputs()[output_socket_index];
+          GenericMutableArrayRef values_destination = this->allocate_array(
+              output_socket.type().type(), array_size);
+          params_builder.add_single_output(values_destination);
+          single_outputs_to_forward.append({&output_socket, values_destination});
+          break;
+        }
+        case MFParamType::VectorOutput: {
+          uint output_socket_index = function_node.output_param_indices().first_index(param_index);
+          const MFOutputSocket &output_socket = *function_node.outputs()[output_socket_index];
+          auto *values_destination = new GenericVectorArray(output_socket.type().base_type(),
+                                                            array_size);
+          params_builder.add_vector_output(*values_destination);
+          vector_outputs_to_forward.append({&output_socket, values_destination});
+          break;
+        }
+        case MFParamType::MutableVector: {
+          uint input_socket_index = function_node.input_param_indices().first_index(param_index);
+          const MFInputSocket &input_socket = *function_node.inputs()[input_socket_index];
+
+          uint output_socket_index = function_node.output_param_indices().first_index(param_index);
+          const MFOutputSocket &output_socket = *function_node.outputs()[output_socket_index];
+
+          GenericVectorArray &values = storage.get_vector_array_for_input(input_socket);
+          params_builder.add_mutable_vector(values);
+          vector_outputs_to_forward.append({&output_socket, &values});
+          break;
         }
       }
     }
 
-    node_function.call(mask_indices, params.build(), context);
+    MFParams &params = params_builder.build();
+    const MultiFunction &function = function_node.function();
+    function.call(mask_indices, params, global_context);
 
-    {
-      for (auto array_ref : temporary_input_buffers) {
-        array_ref.destruct_all();
-        MEM_freeN(array_ref.buffer());
-      }
-      for (auto array_ref : temporary_output_buffers) {
-        array_ref.destruct_all();
-        MEM_freeN(array_ref.buffer());
+    for (auto single_forward_info : single_outputs_to_forward) {
+      const MFOutputSocket &output_socket = *single_forward_info.first;
+      GenericMutableArrayRef values = single_forward_info.second;
+      storage.take_array_ref_ownership(values);
+
+      for (const MFInputSocket *target : output_socket.targets()) {
+        storage.set_virtual_list_for_input__non_owning(*target, values);
       }
     }
+
+    for (auto vector_forward_info : vector_outputs_to_forward) {
+      const MFOutputSocket &output_socket = *vector_forward_info.first;
+      GenericVectorArray *values = vector_forward_info.second;
+      storage.take_vector_array_ownership__not_twice(values);
+
+      for (const MFInputSocket *target : output_socket.targets()) {
+        const MFNode &target_node = target->node();
+        if (target_node.is_function()) {
+          const MFFunctionNode &target_function_node = target_node.as_function();
+          uint param_index = target_function_node.input_param_indices()[target->index()];
+          MFParamType param_type =
+              target_function_node.function().signature().param_types()[param_index];
+
+          if (param_type.is_readonly_vector_input()) {
+            storage.set_virtual_list_list_for_input__non_owning(*target, *values);
+          }
+          else if (param_type.is_mutable_vector()) {
+            GenericVectorArray *copied_values = new GenericVectorArray(values->type(),
+                                                                       values->size());
+            for (uint i = 0; i < values->size(); i++) {
+              copied_values->extend_single__copy(i, (*values)[i]);
+            }
+            storage.take_vector_array_ownership(copied_values);
+            storage.set_vector_array_for_input__non_owning(*target, copied_values);
+          }
+          else {
+            BLI_assert(false);
+          }
+        }
+        else if (m_outputs.contains(target)) {
+          storage.set_vector_array_for_input__non_owning(*target, values);
+        }
+      }
+    }
+  }
+
+  BLI_NOINLINE void copy_computed_values_to_outputs(ArrayRef<uint> mask_indices,
+                                                    MFParams &params,
+                                                    Storage &storage) const
+  {
+    for (uint output_index = 0; output_index < m_outputs.size(); output_index++) {
+      uint global_param_index = m_inputs.size() + output_index;
+      const MFInputSocket &socket = *m_outputs[output_index];
+      switch (socket.type().category()) {
+        case MFDataType::None: {
+          BLI_assert(false);
+          break;
+        }
+        case MFDataType::Single: {
+          GenericVirtualListRef values = storage.get_virtual_list_for_input(socket);
+          GenericMutableArrayRef output_values = params.single_output(global_param_index,
+                                                                      "Output");
+          for (uint i : mask_indices) {
+            output_values.copy_in__uninitialized(i, values[i]);
+          }
+          break;
+        }
+        case MFDataType::Vector: {
+          GenericVirtualListListRef values = storage.get_virtual_list_list_for_input(socket);
+          GenericVectorArray &output_values = params.vector_output(global_param_index, "Output");
+          for (uint i : mask_indices) {
+            output_values.extend_single__copy(i, values[i]);
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  GenericMutableArrayRef allocate_array(const CPPType &type, uint size) const
+  {
+    void *buffer = MEM_malloc_arrayN(size, type.size(), __func__);
+    return GenericMutableArrayRef(type, buffer, size);
   }
 };
 
@@ -676,12 +981,12 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
 
   MFParamsBuilder params;
   params.start_new(function.signature(), numVerts);
-  params.add_readonly_array_ref(ArrayRef<float3>((float3 *)vertexCos, numVerts));
-  params.add_readonly_single_ref(&fdmd->control1);
-  params.add_readonly_single_ref(&fdmd->control2);
+  params.add_readonly_single_input(ArrayRef<float3>((float3 *)vertexCos, numVerts));
+  params.add_readonly_single_input(&fdmd->control1);
+  params.add_readonly_single_input(&fdmd->control2);
 
   TemporaryVector<float3> output_vectors(numVerts);
-  params.add_mutable_array_ref<float3>(output_vectors);
+  params.add_single_output<float3>(output_vectors);
 
   MFContext context;
   function.call(IndexRange(numVerts).as_array_ref(), params.build(), context);

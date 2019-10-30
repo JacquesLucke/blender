@@ -176,7 +176,7 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
 
     node->m_id = builder_node->id();
     node->m_network = this;
-    node->m_is_placeholder = false;
+    node->m_is_placeholder = true;
 
     for (MFBuilderInputSocket *builder_socket : builder_node->inputs()) {
       MFInputSocket *socket = new MFInputSocket();
