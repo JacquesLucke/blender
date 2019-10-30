@@ -410,6 +410,20 @@ static void INSERT_list_length(VTreeMFNetworkBuilder &builder,
   resources.add(std::move(function), "list length function");
 }
 
+static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder,
+                                    OwnedResources &resources,
+                                    const VirtualNode &vnode)
+{
+  PointerRNA rna = vnode.rna();
+  char *type_name = RNA_string_get_alloc(&rna, "active_type", nullptr, 0);
+  const CPPType &type = get_cpp_type_by_name(type_name);
+  MEM_freeN(type_name);
+
+  auto function = BLI::make_unique<BKE::MultiFunction_GetListElement>(type);
+  builder.add_function(*function, {0, 1, 2}, {3}, vnode);
+  resources.add(std::move(function), "get list element");
+}
+
 static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builder,
                                                    OwnedResources &resources,
                                                    const VirtualNode &vnode,
@@ -474,6 +488,7 @@ static StringMap<InsertVNodeFunction> get_node_inserters()
   inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
   inserters.add_new("fn_ListLengthNode", INSERT_list_length);
   inserters.add_new("fn_PackListNode", INSERT_pack_list);
+  inserters.add_new("fn_GetListElementNode", INSERT_get_list_element);
   return inserters;
 }
 
