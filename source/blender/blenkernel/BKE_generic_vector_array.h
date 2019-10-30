@@ -171,6 +171,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     }
 
     m_starts[index] = new_buffer;
+    m_capacities[index] = min_capacity;
   }
 
   void destruct_all_elements()

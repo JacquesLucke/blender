@@ -107,6 +107,22 @@ template<typename T> class MultiFunction_ConstantValue : public MultiFunction {
   }
 };
 
+template<typename T> class MultiFunction_EmptyList : public MultiFunction {
+ public:
+  MultiFunction_EmptyList()
+  {
+    MFSignatureBuilder signature;
+    signature.vector_output<T>("Output");
+    this->set_signature(signature);
+  }
+
+  void call(ArrayRef<uint> UNUSED(mask_indices),
+            MFParams &UNUSED(params),
+            MFContext &UNUSED(context)) const override
+  {
+  }
+};
+
 template<typename FromT, typename ToT> class MultiFunction_Convert : public MultiFunction {
  public:
   MultiFunction_Convert()
