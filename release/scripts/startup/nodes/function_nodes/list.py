@@ -29,18 +29,6 @@ class ListLengthNode(bpy.types.Node, FunctionNode):
         builder.fixed_output("length", "Length", "Integer")
 
 
-class AppendToListNode(bpy.types.Node, FunctionNode):
-    bl_idname = "fn_AppendToListNode"
-    bl_label = "Append to List"
-
-    active_type: NodeBuilder.DynamicListProperty()
-
-    def declaration(self, builder: NodeBuilder):
-        builder.dynamic_list_input("list", "List", "active_type")
-        builder.dynamic_base_input("value", "Value", "active_type")
-        builder.dynamic_list_output("list", "List", "active_type")
-
-
 class PackListNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_PackListNode"
     bl_label = "Pack List"

@@ -179,27 +179,6 @@ void MultiFunction_FloatRange::call(ArrayRef<uint> mask_indices,
   }
 }
 
-MultiFunction_AppendToList::MultiFunction_AppendToList(const CPPType &base_type)
-    : m_base_type(base_type)
-{
-  MFSignatureBuilder signature;
-  signature.mutable_vector("List", m_base_type);
-  signature.readonly_single_input("Value", m_base_type);
-  this->set_signature(signature);
-}
-
-void MultiFunction_AppendToList::call(ArrayRef<uint> mask_indices,
-                                      MFParams &params,
-                                      MFContext &UNUSED(context)) const
-{
-  GenericVectorArray &lists = params.mutable_vector(0, "List");
-  GenericVirtualListRef values = params.readonly_single_input(1, "Value");
-
-  for (uint i : mask_indices) {
-    lists.append_single__copy(i, values[i]);
-  }
-}
-
 MultiFunction_PackList::MultiFunction_PackList(const CPPType &base_type,
                                                ArrayRef<bool> input_list_status)
     : m_base_type(base_type), m_input_list_status(input_list_status)
@@ -329,27 +308,6 @@ void MultiFunction_ListLength::call(ArrayRef<uint> mask_indices,
 
   for (uint i : mask_indices) {
     lengths[i] = lists[i].size();
-  }
-}
-
-MultiFunction_CombineLists::MultiFunction_CombineLists(const CPPType &base_type)
-    : m_base_type(base_type)
-{
-  MFSignatureBuilder signature;
-  signature.mutable_vector("List", m_base_type);
-  signature.readonly_vector_input("Other", m_base_type);
-  this->set_signature(signature);
-}
-
-void MultiFunction_CombineLists::call(ArrayRef<uint> mask_indices,
-                                      MFParams &params,
-                                      MFContext &UNUSED(context)) const
-{
-  GenericVectorArray &lists = params.mutable_vector(0, "List");
-  GenericVirtualListListRef others = params.readonly_vector_input(1, "Other");
-
-  for (uint i : mask_indices) {
-    lists.extend_single__copy(i, others[i]);
   }
 }
 

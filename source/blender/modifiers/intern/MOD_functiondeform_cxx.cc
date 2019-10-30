@@ -396,20 +396,6 @@ static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder,
   resources.add(std::move(function), "separate vector function");
 }
 
-static void INSERT_append_to_list(VTreeMFNetworkBuilder &builder,
-                                  OwnedResources &resources,
-                                  const VirtualNode &vnode)
-{
-  PointerRNA rna = vnode.rna();
-  char *type_name = RNA_string_get_alloc(&rna, "active_type", nullptr, 0);
-  const CPPType &type = get_cpp_type_by_name(type_name);
-  MEM_freeN(type_name);
-
-  auto function = BLI::make_unique<BKE::MultiFunction_AppendToList>(type);
-  builder.add_function(*function, {0, 1}, {0}, vnode);
-  resources.add(std::move(function), "append to list function");
-}
-
 static void INSERT_list_length(VTreeMFNetworkBuilder &builder,
                                OwnedResources &resources,
                                const VirtualNode &vnode)
@@ -486,7 +472,6 @@ static StringMap<InsertVNodeFunction> get_node_inserters()
   inserters.add_new("fn_VectorMathNode", INSERT_vector_math);
   inserters.add_new("fn_CombineVectorNode", INSERT_combine_vector);
   inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
-  inserters.add_new("fn_AppendToListNode", INSERT_append_to_list);
   inserters.add_new("fn_ListLengthNode", INSERT_list_length);
   inserters.add_new("fn_PackListNode", INSERT_pack_list);
   return inserters;

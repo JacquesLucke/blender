@@ -47,15 +47,6 @@ class MultiFunction_FloatRange final : public MultiFunction {
   void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
 };
 
-class MultiFunction_AppendToList final : public MultiFunction {
- private:
-  const CPPType &m_base_type;
-
- public:
-  MultiFunction_AppendToList(const CPPType &base_type);
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
-};
-
 class MultiFunction_GetListElement final : public MultiFunction {
  private:
   const CPPType &m_base_type;
@@ -71,15 +62,6 @@ class MultiFunction_ListLength final : public MultiFunction {
 
  public:
   MultiFunction_ListLength(const CPPType &base_type);
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
-};
-
-class MultiFunction_CombineLists final : public MultiFunction {
- private:
-  const CPPType &m_base_type;
-
- public:
-  MultiFunction_CombineLists(const CPPType &base_type);
   void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
 };
 
