@@ -16,7 +16,7 @@ using BLI::Optional;
 
 class MFBuilderNode;
 class MFBuilderFunctionNode;
-class MFBuilderPlaceholderNode;
+class MFBuilderDummyNode;
 
 class MFBuilderSocket;
 class MFBuilderInputSocket;
@@ -30,7 +30,7 @@ class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
   Vector<MFBuilderInputSocket *> m_inputs;
   Vector<MFBuilderOutputSocket *> m_outputs;
   uint m_id;
-  bool m_is_placeholder;
+  bool m_is_dummy;
 
   friend MFNetworkBuilder;
 
@@ -45,10 +45,10 @@ class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
   uint id();
 
   bool is_function();
-  bool is_placeholder();
+  bool is_dummy();
 
   MFBuilderFunctionNode &as_function();
-  MFBuilderPlaceholderNode &as_placeholder();
+  MFBuilderDummyNode &as_dummy();
 };
 
 class MFBuilderFunctionNode : public MFBuilderNode {
@@ -66,7 +66,7 @@ class MFBuilderFunctionNode : public MFBuilderNode {
   ArrayRef<uint> output_param_indices();
 };
 
-class MFBuilderPlaceholderNode : public MFBuilderNode {
+class MFBuilderDummyNode : public MFBuilderNode {
 };
 
 class MFBuilderSocket : BLI::NonCopyable, BLI::NonMovable {
@@ -120,7 +120,7 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   Vector<MFBuilderSocket *> m_socket_by_id;
 
   Vector<MFBuilderFunctionNode *> m_function_nodes;
-  Vector<MFBuilderPlaceholderNode *> m_placeholder_nodes;
+  Vector<MFBuilderDummyNode *> m_dummy_nodes;
   Vector<MFBuilderInputSocket *> m_input_sockets;
   Vector<MFBuilderOutputSocket *> m_output_sockets;
 
@@ -133,8 +133,8 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   MFBuilderFunctionNode &add_function(const MultiFunction &function,
                                       ArrayRef<uint> input_param_indices,
                                       ArrayRef<uint> output_param_indices);
-  MFBuilderPlaceholderNode &add_placeholder(ArrayRef<MFDataType> input_types,
-                                            ArrayRef<MFDataType> output_types);
+  MFBuilderDummyNode &add_dummy(ArrayRef<MFDataType> input_types,
+                                ArrayRef<MFDataType> output_types);
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
 
   ArrayRef<MFBuilderNode *> nodes_by_id() const
@@ -152,9 +152,9 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return m_function_nodes;
   }
 
-  ArrayRef<MFBuilderPlaceholderNode *> placeholder_nodes() const
+  ArrayRef<MFBuilderDummyNode *> dummy_nodes() const
   {
-    return m_placeholder_nodes;
+    return m_dummy_nodes;
   }
 
   ArrayRef<MFBuilderInputSocket *> input_sockets() const
@@ -173,7 +173,7 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
 class MFNode;
 class MFFunctionNode;
-class MFPlaceholderNode;
+class MFDummyNode;
 
 class MFSocket;
 class MFInputSocket;
@@ -186,7 +186,7 @@ class MFNode : BLI::NonCopyable, BLI::NonMovable {
   const MFNetwork *m_network;
   Vector<const MFInputSocket *> m_inputs;
   Vector<const MFOutputSocket *> m_outputs;
-  bool m_is_placeholder;
+  bool m_is_dummy;
   uint m_id;
 
   friend MFNetwork;
@@ -200,10 +200,10 @@ class MFNode : BLI::NonCopyable, BLI::NonMovable {
   uint id() const;
 
   bool is_function() const;
-  bool is_placeholder() const;
+  bool is_dummy() const;
 
   const MFFunctionNode &as_function() const;
-  const MFPlaceholderNode &as_placeholder() const;
+  const MFDummyNode &as_dummy() const;
 };
 
 class MFFunctionNode : public MFNode {
@@ -221,7 +221,7 @@ class MFFunctionNode : public MFNode {
   ArrayRef<uint> output_param_indices() const;
 };
 
-class MFPlaceholderNode : public MFNode {
+class MFDummyNode : public MFNode {
 };
 
 class MFSocket : BLI::NonCopyable, BLI::NonMovable {
@@ -277,7 +277,7 @@ class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
   Array<MFSocket *> m_socket_by_id;
 
   Vector<MFFunctionNode *> m_function_nodes;
-  Vector<MFPlaceholderNode *> m_placeholder_nodes;
+  Vector<MFDummyNode *> m_dummy_nodes;
   Vector<MFInputSocket *> m_input_sockets;
   Vector<MFOutputSocket *> m_output_sockets;
 
@@ -317,17 +317,17 @@ inline StringRef MFBuilderNode::name()
     return this->as_function().function().name();
   }
   else {
-    return "Placeholder";
+    return "Dummy";
   }
 }
 
 inline bool MFBuilderNode::is_function()
 {
-  return !m_is_placeholder;
+  return !m_is_dummy;
 }
-inline bool MFBuilderNode::is_placeholder()
+inline bool MFBuilderNode::is_dummy()
 {
-  return m_is_placeholder;
+  return m_is_dummy;
 }
 
 inline MFBuilderFunctionNode &MFBuilderNode::as_function()
@@ -336,10 +336,10 @@ inline MFBuilderFunctionNode &MFBuilderNode::as_function()
   return *(MFBuilderFunctionNode *)this;
 }
 
-inline MFBuilderPlaceholderNode &MFBuilderNode::as_placeholder()
+inline MFBuilderDummyNode &MFBuilderNode::as_dummy()
 {
-  BLI_assert(this->is_placeholder());
-  return *(MFBuilderPlaceholderNode *)this;
+  BLI_assert(this->is_dummy());
+  return *(MFBuilderDummyNode *)this;
 }
 
 inline const MultiFunction &MFBuilderFunctionNode::function()
@@ -389,7 +389,7 @@ inline StringRef MFBuilderSocket::name()
     }
   }
   else {
-    return "Placeholder";
+    return "Dummy";
   }
 }
 
@@ -448,12 +448,12 @@ inline uint MFNode::id() const
 
 inline bool MFNode::is_function() const
 {
-  return !m_is_placeholder;
+  return !m_is_dummy;
 }
 
-inline bool MFNode::is_placeholder() const
+inline bool MFNode::is_dummy() const
 {
-  return m_is_placeholder;
+  return m_is_dummy;
 }
 
 inline const MFFunctionNode &MFNode::as_function() const
@@ -462,10 +462,10 @@ inline const MFFunctionNode &MFNode::as_function() const
   return *(MFFunctionNode *)this;
 }
 
-inline const MFPlaceholderNode &MFNode::as_placeholder() const
+inline const MFDummyNode &MFNode::as_dummy() const
 {
-  BLI_assert(this->is_placeholder());
-  return *(const MFPlaceholderNode *)this;
+  BLI_assert(this->is_dummy());
+  return *(const MFDummyNode *)this;
 }
 
 inline const MultiFunction &MFFunctionNode::function() const

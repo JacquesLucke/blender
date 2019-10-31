@@ -18,14 +18,15 @@ using BKE::GenericMutableArrayRef;
 using BKE::GenericVectorArray;
 using BKE::GenericVirtualListListRef;
 using BKE::GenericVirtualListRef;
+using BKE::MFBuilderDummyNode;
 using BKE::MFBuilderFunctionNode;
 using BKE::MFBuilderInputSocket;
 using BKE::MFBuilderNode;
 using BKE::MFBuilderOutputSocket;
-using BKE::MFBuilderPlaceholderNode;
 using BKE::MFBuilderSocket;
 using BKE::MFContext;
 using BKE::MFDataType;
+using BKE::MFDummyNode;
 using BKE::MFFunctionNode;
 using BKE::MFInputSocket;
 using BKE::MFNetwork;
@@ -35,7 +36,6 @@ using BKE::MFOutputSocket;
 using BKE::MFParams;
 using BKE::MFParamsBuilder;
 using BKE::MFParamType;
-using BKE::MFPlaceholderNode;
 using BKE::MFSignature;
 using BKE::MFSignatureBuilder;
 using BKE::MFSocket;
@@ -190,7 +190,7 @@ class VTreeMFNetworkBuilder {
     return node;
   }
 
-  MFBuilderPlaceholderNode &add_placeholder(const VirtualNode &vnode)
+  MFBuilderDummyNode &add_dummy(const VirtualNode &vnode)
   {
     Vector<MFDataType> input_types;
     for (const VirtualSocket *vsocket : vnode.inputs()) {
@@ -208,15 +208,15 @@ class VTreeMFNetworkBuilder {
       }
     }
 
-    MFBuilderPlaceholderNode &node = m_builder->add_placeholder(input_types, output_types);
+    MFBuilderDummyNode &node = m_builder->add_dummy(input_types, output_types);
     this->map_data_sockets(vnode, node);
     return node;
   }
 
-  MFBuilderPlaceholderNode &add_placeholder(ArrayRef<MFDataType> input_types,
-                                            ArrayRef<MFDataType> output_types)
+  MFBuilderDummyNode &add_dummy(ArrayRef<MFDataType> input_types,
+                                ArrayRef<MFDataType> output_types)
   {
-    return m_builder->add_placeholder(input_types, output_types);
+    return m_builder->add_dummy(input_types, output_types);
   }
 
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)
@@ -687,7 +687,7 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder, OwnedResources &resourc
       BLI_assert(builder.data_sockets_of_vnode_are_mapped(*vnode));
     }
     else if (builder.has_data_sockets(*vnode)) {
-      builder.add_placeholder(*vnode);
+      builder.add_dummy(*vnode);
     }
   }
 
@@ -775,7 +775,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
   {
     MFSignatureBuilder signature("Function Tree");
     for (auto socket : m_inputs) {
-      BLI_assert(socket->node().is_placeholder());
+      BLI_assert(socket->node().is_dummy());
 
       MFDataType type = socket->type();
       switch (type.category()) {
@@ -791,7 +791,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
       }
     }
     for (auto socket : m_outputs) {
-      BLI_assert(socket->node().is_placeholder());
+      BLI_assert(socket->node().is_dummy());
 
       MFDataType type = socket->type();
       switch (type.category()) {

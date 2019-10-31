@@ -16,7 +16,7 @@ MFNetworkBuilder::~MFNetworkBuilder()
   for (auto node : m_function_nodes) {
     delete node;
   }
-  for (auto node : m_placeholder_nodes) {
+  for (auto node : m_dummy_nodes) {
     delete node;
   }
   for (auto socket : m_input_sockets) {
@@ -43,7 +43,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
   auto node = new MFBuilderFunctionNode();
 
   node->m_network = this;
-  node->m_is_placeholder = false;
+  node->m_is_dummy = false;
   node->m_function = &function;
   node->m_input_param_indices = input_param_indices;
   node->m_output_param_indices = output_param_indices;
@@ -86,13 +86,13 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
   return *node;
 }
 
-MFBuilderPlaceholderNode &MFNetworkBuilder::add_placeholder(ArrayRef<MFDataType> input_types,
-                                                            ArrayRef<MFDataType> output_types)
+MFBuilderDummyNode &MFNetworkBuilder::add_dummy(ArrayRef<MFDataType> input_types,
+                                                ArrayRef<MFDataType> output_types)
 {
-  auto node = new MFBuilderPlaceholderNode();
+  auto node = new MFBuilderDummyNode();
 
   node->m_network = this;
-  node->m_is_placeholder = true;
+  node->m_is_dummy = true;
   node->m_id = m_node_by_id.size();
 
   for (uint i = 0; i < input_types.size(); i++) {
@@ -118,7 +118,7 @@ MFBuilderPlaceholderNode &MFNetworkBuilder::add_placeholder(ArrayRef<MFDataType>
     m_output_sockets.append(output_socket);
   }
 
-  m_placeholder_nodes.append(node);
+  m_dummy_nodes.append(node);
   m_node_by_id.append(node);
   return *node;
 }
@@ -260,7 +260,7 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
     node->m_input_param_indices = builder_node->input_param_indices();
     node->m_output_param_indices = builder_node->output_param_indices();
     node->m_network = this;
-    node->m_is_placeholder = false;
+    node->m_is_dummy = false;
 
     for (MFBuilderInputSocket *builder_socket : builder_node->inputs()) {
       MFInputSocket *socket = new MFInputSocket();
@@ -291,12 +291,12 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
     m_node_by_id[node->id()] = node;
   }
 
-  for (MFBuilderPlaceholderNode *builder_node : builder->placeholder_nodes()) {
-    MFPlaceholderNode *node = new MFPlaceholderNode();
+  for (MFBuilderDummyNode *builder_node : builder->dummy_nodes()) {
+    MFDummyNode *node = new MFDummyNode();
 
     node->m_id = builder_node->id();
     node->m_network = this;
-    node->m_is_placeholder = true;
+    node->m_is_dummy = true;
 
     for (MFBuilderInputSocket *builder_socket : builder_node->inputs()) {
       MFInputSocket *socket = new MFInputSocket();
@@ -323,7 +323,7 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
       node->m_outputs.append(socket);
     }
 
-    m_placeholder_nodes.append(node);
+    m_dummy_nodes.append(node);
     m_node_by_id[node->id()] = node;
   }
 
@@ -349,7 +349,7 @@ MFNetwork::~MFNetwork()
   for (auto node : m_function_nodes) {
     delete node;
   }
-  for (auto node : m_placeholder_nodes) {
+  for (auto node : m_dummy_nodes) {
     delete node;
   }
   for (auto socket : m_input_sockets) {
