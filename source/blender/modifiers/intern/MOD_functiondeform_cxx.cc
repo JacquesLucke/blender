@@ -773,7 +773,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
                              Vector<const MFInputSocket *> outputs)
       : m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
   {
-    MFSignatureBuilder signature;
+    MFSignatureBuilder signature("Function Tree");
     for (auto socket : m_inputs) {
       BLI_assert(socket->node().is_placeholder());
 

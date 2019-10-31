@@ -187,6 +187,7 @@ class MFContext {
 
 class MFSignature {
  private:
+  std::string m_function_name;
   Vector<std::string> m_param_names;
   Vector<MFParamType> m_param_types;
   Vector<uint> m_params_with_external_dependencies;
@@ -197,10 +198,12 @@ class MFSignature {
  public:
   MFSignature() = default;
 
-  MFSignature(Vector<std::string> param_names,
+  MFSignature(std::string function_name,
+              Vector<std::string> param_names,
               Vector<MFParamType> param_types,
               Vector<uint> params_with_external_dependencies)
-      : m_param_names(std::move(param_names)),
+      : m_function_name(std::move(function_name)),
+        m_param_names(std::move(param_names)),
         m_param_types(std::move(param_types)),
         m_params_with_external_dependencies(std::move(params_with_external_dependencies))
   {
@@ -312,11 +315,16 @@ class MFSignature {
 
 class MFSignatureBuilder {
  private:
+  std::string m_function_name;
   Vector<std::string> m_param_names;
   Vector<MFParamType> m_param_types;
   Vector<uint> m_params_with_external_dependencies;
 
  public:
+  MFSignatureBuilder(StringRef name) : m_function_name(name)
+  {
+  }
+
   template<typename T> void readonly_single_input(StringRef name)
   {
     this->readonly_single_input(name, GET_TYPE<T>());
@@ -378,7 +386,8 @@ class MFSignatureBuilder {
 
   MFSignature build()
   {
-    return MFSignature(std::move(m_param_names),
+    return MFSignature(std::move(m_function_name),
+                       std::move(m_param_names),
                        std::move(m_param_types),
                        std::move(m_params_with_external_dependencies));
   }
@@ -491,6 +500,11 @@ class MultiFunction {
   StringRefNull param_name(uint index) const
   {
     return m_signature.m_param_names[index];
+  }
+
+  StringRefNull name() const
+  {
+    return m_signature.m_function_name;
   }
 
  protected:

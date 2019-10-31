@@ -313,7 +313,12 @@ inline uint MFBuilderNode::id()
 
 inline StringRef MFBuilderNode::name()
 {
-  return "My Name";
+  if (this->is_function()) {
+    return this->as_function().function().name();
+  }
+  else {
+    return "Placeholder";
+  }
 }
 
 inline bool MFBuilderNode::is_function()
@@ -374,7 +379,18 @@ inline uint MFBuilderSocket::id()
 
 inline StringRef MFBuilderSocket::name()
 {
-  return "My Name";
+  if (m_node->is_function()) {
+    MFBuilderFunctionNode &node = m_node->as_function();
+    if (m_is_output) {
+      return node.function().param_name(node.output_param_indices()[m_index]);
+    }
+    else {
+      return node.function().param_name(node.input_param_indices()[m_index]);
+    }
+  }
+  else {
+    return "Placeholder";
+  }
 }
 
 inline bool MFBuilderSocket::is_input()

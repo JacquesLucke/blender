@@ -12,7 +12,7 @@ using BLI::float3;
 
 MultiFunction_AddFloats::MultiFunction_AddFloats()
 {
-  MFSignatureBuilder signature;
+  MFSignatureBuilder signature("Add Floats");
   signature.readonly_single_input<float>("A");
   signature.readonly_single_input<float>("B");
   signature.single_output<float>("Result");
@@ -34,7 +34,7 @@ void MultiFunction_AddFloats::call(ArrayRef<uint> mask_indices,
 
 MultiFunction_AddFloat3s::MultiFunction_AddFloat3s()
 {
-  MFSignatureBuilder signature;
+  MFSignatureBuilder signature("Add Float3s");
   signature.readonly_single_input<float3>("A");
   signature.readonly_single_input<float3>("B");
   signature.single_output<float3>("Result");
@@ -56,7 +56,7 @@ void MultiFunction_AddFloat3s::call(ArrayRef<uint> mask_indices,
 
 MultiFunction_CombineVector::MultiFunction_CombineVector()
 {
-  MFSignatureBuilder signature;
+  MFSignatureBuilder signature("Combine Vector");
   signature.readonly_single_input<float>("X");
   signature.readonly_single_input<float>("Y");
   signature.readonly_single_input<float>("Z");
@@ -80,7 +80,7 @@ void MultiFunction_CombineVector::call(ArrayRef<uint> mask_indices,
 
 MultiFunction_SeparateVector::MultiFunction_SeparateVector()
 {
-  MFSignatureBuilder signature;
+  MFSignatureBuilder signature("Separate Vector");
   signature.readonly_single_input<float3>("Vector");
   signature.single_output<float>("X");
   signature.single_output<float>("Y");
@@ -107,7 +107,7 @@ void MultiFunction_SeparateVector::call(ArrayRef<uint> mask_indices,
 
 MultiFunction_VectorDistance::MultiFunction_VectorDistance()
 {
-  MFSignatureBuilder signature;
+  MFSignatureBuilder signature("Vector Distance");
   signature.readonly_single_input<float3>("A");
   signature.readonly_single_input<float3>("A");
   signature.single_output<float>("Distances");
@@ -129,7 +129,7 @@ void MultiFunction_VectorDistance::call(ArrayRef<uint> mask_indices,
 
 MultiFunction_FloatArraySum::MultiFunction_FloatArraySum()
 {
-  MFSignatureBuilder signature;
+  MFSignatureBuilder signature("Float Array Sum");
   signature.readonly_vector_input<float>("Array");
   signature.single_output<float>("Sum");
   this->set_signature(signature);
@@ -154,7 +154,7 @@ void MultiFunction_FloatArraySum::call(ArrayRef<uint> mask_indices,
 
 MultiFunction_FloatRange::MultiFunction_FloatRange()
 {
-  MFSignatureBuilder signature;
+  MFSignatureBuilder signature("Float Range");
   signature.readonly_single_input<float>("Start");
   signature.readonly_single_input<float>("Step");
   signature.readonly_single_input<int>("Amount");
@@ -183,7 +183,7 @@ MultiFunction_PackList::MultiFunction_PackList(const CPPType &base_type,
                                                ArrayRef<bool> input_list_status)
     : m_base_type(base_type), m_input_list_status(input_list_status)
 {
-  MFSignatureBuilder signature;
+  MFSignatureBuilder signature("Pack List");
   if (m_input_list_status.size() == 0) {
     /* Output just an empty list. */
     signature.vector_output("List", m_base_type);
@@ -259,7 +259,7 @@ bool MultiFunction_PackList::input_is_list(uint index) const
 MultiFunction_GetListElement::MultiFunction_GetListElement(const CPPType &base_type)
     : m_base_type(base_type)
 {
-  MFSignatureBuilder signature;
+  MFSignatureBuilder signature("Get List Element");
   signature.readonly_vector_input("List", m_base_type);
   signature.readonly_single_input<int>("Index");
   signature.readonly_single_input("Fallback", m_base_type);
@@ -293,7 +293,7 @@ void MultiFunction_GetListElement::call(ArrayRef<uint> mask_indices,
 MultiFunction_ListLength::MultiFunction_ListLength(const CPPType &base_type)
     : m_base_type(base_type)
 {
-  MFSignatureBuilder signature;
+  MFSignatureBuilder signature("List Length");
   signature.readonly_vector_input("List", m_base_type);
   signature.single_output<int>("Length");
   this->set_signature(signature);
@@ -317,7 +317,7 @@ MultiFunction_SimpleVectorize::MultiFunction_SimpleVectorize(const MultiFunction
 {
   BLI_assert(input_is_vectorized.contains(true));
 
-  MFSignatureBuilder signature;
+  MFSignatureBuilder signature(function.name() + " (Vectorized)");
 
   bool found_output_param = false;
   UNUSED_VARS_NDEBUG(found_output_param);

@@ -85,7 +85,7 @@ template<typename T> class MultiFunction_ConstantValue : public MultiFunction {
  public:
   MultiFunction_ConstantValue(T value) : m_value(std::move(value))
   {
-    MFSignatureBuilder signature;
+    MFSignatureBuilder signature("Constant " + GET_TYPE<T>().name());
     signature.single_output<T>("Output");
     this->set_signature(signature);
   }
@@ -106,7 +106,7 @@ template<typename T> class MultiFunction_EmptyList : public MultiFunction {
  public:
   MultiFunction_EmptyList()
   {
-    MFSignatureBuilder signature;
+    MFSignatureBuilder signature("Empty List - " + GET_TYPE<T>().name());
     signature.vector_output<T>("Output");
     this->set_signature(signature);
   }
@@ -122,7 +122,7 @@ template<typename FromT, typename ToT> class MultiFunction_Convert : public Mult
  public:
   MultiFunction_Convert()
   {
-    MFSignatureBuilder signature;
+    MFSignatureBuilder signature(GET_TYPE<FromT>().name() + " to " + GET_TYPE<ToT>().name());
     signature.readonly_single_input<FromT>("Input");
     signature.single_output<ToT>("Output");
     this->set_signature(signature);
@@ -146,7 +146,8 @@ template<typename FromT, typename ToT> class MultiFunction_ConvertList : public 
  public:
   MultiFunction_ConvertList()
   {
-    MFSignatureBuilder signature;
+    MFSignatureBuilder signature(GET_TYPE<FromT>().name() + " List to " + GET_TYPE<ToT>().name() +
+                                 " List");
     signature.readonly_vector_input<FromT>("Inputs");
     signature.vector_output<ToT>("Outputs");
     this->set_signature(signature);
@@ -175,7 +176,7 @@ template<typename T> class MultiFunction_SingleElementList : public MultiFunctio
  public:
   MultiFunction_SingleElementList()
   {
-    MFSignatureBuilder signature;
+    MFSignatureBuilder signature("Single Element List - " + GET_TYPE<T>().name());
     signature.readonly_single_input<T>("Input");
     signature.vector_output<T>("Outputs");
     this->set_signature(signature);
