@@ -339,6 +339,8 @@ class VTreeMFNetworkBuilder {
 
   std::unique_ptr<VTreeMFNetwork> build()
   {
+    // m_builder->to_dot__clipboard();
+
     Array<int> socket_ids(m_vtree.socket_count(), -1);
     for (uint vsocket_id = 0; vsocket_id < m_vtree.socket_count(); vsocket_id++) {
       MFBuilderSocket *builder_socket = m_socket_map[vsocket_id];

@@ -1,4 +1,10 @@
+#include <sstream>
+
 #include "BKE_multi_function_network.h"
+
+extern "C" {
+void WM_clipboard_text_set(const char *buf, bool selection);
+}
 
 namespace BKE {
 
@@ -122,6 +128,119 @@ void MFNetworkBuilder::add_link(MFBuilderOutputSocket &from, MFBuilderInputSocke
   BLI_assert(from.m_node->m_network == to.m_node->m_network);
   from.m_targets.append(&to);
   to.m_origin = &from;
+}
+
+namespace DotExport {
+
+static std::string get_id(MFBuilderNode &node)
+{
+  std::stringstream ss;
+  ss << "\"";
+  ss << (void *)&node;
+  ss << "\"";
+  return ss.str();
+}
+
+static std::string get_id(MFBuilderSocket &socket)
+{
+  std::stringstream ss;
+  ss << "\"";
+  ss << (void *)&socket;
+  ss << "\"";
+  return ss.str();
+}
+
+static std::string port_id(MFBuilderSocket &socket)
+{
+  return get_id(socket.node()) + ":" + get_id(socket);
+}
+
+static void insert_node_table(std::stringstream &ss, MFBuilderNode &node)
+{
+  ss << "<table border=\"0\" cellspacing=\"3\">";
+
+  /* Header */
+  ss << "<tr><td colspan=\"3\" align=\"center\"><b>";
+  ss << node.name();
+  ss << "</b></td></tr>";
+
+  /* Sockets */
+  auto inputs = node.inputs();
+  auto outputs = node.outputs();
+  uint socket_max_amount = std::max(inputs.size(), outputs.size());
+  for (uint i = 0; i < socket_max_amount; i++) {
+    ss << "<tr>";
+    if (i < inputs.size()) {
+      MFBuilderInputSocket &socket = *inputs[i];
+      ss << "<td align=\"left\" port=" << get_id(socket) << ">";
+      ss << socket.name();
+      ss << "</td>";
+    }
+    else {
+      ss << "<td></td>";
+    }
+    ss << "<td></td>";
+    if (i < outputs.size()) {
+      MFBuilderOutputSocket &socket = *outputs[i];
+      ss << "<td align=\"right\" port=" << get_id(socket) << ">";
+      ss << socket.name();
+      ss << "</td>";
+    }
+    else {
+      ss << "<td></td>";
+    }
+    ss << "</tr>";
+  }
+
+  ss << "</table>";
+}
+
+static void insert_node(std::stringstream &ss, MFBuilderNode &node)
+{
+  ss << get_id(node) << " ";
+  ss << "[style=\"filled\", fillcolor=\"#FFFFFF\", shape=\"box\"";
+  ss << ", label=<";
+  insert_node_table(ss, node);
+  ss << ">]";
+}
+
+static void insert_link(std::stringstream &ss,
+                        MFBuilderOutputSocket &from,
+                        MFBuilderInputSocket &to)
+{
+  ss << port_id(from) << " -> " << port_id(to);
+}
+
+};  // namespace DotExport
+
+std::string MFNetworkBuilder::to_dot()
+{
+  std::stringstream ss;
+  ss << "digraph MyGraph {" << std::endl;
+  ss << "rankdir=LR" << std::endl;
+
+  for (MFBuilderNode *node : m_node_by_id) {
+    DotExport::insert_node(ss, *node);
+    ss << std::endl;
+  }
+
+  for (MFBuilderNode *node : m_node_by_id) {
+    for (MFBuilderInputSocket *input : node->inputs()) {
+      if (input->origin() != nullptr) {
+        DotExport::insert_link(ss, *input->origin(), *input);
+        ss << std::endl;
+      }
+    }
+  }
+
+  ss << "}\n";
+  return ss.str();
+}
+
+void MFNetworkBuilder::to_dot__clipboard()
+{
+  std::string dot = this->to_dot();
+  WM_clipboard_text_set(dot.c_str(), false);
 }
 
 /* Network

@@ -40,6 +40,8 @@ class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
   ArrayRef<MFBuilderInputSocket *> inputs();
   ArrayRef<MFBuilderOutputSocket *> outputs();
 
+  StringRef name();
+
   uint id();
 
   bool is_function();
@@ -83,6 +85,7 @@ class MFBuilderSocket : BLI::NonCopyable, BLI::NonMovable {
 
   uint index();
   uint id();
+  StringRef name();
 
   bool is_input();
   bool is_output();
@@ -123,6 +126,9 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
  public:
   ~MFNetworkBuilder();
+
+  std::string to_dot();
+  void to_dot__clipboard();
 
   MFBuilderFunctionNode &add_function(const MultiFunction &function,
                                       ArrayRef<uint> input_param_indices,
@@ -305,6 +311,11 @@ inline uint MFBuilderNode::id()
   return m_id;
 }
 
+inline StringRef MFBuilderNode::name()
+{
+  return "My Name";
+}
+
 inline bool MFBuilderNode::is_function()
 {
   return !m_is_placeholder;
@@ -359,6 +370,11 @@ inline uint MFBuilderSocket::index()
 inline uint MFBuilderSocket::id()
 {
   return m_id;
+}
+
+inline StringRef MFBuilderSocket::name()
+{
+  return "My Name";
 }
 
 inline bool MFBuilderSocket::is_input()
