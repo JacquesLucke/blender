@@ -74,6 +74,9 @@ static MFDataType get_type_by_socket(const VirtualSocket &vsocket)
   else if (idname == "fn_IntegerSocket") {
     return MFDataType::ForSingle<int32_t>();
   }
+  else if (idname == "fn_BooleanSocket") {
+    return MFDataType::ForSingle<bool>();
+  }
   else if (idname == "fn_FloatListSocket") {
     return MFDataType::ForVector<float>();
   }
@@ -82,6 +85,9 @@ static MFDataType get_type_by_socket(const VirtualSocket &vsocket)
   }
   else if (idname == "fn_IntegerListSocket") {
     return MFDataType::ForVector<int32_t>();
+  }
+  else if (idname == "fn_BooleanListSocket") {
+    return MFDataType::ForVector<bool>();
   }
   return MFDataType();
 }
@@ -96,6 +102,9 @@ static const CPPType &get_cpp_type_by_name(StringRef name)
   }
   else if (name == "Integer") {
     return BKE::GET_TYPE<int32_t>();
+  }
+  else if (name == "Boolean") {
+    return BKE::GET_TYPE<bool>();
   }
 
   BLI_assert(false);
@@ -610,7 +619,16 @@ static Map<std::pair<std::string, std::string>, InsertImplicitConversionFunction
 get_conversion_inserters()
 {
   Map<std::pair<std::string, std::string>, InsertImplicitConversionFunction> inserters;
+
   inserters.add_new({"fn_IntegerSocket", "fn_FloatSocket"}, INSERT_convert<int, float>);
+  inserters.add_new({"fn_FloatSocket", "fn_IntegerSocket"}, INSERT_convert<float, int>);
+
+  inserters.add_new({"fn_FloatSocket", "fn_BooleanSocket"}, INSERT_convert<float, bool>);
+  inserters.add_new({"fn_BooleanSocket", "fn_FloatSocket"}, INSERT_convert<bool, float>);
+
+  inserters.add_new({"fn_IntegerSocket", "fn_BooleanSocket"}, INSERT_convert<int, bool>);
+  inserters.add_new({"fn_BooleanSocket", "fn_IntegerSocket"}, INSERT_convert<bool, int>);
+
   return inserters;
 }
 
