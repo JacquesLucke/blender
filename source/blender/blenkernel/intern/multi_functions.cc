@@ -311,4 +311,119 @@ void MultiFunction_ListLength::call(ArrayRef<uint> mask_indices,
   }
 }
 
+MultiFunction_SimpleVectorize::MultiFunction_SimpleVectorize(const MultiFunction &function,
+                                                             ArrayRef<bool> input_is_vectorized)
+    : m_function(function), m_input_is_vectorized(input_is_vectorized)
+{
+  BLI_assert(input_is_vectorized.contains(true));
+
+  MFSignatureBuilder signature;
+  ArrayRef<MFParamType> param_types = function.signature().param_types();
+
+  bool found_output_param = false;
+  UNUSED_VARS_NDEBUG(found_output_param);
+  for (uint param_index = 0; param_index < param_types.size(); param_index++) {
+    MFParamType param_type = param_types[param_index];
+    switch (param_type.category()) {
+      case MFParamType::None:
+      case MFParamType::ReadonlyVectorInput:
+      case MFParamType::VectorOutput:
+      case MFParamType::MutableVector: {
+        BLI_assert(false);
+        break;
+      }
+      case MFParamType::ReadonlySingleInput: {
+        BLI_assert(!found_output_param);
+        if (input_is_vectorized[param_index]) {
+          signature.readonly_vector_input("Input", param_type.type());
+          m_vectorized_inputs.append(param_index);
+        }
+        else {
+          signature.readonly_single_input("Input", param_type.type());
+        }
+        break;
+      }
+      case MFParamType::SingleOutput: {
+        signature.vector_output("Output", param_type.type());
+        m_output_indices.append(param_index);
+        found_output_param = true;
+        break;
+      }
+    }
+  }
+  this->set_signature(signature);
+}
+
+void MultiFunction_SimpleVectorize::call(ArrayRef<uint> mask_indices,
+                                         MFParams &params,
+                                         MFContext &context) const
+{
+  if (mask_indices.size() == 0) {
+    return;
+  }
+  uint array_size = mask_indices.last() + 1;
+
+  Vector<int> vectorization_lengths(array_size);
+  vectorization_lengths.fill_indices(mask_indices, -1);
+
+  for (uint param_index : m_vectorized_inputs) {
+    GenericVirtualListListRef values = params.readonly_vector_input(param_index, "Input");
+    for (uint i : mask_indices) {
+      if (vectorization_lengths[i] != 0) {
+        vectorization_lengths[i] = std::max<int>(vectorization_lengths[i], values[i].size());
+      }
+    }
+  }
+
+  Vector<GenericVectorArray *> output_vector_arrays;
+  for (uint param_index : m_output_indices) {
+    GenericVectorArray *vector_array = &params.vector_output(param_index, "Output");
+    output_vector_arrays.append(vector_array);
+  }
+
+  ArrayRef<MFParamType> param_types = m_function.signature().param_types();
+
+  for (uint index : mask_indices) {
+    uint length = vectorization_lengths[index];
+    MFParamsBuilder params_builder;
+    params_builder.start_new(m_function.signature(), length);
+
+    for (uint param_index = 0; param_index < param_types.size(); param_index++) {
+      MFParamType param_type = param_types[param_index];
+      switch (param_type.category()) {
+        case MFParamType::None:
+        case MFParamType::ReadonlyVectorInput:
+        case MFParamType::VectorOutput:
+        case MFParamType::MutableVector: {
+          BLI_assert(false);
+          break;
+        }
+        case MFParamType::ReadonlySingleInput: {
+          if (m_input_is_vectorized[param_index]) {
+            GenericVirtualListListRef input_list_list = params.readonly_vector_input(param_index,
+                                                                                     "Input");
+            GenericVirtualListRef repeated_input = input_list_list.repeated_sublist(index, length);
+            params_builder.add_readonly_single_input(repeated_input);
+          }
+          else {
+            GenericVirtualListRef input_list = params.readonly_single_input(param_index, "Input");
+            GenericVirtualListRef repeated_input = input_list.repeated_element(index, length);
+            params_builder.add_readonly_single_input(repeated_input);
+          }
+          break;
+        }
+        case MFParamType::SingleOutput: {
+          GenericVectorArray &output_array_list = params.vector_output(param_index, "Output");
+          GenericMutableArrayRef output_array = output_array_list.allocate_single(index, length);
+          params_builder.add_single_output(output_array);
+          break;
+        }
+      }
+    }
+
+    ArrayRef<uint> sub_mask_indices = IndexRange(length).as_array_ref();
+    m_function.call(sub_mask_indices, params_builder.build(), context);
+  }
+}
+
 }  // namespace BKE

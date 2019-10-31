@@ -98,6 +98,16 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     }
   }
 
+  GenericMutableArrayRef allocate_single(uint index, uint size)
+  {
+    if (m_lengths[index] + size > m_capacities[index]) {
+      this->grow_single(index, m_lengths[index] + size);
+    }
+    void *allocation_start = POINTER_OFFSET(m_starts[index], m_element_size * m_lengths[index]);
+    m_lengths[index] += size;
+    return GenericMutableArrayRef(m_type, allocation_start, size);
+  }
+
   GenericArrayRef operator[](uint index) const
   {
     BLI_assert(index < m_array_size);

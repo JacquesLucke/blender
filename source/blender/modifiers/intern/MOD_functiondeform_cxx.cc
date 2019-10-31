@@ -373,9 +373,27 @@ static void INSERT_float_math(VTreeMFNetworkBuilder &builder,
                               OwnedResources &resources,
                               const VirtualNode &vnode)
 {
-  auto function = BLI::make_unique<BKE::MultiFunction_AddFloats>();
-  builder.add_function(*function, {0, 1}, {2}, vnode);
-  resources.add(std::move(function), "float math function");
+  PointerRNA rna = vnode.rna();
+  char state[5];
+  RNA_string_get(&rna, "use_list__a", state);
+  bool use_list__a = STREQ(state, "LIST");
+  RNA_string_get(&rna, "use_list__b", state);
+  bool use_list__b = STREQ(state, "LIST");
+
+  if (use_list__a || use_list__b) {
+    Vector<bool> input_is_vectorized = {use_list__a, use_list__b};
+    auto base_function = BLI::make_unique<BKE::MultiFunction_AddFloats>();
+    auto vectorized_function = BLI::make_unique<BKE::MultiFunction_SimpleVectorize>(
+        *base_function, input_is_vectorized);
+    builder.add_function(*vectorized_function, {0, 1}, {2}, vnode);
+    resources.add(std::move(base_function), "float math function");
+    resources.add(std::move(vectorized_function), "vectorized float math function");
+  }
+  else {
+    auto function = BLI::make_unique<BKE::MultiFunction_AddFloats>();
+    builder.add_function(*function, {0, 1}, {2}, vnode);
+    resources.add(std::move(function), "float math function");
+  }
 }
 
 static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder,

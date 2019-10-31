@@ -98,6 +98,7 @@ class GenericVirtualListListRef {
   template<typename T> VirtualListListRef<T> as_typed_ref() const
   {
     BLI_assert(GET_TYPE<T>().is_same_or_generalization(*m_type));
+
     switch (m_category) {
       case Category::SingleArray:
         return VirtualListListRef<T>::FromSingleArray(
@@ -108,8 +109,31 @@ class GenericVirtualListListRef {
             ArrayRef<const T *>((const T **)m_data.full_array_list.starts, m_virtual_list_size),
             ArrayRef<uint>(m_data.full_array_list.real_array_sizes, m_virtual_list_size));
     }
+
     BLI_assert(false);
     return {};
+  }
+
+  GenericVirtualListRef repeated_sublist(uint index, uint new_virtual_size) const
+  {
+    BLI_assert(index < m_virtual_list_size);
+
+    switch (m_category) {
+      case Category::SingleArray:
+        return GenericVirtualListRef::FromRepeatedArray(*m_type,
+                                                        m_data.single_array.data,
+                                                        m_data.single_array.real_array_size,
+                                                        new_virtual_size);
+      case Category::FullArrayList:
+        return GenericVirtualListRef::FromRepeatedArray(
+            *m_type,
+            m_data.full_array_list.starts[index],
+            m_data.full_array_list.real_array_sizes[index],
+            new_virtual_size);
+    }
+
+    BLI_assert(false);
+    return {*m_type};
   }
 };
 
