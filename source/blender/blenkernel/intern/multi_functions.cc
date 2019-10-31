@@ -318,12 +318,11 @@ MultiFunction_SimpleVectorize::MultiFunction_SimpleVectorize(const MultiFunction
   BLI_assert(input_is_vectorized.contains(true));
 
   MFSignatureBuilder signature;
-  ArrayRef<MFParamType> param_types = function.signature().param_types();
 
   bool found_output_param = false;
   UNUSED_VARS_NDEBUG(found_output_param);
-  for (uint param_index = 0; param_index < param_types.size(); param_index++) {
-    MFParamType param_type = param_types[param_index];
+  for (uint param_index : function.param_indices()) {
+    MFParamType param_type = function.param_type(param_index);
     switch (param_type.category()) {
       case MFParamType::None:
       case MFParamType::ReadonlyVectorInput:
@@ -381,15 +380,13 @@ void MultiFunction_SimpleVectorize::call(ArrayRef<uint> mask_indices,
     output_vector_arrays.append(vector_array);
   }
 
-  ArrayRef<MFParamType> param_types = m_function.signature().param_types();
-
   for (uint index : mask_indices) {
     uint length = vectorization_lengths[index];
     MFParamsBuilder params_builder;
     params_builder.start_new(m_function.signature(), length);
 
-    for (uint param_index = 0; param_index < param_types.size(); param_index++) {
-      MFParamType param_type = param_types[param_index];
+    for (uint param_index : m_function.param_indices()) {
+      MFParamType param_type = m_function.param_type(param_index);
       switch (param_type.category()) {
         case MFParamType::None:
         case MFParamType::ReadonlyVectorInput:

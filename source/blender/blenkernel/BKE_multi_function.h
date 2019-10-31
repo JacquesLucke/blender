@@ -192,6 +192,8 @@ class MFSignature {
   Vector<uint> m_params_with_external_dependencies;
   Vector<uint> m_corrected_indices;
 
+  friend class MultiFunction;
+
  public:
   MFSignature() = default;
 
@@ -564,6 +566,21 @@ class MultiFunction {
   const MFSignature &signature() const
   {
     return m_signature;
+  }
+
+  IndexRange param_indices() const
+  {
+    return IndexRange(m_signature.m_param_types.size());
+  }
+
+  MFParamType param_type(uint index) const
+  {
+    return m_signature.m_param_types[index];
+  }
+
+  StringRefNull param_name(uint index) const
+  {
+    return m_signature.m_param_names[index];
   }
 
  protected:

@@ -34,8 +34,9 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
 #ifdef DEBUG
   BLI_assert(!input_param_indices.has_duplicates__linear_search());
   BLI_assert(!output_param_indices.has_duplicates__linear_search());
-  for (uint i = 0; i < function.signature().param_types().size(); i++) {
-    BLI_assert(input_param_indices.contains(i) || output_param_indices.contains(i));
+  for (uint param_index : function.param_indices()) {
+    BLI_assert(input_param_indices.contains(param_index) ||
+               output_param_indices.contains(param_index));
   }
 #endif
 
@@ -50,7 +51,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
 
   for (uint i = 0; i < input_param_indices.size(); i++) {
     uint param_index = input_param_indices[i];
-    MFParamType param = function.signature().param_types()[param_index];
+    MFParamType param = function.param_type(param_index);
     BLI_assert(param.is_input_or_mutable());
 
     auto input_socket = new MFBuilderInputSocket();
@@ -66,7 +67,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
 
   for (uint i = 0; i < output_param_indices.size(); i++) {
     uint param_index = output_param_indices[i];
-    MFParamType param = function.signature().param_types()[param_index];
+    MFParamType param = function.param_type(param_index);
     BLI_assert(param.is_output_or_mutable());
 
     auto output_socket = new MFBuilderOutputSocket();

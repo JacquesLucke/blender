@@ -928,8 +928,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
             if (target_node.is_function()) {
               const MFFunctionNode &target_function_node = target_node.as_function();
               uint param_index = target_function_node.input_param_indices()[target->index()];
-              MFParamType param_type =
-                  target_function_node.function().signature().param_types()[param_index];
+              MFParamType param_type = target_function_node.function().param_type(param_index);
 
               if (param_type.is_readonly_vector_input()) {
                 storage.set_virtual_list_list_for_input__non_owning(*target, input_list_list);
@@ -1018,10 +1017,8 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
     Vector<std::pair<const MFOutputSocket *, GenericMutableArrayRef>> single_outputs_to_forward;
     Vector<std::pair<const MFOutputSocket *, GenericVectorArray *>> vector_outputs_to_forward;
 
-    ArrayRef<MFParamType> param_types = function_node.function().signature().param_types();
-
-    for (uint param_index = 0; param_index < param_types.size(); param_index++) {
-      MFParamType param_type = param_types[param_index];
+    for (uint param_index : function_node.function().param_indices()) {
+      MFParamType param_type = function_node.function().param_type(param_index);
       switch (param_type.category()) {
         case MFParamType::None: {
           BLI_assert(false);
@@ -1098,8 +1095,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
         if (target_node.is_function()) {
           const MFFunctionNode &target_function_node = target_node.as_function();
           uint param_index = target_function_node.input_param_indices()[target->index()];
-          MFParamType param_type =
-              target_function_node.function().signature().param_types()[param_index];
+          MFParamType param_type = target_function_node.function().param_type(param_index);
 
           if (param_type.is_readonly_vector_input()) {
             storage.set_virtual_list_list_for_input__non_owning(*target, *values);
