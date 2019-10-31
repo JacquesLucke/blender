@@ -96,6 +96,16 @@ class GenericMutableArrayRef {
     }
   }
 
+  void destruct_indices(ArrayRef<uint> indices)
+  {
+    if (m_type->trivially_destructible()) {
+      return;
+    }
+    for (uint i : indices) {
+      m_type->destruct((*this)[i]);
+    }
+  }
+
   const CPPType &type() const
   {
     return *m_type;

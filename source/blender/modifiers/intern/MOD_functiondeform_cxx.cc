@@ -882,6 +882,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
 
   class Storage {
    private:
+    ArrayRef<uint> m_mask_indices;
     Vector<GenericVectorArray *> m_vector_arrays;
     Vector<GenericMutableArrayRef> m_arrays;
     Map<uint, GenericVectorArray *> m_vector_per_socket;
@@ -889,15 +890,17 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
     Map<uint, GenericVirtualListListRef> m_virtual_list_list_for_inputs;
 
    public:
-    Storage() = default;
+    Storage(ArrayRef<uint> mask_indices) : m_mask_indices(mask_indices)
+    {
+    }
 
     ~Storage()
     {
       for (GenericVectorArray *vector_array : m_vector_arrays) {
         delete vector_array;
       }
-      /* TODO: Proper freeing of elements in array. */
       for (GenericMutableArrayRef array : m_arrays) {
+        array.destruct_indices(m_mask_indices);
         MEM_freeN(array.buffer());
       }
     }
@@ -974,7 +977,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
       return;
     }
 
-    Storage storage;
+    Storage storage(mask_indices);
     this->copy_inputs_to_storage(params, storage);
     this->evaluate_network_to_compute_outputs(mask_indices, context, storage);
     this->copy_computed_values_to_outputs(mask_indices, params, storage);
