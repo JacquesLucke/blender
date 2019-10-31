@@ -471,6 +471,40 @@ class MFParams {
   const MFSignature *m_signature = nullptr;
 };
 
+class MultiFunction {
+ public:
+  virtual ~MultiFunction()
+  {
+  }
+  virtual void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const = 0;
+
+  IndexRange param_indices() const
+  {
+    return IndexRange(m_signature.m_param_types.size());
+  }
+
+  MFParamType param_type(uint index) const
+  {
+    return m_signature.m_param_types[index];
+  }
+
+  StringRefNull param_name(uint index) const
+  {
+    return m_signature.m_param_names[index];
+  }
+
+ protected:
+  void set_signature(MFSignatureBuilder &signature_builder)
+  {
+    m_signature = signature_builder.build();
+  }
+
+ private:
+  MFSignature m_signature;
+
+  friend class MFParamsBuilder;
+};
+
 class MFParamsBuilder {
  private:
   Vector<GenericVirtualListRef> m_virtual_list_refs;
@@ -483,17 +517,9 @@ class MFParamsBuilder {
   MFParams m_params;
 
  public:
-  MFParamsBuilder() = default;
-
-  void start_new(const MFSignature &signature, uint min_array_size)
+  MFParamsBuilder(const MultiFunction &function, uint min_array_size)
+      : m_signature(&function.m_signature), m_min_array_size(min_array_size)
   {
-    m_signature = &signature;
-    m_min_array_size = min_array_size;
-
-    m_virtual_list_refs.clear();
-    m_mutable_array_refs.clear();
-    m_virtual_list_list_refs.clear();
-    m_vector_arrays.clear();
   }
 
   template<typename T> void add_readonly_single_input(ArrayRef<T> array)
@@ -554,43 +580,6 @@ class MFParamsBuilder {
                         *m_signature);
     return m_params;
   }
-};
-
-class MultiFunction {
- public:
-  virtual ~MultiFunction()
-  {
-  }
-  virtual void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const = 0;
-
-  const MFSignature &signature() const
-  {
-    return m_signature;
-  }
-
-  IndexRange param_indices() const
-  {
-    return IndexRange(m_signature.m_param_types.size());
-  }
-
-  MFParamType param_type(uint index) const
-  {
-    return m_signature.m_param_types[index];
-  }
-
-  StringRefNull param_name(uint index) const
-  {
-    return m_signature.m_param_names[index];
-  }
-
- protected:
-  void set_signature(MFSignatureBuilder &signature_builder)
-  {
-    m_signature = signature_builder.build();
-  }
-
- private:
-  MFSignature m_signature;
 };
 
 };  // namespace BKE

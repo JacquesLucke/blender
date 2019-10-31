@@ -1011,14 +1011,14 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
   {
     uint array_size = mask_indices.last() + 1;
 
-    MFParamsBuilder params_builder;
-    params_builder.start_new(function_node.function().signature(), array_size);
+    const MultiFunction &function = function_node.function();
+    MFParamsBuilder params_builder(function, array_size);
 
     Vector<std::pair<const MFOutputSocket *, GenericMutableArrayRef>> single_outputs_to_forward;
     Vector<std::pair<const MFOutputSocket *, GenericVectorArray *>> vector_outputs_to_forward;
 
-    for (uint param_index : function_node.function().param_indices()) {
-      MFParamType param_type = function_node.function().param_type(param_index);
+    for (uint param_index : function.param_indices()) {
+      MFParamType param_type = function.param_type(param_index);
       switch (param_type.category()) {
         case MFParamType::None: {
           BLI_assert(false);
@@ -1072,7 +1072,6 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
     }
 
     MFParams &params = params_builder.build();
-    const MultiFunction &function = function_node.function();
     function.call(mask_indices, params, global_context);
 
     for (auto single_forward_info : single_outputs_to_forward) {
@@ -1198,8 +1197,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
 
   MultiFunction_FunctionTree function{function_inputs, function_outputs};
 
-  MFParamsBuilder params;
-  params.start_new(function.signature(), numVerts);
+  MFParamsBuilder params(function, numVerts);
   params.add_readonly_single_input(ArrayRef<float3>((float3 *)vertexCos, numVerts));
   params.add_readonly_single_input(&fdmd->control1);
   params.add_readonly_single_input(&fdmd->control2);

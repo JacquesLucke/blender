@@ -382,8 +382,7 @@ void MultiFunction_SimpleVectorize::call(ArrayRef<uint> mask_indices,
 
   for (uint index : mask_indices) {
     uint length = vectorization_lengths[index];
-    MFParamsBuilder params_builder;
-    params_builder.start_new(m_function.signature(), length);
+    MFParamsBuilder params_builder(m_function, length);
 
     for (uint param_index : m_function.param_indices()) {
       MFParamType param_type = m_function.param_type(param_index);
