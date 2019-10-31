@@ -615,6 +615,26 @@ static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert
   return {node.inputs()[0], node.outputs()[0]};
 }
 
+template<typename FromT, typename ToT>
+static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert_list(
+    VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+{
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_ConvertList<FromT, ToT>>(
+      "convert list function", resources);
+  MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
+  return {node.inputs()[0], node.outputs()[0]};
+}
+
+template<typename T>
+static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_element_to_list(
+    VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+{
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_SingleElementList<T>>(
+      "single element list function", resources);
+  MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
+  return {node.inputs()[0], node.outputs()[0]};
+}
+
 static Map<std::pair<std::string, std::string>, InsertImplicitConversionFunction>
 get_conversion_inserters()
 {
@@ -628,6 +648,25 @@ get_conversion_inserters()
 
   inserters.add_new({"fn_IntegerSocket", "fn_BooleanSocket"}, INSERT_convert<int, bool>);
   inserters.add_new({"fn_BooleanSocket", "fn_IntegerSocket"}, INSERT_convert<bool, int>);
+
+  inserters.add_new({"fn_IntegerListSocket", "fn_FloatListSocket"},
+                    INSERT_convert_list<int, float>);
+  inserters.add_new({"fn_FloatListSocket", "fn_IntegerListSocket"},
+                    INSERT_convert_list<float, int>);
+
+  inserters.add_new({"fn_FloatListSocket", "fn_BooleanListSocket"},
+                    INSERT_convert_list<float, bool>);
+  inserters.add_new({"fn_BooleanListSocket", "fn_FloatListSocket"},
+                    INSERT_convert_list<bool, float>);
+
+  inserters.add_new({"fn_IntegerListSocket", "fn_BooleanListSocket"},
+                    INSERT_convert_list<int, bool>);
+  inserters.add_new({"fn_BooleanListSocket", "fn_IntegerListSocket"},
+                    INSERT_convert_list<bool, int>);
+
+  inserters.add_new({"fn_IntegerSocket", "fn_IntegerListSocket"}, INSERT_element_to_list<int>);
+  inserters.add_new({"fn_FloatSocket", "fn_FloatListSocket"}, INSERT_element_to_list<float>);
+  inserters.add_new({"fn_BooleanSocket", "fn_BooleanListSocket"}, INSERT_element_to_list<bool>);
 
   return inserters;
 }

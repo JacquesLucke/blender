@@ -142,6 +142,58 @@ template<typename FromT, typename ToT> class MultiFunction_Convert : public Mult
   }
 };
 
+template<typename FromT, typename ToT> class MultiFunction_ConvertList : public MultiFunction {
+ public:
+  MultiFunction_ConvertList()
+  {
+    MFSignatureBuilder signature;
+    signature.readonly_vector_input<FromT>("Inputs");
+    signature.vector_output<ToT>("Outputs");
+    this->set_signature(signature);
+  }
+
+  void call(ArrayRef<uint> mask_indices,
+            MFParams &params,
+            MFContext &UNUSED(context)) const override
+  {
+    VirtualListListRef<FromT> inputs = params.readonly_vector_input<FromT>(0, "Inputs");
+    GenericVectorArray::MutableTypedRef<ToT> outputs = params.vector_output<ToT>(1, "Outputs");
+
+    for (uint index : mask_indices) {
+      VirtualListRef<FromT> input_list = inputs[index];
+
+      for (uint i = 0; i < input_list.size(); i++) {
+        const FromT &from_value = input_list[i];
+        ToT to_value = static_cast<ToT>(from_value);
+        outputs.append_single(index, to_value);
+      }
+    }
+  }
+};
+
+template<typename T> class MultiFunction_SingleElementList : public MultiFunction {
+ public:
+  MultiFunction_SingleElementList()
+  {
+    MFSignatureBuilder signature;
+    signature.readonly_single_input<T>("Input");
+    signature.vector_output<T>("Outputs");
+    this->set_signature(signature);
+  }
+
+  void call(ArrayRef<uint> mask_indices,
+            MFParams &params,
+            MFContext &UNUSED(context)) const override
+  {
+    VirtualListRef<T> inputs = params.readonly_single_input<T>(0, "Input");
+    GenericVectorArray::MutableTypedRef<T> outputs = params.vector_output<T>(1, "Outputs");
+
+    for (uint i : mask_indices) {
+      outputs.append_single(i, inputs[i]);
+    }
+  }
+};
+
 class MultiFunction_SimpleVectorize final : public MultiFunction {
  private:
   const MultiFunction &m_function;
