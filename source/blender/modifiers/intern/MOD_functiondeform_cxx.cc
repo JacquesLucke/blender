@@ -360,58 +360,81 @@ using InsertImplicitConversionFunction =
     std::function<std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *>(
         VTreeMFNetworkBuilder &builder, OwnedResources &resources)>;
 
+template<typename T, typename... Args>
+T &allocate_resource(const char *name, OwnedResources &resources, Args &&... args)
+{
+  std::unique_ptr<T> value = BLI::make_unique<T>(std::forward<Args>(args)...);
+  T &value_ref = *value;
+  resources.add(std::move(value), name);
+  return value_ref;
+}
+
 static void INSERT_vector_math(VTreeMFNetworkBuilder &builder,
                                OwnedResources &resources,
                                const VirtualNode &vnode)
 {
-  auto function = BLI::make_unique<BKE::MultiFunction_AddFloat3s>();
-  builder.add_function(*function, {0, 1}, {2}, vnode);
-  resources.add(std::move(function), "vector math function");
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_AddFloat3s>(
+      "vector math function", resources);
+  builder.add_function(fn, {0, 1}, {2}, vnode);
+}
+
+static const MultiFunction &get_vectorized_function(
+    const MultiFunction &base_function,
+    OwnedResources &resources,
+    PointerRNA rna,
+    ArrayRef<const char *> is_vectorized_prop_names)
+{
+  Vector<bool> input_is_vectorized;
+  for (const char *prop_name : is_vectorized_prop_names) {
+    char state[5];
+    RNA_string_get(&rna, prop_name, state);
+    BLI_assert(STREQ(state, "BASE") || STREQ(state, "LIST"));
+
+    bool is_vectorized = STREQ(state, "LIST");
+    input_is_vectorized.append(is_vectorized);
+  }
+
+  if (input_is_vectorized.contains(true)) {
+    return allocate_resource<BKE::MultiFunction_SimpleVectorize>(
+        "vectorized function", resources, base_function, input_is_vectorized);
+  }
+  else {
+    return base_function;
+  }
 }
 
 static void INSERT_float_math(VTreeMFNetworkBuilder &builder,
                               OwnedResources &resources,
                               const VirtualNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
-  char state[5];
-  RNA_string_get(&rna, "use_list__a", state);
-  bool use_list__a = STREQ(state, "LIST");
-  RNA_string_get(&rna, "use_list__b", state);
-  bool use_list__b = STREQ(state, "LIST");
+  const MultiFunction &base_fn = allocate_resource<BKE::MultiFunction_AddFloats>(
+      "float math function", resources);
+  const MultiFunction &fn = get_vectorized_function(
+      base_fn, resources, vnode.rna(), {"use_list__a", "use_list__b"});
 
-  if (use_list__a || use_list__b) {
-    Vector<bool> input_is_vectorized = {use_list__a, use_list__b};
-    auto base_function = BLI::make_unique<BKE::MultiFunction_AddFloats>();
-    auto vectorized_function = BLI::make_unique<BKE::MultiFunction_SimpleVectorize>(
-        *base_function, input_is_vectorized);
-    builder.add_function(*vectorized_function, {0, 1}, {2}, vnode);
-    resources.add(std::move(base_function), "float math function");
-    resources.add(std::move(vectorized_function), "vectorized float math function");
-  }
-  else {
-    auto function = BLI::make_unique<BKE::MultiFunction_AddFloats>();
-    builder.add_function(*function, {0, 1}, {2}, vnode);
-    resources.add(std::move(function), "float math function");
-  }
+  builder.add_function(fn, {0, 1}, {2}, vnode);
 }
 
 static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder,
                                   OwnedResources &resources,
                                   const VirtualNode &vnode)
 {
-  auto function = BLI::make_unique<BKE::MultiFunction_CombineVector>();
-  builder.add_function(*function, {0, 1, 2}, {3}, vnode);
-  resources.add(std::move(function), "combine vector function");
+  const MultiFunction &base_fn = allocate_resource<BKE::MultiFunction_CombineVector>(
+      "combine vector function", resources);
+  const MultiFunction &fn = get_vectorized_function(
+      base_fn, resources, vnode.rna(), {"use_list__x", "use_list__y", "use_list__z"});
+  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
 }
 
 static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder,
                                    OwnedResources &resources,
                                    const VirtualNode &vnode)
 {
-  auto function = BLI::make_unique<BKE::MultiFunction_SeparateVector>();
-  builder.add_function(*function, {0}, {1, 2, 3}, vnode);
-  resources.add(std::move(function), "separate vector function");
+  const MultiFunction &base_fn = allocate_resource<BKE::MultiFunction_SeparateVector>(
+      "separate vector function", resources);
+  const MultiFunction &fn = get_vectorized_function(
+      base_fn, resources, vnode.rna(), {"use_list__vector"});
+  builder.add_function(fn, {0}, {1, 2, 3}, vnode);
 }
 
 static void INSERT_list_length(VTreeMFNetworkBuilder &builder,
@@ -423,9 +446,9 @@ static void INSERT_list_length(VTreeMFNetworkBuilder &builder,
   const CPPType &type = get_cpp_type_by_name(type_name);
   MEM_freeN(type_name);
 
-  auto function = BLI::make_unique<BKE::MultiFunction_ListLength>(type);
-  builder.add_function(*function, {0}, {1}, vnode);
-  resources.add(std::move(function), "list length function");
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_ListLength>(
+      "list length function", resources, type);
+  builder.add_function(fn, {0}, {1}, vnode);
 }
 
 static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder,
@@ -437,9 +460,9 @@ static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder,
   const CPPType &type = get_cpp_type_by_name(type_name);
   MEM_freeN(type_name);
 
-  auto function = BLI::make_unique<BKE::MultiFunction_GetListElement>(type);
-  builder.add_function(*function, {0, 1, 2}, {3}, vnode);
-  resources.add(std::move(function), "get list element");
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_GetListElement>(
+      "get list element function", resources, type);
+  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
 }
 
 static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builder,
@@ -471,10 +494,10 @@ static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builde
   uint input_amount = input_is_list.size();
   uint output_param_index = (input_amount > 0 && input_is_list[0]) ? 0 : input_amount;
 
-  auto function = BLI::make_unique<BKE::MultiFunction_PackList>(base_type, input_is_list);
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_PackList>(
+      "pack list function", resources, base_type, input_is_list);
   MFBuilderFunctionNode &node = builder.add_function(
-      *function, IndexRange(input_amount).as_array_ref(), {output_param_index});
-  resources.add(std::move(function), "pack list function");
+      fn, IndexRange(input_amount).as_array_ref(), {output_param_index});
 
   for (uint i = 0; i < input_amount; i++) {
     builder.map_sockets(vnode.input(start_index + i), *node.inputs()[i]);
@@ -518,10 +541,9 @@ static MFBuilderOutputSocket &INSERT_vector_socket(VTreeMFNetworkBuilder &builde
   float3 value;
   RNA_float_get_array(&rna, "value", value);
 
-  auto function = BLI::make_unique<BKE::MultiFunction_ConstantValue<float3>>(value);
-  auto &node = builder.add_function(*function, {}, {0});
-
-  resources.add(std::move(function), "vector socket");
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_ConstantValue<float3>>(
+      "vector socket", resources, value);
+  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
 
@@ -532,10 +554,9 @@ static MFBuilderOutputSocket &INSERT_float_socket(VTreeMFNetworkBuilder &builder
   PointerRNA rna = vsocket.rna();
   float value = RNA_float_get(&rna, "value");
 
-  auto function = BLI::make_unique<BKE::MultiFunction_ConstantValue<float>>(value);
-  auto &node = builder.add_function(*function, {}, {0});
-
-  resources.add(std::move(function), "float socket");
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_ConstantValue<float>>(
+      "float socket", resources, value);
+  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
 
@@ -546,10 +567,9 @@ static MFBuilderOutputSocket &INSERT_int_socket(VTreeMFNetworkBuilder &builder,
   PointerRNA rna = vsocket.rna();
   int value = RNA_int_get(&rna, "value");
 
-  auto function = BLI::make_unique<BKE::MultiFunction_ConstantValue<int>>(value);
-  auto &node = builder.add_function(*function, {}, {0});
-
-  resources.add(std::move(function), "int socket");
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_ConstantValue<int>>(
+      "int socket", resources, value);
+  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
 
@@ -558,10 +578,9 @@ static MFBuilderOutputSocket &INSERT_empty_list_socket(VTreeMFNetworkBuilder &bu
                                                        OwnedResources &resources,
                                                        const VirtualSocket &UNUSED(vsocket))
 {
-  auto function = BLI::make_unique<BKE::MultiFunction_EmptyList<T>>();
-  auto &node = builder.add_function(*function, {}, {0});
-
-  resources.add(std::move(function), "empty list socket");
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_EmptyList<T>>("empty list socket",
+                                                                               resources);
+  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
 
@@ -581,9 +600,9 @@ template<typename FromT, typename ToT>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert(
     VTreeMFNetworkBuilder &builder, OwnedResources &resources)
 {
-  auto function = BLI::make_unique<BKE::MultiFunction_Convert<FromT, ToT>>();
-  auto &node = builder.add_function(*function, {0}, {1});
-  resources.add(std::move(function), "converter function");
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_Convert<FromT, ToT>>(
+      "converter function", resources);
+  MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
   return {node.inputs()[0], node.outputs()[0]};
 }
 
