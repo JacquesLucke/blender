@@ -6,6 +6,8 @@
 #include "BLI_lazy_init_cxx.h"
 #include "BLI_string_map.h"
 
+#include "DNA_object_types.h"
+
 namespace BKE {
 
 using BLI::float3;
@@ -175,6 +177,31 @@ void MultiFunction_FloatRange::call(ArrayRef<uint> mask_indices,
     for (uint j = 0; j < amounts[i]; j++) {
       float value = starts[i] + j * steps[i];
       ranges.append_single(i, value);
+    }
+  }
+}
+
+MultiFunction_ObjectWorldLocation::MultiFunction_ObjectWorldLocation()
+{
+  MFSignatureBuilder signature("Object Location");
+  signature.readonly_single_input<Object *>("Object");
+  signature.single_output<float3>("Location");
+  this->set_signature(signature);
+}
+
+void MultiFunction_ObjectWorldLocation::call(ArrayRef<uint> mask_indices,
+                                             MFParams &params,
+                                             MFContext &UNUSED(context)) const
+{
+  auto objects = params.readonly_single_input<Object *>(0, "Object");
+  auto locations = params.single_output<float3>(1, "Location");
+
+  for (uint i : mask_indices) {
+    if (objects[i] != nullptr) {
+      locations[i] = objects[i]->obmat[3];
+    }
+    else {
+      locations[i] = float3(0, 0, 0);
     }
   }
 }

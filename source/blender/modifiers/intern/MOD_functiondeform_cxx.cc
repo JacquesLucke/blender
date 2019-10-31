@@ -77,6 +77,9 @@ static MFDataType get_type_by_socket(const VirtualSocket &vsocket)
   else if (idname == "fn_BooleanSocket") {
     return MFDataType::ForSingle<bool>();
   }
+  else if (idname == "fn_ObjectSocket") {
+    return MFDataType::ForSingle<Object *>();
+  }
   else if (idname == "fn_FloatListSocket") {
     return MFDataType::ForVector<float>();
   }
@@ -89,6 +92,10 @@ static MFDataType get_type_by_socket(const VirtualSocket &vsocket)
   else if (idname == "fn_BooleanListSocket") {
     return MFDataType::ForVector<bool>();
   }
+  else if (idname == "fn_ObjectListSocket") {
+    return MFDataType::ForVector<Object *>();
+  }
+
   return MFDataType();
 }
 
@@ -105,6 +112,9 @@ static const CPPType &get_cpp_type_by_name(StringRef name)
   }
   else if (name == "Boolean") {
     return BKE::GET_TYPE<bool>();
+  }
+  else if (name == "Object") {
+    return BKE::GET_TYPE<Object *>();
   }
 
   BLI_assert(false);
@@ -531,6 +541,15 @@ static void INSERT_pack_list(VTreeMFNetworkBuilder &builder,
   builder.map_sockets(vnode.output(0), packed_list_socket);
 }
 
+static void INSERT_object_location(VTreeMFNetworkBuilder &builder,
+                                   OwnedResources &resources,
+                                   const VirtualNode &vnode)
+{
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_ObjectWorldLocation>(
+      "object location function", resources);
+  builder.add_function(fn, {0}, {1}, vnode);
+}
+
 static StringMap<InsertVNodeFunction> get_node_inserters()
 {
   StringMap<InsertVNodeFunction> inserters;
@@ -541,6 +560,7 @@ static StringMap<InsertVNodeFunction> get_node_inserters()
   inserters.add_new("fn_ListLengthNode", INSERT_list_length);
   inserters.add_new("fn_PackListNode", INSERT_pack_list);
   inserters.add_new("fn_GetListElementNode", INSERT_get_list_element);
+  inserters.add_new("fn_ObjectTransformsNode", INSERT_object_location);
   return inserters;
 }
 
@@ -584,6 +604,19 @@ static MFBuilderOutputSocket &INSERT_int_socket(VTreeMFNetworkBuilder &builder,
   return *node.outputs()[0];
 }
 
+static MFBuilderOutputSocket &INSERT_object_socket(VTreeMFNetworkBuilder &builder,
+                                                   OwnedResources &resources,
+                                                   const VirtualSocket &vsocket)
+{
+  PointerRNA rna = vsocket.rna();
+  Object *value = (Object *)RNA_pointer_get(&rna, "value").data;
+
+  const MultiFunction &fn = allocate_resource<BKE::MultiFunction_ConstantValue<Object *>>(
+      "object socket", resources, value);
+  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
+  return *node.outputs()[0];
+}
+
 template<typename T>
 static MFBuilderOutputSocket &INSERT_empty_list_socket(VTreeMFNetworkBuilder &builder,
                                                        OwnedResources &resources,
@@ -601,9 +634,11 @@ static StringMap<InsertUnlinkedInputFunction> get_unlinked_input_inserter()
   inserters.add_new("fn_VectorSocket", INSERT_vector_socket);
   inserters.add_new("fn_FloatSocket", INSERT_float_socket);
   inserters.add_new("fn_IntegerSocket", INSERT_int_socket);
+  inserters.add_new("fn_ObjectSocket", INSERT_object_socket);
   inserters.add_new("fn_VectorListSocket", INSERT_empty_list_socket<float3>);
   inserters.add_new("fn_FloatListSocket", INSERT_empty_list_socket<float>);
   inserters.add_new("fn_IntegerListSocket", INSERT_empty_list_socket<int32_t>);
+  inserters.add_new("fn_ObjectListSocket", INSERT_empty_list_socket<Object *>);
   return inserters;
 }
 
