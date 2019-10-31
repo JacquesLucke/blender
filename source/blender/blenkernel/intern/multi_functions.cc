@@ -206,6 +206,26 @@ void MultiFunction_ObjectWorldLocation::call(ArrayRef<uint> mask_indices,
   }
 }
 
+MultiFunction_TextLength::MultiFunction_TextLength()
+{
+  MFSignatureBuilder signature("Text Length");
+  signature.readonly_single_input<std::string>("Text");
+  signature.single_output<int>("Length");
+  this->set_signature(signature);
+}
+
+void MultiFunction_TextLength::call(ArrayRef<uint> mask_indices,
+                                    MFParams &params,
+                                    MFContext &UNUSED(context)) const
+{
+  auto texts = params.readonly_single_input<std::string>(0, "Text");
+  auto lengths = params.single_output<int>(1, "Length");
+
+  for (uint i : mask_indices) {
+    lengths[i] = texts[i].size();
+  }
+}
+
 MultiFunction_PackList::MultiFunction_PackList(const CPPType &base_type,
                                                ArrayRef<bool> input_list_status)
     : m_base_type(base_type), m_input_list_status(input_list_status)

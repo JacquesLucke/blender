@@ -53,6 +53,12 @@ class MultiFunction_ObjectWorldLocation final : public MultiFunction {
   void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
 };
 
+class MultiFunction_TextLength final : public MultiFunction {
+ public:
+  MultiFunction_TextLength();
+  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+};
+
 class MultiFunction_GetListElement final : public MultiFunction {
  private:
   const CPPType &m_base_type;
