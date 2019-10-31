@@ -10,6 +10,7 @@ template<typename T> class VirtualListRef {
   enum Category {
     Single,
     FullArray,
+    FullPointerArray,
     RepeatedArray,
   };
 
@@ -24,6 +25,9 @@ template<typename T> class VirtualListRef {
       const T *data;
     } full_array;
     struct {
+      const T *const *data;
+    } full_pointer_array;
+    struct {
       const T *data;
       uint real_size;
     } repeated_array;
@@ -33,7 +37,7 @@ template<typename T> class VirtualListRef {
   VirtualListRef()
   {
     m_virtual_size = 0;
-    m_category = FullArray;
+    m_category = Category::FullArray;
     m_data.single.data = nullptr;
   }
 
@@ -41,7 +45,7 @@ template<typename T> class VirtualListRef {
   {
     VirtualListRef list;
     list.m_virtual_size = virtual_size;
-    list.m_category = Single;
+    list.m_category = Category::Single;
     list.m_data.single.data = data;
     return list;
   }
@@ -50,7 +54,7 @@ template<typename T> class VirtualListRef {
   {
     VirtualListRef list;
     list.m_virtual_size = size;
-    list.m_category = FullArray;
+    list.m_category = Category::FullArray;
     list.m_data.full_array.data = data;
     return list;
   }
@@ -60,13 +64,27 @@ template<typename T> class VirtualListRef {
     return VirtualListRef::FromFullArray(array.begin(), array.size());
   }
 
+  static VirtualListRef FromFullPointerArray(const T *const *data, uint size)
+  {
+    VirtualListRef list;
+    list.m_virtual_size = size;
+    list.m_category = Category::FullPointerArray;
+    list.m_data.full_pointer_array.data = data;
+    return list;
+  }
+
+  static VirtualListRef FromFullPointerArray(ArrayRef<const T *> data)
+  {
+    return VirtualListRef::FromFullPointerArray(data.begin(), data.size());
+  }
+
   static VirtualListRef FromRepeatedArray(const T *data, uint real_size, uint virtual_size)
   {
     BLI_assert(virtual_size == 0 || real_size > 0);
 
     VirtualListRef list;
     list.m_virtual_size = virtual_size;
-    list.m_category = RepeatedArray;
+    list.m_category = Category::RepeatedArray;
     list.m_data.repeated_array.data = data;
     list.m_data.repeated_array.real_size = real_size;
     return list;
@@ -81,11 +99,13 @@ template<typename T> class VirtualListRef {
   {
     BLI_assert(index < m_virtual_size);
     switch (m_category) {
-      case Single:
+      case Category::Single:
         return *m_data.single.data;
-      case FullArray:
+      case Category::FullArray:
         return m_data.full_array.data[index];
-      case RepeatedArray:
+      case Category::FullPointerArray:
+        return *m_data.full_pointer_array.data[index];
+      case Category::RepeatedArray:
         uint real_index = index % m_data.repeated_array.real_size;
         return m_data.repeated_array.data[real_index];
     }
@@ -96,14 +116,6 @@ template<typename T> class VirtualListRef {
   uint size() const
   {
     return m_virtual_size;
-  }
-
-  void materialize(MutableArrayRef<T> dst) const
-  {
-    BLI_assert(dst.size() == m_virtual_size);
-    for (uint i = 0; i < m_virtual_size; i++) {
-      dst[i] = (*this)[i];
-    }
   }
 };
 

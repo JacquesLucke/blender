@@ -16,6 +16,7 @@ class GenericVirtualListRef {
   enum Category {
     Single,
     FullArray,
+    FullPointerArray,
     RepeatedArray,
   };
 
@@ -30,6 +31,9 @@ class GenericVirtualListRef {
     struct {
       const void *data;
     } full_array;
+    struct {
+      const void *const *data;
+    } full_pointer_array;
     struct {
       const void *data;
       uint real_size;
@@ -51,7 +55,7 @@ class GenericVirtualListRef {
   {
     m_virtual_size = array.size();
     m_type = &array.type();
-    m_category = FullArray;
+    m_category = Category::FullArray;
     m_data.full_array.data = array.buffer();
   }
 
@@ -67,7 +71,7 @@ class GenericVirtualListRef {
     GenericVirtualListRef list;
     list.m_virtual_size = virtual_size;
     list.m_type = &type;
-    list.m_category = Single;
+    list.m_category = Category::Single;
     list.m_data.single.data = buffer;
     return list;
   }
@@ -77,7 +81,7 @@ class GenericVirtualListRef {
     GenericVirtualListRef list;
     list.m_virtual_size = size;
     list.m_type = &type;
-    list.m_category = FullArray;
+    list.m_category = Category::FullArray;
     list.m_data.full_array.data = buffer;
     return list;
   }
@@ -88,6 +92,18 @@ class GenericVirtualListRef {
         GET_TYPE<T>(), (const void *)array.begin(), array.size());
   }
 
+  static GenericVirtualListRef FromFullPointerArray(const CPPType &type,
+                                                    const void *const *buffer,
+                                                    uint size)
+  {
+    GenericVirtualListRef list;
+    list.m_virtual_size = size;
+    list.m_type = &type;
+    list.m_category = Category::FullPointerArray;
+    list.m_data.full_pointer_array.data = buffer;
+    return list;
+  }
+
   static GenericVirtualListRef FromRepeatedArray(const CPPType &type,
                                                  const void *buffer,
                                                  uint real_size,
@@ -96,7 +112,7 @@ class GenericVirtualListRef {
     GenericVirtualListRef list;
     list.m_virtual_size = virtual_size;
     list.m_type = &type;
-    list.m_category = RepeatedArray;
+    list.m_category = Category::RepeatedArray;
     list.m_data.repeated_array.data = buffer;
     list.m_data.repeated_array.real_size = real_size;
     return list;
@@ -111,11 +127,13 @@ class GenericVirtualListRef {
   {
     BLI_assert(index < m_virtual_size);
     switch (m_category) {
-      case Single:
+      case Category::Single:
         return m_data.single.data;
-      case FullArray:
+      case Category::FullArray:
         return POINTER_OFFSET(m_data.full_array.data, index * m_type->size());
-      case RepeatedArray:
+      case Category::FullPointerArray:
+        return m_data.full_pointer_array.data[index];
+      case Category::RepeatedArray:
         uint real_index = index % m_data.repeated_array.real_size;
         return POINTER_OFFSET(m_data.repeated_array.data, real_index * m_type->size());
     }
@@ -127,11 +145,14 @@ class GenericVirtualListRef {
   {
     BLI_assert(GET_TYPE<T>().is_same_or_generalization(*m_type));
     switch (m_category) {
-      case Single:
+      case Category::Single:
         return VirtualListRef<T>::FromSingle((const T *)m_data.single.data, m_virtual_size);
-      case FullArray:
+      case Category::FullArray:
         return VirtualListRef<T>::FromFullArray((const T *)m_data.full_array.data, m_virtual_size);
-      case RepeatedArray:
+      case Category::FullPointerArray:
+        return VirtualListRef<T>::FromFullPointerArray(
+            (const T *const *)m_data.full_pointer_array.data, m_virtual_size);
+      case Category::RepeatedArray:
         return VirtualListRef<T>::FromRepeatedArray((const T *)m_data.repeated_array.data,
                                                     m_data.repeated_array.real_size,
                                                     m_virtual_size);
