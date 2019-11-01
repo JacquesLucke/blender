@@ -26,11 +26,13 @@ set(SRC
   intern/multi_functions/mixed.cc
   intern/cpp_type.cc
   intern/cpp_types.cc
+  intern/generic_tuple.cc
   intern/initialize.cc
   intern/multi_function_network.cc
 
   FN_cpp_type.h
   FN_generic_array_ref.h
+  FN_generic_tuple.h
   FN_generic_vector_array.h
   FN_generic_virtual_list_list_ref.h
   FN_generic_virtual_list_ref.h
