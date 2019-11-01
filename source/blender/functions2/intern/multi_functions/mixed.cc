@@ -13,7 +13,7 @@ namespace FN {
 
 using BLI::float3;
 
-MultiFunction_AddFloats::MultiFunction_AddFloats()
+MF_AddFloats::MF_AddFloats()
 {
   MFSignatureBuilder signature("Add Floats");
   signature.readonly_single_input<float>("A");
@@ -22,9 +22,7 @@ MultiFunction_AddFloats::MultiFunction_AddFloats()
   this->set_signature(signature);
 }
 
-void MultiFunction_AddFloats::call(const MFMask &mask,
-                                   MFParams &params,
-                                   MFContext &UNUSED(context)) const
+void MF_AddFloats::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
   auto a = params.readonly_single_input<float>(0, "A");
   auto b = params.readonly_single_input<float>(1, "B");
@@ -35,7 +33,7 @@ void MultiFunction_AddFloats::call(const MFMask &mask,
   }
 }
 
-MultiFunction_AddFloat3s::MultiFunction_AddFloat3s()
+MF_AddFloat3s::MF_AddFloat3s()
 {
   MFSignatureBuilder signature("Add Float3s");
   signature.readonly_single_input<float3>("A");
@@ -44,9 +42,7 @@ MultiFunction_AddFloat3s::MultiFunction_AddFloat3s()
   this->set_signature(signature);
 }
 
-void MultiFunction_AddFloat3s::call(const MFMask &mask,
-                                    MFParams &params,
-                                    MFContext &UNUSED(context)) const
+void MF_AddFloat3s::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
   auto a = params.readonly_single_input<float3>(0, "A");
   auto b = params.readonly_single_input<float3>(1, "B");
@@ -57,7 +53,7 @@ void MultiFunction_AddFloat3s::call(const MFMask &mask,
   }
 }
 
-MultiFunction_CombineVector::MultiFunction_CombineVector()
+MF_CombineVector::MF_CombineVector()
 {
   MFSignatureBuilder signature("Combine Vector");
   signature.readonly_single_input<float>("X");
@@ -67,9 +63,7 @@ MultiFunction_CombineVector::MultiFunction_CombineVector()
   this->set_signature(signature);
 }
 
-void MultiFunction_CombineVector::call(const MFMask &mask,
-                                       MFParams &params,
-                                       MFContext &UNUSED(context)) const
+void MF_CombineVector::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
   auto x = params.readonly_single_input<float>(0, "X");
   auto y = params.readonly_single_input<float>(1, "Y");
@@ -81,7 +75,7 @@ void MultiFunction_CombineVector::call(const MFMask &mask,
   }
 }
 
-MultiFunction_SeparateVector::MultiFunction_SeparateVector()
+MF_SeparateVector::MF_SeparateVector()
 {
   MFSignatureBuilder signature("Separate Vector");
   signature.readonly_single_input<float3>("Vector");
@@ -91,9 +85,9 @@ MultiFunction_SeparateVector::MultiFunction_SeparateVector()
   this->set_signature(signature);
 }
 
-void MultiFunction_SeparateVector::call(const MFMask &mask,
-                                        MFParams &params,
-                                        MFContext &UNUSED(context)) const
+void MF_SeparateVector::call(const MFMask &mask,
+                             MFParams &params,
+                             MFContext &UNUSED(context)) const
 {
   auto vector = params.readonly_single_input<float3>(0, "Vector");
   auto x = params.single_output<float>(1, "X");
@@ -108,7 +102,7 @@ void MultiFunction_SeparateVector::call(const MFMask &mask,
   }
 }
 
-MultiFunction_VectorDistance::MultiFunction_VectorDistance()
+MF_VectorDistance::MF_VectorDistance()
 {
   MFSignatureBuilder signature("Vector Distance");
   signature.readonly_single_input<float3>("A");
@@ -117,9 +111,9 @@ MultiFunction_VectorDistance::MultiFunction_VectorDistance()
   this->set_signature(signature);
 }
 
-void MultiFunction_VectorDistance::call(const MFMask &mask,
-                                        MFParams &params,
-                                        MFContext &UNUSED(context)) const
+void MF_VectorDistance::call(const MFMask &mask,
+                             MFParams &params,
+                             MFContext &UNUSED(context)) const
 {
   auto a = params.readonly_single_input<float3>(0, "A");
   auto b = params.readonly_single_input<float3>(1, "B");
@@ -130,7 +124,7 @@ void MultiFunction_VectorDistance::call(const MFMask &mask,
   }
 }
 
-MultiFunction_FloatArraySum::MultiFunction_FloatArraySum()
+MF_FloatArraySum::MF_FloatArraySum()
 {
   MFSignatureBuilder signature("Float Array Sum");
   signature.readonly_vector_input<float>("Array");
@@ -138,9 +132,7 @@ MultiFunction_FloatArraySum::MultiFunction_FloatArraySum()
   this->set_signature(signature);
 }
 
-void MultiFunction_FloatArraySum::call(const MFMask &mask,
-                                       MFParams &params,
-                                       MFContext &UNUSED(context)) const
+void MF_FloatArraySum::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
   auto arrays = params.readonly_vector_input<float>(0, "Array");
   MutableArrayRef<float> sums = params.single_output<float>(1, "Sum");
@@ -155,7 +147,7 @@ void MultiFunction_FloatArraySum::call(const MFMask &mask,
   }
 }
 
-MultiFunction_FloatRange::MultiFunction_FloatRange()
+MF_FloatRange::MF_FloatRange()
 {
   MFSignatureBuilder signature("Float Range");
   signature.readonly_single_input<float>("Start");
@@ -165,9 +157,7 @@ MultiFunction_FloatRange::MultiFunction_FloatRange()
   this->set_signature(signature);
 }
 
-void MultiFunction_FloatRange::call(const MFMask &mask,
-                                    MFParams &params,
-                                    MFContext &UNUSED(context)) const
+void MF_FloatRange::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
   auto starts = params.readonly_single_input<float>(0, "Start");
   auto steps = params.readonly_single_input<float>(1, "Step");
@@ -182,7 +172,7 @@ void MultiFunction_FloatRange::call(const MFMask &mask,
   }
 }
 
-MultiFunction_ObjectWorldLocation::MultiFunction_ObjectWorldLocation()
+MF_ObjectWorldLocation::MF_ObjectWorldLocation()
 {
   MFSignatureBuilder signature("Object Location");
   signature.readonly_single_input<Object *>("Object");
@@ -190,9 +180,9 @@ MultiFunction_ObjectWorldLocation::MultiFunction_ObjectWorldLocation()
   this->set_signature(signature);
 }
 
-void MultiFunction_ObjectWorldLocation::call(const MFMask &mask,
-                                             MFParams &params,
-                                             MFContext &UNUSED(context)) const
+void MF_ObjectWorldLocation::call(const MFMask &mask,
+                                  MFParams &params,
+                                  MFContext &UNUSED(context)) const
 {
   auto objects = params.readonly_single_input<Object *>(0, "Object");
   auto locations = params.single_output<float3>(1, "Location");
@@ -207,7 +197,7 @@ void MultiFunction_ObjectWorldLocation::call(const MFMask &mask,
   }
 }
 
-MultiFunction_TextLength::MultiFunction_TextLength()
+MF_TextLength::MF_TextLength()
 {
   MFSignatureBuilder signature("Text Length");
   signature.readonly_single_input<std::string>("Text");
@@ -215,9 +205,7 @@ MultiFunction_TextLength::MultiFunction_TextLength()
   this->set_signature(signature);
 }
 
-void MultiFunction_TextLength::call(const MFMask &mask,
-                                    MFParams &params,
-                                    MFContext &UNUSED(context)) const
+void MF_TextLength::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
   auto texts = params.readonly_single_input<std::string>(0, "Text");
   auto lengths = params.single_output<int>(1, "Length");
@@ -227,8 +215,8 @@ void MultiFunction_TextLength::call(const MFMask &mask,
   }
 }
 
-MultiFunction_SimpleVectorize::MultiFunction_SimpleVectorize(const MultiFunction &function,
-                                                             ArrayRef<bool> input_is_vectorized)
+MF_SimpleVectorize::MF_SimpleVectorize(const MultiFunction &function,
+                                       ArrayRef<bool> input_is_vectorized)
     : m_function(function), m_input_is_vectorized(input_is_vectorized)
 {
   BLI_assert(input_is_vectorized.contains(true));
@@ -269,9 +257,7 @@ MultiFunction_SimpleVectorize::MultiFunction_SimpleVectorize(const MultiFunction
   this->set_signature(signature);
 }
 
-void MultiFunction_SimpleVectorize::call(const MFMask &mask,
-                                         MFParams &params,
-                                         MFContext &context) const
+void MF_SimpleVectorize::call(const MFMask &mask, MFParams &params, MFContext &context) const
 {
   if (mask.indices_amount() == 0) {
     return;

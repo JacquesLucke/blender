@@ -27,6 +27,7 @@ set(INC
   ../bmesh
   ../depsgraph
   ../functions
+  ../functions2
   ../simulations
   ../makesdna
   ../makesrna

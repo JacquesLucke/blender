@@ -4,66 +4,66 @@
 
 namespace FN {
 
-class MultiFunction_AddFloats final : public MultiFunction {
+class MF_AddFloats final : public MultiFunction {
  public:
-  MultiFunction_AddFloats();
+  MF_AddFloats();
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
-class MultiFunction_AddFloat3s final : public MultiFunction {
+class MF_AddFloat3s final : public MultiFunction {
  public:
-  MultiFunction_AddFloat3s();
+  MF_AddFloat3s();
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
-class MultiFunction_CombineVector final : public MultiFunction {
+class MF_CombineVector final : public MultiFunction {
  public:
-  MultiFunction_CombineVector();
+  MF_CombineVector();
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
-class MultiFunction_SeparateVector final : public MultiFunction {
+class MF_SeparateVector final : public MultiFunction {
  public:
-  MultiFunction_SeparateVector();
+  MF_SeparateVector();
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
-class MultiFunction_VectorDistance final : public MultiFunction {
+class MF_VectorDistance final : public MultiFunction {
  public:
-  MultiFunction_VectorDistance();
+  MF_VectorDistance();
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
-class MultiFunction_FloatArraySum final : public MultiFunction {
+class MF_FloatArraySum final : public MultiFunction {
  public:
-  MultiFunction_FloatArraySum();
+  MF_FloatArraySum();
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
-class MultiFunction_FloatRange final : public MultiFunction {
+class MF_FloatRange final : public MultiFunction {
  public:
-  MultiFunction_FloatRange();
+  MF_FloatRange();
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
-class MultiFunction_ObjectWorldLocation final : public MultiFunction {
+class MF_ObjectWorldLocation final : public MultiFunction {
  public:
-  MultiFunction_ObjectWorldLocation();
+  MF_ObjectWorldLocation();
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
-class MultiFunction_TextLength final : public MultiFunction {
+class MF_TextLength final : public MultiFunction {
  public:
-  MultiFunction_TextLength();
+  MF_TextLength();
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
-template<typename T> class MultiFunction_ConstantValue : public MultiFunction {
+template<typename T> class MF_ConstantValue : public MultiFunction {
  private:
   T m_value;
 
  public:
-  MultiFunction_ConstantValue(T value) : m_value(std::move(value))
+  MF_ConstantValue(T value) : m_value(std::move(value))
   {
     MFSignatureBuilder signature("Constant " + GET_TYPE<T>().name());
     signature.single_output<T>("Output");
@@ -78,9 +78,9 @@ template<typename T> class MultiFunction_ConstantValue : public MultiFunction {
   }
 };
 
-template<typename FromT, typename ToT> class MultiFunction_Convert : public MultiFunction {
+template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
  public:
-  MultiFunction_Convert()
+  MF_Convert()
   {
     MFSignatureBuilder signature(GET_TYPE<FromT>().name() + " to " + GET_TYPE<ToT>().name());
     signature.readonly_single_input<FromT>("Input");
@@ -100,7 +100,7 @@ template<typename FromT, typename ToT> class MultiFunction_Convert : public Mult
   }
 };
 
-class MultiFunction_SimpleVectorize final : public MultiFunction {
+class MF_SimpleVectorize final : public MultiFunction {
  private:
   const MultiFunction &m_function;
   Vector<bool> m_input_is_vectorized;
@@ -108,7 +108,7 @@ class MultiFunction_SimpleVectorize final : public MultiFunction {
   Vector<uint> m_output_indices;
 
  public:
-  MultiFunction_SimpleVectorize(const MultiFunction &function, ArrayRef<bool> input_is_vectorized);
+  MF_SimpleVectorize(const MultiFunction &function, ArrayRef<bool> input_is_vectorized);
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
