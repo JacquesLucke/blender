@@ -106,9 +106,9 @@ template<typename T> class MultiFunction_ConstantValue : public MultiFunction {
   {
     MutableArrayRef<T> output = params.single_output<T>(0, "Output");
 
-    for (uint i : mask.indices()) {
+    mask.foreach_index([&](uint i) {
       new (output.begin() + i) T(m_value);
-    }
+    });
   }
 };
 

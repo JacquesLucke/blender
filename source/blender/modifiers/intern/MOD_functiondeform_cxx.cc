@@ -9,6 +9,7 @@
 #include "BLI_string_map.h"
 #include "BLI_owned_resources.h"
 #include "BLI_stack_cxx.h"
+#include "BLI_timeit.h"
 
 #include "DEG_depsgraph_query.h"
 

@@ -189,6 +189,11 @@ class MFMask {
  public:
   MFMask(ArrayRef<uint> indices) : m_indices(indices)
   {
+#ifdef DEBUG
+    for (uint i = 1; i < indices.size(); i++) {
+      BLI_assert(indices[i - 1] < indices[i]);
+    }
+#endif
   }
 
   uint indices_amount() const
@@ -204,6 +209,32 @@ class MFMask {
   ArrayRef<uint> indices() const
   {
     return m_indices;
+  }
+
+  bool is_range() const
+  {
+    return m_indices.size() > 0 && m_indices.last() - m_indices.first() == m_indices.size() - 1;
+  }
+
+  IndexRange as_range() const
+  {
+    BLI_assert(this->is_range());
+    return IndexRange{m_indices.first(), m_indices.size()};
+  }
+
+  template<typename FuncT> void foreach_index(const FuncT &func) const
+  {
+    if (this->is_range()) {
+      IndexRange range = this->as_range();
+      for (uint i : range) {
+        func(i);
+      }
+    }
+    else {
+      for (uint i : m_indices) {
+        func(i);
+      }
+    }
   }
 };
 
