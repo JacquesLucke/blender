@@ -21,7 +21,7 @@ MultiFunction_AddFloats::MultiFunction_AddFloats()
   this->set_signature(signature);
 }
 
-void MultiFunction_AddFloats::call(ArrayRef<uint> mask_indices,
+void MultiFunction_AddFloats::call(const MFMask &mask,
                                    MFParams &params,
                                    MFContext &UNUSED(context)) const
 {
@@ -29,7 +29,7 @@ void MultiFunction_AddFloats::call(ArrayRef<uint> mask_indices,
   auto b = params.readonly_single_input<float>(1, "B");
   auto result = params.single_output<float>(2, "Result");
 
-  for (uint i : mask_indices) {
+  for (uint i : mask.indices()) {
     result[i] = a[i] + b[i];
   }
 }
@@ -43,7 +43,7 @@ MultiFunction_AddFloat3s::MultiFunction_AddFloat3s()
   this->set_signature(signature);
 }
 
-void MultiFunction_AddFloat3s::call(ArrayRef<uint> mask_indices,
+void MultiFunction_AddFloat3s::call(const MFMask &mask,
                                     MFParams &params,
                                     MFContext &UNUSED(context)) const
 {
@@ -51,7 +51,7 @@ void MultiFunction_AddFloat3s::call(ArrayRef<uint> mask_indices,
   auto b = params.readonly_single_input<float3>(1, "B");
   auto result = params.single_output<float3>(2, "Result");
 
-  for (uint i : mask_indices) {
+  for (uint i : mask.indices()) {
     result[i] = a[i] + b[i];
   }
 }
@@ -66,7 +66,7 @@ MultiFunction_CombineVector::MultiFunction_CombineVector()
   this->set_signature(signature);
 }
 
-void MultiFunction_CombineVector::call(ArrayRef<uint> mask_indices,
+void MultiFunction_CombineVector::call(const MFMask &mask,
                                        MFParams &params,
                                        MFContext &UNUSED(context)) const
 {
@@ -75,7 +75,7 @@ void MultiFunction_CombineVector::call(ArrayRef<uint> mask_indices,
   auto z = params.readonly_single_input<float>(2, "Z");
   auto vector = params.single_output<float3>(3, "Vector");
 
-  for (uint i : mask_indices) {
+  for (uint i : mask.indices()) {
     vector[i] = {x[i], y[i], z[i]};
   }
 }
@@ -90,7 +90,7 @@ MultiFunction_SeparateVector::MultiFunction_SeparateVector()
   this->set_signature(signature);
 }
 
-void MultiFunction_SeparateVector::call(ArrayRef<uint> mask_indices,
+void MultiFunction_SeparateVector::call(const MFMask &mask,
                                         MFParams &params,
                                         MFContext &UNUSED(context)) const
 {
@@ -99,7 +99,7 @@ void MultiFunction_SeparateVector::call(ArrayRef<uint> mask_indices,
   auto y = params.single_output<float>(2, "Y");
   auto z = params.single_output<float>(3, "Z");
 
-  for (uint i : mask_indices) {
+  for (uint i : mask.indices()) {
     float3 v = vector[i];
     x[i] = v.x;
     y[i] = v.y;
@@ -116,7 +116,7 @@ MultiFunction_VectorDistance::MultiFunction_VectorDistance()
   this->set_signature(signature);
 }
 
-void MultiFunction_VectorDistance::call(ArrayRef<uint> mask_indices,
+void MultiFunction_VectorDistance::call(const MFMask &mask,
                                         MFParams &params,
                                         MFContext &UNUSED(context)) const
 {
@@ -124,7 +124,7 @@ void MultiFunction_VectorDistance::call(ArrayRef<uint> mask_indices,
   auto b = params.readonly_single_input<float3>(1, "B");
   auto distances = params.single_output<float>(2, "Distances");
 
-  for (uint i : mask_indices) {
+  for (uint i : mask.indices()) {
     distances[i] = float3::distance(a[i], b[i]);
   }
 }
@@ -137,14 +137,14 @@ MultiFunction_FloatArraySum::MultiFunction_FloatArraySum()
   this->set_signature(signature);
 }
 
-void MultiFunction_FloatArraySum::call(ArrayRef<uint> mask_indices,
+void MultiFunction_FloatArraySum::call(const MFMask &mask,
                                        MFParams &params,
                                        MFContext &UNUSED(context)) const
 {
   auto arrays = params.readonly_vector_input<float>(0, "Array");
   MutableArrayRef<float> sums = params.single_output<float>(1, "Sum");
 
-  for (uint i : mask_indices) {
+  for (uint i : mask.indices()) {
     float sum = 0.0f;
     VirtualListRef<float> array = arrays[i];
     for (uint j = 0; j < array.size(); j++) {
@@ -164,7 +164,7 @@ MultiFunction_FloatRange::MultiFunction_FloatRange()
   this->set_signature(signature);
 }
 
-void MultiFunction_FloatRange::call(ArrayRef<uint> mask_indices,
+void MultiFunction_FloatRange::call(const MFMask &mask,
                                     MFParams &params,
                                     MFContext &UNUSED(context)) const
 {
@@ -173,7 +173,7 @@ void MultiFunction_FloatRange::call(ArrayRef<uint> mask_indices,
   auto amounts = params.readonly_single_input<int>(2, "Amount");
   auto ranges = params.vector_output<float>(3, "Range");
 
-  for (uint i : mask_indices) {
+  for (uint i : mask.indices()) {
     for (uint j = 0; j < amounts[i]; j++) {
       float value = starts[i] + j * steps[i];
       ranges.append_single(i, value);
@@ -189,14 +189,14 @@ MultiFunction_ObjectWorldLocation::MultiFunction_ObjectWorldLocation()
   this->set_signature(signature);
 }
 
-void MultiFunction_ObjectWorldLocation::call(ArrayRef<uint> mask_indices,
+void MultiFunction_ObjectWorldLocation::call(const MFMask &mask,
                                              MFParams &params,
                                              MFContext &UNUSED(context)) const
 {
   auto objects = params.readonly_single_input<Object *>(0, "Object");
   auto locations = params.single_output<float3>(1, "Location");
 
-  for (uint i : mask_indices) {
+  for (uint i : mask.indices()) {
     if (objects[i] != nullptr) {
       locations[i] = objects[i]->obmat[3];
     }
@@ -214,14 +214,14 @@ MultiFunction_TextLength::MultiFunction_TextLength()
   this->set_signature(signature);
 }
 
-void MultiFunction_TextLength::call(ArrayRef<uint> mask_indices,
+void MultiFunction_TextLength::call(const MFMask &mask,
                                     MFParams &params,
                                     MFContext &UNUSED(context)) const
 {
   auto texts = params.readonly_single_input<std::string>(0, "Text");
   auto lengths = params.single_output<int>(1, "Length");
 
-  for (uint i : mask_indices) {
+  for (uint i : mask.indices()) {
     lengths[i] = texts[i].size();
   }
 }
@@ -262,7 +262,7 @@ MultiFunction_PackList::MultiFunction_PackList(const CPPType &base_type,
   this->set_signature(signature);
 }
 
-void MultiFunction_PackList::call(ArrayRef<uint> mask_indices,
+void MultiFunction_PackList::call(const MFMask &mask,
                                   MFParams &params,
                                   MFContext &UNUSED(context)) const
 {
@@ -285,13 +285,13 @@ void MultiFunction_PackList::call(ArrayRef<uint> mask_indices,
   for (uint input_index = first_index; input_index < m_input_list_status.size(); input_index++) {
     if (this->input_is_list(input_index)) {
       GenericVirtualListListRef list = params.readonly_vector_input(input_index, "List");
-      for (uint i : mask_indices) {
+      for (uint i : mask.indices()) {
         vector_array->extend_single__copy(i, list[i]);
       }
     }
     else {
       GenericVirtualListRef list = params.readonly_single_input(input_index, "Value");
-      for (uint i : mask_indices) {
+      for (uint i : mask.indices()) {
         vector_array->append_single__copy(i, list[i]);
       }
     }
@@ -314,7 +314,7 @@ MultiFunction_GetListElement::MultiFunction_GetListElement(const CPPType &base_t
   this->set_signature(signature);
 }
 
-void MultiFunction_GetListElement::call(ArrayRef<uint> mask_indices,
+void MultiFunction_GetListElement::call(const MFMask &mask,
                                         MFParams &params,
                                         MFContext &UNUSED(context)) const
 {
@@ -324,7 +324,7 @@ void MultiFunction_GetListElement::call(ArrayRef<uint> mask_indices,
 
   GenericMutableArrayRef output_values = params.single_output(3, "Value");
 
-  for (uint i : mask_indices) {
+  for (uint i : mask.indices()) {
     int index = indices[i];
     if (index >= 0) {
       GenericVirtualListRef list = lists[i];
@@ -346,14 +346,14 @@ MultiFunction_ListLength::MultiFunction_ListLength(const CPPType &base_type)
   this->set_signature(signature);
 }
 
-void MultiFunction_ListLength::call(ArrayRef<uint> mask_indices,
+void MultiFunction_ListLength::call(const MFMask &mask,
                                     MFParams &params,
                                     MFContext &UNUSED(context)) const
 {
   GenericVirtualListListRef lists = params.readonly_vector_input(0, "List");
   MutableArrayRef<int> lengths = params.single_output<int>(1, "Length");
 
-  for (uint i : mask_indices) {
+  for (uint i : mask.indices()) {
     lengths[i] = lists[i].size();
   }
 }
@@ -400,21 +400,21 @@ MultiFunction_SimpleVectorize::MultiFunction_SimpleVectorize(const MultiFunction
   this->set_signature(signature);
 }
 
-void MultiFunction_SimpleVectorize::call(ArrayRef<uint> mask_indices,
+void MultiFunction_SimpleVectorize::call(const MFMask &mask,
                                          MFParams &params,
                                          MFContext &context) const
 {
-  if (mask_indices.size() == 0) {
+  if (mask.indices_amount() == 0) {
     return;
   }
-  uint array_size = mask_indices.last() + 1;
+  uint array_size = mask.min_array_size();
 
   Vector<int> vectorization_lengths(array_size);
-  vectorization_lengths.fill_indices(mask_indices, -1);
+  vectorization_lengths.fill_indices(mask.indices(), -1);
 
   for (uint param_index : m_vectorized_inputs) {
     GenericVirtualListListRef values = params.readonly_vector_input(param_index, "Input");
-    for (uint i : mask_indices) {
+    for (uint i : mask.indices()) {
       if (vectorization_lengths[i] != 0) {
         vectorization_lengths[i] = std::max<int>(vectorization_lengths[i], values[i].size());
       }
@@ -427,7 +427,7 @@ void MultiFunction_SimpleVectorize::call(ArrayRef<uint> mask_indices,
     output_vector_arrays.append(vector_array);
   }
 
-  for (uint index : mask_indices) {
+  for (uint index : mask.indices()) {
     uint length = vectorization_lengths[index];
     MFParamsBuilder params_builder(m_function, length);
 

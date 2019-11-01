@@ -8,55 +8,55 @@ namespace BKE {
 class MultiFunction_AddFloats final : public MultiFunction {
  public:
   MultiFunction_AddFloats();
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 class MultiFunction_AddFloat3s final : public MultiFunction {
  public:
   MultiFunction_AddFloat3s();
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 class MultiFunction_CombineVector final : public MultiFunction {
  public:
   MultiFunction_CombineVector();
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 class MultiFunction_SeparateVector final : public MultiFunction {
  public:
   MultiFunction_SeparateVector();
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 class MultiFunction_VectorDistance final : public MultiFunction {
  public:
   MultiFunction_VectorDistance();
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 class MultiFunction_FloatArraySum final : public MultiFunction {
  public:
   MultiFunction_FloatArraySum();
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 class MultiFunction_FloatRange final : public MultiFunction {
  public:
   MultiFunction_FloatRange();
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 class MultiFunction_ObjectWorldLocation final : public MultiFunction {
  public:
   MultiFunction_ObjectWorldLocation();
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 class MultiFunction_TextLength final : public MultiFunction {
  public:
   MultiFunction_TextLength();
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 class MultiFunction_GetListElement final : public MultiFunction {
@@ -65,7 +65,7 @@ class MultiFunction_GetListElement final : public MultiFunction {
 
  public:
   MultiFunction_GetListElement(const CPPType &base_type);
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 class MultiFunction_ListLength final : public MultiFunction {
@@ -74,7 +74,7 @@ class MultiFunction_ListLength final : public MultiFunction {
 
  public:
   MultiFunction_ListLength(const CPPType &base_type);
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 class MultiFunction_PackList final : public MultiFunction {
@@ -84,7 +84,7 @@ class MultiFunction_PackList final : public MultiFunction {
 
  public:
   MultiFunction_PackList(const CPPType &base_type, ArrayRef<bool> input_list_status);
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 
  private:
   bool input_is_list(uint index) const;
@@ -102,13 +102,11 @@ template<typename T> class MultiFunction_ConstantValue : public MultiFunction {
     this->set_signature(signature);
   }
 
-  void call(ArrayRef<uint> mask_indices,
-            MFParams &params,
-            MFContext &UNUSED(context)) const override
+  void call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const override
   {
     MutableArrayRef<T> output = params.single_output<T>(0, "Output");
 
-    for (uint i : mask_indices) {
+    for (uint i : mask.indices()) {
       new (output.begin() + i) T(m_value);
     }
   }
@@ -123,7 +121,7 @@ template<typename T> class MultiFunction_EmptyList : public MultiFunction {
     this->set_signature(signature);
   }
 
-  void call(ArrayRef<uint> UNUSED(mask_indices),
+  void call(const MFMask &UNUSED(mask),
             MFParams &UNUSED(params),
             MFContext &UNUSED(context)) const override
   {
@@ -140,14 +138,12 @@ template<typename FromT, typename ToT> class MultiFunction_Convert : public Mult
     this->set_signature(signature);
   }
 
-  void call(ArrayRef<uint> mask_indices,
-            MFParams &params,
-            MFContext &UNUSED(context)) const override
+  void call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const override
   {
     VirtualListRef<FromT> inputs = params.readonly_single_input<FromT>(0, "Input");
     MutableArrayRef<ToT> outputs = params.single_output<ToT>(1, "Output");
 
-    for (uint i : mask_indices) {
+    for (uint i : mask.indices()) {
       const FromT &from_value = inputs[i];
       new (outputs.begin() + i) ToT(from_value);
     }
@@ -165,14 +161,12 @@ template<typename FromT, typename ToT> class MultiFunction_ConvertList : public 
     this->set_signature(signature);
   }
 
-  void call(ArrayRef<uint> mask_indices,
-            MFParams &params,
-            MFContext &UNUSED(context)) const override
+  void call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const override
   {
     VirtualListListRef<FromT> inputs = params.readonly_vector_input<FromT>(0, "Inputs");
     GenericVectorArray::MutableTypedRef<ToT> outputs = params.vector_output<ToT>(1, "Outputs");
 
-    for (uint index : mask_indices) {
+    for (uint index : mask.indices()) {
       VirtualListRef<FromT> input_list = inputs[index];
 
       for (uint i = 0; i < input_list.size(); i++) {
@@ -194,14 +188,12 @@ template<typename T> class MultiFunction_SingleElementList : public MultiFunctio
     this->set_signature(signature);
   }
 
-  void call(ArrayRef<uint> mask_indices,
-            MFParams &params,
-            MFContext &UNUSED(context)) const override
+  void call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const override
   {
     VirtualListRef<T> inputs = params.readonly_single_input<T>(0, "Input");
     GenericVectorArray::MutableTypedRef<T> outputs = params.vector_output<T>(1, "Outputs");
 
-    for (uint i : mask_indices) {
+    for (uint i : mask.indices()) {
       outputs.append_single(i, inputs[i]);
     }
   }
@@ -216,7 +208,7 @@ class MultiFunction_SimpleVectorize final : public MultiFunction {
 
  public:
   MultiFunction_SimpleVectorize(const MultiFunction &function, ArrayRef<bool> input_is_vectorized);
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override;
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
 };  // namespace BKE

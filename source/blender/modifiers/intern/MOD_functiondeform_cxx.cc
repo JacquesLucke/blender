@@ -29,6 +29,7 @@ using BKE::MFDataType;
 using BKE::MFDummyNode;
 using BKE::MFFunctionNode;
 using BKE::MFInputSocket;
+using BKE::MFMask;
 using BKE::MFNetwork;
 using BKE::MFNetworkBuilder;
 using BKE::MFNode;
@@ -882,7 +883,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
 
   class Storage {
    private:
-    ArrayRef<uint> m_mask_indices;
+    const MFMask &m_mask;
     Vector<GenericVectorArray *> m_vector_arrays;
     Vector<GenericMutableArrayRef> m_arrays;
     Map<uint, GenericVectorArray *> m_vector_per_socket;
@@ -890,7 +891,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
     Map<uint, GenericVirtualListListRef> m_virtual_list_list_for_inputs;
 
    public:
-    Storage(ArrayRef<uint> mask_indices) : m_mask_indices(mask_indices)
+    Storage(const MFMask &mask) : m_mask(mask)
     {
     }
 
@@ -900,7 +901,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
         delete vector_array;
       }
       for (GenericMutableArrayRef array : m_arrays) {
-        array.destruct_indices(m_mask_indices);
+        array.destruct_indices(m_mask.indices());
         MEM_freeN(array.buffer());
       }
     }
@@ -971,16 +972,16 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
     }
   };
 
-  void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const override
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override
   {
-    if (mask_indices.size() == 0) {
+    if (mask.indices_amount() == 0) {
       return;
     }
 
-    Storage storage(mask_indices);
+    Storage storage(mask);
     this->copy_inputs_to_storage(params, storage);
-    this->evaluate_network_to_compute_outputs(mask_indices, context, storage);
-    this->copy_computed_values_to_outputs(mask_indices, params, storage);
+    this->evaluate_network_to_compute_outputs(mask, context, storage);
+    this->copy_computed_values_to_outputs(mask, params, storage);
   }
 
  private:
@@ -1035,7 +1036,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
     }
   }
 
-  BLI_NOINLINE void evaluate_network_to_compute_outputs(ArrayRef<uint> mask_indices,
+  BLI_NOINLINE void evaluate_network_to_compute_outputs(const MFMask &mask,
                                                         MFContext &global_context,
                                                         Storage &storage) const
   {
@@ -1072,19 +1073,19 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
 
         bool all_inputs_are_computed = not_computed_inputs_amount == 0;
         if (all_inputs_are_computed) {
-          this->compute_and_forward_outputs(mask_indices, global_context, function_node, storage);
+          this->compute_and_forward_outputs(mask, global_context, function_node, storage);
           sockets_to_compute.pop();
         }
       }
     }
   }
 
-  BLI_NOINLINE void compute_and_forward_outputs(ArrayRef<uint> mask_indices,
+  BLI_NOINLINE void compute_and_forward_outputs(const MFMask &mask,
                                                 MFContext &global_context,
                                                 const MFFunctionNode &function_node,
                                                 Storage &storage) const
   {
-    uint array_size = mask_indices.last() + 1;
+    uint array_size = mask.min_array_size();
 
     const MultiFunction &function = function_node.function();
     MFParamsBuilder params_builder(function, array_size);
@@ -1147,7 +1148,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
     }
 
     MFParams &params = params_builder.build();
-    function.call(mask_indices, params, global_context);
+    function.call(mask, params, global_context);
 
     for (auto single_forward_info : single_outputs_to_forward) {
       const MFOutputSocket &output_socket = *single_forward_info.first;
@@ -1194,7 +1195,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
     }
   }
 
-  BLI_NOINLINE void copy_computed_values_to_outputs(ArrayRef<uint> mask_indices,
+  BLI_NOINLINE void copy_computed_values_to_outputs(const MFMask &mask,
                                                     MFParams &params,
                                                     Storage &storage) const
   {
@@ -1210,7 +1211,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
           GenericVirtualListRef values = storage.get_virtual_list_for_input(socket);
           GenericMutableArrayRef output_values = params.single_output(global_param_index,
                                                                       "Output");
-          for (uint i : mask_indices) {
+          for (uint i : mask.indices()) {
             output_values.copy_in__uninitialized(i, values[i]);
           }
           break;
@@ -1218,7 +1219,7 @@ class MultiFunction_FunctionTree : public BKE::MultiFunction {
         case MFDataType::Vector: {
           GenericVirtualListListRef values = storage.get_virtual_list_list_for_input(socket);
           GenericVectorArray &output_values = params.vector_output(global_param_index, "Output");
-          for (uint i : mask_indices) {
+          for (uint i : mask.indices()) {
             output_values.extend_single__copy(i, values[i]);
           }
           break;

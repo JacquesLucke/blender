@@ -182,6 +182,31 @@ struct MFParamType {
   const CPPType *m_base_type = nullptr;
 };
 
+class MFMask {
+ private:
+  ArrayRef<uint> m_indices;
+
+ public:
+  MFMask(ArrayRef<uint> indices) : m_indices(indices)
+  {
+  }
+
+  uint indices_amount() const
+  {
+    return m_indices.size();
+  }
+
+  uint min_array_size() const
+  {
+    return (m_indices.size() == 0) ? 0 : m_indices.last() + 1;
+  }
+
+  ArrayRef<uint> indices() const
+  {
+    return m_indices;
+  }
+};
+
 class MFContext {
 };
 
@@ -485,7 +510,7 @@ class MultiFunction {
   virtual ~MultiFunction()
   {
   }
-  virtual void call(ArrayRef<uint> mask_indices, MFParams &params, MFContext &context) const = 0;
+  virtual void call(const MFMask &mask, MFParams &params, MFContext &context) const = 0;
 
   IndexRange param_indices() const
   {
