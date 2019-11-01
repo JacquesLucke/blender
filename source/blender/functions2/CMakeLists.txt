@@ -27,6 +27,10 @@ set(SRC
   intern/initialize.cc
 
   FN_cpp_type.h
+  FN_generic_array_ref.h
+  FN_generic_vector_array.h
+  FN_generic_virtual_list_list_ref.h
+  FN_generic_virtual_list_ref.h
   FN_initialize.h
 
   intern/cpp_types.h
