@@ -25,6 +25,7 @@ set(SRC
   intern/multi_functions/lists.cc
   intern/multi_functions/mixed.cc
   intern/multi_functions/network.cc
+  intern/vtree_multi_function_network/generate.cc
   intern/cpp_type.cc
   intern/cpp_types.cc
   intern/generic_tuple.cc
@@ -42,6 +43,7 @@ set(SRC
   FN_multi_function.h
   FN_multi_functions.h
   FN_vtree_multi_function_network_builder.h
+  FN_vtree_multi_function_network_generation.h
   FN_vtree_multi_function_network.h
 
   intern/multi_functions/lists.h
