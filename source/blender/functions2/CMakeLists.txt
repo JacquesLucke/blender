@@ -22,6 +22,8 @@ if(WITH_PYTHON)
 endif()
 
 set(SRC
+  intern/multi_functions/lists.cc
+  intern/multi_functions/mixed.cc
   intern/cpp_type.cc
   intern/cpp_types.cc
   intern/initialize.cc
@@ -32,7 +34,11 @@ set(SRC
   FN_generic_virtual_list_list_ref.h
   FN_generic_virtual_list_ref.h
   FN_initialize.h
+  FN_multi_function.h
+  FN_multi_functions.h
 
+  intern/multi_functions/lists.h
+  intern/multi_functions/mixed.h
   intern/cpp_types.h
 )
 
