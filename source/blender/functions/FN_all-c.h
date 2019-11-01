@@ -11,8 +11,8 @@
 extern "C" {
 #endif
 
-void FN_initialize(void);
-void FN_exit(void);
+void FN_old_initialize(void);
+void FN_old_exit(void);
 
 #ifdef __cplusplus
 }

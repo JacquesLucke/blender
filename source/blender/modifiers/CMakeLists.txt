@@ -119,6 +119,7 @@ set(LIB
   bf_blenkernel
   bf_blenlib
   bf_functions
+  bf_functions2
   bf_simulations
 )
 
