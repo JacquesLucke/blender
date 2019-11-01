@@ -24,6 +24,7 @@ endif()
 set(SRC
   intern/multi_functions/lists.cc
   intern/multi_functions/mixed.cc
+  intern/multi_functions/network.cc
   intern/cpp_type.cc
   intern/cpp_types.cc
   intern/generic_tuple.cc
@@ -45,6 +46,7 @@ set(SRC
 
   intern/multi_functions/lists.h
   intern/multi_functions/mixed.h
+  intern/multi_functions/network.h
   intern/cpp_types.h
 )
 
