@@ -27,6 +27,7 @@ set(SRC
   intern/cpp_type.cc
   intern/cpp_types.cc
   intern/initialize.cc
+  intern/multi_function_network.cc
 
   FN_cpp_type.h
   FN_generic_array_ref.h
@@ -34,6 +35,7 @@ set(SRC
   FN_generic_virtual_list_list_ref.h
   FN_generic_virtual_list_ref.h
   FN_initialize.h
+  FN_multi_function_network.h
   FN_multi_function.h
   FN_multi_functions.h
 
