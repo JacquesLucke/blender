@@ -120,7 +120,6 @@ set(SRC
   intern/fmodifier.c
   intern/font.c
   intern/freestyle.c
-  intern/generic_array_ref.cc
   intern/gpencil.c
   intern/gpencil_modifier.c
   intern/icons.c
@@ -131,7 +130,6 @@ set(SRC
   intern/image.c
   intern/image_gen.c
   intern/image_save.c
-  intern/init_stuff.cc
   intern/ipo.c
   intern/key.c
   intern/keyconfig.c
@@ -167,8 +165,6 @@ set(SRC
   intern/mirror.c
   intern/modifier.c
   intern/movieclip.c
-  intern/multi_function_network.cc
-  intern/multi_functions.cc
   intern/multires.c
   intern/multires_reshape.c
   intern/multires_subdiv.c
@@ -227,7 +223,6 @@ set(SRC
   intern/suggestions.c
   intern/text.c
   intern/texture.c
-  intern/tuple.cc
   intern/tracking.c
   intern/tracking_auto.c
   intern/tracking_detect.c
@@ -236,8 +231,6 @@ set(SRC
   intern/tracking_solver.c
   intern/tracking_stabilize.c
   intern/tracking_util.c
-  intern/cpp_type.cc
-  intern/cpp_types.cc
   intern/undo_system.c
   intern/unit.c
   intern/workspace.c

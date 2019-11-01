@@ -68,7 +68,6 @@
 #include "BKE_scene.h"
 #include "BKE_sound.h"
 #include "BKE_keyconfig.h"
-#include "BKE_init_stuff.h"
 
 #include "BKE_addon.h"
 #include "BKE_appdir.h"
@@ -263,7 +262,6 @@ void WM_init(bContext *C, int argc, const char **argv)
       WM_main_remap_editor_id_reference);                     /* library.c */
   BKE_spacedata_callback_id_remap_set(ED_spacedata_id_remap); /* screen.c */
   DEG_editors_set_update_cb(ED_render_id_flush_update, ED_render_scene_update);
-  BKE_init_stuff();
 
   ED_spacetypes_init(); /* editors/space_api/spacetype.c */
 
@@ -600,7 +598,6 @@ void WM_exit_ex(bContext *C, const bool do_python)
   wm_gizmotype_free();
 
   BLF_exit();
-  BKE_free_stuff();
 
   if (opengl_is_init) {
     DRW_opengl_context_enable_ex(false);
