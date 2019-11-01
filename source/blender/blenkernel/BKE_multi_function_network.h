@@ -40,7 +40,7 @@ class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
   ArrayRef<MFBuilderInputSocket *> inputs();
   ArrayRef<MFBuilderOutputSocket *> outputs();
 
-  StringRef name();
+  StringRefNull name();
 
   uint id();
 
@@ -85,7 +85,7 @@ class MFBuilderSocket : BLI::NonCopyable, BLI::NonMovable {
 
   uint index();
   uint id();
-  StringRef name();
+  StringRefNull name();
 
   bool is_input();
   bool is_output();
@@ -193,6 +193,8 @@ class MFNode : BLI::NonCopyable, BLI::NonMovable {
 
  public:
   const MFNetwork &network() const;
+
+  StringRefNull name() const;
 
   ArrayRef<const MFInputSocket *> inputs() const;
   ArrayRef<const MFOutputSocket *> outputs() const;
@@ -311,7 +313,7 @@ inline uint MFBuilderNode::id()
   return m_id;
 }
 
-inline StringRef MFBuilderNode::name()
+inline StringRefNull MFBuilderNode::name()
 {
   if (this->is_function()) {
     return this->as_function().function().name();
@@ -377,7 +379,7 @@ inline uint MFBuilderSocket::id()
   return m_id;
 }
 
-inline StringRef MFBuilderSocket::name()
+inline StringRefNull MFBuilderSocket::name()
 {
   if (m_node->is_function()) {
     MFBuilderFunctionNode &node = m_node->as_function();
@@ -444,6 +446,16 @@ inline ArrayRef<const MFOutputSocket *> MFNode::outputs() const
 inline uint MFNode::id() const
 {
   return m_id;
+}
+
+inline StringRefNull MFNode::name() const
+{
+  if (this->is_function()) {
+    return this->as_function().function().name();
+  }
+  else {
+    return "Dummy";
+  }
 }
 
 inline bool MFNode::is_function() const
