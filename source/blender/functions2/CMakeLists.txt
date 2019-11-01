@@ -40,6 +40,7 @@ set(SRC
   FN_multi_function_network.h
   FN_multi_function.h
   FN_multi_functions.h
+  FN_vtree_multi_function_network.h
 
   intern/multi_functions/lists.h
   intern/multi_functions/mixed.h

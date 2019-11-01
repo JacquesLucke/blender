@@ -1,8 +1,10 @@
 #include "DNA_modifier_types.h"
 
 #include "BKE_virtual_node_tree_cxx.h"
+
 #include "FN_multi_functions.h"
 #include "FN_multi_function_network.h"
+#include "FN_vtree_multi_function_network.h"
 
 #include "BLI_math_cxx.h"
 #include "BLI_string_map.h"
@@ -56,6 +58,7 @@ using FN::MFSignature;
 using FN::MFSignatureBuilder;
 using FN::MFSocket;
 using FN::MultiFunction;
+using FN::VTreeMFNetwork;
 
 extern "C" {
 void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[3], int numVerts);
@@ -129,36 +132,6 @@ static const CPPType &get_cpp_type_by_name(StringRef name)
   BLI_assert(false);
   return FN::GET_TYPE<float>();
 }
-
-class VTreeMFNetwork {
- private:
-  const VirtualNodeTree &m_vtree;
-  std::unique_ptr<MFNetwork> m_network;
-  Array<const MFSocket *> m_socket_map;
-
- public:
-  VTreeMFNetwork(const VirtualNodeTree &vtree,
-                 std::unique_ptr<MFNetwork> network,
-                 Array<const MFSocket *> socket_map)
-      : m_vtree(vtree), m_network(std::move(network)), m_socket_map(std::move(socket_map))
-  {
-  }
-
-  const VirtualNodeTree &vtree()
-  {
-    return m_vtree;
-  }
-
-  const MFNetwork &network()
-  {
-    return *m_network;
-  }
-
-  const MFSocket &lookup_socket(const VirtualSocket &vsocket)
-  {
-    return *m_socket_map[vsocket.id()];
-  }
-};
 
 class VTreeMFNetworkBuilder {
  private:
