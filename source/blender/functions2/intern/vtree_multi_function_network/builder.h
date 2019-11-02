@@ -209,6 +209,14 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return *m_vtree_mappings.cpp_type_by_type_name.lookup(name);
   }
 
+  const CPPType &cpp_type_from_property(const VNode &vnode, StringRefNull prop_name) const
+  {
+    char *type_name = RNA_string_get_alloc(vnode.rna(), prop_name.data(), nullptr, 0);
+    const CPPType &type = this->cpp_type_by_name(type_name);
+    MEM_freeN(type_name);
+    return type;
+  }
+
   std::unique_ptr<VTreeMFNetwork> build()
   {
     // m_builder->to_dot__clipboard();

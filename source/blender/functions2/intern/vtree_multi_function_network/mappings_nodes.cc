@@ -86,10 +86,7 @@ static void INSERT_list_length(VTreeMFNetworkBuilder &builder,
                                OwnedResources &resources,
                                const VNode &vnode)
 {
-  char *type_name = RNA_string_get_alloc(vnode.rna(), "active_type", nullptr, 0);
-  const CPPType &type = builder.cpp_type_by_name(type_name);
-  MEM_freeN(type_name);
-
+  const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
   const MultiFunction &fn = allocate_resource<FN::MF_ListLength>(
       "list length function", resources, type);
   builder.add_function(fn, {0}, {1}, vnode);
@@ -99,10 +96,7 @@ static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder,
                                     OwnedResources &resources,
                                     const VNode &vnode)
 {
-  char *type_name = RNA_string_get_alloc(vnode.rna(), "active_type", nullptr, 0);
-  const CPPType &type = builder.cpp_type_by_name(type_name);
-  MEM_freeN(type_name);
-
+  const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
   const MultiFunction &fn = allocate_resource<FN::MF_GetListElement>(
       "get list element function", resources, type);
   builder.add_function(fn, {0, 1, 2}, {3}, vnode);
@@ -151,10 +145,7 @@ static void INSERT_pack_list(VTreeMFNetworkBuilder &builder,
                              OwnedResources &resources,
                              const VNode &vnode)
 {
-  char *type_name = RNA_string_get_alloc(vnode.rna(), "active_type", nullptr, 0);
-  const CPPType &type = builder.cpp_type_by_name(type_name);
-  MEM_freeN(type_name);
-
+  const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
   MFBuilderOutputSocket &packed_list_socket = build_pack_list_node(
       builder, resources, vnode, type, "variadic", 0);
   builder.map_sockets(vnode.output(0), packed_list_socket);
