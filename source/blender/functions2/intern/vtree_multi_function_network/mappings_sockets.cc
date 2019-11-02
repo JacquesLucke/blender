@@ -7,99 +7,80 @@
 
 namespace FN {
 
-template<typename T, typename... Args>
-T &allocate_resource(const char *name, OwnedResources &resources, Args &&... args)
-{
-  std::unique_ptr<T> value = BLI::make_unique<T>(std::forward<Args>(args)...);
-  T &value_ref = *value;
-  resources.add(std::move(value), name);
-  return value_ref;
-}
-
 /* Socket Inserters
  **********************************************************/
 
 static MFBuilderOutputSocket &INSERT_vector_socket(VTreeMFNetworkBuilder &builder,
-                                                   OwnedResources &resources,
                                                    const VSocket &vsocket)
 {
   BLI::float3 value;
   RNA_float_get_array(vsocket.rna(), "value", value);
 
-  const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<BLI::float3>>(
-      "vector socket", resources, value);
+  const MultiFunction &fn = builder.allocate<FN::MF_ConstantValue<BLI::float3>>("vector socket",
+                                                                                value);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
 
 static MFBuilderOutputSocket &INSERT_float_socket(VTreeMFNetworkBuilder &builder,
-                                                  OwnedResources &resources,
                                                   const VSocket &vsocket)
 {
   float value = RNA_float_get(vsocket.rna(), "value");
 
-  const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<float>>(
-      "float socket", resources, value);
+  const MultiFunction &fn = builder.allocate<FN::MF_ConstantValue<float>>("float socket", value);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
 
 static MFBuilderOutputSocket &INSERT_bool_socket(VTreeMFNetworkBuilder &builder,
-                                                 OwnedResources &resources,
                                                  const VSocket &vsocket)
 {
   bool value = RNA_boolean_get(vsocket.rna(), "value");
 
-  const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<bool>>(
-      "boolean socket", resources, value);
+  const MultiFunction &fn = builder.allocate<FN::MF_ConstantValue<bool>>("boolean socket", value);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
 
 static MFBuilderOutputSocket &INSERT_int_socket(VTreeMFNetworkBuilder &builder,
-                                                OwnedResources &resources,
                                                 const VSocket &vsocket)
 {
   int value = RNA_int_get(vsocket.rna(), "value");
 
-  const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<int>>(
-      "int socket", resources, value);
+  const MultiFunction &fn = builder.allocate<FN::MF_ConstantValue<int>>("int socket", value);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
 
 static MFBuilderOutputSocket &INSERT_object_socket(VTreeMFNetworkBuilder &builder,
-                                                   OwnedResources &resources,
                                                    const VSocket &vsocket)
 {
   Object *value = (Object *)RNA_pointer_get(vsocket.rna(), "value").data;
 
-  const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<Object *>>(
-      "object socket", resources, value);
+  const MultiFunction &fn = builder.allocate<FN::MF_ConstantValue<Object *>>("object socket",
+                                                                             value);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
 
 static MFBuilderOutputSocket &INSERT_text_socket(VTreeMFNetworkBuilder &builder,
-                                                 OwnedResources &resources,
                                                  const VSocket &vsocket)
 {
   char *value = RNA_string_get_alloc(vsocket.rna(), "value", nullptr, 0);
   std::string text = value;
   MEM_freeN(value);
 
-  const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<std::string>>(
-      "text socket", resources, text);
+  const MultiFunction &fn = builder.allocate<FN::MF_ConstantValue<std::string>>("text socket",
+                                                                                text);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
 
 template<typename T>
 static MFBuilderOutputSocket &INSERT_empty_list_socket(VTreeMFNetworkBuilder &builder,
-                                                       OwnedResources &resources,
                                                        const VSocket &UNUSED(vsocket))
 {
-  const MultiFunction &fn = allocate_resource<FN::MF_EmptyList<T>>("empty list socket", resources);
+  const MultiFunction &fn = builder.allocate<FN::MF_EmptyList<T>>("empty list socket");
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
@@ -109,30 +90,29 @@ static MFBuilderOutputSocket &INSERT_empty_list_socket(VTreeMFNetworkBuilder &bu
 
 template<typename FromT, typename ToT>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert(
-    VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+    VTreeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = allocate_resource<FN::MF_Convert<FromT, ToT>>("converter function",
-                                                                          resources);
+  const MultiFunction &fn = builder.allocate<FN::MF_Convert<FromT, ToT>>("converter function");
   MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
   return {node.inputs()[0], node.outputs()[0]};
 }
 
 template<typename FromT, typename ToT>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert_list(
-    VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+    VTreeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = allocate_resource<FN::MF_ConvertList<FromT, ToT>>(
-      "convert list function", resources);
+  const MultiFunction &fn = builder.allocate<FN::MF_ConvertList<FromT, ToT>>(
+      "convert list function");
   MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
   return {node.inputs()[0], node.outputs()[0]};
 }
 
 template<typename T>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_element_to_list(
-    VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+    VTreeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = allocate_resource<FN::MF_SingleElementList<T>>(
-      "single element list function", resources);
+  const MultiFunction &fn = builder.allocate<FN::MF_SingleElementList<T>>(
+      "single element list function");
   MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
   return {node.inputs()[0], node.outputs()[0]};
 }

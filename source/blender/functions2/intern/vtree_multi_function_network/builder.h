@@ -10,15 +10,18 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   const VirtualNodeTree &m_vtree;
   const VTreeMultiFunctionMappings &m_vtree_mappings;
+  OwnedResources &m_resources;
   Array<MFBuilderSocket *> m_socket_map;
   Array<MFDataType> m_type_by_vsocket;
   std::unique_ptr<MFNetworkBuilder> m_builder;
 
  public:
   VTreeMFNetworkBuilder(const VirtualNodeTree &vtree,
-                        const VTreeMultiFunctionMappings &vtree_mappings)
+                        const VTreeMultiFunctionMappings &vtree_mappings,
+                        OwnedResources &resources)
       : m_vtree(vtree),
         m_vtree_mappings(vtree_mappings),
+        m_resources(resources),
         m_socket_map(vtree.socket_count(), nullptr),
         m_type_by_vsocket(vtree.socket_count()),
         m_builder(BLI::make_unique<MFNetworkBuilder>())
@@ -85,6 +88,14 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)
   {
     m_builder->add_link(from, to);
+  }
+
+  template<typename T, typename... Args> T &allocate(const char *name, Args &&... args)
+  {
+    std::unique_ptr<T> value = BLI::make_unique<T>(std::forward<Args>(args)...);
+    T &value_ref = *value;
+    m_resources.add(std::move(value), name);
+    return value_ref;
   }
 
   MFDataType try_get_data_type(const VSocket &vsocket) const

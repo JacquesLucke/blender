@@ -10,7 +10,6 @@
 namespace FN {
 
 static bool insert_nodes(VTreeMFNetworkBuilder &builder,
-                         OwnedResources &resources,
                          const VTreeMultiFunctionMappings &mappings)
 {
   const VirtualNodeTree &vtree = builder.vtree();
@@ -20,7 +19,7 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder,
     const InsertVNodeFunction *inserter = mappings.vnode_inserters.lookup_ptr(idname);
 
     if (inserter != nullptr) {
-      (*inserter)(builder, resources, *vnode);
+      (*inserter)(builder, *vnode);
       BLI_assert(builder.data_sockets_of_vnode_are_mapped(*vnode));
     }
     else if (builder.has_data_sockets(*vnode)) {
@@ -32,7 +31,6 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder,
 }
 
 static bool insert_links(VTreeMFNetworkBuilder &builder,
-                         OwnedResources &resources,
                          const VTreeMultiFunctionMappings &mappings)
 {
   for (const VInputSocket *to_vsocket : builder.vtree().all_input_sockets()) {
@@ -62,7 +60,7 @@ static bool insert_links(VTreeMFNetworkBuilder &builder,
       if (inserter == nullptr) {
         return false;
       }
-      auto new_sockets = (*inserter)(builder, resources);
+      auto new_sockets = (*inserter)(builder);
       builder.add_link(from_socket, *new_sockets.first);
       builder.add_link(*new_sockets.second, to_socket);
     }
@@ -72,7 +70,6 @@ static bool insert_links(VTreeMFNetworkBuilder &builder,
 }
 
 static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
-                                   OwnedResources &resources,
                                    const VTreeMultiFunctionMappings &mappings)
 {
   Vector<const VInputSocket *> unlinked_data_inputs;
@@ -91,7 +88,7 @@ static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
     if (inserter == nullptr) {
       return false;
     }
-    MFBuilderOutputSocket &from_socket = (*inserter)(builder, resources, *vsocket);
+    MFBuilderOutputSocket &from_socket = (*inserter)(builder, *vsocket);
     MFBuilderInputSocket &to_socket = builder.lookup_socket(*vsocket);
     builder.add_link(from_socket, to_socket);
   }
@@ -104,14 +101,14 @@ std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const Virt
 {
   const VTreeMultiFunctionMappings &mappings = get_vtree_multi_function_mappings();
 
-  VTreeMFNetworkBuilder builder(vtree, mappings);
-  if (!insert_nodes(builder, resources, mappings)) {
+  VTreeMFNetworkBuilder builder(vtree, mappings, resources);
+  if (!insert_nodes(builder, mappings)) {
     BLI_assert(false);
   }
-  if (!insert_links(builder, resources, mappings)) {
+  if (!insert_links(builder, mappings)) {
     BLI_assert(false);
   }
-  if (!insert_unlinked_inputs(builder, resources, mappings)) {
+  if (!insert_unlinked_inputs(builder, mappings)) {
     BLI_assert(false);
   }
 
