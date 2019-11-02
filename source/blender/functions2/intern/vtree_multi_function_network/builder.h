@@ -1,5 +1,4 @@
-#ifndef __FN_VTREE_MULTI_FUNCTION_NETWORK_BUILDER_H__
-#define __FN_VTREE_MULTI_FUNCTION_NETWORK_BUILDER_H__
+#pragma once
 
 #include "FN_vtree_multi_function_network.h"
 
@@ -222,5 +221,3 @@ class VTreeMFNetworkBuilder {
 };
 
 }  // namespace FN
-
-#endif /* __FN_VTREE_MULTI_FUNCTION_NETWORK_BUILDER_H__ */

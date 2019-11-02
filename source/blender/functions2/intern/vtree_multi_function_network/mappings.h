@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FN_vtree_multi_function_network_builder.h"
+#include "builder.h"
 
 #include "BLI_map.h"
 #include "BLI_owned_resources.h"

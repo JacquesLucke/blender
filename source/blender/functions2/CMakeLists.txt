@@ -45,13 +45,13 @@ set(SRC
   FN_multi_function_network.h
   FN_multi_function.h
   FN_multi_functions.h
-  FN_vtree_multi_function_network_builder.h
   FN_vtree_multi_function_network_generation.h
   FN_vtree_multi_function_network.h
 
   intern/multi_functions/lists.h
   intern/multi_functions/mixed.h
   intern/multi_functions/network.h
+  intern/vtree_multi_function_network/builder.h
   intern/vtree_multi_function_network/mappings.h
   intern/cpp_types.h
 )
