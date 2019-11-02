@@ -42,6 +42,10 @@ template<typename T> void Destruct_CB(void *ptr)
 {
   BLI::destruct((T *)ptr);
 }
+template<typename T> void DestructN_CB(void *ptr, uint n)
+{
+  BLI::destruct_n((T *)ptr, n);
+}
 template<typename T> void CopyToInitialized_CB(const void *src, void *dst)
 {
   *(T *)dst = *(T *)src;
@@ -83,6 +87,7 @@ void init_cpp_types()
       DefaultConstructor<TYPE_NAME, \
                          std::is_default_constructible<TYPE_NAME>::value>::get_callback(), \
       Destruct_CB<TYPE_NAME>, \
+      DestructN_CB<TYPE_NAME>, \
       CopyToInitialized_CB<TYPE_NAME>, \
       CopyToUninitialized_CB<TYPE_NAME>, \
       RelocateToInitialized_CB<TYPE_NAME>, \

@@ -14,6 +14,7 @@ class CPPType {
  public:
   using ConstructDefaultF = void (*)(const CPPType *self, void *ptr);
   using DestructF = void (*)(void *ptr);
+  using DestructNF = void (*)(void *ptr, uint n);
   using CopyToInitializedF = void (*)(const void *src, void *dst);
   using CopyToUninitializedF = void (*)(const void *src, void *dst);
   using RelocateToInitializedF = void (*)(void *src, void *dst);
@@ -25,6 +26,7 @@ class CPPType {
           bool trivially_destructible,
           ConstructDefaultF construct_default,
           DestructF destruct,
+          DestructNF destruct_n,
           CopyToInitializedF copy_to_initialized,
           CopyToUninitializedF copy_to_uninitialized,
           RelocateToInitializedF relocate_to_initialized,
@@ -35,6 +37,7 @@ class CPPType {
         m_trivially_destructible(trivially_destructible),
         m_construct_default(construct_default),
         m_destruct(destruct),
+        m_destruct_n(destruct_n),
         m_copy_to_initialized(copy_to_initialized),
         m_copy_to_uninitialized(copy_to_uninitialized),
         m_relocate_to_initialized(relocate_to_initialized),
@@ -93,6 +96,13 @@ class CPPType {
     BLI_assert(this->pointer_has_valid_alignment(ptr));
 
     m_destruct(ptr);
+  }
+
+  void destruct_n(void *ptr, uint n) const
+  {
+    BLI_assert(this->pointer_has_valid_alignment(ptr));
+
+    m_destruct_n(ptr, n);
   }
 
   void copy_to_initialized(const void *src, void *dst) const
@@ -155,6 +165,7 @@ class CPPType {
   bool m_trivially_destructible;
   ConstructDefaultF m_construct_default;
   DestructF m_destruct;
+  DestructNF m_destruct_n;
   CopyToInitializedF m_copy_to_initialized;
   CopyToUninitializedF m_copy_to_uninitialized;
   RelocateToInitializedF m_relocate_to_initialized;
