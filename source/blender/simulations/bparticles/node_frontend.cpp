@@ -1,4 +1,4 @@
-#include "BKE_virtual_node_tree_cxx.h"
+#include "BKE_virtual_node_tree.h"
 #include "BKE_deform.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -17,8 +17,8 @@
 
 namespace BParticles {
 
-using BKE::VirtualNode;
-using BKE::VirtualSocket;
+using BKE::VNode;
+using BKE::VSocket;
 using BLI::destruct_ptr;
 using BLI::MonotonicAllocator;
 using BLI::MultiMap;
@@ -41,7 +41,7 @@ class VTreeData;
 class InfluencesCollector;
 
 using ActionParserCallback = std::function<std::unique_ptr<Action>(
-    InfluencesCollector &collector, VTreeData &vtree_data, const VirtualSocket &execute_vsocket)>;
+    InfluencesCollector &collector, VTreeData &vtree_data, const VSocket &execute_vsocket)>;
 StringMap<ActionParserCallback> &get_action_parsers();
 
 class InfluencesCollector {
@@ -93,7 +93,7 @@ class VTreeData {
     return destruct_ptr<T>(value);
   }
 
-  ParticleFunction *particle_function_for_all_inputs(const VirtualNode &vnode)
+  ParticleFunction *particle_function_for_all_inputs(const VNode &vnode)
   {
     Optional<std::unique_ptr<ParticleFunction>> fn = create_particle_function(vnode,
                                                                               m_vtree_data_graph);
@@ -106,7 +106,7 @@ class VTreeData {
     return fn_ptr;
   }
 
-  Optional<NamedTupleRef> compute_inputs(const VirtualNode &vnode, ArrayRef<uint> input_indices)
+  Optional<NamedTupleRef> compute_inputs(const VNode &vnode, ArrayRef<uint> input_indices)
   {
     TupleCallBody *body_ptr = this->function_body_for_inputs(vnode, input_indices);
     if (body_ptr == nullptr) {
@@ -129,7 +129,7 @@ class VTreeData {
     return NamedTupleRef(m_tuples.last().get(), m_name_providers.last().get());
   }
 
-  Optional<NamedTupleRef> compute_all_data_inputs(const VirtualNode &vnode)
+  Optional<NamedTupleRef> compute_all_data_inputs(const VNode &vnode)
   {
     Vector<uint> data_input_indices;
     for (uint i = 0; i < vnode.inputs().size(); i++) {
@@ -141,10 +141,10 @@ class VTreeData {
     return this->compute_inputs(vnode, data_input_indices);
   }
 
-  ArrayRef<std::string> find_target_system_names(const VirtualSocket &output_vsocket)
+  ArrayRef<std::string> find_target_system_names(const VSocket &output_vsocket)
   {
     auto system_names = this->construct_new<Vector<std::string>>();
-    for (const VirtualNode *vnode : find_target_system_nodes(output_vsocket)) {
+    for (const VNode *vnode : find_target_system_nodes(output_vsocket)) {
       system_names->append(vnode->name());
     }
 
@@ -152,20 +152,20 @@ class VTreeData {
     return *m_string_vectors.last();
   }
 
-  Action *build_action(InfluencesCollector &collector, const VirtualSocket &start)
+  Action *build_action(InfluencesCollector &collector, const VSocket &start)
   {
     BLI_assert(start.is_input());
-    if (start.links().size() != 1) {
+    if (start.linked_sockets().size() != 1) {
       return nullptr;
     }
 
-    const VirtualSocket &execute_socket = *start.links()[0];
+    const VSocket &execute_socket = *start.linked_sockets()[0];
     if (execute_socket.idname() != "bp_ExecuteSocket") {
       return nullptr;
     }
 
     StringMap<ActionParserCallback> &parsers = get_action_parsers();
-    ActionParserCallback &parser = parsers.lookup(execute_socket.vnode().idname());
+    ActionParserCallback &parser = parsers.lookup(execute_socket.node().idname());
     std::unique_ptr<Action> action = parser(collector, *this, execute_socket);
     Action *action_ptr = action.get();
     if (action_ptr == nullptr) {
@@ -176,12 +176,12 @@ class VTreeData {
   }
 
   Action &build_action_list(InfluencesCollector &collector,
-                            const VirtualNode &start_vnode,
+                            const VNode &start_vnode,
                             StringRef name)
   {
-    Vector<const VirtualSocket *> execute_sockets = this->find_execute_sockets(start_vnode, name);
+    Vector<const VSocket *> execute_sockets = this->find_execute_sockets(start_vnode, name);
     Vector<Action *> actions;
-    for (const VirtualSocket *socket : execute_sockets) {
+    for (const VSocket *socket : execute_sockets) {
       Action *action = this->build_action(collector, *socket);
       if (action != nullptr) {
         actions.append(action);
@@ -193,19 +193,19 @@ class VTreeData {
   }
 
  private:
-  Vector<const VirtualNode *> find_target_system_nodes(const VirtualSocket &vsocket)
+  Vector<const VNode *> find_target_system_nodes(const VSocket &vsocket)
   {
-    VectorSet<const VirtualNode *> type_nodes;
+    VectorSet<const VNode *> type_nodes;
     find_target_system_nodes__recursive(vsocket, type_nodes);
-    return Vector<const VirtualNode *>(type_nodes);
+    return Vector<const VNode *>(type_nodes);
   }
 
-  void find_target_system_nodes__recursive(const VirtualSocket &output_vsocket,
-                                           VectorSet<const VirtualNode *> &r_nodes)
+  void find_target_system_nodes__recursive(const VSocket &output_vsocket,
+                                           VectorSet<const VNode *> &r_nodes)
   {
     BLI_assert(output_vsocket.is_output());
-    for (const VirtualSocket *connected : output_vsocket.links()) {
-      const VirtualNode &connected_vnode = connected->vnode();
+    for (const VSocket *connected : output_vsocket.linked_sockets()) {
+      const VNode &connected_vnode = connected->node();
       if (connected_vnode.idname() == particle_system_idname) {
         r_nodes.add(&connected_vnode);
       }
@@ -215,14 +215,14 @@ class VTreeData {
     }
   }
 
-  TupleCallBody *function_body_for_inputs(const VirtualNode &vnode, ArrayRef<uint> input_indices)
+  TupleCallBody *function_body_for_inputs(const VNode &vnode, ArrayRef<uint> input_indices)
   {
     VectorSet<DataSocket> sockets_to_compute;
     for (uint index : input_indices) {
       sockets_to_compute.add_new(m_vtree_data_graph.lookup_socket(vnode.input(index)));
     }
 
-    Vector<const VirtualSocket *> dependencies = m_vtree_data_graph.find_placeholder_dependencies(
+    Vector<const VSocket *> dependencies = m_vtree_data_graph.find_placeholder_dependencies(
         sockets_to_compute);
     if (dependencies.size() > 0) {
       return nullptr;
@@ -235,12 +235,11 @@ class VTreeData {
     return &m_functions.last()->body<TupleCallBody>();
   }
 
-  Vector<const VirtualSocket *> find_execute_sockets(const VirtualNode &vnode,
-                                                     StringRef name_prefix)
+  Vector<const VSocket *> find_execute_sockets(const VNode &vnode, StringRef name_prefix)
   {
     bool found_name = false;
-    Vector<const VirtualSocket *> execute_sockets;
-    for (const VirtualSocket *vsocket : vnode.inputs()) {
+    Vector<const VSocket *> execute_sockets;
+    for (const VSocket *vsocket : vnode.inputs()) {
       if (StringRef(vsocket->name()).startswith(name_prefix)) {
         if (vsocket->idname() == "fn_OperatorSocket") {
           found_name = true;
@@ -259,24 +258,23 @@ class VTreeData {
 
 static std::unique_ptr<Action> ACTION_kill(InfluencesCollector &UNUSED(collector),
                                            VTreeData &UNUSED(vtree_data),
-                                           const VirtualSocket &UNUSED(execute_vsocket))
+                                           const VSocket &UNUSED(execute_vsocket))
 {
   return std::unique_ptr<Action>(new KillAction());
 }
 
 static std::unique_ptr<Action> ACTION_change_velocity(InfluencesCollector &UNUSED(collector),
                                                       VTreeData &vtree_data,
-                                                      const VirtualSocket &execute_vsocket)
+                                                      const VSocket &execute_vsocket)
 {
-  const VirtualNode &vnode = execute_vsocket.vnode();
+  const VNode &vnode = execute_vsocket.node();
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
 
   if (inputs_fn == nullptr) {
     return {};
   }
 
-  PointerRNA rna = vnode.rna();
-  int mode = RNA_enum_get(&rna, "mode");
+  int mode = RNA_enum_get(vnode.rna(), "mode");
 
   Action *action = nullptr;
   if (mode == 0) {
@@ -291,9 +289,9 @@ static std::unique_ptr<Action> ACTION_change_velocity(InfluencesCollector &UNUSE
 
 static std::unique_ptr<Action> ACTION_explode(InfluencesCollector &collector,
                                               VTreeData &vtree_data,
-                                              const VirtualSocket &execute_vsocket)
+                                              const VSocket &execute_vsocket)
 {
-  const VirtualNode &vnode = execute_vsocket.vnode();
+  const VNode &vnode = execute_vsocket.node();
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
 
   if (inputs_fn == nullptr) {
@@ -310,9 +308,9 @@ static std::unique_ptr<Action> ACTION_explode(InfluencesCollector &collector,
 
 static std::unique_ptr<Action> ACTION_condition(InfluencesCollector &collector,
                                                 VTreeData &vtree_data,
-                                                const VirtualSocket &execute_vsocket)
+                                                const VSocket &execute_vsocket)
 {
-  const VirtualNode &vnode = execute_vsocket.vnode();
+  const VNode &vnode = execute_vsocket.node();
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
 
   if (inputs_fn == nullptr) {
@@ -328,9 +326,9 @@ static std::unique_ptr<Action> ACTION_condition(InfluencesCollector &collector,
 
 static std::unique_ptr<Action> ACTION_change_color(InfluencesCollector &UNUSED(collector),
                                                    VTreeData &vtree_data,
-                                                   const VirtualSocket &execute_vsocket)
+                                                   const VSocket &execute_vsocket)
 {
-  const VirtualNode &vnode = execute_vsocket.vnode();
+  const VNode &vnode = execute_vsocket.node();
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
 
   if (inputs_fn == nullptr) {
@@ -343,9 +341,9 @@ static std::unique_ptr<Action> ACTION_change_color(InfluencesCollector &UNUSED(c
 
 static std::unique_ptr<Action> ACTION_change_size(InfluencesCollector &UNUSED(collector),
                                                   VTreeData &vtree_data,
-                                                  const VirtualSocket &execute_vsocket)
+                                                  const VSocket &execute_vsocket)
 {
-  const VirtualNode &vnode = execute_vsocket.vnode();
+  const VNode &vnode = execute_vsocket.node();
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
 
   if (inputs_fn == nullptr) {
@@ -358,9 +356,9 @@ static std::unique_ptr<Action> ACTION_change_size(InfluencesCollector &UNUSED(co
 
 static std::unique_ptr<Action> ACTION_change_position(InfluencesCollector &UNUSED(collector),
                                                       VTreeData &vtree_data,
-                                                      const VirtualSocket &execute_vsocket)
+                                                      const VSocket &execute_vsocket)
 {
-  const VirtualNode &vnode = execute_vsocket.vnode();
+  const VNode &vnode = execute_vsocket.node();
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
 
   if (inputs_fn == nullptr) {
@@ -373,9 +371,9 @@ static std::unique_ptr<Action> ACTION_change_position(InfluencesCollector &UNUSE
 
 static std::unique_ptr<Action> ACTION_add_to_group(InfluencesCollector &collector,
                                                    VTreeData &vtree_data,
-                                                   const VirtualSocket &execute_vsocket)
+                                                   const VSocket &execute_vsocket)
 {
-  const VirtualNode &vnode = execute_vsocket.vnode();
+  const VNode &vnode = execute_vsocket.node();
   auto inputs = vtree_data.compute_all_data_inputs(vnode);
   if (!inputs.has_value()) {
     return {};
@@ -393,9 +391,9 @@ static std::unique_ptr<Action> ACTION_add_to_group(InfluencesCollector &collecto
 
 static std::unique_ptr<Action> ACTION_remove_from_group(InfluencesCollector &UNUSED(collector),
                                                         VTreeData &vtree_data,
-                                                        const VirtualSocket &execute_vsocket)
+                                                        const VSocket &execute_vsocket)
 {
-  const VirtualNode &vnode = execute_vsocket.vnode();
+  const VNode &vnode = execute_vsocket.node();
   auto inputs = vtree_data.compute_all_data_inputs(vnode);
   if (!inputs.has_value()) {
     return {};
@@ -424,12 +422,12 @@ BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
 using ParseNodeCallback = std::function<void(InfluencesCollector &collector,
                                              VTreeData &vtree_data,
                                              WorldTransition &world_transition,
-                                             const VirtualNode &vnode)>;
+                                             const VNode &vnode)>;
 
 static void PARSE_point_emitter(InfluencesCollector &collector,
                                 VTreeData &vtree_data,
                                 WorldTransition &world_transition,
-                                const VirtualNode &vnode)
+                                const VNode &vnode)
 {
   Optional<NamedTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
   if (!inputs.has_value()) {
@@ -452,12 +450,11 @@ static void PARSE_point_emitter(InfluencesCollector &collector,
   collector.m_emitters.append(emitter);
 }
 
-static Vector<float> compute_emitter_vertex_weights(const VirtualNode &vnode,
+static Vector<float> compute_emitter_vertex_weights(const VNode &vnode,
                                                     NamedTupleRef inputs,
                                                     Object *object)
 {
-  PointerRNA rna = vnode.rna();
-  uint density_mode = RNA_enum_get(&rna, "density_mode");
+  uint density_mode = RNA_enum_get(vnode.rna(), "density_mode");
 
   Mesh *mesh = (Mesh *)object->data;
   Vector<float> vertex_weights(mesh->totvert);
@@ -488,7 +485,7 @@ static Vector<float> compute_emitter_vertex_weights(const VirtualNode &vnode,
 static void PARSE_mesh_emitter(InfluencesCollector &collector,
                                VTreeData &vtree_data,
                                WorldTransition &world_transition,
-                               const VirtualNode &vnode)
+                               const VNode &vnode)
 {
   Optional<NamedTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
   if (!inputs.has_value()) {
@@ -520,7 +517,7 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
 static void PARSE_gravity_force(InfluencesCollector &collector,
                                 VTreeData &vtree_data,
                                 WorldTransition &UNUSED(world_transition),
-                                const VirtualNode &vnode)
+                                const VNode &vnode)
 {
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -539,7 +536,7 @@ static void PARSE_gravity_force(InfluencesCollector &collector,
 static void PARSE_age_reached_event(InfluencesCollector &collector,
                                     VTreeData &vtree_data,
                                     WorldTransition &UNUSED(world_transition),
-                                    const VirtualNode &vnode)
+                                    const VNode &vnode)
 {
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -562,7 +559,7 @@ static void PARSE_age_reached_event(InfluencesCollector &collector,
 static void PARSE_trails(InfluencesCollector &collector,
                          VTreeData &vtree_data,
                          WorldTransition &UNUSED(world_transition),
-                         const VirtualNode &vnode)
+                         const VNode &vnode)
 {
   ArrayRef<std::string> main_system_names = vtree_data.find_target_system_names(
       vnode.output(0, "Main System"));
@@ -585,7 +582,7 @@ static void PARSE_trails(InfluencesCollector &collector,
 static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
                                        VTreeData &vtree_data,
                                        WorldTransition &UNUSED(world_transition),
-                                       const VirtualNode &vnode)
+                                       const VNode &vnode)
 {
   Optional<NamedTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
   if (!inputs.has_value()) {
@@ -609,7 +606,7 @@ static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
 static void PARSE_turbulence_force(InfluencesCollector &collector,
                                    VTreeData &vtree_data,
                                    WorldTransition &UNUSED(world_transition),
-                                   const VirtualNode &vnode)
+                                   const VNode &vnode)
 {
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -628,7 +625,7 @@ static void PARSE_turbulence_force(InfluencesCollector &collector,
 static void PARSE_drag_force(InfluencesCollector &collector,
                              VTreeData &vtree_data,
                              WorldTransition &UNUSED(world_transition),
-                             const VirtualNode &vnode)
+                             const VNode &vnode)
 {
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -647,7 +644,7 @@ static void PARSE_drag_force(InfluencesCollector &collector,
 static void PARSE_mesh_collision(InfluencesCollector &collector,
                                  VTreeData &vtree_data,
                                  WorldTransition &world_transition,
-                                 const VirtualNode &vnode)
+                                 const VNode &vnode)
 {
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -685,7 +682,7 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
 static void PARSE_size_over_time(InfluencesCollector &collector,
                                  VTreeData &vtree_data,
                                  WorldTransition &UNUSED(world_transition),
-                                 const VirtualNode &vnode)
+                                 const VNode &vnode)
 {
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -703,7 +700,7 @@ static void PARSE_size_over_time(InfluencesCollector &collector,
 static void PARSE_mesh_force(InfluencesCollector &collector,
                              VTreeData &vtree_data,
                              WorldTransition &UNUSED(world_transition),
-                             const VirtualNode &vnode)
+                             const VNode &vnode)
 {
   Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {0});
   if (!inputs.has_value()) {
@@ -731,7 +728,7 @@ static void PARSE_mesh_force(InfluencesCollector &collector,
 static void PARSE_custom_event(InfluencesCollector &collector,
                                VTreeData &vtree_data,
                                WorldTransition &UNUSED(world_transition),
-                               const VirtualNode &vnode)
+                               const VNode &vnode)
 {
   ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
   if (inputs_fn == nullptr) {
@@ -754,7 +751,7 @@ static void PARSE_custom_event(InfluencesCollector &collector,
 static void PARSE_always_execute(InfluencesCollector &collector,
                                  VTreeData &vtree_data,
                                  WorldTransition &UNUSED(world_transition),
-                                 const VirtualNode &vnode)
+                                 const VNode &vnode)
 {
   ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
       vnode.output(0, "Influence"));
@@ -807,13 +804,13 @@ static void collect_influences(VTreeData &vtree_data,
       r_attributes_per_type,
   };
 
-  for (const VirtualNode *vnode : vtree_data.vtree().nodes_with_idname(particle_system_idname)) {
+  for (const VNode *vnode : vtree_data.vtree().nodes_with_idname(particle_system_idname)) {
     StringRef name = vnode->name();
     r_system_names.append(name);
     r_attributes_per_type.add_new(name, AttributesDeclaration());
   }
 
-  for (const VirtualNode *vnode : vtree_data.vtree().nodes()) {
+  for (const VNode *vnode : vtree_data.vtree().nodes()) {
     StringRef idname = vnode->idname();
     ParseNodeCallback *callback = parsers.lookup_ptr(idname);
     if (callback != nullptr) {
@@ -841,13 +838,14 @@ static void collect_influences(VTreeData &vtree_data,
 class NodeTreeStepSimulator : public StepSimulator {
  private:
   bNodeTree *m_btree;
-  VirtualNodeTree m_vtree;
+  std::unique_ptr<VirtualNodeTree> m_vtree;
 
  public:
   NodeTreeStepSimulator(bNodeTree *btree) : m_btree(btree)
   {
-    m_vtree.add_all_of_tree(m_btree);
-    m_vtree.freeze_and_index();
+    BKE::VirtualNodeTreeBuilder vtree_builder;
+    vtree_builder.add_all_of_node_tree(btree);
+    m_vtree = vtree_builder.build();
   }
 
   void simulate(SimulationState &simulation_state) override
@@ -866,7 +864,7 @@ class NodeTreeStepSimulator : public StepSimulator {
     StringMap<Integrator *> integrators;
 
     Optional<std::unique_ptr<VTreeDataGraph>> data_graph = FN::DataFlowNodes::generate_graph(
-        m_vtree);
+        *m_vtree);
     if (!data_graph.has_value()) {
       return;
     }

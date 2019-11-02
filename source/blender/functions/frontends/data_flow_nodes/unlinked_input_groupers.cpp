@@ -1,16 +1,18 @@
 #include "unlinked_input_groupers.hpp"
 
+#include "BLI_multi_map.h"
+
 namespace FN {
 namespace DataFlowNodes {
 
 using BLI::MultiMap;
 
 void SeparateNodeInputs::group(VTreeDataGraphBuilder &builder,
-                               MultiVector<const VirtualSocket *> &r_groups)
+                               MultiVector<const VSocket *> &r_groups)
 {
-  Vector<const VirtualSocket *> vsockets;
-  for (const VirtualNode *vnode : builder.vtree().nodes()) {
-    for (const VirtualSocket *vsocket : vnode->inputs()) {
+  Vector<const VSocket *> vsockets;
+  for (const VNode *vnode : builder.vtree().nodes()) {
+    for (const VSocket *vsocket : vnode->inputs()) {
       if (builder.is_input_unlinked(*vsocket)) {
         vsockets.append(vsocket);
       }
@@ -24,10 +26,10 @@ void SeparateNodeInputs::group(VTreeDataGraphBuilder &builder,
 }
 
 void SeparateSocketInputs::group(VTreeDataGraphBuilder &builder,
-                                 MultiVector<const VirtualSocket *> &r_groups)
+                                 MultiVector<const VSocket *> &r_groups)
 {
-  for (const VirtualNode *vnode : builder.vtree().nodes()) {
-    for (const VirtualSocket *vsocket : vnode->inputs()) {
+  for (const VNode *vnode : builder.vtree().nodes()) {
+    for (const VSocket *vsocket : vnode->inputs()) {
       if (builder.is_input_unlinked(*vsocket)) {
         r_groups.append({vsocket});
       }
@@ -36,11 +38,11 @@ void SeparateSocketInputs::group(VTreeDataGraphBuilder &builder,
 }
 
 void AllInOneSocketInputs::group(VTreeDataGraphBuilder &builder,
-                                 MultiVector<const VirtualSocket *> &r_groups)
+                                 MultiVector<const VSocket *> &r_groups)
 {
-  Vector<const VirtualSocket *> unlinked_input_vsockets;
-  for (const VirtualNode *vnode : builder.vtree().nodes()) {
-    for (const VirtualSocket *vsocket : vnode->inputs()) {
+  Vector<const VSocket *> unlinked_input_vsockets;
+  for (const VNode *vnode : builder.vtree().nodes()) {
+    for (const VSocket *vsocket : vnode->inputs()) {
       if (builder.is_input_unlinked(*vsocket)) {
         unlinked_input_vsockets.append(vsocket);
       }
@@ -51,7 +53,7 @@ void AllInOneSocketInputs::group(VTreeDataGraphBuilder &builder,
 }
 
 static void update_hash_of_used_vsockets(VTreeDataGraphBuilder &builder,
-                                         const VirtualSocket &vsocket,
+                                         const VSocket &vsocket,
                                          uint random,
                                          MutableArrayRef<uint> hash_per_vsocket,
                                          MutableArrayRef<bool> was_updated_per_vsocket,
@@ -62,7 +64,7 @@ static void update_hash_of_used_vsockets(VTreeDataGraphBuilder &builder,
   updated_vsockets.append(vsocket.id());
 
   if (vsocket.is_input()) {
-    for (const VirtualSocket *origin : vsocket.links()) {
+    for (const VSocket *origin : vsocket.linked_sockets()) {
       if (builder.is_data_socket(*origin) && !was_updated_per_vsocket[origin->id()]) {
         update_hash_of_used_vsockets(
             builder, *origin, random, hash_per_vsocket, was_updated_per_vsocket, updated_vsockets);
@@ -70,7 +72,7 @@ static void update_hash_of_used_vsockets(VTreeDataGraphBuilder &builder,
     }
   }
   else {
-    for (const VirtualSocket *input : vsocket.vnode().inputs()) {
+    for (const VSocket *input : vsocket.node().inputs()) {
       if (builder.is_data_socket(*input) && !was_updated_per_vsocket[input->id()]) {
         update_hash_of_used_vsockets(
             builder, *input, random, hash_per_vsocket, was_updated_per_vsocket, updated_vsockets);
@@ -81,11 +83,11 @@ static void update_hash_of_used_vsockets(VTreeDataGraphBuilder &builder,
 
 static void group_with_same_hash(VTreeDataGraphBuilder &builder,
                                  ArrayRef<uint> hash_per_vsocket,
-                                 MultiVector<const VirtualSocket *> &r_groups)
+                                 MultiVector<const VSocket *> &r_groups)
 {
-  MultiMap<uint, const VirtualSocket *> unlinked_inputs_by_hash;
-  for (const VirtualNode *vnode : builder.vtree().nodes()) {
-    for (const VirtualSocket *vsocket : vnode->inputs()) {
+  MultiMap<uint, const VSocket *> unlinked_inputs_by_hash;
+  for (const VNode *vnode : builder.vtree().nodes()) {
+    for (const VSocket *vsocket : vnode->inputs()) {
       if (builder.is_data_socket(*vsocket)) {
         BuilderInputSocket *socket = builder.lookup_input_socket(*vsocket);
         if (socket->origin() == nullptr) {
@@ -97,14 +99,14 @@ static void group_with_same_hash(VTreeDataGraphBuilder &builder,
 
   /* TODO(jacques): replace with values iterator when it exists. */
   for (uint key : unlinked_inputs_by_hash.keys()) {
-    ArrayRef<const VirtualSocket *> unlinked_vsockets = unlinked_inputs_by_hash.lookup(key);
+    ArrayRef<const VSocket *> unlinked_vsockets = unlinked_inputs_by_hash.lookup(key);
     BLI_assert(unlinked_vsockets.size() > 0);
     r_groups.append(unlinked_vsockets);
   }
 }
 
 void GroupByNodeUsage::group(VTreeDataGraphBuilder &builder,
-                             MultiVector<const VirtualSocket *> &r_groups)
+                             MultiVector<const VSocket *> &r_groups)
 {
   uint socket_count = builder.vtree().socket_count();
 
@@ -115,7 +117,7 @@ void GroupByNodeUsage::group(VTreeDataGraphBuilder &builder,
   for (BuilderNode *node : builder.placeholder_nodes()) {
     VNodePlaceholderBody &placeholder_info = node->function().body<VNodePlaceholderBody>();
     uint random = rand();
-    for (const VirtualSocket *vsocket : placeholder_info.inputs()) {
+    for (const VSocket *vsocket : placeholder_info.inputs()) {
       update_hash_of_used_vsockets(
           builder, *vsocket, random, hash_per_vsocket, was_updated_per_vsocket, updated_vsockets);
     }
@@ -127,7 +129,7 @@ void GroupByNodeUsage::group(VTreeDataGraphBuilder &builder,
 }
 
 void GroupBySocketUsage::group(VTreeDataGraphBuilder &builder,
-                               MultiVector<const VirtualSocket *> &r_groups)
+                               MultiVector<const VSocket *> &r_groups)
 {
   uint socket_count = builder.vtree().socket_count();
 
@@ -137,7 +139,7 @@ void GroupBySocketUsage::group(VTreeDataGraphBuilder &builder,
 
   for (BuilderNode *node : builder.placeholder_nodes()) {
     VNodePlaceholderBody &placeholder_info = node->function().body<VNodePlaceholderBody>();
-    for (const VirtualSocket *vsocket : placeholder_info.inputs()) {
+    for (const VSocket *vsocket : placeholder_info.inputs()) {
       update_hash_of_used_vsockets(
           builder, *vsocket, rand(), hash_per_vsocket, was_updated_per_vsocket, updated_vsockets);
       was_updated_per_vsocket.fill_indices(updated_vsockets, false);

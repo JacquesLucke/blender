@@ -4,19 +4,19 @@
 
 #include "BLI_string_map.h"
 #include "FN_tuple_call.hpp"
-#include "BKE_virtual_node_tree_cxx.h"
+#include "BKE_virtual_node_tree.h"
 
 namespace FN {
 namespace DataFlowNodes {
 
-using BKE::VirtualNode;
-using BKE::VirtualSocket;
+using BKE::VNode;
+using BKE::VSocket;
 using BLI::StringMap;
 using StringPair = std::pair<std::string, std::string>;
 
 class VTreeDataGraphBuilder;
 
-typedef std::function<void(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)> NodeInserter;
+typedef std::function<void(VTreeDataGraphBuilder &builder, const VNode &vnode)> NodeInserter;
 
 typedef std::function<void(PointerRNA *socket_rna_ptr, Tuple &dst, uint index)> SocketLoader;
 
@@ -70,7 +70,7 @@ class NodeInserters {
   void register_inserter(StringRef idname, NodeInserter inserter);
   void register_function(StringRef idname, FunctionGetter getter);
 
-  bool insert(VTreeDataGraphBuilder &builder, const VirtualNode &vnode);
+  bool insert(VTreeDataGraphBuilder &builder, const VNode &vnode);
 };
 
 class LinkInserters {
@@ -86,7 +86,7 @@ class LinkInserters {
                                     ConversionInserter inserter);
   void register_conversion_function(StringRef from_type, StringRef to_type, FunctionGetter getter);
 
-  bool insert(VTreeDataGraphBuilder &builder, const VirtualSocket &from, const VirtualSocket &to);
+  bool insert(VTreeDataGraphBuilder &builder, const VSocket &from, const VSocket &to);
 };
 
 class SocketLoaders {
@@ -99,7 +99,7 @@ class SocketLoaders {
 
   void register_loader(StringRef type_name, SocketLoader loader);
 
-  void load(const VirtualSocket &vsocket, Tuple &dst, uint index);
+  void load(const VSocket &vsocket, Tuple &dst, uint index);
   SocketLoader get_loader(StringRef idname)
   {
     return m_loader_by_idname.lookup(idname);

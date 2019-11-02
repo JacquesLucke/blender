@@ -1,8 +1,6 @@
 #ifndef __FN_VTREE_MULTI_FUNCTION_NETWORK_BUILDER_H__
 #define __FN_VTREE_MULTI_FUNCTION_NETWORK_BUILDER_H__
 
-#include "BKE_virtual_node_tree_cxx.h"
-
 #include "FN_vtree_multi_function_network.h"
 
 namespace FN {
@@ -38,7 +36,7 @@ class VTreeMFNetworkBuilder {
   MFBuilderFunctionNode &add_function(const MultiFunction &function,
                                       ArrayRef<uint> input_param_indices,
                                       ArrayRef<uint> output_param_indices,
-                                      const VirtualNode &vnode)
+                                      const VNode &vnode)
   {
     MFBuilderFunctionNode &node = m_builder->add_function(
         function, input_param_indices, output_param_indices);
@@ -46,10 +44,10 @@ class VTreeMFNetworkBuilder {
     return node;
   }
 
-  MFBuilderDummyNode &add_dummy(const VirtualNode &vnode)
+  MFBuilderDummyNode &add_dummy(const VNode &vnode)
   {
     Vector<MFDataType> input_types;
-    for (const VirtualSocket *vsocket : vnode.inputs()) {
+    for (const VInputSocket *vsocket : vnode.inputs()) {
       MFDataType data_type = this->try_get_data_type(*vsocket);
       if (!data_type.is_none()) {
         input_types.append(data_type);
@@ -57,7 +55,7 @@ class VTreeMFNetworkBuilder {
     }
 
     Vector<MFDataType> output_types;
-    for (const VirtualSocket *vsocket : vnode.outputs()) {
+    for (const VOutputSocket *vsocket : vnode.outputs()) {
       MFDataType data_type = this->try_get_data_type(*vsocket);
       if (!data_type.is_none()) {
         output_types.append(data_type);
@@ -80,17 +78,17 @@ class VTreeMFNetworkBuilder {
     m_builder->add_link(from, to);
   }
 
-  MFDataType try_get_data_type(const VirtualSocket &vsocket) const
+  MFDataType try_get_data_type(const VSocket &vsocket) const
   {
     return m_type_by_vsocket[vsocket.id()];
   }
 
-  bool is_data_socket(const VirtualSocket &vsocket) const
+  bool is_data_socket(const VSocket &vsocket) const
   {
     return !m_type_by_vsocket[vsocket.id()].is_none();
   }
 
-  void map_sockets_exactly(const VirtualNode &vnode, MFBuilderNode &node)
+  void map_sockets_exactly(const VNode &vnode, MFBuilderNode &node)
   {
     BLI_assert(vnode.inputs().size() == node.inputs().size());
     BLI_assert(vnode.outputs().size() == node.outputs().size());
@@ -103,10 +101,10 @@ class VTreeMFNetworkBuilder {
     }
   }
 
-  void map_data_sockets(const VirtualNode &vnode, MFBuilderNode &node)
+  void map_data_sockets(const VNode &vnode, MFBuilderNode &node)
   {
     uint data_inputs = 0;
-    for (const VirtualSocket *vsocket : vnode.inputs()) {
+    for (const VInputSocket *vsocket : vnode.inputs()) {
       if (this->is_data_socket(*vsocket)) {
         this->map_sockets(*vsocket, *node.inputs()[data_inputs]);
         data_inputs++;
@@ -114,7 +112,7 @@ class VTreeMFNetworkBuilder {
     }
 
     uint data_outputs = 0;
-    for (const VirtualSocket *vsocket : vnode.outputs()) {
+    for (const VOutputSocket *vsocket : vnode.outputs()) {
       if (this->is_data_socket(*vsocket)) {
         this->map_sockets(*vsocket, *node.outputs()[data_outputs]);
         data_outputs++;
@@ -122,20 +120,26 @@ class VTreeMFNetworkBuilder {
     }
   }
 
-  void map_sockets(const VirtualSocket &vsocket, MFBuilderSocket &socket)
+  void map_sockets(const VInputSocket &vsocket, MFBuilderInputSocket &socket)
   {
     BLI_assert(m_socket_map[vsocket.id()] == nullptr);
     m_socket_map[vsocket.id()] = &socket;
   }
 
-  bool vsocket_is_mapped(const VirtualSocket &vsocket) const
+  void map_sockets(const VOutputSocket &vsocket, MFBuilderOutputSocket &socket)
+  {
+    BLI_assert(m_socket_map[vsocket.id()] == nullptr);
+    m_socket_map[vsocket.id()] = &socket;
+  }
+
+  bool vsocket_is_mapped(const VSocket &vsocket) const
   {
     return m_socket_map[vsocket.id()] != nullptr;
   }
 
-  bool data_sockets_are_mapped(ArrayRef<const VirtualSocket *> vsockets) const
+  bool data_sockets_are_mapped(ArrayRef<const VSocket *> vsockets) const
   {
-    for (const VirtualSocket *vsocket : vsockets) {
+    for (const VSocket *vsocket : vsockets) {
       if (this->is_data_socket(*vsocket)) {
         if (!this->vsocket_is_mapped(*vsocket)) {
           return false;
@@ -145,25 +149,25 @@ class VTreeMFNetworkBuilder {
     return true;
   }
 
-  bool data_sockets_of_vnode_are_mapped(const VirtualNode &vnode) const
+  bool data_sockets_of_vnode_are_mapped(const VNode &vnode) const
   {
-    if (!this->data_sockets_are_mapped(vnode.inputs())) {
+    if (!this->data_sockets_are_mapped(vnode.inputs().cast<const VSocket *>())) {
       return false;
     }
-    if (!this->data_sockets_are_mapped(vnode.outputs())) {
+    if (!this->data_sockets_are_mapped(vnode.outputs().cast<const VSocket *>())) {
       return false;
     }
     return true;
   }
 
-  bool has_data_sockets(const VirtualNode &vnode) const
+  bool has_data_sockets(const VNode &vnode) const
   {
-    for (const VirtualSocket *vsocket : vnode.inputs()) {
+    for (const VInputSocket *vsocket : vnode.inputs()) {
       if (this->is_data_socket(*vsocket)) {
         return true;
       }
     }
-    for (const VirtualSocket *vsocket : vnode.outputs()) {
+    for (const VOutputSocket *vsocket : vnode.outputs()) {
       if (this->is_data_socket(*vsocket)) {
         return true;
       }
@@ -171,23 +175,21 @@ class VTreeMFNetworkBuilder {
     return false;
   }
 
-  bool is_input_linked(const VirtualSocket &vsocket) const
+  bool is_input_linked(const VInputSocket &vsocket) const
   {
-    auto &socket = this->lookup_input_socket(vsocket);
+    auto &socket = this->lookup_socket(vsocket);
     return socket.as_input().origin() != nullptr;
   }
 
-  MFBuilderOutputSocket &lookup_output_socket(const VirtualSocket &vsocket) const
+  MFBuilderOutputSocket &lookup_socket(const VOutputSocket &vsocket) const
   {
-    BLI_assert(vsocket.is_output());
     MFBuilderSocket *socket = m_socket_map[vsocket.id()];
     BLI_assert(socket != nullptr);
     return socket->as_output();
   }
 
-  MFBuilderInputSocket &lookup_input_socket(const VirtualSocket &vsocket) const
+  MFBuilderInputSocket &lookup_socket(const VInputSocket &vsocket) const
   {
-    BLI_assert(vsocket.is_input());
     MFBuilderSocket *socket = m_socket_map[vsocket.id()];
     BLI_assert(socket != nullptr);
     return socket->as_input();

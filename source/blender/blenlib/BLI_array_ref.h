@@ -291,13 +291,12 @@ template<typename T> class ArrayRef {
 
   /**
    * Get a new array ref to the same underlying memory buffer. No conversions are done.
-   * Asserts when the sizes of the types don't match.
    */
   template<typename NewT> ArrayRef<NewT> cast() const
   {
-    /* Can be adjusted to allow different type sizes when necessary. */
-    BLI_STATIC_ASSERT(sizeof(T) == sizeof(NewT), "");
-    return ArrayRef<NewT>((NewT *)m_start, m_size);
+    BLI_assert((m_size * sizeof(T)) % sizeof(NewT) == 0);
+    uint new_size = m_size * sizeof(T) / sizeof(NewT);
+    return ArrayRef<NewT>(reinterpret_cast<const NewT *>(m_start), new_size);
   }
 
   /**

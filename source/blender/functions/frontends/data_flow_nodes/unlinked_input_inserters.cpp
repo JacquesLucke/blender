@@ -65,7 +65,7 @@ class SocketLoaderDependencies : public DepsBody {
 };
 
 void DynamicSocketLoader::insert(VTreeDataGraphBuilder &builder,
-                                 ArrayRef<const VirtualSocket *> unlinked_inputs,
+                                 ArrayRef<const VSocket *> unlinked_inputs,
                                  MutableArrayRef<BuilderOutputSocket *> r_new_origins)
 {
   auto &socket_loaders = MAPPING_socket_loaders();
@@ -76,7 +76,7 @@ void DynamicSocketLoader::insert(VTreeDataGraphBuilder &builder,
 
   FunctionBuilder fn_builder;
   for (uint i = 0; i < unlinked_inputs.size(); i++) {
-    const VirtualSocket *vsocket = unlinked_inputs[i];
+    const VSocket *vsocket = unlinked_inputs[i];
 
     SocketLoader loader = socket_loaders->get_loader(vsocket->idname());
     loaders.append(loader);
@@ -155,13 +155,13 @@ class ConstantOutputGen : public LLVMBuildIRBody {
 };
 
 void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
-                                   ArrayRef<const VirtualSocket *> unlinked_inputs,
+                                   ArrayRef<const VSocket *> unlinked_inputs,
                                    MutableArrayRef<BuilderOutputSocket *> r_new_origins)
 {
   auto &socket_loaders = MAPPING_socket_loaders();
 
   FunctionBuilder fn_builder;
-  for (const VirtualSocket *vsocket : unlinked_inputs) {
+  for (const VSocket *vsocket : unlinked_inputs) {
     Type *type = builder.query_socket_type(*vsocket);
     fn_builder.add_output(vsocket->name(), type);
   }
@@ -179,7 +179,7 @@ void ConstantInputsHandler::insert(VTreeDataGraphBuilder &builder,
   ConstantOutputGen &build_ir_body = *fn->add_body<ConstantOutputGen>();
 
   for (uint i = 0; i < unlinked_inputs.size(); i++) {
-    const VirtualSocket *vsocket = unlinked_inputs[i];
+    const VSocket *vsocket = unlinked_inputs[i];
     socket_loaders->load(*vsocket, *inputs_tuple, i);
   }
 

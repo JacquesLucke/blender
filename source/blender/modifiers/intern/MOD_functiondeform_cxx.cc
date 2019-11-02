@@ -7,8 +7,8 @@
 
 #include "DEG_depsgraph_query.h"
 
-using BKE::VirtualNode;
 using BKE::VirtualNodeTree;
+using BKE::VNode;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::IndexRange;
@@ -29,16 +29,17 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
     return;
   }
 
-  bNodeTree *tree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
-  VirtualNodeTree vtree;
-  vtree.add_all_of_tree(tree);
-  vtree.freeze_and_index();
+  bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
 
-  const VirtualNode &input_vnode = *vtree.nodes_with_idname("fn_FunctionInputNode")[0];
-  const VirtualNode &output_vnode = *vtree.nodes_with_idname("fn_FunctionOutputNode")[0];
+  BKE::VirtualNodeTreeBuilder vtree_builder;
+  vtree_builder.add_all_of_node_tree(btree);
+  auto vtree = vtree_builder.build();
+
+  const VNode &input_vnode = *vtree->nodes_with_idname("fn_FunctionInputNode")[0];
+  const VNode &output_vnode = *vtree->nodes_with_idname("fn_FunctionOutputNode")[0];
 
   BLI::OwnedResources resources;
-  auto vtree_network = FN::generate_vtree_multi_function_network(vtree, resources);
+  auto vtree_network = FN::generate_vtree_multi_function_network(*vtree, resources);
 
   Vector<const MFOutputSocket *> function_inputs = {
       &vtree_network->lookup_socket(input_vnode.output(0)).as_output(),

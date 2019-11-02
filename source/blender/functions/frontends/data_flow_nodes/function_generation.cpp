@@ -14,20 +14,19 @@ static void find_interface_sockets(VirtualNodeTree &vtree,
                                    VectorSet<DataSocket> &r_inputs,
                                    VectorSet<DataSocket> &r_outputs)
 {
-  const VirtualNode *input_node = vtree.nodes_with_idname("fn_FunctionInputNode").get(0, nullptr);
-  const VirtualNode *output_node =
-      vtree.nodes_with_idname("fn_FunctionOutputNode").get(0, nullptr);
+  const VNode *input_node = vtree.nodes_with_idname("fn_FunctionInputNode").get(0, nullptr);
+  const VNode *output_node = vtree.nodes_with_idname("fn_FunctionOutputNode").get(0, nullptr);
 
   if (input_node != nullptr) {
     for (uint i = 0; i < input_node->outputs().size() - 1; i++) {
-      const VirtualSocket &vsocket = input_node->output(i);
+      const VSocket &vsocket = input_node->output(i);
       r_inputs.add_new(data_graph.lookup_socket(vsocket));
     }
   }
 
   if (output_node != nullptr) {
     for (uint i = 0; i < output_node->inputs().size() - 1; i++) {
-      const VirtualSocket &vsocket = output_node->input(i);
+      const VSocket &vsocket = output_node->input(i);
       r_outputs.add_new(data_graph.lookup_socket(vsocket));
     }
   }
@@ -35,9 +34,9 @@ static void find_interface_sockets(VirtualNodeTree &vtree,
 
 Optional<std::unique_ptr<Function>> generate_function(bNodeTree *btree)
 {
-  auto vtree = BLI::make_unique<VirtualNodeTree>();
-  vtree->add_all_of_tree(btree);
-  vtree->freeze_and_index();
+  BKE::VirtualNodeTreeBuilder vtree_builder;
+  vtree_builder.add_all_of_node_tree(btree);
+  auto vtree = vtree_builder.build();
 
   auto optional_data_graph = generate_graph(*vtree);
   if (!optional_data_graph.has_value()) {

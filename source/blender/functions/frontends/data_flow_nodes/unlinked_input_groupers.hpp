@@ -7,32 +7,27 @@ namespace DataFlowNodes {
 
 class SeparateNodeInputs : public UnlinkedInputsGrouper {
  public:
-  void group(VTreeDataGraphBuilder &builder,
-             MultiVector<const VirtualSocket *> &r_groups) override;
+  void group(VTreeDataGraphBuilder &builder, MultiVector<const VSocket *> &r_groups) override;
 };
 
 class SeparateSocketInputs : public UnlinkedInputsGrouper {
  public:
-  void group(VTreeDataGraphBuilder &builder,
-             MultiVector<const VirtualSocket *> &r_groups) override;
+  void group(VTreeDataGraphBuilder &builder, MultiVector<const VSocket *> &r_groups) override;
 };
 
 class AllInOneSocketInputs : public UnlinkedInputsGrouper {
  public:
-  void group(VTreeDataGraphBuilder &builder,
-             MultiVector<const VirtualSocket *> &r_groups) override;
+  void group(VTreeDataGraphBuilder &builder, MultiVector<const VSocket *> &r_groups) override;
 };
 
 class GroupByNodeUsage : public UnlinkedInputsGrouper {
  public:
-  void group(VTreeDataGraphBuilder &builder,
-             MultiVector<const VirtualSocket *> &r_groups) override;
+  void group(VTreeDataGraphBuilder &builder, MultiVector<const VSocket *> &r_groups) override;
 };
 
 class GroupBySocketUsage : public UnlinkedInputsGrouper {
  public:
-  void group(VTreeDataGraphBuilder &builder,
-             MultiVector<const VirtualSocket *> &r_groups) override;
+  void group(VTreeDataGraphBuilder &builder, MultiVector<const VSocket *> &r_groups) override;
 };
 
 }  // namespace DataFlowNodes

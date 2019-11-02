@@ -10,7 +10,7 @@ namespace FN {
 using BLI::float3;
 using BLI::StringMap;
 
-static MFDataType get_type_by_socket(const VirtualSocket &vsocket)
+static MFDataType get_type_by_socket(const VSocket &vsocket)
 {
   StringRef idname = vsocket.idname();
 
@@ -80,9 +80,9 @@ static const CPPType &get_cpp_type_by_name(StringRef name)
 }
 
 using InsertVNodeFunction = std::function<void(
-    VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VirtualNode &vnode)>;
+    VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VNode &vnode)>;
 using InsertUnlinkedInputFunction = std::function<MFBuilderOutputSocket &(
-    VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VirtualSocket &vsocket)>;
+    VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VSocket &vsocket)>;
 using InsertImplicitConversionFunction =
     std::function<std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *>(
         VTreeMFNetworkBuilder &builder, OwnedResources &resources)>;
@@ -98,7 +98,7 @@ T &allocate_resource(const char *name, OwnedResources &resources, Args &&... arg
 
 static void INSERT_vector_math(VTreeMFNetworkBuilder &builder,
                                OwnedResources &resources,
-                               const VirtualNode &vnode)
+                               const VNode &vnode)
 {
   const MultiFunction &fn = allocate_resource<FN::MF_AddFloat3s>("vector math function",
                                                                  resources);
@@ -108,13 +108,13 @@ static void INSERT_vector_math(VTreeMFNetworkBuilder &builder,
 static const MultiFunction &get_vectorized_function(
     const MultiFunction &base_function,
     OwnedResources &resources,
-    PointerRNA rna,
+    PointerRNA *rna,
     ArrayRef<const char *> is_vectorized_prop_names)
 {
   Vector<bool> input_is_vectorized;
   for (const char *prop_name : is_vectorized_prop_names) {
     char state[5];
-    RNA_string_get(&rna, prop_name, state);
+    RNA_string_get(rna, prop_name, state);
     BLI_assert(STREQ(state, "BASE") || STREQ(state, "LIST"));
 
     bool is_vectorized = STREQ(state, "LIST");
@@ -132,7 +132,7 @@ static const MultiFunction &get_vectorized_function(
 
 static void INSERT_float_math(VTreeMFNetworkBuilder &builder,
                               OwnedResources &resources,
-                              const VirtualNode &vnode)
+                              const VNode &vnode)
 {
   const MultiFunction &base_fn = allocate_resource<FN::MF_AddFloats>("float math function",
                                                                      resources);
@@ -144,7 +144,7 @@ static void INSERT_float_math(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder,
                                   OwnedResources &resources,
-                                  const VirtualNode &vnode)
+                                  const VNode &vnode)
 {
   const MultiFunction &base_fn = allocate_resource<FN::MF_CombineVector>("combine vector function",
                                                                          resources);
@@ -155,7 +155,7 @@ static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder,
                                    OwnedResources &resources,
-                                   const VirtualNode &vnode)
+                                   const VNode &vnode)
 {
   const MultiFunction &base_fn = allocate_resource<FN::MF_SeparateVector>(
       "separate vector function", resources);
@@ -166,10 +166,9 @@ static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_list_length(VTreeMFNetworkBuilder &builder,
                                OwnedResources &resources,
-                               const VirtualNode &vnode)
+                               const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
-  char *type_name = RNA_string_get_alloc(&rna, "active_type", nullptr, 0);
+  char *type_name = RNA_string_get_alloc(vnode.rna(), "active_type", nullptr, 0);
   const CPPType &type = get_cpp_type_by_name(type_name);
   MEM_freeN(type_name);
 
@@ -180,10 +179,9 @@ static void INSERT_list_length(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder,
                                     OwnedResources &resources,
-                                    const VirtualNode &vnode)
+                                    const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
-  char *type_name = RNA_string_get_alloc(&rna, "active_type", nullptr, 0);
+  char *type_name = RNA_string_get_alloc(vnode.rna(), "active_type", nullptr, 0);
   const CPPType &type = get_cpp_type_by_name(type_name);
   MEM_freeN(type_name);
 
@@ -194,15 +192,13 @@ static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder,
 
 static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builder,
                                                    OwnedResources &resources,
-                                                   const VirtualNode &vnode,
+                                                   const VNode &vnode,
                                                    const CPPType &base_type,
                                                    const char *prop_name,
                                                    uint start_index)
 {
-  PointerRNA rna = vnode.rna();
-
   Vector<bool> input_is_list;
-  RNA_BEGIN (&rna, itemptr, prop_name) {
+  RNA_BEGIN (vnode.rna(), itemptr, prop_name) {
     int state = RNA_enum_get(&itemptr, "state");
     if (state == 0) {
       /* single value case */
@@ -235,10 +231,9 @@ static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builde
 
 static void INSERT_pack_list(VTreeMFNetworkBuilder &builder,
                              OwnedResources &resources,
-                             const VirtualNode &vnode)
+                             const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
-  char *type_name = RNA_string_get_alloc(&rna, "active_type", nullptr, 0);
+  char *type_name = RNA_string_get_alloc(vnode.rna(), "active_type", nullptr, 0);
   const CPPType &type = get_cpp_type_by_name(type_name);
   MEM_freeN(type_name);
 
@@ -249,7 +244,7 @@ static void INSERT_pack_list(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_object_location(VTreeMFNetworkBuilder &builder,
                                    OwnedResources &resources,
-                                   const VirtualNode &vnode)
+                                   const VNode &vnode)
 {
   const MultiFunction &fn = allocate_resource<FN::MF_ObjectWorldLocation>(
       "object location function", resources);
@@ -258,7 +253,7 @@ static void INSERT_object_location(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_text_length(VTreeMFNetworkBuilder &builder,
                                OwnedResources &resources,
-                               const VirtualNode &vnode)
+                               const VNode &vnode)
 {
   const MultiFunction &fn = allocate_resource<FN::MF_TextLength>("text length function",
                                                                  resources);
@@ -282,11 +277,10 @@ static StringMap<InsertVNodeFunction> get_node_inserters()
 
 static MFBuilderOutputSocket &INSERT_vector_socket(VTreeMFNetworkBuilder &builder,
                                                    OwnedResources &resources,
-                                                   const VirtualSocket &vsocket)
+                                                   const VSocket &vsocket)
 {
-  PointerRNA rna = vsocket.rna();
   float3 value;
-  RNA_float_get_array(&rna, "value", value);
+  RNA_float_get_array(vsocket.rna(), "value", value);
 
   const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<float3>>(
       "vector socket", resources, value);
@@ -296,10 +290,9 @@ static MFBuilderOutputSocket &INSERT_vector_socket(VTreeMFNetworkBuilder &builde
 
 static MFBuilderOutputSocket &INSERT_float_socket(VTreeMFNetworkBuilder &builder,
                                                   OwnedResources &resources,
-                                                  const VirtualSocket &vsocket)
+                                                  const VSocket &vsocket)
 {
-  PointerRNA rna = vsocket.rna();
-  float value = RNA_float_get(&rna, "value");
+  float value = RNA_float_get(vsocket.rna(), "value");
 
   const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<float>>(
       "float socket", resources, value);
@@ -309,10 +302,9 @@ static MFBuilderOutputSocket &INSERT_float_socket(VTreeMFNetworkBuilder &builder
 
 static MFBuilderOutputSocket &INSERT_int_socket(VTreeMFNetworkBuilder &builder,
                                                 OwnedResources &resources,
-                                                const VirtualSocket &vsocket)
+                                                const VSocket &vsocket)
 {
-  PointerRNA rna = vsocket.rna();
-  int value = RNA_int_get(&rna, "value");
+  int value = RNA_int_get(vsocket.rna(), "value");
 
   const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<int>>(
       "int socket", resources, value);
@@ -322,10 +314,9 @@ static MFBuilderOutputSocket &INSERT_int_socket(VTreeMFNetworkBuilder &builder,
 
 static MFBuilderOutputSocket &INSERT_object_socket(VTreeMFNetworkBuilder &builder,
                                                    OwnedResources &resources,
-                                                   const VirtualSocket &vsocket)
+                                                   const VSocket &vsocket)
 {
-  PointerRNA rna = vsocket.rna();
-  Object *value = (Object *)RNA_pointer_get(&rna, "value").data;
+  Object *value = (Object *)RNA_pointer_get(vsocket.rna(), "value").data;
 
   const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<Object *>>(
       "object socket", resources, value);
@@ -335,10 +326,9 @@ static MFBuilderOutputSocket &INSERT_object_socket(VTreeMFNetworkBuilder &builde
 
 static MFBuilderOutputSocket &INSERT_text_socket(VTreeMFNetworkBuilder &builder,
                                                  OwnedResources &resources,
-                                                 const VirtualSocket &vsocket)
+                                                 const VSocket &vsocket)
 {
-  PointerRNA rna = vsocket.rna();
-  char *value = RNA_string_get_alloc(&rna, "value", nullptr, 0);
+  char *value = RNA_string_get_alloc(vsocket.rna(), "value", nullptr, 0);
   std::string text = value;
   MEM_freeN(value);
 
@@ -351,7 +341,7 @@ static MFBuilderOutputSocket &INSERT_text_socket(VTreeMFNetworkBuilder &builder,
 template<typename T>
 static MFBuilderOutputSocket &INSERT_empty_list_socket(VTreeMFNetworkBuilder &builder,
                                                        OwnedResources &resources,
-                                                       const VirtualSocket &UNUSED(vsocket))
+                                                       const VSocket &UNUSED(vsocket))
 {
   const MultiFunction &fn = allocate_resource<FN::MF_EmptyList<T>>("empty list socket", resources);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
@@ -445,7 +435,7 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder, OwnedResources &resourc
   const VirtualNodeTree &vtree = builder.vtree();
   auto inserters = get_node_inserters();
 
-  for (const VirtualNode *vnode : vtree.nodes()) {
+  for (const VNode *vnode : vtree.nodes()) {
     StringRef idname = vnode->idname();
     InsertVNodeFunction *inserter = inserters.lookup_ptr(idname);
 
@@ -465,23 +455,23 @@ static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &resourc
 {
   auto conversion_inserters = get_conversion_inserters();
 
-  for (const VirtualSocket *to_vsocket : builder.vtree().inputs_with_links()) {
-    if (to_vsocket->links().size() > 1) {
+  for (const VInputSocket *to_vsocket : builder.vtree().all_input_sockets()) {
+    ArrayRef<const VOutputSocket *> origins = to_vsocket->linked_sockets();
+    if (origins.size() != 1) {
       continue;
     }
-    BLI_assert(to_vsocket->links().size() == 1);
 
     if (!builder.is_data_socket(*to_vsocket)) {
       continue;
     }
 
-    const VirtualSocket *from_vsocket = to_vsocket->links()[0];
+    const VOutputSocket *from_vsocket = origins[0];
     if (!builder.is_data_socket(*from_vsocket)) {
       return false;
     }
 
-    auto &from_socket = builder.lookup_output_socket(*from_vsocket);
-    auto &to_socket = builder.lookup_input_socket(*to_vsocket);
+    MFBuilderOutputSocket &from_socket = builder.lookup_socket(*from_vsocket);
+    MFBuilderInputSocket &to_socket = builder.lookup_socket(*to_vsocket);
 
     if (from_socket.type() == to_socket.type()) {
       builder.add_link(from_socket, to_socket);
@@ -503,27 +493,25 @@ static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &resourc
 
 static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder, OwnedResources &resources)
 {
-  Vector<const VirtualSocket *> unlinked_data_inputs;
-  for (const VirtualNode *vnode : builder.vtree().nodes()) {
-    for (const VirtualSocket *vsocket : vnode->inputs()) {
-      if (builder.is_data_socket(*vsocket)) {
-        if (!builder.is_input_linked(*vsocket)) {
-          unlinked_data_inputs.append(vsocket);
-        }
+  Vector<const VInputSocket *> unlinked_data_inputs;
+  for (const VInputSocket *vsocket : builder.vtree().all_input_sockets()) {
+    if (builder.is_data_socket(*vsocket)) {
+      if (!builder.is_input_linked(*vsocket)) {
+        unlinked_data_inputs.append(vsocket);
       }
     }
   }
 
   auto inserters = get_unlinked_input_inserter();
 
-  for (const VirtualSocket *vsocket : unlinked_data_inputs) {
+  for (const VInputSocket *vsocket : unlinked_data_inputs) {
     InsertUnlinkedInputFunction *inserter = inserters.lookup_ptr(vsocket->idname());
 
     if (inserter == nullptr) {
       return false;
     }
     MFBuilderOutputSocket &from_socket = (*inserter)(builder, resources, *vsocket);
-    MFBuilderInputSocket &to_socket = builder.lookup_input_socket(*vsocket);
+    MFBuilderInputSocket &to_socket = builder.lookup_socket(*vsocket);
     builder.add_link(from_socket, to_socket);
   }
 
@@ -534,15 +522,9 @@ std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const Virt
                                                                       OwnedResources &resources)
 {
   Vector<MFDataType> type_by_vsocket{vtree.socket_count()};
-  for (const VirtualNode *vnode : vtree.nodes()) {
-    for (const VirtualSocket *vsocket : vnode->inputs()) {
-      MFDataType data_type = get_type_by_socket(*vsocket);
-      type_by_vsocket[vsocket->id()] = data_type;
-    }
-    for (const VirtualSocket *vsocket : vnode->outputs()) {
-      MFDataType data_type = get_type_by_socket(*vsocket);
-      type_by_vsocket[vsocket->id()] = data_type;
-    }
+  for (const VSocket *vsocket : vtree.all_sockets()) {
+    MFDataType data_type = get_type_by_socket(*vsocket);
+    type_by_vsocket[vsocket->id()] = data_type;
   }
 
   VTreeMFNetworkBuilder builder(vtree, std::move(type_by_vsocket));

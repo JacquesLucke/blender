@@ -170,7 +170,6 @@ set(SRC
   intern/multires_subdiv.c
   intern/nla.c
   intern/node.c
-  intern/node_tree.cpp
   intern/object.c
   intern/object_deform.c
   intern/object_dupli.c
@@ -233,6 +232,7 @@ set(SRC
   intern/tracking_util.c
   intern/undo_system.c
   intern/unit.c
+  intern/virtual_node_tree.cc
   intern/workspace.c
   intern/world.c
   intern/writeavi.c
@@ -326,7 +326,6 @@ set(SRC
   BKE_multires.h
   BKE_nla.h
   BKE_node.h
-  BKE_virtual_node_tree_cxx.h
   BKE_object.h
   BKE_object_deform.h
   BKE_object_facemap.h
@@ -363,6 +362,7 @@ set(SRC
   BKE_tracking.h
   BKE_undo_system.h
   BKE_unit.h
+  BKE_virtual_node_tree.h
   BKE_workspace.h
   BKE_world.h
   BKE_writeavi.h

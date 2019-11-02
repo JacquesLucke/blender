@@ -10,7 +10,7 @@
 
 #include "BKE_mesh.h"
 #include "BKE_customdata.h"
-#include "BKE_virtual_node_tree_cxx.h"
+#include "BKE_virtual_node_tree.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -318,7 +318,7 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     AttributesBlockContainer &container = *containers[i];
     BParticlesTypeCache &cached_type = cached_frame.particle_types[i];
 
-    strncpy(cached_type.name, container_names[i].data(), sizeof(cached_type.name));
+    strncpy(cached_type.name, container_names[i].data(), sizeof(cached_type.name) - 1);
     cached_type.particle_amount = container.count_active();
 
     cached_type.num_attributes_float = 3;

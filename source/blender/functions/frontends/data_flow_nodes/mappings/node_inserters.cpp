@@ -19,7 +19,7 @@ struct AutoVectorizedInput {
 };
 
 static Function &get_vectorized_function(Function &original_fn,
-                                         PointerRNA &node_rna,
+                                         PointerRNA *node_rna,
                                          ArrayRef<AutoVectorizedInput> auto_vectorized_inputs)
 {
 #ifdef DEBUG
@@ -34,8 +34,8 @@ static Function &get_vectorized_function(Function &original_fn,
   Vector<Function *> used_default_value_builders;
   for (auto &input : auto_vectorized_inputs) {
     char state[5];
-    BLI_assert(RNA_string_length(&node_rna, input.prop_name) == strlen("BASE"));
-    RNA_string_get(&node_rna, input.prop_name, state);
+    BLI_assert(RNA_string_length(node_rna, input.prop_name) == strlen("BASE"));
+    RNA_string_get(node_rna, input.prop_name, state);
     BLI_assert(STREQ(state, "BASE") || STREQ(state, "LIST"));
 
     bool is_vectorized = STREQ(state, "LIST");
@@ -54,7 +54,7 @@ static Function &get_vectorized_function(Function &original_fn,
   }
 }
 
-static void INSERT_object_transforms(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_object_transforms(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
   Function &fn = Functions::GET_FN_object_location();
   builder.insert_matching_function(fn, vnode);
@@ -115,23 +115,22 @@ static Function &get_float_math_function(int operation)
   }
 }
 
-static void INSERT_float_math(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_float_math(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
-  int operation = RNA_enum_get(&rna, "operation");
+  int operation = RNA_enum_get(vnode.rna(), "operation");
 
   Function &original_fn = get_float_math_function(operation);
   uint input_amount = original_fn.input_amount();
 
   if (input_amount == 1) {
     Function &fn = get_vectorized_function(
-        original_fn, rna, {{"use_list__a", Functions::GET_FN_output_float_0()}});
+        original_fn, vnode.rna(), {{"use_list__a", Functions::GET_FN_output_float_0()}});
     builder.insert_matching_function(fn, vnode);
   }
   else {
     BLI_assert(input_amount == 2);
     Function &fn = get_vectorized_function(original_fn,
-                                           rna,
+                                           vnode.rna(),
                                            {{"use_list__a", Functions::GET_FN_output_float_0()},
                                             {"use_list__b", Functions::GET_FN_output_float_0()}});
     builder.insert_matching_function(fn, vnode);
@@ -163,19 +162,18 @@ static Function &get_vector_math_function(int operation)
   }
 }
 
-static void INSERT_vector_math(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_vector_math(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
-  int operation = RNA_enum_get(&rna, "operation");
+  int operation = RNA_enum_get(vnode.rna(), "operation");
 
   Function &fn = get_vectorized_function(get_vector_math_function(operation),
-                                         rna,
+                                         vnode.rna(),
                                          {{"use_list__a", Functions::GET_FN_output_float3_0()},
                                           {"use_list__b", Functions::GET_FN_output_float3_0()}});
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_clamp(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_clamp(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
   Function &max_fn = Functions::GET_FN_max_floats();
   Function &min_fn = Functions::GET_FN_min_floats();
@@ -190,14 +188,14 @@ static void INSERT_clamp(VTreeDataGraphBuilder &builder, const VirtualNode &vnod
   builder.map_output_socket(min_node->output(0), vnode.output(0));
 }
 
-static void INSERT_get_list_element(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_get_list_element(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
   Type *base_type = builder.query_type_property(vnode, "active_type");
   Function &fn = Functions::GET_FN_get_list_element(base_type);
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_list_length(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_list_length(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
   Type *base_type = builder.query_type_property(vnode, "active_type");
   Function &fn = Functions::GET_FN_list_length(base_type);
@@ -205,7 +203,7 @@ static void INSERT_list_length(VTreeDataGraphBuilder &builder, const VirtualNode
 }
 
 static BuilderOutputSocket *insert_pack_list_sockets(VTreeDataGraphBuilder &builder,
-                                                     const VirtualNode &vnode,
+                                                     const VNode &vnode,
                                                      Type *base_type,
                                                      const char *prop_name,
                                                      uint start_index)
@@ -213,10 +211,8 @@ static BuilderOutputSocket *insert_pack_list_sockets(VTreeDataGraphBuilder &buil
   auto &empty_fn = Functions::GET_FN_empty_list(base_type);
   BuilderNode *node = builder.insert_function(empty_fn, vnode);
 
-  PointerRNA rna = vnode.rna();
-
   uint index = start_index;
-  RNA_BEGIN (&rna, itemptr, prop_name) {
+  RNA_BEGIN (vnode.rna(), itemptr, prop_name) {
     BuilderNode *new_node;
     int state = RNA_enum_get(&itemptr, "state");
     if (state == 0) {
@@ -245,7 +241,7 @@ static BuilderOutputSocket *insert_pack_list_sockets(VTreeDataGraphBuilder &buil
   return node->output(0);
 }
 
-static void INSERT_pack_list(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_pack_list(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
   Type *base_type = builder.query_type_property(vnode, "active_type");
   BuilderOutputSocket *packed_list_socket = insert_pack_list_sockets(
@@ -253,11 +249,9 @@ static void INSERT_pack_list(VTreeDataGraphBuilder &builder, const VirtualNode &
   builder.map_output_socket(packed_list_socket, vnode.output(0));
 }
 
-static void INSERT_call(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_call(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
-
-  PointerRNA btree_ptr = RNA_pointer_get(&rna, "function_tree");
+  PointerRNA btree_ptr = RNA_pointer_get(vnode.rna(), "function_tree");
   bNodeTree *btree = (bNodeTree *)btree_ptr.owner_id;
 
   if (btree == nullptr) {
@@ -273,50 +267,46 @@ static void INSERT_call(VTreeDataGraphBuilder &builder, const VirtualNode &vnode
   builder.add_resource(std::move(fn), "Generated function in for Call node");
 }
 
-static void INSERT_switch(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_switch(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
   Type *data_type = builder.query_type_property(vnode, "data_type");
   Function &fn = Functions::GET_FN_bool_switch(data_type);
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_combine_vector(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_combine_vector(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
   Function &fn = get_vectorized_function(Functions::GET_FN_combine_vector(),
-                                         rna,
+                                         vnode.rna(),
                                          {{"use_list__x", Functions::GET_FN_output_float_0()},
                                           {"use_list__y", Functions::GET_FN_output_float_0()},
                                           {"use_list__z", Functions::GET_FN_output_float_0()}});
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_separate_vector(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_separate_vector(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
   Function &fn = get_vectorized_function(
       Functions::GET_FN_separate_vector(),
-      rna,
+      vnode.rna(),
       {{"use_list__vector", Functions::GET_FN_output_float3_0()}});
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_separate_color(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_separate_color(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
   Function &fn = get_vectorized_function(
       Functions::GET_FN_separate_color(),
-      rna,
+      vnode.rna(),
       {{"use_list__color", Functions::GET_FN_output_magenta()}});
   builder.insert_matching_function(fn, vnode);
 }
 
-static void INSERT_combine_color(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_combine_color(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
   Function &fn = get_vectorized_function(
       Functions::GET_FN_combine_color(),
-      rna,
+      vnode.rna(),
       {{"use_list__red", Functions::GET_FN_output_float_0()},
        {"use_list__green", Functions::GET_FN_output_float_0()},
        {"use_list__blue", Functions::GET_FN_output_float_0()},
@@ -335,12 +325,11 @@ static Function &get_compare_function(int operation)
   }
 }
 
-static void INSERT_compare(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_compare(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
-  int operation = RNA_enum_get(&rna, "operation");
+  int operation = RNA_enum_get(vnode.rna(), "operation");
   Function &fn = get_vectorized_function(get_compare_function(operation),
-                                         rna,
+                                         vnode.rna(),
                                          {{"use_list__a", Functions::GET_FN_output_float_0()},
                                           {"use_list__b", Functions::GET_FN_output_float_0()}});
   builder.insert_matching_function(fn, vnode);
@@ -361,21 +350,20 @@ static Function &get_boolean_math_function(int operation)
   }
 }
 
-static void INSERT_boolean_math(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+static void INSERT_boolean_math(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
-  PointerRNA rna = vnode.rna();
-  int operation = RNA_enum_get(&rna, "operation");
+  int operation = RNA_enum_get(vnode.rna(), "operation");
   Function &original_fn = get_boolean_math_function(operation);
   uint input_amount = original_fn.input_amount();
   if (input_amount == 1) {
     Function &fn = get_vectorized_function(
-        original_fn, rna, {{"use_list__a", Functions::GET_FN_output_false()}});
+        original_fn, vnode.rna(), {{"use_list__a", Functions::GET_FN_output_false()}});
     builder.insert_matching_function(fn, vnode);
   }
   else {
     BLI_assert(input_amount == 2);
     Function &fn = get_vectorized_function(original_fn,
-                                           rna,
+                                           vnode.rna(),
                                            {{"use_list__a", Functions::GET_FN_output_false()},
                                             {"use_list__b", Functions::GET_FN_output_true()}});
     builder.insert_matching_function(fn, vnode);

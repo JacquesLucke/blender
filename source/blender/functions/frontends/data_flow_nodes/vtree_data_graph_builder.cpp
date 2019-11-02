@@ -35,12 +35,12 @@ VTreeDataGraphBuilder::VTreeDataGraphBuilder(VirtualNodeTree &vtree)
 BLI_NOINLINE void VTreeDataGraphBuilder::initialize_type_by_vsocket_map()
 {
   m_type_by_vsocket = Vector<Type *>(m_vtree.socket_count(), nullptr);
-  for (const VirtualNode *vnode : m_vtree.nodes()) {
-    for (const VirtualSocket *vsocket : vnode->inputs()) {
+  for (const VNode *vnode : m_vtree.nodes()) {
+    for (const VSocket *vsocket : vnode->inputs()) {
       m_type_by_vsocket[vsocket->id()] = m_type_mappings->type_by_idname_or_empty(
           vsocket->idname());
     }
-    for (const VirtualSocket *vsocket : vnode->outputs()) {
+    for (const VSocket *vsocket : vnode->outputs()) {
       m_type_by_vsocket[vsocket->id()] = m_type_mappings->type_by_idname_or_empty(
           vsocket->idname());
     }
@@ -112,26 +112,25 @@ BuilderNode *VTreeDataGraphBuilder::insert_function(Function &fn)
   return m_graph_builder.insert_function(fn);
 }
 
-BuilderNode *VTreeDataGraphBuilder::insert_matching_function(Function &fn,
-                                                             const VirtualNode &vnode)
+BuilderNode *VTreeDataGraphBuilder::insert_matching_function(Function &fn, const VNode &vnode)
 {
   BuilderNode *node = this->insert_function(fn, vnode);
   this->map_sockets(node, vnode);
   return node;
 }
 
-BuilderNode *VTreeDataGraphBuilder::insert_function(Function &fn, const VirtualNode &vnode)
+BuilderNode *VTreeDataGraphBuilder::insert_function(Function &fn, const VNode &vnode)
 {
   NodeSource *source = m_graph_builder.new_source_info<NodeSource>(vnode.btree(), vnode.bnode());
   return m_graph_builder.insert_function(fn, source);
 }
 
-BuilderNode *VTreeDataGraphBuilder::insert_placeholder(const VirtualNode &vnode)
+BuilderNode *VTreeDataGraphBuilder::insert_placeholder(const VNode &vnode)
 {
   FunctionBuilder fn_builder;
 
-  Vector<const VirtualSocket *> vsocket_inputs;
-  for (const VirtualSocket *vsocket : vnode.inputs()) {
+  Vector<const VSocket *> vsocket_inputs;
+  for (const VSocket *vsocket : vnode.inputs()) {
     if (this->is_data_socket(*vsocket)) {
       vsocket_inputs.append(vsocket);
       Type *type = this->query_socket_type(*vsocket);
@@ -139,7 +138,7 @@ BuilderNode *VTreeDataGraphBuilder::insert_placeholder(const VirtualNode &vnode)
     }
   }
 
-  for (const VirtualSocket *vsocket : vnode.outputs()) {
+  for (const VSocket *vsocket : vnode.outputs()) {
     if (this->is_data_socket(*vsocket)) {
       Type *type = this->query_socket_type(*vsocket);
       fn_builder.add_output(vsocket->name(), type);
@@ -175,8 +174,7 @@ void VTreeDataGraphBuilder::insert_links(ArrayRef<BuilderOutputSocket *> from,
   }
 }
 
-void VTreeDataGraphBuilder::map_input_socket(BuilderInputSocket *socket,
-                                             const VirtualSocket &vsocket)
+void VTreeDataGraphBuilder::map_input_socket(BuilderInputSocket *socket, const VSocket &vsocket)
 {
   BLI_assert(this->is_data_socket(vsocket));
   BLI_assert(vsocket.is_input());
@@ -185,8 +183,7 @@ void VTreeDataGraphBuilder::map_input_socket(BuilderInputSocket *socket,
   m_socket_map[vsocket.id()] = socket;
 }
 
-void VTreeDataGraphBuilder::map_output_socket(BuilderOutputSocket *socket,
-                                              const VirtualSocket &vsocket)
+void VTreeDataGraphBuilder::map_output_socket(BuilderOutputSocket *socket, const VSocket &vsocket)
 {
   BLI_assert(this->is_data_socket(vsocket));
   BLI_assert(vsocket.is_output());
@@ -195,7 +192,7 @@ void VTreeDataGraphBuilder::map_output_socket(BuilderOutputSocket *socket,
   m_socket_map[vsocket.id()] = socket;
 }
 
-void VTreeDataGraphBuilder::map_sockets(BuilderNode *node, const VirtualNode &vnode)
+void VTreeDataGraphBuilder::map_sockets(BuilderNode *node, const VNode &vnode)
 {
   uint input_amount = node->inputs().size();
   uint output_amount = node->outputs().size();
@@ -211,10 +208,10 @@ void VTreeDataGraphBuilder::map_sockets(BuilderNode *node, const VirtualNode &vn
   }
 }
 
-void VTreeDataGraphBuilder::map_data_sockets(BuilderNode *node, const VirtualNode &vnode)
+void VTreeDataGraphBuilder::map_data_sockets(BuilderNode *node, const VNode &vnode)
 {
   uint input_index = 0;
-  for (const VirtualSocket *vsocket : vnode.inputs()) {
+  for (const VSocket *vsocket : vnode.inputs()) {
     if (this->is_data_socket(*vsocket)) {
       this->map_input_socket(node->input(input_index), *vsocket);
       input_index++;
@@ -222,7 +219,7 @@ void VTreeDataGraphBuilder::map_data_sockets(BuilderNode *node, const VirtualNod
   }
 
   uint output_index = 0;
-  for (const VirtualSocket *vsocket : vnode.outputs()) {
+  for (const VSocket *vsocket : vnode.outputs()) {
     if (this->is_data_socket(*vsocket)) {
       this->map_output_socket(node->output(output_index), *vsocket);
       output_index++;
@@ -230,7 +227,7 @@ void VTreeDataGraphBuilder::map_data_sockets(BuilderNode *node, const VirtualNod
   }
 }
 
-BuilderInputSocket *VTreeDataGraphBuilder::lookup_input_socket(const VirtualSocket &vsocket)
+BuilderInputSocket *VTreeDataGraphBuilder::lookup_input_socket(const VSocket &vsocket)
 {
   BLI_assert(vsocket.is_input());
 
@@ -239,7 +236,7 @@ BuilderInputSocket *VTreeDataGraphBuilder::lookup_input_socket(const VirtualSock
   BLI_assert(socket->is_input());
   return (BuilderInputSocket *)socket;
 }
-BuilderOutputSocket *VTreeDataGraphBuilder::lookup_output_socket(const VirtualSocket &vsocket)
+BuilderOutputSocket *VTreeDataGraphBuilder::lookup_output_socket(const VSocket &vsocket)
 {
   BLI_assert(vsocket.is_output());
 
@@ -249,7 +246,7 @@ BuilderOutputSocket *VTreeDataGraphBuilder::lookup_output_socket(const VirtualSo
   return (BuilderOutputSocket *)socket;
 }
 
-bool VTreeDataGraphBuilder::is_input_unlinked(const VirtualSocket &vsocket)
+bool VTreeDataGraphBuilder::is_input_unlinked(const VSocket &vsocket)
 {
   BLI_assert(vsocket.is_input());
   if (this->is_data_socket(vsocket)) {
@@ -261,15 +258,15 @@ bool VTreeDataGraphBuilder::is_input_unlinked(const VirtualSocket &vsocket)
   }
 }
 
-bool VTreeDataGraphBuilder::check_if_sockets_are_mapped(
-    const VirtualNode &vnode, ArrayRef<const VirtualSocket *> vsockets) const
+bool VTreeDataGraphBuilder::check_if_sockets_are_mapped(const VNode &vnode,
+                                                        ArrayRef<const VSocket *> vsockets) const
 {
   int index = 0;
-  for (const VirtualSocket *vsocket : vsockets) {
+  for (const VSocket *vsocket : vsockets) {
     if (this->is_data_socket(*vsocket)) {
       if (m_socket_map[vsocket->id()] == nullptr) {
         std::cout << "Data socket not mapped: " << std::endl;
-        std::cout << "    Tree: " << vnode.btree_id()->name << std::endl;
+        std::cout << "    Tree: " << vnode.btree()->id.name << std::endl;
         std::cout << "    Node: " << vnode.name() << std::endl;
         if (vsocket->is_input()) {
           std::cout << "    Input";
@@ -286,10 +283,10 @@ bool VTreeDataGraphBuilder::check_if_sockets_are_mapped(
   return true;
 }
 
-bool VTreeDataGraphBuilder::verify_data_sockets_mapped(const VirtualNode &vnode) const
+bool VTreeDataGraphBuilder::verify_data_sockets_mapped(const VNode &vnode) const
 {
-  return (this->check_if_sockets_are_mapped(vnode, vnode.inputs()) &&
-          this->check_if_sockets_are_mapped(vnode, vnode.outputs()));
+  return (this->check_if_sockets_are_mapped(vnode, vnode.inputs().cast<const VSocket *>()) &&
+          this->check_if_sockets_are_mapped(vnode, vnode.outputs().cast<const VSocket *>()));
 }
 
 VirtualNodeTree &VTreeDataGraphBuilder::vtree() const
@@ -297,7 +294,7 @@ VirtualNodeTree &VTreeDataGraphBuilder::vtree() const
   return m_vtree;
 }
 
-bool VTreeDataGraphBuilder::is_data_socket(const VirtualSocket &vsocket) const
+bool VTreeDataGraphBuilder::is_data_socket(const VSocket &vsocket) const
 {
   return m_type_by_vsocket[vsocket.id()] != nullptr;
 }
@@ -307,17 +304,15 @@ Type *VTreeDataGraphBuilder::type_by_name(StringRef data_type) const
   return m_type_mappings->type_by_name(data_type);
 }
 
-Type *VTreeDataGraphBuilder::query_socket_type(const VirtualSocket &vsocket) const
+Type *VTreeDataGraphBuilder::query_socket_type(const VSocket &vsocket) const
 {
   BLI_assert(this->is_data_socket(vsocket));
   return m_type_by_vsocket[vsocket.id()];
 }
 
-Type *VTreeDataGraphBuilder::query_type_property(const VirtualNode &vnode,
-                                                 StringRefNull prop_name) const
+Type *VTreeDataGraphBuilder::query_type_property(const VNode &vnode, StringRefNull prop_name) const
 {
-  PointerRNA rna = vnode.rna();
-  return this->type_from_rna(rna, prop_name);
+  return this->type_from_rna(*vnode.rna(), prop_name);
 }
 
 Type *VTreeDataGraphBuilder::type_from_rna(PointerRNA &rna, StringRefNull prop_name) const
@@ -327,14 +322,14 @@ Type *VTreeDataGraphBuilder::type_from_rna(PointerRNA &rna, StringRefNull prop_n
   return this->type_by_name(type_name);
 }
 
-bool VTreeDataGraphBuilder::has_data_socket(const VirtualNode &vnode) const
+bool VTreeDataGraphBuilder::has_data_socket(const VNode &vnode) const
 {
-  for (const VirtualSocket *vsocket : vnode.inputs()) {
+  for (const VSocket *vsocket : vnode.inputs()) {
     if (this->is_data_socket(*vsocket)) {
       return true;
     }
   }
-  for (const VirtualSocket *vsocket : vnode.outputs()) {
+  for (const VSocket *vsocket : vnode.outputs()) {
     if (this->is_data_socket(*vsocket)) {
       return true;
     }

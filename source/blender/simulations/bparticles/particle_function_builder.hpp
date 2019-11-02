@@ -6,13 +6,13 @@
 
 namespace BParticles {
 
-using BKE::VirtualNode;
+using BKE::VNode;
 using FN::DataSocket;
 using FN::DataFlowNodes::VTreeDataGraph;
 
-Vector<DataSocket> find_input_data_sockets(const VirtualNode &vnode, VTreeDataGraph &data_graph);
+Vector<DataSocket> find_input_data_sockets(const VNode &vnode, VTreeDataGraph &data_graph);
 
-Optional<std::unique_ptr<ParticleFunction>> create_particle_function(const VirtualNode &vnode,
+Optional<std::unique_ptr<ParticleFunction>> create_particle_function(const VNode &vnode,
                                                                      VTreeDataGraph &data_graph);
 
 }  // namespace BParticles

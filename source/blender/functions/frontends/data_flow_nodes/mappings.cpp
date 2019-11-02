@@ -49,7 +49,7 @@ void NodeInserters::register_inserter(StringRef idname, NodeInserter inserter)
 
 void NodeInserters::register_function(StringRef idname, FunctionGetter getter)
 {
-  auto inserter = [getter](VTreeDataGraphBuilder &builder, const VirtualNode &vnode) {
+  auto inserter = [getter](VTreeDataGraphBuilder &builder, const VNode &vnode) {
     Function &fn = getter();
     BuilderNode *node = builder.insert_function(fn, vnode);
     builder.map_sockets(node, vnode);
@@ -57,7 +57,7 @@ void NodeInserters::register_function(StringRef idname, FunctionGetter getter)
   this->register_inserter(idname, inserter);
 }
 
-bool NodeInserters::insert(VTreeDataGraphBuilder &builder, const VirtualNode &vnode)
+bool NodeInserters::insert(VTreeDataGraphBuilder &builder, const VNode &vnode)
 {
   NodeInserter *inserter = m_inserter_by_idname.lookup_ptr(vnode.idname());
   if (inserter == nullptr) {
@@ -77,11 +77,10 @@ void SocketLoaders::register_loader(StringRef type_name, SocketLoader loader)
   m_loader_by_idname.add_new(idname, loader);
 }
 
-void SocketLoaders::load(const VirtualSocket &vsocket, Tuple &dst, uint index)
+void SocketLoaders::load(const VSocket &vsocket, Tuple &dst, uint index)
 {
   SocketLoader &loader = m_loader_by_idname.lookup(vsocket.idname());
-  PointerRNA rna = vsocket.rna();
-  loader(&rna, dst, index);
+  loader(vsocket.rna(), dst, index);
 }
 
 LinkInserters::LinkInserters() : m_type_mappings(MAPPING_types())
@@ -111,9 +110,7 @@ void LinkInserters::register_conversion_function(StringRef from_type,
   this->register_conversion_inserter(from_type, to_type, inserter);
 }
 
-bool LinkInserters::insert(VTreeDataGraphBuilder &builder,
-                           const VirtualSocket &from,
-                           const VirtualSocket &to)
+bool LinkInserters::insert(VTreeDataGraphBuilder &builder, const VSocket &from, const VSocket &to)
 {
   BLI_assert(from.is_output());
   BLI_assert(to.is_input());

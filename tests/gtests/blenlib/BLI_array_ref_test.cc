@@ -284,3 +284,37 @@ TEST(array_ref, FirstIndex)
   EXPECT_EQ(a_ref.first_index(5), 1);
   EXPECT_EQ(a_ref.first_index(2), 3);
 }
+
+TEST(array_ref, CastSameSize)
+{
+  int value = 0;
+  std::array<int *, 4> a = {&value, nullptr, nullptr, nullptr};
+  ArrayRef<int *> a_ref = a;
+  ArrayRef<float *> new_a_ref = a_ref.cast<float *>();
+
+  EXPECT_EQ(a_ref.size(), 4);
+  EXPECT_EQ(new_a_ref.size(), 4);
+
+  EXPECT_EQ(a_ref[0], &value);
+  EXPECT_EQ(new_a_ref[0], (float *)&value);
+}
+
+TEST(array_ref, CastSmallerSize)
+{
+  std::array<uint32_t, 4> a = {3, 4, 5, 6};
+  ArrayRef<uint32_t> a_ref = a;
+  ArrayRef<uint16_t> new_a_ref = a_ref.cast<uint16_t>();
+
+  EXPECT_EQ(a_ref.size(), 4);
+  EXPECT_EQ(new_a_ref.size(), 8);
+}
+
+TEST(array_ref, CastLargerSize)
+{
+  std::array<uint16_t, 4> a = {4, 5, 6, 7};
+  ArrayRef<uint16_t> a_ref = a;
+  ArrayRef<uint32_t> new_a_ref = a_ref.cast<uint32_t>();
+
+  EXPECT_EQ(a_ref.size(), 4);
+  EXPECT_EQ(new_a_ref.size(), 2);
+}
