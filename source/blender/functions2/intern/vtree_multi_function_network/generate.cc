@@ -5,54 +5,12 @@
 #include "BLI_math_cxx.h"
 #include "BLI_string_map.h"
 
+#include "mappings.h"
+
 namespace FN {
 
 using BLI::float3;
 using BLI::StringMap;
-
-static MFDataType get_type_by_socket(const VSocket &vsocket)
-{
-  StringRef idname = vsocket.idname();
-
-  if (idname == "fn_FloatSocket") {
-    return MFDataType::ForSingle<float>();
-  }
-  else if (idname == "fn_VectorSocket") {
-    return MFDataType::ForSingle<float3>();
-  }
-  else if (idname == "fn_IntegerSocket") {
-    return MFDataType::ForSingle<int32_t>();
-  }
-  else if (idname == "fn_BooleanSocket") {
-    return MFDataType::ForSingle<bool>();
-  }
-  else if (idname == "fn_ObjectSocket") {
-    return MFDataType::ForSingle<Object *>();
-  }
-  else if (idname == "fn_TextSocket") {
-    return MFDataType::ForSingle<std::string>();
-  }
-  else if (idname == "fn_FloatListSocket") {
-    return MFDataType::ForVector<float>();
-  }
-  else if (idname == "fn_VectorListSocket") {
-    return MFDataType::ForVector<float3>();
-  }
-  else if (idname == "fn_IntegerListSocket") {
-    return MFDataType::ForVector<int32_t>();
-  }
-  else if (idname == "fn_BooleanListSocket") {
-    return MFDataType::ForVector<bool>();
-  }
-  else if (idname == "fn_ObjectListSocket") {
-    return MFDataType::ForVector<Object *>();
-  }
-  else if (idname == "fn_TextListSocket") {
-    return MFDataType::ForVector<std::string>();
-  }
-
-  return MFDataType();
-}
 
 static const CPPType &get_cpp_type_by_name(StringRef name)
 {
@@ -275,161 +233,6 @@ static StringMap<InsertVNodeFunction> get_node_inserters()
   return inserters;
 }
 
-static MFBuilderOutputSocket &INSERT_vector_socket(VTreeMFNetworkBuilder &builder,
-                                                   OwnedResources &resources,
-                                                   const VSocket &vsocket)
-{
-  float3 value;
-  RNA_float_get_array(vsocket.rna(), "value", value);
-
-  const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<float3>>(
-      "vector socket", resources, value);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
-}
-
-static MFBuilderOutputSocket &INSERT_float_socket(VTreeMFNetworkBuilder &builder,
-                                                  OwnedResources &resources,
-                                                  const VSocket &vsocket)
-{
-  float value = RNA_float_get(vsocket.rna(), "value");
-
-  const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<float>>(
-      "float socket", resources, value);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
-}
-
-static MFBuilderOutputSocket &INSERT_int_socket(VTreeMFNetworkBuilder &builder,
-                                                OwnedResources &resources,
-                                                const VSocket &vsocket)
-{
-  int value = RNA_int_get(vsocket.rna(), "value");
-
-  const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<int>>(
-      "int socket", resources, value);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
-}
-
-static MFBuilderOutputSocket &INSERT_object_socket(VTreeMFNetworkBuilder &builder,
-                                                   OwnedResources &resources,
-                                                   const VSocket &vsocket)
-{
-  Object *value = (Object *)RNA_pointer_get(vsocket.rna(), "value").data;
-
-  const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<Object *>>(
-      "object socket", resources, value);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
-}
-
-static MFBuilderOutputSocket &INSERT_text_socket(VTreeMFNetworkBuilder &builder,
-                                                 OwnedResources &resources,
-                                                 const VSocket &vsocket)
-{
-  char *value = RNA_string_get_alloc(vsocket.rna(), "value", nullptr, 0);
-  std::string text = value;
-  MEM_freeN(value);
-
-  const MultiFunction &fn = allocate_resource<FN::MF_ConstantValue<std::string>>(
-      "text socket", resources, text);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
-}
-
-template<typename T>
-static MFBuilderOutputSocket &INSERT_empty_list_socket(VTreeMFNetworkBuilder &builder,
-                                                       OwnedResources &resources,
-                                                       const VSocket &UNUSED(vsocket))
-{
-  const MultiFunction &fn = allocate_resource<FN::MF_EmptyList<T>>("empty list socket", resources);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
-}
-
-static StringMap<InsertUnlinkedInputFunction> get_unlinked_input_inserter()
-{
-  StringMap<InsertUnlinkedInputFunction> inserters;
-  inserters.add_new("fn_VectorSocket", INSERT_vector_socket);
-  inserters.add_new("fn_FloatSocket", INSERT_float_socket);
-  inserters.add_new("fn_IntegerSocket", INSERT_int_socket);
-  inserters.add_new("fn_ObjectSocket", INSERT_object_socket);
-  inserters.add_new("fn_TextSocket", INSERT_text_socket);
-  inserters.add_new("fn_VectorListSocket", INSERT_empty_list_socket<float3>);
-  inserters.add_new("fn_FloatListSocket", INSERT_empty_list_socket<float>);
-  inserters.add_new("fn_IntegerListSocket", INSERT_empty_list_socket<int32_t>);
-  inserters.add_new("fn_ObjectListSocket", INSERT_empty_list_socket<Object *>);
-  inserters.add_new("fn_TextListSocket", INSERT_empty_list_socket<std::string>);
-  return inserters;
-}
-
-template<typename FromT, typename ToT>
-static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert(
-    VTreeMFNetworkBuilder &builder, OwnedResources &resources)
-{
-  const MultiFunction &fn = allocate_resource<FN::MF_Convert<FromT, ToT>>("converter function",
-                                                                          resources);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
-  return {node.inputs()[0], node.outputs()[0]};
-}
-
-template<typename FromT, typename ToT>
-static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert_list(
-    VTreeMFNetworkBuilder &builder, OwnedResources &resources)
-{
-  const MultiFunction &fn = allocate_resource<FN::MF_ConvertList<FromT, ToT>>(
-      "convert list function", resources);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
-  return {node.inputs()[0], node.outputs()[0]};
-}
-
-template<typename T>
-static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_element_to_list(
-    VTreeMFNetworkBuilder &builder, OwnedResources &resources)
-{
-  const MultiFunction &fn = allocate_resource<FN::MF_SingleElementList<T>>(
-      "single element list function", resources);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
-  return {node.inputs()[0], node.outputs()[0]};
-}
-
-static Map<std::pair<std::string, std::string>, InsertImplicitConversionFunction>
-get_conversion_inserters()
-{
-  Map<std::pair<std::string, std::string>, InsertImplicitConversionFunction> inserters;
-
-  inserters.add_new({"fn_IntegerSocket", "fn_FloatSocket"}, INSERT_convert<int, float>);
-  inserters.add_new({"fn_FloatSocket", "fn_IntegerSocket"}, INSERT_convert<float, int>);
-
-  inserters.add_new({"fn_FloatSocket", "fn_BooleanSocket"}, INSERT_convert<float, bool>);
-  inserters.add_new({"fn_BooleanSocket", "fn_FloatSocket"}, INSERT_convert<bool, float>);
-
-  inserters.add_new({"fn_IntegerSocket", "fn_BooleanSocket"}, INSERT_convert<int, bool>);
-  inserters.add_new({"fn_BooleanSocket", "fn_IntegerSocket"}, INSERT_convert<bool, int>);
-
-  inserters.add_new({"fn_IntegerListSocket", "fn_FloatListSocket"},
-                    INSERT_convert_list<int, float>);
-  inserters.add_new({"fn_FloatListSocket", "fn_IntegerListSocket"},
-                    INSERT_convert_list<float, int>);
-
-  inserters.add_new({"fn_FloatListSocket", "fn_BooleanListSocket"},
-                    INSERT_convert_list<float, bool>);
-  inserters.add_new({"fn_BooleanListSocket", "fn_FloatListSocket"},
-                    INSERT_convert_list<bool, float>);
-
-  inserters.add_new({"fn_IntegerListSocket", "fn_BooleanListSocket"},
-                    INSERT_convert_list<int, bool>);
-  inserters.add_new({"fn_BooleanListSocket", "fn_IntegerListSocket"},
-                    INSERT_convert_list<bool, int>);
-
-  inserters.add_new({"fn_IntegerSocket", "fn_IntegerListSocket"}, INSERT_element_to_list<int>);
-  inserters.add_new({"fn_FloatSocket", "fn_FloatListSocket"}, INSERT_element_to_list<float>);
-  inserters.add_new({"fn_BooleanSocket", "fn_BooleanListSocket"}, INSERT_element_to_list<bool>);
-
-  return inserters;
-}
-
 static bool insert_nodes(VTreeMFNetworkBuilder &builder, OwnedResources &resources)
 {
   const VirtualNodeTree &vtree = builder.vtree();
@@ -451,10 +254,10 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder, OwnedResources &resourc
   return true;
 }
 
-static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+static bool insert_links(VTreeMFNetworkBuilder &builder,
+                         OwnedResources &resources,
+                         const VTreeMultiFunctionMappings &mappings)
 {
-  auto conversion_inserters = get_conversion_inserters();
-
   for (const VInputSocket *to_vsocket : builder.vtree().all_input_sockets()) {
     ArrayRef<const VOutputSocket *> origins = to_vsocket->linked_sockets();
     if (origins.size() != 1) {
@@ -477,7 +280,7 @@ static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &resourc
       builder.add_link(from_socket, to_socket);
     }
     else {
-      InsertImplicitConversionFunction *inserter = conversion_inserters.lookup_ptr(
+      const InsertImplicitConversionFunction *inserter = mappings.conversion_inserters.lookup_ptr(
           {from_vsocket->idname(), to_vsocket->idname()});
       if (inserter == nullptr) {
         return false;
@@ -491,7 +294,9 @@ static bool insert_links(VTreeMFNetworkBuilder &builder, OwnedResources &resourc
   return true;
 }
 
-static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder, OwnedResources &resources)
+static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
+                                   OwnedResources &resources,
+                                   const VTreeMultiFunctionMappings &mappings)
 {
   Vector<const VInputSocket *> unlinked_data_inputs;
   for (const VInputSocket *vsocket : builder.vtree().all_input_sockets()) {
@@ -502,10 +307,9 @@ static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder, OwnedResource
     }
   }
 
-  auto inserters = get_unlinked_input_inserter();
-
   for (const VInputSocket *vsocket : unlinked_data_inputs) {
-    InsertUnlinkedInputFunction *inserter = inserters.lookup_ptr(vsocket->idname());
+    const InsertUnlinkedInputFunction *inserter = mappings.input_inserters.lookup_ptr(
+        vsocket->idname());
 
     if (inserter == nullptr) {
       return false;
@@ -521,9 +325,12 @@ static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder, OwnedResource
 std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const VirtualNodeTree &vtree,
                                                                       OwnedResources &resources)
 {
+  const VTreeMultiFunctionMappings &mappings = get_vtree_multi_function_mappings();
+
   Vector<MFDataType> type_by_vsocket{vtree.socket_count()};
   for (const VSocket *vsocket : vtree.all_sockets()) {
-    MFDataType data_type = get_type_by_socket(*vsocket);
+    MFDataType data_type = mappings.data_type_by_idname.lookup_default(vsocket->idname(),
+                                                                       MFDataType::ForNone());
     type_by_vsocket[vsocket->id()] = data_type;
   }
 
@@ -531,10 +338,10 @@ std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const Virt
   if (!insert_nodes(builder, resources)) {
     BLI_assert(false);
   }
-  if (!insert_links(builder, resources)) {
+  if (!insert_links(builder, resources, mappings)) {
     BLI_assert(false);
   }
-  if (!insert_unlinked_inputs(builder, resources)) {
+  if (!insert_unlinked_inputs(builder, resources, mappings)) {
     BLI_assert(false);
   }
 
