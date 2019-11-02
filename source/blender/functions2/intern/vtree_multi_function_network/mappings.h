@@ -11,8 +11,12 @@ using BLI::Map;
 using BLI::OwnedResources;
 using BLI::StringMap;
 
-using InsertVNodeFunction = std::function<void(
-    VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VNode &vnode)>;
+struct VTreeMultiFunctionMappings;
+
+using InsertVNodeFunction = std::function<void(VTreeMFNetworkBuilder &builder,
+                                               OwnedResources &resources,
+                                               const VTreeMultiFunctionMappings &mappings,
+                                               const VNode &vnode)>;
 using InsertUnlinkedInputFunction = std::function<MFBuilderOutputSocket &(
     VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VSocket &vsocket)>;
 using InsertImplicitConversionFunction =
@@ -27,6 +31,9 @@ struct VTreeMultiFunctionMappings {
   StringMap<InsertUnlinkedInputFunction> input_inserters;
   Map<std::pair<std::string, std::string>, InsertImplicitConversionFunction> conversion_inserters;
 };
+
+void add_vtree_socket_mapping_info(VTreeMultiFunctionMappings &mappings);
+void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings);
 
 const VTreeMultiFunctionMappings &get_vtree_multi_function_mappings();
 
