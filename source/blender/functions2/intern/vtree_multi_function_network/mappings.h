@@ -1,9 +1,10 @@
 #pragma once
 
-#include "builder.h"
-
 #include "BLI_map.h"
+#include "BLI_string_map.h"
 #include "BLI_owned_resources.h"
+
+#include "FN_vtree_multi_function_network.h"
 
 namespace FN {
 
@@ -12,11 +13,10 @@ using BLI::OwnedResources;
 using BLI::StringMap;
 
 struct VTreeMultiFunctionMappings;
+class VTreeMFNetworkBuilder;
 
-using InsertVNodeFunction = std::function<void(VTreeMFNetworkBuilder &builder,
-                                               OwnedResources &resources,
-                                               const VTreeMultiFunctionMappings &mappings,
-                                               const VNode &vnode)>;
+using InsertVNodeFunction = std::function<void(
+    VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VNode &vnode)>;
 using InsertUnlinkedInputFunction = std::function<MFBuilderOutputSocket &(
     VTreeMFNetworkBuilder &builder, OwnedResources &resources, const VSocket &vsocket)>;
 using InsertImplicitConversionFunction =

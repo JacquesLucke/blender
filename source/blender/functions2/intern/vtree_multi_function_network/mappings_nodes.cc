@@ -1,4 +1,6 @@
 #include "mappings.h"
+#include "builder.h"
+
 #include "FN_multi_functions.h"
 
 namespace FN {
@@ -14,7 +16,6 @@ T &allocate_resource(const char *name, OwnedResources &resources, Args &&... arg
 
 static void INSERT_vector_math(VTreeMFNetworkBuilder &builder,
                                OwnedResources &resources,
-                               const VTreeMultiFunctionMappings &UNUSED(mappings),
                                const VNode &vnode)
 {
   const MultiFunction &fn = allocate_resource<FN::MF_AddFloat3s>("vector math function",
@@ -49,7 +50,6 @@ static const MultiFunction &get_vectorized_function(
 
 static void INSERT_float_math(VTreeMFNetworkBuilder &builder,
                               OwnedResources &resources,
-                              const VTreeMultiFunctionMappings &UNUSED(mappings),
                               const VNode &vnode)
 {
   const MultiFunction &base_fn = allocate_resource<FN::MF_AddFloats>("float math function",
@@ -62,7 +62,6 @@ static void INSERT_float_math(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder,
                                   OwnedResources &resources,
-                                  const VTreeMultiFunctionMappings &UNUSED(mappings),
                                   const VNode &vnode)
 {
   const MultiFunction &base_fn = allocate_resource<FN::MF_CombineVector>("combine vector function",
@@ -74,7 +73,6 @@ static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder,
                                    OwnedResources &resources,
-                                   const VTreeMultiFunctionMappings &UNUSED(mappings),
                                    const VNode &vnode)
 {
   const MultiFunction &base_fn = allocate_resource<FN::MF_SeparateVector>(
@@ -86,11 +84,10 @@ static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_list_length(VTreeMFNetworkBuilder &builder,
                                OwnedResources &resources,
-                               const VTreeMultiFunctionMappings &mappings,
                                const VNode &vnode)
 {
   char *type_name = RNA_string_get_alloc(vnode.rna(), "active_type", nullptr, 0);
-  const CPPType &type = *mappings.cpp_type_by_type_name.lookup(type_name);
+  const CPPType &type = builder.cpp_type_by_name(type_name);
   MEM_freeN(type_name);
 
   const MultiFunction &fn = allocate_resource<FN::MF_ListLength>(
@@ -100,11 +97,10 @@ static void INSERT_list_length(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder,
                                     OwnedResources &resources,
-                                    const VTreeMultiFunctionMappings &mappings,
                                     const VNode &vnode)
 {
   char *type_name = RNA_string_get_alloc(vnode.rna(), "active_type", nullptr, 0);
-  const CPPType &type = *mappings.cpp_type_by_type_name.lookup(type_name);
+  const CPPType &type = builder.cpp_type_by_name(type_name);
   MEM_freeN(type_name);
 
   const MultiFunction &fn = allocate_resource<FN::MF_GetListElement>(
@@ -153,11 +149,10 @@ static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builde
 
 static void INSERT_pack_list(VTreeMFNetworkBuilder &builder,
                              OwnedResources &resources,
-                             const VTreeMultiFunctionMappings &mappings,
                              const VNode &vnode)
 {
   char *type_name = RNA_string_get_alloc(vnode.rna(), "active_type", nullptr, 0);
-  const CPPType &type = *mappings.cpp_type_by_type_name.lookup(type_name);
+  const CPPType &type = builder.cpp_type_by_name(type_name);
   MEM_freeN(type_name);
 
   MFBuilderOutputSocket &packed_list_socket = build_pack_list_node(
@@ -167,7 +162,6 @@ static void INSERT_pack_list(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_object_location(VTreeMFNetworkBuilder &builder,
                                    OwnedResources &resources,
-                                   const VTreeMultiFunctionMappings &UNUSED(mappings),
                                    const VNode &vnode)
 {
   const MultiFunction &fn = allocate_resource<FN::MF_ObjectWorldLocation>(
@@ -177,7 +171,6 @@ static void INSERT_object_location(VTreeMFNetworkBuilder &builder,
 
 static void INSERT_text_length(VTreeMFNetworkBuilder &builder,
                                OwnedResources &resources,
-                               const VTreeMultiFunctionMappings &UNUSED(mappings),
                                const VNode &vnode)
 {
   const MultiFunction &fn = allocate_resource<FN::MF_TextLength>("text length function",

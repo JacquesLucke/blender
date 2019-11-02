@@ -2,22 +2,32 @@
 
 #include "FN_vtree_multi_function_network.h"
 
+#include "mappings.h"
+
 namespace FN {
 
-class VTreeMFNetworkBuilder {
+class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   const VirtualNodeTree &m_vtree;
-  Vector<MFBuilderSocket *> m_socket_map;
-  Vector<MFDataType> m_type_by_vsocket;
+  const VTreeMultiFunctionMappings &m_vtree_mappings;
+  Array<MFBuilderSocket *> m_socket_map;
+  Array<MFDataType> m_type_by_vsocket;
   std::unique_ptr<MFNetworkBuilder> m_builder;
 
  public:
-  VTreeMFNetworkBuilder(const VirtualNodeTree &vtree, Vector<MFDataType> type_by_vsocket)
+  VTreeMFNetworkBuilder(const VirtualNodeTree &vtree,
+                        const VTreeMultiFunctionMappings &vtree_mappings)
       : m_vtree(vtree),
+        m_vtree_mappings(vtree_mappings),
         m_socket_map(vtree.socket_count(), nullptr),
-        m_type_by_vsocket(std::move(type_by_vsocket)),
+        m_type_by_vsocket(vtree.socket_count()),
         m_builder(BLI::make_unique<MFNetworkBuilder>())
   {
+    for (const VSocket *vsocket : vtree.all_sockets()) {
+      MFDataType data_type = vtree_mappings.data_type_by_idname.lookup_default(
+          vsocket->idname(), MFDataType::ForNone());
+      m_type_by_vsocket[vsocket->id()] = data_type;
+    }
   }
 
   const VirtualNodeTree &vtree() const
@@ -192,6 +202,11 @@ class VTreeMFNetworkBuilder {
     MFBuilderSocket *socket = m_socket_map[vsocket.id()];
     BLI_assert(socket != nullptr);
     return socket->as_input();
+  }
+
+  const CPPType &cpp_type_by_name(StringRef name) const
+  {
+    return *m_vtree_mappings.cpp_type_by_type_name.lookup(name);
   }
 
   std::unique_ptr<VTreeMFNetwork> build()

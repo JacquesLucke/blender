@@ -5,6 +5,7 @@
 #include "BLI_string_map.h"
 
 #include "mappings.h"
+#include "builder.h"
 
 namespace FN {
 
@@ -19,7 +20,7 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder,
     const InsertVNodeFunction *inserter = mappings.vnode_inserters.lookup_ptr(idname);
 
     if (inserter != nullptr) {
-      (*inserter)(builder, resources, mappings, *vnode);
+      (*inserter)(builder, resources, *vnode);
       BLI_assert(builder.data_sockets_of_vnode_are_mapped(*vnode));
     }
     else if (builder.has_data_sockets(*vnode)) {
@@ -103,14 +104,7 @@ std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const Virt
 {
   const VTreeMultiFunctionMappings &mappings = get_vtree_multi_function_mappings();
 
-  Vector<MFDataType> type_by_vsocket{vtree.socket_count()};
-  for (const VSocket *vsocket : vtree.all_sockets()) {
-    MFDataType data_type = mappings.data_type_by_idname.lookup_default(vsocket->idname(),
-                                                                       MFDataType::ForNone());
-    type_by_vsocket[vsocket->id()] = data_type;
-  }
-
-  VTreeMFNetworkBuilder builder(vtree, std::move(type_by_vsocket));
+  VTreeMFNetworkBuilder builder(vtree, mappings);
   if (!insert_nodes(builder, resources, mappings)) {
     BLI_assert(false);
   }

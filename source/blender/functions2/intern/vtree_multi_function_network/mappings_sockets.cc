@@ -1,4 +1,5 @@
 #include "mappings.h"
+#include "builder.h"
 
 #include "BLI_math_cxx.h"
 
