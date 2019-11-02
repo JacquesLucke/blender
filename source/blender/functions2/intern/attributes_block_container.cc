@@ -2,8 +2,8 @@
 
 namespace FN {
 
-AttributesBlockContainer::AttributesBlockContainer(AttributesInfo attributes_info, uint block_size)
-    : m_attributes_info(std::move(attributes_info)), m_block_size(block_size)
+AttributesBlockContainer::AttributesBlockContainer(AttributesInfo info, uint block_size)
+    : m_info(std::move(info)), m_block_size(block_size)
 {
 }
 
@@ -12,6 +12,19 @@ AttributesBlockContainer::~AttributesBlockContainer()
   while (m_active_blocks.size() > 0) {
     this->release_block(**m_active_blocks.begin());
   }
+}
+
+void AttributesBlockContainer::update_attributes(AttributesInfo new_info,
+                                                 const AttributesDefaults &defaults)
+{
+  AttributesInfoDiff diff{m_info, new_info, defaults};
+  for (AttributesBlock *block : m_active_blocks) {
+    Vector<void *> new_buffers{diff.new_buffer_amount()};
+    diff.update(m_block_size, block->m_used_size, block->m_buffers, new_buffers);
+    block->m_buffers = std::move(new_buffers);
+  }
+
+  m_info = std::move(new_info);
 }
 
 AttributesBlock &AttributesBlockContainer::new_block()

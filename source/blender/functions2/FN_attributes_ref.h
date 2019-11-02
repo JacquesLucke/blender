@@ -2,16 +2,21 @@
 #define __FN_ATTRIBUTES_REF_H__
 
 #include "FN_cpp_type.h"
+#include "FN_generic_array_ref.h"
 
+#include "BLI_array_cxx.h"
 #include "BLI_vector.h"
 #include "BLI_vector_set.h"
 #include "BLI_string_map.h"
 #include "BLI_optional.h"
+#include "BLI_monotonic_allocator.h"
 
 namespace FN {
 
+using BLI::Array;
 using BLI::ArrayRef;
 using BLI::IndexRange;
+using BLI::MonotonicAllocator;
 using BLI::MutableArrayRef;
 using BLI::Optional;
 using BLI::StringMap;
@@ -315,6 +320,70 @@ class AttributesRefGroup {
   Iterator end()
   {
     return Iterator(*this, m_buffers.size());
+  }
+};
+
+class AttributesDefaults : BLI::NonCopyable, BLI::NonMovable {
+ private:
+  StringMap<uint> m_index_by_name;
+  Vector<const CPPType *> m_type_by_index;
+  MonotonicAllocator<> m_allocator;
+  Vector<void *> m_values;
+
+ public:
+  template<typename T> void add(StringRef name, T value)
+  {
+    if (m_index_by_name.contains(name)) {
+      /* TODO: Check if different handling of this case works better. */
+      BLI_assert(false);
+    }
+    else {
+      uint index = m_type_by_index.size();
+      m_index_by_name.add_new(name, index);
+      const CPPType &type = GET_TYPE<T>();
+      m_type_by_index.append(&type);
+      void *value_buffer = m_allocator.allocate_aligned(type.size(), type.alignment());
+      new (value_buffer) T(std::move(value));
+      m_values.append(value_buffer);
+    }
+  }
+
+  const void *get(StringRef name, const CPPType &expected_type) const
+  {
+    uint index = m_index_by_name.lookup(name);
+    BLI_assert(*m_type_by_index[index] == expected_type);
+    UNUSED_VARS_NDEBUG(expected_type);
+    return m_values[index];
+  }
+
+  template<typename T> const T &get(StringRef name) const
+  {
+    const void *value = this->get(name, GET_TYPE<T>());
+    return *(const T *)value;
+  }
+};
+
+class AttributesInfoDiff {
+ private:
+  const AttributesInfo *m_old_info;
+  const AttributesInfo *m_new_info;
+  Array<int> m_old_to_new_mapping;
+  Array<int> m_new_to_old_mapping;
+  Array<const void *> m_default_buffers;
+
+ public:
+  AttributesInfoDiff(const AttributesInfo &old_info,
+                     const AttributesInfo &new_info,
+                     const AttributesDefaults &defaults);
+
+  void update(uint capacity,
+              uint used_size,
+              ArrayRef<void *> old_buffers,
+              MutableArrayRef<void *> new_buffers) const;
+
+  uint new_buffer_amount() const
+  {
+    return m_new_info->size();
   }
 };
 

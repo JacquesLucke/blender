@@ -11,24 +11,26 @@ class AttributesBlock;
 
 class AttributesBlockContainer : BLI::NonCopyable, BLI::NonMovable {
  private:
-  AttributesInfo m_attributes_info;
+  AttributesInfo m_info;
   uint m_block_size;
   VectorSet<AttributesBlock *> m_active_blocks;
   std::mutex m_blocks_mutex;
 
  public:
-  AttributesBlockContainer(AttributesInfo attributes_info, uint block_size);
+  AttributesBlockContainer(AttributesInfo info, uint block_size);
   ~AttributesBlockContainer();
 
   const AttributesInfo &info() const
   {
-    return m_attributes_info;
+    return m_info;
   }
 
   uint block_size() const
   {
     return m_block_size;
   }
+
+  void update_attributes(AttributesInfo new_info, const AttributesDefaults &defaults);
 
   AttributesBlock &new_block();
   void release_block(AttributesBlock &block);
@@ -39,6 +41,8 @@ class AttributesBlock : BLI::NonCopyable, BLI::NonMovable {
   AttributesBlockContainer &m_owner;
   Vector<void *> m_buffers;
   uint m_used_size;
+
+  friend AttributesBlockContainer;
 
  public:
   AttributesBlock(AttributesBlockContainer &owner);

@@ -120,6 +120,13 @@ class GenericMutableArrayRef {
     return m_size;
   }
 
+  void fill__uninitialized(const void *value)
+  {
+    for (uint i = 0; i < m_size; i++) {
+      m_type->copy_to_uninitialized(value, (*this)[i]);
+    }
+  }
+
   void copy_in__uninitialized(uint index, const void *src)
   {
     BLI_assert(index < m_size);
