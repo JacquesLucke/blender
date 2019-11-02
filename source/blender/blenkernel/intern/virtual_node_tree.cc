@@ -21,6 +21,9 @@ VirtualNodeTreeBuilder::~VirtualNodeTreeBuilder()
   for (VBOutputSocket *socket : m_output_sockets) {
     delete socket;
   }
+  for (VBLink *link : m_links) {
+    delete link;
+  }
 }
 
 VBNode &VirtualNodeTreeBuilder::add_node(bNodeTree *btree, bNode *bnode)
