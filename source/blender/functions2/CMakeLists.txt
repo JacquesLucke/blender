@@ -29,12 +29,14 @@ set(SRC
   intern/vtree_multi_function_network/mappings_nodes.cc
   intern/vtree_multi_function_network/mappings_sockets.cc
   intern/vtree_multi_function_network/mappings.cc
+  intern/attributes_ref.cc
   intern/cpp_type.cc
   intern/cpp_types.cc
   intern/generic_tuple.cc
   intern/initialize.cc
   intern/multi_function_network.cc
 
+  FN_attributes_ref.h
   FN_cpp_type.h
   FN_generic_array_ref.h
   FN_generic_tuple.h

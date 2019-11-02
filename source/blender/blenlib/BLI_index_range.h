@@ -179,6 +179,11 @@ class IndexRange {
     return IndexRange(new_start, size);
   }
 
+  IndexRange slice(IndexRange range) const
+  {
+    return this->slice(range.start(), range.size());
+  }
+
   /**
    * Get read-only access to a memory buffer that contains the range as actual numbers.
    */

@@ -138,6 +138,16 @@ class CPPType {
     return m_generalization->is_same_or_generalization(other);
   }
 
+  friend bool operator==(const CPPType &a, const CPPType &b)
+  {
+    return &a == &b;
+  }
+
+  friend bool operator!=(const CPPType &a, const CPPType &b)
+  {
+    return !(&a == &b);
+  }
+
  private:
   uint m_size;
   uint m_alignment;
