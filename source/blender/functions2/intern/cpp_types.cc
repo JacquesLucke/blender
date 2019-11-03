@@ -58,6 +58,10 @@ template<typename T> void RelocateToUninitialized_CB(void *src, void *dst)
 {
   BLI::uninitialized_relocate((T *)src, (T *)dst);
 }
+template<typename T> void RelocateToUninitializedN_CB(void *src, void *dst, uint n)
+{
+  BLI::uninitialized_relocate_n((T *)src, n, (T *)dst);
+}
 
 template<typename T> static std::unique_ptr<const CPPType> create_cpp_type(StringRef name)
 {
@@ -73,6 +77,7 @@ template<typename T> static std::unique_ptr<const CPPType> create_cpp_type(Strin
       CopyToUninitialized_CB<T>,
       RelocateToInitialized_CB<T>,
       RelocateToUninitialized_CB<T>,
+      RelocateToUninitializedN_CB<T>,
       nullptr);
   return std::unique_ptr<const CPPType>(type);
 }

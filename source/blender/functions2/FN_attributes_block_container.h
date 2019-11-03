@@ -34,6 +34,11 @@ class AttributesBlockContainer : BLI::NonCopyable, BLI::NonMovable {
 
   AttributesBlock &new_block();
   void release_block(AttributesBlock &block);
+
+  friend bool operator==(const AttributesBlockContainer &a, const AttributesBlockContainer &b)
+  {
+    return &a == &b;
+  }
 };
 
 class AttributesBlock : BLI::NonCopyable, BLI::NonMovable {
@@ -63,6 +68,11 @@ class AttributesBlock : BLI::NonCopyable, BLI::NonMovable {
     return m_owner.block_size();
   }
 
+  uint unused_capacity() const
+  {
+    return this->capacity() - this->used_size();
+  }
+
   IndexRange used_range() const
   {
     return IndexRange(m_used_size);
@@ -73,6 +83,8 @@ class AttributesBlock : BLI::NonCopyable, BLI::NonMovable {
     BLI_assert(new_used_size <= this->capacity());
     m_used_size = new_used_size;
   }
+
+  void destruct_and_reorder(ArrayRef<uint> sorted_indices_to_destruct);
 
   AttributesBlockContainer &owner()
   {
@@ -88,6 +100,9 @@ class AttributesBlock : BLI::NonCopyable, BLI::NonMovable {
   {
     return AttributesRef(m_owner.info(), m_buffers, this->capacity());
   }
+
+  static void MoveUntilFull(AttributesBlock &from, AttributesBlock &to);
+  static void Compress(MutableArrayRef<AttributesBlock *> blocks);
 };
 
 }  // namespace FN

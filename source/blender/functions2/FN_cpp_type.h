@@ -19,6 +19,7 @@ class CPPType {
   using CopyToUninitializedF = void (*)(const void *src, void *dst);
   using RelocateToInitializedF = void (*)(void *src, void *dst);
   using RelocateToUninitializedF = void (*)(void *src, void *dst);
+  using RelocateToUninitializedNF = void (*)(void *src, void *dst, uint n);
 
   CPPType(std::string name,
           uint size,
@@ -31,6 +32,7 @@ class CPPType {
           CopyToUninitializedF copy_to_uninitialized,
           RelocateToInitializedF relocate_to_initialized,
           RelocateToUninitializedF relocate_to_uninitialized,
+          RelocateToUninitializedNF relocate_to_uninitialized_n,
           const CPPType *generalization)
       : m_size(size),
         m_alignment(alignment),
@@ -42,6 +44,7 @@ class CPPType {
         m_copy_to_uninitialized(copy_to_uninitialized),
         m_relocate_to_initialized(relocate_to_initialized),
         m_relocate_to_uninitialized(relocate_to_uninitialized),
+        m_relocate_to_uninitialized_n(relocate_to_uninitialized_n),
         m_generalization(generalization),
         m_name(name)
   {
@@ -137,6 +140,14 @@ class CPPType {
     m_relocate_to_uninitialized(src, dst);
   }
 
+  void relocate_to_uninitialized_n(void *src, void *dst, uint n) const
+  {
+    BLI_assert(this->pointer_has_valid_alignment(src));
+    BLI_assert(this->pointer_has_valid_alignment(dst));
+
+    m_relocate_to_uninitialized_n(src, dst, n);
+  }
+
   bool is_same_or_generalization(const CPPType &other) const
   {
     if (&other == this) {
@@ -170,6 +181,7 @@ class CPPType {
   CopyToUninitializedF m_copy_to_uninitialized;
   RelocateToInitializedF m_relocate_to_initialized;
   RelocateToUninitializedF m_relocate_to_uninitialized;
+  RelocateToUninitializedNF m_relocate_to_uninitialized_n;
   const CPPType *m_generalization;
   std::string m_name;
 };

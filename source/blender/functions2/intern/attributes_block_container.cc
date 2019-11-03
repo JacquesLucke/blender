@@ -62,4 +62,53 @@ AttributesBlock::~AttributesBlock()
   }
 }
 
+void AttributesBlock::destruct_and_reorder(ArrayRef<uint> sorted_indices_to_destruct)
+{
+  this->as_ref().destruct_and_reorder(sorted_indices_to_destruct);
+  this->set_used_size(m_used_size - sorted_indices_to_destruct.size());
+}
+
+void AttributesBlock::MoveUntilFull(AttributesBlock &from, AttributesBlock &to)
+{
+  BLI_assert(from.owner() == to.owner());
+  uint move_amount = std::min(from.used_size(), to.unused_capacity());
+
+  if (move_amount == 0) {
+    return;
+  }
+
+  AttributesRef from_ref = from.as_ref__all().slice(from.used_size() - move_amount, move_amount);
+  AttributesRef to_ref = to.as_ref__all().slice(to.used_size(), move_amount);
+
+  AttributesRef::RelocateUninitialized(from_ref, to_ref);
+
+  from.set_used_size(from.used_size() - move_amount);
+  to.set_used_size(to.used_size() + move_amount);
+}
+
+void AttributesBlock::Compress(MutableArrayRef<AttributesBlock *> blocks)
+{
+  std::sort(blocks.begin(), blocks.end(), [](AttributesBlock *a, AttributesBlock *b) {
+    return a->used_size() < b->used_size();
+  });
+
+  uint first_non_full_index = 0;
+  uint last_non_empty_index = blocks.size() - 1;
+
+  while (first_non_full_index < last_non_empty_index) {
+    AttributesBlock &first_non_full = *blocks[first_non_full_index];
+    AttributesBlock &last_non_empty = *blocks[last_non_empty_index];
+
+    if (first_non_full.used_size() == first_non_full.capacity()) {
+      first_non_full_index++;
+    }
+    else if (last_non_empty.used_size() == 0) {
+      last_non_empty_index--;
+    }
+    else {
+      AttributesBlock::MoveUntilFull(last_non_empty, first_non_full);
+    }
+  }
+}
+
 }  // namespace FN

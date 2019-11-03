@@ -134,6 +134,8 @@ class GenericMutableArrayRef {
     m_type->copy_to_uninitialized(src, dst);
   }
 
+  static void RelocateUninitialized(GenericMutableArrayRef from, GenericMutableArrayRef to);
+
   void *operator[](uint index)
   {
     BLI_assert(index < m_size);

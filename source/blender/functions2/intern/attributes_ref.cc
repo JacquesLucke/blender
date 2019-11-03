@@ -55,6 +55,19 @@ void AttributesRef::destruct_and_reorder(ArrayRef<uint> indices)
   }
 }
 
+void AttributesRef::RelocateUninitialized(AttributesRef from, AttributesRef to)
+{
+  BLI_assert(from.size() == to.size());
+  BLI_assert(&from.info() == &to.info());
+
+  for (uint attribute_index : from.info().indices()) {
+    GenericMutableArrayRef from_array = from.get(attribute_index);
+    GenericMutableArrayRef to_array = to.get(attribute_index);
+
+    GenericMutableArrayRef::RelocateUninitialized(from_array, to_array);
+  }
+}
+
 AttributesRefGroup::AttributesRefGroup(const AttributesInfo &info,
                                        Vector<ArrayRef<void *>> buffers,
                                        Vector<IndexRange> ranges)

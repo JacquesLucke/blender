@@ -34,6 +34,7 @@ set(SRC
   intern/attributes_ref.cc
   intern/cpp_type.cc
   intern/cpp_types.cc
+  intern/generic_array_ref.cc
   intern/generic_tuple.cc
   intern/initialize.cc
   intern/multi_function_network.cc
