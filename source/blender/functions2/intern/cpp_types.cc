@@ -4,19 +4,15 @@
 #include "DNA_object_types.h"
 
 #include "BLI_math_cxx.h"
-#include "BLI_vector.h"
 
 namespace FN {
 
-using BLI::Vector;
-
-static Vector<CPPType *, 4, BLI::RawAllocator> allocated_types;
+void init_cpp_types()
+{
+}
 
 void free_cpp_types()
 {
-  for (CPPType *type : allocated_types) {
-    delete type;
-  }
 }
 
 template<typename T> void ConstructDefault_CB(const CPPType *UNUSED(self), void *ptr)
@@ -63,63 +59,38 @@ template<typename T> void RelocateToUninitialized_CB(void *src, void *dst)
   BLI::uninitialized_relocate((T *)src, (T *)dst);
 }
 
-#define CPP_TYPE_DECLARE(IDENTIFIER) static CPPType *TYPE_##IDENTIFIER = nullptr
-
-CPP_TYPE_DECLARE(float);
-CPP_TYPE_DECLARE(bool);
-CPP_TYPE_DECLARE(ObjectPtr);
-CPP_TYPE_DECLARE(int32);
-CPP_TYPE_DECLARE(rgba_f);
-CPP_TYPE_DECLARE(float3);
-CPP_TYPE_DECLARE(string);
-
-#undef CPP_TYPE_DECLARE
-
-void init_cpp_types()
+template<typename T> static std::unique_ptr<const CPPType> create_cpp_type(StringRef name)
 {
-
-#define CPP_TYPE_CONSTRUCTION(IDENTIFIER, TYPE_NAME) \
-  TYPE_##IDENTIFIER = new CPPType( \
-      STRINGIFY(IDENTIFIER), \
-      sizeof(TYPE_NAME), \
-      alignof(TYPE_NAME), \
-      std::is_trivially_destructible<TYPE_NAME>::value, \
-      DefaultConstructor<TYPE_NAME, \
-                         std::is_default_constructible<TYPE_NAME>::value>::get_callback(), \
-      Destruct_CB<TYPE_NAME>, \
-      DestructN_CB<TYPE_NAME>, \
-      CopyToInitialized_CB<TYPE_NAME>, \
-      CopyToUninitialized_CB<TYPE_NAME>, \
-      RelocateToInitialized_CB<TYPE_NAME>, \
-      RelocateToUninitialized_CB<TYPE_NAME>, \
-      nullptr); \
-  allocated_types.append(TYPE_##IDENTIFIER)
-
-  CPP_TYPE_CONSTRUCTION(float, float);
-  CPP_TYPE_CONSTRUCTION(bool, bool);
-  CPP_TYPE_CONSTRUCTION(ObjectPtr, Object *);
-  CPP_TYPE_CONSTRUCTION(int32, int32_t);
-  CPP_TYPE_CONSTRUCTION(rgba_f, BLI::rgba_f);
-  CPP_TYPE_CONSTRUCTION(float3, BLI::float3);
-  CPP_TYPE_CONSTRUCTION(string, std::string);
-
-#undef CPP_TYPE_CONSTRUCTION
+  const CPPType *type = new CPPType(
+      name,
+      sizeof(T),
+      alignof(T),
+      std::is_trivially_destructible<T>::value,
+      DefaultConstructor<T, std::is_default_constructible<T>::value>::get_callback(),
+      Destruct_CB<T>,
+      DestructN_CB<T>,
+      CopyToInitialized_CB<T>,
+      CopyToUninitialized_CB<T>,
+      RelocateToInitialized_CB<T>,
+      RelocateToUninitialized_CB<T>,
+      nullptr);
+  return std::unique_ptr<const CPPType>(type);
 }
 
-#define CPP_TYPE_GETTER(IDENTIFIER, TYPE_NAME) \
+#define MAKE_CPP_TYPE(IDENTIFIER, TYPE_NAME) \
+  static std::unique_ptr<const CPPType> CPPTYPE_##IDENTIFIER = create_cpp_type<TYPE_NAME>( \
+      STRINGIFY(IDENTIFIER)); \
   template<> const CPPType &GET_TYPE<TYPE_NAME>() \
   { \
-    return *TYPE_##IDENTIFIER; \
+    return *CPPTYPE_##IDENTIFIER; \
   }
 
-CPP_TYPE_GETTER(float, float)
-CPP_TYPE_GETTER(bool, bool)
-CPP_TYPE_GETTER(ObjectPtr, Object *)
-CPP_TYPE_GETTER(int32, int32_t)
-CPP_TYPE_GETTER(rgba_f, BLI::rgba_f)
-CPP_TYPE_GETTER(float3, BLI::float3)
-CPP_TYPE_GETTER(string, std::string)
-
-#undef CPP_TYPE_GETTER
+MAKE_CPP_TYPE(float, float)
+MAKE_CPP_TYPE(bool, bool)
+MAKE_CPP_TYPE(ObjectPtr, Object *)
+MAKE_CPP_TYPE(int32, int32_t)
+MAKE_CPP_TYPE(rgba_f, BLI::rgba_f)
+MAKE_CPP_TYPE(float3, BLI::float3)
+MAKE_CPP_TYPE(string, std::string)
 
 }  // namespace FN
