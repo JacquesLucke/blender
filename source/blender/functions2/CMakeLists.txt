@@ -25,6 +25,7 @@ set(SRC
   intern/multi_functions/lists.cc
   intern/multi_functions/mixed.cc
   intern/multi_functions/network.cc
+  intern/vtree_multi_function_network/builder.cc
   intern/vtree_multi_function_network/generate.cc
   intern/vtree_multi_function_network/mappings_nodes.cc
   intern/vtree_multi_function_network/mappings_sockets.cc
