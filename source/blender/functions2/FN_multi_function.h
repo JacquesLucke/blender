@@ -8,15 +8,13 @@
 #include "FN_multi_function_data_type.h"
 #include "FN_multi_function_param_type.h"
 #include "FN_multi_function_mask.h"
+#include "FN_multi_function_context.h"
 
 #include "BLI_vector.h"
 
 namespace FN {
 
 using BLI::Vector;
-
-class MFContext {
-};
 
 class MFSignature {
  private:

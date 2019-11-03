@@ -46,6 +46,7 @@ set(SRC
   FN_generic_virtual_list_list_ref.h
   FN_generic_virtual_list_ref.h
   FN_initialize.h
+  FN_multi_function_context.h
   FN_multi_function_data_type.h
   FN_multi_function_mask.h
   FN_multi_function_network.h
