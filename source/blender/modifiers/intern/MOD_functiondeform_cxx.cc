@@ -60,6 +60,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   params.add_single_output<float3>(output_vectors);
 
   MFContext context;
+  context.vertex_positions = ArrayRef<float3>((float3 *)vertexCos, numVerts);
   function.call(IndexRange(numVerts).as_array_ref(), params.build(), context);
 
   memcpy(vertexCos, output_vectors.begin(), output_vectors.size() * sizeof(float3));

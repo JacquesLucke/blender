@@ -136,6 +136,13 @@ static void INSERT_text_length(VTreeMFNetworkBuilder &builder, const VNode &vnod
   builder.add_function(fn, {0}, {1}, vnode);
 }
 
+static void INSERT_vertex_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &fn = builder.allocate<FN::MF_ContextVertexPosition>(
+      "context vertex positions function");
+  builder.add_function(fn, {}, {0}, vnode);
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_FloatMathNode", INSERT_float_math);
@@ -147,6 +154,7 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_GetListElementNode", INSERT_get_list_element);
   mappings.vnode_inserters.add_new("fn_ObjectTransformsNode", INSERT_object_location);
   mappings.vnode_inserters.add_new("fn_TextLengthNode", INSERT_text_length);
+  mappings.vnode_inserters.add_new("fn_VertexInfoNode", INSERT_vertex_info);
 }
 
 };  // namespace FN

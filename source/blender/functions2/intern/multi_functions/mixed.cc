@@ -324,4 +324,21 @@ void MF_SimpleVectorize::call(const MFMask &mask, MFParams &params, MFContext &c
   }
 }
 
+MF_ContextVertexPosition::MF_ContextVertexPosition()
+{
+  MFSignatureBuilder signature("Vertex Position");
+  signature.single_output<float3>("Position");
+  this->set_signature(signature);
+}
+
+void MF_ContextVertexPosition::call(const MFMask &mask, MFParams &params, MFContext &context) const
+{
+  MutableArrayRef<float3> positions = params.single_output<float3>(0, "Position");
+  ArrayRef<float3> context_positions = context.vertex_positions;
+
+  for (uint i : mask.indices()) {
+    positions[i] = context_positions[i];
+  }
+}
+
 }  // namespace FN

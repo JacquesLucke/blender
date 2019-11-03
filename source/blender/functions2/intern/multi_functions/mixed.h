@@ -112,4 +112,10 @@ class MF_SimpleVectorize final : public MultiFunction {
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
+class MF_ContextVertexPosition final : public MultiFunction {
+ public:
+  MF_ContextVertexPosition();
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
+};
+
 }  // namespace FN
