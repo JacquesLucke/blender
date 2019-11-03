@@ -25,6 +25,36 @@ AttributesInfo::AttributesInfo(const AttributesInfoBuilder &builder)
   }
 }
 
+void AttributesRef::destruct_and_reorder(ArrayRef<uint> indices)
+{
+#ifdef DEBUG
+  BLI_assert(indices.size() <= m_range.size());
+  BLI_assert(indices.size() == 0 || indices.last() < m_range.size());
+  for (uint i = 1; i < indices.size(); i++) {
+    BLI_assert(indices[i - 1] < indices[i]);
+  }
+#endif
+
+  for (uint attribute_index : m_info->indices()) {
+    GenericMutableArrayRef array = this->get(attribute_index);
+    const CPPType &type = m_info->type_of(attribute_index);
+
+    array.destruct_indices(indices);
+
+    for (uint i = 0; i < indices.size(); i++) {
+      uint last_index = m_range.size() - 1 - i;
+      uint index_to_remove = indices[indices.size() - 1 - i];
+      if (index_to_remove == last_index) {
+        /* Do nothing. It has been destructed before. */
+      }
+      else {
+        /* Relocate last undestructed value. */
+        type.relocate_to_uninitialized(array[last_index], array[index_to_remove]);
+      }
+    }
+  }
+}
+
 AttributesRefGroup::AttributesRefGroup(const AttributesInfo &info,
                                        Vector<ArrayRef<void *>> buffers,
                                        Vector<IndexRange> ranges)

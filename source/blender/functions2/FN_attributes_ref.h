@@ -164,11 +164,11 @@ class AttributesRef {
     return *m_info;
   }
 
-  void *get(uint index) const
+  GenericMutableArrayRef get(uint index) const
   {
-    void *ptr = m_buffers[index];
-    uint size = m_info->type_of(index).size();
-    return POINTER_OFFSET(ptr, m_range.start() * size);
+    const CPPType &type = m_info->type_of(index);
+    void *ptr = POINTER_OFFSET(m_buffers[index], type.size() * m_range.start());
+    return GenericMutableArrayRef(m_info->type_of(index), ptr, m_range.size());
   }
 
   template<typename T> MutableArrayRef<T> get(uint index) const
@@ -207,6 +207,8 @@ class AttributesRef {
   {
     return this->slice(0, n);
   }
+
+  void destruct_and_reorder(ArrayRef<uint> sorted_indices_to_destruct);
 };
 
 class AttributesRefGroup {
