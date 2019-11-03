@@ -1,7 +1,7 @@
 from . declaration import (
     FixedSocketDecl,
     ListSocketDecl,
-    PackListDecl,
+    BaseListVariadic,
     AnyVariadicDecl,
     TreeInterfaceDecl,
     VectorizedInputDecl,
@@ -108,11 +108,11 @@ class NodeBuilder:
     ###################################
 
     @staticmethod
-    def PackListProperty():
-        return PackListDecl.Property()
+    def BaseListVariadicProperty():
+        return BaseListVariadic.Property()
 
     def pack_list_input(self, identifier, prop_name, base_type, default_amount=2):
-        decl = PackListDecl(self.node, identifier, prop_name, base_type, default_amount)
+        decl = BaseListVariadic(self.node, identifier, prop_name, base_type, default_amount)
         self._add_input(decl)
 
 

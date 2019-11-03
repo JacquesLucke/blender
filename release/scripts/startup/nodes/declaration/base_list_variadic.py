@@ -6,7 +6,7 @@ from .. base import DataSocket
 from .. types import type_infos
 from .. sockets import OperatorSocket
 
-class PackListDecl(SocketDeclBase):
+class BaseListVariadic(SocketDeclBase):
     def __init__(self, node, identifier: str, prop_name: str, base_type: str, default_amount: int):
         self.node = node
         self.identifier_suffix = identifier
@@ -53,14 +53,14 @@ class PackListDecl(SocketDeclBase):
 
     def draw_socket(self, layout, socket, index):
         if isinstance(socket, OperatorSocket):
-            props = layout.operator("fn.new_pack_list_input", text="New Input", icon='ADD')
+            props = layout.operator("fn.new_base_list_variadic_input", text="New Input", icon='ADD')
             props.tree_name = self.node.tree.name
             props.node_name = self.node.name
             props.prop_name = self.prop_name
         else:
             row = layout.row(align=True)
             socket.draw_self(row, self.node, str(index))
-            props = row.operator("fn.remove_pack_list_input", text="", icon='X')
+            props = row.operator("fn.remove_base_list_variadic_input", text="", icon='X')
             props.tree_name = self.node.tree.name
             props.node_name = self.node.name
             props.prop_name = self.prop_name
@@ -102,10 +102,10 @@ class PackListDecl(SocketDeclBase):
 
     @classmethod
     def Property(cls):
-        return CollectionProperty(type=PackListPropertyGroup)
+        return CollectionProperty(type=BaseListVariadicPropertyGroup)
 
-class PackListPropertyGroup(bpy.types.PropertyGroup):
-    bl_idname = "fn_PackListPropertyGroup"
+class BaseListVariadicPropertyGroup(bpy.types.PropertyGroup):
+    bl_idname = "fn_BaseListVariadicPropertyGroup"
 
     state: EnumProperty(
         default="BASE",
@@ -114,8 +114,8 @@ class PackListPropertyGroup(bpy.types.PropertyGroup):
             ("LIST", "Base", "", "NONE", 1)])
     identifier_prefix: StringProperty()
 
-class NewPackListInputOperator(bpy.types.Operator):
-    bl_idname = "fn.new_pack_list_input"
+class NewBaseListVariadicInputOperator(bpy.types.Operator):
+    bl_idname = "fn.new_base_list_variadic_input"
     bl_label = "New Pack List Input"
     bl_options = {'INTERNAL'}
 
@@ -135,8 +135,8 @@ class NewPackListInputOperator(bpy.types.Operator):
         tree.sync()
         return {'FINISHED'}
 
-class RemovePackListInputOperator(bpy.types.Operator):
-    bl_idname = "fn.remove_pack_list_input"
+class RemoveBaseListVariadicInputOperator(bpy.types.Operator):
+    bl_idname = "fn.remove_base_list_variadic_input"
     bl_label = "Remove Pack List Input"
     bl_options = {'INTERNAL'}
 

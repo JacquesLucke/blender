@@ -6,7 +6,7 @@ from . tree_data import TreeData
 from . declaration import (
     FixedSocketDecl,
     ListSocketDecl,
-    PackListDecl,
+    BaseListVariadic,
     AnyVariadicDecl,
     TreeInterfaceDecl,
     VectorizedInputDecl,
@@ -18,12 +18,12 @@ DecisionID = namedtuple("DecisionID", ("node", "group", "prop_name"))
 def get_inferencing_decisions(tree_data: TreeData):
     list_decisions = make_list_decisions(tree_data)
     vector_decisions = make_vector_decisions(tree_data, list_decisions)
-    pack_list_decisions = make_pack_list_decisions(tree_data, list_decisions, vector_decisions)
+    base_list_variadic_decisions = make_base_list_variadic_decisions(tree_data, list_decisions, vector_decisions)
 
     decisions = dict()
     decisions.update(list_decisions)
     decisions.update(vector_decisions)
-    decisions.update(pack_list_decisions)
+    decisions.update(base_list_variadic_decisions)
     return decisions
 
 
@@ -84,7 +84,7 @@ def iter_possible_list_component_types(component, decision_users, tree_data):
                     data_type = other_socket.data_type
                     if type_infos.is_list(data_type):
                         yield type_infos.to_base(data_type)
-                elif isinstance(other_decl, PackListDecl):
+                elif isinstance(other_decl, BaseListVariadic):
                     yield other_decl.base_type
                 elif isinstance(other_decl, VectorizedInputDecl):
                     yield other_decl.base_type
@@ -97,7 +97,7 @@ def iter_possible_list_component_types(component, decision_users, tree_data):
                     data_type = other_socket.data_type
                     if type_infos.is_base(data_type):
                         yield data_type
-                elif isinstance(other_decl, PackListDecl):
+                elif isinstance(other_decl, BaseListVariadic):
                     yield other_decl.base_type
                 elif isinstance(other_decl, VectorizedInputDecl):
                     yield other_decl.base_type
@@ -226,10 +226,10 @@ def iter_obligatory_vector_decisions(graph, input_sockets, output_sockets, tree_
 # Inference pack list decisions
 ########################################
 
-def make_pack_list_decisions(tree_data, list_decisions, vector_decisions):
+def make_base_list_variadic_decisions(tree_data, list_decisions, vector_decisions):
     decisions = dict()
 
-    for decision_id, decl, socket in iter_pack_list_sockets(tree_data):
+    for decision_id, decl, socket in iter_base_list_variadic_sockets(tree_data):
         assert not socket.is_output
 
         origin_node, origin_socket = tree_data.try_get_origin_with_node(socket)
@@ -283,10 +283,10 @@ def make_pack_list_decisions(tree_data, list_decisions, vector_decisions):
 def data_sockets_are_static(decl):
     return isinstance(decl, (FixedSocketDecl, AnyVariadicDecl, TreeInterfaceDecl))
 
-def iter_pack_list_sockets(tree_data):
+def iter_base_list_variadic_sockets(tree_data):
     for node in tree_data.iter_nodes():
         for decl, sockets in node.decl_map.iter_decl_with_sockets():
-            if isinstance(decl, PackListDecl):
+            if isinstance(decl, BaseListVariadic):
                 collection = decl.get_collection()
                 for i, socket in enumerate(sockets[:-1]):
                     decision_id = DecisionID(node, collection[i], "state")

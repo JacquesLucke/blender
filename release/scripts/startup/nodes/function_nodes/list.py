@@ -37,7 +37,7 @@ class PackListNode(bpy.types.Node, FunctionNode):
         default="Float",
         update=FunctionNode.sync_tree)
 
-    variadic: NodeBuilder.PackListProperty()
+    variadic: NodeBuilder.BaseListVariadicProperty()
 
     def declaration(self, builder):
         builder.pack_list_input("inputs", "variadic", self.active_type)
