@@ -7,7 +7,7 @@ namespace FN {
 
 static void INSERT_vector_math(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.allocate<FN::MF_AddFloat3s>("vector math function");
+  const MultiFunction &fn = builder.allocate_function<FN::MF_AddFloat3s>();
   builder.add_function(fn, {0, 1}, {2}, vnode);
 }
 
@@ -28,8 +28,7 @@ static const MultiFunction &get_vectorized_function(
   }
 
   if (input_is_vectorized.contains(true)) {
-    return builder.allocate<FN::MF_SimpleVectorize>(
-        "vectorized function", base_function, input_is_vectorized);
+    return builder.allocate_function<FN::MF_SimpleVectorize>(base_function, input_is_vectorized);
   }
   else {
     return base_function;
@@ -38,7 +37,7 @@ static const MultiFunction &get_vectorized_function(
 
 static void INSERT_float_math(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &base_fn = builder.allocate<FN::MF_AddFloats>("float math function");
+  const MultiFunction &base_fn = builder.allocate_function<FN::MF_AddFloats>();
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__a", "use_list__b"});
 
@@ -47,7 +46,7 @@ static void INSERT_float_math(VTreeMFNetworkBuilder &builder, const VNode &vnode
 
 static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &base_fn = builder.allocate<FN::MF_CombineVector>("combine vector function");
+  const MultiFunction &base_fn = builder.allocate_function<FN::MF_CombineVector>();
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__x", "use_list__y", "use_list__z"});
   builder.add_function(fn, {0, 1, 2}, {3}, vnode);
@@ -55,8 +54,7 @@ static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder, const VNode &v
 
 static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &base_fn = builder.allocate<FN::MF_SeparateVector>(
-      "separate vector function");
+  const MultiFunction &base_fn = builder.allocate_function<FN::MF_SeparateVector>();
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__vector"});
   builder.add_function(fn, {0}, {1, 2, 3}, vnode);
@@ -65,15 +63,14 @@ static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder, const VNode &
 static void INSERT_list_length(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
-  const MultiFunction &fn = builder.allocate<FN::MF_ListLength>("list length function", type);
+  const MultiFunction &fn = builder.allocate_function<FN::MF_ListLength>(type);
   builder.add_function(fn, {0}, {1}, vnode);
 }
 
 static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
-  const MultiFunction &fn = builder.allocate<FN::MF_GetListElement>("get list element function",
-                                                                    type);
+  const MultiFunction &fn = builder.allocate_function<FN::MF_GetListElement>(type);
   builder.add_function(fn, {0, 1, 2}, {3}, vnode);
 }
 
@@ -103,8 +100,7 @@ static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builde
   uint input_amount = input_is_list.size();
   uint output_param_index = (input_amount > 0 && input_is_list[0]) ? 0 : input_amount;
 
-  const MultiFunction &fn = builder.allocate<FN::MF_PackList>(
-      "pack list function", base_type, input_is_list);
+  const MultiFunction &fn = builder.allocate_function<FN::MF_PackList>(base_type, input_is_list);
   MFBuilderFunctionNode &node = builder.add_function(
       fn, IndexRange(input_amount).as_array_ref(), {output_param_index});
 
@@ -125,21 +121,19 @@ static void INSERT_pack_list(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 
 static void INSERT_object_location(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.allocate<FN::MF_ObjectWorldLocation>(
-      "object location function");
+  const MultiFunction &fn = builder.allocate_function<FN::MF_ObjectWorldLocation>();
   builder.add_function(fn, {0}, {1}, vnode);
 }
 
 static void INSERT_text_length(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.allocate<FN::MF_TextLength>("text length function");
+  const MultiFunction &fn = builder.allocate_function<FN::MF_TextLength>();
   builder.add_function(fn, {0}, {1}, vnode);
 }
 
 static void INSERT_vertex_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.allocate<FN::MF_ContextVertexPosition>(
-      "context vertex positions function");
+  const MultiFunction &fn = builder.allocate_function<FN::MF_ContextVertexPosition>();
   builder.add_function(fn, {}, {0}, vnode);
 }
 

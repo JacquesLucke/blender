@@ -141,7 +141,7 @@ const CPPType &VTreeMFNetworkBuilder::cpp_type_from_property(const VNode &vnode,
 
 std::unique_ptr<VTreeMFNetwork> VTreeMFNetworkBuilder::build()
 {
-  m_builder->to_dot__clipboard();
+  // m_builder->to_dot__clipboard();
 
   Array<int> socket_ids(m_vtree.socket_count(), -1);
   for (uint vsocket_id = 0; vsocket_id < m_vtree.socket_count(); vsocket_id++) {

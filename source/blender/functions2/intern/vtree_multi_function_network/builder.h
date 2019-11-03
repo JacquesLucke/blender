@@ -55,6 +55,15 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return value_ref;
   }
 
+  template<typename T, typename... Args> T &allocate_function(Args &&... args)
+  {
+    BLI_STATIC_ASSERT((std::is_base_of<MultiFunction, T>::value), "");
+    std::unique_ptr<T> function = BLI::make_unique<T>(std::forward<Args>(args)...);
+    T &function_ref = *function;
+    m_resources.add(std::move(function), function_ref.name().data());
+    return function_ref;
+  }
+
   MFDataType try_get_data_type(const VSocket &vsocket) const
   {
     return m_type_by_vsocket[vsocket.id()];
