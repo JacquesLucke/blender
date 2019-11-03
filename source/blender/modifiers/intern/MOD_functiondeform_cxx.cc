@@ -35,23 +35,10 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   vtree_builder.add_all_of_node_tree(btree);
   auto vtree = vtree_builder.build();
 
-  const VNode &input_vnode = *vtree->nodes_with_idname("fn_FunctionInputNode")[0];
-  const VNode &output_vnode = *vtree->nodes_with_idname("fn_FunctionOutputNode")[0];
-
   BLI::OwnedResources resources;
-  auto vtree_network = FN::generate_vtree_multi_function_network(*vtree, resources);
+  auto function = FN::generate_vtree_multi_function(*vtree, resources);
 
-  Vector<const MFOutputSocket *> function_inputs = {
-      &vtree_network->lookup_socket(input_vnode.output(0)).as_output(),
-      &vtree_network->lookup_socket(input_vnode.output(1)).as_output(),
-      &vtree_network->lookup_socket(input_vnode.output(2)).as_output()};
-
-  Vector<const MFInputSocket *> function_outputs = {
-      &vtree_network->lookup_socket(output_vnode.input(0)).as_input()};
-
-  FN::MF_EvaluateNetwork function{function_inputs, function_outputs};
-
-  MFParamsBuilder params(function, numVerts);
+  MFParamsBuilder params(*function, numVerts);
   params.add_readonly_single_input(ArrayRef<float3>((float3 *)vertexCos, numVerts));
   params.add_readonly_single_input(&fdmd->control1);
   params.add_readonly_single_input(&fdmd->control2);
@@ -61,7 +48,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
 
   MFContext context;
   context.vertex_positions = ArrayRef<float3>((float3 *)vertexCos, numVerts);
-  function.call(IndexRange(numVerts).as_array_ref(), params.build(), context);
+  function->call(IndexRange(numVerts).as_array_ref(), params.build(), context);
 
   memcpy(vertexCos, output_vectors.begin(), output_vectors.size() * sizeof(float3));
 }

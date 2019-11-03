@@ -39,22 +39,10 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd)
   vtree_builder.add_all_of_node_tree(btree);
   auto vtree = vtree_builder.build();
 
-  const VNode &input_vnode = *vtree->nodes_with_idname("fn_FunctionInputNode")[0];
-  const VNode &output_vnode = *vtree->nodes_with_idname("fn_FunctionOutputNode")[0];
-
   BLI::OwnedResources resources;
-  auto vtree_network = FN::generate_vtree_multi_function_network(*vtree, resources);
+  auto function = FN::generate_vtree_multi_function(*vtree, resources);
 
-  Vector<const MFOutputSocket *> function_inputs = {
-      &vtree_network->lookup_socket(input_vnode.output(0)).as_output(),
-      &vtree_network->lookup_socket(input_vnode.output(1)).as_output()};
-
-  Vector<const MFInputSocket *> function_outputs = {
-      &vtree_network->lookup_socket(output_vnode.input(0)).as_input()};
-
-  FN::MF_EvaluateNetwork function{function_inputs, function_outputs};
-
-  MFParamsBuilder params(function, 1);
+  MFParamsBuilder params(*function, 1);
   params.add_readonly_single_input(&fpmd->control1);
   params.add_readonly_single_input(&fpmd->control2);
 
@@ -62,7 +50,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd)
   params.add_vector_output(vector_array);
 
   MFContext context;
-  function.call(FN::MFMask({0}), params.build(), context);
+  function->call(FN::MFMask({0}), params.build(), context);
 
   ArrayRef<float3> output_points = vector_array[0].as_typed_ref<float3>();
 

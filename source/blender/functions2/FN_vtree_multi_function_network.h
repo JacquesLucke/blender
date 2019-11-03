@@ -37,9 +37,32 @@ class VTreeMFNetwork {
     return *m_network;
   }
 
-  const MFSocket &lookup_socket(const VSocket &vsocket)
+  const MFInputSocket &lookup_socket(const VInputSocket &vsocket)
   {
-    return *m_socket_map[vsocket.id()];
+    return m_socket_map[vsocket.id()]->as_input();
+  }
+
+  const MFOutputSocket &lookup_socket(const VOutputSocket &vsocket)
+  {
+    return m_socket_map[vsocket.id()]->as_output();
+  }
+
+  void lookup_sockets(ArrayRef<const VOutputSocket *> vsockets,
+                      MutableArrayRef<const MFOutputSocket *> r_result)
+  {
+    BLI_assert(vsockets.size() == r_result.size());
+    for (uint i = 0; i < vsockets.size(); i++) {
+      r_result[i] = &this->lookup_socket(*vsockets[i]);
+    }
+  }
+
+  void lookup_sockets(ArrayRef<const VInputSocket *> vsockets,
+                      MutableArrayRef<const MFInputSocket *> r_result)
+  {
+    BLI_assert(vsockets.size() == r_result.size());
+    for (uint i = 0; i < vsockets.size(); i++) {
+      r_result[i] = &this->lookup_socket(*vsockets[i]);
+    }
   }
 };
 

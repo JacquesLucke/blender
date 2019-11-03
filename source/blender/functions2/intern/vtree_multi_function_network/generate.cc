@@ -116,4 +116,34 @@ std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const Virt
   return vtree_network;
 }
 
+std::unique_ptr<MF_EvaluateNetwork> generate_vtree_multi_function(const VirtualNodeTree &vtree,
+                                                                  OwnedResources &resources)
+{
+  std::unique_ptr<VTreeMFNetwork> network = generate_vtree_multi_function_network(vtree,
+                                                                                  resources);
+
+  auto input_vnodes = vtree.nodes_with_idname("fn_FunctionInputNode");
+  auto output_vnodes = vtree.nodes_with_idname("fn_FunctionOutputNode");
+
+  Vector<const MFOutputSocket *> function_inputs;
+  Vector<const MFInputSocket *> function_outputs;
+
+  if (input_vnodes.size() == 1) {
+    auto vsockets = input_vnodes.first()->outputs().drop_back(1);
+    function_inputs.append_n_times(nullptr, vsockets.size());
+    network->lookup_sockets(vsockets, function_inputs);
+  }
+
+  if (output_vnodes.size() == 1) {
+    auto vsockets = output_vnodes.first()->inputs().drop_back(1);
+    function_outputs.append_n_times(nullptr, vsockets.size());
+    network->lookup_sockets(vsockets, function_outputs);
+  }
+
+  auto function = BLI::make_unique<MF_EvaluateNetwork>(std::move(function_inputs),
+                                                       std::move(function_outputs));
+  resources.add(std::move(network), "VTree Multi Function Network");
+  return function;
+}
+
 }  // namespace FN

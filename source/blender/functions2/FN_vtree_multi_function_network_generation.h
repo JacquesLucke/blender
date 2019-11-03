@@ -3,6 +3,7 @@
 
 #include "FN_vtree_multi_function_network.h"
 #include "BLI_owned_resources.h"
+#include "intern/multi_functions/network.h"
 
 namespace FN {
 
@@ -10,6 +11,9 @@ using BLI::OwnedResources;
 
 std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const VirtualNodeTree &vtree,
                                                                       OwnedResources &resources);
+
+std::unique_ptr<MF_EvaluateNetwork> generate_vtree_multi_function(const VirtualNodeTree &vtree,
+                                                                  OwnedResources &resources);
 
 }  // namespace FN
 
