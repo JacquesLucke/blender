@@ -49,7 +49,7 @@ class GenericArrayRef {
     return POINTER_OFFSET(m_buffer, m_type->size() * index);
   }
 
-  template<typename T> ArrayRef<T> get_ref() const
+  template<typename T> ArrayRef<T> as_typed_ref() const
   {
     BLI_assert(GET_TYPE<T>().is_same_or_generalization(*m_type));
     return ArrayRef<T>((const T *)m_buffer, m_size);
@@ -142,7 +142,7 @@ class GenericMutableArrayRef {
     return POINTER_OFFSET(m_buffer, m_type->size() * index);
   }
 
-  template<typename T> MutableArrayRef<T> get_ref()
+  template<typename T> MutableArrayRef<T> as_typed_ref()
   {
     BLI_assert(GET_TYPE<T>().is_same_or_generalization(*m_type));
     return MutableArrayRef<T>((T *)m_buffer, m_size);

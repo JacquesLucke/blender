@@ -219,7 +219,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
         }
       }
       else if (m_outputs.contains(target)) {
-        storage.set_vector_array_for_input__non_owning(*target, values);
+        storage.set_virtual_list_list_for_input__non_owning(*target, *values);
       }
     }
   }

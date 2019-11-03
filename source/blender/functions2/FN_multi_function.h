@@ -257,7 +257,7 @@ class MFParams {
   template<typename T> MutableArrayRef<T> single_output(uint index, StringRef name)
   {
     BLI_assert(m_signature->is_single_output<T>(index, name));
-    return this->single_output(index, name).get_ref<T>();
+    return this->single_output(index, name).as_typed_ref<T>();
   }
   GenericMutableArrayRef single_output(uint index, StringRef name)
   {
