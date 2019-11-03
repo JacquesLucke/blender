@@ -48,7 +48,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   T *m_end;
   T *m_capacity_end;
   Allocator m_allocator;
-  char m_small_buffer[sizeof(T) * N];
+  AlignedBuffer<sizeof(T) * N, alignof(T)> m_small_buffer;
 
 #ifndef NDEBUG
   /* Storing size in debug builds, because it makes debugging much easier sometimes. */
@@ -233,6 +233,8 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
       return *this;
     }
 
+    /* This can fail, when the vector is used to build a recursive data structure.
+       See https://youtu.be/7Qgd9B1KuMQ?t=840. */
     this->~Vector();
     new (this) Vector(std::move(other));
 
@@ -531,7 +533,7 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
  private:
   T *small_buffer() const
   {
-    return (T *)m_small_buffer;
+    return (T *)m_small_buffer.ptr();
   }
 
   bool is_small() const
