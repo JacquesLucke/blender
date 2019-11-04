@@ -150,24 +150,28 @@ void MF_FloatArraySum::call(const MFMask &mask, MFParams &params, MFContext &UNU
 MF_FloatRange::MF_FloatRange()
 {
   MFSignatureBuilder signature("Float Range");
+  signature.readonly_single_input<int>("Amount");
   signature.readonly_single_input<float>("Start");
   signature.readonly_single_input<float>("Step");
-  signature.readonly_single_input<int>("Amount");
   signature.vector_output<float>("Range");
   this->set_signature(signature);
 }
 
 void MF_FloatRange::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
-  auto starts = params.readonly_single_input<float>(0, "Start");
-  auto steps = params.readonly_single_input<float>(1, "Step");
-  auto amounts = params.readonly_single_input<int>(2, "Amount");
-  auto ranges = params.vector_output<float>(3, "Range");
+  VirtualListRef<int> amounts = params.readonly_single_input<int>(0, "Amount");
+  VirtualListRef<float> starts = params.readonly_single_input<float>(1, "Start");
+  VirtualListRef<float> steps = params.readonly_single_input<float>(2, "Step");
+  auto lists = params.vector_output<float>(3, "Range");
 
   for (uint i : mask.indices()) {
-    for (uint j = 0; j < amounts[i]; j++) {
-      float value = starts[i] + j * steps[i];
-      ranges.append_single(i, value);
+    int amount = amounts[i];
+    float start = starts[i];
+    float step = steps[i];
+
+    for (int j = 0; j < amount; j++) {
+      float value = start + j * step;
+      lists.append_single(i, value);
     }
   }
 }
