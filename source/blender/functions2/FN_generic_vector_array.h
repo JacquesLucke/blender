@@ -151,6 +151,13 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     {
       m_data->append_single__copy(index, (void *)&value);
     }
+
+    void extend_single(uint index, ArrayRef<T> values)
+    {
+      for (const T &value : values) {
+        this->append_single(index, value);
+      }
+    }
   };
 
   template<typename T> const TypedRef<T> as_typed_ref() const

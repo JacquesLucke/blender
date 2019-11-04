@@ -20,7 +20,9 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder,
 
     if (inserter != nullptr) {
       (*inserter)(builder, *vnode);
-      BLI_assert(builder.data_sockets_of_vnode_are_mapped(*vnode));
+#ifdef DEBUG
+      builder.assert_vnode_is_mapped_correctly(*vnode);
+#endif
     }
     else if (builder.has_data_sockets(*vnode)) {
       builder.add_dummy(*vnode);

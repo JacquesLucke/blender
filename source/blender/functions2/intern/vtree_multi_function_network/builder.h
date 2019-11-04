@@ -95,9 +95,9 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return m_socket_map[vsocket.id()] != nullptr;
   }
 
-  bool data_sockets_are_mapped(ArrayRef<const VSocket *> vsockets) const;
-
-  bool data_sockets_of_vnode_are_mapped(const VNode &vnode) const;
+  void assert_vnode_is_mapped_correctly(const VNode &vnode) const;
+  void assert_data_sockets_are_mapped_correctly(ArrayRef<const VSocket *> vsockets) const;
+  void assert_vsocket_is_mapped_correctly(const VSocket &vsocket) const;
 
   bool has_data_sockets(const VNode &vnode) const;
 
@@ -107,18 +107,21 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return socket.as_input().origin() != nullptr;
   }
 
-  MFBuilderOutputSocket &lookup_socket(const VOutputSocket &vsocket) const
+  MFBuilderSocket &lookup_socket(const VSocket &vsocket) const
   {
     MFBuilderSocket *socket = m_socket_map[vsocket.id()];
     BLI_assert(socket != nullptr);
-    return socket->as_output();
+    return *socket;
+  }
+
+  MFBuilderOutputSocket &lookup_socket(const VOutputSocket &vsocket) const
+  {
+    return this->lookup_socket(vsocket.as_base()).as_output();
   }
 
   MFBuilderInputSocket &lookup_socket(const VInputSocket &vsocket) const
   {
-    MFBuilderSocket *socket = m_socket_map[vsocket.id()];
-    BLI_assert(socket != nullptr);
-    return socket->as_input();
+    return this->lookup_socket(vsocket.as_base()).as_input();
   }
 
   const CPPType &cpp_type_by_name(StringRef name) const

@@ -92,27 +92,30 @@ void VTreeMFNetworkBuilder::map_data_sockets(const VNode &vnode, MFBuilderNode &
   }
 }
 
-bool VTreeMFNetworkBuilder::data_sockets_are_mapped(ArrayRef<const VSocket *> vsockets) const
+void VTreeMFNetworkBuilder::assert_vnode_is_mapped_correctly(const VNode &vnode) const
+{
+  this->assert_data_sockets_are_mapped_correctly(vnode.inputs().cast<const VSocket *>());
+  this->assert_data_sockets_are_mapped_correctly(vnode.outputs().cast<const VSocket *>());
+}
+
+void VTreeMFNetworkBuilder::assert_data_sockets_are_mapped_correctly(
+    ArrayRef<const VSocket *> vsockets) const
 {
   for (const VSocket *vsocket : vsockets) {
     if (this->is_data_socket(*vsocket)) {
-      if (!this->vsocket_is_mapped(*vsocket)) {
-        return false;
-      }
+      this->assert_vsocket_is_mapped_correctly(*vsocket);
     }
   }
-  return true;
 }
 
-bool VTreeMFNetworkBuilder::data_sockets_of_vnode_are_mapped(const VNode &vnode) const
+void VTreeMFNetworkBuilder::assert_vsocket_is_mapped_correctly(const VSocket &vsocket) const
 {
-  if (!this->data_sockets_are_mapped(vnode.inputs().cast<const VSocket *>())) {
-    return false;
-  }
-  if (!this->data_sockets_are_mapped(vnode.outputs().cast<const VSocket *>())) {
-    return false;
-  }
-  return true;
+  BLI_assert(this->vsocket_is_mapped(vsocket));
+  MFBuilderSocket &socket = this->lookup_socket(vsocket);
+  MFDataType socket_type = socket.type();
+  MFDataType vsocket_type = this->try_get_data_type(vsocket);
+  BLI_assert(socket_type == vsocket_type);
+  UNUSED_VARS_NDEBUG(socket_type, vsocket_type);
 }
 
 bool VTreeMFNetworkBuilder::has_data_sockets(const VNode &vnode) const

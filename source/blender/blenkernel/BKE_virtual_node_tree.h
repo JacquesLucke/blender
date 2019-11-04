@@ -152,6 +152,7 @@ class VSocket : BLI::NonCopyable, BLI::NonMovable {
   bool is_input() const;
   bool is_output() const;
 
+  const VSocket &as_base() const;
   const VInputSocket &as_input() const;
   const VOutputSocket &as_output() const;
 
@@ -340,6 +341,11 @@ inline bool VSocket::is_output() const
 inline bool VSocket::is_linked() const
 {
   return m_linked_sockets.size() > 0;
+}
+
+inline const VSocket &VSocket::as_base() const
+{
+  return *this;
 }
 
 inline const VInputSocket &VSocket::as_input() const
