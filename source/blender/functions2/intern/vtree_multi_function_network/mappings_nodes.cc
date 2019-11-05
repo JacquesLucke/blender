@@ -143,6 +143,12 @@ static void INSERT_float_range(VTreeMFNetworkBuilder &builder, const VNode &vnod
   builder.add_function(fn, {0, 1, 2}, {3}, vnode);
 }
 
+static void INSERT_time_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &fn = builder.allocate_function<FN::MF_ContextCurrentFrame>();
+  builder.add_function(fn, {}, {0}, vnode);
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_FloatMathNode", INSERT_float_math);
@@ -156,6 +162,7 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_TextLengthNode", INSERT_text_length);
   mappings.vnode_inserters.add_new("fn_VertexInfoNode", INSERT_vertex_info);
   mappings.vnode_inserters.add_new("fn_FloatRangeNode", INSERT_float_range);
+  mappings.vnode_inserters.add_new("fn_TimeInfoNode", INSERT_time_info);
 }
 
 };  // namespace FN

@@ -3,12 +3,15 @@
 #include "DNA_modifier_types.h"
 
 #include "BKE_mesh.h"
+#include "BKE_modifier.h"
 
 #include "BLI_math.h"
 
 #include "FN_vtree_multi_function_network_generation.h"
 #include "FN_multi_functions.h"
+#include "FN_multi_function_common_context_ids.h"
 
+#include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
 using BKE::VirtualNodeTree;
@@ -24,10 +27,12 @@ using FN::MFOutputSocket;
 using FN::MFParamsBuilder;
 
 extern "C" {
-Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd);
+Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
+                            const struct ModifierEvalContext *ctx);
 }
 
-Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd)
+Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
+                            const struct ModifierEvalContext *ctx)
 {
   if (fpmd->function_tree == nullptr) {
     return BKE_mesh_new_nomain(0, 0, 0, 0, 0);
@@ -49,7 +54,10 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd)
   FN::GenericVectorArray vector_array{FN::GET_TYPE<float3>(), 1};
   params.add_vector_output(vector_array);
 
+  float current_frame = DEG_get_ctime(ctx->depsgraph);
+
   FN::MFContextBuilder context_builder;
+  context_builder.add(FN::ContextIDs::current_frame, (void *)&current_frame);
   function->call(FN::MFMask({0}), params.build(), context_builder.build());
 
   ArrayRef<float3> output_points = vector_array[0].as_typed_ref<float3>();

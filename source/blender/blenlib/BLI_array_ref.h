@@ -280,13 +280,19 @@ template<typename T> class ArrayRef {
 
   uint first_index(const T &search_value) const
   {
+    int index = this->first_index_try(search_value);
+    BLI_assert(index >= 0);
+    return (uint)index;
+  }
+
+  int first_index_try(const T &search_value) const
+  {
     for (uint i = 0; i < m_size; i++) {
       if (m_start[i] == search_value) {
         return i;
       }
     }
-    BLI_assert(false);
-    return 0;
+    return -1;
   }
 
   /**

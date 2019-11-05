@@ -16,6 +16,7 @@ namespace FN {
 namespace ContextIDs {
 
 DEFINE_UNIQUE_CONTEXT_ID(vertex_locations);
+DEFINE_UNIQUE_CONTEXT_ID(current_frame);
 
 }  // namespace ContextIDs
 }  // namespace FN

@@ -6,6 +6,8 @@
 
 #include "BLI_math_cxx.h"
 
+#include "BKE_modifier.h"
+
 #include "DEG_depsgraph_query.h"
 
 using BKE::VirtualNodeTree;
@@ -22,10 +24,16 @@ using FN::MFOutputSocket;
 using FN::MFParamsBuilder;
 
 extern "C" {
-void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[3], int numVerts);
+void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
+                           float (*vertexCos)[3],
+                           int numVerts,
+                           const ModifierEvalContext *ctx);
 }
 
-void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[3], int numVerts)
+void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
+                           float (*vertexCos)[3],
+                           int numVerts,
+                           const ModifierEvalContext *ctx)
 {
   if (fdmd->function_tree == nullptr) {
     return;
@@ -50,11 +58,14 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
 
   ArrayRef<float3> input_vertex_locations = ArrayRef<float3>((float3 *)vertexCos, numVerts);
 
+  float current_time = DEG_get_ctime(ctx->depsgraph);
+
   MFContextBuilder context_builder;
   context_builder.add(
       FN::ContextIDs::vertex_locations,
       (void *)&input_vertex_locations,
       BLI::VirtualListRef<uint>::FromFullArray(IndexRange(numVerts).as_array_ref()));
+  context_builder.add(FN::ContextIDs::current_frame, (void *)&current_time);
 
   function->call(IndexRange(numVerts).as_array_ref(), params.build(), context_builder.build());
 

@@ -38,7 +38,7 @@ class MFContext : BLI::NonCopyable, BLI::NonMovable {
 
   Optional<ElementContext> try_find_context(const void *context_type_id) const
   {
-    int index = m_context_ids.first_index(context_type_id);
+    int index = m_context_ids.first_index_try(context_type_id);
     if (index >= 0) {
       return ElementContext{m_context_data[index], m_context_indices[index]};
     }
@@ -65,6 +65,14 @@ class MFContextBuilder {
     m_context_ids.append(id);
     m_context_data.append(data);
     m_context_indices.append(indices);
+  }
+
+  void add(const void *id, const void *data)
+  {
+    static uint dummy_index = 0;
+    m_context_ids.append(id);
+    m_context_data.append(data);
+    m_context_indices.append(VirtualListRef<uint>::FromSingle(&dummy_index, INT_MAX));
   }
 
   MFContext &build()

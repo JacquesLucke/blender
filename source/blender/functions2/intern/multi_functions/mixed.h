@@ -118,4 +118,10 @@ class MF_ContextVertexPosition final : public MultiFunction {
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
+class MF_ContextCurrentFrame final : public MultiFunction {
+ public:
+  MF_ContextCurrentFrame();
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
+};
+
 }  // namespace FN

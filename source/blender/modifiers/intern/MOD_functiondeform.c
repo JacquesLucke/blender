@@ -51,25 +51,28 @@
 #include "DEG_depsgraph_query.h"
 #include "time.h"
 
-void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[3], int numVerts);
+void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
+                           float (*vertexCos)[3],
+                           int numVerts,
+                           const ModifierEvalContext *ctx);
 
 static void deformVerts(ModifierData *md,
-                        const ModifierEvalContext *UNUSED(ctx),
+                        const ModifierEvalContext *ctx,
                         Mesh *UNUSED(mesh),
                         float (*vertexCos)[3],
                         int numVerts)
 {
-  MOD_functiondeform_do((FunctionDeformModifierData *)md, vertexCos, numVerts);
+  MOD_functiondeform_do((FunctionDeformModifierData *)md, vertexCos, numVerts, ctx);
 }
 
 static void deformVertsEM(ModifierData *md,
-                          const ModifierEvalContext *UNUSED(ctx),
+                          const ModifierEvalContext *ctx,
                           struct BMEditMesh *UNUSED(em),
                           Mesh *UNUSED(mesh),
                           float (*vertexCos)[3],
                           int numVerts)
 {
-  MOD_functiondeform_do((FunctionDeformModifierData *)md, vertexCos, numVerts);
+  MOD_functiondeform_do((FunctionDeformModifierData *)md, vertexCos, numVerts, ctx);
 }
 
 static void initData(ModifierData *md)

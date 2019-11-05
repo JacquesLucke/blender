@@ -51,13 +51,14 @@
 #include "DEG_depsgraph_query.h"
 #include "time.h"
 
-Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd);
+Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
+                            const struct ModifierEvalContext *ctx);
 
 static Mesh *applyModifier(ModifierData *md,
-                           const struct ModifierEvalContext *UNUSED(ctx),
+                           const struct ModifierEvalContext *ctx,
                            struct Mesh *UNUSED(mesh))
 {
-  return MOD_functionpoints_do((FunctionPointsModifierData *)md);
+  return MOD_functionpoints_do((FunctionPointsModifierData *)md, ctx);
 }
 
 static void initData(ModifierData *md)

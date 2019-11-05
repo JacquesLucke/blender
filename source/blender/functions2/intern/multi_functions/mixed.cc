@@ -352,12 +352,27 @@ void MF_ContextVertexPosition::call(const MFMask &mask, MFParams &params, MFCont
   else {
     positions.fill_indices(mask.indices(), {0, 0, 0});
   }
+}
 
-  // ArrayRef<float3> context_positions = context.vertex_positions;
+MF_ContextCurrentFrame::MF_ContextCurrentFrame()
+{
+  MFSignatureBuilder signature("Current Frame");
+  signature.single_output<float>("Frame");
+  this->set_signature(signature);
+}
 
-  // for (uint i : mask.indices()) {
-  //   positions[i] = context_positions[i];
-  // }
+void MF_ContextCurrentFrame::call(const MFMask &mask, MFParams &params, MFContext &context) const
+{
+  MutableArrayRef<float> frames = params.single_output<float>(0, "Frame");
+  auto context_data = context.try_find_context(ContextIDs::current_frame);
+
+  if (context_data.has_value()) {
+    float current_frame = *(float *)context_data.value().data;
+    frames.fill_indices(mask.indices(), current_frame);
+  }
+  else {
+    frames.fill_indices(mask.indices(), 0.0f);
+  }
 }
 
 }  // namespace FN
