@@ -229,6 +229,46 @@ static void INSERT_maximum_floats(VTreeMFNetworkBuilder &builder, const VNode &v
   insert_simple_math_function<float, max_func_cb<float>>(builder, vnode, 0.0f);
 }
 
+template<typename T> T subtract_func_cb(T a, T b)
+{
+  return a - b;
+}
+
+template<typename T> T safe_divide_func_cb(T a, T b)
+{
+  return (b != 0) ? a / b : 0.0f;
+}
+
+template<typename T> T safe_power_func_cb(T a, T b)
+{
+  return (a >= 0) ? (T)std::pow(a, b) : (T)0;
+}
+
+template<typename T, T (*Compute)(T, T)>
+void insert_two_inputs_math_function(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &base_fn = builder.allocate_function<MF_SimpleMath<T, Compute>>(vnode.name(),
+                                                                                      2);
+  const MultiFunction &fn = get_vectorized_function(
+      builder, base_fn, vnode.rna(), {"use_list__a", "use_list__b"});
+  builder.add_function(fn, {0, 1}, {2}, vnode);
+}
+
+static void INSERT_subtract_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_two_inputs_math_function<float, subtract_func_cb<float>>(builder, vnode);
+}
+
+static void INSERT_divide_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_two_inputs_math_function<float, safe_divide_func_cb<float>>(builder, vnode);
+}
+
+static void INSERT_power_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_two_inputs_math_function<float, safe_power_func_cb<float>>(builder, vnode);
+}
+
 template<typename T, T (*Compute)(const T &)>
 static void insert_single_input_math_function(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
@@ -297,6 +337,10 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);
   mappings.vnode_inserters.add_new("fn_MinimumFloatsNode", INSERT_minimum_floats);
   mappings.vnode_inserters.add_new("fn_MaximumFloatsNode", INSERT_maximum_floats);
+
+  mappings.vnode_inserters.add_new("fn_SubtractFloatsNode", INSERT_subtract_floats);
+  mappings.vnode_inserters.add_new("fn_DivideFloatsNode", INSERT_divide_floats);
+  mappings.vnode_inserters.add_new("fn_PowerFloatsNode", INSERT_power_floats);
 
   mappings.vnode_inserters.add_new("fn_SqrtFloatNode", INSERT_sqrt_float);
   mappings.vnode_inserters.add_new("fn_AbsoluteFloatNode", INSERT_abs_float);
