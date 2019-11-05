@@ -3,6 +3,33 @@ from bpy.props import *
 from .. base import FunctionNode
 from .. node_builder import NodeBuilder
 
+def create_variadic_math_node(data_type, idname, label):
+    '''
+    Should only be used for operations with associative property.
+    '''
+
+    class MathNode(bpy.types.Node, FunctionNode):
+        bl_idname = idname
+        bl_label = label
+
+        variadic: NodeBuilder.BaseListVariadicProperty()
+
+        def declaration(self, builder: NodeBuilder):
+            builder.base_list_variadic_input("inputs", "variadic", data_type)
+
+            if NodeBuilder.BaseListVariadicPropertyHasList(self.variadic):
+                builder.fixed_output("result", "Result", data_type + " List")
+            else:
+                builder.fixed_output("result", "Result", data_type)
+
+    return MathNode
+
+AddFloatsNode = create_variadic_math_node("Float", "fn_AddFloatsNode", "Add Floats")
+MultiplyFloatsNode = create_variadic_math_node("Float", "fn_MultiplyFloatsNode", "Multiply Floats")
+MinimumFloatsNode = create_variadic_math_node("Float", "fn_MinimumFloatsNode", "Minimum Floats")
+MaximumFloatsNode = create_variadic_math_node("Float", "fn_MaximumFloatsNode", "Maximum Floats")
+
+
 operation_items = [
     ("ADD",     "Add",          "", "", 1),
     ("SUB",     "Subtract",     "", "", 2),
@@ -53,9 +80,7 @@ class FloatMathNode(bpy.types.Node, FunctionNode):
     bl_label = "Float Math"
 
     search_terms = (
-        ("Add Floats", {"operation" : "ADD"}),
         ("Subtract Floats", {"operation" : "SUB"}),
-        ("Multiply Floats", {"operation" : "MULTIPLY"}),
         ("Divide Floats", {"operation" : "DIVIDE"}),
     )
 

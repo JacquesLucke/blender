@@ -124,4 +124,49 @@ class MF_ContextCurrentFrame final : public MultiFunction {
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
+template<typename T, T (*Compute)(T, T)> class MF_SimpleMath final : public MultiFunction {
+ private:
+  uint m_input_amount;
+
+ public:
+  MF_SimpleMath(StringRef name, uint input_amount) : m_input_amount(input_amount)
+  {
+    BLI_assert(input_amount >= 1);
+    MFSignatureBuilder signature(name);
+    for (uint i = 0; i < m_input_amount; i++) {
+      signature.readonly_single_input<T>("Input");
+    }
+    signature.single_output<T>("Output");
+    this->set_signature(signature);
+  }
+
+  void call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const override
+  {
+    MutableArrayRef<T> outputs = params.single_output<T>(m_input_amount, "Output");
+
+    if (m_input_amount == 1) {
+      VirtualListRef<T> inputs = params.readonly_single_input<T>(0, "Input");
+      for (uint i : mask.indices()) {
+        outputs[i] = inputs[i];
+      }
+    }
+    else {
+      BLI_assert(m_input_amount >= 2);
+      VirtualListRef<T> inputs0 = params.readonly_single_input<T>(0, "Input");
+      VirtualListRef<T> inputs1 = params.readonly_single_input<T>(1, "Input");
+
+      for (uint i : mask.indices()) {
+        outputs[i] = Compute(inputs0[i], inputs1[i]);
+      }
+
+      for (uint param_index = 2; param_index < m_input_amount; param_index++) {
+        VirtualListRef<T> inputs = params.readonly_single_input<T>(param_index, "Input");
+        for (uint i : mask.indices()) {
+          outputs[i] = Compute(outputs[i], inputs[i]);
+        }
+      }
+    }
+  }
+};
+
 }  // namespace FN

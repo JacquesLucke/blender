@@ -74,33 +74,39 @@ static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder, const VNode 
   builder.add_function(fn, {0, 1, 2}, {3}, vnode);
 }
 
-static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builder,
-                                                   const VNode &vnode,
-                                                   const CPPType &base_type,
-                                                   const char *prop_name,
-                                                   uint start_index)
+static Vector<bool> get_list_base_variadic_states(const VNode &vnode, StringRefNull prop_name)
 {
-  Vector<bool> input_is_list;
-  RNA_BEGIN (vnode.rna(), itemptr, prop_name) {
+  Vector<bool> list_states;
+  RNA_BEGIN (vnode.rna(), itemptr, prop_name.data()) {
     int state = RNA_enum_get(&itemptr, "state");
     if (state == 0) {
       /* single value case */
-      input_is_list.append(false);
+      list_states.append(false);
     }
     else if (state == 1) {
       /* list case */
-      input_is_list.append(true);
+      list_states.append(true);
     }
     else {
       BLI_assert(false);
     }
   }
   RNA_END;
+  return list_states;
+}
 
-  uint input_amount = input_is_list.size();
-  uint output_param_index = (input_amount > 0 && input_is_list[0]) ? 0 : input_amount;
+static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builder,
+                                                   const VNode &vnode,
+                                                   const CPPType &base_type,
+                                                   StringRefNull prop_name,
+                                                   uint start_index)
+{
+  Vector<bool> list_states = get_list_base_variadic_states(vnode, prop_name);
 
-  const MultiFunction &fn = builder.allocate_function<FN::MF_PackList>(base_type, input_is_list);
+  uint input_amount = list_states.size();
+  uint output_param_index = (input_amount > 0 && list_states[0]) ? 0 : input_amount;
+
+  const MultiFunction &fn = builder.allocate_function<FN::MF_PackList>(base_type, list_states);
   MFBuilderFunctionNode &node = builder.add_function(
       fn, IndexRange(input_amount).as_array_ref(), {output_param_index});
 
@@ -149,6 +155,80 @@ static void INSERT_time_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
   builder.add_function(fn, {}, {0}, vnode);
 }
 
+template<typename T> T add_func_cb(T a, T b)
+{
+  return a + b;
+}
+
+template<typename T> T mul_func_cb(T a, T b)
+{
+  return a * b;
+}
+
+template<typename T> T min_func_cb(T a, T b)
+{
+  return std::min(a, b);
+}
+
+template<typename T> T max_func_cb(T a, T b)
+{
+  return std::max(a, b);
+}
+
+template<typename T, T (*Compute)(T, T)>
+static const MultiFunction &get_simple_math_function(VTreeMFNetworkBuilder &builder,
+                                                     StringRef name,
+                                                     ArrayRef<bool> list_states,
+                                                     T default_value)
+{
+  if (list_states.size() == 0) {
+    return builder.allocate_function<FN::MF_ConstantValue<T>>(default_value);
+  }
+  else {
+    const MultiFunction &math_fn = builder.allocate_function<FN::MF_SimpleMath<T, Compute>>(
+        name, list_states.size());
+
+    if (list_states.contains(true)) {
+      return builder.allocate_function<FN::MF_SimpleVectorize>(math_fn, list_states);
+    }
+    else {
+      return math_fn;
+    }
+  }
+}
+
+template<typename T, T (*Compute)(T, T)>
+void insert_simple_math_function(VTreeMFNetworkBuilder &builder,
+                                 const VNode &vnode,
+                                 T default_value)
+{
+  Vector<bool> list_states = get_list_base_variadic_states(vnode, "variadic");
+  const MultiFunction &fn = get_simple_math_function<T, Compute>(
+      builder, vnode.name(), list_states, default_value);
+  builder.add_function(
+      fn, IndexRange(list_states.size()).as_array_ref(), {list_states.size()}, vnode);
+}
+
+static void INSERT_add_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_simple_math_function<float, add_func_cb<float>>(builder, vnode, 0.0f);
+}
+
+static void INSERT_multiply_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_simple_math_function<float, mul_func_cb<float>>(builder, vnode, 1.0f);
+}
+
+static void INSERT_minimum_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_simple_math_function<float, min_func_cb<float>>(builder, vnode, 0.0f);
+}
+
+static void INSERT_maximum_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_simple_math_function<float, max_func_cb<float>>(builder, vnode, 0.0f);
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_FloatMathNode", INSERT_float_math);
@@ -163,6 +243,11 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_VertexInfoNode", INSERT_vertex_info);
   mappings.vnode_inserters.add_new("fn_FloatRangeNode", INSERT_float_range);
   mappings.vnode_inserters.add_new("fn_TimeInfoNode", INSERT_time_info);
+
+  mappings.vnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
+  mappings.vnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);
+  mappings.vnode_inserters.add_new("fn_MinimumFloatsNode", INSERT_minimum_floats);
+  mappings.vnode_inserters.add_new("fn_MaximumFloatsNode", INSERT_maximum_floats);
 }
 
 };  // namespace FN

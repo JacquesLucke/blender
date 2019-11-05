@@ -33,7 +33,7 @@ MFBuilderFunctionNode &VTreeMFNetworkBuilder::add_function(const MultiFunction &
 {
   MFBuilderFunctionNode &node = m_builder->add_function(
       function, input_param_indices, output_param_indices);
-  this->map_sockets_exactly(vnode, node);
+  this->map_data_sockets(vnode, node);
   return node;
 }
 
@@ -58,19 +58,6 @@ MFBuilderDummyNode &VTreeMFNetworkBuilder::add_dummy(const VNode &vnode)
   MFBuilderDummyNode &node = m_builder->add_dummy(input_types, output_types);
   this->map_data_sockets(vnode, node);
   return node;
-}
-
-void VTreeMFNetworkBuilder::map_sockets_exactly(const VNode &vnode, MFBuilderNode &node)
-{
-  BLI_assert(vnode.inputs().size() == node.inputs().size());
-  BLI_assert(vnode.outputs().size() == node.outputs().size());
-
-  for (uint i = 0; i < vnode.inputs().size(); i++) {
-    m_socket_map[vnode.inputs()[i]->id()] = node.inputs()[i];
-  }
-  for (uint i = 0; i < vnode.outputs().size(); i++) {
-    m_socket_map[vnode.outputs()[i]->id()] = node.outputs()[i];
-  }
 }
 
 void VTreeMFNetworkBuilder::map_data_sockets(const VNode &vnode, MFBuilderNode &node)

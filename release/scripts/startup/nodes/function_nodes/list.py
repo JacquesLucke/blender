@@ -40,7 +40,7 @@ class PackListNode(bpy.types.Node, FunctionNode):
     variadic: NodeBuilder.BaseListVariadicProperty()
 
     def declaration(self, builder):
-        builder.pack_list_input("inputs", "variadic", self.active_type)
+        builder.base_list_variadic_input("inputs", "variadic", self.active_type)
         builder.fixed_output("output", "List", type_infos.to_list(self.active_type))
 
     def draw_advanced(self, layout):

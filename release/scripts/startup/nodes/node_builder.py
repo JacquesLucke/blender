@@ -111,7 +111,12 @@ class NodeBuilder:
     def BaseListVariadicProperty():
         return BaseListVariadic.Property()
 
-    def pack_list_input(self, identifier, prop_name, base_type, default_amount=2):
+    @staticmethod
+    def BaseListVariadicPropertyHasList(prop):
+        return any(v.state == "LIST" for v in prop)
+
+
+    def base_list_variadic_input(self, identifier, prop_name, base_type, default_amount=2):
         decl = BaseListVariadic(self.node, identifier, prop_name, base_type, default_amount)
         self._add_input(decl)
 

@@ -74,8 +74,6 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return !m_type_by_vsocket[vsocket.id()].is_none();
   }
 
-  void map_sockets_exactly(const VNode &vnode, MFBuilderNode &node);
-
   void map_data_sockets(const VNode &vnode, MFBuilderNode &node);
 
   void map_sockets(const VInputSocket &vsocket, MFBuilderInputSocket &socket)
