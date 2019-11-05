@@ -49,8 +49,8 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd)
   FN::GenericVectorArray vector_array{FN::GET_TYPE<float3>(), 1};
   params.add_vector_output(vector_array);
 
-  MFContext context;
-  function->call(FN::MFMask({0}), params.build(), context);
+  FN::MFContextBuilder context_builder;
+  function->call(FN::MFMask({0}), params.build(), context_builder.build());
 
   ArrayRef<float3> output_points = vector_array[0].as_typed_ref<float3>();
 

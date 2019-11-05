@@ -37,6 +37,7 @@ set(SRC
   intern/generic_array_ref.cc
   intern/generic_tuple.cc
   intern/initialize.cc
+  intern/multi_function_common_context_ids.cc
   intern/multi_function_network.cc
 
   FN_attributes_block_container.h
@@ -48,6 +49,7 @@ set(SRC
   FN_generic_virtual_list_list_ref.h
   FN_generic_virtual_list_ref.h
   FN_initialize.h
+  FN_multi_function_common_context_ids.h
   FN_multi_function_context.h
   FN_multi_function_data_type.h
   FN_multi_function_mask.h

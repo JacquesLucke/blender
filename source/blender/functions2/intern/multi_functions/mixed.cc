@@ -2,6 +2,7 @@
 
 #include "FN_generic_array_ref.h"
 #include "FN_generic_vector_array.h"
+#include "FN_multi_function_common_context_ids.h"
 
 #include "BLI_math_cxx.h"
 #include "BLI_lazy_init_cxx.h"
@@ -323,6 +324,7 @@ void MF_SimpleVectorize::call(const MFMask &mask, MFParams &params, MFContext &c
       }
     }
 
+    /* TODO: Call with updated context. */
     ArrayRef<uint> sub_mask_indices = IndexRange(length).as_array_ref();
     m_function.call(sub_mask_indices, params_builder.build(), context);
   }
@@ -338,11 +340,24 @@ MF_ContextVertexPosition::MF_ContextVertexPosition()
 void MF_ContextVertexPosition::call(const MFMask &mask, MFParams &params, MFContext &context) const
 {
   MutableArrayRef<float3> positions = params.single_output<float3>(0, "Position");
-  ArrayRef<float3> context_positions = context.vertex_positions;
+  auto positions_context = context.try_find_context(ContextIDs::vertex_locations);
 
-  for (uint i : mask.indices()) {
-    positions[i] = context_positions[i];
+  if (positions_context.has_value()) {
+    ArrayRef<float3> vertex_positions = *(ArrayRef<float3> *)positions_context.value().data;
+    for (uint i : mask.indices()) {
+      uint context_index = positions_context.value().indices[i];
+      positions[i] = vertex_positions[context_index];
+    }
   }
+  else {
+    positions.fill_indices(mask.indices(), {0, 0, 0});
+  }
+
+  // ArrayRef<float3> context_positions = context.vertex_positions;
+
+  // for (uint i : mask.indices()) {
+  //   positions[i] = context_positions[i];
+  // }
 }
 
 }  // namespace FN

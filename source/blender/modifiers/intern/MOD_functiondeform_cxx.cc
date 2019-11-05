@@ -2,6 +2,7 @@
 
 #include "FN_vtree_multi_function_network_generation.h"
 #include "FN_multi_functions.h"
+#include "FN_multi_function_common_context_ids.h"
 
 #include "BLI_math_cxx.h"
 
@@ -15,6 +16,7 @@ using BLI::IndexRange;
 using BLI::TemporaryVector;
 using BLI::Vector;
 using FN::MFContext;
+using FN::MFContextBuilder;
 using FN::MFInputSocket;
 using FN::MFOutputSocket;
 using FN::MFParamsBuilder;
@@ -46,9 +48,15 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd, float (*vertexCos)[
   TemporaryVector<float3> output_vectors(numVerts);
   params.add_single_output<float3>(output_vectors);
 
-  MFContext context;
-  context.vertex_positions = ArrayRef<float3>((float3 *)vertexCos, numVerts);
-  function->call(IndexRange(numVerts).as_array_ref(), params.build(), context);
+  ArrayRef<float3> input_vertex_locations = ArrayRef<float3>((float3 *)vertexCos, numVerts);
+
+  MFContextBuilder context_builder;
+  context_builder.add(
+      FN::ContextIDs::vertex_locations,
+      (void *)&input_vertex_locations,
+      BLI::VirtualListRef<uint>::FromFullArray(IndexRange(numVerts).as_array_ref()));
+
+  function->call(IndexRange(numVerts).as_array_ref(), params.build(), context_builder.build());
 
   memcpy(vertexCos, output_vectors.begin(), output_vectors.size() * sizeof(float3));
 }
