@@ -88,7 +88,7 @@ class VTreeData {
 
   template<typename T, typename... Args> destruct_ptr<T> construct_new(Args &&... args)
   {
-    void *buffer = m_allocator.allocate_aligned(sizeof(T), alignof(T));
+    void *buffer = m_allocator.allocate(sizeof(T), alignof(T));
     T *value = new (buffer) T(std::forward<Args>(args)...);
     return destruct_ptr<T>(value);
   }

@@ -346,7 +346,7 @@ class AttributesDefaults : BLI::NonCopyable, BLI::NonMovable {
       m_index_by_name.add_new(name, index);
       const CPPType &type = GET_TYPE<T>();
       m_type_by_index.append(&type);
-      void *value_buffer = m_allocator.allocate_aligned(type.size(), type.alignment());
+      void *value_buffer = m_allocator.allocate(type.size(), type.alignment());
       new (value_buffer) T(std::move(value));
       m_values.append(value_buffer);
     }

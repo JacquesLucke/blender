@@ -177,8 +177,8 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
   {
     BLI_assert(m_capacities[index] < min_capacity);
     min_capacity = power_of_2_max_u(min_capacity);
-    void *new_buffer = m_elements_allocator.allocate_aligned(m_element_size * min_capacity,
-                                                             m_type.alignment());
+    void *new_buffer = m_elements_allocator.allocate(m_element_size * min_capacity,
+                                                     m_type.alignment());
 
     for (uint i = 0; i < m_lengths[index]; i++) {
       void *src = POINTER_OFFSET(m_starts[index], m_element_size * i);

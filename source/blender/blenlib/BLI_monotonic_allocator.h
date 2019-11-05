@@ -29,7 +29,7 @@
 
 namespace BLI {
 
-template<typename Allocator = GuardedAllocator>
+template<uint N = 0, typename Allocator = GuardedAllocator>
 class MonotonicAllocator : NonCopyable, NonMovable {
  private:
   Allocator m_allocator;
@@ -39,9 +39,13 @@ class MonotonicAllocator : NonCopyable, NonMovable {
   uint m_remaining_capacity;
   uint m_next_min_alloc_size;
 
+  AlignedBuffer<N, 8> m_inline_buffer;
+
  public:
   MonotonicAllocator()
-      : m_current_buffer(nullptr), m_remaining_capacity(0), m_next_min_alloc_size(16)
+      : m_current_buffer(m_inline_buffer.ptr()),
+        m_remaining_capacity(N),
+        m_next_min_alloc_size(N * 2)
   {
   }
 
@@ -52,31 +56,9 @@ class MonotonicAllocator : NonCopyable, NonMovable {
     }
   }
 
-  void *allocate(uint size)
-  {
-    if (size <= m_remaining_capacity) {
-      void *ptr = m_current_buffer;
-      m_remaining_capacity -= size;
-      m_current_buffer = POINTER_OFFSET(ptr, size);
-      return ptr;
-    }
-    else {
-      uint byte_size = std::max({m_next_min_alloc_size, size, m_allocator.min_allocated_size()});
-
-      void *ptr = m_allocator.allocate(byte_size, __func__);
-      m_pointers.append(ptr);
-
-      m_current_buffer = POINTER_OFFSET(ptr, size);
-      m_next_min_alloc_size = byte_size * 2;
-      m_remaining_capacity = byte_size - size;
-
-      return ptr;
-    }
-  }
-
   template<typename T> T *allocate()
   {
-    return (T *)this->allocate(sizeof(T));
+    return (T *)this->allocate(sizeof(T), alignof(T));
   }
 
   template<typename T> MutableArrayRef<T> allocate_array(uint length)
@@ -84,16 +66,39 @@ class MonotonicAllocator : NonCopyable, NonMovable {
     return MutableArrayRef<T>((T *)this->allocate(sizeof(T) * length), length);
   }
 
-  void *allocate_aligned(uint size, uint alignment)
+  void *allocate(uint size, uint alignment = 4)
   {
-    /* TODO: Don't overallocate when not necessary. */
+    BLI_assert(alignment >= 1);
     BLI_assert(is_power_of_2_i(alignment));
-    size_t space = size + alignment - 1;
-    void *ptr = this->allocate(space);
-    void *aligned_ptr = std::align(alignment, size, ptr, space);
-    BLI_assert(aligned_ptr != nullptr);
-    BLI_assert((POINTER_AS_UINT(aligned_ptr) & (alignment - 1)) == 0);
-    return aligned_ptr;
+
+    uintptr_t alignment_mask = alignment - 1;
+
+    uintptr_t current_buffer = (uintptr_t)m_current_buffer;
+    uintptr_t potential_allocation_begin = (current_buffer + alignment - 1) & ~alignment_mask;
+    uintptr_t potential_allocation_end = potential_allocation_begin + size;
+    uintptr_t required_size = potential_allocation_end - current_buffer;
+
+    if (required_size <= m_remaining_capacity) {
+      m_remaining_capacity -= required_size;
+      m_current_buffer = (void *)potential_allocation_end;
+      return (void *)potential_allocation_begin;
+    }
+    else {
+      this->allocate_new_buffer(size + alignment);
+      return this->allocate(size, alignment);
+    }
+  };
+
+ private:
+  void allocate_new_buffer(uint min_allocation_size)
+  {
+    uint size_in_bytes = std::max(min_allocation_size, m_next_min_alloc_size);
+    m_next_min_alloc_size *= 2;
+
+    void *buffer = m_allocator.allocate(size_in_bytes, __func__);
+    m_pointers.append(buffer);
+    m_remaining_capacity = size_in_bytes;
+    m_current_buffer = buffer;
   }
 };
 
