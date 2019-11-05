@@ -4,6 +4,7 @@
 #include "BLI_vector.h"
 #include "BLI_utility_mixins.h"
 #include "BLI_string_ref.h"
+#include "BLI_monotonic_allocator.h"
 
 namespace BLI {
 
@@ -16,6 +17,7 @@ class ResourceCollector : NonCopyable {
   };
 
   Vector<ResourceData> m_resources;
+  MonotonicAllocator<> m_allocator;
 
  public:
   ResourceCollector() = default;
@@ -38,7 +40,7 @@ class ResourceCollector : NonCopyable {
     this->add(
         resource.release(),
         [](void *data) {
-          T *typed_data = static_cast<T *>(data);
+          T *typed_data = reinterpret_cast<T *>(data);
           delete typed_data;
         },
         name);
@@ -50,10 +52,15 @@ class ResourceCollector : NonCopyable {
     this->add(
         resource.release(),
         [](void *data) {
-          T *typed_data = static_cast<T *>(data);
+          T *typed_data = reinterpret_cast<T *>(data);
           typed_data->~T();
         },
         name);
+  }
+
+  void *allocate(uint size, uint alignment)
+  {
+    return m_allocator.allocate(size, alignment);
   }
 
   void add(void *userdata, void (*free)(void *), const char *name)

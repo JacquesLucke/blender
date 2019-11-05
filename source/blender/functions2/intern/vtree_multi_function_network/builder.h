@@ -49,19 +49,19 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   template<typename T, typename... Args> T &allocate(const char *name, Args &&... args)
   {
-    std::unique_ptr<T> value = BLI::make_unique<T>(std::forward<Args>(args)...);
-    T &value_ref = *value;
-    m_resources.add(std::move(value), name);
-    return value_ref;
+    void *buffer = m_resources.allocate(sizeof(T), alignof(T));
+    T *value = new (buffer) T(std::forward<Args>(args)...);
+    m_resources.add(BLI::destruct_ptr<T>(value), name);
+    return *value;
   }
 
   template<typename T, typename... Args> T &allocate_function(Args &&... args)
   {
     BLI_STATIC_ASSERT((std::is_base_of<MultiFunction, T>::value), "");
-    std::unique_ptr<T> function = BLI::make_unique<T>(std::forward<Args>(args)...);
-    T &function_ref = *function;
-    m_resources.add(std::move(function), function_ref.name().data());
-    return function_ref;
+    void *buffer = m_resources.allocate(sizeof(T), alignof(T));
+    T *fn = new (buffer) T(std::forward<Args>(args)...);
+    m_resources.add(BLI::destruct_ptr<T>(fn), fn->name().data());
+    return *fn;
   }
 
   MFDataType try_get_data_type(const VSocket &vsocket) const
