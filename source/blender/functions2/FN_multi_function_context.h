@@ -72,7 +72,7 @@ class MFContextBuilder {
     static uint dummy_index = 0;
     m_context_ids.append(id);
     m_context_data.append(data);
-    m_context_indices.append(VirtualListRef<uint>::FromSingle(&dummy_index, INT_MAX));
+    m_context_indices.append(VirtualListRef<uint>::FromSingle_MaxSize(&dummy_index));
   }
 
   MFContext &build()

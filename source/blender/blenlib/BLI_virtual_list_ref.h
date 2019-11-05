@@ -3,6 +3,8 @@
 
 #include "BLI_array_ref.h"
 
+#include <climits>
+
 namespace BLI {
 
 template<typename T> class VirtualListRef {
@@ -48,6 +50,11 @@ template<typename T> class VirtualListRef {
     list.m_category = Category::Single;
     list.m_data.single.data = data;
     return list;
+  }
+
+  static VirtualListRef FromSingle_MaxSize(const T *data)
+  {
+    return VirtualListRef::FromSingle(data, UINT_MAX);
   }
 
   static VirtualListRef FromFullArray(const T *data, uint size)
