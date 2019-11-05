@@ -2,7 +2,7 @@
 
 namespace FN {
 
-DataGraph::DataGraph(std::unique_ptr<OwnedResources> resources,
+DataGraph::DataGraph(std::unique_ptr<ResourceCollector> resources,
                      Vector<Node> nodes,
                      Vector<InputSocket> inputs,
                      Vector<OutputSocket> outputs,

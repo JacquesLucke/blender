@@ -4,7 +4,7 @@ namespace FN {
 
 VTreeMFNetworkBuilder::VTreeMFNetworkBuilder(const VirtualNodeTree &vtree,
                                              const VTreeMultiFunctionMappings &vtree_mappings,
-                                             OwnedResources &resources)
+                                             ResourceCollector &resources)
     : m_vtree(vtree),
       m_vtree_mappings(vtree_mappings),
       m_resources(resources),

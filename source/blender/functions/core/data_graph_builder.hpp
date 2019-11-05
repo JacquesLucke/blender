@@ -140,7 +140,7 @@ class BuilderNode {
 
 class DataGraphBuilder {
  private:
-  std::unique_ptr<OwnedResources> m_resources;
+  std::unique_ptr<ResourceCollector> m_resources;
   Vector<BuilderNode *> m_nodes;
   uint m_link_counter = 0;
   uint m_input_socket_counter = 0;
@@ -161,7 +161,7 @@ class DataGraphBuilder {
   template<typename T> void add_resource(std::unique_ptr<T> resource, const char *name)
   {
     if (m_resources.get() == nullptr) {
-      m_resources = BLI::make_unique<OwnedResources>();
+      m_resources = BLI::make_unique<ResourceCollector>();
     }
     m_resources->add(std::move(resource), name);
   }

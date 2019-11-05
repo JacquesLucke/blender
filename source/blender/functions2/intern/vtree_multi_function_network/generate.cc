@@ -99,7 +99,7 @@ static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
 }
 
 std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const VirtualNodeTree &vtree,
-                                                                      OwnedResources &resources)
+                                                                      ResourceCollector &resources)
 {
   const VTreeMultiFunctionMappings &mappings = get_vtree_multi_function_mappings();
 
@@ -119,7 +119,7 @@ std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const Virt
 }
 
 std::unique_ptr<MF_EvaluateNetwork> generate_vtree_multi_function(const VirtualNodeTree &vtree,
-                                                                  OwnedResources &resources)
+                                                                  ResourceCollector &resources)
 {
   std::unique_ptr<VTreeMFNetwork> network = generate_vtree_multi_function_network(vtree,
                                                                                   resources);

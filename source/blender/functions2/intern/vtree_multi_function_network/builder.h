@@ -10,7 +10,7 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   const VirtualNodeTree &m_vtree;
   const VTreeMultiFunctionMappings &m_vtree_mappings;
-  OwnedResources &m_resources;
+  ResourceCollector &m_resources;
   Array<MFBuilderSocket *> m_socket_map;
   Array<MFDataType> m_type_by_vsocket;
   std::unique_ptr<MFNetworkBuilder> m_builder;
@@ -18,7 +18,7 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  public:
   VTreeMFNetworkBuilder(const VirtualNodeTree &vtree,
                         const VTreeMultiFunctionMappings &vtree_mappings,
-                        OwnedResources &resources);
+                        ResourceCollector &resources);
 
   const VirtualNodeTree &vtree() const
   {

@@ -45,7 +45,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   vtree_builder.add_all_of_node_tree(btree);
   auto vtree = vtree_builder.build();
 
-  BLI::OwnedResources resources;
+  BLI::ResourceCollector resources;
   auto function = FN::generate_vtree_multi_function(*vtree, resources);
 
   MFParamsBuilder params(*function, numVerts);

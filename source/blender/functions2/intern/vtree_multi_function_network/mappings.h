@@ -2,14 +2,14 @@
 
 #include "BLI_map.h"
 #include "BLI_string_map.h"
-#include "BLI_owned_resources.h"
+#include "BLI_resource_collector.h"
 
 #include "FN_vtree_multi_function_network.h"
 
 namespace FN {
 
 using BLI::Map;
-using BLI::OwnedResources;
+using BLI::ResourceCollector;
 using BLI::StringMap;
 
 struct VTreeMultiFunctionMappings;

@@ -7,7 +7,7 @@
 
 namespace BLI {
 
-class OwnedResources : NonCopyable {
+class ResourceCollector : NonCopyable {
  private:
   struct ResourceData {
     void *data;
@@ -18,9 +18,9 @@ class OwnedResources : NonCopyable {
   Vector<ResourceData> m_resources;
 
  public:
-  OwnedResources() = default;
+  ResourceCollector() = default;
 
-  ~OwnedResources()
+  ~ResourceCollector()
   {
     for (int i = m_resources.size() - 1; i >= 0; i--) {
       ResourceData &data = m_resources[i];

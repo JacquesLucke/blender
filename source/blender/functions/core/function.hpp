@@ -22,13 +22,13 @@
 #include <functional>
 
 #include "BLI_utility_mixins.h"
-#include "BLI_owned_resources.h"
+#include "BLI_resource_collector.h"
 
 #include "type.hpp"
 
 namespace FN {
 
-using BLI::OwnedResources;
+using BLI::ResourceCollector;
 using BLI::Vector;
 
 class Function;
@@ -169,7 +169,7 @@ class Function final : BLI::NonCopyable, BLI::NonMovable {
   Vector<Type *> m_output_types;
 
   std::mutex m_modify_mutex;
-  std::unique_ptr<OwnedResources> m_resources;
+  std::unique_ptr<ResourceCollector> m_resources;
   const char *m_strings;
 };
 
@@ -291,7 +291,7 @@ template<typename T> void Function::add_resource(std::unique_ptr<T> resource, co
   std::lock_guard<std::mutex> lock(m_modify_mutex);
 
   if (m_resources.get() == nullptr) {
-    m_resources = BLI::make_unique<OwnedResources>();
+    m_resources = BLI::make_unique<ResourceCollector>();
   }
 
   m_resources->add(std::move(resource), name);
