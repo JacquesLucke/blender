@@ -155,26 +155,6 @@ static void INSERT_time_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
   builder.add_function(fn, {}, {0}, vnode);
 }
 
-template<typename T> T add_func_cb(T a, T b)
-{
-  return a + b;
-}
-
-template<typename T> T mul_func_cb(T a, T b)
-{
-  return a * b;
-}
-
-template<typename T> T min_func_cb(T a, T b)
-{
-  return std::min(a, b);
-}
-
-template<typename T> T max_func_cb(T a, T b)
-{
-  return std::max(a, b);
-}
-
 template<typename T, T (*Compute)(T, T)>
 static const MultiFunction &get_simple_math_function(VTreeMFNetworkBuilder &builder,
                                                      StringRef name,
@@ -198,15 +178,35 @@ static const MultiFunction &get_simple_math_function(VTreeMFNetworkBuilder &buil
 }
 
 template<typename T, T (*Compute)(T, T)>
-void insert_simple_math_function(VTreeMFNetworkBuilder &builder,
-                                 const VNode &vnode,
-                                 T default_value)
+static void insert_simple_math_function(VTreeMFNetworkBuilder &builder,
+                                        const VNode &vnode,
+                                        T default_value)
 {
   Vector<bool> list_states = get_list_base_variadic_states(vnode, "variadic");
   const MultiFunction &fn = get_simple_math_function<T, Compute>(
       builder, vnode.name(), list_states, default_value);
   builder.add_function(
       fn, IndexRange(list_states.size()).as_array_ref(), {list_states.size()}, vnode);
+}
+
+template<typename T> T add_func_cb(T a, T b)
+{
+  return a + b;
+}
+
+template<typename T> T mul_func_cb(T a, T b)
+{
+  return a * b;
+}
+
+template<typename T> T min_func_cb(T a, T b)
+{
+  return std::min(a, b);
+}
+
+template<typename T> T max_func_cb(T a, T b)
+{
+  return std::max(a, b);
 }
 
 static void INSERT_add_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
@@ -229,6 +229,55 @@ static void INSERT_maximum_floats(VTreeMFNetworkBuilder &builder, const VNode &v
   insert_simple_math_function<float, max_func_cb<float>>(builder, vnode, 0.0f);
 }
 
+template<typename T, T (*Compute)(const T &)>
+static void insert_single_input_math_function(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &base_fn = builder.allocate_function<FN::MF_Mappping<T, T, Compute>>(
+      vnode.name());
+  const MultiFunction &fn = get_vectorized_function(builder, base_fn, vnode.rna(), {"use_list"});
+  builder.add_function(fn, {0}, {1}, vnode);
+}
+
+template<typename T> T safe_sqrt_func_cb(const T &a)
+{
+  return (a >= 0.0) ? (T)std::sqrt(a) : 0.0f;
+}
+
+template<typename T> T abs_func_cb(const T &a)
+{
+  return (T)std::abs(a);
+}
+
+template<typename T> T sine_func_cb(const T &a)
+{
+  return (T)std::sin(a);
+}
+
+template<typename T> T cosine_func_cb(const T &a)
+{
+  return (T)std::cos(a);
+}
+
+static void INSERT_sqrt_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_single_input_math_function<float, safe_sqrt_func_cb<float>>(builder, vnode);
+}
+
+static void INSERT_abs_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_single_input_math_function<float, abs_func_cb<float>>(builder, vnode);
+}
+
+static void INSERT_sine(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_single_input_math_function<float, sine_func_cb<float>>(builder, vnode);
+}
+
+static void INSERT_cosine(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_single_input_math_function<float, cosine_func_cb<float>>(builder, vnode);
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_FloatMathNode", INSERT_float_math);
@@ -248,6 +297,11 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);
   mappings.vnode_inserters.add_new("fn_MinimumFloatsNode", INSERT_minimum_floats);
   mappings.vnode_inserters.add_new("fn_MaximumFloatsNode", INSERT_maximum_floats);
+
+  mappings.vnode_inserters.add_new("fn_SqrtFloatNode", INSERT_sqrt_float);
+  mappings.vnode_inserters.add_new("fn_AbsoluteFloatNode", INSERT_abs_float);
+  mappings.vnode_inserters.add_new("fn_SineNode", INSERT_sine);
+  mappings.vnode_inserters.add_new("fn_CosineNode", INSERT_cosine);
 }
 
 };  // namespace FN

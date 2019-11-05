@@ -124,6 +124,30 @@ class MF_ContextCurrentFrame final : public MultiFunction {
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
+template<typename FromT, typename ToT, ToT (*Compute)(const FromT &)>
+class MF_Mappping final : public MultiFunction {
+ public:
+  MF_Mappping(StringRef name)
+  {
+    MFSignatureBuilder signature(name);
+    signature.readonly_single_input<FromT>("Input");
+    signature.single_output<ToT>("Output");
+    this->set_signature(signature);
+  }
+
+  void call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const override
+  {
+    VirtualListRef<FromT> inputs = params.readonly_single_input<FromT>(0, "Input");
+    MutableArrayRef<ToT> outputs = params.single_output<ToT>(1, "Output");
+
+    for (uint i : mask.indices()) {
+      const FromT &from_value = inputs[i];
+      ToT to_value = Compute(from_value);
+      new (&outputs[i]) ToT(std::move(to_value));
+    }
+  }
+};
+
 template<typename T, T (*Compute)(T, T)> class MF_SimpleMath final : public MultiFunction {
  private:
   uint m_input_amount;

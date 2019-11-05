@@ -24,10 +24,29 @@ def create_variadic_math_node(data_type, idname, label):
 
     return MathNode
 
+def create_single_input_math_node(data_type, idname, label):
+
+    class MathNode(bpy.types.Node, FunctionNode):
+        bl_idname = idname
+        bl_label = label
+
+        use_list: NodeBuilder.VectorizedProperty()
+
+        def declaration(self, builder: NodeBuilder):
+            builder.vectorized_input("input", "use_list", "Value", "Values", data_type)
+            builder.vectorized_output("output", ["use_list"], "Result", "Result", data_type)
+
+    return MathNode
+
 AddFloatsNode = create_variadic_math_node("Float", "fn_AddFloatsNode", "Add Floats")
 MultiplyFloatsNode = create_variadic_math_node("Float", "fn_MultiplyFloatsNode", "Multiply Floats")
 MinimumFloatsNode = create_variadic_math_node("Float", "fn_MinimumFloatsNode", "Minimum Floats")
 MaximumFloatsNode = create_variadic_math_node("Float", "fn_MaximumFloatsNode", "Maximum Floats")
+
+SqrtFloatNode = create_single_input_math_node("Float", "fn_SqrtFloatNode", "Sqrt Float")
+AbsFloatNode = create_single_input_math_node("Float", "fn_AbsoluteFloatNode", "Absolute Float")
+SineNode = create_single_input_math_node("Float", "fn_SineNode", "Sine")
+CosineNode = create_single_input_math_node("Float", "fn_CosineNode", "Cosine")
 
 
 operation_items = [
