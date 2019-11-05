@@ -21,7 +21,6 @@ class MFSignature {
   std::string m_function_name;
   Vector<std::string> m_param_names;
   Vector<MFParamType> m_param_types;
-  Vector<uint> m_params_with_external_dependencies;
   Vector<uint> m_corrected_indices;
 
   friend class MultiFunction;
@@ -31,12 +30,10 @@ class MFSignature {
 
   MFSignature(std::string function_name,
               Vector<std::string> param_names,
-              Vector<MFParamType> param_types,
-              Vector<uint> params_with_external_dependencies)
+              Vector<MFParamType> param_types)
       : m_function_name(std::move(function_name)),
         m_param_names(std::move(param_names)),
-        m_param_types(std::move(param_types)),
-        m_params_with_external_dependencies(std::move(params_with_external_dependencies))
+        m_param_types(std::move(param_types))
   {
     uint array_or_single_refs = 0;
     uint mutable_array_refs = 0;
@@ -149,7 +146,6 @@ class MFSignatureBuilder {
   std::string m_function_name;
   Vector<std::string> m_param_names;
   Vector<MFParamType> m_param_types;
-  Vector<uint> m_params_with_external_dependencies;
 
  public:
   MFSignatureBuilder(StringRef name) : m_function_name(name)
@@ -166,15 +162,12 @@ class MFSignatureBuilder {
     m_param_types.append(MFParamType(MFParamType::ReadonlySingleInput, &type));
   }
 
-  template<typename T> void single_output(StringRef name, bool has_external_dependencies = false)
+  template<typename T> void single_output(StringRef name)
   {
-    this->single_output(name, GET_TYPE<T>(), has_external_dependencies);
+    this->single_output(name, GET_TYPE<T>());
   }
-  void single_output(StringRef name, const CPPType &type, bool has_external_dependencies = false)
+  void single_output(StringRef name, const CPPType &type)
   {
-    if (has_external_dependencies) {
-      m_params_with_external_dependencies.append(m_param_names.size());
-    }
     m_param_names.append(name);
     m_param_types.append(MFParamType(MFParamType::SingleOutput, &type));
   }
@@ -189,38 +182,26 @@ class MFSignatureBuilder {
     m_param_types.append(MFParamType(MFParamType::ReadonlyVectorInput, &base_type));
   }
 
-  template<typename T> void vector_output(StringRef name, bool has_external_dependencies = false)
+  template<typename T> void vector_output(StringRef name)
   {
-    this->vector_output(name, GET_TYPE<T>(), has_external_dependencies);
+    this->vector_output(name, GET_TYPE<T>());
   }
-  void vector_output(StringRef name,
-                     const CPPType &base_type,
-                     bool has_external_dependencies = false)
+  void vector_output(StringRef name, const CPPType &base_type)
   {
-    if (has_external_dependencies) {
-      m_params_with_external_dependencies.append(m_param_names.size());
-    }
     m_param_names.append(name);
     m_param_types.append(MFParamType(MFParamType::VectorOutput, &base_type));
   }
 
-  void mutable_vector(StringRef name,
-                      const CPPType &base_type,
-                      bool has_external_dependencies = false)
+  void mutable_vector(StringRef name, const CPPType &base_type)
   {
-    if (has_external_dependencies) {
-      m_params_with_external_dependencies.append(m_param_names.size());
-    }
     m_param_names.append(name);
     m_param_types.append(MFParamType(MFParamType::MutableVector, &base_type));
   }
 
   MFSignature build()
   {
-    return MFSignature(std::move(m_function_name),
-                       std::move(m_param_names),
-                       std::move(m_param_types),
-                       std::move(m_params_with_external_dependencies));
+    return MFSignature(
+        std::move(m_function_name), std::move(m_param_names), std::move(m_param_types));
   }
 };
 
