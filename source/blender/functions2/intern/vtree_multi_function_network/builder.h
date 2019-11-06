@@ -47,7 +47,7 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     m_builder->add_link(from, to);
   }
 
-  template<typename T, typename... Args> T &allocate(const char *name, Args &&... args)
+  template<typename T, typename... Args> T &construct(const char *name, Args &&... args)
   {
     void *buffer = m_resources.allocate(sizeof(T), alignof(T));
     T *value = new (buffer) T(std::forward<Args>(args)...);
@@ -55,7 +55,7 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return *value;
   }
 
-  template<typename T, typename... Args> T &allocate_function(Args &&... args)
+  template<typename T, typename... Args> T &construct_fn(Args &&... args)
   {
     BLI_STATIC_ASSERT((std::is_base_of<MultiFunction, T>::value), "");
     void *buffer = m_resources.allocate(sizeof(T), alignof(T));

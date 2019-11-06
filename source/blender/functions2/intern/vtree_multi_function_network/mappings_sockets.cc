@@ -16,7 +16,7 @@ static MFBuilderOutputSocket &INSERT_vector_socket(VTreeMFNetworkBuilder &builde
   BLI::float3 value;
   RNA_float_get_array(vsocket.rna(), "value", value);
 
-  const MultiFunction &fn = builder.allocate_function<FN::MF_ConstantValue<BLI::float3>>(value);
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<BLI::float3>>(value);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
@@ -26,7 +26,7 @@ static MFBuilderOutputSocket &INSERT_float_socket(VTreeMFNetworkBuilder &builder
 {
   float value = RNA_float_get(vsocket.rna(), "value");
 
-  const MultiFunction &fn = builder.allocate_function<FN::MF_ConstantValue<float>>(value);
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<float>>(value);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
@@ -36,7 +36,7 @@ static MFBuilderOutputSocket &INSERT_bool_socket(VTreeMFNetworkBuilder &builder,
 {
   bool value = RNA_boolean_get(vsocket.rna(), "value");
 
-  const MultiFunction &fn = builder.allocate_function<FN::MF_ConstantValue<bool>>(value);
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<bool>>(value);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
@@ -46,7 +46,7 @@ static MFBuilderOutputSocket &INSERT_int_socket(VTreeMFNetworkBuilder &builder,
 {
   int value = RNA_int_get(vsocket.rna(), "value");
 
-  const MultiFunction &fn = builder.allocate_function<FN::MF_ConstantValue<int>>(value);
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<int>>(value);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
@@ -56,7 +56,7 @@ static MFBuilderOutputSocket &INSERT_object_socket(VTreeMFNetworkBuilder &builde
 {
   Object *value = (Object *)RNA_pointer_get(vsocket.rna(), "value").data;
 
-  const MultiFunction &fn = builder.allocate_function<FN::MF_ConstantValue<Object *>>(value);
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<Object *>>(value);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
@@ -68,7 +68,7 @@ static MFBuilderOutputSocket &INSERT_text_socket(VTreeMFNetworkBuilder &builder,
   std::string text = value;
   MEM_freeN(value);
 
-  const MultiFunction &fn = builder.allocate_function<FN::MF_ConstantValue<std::string>>(text);
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<std::string>>(text);
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
@@ -77,7 +77,7 @@ template<typename T>
 static MFBuilderOutputSocket &INSERT_empty_list_socket(VTreeMFNetworkBuilder &builder,
                                                        const VSocket &UNUSED(vsocket))
 {
-  const MultiFunction &fn = builder.allocate_function<FN::MF_EmptyList<T>>();
+  const MultiFunction &fn = builder.construct_fn<FN::MF_EmptyList<T>>();
   MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
   return *node.outputs()[0];
 }
@@ -89,7 +89,7 @@ template<typename FromT, typename ToT>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert(
     VTreeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.allocate_function<FN::MF_Convert<FromT, ToT>>();
+  const MultiFunction &fn = builder.construct_fn<FN::MF_Convert<FromT, ToT>>();
   MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
   return {node.inputs()[0], node.outputs()[0]};
 }
@@ -98,7 +98,7 @@ template<typename FromT, typename ToT>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert_list(
     VTreeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.allocate_function<FN::MF_ConvertList<FromT, ToT>>();
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ConvertList<FromT, ToT>>();
   MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
   return {node.inputs()[0], node.outputs()[0]};
 }
@@ -107,7 +107,7 @@ template<typename T>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_element_to_list(
     VTreeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.allocate_function<FN::MF_SingleElementList<T>>();
+  const MultiFunction &fn = builder.construct_fn<FN::MF_SingleElementList<T>>();
   MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
   return {node.inputs()[0], node.outputs()[0]};
 }

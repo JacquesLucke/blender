@@ -7,7 +7,7 @@ namespace FN {
 
 static void INSERT_vector_math(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.allocate_function<FN::MF_AddFloat3s>();
+  const MultiFunction &fn = builder.construct_fn<FN::MF_AddFloat3s>();
   builder.add_function(fn, {0, 1}, {2}, vnode);
 }
 
@@ -28,7 +28,7 @@ static const MultiFunction &get_vectorized_function(
   }
 
   if (input_is_vectorized.contains(true)) {
-    return builder.allocate_function<FN::MF_SimpleVectorize>(base_function, input_is_vectorized);
+    return builder.construct_fn<FN::MF_SimpleVectorize>(base_function, input_is_vectorized);
   }
   else {
     return base_function;
@@ -37,7 +37,7 @@ static const MultiFunction &get_vectorized_function(
 
 static void INSERT_float_math(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &base_fn = builder.allocate_function<FN::MF_AddFloats>();
+  const MultiFunction &base_fn = builder.construct_fn<FN::MF_AddFloats>();
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__a", "use_list__b"});
 
@@ -46,7 +46,7 @@ static void INSERT_float_math(VTreeMFNetworkBuilder &builder, const VNode &vnode
 
 static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &base_fn = builder.allocate_function<FN::MF_CombineVector>();
+  const MultiFunction &base_fn = builder.construct_fn<FN::MF_CombineVector>();
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__x", "use_list__y", "use_list__z"});
   builder.add_function(fn, {0, 1, 2}, {3}, vnode);
@@ -54,7 +54,7 @@ static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder, const VNode &v
 
 static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &base_fn = builder.allocate_function<FN::MF_SeparateVector>();
+  const MultiFunction &base_fn = builder.construct_fn<FN::MF_SeparateVector>();
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__vector"});
   builder.add_function(fn, {0}, {1, 2, 3}, vnode);
@@ -63,14 +63,14 @@ static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder, const VNode &
 static void INSERT_list_length(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
-  const MultiFunction &fn = builder.allocate_function<FN::MF_ListLength>(type);
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ListLength>(type);
   builder.add_function(fn, {0}, {1}, vnode);
 }
 
 static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
-  const MultiFunction &fn = builder.allocate_function<FN::MF_GetListElement>(type);
+  const MultiFunction &fn = builder.construct_fn<FN::MF_GetListElement>(type);
   builder.add_function(fn, {0, 1, 2}, {3}, vnode);
 }
 
@@ -106,7 +106,7 @@ static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builde
   uint input_amount = list_states.size();
   uint output_param_index = (input_amount > 0 && list_states[0]) ? 0 : input_amount;
 
-  const MultiFunction &fn = builder.allocate_function<FN::MF_PackList>(base_type, list_states);
+  const MultiFunction &fn = builder.construct_fn<FN::MF_PackList>(base_type, list_states);
   MFBuilderFunctionNode &node = builder.add_function(
       fn, IndexRange(input_amount).as_array_ref(), {output_param_index});
 
@@ -127,31 +127,31 @@ static void INSERT_pack_list(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 
 static void INSERT_object_location(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.allocate_function<FN::MF_ObjectWorldLocation>();
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ObjectWorldLocation>();
   builder.add_function(fn, {0}, {1}, vnode);
 }
 
 static void INSERT_text_length(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.allocate_function<FN::MF_TextLength>();
+  const MultiFunction &fn = builder.construct_fn<FN::MF_TextLength>();
   builder.add_function(fn, {0}, {1}, vnode);
 }
 
 static void INSERT_vertex_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.allocate_function<FN::MF_ContextVertexPosition>();
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ContextVertexPosition>();
   builder.add_function(fn, {}, {0}, vnode);
 }
 
 static void INSERT_float_range(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.allocate_function<FN::MF_FloatRange>();
+  const MultiFunction &fn = builder.construct_fn<FN::MF_FloatRange>();
   builder.add_function(fn, {0, 1, 2}, {3}, vnode);
 }
 
 static void INSERT_time_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.allocate_function<FN::MF_ContextCurrentFrame>();
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ContextCurrentFrame>();
   builder.add_function(fn, {}, {0}, vnode);
 }
 
@@ -162,14 +162,14 @@ static const MultiFunction &get_simple_math_function(VTreeMFNetworkBuilder &buil
                                                      T default_value)
 {
   if (list_states.size() == 0) {
-    return builder.allocate_function<FN::MF_ConstantValue<T>>(default_value);
+    return builder.construct_fn<FN::MF_ConstantValue<T>>(default_value);
   }
   else {
-    const MultiFunction &math_fn = builder.allocate_function<FN::MF_SimpleMath<T, Compute>>(
+    const MultiFunction &math_fn = builder.construct_fn<FN::MF_SimpleMath<T, Compute>>(
         name, list_states.size());
 
     if (list_states.contains(true)) {
-      return builder.allocate_function<FN::MF_SimpleVectorize>(math_fn, list_states);
+      return builder.construct_fn<FN::MF_SimpleVectorize>(math_fn, list_states);
     }
     else {
       return math_fn;
@@ -247,8 +247,7 @@ template<typename T> T safe_power_func_cb(T a, T b)
 template<typename T, T (*Compute)(T, T)>
 void insert_two_inputs_math_function(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &base_fn = builder.allocate_function<MF_SimpleMath<T, Compute>>(vnode.name(),
-                                                                                      2);
+  const MultiFunction &base_fn = builder.construct_fn<MF_SimpleMath<T, Compute>>(vnode.name(), 2);
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__a", "use_list__b"});
   builder.add_function(fn, {0, 1}, {2}, vnode);
@@ -272,7 +271,7 @@ static void INSERT_power_floats(VTreeMFNetworkBuilder &builder, const VNode &vno
 template<typename T, T (*Compute)(const T &)>
 static void insert_single_input_math_function(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &base_fn = builder.allocate_function<FN::MF_Mappping<T, T, Compute>>(
+  const MultiFunction &base_fn = builder.construct_fn<FN::MF_Mappping<T, T, Compute>>(
       vnode.name());
   const MultiFunction &fn = get_vectorized_function(builder, base_fn, vnode.rna(), {"use_list"});
   builder.add_function(fn, {0}, {1}, vnode);
