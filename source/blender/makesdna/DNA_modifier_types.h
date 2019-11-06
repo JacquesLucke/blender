@@ -2034,7 +2034,7 @@ typedef struct BParticlesModifierData {
   unsigned int output_type;
 
   unsigned int num_cached_frames;
-  struct bNodeTree *bparticles_tree;
+  struct bNodeTree *node_tree;
   BParticlesFrameCache *cached_frames;
 } BParticlesModifierData;
 

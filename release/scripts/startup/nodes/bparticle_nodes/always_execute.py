@@ -1,11 +1,11 @@
 import bpy
 from bpy.props import *
-from .. base import BParticlesNode
+from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
 
-class AlwaysExecuteNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_AlwaysExecuteNode"
+class AlwaysExecuteNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_AlwaysExecuteNode"
     bl_label = "Always Execute"
 
     execute__prop: NodeBuilder.ExecuteInputProperty()

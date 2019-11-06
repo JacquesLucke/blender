@@ -1,11 +1,11 @@
 import bpy
 from bpy.props import *
-from .. base import BParticlesNode
+from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
 
-class AgeReachedEventNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_AgeReachedEventNode"
+class AgeReachedEventNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_AgeReachedEventNode"
     bl_label = "Age Reached Event"
 
     execute_on_event__prop: NodeBuilder.ExecuteInputProperty()
@@ -18,8 +18,8 @@ class AgeReachedEventNode(bpy.types.Node, BParticlesNode):
         builder.influences_output("event", "Event")
 
 
-class MeshCollisionEventNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_MeshCollisionEventNode"
+class MeshCollisionEventNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_MeshCollisionEventNode"
     bl_label = "Mesh Collision Event"
 
     execute_on_event__prop: NodeBuilder.ExecuteInputProperty()
@@ -31,8 +31,8 @@ class MeshCollisionEventNode(bpy.types.Node, BParticlesNode):
         builder.influences_output("event", "Event")
 
 
-class CustomEventNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_CustomEventNode"
+class CustomEventNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_CustomEventNode"
     bl_label = "Custom Event"
 
     execute_on_event__prop: NodeBuilder.ExecuteInputProperty()

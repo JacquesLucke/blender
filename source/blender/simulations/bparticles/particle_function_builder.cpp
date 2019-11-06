@@ -160,12 +160,12 @@ static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeDataGraph &vtree_da
 BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
 {
   StringMap<BuildInputProvider> map;
-  map.add_new("bp_ParticleInfoNode", INPUT_particle_info);
-  map.add_new("bp_SurfaceInfoNode", INPUT_surface_info);
-  map.add_new("bp_SurfaceImageNode", INPUT_surface_image);
-  map.add_new("bp_SurfaceWeightNode", INPUT_surface_weight);
-  map.add_new("bp_ParticleRandomnessInputNode", INPUT_randomness_input);
-  map.add_new("bp_IsInGroupNode", INPUT_is_in_group);
+  map.add_new("fn_ParticleInfoNode", INPUT_particle_info);
+  map.add_new("fn_SurfaceInfoNode", INPUT_surface_info);
+  map.add_new("fn_SurfaceImageNode", INPUT_surface_image);
+  map.add_new("fn_SurfaceWeightNode", INPUT_surface_weight);
+  map.add_new("fn_ParticleRandomnessInputNode", INPUT_randomness_input);
+  map.add_new("fn_IsInGroupNode", INPUT_is_in_group);
   return map;
 }
 

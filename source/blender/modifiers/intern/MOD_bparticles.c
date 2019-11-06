@@ -194,7 +194,7 @@ static void foreachObjectLink(ModifierData *UNUSED(md),
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
   BParticlesModifierData *bpmd = (BParticlesModifierData *)md;
-  walk(userData, ob, (ID **)&bpmd->bparticles_tree, IDWALK_CB_NOP);
+  walk(userData, ob, (ID **)&bpmd->node_tree, IDWALK_CB_NOP);
 
   foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
 }

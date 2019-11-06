@@ -12,7 +12,7 @@ class InfluencesSocketDecl(SocketDeclBase):
         self.display_name = display_name
 
     def build(self, node_sockets):
-        socket = node_sockets.new("bp_InfluencesSocket", self.display_name, identifier=self.identifier)
+        socket = node_sockets.new("fn_InfluencesSocket", self.display_name, identifier=self.identifier)
         socket.link_limit = MAX_LINK_LIMIT
         socket.display_shape = 'DIAMOND'
         return [socket]
@@ -21,7 +21,7 @@ class InfluencesSocketDecl(SocketDeclBase):
         if len(sockets) != 1:
             return False
         socket = sockets[0]
-        if socket.bl_idname != "bp_InfluencesSocket":
+        if socket.bl_idname != "fn_InfluencesSocket":
             return False
         if socket.name != self.display_name:
             return False
@@ -39,7 +39,7 @@ class ExecuteOutputDecl(SocketDeclBase):
         self.display_name = display_name
 
     def build(self, node_sockets):
-        socket = node_sockets.new("bp_ExecuteSocket", self.display_name, identifier=self.identifier)
+        socket = node_sockets.new("fn_ExecuteSocket", self.display_name, identifier=self.identifier)
         socket.display_shape = 'SQUARE'
         return [socket]
 
@@ -69,7 +69,7 @@ class ExecuteInputListDecl(SocketDeclBase):
     def _build(self, node_sockets):
         for i in range(self.get_execute_amount()):
             socket = node_sockets.new(
-                "bp_ExecuteSocket",
+                "fn_ExecuteSocket",
                 self.display_name,
                 identifier=self.identifier_prefix + str(i))
             socket.display_shape = 'SQUARE'
@@ -95,7 +95,7 @@ class ExecuteInputListDecl(SocketDeclBase):
             expected_identifier = self.identifier_prefix + str(i)
             if socket.identifier != expected_identifier:
                 return False
-            elif socket.bl_idname != "bp_ExecuteSocket":
+            elif socket.bl_idname != "fn_ExecuteSocket":
                 return False
 
         if not isinstance(sockets[-1], OperatorSocket):

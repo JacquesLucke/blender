@@ -9,15 +9,7 @@ FunctionInput = namedtuple("FunctionInput",
 FunctionOutput = namedtuple("FunctionOutput",
     ["data_type", "name", "identifier"])
 
-class TreeWithFunctionNodes:
-    def iter_dependency_trees(self):
-        trees = set()
-        for node in self.nodes:
-            if isinstance(node, BaseNode):
-                trees.update(node.iter_dependency_trees())
-        yield from trees
-
-class FunctionTree(bpy.types.NodeTree, BaseTree, TreeWithFunctionNodes):
+class FunctionTree(bpy.types.NodeTree, BaseTree):
     bl_idname = "FunctionTree"
     bl_icon = "MOD_DATA_TRANSFER"
     bl_label = "Function Nodes"
@@ -55,3 +47,10 @@ class FunctionTree(bpy.types.NodeTree, BaseTree, TreeWithFunctionNodes):
             if node.bl_idname == "fn_FunctionOutputNode":
                 return node
         return None
+
+    def iter_dependency_trees(self):
+        trees = set()
+        for node in self.nodes:
+            if isinstance(node, BaseNode):
+                trees.update(node.iter_dependency_trees())
+        yield from trees

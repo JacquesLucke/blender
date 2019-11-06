@@ -1,10 +1,10 @@
 import bpy
 from bpy.props import *
-from .. base import BParticlesNode
+from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
-class MeshEmitterNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_MeshEmitterNode"
+class MeshEmitterNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_MeshEmitterNode"
     bl_label = "Mesh Emitter"
 
     execute_on_birth__prop: NodeBuilder.ExecuteInputProperty()
@@ -15,7 +15,7 @@ class MeshEmitterNode(bpy.types.Node, BParticlesNode):
             ('UNIFORM', "Uniform", "", 'NONE', 0),
             ('VERTEX_WEIGHTS', "Vertex Weights", "", 'NONE', 1),
         ],
-        update=BParticlesNode.sync_tree,
+        update=SimulationNode.sync_tree,
     )
 
     def declaration(self, builder: NodeBuilder):

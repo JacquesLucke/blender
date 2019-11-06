@@ -34,8 +34,8 @@ using FN::DataFlowNodes::VTreeDataGraph;
 using FN::Types::ObjectW;
 using FN::Types::StringW;
 
-static StringRef particle_system_idname = "bp_ParticleSystemNode";
-static StringRef combine_influences_idname = "bp_CombineInfluencesNode";
+static StringRef particle_system_idname = "fn_ParticleSystemNode";
+static StringRef combine_influences_idname = "fn_CombineInfluencesNode";
 
 class VTreeData;
 class InfluencesCollector;
@@ -160,7 +160,7 @@ class VTreeData {
     }
 
     const VSocket &execute_socket = *start.linked_sockets()[0];
-    if (execute_socket.idname() != "bp_ExecuteSocket") {
+    if (execute_socket.idname() != "fn_ExecuteSocket") {
       return nullptr;
     }
 
@@ -407,15 +407,15 @@ static std::unique_ptr<Action> ACTION_remove_from_group(InfluencesCollector &UNU
 BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
 {
   StringMap<ActionParserCallback> map;
-  map.add_new("bp_KillParticleNode", ACTION_kill);
-  map.add_new("bp_ChangeParticleVelocityNode", ACTION_change_velocity);
-  map.add_new("bp_ExplodeParticleNode", ACTION_explode);
-  map.add_new("bp_ParticleConditionNode", ACTION_condition);
-  map.add_new("bp_ChangeParticleColorNode", ACTION_change_color);
-  map.add_new("bp_ChangeParticleSizeNode", ACTION_change_size);
-  map.add_new("bp_ChangeParticlePositionNode", ACTION_change_position);
-  map.add_new("bp_AddToGroupNode", ACTION_add_to_group);
-  map.add_new("bp_RemoveFromGroupNode", ACTION_remove_from_group);
+  map.add_new("fn_KillParticleNode", ACTION_kill);
+  map.add_new("fn_ChangeParticleVelocityNode", ACTION_change_velocity);
+  map.add_new("fn_ExplodeParticleNode", ACTION_explode);
+  map.add_new("fn_ParticleConditionNode", ACTION_condition);
+  map.add_new("fn_ChangeParticleColorNode", ACTION_change_color);
+  map.add_new("fn_ChangeParticleSizeNode", ACTION_change_size);
+  map.add_new("fn_ChangeParticlePositionNode", ACTION_change_position);
+  map.add_new("fn_AddToGroupNode", ACTION_add_to_group);
+  map.add_new("fn_RemoveFromGroupNode", ACTION_remove_from_group);
   return map;
 }
 
@@ -766,19 +766,19 @@ static void PARSE_always_execute(InfluencesCollector &collector,
 BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
 {
   StringMap<ParseNodeCallback> map;
-  map.add_new("bp_PointEmitterNode", PARSE_point_emitter);
-  map.add_new("bp_MeshEmitterNode", PARSE_mesh_emitter);
-  map.add_new("bp_GravityForceNode", PARSE_gravity_force);
-  map.add_new("bp_AgeReachedEventNode", PARSE_age_reached_event);
-  map.add_new("bp_ParticleTrailsNode", PARSE_trails);
-  map.add_new("bp_InitialGridEmitterNode", PARSE_initial_grid_emitter);
-  map.add_new("bp_TurbulenceForceNode", PARSE_turbulence_force);
-  map.add_new("bp_MeshCollisionEventNode", PARSE_mesh_collision);
-  map.add_new("bp_SizeOverTimeNode", PARSE_size_over_time);
-  map.add_new("bp_DragForceNode", PARSE_drag_force);
-  map.add_new("bp_MeshForceNode", PARSE_mesh_force);
-  map.add_new("bp_CustomEventNode", PARSE_custom_event);
-  map.add_new("bp_AlwaysExecuteNode", PARSE_always_execute);
+  map.add_new("fn_PointEmitterNode", PARSE_point_emitter);
+  map.add_new("fn_MeshEmitterNode", PARSE_mesh_emitter);
+  map.add_new("fn_GravityForceNode", PARSE_gravity_force);
+  map.add_new("fn_AgeReachedEventNode", PARSE_age_reached_event);
+  map.add_new("fn_ParticleTrailsNode", PARSE_trails);
+  map.add_new("fn_InitialGridEmitterNode", PARSE_initial_grid_emitter);
+  map.add_new("fn_TurbulenceForceNode", PARSE_turbulence_force);
+  map.add_new("fn_MeshCollisionEventNode", PARSE_mesh_collision);
+  map.add_new("fn_SizeOverTimeNode", PARSE_size_over_time);
+  map.add_new("fn_DragForceNode", PARSE_drag_force);
+  map.add_new("fn_MeshForceNode", PARSE_mesh_force);
+  map.add_new("fn_CustomEventNode", PARSE_custom_event);
+  map.add_new("fn_AlwaysExecuteNode", PARSE_always_execute);
   return map;
 }
 

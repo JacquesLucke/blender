@@ -1,10 +1,10 @@
 import bpy
 from bpy.props import *
-from .. base import BParticlesNode
+from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
-class InitialGridEmitterNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_InitialGridEmitterNode"
+class InitialGridEmitterNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_InitialGridEmitterNode"
     bl_label = "Initial Grid Emitter"
 
     execute_on_birth__prop: NodeBuilder.ExecuteInputProperty()

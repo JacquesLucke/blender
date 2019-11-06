@@ -1,11 +1,11 @@
 import bpy
 from bpy.props import *
-from .. base import BParticlesNode
+from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
 
-class ParticleInfoNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_ParticleInfoNode"
+class ParticleInfoNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_ParticleInfoNode"
     bl_label = "Particle Info"
 
     def declaration(self, builder: NodeBuilder):
@@ -16,8 +16,8 @@ class ParticleInfoNode(bpy.types.Node, BParticlesNode):
         builder.fixed_output("age", "Age", "Float")
 
 
-class SurfaceInfoNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_SurfaceInfoNode"
+class SurfaceInfoNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_SurfaceInfoNode"
     bl_label = "Surface Info"
 
     def declaration(self, builder: NodeBuilder):
@@ -25,8 +25,8 @@ class SurfaceInfoNode(bpy.types.Node, BParticlesNode):
         builder.fixed_output("velocity", "Velocity", "Vector")
 
 
-class SurfaceImageNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_SurfaceImageNode"
+class SurfaceImageNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_SurfaceImageNode"
     bl_label = "Surface Image"
 
     uv_mode: EnumProperty(
@@ -35,7 +35,7 @@ class SurfaceImageNode(bpy.types.Node, BParticlesNode):
             ('FIRST', "First", "Use first UV map", 'NONE', 0),
             ('BY_NAME', "By Name", "Choose the UV map by name", 'NONE', 1),
         ],
-        update=BParticlesNode.sync_tree,
+        update=SimulationNode.sync_tree,
         default='FIRST',
     )
 
@@ -52,8 +52,8 @@ class SurfaceImageNode(bpy.types.Node, BParticlesNode):
         col.prop(self, "uv_mode", text="")
 
 
-class SurfaceWeightNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_SurfaceWeightNode"
+class SurfaceWeightNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_SurfaceWeightNode"
     bl_label = "Surface Weight"
 
     group_name: StringProperty()
@@ -65,8 +65,8 @@ class SurfaceWeightNode(bpy.types.Node, BParticlesNode):
         layout.prop(self, "group_name", text="")
 
 
-class ParticleRandomnessInputNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_ParticleRandomnessInputNode"
+class ParticleRandomnessInputNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_ParticleRandomnessInputNode"
     bl_label = "Particle Randomness Input"
 
     def declaration(self, builder: NodeBuilder):

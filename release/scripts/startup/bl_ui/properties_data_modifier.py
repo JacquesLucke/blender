@@ -1679,8 +1679,8 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
     def BPARTICLES(self, layout, ob, md):
         row = layout.row(align=True)
-        row.prop(md, "bparticles_tree")
-        props = row.operator("bp.new_bparticles_tree", text="", icon="ADD")
+        row.prop(md, "node_tree")
+        props = row.operator("fn.new_particle_simulation_tree", text="", icon="ADD")
         props.object_name = ob.name
         props.modifier_name = md.name
 

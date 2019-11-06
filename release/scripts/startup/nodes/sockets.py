@@ -179,11 +179,11 @@ TextListSocket = create_simple_data_socket(
     "fn_TextListSocket", "Text List", (0.8, 0.8, 0.8, 0.5))
 
 class ExecuteSocket(bpy.types.NodeSocket, BaseSocket):
-    bl_idname = "bp_ExecuteSocket"
+    bl_idname = "fn_ExecuteSocket"
     bl_label = "Control Flow Socket"
     color = (0.8, 0.2, 0.2, 1)
 
 class InfluencesSocket(bpy.types.NodeSocket, BaseSocket):
-    bl_idname = "bp_InfluencesSocket"
+    bl_idname = "fn_InfluencesSocket"
     bl_label = "Influences Socket"
     color = (0.8, 0.8, 0.2, 1)

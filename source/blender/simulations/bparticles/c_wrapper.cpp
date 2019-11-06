@@ -57,14 +57,14 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
 {
   SCOPED_TIMER(__func__);
 
-  if (bpmd->bparticles_tree == NULL) {
+  if (bpmd->node_tree == NULL) {
     return;
   }
 
   SimulationState &simulation_state = *unwrap(state_c);
   simulation_state.time().start_update(time_step);
 
-  bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)bpmd->bparticles_tree);
+  bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)bpmd->node_tree);
   auto simulator = simulator_from_node_tree(btree);
 
   simulator->simulate(simulation_state);

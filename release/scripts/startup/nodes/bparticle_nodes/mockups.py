@@ -1,11 +1,11 @@
 import bpy
 from bpy.props import *
-from .. base import BParticlesNode
+from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
 
-class ParticleMeshDistanceNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_ParticleSurfaceDistanceNode"
+class ParticleMeshDistanceNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_ParticleSurfaceDistanceNode"
     bl_label = "Mockup - Particle Surface Distance"
 
     def declaration(self, builder: NodeBuilder):
@@ -14,8 +14,8 @@ class ParticleMeshDistanceNode(bpy.types.Node, BParticlesNode):
         builder.fixed_output("is_inside", "Is Inside", "Boolean")
 
 
-class DerivedAttributeNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_DerivedAttributeNode"
+class DerivedAttributeNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_DerivedAttributeNode"
     bl_label = "Mockup - Derived Attribute"
 
     predefined_attributes = {
@@ -28,7 +28,7 @@ class DerivedAttributeNode(bpy.types.Node, BParticlesNode):
     attribute: EnumProperty(
         name="Attribute",
         items=[(name, name, "") for name in predefined_attributes.keys()] + [("Custom", "Custom", "")],
-        update=BParticlesNode.sync_tree,
+        update=SimulationNode.sync_tree,
     )
 
     attribute_type: EnumProperty(
@@ -38,7 +38,7 @@ class DerivedAttributeNode(bpy.types.Node, BParticlesNode):
             ("Float", "Float", ""),
             ("Color", "Color", ""),
         ],
-        update=BParticlesNode.sync_tree,
+        update=SimulationNode.sync_tree,
     )
 
     def declaration(self, builder: NodeBuilder):
@@ -56,8 +56,8 @@ class DerivedAttributeNode(bpy.types.Node, BParticlesNode):
             layout.prop(self, "attribute_type", text="")
 
 
-class SetAgeLimitNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_SetAgeLimitNode"
+class SetAgeLimitNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_SetAgeLimitNode"
     bl_label = "Mockup - Set Age Limit"
 
     def declaration(self, builder: NodeBuilder):
@@ -66,8 +66,8 @@ class SetAgeLimitNode(bpy.types.Node, BParticlesNode):
         builder.execute_output("execute", "Execute")
 
 
-class AgeLimitReachedNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_AgeLimitReachedNode"
+class AgeLimitReachedNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_AgeLimitReachedNode"
     bl_label = "Mockup - Age Limit Reached"
 
     kill: BoolProperty(

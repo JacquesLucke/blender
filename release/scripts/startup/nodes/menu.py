@@ -1,10 +1,9 @@
 import bpy
 from . function_tree import FunctionTree
-from . bparticles_tree import BParticlesTree
 
 def draw_menu(self, context):
     tree = context.space_data.node_tree
-    if not isinstance(tree, (FunctionTree, BParticlesTree)):
+    if not isinstance(tree, FunctionTree):
         return
 
     layout = self.layout
@@ -14,7 +13,7 @@ def draw_menu(self, context):
     layout.separator()
     layout.menu("FN_MT_function_nodes_menu", text="Function Nodes")
     layout.separator()
-    insert_node(layout, "bp_ParticleSystemNode", "Particle System")
+    insert_node(layout, "fn_ParticleSystemNode", "Particle System")
     layout.menu("BP_MT_influences_nodes_menu", text="Influences")
     layout.menu("BP_MT_action_nodes_menu", text="Actions")
     layout.menu("BP_MT_input_nodes_menu", text="Inputs")
@@ -65,24 +64,24 @@ class InfluencesNodesMenu(bpy.types.Menu):
         layout = self.layout
         layout.operator_context = 'INVOKE_DEFAULT'
 
-        insert_node(layout, "bp_CombineInfluencesNode", "Combine Influences")
+        insert_node(layout, "fn_CombineInfluencesNode", "Combine Influences")
         layout.separator()
-        insert_node(layout, "bp_InitialGridEmitterNode", "Initial Grid Emitter")
-        insert_node(layout, "bp_MeshEmitterNode", "Mesh Emitter")
-        insert_node(layout, "bp_PointEmitterNode", "Point Emitter")
+        insert_node(layout, "fn_InitialGridEmitterNode", "Initial Grid Emitter")
+        insert_node(layout, "fn_MeshEmitterNode", "Mesh Emitter")
+        insert_node(layout, "fn_PointEmitterNode", "Point Emitter")
         layout.separator()
-        insert_node(layout, "bp_AgeReachedEventNode", "Age Reached Event")
-        insert_node(layout, "bp_MeshCollisionEventNode", "Mesh Collision Event")
-        insert_node(layout, "bp_CustomEventNode", "Custom Event")
+        insert_node(layout, "fn_AgeReachedEventNode", "Age Reached Event")
+        insert_node(layout, "fn_MeshCollisionEventNode", "Mesh Collision Event")
+        insert_node(layout, "fn_CustomEventNode", "Custom Event")
         layout.separator()
-        insert_node(layout, "bp_TurbulenceForceNode", "Turbulence Force")
-        insert_node(layout, "bp_GravityForceNode", "Gravity Force")
-        insert_node(layout, "bp_DragForceNode", "Drag Force")
-        insert_node(layout, "bp_MeshForceNode", "Mesh Force")
+        insert_node(layout, "fn_TurbulenceForceNode", "Turbulence Force")
+        insert_node(layout, "fn_GravityForceNode", "Gravity Force")
+        insert_node(layout, "fn_DragForceNode", "Drag Force")
+        insert_node(layout, "fn_MeshForceNode", "Mesh Force")
         layout.separator()
-        insert_node(layout, "bp_SizeOverTimeNode", "Size Over Time")
-        insert_node(layout, "bp_ParticleTrailsNode", "Trails")
-        insert_node(layout, "bp_AlwaysExecuteNode", "Always Execute")
+        insert_node(layout, "fn_SizeOverTimeNode", "Size Over Time")
+        insert_node(layout, "fn_ParticleTrailsNode", "Trails")
+        insert_node(layout, "fn_AlwaysExecuteNode", "Always Execute")
 
 
 class ActionNodesMenu(bpy.types.Menu):
@@ -93,14 +92,14 @@ class ActionNodesMenu(bpy.types.Menu):
         layout = self.layout
         layout.operator_context = 'INVOKE_DEFAULT'
 
-        insert_node(layout, "bp_ChangeParticleColorNode", "Change Color")
-        insert_node(layout, "bp_ChangeParticleVelocityNode", "Change Velocity")
-        insert_node(layout, "bp_ChangeParticleSizeNode", "Change Size")
-        insert_node(layout, "bp_ChangeParticlePositionNode", "Change Position")
+        insert_node(layout, "fn_ChangeParticleColorNode", "Change Color")
+        insert_node(layout, "fn_ChangeParticleVelocityNode", "Change Velocity")
+        insert_node(layout, "fn_ChangeParticleSizeNode", "Change Size")
+        insert_node(layout, "fn_ChangeParticlePositionNode", "Change Position")
         layout.separator()
-        insert_node(layout, "bp_ExplodeParticleNode", "Explode Particle")
-        insert_node(layout, "bp_KillParticleNode", "Kill Particle")
-        insert_node(layout, "bp_ParticleConditionNode", "Condition")
+        insert_node(layout, "fn_ExplodeParticleNode", "Explode Particle")
+        insert_node(layout, "fn_KillParticleNode", "Kill Particle")
+        insert_node(layout, "fn_ParticleConditionNode", "Condition")
 
 class InputNodesMenu(bpy.types.Menu):
     bl_idname = "BP_MT_input_nodes_menu"
@@ -110,11 +109,11 @@ class InputNodesMenu(bpy.types.Menu):
         layout = self.layout
         layout.operator_context = 'INVOKE_DEFAULT'
 
-        insert_node(layout, "bp_ParticleInfoNode", "Particle Info")
-        insert_node(layout, "bp_SurfaceInfoNode", "Surface Info")
-        insert_node(layout, "bp_SurfaceImageNode", "Image Colors")
-        insert_node(layout, "bp_SurfaceWeightNode", "Vertex Weights")
-        insert_node(layout, "bp_ParticleRandomnessInputNode", "Particle Randomness")
+        insert_node(layout, "fn_ParticleInfoNode", "Particle Info")
+        insert_node(layout, "fn_SurfaceInfoNode", "Surface Info")
+        insert_node(layout, "fn_SurfaceImageNode", "Image Colors")
+        insert_node(layout, "fn_SurfaceWeightNode", "Vertex Weights")
+        insert_node(layout, "fn_ParticleRandomnessInputNode", "Particle Randomness")
 
 
 def insert_node(layout, type, text, settings = {}, icon = "NONE"):

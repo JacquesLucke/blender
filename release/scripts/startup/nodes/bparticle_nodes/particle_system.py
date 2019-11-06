@@ -1,9 +1,9 @@
 import bpy
-from .. base import BParticlesNode
+from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
-class ParticleSystemNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_ParticleSystemNode"
+class ParticleSystemNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_ParticleSystemNode"
     bl_label = "Particle System"
 
     def declaration(self, builder: NodeBuilder):

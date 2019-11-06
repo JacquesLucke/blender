@@ -1,10 +1,10 @@
 import bpy
 from bpy.props import *
-from .. base import BParticlesNode
+from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
-class ParticleTrailsNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_ParticleTrailsNode"
+class ParticleTrailsNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_ParticleTrailsNode"
     bl_label = "Particle Trails"
 
     execute_on_birth__prop: NodeBuilder.ExecuteInputProperty()

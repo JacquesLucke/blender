@@ -2049,7 +2049,7 @@ class VIEW3D_MT_add(Menu):
 
         layout.separator()
 
-        layout.operator("bp.new_particle_system", text="Particle Simulation", icon='MOD_PARTICLES')
+        layout.operator("fn.new_particle_system", text="Particle Simulation", icon='MOD_PARTICLES')
 
         layout.separator()
 

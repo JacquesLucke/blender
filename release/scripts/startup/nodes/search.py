@@ -24,7 +24,7 @@ class NodeSearch(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        try: return context.space_data.node_tree.bl_idname in ("FunctionTree", "BParticlesTree")
+        try: return context.space_data.node_tree.bl_idname == "FunctionTree"
         except: return False
 
     def invoke(self, context, event):

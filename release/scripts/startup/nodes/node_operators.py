@@ -109,7 +109,7 @@ def new_function_tree(name, inputs, outputs):
     return tree
 
 class NewParticleSystem(bpy.types.Operator):
-    bl_idname = "bp.new_particle_system"
+    bl_idname = "fn.new_particle_system"
     bl_label = "New Particle System"
 
     def execute(self, context):
@@ -117,7 +117,7 @@ class NewParticleSystem(bpy.types.Operator):
         ob = bpy.data.objects.new("Particle Simulation", mesh)
         modifier = ob.modifiers.new("BParticles", 'BPARTICLES')
 
-        bpy.ops.bp.new_bparticles_tree(object_name=ob.name, modifier_name=modifier.name)
+        bpy.ops.fn.new_particle_simulation_tree(object_name=ob.name, modifier_name=modifier.name)
 
         context.collection.objects.link(ob)
 

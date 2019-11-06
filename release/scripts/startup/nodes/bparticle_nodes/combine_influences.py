@@ -1,9 +1,9 @@
 import bpy
-from .. base import BParticlesNode
+from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
-class CombineInfluencesNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_CombineInfluencesNode"
+class CombineInfluencesNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_CombineInfluencesNode"
     bl_label = "Combine Influences"
 
     def declaration(self, builder: NodeBuilder):

@@ -6143,7 +6143,7 @@ static void rna_def_modifier_bparticles(BlenderRNA *brna)
   RNA_def_struct_sdna(srna, "BParticlesModifierData");
   RNA_def_struct_ui_icon(srna, ICON_NONE);
 
-  prop = RNA_def_property(srna, "bparticles_tree", PROP_POINTER, PROP_NONE);
+  prop = RNA_def_property(srna, "node_tree", PROP_POINTER, PROP_NONE);
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "BParticles Tree", "BParticles node tree");
   RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");

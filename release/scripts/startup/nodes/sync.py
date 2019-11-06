@@ -72,11 +72,10 @@ def build_tree_dependency_graph():
     Every edge (A, B) means: Changes in A might affect B.
     '''
     from . function_tree import FunctionTree
-    from . bparticles_tree import BParticlesTree
 
     builder = DirectedGraphBuilder()
     for tree in bpy.data.node_groups:
-        if isinstance(tree, (FunctionTree, BParticlesTree)):
+        if isinstance(tree, FunctionTree):
             builder.add_vertex(tree)
             for dependency_tree in tree.iter_dependency_trees():
                 builder.add_directed_edge(

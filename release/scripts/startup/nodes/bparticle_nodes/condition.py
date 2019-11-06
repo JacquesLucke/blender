@@ -1,10 +1,10 @@
 import bpy
 from bpy.props import *
-from .. base import BParticlesNode
+from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
-class ParticleConditionNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_ParticleConditionNode"
+class ParticleConditionNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_ParticleConditionNode"
     bl_label = "Particle Condition"
 
     execute_if_true__prop: NodeBuilder.ExecuteInputProperty()

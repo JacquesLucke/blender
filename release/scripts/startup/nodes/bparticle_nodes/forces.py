@@ -1,11 +1,11 @@
 import bpy
 from bpy.props import *
-from .. base import BParticlesNode
+from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
 
-class TurbulenceForceNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_TurbulenceForceNode"
+class TurbulenceForceNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_TurbulenceForceNode"
     bl_label = "Turbulence Force"
 
     def declaration(self, builder: NodeBuilder):
@@ -15,8 +15,8 @@ class TurbulenceForceNode(bpy.types.Node, BParticlesNode):
         builder.influences_output("force", "Force")
 
 
-class GravityForceNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_GravityForceNode"
+class GravityForceNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_GravityForceNode"
     bl_label = "Gravity Force"
 
     def declaration(self, builder: NodeBuilder):
@@ -25,8 +25,8 @@ class GravityForceNode(bpy.types.Node, BParticlesNode):
         builder.influences_output("force", "Force")
 
 
-class DragForceNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_DragForceNode"
+class DragForceNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_DragForceNode"
     bl_label = "Drag Force"
 
     def declaration(self, builder: NodeBuilder):
@@ -35,8 +35,8 @@ class DragForceNode(bpy.types.Node, BParticlesNode):
         builder.influences_output("force", "Force")
 
 
-class MeshForceNode(bpy.types.Node, BParticlesNode):
-    bl_idname = "bp_MeshForceNode"
+class MeshForceNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_MeshForceNode"
     bl_label = "Mesh Force"
 
     def declaration(self, builder: NodeBuilder):
