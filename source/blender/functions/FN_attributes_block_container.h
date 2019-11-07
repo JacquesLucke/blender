@@ -11,18 +11,18 @@ class AttributesBlock;
 
 class AttributesBlockContainer : BLI::NonCopyable, BLI::NonMovable {
  private:
-  AttributesInfo m_info;
+  std::unique_ptr<AttributesInfo> m_info;
   uint m_block_size;
   VectorSet<AttributesBlock *> m_active_blocks;
   std::mutex m_blocks_mutex;
 
  public:
-  AttributesBlockContainer(AttributesInfo info, uint block_size);
+  AttributesBlockContainer(std::unique_ptr<AttributesInfo> info, uint block_size);
   ~AttributesBlockContainer();
 
   const AttributesInfo &info() const
   {
-    return m_info;
+    return *m_info;
   }
 
   uint block_size() const
@@ -40,7 +40,8 @@ class AttributesBlockContainer : BLI::NonCopyable, BLI::NonMovable {
   template<typename T> Vector<T> flatten_attribute(StringRef name) const;
   void flatten_attribute(StringRef name, GenericMutableArrayRef dst) const;
 
-  void update_attributes(AttributesInfo new_info, const AttributesDefaults &defaults);
+  void update_attributes(std::unique_ptr<AttributesInfo> new_info,
+                         const AttributesDefaults &defaults);
 
   AttributesBlock &new_block();
   void release_block(AttributesBlock &block);

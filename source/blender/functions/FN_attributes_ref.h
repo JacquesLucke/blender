@@ -67,7 +67,7 @@ class AttributesInfoBuilder {
   void add(const AttributesInfo &other);
 };
 
-class AttributesInfo {
+class AttributesInfo : BLI::NonCopyable, BLI::NonMovable {
  private:
   StringMap<int> m_index_by_name;
   Vector<std::string> m_name_by_index;

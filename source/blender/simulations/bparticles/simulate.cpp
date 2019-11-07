@@ -319,7 +319,7 @@ BLI_NOINLINE static void simulate_block(SimulationState &simulation_state,
   BLI_assert(amount == remaining_durations.size());
 
   Integrator &integrator = *system_info.integrator;
-  AttributesInfo &offsets_info = integrator.offset_attributes_info();
+  const AttributesInfo &offsets_info = integrator.offset_attributes_info();
   Vector<void *> offset_buffers;
   for (const CPPType *type : offsets_info.types()) {
     void *ptr = BLI_temporary_allocate(type->size() * amount);

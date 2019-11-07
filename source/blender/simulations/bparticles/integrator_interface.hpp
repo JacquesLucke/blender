@@ -36,7 +36,7 @@ class Integrator {
   /**
    * Specify which attributes are integrated (usually Position and Velocity).
    */
-  virtual AttributesInfo &offset_attributes_info() = 0;
+  virtual const AttributesInfo &offset_attributes_info() = 0;
 
   /**
    * Compute the offsets for all integrated attributes. Those are not applied immediately, because

@@ -6,25 +6,25 @@
 namespace BParticles {
 
 class ConstantVelocityIntegrator : public Integrator {
-  AttributesInfo m_offset_attributes_info;
+  std::unique_ptr<AttributesInfo> m_offset_attributes_info;
 
  public:
   ConstantVelocityIntegrator();
 
-  AttributesInfo &offset_attributes_info() override;
+  const AttributesInfo &offset_attributes_info() override;
   void integrate(IntegratorInterface &interface) override;
 };
 
 class EulerIntegrator : public Integrator {
  private:
-  AttributesInfo m_offset_attributes_info;
+  std::unique_ptr<AttributesInfo> m_offset_attributes_info;
   Vector<Force *> m_forces;
 
  public:
   EulerIntegrator(ArrayRef<Force *> forces);
   ~EulerIntegrator();
 
-  AttributesInfo &offset_attributes_info() override;
+  const AttributesInfo &offset_attributes_info() override;
   void integrate(IntegratorInterface &interface) override;
 
  private:

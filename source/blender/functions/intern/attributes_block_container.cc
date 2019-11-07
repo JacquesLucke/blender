@@ -2,7 +2,8 @@
 
 namespace FN {
 
-AttributesBlockContainer::AttributesBlockContainer(AttributesInfo info, uint block_size)
+AttributesBlockContainer::AttributesBlockContainer(std::unique_ptr<AttributesInfo> info,
+                                                   uint block_size)
     : m_info(std::move(info)), m_block_size(block_size)
 {
 }
@@ -26,7 +27,7 @@ uint AttributesBlockContainer::count_active() const
 void AttributesBlockContainer::flatten_attribute(StringRef name, GenericMutableArrayRef dst) const
 {
   BLI_assert(dst.size() == this->count_active());
-  BLI_assert(dst.type() == m_info.type_of(name));
+  BLI_assert(dst.type() == m_info->type_of(name));
 
   uint offset = 0;
   for (AttributesBlock *block : m_active_blocks) {
@@ -40,10 +41,10 @@ void AttributesBlockContainer::flatten_attribute(StringRef name, GenericMutableA
   }
 }
 
-void AttributesBlockContainer::update_attributes(AttributesInfo new_info,
+void AttributesBlockContainer::update_attributes(std::unique_ptr<AttributesInfo> new_info,
                                                  const AttributesDefaults &defaults)
 {
-  AttributesInfoDiff diff{m_info, new_info, defaults};
+  AttributesInfoDiff diff{*m_info, *new_info, defaults};
   for (AttributesBlock *block : m_active_blocks) {
     Vector<void *> new_buffers{diff.new_buffer_amount()};
     diff.update(m_block_size, block->m_used_size, block->m_buffers, new_buffers);

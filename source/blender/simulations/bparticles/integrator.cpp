@@ -8,12 +8,12 @@ ConstantVelocityIntegrator::ConstantVelocityIntegrator()
 {
   FN::AttributesInfoBuilder builder;
   builder.add<float3>("Position");
-  m_offset_attributes_info = AttributesInfo(builder);
+  m_offset_attributes_info = BLI::make_unique<AttributesInfo>(builder);
 }
 
-AttributesInfo &ConstantVelocityIntegrator::offset_attributes_info()
+const AttributesInfo &ConstantVelocityIntegrator::offset_attributes_info()
 {
-  return m_offset_attributes_info;
+  return *m_offset_attributes_info;
 }
 
 void ConstantVelocityIntegrator::integrate(IntegratorInterface &interface)
@@ -32,7 +32,7 @@ EulerIntegrator::EulerIntegrator(ArrayRef<Force *> forces) : m_forces(forces)
   FN::AttributesInfoBuilder builder;
   builder.add<float3>("Position");
   builder.add<float3>("Velocity");
-  m_offset_attributes_info = AttributesInfo(builder);
+  m_offset_attributes_info = BLI::make_unique<AttributesInfo>(builder);
 }
 
 EulerIntegrator::~EulerIntegrator()
@@ -42,9 +42,9 @@ EulerIntegrator::~EulerIntegrator()
   }
 }
 
-AttributesInfo &EulerIntegrator::offset_attributes_info()
+const AttributesInfo &EulerIntegrator::offset_attributes_info()
 {
-  return m_offset_attributes_info;
+  return *m_offset_attributes_info;
 }
 
 void EulerIntegrator::integrate(IntegratorInterface &interface)

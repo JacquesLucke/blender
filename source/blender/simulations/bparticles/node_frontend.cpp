@@ -937,7 +937,7 @@ class NodeTreeStepSimulator : public StepSimulator {
       }
 
       this->ensure_particle_container_exist_and_has_attributes(
-          particles_state, name, AttributesInfo(system_attributes), defaults);
+          particles_state, name, system_attributes, defaults);
 
       ParticleSystemInfo type_info = {
           &defaults,
@@ -966,9 +966,11 @@ class NodeTreeStepSimulator : public StepSimulator {
   void ensure_particle_container_exist_and_has_attributes(
       ParticlesState &particles_state,
       StringRef name,
-      AttributesInfo attributes_info,
+      AttributesInfoBuilder &attributes_info_builder,
       const AttributesDefaults &attributes_defaults)
   {
+    auto attributes_info = BLI::make_unique<AttributesInfo>(attributes_info_builder);
+
     auto &containers = particles_state.particle_containers();
     AttributesBlockContainer *container = containers.lookup_default(name, nullptr);
     if (container == nullptr) {
