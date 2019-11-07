@@ -26,6 +26,7 @@
 
 #include "BLI_vector.h"
 #include "BLI_utility_mixins.h"
+#include "BLI_timeit.h"
 
 namespace BLI {
 
@@ -45,7 +46,7 @@ class MonotonicAllocator : NonCopyable, NonMovable {
   MonotonicAllocator()
       : m_current_buffer(m_inline_buffer.ptr()),
         m_remaining_capacity(N),
-        m_next_min_alloc_size(N * 2)
+        m_next_min_alloc_size(std::max<uint>(N * 2, 16))
   {
   }
 
@@ -89,11 +90,18 @@ class MonotonicAllocator : NonCopyable, NonMovable {
     }
   };
 
+  template<typename T, typename... Args> destruct_ptr<T> construct(Args &&... args)
+  {
+    void *buffer = this->allocate(sizeof(T), alignof(T));
+    T *value = new (buffer) T(std::forward<Args>(args)...);
+    return destruct_ptr<T>(value);
+  }
+
  private:
   void allocate_new_buffer(uint min_allocation_size)
   {
-    uint size_in_bytes = std::max(min_allocation_size, m_next_min_alloc_size);
-    m_next_min_alloc_size *= 2;
+    uint size_in_bytes = power_of_2_min_u(std::max(min_allocation_size, m_next_min_alloc_size));
+    m_next_min_alloc_size = size_in_bytes * 2;
 
     void *buffer = m_allocator.allocate(size_in_bytes, __func__);
     m_pointers.append(buffer);

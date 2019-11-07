@@ -64,6 +64,19 @@ class ResourceCollector : NonCopyable {
     return m_allocator.allocate(size, alignment);
   }
 
+  MonotonicAllocator<> &allocator()
+  {
+    return m_allocator;
+  }
+
+  template<typename T, typename... Args> T &construct(const char *name, Args &&... args)
+  {
+    destruct_ptr<T> value = m_allocator.construct(std::forward<Args>(args)...);
+    T &value_ref = *value;
+    this->add(std::move(value), name);
+    return value_ref;
+  }
+
   void add(void *userdata, void (*free)(void *), const char *name)
   {
     ResourceData data;

@@ -6,6 +6,7 @@
 #include "BLI_array_cxx.h"
 #include "BLI_string_ref.h"
 #include "BLI_string_map.h"
+#include "BLI_resource_collector.h"
 
 #include "DNA_node_types.h"
 
@@ -15,6 +16,7 @@ namespace BKE {
 
 using BLI::Array;
 using BLI::ArrayRef;
+using BLI::ResourceCollector;
 using BLI::StringMap;
 using BLI::StringRef;
 using BLI::StringRefNull;
@@ -62,11 +64,11 @@ class VBSocket : BLI::NonCopyable, BLI::NonMovable {
   uint id();
 };
 
-class VBInputSocket : public VBSocket {
+class VBInputSocket final : public VBSocket {
  public:
 };
 
-class VBOutputSocket : public VBSocket {
+class VBOutputSocket final : public VBSocket {
  public:
 };
 
@@ -101,6 +103,7 @@ class VBLink : BLI::NonCopyable, BLI::NonMovable {
 
 class VirtualNodeTreeBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
+  BLI::MonotonicAllocator<> m_allocator;
   Vector<VBNode *> m_nodes_by_id;
   Vector<VBSocket *> m_sockets_by_id;
   Vector<VBInputSocket *> m_input_sockets;
@@ -167,13 +170,13 @@ class VSocket : BLI::NonCopyable, BLI::NonMovable {
   bNodeTree *btree() const;
 };
 
-class VInputSocket : public VSocket {
+class VInputSocket final : public VSocket {
  public:
   ArrayRef<const VOutputSocket *> linked_sockets() const;
   ArrayRef<const VOutputSocket *> directly_linked_sockets() const;
 };
 
-class VOutputSocket : public VSocket {
+class VOutputSocket final : public VSocket {
  public:
   ArrayRef<const VInputSocket *> linked_sockets() const;
   ArrayRef<const VInputSocket *> directly_linked_sockets() const;
@@ -211,6 +214,7 @@ class VNode : BLI::NonCopyable, BLI::NonMovable {
 
 class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
  private:
+  BLI::MonotonicAllocator<> m_allocator;
   Array<VNode *> m_nodes_by_id;
   Array<VSocket *> m_sockets_by_id;
   Vector<VInputSocket *> m_input_sockets;

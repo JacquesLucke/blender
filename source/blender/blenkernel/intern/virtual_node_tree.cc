@@ -13,65 +13,65 @@ using BLinkList = BLI::IntrusiveListBaseWrapper<bNodeLink>;
 VirtualNodeTreeBuilder::~VirtualNodeTreeBuilder()
 {
   for (VBNode *node : m_nodes_by_id) {
-    delete node;
+    node->~VBNode();
   }
   for (VBInputSocket *socket : m_input_sockets) {
-    delete socket;
+    socket->~VBInputSocket();
   }
   for (VBOutputSocket *socket : m_output_sockets) {
-    delete socket;
+    socket->~VBOutputSocket();
   }
   for (VBLink *link : m_links) {
-    delete link;
+    link->~VBLink();
   }
 }
 
 VBNode &VirtualNodeTreeBuilder::add_node(bNodeTree *btree, bNode *bnode)
 {
-  VBNode *node = new VBNode();
-  node->m_vtree = this;
-  node->m_id = m_nodes_by_id.size();
-  node->m_btree = btree;
-  node->m_bnode = bnode;
+  VBNode &node = *m_allocator.construct<VBNode>().release();
+  node.m_vtree = this;
+  node.m_id = m_nodes_by_id.size();
+  node.m_btree = btree;
+  node.m_bnode = bnode;
 
   for (bNodeSocket *bsocket : BSocketList(bnode->inputs)) {
-    VBInputSocket *socket = new VBInputSocket();
-    socket->m_node = node;
-    socket->m_is_input = true;
-    socket->m_id = m_sockets_by_id.size();
-    socket->m_btree = btree;
-    socket->m_bsocket = bsocket;
-    socket->m_index = node->m_inputs.size();
+    VBInputSocket &socket = *m_allocator.construct<VBInputSocket>().release();
+    socket.m_node = &node;
+    socket.m_is_input = true;
+    socket.m_id = m_sockets_by_id.size();
+    socket.m_btree = btree;
+    socket.m_bsocket = bsocket;
+    socket.m_index = node.m_inputs.size();
 
-    m_input_sockets.append(socket);
-    m_sockets_by_id.append(socket);
-    node->m_inputs.append(socket);
+    m_input_sockets.append(&socket);
+    m_sockets_by_id.append(&socket);
+    node.m_inputs.append(&socket);
   }
 
   for (bNodeSocket *bsocket : BSocketList(bnode->outputs)) {
-    VBOutputSocket *socket = new VBOutputSocket();
-    socket->m_node = node;
-    socket->m_is_input = false;
-    socket->m_id = m_sockets_by_id.size();
-    socket->m_btree = btree;
-    socket->m_bsocket = bsocket;
-    socket->m_index = node->m_outputs.size();
+    VBOutputSocket &socket = *m_allocator.construct<VBOutputSocket>().release();
+    socket.m_node = &node;
+    socket.m_is_input = false;
+    socket.m_id = m_sockets_by_id.size();
+    socket.m_btree = btree;
+    socket.m_bsocket = bsocket;
+    socket.m_index = node.m_outputs.size();
 
-    m_output_sockets.append(socket);
-    m_sockets_by_id.append(socket);
-    node->m_outputs.append(socket);
+    m_output_sockets.append(&socket);
+    m_sockets_by_id.append(&socket);
+    node.m_outputs.append(&socket);
   }
 
-  m_nodes_by_id.append(node);
-  return *node;
+  m_nodes_by_id.append(&node);
+  return node;
 }
 
 void VirtualNodeTreeBuilder::add_link(VBOutputSocket &from, VBInputSocket &to)
 {
-  VBLink *link = new VBLink();
-  link->m_from = &from;
-  link->m_to = &to;
-  m_links.append(link);
+  VBLink &link = *m_allocator.construct<VBLink>().release();
+  link.m_from = &from;
+  link.m_to = &to;
+  m_links.append(&link);
 }
 
 void VirtualNodeTreeBuilder::add_all_of_node_tree(bNodeTree *btree)
@@ -114,46 +114,46 @@ std::unique_ptr<VirtualNodeTree> VirtualNodeTreeBuilder::build()
 void VirtualNodeTreeBuilder::build__copy_nodes_and_sockets(VirtualNodeTree &vtree)
 {
   for (VBNode *vbnode : m_nodes_by_id) {
-    VNode *vnode = new VNode();
-    vnode->m_bnode = vbnode->m_bnode;
-    vnode->m_btree = vbnode->m_btree;
-    vnode->m_id = vbnode->m_id;
-    vnode->m_vtree = &vtree;
-    RNA_pointer_create((ID *)vnode->m_btree, &RNA_Node, vnode->m_bnode, &vnode->m_rna);
+    VNode &vnode = *vtree.m_allocator.construct<VNode>().release();
+    vnode.m_bnode = vbnode->m_bnode;
+    vnode.m_btree = vbnode->m_btree;
+    vnode.m_id = vbnode->m_id;
+    vnode.m_vtree = &vtree;
+    RNA_pointer_create((ID *)vnode.m_btree, &RNA_Node, vnode.m_bnode, &vnode.m_rna);
 
     for (VBInputSocket *vbsocket : vbnode->m_inputs) {
-      VInputSocket *vsocket = new VInputSocket();
-      vsocket->m_bsocket = vbsocket->m_bsocket;
-      vsocket->m_btree = vbsocket->m_btree;
-      vsocket->m_id = vbsocket->m_id;
-      vsocket->m_index = vbsocket->m_index;
-      vsocket->m_node = vnode;
-      vsocket->m_is_input = true;
+      VInputSocket &vsocket = *vtree.m_allocator.construct<VInputSocket>().release();
+      vsocket.m_bsocket = vbsocket->m_bsocket;
+      vsocket.m_btree = vbsocket->m_btree;
+      vsocket.m_id = vbsocket->m_id;
+      vsocket.m_index = vbsocket->m_index;
+      vsocket.m_node = &vnode;
+      vsocket.m_is_input = true;
       RNA_pointer_create(
-          (ID *)vsocket->m_btree, &RNA_NodeSocket, vsocket->m_bsocket, &vsocket->m_rna);
+          (ID *)vsocket.m_btree, &RNA_NodeSocket, vsocket.m_bsocket, &vsocket.m_rna);
 
-      vnode->m_inputs.append(vsocket);
-      vtree.m_sockets_by_id[vsocket->m_id] = vsocket;
-      vtree.m_input_sockets.append(vsocket);
+      vnode.m_inputs.append(&vsocket);
+      vtree.m_sockets_by_id[vsocket.m_id] = &vsocket;
+      vtree.m_input_sockets.append(&vsocket);
     }
 
     for (VBOutputSocket *vbsocket : vbnode->m_outputs) {
-      VOutputSocket *vsocket = new VOutputSocket();
-      vsocket->m_bsocket = vbsocket->m_bsocket;
-      vsocket->m_btree = vbsocket->m_btree;
-      vsocket->m_id = vbsocket->m_id;
-      vsocket->m_index = vbsocket->m_index;
-      vsocket->m_node = vnode;
-      vsocket->m_is_input = false;
+      VOutputSocket &vsocket = *vtree.m_allocator.construct<VOutputSocket>().release();
+      vsocket.m_bsocket = vbsocket->m_bsocket;
+      vsocket.m_btree = vbsocket->m_btree;
+      vsocket.m_id = vbsocket->m_id;
+      vsocket.m_index = vbsocket->m_index;
+      vsocket.m_node = &vnode;
+      vsocket.m_is_input = false;
       RNA_pointer_create(
-          (ID *)vsocket->m_btree, &RNA_NodeSocket, vsocket->m_bsocket, &vsocket->m_rna);
+          (ID *)vsocket.m_btree, &RNA_NodeSocket, vsocket.m_bsocket, &vsocket.m_rna);
 
-      vnode->m_outputs.append(vsocket);
-      vtree.m_sockets_by_id[vsocket->m_id] = vsocket;
-      vtree.m_output_sockets.append(vsocket);
+      vnode.m_outputs.append(&vsocket);
+      vtree.m_sockets_by_id[vsocket.m_id] = &vsocket;
+      vtree.m_output_sockets.append(&vsocket);
     }
 
-    vtree.m_nodes_by_id[vnode->m_id] = vnode;
+    vtree.m_nodes_by_id[vnode.m_id] = &vnode;
   }
 }
 
@@ -216,13 +216,13 @@ void VirtualNodeTreeBuilder::build__create_idname_to_nodes_mapping(VirtualNodeTr
 VirtualNodeTree::~VirtualNodeTree()
 {
   for (VNode *node : m_nodes_by_id) {
-    delete node;
+    node->~VNode();
   }
   for (VInputSocket *socket : m_input_sockets) {
-    delete socket;
+    socket->~VInputSocket();
   }
   for (VOutputSocket *socket : m_output_sockets) {
-    delete socket;
+    socket->~VOutputSocket();
   }
 }
 
