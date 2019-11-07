@@ -26,12 +26,12 @@ struct MFDataType {
 
   template<typename T> static MFDataType ForSingle()
   {
-    return MFDataType(Category::Single, GET_TYPE<T>());
+    return MFDataType(Category::Single, CPP_TYPE<T>());
   }
 
   template<typename T> static MFDataType ForVector()
   {
-    return MFDataType(Category::Vector, GET_TYPE<T>());
+    return MFDataType(Category::Vector, CPP_TYPE<T>());
   }
 
   bool is_none() const

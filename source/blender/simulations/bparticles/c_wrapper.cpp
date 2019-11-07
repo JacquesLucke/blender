@@ -331,7 +331,7 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     position_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(float3), __func__);
     container.flatten_attribute("Position",
-                                FN::GenericMutableArrayRef(FN::GET_TYPE<float3>(),
+                                FN::GenericMutableArrayRef(FN::CPP_TYPE<float3>(),
                                                            position_attribute.values,
                                                            cached_type.particle_amount));
 
@@ -341,7 +341,7 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     size_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(float), __func__);
     container.flatten_attribute("Size",
-                                FN::GenericMutableArrayRef(FN::GET_TYPE<float>(),
+                                FN::GenericMutableArrayRef(FN::CPP_TYPE<float>(),
                                                            size_attribute.values,
                                                            cached_type.particle_amount));
 
@@ -351,7 +351,7 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     color_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(rgba_f), __func__);
     container.flatten_attribute("Color",
-                                FN::GenericMutableArrayRef(FN::GET_TYPE<rgba_f>(),
+                                FN::GenericMutableArrayRef(FN::CPP_TYPE<rgba_f>(),
                                                            color_attribute.values,
                                                            cached_type.particle_amount));
   }

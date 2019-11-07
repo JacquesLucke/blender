@@ -65,7 +65,7 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
  public:
   MF_ConstantValue(T value) : m_value(std::move(value))
   {
-    MFSignatureBuilder signature("Constant " + GET_TYPE<T>().name());
+    MFSignatureBuilder signature("Constant " + CPP_TYPE<T>().name());
     signature.single_output<T>("Output");
     this->set_signature(signature);
   }
@@ -82,7 +82,7 @@ template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
  public:
   MF_Convert()
   {
-    MFSignatureBuilder signature(GET_TYPE<FromT>().name() + " to " + GET_TYPE<ToT>().name());
+    MFSignatureBuilder signature(CPP_TYPE<FromT>().name() + " to " + CPP_TYPE<ToT>().name());
     signature.readonly_single_input<FromT>("Input");
     signature.single_output<ToT>("Output");
     this->set_signature(signature);

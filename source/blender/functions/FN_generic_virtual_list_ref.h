@@ -89,7 +89,7 @@ class GenericVirtualListRef {
   template<typename T> static GenericVirtualListRef FromFullArray(ArrayRef<T> array)
   {
     return GenericVirtualListRef::FromFullArray(
-        GET_TYPE<T>(), (const void *)array.begin(), array.size());
+        CPP_TYPE<T>(), (const void *)array.begin(), array.size());
   }
 
   static GenericVirtualListRef FromFullPointerArray(const CPPType &type,
@@ -150,7 +150,7 @@ class GenericVirtualListRef {
 
   template<typename T> VirtualListRef<T> as_typed_ref() const
   {
-    BLI_assert(GET_TYPE<T>().is_same_or_generalization(*m_type));
+    BLI_assert(CPP_TYPE<T>().is_same_or_generalization(*m_type));
 
     switch (m_category) {
       case Category::Single:

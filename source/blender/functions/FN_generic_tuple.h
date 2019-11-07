@@ -84,7 +84,7 @@ class GenericTupleInfo : BLI::NonCopyable, BLI::NonMovable {
 
   template<typename T> bool element_has_type(uint index) const
   {
-    return GET_TYPE<T>().is_same_or_generalization(*m_types[index]);
+    return CPP_TYPE<T>().is_same_or_generalization(*m_types[index]);
   }
 };
 
@@ -259,7 +259,7 @@ class GenericTupleRef {
     return this->copy_out<T>(index);
   }
 
-  template<typename T> T GET_TYPE(uint index) const
+  template<typename T> T CPP_TYPE(uint index) const
   {
     BLI_STATIC_ASSERT(std::is_trivial<T>::value, "can only be used with trivial types");
     return this->copy_out<T>(index);

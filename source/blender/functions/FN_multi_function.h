@@ -122,13 +122,13 @@ class MFSignature {
       return false;
     }
     else if (ELEM(category, MFParamType::ReadonlySingleInput, MFParamType::SingleOutput)) {
-      return GET_TYPE<T>().is_same_or_generalization(m_param_types[index].type());
+      return CPP_TYPE<T>().is_same_or_generalization(m_param_types[index].type());
     }
     else if (ELEM(category,
                   MFParamType::ReadonlyVectorInput,
                   MFParamType::VectorOutput,
                   MFParamType::MutableVector)) {
-      return GET_TYPE<T>().is_same_or_generalization(m_param_types[index].base_type());
+      return CPP_TYPE<T>().is_same_or_generalization(m_param_types[index].base_type());
     }
     else {
       return false;
@@ -154,7 +154,7 @@ class MFSignatureBuilder {
 
   template<typename T> void readonly_single_input(StringRef name)
   {
-    this->readonly_single_input(name, GET_TYPE<T>());
+    this->readonly_single_input(name, CPP_TYPE<T>());
   }
   void readonly_single_input(StringRef name, const CPPType &type)
   {
@@ -164,7 +164,7 @@ class MFSignatureBuilder {
 
   template<typename T> void single_output(StringRef name)
   {
-    this->single_output(name, GET_TYPE<T>());
+    this->single_output(name, CPP_TYPE<T>());
   }
   void single_output(StringRef name, const CPPType &type)
   {
@@ -174,7 +174,7 @@ class MFSignatureBuilder {
 
   template<typename T> void readonly_vector_input(StringRef name)
   {
-    this->readonly_vector_input(name, GET_TYPE<T>());
+    this->readonly_vector_input(name, CPP_TYPE<T>());
   }
   void readonly_vector_input(StringRef name, const CPPType &base_type)
   {
@@ -184,7 +184,7 @@ class MFSignatureBuilder {
 
   template<typename T> void vector_output(StringRef name)
   {
-    this->vector_output(name, GET_TYPE<T>());
+    this->vector_output(name, CPP_TYPE<T>());
   }
   void vector_output(StringRef name, const CPPType &base_type)
   {
@@ -357,7 +357,7 @@ class MFParamsBuilder {
   template<typename T> void add_readonly_single_input(const T *value)
   {
     m_virtual_list_refs.append(
-        GenericVirtualListRef::FromSingle(GET_TYPE<T>(), (void *)value, m_min_array_size));
+        GenericVirtualListRef::FromSingle(CPP_TYPE<T>(), (void *)value, m_min_array_size));
   }
 
   void add_readonly_single_input(GenericVirtualListRef list)

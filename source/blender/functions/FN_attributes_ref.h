@@ -35,7 +35,7 @@ class AttributesInfoBuilder {
 
   template<typename T> void add(StringRef name)
   {
-    this->add(name, GET_TYPE<T>());
+    this->add(name, CPP_TYPE<T>());
   }
 
   void add(StringRef name, const CPPType &type)
@@ -108,7 +108,7 @@ class AttributesInfo {
 
   template<typename T> int index_of_try(StringRef name) const
   {
-    return this->index_of_try(name, GET_TYPE<T>());
+    return this->index_of_try(name, CPP_TYPE<T>());
   }
 
   int index_of_try(StringRef name) const
@@ -178,7 +178,7 @@ class AttributesRef {
 
   template<typename T> MutableArrayRef<T> get(uint index) const
   {
-    BLI_assert(m_info->type_of(index) == GET_TYPE<T>());
+    BLI_assert(m_info->type_of(index) == CPP_TYPE<T>());
     return MutableArrayRef<T>((T *)m_buffers[index] + m_range.start(), m_range.size());
   }
 
@@ -233,7 +233,7 @@ class AttributesRefGroup {
   template<typename T> void set(uint index, ArrayRef<T> data)
   {
     BLI_assert(data.size() == m_total_size);
-    BLI_assert(m_info->type_of(index) == GET_TYPE<T>());
+    BLI_assert(m_info->type_of(index) == CPP_TYPE<T>());
 
     uint offset = 0;
     for (AttributesRef attributes : *this) {
@@ -256,7 +256,7 @@ class AttributesRefGroup {
   template<typename T> void set_repeated(uint index, ArrayRef<T> data)
   {
     BLI_assert(m_total_size == 0 || data.size() > 0);
-    BLI_assert(m_info->type_of(index) == GET_TYPE<T>());
+    BLI_assert(m_info->type_of(index) == CPP_TYPE<T>());
 
     uint src_index = 0;
     for (AttributesRef attributes : *this) {
@@ -279,7 +279,7 @@ class AttributesRefGroup {
 
   template<typename T> void fill(uint index, const T &value)
   {
-    BLI_assert(m_info->type_of(index) == GET_TYPE<T>());
+    BLI_assert(m_info->type_of(index) == CPP_TYPE<T>());
 
     for (AttributesRef attributes : *this) {
       MutableArrayRef<T> array = attributes.get<T>(index);
@@ -349,7 +349,7 @@ class AttributesDefaults : BLI::NonCopyable, BLI::NonMovable {
     else {
       uint index = m_type_by_index.size();
       m_index_by_name.add_new(name, index);
-      const CPPType &type = GET_TYPE<T>();
+      const CPPType &type = CPP_TYPE<T>();
       m_type_by_index.append(&type);
       void *value_buffer = m_allocator.allocate(type.size(), type.alignment());
       new (value_buffer) T(std::move(value));
@@ -367,7 +367,7 @@ class AttributesDefaults : BLI::NonCopyable, BLI::NonMovable {
 
   template<typename T> const T &get(StringRef name) const
   {
-    const void *value = this->get(name, GET_TYPE<T>());
+    const void *value = this->get(name, CPP_TYPE<T>());
     return *(const T *)value;
   }
 };

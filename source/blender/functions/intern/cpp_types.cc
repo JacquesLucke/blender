@@ -85,7 +85,7 @@ template<typename T> static std::unique_ptr<const CPPType> create_cpp_type(Strin
 #define MAKE_CPP_TYPE(IDENTIFIER, TYPE_NAME) \
   static std::unique_ptr<const CPPType> CPPTYPE_##IDENTIFIER = create_cpp_type<TYPE_NAME>( \
       STRINGIFY(IDENTIFIER)); \
-  template<> const CPPType &GET_TYPE<TYPE_NAME>() \
+  template<> const CPPType &CPP_TYPE<TYPE_NAME>() \
   { \
     return *CPPTYPE_##IDENTIFIER; \
   }

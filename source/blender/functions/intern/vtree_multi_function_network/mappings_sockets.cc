@@ -121,20 +121,20 @@ static void add_basic_type(VTreeMultiFunctionMappings &mappings,
   std::string list_idname = "fn_" + base_name + "ListSocket";
   std::string list_name = base_name + " List";
 
-  mappings.cpp_type_by_type_name.add_new(base_name, &GET_TYPE<T>());
+  mappings.cpp_type_by_type_name.add_new(base_name, &CPP_TYPE<T>());
   mappings.data_type_by_idname.add_new(base_idname, MFDataType::ForSingle<T>());
   mappings.data_type_by_idname.add_new(list_idname, MFDataType::ForVector<T>());
   mappings.input_inserters.add_new(base_idname, base_inserter);
   mappings.input_inserters.add_new(list_idname, INSERT_empty_list_socket<T>);
   mappings.conversion_inserters.add_new({base_idname, list_idname}, INSERT_element_to_list<T>);
-  mappings.type_name_from_cpp_type.add_new(&GET_TYPE<T>(), base_name);
+  mappings.type_name_from_cpp_type.add_new(&CPP_TYPE<T>(), base_name);
 }
 
 template<typename FromT, typename ToT>
 static void add_implicit_conversion(VTreeMultiFunctionMappings &mappings)
 {
-  StringRef from_name = mappings.type_name_from_cpp_type.lookup(&GET_TYPE<FromT>());
-  StringRef to_name = mappings.type_name_from_cpp_type.lookup(&GET_TYPE<ToT>());
+  StringRef from_name = mappings.type_name_from_cpp_type.lookup(&CPP_TYPE<FromT>());
+  StringRef to_name = mappings.type_name_from_cpp_type.lookup(&CPP_TYPE<ToT>());
 
   std::string from_base_idname = "fn_" + from_name + "Socket";
   std::string from_list_idname = "fn_" + from_name + "ListSocket";

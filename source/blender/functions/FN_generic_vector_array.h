@@ -162,13 +162,13 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
 
   template<typename T> const TypedRef<T> as_typed_ref() const
   {
-    BLI_assert(GET_TYPE<T>().is_same_or_generalization(m_type));
+    BLI_assert(CPP_TYPE<T>().is_same_or_generalization(m_type));
     return TypedRef<T>(*this);
   }
 
   template<typename T> MutableTypedRef<T> as_mutable_typed_ref()
   {
-    BLI_assert(GET_TYPE<T>().is_same_or_generalization(m_type));
+    BLI_assert(CPP_TYPE<T>().is_same_or_generalization(m_type));
     return MutableTypedRef<T>(*this);
   }
 

@@ -39,7 +39,7 @@ template<typename T> class MF_EmptyList : public MultiFunction {
  public:
   MF_EmptyList()
   {
-    MFSignatureBuilder signature("Empty List - " + GET_TYPE<T>().name());
+    MFSignatureBuilder signature("Empty List - " + CPP_TYPE<T>().name());
     signature.vector_output<T>("Output");
     this->set_signature(signature);
   }
@@ -55,7 +55,7 @@ template<typename FromT, typename ToT> class MF_ConvertList : public MultiFuncti
  public:
   MF_ConvertList()
   {
-    MFSignatureBuilder signature(GET_TYPE<FromT>().name() + " List to " + GET_TYPE<ToT>().name() +
+    MFSignatureBuilder signature(CPP_TYPE<FromT>().name() + " List to " + CPP_TYPE<ToT>().name() +
                                  " List");
     signature.readonly_vector_input<FromT>("Inputs");
     signature.vector_output<ToT>("Outputs");
@@ -83,7 +83,7 @@ template<typename T> class MF_SingleElementList : public MultiFunction {
  public:
   MF_SingleElementList()
   {
-    MFSignatureBuilder signature("Single Element List - " + GET_TYPE<T>().name());
+    MFSignatureBuilder signature("Single Element List - " + CPP_TYPE<T>().name());
     signature.readonly_single_input<T>("Input");
     signature.vector_output<T>("Outputs");
     this->set_signature(signature);

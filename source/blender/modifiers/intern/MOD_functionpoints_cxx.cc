@@ -51,7 +51,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   params.add_readonly_single_input(&fpmd->control1);
   params.add_readonly_single_input(&fpmd->control2);
 
-  FN::GenericVectorArray vector_array{FN::GET_TYPE<float3>(), 1};
+  FN::GenericVectorArray vector_array{FN::CPP_TYPE<float3>(), 1};
   params.add_vector_output(vector_array);
 
   float current_frame = DEG_get_ctime(ctx->depsgraph);

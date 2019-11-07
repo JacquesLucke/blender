@@ -186,7 +186,7 @@ class CPPType {
   std::string m_name;
 };
 
-template<typename T> const CPPType &GET_TYPE();
+template<typename T> const CPPType &CPP_TYPE();
 
 }  // namespace FN
 
