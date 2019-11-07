@@ -105,8 +105,9 @@ AttributesInfoDiff::AttributesInfoDiff(const AttributesInfo &old_info,
   m_default_buffers = Array<const void *>(new_info.size(), nullptr);
 
   for (uint i : new_info.indices()) {
-    if (m_new_to_old_mapping[i] >= 0) {
-      m_default_buffers[i] = defaults.get(new_info.name_of(i), new_info.type_of(i));
+    if (m_new_to_old_mapping[i] == -1) {
+      const void *default_buffer = defaults.get(new_info.name_of(i), new_info.type_of(i));
+      m_default_buffers[i] = default_buffer;
     }
   }
 }
@@ -124,7 +125,7 @@ void AttributesInfoDiff::update(uint capacity,
     const CPPType &type = m_new_info->type_of(new_index);
 
     if (old_index == -1) {
-      void *new_buffer = MEM_malloc_arrayN(capacity, type.size(), __func__);
+      void *new_buffer = MEM_mallocN_aligned(capacity * type.size(), type.alignment(), __func__);
 
       GenericMutableArrayRef{type, new_buffer, used_size}.fill__uninitialized(
           m_default_buffers[new_index]);

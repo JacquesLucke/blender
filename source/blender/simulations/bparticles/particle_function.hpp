@@ -1,11 +1,11 @@
 #pragma once
 
-#include "FN_tuple_call.hpp"
-#include "FN_functions.hpp"
 #include "BLI_array_cxx.h"
 
 #include "action_interface.hpp"
 #include "force_interface.hpp"
+
+#include "FN_multi_function.h"
 
 namespace BParticles {
 
@@ -14,23 +14,15 @@ using BLI::Optional;
 using BLI::TemporaryArray;
 using BLI::TemporaryVector;
 using BLI::Vector;
-using FN::CPPTypeInfo;
-using FN::ExecutionContext;
-using FN::ExecutionStack;
-using FN::Function;
-using FN::TupleCallBody;
-using FN::Type;
+using FN::GenericArrayRef;
+using FN::GenericMutableArrayRef;
+using FN::MultiFunction;
 
 class ParticleFunction;
 
 class ParticleFunctionResult : BLI::NonCopyable, BLI::NonMovable {
  private:
-  Vector<void *> m_buffers;
-  Vector<uint> m_strides;
-  Vector<bool> m_only_first;
-  FN::Function *m_fn_no_deps;
-  FN::Function *m_fn_with_deps;
-  ArrayRef<uint> m_output_indices;
+  Vector<GenericMutableArrayRef> m_computed_buffers;
   ArrayRef<uint> m_pindices;
 
   friend ParticleFunction;
@@ -40,54 +32,15 @@ class ParticleFunctionResult : BLI::NonCopyable, BLI::NonMovable {
 
   ~ParticleFunctionResult()
   {
-    /* Free elements in buffers. */
-    for (uint i = 0; i < m_only_first.size(); i++) {
-      uint output_index = m_output_indices[i];
-      if (m_only_first[i]) {
-        auto &type_info = m_fn_no_deps->output_type(output_index)->extension<CPPTypeInfo>();
-        void *ptr = m_buffers[i];
-        type_info.destruct(ptr);
-      }
-      else {
-        auto &type_info = m_fn_with_deps->output_type(output_index)->extension<CPPTypeInfo>();
-        if (!type_info.trivially_destructible()) {
-          void *ptr = m_buffers[i];
-          for (uint pindex : m_pindices) {
-            type_info.destruct(POINTER_OFFSET(ptr, type_info.size() * pindex));
-          }
-        }
-      }
-    }
-
-    /* Free buffers. */
-    for (uint i = 0; i < m_buffers.size(); i++) {
-      BLI_temporary_deallocate(m_buffers[i]);
+    for (GenericMutableArrayRef array : m_computed_buffers) {
+      array.destruct_indices(m_pindices);
+      BLI_temporary_deallocate(array.buffer());
     }
   }
 
-  template<typename T> T get(StringRef expected_name, uint parameter_index, uint pindex)
+  template<typename T> T get(StringRef UNUSED(expected_name), uint parameter_index, uint pindex)
   {
-#ifdef DEBUG
-    BLI_assert(sizeof(T) == m_strides[parameter_index]);
-    uint output_index = m_output_indices[parameter_index];
-    if (m_only_first[parameter_index]) {
-      StringRefNull real_name = m_fn_no_deps->output_name(output_index);
-      BLI_assert(real_name == expected_name);
-    }
-    else {
-      StringRefNull real_name = m_fn_with_deps->output_name(output_index);
-      BLI_assert(real_name == expected_name);
-    }
-#endif
-    UNUSED_VARS_NDEBUG(expected_name);
-
-    T *buffer = (T *)m_buffers[parameter_index];
-    if (m_only_first[parameter_index]) {
-      return buffer[0];
-    }
-    else {
-      return buffer[pindex];
-    }
+    return m_computed_buffers[parameter_index].as_typed_ref<T>()[pindex];
   }
 };
 
@@ -216,18 +169,12 @@ class ParticleFunctionInputProvider {
 
 class ParticleFunction {
  private:
-  std::unique_ptr<Function> m_fn_no_deps;
-  std::unique_ptr<Function> m_fn_with_deps;
+  std::unique_ptr<const MultiFunction> m_fn;
   Vector<ParticleFunctionInputProvider *> m_input_providers;
-  Vector<bool> m_parameter_depends_on_particle;
-  Vector<uint> m_output_indices;
-  std::unique_ptr<FN::Functions::ArrayExecution> m_array_execution;
 
  public:
-  ParticleFunction(std::unique_ptr<Function> fn_no_deps,
-                   std::unique_ptr<Function> fn_with_deps,
-                   Vector<ParticleFunctionInputProvider *> input_providers,
-                   Vector<bool> parameter_depends_on_particle);
+  ParticleFunction(std::unique_ptr<const MultiFunction> fn,
+                   Vector<ParticleFunctionInputProvider *> input_providers);
 
   ~ParticleFunction();
 
@@ -240,15 +187,6 @@ class ParticleFunction {
                                                   AttributesRef attributes,
                                                   ParticleTimes particle_times,
                                                   ActionContext *action_context);
-
- private:
-  void init_without_deps(ParticleFunctionResult *result);
-
-  void init_with_deps(ParticleFunctionResult *result,
-                      ArrayRef<uint> pindices,
-                      AttributesRef attributes,
-                      ParticleTimes particle_times,
-                      ActionContext *action_context);
 };
 
 }  // namespace BParticles

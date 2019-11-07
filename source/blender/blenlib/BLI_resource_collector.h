@@ -16,8 +16,8 @@ class ResourceCollector : NonCopyable {
     const char *name;
   };
 
-  Vector<ResourceData> m_resources;
   MonotonicAllocator<> m_allocator;
+  Vector<ResourceData> m_resources;
 
  public:
   ResourceCollector() = default;
@@ -26,6 +26,7 @@ class ResourceCollector : NonCopyable {
   {
     for (int i = m_resources.size() - 1; i >= 0; i--) {
       ResourceData &data = m_resources[i];
+      // std::cout << "FREE: " << data.name << std::endl;
       data.free(data.data);
     }
   }

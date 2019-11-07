@@ -18,14 +18,14 @@ using BLI::rgba_f;
 Optional<ParticleFunctionInputArray> AttributeInputProvider::get(InputProviderInterface &interface)
 {
   AttributesRef attributes = interface.attributes();
-  uint element_size = size_of_attribute_type(m_type);
-  int attribute_index = attributes.info().attribute_index_try(m_name, m_type);
+  uint element_size = m_type.size();
+  int attribute_index = attributes.info().index_of_try(m_name, m_type);
 
   if (attribute_index == -1) {
     return {};
   }
   else {
-    void *buffer = attributes.get_ptr(attribute_index);
+    void *buffer = attributes.get(attribute_index).buffer();
     return ParticleFunctionInputArray(buffer, element_size, false);
   }
 }

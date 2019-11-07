@@ -171,6 +171,11 @@ class AttributesRef {
     return GenericMutableArrayRef(m_info->type_of(index), ptr, m_range.size());
   }
 
+  GenericMutableArrayRef get(StringRef name) const
+  {
+    return this->get(m_info->index_of(name));
+  }
+
   template<typename T> MutableArrayRef<T> get(uint index) const
   {
     BLI_assert(m_info->type_of(index) == GET_TYPE<T>());

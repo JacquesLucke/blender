@@ -10,16 +10,12 @@
 #include "BLI_math_geom.h"
 #include "BLI_vector_adaptor.h"
 
-#include "FN_types.hpp"
-
 #include "emitters.hpp"
 #include "action_contexts.hpp"
 
 namespace BParticles {
 
 using BLI::VectorAdaptor;
-using FN::SharedList;
-using namespace FN::Types;
 
 static float random_float()
 {

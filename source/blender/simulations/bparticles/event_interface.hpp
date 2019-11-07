@@ -5,8 +5,6 @@
 
 namespace BParticles {
 
-using BKE::AttributesDeclaration;
-
 /**
  * Utility array wrapper that can hold different kinds of plain-old-data values.
  */

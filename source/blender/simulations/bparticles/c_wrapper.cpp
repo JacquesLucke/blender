@@ -330,21 +330,30 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
     strncpy(position_attribute.name, "Position", sizeof(position_attribute.name));
     position_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(float3), __func__);
-    container.flatten_attribute("Position", position_attribute.values);
+    container.flatten_attribute("Position",
+                                FN::GenericMutableArrayRef(FN::GET_TYPE<float3>(),
+                                                           position_attribute.values,
+                                                           cached_type.particle_amount));
 
     BParticlesAttributeCacheFloat &size_attribute = cached_type.attributes_float[1];
     size_attribute.floats_per_particle = 1;
     strncpy(size_attribute.name, "Size", sizeof(size_attribute.name));
     size_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(float), __func__);
-    container.flatten_attribute("Size", size_attribute.values);
+    container.flatten_attribute("Size",
+                                FN::GenericMutableArrayRef(FN::GET_TYPE<float>(),
+                                                           size_attribute.values,
+                                                           cached_type.particle_amount));
 
     BParticlesAttributeCacheFloat &color_attribute = cached_type.attributes_float[2];
     color_attribute.floats_per_particle = 4;
     strncpy(color_attribute.name, "Color", sizeof(color_attribute.name));
     color_attribute.values = (float *)MEM_malloc_arrayN(
         cached_type.particle_amount, sizeof(rgba_f), __func__);
-    container.flatten_attribute("Color", color_attribute.values);
+    container.flatten_attribute("Color",
+                                FN::GenericMutableArrayRef(FN::GET_TYPE<rgba_f>(),
+                                                           color_attribute.values,
+                                                           cached_type.particle_amount));
   }
 
   bpmd->cached_frames = (BParticlesFrameCache *)MEM_reallocN(

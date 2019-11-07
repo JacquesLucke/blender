@@ -1,18 +1,15 @@
 #pragma once
 
-#include "FN_data_flow_nodes.hpp"
+#include "FN_vtree_multi_function_network.h"
 
 #include "particle_function.hpp"
 
 namespace BParticles {
 
 using BKE::VNode;
-using FN::DataSocket;
-using FN::DataFlowNodes::VTreeDataGraph;
-
-Vector<DataSocket> find_input_data_sockets(const VNode &vnode, VTreeDataGraph &data_graph);
+using FN::VTreeMFNetwork;
 
 Optional<std::unique_ptr<ParticleFunction>> create_particle_function(const VNode &vnode,
-                                                                     VTreeDataGraph &data_graph);
+                                                                     VTreeMFNetwork &data_graph);
 
 }  // namespace BParticles

@@ -14,6 +14,32 @@ AttributesBlockContainer::~AttributesBlockContainer()
   }
 }
 
+uint AttributesBlockContainer::count_active() const
+{
+  uint count = 0;
+  for (AttributesBlock *block : m_active_blocks) {
+    count += block->used_size();
+  }
+  return count;
+}
+
+void AttributesBlockContainer::flatten_attribute(StringRef name, GenericMutableArrayRef dst) const
+{
+  BLI_assert(dst.size() == this->count_active());
+  BLI_assert(dst.type() == m_info.type_of(name));
+
+  uint offset = 0;
+  for (AttributesBlock *block : m_active_blocks) {
+    AttributesRef attributes = block->as_ref();
+    GenericArrayRef src_array = attributes.get(name);
+    GenericMutableArrayRef dst_array = dst.slice(offset, attributes.size());
+    for (uint i = 0; i < attributes.size(); i++) {
+      dst_array.copy_in__uninitialized(i, src_array[i]);
+    }
+    offset += attributes.size();
+  }
+}
+
 void AttributesBlockContainer::update_attributes(AttributesInfo new_info,
                                                  const AttributesDefaults &defaults)
 {
@@ -49,7 +75,8 @@ void AttributesBlockContainer::release_block(AttributesBlock &block)
 AttributesBlock::AttributesBlock(AttributesBlockContainer &owner) : m_owner(owner), m_used_size(0)
 {
   for (const CPPType *type : owner.info().types()) {
-    void *buffer = MEM_malloc_arrayN(owner.block_size(), type->size(), __func__);
+    void *buffer = MEM_mallocN_aligned(
+        owner.block_size() * type->size(), type->alignment(), __func__);
     m_buffers.append(buffer);
   }
 }
@@ -58,7 +85,9 @@ AttributesBlock::~AttributesBlock()
 {
   for (uint attribute_index : m_owner.info().indices()) {
     const CPPType &type = m_owner.info().type_of(attribute_index);
-    type.destruct_n(m_buffers[attribute_index], m_used_size);
+    void *buffer = m_buffers[attribute_index];
+    type.destruct_n(buffer, m_used_size);
+    MEM_freeN(buffer);
   }
 }
 
@@ -88,12 +117,16 @@ void AttributesBlock::MoveUntilFull(AttributesBlock &from, AttributesBlock &to)
 
 void AttributesBlock::Compress(MutableArrayRef<AttributesBlock *> blocks)
 {
+  if (blocks.size() == 0) {
+    return;
+  }
+
   std::sort(blocks.begin(), blocks.end(), [](AttributesBlock *a, AttributesBlock *b) {
     return a->used_size() < b->used_size();
   });
 
-  uint first_non_full_index = 0;
-  uint last_non_empty_index = blocks.size() - 1;
+  int first_non_full_index = 0;
+  int last_non_empty_index = blocks.size() - 1;
 
   while (first_non_full_index < last_non_empty_index) {
     AttributesBlock &first_non_full = *blocks[first_non_full_index];

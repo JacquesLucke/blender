@@ -30,6 +30,16 @@ class AttributesBlockContainer : BLI::NonCopyable, BLI::NonMovable {
     return m_block_size;
   }
 
+  ArrayRef<AttributesBlock *> active_blocks()
+  {
+    return m_active_blocks;
+  }
+
+  uint count_active() const;
+
+  template<typename T> Vector<T> flatten_attribute(StringRef name) const;
+  void flatten_attribute(StringRef name, GenericMutableArrayRef dst) const;
+
   void update_attributes(AttributesInfo new_info, const AttributesDefaults &defaults);
 
   AttributesBlock &new_block();
@@ -101,9 +111,28 @@ class AttributesBlock : BLI::NonCopyable, BLI::NonMovable {
     return AttributesRef(m_owner.info(), m_buffers, this->capacity());
   }
 
+  ArrayRef<void *> buffers()
+  {
+    return m_buffers;
+  }
+
   static void MoveUntilFull(AttributesBlock &from, AttributesBlock &to);
   static void Compress(MutableArrayRef<AttributesBlock *> blocks);
 };
+
+template<typename T>
+inline Vector<T> AttributesBlockContainer::flatten_attribute(StringRef name) const
+{
+  Vector<T> values;
+  values.reserve(this->count_active());
+
+  for (AttributesBlock *block : m_active_blocks) {
+    AttributesRef attributes = block->as_ref();
+    values.extend(attributes.get<T>(name));
+  }
+
+  return values;
+}
 
 }  // namespace FN
 

@@ -1,5 +1,5 @@
-#ifndef __FN_TUPLE_H__
-#define __FN_TUPLE_H__
+#ifndef __FN_GENERIC_TUPLE_H__
+#define __FN_GENERIC_TUPLE_H__
 
 #include "BLI_vector.h"
 
@@ -112,6 +112,14 @@ class GenericTupleRef {
   static GenericTupleRef FromAlignableBuffer(GenericTupleInfo &info, void *alignable_buffer)
   {
     void *data = info.align_data_buffer(alignable_buffer);
+    bool *init = (bool *)POINTER_OFFSET(data, info.size_of_data());
+    return GenericTupleRef(info, data, init);
+  }
+
+  static GenericTupleRef FromAlignedBuffer(GenericTupleInfo &info, void *aligned_buffer)
+  {
+    BLI_assert(info.align_data_buffer(aligned_buffer) == aligned_buffer);
+    void *data = aligned_buffer;
     bool *init = (bool *)POINTER_OFFSET(data, info.size_of_data());
     return GenericTupleRef(info, data, init);
   }
@@ -369,27 +377,93 @@ class GenericTupleRef {
 
 class GenericDestructingTuple : BLI::NonCopyable, BLI::NonMovable {
  private:
-  GenericTupleRef m_tuple_ref;
+  GenericTupleRef m_tuple;
 
  public:
   GenericDestructingTuple(GenericTupleInfo &info, void *alignable_buffer)
-      : m_tuple_ref(GenericTupleRef::FromAlignableBuffer(info, alignable_buffer))
+      : m_tuple(GenericTupleRef::FromAlignableBuffer(info, alignable_buffer))
   {
   }
 
   ~GenericDestructingTuple()
   {
-    m_tuple_ref.destruct_all();
+    m_tuple.destruct_all();
   }
 
   operator GenericTupleRef &()
   {
-    return m_tuple_ref;
+    return m_tuple;
   }
 
   GenericTupleRef *operator->()
   {
-    return &m_tuple_ref;
+    return &m_tuple;
+  }
+};
+
+class GenericTupleNameProvider {
+ public:
+  virtual StringRefNull get_element_name(uint index) const = 0;
+};
+
+class NamedGenericTupleRef {
+ private:
+  GenericTupleRef m_tuple;
+  const GenericTupleNameProvider *m_name_provider;
+
+ public:
+  NamedGenericTupleRef(GenericTupleRef tuple, const GenericTupleNameProvider &name_provider)
+      : m_tuple(tuple), m_name_provider(&name_provider)
+  {
+  }
+
+  void assert_name_is_correct(uint index, StringRef expected_name) const
+  {
+#ifdef DEBUG
+    StringRef real_name = m_name_provider->get_element_name(index);
+    BLI_assert(expected_name == real_name);
+#endif
+    UNUSED_VARS_NDEBUG(expected_name);
+    UNUSED_VARS_NDEBUG(index);
+  }
+
+  template<typename T> T relocate_out(uint index, StringRef expected_name)
+  {
+    this->assert_name_is_correct(index, expected_name);
+    return m_tuple.relocate_out<T>(index);
+  }
+
+  template<typename T> T get(uint index, StringRef expected_name)
+  {
+    this->assert_name_is_correct(index, expected_name);
+    return m_tuple.get<T>(index);
+  }
+
+  template<typename T> void move_in(uint index, StringRef expected_name, T &value)
+  {
+    this->assert_name_is_correct(index, expected_name);
+    m_tuple.move_in(index, value);
+  }
+
+  template<typename T> void set(uint index, StringRef expected_name, T &value)
+  {
+    this->assert_name_is_correct(index, expected_name);
+    m_tuple.set<T>(index, value);
+  }
+};
+
+class CustomGenericTupleNameProvider final : public GenericTupleNameProvider {
+ private:
+  Vector<std::string> m_names;
+
+ public:
+  CustomGenericTupleNameProvider(Vector<std::string> names) : m_names(std::move(names))
+  {
+  }
+
+  StringRefNull get_element_name(uint index) const override
+  {
+    return m_names[index];
   }
 };
 
@@ -400,4 +474,4 @@ class GenericDestructingTuple : BLI::NonCopyable, BLI::NonMovable {
   void *NAME##_buffer = alloca(NAME##_info.size_of_alignable_data_and_init()); \
   FN::GenericDestructingTuple NAME(NAME##_info, NAME##_buffer)
 
-#endif /* __FN_TUPLE_H__ */
+#endif /* __FN_GENERIC_TUPLE_H__ */

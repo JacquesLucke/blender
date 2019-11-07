@@ -5,6 +5,8 @@
 #include "BLI_array_cxx.h"
 #include "BLI_vector_adaptor.h"
 
+#include "FN_cpp_type.h"
+
 #include "simulate.hpp"
 #include "time_span.hpp"
 
@@ -15,6 +17,7 @@ namespace BParticles {
 using BLI::TemporaryArray;
 using BLI::TemporaryVector;
 using BLI::VectorAdaptor;
+using FN::CPPType;
 
 static uint get_max_event_storage_size(ArrayRef<Event *> events)
 {
@@ -82,7 +85,7 @@ BLI_NOINLINE static void forward_particles_to_next_event_or_end(
 
   auto attributes = step_data.attributes;
   auto attribute_offsets = step_data.attribute_offsets;
-  for (uint attribute_index : attribute_offsets.info().attribute_indices()) {
+  for (uint attribute_index : attribute_offsets.info().indices()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
     /* Only vectors can be integrated for now. */
@@ -101,7 +104,7 @@ BLI_NOINLINE static void update_remaining_attribute_offsets(
     ArrayRef<float> time_factors_to_next_event,
     AttributesRef attribute_offsets)
 {
-  for (uint attribute_index : attribute_offsets.info().attribute_indices()) {
+  for (uint attribute_index : attribute_offsets.info().indices()) {
     /* Only vectors can be integrated for now. */
     auto offsets = attribute_offsets.get<float3>(attribute_index);
 
@@ -292,7 +295,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
   auto attributes = step_data.attributes;
   auto attribute_offsets = step_data.attribute_offsets;
 
-  for (uint attribute_index : attribute_offsets.info().attribute_indices()) {
+  for (uint attribute_index : attribute_offsets.info().indices()) {
     StringRef name = attribute_offsets.info().name_of(attribute_index);
 
     /* Only vectors can be integrated for now. */
@@ -312,14 +315,14 @@ BLI_NOINLINE static void simulate_block(SimulationState &simulation_state,
                                         MutableArrayRef<float> remaining_durations,
                                         float end_time)
 {
-  uint amount = block.size();
+  uint amount = block.used_size();
   BLI_assert(amount == remaining_durations.size());
 
   Integrator &integrator = *system_info.integrator;
   AttributesInfo &offsets_info = integrator.offset_attributes_info();
   Vector<void *> offset_buffers;
-  for (AttributeType type : offsets_info.types()) {
-    void *ptr = BLI_temporary_allocate(size_of_attribute_type(type) * amount);
+  for (const CPPType *type : offsets_info.types()) {
+    void *ptr = BLI_temporary_allocate(type->size() * amount);
     offset_buffers.append(ptr);
   }
   AttributesRef attribute_offsets(offsets_info, offset_buffers, amount);
@@ -327,14 +330,14 @@ BLI_NOINLINE static void simulate_block(SimulationState &simulation_state,
   BlockStepData step_data = {
       simulation_state, block.as_ref(), attribute_offsets, remaining_durations, end_time};
 
-  IntegratorInterface interface(step_data, block.active_range().as_array_ref());
+  IntegratorInterface interface(step_data, block.used_range().as_array_ref());
   integrator.integrate(interface);
 
   if (system_info.events.size() == 0) {
     apply_remaining_offsets(step_data,
                             particle_allocator,
                             system_info.offset_handlers,
-                            block.active_range().as_array_ref());
+                            block.used_range().as_array_ref());
   }
   else {
     TemporaryVector<uint> unfinished_pindices;
@@ -356,17 +359,15 @@ BLI_NOINLINE static void simulate_block(SimulationState &simulation_state,
 BLI_NOINLINE static void delete_tagged_particles_and_reorder(AttributesBlock &block)
 {
   auto kill_states = block.as_ref().get<uint8_t>("Kill State");
+  TemporaryVector<uint> indices_to_delete;
 
-  uint index = 0;
-  while (index < block.size()) {
-    if (kill_states[index] == 1) {
-      block.move(block.size() - 1, index);
-      block.set_size(block.size() - 1);
-    }
-    else {
-      index++;
+  for (uint i = 0; i < kill_states.size(); i++) {
+    if (kill_states[i]) {
+      indices_to_delete.append(i);
     }
   }
+
+  block.destruct_and_reorder(indices_to_delete);
 }
 
 BLI_NOINLINE static void simulate_blocks_for_time_span(
@@ -388,7 +389,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
             block->owner());
         ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
 
-        TemporaryArray<float> remaining_durations(block->size());
+        TemporaryArray<float> remaining_durations(block->used_size());
         remaining_durations.fill(time_span.duration());
 
         simulate_block(simulation_state,
@@ -422,7 +423,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
             block->owner());
         ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
 
-        uint active_amount = block->size();
+        uint active_amount = block->used_size();
         Vector<float> durations(active_amount);
         auto birth_times = block->as_ref().get<float>("Birth Time");
         for (uint i = 0; i < active_amount; i++) {
@@ -453,8 +454,8 @@ BLI_NOINLINE static void compress_all_blocks(AttributesBlockContainer &container
   AttributesBlock::Compress(blocks);
 
   for (AttributesBlock *block : blocks) {
-    if (block->size() == 0) {
-      container.release_block(block);
+    if (block->used_size() == 0) {
+      container.release_block(*block);
     }
   }
 }
@@ -497,9 +498,14 @@ void simulate_particles(SimulationState &simulation_state,
   ParticlesState &particles_state = simulation_state.particles();
   TimeSpan simulation_time_span = simulation_state.time().current_update_time();
 
+  StringMap<const AttributesDefaults *> attribute_defaults;
+  systems_to_simulate.foreach_key_value_pair([&](StringRef key, const ParticleSystemInfo &system) {
+    attribute_defaults.add_new(key, system.attribute_defaults);
+  });
+
   Vector<AttributesBlock *> newly_created_blocks;
   {
-    ParticleAllocator particle_allocator(particles_state);
+    ParticleAllocator particle_allocator(particles_state, attribute_defaults);
     simulate_all_existing_blocks(
         simulation_state, systems_to_simulate, particle_allocator, simulation_time_span);
     create_particles_from_emitters(
@@ -508,7 +514,7 @@ void simulate_particles(SimulationState &simulation_state,
   }
 
   while (newly_created_blocks.size() > 0) {
-    ParticleAllocator particle_allocator(particles_state);
+    ParticleAllocator particle_allocator(particles_state, attribute_defaults);
     simulate_blocks_from_birth_to_current_time(particle_allocator,
                                                newly_created_blocks,
                                                systems_to_simulate,

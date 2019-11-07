@@ -91,6 +91,8 @@ template<typename T> static std::unique_ptr<const CPPType> create_cpp_type(Strin
   }
 
 MAKE_CPP_TYPE(float, float)
+MAKE_CPP_TYPE(uint32_t, uint32_t)
+MAKE_CPP_TYPE(uint8_t, uint8_t)
 MAKE_CPP_TYPE(bool, bool)
 MAKE_CPP_TYPE(ObjectPtr, Object *)
 MAKE_CPP_TYPE(int32, int32_t)

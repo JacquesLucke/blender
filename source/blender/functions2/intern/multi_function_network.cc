@@ -2,11 +2,17 @@
 
 #include "FN_multi_function_network.h"
 
+#include "BLI_set.h"
+#include "BLI_stack_cxx.h"
+
 extern "C" {
 void WM_clipboard_text_set(const char *buf, bool selection);
 }
 
 namespace FN {
+
+using BLI::Set;
+using BLI::Stack;
 
 /* MFNetwork Builder
  **************************************/
@@ -358,6 +364,32 @@ MFNetwork::~MFNetwork()
   for (auto socket : m_output_sockets) {
     delete socket;
   }
+}
+
+Vector<const MFOutputSocket *> MFNetwork::find_dummy_dependencies(
+    ArrayRef<const MFInputSocket *> sockets) const
+{
+  Vector<const MFOutputSocket *> dummy_dependencies;
+  Set<const MFOutputSocket *> found_outputs;
+  Stack<const MFInputSocket *> inputs_to_check = sockets;
+
+  while (!inputs_to_check.empty()) {
+    const MFInputSocket &input_socket = *inputs_to_check.pop();
+    const MFOutputSocket &origin_socket = input_socket.origin();
+
+    if (found_outputs.add(&origin_socket)) {
+      if (origin_socket.node().is_dummy()) {
+        dummy_dependencies.append(&origin_socket);
+      }
+      else {
+        for (const MFInputSocket *origin_input : origin_socket.node().inputs()) {
+          inputs_to_check.push(origin_input);
+        }
+      }
+    }
+  }
+
+  return dummy_dependencies;
 }
 
 }  // namespace FN

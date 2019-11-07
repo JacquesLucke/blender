@@ -105,6 +105,12 @@ class GenericMutableArrayRef {
     }
   }
 
+  GenericMutableArrayRef slice(uint start, uint size)
+  {
+    BLI_assert(start + size <= m_size);
+    return GenericMutableArrayRef(*m_type, POINTER_OFFSET(m_buffer, start * m_type->size()), size);
+  }
+
   const CPPType &type() const
   {
     return *m_type;

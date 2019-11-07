@@ -228,6 +228,8 @@ class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
 
   ArrayRef<const VSocket *> all_sockets() const;
   ArrayRef<const VInputSocket *> all_input_sockets() const;
+
+  const VSocket &socket_by_id(uint id) const;
 };
 
 /* Virtual Node Tree Builder inline functions
@@ -493,6 +495,11 @@ inline ArrayRef<const VSocket *> VirtualNodeTree::all_sockets() const
 inline ArrayRef<const VInputSocket *> VirtualNodeTree::all_input_sockets() const
 {
   return ArrayRef<VInputSocket *>(m_input_sockets).cast<const VInputSocket *>();
+}
+
+inline const VSocket &VirtualNodeTree::socket_by_id(uint id) const
+{
+  return *m_sockets_by_id[id];
 }
 
 }  // namespace BKE

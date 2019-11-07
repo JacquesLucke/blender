@@ -289,6 +289,9 @@ class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
 
   const MFNode &node_by_id(uint id) const;
   const MFSocket &socket_by_id(uint id) const;
+
+  Vector<const MFOutputSocket *> find_dummy_dependencies(
+      ArrayRef<const MFInputSocket *> sockets) const;
 };
 
 /* Builder Implementations

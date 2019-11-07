@@ -1,4 +1,3 @@
-#include "FN_llvm.hpp"
 #include "BLI_lazy_init_cxx.h"
 #include "BLI_hash.h"
 
@@ -8,85 +7,61 @@
 #include "events.hpp"
 #include "action_contexts.hpp"
 
+#include "FN_multi_functions.h"
+
 namespace BParticles {
 
-using BKE::VSocket;
+using BKE::VInputSocket;
+using BKE::VOutputSocket;
 using BLI::float2;
 using BLI::rgba_b;
-using FN::DataGraph;
-using FN::DataSocket;
-using FN::Function;
-using FN::FunctionBuilder;
-using FN::FunctionGraph;
-using FN::Type;
-using FN::Types::StringW;
+using FN::MFInputSocket;
+using FN::MFOutputSocket;
 
-Vector<DataSocket> find_input_data_sockets(const VNode &vnode, VTreeDataGraph &data_graph)
+static Vector<const MFInputSocket *> find_input_data_sockets(const VNode &vnode,
+                                                             VTreeMFNetwork &data_graph)
 {
-  Vector<DataSocket> inputs;
-  for (const VSocket *vsocket : vnode.inputs()) {
-    DataSocket *socket = data_graph.lookup_socket_ptr(*vsocket);
-    if (socket != nullptr) {
-      inputs.append(*socket);
+  Vector<const MFInputSocket *> inputs;
+  for (const VInputSocket *vsocket : vnode.inputs()) {
+    if (data_graph.is_mapped(*vsocket)) {
+      const MFInputSocket &socket = data_graph.lookup_socket(*vsocket);
+      inputs.append(&socket);
     }
   }
   return inputs;
 }
 
-static VectorSet<const VSocket *> find_particle_dependencies(
-    VTreeDataGraph &data_graph,
-    ArrayRef<DataSocket> sockets,
-    MutableArrayRef<bool> r_depends_on_particle_flags)
+static VectorSet<const VOutputSocket *> find_particle_dependencies(
+    VTreeMFNetwork &data_graph, ArrayRef<const MFInputSocket *> sockets)
 {
-  VectorSet<const VSocket *> combined_dependencies;
+  Vector<const MFOutputSocket *> dummy_dependencies = data_graph.network().find_dummy_dependencies(
+      sockets);
 
-  for (uint i = 0; i < sockets.size(); i++) {
-    DataSocket socket = sockets[i];
-    auto dependencies = data_graph.find_placeholder_dependencies({socket});
-    bool has_dependency = dependencies.size() > 0;
-    r_depends_on_particle_flags[i] = has_dependency;
-
-    combined_dependencies.add_multiple(dependencies);
+  Vector<const VOutputSocket *> dependencies;
+  for (const MFOutputSocket *socket : dummy_dependencies) {
+    dependencies.append(&data_graph.lookup_vsocket(*socket));
   }
 
-  return combined_dependencies;
-}
-
-static AttributeType attribute_type_from_socket_type(FN::Type *type)
-{
-  if (type == FN::Types::TYPE_float3) {
-    return AttributeType::Float3;
-  }
-  else if (type == FN::Types::TYPE_float) {
-    return AttributeType::Float;
-  }
-  else if (type == FN::Types::TYPE_int32) {
-    return AttributeType::Int32;
-  }
-  else {
-    BLI_assert(false);
-    return AttributeType::Byte;
-  }
+  return dependencies;
 }
 
 using BuildInputProvider = std::function<ParticleFunctionInputProvider *(
-    VTreeDataGraph &vtree_data_graph, const VSocket &vsocket)>;
+    VTreeMFNetwork &vtree_data_graph, const VOutputSocket &vsocket)>;
 
-static ParticleFunctionInputProvider *INPUT_particle_info(VTreeDataGraph &vtree_data_graph,
-                                                          const VSocket &vsocket)
+static ParticleFunctionInputProvider *INPUT_particle_info(VTreeMFNetwork &vtree_data_graph,
+                                                          const VOutputSocket &vsocket)
 {
   if (vsocket.name() == "Age") {
     return new AgeInputProvider();
   }
   else {
-    FN::Type *fn_type = vtree_data_graph.lookup_type(vsocket);
-    AttributeType attr_type = attribute_type_from_socket_type(fn_type);
-    return new AttributeInputProvider(attr_type, vsocket.name());
+    const CPPType &type = vtree_data_graph.lookup_socket(vsocket).type().type();
+    return new AttributeInputProvider(type, vsocket.name());
   }
 }
 
-static ParticleFunctionInputProvider *INPUT_surface_info(VTreeDataGraph &UNUSED(vtree_data_graph),
-                                                         const VSocket &vsocket)
+static ParticleFunctionInputProvider *INPUT_surface_info(VTreeMFNetwork &UNUSED(vtree_data_graph),
+                                                         const VOutputSocket &vsocket)
 {
   if (vsocket.name() == "Normal") {
     return new SurfaceNormalInputProvider();
@@ -100,8 +75,8 @@ static ParticleFunctionInputProvider *INPUT_surface_info(VTreeDataGraph &UNUSED(
   }
 }
 
-static ParticleFunctionInputProvider *INPUT_surface_image(VTreeDataGraph &vtree_data_graph,
-                                                          const VSocket &vsocket)
+static ParticleFunctionInputProvider *INPUT_surface_image(VTreeMFNetwork &UNUSED(vtree_data_graph),
+                                                          const VOutputSocket &vsocket)
 {
   Optional<std::string> uv_map_name;
 
@@ -109,24 +84,11 @@ static ParticleFunctionInputProvider *INPUT_surface_image(VTreeDataGraph &vtree_
   Image *image = (Image *)RNA_pointer_get(rna, "image").data;
   BLI_assert(image != nullptr);
 
-  int uv_mode = RNA_enum_get(rna, "uv_mode");
-  if (uv_mode == 1) {
-    FunctionGraph fgraph(
-        vtree_data_graph.graph(), {}, {vtree_data_graph.lookup_socket(vsocket.node().input(0))});
-    std::unique_ptr<Function> fn = fgraph.new_function(vsocket.node().name());
-    FN::fgraph_add_TupleCallBody(*fn, fgraph);
-
-    FN::TupleCallBody &body = fn->body<TupleCallBody>();
-    FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-    body.call__setup_execution_context(fn_in, fn_out);
-    uv_map_name = fn_out.relocate_out<StringW>(0).ref();
-  }
-
   return new SurfaceImageInputProvider(image, uv_map_name);
 }
 
 static ParticleFunctionInputProvider *INPUT_surface_weight(
-    VTreeDataGraph &UNUSED(vtree_data_graph), const VSocket &vsocket)
+    VTreeMFNetwork &UNUSED(vtree_data_graph), const VOutputSocket &vsocket)
 {
   PointerRNA *rna = vsocket.node().rna();
   char group_name[65];
@@ -135,26 +97,24 @@ static ParticleFunctionInputProvider *INPUT_surface_weight(
 }
 
 static ParticleFunctionInputProvider *INPUT_randomness_input(
-    VTreeDataGraph &UNUSED(vtree_data_graph), const VSocket &vsocket)
+    VTreeMFNetwork &UNUSED(vtree_data_graph), const VOutputSocket &vsocket)
 {
   uint seed = BLI_hash_string(vsocket.node().name().data());
   return new RandomFloatInputProvider(seed);
 }
 
-static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeDataGraph &vtree_data_graph,
-                                                        const VSocket &vsocket)
+static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeMFNetwork &vtree_data_graph,
+                                                        const VOutputSocket &vsocket)
 {
-  FunctionGraph fgraph(
-      vtree_data_graph.graph(), {}, {vtree_data_graph.lookup_socket(vsocket.node().input(0))});
-  std::unique_ptr<Function> fn = fgraph.new_function(vsocket.node().name());
-  FN::fgraph_add_TupleCallBody(*fn, fgraph);
+  FN::MF_EvaluateNetwork fn({}, {&vtree_data_graph.lookup_socket(vsocket.node().input(0))});
+  FN::MFParamsBuilder params_builder(fn, 1);
+  FN::MFContextBuilder context_builder;
 
-  FN::TupleCallBody &body = fn->body<TupleCallBody>();
-  FN_TUPLE_CALL_ALLOC_TUPLES(body, fn_in, fn_out);
-  body.call__setup_execution_context(fn_in, fn_out);
-  StringW group_name = fn_out.relocate_out<StringW>(0);
+  std::string group_name;
+  BLI::destruct(&group_name);
+  params_builder.add_single_output(ArrayRef<std::string>(&group_name, 1));
 
-  return new IsInGroupInputProvider(*group_name);
+  return new IsInGroupInputProvider(group_name);
 }
 
 BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
@@ -169,8 +129,8 @@ BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
   return map;
 }
 
-static ParticleFunctionInputProvider *create_input_provider(VTreeDataGraph &vtree_data_graph,
-                                                            const VSocket &vsocket)
+static ParticleFunctionInputProvider *create_input_provider(VTreeMFNetwork &vtree_data_graph,
+                                                            const VOutputSocket &vsocket)
 {
   const VNode &vnode = vsocket.node();
 
@@ -181,86 +141,32 @@ static ParticleFunctionInputProvider *create_input_provider(VTreeDataGraph &vtre
   return provider;
 }
 
-static std::unique_ptr<Function> create_function__with_deps(
-    VTreeDataGraph &data_graph,
-    StringRef function_name,
-    ArrayRef<DataSocket> sockets_to_compute,
-    ArrayRef<const VSocket *> input_vsockets,
-    MutableArrayRef<ParticleFunctionInputProvider *> r_input_providers)
-{
-  uint input_amount = input_vsockets.size();
-  BLI_assert(input_amount == r_input_providers.size());
-
-  Vector<DataSocket> input_sockets = data_graph.lookup_sockets(input_vsockets);
-
-  FunctionBuilder fn_builder;
-  fn_builder.add_inputs(data_graph.graph(), input_sockets);
-  fn_builder.add_outputs(data_graph.graph(), sockets_to_compute);
-
-  for (uint i = 0; i < input_amount; i++) {
-    r_input_providers[i] = create_input_provider(data_graph, *input_vsockets[i]);
-  }
-
-  std::unique_ptr<Function> fn = fn_builder.build(function_name);
-  FunctionGraph fgraph(data_graph.graph(), input_sockets, sockets_to_compute);
-  FN::fgraph_add_TupleCallBody(*fn, fgraph);
-  FN::fgraph_add_LLVMBuildIRBody(*fn, fgraph);
-  return fn;
-}
-
-static std::unique_ptr<Function> create_function__without_deps(
-    DataGraph &graph, StringRef function_name, ArrayRef<DataSocket> sockets_to_compute)
-{
-  FunctionBuilder fn_builder;
-  fn_builder.add_outputs(graph, sockets_to_compute);
-  std::unique_ptr<Function> fn = fn_builder.build(function_name);
-  FunctionGraph fgraph(graph, {}, sockets_to_compute);
-  FN::fgraph_add_TupleCallBody(*fn, fgraph);
-  return fn;
-}
-
 static Optional<std::unique_ptr<ParticleFunction>> create_particle_function_from_sockets(
-    VTreeDataGraph &data_graph,
-    StringRef name,
-    ArrayRef<DataSocket> sockets_to_compute,
-    ArrayRef<bool> depends_on_particle_flags,
-    ArrayRef<const VSocket *> dependencies)
+    VTreeMFNetwork &data_graph,
+    ArrayRef<const MFInputSocket *> sockets_to_compute,
+    ArrayRef<const VOutputSocket *> dependencies)
 {
-  Vector<DataSocket> sockets_with_deps;
-  Vector<DataSocket> sockets_without_deps;
-  for (uint i = 0; i < sockets_to_compute.size(); i++) {
-    if (depends_on_particle_flags[i]) {
-      sockets_with_deps.append(sockets_to_compute[i]);
-    }
-    else {
-      sockets_without_deps.append(sockets_to_compute[i]);
-    }
+  Vector<const MFOutputSocket *> dependency_sockets;
+  Vector<ParticleFunctionInputProvider *> input_providers;
+
+  for (const VOutputSocket *vsocket : dependencies) {
+    dependency_sockets.append(&data_graph.lookup_socket(*vsocket));
+    input_providers.append(create_input_provider(data_graph, *vsocket));
   }
 
-  Vector<ParticleFunctionInputProvider *> input_providers(dependencies.size(), nullptr);
+  std::unique_ptr<FN::MultiFunction> fn = BLI::make_unique<FN::MF_EvaluateNetwork>(
+      dependency_sockets, sockets_to_compute);
 
-  std::unique_ptr<Function> fn_without_deps = create_function__without_deps(
-      data_graph.graph(), name, sockets_without_deps);
-  std::unique_ptr<Function> fn_with_deps = create_function__with_deps(
-      data_graph, name, sockets_with_deps, dependencies, input_providers);
-
-  return BLI::make_unique<ParticleFunction>(std::move(fn_without_deps),
-                                            std::move(fn_with_deps),
-                                            input_providers,
-                                            depends_on_particle_flags);
+  return BLI::make_unique<ParticleFunction>(std::move(fn), input_providers);
 }
 
 Optional<std::unique_ptr<ParticleFunction>> create_particle_function(const VNode &vnode,
-                                                                     VTreeDataGraph &data_graph)
+                                                                     VTreeMFNetwork &data_graph)
 {
-  Vector<DataSocket> sockets_to_compute = find_input_data_sockets(vnode, data_graph);
-  Vector<bool> depends_on_particle_flags(sockets_to_compute.size());
-  auto dependencies = find_particle_dependencies(
-      data_graph, sockets_to_compute, depends_on_particle_flags);
+  Vector<const MFInputSocket *> sockets_to_compute = find_input_data_sockets(vnode, data_graph);
+  auto dependencies = find_particle_dependencies(data_graph, sockets_to_compute);
 
-  std::string name = vnode.name() + StringRef(" Inputs");
-  return create_particle_function_from_sockets(
-      data_graph, name, sockets_to_compute, depends_on_particle_flags, dependencies);
+  return create_particle_function_from_sockets(data_graph, sockets_to_compute, dependencies);
 }
 
 }  // namespace BParticles

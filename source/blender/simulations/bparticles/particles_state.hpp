@@ -1,25 +1,24 @@
 #pragma once
 
-#include "BKE_attributes_block_container.hpp"
+#include <atomic>
+
+#include "FN_attributes_block_container.h"
 
 namespace BParticles {
 
-using BKE::attribute_type_by_type;
-using BKE::AttributesBlock;
-using BKE::AttributesBlockContainer;
-using BKE::AttributesInfo;
-using BKE::AttributesRef;
-using BKE::AttributeType;
 using BLI::ArrayRef;
 using BLI::IndexRange;
 using BLI::Map;
 using BLI::MutableArrayRef;
-using BLI::Set;
 using BLI::StringMap;
 using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
 using BLI::VectorSet;
+using FN::AttributesBlock;
+using FN::AttributesBlockContainer;
+using FN::AttributesInfo;
+using FN::AttributesRef;
 
 class ParticlesState {
  private:

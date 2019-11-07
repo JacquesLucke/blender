@@ -7,6 +7,10 @@
 #include "BLI_multi_map.h"
 #include "BLI_lazy_init_cxx.h"
 
+#include "FN_multi_functions.h"
+#include "FN_generic_tuple.h"
+#include "FN_vtree_multi_function_network_generation.h"
+
 #include "node_frontend.hpp"
 #include "integrator.hpp"
 #include "particle_function_builder.hpp"
@@ -18,21 +22,19 @@
 namespace BParticles {
 
 using BKE::VNode;
+using BKE::VOutputSocket;
 using BKE::VSocket;
 using BLI::destruct_ptr;
-using BLI::MonotonicAllocator;
 using BLI::MultiMap;
+using BLI::ResourceCollector;
 using BLI::rgba_f;
-using FN::DataGraph;
-using FN::Function;
-using FN::FunctionBuilder;
-using FN::FunctionGraph;
-using FN::FunctionOutputNamesProvider;
-using FN::NamedTupleRef;
-using FN::Tuple;
-using FN::DataFlowNodes::VTreeDataGraph;
-using FN::Types::ObjectW;
-using FN::Types::StringW;
+using FN::AttributesInfoBuilder;
+using FN::CPPType;
+using FN::MFInputSocket;
+using FN::MFOutputSocket;
+using FN::MultiFunction;
+using FN::NamedGenericTupleRef;
+using FN::VTreeMFNetwork;
 
 static StringRef particle_system_idname = "fn_ParticleSystemNode";
 static StringRef combine_influences_idname = "fn_CombineInfluencesNode";
@@ -50,47 +52,42 @@ class InfluencesCollector {
   MultiMap<std::string, Force *> &m_forces;
   MultiMap<std::string, Event *> &m_events;
   MultiMap<std::string, OffsetHandler *> &m_offset_handlers;
-  StringMap<AttributesDeclaration> &m_attributes;
+  StringMap<AttributesInfoBuilder> &m_attributes;
+  StringMap<AttributesDefaults *> &m_attributes_defaults;
 };
 
 class VTreeData {
  private:
   /* Keep this at the beginning, so that it is destructed last. */
-  MonotonicAllocator<> m_allocator;
-
-  VTreeDataGraph &m_vtree_data_graph;
-  Vector<std::unique_ptr<ParticleFunction>> m_particle_functions;
-  Vector<std::unique_ptr<Function>> m_functions;
-  Vector<destruct_ptr<Tuple>> m_tuples;
-  Vector<destruct_ptr<FunctionOutputNamesProvider>> m_name_providers;
-  Vector<destruct_ptr<Vector<std::string>>> m_string_vectors;
-  Vector<std::unique_ptr<Action>> m_actions;
+  ResourceCollector m_resources;
+  VTreeMFNetwork &m_vtree_data_graph;
 
  public:
-  VTreeData(VTreeDataGraph &vtree_data) : m_vtree_data_graph(vtree_data)
+  VTreeData(VTreeMFNetwork &vtree_data) : m_vtree_data_graph(vtree_data)
   {
   }
 
-  VirtualNodeTree &vtree()
+  const VirtualNodeTree &vtree()
   {
     return m_vtree_data_graph.vtree();
   }
 
-  DataGraph &data_graph()
+  const FN::MFNetwork &data_graph()
   {
-    return m_vtree_data_graph.graph();
+    return m_vtree_data_graph.network();
   }
 
-  VTreeDataGraph &vtree_data_graph()
+  const VTreeMFNetwork &vtree_data_graph()
   {
     return m_vtree_data_graph;
   }
 
-  template<typename T, typename... Args> destruct_ptr<T> construct_new(Args &&... args)
+  template<typename T, typename... Args> T &construct(const char *name, Args &&... args)
   {
-    void *buffer = m_allocator.allocate(sizeof(T), alignof(T));
+    void *buffer = m_resources.allocate(sizeof(T), alignof(T));
     T *value = new (buffer) T(std::forward<Args>(args)...);
-    return destruct_ptr<T>(value);
+    m_resources.add(BLI::destruct_ptr<T>(value), name);
+    return *value;
   }
 
   ParticleFunction *particle_function_for_all_inputs(const VNode &vnode)
@@ -102,38 +99,57 @@ class VTreeData {
     }
     ParticleFunction *fn_ptr = fn->get();
     BLI_assert(fn_ptr != nullptr);
-    m_particle_functions.append(fn.extract());
+    m_resources.add(std::move(fn.extract()), __func__);
     return fn_ptr;
   }
 
-  Optional<NamedTupleRef> compute_inputs(const VNode &vnode, ArrayRef<uint> input_indices)
+  Optional<NamedGenericTupleRef> compute_inputs(const VNode &vnode, ArrayRef<uint> input_indices)
   {
-    TupleCallBody *body_ptr = this->function_body_for_inputs(vnode, input_indices);
-    if (body_ptr == nullptr) {
+    const MultiFunction *fn = this->function_for_inputs(vnode, input_indices);
+    if (fn == nullptr) {
       return {};
     }
-    TupleCallBody &body = *body_ptr;
 
-    FN_TUPLE_STACK_ALLOC(fn_in, body.meta_in());
-    FN::TupleMeta &meta_out = body.meta_out();
-    void *fn_out_data = m_allocator.allocate(meta_out.size_of_data());
-    bool *fn_out_init = (bool *)m_allocator.allocate(meta_out.size_of_init());
-    auto fn_out = this->construct_new<Tuple>(meta_out, fn_out_data, fn_out_init);
+    Vector<const CPPType *> computed_types;
+    for (uint i : input_indices) {
+      FN::MFDataType data_type = m_vtree_data_graph.lookup_socket(vnode.input(i)).type();
+      BLI_assert(data_type.is_single());
+      computed_types.append(&data_type.type());
+    }
 
-    body.call__setup_execution_context(fn_in, *fn_out);
-    auto name_provider = this->construct_new<FunctionOutputNamesProvider>(body.owner());
+    auto &tuple_info = this->construct<FN::GenericTupleInfo>(__func__, std::move(computed_types));
+    void *tuple_buffer = m_resources.allocate(tuple_info.size_of_data_and_init(),
+                                              tuple_info.alignment());
+    FN::GenericTupleRef tuple = FN::GenericTupleRef::FromAlignedBuffer(tuple_info, tuple_buffer);
+    tuple.set_all_uninitialized();
 
-    m_tuples.append(std::move(fn_out));
-    m_name_providers.append(std::move(name_provider));
+    FN::MFParamsBuilder params_builder(*fn, 1);
+    FN::MFContextBuilder context_builder;
 
-    return NamedTupleRef(m_tuples.last().get(), m_name_providers.last().get());
+    for (uint i = 0; i < input_indices.size(); i++) {
+      params_builder.add_single_output(
+          FN::GenericMutableArrayRef(tuple.info().type_at_index(i), tuple.element_ptr(i), 1));
+    }
+    fn->call(FN::MFMask({0}), params_builder.build(), context_builder.build());
+    tuple.set_all_initialized();
+
+    Vector<std::string> computed_names;
+    for (uint i : input_indices) {
+      computed_names.append(vnode.input(i).name());
+    }
+
+    auto &name_provider = this->construct<FN::CustomGenericTupleNameProvider>(
+        __func__, std::move(computed_names));
+    NamedGenericTupleRef named_tuple_ref{tuple, name_provider};
+
+    return named_tuple_ref;
   }
 
-  Optional<NamedTupleRef> compute_all_data_inputs(const VNode &vnode)
+  Optional<NamedGenericTupleRef> compute_all_data_inputs(const VNode &vnode)
   {
     Vector<uint> data_input_indices;
     for (uint i = 0; i < vnode.inputs().size(); i++) {
-      if (m_vtree_data_graph.uses_socket(vnode.input(i))) {
+      if (m_vtree_data_graph.is_mapped(vnode.input(i))) {
         data_input_indices.append(i);
       }
     }
@@ -141,15 +157,17 @@ class VTreeData {
     return this->compute_inputs(vnode, data_input_indices);
   }
 
-  ArrayRef<std::string> find_target_system_names(const VSocket &output_vsocket)
+  ArrayRef<std::string> find_target_system_names(const VOutputSocket &output_vsocket)
   {
-    auto system_names = this->construct_new<Vector<std::string>>();
-    for (const VNode *vnode : find_target_system_nodes(output_vsocket)) {
-      system_names->append(vnode->name());
+    VectorSet<const VNode *> system_vnodes;
+    this->find_target_system_nodes__recursive(output_vsocket, system_vnodes);
+
+    auto &system_names = this->construct<Vector<std::string>>(__func__);
+    for (const VNode *vnode : system_vnodes) {
+      system_names.append(vnode->name());
     }
 
-    m_string_vectors.append(std::move(system_names));
-    return *m_string_vectors.last();
+    return system_names;
   }
 
   Action *build_action(InfluencesCollector &collector, const VSocket &start)
@@ -171,7 +189,7 @@ class VTreeData {
     if (action_ptr == nullptr) {
       return nullptr;
     }
-    m_actions.append(std::move(action));
+    m_resources.add(std::move(action), __func__);
     return action_ptr;
   }
 
@@ -187,9 +205,8 @@ class VTreeData {
         actions.append(action);
       }
     }
-    Action *sequence = new ActionSequence(std::move(actions));
-    m_actions.append(std::unique_ptr<Action>(sequence));
-    return *sequence;
+    Action &sequence = this->construct<ActionSequence>(__func__, std::move(actions));
+    return sequence;
   }
 
  private:
@@ -215,24 +232,22 @@ class VTreeData {
     }
   }
 
-  TupleCallBody *function_body_for_inputs(const VNode &vnode, ArrayRef<uint> input_indices)
+  const FN::MultiFunction *function_for_inputs(const VNode &vnode, ArrayRef<uint> input_indices)
   {
-    VectorSet<DataSocket> sockets_to_compute;
+    Vector<const MFInputSocket *> sockets_to_compute;
     for (uint index : input_indices) {
-      sockets_to_compute.add_new(m_vtree_data_graph.lookup_socket(vnode.input(index)));
+      sockets_to_compute.append(&m_vtree_data_graph.lookup_socket(vnode.input(index)));
     }
 
-    Vector<const VSocket *> dependencies = m_vtree_data_graph.find_placeholder_dependencies(
-        sockets_to_compute);
-    if (dependencies.size() > 0) {
+    if (m_vtree_data_graph.network().find_dummy_dependencies(sockets_to_compute).size() > 0) {
       return nullptr;
     }
 
-    FunctionGraph fgraph(m_vtree_data_graph.graph(), {}, sockets_to_compute);
-    auto fn = fgraph.new_function(vnode.name());
-    FN::fgraph_add_TupleCallBody(*fn, fgraph);
-    m_functions.append(std::move(fn));
-    return &m_functions.last()->body<TupleCallBody>();
+    auto fn = BLI::make_unique<FN::MF_EvaluateNetwork>(ArrayRef<const MFOutputSocket *>(),
+                                                       sockets_to_compute);
+    const FN::MultiFunction *fn_ptr = fn.get();
+    m_resources.add(std::move(fn), __func__);
+    return fn_ptr;
   }
 
   Vector<const VSocket *> find_execute_sockets(const VNode &vnode, StringRef name_prefix)
@@ -379,13 +394,16 @@ static std::unique_ptr<Action> ACTION_add_to_group(InfluencesCollector &collecto
     return {};
   }
 
-  StringW group_name = inputs->relocate_out<StringW>(0, "Group");
+  std::string group_name = inputs->relocate_out<std::string>(0, "Group");
 
   /* Add group to all particle systems for now. */
+  collector.m_attributes_defaults.foreach_value([&](AttributesDefaults *attributes_defaults) {
+    attributes_defaults->add<uint8_t>(group_name, 0);
+  });
   collector.m_attributes.foreach_value(
-      [&](AttributesDeclaration &attributes) { attributes.add<uint8_t>(*group_name, 0); });
+      [&](AttributesInfoBuilder &builder) { builder.add<uint8_t>(group_name); });
 
-  Action *action = new AddToGroupAction(*group_name);
+  Action *action = new AddToGroupAction(group_name);
   return std::unique_ptr<Action>(action);
 }
 
@@ -399,8 +417,8 @@ static std::unique_ptr<Action> ACTION_remove_from_group(InfluencesCollector &UNU
     return {};
   }
 
-  StringW group_name = inputs->relocate_out<StringW>(0, "Group");
-  Action *action = new RemoveFromGroupAction(*group_name);
+  std::string group_name = inputs->relocate_out<std::string>(0, "Group");
+  Action *action = new RemoveFromGroupAction(group_name);
   return std::unique_ptr<Action>(action);
 }
 
@@ -429,7 +447,7 @@ static void PARSE_point_emitter(InfluencesCollector &collector,
                                 WorldTransition &world_transition,
                                 const VNode &vnode)
 {
-  Optional<NamedTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
+  Optional<NamedGenericTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
   if (!inputs.has_value()) {
     return;
   }
@@ -451,7 +469,7 @@ static void PARSE_point_emitter(InfluencesCollector &collector,
 }
 
 static Vector<float> compute_emitter_vertex_weights(const VNode &vnode,
-                                                    NamedTupleRef inputs,
+                                                    NamedGenericTupleRef inputs,
                                                     Object *object)
 {
   uint density_mode = RNA_enum_get(vnode.rna(), "density_mode");
@@ -465,10 +483,10 @@ static Vector<float> compute_emitter_vertex_weights(const VNode &vnode,
   }
   else if (density_mode == 1) {
     /* Mode: 'VERTEX_WEIGHTS' */
-    auto group_name = inputs.relocate_out<FN::Types::StringW>(2, "Density Group");
+    std::string group_name = inputs.relocate_out<std::string>(2, "Density Group");
 
     MDeformVert *vertices = mesh->dvert;
-    int group_index = defgroup_name_index(object, group_name->data());
+    int group_index = defgroup_name_index(object, group_name.c_str());
     if (group_index == -1 || vertices == nullptr) {
       vertex_weights.fill(0);
     }
@@ -487,14 +505,14 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
                                WorldTransition &world_transition,
                                const VNode &vnode)
 {
-  Optional<NamedTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
+  Optional<NamedGenericTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
   if (!inputs.has_value()) {
     return;
   }
 
   Action &on_birth_action = vtree_data.build_action_list(collector, vnode, "Execute on Birth");
 
-  Object *object = inputs->relocate_out<ObjectW>(0, "Object").ptr();
+  Object *object = inputs->relocate_out<Object *>(0, "Object");
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
@@ -550,7 +568,8 @@ static void PARSE_age_reached_event(InfluencesCollector &collector,
   std::string is_triggered_attribute = vnode.name();
 
   for (const std::string &system_name : system_names) {
-    collector.m_attributes.lookup(system_name).add<uint8_t>(is_triggered_attribute, 0);
+    collector.m_attributes.lookup(system_name).add<uint8_t>(is_triggered_attribute);
+    collector.m_attributes_defaults.lookup(system_name)->add<uint8_t>(is_triggered_attribute, 0);
     Event *event = new AgeReachedEvent(is_triggered_attribute, inputs_fn, action);
     collector.m_events.add(system_name, event);
   }
@@ -584,7 +603,7 @@ static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
                                        WorldTransition &UNUSED(world_transition),
                                        const VNode &vnode)
 {
-  Optional<NamedTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
+  Optional<NamedGenericTupleRef> inputs = vtree_data.compute_all_data_inputs(vnode);
   if (!inputs.has_value()) {
     return;
   }
@@ -651,12 +670,12 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
     return;
   }
 
-  Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {0});
+  Optional<NamedGenericTupleRef> inputs = vtree_data.compute_inputs(vnode, {0});
   if (!inputs.has_value()) {
     return;
   }
 
-  Object *object = inputs->relocate_out<ObjectW>(0, "Object").ptr();
+  Object *object = inputs->relocate_out<Object *>(0, "Object");
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
@@ -674,7 +693,9 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
   for (const std::string &system_name : system_names) {
     Event *event = new MeshCollisionEvent(
         last_collision_attribute, object, action, local_to_world_begin, local_to_world_end);
-    collector.m_attributes.lookup(system_name).add<int32_t>(last_collision_attribute, -1);
+    collector.m_attributes.lookup(system_name).add<int32_t>(last_collision_attribute);
+    collector.m_attributes_defaults.lookup(system_name)
+        ->add<int32_t>(last_collision_attribute, -1);
     collector.m_events.add(system_name, event);
   }
 }
@@ -702,12 +723,12 @@ static void PARSE_mesh_force(InfluencesCollector &collector,
                              WorldTransition &UNUSED(world_transition),
                              const VNode &vnode)
 {
-  Optional<NamedTupleRef> inputs = vtree_data.compute_inputs(vnode, {0});
+  Optional<NamedGenericTupleRef> inputs = vtree_data.compute_inputs(vnode, {0});
   if (!inputs.has_value()) {
     return;
   }
 
-  Object *object = inputs->relocate_out<ObjectW>(0, "Object").ptr();
+  Object *object = inputs->relocate_out<Object *>(0, "Object");
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
@@ -743,7 +764,8 @@ static void PARSE_custom_event(InfluencesCollector &collector,
 
   for (const std::string &system_name : system_names) {
     Event *event = new CustomEvent(is_triggered_attribute, inputs_fn, action);
-    collector.m_attributes.lookup(system_name).add<uint8_t>(system_name, 0);
+    collector.m_attributes.lookup(system_name).add<uint8_t>(system_name);
+    collector.m_attributes_defaults.lookup(system_name)->add<uint8_t>(system_name, 0);
     collector.m_events.add(system_name, event);
   }
 }
@@ -788,7 +810,8 @@ static void collect_influences(VTreeData &vtree_data,
                                Vector<Emitter *> &r_emitters,
                                MultiMap<std::string, Event *> &r_events_per_type,
                                MultiMap<std::string, OffsetHandler *> &r_offset_handler_per_type,
-                               StringMap<AttributesDeclaration> &r_attributes_per_type,
+                               StringMap<AttributesInfoBuilder> &r_attributes_per_type,
+                               StringMap<AttributesDefaults *> &r_attributes_defaults,
                                StringMap<Integrator *> &r_integrators)
 {
   SCOPED_TIMER(__func__);
@@ -802,12 +825,14 @@ static void collect_influences(VTreeData &vtree_data,
       r_events_per_type,
       r_offset_handler_per_type,
       r_attributes_per_type,
+      r_attributes_defaults,
   };
 
   for (const VNode *vnode : vtree_data.vtree().nodes_with_idname(particle_system_idname)) {
     StringRef name = vnode->name();
     r_system_names.append(name);
-    r_attributes_per_type.add_new(name, AttributesDeclaration());
+    r_attributes_per_type.add_new(name, AttributesInfoBuilder());
+    r_attributes_defaults.add_new(name, new AttributesDefaults());
   }
 
   for (const VNode *vnode : vtree_data.vtree().nodes()) {
@@ -819,14 +844,29 @@ static void collect_influences(VTreeData &vtree_data,
   }
 
   for (std::string &system_name : r_system_names) {
-    AttributesDeclaration &attributes = r_attributes_per_type.lookup(system_name);
-    attributes.add<uint8_t>("Kill State", 0);
-    attributes.add<int32_t>("ID", 0);
-    attributes.add<float>("Birth Time", 0);
-    attributes.add<float3>("Position", float3(0, 0, 0));
-    attributes.add<float3>("Velocity", float3(0, 0, 0));
-    attributes.add<float>("Size", 0.05f);
-    attributes.add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
+    AttributesInfoBuilder &attributes = r_attributes_per_type.lookup(system_name);
+    AttributesDefaults &defaults = *r_attributes_defaults.lookup(system_name);
+
+    attributes.add<uint8_t>("Kill State");
+    defaults.add<uint8_t>("Kill State", 0);
+
+    attributes.add<int32_t>("ID");
+    defaults.add<int32_t>("ID", 0);
+
+    attributes.add<float>("Birth Time");
+    defaults.add<float>("Birth Time", 0);
+
+    attributes.add<float3>("Position");
+    defaults.add<float3>("Position", float3(0, 0, 0));
+
+    attributes.add<float3>("Velocity");
+    defaults.add<float3>("Velocity", float3(0, 0, 0));
+
+    attributes.add<float>("Size");
+    defaults.add<float>("Size", 0.05f);
+
+    attributes.add<rgba_f>("Color");
+    defaults.add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
 
     ArrayRef<Force *> forces = collector.m_forces.lookup_default(system_name);
     EulerIntegrator *integrator = new EulerIntegrator(forces);
@@ -860,15 +900,17 @@ class NodeTreeStepSimulator : public StepSimulator {
     Vector<Emitter *> emitters;
     MultiMap<std::string, Event *> events;
     MultiMap<std::string, OffsetHandler *> offset_handlers;
-    StringMap<AttributesDeclaration> attributes;
+    StringMap<AttributesInfoBuilder> attributes;
     StringMap<Integrator *> integrators;
+    StringMap<AttributesDefaults *> attributes_defaults;
 
-    Optional<std::unique_ptr<VTreeDataGraph>> data_graph = FN::DataFlowNodes::generate_graph(
-        *m_vtree);
-    if (!data_graph.has_value()) {
+    ResourceCollector resources;
+    std::unique_ptr<VTreeMFNetwork> data_graph = FN::generate_vtree_multi_function_network(
+        *m_vtree, resources);
+    if (data_graph.get() == nullptr) {
       return;
     }
-    VTreeData vtree_data(*data_graph->get());
+    VTreeData vtree_data(*data_graph);
 
     collect_influences(vtree_data,
                        world_transition,
@@ -877,24 +919,28 @@ class NodeTreeStepSimulator : public StepSimulator {
                        events,
                        offset_handlers,
                        attributes,
+                       attributes_defaults,
                        integrators);
 
     auto &containers = particles_state.particle_containers();
 
     StringMap<ParticleSystemInfo> systems_to_simulate;
     for (std::string name : system_names) {
-      AttributesDeclaration &system_attributes = attributes.lookup(name);
+      AttributesInfoBuilder &system_attributes = attributes.lookup(name);
+      AttributesDefaults &defaults = *attributes_defaults.lookup(name);
 
       /* Keep old attributes. */
       AttributesBlockContainer *container = containers.lookup_default(name, nullptr);
       if (container != nullptr) {
-        system_attributes.join(container->attributes_info());
+        system_attributes.add(container->info());
+        /* TODO: Remember attribute defaults from before. */
       }
 
       this->ensure_particle_container_exist_and_has_attributes(
-          particles_state, name, AttributesInfo(system_attributes));
+          particles_state, name, AttributesInfo(system_attributes), defaults);
 
       ParticleSystemInfo type_info = {
+          &defaults,
           integrators.lookup(name),
           events.lookup_default(name),
           offset_handlers.lookup_default(name),
@@ -911,13 +957,17 @@ class NodeTreeStepSimulator : public StepSimulator {
     offset_handlers.foreach_value([](OffsetHandler *handler) { delete handler; });
     integrators.foreach_value([](Integrator *integrator) { delete integrator; });
 
+    attributes_defaults.foreach_value([](AttributesDefaults *defaults) { delete defaults; });
+
     simulation_state.world() = std::move(new_world_state);
   }
 
  private:
-  void ensure_particle_container_exist_and_has_attributes(ParticlesState &particles_state,
-                                                          StringRef name,
-                                                          AttributesInfo attributes_info)
+  void ensure_particle_container_exist_and_has_attributes(
+      ParticlesState &particles_state,
+      StringRef name,
+      AttributesInfo attributes_info,
+      const AttributesDefaults &attributes_defaults)
   {
     auto &containers = particles_state.particle_containers();
     AttributesBlockContainer *container = containers.lookup_default(name, nullptr);
@@ -927,7 +977,7 @@ class NodeTreeStepSimulator : public StepSimulator {
       containers.add_new(name, container);
     }
     else {
-      container->update_attributes(std::move(attributes_info));
+      container->update_attributes(std::move(attributes_info), attributes_defaults);
     }
   }
 };

@@ -6,6 +6,7 @@ set(INC
   ../blenkernel
   ../depsgraph
   ../functions
+  ../functions2
   ../imbuf
   ../../../intern/guardedalloc
 )

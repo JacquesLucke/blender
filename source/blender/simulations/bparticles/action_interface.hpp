@@ -1,6 +1,5 @@
 #pragma once
 
-#include "FN_tuple_call.hpp"
 #include "BLI_array_cxx.h"
 
 #include "particle_allocator.hpp"
@@ -12,10 +11,7 @@ namespace BParticles {
 
 using BLI::TemporaryArray;
 using BLI::TemporaryVector;
-using FN::ExecutionContext;
-using FN::Function;
-using FN::Tuple;
-using FN::TupleCallBody;
+using FN::AttributesRefGroup;
 
 class ActionContext {
  public:

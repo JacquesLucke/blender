@@ -1,12 +1,12 @@
 #pragma once
 
-#include "BKE_attributes_ref.hpp"
+#include "FN_attributes_ref.h"
 #include "time_span.hpp"
 #include "simulation_state.hpp"
 
 namespace BParticles {
 
-using BKE::AttributesRef;
+using FN::AttributesRef;
 
 struct BlockStepData {
   SimulationState &simulation_state;

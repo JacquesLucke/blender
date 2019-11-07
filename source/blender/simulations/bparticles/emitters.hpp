@@ -1,15 +1,10 @@
 #pragma once
 
-#include "FN_tuple_call.hpp"
-
 #include "world_state.hpp"
 #include "action_interface.hpp"
 #include "emitter_interface.hpp"
 
 namespace BParticles {
-
-using FN::Function;
-using FN::TupleCallBody;
 
 class SurfaceEmitter : public Emitter {
  private:

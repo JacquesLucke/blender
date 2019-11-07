@@ -3,18 +3,22 @@
 #include "BKE_image.h"
 #include "IMB_imbuf_types.h"
 
+#include "FN_cpp_type.h"
+
 #include "particle_function.hpp"
 #include "action_contexts.hpp"
 
 namespace BParticles {
 
+using FN::CPPType;
+
 class AttributeInputProvider : public ParticleFunctionInputProvider {
  private:
-  AttributeType m_type;
+  const CPPType &m_type;
   std::string m_name;
 
  public:
-  AttributeInputProvider(AttributeType type, StringRef name) : m_type(type), m_name(name)
+  AttributeInputProvider(const CPPType &type, StringRef name) : m_type(type), m_name(name)
   {
   }
 
