@@ -26,7 +26,7 @@ set(INC
   ../blenlib
   ../bmesh
   ../depsgraph
-  ../functions2
+  ../functions
   ../simulations
   ../makesdna
   ../makesrna
@@ -122,7 +122,7 @@ set(SRC
 set(LIB
   bf_blenkernel
   bf_blenlib
-  bf_functions2
+  bf_functions
   bf_simulations
 )
 

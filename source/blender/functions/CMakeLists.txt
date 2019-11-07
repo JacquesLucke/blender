@@ -72,4 +72,4 @@ set(LIB
   bf_blenlib
 )
 
-blender_add_lib(bf_functions2 "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

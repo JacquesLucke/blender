@@ -29,7 +29,7 @@ blender_include_dirs(
   ../blender/blenloader
   ../blender/depsgraph
   ../blender/editors/include
-  ../blender/functions2
+  ../blender/functions
   ../blender/imbuf
   ../blender/makesrna
   ../blender/render/extern/include
@@ -45,7 +45,7 @@ set(LIB
   bf_depsgraph
   bf_dna
   bf_editor_datafiles
-  bf_functions2
+  bf_functions
   bf_imbuf
   bf_intern_clog
   bf_intern_guardedalloc
