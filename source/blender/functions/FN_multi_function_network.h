@@ -116,6 +116,8 @@ class MFBuilderOutputSocket : public MFBuilderSocket {
 
 class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
+  MonotonicAllocator<> m_allocator;
+
   Vector<MFBuilderNode *> m_node_by_id;
   Vector<MFBuilderSocket *> m_socket_by_id;
 
@@ -208,7 +210,7 @@ class MFNode : BLI::NonCopyable, BLI::NonMovable {
   const MFDummyNode &as_dummy() const;
 };
 
-class MFFunctionNode : public MFNode {
+class MFFunctionNode final : public MFNode {
  private:
   const MultiFunction *m_function;
   Vector<uint> m_input_param_indices;
@@ -223,7 +225,7 @@ class MFFunctionNode : public MFNode {
   ArrayRef<uint> output_param_indices() const;
 };
 
-class MFDummyNode : public MFNode {
+class MFDummyNode final : public MFNode {
 };
 
 class MFSocket : BLI::NonCopyable, BLI::NonMovable {
@@ -253,7 +255,7 @@ class MFSocket : BLI::NonCopyable, BLI::NonMovable {
   const MFOutputSocket &as_output() const;
 };
 
-class MFInputSocket : public MFSocket {
+class MFInputSocket final : public MFSocket {
  private:
   MFOutputSocket *m_origin;
 
@@ -263,7 +265,7 @@ class MFInputSocket : public MFSocket {
   const MFOutputSocket &origin() const;
 };
 
-class MFOutputSocket : public MFSocket {
+class MFOutputSocket final : public MFSocket {
  private:
   Vector<const MFInputSocket *> m_targets;
 
@@ -275,6 +277,8 @@ class MFOutputSocket : public MFSocket {
 
 class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
  private:
+  MonotonicAllocator<> m_allocator;
+
   Array<MFNode *> m_node_by_id;
   Array<MFSocket *> m_socket_by_id;
 
