@@ -57,8 +57,6 @@
 
 #include "RNA_access.h"
 
-#include "FN_all-c.h"
-
 #include "atomic_ops.h"
 
 #include "CLG_log.h"
@@ -1759,40 +1757,6 @@ static float dvar_eval_transChan(ChannelDriver *driver, DriverVar *dvar)
   }
 }
 
-/* evaluate 'function' driver variable */
-static float dvar_eval_function(ChannelDriver *UNUSED(driver), DriverVar *dvar)
-{
-  FnFunction fn = (FnFunction)get_driver_variable_function(dvar);
-  if (fn == NULL) {
-    return 0.0f;
-  }
-
-  FnTupleCallBody body = FN_tuple_call_get(fn);
-
-  FN_TUPLE_CALL_PREPARE_STACK(body, fn_in, fn_out);
-
-  FN_tuple_set_int32(fn_in, 0, (int64_t)dvar);
-
-  FN_tuple_call_invoke(body, fn_in, fn_out, __func__);
-  float result = FN_tuple_get_float(fn_out, 0);
-
-  FN_TUPLE_CALL_DESTRUCT_STACK(body, fn_in, fn_out);
-
-  return result;
-}
-
-struct bNodeTree;
-void *get_driver_variable_function(DriverVar *dvar)
-{
-  FnType float_ty = FN_type_get_float();
-  FnType int32_ty = FN_type_get_int32();
-  FnType inputs[] = {int32_ty, NULL};
-  FnType outputs[] = {float_ty, NULL};
-
-  struct bNodeTree *tree = (struct bNodeTree *)dvar->targets[0].id;
-  return FN_function_get_with_signature(tree, inputs, outputs);
-}
-
 /* Convert a quaternion to pseudo-angles representing the weighted amount of rotation. */
 static void quaternion_to_angles(float quat[4], int channel)
 {
@@ -1886,12 +1850,6 @@ static DriverVarTypeInfo dvar_types[MAX_DVAR_TYPES] = {
     1,                                                                /* number of targets used */
     {"Object/Bone"},                                                  /* UI names for targets */
     {DTAR_FLAG_STRUCT_REF | DTAR_FLAG_ID_OB_ONLY}                     /* flags */
-    END_DVAR_TYPEDEF,
-
-    BEGIN_DVAR_TYPEDEF(DVAR_TYPE_FUNCTION) dvar_eval_function, /* eval callback */
-    1,                                                         /* number of targets used */
-    {"Function"},                                              /* UI names for targets */
-    {0},                                                       /* flags */
     END_DVAR_TYPEDEF,
 };
 

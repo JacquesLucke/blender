@@ -73,7 +73,6 @@
 
 #include "RNA_define.h"
 
-#include "FN_all-c.h"
 #include "FN_initialize.h"
 
 #ifdef WITH_FREESTYLE
@@ -357,7 +356,6 @@ int main(int argc,
   BKE_shaderfx_init();
   DEG_register_node_types();
   FN_initialize();
-  FN_old_initialize();
 
   BKE_brush_system_init();
   RE_texture_rng_init();

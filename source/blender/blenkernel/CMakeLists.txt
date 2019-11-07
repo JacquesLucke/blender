@@ -27,7 +27,6 @@ set(INC
   ../bmesh
   ../depsgraph
   ../draw
-  ../functions
   ../gpencil_modifiers
   ../gpu
   ../ikplugin

@@ -36,7 +36,6 @@ set(INC
   ../makesdna
   ../makesrna
   ../nodes
-  ../functions
   ../functions2
   ../render/extern/include
   ../../../intern/clog

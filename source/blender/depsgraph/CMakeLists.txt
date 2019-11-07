@@ -24,7 +24,6 @@ set(INC
   ../blenlib
   ../bmesh
   ../draw
-  ../functions
   ../makesdna
   ../makesrna
   ../modifiers
