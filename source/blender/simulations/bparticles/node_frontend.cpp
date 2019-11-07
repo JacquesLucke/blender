@@ -966,20 +966,18 @@ class NodeTreeStepSimulator : public StepSimulator {
   void ensure_particle_container_exist_and_has_attributes(
       ParticlesState &particles_state,
       StringRef name,
-      AttributesInfoBuilder &attributes_info_builder,
+      const AttributesInfoBuilder &attributes_info_builder,
       const AttributesDefaults &attributes_defaults)
   {
-    auto attributes_info = BLI::make_unique<AttributesInfo>(attributes_info_builder);
-
     auto &containers = particles_state.particle_containers();
     AttributesBlockContainer *container = containers.lookup_default(name, nullptr);
     if (container == nullptr) {
-      AttributesBlockContainer *container = new AttributesBlockContainer(
-          std::move(attributes_info), 1000);
+      AttributesBlockContainer *container = new AttributesBlockContainer(attributes_info_builder,
+                                                                         1000);
       containers.add_new(name, container);
     }
     else {
-      container->update_attributes(std::move(attributes_info), attributes_defaults);
+      container->update_attributes(attributes_info_builder, attributes_defaults);
     }
   }
 };

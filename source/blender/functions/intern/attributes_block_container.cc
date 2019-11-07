@@ -2,9 +2,9 @@
 
 namespace FN {
 
-AttributesBlockContainer::AttributesBlockContainer(std::unique_ptr<AttributesInfo> info,
+AttributesBlockContainer::AttributesBlockContainer(const AttributesInfoBuilder &info_builder,
                                                    uint block_size)
-    : m_info(std::move(info)), m_block_size(block_size)
+    : m_info(BLI::make_unique<AttributesInfo>(info_builder)), m_block_size(block_size)
 {
 }
 
@@ -41,9 +41,11 @@ void AttributesBlockContainer::flatten_attribute(StringRef name, GenericMutableA
   }
 }
 
-void AttributesBlockContainer::update_attributes(std::unique_ptr<AttributesInfo> new_info,
+void AttributesBlockContainer::update_attributes(const AttributesInfoBuilder &new_info_builder,
                                                  const AttributesDefaults &defaults)
 {
+  auto new_info = BLI::make_unique<AttributesInfo>(new_info_builder);
+
   AttributesInfoDiff diff{*m_info, *new_info, defaults};
   for (AttributesBlock *block : m_active_blocks) {
     Vector<void *> new_buffers{diff.new_buffer_amount()};
