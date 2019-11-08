@@ -22,20 +22,7 @@ def create_variadic_math_node(data_type, idname, label):
     return MathNode
 
 def create_two_inputs_math_node(data_type, idname, label):
-
-    class MathNode(bpy.types.Node, FunctionNode):
-        bl_idname = idname
-        bl_label = label
-
-        use_list__a: NodeBuilder.VectorizedProperty()
-        use_list__b: NodeBuilder.VectorizedProperty()
-
-        def declaration(self, builder: NodeBuilder):
-            builder.vectorized_input("a", "use_list__a", "A", "A", data_type)
-            builder.vectorized_input("b", "use_list__b", "B", "B", data_type)
-            builder.vectorized_output("result", ["use_list__a", "use_list__b"], "Result", "Result", data_type)
-
-    return MathNode
+    return create_two_inputs_other_output_math_node(data_type, data_type, idname, label)
 
 def create_single_input_math_node(data_type, idname, label):
 
@@ -48,6 +35,22 @@ def create_single_input_math_node(data_type, idname, label):
         def declaration(self, builder: NodeBuilder):
             builder.vectorized_input("input", "use_list", "Value", "Values", data_type)
             builder.vectorized_output("output", ["use_list"], "Result", "Result", data_type)
+
+    return MathNode
+
+def create_two_inputs_other_output_math_node(input_type, output_type, idname, label):
+
+    class MathNode(bpy.types.Node, FunctionNode):
+        bl_idname = idname
+        bl_label = label
+
+        use_list__a: NodeBuilder.VectorizedProperty()
+        use_list__b: NodeBuilder.VectorizedProperty()
+
+        def declaration(self, builder: NodeBuilder):
+            builder.vectorized_input("a", "use_list__a", "A", "A", input_type)
+            builder.vectorized_input("b", "use_list__b", "B", "B", input_type)
+            builder.vectorized_output("result", ["use_list__a", "use_list__b"], "Result", "Result", output_type)
 
     return MathNode
 
@@ -73,3 +76,5 @@ DivideVectorsNode = create_two_inputs_math_node("Vector", "fn_DivideVectorsNode"
 VectorCrossProductNode = create_two_inputs_math_node("Vector", "fn_VectorCrossProductNode", "Cross Product")
 VectorReflectNode = create_two_inputs_math_node("Vector", "fn_ReflectVectorNode", "Reflect Vector")
 VectorProjectNode = create_two_inputs_math_node("Vector", "fn_ProjectVectorNode", "Project Vector")
+VectorDotProductNode = create_two_inputs_other_output_math_node("Vector", "Float", "fn_VectorDotProductNode", "Dot Product") 
+VectorDistanceNode = create_two_inputs_other_output_math_node("Vector", "Float", "fn_VectorDistanceNode", "Vector Distance")

@@ -148,6 +148,28 @@ class MF_Mappping final : public MultiFunction {
   }
 };
 
+template<typename In1, typename In2, typename Out, Out (*Func)(In1, In2)>
+class MF_2In_1Out final : public MultiFunction {
+ public:
+  MF_2In_1Out(StringRef function_name, StringRef in1_name, StringRef in2_name, StringRef out_name)
+  {
+    MFSignatureBuilder signature(function_name);
+    signature.readonly_single_input<In1>(in1_name);
+    signature.readonly_single_input<In2>(in2_name);
+    signature.single_output<Out>(out_name);
+    this->set_signature(signature);
+  }
+
+  void call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const override
+  {
+    VirtualListRef<In1> in1 = params.readonly_single_input<In1>(0);
+    VirtualListRef<In2> in2 = params.readonly_single_input<In2>(1);
+    MutableArrayRef<Out> out = params.single_output<Out>(2);
+
+    mask.foreach_index([&](uint i) { out[i] = Func(in1[i], in2[i]); });
+  }
+};
+
 template<typename T, T (*Compute)(T, T)> class MF_SimpleMath final : public MultiFunction {
  private:
   uint m_input_amount;

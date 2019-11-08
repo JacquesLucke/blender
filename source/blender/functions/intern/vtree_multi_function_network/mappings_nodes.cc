@@ -233,10 +233,11 @@ template<typename T> T safe_power_func_cb(T a, T b)
   return (a >= 0) ? (T)std::pow(a, b) : (T)0;
 }
 
-template<typename T, T (*Compute)(T, T)>
+template<typename In1, typename In2, typename Out, Out (*Compute)(In1, In2)>
 void insert_two_inputs_math_function(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &base_fn = builder.construct_fn<MF_SimpleMath<T, Compute>>(vnode.name(), 2);
+  const MultiFunction &base_fn = builder.construct_fn<MF_2In_1Out<In1, In2, Out, Compute>>(
+      vnode.name(), "A", "B", "Result");
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__a", "use_list__b"});
   builder.add_function(fn, {0, 1}, {2}, vnode);
@@ -244,17 +245,17 @@ void insert_two_inputs_math_function(VTreeMFNetworkBuilder &builder, const VNode
 
 static void INSERT_subtract_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  insert_two_inputs_math_function<float, subtract_func_cb<float>>(builder, vnode);
+  insert_two_inputs_math_function<float, float, float, subtract_func_cb<float>>(builder, vnode);
 }
 
 static void INSERT_divide_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  insert_two_inputs_math_function<float, safe_divide_func_cb<float>>(builder, vnode);
+  insert_two_inputs_math_function<float, float, float, safe_divide_func_cb<float>>(builder, vnode);
 }
 
 static void INSERT_power_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  insert_two_inputs_math_function<float, safe_power_func_cb<float>>(builder, vnode);
+  insert_two_inputs_math_function<float, float, float, safe_power_func_cb<float>>(builder, vnode);
 }
 
 template<typename T, T (*Compute)(const T &)>
@@ -313,7 +314,8 @@ static void INSERT_add_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnod
 
 static void INSERT_subtract_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  insert_two_inputs_math_function<float3, subtract_func_cb<float3>>(builder, vnode);
+  insert_two_inputs_math_function<float3, float3, float3, subtract_func_cb<float3>>(builder,
+                                                                                    vnode);
 }
 
 static void INSERT_multiply_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnode)
@@ -323,7 +325,7 @@ static void INSERT_multiply_vectors(VTreeMFNetworkBuilder &builder, const VNode 
 
 static void INSERT_divide_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  insert_two_inputs_math_function<float3, float3::safe_divide>(builder, vnode);
+  insert_two_inputs_math_function<float3, float3, float3, float3::safe_divide>(builder, vnode);
 }
 
 static float3 vector_reflect_func_cb(float3 a, float3 b)
@@ -333,17 +335,28 @@ static float3 vector_reflect_func_cb(float3 a, float3 b)
 
 static void INSERT_vector_cross_product(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  insert_two_inputs_math_function<float3, float3::cross_high_precision>(builder, vnode);
+  insert_two_inputs_math_function<float3, float3, float3, float3::cross_high_precision>(builder,
+                                                                                        vnode);
 }
 
 static void INSERT_reflect_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  insert_two_inputs_math_function<float3, vector_reflect_func_cb>(builder, vnode);
+  insert_two_inputs_math_function<float3, float3, float3, vector_reflect_func_cb>(builder, vnode);
 }
 
 static void INSERT_project_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  insert_two_inputs_math_function<float3, float3::project>(builder, vnode);
+  insert_two_inputs_math_function<float3, float3, float3, float3::project>(builder, vnode);
+}
+
+static void INSERT_vector_dot_product(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_two_inputs_math_function<float3, float3, float, float3::dot>(builder, vnode);
+}
+
+static void INSERT_vector_distance(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_two_inputs_math_function<float3, float3, float, float3::distance>(builder, vnode);
 }
 
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
@@ -381,6 +394,8 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_VectorCrossProductNode", INSERT_vector_cross_product);
   mappings.vnode_inserters.add_new("fn_ReflectVectorNode", INSERT_reflect_vector);
   mappings.vnode_inserters.add_new("fn_ProjectVectorNode", INSERT_project_vector);
+  mappings.vnode_inserters.add_new("fn_VectorDotProductNode", INSERT_vector_dot_product);
+  mappings.vnode_inserters.add_new("fn_VectorDistanceNode", INSERT_vector_distance);
 }
 
 };  // namespace FN
