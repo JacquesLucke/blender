@@ -227,7 +227,8 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(const MFMa
     switch (socket.type().category()) {
       case MFDataType::Single: {
         GenericVirtualListRef values = storage.get_virtual_list_for_input(socket);
-        GenericMutableArrayRef output_values = params.single_output(global_param_index, "Output");
+        GenericMutableArrayRef output_values = params.uninitialized_single_output(
+            global_param_index, "Output");
         for (uint i : mask.indices()) {
           output_values.copy_in__uninitialized(i, values[i]);
         }

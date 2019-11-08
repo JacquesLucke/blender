@@ -94,7 +94,7 @@ void MF_GetListElement::call(const MFMask &mask,
   VirtualListRef<int> indices = params.readonly_single_input<int>(1, "Index");
   GenericVirtualListRef fallbacks = params.readonly_single_input(2, "Fallback");
 
-  GenericMutableArrayRef output_values = params.single_output(3, "Value");
+  GenericMutableArrayRef output_values = params.uninitialized_single_output(3, "Value");
 
   for (uint i : mask.indices()) {
     int index = indices[i];
@@ -120,7 +120,7 @@ MF_ListLength::MF_ListLength(const CPPType &base_type) : m_base_type(base_type)
 void MF_ListLength::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
   GenericVirtualListListRef lists = params.readonly_vector_input(0, "List");
-  MutableArrayRef<int> lengths = params.single_output<int>(1, "Length");
+  MutableArrayRef<int> lengths = params.uninitialized_single_output<int>(1, "Length");
 
   for (uint i : mask.indices()) {
     lengths[i] = lists[i].size();

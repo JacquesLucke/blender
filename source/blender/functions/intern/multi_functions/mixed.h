@@ -97,7 +97,7 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
 
   void call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const override
   {
-    MutableArrayRef<T> output = params.single_output<T>(0, "Output");
+    MutableArrayRef<T> output = params.uninitialized_single_output<T>(0, "Output");
 
     mask.foreach_index([&](uint i) { new (output.begin() + i) T(m_value); });
   }
@@ -116,7 +116,7 @@ template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
   void call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const override
   {
     VirtualListRef<FromT> inputs = params.readonly_single_input<FromT>(0, "Input");
-    MutableArrayRef<ToT> outputs = params.single_output<ToT>(1, "Output");
+    MutableArrayRef<ToT> outputs = params.uninitialized_single_output<ToT>(1, "Output");
 
     for (uint i : mask.indices()) {
       const FromT &from_value = inputs[i];
@@ -181,7 +181,7 @@ class MF_Mappping final : public MultiFunction {
   void call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const override
   {
     VirtualListRef<FromT> inputs = params.readonly_single_input<FromT>(0, "Input");
-    MutableArrayRef<ToT> outputs = params.single_output<ToT>(1, "Output");
+    MutableArrayRef<ToT> outputs = params.uninitialized_single_output<ToT>(1, "Output");
 
     for (uint i : mask.indices()) {
       const FromT &from_value = inputs[i];
@@ -207,7 +207,7 @@ class MF_2In_1Out final : public MultiFunction {
   {
     VirtualListRef<In1> in1 = params.readonly_single_input<In1>(0);
     VirtualListRef<In2> in2 = params.readonly_single_input<In2>(1);
-    MutableArrayRef<Out> out = params.single_output<Out>(2);
+    MutableArrayRef<Out> out = params.uninitialized_single_output<Out>(2);
 
     mask.foreach_index([&](uint i) { out[i] = Func(in1[i], in2[i]); });
   }
@@ -231,7 +231,7 @@ template<typename T, T (*Compute)(T, T)> class MF_SimpleMath final : public Mult
 
   void call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const override
   {
-    MutableArrayRef<T> outputs = params.single_output<T>(m_input_amount, "Output");
+    MutableArrayRef<T> outputs = params.uninitialized_single_output<T>(m_input_amount, "Output");
 
     if (m_input_amount == 1) {
       VirtualListRef<T> inputs = params.readonly_single_input<T>(0, "Input");

@@ -33,7 +33,7 @@ void MF_AddFloats::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(
 {
   auto a = params.readonly_single_input<float>(0, "A");
   auto b = params.readonly_single_input<float>(1, "B");
-  auto result = params.single_output<float>(2, "Result");
+  auto result = params.uninitialized_single_output<float>(2, "Result");
 
   for (uint i : mask.indices()) {
     result[i] = a[i] + b[i];
@@ -53,7 +53,7 @@ void MF_AddFloat3s::call(const MFMask &mask, MFParams &params, MFContext &UNUSED
 {
   auto a = params.readonly_single_input<float3>(0, "A");
   auto b = params.readonly_single_input<float3>(1, "B");
-  auto result = params.single_output<float3>(2, "Result");
+  auto result = params.uninitialized_single_output<float3>(2, "Result");
 
   for (uint i : mask.indices()) {
     result[i] = a[i] + b[i];
@@ -77,7 +77,7 @@ void MF_CombineColor::call(const MFMask &mask, MFParams &params, MFContext &UNUS
   VirtualListRef<float> g = params.readonly_single_input<float>(1, "G");
   VirtualListRef<float> b = params.readonly_single_input<float>(2, "B");
   VirtualListRef<float> a = params.readonly_single_input<float>(3, "A");
-  MutableArrayRef<rgba_f> color = params.single_output<rgba_f>(4, "Color");
+  MutableArrayRef<rgba_f> color = params.uninitialized_single_output<rgba_f>(4, "Color");
 
   for (uint i : mask.indices()) {
     color[i] = {r[i], g[i], b[i], a[i]};
@@ -98,10 +98,10 @@ MF_SeparateColor::MF_SeparateColor()
 void MF_SeparateColor::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
   auto color = params.readonly_single_input<rgba_f>(0, "Color");
-  auto r = params.single_output<float>(1, "R");
-  auto g = params.single_output<float>(2, "G");
-  auto b = params.single_output<float>(3, "B");
-  auto a = params.single_output<float>(4, "A");
+  auto r = params.uninitialized_single_output<float>(1, "R");
+  auto g = params.uninitialized_single_output<float>(2, "G");
+  auto b = params.uninitialized_single_output<float>(3, "B");
+  auto a = params.uninitialized_single_output<float>(4, "A");
 
   for (uint i : mask.indices()) {
     rgba_f v = color[i];
@@ -127,7 +127,7 @@ void MF_CombineVector::call(const MFMask &mask, MFParams &params, MFContext &UNU
   VirtualListRef<float> x = params.readonly_single_input<float>(0, "X");
   VirtualListRef<float> y = params.readonly_single_input<float>(1, "Y");
   VirtualListRef<float> z = params.readonly_single_input<float>(2, "Z");
-  MutableArrayRef<float3> vector = params.single_output<float3>(3, "Vector");
+  MutableArrayRef<float3> vector = params.uninitialized_single_output<float3>(3, "Vector");
 
   for (uint i : mask.indices()) {
     vector[i] = {x[i], y[i], z[i]};
@@ -149,9 +149,9 @@ void MF_SeparateVector::call(const MFMask &mask,
                              MFContext &UNUSED(context)) const
 {
   auto vector = params.readonly_single_input<float3>(0, "Vector");
-  auto x = params.single_output<float>(1, "X");
-  auto y = params.single_output<float>(2, "Y");
-  auto z = params.single_output<float>(3, "Z");
+  auto x = params.uninitialized_single_output<float>(1, "X");
+  auto y = params.uninitialized_single_output<float>(2, "Y");
+  auto z = params.uninitialized_single_output<float>(3, "Z");
 
   for (uint i : mask.indices()) {
     float3 v = vector[i];
@@ -176,7 +176,7 @@ void MF_VectorDistance::call(const MFMask &mask,
 {
   auto a = params.readonly_single_input<float3>(0, "A");
   auto b = params.readonly_single_input<float3>(1, "B");
-  auto distances = params.single_output<float>(2, "Distances");
+  auto distances = params.uninitialized_single_output<float>(2, "Distances");
 
   for (uint i : mask.indices()) {
     distances[i] = float3::distance(a[i], b[i]);
@@ -194,7 +194,7 @@ MF_FloatArraySum::MF_FloatArraySum()
 void MF_FloatArraySum::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
   auto arrays = params.readonly_vector_input<float>(0, "Array");
-  MutableArrayRef<float> sums = params.single_output<float>(1, "Sum");
+  MutableArrayRef<float> sums = params.uninitialized_single_output<float>(1, "Sum");
 
   for (uint i : mask.indices()) {
     float sum = 0.0f;
@@ -280,7 +280,7 @@ void MF_ObjectWorldLocation::call(const MFMask &mask,
                                   MFContext &UNUSED(context)) const
 {
   auto objects = params.readonly_single_input<Object *>(0, "Object");
-  auto locations = params.single_output<float3>(1, "Location");
+  auto locations = params.uninitialized_single_output<float3>(1, "Location");
 
   for (uint i : mask.indices()) {
     if (objects[i] != nullptr) {
@@ -307,7 +307,7 @@ void MF_SwitchSingle::call(const MFMask &mask, MFParams &params, MFContext &UNUS
   VirtualListRef<bool> conditions = params.readonly_single_input<bool>(0, "Condition");
   GenericVirtualListRef if_true = params.readonly_single_input(1, "True");
   GenericVirtualListRef if_false = params.readonly_single_input(2, "False");
-  GenericMutableArrayRef results = params.single_output(3, "Result");
+  GenericMutableArrayRef results = params.uninitialized_single_output(3, "Result");
 
   for (uint i : mask.indices()) {
     if (conditions[i]) {
@@ -357,7 +357,7 @@ MF_TextLength::MF_TextLength()
 void MF_TextLength::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
   auto texts = params.readonly_single_input<std::string>(0, "Text");
-  auto lengths = params.single_output<int>(1, "Length");
+  auto lengths = params.uninitialized_single_output<int>(1, "Length");
 
   for (uint i : mask.indices()) {
     lengths[i] = texts[i].size();
@@ -486,7 +486,7 @@ MF_ContextVertexPosition::MF_ContextVertexPosition()
 
 void MF_ContextVertexPosition::call(const MFMask &mask, MFParams &params, MFContext &context) const
 {
-  MutableArrayRef<float3> positions = params.single_output<float3>(0, "Position");
+  MutableArrayRef<float3> positions = params.uninitialized_single_output<float3>(0, "Position");
   auto positions_context = context.try_find_context(ContextIDs::vertex_locations);
 
   if (positions_context.has_value()) {
@@ -510,7 +510,7 @@ MF_ContextCurrentFrame::MF_ContextCurrentFrame()
 
 void MF_ContextCurrentFrame::call(const MFMask &mask, MFParams &params, MFContext &context) const
 {
-  MutableArrayRef<float> frames = params.single_output<float>(0, "Frame");
+  MutableArrayRef<float> frames = params.uninitialized_single_output<float>(0, "Frame");
   auto context_data = context.try_find_context(ContextIDs::current_frame);
 
   if (context_data.has_value()) {

@@ -235,12 +235,13 @@ class MFParams {
     return m_virtual_list_refs[corrected_index];
   }
 
-  template<typename T> MutableArrayRef<T> single_output(uint index, StringRef name = "")
+  template<typename T>
+  MutableArrayRef<T> uninitialized_single_output(uint index, StringRef name = "")
   {
     BLI_assert(m_signature->is_single_output<T>(index, name));
-    return this->single_output(index, name).as_typed_ref<T>();
+    return this->uninitialized_single_output(index, name).as_typed_ref<T>();
   }
-  GenericMutableArrayRef single_output(uint index, StringRef name = "")
+  GenericMutableArrayRef uninitialized_single_output(uint index, StringRef name = "")
   {
     UNUSED_VARS_NDEBUG(name);
     BLI_assert(m_signature->is_single_output(index, name));
