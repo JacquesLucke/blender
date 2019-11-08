@@ -2,9 +2,7 @@
 
 namespace BParticles {
 
-ParticleAllocator::ParticleAllocator(
-    ParticlesState &state, const StringMap<const AttributesDefaults *> &attribute_defaults)
-    : m_state(state), m_attributes_defaults(attribute_defaults)
+ParticleAllocator::ParticleAllocator(ParticlesState &state) : m_state(state)
 {
 }
 
@@ -42,16 +40,14 @@ void ParticleAllocator::allocate_buffer_ranges(AttributesBlockContainer &contain
   }
 }
 
-void ParticleAllocator::initialize_new_particles(StringRef name,
-                                                 AttributesRefGroup &attributes_group)
+void ParticleAllocator::initialize_new_particles(AttributesRefGroup &attributes_group)
 {
-  const AttributesDefaults &defaults = *m_attributes_defaults.lookup(name);
+  const AttributesInfo &info = attributes_group.info();
 
   for (AttributesRef attributes : attributes_group) {
-    for (uint i : attributes.info().indices()) {
-      StringRef attribute_name = attributes.info().name_of(i);
-      const FN::CPPType &attribute_type = attributes.info().type_of(i);
-      const void *default_value = defaults.get(attribute_name, attribute_type);
+    for (uint i : info.indices()) {
+      StringRef attribute_name = info.name_of(i);
+      const void *default_value = info.default_of(attribute_name);
       attributes.get(i).fill__uninitialized(default_value);
     }
 
@@ -75,7 +71,7 @@ AttributesRefGroup ParticleAllocator::request(StringRef particle_system_name, ui
   const AttributesInfo &attributes_info = container.info();
   AttributesRefGroup attributes_group(attributes_info, std::move(buffers), std::move(ranges));
 
-  this->initialize_new_particles(particle_system_name, attributes_group);
+  this->initialize_new_particles(attributes_group);
 
   return attributes_group;
 }

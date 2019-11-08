@@ -498,14 +498,9 @@ void simulate_particles(SimulationState &simulation_state,
   ParticlesState &particles_state = simulation_state.particles();
   TimeSpan simulation_time_span = simulation_state.time().current_update_time();
 
-  StringMap<const AttributesDefaults *> attribute_defaults;
-  systems_to_simulate.foreach_key_value_pair([&](StringRef key, const ParticleSystemInfo &system) {
-    attribute_defaults.add_new(key, system.attribute_defaults);
-  });
-
   Vector<AttributesBlock *> newly_created_blocks;
   {
-    ParticleAllocator particle_allocator(particles_state, attribute_defaults);
+    ParticleAllocator particle_allocator(particles_state);
     simulate_all_existing_blocks(
         simulation_state, systems_to_simulate, particle_allocator, simulation_time_span);
     create_particles_from_emitters(
@@ -514,7 +509,7 @@ void simulate_particles(SimulationState &simulation_state,
   }
 
   while (newly_created_blocks.size() > 0) {
-    ParticleAllocator particle_allocator(particles_state, attribute_defaults);
+    ParticleAllocator particle_allocator(particles_state);
     simulate_blocks_from_birth_to_current_time(particle_allocator,
                                                newly_created_blocks,
                                                systems_to_simulate,

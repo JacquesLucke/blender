@@ -7,7 +7,7 @@ using BLI::float3;
 ConstantVelocityIntegrator::ConstantVelocityIntegrator()
 {
   FN::AttributesInfoBuilder builder;
-  builder.add<float3>("Position");
+  builder.add<float3>("Position", {0, 0, 0});
   m_offset_attributes_info = BLI::make_unique<AttributesInfo>(builder);
 }
 
@@ -30,8 +30,8 @@ void ConstantVelocityIntegrator::integrate(IntegratorInterface &interface)
 EulerIntegrator::EulerIntegrator(ArrayRef<Force *> forces) : m_forces(forces)
 {
   FN::AttributesInfoBuilder builder;
-  builder.add<float3>("Position");
-  builder.add<float3>("Velocity");
+  builder.add<float3>("Position", {0, 0, 0});
+  builder.add<float3>("Velocity", {0, 0, 0});
   m_offset_attributes_info = BLI::make_unique<AttributesInfo>(builder);
 }
 

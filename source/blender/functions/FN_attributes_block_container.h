@@ -40,8 +40,7 @@ class AttributesBlockContainer : BLI::NonCopyable, BLI::NonMovable {
   template<typename T> Vector<T> flatten_attribute(StringRef name) const;
   void flatten_attribute(StringRef name, GenericMutableArrayRef dst) const;
 
-  void update_attributes(const AttributesInfoBuilder &new_info_builder,
-                         const AttributesDefaults &defaults);
+  void update_attributes(const AttributesInfoBuilder &new_info_builder);
 
   AttributesBlock &new_block();
   void release_block(AttributesBlock &block);

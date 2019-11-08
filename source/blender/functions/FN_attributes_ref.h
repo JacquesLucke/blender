@@ -25,23 +25,29 @@ using BLI::VectorSet;
 
 class AttributesInfo;
 
-class AttributesInfoBuilder {
+class AttributesInfoBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
+  MonotonicAllocator<32> m_allocator;
   VectorSet<std::string> m_names;
   Vector<const CPPType *> m_types;
+  Vector<void *> m_defaults;
 
  public:
   AttributesInfoBuilder() = default;
+  ~AttributesInfoBuilder();
 
-  template<typename T> void add(StringRef name)
+  template<typename T> void add(StringRef name, const T &default_value)
   {
-    this->add(name, CPP_TYPE<T>());
+    this->add(name, CPP_TYPE<T>(), (const void *)&default_value);
   }
 
-  void add(StringRef name, const CPPType &type)
+  void add(StringRef name, const CPPType &type, const void *default_value)
   {
     if (m_names.add(name)) {
       m_types.append(&type);
+      void *dst = m_allocator.allocate(type.size(), type.alignment());
+      type.copy_to_uninitialized(default_value, dst);
+      m_defaults.append(dst);
     }
     else {
       BLI_assert(m_types[m_names.index(name)] == &type);
@@ -63,19 +69,27 @@ class AttributesInfoBuilder {
     return m_types;
   }
 
+  ArrayRef<const void *> defaults() const
+  {
+    return ArrayRef<const void *>(m_defaults.begin(), m_defaults.size());
+  }
+
   void add(const AttributesInfoBuilder &other);
   void add(const AttributesInfo &other);
 };
 
 class AttributesInfo : BLI::NonCopyable, BLI::NonMovable {
  private:
+  MonotonicAllocator<32> m_allocator;
   StringMap<int> m_index_by_name;
   Vector<std::string> m_name_by_index;
   Vector<const CPPType *> m_type_by_index;
+  Vector<void *> m_defaults;
 
  public:
   AttributesInfo() = default;
   AttributesInfo(const AttributesInfoBuilder &builder);
+  ~AttributesInfo();
 
   uint size() const
   {
@@ -90,6 +104,16 @@ class AttributesInfo : BLI::NonCopyable, BLI::NonMovable {
   uint index_of(StringRef name) const
   {
     return m_index_by_name.lookup(name);
+  }
+
+  const void *default_of(uint index) const
+  {
+    return m_defaults[index];
+  }
+
+  const void *default_of(StringRef name) const
+  {
+    return this->default_of(this->index_of(name));
   }
 
   int index_of_try(StringRef name, const CPPType &type) const
@@ -332,58 +356,15 @@ class AttributesRefGroup {
   }
 };
 
-class AttributesDefaults : BLI::NonCopyable, BLI::NonMovable {
- private:
-  StringMap<uint> m_index_by_name;
-  Vector<const CPPType *> m_type_by_index;
-  MonotonicAllocator<> m_allocator;
-  Vector<void *> m_values;
-
- public:
-  template<typename T> void add(StringRef name, T value)
-  {
-    if (m_index_by_name.contains(name)) {
-      /* TODO: Check if different handling of this case works better. */
-      BLI_assert(false);
-    }
-    else {
-      uint index = m_type_by_index.size();
-      m_index_by_name.add_new(name, index);
-      const CPPType &type = CPP_TYPE<T>();
-      m_type_by_index.append(&type);
-      void *value_buffer = m_allocator.allocate(type.size(), type.alignment());
-      new (value_buffer) T(std::move(value));
-      m_values.append(value_buffer);
-    }
-  }
-
-  const void *get(StringRef name, const CPPType &expected_type) const
-  {
-    uint index = m_index_by_name.lookup(name);
-    BLI_assert(*m_type_by_index[index] == expected_type);
-    UNUSED_VARS_NDEBUG(expected_type);
-    return m_values[index];
-  }
-
-  template<typename T> const T &get(StringRef name) const
-  {
-    const void *value = this->get(name, CPP_TYPE<T>());
-    return *(const T *)value;
-  }
-};
-
 class AttributesInfoDiff {
  private:
   const AttributesInfo *m_old_info;
   const AttributesInfo *m_new_info;
   Array<int> m_old_to_new_mapping;
   Array<int> m_new_to_old_mapping;
-  Array<const void *> m_default_buffers;
 
  public:
-  AttributesInfoDiff(const AttributesInfo &old_info,
-                     const AttributesInfo &new_info,
-                     const AttributesDefaults &defaults);
+  AttributesInfoDiff(const AttributesInfo &old_info, const AttributesInfo &new_info);
 
   void update(uint capacity,
               uint used_size,

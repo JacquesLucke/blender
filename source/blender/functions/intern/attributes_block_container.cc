@@ -41,12 +41,11 @@ void AttributesBlockContainer::flatten_attribute(StringRef name, GenericMutableA
   }
 }
 
-void AttributesBlockContainer::update_attributes(const AttributesInfoBuilder &new_info_builder,
-                                                 const AttributesDefaults &defaults)
+void AttributesBlockContainer::update_attributes(const AttributesInfoBuilder &new_info_builder)
 {
   auto new_info = BLI::make_unique<AttributesInfo>(new_info_builder);
 
-  AttributesInfoDiff diff{*m_info, *new_info, defaults};
+  AttributesInfoDiff diff{*m_info, *new_info};
   for (AttributesBlock *block : m_active_blocks) {
     Vector<void *> new_buffers{diff.new_buffer_amount()};
     diff.update(m_block_size, block->m_used_size, block->m_buffers, new_buffers);

@@ -4,20 +4,17 @@
 
 namespace BParticles {
 
-using FN::AttributesDefaults;
 using FN::AttributesRefGroup;
 
 class ParticleAllocator : BLI::NonCopyable, BLI::NonMovable {
  private:
   ParticlesState &m_state;
-  const StringMap<const AttributesDefaults *> &m_attributes_defaults;
   Map<AttributesBlockContainer *, AttributesBlock *> m_non_full_cache;
   Vector<AttributesBlock *> m_allocated_blocks;
   std::mutex m_request_mutex;
 
  public:
-  ParticleAllocator(ParticlesState &state,
-                    const StringMap<const AttributesDefaults *> &attribute_defaults);
+  ParticleAllocator(ParticlesState &state);
 
   /**
    * Access all blocks that have been allocated by this allocator.
@@ -45,7 +42,7 @@ class ParticleAllocator : BLI::NonCopyable, BLI::NonMovable {
                               Vector<ArrayRef<void *>> &r_buffers,
                               Vector<IndexRange> &r_ranges);
 
-  void initialize_new_particles(StringRef name, AttributesRefGroup &attributes_group);
+  void initialize_new_particles(AttributesRefGroup &attributes_group);
 };
 
 /* ParticleAllocator inline functions

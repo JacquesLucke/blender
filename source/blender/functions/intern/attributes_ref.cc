@@ -2,26 +2,48 @@
 
 namespace FN {
 
+AttributesInfoBuilder::~AttributesInfoBuilder()
+{
+  for (uint i = 0; i < m_defaults.size(); i++) {
+    m_types[i]->destruct(m_defaults[i]);
+  }
+}
+
 void AttributesInfoBuilder::add(const AttributesInfoBuilder &other)
 {
   for (uint i = 0; i < other.size(); i++) {
-    this->add(other.m_names[i], *other.m_types[i]);
+    this->add(other.m_names[i], *other.m_types[i], other.m_defaults[i]);
   }
 }
 
 void AttributesInfoBuilder::add(const AttributesInfo &other)
 {
   for (uint i = 0; i < other.size(); i++) {
-    this->add(other.name_of(i), other.type_of(i));
+    this->add(other.name_of(i), other.type_of(i), other.default_of(i));
   }
 }
 
 AttributesInfo::AttributesInfo(const AttributesInfoBuilder &builder)
 {
   for (uint i = 0; i < builder.size(); i++) {
-    m_index_by_name.add_new(builder.names()[i], i);
-    m_name_by_index.append(builder.names()[i]);
-    m_type_by_index.append(builder.types()[i]);
+    StringRef name = builder.names()[i];
+    const CPPType &type = *builder.types()[i];
+    const void *default_value = builder.defaults()[i];
+
+    m_index_by_name.add_new(name, i);
+    m_name_by_index.append(name);
+    m_type_by_index.append(&type);
+
+    void *dst = m_allocator.allocate(type.size(), type.alignment());
+    type.copy_to_uninitialized(default_value, dst);
+    m_defaults.append(dst);
+  }
+}
+
+AttributesInfo::~AttributesInfo()
+{
+  for (uint i = 0; i < m_defaults.size(); i++) {
+    m_type_by_index[i]->destruct(m_defaults[i]);
   }
 }
 
@@ -96,20 +118,11 @@ static Array<int> map_attribute_indices(const AttributesInfo &from_info,
 }
 
 AttributesInfoDiff::AttributesInfoDiff(const AttributesInfo &old_info,
-                                       const AttributesInfo &new_info,
-                                       const AttributesDefaults &defaults)
+                                       const AttributesInfo &new_info)
     : m_old_info(&old_info), m_new_info(&new_info)
 {
   m_old_to_new_mapping = map_attribute_indices(old_info, new_info);
   m_new_to_old_mapping = map_attribute_indices(new_info, old_info);
-  m_default_buffers = Array<const void *>(new_info.size(), nullptr);
-
-  for (uint i : new_info.indices()) {
-    if (m_new_to_old_mapping[i] == -1) {
-      const void *default_buffer = defaults.get(new_info.name_of(i), new_info.type_of(i));
-      m_default_buffers[i] = default_buffer;
-    }
-  }
 }
 
 void AttributesInfoDiff::update(uint capacity,
@@ -128,7 +141,7 @@ void AttributesInfoDiff::update(uint capacity,
       void *new_buffer = MEM_mallocN_aligned(capacity * type.size(), type.alignment(), __func__);
 
       GenericMutableArrayRef{type, new_buffer, used_size}.fill__uninitialized(
-          m_default_buffers[new_index]);
+          m_new_info->default_of(new_index));
 
       new_buffers[new_index] = new_buffer;
     }

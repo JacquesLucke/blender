@@ -52,8 +52,7 @@ class InfluencesCollector {
   MultiMap<std::string, Force *> &m_forces;
   MultiMap<std::string, Event *> &m_events;
   MultiMap<std::string, OffsetHandler *> &m_offset_handlers;
-  StringMap<AttributesInfoBuilder> &m_attributes;
-  StringMap<AttributesDefaults *> &m_attributes_defaults;
+  StringMap<AttributesInfoBuilder *> &m_attributes;
 };
 
 class VTreeData {
@@ -397,11 +396,8 @@ static std::unique_ptr<Action> ACTION_add_to_group(InfluencesCollector &collecto
   std::string group_name = inputs->relocate_out<std::string>(0, "Group");
 
   /* Add group to all particle systems for now. */
-  collector.m_attributes_defaults.foreach_value([&](AttributesDefaults *attributes_defaults) {
-    attributes_defaults->add<uint8_t>(group_name, 0);
-  });
   collector.m_attributes.foreach_value(
-      [&](AttributesInfoBuilder &builder) { builder.add<uint8_t>(group_name); });
+      [&](AttributesInfoBuilder *builder) { builder->add<uint8_t>(group_name, 0); });
 
   Action *action = new AddToGroupAction(group_name);
   return std::unique_ptr<Action>(action);
@@ -568,8 +564,7 @@ static void PARSE_age_reached_event(InfluencesCollector &collector,
   std::string is_triggered_attribute = vnode.name();
 
   for (const std::string &system_name : system_names) {
-    collector.m_attributes.lookup(system_name).add<uint8_t>(is_triggered_attribute);
-    collector.m_attributes_defaults.lookup(system_name)->add<uint8_t>(is_triggered_attribute, 0);
+    collector.m_attributes.lookup(system_name)->add<uint8_t>(is_triggered_attribute, 0);
     Event *event = new AgeReachedEvent(is_triggered_attribute, inputs_fn, action);
     collector.m_events.add(system_name, event);
   }
@@ -693,9 +688,7 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
   for (const std::string &system_name : system_names) {
     Event *event = new MeshCollisionEvent(
         last_collision_attribute, object, action, local_to_world_begin, local_to_world_end);
-    collector.m_attributes.lookup(system_name).add<int32_t>(last_collision_attribute);
-    collector.m_attributes_defaults.lookup(system_name)
-        ->add<int32_t>(last_collision_attribute, -1);
+    collector.m_attributes.lookup(system_name)->add<int32_t>(last_collision_attribute, -1);
     collector.m_events.add(system_name, event);
   }
 }
@@ -764,8 +757,7 @@ static void PARSE_custom_event(InfluencesCollector &collector,
 
   for (const std::string &system_name : system_names) {
     Event *event = new CustomEvent(is_triggered_attribute, inputs_fn, action);
-    collector.m_attributes.lookup(system_name).add<uint8_t>(system_name);
-    collector.m_attributes_defaults.lookup(system_name)->add<uint8_t>(system_name, 0);
+    collector.m_attributes.lookup(system_name)->add<uint8_t>(system_name, 0);
     collector.m_events.add(system_name, event);
   }
 }
@@ -810,8 +802,7 @@ static void collect_influences(VTreeData &vtree_data,
                                Vector<Emitter *> &r_emitters,
                                MultiMap<std::string, Event *> &r_events_per_type,
                                MultiMap<std::string, OffsetHandler *> &r_offset_handler_per_type,
-                               StringMap<AttributesInfoBuilder> &r_attributes_per_type,
-                               StringMap<AttributesDefaults *> &r_attributes_defaults,
+                               StringMap<AttributesInfoBuilder *> &r_attributes_per_type,
                                StringMap<Integrator *> &r_integrators)
 {
   SCOPED_TIMER(__func__);
@@ -825,14 +816,12 @@ static void collect_influences(VTreeData &vtree_data,
       r_events_per_type,
       r_offset_handler_per_type,
       r_attributes_per_type,
-      r_attributes_defaults,
   };
 
   for (const VNode *vnode : vtree_data.vtree().nodes_with_idname(particle_system_idname)) {
     StringRef name = vnode->name();
     r_system_names.append(name);
-    r_attributes_per_type.add_new(name, AttributesInfoBuilder());
-    r_attributes_defaults.add_new(name, new AttributesDefaults());
+    r_attributes_per_type.add_new(name, new AttributesInfoBuilder());
   }
 
   for (const VNode *vnode : vtree_data.vtree().nodes()) {
@@ -844,29 +833,15 @@ static void collect_influences(VTreeData &vtree_data,
   }
 
   for (std::string &system_name : r_system_names) {
-    AttributesInfoBuilder &attributes = r_attributes_per_type.lookup(system_name);
-    AttributesDefaults &defaults = *r_attributes_defaults.lookup(system_name);
+    AttributesInfoBuilder &attributes = *r_attributes_per_type.lookup(system_name);
 
-    attributes.add<uint8_t>("Kill State");
-    defaults.add<uint8_t>("Kill State", 0);
-
-    attributes.add<int32_t>("ID");
-    defaults.add<int32_t>("ID", 0);
-
-    attributes.add<float>("Birth Time");
-    defaults.add<float>("Birth Time", 0);
-
-    attributes.add<float3>("Position");
-    defaults.add<float3>("Position", float3(0, 0, 0));
-
-    attributes.add<float3>("Velocity");
-    defaults.add<float3>("Velocity", float3(0, 0, 0));
-
-    attributes.add<float>("Size");
-    defaults.add<float>("Size", 0.05f);
-
-    attributes.add<rgba_f>("Color");
-    defaults.add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
+    attributes.add<uint8_t>("Kill State", 0);
+    attributes.add<int32_t>("ID", 0);
+    attributes.add<float>("Birth Time", 0);
+    attributes.add<float3>("Position", float3(0, 0, 0));
+    attributes.add<float3>("Velocity", float3(0, 0, 0));
+    attributes.add<float>("Size", 0.05f);
+    attributes.add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
 
     ArrayRef<Force *> forces = collector.m_forces.lookup_default(system_name);
     EulerIntegrator *integrator = new EulerIntegrator(forces);
@@ -900,9 +875,8 @@ class NodeTreeStepSimulator : public StepSimulator {
     Vector<Emitter *> emitters;
     MultiMap<std::string, Event *> events;
     MultiMap<std::string, OffsetHandler *> offset_handlers;
-    StringMap<AttributesInfoBuilder> attributes;
+    StringMap<AttributesInfoBuilder *> attributes;
     StringMap<Integrator *> integrators;
-    StringMap<AttributesDefaults *> attributes_defaults;
 
     ResourceCollector resources;
     std::unique_ptr<VTreeMFNetwork> data_graph = FN::generate_vtree_multi_function_network(
@@ -919,28 +893,24 @@ class NodeTreeStepSimulator : public StepSimulator {
                        events,
                        offset_handlers,
                        attributes,
-                       attributes_defaults,
                        integrators);
 
     auto &containers = particles_state.particle_containers();
 
     StringMap<ParticleSystemInfo> systems_to_simulate;
     for (std::string name : system_names) {
-      AttributesInfoBuilder &system_attributes = attributes.lookup(name);
-      AttributesDefaults &defaults = *attributes_defaults.lookup(name);
+      AttributesInfoBuilder &system_attributes = *attributes.lookup(name);
 
       /* Keep old attributes. */
       AttributesBlockContainer *container = containers.lookup_default(name, nullptr);
       if (container != nullptr) {
         system_attributes.add(container->info());
-        /* TODO: Remember attribute defaults from before. */
       }
 
       this->ensure_particle_container_exist_and_has_attributes(
-          particles_state, name, system_attributes, defaults);
+          particles_state, name, system_attributes);
 
       ParticleSystemInfo type_info = {
-          &defaults,
           integrators.lookup(name),
           events.lookup_default(name),
           offset_handlers.lookup_default(name),
@@ -956,8 +926,7 @@ class NodeTreeStepSimulator : public StepSimulator {
     events.foreach_value([](Event *event) { delete event; });
     offset_handlers.foreach_value([](OffsetHandler *handler) { delete handler; });
     integrators.foreach_value([](Integrator *integrator) { delete integrator; });
-
-    attributes_defaults.foreach_value([](AttributesDefaults *defaults) { delete defaults; });
+    attributes.foreach_value([](AttributesInfoBuilder *builder) { delete builder; });
 
     simulation_state.world() = std::move(new_world_state);
   }
@@ -966,8 +935,7 @@ class NodeTreeStepSimulator : public StepSimulator {
   void ensure_particle_container_exist_and_has_attributes(
       ParticlesState &particles_state,
       StringRef name,
-      const AttributesInfoBuilder &attributes_info_builder,
-      const AttributesDefaults &attributes_defaults)
+      const AttributesInfoBuilder &attributes_info_builder)
   {
     auto &containers = particles_state.particle_containers();
     AttributesBlockContainer *container = containers.lookup_default(name, nullptr);
@@ -977,7 +945,7 @@ class NodeTreeStepSimulator : public StepSimulator {
       containers.add_new(name, container);
     }
     else {
-      container->update_attributes(attributes_info_builder, attributes_defaults);
+      container->update_attributes(attributes_info_builder);
     }
   }
 };
