@@ -1562,7 +1562,7 @@ static float dvar_eval_locDiff(ChannelDriver *driver, DriverVar *dvar)
           /* extract transform just like how the constraints do it! */
           copy_m4_m4(mat, pchan->pose_mat);
           BKE_constraint_mat_convertspace(
-              ob, pchan, mat, CONSTRAINT_SPACE_POSE, CONSTRAINT_SPACE_LOCAL, false);
+              ob, pchan, mat, CONSTRAINT_SPACE_POSE, CONSTRAINT_SPACE_LOCAL);
 
           /* ... and from that, we get our transform */
           copy_v3_v3(tmp_loc, mat[3]);
@@ -1588,7 +1588,7 @@ static float dvar_eval_locDiff(ChannelDriver *driver, DriverVar *dvar)
           /* extract transform just like how the constraints do it! */
           copy_m4_m4(mat, ob->obmat);
           BKE_constraint_mat_convertspace(
-              ob, NULL, mat, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL, false);
+              ob, NULL, mat, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL);
 
           /* ... and from that, we get our transform */
           copy_v3_v3(tmp_loc, mat[3]);
@@ -1665,7 +1665,7 @@ static float dvar_eval_transChan(ChannelDriver *driver, DriverVar *dvar)
         /* just like how the constraints do it! */
         copy_m4_m4(mat, pchan->pose_mat);
         BKE_constraint_mat_convertspace(
-            ob, pchan, mat, CONSTRAINT_SPACE_POSE, CONSTRAINT_SPACE_LOCAL, false);
+            ob, pchan, mat, CONSTRAINT_SPACE_POSE, CONSTRAINT_SPACE_LOCAL);
       }
       else {
         /* specially calculate local matrix, since chan_mat is not valid
@@ -1693,7 +1693,7 @@ static float dvar_eval_transChan(ChannelDriver *driver, DriverVar *dvar)
         /* just like how the constraints do it! */
         copy_m4_m4(mat, ob->obmat);
         BKE_constraint_mat_convertspace(
-            ob, NULL, mat, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL, false);
+            ob, NULL, mat, CONSTRAINT_SPACE_WORLD, CONSTRAINT_SPACE_LOCAL);
       }
       else {
         /* transforms to matrix */
