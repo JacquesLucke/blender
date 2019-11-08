@@ -27,7 +27,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 
   float end_time = interface.step_end_time();
   auto birth_times = attributes.get<float>("Birth Time");
-  auto was_activated_before = attributes.get<uint8_t>(m_is_triggered_attribute);
+  auto was_activated_before = attributes.get<bool>(m_is_triggered_attribute);
 
   for (uint pindex : interface.pindices()) {
     if (was_activated_before[pindex]) {
@@ -56,7 +56,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 
 void AgeReachedEvent::execute(EventExecuteInterface &interface)
 {
-  auto was_activated_before = interface.attributes().get<uint8_t>(m_is_triggered_attribute);
+  auto was_activated_before = interface.attributes().get<bool>(m_is_triggered_attribute);
   for (uint pindex : interface.pindices()) {
     was_activated_before[pindex] = true;
   }
@@ -69,7 +69,7 @@ void AgeReachedEvent::execute(EventExecuteInterface &interface)
 
 void CustomEvent::filter(EventFilterInterface &interface)
 {
-  auto was_activated_before = interface.attributes().get<uint8_t>(m_is_triggered_attribute);
+  auto was_activated_before = interface.attributes().get<bool>(m_is_triggered_attribute);
 
   TemporaryVector<uint> pindices_to_check;
   pindices_to_check.reserve(interface.pindices().size());
@@ -97,7 +97,7 @@ void CustomEvent::filter(EventFilterInterface &interface)
 
 void CustomEvent::execute(EventExecuteInterface &interface)
 {
-  auto was_activated_before = interface.attributes().get<uint8_t>(m_is_triggered_attribute);
+  auto was_activated_before = interface.attributes().get<bool>(m_is_triggered_attribute);
   for (uint pindex : interface.pindices()) {
     was_activated_before[pindex] = true;
   }

@@ -148,7 +148,7 @@ BLI_NOINLINE static void compute_current_time_per_particle(ArrayRef<uint> pindic
 
 BLI_NOINLINE static void find_unfinished_particles(ArrayRef<uint> pindices_with_event,
                                                    ArrayRef<float> time_factors_to_next_event,
-                                                   ArrayRef<uint8_t> kill_states,
+                                                   ArrayRef<bool> kill_states,
                                                    VectorAdaptor<uint> &r_unfinished_pindices)
 {
   for (uint pindex : pindices_with_event) {
@@ -197,7 +197,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   TemporaryVector<uint> pindices_with_event;
 
   uint max_event_storage_size = std::max(get_max_event_storage_size(system_info.events), 1u);
-  TemporaryArray<uint8_t> event_storage_array(max_event_storage_size * amount);
+  TemporaryArray<bool> event_storage_array(max_event_storage_size * amount);
   EventStorage event_storage((void *)event_storage_array.begin(), max_event_storage_size);
 
   find_next_event_per_particle(step_data,
@@ -236,7 +236,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
 
   find_unfinished_particles(pindices_with_event,
                             time_factors_to_next_event,
-                            step_data.attributes.get<uint8_t>("Kill State"),
+                            step_data.attributes.get<bool>("Kill State"),
                             r_unfinished_pindices);
 }
 
@@ -358,7 +358,7 @@ BLI_NOINLINE static void simulate_block(SimulationState &simulation_state,
 
 BLI_NOINLINE static void delete_tagged_particles_and_reorder(AttributesBlock &block)
 {
-  auto kill_states = block.as_ref().get<uint8_t>("Kill State");
+  auto kill_states = block.as_ref().get<bool>("Kill State");
   TemporaryVector<uint> indices_to_delete;
 
   for (uint i = 0; i < kill_states.size(); i++) {

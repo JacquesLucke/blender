@@ -310,7 +310,7 @@ inline ArrayRef<float> ActionInterface::current_times()
 
 inline void ActionInterface::kill(ArrayRef<uint> pindices)
 {
-  auto kill_states = m_attributes.get<uint8_t>("Kill State");
+  auto kill_states = m_attributes.get<bool>("Kill State");
   for (uint pindex : pindices) {
     kill_states[pindex] = 1;
   }

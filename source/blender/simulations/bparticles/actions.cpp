@@ -179,7 +179,7 @@ void ConditionAction::execute(ActionInterface &interface)
 
 void AddToGroupAction::execute(ActionInterface &interface)
 {
-  auto is_in_group = interface.attributes().get<uint8_t>(m_group_name);
+  auto is_in_group = interface.attributes().get<bool>(m_group_name);
   for (uint pindex : interface.pindices()) {
     is_in_group[pindex] = true;
   }
@@ -187,12 +187,12 @@ void AddToGroupAction::execute(ActionInterface &interface)
 
 void RemoveFromGroupAction::execute(ActionInterface &interface)
 {
-  auto is_in_group_optional = interface.attributes().try_get<uint8_t>(m_group_name);
+  auto is_in_group_optional = interface.attributes().try_get<bool>(m_group_name);
   if (!is_in_group_optional.has_value()) {
     return;
   }
 
-  MutableArrayRef<uint8_t> is_in_group = *is_in_group_optional;
+  MutableArrayRef<bool> is_in_group = *is_in_group_optional;
   for (uint pindex : interface.pindices()) {
     is_in_group[pindex] = false;
   }

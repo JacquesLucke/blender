@@ -397,7 +397,7 @@ static std::unique_ptr<Action> ACTION_add_to_group(InfluencesCollector &collecto
 
   /* Add group to all particle systems for now. */
   collector.m_attributes.foreach_value(
-      [&](AttributesInfoBuilder *builder) { builder->add<uint8_t>(group_name, 0); });
+      [&](AttributesInfoBuilder *builder) { builder->add<bool>(group_name, 0); });
 
   Action *action = new AddToGroupAction(group_name);
   return std::unique_ptr<Action>(action);
@@ -564,7 +564,7 @@ static void PARSE_age_reached_event(InfluencesCollector &collector,
   std::string is_triggered_attribute = vnode.name();
 
   for (const std::string &system_name : system_names) {
-    collector.m_attributes.lookup(system_name)->add<uint8_t>(is_triggered_attribute, 0);
+    collector.m_attributes.lookup(system_name)->add<bool>(is_triggered_attribute, 0);
     Event *event = new AgeReachedEvent(is_triggered_attribute, inputs_fn, action);
     collector.m_events.add(system_name, event);
   }
@@ -757,7 +757,7 @@ static void PARSE_custom_event(InfluencesCollector &collector,
 
   for (const std::string &system_name : system_names) {
     Event *event = new CustomEvent(is_triggered_attribute, inputs_fn, action);
-    collector.m_attributes.lookup(system_name)->add<uint8_t>(system_name, 0);
+    collector.m_attributes.lookup(system_name)->add<bool>(system_name, 0);
     collector.m_events.add(system_name, event);
   }
 }
@@ -835,7 +835,7 @@ static void collect_influences(VTreeData &vtree_data,
   for (std::string &system_name : r_system_names) {
     AttributesInfoBuilder &attributes = *r_attributes_per_type.lookup(system_name);
 
-    attributes.add<uint8_t>("Kill State", 0);
+    attributes.add<bool>("Kill State", 0);
     attributes.add<int32_t>("ID", 0);
     attributes.add<float>("Birth Time", 0);
     attributes.add<float3>("Position", float3(0, 0, 0));

@@ -247,11 +247,11 @@ Optional<ParticleFunctionInputArray> RandomFloatInputProvider::get(
 
 Optional<ParticleFunctionInputArray> IsInGroupInputProvider::get(InputProviderInterface &interface)
 {
-  auto is_in_group_output = BLI::temporary_allocate_array<uint8_t>(interface.attributes().size());
+  auto is_in_group_output = BLI::temporary_allocate_array<bool>(interface.attributes().size());
 
-  auto is_in_group_optional = interface.attributes().try_get<uint8_t>(m_group_name);
+  auto is_in_group_optional = interface.attributes().try_get<bool>(m_group_name);
   if (is_in_group_optional.has_value()) {
-    ArrayRef<uint8_t> is_in_group = *is_in_group_optional;
+    ArrayRef<bool> is_in_group = *is_in_group_optional;
     for (uint pindex : interface.pindices()) {
       is_in_group_output[pindex] = is_in_group[pindex];
     }
