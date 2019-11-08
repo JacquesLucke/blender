@@ -64,6 +64,12 @@ class MF_ObjectWorldLocation final : public MultiFunction {
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
+class MF_ObjectVertexPositions final : public MultiFunction {
+ public:
+  MF_ObjectVertexPositions();
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
+};
+
 class MF_TextLength final : public MultiFunction {
  public:
   MF_TextLength();

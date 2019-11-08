@@ -7,13 +7,18 @@
 #include "BLI_math_cxx.h"
 #include "BLI_lazy_init_cxx.h"
 #include "BLI_string_map.h"
+#include "BLI_array_cxx.h"
 
 #include "DNA_object_types.h"
+#include "DNA_mesh_types.h"
+#include "DNA_meshdata_types.h"
 
 namespace FN {
 
 using BLI::float3;
+using BLI::float4x4;
 using BLI::rgba_f;
+using BLI::TemporaryArray;
 
 MF_AddFloats::MF_AddFloats()
 {
@@ -227,6 +232,38 @@ void MF_FloatRange::call(const MFMask &mask, MFParams &params, MFContext &UNUSED
       float value = start + j * step;
       lists.append_single(i, value);
     }
+  }
+}
+
+MF_ObjectVertexPositions::MF_ObjectVertexPositions()
+{
+  MFSignatureBuilder signature{"Object Vertex Positions"};
+  signature.readonly_single_input<Object *>("Object");
+  signature.vector_output<float3>("Positions");
+  this->set_signature(signature);
+}
+
+void MF_ObjectVertexPositions::call(const MFMask &mask,
+                                    MFParams &params,
+                                    MFContext &UNUSED(context)) const
+{
+  VirtualListRef<Object *> objects = params.readonly_single_input<Object *>(0, "Object");
+  auto positions = params.vector_output<float3>(1, "Positions");
+
+  for (uint i : mask.indices()) {
+    Object *object = objects[i];
+    if (object == nullptr || object->type != OB_MESH) {
+      continue;
+    }
+
+    float4x4 transform = object->obmat;
+
+    Mesh *mesh = (Mesh *)object->data;
+    TemporaryArray<float3> coords(mesh->totvert);
+    for (uint j = 0; j < mesh->totvert; j++) {
+      coords[j] = transform.transform_position(mesh->mvert[j].co);
+    }
+    positions.extend_single(i, coords);
   }
 }
 

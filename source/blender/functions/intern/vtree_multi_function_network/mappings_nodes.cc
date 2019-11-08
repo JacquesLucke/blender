@@ -139,6 +139,12 @@ static void INSERT_object_location(VTreeMFNetworkBuilder &builder, const VNode &
   builder.add_function(fn, {0}, {1}, vnode);
 }
 
+static void INSERT_object_mesh_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ObjectVertexPositions>();
+  builder.add_function(fn, {0}, {1}, vnode);
+}
+
 static void INSERT_text_length(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_TextLength>();
@@ -418,6 +424,7 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_PackListNode", INSERT_pack_list);
   mappings.vnode_inserters.add_new("fn_GetListElementNode", INSERT_get_list_element);
   mappings.vnode_inserters.add_new("fn_ObjectTransformsNode", INSERT_object_location);
+  mappings.vnode_inserters.add_new("fn_ObjectMeshNode", INSERT_object_mesh_info);
   mappings.vnode_inserters.add_new("fn_TextLengthNode", INSERT_text_length);
   mappings.vnode_inserters.add_new("fn_VertexInfoNode", INSERT_vertex_info);
   mappings.vnode_inserters.add_new("fn_FloatRangeNode", INSERT_float_range);
