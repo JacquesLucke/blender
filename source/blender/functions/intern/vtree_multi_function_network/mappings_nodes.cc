@@ -359,6 +359,36 @@ static void INSERT_vector_distance(VTreeMFNetworkBuilder &builder, const VNode &
   insert_two_inputs_math_function<float3, float3, float, float3::distance>(builder, vnode);
 }
 
+static bool bool_and_func_cb(bool a, bool b)
+{
+  return a && b;
+}
+
+static bool bool_or_func_cb(bool a, bool b)
+{
+  return a || b;
+}
+
+static bool bool_not_func_cb(const bool &a)
+{
+  return !a;
+}
+
+static void INSERT_boolean_and(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_simple_math_function<bool, bool_and_func_cb>(builder, vnode, true);
+}
+
+static void INSERT_boolean_or(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_simple_math_function<bool, bool_or_func_cb>(builder, vnode, false);
+}
+
+static void INSERT_boolean_not(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_single_input_math_function<bool, bool_not_func_cb>(builder, vnode);
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_CombineVectorNode", INSERT_combine_vector);
@@ -396,6 +426,10 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_ProjectVectorNode", INSERT_project_vector);
   mappings.vnode_inserters.add_new("fn_VectorDotProductNode", INSERT_vector_dot_product);
   mappings.vnode_inserters.add_new("fn_VectorDistanceNode", INSERT_vector_distance);
+
+  mappings.vnode_inserters.add_new("fn_BooleanAndNode", INSERT_boolean_and);
+  mappings.vnode_inserters.add_new("fn_BooleanOrNode", INSERT_boolean_or);
+  mappings.vnode_inserters.add_new("fn_BooleanNotNode", INSERT_boolean_not);
 }
 
 };  // namespace FN
