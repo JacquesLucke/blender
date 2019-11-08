@@ -435,6 +435,16 @@ static void INSERT_boolean_not(VTreeMFNetworkBuilder &builder, const VNode &vnod
   insert_single_input_math_function<bool, bool_not_func_cb>(builder, vnode);
 }
 
+static bool less_than_func_cb(float a, float b)
+{
+  return a < b;
+}
+
+static void INSERT_compare(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_two_inputs_math_function<float, float, bool, less_than_func_cb>(builder, vnode);
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
@@ -451,6 +461,7 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_VertexInfoNode", INSERT_vertex_info);
   mappings.vnode_inserters.add_new("fn_FloatRangeNode", INSERT_float_range);
   mappings.vnode_inserters.add_new("fn_TimeInfoNode", INSERT_time_info);
+  mappings.vnode_inserters.add_new("fn_CompareNode", INSERT_compare);
 
   mappings.vnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
   mappings.vnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);
