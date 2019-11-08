@@ -13,9 +13,13 @@ VTreeMFNetworkBuilder::VTreeMFNetworkBuilder(const VirtualNodeTree &vtree,
       m_builder(BLI::make_unique<MFNetworkBuilder>())
 {
   for (const VSocket *vsocket : vtree.all_sockets()) {
-    MFDataType data_type = vtree_mappings.data_type_by_idname.lookup_default(
-        vsocket->idname(), MFDataType::ForNone());
-    m_type_by_vsocket[vsocket->id()] = data_type;
+    const MFDataType *data_type = vtree_mappings.data_type_by_idname.lookup_ptr(vsocket->idname());
+    if (data_type == nullptr) {
+      m_type_by_vsocket[vsocket->id()] = {};
+    }
+    else {
+      m_type_by_vsocket[vsocket->id()] = MFDataType(*data_type);
+    }
   }
 }
 
@@ -41,17 +45,17 @@ MFBuilderDummyNode &VTreeMFNetworkBuilder::add_dummy(const VNode &vnode)
 {
   Vector<MFDataType> input_types;
   for (const VInputSocket *vsocket : vnode.inputs()) {
-    MFDataType data_type = this->try_get_data_type(*vsocket);
-    if (!data_type.is_none()) {
-      input_types.append(data_type);
+    Optional<MFDataType> data_type = this->try_get_data_type(*vsocket);
+    if (data_type.has_value()) {
+      input_types.append(data_type.value());
     }
   }
 
   Vector<MFDataType> output_types;
   for (const VOutputSocket *vsocket : vnode.outputs()) {
-    MFDataType data_type = this->try_get_data_type(*vsocket);
-    if (!data_type.is_none()) {
-      output_types.append(data_type);
+    Optional<MFDataType> data_type = this->try_get_data_type(*vsocket);
+    if (data_type.has_value()) {
+      output_types.append(data_type.value());
     }
   }
 
@@ -100,7 +104,7 @@ void VTreeMFNetworkBuilder::assert_vsocket_is_mapped_correctly(const VSocket &vs
   BLI_assert(this->vsocket_is_mapped(vsocket));
   MFBuilderSocket &socket = this->lookup_socket(vsocket);
   MFDataType socket_type = socket.type();
-  MFDataType vsocket_type = this->try_get_data_type(vsocket);
+  MFDataType vsocket_type = this->try_get_data_type(vsocket).value();
   BLI_assert(socket_type == vsocket_type);
   UNUSED_VARS_NDEBUG(socket_type, vsocket_type);
 }

@@ -42,9 +42,6 @@ class MFSignature {
     for (MFParamType param_type : m_param_types) {
       uint corrected_index = 0;
       switch (param_type.category()) {
-        case MFParamType::None:
-          BLI_assert(false);
-          break;
         case MFParamType::ReadonlySingleInput:
           corrected_index = array_or_single_refs++;
           break;

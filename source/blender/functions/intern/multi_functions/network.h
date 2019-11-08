@@ -31,9 +31,6 @@ class MF_EvaluateNetwork final : public MultiFunction {
         case MFDataType::Vector:
           signature.readonly_vector_input("Input", type.base_type());
           break;
-        case MFDataType::None:
-          BLI_assert(false);
-          break;
       }
     }
     for (auto socket : m_outputs) {
@@ -46,9 +43,6 @@ class MF_EvaluateNetwork final : public MultiFunction {
           break;
         case MFDataType::Vector:
           signature.vector_output("Output", type.base_type());
-          break;
-        case MFDataType::None:
-          BLI_assert(false);
           break;
       }
     }
@@ -138,8 +132,6 @@ class MF_EvaluateNetwork final : public MultiFunction {
         case MFDataType::Vector:
           return m_virtual_list_list_for_inputs.contains(socket.id()) ||
                  m_vector_per_socket.contains(socket.id());
-        case MFDataType::None:
-          break;
       }
       BLI_assert(false);
       return false;

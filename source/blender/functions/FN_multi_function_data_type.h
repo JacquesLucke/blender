@@ -8,35 +8,36 @@ namespace FN {
 struct MFDataType {
  public:
   enum Category {
-    None,
     Single,
     Vector,
   };
 
-  MFDataType() = default;
-
+ private:
   MFDataType(Category category, const CPPType &type) : m_category(category), m_base_type(&type)
   {
   }
 
-  static MFDataType ForNone()
-  {
-    return MFDataType{};
-  }
+ public:
+  MFDataType() = default;
 
   template<typename T> static MFDataType ForSingle()
   {
-    return MFDataType(Category::Single, CPP_TYPE<T>());
+    return MFDataType::ForSingle(CPP_TYPE<T>());
   }
 
   template<typename T> static MFDataType ForVector()
   {
-    return MFDataType(Category::Vector, CPP_TYPE<T>());
+    return MFDataType::ForVector(CPP_TYPE<T>());
   }
 
-  bool is_none() const
+  static MFDataType ForSingle(const CPPType &type)
   {
-    return m_category == Category::None;
+    return MFDataType(Category::Single, type);
+  }
+
+  static MFDataType ForVector(const CPPType &type)
+  {
+    return MFDataType(Category::Vector, type);
   }
 
   bool is_single() const
@@ -77,8 +78,8 @@ struct MFDataType {
   }
 
  private:
-  Category m_category = Category::None;
-  const CPPType *m_base_type = nullptr;
+  Category m_category;
+  const CPPType *m_base_type;
 };
 
 }  // namespace FN

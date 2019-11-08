@@ -12,7 +12,7 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   const VTreeMultiFunctionMappings &m_vtree_mappings;
   ResourceCollector &m_resources;
   Array<MFBuilderSocket *> m_socket_map;
-  Array<MFDataType> m_type_by_vsocket;
+  Array<Optional<MFDataType>> m_type_by_vsocket;
   std::unique_ptr<MFNetworkBuilder> m_builder;
 
  public:
@@ -64,14 +64,14 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return *fn;
   }
 
-  MFDataType try_get_data_type(const VSocket &vsocket) const
+  Optional<MFDataType> try_get_data_type(const VSocket &vsocket) const
   {
     return m_type_by_vsocket[vsocket.id()];
   }
 
   bool is_data_socket(const VSocket &vsocket) const
   {
-    return !m_type_by_vsocket[vsocket.id()].is_none();
+    return m_type_by_vsocket[vsocket.id()].has_value();
   }
 
   void map_data_sockets(const VNode &vnode, MFBuilderNode &node);

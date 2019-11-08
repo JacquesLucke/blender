@@ -58,10 +58,6 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams &params,
         }
         break;
       }
-      case MFDataType::None: {
-        BLI_assert(false);
-        break;
-      }
     }
   }
 }
@@ -126,10 +122,6 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
   for (uint param_index : function.param_indices()) {
     MFParamType param_type = function.param_type(param_index);
     switch (param_type.category()) {
-      case MFParamType::None: {
-        BLI_assert(false);
-        break;
-      }
       case MFParamType::ReadonlySingleInput: {
         uint input_socket_index = function_node.input_param_indices().first_index(param_index);
         const MFInputSocket &input_socket = *function_node.inputs()[input_socket_index];
@@ -233,10 +225,6 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(const MFMa
     uint global_param_index = m_inputs.size() + output_index;
     const MFInputSocket &socket = *m_outputs[output_index];
     switch (socket.type().category()) {
-      case MFDataType::None: {
-        BLI_assert(false);
-        break;
-      }
       case MFDataType::Single: {
         GenericVirtualListRef values = storage.get_virtual_list_for_input(socket);
         GenericMutableArrayRef output_values = params.single_output(global_param_index, "Output");

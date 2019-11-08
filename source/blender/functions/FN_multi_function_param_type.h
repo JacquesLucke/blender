@@ -8,7 +8,6 @@ namespace FN {
 struct MFParamType {
  public:
   enum Category {
-    None,
     ReadonlySingleInput,
     SingleOutput,
     ReadonlyVectorInput,
@@ -16,14 +15,10 @@ struct MFParamType {
     MutableVector,
   };
 
+ public:
   MFParamType(Category category, const CPPType *base_type = nullptr)
       : m_category(category), m_base_type(base_type)
   {
-  }
-
-  bool is_none() const
-  {
-    return m_category == MFParamType::None;
   }
 
   bool is_readonly_single_input() const
@@ -64,18 +59,16 @@ struct MFParamType {
   MFDataType as_data_type() const
   {
     switch (m_category) {
-      case None:
-        return {};
       case ReadonlySingleInput:
       case SingleOutput:
-        return {MFDataType::Single, *m_base_type};
+        return MFDataType::ForSingle(*m_base_type);
       case ReadonlyVectorInput:
       case VectorOutput:
       case MutableVector:
-        return {MFDataType::Vector, *m_base_type};
+        return MFDataType::ForVector(*m_base_type);
     }
     BLI_assert(false);
-    return {};
+    return MFDataType::ForSingle<float>();
   }
 
   Category category() const
@@ -99,8 +92,8 @@ struct MFParamType {
   }
 
  private:
-  Category m_category = Category::None;
-  const CPPType *m_base_type = nullptr;
+  Category m_category;
+  const CPPType *m_base_type;
 };
 
 }  // namespace FN

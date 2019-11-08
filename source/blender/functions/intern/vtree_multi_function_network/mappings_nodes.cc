@@ -149,10 +149,6 @@ static const MultiFunction &get_switch_function(VTreeMFNetworkBuilder &builder, 
 {
   MFDataType type = builder.data_type_from_property(vnode, "data_type");
   switch (type.category()) {
-    case MFDataType::None: {
-      BLI_assert(false);
-      break;
-    }
     case MFDataType::Single: {
       return builder.construct_fn<FN::MF_SwitchSingle>(type.type());
     }
@@ -160,7 +156,8 @@ static const MultiFunction &get_switch_function(VTreeMFNetworkBuilder &builder, 
       return builder.construct_fn<FN::MF_SwitchVector>(type.base_type());
     }
   }
-  return builder.construct_fn<FN::MF_SeparateColor>(); /* TODO: get rid of this case. */
+  BLI_assert(false);
+  return builder.construct_fn<FN::MF_Dummy>();
 }
 
 static void INSERT_switch(VTreeMFNetworkBuilder &builder, const VNode &vnode)

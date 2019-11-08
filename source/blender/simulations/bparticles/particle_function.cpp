@@ -77,7 +77,6 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
   for (uint param_index : m_fn->param_indices()) {
     FN::MFParamType param_type = m_fn->param_type(param_index);
     switch (param_type.category()) {
-      case FN::MFParamType::Category::None:
       case FN::MFParamType::Category::ReadonlyVectorInput:
       case FN::MFParamType::Category::MutableVector:
         BLI_assert(false);

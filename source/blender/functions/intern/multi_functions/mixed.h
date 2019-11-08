@@ -4,6 +4,13 @@
 
 namespace FN {
 
+class MF_Dummy final : public MultiFunction {
+  void call(const MFMask &UNUSED(mask),
+            MFParams &UNUSED(params),
+            MFContext &UNUSED(context)) const override
+  {
+  }
+};
 class MF_AddFloats final : public MultiFunction {
  public:
   MF_AddFloats();

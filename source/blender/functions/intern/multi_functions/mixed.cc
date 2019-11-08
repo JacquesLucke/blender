@@ -378,7 +378,6 @@ MF_SimpleVectorize::MF_SimpleVectorize(const MultiFunction &function,
     MFParamType param_type = function.param_type(param_index);
     StringRef param_name = function.param_name(param_index);
     switch (param_type.category()) {
-      case MFParamType::None:
       case MFParamType::ReadonlyVectorInput:
       case MFParamType::VectorOutput:
       case MFParamType::MutableVector: {
@@ -441,7 +440,6 @@ void MF_SimpleVectorize::call(const MFMask &mask, MFParams &params, MFContext &c
     for (uint param_index : m_function.param_indices()) {
       MFParamType param_type = m_function.param_type(param_index);
       switch (param_type.category()) {
-        case MFParamType::None:
         case MFParamType::ReadonlyVectorInput:
         case MFParamType::VectorOutput:
         case MFParamType::MutableVector: {
