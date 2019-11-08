@@ -16,6 +16,18 @@ class MF_AddFloat3s final : public MultiFunction {
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
+class MF_CombineColor final : public MultiFunction {
+ public:
+  MF_CombineColor();
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
+};
+
+class MF_SeparateColor final : public MultiFunction {
+ public:
+  MF_SeparateColor();
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
+};
+
 class MF_CombineVector final : public MultiFunction {
  public:
   MF_CombineVector();

@@ -13,6 +13,7 @@
 namespace FN {
 
 using BLI::float3;
+using BLI::rgba_f;
 
 MF_AddFloats::MF_AddFloats()
 {
@@ -54,6 +55,58 @@ void MF_AddFloat3s::call(const MFMask &mask, MFParams &params, MFContext &UNUSED
   }
 }
 
+MF_CombineColor::MF_CombineColor()
+{
+  MFSignatureBuilder signature("Combine Color");
+  signature.readonly_single_input<float>("R");
+  signature.readonly_single_input<float>("G");
+  signature.readonly_single_input<float>("B");
+  signature.readonly_single_input<float>("A");
+  signature.single_output<rgba_f>("Color");
+  this->set_signature(signature);
+}
+
+void MF_CombineColor::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
+{
+  VirtualListRef<float> r = params.readonly_single_input<float>(0, "R");
+  VirtualListRef<float> g = params.readonly_single_input<float>(1, "G");
+  VirtualListRef<float> b = params.readonly_single_input<float>(2, "B");
+  VirtualListRef<float> a = params.readonly_single_input<float>(3, "A");
+  MutableArrayRef<rgba_f> color = params.single_output<rgba_f>(4, "Color");
+
+  for (uint i : mask.indices()) {
+    color[i] = {r[i], g[i], b[i], a[i]};
+  }
+}
+
+MF_SeparateColor::MF_SeparateColor()
+{
+  MFSignatureBuilder signature("Separate Color");
+  signature.readonly_single_input<rgba_f>("Color");
+  signature.single_output<float>("R");
+  signature.single_output<float>("G");
+  signature.single_output<float>("B");
+  signature.single_output<float>("A");
+  this->set_signature(signature);
+}
+
+void MF_SeparateColor::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
+{
+  auto color = params.readonly_single_input<rgba_f>(0, "Color");
+  auto r = params.single_output<float>(1, "R");
+  auto g = params.single_output<float>(2, "G");
+  auto b = params.single_output<float>(3, "B");
+  auto a = params.single_output<float>(4, "A");
+
+  for (uint i : mask.indices()) {
+    rgba_f v = color[i];
+    r[i] = v.r;
+    g[i] = v.g;
+    b[i] = v.b;
+    a[i] = v.a;
+  }
+}
+
 MF_CombineVector::MF_CombineVector()
 {
   MFSignatureBuilder signature("Combine Vector");
@@ -66,10 +119,10 @@ MF_CombineVector::MF_CombineVector()
 
 void MF_CombineVector::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
 {
-  auto x = params.readonly_single_input<float>(0, "X");
-  auto y = params.readonly_single_input<float>(1, "Y");
-  auto z = params.readonly_single_input<float>(2, "Z");
-  auto vector = params.single_output<float3>(3, "Vector");
+  VirtualListRef<float> x = params.readonly_single_input<float>(0, "X");
+  VirtualListRef<float> y = params.readonly_single_input<float>(1, "Y");
+  VirtualListRef<float> z = params.readonly_single_input<float>(2, "Z");
+  MutableArrayRef<float3> vector = params.single_output<float3>(3, "Vector");
 
   for (uint i : mask.indices()) {
     vector[i] = {x[i], y[i], z[i]};

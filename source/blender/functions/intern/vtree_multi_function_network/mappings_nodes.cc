@@ -33,6 +33,25 @@ static const MultiFunction &get_vectorized_function(
   }
 }
 
+static void INSERT_combine_color(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &base_fn = builder.construct_fn<FN::MF_CombineColor>();
+  const MultiFunction &fn = get_vectorized_function(
+      builder,
+      base_fn,
+      vnode.rna(),
+      {"use_list__red", "use_list__green", "use_list__blue", "use_list__alpha"});
+  builder.add_function(fn, {0, 1, 2, 3}, {4}, vnode);
+}
+
+static void INSERT_separate_color(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &base_fn = builder.construct_fn<FN::MF_SeparateColor>();
+  const MultiFunction &fn = get_vectorized_function(
+      builder, base_fn, vnode.rna(), {"use_list__color"});
+  builder.add_function(fn, {0}, {1, 2, 3, 4}, vnode);
+}
+
 static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &base_fn = builder.construct_fn<FN::MF_CombineVector>();
@@ -391,6 +410,8 @@ static void INSERT_boolean_not(VTreeMFNetworkBuilder &builder, const VNode &vnod
 
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
+  mappings.vnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
+  mappings.vnode_inserters.add_new("fn_SeparateColorNode", INSERT_separate_color);
   mappings.vnode_inserters.add_new("fn_CombineVectorNode", INSERT_combine_vector);
   mappings.vnode_inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
   mappings.vnode_inserters.add_new("fn_ListLengthNode", INSERT_list_length);

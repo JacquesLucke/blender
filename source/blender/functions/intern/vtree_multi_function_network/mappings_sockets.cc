@@ -21,6 +21,17 @@ static MFBuilderOutputSocket &INSERT_vector_socket(VTreeMFNetworkBuilder &builde
   return *node.outputs()[0];
 }
 
+static MFBuilderOutputSocket &INSERT_color_socket(VTreeMFNetworkBuilder &builder,
+                                                  const VSocket &vsocket)
+{
+  BLI::rgba_f value;
+  RNA_float_get_array(vsocket.rna(), "value", value);
+
+  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<BLI::rgba_f>>(value);
+  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
+  return *node.outputs()[0];
+}
+
 static MFBuilderOutputSocket &INSERT_float_socket(VTreeMFNetworkBuilder &builder,
                                                   const VSocket &vsocket)
 {
@@ -163,6 +174,7 @@ void add_vtree_socket_mapping_info(VTreeMultiFunctionMappings &mappings)
   add_basic_type<Object *>(mappings, "Object", INSERT_object_socket);
   add_basic_type<std::string>(mappings, "Text", INSERT_text_socket);
   add_basic_type<bool>(mappings, "Boolean", INSERT_bool_socket);
+  add_basic_type<BLI::rgba_f>(mappings, "Color", INSERT_color_socket);
 
   add_bidirectional_implicit_conversion<float, int32_t>(mappings);
   add_bidirectional_implicit_conversion<float, bool>(mappings);
