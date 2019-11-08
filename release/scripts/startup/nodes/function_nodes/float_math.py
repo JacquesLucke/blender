@@ -69,3 +69,7 @@ AddVectorsNode = create_variadic_math_node("Vector", "fn_AddVectorsNode", "Add V
 SubtractVectorsNode = create_two_inputs_math_node("Vector", "fn_SubtractVectorsNode", "Subtract Vectors")
 MultiplyVectorsNode = create_variadic_math_node("Vector", "fn_MultiplyVectorsNode", "Multiply Vectors")
 DivideVectorsNode = create_two_inputs_math_node("Vector", "fn_DivideVectorsNode", "Divide Vectors")
+
+VectorCrossProductNode = create_two_inputs_math_node("Vector", "fn_VectorCrossProductNode", "Cross Product")
+VectorReflectNode = create_two_inputs_math_node("Vector", "fn_ReflectVectorNode", "Reflect Vector")
+VectorProjectNode = create_two_inputs_math_node("Vector", "fn_ProjectVectorNode", "Project Vector")

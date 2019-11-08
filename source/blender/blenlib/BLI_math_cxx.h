@@ -263,6 +263,20 @@ struct float3 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
   }
 
+  static float3 cross_high_precision(float3 a, float3 b)
+  {
+    float3 result;
+    cross_v3_v3v3_hi_prec(result, a, b);
+    return result;
+  }
+
+  static float3 project(float3 a, float3 b)
+  {
+    float3 result;
+    project_v3_v3v3(result, a, b);
+    return result;
+  }
+
   static float distance(float3 a, float3 b)
   {
     return (a - b).length();

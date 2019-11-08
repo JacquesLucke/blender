@@ -9,12 +9,6 @@ namespace FN {
 
 using BLI::float3;
 
-static void INSERT_vector_math(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  const MultiFunction &fn = builder.construct_fn<FN::MF_AddFloat3s>();
-  builder.add_function(fn, {0, 1}, {2}, vnode);
-}
-
 static const MultiFunction &get_vectorized_function(
     VTreeMFNetworkBuilder &builder,
     const MultiFunction &base_function,
@@ -37,15 +31,6 @@ static const MultiFunction &get_vectorized_function(
   else {
     return base_function;
   }
-}
-
-static void INSERT_float_math(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  const MultiFunction &base_fn = builder.construct_fn<FN::MF_AddFloats>();
-  const MultiFunction &fn = get_vectorized_function(
-      builder, base_fn, vnode.rna(), {"use_list__a", "use_list__b"});
-
-  builder.add_function(fn, {0, 1}, {2}, vnode);
 }
 
 static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
@@ -341,10 +326,28 @@ static void INSERT_divide_vectors(VTreeMFNetworkBuilder &builder, const VNode &v
   insert_two_inputs_math_function<float3, float3::safe_divide>(builder, vnode);
 }
 
+static float3 vector_reflect_func_cb(float3 a, float3 b)
+{
+  return a.reflected(b.normalized());
+}
+
+static void INSERT_vector_cross_product(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_two_inputs_math_function<float3, float3::cross_high_precision>(builder, vnode);
+}
+
+static void INSERT_reflect_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_two_inputs_math_function<float3, vector_reflect_func_cb>(builder, vnode);
+}
+
+static void INSERT_project_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_two_inputs_math_function<float3, float3::project>(builder, vnode);
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
-  mappings.vnode_inserters.add_new("fn_FloatMathNode", INSERT_float_math);
-  mappings.vnode_inserters.add_new("fn_VectorMathNode", INSERT_vector_math);
   mappings.vnode_inserters.add_new("fn_CombineVectorNode", INSERT_combine_vector);
   mappings.vnode_inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
   mappings.vnode_inserters.add_new("fn_ListLengthNode", INSERT_list_length);
@@ -374,6 +377,10 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_SubtractVectorsNode", INSERT_subtract_vectors);
   mappings.vnode_inserters.add_new("fn_MultiplyVectorsNode", INSERT_multiply_vectors);
   mappings.vnode_inserters.add_new("fn_DivideVectorsNode", INSERT_divide_vectors);
+
+  mappings.vnode_inserters.add_new("fn_VectorCrossProductNode", INSERT_vector_cross_product);
+  mappings.vnode_inserters.add_new("fn_ReflectVectorNode", INSERT_reflect_vector);
+  mappings.vnode_inserters.add_new("fn_ProjectVectorNode", INSERT_project_vector);
 }
 
 };  // namespace FN
