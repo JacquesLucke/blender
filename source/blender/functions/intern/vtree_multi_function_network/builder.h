@@ -128,6 +128,7 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   }
 
   const CPPType &cpp_type_from_property(const VNode &vnode, StringRefNull prop_name) const;
+  MFDataType data_type_from_property(const VNode &vnode, StringRefNull prop_name) const;
 
   std::unique_ptr<VTreeMFNetwork> build();
 };

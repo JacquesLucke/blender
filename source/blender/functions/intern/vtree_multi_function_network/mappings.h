@@ -25,6 +25,7 @@ using InsertImplicitConversionFunction = std::function<
 struct VTreeMultiFunctionMappings {
   StringMap<MFDataType> data_type_by_idname;
   StringMap<const CPPType *> cpp_type_by_type_name;
+  StringMap<MFDataType> data_type_by_type_name;
   Map<const CPPType *, std::string> type_name_from_cpp_type;
   StringMap<InsertVNodeFunction> vnode_inserters;
   StringMap<InsertUnlinkedInputFunction> input_inserters;

@@ -142,6 +142,24 @@ class MF_ContextCurrentFrame final : public MultiFunction {
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
+class MF_SwitchSingle final : public MultiFunction {
+ private:
+  const CPPType &m_type;
+
+ public:
+  MF_SwitchSingle(const CPPType &type);
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
+};
+
+class MF_SwitchVector final : public MultiFunction {
+ private:
+  const CPPType &m_type;
+
+ public:
+  MF_SwitchVector(const CPPType &type);
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
+};
+
 template<typename FromT, typename ToT, ToT (*Compute)(const FromT &)>
 class MF_Mappping final : public MultiFunction {
  public:

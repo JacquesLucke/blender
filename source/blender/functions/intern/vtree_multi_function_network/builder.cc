@@ -129,6 +129,15 @@ const CPPType &VTreeMFNetworkBuilder::cpp_type_from_property(const VNode &vnode,
   return type;
 }
 
+MFDataType VTreeMFNetworkBuilder::data_type_from_property(const VNode &vnode,
+                                                          StringRefNull prop_name) const
+{
+  char *type_name = RNA_string_get_alloc(vnode.rna(), prop_name.data(), nullptr, 0);
+  MFDataType type = m_vtree_mappings.data_type_by_type_name.lookup(type_name);
+  MEM_freeN(type_name);
+  return type;
+}
+
 std::unique_ptr<VTreeMFNetwork> VTreeMFNetworkBuilder::build()
 {
   // m_builder->to_dot__clipboard();

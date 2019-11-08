@@ -145,6 +145,30 @@ static void INSERT_object_mesh_info(VTreeMFNetworkBuilder &builder, const VNode 
   builder.add_function(fn, {0}, {1}, vnode);
 }
 
+static const MultiFunction &get_switch_function(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  MFDataType type = builder.data_type_from_property(vnode, "data_type");
+  switch (type.category()) {
+    case MFDataType::None: {
+      BLI_assert(false);
+      break;
+    }
+    case MFDataType::Single: {
+      return builder.construct_fn<FN::MF_SwitchSingle>(type.type());
+    }
+    case MFDataType::Vector: {
+      return builder.construct_fn<FN::MF_SwitchVector>(type.base_type());
+    }
+  }
+  return builder.construct_fn<FN::MF_SeparateColor>(); /* TODO: get rid of this case. */
+}
+
+static void INSERT_switch(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &fn = get_switch_function(builder, vnode);
+  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+}
+
 static void INSERT_text_length(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_TextLength>();
@@ -420,6 +444,7 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_SeparateColorNode", INSERT_separate_color);
   mappings.vnode_inserters.add_new("fn_CombineVectorNode", INSERT_combine_vector);
   mappings.vnode_inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
+  mappings.vnode_inserters.add_new("fn_SwitchNode", INSERT_switch);
   mappings.vnode_inserters.add_new("fn_ListLengthNode", INSERT_list_length);
   mappings.vnode_inserters.add_new("fn_PackListNode", INSERT_pack_list);
   mappings.vnode_inserters.add_new("fn_GetListElementNode", INSERT_get_list_element);

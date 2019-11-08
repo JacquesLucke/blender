@@ -292,6 +292,60 @@ void MF_ObjectWorldLocation::call(const MFMask &mask,
   }
 }
 
+MF_SwitchSingle::MF_SwitchSingle(const CPPType &type) : m_type(type)
+{
+  MFSignatureBuilder signature("Switch");
+  signature.readonly_single_input<bool>("Condition");
+  signature.readonly_single_input("True", m_type);
+  signature.readonly_single_input("False", m_type);
+  signature.single_output("Result", m_type);
+  this->set_signature(signature);
+}
+
+void MF_SwitchSingle::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
+{
+  VirtualListRef<bool> conditions = params.readonly_single_input<bool>(0, "Condition");
+  GenericVirtualListRef if_true = params.readonly_single_input(1, "True");
+  GenericVirtualListRef if_false = params.readonly_single_input(2, "False");
+  GenericMutableArrayRef results = params.single_output(3, "Result");
+
+  for (uint i : mask.indices()) {
+    if (conditions[i]) {
+      results.copy_in__uninitialized(i, if_true[i]);
+    }
+    else {
+      results.copy_in__uninitialized(i, if_false[i]);
+    }
+  }
+}
+
+MF_SwitchVector::MF_SwitchVector(const CPPType &type) : m_type(type)
+{
+  MFSignatureBuilder signature("Switch");
+  signature.readonly_single_input<bool>("Condition");
+  signature.readonly_vector_input("True", m_type);
+  signature.readonly_vector_input("False", m_type);
+  signature.vector_output("Result", m_type);
+  this->set_signature(signature);
+}
+
+void MF_SwitchVector::call(const MFMask &mask, MFParams &params, MFContext &UNUSED(context)) const
+{
+  VirtualListRef<bool> conditions = params.readonly_single_input<bool>(0, "Condition");
+  GenericVirtualListListRef if_true = params.readonly_vector_input(1, "True");
+  GenericVirtualListListRef if_false = params.readonly_vector_input(2, "False");
+  GenericVectorArray &results = params.vector_output(3, "Result");
+
+  for (uint i : mask.indices()) {
+    if (conditions[i]) {
+      results.extend_single__copy(i, if_true[i]);
+    }
+    else {
+      results.extend_single__copy(i, if_false[i]);
+    }
+  }
+}
+
 MF_TextLength::MF_TextLength()
 {
   MFSignatureBuilder signature("Text Length");
