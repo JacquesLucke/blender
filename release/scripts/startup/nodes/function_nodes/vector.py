@@ -3,7 +3,7 @@ from bpy.props import *
 from .. base import FunctionNode
 from .. node_builder import NodeBuilder
 
-
+'''
 class VectorMathNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_VectorMathNode"
     bl_label = "Vector Math"
@@ -47,7 +47,7 @@ class VectorMathNode(bpy.types.Node, FunctionNode):
 
     def draw(self, layout):
         layout.prop(self, "operation", text="")
-
+'''
 
 class VectorDistanceNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_VectorDistanceNode"

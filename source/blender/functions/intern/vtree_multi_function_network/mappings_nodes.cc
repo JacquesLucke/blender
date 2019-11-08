@@ -3,7 +3,11 @@
 
 #include "FN_multi_functions.h"
 
+#include "BLI_math_cxx.h"
+
 namespace FN {
+
+using BLI::float3;
 
 static void INSERT_vector_math(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
@@ -307,14 +311,34 @@ static void INSERT_abs_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
   insert_single_input_math_function<float, abs_func_cb<float>>(builder, vnode);
 }
 
-static void INSERT_sine(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_sine_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   insert_single_input_math_function<float, sine_func_cb<float>>(builder, vnode);
 }
 
-static void INSERT_cosine(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_cosine_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   insert_single_input_math_function<float, cosine_func_cb<float>>(builder, vnode);
+}
+
+static void INSERT_add_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_simple_math_function<float3, add_func_cb<float3>>(builder, vnode, {0, 0, 0});
+}
+
+static void INSERT_subtract_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_two_inputs_math_function<float3, subtract_func_cb<float3>>(builder, vnode);
+}
+
+static void INSERT_multiply_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_simple_math_function<float3, mul_func_cb<float3>>(builder, vnode, {1, 1, 1});
+}
+
+static void INSERT_divide_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  insert_two_inputs_math_function<float3, float3::safe_divide>(builder, vnode);
 }
 
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
@@ -343,8 +367,13 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 
   mappings.vnode_inserters.add_new("fn_SqrtFloatNode", INSERT_sqrt_float);
   mappings.vnode_inserters.add_new("fn_AbsoluteFloatNode", INSERT_abs_float);
-  mappings.vnode_inserters.add_new("fn_SineNode", INSERT_sine);
-  mappings.vnode_inserters.add_new("fn_CosineNode", INSERT_cosine);
+  mappings.vnode_inserters.add_new("fn_SineFloatNode", INSERT_sine_float);
+  mappings.vnode_inserters.add_new("fn_CosineFloatNode", INSERT_cosine_float);
+
+  mappings.vnode_inserters.add_new("fn_AddVectorsNode", INSERT_add_vectors);
+  mappings.vnode_inserters.add_new("fn_SubtractVectorsNode", INSERT_subtract_vectors);
+  mappings.vnode_inserters.add_new("fn_MultiplyVectorsNode", INSERT_multiply_vectors);
+  mappings.vnode_inserters.add_new("fn_DivideVectorsNode", INSERT_divide_vectors);
 }
 
 };  // namespace FN
