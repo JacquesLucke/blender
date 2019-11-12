@@ -54,25 +54,26 @@
 void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
                            float (*vertexCos)[3],
                            int numVerts,
-                           const ModifierEvalContext *ctx);
+                           const ModifierEvalContext *ctx,
+                           Mesh *mesh);
 
 static void deformVerts(ModifierData *md,
                         const ModifierEvalContext *ctx,
-                        Mesh *UNUSED(mesh),
+                        Mesh *mesh,
                         float (*vertexCos)[3],
                         int numVerts)
 {
-  MOD_functiondeform_do((FunctionDeformModifierData *)md, vertexCos, numVerts, ctx);
+  MOD_functiondeform_do((FunctionDeformModifierData *)md, vertexCos, numVerts, ctx, mesh);
 }
 
 static void deformVertsEM(ModifierData *md,
                           const ModifierEvalContext *ctx,
                           struct BMEditMesh *UNUSED(em),
-                          Mesh *UNUSED(mesh),
+                          Mesh *mesh,
                           float (*vertexCos)[3],
                           int numVerts)
 {
-  MOD_functiondeform_do((FunctionDeformModifierData *)md, vertexCos, numVerts, ctx);
+  MOD_functiondeform_do((FunctionDeformModifierData *)md, vertexCos, numVerts, ctx, mesh);
 }
 
 static void initData(ModifierData *md)

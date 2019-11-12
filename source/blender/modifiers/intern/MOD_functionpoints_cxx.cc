@@ -9,7 +9,7 @@
 
 #include "FN_vtree_multi_function_network_generation.h"
 #include "FN_multi_functions.h"
-#include "FN_multi_function_common_context_ids.h"
+#include "FN_multi_function_common_contexts.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -54,10 +54,11 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   FN::GenericVectorArray vector_array{FN::CPP_TYPE<float3>(), 1};
   params.add_vector_output(vector_array);
 
-  float current_frame = DEG_get_ctime(ctx->depsgraph);
+  FN::SceneTimeContext time_context;
+  time_context.time = DEG_get_ctime(ctx->depsgraph);
 
   FN::MFContextBuilder context_builder;
-  context_builder.add(FN::ContextIDs::current_frame, (void *)&current_frame);
+  context_builder.add_element_context(&time_context);
   function->call(FN::MFMask({0}), params.build(), context_builder.build());
 
   ArrayRef<float3> output_points = vector_array[0].as_typed_ref<float3>();

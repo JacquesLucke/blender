@@ -5,6 +5,7 @@
 #include "BLI_optional.h"
 #include "BLI_virtual_list_ref.h"
 #include "BLI_vector.h"
+#include "BLI_utility_mixins.h"
 
 namespace FN {
 
@@ -13,72 +14,87 @@ using BLI::Optional;
 using BLI::Vector;
 using BLI::VirtualListRef;
 
-class MFContext : BLI::NonCopyable, BLI::NonMovable {
+class MFElementContext {
+ public:
+  virtual ~MFElementContext();
+};
+
+class MFElementContexts {
  private:
-  ArrayRef<const void *> m_context_ids;
-  ArrayRef<const void *> m_context_data;
-  ArrayRef<VirtualListRef<uint>> m_context_indices;
+  ArrayRef<const MFElementContext *> m_contexts;
+  ArrayRef<VirtualListRef<uint>> m_indices;
 
  public:
-  MFContext(ArrayRef<const void *> context_ids,
-            ArrayRef<const void *> context_data,
-            ArrayRef<VirtualListRef<uint>> context_indices)
-      : m_context_ids(context_ids),
-        m_context_data(context_data),
-        m_context_indices(context_indices)
+  MFElementContexts() = default;
+
+  MFElementContexts(ArrayRef<const MFElementContext *> contexts,
+                    ArrayRef<VirtualListRef<uint>> indices)
+      : m_contexts(contexts), m_indices(indices)
   {
-    BLI_assert(m_context_ids.size() == m_context_data.size());
-    BLI_assert(m_context_ids.size() == m_context_indices.size());
+    BLI_assert(contexts.size() == indices.size());
   }
 
-  struct ElementContext {
-    const void *data;
+  template<typename T> struct TypedContext {
+    const T *data;
     VirtualListRef<uint> indices;
   };
 
-  Optional<ElementContext> try_find_context(const void *context_type_id) const
+  template<typename T> Optional<TypedContext<T>> find_first() const
   {
-    int index = m_context_ids.first_index_try(context_type_id);
-    if (index >= 0) {
-      return ElementContext{m_context_data[index], m_context_indices[index]};
+    BLI_STATIC_ASSERT((std::is_base_of<MFElementContext, T>::value), "");
+    for (uint i = 0; i < m_contexts.size(); i++) {
+      const T *context = dynamic_cast<const T *>(m_contexts[i]);
+      if (context != nullptr) {
+        return TypedContext<T>{context, m_indices[i]};
+      }
     }
-    else {
-      return {};
-    }
+    return {};
+  }
+};
+
+class MFContext : BLI::NonCopyable, BLI::NonMovable {
+ private:
+  MFElementContexts m_element_contexts;
+
+ public:
+  MFContext() = default;
+  MFContext(MFElementContexts element_contexts) : m_element_contexts(element_contexts)
+  {
+  }
+
+  const MFElementContexts &element_contexts() const
+  {
+    return m_element_contexts;
   }
 };
 
 class MFContextBuilder {
  private:
-  Vector<const void *> m_context_ids;
-  Vector<const void *> m_context_data;
-  Vector<VirtualListRef<uint>> m_context_indices;
+  Vector<const MFElementContext *> m_element_contexts;
+  Vector<VirtualListRef<uint>> m_element_context_indices;
   MFContext m_context;
 
  public:
-  MFContextBuilder() : m_context({}, {}, {})
+  MFContextBuilder()
   {
   }
 
-  void add(const void *id, const void *data, VirtualListRef<uint> indices)
+  void add_element_context(const MFElementContext *context, VirtualListRef<uint> indices)
   {
-    m_context_ids.append(id);
-    m_context_data.append(data);
-    m_context_indices.append(indices);
+    m_element_contexts.append(context);
+    m_element_context_indices.append(indices);
   }
 
-  void add(const void *id, const void *data)
+  void add_element_context(const MFElementContext *context)
   {
     static uint dummy_index = 0;
-    m_context_ids.append(id);
-    m_context_data.append(data);
-    m_context_indices.append(VirtualListRef<uint>::FromSingle_MaxSize(&dummy_index));
+    this->add_element_context(context, VirtualListRef<uint>::FromSingle_MaxSize(&dummy_index));
   }
 
   MFContext &build()
   {
     m_context.~MFContext();
-    new (&m_context) MFContext(m_context_ids, m_context_data, m_context_indices);
+    new (&m_context) MFContext(MFElementContexts(m_element_contexts, m_element_context_indices));
     return m_context;
   }
 };

@@ -2,7 +2,7 @@
 
 #include "FN_generic_array_ref.h"
 #include "FN_generic_vector_array.h"
-#include "FN_multi_function_common_context_ids.h"
+#include "FN_multi_function_common_contexts.h"
 
 #include "BLI_math_cxx.h"
 #include "BLI_lazy_init_cxx.h"
@@ -489,13 +489,12 @@ MF_ContextVertexPosition::MF_ContextVertexPosition()
 void MF_ContextVertexPosition::call(const MFMask &mask, MFParams &params, MFContext &context) const
 {
   MutableArrayRef<float3> positions = params.uninitialized_single_output<float3>(0, "Position");
-  auto positions_context = context.try_find_context(ContextIDs::vertex_locations);
+  auto vertices_context = context.element_contexts().find_first<VertexPositionArray>();
 
-  if (positions_context.has_value()) {
-    ArrayRef<float3> vertex_positions = *(ArrayRef<float3> *)positions_context.value().data;
+  if (vertices_context.has_value()) {
     for (uint i : mask.indices()) {
-      uint context_index = positions_context.value().indices[i];
-      positions[i] = vertex_positions[context_index];
+      uint context_index = vertices_context.value().indices[i];
+      positions[i] = vertices_context.value().data->positions[context_index];
     }
   }
   else {
@@ -513,10 +512,11 @@ MF_ContextCurrentFrame::MF_ContextCurrentFrame()
 void MF_ContextCurrentFrame::call(const MFMask &mask, MFParams &params, MFContext &context) const
 {
   MutableArrayRef<float> frames = params.uninitialized_single_output<float>(0, "Frame");
-  auto context_data = context.try_find_context(ContextIDs::current_frame);
 
-  if (context_data.has_value()) {
-    float current_frame = *(float *)context_data.value().data;
+  auto time_context = context.element_contexts().find_first<SceneTimeContext>();
+
+  if (time_context.has_value()) {
+    float current_frame = time_context.value().data->time;
     frames.fill_indices(mask.indices(), current_frame);
   }
   else {
