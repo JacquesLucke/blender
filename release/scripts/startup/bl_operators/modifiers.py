@@ -74,7 +74,8 @@ class NewParticleSimulationTree(bpy.types.Operator, ModifierOperator):
         emitter_node = tree.nodes.new("fn_InitialGridEmitterNode")
         emitter_node.location = (-250, 200)
 
-        gravity_node = tree.nodes.new("fn_TurbulenceForceNode")
+        gravity_node = tree.nodes.new("fn_ForceNode")
+        gravity_node.inputs[0].value = (0, 0, -1)
         gravity_node.location = (-250, -100)
 
         tree.links.new(emitter_node.outputs[0], type_node.inputs[0])
