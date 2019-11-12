@@ -9,6 +9,7 @@
 #include "BLI_string_map.h"
 #include "BLI_array_cxx.h"
 #include "BLI_noise.h"
+#include "BLI_hash.h"
 
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
@@ -546,6 +547,34 @@ void MF_PerlinNoise_3D_to_1D::call(const MFMask &mask,
     float3 pos = positions[i];
     float noise = BLI_gNoise(scales[i], pos.x, pos.y, pos.z, false, 1);
     r_noise[i] = noise * amplitudes[i];
+  }
+}
+
+MF_PerlinNoise_3D_to_3D::MF_PerlinNoise_3D_to_3D()
+{
+  MFSignatureBuilder signature("Perlin Noise 3D to 3D");
+  signature.readonly_single_input<float3>("Position");
+  signature.readonly_single_input<float>("Amplitude");
+  signature.readonly_single_input<float>("Scale");
+  signature.single_output<float3>("Noise");
+  this->set_signature(signature);
+}
+
+void MF_PerlinNoise_3D_to_3D::call(const MFMask &mask,
+                                   MFParams &params,
+                                   MFContext &UNUSED(context)) const
+{
+  VirtualListRef<float3> positions = params.readonly_single_input<float3>(0, "Position");
+  VirtualListRef<float> amplitudes = params.readonly_single_input<float>(1, "Amplitude");
+  VirtualListRef<float> scales = params.readonly_single_input<float>(2, "Scale");
+  MutableArrayRef<float3> r_noise = params.uninitialized_single_output<float3>(3, "Noise");
+
+  for (uint i : mask.indices()) {
+    float3 pos = positions[i];
+    float x = BLI_gNoise(scales[i], pos.x, pos.y, pos.z + 1000.0f, false, 1);
+    float y = BLI_gNoise(scales[i], pos.x, pos.y + 1000.0f, pos.z, false, 1);
+    float z = BLI_gNoise(scales[i], pos.x + 1000.0f, pos.y, pos.z, false, 1);
+    r_noise[i] = float3(x, y, z) * amplitudes[i];
   }
 }
 

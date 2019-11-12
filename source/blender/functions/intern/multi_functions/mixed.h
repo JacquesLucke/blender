@@ -173,6 +173,12 @@ class MF_PerlinNoise_3D_to_1D final : public MultiFunction {
   void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
 };
 
+class MF_PerlinNoise_3D_to_3D final : public MultiFunction {
+ public:
+  MF_PerlinNoise_3D_to_3D();
+  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
+};
+
 template<typename FromT, typename ToT, ToT (*Compute)(const FromT &)>
 class MF_Mappping final : public MultiFunction {
  public:

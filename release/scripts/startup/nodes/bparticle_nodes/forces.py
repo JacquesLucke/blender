@@ -4,7 +4,7 @@ from .. base import SimulationNode
 from .. node_builder import NodeBuilder
 
 
-class AddForcesNode(bpy.types.Node, SimulationNode):
+class ForceNode(bpy.types.Node, SimulationNode):
     bl_idname = "fn_ForceNode"
     bl_label = "Force"
 

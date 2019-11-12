@@ -11,4 +11,5 @@ class PerlinNoiseNode(bpy.types.Node, FunctionNode):
         builder.fixed_input("position", "Position", "Vector")
         builder.fixed_input("amplitude", "Amplitude", "Float", default=1)
         builder.fixed_input("scale", "Scale", "Float", default=1)
-        builder.fixed_output("noise", "Noise", "Float")
+        builder.fixed_output("noise_1d", "Noise", "Float")
+        builder.fixed_output("noise_3d", "Noise", "Vector")

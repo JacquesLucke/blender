@@ -447,8 +447,19 @@ static void INSERT_compare(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 
 static void INSERT_perlin_noise(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.construct_fn<MF_PerlinNoise_3D_to_1D>();
-  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+  {
+    const MultiFunction &fn = builder.construct_fn<MF_PerlinNoise_3D_to_1D>();
+    MFBuilderFunctionNode &node = builder.add_function(fn, {0, 1, 2}, {3});
+    builder.map_sockets(vnode.inputs(), node.inputs());
+    builder.map_sockets(vnode.output(0), node.output(0));
+  }
+
+  {
+    const MultiFunction &fn = builder.construct_fn<MF_PerlinNoise_3D_to_3D>();
+    MFBuilderFunctionNode &node = builder.add_function(fn, {0, 1, 2}, {3});
+    builder.map_sockets(vnode.inputs(), node.inputs());
+    builder.map_sockets(vnode.output(1), node.output(0));
+  }
 }
 
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
