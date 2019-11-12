@@ -528,25 +528,6 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
   collector.m_emitters.append(emitter);
 }
 
-static void PARSE_gravity_force(InfluencesCollector &collector,
-                                VTreeData &vtree_data,
-                                WorldTransition &UNUSED(world_transition),
-                                const VNode &vnode)
-{
-  ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
-  if (inputs_fn == nullptr) {
-    return;
-  }
-
-  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
-      vnode.output(0, "Force"));
-
-  for (const std::string &system_name : system_names) {
-    GravityForce *force = new GravityForce(inputs_fn);
-    collector.m_forces.add(system_name, force);
-  }
-}
-
 static void PARSE_custom_force(InfluencesCollector &collector,
                                VTreeData &vtree_data,
                                WorldTransition &UNUSED(world_transition),
@@ -636,44 +617,6 @@ static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
   collector.m_emitters.append(emitter);
 }
 
-static void PARSE_turbulence_force(InfluencesCollector &collector,
-                                   VTreeData &vtree_data,
-                                   WorldTransition &UNUSED(world_transition),
-                                   const VNode &vnode)
-{
-  ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
-  if (inputs_fn == nullptr) {
-    return;
-  }
-
-  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
-      vnode.output(0, "Force"));
-
-  for (const std::string &system_name : system_names) {
-    Force *force = new TurbulenceForce(inputs_fn);
-    collector.m_forces.add(system_name, force);
-  }
-}
-
-static void PARSE_drag_force(InfluencesCollector &collector,
-                             VTreeData &vtree_data,
-                             WorldTransition &UNUSED(world_transition),
-                             const VNode &vnode)
-{
-  ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
-  if (inputs_fn == nullptr) {
-    return;
-  }
-
-  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
-      vnode.output(0, "Force"));
-
-  for (const std::string &system_name : system_names) {
-    Force *force = new DragForce(inputs_fn);
-    collector.m_forces.add(system_name, force);
-  }
-}
-
 static void PARSE_mesh_collision(InfluencesCollector &collector,
                                  VTreeData &vtree_data,
                                  WorldTransition &world_transition,
@@ -730,34 +673,6 @@ static void PARSE_size_over_time(InfluencesCollector &collector,
   }
 }
 
-static void PARSE_mesh_force(InfluencesCollector &collector,
-                             VTreeData &vtree_data,
-                             WorldTransition &UNUSED(world_transition),
-                             const VNode &vnode)
-{
-  Optional<NamedGenericTupleRef> inputs = vtree_data.compute_inputs(vnode, {0});
-  if (!inputs.has_value()) {
-    return;
-  }
-
-  Object *object = inputs->relocate_out<Object *>(0, "Object");
-  if (object == nullptr || object->type != OB_MESH) {
-    return;
-  }
-
-  ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
-  if (inputs_fn == nullptr) {
-    return;
-  }
-
-  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
-      vnode.output(0, "Force"));
-  for (const std::string &system_name : system_names) {
-    Force *force = new MeshForce(inputs_fn, object);
-    collector.m_forces.add(system_name, force);
-  }
-}
-
 static void PARSE_custom_event(InfluencesCollector &collector,
                                VTreeData &vtree_data,
                                WorldTransition &UNUSED(world_transition),
@@ -801,15 +716,11 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   StringMap<ParseNodeCallback> map;
   map.add_new("fn_PointEmitterNode", PARSE_point_emitter);
   map.add_new("fn_MeshEmitterNode", PARSE_mesh_emitter);
-  map.add_new("fn_GravityForceNode", PARSE_gravity_force);
   map.add_new("fn_AgeReachedEventNode", PARSE_age_reached_event);
   map.add_new("fn_ParticleTrailsNode", PARSE_trails);
   map.add_new("fn_InitialGridEmitterNode", PARSE_initial_grid_emitter);
-  map.add_new("fn_TurbulenceForceNode", PARSE_turbulence_force);
   map.add_new("fn_MeshCollisionEventNode", PARSE_mesh_collision);
   map.add_new("fn_SizeOverTimeNode", PARSE_size_over_time);
-  map.add_new("fn_DragForceNode", PARSE_drag_force);
-  map.add_new("fn_MeshForceNode", PARSE_mesh_force);
   map.add_new("fn_CustomEventNode", PARSE_custom_event);
   map.add_new("fn_AlwaysExecuteNode", PARSE_always_execute);
   map.add_new("fn_ForceNode", PARSE_custom_force);
