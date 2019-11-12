@@ -40,6 +40,9 @@ class MFBuilderNode : BLI::NonCopyable, BLI::NonMovable {
   ArrayRef<MFBuilderInputSocket *> inputs();
   ArrayRef<MFBuilderOutputSocket *> outputs();
 
+  MFBuilderInputSocket &input(uint index);
+  MFBuilderOutputSocket &output(uint index);
+
   StringRefNull name();
 
   uint id();
@@ -293,6 +296,7 @@ class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
 
   const MFNode &node_by_id(uint id) const;
   const MFSocket &socket_by_id(uint id) const;
+  IndexRange socket_ids() const;
 
   Vector<const MFOutputSocket *> find_dummy_dependencies(
       ArrayRef<const MFInputSocket *> sockets) const;
@@ -313,6 +317,16 @@ inline ArrayRef<MFBuilderInputSocket *> MFBuilderNode::inputs()
 inline ArrayRef<MFBuilderOutputSocket *> MFBuilderNode::outputs()
 {
   return m_outputs;
+}
+
+inline MFBuilderInputSocket &MFBuilderNode::input(uint index)
+{
+  return *m_inputs[index];
+}
+
+inline MFBuilderOutputSocket &MFBuilderNode::output(uint index)
+{
+  return *m_outputs[index];
 }
 
 inline uint MFBuilderNode::id()
@@ -574,6 +588,11 @@ inline const MFNode &MFNetwork::node_by_id(uint index) const
 inline const MFSocket &MFNetwork::socket_by_id(uint index) const
 {
   return *m_socket_by_id[index];
+}
+
+inline IndexRange MFNetwork::socket_ids() const
+{
+  return IndexRange(m_socket_by_id.size());
 }
 
 }  // namespace FN

@@ -111,7 +111,7 @@ class VTreeData {
 
     Vector<const CPPType *> computed_types;
     for (uint i : input_indices) {
-      FN::MFDataType data_type = m_vtree_data_graph.lookup_socket(vnode.input(i)).type();
+      FN::MFDataType data_type = m_vtree_data_graph.lookup_dummy_socket(vnode.input(i)).type();
       BLI_assert(data_type.is_single());
       computed_types.append(&data_type.type());
     }
@@ -235,7 +235,7 @@ class VTreeData {
   {
     Vector<const MFInputSocket *> sockets_to_compute;
     for (uint index : input_indices) {
-      sockets_to_compute.append(&m_vtree_data_graph.lookup_socket(vnode.input(index)));
+      sockets_to_compute.append(&m_vtree_data_graph.lookup_dummy_socket(vnode.input(index)));
     }
 
     if (m_vtree_data_graph.network().find_dummy_dependencies(sockets_to_compute).size() > 0) {

@@ -24,7 +24,7 @@ static Vector<const MFInputSocket *> find_input_data_sockets(const VNode &vnode,
   Vector<const MFInputSocket *> inputs;
   for (const VInputSocket *vsocket : vnode.inputs()) {
     if (data_graph.is_mapped(*vsocket)) {
-      const MFInputSocket &socket = data_graph.lookup_socket(*vsocket);
+      const MFInputSocket &socket = data_graph.lookup_dummy_socket(*vsocket);
       inputs.append(&socket);
     }
   }
@@ -106,7 +106,7 @@ static ParticleFunctionInputProvider *INPUT_randomness_input(
 static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeMFNetwork &vtree_data_graph,
                                                         const VOutputSocket &vsocket)
 {
-  FN::MF_EvaluateNetwork fn({}, {&vtree_data_graph.lookup_socket(vsocket.node().input(0))});
+  FN::MF_EvaluateNetwork fn({}, {&vtree_data_graph.lookup_dummy_socket(vsocket.node().input(0))});
   FN::MFParamsBuilder params_builder(fn, 1);
   FN::MFContextBuilder context_builder;
 

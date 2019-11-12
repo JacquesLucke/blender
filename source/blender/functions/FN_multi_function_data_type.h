@@ -77,6 +77,24 @@ struct MFDataType {
     return !(a == b);
   }
 
+  std::string to_string() const
+  {
+    switch (m_category) {
+      case Single:
+        return m_base_type->name();
+      case Vector:
+        return m_base_type->name() + " Vector";
+    }
+    BLI_assert(false);
+    return "";
+  }
+
+  friend std::ostream &operator<<(std::ostream &stream, MFDataType type)
+  {
+    stream << type.to_string();
+    return stream;
+  }
+
  private:
   Category m_category;
   const CPPType *m_base_type;

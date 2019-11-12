@@ -2,16 +2,27 @@
 
 #include "FN_vtree_multi_function_network.h"
 
+#include "BLI_multi_map.h"
+
 #include "mappings.h"
 
 namespace FN {
+
+using BLI::MultiMap;
 
 class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   const VirtualNodeTree &m_vtree;
   const VTreeMultiFunctionMappings &m_vtree_mappings;
   ResourceCollector &m_resources;
-  Array<MFBuilderSocket *> m_socket_map;
+
+  /* By default store mapping between vsockets and builder sockets in an array.
+   * Input vsockets can be mapped to multiple new sockets. So fallback to a multimap in this case.
+   */
+  Array<uint> m_single_socket_by_vsocket;
+  MultiMap<uint, uint> m_multiple_inputs_by_vsocket;
+  static constexpr intptr_t MULTI_MAP_INDICATOR = 1;
+
   Array<Optional<MFDataType>> m_type_by_vsocket;
   std::unique_ptr<MFNetworkBuilder> m_builder;
 
@@ -78,19 +89,54 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   void map_sockets(const VInputSocket &vsocket, MFBuilderInputSocket &socket)
   {
-    BLI_assert(m_socket_map[vsocket.id()] == nullptr);
-    m_socket_map[vsocket.id()] = &socket;
+    switch (m_single_socket_by_vsocket[vsocket.id()]) {
+      case VTreeMFSocketMap_UNMAPPED: {
+        m_single_socket_by_vsocket[vsocket.id()] = socket.id();
+        break;
+      }
+      case VTreeMFSocketMap_MULTIMAPPED: {
+        BLI_assert(!m_multiple_inputs_by_vsocket.lookup(vsocket.id()).contains(socket.id()));
+        m_multiple_inputs_by_vsocket.add(vsocket.id(), socket.id());
+        break;
+      }
+      default: {
+        uint already_inserted_id = m_single_socket_by_vsocket[vsocket.id()];
+        BLI_assert(already_inserted_id != socket.id());
+        m_multiple_inputs_by_vsocket.add_multiple_new(vsocket.id(),
+                                                      {already_inserted_id, socket.id()});
+        m_single_socket_by_vsocket[vsocket.id()] = VTreeMFSocketMap_MULTIMAPPED;
+        break;
+      }
+    }
   }
 
   void map_sockets(const VOutputSocket &vsocket, MFBuilderOutputSocket &socket)
   {
-    BLI_assert(m_socket_map[vsocket.id()] == nullptr);
-    m_socket_map[vsocket.id()] = &socket;
+    BLI_assert(m_single_socket_by_vsocket[vsocket.id()] == VTreeMFSocketMap_UNMAPPED);
+    m_single_socket_by_vsocket[vsocket.id()] = socket.id();
+  }
+
+  void map_sockets(ArrayRef<const VInputSocket *> vsockets,
+                   ArrayRef<MFBuilderInputSocket *> sockets)
+  {
+    BLI_assert(vsockets.size() == sockets.size());
+    for (uint i = 0; i < vsockets.size(); i++) {
+      this->map_sockets(*vsockets[i], *sockets[i]);
+    }
+  }
+
+  void map_sockets(ArrayRef<const VOutputSocket *> vsockets,
+                   ArrayRef<MFBuilderOutputSocket *> sockets)
+  {
+    BLI_assert(vsockets.size() == sockets.size());
+    for (uint i = 0; i < vsockets.size(); i++) {
+      this->map_sockets(*vsockets[i], *sockets[i]);
+    }
   }
 
   bool vsocket_is_mapped(const VSocket &vsocket) const
   {
-    return m_socket_map[vsocket.id()] != nullptr;
+    return m_single_socket_by_vsocket[vsocket.id()] != VTreeMFSocketMap_UNMAPPED;
   }
 
   void assert_vnode_is_mapped_correctly(const VNode &vnode) const;
@@ -99,27 +145,38 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   bool has_data_sockets(const VNode &vnode) const;
 
-  bool is_input_linked(const VInputSocket &vsocket) const
+  MFBuilderSocket &lookup_single_socket(const VSocket &vsocket) const
   {
-    auto &socket = this->lookup_socket(vsocket);
-    return socket.as_input().origin() != nullptr;
-  }
-
-  MFBuilderSocket &lookup_socket(const VSocket &vsocket) const
-  {
-    MFBuilderSocket *socket = m_socket_map[vsocket.id()];
-    BLI_assert(socket != nullptr);
-    return *socket;
+    uint mapped_id = m_single_socket_by_vsocket[vsocket.id()];
+    BLI_assert(!ELEM(mapped_id, VTreeMFSocketMap_MULTIMAPPED, VTreeMFSocketMap_UNMAPPED));
+    return *m_builder->sockets_by_id()[mapped_id];
   }
 
   MFBuilderOutputSocket &lookup_socket(const VOutputSocket &vsocket) const
   {
-    return this->lookup_socket(vsocket.as_base()).as_output();
+    return this->lookup_single_socket(vsocket.as_base()).as_output();
   }
 
-  MFBuilderInputSocket &lookup_socket(const VInputSocket &vsocket) const
+  Vector<MFBuilderInputSocket *> lookup_socket(const VInputSocket &vsocket) const
   {
-    return this->lookup_socket(vsocket.as_base()).as_input();
+    Vector<MFBuilderInputSocket *> sockets;
+    switch (m_single_socket_by_vsocket[vsocket.id()]) {
+      case VTreeMFSocketMap_UNMAPPED: {
+        break;
+      }
+      case VTreeMFSocketMap_MULTIMAPPED: {
+        for (uint mapped_id : m_multiple_inputs_by_vsocket.lookup(vsocket.id())) {
+          sockets.append(&m_builder->sockets_by_id()[mapped_id]->as_input());
+        }
+        break;
+      }
+      default: {
+        uint mapped_id = m_single_socket_by_vsocket[vsocket.id()];
+        sockets.append(&m_builder->sockets_by_id()[mapped_id]->as_input());
+        break;
+      }
+    }
+    return sockets;
   }
 
   const CPPType &cpp_type_by_name(StringRef name) const

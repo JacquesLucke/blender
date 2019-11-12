@@ -180,7 +180,7 @@ static void insert_node_table(std::stringstream &ss, MFBuilderNode &node)
     if (i < inputs.size()) {
       MFBuilderInputSocket &socket = *inputs[i];
       ss << "<td align=\"left\" port=" << get_id(socket) << ">";
-      ss << socket.name();
+      ss << socket.name() << " (" << socket.type() << ")";
       ss << "</td>";
     }
     else {
@@ -190,7 +190,7 @@ static void insert_node_table(std::stringstream &ss, MFBuilderNode &node)
     if (i < outputs.size()) {
       MFBuilderOutputSocket &socket = *outputs[i];
       ss << "<td align=\"right\" port=" << get_id(socket) << ">";
-      ss << socket.name();
+      ss << socket.name() << " (" << socket.type() << ")";
       ss << "</td>";
     }
     else {

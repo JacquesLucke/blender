@@ -8,7 +8,7 @@ VTreeMFNetworkBuilder::VTreeMFNetworkBuilder(const VirtualNodeTree &vtree,
     : m_vtree(vtree),
       m_vtree_mappings(vtree_mappings),
       m_resources(resources),
-      m_socket_map(vtree.socket_count(), nullptr),
+      m_single_socket_by_vsocket(vtree.socket_count(), VTreeMFSocketMap_UNMAPPED),
       m_type_by_vsocket(vtree.socket_count()),
       m_builder(BLI::make_unique<MFNetworkBuilder>())
 {
@@ -102,11 +102,22 @@ void VTreeMFNetworkBuilder::assert_data_sockets_are_mapped_correctly(
 void VTreeMFNetworkBuilder::assert_vsocket_is_mapped_correctly(const VSocket &vsocket) const
 {
   BLI_assert(this->vsocket_is_mapped(vsocket));
-  MFBuilderSocket &socket = this->lookup_socket(vsocket);
-  MFDataType socket_type = socket.type();
   MFDataType vsocket_type = this->try_get_data_type(vsocket).value();
-  BLI_assert(socket_type == vsocket_type);
-  UNUSED_VARS_NDEBUG(socket_type, vsocket_type);
+  UNUSED_VARS_NDEBUG(vsocket_type);
+
+  if (vsocket.is_input()) {
+    for (MFBuilderInputSocket *socket : this->lookup_socket(vsocket.as_input())) {
+      MFDataType socket_type = socket->type();
+      BLI_assert(socket_type == vsocket_type);
+      UNUSED_VARS_NDEBUG(socket_type);
+    }
+  }
+  else {
+    MFBuilderSocket &socket = this->lookup_socket(vsocket.as_output());
+    MFDataType socket_type = socket.type();
+    BLI_assert(socket_type == vsocket_type);
+    UNUSED_VARS_NDEBUG(socket_type);
+  }
 }
 
 bool VTreeMFNetworkBuilder::has_data_sockets(const VNode &vnode) const
@@ -144,25 +155,35 @@ MFDataType VTreeMFNetworkBuilder::data_type_from_property(const VNode &vnode,
 
 std::unique_ptr<VTreeMFNetwork> VTreeMFNetworkBuilder::build()
 {
-  // m_builder->to_dot__clipboard();
-
-  Array<int> socket_ids(m_vtree.socket_count(), -1);
-  for (uint vsocket_id = 0; vsocket_id < m_vtree.socket_count(); vsocket_id++) {
-    MFBuilderSocket *builder_socket = m_socket_map[vsocket_id];
-    if (builder_socket != nullptr) {
-      socket_ids[vsocket_id] = builder_socket->id();
-    }
-  }
+  m_builder->to_dot__clipboard();
 
   auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 
-  Array<const MFSocket *> socket_map(m_vtree.socket_count(), nullptr);
-  for (uint vsocket_id = 0; vsocket_id < m_vtree.socket_count(); vsocket_id++) {
-    int id = socket_ids[vsocket_id];
-    if (id != -1) {
-      socket_map[vsocket_id] = &network->socket_by_id(socket_ids[vsocket_id]);
+  Array<uint> vsocket_by_socket(network->socket_ids().size(), VTreeMFSocketMap_UNMAPPED);
+  for (uint vsocket_id = 0; vsocket_id < m_single_socket_by_vsocket.size(); vsocket_id++) {
+    switch (m_single_socket_by_vsocket[vsocket_id]) {
+      case VTreeMFSocketMap_UNMAPPED: {
+        break;
+      }
+      case VTreeMFSocketMap_MULTIMAPPED: {
+        for (uint socket_id : m_multiple_inputs_by_vsocket.lookup(vsocket_id)) {
+          vsocket_by_socket[socket_id] = vsocket_id;
+        }
+        break;
+      }
+      default: {
+        uint socket_id = m_single_socket_by_vsocket[vsocket_id];
+        vsocket_by_socket[socket_id] = vsocket_id;
+        break;
+      }
     }
   }
+
+  VTreeMFSocketMap socket_map(m_vtree,
+                              *network,
+                              std::move(m_single_socket_by_vsocket),
+                              std::move(m_multiple_inputs_by_vsocket),
+                              std::move(vsocket_by_socket));
 
   return BLI::make_unique<VTreeMFNetwork>(m_vtree, std::move(network), std::move(socket_map));
 }

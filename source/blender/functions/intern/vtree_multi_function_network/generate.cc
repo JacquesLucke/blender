@@ -50,21 +50,26 @@ static bool insert_links(VTreeMFNetworkBuilder &builder,
       return false;
     }
 
-    MFBuilderOutputSocket &from_socket = builder.lookup_socket(*from_vsocket);
-    MFBuilderInputSocket &to_socket = builder.lookup_socket(*to_vsocket);
+    MFBuilderOutputSocket *from_socket = &builder.lookup_socket(*from_vsocket);
+    Vector<MFBuilderInputSocket *> to_sockets = builder.lookup_socket(*to_vsocket);
+    BLI_assert(to_sockets.size() >= 1);
 
-    if (from_socket.type() == to_socket.type()) {
-      builder.add_link(from_socket, to_socket);
-    }
-    else {
+    MFDataType from_type = from_socket->type();
+    MFDataType to_type = to_sockets[0]->type();
+
+    if (from_type != to_type) {
       const InsertImplicitConversionFunction *inserter = mappings.conversion_inserters.lookup_ptr(
           {from_vsocket->idname(), to_vsocket->idname()});
       if (inserter == nullptr) {
         return false;
       }
       auto new_sockets = (*inserter)(builder);
-      builder.add_link(from_socket, *new_sockets.first);
-      builder.add_link(*new_sockets.second, to_socket);
+      builder.add_link(*from_socket, *new_sockets.first);
+      from_socket = new_sockets.second;
+    }
+
+    for (MFBuilderInputSocket *to_socket : to_sockets) {
+      builder.add_link(*from_socket, *to_socket);
     }
   }
 
@@ -77,7 +82,7 @@ static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
   Vector<const VInputSocket *> unlinked_data_inputs;
   for (const VInputSocket *vsocket : builder.vtree().all_input_sockets()) {
     if (builder.is_data_socket(*vsocket)) {
-      if (!builder.is_input_linked(*vsocket)) {
+      if (!vsocket->is_linked()) {
         unlinked_data_inputs.append(vsocket);
       }
     }
@@ -91,8 +96,9 @@ static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
       return false;
     }
     MFBuilderOutputSocket &from_socket = (*inserter)(builder, *vsocket);
-    MFBuilderInputSocket &to_socket = builder.lookup_socket(*vsocket);
-    builder.add_link(from_socket, to_socket);
+    for (MFBuilderInputSocket *to_socket : builder.lookup_socket(*vsocket)) {
+      builder.add_link(from_socket, *to_socket);
+    }
   }
 
   return true;
@@ -133,13 +139,13 @@ std::unique_ptr<MF_EvaluateNetwork> generate_vtree_multi_function(const VirtualN
   if (input_vnodes.size() == 1) {
     auto vsockets = input_vnodes.first()->outputs().drop_back(1);
     function_inputs.append_n_times(nullptr, vsockets.size());
-    network->lookup_sockets(vsockets, function_inputs);
+    network->lookup_dummy_sockets(vsockets, function_inputs);
   }
 
   if (output_vnodes.size() == 1) {
     auto vsockets = output_vnodes.first()->inputs().drop_back(1);
     function_outputs.append_n_times(nullptr, vsockets.size());
-    network->lookup_sockets(vsockets, function_outputs);
+    network->lookup_dummy_sockets(vsockets, function_outputs);
   }
 
   auto function = BLI::make_unique<MF_EvaluateNetwork>(std::move(function_inputs),
