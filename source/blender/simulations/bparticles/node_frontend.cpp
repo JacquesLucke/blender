@@ -547,6 +547,25 @@ static void PARSE_gravity_force(InfluencesCollector &collector,
   }
 }
 
+static void PARSE_custom_force(InfluencesCollector &collector,
+                               VTreeData &vtree_data,
+                               WorldTransition &UNUSED(world_transition),
+                               const VNode &vnode)
+{
+  ParticleFunction *inputs_fn = vtree_data.particle_function_for_all_inputs(vnode);
+  if (inputs_fn == nullptr) {
+    return;
+  }
+
+  ArrayRef<std::string> system_names = vtree_data.find_target_system_names(
+      vnode.output(0, "Force"));
+
+  for (const std::string &system_name : system_names) {
+    CustomForce *force = new CustomForce(inputs_fn);
+    collector.m_forces.add(system_name, force);
+  }
+}
+
 static void PARSE_age_reached_event(InfluencesCollector &collector,
                                     VTreeData &vtree_data,
                                     WorldTransition &UNUSED(world_transition),
@@ -793,6 +812,7 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   map.add_new("fn_MeshForceNode", PARSE_mesh_force);
   map.add_new("fn_CustomEventNode", PARSE_custom_event);
   map.add_new("fn_AlwaysExecuteNode", PARSE_always_execute);
+  map.add_new("fn_ForceNode", PARSE_custom_force);
   return map;
 }
 

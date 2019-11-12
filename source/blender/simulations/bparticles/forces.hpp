@@ -20,6 +20,18 @@ class Force {
   virtual void add_force(ForceInterface &interface) = 0;
 };
 
+class CustomForce : public Force {
+ private:
+  ParticleFunction *m_inputs_fn;
+
+ public:
+  CustomForce(ParticleFunction *inputs_fn) : m_inputs_fn(inputs_fn)
+  {
+  }
+
+  void add_force(ForceInterface &interface) override;
+};
+
 class GravityForce : public Force {
  private:
   ParticleFunction *m_inputs_fn;

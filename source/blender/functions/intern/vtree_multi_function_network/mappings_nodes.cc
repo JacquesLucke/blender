@@ -445,6 +445,12 @@ static void INSERT_compare(VTreeMFNetworkBuilder &builder, const VNode &vnode)
   insert_two_inputs_math_function<float, float, bool, less_than_func_cb>(builder, vnode);
 }
 
+static void INSERT_perlin_noise(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &fn = builder.construct_fn<MF_PerlinNoise_3D_to_1D>();
+  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
@@ -462,6 +468,7 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_FloatRangeNode", INSERT_float_range);
   mappings.vnode_inserters.add_new("fn_TimeInfoNode", INSERT_time_info);
   mappings.vnode_inserters.add_new("fn_CompareNode", INSERT_compare);
+  mappings.vnode_inserters.add_new("fn_PerlinNoiseNode", INSERT_perlin_noise);
 
   mappings.vnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
   mappings.vnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);
