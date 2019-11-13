@@ -3,50 +3,20 @@ from collections import namedtuple
 
 from . base import BaseTree, BaseNode
 
-FunctionInput = namedtuple("FunctionInput",
-    ["data_type", "name", "identifier"])
-
-FunctionOutput = namedtuple("FunctionOutput",
-    ["data_type", "name", "identifier"])
-
 class FunctionTree(bpy.types.NodeTree, BaseTree):
     bl_idname = "FunctionTree"
     bl_icon = "MOD_DATA_TRANSFER"
     bl_label = "Function Nodes"
 
-    def iter_function_inputs(self):
-        node = self.get_input_node()
-        if node is None:
-            return
+    def get_input_nodes(self):
+        input_nodes = [node for node in self.nodes if node.bl_idname == "fn_GroupDataInputNode"]
+        sorted_input_nodes = sorted(input_nodes, key=lambda node: (node.sort_index, node.name))
+        return sorted_input_nodes
 
-        for socket in node.outputs[:-1]:
-            yield FunctionInput(
-                socket.data_type,
-                socket.name,
-                socket.identifier)
-
-    def iter_function_outputs(self):
-        node = self.get_output_node()
-        if node is None:
-            return
-
-        for socket in node.inputs[:-1]:
-            yield FunctionOutput(
-                socket.data_type,
-                socket.name,
-                socket.identifier)
-
-    def get_input_node(self):
-        for node in self.nodes:
-            if node.bl_idname == "fn_FunctionInputNode":
-                return node
-        return None
-
-    def get_output_node(self):
-        for node in self.nodes:
-            if node.bl_idname == "fn_FunctionOutputNode":
-                return node
-        return None
+    def get_output_nodes(self):
+        output_nodes = [node for node in self.nodes if node.bl_idname == "fn_GroupDataOutputNode"]
+        sorted_output_nodes = sorted(output_nodes, key=lambda node: (node.sort_index, node.name))
+        return sorted_output_nodes
 
     def iter_dependency_trees(self):
         trees = set()

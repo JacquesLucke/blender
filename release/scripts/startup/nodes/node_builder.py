@@ -3,7 +3,6 @@ from . declaration import (
     ListSocketDecl,
     BaseListVariadic,
     AnyVariadicDecl,
-    TreeInterfaceDecl,
     VectorizedInputDecl,
     VectorizedOutputDecl,
     InfluencesSocketDecl,
@@ -158,18 +157,6 @@ class NodeBuilder:
 
     def variadic_output(self, identifier, prop_name, message):
         decl = AnyVariadicDecl(self.node, identifier, prop_name, message)
-        self._add_output(decl)
-
-
-    # Tree Interface
-    ##################################
-
-    def tree_interface_input(self, identifier, tree, in_or_out, *, ignored=set()):
-        decl = TreeInterfaceDecl(self.node, identifier, tree, in_or_out, ignored)
-        self._add_input(decl)
-
-    def tree_interface_output(self, identifier, tree, in_or_out):
-        decl = TreeInterfaceDecl(self.node, identifier, tree, in_or_out, set())
         self._add_output(decl)
 
 

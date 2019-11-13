@@ -8,7 +8,6 @@ from . declaration import (
     ListSocketDecl,
     BaseListVariadic,
     AnyVariadicDecl,
-    TreeInterfaceDecl,
     VectorizedInputDecl,
     VectorizedOutputDecl,
 )
@@ -281,7 +280,7 @@ def make_base_list_variadic_decisions(tree_data, list_decisions, vector_decision
     return decisions
 
 def data_sockets_are_static(decl):
-    return isinstance(decl, (FixedSocketDecl, AnyVariadicDecl, TreeInterfaceDecl))
+    return isinstance(decl, (FixedSocketDecl, AnyVariadicDecl))
 
 def iter_base_list_variadic_sockets(tree_data):
     for node in tree_data.iter_nodes():
