@@ -193,6 +193,18 @@ class MF_ClosestPointOnObject final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_MapRange final : public MultiFunction {
+ public:
+  MF_MapRange();
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
+class MF_Clamp final : public MultiFunction {
+ public:
+  MF_Clamp();
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
 template<typename FromT, typename ToT, ToT (*Compute)(const FromT &)>
 class MF_Mappping final : public MultiFunction {
  public:

@@ -495,6 +495,32 @@ static void INSERT_closest_point_on_object(VTreeMFNetworkBuilder &builder, const
   builder.add_function(fn, {0, 1}, {2}, vnode);
 }
 
+static void INSERT_clamp_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &fn = builder.construct_fn<MF_Clamp>();
+  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+}
+
+static void INSERT_map_range(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  bool clamp = RNA_boolean_get(vnode.rna(), "clamp");
+
+  const MultiFunction &map_range_fn = builder.construct_fn<MF_MapRange>();
+  MFBuilderFunctionNode &map_node = builder.add_function(map_range_fn, {0, 1, 2, 3, 4}, {5});
+  builder.map_sockets(vnode.inputs(), map_node.inputs());
+
+  if (clamp) {
+    const MultiFunction &clamp_fn = builder.construct_fn<MF_Clamp>();
+    MFBuilderFunctionNode &clamp_node = builder.add_function(clamp_fn, {0, 1, 2}, {3});
+    builder.add_link(map_node.output(0), clamp_node.input(0));
+    builder.map_sockets(vnode.inputs().slice(3, 2), clamp_node.inputs().slice(1, 2));
+    builder.map_sockets(vnode.output(0), clamp_node.output(0));
+  }
+  else {
+    builder.map_sockets(vnode.output(0), map_node.output(0));
+  }
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
@@ -515,6 +541,8 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_PerlinNoiseNode", INSERT_perlin_noise);
   mappings.vnode_inserters.add_new("fn_ParticleInfoNode", INSERT_particle_info);
   mappings.vnode_inserters.add_new("fn_ClosestPointOnObjectNode", INSERT_closest_point_on_object);
+  mappings.vnode_inserters.add_new("fn_MapRangeNode", INSERT_map_range);
+  mappings.vnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
 
   mappings.vnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
   mappings.vnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);

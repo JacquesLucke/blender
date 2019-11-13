@@ -82,3 +82,34 @@ VectorDistanceNode = create_two_inputs_other_output_math_node("Vector", "Float",
 BooleanAndNode = create_variadic_math_node("Boolean", "fn_BooleanAndNode", "And")
 BooleanOrNode = create_variadic_math_node("Boolean", "fn_BooleanOrNode", "Or")
 BooleanNotNode = create_single_input_math_node("Boolean", "fn_BooleanNotNode", "Not")
+
+
+class MapRangeNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_MapRangeNode"
+    bl_label = "Map Range"
+
+    clamp: BoolProperty(
+        name="Clamp",
+        default=True,
+    )
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("value", "Value", "Float")
+        builder.fixed_input("from_min", "From Min", "Float", default=0)
+        builder.fixed_input("from_max", "From Max", "Float", default=1)
+        builder.fixed_input("to_min", "To Min", "Float", default=0)
+        builder.fixed_input("to_max", "To Max", "Float", default=1)
+        builder.fixed_output("value", "Value", "Float")
+
+    def draw(self, layout):
+        layout.prop(self, "clamp")
+
+class FloatClampNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_FloatClampNode"
+    bl_label = "Clamp"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("value", "Value", "Float")
+        builder.fixed_input("min", "Min", "Float", default=0)
+        builder.fixed_input("max", "Max", "Float", default=1)
+        builder.fixed_output("value", "Value", "Float")

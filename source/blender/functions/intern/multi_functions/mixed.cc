@@ -650,4 +650,59 @@ void MF_ClosestPointOnObject::call(MFMask mask, MFParams params, MFContext conte
   }
 }
 
+MF_MapRange::MF_MapRange()
+{
+  MFSignatureBuilder signature("Map Range");
+  signature.readonly_single_input<float>("Value");
+  signature.readonly_single_input<float>("From Min");
+  signature.readonly_single_input<float>("From Max");
+  signature.readonly_single_input<float>("To Min");
+  signature.readonly_single_input<float>("To Max");
+  signature.single_output<float>("Value");
+  this->set_signature(signature);
+}
+
+void MF_MapRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  VirtualListRef<float> values = params.readonly_single_input<float>(0, "Value");
+  VirtualListRef<float> from_min = params.readonly_single_input<float>(1, "From Min");
+  VirtualListRef<float> from_max = params.readonly_single_input<float>(2, "From Max");
+  VirtualListRef<float> to_min = params.readonly_single_input<float>(3, "To Min");
+  VirtualListRef<float> to_max = params.readonly_single_input<float>(4, "To Max");
+  MutableArrayRef<float> r_values = params.uninitialized_single_output<float>(5, "Value");
+
+  for (uint i : mask.indices()) {
+    float diff = from_max[i] - from_min[i];
+    if (diff != 0.0f) {
+      r_values[i] = (values[i] - from_min[i]) / diff * (to_max[i] - to_min[i]) + to_min[i];
+    }
+    else {
+      r_values[i] = to_min[i];
+    }
+  }
+}
+
+MF_Clamp::MF_Clamp()
+{
+  MFSignatureBuilder signature("Clamp");
+  signature.readonly_single_input<float>("Value");
+  signature.readonly_single_input<float>("Min");
+  signature.readonly_single_input<float>("Max");
+  signature.single_output<float>("Value");
+  this->set_signature(signature);
+}
+
+void MF_Clamp::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  VirtualListRef<float> values = params.readonly_single_input<float>(0, "Value");
+  VirtualListRef<float> min_values = params.readonly_single_input<float>(1, "Min");
+  VirtualListRef<float> max_values = params.readonly_single_input<float>(2, "Max");
+  MutableArrayRef<float> r_values = params.uninitialized_single_output<float>(3, "Value");
+
+  for (uint i : mask.indices()) {
+    float value = std::min(std::max(values[i], min_values[i]), max_values[i]);
+    r_values[i] = value;
+  }
+}
+
 }  // namespace FN
