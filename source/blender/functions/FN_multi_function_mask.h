@@ -23,6 +23,14 @@ class MFMask {
 #endif
   }
 
+  MFMask(IndexRange range) : m_indices(range.as_array_ref())
+  {
+  }
+
+  MFMask(const std::initializer_list<uint> &list) : MFMask(ArrayRef<uint>(list))
+  {
+  }
+
   uint indices_amount() const
   {
     return m_indices.size();

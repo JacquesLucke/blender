@@ -50,13 +50,13 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   BLI::ResourceCollector resources;
   auto function = FN::generate_vtree_multi_function(*vtree, resources);
 
-  MFParamsBuilder params(*function, numVerts);
-  params.add_readonly_single_input(ArrayRef<float3>((float3 *)vertexCos, numVerts));
-  params.add_readonly_single_input(&fdmd->control1);
-  params.add_readonly_single_input(&fdmd->control2);
+  MFParamsBuilder params_builder(*function, numVerts);
+  params_builder.add_readonly_single_input(ArrayRef<float3>((float3 *)vertexCos, numVerts));
+  params_builder.add_readonly_single_input(&fdmd->control1);
+  params_builder.add_readonly_single_input(&fdmd->control2);
 
   TemporaryVector<float3> output_vectors(numVerts);
-  params.add_single_output<float3>(output_vectors);
+  params_builder.add_single_output<float3>(output_vectors);
 
   float current_time = DEG_get_ctime(ctx->depsgraph);
 
@@ -72,7 +72,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
       &vertex_positions_context,
       BLI::VirtualListRef<uint>::FromFullArray(IndexRange(numVerts).as_array_ref()));
 
-  function->call(IndexRange(numVerts).as_array_ref(), params.build(), context_builder.build());
+  function->call(IndexRange(numVerts), params_builder, context_builder.build());
 
   memcpy(vertexCos, output_vectors.begin(), output_vectors.size() * sizeof(float3));
 }

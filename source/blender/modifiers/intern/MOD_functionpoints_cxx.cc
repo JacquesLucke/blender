@@ -47,19 +47,19 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   BLI::ResourceCollector resources;
   auto function = FN::generate_vtree_multi_function(*vtree, resources);
 
-  MFParamsBuilder params(*function, 1);
-  params.add_readonly_single_input(&fpmd->control1);
-  params.add_readonly_single_input(&fpmd->control2);
+  MFParamsBuilder params_builder(*function, 1);
+  params_builder.add_readonly_single_input(&fpmd->control1);
+  params_builder.add_readonly_single_input(&fpmd->control2);
 
   FN::GenericVectorArray vector_array{FN::CPP_TYPE<float3>(), 1};
-  params.add_vector_output(vector_array);
+  params_builder.add_vector_output(vector_array);
 
   FN::SceneTimeContext time_context;
   time_context.time = DEG_get_ctime(ctx->depsgraph);
 
   FN::MFContextBuilder context_builder;
   context_builder.add_element_context(&time_context);
-  function->call(FN::MFMask({0}), params.build(), context_builder.build());
+  function->call({0}, params_builder, context_builder.build());
 
   ArrayRef<float3> output_points = vector_array[0].as_typed_ref<float3>();
 

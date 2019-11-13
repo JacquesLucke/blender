@@ -51,7 +51,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
 
   class Storage {
    private:
-    const MFMask &m_mask;
+    MFMask m_mask;
     Vector<GenericVectorArray *> m_vector_arrays;
     Vector<GenericMutableArrayRef> m_arrays;
     Map<uint, GenericVectorArray *> m_vector_per_socket;
@@ -138,10 +138,10 @@ class MF_EvaluateNetwork final : public MultiFunction {
     }
   };
 
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 
  private:
-  void copy_inputs_to_storage(MFParams &params, Storage &storage) const;
+  void copy_inputs_to_storage(MFParams params, Storage &storage) const;
 
   void evaluate_network_to_compute_outputs(MFMask mask,
                                            MFContext &global_context,
@@ -152,7 +152,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
                                    const MFFunctionNode &function_node,
                                    Storage &storage) const;
 
-  void copy_computed_values_to_outputs(MFMask mask, MFParams &params, Storage &storage) const;
+  void copy_computed_values_to_outputs(MFMask mask, MFParams params, Storage &storage) const;
 
   GenericMutableArrayRef allocate_array(const CPPType &type, uint size) const
   {

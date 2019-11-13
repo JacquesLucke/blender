@@ -2,7 +2,7 @@
 
 namespace FN {
 
-void MF_EvaluateNetwork::call(MFMask mask, MFParams &params, MFContext &context) const
+void MF_EvaluateNetwork::call(MFMask mask, MFParams params, MFContext &context) const
 {
   if (mask.indices_amount() == 0) {
     return;
@@ -14,7 +14,7 @@ void MF_EvaluateNetwork::call(MFMask mask, MFParams &params, MFContext &context)
   this->copy_computed_values_to_outputs(mask, params, storage);
 }
 
-BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams &params,
+BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams params,
                                                              Storage &storage) const
 {
   for (uint i = 0; i < m_inputs.size(); i++) {
@@ -169,8 +169,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
     }
   }
 
-  MFParams &params = params_builder.build();
-  function.call(mask, params, global_context);
+  function.call(mask, params_builder, global_context);
 
   for (auto single_forward_info : single_outputs_to_forward) {
     const MFOutputSocket &output_socket = *single_forward_info.first;
@@ -218,7 +217,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
 }
 
 BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFMask mask,
-                                                                      MFParams &params,
+                                                                      MFParams params,
                                                                       Storage &storage) const
 {
   for (uint output_index = 0; output_index < m_outputs.size(); output_index++) {

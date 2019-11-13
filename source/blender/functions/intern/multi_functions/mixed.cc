@@ -31,7 +31,7 @@ MF_AddFloats::MF_AddFloats()
   this->set_signature(signature);
 }
 
-void MF_AddFloats::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_AddFloats::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   auto a = params.readonly_single_input<float>(0, "A");
   auto b = params.readonly_single_input<float>(1, "B");
@@ -51,7 +51,7 @@ MF_AddFloat3s::MF_AddFloat3s()
   this->set_signature(signature);
 }
 
-void MF_AddFloat3s::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_AddFloat3s::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   auto a = params.readonly_single_input<float3>(0, "A");
   auto b = params.readonly_single_input<float3>(1, "B");
@@ -73,7 +73,7 @@ MF_CombineColor::MF_CombineColor()
   this->set_signature(signature);
 }
 
-void MF_CombineColor::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_CombineColor::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   VirtualListRef<float> r = params.readonly_single_input<float>(0, "R");
   VirtualListRef<float> g = params.readonly_single_input<float>(1, "G");
@@ -97,7 +97,7 @@ MF_SeparateColor::MF_SeparateColor()
   this->set_signature(signature);
 }
 
-void MF_SeparateColor::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_SeparateColor::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   auto color = params.readonly_single_input<rgba_f>(0, "Color");
   auto r = params.uninitialized_single_output<float>(1, "R");
@@ -124,7 +124,7 @@ MF_CombineVector::MF_CombineVector()
   this->set_signature(signature);
 }
 
-void MF_CombineVector::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_CombineVector::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   VirtualListRef<float> x = params.readonly_single_input<float>(0, "X");
   VirtualListRef<float> y = params.readonly_single_input<float>(1, "Y");
@@ -146,7 +146,7 @@ MF_SeparateVector::MF_SeparateVector()
   this->set_signature(signature);
 }
 
-void MF_SeparateVector::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_SeparateVector::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   auto vector = params.readonly_single_input<float3>(0, "Vector");
   auto x = params.uninitialized_single_output<float>(1, "X");
@@ -170,7 +170,7 @@ MF_VectorDistance::MF_VectorDistance()
   this->set_signature(signature);
 }
 
-void MF_VectorDistance::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_VectorDistance::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   auto a = params.readonly_single_input<float3>(0, "A");
   auto b = params.readonly_single_input<float3>(1, "B");
@@ -189,7 +189,7 @@ MF_FloatArraySum::MF_FloatArraySum()
   this->set_signature(signature);
 }
 
-void MF_FloatArraySum::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_FloatArraySum::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   auto arrays = params.readonly_vector_input<float>(0, "Array");
   MutableArrayRef<float> sums = params.uninitialized_single_output<float>(1, "Sum");
@@ -214,7 +214,7 @@ MF_FloatRange::MF_FloatRange()
   this->set_signature(signature);
 }
 
-void MF_FloatRange::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_FloatRange::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   VirtualListRef<int> amounts = params.readonly_single_input<int>(0, "Amount");
   VirtualListRef<float> starts = params.readonly_single_input<float>(1, "Start");
@@ -241,9 +241,7 @@ MF_ObjectVertexPositions::MF_ObjectVertexPositions()
   this->set_signature(signature);
 }
 
-void MF_ObjectVertexPositions::call(MFMask mask,
-                                    MFParams &params,
-                                    MFContext &UNUSED(context)) const
+void MF_ObjectVertexPositions::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   VirtualListRef<Object *> objects = params.readonly_single_input<Object *>(0, "Object");
   auto positions = params.vector_output<float3>(1, "Positions");
@@ -273,7 +271,7 @@ MF_ObjectWorldLocation::MF_ObjectWorldLocation()
   this->set_signature(signature);
 }
 
-void MF_ObjectWorldLocation::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_ObjectWorldLocation::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   auto objects = params.readonly_single_input<Object *>(0, "Object");
   auto locations = params.uninitialized_single_output<float3>(1, "Location");
@@ -298,7 +296,7 @@ MF_SwitchSingle::MF_SwitchSingle(const CPPType &type) : m_type(type)
   this->set_signature(signature);
 }
 
-void MF_SwitchSingle::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_SwitchSingle::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   VirtualListRef<bool> conditions = params.readonly_single_input<bool>(0, "Condition");
   GenericVirtualListRef if_true = params.readonly_single_input(1, "True");
@@ -325,7 +323,7 @@ MF_SwitchVector::MF_SwitchVector(const CPPType &type) : m_type(type)
   this->set_signature(signature);
 }
 
-void MF_SwitchVector::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_SwitchVector::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   VirtualListRef<bool> conditions = params.readonly_single_input<bool>(0, "Condition");
   GenericVirtualListListRef if_true = params.readonly_vector_input(1, "True");
@@ -350,7 +348,7 @@ MF_TextLength::MF_TextLength()
   this->set_signature(signature);
 }
 
-void MF_TextLength::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_TextLength::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   auto texts = params.readonly_single_input<std::string>(0, "Text");
   auto lengths = params.uninitialized_single_output<int>(1, "Length");
@@ -402,7 +400,7 @@ MF_SimpleVectorize::MF_SimpleVectorize(const MultiFunction &function,
   this->set_signature(signature);
 }
 
-void MF_SimpleVectorize::call(MFMask mask, MFParams &params, MFContext &context) const
+void MF_SimpleVectorize::call(MFMask mask, MFParams params, MFContext &context) const
 {
   if (mask.indices_amount() == 0) {
     return;
@@ -469,7 +467,7 @@ void MF_SimpleVectorize::call(MFMask mask, MFParams &params, MFContext &context)
 
     /* TODO: Call with updated context. */
     ArrayRef<uint> sub_mask_indices = IndexRange(length).as_array_ref();
-    m_function.call(sub_mask_indices, params_builder.build(), context);
+    m_function.call(sub_mask_indices, params_builder, context);
   }
 }
 
@@ -480,7 +478,7 @@ MF_ContextVertexPosition::MF_ContextVertexPosition()
   this->set_signature(signature);
 }
 
-void MF_ContextVertexPosition::call(MFMask mask, MFParams &params, MFContext &context) const
+void MF_ContextVertexPosition::call(MFMask mask, MFParams params, MFContext &context) const
 {
   MutableArrayRef<float3> positions = params.uninitialized_single_output<float3>(0, "Position");
   auto vertices_context = context.element_contexts().find_first<VertexPositionArray>();
@@ -503,7 +501,7 @@ MF_ContextCurrentFrame::MF_ContextCurrentFrame()
   this->set_signature(signature);
 }
 
-void MF_ContextCurrentFrame::call(MFMask mask, MFParams &params, MFContext &context) const
+void MF_ContextCurrentFrame::call(MFMask mask, MFParams params, MFContext &context) const
 {
   MutableArrayRef<float> frames = params.uninitialized_single_output<float>(0, "Frame");
 
@@ -528,7 +526,7 @@ MF_PerlinNoise_3D_to_1D::MF_PerlinNoise_3D_to_1D()
   this->set_signature(signature);
 }
 
-void MF_PerlinNoise_3D_to_1D::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_PerlinNoise_3D_to_1D::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   VirtualListRef<float3> positions = params.readonly_single_input<float3>(0, "Position");
   VirtualListRef<float> amplitudes = params.readonly_single_input<float>(1, "Amplitude");
@@ -552,7 +550,7 @@ MF_PerlinNoise_3D_to_3D::MF_PerlinNoise_3D_to_3D()
   this->set_signature(signature);
 }
 
-void MF_PerlinNoise_3D_to_3D::call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const
+void MF_PerlinNoise_3D_to_3D::call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const
 {
   VirtualListRef<float3> positions = params.readonly_single_input<float3>(0, "Position");
   VirtualListRef<float> amplitudes = params.readonly_single_input<float>(1, "Amplitude");

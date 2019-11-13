@@ -129,7 +129,7 @@ class VTreeData {
       params_builder.add_single_output(
           FN::GenericMutableArrayRef(tuple.info().type_at_index(i), tuple.element_ptr(i), 1));
     }
-    fn->call(FN::MFMask({0}), params_builder.build(), context_builder.build());
+    fn->call({0}, params_builder, context_builder.build());
     tuple.set_all_initialized();
 
     Vector<std::string> computed_names;

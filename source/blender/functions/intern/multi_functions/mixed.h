@@ -6,7 +6,7 @@ namespace FN {
 
 class MF_Dummy final : public MultiFunction {
   void call(MFMask UNUSED(mask),
-            MFParams &UNUSED(params),
+            MFParams UNUSED(params),
             MFContext &UNUSED(context)) const override
   {
   }
@@ -14,73 +14,73 @@ class MF_Dummy final : public MultiFunction {
 class MF_AddFloats final : public MultiFunction {
  public:
   MF_AddFloats();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_AddFloat3s final : public MultiFunction {
  public:
   MF_AddFloat3s();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_CombineColor final : public MultiFunction {
  public:
   MF_CombineColor();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_SeparateColor final : public MultiFunction {
  public:
   MF_SeparateColor();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_CombineVector final : public MultiFunction {
  public:
   MF_CombineVector();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_SeparateVector final : public MultiFunction {
  public:
   MF_SeparateVector();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_VectorDistance final : public MultiFunction {
  public:
   MF_VectorDistance();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_FloatArraySum final : public MultiFunction {
  public:
   MF_FloatArraySum();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_FloatRange final : public MultiFunction {
  public:
   MF_FloatRange();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_ObjectWorldLocation final : public MultiFunction {
  public:
   MF_ObjectWorldLocation();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_ObjectVertexPositions final : public MultiFunction {
  public:
   MF_ObjectVertexPositions();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_TextLength final : public MultiFunction {
  public:
   MF_TextLength();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 template<typename T> class MF_ConstantValue : public MultiFunction {
@@ -95,7 +95,7 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
     this->set_signature(signature);
   }
 
-  void call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const override
+  void call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const override
   {
     MutableArrayRef<T> output = params.uninitialized_single_output<T>(0, "Output");
 
@@ -113,7 +113,7 @@ template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
     this->set_signature(signature);
   }
 
-  void call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const override
+  void call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const override
   {
     VirtualListRef<FromT> inputs = params.readonly_single_input<FromT>(0, "Input");
     MutableArrayRef<ToT> outputs = params.uninitialized_single_output<ToT>(1, "Output");
@@ -134,19 +134,19 @@ class MF_SimpleVectorize final : public MultiFunction {
 
  public:
   MF_SimpleVectorize(const MultiFunction &function, ArrayRef<bool> input_is_vectorized);
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_ContextVertexPosition final : public MultiFunction {
  public:
   MF_ContextVertexPosition();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_ContextCurrentFrame final : public MultiFunction {
  public:
   MF_ContextCurrentFrame();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_SwitchSingle final : public MultiFunction {
@@ -155,7 +155,7 @@ class MF_SwitchSingle final : public MultiFunction {
 
  public:
   MF_SwitchSingle(const CPPType &type);
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_SwitchVector final : public MultiFunction {
@@ -164,19 +164,19 @@ class MF_SwitchVector final : public MultiFunction {
 
  public:
   MF_SwitchVector(const CPPType &type);
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_PerlinNoise_3D_to_1D final : public MultiFunction {
  public:
   MF_PerlinNoise_3D_to_1D();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 class MF_PerlinNoise_3D_to_3D final : public MultiFunction {
  public:
   MF_PerlinNoise_3D_to_3D();
-  void call(MFMask mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext &context) const override;
 };
 
 template<typename FromT, typename ToT, ToT (*Compute)(const FromT &)>
@@ -190,7 +190,7 @@ class MF_Mappping final : public MultiFunction {
     this->set_signature(signature);
   }
 
-  void call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const override
+  void call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const override
   {
     VirtualListRef<FromT> inputs = params.readonly_single_input<FromT>(0, "Input");
     MutableArrayRef<ToT> outputs = params.uninitialized_single_output<ToT>(1, "Output");
@@ -215,7 +215,7 @@ class MF_2In_1Out final : public MultiFunction {
     this->set_signature(signature);
   }
 
-  void call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const override
+  void call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const override
   {
     VirtualListRef<In1> in1 = params.readonly_single_input<In1>(0);
     VirtualListRef<In2> in2 = params.readonly_single_input<In2>(1);
@@ -241,7 +241,7 @@ template<typename T, T (*Compute)(T, T)> class MF_SimpleMath final : public Mult
     this->set_signature(signature);
   }
 
-  void call(MFMask mask, MFParams &params, MFContext &UNUSED(context)) const override
+  void call(MFMask mask, MFParams params, MFContext &UNUSED(context)) const override
   {
     MutableArrayRef<T> outputs = params.uninitialized_single_output<T>(m_input_amount, "Output");
 

@@ -204,101 +204,14 @@ class MFSignatureBuilder {
   }
 };
 
-class MFParams {
- public:
-  MFParams() = default;
-
-  MFParams(ArrayRef<GenericVirtualListRef> virtual_list_refs,
-           ArrayRef<GenericMutableArrayRef> mutable_array_refs,
-           ArrayRef<GenericVirtualListListRef> virtual_list_list_refs,
-           ArrayRef<GenericVectorArray *> vector_arrays,
-           const MFSignature &signature)
-      : m_virtual_list_refs(virtual_list_refs),
-        m_mutable_array_refs(mutable_array_refs),
-        m_virtual_list_list_refs(virtual_list_list_refs),
-        m_vector_arrays(vector_arrays),
-        m_signature(&signature)
-  {
-  }
-
-  template<typename T> VirtualListRef<T> readonly_single_input(uint index, StringRef name = "")
-  {
-    BLI_assert(m_signature->is_readonly_single_input<T>(index, name));
-    return this->readonly_single_input(index, name).as_typed_ref<T>();
-  }
-
-  GenericVirtualListRef readonly_single_input(uint index, StringRef name = "")
-  {
-    UNUSED_VARS_NDEBUG(name);
-    BLI_assert(m_signature->is_readonly_single_input(index, name));
-    uint corrected_index = m_signature->get_corrected_index(index);
-    return m_virtual_list_refs[corrected_index];
-  }
-
-  template<typename T>
-  MutableArrayRef<T> uninitialized_single_output(uint index, StringRef name = "")
-  {
-    BLI_assert(m_signature->is_single_output<T>(index, name));
-    return this->uninitialized_single_output(index, name).as_typed_ref<T>();
-  }
-  GenericMutableArrayRef uninitialized_single_output(uint index, StringRef name = "")
-  {
-    UNUSED_VARS_NDEBUG(name);
-    BLI_assert(m_signature->is_single_output(index, name));
-    uint corrected_index = m_signature->get_corrected_index(index);
-    return m_mutable_array_refs[corrected_index];
-  }
-
-  template<typename T>
-  const VirtualListListRef<T> readonly_vector_input(uint index, StringRef name = "")
-  {
-    BLI_assert(m_signature->is_readonly_vector_input<T>(index, name));
-    return this->readonly_vector_input(index, name).as_typed_ref<T>();
-  }
-  GenericVirtualListListRef readonly_vector_input(uint index, StringRef name = "")
-  {
-    UNUSED_VARS_NDEBUG(name);
-    BLI_assert(m_signature->is_readonly_vector_input(index, name));
-    uint corrected_index = m_signature->get_corrected_index(index);
-    return m_virtual_list_list_refs[corrected_index];
-  }
-
-  template<typename T>
-  GenericVectorArray::MutableTypedRef<T> vector_output(uint index, StringRef name = "")
-  {
-    BLI_assert(m_signature->is_vector_output<T>(index, name));
-    return this->vector_output(index, name).as_mutable_typed_ref<T>();
-  }
-  GenericVectorArray &vector_output(uint index, StringRef name = "")
-  {
-    UNUSED_VARS_NDEBUG(name);
-    BLI_assert(m_signature->is_vector_output(index, name));
-    uint corrected_index = m_signature->get_corrected_index(index);
-    return *m_vector_arrays[corrected_index];
-  }
-
-  GenericVectorArray &mutable_vector(uint index, StringRef name = "")
-  {
-    UNUSED_VARS_NDEBUG(name);
-    BLI_assert(m_signature->is_mutable_vector(index, name));
-    uint corrected_index = m_signature->get_corrected_index(index);
-    return *m_vector_arrays[corrected_index];
-  }
-
- private:
-  ArrayRef<GenericVirtualListRef> m_virtual_list_refs;
-  ArrayRef<GenericMutableArrayRef> m_mutable_array_refs;
-  ArrayRef<GenericVirtualListListRef> m_virtual_list_list_refs;
-  ArrayRef<GenericVectorArray *> m_vector_arrays;
-  const MFSignature *m_signature = nullptr;
-};
+class MFParams;
 
 class MultiFunction {
  public:
   virtual ~MultiFunction()
   {
   }
-  virtual void call(MFMask mask, MFParams &params, MFContext &context) const = 0;
+  virtual void call(MFMask mask, MFParams params, MFContext &context) const = 0;
 
   IndexRange param_indices() const
   {
@@ -341,7 +254,7 @@ class MFParamsBuilder {
   const MFSignature *m_signature = nullptr;
   uint m_min_array_size;
 
-  MFParams m_params;
+  friend MFParams;
 
  public:
   MFParamsBuilder(const MultiFunction &function, uint min_array_size)
@@ -396,17 +309,80 @@ class MFParamsBuilder {
     BLI_assert(vector_array.size() >= m_min_array_size);
     m_vector_arrays.append(&vector_array);
   }
+};
 
-  MFParams &build()
+class MFParams {
+ public:
+  MFParams(MFParamsBuilder &builder) : m_builder(&builder)
   {
-    BLI_assert(m_signature != nullptr);
-    m_params = MFParams(m_virtual_list_refs,
-                        m_mutable_array_refs,
-                        m_virtual_list_list_refs,
-                        m_vector_arrays,
-                        *m_signature);
-    return m_params;
   }
+
+  template<typename T> VirtualListRef<T> readonly_single_input(uint index, StringRef name = "")
+  {
+    BLI_assert(m_builder->m_signature->is_readonly_single_input<T>(index, name));
+    return this->readonly_single_input(index, name).as_typed_ref<T>();
+  }
+
+  GenericVirtualListRef readonly_single_input(uint index, StringRef name = "")
+  {
+    UNUSED_VARS_NDEBUG(name);
+    BLI_assert(m_builder->m_signature->is_readonly_single_input(index, name));
+    uint corrected_index = m_builder->m_signature->get_corrected_index(index);
+    return m_builder->m_virtual_list_refs[corrected_index];
+  }
+
+  template<typename T>
+  MutableArrayRef<T> uninitialized_single_output(uint index, StringRef name = "")
+  {
+    BLI_assert(m_builder->m_signature->is_single_output<T>(index, name));
+    return this->uninitialized_single_output(index, name).as_typed_ref<T>();
+  }
+  GenericMutableArrayRef uninitialized_single_output(uint index, StringRef name = "")
+  {
+    UNUSED_VARS_NDEBUG(name);
+    BLI_assert(m_builder->m_signature->is_single_output(index, name));
+    uint corrected_index = m_builder->m_signature->get_corrected_index(index);
+    return m_builder->m_mutable_array_refs[corrected_index];
+  }
+
+  template<typename T>
+  const VirtualListListRef<T> readonly_vector_input(uint index, StringRef name = "")
+  {
+    BLI_assert(m_builder->m_signature->is_readonly_vector_input<T>(index, name));
+    return this->readonly_vector_input(index, name).as_typed_ref<T>();
+  }
+  GenericVirtualListListRef readonly_vector_input(uint index, StringRef name = "")
+  {
+    UNUSED_VARS_NDEBUG(name);
+    BLI_assert(m_builder->m_signature->is_readonly_vector_input(index, name));
+    uint corrected_index = m_builder->m_signature->get_corrected_index(index);
+    return m_builder->m_virtual_list_list_refs[corrected_index];
+  }
+
+  template<typename T>
+  GenericVectorArray::MutableTypedRef<T> vector_output(uint index, StringRef name = "")
+  {
+    BLI_assert(m_builder->m_signature->is_vector_output<T>(index, name));
+    return this->vector_output(index, name).as_mutable_typed_ref<T>();
+  }
+  GenericVectorArray &vector_output(uint index, StringRef name = "")
+  {
+    UNUSED_VARS_NDEBUG(name);
+    BLI_assert(m_builder->m_signature->is_vector_output(index, name));
+    uint corrected_index = m_builder->m_signature->get_corrected_index(index);
+    return *m_builder->m_vector_arrays[corrected_index];
+  }
+
+  GenericVectorArray &mutable_vector(uint index, StringRef name = "")
+  {
+    UNUSED_VARS_NDEBUG(name);
+    BLI_assert(m_builder->m_signature->is_mutable_vector(index, name));
+    uint corrected_index = m_builder->m_signature->get_corrected_index(index);
+    return *m_builder->m_vector_arrays[corrected_index];
+  }
+
+ private:
+  MFParamsBuilder *m_builder;
 };
 
 };  // namespace FN
