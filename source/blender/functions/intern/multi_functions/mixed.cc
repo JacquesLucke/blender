@@ -566,4 +566,36 @@ void MF_PerlinNoise_3D_to_3D::call(MFMask mask, MFParams params, MFContext UNUSE
   }
 }
 
+MF_ParticleAttribute::MF_ParticleAttribute(StringRef attribute_name, const CPPType &attribute_type)
+    : m_attribute_name(attribute_name), m_attribute_type(attribute_type)
+{
+  MFSignatureBuilder signature("Particle Attribute");
+  signature.single_output(attribute_name, attribute_type);
+  this->set_signature(signature);
+}
+
+void MF_ParticleAttribute::call(MFMask mask, MFParams params, MFContext context) const
+{
+  auto context_data = context.element_contexts().find_first<ParticleAttributesContext>();
+  GenericMutableArrayRef r_output = params.uninitialized_single_output(0, m_attribute_name);
+
+  if (context_data.has_value()) {
+    AttributesRef attributes = context_data.value().data->attributes;
+    Optional<GenericMutableArrayRef> opt_array = attributes.try_get(m_attribute_name,
+                                                                    m_attribute_type);
+    if (opt_array.has_value()) {
+      GenericMutableArrayRef array = opt_array.value();
+      for (uint i : mask.indices()) {
+        m_attribute_type.copy_to_uninitialized(array[i], r_output[i]);
+      }
+      return;
+    }
+  }
+
+  /* Fallback */
+  for (uint i : mask.indices()) {
+    m_attribute_type.construct_default(r_output[i]);
+  }
+}
+
 }  // namespace FN

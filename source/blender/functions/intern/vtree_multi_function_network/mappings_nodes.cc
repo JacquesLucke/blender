@@ -462,6 +462,33 @@ static void INSERT_perlin_noise(VTreeMFNetworkBuilder &builder, const VNode &vno
   }
 }
 
+static void INSERT_particle_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  {
+    const MultiFunction &fn = builder.construct_fn<MF_ParticleAttribute>("ID", CPP_TYPE<int>());
+    MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
+    builder.map_sockets(vnode.output(0), node.output(0));
+  }
+  {
+    const MultiFunction &fn = builder.construct_fn<MF_ParticleAttribute>("Position",
+                                                                         CPP_TYPE<float3>());
+    MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
+    builder.map_sockets(vnode.output(1), node.output(0));
+  }
+  {
+    const MultiFunction &fn = builder.construct_fn<MF_ParticleAttribute>("Velocity",
+                                                                         CPP_TYPE<float3>());
+    MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
+    builder.map_sockets(vnode.output(2), node.output(0));
+  }
+  {
+    const MultiFunction &fn = builder.construct_fn<MF_ParticleAttribute>("Birth Time",
+                                                                         CPP_TYPE<float>());
+    MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
+    builder.map_sockets(vnode.output(3), node.output(0));
+  }
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
@@ -480,6 +507,7 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_TimeInfoNode", INSERT_time_info);
   mappings.vnode_inserters.add_new("fn_CompareNode", INSERT_compare);
   mappings.vnode_inserters.add_new("fn_PerlinNoiseNode", INSERT_perlin_noise);
+  mappings.vnode_inserters.add_new("fn_ParticleInfoNode", INSERT_particle_info);
 
   mappings.vnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
   mappings.vnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);

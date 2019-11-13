@@ -6,10 +6,12 @@
 #include "BLI_virtual_list_ref.h"
 #include "BLI_vector.h"
 #include "BLI_utility_mixins.h"
+#include "BLI_index_range.h"
 
 namespace FN {
 
 using BLI::ArrayRef;
+using BLI::IndexRange;
 using BLI::Optional;
 using BLI::Vector;
 using BLI::VirtualListRef;
@@ -58,13 +60,19 @@ class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
   {
   }
 
-  void add_element_context(const MFElementContext *context, VirtualListRef<uint> indices)
+  void add_element_context(const MFElementContext &context, VirtualListRef<uint> indices)
   {
-    m_element_contexts.m_contexts.append(context);
+    m_element_contexts.m_contexts.append(&context);
     m_element_contexts.m_indices.append(indices);
   }
 
-  void add_element_context(const MFElementContext *context)
+  void add_element_context(const MFElementContext &context, IndexRange indices)
+  {
+    this->add_element_context(context,
+                              VirtualListRef<uint>::FromFullArray(indices.as_array_ref()));
+  }
+
+  void add_element_context(const MFElementContext &context)
   {
     static uint dummy_index = 0;
     this->add_element_context(context, VirtualListRef<uint>::FromSingle_MaxSize(&dummy_index));

@@ -15,21 +15,6 @@ using BLI::float2;
 using BLI::rgba_b;
 using BLI::rgba_f;
 
-Optional<ParticleFunctionInputArray> AttributeInputProvider::get(InputProviderInterface &interface)
-{
-  AttributesRef attributes = interface.attributes();
-  uint element_size = m_type.size();
-  int attribute_index = attributes.info().index_of_try(m_name, m_type);
-
-  if (attribute_index == -1) {
-    return {};
-  }
-  else {
-    void *buffer = attributes.get(attribute_index).buffer();
-    return ParticleFunctionInputArray(buffer, element_size, false);
-  }
-}
-
 Optional<ParticleFunctionInputArray> SurfaceNormalInputProvider::get(
     InputProviderInterface &interface)
 {
@@ -52,31 +37,6 @@ Optional<ParticleFunctionInputArray> SurfaceVelocityInputProvider::get(
   }
 
   return ParticleFunctionInputArray(surface_info->world_surface_velicities(), false);
-}
-
-Optional<ParticleFunctionInputArray> AgeInputProvider::get(InputProviderInterface &interface)
-{
-  auto birth_times = interface.attributes().get<float>("Birth Time");
-  auto ages = BLI::temporary_allocate_array<float>(birth_times.size());
-
-  ParticleTimes &times = interface.particle_times();
-  if (times.type() == ParticleTimes::Type::Current) {
-    auto current_times = times.current_times();
-    for (uint pindex : interface.pindices()) {
-      ages[pindex] = current_times[pindex] - birth_times[pindex];
-    }
-  }
-  else if (times.type() == ParticleTimes::Type::DurationAndEnd) {
-    auto remaining_durations = times.remaining_durations();
-    float end_time = times.end_time();
-    for (uint pindex : interface.pindices()) {
-      ages[pindex] = end_time - remaining_durations[pindex] - birth_times[pindex];
-    }
-  }
-  else {
-    BLI_assert(false);
-  }
-  return ParticleFunctionInputArray(ages.as_ref(), true);
 }
 
 SurfaceImageInputProvider::SurfaceImageInputProvider(Image *image,

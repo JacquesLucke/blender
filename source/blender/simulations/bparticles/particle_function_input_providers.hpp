@@ -12,28 +12,11 @@ namespace BParticles {
 
 using FN::CPPType;
 
-class AttributeInputProvider : public ParticleFunctionInputProvider {
- private:
-  const CPPType &m_type;
-  std::string m_name;
-
- public:
-  AttributeInputProvider(const CPPType &type, StringRef name) : m_type(type), m_name(name)
-  {
-  }
-
-  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
-};
-
 class SurfaceNormalInputProvider : public ParticleFunctionInputProvider {
   Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
 };
 
 class SurfaceVelocityInputProvider : public ParticleFunctionInputProvider {
-  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
-};
-
-class AgeInputProvider : public ParticleFunctionInputProvider {
   Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
 };
 

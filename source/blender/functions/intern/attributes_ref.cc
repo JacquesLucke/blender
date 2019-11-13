@@ -110,7 +110,7 @@ static Array<int> map_attribute_indices(const AttributesInfo &from_info,
     StringRef name = from_info.name_of(from_index);
     const CPPType &type = from_info.type_of(from_index);
 
-    int to_index = to_info.index_of_try(name, type);
+    int to_index = to_info.try_index_of(name, type);
     mapping[from_index] = to_index;
   }
 

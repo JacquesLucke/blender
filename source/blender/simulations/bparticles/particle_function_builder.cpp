@@ -48,18 +48,6 @@ static VectorSet<const VOutputSocket *> find_particle_dependencies(
 using BuildInputProvider = std::function<ParticleFunctionInputProvider *(
     VTreeMFNetwork &vtree_data_graph, const VOutputSocket &vsocket)>;
 
-static ParticleFunctionInputProvider *INPUT_particle_info(VTreeMFNetwork &vtree_data_graph,
-                                                          const VOutputSocket &vsocket)
-{
-  if (vsocket.name() == "Age") {
-    return new AgeInputProvider();
-  }
-  else {
-    const CPPType &type = vtree_data_graph.lookup_socket(vsocket).type().type();
-    return new AttributeInputProvider(type, vsocket.name());
-  }
-}
-
 static ParticleFunctionInputProvider *INPUT_surface_info(VTreeMFNetwork &UNUSED(vtree_data_graph),
                                                          const VOutputSocket &vsocket)
 {
@@ -121,7 +109,6 @@ static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeMFNetwork &vtree_da
 BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
 {
   StringMap<BuildInputProvider> map;
-  map.add_new("fn_ParticleInfoNode", INPUT_particle_info);
   map.add_new("fn_SurfaceInfoNode", INPUT_surface_info);
   map.add_new("fn_SurfaceImageNode", INPUT_surface_image);
   map.add_new("fn_SurfaceWeightNode", INPUT_surface_weight);

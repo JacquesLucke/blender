@@ -2,6 +2,7 @@
 #define __FN_MULTI_FUNCTION_COMMON_CONTEXTS_H__
 
 #include "FN_multi_function_context.h"
+#include "FN_attributes_ref.h"
 
 #include "BLI_math_cxx.h"
 
@@ -18,6 +19,15 @@ class VertexPositionArray : public MFElementContext {
 class SceneTimeContext : public MFElementContext {
  public:
   float time;
+};
+
+class ParticleAttributesContext : public MFElementContext {
+ public:
+  AttributesRef attributes;
+
+  ParticleAttributesContext(AttributesRef attributes) : attributes(attributes)
+  {
+  }
 };
 
 }  // namespace FN

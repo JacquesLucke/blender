@@ -116,9 +116,9 @@ class AttributesInfo : BLI::NonCopyable, BLI::NonMovable {
     return this->default_of(this->index_of(name));
   }
 
-  int index_of_try(StringRef name, const CPPType &type) const
+  int try_index_of(StringRef name, const CPPType &type) const
   {
-    int index = this->index_of_try(name);
+    int index = this->try_index_of(name);
     if (index == -1) {
       return -1;
     }
@@ -130,12 +130,12 @@ class AttributesInfo : BLI::NonCopyable, BLI::NonMovable {
     }
   }
 
-  template<typename T> int index_of_try(StringRef name) const
+  template<typename T> int try_index_of(StringRef name) const
   {
-    return this->index_of_try(name, CPP_TYPE<T>());
+    return this->try_index_of(name, CPP_TYPE<T>());
   }
 
-  int index_of_try(StringRef name) const
+  int try_index_of(StringRef name) const
   {
     return m_index_by_name.lookup_default(name, -1);
   }
@@ -183,7 +183,7 @@ class AttributesRef {
     return m_range.size();
   }
 
-  const AttributesInfo &info()
+  const AttributesInfo &info() const
   {
     return *m_info;
   }
@@ -211,9 +211,20 @@ class AttributesRef {
     return this->get<T>(m_info->index_of(name));
   }
 
+  Optional<GenericMutableArrayRef> try_get(StringRef name, const CPPType &type) const
+  {
+    int index = m_info->try_index_of(name, type);
+    if (index == -1) {
+      return {};
+    }
+    else {
+      return this->get((uint)index);
+    }
+  }
+
   template<typename T> Optional<MutableArrayRef<T>> try_get(StringRef name)
   {
-    int index = m_info->index_of_try<T>(name);
+    int index = m_info->try_index_of<T>(name);
     if (index == -1) {
       return {};
     }

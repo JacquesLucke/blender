@@ -177,6 +177,16 @@ class MF_PerlinNoise_3D_to_3D final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_ParticleAttribute final : public MultiFunction {
+ private:
+  std::string m_attribute_name;
+  const CPPType &m_attribute_type;
+
+ public:
+  MF_ParticleAttribute(StringRef attribute_name, const CPPType &attribute_type);
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
 template<typename FromT, typename ToT, ToT (*Compute)(const FromT &)>
 class MF_Mappping final : public MultiFunction {
  public:
