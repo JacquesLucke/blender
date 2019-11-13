@@ -113,7 +113,7 @@ static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeMFNetwork &vtree_da
   std::string group_name;
   BLI::destruct(&group_name);
   params_builder.add_single_output(ArrayRef<std::string>(&group_name, 1));
-  fn.call({0}, params_builder, context_builder.build());
+  fn.call({0}, params_builder, context_builder);
 
   return new IsInGroupInputProvider(group_name);
 }

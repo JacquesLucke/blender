@@ -2,7 +2,7 @@
 
 namespace FN {
 
-void MF_EvaluateNetwork::call(MFMask mask, MFParams params, MFContext &context) const
+void MF_EvaluateNetwork::call(MFMask mask, MFParams params, MFContext context) const
 {
   if (mask.indices_amount() == 0) {
     return;

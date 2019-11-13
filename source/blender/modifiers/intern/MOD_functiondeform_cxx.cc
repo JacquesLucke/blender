@@ -72,7 +72,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
       &vertex_positions_context,
       BLI::VirtualListRef<uint>::FromFullArray(IndexRange(numVerts).as_array_ref()));
 
-  function->call(IndexRange(numVerts), params_builder, context_builder.build());
+  function->call(IndexRange(numVerts), params_builder, context_builder);
 
   memcpy(vertexCos, output_vectors.begin(), output_vectors.size() * sizeof(float3));
 }

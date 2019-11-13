@@ -21,18 +21,13 @@ class MFElementContext {
 
 class MFElementContexts {
  private:
-  ArrayRef<const MFElementContext *> m_contexts;
-  ArrayRef<VirtualListRef<uint>> m_indices;
+  Vector<const MFElementContext *> m_contexts;
+  Vector<VirtualListRef<uint>> m_indices;
+
+  friend class MFContextBuilder;
 
  public:
   MFElementContexts() = default;
-
-  MFElementContexts(ArrayRef<const MFElementContext *> contexts,
-                    ArrayRef<VirtualListRef<uint>> indices)
-      : m_contexts(contexts), m_indices(indices)
-  {
-    BLI_assert(contexts.size() == indices.size());
-  }
 
   template<typename T> struct TypedContext {
     const T *data;
@@ -52,27 +47,11 @@ class MFElementContexts {
   }
 };
 
-class MFContext : BLI::NonCopyable, BLI::NonMovable {
+class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   MFElementContexts m_element_contexts;
 
- public:
-  MFContext() = default;
-  MFContext(MFElementContexts element_contexts) : m_element_contexts(element_contexts)
-  {
-  }
-
-  const MFElementContexts &element_contexts() const
-  {
-    return m_element_contexts;
-  }
-};
-
-class MFContextBuilder {
- private:
-  Vector<const MFElementContext *> m_element_contexts;
-  Vector<VirtualListRef<uint>> m_element_context_indices;
-  MFContext m_context;
+  friend class MFContext;
 
  public:
   MFContextBuilder()
@@ -81,8 +60,8 @@ class MFContextBuilder {
 
   void add_element_context(const MFElementContext *context, VirtualListRef<uint> indices)
   {
-    m_element_contexts.append(context);
-    m_element_context_indices.append(indices);
+    m_element_contexts.m_contexts.append(context);
+    m_element_contexts.m_indices.append(indices);
   }
 
   void add_element_context(const MFElementContext *context)
@@ -90,12 +69,20 @@ class MFContextBuilder {
     static uint dummy_index = 0;
     this->add_element_context(context, VirtualListRef<uint>::FromSingle_MaxSize(&dummy_index));
   }
+};
 
-  MFContext &build()
+class MFContext {
+ private:
+  MFContextBuilder *m_builder;
+
+ public:
+  MFContext(MFContextBuilder &builder) : m_builder(&builder)
   {
-    m_context.~MFContext();
-    new (&m_context) MFContext(MFElementContexts(m_element_contexts, m_element_context_indices));
-    return m_context;
+  }
+
+  const MFElementContexts &element_contexts() const
+  {
+    return m_builder->m_element_contexts;
   }
 };
 

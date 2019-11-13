@@ -59,7 +59,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 
   FN::MFContextBuilder context_builder;
   context_builder.add_element_context(&time_context);
-  function->call({0}, params_builder, context_builder.build());
+  function->call({0}, params_builder, context_builder);
 
   ArrayRef<float3> output_points = vector_array[0].as_typed_ref<float3>();
 

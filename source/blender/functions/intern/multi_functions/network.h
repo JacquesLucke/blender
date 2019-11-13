@@ -138,7 +138,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
     }
   };
 
-  void call(MFMask mask, MFParams params, MFContext &context) const override;
+  void call(MFMask mask, MFParams params, MFContext context) const override;
 
  private:
   void copy_inputs_to_storage(MFParams params, Storage &storage) const;

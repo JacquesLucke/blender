@@ -124,7 +124,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
     }
   }
 
-  m_fn->call(pindices, params_builder, context_builder.build());
+  m_fn->call(pindices, params_builder, context_builder);
 
   for (GenericMutableArrayRef array_ref : arrays_to_free) {
     array_ref.destruct_indices(pindices);
