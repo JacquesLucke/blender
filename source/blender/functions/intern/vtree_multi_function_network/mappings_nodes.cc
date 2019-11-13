@@ -489,6 +489,12 @@ static void INSERT_particle_info(VTreeMFNetworkBuilder &builder, const VNode &vn
   }
 }
 
+static void INSERT_closest_point_on_object(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &fn = builder.construct_fn<MF_ClosestPointOnObject>();
+  builder.add_function(fn, {0, 1}, {2}, vnode);
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
@@ -508,6 +514,7 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_CompareNode", INSERT_compare);
   mappings.vnode_inserters.add_new("fn_PerlinNoiseNode", INSERT_perlin_noise);
   mappings.vnode_inserters.add_new("fn_ParticleInfoNode", INSERT_particle_info);
+  mappings.vnode_inserters.add_new("fn_ClosestPointOnObjectNode", INSERT_closest_point_on_object);
 
   mappings.vnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
   mappings.vnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);

@@ -598,4 +598,56 @@ void MF_ParticleAttribute::call(MFMask mask, MFParams params, MFContext context)
   }
 }
 
+MF_ClosestPointOnObject::MF_ClosestPointOnObject()
+{
+  MFSignatureBuilder signature("Closest Point on Object");
+  signature.readonly_single_input<Object *>("Object");
+  signature.readonly_single_input<float3>("Position");
+  signature.single_output<float3>("Closest Point");
+  this->set_signature(signature);
+}
+
+void MF_ClosestPointOnObject::call(MFMask mask, MFParams params, MFContext context) const
+{
+  auto context_data = context.element_contexts().find_first<ExternalObjectBVHTreesContext>();
+
+  VirtualListRef<Object *> objects = params.readonly_single_input<Object *>(0, "Object");
+  VirtualListRef<float3> positions = params.readonly_single_input<float3>(1, "Position");
+  MutableArrayRef<float3> r_points = params.uninitialized_single_output<float3>(2,
+                                                                                "Closest Point");
+
+  if (!context_data.has_value()) {
+    r_points.fill_indices(mask.indices(), {0, 0, 0});
+    return;
+  }
+
+  for (uint i : mask.indices()) {
+    Object *object = objects[i];
+    if (object == nullptr) {
+      r_points[i] = {0, 0, 0};
+      continue;
+    }
+
+    BVHTreeFromMesh *bvhtree = context_data.value().data->get_bvh_tree(object);
+    if (bvhtree == nullptr) {
+      r_points[i] = {0, 0, 0};
+      continue;
+    }
+
+    BVHTreeNearest nearest = {0};
+    nearest.dist_sq = 10000000.0f;
+    nearest.index = -1;
+    BLI_bvhtree_find_nearest(
+        bvhtree->tree, positions[i], &nearest, bvhtree->nearest_callback, (void *)bvhtree);
+
+    if (nearest.index == -1) {
+      r_points[i] = {0, 0, 0};
+      continue;
+    }
+
+    float4x4 local_to_world_matrix = object->obmat;
+    r_points[i] = local_to_world_matrix.transform_position(nearest.co);
+  }
+}
+
 }  // namespace FN

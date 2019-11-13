@@ -128,6 +128,8 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
 
   FN::ParticleAttributesContext attributes_context(attributes);
   context_builder.add_element_context(attributes_context, IndexRange(array_size));
+  FN::ExternalObjectBVHTreesContext bvhtree_context;
+  context_builder.add_element_context(bvhtree_context);
 
   m_fn->call(pindices, params_builder, context_builder);
 

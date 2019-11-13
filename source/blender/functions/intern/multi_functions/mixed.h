@@ -187,6 +187,12 @@ class MF_ParticleAttribute final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_ClosestPointOnObject final : public MultiFunction {
+ public:
+  MF_ClosestPointOnObject();
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
 template<typename FromT, typename ToT, ToT (*Compute)(const FromT &)>
 class MF_Mappping final : public MultiFunction {
  public:
