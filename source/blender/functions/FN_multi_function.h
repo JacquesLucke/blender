@@ -298,7 +298,7 @@ class MultiFunction {
   virtual ~MultiFunction()
   {
   }
-  virtual void call(const MFMask &mask, MFParams &params, MFContext &context) const = 0;
+  virtual void call(MFMask mask, MFParams &params, MFContext &context) const = 0;
 
   IndexRange param_indices() const
   {

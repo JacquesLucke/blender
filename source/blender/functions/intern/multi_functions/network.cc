@@ -2,7 +2,7 @@
 
 namespace FN {
 
-void MF_EvaluateNetwork::call(const MFMask &mask, MFParams &params, MFContext &context) const
+void MF_EvaluateNetwork::call(MFMask mask, MFParams &params, MFContext &context) const
 {
   if (mask.indices_amount() == 0) {
     return;
@@ -63,7 +63,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams &params,
 }
 
 BLI_NOINLINE void MF_EvaluateNetwork::evaluate_network_to_compute_outputs(
-    const MFMask &mask, MFContext &global_context, Storage &storage) const
+    MFMask mask, MFContext &global_context, Storage &storage) const
 {
   Stack<const MFSocket *> sockets_to_compute;
 
@@ -106,7 +106,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::evaluate_network_to_compute_outputs(
 }
 
 BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
-    const MFMask &mask,
+    MFMask mask,
     MFContext &global_context,
     const MFFunctionNode &function_node,
     Storage &storage) const
@@ -217,7 +217,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
   }
 }
 
-BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(const MFMask &mask,
+BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFMask mask,
                                                                       MFParams &params,
                                                                       Storage &storage) const
 {

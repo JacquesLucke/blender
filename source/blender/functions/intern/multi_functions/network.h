@@ -59,7 +59,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
     Map<uint, GenericVirtualListListRef> m_virtual_list_list_for_inputs;
 
    public:
-    Storage(const MFMask &mask) : m_mask(mask)
+    Storage(MFMask mask) : m_mask(mask)
     {
     }
 
@@ -138,23 +138,21 @@ class MF_EvaluateNetwork final : public MultiFunction {
     }
   };
 
-  void call(const MFMask &mask, MFParams &params, MFContext &context) const override;
+  void call(MFMask mask, MFParams &params, MFContext &context) const override;
 
  private:
   void copy_inputs_to_storage(MFParams &params, Storage &storage) const;
 
-  void evaluate_network_to_compute_outputs(const MFMask &mask,
+  void evaluate_network_to_compute_outputs(MFMask mask,
                                            MFContext &global_context,
                                            Storage &storage) const;
 
-  void compute_and_forward_outputs(const MFMask &mask,
+  void compute_and_forward_outputs(MFMask mask,
                                    MFContext &global_context,
                                    const MFFunctionNode &function_node,
                                    Storage &storage) const;
 
-  void copy_computed_values_to_outputs(const MFMask &mask,
-                                       MFParams &params,
-                                       Storage &storage) const;
+  void copy_computed_values_to_outputs(MFMask mask, MFParams &params, Storage &storage) const;
 
   GenericMutableArrayRef allocate_array(const CPPType &type, uint size) const
   {
