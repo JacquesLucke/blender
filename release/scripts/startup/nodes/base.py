@@ -45,11 +45,20 @@ class SocketValueStates:
                 socket.restore_state(self.input_value_storage[storage_id])
 
 
+def get_new_node_identifier():
+    import uuid
+    return str(uuid.uuid4())
+
+
 class BaseNode:
     search_terms = tuple()
     search_terms_only = False
 
+    identifier: StringProperty()
+
     def init(self, context):
+        self.identifier = get_new_node_identifier()
+
         from . sync import skip_syncing
         with skip_syncing():
             builder = self.get_node_builder()
@@ -184,6 +193,8 @@ class BaseNode:
         if self in _decl_map_per_node:
             del _decl_map_per_node[self]
 
+    def copy(self, src_node):
+        self.identifier = get_new_node_identifier()
 
 
 class BaseSocket:
