@@ -86,20 +86,6 @@ class MoveViewToNode(bpy.types.Operator):
         return {'FINISHED'}
 
 def new_function_tree(name, inputs, outputs):
-    def create_input(tree):
-        input_node = tree.nodes.new("fn_FunctionInputNode")
-        variadic = input_node.outputs[0].get_decl(input_node)
-        for data_type, name in inputs:
-            variadic.add_item(data_type, name)
-        return input_node
-
-    def create_output(tree):
-        output_node = tree.nodes.new("fn_FunctionOutputNode")
-        variadic = output_node.inputs[0].get_decl(output_node)
-        for data_type, name in outputs:
-            variadic.add_item(data_type, name)
-        return output_node
-
     tree = bpy.data.node_groups.new(name, "FunctionTree")
 
     for i, (data_type, input_name) in enumerate(inputs):
