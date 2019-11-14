@@ -16,6 +16,9 @@ class DirectedGraph:
             self.neighbors[v1].add(v2)
             self.neighbors[v2].add(v1)
 
+    def inverted(self):
+        return DirectedGraph(self.V, [(v2, v1) for v1, v2 in self.E])
+
     def reachable(self, start_verts):
         return self._reachable(start_verts, self.outgoing)
 

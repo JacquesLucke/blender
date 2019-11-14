@@ -2,6 +2,7 @@ import bpy
 from collections import namedtuple
 
 from . base import BaseTree, BaseNode
+from . graph import DirectedGraphBuilder, DirectedGraph
 
 class FunctionTree(bpy.types.NodeTree, BaseTree):
     bl_idname = "FunctionTree"
@@ -18,9 +19,33 @@ class FunctionTree(bpy.types.NodeTree, BaseTree):
         sorted_output_nodes = sorted(output_nodes, key=lambda node: (node.sort_index, node.name))
         return sorted_output_nodes
 
-    def iter_dependency_trees(self):
+    def get_directly_used_trees(self):
         trees = set()
         for node in self.nodes:
             if isinstance(node, BaseNode):
-                trees.update(node.iter_dependency_trees())
-        yield from trees
+                trees.update(node.iter_directly_used_trees())
+        return trees
+
+    @staticmethod
+    def BuildTreeCallGraph() -> DirectedGraph:
+        '''
+        Every vertex is a tree.
+        Every edge (A, B) means: Tree A uses tree B.
+        '''
+        builder = DirectedGraphBuilder()
+        for tree in bpy.data.node_groups:
+            if isinstance(tree, FunctionTree):
+                builder.add_vertex(tree)
+                for dependency_tree in tree.get_directly_used_trees():
+                    builder.add_directed_edge(
+                        from_v=tree,
+                        to_v=dependency_tree)
+        return builder.build()
+
+    @staticmethod
+    def BuildInvertedCallGraph() -> DirectedGraph:
+        '''
+        Builds a directed graph in which every tree is a vertex.
+        Every edge (A, B) means: Changes in A might affect B.
+        '''
+        return FunctionTree.BuildTreeCallGraph().inverted()

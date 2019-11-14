@@ -91,9 +91,14 @@ class GroupNode(bpy.types.Node, FunctionNode):
                 output_node.data_type)
 
     def draw(self, layout):
-        layout.prop(self, "node_group", text="")
+        text = "Select Group" if self.node_group is None else self.node_group.name
+        layout.scale_y = 1.3
+        self.invoke_group_selector(layout, "set_group", text, icon="NODETREE")
 
-    def iter_dependency_trees(self):
+    def set_group(self, group):
+        self.node_group = group
+
+    def iter_directly_used_trees(self):
         if self.node_group is not None:
             yield self.node_group
 

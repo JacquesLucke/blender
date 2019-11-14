@@ -3,6 +3,7 @@ from pprint import pprint
 from . base import BaseNode
 from . tree_data import TreeData
 from . graph import DirectedGraphBuilder
+from . function_tree import FunctionTree
 from contextlib import contextmanager
 
 _is_syncing = False
@@ -61,27 +62,10 @@ def iter_trees_to_sync_in_order(trees):
         # can happen after undo or on load
         return
 
-    dependency_graph = build_tree_dependency_graph()
+    dependency_graph = FunctionTree.BuildInvertedCallGraph()
     all_trees_to_sync = dependency_graph.reachable(trees)
     trees_in_sync_order = dependency_graph.toposort_partial(all_trees_to_sync)
     yield from trees_in_sync_order
-
-def build_tree_dependency_graph():
-    '''
-    Builds a directed graph in which every tree is a vertex.
-    Every edge (A, B) means: Changes in A might affect B.
-    '''
-    from . function_tree import FunctionTree
-
-    builder = DirectedGraphBuilder()
-    for tree in bpy.data.node_groups:
-        if isinstance(tree, FunctionTree):
-            builder.add_vertex(tree)
-            for dependency_tree in tree.iter_dependency_trees():
-                builder.add_directed_edge(
-                    from_v=dependency_tree,
-                    to_v=tree)
-    return builder.build()
 
 
 # Rebuild already outdated nodes

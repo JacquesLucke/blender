@@ -119,7 +119,7 @@ class BaseNode:
     def draw_advanced(self, layout):
         pass
 
-    def iter_dependency_trees(self):
+    def iter_directly_used_trees(self):
         return
         yield
 
@@ -137,6 +137,13 @@ class BaseNode:
         props = layout.operator("fn.node_data_type_selector", text=text, icon=icon)
         self._set_common_invoke_props(props, function_name, settings)
         props.mode = mode
+
+    def invoke_group_selector(self,
+            layout, function_name, text,
+            *, icon="NONE", settings=tuple()):
+        assert isinstance(settings, tuple)
+        props = layout.operator("fn.node_group_selector", text=text, icon=icon)
+        self._set_common_invoke_props(props, function_name, settings)
 
     def _set_common_invoke_props(self, props, function_name, settings):
         props.tree_name = self.id_data.name

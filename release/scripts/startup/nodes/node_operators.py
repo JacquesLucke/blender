@@ -1,6 +1,7 @@
 import bpy
 from bpy.props import *
 from . types import type_infos
+from . function_tree import FunctionTree
 
 def try_find_node(tree_name, node_name):
     tree = bpy.data.node_groups.get(tree_name)
@@ -60,6 +61,36 @@ class NodeDataTypeSelector(bpy.types.Operator, NodeOperatorBase):
 
     def execute(self, context):
         return self.call(self.item)
+
+class NodeGroupSelector(bpy.types.Operator, NodeOperatorBase):
+    bl_idname = "fn.node_group_selector"
+    bl_label = "Node Group Selector"
+    bl_options = {'INTERNAL'}
+    bl_property = "item"
+
+    def get_items(self, context):
+        tree = bpy.data.node_groups.get(self.tree_name)
+        used_by_trees = FunctionTree.BuildInvertedCallGraph().reachable(tree)
+
+        items = []
+        for tree in bpy.data.node_groups:
+            if isinstance(tree, FunctionTree):
+                if tree not in used_by_trees:
+                    items.append((tree.name, tree.name, ""))
+        items.append(("NONE", "None", ""))
+        return items
+
+    item: EnumProperty(items=get_items)
+
+    def invoke(self, context, event):
+        context.window_manager.invoke_search_popup(self)
+        return {'CANCELLED'}
+
+    def execute(self, context):
+        if self.item == "NONE":
+            return self.call(None)
+        else:
+            return self.call(bpy.data.node_groups.get(self.item))
 
 class MoveViewToNode(bpy.types.Operator):
     bl_idname = "fn.move_view_to_node"
