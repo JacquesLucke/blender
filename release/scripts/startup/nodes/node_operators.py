@@ -101,10 +101,21 @@ def new_function_tree(name, inputs, outputs):
         return output_node
 
     tree = bpy.data.node_groups.new(name, "FunctionTree")
-    input_node = create_input(tree)
-    output_node = create_output(tree)
-    input_node.location.x = -200 - input_node.width
-    output_node.location.x = 200
+
+    for i, (data_type, input_name) in enumerate(inputs):
+        input_node = tree.nodes.new("fn_GroupDataInputNode")
+        input_node.sort_index = i
+        input_node.input_name = input_name
+        input_node.data_type = data_type
+        input_node.location = (-200, -i * 130)
+
+    for i, (data_type, output_name) in enumerate(outputs):
+        output_node = tree.nodes.new("fn_GroupDataOutputNode")
+        output_node.sort_index = i
+        output_node.output_name = output_name
+        output_node.data_type = data_type
+        output_node.location = (200, -i * 130)
+
     tree.sync()
     return tree
 

@@ -144,6 +144,13 @@ class VTreeMFNetwork {
     return socket;
   }
 
+  const MFOutputSocket &lookup_dummy_socket(const VOutputSocket &vsocket) const
+  {
+    const MFOutputSocket &socket = this->lookup_socket(vsocket);
+    BLI_assert(socket.node().is_dummy());
+    return socket;
+  }
+
   const MFOutputSocket &lookup_socket(const VOutputSocket &vsocket) const
   {
     return m_socket_map.lookup_socket(vsocket);

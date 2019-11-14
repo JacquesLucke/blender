@@ -36,6 +36,11 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return m_vtree;
   }
 
+  ResourceCollector &resources()
+  {
+    return m_resources;
+  }
+
   MFBuilderFunctionNode &add_function(const MultiFunction &function,
                                       ArrayRef<uint> input_param_indices,
                                       ArrayRef<uint> output_param_indices);

@@ -3,6 +3,7 @@
 
 #include "BLI_math_cxx.h"
 #include "BLI_string_map.h"
+#include "BLI_string.h"
 
 #include "mappings.h"
 #include "builder.h"
@@ -124,28 +125,39 @@ std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const Virt
   return vtree_network;
 }
 
+static bool cmp_group_interface_nodes(const VNode *a, const VNode *b)
+{
+  int a_index = RNA_int_get(a->rna(), "sort_index");
+  int b_index = RNA_int_get(b->rna(), "sort_index");
+  if (a_index < b_index) {
+    return true;
+  }
+
+  /* TODO: Match sorting with Python. */
+  return BLI_strcasecmp(a->name().data(), b->name().data()) == -1;
+}
+
 std::unique_ptr<MF_EvaluateNetwork> generate_vtree_multi_function(const VirtualNodeTree &vtree,
                                                                   ResourceCollector &resources)
 {
   std::unique_ptr<VTreeMFNetwork> network = generate_vtree_multi_function_network(vtree,
                                                                                   resources);
 
-  auto input_vnodes = vtree.nodes_with_idname("fn_FunctionInputNode");
-  auto output_vnodes = vtree.nodes_with_idname("fn_FunctionOutputNode");
+  Vector<const VNode *> input_vnodes = vtree.nodes_with_idname("fn_GroupDataInputNode");
+  Vector<const VNode *> output_vnodes = vtree.nodes_with_idname("fn_GroupDataOutputNode");
+
+  std::sort(input_vnodes.begin(), input_vnodes.end(), cmp_group_interface_nodes);
+  std::sort(output_vnodes.begin(), output_vnodes.end(), cmp_group_interface_nodes);
 
   Vector<const MFOutputSocket *> function_inputs;
   Vector<const MFInputSocket *> function_outputs;
 
-  if (input_vnodes.size() == 1) {
-    auto vsockets = input_vnodes.first()->outputs().drop_back(1);
-    function_inputs.append_n_times(nullptr, vsockets.size());
-    network->lookup_dummy_sockets(vsockets, function_inputs);
+  for (const VNode *vnode : input_vnodes) {
+    function_inputs.append(&network->lookup_dummy_socket(vnode->output(0)));
   }
 
-  if (output_vnodes.size() == 1) {
-    auto vsockets = output_vnodes.first()->inputs().drop_back(1);
-    function_outputs.append_n_times(nullptr, vsockets.size());
-    network->lookup_dummy_sockets(vsockets, function_outputs);
+  for (const VNode *vnode : output_vnodes) {
+    function_outputs.append(&network->lookup_dummy_socket(vnode->input(0)));
   }
 
   auto function = BLI::make_unique<MF_EvaluateNetwork>(std::move(function_inputs),

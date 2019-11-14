@@ -2,6 +2,7 @@
 #include "builder.h"
 
 #include "FN_multi_functions.h"
+#include "FN_vtree_multi_function_network_generation.h"
 
 #include "BLI_math_cxx.h"
 
@@ -521,6 +522,29 @@ static void INSERT_map_range(VTreeMFNetworkBuilder &builder, const VNode &vnode)
   }
 }
 
+static void INSERT_group_node(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  bNodeTree *btree = (bNodeTree *)RNA_pointer_get(vnode.rna(), "node_group").data;
+  if (btree == nullptr) {
+    BLI_assert(vnode.inputs().size() == 0);
+    BLI_assert(vnode.outputs().size() == 0);
+    return;
+  }
+
+  BKE::VirtualNodeTreeBuilder vtree_builder;
+  vtree_builder.add_all_of_node_tree(btree);
+  auto vtree = vtree_builder.build();
+
+  std::unique_ptr<MF_EvaluateNetwork> fn = generate_vtree_multi_function(*vtree,
+                                                                         builder.resources());
+  builder.add_function(*fn,
+                       IndexRange(vnode.inputs().size()).as_array_ref(),
+                       IndexRange(vnode.inputs().size(), vnode.outputs().size()).as_array_ref(),
+                       vnode);
+  builder.resources().add(std::move(vtree), "VTree for Group");
+  builder.resources().add(std::move(fn), "Function for Group");
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
@@ -543,6 +567,7 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_ClosestPointOnObjectNode", INSERT_closest_point_on_object);
   mappings.vnode_inserters.add_new("fn_MapRangeNode", INSERT_map_range);
   mappings.vnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
+  mappings.vnode_inserters.add_new("fn_GroupNode", INSERT_group_node);
 
   mappings.vnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
   mappings.vnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);

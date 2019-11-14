@@ -31,9 +31,9 @@ class NewDeformationFunction(bpy.types.Operator, ModifierOperator):
             ("Vector", "New Position"),
         ])
 
-        input_node = tree.get_input_node()
-        output_node = tree.get_output_node()
-        tree.new_link(input_node.outputs[0], output_node.inputs[0])
+        tree.new_link(
+            tree.get_input_nodes()[0].outputs[0],
+            tree.get_output_nodes()[0].inputs[0])
 
         mod.function_tree = tree
         return {'FINISHED'}
