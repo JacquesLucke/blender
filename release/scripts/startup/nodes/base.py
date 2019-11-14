@@ -64,7 +64,6 @@ class BaseNode:
             builder = self.get_node_builder()
             builder.initialize_decls()
             builder.build()
-            builder.init_defaults()
 
     @classmethod
     def get_search_terms(cls):

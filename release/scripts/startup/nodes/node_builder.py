@@ -41,18 +41,16 @@ class NodeBuilder:
             for decl in self.input_declarations:
                 sockets = decl.build(self.node.inputs)
                 assert len(sockets) == decl.amount()
+                decl.init_default(sockets)
 
             for decl in self.output_declarations:
                 sockets = decl.build(self.node.outputs)
                 assert len(sockets) == decl.amount()
+                decl.init_default(sockets)
 
             if self._background_color is not None:
                 self.node.use_custom_color = True
                 self.node.color = self._background_color
-
-    def init_defaults(self):
-        for decl, sockets in self.get_sockets_decl_map().iter_decl_with_sockets():
-            decl.init_default(sockets)
 
     def get_sockets_decl_map(self):
         return SocketDeclMap(

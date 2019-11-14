@@ -31,6 +31,10 @@ class GroupDataInputNode(bpy.types.Node, GroupInputNode):
 
     def draw(self, layout):
         layout.prop(self, "input_name", text="")
+
+        if hasattr(self.outputs[0], "draw_property"):
+            self.outputs[0].draw_property(layout, self, "Default")
+
         self.invoke_type_selection(layout, "set_type", "Select Type")
 
     def set_type(self, data_type):
@@ -77,7 +81,8 @@ class GroupNode(bpy.types.Node, FunctionNode):
             builder.fixed_input(
                 input_node.identifier,
                 input_node.input_name,
-                input_node.data_type)
+                input_node.data_type,
+                default=input_node.outputs[0].get_state())
 
         for output_node in self.node_group.get_output_nodes():
             builder.fixed_output(
