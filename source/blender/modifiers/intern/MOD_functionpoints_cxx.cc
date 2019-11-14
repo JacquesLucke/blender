@@ -40,9 +40,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)fpmd->function_tree);
 
-  BKE::VirtualNodeTreeBuilder vtree_builder;
-  vtree_builder.add_all_of_node_tree(btree);
-  auto vtree = vtree_builder.build();
+  auto vtree = VirtualNodeTree::FromBTree(btree);
 
   BLI::ResourceCollector resources;
   auto function = FN::generate_vtree_multi_function(*vtree, resources);

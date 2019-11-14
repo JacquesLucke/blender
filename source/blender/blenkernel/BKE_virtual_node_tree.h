@@ -1,5 +1,5 @@
-#ifndef __BKE_VIRTUAL_NODE_TREE_CXX_H__
-#define __BKE_VIRTUAL_NODE_TREE_CXX_H__
+#ifndef __BKE_VIRTUAL_NODE_TREE_H__
+#define __BKE_VIRTUAL_NODE_TREE_H__
 
 #include "BLI_vector.h"
 #include "BLI_utility_mixins.h"
@@ -22,111 +22,11 @@ using BLI::StringRef;
 using BLI::StringRefNull;
 using BLI::Vector;
 
-class VBSocket;
-class VBInputSocket;
-class VBOutputSocket;
-class VBNode;
-class VBRealNode;
-class VirtualNodeTreeBuilder;
-
 class VSocket;
 class VInputSocket;
 class VOutputSocket;
 class VNode;
 class VirtualNodeTree;
-
-/* Virtual Node Tree Builder declarations
- *********************************************/
-
-class VBSocket : BLI::NonCopyable, BLI::NonMovable {
- protected:
-  VBNode *m_node;
-  bool m_is_input;
-  bNodeSocket *m_bsocket;
-  bNodeTree *m_btree;
-  uint m_id;
-  uint m_index;
-
-  friend VirtualNodeTreeBuilder;
-
- public:
-  bNodeSocket *bsocket();
-  bNodeTree *btree();
-
-  VBNode &node();
-
-  bool is_input();
-  bool is_output();
-
-  VBInputSocket &as_input();
-  VBOutputSocket &as_output();
-
-  uint id();
-};
-
-class VBInputSocket final : public VBSocket {
- public:
-};
-
-class VBOutputSocket final : public VBSocket {
- public:
-};
-
-class VBNode : BLI::NonCopyable, BLI::NonMovable {
- protected:
-  VirtualNodeTreeBuilder *m_vtree;
-  Vector<VBInputSocket *> m_inputs;
-  Vector<VBOutputSocket *> m_outputs;
-  bNode *m_bnode;
-  bNodeTree *m_btree;
-  uint m_id;
-
-  friend VirtualNodeTreeBuilder;
-
- public:
-  VirtualNodeTreeBuilder &vtree();
-  bNode *bnode();
-  bNodeTree *btree();
-  uint id();
-
-  ArrayRef<VBInputSocket *> inputs();
-  ArrayRef<VBOutputSocket *> outputs();
-};
-
-class VBLink : BLI::NonCopyable, BLI::NonMovable {
- private:
-  VBOutputSocket *m_from;
-  VBInputSocket *m_to;
-
-  friend VirtualNodeTreeBuilder;
-};
-
-class VirtualNodeTreeBuilder : BLI::NonCopyable, BLI::NonMovable {
- private:
-  BLI::MonotonicAllocator<> m_allocator;
-  Vector<VBNode *> m_nodes_by_id;
-  Vector<VBSocket *> m_sockets_by_id;
-  Vector<VBInputSocket *> m_input_sockets;
-  Vector<VBOutputSocket *> m_output_sockets;
-  Vector<VBLink *> m_links;
-
- public:
-  ~VirtualNodeTreeBuilder();
-
-  VBNode &add_node(bNodeTree *btree, bNode *bnode);
-  void add_link(VBOutputSocket &from, VBInputSocket &to);
-
-  void add_all_of_node_tree(bNodeTree *btree);
-
-  std::unique_ptr<VirtualNodeTree> build();
-
- private:
-  void build__copy_nodes_and_sockets(VirtualNodeTree &vtree);
-  void build__copy_direct_links(VirtualNodeTree &vtree);
-  void build__setup_links_skipping_reroutes(VirtualNodeTree &vtree);
-  void build__find_targets_skipping_reroutes(VOutputSocket &vsocket, Vector<VSocket *> &r_targets);
-  void build__create_idname_to_nodes_mapping(VirtualNodeTree &vtree);
-};
 
 /* Virtual Node Tree declarations
  ******************************************/
@@ -143,7 +43,7 @@ class VSocket : BLI::NonCopyable, BLI::NonMovable {
   PointerRNA m_rna;
   uint m_index;
 
-  friend VirtualNodeTreeBuilder;
+  friend VirtualNodeTree;
 
  public:
   ArrayRef<const VSocket *> linked_sockets() const;
@@ -192,7 +92,7 @@ class VNode : BLI::NonCopyable, BLI::NonMovable {
   uint m_id;
   PointerRNA m_rna;
 
-  friend VirtualNodeTreeBuilder;
+  friend VirtualNodeTree;
 
  public:
   ArrayRef<const VInputSocket *> inputs() const;
@@ -215,16 +115,18 @@ class VNode : BLI::NonCopyable, BLI::NonMovable {
 class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
  private:
   BLI::MonotonicAllocator<> m_allocator;
-  Array<VNode *> m_nodes_by_id;
-  Array<VSocket *> m_sockets_by_id;
+  Vector<VNode *> m_nodes_by_id;
+  Vector<VSocket *> m_sockets_by_id;
   Vector<VInputSocket *> m_input_sockets;
   Vector<VOutputSocket *> m_output_sockets;
   StringMap<Vector<VNode *>> m_nodes_by_idname;
 
-  friend VirtualNodeTreeBuilder;
+  VirtualNodeTree() = default;
 
  public:
   ~VirtualNodeTree();
+
+  static std::unique_ptr<VirtualNodeTree> FromBTree(bNodeTree *btree);
 
   ArrayRef<const VNode *> nodes() const;
   ArrayRef<const VNode *> nodes_with_idname(StringRef idname) const;
@@ -234,82 +136,10 @@ class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
   ArrayRef<const VInputSocket *> all_input_sockets() const;
 
   const VSocket &socket_by_id(uint id) const;
+
+ private:
+  void find_targets_skipping_reroutes(VOutputSocket &vsocket, Vector<VSocket *> &r_targets);
 };
-
-/* Virtual Node Tree Builder inline functions
- ****************************************************/
-
-inline VBNode &VBSocket::node()
-{
-  return *m_node;
-}
-
-inline bool VBSocket::is_input()
-{
-  return m_is_input;
-}
-
-inline bool VBSocket::is_output()
-{
-  return !m_is_input;
-}
-
-inline bNodeSocket *VBSocket::bsocket()
-{
-  return m_bsocket;
-}
-
-inline bNodeTree *VBSocket::btree()
-{
-  return m_btree;
-}
-
-inline uint VBSocket::id()
-{
-  return m_id;
-}
-
-inline VBInputSocket &VBSocket::as_input()
-{
-  BLI_assert(this->is_input());
-  return *(VBInputSocket *)this;
-}
-
-inline VBOutputSocket &VBSocket::as_output()
-{
-  BLI_assert(this->is_output());
-  return *(VBOutputSocket *)this;
-}
-
-inline ArrayRef<VBInputSocket *> VBNode::inputs()
-{
-  return m_inputs;
-}
-
-inline ArrayRef<VBOutputSocket *> VBNode::outputs()
-{
-  return m_outputs;
-}
-
-inline VirtualNodeTreeBuilder &VBNode::vtree()
-{
-  return *m_vtree;
-}
-
-inline bNode *VBNode::bnode()
-{
-  return m_bnode;
-}
-
-inline bNodeTree *VBNode::btree()
-{
-  return m_btree;
-}
-
-inline uint VBNode::id()
-{
-  return m_id;
-}
 
 /* Virtual Node Tree inline functions
  ****************************************************/
@@ -508,4 +338,4 @@ inline const VSocket &VirtualNodeTree::socket_by_id(uint id) const
 
 }  // namespace BKE
 
-#endif /* __BKE_VIRTUAL_NODE_TREE_CXX_H__ */
+#endif /* __BKE_VIRTUAL_NODE_TREE_H__ */

@@ -783,15 +783,12 @@ static void collect_influences(VTreeData &vtree_data,
 
 class NodeTreeStepSimulator : public StepSimulator {
  private:
-  bNodeTree *m_btree;
   std::unique_ptr<VirtualNodeTree> m_vtree;
 
  public:
-  NodeTreeStepSimulator(bNodeTree *btree) : m_btree(btree)
+  NodeTreeStepSimulator(bNodeTree *btree)
   {
-    BKE::VirtualNodeTreeBuilder vtree_builder;
-    vtree_builder.add_all_of_node_tree(btree);
-    m_vtree = vtree_builder.build();
+    m_vtree = VirtualNodeTree::FromBTree(btree);
   }
 
   void simulate(SimulationState &simulation_state) override

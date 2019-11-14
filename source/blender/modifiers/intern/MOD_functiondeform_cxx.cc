@@ -43,9 +43,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
 
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)fdmd->function_tree);
 
-  BKE::VirtualNodeTreeBuilder vtree_builder;
-  vtree_builder.add_all_of_node_tree(btree);
-  auto vtree = vtree_builder.build();
+  auto vtree = VirtualNodeTree::FromBTree(btree);
 
   BLI::ResourceCollector resources;
   auto function = FN::generate_vtree_multi_function(*vtree, resources);
