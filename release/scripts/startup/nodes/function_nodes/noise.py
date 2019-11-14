@@ -13,3 +13,14 @@ class PerlinNoiseNode(bpy.types.Node, FunctionNode):
         builder.fixed_input("scale", "Scale", "Float", default=1)
         builder.fixed_output("noise_1d", "Noise", "Float")
         builder.fixed_output("noise_3d", "Noise", "Vector")
+
+
+class RandomFloatNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_RandomFloatNode"
+    bl_label = "Random Float"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("seed", "Seed", "Integer")
+        builder.fixed_input("min", "Min", "Float", default=0)
+        builder.fixed_input("max", "Max", "Float", default=1)
+        builder.fixed_output("value", "Value", "Float")

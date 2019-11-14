@@ -705,4 +705,27 @@ void MF_Clamp::call(MFMask mask, MFParams params, MFContext UNUSED(context)) con
   }
 }
 
+MF_RandomFloat::MF_RandomFloat()
+{
+  MFSignatureBuilder signature("Random Float");
+  signature.readonly_single_input<int>("Seed");
+  signature.readonly_single_input<float>("Min");
+  signature.readonly_single_input<float>("Max");
+  signature.single_output<float>("Value");
+  this->set_signature(signature);
+}
+
+void MF_RandomFloat::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  VirtualListRef<int> seeds = params.readonly_single_input<int>(0, "Seed");
+  VirtualListRef<float> min_values = params.readonly_single_input<float>(1, "Min");
+  VirtualListRef<float> max_values = params.readonly_single_input<float>(2, "Max");
+  MutableArrayRef<float> r_values = params.uninitialized_single_output<float>(3, "Value");
+
+  for (uint i : mask.indices()) {
+    float value = BLI_hash_int_01(seeds[i]);
+    r_values[i] = value * (max_values[i] - min_values[i]) + min_values[i];
+  }
+}
+
 }  // namespace FN

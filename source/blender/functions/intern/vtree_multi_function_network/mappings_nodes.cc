@@ -543,6 +543,12 @@ static void INSERT_group_node(VTreeMFNetworkBuilder &builder, const VNode &vnode
   builder.resources().add(std::move(fn), "Function for Group");
 }
 
+static void INSERT_random_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+{
+  const MultiFunction &fn = builder.construct_fn<MF_RandomFloat>();
+  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+}
+
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.vnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
@@ -566,6 +572,7 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_MapRangeNode", INSERT_map_range);
   mappings.vnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
   mappings.vnode_inserters.add_new("fn_GroupNode", INSERT_group_node);
+  mappings.vnode_inserters.add_new("fn_RandomFloatNode", INSERT_random_float);
 
   mappings.vnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
   mappings.vnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);
