@@ -225,22 +225,22 @@ static void insert_simple_math_function(VTreeMFNetworkBuilder &builder,
       fn, IndexRange(list_states.size()).as_array_ref(), {list_states.size()}, vnode);
 }
 
-template<typename T> T add_func_cb(T a, T b)
+template<typename T> static T add_func_cb(T a, T b)
 {
   return a + b;
 }
 
-template<typename T> T mul_func_cb(T a, T b)
+template<typename T> static T mul_func_cb(T a, T b)
 {
   return a * b;
 }
 
-template<typename T> T min_func_cb(T a, T b)
+template<typename T> static T min_func_cb(T a, T b)
 {
   return std::min(a, b);
 }
 
-template<typename T> T max_func_cb(T a, T b)
+template<typename T> static T max_func_cb(T a, T b)
 {
   return std::max(a, b);
 }
@@ -270,12 +270,12 @@ template<typename T> T subtract_func_cb(T a, T b)
   return a - b;
 }
 
-template<typename T> T safe_divide_func_cb(T a, T b)
+template<typename T> static T safe_divide_func_cb(T a, T b)
 {
   return (b != 0) ? a / b : 0.0f;
 }
 
-template<typename T> T safe_power_func_cb(T a, T b)
+template<typename T> static T safe_power_func_cb(T a, T b)
 {
   return (a >= 0) ? (T)std::pow(a, b) : (T)0;
 }
@@ -314,22 +314,22 @@ static void insert_single_input_math_function(VTreeMFNetworkBuilder &builder, co
   builder.add_function(fn, {0}, {1}, vnode);
 }
 
-template<typename T> T safe_sqrt_func_cb(const T &a)
+template<typename T> static T safe_sqrt_func_cb(const T &a)
 {
   return (a >= 0.0) ? (T)std::sqrt(a) : 0.0f;
 }
 
-template<typename T> T abs_func_cb(const T &a)
+template<typename T> static T abs_func_cb(const T &a)
 {
   return (T)std::abs(a);
 }
 
-template<typename T> T sine_func_cb(const T &a)
+template<typename T> static T sine_func_cb(const T &a)
 {
   return (T)std::sin(a);
 }
 
-template<typename T> T cosine_func_cb(const T &a)
+template<typename T> static T cosine_func_cb(const T &a)
 {
   return (T)std::cos(a);
 }
