@@ -80,12 +80,7 @@ void CustomEvent::filter(EventFilterInterface &interface)
     }
   }
 
-  auto inputs = m_inputs_fn->compute(
-      pindices_to_check,
-      interface.attributes(),
-      ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
-                                         interface.step_end_time()),
-      nullptr);
+  auto inputs = m_inputs_fn->compute(pindices_to_check, interface.attributes(), nullptr);
 
   for (uint pindex : pindices_to_check) {
     bool condition = inputs->get<bool>("Condition", 0, pindex);

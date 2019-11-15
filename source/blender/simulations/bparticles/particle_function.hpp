@@ -61,81 +61,17 @@ struct ParticleFunctionInputArray {
   }
 };
 
-struct ParticleTimes {
- public:
-  enum Type {
-    Current,
-    DurationAndEnd,
-  };
-
- private:
-  Type m_type;
-  ArrayRef<float> m_current_times;
-  ArrayRef<float> m_remaining_durations;
-  float m_end_time;
-
-  ParticleTimes(Type type,
-                ArrayRef<float> current_times,
-                ArrayRef<float> remaining_durations,
-                float end_time)
-      : m_type(type),
-        m_current_times(current_times),
-        m_remaining_durations(remaining_durations),
-        m_end_time(end_time)
-  {
-  }
-
- public:
-  static ParticleTimes FromCurrentTimes(ArrayRef<float> current_times)
-  {
-    return ParticleTimes(Type::Current, current_times, {}, 0);
-  }
-
-  static ParticleTimes FromDurationsAndEnd(ArrayRef<float> remaining_durations, float end_time)
-  {
-    return ParticleTimes(Type::DurationAndEnd, {}, remaining_durations, end_time);
-  }
-
-  Type type()
-  {
-    return m_type;
-  }
-
-  ArrayRef<float> current_times()
-  {
-    BLI_assert(m_type == Type::Current);
-    return m_current_times;
-  }
-
-  ArrayRef<float> remaining_durations()
-  {
-    BLI_assert(m_type == Type::DurationAndEnd);
-    return m_remaining_durations;
-  }
-
-  float end_time()
-  {
-    BLI_assert(m_type == Type::DurationAndEnd);
-    return m_end_time;
-  }
-};
-
 class InputProviderInterface {
  private:
   ArrayRef<uint> m_pindices;
   AttributesRef m_attributes;
-  ParticleTimes m_particle_times;
   ActionContext *m_action_context;
 
  public:
   InputProviderInterface(ArrayRef<uint> pindices,
                          AttributesRef attributes,
-                         ParticleTimes particle_times,
                          ActionContext *action_context)
-      : m_pindices(pindices),
-        m_attributes(attributes),
-        m_particle_times(particle_times),
-        m_action_context(action_context)
+      : m_pindices(pindices), m_attributes(attributes), m_action_context(action_context)
   {
   }
 
@@ -147,11 +83,6 @@ class InputProviderInterface {
   AttributesRef attributes()
   {
     return m_attributes;
-  }
-
-  ParticleTimes &particle_times()
-  {
-    return m_particle_times;
   }
 
   ActionContext *action_context()
@@ -185,7 +116,6 @@ class ParticleFunction {
 
   std::unique_ptr<ParticleFunctionResult> compute(ArrayRef<uint> pindices,
                                                   AttributesRef attributes,
-                                                  ParticleTimes particle_times,
                                                   ActionContext *action_context);
 };
 

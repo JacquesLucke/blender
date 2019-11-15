@@ -27,43 +27,27 @@ ParticleFunction::~ParticleFunction()
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ActionInterface &interface)
 {
-  return this->compute(interface.pindices(),
-                       interface.attributes(),
-                       ParticleTimes::FromCurrentTimes(interface.current_times()),
-                       &interface.context());
+  return this->compute(interface.pindices(), interface.attributes(), &interface.context());
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
     OffsetHandlerInterface &interface)
 {
-  return this->compute(interface.pindices(),
-                       interface.attributes(),
-                       ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
-                                                          interface.step_end_time()),
-                       nullptr);
+  return this->compute(interface.pindices(), interface.attributes(), nullptr);
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ForceInterface &interface)
 {
-  return this->compute(interface.pindices(),
-                       interface.attributes(),
-                       ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
-                                                          interface.step_end_time()),
-                       nullptr);
+  return this->compute(interface.pindices(), interface.attributes(), nullptr);
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(EventFilterInterface &interface)
 {
-  return this->compute(interface.pindices(),
-                       interface.attributes(),
-                       ParticleTimes::FromDurationsAndEnd(interface.remaining_durations(),
-                                                          interface.step_end_time()),
-                       nullptr);
+  return this->compute(interface.pindices(), interface.attributes(), nullptr);
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint> pindices,
                                                                   AttributesRef attributes,
-                                                                  ParticleTimes particle_times,
                                                                   ActionContext *action_context)
 {
   uint array_size = attributes.size();
@@ -89,7 +73,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
         break;
       case FN::MFParamType::Category::ReadonlySingleInput: {
         auto *provider = m_input_providers[param_index];
-        InputProviderInterface interface(pindices, attributes, particle_times, action_context);
+        InputProviderInterface interface(pindices, attributes, action_context);
         auto optional_array = provider->get(interface);
         if (optional_array.has_value()) {
           ParticleFunctionInputArray array = optional_array.extract();
