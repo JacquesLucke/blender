@@ -401,6 +401,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
 
         delete_tagged_particles_and_reorder(*block);
       },
+      1,
       USE_THREADING);
 }
 
@@ -434,6 +435,7 @@ BLI_NOINLINE static void simulate_blocks_from_birth_to_current_time(
 
         delete_tagged_particles_and_reorder(*block);
       },
+      1,
       USE_THREADING);
 }
 

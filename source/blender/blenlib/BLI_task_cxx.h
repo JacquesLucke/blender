@@ -41,6 +41,7 @@ namespace Task {
 template<typename T, typename ProcessElement>
 static void parallel_array_elements(ArrayRef<T> array,
                                     ProcessElement process_element,
+                                    int min_iterations_per_thread,
                                     bool use_threading = true)
 {
   if (!use_threading) {
@@ -52,24 +53,26 @@ static void parallel_array_elements(ArrayRef<T> array,
 
   TaskParallelSettings settings = {0};
   BLI_parallel_range_settings_defaults(&settings);
-  settings.scheduling_mode = TASK_SCHEDULING_DYNAMIC;
+  settings.scheduling_mode = TASK_SCHEDULING_STATIC;
+  settings.min_iter_per_thread = min_iterations_per_thread;
 
   struct ParallelData {
     ArrayRef<T> array;
     ProcessElement &process_element;
   } data = {array, process_element};
 
-  BLI_task_parallel_range(0,
-                          array.size(),
-                          (void *)&data,
-                          [](void *__restrict userdata,
-                             const int index,
-                             const TaskParallelTLS *__restrict UNUSED(tls)) {
-                            ParallelData &data = *(ParallelData *)userdata;
-                            const T &element = data.array[index];
-                            data.process_element(element);
-                          },
-                          &settings);
+  BLI_task_parallel_range(
+      0,
+      array.size(),
+      (void *)&data,
+      [](void *__restrict userdata,
+         const int index,
+         const TaskParallelTLS *__restrict UNUSED(tls)) {
+        ParallelData &data = *(ParallelData *)userdata;
+        const T &element = data.array[index];
+        data.process_element(element);
+      },
+      &settings);
 }
 
 template<typename ProcessRange>
@@ -91,17 +94,18 @@ static void parallel_range(IndexRange total_range,
     ProcessRange &process_range;
   } data = {ChunkedIndexRange(total_range, chunk_size), process_range};
 
-  BLI_task_parallel_range(0,
-                          data.chunks.chunks(),
-                          (void *)&data,
-                          [](void *__restrict userdata,
-                             const int index,
-                             const TaskParallelTLS *__restrict UNUSED(tls)) {
-                            ParallelData &data = *(ParallelData *)userdata;
-                            IndexRange range = data.chunks.chunk_range(index);
-                            data.process_range(range);
-                          },
-                          &settings);
+  BLI_task_parallel_range(
+      0,
+      data.chunks.chunks(),
+      (void *)&data,
+      [](void *__restrict userdata,
+         const int index,
+         const TaskParallelTLS *__restrict UNUSED(tls)) {
+        ParallelData &data = *(ParallelData *)userdata;
+        IndexRange range = data.chunks.chunk_range(index);
+        data.process_range(range);
+      },
+      &settings);
 }
 
 }  // namespace Task
