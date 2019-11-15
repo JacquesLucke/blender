@@ -40,15 +40,15 @@ class ParticleAttributesContext : public MFElementContext {
   }
 };
 
-class ExternalObjectBVHTreesContext : public MFElementContext {
+class ExternalDataCacheContext : public MFElementContext {
  private:
   mutable Map<Object *, BVHTreeFromMesh *> m_bvh_trees;
   mutable std::mutex m_bvt_trees_mutex;
 
  public:
-  ExternalObjectBVHTreesContext() = default;
+  ExternalDataCacheContext() = default;
 
-  ~ExternalObjectBVHTreesContext()
+  ~ExternalDataCacheContext()
   {
     for (auto bvhtree : m_bvh_trees.values()) {
       if (bvhtree != nullptr) {

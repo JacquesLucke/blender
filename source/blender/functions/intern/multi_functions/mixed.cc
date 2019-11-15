@@ -609,7 +609,7 @@ MF_ClosestPointOnObject::MF_ClosestPointOnObject()
 
 void MF_ClosestPointOnObject::call(MFMask mask, MFParams params, MFContext context) const
 {
-  auto context_data = context.element_contexts().find_first<ExternalObjectBVHTreesContext>();
+  auto context_data = context.element_contexts().find_first<ExternalDataCacheContext>();
 
   VirtualListRef<Object *> objects = params.readonly_single_input<Object *>(0, "Object");
   VirtualListRef<float3> positions = params.readonly_single_input<float3>(1, "Position");
@@ -700,7 +700,7 @@ void MF_Clamp::call(MFMask mask, MFParams params, MFContext UNUSED(context)) con
   MutableArrayRef<float> r_values = params.uninitialized_single_output<float>(3, "Value");
 
   if (m_sort_minmax) {
-  for (uint i : mask.indices()) {
+    for (uint i : mask.indices()) {
       float min_v = min_values[i];
       float max_v = max_values[i];
       float value = values[i];

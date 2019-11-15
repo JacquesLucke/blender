@@ -10,6 +10,7 @@
 #include "FN_multi_functions.h"
 #include "FN_generic_tuple.h"
 #include "FN_vtree_multi_function_network_generation.h"
+#include "FN_multi_function_common_contexts.h"
 
 #include "node_frontend.hpp"
 #include "integrator.hpp"
@@ -60,6 +61,7 @@ class VTreeData {
   /* Keep this at the beginning, so that it is destructed last. */
   ResourceCollector m_resources;
   VTreeMFNetwork &m_vtree_data_graph;
+  FN::ExternalDataCacheContext m_data_cache;
 
  public:
   VTreeData(VTreeMFNetwork &vtree_data) : m_vtree_data_graph(vtree_data)
@@ -91,8 +93,8 @@ class VTreeData {
 
   ParticleFunction *particle_function_for_all_inputs(const VNode &vnode)
   {
-    Optional<std::unique_ptr<ParticleFunction>> fn = create_particle_function(vnode,
-                                                                              m_vtree_data_graph);
+    Optional<std::unique_ptr<ParticleFunction>> fn = create_particle_function(
+        vnode, m_vtree_data_graph, m_data_cache);
     if (!fn.has_value()) {
       return nullptr;
     }

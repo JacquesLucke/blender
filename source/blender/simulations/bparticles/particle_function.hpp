@@ -6,6 +6,7 @@
 #include "force_interface.hpp"
 
 #include "FN_multi_function.h"
+#include "FN_multi_function_common_contexts.h"
 
 namespace BParticles {
 
@@ -102,10 +103,12 @@ class ParticleFunction {
  private:
   std::unique_ptr<const MultiFunction> m_fn;
   Vector<ParticleFunctionInputProvider *> m_input_providers;
+  FN::ExternalDataCacheContext &m_data_cache;
 
  public:
   ParticleFunction(std::unique_ptr<const MultiFunction> fn,
-                   Vector<ParticleFunctionInputProvider *> input_providers);
+                   Vector<ParticleFunctionInputProvider *> input_providers,
+                   FN::ExternalDataCacheContext &data_cache);
 
   ~ParticleFunction();
 
