@@ -682,7 +682,7 @@ void MF_MapRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)) 
   }
 }
 
-MF_Clamp::MF_Clamp()
+MF_Clamp::MF_Clamp(bool sort_minmax) : m_sort_minmax(sort_minmax)
 {
   MFSignatureBuilder signature("Clamp");
   signature.readonly_single_input<float>("Value");
@@ -699,9 +699,26 @@ void MF_Clamp::call(MFMask mask, MFParams params, MFContext UNUSED(context)) con
   VirtualListRef<float> max_values = params.readonly_single_input<float>(2, "Max");
   MutableArrayRef<float> r_values = params.uninitialized_single_output<float>(3, "Value");
 
+  if (m_sort_minmax) {
   for (uint i : mask.indices()) {
-    float value = std::min(std::max(values[i], min_values[i]), max_values[i]);
-    r_values[i] = value;
+      float min_v = min_values[i];
+      float max_v = max_values[i];
+      float value = values[i];
+      if (min_v < max_v) {
+        r_values[i] = std::min(std::max(value, min_v), max_v);
+      }
+      else {
+        r_values[i] = std::min(std::max(value, max_v), min_v);
+      }
+    }
+  }
+  else {
+    for (uint i : mask.indices()) {
+      float min_v = min_values[i];
+      float max_v = max_values[i];
+      float value = values[i];
+      r_values[i] = std::min(std::max(value, min_v), max_v);
+    }
   }
 }
 

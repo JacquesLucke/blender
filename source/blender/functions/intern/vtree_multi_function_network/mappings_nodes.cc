@@ -498,7 +498,7 @@ static void INSERT_closest_point_on_object(VTreeMFNetworkBuilder &builder, const
 
 static void INSERT_clamp_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
-  const MultiFunction &fn = builder.construct_fn<MF_Clamp>();
+  const MultiFunction &fn = builder.construct_fn<MF_Clamp>(false);
   builder.add_function(fn, {0, 1, 2}, {3}, vnode);
 }
 
@@ -511,7 +511,7 @@ static void INSERT_map_range(VTreeMFNetworkBuilder &builder, const VNode &vnode)
   builder.map_sockets(vnode.inputs(), map_node.inputs());
 
   if (clamp) {
-    const MultiFunction &clamp_fn = builder.construct_fn<MF_Clamp>();
+    const MultiFunction &clamp_fn = builder.construct_fn<MF_Clamp>(true);
     MFBuilderFunctionNode &clamp_node = builder.add_function(clamp_fn, {0, 1, 2}, {3});
     builder.add_link(map_node.output(0), clamp_node.input(0));
     builder.map_sockets(vnode.inputs().slice(3, 2), clamp_node.inputs().slice(1, 2));

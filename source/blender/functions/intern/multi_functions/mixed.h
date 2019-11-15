@@ -206,8 +206,11 @@ class MF_MapRange final : public MultiFunction {
 };
 
 class MF_Clamp final : public MultiFunction {
+ private:
+  bool m_sort_minmax;
+
  public:
-  MF_Clamp();
+  MF_Clamp(bool sort_minmax);
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
