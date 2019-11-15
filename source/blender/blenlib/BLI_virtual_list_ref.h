@@ -102,6 +102,24 @@ template<typename T> class VirtualListRef {
     return VirtualListRef::FromRepeatedArray(array.begin(), array.size(), virtual_size);
   }
 
+  bool all_equal(ArrayRef<uint> indices) const
+  {
+    if (indices.size() == 0) {
+      return true;
+    }
+    if (m_category == Category::Single) {
+      return true;
+    }
+
+    const T &first_value = (*this)[indices.first()];
+    for (uint i : indices.drop_front(1)) {
+      if (first_value != (*this)[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   const T &operator[](uint index) const
   {
     BLI_assert(index < m_virtual_size);

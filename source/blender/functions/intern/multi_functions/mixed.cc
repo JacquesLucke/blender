@@ -607,6 +607,16 @@ MF_ClosestPointOnObject::MF_ClosestPointOnObject()
   this->set_signature(signature);
 }
 
+static BVHTreeNearest get_nearest_point(BVHTreeFromMesh *bvhtree_data, float3 point)
+{
+  BVHTreeNearest nearest = {0};
+  nearest.dist_sq = 10000000.0f;
+  nearest.index = -1;
+  BLI_bvhtree_find_nearest(
+      bvhtree_data->tree, point, &nearest, bvhtree_data->nearest_callback, (void *)bvhtree_data);
+  return nearest;
+}
+
 void MF_ClosestPointOnObject::call(MFMask mask, MFParams params, MFContext context) const
 {
   auto context_data = context.element_contexts().find_first<ExternalDataCacheContext>();
@@ -621,32 +631,53 @@ void MF_ClosestPointOnObject::call(MFMask mask, MFParams params, MFContext conte
     return;
   }
 
-  for (uint i : mask.indices()) {
-    Object *object = objects[i];
+  if (mask.indices().size() > 0 && objects.all_equal(mask.indices())) {
+    Object *object = objects[mask.indices()[0]];
     if (object == nullptr) {
-      r_points[i] = {0, 0, 0};
-      continue;
+      r_points.fill_indices(mask.indices(), {0, 0, 0});
+      return;
     }
 
     BVHTreeFromMesh *bvhtree = context_data.value().data->get_bvh_tree(object);
     if (bvhtree == nullptr) {
-      r_points[i] = {0, 0, 0};
-      continue;
-    }
-
-    BVHTreeNearest nearest = {0};
-    nearest.dist_sq = 10000000.0f;
-    nearest.index = -1;
-    BLI_bvhtree_find_nearest(
-        bvhtree->tree, positions[i], &nearest, bvhtree->nearest_callback, (void *)bvhtree);
-
-    if (nearest.index == -1) {
-      r_points[i] = {0, 0, 0};
-      continue;
+      r_points.fill_indices(mask.indices(), {0, 0, 0});
+      return;
     }
 
     float4x4 local_to_world_matrix = object->obmat;
-    r_points[i] = local_to_world_matrix.transform_position(nearest.co);
+    for (uint i : mask.indices()) {
+      BVHTreeNearest nearest = get_nearest_point(bvhtree, positions[i]);
+      if (nearest.index == -1) {
+        r_points[i] = {0, 0, 0};
+        continue;
+      }
+
+      r_points[i] = local_to_world_matrix.transform_position(nearest.co);
+    }
+  }
+  else {
+    for (uint i : mask.indices()) {
+      Object *object = objects[i];
+      if (object == nullptr) {
+        r_points[i] = {0, 0, 0};
+        continue;
+      }
+
+      BVHTreeFromMesh *bvhtree = context_data.value().data->get_bvh_tree(object);
+      if (bvhtree == nullptr) {
+        r_points[i] = {0, 0, 0};
+        continue;
+      }
+
+      BVHTreeNearest nearest = get_nearest_point(bvhtree, positions[i]);
+      if (nearest.index == -1) {
+        r_points[i] = {0, 0, 0};
+        continue;
+      }
+
+      float4x4 local_to_world_matrix = object->obmat;
+      r_points[i] = local_to_world_matrix.transform_position(nearest.co);
+    }
   }
 }
 
