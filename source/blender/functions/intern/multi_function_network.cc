@@ -61,7 +61,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
     BLI_assert(param.is_input_or_mutable());
 
     auto &input_socket = *m_allocator.construct<MFBuilderInputSocket>().release();
-    input_socket.m_type = param.as_data_type();
+    input_socket.m_type = param.data_type();
     input_socket.m_node = &node;
     input_socket.m_index = i;
     input_socket.m_is_output = false;
@@ -77,7 +77,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
     BLI_assert(param.is_output_or_mutable());
 
     auto &output_socket = *m_allocator.construct<MFBuilderOutputSocket>().release();
-    output_socket.m_type = param.as_data_type();
+    output_socket.m_type = param.data_type();
     output_socket.m_node = &node;
     output_socket.m_index = i;
     output_socket.m_is_output = true;

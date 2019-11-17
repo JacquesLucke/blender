@@ -25,8 +25,8 @@ using BLI::TemporaryArray;
 MF_AddFloats::MF_AddFloats()
 {
   MFSignatureBuilder signature("Add Floats");
-  signature.readonly_single_input<float>("A");
-  signature.readonly_single_input<float>("B");
+  signature.single_input<float>("A");
+  signature.single_input<float>("B");
   signature.single_output<float>("Result");
   this->set_signature(signature);
 }
@@ -45,8 +45,8 @@ void MF_AddFloats::call(MFMask mask, MFParams params, MFContext UNUSED(context))
 MF_AddFloat3s::MF_AddFloat3s()
 {
   MFSignatureBuilder signature("Add Float3s");
-  signature.readonly_single_input<float3>("A");
-  signature.readonly_single_input<float3>("B");
+  signature.single_input<float3>("A");
+  signature.single_input<float3>("B");
   signature.single_output<float3>("Result");
   this->set_signature(signature);
 }
@@ -65,10 +65,10 @@ void MF_AddFloat3s::call(MFMask mask, MFParams params, MFContext UNUSED(context)
 MF_CombineColor::MF_CombineColor()
 {
   MFSignatureBuilder signature("Combine Color");
-  signature.readonly_single_input<float>("R");
-  signature.readonly_single_input<float>("G");
-  signature.readonly_single_input<float>("B");
-  signature.readonly_single_input<float>("A");
+  signature.single_input<float>("R");
+  signature.single_input<float>("G");
+  signature.single_input<float>("B");
+  signature.single_input<float>("A");
   signature.single_output<rgba_f>("Color");
   this->set_signature(signature);
 }
@@ -89,7 +89,7 @@ void MF_CombineColor::call(MFMask mask, MFParams params, MFContext UNUSED(contex
 MF_SeparateColor::MF_SeparateColor()
 {
   MFSignatureBuilder signature("Separate Color");
-  signature.readonly_single_input<rgba_f>("Color");
+  signature.single_input<rgba_f>("Color");
   signature.single_output<float>("R");
   signature.single_output<float>("G");
   signature.single_output<float>("B");
@@ -117,9 +117,9 @@ void MF_SeparateColor::call(MFMask mask, MFParams params, MFContext UNUSED(conte
 MF_CombineVector::MF_CombineVector()
 {
   MFSignatureBuilder signature("Combine Vector");
-  signature.readonly_single_input<float>("X");
-  signature.readonly_single_input<float>("Y");
-  signature.readonly_single_input<float>("Z");
+  signature.single_input<float>("X");
+  signature.single_input<float>("Y");
+  signature.single_input<float>("Z");
   signature.single_output<float3>("Vector");
   this->set_signature(signature);
 }
@@ -139,7 +139,7 @@ void MF_CombineVector::call(MFMask mask, MFParams params, MFContext UNUSED(conte
 MF_SeparateVector::MF_SeparateVector()
 {
   MFSignatureBuilder signature("Separate Vector");
-  signature.readonly_single_input<float3>("Vector");
+  signature.single_input<float3>("Vector");
   signature.single_output<float>("X");
   signature.single_output<float>("Y");
   signature.single_output<float>("Z");
@@ -164,8 +164,8 @@ void MF_SeparateVector::call(MFMask mask, MFParams params, MFContext UNUSED(cont
 MF_VectorDistance::MF_VectorDistance()
 {
   MFSignatureBuilder signature("Vector Distance");
-  signature.readonly_single_input<float3>("A");
-  signature.readonly_single_input<float3>("A");
+  signature.single_input<float3>("A");
+  signature.single_input<float3>("A");
   signature.single_output<float>("Distances");
   this->set_signature(signature);
 }
@@ -184,7 +184,7 @@ void MF_VectorDistance::call(MFMask mask, MFParams params, MFContext UNUSED(cont
 MF_FloatArraySum::MF_FloatArraySum()
 {
   MFSignatureBuilder signature("Float Array Sum");
-  signature.readonly_vector_input<float>("Array");
+  signature.vector_input<float>("Array");
   signature.single_output<float>("Sum");
   this->set_signature(signature);
 }
@@ -207,9 +207,9 @@ void MF_FloatArraySum::call(MFMask mask, MFParams params, MFContext UNUSED(conte
 MF_FloatRange::MF_FloatRange()
 {
   MFSignatureBuilder signature("Float Range");
-  signature.readonly_single_input<int>("Amount");
-  signature.readonly_single_input<float>("Start");
-  signature.readonly_single_input<float>("Step");
+  signature.single_input<int>("Amount");
+  signature.single_input<float>("Start");
+  signature.single_input<float>("Step");
   signature.vector_output<float>("Range");
   this->set_signature(signature);
 }
@@ -236,7 +236,7 @@ void MF_FloatRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)
 MF_ObjectVertexPositions::MF_ObjectVertexPositions()
 {
   MFSignatureBuilder signature{"Object Vertex Positions"};
-  signature.readonly_single_input<Object *>("Object");
+  signature.single_input<Object *>("Object");
   signature.vector_output<float3>("Positions");
   this->set_signature(signature);
 }
@@ -266,7 +266,7 @@ void MF_ObjectVertexPositions::call(MFMask mask, MFParams params, MFContext UNUS
 MF_ObjectWorldLocation::MF_ObjectWorldLocation()
 {
   MFSignatureBuilder signature("Object Location");
-  signature.readonly_single_input<Object *>("Object");
+  signature.single_input<Object *>("Object");
   signature.single_output<float3>("Location");
   this->set_signature(signature);
 }
@@ -289,9 +289,9 @@ void MF_ObjectWorldLocation::call(MFMask mask, MFParams params, MFContext UNUSED
 MF_SwitchSingle::MF_SwitchSingle(const CPPType &type) : m_type(type)
 {
   MFSignatureBuilder signature("Switch");
-  signature.readonly_single_input<bool>("Condition");
-  signature.readonly_single_input("True", m_type);
-  signature.readonly_single_input("False", m_type);
+  signature.single_input<bool>("Condition");
+  signature.single_input("True", m_type);
+  signature.single_input("False", m_type);
   signature.single_output("Result", m_type);
   this->set_signature(signature);
 }
@@ -316,9 +316,9 @@ void MF_SwitchSingle::call(MFMask mask, MFParams params, MFContext UNUSED(contex
 MF_SwitchVector::MF_SwitchVector(const CPPType &type) : m_type(type)
 {
   MFSignatureBuilder signature("Switch");
-  signature.readonly_single_input<bool>("Condition");
-  signature.readonly_vector_input("True", m_type);
-  signature.readonly_vector_input("False", m_type);
+  signature.single_input<bool>("Condition");
+  signature.vector_input("True", m_type);
+  signature.vector_input("False", m_type);
   signature.vector_output("Result", m_type);
   this->set_signature(signature);
 }
@@ -343,7 +343,7 @@ void MF_SwitchVector::call(MFMask mask, MFParams params, MFContext UNUSED(contex
 MF_TextLength::MF_TextLength()
 {
   MFSignatureBuilder signature("Text Length");
-  signature.readonly_single_input<std::string>("Text");
+  signature.single_input<std::string>("Text");
   signature.single_output<int>("Length");
   this->set_signature(signature);
 }
@@ -371,26 +371,27 @@ MF_SimpleVectorize::MF_SimpleVectorize(const MultiFunction &function,
   for (uint param_index : function.param_indices()) {
     MFParamType param_type = function.param_type(param_index);
     StringRef param_name = function.param_name(param_index);
-    switch (param_type.category()) {
-      case MFParamType::ReadonlyVectorInput:
+    switch (param_type.type()) {
+      case MFParamType::VectorInput:
       case MFParamType::VectorOutput:
-      case MFParamType::MutableVector: {
+      case MFParamType::MutableVector:
+      case MFParamType::MutableSingle: {
         BLI_assert(false);
         break;
       }
-      case MFParamType::ReadonlySingleInput: {
+      case MFParamType::SingleInput: {
         BLI_assert(!found_output_param);
         if (input_is_vectorized[param_index]) {
-          signature.readonly_vector_input(param_name + " (List)", param_type.type());
+          signature.vector_input(param_name + " (List)", param_type.data_type().type());
           m_vectorized_inputs.append(param_index);
         }
         else {
-          signature.readonly_single_input(param_name, param_type.type());
+          signature.single_input(param_name, param_type.data_type().type());
         }
         break;
       }
       case MFParamType::SingleOutput: {
-        signature.vector_output(param_name + " (List)", param_type.type());
+        signature.vector_output(param_name + " (List)", param_type.data_type().type());
         m_output_indices.append(param_index);
         found_output_param = true;
         break;
@@ -433,14 +434,15 @@ void MF_SimpleVectorize::call(MFMask mask, MFParams params, MFContext context) c
 
     for (uint param_index : m_function.param_indices()) {
       MFParamType param_type = m_function.param_type(param_index);
-      switch (param_type.category()) {
-        case MFParamType::ReadonlyVectorInput:
+      switch (param_type.type()) {
+        case MFParamType::VectorInput:
         case MFParamType::VectorOutput:
-        case MFParamType::MutableVector: {
+        case MFParamType::MutableVector:
+        case MFParamType::MutableSingle: {
           BLI_assert(false);
           break;
         }
-        case MFParamType::ReadonlySingleInput: {
+        case MFParamType::SingleInput: {
           if (m_input_is_vectorized[param_index]) {
             GenericVirtualListListRef input_list_list = params.readonly_vector_input(
                 param_index, this->param_name(param_index));
@@ -519,9 +521,9 @@ void MF_ContextCurrentFrame::call(MFMask mask, MFParams params, MFContext contex
 MF_PerlinNoise_3D_to_1D::MF_PerlinNoise_3D_to_1D()
 {
   MFSignatureBuilder signature("Perlin Noise 3D to 1D");
-  signature.readonly_single_input<float3>("Position");
-  signature.readonly_single_input<float>("Amplitude");
-  signature.readonly_single_input<float>("Scale");
+  signature.single_input<float3>("Position");
+  signature.single_input<float>("Amplitude");
+  signature.single_input<float>("Scale");
   signature.single_output<float>("Noise");
   this->set_signature(signature);
 }
@@ -543,9 +545,9 @@ void MF_PerlinNoise_3D_to_1D::call(MFMask mask, MFParams params, MFContext UNUSE
 MF_PerlinNoise_3D_to_3D::MF_PerlinNoise_3D_to_3D()
 {
   MFSignatureBuilder signature("Perlin Noise 3D to 3D");
-  signature.readonly_single_input<float3>("Position");
-  signature.readonly_single_input<float>("Amplitude");
-  signature.readonly_single_input<float>("Scale");
+  signature.single_input<float3>("Position");
+  signature.single_input<float>("Amplitude");
+  signature.single_input<float>("Scale");
   signature.single_output<float3>("Noise");
   this->set_signature(signature);
 }
@@ -601,8 +603,8 @@ void MF_ParticleAttribute::call(MFMask mask, MFParams params, MFContext context)
 MF_ClosestPointOnObject::MF_ClosestPointOnObject()
 {
   MFSignatureBuilder signature("Closest Point on Object");
-  signature.readonly_single_input<Object *>("Object");
-  signature.readonly_single_input<float3>("Position");
+  signature.single_input<Object *>("Object");
+  signature.single_input<float3>("Position");
   signature.single_output<float3>("Closest Point");
   this->set_signature(signature);
 }
@@ -684,11 +686,11 @@ void MF_ClosestPointOnObject::call(MFMask mask, MFParams params, MFContext conte
 MF_MapRange::MF_MapRange()
 {
   MFSignatureBuilder signature("Map Range");
-  signature.readonly_single_input<float>("Value");
-  signature.readonly_single_input<float>("From Min");
-  signature.readonly_single_input<float>("From Max");
-  signature.readonly_single_input<float>("To Min");
-  signature.readonly_single_input<float>("To Max");
+  signature.single_input<float>("Value");
+  signature.single_input<float>("From Min");
+  signature.single_input<float>("From Max");
+  signature.single_input<float>("To Min");
+  signature.single_input<float>("To Max");
   signature.single_output<float>("Value");
   this->set_signature(signature);
 }
@@ -716,9 +718,9 @@ void MF_MapRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)) 
 MF_Clamp::MF_Clamp(bool sort_minmax) : m_sort_minmax(sort_minmax)
 {
   MFSignatureBuilder signature("Clamp");
-  signature.readonly_single_input<float>("Value");
-  signature.readonly_single_input<float>("Min");
-  signature.readonly_single_input<float>("Max");
+  signature.single_input<float>("Value");
+  signature.single_input<float>("Min");
+  signature.single_input<float>("Max");
   signature.single_output<float>("Value");
   this->set_signature(signature);
 }
@@ -756,9 +758,9 @@ void MF_Clamp::call(MFMask mask, MFParams params, MFContext UNUSED(context)) con
 MF_RandomFloat::MF_RandomFloat()
 {
   MFSignatureBuilder signature("Random Float");
-  signature.readonly_single_input<int>("Seed");
-  signature.readonly_single_input<float>("Min");
-  signature.readonly_single_input<float>("Max");
+  signature.single_input<int>("Seed");
+  signature.single_input<float>("Min");
+  signature.single_input<float>("Max");
   signature.single_output<float>("Value");
   this->set_signature(signature);
 }

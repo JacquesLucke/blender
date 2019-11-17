@@ -26,10 +26,10 @@ class MF_EvaluateNetwork final : public MultiFunction {
       MFDataType type = socket->type();
       switch (type.category()) {
         case MFDataType::Single:
-          signature.readonly_single_input("Input", type.type());
+          signature.single_input("Input", type.type());
           break;
         case MFDataType::Vector:
-          signature.readonly_vector_input("Input", type.base_type());
+          signature.vector_input("Input", type.base_type());
           break;
       }
     }
@@ -54,9 +54,10 @@ class MF_EvaluateNetwork final : public MultiFunction {
     MFMask m_mask;
     Vector<GenericVectorArray *> m_vector_arrays;
     Vector<GenericMutableArrayRef> m_arrays;
-    Map<uint, GenericVectorArray *> m_vector_per_socket;
+    Map<uint, GenericVectorArray *> m_vector_array_for_inputs;
     Map<uint, GenericVirtualListRef> m_virtual_list_for_inputs;
     Map<uint, GenericVirtualListListRef> m_virtual_list_list_for_inputs;
+    Map<uint, GenericMutableArrayRef> m_array_ref_for_inputs;
 
    public:
     Storage(MFMask mask) : m_mask(mask)
@@ -79,6 +80,16 @@ class MF_EvaluateNetwork final : public MultiFunction {
       m_arrays.append(array);
     }
 
+    void take_array_ref_ownership__not_twice(GenericMutableArrayRef array)
+    {
+      for (GenericMutableArrayRef other : m_arrays) {
+        if (other.buffer() == array.buffer()) {
+          return;
+        }
+      }
+      m_arrays.append(array);
+    }
+
     void take_vector_array_ownership(GenericVectorArray *vector_array)
     {
       m_vector_arrays.append(vector_array);
@@ -89,6 +100,12 @@ class MF_EvaluateNetwork final : public MultiFunction {
       if (!m_vector_arrays.contains(vector_array)) {
         m_vector_arrays.append(vector_array);
       }
+    }
+
+    void set_array_ref_for_input__non_owning(const MFInputSocket &socket,
+                                             GenericMutableArrayRef array)
+    {
+      m_array_ref_for_inputs.add_new(socket.id(), array);
     }
 
     void set_virtual_list_for_input__non_owning(const MFInputSocket &socket,
@@ -106,7 +123,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
     void set_vector_array_for_input__non_owning(const MFInputSocket &socket,
                                                 GenericVectorArray *vector_array)
     {
-      m_vector_per_socket.add_new(socket.id(), vector_array);
+      m_vector_array_for_inputs.add_new(socket.id(), vector_array);
     }
 
     GenericVirtualListRef get_virtual_list_for_input(const MFInputSocket &socket) const
@@ -121,7 +138,12 @@ class MF_EvaluateNetwork final : public MultiFunction {
 
     GenericVectorArray &get_vector_array_for_input(const MFInputSocket &socket) const
     {
-      return *m_vector_per_socket.lookup(socket.id());
+      return *m_vector_array_for_inputs.lookup(socket.id());
+    }
+
+    GenericMutableArrayRef get_array_ref_for_input(const MFInputSocket &socket) const
+    {
+      return m_array_ref_for_inputs.lookup(socket.id());
     }
 
     bool input_is_computed(const MFInputSocket &socket) const
@@ -131,7 +153,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
           return m_virtual_list_for_inputs.contains(socket.id());
         case MFDataType::Vector:
           return m_virtual_list_list_for_inputs.contains(socket.id()) ||
-                 m_vector_per_socket.contains(socket.id());
+                 m_vector_array_for_inputs.contains(socket.id());
       }
       BLI_assert(false);
       return false;

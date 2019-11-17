@@ -41,19 +41,22 @@ class MFSignature {
     uint vector_arrays = 0;
     for (MFParamType param_type : m_param_types) {
       uint corrected_index = 0;
-      switch (param_type.category()) {
-        case MFParamType::ReadonlySingleInput:
+      switch (param_type.type()) {
+        case MFParamType::Type::SingleInput:
           corrected_index = array_or_single_refs++;
           break;
-        case MFParamType::SingleOutput:
+        case MFParamType::Type::SingleOutput:
           corrected_index = mutable_array_refs++;
           break;
-        case MFParamType::ReadonlyVectorInput:
+        case MFParamType::Type::VectorInput:
           corrected_index = virtual_list_list_refs++;
           break;
-        case MFParamType::VectorOutput:
-        case MFParamType::MutableVector:
+        case MFParamType::Type::VectorOutput:
+        case MFParamType::Type::MutableVector:
           corrected_index = vector_arrays++;
+          break;
+        case MFParamType::Type::MutableSingle:
+          corrected_index = mutable_array_refs++;
           break;
       }
       m_corrected_indices.append(corrected_index);
@@ -72,11 +75,11 @@ class MFSignature {
 
   template<typename T> bool is_readonly_single_input(uint index, StringRef name) const
   {
-    return this->is_valid_param<T>(index, name, MFParamType::ReadonlySingleInput);
+    return this->is_valid_param<T>(index, name, MFParamType::SingleInput);
   }
   bool is_readonly_single_input(uint index, StringRef name) const
   {
-    return this->is_valid_param(index, name, MFParamType::ReadonlySingleInput);
+    return this->is_valid_param(index, name, MFParamType::SingleInput);
   }
 
   template<typename T> bool is_single_output(uint index, StringRef name) const
@@ -90,11 +93,11 @@ class MFSignature {
 
   template<typename T> bool is_readonly_vector_input(uint index, StringRef name) const
   {
-    return this->is_valid_param<T>(index, name, MFParamType::ReadonlyVectorInput);
+    return this->is_valid_param<T>(index, name, MFParamType::VectorInput);
   }
   bool is_readonly_vector_input(uint index, StringRef name) const
   {
-    return this->is_valid_param(index, name, MFParamType::ReadonlyVectorInput);
+    return this->is_valid_param(index, name, MFParamType::VectorInput);
   }
 
   template<typename T> bool is_vector_output(uint index, StringRef name) const
@@ -113,30 +116,29 @@ class MFSignature {
 
  private:
   template<typename T>
-  bool is_valid_param(uint index, StringRef name, MFParamType::Category category) const
+  bool is_valid_param(uint index, StringRef name, MFParamType::Type type) const
   {
-    if (!this->is_valid_param(index, name, category)) {
+    if (!this->is_valid_param(index, name, type)) {
       return false;
     }
-    else if (ELEM(category, MFParamType::ReadonlySingleInput, MFParamType::SingleOutput)) {
-      return CPP_TYPE<T>().is_same_or_generalization(m_param_types[index].type());
+    else if (ELEM(type, MFParamType::SingleInput, MFParamType::SingleOutput)) {
+      return CPP_TYPE<T>().is_same_or_generalization(m_param_types[index].data_type().type());
     }
-    else if (ELEM(category,
-                  MFParamType::ReadonlyVectorInput,
+    else if (ELEM(type,
+                  MFParamType::VectorInput,
                   MFParamType::VectorOutput,
                   MFParamType::MutableVector)) {
-      return CPP_TYPE<T>().is_same_or_generalization(m_param_types[index].base_type());
+      return CPP_TYPE<T>().is_same_or_generalization(m_param_types[index].data_type().base_type());
     }
     else {
       return false;
     }
   }
 
-  bool is_valid_param(uint index, StringRef name, MFParamType::Category category) const
+  bool is_valid_param(uint index, StringRef name, MFParamType::Type type) const
   {
     /* Empty name means that it should not be checked for. */
-    return (m_param_names[index] == name || name == "") &&
-           m_param_types[index].category() == category;
+    return (m_param_names[index] == name || name == "") && m_param_types[index].type() == type;
   }
 };
 
@@ -151,15 +153,31 @@ class MFSignatureBuilder {
   {
   }
 
-  template<typename T> void readonly_single_input(StringRef name)
+  /* Input Param Types */
+
+  template<typename T> void single_input(StringRef name)
   {
-    this->readonly_single_input(name, CPP_TYPE<T>());
+    this->single_input(name, CPP_TYPE<T>());
   }
-  void readonly_single_input(StringRef name, const CPPType &type)
+  void single_input(StringRef name, const CPPType &type)
+  {
+    this->input(name, MFDataType::ForSingle(type));
+  }
+  template<typename T> void vector_input(StringRef name)
+  {
+    this->vector_input(name, CPP_TYPE<T>());
+  }
+  void vector_input(StringRef name, const CPPType &base_type)
+  {
+    this->input(name, MFDataType::ForVector(base_type));
+  }
+  void input(StringRef name, MFDataType data_type)
   {
     m_param_names.append(name);
-    m_param_types.append(MFParamType(MFParamType::ReadonlySingleInput, &type));
+    m_param_types.append(MFParamType(MFParamType::Input, data_type));
   }
+
+  /* Output Param Types */
 
   template<typename T> void single_output(StringRef name)
   {
@@ -167,34 +185,36 @@ class MFSignatureBuilder {
   }
   void single_output(StringRef name, const CPPType &type)
   {
-    m_param_names.append(name);
-    m_param_types.append(MFParamType(MFParamType::SingleOutput, &type));
+    this->output(name, MFDataType::ForSingle(type));
   }
-
-  template<typename T> void readonly_vector_input(StringRef name)
-  {
-    this->readonly_vector_input(name, CPP_TYPE<T>());
-  }
-  void readonly_vector_input(StringRef name, const CPPType &base_type)
-  {
-    m_param_names.append(name);
-    m_param_types.append(MFParamType(MFParamType::ReadonlyVectorInput, &base_type));
-  }
-
   template<typename T> void vector_output(StringRef name)
   {
     this->vector_output(name, CPP_TYPE<T>());
   }
   void vector_output(StringRef name, const CPPType &base_type)
   {
-    m_param_names.append(name);
-    m_param_types.append(MFParamType(MFParamType::VectorOutput, &base_type));
+    this->output(name, MFDataType::ForVector(base_type));
   }
-
-  void mutable_vector(StringRef name, const CPPType &base_type)
+  void output(StringRef name, MFDataType data_type)
   {
     m_param_names.append(name);
-    m_param_types.append(MFParamType(MFParamType::MutableVector, &base_type));
+    m_param_types.append(MFParamType(MFParamType::Output, data_type));
+  }
+
+  /* Mutable Param Types */
+
+  void mutable_single(StringRef name, const CPPType &type)
+  {
+    this->mutable_param(name, MFDataType::ForSingle(type));
+  }
+  void mutable_vector(StringRef name, const CPPType &base_type)
+  {
+    this->mutable_param(name, MFDataType::ForVector(base_type));
+  }
+  void mutable_param(StringRef name, MFDataType data_type)
+  {
+    m_param_names.append(name);
+    m_param_types.append(MFParamType(MFParamType::Mutable, data_type));
   }
 
   MFSignature build()
@@ -308,6 +328,12 @@ class MFParamsBuilder {
   {
     BLI_assert(vector_array.size() >= m_min_array_size);
     m_vector_arrays.append(&vector_array);
+  }
+
+  void add_mutable_single(GenericMutableArrayRef array)
+  {
+    BLI_assert(array.size() >= m_min_array_size);
+    m_mutable_array_refs.append(array);
   }
 };
 

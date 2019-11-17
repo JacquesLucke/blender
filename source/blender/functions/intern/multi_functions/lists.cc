@@ -15,10 +15,10 @@ MF_PackList::MF_PackList(const CPPType &base_type, ArrayRef<bool> input_list_sta
     signature.mutable_vector("List", m_base_type);
     for (uint i = 1; i < m_input_list_status.size(); i++) {
       if (this->input_is_list(i)) {
-        signature.readonly_vector_input("List", m_base_type);
+        signature.vector_input("List", m_base_type);
       }
       else {
-        signature.readonly_single_input("Value", m_base_type);
+        signature.single_input("Value", m_base_type);
       }
     }
   }
@@ -26,10 +26,10 @@ MF_PackList::MF_PackList(const CPPType &base_type, ArrayRef<bool> input_list_sta
     /* Create a new list and append everything. */
     for (uint i = 0; i < m_input_list_status.size(); i++) {
       if (this->input_is_list(i)) {
-        signature.readonly_vector_input("List", m_base_type);
+        signature.vector_input("List", m_base_type);
       }
       else {
-        signature.readonly_single_input("Value", m_base_type);
+        signature.single_input("Value", m_base_type);
       }
     }
     signature.vector_output("List", m_base_type);
@@ -79,9 +79,9 @@ bool MF_PackList::input_is_list(uint index) const
 MF_GetListElement::MF_GetListElement(const CPPType &base_type) : m_base_type(base_type)
 {
   MFSignatureBuilder signature("Get List Element");
-  signature.readonly_vector_input("List", m_base_type);
-  signature.readonly_single_input<int>("Index");
-  signature.readonly_single_input("Fallback", m_base_type);
+  signature.vector_input("List", m_base_type);
+  signature.single_input<int>("Index");
+  signature.single_input("Fallback", m_base_type);
   signature.single_output("Value", m_base_type);
   this->set_signature(signature);
 }
@@ -110,7 +110,7 @@ void MF_GetListElement::call(MFMask mask, MFParams params, MFContext UNUSED(cont
 MF_ListLength::MF_ListLength(const CPPType &base_type) : m_base_type(base_type)
 {
   MFSignatureBuilder signature("List Length");
-  signature.readonly_vector_input("List", m_base_type);
+  signature.vector_input("List", m_base_type);
   signature.single_output<int>("Length");
   this->set_signature(signature);
 }

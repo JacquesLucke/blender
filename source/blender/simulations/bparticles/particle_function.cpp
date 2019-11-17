@@ -63,25 +63,27 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
 
   for (uint param_index : m_fn->param_indices()) {
     FN::MFParamType param_type = m_fn->param_type(param_index);
-    switch (param_type.category()) {
-      case FN::MFParamType::Category::ReadonlyVectorInput:
-      case FN::MFParamType::Category::MutableVector:
+    switch (param_type.type()) {
+      case FN::MFParamType::VectorInput:
+      case FN::MFParamType::MutableVector:
+      case FN::MFParamType::MutableSingle:
         BLI_assert(false);
         break;
-      case FN::MFParamType::Category::VectorOutput:
+      case FN::MFParamType::VectorOutput:
         /*TODO */
         BLI_assert(false);
         break;
-      case FN::MFParamType::Category::ReadonlySingleInput: {
+      case FN::MFParamType::SingleInput: {
         auto *provider = m_input_providers[param_index];
         InputProviderInterface interface(pindices, attributes, action_context);
         auto optional_array = provider->get(interface);
+        const CPPType &type = param_type.data_type().type();
         if (optional_array.has_value()) {
           ParticleFunctionInputArray array = optional_array.extract();
           BLI_assert(array.buffer != nullptr);
           BLI_assert(array.stride > 0);
 
-          GenericMutableArrayRef array_ref{param_type.type(), array.buffer, array_size};
+          GenericMutableArrayRef array_ref{type, array.buffer, array_size};
           params_builder.add_readonly_single_input(array_ref);
 
           if (array.is_newly_allocated) {
@@ -89,19 +91,19 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
           }
         }
         else {
-          uint element_size = param_type.type().size();
+          uint element_size = type.size();
           void *default_buffer = BLI_temporary_allocate(element_size * array_size);
           for (uint pindex : pindices) {
             memset(POINTER_OFFSET(default_buffer, pindex * element_size), 0, element_size);
           }
-          GenericMutableArrayRef array_ref{param_type.type(), default_buffer, array_size};
+          GenericMutableArrayRef array_ref{type, default_buffer, array_size};
           params_builder.add_readonly_single_input(array_ref);
           arrays_to_free.append(array_ref);
         }
         break;
       }
-      case FN::MFParamType::Category::SingleOutput: {
-        const CPPType &type = param_type.type();
+      case FN::MFParamType::SingleOutput: {
+        const CPPType &type = param_type.data_type().type();
         void *output_buffer = BLI_temporary_allocate(type.size() * array_size);
         params_builder.add_single_output(
             FN::GenericMutableArrayRef(type, output_buffer, array_size));

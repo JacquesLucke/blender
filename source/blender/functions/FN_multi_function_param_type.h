@@ -7,93 +7,105 @@ namespace FN {
 
 struct MFParamType {
  public:
-  enum Category {
-    ReadonlySingleInput,
+  enum InterfaceType {
+    Input,
+    Output,
+    Mutable,
+  };
+
+  enum Type {
+    SingleInput,
+    VectorInput,
     SingleOutput,
-    ReadonlyVectorInput,
     VectorOutput,
+    MutableSingle,
     MutableVector,
   };
 
- public:
-  MFParamType(Category category, const CPPType *base_type = nullptr)
-      : m_category(category), m_base_type(base_type)
+  MFParamType(InterfaceType interface_type, MFDataType data_type)
+      : m_interface_type(interface_type), m_data_type(data_type)
   {
   }
 
-  bool is_readonly_single_input() const
+  bool is_single_input() const
   {
-    return m_category == ReadonlySingleInput;
+    return m_interface_type == Input && m_data_type.is_single();
   }
 
-  bool is_readonly_vector_input() const
+  bool is_vector_input() const
   {
-    return m_category == ReadonlyVectorInput;
+    return m_interface_type == Input && m_data_type.is_vector();
+  }
+
+  bool is_mutable_single() const
+  {
+    return m_interface_type == Mutable && m_data_type.is_single();
   }
 
   bool is_mutable_vector() const
   {
-    return m_category == MutableVector;
+    return m_interface_type == Mutable && m_data_type.is_vector();
   }
 
   bool is_single_output() const
   {
-    return m_category == SingleOutput;
+    return m_interface_type == Output && m_data_type.is_single();
   }
 
   bool is_input_or_mutable() const
   {
-    return ELEM(m_category, ReadonlySingleInput, ReadonlyVectorInput, MutableVector);
+    return ELEM(m_interface_type, Input, Mutable);
   }
 
   bool is_output_or_mutable() const
   {
-    return ELEM(m_category, SingleOutput, VectorOutput, MutableVector);
+    return ELEM(m_interface_type, Output, Mutable);
   }
 
   bool is_vector_output() const
   {
-    return m_category == VectorOutput;
+    return m_interface_type == Output && m_data_type.is_vector();
   }
 
-  MFDataType as_data_type() const
+  Type type() const
   {
-    switch (m_category) {
-      case ReadonlySingleInput:
-      case SingleOutput:
-        return MFDataType::ForSingle(*m_base_type);
-      case ReadonlyVectorInput:
-      case VectorOutput:
-      case MutableVector:
-        return MFDataType::ForVector(*m_base_type);
+    if (m_data_type.is_single()) {
+      switch (m_interface_type) {
+        case InterfaceType::Input:
+          return SingleInput;
+        case InterfaceType::Output:
+          return SingleOutput;
+        case InterfaceType::Mutable:
+          return MutableSingle;
+      }
+    }
+    else if (m_data_type.is_vector()) {
+      switch (m_interface_type) {
+        case InterfaceType::Input:
+          return VectorInput;
+        case InterfaceType::Output:
+          return VectorOutput;
+        case InterfaceType::Mutable:
+          return MutableVector;
+      }
     }
     BLI_assert(false);
-    return MFDataType::ForSingle<float>();
+    return Type::MutableSingle;
   }
 
-  Category category() const
+  MFDataType data_type() const
   {
-    return m_category;
+    return m_data_type;
   }
 
-  const CPPType &type() const
+  InterfaceType interface_type() const
   {
-    BLI_assert(ELEM(m_category, Category::ReadonlySingleInput, Category::SingleOutput));
-    return *m_base_type;
-  }
-
-  const CPPType &base_type() const
-  {
-    BLI_assert(ELEM(m_category,
-                    Category::ReadonlyVectorInput,
-                    Category::VectorOutput,
-                    Category::MutableVector));
-    return *m_base_type;
+    return m_interface_type;
   }
 
  private:
-  Category m_category;
-  const CPPType *m_base_type;
+  InterfaceType m_interface_type;
+  MFDataType m_data_type;
 };
 
 }  // namespace FN

@@ -112,7 +112,7 @@ template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
   MF_Convert()
   {
     MFSignatureBuilder signature(CPP_TYPE<FromT>().name() + " to " + CPP_TYPE<ToT>().name());
-    signature.readonly_single_input<FromT>("Input");
+    signature.single_input<FromT>("Input");
     signature.single_output<ToT>("Output");
     this->set_signature(signature);
   }
@@ -220,7 +220,7 @@ class MF_Mappping final : public MultiFunction {
   MF_Mappping(StringRef name)
   {
     MFSignatureBuilder signature(name);
-    signature.readonly_single_input<FromT>("Input");
+    signature.single_input<FromT>("Input");
     signature.single_output<ToT>("Output");
     this->set_signature(signature);
   }
@@ -244,8 +244,8 @@ class MF_2In_1Out final : public MultiFunction {
   MF_2In_1Out(StringRef function_name, StringRef in1_name, StringRef in2_name, StringRef out_name)
   {
     MFSignatureBuilder signature(function_name);
-    signature.readonly_single_input<In1>(in1_name);
-    signature.readonly_single_input<In2>(in2_name);
+    signature.single_input<In1>(in1_name);
+    signature.single_input<In2>(in2_name);
     signature.single_output<Out>(out_name);
     this->set_signature(signature);
   }
@@ -270,7 +270,7 @@ template<typename T, T (*Compute)(T, T)> class MF_SimpleMath final : public Mult
     BLI_assert(input_amount >= 1);
     MFSignatureBuilder signature(name);
     for (uint i = 0; i < m_input_amount; i++) {
-      signature.readonly_single_input<T>("Input");
+      signature.single_input<T>("Input");
     }
     signature.single_output<T>("Output");
     this->set_signature(signature);

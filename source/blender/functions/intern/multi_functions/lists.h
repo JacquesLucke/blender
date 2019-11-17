@@ -55,7 +55,7 @@ template<typename FromT, typename ToT> class MF_ConvertList : public MultiFuncti
   {
     MFSignatureBuilder signature(CPP_TYPE<FromT>().name() + " List to " + CPP_TYPE<ToT>().name() +
                                  " List");
-    signature.readonly_vector_input<FromT>("Inputs");
+    signature.vector_input<FromT>("Inputs");
     signature.vector_output<ToT>("Outputs");
     this->set_signature(signature);
   }
@@ -82,7 +82,7 @@ template<typename T> class MF_SingleElementList : public MultiFunction {
   MF_SingleElementList()
   {
     MFSignatureBuilder signature("Single Element List - " + CPP_TYPE<T>().name());
-    signature.readonly_single_input<T>("Input");
+    signature.single_input<T>("Input");
     signature.vector_output<T>("Outputs");
     this->set_signature(signature);
   }

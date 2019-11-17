@@ -36,12 +36,12 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams params,
             uint param_index = target_function_node.input_param_indices()[target->index()];
             MFParamType param_type = target_function_node.function().param_type(param_index);
 
-            if (param_type.is_readonly_vector_input()) {
+            if (param_type.is_vector_input()) {
               storage.set_virtual_list_list_for_input__non_owning(*target, input_list_list);
             }
             else if (param_type.is_mutable_vector()) {
-              GenericVectorArray *vector_array = new GenericVectorArray(param_type.base_type(),
-                                                                        input_list_list.size());
+              GenericVectorArray *vector_array = new GenericVectorArray(
+                  param_type.data_type().base_type(), input_list_list.size());
               for (uint i = 0; i < input_list_list.size(); i++) {
                 vector_array->extend_single__copy(i, input_list_list[i]);
               }
@@ -121,15 +121,15 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
 
   for (uint param_index : function.param_indices()) {
     MFParamType param_type = function.param_type(param_index);
-    switch (param_type.category()) {
-      case MFParamType::ReadonlySingleInput: {
+    switch (param_type.type()) {
+      case MFParamType::SingleInput: {
         uint input_socket_index = function_node.input_param_indices().first_index(param_index);
         const MFInputSocket &input_socket = *function_node.inputs()[input_socket_index];
         GenericVirtualListRef values = storage.get_virtual_list_for_input(input_socket);
         params_builder.add_readonly_single_input(values);
         break;
       }
-      case MFParamType::ReadonlyVectorInput: {
+      case MFParamType::VectorInput: {
         uint input_socket_index = function_node.input_param_indices().first_index(param_index);
         const MFInputSocket &input_socket = *function_node.inputs()[input_socket_index];
         GenericVirtualListListRef values = storage.get_virtual_list_list_for_input(input_socket);
@@ -166,6 +166,18 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
         vector_outputs_to_forward.append({&output_socket, &values});
         break;
       }
+      case MFParamType::MutableSingle: {
+        uint input_socket_index = function_node.input_param_indices().first_index(param_index);
+        const MFInputSocket &input_socket = *function_node.inputs()[input_socket_index];
+
+        uint output_socket_index = function_node.output_param_indices().first_index(param_index);
+        const MFOutputSocket &output_socket = *function_node.outputs()[output_socket_index];
+
+        GenericMutableArrayRef values = storage.get_array_ref_for_input(input_socket);
+        params_builder.add_mutable_single(values);
+        single_outputs_to_forward.append({&output_socket, values});
+        break;
+      }
     }
   }
 
@@ -174,10 +186,34 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
   for (auto single_forward_info : single_outputs_to_forward) {
     const MFOutputSocket &output_socket = *single_forward_info.first;
     GenericMutableArrayRef values = single_forward_info.second;
-    storage.take_array_ref_ownership(values);
+    storage.take_array_ref_ownership__not_twice(values);
 
     for (const MFInputSocket *target : output_socket.targets()) {
-      storage.set_virtual_list_for_input__non_owning(*target, values);
+      const MFNode &target_node = target->node();
+      if (target_node.is_function()) {
+        const MFFunctionNode &target_function_node = target_node.as_function();
+        uint param_index = target_function_node.input_param_indices()[target->index()];
+        MFParamType param_type = target_function_node.function().param_type(param_index);
+
+        if (param_type.is_single_input()) {
+          storage.set_virtual_list_for_input__non_owning(*target, values);
+        }
+        else if (param_type.is_mutable_single()) {
+          const CPPType &type = param_type.data_type().type();
+          GenericMutableArrayRef copied_values = this->allocate_array(type, array_size);
+          for (uint i : mask.indices()) {
+            type.copy_to_uninitialized(values[i], copied_values[i]);
+          }
+          storage.take_array_ref_ownership(copied_values);
+          storage.set_array_ref_for_input__non_owning(*target, copied_values);
+        }
+        else {
+          BLI_assert(false);
+        }
+      }
+      else {
+        storage.set_virtual_list_for_input__non_owning(*target, values);
+      }
     }
   }
 
@@ -193,13 +229,13 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
         uint param_index = target_function_node.input_param_indices()[target->index()];
         MFParamType param_type = target_function_node.function().param_type(param_index);
 
-        if (param_type.is_readonly_vector_input()) {
+        if (param_type.is_vector_input()) {
           storage.set_virtual_list_list_for_input__non_owning(*target, *values);
         }
         else if (param_type.is_mutable_vector()) {
           GenericVectorArray *copied_values = new GenericVectorArray(values->type(),
                                                                      values->size());
-          for (uint i = 0; i < values->size(); i++) {
+          for (uint i : mask.indices()) {
             copied_values->extend_single__copy(i, (*values)[i]);
           }
           storage.take_vector_array_ownership(copied_values);
