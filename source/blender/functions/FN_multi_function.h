@@ -217,56 +217,87 @@ class MFParamsBuilder {
 
   template<typename T> void add_readonly_single_input(ArrayRef<T> array)
   {
-    BLI_assert(array.size() >= m_min_array_size);
-    m_virtual_list_refs.append(GenericVirtualListRef::FromFullArray<T>(array));
+    this->add_readonly_single_input(GenericVirtualListRef::FromFullArray<T>(array));
   }
 
   template<typename T> void add_readonly_single_input(const T *value)
   {
-    m_virtual_list_refs.append(
+    this->add_readonly_single_input(
         GenericVirtualListRef::FromSingle(CPP_TYPE<T>(), (void *)value, m_min_array_size));
   }
 
   void add_readonly_single_input(GenericVirtualListRef list)
   {
+    this->assert_current_param_type(MFParamType::ForSingleInput(list.type()));
     BLI_assert(list.size() >= m_min_array_size);
     m_virtual_list_refs.append(list);
   }
 
   void add_readonly_vector_input(GenericVirtualListListRef list)
   {
+    this->assert_current_param_type(MFParamType::ForVectorInput(list.type()));
     BLI_assert(list.size() >= m_min_array_size);
     m_virtual_list_list_refs.append(list);
   }
 
+  template<typename T> void add_single_output(ArrayRef<T> array)
+  {
+    BLI_assert(array.size() >= m_min_array_size);
+    this->add_single_output(GenericMutableArrayRef(array));
+  }
   void add_single_output(GenericMutableArrayRef array)
   {
+    this->assert_current_param_type(MFParamType::ForSingleOutput(array.type()));
     BLI_assert(array.size() >= m_min_array_size);
     m_mutable_array_refs.append(array);
   }
 
   void add_vector_output(GenericVectorArray &vector_array)
   {
+    this->assert_current_param_type(MFParamType::ForVectorOutput(vector_array.type()));
     BLI_assert(vector_array.size() >= m_min_array_size);
     m_vector_arrays.append(&vector_array);
   }
 
-  template<typename T> void add_single_output(ArrayRef<T> array)
-  {
-    BLI_assert(array.size() >= m_min_array_size);
-    m_mutable_array_refs.append(GenericMutableArrayRef(array));
-  }
-
   void add_mutable_vector(GenericVectorArray &vector_array)
   {
+    this->assert_current_param_type(MFParamType::ForVectorMutable(vector_array.type()));
     BLI_assert(vector_array.size() >= m_min_array_size);
     m_vector_arrays.append(&vector_array);
   }
 
   void add_mutable_single(GenericMutableArrayRef array)
   {
+    this->assert_current_param_type(MFParamType::ForSingleMutable(array.type()));
     BLI_assert(array.size() >= m_min_array_size);
     m_mutable_array_refs.append(array);
+  }
+
+ private:
+  void assert_current_param_type(MFParamType param_type) const
+  {
+    UNUSED_VARS_NDEBUG(param_type);
+#ifdef DEBUG
+    uint param_index = this->current_param_index();
+    MFParamType expected_type = m_signature->param_types()[param_index];
+    BLI_assert(expected_type == param_type);
+#endif
+  }
+
+  void assert_current_param_type(MFParamType::Type type) const
+  {
+    UNUSED_VARS_NDEBUG(type);
+#ifdef DEBUG
+    uint param_index = this->current_param_index();
+    MFParamType::Type expected_type = m_signature->param_types()[param_index].type();
+    BLI_assert(expected_type == type);
+#endif
+  }
+
+  uint current_param_index() const
+  {
+    return m_mutable_array_refs.size() + m_virtual_list_refs.size() +
+           m_virtual_list_list_refs.size() + m_vector_arrays.size();
   }
 };
 

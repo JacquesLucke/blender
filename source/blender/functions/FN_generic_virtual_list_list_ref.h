@@ -76,6 +76,11 @@ class GenericVirtualListListRef {
     return m_virtual_list_size;
   }
 
+  const CPPType &type() const
+  {
+    return *m_type;
+  }
+
   GenericVirtualListRef operator[](uint index) const
   {
     BLI_assert(index < m_virtual_list_size);
