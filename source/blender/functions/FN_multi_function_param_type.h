@@ -57,6 +57,21 @@ struct MFParamType {
     return MFParamType(InterfaceType::Mutable, MFDataType::ForVector(base_type));
   }
 
+  bool is_input() const
+  {
+    return m_interface_type == Input;
+  }
+
+  bool is_output() const
+  {
+    return m_interface_type == Output;
+  }
+
+  bool is_mutable() const
+  {
+    return m_interface_type == Mutable;
+  }
+
   bool is_single_input() const
   {
     return m_interface_type == Input && m_data_type.is_single();
