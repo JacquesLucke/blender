@@ -27,6 +27,36 @@ struct MFParamType {
   {
   }
 
+  static MFParamType ForSingleInput(const CPPType &type)
+  {
+    return MFParamType(InterfaceType::Input, MFDataType::ForSingle(type));
+  }
+
+  static MFParamType ForVectorInput(const CPPType &base_type)
+  {
+    return MFParamType(InterfaceType::Input, MFDataType::ForVector(base_type));
+  }
+
+  static MFParamType ForSingleOutput(const CPPType &type)
+  {
+    return MFParamType(InterfaceType::Output, MFDataType::ForSingle(type));
+  }
+
+  static MFParamType ForVectorOutput(const CPPType &base_type)
+  {
+    return MFParamType(InterfaceType::Output, MFDataType::ForVector(base_type));
+  }
+
+  static MFParamType ForSingleMutable(const CPPType &type)
+  {
+    return MFParamType(InterfaceType::Mutable, MFDataType::ForSingle(type));
+  }
+
+  static MFParamType ForVectorMutable(const CPPType &base_type)
+  {
+    return MFParamType(InterfaceType::Mutable, MFDataType::ForVector(base_type));
+  }
+
   bool is_single_input() const
   {
     return m_interface_type == Input && m_data_type.is_single();
@@ -101,6 +131,11 @@ struct MFParamType {
   InterfaceType interface_type() const
   {
     return m_interface_type;
+  }
+
+  friend bool operator==(MFParamType a, MFParamType b)
+  {
+    return a.m_interface_type == b.m_interface_type && a.m_data_type == b.m_data_type;
   }
 
  private:
