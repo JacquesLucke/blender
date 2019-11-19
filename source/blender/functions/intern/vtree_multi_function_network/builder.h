@@ -10,9 +10,48 @@ namespace FN {
 
 using BLI::MultiMap;
 
+class PreprocessedVTreeMFData {
+ private:
+  const VirtualNodeTree &m_vtree;
+  Array<Optional<MFDataType>> m_data_type_by_vsocket_id;
+
+ public:
+  PreprocessedVTreeMFData(const VirtualNodeTree &vtree) : m_vtree(vtree)
+  {
+    auto &mappings = get_vtree_multi_function_mappings();
+
+    m_data_type_by_vsocket_id = Array<Optional<MFDataType>>(vtree.socket_count());
+    for (const VSocket *vsocket : vtree.all_sockets()) {
+      const MFDataType *data_type = mappings.data_type_by_idname.lookup_ptr(vsocket->idname());
+      if (data_type == nullptr) {
+        m_data_type_by_vsocket_id[vsocket->id()] = {};
+      }
+      else {
+        m_data_type_by_vsocket_id[vsocket->id()] = MFDataType(*data_type);
+      }
+    }
+  }
+
+  Optional<MFDataType> try_lookup_data_type(const VSocket &vsocket) const
+  {
+    return m_data_type_by_vsocket_id[vsocket.id()];
+  }
+
+  MFDataType lookup_data_type(const VSocket &vsocket) const
+  {
+    return m_data_type_by_vsocket_id[vsocket.id()].value();
+  }
+
+  bool is_data_socket(const VSocket &vsocket) const
+  {
+    return m_data_type_by_vsocket_id[vsocket.id()].has_value();
+  }
+};
+
 class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   const VirtualNodeTree &m_vtree;
+  const PreprocessedVTreeMFData &m_preprocessed_vtree_data;
   const VTreeMultiFunctionMappings &m_vtree_mappings;
   ResourceCollector &m_resources;
 
@@ -23,11 +62,11 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   MultiMap<uint, uint> m_multiple_inputs_by_vsocket;
   static constexpr intptr_t MULTI_MAP_INDICATOR = 1;
 
-  Array<Optional<MFDataType>> m_type_by_vsocket;
   std::unique_ptr<MFNetworkBuilder> m_builder;
 
  public:
   VTreeMFNetworkBuilder(const VirtualNodeTree &vtree,
+                        const PreprocessedVTreeMFData &preprocessed_vtree_data,
                         const VTreeMultiFunctionMappings &vtree_mappings,
                         ResourceCollector &resources);
 
@@ -82,12 +121,12 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   Optional<MFDataType> try_get_data_type(const VSocket &vsocket) const
   {
-    return m_type_by_vsocket[vsocket.id()];
+    return m_preprocessed_vtree_data.try_lookup_data_type(vsocket);
   }
 
   bool is_data_socket(const VSocket &vsocket) const
   {
-    return m_type_by_vsocket[vsocket.id()].has_value();
+    return m_preprocessed_vtree_data.is_data_socket(vsocket);
   }
 
   void map_data_sockets(const VNode &vnode, MFBuilderNode &node);

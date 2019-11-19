@@ -109,8 +109,9 @@ std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const Virt
                                                                       ResourceCollector &resources)
 {
   const VTreeMultiFunctionMappings &mappings = get_vtree_multi_function_mappings();
+  PreprocessedVTreeMFData preprocessed_data{vtree};
 
-  VTreeMFNetworkBuilder builder(vtree, mappings, resources);
+  VTreeMFNetworkBuilder builder(vtree, preprocessed_data, mappings, resources);
   if (!insert_nodes(builder, mappings)) {
     BLI_assert(false);
   }

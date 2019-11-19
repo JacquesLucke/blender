@@ -2,25 +2,18 @@
 
 namespace FN {
 
-VTreeMFNetworkBuilder::VTreeMFNetworkBuilder(const VirtualNodeTree &vtree,
-                                             const VTreeMultiFunctionMappings &vtree_mappings,
-                                             ResourceCollector &resources)
+VTreeMFNetworkBuilder::VTreeMFNetworkBuilder(
+    const VirtualNodeTree &vtree,
+    const PreprocessedVTreeMFData &preprocessed_vtree_data,
+    const VTreeMultiFunctionMappings &vtree_mappings,
+    ResourceCollector &resources)
     : m_vtree(vtree),
+      m_preprocessed_vtree_data(preprocessed_vtree_data),
       m_vtree_mappings(vtree_mappings),
       m_resources(resources),
       m_single_socket_by_vsocket(vtree.socket_count(), VTreeMFSocketMap_UNMAPPED),
-      m_type_by_vsocket(vtree.socket_count()),
       m_builder(BLI::make_unique<MFNetworkBuilder>())
 {
-  for (const VSocket *vsocket : vtree.all_sockets()) {
-    const MFDataType *data_type = vtree_mappings.data_type_by_idname.lookup_ptr(vsocket->idname());
-    if (data_type == nullptr) {
-      m_type_by_vsocket[vsocket->id()] = {};
-    }
-    else {
-      m_type_by_vsocket[vsocket->id()] = MFDataType(*data_type);
-    }
-  }
 }
 
 MFBuilderFunctionNode &VTreeMFNetworkBuilder::add_function(const MultiFunction &function,
