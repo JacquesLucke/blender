@@ -128,6 +128,15 @@ TEST(string_map, LookupDefault)
   EXPECT_EQ(map.lookup_default("test", 42), 5);
 }
 
+TEST(string_map, TryLookup)
+{
+  StringMap<int> map;
+  map.add_new("test", 4);
+  EXPECT_TRUE(map.try_lookup("test").has_value());
+  EXPECT_FALSE(map.try_lookup("value").has_value());
+  EXPECT_EQ(map.try_lookup("test").value(), 4);
+}
+
 TEST(string_map, FindKeyForValue)
 {
   StringMap<int> map;

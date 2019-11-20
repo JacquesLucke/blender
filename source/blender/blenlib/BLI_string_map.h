@@ -30,6 +30,7 @@
 #include "BLI_map.h"
 #include "BLI_string_ref.h"
 #include "BLI_vector.h"
+#include "BLI_optional.h"
 
 namespace BLI {
 
@@ -261,6 +262,11 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
   T *lookup_ptr(StringRef key)
   {
     return const_cast<T *>(const_cast<const StringMap *>(this)->lookup_ptr(key));
+  }
+
+  Optional<T> try_lookup(StringRef key) const
+  {
+    return Optional<T>::FromPointer(this->lookup_ptr(key));
   }
 
   /**

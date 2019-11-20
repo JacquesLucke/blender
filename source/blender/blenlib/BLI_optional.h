@@ -35,7 +35,7 @@ template<typename T> class Optional {
   bool m_set;
 
  public:
-  static Optional FromPointer(T *ptr)
+  static Optional FromPointer(const T *ptr)
   {
     if (ptr == nullptr) {
       return Optional();
@@ -54,7 +54,7 @@ template<typename T> class Optional {
     this->reset();
   }
 
-  Optional(T &value) : Optional()
+  Optional(const T &value) : Optional()
   {
     this->set(value);
   }
