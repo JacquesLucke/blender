@@ -10,6 +10,8 @@
 
 #include "DEG_depsgraph_query.h"
 
+#include "intern/vtree_multi_function/vtree_multi_function.h"
+
 using BKE::VirtualNodeTree;
 using BKE::VNode;
 using BLI::ArrayRef;
@@ -47,6 +49,8 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
 
   BLI::ResourceCollector resources;
   auto function = FN::generate_vtree_multi_function(*vtree, resources);
+
+  FN::VTreeMultiFunction test({}, {});
 
   MFParamsBuilder params_builder(*function, numVerts);
   params_builder.add_readonly_single_input(ArrayRef<float3>((float3 *)vertexCos, numVerts));
