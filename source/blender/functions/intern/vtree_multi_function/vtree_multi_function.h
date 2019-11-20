@@ -16,7 +16,6 @@ class VTreeMultiFunction final : public MultiFunction {
   VTreeMultiFunction(Vector<const VOutputSocket *> inputs, Vector<const VInputSocket *> outputs)
       : m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
   {
-    auto &data = get_vtree_mf_mappings();
   }
 
   void call(MFMask UNUSED(mask), MFParams UNUSED(params), MFContext UNUSED(context)) const override

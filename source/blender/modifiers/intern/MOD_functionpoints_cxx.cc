@@ -40,10 +40,10 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
 
   bNodeTree *btree = (bNodeTree *)DEG_get_original_id((ID *)fpmd->function_tree);
 
-  auto vtree = VirtualNodeTree::FromBTree(btree);
+  VirtualNodeTree vtree(btree);
 
   BLI::ResourceCollector resources;
-  auto function = FN::generate_vtree_multi_function(*vtree, resources);
+  auto function = FN::generate_vtree_multi_function(vtree, resources);
 
   MFParamsBuilder params_builder(*function, 1);
   params_builder.add_readonly_single_input(&fpmd->control1);

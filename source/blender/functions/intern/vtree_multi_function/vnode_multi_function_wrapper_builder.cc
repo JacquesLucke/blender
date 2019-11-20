@@ -104,6 +104,7 @@ void VNodeMFWrapperBuilder::set_fn(const MultiFunction &fn,
 void VNodeMFWrapperBuilder::assert_valid_param_vsockets(
     const MultiFunction &fn, ArrayRef<VSocketsForMFParam> param_vsockets)
 {
+  UNUSED_VARS_NDEBUG(fn, param_vsockets);
 #ifdef DEBUG
   BLI_assert(fn.param_indices().size() == param_vsockets.size());
 

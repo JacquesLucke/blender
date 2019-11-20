@@ -785,12 +785,11 @@ static void collect_influences(VTreeData &vtree_data,
 
 class NodeTreeStepSimulator : public StepSimulator {
  private:
-  std::unique_ptr<VirtualNodeTree> m_vtree;
+  VirtualNodeTree m_vtree;
 
  public:
-  NodeTreeStepSimulator(bNodeTree *btree)
+  NodeTreeStepSimulator(bNodeTree *btree) : m_vtree(btree)
   {
-    m_vtree = VirtualNodeTree::FromBTree(btree);
   }
 
   void simulate(SimulationState &simulation_state) override
@@ -810,7 +809,7 @@ class NodeTreeStepSimulator : public StepSimulator {
 
     ResourceCollector resources;
     std::unique_ptr<VTreeMFNetwork> data_graph = FN::generate_vtree_multi_function_network(
-        *m_vtree, resources);
+        m_vtree, resources);
     if (data_graph.get() == nullptr) {
       return;
     }

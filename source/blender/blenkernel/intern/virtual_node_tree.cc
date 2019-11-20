@@ -15,12 +15,11 @@ static bool is_reroute_node(const VNode &vnode)
   return vnode.idname() == "NodeReroute";
 }
 
-std::unique_ptr<VirtualNodeTree> VirtualNodeTree::FromBTree(bNodeTree *btree)
+VirtualNodeTree::VirtualNodeTree(bNodeTree *btree) : m_btree(btree)
 {
   BLI_assert(btree != nullptr);
 
-  VirtualNodeTree *vtree_ptr = new VirtualNodeTree();
-  VirtualNodeTree &vtree = *vtree_ptr;
+  VirtualNodeTree &vtree = *this;
 
   Map<bNode *, VNode *> node_mapping;
 
@@ -29,7 +28,6 @@ std::unique_ptr<VirtualNodeTree> VirtualNodeTree::FromBTree(bNodeTree *btree)
 
     vnode.m_vtree = &vtree;
     vnode.m_bnode = bnode;
-    vnode.m_btree = btree;
     vnode.m_id = vtree.m_nodes_by_id.size();
     RNA_pointer_create(&btree->id, &RNA_Node, bnode, &vnode.m_rna);
 
@@ -40,7 +38,6 @@ std::unique_ptr<VirtualNodeTree> VirtualNodeTree::FromBTree(bNodeTree *btree)
       vsocket.m_index = vnode.m_inputs.size();
       vsocket.m_is_input = true;
       vsocket.m_bsocket = bsocket;
-      vsocket.m_btree = btree;
       vsocket.m_id = vtree.m_sockets_by_id.size();
       RNA_pointer_create(&btree->id, &RNA_NodeSocket, bsocket, &vsocket.m_rna);
 
@@ -56,7 +53,6 @@ std::unique_ptr<VirtualNodeTree> VirtualNodeTree::FromBTree(bNodeTree *btree)
       vsocket.m_index = vnode.m_outputs.size();
       vsocket.m_is_input = false;
       vsocket.m_bsocket = bsocket;
-      vsocket.m_btree = btree;
       vsocket.m_id = vtree.m_sockets_by_id.size();
       RNA_pointer_create(&btree->id, &RNA_NodeSocket, bsocket, &vsocket.m_rna);
 
@@ -98,8 +94,6 @@ std::unique_ptr<VirtualNodeTree> VirtualNodeTree::FromBTree(bNodeTree *btree)
       vtree.m_nodes_by_idname.add_new(vnode->idname(), {vnode});
     }
   }
-
-  return std::unique_ptr<VirtualNodeTree>(vtree_ptr);
 }
 
 void VirtualNodeTree::find_targets_skipping_reroutes(VOutputSocket &vsocket,

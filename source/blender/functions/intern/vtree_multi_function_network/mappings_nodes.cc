@@ -517,7 +517,7 @@ static void INSERT_group_node(VTreeMFNetworkBuilder &builder, const VNode &vnode
     return;
   }
 
-  auto vtree = VirtualNodeTree::FromBTree(btree);
+  auto vtree = BLI::make_unique<VirtualNodeTree>(btree);
 
   std::unique_ptr<MF_EvaluateNetwork> fn = generate_vtree_multi_function(*vtree,
                                                                          builder.resources());

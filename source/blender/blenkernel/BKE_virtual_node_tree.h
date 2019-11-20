@@ -38,7 +38,6 @@ class VSocket : BLI::NonCopyable, BLI::NonMovable {
   VNode *m_node;
   bool m_is_input;
   bNodeSocket *m_bsocket;
-  bNodeTree *m_btree;
   uint m_id;
   PointerRNA m_rna;
   uint m_index;
@@ -89,7 +88,6 @@ class VNode : BLI::NonCopyable, BLI::NonMovable {
   Vector<VInputSocket *> m_inputs;
   Vector<VOutputSocket *> m_outputs;
   bNode *m_bnode;
-  bNodeTree *m_btree;
   uint m_id;
   PointerRNA m_rna;
 
@@ -118,18 +116,16 @@ class VNode : BLI::NonCopyable, BLI::NonMovable {
 class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
  private:
   BLI::MonotonicAllocator<> m_allocator;
+  bNodeTree *m_btree;
   Vector<VNode *> m_nodes_by_id;
   Vector<VSocket *> m_sockets_by_id;
   Vector<VInputSocket *> m_input_sockets;
   Vector<VOutputSocket *> m_output_sockets;
   StringMap<Vector<VNode *>> m_nodes_by_idname;
 
-  VirtualNodeTree() = default;
-
  public:
+  VirtualNodeTree(bNodeTree *btree);
   ~VirtualNodeTree();
-
-  static std::unique_ptr<VirtualNodeTree> FromBTree(bNodeTree *btree);
 
   ArrayRef<const VNode *> nodes() const;
   ArrayRef<const VNode *> nodes_with_idname(StringRef idname) const;
@@ -139,6 +135,8 @@ class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
   ArrayRef<const VInputSocket *> all_input_sockets() const;
 
   const VSocket &socket_by_id(uint id) const;
+
+  bNodeTree *btree() const;
 
  private:
   void find_targets_skipping_reroutes(VOutputSocket &vsocket, Vector<VSocket *> &r_targets);
@@ -224,11 +222,6 @@ inline bNodeSocket *VSocket::bsocket() const
   return m_bsocket;
 }
 
-inline bNodeTree *VSocket::btree() const
-{
-  return m_btree;
-}
-
 inline ArrayRef<const VOutputSocket *> VInputSocket::linked_sockets() const
 {
   return ArrayRef<VSocket *>(m_linked_sockets).cast<const VOutputSocket *>();
@@ -308,7 +301,7 @@ inline bNode *VNode::bnode() const
   return m_bnode;
 }
 
-inline bNodeTree *VNode::btree() const
+inline bNodeTree *VirtualNodeTree::btree() const
 {
   return m_btree;
 }
