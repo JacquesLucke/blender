@@ -50,6 +50,7 @@ class VSocket : BLI::NonCopyable, BLI::NonMovable {
   ArrayRef<const VSocket *> directly_linked_sockets() const;
 
   const VNode &node() const;
+  const VirtualNodeTree &tree() const;
   uint id() const;
 
   bool is_input() const;
@@ -95,6 +96,8 @@ class VNode : BLI::NonCopyable, BLI::NonMovable {
   friend VirtualNodeTree;
 
  public:
+  const VirtualNodeTree &tree() const;
+
   ArrayRef<const VInputSocket *> inputs() const;
   ArrayRef<const VOutputSocket *> outputs() const;
 
@@ -152,6 +155,11 @@ inline ArrayRef<const VSocket *> VSocket::linked_sockets() const
 inline ArrayRef<const VSocket *> VSocket::directly_linked_sockets() const
 {
   return ArrayRef<VSocket *>(m_directly_linked_sockets).cast<const VSocket *>();
+}
+
+inline const VirtualNodeTree &VSocket::tree() const
+{
+  return m_node->tree();
 }
 
 inline const VNode &VSocket::node() const
@@ -249,6 +257,11 @@ inline ArrayRef<const VInputSocket *> VNode::inputs() const
 inline ArrayRef<const VOutputSocket *> VNode::outputs() const
 {
   return ArrayRef<VOutputSocket *>(m_outputs).cast<const VOutputSocket *>();
+}
+
+inline const VirtualNodeTree &VNode::tree() const
+{
+  return *m_vtree;
 }
 
 inline PointerRNA *VNode::rna() const

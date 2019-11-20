@@ -518,85 +518,81 @@ void MF_ContextCurrentFrame::call(MFMask mask, MFParams params, MFContext contex
   }
 }
 
-MF_PerlinNoise_3D_to_1D::MF_PerlinNoise_3D_to_1D()
+MF_PerlinNoise::MF_PerlinNoise()
 {
-  MFSignatureBuilder signature("Perlin Noise 3D to 1D");
+  MFSignatureBuilder signature("Perlin Noise");
   signature.single_input<float3>("Position");
   signature.single_input<float>("Amplitude");
   signature.single_input<float>("Scale");
-  signature.single_output<float>("Noise");
+  signature.single_output<float>("Noise 1D");
+  signature.single_output<float3>("Noise 3D");
   this->set_signature(signature);
 }
 
-void MF_PerlinNoise_3D_to_1D::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+void MF_PerlinNoise::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
 {
   VirtualListRef<float3> positions = params.readonly_single_input<float3>(0, "Position");
   VirtualListRef<float> amplitudes = params.readonly_single_input<float>(1, "Amplitude");
   VirtualListRef<float> scales = params.readonly_single_input<float>(2, "Scale");
-  MutableArrayRef<float> r_noise = params.uninitialized_single_output<float>(3, "Noise");
+
+  MutableArrayRef<float> r_noise1 = params.uninitialized_single_output<float>(3, "Noise 1D");
+  MutableArrayRef<float3> r_noise3 = params.uninitialized_single_output<float3>(4, "Noise 3D");
 
   for (uint i : mask.indices()) {
     float3 pos = positions[i];
     float noise = BLI_gNoise(scales[i], pos.x, pos.y, pos.z, false, 1);
-    r_noise[i] = noise * amplitudes[i];
+    r_noise1[i] = noise * amplitudes[i];
   }
-}
-
-MF_PerlinNoise_3D_to_3D::MF_PerlinNoise_3D_to_3D()
-{
-  MFSignatureBuilder signature("Perlin Noise 3D to 3D");
-  signature.single_input<float3>("Position");
-  signature.single_input<float>("Amplitude");
-  signature.single_input<float>("Scale");
-  signature.single_output<float3>("Noise");
-  this->set_signature(signature);
-}
-
-void MF_PerlinNoise_3D_to_3D::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
-{
-  VirtualListRef<float3> positions = params.readonly_single_input<float3>(0, "Position");
-  VirtualListRef<float> amplitudes = params.readonly_single_input<float>(1, "Amplitude");
-  VirtualListRef<float> scales = params.readonly_single_input<float>(2, "Scale");
-  MutableArrayRef<float3> r_noise = params.uninitialized_single_output<float3>(3, "Noise");
 
   for (uint i : mask.indices()) {
     float3 pos = positions[i];
     float x = BLI_gNoise(scales[i], pos.x, pos.y, pos.z + 1000.0f, false, 1);
     float y = BLI_gNoise(scales[i], pos.x, pos.y + 1000.0f, pos.z, false, 1);
     float z = BLI_gNoise(scales[i], pos.x + 1000.0f, pos.y, pos.z, false, 1);
-    r_noise[i] = float3(x, y, z) * amplitudes[i];
+    r_noise3[i] = float3(x, y, z) * amplitudes[i];
   }
 }
 
-MF_ParticleAttribute::MF_ParticleAttribute(StringRef attribute_name, const CPPType &attribute_type)
-    : m_attribute_name(attribute_name), m_attribute_type(attribute_type)
+MF_ParticleAttributes::MF_ParticleAttributes(Vector<std::string> attribute_names,
+                                             Vector<const CPPType *> attribute_types)
+    : m_attribute_names(attribute_names), m_attribute_types(attribute_types)
 {
-  MFSignatureBuilder signature("Particle Attribute");
-  signature.single_output(attribute_name, attribute_type);
+  BLI_assert(m_attribute_names.size() == m_attribute_types.size());
+
+  MFSignatureBuilder signature("Particle Attributes");
+  for (uint i = 0; i < m_attribute_names.size(); i++) {
+    signature.single_output(m_attribute_names[i], *m_attribute_types[i]);
+  }
   this->set_signature(signature);
 }
 
-void MF_ParticleAttribute::call(MFMask mask, MFParams params, MFContext context) const
+void MF_ParticleAttributes::call(MFMask mask, MFParams params, MFContext context) const
 {
   auto context_data = context.element_contexts().find_first<ParticleAttributesContext>();
-  GenericMutableArrayRef r_output = params.uninitialized_single_output(0, m_attribute_name);
 
-  if (context_data.has_value()) {
-    AttributesRef attributes = context_data.value().data->attributes;
-    Optional<GenericMutableArrayRef> opt_array = attributes.try_get(m_attribute_name,
-                                                                    m_attribute_type);
-    if (opt_array.has_value()) {
-      GenericMutableArrayRef array = opt_array.value();
-      for (uint i : mask.indices()) {
-        m_attribute_type.copy_to_uninitialized(array[i], r_output[i]);
+  for (uint i = 0; i < m_attribute_names.size(); i++) {
+    StringRef attribute_name = m_attribute_names[i];
+    const CPPType &attribute_type = *m_attribute_types[i];
+
+    GenericMutableArrayRef r_output = params.uninitialized_single_output(0, attribute_name);
+
+    if (context_data.has_value()) {
+      AttributesRef attributes = context_data.value().data->attributes;
+      Optional<GenericMutableArrayRef> opt_array = attributes.try_get(attribute_name,
+                                                                      attribute_type);
+      if (opt_array.has_value()) {
+        GenericMutableArrayRef array = opt_array.value();
+        for (uint i : mask.indices()) {
+          attribute_type.copy_to_uninitialized(array[i], r_output[i]);
+        }
+        return;
       }
-      return;
     }
-  }
 
-  /* Fallback */
-  for (uint i : mask.indices()) {
-    m_attribute_type.construct_default(r_output[i]);
+    /* Fallback */
+    for (uint i : mask.indices()) {
+      attribute_type.construct_default(r_output[i]);
+    }
   }
 }
 
@@ -683,7 +679,7 @@ void MF_ClosestPointOnObject::call(MFMask mask, MFParams params, MFContext conte
   }
 }
 
-MF_MapRange::MF_MapRange()
+MF_MapRange::MF_MapRange(bool clamp) : m_clamp(clamp)
 {
   MFSignatureBuilder signature("Map Range");
   signature.single_input<float>("Value");
@@ -711,6 +707,20 @@ void MF_MapRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)) 
     }
     else {
       r_values[i] = to_min[i];
+    }
+  }
+
+  if (m_clamp) {
+    for (uint i : mask.indices()) {
+      float min_v = to_min[i];
+      float max_v = to_max[i];
+      float value = r_values[i];
+      if (min_v < max_v) {
+        r_values[i] = std::min(std::max(value, min_v), max_v);
+      }
+      else {
+        r_values[i] = std::min(std::max(value, max_v), min_v);
+      }
     }
   }
 }

@@ -2,6 +2,8 @@
 
 #include "FN_multi_function.h"
 
+#include <functional>
+
 namespace FN {
 
 class MF_Dummy final : public MultiFunction {
@@ -171,25 +173,25 @@ class MF_SwitchVector final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
-class MF_PerlinNoise_3D_to_1D final : public MultiFunction {
+class MF_PerlinNoise final : public MultiFunction {
  public:
-  MF_PerlinNoise_3D_to_1D();
+  MF_PerlinNoise();
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
-class MF_PerlinNoise_3D_to_3D final : public MultiFunction {
- public:
-  MF_PerlinNoise_3D_to_3D();
-  void call(MFMask mask, MFParams params, MFContext context) const override;
-};
-
-class MF_ParticleAttribute final : public MultiFunction {
+class MF_ParticleAttributes final : public MultiFunction {
  private:
-  std::string m_attribute_name;
-  const CPPType &m_attribute_type;
+  Vector<std::string> m_attribute_names;
+  Vector<const CPPType *> m_attribute_types;
 
  public:
-  MF_ParticleAttribute(StringRef attribute_name, const CPPType &attribute_type);
+  MF_ParticleAttributes(StringRef attribute_name, const CPPType &attribute_type)
+      : MF_ParticleAttributes({attribute_name}, {&attribute_type})
+  {
+  }
+
+  MF_ParticleAttributes(Vector<std::string> attribute_names,
+                        Vector<const CPPType *> attribute_types);
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
@@ -200,8 +202,11 @@ class MF_ClosestPointOnObject final : public MultiFunction {
 };
 
 class MF_MapRange final : public MultiFunction {
+ private:
+  bool m_clamp;
+
  public:
-  MF_MapRange();
+  MF_MapRange(bool clamp);
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
@@ -260,13 +265,68 @@ class MF_2In_1Out final : public MultiFunction {
   }
 };
 
-template<typename T, T (*Compute)(T, T)> class MF_SimpleMath final : public MultiFunction {
+template<typename InT, typename OutT> class MF_Custom_In1_Out1 final : public MultiFunction {
  private:
-  uint m_input_amount;
+  using FunctionT = std::function<void(MFMask mask, VirtualListRef<InT>, MutableArrayRef<OutT>)>;
+  FunctionT m_fn;
 
  public:
-  MF_SimpleMath(StringRef name, uint input_amount) : m_input_amount(input_amount)
+  MF_Custom_In1_Out1(StringRef name, FunctionT fn) : m_fn(std::move(fn))
   {
+    MFSignatureBuilder signature(name);
+    signature.single_input<InT>("Input");
+    signature.single_output<OutT>("Output");
+    this->set_signature(signature);
+  }
+
+  void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
+  {
+    VirtualListRef<InT> inputs = params.readonly_single_input<InT>(0);
+    MutableArrayRef<OutT> outputs = params.uninitialized_single_output<OutT>(1);
+    m_fn(mask, inputs, outputs);
+  }
+};
+
+template<typename InT1, typename InT2, typename OutT>
+class MF_Custom_In2_Out1 final : public MultiFunction {
+ private:
+  using FunctionT = std::function<void(
+      MFMask mask, VirtualListRef<InT1>, VirtualListRef<InT2>, MutableArrayRef<OutT>)>;
+
+  FunctionT m_fn;
+
+ public:
+  MF_Custom_In2_Out1(StringRef name, FunctionT fn) : m_fn(std::move(fn))
+  {
+    MFSignatureBuilder signature(name);
+    signature.single_input<InT1>("Input 1");
+    signature.single_input<InT2>("Input 2");
+    signature.single_output<OutT>("Output");
+    this->set_signature(signature);
+  }
+
+  void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
+  {
+    VirtualListRef<InT1> inputs1 = params.readonly_single_input<InT1>(0);
+    VirtualListRef<InT2> inputs2 = params.readonly_single_input<InT2>(1);
+    MutableArrayRef<OutT> outputs = params.uninitialized_single_output<OutT>(2);
+    m_fn(mask, inputs1, inputs2, outputs);
+  }
+};
+
+template<typename T> class MF_VariadicMath final : public MultiFunction {
+ private:
+  using FunctionT =
+      std::function<void(MFMask mask, VirtualListRef<T>, VirtualListRef<T>, MutableArrayRef<T>)>;
+
+  uint m_input_amount;
+  FunctionT m_fn;
+
+ public:
+  MF_VariadicMath(StringRef name, uint input_amount, FunctionT fn)
+      : m_input_amount(input_amount), m_fn(fn)
+  {
+    BLI_STATIC_ASSERT(std::is_trivial<T>::value, "");
     BLI_assert(input_amount >= 1);
     MFSignatureBuilder signature(name);
     for (uint i = 0; i < m_input_amount; i++) {
@@ -290,16 +350,11 @@ template<typename T, T (*Compute)(T, T)> class MF_SimpleMath final : public Mult
       BLI_assert(m_input_amount >= 2);
       VirtualListRef<T> inputs0 = params.readonly_single_input<T>(0, "Input");
       VirtualListRef<T> inputs1 = params.readonly_single_input<T>(1, "Input");
-
-      for (uint i : mask.indices()) {
-        outputs[i] = Compute(inputs0[i], inputs1[i]);
-      }
+      m_fn(mask, inputs0, inputs1, outputs);
 
       for (uint param_index = 2; param_index < m_input_amount; param_index++) {
         VirtualListRef<T> inputs = params.readonly_single_input<T>(param_index, "Input");
-        for (uint i : mask.indices()) {
-          outputs[i] = Compute(outputs[i], inputs[i]);
-        }
+        m_fn(mask, VirtualListRef<T>::FromFullArray(outputs), inputs, outputs);
       }
     }
   }
