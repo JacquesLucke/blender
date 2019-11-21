@@ -116,7 +116,7 @@ class VTreeData {
       FN::MFDataType data_type =
           m_vtree_data_graph.lookup_dummy_socket(vnode.input(i)).data_type();
       BLI_assert(data_type.is_single());
-      computed_types.append(&data_type.type());
+      computed_types.append(&data_type.single__cpp_type());
     }
 
     auto &tuple_info = this->construct<FN::GenericTupleInfo>(__func__, std::move(computed_types));

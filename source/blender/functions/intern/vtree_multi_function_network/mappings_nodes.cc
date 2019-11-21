@@ -147,10 +147,10 @@ static const MultiFunction &get_switch_function(VTreeMFNetworkBuilder &builder, 
   MFDataType type = builder.data_type_from_property(vnode, "data_type");
   switch (type.category()) {
     case MFDataType::Single: {
-      return builder.construct_fn<FN::MF_SwitchSingle>(type.type());
+      return builder.construct_fn<FN::MF_SwitchSingle>(type.single__cpp_type());
     }
     case MFDataType::Vector: {
-      return builder.construct_fn<FN::MF_SwitchVector>(type.base_type());
+      return builder.construct_fn<FN::MF_SwitchVector>(type.vector__cpp_base_type());
     }
   }
   BLI_assert(false);

@@ -55,13 +55,13 @@ struct MFDataType {
     return m_category;
   }
 
-  const CPPType &type() const
+  const CPPType &single__cpp_type() const
   {
     BLI_assert(m_category == Category::Single);
     return *m_base_type;
   }
 
-  const CPPType &base_type() const
+  const CPPType &vector__cpp_base_type() const
   {
     BLI_assert(m_category == Category::Vector);
     return *m_base_type;

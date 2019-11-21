@@ -34,8 +34,8 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
               storage.set_virtual_list_for_input__non_owning(*target, input_list);
             }
             else if (param_type.is_mutable_single()) {
-              GenericMutableArrayRef array = this->allocate_array(param_type.data_type().type(),
-                                                                  mask.min_array_size());
+              GenericMutableArrayRef array = this->allocate_array(
+                  param_type.data_type().single__cpp_type(), mask.min_array_size());
               for (uint i : mask.indices()) {
                 array.copy_in__uninitialized(i, input_list[i]);
               }
@@ -66,7 +66,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
             }
             else if (param_type.is_mutable_vector()) {
               GenericVectorArray *vector_array = new GenericVectorArray(
-                  param_type.data_type().base_type(), mask.min_array_size());
+                  param_type.data_type().vector__cpp_base_type(), mask.min_array_size());
               for (uint i : mask.indices()) {
                 vector_array->extend_single__copy(i, input_list_list[i]);
               }
@@ -165,7 +165,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
         uint output_socket_index = function_node.output_param_indices().first_index(param_index);
         const MFOutputSocket &output_socket = *function_node.outputs()[output_socket_index];
         GenericMutableArrayRef values_destination = this->allocate_array(
-            output_socket.data_type().type(), array_size);
+            output_socket.data_type().single__cpp_type(), array_size);
         params_builder.add_single_output(values_destination);
         single_outputs_to_forward.append({&output_socket, values_destination});
         break;
@@ -173,8 +173,8 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
       case MFParamType::VectorOutput: {
         uint output_socket_index = function_node.output_param_indices().first_index(param_index);
         const MFOutputSocket &output_socket = *function_node.outputs()[output_socket_index];
-        auto *values_destination = new GenericVectorArray(output_socket.data_type().base_type(),
-                                                          array_size);
+        auto *values_destination = new GenericVectorArray(
+            output_socket.data_type().vector__cpp_base_type(), array_size);
         params_builder.add_vector_output(*values_destination);
         vector_outputs_to_forward.append({&output_socket, values_destination});
         break;
@@ -224,7 +224,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
           storage.set_virtual_list_for_input__non_owning(*target, values);
         }
         else if (param_type.is_mutable_single()) {
-          const CPPType &type = param_type.data_type().type();
+          const CPPType &type = param_type.data_type().single__cpp_type();
           GenericMutableArrayRef copied_values = this->allocate_array(type, array_size);
           for (uint i : mask.indices()) {
             type.copy_to_uninitialized(values[i], copied_values[i]);

@@ -26,10 +26,10 @@ class MF_EvaluateNetwork final : public MultiFunction {
       MFDataType type = socket->data_type();
       switch (type.category()) {
         case MFDataType::Single:
-          signature.single_input("Input", type.type());
+          signature.single_input("Input", type.single__cpp_type());
           break;
         case MFDataType::Vector:
-          signature.vector_input("Input", type.base_type());
+          signature.vector_input("Input", type.vector__cpp_base_type());
           break;
       }
     }
@@ -39,10 +39,10 @@ class MF_EvaluateNetwork final : public MultiFunction {
       MFDataType type = socket->data_type();
       switch (type.category()) {
         case MFDataType::Single:
-          signature.single_output("Output", type.type());
+          signature.single_output("Output", type.single__cpp_type());
           break;
         case MFDataType::Vector:
-          signature.vector_output("Output", type.base_type());
+          signature.vector_output("Output", type.vector__cpp_base_type());
           break;
       }
     }

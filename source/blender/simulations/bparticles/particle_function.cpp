@@ -77,7 +77,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
         auto *provider = m_input_providers[param_index];
         InputProviderInterface interface(pindices, attributes, action_context);
         auto optional_array = provider->get(interface);
-        const CPPType &type = param_type.data_type().type();
+        const CPPType &type = param_type.data_type().single__cpp_type();
         if (optional_array.has_value()) {
           ParticleFunctionInputArray array = optional_array.extract();
           BLI_assert(array.buffer != nullptr);
@@ -103,7 +103,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
         break;
       }
       case FN::MFParamType::SingleOutput: {
-        const CPPType &type = param_type.data_type().type();
+        const CPPType &type = param_type.data_type().single__cpp_type();
         void *output_buffer = BLI_temporary_allocate(type.size() * array_size);
         params_builder.add_single_output(
             FN::GenericMutableArrayRef(type, output_buffer, array_size));

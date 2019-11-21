@@ -382,16 +382,17 @@ MF_SimpleVectorize::MF_SimpleVectorize(const MultiFunction &function,
       case MFParamType::SingleInput: {
         BLI_assert(!found_output_param);
         if (input_is_vectorized[param_index]) {
-          signature.vector_input(param_name + " (List)", param_type.data_type().type());
+          signature.vector_input(param_name + " (List)",
+                                 param_type.data_type().single__cpp_type());
           m_vectorized_inputs.append(param_index);
         }
         else {
-          signature.single_input(param_name, param_type.data_type().type());
+          signature.single_input(param_name, param_type.data_type().single__cpp_type());
         }
         break;
       }
       case MFParamType::SingleOutput: {
-        signature.vector_output(param_name + " (List)", param_type.data_type().type());
+        signature.vector_output(param_name + " (List)", param_type.data_type().single__cpp_type());
         m_output_indices.append(param_index);
         found_output_param = true;
         break;
