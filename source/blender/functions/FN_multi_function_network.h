@@ -199,6 +199,9 @@ class MFNode : BLI::NonCopyable, BLI::NonMovable {
 
   StringRefNull name() const;
 
+  const MFInputSocket &input(uint index) const;
+  const MFOutputSocket &output(uint index) const;
+
   ArrayRef<const MFInputSocket *> inputs() const;
   ArrayRef<const MFOutputSocket *> outputs() const;
 
@@ -224,6 +227,9 @@ class MFFunctionNode final : public MFNode {
 
   ArrayRef<uint> input_param_indices() const;
   ArrayRef<uint> output_param_indices() const;
+
+  const MFInputSocket &input_for_param(uint param_index) const;
+  const MFOutputSocket &output_for_param(uint param_index) const;
 };
 
 class MFDummyNode final : public MFNode {
@@ -464,6 +470,16 @@ inline ArrayRef<const MFOutputSocket *> MFNode::outputs() const
   return m_outputs;
 }
 
+inline const MFInputSocket &MFNode::input(uint index) const
+{
+  return *m_inputs[index];
+}
+
+inline const MFOutputSocket &MFNode::output(uint index) const
+{
+  return *m_outputs[index];
+}
+
 inline uint MFNode::id() const
 {
   return m_id;
@@ -514,6 +530,16 @@ inline ArrayRef<uint> MFFunctionNode::input_param_indices() const
 inline ArrayRef<uint> MFFunctionNode::output_param_indices() const
 {
   return m_output_param_indices;
+}
+
+inline const MFInputSocket &MFFunctionNode::input_for_param(uint param_index) const
+{
+  return this->input(m_input_param_indices.index(param_index));
+}
+
+inline const MFOutputSocket &MFFunctionNode::output_for_param(uint param_index) const
+{
+  return this->output(m_output_param_indices.index(param_index));
 }
 
 inline const MFNode &MFSocket::node() const
