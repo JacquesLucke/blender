@@ -26,9 +26,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
         for (const MFInputSocket *target : socket.targets()) {
           const MFNode &target_node = target->node();
           if (target_node.is_function()) {
-            const MFFunctionNode &target_function_node = target_node.as_function();
-            uint param_index = target_function_node.input_param_indices()[target->index()];
-            MFParamType param_type = target_function_node.function().param_type(param_index);
+            MFParamType param_type = target->param_type();
 
             if (param_type.is_single_input()) {
               storage.set_virtual_list_for_input__non_owning(*target, input_list);
@@ -57,9 +55,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
         for (const MFInputSocket *target : socket.targets()) {
           const MFNode &target_node = target->node();
           if (target_node.is_function()) {
-            const MFFunctionNode &target_function_node = target_node.as_function();
-            uint param_index = target_function_node.input_param_indices()[target->index()];
-            MFParamType param_type = target_function_node.function().param_type(param_index);
+            MFParamType param_type = target->param_type();
 
             if (param_type.is_vector_input()) {
               storage.set_virtual_list_list_for_input__non_owning(*target, input_list_list);
@@ -216,9 +212,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
     for (const MFInputSocket *target : output_socket.targets()) {
       const MFNode &target_node = target->node();
       if (target_node.is_function()) {
-        const MFFunctionNode &target_function_node = target_node.as_function();
-        uint param_index = target_function_node.input_param_indices()[target->index()];
-        MFParamType param_type = target_function_node.function().param_type(param_index);
+        MFParamType param_type = target->param_type();
 
         if (param_type.is_single_input()) {
           storage.set_virtual_list_for_input__non_owning(*target, values);
@@ -250,9 +244,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
     for (const MFInputSocket *target : output_socket.targets()) {
       const MFNode &target_node = target->node();
       if (target_node.is_function()) {
-        const MFFunctionNode &target_function_node = target_node.as_function();
-        uint param_index = target_function_node.input_param_indices()[target->index()];
-        MFParamType param_type = target_function_node.function().param_type(param_index);
+        MFParamType param_type = target->param_type();
 
         if (param_type.is_vector_input()) {
           storage.set_virtual_list_list_for_input__non_owning(*target, *values);

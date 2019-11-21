@@ -242,6 +242,8 @@ class MFSocket : BLI::NonCopyable, BLI::NonMovable {
  public:
   const MFNode &node() const;
   MFDataType data_type() const;
+  uint param_index() const;
+  MFParamType param_type() const;
 
   uint index() const;
   uint id() const;
@@ -522,6 +524,23 @@ inline const MFNode &MFSocket::node() const
 inline MFDataType MFSocket::data_type() const
 {
   return m_data_type;
+}
+
+inline uint MFSocket::param_index() const
+{
+  const MFFunctionNode &node = m_node->as_function();
+  if (m_is_output) {
+    return node.output_param_indices()[m_index];
+  }
+  else {
+    return node.input_param_indices()[m_index];
+  }
+}
+
+inline MFParamType MFSocket::param_type() const
+{
+  uint param_index = this->param_index();
+  return m_node->as_function().function().param_type(param_index);
 }
 
 inline uint MFSocket::index() const
