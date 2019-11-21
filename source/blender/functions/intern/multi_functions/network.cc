@@ -9,26 +9,51 @@ void MF_EvaluateNetwork::call(MFMask mask, MFParams params, MFContext context) c
   }
 
   Storage storage(mask);
-  this->copy_inputs_to_storage(params, storage);
+  this->copy_inputs_to_storage(mask, params, storage);
   this->evaluate_network_to_compute_outputs(mask, context, storage);
   this->copy_computed_values_to_outputs(mask, params, storage);
 }
 
-BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams params,
+BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
+                                                             MFParams params,
                                                              Storage &storage) const
 {
-  for (uint i = 0; i < m_inputs.size(); i++) {
-    const MFOutputSocket &socket = *m_inputs[i];
+  for (uint input_index = 0; input_index < m_inputs.size(); input_index++) {
+    const MFOutputSocket &socket = *m_inputs[input_index];
     switch (socket.type().category()) {
       case MFDataType::Single: {
-        GenericVirtualListRef input_list = params.readonly_single_input(i, "Input");
+        GenericVirtualListRef input_list = params.readonly_single_input(input_index, "Input");
         for (const MFInputSocket *target : socket.targets()) {
-          storage.set_virtual_list_for_input__non_owning(*target, input_list);
+          const MFNode &target_node = target->node();
+          if (target_node.is_function()) {
+            const MFFunctionNode &target_function_node = target_node.as_function();
+            uint param_index = target_function_node.input_param_indices()[target->index()];
+            MFParamType param_type = target_function_node.function().param_type(param_index);
+
+            if (param_type.is_single_input()) {
+              storage.set_virtual_list_for_input__non_owning(*target, input_list);
+            }
+            else if (param_type.is_mutable_single()) {
+              GenericMutableArrayRef array = this->allocate_array(param_type.data_type().type(),
+                                                                  mask.min_array_size());
+              for (uint i : mask.indices()) {
+                array.copy_in__uninitialized(i, input_list[i]);
+              }
+              storage.set_array_ref_for_input__non_owning(*target, array);
+            }
+            else {
+              BLI_assert(false);
+            }
+          }
+          else {
+            storage.set_virtual_list_for_input__non_owning(*target, input_list);
+          }
         }
         break;
       }
       case MFDataType::Vector: {
-        GenericVirtualListListRef input_list_list = params.readonly_vector_input(i, "Input");
+        GenericVirtualListListRef input_list_list = params.readonly_vector_input(input_index,
+                                                                                 "Input");
         for (const MFInputSocket *target : socket.targets()) {
           const MFNode &target_node = target->node();
           if (target_node.is_function()) {
@@ -41,8 +66,8 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams params,
             }
             else if (param_type.is_mutable_vector()) {
               GenericVectorArray *vector_array = new GenericVectorArray(
-                  param_type.data_type().base_type(), input_list_list.size());
-              for (uint i = 0; i < input_list_list.size(); i++) {
+                  param_type.data_type().base_type(), mask.min_array_size());
+              for (uint i : mask.indices()) {
                 vector_array->extend_single__copy(i, input_list_list[i]);
               }
               storage.set_vector_array_for_input__non_owning(*target, vector_array);
