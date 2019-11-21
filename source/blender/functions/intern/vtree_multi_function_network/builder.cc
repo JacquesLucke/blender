@@ -199,7 +199,7 @@ std::unique_ptr<VTreeMFNetwork> VTreeMFNetworkBuilder::build()
   auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 
   Array<uint> vsocket_by_socket(network->socket_ids().size(), VTreeMFSocketMap_UNMAPPED);
-  for (uint vsocket_id = 0; vsocket_id < m_single_socket_by_vsocket.size(); vsocket_id++) {
+  for (uint vsocket_id : m_single_socket_by_vsocket.index_iterator()) {
     switch (m_single_socket_by_vsocket[vsocket_id]) {
       case VTreeMFSocketMap_UNMAPPED: {
         break;

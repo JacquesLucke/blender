@@ -170,7 +170,7 @@ class VTreeMFNetwork {
                             MutableArrayRef<const MFOutputSocket *> r_result) const
   {
     BLI_assert(vsockets.size() == r_result.size());
-    for (uint i = 0; i < vsockets.size(); i++) {
+    for (uint i : vsockets.index_iterator()) {
       r_result[i] = &this->lookup_socket(*vsockets[i]);
     }
   }
@@ -179,7 +179,7 @@ class VTreeMFNetwork {
                             MutableArrayRef<const MFInputSocket *> r_result) const
   {
     BLI_assert(vsockets.size() == r_result.size());
-    for (uint i = 0; i < vsockets.size(); i++) {
+    for (uint i : vsockets.index_iterator()) {
       r_result[i] = &this->lookup_dummy_socket(*vsockets[i]);
     }
   }

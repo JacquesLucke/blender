@@ -314,7 +314,7 @@ void BParticles_modifier_cache_state(BParticlesModifierData *bpmd,
   cached_frame.particle_types = (BParticlesTypeCache *)MEM_calloc_arrayN(
       containers.size(), sizeof(BParticlesTypeCache), __func__);
 
-  for (uint i = 0; i < containers.size(); i++) {
+  for (uint i : containers.index_iterator()) {
     AttributesBlockContainer &container = *containers[i];
     BParticlesTypeCache &cached_type = cached_frame.particle_types[i];
 

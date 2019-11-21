@@ -39,7 +39,7 @@ class MFElementContexts {
   template<typename T> Optional<TypedContext<T>> find_first() const
   {
     BLI_STATIC_ASSERT((std::is_base_of<MFElementContext, T>::value), "");
-    for (uint i = 0; i < m_contexts.size(); i++) {
+    for (uint i : m_contexts.index_iterator()) {
       const T *context = dynamic_cast<const T *>(m_contexts[i]);
       if (context != nullptr) {
         return TypedContext<T>{context, m_indices[i]};

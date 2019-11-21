@@ -188,6 +188,11 @@ template<typename T, typename Allocator = GuardedAllocator> class Array {
     return m_data + m_size;
   }
 
+  IndexRange index_iterator() const
+  {
+    return IndexRange(m_size);
+  }
+
  private:
   T *allocate(uint size)
   {

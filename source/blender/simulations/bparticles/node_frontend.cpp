@@ -150,7 +150,7 @@ class VTreeData {
   Optional<NamedGenericTupleRef> compute_all_data_inputs(const VNode &vnode)
   {
     Vector<uint> data_input_indices;
-    for (uint i = 0; i < vnode.inputs().size(); i++) {
+    for (uint i : vnode.inputs().index_iterator()) {
       if (m_vtree_data_graph.is_mapped(vnode.input(i))) {
         data_input_indices.append(i);
       }

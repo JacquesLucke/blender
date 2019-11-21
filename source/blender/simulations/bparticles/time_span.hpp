@@ -55,7 +55,7 @@ struct TimeSpan {
   void interpolate(ArrayRef<float> times, MutableArrayRef<float> r_results)
   {
     BLI_assert(times.size() == r_results.size());
-    for (uint i = 0; i < times.size(); i++) {
+    for (uint i : times.index_iterator()) {
       r_results[i] = this->interpolate(times[i]);
     }
   }

@@ -160,7 +160,7 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
                    ArrayRef<MFBuilderInputSocket *> sockets)
   {
     BLI_assert(vsockets.size() == sockets.size());
-    for (uint i = 0; i < vsockets.size(); i++) {
+    for (uint i : vsockets.index_iterator()) {
       this->map_sockets(*vsockets[i], *sockets[i]);
     }
   }
@@ -169,7 +169,7 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
                    ArrayRef<MFBuilderOutputSocket *> sockets)
   {
     BLI_assert(vsockets.size() == sockets.size());
-    for (uint i = 0; i < vsockets.size(); i++) {
+    for (uint i : vsockets.index_iterator()) {
       this->map_sockets(*vsockets[i], *sockets[i]);
     }
   }

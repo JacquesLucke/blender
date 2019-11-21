@@ -522,6 +522,11 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     return (uint)(m_capacity_end - m_begin);
   }
 
+  IndexRange index_iterator() const
+  {
+    return IndexRange(this->size());
+  }
+
   void print_stats() const
   {
     std::cout << "Small Vector at " << (void *)this << ":" << std::endl;

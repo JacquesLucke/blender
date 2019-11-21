@@ -18,7 +18,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
                                                              MFParams params,
                                                              Storage &storage) const
 {
-  for (uint input_index = 0; input_index < m_inputs.size(); input_index++) {
+  for (uint input_index : m_inputs.index_iterator()) {
     const MFOutputSocket &socket = *m_inputs[input_index];
     switch (socket.data_type().category()) {
       case MFDataType::Single: {
@@ -263,7 +263,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFMask mas
                                                                       MFParams params,
                                                                       Storage &storage) const
 {
-  for (uint output_index = 0; output_index < m_outputs.size(); output_index++) {
+  for (uint output_index : m_outputs.index_iterator()) {
     uint global_param_index = m_inputs.size() + output_index;
     const MFInputSocket &socket = *m_outputs[output_index];
     switch (socket.data_type().category()) {

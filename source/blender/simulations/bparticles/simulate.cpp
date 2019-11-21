@@ -40,7 +40,7 @@ BLI_NOINLINE static void find_next_event_per_particle(
   r_next_event_indices.fill_indices(pindices, -1);
   r_time_factors_to_next_event.fill_indices(pindices, 1.0f);
 
-  for (uint event_index = 0; event_index < events.size(); event_index++) {
+  for (uint event_index : events.index_iterator()) {
     Vector<uint> triggered_pindices;
     Vector<float> triggered_time_factors;
 
@@ -53,7 +53,7 @@ BLI_NOINLINE static void find_next_event_per_particle(
                                    triggered_time_factors);
     event->filter(interface);
 
-    for (uint i = 0; i < triggered_pindices.size(); i++) {
+    for (uint i : triggered_pindices.index_iterator()) {
       uint pindex = triggered_pindices[i];
       float time_factor = triggered_time_factors[i];
       BLI_assert(time_factor <= r_time_factors_to_next_event[pindex]);
@@ -171,7 +171,7 @@ BLI_NOINLINE static void execute_events(BlockStepData &step_data,
 {
   BLI_assert(events.size() == pindices_per_event.size());
 
-  for (uint event_index = 0; event_index < events.size(); event_index++) {
+  for (uint event_index : events.index_iterator()) {
     Event *event = events[event_index];
     ArrayRef<uint> pindices = pindices_per_event[event_index];
 
@@ -351,8 +351,8 @@ BLI_NOINLINE static void simulate_block(SimulationState &simulation_state,
     }
   }
 
-  for (uint i = 0; i < offset_buffers.size(); i++) {
-    BLI_temporary_deallocate(offset_buffers[i]);
+  for (void *buffer : offset_buffers) {
+    BLI_temporary_deallocate(buffer);
   }
 }
 
@@ -361,7 +361,7 @@ BLI_NOINLINE static void delete_tagged_particles_and_reorder(AttributesBlock &bl
   auto kill_states = block.as_ref().get<bool>("Kill State");
   TemporaryVector<uint> indices_to_delete;
 
-  for (uint i = 0; i < kill_states.size(); i++) {
+  for (uint i : kill_states.index_iterator()) {
     if (kill_states[i]) {
       indices_to_delete.append(i);
     }

@@ -296,6 +296,15 @@ template<typename T> class ArrayRef {
   }
 
   /**
+   * Utility to make it more convenient to iterate over all indices that can be used with this
+   * array.
+   */
+  IndexRange index_iterator() const
+  {
+    return IndexRange(m_size);
+  }
+
+  /**
    * Get a new array ref to the same underlying memory buffer. No conversions are done.
    */
   template<typename NewT> ArrayRef<NewT> cast() const
@@ -458,6 +467,11 @@ template<typename T> class MutableArrayRef {
   ArrayRef<T> as_ref() const
   {
     return ArrayRef<T>(m_start, m_size);
+  }
+
+  IndexRange index_iterator() const
+  {
+    return IndexRange(m_size);
   }
 };
 

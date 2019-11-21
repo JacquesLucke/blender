@@ -68,7 +68,7 @@ static BLI_NOINLINE void get_average_triangle_weights(const Mesh *mesh,
                                                       ArrayRef<float> vertex_weights,
                                                       MutableArrayRef<float> r_looptri_weights)
 {
-  for (uint triangle_index = 0; triangle_index < looptris.size(); triangle_index++) {
+  for (uint triangle_index : looptris.index_iterator()) {
     const MLoopTri &looptri = looptris[triangle_index];
     float triangle_weight = 0.0f;
     for (uint i = 0; i < 3; i++) {
@@ -90,7 +90,7 @@ static BLI_NOINLINE void compute_cumulative_distribution(
   BLI_assert(weights.size() + 1 == r_cumulative_weights.size());
 
   r_cumulative_weights[0] = 0;
-  for (uint i = 0; i < weights.size(); i++) {
+  for (uint i : weights.index_iterator()) {
     r_cumulative_weights[i + 1] = r_cumulative_weights[i] + weights[i];
   }
 }
@@ -165,7 +165,7 @@ static BLI_NOINLINE void compute_triangle_areas(Mesh *mesh,
 {
   BLI_assert(triangles.size() == r_areas.size());
 
-  for (uint i = 0; i < triangles.size(); i++) {
+  for (uint i : triangles.index_iterator()) {
     const MLoopTri &triangle = triangles[i];
 
     float3 v1 = mesh->mvert[mesh->mloop[triangle.tri[0]].v].co;
@@ -206,7 +206,7 @@ static BLI_NOINLINE void sample_looptris(Mesh *mesh,
   MLoop *loops = mesh->mloop;
   MVert *verts = mesh->mvert;
 
-  for (uint i = 0; i < triangles_to_sample.size(); i++) {
+  for (uint i : triangles_to_sample.index_iterator()) {
     uint triangle_index = triangles_to_sample[i];
     const MLoopTri &triangle = triangles[triangle_index];
 
@@ -259,7 +259,7 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   TemporaryArray<float> triangle_areas(triangles.size());
   compute_triangle_areas(mesh, triangles, triangle_areas);
 
-  for (uint i = 0; i < triangles.size(); i++) {
+  for (uint i : triangles.index_iterator()) {
     triangle_weights[i] *= triangle_areas[i];
   }
 
