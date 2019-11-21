@@ -90,15 +90,17 @@ static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
   }
 
   for (const VInputSocket *vsocket : unlinked_data_inputs) {
-    const InsertUnlinkedInputFunction *inserter = mappings.input_inserters.lookup_ptr(
+    const InsertVSocketFunction *inserter = mappings.vsocket_inserters.lookup_ptr(
         vsocket->idname());
 
     if (inserter == nullptr) {
       return false;
     }
-    MFBuilderOutputSocket &from_socket = (*inserter)(builder, *vsocket);
+
+    VSocketMFNetworkBuilder vsocket_builder{builder, *vsocket};
+    (*inserter)(vsocket_builder);
     for (MFBuilderInputSocket *to_socket : builder.lookup_socket(*vsocket)) {
-      builder.add_link(from_socket, *to_socket);
+      builder.add_link(vsocket_builder.built_socket(), *to_socket);
     }
   }
 

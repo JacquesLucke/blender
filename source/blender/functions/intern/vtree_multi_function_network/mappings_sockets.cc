@@ -10,87 +10,56 @@ namespace FN {
 /* Socket Inserters
  **********************************************************/
 
-static MFBuilderOutputSocket &INSERT_vector_socket(VTreeMFNetworkBuilder &builder,
-                                                   const VSocket &vsocket)
+static void INSERT_vector_socket(VSocketMFNetworkBuilder &builder)
 {
   BLI::float3 value;
-  RNA_float_get_array(vsocket.rna(), "value", value);
-
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<BLI::float3>>(value);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
+  RNA_float_get_array(builder.rna(), "value", value);
+  builder.set_constant_value(value);
 }
 
-static MFBuilderOutputSocket &INSERT_color_socket(VTreeMFNetworkBuilder &builder,
-                                                  const VSocket &vsocket)
+static void INSERT_color_socket(VSocketMFNetworkBuilder &builder)
 {
   BLI::rgba_f value;
-  RNA_float_get_array(vsocket.rna(), "value", value);
-
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<BLI::rgba_f>>(value);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
+  RNA_float_get_array(builder.rna(), "value", value);
+  builder.set_constant_value(value);
 }
 
-static MFBuilderOutputSocket &INSERT_float_socket(VTreeMFNetworkBuilder &builder,
-                                                  const VSocket &vsocket)
+static void INSERT_float_socket(VSocketMFNetworkBuilder &builder)
 {
-  float value = RNA_float_get(vsocket.rna(), "value");
-
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<float>>(value);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
+  float value = RNA_float_get(builder.rna(), "value");
+  builder.set_constant_value(value);
 }
 
-static MFBuilderOutputSocket &INSERT_bool_socket(VTreeMFNetworkBuilder &builder,
-                                                 const VSocket &vsocket)
+static void INSERT_bool_socket(VSocketMFNetworkBuilder &builder)
 {
-  bool value = RNA_boolean_get(vsocket.rna(), "value");
-
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<bool>>(value);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
+  bool value = RNA_boolean_get(builder.rna(), "value");
+  builder.set_constant_value(value);
 }
 
-static MFBuilderOutputSocket &INSERT_int_socket(VTreeMFNetworkBuilder &builder,
-                                                const VSocket &vsocket)
+static void INSERT_int_socket(VSocketMFNetworkBuilder &builder)
 {
-  int value = RNA_int_get(vsocket.rna(), "value");
-
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<int>>(value);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
+  int value = RNA_int_get(builder.rna(), "value");
+  builder.set_constant_value(value);
 }
 
-static MFBuilderOutputSocket &INSERT_object_socket(VTreeMFNetworkBuilder &builder,
-                                                   const VSocket &vsocket)
+static void INSERT_object_socket(VSocketMFNetworkBuilder &builder)
 {
-  Object *value = (Object *)RNA_pointer_get(vsocket.rna(), "value").data;
-
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<Object *>>(value);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
+  Object *value = (Object *)RNA_pointer_get(builder.rna(), "value").data;
+  builder.set_constant_value(value);
 }
 
-static MFBuilderOutputSocket &INSERT_text_socket(VTreeMFNetworkBuilder &builder,
-                                                 const VSocket &vsocket)
+static void INSERT_text_socket(VSocketMFNetworkBuilder &builder)
 {
-  char *value = RNA_string_get_alloc(vsocket.rna(), "value", nullptr, 0);
+  char *value = RNA_string_get_alloc(builder.rna(), "value", nullptr, 0);
   std::string text = value;
   MEM_freeN(value);
-
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ConstantValue<std::string>>(text);
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
+  builder.set_constant_value(std::move(text));
 }
 
-template<typename T>
-static MFBuilderOutputSocket &INSERT_empty_list_socket(VTreeMFNetworkBuilder &builder,
-                                                       const VSocket &UNUSED(vsocket))
+template<typename T> static void INSERT_empty_list_socket(VSocketMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.construct_fn<FN::MF_EmptyList<T>>();
-  MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
-  return *node.outputs()[0];
+  const MultiFunction &fn = builder.network_builder().construct_fn<FN::MF_EmptyList<T>>();
+  builder.set_generator_fn(fn);
 }
 
 /* Implicit Conversion Inserters
@@ -126,7 +95,7 @@ static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_element
 template<typename T>
 static void add_basic_type(VTreeMultiFunctionMappings &mappings,
                            StringRef base_name,
-                           InsertUnlinkedInputFunction base_inserter)
+                           InsertVSocketFunction base_inserter)
 {
   std::string base_idname = "fn_" + base_name + "Socket";
   std::string list_idname = "fn_" + base_name + "ListSocket";
@@ -137,8 +106,8 @@ static void add_basic_type(VTreeMultiFunctionMappings &mappings,
   mappings.data_type_by_idname.add_new(list_idname, MFDataType::ForVector<T>());
   mappings.data_type_by_type_name.add_new(base_name, MFDataType::ForSingle<T>());
   mappings.data_type_by_type_name.add_new(list_name, MFDataType::ForVector<T>());
-  mappings.input_inserters.add_new(base_idname, base_inserter);
-  mappings.input_inserters.add_new(list_idname, INSERT_empty_list_socket<T>);
+  mappings.vsocket_inserters.add_new(base_idname, base_inserter);
+  mappings.vsocket_inserters.add_new(list_idname, INSERT_empty_list_socket<T>);
   mappings.conversion_inserters.add_new({base_idname, list_idname}, INSERT_element_to_list<T>);
   mappings.type_name_from_cpp_type.add_new(&CPP_TYPE<T>(), base_name);
 }

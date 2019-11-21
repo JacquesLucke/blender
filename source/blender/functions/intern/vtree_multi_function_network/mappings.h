@@ -14,11 +14,11 @@ using BLI::StringMap;
 
 struct VTreeMultiFunctionMappings;
 class VTreeMFNetworkBuilder;
+class VSocketMFNetworkBuilder;
 
 using InsertVNodeFunction =
     std::function<void(VTreeMFNetworkBuilder &builder, const VNode &vnode)>;
-using InsertUnlinkedInputFunction =
-    std::function<MFBuilderOutputSocket &(VTreeMFNetworkBuilder &builder, const VSocket &vsocket)>;
+using InsertVSocketFunction = std::function<void(VSocketMFNetworkBuilder &builder)>;
 using InsertImplicitConversionFunction = std::function<
     std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *>(VTreeMFNetworkBuilder &builder)>;
 
@@ -28,7 +28,7 @@ struct VTreeMultiFunctionMappings {
   StringMap<MFDataType> data_type_by_type_name;
   Map<const CPPType *, std::string> type_name_from_cpp_type;
   StringMap<InsertVNodeFunction> vnode_inserters;
-  StringMap<InsertUnlinkedInputFunction> input_inserters;
+  StringMap<InsertVSocketFunction> vsocket_inserters;
   Map<std::pair<std::string, std::string>, InsertImplicitConversionFunction> conversion_inserters;
 };
 

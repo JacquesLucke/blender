@@ -1,6 +1,7 @@
 #pragma once
 
 #include "FN_vtree_multi_function_network.h"
+#include "FN_multi_functions.h"
 
 #include "BLI_multi_map.h"
 
@@ -232,6 +233,57 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   MFDataType data_type_from_property(const VNode &vnode, StringRefNull prop_name) const;
 
   std::unique_ptr<VTreeMFNetwork> build();
+};
+
+class VSocketMFNetworkBuilder {
+ private:
+  VTreeMFNetworkBuilder &m_network_builder;
+  const VSocket &m_vsocket;
+  MFBuilderOutputSocket *m_socket_to_build = nullptr;
+
+ public:
+  VSocketMFNetworkBuilder(VTreeMFNetworkBuilder &network_builder, const VSocket &vsocket)
+      : m_network_builder(network_builder), m_vsocket(vsocket)
+  {
+  }
+
+  MFBuilderOutputSocket &built_socket()
+  {
+    BLI_assert(m_socket_to_build != nullptr);
+    return *m_socket_to_build;
+  }
+
+  const VSocket &vsocket() const
+  {
+    return m_vsocket;
+  }
+
+  PointerRNA *rna()
+  {
+    return m_vsocket.rna();
+  }
+
+  VTreeMFNetworkBuilder &network_builder()
+  {
+    return m_network_builder;
+  }
+
+  template<typename T> void set_constant_value(const T &value)
+  {
+    const MultiFunction &fn = m_network_builder.construct_fn<MF_ConstantValue<T>>(value);
+    this->set_generator_fn(fn);
+  }
+
+  void set_generator_fn(const MultiFunction &fn)
+  {
+    MFBuilderFunctionNode &node = m_network_builder.add_function(fn, {}, {0});
+    this->set_socket(node.output(0));
+  }
+
+  void set_socket(MFBuilderOutputSocket &socket)
+  {
+    m_socket_to_build = &socket;
+  }
 };
 
 }  // namespace FN

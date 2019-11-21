@@ -25,8 +25,6 @@ set(SRC
   intern/multi_functions/lists.cc
   intern/multi_functions/mixed.cc
   intern/multi_functions/network.cc
-  intern/vtree_multi_function/mappings.cc
-  intern/vtree_multi_function/vnode_multi_function_wrapper_builder.cc
   intern/vtree_multi_function_network/builder.cc
   intern/vtree_multi_function_network/generate.cc
   intern/vtree_multi_function_network/mappings_nodes.cc
@@ -65,12 +63,6 @@ set(SRC
   intern/multi_functions/lists.h
   intern/multi_functions/mixed.h
   intern/multi_functions/network.h
-  intern/vtree_multi_function/mappings.h
-  intern/vtree_multi_function/vnode_multi_function_wrapper_builder.h
-  intern/vtree_multi_function/vnode_multi_function_wrapper.h
-  intern/vtree_multi_function/vsocket_multi_function_builder.h
-  intern/vtree_multi_function/vsocket_multi_function_data_types.h
-  intern/vtree_multi_function/vtree_multi_function.h
   intern/vtree_multi_function_network/builder.h
   intern/vtree_multi_function_network/mappings.h
   intern/cpp_types.h
