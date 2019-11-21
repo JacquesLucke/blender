@@ -2094,8 +2094,20 @@ static int edbm_hide_exec(bContext *C, wmOperator *op)
     BMesh *bm = em->bm;
 
     if (unselected) {
-      if (bm->totvertsel == bm->totvert) {
-        continue;
+      if (em->selectmode & SCE_SELECT_VERTEX) {
+        if (bm->totvertsel == bm->totvert) {
+          continue;
+        }
+      }
+      else if (em->selectmode & SCE_SELECT_EDGE) {
+        if (bm->totedgesel == bm->totedge) {
+          continue;
+        }
+      }
+      else if (em->selectmode & SCE_SELECT_FACE) {
+        if (bm->totfacesel == bm->totface) {
+          continue;
+        }
       }
     }
     else {
@@ -2354,6 +2366,9 @@ void MESH_OT_vertices_smooth(wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "xaxis", true, "X-Axis", "Smooth along the X axis");
   RNA_def_boolean(ot->srna, "yaxis", true, "Y-Axis", "Smooth along the Y axis");
   RNA_def_boolean(ot->srna, "zaxis", true, "Z-Axis", "Smooth along the Z axis");
+
+  /* Set generic modal callbacks. */
+  WM_operator_type_modal_from_exec_for_object_edit_coords(ot);
 }
 
 /** \} */
