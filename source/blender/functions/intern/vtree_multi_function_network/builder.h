@@ -81,14 +81,9 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return m_resources;
   }
 
-  MFBuilderFunctionNode &add_function(const MultiFunction &function,
-                                      ArrayRef<uint> input_param_indices,
-                                      ArrayRef<uint> output_param_indices);
+  MFBuilderFunctionNode &add_function(const MultiFunction &function);
 
-  MFBuilderFunctionNode &add_function(const MultiFunction &function,
-                                      ArrayRef<uint> input_param_indices,
-                                      ArrayRef<uint> output_param_indices,
-                                      const VNode &vnode);
+  MFBuilderFunctionNode &add_function(const MultiFunction &function, const VNode &vnode);
 
   MFBuilderDummyNode &add_dummy(const VNode &vnode);
 
@@ -276,7 +271,7 @@ class VSocketMFNetworkBuilder {
 
   void set_generator_fn(const MultiFunction &fn)
   {
-    MFBuilderFunctionNode &node = m_network_builder.add_function(fn, {}, {0});
+    MFBuilderFunctionNode &node = m_network_builder.add_function(fn);
     this->set_socket(node.output(0));
   }
 

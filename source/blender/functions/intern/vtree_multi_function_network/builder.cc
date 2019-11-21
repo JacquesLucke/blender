@@ -16,20 +16,15 @@ VTreeMFNetworkBuilder::VTreeMFNetworkBuilder(
 {
 }
 
-MFBuilderFunctionNode &VTreeMFNetworkBuilder::add_function(const MultiFunction &function,
-                                                           ArrayRef<uint> input_param_indices,
-                                                           ArrayRef<uint> output_param_indices)
+MFBuilderFunctionNode &VTreeMFNetworkBuilder::add_function(const MultiFunction &function)
 {
-  return m_builder->add_function(function, input_param_indices, output_param_indices);
+  return m_builder->add_function(function);
 }
 
 MFBuilderFunctionNode &VTreeMFNetworkBuilder::add_function(const MultiFunction &function,
-                                                           ArrayRef<uint> input_param_indices,
-                                                           ArrayRef<uint> output_param_indices,
                                                            const VNode &vnode)
 {
-  MFBuilderFunctionNode &node = m_builder->add_function(
-      function, input_param_indices, output_param_indices);
+  MFBuilderFunctionNode &node = m_builder->add_function(function);
   this->map_data_sockets(vnode, node);
   return node;
 }

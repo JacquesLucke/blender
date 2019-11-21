@@ -33,18 +33,27 @@ MFNetworkBuilder::~MFNetworkBuilder()
   }
 }
 
-MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &function,
-                                                      ArrayRef<uint> input_param_indices,
-                                                      ArrayRef<uint> output_param_indices)
+MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &function)
 {
-#ifdef DEBUG
-  BLI_assert(!input_param_indices.has_duplicates__linear_search());
-  BLI_assert(!output_param_indices.has_duplicates__linear_search());
+  Vector<uint> input_param_indices;
+  Vector<uint> output_param_indices;
   for (uint param_index : function.param_indices()) {
-    BLI_assert(input_param_indices.contains(param_index) ||
-               output_param_indices.contains(param_index));
+    switch (function.param_type(param_index).interface_type()) {
+      case MFParamType::InterfaceType::Input: {
+        input_param_indices.append(param_index);
+        break;
+      }
+      case MFParamType::InterfaceType::Output: {
+        output_param_indices.append(param_index);
+        break;
+      }
+      case MFParamType::InterfaceType::Mutable: {
+        input_param_indices.append(param_index);
+        output_param_indices.append(param_index);
+        break;
+      }
+    }
   }
-#endif
 
   auto &node = *m_allocator.construct<MFBuilderFunctionNode>().release();
 

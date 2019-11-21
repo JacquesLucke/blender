@@ -70,7 +70,7 @@ static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert
     VTreeMFNetworkBuilder &builder)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_Convert<FromT, ToT>>();
-  MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
+  MFBuilderFunctionNode &node = builder.add_function(fn);
   return {node.inputs()[0], node.outputs()[0]};
 }
 
@@ -79,7 +79,7 @@ static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert
     VTreeMFNetworkBuilder &builder)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_ConvertList<FromT, ToT>>();
-  MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
+  MFBuilderFunctionNode &node = builder.add_function(fn);
   return {node.inputs()[0], node.outputs()[0]};
 }
 
@@ -88,7 +88,7 @@ static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_element
     VTreeMFNetworkBuilder &builder)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_SingleElementList<T>>();
-  MFBuilderFunctionNode &node = builder.add_function(fn, {0}, {1});
+  MFBuilderFunctionNode &node = builder.add_function(fn);
   return {node.inputs()[0], node.outputs()[0]};
 }
 

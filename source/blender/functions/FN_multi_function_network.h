@@ -135,9 +135,7 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   std::string to_dot();
   void to_dot__clipboard();
 
-  MFBuilderFunctionNode &add_function(const MultiFunction &function,
-                                      ArrayRef<uint> input_param_indices,
-                                      ArrayRef<uint> output_param_indices);
+  MFBuilderFunctionNode &add_function(const MultiFunction &function);
   MFBuilderDummyNode &add_dummy(ArrayRef<MFDataType> input_types,
                                 ArrayRef<MFDataType> output_types);
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);

@@ -42,7 +42,7 @@ static void INSERT_combine_color(VTreeMFNetworkBuilder &builder, const VNode &vn
       base_fn,
       vnode.rna(),
       {"use_list__red", "use_list__green", "use_list__blue", "use_list__alpha"});
-  builder.add_function(fn, {0, 1, 2, 3}, {4}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_separate_color(VTreeMFNetworkBuilder &builder, const VNode &vnode)
@@ -50,7 +50,7 @@ static void INSERT_separate_color(VTreeMFNetworkBuilder &builder, const VNode &v
   const MultiFunction &base_fn = builder.construct_fn<FN::MF_SeparateColor>();
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__color"});
-  builder.add_function(fn, {0}, {1, 2, 3, 4}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
@@ -58,7 +58,7 @@ static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder, const VNode &v
   const MultiFunction &base_fn = builder.construct_fn<FN::MF_CombineVector>();
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__x", "use_list__y", "use_list__z"});
-  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
@@ -66,21 +66,21 @@ static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder, const VNode &
   const MultiFunction &base_fn = builder.construct_fn<FN::MF_SeparateVector>();
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__vector"});
-  builder.add_function(fn, {0}, {1, 2, 3}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_list_length(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
   const MultiFunction &fn = builder.construct_fn<FN::MF_ListLength>(type);
-  builder.add_function(fn, {0}, {1}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
   const MultiFunction &fn = builder.construct_fn<FN::MF_GetListElement>(type);
-  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static Vector<bool> get_list_base_variadic_states(const VNode &vnode, StringRefNull prop_name)
@@ -112,14 +112,10 @@ static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builde
 {
   Vector<bool> list_states = get_list_base_variadic_states(vnode, prop_name);
 
-  uint input_amount = list_states.size();
-  uint output_param_index = (input_amount > 0 && list_states[0]) ? 0 : input_amount;
-
   const MultiFunction &fn = builder.construct_fn<FN::MF_PackList>(base_type, list_states);
-  MFBuilderFunctionNode &node = builder.add_function(
-      fn, IndexRange(input_amount).as_array_ref(), {output_param_index});
+  MFBuilderFunctionNode &node = builder.add_function(fn);
 
-  for (uint i = 0; i < input_amount; i++) {
+  for (uint i = 0; i < list_states.size(); i++) {
     builder.map_sockets(vnode.input(start_index + i), *node.inputs()[i]);
   }
 
@@ -137,13 +133,13 @@ static void INSERT_pack_list(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 static void INSERT_object_location(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_ObjectWorldLocation>();
-  builder.add_function(fn, {0}, {1}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_object_mesh_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_ObjectVertexPositions>();
-  builder.add_function(fn, {0}, {1}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static const MultiFunction &get_switch_function(VTreeMFNetworkBuilder &builder, const VNode &vnode)
@@ -164,31 +160,31 @@ static const MultiFunction &get_switch_function(VTreeMFNetworkBuilder &builder, 
 static void INSERT_switch(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = get_switch_function(builder, vnode);
-  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_text_length(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_TextLength>();
-  builder.add_function(fn, {0}, {1}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_vertex_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_ContextVertexPosition>();
-  builder.add_function(fn, {}, {0}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_float_range(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_FloatRange>();
-  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_time_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_ContextCurrentFrame>();
-  builder.add_function(fn, {}, {0}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 template<typename T, T (*Compute)(T, T)>
@@ -230,8 +226,7 @@ static void insert_simple_math_function(VTreeMFNetworkBuilder &builder,
   Vector<bool> list_states = get_list_base_variadic_states(vnode, "variadic");
   const MultiFunction &fn = get_simple_math_function<T, Compute>(
       builder, vnode.name(), list_states, default_value);
-  builder.add_function(
-      fn, IndexRange(list_states.size()).as_array_ref(), {list_states.size()}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 template<typename T> static T add_func_cb(T a, T b)
@@ -296,7 +291,7 @@ void insert_two_inputs_math_function(VTreeMFNetworkBuilder &builder, const VNode
       vnode.name(), "A", "B", "Result");
   const MultiFunction &fn = get_vectorized_function(
       builder, base_fn, vnode.rna(), {"use_list__a", "use_list__b"});
-  builder.add_function(fn, {0, 1}, {2}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_subtract_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
@@ -320,7 +315,7 @@ static void insert_single_input_math_function(VTreeMFNetworkBuilder &builder, co
   const MultiFunction &base_fn = builder.construct_fn<FN::MF_Mappping<T, T, Compute>>(
       vnode.name());
   const MultiFunction &fn = get_vectorized_function(builder, base_fn, vnode.rna(), {"use_list"});
-  builder.add_function(fn, {0}, {1}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 template<typename T> static T safe_sqrt_func_cb(const T &a)
@@ -458,32 +453,32 @@ static void INSERT_compare(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 static void INSERT_perlin_noise(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<MF_PerlinNoise>();
-  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_particle_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   {
     const MultiFunction &fn = builder.construct_fn<MF_ParticleAttributes>("ID", CPP_TYPE<int>());
-    MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
+    MFBuilderFunctionNode &node = builder.add_function(fn);
     builder.map_sockets(vnode.output(0), node.output(0));
   }
   {
     const MultiFunction &fn = builder.construct_fn<MF_ParticleAttributes>("Position",
                                                                           CPP_TYPE<float3>());
-    MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
+    MFBuilderFunctionNode &node = builder.add_function(fn);
     builder.map_sockets(vnode.output(1), node.output(0));
   }
   {
     const MultiFunction &fn = builder.construct_fn<MF_ParticleAttributes>("Velocity",
                                                                           CPP_TYPE<float3>());
-    MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
+    MFBuilderFunctionNode &node = builder.add_function(fn);
     builder.map_sockets(vnode.output(2), node.output(0));
   }
   {
     const MultiFunction &fn = builder.construct_fn<MF_ParticleAttributes>("Birth Time",
                                                                           CPP_TYPE<float>());
-    MFBuilderFunctionNode &node = builder.add_function(fn, {}, {0});
+    MFBuilderFunctionNode &node = builder.add_function(fn);
     builder.map_sockets(vnode.output(3), node.output(0));
   }
 }
@@ -491,13 +486,13 @@ static void INSERT_particle_info(VTreeMFNetworkBuilder &builder, const VNode &vn
 static void INSERT_closest_point_on_object(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<MF_ClosestPointOnObject>();
-  builder.add_function(fn, {0, 1}, {2}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_clamp_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<MF_Clamp>(false);
-  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 static void INSERT_map_range(VTreeMFNetworkBuilder &builder, const VNode &vnode)
@@ -505,7 +500,7 @@ static void INSERT_map_range(VTreeMFNetworkBuilder &builder, const VNode &vnode)
   bool clamp = RNA_boolean_get(vnode.rna(), "clamp");
 
   const MultiFunction &map_range_fn = builder.construct_fn<MF_MapRange>(clamp);
-  builder.add_function(map_range_fn, {0, 1, 2, 3, 4}, {5}, vnode);
+  builder.add_function(map_range_fn, vnode);
 }
 
 static void INSERT_group_node(VTreeMFNetworkBuilder &builder, const VNode &vnode)
@@ -521,10 +516,7 @@ static void INSERT_group_node(VTreeMFNetworkBuilder &builder, const VNode &vnode
 
   std::unique_ptr<MF_EvaluateNetwork> fn = generate_vtree_multi_function(*vtree,
                                                                          builder.resources());
-  builder.add_function(*fn,
-                       IndexRange(vnode.inputs().size()).as_array_ref(),
-                       IndexRange(vnode.inputs().size(), vnode.outputs().size()).as_array_ref(),
-                       vnode);
+  builder.add_function(*fn, vnode);
   builder.resources().add(std::move(vtree), "VTree for Group");
   builder.resources().add(std::move(fn), "Function for Group");
 }
@@ -532,7 +524,7 @@ static void INSERT_group_node(VTreeMFNetworkBuilder &builder, const VNode &vnode
 static void INSERT_random_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
 {
   const MultiFunction &fn = builder.construct_fn<MF_RandomFloat>();
-  builder.add_function(fn, {0, 1, 2}, {3}, vnode);
+  builder.add_function(fn, vnode);
 }
 
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
