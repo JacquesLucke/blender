@@ -20,10 +20,10 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder,
     const InsertVNodeFunction *inserter = mappings.vnode_inserters.lookup_ptr(idname);
 
     if (inserter != nullptr) {
-      (*inserter)(builder, *vnode);
-#ifdef DEBUG
+      VNodeMFNetworkBuilder vnode_builder{builder, *vnode};
+
+      (*inserter)(vnode_builder);
       builder.assert_vnode_is_mapped_correctly(*vnode);
-#endif
     }
     else if (builder.has_data_sockets(*vnode)) {
       builder.add_dummy(*vnode);

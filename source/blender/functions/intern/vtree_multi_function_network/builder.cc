@@ -73,8 +73,11 @@ void VTreeMFNetworkBuilder::map_data_sockets(const VNode &vnode, MFBuilderNode &
 
 void VTreeMFNetworkBuilder::assert_vnode_is_mapped_correctly(const VNode &vnode) const
 {
+  UNUSED_VARS_NDEBUG(vnode);
+#ifdef DEBUG
   this->assert_data_sockets_are_mapped_correctly(vnode.inputs().cast<const VSocket *>());
   this->assert_data_sockets_are_mapped_correctly(vnode.outputs().cast<const VSocket *>());
+#endif
 }
 
 void VTreeMFNetworkBuilder::assert_data_sockets_are_mapped_correctly(
@@ -139,6 +142,54 @@ MFDataType VTreeMFNetworkBuilder::data_type_from_property(const VNode &vnode,
   MFDataType type = m_vtree_mappings.data_type_by_type_name.lookup(type_name);
   MEM_freeN(type_name);
   return type;
+}
+
+Vector<bool> VNodeMFNetworkBuilder::get_list_base_variadic_states(StringRefNull prop_name)
+{
+  Vector<bool> states;
+  RNA_BEGIN (m_vnode.rna(), itemptr, prop_name.data()) {
+    int state = RNA_enum_get(&itemptr, "state");
+    if (state == 0) {
+      /* single value case */
+      states.append(false);
+    }
+    else if (state == 1) {
+      /* list case */
+      states.append(true);
+    }
+    else {
+      BLI_assert(false);
+    }
+  }
+  RNA_END;
+  return states;
+}
+
+void VNodeMFNetworkBuilder::set_matching_fn(const MultiFunction &fn)
+{
+  MFBuilderFunctionNode &node = m_network_builder.add_function(fn);
+  m_network_builder.map_data_sockets(m_vnode, node);
+}
+
+const MultiFunction &VNodeMFNetworkBuilder::get_vectorized_function(
+    const MultiFunction &base_function, ArrayRef<const char *> is_vectorized_prop_names)
+{
+  Vector<bool> input_is_vectorized;
+  for (const char *prop_name : is_vectorized_prop_names) {
+    char state[5];
+    RNA_string_get(m_vnode.rna(), prop_name, state);
+    BLI_assert(STREQ(state, "BASE") || STREQ(state, "LIST"));
+
+    bool is_vectorized = STREQ(state, "LIST");
+    input_is_vectorized.append(is_vectorized);
+  }
+
+  if (input_is_vectorized.contains(true)) {
+    return this->construct_fn<MF_SimpleVectorize>(base_function, input_is_vectorized);
+  }
+  else {
+    return base_function;
+  }
 }
 
 std::unique_ptr<VTreeMFNetwork> VTreeMFNetworkBuilder::build()

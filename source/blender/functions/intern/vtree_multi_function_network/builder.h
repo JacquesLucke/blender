@@ -281,4 +281,69 @@ class VSocketMFNetworkBuilder {
   }
 };
 
+class VNodeMFNetworkBuilder {
+ private:
+  VTreeMFNetworkBuilder &m_network_builder;
+  const VNode &m_vnode;
+
+ public:
+  VNodeMFNetworkBuilder(VTreeMFNetworkBuilder &network_builder, const VNode &vnode)
+      : m_network_builder(network_builder), m_vnode(vnode)
+  {
+  }
+
+  VTreeMFNetworkBuilder &network_builder()
+  {
+    return m_network_builder;
+  }
+
+  const VNode &vnode() const
+  {
+    return m_vnode;
+  }
+
+  PointerRNA *rna()
+  {
+    return m_vnode.rna();
+  }
+
+  const CPPType &cpp_type_from_property(StringRefNull prop_name)
+  {
+    return m_network_builder.cpp_type_from_property(m_vnode, prop_name);
+  }
+
+  MFDataType data_type_from_property(StringRefNull prop_name)
+  {
+    return m_network_builder.data_type_from_property(m_vnode, prop_name);
+  }
+
+  Vector<bool> get_list_base_variadic_states(StringRefNull prop_name);
+
+  template<typename T, typename... Args> T &construct_fn(Args &&... args)
+  {
+    return m_network_builder.construct_fn<T>(std::forward<Args>(args)...);
+  }
+
+  template<typename T, typename... Args>
+  void set_vectorized_constructed_matching_fn(ArrayRef<const char *> is_vectorized_prop_names,
+                                              Args &&... args)
+  {
+    const MultiFunction &base_fn = this->construct_fn<T>(std::forward<Args>(args)...);
+    const MultiFunction &fn = this->get_vectorized_function(base_fn, is_vectorized_prop_names);
+    this->set_matching_fn(fn);
+  }
+
+  template<typename T, typename... Args> void set_constructed_matching_fn(Args &&... args)
+  {
+    const MultiFunction &fn = this->construct_fn<T>(std::forward<Args>(args)...);
+    this->set_matching_fn(fn);
+  }
+
+  void set_matching_fn(const MultiFunction &fn);
+
+ private:
+  const MultiFunction &get_vectorized_function(const MultiFunction &base_function,
+                                               ArrayRef<const char *> is_vectorized_prop_names);
+};
+
 }  // namespace FN

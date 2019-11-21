@@ -9,502 +9,345 @@
 namespace FN {
 
 using BLI::float3;
-
-static const MultiFunction &get_vectorized_function(
-    VTreeMFNetworkBuilder &builder,
-    const MultiFunction &base_function,
-    PointerRNA *rna,
-    ArrayRef<const char *> is_vectorized_prop_names)
+static void INSERT_combine_color(VNodeMFNetworkBuilder &builder)
 {
-  Vector<bool> input_is_vectorized;
-  for (const char *prop_name : is_vectorized_prop_names) {
-    char state[5];
-    RNA_string_get(rna, prop_name, state);
-    BLI_assert(STREQ(state, "BASE") || STREQ(state, "LIST"));
-
-    bool is_vectorized = STREQ(state, "LIST");
-    input_is_vectorized.append(is_vectorized);
-  }
-
-  if (input_is_vectorized.contains(true)) {
-    return builder.construct_fn<FN::MF_SimpleVectorize>(base_function, input_is_vectorized);
-  }
-  else {
-    return base_function;
-  }
-}
-
-static void INSERT_combine_color(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  const MultiFunction &base_fn = builder.construct_fn<FN::MF_CombineColor>();
-  const MultiFunction &fn = get_vectorized_function(
-      builder,
-      base_fn,
-      vnode.rna(),
+  builder.set_vectorized_constructed_matching_fn<MF_CombineColor>(
       {"use_list__red", "use_list__green", "use_list__blue", "use_list__alpha"});
-  builder.add_function(fn, vnode);
 }
 
-static void INSERT_separate_color(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_separate_color(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &base_fn = builder.construct_fn<FN::MF_SeparateColor>();
-  const MultiFunction &fn = get_vectorized_function(
-      builder, base_fn, vnode.rna(), {"use_list__color"});
-  builder.add_function(fn, vnode);
+  builder.set_vectorized_constructed_matching_fn<MF_SeparateColor>({"use_list__color"});
 }
 
-static void INSERT_combine_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_combine_vector(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &base_fn = builder.construct_fn<FN::MF_CombineVector>();
-  const MultiFunction &fn = get_vectorized_function(
-      builder, base_fn, vnode.rna(), {"use_list__x", "use_list__y", "use_list__z"});
-  builder.add_function(fn, vnode);
+  builder.set_vectorized_constructed_matching_fn<MF_CombineVector>(
+      {"use_list__x", "use_list__y", "use_list__z"});
 }
 
-static void INSERT_separate_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_separate_vector(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &base_fn = builder.construct_fn<FN::MF_SeparateVector>();
-  const MultiFunction &fn = get_vectorized_function(
-      builder, base_fn, vnode.rna(), {"use_list__vector"});
-  builder.add_function(fn, vnode);
+  builder.set_vectorized_constructed_matching_fn<MF_SeparateVector>({"use_list__vector"});
 }
 
-static void INSERT_list_length(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_list_length(VNodeMFNetworkBuilder &builder)
 {
-  const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ListLength>(type);
-  builder.add_function(fn, vnode);
+  const CPPType &type = builder.cpp_type_from_property("active_type");
+  builder.set_constructed_matching_fn<MF_ListLength>(type);
 }
 
-static void INSERT_get_list_element(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_get_list_element(VNodeMFNetworkBuilder &builder)
 {
-  const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
-  const MultiFunction &fn = builder.construct_fn<FN::MF_GetListElement>(type);
-  builder.add_function(fn, vnode);
+  const CPPType &type = builder.cpp_type_from_property("active_type");
+  builder.set_constructed_matching_fn<MF_GetListElement>(type);
 }
 
-static Vector<bool> get_list_base_variadic_states(const VNode &vnode, StringRefNull prop_name)
+static void INSERT_pack_list(VNodeMFNetworkBuilder &builder)
 {
-  Vector<bool> list_states;
-  RNA_BEGIN (vnode.rna(), itemptr, prop_name.data()) {
-    int state = RNA_enum_get(&itemptr, "state");
-    if (state == 0) {
-      /* single value case */
-      list_states.append(false);
-    }
-    else if (state == 1) {
-      /* list case */
-      list_states.append(true);
-    }
-    else {
-      BLI_assert(false);
-    }
-  }
-  RNA_END;
-  return list_states;
+  const CPPType &type = builder.cpp_type_from_property("active_type");
+  Vector<bool> list_states = builder.get_list_base_variadic_states("variadic");
+  builder.set_constructed_matching_fn<MF_PackList>(type, list_states);
 }
 
-static MFBuilderOutputSocket &build_pack_list_node(VTreeMFNetworkBuilder &builder,
-                                                   const VNode &vnode,
-                                                   const CPPType &base_type,
-                                                   StringRefNull prop_name,
-                                                   uint start_index)
+static void INSERT_object_location(VNodeMFNetworkBuilder &builder)
 {
-  Vector<bool> list_states = get_list_base_variadic_states(vnode, prop_name);
-
-  const MultiFunction &fn = builder.construct_fn<FN::MF_PackList>(base_type, list_states);
-  MFBuilderFunctionNode &node = builder.add_function(fn);
-
-  for (uint i = 0; i < list_states.size(); i++) {
-    builder.map_sockets(vnode.input(start_index + i), *node.inputs()[i]);
-  }
-
-  return *node.outputs()[0];
+  builder.set_constructed_matching_fn<MF_ObjectWorldLocation>();
 }
 
-static void INSERT_pack_list(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_object_mesh_info(VNodeMFNetworkBuilder &builder)
 {
-  const CPPType &type = builder.cpp_type_from_property(vnode, "active_type");
-  MFBuilderOutputSocket &packed_list_socket = build_pack_list_node(
-      builder, vnode, type, "variadic", 0);
-  builder.map_sockets(vnode.output(0), packed_list_socket);
+  builder.set_constructed_matching_fn<MF_ObjectVertexPositions>();
 }
 
-static void INSERT_object_location(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_switch(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ObjectWorldLocation>();
-  builder.add_function(fn, vnode);
-}
-
-static void INSERT_object_mesh_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ObjectVertexPositions>();
-  builder.add_function(fn, vnode);
-}
-
-static const MultiFunction &get_switch_function(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  MFDataType type = builder.data_type_from_property(vnode, "data_type");
+  MFDataType type = builder.data_type_from_property("data_type");
   switch (type.category()) {
     case MFDataType::Single: {
-      return builder.construct_fn<FN::MF_SwitchSingle>(type.single__cpp_type());
+      builder.set_constructed_matching_fn<MF_SwitchSingle>(type.single__cpp_type());
+      break;
     }
     case MFDataType::Vector: {
-      return builder.construct_fn<FN::MF_SwitchVector>(type.vector__cpp_base_type());
+      builder.set_constructed_matching_fn<MF_SwitchVector>(type.vector__cpp_base_type());
+      break;
     }
   }
-  BLI_assert(false);
-  return builder.construct_fn<FN::MF_Dummy>();
 }
 
-static void INSERT_switch(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_text_length(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = get_switch_function(builder, vnode);
-  builder.add_function(fn, vnode);
+  builder.set_constructed_matching_fn<MF_TextLength>();
 }
 
-static void INSERT_text_length(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_vertex_info(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.construct_fn<FN::MF_TextLength>();
-  builder.add_function(fn, vnode);
+  builder.set_constructed_matching_fn<MF_ContextVertexPosition>();
 }
 
-static void INSERT_vertex_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_float_range(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ContextVertexPosition>();
-  builder.add_function(fn, vnode);
+  builder.set_constructed_matching_fn<MF_FloatRange>();
 }
 
-static void INSERT_float_range(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_time_info(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.construct_fn<FN::MF_FloatRange>();
-  builder.add_function(fn, vnode);
+  builder.set_constructed_matching_fn<MF_ContextCurrentFrame>();
 }
 
-static void INSERT_time_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+template<typename InT, typename OutT>
+static void build_math_fn(VNodeMFNetworkBuilder &builder, OutT (*func)(InT))
 {
-  const MultiFunction &fn = builder.construct_fn<FN::MF_ContextCurrentFrame>();
-  builder.add_function(fn, vnode);
+  auto fn =
+      [func](MFMask mask, VirtualListRef<InT> inputs, MutableArrayRef<OutT> outputs) -> void {
+    for (uint i : mask.indices()) {
+      new (&outputs[i]) OutT(func(inputs[i]));
+    }
+  };
+
+  builder.set_vectorized_constructed_matching_fn<MF_Custom_In1_Out1<InT, OutT>>(
+      {"use_list"}, builder.vnode().name(), fn);
 }
 
-template<typename T, T (*Compute)(T, T)>
-static const MultiFunction &get_simple_math_function(VTreeMFNetworkBuilder &builder,
-                                                     StringRef name,
-                                                     ArrayRef<bool> list_states,
-                                                     T default_value)
+template<typename InT1, typename InT2, typename OutT>
+static void build_math_fn(VNodeMFNetworkBuilder &builder, OutT (*func)(InT1, InT2))
 {
+  auto fn = [func](MFMask mask,
+                   VirtualListRef<InT1> inputs1,
+                   VirtualListRef<InT2> inputs2,
+                   MutableArrayRef<OutT> outputs) -> void {
+    for (uint i : mask.indices()) {
+      new (&outputs[i]) OutT(func(inputs1[i], inputs2[i]));
+    }
+  };
+
+  builder.set_vectorized_constructed_matching_fn<MF_Custom_In2_Out1<InT1, InT2, OutT>>(
+      {"use_list__a", "use_list__b"}, builder.vnode().name(), fn);
+}
+
+template<typename T>
+static void build_variadic_math_fn(VNodeMFNetworkBuilder &builder,
+                                   T (*func)(T, T),
+                                   T default_value)
+{
+  auto fn = [func](MFMask mask,
+                   VirtualListRef<T> inputs1,
+                   VirtualListRef<T> inputs2,
+                   MutableArrayRef<T> outputs) {
+    for (uint i : mask.indices()) {
+      outputs[i] = func(inputs1[i], inputs2[i]);
+    }
+  };
+
+  Vector<bool> list_states = builder.get_list_base_variadic_states("variadic");
   if (list_states.size() == 0) {
-    return builder.construct_fn<FN::MF_ConstantValue<T>>(default_value);
+    builder.set_constructed_matching_fn<MF_ConstantValue<T>>(default_value);
   }
   else {
-    const MultiFunction &math_fn = builder.construct_fn<FN::MF_VariadicMath<T>>(
-        name,
-        list_states.size(),
-        [](MFMask mask,
-           VirtualListRef<T> inputs1,
-           VirtualListRef<T> inputs2,
-           MutableArrayRef<T> outputs) {
-          for (uint i : mask.indices()) {
-            outputs[i] = Compute(inputs1[i], inputs2[i]);
-          }
-        });
-
+    const MultiFunction &base_fn = builder.construct_fn<MF_VariadicMath<T>>(
+        builder.vnode().name(), list_states.size(), fn);
     if (list_states.contains(true)) {
-      return builder.construct_fn<FN::MF_SimpleVectorize>(math_fn, list_states);
+      builder.set_constructed_matching_fn<MF_SimpleVectorize>(base_fn, list_states);
     }
     else {
-      return math_fn;
+      builder.set_matching_fn(base_fn);
     }
   }
 }
 
-template<typename T, T (*Compute)(T, T)>
-static void insert_simple_math_function(VTreeMFNetworkBuilder &builder,
-                                        const VNode &vnode,
-                                        T default_value)
+static void INSERT_add_floats(VNodeMFNetworkBuilder &builder)
 {
-  Vector<bool> list_states = get_list_base_variadic_states(vnode, "variadic");
-  const MultiFunction &fn = get_simple_math_function<T, Compute>(
-      builder, vnode.name(), list_states, default_value);
-  builder.add_function(fn, vnode);
+  build_variadic_math_fn(
+      builder, +[](float a, float b) -> float { return a + b; }, 0.0f);
 }
 
-template<typename T> static T add_func_cb(T a, T b)
+static void INSERT_multiply_floats(VNodeMFNetworkBuilder &builder)
 {
-  return a + b;
+  build_variadic_math_fn(
+      builder, +[](float a, float b) -> float { return a * b; }, 1.0f);
 }
 
-template<typename T> static T mul_func_cb(T a, T b)
+static void INSERT_minimum_floats(VNodeMFNetworkBuilder &builder)
 {
-  return a * b;
+  build_variadic_math_fn(
+      builder, +[](float a, float b) -> float { return std::min(a, b); }, 0.0f);
 }
 
-template<typename T> static T min_func_cb(T a, T b)
+static void INSERT_maximum_floats(VNodeMFNetworkBuilder &builder)
 {
-  return std::min(a, b);
+  build_variadic_math_fn(
+      builder, +[](float a, float b) -> float { return std::max(a, b); }, 0.0f);
 }
 
-template<typename T> static T max_func_cb(T a, T b)
+static void INSERT_subtract_floats(VNodeMFNetworkBuilder &builder)
 {
-  return std::max(a, b);
+  build_math_fn(
+      builder, +[](float a, float b) -> float { return a - b; });
 }
 
-static void INSERT_add_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_divide_floats(VNodeMFNetworkBuilder &builder)
 {
-  insert_simple_math_function<float, add_func_cb<float>>(builder, vnode, 0.0f);
+  build_math_fn(
+      builder, +[](float a, float b) -> float { return (b != 0.0f) ? a / b : 0.0f; });
 }
 
-static void INSERT_multiply_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_power_floats(VNodeMFNetworkBuilder &builder)
 {
-  insert_simple_math_function<float, mul_func_cb<float>>(builder, vnode, 1.0f);
+  build_math_fn(
+      builder,
+      +[](float a, float b) -> float { return (a >= 0.0f) ? (float)std::pow(a, b) : 0.0f; });
 }
 
-static void INSERT_minimum_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_sqrt_float(VNodeMFNetworkBuilder &builder)
 {
-  insert_simple_math_function<float, min_func_cb<float>>(builder, vnode, 0.0f);
+  build_math_fn(
+      builder, +[](float a) -> float { return (a >= 0.0f) ? (float)std::sqrt(a) : 0.0f; });
 }
 
-static void INSERT_maximum_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_abs_float(VNodeMFNetworkBuilder &builder)
 {
-  insert_simple_math_function<float, max_func_cb<float>>(builder, vnode, 0.0f);
+  build_math_fn(
+      builder, +[](float a) -> float { return std::abs(a); });
 }
 
-template<typename T> T subtract_func_cb(T a, T b)
+static void INSERT_sine_float(VNodeMFNetworkBuilder &builder)
 {
-  return a - b;
+  build_math_fn(
+      builder, +[](float a) -> float { return std::sin(a); });
 }
 
-template<typename T> static T safe_divide_func_cb(T a, T b)
+static void INSERT_cosine_float(VNodeMFNetworkBuilder &builder)
 {
-  return (b != 0) ? a / b : 0.0f;
+  build_math_fn(
+      builder, +[](float a) -> float { return std::cos(a); });
 }
 
-template<typename T> static T safe_power_func_cb(T a, T b)
+static void INSERT_add_vectors(VNodeMFNetworkBuilder &builder)
 {
-  return (a >= 0) ? (T)std::pow(a, b) : (T)0;
+  build_variadic_math_fn(builder, +[](float3 a, float3 b) -> float3 { return a + b; }, {0, 0, 0});
 }
 
-template<typename In1, typename In2, typename Out, Out (*Compute)(In1, In2)>
-void insert_two_inputs_math_function(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_multiply_vectors(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &base_fn = builder.construct_fn<MF_2In_1Out<In1, In2, Out, Compute>>(
-      vnode.name(), "A", "B", "Result");
-  const MultiFunction &fn = get_vectorized_function(
-      builder, base_fn, vnode.rna(), {"use_list__a", "use_list__b"});
-  builder.add_function(fn, vnode);
+  build_variadic_math_fn(builder, +[](float3 a, float3 b) -> float3 { return a * b; }, {1, 1, 1});
 }
 
-static void INSERT_subtract_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_subtract_vectors(VNodeMFNetworkBuilder &builder)
 {
-  insert_two_inputs_math_function<float, float, float, subtract_func_cb<float>>(builder, vnode);
+  build_math_fn(
+      builder, +[](float3 a, float3 b) -> float3 { return a - b; });
 }
 
-static void INSERT_divide_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_divide_vectors(VNodeMFNetworkBuilder &builder)
 {
-  insert_two_inputs_math_function<float, float, float, safe_divide_func_cb<float>>(builder, vnode);
+  build_math_fn(builder, float3::safe_divide);
 }
 
-static void INSERT_power_floats(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_vector_cross_product(VNodeMFNetworkBuilder &builder)
 {
-  insert_two_inputs_math_function<float, float, float, safe_power_func_cb<float>>(builder, vnode);
+  build_math_fn(builder, float3::cross_high_precision);
 }
 
-template<typename T, T (*Compute)(const T &)>
-static void insert_single_input_math_function(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_reflect_vector(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &base_fn = builder.construct_fn<FN::MF_Mappping<T, T, Compute>>(
-      vnode.name());
-  const MultiFunction &fn = get_vectorized_function(builder, base_fn, vnode.rna(), {"use_list"});
-  builder.add_function(fn, vnode);
+  build_math_fn(
+      builder, +[](float3 a, float3 b) { return a.reflected(b.normalized()); });
 }
 
-template<typename T> static T safe_sqrt_func_cb(const T &a)
+static void INSERT_project_vector(VNodeMFNetworkBuilder &builder)
 {
-  return (a >= 0.0) ? (T)std::sqrt(a) : 0.0f;
+  build_math_fn(builder, float3::project);
 }
 
-template<typename T> static T abs_func_cb(const T &a)
+static void INSERT_vector_dot_product(VNodeMFNetworkBuilder &builder)
 {
-  return (T)std::abs(a);
+  build_math_fn(builder, float3::dot);
 }
 
-template<typename T> static T sine_func_cb(const T &a)
+static void INSERT_vector_distance(VNodeMFNetworkBuilder &builder)
 {
-  return (T)std::sin(a);
+  build_math_fn(builder, float3::distance);
 }
 
-template<typename T> static T cosine_func_cb(const T &a)
+static void INSERT_boolean_and(VNodeMFNetworkBuilder &builder)
 {
-  return (T)std::cos(a);
+  build_variadic_math_fn(
+      builder, +[](bool a, bool b) { return a && b; }, true);
 }
 
-static void INSERT_sqrt_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_boolean_or(VNodeMFNetworkBuilder &builder)
 {
-  insert_single_input_math_function<float, safe_sqrt_func_cb<float>>(builder, vnode);
+  build_variadic_math_fn(
+      builder, +[](bool a, bool b) { return a || b; }, false);
 }
 
-static void INSERT_abs_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_boolean_not(VNodeMFNetworkBuilder &builder)
 {
-  insert_single_input_math_function<float, abs_func_cb<float>>(builder, vnode);
+  build_math_fn(
+      builder, +[](bool a) -> bool { return !a; });
 }
 
-static void INSERT_sine_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_compare(VNodeMFNetworkBuilder &builder)
 {
-  insert_single_input_math_function<float, sine_func_cb<float>>(builder, vnode);
+  build_math_fn(
+      builder, +[](float a, float b) -> bool { return a < b; });
 }
 
-static void INSERT_cosine_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_perlin_noise(VNodeMFNetworkBuilder &builder)
 {
-  insert_single_input_math_function<float, cosine_func_cb<float>>(builder, vnode);
+  builder.set_constructed_matching_fn<MF_PerlinNoise>();
 }
 
-static void INSERT_add_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
 {
-  insert_simple_math_function<float3, add_func_cb<float3>>(builder, vnode, {0, 0, 0});
-}
+  VTreeMFNetworkBuilder &network_builder = builder.network_builder();
+  const VNode &vnode = builder.vnode();
 
-static void INSERT_subtract_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_two_inputs_math_function<float3, float3, float3, subtract_func_cb<float3>>(builder,
-                                                                                    vnode);
-}
-
-static void INSERT_multiply_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_simple_math_function<float3, mul_func_cb<float3>>(builder, vnode, {1, 1, 1});
-}
-
-static void INSERT_divide_vectors(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_two_inputs_math_function<float3, float3, float3, float3::safe_divide>(builder, vnode);
-}
-
-static float3 vector_reflect_func_cb(float3 a, float3 b)
-{
-  return a.reflected(b.normalized());
-}
-
-static void INSERT_vector_cross_product(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_two_inputs_math_function<float3, float3, float3, float3::cross_high_precision>(builder,
-                                                                                        vnode);
-}
-
-static void INSERT_reflect_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_two_inputs_math_function<float3, float3, float3, vector_reflect_func_cb>(builder, vnode);
-}
-
-static void INSERT_project_vector(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_two_inputs_math_function<float3, float3, float3, float3::project>(builder, vnode);
-}
-
-static void INSERT_vector_dot_product(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_two_inputs_math_function<float3, float3, float, float3::dot>(builder, vnode);
-}
-
-static void INSERT_vector_distance(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_two_inputs_math_function<float3, float3, float, float3::distance>(builder, vnode);
-}
-
-static bool bool_and_func_cb(bool a, bool b)
-{
-  return a && b;
-}
-
-static bool bool_or_func_cb(bool a, bool b)
-{
-  return a || b;
-}
-
-static bool bool_not_func_cb(const bool &a)
-{
-  return !a;
-}
-
-static void INSERT_boolean_and(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_simple_math_function<bool, bool_and_func_cb>(builder, vnode, true);
-}
-
-static void INSERT_boolean_or(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_simple_math_function<bool, bool_or_func_cb>(builder, vnode, false);
-}
-
-static void INSERT_boolean_not(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_single_input_math_function<bool, bool_not_func_cb>(builder, vnode);
-}
-
-static bool less_than_func_cb(float a, float b)
-{
-  return a < b;
-}
-
-static void INSERT_compare(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  insert_two_inputs_math_function<float, float, bool, less_than_func_cb>(builder, vnode);
-}
-
-static void INSERT_perlin_noise(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
-  const MultiFunction &fn = builder.construct_fn<MF_PerlinNoise>();
-  builder.add_function(fn, vnode);
-}
-
-static void INSERT_particle_info(VTreeMFNetworkBuilder &builder, const VNode &vnode)
-{
   {
-    const MultiFunction &fn = builder.construct_fn<MF_ParticleAttributes>("ID", CPP_TYPE<int>());
-    MFBuilderFunctionNode &node = builder.add_function(fn);
-    builder.map_sockets(vnode.output(0), node.output(0));
+    const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>("ID",
+                                                                                  CPP_TYPE<int>());
+    MFBuilderFunctionNode &node = network_builder.add_function(fn);
+    network_builder.map_sockets(vnode.output(0), node.output(0));
   }
   {
-    const MultiFunction &fn = builder.construct_fn<MF_ParticleAttributes>("Position",
-                                                                          CPP_TYPE<float3>());
-    MFBuilderFunctionNode &node = builder.add_function(fn);
-    builder.map_sockets(vnode.output(1), node.output(0));
+    const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
+        "Position", CPP_TYPE<float3>());
+    MFBuilderFunctionNode &node = network_builder.add_function(fn);
+    network_builder.map_sockets(vnode.output(1), node.output(0));
   }
   {
-    const MultiFunction &fn = builder.construct_fn<MF_ParticleAttributes>("Velocity",
-                                                                          CPP_TYPE<float3>());
-    MFBuilderFunctionNode &node = builder.add_function(fn);
-    builder.map_sockets(vnode.output(2), node.output(0));
+    const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
+        "Velocity", CPP_TYPE<float3>());
+    MFBuilderFunctionNode &node = network_builder.add_function(fn);
+    network_builder.map_sockets(vnode.output(2), node.output(0));
   }
   {
-    const MultiFunction &fn = builder.construct_fn<MF_ParticleAttributes>("Birth Time",
-                                                                          CPP_TYPE<float>());
-    MFBuilderFunctionNode &node = builder.add_function(fn);
-    builder.map_sockets(vnode.output(3), node.output(0));
+    const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
+        "Birth Time", CPP_TYPE<float>());
+    MFBuilderFunctionNode &node = network_builder.add_function(fn);
+    network_builder.map_sockets(vnode.output(3), node.output(0));
   }
 }
 
-static void INSERT_closest_point_on_object(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_closest_point_on_object(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.construct_fn<MF_ClosestPointOnObject>();
-  builder.add_function(fn, vnode);
+  builder.set_constructed_matching_fn<MF_ClosestPointOnObject>();
 }
 
-static void INSERT_clamp_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_clamp_float(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.construct_fn<MF_Clamp>(false);
-  builder.add_function(fn, vnode);
+  builder.set_constructed_matching_fn<MF_Clamp>(false);
 }
 
-static void INSERT_map_range(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_map_range(VNodeMFNetworkBuilder &builder)
 {
-  bool clamp = RNA_boolean_get(vnode.rna(), "clamp");
-
-  const MultiFunction &map_range_fn = builder.construct_fn<MF_MapRange>(clamp);
-  builder.add_function(map_range_fn, vnode);
+  bool clamp = RNA_boolean_get(builder.rna(), "clamp");
+  builder.set_constructed_matching_fn<MF_MapRange>(clamp);
 }
 
-static void INSERT_group_node(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_group(VNodeMFNetworkBuilder &builder)
 {
+  const VNode &vnode = builder.vnode();
   bNodeTree *btree = (bNodeTree *)RNA_pointer_get(vnode.rna(), "node_group").data;
   if (btree == nullptr) {
     BLI_assert(vnode.inputs().size() == 0);
@@ -514,17 +357,17 @@ static void INSERT_group_node(VTreeMFNetworkBuilder &builder, const VNode &vnode
 
   auto vtree = BLI::make_unique<VirtualNodeTree>(btree);
 
-  std::unique_ptr<MF_EvaluateNetwork> fn = generate_vtree_multi_function(*vtree,
-                                                                         builder.resources());
-  builder.add_function(*fn, vnode);
-  builder.resources().add(std::move(vtree), "VTree for Group");
-  builder.resources().add(std::move(fn), "Function for Group");
+  ResourceCollector &resources = builder.network_builder().resources();
+  std::unique_ptr<MF_EvaluateNetwork> fn = generate_vtree_multi_function(*vtree, resources);
+  builder.set_matching_fn(*fn);
+
+  resources.add(std::move(vtree), "VTree for Group");
+  resources.add(std::move(fn), "Function for Group");
 }
 
-static void INSERT_random_float(VTreeMFNetworkBuilder &builder, const VNode &vnode)
+static void INSERT_random_float(VNodeMFNetworkBuilder &builder)
 {
-  const MultiFunction &fn = builder.construct_fn<MF_RandomFloat>();
-  builder.add_function(fn, vnode);
+  builder.set_constructed_matching_fn<MF_RandomFloat>();
 }
 
 void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
@@ -549,7 +392,7 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_ClosestPointOnObjectNode", INSERT_closest_point_on_object);
   mappings.vnode_inserters.add_new("fn_MapRangeNode", INSERT_map_range);
   mappings.vnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
-  mappings.vnode_inserters.add_new("fn_GroupNode", INSERT_group_node);
+  mappings.vnode_inserters.add_new("fn_GroupNode", INSERT_group);
   mappings.vnode_inserters.add_new("fn_RandomFloatNode", INSERT_random_float);
 
   mappings.vnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);

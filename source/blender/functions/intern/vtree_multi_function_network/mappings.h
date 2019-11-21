@@ -14,10 +14,10 @@ using BLI::StringMap;
 
 struct VTreeMultiFunctionMappings;
 class VTreeMFNetworkBuilder;
+class VNodeMFNetworkBuilder;
 class VSocketMFNetworkBuilder;
 
-using InsertVNodeFunction =
-    std::function<void(VTreeMFNetworkBuilder &builder, const VNode &vnode)>;
+using InsertVNodeFunction = std::function<void(VNodeMFNetworkBuilder &builder)>;
 using InsertVSocketFunction = std::function<void(VSocketMFNetworkBuilder &builder)>;
 using InsertImplicitConversionFunction = std::function<
     std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *>(VTreeMFNetworkBuilder &builder)>;
