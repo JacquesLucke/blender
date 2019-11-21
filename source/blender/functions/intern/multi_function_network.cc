@@ -70,7 +70,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
     BLI_assert(param.is_input_or_mutable());
 
     auto &input_socket = *m_allocator.construct<MFBuilderInputSocket>().release();
-    input_socket.m_type = param.data_type();
+    input_socket.m_data_type = param.data_type();
     input_socket.m_node = &node;
     input_socket.m_index = i;
     input_socket.m_is_output = false;
@@ -86,7 +86,7 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
     BLI_assert(param.is_output_or_mutable());
 
     auto &output_socket = *m_allocator.construct<MFBuilderOutputSocket>().release();
-    output_socket.m_type = param.data_type();
+    output_socket.m_data_type = param.data_type();
     output_socket.m_node = &node;
     output_socket.m_index = i;
     output_socket.m_is_output = true;
@@ -112,7 +112,7 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(ArrayRef<MFDataType> input_types
 
   for (uint i = 0; i < input_types.size(); i++) {
     auto &input_socket = *m_allocator.construct<MFBuilderInputSocket>().release();
-    input_socket.m_type = input_types[i];
+    input_socket.m_data_type = input_types[i];
     input_socket.m_node = &node;
     input_socket.m_index = i;
     input_socket.m_is_output = false;
@@ -123,7 +123,7 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(ArrayRef<MFDataType> input_types
   }
   for (uint i = 0; i < output_types.size(); i++) {
     auto &output_socket = *m_allocator.construct<MFBuilderOutputSocket>().release();
-    output_socket.m_type = output_types[i];
+    output_socket.m_data_type = output_types[i];
     output_socket.m_node = &node;
     output_socket.m_index = i;
     output_socket.m_is_output = true;
@@ -189,7 +189,7 @@ static void insert_node_table(std::stringstream &ss, MFBuilderNode &node)
     if (i < inputs.size()) {
       MFBuilderInputSocket &socket = *inputs[i];
       ss << "<td align=\"left\" port=" << get_id(socket) << ">";
-      ss << socket.name() << " (" << socket.type() << ")";
+      ss << socket.name() << " (" << socket.data_type() << ")";
       ss << "</td>";
     }
     else {
@@ -199,7 +199,7 @@ static void insert_node_table(std::stringstream &ss, MFBuilderNode &node)
     if (i < outputs.size()) {
       MFBuilderOutputSocket &socket = *outputs[i];
       ss << "<td align=\"right\" port=" << get_id(socket) << ">";
-      ss << socket.name() << " (" << socket.type() << ")";
+      ss << socket.name() << " (" << socket.data_type() << ")";
       ss << "</td>";
     }
     else {
@@ -283,7 +283,7 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
       socket.m_index = builder_socket->index();
       socket.m_is_output = false;
       socket.m_node = &node;
-      socket.m_type = builder_socket->type();
+      socket.m_data_type = builder_socket->data_type();
 
       m_socket_by_id[socket.id()] = &socket;
       m_input_sockets.append(&socket);
@@ -295,7 +295,7 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
       socket.m_index = builder_socket->index();
       socket.m_is_output = true;
       socket.m_node = &node;
-      socket.m_type = builder_socket->type();
+      socket.m_data_type = builder_socket->data_type();
 
       m_socket_by_id[socket.id()] = &socket;
       m_output_sockets.append(&socket);
@@ -319,7 +319,7 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
       socket.m_index = builder_socket->index();
       socket.m_is_output = false;
       socket.m_node = &node;
-      socket.m_type = builder_socket->type();
+      socket.m_data_type = builder_socket->data_type();
 
       m_socket_by_id[socket.id()] = &socket;
       m_input_sockets.append(&socket);
@@ -331,7 +331,7 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
       socket.m_index = builder_socket->index();
       socket.m_is_output = true;
       socket.m_node = &node;
-      socket.m_type = builder_socket->type();
+      socket.m_data_type = builder_socket->data_type();
 
       m_socket_by_id[socket.id()] = &socket;
       m_output_sockets.append(&socket);

@@ -95,14 +95,14 @@ void VTreeMFNetworkBuilder::assert_vsocket_is_mapped_correctly(const VSocket &vs
 
   if (vsocket.is_input()) {
     for (MFBuilderInputSocket *socket : this->lookup_socket(vsocket.as_input())) {
-      MFDataType socket_type = socket->type();
+      MFDataType socket_type = socket->data_type();
       BLI_assert(socket_type == vsocket_type);
       UNUSED_VARS_NDEBUG(socket_type);
     }
   }
   else {
     MFBuilderSocket &socket = this->lookup_socket(vsocket.as_output());
-    MFDataType socket_type = socket.type();
+    MFDataType socket_type = socket.data_type();
     BLI_assert(socket_type == vsocket_type);
     UNUSED_VARS_NDEBUG(socket_type);
   }

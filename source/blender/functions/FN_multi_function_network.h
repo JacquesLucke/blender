@@ -77,14 +77,14 @@ class MFBuilderSocket : BLI::NonCopyable, BLI::NonMovable {
   MFBuilderNode *m_node;
   bool m_is_output;
   uint m_index;
-  MFDataType m_type;
+  MFDataType m_data_type;
   uint m_id;
 
   friend MFNetworkBuilder;
 
  public:
   MFBuilderNode &node();
-  MFDataType type();
+  MFDataType data_type();
 
   uint index();
   uint id();
@@ -234,14 +234,14 @@ class MFSocket : BLI::NonCopyable, BLI::NonMovable {
   MFNode *m_node;
   bool m_is_output;
   uint m_index;
-  MFDataType m_type;
+  MFDataType m_data_type;
   uint m_id;
 
   friend MFNetwork;
 
  public:
   const MFNode &node() const;
-  MFDataType type() const;
+  MFDataType data_type() const;
 
   uint index() const;
   uint id() const;
@@ -383,9 +383,9 @@ inline MFBuilderNode &MFBuilderSocket::node()
   return *m_node;
 }
 
-inline MFDataType MFBuilderSocket::type()
+inline MFDataType MFBuilderSocket::data_type()
 {
-  return m_type;
+  return m_data_type;
 }
 
 inline uint MFBuilderSocket::index()
@@ -519,9 +519,9 @@ inline const MFNode &MFSocket::node() const
   return *m_node;
 }
 
-inline MFDataType MFSocket::type() const
+inline MFDataType MFSocket::data_type() const
 {
-  return m_type;
+  return m_data_type;
 }
 
 inline uint MFSocket::index() const

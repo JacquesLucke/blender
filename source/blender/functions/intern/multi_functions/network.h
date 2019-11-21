@@ -23,7 +23,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
     for (auto socket : m_inputs) {
       BLI_assert(socket->node().is_dummy());
 
-      MFDataType type = socket->type();
+      MFDataType type = socket->data_type();
       switch (type.category()) {
         case MFDataType::Single:
           signature.single_input("Input", type.type());
@@ -36,7 +36,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
     for (auto socket : m_outputs) {
       BLI_assert(socket->node().is_dummy());
 
-      MFDataType type = socket->type();
+      MFDataType type = socket->data_type();
       switch (type.category()) {
         case MFDataType::Single:
           signature.single_output("Output", type.type());
@@ -148,7 +148,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
 
     bool input_is_computed(const MFInputSocket &socket) const
     {
-      switch (socket.type().category()) {
+      switch (socket.data_type().category()) {
         case MFDataType::Single:
           return m_virtual_list_for_inputs.contains(socket.id());
         case MFDataType::Vector:

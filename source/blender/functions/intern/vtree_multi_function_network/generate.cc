@@ -55,8 +55,8 @@ static bool insert_links(VTreeMFNetworkBuilder &builder,
     Vector<MFBuilderInputSocket *> to_sockets = builder.lookup_socket(*to_vsocket);
     BLI_assert(to_sockets.size() >= 1);
 
-    MFDataType from_type = from_socket->type();
-    MFDataType to_type = to_sockets[0]->type();
+    MFDataType from_type = from_socket->data_type();
+    MFDataType to_type = to_sockets[0]->data_type();
 
     if (from_type != to_type) {
       const InsertImplicitConversionFunction *inserter = mappings.conversion_inserters.lookup_ptr(

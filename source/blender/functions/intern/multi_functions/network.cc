@@ -20,7 +20,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
 {
   for (uint input_index = 0; input_index < m_inputs.size(); input_index++) {
     const MFOutputSocket &socket = *m_inputs[input_index];
-    switch (socket.type().category()) {
+    switch (socket.data_type().category()) {
       case MFDataType::Single: {
         GenericVirtualListRef input_list = params.readonly_single_input(input_index, "Input");
         for (const MFInputSocket *target : socket.targets()) {
@@ -165,7 +165,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
         uint output_socket_index = function_node.output_param_indices().first_index(param_index);
         const MFOutputSocket &output_socket = *function_node.outputs()[output_socket_index];
         GenericMutableArrayRef values_destination = this->allocate_array(
-            output_socket.type().type(), array_size);
+            output_socket.data_type().type(), array_size);
         params_builder.add_single_output(values_destination);
         single_outputs_to_forward.append({&output_socket, values_destination});
         break;
@@ -173,7 +173,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
       case MFParamType::VectorOutput: {
         uint output_socket_index = function_node.output_param_indices().first_index(param_index);
         const MFOutputSocket &output_socket = *function_node.outputs()[output_socket_index];
-        auto *values_destination = new GenericVectorArray(output_socket.type().base_type(),
+        auto *values_destination = new GenericVectorArray(output_socket.data_type().base_type(),
                                                           array_size);
         params_builder.add_vector_output(*values_destination);
         vector_outputs_to_forward.append({&output_socket, values_destination});
@@ -284,7 +284,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFMask mas
   for (uint output_index = 0; output_index < m_outputs.size(); output_index++) {
     uint global_param_index = m_inputs.size() + output_index;
     const MFInputSocket &socket = *m_outputs[output_index];
-    switch (socket.type().category()) {
+    switch (socket.data_type().category()) {
       case MFDataType::Single: {
         GenericVirtualListRef values = storage.get_virtual_list_for_input(socket);
         GenericMutableArrayRef output_values = params.uninitialized_single_output(
