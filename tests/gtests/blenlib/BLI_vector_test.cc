@@ -349,6 +349,22 @@ TEST(vector, RemoveReorder)
   EXPECT_TRUE(vec.empty());
 }
 
+TEST(vector, RemoveFirstOccurrenceAndReorder)
+{
+  IntVector vec = {4, 5, 6, 7};
+  vec.remove_first_occurrence_and_reorder(5);
+  EXPECT_EQ(vec[0], 4);
+  EXPECT_EQ(vec[1], 7);
+  EXPECT_EQ(vec[2], 6);
+  vec.remove_first_occurrence_and_reorder(6);
+  EXPECT_EQ(vec[0], 4);
+  EXPECT_EQ(vec[1], 7);
+  vec.remove_first_occurrence_and_reorder(4);
+  EXPECT_EQ(vec[0], 7);
+  vec.remove_first_occurrence_and_reorder(7);
+  EXPECT_EQ(vec.size(), 0);
+}
+
 TEST(vector, AllEqual_False)
 {
   IntVector a = {1, 2, 3};

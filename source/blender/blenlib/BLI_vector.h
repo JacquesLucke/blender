@@ -450,6 +450,12 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     UPDATE_VECTOR_SIZE(this);
   }
 
+  void remove_first_occurrence_and_reorder(const T &value)
+  {
+    uint index = this->index(value);
+    this->remove_and_reorder(index);
+  }
+
   /**
    * Do a linear search to find the value in the vector.
    * When found, return the first index, otherwise return -1.
