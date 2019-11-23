@@ -52,6 +52,8 @@ class VSocket : BLI::NonCopyable, BLI::NonMovable {
   const VirtualNodeTree &tree() const;
   uint id() const;
 
+  uint index() const;
+
   bool is_input() const;
   bool is_output() const;
 
@@ -168,6 +170,11 @@ inline const VNode &VSocket::node() const
 inline uint VSocket::id() const
 {
   return m_id;
+}
+
+inline uint VSocket::index() const
+{
+  return m_index;
 }
 
 inline bool VSocket::is_input() const
