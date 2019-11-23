@@ -5492,7 +5492,11 @@ static void build_vmesh(BevelParams *bp, BMesh *bm, BevVert *bv)
       }
       else { /* Get the last of the two BoundVerts. */
         weld2 = bndv;
-        move_weld_profile_planes(bv, weld1, weld2); /* Profile recalculated in next loop. */
+        move_weld_profile_planes(bv, weld1, weld2);
+        if (!bp->use_custom_profile) { /* Else profile recalculated in next loop. */
+          calculate_profile(bp, weld1, !weld1->is_profile_start, false);
+          calculate_profile(bp, weld2, !weld2->is_profile_start, false);
+        }
       }
     }
   } while ((bndv = bndv->next) != vm->boundstart);
@@ -7326,6 +7330,15 @@ void BM_mesh_bevel(BMesh *bm,
 
   if (profile >= 0.950f) { /* r ~ 692, so PRO_SQUARE_R is 1e4 */
     bp.pro_super_r = PRO_SQUARE_R;
+  }
+  else if (fabsf(bp.pro_super_r - PRO_CIRCLE_R) < 1e-4) {
+    bp.pro_super_r = PRO_CIRCLE_R;
+  }
+  else if (fabsf(bp.pro_super_r - PRO_LINE_R) < 1e-4) {
+    bp.pro_super_r = PRO_LINE_R;
+  }
+  else if (bp.pro_super_r < 1e-4) {
+    bp.pro_super_r = PRO_SQUARE_IN_R;
   }
 
   if (bp.offset > 0) {
