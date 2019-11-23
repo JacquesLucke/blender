@@ -28,40 +28,35 @@ VirtualNodeTree::VirtualNodeTree(bNodeTree *btree) : m_btree(btree)
 
     vnode.m_vtree = &vtree;
     vnode.m_bnode = bnode;
-    vnode.m_id = vtree.m_nodes_by_id.size();
+    vnode.m_id = vtree.m_nodes_by_id.append_and_get_index(&vnode);
     RNA_pointer_create(&btree->id, &RNA_Node, bnode, &vnode.m_rna);
 
     for (bNodeSocket *bsocket : BSocketList(bnode->inputs)) {
       VInputSocket &vsocket = *vtree.m_allocator.construct<VInputSocket>().release();
 
       vsocket.m_node = &vnode;
-      vsocket.m_index = vnode.m_inputs.size();
+      vsocket.m_index = vnode.m_inputs.append_and_get_index(&vsocket);
       vsocket.m_is_input = true;
       vsocket.m_bsocket = bsocket;
-      vsocket.m_id = vtree.m_sockets_by_id.size();
+      vsocket.m_id = vtree.m_sockets_by_id.append_and_get_index(&vsocket);
       RNA_pointer_create(&btree->id, &RNA_NodeSocket, bsocket, &vsocket.m_rna);
 
-      vnode.m_inputs.append(&vsocket);
       vtree.m_input_sockets.append(&vsocket);
-      vtree.m_sockets_by_id.append(&vsocket);
     }
 
     for (bNodeSocket *bsocket : BSocketList(bnode->outputs)) {
       VOutputSocket &vsocket = *vtree.m_allocator.construct<VOutputSocket>().release();
 
       vsocket.m_node = &vnode;
-      vsocket.m_index = vnode.m_outputs.size();
+      vsocket.m_index = vnode.m_outputs.append_and_get_index(&vsocket);
       vsocket.m_is_input = false;
       vsocket.m_bsocket = bsocket;
-      vsocket.m_id = vtree.m_sockets_by_id.size();
+      vsocket.m_id = vtree.m_sockets_by_id.append_and_get_index(&vsocket);
       RNA_pointer_create(&btree->id, &RNA_NodeSocket, bsocket, &vsocket.m_rna);
 
-      vnode.m_outputs.append(&vsocket);
       vtree.m_output_sockets.append(&vsocket);
-      vtree.m_sockets_by_id.append(&vsocket);
     }
 
-    vtree.m_nodes_by_id.append(&vnode);
     node_mapping.add_new(bnode, &vnode);
   }
 

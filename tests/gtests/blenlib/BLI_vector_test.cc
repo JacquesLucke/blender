@@ -216,6 +216,16 @@ TEST(vector, Append)
   EXPECT_EQ(vec[2], 7);
 }
 
+TEST(vector, AppendAndGetIndex)
+{
+  IntVector vec;
+  EXPECT_EQ(vec.append_and_get_index(10), 0);
+  EXPECT_EQ(vec.append_and_get_index(10), 1);
+  EXPECT_EQ(vec.append_and_get_index(10), 2);
+  vec.append(10);
+  EXPECT_EQ(vec.append_and_get_index(10), 4);
+}
+
 TEST(vector, Fill)
 {
   IntVector vec(5);

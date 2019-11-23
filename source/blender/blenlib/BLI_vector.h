@@ -295,6 +295,13 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     this->append_unchecked(std::move(value));
   }
 
+  uint append_and_get_index(const T &value)
+  {
+    uint index = this->size();
+    this->append(value);
+    return index;
+  }
+
   void append_unchecked(const T &value)
   {
     BLI_assert(m_end < m_capacity_end);
