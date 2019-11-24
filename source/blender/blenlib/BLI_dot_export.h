@@ -14,6 +14,8 @@
 #include "BLI_map.h"
 #include "BLI_utility_mixins.h"
 
+#include "BLI_dot_export_attribute_enums.h"
+
 #include <sstream>
 
 namespace BLI {
@@ -44,6 +46,7 @@ class AttributeList {
 
 class Graph {
  private:
+  AttributeList m_attributes;
   Vector<std::unique_ptr<Node>> m_nodes;
   Vector<std::unique_ptr<Cluster>> m_clusters;
 
@@ -54,6 +57,16 @@ class Graph {
   Cluster &new_cluster();
 
   void export__declare_nodes_and_clusters(std::stringstream &ss) const;
+
+  void set_attribute(StringRef key, StringRef value)
+  {
+    m_attributes.set(key, value);
+  }
+
+  void set_rankdir(Attr_rankdir::Enum rankdir)
+  {
+    this->set_attribute("rankdir", Attr_rankdir::to_string(rankdir));
+  }
 };
 
 class UndirectedGraph final : public Graph {
@@ -130,6 +143,21 @@ class Edge : BLI::NonCopyable, BLI::NonMovable {
   {
     m_attributes.set(key, value);
   }
+
+  void set_arrowhead(Attr_arrowType::Enum type)
+  {
+    this->set_attribute("arrowhead", Attr_arrowType::to_string(type));
+  }
+
+  void set_arrowtail(Attr_arrowType::Enum type)
+  {
+    this->set_attribute("arrowtail", Attr_arrowType::to_string(type));
+  }
+
+  void set_dir(Attr_dirType::Enum type)
+  {
+    this->set_attribute("dir", Attr_dirType::to_string(type));
+  }
 };
 
 class DirectedEdge : public Edge {
@@ -168,6 +196,11 @@ class Node {
   void set_attribute(StringRef key, StringRef value)
   {
     m_attributes.set(key, value);
+  }
+
+  void set_shape(Attr_shape::Enum shape)
+  {
+    this->set_attribute("shape", Attr_shape::to_string(shape));
   }
 
   void export__as_id(std::stringstream &ss) const;

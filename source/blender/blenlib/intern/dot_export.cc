@@ -37,6 +37,10 @@ std::string UndirectedGraph::to_dot_string() const
 
 void Graph::export__declare_nodes_and_clusters(std::stringstream &ss) const
 {
+  ss << "graph ";
+  m_attributes.export__as_bracket_list(ss);
+  ss << "\n\n";
+
   for (auto &node : m_nodes) {
     node->export__as_declaration(ss);
   }
@@ -202,7 +206,7 @@ NodeWithSocketsWrapper::NodeWithSocketsWrapper(Node &node,
   ss << "</table>>";
 
   m_node->set_attribute("label", ss.str());
-  m_node->set_attribute("shape", "box");
+  m_node->set_shape(Attr_shape::Rectangle);
 }
 
 }  // namespace Utils
