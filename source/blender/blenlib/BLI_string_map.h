@@ -345,6 +345,19 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
     }
   }
 
+  template<typename FuncT> void foreach_key_value_pair(const FuncT &func) const
+  {
+    for (const Item &item : m_array) {
+      for (uint offset = 0; offset < 4; offset++) {
+        if (item.is_set(offset)) {
+          StringRefNull key = item.get_key(offset, m_chars);
+          const T &value = *item.value(offset);
+          func(key, value);
+        }
+      }
+    }
+  }
+
  private:
   uint32_t compute_string_hash(StringRef key) const
   {

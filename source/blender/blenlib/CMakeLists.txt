@@ -255,6 +255,8 @@ set(SRC
   PIL_time.h
   PIL_time_utildefines.h
 
+  BLI_dot_export.h
+  intern/dot_export.cc
   BLI_chained_strings.h
   BLI_lazy_init.h
   BLI_lazy_init_cxx.h
