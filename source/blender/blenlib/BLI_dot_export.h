@@ -1,6 +1,13 @@
 #ifndef __BLI_DOT_EXPORT_H__
 #define __BLI_DOT_EXPORT_H__
 
+/**
+ * Language grammar: https://www.graphviz.org/doc/info/lang.html
+ * Attributes: https://www.graphviz.org/doc/info/attrs.html
+ * Node Shapes: https://www.graphviz.org/doc/info/shapes.html
+ * Preview: https://dreampuf.github.io/GraphvizOnline
+ */
+
 #include "BLI_vector.h"
 #include "BLI_optional.h"
 #include "BLI_string_map.h"
@@ -167,6 +174,33 @@ class Node {
 
   void export__as_declaration(std::stringstream &ss) const;
 };
+
+namespace Utils {
+
+class NodeWithSocketsWrapper {
+ private:
+  Node *m_node;
+
+ public:
+  NodeWithSocketsWrapper(Node &node,
+                         StringRef name,
+                         ArrayRef<std::string> input_names,
+                         ArrayRef<std::string> output_names);
+
+  NodePort input(uint index) const
+  {
+    std::string port = "\"in" + std::to_string(index) + "\"";
+    return NodePort(*m_node, port);
+  }
+
+  NodePort output(uint index) const
+  {
+    std::string port = "\"out" + std::to_string(index) + "\"";
+    return NodePort(*m_node, port);
+  }
+};
+
+}  // namespace Utils
 
 }  // namespace DotExport
 }  // namespace BLI

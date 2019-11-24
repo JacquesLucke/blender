@@ -87,7 +87,13 @@ void AttributeList::export__as_bracket_list(std::stringstream &ss) const
 {
   ss << "[";
   for (auto item : m_attributes.items()) {
-    ss << item.key << "=\"" << item.value << "\", ";
+    if (StringRef(item.value).startswith("<")) {
+      /* Don't draw the quotes, this is an html-like value. */
+      ss << item.key << "=" << item.value << ", ";
+    }
+    else {
+      ss << item.key << "=\"" << item.value << "\", ";
+    }
   }
   ss << "]";
 }
@@ -149,6 +155,57 @@ void NodePort::to_dot_string(std::stringstream &ss) const
     ss << ":" << m_port_name.value();
   }
 }
+
+namespace Utils {
+
+NodeWithSocketsWrapper::NodeWithSocketsWrapper(Node &node,
+                                               StringRef name,
+                                               ArrayRef<std::string> input_names,
+                                               ArrayRef<std::string> output_names)
+    : m_node(&node)
+{
+  std::stringstream ss;
+
+  ss << "<<table border=\"0\" cellspacing=\"3\">";
+
+  /* Header */
+  ss << "<tr><td colspan=\"3\" align=\"center\"><b>";
+  ss << name;
+  ss << "</b></td></tr>";
+
+  /* Sockets */
+  uint socket_max_amount = std::max(input_names.size(), output_names.size());
+  for (uint i = 0; i < socket_max_amount; i++) {
+    ss << "<tr>";
+    if (i < input_names.size()) {
+      StringRef name = input_names[i];
+      ss << "<td align=\"left\" port=\"in" << i << "\">";
+      ss << name;
+      ss << "</td>";
+    }
+    else {
+      ss << "<td></td>";
+    }
+    ss << "<td></td>";
+    if (i < output_names.size()) {
+      StringRef name = output_names[i];
+      ss << "<td align=\"right\" port=\"out" << i << "\">";
+      ss << name;
+      ss << "</td>";
+    }
+    else {
+      ss << "<td></td>";
+    }
+    ss << "</tr>";
+  }
+
+  ss << "</table>>";
+
+  m_node->set_attribute("label", ss.str());
+  m_node->set_attribute("shape", "box");
+}
+
+}  // namespace Utils
 
 }  // namespace DotExport
 }  // namespace BLI
