@@ -4,6 +4,7 @@
 
 #include "BLI_set.h"
 #include "BLI_stack_cxx.h"
+#include "BLI_dot_export.h"
 
 extern "C" {
 void WM_clipboard_text_set(const char *buf, bool selection);
@@ -11,6 +12,7 @@ void WM_clipboard_text_set(const char *buf, bool selection);
 
 namespace FN {
 
+using BLI::Map;
 using BLI::Set;
 using BLI::Stack;
 
@@ -146,111 +148,47 @@ void MFNetworkBuilder::add_link(MFBuilderOutputSocket &from, MFBuilderInputSocke
   to.m_origin = &from;
 }
 
-namespace DotExport {
-
-static std::string get_id(MFBuilderNode &node)
-{
-  std::stringstream ss;
-  ss << "\"";
-  ss << (void *)&node;
-  ss << "\"";
-  return ss.str();
-}
-
-static std::string get_id(MFBuilderSocket &socket)
-{
-  std::stringstream ss;
-  ss << "\"";
-  ss << (void *)&socket;
-  ss << "\"";
-  return ss.str();
-}
-
-static std::string port_id(MFBuilderSocket &socket)
-{
-  return get_id(socket.node()) + ":" + get_id(socket);
-}
-
-static void insert_node_table(std::stringstream &ss, MFBuilderNode &node)
-{
-  ss << "<table border=\"0\" cellspacing=\"3\">";
-
-  /* Header */
-  ss << "<tr><td colspan=\"3\" align=\"center\"><b>";
-  ss << node.name();
-  ss << "</b></td></tr>";
-
-  /* Sockets */
-  auto inputs = node.inputs();
-  auto outputs = node.outputs();
-  uint socket_max_amount = std::max(inputs.size(), outputs.size());
-  for (uint i = 0; i < socket_max_amount; i++) {
-    ss << "<tr>";
-    if (i < inputs.size()) {
-      MFBuilderInputSocket &socket = *inputs[i];
-      ss << "<td align=\"left\" port=" << get_id(socket) << ">";
-      ss << socket.name() << " (" << socket.data_type() << ")";
-      ss << "</td>";
-    }
-    else {
-      ss << "<td></td>";
-    }
-    ss << "<td></td>";
-    if (i < outputs.size()) {
-      MFBuilderOutputSocket &socket = *outputs[i];
-      ss << "<td align=\"right\" port=" << get_id(socket) << ">";
-      ss << socket.name() << " (" << socket.data_type() << ")";
-      ss << "</td>";
-    }
-    else {
-      ss << "<td></td>";
-    }
-    ss << "</tr>";
-  }
-
-  ss << "</table>";
-}
-
-static void insert_node(std::stringstream &ss, MFBuilderNode &node)
-{
-  ss << get_id(node) << " ";
-  ss << "[style=\"filled\", fillcolor=\"#FFFFFF\", shape=\"box\"";
-  ss << ", label=<";
-  insert_node_table(ss, node);
-  ss << ">]";
-}
-
-static void insert_link(std::stringstream &ss,
-                        MFBuilderOutputSocket &from,
-                        MFBuilderInputSocket &to)
-{
-  ss << port_id(from) << " -> " << port_id(to);
-}
-
-};  // namespace DotExport
-
 std::string MFNetworkBuilder::to_dot()
 {
-  std::stringstream ss;
-  ss << "digraph MyGraph {" << std::endl;
-  ss << "rankdir=LR" << std::endl;
+  using BLI::DotExport::Utils::NodeWithSocketsWrapper;
+
+  BLI::DotExport::DirectedGraph digraph;
+  digraph.set_rankdir(BLI::DotExport::Attr_rankdir::LeftToRight);
+  Map<MFBuilderNode *, NodeWithSocketsWrapper> dot_nodes;
 
   for (MFBuilderNode *node : m_node_by_id) {
-    DotExport::insert_node(ss, *node);
-    ss << std::endl;
+    auto &dot_node = digraph.new_node("");
+
+    Vector<std::string> input_names;
+    for (MFBuilderInputSocket *socket : node->inputs()) {
+      input_names.append(socket->name());
+    }
+    Vector<std::string> output_names;
+    for (MFBuilderOutputSocket *socket : node->outputs()) {
+      output_names.append(socket->name());
+    }
+
+    dot_nodes.add_new(node,
+                      NodeWithSocketsWrapper(dot_node, node->name(), input_names, output_names));
   }
 
-  for (MFBuilderNode *node : m_node_by_id) {
-    for (MFBuilderInputSocket *input : node->inputs()) {
-      if (input->origin() != nullptr) {
-        DotExport::insert_link(ss, *input->origin(), *input);
-        ss << std::endl;
+  for (MFBuilderNode *to_node : m_node_by_id) {
+    auto to_dot_node = dot_nodes.lookup(to_node);
+
+    for (MFBuilderInputSocket *to_socket : to_node->inputs()) {
+      MFBuilderOutputSocket *from_socket = to_socket->origin();
+      if (from_socket != nullptr) {
+        MFBuilderNode &from_node = from_socket->node();
+
+        auto from_dot_node = dot_nodes.lookup(&from_node);
+
+        digraph.new_edge(from_dot_node.output(from_socket->index()),
+                         to_dot_node.input(to_socket->index()));
       }
     }
   }
 
-  ss << "}\n";
-  return ss.str();
+  return digraph.to_dot_string();
 }
 
 void MFNetworkBuilder::to_dot__clipboard()

@@ -174,7 +174,7 @@ NodeWithSocketsWrapper::NodeWithSocketsWrapper(Node &node,
 
   /* Header */
   ss << "<tr><td colspan=\"3\" align=\"center\"><b>";
-  ss << name;
+  ss << ((name.size() == 0) ? "No Name" : name);
   ss << "</b></td></tr>";
 
   /* Sockets */
@@ -183,6 +183,9 @@ NodeWithSocketsWrapper::NodeWithSocketsWrapper(Node &node,
     ss << "<tr>";
     if (i < input_names.size()) {
       StringRef name = input_names[i];
+      if (name.size() == 0) {
+        name = "No Name";
+      }
       ss << "<td align=\"left\" port=\"in" << i << "\">";
       ss << name;
       ss << "</td>";
@@ -193,6 +196,9 @@ NodeWithSocketsWrapper::NodeWithSocketsWrapper(Node &node,
     ss << "<td></td>";
     if (i < output_names.size()) {
       StringRef name = output_names[i];
+      if (name.size() == 0) {
+        name = "No Name";
+      }
       ss << "<td align=\"right\" port=\"out" << i << "\">";
       ss << name;
       ss << "</td>";

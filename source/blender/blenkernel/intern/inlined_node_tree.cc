@@ -283,22 +283,18 @@ std::string InlinedNodeTree::to_dot() const
   for (const XNode *xnode : m_node_by_id) {
     auto &dot_node = digraph.new_node("");
 
-    StringRef name = xnode->m_vnode->name();
-
     Vector<std::string> input_names;
     for (const XInputSocket *input : xnode->m_inputs) {
-      StringRef input_name = input->m_vsocket->name();
-      input_names.append((input_name.size() == 0) ? "noname" : input_name);
+      input_names.append(input->m_vsocket->name());
     }
     Vector<std::string> output_names;
     for (const XOutputSocket *output : xnode->m_outputs) {
-      StringRef output_name = output->m_vsocket->name();
-      output_names.append((output_name.size() == 0) ? "noname" : output_name);
+      output_names.append(output->m_vsocket->name());
     }
 
-    dot_nodes.add_new(
-        xnode,
-        BLI::DotExport::Utils::NodeWithSocketsWrapper(dot_node, name, input_names, output_names));
+    dot_nodes.add_new(xnode,
+                      BLI::DotExport::Utils::NodeWithSocketsWrapper(
+                          dot_node, xnode->m_vnode->name(), input_names, output_names));
 
     for (const XInputSocket *input : xnode->m_inputs) {
       for (const XGroupInput *group_input : input->m_linked_group_inputs) {
