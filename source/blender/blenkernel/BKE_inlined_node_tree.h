@@ -104,7 +104,7 @@ class InlinedNodeTree : BLI::NonCopyable, BLI::NonMovable {
 /* Inline functions
  ********************************************/
 
-const XNode &XSocket::node() const
+inline const XNode &XSocket::node() const
 {
   return *m_node;
 }
