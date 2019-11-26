@@ -155,6 +155,13 @@ class InlinedNodeTree : BLI::NonCopyable, BLI::NonMovable {
                          Vector<XGroupInput *> &all_group_inputs,
                          Vector<XParentNode *> &all_parent_nodes,
                          BTreeVTreeMap &vtrees);
+  void expand_group__relink_inputs(const VirtualNodeTree &vtree,
+                                   ArrayRef<XNode *> new_xnodes_by_id,
+                                   Vector<XGroupInput *> &all_group_inputs,
+                                   XNode &group_node);
+  void expand_group__relink_outputs(const VirtualNodeTree &vtree,
+                                    ArrayRef<XNode *> new_xnodes_by_id,
+                                    XNode &group_node);
   void insert_linked_nodes_for_vtree_in_id_order(const VirtualNodeTree &vtree,
                                                  Vector<XNode *> &all_nodes,
                                                  XParentNode *parent);

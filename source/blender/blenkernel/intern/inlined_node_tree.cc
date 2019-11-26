@@ -154,11 +154,17 @@ void InlinedNodeTree::expand_group_node(XNode &group_node,
 
   this->insert_linked_nodes_for_vtree_in_id_order(vtree, all_nodes, &sub_parent);
   ArrayRef<XNode *> new_xnodes_by_id = all_nodes.as_ref().take_back(vtree.nodes().size());
+  this->expand_group__relink_inputs(vtree, new_xnodes_by_id, all_group_inputs, group_node);
+  this->expand_group__relink_outputs(vtree, new_xnodes_by_id, group_node);
+}
 
+void InlinedNodeTree::expand_group__relink_inputs(const VirtualNodeTree &vtree,
+                                                  ArrayRef<XNode *> new_xnodes_by_id,
+                                                  Vector<XGroupInput *> &all_group_inputs,
+                                                  XNode &group_node)
+{
   Vector<const VOutputSocket *> group_inputs = get_group_inputs(vtree);
-  Vector<const VInputSocket *> group_outputs = get_group_outputs(vtree);
 
-  /* Relink links to group inputs. */
   for (uint input_index : group_inputs.index_iterator()) {
     const VOutputSocket *inside_interface_vsocket = group_inputs[input_index];
     const VNode &inside_interface_vnode = inside_interface_vsocket->node();
@@ -206,8 +212,14 @@ void InlinedNodeTree::expand_group_node(XNode &group_node,
     outside_interface.m_linked_sockets.clear();
     outside_interface.m_linked_group_inputs.clear();
   }
+}
 
-  /* Relink links to group outputs. */
+void InlinedNodeTree::expand_group__relink_outputs(const VirtualNodeTree &vtree,
+                                                   ArrayRef<XNode *> new_xnodes_by_id,
+                                                   XNode &group_node)
+{
+  Vector<const VInputSocket *> group_outputs = get_group_outputs(vtree);
+
   for (uint output_index : group_outputs.index_iterator()) {
     const VInputSocket *inside_interface_vsocket = group_outputs[output_index];
     const VNode &inside_interface_vnode = inside_interface_vsocket->node();
