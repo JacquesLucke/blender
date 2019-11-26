@@ -137,6 +137,7 @@ class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
 
   ArrayRef<const VSocket *> all_sockets() const;
   ArrayRef<const VInputSocket *> all_input_sockets() const;
+  ArrayRef<const VOutputSocket *> all_output_sockets() const;
 
   const VSocket &socket_by_id(uint id) const;
 
@@ -151,12 +152,12 @@ class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
 
 inline ArrayRef<const VSocket *> VSocket::linked_sockets() const
 {
-  return ArrayRef<VSocket *>(m_linked_sockets).cast<const VSocket *>();
+  return m_linked_sockets.as_ref();
 }
 
 inline ArrayRef<const VSocket *> VSocket::directly_linked_sockets() const
 {
-  return ArrayRef<VSocket *>(m_directly_linked_sockets).cast<const VSocket *>();
+  return m_directly_linked_sockets.as_ref();
 }
 
 inline const VirtualNodeTree &VSocket::tree() const
@@ -233,32 +234,33 @@ inline bNodeSocket *VSocket::bsocket() const
 
 inline ArrayRef<const VOutputSocket *> VInputSocket::linked_sockets() const
 {
-  return ArrayRef<VSocket *>(m_linked_sockets).cast<const VOutputSocket *>();
+  return m_linked_sockets.as_ref().cast<const VOutputSocket *>();
+  ;
 }
 
 inline ArrayRef<const VOutputSocket *> VInputSocket::directly_linked_sockets() const
 {
-  return ArrayRef<VSocket *>(m_directly_linked_sockets).cast<const VOutputSocket *>();
+  return m_directly_linked_sockets.as_ref().cast<const VOutputSocket *>();
 }
 
 inline ArrayRef<const VInputSocket *> VOutputSocket::linked_sockets() const
 {
-  return ArrayRef<VSocket *>(m_linked_sockets).cast<const VInputSocket *>();
+  return m_linked_sockets.as_ref().cast<const VInputSocket *>();
 }
 
 inline ArrayRef<const VInputSocket *> VOutputSocket::directly_linked_sockets() const
 {
-  return ArrayRef<VSocket *>(m_directly_linked_sockets).cast<const VInputSocket *>();
+  return m_directly_linked_sockets.as_ref().cast<const VInputSocket *>();
 }
 
 inline ArrayRef<const VInputSocket *> VNode::inputs() const
 {
-  return ArrayRef<VInputSocket *>(m_inputs).cast<const VInputSocket *>();
+  return m_inputs.as_ref();
 }
 
 inline ArrayRef<const VOutputSocket *> VNode::outputs() const
 {
-  return ArrayRef<VOutputSocket *>(m_outputs).cast<const VOutputSocket *>();
+  return m_outputs.as_ref();
 }
 
 inline const VirtualNodeTree &VNode::tree() const
@@ -322,7 +324,7 @@ inline bNodeTree *VirtualNodeTree::btree() const
 
 inline ArrayRef<const VNode *> VirtualNodeTree::nodes() const
 {
-  return ArrayRef<VNode *>(m_nodes_by_id).cast<const VNode *>();
+  return m_nodes_by_id.as_ref();
 }
 
 inline ArrayRef<const VNode *> VirtualNodeTree::nodes_with_idname(StringRef idname) const
@@ -343,12 +345,17 @@ inline uint VirtualNodeTree::socket_count() const
 
 inline ArrayRef<const VSocket *> VirtualNodeTree::all_sockets() const
 {
-  return ArrayRef<VSocket *>(m_sockets_by_id).cast<const VSocket *>();
+  return m_sockets_by_id.as_ref();
 }
 
 inline ArrayRef<const VInputSocket *> VirtualNodeTree::all_input_sockets() const
 {
-  return ArrayRef<VInputSocket *>(m_input_sockets).cast<const VInputSocket *>();
+  return m_input_sockets.as_ref();
+}
+
+inline ArrayRef<const VOutputSocket *> VirtualNodeTree::all_output_sockets() const
+{
+  return m_output_sockets.as_ref();
 }
 
 inline const VSocket &VirtualNodeTree::socket_by_id(uint id) const
