@@ -1,3 +1,5 @@
+#include <iomanip>
+
 #include "BLI_dot_export.h"
 
 namespace BLI {
@@ -76,6 +78,28 @@ void Node::set_parent_cluster(Cluster *cluster)
     cluster->m_nodes.add_new(this);
   }
   m_cluster = cluster;
+}
+
+/* Utility methods
+ **********************************************/
+
+void Graph::set_random_cluster_bgcolors()
+{
+  for (Cluster *cluster : m_top_level_clusters) {
+    cluster->set_random_cluster_bgcolors();
+  }
+}
+
+void Cluster::set_random_cluster_bgcolors()
+{
+  float hue = rand() / (float)RAND_MAX;
+  float staturation = 0.3f;
+  float value = 0.8f;
+  this->set_attribute("bgcolor", Utils::color_attr_from_hsv(hue, staturation, value));
+
+  for (Cluster *cluster : m_children) {
+    cluster->set_random_cluster_bgcolors();
+  }
 }
 
 /* Dot Generation
@@ -202,6 +226,13 @@ void NodePort::to_dot_string(std::stringstream &ss) const
 }
 
 namespace Utils {
+
+std::string color_attr_from_hsv(float h, float s, float v)
+{
+  std::stringstream ss;
+  ss << std::setprecision(4) << h << ' ' << s << ' ' << v;
+  return ss.str();
+}
 
 NodeWithSocketsWrapper::NodeWithSocketsWrapper(Node &node,
                                                StringRef name,

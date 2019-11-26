@@ -384,6 +384,8 @@ std::string InlinedNodeTree::to_dot() const
 
   for (const XNode *xnode : m_node_by_id) {
     auto &dot_node = digraph.new_node("");
+    dot_node.set_attribute("bgcolor", "white");
+    dot_node.set_attribute("style", "filled");
 
     Vector<std::string> input_names;
     for (const XInputSocket *input : xnode->inputs()) {
@@ -406,6 +408,9 @@ std::string InlinedNodeTree::to_dot() const
       for (const XGroupInput *group_input : input->linked_group_inputs()) {
         if (!dot_group_inputs.contains(group_input)) {
           auto &dot_group_input_node = digraph.new_node("");
+          dot_group_input_node.set_attribute("bgcolor", "white");
+          dot_group_input_node.set_attribute("style", "filled");
+
           dot_group_inputs.add_new(group_input,
                                    BLI::DotExport::Utils::NodeWithSocketsWrapper(
                                        dot_group_input_node, "Group Input", {}, {"Value"}));
@@ -439,6 +444,7 @@ std::string InlinedNodeTree::to_dot() const
     }
   }
 
+  digraph.set_random_cluster_bgcolors();
   return digraph.to_dot_string();
 }
 

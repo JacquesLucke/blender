@@ -72,6 +72,8 @@ class Graph {
   {
     this->set_attribute("rankdir", Attr_rankdir::to_string(rankdir));
   }
+
+  void set_random_cluster_bgcolors();
 };
 
 class Cluster {
@@ -102,6 +104,8 @@ class Cluster {
   {
     this->set_parent_cluster(&cluster);
   }
+
+  void set_random_cluster_bgcolors();
 };
 
 class Node {
@@ -233,6 +237,8 @@ class UndirectedEdge : public Edge {
 };
 
 namespace Utils {
+
+std::string color_attr_from_hsv(float h, float s, float v);
 
 class NodeWithSocketsWrapper {
  private:
