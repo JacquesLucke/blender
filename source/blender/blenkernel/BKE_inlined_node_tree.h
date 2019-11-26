@@ -80,6 +80,8 @@ class XNode : BLI::NonCopyable, BLI::NonMovable {
 
   friend InlinedNodeTree;
 
+  void destruct_with_sockets();
+
  public:
   const VNode &vnode() const;
   const XParentNode *parent() const;
@@ -110,19 +112,26 @@ class InlinedNodeTree : BLI::NonCopyable, BLI::NonMovable {
   BLI::MonotonicAllocator<> m_allocator;
   bNodeTree *m_btree;
   Vector<XNode *> m_node_by_id;
+  Vector<XGroupInput *> m_group_inputs;
+  Vector<XParentNode *> m_parent_nodes;
+
   Vector<XSocket *> m_sockets_by_id;
   Vector<XInputSocket *> m_input_sockets;
   Vector<XOutputSocket *> m_output_sockets;
-  Vector<XParentNode *> m_parent_nodes;
 
  public:
   InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees);
+  ~InlinedNodeTree();
 
   std::string to_dot() const;
   void to_dot__clipboard() const;
 
  private:
-  void expand_group_node(XNode &group_node, Vector<XNode *> &nodes, BTreeVTreeMap &vtrees);
+  void expand_group_node(XNode &group_node,
+                         Vector<XNode *> &all_nodes,
+                         Vector<XGroupInput *> &all_group_inputs,
+                         Vector<XParentNode *> &all_parent_nodes,
+                         BTreeVTreeMap &vtrees);
   XNode &create_node(const VNode &vnode,
                      XParentNode *parent,
                      Map<const VInputSocket *, XInputSocket *> &inputs_map,

@@ -73,12 +73,33 @@ static bool is_group_node(const VNode &vnode)
   return vnode.idname() == "fn_GroupNode";
 }
 
+InlinedNodeTree::~InlinedNodeTree()
+{
+  for (XNode *xnode : m_node_by_id) {
+    xnode->~XNode();
+  }
+  for (XGroupInput *xgroup_input : m_group_inputs) {
+    xgroup_input->~XGroupInput();
+  }
+  for (XParentNode *xparent_node : m_parent_nodes) {
+    xparent_node->~XParentNode();
+  }
+  for (XInputSocket *xsocket : m_input_sockets) {
+    xsocket->~XInputSocket();
+  }
+  for (XOutputSocket *xsocket : m_output_sockets) {
+    xsocket->~XOutputSocket();
+  }
+}
+
 InlinedNodeTree::InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees) : m_btree(btree)
 {
   SCOPED_TIMER(__func__);
   const VirtualNodeTree &main_vtree = get_vtree(vtrees, btree);
 
-  Vector<XNode *> nodes;
+  Vector<XNode *> all_nodes;
+  Vector<XGroupInput *> all_group_inputs;
+  Vector<XParentNode *> all_parent_nodes;
 
   Map<const VInputSocket *, XInputSocket *> inputs_map;
   Map<const VOutputSocket *, XOutputSocket *> outputs_map;
@@ -86,7 +107,7 @@ InlinedNodeTree::InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees) : m_bt
   /* Insert main nodes. */
   for (const VNode *vnode : main_vtree.nodes()) {
     XNode &node = this->create_node(*vnode, nullptr, inputs_map, outputs_map);
-    nodes.append(&node);
+    all_nodes.append(&node);
   }
 
   /* Insert main links. */
@@ -102,31 +123,59 @@ InlinedNodeTree::InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees) : m_bt
   }
 
   /* Expand node groups one after another. */
-  for (uint i = 0; i < nodes.size(); i++) {
-    XNode &current_node = *nodes[i];
+  for (uint i = 0; i < all_nodes.size(); i++) {
+    XNode &current_node = *all_nodes[i];
     if (is_group_node(*current_node.m_vnode)) {
-      this->expand_group_node(current_node, nodes, vtrees);
+      this->expand_group_node(current_node, all_nodes, all_group_inputs, all_parent_nodes, vtrees);
     }
   }
 
   /* Remove unused nodes. */
-  for (int i = 0; i < nodes.size(); i++) {
-    XNode &current_node = *nodes[i];
-    if (is_group_node(*current_node.m_vnode)) {
-      nodes.remove_and_reorder(i);
-      i--;
-    }
-    else if (is_interface_node(*current_node.m_vnode) && current_node.m_parent != nullptr) {
-      nodes.remove_and_reorder(i);
+  for (int i = 0; i < all_nodes.size(); i++) {
+    XNode *current_node = all_nodes[i];
+    if (is_group_node(current_node->vnode()) ||
+        (is_interface_node(current_node->vnode()) && current_node->parent() != nullptr)) {
+      all_nodes.remove_and_reorder(i);
+      current_node->destruct_with_sockets();
       i--;
     }
   }
 
-  m_node_by_id = nodes;
+  /* Store used nodes and sockets in 'this'. */
+  m_node_by_id = std::move(all_nodes);
+  m_group_inputs = std::move(all_group_inputs);
+  m_parent_nodes = std::move(all_parent_nodes);
+
+  for (uint node_index : m_node_by_id.index_iterator()) {
+    XNode *xnode = m_node_by_id[node_index];
+    xnode->m_id = node_index;
+
+    for (XInputSocket *xsocket : xnode->m_inputs) {
+      xsocket->m_id = m_sockets_by_id.append_and_get_index(xsocket);
+      m_input_sockets.append(xsocket);
+    }
+    for (XOutputSocket *xsocket : xnode->m_outputs) {
+      xsocket->m_id = m_sockets_by_id.append_and_get_index(xsocket);
+      m_output_sockets.append(xsocket);
+    }
+  }
+}
+
+void XNode::destruct_with_sockets()
+{
+  for (XInputSocket *socket : m_inputs) {
+    socket->~XInputSocket();
+  }
+  for (XOutputSocket *socket : m_outputs) {
+    socket->~XOutputSocket();
+  }
+  this->~XNode();
 }
 
 void InlinedNodeTree::expand_group_node(XNode &group_node,
-                                        Vector<XNode *> &nodes,
+                                        Vector<XNode *> &all_nodes,
+                                        Vector<XGroupInput *> &all_group_inputs,
+                                        Vector<XParentNode *> &all_parent_nodes,
                                         BTreeVTreeMap &vtrees)
 {
   BLI_assert(is_group_node(*group_node.m_vnode));
@@ -139,6 +188,7 @@ void InlinedNodeTree::expand_group_node(XNode &group_node,
   const VirtualNodeTree &vtree = get_vtree(vtrees, btree);
 
   XParentNode &sub_parent = *m_allocator.construct<XParentNode>().release();
+  all_parent_nodes.append(&sub_parent);
   sub_parent.m_parent = group_node.m_parent;
   sub_parent.m_vnode = &group_vnode;
 
@@ -148,7 +198,7 @@ void InlinedNodeTree::expand_group_node(XNode &group_node,
   /* Insert nodes of group. */
   for (const VNode *vnode : vtree.nodes()) {
     XNode &node = this->create_node(*vnode, &sub_parent, inputs_map, outputs_map);
-    nodes.append(&node);
+    all_nodes.append(&node);
   }
 
   /* Insert links of group. */
@@ -175,6 +225,7 @@ void InlinedNodeTree::expand_group_node(XNode &group_node,
     if (outside_interface.m_linked_sockets.size() == 0 &&
         outside_interface.m_linked_group_inputs.size() == 0) {
       XGroupInput &group_input_dummy = *m_allocator.construct<XGroupInput>().release();
+      all_group_inputs.append(&group_input_dummy);
       group_input_dummy.m_vsocket = outside_interface.m_vsocket;
       group_input_dummy.m_parent = group_node.m_parent;
 
@@ -182,21 +233,23 @@ void InlinedNodeTree::expand_group_node(XNode &group_node,
       outside_interface.m_linked_group_inputs.append(&group_input_dummy);
     }
 
+    for (XOutputSocket *outside_connected : outside_interface.m_linked_sockets) {
+      outside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(&outside_interface);
+    }
+
+    for (XGroupInput *outside_connected : outside_interface.m_linked_group_inputs) {
+      outside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(&outside_interface);
+    }
+
     for (XInputSocket *inside_connected : inside_interface.m_linked_sockets) {
       inside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(&inside_interface);
 
       for (XOutputSocket *outside_connected : outside_interface.m_linked_sockets) {
-        outside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(
-            &outside_interface);
-
         inside_connected->m_linked_sockets.append(outside_connected);
         outside_connected->m_linked_sockets.append(inside_connected);
       }
 
       for (XGroupInput *outside_connected : outside_interface.m_linked_group_inputs) {
-        outside_connected->m_linked_sockets.remove_first_occurrence_and_reorder(
-            &outside_interface);
-
         inside_connected->m_linked_group_inputs.append(outside_connected);
         outside_connected->m_linked_sockets.append(inside_connected);
       }
