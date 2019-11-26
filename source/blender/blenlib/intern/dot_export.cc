@@ -3,6 +3,84 @@
 namespace BLI {
 namespace DotExport {
 
+/* Graph Building
+ ************************************************/
+
+Node &Graph::new_node(StringRef label)
+{
+  Node *node = new Node(*this);
+  m_nodes.append(std::unique_ptr<Node>(node));
+  m_top_level_nodes.add_new(node);
+  node->set_attribute("label", label);
+  return *node;
+}
+
+Cluster &Graph::new_cluster(StringRef label)
+{
+  Cluster *cluster = new Cluster(*this);
+  m_clusters.append(std::unique_ptr<Cluster>(cluster));
+  m_top_level_clusters.add_new(cluster);
+  cluster->set_attribute("label", label);
+  return *cluster;
+}
+
+UndirectedEdge &UndirectedGraph::new_edge(NodePort a, NodePort b)
+{
+  UndirectedEdge *edge = new UndirectedEdge(a, b);
+  m_edges.append(std::unique_ptr<UndirectedEdge>(edge));
+  return *edge;
+}
+
+DirectedEdge &DirectedGraph::new_edge(NodePort from, NodePort to)
+{
+  DirectedEdge *edge = new DirectedEdge(from, to);
+  m_edges.append(std::unique_ptr<DirectedEdge>(edge));
+  return *edge;
+}
+
+void Cluster::set_parent_cluster(Cluster *new_parent)
+{
+  if (m_parent == new_parent) {
+    return;
+  }
+  else if (m_parent == nullptr) {
+    m_graph.m_top_level_clusters.remove(this);
+    new_parent->m_children.add_new(this);
+  }
+  else if (new_parent == nullptr) {
+    m_parent->m_children.remove(this);
+    m_graph.m_top_level_clusters.add_new(this);
+  }
+  else {
+    m_parent->m_children.remove(this);
+    new_parent->m_children.add_new(this);
+  }
+  m_parent = new_parent;
+}
+
+void Node::set_parent_cluster(Cluster *cluster)
+{
+  if (m_cluster == cluster) {
+    return;
+  }
+  else if (m_cluster == nullptr) {
+    m_graph.m_top_level_nodes.remove(this);
+    cluster->m_nodes.add_new(this);
+  }
+  else if (cluster == nullptr) {
+    m_cluster->m_nodes.remove(this);
+    m_graph.m_top_level_nodes.add_new(this);
+  }
+  else {
+    m_cluster->m_nodes.remove(this);
+    cluster->m_nodes.add_new(this);
+  }
+  m_cluster = cluster;
+}
+
+/* Dot Generation
+ **********************************************/
+
 std::string DirectedGraph::to_dot_string() const
 {
   std::stringstream ss;
@@ -41,11 +119,11 @@ void Graph::export__declare_nodes_and_clusters(std::stringstream &ss) const
   m_attributes.export__as_bracket_list(ss);
   ss << "\n\n";
 
-  for (auto &node : m_nodes) {
+  for (Node *node : m_top_level_nodes) {
     node->export__as_declaration(ss);
   }
 
-  for (auto &cluster : m_clusters) {
+  for (Cluster *cluster : m_top_level_clusters) {
     cluster->export__declare_nodes_and_clusters(ss);
   }
 }
@@ -58,11 +136,11 @@ void Cluster::export__declare_nodes_and_clusters(std::stringstream &ss) const
   m_attributes.export__as_bracket_list(ss);
   ss << "\n\n";
 
-  for (auto &node : m_nodes) {
+  for (Node *node : m_nodes) {
     node->export__as_declaration(ss);
   }
 
-  for (auto &cluster : m_clusters) {
+  for (Cluster *cluster : m_children) {
     cluster->export__declare_nodes_and_clusters(ss);
   }
 
@@ -100,43 +178,6 @@ void AttributeList::export__as_bracket_list(std::stringstream &ss) const
     }
   }
   ss << "]";
-}
-
-Node &Graph::new_node(StringRef label)
-{
-  Node *node = new Node();
-  m_nodes.append(std::unique_ptr<Node>(node));
-  node->set_attribute("label", label);
-  return *node;
-}
-
-Cluster &Graph::new_cluster()
-{
-  Cluster *cluster = new Cluster(*this, nullptr);
-  m_clusters.append(std::unique_ptr<Cluster>(cluster));
-  return *cluster;
-}
-
-Node &Cluster::new_node(StringRef label)
-{
-  Node *node = new Node();
-  m_nodes.append(std::unique_ptr<Node>(node));
-  node->set_attribute("label", label);
-  return *node;
-}
-
-UndirectedEdge &UndirectedGraph::new_edge(NodePort a, NodePort b)
-{
-  UndirectedEdge *edge = new UndirectedEdge(a, b);
-  m_edges.append(std::unique_ptr<UndirectedEdge>(edge));
-  return *edge;
-}
-
-DirectedEdge &DirectedGraph::new_edge(NodePort from, NodePort to)
-{
-  DirectedEdge *edge = new DirectedEdge(from, to);
-  m_edges.append(std::unique_ptr<DirectedEdge>(edge));
-  return *edge;
 }
 
 void Node::export__as_id(std::stringstream &ss) const

@@ -12,6 +12,7 @@
 #include "BLI_optional.h"
 #include "BLI_string_map.h"
 #include "BLI_map.h"
+#include "BLI_set.h"
 #include "BLI_utility_mixins.h"
 
 #include "BLI_dot_export_attribute_enums.h"
@@ -50,11 +51,15 @@ class Graph {
   Vector<std::unique_ptr<Node>> m_nodes;
   Vector<std::unique_ptr<Cluster>> m_clusters;
 
+  Set<Node *> m_top_level_nodes;
+  Set<Cluster *> m_top_level_clusters;
+
   friend Cluster;
+  friend Node;
 
  public:
   Node &new_node(StringRef label);
-  Cluster &new_cluster();
+  Cluster &new_cluster(StringRef label = "");
 
   void export__declare_nodes_and_clusters(std::stringstream &ss) const;
 
@@ -67,6 +72,80 @@ class Graph {
   {
     this->set_attribute("rankdir", Attr_rankdir::to_string(rankdir));
   }
+};
+
+class Cluster {
+ private:
+  AttributeList m_attributes;
+  Graph &m_graph;
+  Cluster *m_parent = nullptr;
+  Set<Cluster *> m_children;
+  Set<Node *> m_nodes;
+
+  friend Graph;
+  friend Node;
+
+  Cluster(Graph &graph) : m_graph(graph)
+  {
+  }
+
+ public:
+  void export__declare_nodes_and_clusters(std::stringstream &ss) const;
+
+  void set_attribute(StringRef key, StringRef value)
+  {
+    m_attributes.set(key, value);
+  }
+
+  void set_parent_cluster(Cluster *cluster);
+  void set_parent_cluster(Cluster &cluster)
+  {
+    this->set_parent_cluster(&cluster);
+  }
+};
+
+class Node {
+ private:
+  AttributeList m_attributes;
+  Graph &m_graph;
+  Cluster *m_cluster = nullptr;
+
+  friend Graph;
+
+  Node(Graph &graph) : m_graph(graph)
+  {
+  }
+
+ public:
+  const AttributeList &attributes() const
+  {
+    return m_attributes;
+  }
+
+  AttributeList &attributes()
+  {
+    return m_attributes;
+  }
+
+  void set_parent_cluster(Cluster *cluster);
+  void set_parent_cluster(Cluster &cluster)
+  {
+    this->set_parent_cluster(&cluster);
+  }
+
+  void set_attribute(StringRef key, StringRef value)
+  {
+    m_attributes.set(key, value);
+  }
+
+  void set_shape(Attr_shape::Enum shape)
+  {
+    this->set_attribute("shape", Attr_shape::to_string(shape));
+  }
+
+  void export__as_id(std::stringstream &ss) const;
+
+  void export__as_declaration(std::stringstream &ss) const;
 };
 
 class UndirectedGraph final : public Graph {
@@ -87,31 +166,6 @@ class DirectedGraph final : public Graph {
   std::string to_dot_string() const;
 
   DirectedEdge &new_edge(NodePort from, NodePort to);
-};
-
-class Cluster {
- private:
-  AttributeList m_attributes;
-  Graph *m_graph;
-  Cluster *m_parent;
-  Vector<std::unique_ptr<Cluster>> m_clusters;
-  Vector<std::unique_ptr<Node>> m_nodes;
-
- public:
-  Cluster(Graph &graph, Cluster *parent) : m_graph(&graph), m_parent(parent)
-  {
-  }
-
-  void export__declare_nodes_and_clusters(std::stringstream &ss) const;
-
-  Cluster &new_cluster();
-
-  Node &new_node(StringRef label);
-
-  void set_attribute(StringRef key, StringRef value)
-  {
-    m_attributes.set(key, value);
-  }
 };
 
 class NodePort {
@@ -176,36 +230,6 @@ class UndirectedEdge : public Edge {
   }
 
   void export__as_edge_statement(std::stringstream &ss) const;
-};
-
-class Node {
- private:
-  AttributeList m_attributes;
-
- public:
-  const AttributeList &attributes() const
-  {
-    return m_attributes;
-  }
-
-  AttributeList &attributes()
-  {
-    return m_attributes;
-  }
-
-  void set_attribute(StringRef key, StringRef value)
-  {
-    m_attributes.set(key, value);
-  }
-
-  void set_shape(Attr_shape::Enum shape)
-  {
-    this->set_attribute("shape", Attr_shape::to_string(shape));
-  }
-
-  void export__as_id(std::stringstream &ss) const;
-
-  void export__as_declaration(std::stringstream &ss) const;
 };
 
 namespace Utils {
