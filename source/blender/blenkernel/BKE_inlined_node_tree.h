@@ -22,12 +22,15 @@ class InlinedNodeTree;
 class XSocket : BLI::NonCopyable, BLI::NonMovable {
  protected:
   XNode *m_node;
+
+  /* Input and output sockets share the same id-space. */
   uint m_id;
 
   friend InlinedNodeTree;
 
  public:
   const XNode &node() const;
+  uint id() const;
 };
 
 class XInputSocket : public XSocket {
@@ -61,6 +64,7 @@ class XGroupInput : BLI::NonCopyable, BLI::NonMovable {
   const VInputSocket *m_vsocket;
   XParentNode *m_parent;
   Vector<XInputSocket *> m_linked_sockets;
+  uint m_id;
 
   friend InlinedNodeTree;
 
@@ -68,15 +72,19 @@ class XGroupInput : BLI::NonCopyable, BLI::NonMovable {
   const VInputSocket &vsocket() const;
   const XParentNode *parent() const;
   ArrayRef<const XInputSocket *> linked_sockets() const;
+  uint id() const;
 };
 
 class XNode : BLI::NonCopyable, BLI::NonMovable {
  private:
   const VNode *m_vnode;
   XParentNode *m_parent;
-  uint m_id;
+
   Vector<XInputSocket *> m_inputs;
   Vector<XOutputSocket *> m_outputs;
+
+  /* Uniquely identifies this node in the inlined node tree. */
+  uint m_id;
 
   friend InlinedNodeTree;
 
@@ -91,18 +99,22 @@ class XNode : BLI::NonCopyable, BLI::NonMovable {
 
   const XInputSocket &input(uint index) const;
   const XOutputSocket &output(uint index) const;
+
+  uint id() const;
 };
 
 class XParentNode : BLI::NonCopyable, BLI::NonMovable {
  private:
   const VNode *m_vnode;
   XParentNode *m_parent;
+  uint m_id;
 
   friend InlinedNodeTree;
 
  public:
   const XParentNode *parent() const;
   const VNode &vnode() const;
+  uint id() const;
 };
 
 using BTreeVTreeMap = Map<bNodeTree *, std::unique_ptr<const VirtualNodeTree>>;
@@ -171,6 +183,11 @@ inline const XOutputSocket &XNode::output(uint index) const
   return *m_outputs[index];
 }
 
+inline uint XNode::id() const
+{
+  return m_id;
+}
+
 inline const XParentNode *XParentNode::parent() const
 {
   return m_parent;
@@ -181,9 +198,19 @@ inline const VNode &XParentNode::vnode() const
   return *m_vnode;
 }
 
+inline uint XParentNode::id() const
+{
+  return m_id;
+}
+
 inline const XNode &XSocket::node() const
 {
   return *m_node;
+}
+
+inline uint XSocket::id() const
+{
+  return m_id;
 }
 
 inline const VInputSocket &XInputSocket::vsocket() const
@@ -224,6 +251,11 @@ inline const XParentNode *XGroupInput::parent() const
 inline ArrayRef<const XInputSocket *> XGroupInput::linked_sockets() const
 {
   return m_linked_sockets.as_ref();
+}
+
+inline uint XGroupInput::id() const
+{
+  return m_id;
 }
 
 }  // namespace BKE

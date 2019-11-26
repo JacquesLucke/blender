@@ -188,7 +188,7 @@ void InlinedNodeTree::expand_group_node(XNode &group_node,
   const VirtualNodeTree &vtree = get_vtree(vtrees, btree);
 
   XParentNode &sub_parent = *m_allocator.construct<XParentNode>().release();
-  all_parent_nodes.append(&sub_parent);
+  sub_parent.m_id = all_parent_nodes.append_and_get_index(&sub_parent);
   sub_parent.m_parent = group_node.m_parent;
   sub_parent.m_vnode = &group_vnode;
 
@@ -225,7 +225,7 @@ void InlinedNodeTree::expand_group_node(XNode &group_node,
     if (outside_interface.m_linked_sockets.size() == 0 &&
         outside_interface.m_linked_group_inputs.size() == 0) {
       XGroupInput &group_input_dummy = *m_allocator.construct<XGroupInput>().release();
-      all_group_inputs.append(&group_input_dummy);
+      group_input_dummy.m_id = all_group_inputs.append_and_get_index(&group_input_dummy);
       group_input_dummy.m_vsocket = outside_interface.m_vsocket;
       group_input_dummy.m_parent = group_node.m_parent;
 
