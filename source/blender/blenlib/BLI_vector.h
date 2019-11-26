@@ -215,6 +215,11 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     return MutableArrayRef<T>(m_begin, this->size());
   }
 
+  ArrayRef<T> as_ref() const
+  {
+    return *this;
+  }
+
   Vector &operator=(const Vector &other)
   {
     if (this == &other) {

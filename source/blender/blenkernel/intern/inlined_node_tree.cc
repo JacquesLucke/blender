@@ -301,24 +301,24 @@ std::string InlinedNodeTree::to_dot() const
     auto &dot_node = digraph.new_node("");
 
     Vector<std::string> input_names;
-    for (const XInputSocket *input : xnode->m_inputs) {
+    for (const XInputSocket *input : xnode->inputs()) {
       input_names.append(input->m_vsocket->name());
     }
     Vector<std::string> output_names;
-    for (const XOutputSocket *output : xnode->m_outputs) {
+    for (const XOutputSocket *output : xnode->outputs()) {
       output_names.append(output->m_vsocket->name());
     }
 
     dot_nodes.add_new(xnode,
                       BLI::DotExport::Utils::NodeWithSocketsWrapper(
-                          dot_node, xnode->m_vnode->name(), input_names, output_names));
+                          dot_node, xnode->vnode().name(), input_names, output_names));
 
     BLI::DotExport::Cluster *cluster = get_cluster_for_parent(
-        digraph, dot_clusters, xnode->m_parent);
+        digraph, dot_clusters, xnode->parent());
     dot_node.set_parent_cluster(cluster);
 
-    for (const XInputSocket *input : xnode->m_inputs) {
-      for (const XGroupInput *group_input : input->m_linked_group_inputs) {
+    for (const XInputSocket *input : xnode->inputs()) {
+      for (const XGroupInput *group_input : input->linked_group_inputs()) {
         if (!dot_group_inputs.contains(group_input)) {
           auto &dot_group_input_node = digraph.new_node("");
           dot_group_inputs.add_new(group_input,
@@ -326,7 +326,7 @@ std::string InlinedNodeTree::to_dot() const
                                        dot_group_input_node, "Group Input", {}, {"Value"}));
 
           BLI::DotExport::Cluster *cluster = get_cluster_for_parent(
-              digraph, dot_clusters, group_input->m_parent);
+              digraph, dot_clusters, group_input->parent());
           dot_group_input_node.set_parent_cluster(cluster);
         }
       }
@@ -336,20 +336,20 @@ std::string InlinedNodeTree::to_dot() const
   for (const XNode *to_xnode : m_node_by_id) {
     auto to_dot_node = dot_nodes.lookup(to_xnode);
 
-    for (const XInputSocket *to_xsocket : to_xnode->m_inputs) {
-      for (const XOutputSocket *from_xsocket : to_xsocket->m_linked_sockets) {
-        const XNode *from_xnode = from_xsocket->m_node;
+    for (const XInputSocket *to_xsocket : to_xnode->inputs()) {
+      for (const XOutputSocket *from_xsocket : to_xsocket->linked_sockets()) {
+        const XNode *from_xnode = &from_xsocket->node();
 
         auto from_dot_node = dot_nodes.lookup(from_xnode);
 
-        digraph.new_edge(from_dot_node.output(from_xsocket->m_vsocket->index()),
-                         to_dot_node.input(to_xsocket->m_vsocket->index()));
+        digraph.new_edge(from_dot_node.output(from_xsocket->vsocket().index()),
+                         to_dot_node.input(to_xsocket->vsocket().index()));
       }
-      for (const XGroupInput *group_input : to_xsocket->m_linked_group_inputs) {
+      for (const XGroupInput *group_input : to_xsocket->linked_group_inputs()) {
         auto from_dot_node = dot_group_inputs.lookup(group_input);
 
         digraph.new_edge(from_dot_node.output(0),
-                         to_dot_node.input(to_xsocket->m_vsocket->index()));
+                         to_dot_node.input(to_xsocket->vsocket().index()));
       }
     }
   }

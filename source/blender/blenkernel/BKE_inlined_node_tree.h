@@ -37,6 +37,11 @@ class XInputSocket : public XSocket {
   Vector<XGroupInput *> m_linked_group_inputs;
 
   friend InlinedNodeTree;
+
+ public:
+  const VInputSocket &vsocket() const;
+  ArrayRef<const XOutputSocket *> linked_sockets() const;
+  ArrayRef<const XGroupInput *> linked_group_inputs() const;
 };
 
 class XOutputSocket : public XSocket {
@@ -45,6 +50,10 @@ class XOutputSocket : public XSocket {
   Vector<XInputSocket *> m_linked_sockets;
 
   friend InlinedNodeTree;
+
+ public:
+  const VOutputSocket &vsocket() const;
+  ArrayRef<const XInputSocket *> linked_sockets() const;
 };
 
 class XGroupInput : BLI::NonCopyable, BLI::NonMovable {
@@ -54,6 +63,11 @@ class XGroupInput : BLI::NonCopyable, BLI::NonMovable {
   Vector<XInputSocket *> m_linked_sockets;
 
   friend InlinedNodeTree;
+
+ public:
+  const VInputSocket &vsocket() const;
+  const XParentNode *parent() const;
+  ArrayRef<const XInputSocket *> linked_sockets() const;
 };
 
 class XNode : BLI::NonCopyable, BLI::NonMovable {
@@ -65,6 +79,16 @@ class XNode : BLI::NonCopyable, BLI::NonMovable {
   Vector<XOutputSocket *> m_outputs;
 
   friend InlinedNodeTree;
+
+ public:
+  const VNode &vnode() const;
+  const XParentNode *parent() const;
+
+  ArrayRef<const XInputSocket *> inputs() const;
+  ArrayRef<const XOutputSocket *> outputs() const;
+
+  const XInputSocket &input(uint index) const;
+  const XOutputSocket &output(uint index) const;
 };
 
 class XParentNode : BLI::NonCopyable, BLI::NonMovable {
@@ -75,15 +99,8 @@ class XParentNode : BLI::NonCopyable, BLI::NonMovable {
   friend InlinedNodeTree;
 
  public:
-  const XParentNode *parent() const
-  {
-    return m_parent;
-  }
-
-  const VNode &vnode() const
-  {
-    return *m_vnode;
-  }
+  const XParentNode *parent() const;
+  const VNode &vnode() const;
 };
 
 using BTreeVTreeMap = Map<bNodeTree *, std::unique_ptr<const VirtualNodeTree>>;
@@ -115,9 +132,89 @@ class InlinedNodeTree : BLI::NonCopyable, BLI::NonMovable {
 /* Inline functions
  ********************************************/
 
+inline const VNode &XNode::vnode() const
+{
+  return *m_vnode;
+}
+
+inline const XParentNode *XNode::parent() const
+{
+  return m_parent;
+}
+
+inline ArrayRef<const XInputSocket *> XNode::inputs() const
+{
+  return m_inputs.as_ref();
+}
+
+inline ArrayRef<const XOutputSocket *> XNode::outputs() const
+{
+  return m_outputs.as_ref();
+}
+
+inline const XInputSocket &XNode::input(uint index) const
+{
+  return *m_inputs[index];
+}
+
+inline const XOutputSocket &XNode::output(uint index) const
+{
+  return *m_outputs[index];
+}
+
+inline const XParentNode *XParentNode::parent() const
+{
+  return m_parent;
+}
+
+inline const VNode &XParentNode::vnode() const
+{
+  return *m_vnode;
+}
+
 inline const XNode &XSocket::node() const
 {
   return *m_node;
+}
+
+inline const VInputSocket &XInputSocket::vsocket() const
+{
+  return *m_vsocket;
+}
+
+inline ArrayRef<const XOutputSocket *> XInputSocket::linked_sockets() const
+{
+  return m_linked_sockets.as_ref();
+}
+
+inline ArrayRef<const XGroupInput *> XInputSocket::linked_group_inputs() const
+{
+  return m_linked_group_inputs.as_ref();
+}
+
+inline const VOutputSocket &XOutputSocket::vsocket() const
+{
+  return *m_vsocket;
+}
+
+inline ArrayRef<const XInputSocket *> XOutputSocket::linked_sockets() const
+{
+  return m_linked_sockets.as_ref();
+}
+
+inline const VInputSocket &XGroupInput::vsocket() const
+{
+  return *m_vsocket;
+}
+
+inline const XParentNode *XGroupInput::parent() const
+{
+  return m_parent;
+}
+
+inline ArrayRef<const XInputSocket *> XGroupInput::linked_sockets() const
+{
+  return m_linked_sockets.as_ref();
 }
 
 }  // namespace BKE
