@@ -39,9 +39,8 @@ blender_include_dirs(
 )
 
 set(LIB
-  bf_blenloader
   bf_blenkernel
-  bf_blenlib
+  bf_blenloader
   bf_depsgraph
   bf_dna
   bf_editor_datafiles
@@ -51,7 +50,6 @@ set(LIB
   bf_intern_guardedalloc
   bf_intern_memutil
   bf_intern_opencolorio
-  bf_python
   bf_render
   bf_rna
   bf_windowmanager
@@ -91,6 +89,9 @@ endif()
 
 if(WITH_PYTHON)
   blender_include_dirs(../blender/python)
+  list(APPEND LIB
+    bf_python
+  )
   add_definitions(-DWITH_PYTHON)
 
   if(WITH_PYTHON_SECURITY)
