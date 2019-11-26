@@ -103,36 +103,9 @@ InlinedNodeTree::InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees) : m_bt
 
   this->insert_linked_nodes_for_vtree_in_id_order(main_vtree, all_nodes, nullptr);
   this->expand_groups(all_nodes, all_group_inputs, all_parent_nodes, vtrees);
-
-  /* Remove unused nodes. */
-  for (int i = 0; i < all_nodes.size(); i++) {
-    XNode *current_node = all_nodes[i];
-    if (is_group_node(current_node->vnode()) ||
-        (is_interface_node(current_node->vnode()) && current_node->parent() != nullptr)) {
-      all_nodes.remove_and_reorder(i);
-      current_node->destruct_with_sockets();
-      i--;
-    }
-  }
-
-  /* Store used nodes and sockets in 'this'. */
-  m_node_by_id = std::move(all_nodes);
-  m_group_inputs = std::move(all_group_inputs);
-  m_parent_nodes = std::move(all_parent_nodes);
-
-  for (uint node_index : m_node_by_id.index_iterator()) {
-    XNode *xnode = m_node_by_id[node_index];
-    xnode->m_id = node_index;
-
-    for (XInputSocket *xsocket : xnode->m_inputs) {
-      xsocket->m_id = m_sockets_by_id.append_and_get_index(xsocket);
-      m_input_sockets.append(xsocket);
-    }
-    for (XOutputSocket *xsocket : xnode->m_outputs) {
-      xsocket->m_id = m_sockets_by_id.append_and_get_index(xsocket);
-      m_output_sockets.append(xsocket);
-    }
-  }
+  this->remove_expanded_groups_and_interfaces(all_nodes);
+  this->store_tree_in_this_and_init_ids(
+      std::move(all_nodes), std::move(all_group_inputs), std::move(all_parent_nodes));
 }
 
 BLI_NOINLINE void InlinedNodeTree::expand_groups(Vector<XNode *> &all_nodes,
@@ -271,9 +244,8 @@ void InlinedNodeTree::expand_group_node(XNode &group_node,
   }
 }
 
-void InlinedNodeTree::insert_linked_nodes_for_vtree_in_id_order(const VirtualNodeTree &vtree,
-                                                                Vector<XNode *> &all_nodes,
-                                                                XParentNode *parent)
+BLI_NOINLINE void InlinedNodeTree::insert_linked_nodes_for_vtree_in_id_order(
+    const VirtualNodeTree &vtree, Vector<XNode *> &all_nodes, XParentNode *parent)
 {
   BLI::TemporaryArray<XSocket *> sockets_map(vtree.socket_count());
 
@@ -296,9 +268,9 @@ void InlinedNodeTree::insert_linked_nodes_for_vtree_in_id_order(const VirtualNod
   }
 }
 
-XNode &InlinedNodeTree::create_node(const VNode &vnode,
-                                    XParentNode *parent,
-                                    MutableArrayRef<XSocket *> sockets_map)
+BLI_NOINLINE XNode &InlinedNodeTree::create_node(const VNode &vnode,
+                                                 XParentNode *parent,
+                                                 MutableArrayRef<XSocket *> sockets_map)
 {
   XNode &new_node = *m_allocator.construct<XNode>().release();
   new_node.m_vnode = &vnode;
@@ -328,6 +300,44 @@ XNode &InlinedNodeTree::create_node(const VNode &vnode,
   }
 
   return new_node;
+}
+
+BLI_NOINLINE void InlinedNodeTree::remove_expanded_groups_and_interfaces(
+    Vector<XNode *> &all_nodes)
+{
+  for (int i = 0; i < all_nodes.size(); i++) {
+    XNode *current_node = all_nodes[i];
+    if (is_group_node(current_node->vnode()) ||
+        (is_interface_node(current_node->vnode()) && current_node->parent() != nullptr)) {
+      all_nodes.remove_and_reorder(i);
+      current_node->destruct_with_sockets();
+      i--;
+    }
+  }
+}
+
+BLI_NOINLINE void InlinedNodeTree::store_tree_in_this_and_init_ids(
+    Vector<XNode *> &&all_nodes,
+    Vector<XGroupInput *> &&all_group_inputs,
+    Vector<XParentNode *> &&all_parent_nodes)
+{
+  m_node_by_id = std::move(all_nodes);
+  m_group_inputs = std::move(all_group_inputs);
+  m_parent_nodes = std::move(all_parent_nodes);
+
+  for (uint node_index : m_node_by_id.index_iterator()) {
+    XNode *xnode = m_node_by_id[node_index];
+    xnode->m_id = node_index;
+
+    for (XInputSocket *xsocket : xnode->m_inputs) {
+      xsocket->m_id = m_sockets_by_id.append_and_get_index(xsocket);
+      m_input_sockets.append(xsocket);
+    }
+    for (XOutputSocket *xsocket : xnode->m_outputs) {
+      xsocket->m_id = m_sockets_by_id.append_and_get_index(xsocket);
+      m_output_sockets.append(xsocket);
+    }
+  }
 }
 
 static BLI::DotExport::Cluster *get_cluster_for_parent(

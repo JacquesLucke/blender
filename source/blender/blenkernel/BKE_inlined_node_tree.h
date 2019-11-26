@@ -161,6 +161,10 @@ class InlinedNodeTree : BLI::NonCopyable, BLI::NonMovable {
   XNode &create_node(const VNode &vnode,
                      XParentNode *parent,
                      MutableArrayRef<XSocket *> sockets_map);
+  void remove_expanded_groups_and_interfaces(Vector<XNode *> &all_nodes);
+  void store_tree_in_this_and_init_ids(Vector<XNode *> &&all_nodes,
+                                       Vector<XGroupInput *> &&all_group_inputs,
+                                       Vector<XParentNode *> &&all_parent_nodes);
 };
 
 /* Inline functions
