@@ -113,6 +113,8 @@ class VNode : BLI::NonCopyable, BLI::NonMovable {
 
   bNode *bnode() const;
   bNodeTree *btree() const;
+
+  uint id() const;
 };
 
 class VirtualNodeTree : BLI::NonCopyable, BLI::NonMovable {
@@ -306,6 +308,11 @@ inline const VOutputSocket &VNode::output(uint index, StringRef expected_name) c
 inline bNode *VNode::bnode() const
 {
   return m_bnode;
+}
+
+inline uint VNode::id() const
+{
+  return m_id;
 }
 
 inline bNodeTree *VirtualNodeTree::btree() const
