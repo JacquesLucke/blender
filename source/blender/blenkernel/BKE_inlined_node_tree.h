@@ -73,6 +73,17 @@ class XParentNode : BLI::NonCopyable, BLI::NonMovable {
   XParentNode *m_parent;
 
   friend InlinedNodeTree;
+
+ public:
+  const XParentNode *parent() const
+  {
+    return m_parent;
+  }
+
+  const VNode &vnode() const
+  {
+    return *m_vnode;
+  }
 };
 
 using BTreeVTreeMap = Map<bNodeTree *, std::unique_ptr<const VirtualNodeTree>>;

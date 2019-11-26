@@ -272,6 +272,22 @@ XNode &InlinedNodeTree::create_node(const VNode &vnode,
   return new_node;
 }
 
+static BLI::DotExport::Cluster *get_cluster_for_parent(
+    BLI::DotExport::DirectedGraph &graph,
+    Map<const XParentNode *, BLI::DotExport::Cluster *> &clusters,
+    const XParentNode *parent)
+{
+  if (parent == nullptr) {
+    return nullptr;
+  }
+  return clusters.lookup_or_add(parent, [&]() {
+    auto *parent_cluster = get_cluster_for_parent(graph, clusters, parent->parent());
+    auto &new_cluster = graph.new_cluster(parent->vnode().name());
+    new_cluster.set_parent_cluster(parent_cluster);
+    return &new_cluster;
+  });
+}
+
 std::string InlinedNodeTree::to_dot() const
 {
   BLI::DotExport::DirectedGraph digraph;
@@ -279,6 +295,7 @@ std::string InlinedNodeTree::to_dot() const
 
   Map<const XNode *, BLI::DotExport::Utils::NodeWithSocketsWrapper> dot_nodes;
   Map<const XGroupInput *, BLI::DotExport::Utils::NodeWithSocketsWrapper> dot_group_inputs;
+  Map<const XParentNode *, BLI::DotExport::Cluster *> dot_clusters;
 
   for (const XNode *xnode : m_node_by_id) {
     auto &dot_node = digraph.new_node("");
@@ -296,6 +313,10 @@ std::string InlinedNodeTree::to_dot() const
                       BLI::DotExport::Utils::NodeWithSocketsWrapper(
                           dot_node, xnode->m_vnode->name(), input_names, output_names));
 
+    BLI::DotExport::Cluster *cluster = get_cluster_for_parent(
+        digraph, dot_clusters, xnode->m_parent);
+    dot_node.set_parent_cluster(cluster);
+
     for (const XInputSocket *input : xnode->m_inputs) {
       for (const XGroupInput *group_input : input->m_linked_group_inputs) {
         if (!dot_group_inputs.contains(group_input)) {
@@ -303,6 +324,10 @@ std::string InlinedNodeTree::to_dot() const
           dot_group_inputs.add_new(group_input,
                                    BLI::DotExport::Utils::NodeWithSocketsWrapper(
                                        dot_group_input_node, "Group Input", {}, {"Value"}));
+
+          BLI::DotExport::Cluster *cluster = get_cluster_for_parent(
+              digraph, dot_clusters, group_input->m_parent);
+          dot_group_input_node.set_parent_cluster(cluster);
         }
       }
     }
