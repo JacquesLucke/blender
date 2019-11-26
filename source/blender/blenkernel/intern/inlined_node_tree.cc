@@ -174,16 +174,15 @@ void InlinedNodeTree::expand_group__relink_inputs(const VirtualNodeTree &vtree,
         *inside_interface_xnode->m_outputs[inside_interface_vsocket->index()];
     XInputSocket &outside_interface = *group_node.m_inputs[input_index];
 
-    /* If the group input has no origin, insert a dummy group input. */
-    if (outside_interface.m_linked_sockets.size() == 0 &&
-        outside_interface.m_linked_group_inputs.size() == 0) {
-      XGroupInput &group_input_dummy = *m_allocator.construct<XGroupInput>().release();
-      group_input_dummy.m_id = all_group_inputs.append_and_get_index(&group_input_dummy);
-      group_input_dummy.m_vsocket = outside_interface.m_vsocket;
-      group_input_dummy.m_parent = group_node.m_parent;
+    /* Create group input for unconnected inputs. */
+    if (outside_interface.is_linked()) {
+      XGroupInput &group_input = *m_allocator.construct<XGroupInput>().release();
+      group_input.m_id = all_group_inputs.append_and_get_index(&group_input);
+      group_input.m_vsocket = outside_interface.m_vsocket;
+      group_input.m_parent = group_node.m_parent;
 
-      group_input_dummy.m_linked_sockets.append(&outside_interface);
-      outside_interface.m_linked_group_inputs.append(&group_input_dummy);
+      group_input.m_linked_sockets.append(&outside_interface);
+      outside_interface.m_linked_group_inputs.append(&group_input);
     }
 
     for (XOutputSocket *outside_connected : outside_interface.m_linked_sockets) {

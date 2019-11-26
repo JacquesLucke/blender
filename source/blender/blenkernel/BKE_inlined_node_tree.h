@@ -52,6 +52,8 @@ class XInputSocket : public XSocket {
   const VInputSocket &vsocket() const;
   ArrayRef<const XOutputSocket *> linked_sockets() const;
   ArrayRef<const XGroupInput *> linked_group_inputs() const;
+
+  bool is_linked() const;
 };
 
 class XOutputSocket : public XSocket {
@@ -272,6 +274,11 @@ inline ArrayRef<const XOutputSocket *> XInputSocket::linked_sockets() const
 inline ArrayRef<const XGroupInput *> XInputSocket::linked_group_inputs() const
 {
   return m_linked_group_inputs.as_ref();
+}
+
+inline bool XInputSocket::is_linked() const
+{
+  return m_linked_sockets.size() > 0 || m_linked_group_inputs.size() > 0;
 }
 
 inline const VOutputSocket &XOutputSocket::vsocket() const
