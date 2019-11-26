@@ -92,6 +92,17 @@ InlinedNodeTree::~InlinedNodeTree()
   }
 }
 
+void XNode::destruct_with_sockets()
+{
+  for (XInputSocket *socket : m_inputs) {
+    socket->~XInputSocket();
+  }
+  for (XOutputSocket *socket : m_outputs) {
+    socket->~XOutputSocket();
+  }
+  this->~XNode();
+}
+
 InlinedNodeTree::InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees) : m_btree(btree)
 {
   SCOPED_TIMER(__func__);
@@ -119,17 +130,6 @@ BLI_NOINLINE void InlinedNodeTree::expand_groups(Vector<XNode *> &all_nodes,
       this->expand_group_node(current_node, all_nodes, all_group_inputs, all_parent_nodes, vtrees);
     }
   }
-}
-
-void XNode::destruct_with_sockets()
-{
-  for (XInputSocket *socket : m_inputs) {
-    socket->~XInputSocket();
-  }
-  for (XOutputSocket *socket : m_outputs) {
-    socket->~XOutputSocket();
-  }
-  this->~XNode();
 }
 
 void InlinedNodeTree::expand_group_node(XNode &group_node,
