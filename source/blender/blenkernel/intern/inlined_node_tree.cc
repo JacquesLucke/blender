@@ -269,21 +269,20 @@ void InlinedNodeTree::insert_linked_nodes_for_vtree_in_id_order(const VirtualNod
                                                                 Vector<XNode *> &all_nodes,
                                                                 XParentNode *parent)
 {
-  Map<const VInputSocket *, XInputSocket *> inputs_map;
-  Map<const VOutputSocket *, XOutputSocket *> outputs_map;
+  BLI::TemporaryArray<XSocket *> sockets_map(vtree.socket_count());
 
   /* Insert nodes of group. */
   for (const VNode *vnode : vtree.nodes()) {
-    XNode &node = this->create_node(*vnode, parent, inputs_map, outputs_map);
+    XNode &node = this->create_node(*vnode, parent, sockets_map);
     all_nodes.append(&node);
   }
 
   /* Insert links of group. */
   for (const VNode *vnode : vtree.nodes()) {
     for (const VInputSocket *to_vsocket : vnode->inputs()) {
-      XInputSocket *to_socket = inputs_map.lookup(to_vsocket);
+      XInputSocket *to_socket = (XInputSocket *)sockets_map[to_vsocket->id()];
       for (const VOutputSocket *from_vsocket : to_vsocket->linked_sockets()) {
-        XOutputSocket *from_socket = outputs_map.lookup(from_vsocket);
+        XOutputSocket *from_socket = (XOutputSocket *)sockets_map[from_vsocket->id()];
         to_socket->m_linked_sockets.append(from_socket);
         from_socket->m_linked_sockets.append(to_socket);
       }
@@ -293,8 +292,7 @@ void InlinedNodeTree::insert_linked_nodes_for_vtree_in_id_order(const VirtualNod
 
 XNode &InlinedNodeTree::create_node(const VNode &vnode,
                                     XParentNode *parent,
-                                    Map<const VInputSocket *, XInputSocket *> &inputs_map,
-                                    Map<const VOutputSocket *, XOutputSocket *> &outputs_map)
+                                    MutableArrayRef<XSocket *> sockets_map)
 {
   XNode &new_node = *m_allocator.construct<XNode>().release();
   new_node.m_vnode = &vnode;
@@ -306,9 +304,10 @@ XNode &InlinedNodeTree::create_node(const VNode &vnode,
     new_socket.m_vsocket = vsocket;
     new_socket.m_node = &new_node;
     new_socket.m_id = UINT32_MAX;
+    new_socket.m_is_input = true;
 
     new_node.m_inputs.append_and_get_index(&new_socket);
-    inputs_map.add_new(vsocket, &new_socket);
+    sockets_map[vsocket->id()] = &new_socket;
   }
 
   for (const VOutputSocket *vsocket : vnode.outputs()) {
@@ -316,9 +315,10 @@ XNode &InlinedNodeTree::create_node(const VNode &vnode,
     new_socket.m_vsocket = vsocket;
     new_socket.m_node = &new_node;
     new_socket.m_id = UINT32_MAX;
+    new_socket.m_is_input = false;
 
     new_node.m_outputs.append_and_get_index(&new_socket);
-    outputs_map.add_new(vsocket, &new_socket);
+    sockets_map[vsocket->id()] = &new_socket;
   }
 
   return new_node;

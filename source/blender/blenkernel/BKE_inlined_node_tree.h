@@ -10,6 +10,7 @@ namespace BKE {
 
 using BLI::Map;
 using BLI::MultiMap;
+using BLI::MutableArrayRef;
 
 class XNode;
 class XParentNode;
@@ -22,6 +23,7 @@ class InlinedNodeTree;
 class XSocket : BLI::NonCopyable, BLI::NonMovable {
  protected:
   XNode *m_node;
+  bool m_is_input;
 
   /* Input and output sockets share the same id-space. */
   uint m_id;
@@ -31,6 +33,11 @@ class XSocket : BLI::NonCopyable, BLI::NonMovable {
  public:
   const XNode &node() const;
   uint id() const;
+
+  bool is_input() const;
+  bool is_output() const;
+  const XInputSocket &as_input() const;
+  const XOutputSocket &as_output() const;
 };
 
 class XInputSocket : public XSocket {
@@ -149,8 +156,7 @@ class InlinedNodeTree : BLI::NonCopyable, BLI::NonMovable {
                                                  XParentNode *parent);
   XNode &create_node(const VNode &vnode,
                      XParentNode *parent,
-                     Map<const VInputSocket *, XInputSocket *> &inputs_map,
-                     Map<const VOutputSocket *, XOutputSocket *> &outputs_map);
+                     MutableArrayRef<XSocket *> sockets_map);
 };
 
 /* Inline functions
@@ -214,6 +220,28 @@ inline const XNode &XSocket::node() const
 inline uint XSocket::id() const
 {
   return m_id;
+}
+
+inline bool XSocket::is_input() const
+{
+  return m_is_input;
+}
+
+inline bool XSocket::is_output() const
+{
+  return !m_is_input;
+}
+
+inline const XInputSocket &XSocket::as_input() const
+{
+  BLI_assert(this->is_input());
+  return *(const XInputSocket *)this;
+}
+
+inline const XOutputSocket &XSocket::as_output() const
+{
+  BLI_assert(this->is_output());
+  return *(const XOutputSocket *)this;
 }
 
 inline const VInputSocket &XInputSocket::vsocket() const
