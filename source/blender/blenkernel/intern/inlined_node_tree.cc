@@ -103,7 +103,8 @@ void XNode::destruct_with_sockets()
   this->~XNode();
 }
 
-InlinedNodeTree::InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees) : m_btree(btree)
+BLI_NOINLINE InlinedNodeTree::InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees)
+    : m_btree(btree)
 {
   SCOPED_TIMER(__func__);
   const VirtualNodeTree &main_vtree = get_vtree(vtrees, btree);
@@ -132,11 +133,11 @@ BLI_NOINLINE void InlinedNodeTree::expand_groups(Vector<XNode *> &all_nodes,
   }
 }
 
-void InlinedNodeTree::expand_group_node(XNode &group_node,
-                                        Vector<XNode *> &all_nodes,
-                                        Vector<XGroupInput *> &all_group_inputs,
-                                        Vector<XParentNode *> &all_parent_nodes,
-                                        BTreeVTreeMap &vtrees)
+BLI_NOINLINE void InlinedNodeTree::expand_group_node(XNode &group_node,
+                                                     Vector<XNode *> &all_nodes,
+                                                     Vector<XGroupInput *> &all_group_inputs,
+                                                     Vector<XParentNode *> &all_parent_nodes,
+                                                     BTreeVTreeMap &vtrees)
 {
   BLI_assert(is_group_node(*group_node.m_vnode));
   const VNode &group_vnode = *group_node.m_vnode;
@@ -158,10 +159,11 @@ void InlinedNodeTree::expand_group_node(XNode &group_node,
   this->expand_group__relink_outputs(vtree, new_xnodes_by_id, group_node);
 }
 
-void InlinedNodeTree::expand_group__relink_inputs(const VirtualNodeTree &vtree,
-                                                  ArrayRef<XNode *> new_xnodes_by_id,
-                                                  Vector<XGroupInput *> &all_group_inputs,
-                                                  XNode &group_node)
+BLI_NOINLINE void InlinedNodeTree::expand_group__relink_inputs(
+    const VirtualNodeTree &vtree,
+    ArrayRef<XNode *> new_xnodes_by_id,
+    Vector<XGroupInput *> &all_group_inputs,
+    XNode &group_node)
 {
   Vector<const VOutputSocket *> group_inputs = get_group_inputs(vtree);
 
@@ -213,9 +215,9 @@ void InlinedNodeTree::expand_group__relink_inputs(const VirtualNodeTree &vtree,
   }
 }
 
-void InlinedNodeTree::expand_group__relink_outputs(const VirtualNodeTree &vtree,
-                                                   ArrayRef<XNode *> new_xnodes_by_id,
-                                                   XNode &group_node)
+BLI_NOINLINE void InlinedNodeTree::expand_group__relink_outputs(const VirtualNodeTree &vtree,
+                                                                ArrayRef<XNode *> new_xnodes_by_id,
+                                                                XNode &group_node)
 {
   Vector<const VInputSocket *> group_outputs = get_group_outputs(vtree);
 
