@@ -146,6 +146,10 @@ class InlinedNodeTree : BLI::NonCopyable, BLI::NonMovable {
   void to_dot__clipboard() const;
 
  private:
+  void expand_groups(Vector<XNode *> &all_nodes,
+                     Vector<XGroupInput *> &all_group_inputs,
+                     Vector<XParentNode *> &all_parent_nodes,
+                     BTreeVTreeMap &vtrees);
   void expand_group_node(XNode &group_node,
                          Vector<XNode *> &all_nodes,
                          Vector<XGroupInput *> &all_group_inputs,

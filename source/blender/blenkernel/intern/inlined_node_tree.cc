@@ -102,14 +102,7 @@ InlinedNodeTree::InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees) : m_bt
   Vector<XParentNode *> all_parent_nodes;
 
   this->insert_linked_nodes_for_vtree_in_id_order(main_vtree, all_nodes, nullptr);
-
-  /* Expand node groups one after another. */
-  for (uint i = 0; i < all_nodes.size(); i++) {
-    XNode &current_node = *all_nodes[i];
-    if (is_group_node(*current_node.m_vnode)) {
-      this->expand_group_node(current_node, all_nodes, all_group_inputs, all_parent_nodes, vtrees);
-    }
-  }
+  this->expand_groups(all_nodes, all_group_inputs, all_parent_nodes, vtrees);
 
   /* Remove unused nodes. */
   for (int i = 0; i < all_nodes.size(); i++) {
@@ -138,6 +131,19 @@ InlinedNodeTree::InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees) : m_bt
     for (XOutputSocket *xsocket : xnode->m_outputs) {
       xsocket->m_id = m_sockets_by_id.append_and_get_index(xsocket);
       m_output_sockets.append(xsocket);
+    }
+  }
+}
+
+BLI_NOINLINE void InlinedNodeTree::expand_groups(Vector<XNode *> &all_nodes,
+                                                 Vector<XGroupInput *> &all_group_inputs,
+                                                 Vector<XParentNode *> &all_parent_nodes,
+                                                 BTreeVTreeMap &vtrees)
+{
+  for (uint i = 0; i < all_nodes.size(); i++) {
+    XNode &current_node = *all_nodes[i];
+    if (is_group_node(*current_node.m_vnode)) {
+      this->expand_group_node(current_node, all_nodes, all_group_inputs, all_parent_nodes, vtrees);
     }
   }
 }
