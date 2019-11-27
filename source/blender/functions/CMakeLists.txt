@@ -25,11 +25,11 @@ set(SRC
   intern/multi_functions/lists.cc
   intern/multi_functions/mixed.cc
   intern/multi_functions/network.cc
-  intern/vtree_multi_function_network/builder.cc
-  intern/vtree_multi_function_network/generate.cc
-  intern/vtree_multi_function_network/mappings_nodes.cc
-  intern/vtree_multi_function_network/mappings_sockets.cc
-  intern/vtree_multi_function_network/mappings.cc
+  intern/inlined_tree_multi_function_network/builder.cc
+  intern/inlined_tree_multi_function_network/generate.cc
+  intern/inlined_tree_multi_function_network/mappings_nodes.cc
+  intern/inlined_tree_multi_function_network/mappings_sockets.cc
+  intern/inlined_tree_multi_function_network/mappings.cc
   intern/attributes_block_container.cc
   intern/attributes_ref.cc
   intern/cpp_type.cc
@@ -57,14 +57,14 @@ set(SRC
   FN_multi_function_param_type.h
   FN_multi_function.h
   FN_multi_functions.h
-  FN_vtree_multi_function_network_generation.h
-  FN_vtree_multi_function_network.h
+  FN_inlined_tree_multi_function_network_generation.h
+  FN_inlined_tree_multi_function_network.h
 
   intern/multi_functions/lists.h
   intern/multi_functions/mixed.h
   intern/multi_functions/network.h
-  intern/vtree_multi_function_network/builder.h
-  intern/vtree_multi_function_network/mappings.h
+  intern/inlined_tree_multi_function_network/builder.h
+  intern/inlined_tree_multi_function_network/mappings.h
   intern/cpp_types.h
 )
 

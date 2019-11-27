@@ -2,7 +2,7 @@
 #include "builder.h"
 
 #include "FN_multi_functions.h"
-#include "FN_vtree_multi_function_network_generation.h"
+#include "FN_inlined_tree_multi_function_network_generation.h"
 
 #include "BLI_math_cxx.h"
 
@@ -106,7 +106,7 @@ static void build_math_fn(VNodeMFNetworkBuilder &builder, OutT (*func)(InT))
   };
 
   builder.set_vectorized_constructed_matching_fn<MF_Custom_In1_Out1<InT, OutT>>(
-      {"use_list"}, builder.vnode().name(), fn);
+      {"use_list"}, builder.xnode().name(), fn);
 }
 
 template<typename InT1, typename InT2, typename OutT>
@@ -122,7 +122,7 @@ static void build_math_fn(VNodeMFNetworkBuilder &builder, OutT (*func)(InT1, InT
   };
 
   builder.set_vectorized_constructed_matching_fn<MF_Custom_In2_Out1<InT1, InT2, OutT>>(
-      {"use_list__a", "use_list__b"}, builder.vnode().name(), fn);
+      {"use_list__a", "use_list__b"}, builder.xnode().name(), fn);
 }
 
 template<typename T>
@@ -145,7 +145,7 @@ static void build_variadic_math_fn(VNodeMFNetworkBuilder &builder,
   }
   else {
     const MultiFunction &base_fn = builder.construct_fn<MF_VariadicMath<T>>(
-        builder.vnode().name(), list_states.size(), fn);
+        builder.xnode().name(), list_states.size(), fn);
     if (list_states.contains(true)) {
       builder.set_constructed_matching_fn<MF_SimpleVectorize>(base_fn, list_states);
     }
@@ -301,31 +301,31 @@ static void INSERT_perlin_noise(VNodeMFNetworkBuilder &builder)
 static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
 {
   VTreeMFNetworkBuilder &network_builder = builder.network_builder();
-  const XNode &vnode = builder.vnode();
+  const XNode &xnode = builder.xnode();
 
   {
     const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>("ID",
                                                                                   CPP_TYPE<int>());
     MFBuilderFunctionNode &node = network_builder.add_function(fn);
-    network_builder.map_sockets(vnode.output(0), node.output(0));
+    network_builder.map_sockets(xnode.output(0), node.output(0));
   }
   {
     const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
         "Position", CPP_TYPE<float3>());
     MFBuilderFunctionNode &node = network_builder.add_function(fn);
-    network_builder.map_sockets(vnode.output(1), node.output(0));
+    network_builder.map_sockets(xnode.output(1), node.output(0));
   }
   {
     const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
         "Velocity", CPP_TYPE<float3>());
     MFBuilderFunctionNode &node = network_builder.add_function(fn);
-    network_builder.map_sockets(vnode.output(2), node.output(0));
+    network_builder.map_sockets(xnode.output(2), node.output(0));
   }
   {
     const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
         "Birth Time", CPP_TYPE<float>());
     MFBuilderFunctionNode &node = network_builder.add_function(fn);
-    network_builder.map_sockets(vnode.output(3), node.output(0));
+    network_builder.map_sockets(xnode.output(3), node.output(0));
   }
 }
 
@@ -350,58 +350,58 @@ static void INSERT_random_float(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_RandomFloat>();
 }
 
-void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
+void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
-  mappings.vnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
-  mappings.vnode_inserters.add_new("fn_SeparateColorNode", INSERT_separate_color);
-  mappings.vnode_inserters.add_new("fn_CombineVectorNode", INSERT_combine_vector);
-  mappings.vnode_inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
-  mappings.vnode_inserters.add_new("fn_SwitchNode", INSERT_switch);
-  mappings.vnode_inserters.add_new("fn_ListLengthNode", INSERT_list_length);
-  mappings.vnode_inserters.add_new("fn_PackListNode", INSERT_pack_list);
-  mappings.vnode_inserters.add_new("fn_GetListElementNode", INSERT_get_list_element);
-  mappings.vnode_inserters.add_new("fn_ObjectTransformsNode", INSERT_object_location);
-  mappings.vnode_inserters.add_new("fn_ObjectMeshNode", INSERT_object_mesh_info);
-  mappings.vnode_inserters.add_new("fn_TextLengthNode", INSERT_text_length);
-  mappings.vnode_inserters.add_new("fn_VertexInfoNode", INSERT_vertex_info);
-  mappings.vnode_inserters.add_new("fn_FloatRangeNode", INSERT_float_range);
-  mappings.vnode_inserters.add_new("fn_TimeInfoNode", INSERT_time_info);
-  mappings.vnode_inserters.add_new("fn_CompareNode", INSERT_compare);
-  mappings.vnode_inserters.add_new("fn_PerlinNoiseNode", INSERT_perlin_noise);
-  mappings.vnode_inserters.add_new("fn_ParticleInfoNode", INSERT_particle_info);
-  mappings.vnode_inserters.add_new("fn_ClosestPointOnObjectNode", INSERT_closest_point_on_object);
-  mappings.vnode_inserters.add_new("fn_MapRangeNode", INSERT_map_range);
-  mappings.vnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
-  mappings.vnode_inserters.add_new("fn_RandomFloatNode", INSERT_random_float);
+  mappings.xnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
+  mappings.xnode_inserters.add_new("fn_SeparateColorNode", INSERT_separate_color);
+  mappings.xnode_inserters.add_new("fn_CombineVectorNode", INSERT_combine_vector);
+  mappings.xnode_inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
+  mappings.xnode_inserters.add_new("fn_SwitchNode", INSERT_switch);
+  mappings.xnode_inserters.add_new("fn_ListLengthNode", INSERT_list_length);
+  mappings.xnode_inserters.add_new("fn_PackListNode", INSERT_pack_list);
+  mappings.xnode_inserters.add_new("fn_GetListElementNode", INSERT_get_list_element);
+  mappings.xnode_inserters.add_new("fn_ObjectTransformsNode", INSERT_object_location);
+  mappings.xnode_inserters.add_new("fn_ObjectMeshNode", INSERT_object_mesh_info);
+  mappings.xnode_inserters.add_new("fn_TextLengthNode", INSERT_text_length);
+  mappings.xnode_inserters.add_new("fn_VertexInfoNode", INSERT_vertex_info);
+  mappings.xnode_inserters.add_new("fn_FloatRangeNode", INSERT_float_range);
+  mappings.xnode_inserters.add_new("fn_TimeInfoNode", INSERT_time_info);
+  mappings.xnode_inserters.add_new("fn_CompareNode", INSERT_compare);
+  mappings.xnode_inserters.add_new("fn_PerlinNoiseNode", INSERT_perlin_noise);
+  mappings.xnode_inserters.add_new("fn_ParticleInfoNode", INSERT_particle_info);
+  mappings.xnode_inserters.add_new("fn_ClosestPointOnObjectNode", INSERT_closest_point_on_object);
+  mappings.xnode_inserters.add_new("fn_MapRangeNode", INSERT_map_range);
+  mappings.xnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
+  mappings.xnode_inserters.add_new("fn_RandomFloatNode", INSERT_random_float);
 
-  mappings.vnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
-  mappings.vnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);
-  mappings.vnode_inserters.add_new("fn_MinimumFloatsNode", INSERT_minimum_floats);
-  mappings.vnode_inserters.add_new("fn_MaximumFloatsNode", INSERT_maximum_floats);
+  mappings.xnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
+  mappings.xnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);
+  mappings.xnode_inserters.add_new("fn_MinimumFloatsNode", INSERT_minimum_floats);
+  mappings.xnode_inserters.add_new("fn_MaximumFloatsNode", INSERT_maximum_floats);
 
-  mappings.vnode_inserters.add_new("fn_SubtractFloatsNode", INSERT_subtract_floats);
-  mappings.vnode_inserters.add_new("fn_DivideFloatsNode", INSERT_divide_floats);
-  mappings.vnode_inserters.add_new("fn_PowerFloatsNode", INSERT_power_floats);
+  mappings.xnode_inserters.add_new("fn_SubtractFloatsNode", INSERT_subtract_floats);
+  mappings.xnode_inserters.add_new("fn_DivideFloatsNode", INSERT_divide_floats);
+  mappings.xnode_inserters.add_new("fn_PowerFloatsNode", INSERT_power_floats);
 
-  mappings.vnode_inserters.add_new("fn_SqrtFloatNode", INSERT_sqrt_float);
-  mappings.vnode_inserters.add_new("fn_AbsoluteFloatNode", INSERT_abs_float);
-  mappings.vnode_inserters.add_new("fn_SineFloatNode", INSERT_sine_float);
-  mappings.vnode_inserters.add_new("fn_CosineFloatNode", INSERT_cosine_float);
+  mappings.xnode_inserters.add_new("fn_SqrtFloatNode", INSERT_sqrt_float);
+  mappings.xnode_inserters.add_new("fn_AbsoluteFloatNode", INSERT_abs_float);
+  mappings.xnode_inserters.add_new("fn_SineFloatNode", INSERT_sine_float);
+  mappings.xnode_inserters.add_new("fn_CosineFloatNode", INSERT_cosine_float);
 
-  mappings.vnode_inserters.add_new("fn_AddVectorsNode", INSERT_add_vectors);
-  mappings.vnode_inserters.add_new("fn_SubtractVectorsNode", INSERT_subtract_vectors);
-  mappings.vnode_inserters.add_new("fn_MultiplyVectorsNode", INSERT_multiply_vectors);
-  mappings.vnode_inserters.add_new("fn_DivideVectorsNode", INSERT_divide_vectors);
+  mappings.xnode_inserters.add_new("fn_AddVectorsNode", INSERT_add_vectors);
+  mappings.xnode_inserters.add_new("fn_SubtractVectorsNode", INSERT_subtract_vectors);
+  mappings.xnode_inserters.add_new("fn_MultiplyVectorsNode", INSERT_multiply_vectors);
+  mappings.xnode_inserters.add_new("fn_DivideVectorsNode", INSERT_divide_vectors);
 
-  mappings.vnode_inserters.add_new("fn_VectorCrossProductNode", INSERT_vector_cross_product);
-  mappings.vnode_inserters.add_new("fn_ReflectVectorNode", INSERT_reflect_vector);
-  mappings.vnode_inserters.add_new("fn_ProjectVectorNode", INSERT_project_vector);
-  mappings.vnode_inserters.add_new("fn_VectorDotProductNode", INSERT_vector_dot_product);
-  mappings.vnode_inserters.add_new("fn_VectorDistanceNode", INSERT_vector_distance);
+  mappings.xnode_inserters.add_new("fn_VectorCrossProductNode", INSERT_vector_cross_product);
+  mappings.xnode_inserters.add_new("fn_ReflectVectorNode", INSERT_reflect_vector);
+  mappings.xnode_inserters.add_new("fn_ProjectVectorNode", INSERT_project_vector);
+  mappings.xnode_inserters.add_new("fn_VectorDotProductNode", INSERT_vector_dot_product);
+  mappings.xnode_inserters.add_new("fn_VectorDistanceNode", INSERT_vector_distance);
 
-  mappings.vnode_inserters.add_new("fn_BooleanAndNode", INSERT_boolean_and);
-  mappings.vnode_inserters.add_new("fn_BooleanOrNode", INSERT_boolean_or);
-  mappings.vnode_inserters.add_new("fn_BooleanNotNode", INSERT_boolean_not);
+  mappings.xnode_inserters.add_new("fn_BooleanAndNode", INSERT_boolean_and);
+  mappings.xnode_inserters.add_new("fn_BooleanOrNode", INSERT_boolean_or);
+  mappings.xnode_inserters.add_new("fn_BooleanNotNode", INSERT_boolean_not);
 }
 
 };  // namespace FN

@@ -106,8 +106,8 @@ static void add_basic_type(VTreeMultiFunctionMappings &mappings,
   mappings.data_type_by_idname.add_new(list_idname, MFDataType::ForVector<T>());
   mappings.data_type_by_type_name.add_new(base_name, MFDataType::ForSingle<T>());
   mappings.data_type_by_type_name.add_new(list_name, MFDataType::ForVector<T>());
-  mappings.vsocket_inserters.add_new(base_idname, base_inserter);
-  mappings.vsocket_inserters.add_new(list_idname, INSERT_empty_list_socket<T>);
+  mappings.xsocket_inserters.add_new(base_idname, base_inserter);
+  mappings.xsocket_inserters.add_new(list_idname, INSERT_empty_list_socket<T>);
   mappings.conversion_inserters.add_new({base_idname, list_idname}, INSERT_element_to_list<T>);
   mappings.type_name_from_cpp_type.add_new(&CPP_TYPE<T>(), base_name);
 }
@@ -137,7 +137,7 @@ static void add_bidirectional_implicit_conversion(VTreeMultiFunctionMappings &ma
   add_implicit_conversion<T2, T1>(mappings);
 }
 
-void add_vtree_socket_mapping_info(VTreeMultiFunctionMappings &mappings)
+void add_inlined_tree_socket_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   add_basic_type<float>(mappings, "Float", INSERT_float_socket);
   add_basic_type<BLI::float3>(mappings, "Vector", INSERT_vector_socket);

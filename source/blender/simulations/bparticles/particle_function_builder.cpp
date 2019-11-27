@@ -18,13 +18,13 @@ using BLI::rgba_b;
 using FN::MFInputSocket;
 using FN::MFOutputSocket;
 
-static Vector<const MFInputSocket *> find_input_data_sockets(const XNode &vnode,
+static Vector<const MFInputSocket *> find_input_data_sockets(const XNode &xnode,
                                                              VTreeMFNetwork &data_graph)
 {
   Vector<const MFInputSocket *> inputs;
-  for (const XInputSocket *vsocket : vnode.inputs()) {
-    if (data_graph.is_mapped(*vsocket)) {
-      const MFInputSocket &socket = data_graph.lookup_dummy_socket(*vsocket);
+  for (const XInputSocket *xsocket : xnode.inputs()) {
+    if (data_graph.is_mapped(*xsocket)) {
+      const MFInputSocket &socket = data_graph.lookup_dummy_socket(*xsocket);
       inputs.append(&socket);
     }
   }
@@ -39,22 +39,22 @@ static VectorSet<const XOutputSocket *> find_particle_dependencies(
 
   Vector<const XOutputSocket *> dependencies;
   for (const MFOutputSocket *socket : dummy_dependencies) {
-    dependencies.append(&data_graph.lookup_vsocket(*socket));
+    dependencies.append(&data_graph.lookup_xsocket(*socket));
   }
 
   return dependencies;
 }
 
 using BuildInputProvider = std::function<ParticleFunctionInputProvider *(
-    VTreeMFNetwork &vtree_data_graph, const XOutputSocket &vsocket)>;
+    VTreeMFNetwork &inlined_tree_data_graph, const XOutputSocket &xsocket)>;
 
-static ParticleFunctionInputProvider *INPUT_surface_info(VTreeMFNetwork &UNUSED(vtree_data_graph),
-                                                         const XOutputSocket &vsocket)
+static ParticleFunctionInputProvider *INPUT_surface_info(
+    VTreeMFNetwork &UNUSED(inlined_tree_data_graph), const XOutputSocket &xsocket)
 {
-  if (vsocket.name() == "Normal") {
+  if (xsocket.name() == "Normal") {
     return new SurfaceNormalInputProvider();
   }
-  else if (vsocket.name() == "Velocity") {
+  else if (xsocket.name() == "Velocity") {
     return new SurfaceVelocityInputProvider();
   }
   else {
@@ -63,12 +63,12 @@ static ParticleFunctionInputProvider *INPUT_surface_info(VTreeMFNetwork &UNUSED(
   }
 }
 
-static ParticleFunctionInputProvider *INPUT_surface_image(VTreeMFNetwork &UNUSED(vtree_data_graph),
-                                                          const XOutputSocket &vsocket)
+static ParticleFunctionInputProvider *INPUT_surface_image(
+    VTreeMFNetwork &UNUSED(inlined_tree_data_graph), const XOutputSocket &xsocket)
 {
   Optional<std::string> uv_map_name;
 
-  PointerRNA *rna = vsocket.node().rna();
+  PointerRNA *rna = xsocket.node().rna();
   Image *image = (Image *)RNA_pointer_get(rna, "image").data;
   BLI_assert(image != nullptr);
 
@@ -76,25 +76,26 @@ static ParticleFunctionInputProvider *INPUT_surface_image(VTreeMFNetwork &UNUSED
 }
 
 static ParticleFunctionInputProvider *INPUT_surface_weight(
-    VTreeMFNetwork &UNUSED(vtree_data_graph), const XOutputSocket &vsocket)
+    VTreeMFNetwork &UNUSED(inlined_tree_data_graph), const XOutputSocket &xsocket)
 {
-  PointerRNA *rna = vsocket.node().rna();
+  PointerRNA *rna = xsocket.node().rna();
   char group_name[65];
   RNA_string_get(rna, "group_name", group_name);
   return new VertexWeightInputProvider(group_name);
 }
 
 static ParticleFunctionInputProvider *INPUT_randomness_input(
-    VTreeMFNetwork &UNUSED(vtree_data_graph), const XOutputSocket &vsocket)
+    VTreeMFNetwork &UNUSED(inlined_tree_data_graph), const XOutputSocket &xsocket)
 {
-  uint seed = BLI_hash_string(vsocket.node().name().data());
+  uint seed = BLI_hash_string(xsocket.node().name().data());
   return new RandomFloatInputProvider(seed);
 }
 
-static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeMFNetwork &vtree_data_graph,
-                                                        const XOutputSocket &vsocket)
+static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeMFNetwork &inlined_tree_data_graph,
+                                                        const XOutputSocket &xsocket)
 {
-  FN::MF_EvaluateNetwork fn({}, {&vtree_data_graph.lookup_dummy_socket(vsocket.node().input(0))});
+  FN::MF_EvaluateNetwork fn(
+      {}, {&inlined_tree_data_graph.lookup_dummy_socket(xsocket.node().input(0))});
   FN::MFParamsBuilder params_builder(fn, 1);
   FN::MFContextBuilder context_builder;
 
@@ -117,14 +118,14 @@ BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
   return map;
 }
 
-static ParticleFunctionInputProvider *create_input_provider(VTreeMFNetwork &vtree_data_graph,
-                                                            const XOutputSocket &vsocket)
+static ParticleFunctionInputProvider *create_input_provider(
+    VTreeMFNetwork &inlined_tree_data_graph, const XOutputSocket &xsocket)
 {
-  const XNode &vnode = vsocket.node();
+  const XNode &xnode = xsocket.node();
 
   auto &map = get_input_providers_map();
-  auto &builder = map.lookup(vnode.idname());
-  ParticleFunctionInputProvider *provider = builder(vtree_data_graph, vsocket);
+  auto &builder = map.lookup(xnode.idname());
+  ParticleFunctionInputProvider *provider = builder(inlined_tree_data_graph, xsocket);
   BLI_assert(provider != nullptr);
   return provider;
 }
@@ -138,9 +139,9 @@ static Optional<std::unique_ptr<ParticleFunction>> create_particle_function_from
   Vector<const MFOutputSocket *> dependency_sockets;
   Vector<ParticleFunctionInputProvider *> input_providers;
 
-  for (const XOutputSocket *vsocket : dependencies) {
-    dependency_sockets.append(&data_graph.lookup_socket(*vsocket));
-    input_providers.append(create_input_provider(data_graph, *vsocket));
+  for (const XOutputSocket *xsocket : dependencies) {
+    dependency_sockets.append(&data_graph.lookup_socket(*xsocket));
+    input_providers.append(create_input_provider(data_graph, *xsocket));
   }
 
   std::unique_ptr<FN::MultiFunction> fn = BLI::make_unique<FN::MF_EvaluateNetwork>(
@@ -150,9 +151,9 @@ static Optional<std::unique_ptr<ParticleFunction>> create_particle_function_from
 }
 
 Optional<std::unique_ptr<ParticleFunction>> create_particle_function(
-    const XNode &vnode, VTreeMFNetwork &data_graph, FN::ExternalDataCacheContext &data_cache)
+    const XNode &xnode, VTreeMFNetwork &data_graph, FN::ExternalDataCacheContext &data_cache)
 {
-  Vector<const MFInputSocket *> sockets_to_compute = find_input_data_sockets(vnode, data_graph);
+  Vector<const MFInputSocket *> sockets_to_compute = find_input_data_sockets(xnode, data_graph);
   auto dependencies = find_particle_dependencies(data_graph, sockets_to_compute);
 
   return create_particle_function_from_sockets(

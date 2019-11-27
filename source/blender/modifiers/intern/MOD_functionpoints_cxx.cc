@@ -7,7 +7,7 @@
 
 #include "BLI_math.h"
 
-#include "FN_vtree_multi_function_network_generation.h"
+#include "FN_inlined_tree_multi_function_network_generation.h"
 #include "FN_multi_functions.h"
 #include "FN_multi_function_common_contexts.h"
 
@@ -44,7 +44,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   InlinedNodeTree inlined_tree(btree, vtrees);
 
   BLI::ResourceCollector resources;
-  auto function = FN::generate_vtree_multi_function(inlined_tree, resources);
+  auto function = FN::generate_inlined_tree_multi_function(inlined_tree, resources);
 
   MFParamsBuilder params_builder(*function, 1);
   params_builder.add_readonly_single_input(&fpmd->control1);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FN_vtree_multi_function_network.h"
+#include "FN_inlined_tree_multi_function_network.h"
 #include "FN_multi_functions.h"
 
 #include "BLI_multi_map.h"
@@ -15,41 +15,42 @@ using BLI::MultiMap;
 
 class PreprocessedVTreeMFData {
  private:
-  const InlinedNodeTree &m_vtree;
-  Array<Optional<MFDataType>> m_data_type_by_vsocket_id;
+  const InlinedNodeTree &m_inlined_tree;
+  Array<Optional<MFDataType>> m_data_type_by_xsocket_id;
   Array<Optional<MFDataType>> m_data_type_by_group_input_id;
 
  public:
-  PreprocessedVTreeMFData(const InlinedNodeTree &vtree) : m_vtree(vtree)
+  PreprocessedVTreeMFData(const InlinedNodeTree &inlined_tree) : m_inlined_tree(inlined_tree)
   {
-    auto &mappings = get_vtree_multi_function_mappings();
+    auto &mappings = get_inlined_tree_multi_function_mappings();
 
-    m_data_type_by_vsocket_id = Array<Optional<MFDataType>>(vtree.socket_count());
-    for (const XSocket *vsocket : vtree.all_sockets()) {
-      m_data_type_by_vsocket_id[vsocket->id()] = mappings.data_type_by_idname.try_lookup(
-          vsocket->idname());
+    m_data_type_by_xsocket_id = Array<Optional<MFDataType>>(inlined_tree.socket_count());
+    for (const XSocket *xsocket : inlined_tree.all_sockets()) {
+      m_data_type_by_xsocket_id[xsocket->id()] = mappings.data_type_by_idname.try_lookup(
+          xsocket->idname());
     }
 
-    m_data_type_by_group_input_id = Array<Optional<MFDataType>>(vtree.all_group_inputs().size());
-    for (const XGroupInput *group_input : vtree.all_group_inputs()) {
+    m_data_type_by_group_input_id = Array<Optional<MFDataType>>(
+        inlined_tree.all_group_inputs().size());
+    for (const XGroupInput *group_input : inlined_tree.all_group_inputs()) {
       m_data_type_by_group_input_id[group_input->id()] = mappings.data_type_by_idname.try_lookup(
           group_input->vsocket().idname());
     }
   }
 
-  Optional<MFDataType> try_lookup_data_type(const XSocket &vsocket) const
+  Optional<MFDataType> try_lookup_data_type(const XSocket &xsocket) const
   {
-    return m_data_type_by_vsocket_id[vsocket.id()];
+    return m_data_type_by_xsocket_id[xsocket.id()];
   }
 
-  MFDataType lookup_data_type(const XSocket &vsocket) const
+  MFDataType lookup_data_type(const XSocket &xsocket) const
   {
-    return m_data_type_by_vsocket_id[vsocket.id()].value();
+    return m_data_type_by_xsocket_id[xsocket.id()].value();
   }
 
-  bool is_data_socket(const XSocket &vsocket) const
+  bool is_data_socket(const XSocket &xsocket) const
   {
-    return m_data_type_by_vsocket_id[vsocket.id()].has_value();
+    return m_data_type_by_xsocket_id[xsocket.id()].has_value();
   }
 
   bool is_data_group_input(const XGroupInput &group_input) const
@@ -60,16 +61,16 @@ class PreprocessedVTreeMFData {
 
 class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
-  const InlinedNodeTree &m_vtree;
-  const PreprocessedVTreeMFData &m_preprocessed_vtree_data;
-  const VTreeMultiFunctionMappings &m_vtree_mappings;
+  const InlinedNodeTree &m_inlined_tree;
+  const PreprocessedVTreeMFData &m_preprocessed_inlined_tree_data;
+  const VTreeMultiFunctionMappings &m_inlined_tree_mappings;
   ResourceCollector &m_resources;
 
-  /* By default store mapping between vsockets and builder sockets in an array.
-   * Input vsockets can be mapped to multiple new sockets. So fallback to a multimap in this case.
+  /* By default store mapping between xsockets and builder sockets in an array.
+   * Input xsockets can be mapped to multiple new sockets. So fallback to a multimap in this case.
    */
-  Array<uint> m_single_socket_by_vsocket;
-  MultiMap<uint, uint> m_multiple_inputs_by_vsocket;
+  Array<uint> m_single_socket_by_xsocket;
+  MultiMap<uint, uint> m_multiple_inputs_by_xsocket;
   static constexpr intptr_t MULTI_MAP_INDICATOR = 1;
 
   Map<const XGroupInput *, MFBuilderOutputSocket *> m_group_inputs_mapping;
@@ -77,14 +78,14 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   std::unique_ptr<MFNetworkBuilder> m_builder;
 
  public:
-  VTreeMFNetworkBuilder(const InlinedNodeTree &vtree,
-                        const PreprocessedVTreeMFData &preprocessed_vtree_data,
-                        const VTreeMultiFunctionMappings &vtree_mappings,
+  VTreeMFNetworkBuilder(const InlinedNodeTree &inlined_tree,
+                        const PreprocessedVTreeMFData &preprocessed_inlined_tree_data,
+                        const VTreeMultiFunctionMappings &inlined_tree_mappings,
                         ResourceCollector &resources);
 
-  const InlinedNodeTree &vtree() const
+  const InlinedNodeTree &inlined_tree() const
   {
-    return m_vtree;
+    return m_inlined_tree;
   }
 
   ResourceCollector &resources()
@@ -94,9 +95,9 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   MFBuilderFunctionNode &add_function(const MultiFunction &function);
 
-  MFBuilderFunctionNode &add_function(const MultiFunction &function, const XNode &vnode);
+  MFBuilderFunctionNode &add_function(const MultiFunction &function, const XNode &xnode);
 
-  MFBuilderDummyNode &add_dummy(const XNode &vnode);
+  MFBuilderDummyNode &add_dummy(const XNode &xnode);
 
   MFBuilderDummyNode &add_dummy(ArrayRef<MFDataType> input_types,
                                 ArrayRef<MFDataType> output_types)
@@ -126,67 +127,67 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return *fn;
   }
 
-  Optional<MFDataType> try_get_data_type(const XSocket &vsocket) const
+  Optional<MFDataType> try_get_data_type(const XSocket &xsocket) const
   {
-    return m_preprocessed_vtree_data.try_lookup_data_type(vsocket);
+    return m_preprocessed_inlined_tree_data.try_lookup_data_type(xsocket);
   }
 
-  bool is_data_socket(const XSocket &vsocket) const
+  bool is_data_socket(const XSocket &xsocket) const
   {
-    return m_preprocessed_vtree_data.is_data_socket(vsocket);
+    return m_preprocessed_inlined_tree_data.is_data_socket(xsocket);
   }
 
   bool is_data_group_input(const XGroupInput &group_input) const
   {
-    return m_preprocessed_vtree_data.is_data_group_input(group_input);
+    return m_preprocessed_inlined_tree_data.is_data_group_input(group_input);
   }
 
-  void map_data_sockets(const XNode &vnode, MFBuilderNode &node);
+  void map_data_sockets(const XNode &xnode, MFBuilderNode &node);
 
-  void map_sockets(const XInputSocket &vsocket, MFBuilderInputSocket &socket)
+  void map_sockets(const XInputSocket &xsocket, MFBuilderInputSocket &socket)
   {
-    switch (m_single_socket_by_vsocket[vsocket.id()]) {
+    switch (m_single_socket_by_xsocket[xsocket.id()]) {
       case VTreeMFSocketMap_UNMAPPED: {
-        m_single_socket_by_vsocket[vsocket.id()] = socket.id();
+        m_single_socket_by_xsocket[xsocket.id()] = socket.id();
         break;
       }
       case VTreeMFSocketMap_MULTIMAPPED: {
-        BLI_assert(!m_multiple_inputs_by_vsocket.lookup(vsocket.id()).contains(socket.id()));
-        m_multiple_inputs_by_vsocket.add(vsocket.id(), socket.id());
+        BLI_assert(!m_multiple_inputs_by_xsocket.lookup(xsocket.id()).contains(socket.id()));
+        m_multiple_inputs_by_xsocket.add(xsocket.id(), socket.id());
         break;
       }
       default: {
-        uint already_inserted_id = m_single_socket_by_vsocket[vsocket.id()];
+        uint already_inserted_id = m_single_socket_by_xsocket[xsocket.id()];
         BLI_assert(already_inserted_id != socket.id());
-        m_multiple_inputs_by_vsocket.add_multiple_new(vsocket.id(),
+        m_multiple_inputs_by_xsocket.add_multiple_new(xsocket.id(),
                                                       {already_inserted_id, socket.id()});
-        m_single_socket_by_vsocket[vsocket.id()] = VTreeMFSocketMap_MULTIMAPPED;
+        m_single_socket_by_xsocket[xsocket.id()] = VTreeMFSocketMap_MULTIMAPPED;
         break;
       }
     }
   }
 
-  void map_sockets(const XOutputSocket &vsocket, MFBuilderOutputSocket &socket)
+  void map_sockets(const XOutputSocket &xsocket, MFBuilderOutputSocket &socket)
   {
-    BLI_assert(m_single_socket_by_vsocket[vsocket.id()] == VTreeMFSocketMap_UNMAPPED);
-    m_single_socket_by_vsocket[vsocket.id()] = socket.id();
+    BLI_assert(m_single_socket_by_xsocket[xsocket.id()] == VTreeMFSocketMap_UNMAPPED);
+    m_single_socket_by_xsocket[xsocket.id()] = socket.id();
   }
 
-  void map_sockets(ArrayRef<const XInputSocket *> vsockets,
+  void map_sockets(ArrayRef<const XInputSocket *> xsockets,
                    ArrayRef<MFBuilderInputSocket *> sockets)
   {
-    BLI_assert(vsockets.size() == sockets.size());
-    for (uint i : vsockets.index_iterator()) {
-      this->map_sockets(*vsockets[i], *sockets[i]);
+    BLI_assert(xsockets.size() == sockets.size());
+    for (uint i : xsockets.index_iterator()) {
+      this->map_sockets(*xsockets[i], *sockets[i]);
     }
   }
 
-  void map_sockets(ArrayRef<const XOutputSocket *> vsockets,
+  void map_sockets(ArrayRef<const XOutputSocket *> xsockets,
                    ArrayRef<MFBuilderOutputSocket *> sockets)
   {
-    BLI_assert(vsockets.size() == sockets.size());
-    for (uint i : vsockets.index_iterator()) {
-      this->map_sockets(*vsockets[i], *sockets[i]);
+    BLI_assert(xsockets.size() == sockets.size());
+    for (uint i : xsockets.index_iterator()) {
+      this->map_sockets(*xsockets[i], *sockets[i]);
     }
   }
 
@@ -200,44 +201,44 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return *m_group_inputs_mapping.lookup(&group_input);
   }
 
-  bool vsocket_is_mapped(const XSocket &vsocket) const
+  bool xsocket_is_mapped(const XSocket &xsocket) const
   {
-    return m_single_socket_by_vsocket[vsocket.id()] != VTreeMFSocketMap_UNMAPPED;
+    return m_single_socket_by_xsocket[xsocket.id()] != VTreeMFSocketMap_UNMAPPED;
   }
 
-  void assert_vnode_is_mapped_correctly(const XNode &vnode) const;
-  void assert_data_sockets_are_mapped_correctly(ArrayRef<const XSocket *> vsockets) const;
-  void assert_vsocket_is_mapped_correctly(const XSocket &vsocket) const;
+  void assert_xnode_is_mapped_correctly(const XNode &xnode) const;
+  void assert_data_sockets_are_mapped_correctly(ArrayRef<const XSocket *> xsockets) const;
+  void assert_xsocket_is_mapped_correctly(const XSocket &xsocket) const;
 
-  bool has_data_sockets(const XNode &vnode) const;
+  bool has_data_sockets(const XNode &xnode) const;
 
-  MFBuilderSocket &lookup_single_socket(const XSocket &vsocket) const
+  MFBuilderSocket &lookup_single_socket(const XSocket &xsocket) const
   {
-    uint mapped_id = m_single_socket_by_vsocket[vsocket.id()];
+    uint mapped_id = m_single_socket_by_xsocket[xsocket.id()];
     BLI_assert(!ELEM(mapped_id, VTreeMFSocketMap_MULTIMAPPED, VTreeMFSocketMap_UNMAPPED));
     return *m_builder->sockets_by_id()[mapped_id];
   }
 
-  MFBuilderOutputSocket &lookup_socket(const XOutputSocket &vsocket) const
+  MFBuilderOutputSocket &lookup_socket(const XOutputSocket &xsocket) const
   {
-    return this->lookup_single_socket(vsocket.as_base()).as_output();
+    return this->lookup_single_socket(xsocket.as_base()).as_output();
   }
 
-  Vector<MFBuilderInputSocket *> lookup_socket(const XInputSocket &vsocket) const
+  Vector<MFBuilderInputSocket *> lookup_socket(const XInputSocket &xsocket) const
   {
     Vector<MFBuilderInputSocket *> sockets;
-    switch (m_single_socket_by_vsocket[vsocket.id()]) {
+    switch (m_single_socket_by_xsocket[xsocket.id()]) {
       case VTreeMFSocketMap_UNMAPPED: {
         break;
       }
       case VTreeMFSocketMap_MULTIMAPPED: {
-        for (uint mapped_id : m_multiple_inputs_by_vsocket.lookup(vsocket.id())) {
+        for (uint mapped_id : m_multiple_inputs_by_xsocket.lookup(xsocket.id())) {
           sockets.append(&m_builder->sockets_by_id()[mapped_id]->as_input());
         }
         break;
       }
       default: {
-        uint mapped_id = m_single_socket_by_vsocket[vsocket.id()];
+        uint mapped_id = m_single_socket_by_xsocket[xsocket.id()];
         sockets.append(&m_builder->sockets_by_id()[mapped_id]->as_input());
         break;
       }
@@ -247,11 +248,11 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   const CPPType &cpp_type_by_name(StringRef name) const
   {
-    return *m_vtree_mappings.cpp_type_by_type_name.lookup(name);
+    return *m_inlined_tree_mappings.cpp_type_by_type_name.lookup(name);
   }
 
-  const CPPType &cpp_type_from_property(const XNode &vnode, StringRefNull prop_name) const;
-  MFDataType data_type_from_property(const XNode &vnode, StringRefNull prop_name) const;
+  const CPPType &cpp_type_from_property(const XNode &xnode, StringRefNull prop_name) const;
+  MFDataType data_type_from_property(const XNode &xnode, StringRefNull prop_name) const;
 
   std::unique_ptr<VTreeMFNetwork> build();
 };
@@ -310,11 +311,11 @@ class VSocketMFNetworkBuilder {
 class VNodeMFNetworkBuilder {
  private:
   VTreeMFNetworkBuilder &m_network_builder;
-  const XNode &m_vnode;
+  const XNode &m_xnode;
 
  public:
-  VNodeMFNetworkBuilder(VTreeMFNetworkBuilder &network_builder, const XNode &vnode)
-      : m_network_builder(network_builder), m_vnode(vnode)
+  VNodeMFNetworkBuilder(VTreeMFNetworkBuilder &network_builder, const XNode &xnode)
+      : m_network_builder(network_builder), m_xnode(xnode)
   {
   }
 
@@ -323,24 +324,24 @@ class VNodeMFNetworkBuilder {
     return m_network_builder;
   }
 
-  const XNode &vnode() const
+  const XNode &xnode() const
   {
-    return m_vnode;
+    return m_xnode;
   }
 
   PointerRNA *rna()
   {
-    return m_vnode.rna();
+    return m_xnode.rna();
   }
 
   const CPPType &cpp_type_from_property(StringRefNull prop_name)
   {
-    return m_network_builder.cpp_type_from_property(m_vnode, prop_name);
+    return m_network_builder.cpp_type_from_property(m_xnode, prop_name);
   }
 
   MFDataType data_type_from_property(StringRefNull prop_name)
   {
-    return m_network_builder.data_type_from_property(m_vnode, prop_name);
+    return m_network_builder.data_type_from_property(m_xnode, prop_name);
   }
 
   Vector<bool> get_list_base_variadic_states(StringRefNull prop_name);
