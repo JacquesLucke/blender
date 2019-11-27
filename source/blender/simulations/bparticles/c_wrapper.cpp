@@ -10,7 +10,7 @@
 
 #include "BKE_mesh.h"
 #include "BKE_customdata.h"
-#include "BKE_virtual_node_tree.h"
+#include "BKE_inlined_node_tree.h"
 
 #include "DEG_depsgraph_query.h"
 

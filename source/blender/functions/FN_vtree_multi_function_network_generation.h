@@ -10,9 +10,9 @@ namespace FN {
 using BLI::ResourceCollector;
 
 std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(
-    const VirtualNodeTree &vtree, ResourceCollector &resources);
+    const InlinedNodeTree &vtree, ResourceCollector &resources);
 
-std::unique_ptr<MF_EvaluateNetwork> generate_vtree_multi_function(const VirtualNodeTree &vtree,
+std::unique_ptr<MF_EvaluateNetwork> generate_vtree_multi_function(const InlinedNodeTree &vtree,
                                                                   ResourceCollector &resources);
 
 }  // namespace FN

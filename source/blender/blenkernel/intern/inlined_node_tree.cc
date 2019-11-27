@@ -180,7 +180,7 @@ BLI_NOINLINE void InlinedNodeTree::expand_group__relink_inputs(
     if (outside_interface.is_linked()) {
       XGroupInput &group_input = *m_allocator.construct<XGroupInput>().release();
       group_input.m_id = all_group_inputs.append_and_get_index(&group_input);
-      group_input.m_vsocket = outside_interface.m_vsocket;
+      group_input.m_vsocket = &outside_interface.m_vsocket->as_input();
       group_input.m_parent = group_node.m_parent;
 
       group_input.m_linked_sockets.append(&outside_interface);
@@ -341,6 +341,13 @@ BLI_NOINLINE void InlinedNodeTree::store_tree_in_this_and_init_ids(
   for (uint node_index : m_node_by_id.index_iterator()) {
     XNode *xnode = m_node_by_id[node_index];
     xnode->m_id = node_index;
+
+    if (m_nodes_by_idname.contains(xnode->idname())) {
+      m_nodes_by_idname.lookup(xnode->idname()).append(xnode);
+    }
+    else {
+      m_nodes_by_idname.add_new(xnode->idname(), {xnode});
+    }
 
     for (XInputSocket *xsocket : xnode->m_inputs) {
       xsocket->m_id = m_sockets_by_id.append_and_get_index(xsocket);

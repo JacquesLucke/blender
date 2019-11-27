@@ -301,7 +301,7 @@ static void INSERT_perlin_noise(VNodeMFNetworkBuilder &builder)
 static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
 {
   VTreeMFNetworkBuilder &network_builder = builder.network_builder();
-  const VNode &vnode = builder.vnode();
+  const XNode &vnode = builder.vnode();
 
   {
     const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>("ID",
@@ -345,26 +345,6 @@ static void INSERT_map_range(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_MapRange>(clamp);
 }
 
-static void INSERT_group(VNodeMFNetworkBuilder &builder)
-{
-  const VNode &vnode = builder.vnode();
-  bNodeTree *btree = (bNodeTree *)RNA_pointer_get(vnode.rna(), "node_group").data;
-  if (btree == nullptr) {
-    BLI_assert(vnode.inputs().size() == 0);
-    BLI_assert(vnode.outputs().size() == 0);
-    return;
-  }
-
-  auto vtree = BLI::make_unique<VirtualNodeTree>(btree);
-
-  ResourceCollector &resources = builder.network_builder().resources();
-  std::unique_ptr<MF_EvaluateNetwork> fn = generate_vtree_multi_function(*vtree, resources);
-  builder.set_matching_fn(*fn);
-
-  resources.add(std::move(vtree), "VTree for Group");
-  resources.add(std::move(fn), "Function for Group");
-}
-
 static void INSERT_random_float(VNodeMFNetworkBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_RandomFloat>();
@@ -392,7 +372,6 @@ void add_vtree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.vnode_inserters.add_new("fn_ClosestPointOnObjectNode", INSERT_closest_point_on_object);
   mappings.vnode_inserters.add_new("fn_MapRangeNode", INSERT_map_range);
   mappings.vnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
-  mappings.vnode_inserters.add_new("fn_GroupNode", INSERT_group);
   mappings.vnode_inserters.add_new("fn_RandomFloatNode", INSERT_random_float);
 
   mappings.vnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);

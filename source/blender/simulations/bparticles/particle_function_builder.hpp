@@ -7,10 +7,10 @@
 
 namespace BParticles {
 
-using BKE::VNode;
+using BKE::XNode;
 using FN::VTreeMFNetwork;
 
 Optional<std::unique_ptr<ParticleFunction>> create_particle_function(
-    const VNode &vnode, VTreeMFNetwork &data_graph, FN::ExternalDataCacheContext &data_cache);
+    const XNode &vnode, VTreeMFNetwork &data_graph, FN::ExternalDataCacheContext &data_cache);
 
 }  // namespace BParticles

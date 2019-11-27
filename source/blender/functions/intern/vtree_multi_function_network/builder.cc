@@ -3,7 +3,7 @@
 namespace FN {
 
 VTreeMFNetworkBuilder::VTreeMFNetworkBuilder(
-    const VirtualNodeTree &vtree,
+    const InlinedNodeTree &vtree,
     const PreprocessedVTreeMFData &preprocessed_vtree_data,
     const VTreeMultiFunctionMappings &vtree_mappings,
     ResourceCollector &resources)
@@ -22,17 +22,17 @@ MFBuilderFunctionNode &VTreeMFNetworkBuilder::add_function(const MultiFunction &
 }
 
 MFBuilderFunctionNode &VTreeMFNetworkBuilder::add_function(const MultiFunction &function,
-                                                           const VNode &vnode)
+                                                           const XNode &vnode)
 {
   MFBuilderFunctionNode &node = m_builder->add_function(function);
   this->map_data_sockets(vnode, node);
   return node;
 }
 
-MFBuilderDummyNode &VTreeMFNetworkBuilder::add_dummy(const VNode &vnode)
+MFBuilderDummyNode &VTreeMFNetworkBuilder::add_dummy(const XNode &vnode)
 {
   Vector<MFDataType> input_types;
-  for (const VInputSocket *vsocket : vnode.inputs()) {
+  for (const XInputSocket *vsocket : vnode.inputs()) {
     Optional<MFDataType> data_type = this->try_get_data_type(*vsocket);
     if (data_type.has_value()) {
       input_types.append(data_type.value());
@@ -40,7 +40,7 @@ MFBuilderDummyNode &VTreeMFNetworkBuilder::add_dummy(const VNode &vnode)
   }
 
   Vector<MFDataType> output_types;
-  for (const VOutputSocket *vsocket : vnode.outputs()) {
+  for (const XOutputSocket *vsocket : vnode.outputs()) {
     Optional<MFDataType> data_type = this->try_get_data_type(*vsocket);
     if (data_type.has_value()) {
       output_types.append(data_type.value());
@@ -52,10 +52,10 @@ MFBuilderDummyNode &VTreeMFNetworkBuilder::add_dummy(const VNode &vnode)
   return node;
 }
 
-void VTreeMFNetworkBuilder::map_data_sockets(const VNode &vnode, MFBuilderNode &node)
+void VTreeMFNetworkBuilder::map_data_sockets(const XNode &vnode, MFBuilderNode &node)
 {
   uint data_inputs = 0;
-  for (const VInputSocket *vsocket : vnode.inputs()) {
+  for (const XInputSocket *vsocket : vnode.inputs()) {
     if (this->is_data_socket(*vsocket)) {
       this->map_sockets(*vsocket, *node.inputs()[data_inputs]);
       data_inputs++;
@@ -63,7 +63,7 @@ void VTreeMFNetworkBuilder::map_data_sockets(const VNode &vnode, MFBuilderNode &
   }
 
   uint data_outputs = 0;
-  for (const VOutputSocket *vsocket : vnode.outputs()) {
+  for (const XOutputSocket *vsocket : vnode.outputs()) {
     if (this->is_data_socket(*vsocket)) {
       this->map_sockets(*vsocket, *node.outputs()[data_outputs]);
       data_outputs++;
@@ -71,26 +71,26 @@ void VTreeMFNetworkBuilder::map_data_sockets(const VNode &vnode, MFBuilderNode &
   }
 }
 
-void VTreeMFNetworkBuilder::assert_vnode_is_mapped_correctly(const VNode &vnode) const
+void VTreeMFNetworkBuilder::assert_vnode_is_mapped_correctly(const XNode &vnode) const
 {
   UNUSED_VARS_NDEBUG(vnode);
 #ifdef DEBUG
-  this->assert_data_sockets_are_mapped_correctly(vnode.inputs().cast<const VSocket *>());
-  this->assert_data_sockets_are_mapped_correctly(vnode.outputs().cast<const VSocket *>());
+  this->assert_data_sockets_are_mapped_correctly(vnode.inputs().cast<const XSocket *>());
+  this->assert_data_sockets_are_mapped_correctly(vnode.outputs().cast<const XSocket *>());
 #endif
 }
 
 void VTreeMFNetworkBuilder::assert_data_sockets_are_mapped_correctly(
-    ArrayRef<const VSocket *> vsockets) const
+    ArrayRef<const XSocket *> vsockets) const
 {
-  for (const VSocket *vsocket : vsockets) {
+  for (const XSocket *vsocket : vsockets) {
     if (this->is_data_socket(*vsocket)) {
       this->assert_vsocket_is_mapped_correctly(*vsocket);
     }
   }
 }
 
-void VTreeMFNetworkBuilder::assert_vsocket_is_mapped_correctly(const VSocket &vsocket) const
+void VTreeMFNetworkBuilder::assert_vsocket_is_mapped_correctly(const XSocket &vsocket) const
 {
   BLI_assert(this->vsocket_is_mapped(vsocket));
   MFDataType vsocket_type = this->try_get_data_type(vsocket).value();
@@ -111,14 +111,14 @@ void VTreeMFNetworkBuilder::assert_vsocket_is_mapped_correctly(const VSocket &vs
   }
 }
 
-bool VTreeMFNetworkBuilder::has_data_sockets(const VNode &vnode) const
+bool VTreeMFNetworkBuilder::has_data_sockets(const XNode &vnode) const
 {
-  for (const VInputSocket *vsocket : vnode.inputs()) {
+  for (const XInputSocket *vsocket : vnode.inputs()) {
     if (this->is_data_socket(*vsocket)) {
       return true;
     }
   }
-  for (const VOutputSocket *vsocket : vnode.outputs()) {
+  for (const XOutputSocket *vsocket : vnode.outputs()) {
     if (this->is_data_socket(*vsocket)) {
       return true;
     }
@@ -126,7 +126,7 @@ bool VTreeMFNetworkBuilder::has_data_sockets(const VNode &vnode) const
   return false;
 }
 
-const CPPType &VTreeMFNetworkBuilder::cpp_type_from_property(const VNode &vnode,
+const CPPType &VTreeMFNetworkBuilder::cpp_type_from_property(const XNode &vnode,
                                                              StringRefNull prop_name) const
 {
   char *type_name = RNA_string_get_alloc(vnode.rna(), prop_name.data(), nullptr, 0);
@@ -135,7 +135,7 @@ const CPPType &VTreeMFNetworkBuilder::cpp_type_from_property(const VNode &vnode,
   return type;
 }
 
-MFDataType VTreeMFNetworkBuilder::data_type_from_property(const VNode &vnode,
+MFDataType VTreeMFNetworkBuilder::data_type_from_property(const XNode &vnode,
                                                           StringRefNull prop_name) const
 {
   char *type_name = RNA_string_get_alloc(vnode.rna(), prop_name.data(), nullptr, 0);
@@ -194,7 +194,7 @@ const MultiFunction &VNodeMFNetworkBuilder::get_vectorized_function(
 
 std::unique_ptr<VTreeMFNetwork> VTreeMFNetworkBuilder::build()
 {
-  // m_builder->to_dot__clipboard();
+  m_builder->to_dot__clipboard();
 
   auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 

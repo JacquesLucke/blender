@@ -23,6 +23,7 @@ class InlinedNodeTree;
 class XSocket : BLI::NonCopyable, BLI::NonMovable {
  protected:
   XNode *m_node;
+  const VSocket *m_vsocket;
   bool m_is_input;
 
   /* Input and output sockets share the same id-space. */
@@ -36,13 +37,17 @@ class XSocket : BLI::NonCopyable, BLI::NonMovable {
 
   bool is_input() const;
   bool is_output() const;
+  const XSocket &as_base() const;
   const XInputSocket &as_input() const;
   const XOutputSocket &as_output() const;
+
+  PointerRNA *rna() const;
+  StringRefNull idname() const;
+  StringRefNull name() const;
 };
 
 class XInputSocket : public XSocket {
  private:
-  const VInputSocket *m_vsocket;
   Vector<XOutputSocket *> m_linked_sockets;
   Vector<XGroupInput *> m_linked_group_inputs;
 
@@ -58,7 +63,6 @@ class XInputSocket : public XSocket {
 
 class XOutputSocket : public XSocket {
  private:
-  const VOutputSocket *m_vsocket;
   Vector<XInputSocket *> m_linked_sockets;
 
   friend InlinedNodeTree;
@@ -108,8 +112,14 @@ class XNode : BLI::NonCopyable, BLI::NonMovable {
 
   const XInputSocket &input(uint index) const;
   const XOutputSocket &output(uint index) const;
+  const XInputSocket &input(uint index, StringRef expected_name) const;
+  const XOutputSocket &output(uint index, StringRef expected_name) const;
 
   uint id() const;
+
+  PointerRNA *rna() const;
+  StringRefNull idname() const;
+  StringRefNull name() const;
 };
 
 class XParentNode : BLI::NonCopyable, BLI::NonMovable {
@@ -140,12 +150,24 @@ class InlinedNodeTree : BLI::NonCopyable, BLI::NonMovable {
   Vector<XInputSocket *> m_input_sockets;
   Vector<XOutputSocket *> m_output_sockets;
 
+  StringMap<Vector<XNode *>> m_nodes_by_idname;
+
  public:
   InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees);
   ~InlinedNodeTree();
 
   std::string to_dot() const;
   void to_dot__clipboard() const;
+
+  const XSocket &socket_by_id(uint id) const;
+  uint socket_count() const;
+  uint node_count() const;
+
+  ArrayRef<const XSocket *> all_sockets() const;
+  ArrayRef<const XNode *> all_nodes() const;
+  ArrayRef<const XInputSocket *> all_input_sockets() const;
+  ArrayRef<const XOutputSocket *> all_output_sockets() const;
+  ArrayRef<const XNode *> nodes_with_idname(StringRef idname) const;
 
  private:
   void expand_groups(Vector<XNode *> &all_nodes,
@@ -209,9 +231,38 @@ inline const XOutputSocket &XNode::output(uint index) const
   return *m_outputs[index];
 }
 
+inline const XInputSocket &XNode::input(uint index, StringRef expected_name) const
+{
+  BLI_assert(m_inputs[index]->name() == expected_name);
+  UNUSED_VARS_NDEBUG(expected_name);
+  return *m_inputs[index];
+}
+
+inline const XOutputSocket &XNode::output(uint index, StringRef expected_name) const
+{
+  BLI_assert(m_outputs[index]->name() == expected_name);
+  UNUSED_VARS_NDEBUG(expected_name);
+  return *m_outputs[index];
+}
+
 inline uint XNode::id() const
 {
   return m_id;
+}
+
+inline PointerRNA *XNode::rna() const
+{
+  return m_vnode->rna();
+}
+
+inline StringRefNull XNode::idname() const
+{
+  return m_vnode->idname();
+}
+
+inline StringRefNull XNode::name() const
+{
+  return m_vnode->name();
 }
 
 inline const XParentNode *XParentNode::parent() const
@@ -249,6 +300,11 @@ inline bool XSocket::is_output() const
   return !m_is_input;
 }
 
+inline const XSocket &XSocket::as_base() const
+{
+  return *this;
+}
+
 inline const XInputSocket &XSocket::as_input() const
 {
   BLI_assert(this->is_input());
@@ -261,9 +317,24 @@ inline const XOutputSocket &XSocket::as_output() const
   return *(const XOutputSocket *)this;
 }
 
+inline PointerRNA *XSocket::rna() const
+{
+  return m_vsocket->rna();
+}
+
+inline StringRefNull XSocket::idname() const
+{
+  return m_vsocket->idname();
+}
+
+inline StringRefNull XSocket::name() const
+{
+  return m_vsocket->name();
+}
+
 inline const VInputSocket &XInputSocket::vsocket() const
 {
-  return *m_vsocket;
+  return m_vsocket->as_input();
 }
 
 inline ArrayRef<const XOutputSocket *> XInputSocket::linked_sockets() const
@@ -283,7 +354,7 @@ inline bool XInputSocket::is_linked() const
 
 inline const VOutputSocket &XOutputSocket::vsocket() const
 {
-  return *m_vsocket;
+  return m_vsocket->as_output();
 }
 
 inline ArrayRef<const XInputSocket *> XOutputSocket::linked_sockets() const
@@ -309,6 +380,52 @@ inline ArrayRef<const XInputSocket *> XGroupInput::linked_sockets() const
 inline uint XGroupInput::id() const
 {
   return m_id;
+}
+
+inline const XSocket &InlinedNodeTree::socket_by_id(uint id) const
+{
+  return *m_sockets_by_id[id];
+}
+
+inline uint InlinedNodeTree::socket_count() const
+{
+  return m_sockets_by_id.size();
+}
+
+inline uint InlinedNodeTree::node_count() const
+{
+  return m_node_by_id.size();
+}
+
+inline ArrayRef<const XSocket *> InlinedNodeTree::all_sockets() const
+{
+  return m_sockets_by_id.as_ref();
+}
+
+inline ArrayRef<const XNode *> InlinedNodeTree::all_nodes() const
+{
+  return m_node_by_id.as_ref();
+}
+
+inline ArrayRef<const XInputSocket *> InlinedNodeTree::all_input_sockets() const
+{
+  return m_input_sockets.as_ref();
+}
+
+inline ArrayRef<const XOutputSocket *> InlinedNodeTree::all_output_sockets() const
+{
+  return m_output_sockets.as_ref();
+}
+
+inline ArrayRef<const XNode *> InlinedNodeTree::nodes_with_idname(StringRef idname) const
+{
+  auto *nodes = m_nodes_by_idname.lookup_ptr(idname);
+  if (nodes == nullptr) {
+    return {};
+  }
+  else {
+    return nodes->as_ref();
+  }
 }
 
 }  // namespace BKE

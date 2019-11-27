@@ -13,9 +13,9 @@ namespace FN {
 static bool insert_nodes(VTreeMFNetworkBuilder &builder,
                          const VTreeMultiFunctionMappings &mappings)
 {
-  const VirtualNodeTree &vtree = builder.vtree();
+  const InlinedNodeTree &vtree = builder.vtree();
 
-  for (const VNode *vnode : vtree.nodes()) {
+  for (const XNode *vnode : vtree.all_nodes()) {
     StringRef idname = vnode->idname();
     const InsertVNodeFunction *inserter = mappings.vnode_inserters.lookup_ptr(idname);
 
@@ -36,8 +36,8 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder,
 static bool insert_links(VTreeMFNetworkBuilder &builder,
                          const VTreeMultiFunctionMappings &mappings)
 {
-  for (const VInputSocket *to_vsocket : builder.vtree().all_input_sockets()) {
-    ArrayRef<const VOutputSocket *> origins = to_vsocket->linked_sockets();
+  for (const XInputSocket *to_vsocket : builder.vtree().all_input_sockets()) {
+    ArrayRef<const XOutputSocket *> origins = to_vsocket->linked_sockets();
     if (origins.size() != 1) {
       continue;
     }
@@ -46,7 +46,7 @@ static bool insert_links(VTreeMFNetworkBuilder &builder,
       continue;
     }
 
-    const VOutputSocket *from_vsocket = origins[0];
+    const XOutputSocket *from_vsocket = origins[0];
     if (!builder.is_data_socket(*from_vsocket)) {
       return false;
     }
@@ -80,8 +80,8 @@ static bool insert_links(VTreeMFNetworkBuilder &builder,
 static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
                                    const VTreeMultiFunctionMappings &mappings)
 {
-  Vector<const VInputSocket *> unlinked_data_inputs;
-  for (const VInputSocket *vsocket : builder.vtree().all_input_sockets()) {
+  Vector<const XInputSocket *> unlinked_data_inputs;
+  for (const XInputSocket *vsocket : builder.vtree().all_input_sockets()) {
     if (builder.is_data_socket(*vsocket)) {
       if (!vsocket->is_linked()) {
         unlinked_data_inputs.append(vsocket);
@@ -89,7 +89,7 @@ static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
     }
   }
 
-  for (const VInputSocket *vsocket : unlinked_data_inputs) {
+  for (const XInputSocket *vsocket : unlinked_data_inputs) {
     const InsertVSocketFunction *inserter = mappings.vsocket_inserters.lookup_ptr(
         vsocket->idname());
 
@@ -107,7 +107,7 @@ static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
   return true;
 }
 
-std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const VirtualNodeTree &vtree,
+std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const InlinedNodeTree &vtree,
                                                                       ResourceCollector &resources)
 {
   const VTreeMultiFunctionMappings &mappings = get_vtree_multi_function_mappings();
@@ -128,7 +128,7 @@ std::unique_ptr<VTreeMFNetwork> generate_vtree_multi_function_network(const Virt
   return vtree_network;
 }
 
-static bool cmp_group_interface_nodes(const VNode *a, const VNode *b)
+static bool cmp_group_interface_nodes(const XNode *a, const XNode *b)
 {
   int a_index = RNA_int_get(a->rna(), "sort_index");
   int b_index = RNA_int_get(b->rna(), "sort_index");
@@ -140,14 +140,14 @@ static bool cmp_group_interface_nodes(const VNode *a, const VNode *b)
   return BLI_strcasecmp(a->name().data(), b->name().data()) == -1;
 }
 
-std::unique_ptr<MF_EvaluateNetwork> generate_vtree_multi_function(const VirtualNodeTree &vtree,
+std::unique_ptr<MF_EvaluateNetwork> generate_vtree_multi_function(const InlinedNodeTree &vtree,
                                                                   ResourceCollector &resources)
 {
   std::unique_ptr<VTreeMFNetwork> network = generate_vtree_multi_function_network(vtree,
                                                                                   resources);
 
-  Vector<const VNode *> input_vnodes = vtree.nodes_with_idname("fn_GroupDataInputNode");
-  Vector<const VNode *> output_vnodes = vtree.nodes_with_idname("fn_GroupDataOutputNode");
+  Vector<const XNode *> input_vnodes = vtree.nodes_with_idname("fn_GroupDataInputNode");
+  Vector<const XNode *> output_vnodes = vtree.nodes_with_idname("fn_GroupDataOutputNode");
 
   std::sort(input_vnodes.begin(), input_vnodes.end(), cmp_group_interface_nodes);
   std::sort(output_vnodes.begin(), output_vnodes.end(), cmp_group_interface_nodes);
@@ -155,11 +155,11 @@ std::unique_ptr<MF_EvaluateNetwork> generate_vtree_multi_function(const VirtualN
   Vector<const MFOutputSocket *> function_inputs;
   Vector<const MFInputSocket *> function_outputs;
 
-  for (const VNode *vnode : input_vnodes) {
+  for (const XNode *vnode : input_vnodes) {
     function_inputs.append(&network->lookup_dummy_socket(vnode->output(0)));
   }
 
-  for (const VNode *vnode : output_vnodes) {
+  for (const XNode *vnode : output_vnodes) {
     function_outputs.append(&network->lookup_dummy_socket(vnode->input(0)));
   }
 
