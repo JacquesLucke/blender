@@ -9,12 +9,15 @@
 
 namespace FN {
 
+using BKE::VSocket;
+using BKE::XGroupInput;
 using BLI::MultiMap;
 
 class PreprocessedVTreeMFData {
  private:
   const InlinedNodeTree &m_vtree;
   Array<Optional<MFDataType>> m_data_type_by_vsocket_id;
+  Array<Optional<MFDataType>> m_data_type_by_group_input_id;
 
  public:
   PreprocessedVTreeMFData(const InlinedNodeTree &vtree) : m_vtree(vtree)
@@ -23,13 +26,14 @@ class PreprocessedVTreeMFData {
 
     m_data_type_by_vsocket_id = Array<Optional<MFDataType>>(vtree.socket_count());
     for (const XSocket *vsocket : vtree.all_sockets()) {
-      const MFDataType *data_type = mappings.data_type_by_idname.lookup_ptr(vsocket->idname());
-      if (data_type == nullptr) {
-        m_data_type_by_vsocket_id[vsocket->id()] = {};
-      }
-      else {
-        m_data_type_by_vsocket_id[vsocket->id()] = MFDataType(*data_type);
-      }
+      m_data_type_by_vsocket_id[vsocket->id()] = mappings.data_type_by_idname.try_lookup(
+          vsocket->idname());
+    }
+
+    m_data_type_by_group_input_id = Array<Optional<MFDataType>>(vtree.all_group_inputs().size());
+    for (const XGroupInput *group_input : vtree.all_group_inputs()) {
+      m_data_type_by_group_input_id[group_input->id()] = mappings.data_type_by_idname.try_lookup(
+          group_input->vsocket().idname());
     }
   }
 
@@ -47,6 +51,11 @@ class PreprocessedVTreeMFData {
   {
     return m_data_type_by_vsocket_id[vsocket.id()].has_value();
   }
+
+  bool is_data_group_input(const XGroupInput &group_input) const
+  {
+    return m_data_type_by_group_input_id[group_input.id()].has_value();
+  }
 };
 
 class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
@@ -62,6 +71,8 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   Array<uint> m_single_socket_by_vsocket;
   MultiMap<uint, uint> m_multiple_inputs_by_vsocket;
   static constexpr intptr_t MULTI_MAP_INDICATOR = 1;
+
+  Map<const XGroupInput *, MFBuilderOutputSocket *> m_group_inputs_mapping;
 
   std::unique_ptr<MFNetworkBuilder> m_builder;
 
@@ -125,6 +136,11 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return m_preprocessed_vtree_data.is_data_socket(vsocket);
   }
 
+  bool is_data_group_input(const XGroupInput &group_input) const
+  {
+    return m_preprocessed_vtree_data.is_data_group_input(group_input);
+  }
+
   void map_data_sockets(const XNode &vnode, MFBuilderNode &node);
 
   void map_sockets(const XInputSocket &vsocket, MFBuilderInputSocket &socket)
@@ -172,6 +188,16 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     for (uint i : vsockets.index_iterator()) {
       this->map_sockets(*vsockets[i], *sockets[i]);
     }
+  }
+
+  void map_group_input(const XGroupInput &group_input, MFBuilderOutputSocket &socket)
+  {
+    m_group_inputs_mapping.add_new(&group_input, &socket);
+  }
+
+  MFBuilderOutputSocket &lookup_group_input(const XGroupInput &group_input) const
+  {
+    return *m_group_inputs_mapping.lookup(&group_input);
   }
 
   bool vsocket_is_mapped(const XSocket &vsocket) const
@@ -233,11 +259,11 @@ class VTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 class VSocketMFNetworkBuilder {
  private:
   VTreeMFNetworkBuilder &m_network_builder;
-  const XSocket &m_vsocket;
+  const VSocket &m_vsocket;
   MFBuilderOutputSocket *m_socket_to_build = nullptr;
 
  public:
-  VSocketMFNetworkBuilder(VTreeMFNetworkBuilder &network_builder, const XSocket &vsocket)
+  VSocketMFNetworkBuilder(VTreeMFNetworkBuilder &network_builder, const VSocket &vsocket)
       : m_network_builder(network_builder), m_vsocket(vsocket)
   {
   }
@@ -248,7 +274,7 @@ class VSocketMFNetworkBuilder {
     return *m_socket_to_build;
   }
 
-  const XSocket &vsocket() const
+  const VSocket &vsocket() const
   {
     return m_vsocket;
   }

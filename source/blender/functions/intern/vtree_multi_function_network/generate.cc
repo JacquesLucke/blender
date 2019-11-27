@@ -10,6 +10,8 @@
 
 namespace FN {
 
+using BKE::XGroupInput;
+
 static bool insert_nodes(VTreeMFNetworkBuilder &builder,
                          const VTreeMultiFunctionMappings &mappings)
 {
@@ -30,6 +32,16 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder,
     }
   }
 
+  for (const XGroupInput *group_input : vtree.all_group_inputs()) {
+    VSocketMFNetworkBuilder socket_builder{builder, group_input->vsocket()};
+    const InsertVSocketFunction *inserter = mappings.vsocket_inserters.lookup_ptr(
+        group_input->vsocket().idname());
+    if (inserter != nullptr) {
+      (*inserter)(socket_builder);
+      builder.map_group_input(*group_input, socket_builder.built_socket());
+    }
+  }
+
   return true;
 }
 
@@ -37,21 +49,34 @@ static bool insert_links(VTreeMFNetworkBuilder &builder,
                          const VTreeMultiFunctionMappings &mappings)
 {
   for (const XInputSocket *to_vsocket : builder.vtree().all_input_sockets()) {
-    ArrayRef<const XOutputSocket *> origins = to_vsocket->linked_sockets();
-    if (origins.size() != 1) {
-      continue;
-    }
-
     if (!builder.is_data_socket(*to_vsocket)) {
       continue;
     }
 
-    const XOutputSocket *from_vsocket = origins[0];
-    if (!builder.is_data_socket(*from_vsocket)) {
-      return false;
+    ArrayRef<const XOutputSocket *> origin_sockets = to_vsocket->linked_sockets();
+    ArrayRef<const XGroupInput *> origin_group_inputs = to_vsocket->linked_group_inputs();
+    if (origin_sockets.size() + origin_group_inputs.size() != 1) {
+      continue;
     }
 
-    MFBuilderOutputSocket *from_socket = &builder.lookup_socket(*from_vsocket);
+    MFBuilderOutputSocket *from_socket = nullptr;
+    StringRef from_idname;
+
+    if (origin_sockets.size() == 1) {
+      if (!builder.is_data_socket(*origin_sockets[0])) {
+        return false;
+      }
+      from_socket = &builder.lookup_socket(*origin_sockets[0]);
+      from_idname = origin_sockets[0]->idname();
+    }
+    else {
+      if (!builder.is_data_group_input(*origin_group_inputs[0])) {
+        return false;
+      }
+      from_socket = &builder.lookup_group_input(*origin_group_inputs[0]);
+      from_idname = origin_group_inputs[0]->vsocket().idname();
+    }
+
     Vector<MFBuilderInputSocket *> to_sockets = builder.lookup_socket(*to_vsocket);
     BLI_assert(to_sockets.size() >= 1);
 
@@ -60,7 +85,7 @@ static bool insert_links(VTreeMFNetworkBuilder &builder,
 
     if (from_type != to_type) {
       const InsertImplicitConversionFunction *inserter = mappings.conversion_inserters.lookup_ptr(
-          {from_vsocket->idname(), to_vsocket->idname()});
+          {from_idname, to_vsocket->idname()});
       if (inserter == nullptr) {
         return false;
       }
@@ -97,7 +122,7 @@ static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
       return false;
     }
 
-    VSocketMFNetworkBuilder vsocket_builder{builder, *vsocket};
+    VSocketMFNetworkBuilder vsocket_builder{builder, vsocket->vsocket()};
     (*inserter)(vsocket_builder);
     for (MFBuilderInputSocket *to_socket : builder.lookup_socket(*vsocket)) {
       builder.add_link(vsocket_builder.built_socket(), *to_socket);
