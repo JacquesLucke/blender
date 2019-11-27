@@ -60,9 +60,7 @@ static void INSERT_text_socket(VSocketMFNetworkBuilder &builder)
 
 static void INSERT_surface_location_socket(VSocketMFNetworkBuilder &builder)
 {
-  SurfaceLocation location;
-  location.surface_id = -1;
-  builder.set_constant_value(location);
+  builder.set_constant_value(BKE::SurfaceLocation());
 }
 
 template<typename T> static void INSERT_empty_list_socket(VSocketMFNetworkBuilder &builder)
@@ -164,7 +162,7 @@ void add_inlined_tree_socket_mapping_info(VTreeMultiFunctionMappings &mappings)
   add_basic_type<std::string>(mappings, "Text", INSERT_text_socket);
   add_basic_type<bool>(mappings, "Boolean", INSERT_bool_socket);
   add_basic_type<BLI::rgba_f>(mappings, "Color", INSERT_color_socket);
-  add_basic_type<SurfaceLocation>(
+  add_basic_type<BKE::SurfaceLocation>(
       mappings, "Surface Location", "SurfaceLocation", INSERT_surface_location_socket);
 
   add_bidirectional_implicit_conversion<float, int32_t>(mappings);

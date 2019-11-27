@@ -218,6 +218,7 @@ set(SRC
   intern/subdiv_stats.c
   intern/subdiv_topology.c
   intern/subsurf_ccg.c
+  intern/surface_location.cc
   intern/text.c
   intern/text_suggestions.c
   intern/texture.c

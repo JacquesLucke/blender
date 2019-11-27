@@ -329,9 +329,9 @@ static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
   }
 }
 
-static void INSERT_closest_point_on_object(VNodeMFNetworkBuilder &builder)
+static void INSERT_closest_location_on_object(VNodeMFNetworkBuilder &builder)
 {
-  builder.set_constructed_matching_fn<MF_ClosestPointOnObject>();
+  builder.set_constructed_matching_fn<MF_ClosestLocationOnObject>();
 }
 
 static void INSERT_clamp_float(VNodeMFNetworkBuilder &builder)
@@ -369,7 +369,8 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_CompareNode", INSERT_compare);
   mappings.xnode_inserters.add_new("fn_PerlinNoiseNode", INSERT_perlin_noise);
   mappings.xnode_inserters.add_new("fn_ParticleInfoNode", INSERT_particle_info);
-  mappings.xnode_inserters.add_new("fn_ClosestPointOnObjectNode", INSERT_closest_point_on_object);
+  mappings.xnode_inserters.add_new("fn_ClosestLocationOnObjectNode",
+                                   INSERT_closest_location_on_object);
   mappings.xnode_inserters.add_new("fn_MapRangeNode", INSERT_map_range);
   mappings.xnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
   mappings.xnode_inserters.add_new("fn_RandomFloatNode", INSERT_random_float);

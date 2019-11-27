@@ -101,6 +101,6 @@ MAKE_CPP_TYPE(int32, int32_t)
 MAKE_CPP_TYPE(rgba_f, BLI::rgba_f)
 MAKE_CPP_TYPE(float3, BLI::float3)
 MAKE_CPP_TYPE(string, std::string)
-MAKE_CPP_TYPE(SurfaceLocation, SurfaceLocation)
+MAKE_CPP_TYPE(SurfaceLocation, BKE::SurfaceLocation)
 
 }  // namespace FN

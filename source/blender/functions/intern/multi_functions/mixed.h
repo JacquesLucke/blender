@@ -195,9 +195,9 @@ class MF_ParticleAttributes final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
-class MF_ClosestPointOnObject final : public MultiFunction {
+class MF_ClosestLocationOnObject final : public MultiFunction {
  public:
-  MF_ClosestPointOnObject();
+  MF_ClosestLocationOnObject();
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 

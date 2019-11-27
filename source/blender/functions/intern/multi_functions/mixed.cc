@@ -15,8 +15,12 @@
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 
+#include "BKE_surface_location.h"
+#include "BKE_mesh_runtime.h"
+
 namespace FN {
 
+using BKE::SurfaceLocation;
 using BLI::float3;
 using BLI::float4x4;
 using BLI::rgba_f;
@@ -597,12 +601,12 @@ void MF_ParticleAttributes::call(MFMask mask, MFParams params, MFContext context
   }
 }
 
-MF_ClosestPointOnObject::MF_ClosestPointOnObject()
+MF_ClosestLocationOnObject::MF_ClosestLocationOnObject()
 {
   MFSignatureBuilder signature("Closest Point on Object");
   signature.single_input<Object *>("Object");
   signature.single_input<float3>("Position");
-  signature.single_output<float3>("Closest Point");
+  signature.single_output<SurfaceLocation>("Closest Location");
   this->set_signature(signature);
 }
 
@@ -616,66 +620,90 @@ static BVHTreeNearest get_nearest_point(BVHTreeFromMesh *bvhtree_data, float3 po
   return nearest;
 }
 
-void MF_ClosestPointOnObject::call(MFMask mask, MFParams params, MFContext context) const
+static float3 get_barycentric_coords(Mesh *mesh,
+                                     const MLoopTri *triangles,
+                                     float3 position,
+                                     uint triangle_index)
+{
+  const MLoopTri &triangle = triangles[triangle_index];
+
+  float3 v1 = mesh->mvert[mesh->mloop[triangle.tri[0]].v].co;
+  float3 v2 = mesh->mvert[mesh->mloop[triangle.tri[1]].v].co;
+  float3 v3 = mesh->mvert[mesh->mloop[triangle.tri[2]].v].co;
+
+  float3 weights;
+  interp_weights_tri_v3(weights, v1, v2, v3, position);
+  return weights;
+}
+
+void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext context) const
 {
   auto context_data = context.element_contexts().find_first<ExternalDataCacheContext>();
 
   VirtualListRef<Object *> objects = params.readonly_single_input<Object *>(0, "Object");
   VirtualListRef<float3> positions = params.readonly_single_input<float3>(1, "Position");
-  MutableArrayRef<float3> r_points = params.uninitialized_single_output<float3>(2,
-                                                                                "Closest Point");
+  MutableArrayRef<SurfaceLocation> r_surface_locations =
+      params.uninitialized_single_output<SurfaceLocation>(2, "Closest Point");
 
   if (!context_data.has_value()) {
-    r_points.fill_indices(mask.indices(), {0, 0, 0});
+    r_surface_locations.fill_indices(mask.indices(), {});
     return;
   }
 
   if (mask.indices().size() > 0 && objects.all_equal(mask.indices())) {
     Object *object = objects[mask.indices()[0]];
     if (object == nullptr) {
-      r_points.fill_indices(mask.indices(), {0, 0, 0});
+      r_surface_locations.fill_indices(mask.indices(), {});
       return;
     }
 
     BVHTreeFromMesh *bvhtree = context_data.value().data->get_bvh_tree(object);
     if (bvhtree == nullptr) {
-      r_points.fill_indices(mask.indices(), {0, 0, 0});
+      r_surface_locations.fill_indices(mask.indices(), {});
       return;
     }
 
-    float4x4 local_to_world_matrix = object->obmat;
+    Mesh *mesh = (Mesh *)object->data;
+    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+    int32_t object_surface_id = SurfaceLocation::ComputeObjectSurfaceID(object);
+
     for (uint i : mask.indices()) {
       BVHTreeNearest nearest = get_nearest_point(bvhtree, positions[i]);
       if (nearest.index == -1) {
-        r_points[i] = {0, 0, 0};
+        r_surface_locations[i] = {};
         continue;
       }
 
-      r_points[i] = local_to_world_matrix.transform_position(nearest.co);
+      float3 bary_coords = get_barycentric_coords(mesh, triangles, nearest.co, nearest.index);
+      r_surface_locations[i] = SurfaceLocation(object_surface_id, nearest.index, bary_coords);
     }
   }
   else {
     for (uint i : mask.indices()) {
       Object *object = objects[i];
       if (object == nullptr) {
-        r_points[i] = {0, 0, 0};
+        r_surface_locations[i] = {};
         continue;
       }
 
       BVHTreeFromMesh *bvhtree = context_data.value().data->get_bvh_tree(object);
       if (bvhtree == nullptr) {
-        r_points[i] = {0, 0, 0};
+        r_surface_locations[i] = {};
         continue;
       }
+
+      Mesh *mesh = (Mesh *)object->data;
+      const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+      int32_t object_surface_id = SurfaceLocation::ComputeObjectSurfaceID(object);
 
       BVHTreeNearest nearest = get_nearest_point(bvhtree, positions[i]);
       if (nearest.index == -1) {
-        r_points[i] = {0, 0, 0};
+        r_surface_locations[i] = {};
         continue;
       }
 
-      float4x4 local_to_world_matrix = object->obmat;
-      r_points[i] = local_to_world_matrix.transform_position(nearest.co);
+      float3 bary_coords = get_barycentric_coords(mesh, triangles, nearest.co, nearest.index);
+      r_surface_locations[i] = SurfaceLocation(object_surface_id, nearest.index, bary_coords);
     }
   }
 }

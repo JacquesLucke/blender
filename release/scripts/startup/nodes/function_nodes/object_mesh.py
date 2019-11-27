@@ -19,11 +19,11 @@ class VertexInfo(bpy.types.Node, FunctionNode):
         builder.fixed_output("position", "Position", "Vector")
 
 
-class ClosestPointOnObjectNode(bpy.types.Node, FunctionNode):
-    bl_idname = "fn_ClosestPointOnObjectNode"
-    bl_label = "Closest Point on Object"
+class ClosestLocationOnObjectNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_ClosestLocationOnObjectNode"
+    bl_label = "Closest Location on Object"
 
     def declaration(self, builder):
         builder.fixed_input("object", "Object", "Object")
         builder.fixed_input("position", "Position", "Vector")
-        builder.fixed_output("closest_point", "Closest Point", "Vector")
+        builder.fixed_output("closest_point", "Closest Location", "Surface Location")
