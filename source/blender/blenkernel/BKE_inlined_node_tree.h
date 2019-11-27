@@ -167,6 +167,7 @@ class InlinedNodeTree : BLI::NonCopyable, BLI::NonMovable {
   ArrayRef<const XNode *> all_nodes() const;
   ArrayRef<const XInputSocket *> all_input_sockets() const;
   ArrayRef<const XOutputSocket *> all_output_sockets() const;
+  ArrayRef<const XGroupInput *> all_group_inputs() const;
   ArrayRef<const XNode *> nodes_with_idname(StringRef idname) const;
 
  private:
@@ -179,9 +180,10 @@ class InlinedNodeTree : BLI::NonCopyable, BLI::NonMovable {
                          Vector<XGroupInput *> &all_group_inputs,
                          Vector<XParentNode *> &all_parent_nodes,
                          BTreeVTreeMap &vtrees);
+  void expand_group__group_inputs_for_unlinked_inputs(XNode &group_node,
+                                                      Vector<XGroupInput *> &all_group_inputs);
   void expand_group__relink_inputs(const VirtualNodeTree &vtree,
                                    ArrayRef<XNode *> new_xnodes_by_id,
-                                   Vector<XGroupInput *> &all_group_inputs,
                                    XNode &group_node);
   void expand_group__relink_outputs(const VirtualNodeTree &vtree,
                                     ArrayRef<XNode *> new_xnodes_by_id,
@@ -415,6 +417,11 @@ inline ArrayRef<const XInputSocket *> InlinedNodeTree::all_input_sockets() const
 inline ArrayRef<const XOutputSocket *> InlinedNodeTree::all_output_sockets() const
 {
   return m_output_sockets.as_ref();
+}
+
+inline ArrayRef<const XGroupInput *> InlinedNodeTree::all_group_inputs() const
+{
+  return m_group_inputs.as_ref();
 }
 
 inline ArrayRef<const XNode *> InlinedNodeTree::nodes_with_idname(StringRef idname) const
