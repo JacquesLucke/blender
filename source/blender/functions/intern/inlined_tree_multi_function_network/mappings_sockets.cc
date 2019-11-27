@@ -3,6 +3,8 @@
 
 #include "BLI_math_cxx.h"
 
+#include "BKE_surface_location.h"
+
 #include "FN_multi_functions.h"
 
 namespace FN {
@@ -56,6 +58,13 @@ static void INSERT_text_socket(VSocketMFNetworkBuilder &builder)
   builder.set_constant_value(std::move(text));
 }
 
+static void INSERT_surface_location_socket(VSocketMFNetworkBuilder &builder)
+{
+  SurfaceLocation location;
+  location.surface_id = -1;
+  builder.set_constant_value(location);
+}
+
 template<typename T> static void INSERT_empty_list_socket(VSocketMFNetworkBuilder &builder)
 {
   const MultiFunction &fn = builder.network_builder().construct_fn<FN::MF_EmptyList<T>>();
@@ -95,10 +104,11 @@ static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_element
 template<typename T>
 static void add_basic_type(VTreeMultiFunctionMappings &mappings,
                            StringRef base_name,
+                           StringRef base_name_without_spaces,
                            InsertVSocketFunction base_inserter)
 {
-  std::string base_idname = "fn_" + base_name + "Socket";
-  std::string list_idname = "fn_" + base_name + "ListSocket";
+  std::string base_idname = "fn_" + base_name_without_spaces + "Socket";
+  std::string list_idname = "fn_" + base_name_without_spaces + "ListSocket";
   std::string list_name = base_name + " List";
 
   mappings.cpp_type_by_type_name.add_new(base_name, &CPP_TYPE<T>());
@@ -110,6 +120,14 @@ static void add_basic_type(VTreeMultiFunctionMappings &mappings,
   mappings.xsocket_inserters.add_new(list_idname, INSERT_empty_list_socket<T>);
   mappings.conversion_inserters.add_new({base_idname, list_idname}, INSERT_element_to_list<T>);
   mappings.type_name_from_cpp_type.add_new(&CPP_TYPE<T>(), base_name);
+}
+
+template<typename T>
+static void add_basic_type(VTreeMultiFunctionMappings &mappings,
+                           StringRef base_name,
+                           InsertVSocketFunction base_inserter)
+{
+  add_basic_type<T>(mappings, base_name, base_name, base_inserter);
 }
 
 template<typename FromT, typename ToT>
@@ -146,6 +164,8 @@ void add_inlined_tree_socket_mapping_info(VTreeMultiFunctionMappings &mappings)
   add_basic_type<std::string>(mappings, "Text", INSERT_text_socket);
   add_basic_type<bool>(mappings, "Boolean", INSERT_bool_socket);
   add_basic_type<BLI::rgba_f>(mappings, "Color", INSERT_color_socket);
+  add_basic_type<SurfaceLocation>(
+      mappings, "Surface Location", "SurfaceLocation", INSERT_surface_location_socket);
 
   add_bidirectional_implicit_conversion<float, int32_t>(mappings);
   add_bidirectional_implicit_conversion<float, bool>(mappings);

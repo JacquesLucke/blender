@@ -177,6 +177,10 @@ ColorListSocket = create_simple_data_socket(
     "fn_ColorListSocket", "Color List", (0.8, 0.8, 0.2, 0.5))
 TextListSocket = create_simple_data_socket(
     "fn_TextListSocket", "Text List", (0.8, 0.8, 0.8, 0.5))
+SurfaceLocationSocket = create_simple_data_socket(
+    "fn_SurfaceLocationSocket", "Surface Location", (0.2, 0.8, 0.2, 1.0))
+SurfaceLocationListSocket = create_simple_data_socket(
+    "fn_SurfaceLocationListSocket", "Surface Location List", (0.2, 0.8, 0.2, 0.5))
 
 class ExecuteSocket(bpy.types.NodeSocket, BaseSocket):
     bl_idname = "fn_ExecuteSocket"

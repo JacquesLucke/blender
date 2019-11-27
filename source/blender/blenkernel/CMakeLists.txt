@@ -355,6 +355,7 @@ set(SRC
   BKE_subdiv_mesh.h
   BKE_subdiv_topology.h
   BKE_subsurf.h
+  BKE_surface_location.h
   BKE_text.h
   BKE_text_suggestions.h
   BKE_texture.h

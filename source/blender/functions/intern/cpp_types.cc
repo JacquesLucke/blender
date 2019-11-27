@@ -5,6 +5,8 @@
 
 #include "BLI_math_cxx.h"
 
+#include "BKE_surface_location.h"
+
 namespace FN {
 
 void init_cpp_types()
@@ -99,5 +101,6 @@ MAKE_CPP_TYPE(int32, int32_t)
 MAKE_CPP_TYPE(rgba_f, BLI::rgba_f)
 MAKE_CPP_TYPE(float3, BLI::float3)
 MAKE_CPP_TYPE(string, std::string)
+MAKE_CPP_TYPE(SurfaceLocation, SurfaceLocation)
 
 }  // namespace FN
