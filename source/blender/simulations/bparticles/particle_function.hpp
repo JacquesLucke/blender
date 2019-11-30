@@ -45,70 +45,14 @@ class ParticleFunctionResult : BLI::NonCopyable, BLI::NonMovable {
   }
 };
 
-struct ParticleFunctionInputArray {
-  void *buffer = nullptr;
-  uint stride = 0;
-  bool is_newly_allocated = false;
-
-  ParticleFunctionInputArray(void *buffer, uint stride, bool is_newly_allocated)
-      : buffer(buffer), stride(stride), is_newly_allocated(is_newly_allocated)
-  {
-  }
-
-  template<typename T>
-  ParticleFunctionInputArray(ArrayRef<T> array, bool is_newly_allocated)
-      : ParticleFunctionInputArray((void *)array.begin(), sizeof(T), is_newly_allocated)
-  {
-  }
-};
-
-class InputProviderInterface {
- private:
-  ArrayRef<uint> m_pindices;
-  AttributesRef m_attributes;
-  ActionContext *m_action_context;
-
- public:
-  InputProviderInterface(ArrayRef<uint> pindices,
-                         AttributesRef attributes,
-                         ActionContext *action_context)
-      : m_pindices(pindices), m_attributes(attributes), m_action_context(action_context)
-  {
-  }
-
-  ArrayRef<uint> pindices()
-  {
-    return m_pindices;
-  }
-
-  AttributesRef attributes()
-  {
-    return m_attributes;
-  }
-
-  ActionContext *action_context()
-  {
-    return m_action_context;
-  }
-};
-
-class ParticleFunctionInputProvider {
- public:
-  virtual ~ParticleFunctionInputProvider();
-
-  virtual Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) = 0;
-};
-
 class ParticleFunction {
  private:
-  std::unique_ptr<const MultiFunction> m_fn;
-  Vector<ParticleFunctionInputProvider *> m_input_providers;
+  const MultiFunction &m_fn;
   FN::ExternalDataCacheContext &m_data_cache;
   FN::PersistentSurfacesLookupContext &m_persistent_surface_lookup;
 
  public:
-  ParticleFunction(std::unique_ptr<const MultiFunction> fn,
-                   Vector<ParticleFunctionInputProvider *> input_providers,
+  ParticleFunction(const MultiFunction &fn,
                    FN::ExternalDataCacheContext &data_cache,
                    FN::PersistentSurfacesLookupContext &persistent_surface_lookup);
 

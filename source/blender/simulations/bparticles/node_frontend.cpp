@@ -17,7 +17,6 @@
 
 #include "node_frontend.hpp"
 #include "integrator.hpp"
-#include "particle_function_builder.hpp"
 #include "emitters.hpp"
 #include "events.hpp"
 #include "offset_handlers.hpp"
@@ -122,15 +121,19 @@ class VTreeData {
 
   ParticleFunction *particle_function_for_all_inputs(const XNode &xnode)
   {
-    Optional<std::unique_ptr<ParticleFunction>> fn = create_particle_function(
-        xnode, m_inlined_tree_data_graph, m_data_cache, m_persistent_surface_lookup);
-    if (!fn.has_value()) {
-      return nullptr;
+    Vector<const MFInputSocket *> sockets_to_compute;
+    for (const XInputSocket *xsocket : xnode.inputs()) {
+      if (m_inlined_tree_data_graph.is_mapped(*xsocket)) {
+        sockets_to_compute.append(&m_inlined_tree_data_graph.lookup_dummy_socket(*xsocket));
+      }
     }
-    ParticleFunction *fn_ptr = fn->get();
-    BLI_assert(fn_ptr != nullptr);
-    m_resources.add(std::move(fn.extract()), __func__);
-    return fn_ptr;
+
+    const MultiFunction &fn = this->construct<FN::MF_EvaluateNetwork>(
+        "Evaluate Network", Vector<const MFOutputSocket *>(), std::move(sockets_to_compute));
+    ParticleFunction &particle_fn = this->construct<ParticleFunction>(
+        "Particle Function", fn, m_data_cache, m_persistent_surface_lookup);
+
+    return &particle_fn;
   }
 
   Optional<NamedGenericTupleRef> compute_inputs(const XNode &xnode, ArrayRef<uint> input_indices)
