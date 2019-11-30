@@ -75,28 +75,11 @@ static ParticleFunctionInputProvider *INPUT_surface_image(
   return new SurfaceImageInputProvider(image, uv_map_name);
 }
 
-static ParticleFunctionInputProvider *INPUT_is_in_group(VTreeMFNetwork &inlined_tree_data_graph,
-                                                        const XOutputSocket &xsocket)
-{
-  FN::MF_EvaluateNetwork fn(
-      {}, {&inlined_tree_data_graph.lookup_dummy_socket(xsocket.node().input(0))});
-  FN::MFParamsBuilder params_builder(fn, 1);
-  FN::MFContextBuilder context_builder;
-
-  std::string group_name;
-  BLI::destruct(&group_name);
-  params_builder.add_single_output(ArrayRef<std::string>(&group_name, 1));
-  fn.call({0}, params_builder, context_builder);
-
-  return new IsInGroupInputProvider(group_name);
-}
-
 BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
 {
   StringMap<BuildInputProvider> map;
   map.add_new("fn_SurfaceInfoNode", INPUT_surface_info);
   map.add_new("fn_SurfaceImageNode", INPUT_surface_image);
-  map.add_new("fn_IsInGroupNode", INPUT_is_in_group);
   return map;
 }
 

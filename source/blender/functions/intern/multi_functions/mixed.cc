@@ -723,6 +723,42 @@ void MF_ParticleAttributes::call(MFMask mask, MFParams params, MFContext context
   }
 }
 
+MF_ParticleIsInGroup::MF_ParticleIsInGroup()
+{
+  MFSignatureBuilder signature("Particle is in Group");
+  signature.single_input<std::string>("Group Name");
+  signature.single_output<bool>("Is in Group");
+  this->set_signature(signature);
+}
+
+void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context) const
+{
+  VirtualListRef<std::string> group_names = params.readonly_single_input<std::string>(
+      0, "Group Name");
+  MutableArrayRef<bool> r_is_in_group = params.uninitialized_single_output<bool>(1, "Is in Group");
+
+  auto context_data = context.element_contexts().find_first<ParticleAttributesContext>();
+  if (!context_data.has_value()) {
+    r_is_in_group.fill_indices(mask.indices(), false);
+    return;
+  }
+
+  AttributesRef attributes = context_data->data->attributes;
+
+  for (uint i : mask.indices()) {
+    const std::string group_name = group_names[i];
+    Optional<MutableArrayRef<bool>> is_in_group_attr = attributes.try_get<bool>(group_name);
+    if (!is_in_group_attr.has_value()) {
+      r_is_in_group[i] = false;
+      continue;
+    }
+
+    uint index = context_data->indices[i];
+    bool is_in_group = is_in_group_attr.value()[index];
+    r_is_in_group[i] = is_in_group;
+  }
+}
+
 MF_ClosestLocationOnObject::MF_ClosestLocationOnObject()
 {
   MFSignatureBuilder signature("Closest Point on Object");

@@ -39,16 +39,4 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
                                                       ArrayRef<uint> surface_info_mapping);
 };
 
-class IsInGroupInputProvider : public ParticleFunctionInputProvider {
- private:
-  std::string m_group_name;
-
- public:
-  IsInGroupInputProvider(std::string group_name) : m_group_name(std::move(group_name))
-  {
-  }
-
-  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
-};
-
 }  // namespace BParticles
