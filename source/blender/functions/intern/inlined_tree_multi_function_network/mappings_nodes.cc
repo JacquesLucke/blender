@@ -60,6 +60,11 @@ static void INSERT_object_mesh_info(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_ObjectVertexPositions>();
 }
 
+static void INSERT_get_position_on_surface(VNodeMFNetworkBuilder &builder)
+{
+  builder.set_constructed_matching_fn<MF_GetPositionOnSurface>();
+}
+
 static void INSERT_switch(VNodeMFNetworkBuilder &builder)
 {
   MFDataType type = builder.data_type_from_property("data_type");
@@ -157,69 +162,60 @@ static void build_variadic_math_fn(VNodeMFNetworkBuilder &builder,
 
 static void INSERT_add_floats(VNodeMFNetworkBuilder &builder)
 {
-  build_variadic_math_fn(
-      builder, +[](float a, float b) -> float { return a + b; }, 0.0f);
+  build_variadic_math_fn(builder, +[](float a, float b) -> float { return a + b; }, 0.0f);
 }
 
 static void INSERT_multiply_floats(VNodeMFNetworkBuilder &builder)
 {
-  build_variadic_math_fn(
-      builder, +[](float a, float b) -> float { return a * b; }, 1.0f);
+  build_variadic_math_fn(builder, +[](float a, float b) -> float { return a * b; }, 1.0f);
 }
 
 static void INSERT_minimum_floats(VNodeMFNetworkBuilder &builder)
 {
-  build_variadic_math_fn(
-      builder, +[](float a, float b) -> float { return std::min(a, b); }, 0.0f);
+  build_variadic_math_fn(builder, +[](float a, float b) -> float { return std::min(a, b); }, 0.0f);
 }
 
 static void INSERT_maximum_floats(VNodeMFNetworkBuilder &builder)
 {
-  build_variadic_math_fn(
-      builder, +[](float a, float b) -> float { return std::max(a, b); }, 0.0f);
+  build_variadic_math_fn(builder, +[](float a, float b) -> float { return std::max(a, b); }, 0.0f);
 }
 
 static void INSERT_subtract_floats(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a, float b) -> float { return a - b; });
+  build_math_fn(builder, +[](float a, float b) -> float { return a - b; });
 }
 
 static void INSERT_divide_floats(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a, float b) -> float { return (b != 0.0f) ? a / b : 0.0f; });
+  build_math_fn(builder, +[](float a, float b) -> float { return (b != 0.0f) ? a / b : 0.0f; });
 }
 
 static void INSERT_power_floats(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder,
-      +[](float a, float b) -> float { return (a >= 0.0f) ? (float)std::pow(a, b) : 0.0f; });
+  build_math_fn(builder, +[](float a, float b) -> float {
+    return (a >= 0.0f) ? (float)std::pow(a, b) : 0.0f;
+  });
 }
 
 static void INSERT_sqrt_float(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a) -> float { return (a >= 0.0f) ? (float)std::sqrt(a) : 0.0f; });
+  build_math_fn(builder,
+                +[](float a) -> float { return (a >= 0.0f) ? (float)std::sqrt(a) : 0.0f; });
 }
 
 static void INSERT_abs_float(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a) -> float { return std::abs(a); });
+  build_math_fn(builder, +[](float a) -> float { return std::abs(a); });
 }
 
 static void INSERT_sine_float(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a) -> float { return std::sin(a); });
+  build_math_fn(builder, +[](float a) -> float { return std::sin(a); });
 }
 
 static void INSERT_cosine_float(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a) -> float { return std::cos(a); });
+  build_math_fn(builder, +[](float a) -> float { return std::cos(a); });
 }
 
 static void INSERT_add_vectors(VNodeMFNetworkBuilder &builder)
@@ -234,8 +230,7 @@ static void INSERT_multiply_vectors(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_subtract_vectors(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float3 a, float3 b) -> float3 { return a - b; });
+  build_math_fn(builder, +[](float3 a, float3 b) -> float3 { return a - b; });
 }
 
 static void INSERT_divide_vectors(VNodeMFNetworkBuilder &builder)
@@ -250,8 +245,7 @@ static void INSERT_vector_cross_product(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_reflect_vector(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float3 a, float3 b) { return a.reflected(b.normalized()); });
+  build_math_fn(builder, +[](float3 a, float3 b) { return a.reflected(b.normalized()); });
 }
 
 static void INSERT_project_vector(VNodeMFNetworkBuilder &builder)
@@ -271,26 +265,22 @@ static void INSERT_vector_distance(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_boolean_and(VNodeMFNetworkBuilder &builder)
 {
-  build_variadic_math_fn(
-      builder, +[](bool a, bool b) { return a && b; }, true);
+  build_variadic_math_fn(builder, +[](bool a, bool b) { return a && b; }, true);
 }
 
 static void INSERT_boolean_or(VNodeMFNetworkBuilder &builder)
 {
-  build_variadic_math_fn(
-      builder, +[](bool a, bool b) { return a || b; }, false);
+  build_variadic_math_fn(builder, +[](bool a, bool b) { return a || b; }, false);
 }
 
 static void INSERT_boolean_not(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](bool a) -> bool { return !a; });
+  build_math_fn(builder, +[](bool a) -> bool { return !a; });
 }
 
 static void INSERT_compare(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a, float b) -> bool { return a < b; });
+  build_math_fn(builder, +[](float a, float b) -> bool { return a < b; });
 }
 
 static void INSERT_perlin_noise(VNodeMFNetworkBuilder &builder)
@@ -362,6 +352,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_GetListElementNode", INSERT_get_list_element);
   mappings.xnode_inserters.add_new("fn_ObjectTransformsNode", INSERT_object_location);
   mappings.xnode_inserters.add_new("fn_ObjectMeshNode", INSERT_object_mesh_info);
+  mappings.xnode_inserters.add_new("fn_GetPositionOnSurfaceNode", INSERT_get_position_on_surface);
   mappings.xnode_inserters.add_new("fn_TextLengthNode", INSERT_text_length);
   mappings.xnode_inserters.add_new("fn_VertexInfoNode", INSERT_vertex_info);
   mappings.xnode_inserters.add_new("fn_FloatRangeNode", INSERT_float_range);

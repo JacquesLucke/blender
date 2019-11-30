@@ -267,6 +267,63 @@ void MF_ObjectVertexPositions::call(MFMask mask, MFParams params, MFContext UNUS
   }
 }
 
+MF_GetPositionOnSurface::MF_GetPositionOnSurface()
+{
+  MFSignatureBuilder signature("Get Position on Surface");
+  signature.single_input<SurfaceLocation>("Surface Location");
+  signature.single_output<float3>("Position");
+  this->set_signature(signature);
+}
+
+void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext context) const
+{
+  VirtualListRef<SurfaceLocation> locations = params.readonly_single_input<SurfaceLocation>(
+      0, "Surface Location");
+  MutableArrayRef<float3> positions = params.uninitialized_single_output<float3>(1, "Position");
+
+  auto persistent_surfaces_opt =
+      context.element_contexts().find_first<PersistentSurfacesLookupContext>();
+  if (!persistent_surfaces_opt.has_value()) {
+    positions.fill_indices(mask.indices(), {0, 0, 0});
+    return;
+  }
+
+  for (uint i : mask.indices()) {
+    SurfaceLocation location = locations[i];
+    if (!location.is_valid()) {
+      positions[i] = {0, 0, 0};
+      continue;
+    }
+
+    Object *object = persistent_surfaces_opt->data->lookup((uint32_t)location.surface_id());
+    if (object == nullptr) {
+      positions[i] = {0, 0, 0};
+      continue;
+    }
+
+    Mesh *mesh = (Mesh *)object->data;
+    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+    int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
+
+    if (location.triangle_index() >= triangle_amount) {
+      positions[i] = {0, 0, 0};
+      continue;
+    }
+
+    const MLoopTri &triangle = triangles[location.triangle_index()];
+    float3 v1 = mesh->mvert[mesh->mloop[triangle.tri[0]].v].co;
+    float3 v2 = mesh->mvert[mesh->mloop[triangle.tri[1]].v].co;
+    float3 v3 = mesh->mvert[mesh->mloop[triangle.tri[2]].v].co;
+
+    float3 position;
+    interp_v3_v3v3v3(position, v1, v2, v3, location.bary_coords());
+    float4x4 local_to_world = object->obmat;
+    position = local_to_world.transform_position(position);
+
+    positions[i] = position;
+  }
+}
+
 MF_ObjectWorldLocation::MF_ObjectWorldLocation()
 {
   MFSignatureBuilder signature("Object Location");
@@ -643,7 +700,7 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
   VirtualListRef<Object *> objects = params.readonly_single_input<Object *>(0, "Object");
   VirtualListRef<float3> positions = params.readonly_single_input<float3>(1, "Position");
   MutableArrayRef<SurfaceLocation> r_surface_locations =
-      params.uninitialized_single_output<SurfaceLocation>(2, "Closest Point");
+      params.uninitialized_single_output<SurfaceLocation>(2, "Closest Location");
 
   if (!context_data.has_value()) {
     r_surface_locations.fill_indices(mask.indices(), {});

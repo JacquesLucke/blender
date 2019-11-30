@@ -40,6 +40,22 @@ class ParticleAttributesContext : public MFElementContext {
   }
 };
 
+class PersistentSurfacesLookupContext : public MFElementContext {
+ private:
+  Map<int32_t, Object *> m_object_by_id;
+
+ public:
+  PersistentSurfacesLookupContext(Map<int32_t, Object *> object_by_id)
+      : m_object_by_id(object_by_id)
+  {
+  }
+
+  Object *lookup(int32_t id) const
+  {
+    return m_object_by_id.lookup_default(id, nullptr);
+  }
+};
+
 class ExternalDataCacheContext : public MFElementContext {
  private:
   mutable Map<Object *, BVHTreeFromMesh *> m_bvh_trees;

@@ -27,3 +27,12 @@ class ClosestLocationOnObjectNode(bpy.types.Node, FunctionNode):
         builder.fixed_input("object", "Object", "Object")
         builder.fixed_input("position", "Position", "Vector")
         builder.fixed_output("closest_point", "Closest Location", "Surface Location")
+
+
+class GetPositionOnSurfaceNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_GetPositionOnSurfaceNode"
+    bl_label = "Get Position on Surface"
+
+    def declaration(self, builder):
+        builder.fixed_input("location", "Location", "Surface Location")
+        builder.fixed_output("position", "Position", "Vector")

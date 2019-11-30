@@ -18,26 +18,48 @@ using BLI::float3;
  *
  * For now, only points on triangle meshes are supported, support for curves could be added too.
  */
-struct SurfaceLocation {
+class SurfaceLocation {
+ private:
   /**
    * Identifies the surface that is being referenced. This is usually a hash of the name of an
    * object. The location is invalid, if this id is negative.
    */
-  int32_t surface_id;
+  int32_t m_surface_id;
 
   /* Index of the triangle that contains the referenced location. */
-  uint32_t triangle_index;
+  uint32_t m_triangle_index;
 
   /* Barycentric coordinates of the referenced location inside the triangle. */
-  float3 bary_coords;
+  float3 m_bary_coords;
 
-  SurfaceLocation() : surface_id(-1)
+ public:
+  SurfaceLocation() : m_surface_id(-1)
   {
   }
 
   SurfaceLocation(int32_t surface_id, uint32_t triangle_index, float3 bary_coords)
-      : surface_id(surface_id), triangle_index(triangle_index), bary_coords(bary_coords)
+      : m_surface_id(surface_id), m_triangle_index(triangle_index), m_bary_coords(bary_coords)
   {
+  }
+
+  int32_t surface_id() const
+  {
+    return m_surface_id;
+  }
+
+  uint32_t triangle_index() const
+  {
+    return m_triangle_index;
+  }
+
+  float3 bary_coords() const
+  {
+    return m_bary_coords;
+  }
+
+  bool is_valid() const
+  {
+    return m_surface_id >= 0;
   }
 
   static int32_t ComputeObjectSurfaceID(const Object *ob)

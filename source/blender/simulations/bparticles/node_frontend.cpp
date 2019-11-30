@@ -1,10 +1,13 @@
 #include "BKE_inlined_node_tree.h"
 #include "BKE_deform.h"
+#include "BKE_surface_location.h"
+
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 
 #include "BLI_timeit.h"
 #include "BLI_multi_map.h"
+#include "BLI_set.h"
 #include "BLI_lazy_init_cxx.h"
 
 #include "FN_multi_functions.h"
@@ -30,6 +33,7 @@ using BLI::destruct_ptr;
 using BLI::MultiMap;
 using BLI::ResourceCollector;
 using BLI::rgba_f;
+using BLI::Set;
 using FN::AttributesInfoBuilder;
 using FN::CPPType;
 using FN::MFInputSocket;
@@ -57,16 +61,40 @@ class InfluencesCollector {
   StringMap<AttributesInfoBuilder *> &m_attributes;
 };
 
+static Set<Object *> get_used_objects(const InlinedNodeTree &inlined_tree)
+{
+  Set<Object *> objects;
+  for (const XInputSocket *xsocket : inlined_tree.all_input_sockets()) {
+    if (xsocket->idname() == "fn_ObjectSocket") {
+      Object *object = (Object *)RNA_pointer_get(xsocket->rna(), "value").data;
+      if (object != nullptr) {
+        objects.add(object);
+      }
+    }
+  }
+  return objects;
+}
+
 class VTreeData {
  private:
   /* Keep this at the beginning, so that it is destructed last. */
   ResourceCollector m_resources;
   VTreeMFNetwork &m_inlined_tree_data_graph;
   FN::ExternalDataCacheContext m_data_cache;
+  FN::PersistentSurfacesLookupContext m_persistent_surface_lookup;
 
  public:
-  VTreeData(VTreeMFNetwork &inlined_tree_data) : m_inlined_tree_data_graph(inlined_tree_data)
+  VTreeData(VTreeMFNetwork &inlined_tree_data)
+      : m_inlined_tree_data_graph(inlined_tree_data), m_persistent_surface_lookup({})
   {
+    Set<Object *> objects = get_used_objects(inlined_tree_data.inlined_tree());
+    Map<int32_t, Object *> object_by_id;
+    for (Object *ob : objects) {
+      int32_t surface_id = BKE::SurfaceLocation::ComputeObjectSurfaceID(ob);
+      object_by_id.add_new(surface_id, ob);
+    }
+    m_persistent_surface_lookup.~PersistentSurfacesLookupContext();
+    new (&m_persistent_surface_lookup) FN::PersistentSurfacesLookupContext(object_by_id);
   }
 
   const InlinedNodeTree &inlined_tree()
@@ -95,7 +123,7 @@ class VTreeData {
   ParticleFunction *particle_function_for_all_inputs(const XNode &xnode)
   {
     Optional<std::unique_ptr<ParticleFunction>> fn = create_particle_function(
-        xnode, m_inlined_tree_data_graph, m_data_cache);
+        xnode, m_inlined_tree_data_graph, m_data_cache, m_persistent_surface_lookup);
     if (!fn.has_value()) {
       return nullptr;
     }

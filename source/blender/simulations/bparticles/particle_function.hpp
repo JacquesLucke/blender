@@ -104,11 +104,13 @@ class ParticleFunction {
   std::unique_ptr<const MultiFunction> m_fn;
   Vector<ParticleFunctionInputProvider *> m_input_providers;
   FN::ExternalDataCacheContext &m_data_cache;
+  FN::PersistentSurfacesLookupContext &m_persistent_surface_lookup;
 
  public:
   ParticleFunction(std::unique_ptr<const MultiFunction> fn,
                    Vector<ParticleFunctionInputProvider *> input_providers,
-                   FN::ExternalDataCacheContext &data_cache);
+                   FN::ExternalDataCacheContext &data_cache,
+                   FN::PersistentSurfacesLookupContext &persistent_surface_lookup);
 
   ~ParticleFunction();
 

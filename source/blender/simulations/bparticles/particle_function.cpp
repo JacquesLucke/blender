@@ -14,8 +14,12 @@ ParticleFunctionInputProvider::~ParticleFunctionInputProvider()
 
 ParticleFunction::ParticleFunction(std::unique_ptr<const MultiFunction> fn,
                                    Vector<ParticleFunctionInputProvider *> input_providers,
-                                   FN::ExternalDataCacheContext &data_cache)
-    : m_fn(std::move(fn)), m_input_providers(std::move(input_providers)), m_data_cache(data_cache)
+                                   FN::ExternalDataCacheContext &data_cache,
+                                   FN::PersistentSurfacesLookupContext &persistent_surface_lookup)
+    : m_fn(std::move(fn)),
+      m_input_providers(std::move(input_providers)),
+      m_data_cache(data_cache),
+      m_persistent_surface_lookup(persistent_surface_lookup)
 {
 }
 
@@ -116,6 +120,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
   FN::ParticleAttributesContext attributes_context(attributes);
   context_builder.add_element_context(attributes_context, IndexRange(array_size));
   context_builder.add_element_context(m_data_cache);
+  context_builder.add_element_context(m_persistent_surface_lookup);
 
   m_fn->call(pindices, params_builder, context_builder);
 

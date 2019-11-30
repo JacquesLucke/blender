@@ -11,6 +11,9 @@ using BKE::XNode;
 using FN::VTreeMFNetwork;
 
 Optional<std::unique_ptr<ParticleFunction>> create_particle_function(
-    const XNode &xnode, VTreeMFNetwork &data_graph, FN::ExternalDataCacheContext &data_cache);
+    const XNode &xnode,
+    VTreeMFNetwork &data_graph,
+    FN::ExternalDataCacheContext &data_cache,
+    FN::PersistentSurfacesLookupContext &persistent_surface_lookup);
 
 }  // namespace BParticles

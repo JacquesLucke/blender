@@ -134,7 +134,8 @@ static Optional<std::unique_ptr<ParticleFunction>> create_particle_function_from
     VTreeMFNetwork &data_graph,
     ArrayRef<const MFInputSocket *> sockets_to_compute,
     ArrayRef<const XOutputSocket *> dependencies,
-    FN::ExternalDataCacheContext &data_cache)
+    FN::ExternalDataCacheContext &data_cache,
+    FN::PersistentSurfacesLookupContext &persistent_surface_lookup)
 {
   Vector<const MFOutputSocket *> dependency_sockets;
   Vector<ParticleFunctionInputProvider *> input_providers;
@@ -147,17 +148,21 @@ static Optional<std::unique_ptr<ParticleFunction>> create_particle_function_from
   std::unique_ptr<FN::MultiFunction> fn = BLI::make_unique<FN::MF_EvaluateNetwork>(
       dependency_sockets, sockets_to_compute);
 
-  return BLI::make_unique<ParticleFunction>(std::move(fn), input_providers, data_cache);
+  return BLI::make_unique<ParticleFunction>(
+      std::move(fn), input_providers, data_cache, persistent_surface_lookup);
 }
 
 Optional<std::unique_ptr<ParticleFunction>> create_particle_function(
-    const XNode &xnode, VTreeMFNetwork &data_graph, FN::ExternalDataCacheContext &data_cache)
+    const XNode &xnode,
+    VTreeMFNetwork &data_graph,
+    FN::ExternalDataCacheContext &data_cache,
+    FN::PersistentSurfacesLookupContext &persistent_surface_lookup)
 {
   Vector<const MFInputSocket *> sockets_to_compute = find_input_data_sockets(xnode, data_graph);
   auto dependencies = find_particle_dependencies(data_graph, sockets_to_compute);
 
   return create_particle_function_from_sockets(
-      data_graph, sockets_to_compute, dependencies, data_cache);
+      data_graph, sockets_to_compute, dependencies, data_cache, persistent_surface_lookup);
 }
 
 }  // namespace BParticles
