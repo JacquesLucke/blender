@@ -127,68 +127,6 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::compute_colors(
   return ParticleFunctionInputArray(colors.as_ref(), true);
 }
 
-Optional<ParticleFunctionInputArray> VertexWeightInputProvider::get(
-    InputProviderInterface &interface)
-{
-  ActionContext *action_context = interface.action_context();
-
-  if (dynamic_cast<MeshSurfaceContext *>(action_context)) {
-    auto *surface_info = dynamic_cast<MeshSurfaceContext *>(action_context);
-    return this->compute_weights(
-        interface, surface_info, IndexRange(interface.attributes().size()).as_array_ref());
-  }
-  else if (dynamic_cast<SourceParticleActionContext *>(action_context)) {
-    auto *source_info = dynamic_cast<SourceParticleActionContext *>(action_context);
-    auto *surface_info = dynamic_cast<MeshSurfaceContext *>(source_info->source_context());
-    if (surface_info != nullptr) {
-      return this->compute_weights(interface, surface_info, source_info->source_indices());
-    }
-  }
-  return {};
-}
-
-Optional<ParticleFunctionInputArray> VertexWeightInputProvider::compute_weights(
-    InputProviderInterface &interface,
-    MeshSurfaceContext *surface_info,
-    ArrayRef<uint> surface_info_mapping)
-{
-  Object *object = surface_info->object();
-  Mesh *mesh = (Mesh *)object->data;
-  MDeformVert *vertex_weights = mesh->dvert;
-
-  int group_index = defgroup_name_index(object, m_group_name.data());
-  if (group_index == -1 || vertex_weights == nullptr) {
-    return {};
-  }
-
-  const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-  ArrayRef<float3> barycentric_coords = surface_info->barycentric_coords();
-
-  uint size = interface.attributes().size();
-  auto weights = BLI::temporary_allocate_array<float>(size);
-
-  for (uint pindex : interface.pindices()) {
-    uint source_index = surface_info_mapping[pindex];
-    uint triangle_index = surface_info->looptri_indices()[source_index];
-    float3 bary_weights = barycentric_coords[source_index];
-
-    const MLoopTri &triangle = triangles[triangle_index];
-
-    uint vert1 = mesh->mloop[triangle.tri[0]].v;
-    uint vert2 = mesh->mloop[triangle.tri[1]].v;
-    uint vert3 = mesh->mloop[triangle.tri[2]].v;
-
-    float3 corner_weights{defvert_find_weight(vertex_weights + vert1, group_index),
-                          defvert_find_weight(vertex_weights + vert2, group_index),
-                          defvert_find_weight(vertex_weights + vert3, group_index)};
-
-    float weight = float3::dot(bary_weights, corner_weights);
-    weights[pindex] = weight;
-  }
-
-  return ParticleFunctionInputArray(weights.as_ref(), true);
-}
-
 Optional<ParticleFunctionInputArray> RandomFloatInputProvider::get(
     InputProviderInterface &interface)
 {

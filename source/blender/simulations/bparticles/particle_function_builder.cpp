@@ -75,15 +75,6 @@ static ParticleFunctionInputProvider *INPUT_surface_image(
   return new SurfaceImageInputProvider(image, uv_map_name);
 }
 
-static ParticleFunctionInputProvider *INPUT_surface_weight(
-    VTreeMFNetwork &UNUSED(inlined_tree_data_graph), const XOutputSocket &xsocket)
-{
-  PointerRNA *rna = xsocket.node().rna();
-  char group_name[65];
-  RNA_string_get(rna, "group_name", group_name);
-  return new VertexWeightInputProvider(group_name);
-}
-
 static ParticleFunctionInputProvider *INPUT_randomness_input(
     VTreeMFNetwork &UNUSED(inlined_tree_data_graph), const XOutputSocket &xsocket)
 {
@@ -112,7 +103,6 @@ BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
   StringMap<BuildInputProvider> map;
   map.add_new("fn_SurfaceInfoNode", INPUT_surface_info);
   map.add_new("fn_SurfaceImageNode", INPUT_surface_image);
-  map.add_new("fn_SurfaceWeightNode", INPUT_surface_weight);
   map.add_new("fn_ParticleRandomnessInputNode", INPUT_randomness_input);
   map.add_new("fn_IsInGroupNode", INPUT_is_in_group);
   return map;

@@ -39,23 +39,6 @@ class SurfaceImageInputProvider : public ParticleFunctionInputProvider {
                                                       ArrayRef<uint> surface_info_mapping);
 };
 
-class VertexWeightInputProvider : public ParticleFunctionInputProvider {
- private:
-  std::string m_group_name;
-
- public:
-  VertexWeightInputProvider(StringRef group_name) : m_group_name(group_name)
-  {
-  }
-
-  Optional<ParticleFunctionInputArray> get(InputProviderInterface &interface) override;
-
- private:
-  Optional<ParticleFunctionInputArray> compute_weights(InputProviderInterface &interface,
-                                                       MeshSurfaceContext *surface_info,
-                                                       ArrayRef<uint> surface_info_mapping);
-};
-
 class RandomFloatInputProvider : public ParticleFunctionInputProvider {
  private:
   uint m_seed;

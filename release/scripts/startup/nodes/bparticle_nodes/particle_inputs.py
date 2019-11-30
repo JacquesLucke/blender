@@ -51,19 +51,6 @@ class SurfaceImageNode(bpy.types.Node, SimulationNode):
         col.prop(self, "uv_mode", text="")
 
 
-class SurfaceWeightNode(bpy.types.Node, SimulationNode):
-    bl_idname = "fn_SurfaceWeightNode"
-    bl_label = "Surface Weight"
-
-    group_name: StringProperty()
-
-    def declaration(self, builder: NodeBuilder):
-        builder.fixed_output("weight", "Weight", "Float")
-
-    def draw(self, layout):
-        layout.prop(self, "group_name", text="")
-
-
 class ParticleRandomnessInputNode(bpy.types.Node, SimulationNode):
     bl_idname = "fn_ParticleRandomnessInputNode"
     bl_label = "Particle Randomness Input"
