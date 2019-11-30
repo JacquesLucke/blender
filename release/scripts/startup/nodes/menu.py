@@ -98,8 +98,6 @@ class InputNodesMenu(bpy.types.Menu):
         layout.operator_context = 'INVOKE_DEFAULT'
 
         insert_node(layout, "fn_ParticleInfoNode", "Particle Info")
-        insert_node(layout, "fn_SurfaceInfoNode", "Surface Info")
-        insert_node(layout, "fn_SurfaceImageNode", "Image Colors")
 
 
 def insert_node(layout, type, text, settings = {}, icon = "NONE"):

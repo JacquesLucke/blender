@@ -2,7 +2,6 @@
 #include "BLI_hash.h"
 
 #include "particle_function_builder.hpp"
-#include "particle_function_input_providers.hpp"
 
 #include "events.hpp"
 #include "action_contexts.hpp"
@@ -48,38 +47,9 @@ static VectorSet<const XOutputSocket *> find_particle_dependencies(
 using BuildInputProvider = std::function<ParticleFunctionInputProvider *(
     VTreeMFNetwork &inlined_tree_data_graph, const XOutputSocket &xsocket)>;
 
-static ParticleFunctionInputProvider *INPUT_surface_info(
-    VTreeMFNetwork &UNUSED(inlined_tree_data_graph), const XOutputSocket &xsocket)
-{
-  if (xsocket.name() == "Normal") {
-    return new SurfaceNormalInputProvider();
-  }
-  else if (xsocket.name() == "Velocity") {
-    return new SurfaceVelocityInputProvider();
-  }
-  else {
-    BLI_assert(false);
-    return nullptr;
-  }
-}
-
-static ParticleFunctionInputProvider *INPUT_surface_image(
-    VTreeMFNetwork &UNUSED(inlined_tree_data_graph), const XOutputSocket &xsocket)
-{
-  Optional<std::string> uv_map_name;
-
-  PointerRNA *rna = xsocket.node().rna();
-  Image *image = (Image *)RNA_pointer_get(rna, "image").data;
-  BLI_assert(image != nullptr);
-
-  return new SurfaceImageInputProvider(image, uv_map_name);
-}
-
 BLI_LAZY_INIT_STATIC(StringMap<BuildInputProvider>, get_input_providers_map)
 {
   StringMap<BuildInputProvider> map;
-  map.add_new("fn_SurfaceInfoNode", INPUT_surface_info);
-  map.add_new("fn_SurfaceImageNode", INPUT_surface_image);
   return map;
 }
 
