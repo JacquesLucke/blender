@@ -17,6 +17,7 @@
 
 #include "BKE_surface_location.h"
 #include "BKE_mesh_runtime.h"
+#include "BKE_deform.h"
 
 namespace FN {
 
@@ -321,6 +322,70 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
     position = local_to_world.transform_position(position);
 
     positions[i] = position;
+  }
+}
+
+MF_GetWeightOnSurface::MF_GetWeightOnSurface(std::string vertex_group_name)
+    : m_vertex_group_name(std::move(vertex_group_name))
+{
+  MFSignatureBuilder signature("Get Weight on Surface");
+  signature.single_input<SurfaceLocation>("Surface Location");
+  signature.single_output<float>("Weight");
+  this->set_signature(signature);
+}
+
+void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context) const
+{
+  VirtualListRef<SurfaceLocation> locations = params.readonly_single_input<SurfaceLocation>(
+      0, "Surface Location");
+  MutableArrayRef<float> r_weights = params.uninitialized_single_output<float>(1, "Weight");
+
+  auto persistent_surfaces_opt =
+      context.element_contexts().find_first<PersistentSurfacesLookupContext>();
+  if (!persistent_surfaces_opt.has_value()) {
+    r_weights.fill_indices(mask.indices(), 0.0f);
+    return;
+  }
+
+  for (uint i : mask.indices()) {
+    SurfaceLocation location = locations[i];
+    if (!location.is_valid()) {
+      r_weights[i] = 0.0f;
+      continue;
+    }
+
+    Object *object = persistent_surfaces_opt->data->lookup((uint32_t)location.surface_id());
+    if (object == nullptr) {
+      r_weights[i] = 0.0f;
+      continue;
+    }
+
+    Mesh *mesh = (Mesh *)object->data;
+    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+    int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
+
+    if (location.triangle_index() >= triangle_amount) {
+      r_weights[i] = 0.0f;
+      continue;
+    }
+
+    const MLoopTri &triangle = triangles[location.triangle_index()];
+    uint v1 = mesh->mloop[triangle.tri[0]].v;
+    uint v2 = mesh->mloop[triangle.tri[1]].v;
+    uint v3 = mesh->mloop[triangle.tri[2]].v;
+
+    MDeformVert *vertex_weights = mesh->dvert;
+    int group_index = defgroup_name_index(object, m_vertex_group_name.data());
+    if (group_index == -1 || vertex_weights == nullptr) {
+      r_weights[i] = 0.0f;
+    }
+
+    float3 corner_weights{defvert_find_weight(vertex_weights + v1, group_index),
+                          defvert_find_weight(vertex_weights + v2, group_index),
+                          defvert_find_weight(vertex_weights + v3, group_index)};
+
+    float weight = float3::dot(location.bary_coords(), corner_weights);
+    r_weights[i] = weight;
   }
 }
 
@@ -724,8 +789,11 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
     const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
     int32_t object_surface_id = SurfaceLocation::ComputeObjectSurfaceID(object);
 
+    float4x4 global_to_local = float4x4(object->obmat).inverted__LocRotScale();
+
     for (uint i : mask.indices()) {
-      BVHTreeNearest nearest = get_nearest_point(bvhtree, positions[i]);
+      float3 local_position = global_to_local.transform_position(positions[i]);
+      BVHTreeNearest nearest = get_nearest_point(bvhtree, local_position);
       if (nearest.index == -1) {
         r_surface_locations[i] = {};
         continue;
@@ -753,7 +821,10 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
       const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
       int32_t object_surface_id = SurfaceLocation::ComputeObjectSurfaceID(object);
 
-      BVHTreeNearest nearest = get_nearest_point(bvhtree, positions[i]);
+      float4x4 global_to_local = float4x4(object->obmat).inverted__LocRotScale();
+      float3 local_position = global_to_local.transform_position(positions[i]);
+
+      BVHTreeNearest nearest = get_nearest_point(bvhtree, local_position);
       if (nearest.index == -1) {
         r_surface_locations[i] = {};
         continue;

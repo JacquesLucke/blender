@@ -344,6 +344,14 @@ class VNodeMFNetworkBuilder {
     return m_network_builder.data_type_from_property(m_xnode, prop_name);
   }
 
+  std::string string_from_property(StringRefNull prop_name)
+  {
+    char *str_ptr = RNA_string_get_alloc(m_xnode.rna(), prop_name.data(), nullptr, 0);
+    std::string str = str_ptr;
+    MEM_freeN(str_ptr);
+    return str;
+  }
+
   Vector<bool> get_list_base_variadic_states(StringRefNull prop_name);
 
   template<typename T, typename... Args> T &construct_fn(Args &&... args)

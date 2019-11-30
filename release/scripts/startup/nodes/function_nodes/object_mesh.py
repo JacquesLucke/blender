@@ -36,3 +36,20 @@ class GetPositionOnSurfaceNode(bpy.types.Node, FunctionNode):
     def declaration(self, builder):
         builder.fixed_input("location", "Location", "Surface Location")
         builder.fixed_output("position", "Position", "Vector")
+
+
+class GetWeightOnSurfaceNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_GetWeightOnSurfaceNode"
+    bl_label = "Get Weight on Surface"
+
+    vertex_group_name: StringProperty(
+        name="Vertex Group Name",
+        default="Group",
+    )
+
+    def declaration(self, builder):
+        builder.fixed_input("location", "Location", "Surface Location")
+        builder.fixed_output("weight", "Weight", "Float")
+    
+    def draw(self, layout):
+        layout.prop(self, "vertex_group_name", text="", icon="GROUP_VERTEX")
