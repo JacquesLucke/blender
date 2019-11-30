@@ -49,11 +49,3 @@ class SurfaceImageNode(bpy.types.Node, SimulationNode):
         col = layout.column()
         col.prop(self, "image", text="")
         col.prop(self, "uv_mode", text="")
-
-
-class ParticleRandomnessInputNode(bpy.types.Node, SimulationNode):
-    bl_idname = "fn_ParticleRandomnessInputNode"
-    bl_label = "Particle Randomness Input"
-
-    def declaration(self, builder: NodeBuilder):
-        builder.fixed_output("float_value", "Value", "Float")

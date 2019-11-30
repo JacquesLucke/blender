@@ -127,22 +127,6 @@ Optional<ParticleFunctionInputArray> SurfaceImageInputProvider::compute_colors(
   return ParticleFunctionInputArray(colors.as_ref(), true);
 }
 
-Optional<ParticleFunctionInputArray> RandomFloatInputProvider::get(
-    InputProviderInterface &interface)
-{
-  ArrayRef<int> ids = interface.attributes().get<int>("ID");
-
-  uint size = interface.attributes().size();
-  auto random_values = BLI::temporary_allocate_array<float>(size);
-
-  for (uint pindex : interface.pindices()) {
-    float value = BLI_hash_int_01(ids[pindex] + m_seed * 23467);
-    random_values[pindex] = value;
-  }
-
-  return ParticleFunctionInputArray(random_values.as_ref(), true);
-}
-
 Optional<ParticleFunctionInputArray> IsInGroupInputProvider::get(InputProviderInterface &interface)
 {
   auto is_in_group_output = BLI::temporary_allocate_array<bool>(interface.attributes().size());
