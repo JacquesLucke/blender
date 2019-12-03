@@ -228,6 +228,16 @@ static int report_textview_line_color(struct TextViewContext *tvc,
 
 #undef USE_INFO_NEWLINE
 
+static void info_textview_draw_rect_calc(ARegion *ar, rcti *draw_rect)
+{
+  const int margin = 4 * UI_DPI_FAC;
+  draw_rect->xmin = margin;
+  draw_rect->xmax = ar->winx - (V2D_SCROLL_WIDTH + margin);
+  draw_rect->ymin = margin;
+  /* No margin at the top (allow text to scroll off the window). */
+  draw_rect->ymax = ar->winy;
+}
+
 static int info_textview_main__internal(struct SpaceInfo *sinfo,
                                         ARegion *ar,
                                         ReportList *reports,
@@ -256,9 +266,10 @@ static int info_textview_main__internal(struct SpaceInfo *sinfo,
   tvc.sel_start = 0;
   tvc.sel_end = 0;
   tvc.lheight = 14 * UI_DPI_FAC;  // sc->lheight;
-  tvc.ymin = v2d->cur.ymin;
-  tvc.ymax = v2d->cur.ymax;
-  tvc.winx = ar->winx - V2D_SCROLL_WIDTH;
+  tvc.scroll_ymin = v2d->cur.ymin;
+  tvc.scroll_ymax = v2d->cur.ymax;
+
+  info_textview_draw_rect_calc(ar, &tvc.draw_rect);
 
   ret = textview_draw(&tvc, draw, mval, mouse_pick, pos_pick);
 

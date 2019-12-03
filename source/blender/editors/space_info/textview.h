@@ -29,8 +29,11 @@ typedef struct TextViewContext {
   int cwidth;        /* shouldnt be needed! */
   int console_width; /* shouldnt be needed! */
 
-  int winx;
-  int ymin, ymax;
+  /** Area to draw: (0, 0, winx, winy) with a margin applied and scroll-bar subtracted. */
+  rcti draw_rect;
+
+  /** Scroll offset in pixels. */
+  int scroll_ymin, scroll_ymax;
 
   /* callbacks */
   int (*begin)(struct TextViewContext *tvc);
@@ -52,8 +55,11 @@ typedef struct TextViewContext {
 
 } TextViewContext;
 
-int textview_draw(
-    struct TextViewContext *tvc, const int draw, int mval[2], void **mouse_pick, int *pos_pick);
+int textview_draw(struct TextViewContext *tvc,
+                  const int draw,
+                  const int mval_init[2],
+                  void **mouse_pick,
+                  int *pos_pick);
 
 #define TVC_LINE_FG (1 << 0)
 #define TVC_LINE_BG (1 << 1)

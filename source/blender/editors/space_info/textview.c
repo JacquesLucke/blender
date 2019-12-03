@@ -51,8 +51,8 @@ typedef struct ConsoleDrawContext {
   int lofs;
   /** number of characters that fit into the width of the console (fixed width) */
   int console_width;
-  int winx;
-  int ymin, ymax;
+  const rcti *draw_rect;
+  int scroll_ymin, scroll_ymax;
   int *xy;   // [2]
   int *sel;  // [2]
   /* bottom of view == 0, top of file == combine chars, end of line is lower then start. */
@@ -169,7 +169,7 @@ static int console_draw_string(ConsoleDrawContext *cdc,
     MEM_freeN(offsets);
     return 1;
   }
-  else if (y_next < cdc->ymin) {
+  else if (y_next < cdc->scroll_ymin) {
     /* have not reached the drawable area so don't break */
     cdc->xy[1] = y_next;
 
@@ -201,7 +201,8 @@ static int console_draw_string(ConsoleDrawContext *cdc,
       immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
       immUniformColor3ubv(bg);
-      immRecti(pos, 0, cdc->xy[1], cdc->winx, (cdc->xy[1] + (cdc->lheight * tot_lines)));
+      immRecti(
+          pos, 0, cdc->xy[1], cdc->draw_rect->xmax, (cdc->xy[1] + (cdc->lheight * tot_lines)));
 
       immUnbindProgram();
     }
@@ -235,7 +236,7 @@ static int console_draw_string(ConsoleDrawContext *cdc,
       cdc->xy[1] += cdc->lheight;
 
       /* check if were out of view bounds */
-      if (cdc->xy[1] > cdc->ymax) {
+      if (cdc->xy[1] > cdc->scroll_ymax) {
         MEM_freeN(offsets);
         return 0;
       }
@@ -252,7 +253,7 @@ static int console_draw_string(ConsoleDrawContext *cdc,
       immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
       immUniformColor3ubv(bg);
-      immRecti(pos, 0, cdc->xy[1], cdc->winx, cdc->xy[1] + cdc->lheight);
+      immRecti(pos, 0, cdc->xy[1], cdc->draw_rect->xmax, cdc->xy[1] + cdc->lheight);
 
       immUnbindProgram();
     }
@@ -274,7 +275,7 @@ static int console_draw_string(ConsoleDrawContext *cdc,
 
     cdc->xy[1] += cdc->lheight;
 
-    if (cdc->xy[1] > cdc->ymax) {
+    if (cdc->xy[1] > cdc->scroll_ymax) {
       MEM_freeN(offsets);
       return 0;
     }
@@ -284,15 +285,13 @@ static int console_draw_string(ConsoleDrawContext *cdc,
   return 1;
 }
 
-#define CONSOLE_DRAW_MARGIN 4
-
 int textview_draw(
-    TextViewContext *tvc, const int draw, int mval[2], void **mouse_pick, int *pos_pick)
+    TextViewContext *tvc, const int draw, const int mval_init[2], void **mouse_pick, int *pos_pick)
 {
   ConsoleDrawContext cdc = {0};
 
-  int x_orig = CONSOLE_DRAW_MARGIN, y_orig = CONSOLE_DRAW_MARGIN + tvc->lheight / 6;
-  int xy[2], y_prev;
+  int x_orig = tvc->draw_rect.xmin, y_orig = tvc->draw_rect.ymin + tvc->lheight / 6;
+  int xy[2];
   int sel[2] = {-1, -1}; /* defaults disabled */
   unsigned char fg[3], bg[3];
   const int font_id = blf_mono_font;
@@ -302,9 +301,16 @@ int textview_draw(
   xy[0] = x_orig;
   xy[1] = y_orig;
 
-  if (mval[1] != INT_MAX) {
-    mval[1] += (tvc->ymin + CONSOLE_DRAW_MARGIN);
-  }
+  /* Offset and clamp the results,
+   * clamping so moving the cursor out of the bounds doesn't weap onto the other lines. */
+  const int mval[2] = {
+      (mval_init[0] == INT_MAX) ?
+          INT_MAX :
+          CLAMPIS(mval_init[0], tvc->draw_rect.xmin, tvc->draw_rect.xmax) - tvc->draw_rect.xmin,
+      (mval_init[1] == INT_MAX) ?
+          INT_MAX :
+          CLAMPIS(mval_init[1], tvc->draw_rect.ymin, tvc->draw_rect.ymax) + tvc->scroll_ymin,
+  };
 
   if (pos_pick) {
     *pos_pick = 0;
@@ -317,14 +323,14 @@ int textview_draw(
   cdc.lheight = tvc->lheight;
   cdc.lofs = -BLF_descender(font_id);
   /* note, scroll bar must be already subtracted () */
-  cdc.console_width = (tvc->winx - (CONSOLE_DRAW_MARGIN * 2)) / cdc.cwidth;
+  cdc.console_width = (tvc->draw_rect.xmax - tvc->draw_rect.xmin) / cdc.cwidth;
   /* avoid divide by zero on small windows */
   if (cdc.console_width < 1) {
     cdc.console_width = 1;
   }
-  cdc.winx = tvc->winx - CONSOLE_DRAW_MARGIN;
-  cdc.ymin = tvc->ymin;
-  cdc.ymax = tvc->ymax;
+  cdc.draw_rect = &tvc->draw_rect;
+  cdc.scroll_ymin = tvc->scroll_ymin;
+  cdc.scroll_ymax = tvc->scroll_ymax;
   cdc.xy = xy;
   cdc.sel = sel;
   cdc.pos_pick = pos_pick;
@@ -353,7 +359,7 @@ int textview_draw(
       int ext_len;
       int color_flag = 0;
 
-      y_prev = xy[1];
+      const int y_prev = xy[1];
 
       if (draw) {
         color_flag = tvc->line_color(tvc, fg, bg);

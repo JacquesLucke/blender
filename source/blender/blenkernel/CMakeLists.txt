@@ -130,6 +130,7 @@ set(SRC
   intern/image_save.c
   intern/inlined_node_tree.cc
   intern/ipo.c
+  intern/kelvinlet.c
   intern/key.c
   intern/keyconfig.c
   intern/lattice.c
@@ -296,6 +297,7 @@ set(SRC
   BKE_image_save.h
   BKE_inlined_node_tree.h
   BKE_ipo.h
+  BKE_kelvinlet.h
   BKE_key.h
   BKE_keyconfig.h
   BKE_lattice.h
