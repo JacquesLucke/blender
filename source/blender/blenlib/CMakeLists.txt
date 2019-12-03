@@ -258,7 +258,6 @@ set(SRC
   BLI_dot_export.h
   BLI_dot_export_attribute_enums.h
   intern/dot_export.cc
-  BLI_chained_strings.h
   BLI_lazy_init.h
   BLI_lazy_init_cxx.h
   intern/BLI_lazy_init.cc
