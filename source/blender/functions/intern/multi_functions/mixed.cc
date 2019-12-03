@@ -14,7 +14,11 @@
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_customdata_types.h"
 
+#include "IMB_imbuf_types.h"
+
+#include "BKE_customdata.h"
 #include "BKE_surface_location.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_deform.h"
@@ -22,8 +26,10 @@
 namespace FN {
 
 using BKE::SurfaceLocation;
+using BLI::float2;
 using BLI::float3;
 using BLI::float4x4;
+using BLI::rgba_b;
 using BLI::rgba_f;
 using BLI::TemporaryArray;
 
@@ -354,7 +360,7 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
       continue;
     }
 
-    Object *object = persistent_surfaces_opt->data->lookup((uint32_t)location.surface_id());
+    Object *object = persistent_surfaces_opt->data->lookup(location.surface_id());
     if (object == nullptr) {
       r_weights[i] = 0.0f;
       continue;
@@ -387,6 +393,95 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
     float weight = float3::dot(location.bary_coords(), corner_weights);
     r_weights[i] = weight;
   }
+}
+
+MF_GetImageColorOnSurface::MF_GetImageColorOnSurface(Image *image) : m_image(image)
+{
+  MFSignatureBuilder signature("Get Image Color on Surface");
+  signature.single_input<SurfaceLocation>("Surface Location");
+  signature.single_output<rgba_f>("Color");
+  this->set_signature(signature);
+}
+
+static void get_colors_on_surface(MFMask mask,
+                                  MFParams params,
+                                  MFContext context,
+                                  const ImBuf &ibuf)
+{
+  VirtualListRef<SurfaceLocation> locations = params.readonly_single_input<SurfaceLocation>(
+      0, "Surface Location");
+  MutableArrayRef<rgba_f> r_colors = params.uninitialized_single_output<rgba_f>(1, "Color");
+
+  rgba_f default_color = {0.0f, 0.0f, 0.0f, 1.0f};
+
+  auto persistent_surfaces_opt =
+      context.element_contexts().find_first<PersistentSurfacesLookupContext>();
+  if (!persistent_surfaces_opt.has_value()) {
+    r_colors.fill_indices(mask.indices(), default_color);
+    return;
+  }
+
+  for (uint i : mask.indices()) {
+    SurfaceLocation location = locations[i];
+    if (!location.is_valid()) {
+      r_colors[i] = default_color;
+      continue;
+    }
+
+    Object *object = persistent_surfaces_opt->data->lookup(location.surface_id());
+    if (object == nullptr) {
+      r_colors[i] = default_color;
+      continue;
+    }
+
+    Mesh *mesh = (Mesh *)object->data;
+    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+    int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
+
+    if (location.triangle_index() >= triangle_amount) {
+      r_colors[i] = default_color;
+      continue;
+    }
+
+    int uv_layer_index = 0;
+    ArrayRef<MLoopUV> uv_layer = BLI::ref_c_array(
+        (MLoopUV *)CustomData_get_layer_n(&mesh->ldata, CD_MLOOPUV, uv_layer_index),
+        mesh->totloop);
+
+    ArrayRef<rgba_b> pixel_buffer = BLI::ref_c_array((rgba_b *)ibuf.rect, ibuf.x * ibuf.y);
+
+    const MLoopTri &triangle = triangles[location.triangle_index()];
+
+    float2 uv1 = uv_layer[triangle.tri[0]].uv;
+    float2 uv2 = uv_layer[triangle.tri[1]].uv;
+    float2 uv3 = uv_layer[triangle.tri[2]].uv;
+
+    float2 uv;
+    interp_v2_v2v2v2(uv, uv1, uv2, uv3, location.bary_coords());
+
+    uv = uv.clamped_01();
+    uint x = uv.x * (ibuf.x - 1);
+    uint y = uv.y * (ibuf.y - 1);
+    rgba_b color = pixel_buffer[y * ibuf.x + x];
+    r_colors[i] = color;
+  }
+}
+
+void MF_GetImageColorOnSurface::call(MFMask mask, MFParams params, MFContext context) const
+{
+  if (m_image == nullptr) {
+    params.uninitialized_single_output<rgba_f>(1, "Color")
+        .fill_indices(mask.indices(), {0.0f, 0.0f, 0.0f, 1.0f});
+    return;
+  }
+
+  ImageUser image_user = {0};
+  image_user.ok = true;
+  ImBuf *ibuf = BKE_image_acquire_ibuf(m_image, &image_user, NULL);
+
+  get_colors_on_surface(mask, params, context, *ibuf);
+
+  BKE_image_release_ibuf(m_image, ibuf, NULL);
 }
 
 MF_ObjectWorldLocation::MF_ObjectWorldLocation()

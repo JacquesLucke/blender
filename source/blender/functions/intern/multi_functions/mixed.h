@@ -1,8 +1,10 @@
 #pragma once
 
-#include "FN_multi_function.h"
-
 #include <functional>
+
+#include "BKE_image.h"
+
+#include "FN_multi_function.h"
 
 namespace FN {
 
@@ -89,6 +91,15 @@ class MF_GetWeightOnSurface final : public MultiFunction {
 
  public:
   MF_GetWeightOnSurface(std::string vertex_group_name);
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
+class MF_GetImageColorOnSurface final : public MultiFunction {
+ private:
+  struct Image *m_image;
+
+ public:
+  MF_GetImageColorOnSurface(struct Image *image);
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 

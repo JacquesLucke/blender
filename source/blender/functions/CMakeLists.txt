@@ -6,9 +6,10 @@ set(INC
   ../blenkernel
   ../depsgraph
   ../windowmanager
+  ../imbuf
   ../../../intern/guardedalloc
 )
-
+ 
 set(INC_SYS
   ${LLVM_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}

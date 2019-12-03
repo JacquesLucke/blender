@@ -1,6 +1,7 @@
 import bpy
 from bpy.props import *
 from .. base import FunctionNode
+from .. node_builder import NodeBuilder
 
 class ObjectMeshNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_ObjectMeshNode"
@@ -53,3 +54,20 @@ class GetWeightOnSurfaceNode(bpy.types.Node, FunctionNode):
     
     def draw(self, layout):
         layout.prop(self, "vertex_group_name", text="", icon="GROUP_VERTEX")
+
+
+class GetImageColorOnSurfaceNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_GetImageColorOnSurfaceNode"
+    bl_label = "Get Image Color on Surface"
+
+    image: PointerProperty(
+        name="Image",
+        type=bpy.types.Image,
+    )
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("location", "Location", "Surface Location")
+        builder.fixed_output("color", "Color", "Color")
+
+    def draw(self, layout):
+        layout.prop(self, "image", text="")
