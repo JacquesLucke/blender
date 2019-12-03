@@ -43,6 +43,21 @@ TEST(string_map, MoveConstructor)
   EXPECT_EQ(map2.lookup("B")[5], 6);
 }
 
+TEST(string_map, Add)
+{
+  StringMap<int> map;
+  EXPECT_EQ(map.size(), 0);
+
+  map.add("test", 1);
+  EXPECT_EQ(map.lookup("test"), 1);
+
+  map.add("test", 2);
+  EXPECT_EQ(map.lookup("test"), 1);
+
+  map.add("test2", 2);
+  EXPECT_EQ(map.lookup("test2"), 2);
+}
+
 TEST(string_map, AddNew)
 {
   StringMap<int> map;

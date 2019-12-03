@@ -69,17 +69,17 @@ class WorldState {
  public:
   void store_state(StringRef main_id, StringRef sub_id, float value)
   {
-    m_states_float.add_new(main_id + sub_id, value);
+    m_states_float.add(main_id + sub_id, value);
   }
 
   void store_state(StringRef main_id, StringRef sub_id, float3 value)
   {
-    m_states_float3.add_new(main_id + sub_id, value);
+    m_states_float3.add(main_id + sub_id, value);
   }
 
   void store_state(StringRef main_id, StringRef sub_id, float4x4 value)
   {
-    m_states_float4x4.add_new(main_id + sub_id, value);
+    m_states_float4x4.add(main_id + sub_id, value);
   }
 };
 

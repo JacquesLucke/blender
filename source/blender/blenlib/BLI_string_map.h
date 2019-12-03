@@ -191,6 +191,22 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
   }
 
   /**
+   * Add a new element to the map if the key does not exist yet.
+   */
+  void add(StringRef key, const T &value)
+  {
+    if (!this->contains(key)) {
+      this->add_new(key, value);
+    }
+  }
+  void add(StringRef key, T &&value)
+  {
+    if (!this->contains(key)) {
+      this->add_new(key, std::move(value));
+    }
+  }
+
+  /**
    * Return true when the key exists in the map, otherwise false.
    */
   bool contains(StringRef key) const
