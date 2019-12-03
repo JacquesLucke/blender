@@ -24,6 +24,7 @@
 
 namespace BParticles {
 
+using BKE::XGroupInput;
 using BKE::XInputSocket;
 using BKE::XNode;
 using BKE::XOutputSocket;
@@ -71,6 +72,15 @@ static Set<Object *> get_used_objects(const InlinedNodeTree &inlined_tree)
       }
     }
   }
+  for (const XGroupInput *group_input : inlined_tree.all_group_inputs()) {
+    if (group_input->vsocket().idname() == "fn_ObjectSocket") {
+      Object *object = (Object *)RNA_pointer_get(group_input->vsocket().rna(), "value").data;
+      if (object != nullptr) {
+        objects.add(object);
+      }
+    }
+  }
+
   return objects;
 }
 

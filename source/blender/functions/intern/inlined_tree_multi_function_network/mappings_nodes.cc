@@ -65,6 +65,11 @@ static void INSERT_get_position_on_surface(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_GetPositionOnSurface>();
 }
 
+static void INSERT_get_normal_on_surface(VNodeMFNetworkBuilder &builder)
+{
+  builder.set_constructed_matching_fn<MF_GetNormalOnSurface>();
+}
+
 static void INSERT_get_weight_on_surface(VNodeMFNetworkBuilder &builder)
 {
   std::string group_name = builder.string_from_property("vertex_group_name");
@@ -385,6 +390,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_ObjectTransformsNode", INSERT_object_location);
   mappings.xnode_inserters.add_new("fn_ObjectMeshNode", INSERT_object_mesh_info);
   mappings.xnode_inserters.add_new("fn_GetPositionOnSurfaceNode", INSERT_get_position_on_surface);
+  mappings.xnode_inserters.add_new("fn_GetNormalOnSurfaceNode", INSERT_get_normal_on_surface);
   mappings.xnode_inserters.add_new("fn_GetWeightOnSurfaceNode", INSERT_get_weight_on_surface);
   mappings.xnode_inserters.add_new("fn_GetImageColorOnSurfaceNode",
                                    INSERT_get_image_color_on_surface);

@@ -85,6 +85,12 @@ class MF_GetPositionOnSurface final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_GetNormalOnSurface final : public MultiFunction {
+ public:
+  MF_GetNormalOnSurface();
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
 class MF_GetWeightOnSurface final : public MultiFunction {
  private:
   std::string m_vertex_group_name;

@@ -39,6 +39,15 @@ class GetPositionOnSurfaceNode(bpy.types.Node, FunctionNode):
         builder.fixed_output("position", "Position", "Vector")
 
 
+class GetNormalOnSurfaceNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_GetNormalOnSurfaceNode"
+    bl_label = "Get Normal on Surface"
+
+    def declaration(self, builder):
+        builder.fixed_input("location", "Location", "Surface Location")
+        builder.fixed_output("normal", "Normal", "Vector")
+
+
 class GetWeightOnSurfaceNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_GetWeightOnSurfaceNode"
     bl_label = "Get Weight on Surface"

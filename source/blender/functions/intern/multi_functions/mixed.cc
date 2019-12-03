@@ -286,25 +286,25 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
 {
   VirtualListRef<SurfaceLocation> locations = params.readonly_single_input<SurfaceLocation>(
       0, "Surface Location");
-  MutableArrayRef<float3> positions = params.uninitialized_single_output<float3>(1, "Position");
+  MutableArrayRef<float3> r_positions = params.uninitialized_single_output<float3>(1, "Position");
 
   auto persistent_surfaces_opt =
       context.element_contexts().find_first<PersistentSurfacesLookupContext>();
   if (!persistent_surfaces_opt.has_value()) {
-    positions.fill_indices(mask.indices(), {0, 0, 0});
+    r_positions.fill_indices(mask.indices(), {0, 0, 0});
     return;
   }
 
   for (uint i : mask.indices()) {
     SurfaceLocation location = locations[i];
     if (!location.is_valid()) {
-      positions[i] = {0, 0, 0};
+      r_positions[i] = {0, 0, 0};
       continue;
     }
 
     Object *object = persistent_surfaces_opt->data->lookup((uint32_t)location.surface_id());
     if (object == nullptr) {
-      positions[i] = {0, 0, 0};
+      r_positions[i] = {0, 0, 0};
       continue;
     }
 
@@ -313,7 +313,7 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
     int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
     if (location.triangle_index() >= triangle_amount) {
-      positions[i] = {0, 0, 0};
+      r_positions[i] = {0, 0, 0};
       continue;
     }
 
@@ -327,7 +327,70 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
     float4x4 local_to_world = object->obmat;
     position = local_to_world.transform_position(position);
 
-    positions[i] = position;
+    r_positions[i] = position;
+  }
+}
+
+MF_GetNormalOnSurface::MF_GetNormalOnSurface()
+{
+  MFSignatureBuilder signature("Get Normal on Surface");
+  signature.single_input<SurfaceLocation>("Surface Location");
+  signature.single_output<float3>("Normal");
+  this->set_signature(signature);
+}
+
+static float3 short_normal_to_float3(const short normal[3])
+{
+  return float3(
+      (float)normal[0] / 32767.0f, (float)normal[1] / 32767.0f, (float)normal[2] / 32767.0f);
+}
+
+void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context) const
+{
+  VirtualListRef<SurfaceLocation> locations = params.readonly_single_input<SurfaceLocation>(
+      0, "Surface Location");
+  MutableArrayRef<float3> r_normals = params.uninitialized_single_output<float3>(1, "Normal");
+
+  auto persistent_surfaces_opt =
+      context.element_contexts().find_first<PersistentSurfacesLookupContext>();
+  if (!persistent_surfaces_opt.has_value()) {
+    r_normals.fill_indices(mask.indices(), {0, 0, 1});
+    return;
+  }
+
+  for (uint i : mask.indices()) {
+    SurfaceLocation location = locations[i];
+    if (!location.is_valid()) {
+      r_normals[i] = {0, 0, 1};
+      continue;
+    }
+
+    Object *object = persistent_surfaces_opt->data->lookup((uint32_t)location.surface_id());
+    if (object == nullptr) {
+      r_normals[i] = {0, 0, 1};
+      continue;
+    }
+
+    Mesh *mesh = (Mesh *)object->data;
+    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+    int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
+
+    if (location.triangle_index() >= triangle_amount) {
+      r_normals[i] = {0, 0, 1};
+      continue;
+    }
+
+    const MLoopTri &triangle = triangles[location.triangle_index()];
+    float3 v1 = short_normal_to_float3(mesh->mvert[mesh->mloop[triangle.tri[0]].v].no);
+    float3 v2 = short_normal_to_float3(mesh->mvert[mesh->mloop[triangle.tri[1]].v].no);
+    float3 v3 = short_normal_to_float3(mesh->mvert[mesh->mloop[triangle.tri[2]].v].no);
+
+    float3 position;
+    interp_v3_v3v3v3(position, v1, v2, v3, location.bary_coords());
+    float4x4 local_to_world = object->obmat;
+    position = local_to_world.transform_direction(position);
+
+    r_normals[i] = position;
   }
 }
 
