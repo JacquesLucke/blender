@@ -171,8 +171,8 @@ std::unique_ptr<MF_EvaluateNetwork> generate_inlined_tree_multi_function(
   std::unique_ptr<VTreeMFNetwork> network = generate_inlined_tree_multi_function_network(
       inlined_tree, resources);
 
-  Vector<const XNode *> input_xnodes = inlined_tree.nodes_with_idname("fn_GroupDataInputNode");
-  Vector<const XNode *> output_xnodes = inlined_tree.nodes_with_idname("fn_GroupDataOutputNode");
+  Vector<const XNode *> input_xnodes = inlined_tree.nodes_with_idname("fn_GroupInputNode");
+  Vector<const XNode *> output_xnodes = inlined_tree.nodes_with_idname("fn_GroupOutputNode");
 
   std::sort(input_xnodes.begin(), input_xnodes.end(), cmp_group_interface_nodes);
   std::sort(output_xnodes.begin(), output_xnodes.end(), cmp_group_interface_nodes);

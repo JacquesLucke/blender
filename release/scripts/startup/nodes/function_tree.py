@@ -10,12 +10,12 @@ class FunctionTree(bpy.types.NodeTree, BaseTree):
     bl_label = "Function Nodes"
 
     def get_input_nodes(self):
-        input_nodes = [node for node in self.nodes if node.bl_idname == "fn_GroupDataInputNode"]
+        input_nodes = [node for node in self.nodes if node.bl_idname == "fn_GroupInputNode"]
         sorted_input_nodes = sorted(input_nodes, key=lambda node: (node.sort_index, node.name))
         return sorted_input_nodes
 
     def get_output_nodes(self):
-        output_nodes = [node for node in self.nodes if node.bl_idname == "fn_GroupDataOutputNode"]
+        output_nodes = [node for node in self.nodes if node.bl_idname == "fn_GroupOutputNode"]
         sorted_output_nodes = sorted(output_nodes, key=lambda node: (node.sort_index, node.name))
         return sorted_output_nodes
 

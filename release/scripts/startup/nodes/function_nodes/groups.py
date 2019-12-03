@@ -6,62 +6,106 @@ from .. function_tree import FunctionTree
 from .. node_builder import NodeBuilder
 from .. ui import NodeSidebarPanel
 
-class GroupInputNode(BaseNode):
-    sort_index: IntProperty()
+interface_type_items = [
+    ("DATA", "Data", "Some data type like integer or vector", "NONE", 0),
+    ("EXECUTE", "Control Flow", "", "NONE", 1),
+    ("INFLUENCES", "Influences", "", "NONE", 2),
+]
 
-class GroupOutputNode(BaseNode):
-    sort_index: IntProperty()
-
-class GroupDataInputNode(bpy.types.Node, GroupInputNode):
-    bl_idname = "fn_GroupDataInputNode"
-    bl_label = "Group Data Input"
+class GroupInputNode(bpy.types.Node, BaseNode):
+    bl_idname = "fn_GroupInputNode"
+    bl_label = "Group Input"
 
     input_name: StringProperty(
         default="Name",
-        update=GroupInputNode.sync_tree,
+        update=BaseNode.sync_tree,
+    )
+
+    sort_index: IntProperty()
+
+    interface_type: EnumProperty(
+        items=interface_type_items,
+        default="DATA",
+        update= BaseNode.sync_tree,
     )
 
     data_type: StringProperty(
         default="Float",
-        update=GroupInputNode.sync_tree,
+        update=BaseNode.sync_tree,
     )
 
     def declaration(self, builder: NodeBuilder):
-        builder.fixed_output("value", "Value", self.data_type)
+        builder.background_color((0.8, 0.8, 0.8))
+
+        if self.interface_type == "DATA":
+            builder.fixed_output("value", "Value", self.data_type)
+        elif self.interface_type == "EXECUTE":
+            builder.execute_output("execute", "Execute")
+        elif self.interface_type == "INFLUENCES":
+            builder.influences_output("influences", "Influences")
+        else:
+            assert False
 
     def draw(self, layout):
-        layout.prop(self, "input_name", text="")
+        col = layout.column()
+        col.prop(self, "input_name", text="")
 
-        if hasattr(self.outputs[0], "draw_property"):
-            self.outputs[0].draw_property(layout, self, "Default")
+        if self.interface_type == "DATA":
+            if hasattr(self.outputs[0], "draw_property"):
+                self.outputs[0].draw_property(col, self, "Default")
 
-        self.invoke_type_selection(layout, "set_type", "Select Type")
+            self.invoke_type_selection(col, "set_data_type", "Select Type")
 
-    def set_type(self, data_type):
+    def draw_advanced(self, layout):
+        layout.prop(self, "interface_type", text="")
+
+    def set_data_type(self, data_type):
         self.data_type = data_type
 
-class GroupDataOutputNode(bpy.types.Node, GroupOutputNode):
-    bl_idname = "fn_GroupDataOutputNode"
-    bl_label = "Group Data Output"
+
+class GroupOutputNode(bpy.types.Node, BaseNode):
+    bl_idname = "fn_GroupOutputNode"
+    bl_label = "Group Output"
+
+    sort_index: IntProperty()
 
     output_name: StringProperty(
         default="Name",
-        update=GroupOutputNode.sync_tree,
+        update=BaseNode.sync_tree,
+    )
+
+    interface_type: EnumProperty(
+        items=interface_type_items,
+        default="DATA",
+        update= BaseNode.sync_tree,
     )
 
     data_type: StringProperty(
         default="Float",
-        update=GroupOutputNode.sync_tree,
+        update=BaseNode.sync_tree,
     )
 
     def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("value", "Value", self.data_type)
+        builder.background_color((0.8, 0.8, 0.8))
+
+        if self.interface_type == "DATA":
+            builder.fixed_input("value", "Value", self.data_type)
+        elif self.interface_type == "EXECUTE":
+            builder.single_execute_input("execute", "Execute")
+        elif self.interface_type == "INFLUENCES":
+            builder.influences_input("influences", "Influences")
 
     def draw(self, layout):
-        layout.prop(self, "output_name", text="")
-        self.invoke_type_selection(layout, "set_type", "Select Type")
+        col = layout.column()
+        col.prop(self, "output_name", text="")
 
-    def set_type(self, data_type):
+        if self.interface_type == "DATA":
+            self.invoke_type_selection(col, "set_type_type", "Select Type")
+
+    def draw_advanced(self, layout):
+        layout.prop(self, "interface_type", text="")
+
+    def set_type_type(self, data_type):
         self.data_type = data_type
 
 class GroupNode(bpy.types.Node, FunctionNode):
@@ -78,17 +122,31 @@ class GroupNode(bpy.types.Node, FunctionNode):
             return
 
         for input_node in self.node_group.get_input_nodes():
-            builder.fixed_input(
-                input_node.identifier,
-                input_node.input_name,
-                input_node.data_type,
-                default=input_node.outputs[0].get_state())
+            if input_node.interface_type == "DATA":
+                builder.fixed_input(
+                    input_node.identifier,
+                    input_node.input_name,
+                    input_node.data_type,
+                    default=input_node.outputs[0].get_state())
+            elif input_node.interface_type == "EXECUTE":
+                builder.single_execute_input(input_node.identifier, input_node.input_name)
+            elif input_node.interface_type == "INFLUENCES":
+                builder.influences_input(input_node.identifier, input_node.input_name)
+            else:
+                assert False
 
         for output_node in self.node_group.get_output_nodes():
-            builder.fixed_output(
-                output_node.identifier,
-                output_node.output_name,
-                output_node.data_type)
+            if output_node.interface_type == "DATA":
+                builder.fixed_output(
+                    output_node.identifier,
+                    output_node.output_name,
+                    output_node.data_type)
+            elif output_node.interface_type == "EXECUTE":
+                builder.execute_output(output_node.identifier, output_node.output_name)
+            elif output_node.interface_type == "INFLUENCES":
+                builder.influences_output(output_node.identifier, output_node.output_name)
+            else:
+                assert False
 
     def draw(self, layout):
         text = "Select Group" if self.node_group is None else self.node_group.name

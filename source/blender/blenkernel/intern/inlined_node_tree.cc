@@ -29,7 +29,7 @@ static bool cmp_group_interface_nodes(const VNode *a, const VNode *b)
 
 static Vector<const VOutputSocket *> get_group_inputs(const VirtualNodeTree &vtree)
 {
-  Vector<const VNode *> input_vnodes = vtree.nodes_with_idname("fn_GroupDataInputNode");
+  Vector<const VNode *> input_vnodes = vtree.nodes_with_idname("fn_GroupInputNode");
   std::sort(input_vnodes.begin(), input_vnodes.end(), cmp_group_interface_nodes);
 
   Vector<const VOutputSocket *> input_vsockets;
@@ -42,7 +42,7 @@ static Vector<const VOutputSocket *> get_group_inputs(const VirtualNodeTree &vtr
 
 static Vector<const VInputSocket *> get_group_outputs(const VirtualNodeTree &vtree)
 {
-  Vector<const VNode *> output_vnodes = vtree.nodes_with_idname("fn_GroupDataOutputNode");
+  Vector<const VNode *> output_vnodes = vtree.nodes_with_idname("fn_GroupOutputNode");
   std::sort(output_vnodes.begin(), output_vnodes.end(), cmp_group_interface_nodes);
 
   Vector<const VInputSocket *> output_vsockets;
@@ -55,12 +55,12 @@ static Vector<const VInputSocket *> get_group_outputs(const VirtualNodeTree &vtr
 
 static bool is_input_interface_vnode(const VNode &vnode)
 {
-  return vnode.idname() == "fn_GroupDataInputNode";
+  return vnode.idname() == "fn_GroupInputNode";
 }
 
 static bool is_output_interface_vnode(const VNode &vnode)
 {
-  return vnode.idname() == "fn_GroupDataOutputNode";
+  return vnode.idname() == "fn_GroupOutputNode";
 }
 
 static bool is_interface_node(const VNode &vnode)

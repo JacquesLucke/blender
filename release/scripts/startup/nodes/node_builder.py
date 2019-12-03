@@ -8,6 +8,7 @@ from . declaration import (
     InfluencesSocketDecl,
     ExecuteOutputDecl,
     ExecuteInputListDecl,
+    ExecuteInputDecl,
 
     NoDefaultValue,
 )
@@ -196,6 +197,10 @@ class NodeBuilder:
 
     def execute_input(self, identifier, display_name, prop_name):
         decl = ExecuteInputListDecl(self.node, identifier, prop_name, display_name)
+        self._add_input(decl)
+
+    def single_execute_input(self, identifier, name):
+        decl = ExecuteInputDecl(self.node, identifier, name)
         self._add_input(decl)
 
     def execute_output(self, identifier, name):

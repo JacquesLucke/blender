@@ -40,9 +40,8 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(EventFilterInt
   return this->compute(interface.pindices(), interface.attributes(), nullptr);
 }
 
-std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint> pindices,
-                                                                  AttributesRef attributes,
-                                                                  ActionContext *action_context)
+std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
+    ArrayRef<uint> pindices, AttributesRef attributes, ActionContext *UNUSED(action_context))
 {
   uint array_size = attributes.size();
 

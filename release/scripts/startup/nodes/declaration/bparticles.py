@@ -56,6 +56,27 @@ class ExecuteOutputDecl(SocketDeclBase):
             return False
         return True
 
+
+class ExecuteInputDecl(SocketDeclBase):
+    def __init__(self, node, identifier: str, display_name: str):
+        self.node = node
+        self.identifier = identifier
+        self.display_name = display_name
+
+    def build(self, node_sockets):
+        return [node_sockets.new("fn_ExecuteSocket", self.display_name, identifier=self.identifier)]
+
+    def amount(self):
+        return 1
+
+    def validate(self, sockets):
+        if len(sockets) != 1:
+            return False
+        if sockets[0].bl_idname != "fn_ExecuteSocket":
+            return False
+        return True
+
+
 class ExecuteInputListDecl(SocketDeclBase):
     def __init__(self, node, identifier: str, prop_name: str, display_name: str):
         self.node = node

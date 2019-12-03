@@ -8,5 +8,6 @@ from . vectorized import VectorizedInputDecl, VectorizedOutputDecl
 from . bparticles import (
     InfluencesSocketDecl,
     ExecuteOutputDecl,
+    ExecuteInputDecl,
     ExecuteInputListDecl,
 )
