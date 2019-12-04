@@ -12,6 +12,13 @@ namespace BKE {
 
 using BLI::float3;
 
+namespace SurfaceLocationType {
+enum Enum {
+  None,
+  MeshObject,
+};
+}
+
 /**
  * References a point on a surface. If the surface moves, the point moves with it. The surface is
  * identified by an integer.
@@ -20,11 +27,13 @@ using BLI::float3;
  */
 class SurfaceLocation {
  private:
+  SurfaceLocationType::Enum m_type;
+
   /**
-   * Identifies the surface that is being referenced. This is usually a hash of the name of an
-   * object. The location is invalid, if this id is negative.
+   * Identifies the surface that is being referenced. This can e.g. be a hash of the name of an
+   * object.
    */
-  int32_t m_surface_id;
+  uint32_t m_surface_id;
 
   /* Index of the triangle that contains the referenced location. */
   uint32_t m_triangle_index;
@@ -33,41 +42,51 @@ class SurfaceLocation {
   float3 m_bary_coords;
 
  public:
-  SurfaceLocation() : m_surface_id(-1)
+  SurfaceLocation() : m_type(SurfaceLocationType::None)
   {
   }
 
-  SurfaceLocation(int32_t surface_id, uint32_t triangle_index, float3 bary_coords)
-      : m_surface_id(surface_id), m_triangle_index(triangle_index), m_bary_coords(bary_coords)
+  SurfaceLocation(uint32_t surface_id, uint32_t triangle_index, float3 bary_coords)
+      : m_type(SurfaceLocationType::MeshObject),
+        m_surface_id(surface_id),
+        m_triangle_index(triangle_index),
+        m_bary_coords(bary_coords)
   {
   }
 
-  int32_t surface_id() const
+  SurfaceLocationType::Enum type() const
   {
+    return m_type;
+  }
+
+  bool is_valid() const
+  {
+    return m_type != SurfaceLocationType::None;
+  }
+
+  uint32_t surface_id() const
+  {
+    BLI_assert(this->is_valid());
     return m_surface_id;
   }
 
   uint32_t triangle_index() const
   {
+    BLI_assert(m_type == SurfaceLocationType::MeshObject);
     return m_triangle_index;
   }
 
   float3 bary_coords() const
   {
+    BLI_assert(m_type == SurfaceLocationType::MeshObject);
     return m_bary_coords;
   }
 
-  bool is_valid() const
-  {
-    return m_surface_id >= 0;
-  }
-
-  static int32_t ComputeObjectSurfaceID(const Object *ob)
+  static uint32_t ComputeObjectSurfaceID(const Object *ob)
   {
     BLI_assert(ob != nullptr);
 
-    /* Set the highest bit to zero, to make the number positive. */
-    return BLI_hash_string(ob->id.name) & ~(1 << 31);
+    return BLI_hash_string(ob->id.name);
   }
 };
 

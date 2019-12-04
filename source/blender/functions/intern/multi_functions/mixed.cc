@@ -297,12 +297,12 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
 
   for (uint i : mask.indices()) {
     SurfaceLocation location = locations[i];
-    if (!location.is_valid()) {
+    if (location.type() != BKE::SurfaceLocationType::MeshObject) {
       r_positions[i] = {0, 0, 0};
       continue;
     }
 
-    Object *object = persistent_surfaces_opt->data->lookup((uint32_t)location.surface_id());
+    Object *object = persistent_surfaces_opt->data->lookup(location.surface_id());
     if (object == nullptr) {
       r_positions[i] = {0, 0, 0};
       continue;
@@ -360,12 +360,12 @@ void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context
 
   for (uint i : mask.indices()) {
     SurfaceLocation location = locations[i];
-    if (!location.is_valid()) {
+    if (location.type() != BKE::SurfaceLocationType::MeshObject) {
       r_normals[i] = {0, 0, 1};
       continue;
     }
 
-    Object *object = persistent_surfaces_opt->data->lookup((uint32_t)location.surface_id());
+    Object *object = persistent_surfaces_opt->data->lookup(location.surface_id());
     if (object == nullptr) {
       r_normals[i] = {0, 0, 1};
       continue;
@@ -418,7 +418,7 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
 
   for (uint i : mask.indices()) {
     SurfaceLocation location = locations[i];
-    if (!location.is_valid()) {
+    if (location.type() != BKE::SurfaceLocationType::MeshObject) {
       r_weights[i] = 0.0f;
       continue;
     }
@@ -486,7 +486,7 @@ static void get_colors_on_surface(MFMask mask,
 
   for (uint i : mask.indices()) {
     SurfaceLocation location = locations[i];
-    if (!location.is_valid()) {
+    if (location.type() != BKE::SurfaceLocationType::MeshObject) {
       r_colors[i] = default_color;
       continue;
     }
@@ -981,7 +981,7 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
 
     Mesh *mesh = (Mesh *)object->data;
     const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-    int32_t object_surface_id = SurfaceLocation::ComputeObjectSurfaceID(object);
+    uint32_t object_surface_id = SurfaceLocation::ComputeObjectSurfaceID(object);
 
     float4x4 global_to_local = float4x4(object->obmat).inverted__LocRotScale();
 

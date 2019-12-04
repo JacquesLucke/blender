@@ -97,9 +97,9 @@ class VTreeData {
       : m_inlined_tree_data_graph(inlined_tree_data), m_persistent_surface_lookup({})
   {
     Set<Object *> objects = get_used_objects(inlined_tree_data.inlined_tree());
-    Map<int32_t, Object *> object_by_id;
+    Map<uint32_t, Object *> object_by_id;
     for (Object *ob : objects) {
-      int32_t surface_id = BKE::SurfaceLocation::ComputeObjectSurfaceID(ob);
+      uint32_t surface_id = BKE::SurfaceLocation::ComputeObjectSurfaceID(ob);
       object_by_id.add_new(surface_id, ob);
     }
     m_persistent_surface_lookup.~PersistentSurfacesLookupContext();
