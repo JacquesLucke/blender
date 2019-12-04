@@ -563,7 +563,7 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
   auto vertex_weights = compute_emitter_vertex_weights(xnode, *inputs, object);
 
   VaryingFloat4x4 transform = world_transition.update_float4x4(
-      xnode.name(), "Transform", object->obmat);
+      object->id.name, "obmat", object->obmat);
   ArrayRef<std::string> system_names = inlined_tree_data.find_target_system_names(
       xnode.output(0, "Emitter"));
   Emitter *emitter = new SurfaceEmitter(system_names,
