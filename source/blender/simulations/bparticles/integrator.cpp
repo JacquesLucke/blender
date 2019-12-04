@@ -37,9 +37,6 @@ EulerIntegrator::EulerIntegrator(ArrayRef<Force *> forces) : m_forces(forces)
 
 EulerIntegrator::~EulerIntegrator()
 {
-  for (Force *force : m_forces) {
-    delete force;
-  }
 }
 
 const AttributesInfo &EulerIntegrator::offset_attributes_info()

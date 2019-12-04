@@ -481,42 +481,145 @@ BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
   return map;
 }
 
-using ParseNodeCallback = std::function<void(InfluencesCollector &collector,
-                                             InlinedTreeData &inlined_tree_data,
-                                             WorldTransition &world_transition,
-                                             const XNode &xnode)>;
+class XNodeInfluencesBuilder {
+ private:
+  InfluencesCollector &m_influences_collector;
+  InlinedTreeData &m_inlined_tree_data;
+  WorldTransition &m_world_transition;
+  const XNode &m_xnode;
 
-static void PARSE_point_emitter(InfluencesCollector &collector,
-                                InlinedTreeData &inlined_tree_data,
-                                WorldTransition &world_transition,
-                                const XNode &xnode)
+ public:
+  XNodeInfluencesBuilder(InfluencesCollector &influences_collector,
+                         InlinedTreeData &inlined_tree_data,
+                         WorldTransition &world_transition,
+                         const XNode &xnode)
+      : m_influences_collector(influences_collector),
+        m_inlined_tree_data(inlined_tree_data),
+        m_world_transition(world_transition),
+        m_xnode(xnode)
+  {
+  }
+
+  Optional<NamedGenericTupleRef> compute_all_data_inputs()
+  {
+    return m_inlined_tree_data.compute_all_data_inputs(m_xnode);
+  }
+
+  Optional<NamedGenericTupleRef> compute_inputs(ArrayRef<uint> input_indices)
+  {
+    return m_inlined_tree_data.compute_inputs(m_xnode, input_indices);
+  }
+
+  Action &build_action_list(StringRef name)
+  {
+    return m_inlined_tree_data.build_action_list(m_influences_collector, m_xnode, name);
+  }
+
+  ArrayRef<std::string> find_target_system_names(uint output_index, StringRef expected_name)
+  {
+    return m_inlined_tree_data.find_target_system_names(
+        m_xnode.output(output_index, expected_name));
+  }
+
+  WorldTransition &world_transition()
+  {
+    return m_world_transition;
+  }
+
+  template<typename T, typename... Args> T &construct(Args &&... args)
+  {
+    return m_inlined_tree_data.construct<T>(__func__, std::forward<Args>(args)...);
+  }
+
+  void add_emitter(Emitter &emitter)
+  {
+    m_influences_collector.m_emitters.append(&emitter);
+  }
+
+  void add_force(ArrayRef<std::string> system_names, Force &force)
+  {
+    for (StringRef system_name : system_names) {
+      m_influences_collector.m_forces.add(system_name, &force);
+    }
+  }
+
+  void add_event(ArrayRef<std::string> system_names, Event &event)
+  {
+    for (StringRef system_name : system_names) {
+      m_influences_collector.m_events.add(system_name, &event);
+    }
+  }
+
+  void add_offset_handler(ArrayRef<std::string> system_names, OffsetHandler &offset_handler)
+  {
+    for (StringRef system_name : system_names) {
+      m_influences_collector.m_offset_handlers.add(system_name, &offset_handler);
+    }
+  }
+
+  std::string node_identifier()
+  {
+    /* TODO: mix parent names into the identifier */
+    return m_xnode.name();
+  }
+
+  IDHandleLookup &id_handle_lookup()
+  {
+    return m_inlined_tree_data.id_handle_lookup();
+  }
+
+  PointerRNA *node_rna()
+  {
+    return m_xnode.rna();
+  }
+
+  ParticleFunction *particle_function_for_all_inputs()
+  {
+    return m_inlined_tree_data.particle_function_for_all_inputs(m_xnode);
+  }
+
+  template<typename T>
+  void add_attribute(ArrayRef<std::string> system_names, StringRef attribute_name, T default_value)
+  {
+    for (StringRef system_name : system_names) {
+      m_influences_collector.m_attributes.lookup(system_name)
+          ->add<T>(attribute_name, default_value);
+    }
+  }
+};
+
+using ParseNodeCallback = std::function<void(XNodeInfluencesBuilder &builder)>;
+
+static void PARSE_point_emitter(XNodeInfluencesBuilder &builder)
 {
-  Optional<NamedGenericTupleRef> inputs = inlined_tree_data.compute_all_data_inputs(xnode);
+  Optional<NamedGenericTupleRef> inputs = builder.compute_all_data_inputs();
   if (!inputs.has_value()) {
     return;
   }
 
-  Action &action = inlined_tree_data.build_action_list(collector, xnode, "Execute on Birth");
+  Action &action = builder.build_action_list("Execute on Birth");
 
-  ArrayRef<std::string> system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(0, "Emitter"));
-  std::string name = xnode.name();
+  ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Emitter");
+  std::string identifier = builder.node_identifier();
 
+  WorldTransition &world_transition = builder.world_transition();
   VaryingFloat3 position = world_transition.update_float3(
-      name, "Position", inputs->get<float3>(0, "Position"));
+      identifier, "Position", inputs->get<float3>(0, "Position"));
   VaryingFloat3 velocity = world_transition.update_float3(
-      name, "Velocity", inputs->get<float3>(1, "Velocity"));
-  VaryingFloat size = world_transition.update_float(name, "Size", inputs->get<float>(2, "Size"));
+      identifier, "Velocity", inputs->get<float3>(1, "Velocity"));
+  VaryingFloat size = world_transition.update_float(
+      identifier, "Size", inputs->get<float>(2, "Size"));
 
-  Emitter *emitter = new PointEmitter(std::move(system_names), position, velocity, size, action);
-  collector.m_emitters.append(emitter);
+  Emitter &emitter = builder.construct<PointEmitter>(
+      std::move(system_names), position, velocity, size, action);
+  builder.add_emitter(emitter);
 }
 
-static Vector<float> compute_emitter_vertex_weights(const XNode &xnode,
+static Vector<float> compute_emitter_vertex_weights(PointerRNA *node_rna,
                                                     NamedGenericTupleRef inputs,
                                                     Object *object)
 {
-  uint density_mode = RNA_enum_get(xnode.rna(), "density_mode");
+  uint density_mode = RNA_enum_get(node_rna, "density_mode");
 
   Mesh *mesh = (Mesh *)object->data;
   Vector<float> vertex_weights(mesh->totvert);
@@ -544,222 +647,171 @@ static Vector<float> compute_emitter_vertex_weights(const XNode &xnode,
   return vertex_weights;
 }
 
-static void PARSE_mesh_emitter(InfluencesCollector &collector,
-                               InlinedTreeData &inlined_tree_data,
-                               WorldTransition &world_transition,
-                               const XNode &xnode)
+static void PARSE_mesh_emitter(XNodeInfluencesBuilder &builder)
 {
-  Optional<NamedGenericTupleRef> inputs = inlined_tree_data.compute_all_data_inputs(xnode);
+  Optional<NamedGenericTupleRef> inputs = builder.compute_all_data_inputs();
   if (!inputs.has_value()) {
     return;
   }
 
-  Action &on_birth_action = inlined_tree_data.build_action_list(
-      collector, xnode, "Execute on Birth");
+  Action &on_birth_action = builder.build_action_list("Execute on Birth");
 
   ObjectIDHandle object_handle = inputs->relocate_out<ObjectIDHandle>(0, "Object");
-  Object *object = inlined_tree_data.id_handle_lookup().lookup(object_handle);
+  Object *object = builder.id_handle_lookup().lookup(object_handle);
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
 
-  auto vertex_weights = compute_emitter_vertex_weights(xnode, *inputs, object);
+  auto vertex_weights = compute_emitter_vertex_weights(builder.node_rna(), *inputs, object);
 
-  VaryingFloat4x4 transform = world_transition.update_float4x4(
+  VaryingFloat4x4 transform = builder.world_transition().update_float4x4(
       object->id.name, "obmat", object->obmat);
-  ArrayRef<std::string> system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(0, "Emitter"));
-  Emitter *emitter = new SurfaceEmitter(system_names,
-                                        on_birth_action,
-                                        object,
-                                        transform,
-                                        inputs->get<float>(1, "Rate"),
-                                        std::move(vertex_weights));
-  collector.m_emitters.append(emitter);
+
+  ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Emitter");
+  Emitter &emitter = builder.construct<SurfaceEmitter>(system_names,
+                                                       on_birth_action,
+                                                       object,
+                                                       transform,
+                                                       inputs->get<float>(1, "Rate"),
+                                                       std::move(vertex_weights));
+  builder.add_emitter(emitter);
 }
 
-static void PARSE_custom_force(InfluencesCollector &collector,
-                               InlinedTreeData &inlined_tree_data,
-                               WorldTransition &UNUSED(world_transition),
-                               const XNode &xnode)
+static void PARSE_custom_force(XNodeInfluencesBuilder &builder)
 {
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
 
-  ArrayRef<std::string> system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(0, "Force"));
-
-  for (const std::string &system_name : system_names) {
-    CustomForce *force = new CustomForce(inputs_fn);
-    collector.m_forces.add(system_name, force);
-  }
+  ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Force");
+  CustomForce &force = builder.construct<CustomForce>(inputs_fn);
+  builder.add_force(system_names, force);
 }
 
-static void PARSE_age_reached_event(InfluencesCollector &collector,
-                                    InlinedTreeData &inlined_tree_data,
-                                    WorldTransition &UNUSED(world_transition),
-                                    const XNode &xnode)
+static void PARSE_age_reached_event(XNodeInfluencesBuilder &builder)
 {
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
 
-  ArrayRef<std::string> system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(0, "Event"));
-  Action &action = inlined_tree_data.build_action_list(collector, xnode, "Execute on Event");
+  ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Event");
+  Action &action = builder.build_action_list("Execute on Event");
 
-  std::string is_triggered_attribute = xnode.name();
+  std::string is_triggered_attribute = builder.node_identifier();
 
-  for (const std::string &system_name : system_names) {
-    collector.m_attributes.lookup(system_name)->add<bool>(is_triggered_attribute, 0);
-    Event *event = new AgeReachedEvent(is_triggered_attribute, inputs_fn, action);
-    collector.m_events.add(system_name, event);
-  }
+  builder.add_attribute<bool>(system_names, is_triggered_attribute, false);
+  Event &event = builder.construct<AgeReachedEvent>(is_triggered_attribute, inputs_fn, action);
+  builder.add_event(system_names, event);
 }
 
-static void PARSE_trails(InfluencesCollector &collector,
-                         InlinedTreeData &inlined_tree_data,
-                         WorldTransition &UNUSED(world_transition),
-                         const XNode &xnode)
+static void PARSE_trails(XNodeInfluencesBuilder &builder)
 {
-  ArrayRef<std::string> main_system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(0, "Main System"));
-  ArrayRef<std::string> trail_system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(1, "Trail System"));
+  ArrayRef<std::string> main_system_names = builder.find_target_system_names(0, "Main System");
+  ArrayRef<std::string> trail_system_names = builder.find_target_system_names(1, "Trail System");
 
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
 
-  Action &action = inlined_tree_data.build_action_list(collector, xnode, "Execute on Birth");
-  for (const std::string &main_type : main_system_names) {
-
-    OffsetHandler *offset_handler = new CreateTrailHandler(trail_system_names, inputs_fn, action);
-    collector.m_offset_handlers.add(main_type, offset_handler);
-  }
+  Action &action = builder.build_action_list("Execute on Birth");
+  OffsetHandler &offset_handler = builder.construct<CreateTrailHandler>(
+      trail_system_names, inputs_fn, action);
+  builder.add_offset_handler(main_system_names, offset_handler);
 }
 
-static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
-                                       InlinedTreeData &inlined_tree_data,
-                                       WorldTransition &UNUSED(world_transition),
-                                       const XNode &xnode)
+static void PARSE_initial_grid_emitter(XNodeInfluencesBuilder &builder)
 {
-  Optional<NamedGenericTupleRef> inputs = inlined_tree_data.compute_all_data_inputs(xnode);
+  Optional<NamedGenericTupleRef> inputs = builder.compute_all_data_inputs();
   if (!inputs.has_value()) {
     return;
   }
 
-  Action &action = inlined_tree_data.build_action_list(collector, xnode, "Execute on Birth");
+  Action &action = builder.build_action_list("Execute on Birth");
 
-  ArrayRef<std::string> system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(0, "Emitter"));
-  Emitter *emitter = new InitialGridEmitter(std::move(system_names),
-                                            std::max(0, inputs->get<int>(0, "Amount X")),
-                                            std::max(0, inputs->get<int>(1, "Amount Y")),
-                                            inputs->get<float>(2, "Step X"),
-                                            inputs->get<float>(3, "Step Y"),
-                                            inputs->get<float>(4, "Size"),
-                                            action);
-  collector.m_emitters.append(emitter);
+  ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Emitter");
+  Emitter &emitter = builder.construct<InitialGridEmitter>(
+      std::move(system_names),
+      std::max(0, inputs->get<int>(0, "Amount X")),
+      std::max(0, inputs->get<int>(1, "Amount Y")),
+      inputs->get<float>(2, "Step X"),
+      inputs->get<float>(3, "Step Y"),
+      inputs->get<float>(4, "Size"),
+      action);
+  builder.add_emitter(emitter);
 }
 
-static void PARSE_mesh_collision(InfluencesCollector &collector,
-                                 InlinedTreeData &inlined_tree_data,
-                                 WorldTransition &world_transition,
-                                 const XNode &xnode)
+static void PARSE_mesh_collision(XNodeInfluencesBuilder &builder)
 {
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
 
-  Optional<NamedGenericTupleRef> inputs = inlined_tree_data.compute_inputs(xnode, {0});
+  Optional<NamedGenericTupleRef> inputs = builder.compute_inputs({0});
   if (!inputs.has_value()) {
     return;
   }
 
   ObjectIDHandle object_handle = inputs->relocate_out<ObjectIDHandle>(0, "Object");
-  Object *object = inlined_tree_data.id_handle_lookup().lookup(object_handle);
+  Object *object = builder.id_handle_lookup().lookup(object_handle);
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
 
-  ArrayRef<std::string> system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(0, "Event"));
-  Action &action = inlined_tree_data.build_action_list(collector, xnode, "Execute on Event");
+  ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Event");
+  Action &action = builder.build_action_list("Execute on Event");
 
   float4x4 local_to_world_end = object->obmat;
   float4x4 local_to_world_begin =
-      world_transition.update_float4x4(object->id.name, "obmat", object->obmat).start;
+      builder.world_transition().update_float4x4(object->id.name, "obmat", object->obmat).start;
 
-  std::string last_collision_attribute = xnode.name();
+  std::string last_collision_attribute = builder.node_identifier();
 
-  for (const std::string &system_name : system_names) {
-    Event *event = new MeshCollisionEvent(
-        last_collision_attribute, object, action, local_to_world_begin, local_to_world_end);
-    collector.m_attributes.lookup(system_name)->add<int32_t>(last_collision_attribute, -1);
-    collector.m_events.add(system_name, event);
-  }
+  Event &event = builder.construct<MeshCollisionEvent>(
+      last_collision_attribute, object, action, local_to_world_begin, local_to_world_end);
+  builder.add_attribute<int32_t>(system_names, last_collision_attribute, -1);
+  builder.add_event(system_names, event);
 }
 
-static void PARSE_size_over_time(InfluencesCollector &collector,
-                                 InlinedTreeData &inlined_tree_data,
-                                 WorldTransition &UNUSED(world_transition),
-                                 const XNode &xnode)
+static void PARSE_size_over_time(XNodeInfluencesBuilder &builder)
 {
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
 
-  ArrayRef<std::string> system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(0, "Influence"));
-  for (const std::string &system_name : system_names) {
-    OffsetHandler *handler = new SizeOverTimeHandler(inputs_fn);
-    collector.m_offset_handlers.add(system_name, handler);
-  }
+  ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Influence");
+  OffsetHandler &offset_handler = builder.construct<SizeOverTimeHandler>(inputs_fn);
+  builder.add_offset_handler(system_names, offset_handler);
 }
 
-static void PARSE_custom_event(InfluencesCollector &collector,
-                               InlinedTreeData &inlined_tree_data,
-                               WorldTransition &UNUSED(world_transition),
-                               const XNode &xnode)
+static void PARSE_custom_event(XNodeInfluencesBuilder &builder)
 {
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
 
-  ArrayRef<std::string> system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(0, "Event"));
-  Action &action = inlined_tree_data.build_action_list(collector, xnode, "Execute on Event");
+  ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Event");
+  Action &action = builder.build_action_list("Execute on Event");
 
-  std::string is_triggered_attribute = xnode.name();
+  std::string is_triggered_attribute = builder.node_identifier();
 
-  for (const std::string &system_name : system_names) {
-    Event *event = new CustomEvent(is_triggered_attribute, inputs_fn, action);
-    collector.m_attributes.lookup(system_name)->add<bool>(system_name, 0);
-    collector.m_events.add(system_name, event);
-  }
+  Event &event = builder.construct<CustomEvent>(is_triggered_attribute, inputs_fn, action);
+  builder.add_attribute<bool>(system_names, is_triggered_attribute, false);
+  builder.add_event(system_names, event);
 }
 
-static void PARSE_always_execute(InfluencesCollector &collector,
-                                 InlinedTreeData &inlined_tree_data,
-                                 WorldTransition &UNUSED(world_transition),
-                                 const XNode &xnode)
+static void PARSE_always_execute(XNodeInfluencesBuilder &builder)
 {
-  ArrayRef<std::string> system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(0, "Influence"));
-  Action &action = inlined_tree_data.build_action_list(collector, xnode, "Execute");
+  ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Influence");
+  Action &action = builder.build_action_list("Execute");
 
-  for (const std::string &system_name : system_names) {
-    OffsetHandler *handler = new AlwaysExecuteHandler(action);
-    collector.m_offset_handlers.add(system_name, handler);
-  }
+  OffsetHandler &offset_handler = builder.construct<AlwaysExecuteHandler>(action);
+  builder.add_offset_handler(system_names, offset_handler);
 }
 
 BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
@@ -811,7 +863,8 @@ static void collect_influences(InlinedTreeData &inlined_tree_data,
     StringRef idname = xnode->idname();
     ParseNodeCallback *callback = parsers.lookup_ptr(idname);
     if (callback != nullptr) {
-      (*callback)(collector, inlined_tree_data, world_transition, *xnode);
+      XNodeInfluencesBuilder builder{collector, inlined_tree_data, world_transition, *xnode};
+      (*callback)(builder);
     }
   }
 
@@ -828,9 +881,10 @@ static void collect_influences(InlinedTreeData &inlined_tree_data,
     attributes.add<BKE::SurfaceHook>("Emit Hook", {});
 
     ArrayRef<Force *> forces = collector.m_forces.lookup_default(system_name);
-    EulerIntegrator *integrator = new EulerIntegrator(forces);
+    EulerIntegrator &integrator = inlined_tree_data.construct<EulerIntegrator>("integrator",
+                                                                               forces);
 
-    r_integrators.add_new(system_name, integrator);
+    r_integrators.add_new(system_name, &integrator);
   }
 }
 
@@ -901,12 +955,6 @@ class NodeTreeStepSimulator : public StepSimulator {
 
     simulate_particles(simulation_state, emitters, systems_to_simulate);
 
-    for (Emitter *emitter : emitters) {
-      delete emitter;
-    }
-    events.foreach_value([](Event *event) { delete event; });
-    offset_handlers.foreach_value([](OffsetHandler *handler) { delete handler; });
-    integrators.foreach_value([](Integrator *integrator) { delete integrator; });
     attributes.foreach_value([](AttributesInfoBuilder *builder) { delete builder; });
 
     simulation_state.world() = std::move(new_world_state);
