@@ -6,6 +6,8 @@
 
 #include "BLI_math_cxx.h"
 
+#include "BKE_surface_location.h"
+
 namespace FN {
 
 using BLI::float3;
@@ -353,6 +355,12 @@ static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
         "Birth Time", CPP_TYPE<float>());
     MFBuilderFunctionNode &node = network_builder.add_function(fn);
     network_builder.map_sockets(xnode.output(3), node.output(0));
+  }
+  {
+    const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
+        "Emit Location", CPP_TYPE<BKE::SurfaceLocation>());
+    MFBuilderFunctionNode &node = network_builder.add_function(fn);
+    network_builder.map_sockets(xnode.output(4), node.output(0));
   }
 }
 

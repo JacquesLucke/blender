@@ -6,6 +6,7 @@
 #include "BKE_curve.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_deform.h"
+#include "BKE_surface_location.h"
 
 #include "BLI_math_geom.h"
 #include "BLI_vector_adaptor.h"
@@ -15,6 +16,7 @@
 
 namespace BParticles {
 
+using BKE::SurfaceLocation;
 using BLI::VectorAdaptor;
 
 static float random_float()
@@ -49,18 +51,17 @@ void PointEmitter::emit(EmitterInterface &interface)
   }
 }
 
-static float3 random_point_in_triangle(float3 a, float3 b, float3 c)
+static float3 random_uniform_bary_coords()
 {
-  float3 dir1 = b - a;
-  float3 dir2 = c - a;
-  float rand1, rand2;
+  float rand1 = random_float();
+  float rand2 = random_float();
 
-  do {
-    rand1 = random_float();
-    rand2 = random_float();
-  } while (rand1 + rand2 > 1.0f);
+  if (rand1 + rand2 > 1.0f) {
+    rand1 = 1.0f - rand1;
+    rand2 = 1.0f - rand2;
+  }
 
-  return a + dir1 * rand1 + dir2 * rand2;
+  return float3(rand1, rand2, 1.0f - rand1 - rand2);
 }
 
 static BLI_NOINLINE void get_average_triangle_weights(const Mesh *mesh,
@@ -199,7 +200,8 @@ static BLI_NOINLINE void sample_looptris(Mesh *mesh,
                                          ArrayRef<MLoopTri> triangles,
                                          ArrayRef<uint> triangles_to_sample,
                                          MutableArrayRef<float3> r_sampled_positions,
-                                         MutableArrayRef<float3> r_sampled_normals)
+                                         MutableArrayRef<float3> r_sampled_normals,
+                                         MutableArrayRef<float3> r_sampled_bary_coords)
 {
   BLI_assert(triangles_to_sample.size() == r_sampled_positions.size());
 
@@ -214,12 +216,17 @@ static BLI_NOINLINE void sample_looptris(Mesh *mesh,
     float3 v2 = verts[loops[triangle.tri[1]].v].co;
     float3 v3 = verts[loops[triangle.tri[2]].v].co;
 
-    float3 position = random_point_in_triangle(v1, v2, v3);
+    float3 bary_coords = random_uniform_bary_coords();
+
+    float3 position;
+    interp_v3_v3v3v3(position, v1, v2, v3, bary_coords);
+
     float3 normal;
     normal_tri_v3(normal, v1, v2, v3);
 
     r_sampled_positions[i] = position;
     r_sampled_normals[i] = normal;
+    r_sampled_bary_coords[i] = bary_coords;
   }
 }
 
@@ -270,7 +277,9 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
 
   TemporaryArray<float3> local_positions(particles_to_emit);
   TemporaryArray<float3> local_normals(particles_to_emit);
-  sample_looptris(mesh, triangles, triangles_to_sample, local_positions, local_normals);
+  TemporaryArray<float3> bary_coords(particles_to_emit);
+  sample_looptris(
+      mesh, triangles, triangles_to_sample, local_positions, local_normals, bary_coords);
 
   float epsilon = 0.01f;
   TemporaryArray<float4x4> transforms_at_birth(particles_to_emit);
@@ -295,11 +304,18 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   TemporaryArray<float> birth_times(particles_to_emit);
   interface.time_span().interpolate(birth_moments, birth_times);
 
+  TemporaryArray<SurfaceLocation> emit_locations(particles_to_emit);
+  BKE::ObjectIDHandle object_handle(m_object);
+  for (uint i = 0; i < particles_to_emit; i++) {
+    emit_locations[i] = SurfaceLocation(object_handle, triangles_to_sample[i], bary_coords[i]);
+  }
+
   for (StringRef system_name : m_systems_to_emit) {
     auto new_particles = interface.particle_allocator().request(system_name,
                                                                 positions_at_birth.size());
     new_particles.set<float3>("Position", positions_at_birth);
     new_particles.set<float>("Birth Time", birth_times);
+    new_particles.set<SurfaceLocation>("Emit Location", emit_locations);
 
     m_on_birth_action.execute_from_emitter<MeshSurfaceContext>(
         new_particles, interface, [&](IndexRange range, void *dst) {

@@ -800,6 +800,7 @@ static void collect_influences(VTreeData &inlined_tree_data,
     attributes.add<float3>("Velocity", float3(0, 0, 0));
     attributes.add<float>("Size", 0.05f);
     attributes.add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
+    attributes.add<BKE::SurfaceLocation>("Emit Location", {});
 
     ArrayRef<Force *> forces = collector.m_forces.lookup_default(system_name);
     EulerIntegrator *integrator = new EulerIntegrator(forces);
