@@ -559,8 +559,14 @@ class XNodeInfluencesBuilder {
 
   std::string node_identifier()
   {
-    /* TODO: mix parent names into the identifier */
-    return m_xnode.name();
+    std::stringstream ss;
+    for (const BKE::XParentNode *parent = m_xnode.parent(); parent; parent = parent->parent()) {
+      ss << "/" << parent->vnode().name();
+    }
+    ss << "/" << m_xnode.name();
+
+    std::string identifier = ss.str();
+    return identifier;
   }
 
   IDHandleLookup &id_handle_lookup()
