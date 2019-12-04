@@ -50,11 +50,9 @@ static StringRef combine_influences_idname = "fn_CombineInfluencesNode";
 
 class InlinedTreeData;
 class InfluencesCollector;
+class XSocketActionBuilder;
 
-using ActionParserCallback =
-    std::function<std::unique_ptr<Action>(InfluencesCollector &collector,
-                                          InlinedTreeData &inlined_tree_data,
-                                          const XSocket &execute_xsocket)>;
+using ActionParserCallback = std::function<void(XSocketActionBuilder &builder)>;
 StringMap<ActionParserCallback> &get_action_parsers();
 
 class InfluencesCollector {
@@ -194,27 +192,7 @@ class InlinedTreeData {
     return system_names;
   }
 
-  Action *build_action(InfluencesCollector &collector, const XInputSocket &start)
-  {
-    if (start.linked_sockets().size() != 1) {
-      return nullptr;
-    }
-
-    const XSocket &execute_socket = *start.linked_sockets()[0];
-    if (execute_socket.idname() != "fn_ExecuteSocket") {
-      return nullptr;
-    }
-
-    StringMap<ActionParserCallback> &parsers = get_action_parsers();
-    ActionParserCallback &parser = parsers.lookup(execute_socket.node().idname());
-    std::unique_ptr<Action> action = parser(collector, *this, execute_socket);
-    Action *action_ptr = action.get();
-    if (action_ptr == nullptr) {
-      return nullptr;
-    }
-    m_resources.add(std::move(action), __func__);
-    return action_ptr;
-  }
+  Action *build_action(InfluencesCollector &collector, const XInputSocket &start);
 
   Action &build_action_list(InfluencesCollector &collector,
                             const XNode &start_xnode,
@@ -293,155 +271,199 @@ class InlinedTreeData {
     UNUSED_VARS_NDEBUG(found_name);
     return execute_sockets;
   }
+};  // namespace BParticles
+
+class XSocketActionBuilder {
+ private:
+  InfluencesCollector &m_influences_collector;
+  InlinedTreeData &m_inlined_tree_data;
+  const XSocket &m_execute_xsocket;
+  Action *m_built_action = nullptr;
+
+ public:
+  XSocketActionBuilder(InfluencesCollector &influences_collector,
+                       InlinedTreeData &inlined_tree_data,
+                       const XSocket &execute_xsocket)
+      : m_influences_collector(influences_collector),
+        m_inlined_tree_data(inlined_tree_data),
+        m_execute_xsocket(execute_xsocket)
+  {
+  }
+
+  Action *built_action()
+  {
+    return m_built_action;
+  }
+
+  template<typename T, typename... Args> T &construct(Args &&... args)
+  {
+    return m_inlined_tree_data.construct<T>("construct action", std::forward<Args>(args)...);
+  }
+
+  template<typename T, typename... Args> T &set_constructed(Args &&... args)
+  {
+    BLI_STATIC_ASSERT((std::is_base_of<Action, T>::value), "");
+    T &action = this->construct<T>(std::forward<Args>(args)...);
+    m_built_action = &action;
+    return action;
+  }
+
+  ParticleFunction *particle_function_for_inputs()
+  {
+    return m_inlined_tree_data.particle_function_for_all_inputs(m_execute_xsocket.node());
+  }
+
+  PointerRNA *node_rna()
+  {
+    return m_execute_xsocket.node().rna();
+  }
+
+  Action &build_input_action_list(StringRef name)
+  {
+    return m_inlined_tree_data.build_action_list(
+        m_influences_collector, m_execute_xsocket.node(), name);
+  }
+
+  ArrayRef<std::string> find_system_target_names(uint output_index, StringRef expected_name)
+  {
+    const XOutputSocket &xsocket = m_execute_xsocket.node().output(output_index, expected_name);
+    return m_inlined_tree_data.find_target_system_names(xsocket);
+  }
+
+  Optional<NamedGenericTupleRef> compute_all_data_inputs()
+  {
+    return m_inlined_tree_data.compute_all_data_inputs(m_execute_xsocket.node());
+  }
+
+  template<typename T> void add_attribute_to_affected_particles(StringRef name, T default_value)
+  {
+    /* Add group to all particle systems for now. */
+    m_influences_collector.m_attributes.foreach_value(
+        [&](AttributesInfoBuilder *builder) { builder->add<T>(name, default_value); });
+  }
 };
 
-static std::unique_ptr<Action> ACTION_kill(InfluencesCollector &UNUSED(collector),
-                                           InlinedTreeData &UNUSED(inlined_tree_data),
-                                           const XSocket &UNUSED(execute_xsocket))
+Action *InlinedTreeData::build_action(InfluencesCollector &collector, const XInputSocket &start)
 {
-  return std::unique_ptr<Action>(new KillAction());
+  if (start.linked_sockets().size() != 1) {
+    return nullptr;
+  }
+
+  const XSocket &execute_socket = *start.linked_sockets()[0];
+  if (execute_socket.idname() != "fn_ExecuteSocket") {
+    return nullptr;
+  }
+
+  StringMap<ActionParserCallback> &parsers = get_action_parsers();
+  ActionParserCallback &parser = parsers.lookup(execute_socket.node().idname());
+
+  XSocketActionBuilder builder{collector, *this, execute_socket};
+  parser(builder);
+
+  return builder.built_action();
 }
 
-static std::unique_ptr<Action> ACTION_change_velocity(InfluencesCollector &UNUSED(collector),
-                                                      InlinedTreeData &inlined_tree_data,
-                                                      const XSocket &execute_xsocket)
+static void ACTION_kill(XSocketActionBuilder &builder)
 {
-  const XNode &xnode = execute_xsocket.node();
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
+  builder.set_constructed<KillAction>();
+}
 
+static void ACTION_change_velocity(XSocketActionBuilder &builder)
+{
+  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
   if (inputs_fn == nullptr) {
-    return {};
+    return;
   }
 
-  int mode = RNA_enum_get(xnode.rna(), "mode");
-
-  Action *action = nullptr;
-  if (mode == 0) {
-    action = new SetVelocityAction(inputs_fn);
+  int mode = RNA_enum_get(builder.node_rna(), "mode");
+  switch (mode) {
+    case 0:
+      builder.set_constructed<SetVelocityAction>(inputs_fn);
+      break;
+    case 1:
+      builder.set_constructed<RandomizeVelocityAction>(inputs_fn);
+      break;
+    default:
+      BLI_assert(false);
+      break;
   }
-  else if (mode == 1) {
-    action = new RandomizeVelocityAction(inputs_fn);
-  }
-
-  return std::unique_ptr<Action>(action);
 }
 
-static std::unique_ptr<Action> ACTION_explode(InfluencesCollector &collector,
-                                              InlinedTreeData &inlined_tree_data,
-                                              const XSocket &execute_xsocket)
+static void ACTION_explode(XSocketActionBuilder &builder)
 {
-  const XNode &xnode = execute_xsocket.node();
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
-
+  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
   if (inputs_fn == nullptr) {
-    return {};
+    return;
   }
 
-  Action &on_birth_action = inlined_tree_data.build_action_list(
-      collector, xnode, "Execute on Birth");
-  ArrayRef<std::string> system_names = inlined_tree_data.find_target_system_names(
-      xnode.output(1, "Explode System"));
-
-  Action *action = new ExplodeAction(system_names, inputs_fn, on_birth_action);
-  return std::unique_ptr<Action>(action);
+  Action &on_birth_action = builder.build_input_action_list("Execute on Birth");
+  ArrayRef<std::string> system_names = builder.find_system_target_names(1, "Explode System");
+  builder.set_constructed<ExplodeAction>(system_names, inputs_fn, on_birth_action);
 }
 
-static std::unique_ptr<Action> ACTION_condition(InfluencesCollector &collector,
-                                                InlinedTreeData &inlined_tree_data,
-                                                const XSocket &execute_xsocket)
+static void ACTION_condition(XSocketActionBuilder &builder)
 {
-  const XNode &xnode = execute_xsocket.node();
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
-
+  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
   if (inputs_fn == nullptr) {
-    return {};
+    return;
   }
 
-  Action &action_true = inlined_tree_data.build_action_list(collector, xnode, "Execute If True");
-  Action &action_false = inlined_tree_data.build_action_list(collector, xnode, "Execute If False");
-
-  Action *action = new ConditionAction(inputs_fn, action_true, action_false);
-  return std::unique_ptr<Action>(action);
+  Action &action_true = builder.build_input_action_list("Execute If True");
+  Action &action_false = builder.build_input_action_list("Execute If False");
+  builder.set_constructed<ConditionAction>(inputs_fn, action_true, action_false);
 }
 
-static std::unique_ptr<Action> ACTION_change_color(InfluencesCollector &UNUSED(collector),
-                                                   InlinedTreeData &inlined_tree_data,
-                                                   const XSocket &execute_xsocket)
+static void ACTION_change_color(XSocketActionBuilder &builder)
 {
-  const XNode &xnode = execute_xsocket.node();
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
-
+  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
   if (inputs_fn == nullptr) {
-    return {};
+    return;
   }
 
-  Action *action = new ChangeColorAction(inputs_fn);
-  return std::unique_ptr<Action>(action);
+  builder.set_constructed<ChangeColorAction>(inputs_fn);
 }
 
-static std::unique_ptr<Action> ACTION_change_size(InfluencesCollector &UNUSED(collector),
-                                                  InlinedTreeData &inlined_tree_data,
-                                                  const XSocket &execute_xsocket)
+static void ACTION_change_size(XSocketActionBuilder &builder)
 {
-  const XNode &xnode = execute_xsocket.node();
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
-
+  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
   if (inputs_fn == nullptr) {
-    return {};
+    return;
   }
 
-  Action *action = new ChangeSizeAction(inputs_fn);
-  return std::unique_ptr<Action>(action);
+  builder.set_constructed<ChangeSizeAction>(inputs_fn);
 }
 
-static std::unique_ptr<Action> ACTION_change_position(InfluencesCollector &UNUSED(collector),
-                                                      InlinedTreeData &inlined_tree_data,
-                                                      const XSocket &execute_xsocket)
+static void ACTION_change_position(XSocketActionBuilder &builder)
 {
-  const XNode &xnode = execute_xsocket.node();
-  ParticleFunction *inputs_fn = inlined_tree_data.particle_function_for_all_inputs(xnode);
-
+  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
   if (inputs_fn == nullptr) {
-    return {};
+    return;
   }
 
-  Action *action = new ChangePositionAction(inputs_fn);
-  return std::unique_ptr<Action>(action);
+  builder.set_constructed<ChangePositionAction>(inputs_fn);
 }
 
-static std::unique_ptr<Action> ACTION_add_to_group(InfluencesCollector &collector,
-                                                   InlinedTreeData &inlined_tree_data,
-                                                   const XSocket &execute_xsocket)
+static void ACTION_add_to_group(XSocketActionBuilder &builder)
 {
-  const XNode &xnode = execute_xsocket.node();
-  auto inputs = inlined_tree_data.compute_all_data_inputs(xnode);
+  auto inputs = builder.compute_all_data_inputs();
   if (!inputs.has_value()) {
-    return {};
+    return;
   }
 
   std::string group_name = inputs->relocate_out<std::string>(0, "Group");
-
-  /* Add group to all particle systems for now. */
-  collector.m_attributes.foreach_value(
-      [&](AttributesInfoBuilder *builder) { builder->add<bool>(group_name, 0); });
-
-  Action *action = new AddToGroupAction(group_name);
-  return std::unique_ptr<Action>(action);
+  builder.add_attribute_to_affected_particles<bool>(group_name, false);
+  builder.set_constructed<AddToGroupAction>(group_name);
 }
 
-static std::unique_ptr<Action> ACTION_remove_from_group(InfluencesCollector &UNUSED(collector),
-                                                        InlinedTreeData &inlined_tree_data,
-                                                        const XSocket &execute_xsocket)
+static void ACTION_remove_from_group(XSocketActionBuilder &builder)
 {
-  const XNode &xnode = execute_xsocket.node();
-  auto inputs = inlined_tree_data.compute_all_data_inputs(xnode);
+  auto inputs = builder.compute_all_data_inputs();
   if (!inputs.has_value()) {
-    return {};
+    return;
   }
 
   std::string group_name = inputs->relocate_out<std::string>(0, "Group");
-  Action *action = new RemoveFromGroupAction(group_name);
-  return std::unique_ptr<Action>(action);
+  builder.set_constructed<RemoveFromGroupAction>(group_name);
 }
 
 BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
