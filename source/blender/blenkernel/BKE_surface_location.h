@@ -4,9 +4,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_math_cxx.h"
 
-#include "DNA_object_types.h"
-
-#include "BLI_hash.h"
+#include "BKE_id_handle.h"
 
 namespace BKE {
 
@@ -20,20 +18,16 @@ enum Enum {
 }
 
 /**
- * References a point on a surface. If the surface moves, the point moves with it. The surface is
- * identified by an integer.
- *
- * For now, only points on triangle meshes are supported, support for curves could be added too.
+ * References a point on a surface. If the surface moves, the point moves with it.
  */
 class SurfaceLocation {
  private:
   SurfaceLocationType::Enum m_type;
 
   /**
-   * Identifies the surface that is being referenced. This can e.g. be a hash of the name of an
-   * object.
+   * Used to identify the object if m_type is MeshObject.
    */
-  uint32_t m_surface_id;
+  ObjectIDHandle m_object_handle;
 
   /* Index of the triangle that contains the referenced location. */
   uint32_t m_triangle_index;
@@ -46,9 +40,9 @@ class SurfaceLocation {
   {
   }
 
-  SurfaceLocation(uint32_t surface_id, uint32_t triangle_index, float3 bary_coords)
+  SurfaceLocation(ObjectIDHandle object_handle, uint32_t triangle_index, float3 bary_coords)
       : m_type(SurfaceLocationType::MeshObject),
-        m_surface_id(surface_id),
+        m_object_handle(object_handle),
         m_triangle_index(triangle_index),
         m_bary_coords(bary_coords)
   {
@@ -64,10 +58,10 @@ class SurfaceLocation {
     return m_type != SurfaceLocationType::None;
   }
 
-  uint32_t surface_id() const
+  ObjectIDHandle object_handle() const
   {
-    BLI_assert(this->is_valid());
-    return m_surface_id;
+    BLI_assert(m_type == SurfaceLocationType::MeshObject);
+    return m_object_handle;
   }
 
   uint32_t triangle_index() const
@@ -80,13 +74,6 @@ class SurfaceLocation {
   {
     BLI_assert(m_type == SurfaceLocationType::MeshObject);
     return m_bary_coords;
-  }
-
-  static uint32_t ComputeObjectSurfaceID(const Object *ob)
-  {
-    BLI_assert(ob != nullptr);
-
-    return BLI_hash_string(ob->id.name);
   }
 };
 

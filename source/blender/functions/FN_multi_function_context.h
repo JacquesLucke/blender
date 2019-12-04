@@ -8,8 +8,11 @@
 #include "BLI_utility_mixins.h"
 #include "BLI_index_range.h"
 
+#include "BKE_id_handle.h"
+
 namespace FN {
 
+using BKE::IDHandleLookup;
 using BLI::ArrayRef;
 using BLI::IndexRange;
 using BLI::Optional;
@@ -52,11 +55,14 @@ class MFElementContexts {
 class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   MFElementContexts m_element_contexts;
+  const IDHandleLookup &m_id_handle_lookup;
 
   friend class MFContext;
 
  public:
-  MFContextBuilder()
+  MFContextBuilder(const IDHandleLookup *id_handle_lookup = nullptr)
+      : m_id_handle_lookup((id_handle_lookup == nullptr) ? IDHandleLookup::Empty() :
+                                                           *id_handle_lookup)
   {
   }
 
@@ -86,6 +92,11 @@ class MFContext {
  public:
   MFContext(MFContextBuilder &builder) : m_builder(&builder)
   {
+  }
+
+  const IDHandleLookup &id_handle_lookup() const
+  {
+    return m_builder->m_id_handle_lookup;
   }
 
   const MFElementContexts &element_contexts() const

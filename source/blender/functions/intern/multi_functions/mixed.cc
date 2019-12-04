@@ -25,6 +25,7 @@
 
 namespace FN {
 
+using BKE::ObjectIDHandle;
 using BKE::SurfaceLocation;
 using BLI::float2;
 using BLI::float3;
@@ -288,13 +289,6 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
       0, "Surface Location");
   MutableArrayRef<float3> r_positions = params.uninitialized_single_output<float3>(1, "Position");
 
-  auto persistent_surfaces_opt =
-      context.element_contexts().find_first<PersistentSurfacesLookupContext>();
-  if (!persistent_surfaces_opt.has_value()) {
-    r_positions.fill_indices(mask.indices(), {0, 0, 0});
-    return;
-  }
-
   for (uint i : mask.indices()) {
     SurfaceLocation location = locations[i];
     if (location.type() != BKE::SurfaceLocationType::MeshObject) {
@@ -302,7 +296,7 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
       continue;
     }
 
-    Object *object = persistent_surfaces_opt->data->lookup(location.surface_id());
+    Object *object = context.id_handle_lookup().lookup(location.object_handle());
     if (object == nullptr) {
       r_positions[i] = {0, 0, 0};
       continue;
@@ -351,13 +345,6 @@ void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context
       0, "Surface Location");
   MutableArrayRef<float3> r_normals = params.uninitialized_single_output<float3>(1, "Normal");
 
-  auto persistent_surfaces_opt =
-      context.element_contexts().find_first<PersistentSurfacesLookupContext>();
-  if (!persistent_surfaces_opt.has_value()) {
-    r_normals.fill_indices(mask.indices(), {0, 0, 1});
-    return;
-  }
-
   for (uint i : mask.indices()) {
     SurfaceLocation location = locations[i];
     if (location.type() != BKE::SurfaceLocationType::MeshObject) {
@@ -365,7 +352,7 @@ void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context
       continue;
     }
 
-    Object *object = persistent_surfaces_opt->data->lookup(location.surface_id());
+    Object *object = context.id_handle_lookup().lookup(location.object_handle());
     if (object == nullptr) {
       r_normals[i] = {0, 0, 1};
       continue;
@@ -409,13 +396,6 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
       0, "Surface Location");
   MutableArrayRef<float> r_weights = params.uninitialized_single_output<float>(1, "Weight");
 
-  auto persistent_surfaces_opt =
-      context.element_contexts().find_first<PersistentSurfacesLookupContext>();
-  if (!persistent_surfaces_opt.has_value()) {
-    r_weights.fill_indices(mask.indices(), 0.0f);
-    return;
-  }
-
   for (uint i : mask.indices()) {
     SurfaceLocation location = locations[i];
     if (location.type() != BKE::SurfaceLocationType::MeshObject) {
@@ -423,7 +403,7 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
       continue;
     }
 
-    Object *object = persistent_surfaces_opt->data->lookup(location.surface_id());
+    Object *object = context.id_handle_lookup().lookup(location.object_handle());
     if (object == nullptr) {
       r_weights[i] = 0.0f;
       continue;
@@ -477,13 +457,6 @@ static void get_colors_on_surface(MFMask mask,
 
   rgba_f default_color = {0.0f, 0.0f, 0.0f, 1.0f};
 
-  auto persistent_surfaces_opt =
-      context.element_contexts().find_first<PersistentSurfacesLookupContext>();
-  if (!persistent_surfaces_opt.has_value()) {
-    r_colors.fill_indices(mask.indices(), default_color);
-    return;
-  }
-
   for (uint i : mask.indices()) {
     SurfaceLocation location = locations[i];
     if (location.type() != BKE::SurfaceLocationType::MeshObject) {
@@ -491,7 +464,7 @@ static void get_colors_on_surface(MFMask mask,
       continue;
     }
 
-    Object *object = persistent_surfaces_opt->data->lookup(location.surface_id());
+    Object *object = context.id_handle_lookup().lookup(location.object_handle());
     if (object == nullptr) {
       r_colors[i] = default_color;
       continue;
@@ -981,7 +954,7 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
 
     Mesh *mesh = (Mesh *)object->data;
     const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-    uint32_t object_surface_id = SurfaceLocation::ComputeObjectSurfaceID(object);
+    ObjectIDHandle object_handle(object);
 
     float4x4 global_to_local = float4x4(object->obmat).inverted__LocRotScale();
 
@@ -994,7 +967,7 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
       }
 
       float3 bary_coords = get_barycentric_coords(mesh, triangles, nearest.co, nearest.index);
-      r_surface_locations[i] = SurfaceLocation(object_surface_id, nearest.index, bary_coords);
+      r_surface_locations[i] = SurfaceLocation(object_handle, nearest.index, bary_coords);
     }
   }
   else {
@@ -1013,7 +986,6 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
 
       Mesh *mesh = (Mesh *)object->data;
       const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-      int32_t object_surface_id = SurfaceLocation::ComputeObjectSurfaceID(object);
 
       float4x4 global_to_local = float4x4(object->obmat).inverted__LocRotScale();
       float3 local_position = global_to_local.transform_position(positions[i]);
@@ -1025,7 +997,7 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
       }
 
       float3 bary_coords = get_barycentric_coords(mesh, triangles, nearest.co, nearest.index);
-      r_surface_locations[i] = SurfaceLocation(object_surface_id, nearest.index, bary_coords);
+      r_surface_locations[i] = SurfaceLocation(object, nearest.index, bary_coords);
     }
   }
 }

@@ -90,20 +90,15 @@ class VTreeData {
   ResourceCollector m_resources;
   VTreeMFNetwork &m_inlined_tree_data_graph;
   FN::ExternalDataCacheContext m_data_cache;
-  FN::PersistentSurfacesLookupContext m_persistent_surface_lookup;
+  BKE::IDHandleLookup m_id_handle_lookup;
 
  public:
-  VTreeData(VTreeMFNetwork &inlined_tree_data)
-      : m_inlined_tree_data_graph(inlined_tree_data), m_persistent_surface_lookup({})
+  VTreeData(VTreeMFNetwork &inlined_tree_data) : m_inlined_tree_data_graph(inlined_tree_data)
   {
     Set<Object *> objects = get_used_objects(inlined_tree_data.inlined_tree());
-    Map<uint32_t, Object *> object_by_id;
     for (Object *ob : objects) {
-      uint32_t surface_id = BKE::SurfaceLocation::ComputeObjectSurfaceID(ob);
-      object_by_id.add_new(surface_id, ob);
+      m_id_handle_lookup.add(ob->id);
     }
-    m_persistent_surface_lookup.~PersistentSurfacesLookupContext();
-    new (&m_persistent_surface_lookup) FN::PersistentSurfacesLookupContext(object_by_id);
   }
 
   const InlinedNodeTree &inlined_tree()
@@ -141,7 +136,7 @@ class VTreeData {
     const MultiFunction &fn = this->construct<FN::MF_EvaluateNetwork>(
         "Evaluate Network", Vector<const MFOutputSocket *>(), std::move(sockets_to_compute));
     ParticleFunction &particle_fn = this->construct<ParticleFunction>(
-        "Particle Function", fn, m_data_cache, m_persistent_surface_lookup);
+        "Particle Function", fn, m_data_cache, m_id_handle_lookup);
 
     return &particle_fn;
   }

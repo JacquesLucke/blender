@@ -10,8 +10,8 @@ using FN::CPPType;
 
 ParticleFunction::ParticleFunction(const MultiFunction &fn,
                                    FN::ExternalDataCacheContext &data_cache,
-                                   FN::PersistentSurfacesLookupContext &persistent_surface_lookup)
-    : m_fn(fn), m_data_cache(data_cache), m_persistent_surface_lookup(persistent_surface_lookup)
+                                   const BKE::IDHandleLookup &id_handle_lookup)
+    : m_fn(fn), m_data_cache(data_cache), m_id_handle_lookup(id_handle_lookup)
 {
 }
 
@@ -49,7 +49,7 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
   result->m_pindices = pindices;
 
   FN::MFParamsBuilder params_builder(m_fn, array_size);
-  FN::MFContextBuilder context_builder;
+  FN::MFContextBuilder context_builder(&m_id_handle_lookup);
 
   Vector<GenericMutableArrayRef> arrays_to_free;
 
@@ -80,7 +80,6 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
   FN::ParticleAttributesContext attributes_context(attributes);
   context_builder.add_element_context(attributes_context, IndexRange(array_size));
   context_builder.add_element_context(m_data_cache);
-  context_builder.add_element_context(m_persistent_surface_lookup);
 
   m_fn.call(pindices, params_builder, context_builder);
 

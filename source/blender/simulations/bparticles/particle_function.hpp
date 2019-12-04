@@ -49,12 +49,12 @@ class ParticleFunction {
  private:
   const MultiFunction &m_fn;
   FN::ExternalDataCacheContext &m_data_cache;
-  FN::PersistentSurfacesLookupContext &m_persistent_surface_lookup;
+  const BKE::IDHandleLookup &m_id_handle_lookup;
 
  public:
   ParticleFunction(const MultiFunction &fn,
                    FN::ExternalDataCacheContext &data_cache,
-                   FN::PersistentSurfacesLookupContext &persistent_surface_lookup);
+                   const BKE::IDHandleLookup &id_handle_lookup);
 
   ~ParticleFunction();
 
