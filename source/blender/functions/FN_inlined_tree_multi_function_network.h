@@ -16,10 +16,10 @@ using BKE::XOutputSocket;
 using BKE::XSocket;
 using BLI::MultiMap;
 
-#define VTreeMFSocketMap_UNMAPPED UINT_MAX
-#define VTreeMFSocketMap_MULTIMAPPED (UINT_MAX - 1)
+#define InlinedTreeMFSocketMap_UNMAPPED UINT_MAX
+#define InlinedTreeMFSocketMap_MULTIMAPPED (UINT_MAX - 1)
 
-class VTreeMFSocketMap {
+class InlinedTreeMFSocketMap {
  private:
   /* An input xsocket can be mapped to multiple sockets.
    * An output xsocket can be mapped to at most one socket.
@@ -31,11 +31,11 @@ class VTreeMFSocketMap {
   Array<uint> m_xsocket_by_socket;
 
  public:
-  VTreeMFSocketMap(const InlinedNodeTree &inlined_tree,
-                   const MFNetwork &network,
-                   Array<uint> single_socket_by_xsocket,
-                   MultiMap<uint, uint> multiple_inputs_by_xsocket,
-                   Array<uint> xsocket_by_socket)
+  InlinedTreeMFSocketMap(const InlinedNodeTree &inlined_tree,
+                         const MFNetwork &network,
+                         Array<uint> single_socket_by_xsocket,
+                         MultiMap<uint, uint> multiple_inputs_by_xsocket,
+                         Array<uint> xsocket_by_socket)
       : m_inlined_tree(&inlined_tree),
         m_network(&network),
         m_single_socket_by_xsocket(std::move(single_socket_by_xsocket)),
@@ -46,12 +46,12 @@ class VTreeMFSocketMap {
 
   bool is_mapped(const XSocket &xsocket) const
   {
-    return m_single_socket_by_xsocket[xsocket.id()] < VTreeMFSocketMap_MULTIMAPPED;
+    return m_single_socket_by_xsocket[xsocket.id()] < InlinedTreeMFSocketMap_MULTIMAPPED;
   }
 
   bool is_mapped(const MFSocket &socket) const
   {
-    return m_xsocket_by_socket[socket.id()] != VTreeMFSocketMap_UNMAPPED;
+    return m_xsocket_by_socket[socket.id()] != InlinedTreeMFSocketMap_UNMAPPED;
   }
 
   const MFInputSocket &lookup_singly_mapped_input_socket(const XInputSocket &xsocket) const
@@ -66,10 +66,10 @@ class VTreeMFSocketMap {
     uint id = xsocket.id();
     uint mapped_value = m_single_socket_by_xsocket[id];
     switch (mapped_value) {
-      case VTreeMFSocketMap_UNMAPPED: {
+      case InlinedTreeMFSocketMap_UNMAPPED: {
         return {};
       }
-      case VTreeMFSocketMap_MULTIMAPPED: {
+      case InlinedTreeMFSocketMap_MULTIMAPPED: {
         Vector<const MFInputSocket *> sockets;
         for (uint mapped_id : m_multiple_inputs_by_xsocket.lookup(id)) {
           sockets.append(&m_network->socket_by_id(mapped_id).as_input());
@@ -103,16 +103,16 @@ class VTreeMFSocketMap {
   }
 };
 
-class VTreeMFNetwork {
+class InlinedTreeMFNetwork {
  private:
   const InlinedNodeTree &m_inlined_tree;
   std::unique_ptr<MFNetwork> m_network;
-  VTreeMFSocketMap m_socket_map;
+  InlinedTreeMFSocketMap m_socket_map;
 
  public:
-  VTreeMFNetwork(const InlinedNodeTree &inlined_tree,
-                 std::unique_ptr<MFNetwork> network,
-                 VTreeMFSocketMap socket_map)
+  InlinedTreeMFNetwork(const InlinedNodeTree &inlined_tree,
+                       std::unique_ptr<MFNetwork> network,
+                       InlinedTreeMFSocketMap socket_map)
       : m_inlined_tree(inlined_tree),
         m_network(std::move(network)),
         m_socket_map(std::move(socket_map))

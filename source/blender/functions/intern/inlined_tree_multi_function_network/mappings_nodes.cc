@@ -329,7 +329,7 @@ static void INSERT_perlin_noise(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
 {
-  VTreeMFNetworkBuilder &network_builder = builder.network_builder();
+  InlinedTreeMFNetworkBuilder &network_builder = builder.network_builder();
   const XNode &xnode = builder.xnode();
 
   {

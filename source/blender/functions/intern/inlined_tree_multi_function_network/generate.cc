@@ -12,7 +12,7 @@ namespace FN {
 
 using BKE::XGroupInput;
 
-static bool insert_nodes(VTreeMFNetworkBuilder &builder,
+static bool insert_nodes(InlinedTreeMFNetworkBuilder &builder,
                          const VTreeMultiFunctionMappings &mappings)
 {
   const InlinedNodeTree &inlined_tree = builder.inlined_tree();
@@ -45,7 +45,7 @@ static bool insert_nodes(VTreeMFNetworkBuilder &builder,
   return true;
 }
 
-static bool insert_links(VTreeMFNetworkBuilder &builder,
+static bool insert_links(InlinedTreeMFNetworkBuilder &builder,
                          const VTreeMultiFunctionMappings &mappings)
 {
   for (const XInputSocket *to_xsocket : builder.inlined_tree().all_input_sockets()) {
@@ -102,7 +102,7 @@ static bool insert_links(VTreeMFNetworkBuilder &builder,
   return true;
 }
 
-static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
+static bool insert_unlinked_inputs(InlinedTreeMFNetworkBuilder &builder,
                                    const VTreeMultiFunctionMappings &mappings)
 {
   Vector<const XInputSocket *> unlinked_data_inputs;
@@ -132,13 +132,13 @@ static bool insert_unlinked_inputs(VTreeMFNetworkBuilder &builder,
   return true;
 }
 
-std::unique_ptr<VTreeMFNetwork> generate_inlined_tree_multi_function_network(
+std::unique_ptr<InlinedTreeMFNetwork> generate_inlined_tree_multi_function_network(
     const InlinedNodeTree &inlined_tree, ResourceCollector &resources)
 {
   const VTreeMultiFunctionMappings &mappings = get_inlined_tree_multi_function_mappings();
   PreprocessedVTreeMFData preprocessed_data{inlined_tree};
 
-  VTreeMFNetworkBuilder builder(inlined_tree, preprocessed_data, mappings, resources);
+  InlinedTreeMFNetworkBuilder builder(inlined_tree, preprocessed_data, mappings, resources);
   if (!insert_nodes(builder, mappings)) {
     BLI_assert(false);
   }
@@ -168,7 +168,7 @@ static bool cmp_group_interface_nodes(const XNode *a, const XNode *b)
 std::unique_ptr<MF_EvaluateNetwork> generate_inlined_tree_multi_function(
     const InlinedNodeTree &inlined_tree, ResourceCollector &resources)
 {
-  std::unique_ptr<VTreeMFNetwork> network = generate_inlined_tree_multi_function_network(
+  std::unique_ptr<InlinedTreeMFNetwork> network = generate_inlined_tree_multi_function_network(
       inlined_tree, resources);
 
   Vector<const XNode *> input_xnodes = inlined_tree.nodes_with_idname("fn_GroupInputNode");

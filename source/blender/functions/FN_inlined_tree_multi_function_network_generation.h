@@ -9,7 +9,7 @@ namespace FN {
 
 using BLI::ResourceCollector;
 
-std::unique_ptr<VTreeMFNetwork> generate_inlined_tree_multi_function_network(
+std::unique_ptr<InlinedTreeMFNetwork> generate_inlined_tree_multi_function_network(
     const InlinedNodeTree &inlined_tree, ResourceCollector &resources);
 
 std::unique_ptr<MF_EvaluateNetwork> generate_inlined_tree_multi_function(

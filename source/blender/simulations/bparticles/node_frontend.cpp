@@ -39,20 +39,22 @@ using BLI::rgba_f;
 using BLI::Set;
 using FN::AttributesInfoBuilder;
 using FN::CPPType;
+using FN::InlinedTreeMFNetwork;
 using FN::MFInputSocket;
 using FN::MFOutputSocket;
 using FN::MultiFunction;
 using FN::NamedGenericTupleRef;
-using FN::VTreeMFNetwork;
 
 static StringRef particle_system_idname = "fn_ParticleSystemNode";
 static StringRef combine_influences_idname = "fn_CombineInfluencesNode";
 
-class VTreeData;
+class InlinedTreeData;
 class InfluencesCollector;
 
-using ActionParserCallback = std::function<std::unique_ptr<Action>(
-    InfluencesCollector &collector, VTreeData &inlined_tree_data, const XSocket &execute_xsocket)>;
+using ActionParserCallback =
+    std::function<std::unique_ptr<Action>(InfluencesCollector &collector,
+                                          InlinedTreeData &inlined_tree_data,
+                                          const XSocket &execute_xsocket)>;
 StringMap<ActionParserCallback> &get_action_parsers();
 
 class InfluencesCollector {
@@ -64,16 +66,17 @@ class InfluencesCollector {
   StringMap<AttributesInfoBuilder *> &m_attributes;
 };
 
-class VTreeData {
+class InlinedTreeData {
  private:
   /* Keep this at the beginning, so that it is destructed last. */
   ResourceCollector m_resources;
-  VTreeMFNetwork &m_inlined_tree_data_graph;
+  InlinedTreeMFNetwork &m_inlined_tree_data_graph;
   FN::ExternalDataCacheContext m_data_cache;
   BKE::IDHandleLookup m_id_handle_lookup;
 
  public:
-  VTreeData(VTreeMFNetwork &inlined_tree_data) : m_inlined_tree_data_graph(inlined_tree_data)
+  InlinedTreeData(InlinedTreeMFNetwork &inlined_tree_data)
+      : m_inlined_tree_data_graph(inlined_tree_data)
   {
     FN::add_objects_used_by_inputs(m_id_handle_lookup, inlined_tree_data.inlined_tree());
   }
@@ -88,7 +91,7 @@ class VTreeData {
     return m_inlined_tree_data_graph.network();
   }
 
-  const VTreeMFNetwork &inlined_tree_data_graph()
+  const InlinedTreeMFNetwork &inlined_tree_data_graph()
   {
     return m_inlined_tree_data_graph;
   }
@@ -293,14 +296,14 @@ class VTreeData {
 };
 
 static std::unique_ptr<Action> ACTION_kill(InfluencesCollector &UNUSED(collector),
-                                           VTreeData &UNUSED(inlined_tree_data),
+                                           InlinedTreeData &UNUSED(inlined_tree_data),
                                            const XSocket &UNUSED(execute_xsocket))
 {
   return std::unique_ptr<Action>(new KillAction());
 }
 
 static std::unique_ptr<Action> ACTION_change_velocity(InfluencesCollector &UNUSED(collector),
-                                                      VTreeData &inlined_tree_data,
+                                                      InlinedTreeData &inlined_tree_data,
                                                       const XSocket &execute_xsocket)
 {
   const XNode &xnode = execute_xsocket.node();
@@ -324,7 +327,7 @@ static std::unique_ptr<Action> ACTION_change_velocity(InfluencesCollector &UNUSE
 }
 
 static std::unique_ptr<Action> ACTION_explode(InfluencesCollector &collector,
-                                              VTreeData &inlined_tree_data,
+                                              InlinedTreeData &inlined_tree_data,
                                               const XSocket &execute_xsocket)
 {
   const XNode &xnode = execute_xsocket.node();
@@ -344,7 +347,7 @@ static std::unique_ptr<Action> ACTION_explode(InfluencesCollector &collector,
 }
 
 static std::unique_ptr<Action> ACTION_condition(InfluencesCollector &collector,
-                                                VTreeData &inlined_tree_data,
+                                                InlinedTreeData &inlined_tree_data,
                                                 const XSocket &execute_xsocket)
 {
   const XNode &xnode = execute_xsocket.node();
@@ -362,7 +365,7 @@ static std::unique_ptr<Action> ACTION_condition(InfluencesCollector &collector,
 }
 
 static std::unique_ptr<Action> ACTION_change_color(InfluencesCollector &UNUSED(collector),
-                                                   VTreeData &inlined_tree_data,
+                                                   InlinedTreeData &inlined_tree_data,
                                                    const XSocket &execute_xsocket)
 {
   const XNode &xnode = execute_xsocket.node();
@@ -377,7 +380,7 @@ static std::unique_ptr<Action> ACTION_change_color(InfluencesCollector &UNUSED(c
 }
 
 static std::unique_ptr<Action> ACTION_change_size(InfluencesCollector &UNUSED(collector),
-                                                  VTreeData &inlined_tree_data,
+                                                  InlinedTreeData &inlined_tree_data,
                                                   const XSocket &execute_xsocket)
 {
   const XNode &xnode = execute_xsocket.node();
@@ -392,7 +395,7 @@ static std::unique_ptr<Action> ACTION_change_size(InfluencesCollector &UNUSED(co
 }
 
 static std::unique_ptr<Action> ACTION_change_position(InfluencesCollector &UNUSED(collector),
-                                                      VTreeData &inlined_tree_data,
+                                                      InlinedTreeData &inlined_tree_data,
                                                       const XSocket &execute_xsocket)
 {
   const XNode &xnode = execute_xsocket.node();
@@ -407,7 +410,7 @@ static std::unique_ptr<Action> ACTION_change_position(InfluencesCollector &UNUSE
 }
 
 static std::unique_ptr<Action> ACTION_add_to_group(InfluencesCollector &collector,
-                                                   VTreeData &inlined_tree_data,
+                                                   InlinedTreeData &inlined_tree_data,
                                                    const XSocket &execute_xsocket)
 {
   const XNode &xnode = execute_xsocket.node();
@@ -427,7 +430,7 @@ static std::unique_ptr<Action> ACTION_add_to_group(InfluencesCollector &collecto
 }
 
 static std::unique_ptr<Action> ACTION_remove_from_group(InfluencesCollector &UNUSED(collector),
-                                                        VTreeData &inlined_tree_data,
+                                                        InlinedTreeData &inlined_tree_data,
                                                         const XSocket &execute_xsocket)
 {
   const XNode &xnode = execute_xsocket.node();
@@ -457,12 +460,12 @@ BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
 }
 
 using ParseNodeCallback = std::function<void(InfluencesCollector &collector,
-                                             VTreeData &inlined_tree_data,
+                                             InlinedTreeData &inlined_tree_data,
                                              WorldTransition &world_transition,
                                              const XNode &xnode)>;
 
 static void PARSE_point_emitter(InfluencesCollector &collector,
-                                VTreeData &inlined_tree_data,
+                                InlinedTreeData &inlined_tree_data,
                                 WorldTransition &world_transition,
                                 const XNode &xnode)
 {
@@ -520,7 +523,7 @@ static Vector<float> compute_emitter_vertex_weights(const XNode &xnode,
 }
 
 static void PARSE_mesh_emitter(InfluencesCollector &collector,
-                               VTreeData &inlined_tree_data,
+                               InlinedTreeData &inlined_tree_data,
                                WorldTransition &world_transition,
                                const XNode &xnode)
 {
@@ -554,7 +557,7 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
 }
 
 static void PARSE_custom_force(InfluencesCollector &collector,
-                               VTreeData &inlined_tree_data,
+                               InlinedTreeData &inlined_tree_data,
                                WorldTransition &UNUSED(world_transition),
                                const XNode &xnode)
 {
@@ -573,7 +576,7 @@ static void PARSE_custom_force(InfluencesCollector &collector,
 }
 
 static void PARSE_age_reached_event(InfluencesCollector &collector,
-                                    VTreeData &inlined_tree_data,
+                                    InlinedTreeData &inlined_tree_data,
                                     WorldTransition &UNUSED(world_transition),
                                     const XNode &xnode)
 {
@@ -596,7 +599,7 @@ static void PARSE_age_reached_event(InfluencesCollector &collector,
 }
 
 static void PARSE_trails(InfluencesCollector &collector,
-                         VTreeData &inlined_tree_data,
+                         InlinedTreeData &inlined_tree_data,
                          WorldTransition &UNUSED(world_transition),
                          const XNode &xnode)
 {
@@ -619,7 +622,7 @@ static void PARSE_trails(InfluencesCollector &collector,
 }
 
 static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
-                                       VTreeData &inlined_tree_data,
+                                       InlinedTreeData &inlined_tree_data,
                                        WorldTransition &UNUSED(world_transition),
                                        const XNode &xnode)
 {
@@ -643,7 +646,7 @@ static void PARSE_initial_grid_emitter(InfluencesCollector &collector,
 }
 
 static void PARSE_mesh_collision(InfluencesCollector &collector,
-                                 VTreeData &inlined_tree_data,
+                                 InlinedTreeData &inlined_tree_data,
                                  WorldTransition &world_transition,
                                  const XNode &xnode)
 {
@@ -682,7 +685,7 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
 }
 
 static void PARSE_size_over_time(InfluencesCollector &collector,
-                                 VTreeData &inlined_tree_data,
+                                 InlinedTreeData &inlined_tree_data,
                                  WorldTransition &UNUSED(world_transition),
                                  const XNode &xnode)
 {
@@ -700,7 +703,7 @@ static void PARSE_size_over_time(InfluencesCollector &collector,
 }
 
 static void PARSE_custom_event(InfluencesCollector &collector,
-                               VTreeData &inlined_tree_data,
+                               InlinedTreeData &inlined_tree_data,
                                WorldTransition &UNUSED(world_transition),
                                const XNode &xnode)
 {
@@ -723,7 +726,7 @@ static void PARSE_custom_event(InfluencesCollector &collector,
 }
 
 static void PARSE_always_execute(InfluencesCollector &collector,
-                                 VTreeData &inlined_tree_data,
+                                 InlinedTreeData &inlined_tree_data,
                                  WorldTransition &UNUSED(world_transition),
                                  const XNode &xnode)
 {
@@ -753,7 +756,7 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
   return map;
 }
 
-static void collect_influences(VTreeData &inlined_tree_data,
+static void collect_influences(InlinedTreeData &inlined_tree_data,
                                WorldTransition &world_transition,
                                Vector<std::string> &r_system_names,
                                Vector<Emitter *> &r_emitters,
@@ -835,12 +838,12 @@ class NodeTreeStepSimulator : public StepSimulator {
     StringMap<Integrator *> integrators;
 
     ResourceCollector resources;
-    std::unique_ptr<VTreeMFNetwork> data_graph = FN::generate_inlined_tree_multi_function_network(
-        m_inlined_tree, resources);
+    std::unique_ptr<InlinedTreeMFNetwork> data_graph =
+        FN::generate_inlined_tree_multi_function_network(m_inlined_tree, resources);
     if (data_graph.get() == nullptr) {
       return;
     }
-    VTreeData inlined_tree_data(*data_graph);
+    InlinedTreeData inlined_tree_data(*data_graph);
 
     collect_influences(inlined_tree_data,
                        world_transition,

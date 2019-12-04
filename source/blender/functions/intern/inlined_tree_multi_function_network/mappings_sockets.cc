@@ -79,7 +79,7 @@ template<typename T> static void INSERT_empty_list_socket(VSocketMFNetworkBuilde
 
 template<typename FromT, typename ToT>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert(
-    VTreeMFNetworkBuilder &builder)
+    InlinedTreeMFNetworkBuilder &builder)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_Convert<FromT, ToT>>();
   MFBuilderFunctionNode &node = builder.add_function(fn);
@@ -88,7 +88,7 @@ static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert
 
 template<typename FromT, typename ToT>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert_list(
-    VTreeMFNetworkBuilder &builder)
+    InlinedTreeMFNetworkBuilder &builder)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_ConvertList<FromT, ToT>>();
   MFBuilderFunctionNode &node = builder.add_function(fn);
@@ -97,7 +97,7 @@ static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_convert
 
 template<typename T>
 static std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *> INSERT_element_to_list(
-    VTreeMFNetworkBuilder &builder)
+    InlinedTreeMFNetworkBuilder &builder)
 {
   const MultiFunction &fn = builder.construct_fn<FN::MF_SingleElementList<T>>();
   MFBuilderFunctionNode &node = builder.add_function(fn);

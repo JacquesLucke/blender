@@ -13,14 +13,15 @@ using BLI::ResourceCollector;
 using BLI::StringMap;
 
 struct VTreeMultiFunctionMappings;
-class VTreeMFNetworkBuilder;
+class InlinedTreeMFNetworkBuilder;
 class VNodeMFNetworkBuilder;
 class VSocketMFNetworkBuilder;
 
 using InsertVNodeFunction = std::function<void(VNodeMFNetworkBuilder &builder)>;
 using InsertVSocketFunction = std::function<void(VSocketMFNetworkBuilder &builder)>;
-using InsertImplicitConversionFunction = std::function<
-    std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *>(VTreeMFNetworkBuilder &builder)>;
+using InsertImplicitConversionFunction =
+    std::function<std::pair<MFBuilderInputSocket *, MFBuilderOutputSocket *>(
+        InlinedTreeMFNetworkBuilder &builder)>;
 
 struct VTreeMultiFunctionMappings {
   StringMap<MFDataType> data_type_by_idname;

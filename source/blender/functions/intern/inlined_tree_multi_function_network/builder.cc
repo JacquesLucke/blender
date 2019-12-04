@@ -2,7 +2,7 @@
 
 namespace FN {
 
-VTreeMFNetworkBuilder::VTreeMFNetworkBuilder(
+InlinedTreeMFNetworkBuilder::InlinedTreeMFNetworkBuilder(
     const InlinedNodeTree &inlined_tree,
     const PreprocessedVTreeMFData &preprocessed_inlined_tree_data,
     const VTreeMultiFunctionMappings &inlined_tree_mappings,
@@ -11,25 +11,25 @@ VTreeMFNetworkBuilder::VTreeMFNetworkBuilder(
       m_preprocessed_inlined_tree_data(preprocessed_inlined_tree_data),
       m_inlined_tree_mappings(inlined_tree_mappings),
       m_resources(resources),
-      m_single_socket_by_xsocket(inlined_tree.socket_count(), VTreeMFSocketMap_UNMAPPED),
+      m_single_socket_by_xsocket(inlined_tree.socket_count(), InlinedTreeMFSocketMap_UNMAPPED),
       m_builder(BLI::make_unique<MFNetworkBuilder>())
 {
 }
 
-MFBuilderFunctionNode &VTreeMFNetworkBuilder::add_function(const MultiFunction &function)
+MFBuilderFunctionNode &InlinedTreeMFNetworkBuilder::add_function(const MultiFunction &function)
 {
   return m_builder->add_function(function);
 }
 
-MFBuilderFunctionNode &VTreeMFNetworkBuilder::add_function(const MultiFunction &function,
-                                                           const XNode &xnode)
+MFBuilderFunctionNode &InlinedTreeMFNetworkBuilder::add_function(const MultiFunction &function,
+                                                                 const XNode &xnode)
 {
   MFBuilderFunctionNode &node = m_builder->add_function(function);
   this->map_data_sockets(xnode, node);
   return node;
 }
 
-MFBuilderDummyNode &VTreeMFNetworkBuilder::add_dummy(const XNode &xnode)
+MFBuilderDummyNode &InlinedTreeMFNetworkBuilder::add_dummy(const XNode &xnode)
 {
   Vector<MFDataType> input_types;
   for (const XInputSocket *xsocket : xnode.inputs()) {
@@ -52,7 +52,7 @@ MFBuilderDummyNode &VTreeMFNetworkBuilder::add_dummy(const XNode &xnode)
   return node;
 }
 
-void VTreeMFNetworkBuilder::map_data_sockets(const XNode &xnode, MFBuilderNode &node)
+void InlinedTreeMFNetworkBuilder::map_data_sockets(const XNode &xnode, MFBuilderNode &node)
 {
   uint data_inputs = 0;
   for (const XInputSocket *xsocket : xnode.inputs()) {
@@ -71,7 +71,7 @@ void VTreeMFNetworkBuilder::map_data_sockets(const XNode &xnode, MFBuilderNode &
   }
 }
 
-void VTreeMFNetworkBuilder::assert_xnode_is_mapped_correctly(const XNode &xnode) const
+void InlinedTreeMFNetworkBuilder::assert_xnode_is_mapped_correctly(const XNode &xnode) const
 {
   UNUSED_VARS_NDEBUG(xnode);
 #ifdef DEBUG
@@ -80,7 +80,7 @@ void VTreeMFNetworkBuilder::assert_xnode_is_mapped_correctly(const XNode &xnode)
 #endif
 }
 
-void VTreeMFNetworkBuilder::assert_data_sockets_are_mapped_correctly(
+void InlinedTreeMFNetworkBuilder::assert_data_sockets_are_mapped_correctly(
     ArrayRef<const XSocket *> xsockets) const
 {
   for (const XSocket *xsocket : xsockets) {
@@ -90,7 +90,7 @@ void VTreeMFNetworkBuilder::assert_data_sockets_are_mapped_correctly(
   }
 }
 
-void VTreeMFNetworkBuilder::assert_xsocket_is_mapped_correctly(const XSocket &xsocket) const
+void InlinedTreeMFNetworkBuilder::assert_xsocket_is_mapped_correctly(const XSocket &xsocket) const
 {
   BLI_assert(this->xsocket_is_mapped(xsocket));
   MFDataType xsocket_type = this->try_get_data_type(xsocket).value();
@@ -111,7 +111,7 @@ void VTreeMFNetworkBuilder::assert_xsocket_is_mapped_correctly(const XSocket &xs
   }
 }
 
-bool VTreeMFNetworkBuilder::has_data_sockets(const XNode &xnode) const
+bool InlinedTreeMFNetworkBuilder::has_data_sockets(const XNode &xnode) const
 {
   for (const XInputSocket *xsocket : xnode.inputs()) {
     if (this->is_data_socket(*xsocket)) {
@@ -126,8 +126,8 @@ bool VTreeMFNetworkBuilder::has_data_sockets(const XNode &xnode) const
   return false;
 }
 
-const CPPType &VTreeMFNetworkBuilder::cpp_type_from_property(const XNode &xnode,
-                                                             StringRefNull prop_name) const
+const CPPType &InlinedTreeMFNetworkBuilder::cpp_type_from_property(const XNode &xnode,
+                                                                   StringRefNull prop_name) const
 {
   char *type_name = RNA_string_get_alloc(xnode.rna(), prop_name.data(), nullptr, 0);
   const CPPType &type = this->cpp_type_by_name(type_name);
@@ -135,8 +135,8 @@ const CPPType &VTreeMFNetworkBuilder::cpp_type_from_property(const XNode &xnode,
   return type;
 }
 
-MFDataType VTreeMFNetworkBuilder::data_type_from_property(const XNode &xnode,
-                                                          StringRefNull prop_name) const
+MFDataType InlinedTreeMFNetworkBuilder::data_type_from_property(const XNode &xnode,
+                                                                StringRefNull prop_name) const
 {
   char *type_name = RNA_string_get_alloc(xnode.rna(), prop_name.data(), nullptr, 0);
   MFDataType type = m_inlined_tree_mappings.data_type_by_type_name.lookup(type_name);
@@ -192,19 +192,19 @@ const MultiFunction &VNodeMFNetworkBuilder::get_vectorized_function(
   }
 }
 
-std::unique_ptr<VTreeMFNetwork> VTreeMFNetworkBuilder::build()
+std::unique_ptr<InlinedTreeMFNetwork> InlinedTreeMFNetworkBuilder::build()
 {
   // m_builder->to_dot__clipboard();
 
   auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 
-  Array<uint> xsocket_by_socket(network->socket_ids().size(), VTreeMFSocketMap_UNMAPPED);
+  Array<uint> xsocket_by_socket(network->socket_ids().size(), InlinedTreeMFSocketMap_UNMAPPED);
   for (uint xsocket_id : m_single_socket_by_xsocket.index_iterator()) {
     switch (m_single_socket_by_xsocket[xsocket_id]) {
-      case VTreeMFSocketMap_UNMAPPED: {
+      case InlinedTreeMFSocketMap_UNMAPPED: {
         break;
       }
-      case VTreeMFSocketMap_MULTIMAPPED: {
+      case InlinedTreeMFSocketMap_MULTIMAPPED: {
         for (uint socket_id : m_multiple_inputs_by_xsocket.lookup(xsocket_id)) {
           xsocket_by_socket[socket_id] = xsocket_id;
         }
@@ -218,13 +218,13 @@ std::unique_ptr<VTreeMFNetwork> VTreeMFNetworkBuilder::build()
     }
   }
 
-  VTreeMFSocketMap socket_map(m_inlined_tree,
-                              *network,
-                              std::move(m_single_socket_by_xsocket),
-                              std::move(m_multiple_inputs_by_xsocket),
-                              std::move(xsocket_by_socket));
+  InlinedTreeMFSocketMap socket_map(m_inlined_tree,
+                                    *network,
+                                    std::move(m_single_socket_by_xsocket),
+                                    std::move(m_multiple_inputs_by_xsocket),
+                                    std::move(xsocket_by_socket));
 
-  return BLI::make_unique<VTreeMFNetwork>(
+  return BLI::make_unique<InlinedTreeMFNetwork>(
       m_inlined_tree, std::move(network), std::move(socket_map));
 }
 
