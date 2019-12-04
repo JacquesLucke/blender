@@ -248,18 +248,19 @@ void MF_FloatRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)
 MF_ObjectVertexPositions::MF_ObjectVertexPositions()
 {
   MFSignatureBuilder signature{"Object Vertex Positions"};
-  signature.single_input<Object *>("Object");
+  signature.single_input<ObjectIDHandle>("Object");
   signature.vector_output<float3>("Positions");
   this->set_signature(signature);
 }
 
-void MF_ObjectVertexPositions::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+void MF_ObjectVertexPositions::call(MFMask mask, MFParams params, MFContext context) const
 {
-  VirtualListRef<Object *> objects = params.readonly_single_input<Object *>(0, "Object");
+  VirtualListRef<ObjectIDHandle> objects = params.readonly_single_input<ObjectIDHandle>(0,
+                                                                                        "Object");
   auto positions = params.vector_output<float3>(1, "Positions");
 
   for (uint i : mask.indices()) {
-    Object *object = objects[i];
+    Object *object = context.id_handle_lookup().lookup(objects[i]);
     if (object == nullptr || object->type != OB_MESH) {
       continue;
     }
@@ -523,19 +524,20 @@ void MF_GetImageColorOnSurface::call(MFMask mask, MFParams params, MFContext con
 MF_ObjectWorldLocation::MF_ObjectWorldLocation()
 {
   MFSignatureBuilder signature("Object Location");
-  signature.single_input<Object *>("Object");
+  signature.single_input<ObjectIDHandle>("Object");
   signature.single_output<float3>("Location");
   this->set_signature(signature);
 }
 
-void MF_ObjectWorldLocation::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+void MF_ObjectWorldLocation::call(MFMask mask, MFParams params, MFContext context) const
 {
-  auto objects = params.readonly_single_input<Object *>(0, "Object");
+  auto objects = params.readonly_single_input<ObjectIDHandle>(0, "Object");
   auto locations = params.uninitialized_single_output<float3>(1, "Location");
 
   for (uint i : mask.indices()) {
-    if (objects[i] != nullptr) {
-      locations[i] = objects[i]->obmat[3];
+    Object *object = context.id_handle_lookup().lookup(objects[i]);
+    if (object != nullptr) {
+      locations[i] = object->obmat[3];
     }
     else {
       locations[i] = float3(0, 0, 0);
@@ -893,7 +895,7 @@ void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context)
 MF_ClosestLocationOnObject::MF_ClosestLocationOnObject()
 {
   MFSignatureBuilder signature("Closest Point on Object");
-  signature.single_input<Object *>("Object");
+  signature.single_input<ObjectIDHandle>("Object");
   signature.single_input<float3>("Position");
   signature.single_output<SurfaceLocation>("Closest Location");
   this->set_signature(signature);
@@ -929,7 +931,8 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
 {
   auto context_data = context.element_contexts().find_first<ExternalDataCacheContext>();
 
-  VirtualListRef<Object *> objects = params.readonly_single_input<Object *>(0, "Object");
+  VirtualListRef<ObjectIDHandle> objects = params.readonly_single_input<ObjectIDHandle>(0,
+                                                                                        "Object");
   VirtualListRef<float3> positions = params.readonly_single_input<float3>(1, "Position");
   MutableArrayRef<SurfaceLocation> r_surface_locations =
       params.uninitialized_single_output<SurfaceLocation>(2, "Closest Location");
@@ -940,7 +943,7 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
   }
 
   if (mask.indices().size() > 0 && objects.all_equal(mask.indices())) {
-    Object *object = objects[mask.indices()[0]];
+    Object *object = context.id_handle_lookup().lookup(objects[mask.indices()[0]]);
     if (object == nullptr) {
       r_surface_locations.fill_indices(mask.indices(), {});
       return;
@@ -972,7 +975,7 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
   }
   else {
     for (uint i : mask.indices()) {
-      Object *object = objects[i];
+      Object *object = context.id_handle_lookup().lookup(objects[i]);
       if (object == nullptr) {
         r_surface_locations[i] = {};
         continue;

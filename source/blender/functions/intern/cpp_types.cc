@@ -1,8 +1,6 @@
 #include "FN_cpp_type.h"
 #include "cpp_types.h"
 
-#include "DNA_object_types.h"
-
 #include "BLI_math_cxx.h"
 
 #include "BKE_surface_location.h"
@@ -96,7 +94,8 @@ MAKE_CPP_TYPE(float, float)
 MAKE_CPP_TYPE(uint32_t, uint32_t)
 MAKE_CPP_TYPE(uint8_t, uint8_t)
 MAKE_CPP_TYPE(bool, bool)
-MAKE_CPP_TYPE(ObjectPtr, Object *)
+MAKE_CPP_TYPE(ObjectIDHandle, BKE::ObjectIDHandle)
+MAKE_CPP_TYPE(ImageIDHandle, BKE::ImageIDHandle)
 MAKE_CPP_TYPE(int32, int32_t)
 MAKE_CPP_TYPE(rgba_f, BLI::rgba_f)
 MAKE_CPP_TYPE(float3, BLI::float3)

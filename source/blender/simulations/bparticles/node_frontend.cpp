@@ -24,6 +24,8 @@
 
 namespace BParticles {
 
+using BKE::IDHandleLookup;
+using BKE::ObjectIDHandle;
 using BKE::XGroupInput;
 using BKE::XInputSocket;
 using BKE::XNode;
@@ -114,6 +116,11 @@ class VTreeData {
   const VTreeMFNetwork &inlined_tree_data_graph()
   {
     return m_inlined_tree_data_graph;
+  }
+
+  IDHandleLookup &id_handle_lookup()
+  {
+    return m_id_handle_lookup;
   }
 
   template<typename T, typename... Args> T &construct(const char *name, Args &&... args)
@@ -550,7 +557,8 @@ static void PARSE_mesh_emitter(InfluencesCollector &collector,
   Action &on_birth_action = inlined_tree_data.build_action_list(
       collector, xnode, "Execute on Birth");
 
-  Object *object = inputs->relocate_out<Object *>(0, "Object");
+  ObjectIDHandle object_handle = inputs->relocate_out<ObjectIDHandle>(0, "Object");
+  Object *object = inlined_tree_data.id_handle_lookup().lookup(object_handle);
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
@@ -674,7 +682,8 @@ static void PARSE_mesh_collision(InfluencesCollector &collector,
     return;
   }
 
-  Object *object = inputs->relocate_out<Object *>(0, "Object");
+  ObjectIDHandle object_handle = inputs->relocate_out<ObjectIDHandle>(0, "Object");
+  Object *object = inlined_tree_data.id_handle_lookup().lookup(object_handle);
   if (object == nullptr || object->type != OB_MESH) {
     return;
   }
