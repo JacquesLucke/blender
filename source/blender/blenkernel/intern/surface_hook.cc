@@ -1,4 +1,4 @@
-#include "BKE_surface_location.h"
+#include "BKE_surface_hook.h"
 
 #include "BLI_hash.h"
 

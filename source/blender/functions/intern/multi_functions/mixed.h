@@ -233,9 +233,9 @@ class MF_ParticleIsInGroup final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
-class MF_ClosestLocationOnObject final : public MultiFunction {
+class MF_ClosestSurfaceHookOnObject final : public MultiFunction {
  public:
-  MF_ClosestLocationOnObject();
+  MF_ClosestSurfaceHookOnObject();
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 

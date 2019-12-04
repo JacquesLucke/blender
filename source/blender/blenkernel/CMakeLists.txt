@@ -220,7 +220,7 @@ set(SRC
   intern/subdiv_stats.c
   intern/subdiv_topology.c
   intern/subsurf_ccg.c
-  intern/surface_location.cc
+  intern/surface_hook.cc
   intern/text.c
   intern/text_suggestions.c
   intern/texture.c
@@ -360,7 +360,7 @@ set(SRC
   BKE_subdiv_mesh.h
   BKE_subdiv_topology.h
   BKE_subsurf.h
-  BKE_surface_location.h
+  BKE_surface_hook.h
   BKE_text.h
   BKE_text_suggestions.h
   BKE_texture.h

@@ -19,14 +19,14 @@
 #include "IMB_imbuf_types.h"
 
 #include "BKE_customdata.h"
-#include "BKE_surface_location.h"
+#include "BKE_surface_hook.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_deform.h"
 
 namespace FN {
 
 using BKE::ObjectIDHandle;
-using BKE::SurfaceLocation;
+using BKE::SurfaceHook;
 using BLI::float2;
 using BLI::float3;
 using BLI::float4x4;
@@ -279,20 +279,20 @@ void MF_ObjectVertexPositions::call(MFMask mask, MFParams params, MFContext cont
 MF_GetPositionOnSurface::MF_GetPositionOnSurface()
 {
   MFSignatureBuilder signature("Get Position on Surface");
-  signature.single_input<SurfaceLocation>("Surface Location");
+  signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_output<float3>("Position");
   this->set_signature(signature);
 }
 
 void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext context) const
 {
-  VirtualListRef<SurfaceLocation> locations = params.readonly_single_input<SurfaceLocation>(
-      0, "Surface Location");
+  VirtualListRef<SurfaceHook> locations = params.readonly_single_input<SurfaceHook>(
+      0, "Surface Hook");
   MutableArrayRef<float3> r_positions = params.uninitialized_single_output<float3>(1, "Position");
 
   for (uint i : mask.indices()) {
-    SurfaceLocation location = locations[i];
-    if (location.type() != BKE::SurfaceLocationType::MeshObject) {
+    SurfaceHook location = locations[i];
+    if (location.type() != BKE::SurfaceHookType::MeshObject) {
       r_positions[i] = {0, 0, 0};
       continue;
     }
@@ -329,7 +329,7 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
 MF_GetNormalOnSurface::MF_GetNormalOnSurface()
 {
   MFSignatureBuilder signature("Get Normal on Surface");
-  signature.single_input<SurfaceLocation>("Surface Location");
+  signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_output<float3>("Normal");
   this->set_signature(signature);
 }
@@ -342,13 +342,13 @@ static float3 short_normal_to_float3(const short normal[3])
 
 void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context) const
 {
-  VirtualListRef<SurfaceLocation> locations = params.readonly_single_input<SurfaceLocation>(
-      0, "Surface Location");
+  VirtualListRef<SurfaceHook> locations = params.readonly_single_input<SurfaceHook>(
+      0, "Surface Hook");
   MutableArrayRef<float3> r_normals = params.uninitialized_single_output<float3>(1, "Normal");
 
   for (uint i : mask.indices()) {
-    SurfaceLocation location = locations[i];
-    if (location.type() != BKE::SurfaceLocationType::MeshObject) {
+    SurfaceHook location = locations[i];
+    if (location.type() != BKE::SurfaceHookType::MeshObject) {
       r_normals[i] = {0, 0, 1};
       continue;
     }
@@ -386,20 +386,20 @@ MF_GetWeightOnSurface::MF_GetWeightOnSurface(std::string vertex_group_name)
     : m_vertex_group_name(std::move(vertex_group_name))
 {
   MFSignatureBuilder signature("Get Weight on Surface");
-  signature.single_input<SurfaceLocation>("Surface Location");
+  signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_output<float>("Weight");
   this->set_signature(signature);
 }
 
 void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context) const
 {
-  VirtualListRef<SurfaceLocation> locations = params.readonly_single_input<SurfaceLocation>(
-      0, "Surface Location");
+  VirtualListRef<SurfaceHook> locations = params.readonly_single_input<SurfaceHook>(
+      0, "Surface Hook");
   MutableArrayRef<float> r_weights = params.uninitialized_single_output<float>(1, "Weight");
 
   for (uint i : mask.indices()) {
-    SurfaceLocation location = locations[i];
-    if (location.type() != BKE::SurfaceLocationType::MeshObject) {
+    SurfaceHook location = locations[i];
+    if (location.type() != BKE::SurfaceHookType::MeshObject) {
       r_weights[i] = 0.0f;
       continue;
     }
@@ -442,7 +442,7 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
 MF_GetImageColorOnSurface::MF_GetImageColorOnSurface(Image *image) : m_image(image)
 {
   MFSignatureBuilder signature("Get Image Color on Surface");
-  signature.single_input<SurfaceLocation>("Surface Location");
+  signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_output<rgba_f>("Color");
   this->set_signature(signature);
 }
@@ -452,15 +452,15 @@ static void get_colors_on_surface(MFMask mask,
                                   MFContext context,
                                   const ImBuf &ibuf)
 {
-  VirtualListRef<SurfaceLocation> locations = params.readonly_single_input<SurfaceLocation>(
-      0, "Surface Location");
+  VirtualListRef<SurfaceHook> locations = params.readonly_single_input<SurfaceHook>(
+      0, "Surface Hook");
   MutableArrayRef<rgba_f> r_colors = params.uninitialized_single_output<rgba_f>(1, "Color");
 
   rgba_f default_color = {0.0f, 0.0f, 0.0f, 1.0f};
 
   for (uint i : mask.indices()) {
-    SurfaceLocation location = locations[i];
-    if (location.type() != BKE::SurfaceLocationType::MeshObject) {
+    SurfaceHook location = locations[i];
+    if (location.type() != BKE::SurfaceHookType::MeshObject) {
       r_colors[i] = default_color;
       continue;
     }
@@ -892,12 +892,12 @@ void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context)
   }
 }
 
-MF_ClosestLocationOnObject::MF_ClosestLocationOnObject()
+MF_ClosestSurfaceHookOnObject::MF_ClosestSurfaceHookOnObject()
 {
   MFSignatureBuilder signature("Closest Point on Object");
   signature.single_input<ObjectIDHandle>("Object");
   signature.single_input<float3>("Position");
-  signature.single_output<SurfaceLocation>("Closest Location");
+  signature.single_output<SurfaceHook>("Closest Location");
   this->set_signature(signature);
 }
 
@@ -927,31 +927,31 @@ static float3 get_barycentric_coords(Mesh *mesh,
   return weights;
 }
 
-void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext context) const
+void MF_ClosestSurfaceHookOnObject::call(MFMask mask, MFParams params, MFContext context) const
 {
   auto context_data = context.element_contexts().find_first<ExternalDataCacheContext>();
 
   VirtualListRef<ObjectIDHandle> objects = params.readonly_single_input<ObjectIDHandle>(0,
                                                                                         "Object");
   VirtualListRef<float3> positions = params.readonly_single_input<float3>(1, "Position");
-  MutableArrayRef<SurfaceLocation> r_surface_locations =
-      params.uninitialized_single_output<SurfaceLocation>(2, "Closest Location");
+  MutableArrayRef<SurfaceHook> r_surface_hooks = params.uninitialized_single_output<SurfaceHook>(
+      2, "Closest Location");
 
   if (!context_data.has_value()) {
-    r_surface_locations.fill_indices(mask.indices(), {});
+    r_surface_hooks.fill_indices(mask.indices(), {});
     return;
   }
 
   if (mask.indices().size() > 0 && objects.all_equal(mask.indices())) {
     Object *object = context.id_handle_lookup().lookup(objects[mask.indices()[0]]);
     if (object == nullptr) {
-      r_surface_locations.fill_indices(mask.indices(), {});
+      r_surface_hooks.fill_indices(mask.indices(), {});
       return;
     }
 
     BVHTreeFromMesh *bvhtree = context_data.value().data->get_bvh_tree(object);
     if (bvhtree == nullptr) {
-      r_surface_locations.fill_indices(mask.indices(), {});
+      r_surface_hooks.fill_indices(mask.indices(), {});
       return;
     }
 
@@ -965,25 +965,25 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
       float3 local_position = global_to_local.transform_position(positions[i]);
       BVHTreeNearest nearest = get_nearest_point(bvhtree, local_position);
       if (nearest.index == -1) {
-        r_surface_locations[i] = {};
+        r_surface_hooks[i] = {};
         continue;
       }
 
       float3 bary_coords = get_barycentric_coords(mesh, triangles, nearest.co, nearest.index);
-      r_surface_locations[i] = SurfaceLocation(object_handle, nearest.index, bary_coords);
+      r_surface_hooks[i] = SurfaceHook(object_handle, nearest.index, bary_coords);
     }
   }
   else {
     for (uint i : mask.indices()) {
       Object *object = context.id_handle_lookup().lookup(objects[i]);
       if (object == nullptr) {
-        r_surface_locations[i] = {};
+        r_surface_hooks[i] = {};
         continue;
       }
 
       BVHTreeFromMesh *bvhtree = context_data.value().data->get_bvh_tree(object);
       if (bvhtree == nullptr) {
-        r_surface_locations[i] = {};
+        r_surface_hooks[i] = {};
         continue;
       }
 
@@ -995,12 +995,12 @@ void MF_ClosestLocationOnObject::call(MFMask mask, MFParams params, MFContext co
 
       BVHTreeNearest nearest = get_nearest_point(bvhtree, local_position);
       if (nearest.index == -1) {
-        r_surface_locations[i] = {};
+        r_surface_hooks[i] = {};
         continue;
       }
 
       float3 bary_coords = get_barycentric_coords(mesh, triangles, nearest.co, nearest.index);
-      r_surface_locations[i] = SurfaceLocation(object, nearest.index, bary_coords);
+      r_surface_hooks[i] = SurfaceHook(object, nearest.index, bary_coords);
     }
   }
 }

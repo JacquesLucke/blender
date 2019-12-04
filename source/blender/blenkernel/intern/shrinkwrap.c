@@ -721,7 +721,7 @@ static void shrinkwrap_calc_normal_projection(ShrinkwrapCalcData *calc)
 /*
  * Shrinkwrap Target Surface Project mode
  *
- * It uses Newton's method to find a surface location with its
+ * It uses Newton's method to find a Surface Hook with its
  * smooth normal pointing at the original point.
  *
  * The equation system on barycentric weights and normal multiplier:

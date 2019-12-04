@@ -6,7 +6,7 @@
 
 #include "BLI_math_cxx.h"
 
-#include "BKE_surface_location.h"
+#include "BKE_surface_hook.h"
 
 namespace FN {
 
@@ -358,7 +358,7 @@ static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
   }
   {
     const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
-        "Emit Location", CPP_TYPE<BKE::SurfaceLocation>());
+        "Emit Hook", CPP_TYPE<BKE::SurfaceHook>());
     MFBuilderFunctionNode &node = network_builder.add_function(fn);
     network_builder.map_sockets(xnode.output(4), node.output(0));
   }
@@ -366,7 +366,7 @@ static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_closest_location_on_object(VNodeMFNetworkBuilder &builder)
 {
-  builder.set_constructed_matching_fn<MF_ClosestLocationOnObject>();
+  builder.set_constructed_matching_fn<MF_ClosestSurfaceHookOnObject>();
 }
 
 static void INSERT_clamp_float(VNodeMFNetworkBuilder &builder)

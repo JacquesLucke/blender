@@ -6,7 +6,7 @@
 #include "BKE_curve.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_deform.h"
-#include "BKE_surface_location.h"
+#include "BKE_surface_hook.h"
 
 #include "BLI_math_geom.h"
 #include "BLI_vector_adaptor.h"
@@ -16,7 +16,7 @@
 
 namespace BParticles {
 
-using BKE::SurfaceLocation;
+using BKE::SurfaceHook;
 using BLI::VectorAdaptor;
 
 static float random_float()
@@ -304,10 +304,10 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
   TemporaryArray<float> birth_times(particles_to_emit);
   interface.time_span().interpolate(birth_moments, birth_times);
 
-  TemporaryArray<SurfaceLocation> emit_locations(particles_to_emit);
+  TemporaryArray<SurfaceHook> emit_hooks(particles_to_emit);
   BKE::ObjectIDHandle object_handle(m_object);
   for (uint i = 0; i < particles_to_emit; i++) {
-    emit_locations[i] = SurfaceLocation(object_handle, triangles_to_sample[i], bary_coords[i]);
+    emit_hooks[i] = SurfaceHook(object_handle, triangles_to_sample[i], bary_coords[i]);
   }
 
   for (StringRef system_name : m_systems_to_emit) {
@@ -315,7 +315,7 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
                                                                 positions_at_birth.size());
     new_particles.set<float3>("Position", positions_at_birth);
     new_particles.set<float>("Birth Time", birth_times);
-    new_particles.set<SurfaceLocation>("Emit Location", emit_locations);
+    new_particles.set<SurfaceHook>("Emit Hook", emit_hooks);
 
     m_on_birth_action.execute_from_emitter<MeshSurfaceContext>(
         new_particles, interface, [&](IndexRange range, void *dst) {

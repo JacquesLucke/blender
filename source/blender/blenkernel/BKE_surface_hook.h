@@ -1,5 +1,5 @@
-#ifndef __BKE_SURFACE_LOCATION_H__
-#define __BKE_SURFACE_LOCATION_H__
+#ifndef __BKE_SURFACE_HOOK_H__
+#define __BKE_SURFACE_HOOK_H__
 
 #include "BLI_utildefines.h"
 #include "BLI_math_cxx.h"
@@ -10,7 +10,7 @@ namespace BKE {
 
 using BLI::float3;
 
-namespace SurfaceLocationType {
+namespace SurfaceHookType {
 enum Enum {
   None,
   MeshObject,
@@ -20,9 +20,9 @@ enum Enum {
 /**
  * References a point on a surface. If the surface moves, the point moves with it.
  */
-class SurfaceLocation {
+class SurfaceHook {
  private:
-  SurfaceLocationType::Enum m_type;
+  SurfaceHookType::Enum m_type;
 
   /**
    * Used to identify the object if m_type is MeshObject.
@@ -36,47 +36,47 @@ class SurfaceLocation {
   float3 m_bary_coords;
 
  public:
-  SurfaceLocation() : m_type(SurfaceLocationType::None)
+  SurfaceHook() : m_type(SurfaceHookType::None)
   {
   }
 
-  SurfaceLocation(ObjectIDHandle object_handle, uint32_t triangle_index, float3 bary_coords)
-      : m_type(SurfaceLocationType::MeshObject),
+  SurfaceHook(ObjectIDHandle object_handle, uint32_t triangle_index, float3 bary_coords)
+      : m_type(SurfaceHookType::MeshObject),
         m_object_handle(object_handle),
         m_triangle_index(triangle_index),
         m_bary_coords(bary_coords)
   {
   }
 
-  SurfaceLocationType::Enum type() const
+  SurfaceHookType::Enum type() const
   {
     return m_type;
   }
 
   bool is_valid() const
   {
-    return m_type != SurfaceLocationType::None;
+    return m_type != SurfaceHookType::None;
   }
 
   ObjectIDHandle object_handle() const
   {
-    BLI_assert(m_type == SurfaceLocationType::MeshObject);
+    BLI_assert(m_type == SurfaceHookType::MeshObject);
     return m_object_handle;
   }
 
   uint32_t triangle_index() const
   {
-    BLI_assert(m_type == SurfaceLocationType::MeshObject);
+    BLI_assert(m_type == SurfaceHookType::MeshObject);
     return m_triangle_index;
   }
 
   float3 bary_coords() const
   {
-    BLI_assert(m_type == SurfaceLocationType::MeshObject);
+    BLI_assert(m_type == SurfaceHookType::MeshObject);
     return m_bary_coords;
   }
 };
 
 }  // namespace BKE
 
-#endif /* __BKE_SURFACE_LOCATION_H__ */
+#endif /* __BKE_SURFACE_HOOK_H__ */

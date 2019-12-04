@@ -13,4 +13,4 @@ class ParticleInfoNode(bpy.types.Node, SimulationNode):
         builder.fixed_output("position", "Position", "Vector")
         builder.fixed_output("velocity", "Velocity", "Vector")
         builder.fixed_output("birth_time", "Birth Time", "Float")
-        builder.fixed_output("emit_location", "Emit Location", "Surface Location")
+        builder.fixed_output("emit_location", "Emit Hook", "Surface Hook")

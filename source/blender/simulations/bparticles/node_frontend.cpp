@@ -1,6 +1,6 @@
 #include "BKE_inlined_node_tree.h"
 #include "BKE_deform.h"
-#include "BKE_surface_location.h"
+#include "BKE_surface_hook.h"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -800,7 +800,7 @@ static void collect_influences(VTreeData &inlined_tree_data,
     attributes.add<float3>("Velocity", float3(0, 0, 0));
     attributes.add<float>("Size", 0.05f);
     attributes.add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
-    attributes.add<BKE::SurfaceLocation>("Emit Location", {});
+    attributes.add<BKE::SurfaceHook>("Emit Hook", {});
 
     ArrayRef<Force *> forces = collector.m_forces.lookup_default(system_name);
     EulerIntegrator *integrator = new EulerIntegrator(forces);

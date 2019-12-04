@@ -3,7 +3,7 @@
 
 #include "BLI_math_cxx.h"
 
-#include "BKE_surface_location.h"
+#include "BKE_surface_hook.h"
 
 #include "FN_multi_functions.h"
 
@@ -63,9 +63,9 @@ static void INSERT_text_socket(VSocketMFNetworkBuilder &builder)
   builder.set_constant_value(std::move(text));
 }
 
-static void INSERT_surface_location_socket(VSocketMFNetworkBuilder &builder)
+static void INSERT_surface_hook_socket(VSocketMFNetworkBuilder &builder)
 {
-  builder.set_constant_value(BKE::SurfaceLocation());
+  builder.set_constant_value(BKE::SurfaceHook());
 }
 
 template<typename T> static void INSERT_empty_list_socket(VSocketMFNetworkBuilder &builder)
@@ -167,8 +167,8 @@ void add_inlined_tree_socket_mapping_info(VTreeMultiFunctionMappings &mappings)
   add_basic_type<std::string>(mappings, "Text", INSERT_text_socket);
   add_basic_type<bool>(mappings, "Boolean", INSERT_bool_socket);
   add_basic_type<BLI::rgba_f>(mappings, "Color", INSERT_color_socket);
-  add_basic_type<BKE::SurfaceLocation>(
-      mappings, "Surface Location", "SurfaceLocation", INSERT_surface_location_socket);
+  add_basic_type<BKE::SurfaceHook>(
+      mappings, "Surface Hook", "SurfaceHook", INSERT_surface_hook_socket);
 
   add_bidirectional_implicit_conversion<float, int32_t>(mappings);
   add_bidirectional_implicit_conversion<float, bool>(mappings);

@@ -10,6 +10,6 @@ type_infos.insert_data_type(s.BooleanSocket, s.BooleanListSocket)
 type_infos.insert_data_type(s.ObjectSocket, s.ObjectListSocket)
 type_infos.insert_data_type(s.ColorSocket, s.ColorListSocket)
 type_infos.insert_data_type(s.TextSocket, s.TextListSocket)
-type_infos.insert_data_type(s.SurfaceLocationSocket, s.SurfaceLocationListSocket)
+type_infos.insert_data_type(s.SurfaceHookSocket, s.SurfaceHookListSocket)
 
 type_infos.insert_conversion_group(["Boolean", "Integer", "Float"])

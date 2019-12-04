@@ -27,7 +27,7 @@ class ClosestLocationOnObjectNode(bpy.types.Node, FunctionNode):
     def declaration(self, builder):
         builder.fixed_input("object", "Object", "Object")
         builder.fixed_input("position", "Position", "Vector")
-        builder.fixed_output("closest_point", "Closest Location", "Surface Location")
+        builder.fixed_output("closest_hook", "Closest Hook", "Surface Hook")
 
 
 class GetPositionOnSurfaceNode(bpy.types.Node, FunctionNode):
@@ -35,7 +35,7 @@ class GetPositionOnSurfaceNode(bpy.types.Node, FunctionNode):
     bl_label = "Get Position on Surface"
 
     def declaration(self, builder):
-        builder.fixed_input("location", "Location", "Surface Location")
+        builder.fixed_input("surface_hook", "Surface Hook", "Surface Hook")
         builder.fixed_output("position", "Position", "Vector")
 
 
@@ -44,7 +44,7 @@ class GetNormalOnSurfaceNode(bpy.types.Node, FunctionNode):
     bl_label = "Get Normal on Surface"
 
     def declaration(self, builder):
-        builder.fixed_input("location", "Location", "Surface Location")
+        builder.fixed_input("surface_hook", "Surface Hook", "Surface Hook")
         builder.fixed_output("normal", "Normal", "Vector")
 
 
@@ -58,7 +58,7 @@ class GetWeightOnSurfaceNode(bpy.types.Node, FunctionNode):
     )
 
     def declaration(self, builder):
-        builder.fixed_input("location", "Location", "Surface Location")
+        builder.fixed_input("surface_hook", "Surface Hook", "Surface Hook")
         builder.fixed_output("weight", "Weight", "Float")
     
     def draw(self, layout):
@@ -75,7 +75,7 @@ class GetImageColorOnSurfaceNode(bpy.types.Node, FunctionNode):
     )
 
     def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("location", "Location", "Surface Location")
+        builder.fixed_input("surface_hook", "Surface Hook", "Surface Hook")
         builder.fixed_output("color", "Color", "Color")
 
     def draw(self, layout):
