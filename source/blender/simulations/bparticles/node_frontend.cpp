@@ -14,6 +14,7 @@
 #include "FN_generic_tuple.h"
 #include "FN_inlined_tree_multi_function_network_generation.h"
 #include "FN_multi_function_common_contexts.h"
+#include "FN_multi_function_dependencies.h"
 
 #include "node_frontend.hpp"
 #include "integrator.hpp"
@@ -63,29 +64,6 @@ class InfluencesCollector {
   StringMap<AttributesInfoBuilder *> &m_attributes;
 };
 
-static Set<Object *> get_used_objects(const InlinedNodeTree &inlined_tree)
-{
-  Set<Object *> objects;
-  for (const XInputSocket *xsocket : inlined_tree.all_input_sockets()) {
-    if (xsocket->idname() == "fn_ObjectSocket") {
-      Object *object = (Object *)RNA_pointer_get(xsocket->rna(), "value").data;
-      if (object != nullptr) {
-        objects.add(object);
-      }
-    }
-  }
-  for (const XGroupInput *group_input : inlined_tree.all_group_inputs()) {
-    if (group_input->vsocket().idname() == "fn_ObjectSocket") {
-      Object *object = (Object *)RNA_pointer_get(group_input->vsocket().rna(), "value").data;
-      if (object != nullptr) {
-        objects.add(object);
-      }
-    }
-  }
-
-  return objects;
-}
-
 class VTreeData {
  private:
   /* Keep this at the beginning, so that it is destructed last. */
@@ -97,10 +75,7 @@ class VTreeData {
  public:
   VTreeData(VTreeMFNetwork &inlined_tree_data) : m_inlined_tree_data_graph(inlined_tree_data)
   {
-    Set<Object *> objects = get_used_objects(inlined_tree_data.inlined_tree());
-    for (Object *ob : objects) {
-      m_id_handle_lookup.add(ob->id);
-    }
+    FN::add_objects_used_by_inputs(m_id_handle_lookup, inlined_tree_data.inlined_tree());
   }
 
   const InlinedNodeTree &inlined_tree()

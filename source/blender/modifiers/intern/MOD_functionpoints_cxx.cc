@@ -10,6 +10,7 @@
 #include "FN_inlined_tree_multi_function_network_generation.h"
 #include "FN_multi_functions.h"
 #include "FN_multi_function_common_contexts.h"
+#include "FN_multi_function_dependencies.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -56,7 +57,10 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   FN::SceneTimeContext time_context;
   time_context.time = DEG_get_ctime(ctx->depsgraph);
 
-  FN::MFContextBuilder context_builder;
+  BKE::IDHandleLookup id_handle_lookup;
+  FN::add_objects_used_by_inputs(id_handle_lookup, inlined_tree);
+
+  FN::MFContextBuilder context_builder(&id_handle_lookup);
   context_builder.add_element_context(time_context);
   function->call({0}, params_builder, context_builder);
 

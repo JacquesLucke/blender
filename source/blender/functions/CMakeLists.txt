@@ -53,6 +53,7 @@ set(SRC
   FN_multi_function_common_contexts.h
   FN_multi_function_context.h
   FN_multi_function_data_type.h
+  FN_multi_function_dependencies.h
   FN_multi_function_mask.h
   FN_multi_function_network.h
   FN_multi_function_param_type.h

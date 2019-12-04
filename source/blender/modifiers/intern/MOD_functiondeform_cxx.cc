@@ -3,6 +3,7 @@
 #include "FN_inlined_tree_multi_function_network_generation.h"
 #include "FN_multi_functions.h"
 #include "FN_multi_function_common_contexts.h"
+#include "FN_multi_function_dependencies.h"
 
 #include "BLI_math_cxx.h"
 
@@ -65,7 +66,10 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   FN::VertexPositionArray vertex_positions_context;
   vertex_positions_context.positions = ArrayRef<float3>((float3 *)vertexCos, numVerts);
 
-  MFContextBuilder context_builder;
+  BKE::IDHandleLookup id_handle_lookup;
+  FN::add_objects_used_by_inputs(id_handle_lookup, inlined_tree);
+
+  MFContextBuilder context_builder(&id_handle_lookup);
   context_builder.add_element_context(time_context);
   context_builder.add_element_context(
       vertex_positions_context,
