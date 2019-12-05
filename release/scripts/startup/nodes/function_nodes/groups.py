@@ -223,6 +223,10 @@ class ManageGroupPieMenu(bpy.types.Menu, PieMenuHelper):
 
     def draw_left(self, layout):
         node = bpy.context.active_node
+        if node is None:
+            self.empty(layout)
+            return
+
         possible_inputs = [(i, socket) for i, socket in enumerate(node.inputs) 
                                        if socket_can_become_group_input(socket)]
 
@@ -233,6 +237,23 @@ class ManageGroupPieMenu(bpy.types.Menu, PieMenuHelper):
             props.input_index = possible_inputs[0][0]
         else:
             layout.operator("fn.create_group_input_for_socket_invoker", text="New Group Input")
+
+    def draw_right(self, layout):
+        node = bpy.context.active_node
+        if node is None:
+            self.empty(layout)
+            return
+
+        possible_outputs = [(i, socket) for i, socket in enumerate(node.outputs)
+                                        if socket_can_become_group_output(socket)]
+
+        if len(possible_outputs) == 0:
+            self.empty(layout, "No outputs.")
+        elif len(possible_outputs) == 1:
+            props = layout.operator("fn.create_group_output_for_socket", text="New Group Output")
+            props.output_index = possible_outputs[0][0]
+        else:
+            layout.operator("fn.create_group_output_for_socket_invoker", text="New Group Output")
 
 
 class CreateGroupInputForSocketInvoker(bpy.types.Operator):
@@ -258,6 +279,29 @@ class CreateGroupInputForSocketInvoker(bpy.types.Operator):
                 props.input_index = i
 
 
+class CreateGroupOutputForSocketInvoker(bpy.types.Operator):
+    bl_idname = "fn.create_group_output_for_socket_invoker"
+    bl_label = "Create Group Output for Socket Invoker"
+
+    def invoke(self, context, event):
+        context.window_manager.popup_menu(self.draw_menu)
+        return {"CANCELLED"}
+
+    @staticmethod
+    def draw_menu(menu, context):
+        node = bpy.context.active_node
+        if node is None:
+            return
+
+        layout = menu.layout.column()
+        layout.operator_context = "INVOKE_DEFAULT"
+        
+        for i, socket in enumerate(node.outputs):
+            if socket_can_become_group_output(socket):
+                props = layout.operator("fn.create_group_output_for_socket", text=socket.name)
+                props.output_index = i
+
+
 class CreateGroupInputForSocket(bpy.types.Operator):
     bl_idname = "fn.create_group_input_for_socket"
     bl_label = "Create Group Input for Socket"
@@ -272,6 +316,7 @@ class CreateGroupInputForSocket(bpy.types.Operator):
         node.select = False
 
         with skip_syncing():
+            # TODO: handle non data sockets
             new_node = tree.nodes.new(type="fn_GroupInputNode")
             new_node.sort_index = 1000
             new_node.input_name = socket.name
@@ -292,9 +337,45 @@ class CreateGroupInputForSocket(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CreateGroupOutputForSocket(bpy.types.Operator):
+    bl_idname = "fn.create_group_output_for_socket"
+    bl_label = "Create Group Output for Socket"
+    
+    output_index: IntProperty()
+
+    def invoke(self, context, event):
+        tree = context.space_data.node_tree
+        node = context.active_node
+        socket = node.outputs[self.output_index]
+
+        node.select = False
+
+        with skip_syncing():
+            # TODO: handle non data sockets
+            new_node = tree.nodes.new(type="fn_GroupOutputNode")
+            new_node.sort_index = 1000
+            new_node.output_name = socket.name
+            new_node.interface_type = "DATA"
+            new_node.data_type = socket.data_type
+            new_node.rebuild()
+
+            new_node.select = True
+            new_node.parent = node.parent
+            new_node.location = node.location
+            new_node.location.x += 200
+
+            tree.new_link(new_node.inputs[0], socket)
+
+        tree.sync()
+        bpy.ops.node.translate_attach("INVOKE_DEFAULT")
+        return {"FINISHED"}
+
+
 def socket_can_become_group_input(socket):
     return socket.bl_idname != "fn_OperatorSocket" and not socket.is_linked
 
+def socket_can_become_group_output(socket):
+    return socket.bl_idname != "fn_OperatorSocket"
 
 keymap = None
 
