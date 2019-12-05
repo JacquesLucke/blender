@@ -119,6 +119,18 @@ class BaseNode:
     def draw_advanced(self, layout):
         pass
 
+    def draw_socket(self, layout, socket, text, decl, index):
+        decl.draw_socket(layout, socket, index)
+
+    def draw_label(self):
+        if self.hide:
+            return self.draw_closed_label()
+        else:
+            return self.bl_label
+
+    def draw_closed_label(self):
+        return self.bl_label
+
     def iter_directly_used_trees(self):
         return
         yield
@@ -211,7 +223,7 @@ class BaseSocket:
 
     def draw(self, context, layout, node, text):
         decl, index = self.get_decl_with_index(node)
-        decl.draw_socket(layout, self, index)
+        node.draw_socket(layout, self, text, decl, index)
 
     def draw_self(self, layout, node, text):
         layout.label(text=text)

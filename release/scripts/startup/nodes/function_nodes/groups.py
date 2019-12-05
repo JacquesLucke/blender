@@ -23,6 +23,11 @@ class GroupInputNode(bpy.types.Node, BaseNode):
 
     sort_index: IntProperty()
 
+    display_settings: BoolProperty(
+        name="Display Settings",
+        default=False,
+    )
+
     interface_type: EnumProperty(
         items=interface_type_items,
         default="DATA",
@@ -35,8 +40,6 @@ class GroupInputNode(bpy.types.Node, BaseNode):
     )
 
     def declaration(self, builder: NodeBuilder):
-        builder.background_color((0.8, 0.8, 0.8))
-
         if self.interface_type == "DATA":
             builder.fixed_output("value", "Value", self.data_type)
         elif self.interface_type == "EXECUTE":
@@ -47,17 +50,24 @@ class GroupInputNode(bpy.types.Node, BaseNode):
             assert False
 
     def draw(self, layout):
-        col = layout.column()
-        col.prop(self, "input_name", text="")
+        if not self.display_settings:
+            return
+
+        layout.prop(self, "interface_type", text="")
 
         if self.interface_type == "DATA":
             if hasattr(self.outputs[0], "draw_property"):
-                self.outputs[0].draw_property(col, self, "Default")
+                self.outputs[0].draw_property(layout, self, "Default")
 
-            self.invoke_type_selection(col, "set_data_type", "Select Type")
+            self.invoke_type_selection(layout, "set_data_type", "Select Type")
 
-    def draw_advanced(self, layout):
-        layout.prop(self, "interface_type", text="")
+    def draw_socket(self, layout, socket, text, decl, index):
+        row = layout.row()
+        row.prop(self, "display_settings", text="", icon="SETTINGS", emboss=False)
+        row.prop(self, "input_name", text="")
+
+    def draw_closed_label(self):
+        return self.input_name + " (Input)"
 
     def set_data_type(self, data_type):
         self.data_type = data_type
@@ -68,6 +78,11 @@ class GroupOutputNode(bpy.types.Node, BaseNode):
     bl_label = "Group Output"
 
     sort_index: IntProperty()
+
+    display_settings: BoolProperty(
+        name="Display Settings",
+        default=False,
+    )
 
     output_name: StringProperty(
         default="Name",
@@ -86,8 +101,6 @@ class GroupOutputNode(bpy.types.Node, BaseNode):
     )
 
     def declaration(self, builder: NodeBuilder):
-        builder.background_color((0.8, 0.8, 0.8))
-
         if self.interface_type == "DATA":
             builder.fixed_input("value", "Value", self.data_type)
         elif self.interface_type == "EXECUTE":
@@ -96,14 +109,21 @@ class GroupOutputNode(bpy.types.Node, BaseNode):
             builder.influences_input("influences", "Influences")
 
     def draw(self, layout):
-        col = layout.column()
-        col.prop(self, "output_name", text="")
+        if not self.display_settings:
+            return
+
+        layout.prop(self, "interface_type", text="")
 
         if self.interface_type == "DATA":
-            self.invoke_type_selection(col, "set_type_type", "Select Type")
+            self.invoke_type_selection(layout, "set_type_type", "Select Type")
 
-    def draw_advanced(self, layout):
-        layout.prop(self, "interface_type", text="")
+    def draw_socket(self, layout, socket, text, decl, index):
+        row = layout.row()
+        row.prop(self, "display_settings", text="", icon="SETTINGS", emboss=False)
+        row.prop(self, "output_name", text="")
+
+    def draw_closed_label(self):
+        return self.output_name + " (Output)"
 
     def set_type_type(self, data_type):
         self.data_type = data_type
@@ -152,6 +172,9 @@ class GroupNode(bpy.types.Node, FunctionNode):
         text = "Select Group" if self.node_group is None else self.node_group.name
         layout.scale_y = 1.3
         self.invoke_group_selector(layout, "set_group", text, icon="NODETREE")
+
+    def draw_closed_label(self):
+        return self.node_group.name
 
     def set_group(self, group):
         self.node_group = group
