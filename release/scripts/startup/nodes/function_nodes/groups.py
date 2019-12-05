@@ -277,12 +277,14 @@ class CreateGroupInputForSocket(bpy.types.Operator):
             new_node.input_name = socket.name
             new_node.interface_type = "DATA"
             new_node.data_type = socket.data_type
+            new_node.rebuild()
+            
             new_node.select = True
             new_node.parent = node.parent
             new_node.location = node.location
             new_node.location.x -= 200
-            new_node.rebuild()
 
+            new_node.outputs[0].restore_state(socket.get_state())
             tree.new_link(new_node.outputs[0], socket)
 
         tree.sync()
