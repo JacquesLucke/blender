@@ -201,13 +201,73 @@ class GroupInterfacePanel(bpy.types.Panel, NodeSidebarPanel):
 
         col = layout.column(align=True)
         col.label(text="Inputs:")
-        for node in tree.get_input_nodes():
-            layout.label(text=node.input_name)
+        box = col.box().column(align=True)
+        for i, node in enumerate(tree.get_input_nodes()):
+            row = box.row(align=True)
+            row.prop(node, "input_name", text="")
+
+            props = row.operator("fn.move_group_interface", text="", icon="TRIA_UP")
+            props.is_input = True
+            props.from_index = i
+            props.offset = -1
+
+            props = row.operator("fn.move_group_interface", text="", icon="TRIA_DOWN")
+            props.is_input = True
+            props.from_index = i
+            props.offset = 1
 
         col = layout.column(align=True)
         col.label(text="Outputs:")
-        for node in tree.get_output_nodes():
-            layout.label(text=node.output_name)
+        box = col.box().column(align=True)
+        for i, node in enumerate(tree.get_output_nodes()):
+            row = box.row(align=True)
+            row.prop(node, "output_name", text="")
+
+            props = row.operator("fn.move_group_interface", text="", icon="TRIA_UP")
+            props.is_input = False
+            props.from_index = i
+            props.offset = -1
+
+            props = row.operator("fn.move_group_interface", text="", icon="TRIA_DOWN")
+            props.is_input = False
+            props.from_index = i
+            props.offset = 1
+
+
+class MoveGroupInterface(bpy.types.Operator):
+    bl_idname = "fn.move_group_interface"
+    bl_label = "Move Group Interface"
+
+    is_input: BoolProperty()
+    from_index: IntProperty()
+    offset: IntProperty()
+
+    def execute(self, context):
+        tree = context.space_data.node_tree
+
+        if self.is_input:
+            nodes = tree.get_input_nodes()
+        else:
+            nodes = tree.get_output_nodes()
+        
+        from_index = self.from_index
+        to_index = min(max(self.from_index + self.offset, 0), len(nodes) - 1)
+
+        nodes[from_index], nodes[to_index] = nodes[to_index], nodes[from_index]
+
+        with skip_syncing():
+            for i, node in enumerate(nodes):
+                node.sort_index = i
+        tree.sync()
+
+        return {"FINISHED"}
+
+
+def update_sort_indices(tree):
+    for i, node in enumerate(tree.get_input_nodes()):
+        node.sort_index = i
+    for i, node in enumerate(tree.get_output_nodes()):
+        node.sort_index = i
 
 
 class ManageGroupPieMenu(bpy.types.Menu, PieMenuHelper):
@@ -319,6 +379,8 @@ class CreateGroupInputForSocket(bpy.types.Operator):
             new_node = tree.nodes.new(type="fn_GroupInputNode")
             new_node.sort_index = 1000
             new_node.input_name = socket.name
+            update_sort_indices(tree)
+            
             if isinstance(socket, DataSocket):
                 new_node.interface_type = "DATA"
                 new_node.data_type = socket.data_type
@@ -357,6 +419,8 @@ class CreateGroupOutputForSocket(bpy.types.Operator):
         with skip_syncing():
             new_node = tree.nodes.new(type="fn_GroupOutputNode")
             new_node.sort_index = 1000
+            update_sort_indices(tree)
+
             new_node.output_name = socket.name
             if isinstance(socket, DataSocket):
                 new_node.interface_type = "DATA"

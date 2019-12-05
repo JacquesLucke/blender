@@ -22,6 +22,9 @@ static bool cmp_group_interface_nodes(const VNode *a, const VNode *b)
   if (a_index < b_index) {
     return true;
   }
+  if (a_index > b_index) {
+    return false;
+  }
 
   /* TODO: Match sorting with Python. */
   return BLI_strcasecmp(a->name().data(), b->name().data()) == -1;
@@ -423,9 +426,12 @@ std::string InlinedNodeTree::to_dot() const
           dot_group_input_node.set_attribute("bgcolor", "white");
           dot_group_input_node.set_attribute("style", "filled");
 
-          dot_group_inputs.add_new(group_input,
-                                   BLI::DotExport::Utils::NodeWithSocketsWrapper(
-                                       dot_group_input_node, "Group Input", {}, {"Value"}));
+          std::string group_input_name = group_input->vsocket().name();
+
+          dot_group_inputs.add_new(
+              group_input,
+              BLI::DotExport::Utils::NodeWithSocketsWrapper(
+                  dot_group_input_node, "Group Input", {}, {group_input_name}));
 
           BLI::DotExport::Cluster *cluster = get_cluster_for_parent(
               digraph, dot_clusters, group_input->parent());
