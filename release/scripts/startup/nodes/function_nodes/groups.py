@@ -1,10 +1,12 @@
 import bpy
 from bpy.props import *
 from .. types import type_infos
-from .. base import BaseNode, FunctionNode
+from .. base import BaseNode, FunctionNode, DataSocket
 from .. function_tree import FunctionTree
 from .. node_builder import NodeBuilder
 from .. ui import NodeSidebarPanel
+from .. utils.pie_menu_helper import PieMenuHelper
+from .. sync import skip_syncing
 
 interface_type_items = [
     ("DATA", "Data", "Some data type like integer or vector", "NONE", 0),
@@ -62,8 +64,8 @@ class GroupInputNode(bpy.types.Node, BaseNode):
             self.invoke_type_selection(layout, "set_data_type", "Select Type")
 
     def draw_socket(self, layout, socket, text, decl, index):
-        row = layout.row()
-        row.prop(self, "display_settings", text="", icon="SETTINGS", emboss=False)
+        row = layout.row(align=True)
+        row.prop(self, "display_settings", text="", icon="SETTINGS")
         row.prop(self, "input_name", text="")
 
     def draw_closed_label(self):
@@ -118,8 +120,8 @@ class GroupOutputNode(bpy.types.Node, BaseNode):
             self.invoke_type_selection(layout, "set_type_type", "Select Type")
 
     def draw_socket(self, layout, socket, text, decl, index):
-        row = layout.row()
-        row.prop(self, "display_settings", text="", icon="SETTINGS", emboss=False)
+        row = layout.row(align=True)
+        row.prop(self, "display_settings", text="", icon="SETTINGS")
         row.prop(self, "output_name", text="")
 
     def draw_closed_label(self):
@@ -206,3 +208,103 @@ class GroupInterfacePanel(bpy.types.Panel, NodeSidebarPanel):
         col.label(text="Outputs:")
         for node in tree.get_output_nodes():
             layout.label(text=node.output_name)
+
+
+class ManageGroupPieMenu(bpy.types.Menu, PieMenuHelper):
+    bl_idname = "FN_MT_manage_group_pie"
+    bl_label = "Manage Group"
+
+    @classmethod
+    def poll(cls, context):
+        try: 
+            return isinstance(context.space_data.node_tree, FunctionTree)
+        except:
+            return False
+
+    def draw_left(self, layout):
+        node = bpy.context.active_node
+        possible_inputs = [(i, socket) for i, socket in enumerate(node.inputs) 
+                                       if socket_can_become_group_input(socket)]
+
+        if len(possible_inputs) == 0:
+            self.empty(layout, "No inputs.")
+        elif len(possible_inputs) == 1:
+            props = layout.operator("fn.create_group_input_for_socket", text="New Group Input")
+            props.input_index = possible_inputs[0][0]
+        else:
+            layout.operator("fn.create_group_input_for_socket_invoker", text="New Group Input")
+
+
+class CreateGroupInputForSocketInvoker(bpy.types.Operator):
+    bl_idname = "fn.create_group_input_for_socket_invoker"
+    bl_label = "Create Group Input for Socket Invoker"
+
+    def invoke(self, context, event):
+        context.window_manager.popup_menu(self.draw_menu)
+        return {"CANCELLED"}
+
+    @staticmethod
+    def draw_menu(menu, context):
+        node = bpy.context.active_node
+        if node is None:
+            return
+
+        layout = menu.layout.column()
+        layout.operator_context = "INVOKE_DEFAULT"
+
+        for i, socket in enumerate(node.inputs):
+            if socket_can_become_group_input(socket):
+                props = layout.operator("fn.create_group_input_for_socket", text=socket.name)
+                props.input_index = i
+
+
+class CreateGroupInputForSocket(bpy.types.Operator):
+    bl_idname = "fn.create_group_input_for_socket"
+    bl_label = "Create Group Input for Socket"
+
+    input_index: IntProperty()
+
+    def invoke(self, context, event):
+        tree = context.space_data.node_tree
+        node = context.active_node
+        socket = node.inputs[self.input_index]
+
+        node.select = False
+
+        with skip_syncing():
+            new_node = tree.nodes.new(type="fn_GroupInputNode")
+            new_node.sort_index = 1000
+            new_node.input_name = socket.name
+            new_node.interface_type = "DATA"
+            new_node.data_type = socket.data_type
+            new_node.select = True
+            new_node.parent = node.parent
+            new_node.location = node.location
+            new_node.location.x -= 200
+            new_node.rebuild()
+
+            tree.new_link(new_node.outputs[0], socket)
+
+        tree.sync()
+        bpy.ops.node.translate_attach("INVOKE_DEFAULT")
+        return {"FINISHED"}
+
+
+def socket_can_become_group_input(socket):
+    return socket.bl_idname != "fn_OperatorSocket" and not socket.is_linked
+
+
+keymap = None
+
+def register():
+    global keymap
+    keymap = bpy.context.window_manager.keyconfigs.addon.keymaps.new(
+        name="Node Editor", space_type="NODE_EDITOR")
+
+    kmi = keymap.keymap_items.new("wm.call_menu_pie", type="V", value="PRESS")
+    kmi.properties.name = "FN_MT_manage_group_pie"
+
+def unregister():
+    global keymap
+    bpy.context.window_manager.keyconfigs.addon.keymaps.remove(keymap)
+    keymap = None
