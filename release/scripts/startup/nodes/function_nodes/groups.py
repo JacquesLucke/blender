@@ -198,40 +198,43 @@ class GroupInterfacePanel(bpy.types.Panel, NodeSidebarPanel):
     def draw(self, context):
         layout = self.layout
         tree = context.space_data.edit_tree
+        draw_group_interface_panel(layout, tree)
 
-        col = layout.column(align=True)
-        col.label(text="Inputs:")
-        box = col.box().column(align=True)
-        for i, node in enumerate(tree.get_input_nodes()):
-            row = box.row(align=True)
-            row.prop(node, "input_name", text="")
 
-            props = row.operator("fn.move_group_interface", text="", icon="TRIA_UP")
-            props.is_input = True
-            props.from_index = i
-            props.offset = -1
+def draw_group_interface_panel(layout, tree):
+    col = layout.column(align=True)
+    col.label(text="Inputs:")
+    box = col.box().column(align=True)
+    for i, node in enumerate(tree.get_input_nodes()):
+        row = box.row(align=True)
+        row.prop(node, "input_name", text="")
 
-            props = row.operator("fn.move_group_interface", text="", icon="TRIA_DOWN")
-            props.is_input = True
-            props.from_index = i
-            props.offset = 1
+        props = row.operator("fn.move_group_interface", text="", icon="TRIA_UP")
+        props.is_input = True
+        props.from_index = i
+        props.offset = -1
 
-        col = layout.column(align=True)
-        col.label(text="Outputs:")
-        box = col.box().column(align=True)
-        for i, node in enumerate(tree.get_output_nodes()):
-            row = box.row(align=True)
-            row.prop(node, "output_name", text="")
+        props = row.operator("fn.move_group_interface", text="", icon="TRIA_DOWN")
+        props.is_input = True
+        props.from_index = i
+        props.offset = 1
 
-            props = row.operator("fn.move_group_interface", text="", icon="TRIA_UP")
-            props.is_input = False
-            props.from_index = i
-            props.offset = -1
+    col = layout.column(align=True)
+    col.label(text="Outputs:")
+    box = col.box().column(align=True)
+    for i, node in enumerate(tree.get_output_nodes()):
+        row = box.row(align=True)
+        row.prop(node, "output_name", text="")
 
-            props = row.operator("fn.move_group_interface", text="", icon="TRIA_DOWN")
-            props.is_input = False
-            props.from_index = i
-            props.offset = 1
+        props = row.operator("fn.move_group_interface", text="", icon="TRIA_UP")
+        props.is_input = False
+        props.from_index = i
+        props.offset = -1
+
+        props = row.operator("fn.move_group_interface", text="", icon="TRIA_DOWN")
+        props.is_input = False
+        props.from_index = i
+        props.offset = 1
 
 
 class MoveGroupInterface(bpy.types.Operator):
@@ -281,6 +284,9 @@ class ManageGroupPieMenu(bpy.types.Menu, PieMenuHelper):
         except:
             return False
 
+    def draw_top(self, layout):
+        layout.operator("fn.open_group_management_popup", text="Group Management")
+
     def draw_left(self, layout):
         node = bpy.context.active_node
         if node is None:
@@ -314,6 +320,20 @@ class ManageGroupPieMenu(bpy.types.Menu, PieMenuHelper):
             props.output_index = possible_outputs[0][0]
         else:
             layout.operator("fn.create_group_output_for_socket_invoker", text="New Group Output")
+
+
+class OpenGroupManagementPopup(bpy.types.Operator):
+    bl_idname = "fn.open_group_management_popup"
+    bl_label = "Group Management"
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        draw_group_interface_panel(self.layout, context.space_data.node_tree)
+
+    def execute(self, context):
+        return {"INTERFACE"}
 
 
 class CreateGroupInputForSocketInvoker(bpy.types.Operator):
@@ -380,7 +400,7 @@ class CreateGroupInputForSocket(bpy.types.Operator):
             new_node.sort_index = 1000
             new_node.input_name = socket.name
             update_sort_indices(tree)
-            
+
             if isinstance(socket, DataSocket):
                 new_node.interface_type = "DATA"
                 new_node.data_type = socket.data_type
