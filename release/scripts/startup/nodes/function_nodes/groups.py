@@ -316,12 +316,16 @@ class CreateGroupInputForSocket(bpy.types.Operator):
         node.select = False
 
         with skip_syncing():
-            # TODO: handle non data sockets
             new_node = tree.nodes.new(type="fn_GroupInputNode")
             new_node.sort_index = 1000
             new_node.input_name = socket.name
-            new_node.interface_type = "DATA"
-            new_node.data_type = socket.data_type
+            if isinstance(socket, DataSocket):
+                new_node.interface_type = "DATA"
+                new_node.data_type = socket.data_type
+            elif socket.bl_idname == "fn_ExecuteSocket":
+                new_node.interface_type = "EXECUTE"
+            elif socket.bl_idname == "fn_InfluencesSocket":
+                new_node.interface_type = "INFLUENCES"
             new_node.rebuild()
             
             new_node.select = True
@@ -351,12 +355,16 @@ class CreateGroupOutputForSocket(bpy.types.Operator):
         node.select = False
 
         with skip_syncing():
-            # TODO: handle non data sockets
             new_node = tree.nodes.new(type="fn_GroupOutputNode")
             new_node.sort_index = 1000
             new_node.output_name = socket.name
-            new_node.interface_type = "DATA"
-            new_node.data_type = socket.data_type
+            if isinstance(socket, DataSocket):
+                new_node.interface_type = "DATA"
+                new_node.data_type = socket.data_type
+            elif socket.bl_idname == "fn_ExecuteSocket":
+                new_node.interface_type = "EXECUTE"
+            elif socket.bl_idname == "fn_InfluencesSocket":
+                new_node.interface_type = "INFLUENCES"
             new_node.rebuild()
 
             new_node.select = True
