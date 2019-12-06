@@ -22,6 +22,7 @@ class MFSignature {
   Vector<std::string> m_param_names;
   Vector<MFParamType> m_param_types;
   Vector<uint> m_corrected_indices;
+  bool m_depends_on_per_element_context;
 
   friend class MultiFunction;
   friend class MFParams;
@@ -31,10 +32,12 @@ class MFSignature {
 
   MFSignature(std::string function_name,
               Vector<std::string> param_names,
-              Vector<MFParamType> param_types)
+              Vector<MFParamType> param_types,
+              bool depends_on_per_element_context)
       : m_function_name(std::move(function_name)),
         m_param_names(std::move(param_names)),
-        m_param_types(std::move(param_types))
+        m_param_types(std::move(param_types)),
+        m_depends_on_per_element_context(depends_on_per_element_context)
   {
     uint array_or_single_refs = 0;
     uint mutable_array_refs = 0;
@@ -64,6 +67,11 @@ class MFSignature {
     }
   }
 
+  bool depends_on_per_element_context() const
+  {
+    return m_depends_on_per_element_context;
+  }
+
   ArrayRef<MFParamType> param_types() const
   {
     return m_param_types;
@@ -80,10 +88,16 @@ class MFSignatureBuilder {
   std::string m_function_name;
   Vector<std::string> m_param_names;
   Vector<MFParamType> m_param_types;
+  bool m_depends_on_per_element_context = false;
 
  public:
   MFSignatureBuilder(StringRef name) : m_function_name(name)
   {
+  }
+
+  void depends_on_per_element_context(bool value)
+  {
+    m_depends_on_per_element_context = value;
   }
 
   /* Input Param Types */
@@ -152,8 +166,10 @@ class MFSignatureBuilder {
 
   MFSignature build()
   {
-    return MFSignature(
-        std::move(m_function_name), std::move(m_param_names), std::move(m_param_types));
+    return MFSignature(std::move(m_function_name),
+                       std::move(m_param_names),
+                       std::move(m_param_types),
+                       m_depends_on_per_element_context);
   }
 };
 

@@ -736,6 +736,7 @@ void MF_SimpleVectorize::call(MFMask mask, MFParams params, MFContext context) c
 MF_ContextVertexPosition::MF_ContextVertexPosition()
 {
   MFSignatureBuilder signature("Vertex Position");
+  signature.depends_on_per_element_context(true);
   signature.single_output<float3>("Position");
   this->set_signature(signature);
 }
@@ -759,6 +760,7 @@ void MF_ContextVertexPosition::call(MFMask mask, MFParams params, MFContext cont
 MF_ContextCurrentFrame::MF_ContextCurrentFrame()
 {
   MFSignatureBuilder signature("Current Frame");
+  signature.depends_on_per_element_context(true);
   signature.single_output<float>("Frame");
   this->set_signature(signature);
 }
@@ -820,6 +822,7 @@ MF_ParticleAttributes::MF_ParticleAttributes(Vector<std::string> attribute_names
   BLI_assert(m_attribute_names.size() == m_attribute_types.size());
 
   MFSignatureBuilder signature("Particle Attributes");
+  signature.depends_on_per_element_context(true);
   for (uint i = 0; i < m_attribute_names.size(); i++) {
     signature.single_output(m_attribute_names[i], *m_attribute_types[i]);
   }
@@ -859,6 +862,7 @@ void MF_ParticleAttributes::call(MFMask mask, MFParams params, MFContext context
 MF_ParticleIsInGroup::MF_ParticleIsInGroup()
 {
   MFSignatureBuilder signature("Particle is in Group");
+  signature.depends_on_per_element_context(true);
   signature.single_input<std::string>("Group Name");
   signature.single_output<bool>("Is in Group");
   this->set_signature(signature);
@@ -895,6 +899,8 @@ void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context)
 MF_ClosestSurfaceHookOnObject::MF_ClosestSurfaceHookOnObject()
 {
   MFSignatureBuilder signature("Closest Point on Object");
+  /* Todo: remove this per element dependency. */
+  signature.depends_on_per_element_context(true);
   signature.single_input<ObjectIDHandle>("Object");
   signature.single_input<float3>("Position");
   signature.single_output<SurfaceHook>("Closest Location");
