@@ -2,6 +2,40 @@
 
 namespace FN {
 
+MF_EvaluateNetwork::MF_EvaluateNetwork(Vector<const MFOutputSocket *> inputs,
+                                       Vector<const MFInputSocket *> outputs)
+    : m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
+{
+  MFSignatureBuilder signature("Function Tree");
+  for (auto socket : m_inputs) {
+    BLI_assert(socket->node().is_dummy());
+
+    MFDataType type = socket->data_type();
+    switch (type.category()) {
+      case MFDataType::Single:
+        signature.single_input("Input", type.single__cpp_type());
+        break;
+      case MFDataType::Vector:
+        signature.vector_input("Input", type.vector__cpp_base_type());
+        break;
+    }
+  }
+  for (auto socket : m_outputs) {
+    BLI_assert(socket->node().is_dummy());
+
+    MFDataType type = socket->data_type();
+    switch (type.category()) {
+      case MFDataType::Single:
+        signature.single_output("Output", type.single__cpp_type());
+        break;
+      case MFDataType::Vector:
+        signature.vector_output("Output", type.vector__cpp_base_type());
+        break;
+    }
+  }
+  this->set_signature(signature);
+}
+
 void MF_EvaluateNetwork::call(MFMask mask, MFParams params, MFContext context) const
 {
   if (mask.indices_amount() == 0) {
@@ -21,7 +55,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams params,
     const MFOutputSocket &socket = *m_inputs[input_index];
     switch (socket.data_type().category()) {
       case MFDataType::Single: {
-        GenericVirtualListRef input_list = params.readonly_single_input(input_index, "Input");
+        GenericVirtualListRef input_list = params.readonly_single_input(input_index);
         for (const MFInputSocket *target : socket.targets()) {
           const MFNode &target_node = target->node();
           if (target_node.is_function()) {
@@ -45,8 +79,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFParams params,
         break;
       }
       case MFDataType::Vector: {
-        GenericVirtualListListRef input_list_list = params.readonly_vector_input(input_index,
-                                                                                 "Input");
+        GenericVirtualListListRef input_list_list = params.readonly_vector_input(input_index);
         for (const MFInputSocket *target : socket.targets()) {
           const MFNode &target_node = target->node();
           if (target_node.is_function()) {
@@ -241,7 +274,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFParams p
       case MFDataType::Single: {
         GenericVirtualListRef values = storage.get_virtual_list_for_input(socket);
         GenericMutableArrayRef output_values = params.uninitialized_single_output(
-            global_param_index, "Output");
+            global_param_index);
         for (uint i : storage.mask().indices()) {
           output_values.copy_in__uninitialized(i, values[i]);
         }
@@ -249,7 +282,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_computed_values_to_outputs(MFParams p
       }
       case MFDataType::Vector: {
         GenericVirtualListListRef values = storage.get_virtual_list_list_for_input(socket);
-        GenericVectorArray &output_values = params.vector_output(global_param_index, "Output");
+        GenericVectorArray &output_values = params.vector_output(global_param_index);
         for (uint i : storage.mask().indices()) {
           output_values.extend_single__copy(i, values[i]);
         }

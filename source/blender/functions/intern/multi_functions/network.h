@@ -16,38 +16,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
   Vector<const MFInputSocket *> m_outputs;
 
  public:
-  MF_EvaluateNetwork(Vector<const MFOutputSocket *> inputs, Vector<const MFInputSocket *> outputs)
-      : m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
-  {
-    MFSignatureBuilder signature("Function Tree");
-    for (auto socket : m_inputs) {
-      BLI_assert(socket->node().is_dummy());
-
-      MFDataType type = socket->data_type();
-      switch (type.category()) {
-        case MFDataType::Single:
-          signature.single_input("Input", type.single__cpp_type());
-          break;
-        case MFDataType::Vector:
-          signature.vector_input("Input", type.vector__cpp_base_type());
-          break;
-      }
-    }
-    for (auto socket : m_outputs) {
-      BLI_assert(socket->node().is_dummy());
-
-      MFDataType type = socket->data_type();
-      switch (type.category()) {
-        case MFDataType::Single:
-          signature.single_output("Output", type.single__cpp_type());
-          break;
-        case MFDataType::Vector:
-          signature.vector_output("Output", type.vector__cpp_base_type());
-          break;
-      }
-    }
-    this->set_signature(signature);
-  }
+  MF_EvaluateNetwork(Vector<const MFOutputSocket *> inputs, Vector<const MFInputSocket *> outputs);
 
   class Storage {
    private:
