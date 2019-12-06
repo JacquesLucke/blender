@@ -289,6 +289,26 @@ class MFParamsBuilder {
     m_mutable_array_refs.append(array);
   }
 
+  /* Utilities to get the data after the function has been called. */
+
+  GenericMutableArrayRef computed_array(uint index)
+  {
+    BLI_assert(ELEM(m_signature->param_types()[index].type(),
+                    MFParamType::MutableSingle,
+                    MFParamType::SingleOutput));
+    uint corrected_index = m_signature->get_corrected_index(index);
+    return m_mutable_array_refs[corrected_index];
+  }
+
+  GenericVectorArray &computed_vector_array(uint index)
+  {
+    BLI_assert(ELEM(m_signature->param_types()[index].type(),
+                    MFParamType::MutableVector,
+                    MFParamType::VectorOutput));
+    uint corrected_index = m_signature->get_corrected_index(index);
+    return *m_vector_arrays[corrected_index];
+  }
+
  private:
   void assert_current_param_type(MFParamType param_type) const
   {
