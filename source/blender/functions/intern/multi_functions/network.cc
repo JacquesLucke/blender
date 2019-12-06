@@ -195,16 +195,14 @@ BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params(
         break;
       }
       case MFParamType::SingleOutput: {
-        const MFOutputSocket &output_socket = function_node.output_for_param(param_index);
         GenericMutableArrayRef values_destination = storage.allocate_array(
-            output_socket.data_type().single__cpp_type());
+            param_type.data_type().single__cpp_type());
         params_builder.add_single_output(values_destination);
         break;
       }
       case MFParamType::VectorOutput: {
-        const MFOutputSocket &output_socket = function_node.output_for_param(param_index);
         GenericVectorArray &values_destination = storage.allocate_vector_array(
-            output_socket.data_type().vector__cpp_base_type());
+            param_type.data_type().vector__cpp_base_type());
         params_builder.add_vector_output(values_destination);
         break;
       }
