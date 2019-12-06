@@ -75,6 +75,11 @@ class MF_EvaluateNetwork final : public MultiFunction {
       }
     }
 
+    MFMask &mask()
+    {
+      return m_mask;
+    }
+
     GenericMutableArrayRef allocate_array(const CPPType &type)
     {
       uint size = m_mask.min_array_size();
@@ -90,6 +95,24 @@ class MF_EvaluateNetwork final : public MultiFunction {
       GenericVectorArray *vector_array = new GenericVectorArray(type, size);
       m_vector_arrays.append(vector_array);
       return *vector_array;
+    }
+
+    GenericMutableArrayRef allocate_copy(GenericVirtualListRef array)
+    {
+      GenericMutableArrayRef new_array = this->allocate_array(array.type());
+      for (uint i : m_mask.indices()) {
+        new_array.copy_in__uninitialized(i, array[i]);
+      }
+      return new_array;
+    }
+
+    GenericVectorArray &allocate_copy(GenericVirtualListListRef vector_array)
+    {
+      GenericVectorArray &new_vector_array = this->allocate_vector_array(vector_array.type());
+      for (uint i : m_mask.indices()) {
+        new_vector_array.extend_single__copy(i, vector_array[i]);
+      }
+      return new_vector_array;
     }
 
     void set_array_ref_for_input(const MFInputSocket &socket, GenericMutableArrayRef array)
@@ -150,18 +173,15 @@ class MF_EvaluateNetwork final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 
  private:
-  void copy_inputs_to_storage(MFMask mask, MFParams params, Storage &storage) const;
+  void copy_inputs_to_storage(MFParams params, Storage &storage) const;
 
-  void evaluate_network_to_compute_outputs(MFMask mask,
-                                           MFContext &global_context,
-                                           Storage &storage) const;
+  void evaluate_network_to_compute_outputs(MFContext &global_context, Storage &storage) const;
 
-  void compute_and_forward_outputs(MFMask mask,
-                                   MFContext &global_context,
+  void compute_and_forward_outputs(MFContext &global_context,
                                    const MFFunctionNode &function_node,
                                    Storage &storage) const;
 
-  void copy_computed_values_to_outputs(MFMask mask, MFParams params, Storage &storage) const;
+  void copy_computed_values_to_outputs(MFParams params, Storage &storage) const;
 };
 
 }  // namespace FN
