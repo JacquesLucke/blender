@@ -29,7 +29,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
             MFParamType param_type = target->param_type();
 
             if (param_type.is_single_input()) {
-              storage.set_virtual_list_for_input__non_owning(*target, input_list);
+              storage.set_virtual_list_for_input(*target, input_list);
             }
             else if (param_type.is_mutable_single()) {
               GenericMutableArrayRef array = storage.allocate_array(
@@ -37,14 +37,14 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
               for (uint i : mask.indices()) {
                 array.copy_in__uninitialized(i, input_list[i]);
               }
-              storage.set_array_ref_for_input__non_owning(*target, array);
+              storage.set_array_ref_for_input(*target, array);
             }
             else {
               BLI_assert(false);
             }
           }
           else {
-            storage.set_virtual_list_for_input__non_owning(*target, input_list);
+            storage.set_virtual_list_for_input(*target, input_list);
           }
         }
         break;
@@ -58,7 +58,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
             MFParamType param_type = target->param_type();
 
             if (param_type.is_vector_input()) {
-              storage.set_virtual_list_list_for_input__non_owning(*target, input_list_list);
+              storage.set_virtual_list_list_for_input(*target, input_list_list);
             }
             else if (param_type.is_mutable_vector()) {
               GenericVectorArray &vector_array = storage.allocate_vector_array(
@@ -66,14 +66,14 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
               for (uint i : mask.indices()) {
                 vector_array.extend_single__copy(i, input_list_list[i]);
               }
-              storage.set_vector_array_for_input__non_owning(*target, vector_array);
+              storage.set_vector_array_for_input(*target, vector_array);
             }
             else {
               BLI_assert(false);
             }
           }
           else {
-            storage.set_virtual_list_list_for_input__non_owning(*target, input_list_list);
+            storage.set_virtual_list_list_for_input(*target, input_list_list);
           }
         }
         break;
@@ -201,7 +201,7 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
         MFParamType param_type = target->param_type();
 
         if (param_type.is_single_input()) {
-          storage.set_virtual_list_for_input__non_owning(*target, values);
+          storage.set_virtual_list_for_input(*target, values);
         }
         else if (param_type.is_mutable_single()) {
           const CPPType &type = param_type.data_type().single__cpp_type();
@@ -209,14 +209,14 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
           for (uint i : mask.indices()) {
             type.copy_to_uninitialized(values[i], copied_values[i]);
           }
-          storage.set_array_ref_for_input__non_owning(*target, copied_values);
+          storage.set_array_ref_for_input(*target, copied_values);
         }
         else {
           BLI_assert(false);
         }
       }
       else {
-        storage.set_virtual_list_for_input__non_owning(*target, values);
+        storage.set_virtual_list_for_input(*target, values);
       }
     }
   }
@@ -231,21 +231,21 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
         MFParamType param_type = target->param_type();
 
         if (param_type.is_vector_input()) {
-          storage.set_virtual_list_list_for_input__non_owning(*target, *values);
+          storage.set_virtual_list_list_for_input(*target, *values);
         }
         else if (param_type.is_mutable_vector()) {
           GenericVectorArray &copied_values = storage.allocate_vector_array(values->type());
           for (uint i : mask.indices()) {
             copied_values.extend_single__copy(i, (*values)[i]);
           }
-          storage.set_vector_array_for_input__non_owning(*target, copied_values);
+          storage.set_vector_array_for_input(*target, copied_values);
         }
         else {
           BLI_assert(false);
         }
       }
       else if (m_outputs.contains(target)) {
-        storage.set_virtual_list_list_for_input__non_owning(*target, *values);
+        storage.set_virtual_list_list_for_input(*target, *values);
       }
     }
   }

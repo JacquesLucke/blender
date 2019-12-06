@@ -92,26 +92,23 @@ class MF_EvaluateNetwork final : public MultiFunction {
       return *vector_array;
     }
 
-    void set_array_ref_for_input__non_owning(const MFInputSocket &socket,
-                                             GenericMutableArrayRef array)
+    void set_array_ref_for_input(const MFInputSocket &socket, GenericMutableArrayRef array)
     {
       m_array_ref_for_inputs.add_new(socket.id(), array);
     }
 
-    void set_virtual_list_for_input__non_owning(const MFInputSocket &socket,
-                                                GenericVirtualListRef list)
+    void set_virtual_list_for_input(const MFInputSocket &socket, GenericVirtualListRef list)
     {
       m_virtual_list_for_inputs.add_new(socket.id(), list);
     }
 
-    void set_virtual_list_list_for_input__non_owning(const MFInputSocket &socket,
-                                                     GenericVirtualListListRef list)
+    void set_virtual_list_list_for_input(const MFInputSocket &socket,
+                                         GenericVirtualListListRef list)
     {
       m_virtual_list_list_for_inputs.add_new(socket.id(), list);
     }
 
-    void set_vector_array_for_input__non_owning(const MFInputSocket &socket,
-                                                GenericVectorArray &vector_array)
+    void set_vector_array_for_input(const MFInputSocket &socket, GenericVectorArray &vector_array)
     {
       m_vector_array_for_inputs.add_new(socket.id(), &vector_array);
     }
