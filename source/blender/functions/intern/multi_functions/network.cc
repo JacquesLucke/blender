@@ -2,6 +2,147 @@
 
 namespace FN {
 
+class MF_EvaluateNetwork_Storage {
+ private:
+  MFMask m_mask;
+  Vector<GenericVectorArray *> m_vector_arrays;
+  Vector<GenericMutableArrayRef> m_arrays;
+  Map<uint, GenericVectorArray *> m_vector_array_for_inputs;
+  Map<uint, GenericVirtualListRef> m_virtual_list_for_inputs;
+  Map<uint, GenericVirtualListListRef> m_virtual_list_list_for_inputs;
+  Map<uint, GenericMutableArrayRef> m_array_ref_for_inputs;
+
+ public:
+  MF_EvaluateNetwork_Storage(MFMask mask) : m_mask(mask)
+  {
+  }
+
+  ~MF_EvaluateNetwork_Storage()
+  {
+    for (GenericVectorArray *vector_array : m_vector_arrays) {
+      delete vector_array;
+    }
+    for (GenericMutableArrayRef array : m_arrays) {
+      array.destruct_indices(m_mask.indices());
+      MEM_freeN(array.buffer());
+    }
+  }
+
+  MFMask &mask()
+  {
+    return m_mask;
+  }
+
+  GenericMutableArrayRef allocate_array(const CPPType &type)
+  {
+    uint size = m_mask.min_array_size();
+    void *buffer = MEM_malloc_arrayN(size, type.size(), __func__);
+    GenericMutableArrayRef array(type, buffer, size);
+    m_arrays.append(array);
+    return array;
+  }
+
+  GenericVectorArray &allocate_vector_array(const CPPType &type)
+  {
+    uint size = m_mask.min_array_size();
+    GenericVectorArray *vector_array = new GenericVectorArray(type, size);
+    m_vector_arrays.append(vector_array);
+    return *vector_array;
+  }
+
+  GenericMutableArrayRef allocate_copy(GenericVirtualListRef array)
+  {
+    GenericMutableArrayRef new_array = this->allocate_array(array.type());
+    for (uint i : m_mask.indices()) {
+      new_array.copy_in__uninitialized(i, array[i]);
+    }
+    return new_array;
+  }
+
+  GenericVectorArray &allocate_copy(GenericVirtualListListRef vector_array)
+  {
+    GenericVectorArray &new_vector_array = this->allocate_vector_array(vector_array.type());
+    for (uint i : m_mask.indices()) {
+      new_vector_array.extend_single__copy(i, vector_array[i]);
+    }
+    return new_vector_array;
+  }
+
+  void set_array_ref_for_input(const MFInputSocket &socket, GenericMutableArrayRef array)
+  {
+    m_array_ref_for_inputs.add_new(socket.id(), array);
+  }
+
+  void set_virtual_list_for_input(const MFInputSocket &socket, GenericVirtualListRef list)
+  {
+    m_virtual_list_for_inputs.add_new(socket.id(), list);
+  }
+
+  void set_virtual_list_list_for_input(const MFInputSocket &socket, GenericVirtualListListRef list)
+  {
+    m_virtual_list_list_for_inputs.add_new(socket.id(), list);
+  }
+
+  void set_vector_array_for_input(const MFInputSocket &socket, GenericVectorArray &vector_array)
+  {
+    m_vector_array_for_inputs.add_new(socket.id(), &vector_array);
+  }
+
+  GenericVirtualListRef get_virtual_list_for_input(const MFInputSocket &socket) const
+  {
+    return m_virtual_list_for_inputs.lookup(socket.id());
+  }
+
+  GenericVirtualListListRef get_virtual_list_list_for_input(const MFInputSocket &socket) const
+  {
+    return m_virtual_list_list_for_inputs.lookup(socket.id());
+  }
+
+  GenericVectorArray &get_vector_array_for_input(const MFInputSocket &socket) const
+  {
+    return *m_vector_array_for_inputs.lookup(socket.id());
+  }
+
+  GenericMutableArrayRef get_array_ref_for_input(const MFInputSocket &socket) const
+  {
+    return m_array_ref_for_inputs.lookup(socket.id());
+  }
+
+  bool input_is_computed(const MFInputSocket &socket) const
+  {
+    switch (socket.data_type().category()) {
+      case MFDataType::Single:
+        return m_virtual_list_for_inputs.contains(socket.id());
+      case MFDataType::Vector:
+        return m_virtual_list_list_for_inputs.contains(socket.id()) ||
+               m_vector_array_for_inputs.contains(socket.id());
+    }
+    BLI_assert(false);
+    return false;
+  }
+
+  bool function_input_has_single_element(const MFInputSocket &socket) const
+  {
+    BLI_assert(socket.node().is_function());
+    MFParamType param_type = socket.param_type();
+    switch (param_type.type()) {
+      case MFParamType::SingleInput:
+        return m_virtual_list_for_inputs.lookup(socket.id()).is_single_element();
+      case MFParamType::VectorInput:
+        return m_virtual_list_list_for_inputs.lookup(socket.id()).is_single_list();
+      case MFParamType::MutableSingle:
+        return m_array_ref_for_inputs.lookup(socket.id()).size() == 1;
+      case MFParamType::MutableVector:
+        return m_vector_array_for_inputs.lookup(socket.id())->size() == 1;
+      case MFParamType::SingleOutput:
+      case MFParamType::VectorOutput:
+        break;
+    }
+    BLI_assert(false);
+    return false;
+  }
+};
+
 MF_EvaluateNetwork::MF_EvaluateNetwork(Vector<const MFOutputSocket *> inputs,
                                        Vector<const MFInputSocket *> outputs)
     : m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
