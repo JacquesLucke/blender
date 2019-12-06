@@ -75,31 +75,21 @@ class MF_EvaluateNetwork final : public MultiFunction {
       }
     }
 
-    void take_array_ref_ownership(GenericMutableArrayRef array)
+    GenericMutableArrayRef allocate_array(const CPPType &type)
     {
+      uint size = m_mask.min_array_size();
+      void *buffer = MEM_malloc_arrayN(size, type.size(), __func__);
+      GenericMutableArrayRef array(type, buffer, size);
       m_arrays.append(array);
+      return array;
     }
 
-    void take_array_ref_ownership__not_twice(GenericMutableArrayRef array)
+    GenericVectorArray &allocate_vector_array(const CPPType &type)
     {
-      for (GenericMutableArrayRef other : m_arrays) {
-        if (other.buffer() == array.buffer()) {
-          return;
-        }
-      }
-      m_arrays.append(array);
-    }
-
-    void take_vector_array_ownership(GenericVectorArray *vector_array)
-    {
+      uint size = m_mask.min_array_size();
+      GenericVectorArray *vector_array = new GenericVectorArray(type, size);
       m_vector_arrays.append(vector_array);
-    }
-
-    void take_vector_array_ownership__not_twice(GenericVectorArray *vector_array)
-    {
-      if (!m_vector_arrays.contains(vector_array)) {
-        m_vector_arrays.append(vector_array);
-      }
+      return *vector_array;
     }
 
     void set_array_ref_for_input__non_owning(const MFInputSocket &socket,
@@ -121,9 +111,9 @@ class MF_EvaluateNetwork final : public MultiFunction {
     }
 
     void set_vector_array_for_input__non_owning(const MFInputSocket &socket,
-                                                GenericVectorArray *vector_array)
+                                                GenericVectorArray &vector_array)
     {
-      m_vector_array_for_inputs.add_new(socket.id(), vector_array);
+      m_vector_array_for_inputs.add_new(socket.id(), &vector_array);
     }
 
     GenericVirtualListRef get_virtual_list_for_input(const MFInputSocket &socket) const
@@ -175,12 +165,6 @@ class MF_EvaluateNetwork final : public MultiFunction {
                                    Storage &storage) const;
 
   void copy_computed_values_to_outputs(MFMask mask, MFParams params, Storage &storage) const;
-
-  GenericMutableArrayRef allocate_array(const CPPType &type, uint size) const
-  {
-    void *buffer = MEM_malloc_arrayN(size, type.size(), __func__);
-    return GenericMutableArrayRef(type, buffer, size);
-  }
 };
 
 }  // namespace FN

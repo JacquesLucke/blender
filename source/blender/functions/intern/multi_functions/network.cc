@@ -32,8 +32,8 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
               storage.set_virtual_list_for_input__non_owning(*target, input_list);
             }
             else if (param_type.is_mutable_single()) {
-              GenericMutableArrayRef array = this->allocate_array(
-                  param_type.data_type().single__cpp_type(), mask.min_array_size());
+              GenericMutableArrayRef array = storage.allocate_array(
+                  param_type.data_type().single__cpp_type());
               for (uint i : mask.indices()) {
                 array.copy_in__uninitialized(i, input_list[i]);
               }
@@ -61,13 +61,12 @@ BLI_NOINLINE void MF_EvaluateNetwork::copy_inputs_to_storage(MFMask mask,
               storage.set_virtual_list_list_for_input__non_owning(*target, input_list_list);
             }
             else if (param_type.is_mutable_vector()) {
-              GenericVectorArray *vector_array = new GenericVectorArray(
-                  param_type.data_type().vector__cpp_base_type(), mask.min_array_size());
+              GenericVectorArray &vector_array = storage.allocate_vector_array(
+                  param_type.data_type().vector__cpp_base_type());
               for (uint i : mask.indices()) {
-                vector_array->extend_single__copy(i, input_list_list[i]);
+                vector_array.extend_single__copy(i, input_list_list[i]);
               }
               storage.set_vector_array_for_input__non_owning(*target, vector_array);
-              storage.take_vector_array_ownership(vector_array);
             }
             else {
               BLI_assert(false);
@@ -132,10 +131,8 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
     const MFFunctionNode &function_node,
     Storage &storage) const
 {
-  uint array_size = mask.min_array_size();
-
   const MultiFunction &function = function_node.function();
-  MFParamsBuilder params_builder(function, array_size);
+  MFParamsBuilder params_builder(function, mask.min_array_size());
 
   Vector<std::pair<const MFOutputSocket *, GenericMutableArrayRef>> single_outputs_to_forward;
   Vector<std::pair<const MFOutputSocket *, GenericVectorArray *>> vector_outputs_to_forward;
@@ -157,18 +154,18 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
       }
       case MFParamType::SingleOutput: {
         const MFOutputSocket &output_socket = function_node.output_for_param(param_index);
-        GenericMutableArrayRef values_destination = this->allocate_array(
-            output_socket.data_type().single__cpp_type(), array_size);
+        GenericMutableArrayRef values_destination = storage.allocate_array(
+            output_socket.data_type().single__cpp_type());
         params_builder.add_single_output(values_destination);
         single_outputs_to_forward.append({&output_socket, values_destination});
         break;
       }
       case MFParamType::VectorOutput: {
         const MFOutputSocket &output_socket = function_node.output_for_param(param_index);
-        auto *values_destination = new GenericVectorArray(
-            output_socket.data_type().vector__cpp_base_type(), array_size);
-        params_builder.add_vector_output(*values_destination);
-        vector_outputs_to_forward.append({&output_socket, values_destination});
+        GenericVectorArray &values_destination = storage.allocate_vector_array(
+            output_socket.data_type().vector__cpp_base_type());
+        params_builder.add_vector_output(values_destination);
+        vector_outputs_to_forward.append({&output_socket, &values_destination});
         break;
       }
       case MFParamType::MutableVector: {
@@ -197,7 +194,6 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
   for (auto single_forward_info : single_outputs_to_forward) {
     const MFOutputSocket &output_socket = *single_forward_info.first;
     GenericMutableArrayRef values = single_forward_info.second;
-    storage.take_array_ref_ownership__not_twice(values);
 
     for (const MFInputSocket *target : output_socket.targets()) {
       const MFNode &target_node = target->node();
@@ -209,11 +205,10 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
         }
         else if (param_type.is_mutable_single()) {
           const CPPType &type = param_type.data_type().single__cpp_type();
-          GenericMutableArrayRef copied_values = this->allocate_array(type, array_size);
+          GenericMutableArrayRef copied_values = storage.allocate_array(type);
           for (uint i : mask.indices()) {
             type.copy_to_uninitialized(values[i], copied_values[i]);
           }
-          storage.take_array_ref_ownership(copied_values);
           storage.set_array_ref_for_input__non_owning(*target, copied_values);
         }
         else {
@@ -229,7 +224,6 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
   for (auto vector_forward_info : vector_outputs_to_forward) {
     const MFOutputSocket &output_socket = *vector_forward_info.first;
     GenericVectorArray *values = vector_forward_info.second;
-    storage.take_vector_array_ownership__not_twice(values);
 
     for (const MFInputSocket *target : output_socket.targets()) {
       const MFNode &target_node = target->node();
@@ -240,12 +234,10 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
           storage.set_virtual_list_list_for_input__non_owning(*target, *values);
         }
         else if (param_type.is_mutable_vector()) {
-          GenericVectorArray *copied_values = new GenericVectorArray(values->type(),
-                                                                     values->size());
+          GenericVectorArray &copied_values = storage.allocate_vector_array(values->type());
           for (uint i : mask.indices()) {
-            copied_values->extend_single__copy(i, (*values)[i]);
+            copied_values.extend_single__copy(i, (*values)[i]);
           }
-          storage.take_vector_array_ownership(copied_values);
           storage.set_vector_array_for_input__non_owning(*target, copied_values);
         }
         else {
