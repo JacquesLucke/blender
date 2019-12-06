@@ -143,6 +143,12 @@ class MF_EvaluateNetwork final : public MultiFunction {
 
  private:
   void copy_inputs_to_storage(MFParams params, Storage &storage) const;
+  void copy_inputs_to_storage__single(GenericVirtualListRef input_list,
+                                      ArrayRef<const MFInputSocket *> targets,
+                                      Storage &storage) const;
+  void copy_inputs_to_storage__vector(GenericVirtualListListRef input_list_list,
+                                      ArrayRef<const MFInputSocket *> targets,
+                                      Storage &storage) const;
 
   void evaluate_network_to_compute_outputs(MFContext &global_context, Storage &storage) const;
 
