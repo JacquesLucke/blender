@@ -81,6 +81,18 @@ class GenericVirtualListListRef {
     return *m_type;
   }
 
+  bool is_single_list() const
+  {
+    switch (m_category) {
+      case Category::SingleArray:
+        return true;
+      case Category::FullArrayList:
+        return m_virtual_list_size == 1;
+    }
+    BLI_assert(false);
+    return false;
+  }
+
   GenericVirtualListRef operator[](uint index) const
   {
     BLI_assert(index < m_virtual_list_size);

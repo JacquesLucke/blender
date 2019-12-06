@@ -137,6 +137,27 @@ class MF_EvaluateNetwork final : public MultiFunction {
       BLI_assert(false);
       return false;
     }
+
+    bool function_input_has_single_element(const MFInputSocket &socket) const
+    {
+      BLI_assert(socket.node().is_function());
+      MFParamType param_type = socket.param_type();
+      switch (param_type.type()) {
+        case MFParamType::SingleInput:
+          return m_virtual_list_for_inputs.lookup(socket.id()).is_single_element();
+        case MFParamType::VectorInput:
+          return m_virtual_list_list_for_inputs.lookup(socket.id()).is_single_list();
+        case MFParamType::MutableSingle:
+          return m_array_ref_for_inputs.lookup(socket.id()).size() == 1;
+        case MFParamType::MutableVector:
+          return m_vector_array_for_inputs.lookup(socket.id())->size() == 1;
+        case MFParamType::SingleOutput:
+        case MFParamType::VectorOutput:
+          break;
+      }
+      BLI_assert(false);
+      return false;
+    }
   };
 
   void call(MFMask mask, MFParams params, MFContext context) const override;

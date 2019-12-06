@@ -123,6 +123,22 @@ class GenericVirtualListRef {
     }
   }
 
+  bool is_single_element() const
+  {
+    switch (m_category) {
+      case Category::Single:
+        return true;
+      case Category::FullArray:
+        return m_virtual_size == 1;
+      case Category::FullPointerArray:
+        return m_virtual_size == 1;
+      case Category::RepeatedArray:
+        return m_data.repeated_array.real_size == 1;
+    }
+    BLI_assert(false);
+    return false;
+  }
+
   uint size() const
   {
     return m_virtual_size;
