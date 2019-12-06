@@ -38,6 +38,7 @@ class MF_EvaluateNetwork final : public MultiFunction {
   void compute_and_forward_outputs(MFContext &global_context,
                                    const MFFunctionNode &function_node,
                                    Storage &storage) const;
+  bool can_evaluate_function_only_ones(const MFFunctionNode &function_node, Storage &storage);
   void prepare_function_params(const MFFunctionNode &function_node,
                                Storage &storage,
                                MFParamsBuilder &params_builder) const;

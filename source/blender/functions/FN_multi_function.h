@@ -67,11 +67,6 @@ class MFSignature {
     }
   }
 
-  bool depends_on_per_element_context() const
-  {
-    return m_depends_on_per_element_context;
-  }
-
   ArrayRef<MFParamType> param_types() const
   {
     return m_param_types;
@@ -200,6 +195,11 @@ class MultiFunction {
   StringRefNull name() const
   {
     return m_signature.m_function_name;
+  }
+
+  bool depends_on_per_element_context() const
+  {
+    return m_signature.m_depends_on_per_element_context;
   }
 
  protected:

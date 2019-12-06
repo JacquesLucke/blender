@@ -7,6 +7,7 @@ class MF_EvaluateNetwork_Storage {
   MFMask m_mask;
   Vector<GenericVectorArray *> m_vector_arrays;
   Vector<GenericMutableArrayRef> m_arrays;
+  Vector<GenericMutableArrayRef> m_single_element_arrays;
   Map<uint, GenericVectorArray *> m_vector_array_for_inputs;
   Map<uint, GenericVirtualListRef> m_virtual_list_for_inputs;
   Map<uint, GenericVirtualListListRef> m_virtual_list_list_for_inputs;
@@ -26,6 +27,10 @@ class MF_EvaluateNetwork_Storage {
       array.destruct_indices(m_mask.indices());
       MEM_freeN(array.buffer());
     }
+    for (GenericMutableArrayRef array : m_single_element_arrays) {
+      array.destruct_indices({0});
+      MEM_freeN(array.buffer());
+    }
   }
 
   MFMask &mask()
@@ -42,10 +47,25 @@ class MF_EvaluateNetwork_Storage {
     return array;
   }
 
+  GenericMutableArrayRef allocate_array__single_element(const CPPType &type)
+  {
+    void *buffer = MEM_mallocN(type.size(), __func__);
+    GenericMutableArrayRef array(type, buffer, 1);
+    m_single_element_arrays.append(array);
+    return array;
+  }
+
   GenericVectorArray &allocate_vector_array(const CPPType &type)
   {
     uint size = m_mask.min_array_size();
     GenericVectorArray *vector_array = new GenericVectorArray(type, size);
+    m_vector_arrays.append(vector_array);
+    return *vector_array;
+  }
+
+  GenericVectorArray &allocate_vector_array__single_element(const CPPType &type)
+  {
+    GenericVectorArray *vector_array = new GenericVectorArray(type, 1);
     m_vector_arrays.append(vector_array);
     return *vector_array;
   }
@@ -313,6 +333,22 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
   this->prepare_function_params(function_node, storage, params_builder);
   function.call(storage.mask(), params_builder, global_context);
   this->forward_computed_values(function_node, storage, params_builder);
+}
+
+BLI_NOINLINE bool MF_EvaluateNetwork::can_evaluate_function_only_ones(
+    const MFFunctionNode &function_node, Storage &storage)
+{
+  if (function_node.function().depends_on_per_element_context()) {
+    return false;
+  }
+
+  for (const MFInputSocket *socket : function_node.inputs()) {
+    if (!storage.function_input_has_single_element(*socket)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params(
