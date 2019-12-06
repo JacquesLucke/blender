@@ -169,6 +169,16 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
   const MultiFunction &function = function_node.function();
   MFParamsBuilder params_builder(function, storage.mask().min_array_size());
 
+  this->prepare_function_params(function_node, storage, params_builder);
+  function.call(storage.mask(), params_builder, global_context);
+  this->forward_computed_values(function_node, storage, params_builder);
+}
+
+BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params(
+    const MFFunctionNode &function_node, Storage &storage, MFParamsBuilder &params_builder) const
+{
+  const MultiFunction &function = function_node.function();
+
   for (uint param_index : function.param_indices()) {
     MFParamType param_type = function.param_type(param_index);
     switch (param_type.type()) {
@@ -212,8 +222,12 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
       }
     }
   }
+}
 
-  function.call(storage.mask(), params_builder, global_context);
+BLI_NOINLINE void MF_EvaluateNetwork::forward_computed_values(
+    const MFFunctionNode &function_node, Storage &storage, MFParamsBuilder &params_builder) const
+{
+  const MultiFunction &function = function_node.function();
 
   for (uint param_index : function.param_indices()) {
     MFParamType param_type = function.param_type(param_index);

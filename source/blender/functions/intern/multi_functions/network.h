@@ -155,6 +155,12 @@ class MF_EvaluateNetwork final : public MultiFunction {
   void compute_and_forward_outputs(MFContext &global_context,
                                    const MFFunctionNode &function_node,
                                    Storage &storage) const;
+  void prepare_function_params(const MFFunctionNode &function_node,
+                               Storage &storage,
+                               MFParamsBuilder &params_builder) const;
+  void forward_computed_values(const MFFunctionNode &function_node,
+                               Storage &storage,
+                               MFParamsBuilder &params_builder) const;
 
   void copy_computed_values_to_outputs(MFParams params, Storage &storage) const;
 };
