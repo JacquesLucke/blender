@@ -109,7 +109,6 @@ void XNode::destruct_with_sockets()
 BLI_NOINLINE InlinedNodeTree::InlinedNodeTree(bNodeTree *btree, BTreeVTreeMap &vtrees)
     : m_btree(btree)
 {
-  SCOPED_TIMER(__func__);
   const VirtualNodeTree &main_vtree = get_vtree(vtrees, btree);
 
   Vector<XNode *> all_nodes;
