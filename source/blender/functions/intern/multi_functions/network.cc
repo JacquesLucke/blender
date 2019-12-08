@@ -88,6 +88,26 @@ class MF_EvaluateNetwork_Storage {
     return new_vector_array;
   }
 
+  GenericMutableArrayRef allocate_full_copy_from_single(GenericMutableArrayRef array)
+  {
+    BLI_assert(array.size() == 1);
+    GenericMutableArrayRef new_array = this->allocate_array(array.type());
+    for (uint i : m_mask.indices()) {
+      new_array.copy_in__uninitialized(i, array[0]);
+    }
+    return new_array;
+  }
+
+  GenericVectorArray &allocate_full_copy_from_single(GenericVectorArray &vector_array)
+  {
+    BLI_assert(vector_array.size() == 1);
+    GenericVectorArray &new_vector_array = this->allocate_vector_array(vector_array.type());
+    for (uint i : m_mask.indices()) {
+      new_vector_array.extend_single__copy(i, vector_array[0]);
+    }
+    return new_vector_array;
+  }
+
   void set_array_ref_for_input(const MFInputSocket &socket, GenericMutableArrayRef array)
   {
     m_array_ref_for_inputs.add_new(socket.id(), array);
@@ -330,9 +350,9 @@ BLI_NOINLINE void MF_EvaluateNetwork::compute_and_forward_outputs(
   const MultiFunction &function = function_node.function();
   MFParamsBuilder params_builder(function, storage.mask().min_array_size());
 
-  this->prepare_function_params(function_node, storage, params_builder);
+  this->prepare_function_params__all(function_node, storage, params_builder);
   function.call(storage.mask(), params_builder, global_context);
-  this->forward_computed_values(function_node, storage, params_builder);
+  this->forward_computed_values__all(function_node, storage, params_builder);
 }
 
 BLI_NOINLINE bool MF_EvaluateNetwork::can_evaluate_function_only_ones(
@@ -351,10 +371,11 @@ BLI_NOINLINE bool MF_EvaluateNetwork::can_evaluate_function_only_ones(
   return true;
 }
 
-BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params(
+BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params__all(
     const MFFunctionNode &function_node, Storage &storage, MFParamsBuilder &params_builder) const
 {
   const MultiFunction &function = function_node.function();
+  uint array_size = storage.mask().min_array_size();
 
   for (uint param_index : function.param_indices()) {
     MFParamType param_type = function.param_type(param_index);
@@ -362,12 +383,20 @@ BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params(
       case MFParamType::SingleInput: {
         const MFInputSocket &input_socket = function_node.input_for_param(param_index);
         GenericVirtualListRef values = storage.get_virtual_list_for_input(input_socket);
+        if (values.size() < array_size) {
+          BLI_assert(values.is_single_element());
+          values = GenericVirtualListRef::FromSingle(values.type(), values[0], array_size);
+        }
         params_builder.add_readonly_single_input(values);
         break;
       }
       case MFParamType::VectorInput: {
         const MFInputSocket &input_socket = function_node.input_for_param(param_index);
         GenericVirtualListListRef values = storage.get_virtual_list_list_for_input(input_socket);
+        if (values.size() < array_size) {
+          BLI_assert(values.is_single_list());
+          values = values.extended_single_list(array_size);
+        }
         params_builder.add_readonly_vector_input(values);
         break;
       }
@@ -383,23 +412,37 @@ BLI_NOINLINE void MF_EvaluateNetwork::prepare_function_params(
         params_builder.add_vector_output(values_destination);
         break;
       }
-      case MFParamType::MutableVector: {
-        const MFInputSocket &input_socket = function_node.input_for_param(param_index);
-        GenericVectorArray &values = storage.get_vector_array_for_input(input_socket);
-        params_builder.add_mutable_vector(values);
-        break;
-      }
       case MFParamType::MutableSingle: {
         const MFInputSocket &input_socket = function_node.input_for_param(param_index);
         GenericMutableArrayRef values = storage.get_array_ref_for_input(input_socket);
-        params_builder.add_mutable_single(values);
+        if (values.size() < array_size) {
+          BLI_assert(values.size() == 1);
+          GenericMutableArrayRef new_values = storage.allocate_full_copy_from_single(values);
+          params_builder.add_mutable_single(new_values);
+        }
+        else {
+          params_builder.add_mutable_single(values);
+        }
+        break;
+      }
+      case MFParamType::MutableVector: {
+        const MFInputSocket &input_socket = function_node.input_for_param(param_index);
+        GenericVectorArray &values = storage.get_vector_array_for_input(input_socket);
+        if (values.size() < array_size) {
+          BLI_assert(values.size() == 1);
+          GenericVectorArray &new_values = storage.allocate_full_copy_from_single(values);
+          params_builder.add_mutable_vector(new_values);
+        }
+        else {
+          params_builder.add_mutable_vector(values);
+        }
         break;
       }
     }
   }
 }
 
-BLI_NOINLINE void MF_EvaluateNetwork::forward_computed_values(
+BLI_NOINLINE void MF_EvaluateNetwork::forward_computed_values__all(
     const MFFunctionNode &function_node, Storage &storage, MFParamsBuilder &params_builder) const
 {
   const MultiFunction &function = function_node.function();

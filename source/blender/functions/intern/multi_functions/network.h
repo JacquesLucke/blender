@@ -39,12 +39,12 @@ class MF_EvaluateNetwork final : public MultiFunction {
                                    const MFFunctionNode &function_node,
                                    Storage &storage) const;
   bool can_evaluate_function_only_ones(const MFFunctionNode &function_node, Storage &storage);
-  void prepare_function_params(const MFFunctionNode &function_node,
-                               Storage &storage,
-                               MFParamsBuilder &params_builder) const;
-  void forward_computed_values(const MFFunctionNode &function_node,
-                               Storage &storage,
-                               MFParamsBuilder &params_builder) const;
+  void prepare_function_params__all(const MFFunctionNode &function_node,
+                                    Storage &storage,
+                                    MFParamsBuilder &params_builder) const;
+  void forward_computed_values__all(const MFFunctionNode &function_node,
+                                    Storage &storage,
+                                    MFParamsBuilder &params_builder) const;
 
   void copy_computed_values_to_outputs(MFParams params, Storage &storage) const;
 };

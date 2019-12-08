@@ -152,6 +152,28 @@ class GenericVirtualListListRef {
     BLI_assert(false);
     return {*m_type};
   }
+
+  GenericVirtualListListRef extended_single_list(uint new_virtual_size) const
+  {
+    BLI_assert(this->is_single_list());
+
+    switch (m_category) {
+      case Category::SingleArray:
+        return GenericVirtualListListRef::FromSingleArray(*m_type,
+                                                          m_data.single_array.data,
+                                                          m_data.single_array.real_array_size,
+                                                          new_virtual_size);
+      case Category::FullArrayList:
+        return GenericVirtualListListRef::FromSingleArray(
+            *m_type,
+            m_data.full_array_list.starts[0],
+            m_data.full_array_list.real_array_sizes[0],
+            new_virtual_size);
+    }
+
+    BLI_assert(false);
+    return {};
+  }
 };
 
 }  // namespace FN
