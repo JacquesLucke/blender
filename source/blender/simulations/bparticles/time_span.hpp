@@ -60,6 +60,20 @@ struct TimeSpan {
     }
   }
 
+  void sample_linear(MutableArrayRef<float> r_results)
+  {
+    if (r_results.size() == 0) {
+      return;
+    }
+    if (r_results.size() == 1) {
+      r_results[0] = this->interpolate(0.5f);
+    }
+    for (uint i : r_results.index_iterator()) {
+      float factor = (i - 1) / (float)r_results.size();
+      r_results[i] = this->interpolate(factor);
+    }
+  }
+
   /**
    * The reverse of interpolate.
    * Asserts when the duration is 0.

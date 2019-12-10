@@ -96,22 +96,35 @@ class InitialGridEmitter : public Emitter {
   void emit(EmitterInterface &interface) override;
 };
 
+namespace BirthTimeModes {
+enum Enum {
+  None = 0,
+  Begin = 1,
+  End = 2,
+  Random = 3,
+  Linear = 4,
+};
+}
+
 class CustomEmitter : public Emitter {
  private:
   ArrayRef<std::string> m_systems_to_emit;
   const MultiFunction &m_emitter_function;
   Vector<std::string> m_attribute_names;
   Action &m_action;
+  BirthTimeModes::Enum m_birth_time_mode;
 
  public:
   CustomEmitter(ArrayRef<std::string> systems_to_emit,
                 const MultiFunction &emitter_function,
                 Vector<std::string> attribute_names,
-                Action &action)
+                Action &action,
+                BirthTimeModes::Enum birth_time_mode)
       : m_systems_to_emit(systems_to_emit),
         m_emitter_function(emitter_function),
         m_attribute_names(std::move(attribute_names)),
-        m_action(action)
+        m_action(action),
+        m_birth_time_mode(birth_time_mode)
   {
   }
 

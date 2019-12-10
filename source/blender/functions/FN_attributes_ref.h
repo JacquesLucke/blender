@@ -392,6 +392,11 @@ class AttributesRefGroup {
     this->fill(m_info->index_of(name), type, value);
   }
 
+  uint total_size() const
+  {
+    return m_total_size;
+  }
+
   class Iterator {
    private:
     AttributesRefGroup *m_group;

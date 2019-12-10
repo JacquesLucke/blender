@@ -406,9 +406,35 @@ void CustomEmitter::emit(EmitterInterface &interface)
     particle_count = 1;
   }
 
+  TimeSpan time_span = interface.time_span();
+
   for (StringRef system_name : m_systems_to_emit) {
     auto new_particles = interface.particle_allocator().request(system_name, particle_count);
-    new_particles.fill<float>("Birth Time", interface.time_span().end());
+
+    switch (m_birth_time_mode) {
+      case BirthTimeModes::None:
+      case BirthTimeModes::End:
+        new_particles.fill<float>("Birth Time", time_span.end());
+        break;
+      case BirthTimeModes::Begin:
+        new_particles.fill<float>("Birth Time", time_span.start());
+        break;
+      case BirthTimeModes::Linear: {
+        TemporaryArray<float> birth_times(new_particles.total_size());
+        time_span.sample_linear(birth_times);
+        new_particles.set<float>("Birth Time", birth_times);
+        break;
+      }
+      case BirthTimeModes::Random: {
+        TemporaryArray<float> birth_times(new_particles.total_size());
+        for (uint i = 0; i < particle_count; i++) {
+          birth_times[i] = time_span.interpolate(random_float());
+        }
+        new_particles.set<float>("Birth Time", birth_times);
+        break;
+      }
+    }
+
     const AttributesInfo &info = new_particles.info();
 
     for (uint param_index : m_emitter_function.param_indices()) {

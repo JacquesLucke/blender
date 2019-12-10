@@ -760,9 +760,11 @@ static void PARSE_custom_emitter(XNodeInfluencesBuilder &builder)
   }
 
   Action &action = builder.build_action_list("Execute on Birth");
+  BirthTimeModes::Enum birth_time_mode = (BirthTimeModes::Enum)RNA_enum_get(builder.node_rna(),
+                                                                            "birth_time_mode");
 
   Emitter &emitter = builder.construct<CustomEmitter>(
-      system_names, *emitter_function, std::move(attribute_names), action);
+      system_names, *emitter_function, std::move(attribute_names), action, birth_time_mode);
   builder.add_emitter(emitter);
 }
 

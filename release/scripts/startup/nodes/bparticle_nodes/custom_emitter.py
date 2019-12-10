@@ -27,6 +27,18 @@ class CustomEmitter(bpy.types.Node, SimulationNode):
         type=CustomEmitterAttribute,
     )
 
+    birth_time_mode: EnumProperty(
+        name="Birth Time Mode",
+        items=[
+            ("NONE", "None", "Manually specify birth times of every particle", "NONE", 0),
+            ("BEGIN", "Begin", "Spawn particles at the beginning of each time step", "NONE", 1),
+            ("END", "End", "Spawn particles at the end of each time step", "NONE", 2),
+            ("RANDOM", "Random", "Spawn particles at random moments in the time step", "NONE", 3),
+            ("LINEAR", "Linear", "Distribute particles linearly in each time step", "NONE", 4),
+        ],
+        default="END",
+    )
+
     def declaration(self, builder: NodeBuilder):
         for i, item in enumerate(self.attributes):
             builder.vectorized_input(
@@ -39,6 +51,7 @@ class CustomEmitter(bpy.types.Node, SimulationNode):
         builder.influences_output("emitter", "Emitter")
 
     def draw(self, layout):
+        layout.prop(self, "birth_time_mode", text="Birth")
         self.invoke_type_selection(layout, "add_attribute", "Add Attribute", mode="BASE")
 
     def draw_socket(self, layout, socket, text, decl, index_in_decl):
