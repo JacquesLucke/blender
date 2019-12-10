@@ -43,6 +43,11 @@ class ParticleFunctionResult : BLI::NonCopyable, BLI::NonMovable {
   {
     return m_computed_buffers[parameter_index].as_typed_ref<T>()[pindex];
   }
+
+  void *get(StringRef UNUSED(expected_name), uint parameter_index, uint pindex)
+  {
+    return m_computed_buffers[parameter_index][pindex];
+  }
 };
 
 class ParticleFunction {

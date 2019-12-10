@@ -198,4 +198,23 @@ void RemoveFromGroupAction::execute(ActionInterface &interface)
   }
 }
 
+void SetAttributeAction::execute(ActionInterface &interface)
+{
+  Optional<GenericMutableArrayRef> attribute_opt = interface.attributes().try_get(
+      m_attribute_name, m_attribute_type);
+
+  if (!attribute_opt.has_value()) {
+    return;
+  }
+
+  GenericMutableArrayRef attribute = *attribute_opt;
+
+  auto inputs = m_inputs_fn.compute(interface);
+  for (uint pindex : interface.pindices()) {
+    void *value = inputs->get("Value", 0, pindex);
+    void *dst = attribute[pindex];
+    m_attribute_type.copy_to_initialized(value, dst);
+  }
+}
+
 }  // namespace BParticles

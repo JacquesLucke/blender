@@ -396,6 +396,13 @@ static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
   }
 }
 
+static void INSERT_get_particle_attribute(VNodeMFNetworkBuilder &builder)
+{
+  std::string name = builder.string_from_property("attribute_name");
+  const CPPType &type = builder.cpp_type_from_property("attribute_type");
+  builder.set_constructed_matching_fn<MF_ParticleAttributes>(std::move(name), type);
+}
+
 static void INSERT_closest_location_on_object(VNodeMFNetworkBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_ClosestSurfaceHookOnObject>();
@@ -442,6 +449,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_CompareNode", INSERT_compare);
   mappings.xnode_inserters.add_new("fn_PerlinNoiseNode", INSERT_perlin_noise);
   mappings.xnode_inserters.add_new("fn_ParticleInfoNode", INSERT_particle_info);
+  mappings.xnode_inserters.add_new("fn_GetParticleAttributeNode", INSERT_get_particle_attribute);
   mappings.xnode_inserters.add_new("fn_ClosestLocationOnObjectNode",
                                    INSERT_closest_location_on_object);
   mappings.xnode_inserters.add_new("fn_MapRangeNode", INSERT_map_range);

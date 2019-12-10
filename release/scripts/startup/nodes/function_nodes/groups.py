@@ -65,8 +65,8 @@ class GroupInputNode(bpy.types.Node, BaseNode):
 
     def draw_socket(self, layout, socket, text, decl, index):
         row = layout.row(align=True)
-        row.prop(self, "display_settings", text="", icon="SETTINGS")
         row.prop(self, "input_name", text="")
+        row.prop(self, "display_settings", text="", icon="SETTINGS")
 
     def draw_closed_label(self):
         return self.input_name + " (Input)"
@@ -121,8 +121,8 @@ class GroupOutputNode(bpy.types.Node, BaseNode):
 
     def draw_socket(self, layout, socket, text, decl, index):
         row = layout.row(align=True)
-        row.prop(self, "display_settings", text="", icon="SETTINGS")
         row.prop(self, "output_name", text="")
+        row.prop(self, "display_settings", text="", icon="SETTINGS")
 
     def draw_closed_label(self):
         return self.output_name + " (Output)"
@@ -252,7 +252,7 @@ class MoveGroupInterface(bpy.types.Operator):
             nodes = tree.get_input_nodes()
         else:
             nodes = tree.get_output_nodes()
-        
+
         from_index = self.from_index
         to_index = min(max(self.from_index + self.offset, 0), len(nodes) - 1)
 
@@ -279,7 +279,7 @@ class ManageGroupPieMenu(bpy.types.Menu, PieMenuHelper):
 
     @classmethod
     def poll(cls, context):
-        try: 
+        try:
             return isinstance(context.space_data.node_tree, FunctionTree)
         except:
             return False
@@ -293,7 +293,7 @@ class ManageGroupPieMenu(bpy.types.Menu, PieMenuHelper):
             self.empty(layout)
             return
 
-        possible_inputs = [(i, socket) for i, socket in enumerate(node.inputs) 
+        possible_inputs = [(i, socket) for i, socket in enumerate(node.inputs)
                                        if socket_can_become_group_input(socket)]
 
         if len(possible_inputs) == 0:
@@ -375,7 +375,7 @@ class CreateGroupOutputForSocketInvoker(bpy.types.Operator):
 
         layout = menu.layout.column()
         layout.operator_context = "INVOKE_DEFAULT"
-        
+
         for i, socket in enumerate(node.outputs):
             if socket_can_become_group_output(socket):
                 props = layout.operator("fn.create_group_output_for_socket", text=socket.name)
@@ -409,7 +409,7 @@ class CreateGroupInputForSocket(bpy.types.Operator):
             elif socket.bl_idname == "fn_InfluencesSocket":
                 new_node.interface_type = "INFLUENCES"
             new_node.rebuild()
-            
+
             new_node.select = True
             new_node.parent = node.parent
             new_node.location = node.location
@@ -426,7 +426,7 @@ class CreateGroupInputForSocket(bpy.types.Operator):
 class CreateGroupOutputForSocket(bpy.types.Operator):
     bl_idname = "fn.create_group_output_for_socket"
     bl_label = "Create Group Output for Socket"
-    
+
     output_index: IntProperty()
 
     def invoke(self, context, event):

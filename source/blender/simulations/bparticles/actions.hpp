@@ -5,6 +5,8 @@
 
 namespace BParticles {
 
+using FN::CPPType;
+
 class NoneAction : public Action {
   void execute(ActionInterface &UNUSED(interface)) override;
 };
@@ -137,6 +139,25 @@ class RemoveFromGroupAction : public Action {
 
  public:
   RemoveFromGroupAction(std::string group_name) : m_group_name(std::move(group_name))
+  {
+  }
+
+  void execute(ActionInterface &interface) override;
+};
+
+class SetAttributeAction : public Action {
+ private:
+  std::string m_attribute_name;
+  const CPPType &m_attribute_type;
+  ParticleFunction &m_inputs_fn;
+
+ public:
+  SetAttributeAction(std::string attribute_name,
+                     const CPPType &attribute_type,
+                     ParticleFunction &inputs_fn)
+      : m_attribute_name(std::move(attribute_name)),
+        m_attribute_type(attribute_type),
+        m_inputs_fn(inputs_fn)
   {
   }
 

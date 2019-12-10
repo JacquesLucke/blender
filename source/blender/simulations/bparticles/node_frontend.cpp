@@ -295,6 +295,19 @@ class XSocketActionBuilder {
     return m_built_action;
   }
 
+  const XSocket &xsocket() const
+  {
+    return m_execute_xsocket;
+  }
+
+  const CPPType &base_type_of(const XInputSocket &xsocket) const
+  {
+    return m_inlined_tree_data.inlined_tree_data_graph()
+        .lookup_dummy_socket(xsocket)
+        .data_type()
+        .single__cpp_type();
+  }
+
   template<typename T, typename... Args> T &construct(Args &&... args)
   {
     return m_inlined_tree_data.construct<T>("construct action", std::forward<Args>(args)...);
@@ -337,9 +350,17 @@ class XSocketActionBuilder {
 
   template<typename T> void add_attribute_to_affected_particles(StringRef name, T default_value)
   {
-    /* Add group to all particle systems for now. */
+    this->add_attribute_to_affected_particles(
+        name, FN::CPP_TYPE<T>(), (const void *)&default_value);
+  }
+
+  void add_attribute_to_affected_particles(StringRef name,
+                                           const CPPType &type,
+                                           const void *default_value = nullptr)
+  {
+    /* Add attribute to all particle systems for now. */
     m_influences_collector.m_attributes.foreach_value(
-        [&](AttributesInfoBuilder *builder) { builder->add<T>(name, default_value); });
+        [&](AttributesInfoBuilder *builder) { builder->add(name, type, default_value); });
   }
 };
 
@@ -466,6 +487,33 @@ static void ACTION_remove_from_group(XSocketActionBuilder &builder)
   builder.set_constructed<RemoveFromGroupAction>(group_name);
 }
 
+static std::string RNA_get_string_std(PointerRNA *rna, StringRefNull prop_name)
+{
+  char *str;
+  str = RNA_string_get_alloc(rna, prop_name.data(), nullptr, 0);
+  std::string std_string = str;
+  MEM_freeN(str);
+  return std_string;
+}
+
+static void ACTION_set_attribute(XSocketActionBuilder &builder)
+{
+  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
+  if (inputs_fn == nullptr) {
+    return;
+  }
+
+  std::string attribute_name = RNA_get_string_std(builder.node_rna(), "attribute_name");
+  const CPPType &type = builder.base_type_of(builder.xsocket().node().input(0));
+
+  void *default_buffer = alloca(type.size());
+  type.construct_default(default_buffer);
+  builder.add_attribute_to_affected_particles(attribute_name, type, default_buffer);
+  type.destruct(default_buffer);
+
+  builder.set_constructed<SetAttributeAction>(attribute_name, type, *inputs_fn);
+}
+
 BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
 {
   StringMap<ActionParserCallback> map;
@@ -478,6 +526,7 @@ BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
   map.add_new("fn_ChangeParticlePositionNode", ACTION_change_position);
   map.add_new("fn_AddToGroupNode", ACTION_add_to_group);
   map.add_new("fn_RemoveFromGroupNode", ACTION_remove_from_group);
+  map.add_new("fn_SetParticleAttributeNode", ACTION_set_attribute);
   return map;
 }
 
