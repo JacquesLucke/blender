@@ -142,6 +142,32 @@ template<typename T> class VirtualListRef {
   {
     return m_virtual_size;
   }
+
+  bool is_full_array() const
+  {
+    return m_category == Category::FullArray;
+  }
+
+  ArrayRef<T> as_full_array() const
+  {
+    return ArrayRef<T>(m_data.full_array.data, m_virtual_size);
+  }
+
+  bool is_single_element() const
+  {
+    switch (m_category) {
+      case Category::Single:
+        return true;
+      case Category::FullArray:
+        return m_virtual_size == 1;
+      case Category::FullPointerArray:
+        return m_virtual_size == 1;
+      case Category::RepeatedArray:
+        return m_data.repeated_array.real_size == 1;
+    }
+    BLI_assert(false);
+    return false;
+  }
 };
 
 }  // namespace BLI

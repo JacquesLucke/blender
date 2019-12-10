@@ -127,8 +127,7 @@ static void INSERT_time_info(VNodeMFNetworkBuilder &builder)
 template<typename InT, typename OutT>
 static void build_math_fn(VNodeMFNetworkBuilder &builder, OutT (*func)(InT))
 {
-  auto fn =
-      [func](MFMask mask, VirtualListRef<InT> inputs, MutableArrayRef<OutT> outputs) -> void {
+  auto fn = [=](MFMask mask, VirtualListRef<InT> inputs, MutableArrayRef<OutT> outputs) -> void {
     for (uint i : mask.indices()) {
       new (&outputs[i]) OutT(func(inputs[i]));
     }
@@ -138,15 +137,34 @@ static void build_math_fn(VNodeMFNetworkBuilder &builder, OutT (*func)(InT))
       {"use_list"}, builder.xnode().name(), fn);
 }
 
-template<typename InT1, typename InT2, typename OutT>
-static void build_math_fn(VNodeMFNetworkBuilder &builder, OutT (*func)(InT1, InT2))
+template<typename InT1, typename InT2, typename OutT, typename FuncT>
+static void build_math_fn_in2_out1(VNodeMFNetworkBuilder &builder, FuncT func)
 {
-  auto fn = [func](MFMask mask,
-                   VirtualListRef<InT1> inputs1,
-                   VirtualListRef<InT2> inputs2,
-                   MutableArrayRef<OutT> outputs) -> void {
-    for (uint i : mask.indices()) {
-      new (&outputs[i]) OutT(func(inputs1[i], inputs2[i]));
+  auto fn = [=](MFMask mask,
+                VirtualListRef<InT1> inputs1,
+                VirtualListRef<InT2> inputs2,
+                MutableArrayRef<OutT> outputs) -> void {
+    if (inputs1.is_full_array() && inputs2.is_full_array()) {
+      ArrayRef<InT1> in1_array = inputs1.as_full_array();
+      ArrayRef<InT2> in2_array = inputs2.as_full_array();
+
+      mask.foreach_index(
+          [=](uint i) { new (&outputs[i]) OutT(func(in1_array[i], in2_array[i])); });
+    }
+    else if (inputs1.is_full_array() && inputs2.is_single_element()) {
+      ArrayRef<InT1> in1_array = inputs1.as_full_array();
+      InT2 in2_single = inputs2[0];
+
+      mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(in1_array[i], in2_single)); });
+    }
+    else if (inputs1.is_single_element() && inputs2.is_full_array()) {
+      InT1 in1_single = inputs1[0];
+      ArrayRef<InT2> in2_array = inputs2.as_full_array();
+
+      mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(in1_single, in2_array[i])); });
+    }
+    else {
+      mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(inputs1[i], inputs2[i])); });
     }
   };
 
@@ -210,21 +228,21 @@ static void INSERT_maximum_floats(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_subtract_floats(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a, float b) -> float { return a - b; });
+  build_math_fn_in2_out1<float, float, float>(builder,
+                                              [](float a, float b) -> float { return a - b; });
 }
 
 static void INSERT_divide_floats(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a, float b) -> float { return (b != 0.0f) ? a / b : 0.0f; });
+  build_math_fn_in2_out1<float, float, float>(
+      builder, [](float a, float b) -> float { return (b != 0.0f) ? a / b : 0.0f; });
 }
 
 static void INSERT_power_floats(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder,
-      +[](float a, float b) -> float { return (a >= 0.0f) ? (float)std::pow(a, b) : 0.0f; });
+  build_math_fn_in2_out1<float, float, float>(builder, [](float a, float b) -> float {
+    return (a >= 0.0f) ? (float)std::pow(a, b) : 0.0f;
+  });
 }
 
 static void INSERT_sqrt_float(VNodeMFNetworkBuilder &builder)
@@ -263,39 +281,39 @@ static void INSERT_multiply_vectors(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_subtract_vectors(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float3 a, float3 b) -> float3 { return a - b; });
+  build_math_fn_in2_out1<float3, float3, float3>(
+      builder, [](float3 a, float3 b) -> float3 { return a - b; });
 }
 
 static void INSERT_divide_vectors(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(builder, float3::safe_divide);
+  build_math_fn_in2_out1<float3, float3, float3>(builder, float3::safe_divide);
 }
 
 static void INSERT_vector_cross_product(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(builder, float3::cross_high_precision);
+  build_math_fn_in2_out1<float3, float3, float3>(builder, float3::cross_high_precision);
 }
 
 static void INSERT_reflect_vector(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float3 a, float3 b) { return a.reflected(b.normalized()); });
+  build_math_fn_in2_out1<float3, float3, float3>(
+      builder, [](float3 a, float3 b) { return a.reflected(b.normalized()); });
 }
 
 static void INSERT_project_vector(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(builder, float3::project);
+  build_math_fn_in2_out1<float3, float3, float3>(builder, float3::project);
 }
 
 static void INSERT_vector_dot_product(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(builder, float3::dot);
+  build_math_fn_in2_out1<float3, float3, float>(builder, float3::dot);
 }
 
 static void INSERT_vector_distance(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(builder, float3::distance);
+  build_math_fn_in2_out1<float3, float3, float>(builder, float3::distance);
 }
 
 static void INSERT_boolean_and(VNodeMFNetworkBuilder &builder)
@@ -318,8 +336,8 @@ static void INSERT_boolean_not(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_compare(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a, float b) -> bool { return a < b; });
+  build_math_fn_in2_out1<float, float, bool>(builder,
+                                             [](float a, float b) -> bool { return a < b; });
 }
 
 static void INSERT_perlin_noise(VNodeMFNetworkBuilder &builder)
