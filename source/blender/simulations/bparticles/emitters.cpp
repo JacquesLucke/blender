@@ -409,6 +409,7 @@ void CustomEmitter::emit(EmitterInterface &interface)
   for (StringRef system_name : m_systems_to_emit) {
     auto new_particles = interface.particle_allocator().request(system_name, particle_count);
     new_particles.fill<float>("Birth Time", interface.time_span().end());
+    const AttributesInfo &info = new_particles.info();
 
     for (uint param_index : m_emitter_function.param_indices()) {
       MFParamType param_type = m_emitter_function.param_type(param_index);
@@ -417,19 +418,23 @@ void CustomEmitter::emit(EmitterInterface &interface)
         FN::GenericVectorArray &vector_array = params_builder.computed_vector_array(param_index);
         FN::GenericArrayRef array = vector_array[0];
         const FN::CPPType &base_type = array.type();
-        if (array.size() == 0) {
-          void *default_buffer = alloca(base_type.size());
-          base_type.construct_default(default_buffer);
-          new_particles.fill(attribute_name, base_type, default_buffer);
-        }
-        else {
-          new_particles.set_repeated(attribute_name, array);
+        if (info.has_attribute(attribute_name, base_type)) {
+          if (array.size() == 0) {
+            void *default_buffer = alloca(base_type.size());
+            base_type.construct_default(default_buffer);
+            new_particles.fill(attribute_name, base_type, default_buffer);
+          }
+          else {
+            new_particles.set_repeated(attribute_name, array);
+          }
         }
       }
       else if (param_type.is_single_output()) {
         FN::GenericMutableArrayRef array = params_builder.computed_array(param_index);
         const FN::CPPType &type = array.type();
-        new_particles.fill(attribute_name, type, array[0]);
+        if (info.has_attribute(attribute_name, type)) {
+          new_particles.fill(attribute_name, type, array[0]);
+        }
       }
       else {
         BLI_assert(false);

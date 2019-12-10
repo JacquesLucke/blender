@@ -230,6 +230,30 @@ class InlinedTreeData {
     return fn_ptr;
   }
 
+  bool try_add_attribute(InfluencesCollector &collector,
+                         ArrayRef<std::string> system_names,
+                         StringRef name,
+                         const CPPType &type,
+                         const void *default_value)
+  {
+    bool collides_with_existing = false;
+    for (StringRef system_name : system_names) {
+      AttributesInfoBuilder *attributes = collector.m_attributes.lookup(system_name);
+      collides_with_existing = collides_with_existing ||
+                               attributes->name_and_type_collide_with_existing(name, type);
+    }
+
+    if (collides_with_existing) {
+      return false;
+    }
+
+    for (StringRef system_name : system_names) {
+      collector.m_attributes.lookup(system_name)->add(name, type, default_value);
+    }
+
+    return true;
+  }
+
  private:
   Vector<const XNode *> find_target_system_nodes(const XOutputSocket &xsocket)
   {
@@ -348,19 +372,24 @@ class XSocketActionBuilder {
     return m_inlined_tree_data.compute_all_data_inputs(m_execute_xsocket.node());
   }
 
-  template<typename T> void add_attribute_to_affected_particles(StringRef name, T default_value)
+  template<typename T>
+  bool try_add_attribute_to_affected_particles(StringRef name, T default_value)
   {
-    this->add_attribute_to_affected_particles(
+    return this->try_add_attribute_to_affected_particles(
         name, FN::CPP_TYPE<T>(), (const void *)&default_value);
   }
 
-  void add_attribute_to_affected_particles(StringRef name,
-                                           const CPPType &type,
-                                           const void *default_value = nullptr)
+  bool try_add_attribute_to_affected_particles(StringRef name,
+                                               const CPPType &type,
+                                               const void *default_value = nullptr)
   {
     /* Add attribute to all particle systems for now. */
-    m_influences_collector.m_attributes.foreach_value(
-        [&](AttributesInfoBuilder *builder) { builder->add(name, type, default_value); });
+    Vector<std::string> system_names;
+    m_influences_collector.m_attributes.foreach_key(
+        [&](StringRef name) { system_names.append(name); });
+
+    return m_inlined_tree_data.try_add_attribute(
+        m_influences_collector, system_names, name, type, default_value);
   }
 };
 
@@ -471,8 +500,12 @@ static void ACTION_add_to_group(XSocketActionBuilder &builder)
     return;
   }
 
-  std::string group_name = inputs->relocate_out<std::string>(0, "Group");
-  builder.add_attribute_to_affected_particles<bool>(group_name, false);
+  std::string group_name = "private/group/" + inputs->relocate_out<std::string>(0, "Group");
+  bool attribute_added = builder.try_add_attribute_to_affected_particles<bool>(group_name, false);
+  if (!attribute_added) {
+    return;
+  }
+
   builder.set_constructed<AddToGroupAction>(group_name);
 }
 
@@ -506,7 +539,11 @@ static void ACTION_set_attribute(XSocketActionBuilder &builder)
   std::string attribute_name = RNA_get_string_std(builder.node_rna(), "attribute_name");
   const CPPType &type = builder.base_type_of(builder.xsocket().node().input(0));
 
-  builder.add_attribute_to_affected_particles(attribute_name, type);
+  bool attribute_added = builder.try_add_attribute_to_affected_particles(attribute_name, type);
+  if (!attribute_added) {
+    return;
+  }
+
   builder.set_constructed<SetAttributeAction>(attribute_name, type, *inputs_fn);
 }
 
@@ -615,6 +652,7 @@ class XNodeInfluencesBuilder {
   std::string node_identifier()
   {
     std::stringstream ss;
+    ss << "private/node";
     for (const BKE::XParentNode *parent = m_xnode.parent(); parent; parent = parent->parent()) {
       ss << "/" << parent->vnode().name();
     }
@@ -645,19 +683,18 @@ class XNodeInfluencesBuilder {
   }
 
   template<typename T>
-  void add_attribute(ArrayRef<std::string> system_names, StringRef name, T default_value)
+  bool try_add_attribute(ArrayRef<std::string> system_names, StringRef name, T default_value)
   {
-    this->add_attribute(system_names, name, (const void *)&default_value);
+    return this->try_add_attribute(system_names, name, (const void *)&default_value);
   }
 
-  void add_attribute(ArrayRef<std::string> system_names,
-                     StringRef name,
-                     const CPPType &type,
-                     const void *default_value = nullptr)
+  bool try_add_attribute(ArrayRef<std::string> system_names,
+                         StringRef name,
+                         const CPPType &type,
+                         const void *default_value = nullptr)
   {
-    for (StringRef system_name : system_names) {
-      m_influences_collector.m_attributes.lookup(system_name)->add(name, type, default_value);
-    }
+    return m_inlined_tree_data.try_add_attribute(
+        m_influences_collector, system_names, name, type, default_value);
   }
 };
 
@@ -719,7 +756,7 @@ static void PARSE_custom_emitter(XNodeInfluencesBuilder &builder)
       BLI_assert(false);
     }
 
-    builder.add_attribute(system_names, attribute_name, *attribute_type);
+    builder.try_add_attribute(system_names, attribute_name, *attribute_type);
   }
 
   Action &action = builder.build_action_list("Execute on Birth");
@@ -811,11 +848,15 @@ static void PARSE_age_reached_event(XNodeInfluencesBuilder &builder)
   }
 
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Event");
-  Action &action = builder.build_action_list("Execute on Event");
-
   std::string is_triggered_attribute = builder.node_identifier();
 
-  builder.add_attribute<bool>(system_names, is_triggered_attribute, false);
+  bool attribute_added = builder.try_add_attribute<bool>(
+      system_names, is_triggered_attribute, false);
+  if (!attribute_added) {
+    return;
+  }
+
+  Action &action = builder.build_action_list("Execute on Event");
   Event &event = builder.construct<AgeReachedEvent>(is_triggered_attribute, inputs_fn, action);
   builder.add_event(system_names, event);
 }
@@ -883,10 +924,14 @@ static void PARSE_mesh_collision(XNodeInfluencesBuilder &builder)
       builder.world_transition().update_float4x4(object->id.name, "obmat", object->obmat).start;
 
   std::string last_collision_attribute = builder.node_identifier();
+  bool attribute_added = builder.try_add_attribute<int32_t>(
+      system_names, last_collision_attribute, -1);
+  if (!attribute_added) {
+    return;
+  }
 
   Event &event = builder.construct<MeshCollisionEvent>(
       last_collision_attribute, object, action, local_to_world_begin, local_to_world_end);
-  builder.add_attribute<int32_t>(system_names, last_collision_attribute, -1);
   builder.add_event(system_names, event);
 }
 
@@ -910,12 +955,16 @@ static void PARSE_custom_event(XNodeInfluencesBuilder &builder)
   }
 
   ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Event");
-  Action &action = builder.build_action_list("Execute on Event");
 
   std::string is_triggered_attribute = builder.node_identifier();
+  bool attribute_added = builder.try_add_attribute<bool>(
+      system_names, is_triggered_attribute, false);
+  if (!attribute_added) {
+    return;
+  }
 
+  Action &action = builder.build_action_list("Execute on Event");
   Event &event = builder.construct<CustomEvent>(is_triggered_attribute, inputs_fn, action);
-  builder.add_attribute<bool>(system_names, is_triggered_attribute, false);
   builder.add_event(system_names, event);
 }
 
@@ -971,7 +1020,18 @@ static void collect_influences(InlinedTreeData &inlined_tree_data,
        inlined_tree_data.inlined_tree().nodes_with_idname(particle_system_idname)) {
     StringRef name = xnode->name();
     r_system_names.append(name);
-    r_attributes_per_type.add_new(name, new AttributesInfoBuilder());
+
+    AttributesInfoBuilder *attributes = new AttributesInfoBuilder();
+    attributes->add<bool>("Kill State", 0);
+    attributes->add<int32_t>("ID", 0);
+    attributes->add<float>("Birth Time", 0);
+    attributes->add<float3>("Position", float3(0, 0, 0));
+    attributes->add<float3>("Velocity", float3(0, 0, 0));
+    attributes->add<float>("Size", 0.05f);
+    attributes->add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
+    attributes->add<BKE::SurfaceHook>("Emit Hook", {});
+
+    r_attributes_per_type.add_new(name, attributes);
   }
 
   for (const XNode *xnode : inlined_tree_data.inlined_tree().all_nodes()) {
@@ -984,17 +1044,6 @@ static void collect_influences(InlinedTreeData &inlined_tree_data,
   }
 
   for (std::string &system_name : r_system_names) {
-    AttributesInfoBuilder &attributes = *r_attributes_per_type.lookup(system_name);
-
-    attributes.add<bool>("Kill State", 0);
-    attributes.add<int32_t>("ID", 0);
-    attributes.add<float>("Birth Time", 0);
-    attributes.add<float3>("Position", float3(0, 0, 0));
-    attributes.add<float3>("Velocity", float3(0, 0, 0));
-    attributes.add<float>("Size", 0.05f);
-    attributes.add<rgba_f>("Color", rgba_f(1, 1, 1, 1));
-    attributes.add<BKE::SurfaceHook>("Emit Hook", {});
-
     ArrayRef<Force *> forces = collector.m_forces.lookup_default(system_name);
     EulerIntegrator &integrator = inlined_tree_data.construct<EulerIntegrator>("integrator",
                                                                                forces);

@@ -59,6 +59,21 @@ class AttributesInfoBuilder : BLI::NonCopyable, BLI::NonMovable {
     }
   }
 
+  bool name_and_type_collide_with_existing(StringRef name, const CPPType &type) const
+  {
+    int index = m_names.index_try(name);
+    if (index == -1) {
+      return false;
+    }
+
+    const CPPType *existing_type = m_types[index];
+    if (*existing_type == type) {
+      return false;
+    }
+
+    return true;
+  }
+
   uint size() const
   {
     return m_names.size();
@@ -119,6 +134,11 @@ class AttributesInfo : BLI::NonCopyable, BLI::NonMovable {
   const void *default_of(StringRef name) const
   {
     return this->default_of(this->index_of(name));
+  }
+
+  bool has_attribute(StringRef name, const CPPType &type) const
+  {
+    return this->try_index_of(name, type) >= 0;
   }
 
   int try_index_of(StringRef name, const CPPType &type) const
