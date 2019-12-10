@@ -11,6 +11,8 @@
 #include "BLI_math_geom.h"
 #include "BLI_vector_adaptor.h"
 
+#include "FN_multi_function_common_contexts.h"
+
 #include "emitters.hpp"
 #include "action_contexts.hpp"
 
@@ -389,6 +391,9 @@ void CustomEmitter::emit(EmitterInterface &interface)
   }
 
   FN::MFContextBuilder context_builder(&m_id_handle_lookup);
+  FN::ExternalDataCacheContext data_cache;
+  context_builder.add_element_context(data_cache);
+
   m_emitter_function.call({0}, params_builder, context_builder);
 
   int particle_count = -1;
