@@ -8,7 +8,7 @@ class ValueNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_ValueNode"
     bl_label = "Value"
 
-    data_type = StringProperty(
+    data_type: StringProperty(
         name="Data Type",
         default="Float",
         update=FunctionNode.sync_tree,
@@ -17,7 +17,7 @@ class ValueNode(bpy.types.Node, FunctionNode):
     def declaration(self, builder: NodeBuilder):
         builder.fixed_output("value", "Value", self.data_type)
 
-    def draw_socket(self, layout, socket, text, decl, index):
+    def draw_socket(self, layout, socket, text, decl, index_in_decl):
         row = layout.row(align=True)
         if hasattr(socket, "draw_property"):
             socket.draw_property(row, self, "")

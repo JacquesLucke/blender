@@ -63,7 +63,7 @@ class GroupInputNode(bpy.types.Node, BaseNode):
 
             self.invoke_type_selection(layout, "set_data_type", "Select Type")
 
-    def draw_socket(self, layout, socket, text, decl, index):
+    def draw_socket(self, layout, socket, text, decl, index_in_decl):
         row = layout.row(align=True)
         row.prop(self, "input_name", text="")
         row.prop(self, "display_settings", text="", icon="SETTINGS")
@@ -119,7 +119,7 @@ class GroupOutputNode(bpy.types.Node, BaseNode):
         if self.interface_type == "DATA":
             self.invoke_type_selection(layout, "set_type_type", "Select Type")
 
-    def draw_socket(self, layout, socket, text, decl, index):
+    def draw_socket(self, layout, socket, text, decl, index_in_decl):
         row = layout.row(align=True)
         row.prop(self, "output_name", text="")
         row.prop(self, "display_settings", text="", icon="SETTINGS")

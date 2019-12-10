@@ -119,8 +119,8 @@ class BaseNode:
     def draw_advanced(self, layout):
         pass
 
-    def draw_socket(self, layout, socket, text, decl, index):
-        decl.draw_socket(layout, socket, index)
+    def draw_socket(self, layout, socket, text, decl, index_in_decl):
+        decl.draw_socket(layout, socket, index_in_decl)
 
     def draw_label(self):
         if self.hide:
