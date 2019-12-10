@@ -473,13 +473,17 @@ keymap = None
 
 def register():
     global keymap
-    keymap = bpy.context.window_manager.keyconfigs.addon.keymaps.new(
-        name="Node Editor", space_type="NODE_EDITOR")
 
-    kmi = keymap.keymap_items.new("wm.call_menu_pie", type="V", value="PRESS")
-    kmi.properties.name = "FN_MT_manage_group_pie"
+    if not bpy.app.background:
+        keymap = bpy.context.window_manager.keyconfigs.addon.keymaps.new(
+            name="Node Editor", space_type="NODE_EDITOR")
+
+        kmi = keymap.keymap_items.new("wm.call_menu_pie", type="V", value="PRESS")
+        kmi.properties.name = "FN_MT_manage_group_pie"
 
 def unregister():
     global keymap
-    bpy.context.window_manager.keyconfigs.addon.keymaps.remove(keymap)
-    keymap = None
+
+    if not bpy.app.background:
+        bpy.context.window_manager.keyconfigs.addon.keymaps.remove(keymap)
+        keymap = None
