@@ -685,7 +685,8 @@ class XNodeInfluencesBuilder {
   template<typename T>
   bool try_add_attribute(ArrayRef<std::string> system_names, StringRef name, T default_value)
   {
-    return this->try_add_attribute(system_names, name, (const void *)&default_value);
+    return this->try_add_attribute(
+        system_names, name, FN::CPP_TYPE<T>(), (const void *)&default_value);
   }
 
   bool try_add_attribute(ArrayRef<std::string> system_names,
