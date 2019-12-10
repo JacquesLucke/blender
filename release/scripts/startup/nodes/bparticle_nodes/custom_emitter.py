@@ -4,6 +4,7 @@ from bpy.props import *
 from .. base import SimulationNode, DataSocket
 from .. node_builder import NodeBuilder
 from .. types import type_infos
+from .. sync import skip_syncing
 
 
 class CustomEmitterAttribute(bpy.types.PropertyGroup):
@@ -48,16 +49,24 @@ class CustomEmitter(bpy.types.Node, SimulationNode):
             row = col.row(align=True)
             row.prop(item, "attribute_name", text="")
             self.invoke_type_selection(row, "set_attribute_type", "", icon="SETTINGS", mode="BASE", settings=(index, ))
+            self.invoke_function(row, "remove_attribute", "", icon="X", settings=(index, ))
             if hasattr(socket, "draw_property"):
                 socket.draw_property(col, self, "")
         else:
             decl.draw_socket(layout, socket, index_in_decl)
 
     def add_attribute(self, data_type):
-        item = self.attributes.add()
-        item.identifier = str(uuid.uuid4())
-        item.attribute_name = "My Attribute"
-        item.attribute_type = data_type
+        with skip_syncing():
+            item = self.attributes.add()
+            item.identifier = str(uuid.uuid4())
+            item.attribute_type = data_type
+            item.attribute_name = "My Attribute"
+
+        self.sync_tree()
+
+    def remove_attribute(self, index):
+        self.attributes.remove(index)
+        self.sync_tree()
 
     def set_attribute_type(self, data_type, index):
         self.attributes[index].attribute_type = data_type
