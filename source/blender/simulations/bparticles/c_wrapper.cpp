@@ -55,8 +55,6 @@ void BParticles_simulate_modifier(BParticlesModifierData *bpmd,
                                   BParticlesSimulationState state_c,
                                   float time_step)
 {
-  SCOPED_TIMER(__func__);
-
   if (bpmd->node_tree == NULL) {
     return;
   }
@@ -137,8 +135,6 @@ static Mesh *distribute_tetrahedons(ArrayRef<float3> centers,
                                     ArrayRef<float> scales,
                                     ArrayRef<rgba_f> colors)
 {
-  SCOPED_TIMER(__func__);
-
   uint amount = centers.size();
   Mesh *mesh = BKE_mesh_new_nomain(amount * ARRAY_SIZE(tetrahedon_vertices),
                                    amount * ARRAY_SIZE(tetrahedon_edges),
@@ -202,8 +198,6 @@ void BParticles_modifier_free_cache(BParticlesModifierData *bpmd)
 
 Mesh *BParticles_modifier_point_mesh_from_state(BParticlesSimulationState state_c)
 {
-  SCOPED_TIMER(__func__);
-
   SimulationState &state = *unwrap(state_c);
 
   Vector<float3> positions;
@@ -217,8 +211,6 @@ Mesh *BParticles_modifier_point_mesh_from_state(BParticlesSimulationState state_
 
 Mesh *BParticles_modifier_mesh_from_state(BParticlesSimulationState state_c)
 {
-  SCOPED_TIMER(__func__);
-
   SimulationState &state = *unwrap(state_c);
 
   Vector<float3> positions;
@@ -238,8 +230,6 @@ Mesh *BParticles_modifier_mesh_from_state(BParticlesSimulationState state_c)
 
 Mesh *BParticles_modifier_mesh_from_cache(BParticlesFrameCache *cached_frame)
 {
-  SCOPED_TIMER(__func__);
-
   Vector<float3> positions;
   Vector<float> sizes;
   Vector<rgba_f> colors;
