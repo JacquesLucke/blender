@@ -93,6 +93,11 @@ class InlinedTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
     return m_resources;
   }
 
+  const VTreeMultiFunctionMappings &vtree_multi_function_mappings() const
+  {
+    return m_inlined_tree_mappings;
+  }
+
   MFBuilderFunctionNode &add_function(const MultiFunction &function);
 
   MFBuilderFunctionNode &add_function(const MultiFunction &function, const XNode &xnode);

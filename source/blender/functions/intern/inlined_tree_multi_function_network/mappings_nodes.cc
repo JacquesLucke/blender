@@ -424,6 +424,21 @@ static void INSERT_random_float(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_RandomFloat>();
 }
 
+static void INSERT_value(VNodeMFNetworkBuilder &builder)
+{
+  const XOutputSocket &xsocket = builder.xnode().output(0);
+  const VSocket &vsocket = xsocket.vsocket();
+  InlinedTreeMFNetworkBuilder &network_builder = builder.network_builder();
+
+  VSocketMFNetworkBuilder socket_builder{network_builder, vsocket};
+  auto &inserter = network_builder.vtree_multi_function_mappings().xsocket_inserters.lookup(
+      vsocket.idname());
+  inserter(socket_builder);
+  MFBuilderOutputSocket &built_socket = socket_builder.built_socket();
+
+  network_builder.map_sockets(xsocket, built_socket);
+}
+
 void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.xnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
@@ -455,6 +470,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_MapRangeNode", INSERT_map_range);
   mappings.xnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
   mappings.xnode_inserters.add_new("fn_RandomFloatNode", INSERT_random_float);
+  mappings.xnode_inserters.add_new("fn_ValueNode", INSERT_value);
 
   mappings.xnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
   mappings.xnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);
