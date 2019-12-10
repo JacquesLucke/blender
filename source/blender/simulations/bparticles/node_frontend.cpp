@@ -706,7 +706,7 @@ static void PARSE_custom_emitter(XNodeInfluencesBuilder &builder)
   for (const XInputSocket *socket : data_inputs) {
     StringRef attribute_name = socket->name();
     attribute_names.append(attribute_name);
-    const CPPType *attribute_type;
+    const CPPType *attribute_type = nullptr;
 
     FN::MFDataType data_type = builder.data_type_of_input(*socket);
     if (data_type.is_single()) {
