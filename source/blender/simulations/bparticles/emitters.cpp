@@ -357,4 +357,87 @@ void InitialGridEmitter::emit(EmitterInterface &interface)
   }
 }
 
+using FN::MFParamType;
+
+void CustomEmitter::emit(EmitterInterface &interface)
+{
+  FN::MFParamsBuilder params_builder{m_emitter_function, 1};
+
+  for (uint param_index : m_emitter_function.param_indices()) {
+    MFParamType param_type = m_emitter_function.param_type(param_index);
+    switch (param_type.type()) {
+      case MFParamType::SingleInput:
+      case MFParamType::VectorInput:
+      case MFParamType::MutableSingle:
+      case MFParamType::MutableVector:
+        BLI_assert(false);
+        break;
+      case MFParamType::SingleOutput: {
+        const FN::CPPType &type = param_type.data_type().single__cpp_type();
+        void *buffer = MEM_mallocN(type.size(), __func__);
+        FN::GenericMutableArrayRef array{type, buffer, 1};
+        params_builder.add_single_output(array);
+        break;
+      }
+      case MFParamType::VectorOutput: {
+        const FN::CPPType &base_type = param_type.data_type().vector__cpp_base_type();
+        FN::GenericVectorArray *vector_array = new FN::GenericVectorArray(base_type, 1);
+        params_builder.add_vector_output(*vector_array);
+        break;
+      }
+    }
+  }
+
+  FN::MFContextBuilder context_builder;
+  m_emitter_function.call({0}, params_builder, context_builder);
+
+  int particle_count = -1;
+
+  for (uint param_index : m_emitter_function.param_indices()) {
+    MFParamType param_type = m_emitter_function.param_type(param_index);
+    if (param_type.is_vector_output()) {
+      FN::GenericVectorArray &vector_array = params_builder.computed_vector_array(param_index);
+      FN::GenericArrayRef array = vector_array[0];
+      particle_count = std::max<int>(particle_count, array.size());
+    }
+  }
+
+  if (particle_count == -1) {
+    particle_count = 1;
+  }
+
+  for (StringRef system_name : m_systems_to_emit) {
+    auto new_particles = interface.particle_allocator().request(system_name, particle_count);
+    new_particles.fill<float>("Birth Time", interface.time_span().end());
+
+    for (uint param_index : m_emitter_function.param_indices()) {
+      MFParamType param_type = m_emitter_function.param_type(param_index);
+      StringRef attribute_name = m_attribute_names[param_index];
+      if (param_type.is_vector_output()) {
+        FN::GenericVectorArray &vector_array = params_builder.computed_vector_array(param_index);
+        FN::GenericArrayRef array = vector_array[0];
+        const FN::CPPType &base_type = array.type();
+        if (array.size() == 0) {
+          void *default_buffer = alloca(base_type.size());
+          base_type.construct_default(default_buffer);
+          new_particles.fill(attribute_name, base_type, default_buffer);
+        }
+        else {
+          new_particles.set_repeated(attribute_name, array);
+        }
+      }
+      else if (param_type.is_single_output()) {
+        FN::GenericMutableArrayRef array = params_builder.computed_array(param_index);
+        const FN::CPPType &type = array.type();
+        new_particles.fill(attribute_name, type, array[0]);
+      }
+      else {
+        BLI_assert(false);
+      }
+    }
+
+    m_action.execute_from_emitter(new_particles, interface);
+  }
+}
+
 }  // namespace BParticles

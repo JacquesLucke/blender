@@ -210,6 +210,26 @@ class InlinedTreeData {
     return sequence;
   }
 
+  const FN::MultiFunction *function_for_inputs(const XNode &xnode, ArrayRef<uint> input_indices)
+  {
+    Vector<const MFInputSocket *> sockets_to_compute;
+    for (uint index : input_indices) {
+      sockets_to_compute.append(
+          &m_inlined_tree_data_graph.lookup_dummy_socket(xnode.input(index)));
+    }
+
+    if (m_inlined_tree_data_graph.network().find_dummy_dependencies(sockets_to_compute).size() >
+        0) {
+      return nullptr;
+    }
+
+    auto fn = BLI::make_unique<FN::MF_EvaluateNetwork>(ArrayRef<const MFOutputSocket *>(),
+                                                       sockets_to_compute);
+    const FN::MultiFunction *fn_ptr = fn.get();
+    m_resources.add(std::move(fn), __func__);
+    return fn_ptr;
+  }
+
  private:
   Vector<const XNode *> find_target_system_nodes(const XOutputSocket &xsocket)
   {
@@ -230,26 +250,6 @@ class InlinedTreeData {
         find_target_system_nodes__recursive(connected_xnode.output(0), r_nodes);
       }
     }
-  }
-
-  const FN::MultiFunction *function_for_inputs(const XNode &xnode, ArrayRef<uint> input_indices)
-  {
-    Vector<const MFInputSocket *> sockets_to_compute;
-    for (uint index : input_indices) {
-      sockets_to_compute.append(
-          &m_inlined_tree_data_graph.lookup_dummy_socket(xnode.input(index)));
-    }
-
-    if (m_inlined_tree_data_graph.network().find_dummy_dependencies(sockets_to_compute).size() >
-        0) {
-      return nullptr;
-    }
-
-    auto fn = BLI::make_unique<FN::MF_EvaluateNetwork>(ArrayRef<const MFOutputSocket *>(),
-                                                       sockets_to_compute);
-    const FN::MultiFunction *fn_ptr = fn.get();
-    m_resources.add(std::move(fn), __func__);
-    return fn_ptr;
   }
 
   Vector<const XInputSocket *> find_execute_sockets(const XNode &xnode, StringRef name_prefix)
@@ -506,11 +506,7 @@ static void ACTION_set_attribute(XSocketActionBuilder &builder)
   std::string attribute_name = RNA_get_string_std(builder.node_rna(), "attribute_name");
   const CPPType &type = builder.base_type_of(builder.xsocket().node().input(0));
 
-  void *default_buffer = alloca(type.size());
-  type.construct_default(default_buffer);
-  builder.add_attribute_to_affected_particles(attribute_name, type, default_buffer);
-  type.destruct(default_buffer);
-
+  builder.add_attribute_to_affected_particles(attribute_name, type);
   builder.set_constructed<SetAttributeAction>(attribute_name, type, *inputs_fn);
 }
 
@@ -549,6 +545,11 @@ class XNodeInfluencesBuilder {
   {
   }
 
+  const XNode &xnode() const
+  {
+    return m_xnode;
+  }
+
   Optional<NamedGenericTupleRef> compute_all_data_inputs()
   {
     return m_inlined_tree_data.compute_all_data_inputs(m_xnode);
@@ -557,6 +558,11 @@ class XNodeInfluencesBuilder {
   Optional<NamedGenericTupleRef> compute_inputs(ArrayRef<uint> input_indices)
   {
     return m_inlined_tree_data.compute_inputs(m_xnode, input_indices);
+  }
+
+  const MultiFunction *function_for_inputs(ArrayRef<uint> input_indices)
+  {
+    return m_inlined_tree_data.function_for_inputs(m_xnode, input_indices);
   }
 
   Action &build_action_list(StringRef name)
@@ -633,12 +639,24 @@ class XNodeInfluencesBuilder {
     return m_inlined_tree_data.particle_function_for_all_inputs(m_xnode);
   }
 
+  FN::MFDataType data_type_of_input(const XInputSocket &xsocket)
+  {
+    return m_inlined_tree_data.inlined_tree_data_graph().lookup_dummy_socket(xsocket).data_type();
+  }
+
   template<typename T>
-  void add_attribute(ArrayRef<std::string> system_names, StringRef attribute_name, T default_value)
+  void add_attribute(ArrayRef<std::string> system_names, StringRef name, T default_value)
+  {
+    this->add_attribute(system_names, name, (const void *)&default_value);
+  }
+
+  void add_attribute(ArrayRef<std::string> system_names,
+                     StringRef name,
+                     const CPPType &type,
+                     const void *default_value = nullptr)
   {
     for (StringRef system_name : system_names) {
-      m_influences_collector.m_attributes.lookup(system_name)
-          ->add<T>(attribute_name, default_value);
+      m_influences_collector.m_attributes.lookup(system_name)->add(name, type, default_value);
     }
   }
 };
@@ -667,6 +685,47 @@ static void PARSE_point_emitter(XNodeInfluencesBuilder &builder)
 
   Emitter &emitter = builder.construct<PointEmitter>(
       std::move(system_names), position, velocity, size, action);
+  builder.add_emitter(emitter);
+}
+
+static void PARSE_custom_emitter(XNodeInfluencesBuilder &builder)
+{
+  const XNode &xnode = builder.xnode();
+  const XInputSocket &first_execute_socket = *xnode.input_with_name_prefix("Execute on Birth");
+  ArrayRef<const XInputSocket *> data_inputs = xnode.inputs().take_front(
+      first_execute_socket.index());
+  ArrayRef<uint> input_indices = IndexRange(data_inputs.size()).as_array_ref();
+  const MultiFunction *emitter_function = builder.function_for_inputs(input_indices);
+  if (emitter_function == nullptr) {
+    return;
+  }
+
+  ArrayRef<std::string> system_names = builder.find_target_system_names(0, "Emitter");
+
+  Vector<std::string> attribute_names;
+  for (const XInputSocket *socket : data_inputs) {
+    StringRef attribute_name = socket->name();
+    attribute_names.append(attribute_name);
+    const CPPType *attribute_type;
+
+    FN::MFDataType data_type = builder.data_type_of_input(*socket);
+    if (data_type.is_single()) {
+      attribute_type = &data_type.single__cpp_type();
+    }
+    else if (data_type.is_vector()) {
+      attribute_type = &data_type.vector__cpp_base_type();
+    }
+    else {
+      BLI_assert(false);
+    }
+
+    builder.add_attribute(system_names, attribute_name, *attribute_type);
+  }
+
+  Action &action = builder.build_action_list("Execute on Birth");
+
+  Emitter &emitter = builder.construct<CustomEmitter>(
+      system_names, *emitter_function, std::move(attribute_names), action);
   builder.add_emitter(emitter);
 }
 
@@ -873,6 +932,7 @@ BLI_LAZY_INIT_STATIC(StringMap<ParseNodeCallback>, get_node_parsers)
 {
   StringMap<ParseNodeCallback> map;
   map.add_new("fn_PointEmitterNode", PARSE_point_emitter);
+  map.add_new("fn_CustomEmitterNode", PARSE_custom_emitter);
   map.add_new("fn_MeshEmitterNode", PARSE_mesh_emitter);
   map.add_new("fn_AgeReachedEventNode", PARSE_age_reached_event);
   map.add_new("fn_ParticleTrailsNode", PARSE_trails);

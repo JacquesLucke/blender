@@ -4,7 +4,11 @@
 #include "action_interface.hpp"
 #include "emitter_interface.hpp"
 
+#include "FN_multi_function.h"
+
 namespace BParticles {
+
+using FN::MultiFunction;
 
 class SurfaceEmitter : public Emitter {
  private:
@@ -85,6 +89,28 @@ class InitialGridEmitter : public Emitter {
         m_step_x(step_x),
         m_step_y(step_y),
         m_size(size),
+        m_action(action)
+  {
+  }
+
+  void emit(EmitterInterface &interface) override;
+};
+
+class CustomEmitter : public Emitter {
+ private:
+  ArrayRef<std::string> m_systems_to_emit;
+  const MultiFunction &m_emitter_function;
+  Vector<std::string> m_attribute_names;
+  Action &m_action;
+
+ public:
+  CustomEmitter(ArrayRef<std::string> systems_to_emit,
+                const MultiFunction &emitter_function,
+                Vector<std::string> attribute_names,
+                Action &action)
+      : m_systems_to_emit(systems_to_emit),
+        m_emitter_function(emitter_function),
+        m_attribute_names(std::move(attribute_names)),
         m_action(action)
   {
   }

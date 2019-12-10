@@ -471,4 +471,14 @@ void InlinedNodeTree::to_dot__clipboard() const
   WM_clipboard_text_set(dot.c_str(), false);
 }
 
+const XInputSocket *XNode::input_with_name_prefix(StringRef name_prefix) const
+{
+  for (const XInputSocket *xsocket : m_inputs) {
+    if (xsocket->name().startswith(name_prefix)) {
+      return xsocket;
+    }
+  }
+  return nullptr;
+}
+
 }  // namespace BKE

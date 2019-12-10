@@ -41,12 +41,17 @@ class AttributesInfoBuilder : BLI::NonCopyable, BLI::NonMovable {
     this->add(name, CPP_TYPE<T>(), (const void *)&default_value);
   }
 
-  void add(StringRef name, const CPPType &type, const void *default_value)
+  void add(StringRef name, const CPPType &type, const void *default_value = nullptr)
   {
     if (m_names.add(name)) {
       m_types.append(&type);
       void *dst = m_allocator.allocate(type.size(), type.alignment());
-      type.copy_to_uninitialized(default_value, dst);
+      if (default_value == nullptr) {
+        type.construct_default(dst);
+      }
+      else {
+        type.copy_to_uninitialized(default_value, dst);
+      }
       m_defaults.append(dst);
     }
     else {
@@ -312,6 +317,30 @@ class AttributesRefGroup {
     this->set_repeated(m_info->index_of(name), data);
   }
 
+  void set_repeated(uint index, GenericArrayRef data)
+  {
+    BLI_assert(m_total_size == 0 || data.size() > 0);
+    BLI_assert(m_info->type_of(index) == data.type());
+
+    uint src_index = 0;
+    for (AttributesRef attributes : *this) {
+      GenericMutableArrayRef array = attributes.get(index);
+
+      for (uint i = 0; i < attributes.size(); i++) {
+        array.copy_in__initialized(i, data[src_index]);
+        src_index++;
+        if (src_index == data.size()) {
+          src_index = 0;
+        }
+      }
+    }
+  }
+
+  void set_repeated(StringRef name, GenericArrayRef data)
+  {
+    this->set_repeated(m_info->index_of(name), data);
+  }
+
   template<typename T> void fill(uint index, const T &value)
   {
     BLI_assert(m_info->type_of(index) == CPP_TYPE<T>());
@@ -325,6 +354,22 @@ class AttributesRefGroup {
   template<typename T> void fill(StringRef name, const T &value)
   {
     this->fill(m_info->index_of(name), value);
+  }
+
+  void fill(uint index, const CPPType &type, const void *value)
+  {
+    BLI_assert(m_info->type_of(index) == type);
+    UNUSED_VARS_NDEBUG(type);
+
+    for (AttributesRef attributes : *this) {
+      GenericMutableArrayRef array = attributes.get(index);
+      array.fill__initialized(value);
+    }
+  }
+
+  void fill(StringRef name, const CPPType &type, const void *value)
+  {
+    this->fill(m_info->index_of(name), type, value);
   }
 
   class Iterator {

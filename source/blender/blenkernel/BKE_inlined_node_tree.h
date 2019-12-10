@@ -44,6 +44,8 @@ class XSocket : BLI::NonCopyable, BLI::NonMovable {
   PointerRNA *rna() const;
   StringRefNull idname() const;
   StringRefNull name() const;
+
+  uint index() const;
 };
 
 class XInputSocket : public XSocket {
@@ -120,6 +122,8 @@ class XNode : BLI::NonCopyable, BLI::NonMovable {
   PointerRNA *rna() const;
   StringRefNull idname() const;
   StringRefNull name() const;
+
+  const XInputSocket *input_with_name_prefix(StringRef name_prefix) const;
 };
 
 class XParentNode : BLI::NonCopyable, BLI::NonMovable {
@@ -332,6 +336,11 @@ inline StringRefNull XSocket::idname() const
 inline StringRefNull XSocket::name() const
 {
   return m_vsocket->name();
+}
+
+inline uint XSocket::index() const
+{
+  return m_vsocket->index();
 }
 
 inline const VInputSocket &XInputSocket::vsocket() const

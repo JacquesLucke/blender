@@ -133,11 +133,25 @@ class GenericMutableArrayRef {
     }
   }
 
+  void fill__initialized(const void *value)
+  {
+    for (uint i = 0; i < m_size; i++) {
+      m_type->copy_to_initialized(value, (*this)[i]);
+    }
+  }
+
   void copy_in__uninitialized(uint index, const void *src)
   {
     BLI_assert(index < m_size);
     void *dst = POINTER_OFFSET(m_buffer, m_type->size() * index);
     m_type->copy_to_uninitialized(src, dst);
+  }
+
+  void copy_in__initialized(uint index, const void *src)
+  {
+    BLI_assert(index < m_size);
+    void *dst = POINTER_OFFSET(m_buffer, m_type->size() * index);
+    m_type->copy_to_initialized(src, dst);
   }
 
   static void RelocateUninitialized(GenericMutableArrayRef from, GenericMutableArrayRef to);
