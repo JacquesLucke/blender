@@ -388,7 +388,7 @@ void CustomEmitter::emit(EmitterInterface &interface)
     }
   }
 
-  FN::MFContextBuilder context_builder;
+  FN::MFContextBuilder context_builder(&m_id_handle_lookup);
   m_emitter_function.call({0}, params_builder, context_builder);
 
   int particle_count = -1;
