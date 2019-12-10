@@ -2,6 +2,7 @@ import bpy
 from bpy.props import *
 from . base import SocketDeclBase, NoDefaultValue
 from .. types import type_infos
+from .. utils.generic import getattr_recursive
 
 class VectorizedDeclBase:
     def build(self, node_sockets):
@@ -49,7 +50,7 @@ class VectorizedInputDecl(VectorizedDeclBase, SocketDeclBase):
             socket.restore_state(self.default)
 
     def is_vectorized(self):
-        stored = getattr(self.node, self.prop_name)
+        stored = getattr_recursive(self.node, self.prop_name)
         if stored == "BASE":
             return False
         elif stored == "LIST":
@@ -77,6 +78,6 @@ class VectorizedOutputDecl(VectorizedDeclBase, SocketDeclBase):
 
     def is_vectorized(self):
         for prop_name in self.input_prop_names:
-            if getattr(self.node, prop_name) == "LIST":
+            if getattr_recursive(self.node, prop_name) == "LIST":
                 return True
         return False

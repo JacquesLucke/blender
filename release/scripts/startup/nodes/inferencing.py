@@ -12,7 +12,7 @@ from . declaration import (
     VectorizedOutputDecl,
 )
 
-DecisionID = namedtuple("DecisionID", ("node", "group", "prop_name"))
+DecisionID = namedtuple("DecisionID", ("node", "prop_name"))
 
 def get_inferencing_decisions(tree_data: TreeData):
     list_decisions = make_list_decisions(tree_data)
@@ -52,7 +52,7 @@ def get_list_decision_ids_with_users(tree_data):
     for node in tree_data.iter_nodes():
         for decl, sockets in node.decl_map.iter_decl_with_sockets():
             if isinstance(decl, ListSocketDecl):
-                decision_id = DecisionID(node, node, decl.prop_name)
+                decision_id = DecisionID(node, decl.prop_name)
                 decision_users[decision_id][decl.list_or_base].append(sockets[0])
 
     return decision_users
@@ -67,8 +67,8 @@ def get_list_decision_links(tree_data):
         to_decl = to_socket.get_decl(to_node)
         if isinstance(from_decl, ListSocketDecl) and isinstance(to_decl, ListSocketDecl):
             if from_decl.list_or_base == to_decl.list_or_base:
-                from_decision_id = DecisionID(from_node, from_node, from_decl.prop_name)
-                to_decision_id = DecisionID(to_node, to_node, to_decl.prop_name)
+                from_decision_id = DecisionID(from_node, from_decl.prop_name)
+                to_decision_id = DecisionID(to_node, to_decl.prop_name)
                 linked_decisions[from_decision_id].add(to_decision_id)
                 linked_decisions[to_decision_id].add(from_decision_id)
 
@@ -147,7 +147,7 @@ def get_vector_decisions_graph(tree_data):
     for node in tree_data.iter_nodes():
         for decl, sockets in node.decl_map.iter_decl_with_sockets():
             if isinstance(decl, VectorizedInputDecl):
-                decision_id = DecisionID(node, node, decl.prop_name)
+                decision_id = DecisionID(node, decl.prop_name)
                 builder.add_vertex(decision_id)
                 input_sockets.add(sockets[0])
             elif isinstance(decl, VectorizedOutputDecl):
@@ -162,8 +162,8 @@ def get_vector_decisions_graph(tree_data):
 
         if isinstance(from_decl, VectorizedOutputDecl) and isinstance(to_decl, VectorizedInputDecl):
             for prop_name in from_decl.input_prop_names:
-                from_decision_id = DecisionID(from_node, from_node, prop_name)
-                to_decision_id = DecisionID(to_node, to_node, to_decl.prop_name)
+                from_decision_id = DecisionID(from_node, prop_name)
+                to_decision_id = DecisionID(to_node, to_decl.prop_name)
                 builder.add_directed_edge(from_decision_id, to_decision_id)
 
     return builder.build(), input_sockets, output_sockets
@@ -176,7 +176,7 @@ def iter_obligatory_vector_decisions(graph, input_sockets, output_sockets, tree_
 
         node = tree_data.get_node(socket)
         decl = socket.get_decl(node)
-        decision_id = DecisionID(node, node, decl.prop_name)
+        decision_id = DecisionID(node, decl.prop_name)
 
         other_decl = other_socket.get_decl(other_node)
         if data_sockets_are_static(other_decl):
@@ -185,7 +185,7 @@ def iter_obligatory_vector_decisions(graph, input_sockets, output_sockets, tree_
                 yield decision_id, "LIST"
         elif isinstance(other_decl, ListSocketDecl):
             if other_decl.list_or_base == "LIST":
-                list_decision_id = DecisionID(other_node, other_node, other_decl.prop_name)
+                list_decision_id = DecisionID(other_node, other_decl.prop_name)
                 if list_decision_id in list_decisions:
                     other_base_type = list_decisions[list_decision_id]
                     if type_infos.is_link_allowed(other_base_type, decl.base_type):
@@ -198,7 +198,7 @@ def iter_obligatory_vector_decisions(graph, input_sockets, output_sockets, tree_
     for socket in output_sockets:
         node = tree_data.get_node(socket)
         decl = socket.get_decl(node)
-        decision_ids = [DecisionID(node, node, p) for p in decl.input_prop_names]
+        decision_ids = [DecisionID(node, p) for p in decl.input_prop_names]
 
         for other_node, other_socket in tree_data.iter_connected_sockets_with_nodes(socket):
             other_decl = other_socket.get_decl(other_node)
@@ -209,7 +209,7 @@ def iter_obligatory_vector_decisions(graph, input_sockets, output_sockets, tree_
                         yield decision_id, "BASE"
             elif isinstance(other_decl, ListSocketDecl):
                 if other_decl.list_or_base == "BASE":
-                    list_decision_id = DecisionID(other_node, other_node, other_decl.prop_name)
+                    list_decision_id = DecisionID(other_node, other_decl.prop_name)
                     if list_decision_id in list_decisions:
                         other_base_type = list_decisions[list_decision_id]
                         if type_infos.is_link_allowed(decl.base_type, other_base_type):
@@ -246,7 +246,7 @@ def make_base_list_variadic_decisions(tree_data, list_decisions, vector_decision
             else:
                 decisions[decision_id] = "BASE"
         elif isinstance(origin_decl, ListSocketDecl):
-            list_decision_id = DecisionID(origin_node, origin_node, origin_decl.prop_name)
+            list_decision_id = DecisionID(origin_node, origin_decl.prop_name)
             if list_decision_id in list_decisions:
                 other_base_type = list_decisions[list_decision_id]
                 if type_infos.is_link_allowed(other_base_type, decl.base_type):
@@ -265,7 +265,7 @@ def make_base_list_variadic_decisions(tree_data, list_decisions, vector_decision
             other_base_type = origin_decl.base_type
             if type_infos.is_link_allowed(other_base_type, decl.base_type):
                 for input_prop_name in origin_decl.input_prop_names:
-                    input_decision_id = DecisionID(origin_node, origin_node, input_prop_name)
+                    input_decision_id = DecisionID(origin_node, input_prop_name)
                     if input_decision_id in vector_decisions:
                         if vector_decisions[input_decision_id] == "LIST":
                             decisions[decision_id] = "LIST"
@@ -288,5 +288,5 @@ def iter_base_list_variadic_sockets(tree_data):
             if isinstance(decl, BaseListVariadic):
                 collection = decl.get_collection()
                 for i, socket in enumerate(sockets[:-1]):
-                    decision_id = DecisionID(node, collection[i], "state")
+                    decision_id = DecisionID(node, f"{decl.prop_name}[{i}].state")
                     yield decision_id, decl, socket

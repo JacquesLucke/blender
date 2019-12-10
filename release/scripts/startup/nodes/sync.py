@@ -1,10 +1,12 @@
 import bpy
 from pprint import pprint
+from contextlib import contextmanager
+
 from . base import BaseNode
 from . tree_data import TreeData
 from . graph import DirectedGraphBuilder
 from . function_tree import FunctionTree
-from contextlib import contextmanager
+from . utils.generic import getattr_recursive, setattr_recursive
 
 _is_syncing = False
 
@@ -127,9 +129,9 @@ def do_inferencing_and_update_nodes(tree_data):
 
     nodes_to_rebuild = set()
 
-    for decision_id, base_type in decisions.items():
-        if getattr(decision_id.group, decision_id.prop_name) != base_type:
-            setattr(decision_id.group, decision_id.prop_name, base_type)
+    for decision_id, value in decisions.items():
+        if getattr_recursive(decision_id.node, decision_id.prop_name) != value:
+            setattr_recursive(decision_id.node, decision_id.prop_name, value)
             nodes_to_rebuild.add(decision_id.node)
 
     rebuild_nodes_and_try_keep_state(nodes_to_rebuild)
