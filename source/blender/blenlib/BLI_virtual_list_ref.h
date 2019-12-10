@@ -143,9 +143,9 @@ template<typename T> class VirtualListRef {
     return m_virtual_size;
   }
 
-  bool is_full_array() const
+  bool is_non_single_full_array() const
   {
-    return m_category == Category::FullArray;
+    return m_category == Category::FullArray && m_virtual_size > 1;
   }
 
   ArrayRef<T> as_full_array() const

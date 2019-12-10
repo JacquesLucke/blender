@@ -144,24 +144,27 @@ static void build_math_fn_in2_out1(VNodeMFNetworkBuilder &builder, FuncT func)
                 VirtualListRef<InT1> inputs1,
                 VirtualListRef<InT2> inputs2,
                 MutableArrayRef<OutT> outputs) -> void {
-    if (inputs1.is_full_array() && inputs2.is_full_array()) {
+    if (inputs1.is_non_single_full_array() && inputs2.is_non_single_full_array()) {
       ArrayRef<InT1> in1_array = inputs1.as_full_array();
       ArrayRef<InT2> in2_array = inputs2.as_full_array();
-
       mask.foreach_index(
           [=](uint i) { new (&outputs[i]) OutT(func(in1_array[i], in2_array[i])); });
     }
-    else if (inputs1.is_full_array() && inputs2.is_single_element()) {
+    else if (inputs1.is_non_single_full_array() && inputs2.is_single_element()) {
       ArrayRef<InT1> in1_array = inputs1.as_full_array();
       InT2 in2_single = inputs2[0];
-
       mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(in1_array[i], in2_single)); });
     }
-    else if (inputs1.is_single_element() && inputs2.is_full_array()) {
+    else if (inputs1.is_single_element() && inputs2.is_non_single_full_array()) {
       InT1 in1_single = inputs1[0];
       ArrayRef<InT2> in2_array = inputs2.as_full_array();
-
       mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(in1_single, in2_array[i])); });
+    }
+    else if (inputs1.is_single_element() && inputs2.is_single_element()) {
+      InT1 in1_single = inputs1[0];
+      InT2 in2_single = inputs2[0];
+      OutT out_single = func(in1_single, in2_single);
+      outputs.fill_indices(mask.indices(), out_single);
     }
     else {
       mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(inputs1[i], inputs2[i])); });
@@ -172,17 +175,36 @@ static void build_math_fn_in2_out1(VNodeMFNetworkBuilder &builder, FuncT func)
       {"use_list__a", "use_list__b"}, builder.xnode().name(), fn);
 }
 
-template<typename T>
-static void build_variadic_math_fn(VNodeMFNetworkBuilder &builder,
-                                   T (*func)(T, T),
-                                   T default_value)
+template<typename T, typename FuncT>
+static void build_variadic_math_fn(VNodeMFNetworkBuilder &builder, FuncT func, T default_value)
 {
-  auto fn = [func](MFMask mask,
-                   VirtualListRef<T> inputs1,
-                   VirtualListRef<T> inputs2,
-                   MutableArrayRef<T> outputs) {
-    for (uint i : mask.indices()) {
-      outputs[i] = func(inputs1[i], inputs2[i]);
+  auto fn = [=](MFMask mask,
+                VirtualListRef<T> inputs1,
+                VirtualListRef<T> inputs2,
+                MutableArrayRef<T> outputs) {
+    if (inputs1.is_non_single_full_array() && inputs2.is_non_single_full_array()) {
+      ArrayRef<T> in1_array = inputs1.as_full_array();
+      ArrayRef<T> in2_array = inputs2.as_full_array();
+      mask.foreach_index([=](uint i) { outputs[i] = func(in1_array[i], in2_array[i]); });
+    }
+    else if (inputs1.is_non_single_full_array() && inputs2.is_single_element()) {
+      ArrayRef<T> in1_array = inputs1.as_full_array();
+      T in2_single = inputs2[0];
+      mask.foreach_index([=](uint i) { outputs[i] = func(in1_array[i], in2_single); });
+    }
+    else if (inputs1.is_single_element() && inputs2.is_non_single_full_array()) {
+      T in1_single = inputs1[0];
+      ArrayRef<T> in2_array = inputs2.as_full_array();
+      mask.foreach_index([=](uint i) { outputs[i] = func(in1_single, in2_array[i]); });
+    }
+    else if (inputs1.is_single_element() && inputs2.is_single_element()) {
+      T in1_single = inputs1[0];
+      T in2_single = inputs2[0];
+      T out_single = func(in1_single, in2_single);
+      outputs.fill_indices(mask.indices(), out_single);
+    }
+    else {
+      mask.foreach_index([=](uint i) { outputs[i] = func(inputs1[i], inputs2[i]); });
     }
   };
 
@@ -205,25 +227,25 @@ static void build_variadic_math_fn(VNodeMFNetworkBuilder &builder,
 static void INSERT_add_floats(VNodeMFNetworkBuilder &builder)
 {
   build_variadic_math_fn(
-      builder, +[](float a, float b) -> float { return a + b; }, 0.0f);
+      builder, [](float a, float b) -> float { return a + b; }, 0.0f);
 }
 
 static void INSERT_multiply_floats(VNodeMFNetworkBuilder &builder)
 {
   build_variadic_math_fn(
-      builder, +[](float a, float b) -> float { return a * b; }, 1.0f);
+      builder, [](float a, float b) -> float { return a * b; }, 1.0f);
 }
 
 static void INSERT_minimum_floats(VNodeMFNetworkBuilder &builder)
 {
   build_variadic_math_fn(
-      builder, +[](float a, float b) -> float { return std::min(a, b); }, 0.0f);
+      builder, [](float a, float b) -> float { return std::min(a, b); }, 0.0f);
 }
 
 static void INSERT_maximum_floats(VNodeMFNetworkBuilder &builder)
 {
   build_variadic_math_fn(
-      builder, +[](float a, float b) -> float { return std::max(a, b); }, 0.0f);
+      builder, [](float a, float b) -> float { return std::max(a, b); }, 0.0f);
 }
 
 static void INSERT_subtract_floats(VNodeMFNetworkBuilder &builder)
@@ -271,12 +293,14 @@ static void INSERT_cosine_float(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_add_vectors(VNodeMFNetworkBuilder &builder)
 {
-  build_variadic_math_fn(builder, +[](float3 a, float3 b) -> float3 { return a + b; }, {0, 0, 0});
+  build_variadic_math_fn(
+      builder, [](float3 a, float3 b) -> float3 { return a + b; }, float3(0, 0, 0));
 }
 
 static void INSERT_multiply_vectors(VNodeMFNetworkBuilder &builder)
 {
-  build_variadic_math_fn(builder, +[](float3 a, float3 b) -> float3 { return a * b; }, {1, 1, 1});
+  build_variadic_math_fn(
+      builder, [](float3 a, float3 b) -> float3 { return a * b; }, float3(1, 1, 1));
 }
 
 static void INSERT_subtract_vectors(VNodeMFNetworkBuilder &builder)
@@ -319,13 +343,13 @@ static void INSERT_vector_distance(VNodeMFNetworkBuilder &builder)
 static void INSERT_boolean_and(VNodeMFNetworkBuilder &builder)
 {
   build_variadic_math_fn(
-      builder, +[](bool a, bool b) { return a && b; }, true);
+      builder, [](bool a, bool b) { return a && b; }, true);
 }
 
 static void INSERT_boolean_or(VNodeMFNetworkBuilder &builder)
 {
   build_variadic_math_fn(
-      builder, +[](bool a, bool b) { return a || b; }, false);
+      builder, [](bool a, bool b) { return a || b; }, false);
 }
 
 static void INSERT_boolean_not(VNodeMFNetworkBuilder &builder)
