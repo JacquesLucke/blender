@@ -124,14 +124,29 @@ static void INSERT_time_info(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_ContextCurrentFrame>();
 }
 
-template<typename InT, typename OutT>
-static void build_math_fn(VNodeMFNetworkBuilder &builder, OutT (*func)(InT))
+template<typename InT, typename OutT, typename FuncT>
+static std::function<void(MFMask mask, VirtualListRef<InT>, MutableArrayRef<OutT>)>
+vectorize_function_1in_1out(FuncT func)
 {
-  auto fn = [=](MFMask mask, VirtualListRef<InT> inputs, MutableArrayRef<OutT> outputs) -> void {
-    for (uint i : mask.indices()) {
-      new (&outputs[i]) OutT(func(inputs[i]));
+  return [=](MFMask mask, VirtualListRef<InT> inputs, MutableArrayRef<OutT> outputs) {
+    if (inputs.is_non_single_full_array()) {
+      ArrayRef<InT> in_array = inputs.as_full_array();
+      mask.foreach_index([=](uint i) { outputs[i] = func(in_array[i]); });
+    }
+    else if (inputs.is_single_element()) {
+      InT in_single = inputs.as_single_element();
+      outputs.fill_indices(mask.indices(), in_single);
+    }
+    else {
+      mask.foreach_index([=](uint i) { outputs[i] = func(inputs[i]); });
     }
   };
+}
+
+template<typename InT, typename OutT, typename FuncT>
+static void build_math_fn_1in_1out(VNodeMFNetworkBuilder &builder, FuncT func)
+{
+  auto fn = vectorize_function_1in_1out<InT, OutT>(func);
 
   builder.set_vectorized_constructed_matching_fn<MF_Custom_In1_Out1<InT, OutT>>(
       {"use_list"}, builder.xnode().name(), fn);
@@ -154,17 +169,17 @@ vectorize_function_2in_1out(FuncT func)
     }
     else if (inputs1.is_non_single_full_array() && inputs2.is_single_element()) {
       ArrayRef<InT1> in1_array = inputs1.as_full_array();
-      InT2 in2_single = inputs2[0];
+      InT2 in2_single = inputs2.as_single_element();
       mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(in1_array[i], in2_single)); });
     }
     else if (inputs1.is_single_element() && inputs2.is_non_single_full_array()) {
-      InT1 in1_single = inputs1[0];
+      InT1 in1_single = inputs1.as_single_element();
       ArrayRef<InT2> in2_array = inputs2.as_full_array();
       mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(in1_single, in2_array[i])); });
     }
     else if (inputs1.is_single_element() && inputs2.is_single_element()) {
-      InT1 in1_single = inputs1[0];
-      InT2 in2_single = inputs2[0];
+      InT1 in1_single = inputs1.as_single_element();
+      InT2 in2_single = inputs2.as_single_element();
       OutT out_single = func(in1_single, in2_single);
       outputs.fill_indices(mask.indices(), out_single);
     }
@@ -248,26 +263,23 @@ static void INSERT_power_floats(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_sqrt_float(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a) -> float { return (a >= 0.0f) ? (float)std::sqrt(a) : 0.0f; });
+  build_math_fn_1in_1out<float, float>(
+      builder, [](float a) -> float { return (a >= 0.0f) ? (float)std::sqrt(a) : 0.0f; });
 }
 
 static void INSERT_abs_float(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a) -> float { return std::abs(a); });
+  build_math_fn_1in_1out<float, float>(builder, [](float a) -> float { return std::abs(a); });
 }
 
 static void INSERT_sine_float(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a) -> float { return std::sin(a); });
+  build_math_fn_1in_1out<float, float>(builder, [](float a) -> float { return std::sin(a); });
 }
 
 static void INSERT_cosine_float(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](float a) -> float { return std::cos(a); });
+  build_math_fn_1in_1out<float, float>(builder, [](float a) -> float { return std::cos(a); });
 }
 
 static void INSERT_add_vectors(VNodeMFNetworkBuilder &builder)
@@ -333,8 +345,7 @@ static void INSERT_boolean_or(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_boolean_not(VNodeMFNetworkBuilder &builder)
 {
-  build_math_fn(
-      builder, +[](bool a) -> bool { return !a; });
+  build_math_fn_1in_1out<bool, bool>(builder, [](bool a) -> bool { return !a; });
 }
 
 static void INSERT_compare(VNodeMFNetworkBuilder &builder)

@@ -150,7 +150,14 @@ template<typename T> class VirtualListRef {
 
   ArrayRef<T> as_full_array() const
   {
+    BLI_assert(m_category == Category::FullArray);
     return ArrayRef<T>(m_data.full_array.data, m_virtual_size);
+  }
+
+  const T &as_single_element() const
+  {
+    BLI_assert(this->is_single_element());
+    return (*this)[0];
   }
 
   bool is_single_element() const
