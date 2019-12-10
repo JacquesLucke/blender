@@ -138,12 +138,14 @@ static void build_math_fn(VNodeMFNetworkBuilder &builder, OutT (*func)(InT))
 }
 
 template<typename InT1, typename InT2, typename OutT, typename FuncT>
-static void build_math_fn_in2_out1(VNodeMFNetworkBuilder &builder, FuncT func)
+static std::function<
+    void(MFMask, VirtualListRef<InT1>, VirtualListRef<InT2>, MutableArrayRef<OutT>)>
+vectorize_function_2in_1out(FuncT func)
 {
-  auto fn = [=](MFMask mask,
-                VirtualListRef<InT1> inputs1,
-                VirtualListRef<InT2> inputs2,
-                MutableArrayRef<OutT> outputs) -> void {
+  return [=](MFMask mask,
+             VirtualListRef<InT1> inputs1,
+             VirtualListRef<InT2> inputs2,
+             MutableArrayRef<OutT> outputs) -> void {
     if (inputs1.is_non_single_full_array() && inputs2.is_non_single_full_array()) {
       ArrayRef<InT1> in1_array = inputs1.as_full_array();
       ArrayRef<InT2> in2_array = inputs2.as_full_array();
@@ -170,7 +172,12 @@ static void build_math_fn_in2_out1(VNodeMFNetworkBuilder &builder, FuncT func)
       mask.foreach_index([=](uint i) { new (&outputs[i]) OutT(func(inputs1[i], inputs2[i])); });
     }
   };
+}
 
+template<typename InT1, typename InT2, typename OutT, typename FuncT>
+static void build_math_fn_in2_out1(VNodeMFNetworkBuilder &builder, FuncT func)
+{
+  auto fn = vectorize_function_2in_1out<InT1, InT2, OutT>(func);
   builder.set_vectorized_constructed_matching_fn<MF_Custom_In2_Out1<InT1, InT2, OutT>>(
       {"use_list__a", "use_list__b"}, builder.xnode().name(), fn);
 }
@@ -178,35 +185,7 @@ static void build_math_fn_in2_out1(VNodeMFNetworkBuilder &builder, FuncT func)
 template<typename T, typename FuncT>
 static void build_variadic_math_fn(VNodeMFNetworkBuilder &builder, FuncT func, T default_value)
 {
-  auto fn = [=](MFMask mask,
-                VirtualListRef<T> inputs1,
-                VirtualListRef<T> inputs2,
-                MutableArrayRef<T> outputs) {
-    if (inputs1.is_non_single_full_array() && inputs2.is_non_single_full_array()) {
-      ArrayRef<T> in1_array = inputs1.as_full_array();
-      ArrayRef<T> in2_array = inputs2.as_full_array();
-      mask.foreach_index([=](uint i) { outputs[i] = func(in1_array[i], in2_array[i]); });
-    }
-    else if (inputs1.is_non_single_full_array() && inputs2.is_single_element()) {
-      ArrayRef<T> in1_array = inputs1.as_full_array();
-      T in2_single = inputs2[0];
-      mask.foreach_index([=](uint i) { outputs[i] = func(in1_array[i], in2_single); });
-    }
-    else if (inputs1.is_single_element() && inputs2.is_non_single_full_array()) {
-      T in1_single = inputs1[0];
-      ArrayRef<T> in2_array = inputs2.as_full_array();
-      mask.foreach_index([=](uint i) { outputs[i] = func(in1_single, in2_array[i]); });
-    }
-    else if (inputs1.is_single_element() && inputs2.is_single_element()) {
-      T in1_single = inputs1[0];
-      T in2_single = inputs2[0];
-      T out_single = func(in1_single, in2_single);
-      outputs.fill_indices(mask.indices(), out_single);
-    }
-    else {
-      mask.foreach_index([=](uint i) { outputs[i] = func(inputs1[i], inputs2[i]); });
-    }
-  };
+  auto fn = vectorize_function_2in_1out<T, T, T>(func);
 
   Vector<bool> list_states = builder.get_list_base_variadic_states("variadic");
   if (list_states.size() == 0) {
