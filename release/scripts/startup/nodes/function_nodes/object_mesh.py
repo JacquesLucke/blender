@@ -78,16 +78,10 @@ class GetImageColorOnSurfaceNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_GetImageColorOnSurfaceNode"
     bl_label = "Get Image Color on Surface"
 
-    image: PointerProperty(
-        name="Image",
-        type=bpy.types.Image,
-    )
-
     use_list__surface_hook: NodeBuilder.VectorizedProperty()
+    use_list__image: NodeBuilder.VectorizedProperty()
 
     def declaration(self, builder: NodeBuilder):
         builder.vectorized_input("surface_hook", "use_list__surface_hook", "Surface Hook", "Surface Hooks", "Surface Hook")
-        builder.vectorized_output("color", ["use_list__surface_hook"], "Color", "Colors", "Color")
-
-    def draw(self, layout):
-        layout.prop(self, "image", text="")
+        builder.vectorized_input("image", "use_list__image", "Image", "Images", "Image")
+        builder.vectorized_output("color", ["use_list__surface_hook", "use_list__image"], "Color", "Colors", "Color")

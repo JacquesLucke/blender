@@ -110,6 +110,26 @@ class ObjectSocket(bpy.types.NodeSocket, DataSocket):
     def restore_state(self, state):
         self.value = state
 
+class ImageSocket(bpy.types.NodeSocket, DataSocket):
+    bl_idname = "fn_ImageSocket"
+    bl_label = "Image Socket"
+    data_type = "Image"
+    color = (0.6, 0.6, 0.6, 1)
+
+    value: PointerProperty(
+        name="Value",
+        type=bpy.types.Image,
+    )
+
+    def draw_property(self, layout, node, text):
+        layout.prop(self, "value", text=text)
+
+    def get_state(self):
+        return self.value
+
+    def restore_state(self, state):
+        self.value = state
+
 class ColorSocket(bpy.types.NodeSocket, DataSocket):
     bl_idname = "fn_ColorSocket"
     bl_label = "Color Socket"
@@ -173,6 +193,8 @@ BooleanListSocket = create_simple_data_socket(
     "fn_BooleanListSocket", "Boolean List", (0.3, 0.3, 0.3, 0.5))
 ObjectListSocket = create_simple_data_socket(
     "fn_ObjectListSocket", "Object List", (0, 0, 0, 0.5))
+ImageListSocket = create_simple_data_socket(
+    "fn_ImageListSocket", "Image List", (0.6, 0.6, 0.6, 0.5))
 ColorListSocket = create_simple_data_socket(
     "fn_ColorListSocket", "Color List", (0.8, 0.8, 0.2, 0.5))
 TextListSocket = create_simple_data_socket(

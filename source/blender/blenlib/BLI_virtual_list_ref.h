@@ -107,7 +107,7 @@ template<typename T> class VirtualListRef {
     if (indices.size() == 0) {
       return true;
     }
-    if (m_category == Category::Single) {
+    if (this->is_single_element()) {
       return true;
     }
 

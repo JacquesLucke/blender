@@ -26,6 +26,7 @@
 
 namespace FN {
 
+using BKE::ImageIDHandle;
 using BKE::ObjectIDHandle;
 using BKE::SurfaceHook;
 using BLI::float2;
@@ -34,6 +35,7 @@ using BLI::float4x4;
 using BLI::rgba_b;
 using BLI::rgba_f;
 using BLI::TemporaryArray;
+using BLI::TemporaryVector;
 
 MF_AddFloats::MF_AddFloats()
 {
@@ -469,39 +471,31 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
   }
 }
 
-MF_GetImageColorOnSurface::MF_GetImageColorOnSurface(Image *image) : m_image(image)
+MF_GetImageColorOnSurface::MF_GetImageColorOnSurface()
 {
   MFSignatureBuilder signature("Get Image Color on Surface");
   signature.single_input<SurfaceHook>("Surface Hook");
+  signature.single_input<ImageIDHandle>("Image");
   signature.single_output<rgba_f>("Color");
   this->set_signature(signature);
 }
 
-static void get_colors_on_surface(MFMask mask,
-                                  MFParams params,
-                                  MFContext context,
+static void get_colors_on_surface(ArrayRef<uint> indices,
+                                  VirtualListRef<SurfaceHook> surface_hooks,
+                                  MutableArrayRef<rgba_f> r_colors,
+                                  rgba_f fallback,
+                                  const IDHandleLookup &id_handle_lookup,
                                   const ImBuf &ibuf)
 {
-  VirtualListRef<SurfaceHook> locations = params.readonly_single_input<SurfaceHook>(
-      0, "Surface Hook");
-  MutableArrayRef<rgba_f> r_colors = params.uninitialized_single_output<rgba_f>(1, "Color");
 
-  rgba_f fallback = {0.0f, 0.0f, 0.0f, 1.0f};
-
-  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
-  if (id_handle_lookup == nullptr) {
-    r_colors.fill_indices(mask.indices(), fallback);
-    return;
-  }
-
-  for (uint i : mask.indices()) {
-    SurfaceHook location = locations[i];
-    if (location.type() != BKE::SurfaceHookType::MeshObject) {
+  for (uint i : indices) {
+    SurfaceHook hook = surface_hooks[i];
+    if (hook.type() != BKE::SurfaceHookType::MeshObject) {
       r_colors[i] = fallback;
       continue;
     }
 
-    Object *object = id_handle_lookup->lookup(location.object_handle());
+    Object *object = id_handle_lookup.lookup(hook.object_handle());
     if (object == nullptr) {
       r_colors[i] = fallback;
       continue;
@@ -511,7 +505,7 @@ static void get_colors_on_surface(MFMask mask,
     const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
     int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
-    if (location.triangle_index() >= triangle_amount) {
+    if (hook.triangle_index() >= triangle_amount) {
       r_colors[i] = fallback;
       continue;
     }
@@ -523,14 +517,14 @@ static void get_colors_on_surface(MFMask mask,
 
     ArrayRef<rgba_b> pixel_buffer = BLI::ref_c_array((rgba_b *)ibuf.rect, ibuf.x * ibuf.y);
 
-    const MLoopTri &triangle = triangles[location.triangle_index()];
+    const MLoopTri &triangle = triangles[hook.triangle_index()];
 
     float2 uv1 = uv_layer[triangle.tri[0]].uv;
     float2 uv2 = uv_layer[triangle.tri[1]].uv;
     float2 uv3 = uv_layer[triangle.tri[2]].uv;
 
     float2 uv;
-    interp_v2_v2v2v2(uv, uv1, uv2, uv3, location.bary_coords());
+    interp_v2_v2v2v2(uv, uv1, uv2, uv3, hook.bary_coords());
 
     uv = uv.clamped_01();
     uint x = uv.x * (ibuf.x - 1);
@@ -542,19 +536,57 @@ static void get_colors_on_surface(MFMask mask,
 
 void MF_GetImageColorOnSurface::call(MFMask mask, MFParams params, MFContext context) const
 {
-  if (m_image == nullptr) {
-    params.uninitialized_single_output<rgba_f>(1, "Color")
-        .fill_indices(mask.indices(), {0.0f, 0.0f, 0.0f, 1.0f});
+  if (mask.indices_amount() == 0) {
     return;
   }
 
-  ImageUser image_user = {0};
-  image_user.ok = true;
-  ImBuf *ibuf = BKE_image_acquire_ibuf(m_image, &image_user, NULL);
+  VirtualListRef<SurfaceHook> surface_hooks = params.readonly_single_input<SurfaceHook>(
+      0, "Surface Hook");
+  VirtualListRef<ImageIDHandle> image_handles = params.readonly_single_input<ImageIDHandle>(
+      1, "Image");
+  MutableArrayRef<rgba_f> r_colors = params.uninitialized_single_output<rgba_f>(2, "Color");
 
-  get_colors_on_surface(mask, params, context, *ibuf);
+  rgba_f fallback = {0.0f, 0.0f, 0.0f, 1.0f};
 
-  BKE_image_release_ibuf(m_image, ibuf, NULL);
+  auto *id_handle_lookup = context.try_find_global<IDHandleLookup>();
+  if (id_handle_lookup == nullptr) {
+    r_colors.fill_indices(mask.indices(), fallback);
+    return;
+  }
+
+  Vector<ImageIDHandle> seen_images;
+
+  for (uint i = 0; i < mask.indices_amount(); i++) {
+    uint index = mask.indices()[i];
+
+    ImageIDHandle image_handle = image_handles[index];
+    if (seen_images.contains(image_handle)) {
+      continue;
+    }
+    seen_images.append(image_handle);
+
+    TemporaryVector<uint> indices_with_image;
+    for (uint j : mask.indices().drop_front(i)) {
+      if (image_handles[j] == image_handle) {
+        indices_with_image.append(j);
+      }
+    }
+
+    Image *image = id_handle_lookup->lookup(image_handle);
+    if (image == nullptr) {
+      r_colors.fill_indices(indices_with_image, fallback);
+      continue;
+    }
+
+    ImageUser image_user = {0};
+    image_user.ok = true;
+    ImBuf *ibuf = BKE_image_acquire_ibuf(image, &image_user, NULL);
+
+    get_colors_on_surface(
+        indices_with_image, surface_hooks, r_colors, fallback, *id_handle_lookup, *ibuf);
+
+    BKE_image_release_ibuf(image, ibuf, NULL);
+  }
 }
 
 MF_ObjectWorldLocation::MF_ObjectWorldLocation()

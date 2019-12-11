@@ -55,6 +55,17 @@ static void INSERT_object_socket(VSocketMFNetworkBuilder &builder)
   }
 }
 
+static void INSERT_image_socket(VSocketMFNetworkBuilder &builder)
+{
+  Image *value = (Image *)RNA_pointer_get(builder.rna(), "value").data;
+  if (value == nullptr) {
+    builder.set_constant_value(BKE::ImageIDHandle());
+  }
+  else {
+    builder.set_constant_value(BKE::ImageIDHandle(value));
+  }
+}
+
 static void INSERT_text_socket(VSocketMFNetworkBuilder &builder)
 {
   char *value = RNA_string_get_alloc(builder.rna(), "value", nullptr, 0);
@@ -164,6 +175,7 @@ void add_inlined_tree_socket_mapping_info(VTreeMultiFunctionMappings &mappings)
   add_basic_type<BLI::float3>(mappings, "Vector", INSERT_vector_socket);
   add_basic_type<int32_t>(mappings, "Integer", INSERT_int_socket);
   add_basic_type<BKE::ObjectIDHandle>(mappings, "Object", INSERT_object_socket);
+  add_basic_type<BKE::ImageIDHandle>(mappings, "Image", INSERT_image_socket);
   add_basic_type<std::string>(mappings, "Text", INSERT_text_socket);
   add_basic_type<bool>(mappings, "Boolean", INSERT_bool_socket);
   add_basic_type<BLI::rgba_f>(mappings, "Color", INSERT_color_socket);

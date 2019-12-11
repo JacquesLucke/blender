@@ -83,9 +83,8 @@ static void INSERT_get_weight_on_surface(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_get_image_color_on_surface(VNodeMFNetworkBuilder &builder)
 {
-  Image *image = (Image *)RNA_pointer_get(builder.rna(), "image").data;
   builder.set_vectorized_constructed_matching_fn<MF_GetImageColorOnSurface>(
-      {"use_list__surface_hook"}, image);
+      {"use_list__surface_hook", "use_list__image"});
 }
 
 static void INSERT_particle_is_in_group(VNodeMFNetworkBuilder &builder)

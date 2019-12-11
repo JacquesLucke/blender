@@ -101,11 +101,8 @@ class MF_GetWeightOnSurface final : public MultiFunction {
 };
 
 class MF_GetImageColorOnSurface final : public MultiFunction {
- private:
-  struct Image *m_image;
-
  public:
-  MF_GetImageColorOnSurface(struct Image *image);
+  MF_GetImageColorOnSurface();
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
