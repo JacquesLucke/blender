@@ -342,7 +342,7 @@ static float3 short_normal_to_float3(const short normal[3])
 
 void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context) const
 {
-  VirtualListRef<SurfaceHook> locations = params.readonly_single_input<SurfaceHook>(
+  VirtualListRef<SurfaceHook> surface_hooks = params.readonly_single_input<SurfaceHook>(
       0, "Surface Hook");
   MutableArrayRef<float3> r_normals = params.uninitialized_single_output<float3>(1, "Normal");
 
@@ -354,40 +354,47 @@ void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context
     return;
   }
 
-  for (uint i : mask.indices()) {
-    SurfaceHook location = locations[i];
-    if (location.type() != BKE::SurfaceHookType::MeshObject) {
-      r_normals[i] = fallback;
-      continue;
-    }
+  group_indices_by_same_value(
+      mask.indices(),
+      surface_hooks,
+      [&](SurfaceHook base_hook, ArrayRef<uint> indices_on_same_surface) {
+        if (base_hook.type() != BKE::SurfaceHookType::MeshObject) {
+          r_normals.fill_indices(indices_on_same_surface, fallback);
+          return;
+        }
 
-    Object *object = id_handle_lookup->lookup(location.object_handle());
-    if (object == nullptr) {
-      r_normals[i] = fallback;
-      continue;
-    }
+        Object *object = id_handle_lookup->lookup(base_hook.object_handle());
+        if (object == nullptr) {
+          r_normals.fill_indices(indices_on_same_surface, fallback);
+          return;
+        }
 
-    Mesh *mesh = (Mesh *)object->data;
-    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-    int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
+        Mesh *mesh = (Mesh *)object->data;
+        const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+        int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
-    if (location.triangle_index() >= triangle_amount) {
-      r_normals[i] = fallback;
-      continue;
-    }
+        for (uint i : mask.indices()) {
+          SurfaceHook hook = surface_hooks[i];
 
-    const MLoopTri &triangle = triangles[location.triangle_index()];
-    float3 v1 = short_normal_to_float3(mesh->mvert[mesh->mloop[triangle.tri[0]].v].no);
-    float3 v2 = short_normal_to_float3(mesh->mvert[mesh->mloop[triangle.tri[1]].v].no);
-    float3 v3 = short_normal_to_float3(mesh->mvert[mesh->mloop[triangle.tri[2]].v].no);
+          if (hook.triangle_index() >= triangle_amount) {
+            r_normals[i] = fallback;
+            continue;
+          }
 
-    float3 position;
-    interp_v3_v3v3v3(position, v1, v2, v3, location.bary_coords());
-    float4x4 local_to_world = object->obmat;
-    position = local_to_world.transform_direction(position);
+          const MLoopTri &triangle = triangles[hook.triangle_index()];
+          float3 v1 = short_normal_to_float3(mesh->mvert[mesh->mloop[triangle.tri[0]].v].no);
+          float3 v2 = short_normal_to_float3(mesh->mvert[mesh->mloop[triangle.tri[1]].v].no);
+          float3 v3 = short_normal_to_float3(mesh->mvert[mesh->mloop[triangle.tri[2]].v].no);
 
-    r_normals[i] = position;
-  }
+          float3 position;
+          interp_v3_v3v3v3(position, v1, v2, v3, hook.bary_coords());
+          float4x4 local_to_world = object->obmat;
+          position = local_to_world.transform_direction(position);
+
+          r_normals[i] = position;
+        }
+      },
+      SurfaceHook::on_same_surface);
 }
 
 MF_GetWeightOnSurface::MF_GetWeightOnSurface(std::string vertex_group_name)
