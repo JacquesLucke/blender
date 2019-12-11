@@ -72,6 +72,8 @@ class MFGlobalContexts {
   }
 };
 
+class MFContext;
+
 class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   MFElementContexts m_element_contexts;
@@ -83,6 +85,8 @@ class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
   MFContextBuilder()
   {
   }
+
+  void add_global_contexts(const MFContext &other);
 
   template<typename T> void add_element_context(const T &context, VirtualListRef<uint> indices)
   {
@@ -108,6 +112,8 @@ class MFContext {
  private:
   MFContextBuilder *m_builder;
 
+  friend MFContextBuilder;
+
  public:
   MFContext(MFContextBuilder &builder) : m_builder(&builder)
   {
@@ -123,6 +129,19 @@ class MFContext {
     return m_builder->m_global_contexts.try_find<T>();
   }
 };
+
+inline void MFContextBuilder::add_global_contexts(const MFContext &other)
+{
+  const MFGlobalContexts &global_contexts = other.m_builder->m_global_contexts;
+
+  for (uint i : global_contexts.m_ids.index_iterator()) {
+    BLI::class_id_t id = other.m_builder->m_global_contexts.m_ids[i];
+    const void *context = other.m_builder->m_global_contexts.m_contexts[i];
+
+    m_global_contexts.m_ids.append(id);
+    m_global_contexts.m_contexts.append(context);
+  }
+}
 
 }  // namespace FN
 

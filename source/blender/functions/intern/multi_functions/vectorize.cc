@@ -79,6 +79,9 @@ void MF_SimpleVectorize::call(MFMask mask, MFParams params, MFContext context) c
   Array<int> vectorization_lengths(mask.min_array_size());
   get_vectorization_lengths(mask, params, m_vectorized_inputs, vectorization_lengths);
 
+  MFContextBuilder sub_context_builder;
+  sub_context_builder.add_global_contexts(context);
+
   for (uint index : mask.indices()) {
     uint length = vectorization_lengths[index];
     MFParamsBuilder params_builder(m_function, length);
@@ -115,9 +118,9 @@ void MF_SimpleVectorize::call(MFMask mask, MFParams params, MFContext context) c
       }
     }
 
-    /* TODO: Call with updated context. */
+    /* TODO: Pass modified per element contexts. */
     ArrayRef<uint> sub_mask_indices = IndexRange(length).as_array_ref();
-    m_function.call(sub_mask_indices, params_builder, context);
+    m_function.call(sub_mask_indices, params_builder, sub_context_builder);
   }
 }
 
