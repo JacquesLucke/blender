@@ -65,6 +65,7 @@ set(SRC
   FN_inlined_tree_multi_function_network_generation.h
   FN_inlined_tree_multi_function_network.h
 
+  intern/multi_functions/customizable.h
   intern/multi_functions/lists.h
   intern/multi_functions/mixed.h
   intern/multi_functions/network.h
