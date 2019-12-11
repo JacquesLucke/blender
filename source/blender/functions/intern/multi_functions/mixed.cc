@@ -573,19 +573,7 @@ static void get_colors_on_surface(ArrayRef<uint> indices,
           r_colors[i] = color;
         }
       },
-      [](const SurfaceHook &a, const SurfaceHook &b) {
-        if (a.type() != b.type()) {
-          return false;
-        }
-        switch (a.type()) {
-          case BKE::SurfaceHookType::MeshObject:
-            return a.object_handle() == b.object_handle();
-          case BKE::SurfaceHookType::None:
-            return true;
-        }
-        BLI_assert(false);
-        return false;
-      });
+      SurfaceHook::on_same_surface);
 }
 
 void MF_GetImageColorOnSurface::call(MFMask mask, MFParams params, MFContext context) const

@@ -75,6 +75,21 @@ class SurfaceHook {
     BLI_assert(m_type == SurfaceHookType::MeshObject);
     return m_bary_coords;
   }
+
+  static bool on_same_surface(const SurfaceHook &a, const SurfaceHook &b)
+  {
+    if (a.type() != b.type()) {
+      return false;
+    }
+    switch (a.type()) {
+      case BKE::SurfaceHookType::None:
+        return true;
+      case BKE::SurfaceHookType::MeshObject:
+        return a.object_handle() == b.object_handle();
+    }
+    BLI_assert(false);
+    return false;
+  }
 };
 
 }  // namespace BKE
