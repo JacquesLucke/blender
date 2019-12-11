@@ -295,6 +295,16 @@ template<typename T> class ArrayRef {
     return -1;
   }
 
+  template<typename PredicateT> bool any(const PredicateT predicate)
+  {
+    for (uint i = 0; i < m_size; i++) {
+      if (predicate(m_start[i])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Utility to make it more convenient to iterate over all indices that can be used with this
    * array.

@@ -480,6 +480,34 @@ MF_GetImageColorOnSurface::MF_GetImageColorOnSurface()
   this->set_signature(signature);
 }
 
+template<typename T, typename FuncT, typename EqualFuncT = std::equal_to<T>>
+void group_indices_by_same_value(ArrayRef<uint> indices,
+                                 VirtualListRef<T> values,
+                                 const FuncT &func,
+                                 EqualFuncT equal = std::equal_to<T>())
+{
+  Vector<T> seen_values;
+
+  for (uint i : indices.index_iterator()) {
+    uint index = indices[i];
+
+    const T &value = values[index];
+    if (seen_values.as_ref().any([&](const T &seen_value) { return equal(value, seen_value); })) {
+      continue;
+    }
+    seen_values.append(value);
+
+    TemporaryVector<uint> indices_with_value;
+    for (uint j : indices.drop_front(i)) {
+      if (equal(values[j], value)) {
+        indices_with_value.append(j);
+      }
+    }
+
+    func(value, indices_with_value.as_ref());
+  }
+}
+
 static void get_colors_on_surface(ArrayRef<uint> indices,
                                   VirtualListRef<SurfaceHook> surface_hooks,
                                   MutableArrayRef<rgba_f> r_colors,
@@ -487,51 +515,68 @@ static void get_colors_on_surface(ArrayRef<uint> indices,
                                   const IDHandleLookup &id_handle_lookup,
                                   const ImBuf &ibuf)
 {
+  group_indices_by_same_value(
+      indices,
+      surface_hooks,
+      [&](SurfaceHook base_hook, ArrayRef<uint> indices_with_similar_hook) {
+        if (base_hook.type() != BKE::SurfaceHookType::MeshObject) {
+          r_colors.fill_indices(indices_with_similar_hook, fallback);
+          return;
+        }
 
-  for (uint i : indices) {
-    SurfaceHook hook = surface_hooks[i];
-    if (hook.type() != BKE::SurfaceHookType::MeshObject) {
-      r_colors[i] = fallback;
-      continue;
-    }
+        Object *object = id_handle_lookup.lookup(base_hook.object_handle());
+        if (object == nullptr) {
+          r_colors.fill_indices(indices_with_similar_hook, fallback);
+          return;
+        }
 
-    Object *object = id_handle_lookup.lookup(hook.object_handle());
-    if (object == nullptr) {
-      r_colors[i] = fallback;
-      continue;
-    }
+        Mesh *mesh = (Mesh *)object->data;
+        const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+        int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
-    Mesh *mesh = (Mesh *)object->data;
-    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-    int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
+        int uv_layer_index = 0;
+        ArrayRef<MLoopUV> uv_layer = BLI::ref_c_array(
+            (MLoopUV *)CustomData_get_layer_n(&mesh->ldata, CD_MLOOPUV, uv_layer_index),
+            mesh->totloop);
 
-    if (hook.triangle_index() >= triangle_amount) {
-      r_colors[i] = fallback;
-      continue;
-    }
+        ArrayRef<rgba_b> pixel_buffer = BLI::ref_c_array((rgba_b *)ibuf.rect, ibuf.x * ibuf.y);
 
-    int uv_layer_index = 0;
-    ArrayRef<MLoopUV> uv_layer = BLI::ref_c_array(
-        (MLoopUV *)CustomData_get_layer_n(&mesh->ldata, CD_MLOOPUV, uv_layer_index),
-        mesh->totloop);
+        for (uint i : indices_with_similar_hook) {
+          SurfaceHook hook = surface_hooks[i];
+          if (hook.triangle_index() >= triangle_amount) {
+            r_colors[i] = fallback;
+            continue;
+          }
 
-    ArrayRef<rgba_b> pixel_buffer = BLI::ref_c_array((rgba_b *)ibuf.rect, ibuf.x * ibuf.y);
+          const MLoopTri &triangle = triangles[hook.triangle_index()];
 
-    const MLoopTri &triangle = triangles[hook.triangle_index()];
+          float2 uv1 = uv_layer[triangle.tri[0]].uv;
+          float2 uv2 = uv_layer[triangle.tri[1]].uv;
+          float2 uv3 = uv_layer[triangle.tri[2]].uv;
 
-    float2 uv1 = uv_layer[triangle.tri[0]].uv;
-    float2 uv2 = uv_layer[triangle.tri[1]].uv;
-    float2 uv3 = uv_layer[triangle.tri[2]].uv;
+          float2 uv;
+          interp_v2_v2v2v2(uv, uv1, uv2, uv3, hook.bary_coords());
 
-    float2 uv;
-    interp_v2_v2v2v2(uv, uv1, uv2, uv3, hook.bary_coords());
-
-    uv = uv.clamped_01();
-    uint x = uv.x * (ibuf.x - 1);
-    uint y = uv.y * (ibuf.y - 1);
-    rgba_b color = pixel_buffer[y * ibuf.x + x];
-    r_colors[i] = color;
-  }
+          uv = uv.clamped_01();
+          uint x = uv.x * (ibuf.x - 1);
+          uint y = uv.y * (ibuf.y - 1);
+          rgba_b color = pixel_buffer[y * ibuf.x + x];
+          r_colors[i] = color;
+        }
+      },
+      [](const SurfaceHook &a, const SurfaceHook &b) {
+        if (a.type() != b.type()) {
+          return false;
+        }
+        switch (a.type()) {
+          case BKE::SurfaceHookType::MeshObject:
+            return a.object_handle() == b.object_handle();
+          case BKE::SurfaceHookType::None:
+            return true;
+        }
+        BLI_assert(false);
+        return false;
+      });
 }
 
 void MF_GetImageColorOnSurface::call(MFMask mask, MFParams params, MFContext context) const
@@ -554,39 +599,25 @@ void MF_GetImageColorOnSurface::call(MFMask mask, MFParams params, MFContext con
     return;
   }
 
-  Vector<ImageIDHandle> seen_images;
+  group_indices_by_same_value<ImageIDHandle>(
+      mask.indices(),
+      image_handles,
+      [&](ImageIDHandle image_handle, ArrayRef<uint> indices_with_image) {
+        Image *image = id_handle_lookup->lookup(image_handle);
+        if (image == nullptr) {
+          r_colors.fill_indices(indices_with_image, fallback);
+          return;
+        }
 
-  for (uint i = 0; i < mask.indices_amount(); i++) {
-    uint index = mask.indices()[i];
+        ImageUser image_user = {0};
+        image_user.ok = true;
+        ImBuf *ibuf = BKE_image_acquire_ibuf(image, &image_user, NULL);
 
-    ImageIDHandle image_handle = image_handles[index];
-    if (seen_images.contains(image_handle)) {
-      continue;
-    }
-    seen_images.append(image_handle);
+        get_colors_on_surface(
+            indices_with_image, surface_hooks, r_colors, fallback, *id_handle_lookup, *ibuf);
 
-    TemporaryVector<uint> indices_with_image;
-    for (uint j : mask.indices().drop_front(i)) {
-      if (image_handles[j] == image_handle) {
-        indices_with_image.append(j);
-      }
-    }
-
-    Image *image = id_handle_lookup->lookup(image_handle);
-    if (image == nullptr) {
-      r_colors.fill_indices(indices_with_image, fallback);
-      continue;
-    }
-
-    ImageUser image_user = {0};
-    image_user.ok = true;
-    ImBuf *ibuf = BKE_image_acquire_ibuf(image, &image_user, NULL);
-
-    get_colors_on_surface(
-        indices_with_image, surface_hooks, r_colors, fallback, *id_handle_lookup, *ibuf);
-
-    BKE_image_release_ibuf(image, ibuf, NULL);
-  }
+        BKE_image_release_ibuf(image, ibuf, NULL);
+      });
 }
 
 MF_ObjectWorldLocation::MF_ObjectWorldLocation()
