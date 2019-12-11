@@ -174,52 +174,6 @@ class MF_Clamp final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
-template<typename FromT, typename ToT, ToT (*Compute)(const FromT &)>
-class MF_Mappping final : public MultiFunction {
- public:
-  MF_Mappping(StringRef name)
-  {
-    MFSignatureBuilder signature(name);
-    signature.single_input<FromT>("Input");
-    signature.single_output<ToT>("Output");
-    this->set_signature(signature);
-  }
-
-  void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    VirtualListRef<FromT> inputs = params.readonly_single_input<FromT>(0, "Input");
-    MutableArrayRef<ToT> outputs = params.uninitialized_single_output<ToT>(1, "Output");
-
-    for (uint i : mask.indices()) {
-      const FromT &from_value = inputs[i];
-      ToT to_value = Compute(from_value);
-      new (&outputs[i]) ToT(std::move(to_value));
-    }
-  }
-};
-
-template<typename In1, typename In2, typename Out, Out (*Func)(In1, In2)>
-class MF_2In_1Out final : public MultiFunction {
- public:
-  MF_2In_1Out(StringRef function_name, StringRef in1_name, StringRef in2_name, StringRef out_name)
-  {
-    MFSignatureBuilder signature(function_name);
-    signature.single_input<In1>(in1_name);
-    signature.single_input<In2>(in2_name);
-    signature.single_output<Out>(out_name);
-    this->set_signature(signature);
-  }
-
-  void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    VirtualListRef<In1> in1 = params.readonly_single_input<In1>(0);
-    VirtualListRef<In2> in2 = params.readonly_single_input<In2>(1);
-    MutableArrayRef<Out> out = params.uninitialized_single_output<Out>(2);
-
-    mask.foreach_index([&](uint i) { out[i] = Func(in1[i], in2[i]); });
-  }
-};
-
 template<typename InT, typename OutT> class MF_Custom_In1_Out1 final : public MultiFunction {
  private:
   using FunctionT = std::function<void(MFMask mask, VirtualListRef<InT>, MutableArrayRef<OutT>)>;
