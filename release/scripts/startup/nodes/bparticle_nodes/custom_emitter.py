@@ -1,7 +1,7 @@
 import bpy
 import uuid
 from bpy.props import *
-from .. base import SimulationNode, DataSocket
+from .. base import SimulationNode, DataSocket, FunctionNode
 from .. node_builder import NodeBuilder
 from .. types import type_infos
 from .. sync import skip_syncing
@@ -83,3 +83,13 @@ class CustomEmitter(bpy.types.Node, SimulationNode):
 
     def set_attribute_type(self, data_type, index):
         self.attributes[index].attribute_type = data_type
+
+class EmitterTimeInfoNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_EmitterTimeInfoNode"
+    bl_label = "Emitter Time Info"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_output("duration", "Duration", "Float")
+        builder.fixed_output("begin", "Begin", "Float")
+        builder.fixed_output("end", "End", "Float")
+        builder.fixed_output("step", "Step", "Integer")

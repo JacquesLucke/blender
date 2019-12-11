@@ -8,7 +8,4 @@ BLI_CREATE_CLASS_ID(FN::SceneTimeContext)
 BLI_CREATE_CLASS_ID(FN::ParticleAttributesContext)
 BLI_CREATE_CLASS_ID(BKE::IDHandleLookup)
 BLI_CREATE_CLASS_ID(BKE::IDDataCache)
-
-namespace FN {
-
-}  // namespace FN
+BLI_CREATE_CLASS_ID(FN::EmitterTimeInfoContext)

@@ -26,4 +26,10 @@ class MF_ParticleIsInGroup final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_EmitterTimeInfo final : public MultiFunction {
+ public:
+  MF_EmitterTimeInfo();
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
 }  // namespace FN

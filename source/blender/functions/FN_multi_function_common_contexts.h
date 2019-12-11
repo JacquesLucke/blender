@@ -32,6 +32,14 @@ class ParticleAttributesContext {
   }
 };
 
+class EmitterTimeInfoContext {
+ public:
+  float duration;
+  float begin;
+  float end;
+  int step;
+};
+
 }  // namespace FN
 
 #endif /* __FN_MULTI_FUNCTION_COMMON_CONTEXTS_H__ */

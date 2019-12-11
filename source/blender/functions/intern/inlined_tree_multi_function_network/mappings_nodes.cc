@@ -476,6 +476,11 @@ static void INSERT_value(VNodeMFNetworkBuilder &builder)
   network_builder.map_sockets(xsocket, built_socket);
 }
 
+static void INSERT_emitter_time_info(VNodeMFNetworkBuilder &builder)
+{
+  builder.set_constructed_matching_fn<MF_EmitterTimeInfo>();
+}
+
 void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
 {
   mappings.xnode_inserters.add_new("fn_CombineColorNode", INSERT_combine_color);
@@ -508,6 +513,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
   mappings.xnode_inserters.add_new("fn_RandomFloatNode", INSERT_random_float);
   mappings.xnode_inserters.add_new("fn_ValueNode", INSERT_value);
+  mappings.xnode_inserters.add_new("fn_EmitterTimeInfoNode", INSERT_emitter_time_info);
 
   mappings.xnode_inserters.add_new("fn_AddFloatsNode", INSERT_add_floats);
   mappings.xnode_inserters.add_new("fn_MultiplyFloatsNode", INSERT_multiply_floats);

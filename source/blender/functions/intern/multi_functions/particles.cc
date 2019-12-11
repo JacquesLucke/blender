@@ -85,4 +85,38 @@ void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context)
   }
 }
 
+MF_EmitterTimeInfo::MF_EmitterTimeInfo()
+{
+  MFSignatureBuilder signature("Emitter Time Info");
+  signature.single_output<float>("Duration");
+  signature.single_output<float>("Begin");
+  signature.single_output<float>("End");
+  signature.single_output<int>("Step");
+  this->set_signature(signature);
+}
+
+void MF_EmitterTimeInfo::call(MFMask mask, MFParams params, MFContext context) const
+{
+  MutableArrayRef<float> r_durations = params.uninitialized_single_output<float>(0, "Duration");
+  MutableArrayRef<float> r_begins = params.uninitialized_single_output<float>(1, "Begin");
+  MutableArrayRef<float> r_ends = params.uninitialized_single_output<float>(2, "End");
+  MutableArrayRef<int> r_steps = params.uninitialized_single_output<int>(3, "Step");
+
+  auto *time_context = context.try_find_global<EmitterTimeInfoContext>();
+
+  ArrayRef<uint> indices = mask.indices();
+  if (time_context == nullptr) {
+    r_durations.fill_indices(indices, 0.0f);
+    r_begins.fill_indices(indices, 0.0f);
+    r_ends.fill_indices(indices, 0.0f);
+    r_steps.fill_indices(indices, 0);
+  }
+  else {
+    r_durations.fill_indices(indices, time_context->duration);
+    r_begins.fill_indices(indices, time_context->begin);
+    r_ends.fill_indices(indices, time_context->end);
+    r_steps.fill_indices(indices, time_context->step);
+  }
+}
+
 }  // namespace FN

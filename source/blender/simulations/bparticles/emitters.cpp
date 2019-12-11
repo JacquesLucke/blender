@@ -390,9 +390,17 @@ void CustomEmitter::emit(EmitterInterface &interface)
     }
   }
 
+  TimeSpan time_span = interface.time_span();
+  FN::EmitterTimeInfoContext time_context;
+  time_context.begin = time_span.start();
+  time_context.end = time_span.end();
+  time_context.duration = time_span.duration();
+  time_context.step = interface.time_step();
+
   FN::MFContextBuilder context_builder;
   context_builder.add_global_context(m_id_data_cache);
   context_builder.add_global_context(m_id_handle_lookup);
+  context_builder.add_global_context(time_context);
 
   m_emitter_function.call({0}, params_builder, context_builder);
 
@@ -410,8 +418,6 @@ void CustomEmitter::emit(EmitterInterface &interface)
   if (particle_count == -1) {
     particle_count = 1;
   }
-
-  TimeSpan time_span = interface.time_span();
 
   for (StringRef system_name : m_systems_to_emit) {
     auto new_particles = interface.particle_allocator().request(system_name, particle_count);

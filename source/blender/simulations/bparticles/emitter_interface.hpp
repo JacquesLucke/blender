@@ -37,6 +37,11 @@ class EmitterInterface {
     return m_time_span;
   }
 
+  uint time_step()
+  {
+    return m_simulation_state.time().current_update_index();
+  }
+
   /**
    * True when this is the first time step in a simulation, otherwise false.
    */
