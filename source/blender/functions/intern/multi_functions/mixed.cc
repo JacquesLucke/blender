@@ -408,7 +408,7 @@ MF_GetWeightOnSurface::MF_GetWeightOnSurface(std::string vertex_group_name)
 
 void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context) const
 {
-  VirtualListRef<SurfaceHook> locations = params.readonly_single_input<SurfaceHook>(
+  VirtualListRef<SurfaceHook> surface_hooks = params.readonly_single_input<SurfaceHook>(
       0, "Surface Hook");
   MutableArrayRef<float> r_weights = params.uninitialized_single_output<float>(1, "Weight");
 
@@ -420,46 +420,54 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
     return;
   }
 
-  for (uint i : mask.indices()) {
-    SurfaceHook location = locations[i];
-    if (location.type() != BKE::SurfaceHookType::MeshObject) {
-      r_weights[i] = fallback;
-      continue;
-    }
+  group_indices_by_same_value(
+      mask.indices(),
+      surface_hooks,
+      [&](SurfaceHook base_hook, ArrayRef<uint> indices_on_same_surface) {
+        if (base_hook.type() != BKE::SurfaceHookType::MeshObject) {
+          r_weights.fill_indices(indices_on_same_surface, fallback);
+          return;
+        }
 
-    Object *object = id_handle_lookup->lookup(location.object_handle());
-    if (object == nullptr) {
-      r_weights[i] = fallback;
-      continue;
-    }
+        Object *object = id_handle_lookup->lookup(base_hook.object_handle());
+        if (object == nullptr) {
+          r_weights.fill_indices(indices_on_same_surface, fallback);
+          return;
+        }
 
-    Mesh *mesh = (Mesh *)object->data;
-    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-    int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
+        Mesh *mesh = (Mesh *)object->data;
+        const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
+        int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
-    if (location.triangle_index() >= triangle_amount) {
-      r_weights[i] = fallback;
-      continue;
-    }
+        MDeformVert *vertex_weights = mesh->dvert;
+        int group_index = defgroup_name_index(object, m_vertex_group_name.data());
+        if (group_index == -1 || vertex_weights == nullptr) {
+          r_weights.fill_indices(indices_on_same_surface, fallback);
+          return;
+        }
 
-    const MLoopTri &triangle = triangles[location.triangle_index()];
-    uint v1 = mesh->mloop[triangle.tri[0]].v;
-    uint v2 = mesh->mloop[triangle.tri[1]].v;
-    uint v3 = mesh->mloop[triangle.tri[2]].v;
+        for (uint i : mask.indices()) {
+          SurfaceHook hook = surface_hooks[i];
 
-    MDeformVert *vertex_weights = mesh->dvert;
-    int group_index = defgroup_name_index(object, m_vertex_group_name.data());
-    if (group_index == -1 || vertex_weights == nullptr) {
-      r_weights[i] = fallback;
-    }
+          if (hook.triangle_index() >= triangle_amount) {
+            r_weights[i] = fallback;
+            continue;
+          }
 
-    float3 corner_weights{defvert_find_weight(vertex_weights + v1, group_index),
-                          defvert_find_weight(vertex_weights + v2, group_index),
-                          defvert_find_weight(vertex_weights + v3, group_index)};
+          const MLoopTri &triangle = triangles[hook.triangle_index()];
+          uint v1 = mesh->mloop[triangle.tri[0]].v;
+          uint v2 = mesh->mloop[triangle.tri[1]].v;
+          uint v3 = mesh->mloop[triangle.tri[2]].v;
 
-    float weight = float3::dot(location.bary_coords(), corner_weights);
-    r_weights[i] = weight;
-  }
+          float3 corner_weights{defvert_find_weight(vertex_weights + v1, group_index),
+                                defvert_find_weight(vertex_weights + v2, group_index),
+                                defvert_find_weight(vertex_weights + v3, group_index)};
+
+          float weight = float3::dot(hook.bary_coords(), corner_weights);
+          r_weights[i] = weight;
+        }
+      },
+      SurfaceHook::on_same_surface);
 }
 
 MF_GetImageColorOnSurface::MF_GetImageColorOnSurface()
