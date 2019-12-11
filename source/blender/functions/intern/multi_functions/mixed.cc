@@ -373,7 +373,7 @@ void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context
         const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
         int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
-        for (uint i : mask.indices()) {
+        for (uint i : indices_on_same_surface) {
           SurfaceHook hook = surface_hooks[i];
 
           if (hook.triangle_index() >= triangle_amount) {
@@ -446,7 +446,7 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
           return;
         }
 
-        for (uint i : mask.indices()) {
+        for (uint i : indices_on_same_surface) {
           SurfaceHook hook = surface_hooks[i];
 
           if (hook.triangle_index() >= triangle_amount) {
@@ -489,15 +489,15 @@ static void get_colors_on_surface(ArrayRef<uint> indices,
   group_indices_by_same_value(
       indices,
       surface_hooks,
-      [&](SurfaceHook base_hook, ArrayRef<uint> indices_with_similar_hook) {
+      [&](SurfaceHook base_hook, ArrayRef<uint> indices_on_same_surface) {
         if (base_hook.type() != BKE::SurfaceHookType::MeshObject) {
-          r_colors.fill_indices(indices_with_similar_hook, fallback);
+          r_colors.fill_indices(indices_on_same_surface, fallback);
           return;
         }
 
         Object *object = id_handle_lookup.lookup(base_hook.object_handle());
         if (object == nullptr) {
-          r_colors.fill_indices(indices_with_similar_hook, fallback);
+          r_colors.fill_indices(indices_on_same_surface, fallback);
           return;
         }
 
@@ -512,7 +512,7 @@ static void get_colors_on_surface(ArrayRef<uint> indices,
 
         ArrayRef<rgba_b> pixel_buffer = BLI::ref_c_array((rgba_b *)ibuf.rect, ibuf.x * ibuf.y);
 
-        for (uint i : indices_with_similar_hook) {
+        for (uint i : indices_on_same_surface) {
           SurfaceHook hook = surface_hooks[i];
           if (hook.triangle_index() >= triangle_amount) {
             r_colors[i] = fallback;
@@ -965,8 +965,6 @@ void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context)
 MF_ClosestSurfaceHookOnObject::MF_ClosestSurfaceHookOnObject()
 {
   MFSignatureBuilder signature("Closest Point on Object");
-  /* Todo: remove this per element dependency. */
-  signature.depends_on_per_element_context(true);
   signature.single_input<ObjectIDHandle>("Object");
   signature.single_input<float3>("Position");
   signature.single_output<SurfaceHook>("Closest Location");
@@ -1001,8 +999,8 @@ static float3 get_barycentric_coords(Mesh *mesh,
 
 void MF_ClosestSurfaceHookOnObject::call(MFMask mask, MFParams params, MFContext context) const
 {
-  VirtualListRef<ObjectIDHandle> objects = params.readonly_single_input<ObjectIDHandle>(0,
-                                                                                        "Object");
+  VirtualListRef<ObjectIDHandle> object_handles = params.readonly_single_input<ObjectIDHandle>(
+      0, "Object");
   VirtualListRef<float3> positions = params.readonly_single_input<float3>(1, "Position");
   MutableArrayRef<SurfaceHook> r_surface_hooks = params.uninitialized_single_output<SurfaceHook>(
       2, "Closest Location");
@@ -1015,67 +1013,39 @@ void MF_ClosestSurfaceHookOnObject::call(MFMask mask, MFParams params, MFContext
     return;
   }
 
-  if (mask.indices().size() > 0 && objects.all_equal(mask.indices())) {
-    Object *object = id_handle_lookup->lookup(objects[mask.indices()[0]]);
-    if (object == nullptr) {
-      r_surface_hooks.fill_indices(mask.indices(), {});
-      return;
-    }
+  group_indices_by_same_value(
+      mask.indices(),
+      object_handles,
+      [&](ObjectIDHandle object_handle, ArrayRef<uint> indices_with_same_object) {
+        Object *object = id_handle_lookup->lookup(object_handle);
+        if (object == nullptr) {
+          r_surface_hooks.fill_indices(indices_with_same_object, {});
+          return;
+        }
 
-    BVHTreeFromMesh *bvhtree = id_data_cache->get_bvh_tree(object);
-    if (bvhtree == nullptr) {
-      r_surface_hooks.fill_indices(mask.indices(), {});
-      return;
-    }
+        BVHTreeFromMesh *bvhtree = id_data_cache->get_bvh_tree(object);
+        if (bvhtree == nullptr) {
+          r_surface_hooks.fill_indices(indices_with_same_object, {});
+          return;
+        }
 
-    Mesh *mesh = (Mesh *)object->data;
-    const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-    ObjectIDHandle object_handle(object);
+        Mesh *mesh = (Mesh *)object->data;
+        const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
 
-    float4x4 global_to_local = float4x4(object->obmat).inverted__LocRotScale();
+        float4x4 global_to_local = float4x4(object->obmat).inverted__LocRotScale();
 
-    for (uint i : mask.indices()) {
-      float3 local_position = global_to_local.transform_position(positions[i]);
-      BVHTreeNearest nearest = get_nearest_point(bvhtree, local_position);
-      if (nearest.index == -1) {
-        r_surface_hooks[i] = {};
-        continue;
-      }
+        for (uint i : indices_with_same_object) {
+          float3 local_position = global_to_local.transform_position(positions[i]);
+          BVHTreeNearest nearest = get_nearest_point(bvhtree, local_position);
+          if (nearest.index == -1) {
+            r_surface_hooks[i] = {};
+            continue;
+          }
 
-      float3 bary_coords = get_barycentric_coords(mesh, triangles, nearest.co, nearest.index);
-      r_surface_hooks[i] = SurfaceHook(object_handle, nearest.index, bary_coords);
-    }
-  }
-  else {
-    for (uint i : mask.indices()) {
-      Object *object = id_handle_lookup->lookup(objects[i]);
-      if (object == nullptr) {
-        r_surface_hooks[i] = {};
-        continue;
-      }
-
-      BVHTreeFromMesh *bvhtree = id_data_cache->get_bvh_tree(object);
-      if (bvhtree == nullptr) {
-        r_surface_hooks[i] = {};
-        continue;
-      }
-
-      Mesh *mesh = (Mesh *)object->data;
-      const MLoopTri *triangles = BKE_mesh_runtime_looptri_ensure(mesh);
-
-      float4x4 global_to_local = float4x4(object->obmat).inverted__LocRotScale();
-      float3 local_position = global_to_local.transform_position(positions[i]);
-
-      BVHTreeNearest nearest = get_nearest_point(bvhtree, local_position);
-      if (nearest.index == -1) {
-        r_surface_hooks[i] = {};
-        continue;
-      }
-
-      float3 bary_coords = get_barycentric_coords(mesh, triangles, nearest.co, nearest.index);
-      r_surface_hooks[i] = SurfaceHook(object, nearest.index, bary_coords);
-    }
-  }
+          float3 bary_coords = get_barycentric_coords(mesh, triangles, nearest.co, nearest.index);
+          r_surface_hooks[i] = SurfaceHook(object_handle, nearest.index, bary_coords);
+        }
+      });
 }
 
 MF_MapRange::MF_MapRange(bool clamp) : m_clamp(clamp)
