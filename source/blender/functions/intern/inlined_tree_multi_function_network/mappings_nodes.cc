@@ -76,9 +76,8 @@ static void INSERT_get_normal_on_surface(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_get_weight_on_surface(VNodeMFNetworkBuilder &builder)
 {
-  std::string group_name = builder.string_from_property("vertex_group_name");
-  builder.set_vectorized_constructed_matching_fn<MF_GetWeightOnSurface>({"use_list__surface_hook"},
-                                                                        std::move(group_name));
+  builder.set_vectorized_constructed_matching_fn<MF_GetWeightOnSurface>(
+      {"use_list__surface_hook", "use_list__vertex_group_name"});
 }
 
 static void INSERT_get_image_color_on_surface(VNodeMFNetworkBuilder &builder)

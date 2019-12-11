@@ -63,19 +63,13 @@ class GetWeightOnSurfaceNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_GetWeightOnSurfaceNode"
     bl_label = "Get Weight on Surface"
 
-    vertex_group_name: StringProperty(
-        name="Vertex Group Name",
-        default="Group",
-    )
-
     use_list__surface_hook: NodeBuilder.VectorizedProperty()
+    use_list__vertex_group_name: NodeBuilder.VectorizedProperty()
 
-    def declaration(self, builder):
+    def declaration(self, builder: NodeBuilder):
         builder.vectorized_input("surface_hook", "use_list__surface_hook", "Surface Hook", "Surface Hooks", "Surface Hook")
-        builder.vectorized_output("weight", ["use_list__surface_hook"], "Weight", "Weights", "Float")
-
-    def draw(self, layout):
-        layout.prop(self, "vertex_group_name", text="", icon="GROUP_VERTEX")
+        builder.vectorized_input("vertex_group_name", "use_list__vertex_group_name", "Name", "Names", "Text", default="Group")
+        builder.vectorized_output("weight", ["use_list__surface_hook", "use_list__vertex_group_name"], "Weight", "Weights", "Float")
 
 
 class GetImageColorOnSurfaceNode(bpy.types.Node, FunctionNode):
