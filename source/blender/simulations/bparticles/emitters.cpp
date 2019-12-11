@@ -474,6 +474,22 @@ void CustomEmitter::emit(EmitterInterface &interface)
 
     m_action.execute_from_emitter(new_particles, interface);
   }
+
+  for (uint param_index : m_emitter_function.param_indices()) {
+    MFParamType param_type = m_emitter_function.param_type(param_index);
+    if (param_type.is_vector_output()) {
+      params_builder.computed_vector_array(param_index).~GenericVectorArray();
+    }
+    else if (param_type.is_single_output()) {
+      FN::GenericMutableArrayRef array = params_builder.computed_array(param_index);
+      BLI_assert(array.size() == 1);
+      array.destruct_all();
+      MEM_freeN(array.buffer());
+    }
+    else {
+      BLI_assert(false);
+    }
+  }
 }
 
 }  // namespace BParticles
