@@ -7,5 +7,6 @@
 #include "intern/multi_functions/network.h"
 #include "intern/multi_functions/particles.h"
 #include "intern/multi_functions/surface_hook.h"
+#include "intern/multi_functions/vectorize.h"
 
 #endif /* __FN_MULTI_FUNCTIONS_H__ */

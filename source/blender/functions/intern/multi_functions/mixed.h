@@ -66,18 +66,6 @@ class MF_RandomFloat final : public MultiFunction {
   void call(MFMask mask, MFParams parms, MFContext context) const override;
 };
 
-class MF_SimpleVectorize final : public MultiFunction {
- private:
-  const MultiFunction &m_function;
-  Vector<bool> m_input_is_vectorized;
-  Vector<uint> m_vectorized_inputs;
-  Vector<uint> m_output_indices;
-
- public:
-  MF_SimpleVectorize(const MultiFunction &function, ArrayRef<bool> input_is_vectorized);
-  void call(MFMask mask, MFParams params, MFContext context) const override;
-};
-
 class MF_ContextVertexPosition final : public MultiFunction {
  public:
   MF_ContextVertexPosition();
