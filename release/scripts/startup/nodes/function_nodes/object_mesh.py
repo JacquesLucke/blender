@@ -24,28 +24,35 @@ class ClosestLocationOnObjectNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_ClosestLocationOnObjectNode"
     bl_label = "Closest Location on Object"
 
-    def declaration(self, builder):
-        builder.fixed_input("object", "Object", "Object")
-        builder.fixed_input("position", "Position", "Vector")
-        builder.fixed_output("closest_hook", "Closest Hook", "Surface Hook")
+    use_list__object: NodeBuilder.VectorizedProperty()
+    use_list__position: NodeBuilder.VectorizedProperty()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.vectorized_input("object", "use_list__object", "Object", "Objects", "Object")
+        builder.vectorized_input("position", "use_list__position", "Position", "Positions", "Vector")
+        builder.vectorized_output("closest_hook", ["use_list__object", "use_list__position"], "Closest Hook", "Closest Hooks", "Surface Hook")
 
 
 class GetPositionOnSurfaceNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_GetPositionOnSurfaceNode"
     bl_label = "Get Position on Surface"
 
-    def declaration(self, builder):
-        builder.fixed_input("surface_hook", "Surface Hook", "Surface Hook")
-        builder.fixed_output("position", "Position", "Vector")
+    use_list__surface_hook: NodeBuilder.VectorizedProperty()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.vectorized_input("surface_hook", "use_list__surface_hook", "Surface Hook", "Surface Hooks", "Surface Hook")
+        builder.vectorized_output("position", ["use_list__surface_hook"], "Position", "Positions", "Vector")
 
 
 class GetNormalOnSurfaceNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_GetNormalOnSurfaceNode"
     bl_label = "Get Normal on Surface"
 
+    use_list__surface_hook: NodeBuilder.VectorizedProperty()
+
     def declaration(self, builder):
-        builder.fixed_input("surface_hook", "Surface Hook", "Surface Hook")
-        builder.fixed_output("normal", "Normal", "Vector")
+        builder.vectorized_input("surface_hook", "use_list__surface_hook", "Surface Hook", "Surface Hooks", "Surface Hook")
+        builder.vectorized_output("normal", ["use_list__surface_hook"], "Normal", "Normals", "Vector")
 
 
 class GetWeightOnSurfaceNode(bpy.types.Node, FunctionNode):
@@ -57,10 +64,12 @@ class GetWeightOnSurfaceNode(bpy.types.Node, FunctionNode):
         default="Group",
     )
 
+    use_list__surface_hook: NodeBuilder.VectorizedProperty()
+
     def declaration(self, builder):
-        builder.fixed_input("surface_hook", "Surface Hook", "Surface Hook")
-        builder.fixed_output("weight", "Weight", "Float")
-    
+        builder.vectorized_input("surface_hook", "use_list__surface_hook", "Surface Hook", "Surface Hooks", "Surface Hook")
+        builder.vectorized_output("weight", ["use_list__surface_hook"], "Weight", "Weights", "Float")
+
     def draw(self, layout):
         layout.prop(self, "vertex_group_name", text="", icon="GROUP_VERTEX")
 
@@ -74,9 +83,11 @@ class GetImageColorOnSurfaceNode(bpy.types.Node, FunctionNode):
         type=bpy.types.Image,
     )
 
+    use_list__surface_hook: NodeBuilder.VectorizedProperty()
+
     def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("surface_hook", "Surface Hook", "Surface Hook")
-        builder.fixed_output("color", "Color", "Color")
+        builder.vectorized_input("surface_hook", "use_list__surface_hook", "Surface Hook", "Surface Hooks", "Surface Hook")
+        builder.vectorized_output("color", ["use_list__surface_hook"], "Color", "Colors", "Color")
 
     def draw(self, layout):
         layout.prop(self, "image", text="")

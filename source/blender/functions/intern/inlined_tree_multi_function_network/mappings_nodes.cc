@@ -64,24 +64,28 @@ static void INSERT_object_mesh_info(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_get_position_on_surface(VNodeMFNetworkBuilder &builder)
 {
-  builder.set_constructed_matching_fn<MF_GetPositionOnSurface>();
+  builder.set_vectorized_constructed_matching_fn<MF_GetPositionOnSurface>(
+      {"use_list__surface_hook"});
 }
 
 static void INSERT_get_normal_on_surface(VNodeMFNetworkBuilder &builder)
 {
-  builder.set_constructed_matching_fn<MF_GetNormalOnSurface>();
+  builder.set_vectorized_constructed_matching_fn<MF_GetNormalOnSurface>(
+      {"use_list__surface_hook"});
 }
 
 static void INSERT_get_weight_on_surface(VNodeMFNetworkBuilder &builder)
 {
   std::string group_name = builder.string_from_property("vertex_group_name");
-  builder.set_constructed_matching_fn<MF_GetWeightOnSurface>(std::move(group_name));
+  builder.set_vectorized_constructed_matching_fn<MF_GetWeightOnSurface>({"use_list__surface_hook"},
+                                                                        std::move(group_name));
 }
 
 static void INSERT_get_image_color_on_surface(VNodeMFNetworkBuilder &builder)
 {
   Image *image = (Image *)RNA_pointer_get(builder.rna(), "image").data;
-  builder.set_constructed_matching_fn<MF_GetImageColorOnSurface>(image);
+  builder.set_vectorized_constructed_matching_fn<MF_GetImageColorOnSurface>(
+      {"use_list__surface_hook"}, image);
 }
 
 static void INSERT_particle_is_in_group(VNodeMFNetworkBuilder &builder)
@@ -403,9 +407,10 @@ static void INSERT_get_particle_attribute(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_ParticleAttributes>(std::move(name), type);
 }
 
-static void INSERT_closest_location_on_object(VNodeMFNetworkBuilder &builder)
+static void INSERT_closest_surface_hook_on_object(VNodeMFNetworkBuilder &builder)
 {
-  builder.set_constructed_matching_fn<MF_ClosestSurfaceHookOnObject>();
+  builder.set_vectorized_constructed_matching_fn<MF_ClosestSurfaceHookOnObject>(
+      {"use_list__object", "use_list__position"});
 }
 
 static void INSERT_clamp_float(VNodeMFNetworkBuilder &builder)
@@ -466,7 +471,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_ParticleInfoNode", INSERT_particle_info);
   mappings.xnode_inserters.add_new("fn_GetParticleAttributeNode", INSERT_get_particle_attribute);
   mappings.xnode_inserters.add_new("fn_ClosestLocationOnObjectNode",
-                                   INSERT_closest_location_on_object);
+                                   INSERT_closest_surface_hook_on_object);
   mappings.xnode_inserters.add_new("fn_MapRangeNode", INSERT_map_range);
   mappings.xnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
   mappings.xnode_inserters.add_new("fn_RandomFloatNode", INSERT_random_float);
