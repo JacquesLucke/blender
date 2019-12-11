@@ -22,6 +22,7 @@
 #include "BKE_surface_hook.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_deform.h"
+#include "BKE_id_data_cache.h"
 
 namespace FN {
 
@@ -259,8 +260,13 @@ void MF_ObjectVertexPositions::call(MFMask mask, MFParams params, MFContext cont
                                                                                         "Object");
   auto positions = params.vector_output<float3>(1, "Positions");
 
+  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  if (id_handle_lookup == nullptr) {
+    return;
+  }
+
   for (uint i : mask.indices()) {
-    Object *object = context.id_handle_lookup().lookup(objects[i]);
+    Object *object = id_handle_lookup->lookup(objects[i]);
     if (object == nullptr || object->type != OB_MESH) {
       continue;
     }
@@ -290,16 +296,24 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
       0, "Surface Hook");
   MutableArrayRef<float3> r_positions = params.uninitialized_single_output<float3>(1, "Position");
 
+  float3 fallback = {0, 0, 0};
+
+  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  if (id_handle_lookup == nullptr) {
+    r_positions.fill_indices(mask.indices(), fallback);
+    return;
+  }
+
   for (uint i : mask.indices()) {
     SurfaceHook location = locations[i];
     if (location.type() != BKE::SurfaceHookType::MeshObject) {
-      r_positions[i] = {0, 0, 0};
+      r_positions[i] = fallback;
       continue;
     }
 
-    Object *object = context.id_handle_lookup().lookup(location.object_handle());
+    Object *object = id_handle_lookup->lookup(location.object_handle());
     if (object == nullptr) {
-      r_positions[i] = {0, 0, 0};
+      r_positions[i] = fallback;
       continue;
     }
 
@@ -308,7 +322,7 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
     int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
     if (location.triangle_index() >= triangle_amount) {
-      r_positions[i] = {0, 0, 0};
+      r_positions[i] = fallback;
       continue;
     }
 
@@ -346,16 +360,24 @@ void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context
       0, "Surface Hook");
   MutableArrayRef<float3> r_normals = params.uninitialized_single_output<float3>(1, "Normal");
 
+  float3 fallback = {0, 0, 1};
+
+  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  if (id_handle_lookup == nullptr) {
+    r_normals.fill_indices(mask.indices(), fallback);
+    return;
+  }
+
   for (uint i : mask.indices()) {
     SurfaceHook location = locations[i];
     if (location.type() != BKE::SurfaceHookType::MeshObject) {
-      r_normals[i] = {0, 0, 1};
+      r_normals[i] = fallback;
       continue;
     }
 
-    Object *object = context.id_handle_lookup().lookup(location.object_handle());
+    Object *object = id_handle_lookup->lookup(location.object_handle());
     if (object == nullptr) {
-      r_normals[i] = {0, 0, 1};
+      r_normals[i] = fallback;
       continue;
     }
 
@@ -364,7 +386,7 @@ void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context
     int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
     if (location.triangle_index() >= triangle_amount) {
-      r_normals[i] = {0, 0, 1};
+      r_normals[i] = fallback;
       continue;
     }
 
@@ -397,16 +419,24 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
       0, "Surface Hook");
   MutableArrayRef<float> r_weights = params.uninitialized_single_output<float>(1, "Weight");
 
+  float fallback = 0.0f;
+
+  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  if (id_handle_lookup == nullptr) {
+    r_weights.fill_indices(mask.indices(), fallback);
+    return;
+  }
+
   for (uint i : mask.indices()) {
     SurfaceHook location = locations[i];
     if (location.type() != BKE::SurfaceHookType::MeshObject) {
-      r_weights[i] = 0.0f;
+      r_weights[i] = fallback;
       continue;
     }
 
-    Object *object = context.id_handle_lookup().lookup(location.object_handle());
+    Object *object = id_handle_lookup->lookup(location.object_handle());
     if (object == nullptr) {
-      r_weights[i] = 0.0f;
+      r_weights[i] = fallback;
       continue;
     }
 
@@ -415,7 +445,7 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
     int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
     if (location.triangle_index() >= triangle_amount) {
-      r_weights[i] = 0.0f;
+      r_weights[i] = fallback;
       continue;
     }
 
@@ -427,7 +457,7 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
     MDeformVert *vertex_weights = mesh->dvert;
     int group_index = defgroup_name_index(object, m_vertex_group_name.data());
     if (group_index == -1 || vertex_weights == nullptr) {
-      r_weights[i] = 0.0f;
+      r_weights[i] = fallback;
     }
 
     float3 corner_weights{defvert_find_weight(vertex_weights + v1, group_index),
@@ -456,18 +486,24 @@ static void get_colors_on_surface(MFMask mask,
       0, "Surface Hook");
   MutableArrayRef<rgba_f> r_colors = params.uninitialized_single_output<rgba_f>(1, "Color");
 
-  rgba_f default_color = {0.0f, 0.0f, 0.0f, 1.0f};
+  rgba_f fallback = {0.0f, 0.0f, 0.0f, 1.0f};
+
+  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  if (id_handle_lookup == nullptr) {
+    r_colors.fill_indices(mask.indices(), fallback);
+    return;
+  }
 
   for (uint i : mask.indices()) {
     SurfaceHook location = locations[i];
     if (location.type() != BKE::SurfaceHookType::MeshObject) {
-      r_colors[i] = default_color;
+      r_colors[i] = fallback;
       continue;
     }
 
-    Object *object = context.id_handle_lookup().lookup(location.object_handle());
+    Object *object = id_handle_lookup->lookup(location.object_handle());
     if (object == nullptr) {
-      r_colors[i] = default_color;
+      r_colors[i] = fallback;
       continue;
     }
 
@@ -476,7 +512,7 @@ static void get_colors_on_surface(MFMask mask,
     int triangle_amount = BKE_mesh_runtime_looptri_len(mesh);
 
     if (location.triangle_index() >= triangle_amount) {
-      r_colors[i] = default_color;
+      r_colors[i] = fallback;
       continue;
     }
 
@@ -532,15 +568,23 @@ MF_ObjectWorldLocation::MF_ObjectWorldLocation()
 void MF_ObjectWorldLocation::call(MFMask mask, MFParams params, MFContext context) const
 {
   auto objects = params.readonly_single_input<ObjectIDHandle>(0, "Object");
-  auto locations = params.uninitialized_single_output<float3>(1, "Location");
+  auto r_locations = params.uninitialized_single_output<float3>(1, "Location");
+
+  float3 fallback = {0, 0, 0};
+
+  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  if (id_handle_lookup == nullptr) {
+    r_locations.fill_indices(mask.indices(), fallback);
+    return;
+  }
 
   for (uint i : mask.indices()) {
-    Object *object = context.id_handle_lookup().lookup(objects[i]);
+    Object *object = id_handle_lookup->lookup(objects[i]);
     if (object != nullptr) {
-      locations[i] = object->obmat[3];
+      r_locations[i] = object->obmat[3];
     }
     else {
-      locations[i] = float3(0, 0, 0);
+      r_locations[i] = fallback;
     }
   }
 }
@@ -744,7 +788,7 @@ MF_ContextVertexPosition::MF_ContextVertexPosition()
 void MF_ContextVertexPosition::call(MFMask mask, MFParams params, MFContext context) const
 {
   MutableArrayRef<float3> positions = params.uninitialized_single_output<float3>(0, "Position");
-  auto vertices_context = context.element_contexts().try_find<VertexPositionArray>();
+  auto vertices_context = context.try_find_per_element<VertexPositionArray>();
 
   if (vertices_context.has_value()) {
     for (uint i : mask.indices()) {
@@ -769,10 +813,10 @@ void MF_ContextCurrentFrame::call(MFMask mask, MFParams params, MFContext contex
 {
   MutableArrayRef<float> frames = params.uninitialized_single_output<float>(0, "Frame");
 
-  auto time_context = context.element_contexts().try_find<SceneTimeContext>();
+  auto *time_context = context.try_find_global<SceneTimeContext>();
 
-  if (time_context.has_value()) {
-    float current_frame = time_context.value().data->time;
+  if (time_context != nullptr) {
+    float current_frame = time_context->time;
     frames.fill_indices(mask.indices(), current_frame);
   }
   else {
@@ -831,7 +875,7 @@ MF_ParticleAttributes::MF_ParticleAttributes(Vector<std::string> attribute_names
 
 void MF_ParticleAttributes::call(MFMask mask, MFParams params, MFContext context) const
 {
-  auto context_data = context.element_contexts().try_find<ParticleAttributesContext>();
+  auto context_data = context.try_find_per_element<ParticleAttributesContext>();
 
   for (uint i = 0; i < m_attribute_names.size(); i++) {
     StringRef attribute_name = m_attribute_names[i];
@@ -874,7 +918,7 @@ void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context)
       0, "Group Name");
   MutableArrayRef<bool> r_is_in_group = params.uninitialized_single_output<bool>(1, "Is in Group");
 
-  auto context_data = context.element_contexts().try_find<ParticleAttributesContext>();
+  auto context_data = context.try_find_per_element<ParticleAttributesContext>();
   if (!context_data.has_value()) {
     r_is_in_group.fill_indices(mask.indices(), false);
     return;
@@ -935,27 +979,28 @@ static float3 get_barycentric_coords(Mesh *mesh,
 
 void MF_ClosestSurfaceHookOnObject::call(MFMask mask, MFParams params, MFContext context) const
 {
-  auto context_data = context.element_contexts().try_find<ExternalDataCacheContext>();
-
   VirtualListRef<ObjectIDHandle> objects = params.readonly_single_input<ObjectIDHandle>(0,
                                                                                         "Object");
   VirtualListRef<float3> positions = params.readonly_single_input<float3>(1, "Position");
   MutableArrayRef<SurfaceHook> r_surface_hooks = params.uninitialized_single_output<SurfaceHook>(
       2, "Closest Location");
 
-  if (!context_data.has_value()) {
+  auto *id_data_cache = context.try_find_global<BKE::IDDataCache>();
+  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+
+  if (id_data_cache == nullptr || id_handle_lookup == nullptr) {
     r_surface_hooks.fill_indices(mask.indices(), {});
     return;
   }
 
   if (mask.indices().size() > 0 && objects.all_equal(mask.indices())) {
-    Object *object = context.id_handle_lookup().lookup(objects[mask.indices()[0]]);
+    Object *object = id_handle_lookup->lookup(objects[mask.indices()[0]]);
     if (object == nullptr) {
       r_surface_hooks.fill_indices(mask.indices(), {});
       return;
     }
 
-    BVHTreeFromMesh *bvhtree = context_data.value().data->get_bvh_tree(object);
+    BVHTreeFromMesh *bvhtree = id_data_cache->get_bvh_tree(object);
     if (bvhtree == nullptr) {
       r_surface_hooks.fill_indices(mask.indices(), {});
       return;
@@ -981,13 +1026,13 @@ void MF_ClosestSurfaceHookOnObject::call(MFMask mask, MFParams params, MFContext
   }
   else {
     for (uint i : mask.indices()) {
-      Object *object = context.id_handle_lookup().lookup(objects[i]);
+      Object *object = id_handle_lookup->lookup(objects[i]);
       if (object == nullptr) {
         r_surface_hooks[i] = {};
         continue;
       }
 
-      BVHTreeFromMesh *bvhtree = context_data.value().data->get_bvh_tree(object);
+      BVHTreeFromMesh *bvhtree = id_data_cache->get_bvh_tree(object);
       if (bvhtree == nullptr) {
         r_surface_hooks[i] = {};
         continue;

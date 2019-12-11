@@ -22,7 +22,7 @@ using BLI::VirtualListRef;
 
 class MFElementContexts {
  private:
-  Vector<uintptr_t> m_ids;
+  Vector<BLI::class_id_t> m_ids;
   Vector<const void *> m_contexts;
   Vector<VirtualListRef<uint>> m_indices;
 
@@ -38,7 +38,7 @@ class MFElementContexts {
 
   template<typename T> Optional<TypedContext<T>> try_find() const
   {
-    uintptr_t context_id = BLI::get_class_id<T>();
+    BLI::class_id_t context_id = BLI::get_class_id<T>();
     for (uint i : m_contexts.index_iterator()) {
       if (m_ids[i] == context_id) {
         const T *context = (const T *)m_contexts[i];
@@ -49,17 +49,38 @@ class MFElementContexts {
   }
 };
 
+class MFGlobalContexts {
+ private:
+  Vector<BLI::class_id_t> m_ids;
+  Vector<const void *> m_contexts;
+
+  friend class MFContextBuilder;
+
+ public:
+  MFGlobalContexts() = default;
+
+  template<typename T> const T *try_find() const
+  {
+    BLI::class_id_t context_id = BLI::get_class_id<T>();
+    for (uint i : m_contexts.index_iterator()) {
+      if (m_ids[i] == context_id) {
+        const T *context = (const T *)m_contexts[i];
+        return context;
+      }
+    }
+    return nullptr;
+  }
+};
+
 class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
  private:
   MFElementContexts m_element_contexts;
-  const IDHandleLookup &m_id_handle_lookup;
+  MFGlobalContexts m_global_contexts;
 
   friend class MFContext;
 
  public:
-  MFContextBuilder(const IDHandleLookup *id_handle_lookup = nullptr)
-      : m_id_handle_lookup((id_handle_lookup == nullptr) ? IDHandleLookup::Empty() :
-                                                           *id_handle_lookup)
+  MFContextBuilder()
   {
   }
 
@@ -76,10 +97,10 @@ class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
                               VirtualListRef<uint>::FromFullArray(indices.as_array_ref()));
   }
 
-  template<typename T> void add_element_context(const T &context)
+  template<typename T> void add_global_context(const T &context)
   {
-    static uint dummy_index = 0;
-    this->add_element_context(context, VirtualListRef<uint>::FromSingle_MaxSize(&dummy_index));
+    m_global_contexts.m_ids.append(BLI::get_class_id<T>());
+    m_global_contexts.m_contexts.append((const void *)&context);
   }
 };
 
@@ -92,14 +113,14 @@ class MFContext {
   {
   }
 
-  const IDHandleLookup &id_handle_lookup() const
+  template<typename T> Optional<MFElementContexts::TypedContext<T>> try_find_per_element() const
   {
-    return m_builder->m_id_handle_lookup;
+    return m_builder->m_element_contexts.try_find<T>();
   }
 
-  const MFElementContexts &element_contexts() const
+  template<typename T> const T *try_find_global() const
   {
-    return m_builder->m_element_contexts;
+    return m_builder->m_global_contexts.try_find<T>();
   }
 };
 

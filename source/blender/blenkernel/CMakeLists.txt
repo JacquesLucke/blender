@@ -125,6 +125,7 @@ set(SRC
   intern/idcode.c
   intern/idprop.c
   intern/idprop_utils.c
+  intern/id_data_cache.cc
   intern/id_handle.cc
   intern/image.c
   intern/image_gen.c
@@ -294,6 +295,7 @@ set(SRC
   BKE_icons.h
   BKE_idcode.h
   BKE_idprop.h
+  BKE_id_data_cache.h
   BKE_id_handle.h
   BKE_image.h
   BKE_image_save.h

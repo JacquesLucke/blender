@@ -8,6 +8,8 @@
 #include "FN_multi_function.h"
 #include "FN_multi_function_common_contexts.h"
 
+#include "BKE_id_data_cache.h"
+
 namespace BParticles {
 
 using BLI::ArrayRef;
@@ -53,12 +55,12 @@ class ParticleFunctionResult : BLI::NonCopyable, BLI::NonMovable {
 class ParticleFunction {
  private:
   const MultiFunction &m_fn;
-  FN::ExternalDataCacheContext &m_data_cache;
+  const BKE::IDDataCache &m_id_data_cache;
   const BKE::IDHandleLookup &m_id_handle_lookup;
 
  public:
   ParticleFunction(const MultiFunction &fn,
-                   FN::ExternalDataCacheContext &data_cache,
+                   const BKE::IDDataCache &id_data_cache,
                    const BKE::IDHandleLookup &id_handle_lookup);
 
   ~ParticleFunction();

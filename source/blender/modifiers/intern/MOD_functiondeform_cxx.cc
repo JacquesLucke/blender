@@ -69,11 +69,10 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   BKE::IDHandleLookup id_handle_lookup;
   FN::add_objects_used_by_inputs(id_handle_lookup, inlined_tree);
 
-  MFContextBuilder context_builder(&id_handle_lookup);
-  context_builder.add_element_context(time_context);
-  context_builder.add_element_context(
-      vertex_positions_context,
-      BLI::VirtualListRef<uint>::FromFullArray(IndexRange(numVerts).as_array_ref()));
+  MFContextBuilder context_builder;
+  context_builder.add_global_context(id_handle_lookup);
+  context_builder.add_global_context(time_context);
+  context_builder.add_element_context(vertex_positions_context, IndexRange(numVerts));
 
   function->call(IndexRange(numVerts), params_builder, context_builder);
 

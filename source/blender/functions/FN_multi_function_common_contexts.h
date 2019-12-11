@@ -8,14 +8,6 @@
 
 #include "BLI_math_cxx.h"
 #include "BLI_map.h"
-#include "BLI_kdopbvh.h"
-#include "BLI_kdtree.h"
-
-#include "BKE_bvhutils.h"
-
-#include "DNA_mesh_types.h"
-#include "DNA_meshdata_types.h"
-#include "DNA_object_types.h"
 
 namespace FN {
 
@@ -37,41 +29,6 @@ class ParticleAttributesContext {
 
   ParticleAttributesContext(AttributesRef attributes) : attributes(attributes)
   {
-  }
-};
-
-class ExternalDataCacheContext {
- private:
-  mutable Map<Object *, BVHTreeFromMesh *> m_bvh_trees;
-  mutable std::mutex m_bvt_trees_mutex;
-
- public:
-  ExternalDataCacheContext() = default;
-
-  ~ExternalDataCacheContext()
-  {
-    for (auto bvhtree : m_bvh_trees.values()) {
-      if (bvhtree != nullptr) {
-        free_bvhtree_from_mesh(bvhtree);
-        delete bvhtree;
-      }
-    }
-  }
-
-  BVHTreeFromMesh *get_bvh_tree(Object *object) const
-  {
-    BLI_assert(object != nullptr);
-
-    std::lock_guard<std::mutex> lock(m_bvt_trees_mutex);
-
-    return m_bvh_trees.lookup_or_add(object, [&]() -> BVHTreeFromMesh * {
-      if (object->type != OB_MESH) {
-        return nullptr;
-      }
-      BVHTreeFromMesh *bvhtree_data = new BVHTreeFromMesh();
-      BKE_bvhtree_from_mesh_get(bvhtree_data, (Mesh *)object->data, BVHTREE_FROM_LOOPTRI, 2);
-      return bvhtree_data;
-    });
   }
 };
 

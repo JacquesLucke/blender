@@ -390,9 +390,9 @@ void CustomEmitter::emit(EmitterInterface &interface)
     }
   }
 
-  FN::MFContextBuilder context_builder(&m_id_handle_lookup);
-  FN::ExternalDataCacheContext data_cache;
-  context_builder.add_element_context(data_cache);
+  FN::MFContextBuilder context_builder;
+  context_builder.add_global_context(m_id_data_cache);
+  context_builder.add_global_context(m_id_handle_lookup);
 
   m_emitter_function.call({0}, params_builder, context_builder);
 

@@ -1,6 +1,7 @@
 #include "BKE_inlined_node_tree.h"
 #include "BKE_deform.h"
 #include "BKE_surface_hook.h"
+#include "BKE_id_data_cache.h"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -25,6 +26,7 @@
 
 namespace BParticles {
 
+using BKE::IDDataCache;
 using BKE::IDHandleLookup;
 using BKE::ObjectIDHandle;
 using BKE::XGroupInput;
@@ -69,8 +71,8 @@ class InlinedTreeData {
   /* Keep this at the beginning, so that it is destructed last. */
   ResourceCollector m_resources;
   InlinedTreeMFNetwork &m_inlined_tree_data_graph;
-  FN::ExternalDataCacheContext m_data_cache;
-  BKE::IDHandleLookup m_id_handle_lookup;
+  IDDataCache m_id_data_cache;
+  IDHandleLookup m_id_handle_lookup;
 
  public:
   InlinedTreeData(InlinedTreeMFNetwork &inlined_tree_data)
@@ -99,6 +101,11 @@ class InlinedTreeData {
     return m_id_handle_lookup;
   }
 
+  IDDataCache &id_data_cache()
+  {
+    return m_id_data_cache;
+  }
+
   template<typename T, typename... Args> T &construct(const char *name, Args &&... args)
   {
     void *buffer = m_resources.allocate(sizeof(T), alignof(T));
@@ -119,7 +126,7 @@ class InlinedTreeData {
     const MultiFunction &fn = this->construct<FN::MF_EvaluateNetwork>(
         "Evaluate Network", Vector<const MFOutputSocket *>(), std::move(sockets_to_compute));
     ParticleFunction &particle_fn = this->construct<ParticleFunction>(
-        "Particle Function", fn, m_data_cache, m_id_handle_lookup);
+        "Particle Function", fn, m_id_data_cache, m_id_handle_lookup);
 
     return &particle_fn;
   }
@@ -147,6 +154,8 @@ class InlinedTreeData {
 
     FN::MFParamsBuilder params_builder(*fn, 1);
     FN::MFContextBuilder context_builder;
+    context_builder.add_global_context(m_id_handle_lookup);
+    context_builder.add_global_context(m_id_data_cache);
 
     for (uint i = 0; i < input_indices.size(); i++) {
       params_builder.add_single_output(
@@ -667,6 +676,11 @@ class XNodeInfluencesBuilder {
     return m_inlined_tree_data.id_handle_lookup();
   }
 
+  BKE::IDDataCache &id_data_cache()
+  {
+    return m_inlined_tree_data.id_data_cache();
+  }
+
   PointerRNA *node_rna()
   {
     return m_xnode.rna();
@@ -769,7 +783,8 @@ static void PARSE_custom_emitter(XNodeInfluencesBuilder &builder)
                                                       std::move(attribute_names),
                                                       action,
                                                       birth_time_mode,
-                                                      builder.id_handle_lookup());
+                                                      builder.id_handle_lookup(),
+                                                      builder.id_data_cache());
   builder.add_emitter(emitter);
 }
 

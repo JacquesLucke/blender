@@ -9,9 +9,9 @@ namespace BParticles {
 using FN::CPPType;
 
 ParticleFunction::ParticleFunction(const MultiFunction &fn,
-                                   FN::ExternalDataCacheContext &data_cache,
+                                   const BKE::IDDataCache &id_data_cache,
                                    const BKE::IDHandleLookup &id_handle_lookup)
-    : m_fn(fn), m_data_cache(data_cache), m_id_handle_lookup(id_handle_lookup)
+    : m_fn(fn), m_id_data_cache(id_data_cache), m_id_handle_lookup(id_handle_lookup)
 {
 }
 
@@ -49,7 +49,6 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
   result->m_pindices = pindices;
 
   FN::MFParamsBuilder params_builder(m_fn, array_size);
-  FN::MFContextBuilder context_builder(&m_id_handle_lookup);
 
   Vector<GenericMutableArrayRef> arrays_to_free;
 
@@ -78,8 +77,11 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
   }
 
   FN::ParticleAttributesContext attributes_context(attributes);
+
+  FN::MFContextBuilder context_builder;
+  context_builder.add_global_context(m_id_handle_lookup);
+  context_builder.add_global_context(m_id_data_cache);
   context_builder.add_element_context(attributes_context, IndexRange(array_size));
-  context_builder.add_element_context(m_data_cache);
 
   m_fn.call(pindices, params_builder, context_builder);
 

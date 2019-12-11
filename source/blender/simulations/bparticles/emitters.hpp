@@ -6,6 +6,9 @@
 
 #include "FN_multi_function.h"
 
+#include "BKE_id_data_cache.h"
+#include "BKE_id_handle.h"
+
 namespace BParticles {
 
 using FN::MultiFunction;
@@ -114,6 +117,7 @@ class CustomEmitter : public Emitter {
   Action &m_action;
   BirthTimeModes::Enum m_birth_time_mode;
   const BKE::IDHandleLookup &m_id_handle_lookup;
+  const BKE::IDDataCache &m_id_data_cache;
 
  public:
   CustomEmitter(ArrayRef<std::string> systems_to_emit,
@@ -121,13 +125,15 @@ class CustomEmitter : public Emitter {
                 Vector<std::string> attribute_names,
                 Action &action,
                 BirthTimeModes::Enum birth_time_mode,
-                const BKE::IDHandleLookup &id_handle_lookup)
+                const BKE::IDHandleLookup &id_handle_lookup,
+                const BKE::IDDataCache &id_data_cache)
       : m_systems_to_emit(systems_to_emit),
         m_emitter_function(emitter_function),
         m_attribute_names(std::move(attribute_names)),
         m_action(action),
         m_birth_time_mode(birth_time_mode),
-        m_id_handle_lookup(id_handle_lookup)
+        m_id_handle_lookup(id_handle_lookup),
+        m_id_data_cache(id_data_cache)
   {
   }
 
