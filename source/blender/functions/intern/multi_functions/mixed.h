@@ -8,23 +8,6 @@
 
 namespace FN {
 
-class MF_Dummy final : public MultiFunction {
-  void call(MFMask UNUSED(mask), MFParams UNUSED(params), MFContext UNUSED(context)) const override
-  {
-  }
-};
-class MF_AddFloats final : public MultiFunction {
- public:
-  MF_AddFloats();
-  void call(MFMask mask, MFParams params, MFContext context) const override;
-};
-
-class MF_AddFloat3s final : public MultiFunction {
- public:
-  MF_AddFloat3s();
-  void call(MFMask mask, MFParams params, MFContext context) const override;
-};
-
 class MF_CombineColor final : public MultiFunction {
  public:
   MF_CombineColor();
@@ -46,12 +29,6 @@ class MF_CombineVector final : public MultiFunction {
 class MF_SeparateVector final : public MultiFunction {
  public:
   MF_SeparateVector();
-  void call(MFMask mask, MFParams params, MFContext context) const override;
-};
-
-class MF_VectorDistance final : public MultiFunction {
- public:
-  MF_VectorDistance();
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 

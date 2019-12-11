@@ -37,43 +37,40 @@ using BLI::rgba_f;
 using BLI::TemporaryArray;
 using BLI::TemporaryVector;
 
-MF_AddFloats::MF_AddFloats()
+template<typename T, typename FuncT, typename EqualFuncT = std::equal_to<T>>
+void group_indices_by_same_value(ArrayRef<uint> indices,
+                                 VirtualListRef<T> values,
+                                 const FuncT &func,
+                                 EqualFuncT equal = std::equal_to<T>())
 {
-  MFSignatureBuilder signature("Add Floats");
-  signature.single_input<float>("A");
-  signature.single_input<float>("B");
-  signature.single_output<float>("Result");
-  this->set_signature(signature);
-}
-
-void MF_AddFloats::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
-{
-  auto a = params.readonly_single_input<float>(0, "A");
-  auto b = params.readonly_single_input<float>(1, "B");
-  auto result = params.uninitialized_single_output<float>(2, "Result");
-
-  for (uint i : mask.indices()) {
-    result[i] = a[i] + b[i];
+  if (indices.size() == 0) {
+    return;
   }
-}
+  if (values.is_single_element()) {
+    const T &value = values[indices[0]];
+    func(value, indices);
+    return;
+  }
 
-MF_AddFloat3s::MF_AddFloat3s()
-{
-  MFSignatureBuilder signature("Add Float3s");
-  signature.single_input<float3>("A");
-  signature.single_input<float3>("B");
-  signature.single_output<float3>("Result");
-  this->set_signature(signature);
-}
+  Vector<T> seen_values;
 
-void MF_AddFloat3s::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
-{
-  auto a = params.readonly_single_input<float3>(0, "A");
-  auto b = params.readonly_single_input<float3>(1, "B");
-  auto result = params.uninitialized_single_output<float3>(2, "Result");
+  for (uint i : indices.index_iterator()) {
+    uint index = indices[i];
 
-  for (uint i : mask.indices()) {
-    result[i] = a[i] + b[i];
+    const T &value = values[index];
+    if (seen_values.as_ref().any([&](const T &seen_value) { return equal(value, seen_value); })) {
+      continue;
+    }
+    seen_values.append(value);
+
+    TemporaryVector<uint> indices_with_value;
+    for (uint j : indices.drop_front(i)) {
+      if (equal(values[j], value)) {
+        indices_with_value.append(j);
+      }
+    }
+
+    func(value, indices_with_value.as_ref());
   }
 }
 
@@ -173,26 +170,6 @@ void MF_SeparateVector::call(MFMask mask, MFParams params, MFContext UNUSED(cont
     x[i] = v.x;
     y[i] = v.y;
     z[i] = v.z;
-  }
-}
-
-MF_VectorDistance::MF_VectorDistance()
-{
-  MFSignatureBuilder signature("Vector Distance");
-  signature.single_input<float3>("A");
-  signature.single_input<float3>("A");
-  signature.single_output<float>("Distances");
-  this->set_signature(signature);
-}
-
-void MF_VectorDistance::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
-{
-  auto a = params.readonly_single_input<float3>(0, "A");
-  auto b = params.readonly_single_input<float3>(1, "B");
-  auto distances = params.uninitialized_single_output<float>(2, "Distances");
-
-  for (uint i : mask.indices()) {
-    distances[i] = float3::distance(a[i], b[i]);
   }
 }
 
@@ -478,43 +455,6 @@ MF_GetImageColorOnSurface::MF_GetImageColorOnSurface()
   signature.single_input<ImageIDHandle>("Image");
   signature.single_output<rgba_f>("Color");
   this->set_signature(signature);
-}
-
-template<typename T, typename FuncT, typename EqualFuncT = std::equal_to<T>>
-void group_indices_by_same_value(ArrayRef<uint> indices,
-                                 VirtualListRef<T> values,
-                                 const FuncT &func,
-                                 EqualFuncT equal = std::equal_to<T>())
-{
-  if (indices.size() == 0) {
-    return;
-  }
-  if (values.is_single_element()) {
-    const T &value = values[indices[0]];
-    func(value, indices);
-    return;
-  }
-
-  Vector<T> seen_values;
-
-  for (uint i : indices.index_iterator()) {
-    uint index = indices[i];
-
-    const T &value = values[index];
-    if (seen_values.as_ref().any([&](const T &seen_value) { return equal(value, seen_value); })) {
-      continue;
-    }
-    seen_values.append(value);
-
-    TemporaryVector<uint> indices_with_value;
-    for (uint j : indices.drop_front(i)) {
-      if (equal(values[j], value)) {
-        indices_with_value.append(j);
-      }
-    }
-
-    func(value, indices_with_value.as_ref());
-  }
 }
 
 static void get_colors_on_surface(ArrayRef<uint> indices,
