@@ -7,6 +7,7 @@
 #include "BLI_vector.h"
 #include "BLI_utility_mixins.h"
 #include "BLI_index_range.h"
+#include "BLI_static_class_ids.h"
 
 #include "BKE_id_handle.h"
 
@@ -18,16 +19,6 @@ using BLI::IndexRange;
 using BLI::Optional;
 using BLI::Vector;
 using BLI::VirtualListRef;
-
-template<typename T> uintptr_t get_multi_function_element_context_id();
-
-#define FN_MAKE_MF_ELEMENT_CONTEXT(name) \
-  char name##_id_char = 0; \
-  uintptr_t name##_id = (uintptr_t)&name##_id_char; \
-  template<> uintptr_t get_multi_function_element_context_id<name>() \
-  { \
-    return name##_id; \
-  }
 
 class MFElementContexts {
  private:
@@ -47,7 +38,7 @@ class MFElementContexts {
 
   template<typename T> Optional<TypedContext<T>> try_find() const
   {
-    uintptr_t context_id = get_multi_function_element_context_id<T>();
+    uintptr_t context_id = BLI::get_class_id<T>();
     for (uint i : m_contexts.index_iterator()) {
       if (m_ids[i] == context_id) {
         const T *context = (const T *)m_contexts[i];
@@ -74,7 +65,7 @@ class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   template<typename T> void add_element_context(const T &context, VirtualListRef<uint> indices)
   {
-    m_element_contexts.m_ids.append(get_multi_function_element_context_id<T>());
+    m_element_contexts.m_ids.append(BLI::get_class_id<T>());
     m_element_contexts.m_contexts.append((const void *)&context);
     m_element_contexts.m_indices.append(indices);
   }

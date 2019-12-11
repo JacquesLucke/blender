@@ -1,10 +1,10 @@
 #include "FN_multi_function_common_contexts.h"
 
-namespace FN {
+BLI_CREATE_CLASS_ID(FN::VertexPositionArray)
+BLI_CREATE_CLASS_ID(FN::SceneTimeContext)
+BLI_CREATE_CLASS_ID(FN::ParticleAttributesContext)
+BLI_CREATE_CLASS_ID(FN::ExternalDataCacheContext)
 
-FN_MAKE_MF_ELEMENT_CONTEXT(VertexPositionArray)
-FN_MAKE_MF_ELEMENT_CONTEXT(SceneTimeContext)
-FN_MAKE_MF_ELEMENT_CONTEXT(ParticleAttributesContext)
-FN_MAKE_MF_ELEMENT_CONTEXT(ExternalDataCacheContext)
+namespace FN {
 
 }  // namespace FN
