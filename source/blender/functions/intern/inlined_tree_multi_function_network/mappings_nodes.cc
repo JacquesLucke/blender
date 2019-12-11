@@ -408,8 +408,42 @@ static void INSERT_get_particle_attribute(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_closest_surface_hook_on_object(VNodeMFNetworkBuilder &builder)
 {
-  builder.set_vectorized_constructed_matching_fn<MF_ClosestSurfaceHookOnObject>(
-      {"use_list__object", "use_list__position"});
+  const MultiFunction &main_fn = builder.construct_fn<MF_ClosestSurfaceHookOnObject>();
+  const MultiFunction &position_fn = builder.construct_fn<MF_GetPositionOnSurface>();
+  const MultiFunction &normal_fn = builder.construct_fn<MF_GetNormalOnSurface>();
+
+  const MultiFunction &vectorized_main_fn = builder.get_vectorized_function(
+      main_fn, {"use_list__object", "use_list__position"});
+
+  InlinedTreeMFNetworkBuilder &network_builder = builder.network_builder();
+
+  MFBuilderFunctionNode *main_node, *position_node, *normal_node;
+
+  if (&main_fn == &vectorized_main_fn) {
+    main_node = &network_builder.add_function(main_fn);
+    position_node = &network_builder.add_function(position_fn);
+    normal_node = &network_builder.add_function(normal_fn);
+  }
+  else {
+    std::array<bool, 1> input_is_vectorized = {true};
+    const MultiFunction &vectorized_position_fn = builder.construct_fn<MF_SimpleVectorize>(
+        position_fn, input_is_vectorized);
+    const MultiFunction &vectorized_normal_fn = builder.construct_fn<MF_SimpleVectorize>(
+        normal_fn, input_is_vectorized);
+
+    main_node = &network_builder.add_function(vectorized_main_fn);
+    position_node = &network_builder.add_function(vectorized_position_fn);
+    normal_node = &network_builder.add_function(vectorized_normal_fn);
+  }
+
+  network_builder.add_link(main_node->output(0), position_node->input(0));
+  network_builder.add_link(main_node->output(0), normal_node->input(0));
+
+  const XNode &xnode = builder.xnode();
+  network_builder.map_sockets(xnode.inputs(), main_node->inputs());
+  network_builder.map_sockets(xnode.output(0), main_node->output(0));
+  network_builder.map_sockets(xnode.output(1), position_node->output(0));
+  network_builder.map_sockets(xnode.output(2), normal_node->output(0));
 }
 
 static void INSERT_clamp_float(VNodeMFNetworkBuilder &builder)

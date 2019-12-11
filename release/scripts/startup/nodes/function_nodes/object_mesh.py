@@ -30,7 +30,11 @@ class ClosestLocationOnObjectNode(bpy.types.Node, FunctionNode):
     def declaration(self, builder: NodeBuilder):
         builder.vectorized_input("object", "use_list__object", "Object", "Objects", "Object")
         builder.vectorized_input("position", "use_list__position", "Position", "Positions", "Vector")
-        builder.vectorized_output("closest_hook", ["use_list__object", "use_list__position"], "Closest Hook", "Closest Hooks", "Surface Hook")
+
+        vectorize_props = ["use_list__object", "use_list__position"]
+        builder.vectorized_output("closest_hook", vectorize_props, "Closest Hook", "Closest Hooks", "Surface Hook")
+        builder.vectorized_output("closest_position", vectorize_props, "Closest Position", "Closest Positions", "Vector")
+        builder.vectorized_output("closest_normal", vectorize_props, "Closest Normal", "Closest Normals", "Vector")
 
 
 class GetPositionOnSurfaceNode(bpy.types.Node, FunctionNode):

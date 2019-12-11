@@ -382,7 +382,6 @@ class VNodeMFNetworkBuilder {
 
   void set_matching_fn(const MultiFunction &fn);
 
- private:
   const MultiFunction &get_vectorized_function(const MultiFunction &base_function,
                                                ArrayRef<const char *> is_vectorized_prop_names);
 };
