@@ -486,6 +486,15 @@ void group_indices_by_same_value(ArrayRef<uint> indices,
                                  const FuncT &func,
                                  EqualFuncT equal = std::equal_to<T>())
 {
+  if (indices.size() == 0) {
+    return;
+  }
+  if (values.is_single_element()) {
+    const T &value = values[indices[0]];
+    func(value, indices);
+    return;
+  }
+
   Vector<T> seen_values;
 
   for (uint i : indices.index_iterator()) {
