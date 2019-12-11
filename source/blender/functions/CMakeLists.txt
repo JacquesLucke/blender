@@ -26,6 +26,7 @@ set(SRC
   intern/multi_functions/lists.cc
   intern/multi_functions/mixed.cc
   intern/multi_functions/network.cc
+  intern/multi_functions/surface_hook.cc
   intern/inlined_tree_multi_function_network/builder.cc
   intern/inlined_tree_multi_function_network/generate.cc
   intern/inlined_tree_multi_function_network/mappings_nodes.cc
@@ -66,6 +67,8 @@ set(SRC
   intern/multi_functions/lists.h
   intern/multi_functions/mixed.h
   intern/multi_functions/network.h
+  intern/multi_functions/surface_hook.h
+  intern/multi_functions/util.h
   intern/inlined_tree_multi_function_network/builder.h
   intern/inlined_tree_multi_function_network/mappings.h
   intern/cpp_types.h
