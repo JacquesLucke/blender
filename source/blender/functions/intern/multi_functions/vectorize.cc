@@ -1,6 +1,10 @@
 #include "vectorize.h"
 
+#include "BLI_array_cxx.h"
+
 namespace FN {
+
+using BLI::Array;
 
 MF_SimpleVectorize::MF_SimpleVectorize(const MultiFunction &function,
                                        ArrayRef<bool> input_is_vectorized)
@@ -48,31 +52,32 @@ MF_SimpleVectorize::MF_SimpleVectorize(const MultiFunction &function,
   this->set_signature(signature);
 }
 
+static void get_vectorization_lengths(MFMask mask,
+                                      MFParams params,
+                                      ArrayRef<uint> vectorized_param_indices,
+                                      MutableArrayRef<int> r_lengths)
+{
+  r_lengths.fill_indices(mask.indices(), -1);
+
+  for (uint param_index : vectorized_param_indices) {
+    GenericVirtualListListRef values = params.readonly_vector_input(param_index);
+    for (uint i : mask.indices()) {
+      if (r_lengths[i] != 0) {
+        uint sublist_size = values.sublist_size(i);
+        r_lengths[i] = std::max<int>(r_lengths[i], sublist_size);
+      }
+    }
+  }
+}
+
 void MF_SimpleVectorize::call(MFMask mask, MFParams params, MFContext context) const
 {
   if (mask.indices_amount() == 0) {
     return;
   }
-  uint array_size = mask.min_array_size();
 
-  Vector<int> vectorization_lengths(array_size);
-  vectorization_lengths.fill_indices(mask.indices(), -1);
-
-  for (uint param_index : m_vectorized_inputs) {
-    GenericVirtualListListRef values = params.readonly_vector_input(param_index);
-    for (uint i : mask.indices()) {
-      if (vectorization_lengths[i] != 0) {
-        vectorization_lengths[i] = std::max<int>(vectorization_lengths[i], values[i].size());
-      }
-    }
-  }
-
-  Vector<GenericVectorArray *> output_vector_arrays;
-  for (uint param_index : m_output_indices) {
-    GenericVectorArray *vector_array = &params.vector_output(param_index,
-                                                             this->param_name(param_index));
-    output_vector_arrays.append(vector_array);
-  }
+  Array<int> vectorization_lengths(mask.min_array_size());
+  get_vectorization_lengths(mask, params, m_vectorized_inputs, vectorization_lengths);
 
   for (uint index : mask.indices()) {
     uint length = vectorization_lengths[index];

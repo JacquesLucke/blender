@@ -76,6 +76,19 @@ class GenericVirtualListListRef {
     return m_virtual_list_size;
   }
 
+  uint sublist_size(uint index) const
+  {
+    BLI_assert(index < m_virtual_list_size);
+    switch (m_category) {
+      case Category::SingleArray:
+        return m_data.single_array.real_array_size;
+      case Category::FullArrayList:
+        return m_data.full_array_list.real_array_sizes[index];
+    }
+    BLI_assert(false);
+    return 0;
+  }
+
   const CPPType &type() const
   {
     return *m_type;
