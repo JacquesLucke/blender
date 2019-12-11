@@ -744,7 +744,7 @@ MF_ContextVertexPosition::MF_ContextVertexPosition()
 void MF_ContextVertexPosition::call(MFMask mask, MFParams params, MFContext context) const
 {
   MutableArrayRef<float3> positions = params.uninitialized_single_output<float3>(0, "Position");
-  auto vertices_context = context.element_contexts().find_first<VertexPositionArray>();
+  auto vertices_context = context.element_contexts().try_find<VertexPositionArray>();
 
   if (vertices_context.has_value()) {
     for (uint i : mask.indices()) {
@@ -769,7 +769,7 @@ void MF_ContextCurrentFrame::call(MFMask mask, MFParams params, MFContext contex
 {
   MutableArrayRef<float> frames = params.uninitialized_single_output<float>(0, "Frame");
 
-  auto time_context = context.element_contexts().find_first<SceneTimeContext>();
+  auto time_context = context.element_contexts().try_find<SceneTimeContext>();
 
   if (time_context.has_value()) {
     float current_frame = time_context.value().data->time;
@@ -831,7 +831,7 @@ MF_ParticleAttributes::MF_ParticleAttributes(Vector<std::string> attribute_names
 
 void MF_ParticleAttributes::call(MFMask mask, MFParams params, MFContext context) const
 {
-  auto context_data = context.element_contexts().find_first<ParticleAttributesContext>();
+  auto context_data = context.element_contexts().try_find<ParticleAttributesContext>();
 
   for (uint i = 0; i < m_attribute_names.size(); i++) {
     StringRef attribute_name = m_attribute_names[i];
@@ -874,7 +874,7 @@ void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context)
       0, "Group Name");
   MutableArrayRef<bool> r_is_in_group = params.uninitialized_single_output<bool>(1, "Is in Group");
 
-  auto context_data = context.element_contexts().find_first<ParticleAttributesContext>();
+  auto context_data = context.element_contexts().try_find<ParticleAttributesContext>();
   if (!context_data.has_value()) {
     r_is_in_group.fill_indices(mask.indices(), false);
     return;
@@ -935,7 +935,7 @@ static float3 get_barycentric_coords(Mesh *mesh,
 
 void MF_ClosestSurfaceHookOnObject::call(MFMask mask, MFParams params, MFContext context) const
 {
-  auto context_data = context.element_contexts().find_first<ExternalDataCacheContext>();
+  auto context_data = context.element_contexts().try_find<ExternalDataCacheContext>();
 
   VirtualListRef<ObjectIDHandle> objects = params.readonly_single_input<ObjectIDHandle>(0,
                                                                                         "Object");

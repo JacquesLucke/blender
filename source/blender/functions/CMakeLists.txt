@@ -9,7 +9,7 @@ set(INC
   ../imbuf
   ../../../intern/guardedalloc
 )
- 
+
 set(INC_SYS
   ${LLVM_INCLUDE_DIRS}
   ${PYTHON_INCLUDE_DIRS}
@@ -38,6 +38,7 @@ set(SRC
   intern/generic_array_ref.cc
   intern/generic_tuple.cc
   intern/initialize.cc
+  intern/multi_function_common_contexts.cc
   intern/multi_function_context.cc
   intern/multi_function_network.cc
 

@@ -21,17 +21,17 @@ namespace FN {
 
 using BLI::Map;
 
-class VertexPositionArray : public MFElementContext {
+class VertexPositionArray {
  public:
   ArrayRef<BLI::float3> positions;
 };
 
-class SceneTimeContext : public MFElementContext {
+class SceneTimeContext {
  public:
   float time;
 };
 
-class ParticleAttributesContext : public MFElementContext {
+class ParticleAttributesContext {
  public:
   AttributesRef attributes;
 
@@ -40,7 +40,7 @@ class ParticleAttributesContext : public MFElementContext {
   }
 };
 
-class ExternalDataCacheContext : public MFElementContext {
+class ExternalDataCacheContext {
  private:
   mutable Map<Object *, BVHTreeFromMesh *> m_bvh_trees;
   mutable std::mutex m_bvt_trees_mutex;

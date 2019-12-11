@@ -19,14 +19,20 @@ using BLI::Optional;
 using BLI::Vector;
 using BLI::VirtualListRef;
 
-class MFElementContext {
- public:
-  virtual ~MFElementContext();
-};
+template<typename T> uintptr_t get_multi_function_element_context_id();
+
+#define FN_MAKE_MF_ELEMENT_CONTEXT(name) \
+  char name##_id_char = 0; \
+  uintptr_t name##_id = (uintptr_t)&name##_id_char; \
+  template<> uintptr_t get_multi_function_element_context_id<name>() \
+  { \
+    return name##_id; \
+  }
 
 class MFElementContexts {
  private:
-  Vector<const MFElementContext *> m_contexts;
+  Vector<uintptr_t> m_ids;
+  Vector<const void *> m_contexts;
   Vector<VirtualListRef<uint>> m_indices;
 
   friend class MFContextBuilder;
@@ -39,12 +45,12 @@ class MFElementContexts {
     VirtualListRef<uint> indices;
   };
 
-  template<typename T> Optional<TypedContext<T>> find_first() const
+  template<typename T> Optional<TypedContext<T>> try_find() const
   {
-    BLI_STATIC_ASSERT((std::is_base_of<MFElementContext, T>::value), "");
+    uintptr_t context_id = get_multi_function_element_context_id<T>();
     for (uint i : m_contexts.index_iterator()) {
-      const T *context = dynamic_cast<const T *>(m_contexts[i]);
-      if (context != nullptr) {
+      if (m_ids[i] == context_id) {
+        const T *context = (const T *)m_contexts[i];
         return TypedContext<T>{context, m_indices[i]};
       }
     }
@@ -66,19 +72,20 @@ class MFContextBuilder : BLI::NonCopyable, BLI::NonMovable {
   {
   }
 
-  void add_element_context(const MFElementContext &context, VirtualListRef<uint> indices)
+  template<typename T> void add_element_context(const T &context, VirtualListRef<uint> indices)
   {
-    m_element_contexts.m_contexts.append(&context);
+    m_element_contexts.m_ids.append(get_multi_function_element_context_id<T>());
+    m_element_contexts.m_contexts.append((const void *)&context);
     m_element_contexts.m_indices.append(indices);
   }
 
-  void add_element_context(const MFElementContext &context, IndexRange indices)
+  template<typename T> void add_element_context(const T &context, IndexRange indices)
   {
     this->add_element_context(context,
                               VirtualListRef<uint>::FromFullArray(indices.as_array_ref()));
   }
 
-  void add_element_context(const MFElementContext &context)
+  template<typename T> void add_element_context(const T &context)
   {
     static uint dummy_index = 0;
     this->add_element_context(context, VirtualListRef<uint>::FromSingle_MaxSize(&dummy_index));

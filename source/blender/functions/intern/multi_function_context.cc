@@ -2,8 +2,4 @@
 
 namespace FN {
 
-MFElementContext::~MFElementContext()
-{
-}
-
 }  // namespace FN
