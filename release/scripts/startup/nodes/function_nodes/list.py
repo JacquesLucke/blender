@@ -18,6 +18,19 @@ class GetListElementNode(bpy.types.Node, FunctionNode):
         builder.dynamic_base_output("value", "Value", "active_type")
 
 
+class GetListElementsNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_GetListElementsNode"
+    bl_label = "Get List Elements"
+
+    active_type: NodeBuilder.DynamicListProperty()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.dynamic_list_input("list", "List", "active_type")
+        builder.fixed_input("indices", "Indices", "Integer List")
+        builder.dynamic_base_input("fallback", "Fallback", "active_type")
+        builder.dynamic_list_output("values", "Values", "active_type")
+
+
 class ListLengthNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_ListLengthNode"
     bl_label = "List Length"

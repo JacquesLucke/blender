@@ -92,18 +92,52 @@ void MF_GetListElement::call(MFMask mask, MFParams params, MFContext UNUSED(cont
   VirtualListRef<int> indices = params.readonly_single_input<int>(1, "Index");
   GenericVirtualListRef fallbacks = params.readonly_single_input(2, "Fallback");
 
-  GenericMutableArrayRef output_values = params.uninitialized_single_output(3, "Value");
+  GenericMutableArrayRef r_output_values = params.uninitialized_single_output(3, "Value");
 
   for (uint i : mask.indices()) {
     int index = indices[i];
     if (index >= 0) {
       GenericVirtualListRef list = lists[i];
       if (index < list.size()) {
-        m_base_type.copy_to_uninitialized(list[index], output_values[i]);
+        m_base_type.copy_to_uninitialized(list[index], r_output_values[i]);
         continue;
       }
     }
-    m_base_type.copy_to_uninitialized(fallbacks[i], output_values[i]);
+    m_base_type.copy_to_uninitialized(fallbacks[i], r_output_values[i]);
+  }
+}
+
+MF_GetListElements::MF_GetListElements(const CPPType &base_type) : m_base_type(base_type)
+{
+  MFSignatureBuilder signature("Get List Elements");
+  signature.vector_input("List", m_base_type);
+  signature.vector_input<int>("Indices");
+  signature.single_input("Fallback", m_base_type);
+  signature.vector_output("Values", m_base_type);
+  this->set_signature(signature);
+}
+
+void MF_GetListElements::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  GenericVirtualListListRef lists = params.readonly_vector_input(0, "List");
+  VirtualListListRef<int> indices = params.readonly_vector_input<int>(1, "Indices");
+  GenericVirtualListRef fallbacks = params.readonly_single_input(2, "Fallback");
+
+  GenericVectorArray &r_output_values = params.vector_output(3, "Values");
+
+  for (uint i : mask.indices()) {
+    GenericVirtualListRef list = lists[i];
+    VirtualListRef<int> sub_indices = indices[i];
+    GenericMutableArrayRef values = r_output_values.allocate_single(i, sub_indices.size());
+    for (uint j = 0; j < sub_indices.size(); j++) {
+      uint index = sub_indices[j];
+      if (index >= 0 && index < list.size()) {
+        values.copy_in__uninitialized(j, list[index]);
+      }
+      else {
+        values.copy_in__uninitialized(j, fallbacks[i]);
+      }
+    }
   }
 }
 

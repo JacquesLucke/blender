@@ -13,6 +13,15 @@ class MF_GetListElement final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_GetListElements final : public MultiFunction {
+ private:
+  const CPPType &m_base_type;
+
+ public:
+  MF_GetListElements(const CPPType &base_type);
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
 class MF_ListLength final : public MultiFunction {
  private:
   const CPPType &m_base_type;

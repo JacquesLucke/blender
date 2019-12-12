@@ -45,6 +45,12 @@ static void INSERT_get_list_element(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_GetListElement>(type);
 }
 
+static void INSERT_get_list_elements(VNodeMFNetworkBuilder &builder)
+{
+  const CPPType &type = builder.cpp_type_from_property("active_type");
+  builder.set_constructed_matching_fn<MF_GetListElements>(type);
+}
+
 static void INSERT_pack_list(VNodeMFNetworkBuilder &builder)
 {
   const CPPType &type = builder.cpp_type_from_property("active_type");
@@ -497,6 +503,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_ListLengthNode", INSERT_list_length);
   mappings.xnode_inserters.add_new("fn_PackListNode", INSERT_pack_list);
   mappings.xnode_inserters.add_new("fn_GetListElementNode", INSERT_get_list_element);
+  mappings.xnode_inserters.add_new("fn_GetListElementsNode", INSERT_get_list_elements);
   mappings.xnode_inserters.add_new("fn_ObjectTransformsNode", INSERT_object_location);
   mappings.xnode_inserters.add_new("fn_ObjectMeshNode", INSERT_object_mesh_info);
   mappings.xnode_inserters.add_new("fn_GetPositionOnSurfaceNode", INSERT_get_position_on_surface);
