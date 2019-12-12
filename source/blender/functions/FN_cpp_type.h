@@ -12,7 +12,8 @@ using BLI::StringRefNull;
 
 class CPPType {
  public:
-  using ConstructDefaultF = void (*)(const CPPType *self, void *ptr);
+  using ConstructDefaultF = void (*)(void *ptr);
+  using ConstructDefaultNF = void (*)(void *ptr, uint n);
   using DestructF = void (*)(void *ptr);
   using DestructNF = void (*)(void *ptr, uint n);
   using CopyToInitializedF = void (*)(const void *src, void *dst);
@@ -26,6 +27,7 @@ class CPPType {
           uint alignment,
           bool trivially_destructible,
           ConstructDefaultF construct_default,
+          ConstructDefaultNF construct_default_n,
           DestructF destruct,
           DestructNF destruct_n,
           CopyToInitializedF copy_to_initialized,
@@ -38,6 +40,7 @@ class CPPType {
         m_alignment(alignment),
         m_trivially_destructible(trivially_destructible),
         m_construct_default(construct_default),
+        m_construct_default_n(construct_default_n),
         m_destruct(destruct),
         m_destruct_n(destruct_n),
         m_copy_to_initialized(copy_to_initialized),
@@ -91,7 +94,14 @@ class CPPType {
   {
     BLI_assert(this->pointer_has_valid_alignment(ptr));
 
-    m_construct_default(this, ptr);
+    m_construct_default(ptr);
+  }
+
+  void construct_default_n(void *ptr, uint n) const
+  {
+    BLI_assert(this->pointer_has_valid_alignment(ptr));
+
+    m_construct_default_n(ptr, n);
   }
 
   void destruct(void *ptr) const
@@ -175,6 +185,7 @@ class CPPType {
   uint m_alignment_mask;
   bool m_trivially_destructible;
   ConstructDefaultF m_construct_default;
+  ConstructDefaultNF m_construct_default_n;
   DestructF m_destruct;
   DestructNF m_destruct_n;
   CopyToInitializedF m_copy_to_initialized;

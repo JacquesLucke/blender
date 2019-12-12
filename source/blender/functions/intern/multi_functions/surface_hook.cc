@@ -13,8 +13,11 @@
 #include "DNA_customdata_types.h"
 
 #include "BLI_math_cxx.h"
+#include "BLI_array_cxx.h"
+#include "BLI_vector_adaptor.h"
 
 #include "util.h"
+#include "sampling_util.h"
 
 namespace FN {
 
@@ -28,6 +31,8 @@ using BLI::float3;
 using BLI::float4x4;
 using BLI::rgba_b;
 using BLI::rgba_f;
+using BLI::TemporaryArray;
+using BLI::VectorAdaptor;
 
 MF_ClosestSurfaceHookOnObject::MF_ClosestSurfaceHookOnObject()
 {
@@ -437,6 +442,116 @@ void MF_GetImageColorOnSurface::call(MFMask mask, MFParams params, MFContext con
 
         BKE_image_release_ibuf(image, ibuf, NULL);
       });
+}
+
+MF_SampleObjectSurface::MF_SampleObjectSurface()
+{
+  MFSignatureBuilder signature("Sample Object Surface");
+  signature.single_input<ObjectIDHandle>("Object");
+  signature.single_input<int>("Amount");
+  signature.single_input<int>("Seed");
+  signature.vector_output<SurfaceHook>("Surface Hooks");
+  this->set_signature(signature);
+}
+
+static BLI_NOINLINE void compute_triangle_areas(Mesh *mesh,
+                                                ArrayRef<MLoopTri> triangles,
+                                                MutableArrayRef<float> r_areas)
+{
+  BLI_assert(triangles.size() == r_areas.size());
+
+  for (uint i : triangles.index_iterator()) {
+    const MLoopTri &triangle = triangles[i];
+
+    float3 v1 = mesh->mvert[mesh->mloop[triangle.tri[0]].v].co;
+    float3 v2 = mesh->mvert[mesh->mloop[triangle.tri[1]].v].co;
+    float3 v3 = mesh->mvert[mesh->mloop[triangle.tri[2]].v].co;
+
+    float area = area_tri_v3(v1, v2, v3);
+    r_areas[i] = area;
+  }
+}
+
+static float3 random_uniform_bary_coords(RNG *rng)
+{
+  float rand1 = BLI_rng_get_float(rng);
+  float rand2 = BLI_rng_get_float(rng);
+
+  if (rand1 + rand2 > 1.0f) {
+    rand1 = 1.0f - rand1;
+    rand2 = 1.0f - rand2;
+  }
+
+  return float3(rand1, rand2, 1.0f - rand1 - rand2);
+}
+
+static BLI_NOINLINE void compute_random_uniform_bary_coords(
+    RNG *rng, MutableArrayRef<float3> r_sampled_bary_coords)
+{
+  for (float3 &bary_coords : r_sampled_bary_coords) {
+    bary_coords = random_uniform_bary_coords(rng);
+  }
+}
+
+void MF_SampleObjectSurface::call(MFMask mask, MFParams params, MFContext context) const
+{
+  VirtualListRef<ObjectIDHandle> object_handles = params.readonly_single_input<ObjectIDHandle>(
+      0, "Object");
+  VirtualListRef<int> amounts = params.readonly_single_input<int>(1, "Amount");
+  VirtualListRef<int> seeds = params.readonly_single_input<int>(2, "Seed");
+  GenericVectorArray::MutableTypedRef<SurfaceHook> r_hooks_per_index =
+      params.vector_output<SurfaceHook>(3, "Surface Hooks");
+
+  const IDHandleLookup *id_handle_lookup = context.try_find_global<IDHandleLookup>();
+  if (id_handle_lookup == nullptr) {
+    return;
+  }
+
+  RNG *rng = BLI_rng_new(0);
+
+  for (uint i : mask.indices()) {
+    uint amount = (uint)std::max<int>(amounts[i], 0);
+    if (amount == 0) {
+      continue;
+    }
+
+    ObjectIDHandle object_handle = object_handles[i];
+    Object *object = id_handle_lookup->lookup(object_handle);
+    if (object == nullptr && object->type != OB_MESH) {
+      continue;
+    }
+
+    Mesh *mesh = (Mesh *)object->data;
+    const MLoopTri *triangles_buffer = BKE_mesh_runtime_looptri_ensure(mesh);
+    ArrayRef<MLoopTri> triangles(triangles_buffer, BKE_mesh_runtime_looptri_len(mesh));
+    if (triangles.size() == 0) {
+      continue;
+    }
+
+    TemporaryArray<float> triangle_weights(triangles.size());
+    compute_triangle_areas(mesh, triangles, triangle_weights);
+
+    TemporaryArray<float> cumulative_weights(triangle_weights.size() + 1);
+    float total_weight = compute_cumulative_distribution(triangle_weights, cumulative_weights);
+    if (total_weight <= 0.0f) {
+      continue;
+    }
+
+    BLI_rng_srandom(rng, seeds[i] + amount * 1000);
+    TemporaryArray<uint> triangle_indices(amount);
+    sample_cumulative_distribution(rng, cumulative_weights, triangle_indices);
+
+    TemporaryArray<float3> bary_coords(amount);
+    compute_random_uniform_bary_coords(rng, bary_coords);
+
+    MutableArrayRef<SurfaceHook> r_hooks = r_hooks_per_index.allocate_and_default_construct(
+        i, amount);
+    for (uint i : IndexRange(amount)) {
+      r_hooks[i] = SurfaceHook(object_handle, triangle_indices[i], bary_coords[i]);
+    }
+  }
+
+  BLI_rng_free(rng);
 }
 
 }  // namespace FN

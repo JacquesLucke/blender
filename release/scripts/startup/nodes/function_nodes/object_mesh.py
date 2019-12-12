@@ -83,3 +83,14 @@ class GetImageColorOnSurfaceNode(bpy.types.Node, FunctionNode):
         builder.vectorized_input("surface_hook", "use_list__surface_hook", "Surface Hook", "Surface Hooks", "Surface Hook")
         builder.vectorized_input("image", "use_list__image", "Image", "Images", "Image")
         builder.vectorized_output("color", ["use_list__surface_hook", "use_list__image"], "Color", "Colors", "Color")
+
+
+class SampleObjectSurfaceNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_SampleObjectSurfaceNode"
+    bl_label = "Sample Object Surface"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("object", "Object", "Object")
+        builder.fixed_input("amount", "Amount", "Integer", default=10)
+        builder.fixed_input("seed", "Seed", "Integer")
+        builder.fixed_output("surface_hooks", "Surface Hooks", "Surface Hook List")

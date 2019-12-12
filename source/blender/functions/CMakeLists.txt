@@ -27,6 +27,7 @@ set(SRC
   intern/multi_functions/mixed.cc
   intern/multi_functions/network.cc
   intern/multi_functions/particles.cc
+  intern/multi_functions/sampling_util.cc
   intern/multi_functions/surface_hook.cc
   intern/multi_functions/vectorize.cc
   intern/inlined_tree_multi_function_network/builder.cc
@@ -71,6 +72,7 @@ set(SRC
   intern/multi_functions/mixed.h
   intern/multi_functions/network.h
   intern/multi_functions/particles.h
+  intern/multi_functions/sampling_util.h
   intern/multi_functions/surface_hook.h
   intern/multi_functions/util.h
   intern/multi_functions/vectorize.h

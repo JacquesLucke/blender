@@ -15,24 +15,17 @@ void free_cpp_types()
 {
 }
 
-template<typename T> void ConstructDefault_CB(const CPPType *UNUSED(self), void *ptr)
+template<typename T> void ConstructDefault_CB(void *ptr)
 {
   BLI::construct_default((T *)ptr);
 }
 
-template<typename T, bool IsDefaultConstructible> struct DefaultConstructor;
-template<typename T> struct DefaultConstructor<T, true> {
-  static CPPType::ConstructDefaultF get_callback()
-  {
-    return ConstructDefault_CB<T>;
+template<typename T> void ConstructDefaultN_CB(void *ptr, uint n)
+{
+  for (uint i = 0; i < n; i++) {
+    BLI::construct_default((T *)ptr + i);
   }
-};
-template<typename T> struct DefaultConstructor<T, false> {
-  static CPPType::ConstructDefaultF get_callback()
-  {
-    return nullptr;
-  }
-};
+}
 
 template<typename T> void Destruct_CB(void *ptr)
 {
@@ -65,20 +58,20 @@ template<typename T> void RelocateToUninitializedN_CB(void *src, void *dst, uint
 
 template<typename T> static std::unique_ptr<const CPPType> create_cpp_type(StringRef name)
 {
-  const CPPType *type = new CPPType(
-      name,
-      sizeof(T),
-      alignof(T),
-      std::is_trivially_destructible<T>::value,
-      DefaultConstructor<T, std::is_default_constructible<T>::value>::get_callback(),
-      Destruct_CB<T>,
-      DestructN_CB<T>,
-      CopyToInitialized_CB<T>,
-      CopyToUninitialized_CB<T>,
-      RelocateToInitialized_CB<T>,
-      RelocateToUninitialized_CB<T>,
-      RelocateToUninitializedN_CB<T>,
-      nullptr);
+  const CPPType *type = new CPPType(name,
+                                    sizeof(T),
+                                    alignof(T),
+                                    std::is_trivially_destructible<T>::value,
+                                    ConstructDefault_CB<T>,
+                                    ConstructDefaultN_CB<T>,
+                                    Destruct_CB<T>,
+                                    DestructN_CB<T>,
+                                    CopyToInitialized_CB<T>,
+                                    CopyToUninitialized_CB<T>,
+                                    RelocateToInitialized_CB<T>,
+                                    RelocateToUninitialized_CB<T>,
+                                    RelocateToUninitializedN_CB<T>,
+                                    nullptr);
   return std::unique_ptr<const CPPType>(type);
 }
 

@@ -483,6 +483,12 @@ template<typename T> class MutableArrayRef {
   {
     return IndexRange(m_size);
   }
+
+  const T &last() const
+  {
+    BLI_assert(m_size > 0);
+    return m_start[m_size - 1];
+  }
 };
 
 /**

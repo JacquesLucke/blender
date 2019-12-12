@@ -34,4 +34,10 @@ class MF_GetImageColorOnSurface final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_SampleObjectSurface final : public MultiFunction {
+ public:
+  MF_SampleObjectSurface();
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
 }  // namespace FN
