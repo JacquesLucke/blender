@@ -89,8 +89,24 @@ class SampleObjectSurfaceNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_SampleObjectSurfaceNode"
     bl_label = "Sample Object Surface"
 
+    weight_mode: EnumProperty(
+        name="Weight Mode",
+        items=[
+            ("UNIFORM", "Uniform", "", "NONE", 0),
+            ("VERTEX_WEIGHTS", "Vertex Weights", "", "NONE", 1),
+        ],
+        default="UNIFORM",
+        update=FunctionNode.sync_tree,
+    )
+
     def declaration(self, builder: NodeBuilder):
         builder.fixed_input("object", "Object", "Object")
         builder.fixed_input("amount", "Amount", "Integer", default=10)
         builder.fixed_input("seed", "Seed", "Integer")
+        if self.weight_mode == "VERTEX_WEIGHTS":
+            builder.fixed_input("vertex_group_name", "Vertex Group", "Text", default="Group")
+
         builder.fixed_output("surface_hooks", "Surface Hooks", "Surface Hook List")
+
+    def draw(self, layout):
+        layout.prop(self, "weight_mode", text="")

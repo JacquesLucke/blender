@@ -35,8 +35,11 @@ class MF_GetImageColorOnSurface final : public MultiFunction {
 };
 
 class MF_SampleObjectSurface final : public MultiFunction {
+ private:
+  bool m_use_vertex_weights;
+
  public:
-  MF_SampleObjectSurface();
+  MF_SampleObjectSurface(bool use_vertex_weights);
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 

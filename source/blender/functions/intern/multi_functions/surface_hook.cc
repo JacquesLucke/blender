@@ -444,12 +444,16 @@ void MF_GetImageColorOnSurface::call(MFMask mask, MFParams params, MFContext con
       });
 }
 
-MF_SampleObjectSurface::MF_SampleObjectSurface()
+MF_SampleObjectSurface::MF_SampleObjectSurface(bool use_vertex_weights)
+    : m_use_vertex_weights(use_vertex_weights)
 {
   MFSignatureBuilder signature("Sample Object Surface");
   signature.single_input<ObjectIDHandle>("Object");
   signature.single_input<int>("Amount");
   signature.single_input<int>("Seed");
+  if (use_vertex_weights) {
+    signature.single_input<std::string>("Vertex Group Name");
+  }
   signature.vector_output<SurfaceHook>("Surface Hooks");
   this->set_signature(signature);
 }
@@ -493,14 +497,61 @@ static BLI_NOINLINE void compute_random_uniform_bary_coords(
   }
 }
 
+static BLI_NOINLINE bool get_vertex_weights(Object *object,
+                                            StringRefNull group_name,
+                                            MutableArrayRef<float> r_vertex_weights)
+{
+  Mesh *mesh = (Mesh *)object->data;
+  BLI_assert(r_vertex_weights.size() == mesh->totvert);
+
+  MDeformVert *vertices = mesh->dvert;
+  int group_index = defgroup_name_index(object, group_name.data());
+  if (group_index == -1 || vertices == nullptr) {
+    return false;
+  }
+
+  for (uint i : r_vertex_weights.index_iterator()) {
+    r_vertex_weights[i] = defvert_find_weight(vertices + i, group_index);
+  }
+  return true;
+}
+
+static BLI_NOINLINE void vertex_weights_to_triangle_weights(
+    Mesh *mesh,
+    ArrayRef<MLoopTri> triangles,
+    ArrayRef<float> vertex_weights,
+    MutableArrayRef<float> r_triangle_weights)
+{
+  BLI_assert(r_triangle_weights.size() == triangles.size());
+  BLI_assert(mesh->totvert == vertex_weights.size());
+
+  for (uint triangle_index : triangles.index_iterator()) {
+    const MLoopTri &looptri = triangles[triangle_index];
+    float triangle_weight = 0.0f;
+    for (uint i = 0; i < 3; i++) {
+      uint vertex_index = mesh->mloop[looptri.tri[i]].v;
+      float weight = vertex_weights[vertex_index];
+      triangle_weight += weight;
+    }
+
+    r_triangle_weights[triangle_index] = triangle_weight / 3.0f;
+  }
+}
+
 void MF_SampleObjectSurface::call(MFMask mask, MFParams params, MFContext context) const
 {
+  uint param_index = 0;
   VirtualListRef<ObjectIDHandle> object_handles = params.readonly_single_input<ObjectIDHandle>(
-      0, "Object");
-  VirtualListRef<int> amounts = params.readonly_single_input<int>(1, "Amount");
-  VirtualListRef<int> seeds = params.readonly_single_input<int>(2, "Seed");
+      param_index++, "Object");
+  VirtualListRef<int> amounts = params.readonly_single_input<int>(param_index++, "Amount");
+  VirtualListRef<int> seeds = params.readonly_single_input<int>(param_index++, "Seed");
+  VirtualListRef<std::string> vertex_group_names;
+  if (m_use_vertex_weights) {
+    vertex_group_names = params.readonly_single_input<std::string>(param_index++,
+                                                                   "Vertex Group Name");
+  }
   GenericVectorArray::MutableTypedRef<SurfaceHook> r_hooks_per_index =
-      params.vector_output<SurfaceHook>(3, "Surface Hooks");
+      params.vector_output<SurfaceHook>(param_index++, "Surface Hooks");
 
   const IDHandleLookup *id_handle_lookup = context.try_find_global<IDHandleLookup>();
   if (id_handle_lookup == nullptr) {
@@ -530,6 +581,19 @@ void MF_SampleObjectSurface::call(MFMask mask, MFParams params, MFContext contex
 
     TemporaryArray<float> triangle_weights(triangles.size());
     compute_triangle_areas(mesh, triangles, triangle_weights);
+
+    if (m_use_vertex_weights) {
+      TemporaryArray<float> vertex_weights(mesh->totvert);
+      if (get_vertex_weights(object, vertex_group_names[i], vertex_weights)) {
+        TemporaryArray<float> vertex_weights_for_triangles(triangles.size());
+        vertex_weights_to_triangle_weights(
+            mesh, triangles, vertex_weights, vertex_weights_for_triangles);
+
+        for (uint i : triangle_weights.index_iterator()) {
+          triangle_weights[i] *= vertex_weights_for_triangles[i];
+        }
+      }
+    }
 
     TemporaryArray<float> cumulative_weights(triangle_weights.size() + 1);
     float total_weight = compute_cumulative_distribution(triangle_weights, cumulative_weights);

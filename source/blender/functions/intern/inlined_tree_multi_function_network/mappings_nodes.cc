@@ -483,7 +483,8 @@ static void INSERT_emitter_time_info(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_sample_object_surface(VNodeMFNetworkBuilder &builder)
 {
-  builder.set_constructed_matching_fn<MF_SampleObjectSurface>();
+  int value = RNA_enum_get(builder.rna(), "weight_mode");
+  builder.set_constructed_matching_fn<MF_SampleObjectSurface>(value == 1);
 }
 
 void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
