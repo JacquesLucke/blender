@@ -10,6 +10,8 @@
 #include "BLI_array_cxx.h"
 #include "BLI_noise.h"
 #include "BLI_hash.h"
+#include "BLI_rand.h"
+#include "BLI_kdtree.h"
 
 #include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
@@ -515,6 +517,82 @@ void MF_RandomFloat::call(MFMask mask, MFParams params, MFContext UNUSED(context
   for (uint i : mask.indices()) {
     float value = BLI_hash_int_01(seeds[i]);
     r_values[i] = value * (max_values[i] - min_values[i]) + min_values[i];
+  }
+}
+
+MF_FindNonClosePoints::MF_FindNonClosePoints()
+{
+  MFSignatureBuilder signature("Remove Close Points");
+  signature.vector_input<float3>("Points");
+  signature.single_input<float>("Min Distance");
+  signature.vector_output<int>("Indices");
+  this->set_signature(signature);
+}
+
+static BLI_NOINLINE Vector<int> find_non_close_indices(VirtualListRef<float3> points,
+                                                       float min_distance)
+{
+  if (min_distance <= 0.0f) {
+    return IndexRange(points.size()).as_array_ref().cast<int>();
+  }
+
+  KDTree_3d *kdtree = BLI_kdtree_3d_new(points.size());
+  for (uint i : IndexRange(points.size())) {
+    BLI_kdtree_3d_insert(kdtree, i, points[i]);
+  }
+
+  BLI_kdtree_3d_balance(kdtree);
+
+  TemporaryArray<bool> keep_index(points.size());
+  keep_index.fill(true);
+
+  for (uint i : IndexRange(points.size())) {
+    if (!keep_index[i]) {
+      continue;
+    }
+
+    float3 current_point = points[i];
+
+    struct CBData {
+      MutableArrayRef<bool> keep_index_ref;
+      uint current_index;
+    } cb_data = {keep_index, i};
+
+    BLI_kdtree_3d_range_search_cb(
+        kdtree,
+        current_point,
+        min_distance,
+        [](void *user_data, int index, const float *UNUSED(co), float UNUSED(dist_sq)) -> bool {
+          CBData &cb_data = *(CBData *)user_data;
+          if (index != cb_data.current_index) {
+            cb_data.keep_index_ref[index] = false;
+          }
+          return true;
+        },
+        (void *)&cb_data);
+  }
+
+  BLI_kdtree_3d_free(kdtree);
+
+  Vector<int> indices;
+  for (uint i : keep_index.index_iterator()) {
+    if (keep_index[i]) {
+      indices.append(i);
+    }
+  }
+
+  return indices;
+}
+
+void MF_FindNonClosePoints::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  VirtualListListRef<float3> points_list = params.readonly_vector_input<float3>(0, "Points");
+  VirtualListRef<float> min_distances = params.readonly_single_input<float>(1, "Min Distance");
+  GenericVectorArray::MutableTypedRef<int> indices_list = params.vector_output<int>(2, "Indices");
+
+  for (uint i : mask.indices()) {
+    Vector<int> filtered_indices = find_non_close_indices(points_list[i], min_distances[i]);
+    indices_list.extend_single(i, filtered_indices);
   }
 }
 

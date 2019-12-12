@@ -120,4 +120,10 @@ class MF_Clamp final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_FindNonClosePoints final : public MultiFunction {
+ public:
+  MF_FindNonClosePoints();
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
 }  // namespace FN

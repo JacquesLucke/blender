@@ -130,7 +130,7 @@ void MF_GetListElements::call(MFMask mask, MFParams params, MFContext UNUSED(con
     VirtualListRef<int> sub_indices = indices[i];
     GenericMutableArrayRef values = r_output_values.allocate_single(i, sub_indices.size());
     for (uint j = 0; j < sub_indices.size(); j++) {
-      uint index = sub_indices[j];
+      int index = sub_indices[j];
       if (index >= 0 && index < list.size()) {
         values.copy_in__uninitialized(j, list[index]);
       }

@@ -48,3 +48,13 @@ class SeparateVectorNode(bpy.types.Node, FunctionNode):
         builder.vectorized_output(
             "z", ["use_list__vector"],
             "Z", "Z", "Float")
+
+
+class FindNonClosePointsNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_FindNonClosePointsNode"
+    bl_label = "Find Non Close Point"
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("points", "Points", "Vector List")
+        builder.fixed_input("min_distance", "Min Distance", "Float", default=0.1)
+        builder.fixed_output("indices", "Indices", "Integer List")
