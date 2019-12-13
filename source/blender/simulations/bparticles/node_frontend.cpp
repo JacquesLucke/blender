@@ -78,7 +78,7 @@ class InlinedTreeData {
   InlinedTreeData(InlinedTreeMFNetwork &inlined_tree_data)
       : m_inlined_tree_data_graph(inlined_tree_data)
   {
-    FN::add_ids_used_by_inputs(m_id_handle_lookup, inlined_tree_data.inlined_tree());
+    FN::add_ids_used_by_nodes(m_id_handle_lookup, inlined_tree_data.inlined_tree());
   }
 
   const InlinedNodeTree &inlined_tree()

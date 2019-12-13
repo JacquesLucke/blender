@@ -67,7 +67,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   vertex_positions_context.positions = ArrayRef<float3>((float3 *)vertexCos, numVerts);
 
   BKE::IDHandleLookup id_handle_lookup;
-  FN::add_ids_used_by_inputs(id_handle_lookup, inlined_tree);
+  FN::add_ids_used_by_nodes(id_handle_lookup, inlined_tree);
 
   MFContextBuilder context_builder;
   context_builder.add_global_context(id_handle_lookup);

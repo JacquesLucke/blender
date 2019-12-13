@@ -58,7 +58,7 @@ Mesh *MOD_functionpoints_do(FunctionPointsModifierData *fpmd,
   time_context.time = DEG_get_ctime(ctx->depsgraph);
 
   BKE::IDHandleLookup id_handle_lookup;
-  FN::add_ids_used_by_inputs(id_handle_lookup, inlined_tree);
+  FN::add_ids_used_by_nodes(id_handle_lookup, inlined_tree);
 
   FN::MFContextBuilder context_builder;
   context_builder.add_global_context(id_handle_lookup);

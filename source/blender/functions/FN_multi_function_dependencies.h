@@ -15,10 +15,10 @@ using BKE::XGroupInput;
 using BKE::XInputSocket;
 using BLI::Set;
 
-inline Set<Object *> get_objects_used_by_inputs(const InlinedNodeTree &inlined_tree)
+inline Set<Object *> get_objects_used_by_sockets(const InlinedNodeTree &inlined_tree)
 {
   Set<Object *> objects;
-  for (const XInputSocket *xsocket : inlined_tree.all_input_sockets()) {
+  for (const XSocket *xsocket : inlined_tree.all_sockets()) {
     if (xsocket->idname() == "fn_ObjectSocket") {
       Object *object = (Object *)RNA_pointer_get(xsocket->rna(), "value").data;
       if (object != nullptr) {
@@ -37,10 +37,10 @@ inline Set<Object *> get_objects_used_by_inputs(const InlinedNodeTree &inlined_t
   return objects;
 }
 
-inline Set<Image *> get_images_used_by_inputs(const InlinedNodeTree &inlined_tree)
+inline Set<Image *> get_images_used_by_sockets(const InlinedNodeTree &inlined_tree)
 {
   Set<Image *> images;
-  for (const XInputSocket *xsocket : inlined_tree.all_input_sockets()) {
+  for (const XSocket *xsocket : inlined_tree.all_sockets()) {
     if (xsocket->idname() == "fn_ImageSocket") {
       Image *image = (Image *)RNA_pointer_get(xsocket->rna(), "value").data;
       if (image != nullptr) {
@@ -59,13 +59,13 @@ inline Set<Image *> get_images_used_by_inputs(const InlinedNodeTree &inlined_tre
   return images;
 }
 
-inline void add_ids_used_by_inputs(IDHandleLookup &id_handle_lookup,
-                                   const InlinedNodeTree &inlined_tree)
+inline void add_ids_used_by_nodes(IDHandleLookup &id_handle_lookup,
+                                  const InlinedNodeTree &inlined_tree)
 {
-  for (Object *object : get_objects_used_by_inputs(inlined_tree)) {
+  for (Object *object : get_objects_used_by_sockets(inlined_tree)) {
     id_handle_lookup.add(object->id);
   }
-  for (Image *image : get_images_used_by_inputs(inlined_tree)) {
+  for (Image *image : get_images_used_by_sockets(inlined_tree)) {
     id_handle_lookup.add(image->id);
   }
 }
