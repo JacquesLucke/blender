@@ -590,12 +590,52 @@ class _defs_edit_mesh:
 
     @ToolDef.from_fn
     def bevel():
-        def draw_settings(_context, layout, tool):
+        def draw_settings(context, layout, tool, *, extra=False):
             props = tool.operator_properties("mesh.bevel")
-            layout.prop(props, "offset_type")
-            layout.prop(props, "segments")
-            layout.prop(props, "profile", slider=True)
-            layout.prop(props, "vertex_only")
+            region_type = context.region.type
+
+            if extra == False:
+                if props.offset_type == 'PERCENT':
+                    layout.prop(props, "offset_pct")
+                else:
+                    offset_text = "Width"
+                    if props.offset_type == 'DEPTH':
+                        offset_text = "Depth"
+                    elif props.offset_type == 'OFFSET':
+                        offset_text = "Offset"
+                    layout.prop(props, "offset", text=offset_text)
+                if region_type == 'TOOL_HEADER':
+                    layout.prop(props, "offset_type", text="")
+                else:
+                    layout.prop(props, "offset_type")
+
+                layout.prop(props, "segments")
+                layout.prop(props, "profile", slider=True)
+
+                if region_type == 'TOOL_HEADER':
+                    layout.popover("TOPBAR_PT_tool_settings_extra", text="...")
+                else:
+                    extra = True
+
+            if extra or region_type != 'TOOL_HEADER':
+                layout.prop(props, "vertex_only")
+                layout.prop(props, "clamp_overlap")
+                layout.prop(props, "loop_slide")
+                layout.prop(props, "mark_seam")
+                layout.prop(props, "mark_sharp")
+                layout.prop(props, "harden_normals")
+
+                layout.prop(props, "material")
+
+                layout.prop(props, "miter_outer", text="Outer Miter")
+                layout.prop(props, "miter_inner", text="Inner Miter")
+                if props.miter_inner == 'ARC':
+                    layout.prop(props, "spread")
+
+                layout.prop(props, "use_custom_profile")
+                if props.use_custom_profile:
+                    tool_settings = context.tool_settings
+                    layout.template_curveprofile(tool_settings, "custom_bevel_profile_preset")
 
         return dict(
             idname="builtin.bevel",
@@ -1163,7 +1203,7 @@ class _defs_image_uv_transform:
             idname="builtin.move",
             label="Move",
             icon="ops.transform.translate",
-            # widget="VIEW3D_GGT_xform_gizmo",
+            widget="IMAGE_GGT_gizmo2d_translate",
             operator="transform.translate",
             keymap="Image Editor Tool: Uv, Move",
         )
@@ -1174,7 +1214,7 @@ class _defs_image_uv_transform:
             idname="builtin.rotate",
             label="Rotate",
             icon="ops.transform.rotate",
-            # widget="VIEW3D_GGT_xform_gizmo",
+            widget="IMAGE_GGT_gizmo2d_rotate",
             operator="transform.rotate",
             keymap="Image Editor Tool: Uv, Rotate",
         )
@@ -1185,7 +1225,7 @@ class _defs_image_uv_transform:
             idname="builtin.scale",
             label="Scale",
             icon="ops.transform.resize",
-            # widget="VIEW3D_GGT_xform_gizmo",
+            widget="IMAGE_GGT_gizmo2d_resize",
             operator="transform.resize",
             keymap="Image Editor Tool: Uv, Scale",
         )
