@@ -192,6 +192,12 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
       m_data->type().construct_default_n(array.buffer(), amount);
       return array.as_typed_ref<T>();
     }
+
+    MutableArrayRef<T> allocate(uint index, uint amount)
+    {
+      GenericMutableArrayRef array = m_data->allocate_single(index, amount);
+      return array.as_typed_ref<T>();
+    }
   };
 
   template<typename T> const TypedRef<T> as_typed_ref() const

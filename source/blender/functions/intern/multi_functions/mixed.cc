@@ -169,16 +169,18 @@ void MF_FloatRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)
   VirtualListRef<int> amounts = params.readonly_single_input<int>(0, "Amount");
   VirtualListRef<float> starts = params.readonly_single_input<float>(1, "Start");
   VirtualListRef<float> steps = params.readonly_single_input<float>(2, "Step");
-  auto lists = params.vector_output<float>(3, "Range");
+  auto r_ranges = params.vector_output<float>(3, "Range");
 
   for (uint i : mask.indices()) {
     int amount = amounts[i];
     float start = starts[i];
     float step = steps[i];
 
+    MutableArrayRef<float> range = r_ranges.allocate(i, amount);
+
     for (int j = 0; j < amount; j++) {
       float value = start + j * step;
-      lists.append_single(i, value);
+      range[j] = value;
     }
   }
 }
