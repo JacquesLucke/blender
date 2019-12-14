@@ -81,11 +81,12 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
 
   void append_single__copy(uint index, const void *src)
   {
-    if (m_lengths[index] == m_capacities[index]) {
-      this->grow_single(index, m_lengths[index] + 1);
+    uint old_length = m_lengths[index];
+    if (old_length == m_capacities[index]) {
+      this->grow_single(index, old_length + 1);
     }
 
-    void *dst = POINTER_OFFSET(m_starts[index], m_element_size * m_lengths[index]);
+    void *dst = POINTER_OFFSET(m_starts[index], m_element_size * old_length);
     m_type.copy_to_uninitialized(src, dst);
     m_lengths[index]++;
   }
@@ -175,7 +176,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
 
     void append_single(uint index, const T &value)
     {
-      m_data->append_single__copy(index, (void *)&value);
+      m_data->append_single__copy(index, (const void *)&value);
     }
 
     void extend_single(uint index, ArrayRef<T> values)
