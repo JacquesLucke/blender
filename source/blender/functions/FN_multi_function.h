@@ -48,13 +48,13 @@ class MFSignatureBuilder {
   template<typename T> void use_element_context()
   {
     BLI::class_id_t id = BLI::get_class_id<T>();
-    m_data.used_element_contexts.append(id);
+    m_data.used_element_contexts.append_non_duplicates(id);
   }
 
   template<typename T> void use_global_context()
   {
     BLI::class_id_t id = BLI::get_class_id<T>();
-    m_data.used_global_contexts.append(id);
+    m_data.used_global_contexts.append_non_duplicates(id);
   }
 
   void copy_used_contexts(const MultiFunction &fn);
@@ -183,6 +183,18 @@ class MultiFunction {
   bool depends_on_per_element_context() const
   {
     return m_signature_data.used_element_contexts.size() > 0;
+  }
+
+  template<typename T> bool uses_element_context() const
+  {
+    BLI::class_id_t id = BLI::get_class_id<T>();
+    return m_signature_data.used_element_contexts.contains(id);
+  }
+
+  template<typename T> bool uses_global_context() const
+  {
+    BLI::class_id_t id = BLI::get_class_id<T>();
+    return m_signature_data.used_global_contexts.contains(id);
   }
 
  protected:
@@ -421,8 +433,8 @@ class MFParams {
 
 inline void MFSignatureBuilder::copy_used_contexts(const MultiFunction &fn)
 {
-  m_data.used_element_contexts.extend(fn.m_signature_data.used_element_contexts);
-  m_data.used_global_contexts.extend(fn.m_signature_data.used_global_contexts);
+  m_data.used_element_contexts.extend_non_duplicates(fn.m_signature_data.used_element_contexts);
+  m_data.used_global_contexts.extend_non_duplicates(fn.m_signature_data.used_global_contexts);
 }
 
 };  // namespace FN

@@ -306,6 +306,9 @@ class MFNetwork : BLI::NonCopyable, BLI::NonMovable {
 
   Vector<const MFOutputSocket *> find_dummy_dependencies(
       ArrayRef<const MFInputSocket *> sockets) const;
+
+  Vector<const MFFunctionNode *> find_function_dependencies(
+      ArrayRef<const MFInputSocket *> sockets) const;
 };
 
 /* Builder Implementations

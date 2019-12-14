@@ -325,18 +325,40 @@ Vector<const MFOutputSocket *> MFNetwork::find_dummy_dependencies(
     const MFOutputSocket &origin_socket = input_socket.origin();
 
     if (found_outputs.add(&origin_socket)) {
-      if (origin_socket.node().is_dummy()) {
+      const MFNode &origin_node = origin_socket.node();
+      if (origin_node.is_dummy()) {
         dummy_dependencies.append(&origin_socket);
       }
       else {
-        for (const MFInputSocket *origin_input : origin_socket.node().inputs()) {
-          inputs_to_check.push(origin_input);
-        }
+        inputs_to_check.push_multiple(origin_node.inputs());
       }
     }
   }
 
   return dummy_dependencies;
+}
+
+Vector<const MFFunctionNode *> MFNetwork::find_function_dependencies(
+    ArrayRef<const MFInputSocket *> sockets) const
+{
+  Vector<const MFFunctionNode *> function_dependencies;
+  Set<const MFNode *> found_nodes;
+  Stack<const MFInputSocket *> inputs_to_check = sockets;
+
+  while (!inputs_to_check.empty()) {
+    const MFInputSocket &input_socket = *inputs_to_check.pop();
+    const MFOutputSocket &origin_socket = input_socket.origin();
+    const MFNode &origin_node = origin_socket.node();
+
+    if (found_nodes.add(&origin_node)) {
+      if (origin_node.is_function()) {
+        function_dependencies.append(&origin_node.as_function());
+        inputs_to_check.push_multiple(origin_node.inputs());
+      }
+    }
+  }
+
+  return function_dependencies;
 }
 
 }  // namespace FN

@@ -202,7 +202,17 @@ MF_EvaluateNetwork::MF_EvaluateNetwork(Vector<const MFOutputSocket *> inputs,
                                        Vector<const MFInputSocket *> outputs)
     : m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
 {
+  BLI_assert(m_outputs.size() > 0);
+  const MFNetwork &network = m_outputs[0]->node().network();
+
   MFSignatureBuilder signature = this->get_builder("Function Tree");
+
+  Vector<const MFFunctionNode *> used_function_nodes = network.find_function_dependencies(
+      m_outputs);
+  for (const MFFunctionNode *node : used_function_nodes) {
+    signature.copy_used_contexts(node->function());
+  }
+
   for (auto socket : m_inputs) {
     BLI_assert(socket->node().is_dummy());
 
@@ -216,6 +226,7 @@ MF_EvaluateNetwork::MF_EvaluateNetwork(Vector<const MFOutputSocket *> inputs,
         break;
     }
   }
+
   for (auto socket : m_outputs) {
     BLI_assert(socket->node().is_dummy());
 
