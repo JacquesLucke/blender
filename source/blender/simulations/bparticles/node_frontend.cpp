@@ -123,6 +123,22 @@ class InlinedTreeData {
       }
     }
 
+    return this->particle_function_for_sockets(sockets_to_compute);
+  }
+
+  ParticleFunction *particle_function_for_inputs(const XNode &xnode, ArrayRef<uint> input_indices)
+  {
+    Vector<const MFInputSocket *> sockets_to_compute;
+    for (uint i : input_indices) {
+      const MFInputSocket &socket = m_inlined_tree_data_graph.lookup_dummy_socket(xnode.input(i));
+      sockets_to_compute.append(&socket);
+    }
+
+    return this->particle_function_for_sockets(sockets_to_compute);
+  }
+
+  ParticleFunction *particle_function_for_sockets(Vector<const MFInputSocket *> sockets_to_compute)
+  {
     const MultiFunction &fn = this->construct<FN::MF_EvaluateNetwork>(
         "Evaluate Network", Vector<const MFOutputSocket *>(), std::move(sockets_to_compute));
     ParticleFunction &particle_fn = this->construct<ParticleFunction>(
@@ -370,9 +386,15 @@ class XSocketActionBuilder {
     m_built_action = &action;
   }
 
-  ParticleFunction *particle_function_for_inputs()
+  ParticleFunction *particle_function_for_all_inputs()
   {
     return m_inlined_tree_data.particle_function_for_all_inputs(m_execute_xsocket.node());
+  }
+
+  ParticleFunction *particle_function_for_inputs(ArrayRef<uint> input_indices)
+  {
+    return m_inlined_tree_data.particle_function_for_inputs(m_execute_xsocket.node(),
+                                                            input_indices);
   }
 
   PointerRNA *node_rna()
@@ -395,6 +417,11 @@ class XSocketActionBuilder {
   Optional<NamedGenericTupleRef> compute_all_data_inputs()
   {
     return m_inlined_tree_data.compute_all_data_inputs(m_execute_xsocket.node());
+  }
+
+  Optional<NamedGenericTupleRef> compute_inputs(ArrayRef<uint> input_indices)
+  {
+    return m_inlined_tree_data.compute_inputs(m_execute_xsocket.node(), input_indices);
   }
 
   template<typename T>
@@ -447,7 +474,7 @@ static void ACTION_kill(XSocketActionBuilder &builder)
 
 static void ACTION_change_velocity(XSocketActionBuilder &builder)
 {
-  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
@@ -468,7 +495,7 @@ static void ACTION_change_velocity(XSocketActionBuilder &builder)
 
 static void ACTION_explode(XSocketActionBuilder &builder)
 {
-  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
@@ -484,7 +511,7 @@ static void ACTION_explode(XSocketActionBuilder &builder)
 
 static void ACTION_condition(XSocketActionBuilder &builder)
 {
-  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
@@ -497,7 +524,7 @@ static void ACTION_condition(XSocketActionBuilder &builder)
 
 static void ACTION_change_color(XSocketActionBuilder &builder)
 {
-  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
@@ -507,7 +534,7 @@ static void ACTION_change_color(XSocketActionBuilder &builder)
 
 static void ACTION_change_size(XSocketActionBuilder &builder)
 {
-  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
@@ -517,7 +544,7 @@ static void ACTION_change_size(XSocketActionBuilder &builder)
 
 static void ACTION_change_position(XSocketActionBuilder &builder)
 {
-  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
+  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
   if (inputs_fn == nullptr) {
     return;
   }
@@ -552,31 +579,28 @@ static void ACTION_remove_from_group(XSocketActionBuilder &builder)
   builder.set_constructed<RemoveFromGroupAction>(group_name);
 }
 
-static std::string RNA_get_string_std(PointerRNA *rna, StringRefNull prop_name)
-{
-  char *str;
-  str = RNA_string_get_alloc(rna, prop_name.data(), nullptr, 0);
-  std::string std_string = str;
-  MEM_freeN(str);
-  return std_string;
-}
-
 static void ACTION_set_attribute(XSocketActionBuilder &builder)
 {
-  ParticleFunction *inputs_fn = builder.particle_function_for_inputs();
+  Optional<NamedGenericTupleRef> values = builder.compute_inputs({0});
+  if (!values.has_value()) {
+    return;
+  }
+
+  ParticleFunction *inputs_fn = builder.particle_function_for_inputs({1});
   if (inputs_fn == nullptr) {
     return;
   }
 
-  std::string attribute_name = RNA_get_string_std(builder.node_rna(), "attribute_name");
-  const CPPType &type = builder.base_type_of(builder.xsocket().node().input(0));
+  const CPPType &attribute_type = builder.base_type_of(builder.xsocket().node().input(1));
+  std::string attribute_name = values->relocate_out<std::string>(0, "Name");
 
-  bool attribute_added = builder.try_add_attribute_to_affected_particles(attribute_name, type);
+  bool attribute_added = builder.try_add_attribute_to_affected_particles(attribute_name,
+                                                                         attribute_type);
   if (!attribute_added) {
     return;
   }
 
-  builder.set_constructed<SetAttributeAction>(attribute_name, type, *inputs_fn);
+  builder.set_constructed<SetAttributeAction>(attribute_name, attribute_type, *inputs_fn);
 }
 
 static void ACTION_multi_execute(XSocketActionBuilder &builder)

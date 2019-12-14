@@ -1,51 +1,49 @@
 #include "particles.h"
+#include "util.h"
 
 #include "FN_multi_function_common_contexts.h"
 
 namespace FN {
 
-MF_ParticleAttributes::MF_ParticleAttributes(Vector<std::string> attribute_names,
-                                             Vector<const CPPType *> attribute_types)
-    : m_attribute_names(attribute_names), m_attribute_types(attribute_types)
+MF_ParticleAttribute::MF_ParticleAttribute(const CPPType &type) : m_type(type)
 {
-  BLI_assert(m_attribute_names.size() == m_attribute_types.size());
-
-  MFSignatureBuilder signature("Particle Attributes");
+  MFSignatureBuilder signature("Particle Attribute");
   signature.depends_on_per_element_context(true);
-  for (uint i = 0; i < m_attribute_names.size(); i++) {
-    signature.single_output(m_attribute_names[i], *m_attribute_types[i]);
-  }
+  signature.single_input<std::string>("Attribute Name");
+  signature.single_output("Value", type);
   this->set_signature(signature);
 }
 
-void MF_ParticleAttributes::call(MFMask mask, MFParams params, MFContext context) const
+void MF_ParticleAttribute::call(MFMask mask, MFParams params, MFContext context) const
 {
+  VirtualListRef<std::string> attribute_names = params.readonly_single_input<std::string>(
+      0, "Attribute Name");
+  GenericMutableArrayRef r_values = params.uninitialized_single_output(1, "Value");
+
   auto context_data = context.try_find_per_element<ParticleAttributesContext>();
-
-  for (uint i = 0; i < m_attribute_names.size(); i++) {
-    StringRef attribute_name = m_attribute_names[i];
-    const CPPType &attribute_type = *m_attribute_types[i];
-
-    GenericMutableArrayRef r_output = params.uninitialized_single_output(0, attribute_name);
-
-    if (context_data.has_value()) {
-      AttributesRef attributes = context_data.value().data->attributes;
-      Optional<GenericMutableArrayRef> opt_array = attributes.try_get(attribute_name,
-                                                                      attribute_type);
-      if (opt_array.has_value()) {
-        GenericMutableArrayRef array = opt_array.value();
-        for (uint i : mask.indices()) {
-          attribute_type.copy_to_uninitialized(array[i], r_output[i]);
-        }
-        return;
-      }
-    }
-
-    /* Fallback */
-    for (uint i : mask.indices()) {
-      attribute_type.construct_default(r_output[i]);
-    }
+  if (!context_data.has_value()) {
+    r_values.default_initialize(mask.indices());
+    return;
   }
+
+  AttributesRef attributes = context_data->data->attributes;
+  VirtualListRef<uint> element_indices = context_data->indices;
+
+  group_indices_by_same_value(
+      mask.indices(),
+      attribute_names,
+      [&](StringRef attribute_name, ArrayRef<uint> indices_with_same_name) {
+        Optional<GenericMutableArrayRef> opt_array = attributes.try_get(attribute_name, m_type);
+        if (!opt_array.has_value()) {
+          r_values.default_initialize(indices_with_same_name);
+          return;
+        }
+        GenericMutableArrayRef array = opt_array.value();
+        for (uint i : indices_with_same_name) {
+          uint index = element_indices[i];
+          r_values.copy_in__initialized(i, array[index]);
+        }
+      });
 }
 
 MF_ParticleIsInGroup::MF_ParticleIsInGroup()

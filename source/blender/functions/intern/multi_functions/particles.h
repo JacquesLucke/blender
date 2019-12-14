@@ -4,19 +4,12 @@
 
 namespace FN {
 
-class MF_ParticleAttributes final : public MultiFunction {
+class MF_ParticleAttribute final : public MultiFunction {
  private:
-  Vector<std::string> m_attribute_names;
-  Vector<const CPPType *> m_attribute_types;
+  const CPPType &m_type;
 
  public:
-  MF_ParticleAttributes(StringRef attribute_name, const CPPType &attribute_type)
-      : MF_ParticleAttributes({attribute_name}, {&attribute_type})
-  {
-  }
-
-  MF_ParticleAttributes(Vector<std::string> attribute_names,
-                        Vector<const CPPType *> attribute_types);
+  MF_ParticleAttribute(const CPPType &type);
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 

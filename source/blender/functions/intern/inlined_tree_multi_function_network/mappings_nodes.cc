@@ -367,48 +367,35 @@ static void INSERT_perlin_noise(VNodeMFNetworkBuilder &builder)
   builder.set_constructed_matching_fn<MF_PerlinNoise>();
 }
 
-static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
+static void create_particle_info_nodes(VNodeMFNetworkBuilder &builder,
+                                       StringRef name,
+                                       const XOutputSocket &xsocket)
 {
   InlinedTreeMFNetworkBuilder &network_builder = builder.network_builder();
+  const CPPType &type = network_builder.try_get_data_type(xsocket)->single__cpp_type();
+
+  const MultiFunction &name_fn = network_builder.construct_fn<MF_ConstantValue<std::string>>(name);
+  const MultiFunction &attribute_fn = network_builder.construct_fn<MF_ParticleAttribute>(type);
+  MFBuilderFunctionNode &name_node = network_builder.add_function(name_fn);
+  MFBuilderFunctionNode &attribute_node = network_builder.add_function(attribute_fn);
+  network_builder.add_link(name_node.output(0), attribute_node.input(0));
+  network_builder.map_sockets(xsocket, attribute_node.output(0));
+}
+
+static void INSERT_particle_info(VNodeMFNetworkBuilder &builder)
+{
   const XNode &xnode = builder.xnode();
 
-  {
-    const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>("ID",
-                                                                                  CPP_TYPE<int>());
-    MFBuilderFunctionNode &node = network_builder.add_function(fn);
-    network_builder.map_sockets(xnode.output(0), node.output(0));
-  }
-  {
-    const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
-        "Position", CPP_TYPE<float3>());
-    MFBuilderFunctionNode &node = network_builder.add_function(fn);
-    network_builder.map_sockets(xnode.output(1), node.output(0));
-  }
-  {
-    const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
-        "Velocity", CPP_TYPE<float3>());
-    MFBuilderFunctionNode &node = network_builder.add_function(fn);
-    network_builder.map_sockets(xnode.output(2), node.output(0));
-  }
-  {
-    const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
-        "Birth Time", CPP_TYPE<float>());
-    MFBuilderFunctionNode &node = network_builder.add_function(fn);
-    network_builder.map_sockets(xnode.output(3), node.output(0));
-  }
-  {
-    const MultiFunction &fn = network_builder.construct_fn<MF_ParticleAttributes>(
-        "Emit Hook", CPP_TYPE<BKE::SurfaceHook>());
-    MFBuilderFunctionNode &node = network_builder.add_function(fn);
-    network_builder.map_sockets(xnode.output(4), node.output(0));
-  }
+  create_particle_info_nodes(builder, "ID", xnode.output(0));
+  create_particle_info_nodes(builder, "Position", xnode.output(1));
+  create_particle_info_nodes(builder, "Velocity", xnode.output(2));
+  create_particle_info_nodes(builder, "Birth Time", xnode.output(3));
 }
 
 static void INSERT_get_particle_attribute(VNodeMFNetworkBuilder &builder)
 {
-  std::string name = builder.string_from_property("attribute_name");
   const CPPType &type = builder.cpp_type_from_property("attribute_type");
-  builder.set_constructed_matching_fn<MF_ParticleAttributes>(std::move(name), type);
+  builder.set_constructed_matching_fn<MF_ParticleAttribute>(type);
 }
 
 static void INSERT_closest_surface_hook_on_object(VNodeMFNetworkBuilder &builder)

@@ -126,6 +126,13 @@ class GenericMutableArrayRef {
     return m_size;
   }
 
+  void default_initialize(ArrayRef<uint> indices)
+  {
+    for (uint i : indices) {
+      m_type->construct_default((*this)[i]);
+    }
+  }
+
   void fill__uninitialized(const void *value)
   {
     for (uint i = 0; i < m_size; i++) {
