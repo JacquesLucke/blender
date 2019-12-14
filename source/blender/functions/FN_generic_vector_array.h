@@ -97,7 +97,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     uint old_length = m_lengths[index];
     uint new_length = old_length + extend_length;
 
-    if (new_length >= m_capacities[index]) {
+    if (new_length > m_capacities[index]) {
       this->grow_single(index, new_length);
     }
 
