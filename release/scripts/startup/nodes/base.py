@@ -61,9 +61,13 @@ class BaseNode:
 
         from . sync import skip_syncing
         with skip_syncing():
+            self.init_props()
             builder = self.get_node_builder()
             builder.initialize_decls()
             builder.build()
+
+    def init_props(self):
+        pass
 
     @classmethod
     def get_search_terms(cls):
