@@ -153,6 +153,10 @@ class InlinedTreeData {
     if (fn == nullptr) {
       return {};
     }
+    if (fn->uses_element_context<FN::ParticleAttributesContext>()) {
+      std::cout << "Inputs may not depend on particle attributes: " << xnode.name() << "\n";
+      return {};
+    }
 
     Vector<const CPPType *> computed_types;
     for (uint i : input_indices) {
