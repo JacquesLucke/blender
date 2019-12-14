@@ -2,7 +2,6 @@ from . declaration import (
     FixedSocketDecl,
     ListSocketDecl,
     BaseListVariadic,
-    AnyVariadicDecl,
     VectorizedInputDecl,
     VectorizedOutputDecl,
     InfluencesSocketDecl,
@@ -140,22 +139,6 @@ class NodeBuilder:
 
     def dynamic_base_output(self, identifier, name, prop_name):
         decl = ListSocketDecl(self.node, identifier, name, prop_name, "BASE")
-        self._add_output(decl)
-
-
-    # Variadic
-    ##################################
-
-    @staticmethod
-    def VariadicProperty():
-        return AnyVariadicDecl.Property()
-
-    def variadic_input(self, identifier, prop_name, message):
-        decl = AnyVariadicDecl(self.node, identifier, prop_name, message)
-        self._add_input(decl)
-
-    def variadic_output(self, identifier, prop_name, message):
-        decl = AnyVariadicDecl(self.node, identifier, prop_name, message)
         self._add_output(decl)
 
 
