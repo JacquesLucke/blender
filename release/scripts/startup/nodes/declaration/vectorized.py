@@ -7,17 +7,26 @@ from .. utils.generic import getattr_recursive
 class VectorizedDeclBase:
     def build(self, node_sockets):
         data_type, name = self.get_type_and_name()
-        return [type_infos.build(
+        socket =type_infos.build(
             data_type,
             node_sockets,
             name,
-            self.identifier)]
+            self.identifier)
+        for prop_name, value in self.socket_settings.items():
+            setattr(socket, prop_name, value)
+        return [socket]
 
     def validate(self, sockets):
         if len(sockets) != 1:
             return False
+
+        socket = sockets[0]
+        for prop_name, value in self.socket_settings.items():
+            if getattr(socket, prop_name) != value:
+                return False
+
         data_type, name = self.get_type_and_name()
-        return self._data_socket_test(sockets[0],
+        return self._data_socket_test(socket,
             name, data_type, self.identifier)
 
     def amount(self):
@@ -34,7 +43,7 @@ class VectorizedInputDecl(VectorizedDeclBase, SocketDeclBase):
     def __init__(self,
             node, identifier, prop_name,
             base_name, list_name,
-            base_type, default):
+            base_type, default, socket_settings):
         self.node = node
         self.identifier = identifier
         self.prop_name = prop_name
@@ -43,6 +52,7 @@ class VectorizedInputDecl(VectorizedDeclBase, SocketDeclBase):
         self.base_type = base_type
         self.list_type = type_infos.to_list(base_type)
         self.default = default
+        self.socket_settings = socket_settings
 
     def init_default(self, node_sockets):
         if self.default is not NoDefaultValue:
@@ -67,7 +77,7 @@ class VectorizedOutputDecl(VectorizedDeclBase, SocketDeclBase):
     def __init__(self,
             node, identifier, input_prop_names,
             base_name, list_name,
-            base_type):
+            base_type, socket_settings):
         self.node = node
         self.identifier = identifier
         self.input_prop_names = input_prop_names
@@ -75,6 +85,7 @@ class VectorizedOutputDecl(VectorizedDeclBase, SocketDeclBase):
         self.list_name = list_name
         self.base_type = base_type
         self.list_type = type_infos.to_list(base_type)
+        self.socket_settings = socket_settings
 
     def is_vectorized(self):
         for prop_name in self.input_prop_names:

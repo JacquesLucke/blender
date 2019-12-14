@@ -101,7 +101,11 @@ class ObjectSocket(bpy.types.NodeSocket, DataSocket):
         type=bpy.types.Object,
     )
 
+    display_name: BoolProperty(default=True)
+
     def draw_property(self, layout, node, text):
+        if not self.display_name:
+            text = ""
         layout.prop(self, "value", text=text)
 
     def get_state(self):
@@ -121,7 +125,11 @@ class ImageSocket(bpy.types.NodeSocket, DataSocket):
         type=bpy.types.Image,
     )
 
+    display_name: BoolProperty()
+
     def draw_property(self, layout, node, text):
+        if not self.display_name:
+            text = ""
         layout.prop(self, "value", text=text)
 
     def get_state(self):
@@ -165,8 +173,13 @@ class TextSocket(bpy.types.NodeSocket, DataSocket):
         default="",
     )
 
+    display_name: BoolProperty(default=True)
+    display_icon: StringProperty(default="NONE")
+
     def draw_property(self, layout, node, text):
-        layout.prop(self, "value", text=text)
+        if not self.display_name:
+            text = ""
+        layout.prop(self, "value", text=text, icon=self.display_icon)
 
     def get_state(self):
         return self.value

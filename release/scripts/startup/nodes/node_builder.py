@@ -88,12 +88,14 @@ class NodeBuilder:
     # Fixed Data Types
     ###################################
 
-    def fixed_input(self, identifier, name, data_type, *, default=NoDefaultValue):
-        decl = FixedSocketDecl(self.node, identifier, name, data_type, default)
+    def fixed_input(self, identifier, name, data_type,
+                    *, default=NoDefaultValue, **kwargs):
+        decl = FixedSocketDecl(self.node, identifier, name, data_type, default, kwargs)
         self._add_input(decl)
 
-    def fixed_output(self, identifier, name, data_type, *, default=NoDefaultValue):
-        decl = FixedSocketDecl(self.node, identifier, name, data_type, default)
+    def fixed_output(self, identifier, name, data_type,
+                     *, default=NoDefaultValue, **kwargs):
+        decl = FixedSocketDecl(self.node, identifier, name, data_type, default, kwargs)
         self._add_output(decl)
 
     def fixed_pass_through(self, identifier, name, data_type, *, default=NoDefaultValue):
@@ -149,17 +151,19 @@ class NodeBuilder:
     def VectorizedProperty():
         return VectorizedInputDecl.Property()
 
-    def vectorized_input(self, identifier, prop_name, base_name, list_name, base_type, *, default=NoDefaultValue):
+    def vectorized_input(self, identifier, prop_name, base_name, list_name, base_type,
+                         *, default=NoDefaultValue, **kwargs):
         decl = VectorizedInputDecl(
             self.node, identifier, prop_name,
             base_name, list_name, base_type,
-            default)
+            default, kwargs)
         self._add_input(decl)
 
-    def vectorized_output(self, identifier, input_prop_names, base_name, list_name, base_type):
+    def vectorized_output(self, identifier, input_prop_names, base_name, list_name, base_type,
+                          **kwargs):
         decl = VectorizedOutputDecl(
             self.node, identifier, input_prop_names,
-            base_name, list_name, base_type)
+            base_name, list_name, base_type, kwargs)
         self._add_output(decl)
 
 

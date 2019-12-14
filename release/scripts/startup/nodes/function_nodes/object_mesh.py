@@ -8,7 +8,7 @@ class ObjectMeshNode(bpy.types.Node, FunctionNode):
     bl_label = "Object Mesh"
 
     def declaration(self, builder):
-        builder.fixed_input("object", "Object", "Object")
+        builder.fixed_input("object", "Object", "Object", display_name=False)
         builder.fixed_output("vertex_locations", "Vertex Locations", "Vector List")
 
 
@@ -28,7 +28,7 @@ class ClosestLocationOnObjectNode(bpy.types.Node, FunctionNode):
     use_list__position: NodeBuilder.VectorizedProperty()
 
     def declaration(self, builder: NodeBuilder):
-        builder.vectorized_input("object", "use_list__object", "Object", "Objects", "Object")
+        builder.vectorized_input("object", "use_list__object", "Object", "Objects", "Object", display_name=False)
         builder.vectorized_input("position", "use_list__position", "Position", "Positions", "Vector")
 
         vectorize_props = ["use_list__object", "use_list__position"]
@@ -68,7 +68,8 @@ class GetWeightOnSurfaceNode(bpy.types.Node, FunctionNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.vectorized_input("surface_hook", "use_list__surface_hook", "Surface Hook", "Surface Hooks", "Surface Hook")
-        builder.vectorized_input("vertex_group_name", "use_list__vertex_group_name", "Name", "Names", "Text", default="Group")
+        builder.vectorized_input("vertex_group_name", "use_list__vertex_group_name", "Name", "Names", "Text",
+            default="Group", display_name=False, display_icon="GROUP_VERTEX")
         builder.vectorized_output("weight", ["use_list__surface_hook", "use_list__vertex_group_name"], "Weight", "Weights", "Float")
 
 
@@ -81,7 +82,7 @@ class GetImageColorOnSurfaceNode(bpy.types.Node, FunctionNode):
 
     def declaration(self, builder: NodeBuilder):
         builder.vectorized_input("surface_hook", "use_list__surface_hook", "Surface Hook", "Surface Hooks", "Surface Hook")
-        builder.vectorized_input("image", "use_list__image", "Image", "Images", "Image")
+        builder.vectorized_input("image", "use_list__image", "Image", "Images", "Image", display_name=False)
         builder.vectorized_output("color", ["use_list__surface_hook", "use_list__image"], "Color", "Colors", "Color")
 
 
@@ -100,7 +101,7 @@ class SampleObjectSurfaceNode(bpy.types.Node, FunctionNode):
     )
 
     def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("object", "Object", "Object")
+        builder.fixed_input("object", "Object", "Object", display_name=False)
         builder.fixed_input("amount", "Amount", "Integer", default=10)
         builder.fixed_input("seed", "Seed", "Integer")
         if self.weight_mode == "VERTEX_WEIGHTS":
