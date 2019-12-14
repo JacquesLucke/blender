@@ -15,12 +15,11 @@ using BLI::MultiMap;
 
 class PreprocessedVTreeMFData {
  private:
-  const InlinedNodeTree &m_inlined_tree;
   Array<Optional<MFDataType>> m_data_type_by_xsocket_id;
   Array<Optional<MFDataType>> m_data_type_by_group_input_id;
 
  public:
-  PreprocessedVTreeMFData(const InlinedNodeTree &inlined_tree) : m_inlined_tree(inlined_tree)
+  PreprocessedVTreeMFData(const InlinedNodeTree &inlined_tree)
   {
     auto &mappings = get_inlined_tree_multi_function_mappings();
 

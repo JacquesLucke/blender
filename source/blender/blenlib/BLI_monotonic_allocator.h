@@ -43,11 +43,9 @@ class MonotonicAllocator : NonCopyable, NonMovable {
   AlignedBuffer<N, 8> m_inline_buffer;
 
  public:
-  MonotonicAllocator()
-      : m_current_buffer(m_inline_buffer.ptr()),
-        m_remaining_capacity(N),
-        m_next_min_alloc_size(std::max<uint>(N * 2, 16))
+  MonotonicAllocator() : m_remaining_capacity(N), m_next_min_alloc_size(std::max<uint>(N * 2, 16))
   {
+    m_current_buffer = m_inline_buffer.ptr();
   }
 
   ~MonotonicAllocator()

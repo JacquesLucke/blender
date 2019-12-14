@@ -98,7 +98,6 @@ class MF_SwitchVector final : public MultiFunction {
 
 class MF_SelectSingle final : public MultiFunction {
  private:
-  const CPPType &m_type;
   uint m_inputs;
 
  public:
@@ -108,7 +107,6 @@ class MF_SelectSingle final : public MultiFunction {
 
 class MF_SelectVector final : public MultiFunction {
  private:
-  const CPPType &m_base_type;
   uint m_inputs;
 
  public:
