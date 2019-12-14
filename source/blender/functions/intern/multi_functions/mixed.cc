@@ -303,6 +303,65 @@ void MF_SwitchVector::call(MFMask mask, MFParams params, MFContext UNUSED(contex
   }
 }
 
+MF_SelectSingle::MF_SelectSingle(const CPPType &type, uint inputs) : m_type(type), m_inputs(inputs)
+{
+  MFSignatureBuilder signature = this->get_builder("Select Single: " + type.name());
+  signature.single_input<int>("Select");
+  for (uint i : IndexRange(inputs)) {
+    signature.single_input(std::to_string(i), type);
+  }
+  signature.single_input("Fallback", type);
+  signature.single_output("Result", type);
+}
+
+void MF_SelectSingle::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  VirtualListRef<int> selects = params.readonly_single_input<int>(0, "Select");
+  GenericVirtualListRef fallbacks = params.readonly_single_input(m_inputs + 1, "Fallback");
+  GenericMutableArrayRef r_results = params.uninitialized_single_output(m_inputs + 2, "Result");
+
+  for (uint i : mask.indices()) {
+    int select = selects[i];
+    if (0 <= select && select < m_inputs) {
+      GenericVirtualListRef selected = params.readonly_single_input(select + 1);
+      r_results.copy_in__uninitialized(i, selected[i]);
+    }
+    else {
+      r_results.copy_in__uninitialized(i, fallbacks[i]);
+    }
+  }
+}
+
+MF_SelectVector::MF_SelectVector(const CPPType &base_type, uint inputs)
+    : m_base_type(base_type), m_inputs(inputs)
+{
+  MFSignatureBuilder signature = this->get_builder("Select Vector: " + base_type.name() + " List");
+  signature.single_input<int>("Select");
+  for (uint i : IndexRange(inputs)) {
+    signature.vector_input(std::to_string(i), base_type);
+  }
+  signature.vector_input("Fallback", base_type);
+  signature.vector_output("Result", base_type);
+}
+
+void MF_SelectVector::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  VirtualListRef<int> selects = params.readonly_single_input<int>(0, "Select");
+  GenericVirtualListListRef fallback = params.readonly_vector_input(m_inputs + 1, "Fallback");
+  GenericVectorArray &r_results = params.vector_output(m_inputs + 2, "Result");
+
+  for (uint i : mask.indices()) {
+    int select = selects[i];
+    if (0 <= select && select < m_inputs) {
+      GenericVirtualListListRef selected = params.readonly_vector_input(select + 1);
+      r_results.extend_single__copy(i, selected[i]);
+    }
+    else {
+      r_results.extend_single__copy(i, fallback[i]);
+    }
+  }
+}
+
 MF_TextLength::MF_TextLength()
 {
   MFSignatureBuilder signature = this->get_builder("Text Length");

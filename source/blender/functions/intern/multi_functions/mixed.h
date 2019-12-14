@@ -96,6 +96,26 @@ class MF_SwitchVector final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_SelectSingle final : public MultiFunction {
+ private:
+  const CPPType &m_type;
+  uint m_inputs;
+
+ public:
+  MF_SelectSingle(const CPPType &type, uint inputs);
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
+class MF_SelectVector final : public MultiFunction {
+ private:
+  const CPPType &m_base_type;
+  uint m_inputs;
+
+ public:
+  MF_SelectVector(const CPPType &type, uint inputs);
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
 class MF_PerlinNoise final : public MultiFunction {
  public:
   MF_PerlinNoise();

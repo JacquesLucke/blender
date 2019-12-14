@@ -112,6 +112,22 @@ static void INSERT_switch(VNodeMFNetworkBuilder &builder)
   }
 }
 
+static void INSERT_select(VNodeMFNetworkBuilder &builder)
+{
+  MFDataType type = builder.data_type_from_property("data_type");
+  uint inputs = RNA_collection_length(builder.rna(), "input_items");
+  switch (type.category()) {
+    case MFDataType::Single: {
+      builder.set_constructed_matching_fn<MF_SelectSingle>(type.single__cpp_type(), inputs);
+      break;
+    }
+    case MFDataType::Vector: {
+      builder.set_constructed_matching_fn<MF_SelectVector>(type.vector__cpp_base_type(), inputs);
+      break;
+    }
+  }
+}
+
 static void INSERT_text_length(VNodeMFNetworkBuilder &builder)
 {
   builder.set_constructed_matching_fn<MF_TextLength>();
@@ -492,6 +508,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_CombineVectorNode", INSERT_combine_vector);
   mappings.xnode_inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
   mappings.xnode_inserters.add_new("fn_SwitchNode", INSERT_switch);
+  mappings.xnode_inserters.add_new("fn_SelectNode", INSERT_select);
   mappings.xnode_inserters.add_new("fn_ListLengthNode", INSERT_list_length);
   mappings.xnode_inserters.add_new("fn_PackListNode", INSERT_pack_list);
   mappings.xnode_inserters.add_new("fn_GetListElementNode", INSERT_get_list_element);
