@@ -36,11 +36,12 @@ using BLI::VectorAdaptor;
 
 MF_ClosestSurfaceHookOnObject::MF_ClosestSurfaceHookOnObject()
 {
-  MFSignatureBuilder signature("Closest Point on Object");
+  MFSignatureBuilder signature = this->get_builder("Closest Point on Object");
+  signature.use_global_context<IDDataCache>();
+  signature.use_global_context<IDHandleLookup>();
   signature.single_input<ObjectIDHandle>("Object");
   signature.single_input<float3>("Position");
   signature.single_output<SurfaceHook>("Closest Location");
-  this->set_signature(signature);
 }
 
 static BVHTreeNearest get_nearest_point(BVHTreeFromMesh *bvhtree_data, float3 point)
@@ -77,8 +78,8 @@ void MF_ClosestSurfaceHookOnObject::call(MFMask mask, MFParams params, MFContext
   MutableArrayRef<SurfaceHook> r_surface_hooks = params.uninitialized_single_output<SurfaceHook>(
       2, "Closest Location");
 
-  auto *id_data_cache = context.try_find_global<BKE::IDDataCache>();
-  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  auto *id_data_cache = context.try_find_global<IDDataCache>();
+  auto *id_handle_lookup = context.try_find_global<IDHandleLookup>();
 
   if (id_data_cache == nullptr || id_handle_lookup == nullptr) {
     r_surface_hooks.fill_indices(mask.indices(), {});
@@ -122,10 +123,10 @@ void MF_ClosestSurfaceHookOnObject::call(MFMask mask, MFParams params, MFContext
 
 MF_GetPositionOnSurface::MF_GetPositionOnSurface()
 {
-  MFSignatureBuilder signature("Get Position on Surface");
+  MFSignatureBuilder signature = this->get_builder("Get Position on Surface");
+  signature.use_global_context<IDHandleLookup>();
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_output<float3>("Position");
-  this->set_signature(signature);
 }
 
 void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext context) const
@@ -136,7 +137,7 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
 
   float3 fallback = {0, 0, 0};
 
-  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  auto *id_handle_lookup = context.try_find_global<IDHandleLookup>();
   if (id_handle_lookup == nullptr) {
     r_positions.fill_indices(mask.indices(), fallback);
     return;
@@ -187,10 +188,10 @@ void MF_GetPositionOnSurface::call(MFMask mask, MFParams params, MFContext conte
 
 MF_GetNormalOnSurface::MF_GetNormalOnSurface()
 {
-  MFSignatureBuilder signature("Get Normal on Surface");
+  MFSignatureBuilder signature = this->get_builder("Get Normal on Surface");
+  signature.use_global_context<IDHandleLookup>();
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_output<float3>("Normal");
-  this->set_signature(signature);
 }
 
 static float3 short_normal_to_float3(const short normal[3])
@@ -207,7 +208,7 @@ void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context
 
   float3 fallback = {0, 0, 1};
 
-  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  auto *id_handle_lookup = context.try_find_global<IDHandleLookup>();
   if (id_handle_lookup == nullptr) {
     r_normals.fill_indices(mask.indices(), fallback);
     return;
@@ -258,11 +259,11 @@ void MF_GetNormalOnSurface::call(MFMask mask, MFParams params, MFContext context
 
 MF_GetWeightOnSurface::MF_GetWeightOnSurface()
 {
-  MFSignatureBuilder signature("Get Weight on Surface");
+  MFSignatureBuilder signature = this->get_builder("Get Weight on Surface");
+  signature.use_global_context<IDHandleLookup>();
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_input<std::string>("Group Name");
   signature.single_output<float>("Weight");
-  this->set_signature(signature);
 }
 
 void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context) const
@@ -275,7 +276,7 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
 
   float fallback = 0.0f;
 
-  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  auto *id_handle_lookup = context.try_find_global<IDHandleLookup>();
   if (id_handle_lookup == nullptr) {
     r_weights.fill_indices(mask.indices(), fallback);
     return;
@@ -337,11 +338,11 @@ void MF_GetWeightOnSurface::call(MFMask mask, MFParams params, MFContext context
 
 MF_GetImageColorOnSurface::MF_GetImageColorOnSurface()
 {
-  MFSignatureBuilder signature("Get Image Color on Surface");
+  MFSignatureBuilder signature = this->get_builder("Get Image Color on Surface");
+  signature.use_global_context<IDHandleLookup>();
   signature.single_input<SurfaceHook>("Surface Hook");
   signature.single_input<ImageIDHandle>("Image");
   signature.single_output<rgba_f>("Color");
-  this->set_signature(signature);
 }
 
 static void get_colors_on_surface(ArrayRef<uint> indices,
@@ -447,7 +448,8 @@ void MF_GetImageColorOnSurface::call(MFMask mask, MFParams params, MFContext con
 MF_SampleObjectSurface::MF_SampleObjectSurface(bool use_vertex_weights)
     : m_use_vertex_weights(use_vertex_weights)
 {
-  MFSignatureBuilder signature("Sample Object Surface");
+  MFSignatureBuilder signature = this->get_builder("Sample Object Surface");
+  signature.use_global_context<IDHandleLookup>();
   signature.single_input<ObjectIDHandle>("Object");
   signature.single_input<int>("Amount");
   signature.single_input<int>("Seed");
@@ -455,7 +457,6 @@ MF_SampleObjectSurface::MF_SampleObjectSurface(bool use_vertex_weights)
     signature.single_input<std::string>("Vertex Group Name");
   }
   signature.vector_output<SurfaceHook>("Surface Hooks");
-  this->set_signature(signature);
 }
 
 static BLI_NOINLINE void compute_triangle_areas(Mesh *mesh,

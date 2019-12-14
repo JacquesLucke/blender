@@ -7,11 +7,10 @@ namespace FN {
 
 MF_ParticleAttribute::MF_ParticleAttribute(const CPPType &type) : m_type(type)
 {
-  MFSignatureBuilder signature("Particle Attribute");
-  signature.depends_on_per_element_context(true);
+  MFSignatureBuilder signature = this->get_builder("Particle Attribute");
+  signature.use_element_context<ParticleAttributesContext>();
   signature.single_input<std::string>("Attribute Name");
   signature.single_output("Value", type);
-  this->set_signature(signature);
 }
 
 void MF_ParticleAttribute::call(MFMask mask, MFParams params, MFContext context) const
@@ -48,11 +47,10 @@ void MF_ParticleAttribute::call(MFMask mask, MFParams params, MFContext context)
 
 MF_ParticleIsInGroup::MF_ParticleIsInGroup()
 {
-  MFSignatureBuilder signature("Particle is in Group");
-  signature.depends_on_per_element_context(true);
+  MFSignatureBuilder signature = this->get_builder("Particle is in Group");
+  signature.use_element_context<ParticleAttributesContext>();
   signature.single_input<std::string>("Group Name");
   signature.single_output<bool>("Is in Group");
-  this->set_signature(signature);
 }
 
 void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context) const
@@ -70,7 +68,7 @@ void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context)
   AttributesRef attributes = context_data->data->attributes;
 
   for (uint i : mask.indices()) {
-    const std::string group_name = group_names[i];
+    const std::string group_name = "private/group/" + group_names[i];
     Optional<MutableArrayRef<bool>> is_in_group_attr = attributes.try_get<bool>(group_name);
     if (!is_in_group_attr.has_value()) {
       r_is_in_group[i] = false;
@@ -85,12 +83,12 @@ void MF_ParticleIsInGroup::call(MFMask mask, MFParams params, MFContext context)
 
 MF_EmitterTimeInfo::MF_EmitterTimeInfo()
 {
-  MFSignatureBuilder signature("Emitter Time Info");
+  MFSignatureBuilder signature = this->get_builder("Emitter Time Info");
+  signature.use_global_context<EmitterTimeInfoContext>();
   signature.single_output<float>("Duration");
   signature.single_output<float>("Begin");
   signature.single_output<float>("End");
   signature.single_output<int>("Step");
-  this->set_signature(signature);
 }
 
 void MF_EmitterTimeInfo::call(MFMask mask, MFParams params, MFContext context) const

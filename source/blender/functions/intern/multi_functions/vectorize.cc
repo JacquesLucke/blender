@@ -12,7 +12,8 @@ MF_SimpleVectorize::MF_SimpleVectorize(const MultiFunction &function,
 {
   BLI_assert(input_is_vectorized.contains(true));
 
-  MFSignatureBuilder signature(function.name() + " (Vectorized)");
+  MFSignatureBuilder signature = this->get_builder(function.name() + " (Vectorized)");
+  signature.copy_used_contexts(function);
 
   bool found_output_param = false;
   UNUSED_VARS_NDEBUG(found_output_param);
@@ -49,7 +50,6 @@ MF_SimpleVectorize::MF_SimpleVectorize(const MultiFunction &function,
       }
     }
   }
-  this->set_signature(signature);
 }
 
 static void get_vectorization_lengths(MFMask mask,

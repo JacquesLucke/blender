@@ -40,13 +40,12 @@ using BLI::TemporaryVector;
 
 MF_CombineColor::MF_CombineColor()
 {
-  MFSignatureBuilder signature("Combine Color");
+  MFSignatureBuilder signature = this->get_builder("Combine Color");
   signature.single_input<float>("R");
   signature.single_input<float>("G");
   signature.single_input<float>("B");
   signature.single_input<float>("A");
   signature.single_output<rgba_f>("Color");
-  this->set_signature(signature);
 }
 
 void MF_CombineColor::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -64,13 +63,12 @@ void MF_CombineColor::call(MFMask mask, MFParams params, MFContext UNUSED(contex
 
 MF_SeparateColor::MF_SeparateColor()
 {
-  MFSignatureBuilder signature("Separate Color");
+  MFSignatureBuilder signature = this->get_builder("Separate Color");
   signature.single_input<rgba_f>("Color");
   signature.single_output<float>("R");
   signature.single_output<float>("G");
   signature.single_output<float>("B");
   signature.single_output<float>("A");
-  this->set_signature(signature);
 }
 
 void MF_SeparateColor::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -92,12 +90,11 @@ void MF_SeparateColor::call(MFMask mask, MFParams params, MFContext UNUSED(conte
 
 MF_CombineVector::MF_CombineVector()
 {
-  MFSignatureBuilder signature("Combine Vector");
+  MFSignatureBuilder signature = this->get_builder("Combine Vector");
   signature.single_input<float>("X");
   signature.single_input<float>("Y");
   signature.single_input<float>("Z");
   signature.single_output<float3>("Vector");
-  this->set_signature(signature);
 }
 
 void MF_CombineVector::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -114,12 +111,11 @@ void MF_CombineVector::call(MFMask mask, MFParams params, MFContext UNUSED(conte
 
 MF_SeparateVector::MF_SeparateVector()
 {
-  MFSignatureBuilder signature("Separate Vector");
+  MFSignatureBuilder signature = this->get_builder("Separate Vector");
   signature.single_input<float3>("Vector");
   signature.single_output<float>("X");
   signature.single_output<float>("Y");
   signature.single_output<float>("Z");
-  this->set_signature(signature);
 }
 
 void MF_SeparateVector::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -139,10 +135,9 @@ void MF_SeparateVector::call(MFMask mask, MFParams params, MFContext UNUSED(cont
 
 MF_FloatArraySum::MF_FloatArraySum()
 {
-  MFSignatureBuilder signature("Float Array Sum");
+  MFSignatureBuilder signature = this->get_builder("Float Array Sum");
   signature.vector_input<float>("Array");
   signature.single_output<float>("Sum");
-  this->set_signature(signature);
 }
 
 void MF_FloatArraySum::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -162,12 +157,11 @@ void MF_FloatArraySum::call(MFMask mask, MFParams params, MFContext UNUSED(conte
 
 MF_FloatRange::MF_FloatRange()
 {
-  MFSignatureBuilder signature("Float Range");
+  MFSignatureBuilder signature = this->get_builder("Float Range");
   signature.single_input<int>("Amount");
   signature.single_input<float>("Start");
   signature.single_input<float>("Step");
   signature.vector_output<float>("Range");
-  this->set_signature(signature);
 }
 
 void MF_FloatRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -191,10 +185,10 @@ void MF_FloatRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)
 
 MF_ObjectVertexPositions::MF_ObjectVertexPositions()
 {
-  MFSignatureBuilder signature{"Object Vertex Positions"};
+  MFSignatureBuilder signature = this->get_builder("Object Vertex Positions");
+  signature.use_global_context<IDHandleLookup>();
   signature.single_input<ObjectIDHandle>("Object");
   signature.vector_output<float3>("Positions");
-  this->set_signature(signature);
 }
 
 void MF_ObjectVertexPositions::call(MFMask mask, MFParams params, MFContext context) const
@@ -203,7 +197,7 @@ void MF_ObjectVertexPositions::call(MFMask mask, MFParams params, MFContext cont
                                                                                         "Object");
   auto positions = params.vector_output<float3>(1, "Positions");
 
-  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  auto *id_handle_lookup = context.try_find_global<IDHandleLookup>();
   if (id_handle_lookup == nullptr) {
     return;
   }
@@ -227,10 +221,10 @@ void MF_ObjectVertexPositions::call(MFMask mask, MFParams params, MFContext cont
 
 MF_ObjectWorldLocation::MF_ObjectWorldLocation()
 {
-  MFSignatureBuilder signature("Object Location");
+  MFSignatureBuilder signature = this->get_builder("Object Location");
+  signature.use_global_context<IDHandleLookup>();
   signature.single_input<ObjectIDHandle>("Object");
   signature.single_output<float3>("Location");
-  this->set_signature(signature);
 }
 
 void MF_ObjectWorldLocation::call(MFMask mask, MFParams params, MFContext context) const
@@ -240,7 +234,7 @@ void MF_ObjectWorldLocation::call(MFMask mask, MFParams params, MFContext contex
 
   float3 fallback = {0, 0, 0};
 
-  auto *id_handle_lookup = context.try_find_global<BKE::IDHandleLookup>();
+  auto *id_handle_lookup = context.try_find_global<IDHandleLookup>();
   if (id_handle_lookup == nullptr) {
     r_locations.fill_indices(mask.indices(), fallback);
     return;
@@ -259,12 +253,11 @@ void MF_ObjectWorldLocation::call(MFMask mask, MFParams params, MFContext contex
 
 MF_SwitchSingle::MF_SwitchSingle(const CPPType &type) : m_type(type)
 {
-  MFSignatureBuilder signature("Switch");
+  MFSignatureBuilder signature = this->get_builder("Switch");
   signature.single_input<bool>("Condition");
   signature.single_input("True", m_type);
   signature.single_input("False", m_type);
   signature.single_output("Result", m_type);
-  this->set_signature(signature);
 }
 
 void MF_SwitchSingle::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -286,12 +279,11 @@ void MF_SwitchSingle::call(MFMask mask, MFParams params, MFContext UNUSED(contex
 
 MF_SwitchVector::MF_SwitchVector(const CPPType &type) : m_type(type)
 {
-  MFSignatureBuilder signature("Switch");
+  MFSignatureBuilder signature = this->get_builder("Switch");
   signature.single_input<bool>("Condition");
   signature.vector_input("True", m_type);
   signature.vector_input("False", m_type);
   signature.vector_output("Result", m_type);
-  this->set_signature(signature);
 }
 
 void MF_SwitchVector::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -313,10 +305,9 @@ void MF_SwitchVector::call(MFMask mask, MFParams params, MFContext UNUSED(contex
 
 MF_TextLength::MF_TextLength()
 {
-  MFSignatureBuilder signature("Text Length");
+  MFSignatureBuilder signature = this->get_builder("Text Length");
   signature.single_input<std::string>("Text");
   signature.single_output<int>("Length");
-  this->set_signature(signature);
 }
 
 void MF_TextLength::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -331,10 +322,9 @@ void MF_TextLength::call(MFMask mask, MFParams params, MFContext UNUSED(context)
 
 MF_ContextVertexPosition::MF_ContextVertexPosition()
 {
-  MFSignatureBuilder signature("Vertex Position");
-  signature.depends_on_per_element_context(true);
+  MFSignatureBuilder signature = this->get_builder("Vertex Position");
+  signature.use_element_context<VertexPositionArray>();
   signature.single_output<float3>("Position");
-  this->set_signature(signature);
 }
 
 void MF_ContextVertexPosition::call(MFMask mask, MFParams params, MFContext context) const
@@ -355,10 +345,9 @@ void MF_ContextVertexPosition::call(MFMask mask, MFParams params, MFContext cont
 
 MF_ContextCurrentFrame::MF_ContextCurrentFrame()
 {
-  MFSignatureBuilder signature("Current Frame");
-  signature.depends_on_per_element_context(true);
+  MFSignatureBuilder signature = this->get_builder("Current Frame");
+  signature.use_global_context<SceneTimeContext>();
   signature.single_output<float>("Frame");
-  this->set_signature(signature);
 }
 
 void MF_ContextCurrentFrame::call(MFMask mask, MFParams params, MFContext context) const
@@ -378,13 +367,12 @@ void MF_ContextCurrentFrame::call(MFMask mask, MFParams params, MFContext contex
 
 MF_PerlinNoise::MF_PerlinNoise()
 {
-  MFSignatureBuilder signature("Perlin Noise");
+  MFSignatureBuilder signature = this->get_builder("Perlin Noise");
   signature.single_input<float3>("Position");
   signature.single_input<float>("Amplitude");
   signature.single_input<float>("Scale");
   signature.single_output<float>("Noise 1D");
   signature.single_output<float3>("Noise 3D");
-  this->set_signature(signature);
 }
 
 void MF_PerlinNoise::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -413,14 +401,13 @@ void MF_PerlinNoise::call(MFMask mask, MFParams params, MFContext UNUSED(context
 
 MF_MapRange::MF_MapRange(bool clamp) : m_clamp(clamp)
 {
-  MFSignatureBuilder signature("Map Range");
+  MFSignatureBuilder signature = this->get_builder("Map Range");
   signature.single_input<float>("Value");
   signature.single_input<float>("From Min");
   signature.single_input<float>("From Max");
   signature.single_input<float>("To Min");
   signature.single_input<float>("To Max");
   signature.single_output<float>("Value");
-  this->set_signature(signature);
 }
 
 void MF_MapRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -459,12 +446,11 @@ void MF_MapRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)) 
 
 MF_Clamp::MF_Clamp(bool sort_minmax) : m_sort_minmax(sort_minmax)
 {
-  MFSignatureBuilder signature("Clamp");
+  MFSignatureBuilder signature = this->get_builder("Clamp");
   signature.single_input<float>("Value");
   signature.single_input<float>("Min");
   signature.single_input<float>("Max");
   signature.single_output<float>("Value");
-  this->set_signature(signature);
 }
 
 void MF_Clamp::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -499,12 +485,11 @@ void MF_Clamp::call(MFMask mask, MFParams params, MFContext UNUSED(context)) con
 
 MF_RandomFloat::MF_RandomFloat()
 {
-  MFSignatureBuilder signature("Random Float");
+  MFSignatureBuilder signature = this->get_builder("Random Float");
   signature.single_input<int>("Seed");
   signature.single_input<float>("Min");
   signature.single_input<float>("Max");
   signature.single_output<float>("Value");
-  this->set_signature(signature);
 }
 
 void MF_RandomFloat::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -522,11 +507,10 @@ void MF_RandomFloat::call(MFMask mask, MFParams params, MFContext UNUSED(context
 
 MF_FindNonClosePoints::MF_FindNonClosePoints()
 {
-  MFSignatureBuilder signature("Remove Close Points");
+  MFSignatureBuilder signature = this->get_builder("Remove Close Points");
   signature.vector_input<float3>("Points");
   signature.single_input<float>("Min Distance");
   signature.vector_output<int>("Indices");
-  this->set_signature(signature);
 }
 
 static BLI_NOINLINE Vector<int> find_non_close_indices(VirtualListRef<float3> points,

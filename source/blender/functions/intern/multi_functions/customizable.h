@@ -11,9 +11,8 @@ template<typename T> class MF_ConstantValue : public MultiFunction {
  public:
   MF_ConstantValue(T value) : m_value(std::move(value))
   {
-    MFSignatureBuilder signature("Constant " + CPP_TYPE<T>().name());
+    MFSignatureBuilder signature = this->get_builder("Constant " + CPP_TYPE<T>().name());
     signature.single_output<T>("Output");
-    this->set_signature(signature);
   }
 
   void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -28,10 +27,10 @@ template<typename FromT, typename ToT> class MF_Convert : public MultiFunction {
  public:
   MF_Convert()
   {
-    MFSignatureBuilder signature(CPP_TYPE<FromT>().name() + " to " + CPP_TYPE<ToT>().name());
+    MFSignatureBuilder signature = this->get_builder(CPP_TYPE<FromT>().name() + " to " +
+                                                     CPP_TYPE<ToT>().name());
     signature.single_input<FromT>("Input");
     signature.single_output<ToT>("Output");
-    this->set_signature(signature);
   }
 
   void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -54,10 +53,9 @@ template<typename InT, typename OutT> class MF_Custom_In1_Out1 final : public Mu
  public:
   MF_Custom_In1_Out1(StringRef name, FunctionT fn) : m_fn(std::move(fn))
   {
-    MFSignatureBuilder signature(name);
+    MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<InT>("Input");
     signature.single_output<OutT>("Output");
-    this->set_signature(signature);
   }
 
   void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -79,11 +77,10 @@ class MF_Custom_In2_Out1 final : public MultiFunction {
  public:
   MF_Custom_In2_Out1(StringRef name, FunctionT fn) : m_fn(std::move(fn))
   {
-    MFSignatureBuilder signature(name);
+    MFSignatureBuilder signature = this->get_builder(name);
     signature.single_input<InT1>("Input 1");
     signature.single_input<InT2>("Input 2");
     signature.single_output<OutT>("Output");
-    this->set_signature(signature);
   }
 
   void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -109,12 +106,11 @@ template<typename T> class MF_VariadicMath final : public MultiFunction {
   {
     BLI_STATIC_ASSERT(std::is_trivial<T>::value, "");
     BLI_assert(input_amount >= 1);
-    MFSignatureBuilder signature(name);
+    MFSignatureBuilder signature = this->get_builder(name);
     for (uint i = 0; i < m_input_amount; i++) {
       signature.single_input<T>("Input");
     }
     signature.single_output<T>("Output");
-    this->set_signature(signature);
   }
 
   void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override

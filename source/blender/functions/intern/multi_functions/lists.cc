@@ -5,7 +5,7 @@ namespace FN {
 MF_PackList::MF_PackList(const CPPType &base_type, ArrayRef<bool> input_list_status)
     : m_base_type(base_type), m_input_list_status(input_list_status)
 {
-  MFSignatureBuilder signature("Pack List");
+  MFSignatureBuilder signature = this->get_builder("Pack List");
   if (m_input_list_status.size() == 0) {
     /* Output just an empty list. */
     signature.vector_output("List", m_base_type);
@@ -34,7 +34,6 @@ MF_PackList::MF_PackList(const CPPType &base_type, ArrayRef<bool> input_list_sta
     }
     signature.vector_output("List", m_base_type);
   }
-  this->set_signature(signature);
 }
 
 void MF_PackList::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -78,12 +77,11 @@ bool MF_PackList::input_is_list(uint index) const
 
 MF_GetListElement::MF_GetListElement(const CPPType &base_type) : m_base_type(base_type)
 {
-  MFSignatureBuilder signature("Get List Element");
+  MFSignatureBuilder signature = this->get_builder("Get List Element");
   signature.vector_input("List", m_base_type);
   signature.single_input<int>("Index");
   signature.single_input("Fallback", m_base_type);
   signature.single_output("Value", m_base_type);
-  this->set_signature(signature);
 }
 
 void MF_GetListElement::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -109,12 +107,11 @@ void MF_GetListElement::call(MFMask mask, MFParams params, MFContext UNUSED(cont
 
 MF_GetListElements::MF_GetListElements(const CPPType &base_type) : m_base_type(base_type)
 {
-  MFSignatureBuilder signature("Get List Elements");
+  MFSignatureBuilder signature = this->get_builder("Get List Elements");
   signature.vector_input("List", m_base_type);
   signature.vector_input<int>("Indices");
   signature.single_input("Fallback", m_base_type);
   signature.vector_output("Values", m_base_type);
-  this->set_signature(signature);
 }
 
 void MF_GetListElements::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
@@ -143,10 +140,9 @@ void MF_GetListElements::call(MFMask mask, MFParams params, MFContext UNUSED(con
 
 MF_ListLength::MF_ListLength(const CPPType &base_type) : m_base_type(base_type)
 {
-  MFSignatureBuilder signature("List Length");
+  MFSignatureBuilder signature = this->get_builder("List Length");
   signature.vector_input("List", m_base_type);
   signature.single_output<int>("Length");
-  this->set_signature(signature);
 }
 
 void MF_ListLength::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const

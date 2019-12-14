@@ -48,9 +48,8 @@ template<typename T> class MF_EmptyList : public MultiFunction {
  public:
   MF_EmptyList()
   {
-    MFSignatureBuilder signature("Empty List - " + CPP_TYPE<T>().name());
+    MFSignatureBuilder signature = this->get_builder("Empty List - " + CPP_TYPE<T>().name());
     signature.vector_output<T>("Output");
-    this->set_signature(signature);
   }
 
   void call(MFMask UNUSED(mask), MFParams UNUSED(params), MFContext UNUSED(context)) const override
@@ -62,11 +61,10 @@ template<typename FromT, typename ToT> class MF_ConvertList : public MultiFuncti
  public:
   MF_ConvertList()
   {
-    MFSignatureBuilder signature(CPP_TYPE<FromT>().name() + " List to " + CPP_TYPE<ToT>().name() +
-                                 " List");
+    MFSignatureBuilder signature = this->get_builder(CPP_TYPE<FromT>().name() + " List to " +
+                                                     CPP_TYPE<ToT>().name() + " List");
     signature.vector_input<FromT>("Inputs");
     signature.vector_output<ToT>("Outputs");
-    this->set_signature(signature);
   }
 
   void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override
@@ -90,10 +88,10 @@ template<typename T> class MF_SingleElementList : public MultiFunction {
  public:
   MF_SingleElementList()
   {
-    MFSignatureBuilder signature("Single Element List - " + CPP_TYPE<T>().name());
+    MFSignatureBuilder signature = this->get_builder("Single Element List - " +
+                                                     CPP_TYPE<T>().name());
     signature.single_input<T>("Input");
     signature.vector_output<T>("Outputs");
-    this->set_signature(signature);
   }
 
   void call(MFMask mask, MFParams params, MFContext UNUSED(context)) const override

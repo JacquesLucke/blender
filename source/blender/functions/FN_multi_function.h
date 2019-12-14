@@ -14,86 +14,50 @@
 
 namespace FN {
 
-using BLI::Vector;
+class MultiFunction;
 
-class MFSignature {
- private:
-  std::string m_function_name;
-  Vector<std::string> m_param_names;
-  Vector<MFParamType> m_param_types;
-  Vector<uint> m_corrected_indices;
-  bool m_depends_on_per_element_context;
+struct MFSignatureData {
+  std::string function_name;
+  Vector<std::string> param_names;
+  Vector<MFParamType> param_types;
+  Vector<BLI::class_id_t> used_element_contexts;
+  Vector<BLI::class_id_t> used_global_contexts;
+  Vector<uint> param_data_indices;
 
-  friend class MultiFunction;
-  friend class MFParams;
-
- public:
-  MFSignature() = default;
-
-  MFSignature(std::string function_name,
-              Vector<std::string> param_names,
-              Vector<MFParamType> param_types,
-              bool depends_on_per_element_context)
-      : m_function_name(std::move(function_name)),
-        m_param_names(std::move(param_names)),
-        m_param_types(std::move(param_types)),
-        m_depends_on_per_element_context(depends_on_per_element_context)
+  uint data_index(uint param_index) const
   {
-    uint array_or_single_refs = 0;
-    uint mutable_array_refs = 0;
-    uint virtual_list_list_refs = 0;
-    uint vector_arrays = 0;
-    for (MFParamType param_type : m_param_types) {
-      uint corrected_index = 0;
-      switch (param_type.type()) {
-        case MFParamType::Type::SingleInput:
-          corrected_index = array_or_single_refs++;
-          break;
-        case MFParamType::Type::SingleOutput:
-          corrected_index = mutable_array_refs++;
-          break;
-        case MFParamType::Type::VectorInput:
-          corrected_index = virtual_list_list_refs++;
-          break;
-        case MFParamType::Type::VectorOutput:
-        case MFParamType::Type::MutableVector:
-          corrected_index = vector_arrays++;
-          break;
-        case MFParamType::Type::MutableSingle:
-          corrected_index = mutable_array_refs++;
-          break;
-      }
-      m_corrected_indices.append(corrected_index);
-    }
-  }
-
-  ArrayRef<MFParamType> param_types() const
-  {
-    return m_param_types;
-  }
-
-  uint get_corrected_index(uint index) const
-  {
-    return m_corrected_indices[index];
+    return this->param_data_indices[param_index];
   }
 };
 
 class MFSignatureBuilder {
  private:
-  std::string m_function_name;
-  Vector<std::string> m_param_names;
-  Vector<MFParamType> m_param_types;
-  bool m_depends_on_per_element_context = false;
+  MFSignatureData &m_data;
+  uint m_array_ref_count = 0;
+  uint m_virtual_list_count = 0;
+  uint m_virtual_list_list_count = 0;
+  uint m_vector_array_count = 0;
 
  public:
-  MFSignatureBuilder(StringRef name) : m_function_name(name)
+  MFSignatureBuilder(MFSignatureData &data) : m_data(data)
   {
   }
 
-  void depends_on_per_element_context(bool value)
+  /* Used Contexts */
+
+  template<typename T> void use_element_context()
   {
-    m_depends_on_per_element_context = value;
+    BLI::class_id_t id = BLI::get_class_id<T>();
+    m_data.used_element_contexts.append(id);
   }
+
+  template<typename T> void use_global_context()
+  {
+    BLI::class_id_t id = BLI::get_class_id<T>();
+    m_data.used_global_contexts.append(id);
+  }
+
+  void copy_used_contexts(const MultiFunction &fn);
 
   /* Input Param Types */
 
@@ -115,8 +79,17 @@ class MFSignatureBuilder {
   }
   void input(StringRef name, MFDataType data_type)
   {
-    m_param_names.append(name);
-    m_param_types.append(MFParamType(MFParamType::Input, data_type));
+    m_data.param_names.append(name);
+    m_data.param_types.append(MFParamType(MFParamType::Input, data_type));
+
+    switch (data_type.category()) {
+      case MFDataType::Single:
+        m_data.param_data_indices.append(m_virtual_list_count++);
+        break;
+      case MFDataType::Vector:
+        m_data.param_data_indices.append(m_virtual_list_list_count++);
+        break;
+    }
   }
 
   /* Output Param Types */
@@ -139,8 +112,17 @@ class MFSignatureBuilder {
   }
   void output(StringRef name, MFDataType data_type)
   {
-    m_param_names.append(name);
-    m_param_types.append(MFParamType(MFParamType::Output, data_type));
+    m_data.param_names.append(name);
+    m_data.param_types.append(MFParamType(MFParamType::Output, data_type));
+
+    switch (data_type.category()) {
+      case MFDataType::Single:
+        m_data.param_data_indices.append(m_array_ref_count++);
+        break;
+      case MFDataType::Vector:
+        m_data.param_data_indices.append(m_vector_array_count++);
+        break;
+    }
   }
 
   /* Mutable Param Types */
@@ -155,16 +137,17 @@ class MFSignatureBuilder {
   }
   void mutable_param(StringRef name, MFDataType data_type)
   {
-    m_param_names.append(name);
-    m_param_types.append(MFParamType(MFParamType::Mutable, data_type));
-  }
+    m_data.param_names.append(name);
+    m_data.param_types.append(MFParamType(MFParamType::Mutable, data_type));
 
-  MFSignature build()
-  {
-    return MFSignature(std::move(m_function_name),
-                       std::move(m_param_names),
-                       std::move(m_param_types),
-                       m_depends_on_per_element_context);
+    switch (data_type.category()) {
+      case MFDataType::Single:
+        m_data.param_data_indices.append(m_array_ref_count++);
+        break;
+      case MFDataType::Vector:
+        m_data.param_data_indices.append(m_vector_array_count++);
+        break;
+    }
   }
 };
 
@@ -179,39 +162,41 @@ class MultiFunction {
 
   IndexRange param_indices() const
   {
-    return IndexRange(m_signature.m_param_types.size());
+    return IndexRange(m_signature_data.param_types.size());
   }
 
   MFParamType param_type(uint index) const
   {
-    return m_signature.m_param_types[index];
+    return m_signature_data.param_types[index];
   }
 
   StringRefNull param_name(uint index) const
   {
-    return m_signature.m_param_names[index];
+    return m_signature_data.param_names[index];
   }
 
   StringRefNull name() const
   {
-    return m_signature.m_function_name;
+    return m_signature_data.function_name;
   }
 
   bool depends_on_per_element_context() const
   {
-    return m_signature.m_depends_on_per_element_context;
+    return m_signature_data.used_element_contexts.size() > 0;
   }
 
  protected:
-  void set_signature(MFSignatureBuilder &signature_builder)
+  MFSignatureBuilder get_builder(StringRef function_name)
   {
-    m_signature = signature_builder.build();
+    m_signature_data.function_name = function_name;
+    return MFSignatureBuilder(m_signature_data);
   }
 
  private:
-  MFSignature m_signature;
+  MFSignatureData m_signature_data;
 
   friend class MFParamsBuilder;
+  friend class MFSignatureBuilder;
 };
 
 class MFParamsBuilder {
@@ -220,14 +205,14 @@ class MFParamsBuilder {
   Vector<GenericMutableArrayRef> m_mutable_array_refs;
   Vector<GenericVirtualListListRef> m_virtual_list_list_refs;
   Vector<GenericVectorArray *> m_vector_arrays;
-  const MFSignature *m_signature;
+  const MFSignatureData *m_signature;
   uint m_min_array_size;
 
   friend MFParams;
 
  public:
   MFParamsBuilder(const MultiFunction &function, uint min_array_size)
-      : m_signature(&function.m_signature), m_min_array_size(min_array_size)
+      : m_signature(&function.m_signature_data), m_min_array_size(min_array_size)
   {
   }
 
@@ -293,20 +278,20 @@ class MFParamsBuilder {
 
   GenericMutableArrayRef computed_array(uint index)
   {
-    BLI_assert(ELEM(m_signature->param_types()[index].type(),
+    BLI_assert(ELEM(m_signature->param_types[index].type(),
                     MFParamType::MutableSingle,
                     MFParamType::SingleOutput));
-    uint corrected_index = m_signature->get_corrected_index(index);
-    return m_mutable_array_refs[corrected_index];
+    uint data_index = m_signature->data_index(index);
+    return m_mutable_array_refs[data_index];
   }
 
   GenericVectorArray &computed_vector_array(uint index)
   {
-    BLI_assert(ELEM(m_signature->param_types()[index].type(),
+    BLI_assert(ELEM(m_signature->param_types[index].type(),
                     MFParamType::MutableVector,
                     MFParamType::VectorOutput));
-    uint corrected_index = m_signature->get_corrected_index(index);
-    return *m_vector_arrays[corrected_index];
+    uint data_index = m_signature->data_index(index);
+    return *m_vector_arrays[data_index];
   }
 
  private:
@@ -315,7 +300,7 @@ class MFParamsBuilder {
     UNUSED_VARS_NDEBUG(param_type);
 #ifdef DEBUG
     uint param_index = this->current_param_index();
-    MFParamType expected_type = m_signature->param_types()[param_index];
+    MFParamType expected_type = m_signature->param_types[param_index];
     BLI_assert(expected_type == param_type);
 #endif
   }
@@ -325,7 +310,7 @@ class MFParamsBuilder {
     UNUSED_VARS_NDEBUG(type);
 #ifdef DEBUG
     uint param_index = this->current_param_index();
-    MFParamType::Type expected_type = m_signature->param_types()[param_index].type();
+    MFParamType::Type expected_type = m_signature->param_types[param_index].type();
     BLI_assert(expected_type == type);
 #endif
   }
@@ -352,8 +337,8 @@ class MFParams {
   GenericVirtualListRef readonly_single_input(uint index, StringRef name = "")
   {
     this->assert_correct_param(index, name, MFParamType::Type::SingleInput);
-    uint corrected_index = m_builder->m_signature->get_corrected_index(index);
-    return m_builder->m_virtual_list_refs[corrected_index];
+    uint data_index = m_builder->m_signature->data_index(index);
+    return m_builder->m_virtual_list_refs[data_index];
   }
 
   template<typename T>
@@ -365,8 +350,8 @@ class MFParams {
   GenericMutableArrayRef uninitialized_single_output(uint index, StringRef name = "")
   {
     this->assert_correct_param(index, name, MFParamType::Type::SingleOutput);
-    uint corrected_index = m_builder->m_signature->get_corrected_index(index);
-    return m_builder->m_mutable_array_refs[corrected_index];
+    uint data_index = m_builder->m_signature->data_index(index);
+    return m_builder->m_mutable_array_refs[data_index];
   }
 
   template<typename T>
@@ -378,8 +363,8 @@ class MFParams {
   GenericVirtualListListRef readonly_vector_input(uint index, StringRef name = "")
   {
     this->assert_correct_param(index, name, MFParamType::Type::VectorInput);
-    uint corrected_index = m_builder->m_signature->get_corrected_index(index);
-    return m_builder->m_virtual_list_list_refs[corrected_index];
+    uint data_index = m_builder->m_signature->data_index(index);
+    return m_builder->m_virtual_list_list_refs[data_index];
   }
 
   template<typename T>
@@ -391,21 +376,21 @@ class MFParams {
   GenericVectorArray &vector_output(uint index, StringRef name = "")
   {
     this->assert_correct_param(index, name, MFParamType::Type::VectorOutput);
-    uint corrected_index = m_builder->m_signature->get_corrected_index(index);
-    return *m_builder->m_vector_arrays[corrected_index];
+    uint data_index = m_builder->m_signature->data_index(index);
+    return *m_builder->m_vector_arrays[data_index];
   }
 
   GenericMutableArrayRef mutable_single(uint index, StringRef name = "")
   {
     this->assert_correct_param(index, name, MFParamType::Type::MutableSingle);
-    uint corrected_index = m_builder->m_signature->get_corrected_index(index);
-    return m_builder->m_mutable_array_refs[corrected_index];
+    uint data_index = m_builder->m_signature->data_index(index);
+    return m_builder->m_mutable_array_refs[data_index];
   }
   GenericVectorArray &mutable_vector(uint index, StringRef name = "")
   {
     this->assert_correct_param(index, name, MFParamType::Type::MutableVector);
-    uint corrected_index = m_builder->m_signature->get_corrected_index(index);
-    return *m_builder->m_vector_arrays[corrected_index];
+    uint data_index = m_builder->m_signature->data_index(index);
+    return *m_builder->m_vector_arrays[data_index];
   }
 
  private:
@@ -413,9 +398,9 @@ class MFParams {
   {
     UNUSED_VARS_NDEBUG(index, name, type);
 #ifdef DEBUG
-    BLI_assert(m_builder->m_signature->m_param_types[index] == type);
+    BLI_assert(m_builder->m_signature->param_types[index] == type);
     if (name.size() > 0) {
-      BLI_assert(m_builder->m_signature->m_param_names[index] == name);
+      BLI_assert(m_builder->m_signature->param_names[index] == name);
     }
 #endif
   }
@@ -424,15 +409,21 @@ class MFParams {
   {
     UNUSED_VARS_NDEBUG(index, name, type);
 #ifdef DEBUG
-    BLI_assert(m_builder->m_signature->m_param_types[index].type() == type);
+    BLI_assert(m_builder->m_signature->param_types[index].type() == type);
     if (name.size() > 0) {
-      BLI_assert(m_builder->m_signature->m_param_names[index] == name);
+      BLI_assert(m_builder->m_signature->param_names[index] == name);
     }
 #endif
   }
 
   MFParamsBuilder *m_builder;
 };
+
+inline void MFSignatureBuilder::copy_used_contexts(const MultiFunction &fn)
+{
+  m_data.used_element_contexts.extend(fn.m_signature_data.used_element_contexts);
+  m_data.used_global_contexts.extend(fn.m_signature_data.used_global_contexts);
+}
 
 };  // namespace FN
 

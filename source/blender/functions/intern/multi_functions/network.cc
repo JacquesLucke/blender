@@ -202,7 +202,7 @@ MF_EvaluateNetwork::MF_EvaluateNetwork(Vector<const MFOutputSocket *> inputs,
                                        Vector<const MFInputSocket *> outputs)
     : m_inputs(std::move(inputs)), m_outputs(std::move(outputs))
 {
-  MFSignatureBuilder signature("Function Tree");
+  MFSignatureBuilder signature = this->get_builder("Function Tree");
   for (auto socket : m_inputs) {
     BLI_assert(socket->node().is_dummy());
 
@@ -229,7 +229,6 @@ MF_EvaluateNetwork::MF_EvaluateNetwork(Vector<const MFOutputSocket *> inputs,
         break;
     }
   }
-  this->set_signature(signature);
 }
 
 void MF_EvaluateNetwork::call(MFMask mask, MFParams params, MFContext context) const
