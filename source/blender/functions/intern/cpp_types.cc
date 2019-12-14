@@ -43,6 +43,10 @@ template<typename T> void CopyToUninitialized_CB(const void *src, void *dst)
 {
   BLI::uninitialized_copy_n((T *)src, 1, (T *)dst);
 }
+template<typename T> void CopyToUninitializedN_CB(const void *src, void *dst, uint n)
+{
+  BLI::uninitialized_copy_n((T *)src, n, (T *)dst);
+}
 template<typename T> void RelocateToInitialized_CB(void *src, void *dst)
 {
   BLI::relocate((T *)src, (T *)dst);
@@ -68,6 +72,7 @@ template<typename T> static std::unique_ptr<const CPPType> create_cpp_type(Strin
                                     DestructN_CB<T>,
                                     CopyToInitialized_CB<T>,
                                     CopyToUninitialized_CB<T>,
+                                    CopyToUninitializedN_CB<T>,
                                     RelocateToInitialized_CB<T>,
                                     RelocateToUninitialized_CB<T>,
                                     RelocateToUninitializedN_CB<T>,

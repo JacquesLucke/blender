@@ -92,9 +92,35 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
 
   void extend_single__copy(uint index, const GenericVirtualListRef &values)
   {
-    for (uint i = 0; i < values.size(); i++) {
-      this->append_single__copy(index, values[i]);
+    uint extend_length = values.size();
+    uint old_length = m_lengths[index];
+    uint new_length = old_length + extend_length;
+
+    if (new_length >= m_capacities[index]) {
+      this->grow_single(index, new_length);
     }
+
+    void *start = POINTER_OFFSET(m_starts[index], old_length * m_element_size);
+
+    if (values.is_single_element()) {
+      const void *value = values.as_single_element();
+      for (uint i = 0; i < extend_length; i++) {
+        void *dst = POINTER_OFFSET(start, m_element_size * i);
+        m_type.copy_to_uninitialized(value, dst);
+      }
+    }
+    else if (values.is_non_single_full_array()) {
+      GenericArrayRef array = values.as_full_array();
+      m_type.copy_to_uninitialized_n(array.buffer(), start, extend_length);
+    }
+    else {
+      for (uint i = 0; i < extend_length; i++) {
+        void *dst = POINTER_OFFSET(start, m_element_size * i);
+        m_type.copy_to_uninitialized(values[i], dst);
+      }
+    }
+
+    m_lengths[index] = new_length;
   }
 
   GenericMutableArrayRef allocate_single(uint index, uint size)
@@ -187,11 +213,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     void *new_buffer = m_elements_allocator.allocate(m_element_size * min_capacity,
                                                      m_type.alignment());
 
-    for (uint i = 0; i < m_lengths[index]; i++) {
-      void *src = POINTER_OFFSET(m_starts[index], m_element_size * i);
-      void *dst = POINTER_OFFSET(new_buffer, m_element_size * i);
-      m_type.relocate_to_uninitialized(src, dst);
-    }
+    m_type.relocate_to_uninitialized_n(m_starts[index], new_buffer, m_lengths[index]);
 
     m_starts[index] = new_buffer;
     m_capacities[index] = min_capacity;

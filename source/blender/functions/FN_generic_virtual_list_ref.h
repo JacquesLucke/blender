@@ -139,6 +139,23 @@ class GenericVirtualListRef {
     return false;
   }
 
+  const void *as_single_element() const
+  {
+    BLI_assert(this->is_single_element());
+    return (*this)[0];
+  }
+
+  bool is_non_single_full_array() const
+  {
+    return m_category == Category::FullArray && m_virtual_size > 1;
+  }
+
+  GenericArrayRef as_full_array() const
+  {
+    BLI_assert(m_category == Category::FullArray);
+    return GenericArrayRef(*m_type, m_data.full_array.data, m_virtual_size);
+  }
+
   uint size() const
   {
     return m_virtual_size;

@@ -18,6 +18,7 @@ class CPPType {
   using DestructNF = void (*)(void *ptr, uint n);
   using CopyToInitializedF = void (*)(const void *src, void *dst);
   using CopyToUninitializedF = void (*)(const void *src, void *dst);
+  using CopyToUninitializedNF = void (*)(const void *src, void *dst, uint n);
   using RelocateToInitializedF = void (*)(void *src, void *dst);
   using RelocateToUninitializedF = void (*)(void *src, void *dst);
   using RelocateToUninitializedNF = void (*)(void *src, void *dst, uint n);
@@ -32,6 +33,7 @@ class CPPType {
           DestructNF destruct_n,
           CopyToInitializedF copy_to_initialized,
           CopyToUninitializedF copy_to_uninitialized,
+          CopyToUninitializedNF copy_to_uninitialized_n,
           RelocateToInitializedF relocate_to_initialized,
           RelocateToUninitializedF relocate_to_uninitialized,
           RelocateToUninitializedNF relocate_to_uninitialized_n,
@@ -45,6 +47,7 @@ class CPPType {
         m_destruct_n(destruct_n),
         m_copy_to_initialized(copy_to_initialized),
         m_copy_to_uninitialized(copy_to_uninitialized),
+        m_copy_to_uninitialized_n(copy_to_uninitialized_n),
         m_relocate_to_initialized(relocate_to_initialized),
         m_relocate_to_uninitialized(relocate_to_uninitialized),
         m_relocate_to_uninitialized_n(relocate_to_uninitialized_n),
@@ -134,6 +137,14 @@ class CPPType {
     m_copy_to_uninitialized(src, dst);
   }
 
+  void copy_to_uninitialized_n(const void *src, void *dst, uint n) const
+  {
+    BLI_assert(this->pointer_has_valid_alignment(src));
+    BLI_assert(this->pointer_has_valid_alignment(dst));
+
+    m_copy_to_uninitialized_n(src, dst, n);
+  }
+
   void relocate_to_initialized(void *src, void *dst) const
   {
     BLI_assert(this->pointer_has_valid_alignment(src));
@@ -190,6 +201,7 @@ class CPPType {
   DestructNF m_destruct_n;
   CopyToInitializedF m_copy_to_initialized;
   CopyToUninitializedF m_copy_to_uninitialized;
+  CopyToUninitializedNF m_copy_to_uninitialized_n;
   RelocateToInitializedF m_relocate_to_initialized;
   RelocateToUninitializedF m_relocate_to_uninitialized;
   RelocateToUninitializedNF m_relocate_to_uninitialized_n;
