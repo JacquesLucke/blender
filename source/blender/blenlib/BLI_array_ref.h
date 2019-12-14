@@ -278,6 +278,21 @@ template<typename T> class ArrayRef {
     return false;
   }
 
+  bool intersects__linear_search(ArrayRef other) const
+  {
+    /* The size should really be smaller than that. If it is not, the calling code should be
+     * changed. */
+    BLI_assert(m_size < 1000);
+
+    for (uint i = 0; i < m_size; i++) {
+      const T &value = m_start[i];
+      if (other.contains(value)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   uint first_index(const T &search_value) const
   {
     int index = this->first_index_try(search_value);
