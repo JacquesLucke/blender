@@ -361,8 +361,13 @@ class XSocketActionBuilder {
   {
     BLI_STATIC_ASSERT((std::is_base_of<Action, T>::value), "");
     T &action = this->construct<T>(std::forward<Args>(args)...);
-    m_built_action = &action;
+    this->set(action);
     return action;
+  }
+
+  void set(Action &action)
+  {
+    m_built_action = &action;
   }
 
   ParticleFunction *particle_function_for_inputs()
@@ -574,6 +579,12 @@ static void ACTION_set_attribute(XSocketActionBuilder &builder)
   builder.set_constructed<SetAttributeAction>(attribute_name, type, *inputs_fn);
 }
 
+static void ACTION_multi_execute(XSocketActionBuilder &builder)
+{
+  Action &action = builder.build_input_action_list("Execute", builder.system_names());
+  builder.set(action);
+}
+
 BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
 {
   StringMap<ActionParserCallback> map;
@@ -587,6 +598,7 @@ BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
   map.add_new("fn_AddToGroupNode", ACTION_add_to_group);
   map.add_new("fn_RemoveFromGroupNode", ACTION_remove_from_group);
   map.add_new("fn_SetParticleAttributeNode", ACTION_set_attribute);
+  map.add_new("fn_MultiExecuteNode", ACTION_multi_execute);
   return map;
 }
 
