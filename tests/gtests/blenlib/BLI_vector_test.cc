@@ -226,6 +226,28 @@ TEST(vector, AppendAndGetIndex)
   EXPECT_EQ(vec.append_and_get_index(10), 4);
 }
 
+TEST(vector, AppendNonDuplicates)
+{
+  IntVector vec;
+  vec.append_non_duplicates(4);
+  EXPECT_EQ(vec.size(), 1);
+  vec.append_non_duplicates(5);
+  EXPECT_EQ(vec.size(), 2);
+  vec.append_non_duplicates(4);
+  EXPECT_EQ(vec.size(), 2);
+}
+
+TEST(vector, ExtendNonDuplicates)
+{
+  IntVector vec;
+  vec.extend_non_duplicates({1, 2});
+  EXPECT_EQ(vec.size(), 2);
+  vec.extend_non_duplicates({3, 4});
+  EXPECT_EQ(vec.size(), 4);
+  vec.extend_non_duplicates({0, 1, 2, 3});
+  EXPECT_EQ(vec.size(), 5);
+}
+
 TEST(vector, Fill)
 {
   IntVector vec(5);

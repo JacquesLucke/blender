@@ -32,6 +32,17 @@ TEST(stack, Push)
   EXPECT_EQ(stack.size(), 2);
 }
 
+TEST(stack, PushMultiple)
+{
+  IntStack stack;
+  EXPECT_EQ(stack.size(), 0);
+  stack.push_multiple({1, 2, 3});
+  EXPECT_EQ(stack.size(), 3);
+  EXPECT_EQ(stack.pop(), 3);
+  EXPECT_EQ(stack.pop(), 2);
+  EXPECT_EQ(stack.pop(), 1);
+}
+
 TEST(stack, Pop)
 {
   IntStack stack;

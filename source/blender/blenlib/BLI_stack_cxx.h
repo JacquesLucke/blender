@@ -76,6 +76,11 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class St
     m_elements.append(std::move(value));
   }
 
+  void push_multiple(ArrayRef<T> values)
+  {
+    m_elements.extend(values);
+  }
+
   /**
    * Remove the element from the top of the stack and return it.
    * This will assert when the stack is empty.

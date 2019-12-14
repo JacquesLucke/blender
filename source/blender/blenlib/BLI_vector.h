@@ -307,6 +307,13 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
     return index;
   }
 
+  void append_non_duplicates(const T &value)
+  {
+    if (!this->contains(value)) {
+      this->append(value);
+    }
+  }
+
   void append_unchecked(const T &value)
   {
     BLI_assert(m_end < m_capacity_end);
@@ -353,6 +360,13 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
   {
     this->reserve(this->size() + amount);
     this->extend_unchecked(start, amount);
+  }
+
+  void extend_non_duplicates(ArrayRef<T> array)
+  {
+    for (const T &value : array) {
+      this->append_non_duplicates(value);
+    }
   }
 
   void extend_unchecked(ArrayRef<T> array)
