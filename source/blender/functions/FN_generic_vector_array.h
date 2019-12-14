@@ -105,10 +105,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
 
     if (values.is_single_element()) {
       const void *value = values.as_single_element();
-      for (uint i = 0; i < extend_length; i++) {
-        void *dst = POINTER_OFFSET(start, m_element_size * i);
-        m_type.copy_to_uninitialized(value, dst);
-      }
+      m_type.fill_uninitialized(value, start, extend_length);
     }
     else if (values.is_non_single_full_array()) {
       GenericArrayRef array = values.as_full_array();
@@ -181,9 +178,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
 
     void extend_single(uint index, ArrayRef<T> values)
     {
-      for (const T &value : values) {
-        this->append_single(index, value);
-      }
+      m_data->extend_single__copy(index, GenericVirtualListRef::FromFullArray(values));
     }
 
     MutableArrayRef<T> allocate_and_default_construct(uint index, uint amount)
@@ -233,10 +228,7 @@ class GenericVectorArray : BLI::NonCopyable, BLI::NonMovable {
     }
 
     for (uint index = 0; index < m_array_size; index++) {
-      for (uint i = 0; i < m_lengths[index]; i++) {
-        void *ptr = POINTER_OFFSET(m_starts[index], m_element_size * i);
-        m_type.destruct(ptr);
-      }
+      m_type.destruct_n(m_starts[index], m_lengths[index]);
     }
   }
 };

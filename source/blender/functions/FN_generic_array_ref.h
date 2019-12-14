@@ -87,22 +87,12 @@ class GenericMutableArrayRef {
 
   void destruct_all()
   {
-    if (m_type->trivially_destructible()) {
-      return;
-    }
-    for (uint i = 0; i < m_size; i++) {
-      m_type->destruct((*this)[i]);
-    }
+    m_type->destruct_n(m_buffer, m_size);
   }
 
   void destruct_indices(ArrayRef<uint> indices)
   {
-    if (m_type->trivially_destructible()) {
-      return;
-    }
-    for (uint i : indices) {
-      m_type->destruct((*this)[i]);
-    }
+    m_type->destruct_indices(m_buffer, indices);
   }
 
   GenericMutableArrayRef slice(uint start, uint size)
@@ -128,9 +118,7 @@ class GenericMutableArrayRef {
 
   void default_initialize(ArrayRef<uint> indices)
   {
-    for (uint i : indices) {
-      m_type->construct_default((*this)[i]);
-    }
+    m_type->construct_default_indices(m_buffer, indices);
   }
 
   void fill__uninitialized(const void *value)
