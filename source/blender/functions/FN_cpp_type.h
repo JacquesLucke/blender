@@ -22,6 +22,8 @@ class CPPType {
   using RelocateToInitializedF = void (*)(void *src, void *dst);
   using RelocateToUninitializedF = void (*)(void *src, void *dst);
   using RelocateToUninitializedNF = void (*)(void *src, void *dst, uint n);
+  using FillInitializedF = void (*)(const void *value, void *dst, uint n);
+  using FillUninitializedF = void (*)(const void *value, void *dst, uint n);
 
   CPPType(std::string name,
           uint size,
@@ -37,6 +39,8 @@ class CPPType {
           RelocateToInitializedF relocate_to_initialized,
           RelocateToUninitializedF relocate_to_uninitialized,
           RelocateToUninitializedNF relocate_to_uninitialized_n,
+          FillInitializedF fill_initialized,
+          FillUninitializedF fill_uninitialized,
           const CPPType *generalization)
       : m_size(size),
         m_alignment(alignment),
@@ -51,6 +55,8 @@ class CPPType {
         m_relocate_to_initialized(relocate_to_initialized),
         m_relocate_to_uninitialized(relocate_to_uninitialized),
         m_relocate_to_uninitialized_n(relocate_to_uninitialized_n),
+        m_fill_initialized(fill_initialized),
+        m_fill_uninitialized(fill_uninitialized),
         m_generalization(generalization),
         m_name(name)
   {
@@ -169,6 +175,22 @@ class CPPType {
     m_relocate_to_uninitialized_n(src, dst, n);
   }
 
+  void fill_initialized(const void *value, void *dst, uint n) const
+  {
+    BLI_assert(this->pointer_has_valid_alignment(value));
+    BLI_assert(this->pointer_has_valid_alignment(dst));
+
+    m_fill_initialized(value, dst, n);
+  }
+
+  void fill_uninitialized(const void *value, void *dst, uint n) const
+  {
+    BLI_assert(this->pointer_has_valid_alignment(value));
+    BLI_assert(this->pointer_has_valid_alignment(dst));
+
+    m_fill_uninitialized(value, dst, n);
+  }
+
   bool is_same_or_generalization(const CPPType &other) const
   {
     if (&other == this) {
@@ -205,6 +227,8 @@ class CPPType {
   RelocateToInitializedF m_relocate_to_initialized;
   RelocateToUninitializedF m_relocate_to_uninitialized;
   RelocateToUninitializedNF m_relocate_to_uninitialized_n;
+  FillInitializedF m_fill_initialized;
+  FillUninitializedF m_fill_uninitialized;
   const CPPType *m_generalization;
   std::string m_name;
 };

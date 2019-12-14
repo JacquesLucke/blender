@@ -135,16 +135,12 @@ class GenericMutableArrayRef {
 
   void fill__uninitialized(const void *value)
   {
-    for (uint i = 0; i < m_size; i++) {
-      m_type->copy_to_uninitialized(value, (*this)[i]);
-    }
+    m_type->fill_uninitialized(value, m_buffer, m_size);
   }
 
   void fill__initialized(const void *value)
   {
-    for (uint i = 0; i < m_size; i++) {
-      m_type->copy_to_initialized(value, (*this)[i]);
-    }
+    m_type->fill_initialized(value, m_buffer, m_size);
   }
 
   void copy_in__uninitialized(uint index, const void *src)

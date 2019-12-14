@@ -59,6 +59,24 @@ template<typename T> void RelocateToUninitializedN_CB(void *src, void *dst, uint
 {
   BLI::uninitialized_relocate_n((T *)src, n, (T *)dst);
 }
+template<typename T> void FillInitialized_CB(const void *value, void *dst, uint n)
+{
+  const T &value_ = *(const T *)value;
+  T *dst_ = (T *)dst;
+
+  for (uint i = 0; i < n; i++) {
+    dst_[i] = value_;
+  }
+}
+template<typename T> void FillUninitialized_CB(const void *value, void *dst, uint n)
+{
+  const T &value_ = *(const T *)value;
+  T *dst_ = (T *)dst;
+
+  for (uint i = 0; i < n; i++) {
+    new (dst_ + i) T(value_);
+  }
+}
 
 template<typename T> static std::unique_ptr<const CPPType> create_cpp_type(StringRef name)
 {
@@ -76,6 +94,8 @@ template<typename T> static std::unique_ptr<const CPPType> create_cpp_type(Strin
                                     RelocateToInitialized_CB<T>,
                                     RelocateToUninitialized_CB<T>,
                                     RelocateToUninitializedN_CB<T>,
+                                    FillInitialized_CB<T>,
+                                    FillUninitialized_CB<T>,
                                     nullptr);
   return std::unique_ptr<const CPPType>(type);
 }
