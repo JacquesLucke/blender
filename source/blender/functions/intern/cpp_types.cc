@@ -197,8 +197,7 @@ template<typename T> static std::unique_ptr<const CPPType> create_cpp_type(Strin
                                     FillInitialized_CB<T>,
                                     FillInitializedIndices_CB<T>,
                                     FillUninitialized_CB<T>,
-                                    FillUninitializedIndices_CB<T>,
-                                    nullptr);
+                                    FillUninitializedIndices_CB<T>);
   return std::unique_ptr<const CPPType>(type);
 }
 

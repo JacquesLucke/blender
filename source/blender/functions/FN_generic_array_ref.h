@@ -51,7 +51,7 @@ class GenericArrayRef {
 
   template<typename T> ArrayRef<T> as_typed_ref() const
   {
-    BLI_assert(CPP_TYPE<T>().is_same_or_generalization(*m_type));
+    BLI_assert(CPP_TYPE<T>() == *m_type);
     return ArrayRef<T>((const T *)m_buffer, m_size);
   }
 };
@@ -155,7 +155,7 @@ class GenericMutableArrayRef {
 
   template<typename T> MutableArrayRef<T> as_typed_ref()
   {
-    BLI_assert(CPP_TYPE<T>().is_same_or_generalization(*m_type));
+    BLI_assert(CPP_TYPE<T>() == *m_type);
     return MutableArrayRef<T>((T *)m_buffer, m_size);
   }
 };

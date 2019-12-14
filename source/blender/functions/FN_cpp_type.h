@@ -68,8 +68,7 @@ class CPPType {
           FillInitializedF fill_initialized,
           FillInitializedIndicesF fill_initialized_indices,
           FillUninitializedF fill_uninitialized,
-          FillUninitializedIndicesF fill_uninitialized_indices,
-          const CPPType *generalization)
+          FillUninitializedIndicesF fill_uninitialized_indices)
       : m_size(size),
         m_alignment(alignment),
         m_trivially_destructible(trivially_destructible),
@@ -95,13 +94,9 @@ class CPPType {
         m_fill_initialized_indices(fill_initialized_indices),
         m_fill_uninitialized(fill_uninitialized),
         m_fill_uninitialized_indices(fill_uninitialized_indices),
-        m_generalization(generalization),
         m_name(name)
   {
     BLI_assert(is_power_of_2_i(m_alignment));
-    BLI_assert(generalization == nullptr ||
-               (generalization->size() == size && generalization->alignment() <= alignment));
-
     m_alignment_mask = m_alignment - 1;
   }
 
@@ -121,12 +116,6 @@ class CPPType {
   {
     return m_alignment;
   }
-
-  const CPPType *generalization() const
-  {
-    return m_generalization;
-  }
-
   bool trivially_destructible() const
   {
     return m_trivially_destructible;
@@ -307,17 +296,6 @@ class CPPType {
     m_fill_uninitialized_indices(value, dst, indices);
   }
 
-  bool is_same_or_generalization(const CPPType &other) const
-  {
-    if (&other == this) {
-      return true;
-    }
-    if (m_generalization == nullptr) {
-      return false;
-    }
-    return m_generalization->is_same_or_generalization(other);
-  }
-
   friend bool operator==(const CPPType &a, const CPPType &b)
   {
     return &a == &b;
@@ -364,7 +342,6 @@ class CPPType {
   FillUninitializedF m_fill_uninitialized;
   FillUninitializedIndicesF m_fill_uninitialized_indices;
 
-  const CPPType *m_generalization;
   std::string m_name;
 };
 

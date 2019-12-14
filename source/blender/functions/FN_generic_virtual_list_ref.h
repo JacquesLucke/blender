@@ -188,7 +188,7 @@ class GenericVirtualListRef {
 
   template<typename T> VirtualListRef<T> as_typed_ref() const
   {
-    BLI_assert(CPP_TYPE<T>().is_same_or_generalization(*m_type));
+    BLI_assert(CPP_TYPE<T>() == *m_type);
 
     switch (m_category) {
       case Category::Single:

@@ -84,7 +84,7 @@ class GenericTupleInfo : BLI::NonCopyable, BLI::NonMovable {
 
   template<typename T> bool element_has_type(uint index) const
   {
-    return CPP_TYPE<T>().is_same_or_generalization(*m_types[index]);
+    return CPP_TYPE<T>() == *m_types[index];
   }
 };
 
