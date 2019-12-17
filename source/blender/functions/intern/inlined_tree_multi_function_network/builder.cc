@@ -2,6 +2,8 @@
 
 namespace FN {
 
+using BLI::ScopedVector;
+
 InlinedTreeMFNetworkBuilder::InlinedTreeMFNetworkBuilder(
     const InlinedNodeTree &inlined_tree,
     const PreprocessedVTreeMFData &preprocessed_inlined_tree_data,
@@ -31,8 +33,8 @@ MFBuilderFunctionNode &InlinedTreeMFNetworkBuilder::add_function(const MultiFunc
 
 MFBuilderDummyNode &InlinedTreeMFNetworkBuilder::add_dummy(const XNode &xnode)
 {
-  Vector<MFDataType> input_types;
-  Vector<StringRef> input_names;
+  ScopedVector<MFDataType> input_types;
+  ScopedVector<StringRef> input_names;
   for (const XInputSocket *xsocket : xnode.inputs()) {
     Optional<MFDataType> data_type = this->try_get_data_type(*xsocket);
     if (data_type.has_value()) {
@@ -41,8 +43,8 @@ MFBuilderDummyNode &InlinedTreeMFNetworkBuilder::add_dummy(const XNode &xnode)
     }
   }
 
-  Vector<MFDataType> output_types;
-  Vector<StringRef> output_names;
+  ScopedVector<MFDataType> output_types;
+  ScopedVector<StringRef> output_names;
   for (const XOutputSocket *xsocket : xnode.outputs()) {
     Optional<MFDataType> data_type = this->try_get_data_type(*xsocket);
     if (data_type.has_value()) {
@@ -179,7 +181,7 @@ void VNodeMFNetworkBuilder::set_matching_fn(const MultiFunction &fn)
 const MultiFunction &VNodeMFNetworkBuilder::get_vectorized_function(
     const MultiFunction &base_function, ArrayRef<const char *> is_vectorized_prop_names)
 {
-  Vector<bool> input_is_vectorized;
+  ScopedVector<bool> input_is_vectorized;
   for (const char *prop_name : is_vectorized_prop_names) {
     char state[5];
     RNA_string_get(m_xnode.rna(), prop_name, state);

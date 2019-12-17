@@ -5,6 +5,7 @@
 namespace FN {
 
 using BLI::LargeScopedVector;
+using BLI::ScopedVector;
 
 template<typename T, typename FuncT, typename EqualFuncT = std::equal_to<T>>
 void group_indices_by_same_value(ArrayRef<uint> indices,
@@ -21,7 +22,7 @@ void group_indices_by_same_value(ArrayRef<uint> indices,
     return;
   }
 
-  Vector<T> seen_values;
+  ScopedVector<T> seen_values;
 
   for (uint i : indices.index_iterator()) {
     uint index = indices[i];

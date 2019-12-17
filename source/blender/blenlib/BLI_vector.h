@@ -653,6 +653,12 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
  */
 template<typename T, uint N = 4> using LargeScopedVector = Vector<T, N, TemporaryAllocator>;
 
+/**
+ * Use when the vector is used in the local scope of a function. It has a larger inline storage by
+ * default to make allocations less likely.
+ */
+template<typename T, uint N = 20> using ScopedVector = Vector<T, N, GuardedAllocator>;
+
 } /* namespace BLI */
 
 #endif /* __BLI_VECTOR_H__ */

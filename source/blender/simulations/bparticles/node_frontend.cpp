@@ -38,6 +38,7 @@ using BLI::destruct_ptr;
 using BLI::MultiMap;
 using BLI::ResourceCollector;
 using BLI::rgba_f;
+using BLI::ScopedVector;
 using BLI::Set;
 using FN::AttributesInfoBuilder;
 using FN::CPPType;
@@ -116,7 +117,7 @@ class InlinedTreeData {
 
   ParticleFunction *particle_function_for_all_inputs(const XNode &xnode)
   {
-    Vector<const MFInputSocket *> sockets_to_compute;
+    ScopedVector<const MFInputSocket *> sockets_to_compute;
     for (const XInputSocket *xsocket : xnode.inputs()) {
       if (m_inlined_tree_data_graph.is_mapped(*xsocket)) {
         sockets_to_compute.append(&m_inlined_tree_data_graph.lookup_dummy_socket(*xsocket));
@@ -128,7 +129,7 @@ class InlinedTreeData {
 
   ParticleFunction *particle_function_for_inputs(const XNode &xnode, ArrayRef<uint> input_indices)
   {
-    Vector<const MFInputSocket *> sockets_to_compute;
+    ScopedVector<const MFInputSocket *> sockets_to_compute;
     for (uint i : input_indices) {
       const MFInputSocket &socket = m_inlined_tree_data_graph.lookup_dummy_socket(xnode.input(i));
       sockets_to_compute.append(&socket);
@@ -198,7 +199,7 @@ class InlinedTreeData {
 
   Optional<NamedGenericTupleRef> compute_all_data_inputs(const XNode &xnode)
   {
-    Vector<uint> data_input_indices;
+    ScopedVector<uint> data_input_indices;
     for (uint i : xnode.inputs().index_iterator()) {
       if (m_inlined_tree_data_graph.is_mapped(xnode.input(i))) {
         data_input_indices.append(i);
@@ -444,7 +445,7 @@ class XSocketActionBuilder {
                                                const void *default_value = nullptr)
   {
     /* Add attribute to all particle systems for now. */
-    Vector<std::string> system_names;
+    ScopedVector<std::string> system_names;
     m_influences_collector.m_attributes.foreach_key(
         [&](StringRef name) { system_names.append(name); });
 
