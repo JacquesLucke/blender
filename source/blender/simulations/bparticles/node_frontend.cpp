@@ -310,24 +310,28 @@ class InlinedTreeData {
 
   Vector<const XInputSocket *> find_execute_sockets(const XNode &xnode, StringRef name_prefix)
   {
-    bool found_name = false;
-    Vector<const XInputSocket *> execute_sockets;
+    int first_index = -1;
     for (const XInputSocket *xsocket : xnode.inputs()) {
-      if (StringRef(xsocket->name()).startswith(name_prefix)) {
-        if (xsocket->idname() == "fn_OperatorSocket") {
-          found_name = true;
-          break;
-        }
-        else {
-          execute_sockets.append(xsocket);
-        }
+      if (xsocket->name() == name_prefix) {
+        first_index = xsocket->index();
+        break;
       }
     }
-    BLI_assert(found_name);
-    UNUSED_VARS_NDEBUG(found_name);
+    BLI_assert(first_index >= 0);
+
+    Vector<const XInputSocket *> execute_sockets;
+    for (const XInputSocket *xsocket : xnode.inputs().drop_front(first_index)) {
+      if (xsocket->idname() == "fn_OperatorSocket") {
+        break;
+      }
+      else {
+        execute_sockets.append(xsocket);
+      }
+    }
+
     return execute_sockets;
   }
-};  // namespace BParticles
+};
 
 class XSocketActionBuilder {
  private:

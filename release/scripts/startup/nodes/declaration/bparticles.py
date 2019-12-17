@@ -1,7 +1,8 @@
 import bpy
+import uuid
 from bpy.props import *
 from . base import SocketDeclBase
-from .. sockets import OperatorSocket
+from .. sockets import OperatorSocket, ExecuteSocket
 
 MAX_LINK_LIMIT = 4095
 
@@ -88,11 +89,12 @@ class ExecuteInputListDecl(SocketDeclBase):
         return list(self._build(node_sockets))
 
     def _build(self, node_sockets):
-        for i in range(self.get_execute_amount()):
+        items = self.get_items()
+        for i, item in enumerate(items):
             socket = node_sockets.new(
                 "fn_ExecuteSocket",
-                self.display_name,
-                identifier=self.identifier_prefix + str(i))
+                self.display_name if i == 0 else "Then",
+                identifier=item.identifier)
             socket.display_shape = 'SQUARE'
             yield socket
         socket = node_sockets.new(
@@ -103,18 +105,17 @@ class ExecuteInputListDecl(SocketDeclBase):
         yield socket
 
     def amount(self):
-        return self.get_execute_amount() + 1
+        return len(self.get_items()) + 1
 
-    def get_execute_amount(self):
+    def get_items(self):
         return getattr(self.node, self.prop_name)
 
     def validate(self, sockets):
         if len(sockets) != self.amount():
             return False
 
-        for i, socket in enumerate(sockets[:-1]):
-            expected_identifier = self.identifier_prefix + str(i)
-            if socket.identifier != expected_identifier:
+        for socket, item in zip(sockets[:-1], self.get_items()):
+            if socket.identifier != item.identifier:
                 return False
             elif socket.bl_idname != "fn_ExecuteSocket":
                 return False
@@ -129,22 +130,50 @@ class ExecuteInputListDecl(SocketDeclBase):
         return True
 
     def draw_socket(self, layout, socket, index):
+        row = layout.row(align=True)
         if index == 0:
-            layout.label(text=self.display_name)
-        else :
-            layout.label(text="Then")
+            row.label(text=self.display_name)
+        else:
+            row.label(text="Then")
+        if isinstance(socket, ExecuteSocket):
+            props = row.operator("fn.remove_execute_socket", text="", icon="X")
+            props.tree_name = socket.id_data.name
+            props.node_name = self.node.name
+            props.prop_name = self.prop_name
+            props.index = index
 
     def operator_socket_call(self, own_socket, linked_socket, connected_sockets):
-        old_amount = self.get_execute_amount()
-        new_amount = old_amount + 1
-        new_identifier = self.identifier_prefix + str(old_amount)
-        setattr(self.node, self.prop_name, new_amount)
+        item = self.get_items().add()
+        item.identifier = str(uuid.uuid4())
 
         self.node.rebuild()
 
-        new_socket = self.node.find_socket(new_identifier, False)
+        new_socket = self.node.find_socket(item.identifier, False)
         self.node.tree.new_link(linked_socket, new_socket)
 
     @classmethod
     def Property(cls):
-        return IntProperty(default=0)
+        return CollectionProperty(type=ExecuteInputItem)
+
+
+class ExecuteInputItem(bpy.types.PropertyGroup):
+    identifier: StringProperty()
+
+
+class RemoveExecuteSocketOperator(bpy.types.Operator):
+    bl_idname = "fn.remove_execute_socket"
+    bl_label = "Remove Execute Socket"
+    bl_options = {'INTERNAL'}
+
+    tree_name: StringProperty()
+    node_name: StringProperty()
+    prop_name: StringProperty()
+    index: IntProperty()
+
+    def execute(self, context):
+        tree = bpy.data.node_groups[self.tree_name]
+        node = tree.nodes[self.node_name]
+        collection = getattr(node, self.prop_name)
+        collection.remove(self.index)
+        tree.sync()
+        return {'FINISHED'}
