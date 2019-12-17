@@ -20,7 +20,6 @@ using BKE::VNode;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::IndexRange;
-using BLI::TemporaryVector;
 using BLI::Vector;
 using FN::MFContext;
 using FN::MFInputSocket;

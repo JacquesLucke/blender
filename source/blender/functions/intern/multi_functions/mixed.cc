@@ -36,7 +36,6 @@ using BLI::float4x4;
 using BLI::rgba_b;
 using BLI::rgba_f;
 using BLI::TemporaryArray;
-using BLI::TemporaryVector;
 
 MF_CombineColor::MF_CombineColor()
 {

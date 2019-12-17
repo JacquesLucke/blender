@@ -10,7 +10,6 @@
 namespace BParticles {
 
 using BLI::TemporaryArray;
-using BLI::TemporaryVector;
 using FN::AttributesRefGroup;
 
 class ActionContext {

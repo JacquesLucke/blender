@@ -6,6 +6,8 @@
 
 namespace BParticles {
 
+using BLI::TemporaryVector;
+
 /* Age Reached Event
  ******************************************/
 
