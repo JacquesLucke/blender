@@ -28,6 +28,12 @@ class GenericArrayRef {
     BLI_assert(type.pointer_has_valid_alignment(buffer));
   }
 
+  template<typename T>
+  GenericArrayRef(ArrayRef<T> array)
+      : GenericArrayRef(CPP_TYPE<T>(), (const void *)array.begin(), array.size())
+  {
+  }
+
   const CPPType &type() const
   {
     return *m_type;
@@ -75,7 +81,7 @@ class GenericMutableArrayRef {
   }
 
   template<typename T>
-  GenericMutableArrayRef(ArrayRef<T> array)
+  GenericMutableArrayRef(MutableArrayRef<T> array)
       : GenericMutableArrayRef(CPP_TYPE<T>(), (void *)array.begin(), array.size())
   {
   }

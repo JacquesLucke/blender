@@ -290,6 +290,11 @@ class AttributesRefGroup {
                      Vector<ArrayRef<void *>> buffers,
                      Vector<IndexRange> ranges);
 
+  const AttributesInfo &info() const
+  {
+    return *m_info;
+  }
+
   template<typename T> void set(uint index, ArrayRef<T> data)
   {
     BLI_assert(data.size() == m_total_size);
@@ -303,12 +308,25 @@ class AttributesRefGroup {
     }
   }
 
-  const AttributesInfo &info() const
+  template<typename T> void set(StringRef name, ArrayRef<T> data)
   {
-    return *m_info;
+    this->set(m_info->index_of(name), data);
   }
 
-  template<typename T> void set(StringRef name, ArrayRef<T> data)
+  void set(uint index, GenericArrayRef data)
+  {
+    BLI_assert(data.size() == m_total_size);
+    BLI_assert(m_info->type_of(index) == data.type());
+
+    uint offset = 0;
+    for (AttributesRef attributes : *this) {
+      GenericMutableArrayRef array = attributes.get(index);
+      array.type().copy_to_initialized_n(data[offset], array[0], attributes.size());
+      offset += attributes.size();
+    }
+  }
+
+  void set(StringRef name, GenericArrayRef data)
   {
     this->set(m_info->index_of(name), data);
   }

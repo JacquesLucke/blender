@@ -253,7 +253,7 @@ class MFParamsBuilder {
     m_virtual_list_list_refs.append(list);
   }
 
-  template<typename T> void add_single_output(ArrayRef<T> array)
+  template<typename T> void add_single_output(MutableArrayRef<T> array)
   {
     BLI_assert(array.size() >= m_min_array_size);
     this->add_single_output(GenericMutableArrayRef(array));
