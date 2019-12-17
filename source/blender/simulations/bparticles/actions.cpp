@@ -128,7 +128,6 @@ void ExplodeAction::execute(ActionInterface &interface)
   Vector<float3> new_positions;
   Vector<float3> new_velocities;
   Vector<float> new_birth_times;
-  Vector<uint> source_particles;
 
   auto inputs = m_inputs_fn->compute(interface);
 
@@ -136,7 +135,6 @@ void ExplodeAction::execute(ActionInterface &interface)
     uint parts_amount = std::max(0, inputs->get<int>("Amount", 0, pindex));
     float speed = inputs->get<float>("Speed", 1, pindex);
 
-    source_particles.append_n_times(pindex, parts_amount);
     new_positions.append_n_times(positions[pindex], parts_amount);
     new_birth_times.append_n_times(interface.current_times()[pindex], parts_amount);
 
@@ -153,9 +151,7 @@ void ExplodeAction::execute(ActionInterface &interface)
     new_particles.fill<float>("Size", 0.1f);
     new_particles.set<float>("Birth Time", new_birth_times);
 
-    SourceParticleActionContext source_context(source_particles, &interface.context());
-
-    m_on_birth_action.execute_for_new_particles(new_particles, interface, &source_context);
+    m_on_birth_action.execute_for_new_particles(new_particles, interface);
   }
 }
 
@@ -215,6 +211,164 @@ void SetAttributeAction::execute(ActionInterface &interface)
     void *dst = attribute[pindex];
     m_attribute_type.copy_to_initialized(value, dst);
   }
+}
+
+using FN::MFDataType;
+using FN::MFParamType;
+
+void SpawnParticlesAction::execute(ActionInterface &interface)
+{
+  FN::MFMask mask(interface.pindices());
+  uint min_array_size = mask.min_array_size();
+  FN::MFParamsBuilder params_builder{m_spawn_function, min_array_size};
+
+  for (uint param_index : m_spawn_function.param_indices()) {
+    MFParamType param_type = m_spawn_function.param_type(param_index);
+    MFDataType data_type = param_type.data_type();
+    BLI_assert(param_type.is_output());
+    switch (param_type.data_type().category()) {
+      case MFDataType::Single: {
+        const FN::CPPType &type = data_type.single__cpp_type();
+        void *buffer = MEM_malloc_arrayN(min_array_size, type.size(), __func__);
+        FN::GenericMutableArrayRef array{type, buffer, min_array_size};
+        params_builder.add_single_output(array);
+        break;
+      }
+      case MFDataType::Vector: {
+        const FN::CPPType &base_type = data_type.vector__cpp_base_type();
+        FN::GenericVectorArray *vector_array = new FN::GenericVectorArray(base_type,
+                                                                          min_array_size);
+        params_builder.add_vector_output(*vector_array);
+        break;
+      }
+    }
+  }
+
+  FN::ParticleAttributesContext attributes_context = {interface.attributes()};
+
+  FN::MFContextBuilder context_builder;
+  context_builder.add_global_context(m_id_data_cache);
+  context_builder.add_global_context(m_id_handle_lookup);
+  context_builder.add_element_context(attributes_context, IndexRange(min_array_size));
+
+  m_spawn_function.call(mask, params_builder, context_builder);
+
+  LargeScopedArray<int> particle_counts(min_array_size, -1);
+
+  for (uint param_index : m_spawn_function.param_indices()) {
+    MFParamType param_type = m_spawn_function.param_type(param_index);
+    if (param_type.is_vector_output()) {
+      FN::GenericVectorArray &vector_array = params_builder.computed_vector_array(param_index);
+      for (uint i : interface.pindices()) {
+        FN::GenericArrayRef array = vector_array[i];
+        particle_counts[i] = std::max<int>(particle_counts[i], array.size());
+      }
+    }
+  }
+
+  for (uint i : interface.pindices()) {
+    if (particle_counts[i] == -1) {
+      particle_counts[i] = 1;
+    }
+  }
+
+  uint total_spawn_amount = 0;
+  for (uint i : interface.pindices()) {
+    total_spawn_amount += particle_counts[i];
+  }
+
+  StringMap<GenericMutableArrayRef> attribute_arrays;
+
+  Vector<float> new_birth_times;
+  for (uint i : interface.pindices()) {
+    new_birth_times.append_n_times(interface.current_times()[i], particle_counts[i]);
+  }
+  attribute_arrays.add_new("Birth Time", new_birth_times.as_mutable_ref());
+
+  for (uint param_index : m_spawn_function.param_indices()) {
+    MFParamType param_type = m_spawn_function.param_type(param_index);
+    MFDataType data_type = param_type.data_type();
+    StringRef attribute_name = m_attribute_names[param_index];
+
+    switch (data_type.category()) {
+      case MFDataType::Single: {
+        const FN::CPPType &type = data_type.single__cpp_type();
+        void *buffer = MEM_malloc_arrayN(total_spawn_amount, type.size(), __func__);
+        GenericMutableArrayRef array(type, buffer, total_spawn_amount);
+        GenericMutableArrayRef computed_array = params_builder.computed_array(param_index);
+
+        uint current = 0;
+        for (uint i : interface.pindices()) {
+          uint amount = particle_counts[i];
+          array.slice(current, amount).fill__uninitialized(computed_array[i]);
+          current += amount;
+        }
+
+        attribute_arrays.add(attribute_name, array);
+
+        computed_array.destruct_indices(interface.pindices());
+        MEM_freeN(computed_array.buffer());
+        break;
+      }
+      case MFDataType::Vector: {
+        const FN::CPPType &base_type = data_type.vector__cpp_base_type();
+        void *buffer = MEM_malloc_arrayN(total_spawn_amount, base_type.size(), __func__);
+        GenericMutableArrayRef array(base_type, buffer, total_spawn_amount);
+        FN::GenericVectorArray &computed_vector_array = params_builder.computed_vector_array(
+            param_index);
+
+        uint current = 0;
+        for (uint pindex : interface.pindices()) {
+          uint amount = particle_counts[pindex];
+          GenericMutableArrayRef array_slice = array.slice(current, amount);
+          GenericArrayRef computed_array = computed_vector_array[pindex];
+
+          if (computed_array.size() == 0) {
+            const void *default_buffer = interface.attributes().info().default_of(attribute_name);
+            array_slice.fill__uninitialized(default_buffer);
+          }
+          else if (computed_array.size() == amount) {
+            base_type.copy_to_uninitialized_n(
+                computed_array.buffer(), array_slice.buffer(), amount);
+          }
+          else {
+            for (uint i : IndexRange(amount)) {
+              base_type.copy_to_uninitialized(computed_array[i % computed_array.size()],
+                                              array_slice[i]);
+            }
+          }
+
+          current += amount;
+        }
+
+        attribute_arrays.add(attribute_name, array);
+
+        delete &computed_vector_array;
+        break;
+      }
+    }
+  }
+
+  for (StringRef system_name : m_systems_to_emit) {
+    auto new_particles = interface.particle_allocator().request(system_name, total_spawn_amount);
+
+    attribute_arrays.foreach_key_value_pair(
+        [&](StringRef attribute_name, GenericMutableArrayRef array) {
+          if (new_particles.info().has_attribute(attribute_name, array.type())) {
+            new_particles.set(attribute_name, array);
+          }
+        });
+
+    m_action.execute_for_new_particles(new_particles, interface);
+  }
+
+  attribute_arrays.foreach_key_value_pair(
+      [&](StringRef attribute_name, GenericMutableArrayRef array) {
+        if (attribute_name != "Birth Time") {
+          array.destruct_indices(interface.pindices());
+          MEM_freeN(array.buffer());
+        }
+      });
 }
 
 }  // namespace BParticles

@@ -17,34 +17,6 @@ class ActionContext {
   virtual ~ActionContext();
 };
 
-class SourceParticleActionContext : public ActionContext {
- private:
-  ArrayRef<uint> m_all_source_indices;
-  ArrayRef<uint> m_current_source_indices;
-  ActionContext *m_source_context;
-
- public:
-  SourceParticleActionContext(ArrayRef<uint> source_indices, ActionContext *source_context)
-      : m_all_source_indices(source_indices), m_source_context(source_context)
-  {
-  }
-
-  void update(IndexRange slice)
-  {
-    m_current_source_indices = m_all_source_indices.slice(slice.start(), slice.size());
-  }
-
-  ArrayRef<uint> source_indices()
-  {
-    return m_current_source_indices;
-  }
-
-  ActionContext *source_context()
-  {
-    return m_source_context;
-  }
-};
-
 class ActionInterface {
  private:
   ParticleAllocator &m_particle_allocator;
@@ -94,8 +66,7 @@ class Action {
                                    ActionContext *action_context = nullptr);
   void execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface);
   void execute_for_new_particles(AttributesRefGroup &new_particles,
-                                 ActionInterface &action_interface,
-                                 SourceParticleActionContext *action_context);
+                                 ActionInterface &action_interface);
   void execute_for_new_particles(AttributesRefGroup &new_particles,
                                  OffsetHandlerInterface &offset_handler_interface);
 };
@@ -219,8 +190,7 @@ inline void Action::execute_for_subset(ArrayRef<uint> pindices, ActionInterface 
 }
 
 inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
-                                              ActionInterface &action_interface,
-                                              SourceParticleActionContext *action_context)
+                                              ActionInterface &action_interface)
 {
   AttributesInfo info;
   std::array<void *, 0> buffers;
@@ -228,12 +198,13 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
   uint offset = 0;
   for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
-    action_context->update(IndexRange(offset, range_size));
     offset += range_size;
 
     AttributesRef offsets(info, buffers, range_size);
     LargeScopedArray<float> durations(range_size);
     durations.fill(0);
+
+    EmptyActionContext empty_context;
 
     ActionInterface new_interface(action_interface.particle_allocator(),
                                   IndexRange(range_size).as_array_ref(),
@@ -241,7 +212,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
                                   offsets,
                                   attributes.get<float>("Birth Time"),
                                   durations,
-                                  *action_context);
+                                  empty_context);
     this->execute(new_interface);
   }
 }

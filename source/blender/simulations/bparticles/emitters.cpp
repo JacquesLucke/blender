@@ -19,6 +19,7 @@
 namespace BParticles {
 
 using BKE::SurfaceHook;
+using BLI::LargeScopedArray;
 using BLI::VectorAdaptor;
 
 static float random_float()
@@ -359,6 +360,7 @@ void InitialGridEmitter::emit(EmitterInterface &interface)
   }
 }
 
+using FN::MFDataType;
 using FN::MFParamType;
 
 void CustomEmitter::emit(EmitterInterface &interface)
@@ -367,22 +369,18 @@ void CustomEmitter::emit(EmitterInterface &interface)
 
   for (uint param_index : m_emitter_function.param_indices()) {
     MFParamType param_type = m_emitter_function.param_type(param_index);
-    switch (param_type.type()) {
-      case MFParamType::SingleInput:
-      case MFParamType::VectorInput:
-      case MFParamType::MutableSingle:
-      case MFParamType::MutableVector:
-        BLI_assert(false);
-        break;
-      case MFParamType::SingleOutput: {
-        const FN::CPPType &type = param_type.data_type().single__cpp_type();
+    MFDataType data_type = param_type.data_type();
+    BLI_assert(param_type.is_output());
+    switch (data_type.category()) {
+      case MFDataType::Single: {
+        const FN::CPPType &type = data_type.single__cpp_type();
         void *buffer = MEM_mallocN(type.size(), __func__);
         FN::GenericMutableArrayRef array{type, buffer, 1};
         params_builder.add_single_output(array);
         break;
       }
-      case MFParamType::VectorOutput: {
-        const FN::CPPType &base_type = param_type.data_type().vector__cpp_base_type();
+      case MFDataType::Vector: {
+        const FN::CPPType &base_type = data_type.vector__cpp_base_type();
         FN::GenericVectorArray *vector_array = new FN::GenericVectorArray(base_type, 1);
         params_builder.add_vector_output(*vector_array);
         break;
@@ -457,8 +455,7 @@ void CustomEmitter::emit(EmitterInterface &interface)
         const FN::CPPType &base_type = array.type();
         if (info.has_attribute(attribute_name, base_type)) {
           if (array.size() == 0) {
-            void *default_buffer = alloca(base_type.size());
-            base_type.construct_default(default_buffer);
+            const void *default_buffer = new_particles.info().default_of(attribute_name);
             new_particles.fill(attribute_name, base_type, default_buffer);
           }
           else {

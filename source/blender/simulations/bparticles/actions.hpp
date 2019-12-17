@@ -164,4 +164,32 @@ class SetAttributeAction : public Action {
   void execute(ActionInterface &interface) override;
 };
 
+class SpawnParticlesAction : public Action {
+ private:
+  ArrayRef<std::string> m_systems_to_emit;
+  const MultiFunction &m_spawn_function;
+  Vector<std::string> m_attribute_names;
+  Action &m_action;
+  const BKE::IDHandleLookup &m_id_handle_lookup;
+  const BKE::IDDataCache &m_id_data_cache;
+
+ public:
+  SpawnParticlesAction(ArrayRef<std::string> systems_to_emit,
+                       const MultiFunction &spawn_function,
+                       Vector<std::string> attribute_names,
+                       Action &action,
+                       const BKE::IDHandleLookup &id_handle_lookup,
+                       const BKE::IDDataCache &id_data_cache)
+      : m_systems_to_emit(systems_to_emit),
+        m_spawn_function(spawn_function),
+        m_attribute_names(std::move(attribute_names)),
+        m_action(action),
+        m_id_handle_lookup(id_handle_lookup),
+        m_id_data_cache(id_data_cache)
+  {
+  }
+
+  void execute(ActionInterface &interface) override;
+};
+
 }  // namespace BParticles

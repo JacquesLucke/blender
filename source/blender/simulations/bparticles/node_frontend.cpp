@@ -406,6 +406,16 @@ class XSocketActionBuilder {
                                                             input_indices);
   }
 
+  const MultiFunction *function_for_inputs(ArrayRef<uint> input_indices)
+  {
+    return m_inlined_tree_data.function_for_inputs(m_execute_xsocket.node(), input_indices);
+  }
+
+  FN::MFDataType data_type_of_input(const XInputSocket &xsocket)
+  {
+    return m_inlined_tree_data.inlined_tree_data_graph().lookup_dummy_socket(xsocket).data_type();
+  }
+
   PointerRNA *node_rna()
   {
     return m_execute_xsocket.node().rna();
@@ -451,6 +461,25 @@ class XSocketActionBuilder {
 
     return m_inlined_tree_data.try_add_attribute(
         m_influences_collector, system_names, name, type, default_value);
+  }
+
+  bool try_add_attribute(ArrayRef<std::string> system_names,
+                         StringRef name,
+                         const CPPType &type,
+                         const void *default_value = nullptr)
+  {
+    return m_inlined_tree_data.try_add_attribute(
+        m_influences_collector, system_names, name, type, default_value);
+  }
+
+  IDHandleLookup &id_handle_lookup()
+  {
+    return m_inlined_tree_data.id_handle_lookup();
+  }
+
+  BKE::IDDataCache &id_data_cache()
+  {
+    return m_inlined_tree_data.id_data_cache();
   }
 };
 
@@ -516,6 +545,54 @@ static void ACTION_explode(XSocketActionBuilder &builder)
 
   Action &on_birth_action = builder.build_input_action_list("Execute on Birth", system_names);
   builder.set_constructed<ExplodeAction>(system_names, inputs_fn, on_birth_action);
+}
+
+static void ACTION_spawn(XSocketActionBuilder &builder)
+{
+  const XNode &xnode = builder.xsocket().node();
+  const XInputSocket &first_execute_socket = *xnode.input_with_name_prefix("Execute on Birth");
+  ArrayRef<const XInputSocket *> data_inputs = xnode.inputs().take_front(
+      first_execute_socket.index());
+  ArrayRef<uint> input_indices = IndexRange(data_inputs.size()).as_array_ref();
+  const MultiFunction *spawn_function = builder.function_for_inputs(input_indices);
+  if (spawn_function == nullptr) {
+    return;
+  }
+
+  ArrayRef<std::string> system_names = builder.find_system_target_names(1, "Spawn System");
+  if (builder.system_names().intersects__linear_search(system_names)) {
+    std::cout << "Warning: cannot spawn particles in same system yet.\n";
+    return;
+  }
+
+  Vector<std::string> attribute_names;
+  for (const XInputSocket *xsocket : data_inputs) {
+    StringRef attribute_name = xsocket->name();
+    attribute_names.append(attribute_name);
+    const CPPType *attribute_type = nullptr;
+
+    FN::MFDataType data_type = builder.data_type_of_input(*xsocket);
+    if (data_type.is_single()) {
+      attribute_type = &data_type.single__cpp_type();
+    }
+    else if (data_type.is_vector()) {
+      attribute_type = &data_type.vector__cpp_base_type();
+    }
+    else {
+      BLI_assert(false);
+    }
+
+    builder.try_add_attribute(system_names, attribute_name, *attribute_type);
+  }
+
+  Action &action = builder.build_input_action_list("Execute on Birth", system_names);
+
+  builder.set_constructed<SpawnParticlesAction>(system_names,
+                                                *spawn_function,
+                                                std::move(attribute_names),
+                                                action,
+                                                builder.id_handle_lookup(),
+                                                builder.id_data_cache());
 }
 
 static void ACTION_condition(XSocketActionBuilder &builder)
@@ -624,6 +701,7 @@ BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
   map.add_new("fn_KillParticleNode", ACTION_kill);
   map.add_new("fn_ChangeParticleVelocityNode", ACTION_change_velocity);
   map.add_new("fn_ExplodeParticleNode", ACTION_explode);
+  map.add_new("fn_SpawnParticlesNode", ACTION_spawn);
   map.add_new("fn_ParticleConditionNode", ACTION_condition);
   map.add_new("fn_ChangeParticleColorNode", ACTION_change_color);
   map.add_new("fn_ChangeParticleSizeNode", ACTION_change_size);
