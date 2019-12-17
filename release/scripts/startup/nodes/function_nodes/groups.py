@@ -94,7 +94,7 @@ class GroupOutputNode(bpy.types.Node, BaseNode):
     interface_type: EnumProperty(
         items=interface_type_items,
         default="DATA",
-        update= BaseNode.sync_tree,
+        update=BaseNode.sync_tree,
     )
 
     data_type: StringProperty(

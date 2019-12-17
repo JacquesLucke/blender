@@ -55,6 +55,8 @@ class ExecuteOutputDecl(SocketDeclBase):
             return False
         elif socket.identifier != self.identifier:
             return False
+        elif socket.bl_idname != "fn_ExecuteSocket":
+            return False
         return True
 
 
@@ -65,7 +67,9 @@ class ExecuteInputDecl(SocketDeclBase):
         self.display_name = display_name
 
     def build(self, node_sockets):
-        return [node_sockets.new("fn_ExecuteSocket", self.display_name, identifier=self.identifier)]
+        socket = node_sockets.new("fn_ExecuteSocket", self.display_name, identifier=self.identifier)
+        socket.display_shape = "SQUARE"
+        return [socket]
 
     def amount(self):
         return 1
