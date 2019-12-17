@@ -64,7 +64,7 @@ class CustomEmitter(bpy.types.Node, SimulationNode):
             self.invoke_type_selection(row, "set_attribute_type", "",
                 icon="SETTINGS", mode="BASE", settings=(index, ))
             self.invoke_function(row, "remove_attribute", "", icon="X", settings=(index, ))
-            if hasattr(socket, "draw_property"):
+            if not socket.is_linked and hasattr(socket, "draw_property"):
                 socket.draw_property(col, self, "")
         else:
             decl.draw_socket(layout, socket, index_in_decl)
@@ -145,7 +145,7 @@ class SpawnParticlesNode(bpy.types.Node, SimulationNode):
             self.invoke_type_selection(row, "set_attribute_type", "",
                 icon="SETTINGS", mode="BASE", settings=(index, ))
             self.invoke_function(row, "remove_attribute", "", icon="X", settings=(index, ))
-            if hasattr(socket, "draw_property"):
+            if not socket.is_linked and hasattr(socket, "draw_property"):
                 socket.draw_property(col, self, "")
         else:
             decl.draw_socket(layout, socket, index_in_decl)
