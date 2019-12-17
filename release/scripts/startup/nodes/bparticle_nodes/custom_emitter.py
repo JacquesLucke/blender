@@ -61,7 +61,8 @@ class CustomEmitter(bpy.types.Node, SimulationNode):
             col = layout.column(align=True)
             row = col.row(align=True)
             row.prop(item, "attribute_name", text="")
-            self.invoke_type_selection(row, "set_attribute_type", "", icon="SETTINGS", mode="BASE", settings=(index, ))
+            self.invoke_type_selection(row, "set_attribute_type", "",
+                icon="SETTINGS", mode="BASE", settings=(index, ))
             self.invoke_function(row, "remove_attribute", "", icon="X", settings=(index, ))
             if hasattr(socket, "draw_property"):
                 socket.draw_property(col, self, "")
@@ -93,3 +94,74 @@ class EmitterTimeInfoNode(bpy.types.Node, FunctionNode):
         builder.fixed_output("begin", "Begin", "Float")
         builder.fixed_output("end", "End", "Float")
         builder.fixed_output("step", "Step", "Integer")
+
+
+class SpawnParticlesAttribute(bpy.types.PropertyGroup):
+    def sync_tree(self, context):
+        self.id_data.sync()
+
+    attribute_name: StringProperty(update=sync_tree)
+    attribute_type: StringProperty(update=sync_tree)
+    identifier: StringProperty()
+    is_list: NodeBuilder.VectorizedProperty()
+
+
+class SpawnParticlesNode(bpy.types.Node, SimulationNode):
+    bl_idname = "fn_SpawnParticlesNode"
+    bl_label = "Spawn Particles"
+
+    execute_on_birth__prop: NodeBuilder.ExecuteInputProperty()
+
+    attributes: CollectionProperty(
+        type=SpawnParticlesAttribute,
+    )
+
+    def init_props(self):
+        self.add_attribute("Vector")
+        self.attributes[0].attribute_name = "Position"
+
+    def declaration(self, builder: NodeBuilder):
+        for i, item in enumerate(self.attributes):
+            builder.vectorized_input(
+                item.identifier,
+                f"attributes[{i}].is_list",
+                item.attribute_name,
+                item.attribute_name,
+                item.attribute_type)
+        builder.execute_input("execute_on_birth", "Execute on Birth", "execute_on_birth__prop")
+        builder.execute_output("execute", "Execute")
+        builder.influences_output("spawn_system", "Spawn System")
+
+    def draw(self, layout):
+        self.invoke_type_selection(layout, "add_attribute", "Add Attribute", mode="BASE")
+
+    def draw_socket(self, layout, socket, text, decl, index_in_decl):
+        if isinstance(socket, DataSocket):
+            index = list(self.inputs).index(socket)
+            item = self.attributes[index]
+            col = layout.column(align=True)
+            row = col.row(align=True)
+            row.prop(item, "attribute_name", text="")
+            self.invoke_type_selection(row, "set_attribute_type", "",
+                icon="SETTINGS", mode="BASE", settings=(index, ))
+            self.invoke_function(row, "remove_attribute", "", icon="X", settings=(index, ))
+            if hasattr(socket, "draw_property"):
+                socket.draw_property(col, self, "")
+        else:
+            decl.draw_socket(layout, socket, index_in_decl)
+
+    def add_attribute(self, data_type):
+        with skip_syncing():
+            item = self.attributes.add()
+            item.identifier = str(uuid.uuid4())
+            item.attribute_type = data_type
+            item.attribute_name = "My Attribute"
+
+        self.sync_tree()
+
+    def remove_attribute(self, index):
+        self.attributes.remove(index)
+        self.sync_tree()
+
+    def set_attribute_type(self, data_type, index):
+        self.attributes[index].attribute_type = data_type
