@@ -267,7 +267,7 @@ BLI_NOINLINE void InlinedNodeTree::expand_group__relink_outputs(const VirtualNod
 BLI_NOINLINE void InlinedNodeTree::insert_linked_nodes_for_vtree_in_id_order(
     const VirtualNodeTree &vtree, Vector<XNode *> &all_nodes, XParentNode *parent)
 {
-  BLI::TemporaryArray<XSocket *> sockets_map(vtree.socket_count());
+  BLI::LargeScopedArray<XSocket *> sockets_map(vtree.socket_count());
 
   /* Insert nodes of group. */
   for (const VNode *vnode : vtree.nodes()) {

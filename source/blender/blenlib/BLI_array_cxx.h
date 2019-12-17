@@ -223,7 +223,14 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ar
   }
 };
 
-template<typename T> using TemporaryArray = Array<T, 4, TemporaryAllocator>;
+/**
+ * Use this when the following assumptions hold:
+ *   - The number of elements in the array is known.
+ *   - The array is usually relatively large (so that it does not fit in inline storage).
+ *   - Is used in the scope of some function. So it will be freed soon.
+ *   - The scope is not in a recursive function.
+ */
+template<typename T> using LargeScopedArray = Array<T, 4, TemporaryAllocator>;
 
 }  // namespace BLI
 

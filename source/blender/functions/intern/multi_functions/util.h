@@ -4,7 +4,7 @@
 
 namespace FN {
 
-using BLI::TemporaryVector;
+using BLI::LargeScopedVector;
 
 template<typename T, typename FuncT, typename EqualFuncT = std::equal_to<T>>
 void group_indices_by_same_value(ArrayRef<uint> indices,
@@ -32,7 +32,7 @@ void group_indices_by_same_value(ArrayRef<uint> indices,
     }
     seen_values.append(value);
 
-    TemporaryVector<uint> indices_with_value;
+    LargeScopedVector<uint> indices_with_value;
     for (uint j : indices.drop_front(i)) {
       if (equal(values[j], value)) {
         indices_with_value.append(j);

@@ -14,8 +14,8 @@
 
 namespace BParticles {
 
-using BLI::TemporaryArray;
-using BLI::TemporaryVector;
+using BLI::LargeScopedArray;
+using BLI::LargeScopedVector;
 using BLI::VectorAdaptor;
 using FN::CPPType;
 
@@ -35,7 +35,7 @@ BLI_NOINLINE static void find_next_event_per_particle(
     EventStorage &r_event_storage,
     MutableArrayRef<int> r_next_event_indices,
     MutableArrayRef<float> r_time_factors_to_next_event,
-    TemporaryVector<uint> &r_pindices_with_event)
+    LargeScopedVector<uint> &r_pindices_with_event)
 {
   r_next_event_indices.fill_indices(pindices, -1);
   r_time_factors_to_next_event.fill_indices(pindices, 1.0f);
@@ -192,12 +192,12 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
                                                 VectorAdaptor<uint> &r_unfinished_pindices)
 {
   uint amount = step_data.array_size();
-  TemporaryArray<int> next_event_indices(amount);
-  TemporaryArray<float> time_factors_to_next_event(amount);
-  TemporaryVector<uint> pindices_with_event;
+  LargeScopedArray<int> next_event_indices(amount);
+  LargeScopedArray<float> time_factors_to_next_event(amount);
+  LargeScopedVector<uint> pindices_with_event;
 
   uint max_event_storage_size = std::max(get_max_event_storage_size(system_info.events), 1u);
-  TemporaryArray<bool> event_storage_array(max_event_storage_size * amount);
+  LargeScopedArray<bool> event_storage_array(max_event_storage_size * amount);
   EventStorage event_storage((void *)event_storage_array.begin(), max_event_storage_size);
 
   find_next_event_per_particle(step_data,
@@ -223,7 +223,7 @@ BLI_NOINLINE static void simulate_to_next_event(BlockStepData &step_data,
   Vector<Vector<uint>> particles_per_event(system_info.events.size());
   find_pindices_per_event(pindices_with_event, next_event_indices, particles_per_event);
 
-  TemporaryArray<float> current_times(amount);
+  LargeScopedArray<float> current_times(amount);
   compute_current_time_per_particle(
       pindices_with_event, step_data.remaining_durations, step_data.step_end_time, current_times);
 
@@ -244,10 +244,10 @@ BLI_NOINLINE static void simulate_with_max_n_events(BlockStepData &step_data,
                                                     ParticleAllocator &particle_allocator,
                                                     uint max_events,
                                                     ParticleSystemInfo &system_info,
-                                                    TemporaryVector<uint> &r_unfinished_pindices)
+                                                    LargeScopedVector<uint> &r_unfinished_pindices)
 {
-  TemporaryArray<uint> pindices_A(step_data.array_size());
-  TemporaryArray<uint> pindices_B(step_data.array_size());
+  LargeScopedArray<uint> pindices_A(step_data.array_size());
+  LargeScopedArray<uint> pindices_B(step_data.array_size());
 
   uint amount_left = step_data.attributes.size();
 
@@ -283,7 +283,7 @@ BLI_NOINLINE static void apply_remaining_offsets(BlockStepData &step_data,
                                                  ArrayRef<uint> pindices)
 {
   if (offset_handlers.size() > 0) {
-    TemporaryArray<float> time_factors(step_data.array_size());
+    LargeScopedArray<float> time_factors(step_data.array_size());
     time_factors.fill_indices(pindices, 1.0f);
 
     OffsetHandlerInterface interface(step_data, pindices, time_factors, particle_allocator);
@@ -340,7 +340,7 @@ BLI_NOINLINE static void simulate_block(SimulationState &simulation_state,
                             block.used_range().as_array_ref());
   }
   else {
-    TemporaryVector<uint> unfinished_pindices;
+    LargeScopedVector<uint> unfinished_pindices;
     simulate_with_max_n_events(
         step_data, particle_allocator, 10, system_info, unfinished_pindices);
 
@@ -359,7 +359,7 @@ BLI_NOINLINE static void simulate_block(SimulationState &simulation_state,
 BLI_NOINLINE static void delete_tagged_particles_and_reorder(AttributesBlock &block)
 {
   auto kill_states = block.as_ref().get<bool>("Kill State");
-  TemporaryVector<uint> indices_to_delete;
+  LargeScopedVector<uint> indices_to_delete;
 
   for (uint i : kill_states.index_iterator()) {
     if (kill_states[i]) {
@@ -389,7 +389,7 @@ BLI_NOINLINE static void simulate_blocks_for_time_span(
             block->owner());
         ParticleSystemInfo &system_info = systems_to_simulate.lookup(particle_system_name);
 
-        TemporaryArray<float> remaining_durations(block->used_size());
+        LargeScopedArray<float> remaining_durations(block->used_size());
         remaining_durations.fill(time_span.duration());
 
         simulate_block(simulation_state,

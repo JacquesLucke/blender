@@ -644,7 +644,14 @@ template<typename T, uint N = 4, typename Allocator = GuardedAllocator> class Ve
 
 #undef UPDATE_VECTOR_SIZE
 
-template<typename T, uint N = 4> using TemporaryVector = Vector<T, N, TemporaryAllocator>;
+/**
+ * Use this when the following assumptions hold:
+ *   - The number of elements in the vector is not known from the beginning.
+ *   - The vector is usually relatively large (so that it does not fit in inline storage).
+ *   - Is used in the scope of some function. So it will be freed soon.
+ *   - The scope is not in a recursive function.
+ */
+template<typename T, uint N = 4> using LargeScopedVector = Vector<T, N, TemporaryAllocator>;
 
 } /* namespace BLI */
 

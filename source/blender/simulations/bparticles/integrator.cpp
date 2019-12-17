@@ -49,7 +49,7 @@ void EulerIntegrator::integrate(IntegratorInterface &interface)
   AttributesRef r_offsets = interface.attribute_offsets();
   ArrayRef<float> durations = interface.remaining_durations();
 
-  TemporaryArray<float3> combined_force(interface.array_size());
+  LargeScopedArray<float3> combined_force(interface.array_size());
   this->compute_combined_force(interface, combined_force);
 
   auto last_velocities = interface.attributes().get<float3>("Velocity");

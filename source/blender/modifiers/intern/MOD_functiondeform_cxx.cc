@@ -16,7 +16,7 @@ using BKE::VNode;
 using BLI::ArrayRef;
 using BLI::float3;
 using BLI::IndexRange;
-using BLI::TemporaryVector;
+using BLI::LargeScopedVector;
 using BLI::Vector;
 using FN::MFContext;
 using FN::MFContextBuilder;
@@ -55,7 +55,7 @@ void MOD_functiondeform_do(FunctionDeformModifierData *fdmd,
   params_builder.add_readonly_single_input(&fdmd->control1);
   params_builder.add_readonly_single_input(&fdmd->control2);
 
-  TemporaryVector<float3> output_vectors(numVerts);
+  LargeScopedVector<float3> output_vectors(numVerts);
   params_builder.add_single_output<float3>(output_vectors);
 
   float current_time = DEG_get_ctime(ctx->depsgraph);

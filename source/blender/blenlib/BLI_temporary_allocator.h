@@ -39,8 +39,8 @@
  * If the requested size is too large, there is a fallback to normal allocation. The allocation
  * overhead is probably very small in these cases anyway.
  *
- * The best way to use this allocator is to use one of the prepared containers like TemporaryVector
- * and TemporaryArray.
+ * The best way to use this allocator is to use one of the prepared containers like
+ * LargeScopedVector and LargeScopedArray.
  */
 
 #ifndef __BLI_TEMPORARY_ALLOCATOR_H__

@@ -9,7 +9,7 @@
 
 namespace BParticles {
 
-using BLI::TemporaryArray;
+using BLI::LargeScopedArray;
 using FN::AttributesRefGroup;
 
 class ActionContext {
@@ -142,7 +142,7 @@ inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
     build_context(range, (void *)action_context);
 
     AttributesRef offsets(info, buffers, range_size);
-    TemporaryArray<float> durations(range_size);
+    LargeScopedArray<float> durations(range_size);
     durations.fill(0);
 
     ActionInterface action_interface(emitter_interface.particle_allocator(),
@@ -191,7 +191,7 @@ inline void Action::execute_from_offset_handler(OffsetHandlerInterface &offset_h
   ActionContext &used_action_context = (action_context == nullptr) ? empty_action_context :
                                                                      *action_context;
 
-  TemporaryArray<float> current_times(offset_handler_interface.array_size());
+  LargeScopedArray<float> current_times(offset_handler_interface.array_size());
   for (uint pindex : offset_handler_interface.pindices()) {
     current_times[pindex] = offset_handler_interface.time_span(pindex).start();
   }
@@ -232,7 +232,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
     offset += range_size;
 
     AttributesRef offsets(info, buffers, range_size);
-    TemporaryArray<float> durations(range_size);
+    LargeScopedArray<float> durations(range_size);
     durations.fill(0);
 
     ActionInterface new_interface(action_interface.particle_allocator(),
@@ -258,7 +258,7 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
     uint range_size = attributes.size();
 
     AttributesRef offsets(info, buffers, range_size);
-    TemporaryArray<float> durations(range_size);
+    LargeScopedArray<float> durations(range_size);
     durations.fill(0);
 
     ActionInterface new_interface(offset_handler_interface.particle_allocator(),

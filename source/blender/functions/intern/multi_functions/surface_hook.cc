@@ -29,9 +29,9 @@ using BKE::SurfaceHook;
 using BLI::float2;
 using BLI::float3;
 using BLI::float4x4;
+using BLI::LargeScopedArray;
 using BLI::rgba_b;
 using BLI::rgba_f;
-using BLI::TemporaryArray;
 using BLI::VectorAdaptor;
 
 MF_ClosestSurfaceHookOnObject::MF_ClosestSurfaceHookOnObject()
@@ -580,13 +580,13 @@ void MF_SampleObjectSurface::call(MFMask mask, MFParams params, MFContext contex
       continue;
     }
 
-    TemporaryArray<float> triangle_weights(triangles.size());
+    LargeScopedArray<float> triangle_weights(triangles.size());
     compute_triangle_areas(mesh, triangles, triangle_weights);
 
     if (m_use_vertex_weights) {
-      TemporaryArray<float> vertex_weights(mesh->totvert);
+      LargeScopedArray<float> vertex_weights(mesh->totvert);
       if (get_vertex_weights(object, vertex_group_names[i], vertex_weights)) {
-        TemporaryArray<float> vertex_weights_for_triangles(triangles.size());
+        LargeScopedArray<float> vertex_weights_for_triangles(triangles.size());
         vertex_weights_to_triangle_weights(
             mesh, triangles, vertex_weights, vertex_weights_for_triangles);
 
@@ -596,17 +596,17 @@ void MF_SampleObjectSurface::call(MFMask mask, MFParams params, MFContext contex
       }
     }
 
-    TemporaryArray<float> cumulative_weights(triangle_weights.size() + 1);
+    LargeScopedArray<float> cumulative_weights(triangle_weights.size() + 1);
     float total_weight = compute_cumulative_distribution(triangle_weights, cumulative_weights);
     if (total_weight <= 0.0f) {
       continue;
     }
 
     BLI_rng_srandom(rng, seeds[i] + amount * 1000);
-    TemporaryArray<uint> triangle_indices(amount);
+    LargeScopedArray<uint> triangle_indices(amount);
     sample_cumulative_distribution(rng, cumulative_weights, triangle_indices);
 
-    TemporaryArray<float3> bary_coords(amount);
+    LargeScopedArray<float3> bary_coords(amount);
     compute_random_uniform_bary_coords(rng, bary_coords);
 
     MutableArrayRef<SurfaceHook> r_hooks = r_hooks_per_index.allocate_and_default_construct(

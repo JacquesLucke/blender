@@ -6,7 +6,7 @@
 
 namespace BParticles {
 
-using BLI::TemporaryVector;
+using BLI::LargeScopedVector;
 
 /* Age Reached Event
  ******************************************/
@@ -18,7 +18,7 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
 
   auto inputs = m_inputs_fn->compute(interface);
 
-  TemporaryArray<float> trigger_ages(attributes.size());
+  LargeScopedArray<float> trigger_ages(attributes.size());
   for (uint pindex : interface.pindices()) {
     float age = inputs->get<float>("Age", 0, pindex);
     float variation = inputs->get<float>("Variation", 1, pindex);
@@ -73,7 +73,7 @@ void CustomEvent::filter(EventFilterInterface &interface)
 {
   auto was_activated_before = interface.attributes().get<bool>(m_is_triggered_attribute);
 
-  TemporaryVector<uint> pindices_to_check;
+  LargeScopedVector<uint> pindices_to_check;
   pindices_to_check.reserve(interface.pindices().size());
 
   for (uint pindex : interface.pindices()) {
@@ -168,9 +168,9 @@ MeshCollisionEvent::RayCastResult MeshCollisionEvent::ray_cast(float3 start,
 void MeshCollisionEvent::execute(EventExecuteInterface &interface)
 {
   uint array_size = interface.array_size();
-  TemporaryArray<float3> local_positions(array_size);
-  TemporaryArray<float3> local_normals(array_size);
-  TemporaryArray<uint> looptri_indices(array_size);
+  LargeScopedArray<float3> local_positions(array_size);
+  LargeScopedArray<float3> local_normals(array_size);
+  LargeScopedArray<uint> looptri_indices(array_size);
 
   auto last_collision_step = interface.attributes().get<int32_t>(m_last_collision_attribute);
   uint current_update_index = interface.simulation_state().time().current_update_index();

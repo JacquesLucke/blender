@@ -13,8 +13,8 @@
 namespace BParticles {
 
 using BLI::ArrayRef;
+using BLI::LargeScopedArray;
 using BLI::Optional;
-using BLI::TemporaryArray;
 using BLI::Vector;
 using FN::GenericArrayRef;
 using FN::GenericMutableArrayRef;

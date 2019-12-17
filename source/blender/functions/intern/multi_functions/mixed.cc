@@ -33,9 +33,9 @@ using BKE::ObjectIDHandle;
 using BLI::float2;
 using BLI::float3;
 using BLI::float4x4;
+using BLI::LargeScopedArray;
 using BLI::rgba_b;
 using BLI::rgba_f;
-using BLI::TemporaryArray;
 
 MF_CombineColor::MF_CombineColor()
 {
@@ -212,7 +212,7 @@ void MF_ObjectVertexPositions::call(MFMask mask, MFParams params, MFContext cont
     float4x4 transform = object->obmat;
 
     Mesh *mesh = (Mesh *)object->data;
-    TemporaryArray<float3> coords(mesh->totvert);
+    LargeScopedArray<float3> coords(mesh->totvert);
     for (uint j = 0; j < mesh->totvert; j++) {
       coords[j] = transform.transform_position(mesh->mvert[j].co);
     }
@@ -586,7 +586,7 @@ static BLI_NOINLINE Vector<int> find_non_close_indices(VirtualListRef<float3> po
 
   BLI_kdtree_3d_balance(kdtree);
 
-  TemporaryArray<bool> keep_index(points.size());
+  LargeScopedArray<bool> keep_index(points.size());
   keep_index.fill(true);
 
   for (uint i : IndexRange(points.size())) {

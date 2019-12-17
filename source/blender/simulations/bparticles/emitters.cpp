@@ -186,7 +186,7 @@ static BLI_NOINLINE bool sample_weighted_buckets(uint sample_amount,
 {
   BLI_assert(sample_amount == r_samples.size());
 
-  TemporaryArray<float> cumulative_weights(weights.size() + 1);
+  LargeScopedArray<float> cumulative_weights(weights.size() + 1);
   compute_cumulative_distribution(weights, cumulative_weights);
 
   if (sample_amount > 0 && cumulative_weights.as_ref().last() == 0.0f) {
@@ -262,37 +262,37 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     return;
   }
 
-  TemporaryArray<float> triangle_weights(triangles.size());
+  LargeScopedArray<float> triangle_weights(triangles.size());
   get_average_triangle_weights(mesh, triangles, m_vertex_weights, triangle_weights);
 
-  TemporaryArray<float> triangle_areas(triangles.size());
+  LargeScopedArray<float> triangle_areas(triangles.size());
   compute_triangle_areas(mesh, triangles, triangle_areas);
 
   for (uint i : triangles.index_iterator()) {
     triangle_weights[i] *= triangle_areas[i];
   }
 
-  TemporaryArray<uint> triangles_to_sample(particles_to_emit);
+  LargeScopedArray<uint> triangles_to_sample(particles_to_emit);
   if (!sample_weighted_buckets(particles_to_emit, triangle_weights, triangles_to_sample)) {
     return;
   }
 
-  TemporaryArray<float3> local_positions(particles_to_emit);
-  TemporaryArray<float3> local_normals(particles_to_emit);
-  TemporaryArray<float3> bary_coords(particles_to_emit);
+  LargeScopedArray<float3> local_positions(particles_to_emit);
+  LargeScopedArray<float3> local_normals(particles_to_emit);
+  LargeScopedArray<float3> bary_coords(particles_to_emit);
   sample_looptris(
       mesh, triangles, triangles_to_sample, local_positions, local_normals, bary_coords);
 
   float epsilon = 0.01f;
-  TemporaryArray<float4x4> transforms_at_birth(particles_to_emit);
-  TemporaryArray<float4x4> transforms_before_birth(particles_to_emit);
+  LargeScopedArray<float4x4> transforms_at_birth(particles_to_emit);
+  LargeScopedArray<float4x4> transforms_before_birth(particles_to_emit);
   m_transform.interpolate(birth_moments, 0.0f, transforms_at_birth);
   m_transform.interpolate(birth_moments, -epsilon, transforms_before_birth);
 
-  TemporaryArray<float3> positions_at_birth(particles_to_emit);
+  LargeScopedArray<float3> positions_at_birth(particles_to_emit);
   float4x4::transform_positions(transforms_at_birth, local_positions, positions_at_birth);
 
-  TemporaryArray<float3> surface_velocities(particles_to_emit);
+  LargeScopedArray<float3> surface_velocities(particles_to_emit);
   for (uint i = 0; i < particles_to_emit; i++) {
     float3 position_before_birth = transforms_before_birth[i].transform_position(
         local_positions[i]);
@@ -300,13 +300,13 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
                             interface.time_span().duration();
   }
 
-  TemporaryArray<float3> world_normals(particles_to_emit);
+  LargeScopedArray<float3> world_normals(particles_to_emit);
   float4x4::transform_directions(transforms_at_birth, local_normals, world_normals);
 
-  TemporaryArray<float> birth_times(particles_to_emit);
+  LargeScopedArray<float> birth_times(particles_to_emit);
   interface.time_span().interpolate(birth_moments, birth_times);
 
-  TemporaryArray<SurfaceHook> emit_hooks(particles_to_emit);
+  LargeScopedArray<SurfaceHook> emit_hooks(particles_to_emit);
   BKE::ObjectIDHandle object_handle(m_object);
   for (uint i = 0; i < particles_to_emit; i++) {
     emit_hooks[i] = SurfaceHook(object_handle, triangles_to_sample[i], bary_coords[i]);
@@ -431,13 +431,13 @@ void CustomEmitter::emit(EmitterInterface &interface)
         new_particles.fill<float>("Birth Time", time_span.start());
         break;
       case BirthTimeModes::Linear: {
-        TemporaryArray<float> birth_times(new_particles.total_size());
+        LargeScopedArray<float> birth_times(new_particles.total_size());
         time_span.sample_linear(birth_times);
         new_particles.set<float>("Birth Time", birth_times);
         break;
       }
       case BirthTimeModes::Random: {
-        TemporaryArray<float> birth_times(new_particles.total_size());
+        LargeScopedArray<float> birth_times(new_particles.total_size());
         for (uint i = 0; i < particle_count; i++) {
           birth_times[i] = time_span.interpolate(random_float());
         }
