@@ -93,7 +93,7 @@ typedef enum ModifierType {
   eModifierType_BParticles = 57,
   eModifierType_BParticlesOutput = 58,
   eModifierType_FunctionDeform = 59,
-  eModifierType_FunctionPoints = 58,
+  eModifierType_FunctionPoints = 60,
   NUM_MODIFIER_TYPES,
 } ModifierType;
 
