@@ -147,6 +147,13 @@ class Node {
     this->set_attribute("shape", Attr_shape::to_string(shape));
   }
 
+  /* See https://www.graphviz.org/doc/info/attrs.html#k:color. */
+  void set_background_color(StringRef name)
+  {
+    this->set_attribute("fillcolor", name);
+    this->set_attribute("style", "filled");
+  }
+
   void export__as_id(std::stringstream &ss) const;
 
   void export__as_declaration(std::stringstream &ss) const;
