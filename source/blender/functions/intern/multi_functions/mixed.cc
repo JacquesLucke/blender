@@ -545,23 +545,58 @@ void MF_Clamp::call(MFMask mask, MFParams params, MFContext UNUSED(context)) con
 MF_RandomFloat::MF_RandomFloat()
 {
   MFSignatureBuilder signature = this->get_builder("Random Float");
-  signature.single_input<int>("Seed");
   signature.single_input<float>("Min");
   signature.single_input<float>("Max");
+  signature.single_input<int>("Seed");
   signature.single_output<float>("Value");
 }
 
 void MF_RandomFloat::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
 {
-  VirtualListRef<int> seeds = params.readonly_single_input<int>(0, "Seed");
-  VirtualListRef<float> min_values = params.readonly_single_input<float>(1, "Min");
-  VirtualListRef<float> max_values = params.readonly_single_input<float>(2, "Max");
+  VirtualListRef<float> min_values = params.readonly_single_input<float>(0, "Min");
+  VirtualListRef<float> max_values = params.readonly_single_input<float>(1, "Max");
+  VirtualListRef<int> seeds = params.readonly_single_input<int>(2, "Seed");
   MutableArrayRef<float> r_values = params.uninitialized_single_output<float>(3, "Value");
 
   for (uint i : mask.indices()) {
     float value = BLI_hash_int_01(seeds[i]);
     r_values[i] = value * (max_values[i] - min_values[i]) + min_values[i];
   }
+}
+
+MF_RandomFloats::MF_RandomFloats(uint seed) : m_seed(seed * 2354567)
+{
+  MFSignatureBuilder signature = this->get_builder("Random Floats");
+  signature.single_input<int>("Amount");
+  signature.single_input<float>("Min");
+  signature.single_input<float>("Max");
+  signature.single_input<int>("Seed");
+  signature.vector_output<float>("Values");
+}
+
+void MF_RandomFloats::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  VirtualListRef<int> amounts = params.readonly_single_input<int>(0, "Amount");
+  VirtualListRef<float> min_values = params.readonly_single_input<float>(1, "Min");
+  VirtualListRef<float> max_values = params.readonly_single_input<float>(2, "Max");
+  VirtualListRef<int> seeds = params.readonly_single_input<int>(3, "Seed");
+  GenericVectorArray::MutableTypedRef<float> r_values = params.vector_output<float>(4, "Values");
+
+  RNG *rng = BLI_rng_new(0);
+
+  for (uint i : mask.indices()) {
+    MutableArrayRef<float> r_array = r_values.allocate(i, amounts[i]);
+    BLI_rng_srandom(rng, seeds[i] + m_seed);
+
+    float range = max_values[i] - min_values[i];
+    float offset = min_values[i];
+
+    for (float &r_value : r_array) {
+      r_value = BLI_rng_get_float(rng) * range + offset;
+    }
+  }
+
+  BLI_rng_free(rng);
 }
 
 MF_FindNonClosePoints::MF_FindNonClosePoints()

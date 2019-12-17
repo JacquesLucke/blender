@@ -66,6 +66,15 @@ class MF_RandomFloat final : public MultiFunction {
   void call(MFMask mask, MFParams parms, MFContext context) const override;
 };
 
+class MF_RandomFloats final : public MultiFunction {
+ private:
+  uint m_seed;
+
+ public:
+  MF_RandomFloats(uint seed);
+  void call(MFMask mask, MFParams parms, MFContext context) const override;
+};
+
 class MF_ContextVertexPosition final : public MultiFunction {
  public:
   MF_ContextVertexPosition();

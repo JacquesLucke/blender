@@ -217,6 +217,10 @@ class BaseNode:
 
     def copy(self, src_node):
         self.identifier = get_new_node_identifier()
+        self.duplicate(src_node)
+
+    def duplicate(self, src_node):
+        pass
 
 
 class BaseSocket:
