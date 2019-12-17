@@ -39,6 +39,9 @@ class CustomEmitter(bpy.types.Node, SimulationNode):
         default="END",
     )
 
+    def init_props(self):
+        self.add_attribute("Vector", "Position")
+
     def declaration(self, builder: NodeBuilder):
         for i, item in enumerate(self.attributes):
             builder.vectorized_input(
@@ -69,12 +72,12 @@ class CustomEmitter(bpy.types.Node, SimulationNode):
         else:
             decl.draw_socket(layout, socket, index_in_decl)
 
-    def add_attribute(self, data_type):
+    def add_attribute(self, data_type, name="My Attribute"):
         with skip_syncing():
             item = self.attributes.add()
             item.identifier = str(uuid.uuid4())
             item.attribute_type = data_type
-            item.attribute_name = "My Attribute"
+            item.attribute_name = name
 
         self.sync_tree()
 
@@ -117,8 +120,7 @@ class SpawnParticlesNode(bpy.types.Node, SimulationNode):
     )
 
     def init_props(self):
-        self.add_attribute("Vector")
-        self.attributes[0].attribute_name = "Position"
+        self.add_attribute("Vector", "Position")
 
     def declaration(self, builder: NodeBuilder):
         for i, item in enumerate(self.attributes):
@@ -150,12 +152,12 @@ class SpawnParticlesNode(bpy.types.Node, SimulationNode):
         else:
             decl.draw_socket(layout, socket, index_in_decl)
 
-    def add_attribute(self, data_type):
+    def add_attribute(self, data_type, name="My Attribute"):
         with skip_syncing():
             item = self.attributes.add()
             item.identifier = str(uuid.uuid4())
             item.attribute_type = data_type
-            item.attribute_name = "My Attribute"
+            item.attribute_name = name
 
         self.sync_tree()
 
