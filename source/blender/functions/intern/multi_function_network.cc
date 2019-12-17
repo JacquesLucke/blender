@@ -103,14 +103,18 @@ MFBuilderFunctionNode &MFNetworkBuilder::add_function(const MultiFunction &funct
   return node;
 }
 
-MFBuilderDummyNode &MFNetworkBuilder::add_dummy(ArrayRef<MFDataType> input_types,
-                                                ArrayRef<MFDataType> output_types)
+MFBuilderDummyNode &MFNetworkBuilder::add_dummy(StringRef name,
+                                                ArrayRef<MFDataType> input_types,
+                                                ArrayRef<MFDataType> output_types,
+                                                ArrayRef<StringRef> input_names,
+                                                ArrayRef<StringRef> output_names)
 {
   auto &node = *m_allocator.construct<MFBuilderDummyNode>().release();
 
   node.m_network = this;
   node.m_is_dummy = true;
   node.m_id = m_node_by_id.size();
+  node.m_name = m_allocator.copy_string(name);
 
   for (uint i : input_types.index_iterator()) {
     auto &input_socket = *m_allocator.construct<MFBuilderInputSocket>().release();
@@ -120,6 +124,7 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(ArrayRef<MFDataType> input_types
     input_socket.m_is_output = false;
     input_socket.m_id = m_socket_by_id.size();
     node.m_inputs.append(&input_socket);
+    node.m_input_names.append(m_allocator.copy_string(input_names[i]));
     m_socket_by_id.append(&input_socket);
     m_input_sockets.append(&input_socket);
   }
@@ -131,6 +136,7 @@ MFBuilderDummyNode &MFNetworkBuilder::add_dummy(ArrayRef<MFDataType> input_types
     output_socket.m_is_output = true;
     output_socket.m_id = m_socket_by_id.size();
     node.m_outputs.append(&output_socket);
+    node.m_output_names.append(m_allocator.copy_string(output_names[i]));
     m_socket_by_id.append(&output_socket);
     m_output_sockets.append(&output_socket);
   }
@@ -166,6 +172,10 @@ std::string MFNetworkBuilder::to_dot()
     Vector<std::string> output_names;
     for (MFBuilderOutputSocket *socket : node->outputs()) {
       output_names.append(socket->name());
+    }
+
+    if (node->is_dummy()) {
+      dot_node.set_background_color("#AAAAFF");
     }
 
     dot_nodes.add_new(node,
@@ -262,6 +272,7 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
       m_socket_by_id[socket.id()] = &socket;
       m_input_sockets.append(&socket);
       node.m_inputs.append(&socket);
+      node.m_input_names.append(m_allocator.copy_string(builder_socket->name()));
     }
     for (MFBuilderOutputSocket *builder_socket : builder_node->outputs()) {
       MFOutputSocket &socket = *m_allocator.construct<MFOutputSocket>().release();
@@ -274,6 +285,7 @@ MFNetwork::MFNetwork(std::unique_ptr<MFNetworkBuilder> builder)
       m_socket_by_id[socket.id()] = &socket;
       m_output_sockets.append(&socket);
       node.m_outputs.append(&socket);
+      node.m_output_names.append(m_allocator.copy_string(builder_socket->name()));
     }
 
     m_dummy_nodes.append(&node);

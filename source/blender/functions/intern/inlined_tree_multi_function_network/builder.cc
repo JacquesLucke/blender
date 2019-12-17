@@ -32,22 +32,27 @@ MFBuilderFunctionNode &InlinedTreeMFNetworkBuilder::add_function(const MultiFunc
 MFBuilderDummyNode &InlinedTreeMFNetworkBuilder::add_dummy(const XNode &xnode)
 {
   Vector<MFDataType> input_types;
+  Vector<StringRef> input_names;
   for (const XInputSocket *xsocket : xnode.inputs()) {
     Optional<MFDataType> data_type = this->try_get_data_type(*xsocket);
     if (data_type.has_value()) {
       input_types.append(data_type.value());
+      input_names.append(xsocket->name());
     }
   }
 
   Vector<MFDataType> output_types;
+  Vector<StringRef> output_names;
   for (const XOutputSocket *xsocket : xnode.outputs()) {
     Optional<MFDataType> data_type = this->try_get_data_type(*xsocket);
     if (data_type.has_value()) {
       output_types.append(data_type.value());
+      output_names.append(xsocket->name());
     }
   }
 
-  MFBuilderDummyNode &node = m_builder->add_dummy(input_types, output_types);
+  MFBuilderDummyNode &node = m_builder->add_dummy(
+      xnode.name(), input_types, output_types, input_names, output_names);
   this->map_data_sockets(xnode, node);
   return node;
 }
@@ -194,7 +199,7 @@ const MultiFunction &VNodeMFNetworkBuilder::get_vectorized_function(
 
 std::unique_ptr<InlinedTreeMFNetwork> InlinedTreeMFNetworkBuilder::build()
 {
-  // m_builder->to_dot__clipboard();
+  m_builder->to_dot__clipboard();
 
   auto network = BLI::make_unique<MFNetwork>(std::move(m_builder));
 

@@ -88,6 +88,13 @@ class MonotonicAllocator : NonCopyable, NonMovable {
     }
   };
 
+  StringRefNull copy_string(StringRef str)
+  {
+    void *buffer = this->allocate(str.size() + 1, 1);
+    memcpy(buffer, str.data(), str.size() + 1);
+    return StringRefNull((const char *)buffer);
+  }
+
   template<typename T, typename... Args> destruct_ptr<T> construct(Args &&... args)
   {
     void *buffer = this->allocate(sizeof(T), alignof(T));

@@ -103,10 +103,13 @@ class InlinedTreeMFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
 
   MFBuilderDummyNode &add_dummy(const XNode &xnode);
 
-  MFBuilderDummyNode &add_dummy(ArrayRef<MFDataType> input_types,
-                                ArrayRef<MFDataType> output_types)
+  MFBuilderDummyNode &add_dummy(StringRef name,
+                                ArrayRef<MFDataType> input_types,
+                                ArrayRef<MFDataType> output_types,
+                                ArrayRef<StringRef> input_names,
+                                ArrayRef<StringRef> output_names)
   {
-    return m_builder->add_dummy(input_types, output_types);
+    return m_builder->add_dummy(name, input_types, output_types, input_names, output_names);
   }
 
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to)

@@ -70,6 +70,14 @@ class MFBuilderFunctionNode : public MFBuilderNode {
 };
 
 class MFBuilderDummyNode : public MFBuilderNode {
+ private:
+  StringRefNull m_name;
+  Vector<StringRefNull> m_input_names;
+  Vector<StringRefNull> m_output_names;
+
+  friend MFNetworkBuilder;
+  friend MFBuilderSocket;
+  friend MFBuilderNode;
 };
 
 class MFBuilderSocket : BLI::NonCopyable, BLI::NonMovable {
@@ -136,8 +144,11 @@ class MFNetworkBuilder : BLI::NonCopyable, BLI::NonMovable {
   void to_dot__clipboard();
 
   MFBuilderFunctionNode &add_function(const MultiFunction &function);
-  MFBuilderDummyNode &add_dummy(ArrayRef<MFDataType> input_types,
-                                ArrayRef<MFDataType> output_types);
+  MFBuilderDummyNode &add_dummy(StringRef name,
+                                ArrayRef<MFDataType> input_types,
+                                ArrayRef<MFDataType> output_types,
+                                ArrayRef<StringRef> input_names,
+                                ArrayRef<StringRef> output_names);
   void add_link(MFBuilderOutputSocket &from, MFBuilderInputSocket &to);
 
   ArrayRef<MFBuilderNode *> nodes_by_id() const
@@ -233,6 +244,12 @@ class MFFunctionNode final : public MFNode {
 };
 
 class MFDummyNode final : public MFNode {
+ private:
+  StringRefNull m_name;
+  Vector<StringRefNull> m_input_names;
+  Vector<StringRefNull> m_output_names;
+
+  friend MFNetwork;
 };
 
 class MFSocket : BLI::NonCopyable, BLI::NonMovable {
@@ -349,7 +366,7 @@ inline StringRefNull MFBuilderNode::name()
     return this->as_function().function().name();
   }
   else {
-    return "Dummy";
+    return this->as_dummy().m_name;
   }
 }
 
@@ -421,7 +438,13 @@ inline StringRefNull MFBuilderSocket::name()
     }
   }
   else {
-    return "Dummy";
+    MFBuilderDummyNode &node = m_node->as_dummy();
+    if (m_is_output) {
+      return node.m_output_names[m_index];
+    }
+    else {
+      return node.m_input_names[m_index];
+    }
   }
 }
 
