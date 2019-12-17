@@ -129,10 +129,10 @@ class ExecuteInputListDecl(SocketDeclBase):
         return True
 
     def draw_socket(self, layout, socket, index):
-        if isinstance(socket, OperatorSocket):
+        if index == 0:
             layout.label(text=self.display_name)
-        else:
-            layout.label(text=f"{self.display_name} ({index + 1})")
+        else :
+            layout.label(text="Then")
 
     def operator_socket_call(self, own_socket, linked_socket, connected_sockets):
         old_amount = self.get_execute_amount()
