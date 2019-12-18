@@ -480,7 +480,9 @@ static void INSERT_random_floats(VNodeMFNetworkBuilder &builder)
 static void INSERT_random_vector(VNodeMFNetworkBuilder &builder)
 {
   uint node_seed = (uint)RNA_int_get(builder.rna(), "node_seed");
-  builder.set_constructed_matching_fn<MF_RandomVector>(node_seed);
+  RandomVectorMode::Enum mode = (RandomVectorMode::Enum)RNA_enum_get(builder.rna(), "mode");
+  builder.set_vectorized_constructed_matching_fn<MF_RandomVector>(
+      {"use_list__factor", "use_list__seed"}, node_seed, mode);
 }
 
 static void INSERT_value(VNodeMFNetworkBuilder &builder)

@@ -78,12 +78,20 @@ class MF_RandomFloats final : public MultiFunction {
   void call(MFMask mask, MFParams parms, MFContext context) const override;
 };
 
+namespace RandomVectorMode {
+enum Enum {
+  SampleInCube,
+  SampleOnSphere,
+};
+}
+
 class MF_RandomVector final : public MultiFunction {
  private:
   uint m_seed;
+  RandomVectorMode::Enum m_mode;
 
  public:
-  MF_RandomVector(uint seed);
+  MF_RandomVector(uint seed, RandomVectorMode::Enum mode);
   void call(MFMask mask, MFParams parms, MFContext context) const override;
 };
 

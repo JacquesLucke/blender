@@ -65,6 +65,10 @@ class RandomFloatsNode(bpy.types.Node, FunctionNode):
     def duplicate(self, src_node):
         self.node_seed = new_node_seed()
 
+random_vector_mode_items = [
+    ("UNIFORM_IN_CUBE", "Uniform in Cube", "Generate a vector that is somewhere in a cube", "NONE", 0),
+    ("UNIFORM_ON_SPHERE", "Uniform on Sphere", "Generate a vector that is somehwere on the surface of a sphere", 1),
+]
 
 class RandomVectorNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_RandomVectorNode"
@@ -74,20 +78,31 @@ class RandomVectorNode(bpy.types.Node, FunctionNode):
         name="Node Seed",
     )
 
+    mode: EnumProperty(
+        name="Mode",
+        items=random_vector_mode_items,
+        default="UNIFORM_IN_CUBE",
+    )
+
+    use_list__factor: NodeBuilder.VectorizedProperty()
+    use_list__seed: NodeBuilder.VectorizedProperty()
+
     def init_props(self):
         self.node_seed = new_node_seed()
 
     def declaration(self, builder: NodeBuilder):
-        builder.fixed_input("amplitude", "Amplitude", "Vector", default=(1, 1, 1))
-        builder.fixed_input("seed", "Seed", "Integer")
-        builder.fixed_output("vector", "Vector", "Vector")
+        builder.vectorized_input("factor", "use_list__factor", "Factor", "Factors", "Vector", default=(1, 1, 1))
+        builder.vectorized_input("seed", "use_list__seed", "Seed", "Seeds", "Integer")
+        builder.vectorized_output("vector", ["use_list__factor", "use_list__seed"], "Vector", "Vectors", "Vector")
+
+    def draw(self, layout):
+        layout.prop(self, "mode", text="")
 
     def draw_advanced(self, layout):
         layout.prop(self, "node_seed")
 
     def duplicate(self, src_node):
         self.node_seed = new_node_seed()
-
 
 def new_node_seed():
     return random.randint(0, 10000)

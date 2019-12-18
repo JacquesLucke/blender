@@ -599,29 +599,50 @@ void MF_RandomFloats::call(MFMask mask, MFParams params, MFContext UNUSED(contex
   BLI_rng_free(rng);
 }
 
-MF_RandomVector::MF_RandomVector(uint seed) : m_seed(seed * 56242361)
+MF_RandomVector::MF_RandomVector(uint seed, RandomVectorMode::Enum mode)
+    : m_seed(seed * 56242361), m_mode(mode)
 {
   MFSignatureBuilder signature = this->get_builder("Random Vector");
-  signature.single_input<float3>("Amplitude");
+  signature.single_input<float3>("Factor");
   signature.single_input<int>("Seed");
   signature.single_output<float3>("Vector");
 }
 
 void MF_RandomVector::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
 {
-  VirtualListRef<float3> amplitudes = params.readonly_single_input<float3>(0, "Amplitude");
+  VirtualListRef<float3> factors = params.readonly_single_input<float3>(0, "Factor");
   VirtualListRef<int> seeds = params.readonly_single_input<int>(1, "Seed");
   MutableArrayRef<float3> r_vectors = params.uninitialized_single_output<float3>(2, "Vector");
 
-  for (uint i : mask.indices()) {
-    uint seed = seeds[i] ^ m_seed;
-    float x = BLI_hash_int_01(seed * 4521341) - 0.5f;
-    float y = BLI_hash_int_01(seed * 4623413) - 0.5f;
-    float z = BLI_hash_int_01(seed * 7826313) - 0.5f;
-    float3 amplitude = amplitudes[i];
-    float3 vector = float3(x, y, z) * amplitude;
-    r_vectors[i] = vector;
+  RNG *rng = BLI_rng_new(0);
+
+  switch (m_mode) {
+    case RandomVectorMode::SampleInCube: {
+      for (uint i : mask.indices()) {
+        uint seed = seeds[i] ^ m_seed;
+        BLI_rng_srandom(rng, seed);
+        float x = BLI_rng_get_float(rng) - 0.5f;
+        float y = BLI_rng_get_float(rng) - 0.5f;
+        float z = BLI_rng_get_float(rng) - 0.5f;
+        float3 factor = factors[i];
+        float3 vector = float3(x, y, z) * factor;
+        r_vectors[i] = vector;
+      }
+      break;
+    }
+    case RandomVectorMode::SampleOnSphere: {
+      for (uint i : mask.indices()) {
+        uint seed = seeds[i] ^ m_seed;
+        BLI_rng_srandom(rng, seed);
+        float3 vector;
+        BLI_rng_get_float_unit_v3(rng, vector);
+        r_vectors[i] = vector * factors[i];
+      }
+      break;
+    }
   }
+
+  BLI_rng_free(rng);
 }
 
 MF_FindNonClosePoints::MF_FindNonClosePoints()
