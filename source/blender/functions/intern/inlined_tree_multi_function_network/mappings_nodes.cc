@@ -145,7 +145,19 @@ static void INSERT_vertex_info(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_float_range(VNodeMFNetworkBuilder &builder)
 {
-  builder.set_constructed_matching_fn<MF_FloatRange>();
+  int mode = RNA_enum_get(builder.rna(), "mode");
+  switch (mode) {
+    case 0: {
+      builder.set_constructed_matching_fn<MF_FloatRange_Amount_Start_Step>();
+      break;
+    }
+    case 1: {
+      builder.set_constructed_matching_fn<MF_FloatRange_Amount_Start_Stop>();
+      break;
+    }
+    default:
+      BLI_assert(false);
+  }
 }
 
 static void INSERT_time_info(VNodeMFNetworkBuilder &builder)

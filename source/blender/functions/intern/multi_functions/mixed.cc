@@ -172,7 +172,7 @@ void MF_FloatArraySum::call(MFMask mask, MFParams params, MFContext UNUSED(conte
   }
 }
 
-MF_FloatRange::MF_FloatRange()
+MF_FloatRange_Amount_Start_Step::MF_FloatRange_Amount_Start_Step()
 {
   MFSignatureBuilder signature = this->get_builder("Float Range");
   signature.single_input<int>("Amount");
@@ -181,23 +181,66 @@ MF_FloatRange::MF_FloatRange()
   signature.vector_output<float>("Range");
 }
 
-void MF_FloatRange::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+void MF_FloatRange_Amount_Start_Step::call(MFMask mask,
+                                           MFParams params,
+                                           MFContext UNUSED(context)) const
 {
   VirtualListRef<int> amounts = params.readonly_single_input<int>(0, "Amount");
   VirtualListRef<float> starts = params.readonly_single_input<float>(1, "Start");
   VirtualListRef<float> steps = params.readonly_single_input<float>(2, "Step");
   auto r_ranges = params.vector_output<float>(3, "Range");
 
-  for (uint i : mask.indices()) {
-    int amount = amounts[i];
-    float start = starts[i];
-    float step = steps[i];
+  for (uint index : mask.indices()) {
+    uint amount = std::max<int>(0, amounts[index]);
+    float start = starts[index];
+    float step = steps[index];
 
-    MutableArrayRef<float> range = r_ranges.allocate(i, amount);
+    MutableArrayRef<float> range = r_ranges.allocate(index, amount);
 
-    for (int j = 0; j < amount; j++) {
-      float value = start + j * step;
-      range[j] = value;
+    for (int i = 0; i < amount; i++) {
+      float value = start + i * step;
+      range[i] = value;
+    }
+  }
+}
+
+MF_FloatRange_Amount_Start_Stop::MF_FloatRange_Amount_Start_Stop()
+{
+  MFSignatureBuilder signature = this->get_builder("Float Range");
+  signature.single_input<int>("Amount");
+  signature.single_input<float>("Start");
+  signature.single_input<float>("Stop");
+  signature.vector_output<float>("Range");
+}
+
+void MF_FloatRange_Amount_Start_Stop::call(MFMask mask,
+                                           MFParams params,
+                                           MFContext UNUSED(context)) const
+{
+  VirtualListRef<int> amounts = params.readonly_single_input<int>(0, "Amount");
+  VirtualListRef<float> starts = params.readonly_single_input<float>(1, "Start");
+  VirtualListRef<float> stops = params.readonly_single_input<float>(2, "Stop");
+  auto r_ranges = params.vector_output<float>(3, "Range");
+
+  for (uint index : mask.indices()) {
+    uint amount = std::max<int>(0, amounts[index]);
+    float start = starts[index];
+    float stop = stops[index];
+
+    if (amount == 0) {
+      continue;
+    }
+    else if (amount == 1) {
+      r_ranges.append_single(index, (start + stop) / 2.0f);
+    }
+    else {
+      MutableArrayRef<float> range = r_ranges.allocate(index, amount);
+
+      float step = (stop - start) / (amount - 1);
+      for (int i = 0; i < amount; i++) {
+        float value = start + i * step;
+        range[i] = value;
+      }
     }
   }
 }

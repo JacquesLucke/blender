@@ -42,9 +42,15 @@ class MF_FloatArraySum final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
-class MF_FloatRange final : public MultiFunction {
+class MF_FloatRange_Amount_Start_Step final : public MultiFunction {
  public:
-  MF_FloatRange();
+  MF_FloatRange_Amount_Start_Step();
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
+class MF_FloatRange_Amount_Start_Stop final : public MultiFunction {
+ public:
+  MF_FloatRange_Amount_Start_Stop();
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
