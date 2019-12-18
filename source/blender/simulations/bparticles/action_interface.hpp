@@ -12,11 +12,6 @@ namespace BParticles {
 using BLI::LargeScopedArray;
 using FN::AttributesRefGroup;
 
-class ActionContext {
- public:
-  virtual ~ActionContext();
-};
-
 class ActionInterface {
  private:
   ParticleAllocator &m_particle_allocator;
@@ -25,7 +20,6 @@ class ActionInterface {
   AttributesRef m_attribute_offsets;
   ArrayRef<float> m_current_times;
   ArrayRef<float> m_remaining_durations;
-  ActionContext &m_action_context;
 
  public:
   ActionInterface(ParticleAllocator &particle_allocator,
@@ -33,10 +27,7 @@ class ActionInterface {
                   AttributesRef attributes,
                   AttributesRef attribute_offsets,
                   ArrayRef<float> current_times,
-                  ArrayRef<float> remaining_durations,
-                  ActionContext &action_context);
-
-  ActionContext &context();
+                  ArrayRef<float> remaining_durations);
 
   ArrayRef<uint> pindices();
   AttributesRef attributes();
@@ -54,16 +45,10 @@ class Action {
 
   virtual void execute(ActionInterface &interface) = 0;
 
-  template<typename ContextT, typename BuildContextF>
-  void execute_from_emitter(AttributesRefGroup &new_particles,
-                            EmitterInterface &emitter_interface,
-                            const BuildContextF &build_context);
   void execute_from_emitter(AttributesRefGroup &new_particles,
                             EmitterInterface &emitter_interface);
-  void execute_from_event(EventExecuteInterface &event_interface,
-                          ActionContext *action_context = nullptr);
-  void execute_from_offset_handler(OffsetHandlerInterface &offset_handler_interface,
-                                   ActionContext *action_context = nullptr);
+  void execute_from_event(EventExecuteInterface &event_interface);
+  void execute_from_offset_handler(OffsetHandlerInterface &offset_handler_interface);
   void execute_for_subset(ArrayRef<uint> pindices, ActionInterface &action_interface);
   void execute_for_new_particles(AttributesRefGroup &new_particles,
                                  ActionInterface &action_interface);
@@ -79,38 +64,27 @@ inline ActionInterface::ActionInterface(ParticleAllocator &particle_allocator,
                                         AttributesRef attributes,
                                         AttributesRef attribute_offsets,
                                         ArrayRef<float> current_times,
-                                        ArrayRef<float> remaining_durations,
-                                        ActionContext &action_context)
+                                        ArrayRef<float> remaining_durations)
     : m_particle_allocator(particle_allocator),
       m_pindices(pindices),
       m_attributes(attributes),
       m_attribute_offsets(attribute_offsets),
       m_current_times(current_times),
-      m_remaining_durations(remaining_durations),
-      m_action_context(action_context)
+      m_remaining_durations(remaining_durations)
 {
 }
 
-class EmptyActionContext : public ActionContext {
-};
-
-template<typename ContextT, typename BuildContextF>
 inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
-                                         EmitterInterface &emitter_interface,
-                                         const BuildContextF &build_context)
+                                         EmitterInterface &emitter_interface)
 {
   AttributesInfo info;
   std::array<void *, 0> buffers;
-
-  ContextT *action_context = (ContextT *)alloca(sizeof(ContextT));
 
   uint offset = 0;
   for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
     IndexRange range(offset, range_size);
     offset += range_size;
-
-    build_context(range, (void *)action_context);
 
     AttributesRef offsets(info, buffers, range_size);
     LargeScopedArray<float> durations(range_size);
@@ -121,47 +95,24 @@ inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
                                      attributes,
                                      offsets,
                                      attributes.get<float>("Birth Time"),
-                                     durations,
-                                     *action_context);
+                                     durations);
     this->execute(action_interface);
-
-    action_context->~ContextT();
   }
 }
 
-inline void Action::execute_from_emitter(AttributesRefGroup &new_particles,
-                                         EmitterInterface &emitter_interface)
+inline void Action::execute_from_event(EventExecuteInterface &event_interface)
 {
-  this->execute_from_emitter<EmptyActionContext>(
-      new_particles, emitter_interface, [](IndexRange UNUSED(range), void *dst) {
-        new (dst) EmptyActionContext();
-      });
-}
-
-inline void Action::execute_from_event(EventExecuteInterface &event_interface,
-                                       ActionContext *action_context)
-{
-  EmptyActionContext empty_action_context;
-  ActionContext &used_action_context = (action_context == nullptr) ? empty_action_context :
-                                                                     *action_context;
-
   ActionInterface action_interface(event_interface.particle_allocator(),
                                    event_interface.pindices(),
                                    event_interface.attributes(),
                                    event_interface.attribute_offsets(),
                                    event_interface.current_times(),
-                                   event_interface.remaining_durations(),
-                                   used_action_context);
+                                   event_interface.remaining_durations());
   this->execute(action_interface);
 }
 
-inline void Action::execute_from_offset_handler(OffsetHandlerInterface &offset_handler_interface,
-                                                ActionContext *action_context)
+inline void Action::execute_from_offset_handler(OffsetHandlerInterface &offset_handler_interface)
 {
-  EmptyActionContext empty_action_context;
-  ActionContext &used_action_context = (action_context == nullptr) ? empty_action_context :
-                                                                     *action_context;
-
   LargeScopedArray<float> current_times(offset_handler_interface.array_size());
   for (uint pindex : offset_handler_interface.pindices()) {
     current_times[pindex] = offset_handler_interface.time_span(pindex).start();
@@ -172,8 +123,7 @@ inline void Action::execute_from_offset_handler(OffsetHandlerInterface &offset_h
                                    offset_handler_interface.attributes(),
                                    offset_handler_interface.attribute_offsets(),
                                    current_times,
-                                   offset_handler_interface.remaining_durations(),
-                                   used_action_context);
+                                   offset_handler_interface.remaining_durations());
   this->execute(action_interface);
 }
 
@@ -184,8 +134,7 @@ inline void Action::execute_for_subset(ArrayRef<uint> pindices, ActionInterface 
                                 action_interface.attributes(),
                                 action_interface.attribute_offsets(),
                                 action_interface.current_times(),
-                                action_interface.remaining_durations(),
-                                action_interface.context());
+                                action_interface.remaining_durations());
   this->execute(sub_interface);
 }
 
@@ -204,15 +153,12 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
     LargeScopedArray<float> durations(range_size);
     durations.fill(0);
 
-    EmptyActionContext empty_context;
-
     ActionInterface new_interface(action_interface.particle_allocator(),
                                   IndexRange(range_size).as_array_ref(),
                                   attributes,
                                   offsets,
                                   attributes.get<float>("Birth Time"),
-                                  durations,
-                                  empty_context);
+                                  durations);
     this->execute(new_interface);
   }
 }
@@ -222,8 +168,6 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
 {
   AttributesInfo info;
   std::array<void *, 0> buffers;
-
-  EmptyActionContext empty_context;
 
   for (AttributesRef attributes : new_particles) {
     uint range_size = attributes.size();
@@ -237,15 +181,9 @@ inline void Action::execute_for_new_particles(AttributesRefGroup &new_particles,
                                   attributes,
                                   offsets,
                                   attributes.get<float>("Birth Time"),
-                                  durations,
-                                  empty_context);
+                                  durations);
     this->execute(new_interface);
   }
-}
-
-inline ActionContext &ActionInterface::context()
-{
-  return m_action_context;
 }
 
 inline ArrayRef<uint> ActionInterface::pindices()

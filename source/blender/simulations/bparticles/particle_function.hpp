@@ -70,8 +70,7 @@ class ParticleFunction {
   std::unique_ptr<ParticleFunctionResult> compute(EventFilterInterface &interface);
 
   std::unique_ptr<ParticleFunctionResult> compute(ArrayRef<uint> pindices,
-                                                  AttributesRef attributes,
-                                                  ActionContext *action_context);
+                                                  AttributesRef attributes);
 };
 
 }  // namespace BParticles

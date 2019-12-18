@@ -14,7 +14,6 @@
 #include "FN_multi_function_common_contexts.h"
 
 #include "emitters.hpp"
-#include "action_contexts.hpp"
 
 namespace BParticles {
 
@@ -320,16 +319,7 @@ void SurfaceEmitter::emit(EmitterInterface &interface)
     new_particles.set<float>("Birth Time", birth_times);
     new_particles.set<SurfaceHook>("Emit Hook", emit_hooks);
 
-    m_on_birth_action.execute_from_emitter<MeshSurfaceContext>(
-        new_particles, interface, [&](IndexRange range, void *dst) {
-          new (dst) MeshSurfaceContext(m_object,
-                                       transforms_at_birth.as_ref().slice(range),
-                                       local_positions.as_ref().slice(range),
-                                       local_normals.as_ref().slice(range),
-                                       world_normals.as_ref().slice(range),
-                                       triangles_to_sample.as_ref().slice(range),
-                                       surface_velocities.as_ref().slice(range));
-        });
+    m_on_birth_action.execute_from_emitter(new_particles, interface);
   }
 }
 

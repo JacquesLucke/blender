@@ -21,27 +21,27 @@ ParticleFunction::~ParticleFunction()
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ActionInterface &interface)
 {
-  return this->compute(interface.pindices(), interface.attributes(), &interface.context());
+  return this->compute(interface.pindices(), interface.attributes());
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
     OffsetHandlerInterface &interface)
 {
-  return this->compute(interface.pindices(), interface.attributes(), nullptr);
+  return this->compute(interface.pindices(), interface.attributes());
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ForceInterface &interface)
 {
-  return this->compute(interface.pindices(), interface.attributes(), nullptr);
+  return this->compute(interface.pindices(), interface.attributes());
 }
 
 std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(EventFilterInterface &interface)
 {
-  return this->compute(interface.pindices(), interface.attributes(), nullptr);
+  return this->compute(interface.pindices(), interface.attributes());
 }
 
-std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
-    ArrayRef<uint> pindices, AttributesRef attributes, ActionContext *UNUSED(action_context))
+std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint> pindices,
+                                                                  AttributesRef attributes)
 {
   uint array_size = attributes.size();
 

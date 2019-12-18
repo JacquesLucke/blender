@@ -2,7 +2,6 @@
 #include "BLI_hash.h"
 
 #include "events.hpp"
-#include "action_contexts.hpp"
 
 namespace BParticles {
 
@@ -82,7 +81,7 @@ void CustomEvent::filter(EventFilterInterface &interface)
     }
   }
 
-  auto inputs = m_inputs_fn->compute(pindices_to_check, interface.attributes(), nullptr);
+  auto inputs = m_inputs_fn->compute(pindices_to_check, interface.attributes());
 
   for (uint pindex : pindices_to_check) {
     bool condition = inputs->get<bool>("Condition", 0, pindex);
@@ -167,30 +166,13 @@ MeshCollisionEvent::RayCastResult MeshCollisionEvent::ray_cast(float3 start,
 
 void MeshCollisionEvent::execute(EventExecuteInterface &interface)
 {
-  uint array_size = interface.array_size();
-  LargeScopedArray<float3> local_positions(array_size);
-  LargeScopedArray<float3> local_normals(array_size);
-  LargeScopedArray<uint> looptri_indices(array_size);
-
   auto last_collision_step = interface.attributes().get<int32_t>(m_last_collision_attribute);
   uint current_update_index = interface.simulation_state().time().current_update_index();
 
   for (uint pindex : interface.pindices()) {
-    auto storage = interface.get_storage<EventStorage>(pindex);
-    looptri_indices[pindex] = storage.looptri_index;
-    local_positions[pindex] = storage.local_position;
-    local_normals[pindex] = storage.local_normal;
     last_collision_step[pindex] = current_update_index;
   }
-
-  MeshSurfaceContext surface_context(m_object,
-                                     m_local_to_world_begin,
-                                     interface.pindices(),
-                                     local_positions,
-                                     local_normals,
-                                     looptri_indices);
-
-  m_action.execute_from_event(interface, &surface_context);
+  m_action.execute_from_event(interface);
 }
 
 }  // namespace BParticles
