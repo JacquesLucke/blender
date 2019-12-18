@@ -133,6 +133,7 @@ class GroupOutputNode(bpy.types.Node, BaseNode):
 class GroupNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_GroupNode"
     bl_label = "Group"
+    bl_icon = "NODETREE"
 
     node_group: PointerProperty(
         type=bpy.types.NodeTree,
@@ -171,12 +172,21 @@ class GroupNode(bpy.types.Node, FunctionNode):
                 assert False
 
     def draw(self, layout):
-        text = "Select Group" if self.node_group is None else self.node_group.name
-        layout.scale_y = 1.3
-        self.invoke_group_selector(layout, "set_group", text, icon="NODETREE")
+        if self.node_group is None:
+            layout.scale_y = 1.3
+            self.invoke_group_selector(layout, "set_group", "Select Group", icon="NODETREE")
 
-    def draw_closed_label(self):
-        return self.node_group.name
+    def draw_advanced(self, layout):
+        col = layout.column()
+        text = "Select Group" if self.node_group is None else self.node_group.name
+        col.scale_y = 1.3
+        self.invoke_group_selector(col, "set_group", text, icon="NODETREE")
+
+    def draw_label(self):
+        if self.node_group is None:
+            return "(G) -"
+        else:
+            return "(G) " + self.node_group.name
 
     def set_group(self, group):
         self.node_group = group
