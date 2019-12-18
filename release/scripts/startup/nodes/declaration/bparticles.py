@@ -85,7 +85,7 @@ class ExecuteInputDecl(SocketDeclBase):
 class ExecuteInputListDecl(SocketDeclBase):
     def __init__(self, node, identifier: str, prop_name: str, display_name: str):
         self.node = node
-        self.identifier_prefix = identifier
+        self.identifier = identifier
         self.display_name = display_name
         self.prop_name = prop_name
 
@@ -103,8 +103,7 @@ class ExecuteInputListDecl(SocketDeclBase):
             yield socket
         socket = node_sockets.new(
             "fn_OperatorSocket",
-            self.display_name,
-            identifier=self.identifier_prefix + "(Operator)")
+            self.display_name)
         socket.display_shape = 'SQUARE'
         yield socket
 
@@ -127,8 +126,6 @@ class ExecuteInputListDecl(SocketDeclBase):
         if not isinstance(sockets[-1], OperatorSocket):
             return False
         if not sockets[-1].name == self.display_name:
-            return False
-        if not sockets[-1].identifier == self.identifier_prefix + "(Operator)":
             return False
 
         return True

@@ -20,7 +20,7 @@ class BaseListVariadic(SocketDeclBase):
         for _ in range(self.default_amount):
             item = collection.add()
             item.state = "BASE"
-            item.identifier_prefix = str(uuid.uuid4())
+            item.identifier = str(uuid.uuid4())
 
     def build(self, node_sockets):
         return list(self._build(node_sockets))
@@ -32,7 +32,7 @@ class BaseListVariadic(SocketDeclBase):
                 data_type,
                 node_sockets,
                 "",
-                item.identifier_prefix + self.identifier_suffix)
+                item.identifier)
         yield node_sockets.new("fn_OperatorSocket", "Operator")
 
     def validate(self, sockets):
@@ -42,8 +42,7 @@ class BaseListVariadic(SocketDeclBase):
 
         for socket, item in zip(sockets[:-1], collection):
             data_type = self.base_type if item.state == "BASE" else self.list_type
-            identifier = item.identifier_prefix + self.identifier_suffix
-            if not self._data_socket_test(socket, "", data_type, identifier):
+            if not self._data_socket_test(socket, "", data_type, item.identifier):
                 return False
 
         if sockets[-1].bl_idname != "fn_OperatorSocket":
@@ -86,12 +85,11 @@ class BaseListVariadic(SocketDeclBase):
         collection = self.get_collection()
         item = collection.add()
         item.state = state
-        item.identifier_prefix = str(uuid.uuid4())
+        item.identifier = str(uuid.uuid4())
 
         self.node.rebuild()
 
-        identifier = item.identifier_prefix + self.identifier_suffix
-        new_socket = self.node.find_socket(identifier, is_output)
+        new_socket = self.node.find_socket(item.identifier, is_output)
         self.node.tree.new_link(linked_socket, new_socket)
 
     def amount(self):
@@ -112,7 +110,7 @@ class BaseListVariadicPropertyGroup(bpy.types.PropertyGroup):
         items=[
             ("BASE", "Base", "", "NONE", 0),
             ("LIST", "Base", "", "NONE", 1)])
-    identifier_prefix: StringProperty()
+    identifier: StringProperty()
 
 class NewBaseListVariadicInputOperator(bpy.types.Operator):
     bl_idname = "fn.new_base_list_variadic_input"
@@ -130,7 +128,7 @@ class NewBaseListVariadicInputOperator(bpy.types.Operator):
 
         item = collection.add()
         item.state = "BASE"
-        item.identifier_prefix = str(uuid.uuid4())
+        item.identifier = str(uuid.uuid4())
 
         tree.sync()
         return {'FINISHED'}

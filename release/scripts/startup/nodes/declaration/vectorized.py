@@ -7,7 +7,7 @@ from .. utils.generic import getattr_recursive
 class VectorizedDeclBase:
     def build(self, node_sockets):
         data_type, name = self.get_type_and_name()
-        socket =type_infos.build(
+        socket = type_infos.build(
             data_type,
             node_sockets,
             name,
