@@ -360,6 +360,11 @@ static void INSERT_vector_distance(VNodeMFNetworkBuilder &builder)
   build_math_fn_in2_out1<float3, float3, float>(builder, float3::distance);
 }
 
+static void INSERT_multiply_vector_with_float(VNodeMFNetworkBuilder &builder)
+{
+  build_math_fn_in2_out1<float3, float, float3>(builder, [](float3 a, float b) { return a * b; });
+}
+
 static void INSERT_boolean_and(VNodeMFNetworkBuilder &builder)
 {
   build_variadic_math_fn(
@@ -594,6 +599,8 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_ProjectVectorNode", INSERT_project_vector);
   mappings.xnode_inserters.add_new("fn_VectorDotProductNode", INSERT_vector_dot_product);
   mappings.xnode_inserters.add_new("fn_VectorDistanceNode", INSERT_vector_distance);
+  mappings.xnode_inserters.add_new("fn_MultiplyVectorWithFloatNode",
+                                   INSERT_multiply_vector_with_float);
 
   mappings.xnode_inserters.add_new("fn_BooleanAndNode", INSERT_boolean_and);
   mappings.xnode_inserters.add_new("fn_BooleanOrNode", INSERT_boolean_or);

@@ -21,8 +21,23 @@ def create_variadic_math_node(data_type, idname, label):
 
     return MathNode
 
-def create_two_inputs_math_node(data_type, idname, label):
-    return create_two_inputs_other_output_math_node(data_type, data_type, idname, label)
+def create_single_type_two_inputs_math_node(data_type, idname, label):
+    return create_two_inputs_math_node(data_type, data_type, data_type, idname, label)
+
+def create_two_inputs_math_node(input_type1, input_type2, output_type, idname, label):
+    class MathNode(bpy.types.Node, FunctionNode):
+        bl_idname = idname
+        bl_label = label
+
+        use_list__a: NodeBuilder.VectorizedProperty()
+        use_list__b: NodeBuilder.VectorizedProperty()
+
+        def declaration(self, builder: NodeBuilder):
+            builder.vectorized_input("a", "use_list__a", "A", "A", input_type1)
+            builder.vectorized_input("b", "use_list__b", "B", "B", input_type2)
+            builder.vectorized_output("result", ["use_list__a", "use_list__b"], "Result", "Result", output_type)
+
+    return MathNode
 
 def create_single_input_math_node(data_type, idname, label):
 
@@ -38,30 +53,14 @@ def create_single_input_math_node(data_type, idname, label):
 
     return MathNode
 
-def create_two_inputs_other_output_math_node(input_type, output_type, idname, label):
-
-    class MathNode(bpy.types.Node, FunctionNode):
-        bl_idname = idname
-        bl_label = label
-
-        use_list__a: NodeBuilder.VectorizedProperty()
-        use_list__b: NodeBuilder.VectorizedProperty()
-
-        def declaration(self, builder: NodeBuilder):
-            builder.vectorized_input("a", "use_list__a", "A", "A", input_type)
-            builder.vectorized_input("b", "use_list__b", "B", "B", input_type)
-            builder.vectorized_output("result", ["use_list__a", "use_list__b"], "Result", "Result", output_type)
-
-    return MathNode
-
 AddFloatsNode = create_variadic_math_node("Float", "fn_AddFloatsNode", "Add Floats")
 MultiplyFloatsNode = create_variadic_math_node("Float", "fn_MultiplyFloatsNode", "Multiply Floats")
 MinimumFloatsNode = create_variadic_math_node("Float", "fn_MinimumFloatsNode", "Minimum Floats")
 MaximumFloatsNode = create_variadic_math_node("Float", "fn_MaximumFloatsNode", "Maximum Floats")
 
-SubtractFloatsNode = create_two_inputs_math_node("Float", "fn_SubtractFloatsNode", "Subtract Floats")
-DivideFloatsNode = create_two_inputs_math_node("Float", "fn_DivideFloatsNode", "Divide Floats")
-PowerFloatsNode = create_two_inputs_math_node("Float", "fn_PowerFloatsNode", "Power Floats")
+SubtractFloatsNode = create_single_type_two_inputs_math_node("Float", "fn_SubtractFloatsNode", "Subtract Floats")
+DivideFloatsNode = create_single_type_two_inputs_math_node("Float", "fn_DivideFloatsNode", "Divide Floats")
+PowerFloatsNode = create_single_type_two_inputs_math_node("Float", "fn_PowerFloatsNode", "Power Floats")
 
 SqrtFloatNode = create_single_input_math_node("Float", "fn_SqrtFloatNode", "Sqrt Float")
 AbsFloatNode = create_single_input_math_node("Float", "fn_AbsoluteFloatNode", "Absolute Float")
@@ -69,15 +68,16 @@ SineFloatNode = create_single_input_math_node("Float", "fn_SineFloatNode", "Sine
 CosineFloatNode = create_single_input_math_node("Float", "fn_CosineFloatNode", "Cosine")
 
 AddVectorsNode = create_variadic_math_node("Vector", "fn_AddVectorsNode", "Add Vectors")
-SubtractVectorsNode = create_two_inputs_math_node("Vector", "fn_SubtractVectorsNode", "Subtract Vectors")
+SubtractVectorsNode = create_single_type_two_inputs_math_node("Vector", "fn_SubtractVectorsNode", "Subtract Vectors")
 MultiplyVectorsNode = create_variadic_math_node("Vector", "fn_MultiplyVectorsNode", "Multiply Vectors")
-DivideVectorsNode = create_two_inputs_math_node("Vector", "fn_DivideVectorsNode", "Divide Vectors")
+DivideVectorsNode = create_single_type_two_inputs_math_node("Vector", "fn_DivideVectorsNode", "Divide Vectors")
+MultiplyVectorWithFloatNode = create_two_inputs_math_node("Vector", "Float", "Vector", "fn_MultiplyVectorWithFloatNode", "Multiply Vector with Float")
 
-VectorCrossProductNode = create_two_inputs_math_node("Vector", "fn_VectorCrossProductNode", "Cross Product")
-VectorReflectNode = create_two_inputs_math_node("Vector", "fn_ReflectVectorNode", "Reflect Vector")
-VectorProjectNode = create_two_inputs_math_node("Vector", "fn_ProjectVectorNode", "Project Vector")
-VectorDotProductNode = create_two_inputs_other_output_math_node("Vector", "Float", "fn_VectorDotProductNode", "Dot Product") 
-VectorDistanceNode = create_two_inputs_other_output_math_node("Vector", "Float", "fn_VectorDistanceNode", "Vector Distance")
+VectorCrossProductNode = create_single_type_two_inputs_math_node("Vector", "fn_VectorCrossProductNode", "Cross Product")
+VectorReflectNode = create_single_type_two_inputs_math_node("Vector", "fn_ReflectVectorNode", "Reflect Vector")
+VectorProjectNode = create_single_type_two_inputs_math_node("Vector", "fn_ProjectVectorNode", "Project Vector")
+VectorDotProductNode = create_two_inputs_math_node("Vector", "Vector", "Float", "fn_VectorDotProductNode", "Dot Product")
+VectorDistanceNode = create_two_inputs_math_node("Vector", "Vector", "Float", "fn_VectorDistanceNode", "Vector Distance")
 
 BooleanAndNode = create_variadic_math_node("Boolean", "fn_BooleanAndNode", "And")
 BooleanOrNode = create_variadic_math_node("Boolean", "fn_BooleanOrNode", "Or")
