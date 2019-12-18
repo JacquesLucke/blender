@@ -26,6 +26,12 @@ class FunctionTree(bpy.types.NodeTree, BaseTree):
                 trees.update(node.iter_directly_used_trees())
         return trees
 
+    def find_callable_trees(self):
+        used_by_trees = FunctionTree.BuildInvertedCallGraph().reachable(self)
+        trees = [tree for tree in bpy.data.node_groups
+                 if isinstance(tree, FunctionTree) and tree not in used_by_trees]
+        return trees
+
     @staticmethod
     def BuildTreeCallGraph() -> DirectedGraph:
         '''

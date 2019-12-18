@@ -70,13 +70,11 @@ class NodeGroupSelector(bpy.types.Operator, NodeOperatorBase):
 
     def get_items(self, context):
         tree = bpy.data.node_groups.get(self.tree_name)
-        used_by_trees = FunctionTree.BuildInvertedCallGraph().reachable(tree)
+        possible_trees = tree.find_callable_trees()
 
         items = []
-        for tree in bpy.data.node_groups:
-            if isinstance(tree, FunctionTree):
-                if tree not in used_by_trees:
-                    items.append((tree.name, tree.name, ""))
+        for tree in possible_trees:
+            items.append((tree.name, tree.name, ""))
         items.append(("NONE", "None", ""))
         return items
 
