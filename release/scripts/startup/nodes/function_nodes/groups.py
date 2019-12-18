@@ -473,6 +473,26 @@ class CreateGroupOutputForSocket(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class OpenCloseGroupOperator(bpy.types.Operator):
+    bl_idname = "fn.open_close_group"
+    bl_label = "Open/Close Group"
+    bl_options = {"INTERNAL"}
+
+    @classmethod
+    def poll(cls, context):
+        try: return context.space_data.node_tree.bl_idname == "FunctionTree"
+        except: return False
+
+    def invoke(self, context, event):
+        space_data = context.space_data
+        active_node = context.active_node
+        if isinstance(active_node, GroupNode) and active_node.node_group is not None:
+            space_data.path.append(active_node.node_group, node=active_node)
+        else:
+            space_data.path.pop()
+        return {"FINISHED"}
+
+
 def socket_can_become_group_input(socket):
     return socket.bl_idname != "fn_OperatorSocket" and not socket.is_linked
 
@@ -490,6 +510,8 @@ def register():
 
         kmi = keymap.keymap_items.new("wm.call_menu_pie", type="V", value="PRESS")
         kmi.properties.name = "FN_MT_manage_group_pie"
+
+        keymap.keymap_items.new("fn.open_close_group", type="TAB", value="PRESS")
 
 def unregister():
     global keymap
