@@ -467,13 +467,20 @@ static void INSERT_map_range(VNodeMFNetworkBuilder &builder)
 
 static void INSERT_random_float(VNodeMFNetworkBuilder &builder)
 {
-  builder.set_constructed_matching_fn<MF_RandomFloat>();
+  uint node_seed = (uint)RNA_int_get(builder.rna(), "node_seed");
+  builder.set_constructed_matching_fn<MF_RandomFloat>(node_seed);
 }
 
 static void INSERT_random_floats(VNodeMFNetworkBuilder &builder)
 {
   uint node_seed = (uint)RNA_int_get(builder.rna(), "node_seed");
   builder.set_constructed_matching_fn<MF_RandomFloats>(node_seed);
+}
+
+static void INSERT_random_vector(VNodeMFNetworkBuilder &builder)
+{
+  uint node_seed = (uint)RNA_int_get(builder.rna(), "node_seed");
+  builder.set_constructed_matching_fn<MF_RandomVector>(node_seed);
 }
 
 static void INSERT_value(VNodeMFNetworkBuilder &builder)
@@ -541,6 +548,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_FloatClampNode", INSERT_clamp_float);
   mappings.xnode_inserters.add_new("fn_RandomFloatNode", INSERT_random_float);
   mappings.xnode_inserters.add_new("fn_RandomFloatsNode", INSERT_random_floats);
+  mappings.xnode_inserters.add_new("fn_RandomVectorNode", INSERT_random_vector);
   mappings.xnode_inserters.add_new("fn_ValueNode", INSERT_value);
   mappings.xnode_inserters.add_new("fn_EmitterTimeInfoNode", INSERT_emitter_time_info);
   mappings.xnode_inserters.add_new("fn_SampleObjectSurfaceNode", INSERT_sample_object_surface);

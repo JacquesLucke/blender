@@ -542,7 +542,7 @@ void MF_Clamp::call(MFMask mask, MFParams params, MFContext UNUSED(context)) con
   }
 }
 
-MF_RandomFloat::MF_RandomFloat()
+MF_RandomFloat::MF_RandomFloat(uint seed) : m_seed(seed * 53723457)
 {
   MFSignatureBuilder signature = this->get_builder("Random Float");
   signature.single_input<float>("Min");
@@ -559,7 +559,7 @@ void MF_RandomFloat::call(MFMask mask, MFParams params, MFContext UNUSED(context
   MutableArrayRef<float> r_values = params.uninitialized_single_output<float>(3, "Value");
 
   for (uint i : mask.indices()) {
-    float value = BLI_hash_int_01(seeds[i]);
+    float value = BLI_hash_int_01(seeds[i] ^ m_seed);
     r_values[i] = value * (max_values[i] - min_values[i]) + min_values[i];
   }
 }
@@ -597,6 +597,31 @@ void MF_RandomFloats::call(MFMask mask, MFParams params, MFContext UNUSED(contex
   }
 
   BLI_rng_free(rng);
+}
+
+MF_RandomVector::MF_RandomVector(uint seed) : m_seed(seed * 56242361)
+{
+  MFSignatureBuilder signature = this->get_builder("Random Vector");
+  signature.single_input<float3>("Amplitude");
+  signature.single_input<int>("Seed");
+  signature.single_output<float3>("Vector");
+}
+
+void MF_RandomVector::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  VirtualListRef<float3> amplitudes = params.readonly_single_input<float3>(0, "Amplitude");
+  VirtualListRef<int> seeds = params.readonly_single_input<int>(1, "Seed");
+  MutableArrayRef<float3> r_vectors = params.uninitialized_single_output<float3>(2, "Vector");
+
+  for (uint i : mask.indices()) {
+    uint seed = seeds[i] ^ m_seed;
+    float x = BLI_hash_int_01(seed * 4521341) - 0.5f;
+    float y = BLI_hash_int_01(seed * 4623413) - 0.5f;
+    float z = BLI_hash_int_01(seed * 7826313) - 0.5f;
+    float3 amplitude = amplitudes[i];
+    float3 vector = float3(x, y, z) * amplitude;
+    r_vectors[i] = vector;
+  }
 }
 
 MF_FindNonClosePoints::MF_FindNonClosePoints()
