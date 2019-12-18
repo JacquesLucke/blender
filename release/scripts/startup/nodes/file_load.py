@@ -4,7 +4,7 @@ from bpy.app.handlers import persistent
 @persistent
 def file_load_handler(dummy):
     from . sync import sync_trees_and_dependent_trees
-    node_trees = set(bpy.data.node_groups)
+    node_trees = set(tree for tree in bpy.data.node_groups if tree.bl_idname == "FunctionTree")
     sync_trees_and_dependent_trees(node_trees)
 
 def register():
