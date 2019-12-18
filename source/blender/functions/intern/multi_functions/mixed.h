@@ -86,8 +86,9 @@ class MF_RandomFloats final : public MultiFunction {
 
 namespace RandomVectorMode {
 enum Enum {
-  SampleInCube,
-  SampleOnSphere,
+  UniformInCube,
+  UniformOnSphere,
+  UniformInSphere,
 };
 }
 

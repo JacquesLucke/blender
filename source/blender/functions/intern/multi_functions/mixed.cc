@@ -627,6 +627,19 @@ MF_RandomVector::MF_RandomVector(uint seed, RandomVectorMode::Enum mode)
   signature.single_output<float3>("Vector");
 }
 
+static float3 rng_get_float3_01(RNG *rng)
+{
+  float x = BLI_rng_get_float(rng);
+  float y = BLI_rng_get_float(rng);
+  float z = BLI_rng_get_float(rng);
+  return {x, y, z};
+}
+
+static float3 rng_get_float3_neg1_1(RNG *rng)
+{
+  return rng_get_float3_01(rng) * 2 - float3(1.0f, 1.0f, 1.0f);
+}
+
 void MF_RandomVector::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
 {
   VirtualListRef<float3> factors = params.readonly_single_input<float3>(0, "Factor");
@@ -636,25 +649,33 @@ void MF_RandomVector::call(MFMask mask, MFParams params, MFContext UNUSED(contex
   RNG *rng = BLI_rng_new(0);
 
   switch (m_mode) {
-    case RandomVectorMode::SampleInCube: {
+    case RandomVectorMode::UniformInCube: {
       for (uint i : mask.indices()) {
         uint seed = seeds[i] ^ m_seed;
         BLI_rng_srandom(rng, seed);
-        float x = BLI_rng_get_float(rng) - 0.5f;
-        float y = BLI_rng_get_float(rng) - 0.5f;
-        float z = BLI_rng_get_float(rng) - 0.5f;
-        float3 factor = factors[i];
-        float3 vector = float3(x, y, z) * factor;
-        r_vectors[i] = vector;
+        float3 vector = rng_get_float3_neg1_1(rng);
+        r_vectors[i] = vector * factors[i];
       }
       break;
     }
-    case RandomVectorMode::SampleOnSphere: {
+    case RandomVectorMode::UniformOnSphere: {
       for (uint i : mask.indices()) {
         uint seed = seeds[i] ^ m_seed;
         BLI_rng_srandom(rng, seed);
         float3 vector;
         BLI_rng_get_float_unit_v3(rng, vector);
+        r_vectors[i] = vector * factors[i];
+      }
+      break;
+    }
+    case RandomVectorMode::UniformInSphere: {
+      for (uint i : mask.indices()) {
+        uint seed = seeds[i] ^ m_seed;
+        BLI_rng_srandom(rng, seed);
+        float3 vector;
+        do {
+          vector = rng_get_float3_neg1_1(rng);
+        } while (vector.length_squared() >= 1.0f);
         r_vectors[i] = vector * factors[i];
       }
       break;
@@ -694,19 +715,27 @@ void MF_RandomVectors::call(MFMask mask, MFParams params, MFContext UNUSED(conte
     BLI_rng_srandom(rng, seed);
 
     switch (m_mode) {
-      case RandomVectorMode::SampleInCube: {
+      case RandomVectorMode::UniformInCube: {
         for (uint i : IndexRange(amount)) {
-          float x = BLI_rng_get_float(rng) - 0.5f;
-          float y = BLI_rng_get_float(rng) - 0.5f;
-          float z = BLI_rng_get_float(rng) - 0.5f;
-          r_vectors[i] = {x, y, z};
+          float3 vector = rng_get_float3_neg1_1(rng);
+          r_vectors[i] = vector;
         }
         break;
       }
-      case RandomVectorMode::SampleOnSphere: {
+      case RandomVectorMode::UniformOnSphere: {
         for (uint i : IndexRange(amount)) {
           float3 vector;
           BLI_rng_get_float_unit_v3(rng, vector);
+          r_vectors[i] = vector;
+        }
+        break;
+      }
+      case RandomVectorMode::UniformInSphere: {
+        for (uint i : IndexRange(amount)) {
+          float3 vector;
+          do {
+            vector = rng_get_float3_neg1_1(rng);
+          } while (vector.length_squared() >= 1.0f);
           r_vectors[i] = vector;
         }
         break;

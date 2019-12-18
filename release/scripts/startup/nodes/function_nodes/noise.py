@@ -66,8 +66,9 @@ class RandomFloatsNode(bpy.types.Node, FunctionNode):
         self.node_seed = new_node_seed()
 
 random_vector_mode_items = [
-    ("UNIFORM_IN_CUBE", "Uniform in Cube", "Generate a vector that is somewhere in a cube", "NONE", 0),
-    ("UNIFORM_ON_SPHERE", "Uniform on Sphere", "Generate a vector that is somehwere on the surface of a sphere", 1),
+    ("UNIFORM_IN_CUBE", "Uniform in Cube", "Generate a vector that is somewhere in the volume of a cube", "NONE", 0),
+    ("UNIFORM_ON_SPHERE", "Uniform on Sphere", "Generate a vector that is somewhere on the surface of a sphere", 1),
+    ("UNIFORM_IN_SPHERE", "Uniform in Sphere", "Generate a vector that is somewhere in the volume of a sphere", 2),
 ]
 
 class RandomVectorNode(bpy.types.Node, FunctionNode):
