@@ -4,6 +4,17 @@ from .. base import FunctionNode
 from .. node_builder import NodeBuilder
 
 
+class VectorFromValueNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_VectorFromValueNode"
+    bl_label = "Vector from Value"
+
+    use_list__value: NodeBuilder.VectorizedProperty()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.vectorized_input("value", "use_list__value", "Value", "Values", "Float")
+        builder.vectorized_output("vector", ["use_list__value"], "Vector", "Vectors", "Vector")
+
+
 class CombineVectorNode(bpy.types.Node, FunctionNode):
     bl_idname = "fn_CombineVectorNode"
     bl_label = "Combine Vector"

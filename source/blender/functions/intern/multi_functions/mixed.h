@@ -30,6 +30,12 @@ class MF_SeparateVector final : public MultiFunction {
   void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
+class MF_VectorFromValue final : public MultiFunction {
+ public:
+  MF_VectorFromValue();
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
 class MF_FloatArraySum final : public MultiFunction {
  public:
   MF_FloatArraySum();

@@ -33,6 +33,11 @@ static void INSERT_separate_vector(VNodeMFNetworkBuilder &builder)
   builder.set_vectorized_constructed_matching_fn<MF_SeparateVector>({"use_list__vector"});
 }
 
+static void INSERT_vector_from_value(VNodeMFNetworkBuilder &builder)
+{
+  builder.set_vectorized_constructed_matching_fn<MF_VectorFromValue>({"use_list__value"});
+}
+
 static void INSERT_list_length(VNodeMFNetworkBuilder &builder)
 {
   const CPPType &type = builder.cpp_type_from_property("active_type");
@@ -529,6 +534,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_SeparateColorNode", INSERT_separate_color);
   mappings.xnode_inserters.add_new("fn_CombineVectorNode", INSERT_combine_vector);
   mappings.xnode_inserters.add_new("fn_SeparateVectorNode", INSERT_separate_vector);
+  mappings.xnode_inserters.add_new("fn_VectorFromValueNode", INSERT_vector_from_value);
   mappings.xnode_inserters.add_new("fn_SwitchNode", INSERT_switch);
   mappings.xnode_inserters.add_new("fn_SelectNode", INSERT_select);
   mappings.xnode_inserters.add_new("fn_ListLengthNode", INSERT_list_length);

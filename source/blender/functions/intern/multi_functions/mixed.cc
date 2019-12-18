@@ -132,6 +132,24 @@ void MF_SeparateVector::call(MFMask mask, MFParams params, MFContext UNUSED(cont
   }
 }
 
+MF_VectorFromValue::MF_VectorFromValue()
+{
+  MFSignatureBuilder signature = this->get_builder("Vector from Value");
+  signature.single_input<float>("Value");
+  signature.single_output<float3>("Vector");
+}
+
+void MF_VectorFromValue::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  VirtualListRef<float> values = params.readonly_single_input<float>(0, "Value");
+  MutableArrayRef<float3> r_vectors = params.uninitialized_single_output<float3>(1, "Vector");
+
+  for (uint i : mask.indices()) {
+    float value = values[i];
+    r_vectors[i] = {value, value, value};
+  }
+}
+
 MF_FloatArraySum::MF_FloatArraySum()
 {
   MFSignatureBuilder signature = this->get_builder("Float Array Sum");
