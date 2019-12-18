@@ -104,5 +104,39 @@ class RandomVectorNode(bpy.types.Node, FunctionNode):
     def duplicate(self, src_node):
         self.node_seed = new_node_seed()
 
+
+class RandomVectorsNode(bpy.types.Node, FunctionNode):
+    bl_idname = "fn_RandomVectorsNode"
+    bl_label = "Random Vectors"
+
+    node_seed: IntProperty(
+        name="Node Seed",
+    )
+
+    mode: EnumProperty(
+        name="Mode",
+        items=random_vector_mode_items,
+        default="UNIFORM_IN_CUBE",
+    )
+
+    def init_props(self):
+        self.node_seed = new_node_seed()
+
+    def declaration(self, builder: NodeBuilder):
+        builder.fixed_input("amount", "Amount", "Integer", default=10)
+        builder.fixed_input("factor", "Factor", "Vector", default=(1, 1, 1))
+        builder.fixed_input("seed", "Seed", "Integer")
+        builder.fixed_output("vectors", "Vectors", "Vector List")
+
+    def draw(self, layout):
+        layout.prop(self, "mode", text="")
+
+    def draw_advanced(self, layout):
+        layout.prop(self, "node_seed")
+
+    def duplicate(self, src_node):
+        self.node_seed = new_node_seed()
+
+
 def new_node_seed():
     return random.randint(0, 10000)

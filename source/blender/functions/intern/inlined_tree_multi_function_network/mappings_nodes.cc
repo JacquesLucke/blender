@@ -485,6 +485,13 @@ static void INSERT_random_vector(VNodeMFNetworkBuilder &builder)
       {"use_list__factor", "use_list__seed"}, node_seed, mode);
 }
 
+static void INSERT_random_vectors(VNodeMFNetworkBuilder &builder)
+{
+  uint node_seed = (uint)RNA_int_get(builder.rna(), "node_seed");
+  RandomVectorMode::Enum mode = (RandomVectorMode::Enum)RNA_enum_get(builder.rna(), "mode");
+  builder.set_constructed_matching_fn<MF_RandomVectors>(node_seed, mode);
+}
+
 static void INSERT_value(VNodeMFNetworkBuilder &builder)
 {
   const XOutputSocket &xsocket = builder.xnode().output(0);
@@ -551,6 +558,7 @@ void add_inlined_tree_node_mapping_info(VTreeMultiFunctionMappings &mappings)
   mappings.xnode_inserters.add_new("fn_RandomFloatNode", INSERT_random_float);
   mappings.xnode_inserters.add_new("fn_RandomFloatsNode", INSERT_random_floats);
   mappings.xnode_inserters.add_new("fn_RandomVectorNode", INSERT_random_vector);
+  mappings.xnode_inserters.add_new("fn_RandomVectorsNode", INSERT_random_vectors);
   mappings.xnode_inserters.add_new("fn_ValueNode", INSERT_value);
   mappings.xnode_inserters.add_new("fn_EmitterTimeInfoNode", INSERT_emitter_time_info);
   mappings.xnode_inserters.add_new("fn_SampleObjectSurfaceNode", INSERT_sample_object_surface);

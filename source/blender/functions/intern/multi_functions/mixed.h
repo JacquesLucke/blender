@@ -66,7 +66,7 @@ class MF_RandomFloat final : public MultiFunction {
 
  public:
   MF_RandomFloat(uint seed);
-  void call(MFMask mask, MFParams parms, MFContext context) const override;
+  void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
 class MF_RandomFloats final : public MultiFunction {
@@ -75,7 +75,7 @@ class MF_RandomFloats final : public MultiFunction {
 
  public:
   MF_RandomFloats(uint seed);
-  void call(MFMask mask, MFParams parms, MFContext context) const override;
+  void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
 namespace RandomVectorMode {
@@ -92,7 +92,17 @@ class MF_RandomVector final : public MultiFunction {
 
  public:
   MF_RandomVector(uint seed, RandomVectorMode::Enum mode);
-  void call(MFMask mask, MFParams parms, MFContext context) const override;
+  void call(MFMask mask, MFParams params, MFContext context) const override;
+};
+
+class MF_RandomVectors final : public MultiFunction {
+ private:
+  uint m_seed;
+  RandomVectorMode::Enum m_mode;
+
+ public:
+  MF_RandomVectors(uint seed, RandomVectorMode::Enum mode);
+  void call(MFMask mask, MFParams params, MFContext context) const override;
 };
 
 class MF_ContextVertexPosition final : public MultiFunction {

@@ -225,6 +225,13 @@ struct float3 {
     this->z *= scalar;
   }
 
+  void operator*=(float3 other)
+  {
+    this->x *= other.x;
+    this->y *= other.y;
+    this->z *= other.z;
+  }
+
   friend float3 operator*(float3 a, float3 b)
   {
     return {a.x * b.x, a.y * b.y, a.z * b.z};

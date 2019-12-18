@@ -585,7 +585,8 @@ void MF_RandomFloats::call(MFMask mask, MFParams params, MFContext UNUSED(contex
   RNG *rng = BLI_rng_new(0);
 
   for (uint i : mask.indices()) {
-    MutableArrayRef<float> r_array = r_values.allocate(i, amounts[i]);
+    uint amount = std::max<int>(0, amounts[i]);
+    MutableArrayRef<float> r_array = r_values.allocate(i, amount);
     BLI_rng_srandom(rng, seeds[i] + m_seed);
 
     float range = max_values[i] - min_values[i];
@@ -639,6 +640,63 @@ void MF_RandomVector::call(MFMask mask, MFParams params, MFContext UNUSED(contex
         r_vectors[i] = vector * factors[i];
       }
       break;
+    }
+  }
+
+  BLI_rng_free(rng);
+}
+
+MF_RandomVectors::MF_RandomVectors(uint seed, RandomVectorMode::Enum mode)
+    : m_seed(seed * 45621347), m_mode(mode)
+{
+  MFSignatureBuilder signature = this->get_builder("Random Vectors");
+  signature.single_input<int>("Amount");
+  signature.single_input<float3>("Factor");
+  signature.single_input<int>("Seed");
+  signature.vector_output<float3>("Vectors");
+}
+
+void MF_RandomVectors::call(MFMask mask, MFParams params, MFContext UNUSED(context)) const
+{
+  VirtualListRef<int> amounts = params.readonly_single_input<int>(0, "Amount");
+  VirtualListRef<float3> factors = params.readonly_single_input<float3>(1, "Factor");
+  VirtualListRef<int> seeds = params.readonly_single_input<int>(2, "Seed");
+  GenericVectorArray::MutableTypedRef<float3> r_vectors_array = params.vector_output<float3>(
+      3, "Vectors");
+
+  RNG *rng = BLI_rng_new(0);
+
+  for (uint index : mask.indices()) {
+    uint amount = std::max<int>(0, amounts[index]);
+    float3 factor = factors[index];
+    uint seed = seeds[index] ^ m_seed;
+
+    MutableArrayRef<float3> r_vectors = r_vectors_array.allocate(index, amount);
+
+    BLI_rng_srandom(rng, seed);
+
+    switch (m_mode) {
+      case RandomVectorMode::SampleInCube: {
+        for (uint i : IndexRange(amount)) {
+          float x = BLI_rng_get_float(rng) - 0.5f;
+          float y = BLI_rng_get_float(rng) - 0.5f;
+          float z = BLI_rng_get_float(rng) - 0.5f;
+          r_vectors[i] = {x, y, z};
+        }
+        break;
+      }
+      case RandomVectorMode::SampleOnSphere: {
+        for (uint i : IndexRange(amount)) {
+          float3 vector;
+          BLI_rng_get_float_unit_v3(rng, vector);
+          r_vectors[i] = vector;
+        }
+        break;
+      }
+    }
+
+    for (float3 &vector : r_vectors) {
+      vector *= factor;
     }
   }
 
