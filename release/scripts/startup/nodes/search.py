@@ -18,7 +18,15 @@ class NodeSearch(bpy.types.Operator):
             for search_term, settings in node_cls.get_search_terms():
                 item = encode_search_item(node_cls.bl_idname, search_term, settings)
                 items.append(item)
-        return items
+
+        current_tree = context.space_data.node_tree
+        for tree in current_tree.find_callable_trees():
+            name = "(G) " + tree.name
+            item = encode_search_item(name, name, {})
+            items.append(item)
+
+        sorted_items = list(sorted(items, key=lambda item: item[1]))
+        return sorted_items
 
     item: EnumProperty(items=cache_enum_items(get_search_items))
 
@@ -32,12 +40,24 @@ class NodeSearch(bpy.types.Operator):
         return {'CANCELLED'}
 
     def execute(self, context):
+        tree = context.space_data.node_tree
+        for node in tree.nodes:
+            node.select = False
+
         idname, settings = decode_search_item(self.item)
-        op_settings = []
+        if idname.startswith("(G) "):
+            group_name = idname[len("(G) "):]
+            idname = "fn_GroupNode"
+            node_group = bpy.data.node_groups[group_name]
+            settings = {"node_group" : node_group}
+
+        bpy.ops.node.add_node('INVOKE_DEFAULT', type=idname)
+        new_node = context.active_node
+        new_node.select = True
         for key, value in settings.items():
-            item = {"name" : key, "value" : repr(value)}
-            op_settings.append(item)
-        bpy.ops.node.add_node('INVOKE_DEFAULT', type=idname, use_transform=True, settings=op_settings)
+            setattr(new_node, key, value)
+
+        bpy.ops.node.translate_attach("INVOKE_DEFAULT")
         return {'FINISHED'}
 
 
