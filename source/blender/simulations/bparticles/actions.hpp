@@ -87,25 +87,6 @@ class ChangePositionAction : public Action {
   void execute(ActionInterface &interface) override;
 };
 
-class ExplodeAction : public Action {
- private:
-  ArrayRef<std::string> m_systems_to_emit;
-  ParticleFunction *m_inputs_fn;
-  Action &m_on_birth_action;
-
- public:
-  ExplodeAction(ArrayRef<std::string> systems_to_emit,
-                ParticleFunction *inputs_fn,
-                Action &on_birth_action)
-      : m_systems_to_emit(systems_to_emit),
-        m_inputs_fn(inputs_fn),
-        m_on_birth_action(on_birth_action)
-  {
-  }
-
-  void execute(ActionInterface &interface) override;
-};
-
 class ConditionAction : public Action {
  private:
   ParticleFunction *m_inputs_fn;

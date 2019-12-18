@@ -84,7 +84,6 @@ class ActionNodesMenu(bpy.types.Menu):
         insert_node(layout, "fn_ChangeParticleSizeNode", "Change Size")
         insert_node(layout, "fn_ChangeParticlePositionNode", "Change Position")
         layout.separator()
-        insert_node(layout, "fn_ExplodeParticleNode", "Explode Particle")
         insert_node(layout, "fn_KillParticleNode", "Kill Particle")
         insert_node(layout, "fn_ParticleConditionNode", "Condition")
 

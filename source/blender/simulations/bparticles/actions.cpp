@@ -125,41 +125,6 @@ void KillAction::execute(ActionInterface &interface)
   interface.kill(interface.pindices());
 }
 
-void ExplodeAction::execute(ActionInterface &interface)
-{
-  auto positions = interface.attributes().get<float3>("Position");
-
-  Vector<float3> new_positions;
-  Vector<float3> new_velocities;
-  Vector<float> new_birth_times;
-
-  auto inputs = ParticleFunctionResult::Compute(
-      *m_inputs_fn, interface.pindices(), interface.attributes());
-
-  for (uint pindex : interface.pindices()) {
-    uint parts_amount = std::max(0, inputs.get_single<int>("Amount", 0, pindex));
-    float speed = inputs.get_single<float>("Speed", 1, pindex);
-
-    new_positions.append_n_times(positions[pindex], parts_amount);
-    new_birth_times.append_n_times(interface.current_times()[pindex], parts_amount);
-
-    for (uint j = 0; j < parts_amount; j++) {
-      new_velocities.append(random_direction() * speed);
-    }
-  }
-
-  for (StringRef system_name : m_systems_to_emit) {
-    auto new_particles = interface.particle_allocator().request(system_name,
-                                                                new_birth_times.size());
-    new_particles.set<float3>("Position", new_positions);
-    new_particles.set<float3>("Velocity", new_velocities);
-    new_particles.fill<float>("Size", 0.1f);
-    new_particles.set<float>("Birth Time", new_birth_times);
-
-    m_on_birth_action.execute_for_new_particles(new_particles, interface);
-  }
-}
-
 void ConditionAction::execute(ActionInterface &interface)
 {
   auto inputs = ParticleFunctionResult::Compute(

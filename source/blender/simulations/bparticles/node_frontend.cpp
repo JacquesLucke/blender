@@ -539,22 +539,6 @@ static void ACTION_change_velocity(XSocketActionBuilder &builder)
   }
 }
 
-static void ACTION_explode(XSocketActionBuilder &builder)
-{
-  ParticleFunction *inputs_fn = builder.particle_function_for_all_inputs();
-  if (inputs_fn == nullptr) {
-    return;
-  }
-
-  ArrayRef<std::string> system_names = builder.find_system_target_names(1, "Explode System");
-  if (builder.system_names().intersects__linear_search(system_names)) {
-    return;
-  }
-
-  Action &on_birth_action = builder.build_input_action_list("Execute on Birth", system_names);
-  builder.set_constructed<ExplodeAction>(system_names, inputs_fn, on_birth_action);
-}
-
 static void ACTION_spawn(XSocketActionBuilder &builder)
 {
   const XNode &xnode = builder.xsocket().node();
@@ -704,7 +688,6 @@ BLI_LAZY_INIT(StringMap<ActionParserCallback>, get_action_parsers)
   StringMap<ActionParserCallback> map;
   map.add_new("fn_KillParticleNode", ACTION_kill);
   map.add_new("fn_ChangeParticleVelocityNode", ACTION_change_velocity);
-  map.add_new("fn_ExplodeParticleNode", ACTION_explode);
   map.add_new("fn_SpawnParticlesNode", ACTION_spawn);
   map.add_new("fn_ParticleConditionNode", ACTION_condition);
   map.add_new("fn_ChangeParticleColorNode", ACTION_change_color);
