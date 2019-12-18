@@ -226,47 +226,22 @@ using FN::MFParamType;
 
 void SpawnParticlesAction::execute(ActionInterface &interface)
 {
-  FN::MFMask mask(interface.pindices());
-  uint min_array_size = mask.min_array_size();
-  FN::MFParamsBuilder params_builder{m_spawn_function, min_array_size};
-
-  for (uint param_index : m_spawn_function.param_indices()) {
-    MFParamType param_type = m_spawn_function.param_type(param_index);
-    MFDataType data_type = param_type.data_type();
-    BLI_assert(param_type.is_output());
-    switch (param_type.data_type().category()) {
-      case MFDataType::Single: {
-        const FN::CPPType &type = data_type.single__cpp_type();
-        void *buffer = MEM_malloc_arrayN(min_array_size, type.size(), __func__);
-        FN::GenericMutableArrayRef array{type, buffer, min_array_size};
-        params_builder.add_single_output(array);
-        break;
-      }
-      case MFDataType::Vector: {
-        const FN::CPPType &base_type = data_type.vector__cpp_base_type();
-        FN::GenericVectorArray *vector_array = new FN::GenericVectorArray(base_type,
-                                                                          min_array_size);
-        params_builder.add_vector_output(*vector_array);
-        break;
-      }
-    }
+  if (interface.pindices().size() == 0) {
+    return;
   }
 
-  FN::ParticleAttributesContext attributes_context = {interface.attributes()};
+  uint array_size = interface.pindices().last() + 1;
 
-  FN::MFContextBuilder context_builder;
-  context_builder.add_global_context(m_id_data_cache);
-  context_builder.add_global_context(m_id_handle_lookup);
-  context_builder.add_element_context(attributes_context, IndexRange(min_array_size));
+  auto inputs = ParticleFunctionResult::Compute(
+      m_spawn_function, interface.pindices(), interface.attributes());
 
-  m_spawn_function.call(mask, params_builder, context_builder);
+  LargeScopedArray<int> particle_counts(array_size, -1);
 
-  LargeScopedArray<int> particle_counts(min_array_size, -1);
-
-  for (uint param_index : m_spawn_function.param_indices()) {
-    MFParamType param_type = m_spawn_function.param_type(param_index);
+  const MultiFunction &fn = m_spawn_function.fn();
+  for (uint param_index : fn.param_indices()) {
+    MFParamType param_type = fn.param_type(param_index);
     if (param_type.is_vector_output()) {
-      FN::GenericVectorArray &vector_array = params_builder.computed_vector_array(param_index);
+      FN::GenericVectorArray &vector_array = inputs.computed_vector_array(param_index);
       for (uint i : interface.pindices()) {
         FN::GenericArrayRef array = vector_array[i];
         particle_counts[i] = std::max<int>(particle_counts[i], array.size());
@@ -293,8 +268,8 @@ void SpawnParticlesAction::execute(ActionInterface &interface)
   }
   attribute_arrays.add_new("Birth Time", new_birth_times.as_mutable_ref());
 
-  for (uint param_index : m_spawn_function.param_indices()) {
-    MFParamType param_type = m_spawn_function.param_type(param_index);
+  for (uint param_index : fn.param_indices()) {
+    MFParamType param_type = fn.param_type(param_index);
     MFDataType data_type = param_type.data_type();
     StringRef attribute_name = m_attribute_names[param_index];
 
@@ -303,7 +278,7 @@ void SpawnParticlesAction::execute(ActionInterface &interface)
         const FN::CPPType &type = data_type.single__cpp_type();
         void *buffer = MEM_malloc_arrayN(total_spawn_amount, type.size(), __func__);
         GenericMutableArrayRef array(type, buffer, total_spawn_amount);
-        GenericMutableArrayRef computed_array = params_builder.computed_array(param_index);
+        GenericArrayRef computed_array = inputs.computed_array(param_index);
 
         uint current = 0;
         for (uint i : interface.pindices()) {
@@ -313,17 +288,13 @@ void SpawnParticlesAction::execute(ActionInterface &interface)
         }
 
         attribute_arrays.add(attribute_name, array);
-
-        computed_array.destruct_indices(interface.pindices());
-        MEM_freeN(computed_array.buffer());
         break;
       }
       case MFDataType::Vector: {
         const FN::CPPType &base_type = data_type.vector__cpp_base_type();
         void *buffer = MEM_malloc_arrayN(total_spawn_amount, base_type.size(), __func__);
         GenericMutableArrayRef array(base_type, buffer, total_spawn_amount);
-        FN::GenericVectorArray &computed_vector_array = params_builder.computed_vector_array(
-            param_index);
+        FN::GenericVectorArray &computed_vector_array = inputs.computed_vector_array(param_index);
 
         uint current = 0;
         for (uint pindex : interface.pindices()) {
@@ -350,8 +321,6 @@ void SpawnParticlesAction::execute(ActionInterface &interface)
         }
 
         attribute_arrays.add(attribute_name, array);
-
-        delete &computed_vector_array;
         break;
       }
     }

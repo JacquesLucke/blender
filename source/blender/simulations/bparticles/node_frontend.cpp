@@ -562,8 +562,8 @@ static void ACTION_spawn(XSocketActionBuilder &builder)
   ArrayRef<const XInputSocket *> data_inputs = xnode.inputs().take_front(
       first_execute_socket.index());
   ArrayRef<uint> input_indices = IndexRange(data_inputs.size()).as_array_ref();
-  const MultiFunction *spawn_function = builder.function_for_inputs(input_indices);
-  if (spawn_function == nullptr) {
+  const ParticleFunction *inputs_fn = builder.particle_function_for_inputs(input_indices);
+  if (inputs_fn == nullptr) {
     return;
   }
 
@@ -595,12 +595,8 @@ static void ACTION_spawn(XSocketActionBuilder &builder)
 
   Action &action = builder.build_input_action_list("Execute on Birth", system_names);
 
-  builder.set_constructed<SpawnParticlesAction>(system_names,
-                                                *spawn_function,
-                                                std::move(attribute_names),
-                                                action,
-                                                builder.id_handle_lookup(),
-                                                builder.id_data_cache());
+  builder.set_constructed<SpawnParticlesAction>(
+      system_names, *inputs_fn, std::move(attribute_names), action);
 }
 
 static void ACTION_condition(XSocketActionBuilder &builder)

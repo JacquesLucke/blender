@@ -37,6 +37,11 @@ class ParticleFunction {
                    Vector<std::string> computed_names,
                    const BKE::IDDataCache &id_data_cache,
                    const BKE::IDHandleLookup &id_handle_lookup);
+
+  const MultiFunction &fn() const
+  {
+    return m_fn;
+  }
 };
 
 class ParticleFunctionResult : BLI::NonCopyable {
@@ -92,6 +97,18 @@ class ParticleFunctionResult : BLI::NonCopyable {
     uint corrected_index = m_index_mapping[param_index];
     GenericVectorArray &vector_array = *m_vector_arrays[corrected_index];
     return vector_array[pindex].as_typed_ref<T>();
+  }
+
+  GenericVectorArray &computed_vector_array(uint param_index)
+  {
+    uint corrected_index = m_index_mapping[param_index];
+    return *m_vector_arrays[corrected_index];
+  }
+
+  GenericArrayRef computed_array(uint param_index)
+  {
+    uint corrected_index = m_index_mapping[param_index];
+    return m_arrays[corrected_index];
   }
 };
 
