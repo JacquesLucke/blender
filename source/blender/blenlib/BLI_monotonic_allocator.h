@@ -90,8 +90,8 @@ class MonotonicAllocator : NonCopyable, NonMovable {
 
   StringRefNull copy_string(StringRef str)
   {
-    void *buffer = this->allocate(str.size() + 1, 1);
-    memcpy(buffer, str.data(), str.size() + 1);
+    char *buffer = (char *)this->allocate(str.size() + 1, 1);
+    str.copy_to__with_null(buffer);
     return StringRefNull((const char *)buffer);
   }
 

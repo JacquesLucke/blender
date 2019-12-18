@@ -117,33 +117,41 @@ class InlinedTreeData {
 
   ParticleFunction *particle_function_for_all_inputs(const XNode &xnode)
   {
-    ScopedVector<const MFInputSocket *> sockets_to_compute;
+    Vector<const MFInputSocket *> sockets_to_compute;
+    Vector<std::string> names_to_compute;
     for (const XInputSocket *xsocket : xnode.inputs()) {
       if (m_inlined_tree_data_graph.is_mapped(*xsocket)) {
         sockets_to_compute.append(&m_inlined_tree_data_graph.lookup_dummy_socket(*xsocket));
+        names_to_compute.append(xsocket->name());
       }
     }
 
-    return this->particle_function_for_sockets(sockets_to_compute);
+    return this->particle_function_for_sockets(std::move(sockets_to_compute),
+                                               std::move(names_to_compute));
   }
 
   ParticleFunction *particle_function_for_inputs(const XNode &xnode, ArrayRef<uint> input_indices)
   {
-    ScopedVector<const MFInputSocket *> sockets_to_compute;
+    Vector<const MFInputSocket *> sockets_to_compute;
+    Vector<std::string> names_to_compute;
     for (uint i : input_indices) {
       const MFInputSocket &socket = m_inlined_tree_data_graph.lookup_dummy_socket(xnode.input(i));
       sockets_to_compute.append(&socket);
+      names_to_compute.append(xnode.input(i).name());
     }
 
-    return this->particle_function_for_sockets(sockets_to_compute);
+    return this->particle_function_for_sockets(std::move(sockets_to_compute),
+                                               std::move(names_to_compute));
   }
 
-  ParticleFunction *particle_function_for_sockets(Vector<const MFInputSocket *> sockets_to_compute)
+  ParticleFunction *particle_function_for_sockets(Vector<const MFInputSocket *> sockets_to_compute,
+                                                  Vector<std::string> names_to_compute)
   {
+
     const MultiFunction &fn = this->construct<FN::MF_EvaluateNetwork>(
         "Evaluate Network", Vector<const MFOutputSocket *>(), std::move(sockets_to_compute));
     ParticleFunction &particle_fn = this->construct<ParticleFunction>(
-        "Particle Function", fn, m_id_data_cache, m_id_handle_lookup);
+        "Particle Function", fn, std::move(names_to_compute), m_id_data_cache, m_id_handle_lookup);
 
     return &particle_fn;
   }

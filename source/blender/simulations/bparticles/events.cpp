@@ -15,12 +15,13 @@ void AgeReachedEvent::filter(EventFilterInterface &interface)
   AttributesRef attributes = interface.attributes();
   auto ids = attributes.get<int32_t>("ID");
 
-  auto inputs = m_inputs_fn->compute(interface);
+  auto inputs = ParticleFunctionResult::Compute(
+      *m_inputs_fn, interface.pindices(), interface.attributes());
 
   LargeScopedArray<float> trigger_ages(attributes.size());
   for (uint pindex : interface.pindices()) {
-    float age = inputs->get<float>("Age", 0, pindex);
-    float variation = inputs->get<float>("Variation", 1, pindex);
+    float age = inputs.get_single<float>("Age", 0, pindex);
+    float variation = inputs.get_single<float>("Variation", 1, pindex);
     int32_t id = ids[pindex];
     float random_factor = BLI_hash_int_01(id);
     trigger_ages[pindex] = age + random_factor * variation;
@@ -81,10 +82,11 @@ void CustomEvent::filter(EventFilterInterface &interface)
     }
   }
 
-  auto inputs = m_inputs_fn->compute(pindices_to_check, interface.attributes());
+  auto inputs = ParticleFunctionResult::Compute(
+      *m_inputs_fn, pindices_to_check, interface.attributes());
 
   for (uint pindex : pindices_to_check) {
-    bool condition = inputs->get<bool>("Condition", 0, pindex);
+    bool condition = inputs.get_single<bool>("Condition", 0, pindex);
     if (condition) {
       interface.trigger_particle(pindex, 0.0f);
     }

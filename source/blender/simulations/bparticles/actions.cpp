@@ -54,10 +54,11 @@ void SetVelocityAction::execute(ActionInterface &interface)
 {
   auto velocities = interface.attributes().get<float3>("Velocity");
 
-  auto inputs = m_inputs_fn->compute(interface);
+  auto inputs = ParticleFunctionResult::Compute(
+      *m_inputs_fn, interface.pindices(), interface.attributes());
 
   for (uint pindex : interface.pindices()) {
-    float3 velocity = inputs->get<float3>("Velocity", 0, pindex);
+    float3 velocity = inputs.get_single<float3>("Velocity", 0, pindex);
     velocities[pindex] = velocity;
   }
 
@@ -68,10 +69,11 @@ void RandomizeVelocityAction::execute(ActionInterface &interface)
 {
   auto velocities = interface.attributes().get<float3>("Velocity");
 
-  auto inputs = m_inputs_fn->compute(interface);
+  auto inputs = ParticleFunctionResult::Compute(
+      *m_inputs_fn, interface.pindices(), interface.attributes());
 
   for (uint pindex : interface.pindices()) {
-    float randomness = inputs->get<float>("Randomness", 0, pindex);
+    float randomness = inputs.get_single<float>("Randomness", 0, pindex);
     float3 old_velocity = velocities[pindex];
     float old_speed = old_velocity.length();
 
@@ -86,9 +88,10 @@ void ChangeColorAction::execute(ActionInterface &interface)
 {
   auto colors = interface.attributes().get<rgba_f>("Color");
 
-  auto inputs = m_inputs_fn->compute(interface);
+  auto inputs = ParticleFunctionResult::Compute(
+      *m_inputs_fn, interface.pindices(), interface.attributes());
   for (uint pindex : interface.pindices()) {
-    rgba_f color = inputs->get<rgba_f>("Color", 0, pindex);
+    rgba_f color = inputs.get_single<rgba_f>("Color", 0, pindex);
     colors[pindex] = color;
   }
 }
@@ -97,9 +100,10 @@ void ChangeSizeAction::execute(ActionInterface &interface)
 {
   auto sizes = interface.attributes().get<float>("Size");
 
-  auto inputs = m_inputs_fn->compute(interface);
+  auto inputs = ParticleFunctionResult::Compute(
+      *m_inputs_fn, interface.pindices(), interface.attributes());
   for (uint pindex : interface.pindices()) {
-    float size = inputs->get<float>("Size", 0, pindex);
+    float size = inputs.get_single<float>("Size", 0, pindex);
     sizes[pindex] = size;
   }
 }
@@ -108,9 +112,10 @@ void ChangePositionAction::execute(ActionInterface &interface)
 {
   auto positions = interface.attributes().get<float3>("Position");
 
-  auto inputs = m_inputs_fn->compute(interface);
+  auto inputs = ParticleFunctionResult::Compute(
+      *m_inputs_fn, interface.pindices(), interface.attributes());
   for (uint pindex : interface.pindices()) {
-    float3 position = inputs->get<float3>("Position", 0, pindex);
+    float3 position = inputs.get_single<float3>("Position", 0, pindex);
     positions[pindex] = position;
   }
 }
@@ -128,11 +133,12 @@ void ExplodeAction::execute(ActionInterface &interface)
   Vector<float3> new_velocities;
   Vector<float> new_birth_times;
 
-  auto inputs = m_inputs_fn->compute(interface);
+  auto inputs = ParticleFunctionResult::Compute(
+      *m_inputs_fn, interface.pindices(), interface.attributes());
 
   for (uint pindex : interface.pindices()) {
-    uint parts_amount = std::max(0, inputs->get<int>("Amount", 0, pindex));
-    float speed = inputs->get<float>("Speed", 1, pindex);
+    uint parts_amount = std::max(0, inputs.get_single<int>("Amount", 0, pindex));
+    float speed = inputs.get_single<float>("Speed", 1, pindex);
 
     new_positions.append_n_times(positions[pindex], parts_amount);
     new_birth_times.append_n_times(interface.current_times()[pindex], parts_amount);
@@ -156,11 +162,12 @@ void ExplodeAction::execute(ActionInterface &interface)
 
 void ConditionAction::execute(ActionInterface &interface)
 {
-  auto inputs = m_inputs_fn->compute(interface);
+  auto inputs = ParticleFunctionResult::Compute(
+      *m_inputs_fn, interface.pindices(), interface.attributes());
 
   Vector<uint> true_pindices, false_pindices;
   for (uint pindex : interface.pindices()) {
-    if (inputs->get<bool>("Condition", 0, pindex)) {
+    if (inputs.get_single<bool>("Condition", 0, pindex)) {
       true_pindices.append(pindex);
     }
     else {
@@ -204,9 +211,11 @@ void SetAttributeAction::execute(ActionInterface &interface)
 
   GenericMutableArrayRef attribute = *attribute_opt;
 
-  auto inputs = m_inputs_fn.compute(interface);
+  auto inputs = ParticleFunctionResult::Compute(
+      m_inputs_fn, interface.pindices(), interface.attributes());
+
   for (uint pindex : interface.pindices()) {
-    void *value = inputs->get("Value", 0, pindex);
+    const void *value = inputs.get_single("Value", 0, pindex);
     void *dst = attribute[pindex];
     m_attribute_type.copy_to_initialized(value, dst);
   }

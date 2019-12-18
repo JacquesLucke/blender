@@ -7,70 +7,84 @@
 namespace BParticles {
 
 using FN::CPPType;
+using FN::MFContextBuilder;
+using FN::MFDataType;
+using FN::MFMask;
+using FN::MFParamsBuilder;
+using FN::MFParamType;
 
 ParticleFunction::ParticleFunction(const MultiFunction &fn,
+                                   Vector<std::string> computed_names,
                                    const BKE::IDDataCache &id_data_cache,
                                    const BKE::IDHandleLookup &id_handle_lookup)
-    : m_fn(fn), m_id_data_cache(id_data_cache), m_id_handle_lookup(id_handle_lookup)
+    : m_fn(fn),
+      m_computed_names(computed_names),
+      m_id_data_cache(id_data_cache),
+      m_id_handle_lookup(id_handle_lookup)
 {
-}
+  uint single_count = 0;
+  uint vector_count = 0;
 
-ParticleFunction::~ParticleFunction()
-{
-}
-
-std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ActionInterface &interface)
-{
-  return this->compute(interface.pindices(), interface.attributes());
-}
-
-std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(
-    OffsetHandlerInterface &interface)
-{
-  return this->compute(interface.pindices(), interface.attributes());
-}
-
-std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ForceInterface &interface)
-{
-  return this->compute(interface.pindices(), interface.attributes());
-}
-
-std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(EventFilterInterface &interface)
-{
-  return this->compute(interface.pindices(), interface.attributes());
-}
-
-std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint> pindices,
-                                                                  AttributesRef attributes)
-{
-  uint array_size = attributes.size();
-
-  auto result = BLI::make_unique<ParticleFunctionResult>();
-  result->m_pindices = pindices;
-
-  FN::MFParamsBuilder params_builder(m_fn, array_size);
-
-  Vector<GenericMutableArrayRef> arrays_to_free;
-
-  for (uint param_index : m_fn.param_indices()) {
-    FN::MFParamType param_type = m_fn.param_type(param_index);
-    switch (param_type.type()) {
-      case FN::MFParamType::SingleInput:
-      case FN::MFParamType::VectorInput:
-      case FN::MFParamType::MutableVector:
-      case FN::MFParamType::MutableSingle:
-        BLI_assert(false);
+  for (uint param_index : fn.param_indices()) {
+    MFParamType param_type = fn.param_type(param_index);
+    BLI_assert(param_type.is_output());
+    switch (param_type.data_type().category()) {
+      case MFDataType::Single: {
+        m_index_mapping.append(single_count++);
         break;
-      case FN::MFParamType::VectorOutput:
-        /*TODO */
-        BLI_assert(false);
+      }
+      case MFDataType::Vector: {
+        m_index_mapping.append(vector_count++);
         break;
-      case FN::MFParamType::SingleOutput: {
-        const CPPType &type = param_type.data_type().single__cpp_type();
-        void *output_buffer = BLI_temporary_allocate(type.size() * array_size);
-        params_builder.add_single_output(
-            FN::GenericMutableArrayRef(type, output_buffer, array_size));
-        result->m_computed_buffers.append(GenericMutableArrayRef(type, output_buffer, array_size));
+      }
+    }
+  }
+}
+
+ParticleFunctionResult::~ParticleFunctionResult()
+{
+  for (GenericVectorArray *vector_array : m_vector_arrays) {
+    delete vector_array;
+  }
+  for (GenericMutableArrayRef array : m_arrays) {
+    array.destruct_indices(m_indices);
+    MEM_freeN(array.buffer());
+  }
+}
+
+ParticleFunctionResult ParticleFunctionResult::Compute(const ParticleFunction &particle_fn,
+                                                       ArrayRef<uint> indices,
+                                                       AttributesRef attributes)
+{
+  MFMask mask(indices);
+  uint array_size = mask.min_array_size();
+
+  const MultiFunction &fn = particle_fn.m_fn;
+
+  ParticleFunctionResult result;
+  result.m_indices = indices;
+  result.m_index_mapping = particle_fn.m_index_mapping;
+  result.m_computed_names = particle_fn.m_computed_names;
+
+  MFParamsBuilder params_builder(fn, array_size);
+  for (uint param_index : fn.param_indices()) {
+    MFParamType param_type = fn.param_type(param_index);
+    MFDataType data_type = param_type.data_type();
+    BLI_assert(param_type.is_output());
+    switch (data_type.category()) {
+      case MFDataType::Single: {
+        const CPPType &type = data_type.single__cpp_type();
+        void *buffer = MEM_mallocN_aligned(array_size * type.size(), type.alignment(), __func__);
+        GenericMutableArrayRef array{type, buffer, array_size};
+        params_builder.add_single_output(array);
+        result.m_arrays.append(array);
+        break;
+      }
+      case MFDataType::Vector: {
+        const CPPType &base_type = data_type.vector__cpp_base_type();
+        GenericVectorArray *vector_array = new GenericVectorArray(base_type, array_size);
+        params_builder.add_vector_output(*vector_array);
+        result.m_vector_arrays.append(vector_array);
         break;
       }
     }
@@ -78,17 +92,12 @@ std::unique_ptr<ParticleFunctionResult> ParticleFunction::compute(ArrayRef<uint>
 
   FN::ParticleAttributesContext attributes_context(attributes);
 
-  FN::MFContextBuilder context_builder;
-  context_builder.add_global_context(m_id_handle_lookup);
-  context_builder.add_global_context(m_id_data_cache);
+  MFContextBuilder context_builder;
   context_builder.add_element_context(attributes_context, IndexRange(array_size));
+  context_builder.add_global_context(particle_fn.m_id_data_cache);
+  context_builder.add_global_context(particle_fn.m_id_handle_lookup);
 
-  m_fn.call(pindices, params_builder, context_builder);
-
-  for (GenericMutableArrayRef array_ref : arrays_to_free) {
-    array_ref.destruct_indices(pindices);
-    BLI_temporary_deallocate(array_ref.buffer());
-  }
+  fn.call(mask, params_builder, context_builder);
 
   return result;
 }
