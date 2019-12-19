@@ -505,10 +505,14 @@ Action *InlinedTreeData::build_action(InfluencesCollector &collector,
   }
 
   StringMap<ActionParserCallback> &parsers = get_action_parsers();
-  ActionParserCallback &parser = parsers.lookup(execute_socket.node().idname());
+  ActionParserCallback *parser = parsers.lookup_ptr(execute_socket.node().idname());
+  if (parser == nullptr) {
+    std::cout << "Expected to find parser for: " << execute_socket.node().idname() << "\n";
+    return nullptr;
+  }
 
   XSocketActionBuilder builder{collector, *this, execute_socket, system_names};
-  parser(builder);
+  (*parser)(builder);
 
   return builder.built_action();
 }
